@@ -1,20 +1,19 @@
 ---
-name: concept-quant-trading
+name: concept-itnet
 type: concept
 schema_version: 1
 status: stub
 ---
 
-# quant-trading
+# itnet
 
 ## 一句话定义
 
 （待 audit cron 合成）
 
 ## 来源
-- [[sources/01-daily-briefings-2026-06-20-daily-briefing]]
 
-- [[sources/01-daily-briefings-2026-06-19-daily-briefing]]
+- [[sources/05-swarms-2026-06-20-info-swarm]]
 
 ---
 *auto-stub, awaiting LLM audit synthesis*
