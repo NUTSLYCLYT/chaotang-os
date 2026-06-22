@@ -1,11 +1,11 @@
 ---
-name: concept-open-source
+name: concept-system-architecture
 type: concept
 schema_version: 1
 status: stub
 ---
 
-# open-source
+# system-architecture
 
 ## 一句话定义
 
@@ -13,9 +13,8 @@ status: stub
 
 ## 来源
 - [[sources/05-swarms-2026-06-22-info-swarm]]
-- [[sources/00-inbox-swarm-2026-06-22]]
 
-- [[sources/01-daily-briefings-2026-06-19-daily-briefing]]
+- [[sources/00-inbox-swarm-2026-06-22]]
 
 ---
 *auto-stub, awaiting LLM audit synthesis*

@@ -1,18 +1,18 @@
 ---
-name: source-01-daily-briefings-2026-06-22-moc
+name: source-01-daily-briefings-2026-06-23-moc
 type: source
 source_kind: raw
-raw_path: /home/ubuntu/CourtOS-Brain/01-Daily-Briefings/2026-06-22 MOC.md
-ingested_at: 2026-06-22
-updated_at: 2026-06-22
+raw_path: /home/ubuntu/CourtOS-Brain/01-Daily-Briefings/2026-06-23 MOC.md
+ingested_at: 2026-06-23
+updated_at: 2026-06-23
 schema_version: 1
 ---
 
-# 01-Daily-Briefings/2026-06-22 MOC.md
+# 01-Daily-Briefings/2026-06-23 MOC.md
 
 ## TL;DR
 
-# 2026-06-22 · 蜂群 MOC _生成于 23:00_  ## 今日产出 - [[2026-06-22 Daily Briefing]] · morning-brief - [[2026-06-22 Info Swarm]] · 21:30 信息蜂群  ## evolve 状态 ``` ╔═════════════════════════════
+# 2026-06-23 · 蜂群 MOC _生成于 07:00_  ## 今日产出 - [[2026-06-23 Daily Briefing]] · morning-brief  ## evolve 状态 ``` ╔══════════════════════════════════════╗ ║  🧬 蜂群进化状态                   
 
 ## 关键事实
 
@@ -28,12 +28,11 @@ schema_version: 1
 
 ## 原文摘录
 
-> # 2026-06-22 · 蜂群 MOC
-> _生成于 23:00_
+> # 2026-06-23 · 蜂群 MOC
+> _生成于 07:00_
 > 
 > ## 今日产出
-> - [[2026-06-22 Daily Briefing]] · morning-brief
-> - [[2026-06-22 Info Swarm]] · 21:30 信息蜂群
+> - [[2026-06-23 Daily Briefing]] · morning-brief
 > 
 > ## evolve 状态
 > ```

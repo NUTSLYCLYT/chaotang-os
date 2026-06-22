@@ -102,3 +102,6 @@
 2. **今日知识库同步审查**：检查 `2026-06-22 MOC`、Daily Briefing、Stock pre-market、close-alert 与 `_wiki` 派生页。
 3. **晨报污染清理**：移除生成过程草稿，整理为可读晨报正文，并同步修正 wiki source。
 4. **openclaw 故障定位与修复**：确认金融蜂群和研究蜂群多处调用失败，根因是 cron PATH 缺少 `/home/ubuntu/bin`，并修复 `signal-extract.sh` 的 heredoc 解析错误。
+
+### Session log 20:44 — chaotang-web-lyt
+  - [no transcript summary]

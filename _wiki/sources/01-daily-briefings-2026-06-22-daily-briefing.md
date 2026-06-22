@@ -12,62 +12,52 @@ schema_version: 1
 
 ## TL;DR
 
-美伊谈判拉扯，油价成关键传导变量；哥伦比亚总统选举极窄胜出，拉美政策转向；中国-东盟科技外溢持续，AI本地化部署需求上升；光通信与玻璃基板为AI算力链高弹性环节；脑机接口临床提速，ALS场景实用化；CAR-T探索癌前病变；通用聊天机器人在医疗任务中优势显现；LLM瓶颈突破需谨慎跟踪；多Agent交互风险受关注；OpenMontage适合本地视频生产；Turso轻量SQL数据库适配Agent记忆层；BESS储能贴近AI数据中心需求；El Niño扰动光伏资源分布；今日市场：上证微跌，深证及创业板走强；CourtOS蜂群需优先补日志与失败降级，OpenMontage最小可行试验，量化加AI算力链订单/毛利率及能源价格因子
+美伊谈判拉扯油价传导，哥伦比亚总统极窄胜出，中国-东盟科技外溢；光通信高弹性、脑机接口ALS场景落地、LLM瓶颈复现跟踪；BESS储能贴近AI需求，El Niño扰动光伏；今日市场上证微跌深证涨，行动建议聚焦CourtOS日志补全、OpenMontage最小视频试验及量化因子加码。
 
 ## 关键事实
 
-- 美伊谈判拉扯，油价成为第一传导变量
-- 哥伦比亚总统选举极窄胜出，拉美政策预期转向
-- 中国-东盟科技外溢持续，AI本地化部署需求上升
-- 光通信与玻璃基板为AI算力链高弹性环节
-- 脑机接口临床提速，ALS场景实用化
-- CAR-T探索癌前病变
-- 通用聊天机器人在医疗任务中优势显现
-- LLM瓶颈突破需谨慎跟踪
-- 多Agent交互风险受关注
-- OpenMontage适合本地视频生产
-- Turso轻量SQL数据库适配Agent记忆层
-- BESS储能贴近AI数据中心需求
-- El Niño扰动光伏资源分布
-- 今日市场：上证微跌，深证及创业板走强
+- 美伊谈判拉扯油价传导
+- 哥伦比亚总统极窄胜出
+- 中国-东盟科技外溢
+- 光通信高弹性环节
+- 脑机接口ALS场景落地
+- LLM瓶颈复现跟踪
+- BESS储能贴近AI需求
+- El Niño扰动光伏
 
 ## 关联 concepts
 
-- [[concepts/oil-price]]
-- [[concepts/colombian-presidential-election]]
-- [[concepts/asean-china-relations]]
-- [[concepts/optical-communication]]
-- [[concepts/glass-substrate]]
+- [[concepts/ai-calculation-chain]]
 - [[concepts/brain-computer-interface]]
-- [[concepts/car-t-cancer]]
-- [[concepts/medical-chatbots]]
 - [[concepts/llm-bottleneck]]
-- [[concepts/multi-agent-systems]]
-- [[concepts/openmontage]]
-- [[concepts/turso]]
-- [[concepts/bess-storage]]
+- [[concepts/be-s-s]]
 - [[concepts/el-nino]]
+- [[concepts/openmontage]]
+- [[concepts/turso-db]]
+- [[concepts/courtos]]
 
 ## 关联 entities
 
 - [[entities/person/特朗普]] · 特朗普
 - [[entities/org/德黑兰]] · 德黑兰
-- [[entities/org/黎巴嫩真主党]] · 黎巴嫩真主党
+- [[entities/org/真主党]] · 真主党
 - [[entities/person/哥伦比亚总统]] · 哥伦比亚总统
 - [[entities/org/中国]] · 中国
 - [[entities/org/东盟]] · 东盟
 - [[entities/tool/光模块]] · 光模块
 - [[entities/tool/光芯片]] · 光芯片
 - [[entities/tool/交换机]] · 交换机
-- [[entities/service/数据中心]] · 数据中心
-- [[entities/tool/玻璃基板]] · 玻璃基板
+- [[entities/org/数据中心]] · 数据中心
 - [[entities/person/als患者]] · ALS患者
-- [[entities/model/car-t疗法]] · CAR-T疗法
-- [[entities/model/通用聊天机器人]] · 通用聊天机器人
-- [[entities/tool/courtos]] · CourtOS
+- [[entities/service/car-t治疗]] · CAR-T治疗
+- [[entities/tool/通用聊天机器人]] · 通用聊天机器人
+- [[entities/tool/rust]] · Rust
+- [[entities/model/大模型]] · 大模型
+- [[entities/tool/linux]] · Linux
+- [[entities/service/bess储能]] · BESS储能
+- [[entities/org/el-niño]] · El Niño
 - [[entities/tool/openmontage]] · OpenMontage
 - [[entities/service/turso]] · Turso
-- [[entities/service/bess储能]] · BESS储能
 
 ## 原文摘录
 
