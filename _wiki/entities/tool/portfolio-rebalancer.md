@@ -1,0 +1,18 @@
+---
+name: entity-tool-portfolio-rebalancer
+type: entity
+entity_kind: tool
+schema_version: 1
+status: stub
+---
+
+# portfolio-rebalancer
+
+- **kind**: tool
+
+## 来源
+
+- [[sources/05-swarms-stock-2026-06-24-close-alert]]
+
+---
+*auto-stub*

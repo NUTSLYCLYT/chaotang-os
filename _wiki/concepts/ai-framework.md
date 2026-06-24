@@ -1,20 +1,19 @@
 ---
-name: concept-courtos
+name: concept-ai-framework
 type: concept
 schema_version: 1
 status: stub
 ---
 
-# courtos
+# ai-framework
 
 ## 一句话定义
 
 （待 audit cron 合成）
 
 ## 来源
-- [[sources/01-daily-briefings-2026-06-24-daily-briefing]]
 
-- [[sources/01-daily-briefings-2026-06-22-daily-briefing]]
+- [[sources/00-inbox-swarm-2026-06-24]]
 
 ---
 *auto-stub, awaiting LLM audit synthesis*

@@ -12,6 +12,9 @@ status: stub
 （待 audit cron 合成）
 
 ## 来源
+- [[sources/05-swarms-stock-2026-06-24-close-alert]]
+- [[sources/05-swarms-stock-2026-06-24-pre-market]]
+- [[sources/01-daily-briefings-2026-06-24-daily-briefing]]
 - [[sources/06-hermes-research-huggingface-2026-06-24-hf-papers]]
 - [[sources/01-daily-briefings-2026-06-24-moc]]
 - [[sources/05-swarms-evolution-2026-06-23]]
