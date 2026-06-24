@@ -11,6 +11,7 @@ status: stub
 - **kind**: org
 
 ## 来源
+- [[sources/01-daily-briefings-2026-06-24-moc]]
 
 - [[sources/01-daily-briefings-2026-06-19-moc]]
 

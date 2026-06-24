@@ -11,6 +11,7 @@ status: stub
 - **kind**: tool
 
 ## 来源
+- [[sources/05-swarms-evolution-2026-06-23]]
 
 - [[sources/05-swarms-stock-2026-06-21-close-alert]]
 
