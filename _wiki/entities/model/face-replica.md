@@ -11,6 +11,7 @@ status: stub
 - **kind**: model
 
 ## 来源
+- [[sources/01-daily-briefings-2026-06-25-daily-briefing]]
 
 - [[sources/01-daily-briefings-2026-06-24-daily-briefing]]
 

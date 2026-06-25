@@ -11,6 +11,7 @@ status: stub
 - **kind**: person
 
 ## 来源
+- [[sources/05-swarms-evolution-2026-06-24]]
 
 - [[sources/05-swarms-evolution-2026-06-23]]
 
