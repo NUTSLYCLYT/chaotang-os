@@ -11,6 +11,7 @@ status: stub
 - **kind**: service
 
 ## 来源
+- [[sources/05-swarms-2026-06-25-info-swarm]]
 
 - [[sources/00-inbox-swarm-2026-06-24]]
 

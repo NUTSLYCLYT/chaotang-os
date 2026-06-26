@@ -12,6 +12,7 @@ status: stub
 （待 audit cron 合成）
 
 ## 来源
+- [[sources/05-swarms-stock-2026-06-25-close-alert]]
 
 - [[sources/05-swarms-stock-2026-06-24-close-alert]]
 
