@@ -12,6 +12,7 @@ status: stub
 （待 audit cron 合成）
 
 ## 来源
+- [[sources/01-daily-briefings-2026-06-28-daily-briefing]]
 - [[sources/05-swarms-2026-06-27-info-swarm]]
 - [[sources/05-swarms-2026-06-26-info-swarm]]
 
