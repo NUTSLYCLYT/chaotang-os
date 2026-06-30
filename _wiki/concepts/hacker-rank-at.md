@@ -1,20 +1,19 @@
 ---
-name: concept-bee-colony-moc
+name: concept-hacker-rank-at
 type: concept
 schema_version: 1
 status: stub
 ---
 
-# bee-colony-moc
+# hacker-rank-at
 
 ## 一句话定义
 
 （待 audit cron 合成）
 
 ## 来源
-- [[sources/01-daily-briefings-2026-06-29-moc]]
 
-- [[sources/01-daily-briefings-2026-06-27-moc]]
+- [[sources/00-inbox-swarm-2026-06-29]]
 
 ---
 *auto-stub, awaiting LLM audit synthesis*

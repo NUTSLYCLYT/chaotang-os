@@ -11,6 +11,7 @@ status: stub
 - **kind**: tool
 
 ## 来源
+- [[sources/05-swarms-meta-2026-06-29-self-diagnose]]
 - [[sources/02-chancellor-reports-2026-06-28-weekly-retrospective]]
 
 - [[sources/05-swarms-meta-2026-06-26-self-diagnose]]

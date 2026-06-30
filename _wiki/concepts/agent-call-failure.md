@@ -1,20 +1,19 @@
 ---
-name: concept-bee-colony-moc
+name: concept-agent-call-failure
 type: concept
 schema_version: 1
 status: stub
 ---
 
-# bee-colony-moc
+# agent-call-failure
 
 ## 一句话定义
 
 （待 audit cron 合成）
 
 ## 来源
-- [[sources/01-daily-briefings-2026-06-29-moc]]
 
-- [[sources/01-daily-briefings-2026-06-27-moc]]
+- [[sources/05-swarms-stock-2026-06-29-close-alert]]
 
 ---
 *auto-stub, awaiting LLM audit synthesis*

@@ -1,39 +1,39 @@
 ---
-name: source-01-daily-briefings-2026-06-29-moc
+name: source-01-daily-briefings-2026-06-30-moc
 type: source
 source_kind: raw
-raw_path: /home/ubuntu/CourtOS-Brain/01-Daily-Briefings/2026-06-29 MOC.md
-ingested_at: 2026-06-29
-updated_at: 2026-06-29
+raw_path: /home/ubuntu/CourtOS-Brain/01-Daily-Briefings/2026-06-30 MOC.md
+ingested_at: 2026-06-30
+updated_at: 2026-06-30
 schema_version: 1
 ---
 
-# 01-Daily-Briefings/2026-06-29 MOC.md
+# 01-Daily-Briefings/2026-06-30 MOC.md
 
 ## TL;DR
 
-# 2026-06-29 · 蜂群 MOC _生成于 23:00_  ## 今日产出 - [[2026-06-29 Daily Briefing]] · morning-brief - [[2026-06-29 Info Swarm]] · 21:30 信息蜂群  ## evolve 状态 ``` ╔═════════════════════════════
+2-3 句压缩，不超过 120 字
 
 ## 关键事实
 
-- _none_
+- 短句要点 1
+- 短句要点 2
 
 ## 关联 concepts
 
-- _none_
+- [[concepts/concept-slug-1]]
+- [[concepts/concept-slug-2]]
 
 ## 关联 entities
 
-- _none_
+- [[entities/tool/原名]] · 原名
 
 ## 原文摘录
 
-> # 2026-06-29 · 蜂群 MOC
-> _生成于 23:00_
+> # 2026-06-30 · 蜂群 MOC
+> _生成于 08:00_
 > 
 > ## 今日产出
-> - [[2026-06-29 Daily Briefing]] · morning-brief
-> - [[2026-06-29 Info Swarm]] · 21:30 信息蜂群
 > 
 > ## evolve 状态
 > ```
@@ -46,12 +46,12 @@ schema_version: 1
 >   最后复盘:     2026-05-18
 >   最后评分:     8/10
 > 
->   ⏳ 等待评分中 (自 2026-06-29 08:00)
->   晨报暂停,直到你评分完今天
+>   ✓ 无待办,系统正常运转
 > 
 >   能力评分:
 >     提问质量:   30/100
 >     记忆深度:   10/100
+>     复盘频率:   13/100
 > ```
 > 
 
