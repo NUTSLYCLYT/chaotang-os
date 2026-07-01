@@ -11,6 +11,7 @@ status: stub
 - **kind**: model
 
 ## 来源
+- [[sources/00-inbox-swarm-2026-06-30]]
 
 - [[sources/00-inbox-swarm-2026-06-22]]
 

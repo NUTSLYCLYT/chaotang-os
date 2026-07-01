@@ -11,6 +11,7 @@ status: stub
 - **kind**: service
 
 ## 来源
+- [[sources/05-swarms-stock-2026-06-30-pre-market]]
 
 - [[sources/05-swarms-stock-2026-06-29-close-alert]]
 

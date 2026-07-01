@@ -1,0 +1,253 @@
+首先，我需要理解任务：作为明朔的私人科技媒体主编，我必须从185条原始信息中提炼出今日晨报。用户画像显示明朔是AI开发者/蜂群指挥家，有RTX 5090 32GB硬件，偏好零成本本地方案，关注AI Agent、量化交易、内容生产等。我必须严格遵守偏好：不看模板化官话，要行动建议不要罗列。
+
+关键要求：
+1. 去重：同一新闻多次出现的合并
+2. 过滤：删除广告/营销/低质量内容
+3. 个性化排序：按用户关注领域优先（AI Agent框架、LLM本地部署、量化投资、独立开发SaaS、GPU优化）
+4. 每条用1句话精炼总结（20-40字）
+5. 保留原始URL
+6. 避开最近复盘已讨论过的内容（2026-05-18和2026-04-06的复盘）
+
+输出格式必须严格按5主题结构：
+- 🌅 明朔晨报 · 2026-06-30
+- 🌐 国际形势 (3-5条)
+- 📈 股票投资 (3-5条A股/美股)
+- ⚕️ 医疗科技 (3-4条)
+- 🤖 AI 前沿 + GitHub (分突破和工具应用)
+- ⚡ 新能源上下游 (3-4条)
+- 🎯 今日3个行动建议 (具体可执行)
+
+首先，我需要从185条原始信息中筛选、去重、过滤，然后按用户关注领域排序。
+
+回顾用户关注领域优先：
+- AI Agent 框架
+- LLM 本地部署
+- 量化投资
+- 独立开发 SaaS
+- GPU 优化
+
+所以，在输出中，我应该优先突出这些主题。
+
+另外，避开最近复盘内容：
+- 2026-05-18: 无评语，评分8/10
+- 2026-04-06: 评语"今天修了637次崩溃还建了进化系统,很硬核"，评分9/10
+
+这些是昨天的复盘，我需要确保不重复讨论。
+
+现在，逐个主题处理：
+
+### 1. 国际形势 (3-5条)
+从原始信息中，国际形势部分有1-50条（但实际是1-50，但用户给的是1-50作为国际形势）。我需要提取关键事件，按重要度排3-5条。
+
+关键点：用户偏好关注AI、量化、内容生产，所以国际形势中要找与这些相关的。例如，地缘政治影响AI部署、量化交易等。
+
+从原始信息中，国际形势部分：
+- 1-50条：都是国际新闻
+- 重点：Venezuela earthquakes（1,2,3,26,28,33,34），Iran-US tensions（5,30,31,40），US military moves（35,36,37,38），etc.
+
+但用户关注领域：AI Agent、量化交易等，所以可能选与科技、经济相关的。
+
+例如：
+- 事件5: US says it has agreed to 'stand down' after exchange of strikes with Iran — 可能影响全球市场和量化交易
+- 事件7: Putin makes rare admission of fuel shortages caused by Ukrainian strikes — 影响能源价格，量化交易
+- 事件15: FirstFT: Supermicro’s Taiwan offices raided in chip smuggling investigation — 直接相关AI硬件，LLM本地部署
+- 事件22: Marco Rubio meets Libyan commander as US pushes to resolve Libya crisis — 可能影响地缘政治，但用户可能不直接关注
+- 事件25: Peruvian political heir Keiko Fujimori wins presidency — 可能影响全球，但用户偏好科技，可能不优先
+
+优先选：与AI、量化、GPU相关的。
+
+从列表：
+- 事件15: Supermicro’s Taiwan offices raided in chip smuggling investigation — 直接影响芯片供应链，AI硬件
+- 事件35: USMC awards $20 million contract for first autonomous ground vehicles — 军事AI应用
+- 事件40: US, Iran Prepare for Talks on Strait of Hormuz — 影响能源市场，量化交易
+- 事件45-50: 中国相关新闻（但用户是中文，可能关注）
+
+用户是中文，但偏好科技，所以选国际事件中对科技有直接影响的。
+
+去重：检查原始信息中是否有重复。例如，事件15和事件16可能相关。
+
+过滤：删除低质量、广告。原始信息中，大部分是新闻链接，没有明显广告。
+
+个性化排序：按用户关注领域。用户关注AI Agent、LLM本地部署等，所以优先选芯片、AI硬件相关的。
+
+可能的3-5条：
+1. Supermicro’s Taiwan offices raided in chip smuggling investigation — 影响AI硬件供应链
+2. USMC awards $20 million contract for first autonomous ground vehicles — 军事AI应用
+3. US, Iran Prepare for Talks on Strait of Hormuz — 能源市场波动，量化交易
+4. Putin makes rare admission of fuel shortages — 能源价格影响
+5. Venezuela earthquakes — 但可能太灾难性，用户偏好科技，可能不优先
+
+事件15: FirstFT: Supermicro’s Taiwan offices raided in chip smuggling investigation — 直接相关AI硬件，LLM本地部署。
+
+事件35: USMC awards $20 million contract for first autonomous ground vehicles — 但用户关注AI Agent，可能相关。
+
+事件40: US, Iran Prepare for Talks on Strait of Hormuz — 影响油价，量化交易。
+
+事件7: Putin makes rare admission of fuel shortages — 但用户可能不直接关注。
+
+我选3条：
+1. 事件15: Supermicro’s Taiwan offices raided in chip smuggling investigation (FirstFT)
+2. 事件40: US, Iran Prepare for Talks on Strait of Hormuz (ForeignPolicy)
+3. 事件35: USMC awards $20 million contract for first autonomous ground vehicles (Defense News)
+
+但事件35是军事，用户是AI开发者，可能相关。
+
+事件5: US says it has agreed to 'stand down' after exchange of strikes with Iran — 可能更相关。
+
+事件5: US says it has agreed to 'stand down' after exchange of strikes with Iran — 影响全球市场。
+
+用户偏好量化交易，所以选市场相关。
+
+决定：国际形势选3条：
+- 事件5: US says it has agreed to 'stand down' after exchange of strikes with Iran — 影响市场波动
+- 事件15: Supermicro’s Taiwan offices raided in chip smuggling investigation — AI硬件供应链
+- 事件40: US, Iran Prepare for Talks on Strait of Hormuz — 能源市场
+
+事件40是US, Iran Prepare for Talks on Strait of Hormuz，来自ForeignPolicy。
+
+事件5是US says it has agreed to 'stand down' after exchange of strikes with Iran。
+
+事件40是US, Iran Prepare for Talks on Strait of Hormuz。
+
+好。
+
+### 2. 股票投资 (3-5条)
+从原始信息中，股票投资部分有51-74条（51-74）。
+
+用户关注量化投资、独立开发SaaS等。
+
+关键点：A股和美股要闻。
+
+例如：
+- 事件52: 跌跌不休，美团还能不能赚钱？ — 但可能太具体
+- 事件54: 从“涨价”逻辑，看AI产业链利润究竟流向哪里？ — 直接相关AI
+- 事件55: 红利、低波、现金流ETF四要素对照表 — 量化投资
+- 事件64: China Misses AI Boom as Stocks Trail Most Since 2001 — 中国AI股票表现
+- 事件65: Yen Hits Four-Decade Low in Historic Slide That’s Rattled Japan — 日元贬值，影响全球
+- 事件66: Asian Stocks Set to Climb, Yen Hits 40-Year Low — 亚洲股市
+- 事件74: Tesla’s stock rips higher after a long-awaited update to self-driving technology — 但用户偏好量化，可能相关
+
+用户偏好量化交易，所以选量化相关。
+
+去重：事件54和事件64可能相关。
+
+过滤：删除低质量。
+
+选3条：
+1. 事件54: 从“涨价”逻辑，看AI产业链利润究竟流向哪里？ — AI产业链
+2. 事件64: China Misses AI Boom as Stocks Trail Most Since 2001 — 中国股市
+3. 事件66: Asian Stocks Set to Climb, Yen Hits 40-Year Low — 亚洲股市和日元
+
+事件66是Asian Stocks Set to Climb, Yen Hits 40-Year Low
+
+事件55: 红利、低波、现金流ETF四要素对照表 — 量化投资
+
+事件74: Tesla’s stock rips higher — 但可能太具体
+
+用户是AI开发者，可能关注AI相关股票。
+
+事件54: 从“涨价”逻辑，看AI产业链利润究竟流向哪里？ — 直接相关
+
+事件64: China Misses AI Boom as Stocks Trail Most Since 2001 — 中国AI
+
+事件55: 红利、低波、现金流ETF四要素对照表 — 量化投资
+
+事件66: Asian Stocks Set to Climb, Yen Hits 40-Year Low — 但用户可能不直接关注
+
+选：
+- 事件54: AI产业链利润流向
+- 事件64: 中国AI股票表现
+- 事件55: ETF四要素对照表
+
+但事件55是中文，用户是中文。
+
+事件55: 红利、低波、现金流ETF四要素对照表，附清单（2026年6月版） — 量化投资
+
+好。
+
+### 3. 医疗科技 (3-4条)
+从原始信息中，医疗科技部分有75-108条（75-108）。
+
+用户关注AI Agent、量化等，但医疗科技是单独主题。
+
+关键点：AI在医疗的应用。
+
+例如：
+- 事件83: Heat waves mess with your brain. Scientists are trying to figure out why. — 但可能不直接
+- 事件84: Stripe, Anthropic, and OpenAI are backing an effort to stop respiratory infections — 直接相关AI
+- 事件85: Brain-computer interface trials are taking off — AI医疗
+- 事件86: This man with ALS is “the first power user” of a brain implant — AI医疗
+- 事件87: Why “reprogramming” is the buzziest approach to reversing aging right now — AI医疗
+- 事件88-98: Nature Medicine, Nature Biotech等论文
+
+用户偏好AI Agent，所以选AI医疗相关。
+
+选3条：
+1. 事件84: Stripe, Anthropic, and OpenAI are backing an effort to stop respiratory infections — AI应用
+2. 事件85: Brain-computer interface trials are taking off — AI医疗
+3. 事件87: Why “reprogramming” is the buzziest approach to reversing aging right now — AI医疗
+
+事件87是关于重编程逆转衰老。
+
+事件88-98是论文，可能太技术，用户偏好行动建议。
+
+### 4. AI 前沿 + GitHub (分突破和工具应用)
+从原始信息中，AI前沿部分有109-152条（109-152）。
+
+用户关注AI Agent框架、LLM本地部署等。
+
+关键点：
+- 事件109: AI agents are not your “coworkers” — AI Agent
+- 事件110: Agent confidence on the technical frontier — AI Agent
+- 事件111: Repositioning retail for the AI era — 但可能不直接
+- 事件112: The emergence of the web data infrastructure layer for AI — AI基础设施
+- 本地部署相关：事件116: Qwen 3.6 27B is the sweet spot for local development — LLM本地部署
+- GitHub: 事件158-185: 但用户给的是GitHub部分
+
+在原始信息中，AI前沿是109-152，开源是158-185（但用户标为[开源]）。
+
+用户指定：
+- 🤖 AI 前沿 + GitHub
+  - 突破: 2-4条
+  - 工具 / GitHub 高星: 2-4条
+
+从原始信息：
+- AI前沿: 109-152
+- 开源: 158-185 (但158-185是GitHub相关)
+
+事件116: Qwen 3.6 27B is the sweet spot for local development — LLM本地部署，用户关注
+事件112: The emergence of the web data infrastructure layer for AI — AI基础设施
+事件109: AI agents are not your “coworkers” — AI Agent
+事件110: Agent confidence on the technical frontier — AI Agent
+
+GitHub高星：
+- 事件158: GitHub: simplex-chat/simplex-chat — 消息网络
+- 事件159: GitHub: ripienaar/free-for-dev — SaaS免费
+- 事件160: GitHub: commaai/openpilot — 开源
+
+## 📈 趋势对比 (vs 昨日)
+
+### 🆕 今日新出现
+- **融资** (3 次提及)
+
+### 🔼 热度上升
+- **Agent** 12 次 (+1)
+- **LLM** 5 次 (+2)
+- **上市** 1 次 (+1)
+- **GPU** 1 次 (+1)
+
+### 🔽 热度下降
+- AI 71 次 (-1)
+- OpenAI 5 次 (-1)
+- Anthropic 2 次 (-2)
+
+
+## 💰 今日市场
+- 📈 上证指数: 4073.90 (+1.17%)
+- 📈 深证成指: 15812.87 (+0.20%)
+- 📈 创业板指: 4216.70 (+0.38%)
+- 📈 沪深300: 4926.92 (+1.25%)
+- 📈 BNB: $559 (+1.60%)
+- 📈 BTC: $60,128 (+1.30%)
+- 📈 ETH: $1,610 (+2.84%)
+- 📈 SOL: $75 (+5.22%)
