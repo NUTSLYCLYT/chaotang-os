@@ -12,28 +12,32 @@ schema_version: 1
 
 ## TL;DR
 
-2-3 句压缩，不超过 120 字
+今日产出包括 Daily Briefing 和 Info Swarm。蜂群进化状态：连续打卡1天，累计Lessons 2，等待评分中，能力评分较低。
 
 ## 关键事实
 
-- 短句要点 1
-- 短句要点 2
+- 今日产出包括2026-07-01 Daily Briefing和2026-07-01 Info Swarm
+- 连续打卡天数: 1天
+- 累计Lessons: 2
+- 等待评分中
+- 能力评分: 提问质量30/100, 记忆深度10/100
 
 ## 关联 concepts
 
-- [[concepts/concept-slug-1]]
-- [[concepts/concept-slug-2]]
+- _none_
 
 ## 关联 entities
 
-- [[entities/tool/原名]] · 原名
+- _none_
 
 ## 原文摘录
 
 > # 2026-07-01 · 蜂群 MOC
-> _生成于 08:00_
+> _生成于 23:00_
 > 
 > ## 今日产出
+> - [[2026-07-01 Daily Briefing]] · morning-brief
+> - [[2026-07-01 Info Swarm]] · 21:30 信息蜂群
 > 
 > ## evolve 状态
 > ```
