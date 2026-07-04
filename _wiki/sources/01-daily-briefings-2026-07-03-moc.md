@@ -12,28 +12,35 @@ schema_version: 1
 
 ## TL;DR
 
-2-3 句压缩，不超过 1:120 字
+2026-07-03 蜂群MOC记录了今日产出（Daily Briefing和信息蜂群）及进化状态：连续打卡1天，累计Lessons 2，等待评分中，晨报暂停，能力评分较低。
 
 ## 关键事实
 
-- 短句要点 1
-- 短句要点 2
+- 今日产出了2026-07-03 Daily Briefing和信息蜂群
+- 连续打卡1天，累计Lessons 2
+- 最后复盘为2026-05-18，最后评分8/10
+- 等待评分中，晨报暂停
+- 能力评分：提问质量30/100，记忆深度10/100
 
 ## 关联 concepts
 
-- [[concepts/concept-slug-1]]
-- [[concepts/concept-slug-2]]
+- [[concepts/bee-swarm]]
+- [[concepts/moc]]
+- [[concepts/info-swarm]]
+- [[concepts/daily-briefing]]
 
 ## 关联 entities
 
-- [[entities/tool/原名]] · 原名
+- _none_
 
 ## 原文摘录
 
 > # 2026-07-03 · 蜂群 MOC
-> _生成于 08:00_
+> _生成于 23:00_
 > 
 > ## 今日产出
+> - [[2026-07-03 Daily Briefing]] · morning-brief
+> - [[2026-07-03 Info Swarm]] · 21:30 信息蜂群
 > 
 > ## evolve 状态
 > ```
@@ -46,12 +53,12 @@ schema_version: 1
 >   最后复盘:     2026-05-18
 >   最后评分:     8/10
 > 
->   ✓ 无待办,系统正常运转
+>   ⏳ 等待评分中 (自 2026-07-03 08:00)
+>   晨报暂停,直到你评分完今天
 > 
 >   能力评分:
 >     提问质量:   30/100
 >     记忆深度:   10/100
->     复盘频率:   13/100
 > ```
 > 
 

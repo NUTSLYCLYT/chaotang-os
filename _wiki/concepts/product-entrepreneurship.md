@@ -12,6 +12,8 @@ status: stub
 （待 audit cron 合成）
 
 ## 来源
+- [[sources/05-swarms-2026-07-03-info-swarm]]
+- [[sources/00-inbox-swarm-2026-07-03]]
 - [[sources/00-inbox-swarm-2026-07-01]]
 - [[sources/05-swarms-2026-06-29-info-swarm]]
 - [[sources/05-swarms-2026-06-28-info-swarm]]
