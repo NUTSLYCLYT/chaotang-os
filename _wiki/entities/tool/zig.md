@@ -11,6 +11,8 @@ status: stub
 - **kind**: tool
 
 ## 来源
+- [[sources/05-swarms-2026-07-05-info-swarm]]
+- [[sources/00-inbox-swarm-2026-07-05]]
 - [[sources/05-swarms-2026-06-26-info-swarm]]
 
 - [[sources/00-inbox-swarm-2026-06-26]]
