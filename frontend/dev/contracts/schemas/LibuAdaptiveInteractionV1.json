@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LibuAdaptiveInteractionV1",
+  "type": "object",
+  "required": ["mode", "defaultView", "userChoices", "lockedFloor", "escalationApplied", "sourceLabel"],
+  "properties": {
+    "mode": {
+      "enum": ["founder_assistant", "small_team_hr", "growth_hrd", "chro_cao", "group_enterprise"]
+    },
+    "defaultView": { "enum": ["brief", "management_detail", "professional_detail"] },
+    "userChoices": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "brief",
+          "management_detail",
+          "professional_detail",
+          "enter_junjichu_deep_review",
+          "generate_artifact",
+          "request_department_review"
+        ]
+      },
+      "description": "披露表面：用户可自由升降展示深度与动作。"
+    },
+    "lockedFloor": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "high_risk_requires_human_confirmation",
+          "xingbu_review_for_labor_risk",
+          "hubu_review_for_compensation_or_admin_cost",
+          "source_label_required",
+          "evidence_or_gap_required",
+          "privacy_sensitive_data_guard"
+        ]
+      },
+      "description": "风险地板：用户不可关闭、不可绕过，与 mode 无关。"
+    },
+    "escalationApplied": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "本次问题触发的自动升维规则。"
+    },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

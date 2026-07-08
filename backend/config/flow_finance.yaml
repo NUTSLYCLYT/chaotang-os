@@ -1,0 +1,116 @@
+flow_name: 财务分析与财务风险评估流程
+qa_domain: general  # 非产品蜂群:豁免 C2需求约束/C3规格实测 产品语义硬核查,只强制 C1 数字勾稽
+qa_version: v3
+default_model: openai/swarm-worker
+default_api_base: http://127.0.0.1:4444/v1
+default_api_key_env: LITELLM_PROXY_KEY
+default_retry:
+  max_retries: 2
+  delay: 3.0
+  backoff: 2.0
+  retry_on:
+  - error
+steps:
+# 数字回链硬闸:产出步的每个财务数字必须能回链到 ctx.verified_facts(数据摄入步写入),
+# 查不到来源即判幻觉、hard_fail。未提供 verified_facts 时自动放行(非破坏),
+# 灌真数据(出纳金蝶导出→finance_data_parser)后即自动生效。
+- id: finance_analyst
+  name: 财务分析师
+  description: 梳理财务背景、预算约束与关键假设
+  prompt_key: finance_analyst
+  prompt_module: src.prompts_finance
+  assertions:
+    post:
+    - type: number_provenance
+      facts_key: verified_facts
+      on_fail: hard_fail
+- id: finance_cashflow
+  name: 现金流预测专员
+  description: 建立现金流、回款节奏与偿债测算
+  prompt_key: finance_cashflow
+  prompt_module: src.prompts_finance
+  output_rules:
+  - type: min_length
+    chars: 800
+  - type: not_empty
+  assertions:
+    post:
+    - type: number_provenance
+      facts_key: verified_facts
+      on_fail: hard_fail
+- id: finance_investment
+  name: 企业投资备忘录专员
+  description: 评估设备/项目/股权投资与融资估值(回收期/IRR/NPV/下行情景),不做个股证券买卖建议
+  prompt_key: finance_investment
+  prompt_module: src.prompts_finance
+  output_rules:
+  - type: min_length
+    chars: 800
+  - type: not_empty
+  assertions:
+    post:
+    - type: number_provenance
+      facts_key: verified_facts
+      on_fail: hard_fail
+- id: finance_risk
+  name: 财务风控专员
+  description: 识别汇率、利率、税务、应收等财务风险并给出对策
+  prompt_key: finance_risk
+  prompt_module: src.prompts_finance
+  output_rules:
+  - type: min_length
+    chars: 800
+  - type: not_empty
+  assertions:
+    post:
+    - type: number_provenance
+      facts_key: verified_facts
+      on_fail: hard_fail
+- id: conflict_resolver
+  name: 冲突仲裁专家
+  description: 数值对账表 + 文本冲突检测，输出统一立场
+  prompt_key: finance_conflict
+  prompt_module: src.prompts_finance
+  output_rules:
+  - type: min_length
+    chars: 400
+  - type: not_empty
+- id: qa_tech_support
+  name: 质量检查专家
+  description: QA质量检查与综合输出
+  prompt_key: finance_qa
+  prompt_module: src.prompts_finance
+  assertions:
+    post:
+    - type: number_provenance
+      facts_key: verified_facts
+      on_fail: hard_fail
+    # 互补闸(产品决策=标注未核实):有 verified_facts 时由上闸抓编数;无审计源(用户口述)时,
+    # 最终输出必须含免责标记,否则把口述数字冒充已核实事实=绿灯造假,hard_fail。
+    - type: disclaimer_when_unverified
+      facts_key: verified_facts
+      on_fail: hard_fail
+repair:
+  enabled: true
+  max_retries: 1
+  min_score: 3.0
+  min_delta: 0.2
+  min_dimension_score: 3.0
+output_fields:
+- 财务画像
+- 成本与利润结构
+- 现金流预测
+- 企业投资测算
+- 税务与合规检查
+- 财务风险与对冲
+- 决策建议
+
+knowledge_pre_retrieval:
+  enabled: false
+  top_k: 5
+  max_tokens: 2000
+
+# 户部真数据主路:公司金蝶报表导入产出(finance_data_parser→build_verified_facts)存这里,
+# flow 起始自动注入 ctx.verified_facts,让 number_provenance 硬闸对真数字咬合(不再空转)。
+# 文件不在(未导数据)→ 不注入,闸继续诚实跳过。真数据 gitignored,env HUBU_VERIFIED_FACTS 可覆盖。
+verified_facts_store: data/hubu/verified_facts.json

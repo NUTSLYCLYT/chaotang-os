@@ -1,0 +1,58 @@
+name: CI
+
+# 朝堂前端发布闸门:类型门 → 主线 E2E → 全站截图 QA → 构建门 → 审计留痕。
+# 任一失败即红,合并前必须全绿。端口纪律见 AGENTS.md §0。
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      # ── 防复发·阶段5(2026-07-03 落地):冲突标记必须先拦，别等 build 才发现 ──
+      #    本地 pre-commit hook(scripts/git-hooks/pre-commit)只在装了 hook 的本机生效，
+      #    CI 这道是不看本机有没有装、谁都躲不掉的最终防线。
+      - name: Conflict marker guard
+        run: pnpm guard:conflicts
+
+      # ── 诚实硬门(2026-06-22 全绿后挂):冻结/学习安全 + 诚实债 + 核心断言 ──
+      #    快检先跑、fail-fast;拦后门复现/假数据冒真/决策无闸/验真器被绕。
+      - name: Honesty gate
+        run: pnpm honesty:all
+
+      # ── 朝堂 release gates: tsc + critical E2E + screenshot QA + build + audit ──
+      - name: Chaotang release gates
+        run: pnpm run harness:chaotang:gates
+
+      - name: Upload release evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chaotang-release-evidence
+          path: |
+            artifacts/chaotang-release-gates/
+            artifacts/release-screenshot-qa/
+            test-results/
+            playwright-report/
+          retention-days: 14

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "JinyiweiIntelligenceOpinionV1",
+  "type": "object",
+  "required": ["department", "position", "confidence", "executiveSummary", "intelligenceTypes", "intelligencePack", "evidenceUsed", "missingEvidence", "riskRegister", "recommendedNextAction", "humanConfirmationRequired", "sourceLabel", "source_label"],
+  "properties": {
+    "department": { "const": "锦衣卫" },
+    "position": { "enum": ["可用", "补证", "复核", "驳回"] },
+    "confidence": { "enum": ["高", "中", "低"] },
+    "executiveSummary": { "type": "string" },
+    "intelligenceTypes": { "type": "array", "items": { "enum": ["CUSTOMER_INTEL", "COMPETITOR_INTEL", "MARKET_INTEL", "POLICY_INTEL", "PROJECT_INTEL", "INTERNAL_INTEL", "RISK_INTEL", "PEOPLE_INTEL"] } },
+    "intelligencePack": { "type": "object" },
+    "evidenceUsed": { "type": "array" },
+    "missingEvidence": { "type": "array", "items": { "type": "string" } },
+    "assumptions": { "type": "array", "items": { "type": "string" } },
+    "riskRegister": { "type": "array", "items": { "type": "string" } },
+    "recommendedNextAction": { "type": "string" },
+    "questionsForEmperor": { "type": "array", "items": { "type": "string" } },
+    "recommendedDepartmentReviews": { "type": "array", "items": { "enum": ["finance", "war", "personnel", "justice", "ritual", "works"] } },
+    "humanConfirmationRequired": { "type": "boolean" },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] },
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

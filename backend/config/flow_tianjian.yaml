@@ -1,0 +1,49 @@
+flow_name: 钦天监预测参谋蜂群
+qa_version: v3
+default_model: openai/swarm-worker
+default_api_base: http://127.0.0.1:4444/v1
+default_api_key_env: LITELLM_PROXY_KEY
+default_retry:
+  max_retries: 2
+  delay: 3.0
+  backoff: 2.0
+  retry_on:
+  - error
+steps:
+- id: tianjian_observe
+  name: 观天象参谋
+  description: 厘清问题+驱动因素+依据透明+区分事实/假设/不确定
+  prompt_key: tianjian_observe
+  prompt_module: src.prompts_tianjian
+- id: tianjian_forecast
+  name: 推演参谋
+  description: 多情景概率预测+区间置信+传导路径+时间维度
+  prompt_key: tianjian_forecast
+  prompt_module: src.prompts_tianjian
+- id: tianjian_advise
+  name: 决断参谋
+  description: 给选项+风险提示+不可逆动作标人类签字点+推荐与验证
+  prompt_key: tianjian_advise
+  prompt_module: src.prompts_tianjian
+- id: qa_tech_support
+  name: 质量检查专家
+  description: QA核查:概率性语言/多情景/依据可查证/风险与签字点齐全
+  prompt_key: qa_tech_support
+repair:
+  enabled: true
+  max_retries: 1
+  min_score: 3.8
+  min_delta: 0.2
+  min_dimension_score: 3.0
+output_fields:
+- 态势与驱动因素(含依据)
+- 多情景预测(乐观/基准/悲观+概率区间)
+- 影响传导路径与时间维度
+- 主要不确定因素与下行风险
+- 可选行动与推荐顺序
+- 不可逆动作的人类签字点
+
+knowledge_pre_retrieval:
+  enabled: true
+  top_k: 5
+  max_tokens: 2000

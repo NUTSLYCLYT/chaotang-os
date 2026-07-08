@@ -1,0 +1,32 @@
+version: '1.0'
+name: pr-ci
+displayName: PR门禁(honesty:all)
+
+# 2026-07-03落地(dev/notes/CHAOTANG_PROJECT_ROADMAP.md 件⑦ C2修复)：
+# 此仓库唯一remote是Gitee，.github/workflows/ci.yml 写的GitHub Actions语法Gitee不执行——
+# 之前全仓核验过无 .workflow/ 目录，"CI真拦合并"是空的，honesty:all从未在真实PR上跑过。
+# 本文件补上Gitee Go原生流水线，PR目标分支为master时真跑 pnpm honesty:all，
+# 失败则流水线标红——需在Gitee仓库"管理→分支设置"里把master设为保护分支并绑定本流水线，
+# 才能真正拦截合并按钮(本文件本身只负责"跑"，"拦"需要仓库设置配合，见验收步骤3)。
+
+triggers:
+  pr:
+    branches:
+      precise:
+        - master
+
+stages:
+  - stage: honesty_gate
+    displayName: 诚实门禁
+    strategy: fast
+    trigger: auto
+    steps:
+      - step: build@nodejs
+        name: honesty_all
+        displayName: pnpm honesty:all(guard:freeze && guard:honesty && test:core)
+        nodeVersion: 22
+        commands:
+          - corepack enable
+          - corepack prepare pnpm@10.33.0 --activate
+          - pnpm install --frozen-lockfile
+          - pnpm honesty:all

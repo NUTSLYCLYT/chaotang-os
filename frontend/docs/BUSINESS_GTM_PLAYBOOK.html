@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8">
+<title>朝堂OS · 商业化全攻略</title>
+<style>
+  body { font-family: "微软雅黑", "PingFang SC", Arial, sans-serif; max-width: 900px; margin: 40px auto; line-height: 1.9; font-size: 14px; color: #222; }
+  h1 { font-size: 26px; border-bottom: 3px solid #c0962e; padding-bottom: 12px; color: #111; margin-top: 0; }
+  h2 { font-size: 20px; border-bottom: 2px solid #e8d5a0; padding-bottom: 8px; color: #1a1a1a; margin-top: 40px; background: #fdf9f0; padding: 10px 14px; border-radius: 4px; }
+  h3 { font-size: 16px; color: #333; margin-top: 28px; border-left: 4px solid #c0962e; padding-left: 12px; }
+  h4 { font-size: 14px; color: #555; margin-top: 20px; }
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 13px; }
+  th { background: #f5edd8; padding: 9px 13px; border: 1px solid #ccc; font-weight: bold; text-align: left; color: #333; }
+  td { padding: 8px 13px; border: 1px solid #ddd; vertical-align: top; }
+  tr:nth-child(even) td { background: #fefcf7; }
+  code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-size: 12px; font-family: Consolas, monospace; }
+  pre { background: #f7f7f7; padding: 16px; border-left: 4px solid #c0962e; overflow-x: auto; font-size: 12px; border-radius: 0 4px 4px 0; }
+  pre code { background: none; padding: 0; }
+  blockquote { border-left: 4px solid #c0962e; margin: 16px 0; padding: 10px 18px; color: #555; background: #fdf9f0; border-radius: 0 4px 4px 0; }
+  strong { color: #111; }
+  li { margin: 5px 0; }
+  ul li::marker { color: #c0962e; }
+  ol li::marker { color: #c0962e; font-weight: bold; }
+  hr { border: none; border-top: 1px solid #e0d0a0; margin: 30px 0; }
+  a { color: #c0962e; }
+  .toc { background: #fdf9f0; border: 1px solid #e8d5a0; padding: 16px 24px; border-radius: 6px; margin-bottom: 32px; }
+</style>
+</head><body>
+<h1>朝堂 OS · "先知和导师" 商业化全攻略</h1>
+<blockquote>
+<p>文件版本：2026-06-27 | 适用阶段：0 → 20 付费用户<br />
+产品定位：企业级 AI Agent 决策操作系统（B2B，私有化部署 + 云端双轨）<br />
+第一客户参照：铭硕电池 8 蜂群样板</p>
+</blockquote>
+<hr />
+<h2>目录</h2>
+<ol>
+<li><a href="#1-产品定位与核心叙事">产品定位与核心叙事</a></li>
+<li><a href="#2-商业模式选择与建议">商业模式选择与建议</a></li>
+<li><a href="#3-定价体系设计">定价体系设计</a></li>
+<li><a href="#4-产品结构规划">产品结构规划</a></li>
+<li><a href="#5-营销网站建设方案">营销网站建设方案</a></li>
+<li><a href="#6-流量获取策略">流量获取策略</a></li>
+<li><a href="#7-销售流程与成单路径">销售流程与成单路径</a></li>
+<li><a href="#8-阶段性路线图">阶段性路线图</a></li>
+<li><a href="#9-风险与反制预案">风险与反制预案</a></li>
+<li><a href="#10-立即行动清单">立即行动清单</a></li>
+</ol>
+<hr />
+<h2>1. 产品定位与核心叙事</h2>
+<h3>1.1 我们是什么</h3>
+<pre><code>先知和导师 = AI Agent 时代的实战经营决策操作系统
+
+用一句话向企业老板解释：
+&quot;你提一个真实的经营问题，AI 蜂群替你分析、拆路径、
+ 给方案、控风险、归档复盘，你只需要做最终裁决。&quot;
+</code></pre>
+<p>三省六部不是古风皮肤，是治理框架：</p>
+<table>
+<thead>
+<tr>
+<th>层级</th>
+<th>功能</th>
+<th>对应企业场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>上书房</td>
+<td>老板提问/下旨</td>
+<td>战略决策输入口</td>
+</tr>
+<tr>
+<td>丞相台</td>
+<td>AI 拟方案</td>
+<td>方案生成与汇报</td>
+</tr>
+<tr>
+<td>军机处</td>
+<td>多视角会审</td>
+<td>风险评估与投票</td>
+</tr>
+<tr>
+<td>六部</td>
+<td>专项执行（财务/法务/工程/情报/规制/礼仪）</td>
+<td>各部门 AI 蜂群分工</td>
+</tr>
+<tr>
+<td>史馆</td>
+<td>归档复盘</td>
+<td>决策记录与学习闭环</td>
+</tr>
+</tbody>
+</table>
+<h3>1.2 我们不是什么</h3>
+<table>
+<thead>
+<tr>
+<th>误区</th>
+<th>正确认知</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>❌ 企业 BI 工具（Tableau/PowerBI）</td>
+<td>BI 看数据，我们做决策</td>
+</tr>
+<tr>
+<td>❌ 通用 AI 助手（ChatGPT企业版）</td>
+<td>没有业务上下文积累，对话即忘</td>
+</tr>
+<tr>
+<td>❌ 流程自动化（RPA/n8n）</td>
+<td>自动化执行流程，我们做决策判断</td>
+</tr>
+<tr>
+<td>❌ ERP 系统</td>
+<td>ERP 管资源，我们做战略和问题解决</td>
+</tr>
+<tr>
+<td>✅ 我们是</td>
+<td>把老板的经营判断力 × AI蜂群算力 = 更快更准的决策</td>
+</tr>
+</tbody>
+</table>
+<h3>1.3 目标客户画像</h3>
+<p><strong>首批目标（0-10个客户）：</strong></p>
+<pre><code>行业：制造业中小企业（特别是有供应链/品质/销售/成本压力的）
+规模：100-500 人，年营收 3000万-5亿
+角色：老板/总经理/运营VP
+痛点：
+  1. 信息太多、决策太慢（会议漫长、判断靠感觉）
+  2. 人才贵但决策质量不稳（高管离职即断层）
+  3. AI 想用、不知道怎么用到自己生意里
+心理账户：
+  → 愿意为&quot;提高决策速度和质量&quot;的工具付年费 5-30万
+  → 不愿意为&quot;AI 玩具/Demo&quot;付一分钱
+</code></pre>
+<hr />
+<h2>2. 商业模式选择与建议</h2>
+<h3>2.1 三种可选模式对比</h3>
+<h4>模式 A：高接触实施 + 年费授权（Palantir / Harvey AI 路线）</h4>
+<p><strong>核心逻辑：</strong> 你帮客户把蜂群配好、接进业务流程，收实施费 + 年度许可费。</p>
+<pre><code>客户旅程：
+  发现（转介绍/演示）
+  → 免费 2 小时诊断（摸清客户最痛的 3 个决策场景）
+  → 签 POC 合同（3 个月 ¥2-5万）
+  → POC 证明价值 → 转正式合同（年费 ¥10-30万 + 实施费）
+  → 年度续费 + 追加蜂群模块
+</code></pre>
+<p><strong>优点：</strong>
+- 现金流最快，1 个客户就能支撑团队运转
+- 客户绑定深，流失率低
+- 铭硕经验可直接复用</p>
+<p><strong>缺点：</strong>
+- 扩展慢，每个客户需要人工接入
+- 强依赖创始人销售能力</p>
+<p><strong>适用阶段：</strong> 现在 → 获得前 10 个客户</p>
+<hr />
+<h4>模式 B：垂直 SaaS（行业模板 + 自助订阅）</h4>
+<p><strong>核心逻辑：</strong> 把铭硕电池蜂群抽象成"制造业蜂群包"，其他同类企业自助配置，按月付费。</p>
+<pre><code>客户旅程：
+  内容/SEO/转介绍 发现
+  → 官网注册试用（14天免费，数据不出门）
+  → 自助配置蜂群（引导流程 + 模板）
+  → 转付费（月付/年付）
+  → 升级 Pro（更多蜂群数/API 额度）
+</code></pre>
+<p><strong>优点：</strong>
+- 可规模化，不强依赖人工
+- 月经常性收入（MRR）清晰可预测</p>
+<p><strong>缺点：</strong>
+- 需要非常好的产品自助体验（还需打磨）
+- 获客成本高，需要持续内容投入
+- 冷启动慢</p>
+<p><strong>适用阶段：</strong> 6-18 个月后，有了 5-8 个行业模板后推出</p>
+<hr />
+<h4>模式 C：私有化部署授权（自托管版）</h4>
+<p><strong>核心逻辑：</strong> 代码部署到客户服务器，数据完全自有，一次性授权费 + 年度维保。</p>
+<pre><code>客户画像：国企/政府/大型制造业/金融（数据不能上云）
+定价：¥30-100万 部署授权 + ¥5-15万/年 维保
+销售周期：3-12 个月（需要招标/采购流程）
+</code></pre>
+<p><strong>优点：</strong>
+- 单笔合同价值高
+- 品牌背书强（有大客户名字）</p>
+<p><strong>缺点：</strong>
+- 销售周期极长，现金流压力大
+- 需要专门的实施团队</p>
+<p><strong>适用阶段：</strong> 18 个月后，有了商业版稳定产品再做</p>
+<hr />
+<h3>2.2 建议路线（三阶段叠加）</h3>
+<pre><code>第一阶段（现在 - 6个月）
+├── 主力：模式 A（高接触实施 + 年费）
+├── 目标：签下 3-5 个付费客户
+├── 重点：铭硕做成完整案例包，用案例获取客户
+└── 收入目标：月收入 ¥5-15万
+
+第二阶段（6 - 18个月）
+├── 主力：模式 A 继续 + 模式 B 开始（SaaS 化）
+├── 目标：5-8 个行业模板上线，开放自助试用
+├── 重点：把实施经验固化成产品引导流程
+└── 收入目标：MRR ¥30-80万
+
+第三阶段（18个月+）
+├── 主力：模式 B 规模化 + 模式 C 大客户专线
+├── 目标：100个付费客户，其中5个私有化
+├── 重点：合作伙伴渠道（咨询公司/行业服务商）
+└── 收入目标：ARR 超 1000万
+</code></pre>
+<hr />
+<h2>3. 定价体系设计</h2>
+<h3>3.1 价格锚点原则</h3>
+<blockquote>
+<p>定价不是算成本，是定位客户心智。
+你的价格要让客户觉得"这是一个认真的企业工具"，而不是"AI 玩具"。</p>
+</blockquote>
+<h3>3.2 推荐定价方案</h3>
+<h4>方案一：年费制（推荐首选）</h4>
+<table>
+<thead>
+<tr>
+<th>产品层级</th>
+<th>内容</th>
+<th>定价</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>入门版</strong></td>
+<td>云托管 + 3个预配蜂群 + 上书房决策 + 史馆归档</td>
+<td><strong>¥3,600/月</strong> 或 <strong>¥36,000/年</strong></td>
+</tr>
+<tr>
+<td><strong>专业版</strong></td>
+<td>云托管 + 10个自配蜂群 + 全六部权限 + 优先客服</td>
+<td><strong>¥8,000/月</strong> 或 <strong>¥80,000/年</strong></td>
+</tr>
+<tr>
+<td><strong>旗舰版</strong></td>
+<td>私有化部署 + 无限蜂群 + 专属客户成功 + 定制开发</td>
+<td><strong>¥20,000/月</strong> 或 <strong>¥200,000/年起</strong></td>
+</tr>
+<tr>
+<td><strong>实施费</strong></td>
+<td>首次蜂群配置 + 数据接入 + 培训</td>
+<td><strong>¥30,000-80,000</strong>（一次性）</td>
+</tr>
+</tbody>
+</table>
+<h4>方案二：POC 首客价格（铭硕模式）</h4>
+<pre><code>目标：让客户愿意先试，降低决策门槛
+方式：
+  1. 免费诊断（2小时，你来线上/线下）
+  2. POC 合同：3个月，¥15,000-30,000
+     → 帮配 2-3 个核心蜂群
+     → 你们陪着跑 3 个月
+     → POC 结束客户说&quot;有用&quot; → 转正式合同
+  3. POC 费用可抵扣正式合同首年费用（给客户正向激励）
+</code></pre>
+<h4>方案三：按 AI 调用量计费（未来）</h4>
+<pre><code>适合：已有大量用户后的增长层
+计费：按每月 AI 决策次数（Tokens × 蜂群数量）
+底层：LiteLLM 已有用量追踪能力
+当前：暂不开放，保持简单定价
+</code></pre>
+<h3>3.3 价格心理学技巧</h3>
+<pre><code>1. 年付优惠 ≥ 2个月免费（¥8k/月 → ¥80k/年 = 86折）
+2. 旗舰版价格不要列具体数字 → 写&quot;联系销售&quot; → 定制报价权
+3. 推荐方案标 ⭐ &quot;最受欢迎&quot;（引导中间价位）
+4. 实施费单独列，不要打包进订阅费（让客户感知价值）
+5. 报价时先给高位（旗舰版），让客户往下选（锚定效应）
+</code></pre>
+<hr />
+<h2>4. 产品结构规划</h2>
+<h3>4.1 双轨部署架构</h3>
+<pre><code>                    ┌─────────────────────────────────┐
+                    │         朝堂 OS 产品体系          │
+                    └──────────────┬──────────────────┘
+                                   │
+              ┌────────────────────┴───────────────────┐
+              │                                         │
+    ┌─────────▼─────────┐                   ┌──────────▼──────────┐
+    │    云端 SaaS 版    │                   │   私有化部署版       │
+    │  app.mingshuoxny  │                   │  客户自己的服务器    │
+    │                   │                   │                     │
+    │  • 快速试用        │                   │  • 数据不出门        │
+    │  • 无需运维        │                   │  • 完全自主控制      │
+    │  • 入门/专业版     │                   │  • 旗舰版专属        │
+    └───────────────────┘                   └─────────────────────┘
+</code></pre>
+<h3>4.2 功能模块与付费层级对应</h3>
+<table>
+<thead>
+<tr>
+<th>功能模块</th>
+<th>入门版</th>
+<th>专业版</th>
+<th>旗舰版</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>上书房（提问/下旨）</td>
+<td>✅ 无限</td>
+<td>✅ 无限</td>
+<td>✅ 无限</td>
+</tr>
+<tr>
+<td>丞相台（AI 拟方案）</td>
+<td>✅ 每月 100次</td>
+<td>✅ 每月 500次</td>
+<td>✅ 无限</td>
+</tr>
+<tr>
+<td>军机处（多视角会审）</td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>预配蜂群（模板）</td>
+<td>3 个</td>
+<td>10 个</td>
+<td>无限</td>
+</tr>
+<tr>
+<td>自配蜂群（定制）</td>
+<td>❌</td>
+<td>✅ 10个</td>
+<td>✅ 无限</td>
+</tr>
+<tr>
+<td>六部权限</td>
+<td>基础三部</td>
+<td>全六部</td>
+<td>全六部 + 定制</td>
+</tr>
+<tr>
+<td>史馆归档</td>
+<td>90天</td>
+<td>1年</td>
+<td>永久</td>
+</tr>
+<tr>
+<td>API 接入</td>
+<td>❌</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>数据导出</td>
+<td>✅ CSV</td>
+<td>✅ 全格式</td>
+<td>✅ 全格式</td>
+</tr>
+<tr>
+<td>客服支持</td>
+<td>工单</td>
+<td>优先工单</td>
+<td>专属客户成功</td>
+</tr>
+<tr>
+<td>私有化部署</td>
+<td>❌</td>
+<td>❌</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>SLA 保障</td>
+<td>无</td>
+<td>99.5%</td>
+<td>99.9%</td>
+</tr>
+</tbody>
+</table>
+<h3>4.3 产品 vs 营销网站分离</h3>
+<pre><code>不要做：
+  ❌ 用朝堂 OS 本身（app.mingshuoxny.com/chaotang）当产品官网
+  ❌ 在 chaotang-web-lyt 里写营销页面
+
+要做：
+  ✅ 单独建一个营销网站（见第5章）
+  ✅ 产品官网只是登录入口
+  ✅ 两个域名：官网 xianzhidaoshi.ai | 产品 app.xianzhidaoshi.ai
+</code></pre>
+<hr />
+<h2>5. 营销网站建设方案</h2>
+<h3>5.1 你需要几个网站</h3>
+<pre><code>1. 产品落地页（必须，现在就做）  ← 获客用
+2. 帮助文档站（3个月内做）       ← 降低支持成本
+3. 博客/内容站（6个月内做）       ← SEO 长效获客
+</code></pre>
+<h3>5.2 营销落地页结构（单页）</h3>
+<p>完整页面按从上到下排列：</p>
+<hr />
+<p><strong>[Section 1 - Hero 区]</strong></p>
+<pre><code>主标题（大字）：
+  &quot;让 AI 替你分析问题，你只需做最终决策&quot;
+
+副标题：
+  企业级 AI 决策操作系统，3 周接入你的核心业务流程
+  制造业 | 供应链 | 零售连锁 首选
+
+CTA 按钮（主）：预约 30 分钟演示  →  微信/表单
+CTA 按钮（副）：查看铭硕案例   →  滚动到案例区
+
+右侧：产品截图/动图（朝堂 OS 上书房界面）
+</code></pre>
+<p><strong>[Section 2 - 痛点区]</strong></p>
+<pre><code>标题：&quot;你每天在这些问题上花多少时间？&quot;
+
+痛点卡片 × 3：
+  📊 &quot;信息太多，会议漫长，决策还是靠感觉&quot;
+  🔄 &quot;高管离职，经验无法传承，每次都重新摸索&quot;
+  🤖 &quot;想用 AI，但 ChatGPT 没有你的业务上下文&quot;
+</code></pre>
+<p><strong>[Section 3 - 解决方案]</strong></p>
+<pre><code>标题：&quot;朝堂 OS 的工作方式&quot;
+
+流程图（横向）：
+  你提问 → AI 蜂群分析 → 多视角会审 → 你裁决 → 归档学习
+
+每步简短说明（1-2句）
+</code></pre>
+<p><strong>[Section 4 - 案例区（核心！）]</strong></p>
+<pre><code>标题：&quot;铭硕电池如何用 AI 蜂群提升决策效率&quot;
+
+左侧：问题描述（之前是什么情况）
+中间：朝堂 OS 如何介入
+右侧：结果数字（越具体越好）
+  → &quot;8 个蜂群覆盖售后/产品/市场/项目管理&quot;
+  → &quot;每次经营会议准备时间从 X 天降到 X 小时&quot;
+  → &quot;老板亲口说：（引用原话）&quot;
+
+底部：铭硕老板录制的 2 分钟视频（建议！）
+</code></pre>
+<p><strong>[Section 5 - 功能模块]</strong></p>
+<pre><code>标题：&quot;六部蜂群，各司其职&quot;
+
+六部图标卡 × 6（户/刑/工/礼/吏/兵）
+每个：中文名 + 英文 + 1句话说明用途
+
+例：
+  户部 · Finance    财务成本分析与预算风险预警
+  刑部 · Legal      合同审查与法规合规检查
+  工部 · Engineering  技术方案评估与供应商对比
+</code></pre>
+<p><strong>[Section 6 - 定价区]</strong></p>
+<pre><code>标题：&quot;透明定价，无隐藏费用&quot;
+
+三栏定价卡（入门/专业/旗舰）
+推荐：专业版标 ⭐ &quot;最受欢迎&quot;
+
+注释：首次配置实施费另计，联系我们了解
+</code></pre>
+<p><strong>[Section 7 - FAQ]</strong></p>
+<pre><code>5-7 个常见问题：
+  Q：数据安全吗？放在哪里？
+  Q：需要 IT 团队才能部署吗？
+  Q：配置一套需要多长时间？
+  Q：我们没有 AI 经验的团队可以用吗？
+  Q：支持私有化部署吗？
+  Q：合同最短多久？
+</code></pre>
+<p><strong>[Section 8 - 最终 CTA]</strong></p>
+<pre><code>标题：&quot;想知道 AI 蜂群能帮你解决什么问题？&quot;
+副标题：&quot;预约 30 分钟免费诊断，我们告诉你适不适合&quot;
+
+大按钮：预约演示 → 微信二维码或腾讯表单
+
+备注：无推销压力，30分钟看清楚再决定
+</code></pre>
+<hr />
+<h3>5.3 建站工具推荐</h3>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>优点</th>
+<th>缺点</th>
+<th>推荐场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Framer</strong></td>
+<td>设计质感最高，动效好</td>
+<td>订阅费 $20/月</td>
+<td>有设计资源时首选</td>
+</tr>
+<tr>
+<td><strong>Webflow</strong></td>
+<td>灵活度最高，SEO 友好</td>
+<td>学习曲线陡</td>
+<td>长期运营选这个</td>
+</tr>
+<tr>
+<td><strong>Notion + Super.so</strong></td>
+<td>最快上线（1天内）</td>
+<td>样式受限</td>
+<td>先验证再优化</td>
+</tr>
+<tr>
+<td><strong>腾讯云 CloudBase</strong></td>
+<td>国内快，备案方便</td>
+<td>功能基础</td>
+<td>备案需要时</td>
+</tr>
+<tr>
+<td><strong>飞书表单 + 公众号</strong></td>
+<td>最轻量</td>
+<td>不够专业</td>
+<td>临时过渡</td>
+</tr>
+</tbody>
+</table>
+<p><strong>我的建议：</strong> 先用 <strong>Framer</strong> 或 <strong>Notion + Super.so</strong> 2天内上线一个够用的版本，跑通演示预约流程，后续再优化成 Webflow 正式站。</p>
+<h3>5.4 域名与品牌建议</h3>
+<pre><code>当前：app.mingshuoxny.com（个人域名，不够专业）
+
+推荐新域名（按优先级）：
+  xianzhidaoshi.ai   →  先知和导师（最切产品定位）
+  chaotang.ai        →  品牌名直接（国际易记）
+  courtai.cn         →  中文市场备选
+
+行动：
+  1. 先注册 .ai 域名（约 $50-100/年，Cloudflare/Namecheap）
+  2. 营销官网 → 新域名
+  3. 产品 App → app.新域名
+  4. 旧域名做 301 跳转保留
+</code></pre>
+<hr />
+<h2>6. 流量获取策略</h2>
+<blockquote>
+<p>核心原则：<strong>10-20 用户阶段，0 付费广告。先靠人，再靠内容，最后靠投放。</strong></p>
+</blockquote>
+<h3>6.1 阶段一（0-3个月）：创始人直销</h3>
+<p><strong>目标：签下前 3 个付费客户</strong></p>
+<h4>行动 1：铭硕案例包制作（最高优先级）</h4>
+<pre><code>产出物：
+  A. 1页纸 PDF：案例摘要（可微信转发）
+     → 铭硕是什么公司（1行）
+     → 他们遇到了什么决策问题（3个痛点）
+     → 朝堂 OS 做了什么（蜂群结构）
+     → 结果是什么（必须有数字）
+
+  B. 视频：铭硕老板 2 分钟口述（手机拍即可）
+     → &quot;之前我们决策是这样的...&quot;
+     → &quot;用了朝堂 OS 之后...&quot;
+     → 不需要剪辑，真实感更重要
+
+  C. 幻灯片：10页演示 PPT
+     → 痛点 → 方案 → 案例 → 功能 → 定价 → Q&amp;A
+     → 用于 30 分钟演示用
+</code></pre>
+<h4>行动 2：创始人朋友圈内容（每周 2-3 条）</h4>
+<pre><code>内容策略（不要推销产品，讲故事和观点）：
+
+类型 A - 案例故事：
+  &quot;最近帮一家做锂电池的老板，用 AI 蜂群 3 天解决了
+   困扰他半年的供应商选择问题，具体是这样的...&quot;
+
+类型 B - 观点输出：
+  &quot;为什么中小制造业老板用不好 AI？
+   不是技术问题，是没有给 AI 注入业务上下文...&quot;
+
+类型 C - 过程展示：
+  &quot;今天给客户配蜂群第 3 天，上书房已经能处理
+   40% 的日常决策询问，截图如下...&quot;
+
+禁忌：不要发&quot;我们是全球最好的AI平台&quot;类广告文案
+</code></pre>
+<h4>行动 3：精准陌拜 10-20 家目标企业</h4>
+<pre><code>来源渠道（优先级排序）：
+  1. 铭硕的上下游客户（最高转化率，有背书）
+  2. 老板/团队的前同事/校友
+  3. 行业展会参展商名录（制造业展会）
+  4. 企业信息查询平台（天眼查/企查查搜同行）
+
+接触方式：
+  → 加微信：发&quot;我是给铭硕配 AI 系统的，方便聊 10 分钟吗&quot;
+  → 不发产品介绍，发铭硕 1 页案例 PDF
+  → 约 20 分钟微信视频通话（不是上门拜访）
+  → 通话内容：70% 听对方说痛点，30% 讲案例
+</code></pre>
+<h4>行动 4：飞书/企业微信 ISV 生态</h4>
+<pre><code>飞书开放平台、企业微信应用市场可以做上架
+好处：
+  → 客户在用飞书/企业微信，直接在里面找到你
+  → 平台帮做基础推广
+  → 可以接飞书多维表格（数据源）
+
+行动：注册飞书 ISV 账号，把朝堂 OS 做成飞书应用
+（前端工作量：飞书 SSO 接入 + 基础权限改造，约 1 周）
+</code></pre>
+<hr />
+<h3>6.2 阶段二（3-12个月）：内容驱动</h3>
+<p><strong>目标：建立搜索可被发现的内容资产</strong></p>
+<h4>内容矩阵规划</h4>
+<table>
+<thead>
+<tr>
+<th>渠道</th>
+<th>频率</th>
+<th>内容类型</th>
+<th>目的</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>微信公众号</strong></td>
+<td>1篇/周</td>
+<td>深度案例 + 观点</td>
+<td>沉淀 + 搜索</td>
+</tr>
+<tr>
+<td><strong>知乎</strong></td>
+<td>2-3篇/月</td>
+<td>问题解答（行业痛点）</td>
+<td>长尾SEO</td>
+</tr>
+<tr>
+<td><strong>视频号/抖音</strong></td>
+<td>1条/周</td>
+<td>老板问题+AI现场演示</td>
+<td>信任感建立</td>
+</tr>
+<tr>
+<td><strong>LinkedIn</strong></td>
+<td>2-3条/周</td>
+<td>英文版方法论分享</td>
+<td>国际化 + 投资人可见</td>
+</tr>
+<tr>
+<td><strong>小红书</strong></td>
+<td>3-4条/周</td>
+<td>AI工具使用技巧</td>
+<td>触达年轻企业主</td>
+</tr>
+</tbody>
+</table>
+<h4>内容策略核心：「问题 → 方法 → 工具」路径</h4>
+<pre><code>错误内容：
+  &quot;朝堂 OS 发布 v2.0，新增 10 大功能&quot; （没人关心你的产品）
+
+正确内容：
+  &quot;供应商频繁交期延误，AI 帮我 3 天建了个预警系统&quot;
+  （问题切身 → 方法有效 → 工具自然带出）
+
+内容公式：
+  [具体行业] + [真实问题] + [AI 做了什么] + [可复用方法]
+</code></pre>
+<hr />
+<h3>6.3 阶段三（12个月后）：付费投放</h3>
+<p><strong>触发条件（全部满足才开始投）：</strong>
+- ✅ 5个以上付费客户
+- ✅ 平均合同价值 &gt; ¥5万/年
+- ✅ 知道哪一类客户转化率最高
+- ✅ 有清晰的 landing page + 演示预约流程
+- ✅ 1个客户成功故事有可量化数字</p>
+<p><strong>投放渠道优先级：</strong></p>
+<table>
+<thead>
+<tr>
+<th>渠道</th>
+<th>月预算</th>
+<th>目标受众</th>
+<th>转化目标</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>百度 SEM</strong></td>
+<td>¥5,000-20,000</td>
+<td>主动搜索"AI 决策系统"的企业主</td>
+<td>填写演示预约表单</td>
+</tr>
+<tr>
+<td><strong>微信朋友圈广告</strong></td>
+<td>¥3,000-10,000</td>
+<td>制造业/供应链行业老板精准人群包</td>
+<td>关注公众号/预约演示</td>
+</tr>
+<tr>
+<td><strong>头条/抖音信息流</strong></td>
+<td>¥3,000-10,000</td>
+<td>企业管理层</td>
+<td>视频播放 + 留资</td>
+</tr>
+<tr>
+<td><strong>LinkedIn Ads</strong></td>
+<td>$500-2,000</td>
+<td>外资企业高管</td>
+<td>演示预约（国际客户）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>7. 销售流程与成单路径</h2>
+<h3>7.1 标准销售漏斗</h3>
+<pre><code>阶段 1：发现（Discovery）
+  触发：朋友圈/案例/转介绍
+  行动：加微信，发 1 页案例 PDF
+  目标：约到视频通话
+
+阶段 2：诊断（Diagnosis）
+  触发：同意聊 20 分钟
+  行动：电话/视频通话，了解 3 个核心痛点
+  工具：诊断问题清单（见下方）
+  目标：确认是否适合，约演示
+
+阶段 3：演示（Demo）
+  触发：确认有痛点，愿意看演示
+  行动：30-45 分钟在线演示（用真实场景）
+  工具：定制化演示脚本（针对他们的痛点）
+  目标：确认价值，触发采购流程
+
+阶段 4：提案（Proposal）
+  触发：演示后有兴趣
+  行动：发定制报价单（含实施方案）
+  注意：报价在演示后 24 小时内发
+  目标：签 POC 合同或直接年费合同
+
+阶段 5：成交（Close）
+  触发：客户回复有意向
+  行动：处理疑虑，调整条款，签合同
+  目标：收取首款，启动实施
+</code></pre>
+<h3>7.2 诊断通话问题清单（20分钟框架）</h3>
+<pre><code>开场（2分钟）：
+  &quot;我先简单介绍我们是做什么的，然后想多了解你们，
+   这样我才能判断朝堂 OS 是否适合你们。&quot;
+
+了解业务（10分钟）：
+  1. 你们公司主要做什么？现在多少人？
+  2. 你每天在经营上花最多时间的决策是哪几类？
+  3. 你现在这些决策是怎么做的？主要靠谁/靠什么工具？
+  4. 哪个决策如果能更快、更准，对你来说价值最大？
+  5. 你们对 AI 工具的接受度怎样？有用过什么吗？
+
+了解痛点（5分钟）：
+  6. 现在最大的经营挑战是什么？
+  7. 如果这个问题解决了，你的生意会有什么改变？
+  8. 你理想的解决方案是什么样的？
+
+判断和介绍（3分钟）：
+  &quot;基于你说的情况，我觉得朝堂 OS 可以帮你的是...&quot;
+  如果不适合：直接说，不浪费双方时间
+  如果适合：约演示
+</code></pre>
+<h3>7.3 常见客户疑虑与应对</h3>
+<table>
+<thead>
+<tr>
+<th>疑虑</th>
+<th>应对话术</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"AI 不了解我们行业"</td>
+<td>"我们不是通用 AI，是帮你配一套了解你们业务的专属蜂群。铭硕是3周配好的。"</td>
+</tr>
+<tr>
+<td>"数据安全怎么保证"</td>
+<td>"私有化版本数据完全在你们自己服务器，我们看不到任何数据。"</td>
+</tr>
+<tr>
+<td>"价格太贵"</td>
+<td>"你每月花多少时间在这些决策上？ × 你的时间成本？我们来算算ROI。"</td>
+</tr>
+<tr>
+<td>"先试用再付费"</td>
+<td>"我们的 POC 方案：3个月¥X万，跑通后决定是否续约，POC 费用可抵正式合同。"</td>
+</tr>
+<tr>
+<td>"等我们情况稳定再说"</td>
+<td>"其实越是业务忙乱，越需要一套决策系统帮你理清楚，就像铭硕一样。"</td>
+</tr>
+<tr>
+<td>"内部不好推动"</td>
+<td>"我们提供给你一份内部汇报的 PPT 模板，帮你向上级或团队说明。"</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>8. 阶段性路线图</h2>
+<h3>第一阶段：0 → 首批客户（现在 - 3个月）</h3>
+<pre><code>月份 1：
+  Week 1: 铭硕案例包制作完成（1页PDF + 视频）
+  Week 2: 营销落地页上线（Framer/Notion，先求快）
+  Week 3: 向 10 家目标企业发起接触
+  Week 4: 首次演示 × 3场，收集反馈
+
+月份 2：
+  Week 5-6: 根据反馈优化演示脚本和产品功能
+  Week 7-8: 签下第 1 个付费 POC 合同
+  持续：每周 2-3 个朋友圈内容，持续建立认知
+
+月份 3：
+  目标：2-3 个付费客户，总月收入 ¥5-15万
+  里程碑：整理出&quot;哪类客户最容易签&quot;&quot;哪个痛点打动人&quot;
+</code></pre>
+<h3>第二阶段：产品化 + 内容（3-12个月）</h3>
+<pre><code>月份 4-6：
+  - 把实施经验固化成行业模板（制造业蜂群包）
+  - 开始公众号更新（1篇/周）
+  - 飞书/企业微信 ISV 上架
+  - 组建 2-3 人销售/客服团队
+
+月份 7-12：
+  - 推出标准 SaaS 自助试用版本
+  - 知乎/视频号内容矩阵运转
+  - 目标：10 个付费客户，MRR ¥30-50万
+</code></pre>
+<h3>第三阶段：规模化（12-24个月）</h3>
+<pre><code>- 付费广告投入（条件满足后）
+- 合作伙伴渠道（咨询公司、ERP 集成商）
+- 私有化版本发布
+- 第二个垂直行业突破（零售连锁/供应链）
+- 目标：50+ 客户，ARR 超 500万
+</code></pre>
+<hr />
+<h2>9. 风险与反制预案</h2>
+<h3>9.1 主要风险清单</h3>
+<table>
+<thead>
+<tr>
+<th>风险</th>
+<th>概率</th>
+<th>影响</th>
+<th>应对</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>AI 大厂出同类产品</strong></td>
+<td>高</td>
+<td>高</td>
+<td>深入垂直行业，大厂打不过你对某行业的深度</td>
+</tr>
+<tr>
+<td><strong>客户决策周期太长</strong></td>
+<td>中</td>
+<td>高</td>
+<td>推 POC 降低决策门槛，先小钱试</td>
+</tr>
+<tr>
+<td><strong>无法证明 ROI</strong></td>
+<td>中</td>
+<td>高</td>
+<td>一开始就帮客户建立量化基准（Before/After 数字）</td>
+</tr>
+<tr>
+<td><strong>实施周期超预期</strong></td>
+<td>中</td>
+<td>中</td>
+<td>标准化实施流程，控制在 3 周内</td>
+</tr>
+<tr>
+<td><strong>LLM API 成本上涨</strong></td>
+<td>低</td>
+<td>中</td>
+<td>多 Provider 路由（DeepSeek/Claude/本地模型）</td>
+</tr>
+<tr>
+<td><strong>客户流失（不续费）</strong></td>
+<td>中</td>
+<td>高</td>
+<td>90天内让客户看到一个明显成果，黏性最高</td>
+</tr>
+</tbody>
+</table>
+<h3>9.2 护城河建设（长期）</h3>
+<pre><code>1. 业务上下文积累：
+   客户用越久，蜂群越了解他们的行业和业务，迁移成本越高
+
+2. 行业数据：
+   不同行业的决策模式、常见问题、有效方案形成行业知识库
+
+3. 客户网络效应：
+   同行业客户互相推荐（&quot;我们电池行业都在用&quot;）
+
+4. 合规和安全积累：
+   私有化部署资质、行业合规认证（ISO、数据安全等级保护）
+</code></pre>
+<hr />
+<h2>10. 立即行动清单</h2>
+<h3>本周内必须完成（72小时）</h3>
+<ul>
+<li>[ ] <strong>Day 1：</strong> 和铭硕老板约1小时，整理量化结果数字（省了多少时间/解决了什么问题）</li>
+<li>[ ] <strong>Day 1：</strong> 注册 chaotang.ai 或 xianzhidaoshi.ai 域名</li>
+<li>[ ] <strong>Day 2：</strong> 用 Framer 或 Notion 搭建最简单的演示预约页（只要有联系方式和案例）</li>
+<li>[ ] <strong>Day 2：</strong> 写第一条"案例故事"朋友圈内容（不推产品，讲铭硕案例）</li>
+<li>[ ] <strong>Day 3：</strong> 整理 10 家目标企业名单，准备第一批接触信息</li>
+</ul>
+<h3>本月内完成</h3>
+<ul>
+<li>[ ] 铭硕 1 页 PDF 案例 + 铭硕老板 2 分钟视频</li>
+<li>[ ] 定价页面上线（三层定价 + CTA）</li>
+<li>[ ] 30 分钟演示脚本 + 产品 Demo 环境准备</li>
+<li>[ ] 完成 5 次以上诊断通话</li>
+<li>[ ] 签下 1 个 POC 合同</li>
+</ul>
+<h3>3 个月内完成</h3>
+<ul>
+<li>[ ] 公众号开通 + 发布 10 篇内容</li>
+<li>[ ] 知乎账号 + 发布 5 篇回答</li>
+<li>[ ] 飞书 ISV 上架流程启动</li>
+<li>[ ] 第 2-3 个付费客户</li>
+<li>[ ] 定价体系和实施流程标准化文档</li>
+</ul>
+<hr />
+<h2>附录：参考竞品与差异化定位</h2>
+<table>
+<thead>
+<tr>
+<th>竞品</th>
+<th>定位</th>
+<th>价格区间</th>
+<th>朝堂的差异</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>微软 Copilot for Business</td>
+<td>通用 AI 助手集成 Office</td>
+<td>$30/人/月</td>
+<td>没有决策治理框架，没有历史上下文积累</td>
+</tr>
+<tr>
+<td>钉钉 AI 助理</td>
+<td>大厂生态，通用协作</td>
+<td>免费-¥20/人/月</td>
+<td>不做行业定制蜂群，没有六部专项分析</td>
+</tr>
+<tr>
+<td>飞书 AI 助手</td>
+<td>飞书生态 + 知识库</td>
+<td>¥20-60/人/月</td>
+<td>文档工具，非决策系统</td>
+</tr>
+<tr>
+<td>Dify / FastGPT</td>
+<td>AI 应用搭建平台</td>
+<td>开源免费 + 企业版</td>
+<td>工具，非完整决策OS；需要自己搭建</td>
+</tr>
+<tr>
+<td>问卷星/轻流</td>
+<td>表单/流程工具</td>
+<td>¥500-5000/月</td>
+<td>流程管理，无 AI 判断层</td>
+</tr>
+</tbody>
+</table>
+<p><strong>朝堂 OS 的真实差异化（向客户说）：</strong></p>
+<pre><code>&quot;其他 AI 工具你需要自己知道问什么、怎么用。
+ 朝堂 OS 是一套已经为你行业配置好的决策框架——
+ 你只需要提问题，蜂群帮你完成分析、会审、归档全流程。&quot;
+</code></pre>
+<hr />
+<blockquote>
+<p>文档更新记录<br />
+2026-06-27：首版建立，覆盖商业模式/定价/网站/流量/销售流程<br />
+下次更新触发条件：第 1 个付费客户签约后，根据实际反馈修正定价和销售话术</p>
+</blockquote>
+</body></html>

@@ -1,0 +1,114 @@
+id: jinyiwei_complexity_profiles_v1
+department_id: jinyiwei
+purpose: >
+  锦衣卫按公司规模、情报成熟度、问题风险和用户偏好自适应运行深度。
+  自适应只调整默认展示深度、默认启用子司和是否暴露专业结构；
+  不调整来源、证据、隐私、合法性质量门。高风险自动升维，与公司规模无关。
+  本配置不创建多套锦衣卫流程，仍复用 jinyiwei_intelligence_office_loop_v1 与 court_unified_decision_loop_v1。
+
+modes:
+  - mode: founder_info_assistant
+    headcountBand: "1-10"
+    display_name: 老板信息核验助手模式
+    defaultView: brief
+    exposeSubOfficeStructure: false
+    enabledSubOffices: [intelligence_chief]
+    lightweightSubOffices: [open_source_research, archive_recall, fact_verification]
+    high_risk_extra_offices: [fact_verification, early_warning]
+    supported_scenarios: [客户背景, 竞品简单核查, 旧案召回, 信息真假判断, 缺证清单]
+
+  - mode: small_team_research
+    headcountBand: "10-50"
+    display_name: 小团队调研支持模式
+    defaultView: brief
+    exposeSubOfficeStructure: false
+    enabledSubOffices: [intelligence_chief, requirements_planning, open_source_research, customer_intel, competitor_intel, archive_recall, fact_verification]
+    lightweightSubOffices: [early_warning]
+    high_risk_extra_offices: [early_warning]
+    supported_scenarios: [客户情报, 竞品情报, 市场资料, 旧案, 证据缺口]
+
+  - mode: growth_intelligence
+    headcountBand: "50-200"
+    display_name: 成长型情报中心模式
+    defaultView: evidence_detail
+    exposeSubOfficeStructure: true
+    enabledSubOffices: [intelligence_chief, requirements_planning, open_source_research, customer_intel, competitor_intel, archive_recall, fact_verification, early_warning]
+    supported_scenarios: [客户, 竞品, 市场, 政策, 项目, 旧案, 风险预警]
+
+  - mode: chief_intelligence_office
+    headcountBand: "200-1000"
+    display_name: Chief Intelligence Office 模式
+    defaultView: professional_detail
+    exposeSubOfficeStructure: true
+    enabledSubOffices: [intelligence_chief, requirements_planning, open_source_research, customer_intel, competitor_intel, archive_recall, fact_verification, early_warning]
+    supported_scenarios: [watchlist, 定期扫描, 来源评分, 跨部门情报服务, 专业分奏]
+
+  - mode: enterprise_intelligence_governance
+    headcountBand: "1000+"
+    display_name: 集团情报治理模式
+    defaultView: professional_detail
+    exposeSubOfficeStructure: true
+    enabledSubOffices: [intelligence_chief, requirements_planning, open_source_research, customer_intel, competitor_intel, archive_recall, fact_verification, early_warning]
+    reservedCapabilities: [Knowledge_Graph, Policy_Monitoring, Public_Opinion, Data_Source_Governance, Intelligence_Access_Control, Automated_Monitoring]
+    note: 当前只预留知识图谱、政策监测、舆情、数据源治理、情报权限、自动监测架构，不实现完整集团能力。
+    supported_scenarios: [集团情报治理, 多区域竞品监测, AI 自动情报采集治理, 数据源权限, 情报复盘]
+
+escalation_rules:
+  - id: customer_commitment_requires_source_verification
+    when: [客户承诺, 预算, 采购意向, 口头承诺, 客户说]
+    always_involve: [customer_intel, fact_verification]
+    required_gate: customer_commitment_requires_source
+  - id: competitor_claims_require_evidence
+    when: [竞品, 竞品报价, 行业第一, 排名, 领先, 唯一, 竞品负面]
+    always_involve: [competitor_intel, fact_verification]
+    required_gate: competitor_claims_require_evidence
+  - id: policy_claim_requires_current_source
+    when: [政策, 法规, 补贴, 资质, 标准, 监管]
+    always_involve: [open_source_research, fact_verification, justice]
+    required_gate: policy_claim_requires_date_and_source
+  - id: financial_or_roi_data_requires_hubu_review
+    when: [ROI, 收益, 回报, 价格, 报价, 预算, 成本, 毛利, 现金流]
+    always_involve: [finance, fact_verification]
+  - id: legal_or_compliance_info_requires_xingbu_review
+    when: [合同, 法律责任, 合规, 诉讼, 律师函, 授权, 隐私]
+    always_involve: [justice, fact_verification]
+    human_confirmation: true
+  - id: external_message_requires_rites_review
+    when: [对外表达, 招商话术, 产品介绍, 宣传材料, 公众号, 邮件, 客户案例]
+    always_involve: [ritual, fact_verification]
+  - id: people_info_requires_privacy_guard
+    when: [员工, 候选人, 个人信息, 联系人, 离职, 薪酬, 投诉]
+    always_involve: [personnel, justice]
+    always_apply: privacy_sensitive_data_guard
+  - id: stale_info_requires_warning
+    when: [过期, 旧政策, 去年, 上次, 旧案, 历史资料]
+    always_involve: [archive_recall, fact_verification, early_warning]
+    required_gate: stale_info_must_be_marked
+  - id: source_conflict_requires_conflict_summary
+    when: [来源冲突, 说法不一致, 多个来源, 相互矛盾]
+    always_involve: [fact_verification, intelligence_chief]
+    required_gate: source_conflict_must_be_visible
+  - id: rumor_must_not_be_treated_as_fact
+    when: [传闻, 听说, 据说, 可能, 推测, 模型判断]
+    always_involve: [fact_verification, intelligence_chief]
+    required_gate: no_unverified_claims
+
+user_choices:
+  - brief
+  - evidence_detail
+  - professional_detail
+  - enter_junjichu_deep_review
+  - generate_intelligence_pack
+  - generate_competitor_compare
+  - generate_customer_intel_card
+  - setup_watchlist
+  - request_source_verification
+
+non_negotiable_floor:
+  - source_label_required
+  - evidence_or_gap_required
+  - source_reliability_required
+  - privacy_sensitive_data_guard
+  - no_unauthorized_collection
+  - no_unverified_claims
+  - stale_info_must_be_marked

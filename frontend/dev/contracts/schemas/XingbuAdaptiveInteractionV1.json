@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "XingbuAdaptiveInteractionV1",
+  "type": "object",
+  "required": [
+    "mode",
+    "defaultView",
+    "exposeSubOfficeStructure",
+    "activeSubOffices",
+    "userChoices",
+    "lockedFloor",
+    "escalationApplied",
+    "sourceLabel"
+  ],
+  "properties": {
+    "mode": {
+      "enum": ["founder_legal_safety", "small_team_legal_manager", "growth_legal_compliance", "clo_cco", "group_legal_ops"]
+    },
+    "defaultView": { "enum": ["brief", "management_detail", "professional_detail"] },
+    "exposeSubOfficeStructure": { "type": "boolean" },
+    "activeSubOffices": { "type": "array", "items": { "type": "string" } },
+    "userChoices": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "brief",
+          "management_detail",
+          "professional_detail",
+          "enter_junjichu_deep_review",
+          "generate_artifact",
+          "request_department_review"
+        ]
+      }
+    },
+    "lockedFloor": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "high_risk_requires_human_confirmation",
+          "contract_or_commitment_review",
+          "equity_or_governance_review",
+          "labor_risk_review",
+          "source_label_required",
+          "evidence_or_gap_required",
+          "privacy_sensitive_data_guard",
+          "no_irreversible_legal_action_without_approval"
+        ]
+      }
+    },
+    "escalationApplied": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "contract_signing_always_escalate",
+          "external_commitment_always_escalate",
+          "equity_or_governance_always_escalate",
+          "payment_penalty_or_guarantee_involve_hubu",
+          "labor_action_involve_libu",
+          "dispute_or_lawyer_letter_involve_dispute_office",
+          "ip_or_confidentiality_involve_ip_office",
+          "seal_or_signature_involve_legal_ops",
+          "compliance_or_license_involve_compliance_office",
+          "ai_generated_external_content_involve_junjichu_and_xingbu",
+          "privacy_sensitive_data_requires_permission_guard"
+        ]
+      }
+    },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

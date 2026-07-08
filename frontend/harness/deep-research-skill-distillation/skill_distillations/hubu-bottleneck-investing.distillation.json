@@ -1,0 +1,25 @@
+{
+  "skill_name": "hubu-bottleneck-investing",
+  "source_pack": "source_packs/serenity-bottleneck-investing.source-pack.json",
+  "learning_pack": "learning_packs/serenity-bottleneck-investing.learning-pack.json",
+  "candidate_skill_path": "candidate_skills/hubu-bottleneck-investing/SKILL.md",
+  "golden_cases_path": "golden_cases/serenity-bottleneck-investing.cases.json",
+  "output_contract": [
+    "status: observe | needs_evidence | defer | reject",
+    "not_personalized_investment_advice",
+    "source_ledger_with_timestamps",
+    "chokepoint_claim",
+    "downside_and_invalidation",
+    "liquidity_and_manipulation_risk",
+    "manual_review_required"
+  ],
+  "hard_gates": [
+    "No source, no claim.",
+    "No timestamp, no market claim.",
+    "Social-media performance is not audited performance.",
+    "Illiquid microcaps require manipulation-risk warning.",
+    "No buy/sell/position-size instruction.",
+    "Every output includes downside and invalidation.",
+    "Design wins are not revenue unless conversion evidence exists."
+  ]
+}

@@ -1,0 +1,119 @@
+id: gongbu_cto_cpo_delivery_office_loop_v1
+name: 工部 CTO/CPO Delivery Office 子循环
+version: 0.1.0
+owner: courtos/gongbu
+purpose: >
+  接收军机处工作令，从 CTO / CPO / 交付 / 供应链视角组织产品方案、BOM、
+  进度产能、质量验收、现场实施、交付运作和承诺质门等专业能力单元审查，
+  形成可进入朝堂奏折的工部分奏。该循环作为 court_unified_decision_loop_v1
+  的可插拔部门能力接入，不创建 gongbu_special_review。
+
+plugs_into:
+  - court_unified_decision_loop_v1
+
+entrypoints:
+  - enabled_department_review.works
+  - junjichu_department_work_order.works
+  - resubmit_after_delivery_evidence
+
+state_model:
+  allowed_states:
+    - received
+    - classified
+    - evidence_collecting
+    - sub_offices_reviewing
+    - cto_cpo_synthesizing
+    - quality_gating
+    - returned_to_junjichu
+    - failed_with_recovery
+
+steps:
+  - id: receive_gongbu_work_order
+    name: 工部接令
+    inputs:
+      - confirmed_edict
+      - review_plan
+      - intelligence_pack
+      - department_work_order
+
+  - id: classify_delivery_question
+    name: 工部问题分类
+    skill: skill.gongbu.classify_delivery_question
+    outputs:
+      - delivery_question_type
+      - required_gongbu_sub_offices
+      - required_delivery_evidence
+      - delivery_commitment_risk
+      - risk_watchlist
+
+  - id: collect_delivery_evidence
+    name: 收集交付证据
+    skill: skill.gongbu.collect_delivery_evidence
+    outputs:
+      - delivery_evidence_pack
+      - missing_delivery_evidence
+      - assumptions
+      - dependency_flags
+
+  - id: run_gongbu_sub_offices
+    name: 工部子司并行审查
+    type: parallel
+    branches:
+      - id: solution_architecture
+        skill: skill.gongbu.solution_architecture_review
+      - id: bom_supply_chain
+        skill: skill.gongbu.bom_supply_chain_review
+      - id: schedule_capacity
+        skill: skill.gongbu.schedule_capacity_review
+      - id: quality_acceptance
+        skill: skill.gongbu.quality_acceptance_review
+      - id: field_implementation
+        skill: skill.gongbu.field_implementation_review
+      - id: delivery_operations
+        skill: skill.gongbu.delivery_operations_review
+      - id: delivery_commitment_gate
+        skill: skill.gongbu.delivery_commitment_gate_review
+
+  - id: synthesize_cto_cpo_position
+    name: 工部尚书合议
+    skill: skill.gongbu.cto_cpo_synthesize_position
+    outputs:
+      - gongbu_cto_cpo_opinion
+
+  - id: gongbu_quality_gate
+    name: 工部质门
+    skill: skill.gongbu.cto_cpo_quality_gate
+    gates:
+      - source_label_required
+      - evidence_or_gap_required
+      - no_delivery_commitment_without_bom_and_schedule
+      - no_fixed_date_without_capacity_and_dependencies
+      - formal_delivery_commitment_requires_xingbu_review
+      - price_or_cost_claim_requires_hubu_review
+      - customer_timeline_requires_war_review
+      - scope_change_requires_personnel_or_owner_review
+      - acceptance_requires_test_plan_and_acceptance_criteria
+      - supplier_lock_requires_contract_and_supply_evidence
+      - safety_or_compliance_risk_requires_human_confirmation
+      - no_auto_external_delivery_commitment
+      - high_risk_requires_human_confirmation
+      - one_primary_delivery_next_action_required
+      - fallback_cannot_be_final_delivery_basis
+    rule: >
+      任一固定交期、客户交付承诺、供应商锁定、验收通过或产能保证都必须有证据链和对应复核；
+      缺 BOM、交期、验收标准、现场条件或供应链证据时，不得输出确定性交付结论。
+
+  - id: return_to_junjichu
+    name: 回传军机处
+    outputs:
+      - DepartmentOpinionV1
+
+cross_department_triggers:
+  - when: FORMAL_DELIVERY_COMMITMENT
+    must_review: [justice, ritual, war]
+  - when: COST_OR_PURCHASE_PRICE
+    must_review: [finance]
+  - when: SCOPE_OR_OWNER_CHANGE
+    must_review: [personnel]
+  - when: CUSTOMER_TIMELINE_OR_EXPECTATION
+    must_review: [war, ritual]

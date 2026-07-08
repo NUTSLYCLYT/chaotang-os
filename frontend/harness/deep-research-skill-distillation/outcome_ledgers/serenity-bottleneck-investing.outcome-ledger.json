@@ -1,0 +1,16 @@
+{
+  "topic": "Serenity bottleneck investing method",
+  "skill_name": "hubu-bottleneck-investing",
+  "created_at": "2026-06-07T00:00:00Z",
+  "review_plan": [
+    { "day": 30, "question": "Did the skill reject low-evidence viral small-cap theses?" },
+    { "day": 60, "question": "Did the skill improve source and timestamp coverage in Hubu outputs?" },
+    { "day": 90, "question": "Which claims aged badly and which evidence types were most predictive?" }
+  ],
+  "outcome_metrics": [
+    "percentage_of_outputs_with_primary_sources",
+    "percentage_of_outputs_with_explicit_invalidation",
+    "number_of_rejected_social_only_theses",
+    "human_review_override_rate"
+  ]
+}

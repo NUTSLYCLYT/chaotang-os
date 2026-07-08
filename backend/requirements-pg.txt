@@ -1,0 +1,4 @@
+# PostgreSQL 迁移专用依赖(dev/prod 用 SQLite 不需要装)
+# 迁 Postgres 时在目标环境: pip install -r requirements-pg.txt
+# 然后设置 DB_URL=postgresql://user:pass@host/dbname 并执行 alembic upgrade head
+psycopg2-binary>=2.9   # CPython wheels,快速安装;生产可改 psycopg2(需编译)

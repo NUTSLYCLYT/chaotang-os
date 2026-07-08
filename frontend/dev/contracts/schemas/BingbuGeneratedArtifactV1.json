@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BingbuGeneratedArtifactV1",
+  "type": "object",
+  "required": ["artifactType", "content", "requiresReviewBeforeUse", "maySendExternally", "sourceLabel"],
+  "properties": {
+    "artifactType": { "enum": ["客户跟进方案", "销售下一步行动卡", "客户会议计划", "Discovery 问题清单", "客户决策链图", "大客户攻坚计划", "谈判策略", "报价前检查清单", "报价策略草案", "折扣审批建议", "客户回复草稿", "竞品 battlecard", "商机评分卡", "Pipeline 风险表", "Forecast 解释卡", "Win/Loss 复盘", "渠道伙伴计划", "渠道政策草案", "续约/复购计划", "客户成功 QBR 大纲", "销售周会 agenda", "销售 playbook 片段", "CRM 更新建议", "销售提成建议"] },
+    "content": { "type": "string" },
+    "requiresReviewBeforeUse": { "type": "array", "items": { "enum": ["finance", "justice", "ritual", "jinyiwei", "personnel", "works", "human"] } },
+    "maySendExternally": { "const": false },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

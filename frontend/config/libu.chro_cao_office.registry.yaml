@@ -1,0 +1,154 @@
+id: libu_chro_cao_office_registry_v1
+department_id: personnel
+display_name: 吏部
+real_world_equivalent: CHRO + CAO Office
+positioning: CHRO Office + CAO Office + 组织执行中枢 + 员工关系风险前哨 + 行政运行保障系统
+purpose: >
+  将吏部升级为 CHRO Office + 行政总监 CAO Office + 组织执行中枢，覆盖组织编制、招聘、
+  绩效、薪酬、人事运营、员工关系、行政保障等人与组织决策能力，替代现实企业的人力资源部
+  和行政总监办公室。吏部仍作为统一朝堂 Loop 的可插拔部门能力，不建立单独人事专线，
+  不创建 libu_special_review，不脱离 court_unified_decision_loop_v1。
+
+# 全部子司禁止的不可逆动作（Swarm Card 的 tools_forbidden 基线）
+forbidden_irreversible_actions:
+  - 自动执行辞退/解除劳动关系
+  - 自动调薪/发奖金
+  - 自动发 offer / 录用
+  - 自动签合同
+  - 自动发送员工通知/公告
+  - 自动变更组织/编制
+  - 自动用印/采购/付款
+
+p0_sub_offices:
+  - id: chro_cao_chief
+    name: 吏部尚书
+    priority: P0
+    purpose: CHRO/CAO 总裁决，合成各子司意见为吏部分奏，兜底人与组织风险。
+    trigger: ["所有吏部任务的最终合成", "跨子司分歧", "需要总立场"]
+    inputs: [draft_edict, intelligence_pack, sub_office_reviews, company_profile]
+    must_answer: ["这是什么人/组织/行政决策", "第一责任人或组织缺口", "缺哪些岗位/绩效/预算/证据", "最大组织与劳动风险", "准奏/补证/复核/驳回", "需联动哪些部门", "下一步唯一动作 next_best_action"]
+    must_not: ["在缺岗位/绩效/预算/证据时给确定性结论", "隐藏红灯子司", "把 FALLBACK/DEMO 当确定结论"]
+    tools_allowed: [read_evidence, summarize, draft_brief, request_cross_review]
+    tools_forbidden: [execute_termination, change_salary, send_offer, sign_contract, send_employee_notice]
+    output_schema: LibuCHROCAOOpinionV1
+    quality_gates: [source_label_required, owner_or_gap_required, no_people_decision_without_context, high_risk_requires_human_confirmation, no_irreversible_hr_action_without_approval]
+    eval_cases: [libu_case_001_hire_kam, libu_case_003_terminate_low_performer, libu_case_004_sales_commission]
+
+  - id: org_design
+    name: 官制司
+    priority: P0
+    purpose: 组织架构、岗位、编制、职责边界、RACI 设计与诊断。
+    trigger: ["组织调整", "设岗/合并/取消岗位", "职责不清", "项目负责人", "编制"]
+    inputs: [draft_edict, current_org_facts, project_scope]
+    must_answer: ["要解决什么组织问题", "是否新设/合并/取消岗位及编制成本影响", "职责边界与 RACI 是否清晰", "第一责任人是谁", "现有组织能否承接", "立场"]
+    must_not: ["在编制/成本/RACI 不清时给确定性结论", "不明确责任人"]
+    tools_allowed: [read_evidence, draft_raci, draft_org_change_plan, request_cross_review]
+    tools_forbidden: [execute_org_change, change_salary, send_employee_notice]
+    output_schema: LibuSubOfficeReviewV1
+    quality_gates: [role_scope_required, owner_or_gap_required, no_people_decision_without_context]
+    eval_cases: [libu_case_005_project_owner, libu_case_008_org_restructure, libu_case_015_role_merge]
+
+  - id: talent_acquisition
+    name: 选才司
+    priority: P0
+    purpose: 招聘、JD、候选人、面试、录用建议。
+    trigger: ["招聘", "JD", "候选人", "面试", "录用", "选谁"]
+    inputs: [draft_edict, role_profile, budget_context, candidate_facts]
+    must_answer: ["是否应启动招聘还是先明确岗位", "岗位画像/JD/面试评分表是否齐备", "薪酬预算/90天目标/试用期成功标准是否明确", "录用/选人建议及依据", "立场"]
+    must_not: ["缺岗位目标/预算/标准时给确定结论", "自动发 offer"]
+    tools_allowed: [read_evidence, draft_jd, draft_role_profile, draft_interview_kit, draft_offer_approval, request_cross_review]
+    tools_forbidden: [send_offer, sign_contract, change_salary]
+    output_schema: LibuSubOfficeReviewV1
+    quality_gates: [hiring_requires_budget_and_success_criteria, compensation_requires_hubu_review, owner_or_gap_required]
+    eval_cases: [libu_case_001_hire_kam, libu_case_013_hire_admin_lead, libu_case_017_candidate_ab]
+
+  - id: performance
+    name: 考功司
+    priority: P0
+    purpose: 绩效、转正、晋升、淘汰、人才盘点。
+    trigger: ["绩效", "转正", "晋升", "淘汰", "人才盘点", "试用期不达标"]
+    inputs: [draft_edict, performance_records, talent_review_facts]
+    must_answer: ["这是转正/晋升/淘汰/盘点哪类", "有无绩效记录/目标达成/书面沟通证据", "若涉淘汰是否走过 PIP", "建议动作及依据", "立场"]
+    must_not: ["缺绩效证据时给确定结论", "自动执行淘汰/降级"]
+    tools_allowed: [read_evidence, draft_probation_goals, draft_promotion_review, draft_pip, request_cross_review]
+    tools_forbidden: [execute_termination, execute_demotion, change_salary]
+    output_schema: LibuSubOfficeReviewV1
+    quality_gates: [no_people_decision_without_context, termination_requires_evidence_and_xingbu_review, owner_or_gap_required]
+    eval_cases: [libu_case_002_promote_sales_mgr, libu_case_003_terminate_low_performer, libu_case_016_probation_fail]
+
+  - id: total_rewards
+    name: 薪酬司
+    priority: P0
+    purpose: 薪酬、奖金、提成、福利、人力成本。
+    trigger: ["薪酬", "调薪", "奖金", "提成", "福利", "人力成本", "年终奖"]
+    inputs: [draft_edict, comp_band_facts, performance_records, finance_context]
+    must_answer: ["定薪/调薪/奖金/提成/福利哪类", "激励是否与岗位/绩效/公平性匹配", "对人力成本/毛利/现金影响", "方案选项与建议", "立场"]
+    must_not: ["缺成本/预算/绩效数据时给确定结论", "自动调薪/发奖金"]
+    tools_allowed: [read_evidence, draft_commission_plan, draft_bonus_plan, request_cross_review]
+    tools_forbidden: [change_salary, pay_bonus, send_employee_notice]
+    output_schema: LibuSubOfficeReviewV1
+    quality_gates: [compensation_requires_hubu_review, privacy_sensitive_data_guard, no_people_decision_without_context]
+    eval_cases: [libu_case_004_sales_commission, libu_case_011_raise, libu_case_019_year_end_bonus]
+
+  - id: hr_operations
+    name: 人事司
+    priority: P0
+    purpose: 入转调离、合同、考勤、档案、人事流程。
+    trigger: ["入职", "转正流程", "调动", "离职", "合同", "考勤", "档案", "外包用工"]
+    inputs: [draft_edict, hr_process_facts, contract_facts]
+    must_answer: ["哪类人事流程", "流程是否合规/证据是否齐备/责任人是否明确", "风险点", "建议动作", "立场"]
+    must_not: ["自动签合同/发员工通知", "敏感数据不记录权限来源"]
+    tools_allowed: [read_evidence, draft_handover_checklist, draft_policy_notice, request_cross_review]
+    tools_forbidden: [sign_contract, send_employee_notice, execute_transfer]
+    output_schema: LibuSubOfficeReviewV1
+    quality_gates: [privacy_sensitive_data_guard, labor_risk_requires_xingbu_review, owner_or_gap_required]
+    eval_cases: [libu_case_010_retention_risk, libu_case_012_outsource_cs, libu_case_020_lease_contract]
+
+  - id: employee_relations
+    name: 劳关司
+    priority: P0
+    purpose: 员工关系、劳动风险、PIP、离职谈判、纪律（员工关系风险前哨）。
+    trigger: ["员工关系", "劳动风险", "纠纷", "处分", "PIP", "离职谈判", "竞业", "投诉", "仲裁"]
+    inputs: [draft_edict, evidence_records, policy_basis]
+    must_answer: ["哪类员工关系/劳动风险", "风险等级与不可逆程度", "有无书面证据/制度依据/改进记录", "建议处置路径（优先合规低风险）", "立场（高风险默认不准奏）"]
+    must_not: ["缺证据时给确定结论", "自动执行处分/辞退/离职", "高风险一键采纳"]
+    tools_allowed: [read_evidence, draft_labor_risk_evidence_list, draft_pip, draft_employee_comm_script, request_cross_review]
+    tools_forbidden: [execute_termination, execute_discipline, sign_settlement]
+    output_schema: LibuSubOfficeReviewV1
+    quality_gates: [labor_risk_requires_xingbu_review, termination_requires_evidence_and_xingbu_review, high_risk_requires_human_confirmation, no_irreversible_hr_action_without_approval, privacy_sensitive_data_guard]
+    eval_cases: [libu_case_003_terminate_low_performer, libu_case_018_complaint_unfair, libu_case_016_probation_fail]
+
+  - id: admin_operations
+    name: 行政司
+    priority: P0
+    purpose: 办公、资产、印章、证照、会议、后勤、行政预算（行政运行保障 / CAO Office）。
+    trigger: ["办公", "搬迁", "资产", "印章", "证照", "会议", "后勤", "行政费用", "采购", "租赁"]
+    inputs: [draft_edict, admin_cost_facts, asset_facts]
+    must_answer: ["哪类行政事项", "费用与预算来源是否清晰", "行政风险（印章证照合规/资产安全/费用异常）", "建议动作及成本影响", "立场"]
+    must_not: ["缺预算来源/证据时给确定结论", "自动采购/付款/用印"]
+    tools_allowed: [read_evidence, draft_purchase_approval, draft_relocation_plan, request_cross_review]
+    tools_forbidden: [execute_purchase, execute_payment, use_seal]
+    output_schema: LibuSubOfficeReviewV1
+    quality_gates: [admin_cost_requires_budget_source, no_people_decision_without_context, owner_or_gap_required]
+    eval_cases: [libu_case_006_admin_cost, libu_case_007_office_relocation, libu_case_014_seal_cert_risk]
+
+p1_sub_offices_reserved:
+  - 学政司   # 培训、人才梯队、管理者培养
+  - 文化司   # 文化、员工体验、价值观、内部沟通
+  - 数据司   # People Analytics / HRIS / 人力数据预警
+  - 机仆司   # AI Agent / 蜂群岗位 / 权限 / 绩效 / 停用 / 审计
+
+quality_gates:
+  - source_label_required
+  - owner_or_gap_required
+  - role_scope_required
+  - hiring_requires_budget_and_success_criteria
+  - compensation_requires_hubu_review
+  - termination_requires_evidence_and_xingbu_review
+  - labor_risk_requires_xingbu_review
+  - admin_cost_requires_budget_source
+  - no_people_decision_without_context
+  - privacy_sensitive_data_guard
+  - ai_agent_role_requires_permission_review
+  - high_risk_requires_human_confirmation
+  - no_irreversible_hr_action_without_approval

@@ -1,0 +1,67 @@
+# jiqun-flow SDK — 一键复现包
+# 用法:
+#   docker compose -f docker-compose.sdk.yml run --rm pack-demo \
+#     "12V 1100Wh outdoor storage, aluminum enclosure"
+#
+# 或跑标准案例:
+#   docker compose -f docker-compose.sdk.yml run --rm pack-demo-01
+#   docker compose -f docker-compose.sdk.yml run --rm pack-demo-02
+#   docker compose -f docker-compose.sdk.yml run --rm pack-demo-03
+#
+# 环境变量:
+#   DEEPSEEK_API_KEY  — 必填 (或改 providers.yaml 用 Ollama)
+#   LITELLM_API_BASE  — 可选，指向本地 LiteLLM proxy
+
+version: "3.9"
+
+x-pack-base: &pack-base
+  build:
+    context: .
+    dockerfile: Dockerfile.sdk
+  environment:
+    - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+    - LITELLM_PROXY_KEY=${LITELLM_PROXY_KEY:-}
+    - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+  volumes:
+    - ./reports:/app/reports          # HTML报告输出到宿主机
+    - ./knowledge/flywheel:/app/knowledge/flywheel  # 飞轮数据持久化
+  working_dir: /app
+
+services:
+  # 任意需求输入
+  pack-demo:
+    <<: *pack-base
+    entrypoint: ["python", "scripts/run_flow.py", "config/flow_pack_rd.yaml"]
+    # command 由 docker compose run 调用时传入
+
+  # 标准案例01: 户外储能
+  pack-demo-01:
+    <<: *pack-base
+    entrypoint: ["sh", "-c"]
+    command:
+      - "python scripts/run_flow.py config/flow_pack_rd.yaml \"$(cat examples/01_outdoor_storage/input.txt)\""
+
+  # 标准案例02: 通信基站备电低温
+  pack-demo-02:
+    <<: *pack-base
+    entrypoint: ["sh", "-c"]
+    command:
+      - "python scripts/run_flow.py config/flow_pack_rd.yaml \"$(cat examples/02_basestation_lowtemp/input.txt)\""
+
+  # 标准案例03: 两轮车
+  pack-demo-03:
+    <<: *pack-base
+    entrypoint: ["sh", "-c"]
+    command:
+      - "python scripts/run_flow.py config/flow_pack_rd.yaml \"$(cat examples/03_ebike_motor/input.txt)\""
+
+  # 飞轮统计
+  flywheel-stats:
+    <<: *pack-base
+    entrypoint: ["python", "scripts/flywheel_stats.py", "--edge-cases"]
+
+  # Golden test 回归
+  golden-test:
+    <<: *pack-base
+    entrypoint: ["python", "tests/golden/run_golden.py"]

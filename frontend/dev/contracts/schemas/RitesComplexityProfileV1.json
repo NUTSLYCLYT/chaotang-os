@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RitesComplexityProfileV1",
+  "type": "object",
+  "required": [
+    "mode",
+    "headcountBand",
+    "defaultView",
+    "exposeSubOfficeStructure",
+    "enabledSubOffices",
+    "nonNegotiableFloor",
+    "sourceLabel"
+  ],
+  "properties": {
+    "mode": {
+      "enum": [
+        "founder_expression_assistant",
+        "small_team_marketing",
+        "growth_cmo",
+        "cmo_cco",
+        "enterprise_brand_comms"
+      ]
+    },
+    "headcountBand": { "enum": ["1-10", "10-50", "50-200", "200-1000", "1000+"] },
+    "defaultView": { "enum": ["brief", "management_detail", "professional_detail"] },
+    "exposeSubOfficeStructure": { "type": "boolean" },
+    "enabledSubOffices": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "rites_cmo_cco_chief",
+          "rites_brand_strategy",
+          "rites_customer_insight",
+          "rites_content_copy",
+          "rites_partnership_pitch",
+          "rites_pr_reputation",
+          "rites_channel_campaign",
+          "rites_message_quality_gate"
+        ]
+      }
+    },
+    "lightweightSubOffices": { "type": "array", "items": { "type": "string" } },
+    "reservedCapabilities": { "type": "array", "items": { "type": "string" } },
+    "nonNegotiableFloor": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "high_risk_requires_human_confirmation",
+          "xingbu_review_for_external_commitment",
+          "hubu_review_for_roi_or_quote_claim",
+          "source_label_required",
+          "evidence_or_gap_required",
+          "message_quality_gate",
+          "privacy_sensitive_data_guard",
+          "no_auto_send_external_content"
+        ]
+      }
+    },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

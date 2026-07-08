@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HubuSubOfficeReviewV1",
+  "type": "object",
+  "required": [
+    "office_id",
+    "office_name",
+    "position",
+    "finding",
+    "evidence_used",
+    "missing_evidence",
+    "risks",
+    "key_numbers",
+    "source_label"
+  ],
+  "properties": {
+    "office_id": {
+      "enum": [
+        "cfo_chief",
+        "fpna_budget",
+        "treasury_cash",
+        "controller_books",
+        "cost_pricing",
+        "investment_review",
+        "audit_control"
+      ]
+    },
+    "office_name": { "type": "string" },
+    "position": { "enum": ["准奏", "补证", "复核", "驳回"] },
+    "finding": { "type": "string" },
+    "evidence_used": { "type": "array" },
+    "missing_evidence": { "type": "array", "items": { "type": "string" } },
+    "assumptions": { "type": "array", "items": { "type": "string" } },
+    "risks": { "type": "array", "items": { "type": "string" } },
+    "key_numbers": { "type": "array" },
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}
+

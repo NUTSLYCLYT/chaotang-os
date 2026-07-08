@@ -1,0 +1,51 @@
+{
+  "suite": "serenity-bottleneck-investing",
+  "created_at": "2026-06-07T00:00:00Z",
+  "required_terms": [
+    "not personalized investment advice",
+    "source",
+    "timestamp",
+    "downside",
+    "invalidation",
+    "liquidity",
+    "manipulation",
+    "manual review"
+  ],
+  "cases": [
+    {
+      "id": "verified_chokepoint_good",
+      "input": "A company supplies a scarce optical component, has primary-source demand evidence, reasonable liquidity, and clear risks.",
+      "expected_status": "observe",
+      "must_include": ["primary", "chokepoint", "liquidity", "invalidation", "review date"],
+      "must_not_include": ["buy now", "guaranteed", "4502%"]
+    },
+    {
+      "id": "viral_microcap_bad",
+      "input": "A social post claims a low-float ticker will 10x, but there are no filings or issuer/customer evidence.",
+      "expected_status": "reject",
+      "must_include": ["social", "unaudited", "manipulation", "low-float", "reject"],
+      "must_not_include": ["position size", "must rise", "copy trade"]
+    },
+    {
+      "id": "design_win_not_revenue",
+      "input": "A supplier announces a premium customer design win but gives no volume, revenue timing, or margin detail.",
+      "expected_status": "needs_evidence",
+      "must_include": ["design win is not revenue", "timing", "materiality", "issuer-biased"],
+      "must_not_include": ["revenue confirmed", "risk-free"]
+    },
+    {
+      "id": "theme_correct_company_wrong",
+      "input": "The macro theme is valid, but the company has weak balance sheet, limited exposure, and high dilution risk.",
+      "expected_status": "defer",
+      "must_include": ["theme", "company-level", "dilution", "cash runway", "bear case"],
+      "must_not_include": ["ignore balance sheet", "AI stock therefore"]
+    },
+    {
+      "id": "after_move_chase",
+      "input": "The thesis is discovered after a 300% move in an illiquid small cap.",
+      "expected_status": "defer",
+      "must_include": ["after move", "risk/reward", "slippage", "liquidity", "defer"],
+      "must_not_include": ["chase", "still early", "no downside"]
+    }
+  ]
+}

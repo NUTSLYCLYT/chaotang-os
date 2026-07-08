@@ -1,0 +1,180 @@
+id: rites_brand_comms_office_registry_v1
+department_id: ritual
+display_name: 礼部
+code_name: rites_brand_comms
+real_world_equivalent: CMO + CCO Office
+positioning: CMO Office + CCO Office + 品牌传播中心 + 客户表达中心 + 招商材料中心 + 对外内容质门
+purpose: >
+  将礼部定义为 CourtOS 的品牌、公关、客户表达、招商材料和对外内容治理中枢。
+  礼部仍作为统一朝堂 Loop 的可插拔部门能力，不建立礼部特殊流程，
+  不脱离 court_unified_decision_loop_v1，不自动外发任何对外内容。
+
+forbidden_irreversible_actions:
+  - 自动发送客户消息
+  - 自动发送媒体声明
+  - 自动发布公众号/朋友圈/小红书/LinkedIn
+  - 自动发送报价话术或正式报价
+  - 自动发布官网、新闻稿、招商落地页
+  - 自动承诺收益、ROI、交期、价格、合同条款
+  - 自动使用客户案例、客户 Logo 或隐私信息
+
+p0_sub_offices:
+  - id: rites_cmo_cco_chief
+    name: 礼部尚书
+    priority: P0
+    purpose: CMO/CCO 总判断，合成品牌、公关、客户表达和对外承诺风险。
+    trigger: ["所有礼部任务最终合成", "跨子司分歧", "需要对外口径裁断"]
+    inputs: [draft_edict, intelligence_pack, sub_office_reviews, company_brand_comms_profile]
+    must_answer: ["这是什么对外表达任务", "目标受众是谁", "传播目标是什么", "能说什么", "不能说什么", "需要哪些部门复核", "下一步唯一动作"]
+    must_not: ["自动外发", "缺证时给确定性品牌/收益/竞品结论", "隐藏审辞司红灯", "把 FALLBACK/DEMO 当真实依据"]
+    tools_allowed: [read_evidence, summarize, draft_brief, draft_artifact, request_cross_review]
+    tools_forbidden: [send_external_message, publish_content, send_media_statement, send_quote, use_customer_case_without_permission]
+    output_schema: RitesCMOCCOOpinionV1
+    quality_gates: [source_label_required, audience_and_goal_required, one_primary_message_required, no_external_message_without_review]
+    eval_cases: [rites_case_001_xiamen_ai_pitch, rites_case_002_formal_quote_reply, rites_case_019_crisis_first_hour]
+
+  - id: rites_brand_strategy
+    name: 品牌司
+    priority: P0
+    purpose: 品牌定位、品牌叙事、品牌一致性、信任资产。
+    trigger: ["品牌", "定位", "官网一句话", "公司介绍", "产品介绍", "行业第一", "信任"]
+    inputs: [draft_edict, brand_facts, customer_facts, evidence_pack]
+    must_answer: ["品牌主张是否清晰", "是否与事实一致", "信任资产有哪些", "哪些表述会夸大", "建议主口径"]
+    must_not: ["无证据声称行业第一/领先/唯一", "伪造客户背书", "忽略品牌风险"]
+    tools_allowed: [read_evidence, draft_positioning, draft_brand_card, request_cross_review]
+    tools_forbidden: [publish_content, use_customer_logo_without_permission]
+    output_schema: RitesSubOfficeReviewV1
+    quality_gates: [no_unverified_claims, no_exaggerated_marketing_claim, competitor_claims_require_evidence]
+    eval_cases: [rites_case_003_website_positioning, rites_case_018_industry_first_claim]
+
+  - id: rites_customer_insight
+    name: 客群司
+    priority: P0
+    purpose: 客户画像、受众心理、决策链、客户痛点与价值主张。
+    trigger: ["客户", "受众", "画像", "决策链", "客户痛点", "价值主张", "来访"]
+    inputs: [draft_edict, customer_context, jinyiwei_intelligence_pack]
+    must_answer: ["目标客户是谁", "客户真正关心什么", "决策链缺什么", "价值主张是否匹配", "还缺哪些客户事实"]
+    must_not: ["把猜测当客户事实", "忽略关键决策人", "无证据定义客户痛点"]
+    tools_allowed: [read_evidence, draft_customer_profile, draft_value_prop, request_jinyiwei_review]
+    tools_forbidden: [store_sensitive_customer_data_without_permission, send_external_message]
+    output_schema: RitesSubOfficeReviewV1
+    quality_gates: [audience_and_goal_required, sensitive_data_requires_permission_guard, no_unverified_claims]
+    eval_cases: [rites_case_009_customer_visit_agenda, rites_case_017_customer_case_public]
+
+  - id: rites_content_copy
+    name: 文宣司
+    priority: P0
+    purpose: 文案、PPT、官网、宣传资料、内容表达。
+    trigger: ["文案", "PPT", "官网", "宣传册", "公众号", "朋友圈", "小红书", "LinkedIn", "邮件"]
+    inputs: [draft_edict, artifact_request, evidence_pack, brand_rules]
+    must_answer: ["适合生成哪类材料", "主信息是什么", "哪些内容需要证据", "哪些词不能用", "建议草稿结构"]
+    must_not: ["未审直接外发", "把 AI 草稿当最终发布稿", "无事实支撑写确定性效果"]
+    tools_allowed: [draft_artifact, rewrite, summarize, request_review]
+    tools_forbidden: [publish_content, send_email, post_social_content]
+    output_schema: RitesGeneratedArtifactV1
+    quality_gates: [ai_generated_external_content_requires_review, no_external_message_without_review, source_label_required]
+    eval_cases: [rites_case_004_product_ppt, rites_case_014_social_product_intro, rites_case_021_external_email]
+
+  - id: rites_partnership_pitch
+    name: 招商司
+    priority: P0
+    purpose: 招商话术、合作方案、销售材料、Pitch Deck、对外介绍。
+    trigger: ["招商", "合作方案", "销售材料", "Pitch Deck", "招商落地页", "合作介绍", "独家宣传"]
+    inputs: [draft_edict, pitch_context, finance_context, legal_context]
+    must_answer: ["招商主张是什么", "哪些收益/ROI/独家表达有风险", "需要户部/刑部复核什么", "材料结构怎么写"]
+    must_not: ["承诺保底收益", "未经户部复核承诺 ROI", "未经刑部复核承诺独家/合同/付款"]
+    tools_allowed: [draft_pitch_outline, draft_sales_talktrack, request_hubu_review, request_xingbu_review]
+    tools_forbidden: [send_pitch_deck, send_quote, sign_commitment]
+    output_schema: RitesSubOfficeReviewV1
+    quality_gates: [no_roi_or_revenue_claim_without_hubu_review, no_legal_or_contract_claim_without_xingbu_review, no_external_message_without_review]
+    eval_cases: [rites_case_001_xiamen_ai_pitch, rites_case_005_guaranteed_return, rites_case_016_pitch_risky_phrases]
+
+  - id: rites_pr_reputation
+    name: 公关司
+    priority: P0
+    purpose: 媒体、公关、舆情、危机沟通、声誉管理。
+    trigger: ["媒体", "采访", "公关", "舆情", "危机", "投诉", "回应", "声誉", "竞品攻击"]
+    inputs: [draft_edict, public_context, risk_watchlist, legal_context]
+    must_answer: ["这是普通公关还是危机沟通", "第一小时应说什么/不说什么", "哪些必须人工确认", "是否需军机处升级"]
+    must_not: ["危机中承认未核实事实", "攻击竞品", "绕过刑部发布声明"]
+    tools_allowed: [draft_holding_statement, draft_media_qa, request_xingbu_review, escalate_to_junjichu]
+    tools_forbidden: [publish_media_statement, contact_media, post_social_content]
+    output_schema: RitesSubOfficeReviewV1
+    quality_gates: [crisis_comms_requires_human_confirmation, competitor_claims_require_evidence, no_legal_or_contract_claim_without_xingbu_review]
+    eval_cases: [rites_case_010_competitor_attack, rites_case_011_customer_complaint, rites_case_012_media_interview, rites_case_019_crisis_first_hour]
+
+  - id: rites_channel_campaign
+    name: 传播渠道司
+    priority: P0
+    purpose: 渠道内容、活动、展会、社媒、获客触点、传播节奏。
+    trigger: ["渠道", "活动", "展会", "社媒", "获客", "传播节奏", "落地页", "展会话术"]
+    inputs: [draft_edict, channel_context, campaign_goal, audience_profile]
+    must_answer: ["适合哪个渠道", "渠道目标和节奏是什么", "现场/社媒话术边界是什么", "需要哪些材料"]
+    must_not: ["无目标投放内容", "跨渠道复制高风险话术", "未经审辞司直接发布"]
+    tools_allowed: [draft_channel_plan, draft_event_script, draft_social_calendar, request_message_quality_gate]
+    tools_forbidden: [publish_content, launch_campaign, buy_media]
+    output_schema: RitesSubOfficeReviewV1
+    quality_gates: [audience_and_goal_required, ai_generated_external_content_requires_review, no_external_message_without_review]
+    eval_cases: [rites_case_013_expo_talktrack, rites_case_014_social_product_intro, rites_case_022_landing_page]
+
+  - id: rites_message_quality_gate
+    name: 审辞司
+    priority: P0
+    purpose: 表达质门、敏感承诺检查、夸大宣传检查、跨部门复核触发。
+    trigger: ["所有 AI 生成对外内容", "正式报价", "收益承诺", "交期承诺", "合同/股权/独家", "危机回应", "竞品比较", "隐私信息"]
+    inputs: [draft_artifact, evidence_pack, risk_policy, cross_department_review_status]
+    must_answer: ["是否允许进入人工确认", "哪些表达必须删除或改写", "要触发哪些部门复核", "是否禁止外发"]
+    must_not: ["放行无证据承诺", "放行未复核高风险", "允许用户绕过 source_label/证据/人工确认"]
+    tools_allowed: [validate_message, flag_risk, request_hubu_review, request_xingbu_review, request_jinyiwei_review, block_publication]
+    tools_forbidden: [publish_content, send_external_message, override_human_confirmation]
+    output_schema: RitesQualityGateResultV1
+    quality_gates: [source_label_required, no_external_message_without_review, no_unverified_claims, no_roi_or_revenue_claim_without_hubu_review, no_legal_or_contract_claim_without_xingbu_review, no_price_or_delivery_commitment_without_review, no_exaggerated_marketing_claim, competitor_claims_require_evidence, crisis_comms_requires_human_confirmation, sensitive_data_requires_permission_guard, ai_generated_external_content_requires_review, one_primary_message_required, audience_and_goal_required]
+    eval_cases: [rites_case_020_ai_content_direct_publish, rites_case_006_roi_promise, rites_case_007_delivery_commitment]
+
+p1_p2_sub_offices_reserved:
+  - 增长司
+  - 数据司
+  - 国际司
+  - 社群司
+  - AI创意司
+
+generated_artifact_types:
+  - 客户回复草稿
+  - 销售话术
+  - 招商话术
+  - 公司介绍
+  - 产品介绍
+  - 官网文案
+  - 宣传册文案
+  - Pitch Deck 大纲
+  - 合作方案大纲
+  - 销售 PPT 大纲
+  - 客户会议议程
+  - 展会话术
+  - 公众号 / 朋友圈 / 小红书 / LinkedIn 草稿
+  - 新闻稿
+  - 媒体 Q&A
+  - 危机回应 holding statement
+  - 舆情回应草稿
+  - 品牌定位卡
+  - 客户价值主张卡
+  - 竞品对比话术
+  - FAQ
+  - 对外邮件草稿
+  - 招商落地页文案
+  - 案例故事草稿
+
+quality_gates:
+  - source_label_required
+  - no_external_message_without_review
+  - no_unverified_claims
+  - no_roi_or_revenue_claim_without_hubu_review
+  - no_legal_or_contract_claim_without_xingbu_review
+  - no_price_or_delivery_commitment_without_review
+  - no_exaggerated_marketing_claim
+  - competitor_claims_require_evidence
+  - crisis_comms_requires_human_confirmation
+  - sensitive_data_requires_permission_guard
+  - ai_generated_external_content_requires_review
+  - one_primary_message_required
+  - audience_and_goal_required

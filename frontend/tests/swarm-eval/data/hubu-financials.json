@@ -1,0 +1,33 @@
+{
+  "_note": "户部数据源（脱敏·完整·含上年同期）。生产环境替换为真实 ERP/财报 API；此处为结构化整套数据，供 run-hubu-agent 派生准确指标。单位：万元 RMB。",
+  "period": "2026-Q1",
+  "priorPeriod": "2025-Q1",
+  "revenueByChannel": {
+    "direct":    { "label": "直销",     "curr": 4200, "prior": 3500, "cogs": 2730, "priorCogs": 2310 },
+    "distribution": { "label": "渠道分销", "curr": 2600, "prior": 2400, "cogs": 2210, "priorCogs": 1992 },
+    "online":    { "label": "线上自营",   "curr": 1800, "prior": 1300, "cogs": 1170, "priorCogs": 871 },
+    "overseas":  { "label": "海外",       "curr": 900,  "prior": 900,  "cogs": 720,  "priorCogs": 693 }
+  },
+  "costs": {
+    "rawMaterial": { "label": "原材料", "curr": 3100, "prior": 2600 },
+    "labor":       { "label": "人力",   "curr": 2200, "prior": 1750 },
+    "logistics":   { "label": "物流仓储", "curr": 760, "prior": 600 },
+    "marketing":   { "label": "营销",   "curr": 1400, "prior": 980 },
+    "other":       { "label": "其它",   "curr": 540,  "prior": 488 }
+  },
+  "pnl": {
+    "revenue":  { "curr": 9500, "prior": 8100 },
+    "totalCost":{ "curr": 8000, "prior": 6418 },
+    "grossProfit": { "curr": 3600, "prior": 3186 },
+    "netProfit":   { "curr": 1100, "prior": 1085 }
+  },
+  "cashFlow": {
+    "operatingCashFlowNet": { "curr": 620, "prior": 980 },
+    "accountsReceivable":   { "curr": 2100, "prior": 1500, "dsoDays": 75, "priorDsoDays": 58 },
+    "accountsPayable":      { "curr": 1500, "prior": 1350 },
+    "cashAndEquivalents":   { "curr": 1800, "prior": 2100 }
+  },
+  "debt": {
+    "shortTermLoan": { "amount": 800, "dueMonth": "2026-06", "rateAnnualPct": 4.5 }
+  }
+}

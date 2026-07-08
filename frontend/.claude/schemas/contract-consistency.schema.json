@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ContractConsistencyVerdict",
+  "description": "朝堂专属:验证新代码是否遵守 AGENTS.md 的契约/视觉/依赖纪律。",
+  "type": "object",
+  "properties": {
+    "dimension": { "type": "string", "enum": ["contracts", "components", "visual-freeze"] },
+    "compliant": { "type": "boolean" },
+    "violations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "rule":     { "type": "string", "description": "被违反的 AGENTS.md 规则,如 '从 lib/types import' / '新装 lucide-react' / '改 design-tokens'" },
+          "file":     { "type": "string" },
+          "line":     { "type": "number" },
+          "evidence": { "type": "string" },
+          "fix":      { "type": "string" }
+        },
+        "required": ["rule", "file", "evidence"]
+      }
+    }
+  },
+  "required": ["dimension", "compliant", "violations"]
+}

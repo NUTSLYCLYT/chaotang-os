@@ -1,0 +1,234 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - link "返回上书房" [ref=e4] [cursor=pointer]:
+        - /url: /chaotang/court-briefing
+        - img [ref=e6]
+        - generic [ref=e19]:
+          - generic [ref=e20]: 朝堂 OS
+          - generic [ref=e21]: 上值朝 · AI 智能办公
+      - generic [ref=e22]:
+        - button "查看真能力与演示边界" [ref=e24]:
+          - img [ref=e25]
+          - generic [ref=e28]: 能力边界
+        - button "通知 · 0 条未读" [ref=e29]:
+          - img [ref=e30]
+        - button "帮助 · 钦天监导师" [ref=e33]:
+          - img [ref=e34]
+        - generic "皇上" [ref=e37]: 皇
+        - button "用户菜单" [ref=e39]
+    - main [ref=e40]:
+      - generic [ref=e41]:
+        - generic [ref=e43]:
+          - img "六部"
+          - button "查看 吏部 · 组织人才域 蜂群状态" [ref=e44] [cursor=pointer]:
+            - generic: 览
+            - generic [ref=e45]:
+              - link "前往 吏部 · 组织人才域 部门页面" [ref=e46]:
+                - /url: /chaotang/departments/personnel
+                - img [ref=e47]
+              - generic [ref=e50]: 吏部 · 组织人才域
+            - generic [ref=e51]:
+              - generic [ref=e52]:
+                - generic [ref=e53]: 核心岗位
+                - generic [ref=e54]: 186 个
+              - generic [ref=e55]:
+                - generic [ref=e56]: 在岗人才
+                - generic [ref=e57]: 2,480 人
+              - generic [ref=e58]:
+                - generic [ref=e59]: 较昨日
+                - generic [ref=e60]: "+12"
+          - button "查看 户部 · 财税资荟 蜂群状态" [ref=e61] [cursor=pointer]:
+            - generic: 览
+            - generic [ref=e62]:
+              - link "前往 户部 · 财税资荟 部门页面" [ref=e63]:
+                - /url: /chaotang/departments/finance
+                - img [ref=e64]
+              - generic [ref=e67]: 户部 · 财税资荟
+            - generic [ref=e68]:
+              - generic [ref=e69]:
+                - generic [ref=e70]: 可用资金
+                - generic [ref=e71]: 12.8 亿
+              - generic [ref=e72]:
+                - generic [ref=e73]: 预算项目
+                - generic [ref=e74]: 96 个
+              - generic [ref=e75]:
+                - generic [ref=e76]: 较昨日
+                - generic [ref=e77]: +0.6%
+          - button "查看 礼部 · 品牌客户域 蜂群状态" [ref=e78] [cursor=pointer]:
+            - generic: 览
+            - generic [ref=e79]:
+              - link "前往 礼部 · 品牌客户域 部门页面" [ref=e80]:
+                - /url: /chaotang/departments/market
+                - img [ref=e81]
+              - generic [ref=e84]: 礼部 · 品牌客户域
+            - generic [ref=e85]:
+              - generic [ref=e86]:
+                - generic [ref=e87]: 客户总数
+                - generic [ref=e88]: 3,682 家
+              - generic [ref=e89]:
+                - generic [ref=e90]: 签约客户
+                - generic [ref=e91]: 268 家
+              - generic [ref=e92]:
+                - generic [ref=e93]: 较昨日
+                - generic [ref=e94]: "+28"
+          - button "查看 兵部 · 任务作战台 蜂群状态" [ref=e95] [cursor=pointer]:
+            - generic: 览
+            - generic [ref=e96]:
+              - link "前往 兵部 · 任务作战台 部门页面" [ref=e97]:
+                - /url: /chaotang/departments/ops
+                - img [ref=e98]
+              - generic [ref=e100]: 兵部 · 任务作战台
+            - generic [ref=e101]:
+              - generic [ref=e102]:
+                - generic [ref=e103]: 在办任务
+                - generic [ref=e104]: 128 个
+              - generic [ref=e105]:
+                - generic [ref=e106]: 重点战役
+                - generic [ref=e107]: 23 场
+              - generic [ref=e108]:
+                - generic [ref=e109]: 较昨日
+                - generic [ref=e110]: "+3"
+          - button "查看 刑部 · 风控法务司 蜂群状态" [ref=e111] [cursor=pointer]:
+            - generic: 览
+            - generic [ref=e112]:
+              - link "前往 刑部 · 风控法务司 部门页面" [ref=e113]:
+                - /url: /chaotang/departments/legal
+                - img [ref=e114]
+              - generic [ref=e117]: 刑部 · 风控法务司
+            - generic [ref=e118]:
+              - generic [ref=e119]:
+                - generic [ref=e120]: 审理案件
+                - generic [ref=e121]: 42 起
+              - generic [ref=e122]:
+                - generic [ref=e123]: 预警风险
+                - generic [ref=e124]: 3 条
+              - generic [ref=e125]:
+                - generic [ref=e126]: 较昨日
+                - generic [ref=e127]: "+1"
+          - button "查看 工部 · 研发供应链 蜂群状态" [ref=e128] [cursor=pointer]:
+            - generic: 览
+            - generic [ref=e129]:
+              - link "前往 工部 · 研发供应链 部门页面" [ref=e130]:
+                - /url: /chaotang/departments/gongbu
+                - img [ref=e131]
+              - generic [ref=e134]: 工部 · 研发供应链
+            - generic [ref=e135]:
+              - generic [ref=e136]:
+                - generic [ref=e137]: 研发项目
+                - generic [ref=e138]: 36 个
+              - generic [ref=e139]:
+                - generic [ref=e140]: 供给覆盖
+                - generic [ref=e141]: 8,952 项
+              - generic [ref=e142]:
+                - generic [ref=e143]: 较昨日
+                - generic [ref=e144]: "+186"
+          - generic [ref=e250]:
+            - generic [ref=e251]:
+              - button "📋 项目经营盘 (5)" [ref=e252] [cursor=pointer]
+              - button "💰 政策资金 (6)" [ref=e253] [cursor=pointer]
+            - generic [ref=e254]:
+              - generic [ref=e255]:
+                - generic [ref=e256]:
+                  - generic [ref=e257]: 朝堂 OS MVP
+                  - generic [ref=e258]: 生长
+                - generic [ref=e259]: 完成上书房、大殿、军机处、庄园、史馆五大空间及6个部门页
+                - generic [ref=e262]:
+                  - generic [ref=e263]: "下个里程碑: OpenClaw 接入"
+                  - generic [ref=e264]: 85%
+              - generic [ref=e265]:
+                - generic [ref=e266]:
+                  - generic [ref=e267]: 低温电池市场拓展
+                  - generic [ref=e268]: 开花
+                - generic [ref=e269]: 低温电池技术-市场协同分析，规划北方十省落地路径
+                - generic [ref=e272]:
+                  - generic [ref=e273]: "下个里程碑: 联合攻关方案确认"
+                  - generic [ref=e274]: 60%
+              - generic [ref=e275]:
+                - generic [ref=e276]:
+                  - generic [ref=e277]: 厦门 AI 样板间
+                  - generic [ref=e278]: 发芽
+                - generic [ref=e279]: 厦门 AI 公司合作方案设计与招商材料准备
+                - generic [ref=e282]:
+                  - generic [ref=e283]: "下个里程碑: 股权架构方案"
+                  - generic [ref=e284]: 30%
+              - generic [ref=e285]:
+                - generic [ref=e286]:
+                  - generic [ref=e287]: PACK 智能体工作流
+                  - generic [ref=e288]: 种子
+                - generic [ref=e289]: 新能源 PACK 智能体方案:需求分析→方案生成→报价→合同
+                - generic [ref=e292]:
+                  - generic [ref=e293]: "下个里程碑: 知识库搭建"
+                  - generic [ref=e294]: 15%
+              - generic [ref=e295]:
+                - generic [ref=e296]:
+                  - generic [ref=e297]: 供应链优化
+                  - generic [ref=e298]: 种子
+                - generic [ref=e299]: 补齐 PACK 供应链报价库,建立供应商比价机制
+                - generic [ref=e302]:
+                  - generic [ref=e303]: "下个里程碑: 供应商名录"
+                  - generic [ref=e304]: 10%
+          - generic [ref=e145]:
+            - button "天下大势图" [ref=e146]:
+              - img [ref=e148]
+              - text: 天下大势图
+            - button "全国区域" [ref=e152]:
+              - text: 全国区域
+              - img [ref=e154]
+          - generic [ref=e156]:
+            - generic [ref=e157]: 安
+            - generic [ref=e158]: 庄园运转正常，一切尽在掌控
+            - generic [ref=e159]: 运转中
+            - button "查看详情" [ref=e161]:
+              - generic [ref=e162]: 查看详情
+              - img [ref=e165]
+        - generic [ref=e169]:
+          - generic [ref=e170]:
+            - button "展开对话" [ref=e171]
+            - generic [ref=e172]:
+              - generic [ref=e173]:
+                - generic [ref=e174]: 六部下旨
+                - generic "传旨台来源：MIXED" [ref=e175]:
+                  - text: MIXED
+                  - generic [ref=e177]: 混合
+                - generic [ref=e178]: 苏秦 · 六部总管
+              - generic [ref=e179]: 苏秦候旨：六部只认资产、负责人、产出物和验收口。
+            - generic [ref=e180]:
+              - generic [ref=e181]:
+                - generic [ref=e182]: 资产
+                - generic [ref=e183]: 在盘
+              - generic [ref=e184]:
+                - generic [ref=e185]: 协同
+                - generic [ref=e186]: 待派
+              - generic [ref=e187]:
+                - generic [ref=e188]: 回写
+                - generic [ref=e189]: 开启
+            - generic [ref=e190]:
+              - button "项目巡检" [ref=e191]
+              - textbox "向六部下旨：查资产、派协同、追回写..." [ref=e192]
+              - button "下旨" [disabled] [ref=e193]:
+                - img [ref=e194]
+                - text: 下旨
+            - button "展开" [ref=e197]:
+              - img [ref=e198]
+          - generic [ref=e201]:
+            - button "项目巡检" [ref=e202]
+            - button "风险会审" [ref=e203]
+            - button "协同分派" [ref=e204]
+    - status [ref=e205]:
+      - img [ref=e209]
+      - generic [ref=e211]: 朝堂脉搏
+      - generic [ref=e212]: ·
+      - generic [ref=e305]: 14 路正在办理 · 六部协同
+    - button "朱笔批注 · Alt+B" [ref=e216]:
+      - img [ref=e217]
+    - generic [ref=e221]:
+      - generic [ref=e223] [cursor=pointer]:
+        - img [ref=e224]
+        - generic [ref=e227]: 今日先读上书房简报，再下一道最小可执行旨
+      - button "钦天监" [ref=e228]:
+        - img "钦天监" [ref=e229]
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e246] [cursor=pointer]:
+    - img [ref=e247]
+  - alert [ref=e307]

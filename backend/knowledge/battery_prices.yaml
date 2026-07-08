@@ -1,0 +1,150 @@
+meta:
+  updated_at: "2026-04-01"
+  maintainer: "产品部"
+  version: "1.0"
+  description: "低温电池产品参数与价格区间（内部参考数据）"
+
+products:
+  - model: "LFP-40C-100Ah"
+    category: "磷酸铁锂电芯"
+    capacity: "100Ah"
+    voltage: "3.2V"
+    temp_range: "-40°C ~ 60°C"
+    cycle_life: "≥3000次 (常温), ≥1500次 (-20°C)"
+    discharge_rate: "1C (常温), 0.5C (-40°C)"
+    energy_density: "160Wh/kg"
+    price_range: "350-420元/只"
+    moq: "1000只"
+    lead_time: "6-8周"
+    note: "特种低温王牌产品。-40°C放电保持率≥70%（经第三方低温测试报告验证，报告编号待补登记）。注意：此≥70%为本特种电芯实测值，不可外推到通用LFP（通用LFP -40°C约30-50%）。低温充电仍须主动加热（锂析出安全约束，与放电保持率无关）。对客户引用≥70%时须注明测试报告依据。"
+
+  - model: "LFP-25C-280Ah"
+    category: "磷酸铁锂电芯"
+    capacity: "280Ah"
+    voltage: "3.2V"
+    temp_range: "-25°C ~ 55°C"
+    cycle_life: "≥4000次 (常温)"
+    discharge_rate: "1C"
+    energy_density: "170Wh/kg"
+    price_range: "780-850元/只"
+    moq: "500只"
+    lead_time: "4-6周"
+    note: "储能标准品，性价比最优"
+
+  - model: "NCM-40C-50Ah"
+    category: "三元锂电芯"
+    capacity: "50Ah"
+    voltage: "3.7V"
+    temp_range: "-40°C ~ 55°C"
+    cycle_life: "≥2000次 (常温), ≥800次 (-20°C)"
+    discharge_rate: "2C (常温), 1C (-40°C)"
+    energy_density: "230Wh/kg"
+    price_range: "280-340元/只"
+    moq: "2000只"
+    lead_time: "8-10周"
+    note: "高能量密度低温方案，适合移动储能"
+
+  - model: "LTO-50C-40Ah"
+    category: "钛酸锂电芯"
+    capacity: "40Ah"
+    voltage: "2.3V"
+    temp_range: "-50°C ~ 65°C"
+    cycle_life: "≥10000次"
+    discharge_rate: "5C (全温域)"
+    energy_density: "70Wh/kg"
+    price_range: "420-500元/只"
+    moq: "500只"
+    lead_time: "10-12周"
+    note: "极寒场景首选，循环寿命最长，但能量密度低"
+
+pack_solutions:
+  - name: "标准低温储能PACK"
+    config: "1P280S (LFP-25C-280Ah)"
+    voltage: "896V"
+    capacity: "250kWh"
+    bms: "自研BMS-V3（含自加热模块）"
+    price_range: "0.85-1.0元/Wh (PACK级)"
+    note: "含PCS接口，支持并联扩容"
+
+  - name: "极寒移动储能PACK"
+    config: "4P120S (LFP-40C-100Ah)"
+    voltage: "384V"
+    capacity: "128kWh"
+    bms: "工业级BMS-M1（-50°C启动）"
+    price_range: "1.2-1.5元/Wh (PACK级)"
+    note: "车载/工程集成，含工业级振动防护"
+
+  - name: "高能量密度低温PACK"
+    config: "2P96S (NCM-40C-50Ah)"
+    voltage: "355V"
+    capacity: "35.5kWh"
+    bms: "标准BMS-S2（含均衡+低温预热）"
+    price_range: "1.0-1.2元/Wh (PACK级)"
+    note: "轻量化设计，适合AGV/工业巡检"
+
+competitor_reference:
+  - brand: "宁德时代"
+    low_temp_product: "磷酸铁锂低温版"
+    temp_range: "-35°C ~ 55°C"
+    price_level: "偏高15-20%"
+    advantage: "品牌溢价，产能保障"
+
+  - brand: "比亚迪(弗迪)"
+    low_temp_product: "刀片电池低温版"
+    temp_range: "-30°C ~ 60°C"
+    price_level: "持平"
+    advantage: "CTP集成度高，安全性口碑"
+
+  - brand: "亿纬锂能"
+    low_temp_product: "大圆柱低温系列"
+    temp_range: "-30°C ~ 55°C"
+    price_level: "偏低5-10%"
+    advantage: "价格竞争力，大圆柱产能充足"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 真实采购数据补登(2026-06-22 从采购部备份 H:\各部门备份\采购部 提取真实报价单/采购台账)
+# 目的:解 pack_rd 选中的 cell_library 电芯在价格库无对应型号 → 缺价致 C1 不自洽。
+# 补一个「可推广的 ¥/Ah 基准 + 真组件价」,成本 agent 正推时可对任意电芯算真单价(非编价)。
+# 所有数字标注真实来源(报价单/采购清单),满足 C3 事实有据。
+# ─────────────────────────────────────────────────────────────────────────────
+cell_price_benchmark:
+  description: "电芯单价基准(元/Ah，含税)，按化学体系。成本正推:电芯单价 ≈ 容量Ah × 基准¥/Ah。数字均来自真实供应商报价/内部价格库,可直接据以核算 BOM,不得再标缺证。"
+  by_chemistry:
+    - chemistry: "磷酸铁锂(LFP)·小容量量产线"
+      price_per_ah: 9.32
+      unit_example: "36Ah ≈ 326.2元/只(含税)"
+      moq: "≥3000只"
+      lead_time: "30天(模具到后);非本司量产型号另收模具费350000元"
+      supplier: "浙江金羽新能源科技"
+      source: "金羽报价单 MS 2023-12-05(采购部真实报价单)"
+    - chemistry: "磷酸铁锂(LFP)·大容量储能"
+      price_per_ah_range: "2.8-4.2"
+      unit_example: "100Ah≈350-420元/只;280Ah≈780-850元/只"
+      source: "本库 products 段 LFP 系列"
+    - chemistry: "三元(NCM)·低温"
+      price_per_ah_range: "5.6-6.8"
+      unit_example: "50Ah≈280-340元/只"
+      source: "本库 products 段 NCM 系列"
+    - chemistry: "钛酸锂(LTO)·极寒"
+      price_per_ah_range: "10.5-12.5"
+      unit_example: "40Ah≈420-500元/只"
+      source: "本库 products 段 LTO 系列"
+
+bom_components:
+  description: "PACK 非电芯 BOM 组件真实单价(元)。来源:11.1V6Ah电池组报价清单(采购部真实报价)。成本正推时直接据此累加,不得标缺证。"
+  items:
+    - name: "保护板/小型BMS(3串硬件板,保护电流3A)"
+      unit_price: 15
+      spec: "尺寸≤35*25*3mm"
+      source: "11.1V6Ah报价清单"
+    - name: "铜端子(六角磁极,M3铜螺丝)"
+      unit_price: 30
+      source: "11.1V6Ah报价清单"
+    - name: "注塑电池盒"
+      unit_price: 50
+      tooling_fee: 35000
+      spec: "25*70*174mm 注塑(参照图纸)"
+      source: "11.1V6Ah报价清单"
+    - name: "圆柱电芯参考(三洋常温2200mAh)"
+      unit_price: 11
+      source: "11.1V6Ah报价清单(电芯99元/9支)"

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HubuCFOOpinionV1",
+  "type": "object",
+  "required": [
+    "department",
+    "cfoPosition",
+    "confidence",
+    "executiveSummary",
+    "financeQuestionType",
+    "keyNumbers",
+    "subOfficeOpinions",
+    "evidenceUsed",
+    "missingEvidence",
+    "assumptions",
+    "riskRegister",
+    "recommendedNextAction",
+    "humanConfirmationRequired",
+    "sourceLabel"
+  ],
+  "properties": {
+    "department": { "const": "户部" },
+    "cfoPosition": { "enum": ["准奏", "补证", "复核", "驳回"] },
+    "confidence": { "enum": ["高", "中", "低"] },
+    "executiveSummary": { "type": "string" },
+    "financeQuestionType": {
+      "enum": [
+        "报价审查",
+        "投资评审",
+        "预算审批",
+        "现金流判断",
+        "成本毛利分析",
+        "回款与账期判断",
+        "合同财务条款审查",
+        "融资/借款判断",
+        "采购付款判断",
+        "招聘/组织成本判断",
+        "经营复盘",
+        "异常风险审计",
+        "其他财务问题"
+      ]
+    },
+    "keyNumbers": { "type": "array" },
+    "subOfficeOpinions": { "type": "array" },
+    "evidenceUsed": { "type": "array" },
+    "missingEvidence": { "type": "array", "items": { "type": "string" } },
+    "assumptions": { "type": "array", "items": { "type": "string" } },
+    "riskRegister": { "type": "array", "items": { "type": "string" } },
+    "recommendedNextAction": { "type": "string" },
+    "questionsForEmperor": { "type": "array", "items": { "type": "string" } },
+    "humanConfirmationRequired": { "type": "boolean" },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  }
+}
+

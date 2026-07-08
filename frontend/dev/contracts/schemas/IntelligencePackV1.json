@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IntelligencePackV1",
+  "type": "object",
+  "required": ["department", "packId", "executiveSummary", "intelligenceTypes", "sources", "claimEvidence", "gaps", "unsupportedClaims", "sourceReliability", "qualityGate", "sourceLabel", "source_label"],
+  "properties": {
+    "department": { "const": "锦衣卫" },
+    "packId": { "type": "string" },
+    "executiveSummary": { "type": "string" },
+    "intelligenceTypes": { "type": "array", "items": { "enum": ["CUSTOMER_INTEL", "COMPETITOR_INTEL", "MARKET_INTEL", "POLICY_INTEL", "PROJECT_INTEL", "INTERNAL_INTEL", "RISK_INTEL", "PEOPLE_INTEL"] } },
+    "sources": { "type": "array" },
+    "claimEvidence": { "type": "array" },
+    "gaps": { "type": "array" },
+    "unsupportedClaims": { "type": "array", "items": { "type": "string" } },
+    "sourceReliability": { "type": "array" },
+    "sourceConflicts": { "type": "array", "items": { "type": "string" } },
+    "watchlistAlerts": { "type": "array" },
+    "archiveLinks": { "type": "array", "items": { "type": "string" } },
+    "generatedArtifacts": { "type": "array", "items": { "type": "string" } },
+    "recommendedDepartmentReviews": { "type": "array", "items": { "enum": ["finance", "war", "personnel", "justice", "ritual", "works"] } },
+    "qualityGate": { "type": "object" },
+    "sourceLabel": { "$ref": "#/$defs/source_label" },
+    "source_label": { "$ref": "#/$defs/source_label" }
+  },
+  "$defs": {
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

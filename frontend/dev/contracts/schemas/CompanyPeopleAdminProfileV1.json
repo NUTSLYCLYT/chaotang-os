@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CompanyPeopleAdminProfileV1",
+  "type": "object",
+  "required": ["employeeCount", "libuMode", "sourceLabel"],
+  "properties": {
+    "employeeCount": { "type": "integer", "minimum": 1 },
+    "headcountBand": { "enum": ["1-10", "10-50", "50-200", "200-1000", "1000+"] },
+    "managementMaturity": { "enum": ["low", "medium", "high"] },
+    "industry": { "type": "string" },
+    "riskAppetite": { "enum": ["conservative", "balanced", "aggressive"] },
+    "libuMode": {
+      "enum": ["founder_assistant", "small_team_hr", "growth_hrd", "chro_cao", "group_enterprise"]
+    },
+    "userPreferredView": {
+      "enum": ["brief", "management_detail", "professional_detail"]
+    },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

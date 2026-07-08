@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GongbuCTOCPOOpinionV1",
+  "type": "object",
+  "required": [
+    "department",
+    "ctoCpoPosition",
+    "confidence",
+    "executiveSummary",
+    "deliveryQuestionType",
+    "deliveryCommitmentRisk",
+    "subOfficeOpinions",
+    "evidenceUsed",
+    "missingEvidence",
+    "riskRegister",
+    "forbiddenActions",
+    "crossDepartmentReviews",
+    "recommendedNextAction",
+    "humanConfirmationRequired",
+    "source_label"
+  ],
+  "properties": {
+    "department": { "const": "工部" },
+    "ctoCpoPosition": { "enum": ["准奏", "补证", "复核", "驳回"] },
+    "confidence": { "enum": ["高", "中", "低"] },
+    "executiveSummary": { "type": "string" },
+    "deliveryQuestionType": {
+      "enum": [
+        "STORAGE_OR_HARDWARE_PROJECT",
+        "BOM_SUPPLY_CHAIN",
+        "TECHNICAL_FEASIBILITY",
+        "MVP_SCOPE",
+        "SCHEDULE_CAPACITY",
+        "QUALITY_ACCEPTANCE",
+        "FIELD_IMPLEMENTATION",
+        "DELIVERY_COMMITMENT",
+        "SCOPE_CHANGE",
+        "DELIVERY_REVIEW",
+        "OTHER_DELIVERY_RISK"
+      ]
+    },
+    "deliveryCommitmentRisk": { "type": "boolean" },
+    "subOfficeOpinions": { "type": "array" },
+    "evidenceUsed": { "type": "array" },
+    "missingEvidence": { "type": "array", "items": { "type": "string" } },
+    "assumptions": { "type": "array", "items": { "type": "string" } },
+    "riskRegister": { "type": "array", "items": { "type": "string" } },
+    "forbiddenActions": { "type": "array", "items": { "type": "string" } },
+    "crossDepartmentReviews": {
+      "type": "array",
+      "items": { "enum": ["finance", "war", "personnel", "justice", "ritual", "jinyiwei"] }
+    },
+    "recommendedNextAction": { "type": "string" },
+    "generatedArtifactsAvailable": { "type": "array", "items": { "type": "string" } },
+    "questionsForEmperor": { "type": "array", "items": { "type": "string" } },
+    "humanConfirmationRequired": { "type": "boolean" },
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

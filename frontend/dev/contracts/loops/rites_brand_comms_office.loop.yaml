@@ -1,0 +1,130 @@
+id: rites_brand_comms_office_loop_v1
+name: 礼部 CMO/CCO Office 子循环
+version: 0.2.0
+owner: courtos/rites_brand_comms
+purpose: >
+  接收军机处工作令，从 CMO/CCO 视角组织品牌、客群、文宣、招商、公关、渠道、审辞等子司，
+  形成可进入朝堂奏折的礼部分奏，回答“对谁说、为什么说、能说什么、不能说什么、怎么说、是否可外发”。
+  本循环只能通过统一 court_unified_decision_loop_v1 调用，不建立礼部特殊流程。
+
+entrypoints:
+  - enabled_department_review.ritual
+  - junjichu_department_work_order.ritual
+  - resubmit_after_brand_comms_evidence
+
+state_model:
+  allowed_states:
+    - received
+    - classified
+    - evidence_collecting
+    - sub_offices_reviewing
+    - cmo_cco_synthesizing
+    - quality_gating
+    - returned_to_junjichu
+    - failed_with_recovery
+
+source_policy:
+  allowed_labels:
+    - LIVE
+    - LIVE_SWARM
+    - MIXED
+    - FALLBACK
+    - DEMO
+  rules:
+    - 所有礼部分奏、草稿、质门、交互卡必须有 sourceLabel。
+    - FALLBACK/DEMO 不得作为最终外发依据。
+    - AI 生成内容只能作为草稿，必须经过审辞司质门和必要人工确认。
+
+steps:
+  - id: receive_rites_work_order
+    name: 礼部接令
+    inputs:
+      - confirmed_edict
+      - review_plan
+      - intelligence_pack
+      - department_work_order
+    gates:
+      - source_label_required
+
+  - id: classify_brand_comms_question
+    name: 品牌传播问题分类
+    skill: skill.rites_brand_comms.classify_question
+    outputs:
+      - brand_comms_question_type
+      - audience
+      - goal
+      - channel
+      - requested_artifact_types
+      - required_sub_offices
+      - required_cross_department_reviews
+      - message_risk_level
+    gates:
+      - audience_and_goal_required
+
+  - id: collect_brand_comms_evidence
+    name: 收集品牌传播证据
+    skill: skill.rites_brand_comms.collect_evidence
+    outputs:
+      - brand_comms_evidence_pack
+      - missing_evidence
+      - assumptions
+    gates:
+      - evidence_or_gap_required
+      - no_unverified_claims
+
+  - id: run_rites_sub_offices
+    name: 礼部子司并行审查
+    type: parallel
+    branches:
+      - id: brand_strategy
+        skill: skill.rites_brand_comms.brand_strategy_review
+      - id: customer_insight
+        skill: skill.rites_brand_comms.customer_insight_review
+      - id: content_copy
+        skill: skill.rites_brand_comms.content_copy_review
+      - id: partnership_pitch
+        skill: skill.rites_brand_comms.partnership_pitch_review
+      - id: pr_reputation
+        skill: skill.rites_brand_comms.pr_reputation_review
+      - id: channel_campaign
+        skill: skill.rites_brand_comms.channel_campaign_review
+      - id: message_quality_gate
+        skill: skill.rites_brand_comms.message_quality_gate_review
+    outputs:
+      - sub_office_reviews
+      - generated_artifacts
+
+  - id: synthesize_cmo_cco_position
+    name: 礼部尚书合成 CMO/CCO 立场
+    skill: skill.rites_brand_comms.cmo_cco_synthesize_position
+    outputs:
+      - rites_cmo_cco_opinion
+      - rites_interaction_card
+    gates:
+      - one_primary_message_required
+      - no_external_message_without_review
+
+  - id: rites_quality_gate
+    name: 礼部审辞质门
+    skill: skill.rites_brand_comms.message_quality_gate
+    gates:
+      - source_label_required
+      - no_external_message_without_review
+      - no_unverified_claims
+      - no_roi_or_revenue_claim_without_hubu_review
+      - no_legal_or_contract_claim_without_xingbu_review
+      - no_price_or_delivery_commitment_without_review
+      - no_exaggerated_marketing_claim
+      - competitor_claims_require_evidence
+      - crisis_comms_requires_human_confirmation
+      - sensitive_data_requires_permission_guard
+      - ai_generated_external_content_requires_review
+      - one_primary_message_required
+      - audience_and_goal_required
+
+  - id: return_to_junjichu
+    name: 回传军机处
+    outputs:
+      - DepartmentOpinionV1
+      - RitesCMOCCOOpinionV1
+      - RitesQualityGateResultV1

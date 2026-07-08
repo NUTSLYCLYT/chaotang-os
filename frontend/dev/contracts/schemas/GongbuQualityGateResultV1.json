@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GongbuQualityGateResultV1",
+  "type": "object",
+  "required": ["passed", "signal", "verdict", "checkedGates", "blockingIssues", "warnings", "requiredActions", "humanConfirmationRequired", "sourceLabel"],
+  "properties": {
+    "passed": { "type": "boolean" },
+    "signal": { "enum": ["GREEN", "YELLOW", "RED", "GRAY"] },
+    "verdict": { "enum": ["APPROVE", "NEED_EVIDENCE", "RECHECK", "REJECT"] },
+    "checkedGates": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "source_label_required",
+          "evidence_or_gap_required",
+          "no_delivery_commitment_without_bom_and_schedule",
+          "no_fixed_date_without_capacity_and_dependencies",
+          "formal_delivery_commitment_requires_xingbu_review",
+          "price_or_cost_claim_requires_hubu_review",
+          "customer_timeline_requires_war_review",
+          "scope_change_requires_personnel_or_owner_review",
+          "acceptance_requires_test_plan_and_acceptance_criteria",
+          "supplier_lock_requires_contract_and_supply_evidence",
+          "safety_or_compliance_risk_requires_human_confirmation",
+          "no_auto_external_delivery_commitment",
+          "high_risk_requires_human_confirmation",
+          "one_primary_delivery_next_action_required",
+          "fallback_cannot_be_final_delivery_basis"
+        ]
+      }
+    },
+    "blockingIssues": { "type": "array", "items": { "type": "string" } },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "requiredActions": { "type": "array", "items": { "type": "string" } },
+    "humanConfirmationRequired": { "type": "boolean" },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

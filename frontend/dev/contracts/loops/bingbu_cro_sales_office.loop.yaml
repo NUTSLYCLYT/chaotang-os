@@ -1,0 +1,72 @@
+id: bingbu_cro_sales_office_loop_v1
+name: 兵部 CRO / Sales / RevOps Office 子循环
+version: 0.1.0
+owner: courtos/bingbu
+purpose: >
+  接收统一朝堂 Loop 的兵部分奏工作令，分类销售/收入问题、收集授权销售证据、
+  并行运行兵部子司、合成 CRO 立场、通过兵部质门后回传军机处。
+  本循环只能通过 court_unified_decision_loop_v1 调用，不建立 bingbu_special_review。
+
+entrypoints:
+  - court_unified_decision_loop_v1.enabled_department_review.war
+  - enabled_department_review.war
+
+steps:
+  - id: receive_bingbu_work_order
+    name: 兵部接令
+    inputs: [confirmed_edict, intelligence_pack, department_work_order]
+    gates: [source_label_required]
+
+  - id: classify_sales_revenue_question
+    name: 分类销售收入问题
+    outputs: [sales_revenue_question_type, risk_signals, required_evidence]
+    gates: [sales_owner_or_gap_required, evidence_or_gap_required]
+
+  - id: collect_sales_evidence
+    name: 收集授权销售证据
+    outputs: [SalesEvidencePackV1, missing_evidence, owner_gap, stage_gap]
+    gates: [customer_claims_require_source, privacy_sensitive_crm_data_guard, no_unverified_customer_budget_claim]
+
+  - id: run_bingbu_sub_offices
+    name: 兵部子司并行审查
+    type: parallel
+    branches:
+      - id: gtm_strategy
+      - id: opportunity_pipeline
+      - id: key_account_attack
+      - id: pricing_deal_desk
+      - id: channel_partner
+      - id: sales_revops
+      - id: customer_success_growth
+    outputs: [sub_office_reviews, generated_artifacts]
+
+  - id: synthesize_cro_position
+    name: 兵部尚书合成
+    outputs: [BingbuCROOpinionV1, one_primary_sales_action, cross_department_reviews]
+    gates: [one_primary_sales_action_required, source_label_required]
+
+  - id: bingbu_quality_gate
+    name: 兵部质门
+    gates:
+      - source_label_required
+      - customer_claims_require_source
+      - opportunity_stage_requires_evidence
+      - forecast_requires_stage_and_evidence
+      - formal_quote_requires_hubu_and_xingbu_review
+      - discount_requires_margin_boundary
+      - roi_or_revenue_claim_requires_hubu_review
+      - external_commitment_requires_xingbu_review
+      - customer_message_requires_rites_review_when_high_risk
+      - competitor_claims_require_jinyiwei_evidence
+      - no_unverified_customer_budget_claim
+      - no_price_or_delivery_commitment_without_review
+      - no_auto_send_customer_message
+      - one_primary_sales_action_required
+      - privacy_sensitive_crm_data_guard
+      - sales_owner_or_gap_required
+      - win_loss_reason_requires_evidence_or_gap
+      - high_risk_requires_human_confirmation
+
+  - id: return_to_junjichu
+    name: 回传军机处
+    outputs: [DepartmentOpinionV1, BingbuCROOpinionV1]

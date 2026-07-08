@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RitualExpressionEvidencePackV1",
+  "type": "object",
+  "required": [
+    "evidence_used",
+    "missing_evidence",
+    "customer_context",
+    "forbidden_expressions",
+    "source_label"
+  ],
+  "properties": {
+    "evidence_used": { "type": "array" },
+    "missing_evidence": { "type": "array", "items": { "type": "string" } },
+    "customer_context": { "type": "array", "items": { "type": "string" } },
+    "forbidden_expressions": { "type": "array", "items": { "type": "string" } },
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": false
+}

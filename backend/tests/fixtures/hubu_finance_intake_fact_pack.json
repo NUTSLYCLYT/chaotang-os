@@ -1,0 +1,105 @@
+{
+  "caseId": "hubu-intake-demo-001",
+  "title": "2026-06 真实财务数据接入总闸",
+  "period": "2026-06",
+  "currency": "CNY",
+  "knownFacts": [
+    "银行流水、发票、合同、应收应付和付款申请均来自上传资料",
+    "本轮只生成预览草稿，不执行付款、不报税、不申贷"
+  ],
+  "dataSources": {
+    "beginningCash": 430000,
+    "bankStatements": [
+      {
+        "id": "bank-001",
+        "date": "2026-06-03",
+        "direction": "in",
+        "amount": 800000,
+        "counterparty": "客户A",
+        "matchRef": "inv-001",
+        "balanceAfter": 1230000,
+        "source": {"sourceLabel": "internal_uploaded_file", "ref": "bank-export-2026-06.xlsx"}
+      },
+      {
+        "id": "bank-002",
+        "date": "2026-06-12",
+        "direction": "out",
+        "amount": 90000,
+        "counterparty": "深圳设备供应商A",
+        "matchRef": "pay-001",
+        "balanceAfter": 1140000,
+        "source": {"sourceLabel": "internal_uploaded_file", "ref": "bank-export-2026-06.xlsx"}
+      }
+    ],
+    "invoices": [
+      {
+        "id": "inv-001",
+        "contractId": "contract-001",
+        "amount": 800000,
+        "taxAmount": 48000,
+        "status": "issued",
+        "source": {"sourceLabel": "internal_uploaded_file", "ref": "invoice-list-2026-06.xlsx"}
+      }
+    ],
+    "contracts": [
+      {
+        "id": "contract-001",
+        "amount": 900000,
+        "counterparty": "客户A",
+        "source": {"sourceLabel": "internal_uploaded_file", "ref": "contract-001.pdf"}
+      }
+    ],
+    "receivables": [
+      {
+        "id": "ar-001",
+        "counterparty": "客户A",
+        "amount": 180000,
+        "daysOutstanding": 28,
+        "source": {"sourceLabel": "internal_uploaded_file", "ref": "ar-aging-2026-06.xlsx"}
+      }
+    ],
+    "payables": [
+      {
+        "id": "ap-001",
+        "counterparty": "深圳设备供应商A",
+        "amount": 110000,
+        "daysOutstanding": 35,
+        "source": {"sourceLabel": "internal_uploaded_file", "ref": "ap-aging-2026-06.xlsx"}
+      }
+    ],
+    "paymentRequests": [
+      {
+        "id": "pay-001",
+        "invoiceId": "inv-001",
+        "contractId": "contract-001",
+        "amount": 90000,
+        "purpose": "设备尾款",
+        "source": {"sourceLabel": "manual_confirmed", "ref": "payment-request-001"}
+      }
+    ],
+    "budgets": [
+      {
+        "id": "budget-equipment",
+        "amount": 500000,
+        "used": 350000,
+        "source": {"sourceLabel": "internal_uploaded_file", "ref": "budget-2026.xlsx"}
+      }
+    ],
+    "trialBalance": {
+      "revenue": 800000,
+      "costOfRevenue": 520000,
+      "salesExpense": 60000,
+      "adminExpense": 70000,
+      "rdExpense": 30000,
+      "interestExpense": 8000,
+      "taxExpense": 12000,
+      "cash": 20000,
+      "bank": 500000,
+      "inventory": 90000,
+      "fixedAssets": 360000,
+      "shortTermDebt": 150000,
+      "longTermDebt": 140000,
+      "paidInCapital": 500000
+    }
+  }
+}

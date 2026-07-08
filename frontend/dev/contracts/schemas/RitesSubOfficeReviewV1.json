@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RitesSubOfficeReviewV1",
+  "type": "object",
+  "required": [
+    "subOfficeId",
+    "subOfficeName",
+    "position",
+    "finding",
+    "evidenceUsed",
+    "missingEvidence",
+    "forbiddenExpressions",
+    "risks",
+    "requiredCrossReviews",
+    "sourceLabel"
+  ],
+  "properties": {
+    "subOfficeId": {
+      "enum": [
+        "rites_cmo_cco_chief",
+        "rites_brand_strategy",
+        "rites_customer_insight",
+        "rites_content_copy",
+        "rites_partnership_pitch",
+        "rites_pr_reputation",
+        "rites_channel_campaign",
+        "rites_message_quality_gate"
+      ]
+    },
+    "subOfficeName": { "type": "string" },
+    "position": { "enum": ["可作为草稿", "先改稿", "补证", "复核", "禁止外发"] },
+    "finding": { "type": "string" },
+    "evidenceUsed": { "type": "array", "items": { "type": "string" } },
+    "missingEvidence": { "type": "array", "items": { "type": "string" } },
+    "forbiddenExpressions": { "type": "array", "items": { "type": "string" } },
+    "risks": { "type": "array", "items": { "type": "string" } },
+    "requiredCrossReviews": {
+      "type": "array",
+      "items": { "enum": ["户部", "刑部", "兵部", "锦衣卫", "吏部", "工部", "军机处", "隐私权限检查"] }
+    },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": false
+}

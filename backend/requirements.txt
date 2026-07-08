@@ -1,0 +1,3 @@
+-r requirements-core.txt
+-r requirements-optional.txt
+sqlite-vec==0.1.9  # CVE-free 向量检索后端(替代 chromadb GHSA-f4j7-r4q5-qw2c),2026-07-07

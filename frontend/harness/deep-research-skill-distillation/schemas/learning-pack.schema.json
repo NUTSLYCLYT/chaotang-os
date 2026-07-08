@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "chaotang.deep_research.learning_pack",
+  "title": "Chaotang Learning Pack",
+  "type": "object",
+  "required": [
+    "topic",
+    "source_pack",
+    "beginner_5_min",
+    "practitioner_30_min",
+    "expert_memo",
+    "scenario_ladder",
+    "glossary",
+    "quiz",
+    "teach_back"
+  ],
+  "properties": {
+    "topic": { "type": "string", "minLength": 3 },
+    "source_pack": { "type": "string", "minLength": 3 },
+    "beginner_5_min": { "type": "string", "minLength": 100 },
+    "practitioner_30_min": { "type": "string", "minLength": 160 },
+    "expert_memo": { "type": "string", "minLength": 220 },
+    "scenario_ladder": {
+      "type": "object",
+      "required": ["base_case", "bull_case", "bear_case", "change_our_mind", "review_date"],
+      "properties": {
+        "base_case": { "type": "string", "minLength": 30 },
+        "bull_case": { "type": "string", "minLength": 30 },
+        "bear_case": { "type": "string", "minLength": 30 },
+        "change_our_mind": { "type": "array", "minItems": 2, "items": { "type": "string" } },
+        "review_date": { "type": "string", "minLength": 10 }
+      }
+    },
+    "glossary": { "type": "array", "minItems": 5, "items": { "type": "object" } },
+    "quiz": { "type": "array", "minItems": 5, "items": { "type": "object" } },
+    "teach_back": { "type": "string", "minLength": 40 }
+  }
+}

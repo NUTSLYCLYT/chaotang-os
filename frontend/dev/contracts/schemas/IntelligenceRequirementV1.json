@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IntelligenceRequirementV1",
+  "type": "object",
+  "required": ["id", "question", "intelligenceTypes", "decisionUse", "keyAssumptions", "requiredEvidence", "forbiddenCollection", "sourceLabel"],
+  "properties": {
+    "id": { "type": "string" },
+    "question": { "type": "string" },
+    "intelligenceTypes": { "type": "array", "items": { "enum": ["CUSTOMER_INTEL", "COMPETITOR_INTEL", "MARKET_INTEL", "POLICY_INTEL", "PROJECT_INTEL", "INTERNAL_INTEL", "RISK_INTEL", "PEOPLE_INTEL"] } },
+    "decisionUse": { "type": "string" },
+    "keyAssumptions": { "type": "array", "items": { "type": "string" } },
+    "requiredEvidence": { "type": "array", "items": { "type": "string" } },
+    "privacyFlags": { "type": "array", "items": { "type": "string" } },
+    "forbiddenCollection": { "type": "array", "items": { "type": "string" } },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

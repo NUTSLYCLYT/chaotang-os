@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BingbuAdaptiveInteractionV1",
+  "type": "object",
+  "required": [
+    "mode",
+    "defaultView",
+    "availableUserChoices",
+    "lockedFloor",
+    "escalationApplied",
+    "enabledSubOffices",
+    "sourceLabel"
+  ],
+  "properties": {
+    "mode": {
+      "enum": [
+        "founder_sales_assistant",
+        "small_team_sales_manager",
+        "growth_sales_engine",
+        "cro_revops",
+        "enterprise_revenue_governance"
+      ]
+    },
+    "defaultView": { "enum": ["brief", "management_detail", "professional_detail"] },
+    "availableUserChoices": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "brief",
+          "management_detail",
+          "professional_detail",
+          "enter_junjichu_deep_review",
+          "generate_sales_artifact",
+          "request_department_review",
+          "generate_followup_message",
+          "generate_quote_checklist",
+          "generate_account_plan",
+          "check_deal_risk"
+        ]
+      }
+    },
+    "lockedFloor": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "high_risk_requires_human_confirmation",
+          "hubu_review_for_quote_discount_roi",
+          "xingbu_review_for_contract_commitment_exclusivity",
+          "rites_review_for_external_message",
+          "jinyiwei_review_for_customer_claim_or_competitor_claim",
+          "source_label_required",
+          "evidence_or_gap_required",
+          "no_auto_send_customer_message"
+        ]
+      }
+    },
+    "escalationApplied": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "enabledSubOffices": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "exposeSubOfficeStructure": { "type": "boolean" },
+    "humanConfirmationRequired": { "type": "boolean" },
+    "mayAutoSendCustomerMessage": { "const": false },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

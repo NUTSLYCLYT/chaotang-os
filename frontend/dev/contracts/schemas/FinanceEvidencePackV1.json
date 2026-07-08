@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FinanceEvidencePackV1",
+  "type": "object",
+  "required": [
+    "evidence_used",
+    "missing_evidence",
+    "assumptions",
+    "key_numbers",
+    "source_label"
+  ],
+  "properties": {
+    "evidence_used": {
+      "type": "array",
+      "items": { "$ref": "./HubuFinanceEvidenceV1.json" }
+    },
+    "missing_evidence": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "key_numbers": {
+      "type": "array",
+      "items": { "$ref": "./HubuFinanceMetricV1.json" }
+    },
+    "source_label": {
+      "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"]
+    }
+  },
+  "additionalProperties": false
+}
+

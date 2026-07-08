@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BingbuCROOpinionV1",
+  "type": "object",
+  "required": ["department", "position", "salesRevenueQuestionType", "executiveSummary", "salesOwnerOrGap", "opportunityStageOrGap", "evidenceUsed", "missingEvidence", "riskRegister", "onePrimarySalesAction", "crossDepartmentReviews", "maySendExternally", "sourceLabel", "source_label"],
+  "properties": {
+    "department": { "const": "兵部" },
+    "position": { "enum": ["推进", "补证", "复核", "止损"] },
+    "salesRevenueQuestionType": { "enum": ["LEAD_QUALIFICATION", "OPPORTUNITY_REVIEW", "ACCOUNT_STRATEGY", "QUOTE_STRATEGY", "NEGOTIATION_STRATEGY", "CHANNEL_PARTNER", "FORECAST_REVIEW", "WIN_LOSS_REVIEW", "CUSTOMER_SUCCESS_GROWTH", "SALES_ORG_EXECUTION"] },
+    "executiveSummary": { "type": "string" },
+    "salesOwnerOrGap": { "type": "string" },
+    "opportunityStageOrGap": { "type": "string" },
+    "evidenceUsed": { "type": "array", "items": { "type": "string" } },
+    "missingEvidence": { "type": "array", "items": { "type": "string" } },
+    "riskRegister": { "type": "array", "items": { "type": "string" } },
+    "onePrimarySalesAction": { "type": "string" },
+    "crossDepartmentReviews": { "type": "array", "items": { "enum": ["finance", "justice", "ritual", "jinyiwei", "personnel", "works"] } },
+    "generatedArtifacts": { "type": "array", "items": { "type": "string" } },
+    "humanConfirmationRequired": { "type": "boolean" },
+    "maySendExternally": { "const": false },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] },
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

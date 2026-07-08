@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ClaimEvidenceV1",
+  "type": "object",
+  "required": ["id", "claim", "claimType", "sourceIds", "confidence", "verificationStatus", "sourceLabel"],
+  "properties": {
+    "id": { "type": "string" },
+    "claim": { "type": "string" },
+    "claimType": { "enum": ["FACT", "CLAIM", "INFERENCE", "RUMOR"] },
+    "sourceIds": { "type": "array", "items": { "type": "string" } },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "verificationStatus": { "enum": ["UNVERIFIED", "SINGLE_SOURCE", "CROSS_VERIFIED", "CONFLICTING", "STALE", "UNSUPPORTED"] },
+    "evidenceUsed": { "type": "array", "items": { "type": "string" } },
+    "missingEvidence": { "type": "array", "items": { "type": "string" } },
+    "modelInferenceMarked": { "type": "boolean" },
+    "stale": { "type": "boolean" },
+    "conflictSummary": { "type": "string" },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

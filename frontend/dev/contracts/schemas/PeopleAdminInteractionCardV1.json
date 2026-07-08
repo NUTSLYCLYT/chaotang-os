@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PeopleAdminInteractionCardV1",
+  "type": "object",
+  "required": ["id", "question", "reason", "userChoices", "lockedFloor", "sourceLabel"],
+  "properties": {
+    "id": { "type": "string" },
+    "question": { "type": "string", "description": "一次只问一个最关键缺口。" },
+    "reason": { "type": "string" },
+    "userChoices": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "CONCISE_ANSWER",
+          "EXPAND_ANALYSIS",
+          "ENTER_JUNJICHU_DEEP_REVIEW",
+          "GENERATE_ARTIFACT",
+          "SEND_TO_CROSS_REVIEW",
+          "UPLOAD_EVIDENCE",
+          "ANSWER_TEXT",
+          "CONTINUE_WITH_GAPS"
+        ]
+      },
+      "description": "用户可选的交互（披露表面），可自由展开。"
+    },
+    "lockedFloor": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "high_risk_requires_human_confirmation",
+          "labor_risk_requires_xingbu_review",
+          "compensation_requires_hubu_review",
+          "source_label_required",
+          "evidence_or_gap_required",
+          "privacy_sensitive_data_guard"
+        ]
+      },
+      "description": "用户不可绕过的风险底线（与公司规模无关，始终生效）。"
+    },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LegalRiskEvidencePackV1",
+  "type": "object",
+  "required": [
+    "facts",
+    "evidenceItems",
+    "missingEvidence",
+    "jurisdictionOrScopeGap",
+    "sensitiveDataFlags",
+    "sourceLabel"
+  ],
+  "properties": {
+    "facts": { "type": "array", "items": { "type": "string" } },
+    "evidenceItems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim", "source"],
+        "properties": {
+          "claim": { "type": "string" },
+          "source": { "type": "string" },
+          "location": { "type": "string" },
+          "confidence": { "enum": ["高", "中", "低"] }
+        },
+        "additionalProperties": true
+      }
+    },
+    "missingEvidence": { "type": "array", "items": { "type": "string" } },
+    "jurisdictionOrScopeGap": { "type": "boolean" },
+    "assumptions": { "type": "array", "items": { "type": "string" } },
+    "sensitiveDataFlags": {
+      "type": "array",
+      "items": { "enum": ["合同", "股权", "员工", "薪酬", "客户", "供应商", "诉讼", "商业秘密", "个人信息"] }
+    },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

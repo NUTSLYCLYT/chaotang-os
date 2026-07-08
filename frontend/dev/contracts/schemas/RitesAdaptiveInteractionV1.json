@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RitesAdaptiveInteractionV1",
+  "type": "object",
+  "required": [
+    "mode",
+    "defaultView",
+    "userChoices",
+    "lockedFloor",
+    "escalationApplied",
+    "sourceLabel"
+  ],
+  "properties": {
+    "mode": {
+      "enum": [
+        "founder_expression_assistant",
+        "small_team_marketing",
+        "growth_cmo",
+        "cmo_cco",
+        "enterprise_brand_comms"
+      ]
+    },
+    "defaultView": { "enum": ["brief", "management_detail", "professional_detail"] },
+    "userChoices": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "brief",
+          "management_detail",
+          "professional_detail",
+          "enter_junjichu_deep_review",
+          "generate_artifact",
+          "request_department_review",
+          "generate_variants",
+          "rewrite_for_audience",
+          "check_message_risk"
+        ]
+      }
+    },
+    "lockedFloor": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "high_risk_requires_human_confirmation",
+          "xingbu_review_for_external_commitment",
+          "hubu_review_for_roi_or_quote_claim",
+          "source_label_required",
+          "evidence_or_gap_required",
+          "message_quality_gate",
+          "privacy_sensitive_data_guard",
+          "no_auto_send_external_content"
+        ]
+      }
+    },
+    "escalationApplied": { "type": "array", "items": { "type": "string" } },
+    "visibleSummary": { "type": "string" },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

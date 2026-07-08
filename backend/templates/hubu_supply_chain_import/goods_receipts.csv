@@ -1,0 +1,2 @@
+receiptId,poId,receivedDate,receivedQuantity,qualityStatus,sourceLabel
+GR-001,PO-002,2026-06-05,1000,PASS,internal_uploaded_file

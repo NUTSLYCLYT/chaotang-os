@@ -1,0 +1,71 @@
+{
+  "caseId": "hubu-reporting-demo-001",
+  "title": "2026-06 财务报表与审计异常预览",
+  "period": "2026-06",
+  "currency": "CNY",
+  "knownFacts": [
+    "2026-06 月结账务已平",
+    "银行余额来自上传流水",
+    "本期财务报表只作为预览草稿",
+    "外部报送、审计签字、贷款申报前必须人工复核"
+  ],
+  "trialBalance": {
+    "revenue": 800000,
+    "costOfRevenue": 520000,
+    "salesExpense": 60000,
+    "adminExpense": 70000,
+    "rdExpense": 30000,
+    "interestExpense": 8000,
+    "taxExpense": 12000,
+    "cash": 20000,
+    "bank": 500000,
+    "accountsReceivable": 180000,
+    "inventory": 90000,
+    "fixedAssets": 360000,
+    "accountsPayable": 110000,
+    "shortTermDebt": 150000,
+    "longTermDebt": 140000,
+    "paidInCapital": 500000,
+    "retainedEarningsOpening": 150000
+  },
+  "comparatives": {
+    "priorPeriod": {"revenue": 700000, "netIncome": 75000},
+    "budget": {"revenue": 850000, "costOfRevenue": 560000, "operatingExpense": 170000}
+  },
+  "cashFlow": {
+    "beginningCash": 430000,
+    "cashReceipts": 760000,
+    "cashPayments": 680000,
+    "capex": 40000,
+    "debtProceeds": 100000,
+    "debtRepayments": 70000
+  },
+  "auditInputs": {
+    "invoices": [
+      {"id": "inv-001", "amount": 90000, "contractId": "contract-001", "status": "matched"}
+    ],
+    "payments": [
+      {"id": "pay-001", "amount": 90000, "contractId": "contract-001", "invoiceId": "inv-001"}
+    ],
+    "contracts": [
+      {"id": "contract-001", "amount": 90000, "counterparty": "深圳设备供应商A"}
+    ],
+    "budgetLines": [
+      {"id": "budget-equipment", "amount": 500000, "used": 350000}
+    ]
+  },
+  "sources": {
+    "trialBalance.revenue": {"sourceLabel": "internal_uploaded_file", "ref": "trial-balance-2026-06.xlsx"},
+    "trialBalance.costOfRevenue": {"sourceLabel": "internal_uploaded_file", "ref": "trial-balance-2026-06.xlsx"},
+    "trialBalance.salesExpense": {"sourceLabel": "internal_uploaded_file", "ref": "trial-balance-2026-06.xlsx"},
+    "trialBalance.adminExpense": {"sourceLabel": "internal_uploaded_file", "ref": "trial-balance-2026-06.xlsx"},
+    "trialBalance.rdExpense": {"sourceLabel": "internal_uploaded_file", "ref": "trial-balance-2026-06.xlsx"},
+    "trialBalance.cash": {"sourceLabel": "manual_confirmed", "ref": "cashier-count-20260621"},
+    "trialBalance.bank": {"sourceLabel": "internal_uploaded_file", "ref": "bank-export-20260621.xlsx"},
+    "trialBalance.accountsReceivable": {"sourceLabel": "internal_uploaded_file", "ref": "ar-aging-2026-06.xlsx"},
+    "trialBalance.accountsPayable": {"sourceLabel": "internal_uploaded_file", "ref": "ap-aging-2026-06.xlsx"},
+    "trialBalance.shortTermDebt": {"sourceLabel": "manual_confirmed", "ref": "loan-ledger-20260621"},
+    "cashFlow.cashReceipts": {"sourceLabel": "internal_uploaded_file", "ref": "bank-export-20260621.xlsx"},
+    "cashFlow.cashPayments": {"sourceLabel": "internal_uploaded_file", "ref": "bank-export-20260621.xlsx"}
+  }
+}

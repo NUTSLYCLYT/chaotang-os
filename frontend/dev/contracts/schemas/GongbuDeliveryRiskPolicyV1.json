@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GongbuDeliveryRiskPolicyV1",
+  "type": "object",
+  "required": ["policyId", "riskTriggers", "requiredReviews", "forbiddenActions", "sourceLabelRequired"],
+  "properties": {
+    "policyId": { "type": "string" },
+    "riskTriggers": { "type": "array", "items": { "type": "string" } },
+    "requiredReviews": {
+      "type": "array",
+      "items": { "enum": ["finance", "war", "personnel", "justice", "ritual", "jinyiwei", "human_confirmation"] }
+    },
+    "forbiddenActions": { "type": "array", "items": { "type": "string" } },
+    "sourceLabelRequired": { "type": "boolean" }
+  },
+  "additionalProperties": true
+}

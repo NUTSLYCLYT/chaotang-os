@@ -1,0 +1,168 @@
+id: jinyiwei_intelligence_office_loop_v1
+name: 锦衣卫 Chief Intelligence Office 子循环
+version: 0.1.0
+owner: courtos/jinyiwei
+purpose: >
+  接收统一朝堂 Loop 的情报先行工作令，从合法授权来源中定义需求、制定采集计划、
+  处理来源、核验证据、召回旧案、标记风险，形成可进入军机处和奏折的 IntelligencePackV1。
+  本循环只能通过 court_unified_decision_loop_v1 调用，不建立 jinyiwei_special_review。
+
+entrypoints:
+  - court_unified_decision_loop_v1.jinyiwei_intelligence_first
+  - enabled_department_review.jinyiwei
+  - resubmit_after_intelligence_evidence
+
+state_model:
+  allowed_states:
+    - received
+    - requirements_defined
+    - collection_planned
+    - sources_collected
+    - sources_processed
+    - sub_offices_reviewing
+    - claims_verified
+    - intelligence_synthesizing
+    - quality_gating
+    - returned_to_junjichu
+    - failed_with_recovery
+
+source_policy:
+  allowed_labels: [LIVE, LIVE_SWARM, MIXED, FALLBACK, DEMO]
+  allowed_source_types: [USER_INPUT, USER_UPLOAD, ARCHIVE, INTERNAL_AUTHORIZED, PUBLIC_WEB, PUBLIC_REPORT, NEWS, GOVERNMENT, DATABASE_AUTHORIZED, MODEL_INFERENCE, FALLBACK]
+  rules:
+    - 所有情报需求、来源、证据、缺口、预警、情报包必须有 sourceLabel。
+    - 每条来源必须有 sourceType。
+    - 未授权来源不得采集，不得进入 IntelligencePackV1。
+    - 模型推理必须标记 MODEL_INFERENCE，不得伪装成 FACT。
+    - FALLBACK/DEMO 不得作为最终强结论。
+
+steps:
+  - id: receive_intelligence_work_order
+    name: 锦衣卫接令
+    inputs:
+      - confirmed_edict
+      - review_plan
+      - department_work_order
+    gates:
+      - source_label_required
+
+  - id: define_intelligence_requirements
+    name: 定义情报需求
+    skill: skill.jinyiwei.define_intelligence_requirements
+    outputs:
+      - intelligence_requirements
+      - intelligence_types
+      - key_assumptions
+      - intelligence_gaps
+    gates:
+      - no_unauthorized_collection
+      - privacy_sensitive_data_guard
+
+  - id: create_collection_plan
+    name: 制定信息采集计划
+    skill: skill.jinyiwei.create_collection_plan
+    outputs:
+      - collection_plan
+      - allowed_sources
+      - forbidden_sources
+      - required_permissions
+    gates:
+      - source_type_required
+      - no_deceptive_collection_methods
+      - no_hacking_or_bypass
+
+  - id: collect_authorized_sources
+    name: 采集合法授权来源
+    skill: skill.jinyiwei.collect_authorized_sources
+    outputs:
+      - intelligence_sources
+      - collection_failures
+    gates:
+      - no_unauthorized_collection
+      - no_private_or_sensitive_data_without_permission
+
+  - id: process_and_normalize_sources
+    name: 处理和标准化来源
+    skill: skill.jinyiwei.process_and_normalize_sources
+    outputs:
+      - normalized_sources
+      - source_reliability
+      - stale_sources
+      - source_conflicts
+    gates:
+      - stale_info_must_be_marked
+      - source_conflict_must_be_visible
+
+  - id: run_intelligence_sub_offices
+    name: 锦衣卫子司并行审查
+    type: parallel
+    branches:
+      - id: requirements_planning
+        skill: skill.jinyiwei.requirements_planning_review
+      - id: open_source_research
+        skill: skill.jinyiwei.open_source_research_review
+      - id: customer_intel
+        skill: skill.jinyiwei.customer_intel_review
+      - id: competitor_intel
+        skill: skill.jinyiwei.competitor_intel_review
+      - id: archive_recall
+        skill: skill.jinyiwei.archive_recall_review
+      - id: fact_verification
+        skill: skill.jinyiwei.fact_verification_review
+      - id: early_warning
+        skill: skill.jinyiwei.early_warning_review
+    outputs:
+      - sub_office_reviews
+      - generated_artifacts
+
+  - id: verify_claims_and_sources
+    name: 校验事实和来源
+    skill: skill.jinyiwei.verify_claims_and_sources
+    outputs:
+      - claim_evidence
+      - unsupported_claims
+      - evidence_gaps
+      - source_conflicts
+    gates:
+      - no_unverified_claims
+      - claim_requires_evidence_or_gap
+      - model_inference_must_be_marked
+
+  - id: synthesize_intelligence_pack
+    name: 合成情报包
+    skill: skill.jinyiwei.synthesize_intelligence_pack
+    outputs:
+      - jinyiwei_intelligence_opinion
+      - intelligence_pack
+      - watchlist_alerts
+    gates:
+      - intelligence_pack_must_have_gaps
+      - source_label_required
+
+  - id: jinyiwei_quality_gate
+    name: 锦衣卫质门
+    skill: skill.jinyiwei.quality_gate
+    gates:
+      - source_label_required
+      - source_type_required
+      - no_unauthorized_collection
+      - no_private_or_sensitive_data_without_permission
+      - no_unverified_claims
+      - claim_requires_evidence_or_gap
+      - stale_info_must_be_marked
+      - source_conflict_must_be_visible
+      - model_inference_must_be_marked
+      - competitor_claims_require_evidence
+      - customer_commitment_requires_source
+      - policy_claim_requires_date_and_source
+      - privacy_sensitive_data_guard
+      - intelligence_pack_must_have_gaps
+      - high_risk_requires_human_confirmation
+      - no_deceptive_collection_methods
+      - no_hacking_or_bypass
+
+  - id: return_to_junjichu
+    name: 回传军机处
+    outputs:
+      - IntelligencePackV1
+      - DepartmentOpinionV1

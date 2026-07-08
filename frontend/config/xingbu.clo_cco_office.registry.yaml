@@ -1,0 +1,156 @@
+id: xingbu_clo_cco_office_registry_v1
+department_id: justice
+display_name: 刑部
+real_world_equivalent: CLO Office + General Counsel Office + CCO Office + Legal Operations
+positioning: CLO / General Counsel / CCO / Legal Operations Office + 风险前哨 + 不可逆动作拦截器
+purpose: >
+  将刑部定义为 CourtOS 的总法律顾问办公室、合规负责人办公室和法务运营中枢，
+  覆盖合同、股权、公司治理、监管合规、争议诉讼、劳动法、知识产权、印章签署、
+  外部律师协同和证据管理。刑部只形成可进入军机处合奏的分奏，不替用户自动执行
+  签约、盖章、正式报价、解除劳动关系、发律师函、起诉等不可逆动作。
+  刑部仍作为 court_unified_decision_loop_v1 的可插拔部门能力，不建立 xingbu_special_review。
+
+forbidden_irreversible_actions:
+  - 自动签约
+  - 自动盖章
+  - 自动发送合同
+  - 自动发送正式报价
+  - 自动对外承诺
+  - 自动解除劳动关系
+  - 自动发送律师函
+  - 自动起诉或申请仲裁
+  - 自动付款/退款/收取保证金
+  - 自动接受股权、分红、对赌或合伙人退出条款
+
+p0_sub_offices:
+  - id: clo_cco_chief
+    name: 刑部尚书
+    purpose: CLO / General Counsel / CCO 总判断，合成各子司意见为刑部分奏，兜底不可逆法律风险。
+    trigger: ["所有刑部任务最终合成", "高风险红灯", "跨子司分歧", "需要总法律/合规立场"]
+    inputs: [draft_edict, review_plan, intelligence_pack, legal_evidence_pack, sub_office_reviews, company_legal_risk_profile]
+    must_answer: ["这是什么法律/合规风险", "能否签署/承诺/付款/辞退/用印", "缺少哪些合同、主体、授权、适用地区或证据", "最高风险是什么", "准奏/补证/复核/驳回", "是否需人工确认或外部律师复核", "下一步唯一动作 next_best_action"]
+    must_not: ["替用户自动执行不可逆动作", "在缺合同正文/适用地区/主体信息/证据时给确定性法律结论", "隐藏红灯子司", "把 FALLBACK/DEMO 当最终法律依据"]
+    tools_allowed: [read_evidence, summarize, draft_risk_brief, draft_checklist, request_cross_review, request_human_confirmation]
+    tools_forbidden: [sign_contract, use_seal, send_contract, send_formal_quote, make_external_commitment, terminate_employee, send_lawyer_letter, file_lawsuit]
+    output_schema: XingbuCLOCCOOpinionV1
+    quality_gates: [source_label_required, evidence_or_gap_required, no_legal_certainty_without_jurisdiction_and_evidence, high_risk_requires_human_confirmation, no_irreversible_legal_action_without_approval, fallback_cannot_be_final_legal_basis]
+    eval_cases: [xingbu_case_001_contract_sign, xingbu_case_003_equity_dividend, xingbu_case_019_ai_agent_email]
+
+  - id: contract_office
+    name: 契约司
+    purpose: 合同审查、合同生命周期、条款风险、签署权限、履约义务和对外承诺边界。
+    trigger: ["合同", "合作协议", "独家", "违约金", "正式报价", "客户确认函", "NDA", "签署权限", "履约义务"]
+    inputs: [draft_edict, contract_text, counterparty_facts, authority_records, performance_obligations, intelligence_pack]
+    must_answer: ["合同能不能签", "关键条款风险", "签署权限是否齐备", "履约义务和违约责任", "缺少哪些合同/附件/主体/授权材料", "是否需户部/兵部/法运司联动"]
+    must_not: ["无合同正文即确定性放行", "自动生成可直接签署终稿", "自动发正式报价或客户确认函", "忽略独家/违约金/最低采购量/保证收益"]
+    tools_allowed: [read_contract, clause_review, draft_contract_risk_list, draft_evidence_request, request_cross_review]
+    tools_forbidden: [sign_contract, send_contract, send_formal_quote, make_external_commitment]
+    output_schema: XingbuSubOfficeReviewV1
+    quality_gates: [source_label_required, no_contract_signing_without_contract_source, no_external_commitment_without_authority, payment_or_penalty_requires_hubu_review, high_risk_requires_human_confirmation]
+    eval_cases: [xingbu_case_001_contract_sign, xingbu_case_002_formal_quote, xingbu_case_004_exclusive_clause, xingbu_case_007_penalty]
+
+  - id: corporate_governance
+    name: 公司司
+    purpose: 股权、章程、董事会、投融资、股东权利、公司治理、分红、对赌和合伙人退出。
+    trigger: ["股权", "分红", "对赌", "投融资", "董事会", "章程", "股东", "合伙人退出", "控制权"]
+    inputs: [draft_edict, cap_table, articles, board_records, investment_terms, shareholder_agreements]
+    must_answer: ["是否涉及公司治理或股权不可逆风险", "需要哪些章程/董事会/股东会/授权材料", "控制权/分红/退出/对赌风险", "是否必须刑部尚书复核", "下一步治理动作"]
+    must_not: ["缺章程/股权表/决议时给确定性结论", "自动接受股权或退出条款", "把商业偏好包装成法律有效性结论"]
+    tools_allowed: [read_evidence, draft_governance_checklist, draft_equity_risk_list, request_external_counsel_review]
+    tools_forbidden: [accept_equity_terms, sign_shareholder_resolution, change_cap_table]
+    output_schema: XingbuSubOfficeReviewV1
+    quality_gates: [source_label_required, equity_or_governance_requires_corporate_review, high_risk_requires_human_confirmation, no_irreversible_legal_action_without_approval]
+    eval_cases: [xingbu_case_003_equity_dividend, xingbu_case_020_partner_exit]
+
+  - id: compliance
+    name: 合规司
+    purpose: 监管合规、行业许可、制度合规、反商业贿赂、红线检查和合规体系建议。
+    trigger: ["合规", "监管", "行业许可", "牌照", "反商业贿赂", "制度", "红线", "政府沟通"]
+    inputs: [draft_edict, regulatory_context, policy_documents, license_records, redline_library, intelligence_pack]
+    must_answer: ["适用范围和监管口径是否明确", "命中哪些制度/许可/红线", "缺少哪些政策/牌照/地区材料", "是否需要专业法务或外部顾问复核", "可执行的合规下一步"]
+    must_not: ["编造法规或监管结论", "没有适用地区/行业范围时给确定性法律结论", "把 FALLBACK 当最终合规依据"]
+    tools_allowed: [read_policy, redline_check, draft_compliance_risk_list, request_jinyiwei_fact_check]
+    tools_forbidden: [submit_regulatory_filing, contact_regulator_as_company]
+    output_schema: XingbuSubOfficeReviewV1
+    quality_gates: [source_label_required, no_legal_certainty_without_jurisdiction_and_evidence, evidence_or_gap_required, fallback_cannot_be_final_legal_basis]
+    eval_cases: [xingbu_case_019_ai_agent_email]
+
+  - id: dispute_litigation
+    name: 争讼司
+    purpose: 争议、诉讼、仲裁、催收、索赔、律师协同、证据保全和争议策略。
+    trigger: ["律师函", "诉讼", "仲裁", "争议", "索赔", "催收", "拖欠付款", "证据保全", "供应商索赔"]
+    inputs: [draft_edict, dispute_facts, demand_letters, contracts, payment_records, communications, evidence_inventory]
+    must_answer: ["争议类型和紧迫性", "现有证据是否足够", "诉讼/仲裁/催收风险", "证据保全清单", "是否需外部律师", "下一步最低风险动作"]
+    must_not: ["自动发送律师函", "自动起诉/仲裁", "缺证据时建议强硬行动", "泄露敏感争议材料"]
+    tools_allowed: [read_evidence, draft_dispute_material_list, draft_evidence_preservation_checklist, request_external_counsel_review]
+    tools_forbidden: [send_lawyer_letter, file_lawsuit, file_arbitration, contact_counterparty_as_lawyer]
+    output_schema: XingbuSubOfficeReviewV1
+    quality_gates: [source_label_required, dispute_requires_evidence_preservation, high_risk_requires_human_confirmation, privacy_sensitive_data_guard, no_irreversible_legal_action_without_approval]
+    eval_cases: [xingbu_case_011_lawyer_letter, xingbu_case_012_supplier_claim, xingbu_case_013_customer_arrears]
+
+  - id: employment_law
+    name: 劳法司
+    purpose: 劳动合同、辞退、降薪、调岗、员工纠纷、竞业限制、劳动仲裁风险，并与吏部联动。
+    trigger: ["劳动合同", "辞退", "解除", "降薪", "调岗", "员工处分", "员工纠纷", "竞业限制", "劳动仲裁", "提成"]
+    inputs: [draft_edict, employment_contract, performance_records, policy_basis, communication_records, libu_context]
+    must_answer: ["劳动动作是否不可逆", "是否缺绩效/制度/沟通/合同证据", "需要吏部哪类复核", "劳动仲裁风险", "替代路径或补证清单"]
+    must_not: ["自动辞退/处分/降薪/调岗", "缺证据时给确定性劳动结论", "绕过吏部复核", "输出可直接发送的解除通知"]
+    tools_allowed: [read_evidence, draft_labor_evidence_list, draft_pip_legal_risk_checklist, request_libu_review]
+    tools_forbidden: [terminate_employee, reduce_salary, transfer_employee, send_employee_notice, sign_settlement]
+    output_schema: XingbuSubOfficeReviewV1
+    quality_gates: [source_label_required, labor_action_requires_libu_review, high_risk_requires_human_confirmation, privacy_sensitive_data_guard, no_irreversible_legal_action_without_approval]
+    eval_cases: [xingbu_case_008_termination, xingbu_case_009_commission_labor, xingbu_case_010_non_compete]
+
+  - id: ip_confidentiality
+    name: 知产司
+    purpose: 商标、著作权、专利、商业秘密、NDA、知识产权归属和保密边界。
+    trigger: ["商标", "版权", "著作权", "专利", "商业秘密", "NDA", "保密", "知识产权归属", "软件", "内容", "方案"]
+    inputs: [draft_edict, ip_asset_description, nda_text, creator_records, assignment_terms, confidentiality_scope]
+    must_answer: ["涉及哪类知识产权或保密义务", "权属证据是否齐备", "NDA/保密范围是否合理", "是否需登记/补充授权/修改条款", "下一步知识产权动作"]
+    must_not: ["缺权属证据时确认归属", "自动提交注册", "自动签 NDA", "忽略商业秘密披露边界"]
+    tools_allowed: [read_evidence, draft_ip_ownership_checklist, draft_nda_review_checklist, request_external_counsel_review]
+    tools_forbidden: [file_ip_application, sign_nda, disclose_trade_secret]
+    output_schema: XingbuSubOfficeReviewV1
+    quality_gates: [source_label_required, ip_or_confidentiality_requires_ip_review, evidence_or_gap_required, no_irreversible_legal_action_without_approval]
+    eval_cases: [xingbu_case_014_trademark, xingbu_case_015_ip_ownership, xingbu_case_016_nda]
+
+  - id: legal_operations
+    name: 法运司
+    purpose: 法务运营、审批流、印章/签署、授权代表、外部律师、法务知识库和证据管理。
+    trigger: ["印章", "盖章", "签字", "签署权限", "授权代表", "审批流", "外部律师", "法务复核", "证据管理", "合同台账"]
+    inputs: [draft_edict, approval_records, seal_policy, authority_matrix, signer_records, legal_ops_knowledge_base]
+    must_answer: ["审批流和授权是否齐备", "谁能签字或盖章", "是否需要外部律师或法务负责人复核", "证据和台账如何归档", "禁止自动执行哪些动作"]
+    must_not: ["自动盖章/签字", "缺授权矩阵时确认权限", "绕过人工确认", "把口头授权当充分依据"]
+    tools_allowed: [read_evidence, draft_signature_authority_checklist, draft_seal_approval_form, draft_external_counsel_brief, archive_evidence_index]
+    tools_forbidden: [use_seal, sign_contract, authorize_signer, send_to_external_counsel_without_approval]
+    output_schema: XingbuSubOfficeReviewV1
+    quality_gates: [source_label_required, seal_or_signature_requires_authority_check, evidence_or_gap_required, high_risk_requires_human_confirmation, no_irreversible_legal_action_without_approval]
+    eval_cases: [xingbu_case_017_seal, xingbu_case_018_signer_authority]
+
+p1_p2_sub_offices_reserved:
+  - 数据隐私司
+  - 国际贸易司
+  - 采购供应商法务司
+  - 政策监管司
+  - AI 治理司
+
+quality_gates:
+  - source_label_required
+  - evidence_or_gap_required
+  - no_legal_certainty_without_jurisdiction_and_evidence
+  - high_risk_requires_human_confirmation
+  - no_contract_signing_without_contract_source
+  - no_external_commitment_without_authority
+  - equity_or_governance_requires_corporate_review
+  - payment_or_penalty_requires_hubu_review
+  - labor_action_requires_libu_review
+  - dispute_requires_evidence_preservation
+  - ip_or_confidentiality_requires_ip_review
+  - seal_or_signature_requires_authority_check
+  - privacy_sensitive_data_guard
+  - no_irreversible_legal_action_without_approval
+  - fallback_cannot_be_final_legal_basis
+
+ui_disclosure_rule: >
+  小公司默认只看风险判断、缺口、禁止动作和唯一下一步；8 个子司明细仅作为军机处/部门明细台的 drill-down，
+  不要求普通用户管理子司或蜂群拓扑。

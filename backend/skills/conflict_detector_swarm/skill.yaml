@@ -1,0 +1,9 @@
+id: skill.swarm.conflict_detector
+name: 分歧识别蜂群
+version: 0.1.0
+role: 识别部门结论之间的硬冲突，不强行平均。
+outputs:
+  required_fields: [conflicts, source_label]
+gates:
+  - conflict_must_not_be_hidden
+  - severe_conflict_requires_emperor_question

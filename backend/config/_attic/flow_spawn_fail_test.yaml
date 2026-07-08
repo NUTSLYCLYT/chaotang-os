@@ -1,0 +1,41 @@
+# config/flow_spawn_fail_test.yaml
+# 边界实验：故意让 spawn 子任务全部失败，验证
+#   (1) spawn step status 是否仍为 success
+#   (2) 失败在合并文本里长什么样（[ERROR] 还是 [执行失败]）
+#   (3) 主流程是否照常推进到 final_synthesizer（不早退）
+# 手法：spawn_worker 不设 spawn_agent_id（→ 用自身 agent 当模板），并给它一个不存在的坏模型，
+#       使每个子任务的 agent.run 返回 status=error。dispatcher 与 final 仍用好模型(bailian)。
+default_api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
+default_api_key_env: DASHSCOPE_API_KEY
+default_model: openai/qwen-plus
+flow_name: spawn失败边界测试
+
+steps:
+  - id: spawn_dispatcher
+    name: 任务分解（好模型）
+    prompt_inline: |
+      将用户需求分解为恰好3个独立子任务，以 JSON 输出：
+      ```json
+      {"subtasks": ["子任务1描述", "子任务2描述", "子任务3描述"]}
+      ```
+      只输出 JSON，不要其他内容。
+
+  - id: spawn_worker
+    name: 并行子任务执行（故意坏模型）
+    step_type: spawn
+    spawn_from_field: subtasks
+    spawn_max_workers: 3
+    spawn_merge: numbered
+    model: openai/this-model-does-not-exist-zzz   # 不存在的模型 → 每个子任务必失败
+    prompt_inline: 你是子任务执行专家，请完成给定的子任务。
+    depends_on:
+      - spawn_dispatcher
+
+  - id: final_synthesizer
+    name: 最终汇总（好模型，验证不早退）
+    prompt_inline: 请汇总上方所有子任务的执行结果；即使其中有失败项，也照常说明哪些成功、哪些失败。
+    depends_on:
+      - spawn_worker
+
+output_fields:
+  - 汇总

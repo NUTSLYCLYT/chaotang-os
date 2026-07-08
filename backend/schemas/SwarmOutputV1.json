@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://courtos.local/schemas/SwarmOutputV1.json",
+  "type": "object",
+  "required": [
+    "swarm_id",
+    "swarm_role",
+    "position",
+    "summary",
+    "key_findings",
+    "evidence_used",
+    "missing_evidence",
+    "risks",
+    "recommended_next_action",
+    "confidence",
+    "source_label"
+  ],
+  "properties": {
+    "swarm_id": { "type": "string" },
+    "swarm_role": { "type": "string" },
+    "position": { "enum": ["准奏", "补证", "复核", "驳回", "仅供参考"] },
+    "summary": { "type": "string" },
+    "key_findings": { "type": "array", "items": { "type": "string" } },
+    "evidence_used": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "source_type", "claim_supported", "confidence"],
+        "properties": {
+          "title": { "type": "string" },
+          "source_type": {
+            "enum": ["USER_INPUT", "USER_UPLOAD", "ARCHIVE", "WIKI_RULE", "TOOL_RESULT", "MODEL_INFERENCE", "FALLBACK"]
+          },
+          "claim_supported": { "type": "string" },
+          "quote_or_location": { "type": "string" },
+          "confidence": { "enum": ["高", "中", "低"] }
+        }
+      }
+    },
+    "missing_evidence": { "type": "array", "items": { "type": "string" } },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["risk", "severity", "reason"],
+        "properties": {
+          "risk": { "type": "string" },
+          "severity": { "enum": ["高", "中", "低"] },
+          "reason": { "type": "string" },
+          "requires_human_confirmation": { "type": "boolean" }
+        }
+      }
+    },
+    "recommended_next_action": { "type": "string" },
+    "confidence": { "enum": ["高", "中", "低"] },
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  }
+}

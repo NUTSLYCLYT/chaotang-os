@@ -1,0 +1,2 @@
+accountId,accountName,accountType,currency,sourceLabel
+acct-demo,Demo Brokerage,BROKERAGE,USD,broker_statement

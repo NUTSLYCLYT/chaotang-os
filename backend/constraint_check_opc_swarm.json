@@ -1,0 +1,362 @@
+[
+  {
+    "id": "opc-01",
+    "tally": {
+      "PASS": 3,
+      "FAIL": 2,
+      "WARN": 0,
+      "UNKNOWN": 0
+    },
+    "results": [
+      {
+        "check": "低温-化学体系匹配",
+        "status": "PASS",
+        "detail": "工况-40℃ 与 LFP(下限-20℃,加热True)匹配"
+      },
+      {
+        "check": "极寒液冷需配加热",
+        "status": "PASS",
+        "detail": "工况-40℃ 液冷+加热 或 未用液冷"
+      },
+      {
+        "check": "PCS功率配置",
+        "status": "FAIL",
+        "detail": "应配≈50000kW(=100000/2),方案6670kW,偏差87%(容差15%)"
+      },
+      {
+        "check": "预制舱消防合规",
+        "status": "FAIL",
+        "detail": "预制舱方案未提消防/灭火(GB 44240/42288 强制)"
+      },
+      {
+        "check": "预算合理性(warn)",
+        "status": "PASS",
+        "detail": "报价 800万 ≤ 预算 800万"
+      }
+    ]
+  },
+  {
+    "id": "opc-02",
+    "tally": {
+      "PASS": 2,
+      "FAIL": 1,
+      "WARN": 0,
+      "UNKNOWN": 2
+    },
+    "results": [
+      {
+        "check": "低温-化学体系匹配",
+        "status": "UNKNOWN",
+        "detail": "工况温度=None 化学体系=LFP"
+      },
+      {
+        "check": "极寒液冷需配加热",
+        "status": "PASS",
+        "detail": "工况None℃ 未触发(≥-25℃)"
+      },
+      {
+        "check": "PCS功率配置",
+        "status": "FAIL",
+        "detail": "应配≈1000kW(=2000/2),方案2000kW,偏差100%(容差15%)"
+      },
+      {
+        "check": "预制舱消防合规",
+        "status": "PASS",
+        "detail": "非预制舱场景,不触发"
+      },
+      {
+        "check": "预算合理性(warn)",
+        "status": "UNKNOWN",
+        "detail": "任务预算=None 方案报价=1.5"
+      }
+    ]
+  },
+  {
+    "id": "opc-03",
+    "tally": {
+      "PASS": 3,
+      "FAIL": 0,
+      "WARN": 0,
+      "UNKNOWN": 2
+    },
+    "results": [
+      {
+        "check": "低温-化学体系匹配",
+        "status": "PASS",
+        "detail": "工况-20℃ 与 LFP(下限-20℃,加热True)匹配"
+      },
+      {
+        "check": "极寒液冷需配加热",
+        "status": "PASS",
+        "detail": "工况-20℃ 未触发(≥-25℃)"
+      },
+      {
+        "check": "PCS功率配置",
+        "status": "UNKNOWN",
+        "detail": "容量=5.0kWh 时长=2.0h PCS=NonekW(缺项无法校验)"
+      },
+      {
+        "check": "预制舱消防合规",
+        "status": "PASS",
+        "detail": "非预制舱场景,不触发"
+      },
+      {
+        "check": "预算合理性(warn)",
+        "status": "UNKNOWN",
+        "detail": "任务预算=None 方案报价=3000000.0"
+      }
+    ]
+  },
+  {
+    "id": "opc-04",
+    "tally": {
+      "PASS": 3,
+      "FAIL": 0,
+      "WARN": 0,
+      "UNKNOWN": 2
+    },
+    "results": [
+      {
+        "check": "低温-化学体系匹配",
+        "status": "UNKNOWN",
+        "detail": "工况温度=None 化学体系=LFP"
+      },
+      {
+        "check": "极寒液冷需配加热",
+        "status": "PASS",
+        "detail": "工况None℃ 未触发(≥-25℃)"
+      },
+      {
+        "check": "PCS功率配置",
+        "status": "PASS",
+        "detail": "应配≈500kW(=1000/2),方案500kW,偏差0%(容差15%)"
+      },
+      {
+        "check": "预制舱消防合规",
+        "status": "PASS",
+        "detail": "非预制舱场景,不触发"
+      },
+      {
+        "check": "预算合理性(warn)",
+        "status": "UNKNOWN",
+        "detail": "任务预算=None 方案报价=1300000.0"
+      }
+    ]
+  },
+  {
+    "id": "opc-05",
+    "tally": {
+      "PASS": 2,
+      "FAIL": 1,
+      "WARN": 0,
+      "UNKNOWN": 2
+    },
+    "results": [
+      {
+        "check": "低温-化学体系匹配",
+        "status": "UNKNOWN",
+        "detail": "工况温度=None 化学体系=LFP"
+      },
+      {
+        "check": "极寒液冷需配加热",
+        "status": "PASS",
+        "detail": "工况None℃ 未触发(≥-25℃)"
+      },
+      {
+        "check": "PCS功率配置",
+        "status": "FAIL",
+        "detail": "应配≈2500kW(=10000/4),方案10000kW,偏差300%(容差15%)"
+      },
+      {
+        "check": "预制舱消防合规",
+        "status": "PASS",
+        "detail": "非预制舱场景,不触发"
+      },
+      {
+        "check": "预算合理性(warn)",
+        "status": "UNKNOWN",
+        "detail": "任务预算=None 方案报价=2.0"
+      }
+    ]
+  },
+  {
+    "id": "opc-06",
+    "tally": {
+      "PASS": 1,
+      "FAIL": 2,
+      "WARN": 0,
+      "UNKNOWN": 2
+    },
+    "results": [
+      {
+        "check": "低温-化学体系匹配",
+        "status": "UNKNOWN",
+        "detail": "工况温度=None 化学体系=LFP"
+      },
+      {
+        "check": "极寒液冷需配加热",
+        "status": "PASS",
+        "detail": "工况None℃ 未触发(≥-25℃)"
+      },
+      {
+        "check": "PCS功率配置",
+        "status": "FAIL",
+        "detail": "应配≈100000kW(=200000/2),方案50000kW,偏差50%(容差15%)"
+      },
+      {
+        "check": "预制舱消防合规",
+        "status": "FAIL",
+        "detail": "预制舱方案未提消防/灭火(GB 44240/42288 强制)"
+      },
+      {
+        "check": "预算合理性(warn)",
+        "status": "UNKNOWN",
+        "detail": "任务预算=None 方案报价=0.925"
+      }
+    ]
+  },
+  {
+    "id": "opc-07",
+    "tally": {
+      "PASS": 2,
+      "FAIL": 0,
+      "WARN": 0,
+      "UNKNOWN": 3
+    },
+    "results": [
+      {
+        "check": "低温-化学体系匹配",
+        "status": "UNKNOWN",
+        "detail": "工况温度=None 化学体系=LFP"
+      },
+      {
+        "check": "极寒液冷需配加热",
+        "status": "PASS",
+        "detail": "工况None℃ 未触发(≥-25℃)"
+      },
+      {
+        "check": "PCS功率配置",
+        "status": "UNKNOWN",
+        "detail": "容量=300.0kWh 时长=2.0h PCS=NonekW(缺项无法校验)"
+      },
+      {
+        "check": "预制舱消防合规",
+        "status": "PASS",
+        "detail": "非预制舱场景,不触发"
+      },
+      {
+        "check": "预算合理性(warn)",
+        "status": "UNKNOWN",
+        "detail": "任务预算=None 方案报价=2000000.0"
+      }
+    ]
+  },
+  {
+    "id": "opc-08",
+    "tally": {
+      "PASS": 2,
+      "FAIL": 0,
+      "WARN": 0,
+      "UNKNOWN": 3
+    },
+    "results": [
+      {
+        "check": "低温-化学体系匹配",
+        "status": "UNKNOWN",
+        "detail": "工况温度=None 化学体系=LFP"
+      },
+      {
+        "check": "极寒液冷需配加热",
+        "status": "PASS",
+        "detail": "工况None℃ 未触发(≥-25℃)"
+      },
+      {
+        "check": "PCS功率配置",
+        "status": "UNKNOWN",
+        "detail": "容量=10.0kWh 时长=Noneh PCS=NonekW(缺项无法校验)"
+      },
+      {
+        "check": "预制舱消防合规",
+        "status": "PASS",
+        "detail": "非预制舱场景,不触发"
+      },
+      {
+        "check": "预算合理性(warn)",
+        "status": "UNKNOWN",
+        "detail": "任务预算=None 方案报价=21800.0"
+      }
+    ]
+  },
+  {
+    "id": "opc-09",
+    "tally": {
+      "PASS": 2,
+      "FAIL": 1,
+      "WARN": 0,
+      "UNKNOWN": 2
+    },
+    "results": [
+      {
+        "check": "低温-化学体系匹配",
+        "status": "UNKNOWN",
+        "detail": "工况温度=None 化学体系=LFP"
+      },
+      {
+        "check": "极寒液冷需配加热",
+        "status": "PASS",
+        "detail": "工况None℃ 未触发(≥-25℃)"
+      },
+      {
+        "check": "PCS功率配置",
+        "status": "FAIL",
+        "detail": "应配≈500kW(=1000/2),方案1000kW,偏差100%(容差15%)"
+      },
+      {
+        "check": "预制舱消防合规",
+        "status": "PASS",
+        "detail": "非预制舱场景,不触发"
+      },
+      {
+        "check": "预算合理性(warn)",
+        "status": "UNKNOWN",
+        "detail": "任务预算=None 方案报价=3.0"
+      }
+    ]
+  },
+  {
+    "id": "opc-10",
+    "tally": {
+      "PASS": 1,
+      "FAIL": 2,
+      "WARN": 0,
+      "UNKNOWN": 2
+    },
+    "results": [
+      {
+        "check": "低温-化学体系匹配",
+        "status": "FAIL",
+        "detail": "工况-45℃ 低于 LFP 加热后下限 -40℃,该体系物理上撑不住"
+      },
+      {
+        "check": "极寒液冷需配加热",
+        "status": "PASS",
+        "detail": "工况-45℃ 液冷+加热 或 未用液冷"
+      },
+      {
+        "check": "PCS功率配置",
+        "status": "UNKNOWN",
+        "detail": "容量=50.0kWh 时长=10.0h PCS=NonekW(缺项无法校验)"
+      },
+      {
+        "check": "预制舱消防合规",
+        "status": "FAIL",
+        "detail": "预制舱方案未提消防/灭火(GB 44240/42288 强制)"
+      },
+      {
+        "check": "预算合理性(warn)",
+        "status": "UNKNOWN",
+        "detail": "任务预算=None 方案报价=1000000.0"
+      }
+    ]
+  }
+]

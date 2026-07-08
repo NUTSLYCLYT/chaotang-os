@@ -1,0 +1,3 @@
+supplierId,supplierName,category,riskLevel,paymentTerms,sourceLabel
+S001,Alpha Metals,raw_material,HIGH,NET30,internal_uploaded_file
+S002,Best Packaging,packaging,LOW,NET45,manual_confirmed

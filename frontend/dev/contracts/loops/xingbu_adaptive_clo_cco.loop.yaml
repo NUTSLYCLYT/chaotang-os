@@ -1,0 +1,87 @@
+id: xingbu_adaptive_clo_cco_loop_v1
+name: 刑部自适应复杂度子循环
+version: 0.1.0
+owner: courtos/xingbu
+purpose: >
+  刑部按公司规模、管理成熟度、问题风险和用户偏好自适应运行深度。
+  这是 xingbu_clo_cco_office_loop_v1 之上的自适应包装，不替代它，不创建 xingbu_small_company_loop、
+  xingbu_enterprise_loop 或其它 per-size 流程。仍作为 court_unified_decision_loop_v1 的可插拔部门能力。
+  铁律：自适应只调披露表面；风险地板与高风险自动升维永远生效。
+
+composes:
+  - xingbu_clo_cco_office_loop_v1
+plugs_into:
+  - court_unified_decision_loop_v1
+
+entrypoints:
+  - enabled_department_review.justice
+  - junjichu_department_work_order.justice
+
+steps:
+  - id: load_company_legal_profile
+    name: 载入公司法律风险画像
+    skill: skill.xingbu.load_company_legal_profile
+    inputs: [company_legal_risk_profile]
+    outputs: [CompanyLegalRiskProfileV1]
+
+  - id: determine_xingbu_mode
+    name: 判定刑部模式
+    skill: skill.xingbu.determine_xingbu_mode
+    rule: 按 employeeCount/headcountBand 映射 config/xingbu_complexity_profiles.yaml 的 5 个 mode；用户偏好可调展示深度，但不改风险地板。
+    outputs: [XingbuComplexityProfileV1]
+
+  - id: classify_legal_risk_question
+    name: 法务/合规问题分类
+    skill: skill.xingbu.classify_legal_risk_question
+    outputs: [legal_risk_question_type, risk_watchlist]
+
+  - id: apply_escalation_rules
+    name: 应用高风险自动升维
+    skill: skill.xingbu.apply_escalation_rules
+    rule: >
+      不论 mode/规模，命中升维条件即强制叠加对应子司与跨部复核，用户不可关闭。
+    escalation_rules:
+      - contract_signing_always_escalate
+      - external_commitment_always_escalate
+      - equity_or_governance_always_escalate
+      - payment_penalty_or_guarantee_involve_hubu
+      - labor_action_involve_libu
+      - dispute_or_lawyer_letter_involve_dispute_office
+      - ip_or_confidentiality_involve_ip_office
+      - seal_or_signature_involve_legal_ops
+      - compliance_or_license_involve_compliance_office
+      - ai_generated_external_content_involve_junjichu_and_xingbu
+      - privacy_sensitive_data_requires_permission_guard
+    outputs: [escalation_applied]
+
+  - id: select_enabled_sub_offices
+    name: 选择启用子司
+    skill: skill.xingbu.select_enabled_sub_offices
+    rule: 取 mode.enabledSubOffices ∪ mode.lightweightSubOffices ∪ escalation 强制叠加子司；升维永远叠加，不被 mode 削减。
+    outputs: [active_sub_offices]
+    delegates_to: xingbu_clo_cco_office_loop_v1
+
+  - id: render_adaptive_interaction
+    name: 渲染自适应交互
+    skill: skill.xingbu.render_adaptive_interaction
+    rule: >
+      按 mode.defaultView 决定默认展示深度；小公司默认 brief 且不暴露 8 子司结构；
+      50 人以上可展示管理摘要，200 人以上可展开专业分奏。用户可在 user_choices 内展开，
+      但 lockedFloor 不可绕过。
+    user_choices: [brief, management_detail, professional_detail, enter_junjichu_deep_review, generate_artifact, request_department_review]
+    locked_floor: [high_risk_requires_human_confirmation, contract_or_commitment_review, equity_or_governance_review, labor_risk_review, source_label_required, evidence_or_gap_required, privacy_sensitive_data_guard, no_irreversible_legal_action_without_approval]
+    outputs: [XingbuAdaptiveInteractionV1]
+
+  - id: quality_gate
+    name: 刑部自适应质门（含地板强校验）
+    skill: skill.xingbu.adaptive_quality_gate
+    gates:
+      - source_label_required
+      - evidence_or_gap_required
+      - high_risk_requires_human_confirmation
+      - contract_or_commitment_review
+      - equity_or_governance_review
+      - labor_risk_review
+      - privacy_sensitive_data_guard
+      - no_irreversible_legal_action_without_approval
+    rule: 高风险事项 humanConfirmationRequired=true，用户不可关闭；地板缺失即 block。

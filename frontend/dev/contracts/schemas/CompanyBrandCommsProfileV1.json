@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CompanyBrandCommsProfileV1",
+  "type": "object",
+  "required": ["employeeCount", "ritesMode", "sourceLabel"],
+  "properties": {
+    "employeeCount": { "type": "integer", "minimum": 1 },
+    "headcountBand": { "enum": ["1-10", "10-50", "50-200", "200-1000", "1000+"] },
+    "brandMaturity": { "enum": ["none", "basic", "growing", "mature", "enterprise"] },
+    "marketingMaturity": { "enum": ["none", "basic", "growing", "mature", "enterprise"] },
+    "publicRiskLevel": { "enum": ["LOW", "MEDIUM", "HIGH", "BLOCKED"] },
+    "industry": { "type": "string" },
+    "userPreferredView": { "enum": ["brief", "management_detail", "professional_detail"] },
+    "ritesMode": {
+      "enum": [
+        "founder_expression_assistant",
+        "small_team_marketing",
+        "growth_cmo",
+        "cmo_cco",
+        "enterprise_brand_comms"
+      ]
+    },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

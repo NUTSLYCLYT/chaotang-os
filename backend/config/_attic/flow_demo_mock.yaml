@@ -1,0 +1,16 @@
+# config/flow_demo_mock.yaml
+# 由 flow_demo.yaml 派生：把 openclaw_base_url 写死指向本地 mock gateway(:18799)，
+# 用于验证 step_type: openclaw 成功路径（httpx 调外部 → 输出回流 → status=success）。
+flow_name: 演示流程（OpenClaw mock）
+output_fields:
+  - 演示输出
+
+steps:
+  - id: demo_loop
+    name: 多轮对话演示
+    step_type: openclaw
+    openclaw_base_url: http://127.0.0.1:18799   # 写死指向 mock，优先级高于环境变量
+    openclaw_agent_id: test-agent
+    openclaw_done_signal: "TASK_DONE"
+    openclaw_timeout: 30
+    description: 调本地 mock OpenClaw Gateway 演示单次成功调用

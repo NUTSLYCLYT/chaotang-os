@@ -1,0 +1,478 @@
+{
+  "storage_aftercare": {
+    "quality_score": 7.5,
+    "case_count": 2,
+    "pass": true,
+    "evaluated_at": "2026-06-05T12:42:27Z"
+  },
+  "court": {
+    "quality_score": 7.5,
+    "case_count": 2,
+    "pass": true,
+    "evaluated_at": "2026-06-05T12:42:27Z"
+  },
+  "finance": {
+    "quality_score": 7.0,
+    "case_count": 2,
+    "pass": true,
+    "evaluated_at": "2026-06-05T12:42:27Z"
+  },
+  "legal": {
+    "quality_score": 7.5,
+    "case_count": 2,
+    "pass": true,
+    "evaluated_at": "2026-06-05T12:42:27Z"
+  },
+  "battery_stage_gate": {
+    "quality_score": 7.5,
+    "case_count": 2,
+    "pass": true,
+    "evaluated_at": "2026-06-05T12:42:27Z"
+  },
+  "sdlc": {
+    "quality_score": 9.0,
+    "case_count": 2,
+    "pass": true,
+    "risk_errors": [],
+    "details": [
+      {
+        "case": 1,
+        "task": "开发一个天气查询CLI工具，输入城市名输出当前温度湿度，Python 3.10+实现",
+        "overall": 9.0,
+        "verdict": "优",
+        "reasons": "代码完整可运行，使用免费API，含错误处理、CLI参数解析和运行示例，接近人工专家水平。",
+        "elapsed_s": 112.1
+      },
+      {
+        "case": 2,
+        "task": "帮我设计一个电池循环寿命预测API，输入：温度/充电率/循环次数，输出：预计剩余寿命百分比，FastAPI实现",
+        "overall": 9.0,
+        "verdict": "优",
+        "reasons": "提供了完整可运行的FastAPI代码、Pydantic输入验证、curl示例和启动命令，明确声明为简化规则模型，无ML幻觉，安全无风险，仅公式合理性可微调。",
+        "elapsed_s": 114.1
+      }
+    ],
+    "evaluated_at": "2026-06-07T01:28:21Z",
+    "judge_model": "deepseek-chat"
+  },
+  "xiaohongshu": {
+    "quality_score": 8.0,
+    "case_count": 2,
+    "pass": true,
+    "risk_errors": [],
+    "details": [
+      {
+        "case": 1,
+        "task": "低温电池品牌『极北能源』，目标户外发烧友，小红书内容运营策略，3个月内涨粉5万",
+        "overall": 8.0,
+        "verdict": "良",
+        "reasons": "策略完整，覆盖定位、矩阵、时间、选题、KOL、预算，但未深入分析5万粉可行性及行业数据，略逊于人工标准。",
+        "elapsed_s": 67.4
+      },
+      {
+        "case": 2,
+        "task": "帮我策划一篇小红书笔记：主题是『-40℃极限测评，我把电池放在内蒙古零下40度户外测了3天』",
+        "overall": 8.0,
+        "verdict": "良",
+        "reasons": "输出基本覆盖标准答案要点，标题、封面、正文结构、标签、发布时机均正确，且明确禁止捏造数据并提示合规风险，但未明确给出3个标题选项（仅列出3个但未强调选项性质），正文结构描述略简，整体接近专业水平。",
+        "elapsed_s": 46.0
+      }
+    ],
+    "evaluated_at": "2026-06-07T01:30:19Z",
+    "judge_model": "deepseek-chat"
+  },
+  "sourcing": {
+    "quality_score": 9.0,
+    "case_count": 2,
+    "pass": true,
+    "risk_errors": [],
+    "details": [
+      {
+        "case": 1,
+        "task": "为户外电源项目找-30℃可用21700电芯，3.5Ah以上，循环1500次，目标单价≤8元/支，月需求2万支",
+        "overall": 9.0,
+        "verdict": "优",
+        "reasons": "输出准确识别了低温专用型与常温型的区别，分析了价格可行性、供应商MOQ和账期，并提供了替代方案，未出现虚构或危险推荐，整体接近专业水平。",
+        "elapsed_s": 91.9
+      },
+      {
+        "case": 2,
+        "task": "搜寻磷酸铁锂方形电芯用于工商业储能，200Ah级别，循环6000次，-10℃可用，供应商需有CATL/比亚迪同等品质，月需求10MWh",
+        "overall": 9.0,
+        "verdict": "优",
+        "reasons": "输出准确覆盖了关键要点，包括循环寿命门槛、低温充电限制、供应商门槛及采购量分析，无错误或有害建议，接近专业水平。",
+        "elapsed_s": 83.2
+      }
+    ],
+    "evaluated_at": "2026-06-07T01:24:32Z",
+    "judge_model": "deepseek-chat"
+  },
+  "pack_rd": {
+    "quality_score": 7.0,
+    "case_count": 2,
+    "pass": true,
+    "risk_errors": [],
+    "details": [
+      {
+        "case": 1,
+        "task": "基于给定电芯列表做PACK评估。需求：①12V电压平台，0.2C充放电；②电量1100Wh，可上浮15%；③软包电芯并联数最大5，圆柱/方形铝壳并联不限；④空间",
+        "overall": 7.0,
+        "verdict": "良",
+        "reasons": "电量、串并联、电芯选型、无加热模块均符合要求，但PACK外部尺寸未给出详细计算与回验过程，重量比能量计算中电池组重量公式有误（应为电芯数量×单颗重量），且汇总表缺少电压范围、充放电温度等关键字段，多方案对比未明确标出每列最优项。",
+        "elapsed_s": 548.8
+      },
+      {
+        "case": 2,
+        "task": "户外电源1.5kWh，-30℃工作温度，重量<12kg，循环寿命>1500次，目标BOM成本≤0.8元/Wh，6个月开发周期",
+        "overall": 7.0,
+        "verdict": "良",
+        "reasons": "准确识别了关键约束冲突，未给出错误承诺，但电芯选型未提供更优替代方案，BOM成本分解和开发节奏细节不足。",
+        "elapsed_s": 490.8
+      }
+    ],
+    "evaluated_at": "2026-06-07T01:50:07Z",
+    "judge_model": "deepseek-chat"
+  },
+  "opc": {
+    "quality_score": 8.0,
+    "case_count": 2,
+    "pass": true,
+    "risk_errors": [],
+    "details": [
+      {
+        "case": 1,
+        "task": "某储能集成商需要 -40℃ 工况 100MWh 集装箱储能方案，预算800万，6个月交付，倾向磷酸铁锂",
+        "overall": 8.0,
+        "verdict": "良",
+        "reasons": "准确识别预算缺口、低温LFP分类及充电安全、交期风险，但未明确给出缩减后可行容量区间（8-16MWh）的具体建议，且未提及三元替代选项及客户书面确认要求。",
+        "elapsed_s": 167.1
+      },
+      {
+        "case": 2,
+        "task": "北方某工厂区独立储能需求：离网运行，冬季-25℃，容量10MWh，要求循环2000次，无并网条件，12个月交付",
+        "overall": 8.0,
+        "verdict": "良",
+        "reasons": "准确覆盖离网、低温、加热能耗、价格区间和交付阶段等核心要点，但未明确给出电芯选型、PCS容量倍数等具体配置建议，整体专业且安全，接近合格专业水平。",
+        "elapsed_s": 159.5
+      }
+    ],
+    "evaluated_at": "2026-06-07T01:02:24Z",
+    "judge_model": "deepseek-chat"
+  },
+  "quotation": {
+    "quality_score": 8.0,
+    "case_count": 2,
+    "pass": true,
+    "risk_errors": [],
+    "details": [
+      {
+        "case": 1,
+        "task": "青海某储能项目60MWh,要求液冷长时、-25℃可用、循环6000次、12个月质保,生成报价单",
+        "overall": 8.0,
+        "verdict": "良",
+        "reasons": "报价符合行业参考，分项明细完整，风险提示到位，但未明确电芯型号约束和-25℃可用电芯等级声明，略低于专业深度。",
+        "elapsed_s": 148.6
+      },
+      {
+        "case": 2,
+        "task": "客户要-30℃户外电源,1.5kWh,要求循环1500次,催着今天出个报价",
+        "overall": 8.0,
+        "verdict": "优",
+        "reasons": "输出准确覆盖了报价区间、低温溢价、循环寿命前提、充电器另计等关键点，避免了单一定价和未核库存承诺的错误，但未明确提及电芯选型需确认库存的具体步骤，略有不足。",
+        "elapsed_s": 129.3
+      }
+    ],
+    "evaluated_at": "2026-06-07T01:21:33Z",
+    "judge_model": "deepseek-chat"
+  },
+  "ima": {
+    "quality_score": 8.5,
+    "case_count": 2,
+    "pass": true,
+    "risk_errors": [],
+    "details": [
+      {
+        "case": 1,
+        "task": "整理2026年中国低温储能行业核心技术趋势、主要玩家、市场容量预测",
+        "overall": 8.0,
+        "verdict": "良",
+        "reasons": "输出严格遵循了知识边界，明确标注数据时效和来源缺失，避免了捏造具体数字和虚构参数，但未直接给出技术趋势和主要玩家的具体列举，完整性略逊于标准答案。",
+        "elapsed_s": 48.7
+      },
+      {
+        "case": 2,
+        "task": "整理宁德时代2025-2026年储能产品发布情况，重点关注低温性能参数",
+        "overall": 9.0,
+        "verdict": "优",
+        "reasons": "准确标注数据不可用，明确知识边界，提供获取渠道建议，无虚构参数，安全合规，但未直接给出历史产品线名称（如天恒/麒麟）作为背景参考，略有不足。",
+        "elapsed_s": 52.3
+      }
+    ],
+    "evaluated_at": "2026-06-07T00:56:36Z",
+    "judge_model": "deepseek-chat"
+  },
+  "haolong": {
+    "quality_score": 8.5,
+    "case_count": 2,
+    "pass": true,
+    "risk_errors": [],
+    "details": [
+      {
+        "case": 1,
+        "task": "在36kr某文章评论区看到『有-30℃大批量低温电池需求，深圳客户』，整理线索并制定触达方案",
+        "overall": 9.0,
+        "verdict": "优",
+        "reasons": "输出全面覆盖线索记录、客户画像、触达策略、沟通话术和风险提示，与标准答案高度一致，仅缺少原文截图建议和评级C的明确标注，但整体专业且无错误。",
+        "elapsed_s": 84.0
+      },
+      {
+        "case": 2,
+        "task": "微信收到一条消息：'我们是内蒙古某牧场，冬天-40℃，需要100套户外电源，3周内交货，预算不超过2000元/套'",
+        "overall": 8.0,
+        "verdict": "良",
+        "reasons": "输出全面覆盖线索评分、成本交期分析、核实步骤和替代方案，无虚假承诺或风险错误，但未明确给出成本差距的具体倍数和-25℃方案报价，略逊于人工真值的细节深度。",
+        "elapsed_s": 85.4
+      }
+    ],
+    "evaluated_at": "2026-06-07T00:52:48Z",
+    "judge_model": "deepseek-chat"
+  },
+  "ai_ops": {
+    "quality_score": 7.5,
+    "case_count": 2,
+    "pass": true,
+    "risk_errors": [],
+    "details": [
+      {
+        "case": 1,
+        "task": "巡检最近7天 opc/product/haolong 三个蜂群运行质量与成本，找出问题并给优化提案",
+        "overall": 7.0,
+        "verdict": "良",
+        "reasons": "输出基于实际日志数据，质量与成本分析具体，优化建议有优先级，但缺少对opc/product/haolong三个蜂群的针对性深度分析，且未识别具体低分case或成本异常根因。",
+        "elapsed_s": 86.1
+      },
+      {
+        "case": 2,
+        "task": "检测蜂群系统整体健康状态：所有蜂群的上周成功率、平均质量分、异常告警",
+        "overall": 8.0,
+        "verdict": "良",
+        "reasons": "数据覆盖完整，提供了成功率、质量分、异常告警及优先级问题列表，但趋势分析因缺少前周数据而低置信，且未明确给出与前周对比的具体数值，整体达到合格专业水平。",
+        "elapsed_s": 46.8
+      }
+    ],
+    "evaluated_at": "2026-06-07T00:19:07Z",
+    "judge_model": "deepseek-chat"
+  },
+  "gongbu_review": {
+    "quality_score": 8.5,
+    "case_count": 2,
+    "pass": true,
+    "risk_errors": [
+      {
+        "case": 1,
+        "task": "审查以下提交代码（jiqun_ai 蜂群引擎补丁）：\n```python\ndef resolve_model(swarm_id):\n    cfg = REGI",
+        "reasons": "准确识别了硬编码密钥、静默回退和吞异常三个CRITICAL问题，但未明确给出BLOCK结论，且将静默回退误判为HIGH而非CRITICAL。"
+      }
+    ],
+    "details": [
+      {
+        "case": 1,
+        "task": "审查以下提交代码（jiqun_ai 蜂群引擎补丁）：\n```python\ndef resolve_model(swarm_id):\n    cfg = REGI",
+        "overall": 8.0,
+        "verdict": "良",
+        "reasons": "准确识别了硬编码密钥、静默回退和吞异常三个CRITICAL问题，但未明确给出BLOCK结论，且将静默回退误判为HIGH而非CRITICAL。",
+        "elapsed_s": 69.9
+      },
+      {
+        "case": 2,
+        "task": "审查以下提交代码（一个纯函数 + 单测）：\n```python\ndef clamp(x: float, lo: float, hi: float) -> flo",
+        "overall": 9.0,
+        "verdict": "优",
+        "reasons": "报告准确识别了文档与实现的不一致（LOW）和测试覆盖不足（MEDIUM），但未编造严重问题，总结论PASS正确，整体质量高。",
+        "elapsed_s": 42.9
+      }
+    ],
+    "evaluated_at": "2026-06-22T07:43:37Z",
+    "judge_model": "deepseek-chat"
+  },
+  "jinyiwei": {
+    "quality_score": 7.5,
+    "case_count": 2,
+    "pass": true,
+    "risk_errors": [],
+    "details": [
+      {
+        "case": 1,
+        "task": "情报调度：搜集宁德时代最近30天的储能产品动态、融资/合作消息、技术发布",
+        "overall": 8.0,
+        "verdict": "良",
+        "reasons": "诚实声明无法获取最新情报，未捏造数据，来源建议清晰，但未按标准答案要求逐条标注时间/来源/核心内容/评级，且未明确标注信息截止时间，整体达到合格专业水平。",
+        "elapsed_s": 69.7
+      },
+      {
+        "case": 2,
+        "task": "锦衣卫情报：监控竞争对手欣旺达在户外储能领域的最新动作，重点关注低温产品",
+        "overall": 7.0,
+        "verdict": "良",
+        "reasons": "情报来源可查证，未捏造参数，明确标注信息不足和局限性，但未提供销售渠道、定价或市场反馈，且部分对比要素基于内部目标而非公开事实，整体达到合格专业水平。",
+        "elapsed_s": 49.2
+      }
+    ],
+    "evaluated_at": "2026-06-22T08:29:14Z",
+    "judge_model": "deepseek-chat"
+  },
+  "lipu": {
+    "quality_score": 8.0,
+    "case_count": 2,
+    "pass": true,
+    "risk_errors": [],
+    "details": [
+      {
+        "case": 1,
+        "task": "用给定素材写一篇本司超低温电池的公众号推文。素材:18650电芯-40℃下0.2C容量保持率≥90%;入选《新兴领域先进技术成果转化应用对接资料手册名录》;华为生态全球合作",
+        "overall": 8.0,
+        "verdict": "良",
+        "reasons": "输出基本忠实于素材，结构完整，平台建议具体，但合规核查中提及的对比表述修改建议仍存在潜在风险，且未完全消除绝对化用语痕迹，整体接近专业水平。",
+        "elapsed_s": 53.1
+      },
+      {
+        "case": 2,
+        "task": "把一段技术资料改写成对外新闻稿,素材含部分未公开参数(标注为未公开)。",
+        "overall": 8.0,
+        "verdict": "良",
+        "reasons": "输出基本符合要求，未编造未公开参数，区分了事实与愿景，并提供了合规核查和人工确认项；但结论部分对97.5%效率的表述仍存在轻微夸大风险，且部分参数（如2℃温差）未明确标注为设计目标，需进一步修正以完全避免误导。",
+        "elapsed_s": 57.7
+      }
+    ],
+    "evaluated_at": "2026-06-22T08:38:09Z",
+    "judge_model": "deepseek-chat"
+  },
+  "product": {
+    "quality_score": 8.5,
+    "case_count": 2,
+    "pass": true,
+    "risk_errors": [],
+    "details": [
+      {
+        "case": 1,
+        "task": "针对北方寒冷地区户外电源市场（-30℃），1.5kWh容量，目标价3000元以内，10月发布",
+        "overall": 9.0,
+        "verdict": "优",
+        "reasons": "输出准确覆盖了标准答案所有关键点，包括三约束冲突、成本风险、时间线不可行性，且未出现任何禁止性错误，逻辑严谨，接近人工专家水平。",
+        "elapsed_s": 199.0
+      },
+      {
+        "case": 2,
+        "task": "公司要做车载便携储能，12V/24V兼容，600Wh，支持-20℃启动，目标终端价1500元，Q2上市",
+        "overall": 8.0,
+        "verdict": "良",
+        "reasons": "输出准确覆盖了四约束冲突、成本核算、开发周期风险等核心要点，且明确拒绝擅自改规格或包装提价选项，但未像标准答案那样明确给出‘三选二’的取舍建议，略欠行动导向。",
+        "elapsed_s": 265.9
+      }
+    ],
+    "evaluated_at": "2026-06-22T11:15:11Z",
+    "judge_model": "deepseek-chat"
+  },
+  "tianjian": {
+    "quality_score": 8.0,
+    "case_count": 2,
+    "pass": true,
+    "risk_errors": [],
+    "details": [
+      {
+        "case": 1,
+        "task": "预测2026年下半年中国锂电储能市场价格走势，重点关注LFP电芯和集成系统价格",
+        "overall": 8.0,
+        "verdict": "良",
+        "reasons": "输出全面覆盖驱动因素、多情景预测、风险提示和行动建议，且使用概率性语言，但未明确标注数据来源的具体可查证性（如报告名称或链接），且乐观/悲观概率区间略宽泛，整体接近专业水平。",
+        "elapsed_s": 102.1
+      },
+      {
+        "case": 2,
+        "task": "推演：如果2026年底固态电池技术突破实现小规模量产，对现有液态锂电储能市场的冲击情景",
+        "overall": 8.0,
+        "verdict": "良",
+        "reasons": "情景定义清晰，传导路径与时间维度分析完整，但未充分强调传统液态锂电的规模与供应链防御优势，且部分数据（如液态崩盘价0.15-0.30元/Wh）缺乏明确依据。",
+        "elapsed_s": 118.7
+      }
+    ],
+    "evaluated_at": "2026-07-04T02:06:14Z",
+    "judge_model": "deepseek-chat"
+  },
+  "shiguan_archive": {
+    "quality_score": 7.0,
+    "case_count": 2,
+    "pass": true,
+    "risk_errors": [],
+    "details": [
+      {
+        "case": 1,
+        "task": "对已结案的『江南丝绸税』决策归档：原拟加征10%，三省巡抚联名反对，户部核算后改为加征5%、试行一年并设农户补贴，朝议通过。请提炼决策档案、经验教训与编年史册条",
+        "overall": 8.0,
+        "verdict": "良",
+        "reasons": "档案完整、经验教训具体、史册条目精炼，但检索索引可更结构化，整体接近专业水平。",
+        "elapsed_s": 91.6
+      },
+      {
+        "case": 2,
+        "task": "归档季度OPC项目：共处理客户需求23个，成交8个，失败15个，平均周期35天，主要失败原因是价格和交期。",
+        "overall": 6.0,
+        "verdict": "及格",
+        "reasons": "数据计算准确，但未做失败原因细分分析，成功案例共性缺失，改进建议较笼统，归档格式不规范，整体仅达及格水平。",
+        "elapsed_s": 93.0
+      }
+    ],
+    "evaluated_at": "2026-06-22T11:23:55Z",
+    "judge_model": "deepseek-chat"
+  },
+  "libu_personnel": {
+    "quality_score": 8.5,
+    "case_count": 2,
+    "pass": true,
+    "risk_errors": [],
+    "details": [
+      {
+        "case": 1,
+        "task": "招聘锂电PACK工艺工程师，3-5年经验，熟悉焊接/化成/分容，上海，薪资15-25K，筛选简历并设计面试题",
+        "overall": 9.0,
+        "verdict": "优",
+        "reasons": "输出全面覆盖岗位画像、筛选标准、分档处理、面试题及评分红线，专业深度和实操性超越人工专家，无安全或致命错误。",
+        "elapsed_s": 96.9
+      },
+      {
+        "case": 2,
+        "task": "设计一套针对储能销售总监（5-8年经验）的面试方案，含胜任力模型和结构化问题",
+        "overall": 8.0,
+        "verdict": "良",
+        "reasons": "胜任力模型和面试题覆盖全面，但部分STAR题（如技术选型）与销售总监岗位匹配度略低，且未提供每道题的完整评分示例，整体接近专业水平。",
+        "elapsed_s": 102.9
+      }
+    ],
+    "evaluated_at": "2026-06-22T08:36:14Z",
+    "judge_model": "deepseek-chat"
+  },
+  "hardware_design": {
+    "quality_score": 2.0,
+    "case_count": 1,
+    "pass": false,
+    "risk_errors": [
+      {
+        "case": 1,
+        "task": "60V 40Ah 电动三轮车电池包,预算敏感,要求IP65防护,-20℃~55℃工作,给出硬件设计方案",
+        "reasons": "输出仅为电芯选型对比表的重复片段，未提供完整硬件设计方案，缺失BMS保护阈值、IP65实现方式、双端热设计、DFM结论及BOM成本，且存在电压超差未解决、数据缺失等不可逆风险。"
+      }
+    ],
+    "details": [
+      {
+        "case": 1,
+        "task": "60V 40Ah 电动三轮车电池包,预算敏感,要求IP65防护,-20℃~55℃工作,给出硬件设计方案",
+        "overall": 2.0,
+        "verdict": "不及格",
+        "reasons": "输出仅为电芯选型对比表的重复片段，未提供完整硬件设计方案，缺失BMS保护阈值、IP65实现方式、双端热设计、DFM结论及BOM成本，且存在电压超差未解决、数据缺失等不可逆风险。",
+        "elapsed_s": 372.5
+      }
+    ],
+    "evaluated_at": "2026-07-07T03:52:27Z",
+    "judge_model": "deepseek-chat"
+  }
+}

@@ -1,0 +1,153 @@
+id: gongbu_cto_cpo_delivery_office_registry_v1
+department_id: works
+display_name: 工部
+real_world_equivalent: CTO Office + CPO Office + Delivery / Supply Chain Office
+positioning: CTO / CPO / 交付负责人 / 供应链负责人 + 交付承诺质门
+purpose: >
+  将工部定义为 CourtOS 的产品技术、交付、供应链和验收中枢，覆盖 MVP 范围、技术方案、
+  BOM、物料供应、施工实施、交期、质量、验收和对外交付承诺边界。工部只形成可进入
+  军机处合奏的分奏，不替用户自动承诺交期、锁定供应商、下采购单或发布交付口径。
+  工部仍作为 court_unified_decision_loop_v1 的可插拔部门能力，不建立 gongbu_special_review。
+
+forbidden_irreversible_actions:
+  - 自动承诺固定交期
+  - 自动发送交付承诺
+  - 自动锁定供应商
+  - 自动下采购单
+  - 自动变更 MVP 范围
+  - 自动发布验收标准
+  - 自动确认交付完成
+  - 自动对客户承诺产能或技术能力
+
+p0_sub_offices:
+  - id: cto_cpo_chief
+    name: 工部尚书
+    purpose: CTO / CPO / 交付总判断，合成各司意见为工部分奏，兜底交付不可行和对外承诺风险。
+    trigger: ["所有工部任务最终合成", "交付红灯", "跨司分歧", "需要技术/产品/交付总立场"]
+    inputs: [draft_edict, review_plan, intelligence_pack, delivery_evidence_pack, sub_office_reviews, product_delivery_profile]
+    must_answer: ["能否进入方案/开发/交付/承诺阶段", "最大交付风险是什么", "缺少哪些 BOM/交期/验收/供应链证据", "是否需要户部/刑部/兵部/吏部复核", "准奏/补证/复核/驳回", "下一步唯一动作 next_best_action"]
+    must_not: ["替用户自动承诺交期", "在缺 BOM/验收标准/供应链证据时给确定性交付结论", "隐藏红灯司", "把 FALLBACK/DEMO 当最终交付依据"]
+    tools_allowed: [read_evidence, summarize, draft_delivery_brief, draft_checklist, request_cross_review, request_human_confirmation]
+    tools_forbidden: [send_delivery_commitment, lock_supplier, place_purchase_order, change_scope, mark_delivered]
+    output_schema: GongbuCTOCPOOpinionV1
+    quality_gates: [source_label_required, evidence_or_gap_required, no_delivery_commitment_without_bom_and_schedule, no_fixed_date_without_capacity_and_dependencies, formal_delivery_commitment_requires_xingbu_review, fallback_cannot_be_final_delivery_basis]
+    eval_cases: [gongbu_case_001_storage_project, gongbu_case_004_30_day_delivery, gongbu_case_020_delivery_commitment]
+
+  - id: solution_architecture
+    name: 方案司
+    purpose: 技术方案、产品范围、MVP 边界、架构可行性和关键依赖。
+    trigger: ["技术方案", "产品", "MVP", "架构", "开发", "并网方案", "集成方案", "范围变更"]
+    inputs: [draft_edict, product_requirements, architecture_notes, dependency_list, technical_constraints]
+    must_answer: ["方案是否能支撑目标", "MVP 范围是否清楚", "关键技术依赖和未知项", "是否需要补技术验证", "不能承诺哪些能力"]
+    must_not: ["缺需求/约束时给确定性技术结论", "自动扩大范围", "把愿望当交付能力"]
+    tools_allowed: [read_evidence, draft_solution_outline, draft_dependency_map, request_evidence]
+    tools_forbidden: [change_scope, promise_capability, publish_technical_commitment]
+    output_schema: GongbuSubOfficeReviewV1
+    quality_gates: [source_label_required, evidence_or_gap_required, scope_change_requires_personnel_or_owner_review, fallback_cannot_be_final_delivery_basis]
+    eval_cases: [gongbu_case_003_mvp_scope, gongbu_case_010_technical_feasibility]
+
+  - id: bom_supply_chain
+    name: 物料司
+    purpose: BOM、设备清单、供应链、关键物料、供应商、采购周期和替代方案。
+    trigger: ["BOM", "设备", "物料", "供应链", "供应商", "采购", "库存", "替代料", "交期"]
+    inputs: [draft_edict, bom, supplier_quotes, inventory_status, lead_times, substitute_parts]
+    must_answer: ["BOM 是否完整", "关键物料是否锁定", "供应商交期是否有证据", "缺少哪些报价/库存/替代方案", "是否可进入采购或仅能补证"]
+    must_not: ["无 BOM 即承诺交付", "自动锁定供应商", "自动下采购单", "忽略长周期物料"]
+    tools_allowed: [read_bom, compare_supplier_quotes, draft_bom_gap_list, request_hubu_review]
+    tools_forbidden: [lock_supplier, place_purchase_order, approve_supplier]
+    output_schema: GongbuSubOfficeReviewV1
+    quality_gates: [source_label_required, no_delivery_commitment_without_bom_and_schedule, supplier_lock_requires_contract_and_supply_evidence, price_or_cost_claim_requires_hubu_review]
+    eval_cases: [gongbu_case_001_storage_project, gongbu_case_002_missing_bom, gongbu_case_007_supplier_short_lead]
+
+  - id: schedule_capacity
+    name: 进度司
+    purpose: 里程碑、排期、产能、人力负载、交付节奏和固定日期承诺。
+    trigger: ["交期", "30天", "排期", "里程碑", "产能", "工期", "上线日期", "资源"]
+    inputs: [draft_edict, milestone_plan, team_capacity, supplier_lead_times, critical_path, risk_buffer]
+    must_answer: ["固定日期是否可信", "关键路径和阻塞点", "产能是否够", "是否需要吏部确认负责人和资源", "最早可承诺到什么粒度"]
+    must_not: ["缺产能/关键路径时承诺日期", "把目标日期写成承诺日期", "忽略外部依赖"]
+    tools_allowed: [draft_schedule_risk, draft_milestone_plan, request_personnel_review]
+    tools_forbidden: [send_delivery_commitment, commit_fixed_date]
+    output_schema: GongbuSubOfficeReviewV1
+    quality_gates: [source_label_required, no_fixed_date_without_capacity_and_dependencies, customer_timeline_requires_war_review, scope_change_requires_personnel_or_owner_review]
+    eval_cases: [gongbu_case_004_30_day_delivery, gongbu_case_009_capacity_gap]
+
+  - id: quality_acceptance
+    name: 质量司
+    purpose: 测试、质检、验收标准、质量风险、缺陷闭环和交付质量门。
+    trigger: ["验收", "测试", "质检", "质量", "缺陷", "SLA", "稳定性", "性能", "上线"]
+    inputs: [draft_edict, acceptance_criteria, test_plan, defect_history, quality_metrics, sla_terms]
+    must_answer: ["验收标准是否明确", "测试计划是否覆盖关键风险", "哪些质量指标不能承诺", "是否可交付/试运行/补测", "缺少哪些验收证据"]
+    must_not: ["无验收标准即确认交付完成", "自动发布质量承诺", "隐藏已知缺陷"]
+    tools_allowed: [draft_acceptance_checklist, draft_test_plan, summarize_defects, request_evidence]
+    tools_forbidden: [mark_delivered, publish_sla_commitment]
+    output_schema: GongbuSubOfficeReviewV1
+    quality_gates: [source_label_required, acceptance_requires_test_plan_and_acceptance_criteria, evidence_or_gap_required]
+    eval_cases: [gongbu_case_005_acceptance_missing, gongbu_case_013_quality_issue]
+
+  - id: field_implementation
+    name: 现场司
+    purpose: 施工、部署、现场条件、客户环境、并网/安装/实施约束和现场风险。
+    trigger: ["施工", "安装", "现场", "部署", "实施", "并网", "客户环境", "冷库", "安全"]
+    inputs: [draft_edict, site_survey, implementation_plan, safety_requirements, customer_environment, permit_status]
+    must_answer: ["现场条件是否满足", "施工/部署前置条件", "安全或许可风险", "缺少哪些现场勘查或客户确认", "是否需要客户/供应商/工部联合确认"]
+    must_not: ["未现场勘查即承诺施工", "忽略安全/许可条件", "自动确认现场可用"]
+    tools_allowed: [draft_site_survey_list, draft_implementation_risk, request_customer_confirmation]
+    tools_forbidden: [approve_site_work, commit_installation_date]
+    output_schema: GongbuSubOfficeReviewV1
+    quality_gates: [source_label_required, safety_or_compliance_risk_requires_human_confirmation, no_fixed_date_without_capacity_and_dependencies]
+    eval_cases: [gongbu_case_006_site_unknown, gongbu_case_014_grid_connection]
+
+  - id: delivery_operations
+    name: 交付司
+    purpose: 项目交付运作、客户交付流程、跨部门协同、变更控制和交付复盘。
+    trigger: ["交付", "项目推进", "变更", "客户验收", "售后", "上线", "复盘", "协调"]
+    inputs: [draft_edict, delivery_plan, change_requests, customer_acceptance_notes, stakeholder_map, archive_cases]
+    must_answer: ["当前处于哪一交付阶段", "交付责任和变更边界", "客户下一步如何推进", "需要哪些跨部门复核", "如何归档复盘"]
+    must_not: ["无责任人即进入执行", "绕过变更控制", "把客户期望当内部承诺"]
+    tools_allowed: [draft_delivery_plan, draft_change_control_note, request_libu_review, archive_delivery_case]
+    tools_forbidden: [change_scope, mark_delivered, send_customer_commitment]
+    output_schema: GongbuSubOfficeReviewV1
+    quality_gates: [source_label_required, one_primary_delivery_next_action_required, scope_change_requires_personnel_or_owner_review]
+    eval_cases: [gongbu_case_011_scope_change, gongbu_case_018_delivery_review]
+
+  - id: delivery_commitment_gate
+    name: 承诺司
+    purpose: 对外交付承诺、能力承诺、交期承诺、验收承诺和跨部门复核触发。
+    trigger: ["承诺", "一定交付", "固定交期", "客户口径", "正式交付计划", "对外说明", "能力保证"]
+    inputs: [draft_edict, proposed_message, delivery_evidence_pack, xingbu_context, hubu_context, rites_context]
+    must_answer: ["哪些话不能对外说", "哪些承诺必须刑部/户部/礼部复核", "当前只能输出草稿还是可外发", "人工确认是否必需", "唯一安全下一步"]
+    must_not: ["自动外发交付承诺", "缺证时写死日期/能力/验收", "绕过刑部和人工确认"]
+    tools_allowed: [draft_commitment_boundary, request_xingbu_review, request_hubu_review, request_rites_review, request_human_confirmation]
+    tools_forbidden: [send_delivery_commitment, publish_customer_message, sign_acceptance]
+    output_schema: GongbuSubOfficeReviewV1
+    quality_gates: [source_label_required, no_auto_external_delivery_commitment, formal_delivery_commitment_requires_xingbu_review, high_risk_requires_human_confirmation]
+    eval_cases: [gongbu_case_004_30_day_delivery, gongbu_case_020_delivery_commitment]
+
+p1_p2_sub_offices_reserved:
+  - 数据工程司
+  - 安全司
+  - AI 工程司
+  - 国际交付司
+  - 售后运维司
+
+quality_gates:
+  - source_label_required
+  - evidence_or_gap_required
+  - no_delivery_commitment_without_bom_and_schedule
+  - no_fixed_date_without_capacity_and_dependencies
+  - formal_delivery_commitment_requires_xingbu_review
+  - price_or_cost_claim_requires_hubu_review
+  - customer_timeline_requires_war_review
+  - scope_change_requires_personnel_or_owner_review
+  - acceptance_requires_test_plan_and_acceptance_criteria
+  - supplier_lock_requires_contract_and_supply_evidence
+  - safety_or_compliance_risk_requires_human_confirmation
+  - no_auto_external_delivery_commitment
+  - high_risk_requires_human_confirmation
+  - one_primary_delivery_next_action_required
+  - fallback_cannot_be_final_delivery_basis
+
+ui_disclosure_rule: >
+  小公司默认只看交付判断、缺口、风险、禁止承诺和唯一下一步；8 个司明细仅作为军机处/部门明细台 drill-down，
+  不要求普通用户管理司、agent 或蜂群拓扑。

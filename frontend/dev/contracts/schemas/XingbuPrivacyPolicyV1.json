@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "XingbuPrivacyPolicyV1",
+  "type": "object",
+  "description": "privacy_sensitive_data_guard：刑部处理合同、员工、争议、客户、供应商、商业秘密等敏感材料时的权限与来源记录契约。",
+  "required": ["touchesSensitiveData", "sensitiveCategories", "accessJustification", "sourceRecorded", "sourceLabel"],
+  "properties": {
+    "touchesSensitiveData": { "type": "boolean" },
+    "sensitiveCategories": {
+      "type": "array",
+      "items": { "enum": ["合同", "股权", "员工", "薪酬", "客户", "供应商", "诉讼", "商业秘密", "个人信息"] }
+    },
+    "accessJustification": { "type": "string" },
+    "accessGrantedBy": { "type": "string" },
+    "sourceRecorded": { "type": "boolean" },
+    "redactionApplied": { "type": "boolean" },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

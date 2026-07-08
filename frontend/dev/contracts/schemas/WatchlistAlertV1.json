@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WatchlistAlertV1",
+  "type": "object",
+  "required": ["id", "title", "intelligenceType", "severity", "trigger", "evidenceIds", "recommendedDepartmentReviews", "sourceLabel"],
+  "properties": {
+    "id": { "type": "string" },
+    "title": { "type": "string" },
+    "intelligenceType": { "enum": ["CUSTOMER_INTEL", "COMPETITOR_INTEL", "MARKET_INTEL", "POLICY_INTEL", "PROJECT_INTEL", "INTERNAL_INTEL", "RISK_INTEL", "PEOPLE_INTEL"] },
+    "severity": { "enum": ["INFO", "WATCH", "WARNING", "CRITICAL"] },
+    "trigger": { "type": "string" },
+    "evidenceIds": { "type": "array", "items": { "type": "string" } },
+    "recommendedDepartmentReviews": { "type": "array", "items": { "enum": ["finance", "war", "personnel", "justice", "ritual", "works"] } },
+    "humanConfirmationRequired": { "type": "boolean" },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "chaotang.deep_research.outcome_ledger",
+  "title": "Chaotang Deep Research Outcome Ledger",
+  "type": "object",
+  "required": ["topic", "skill_name", "created_at", "review_plan", "outcome_metrics"],
+  "properties": {
+    "topic": { "type": "string", "minLength": 3 },
+    "skill_name": { "type": "string", "minLength": 3 },
+    "created_at": { "type": "string", "minLength": 10 },
+    "review_plan": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["day", "question"],
+        "properties": {
+          "day": { "type": "integer" },
+          "question": { "type": "string", "minLength": 10 }
+        }
+      }
+    },
+    "outcome_metrics": { "type": "array", "minItems": 3, "items": { "type": "string" } }
+  }
+}

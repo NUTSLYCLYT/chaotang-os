@@ -1,0 +1,86 @@
+# 丞相裁定的储能约束参数表
+# status=usable        -> 求解器据此直接判 PASS/FAIL
+# status=human_confirm -> 求解器只 warn 不 fail，结论需人工确认
+# 被丞相 reject 的参数不写入本表（钠离子、户用造价、LTO -50℃、LFP 电芯能量密度等，详见裁定说明）
+# 时效敏感数据一律带 as_of 字段。
+
+chemistry:
+  LFP:
+    discharge_temp_min_no_heat_c: -20      # 无加热放电下限
+    discharge_temp_min_heated_c: -40       # 加热后放电下限
+    charge_temp_min_c: 0
+    temp_max_c: 60                         # 充/放电上限保守取区间上沿 55-60 的 60
+    cycle_life: [3000, 6000]
+    status: usable                         # 多源高可信、可证伪、非时效敏感
+
+  NMC:
+    discharge_temp_min_c: -20
+    charge_temp_min_c: 0
+    charge_temp_max_c: 45
+    temp_max_c: 55
+    cycle_life: [1000, 3000]
+    status: usable                         # 高可信多源
+
+  LTO:
+    discharge_temp_min_c: -40              # -50℃ 已剔除（仅"部分标注"，单点不可证伪）
+    charge_temp_min_c: -30
+    temp_max_c: 60
+    charge_temp_max_c: 55
+    cycle_life: [15000, 25000]
+    status: human_confirm                  # 原文标"中可信"，整体降级；求解器只 warn
+
+  # sodium_ion: 已 REJECT，不入表（全为宁德单源厂商宣传，无第三方验证）
+
+cost_cny_per_kwh:                          # 整块时效敏感（碳酸锂 7-9 万/吨假设下）
+  utility_2h: [391, 554]
+  utility_4h: [390, 479]
+  container: [440, 600]
+  electrode_raw_lfp: [285, 320]           # 电芯裸料，2025 集采高可信，但价格时效敏感
+  as_of: "2026中国/CNESA 2025集采, 碳酸锂7-9万元每吨假设"
+  status: human_confirm                    # 价格时效敏感，永不硬判 FAIL
+  # commercial(工商业 800-1400, 中可信) 与 residential(户用 1500-3000, 低可信待核) 已剔除，见裁定说明
+
+pcs:
+  formula: "kW = kWh / h"
+  typical_durations_h: [1, 2, 4]
+  tolerance_pct: 15                        # 容差 ±10-15，取宽松上沿 15 以免误杀
+  status: usable                           # 行业共识高可信
+
+low_temp_derating_lfp:
+  temp_0_pct: [85, 95]                     # 0℃ 可用容量百分比
+  temp_-20_no_heat_pct: [40, 60]          # 高可信
+  temp_-20_heated_min_pct: 80             # 中可信
+  temp_-40_no_heat_max_pct: 20            # 中可信待核 -> 仅作 warn 阈值
+  temp_-40_heated_min_pct: 80             # 中可信
+  status: human_confirm                    # 含多个中可信/待核项，整块降级只 warn
+
+thermal_domain_c:                          # [下限, 上限]，配置不合规即判定依据
+  none: [0, 35]
+  air: [-25, 45]
+  liquid: [-30, 55]
+  liquid_heated: [-40, 55]                 # 中可信
+  status: usable                           # 工程硬约束、可证伪
+rule_below_-25c_liquid_requires_heating: true   # <-25℃ 普通液冷必须配加热，否则不合规
+
+energy_density:
+  lfp_cell_wh_per_l: [400, 430]           # 中可信，作 warn 参考
+  container_20ft_mwh_2025: [5, 8.3]
+  container_20ft_mwh_2026: [8, 9]         # 2026 新品，时效敏感
+  as_of: "2025主流 / 2026新品"
+  status: human_confirm                    # 产品迭代快、时效敏感
+
+irr:
+  breakeven_peak_valley_spread_cny_per_kwh: 0.5
+  irr_above_8pct_spread_cny_per_kwh: 0.6
+  status: human_confirm                    # 依赖财务假设，原文标"中"，不可硬判
+
+compliance:
+  mandatory_standards:
+    - "GB 44240-2024"                     # 2025-08-01 强制
+    - "GB/T 51048-2025"
+    - "GB/T 42288-2022"
+    - "GB/T 44767-2024"
+  effective_dates:
+    "GB 44240-2024": "2025-08-01"
+  preset_container_requires_fire_suppression: true   # 预制舱必须配气体/气溶胶自动灭火
+  status: usable                           # 国标高可信、可证伪、最适合硬判

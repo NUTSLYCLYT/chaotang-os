@@ -1,0 +1,31 @@
+# 平台能力DEMO(2026-07-04标注):医院垂直,与电池/储能主业无关,留作平台通用性证明,
+# 见 docs/chaotang_workflow_swarm_upgrade_2026-06-07.md
+flow_name: 预约挂号确认
+default_model: openai/swarm-worker
+default_api_key_env: LITELLM_PROXY_KEY
+default_api_base: http://127.0.0.1:4444/v1
+qa_version: v3
+repair:
+  enabled: false
+  max_retries: 2
+  min_score: 3.0
+
+output_fields:
+  - 预约信息
+  - 就诊提示
+  - 温馨提醒
+
+steps:
+  - id: appointment_agent
+    name: 预约确认助手
+    prompt_key: appointment_agent
+    description: 根据患者信息和导诊结果，生成结构化预约确认单。
+    output_rules:
+      - sections:
+          - 预约信息
+          - 就诊提示
+          - 温馨提醒
+        type: required_sections
+      - type: not_empty
+      - chars: 50
+        type: min_length

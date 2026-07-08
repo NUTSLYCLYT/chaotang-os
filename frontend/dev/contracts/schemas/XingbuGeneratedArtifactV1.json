@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "XingbuGeneratedArtifactV1",
+  "type": "object",
+  "required": ["type", "title", "status", "content", "sourceLabel"],
+  "properties": {
+    "type": {
+      "enum": [
+        "合同风险清单",
+        "合同条款审查意见",
+        "签署权限检查清单",
+        "合同补证清单",
+        "对外承诺风险清单",
+        "正式报价法律风险提示",
+        "股权条款风险清单",
+        "股东/合伙人决策事项清单",
+        "付款/违约金/保证金风险清单",
+        "劳动风险证据清单",
+        "PIP / 辞退前法律风险清单",
+        "律师函/争议事项材料清单",
+        "诉讼/仲裁证据保全清单",
+        "NDA / 保密协议审查清单",
+        "知识产权归属检查清单",
+        "印章/签署授权审批单",
+        "外部律师委托事项清单",
+        "法务复核单",
+        "高风险人工确认弹窗文案",
+        "客户沟通限制话术"
+      ]
+    },
+    "title": { "type": "string" },
+    "status": {
+      "enum": ["draft", "needs_human_review", "needs_cross_review", "blocked"],
+      "description": "刑部只产出草稿、清单或待审材料；绝不自动执行不可逆法律动作。"
+    },
+    "content": { "type": "string" },
+    "forbiddenActions": { "type": "array", "items": { "type": "string" } },
+    "requiresHumanConfirmation": { "type": "boolean" },
+    "requiresCrossReview": {
+      "type": "array",
+      "items": { "enum": ["finance", "war", "personnel", "jinyiwei", "ritual", "works"] }
+    },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

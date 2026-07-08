@@ -1,0 +1,118 @@
+id: xingbu_clo_cco_office_loop_v1
+name: 刑部 CLO/CCO Office 子循环
+version: 0.1.0
+owner: courtos/xingbu
+purpose: >
+  接收军机处工作令，从 CLO / General Counsel / CCO / Legal Operations 视角组织合同、
+  公司治理、合规、争讼、劳法、知产、法务运营等子司会审，形成可进入朝堂奏折的刑部分奏。
+  该循环作为 court_unified_decision_loop_v1 的可插拔部门能力接入，不创建 xingbu_special_review。
+
+plugs_into:
+  - court_unified_decision_loop_v1
+
+entrypoints:
+  - enabled_department_review.justice
+  - junjichu_department_work_order.justice
+  - resubmit_after_legal_evidence
+
+state_model:
+  allowed_states:
+    - received
+    - classified
+    - evidence_collecting
+    - sub_offices_reviewing
+    - clo_cco_synthesizing
+    - quality_gating
+    - returned_to_junjichu
+    - failed_with_recovery
+
+steps:
+  - id: receive_xingbu_work_order
+    name: 刑部接令
+    inputs:
+      - confirmed_edict
+      - review_plan
+      - intelligence_pack
+      - department_work_order
+
+  - id: classify_legal_risk_question
+    name: 法务/合规问题分类
+    skill: skill.xingbu.classify_legal_risk_question
+    outputs:
+      - legal_risk_question_type
+      - required_xingbu_sub_offices
+      - required_legal_evidence
+      - jurisdiction_or_scope_gap
+      - risk_watchlist
+
+  - id: collect_legal_evidence
+    name: 收集法律风险证据
+    skill: skill.xingbu.collect_legal_evidence
+    outputs:
+      - legal_risk_evidence_pack
+      - missing_legal_evidence
+      - assumptions
+      - sensitive_data_flags
+
+  - id: run_xingbu_sub_offices
+    name: 刑部子司并行审查
+    type: parallel
+    branches:
+      - id: contract_office
+        skill: skill.xingbu.contract_office_review
+      - id: corporate_governance
+        skill: skill.xingbu.corporate_governance_review
+      - id: compliance
+        skill: skill.xingbu.compliance_review
+      - id: dispute_litigation
+        skill: skill.xingbu.dispute_litigation_review
+      - id: employment_law
+        skill: skill.xingbu.employment_law_review
+      - id: ip_confidentiality
+        skill: skill.xingbu.ip_confidentiality_review
+      - id: legal_operations
+        skill: skill.xingbu.legal_operations_review
+
+  - id: synthesize_clo_cco_position
+    name: 刑部尚书合议
+    skill: skill.xingbu.clo_cco_synthesize_position
+    outputs:
+      - xingbu_clo_cco_opinion
+
+  - id: xingbu_quality_gate
+    name: 刑部质门
+    skill: skill.xingbu.clo_cco_quality_gate
+    gates:
+      - source_label_required
+      - evidence_or_gap_required
+      - no_legal_certainty_without_jurisdiction_and_evidence
+      - high_risk_requires_human_confirmation
+      - no_contract_signing_without_contract_source
+      - no_external_commitment_without_authority
+      - equity_or_governance_requires_corporate_review
+      - payment_or_penalty_requires_hubu_review
+      - labor_action_requires_libu_review
+      - dispute_requires_evidence_preservation
+      - ip_or_confidentiality_requires_ip_review
+      - seal_or_signature_requires_authority_check
+      - privacy_sensitive_data_guard
+      - no_irreversible_legal_action_without_approval
+      - fallback_cannot_be_final_legal_basis
+    rule: >
+      任一红灯或高风险事项必须 humanConfirmationRequired=true；缺合同正文、适用地区、主体信息或证据时，
+      不得输出确定性法律结论；FALLBACK/DEMO 不得作为最终法律判断依据。
+
+  - id: return_to_junjichu
+    name: 回传军机处
+    outputs:
+      - DepartmentOpinionV1
+
+cross_department_triggers:
+  - when: FORMAL_QUOTE_OR_EXTERNAL_COMMITMENT
+    must_review: [finance, war]
+  - when: PAYMENT_PREPAYMENT_REFUND_DEPOSIT_PENALTY
+    must_review: [finance]
+  - when: TERMINATION_PAYCUT_TRANSFER_DISCIPLINE
+    must_review: [personnel]
+  - when: AI_AGENT_EXTERNAL_OUTPUT
+    must_review: [jinyiwei]

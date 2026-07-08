@@ -1,0 +1,47 @@
+watch_sources:
+  - id: github_trending
+    name: GitHub Trending
+    purpose: 发现短期高热项目
+    status: manual_first
+    url: https://github.com/trending
+  - id: github_search
+    name: GitHub Search API
+    purpose: 按 stars、topic、language 搜索候选
+    status: planned_api
+    docs: https://docs.github.com/en/rest/search/search
+  - id: deps_dev
+    name: deps.dev Open Source Insights
+    purpose: 检查依赖生态、供应链、安全相关信号
+    status: planned_api
+    docs: https://docs.deps.dev/api/
+  - id: shiguan_watchlist
+    name: 史馆观察清单
+    purpose: 保留 adopted/watch/reject/must_not 历史，防止重复追热点
+    status: local
+
+departments:
+  jinyiwei:
+    duty: 发现候选、去噪、初筛主线价值
+  qintianjian:
+    duty: 判断战略价值、是否进入 POC、是否需要红线
+  gongbu:
+    duty: 2 小时 POC，输出验证命令和集成成本
+  yushi:
+    duty: 许可证、安全、供应链、偏移检查
+  shiguan:
+    duty: adopted/watch/reject/must_not 归档和复查日期
+
+mainline_categories:
+  - qintianjian
+  - shiguan
+  - harness
+  - swarm
+  - yushi
+  - flow
+
+blocked_signals:
+  - license_unknown
+  - security_risk
+  - abandoned
+  - hype_only
+  - web_only

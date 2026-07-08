@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CompanyRevenueProfileV1",
+  "type": "object",
+  "required": [
+    "companyId",
+    "headcount",
+    "companySizeBand",
+    "salesMaturity",
+    "defaultBingbuMode",
+    "sourceLabel"
+  ],
+  "properties": {
+    "companyId": { "type": "string" },
+    "headcount": { "type": "integer", "minimum": 1 },
+    "companySizeBand": { "enum": ["1-10", "10-50", "50-200", "200-1000", "1000+"] },
+    "salesMaturity": { "enum": ["founder_led", "basic", "managed", "revops", "governed"] },
+    "defaultBingbuMode": {
+      "enum": [
+        "founder_sales_assistant",
+        "small_team_sales_manager",
+        "growth_sales_engine",
+        "cro_revops",
+        "enterprise_revenue_governance"
+      ]
+    },
+    "preferredView": { "enum": ["brief", "management_detail", "professional_detail"] },
+    "crmMaturity": { "enum": ["none", "spreadsheet", "basic_crm", "managed_crm", "revops_stack"] },
+    "hasDealDesk": { "type": "boolean" },
+    "hasChannelProgram": { "type": "boolean" },
+    "hasCustomerSuccessMotion": { "type": "boolean" },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

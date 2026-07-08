@@ -1,0 +1,89 @@
+id: hubu_cfo_office_loop_v1
+name: 户部 CFO Office 子循环
+version: 0.1.0
+owner: courtos/hubu
+purpose: >
+  接收军机处工作令，从 CFO 视角组织预算、现金、核算、成本、投资、内控等子司，
+  形成可进入朝堂奏折的户部分奏。
+
+entrypoints:
+  - enabled_department_review.finance
+  - junjichu_department_work_order.finance
+  - resubmit_after_finance_evidence
+
+state_model:
+  allowed_states:
+    - received
+    - classified
+    - evidence_collecting
+    - sub_offices_reviewing
+    - cfo_synthesizing
+    - quality_gating
+    - returned_to_junjichu
+    - failed_with_recovery
+
+steps:
+  - id: receive_hubu_work_order
+    name: 户部接令
+    inputs:
+      - confirmed_edict
+      - review_plan
+      - intelligence_pack
+      - department_work_order
+
+  - id: classify_finance_question
+    name: 财务问题分类
+    skill: skill.hubu.classify_finance_question
+    outputs:
+      - finance_question_type
+      - required_hubu_sub_swarms
+      - required_finance_evidence
+      - risk_watchlist
+
+  - id: collect_finance_evidence
+    name: 收集财务证据
+    skill: skill.hubu.collect_finance_evidence
+    outputs:
+      - finance_evidence_pack
+      - missing_finance_evidence
+      - assumptions
+
+  - id: run_hubu_sub_swarms
+    name: 户部子司并行审查
+    type: parallel
+    branches:
+      - id: fpna_budget
+        skill: skill.hubu.fpna_budget_review
+      - id: treasury_cash
+        skill: skill.hubu.treasury_cash_review
+      - id: controller_books
+        skill: skill.hubu.controller_books_review
+      - id: cost_pricing
+        skill: skill.hubu.cost_pricing_review
+      - id: investment_review
+        skill: skill.hubu.investment_review
+      - id: audit_control
+        skill: skill.hubu.audit_control_review
+
+  - id: synthesize_cfo_position
+    name: 户部尚书合议
+    skill: skill.hubu.cfo_synthesize_position
+    outputs:
+      - hubu_cfo_opinion
+
+  - id: hubu_quality_gate
+    name: 户部质门
+    skill: skill.hubu.cfo_quality_gate
+    gates:
+      - source_label_required
+      - no_financial_certainty_without_numbers
+      - cash_risk_must_be_visible
+      - roi_must_mark_assumptions
+      - formal_quote_requires_cost_and_margin
+      - investment_requires_downside_case
+
+  - id: return_to_junjichu
+    name: 回传军机处
+    outputs:
+      - DepartmentOpinionV1
+

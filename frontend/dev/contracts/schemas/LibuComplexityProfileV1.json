@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LibuComplexityProfileV1",
+  "type": "object",
+  "required": [
+    "mode",
+    "headcountBand",
+    "defaultView",
+    "enabledSubOffices",
+    "nonNegotiableFloor",
+    "sourceLabel"
+  ],
+  "properties": {
+    "mode": {
+      "enum": ["founder_assistant", "small_team_hr", "growth_hrd", "chro_cao", "group_enterprise"]
+    },
+    "headcountBand": { "enum": ["1-10", "10-50", "50-200", "200-1000", "1000+"] },
+    "defaultView": { "enum": ["brief", "management_detail", "professional_detail"] },
+    "exposeSubOfficeStructure": {
+      "type": "boolean",
+      "description": "前台是否暴露 8 子司复杂结构；小公司为 false。"
+    },
+    "enabledSubOffices": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "chro_cao_chief",
+          "org_design",
+          "talent_acquisition",
+          "performance",
+          "total_rewards",
+          "hr_operations",
+          "employee_relations",
+          "admin_operations"
+        ]
+      }
+    },
+    "lightweightSubOffices": { "type": "array", "items": { "type": "string" } },
+    "reservedCapabilities": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "如 HRBP/COE/SSC/People_Analytics/AI_Workforce_Governance，仅预留。"
+    },
+    "nonNegotiableFloor": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "high_risk_requires_human_confirmation",
+          "xingbu_review_for_labor_risk",
+          "hubu_review_for_compensation_or_admin_cost",
+          "source_label_required",
+          "evidence_or_gap_required",
+          "privacy_sensitive_data_guard"
+        ]
+      },
+      "description": "与公司规模无关、用户不可绕过的风险底线；任何 mode 都必须含全部 6 项。"
+    },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/middleware.ts",
+    "next.config.ts",
+    "**/*.nodetest.ts",
+    "e2e/**/*.spec.ts",
+    "scripts/**/*.{ts,mjs,js}"
+  ],
+  "project": ["src/**/*.{ts,tsx}"],
+  "ignore": ["dev/**"]
+}

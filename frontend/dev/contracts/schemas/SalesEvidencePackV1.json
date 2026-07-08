@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SalesEvidencePackV1",
+  "type": "object",
+  "required": [
+    "salesOwnerOrGap",
+    "opportunityStageOrGap",
+    "customerClaims",
+    "evidenceUsed",
+    "missingEvidence",
+    "customer_claims",
+    "opportunity_stage",
+    "evidence_used",
+    "missing_evidence",
+    "crmPrivacyLevel",
+    "sourceLabel"
+  ],
+  "properties": {
+    "salesOwnerOrGap": { "type": "string" },
+    "opportunityStageOrGap": { "type": "string" },
+    "customerClaims": { "type": "array", "items": { "type": "string" } },
+    "evidenceUsed": { "type": "array", "items": { "type": "string" } },
+    "missingEvidence": { "type": "array", "items": { "type": "string" } },
+    "customer_claims": { "type": "array", "items": { "type": "string" } },
+    "opportunity_stage": { "type": "string" },
+    "evidence_used": { "type": "array", "items": { "type": "string" } },
+    "missing_evidence": { "type": "array", "items": { "type": "string" } },
+    "crmPrivacyLevel": { "enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "PERSONAL", "SENSITIVE"] },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

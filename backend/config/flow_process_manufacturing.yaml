@@ -1,0 +1,105 @@
+flow_name: 工部工艺生产蜂群流程
+default_model: openai/swarm-worker
+default_api_base: http://127.0.0.1:4444/v1
+default_api_key_env: LITELLM_PROXY_KEY
+default_retry:
+  max_retries: 2
+  delay: 3
+  backoff: 2
+  retry_on:
+  - error
+max_llm_calls: 100
+knowledge_pre_retrieval:
+  enabled: true
+  top_k: 4
+  max_tokens: 2000
+qa_version: v3
+repair:
+  enabled: true
+  critic_before_repair: true
+  max_retries: 1
+  min_score: 3.5
+output_fields:
+- 装配流程SOP
+- 焊接工艺参数
+- 产线布局方案
+- 良率预测
+- 工艺FMEA结论
+- SPC控制点清单
+steps:
+- id: assembly_process_engineer
+  name: 装配工艺工程师
+  prompt_key: assembly_process_engineer
+  prompt_module: src.prompts_process_manufacturing
+  output_rules:
+  - type: not_empty
+  - chars: 400
+    type: min_length
+  - type: no_refusal
+  - sections: ["装配流程SOP", "工装夹具方案", "装配顺序约束", "人机比与工位设计"]
+    type: required_sections
+- id: welding_process_engineer
+  name: 焊接工艺工程师
+  depends_on: [assembly_process_engineer]
+  prompt_key: welding_process_engineer
+  prompt_module: src.prompts_process_manufacturing
+  output_rules:
+  - type: not_empty
+  - chars: 300
+    type: min_length
+  - type: no_refusal
+  - sections: ["焊接工艺选择", "焊接参数", "焊接质量控制", "焊接风险清单"]
+    type: required_sections
+- id: production_line_planner
+  name: 产线规划工程师
+  depends_on: [assembly_process_engineer, welding_process_engineer]
+  prompt_key: production_line_planner
+  prompt_module: src.prompts_process_manufacturing
+  output_rules:
+  - type: not_empty
+  - chars: 300
+    type: min_length
+  - type: no_refusal
+  - sections: ["产线布局方案", "节拍时间分析", "设备清单", "产能爬坡计划"]
+    type: required_sections
+- id: yield_analyst
+  name: 良率分析师
+  depends_on: [welding_process_engineer, production_line_planner]
+  prompt_key: yield_analyst
+  prompt_module: src.prompts_process_manufacturing
+  output_rules:
+  - type: not_empty
+  - chars: 300
+    type: min_length
+  - type: no_refusal
+  - sections: ["良率预测", "主要缺陷模式", "良率提升方案", "量产爬坡良率目标"]
+    type: required_sections
+- id: process_fmea_analyst
+  name: 工艺FMEA分析师
+  depends_on: [yield_analyst]
+  prompt_key: process_fmea_analyst
+  prompt_module: src.prompts_process_manufacturing
+  output_rules:
+  - type: not_empty
+  - chars: 400
+    type: min_length
+  - type: no_refusal
+  - sections: ["工艺失效模式清单", "RPN评分", "高优先级改进方案", "工艺FMEA结论"]
+    type: required_sections
+- id: spc_quality_control_planner
+  name: 过程质量控制规划师
+  depends_on: [process_fmea_analyst]
+  prompt_key: spc_quality_control_planner
+  prompt_module: src.prompts_process_manufacturing
+  output_rules:
+  - type: not_empty
+  - chars: 300
+    type: min_length
+  - type: no_refusal
+  - sections: ["SPC控制点清单", "检验工位设计", "异常处理流程", "质量记录与追溯"]
+    type: required_sections
+- id: qa_tech_support
+  name: 技术支持专家(QA)
+  depends_on: [spc_quality_control_planner]
+  prompt_key: process_manufacturing_qa
+  prompt_module: src.prompts_process_manufacturing

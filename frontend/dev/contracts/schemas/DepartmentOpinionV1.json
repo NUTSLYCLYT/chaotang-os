@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://courtos.local/schemas/DepartmentOpinionV1.json",
+  "title": "DepartmentOpinionV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "department_id",
+    "signal",
+    "verdict",
+    "summary",
+    "evidence",
+    "missing_evidence",
+    "risks",
+    "next_order",
+    "human_confirmation_required",
+    "source_label"
+  ],
+  "properties": {
+    "schema_version": { "const": "DepartmentOpinionV1" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "department_id": { "type": "string", "minLength": 1 },
+    "signal": { "enum": ["GREEN", "YELLOW", "RED", "GRAY"] },
+    "verdict": { "enum": ["APPROVE", "NEED_EVIDENCE", "RECHECK", "REJECT"] },
+    "summary": { "type": "string", "minLength": 1 },
+    "evidence": { "type": "array", "items": { "$ref": "EvidenceItemV1.json" } },
+    "missing_evidence": { "type": "array", "items": { "type": "string" } },
+    "risks": { "type": "array", "items": { "type": "string" } },
+    "next_order": { "type": "string", "minLength": 1 },
+    "human_confirmation_required": { "type": "boolean" },
+    "source_label": { "$ref": "#/$defs/source_label" }
+  },
+  "$defs": {
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  }
+}

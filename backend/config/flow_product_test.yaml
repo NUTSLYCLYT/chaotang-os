@@ -1,0 +1,149 @@
+# TEST-ONLY(2026-07-04标注):flow_product.yaml的重试阈值测试版(min_score不同),
+# 非独立业务能力,未注册进swarm_orchestrator.yaml。计"33个flow"时不算业务蜂群,
+# 见 docs/chaotang_workflow_swarm_upgrade_2026-06-07.md
+default_api_base: https://api.deepseek.com/v1
+default_api_key_env: DEEPSEEK_API_KEY
+default_model: openai/deepseek-chat
+default_retry:
+  backoff: 2.0
+  delay: 3.0
+  max_retries: 2
+  retry_on:
+  - error
+flow_name: 产品部产品规划流程
+knowledge_pre_retrieval:
+  dataset_ids: ${RAGFLOW_DS_INDUSTRY},${RAGFLOW_DS_PRODUCT}
+  enabled: true
+  max_tokens: 1500
+  top_k: 3
+max_llm_calls: 90
+output_fields:
+- 机会评估
+- 竞品分析
+- 产品定义
+- 技术规格
+- 成本定价
+- 开发计划
+- 合规路径
+qa_version: v3
+repair:
+  enabled: true
+  max_retries: 3
+  min_delta: 0.2
+  min_dimension_score: 3.0
+  min_score: 3.5
+steps:
+- description: 战略研判与工作指令下达
+  id: product_manager
+  name: 产品部门经理
+  prompt_key: product_manager
+  prompt_module: src.prompts_product
+- depends_on:
+  - product_manager
+  description: 并行采集竞品动态、市场新闻、产品发布信息
+  id: web_crawler
+  knowledge_scope:
+  - battery_tech
+  name: InsightBee·网络情报猎手
+  prompt_key: insightbee_web_crawler
+  prompt_module: src.prompts_product
+  tools:
+  - capabilities:
+    - web_search
+    - fetch_url
+    server: web_search
+  - capabilities:
+    - ddg_search
+    server: ddg_search
+- depends_on:
+  - product_manager
+  description: 并行分析竞争对手专利布局与技术壁垒
+  id: patent_analyzer
+  knowledge_scope:
+  - battery_tech
+  name: InsightBee·专利图谱分析师
+  prompt_key: insightbee_patent_analyzer
+  prompt_module: src.prompts_product
+  tools:
+  - capabilities:
+    - web_search
+    server: web_search
+- depends_on:
+  - product_manager
+  description: 并行追踪竞品报价+历史成交合同，知识库含真实购销合同数据
+  id: price_tracker
+  knowledge_scope:
+  - 购销合同
+  name: InsightBee·价格追踪专员
+  prompt_key: insightbee_price_tracker
+  prompt_module: src.prompts_product
+  tools:
+  - capabilities:
+    - web_search
+    - fetch_url
+    server: web_search
+  - capabilities:
+    - ddg_search
+    server: ddg_search
+- depends_on:
+  - product_manager
+  description: 并行检测市场趋势、客户需求演变、监管动向
+  id: trend_analyzer
+  knowledge_scope:
+  - battery_tech
+  name: InsightBee·趋势侦察专员
+  prompt_key: insightbee_trend_analyzer
+  prompt_module: src.prompts_product
+  tools:
+  - capabilities:
+    - web_search
+    server: web_search
+- depends_on:
+  - web_crawler
+  - patent_analyzer
+  - price_tracker
+  - trend_analyzer
+  description: 汇总4路并行情报，输出结构化竞品分析报告
+  id: insight_merger
+  knowledge_scope:
+  - battery_tech
+  - 购销合同
+  name: InsightBee·洞察汇总专家
+  output_rules:
+  - chars: 600
+    type: min_length
+  - type: not_empty
+  prompt_key: insightbee_merger
+  prompt_module: src.prompts_product
+- depends_on:
+  - insight_merger
+  description: PRD编写与产品落地规划
+  id: product_planning
+  name: 产品规划专员
+  prompt_key: product_planning
+  prompt_module: src.prompts_product
+- depends_on:
+  - product_planning
+  description: 合规风险评估与认证规划
+  id: compliance_check
+  name: 合规评估专员
+  prompt_key: compliance_check
+  prompt_module: src.prompts_product
+- depends_on:
+  - compliance_check
+  description: 数值对账表 + 文本冲突检测，输出统一产品立场
+  id: conflict_resolver
+  name: 冲突仲裁专家
+  output_rules:
+  - chars: 400
+    type: min_length
+  - type: not_empty
+  prompt_key: conflict_resolver_product
+  prompt_module: src.prompts_product
+- depends_on:
+  - conflict_resolver
+  description: 产品域专属QA，追加C6 BOM链路核查 / C7 合规时间线可行性
+  id: qa_tech_support
+  name: 产品QA专家
+  prompt_key: product_qa
+  prompt_module: src.prompts_product

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LibuQualityGateResultV1",
+  "type": "object",
+  "required": ["passed", "gateResults", "blockingIssues", "warnings", "sourceLabel"],
+  "properties": {
+    "passed": { "type": "boolean" },
+    "gateResults": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["gate", "status"],
+        "properties": {
+          "gate": {
+            "enum": [
+              "source_label_required",
+              "owner_or_gap_required",
+              "role_scope_required",
+              "hiring_requires_budget_and_success_criteria",
+              "compensation_requires_hubu_review",
+              "termination_requires_evidence_and_xingbu_review",
+              "labor_risk_requires_xingbu_review",
+              "admin_cost_requires_budget_source",
+              "no_people_decision_without_context",
+              "privacy_sensitive_data_guard",
+              "ai_agent_role_requires_permission_review",
+              "high_risk_requires_human_confirmation",
+              "no_irreversible_hr_action_without_approval"
+            ]
+          },
+          "status": { "enum": ["pass", "block", "warn", "n/a"] },
+          "detail": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "blockingIssues": { "type": "array", "items": { "type": "string" } },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "humanConfirmationRequired": { "type": "boolean" },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

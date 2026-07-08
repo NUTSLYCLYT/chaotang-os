@@ -1,0 +1,89 @@
+id: ritual_cmo_office_loop_v1
+name: 礼部 CMO Office 子循环
+version: 0.1.0
+owner: courtos/ritual
+purpose: >
+  接收军机处工作令，从 CMO 视角组织客情、辞令、品牌、招商、舆情、礼法等子司，
+  形成可进入朝堂奏折的礼部分奏，回答“能说什么、不能说什么、下一步怎么说”。
+
+entrypoints:
+  - enabled_department_review.ritual
+  - junjichu_department_work_order.ritual
+  - resubmit_after_customer_expression_evidence
+
+state_model:
+  allowed_states:
+    - received
+    - classified
+    - evidence_collecting
+    - sub_offices_reviewing
+    - cmo_synthesizing
+    - quality_gating
+    - returned_to_junjichu
+    - failed_with_recovery
+
+steps:
+  - id: receive_ritual_work_order
+    name: 礼部接令
+    inputs:
+      - confirmed_edict
+      - review_plan
+      - intelligence_pack
+      - department_work_order
+
+  - id: classify_expression_question
+    name: 表达问题分类
+    skill: skill.ritual.classify_expression_question
+    outputs:
+      - expression_question_type
+      - required_ritual_sub_swarms
+      - required_expression_evidence
+      - risk_watchlist
+
+  - id: collect_expression_evidence
+    name: 收集表达证据
+    skill: skill.ritual.collect_expression_evidence
+    outputs:
+      - expression_evidence_pack
+      - missing_expression_evidence
+      - assumptions
+
+  - id: run_ritual_sub_swarms
+    name: 礼部子司并行审查
+    type: parallel
+    branches:
+      - id: customer_insight
+        skill: skill.ritual.customer_insight_review
+      - id: message
+        skill: skill.ritual.message_review
+      - id: brand
+        skill: skill.ritual.brand_review
+      - id: partnership
+        skill: skill.ritual.partnership_review
+      - id: public_sentiment
+        skill: skill.ritual.public_sentiment_review
+      - id: commitment_boundary
+        skill: skill.ritual.commitment_boundary_review
+
+  - id: synthesize_cmo_position
+    name: 礼部尚书合议
+    skill: skill.ritual.cmo_synthesize_position
+    outputs:
+      - ritual_cmo_opinion
+
+  - id: ritual_quality_gate
+    name: 礼部质门
+    skill: skill.ritual.cmo_quality_gate
+    gates:
+      - source_label_required
+      - no_public_claim_without_evidence
+      - no_guaranteed_return_language
+      - customer_need_must_be_explicit
+      - external_commitment_requires_legal_review
+      - brand_risk_must_be_visible
+      - one_primary_message_required
+
+  - id: return_to_junjichu
+    name: 回传军机处
+    outputs:
+      - DepartmentOpinionV1

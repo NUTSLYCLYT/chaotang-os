@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BingbuInteractionCardV1",
+  "type": "object",
+  "required": ["summary", "primaryAction", "secondaryActions", "lockedGates", "maySendExternally", "sourceLabel"],
+  "properties": {
+    "summary": { "type": "string" },
+    "primaryAction": { "type": "string" },
+    "secondaryActions": { "type": "array", "items": { "type": "string" } },
+    "lockedGates": { "type": "array", "items": { "type": "string" } },
+    "maySendExternally": { "const": false },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OpportunityReviewV1",
+  "type": "object",
+  "required": ["opportunityIdOrGap", "stageOrGap", "stageEvidence", "closeProbability", "blockers", "nextAction", "ownerOrGap", "sourceLabel"],
+  "properties": {
+    "opportunityIdOrGap": { "type": "string" },
+    "stageOrGap": { "type": "string" },
+    "stageEvidence": { "type": "array", "items": { "type": "string" } },
+    "closeProbability": { "type": "number", "minimum": 0, "maximum": 1 },
+    "blockers": { "type": "array", "items": { "type": "string" } },
+    "nextAction": { "type": "string" },
+    "ownerOrGap": { "type": "string" },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

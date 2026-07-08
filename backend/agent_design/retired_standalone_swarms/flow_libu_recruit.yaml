@@ -1,0 +1,64 @@
+flow_name: "吏部招聘蜂群"
+max_llm_calls: 40
+
+# 由 new_swarm.py 生成的骨架。提示词在 src/prompts_libu_recruit.py 精修。
+knowledge_pre_retrieval:
+  enabled: false
+
+qa_version: "v3"
+
+default_model: "openai/glm-5.1"
+default_api_base: "http://127.0.0.1:4000/v1"
+default_api_key_env: "LITELLM_PROXY_KEY"
+
+default_retry:
+  max_retries: 2
+  delay: 3.0
+  backoff: 2.0
+  retry_on:
+    - error
+
+steps:
+  - id: "jd_analyst"
+    name: "岗位解析官"
+    description: "把招聘需求解析为结构化JD与硬性软性要求"
+    prompt_key: "jd_analyst"
+    prompt_module: "src.prompts_libu_recruit"
+    tier: "generation"
+  - id: "candidate_screener"
+    name: "简历初筛官"
+    description: "按JD对候选简历打分分级并标注证据"
+    prompt_key: "candidate_screener"
+    prompt_module: "src.prompts_libu_recruit"
+    tier: "generation"
+  - id: "interview_designer"
+    name: "面试设计官"
+    description: "针对候选生成分轮面试题与评估维度"
+    prompt_key: "interview_designer"
+    prompt_module: "src.prompts_libu_recruit"
+    tier: "generation"
+  - id: "offer_advisor"
+    name: "录用建议官"
+    description: "综合给录用建议薪酬区间与风险"
+    prompt_key: "offer_advisor"
+    prompt_module: "src.prompts_libu_recruit"
+    tier: "generation"
+  - id: "qa_tech_support"
+    name: "质量检查专家"
+    description: "QA 质量检查与综合输出"
+    prompt_key: "qa_tech_support"
+    tier: "validation"
+
+repair:
+  enabled: false
+  max_retries: 3
+  min_score: 3.5
+  min_delta: 0.2
+  min_dimension_score: 3.0
+
+output_fields:
+  - "岗位解析官产出"
+  - "简历初筛官产出"
+  - "面试设计官产出"
+  - "录用建议官产出"
+

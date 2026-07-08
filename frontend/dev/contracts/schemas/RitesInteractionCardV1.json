@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RitesInteractionCardV1",
+  "type": "object",
+  "required": ["id", "question", "reason", "actions", "sourceLabel"],
+  "properties": {
+    "id": { "type": "string" },
+    "question": { "type": "string" },
+    "reason": { "type": "string" },
+    "actions": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "简洁回答",
+          "展开分析",
+          "进入军机处深审",
+          "生成材料",
+          "交给某部门复核",
+          "生成多个表达版本",
+          "生成客户回复草稿",
+          "生成招商材料草稿",
+          "生成危机回应草稿",
+          "上传证据",
+          "继续但保留缺口"
+        ]
+      }
+    },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://courtos.local/schemas/QualityGateResultV1.json",
+  "title": "QualityGateResultV1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "task_id", "passed", "blocking_issues", "warnings", "gate_results", "source_label"],
+  "properties": {
+    "schema_version": { "const": "QualityGateResultV1" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "passed": { "type": "boolean" },
+    "blocking_issues": { "type": "array", "items": { "type": "string" } },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "gate_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "passed"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "passed": { "type": "boolean" },
+          "message": { "type": "string" }
+        }
+      }
+    },
+    "human_confirmation_required": { "type": "boolean", "default": false },
+    "status": { "type": "string" },
+    "reasons": { "type": "array", "items": { "type": "string" } },
+    "human_signoff_required": { "type": "boolean" },
+    "source_label": { "$ref": "#/$defs/source_label" }
+  },
+  "$defs": {
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  }
+}

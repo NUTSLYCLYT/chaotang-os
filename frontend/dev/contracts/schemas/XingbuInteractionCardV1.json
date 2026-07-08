@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "XingbuInteractionCardV1",
+  "type": "object",
+  "required": ["id", "question", "reason", "userChoices", "lockedFloor", "sourceLabel"],
+  "properties": {
+    "id": { "type": "string" },
+    "question": { "type": "string", "description": "一次只问一个最关键法律风险缺口。" },
+    "reason": { "type": "string" },
+    "userChoices": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "CONCISE_ANSWER",
+          "EXPAND_ANALYSIS",
+          "ENTER_JUNJICHU_DEEP_REVIEW",
+          "GENERATE_CONTRACT_RISK_LIST",
+          "GENERATE_EVIDENCE_REQUEST",
+          "GENERATE_CUSTOMER_COMM_SCRIPT",
+          "SEND_TO_CROSS_REVIEW",
+          "UPLOAD_EVIDENCE",
+          "ANSWER_TEXT",
+          "CONTINUE_WITH_GAPS"
+        ]
+      }
+    },
+    "lockedFloor": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "high_risk_requires_human_confirmation",
+          "source_label_required",
+          "evidence_or_gap_required",
+          "xingbu_quality_gate_required",
+          "irreversible_action_confirmation_required",
+          "privacy_sensitive_data_guard",
+          "fallback_cannot_be_final_legal_basis"
+        ]
+      }
+    },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,160 @@
+harness: chaotang_uiux_system
+version: 1
+
+five_second_test:
+  required_questions:
+    - where_am_i
+    - what_happened
+    - what_is_the_risk
+    - what_should_i_click
+    - what_did_i_gain
+  min_required_answers: 5
+
+layout_shell:
+  left: chaotang_navigation
+  center: active_work_surface
+  right: next_action_and_companion
+  floating: qintianjian_companion
+  max_primary_regions: 4
+
+core_pages:
+  throne_home:
+    label: 大殿首页
+    required_elements:
+      - today_memorial_input
+      - start_court_button
+      - chaotang_weather
+      - recent_battle_report
+      - qintianjian_companion
+    primary_action: start_court
+    max_visible_departments: 0
+  task_execution:
+    label: 军机处执行页
+    required_elements:
+      - task_stage_timeline
+      - active_department
+      - evidence_panel
+      - yushi_status
+      - next_action
+    primary_action: submit_to_yushi
+    max_visible_departments: 4
+  battle_report:
+    label: 朝堂战报页
+    required_elements:
+      - final_grade
+      - merit_delta
+      - yushi_verdict
+      - shiguan_archive_action
+      - next_action
+      - optional_commercial_offer
+    primary_action: archive_to_shiguan
+    max_visible_departments: 4
+  yushi_review:
+    label: 御史页
+    required_elements:
+      - risk_level
+      - block_reason
+      - evidence_gap
+      - recovery_action
+      - next_action
+    primary_action: provide_evidence
+    max_visible_departments: 2
+  shiguan_archive:
+    label: 史馆页
+    required_elements:
+      - archived_reports
+      - reusable_templates
+      - memory_changes
+      - next_action
+    primary_action: reuse_template
+    max_visible_departments: 2
+
+button_taxonomy:
+  primary:
+    examples: [开始朝议, 归档史馆, 提交御史]
+    visual_role: cinnabar_or_jade_solid
+    max_per_page: 1
+  secondary:
+    examples: [查看证据, 保存为模板, 查看战报]
+    visual_role: neutral_outline
+  risk:
+    examples: [申请复核, 补充材料, 进入红蓝对抗]
+    visual_role: yushi_red
+  commercial:
+    examples: [启动深审, 解锁模板, 扩容史馆]
+    visual_role: restrained_gold_outline
+    must_be_optional: true
+    cannot_replace_primary: true
+  teaching:
+    examples: [召唤钦天监]
+    visual_role: compact_icon_button
+
+visual_direction:
+  style_name: 现代朝堂仪表盘
+  palette:
+    background: [冷白, 墨黑, 极浅玉青]
+    action: [朱砂]
+    honor: [低饱和金]
+    risk: [御史红]
+  typography:
+    body: modern_sans
+    title_accent: restrained_songti
+  prohibited:
+    - cheap_ancient_texture
+    - full_screen_palace_background
+    - excessive_gold
+    - dragon_pattern_overuse
+    - large_brown_or_tan_theme
+    - decorative_orbs
+  motif_jobs:
+    star_chart: qintianjian_forecast
+    seal: verified_verdict
+    memorial: user_task_input
+    scroll: archive_report
+    token: department_authority
+
+teaching:
+  name: 钦天监伴读
+  max_lines: 4
+  required_answers:
+    - current_location
+    - current_state
+    - recommended_next_action
+    - reason
+  allowed_triggers:
+    - first_visit
+    - idle_20s
+    - high_risk_action
+    - yushi_block
+    - new_title_or_unlock
+    - reusable_template_available
+  prohibited_triggers:
+    - repeated_after_dismiss
+    - fake_urgency
+    - paywall_pressure
+    - shame_streak_loss
+
+commercial_offer:
+  placement: below_next_action
+  tone: optional_capability_upgrade
+  required_elements:
+    - capability
+    - cost
+    - visible_feedback
+    - value_metric
+    - fairness_principle
+  forbidden:
+    - pay_to_score
+    - pay_to_title
+    - pay_to_yushi_pass
+    - forced_modal
+    - fake_countdown
+
+quality_levels:
+  L0: Decorative
+  L1: Informational
+  L2: Operational
+  L3: Evidence-backed
+  L4: Closed-loop
+  L5: Self-improving
+

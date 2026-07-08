@@ -1,0 +1,14 @@
+id: skill.swarm.quality_gate
+name: 蜂群质门
+version: 0.1.0
+role: 检查格式、来源、高风险人工确认、证据或缺口、冲突可见和唯一主动作。
+outputs:
+  schema: schemas/SwarmQualityResultV1.json
+gates:
+  - source_label_required
+  - no_demo_as_live
+  - no_fallback_as_final_certainty
+  - evidence_or_gap_required
+  - high_risk_requires_human_confirmation
+  - conflict_visible
+  - one_primary_action_required

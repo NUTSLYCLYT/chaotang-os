@@ -1,0 +1,222 @@
+harness: chaotang_merit_system
+version: 1
+
+score_dimensions:
+  result_value: 25
+  evidence_quality: 15
+  risk_control: 15
+  efficiency: 10
+  collaboration: 10
+  reuse_value: 10
+  user_control: 5
+  learning: 5
+  delight: 5
+
+grades:
+  - min_score: 95
+    grade: 天命之作
+  - min_score: 90
+    grade: 圣裁
+  - min_score: 80
+    grade: 上上
+  - min_score: 70
+    grade: 可行
+  - min_score: 60
+    grade: 待修
+  - min_score: 0
+    grade: 御史驳回
+
+yushi_multipliers:
+  allow: 1.0
+  allow_with_conditions: 0.82
+  block: 0.0
+  block_and_escalate: 0.0
+
+yushi_score_caps:
+  missing_evidence: 75
+  has_drift: 65
+  automation_overreach: 0
+  blocked: 0
+
+merit_weights:
+  gongji: 0.46
+  mingcha: 0.24
+  jinglue: 0.22
+  weiwang: 0.08
+
+user_titles:
+  - title: 初登朝堂
+    min_gongye: 1
+    min_tasks: 1
+  - title: 勤政之主
+    min_gongye: 120
+    min_tasks: 3
+    max_recent_reject_rate: 0.25
+  - title: 明断之主
+    min_gongye: 420
+    min_mingcha: 100
+    min_average_score: 80
+    max_recent_reject_rate: 0.12
+  - title: 经略之主
+    min_gongye: 900
+    min_jinglue: 240
+    min_templates: 3
+    min_departments_l3: 2
+    min_average_score: 84
+  - title: 中兴之主
+    min_gongye: 1600
+    min_templates: 5
+    min_departments_l3: 4
+    min_average_score: 88
+    max_recent_reject_rate: 0.08
+  - title: 圣君
+    min_gongye: 3000
+    min_mingcha: 600
+    min_jinglue: 700
+    min_templates: 8
+    min_departments_l3: 5
+    min_average_score: 90
+    max_recent_reject_rate: 0.05
+    requires_user_confirmed_value: true
+  - title: 天命圣君
+    min_gongye: 8000
+    min_mingcha: 1800
+    min_jinglue: 2200
+    min_templates: 20
+    min_departments_l3: 7
+    min_average_score: 94
+    max_recent_reject_rate: 0.03
+    requires_user_confirmed_value: true
+    requires_enterprise_grade_audit: true
+
+department_titles:
+  qintianjian: [观星使, 司历官, 监正, 天策国师]
+  gongbu: [营造使, 主事, 侍郎, 尚书, 鲁班圣手]
+  hubu: [度支使, 计相, 户部尚书, 富国宰辅]
+  yushi: [监察使, 台谏, 御史中丞, 铁面都御史]
+  shiguan: [修撰, 史官, 起居注, 太史令]
+  jinyiwei: [校尉, 千户, 指挥使, 暗网神探]
+  libu: [典仪, 礼官, 礼部侍郎, 品牌宗伯]
+  bingbu: [参谋, 都司, 兵部侍郎, 军机上将]
+
+department_level_thresholds: [0, 80, 220, 520, 1000]
+
+special_events:
+  huo_yan_jin_jing:
+    label: 火眼金睛
+    condition: critical_risk_found
+    merit_bonus: {mingcha: 18}
+  yi_chui_ding_yin:
+    label: 一锤定音
+    condition: qintianjian_key_path_hit
+    merit_bonus: {gongji: 10, jinglue: 8}
+  miao_shou_cheng_qi:
+    label: 妙手成器
+    condition: reusable_artifact_created
+    merit_bonus: {jinglue: 16}
+  qing_shi_liu_ming:
+    label: 青史留名
+    condition: template_archived
+    merit_bonus: {jinglue: 12, weiwang: 4}
+  tian_jiang_qi_bing:
+    label: 天降奇兵
+    condition: high_value_open_source_found
+    merit_bonus: {gongji: 8, mingcha: 8}
+  tie_mian_wu_si:
+    label: 铁面无私
+    condition: unsafe_task_blocked
+    merit_bonus: {mingcha: 22}
+  fu_guo_you_shu:
+    label: 富国有术
+    condition: roi_evidence_confirmed
+    merit_bonus: {gongji: 12, jinglue: 10}
+
+economy:
+  currencies:
+    gongye:
+      ledger: honor
+      purchasable: false
+      cash_out: false
+      purpose: Real task merit, titles, rank, department progression.
+    chaobi:
+      ledger: wallet
+      purchasable: true
+      cash_out: false
+      purpose: Platform credits for in-product digital services.
+    shangyin:
+      ledger: promotional
+      purchasable: false
+      cash_out: false
+      purpose: Promotional credits, discounts, trials.
+  allowed_purchases:
+    - model_token_pack
+    - image_generation_pack
+    - video_generation_pack
+    - advanced_agent_style
+    - department_skin
+    - battle_report_skin
+    - workflow_template
+    - shiguan_memory_pack
+    - jinyiwei_intel_pack
+    - yushi_deep_review
+    - red_team_review
+    - team_seat
+    - enterprise_audit_report
+  forbidden_purchases:
+    - user_title
+    - task_score
+    - yushi_approval
+    - leaderboard_rank
+    - verified_roi
+    - forged_archive
+    - cash_withdrawal
+    - external_transfer
+  platform_policy_notes:
+    - Purchased credits have no cash value and cannot be withdrawn, resold, or transferred for money.
+    - Mobile app purchases of digital goods, virtual currencies, skins, or app services must use the applicable platform billing flow.
+    - Randomized paid rewards are disabled in v1; if enabled later, odds and jurisdiction rules must be disclosed and reviewed.
+    - Promotional shangyin must be labeled promotional/reward and cannot be represented as income or investment value.
+
+advisors:
+  qintianjian:
+    default: zhang-yiming
+    choices:
+      zhuge-liang: {focus: planning_resource_allocation}
+      liu-bowen: {focus: trend_timing_risk}
+      zhang-yiming: {focus: objective_feedback_flywheel}
+      karpathy: {focus: ai_simplicity_interpretability}
+  gongbu:
+    default: tobi-lutke
+    choices:
+      luban: {focus: structure_tools_building}
+      tobi-lutke: {focus: infrastructure_reuse}
+      kent-beck: {focus: tdd_small_steps}
+      martin-fowler: {focus: architecture_evolution}
+  hubu:
+    default: bezos
+    choices:
+      sang-hongyang: {focus: resource_allocation}
+      bezos: {focus: customer_value_flywheel}
+      nik-sharma: {focus: funnel_cac_ltv}
+      munger: {focus: opportunity_cost}
+  yushi:
+    default: bao-zheng
+    choices:
+      bao-zheng: {focus: strict_fact_review}
+      bruce-schneier: {focus: security_threat_model}
+      deming: {focus: quality_system}
+      richard-posner: {focus: legal_boundary}
+  shiguan:
+    default: sima-qian
+    choices:
+      sima-qian: {focus: factual_archive}
+      obsidian: {focus: knowledge_graph}
+      deming: {focus: process_learning}
+      zhang-xiaolong: {focus: restraint_user_value}
+  jinyiwei:
+    default: github-scout
+    choices:
+      shen-lian: {focus: intelligence_risk}
+      github-scout: {focus: open_source_watch}
+      security-scanner: {focus: supply_chain_risk}
+      trend-hunter: {focus: competitor_trends}

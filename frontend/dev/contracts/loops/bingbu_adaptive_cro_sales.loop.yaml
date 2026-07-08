@@ -1,0 +1,133 @@
+id: bingbu_adaptive_cro_sales_loop_v1
+name: 兵部自适应 CRO / Sales / RevOps 子循环
+version: 0.1.0
+owner: courtos/bingbu
+purpose: >
+  在不创建多套兵部流程的前提下，为 bingbu_cro_sales_office_loop_v1 选择合适的默认深度、
+  展示方式、启用子司和高风险升维规则。它只改变运行深度和披露表面，不改变统一朝堂 Loop、
+  source_label、证据/缺口、跨部门复核、人工确认和禁止自动外发底线。
+
+entrypoints:
+  - court_unified_decision_loop_v1.enabled_department_review.war
+  - bingbu_cro_sales_office_loop_v1.receive_bingbu_work_order
+
+uses:
+  - config/bingbu_complexity_profiles.yaml
+  - schemas/CompanyRevenueProfileV1.json
+  - schemas/BingbuComplexityProfileV1.json
+  - schemas/BingbuAdaptiveInteractionV1.json
+
+non_goals:
+  - 不创建 bingbu_small_company_loop
+  - 不创建 bingbu_enterprise_loop
+  - 不让用户手动管理 8 个子司
+  - 不允许关闭高风险人工确认
+  - 不允许关闭户部/刑部/礼部/锦衣卫复核
+  - 不允许未经确认自动发送客户消息、报价或承诺
+
+steps:
+  - id: load_company_revenue_profile
+    name: 读取公司收入画像
+    inputs:
+      - company_profile
+      - user_preferences
+      - sourceLabel
+    outputs:
+      - CompanyRevenueProfileV1
+    gates:
+      - source_label_required
+
+  - id: determine_bingbu_mode
+    name: 判定兵部模式
+    inputs:
+      - CompanyRevenueProfileV1
+      - config/bingbu_complexity_profiles.yaml
+    outputs:
+      - BingbuComplexityProfileV1
+    rules:
+      - 1-10 人默认 founder_sales_assistant
+      - 10-50 人默认 small_team_sales_manager
+      - 50-200 人默认 growth_sales_engine
+      - 200-1000 人默认 cro_revops
+      - 1000+ 人默认 enterprise_revenue_governance
+
+  - id: classify_sales_revenue_question
+    name: 分类销售收入问题
+    inputs:
+      - confirmed_edict
+      - raw_question
+    outputs:
+      - sales_revenue_question_type
+      - risk_signals
+      - likely_artifacts
+    gates:
+      - evidence_or_gap_required
+
+  - id: apply_sales_risk_escalation_rules
+    name: 应用销售高风险自动升维规则
+    inputs:
+      - sales_revenue_question_type
+      - risk_signals
+      - config/bingbu_complexity_profiles.yaml.escalation_rules
+    outputs:
+      - escalationApplied
+      - mandatoryDepartmentReviews
+      - lockedQualityGates
+    rules:
+      - formal_quote_always_involve_hubu_and_xingbu
+      - discount_or_margin_boundary_always_involve_hubu
+      - roi_or_revenue_claim_always_involve_hubu_and_rites_and_xingbu
+      - legal_contract_exclusivity_or_payment_always_involve_xingbu
+      - customer_commitment_always_involve_jinyiwei_and_xingbu
+      - competitor_claim_always_involve_jinyiwei_and_rites_and_xingbu
+      - delivery_or_capability_claim_requires_relevant_department_or_capability_gap
+      - sales_compensation_always_involve_libu_and_hubu
+      - channel_partner_agreement_always_involve_hubu_and_xingbu
+      - ai_sales_message_requires_rites_review_and_human_confirmation
+
+  - id: select_enabled_sub_offices
+    name: 选择启用子司
+    inputs:
+      - BingbuComplexityProfileV1
+      - escalationApplied
+    outputs:
+      - enabledSubOffices
+      - lightweightSubOffices
+      - exposeSubOfficeStructure
+    gates:
+      - no_manual_sub_office_management_for_users
+
+  - id: render_adaptive_interaction
+    name: 渲染自适应交互
+    inputs:
+      - BingbuComplexityProfileV1
+      - enabledSubOffices
+      - lockedQualityGates
+    outputs:
+      - BingbuAdaptiveInteractionV1
+    user_choices:
+      - brief
+      - management_detail
+      - professional_detail
+      - enter_junjichu_deep_review
+      - generate_sales_artifact
+      - request_department_review
+      - generate_followup_message
+      - generate_quote_checklist
+      - generate_account_plan
+      - check_deal_risk
+
+  - id: quality_gate
+    name: 自适应复杂度质门
+    gates:
+      - high_risk_requires_human_confirmation
+      - hubu_review_for_quote_discount_roi
+      - xingbu_review_for_contract_commitment_exclusivity
+      - rites_review_for_external_message
+      - jinyiwei_review_for_customer_claim_or_competitor_claim
+      - source_label_required
+      - evidence_or_gap_required
+      - no_auto_send_customer_message
+      - no_multiple_bingbu_flows
+      - small_company_default_brief
+      - high_risk_must_escalate

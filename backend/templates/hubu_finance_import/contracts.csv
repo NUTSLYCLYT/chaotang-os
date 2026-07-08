@@ -1,0 +1,2 @@
+id,counterparty,amount,startDate,endDate,sourceLabel,sourceRef
+contract-001,customer-a,900000,2026-01-01,2026-12-31,internal_uploaded_file,contract-001.pdf

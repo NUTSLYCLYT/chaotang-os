@@ -1,0 +1,7 @@
+commit	median_seconds	build_ok	status	description
+fc7e8327	64.4	true	keep	baseline
+0228929c	65.8	true	discard	experimental.webpackBuildWorker=true (no improvement, +1.4s vs baseline; reverted via a7c74ce5)
+5507900f	47.0	true	keep	experimental.parallelServerBuildTraces=true (-17.4s vs baseline)
+46715ac6	44.2	true	keep	+parallelServerCompiles=true stacked on parallelServerBuildTraces (-2.8s vs prior keep; run1=58.6s run2=44.2s high variance noted)
+04dd9602	43.6	true	keep	+workerThreads=true (marginal -0.6s, likely within noise band observed ~5-14s across reruns; kept per literal gate)
+dbffd491	43.9	true	discard	experimental.cpus=8 explicit override (no improvement over 43.6s kept; worker count already capped by task count per getNumberOfWorkers maxTasks+1 logic; reverted via c318b4e6)

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://courtos.local/schemas/EvidenceAuditV1.json",
+  "title": "EvidenceAuditV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "evidence",
+    "missing_evidence",
+    "unsupported_claims",
+    "source_label"
+  ],
+  "properties": {
+    "schema_version": { "const": "EvidenceAuditV1" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "evidence": { "type": "array", "items": { "$ref": "EvidenceItemV1.json" } },
+    "missing_evidence": { "type": "array", "items": { "type": "string" } },
+    "unsupported_claims": { "type": "array", "items": { "type": "string" } },
+    "can_reach_certain_conclusion": { "type": "boolean", "default": false },
+    "source_label": { "$ref": "#/$defs/source_label" }
+  },
+  "$defs": {
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  }
+}

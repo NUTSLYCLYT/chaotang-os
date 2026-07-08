@@ -1,0 +1,285 @@
+# 蜂群编排器配置
+# 定义蜂群注册 + 事件绑定关系
+
+# ── 蜂群注册 ─────────────────────────────────────────
+swarms:
+  - id: "haolong"
+    name: "郝龙获客Pipeline"
+    config: "config/flow_haolong.yaml"
+    qa_version: "v3"
+
+  - id: "opc"
+    name: "OPC市场方案流程"
+    config: "config/flow_opc.yaml"
+    qa_version: "v3"
+
+  - id: "product"
+    name: "产品部产品规划流程"
+    config: "config/flow_product.yaml"
+    qa_version: "v3"
+
+  - id: "quotation"
+    name: "报价单生成流程"
+    config: "config/flow_quotation.yaml"
+    qa_version: "v3"
+
+  - id: "ai_ops"
+    name: "AI运维元蜂群"
+    config: "config/flow_ai_ops.yaml"
+    qa_version: "v3"
+
+  - id: "sdlc"
+    name: "SDLC开发生命周期蜂群"
+    config: "config/flow_sdlc.yaml"
+    qa_version: "v3"
+    isolated: true   # 独立蜂群，不参与业务蜂群事件绑定
+
+  - id: "ima"
+    name: "IMA知识蜂群"
+    config: "config/flow_ima.yaml"
+    qa_version: "v3"
+
+  - id: "pack_rd"
+    name: "PACK研发蜂群"
+    config: "config/flow_pack_rd.yaml"
+    qa_version: "v3"
+
+  - id: "hardware_design"
+    name: "工部硬件设计蜂群"
+    config: "config/flow_hardware_design.yaml"
+    qa_version: "v3"
+
+  - id: "process_manufacturing"
+    name: "工部工艺生产蜂群"
+    config: "config/flow_process_manufacturing.yaml"
+    qa_version: "v3"
+
+  - id: "finance"
+    name: "财务分析流程"
+    config: "config/flow_finance.yaml"
+    qa_version: "v3"
+
+  - id: "legal"
+    name: "法律合规流程"
+    config: "config/flow_legal.yaml"
+    qa_version: "v3"
+
+  - id: "jinyiwei"
+    name: "锦衣卫情报蜂群"
+    config: "config/flow_jinyiwei.yaml"
+    qa_version: "v3"
+
+  - id: "tianjian"
+    name: "钦天监预测参谋蜂群"
+    config: "config/flow_tianjian.yaml"
+    qa_version: "v3"
+
+  - id: "libu_personnel"
+    # 2026-07-04 由 "libu" 改名:harness/chaotang_department_protocol/departments.yaml、
+    # court_doc_builder.py 等5+文件里 "libu" 已经是礼部的意思,和这里(吏部)撞名,
+    # 改用那边已经在用的 "libu_personnel" 消歧,不动多数派的礼部含义。
+    name: "吏部人才蜂群"
+    config: "config/flow_libu.yaml"
+    qa_version: "v3"
+
+  - id: "lipu"
+    name: "礼部出版蜂群"
+    config: "config/flow_lipu.yaml"
+    qa_version: "v3"
+
+  - id: "brand_strategy"
+    name: "礼部品牌战略蜂群"
+    config: "config/flow_brand_strategy.yaml"
+    qa_version: "v3"
+
+  - id: "xiaohongshu"
+    name: "小红书运营流程"
+    config: "config/flow_xiaohongshu.yaml"
+    qa_version: "v3"
+
+  - id: "court"
+    name: "三省六部朝堂治理流"
+    config: "config/flow_court.yaml"
+    qa_version: "v3"
+
+  - id: "battery_stage_gate"
+    name: "电池研发 Stage Gate 决策蜂群"
+    config: "config/flow_battery_stage_gate.yaml"
+    qa_version: "v3"
+
+  - id: "sourcing"
+    name: "电芯Sourcing搜寻流程"
+    config: "config/flow_sourcing.yaml"
+    qa_version: "v3"
+
+  - id: "storage_aftercare"
+    name: "储能电站售后故障诊断蜂群"
+    config: "config/flow_storage_aftercare.yaml"
+    qa_version: "v3"
+
+  - id: "shiguan_archive"
+    name: "史馆归档流程"
+    config: "config/flow_shiguan_archive.yaml"
+    qa_version: "v3"
+    isolated: true   # 史馆只接收，不触发下游业务流
+
+  - id: "gongbu_review"
+    name: "工部代码审查蜂群"
+    config: "config/flow_gongbu_review.yaml"
+    qa_version: "v3"
+
+# ── 冲突仲裁 ─────────────────────────────────────────
+# 当同一事件触发多个下游蜂群、或同一蜂群被多源触发时的决策策略
+#
+# strategy 说明:
+#   "all"        — 默认，所有绑定依次执行（当前行为，兼容模式）
+#   "first_win"  — 同一 target_swarm 被多个事件触发时，只接受第一个
+#   "best_score" — 同一 topic 多个下游，按上游评分排序执行
+arbitration:
+  strategy: "all"
+
+# ── 并行执行配置 ──────────────────────────────────────
+execution:
+  # 事件触发的下游蜂群并发数（1 = 串行，>1 = 并行）
+  # 例：opc_completed 同时触发 product + ima 时，设为 2 可并发执行
+  parallel_workers: 3
+
+  # parallel_entry: 多入口并行（同时启动多个蜂群，无需等待事件触发）
+  # 取消注释并配置后，swarm-run 会同时启动这些蜂群
+  # parallel_entry:
+  #   - opc
+  #   - haolong
+
+# ── 事件绑定 ─────────────────────────────────────────
+# 当 topic 事件触发时，自动启动 target_swarm
+#
+# transform 说明:
+#   "auto"        — 将上游 final_output 各字段拼成结构化文本作为下游输入
+#   "passthrough" — 直接透传原始 task_input
+#   "<field_key>" — 从上游 final_output 提取指定字段
+#
+# min_quality_score: 质量门控（0 = 不限制）
+
+bindings:
+  # 获客完成 → 触发 OPC 方案流程
+  - topic: "haolong_completed"
+    target_swarm: "opc"
+    transform: "auto"
+    min_quality_score: 3.5      # T3: 低质量线索不自动触发昂贵的 OPC 方案流程(防垃圾下游流转)
+    enabled: true
+
+  # OPC 方案完成 → 触发产品部规划
+  - topic: "opc_completed"
+    target_swarm: "product"
+    transform: "auto"
+    min_quality_score: 3.5      # T3: 低分方案不自动触发产品规划(方略§5,数据链路质门补真阈值)
+    enabled: true
+
+  # 产品部规划完成 → 触发报价单生成
+  - topic: "product_completed"
+    target_swarm: "quotation"
+    transform: "auto"
+    min_quality_score: 3.5
+    enabled: true
+
+  # OPC 方案完成（高质量）→ 触发 IMA 知识归档
+  - topic: "opc_completed"
+    target_swarm: "ima"
+    transform: "auto"
+    min_quality_score: 4.0   # 只有高质量方案才值得归档
+    enabled: true
+
+  # 产品部规划完成（高质量）→ 触发 IMA 知识归档
+  - topic: "product_completed"
+    target_swarm: "ima"
+    transform: "auto"
+    min_quality_score: 4.0
+    enabled: true
+
+  # PACK研发完成（质量达标）→ 触发 Stage Gate 决策评审
+  - topic: "pack_rd_completed"
+    target_swarm: "battery_stage_gate"
+    transform: "auto"
+    min_quality_score: 3.5
+    enabled: true
+
+  # 产品部规划完成（质量达标）→ 触发电芯Sourcing搜寻
+  - topic: "product_completed"
+    target_swarm: "sourcing"
+    transform: "auto"
+    min_quality_score: 3.5
+    enabled: true
+
+  # 产品部规划完成（质量达标）→ 史馆归档（产品决策 + InsightBee情报 + 合规路径存档）
+  - topic: "product_completed"
+    target_swarm: "shiguan_archive"
+    transform: "auto"
+    min_quality_score: 3.0   # 低于IMA门槛，确保大多数产品规划都能归档
+    enabled: true
+
+  # 报价完成（高质量）→ 归档进知识库（销售学习闭环:成交报价沉淀,喂回未来报价检索）
+  - topic: "quotation_completed"
+    target_swarm: "ima"
+    transform: "auto"
+    min_quality_score: 4.0
+    enabled: true
+
+  # ── 史馆归档绑定 ── 质量达标的产出沉淀为可检索的历史案例 ──────────
+  # 报价单完成（中高质量）→ 史馆归档（成交报价 + 决策依据）
+  - topic: "quotation_completed"
+    target_swarm: "shiguan_archive"
+    transform: "auto"
+    min_quality_score: 3.5
+    enabled: true
+
+  # PACK研发完成（质量达标）→ 史馆归档（研发决策 + BOM + 风险记录）
+  - topic: "pack_rd_completed"
+    target_swarm: "shiguan_archive"
+    transform: "auto"
+    min_quality_score: 3.5
+    enabled: true
+
+  # 售后诊断完成（质量达标）→ 史馆归档（现场案例 + 处置经验）
+  - topic: "storage_aftercare_completed"
+    target_swarm: "shiguan_archive"
+    transform: "auto"
+    min_quality_score: 3.5
+    enabled: true
+
+  # Stage Gate 决策完成（任何质量）→ 史馆归档（不可逆决策必须存档）
+  - topic: "battery_stage_gate_completed"
+    target_swarm: "shiguan_archive"
+    transform: "auto"
+    min_quality_score: 0
+    enabled: true
+
+  # OPC 方案完成（高质量）→ 史馆归档（市场方案 + 客户洞察）
+  - topic: "opc_completed"
+    target_swarm: "shiguan_archive"
+    transform: "auto"
+    min_quality_score: 4.0
+    enabled: true
+
+  # ── 工部代码审查绑定（任正非"强制入口"）──────────────────────
+  # SDLC 完成 → 工部审查（代码生成后必须经工部验收）
+  - topic: "sdlc_completed"
+    target_swarm: "gongbu_review"
+    transform: "auto"
+    min_quality_score: 0        # 无论质量高低都必须过工部
+    enabled: true
+
+# ── 预定义事件主题 ───────────────────────────────────
+# 约定：每个蜂群完成后自动发布 "{swarm_id}_completed" 事件
+# 失败时发布 "{swarm_id}_failed" 事件
+#
+# 事件主题列表（供参考，无需手动配置）:
+#   haolong_completed   — 获客Pipeline完成
+#   haolong_failed      — 获客Pipeline失败
+#   opc_completed       — OPC方案流程完成
+#   opc_failed          — OPC方案流程失败
+#   product_completed   — 产品部规划完成
+#   product_failed      — 产品部规划失败
+#   quotation_completed — 报价单生成完成
+#   quotation_failed    — 报价单生成失败
+#   sourcing_completed  — 电芯Sourcing搜寻完成
+#   sourcing_failed     — 电芯Sourcing搜寻失败

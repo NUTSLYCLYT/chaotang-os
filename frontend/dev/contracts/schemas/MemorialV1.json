@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://courtos.local/schemas/MemorialV1.json",
+  "title": "MemorialV1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "task_id",
+    "sacred_judgement",
+    "executive_summary",
+    "department_memorials",
+    "evidence_chain",
+    "missing_evidence",
+    "risk_register",
+    "conflict_summary",
+    "next_order",
+    "quality_gate",
+    "source_label"
+  ],
+  "properties": {
+    "schema_version": { "const": "MemorialV1" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "sacred_judgement": { "enum": ["采纳", "补证", "复核", "驳回", "追问"] },
+    "executive_summary": { "type": "string", "minLength": 1 },
+    "department_memorials": { "type": "array", "items": { "$ref": "DepartmentOpinionV1.json" } },
+    "evidence_chain": { "type": "array", "items": { "$ref": "EvidenceItemV1.json" } },
+    "missing_evidence": { "type": "array", "items": { "type": "string" } },
+    "risk_register": { "type": "array", "items": { "type": "string" } },
+    "conflict_summary": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          { "type": "string" },
+          {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["type", "summary", "departments", "source_label"],
+            "properties": {
+              "type": { "type": "string", "minLength": 1 },
+              "summary": { "type": "string", "minLength": 1 },
+              "departments": { "type": "array", "items": { "type": "string" } },
+              "source_label": { "$ref": "#/$defs/source_label" }
+            }
+          }
+        ]
+      }
+    },
+    "next_order": { "type": "string", "minLength": 1 },
+    "quality_gate": { "$ref": "QualityGateResultV1.json" },
+    "source_label": { "$ref": "#/$defs/source_label" },
+    "human_confirmation_required": { "type": "boolean" },
+    "swarm_trace_id": { "type": "string" }
+  },
+  "anyOf": [
+    { "required": ["evidence_chain"] },
+    { "required": ["missing_evidence"] }
+  ],
+  "$defs": {
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  }
+}

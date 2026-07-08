@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://courtos.local/schemas/DraftEdictV1.json",
+  "title": "DraftEdictV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "original_question",
+    "refined_edict",
+    "decision_type",
+    "known_facts",
+    "unknown_gaps",
+    "suggested_perspectives",
+    "risk_flags",
+    "expected_output",
+    "emperor_confirmation_question",
+    "source_label"
+  ],
+  "properties": {
+    "schema_version": { "const": "DraftEdictV1" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "original_question": { "type": "string", "minLength": 5 },
+    "refined_edict": { "type": "string", "minLength": 5 },
+    "refined_question": { "type": "string", "minLength": 5 },
+    "decision_type": { "type": "string", "minLength": 1 },
+    "known_facts": { "type": "array", "items": { "type": "string" } },
+    "unknown_gaps": { "type": "array", "items": { "type": "string" } },
+    "suggested_perspectives": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "expected_output": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "expected_memorial_format": { "type": "array", "items": { "type": "string" } },
+    "recommended_departments": { "type": "array", "items": { "type": "string" } },
+    "risk_flags": { "type": "array", "items": { "type": "string" } },
+    "emperor_confirmation_question": { "type": "string", "minLength": 1 },
+    "source_label": { "$ref": "#/$defs/source_label" }
+  },
+  "$defs": {
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  }
+}

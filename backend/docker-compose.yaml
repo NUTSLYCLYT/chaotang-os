@@ -1,0 +1,56 @@
+version: "3.8"
+
+services:
+  fengqun:
+    build: .
+    container_name: fengqun
+    ports:
+      # 宿主机 8088 → 容器 8080（Dockerfile CMD 显式绑定 8080）
+      - "8088:8080"
+    environment:
+      # 模型 API 密钥（按使用的 provider 至少填一个）
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY:-}    # 默认 provider=bailian (qwen-plus)
+      - ZHIPU_API_KEY=${ZHIPU_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - LITELLM_PROXY_KEY=${LITELLM_PROXY_KEY:-}
+      - MUSKPAY_API_KEY=${MUSKPAY_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # 认证配置（设为 true 启用 JWT 登录）
+      - FENGQUN_AUTH=${FENGQUN_AUTH:-true}
+      # JWT 密钥（生产环境务必改成随机串）
+      - FENGQUN_JWT_SECRET=${FENGQUN_JWT_SECRET:-fengqun-prod-change-me}
+      # 商机闭环持久化路径（挂载到 fengqun-data volume）
+      - FENGQUN_COMMERCIAL_BUSINESS_LEDGER=/app/data/commercial_loop_business.jsonl
+      - FENGQUN_COMMERCIAL_GOLDEN_CANDIDATES=/app/data/commercial_loop_golden_candidates.jsonl
+      - FENGQUN_COMMERCIAL_EVENTS=/app/data/commercial_loop_events.jsonl
+      - FENGQUN_COMMERCIAL_FAILURES=/app/data/commercial_loop_failures.jsonl
+      - FENGQUN_COMMERCIAL_GOLDEN_CASES=/app/data/commercial_loop_promoted_cases.json
+      # CORS 允许的源（逗号分隔），留空 = 不允许跨域
+      - FENGQUN_ALLOWED_ORIGINS=${FENGQUN_ALLOWED_ORIGINS:-}
+      # Prometheus 多进程指标目录
+      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus_multiproc
+    volumes:
+      # 持久化数据
+      - fengqun-data:/app/data                     # 多租户 SQLite
+      - fengqun-runs:/app/runs                     # 运行日志
+      - fengqun-repairs:/app/repairs               # 修复历史
+      - fengqun-drafts:/app/drafts                 # 工具草稿
+      - fengqun-events:/app/events                 # 事件总线日志
+      - fengqun-swarm-sessions:/app/swarm_sessions # 编排会话
+      - fengqun-cases:/app/cases                   # 经验沉淀案例
+      - fengqun-prompts:/app/runtime_prompts       # 运行时 Prompt（Web UI 编辑）
+      - fengqun-versions:/app/prompt_versions      # Prompt 版本存档
+      - fengqun-knowledge:/app/knowledge           # YAML 知识 + ChromaDB 向量库
+    restart: unless-stopped
+
+volumes:
+  fengqun-data:
+  fengqun-runs:
+  fengqun-repairs:
+  fengqun-drafts:
+  fengqun-events:
+  fengqun-swarm-sessions:
+  fengqun-cases:
+  fengqun-prompts:
+  fengqun-versions:
+  fengqun-knowledge:

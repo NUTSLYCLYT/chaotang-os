@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RevenueForecastV1",
+  "type": "object",
+  "required": ["forecastPeriod", "forecastConfidence", "pipelineHealth", "stageEvidence", "riskDeals", "sourceLabel"],
+  "properties": {
+    "forecastPeriod": { "type": "string" },
+    "forecastConfidence": { "enum": ["HIGH", "MEDIUM", "LOW", "UNKNOWN"] },
+    "pipelineHealth": { "enum": ["HEALTHY", "WATCH", "RISK", "UNKNOWN"] },
+    "stageEvidence": { "type": "array", "items": { "type": "string" } },
+    "riskDeals": { "type": "array", "items": { "type": "string" } },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

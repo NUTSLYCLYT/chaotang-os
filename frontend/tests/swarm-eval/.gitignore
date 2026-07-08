@@ -1,0 +1,6 @@
+# 运行产物（每次跑都重生成，不入库）
+results/
+scores/
+scorecard*.md
+*.local
+hallucinations/

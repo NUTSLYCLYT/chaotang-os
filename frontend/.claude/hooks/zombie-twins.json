@@ -1,0 +1,17 @@
+{
+  "_doc": "铁律3 守门：同一文件内不得并存的双实现(twin)。merge-zombie-probe.sh 在 commit/merge 后扫描本次改动文件，a 与 b 皆现即告警。a/b 为固定字符串(grep -F)，务必选「活代码签名」(setter 调用/函数定义/声明)，勿选注释里也会出现的散词，否则误报。pathContains 限定扫描范围。新增 twin 直接往 twins 数组追加即可。",
+  "twins": [
+    {
+      "name": "上书房一台三路：edictOverride 唯一通路 vs 旧 activeSuggestionMemorial 状态机",
+      "a": "edictOverride",
+      "b": "setActiveSuggestionMemorial",
+      "pathContains": "shangshufang"
+    },
+    {
+      "name": "丞相要务适配器：suggestionToEdict(辅政钤印) vs suggestionToMemorial(旧 MemorialScroll 旁路)",
+      "a": "suggestionToEdict",
+      "b": "suggestionToMemorial",
+      "pathContains": "shangshufang"
+    }
+  ]
+}

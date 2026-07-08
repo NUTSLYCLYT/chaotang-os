@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GongbuGeneratedArtifactV1",
+  "type": "object",
+  "required": ["type", "title", "status", "content", "sourceLabel"],
+  "properties": {
+    "type": {
+      "enum": [
+        "BOM 缺口清单",
+        "技术方案审查意见",
+        "MVP 范围卡",
+        "交付可行性报告",
+        "交期风险清单",
+        "供应链风险清单",
+        "现场勘查清单",
+        "施工/部署前置条件清单",
+        "验收标准草案",
+        "测试计划大纲",
+        "质量风险清单",
+        "客户交付口径草稿",
+        "不可承诺事项清单",
+        "变更控制单",
+        "里程碑计划草案",
+        "供应商补证清单",
+        "产能评估清单",
+        "交付复盘卡",
+        "高风险人工确认弹窗文案",
+        "跨部门复核单"
+      ]
+    },
+    "title": { "type": "string" },
+    "status": {
+      "enum": ["draft", "needs_human_review", "needs_cross_review", "blocked"],
+      "description": "工部只产出草稿、清单或待审材料；绝不自动承诺交期、锁供应商或确认验收。"
+    },
+    "content": { "type": "string" },
+    "forbiddenActions": { "type": "array", "items": { "type": "string" } },
+    "requiresHumanConfirmation": { "type": "boolean" },
+    "requiresCrossReview": {
+      "type": "array",
+      "items": { "enum": ["finance", "war", "personnel", "justice", "ritual", "jinyiwei"] }
+    },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

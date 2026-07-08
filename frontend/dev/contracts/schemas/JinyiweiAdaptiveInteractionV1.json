@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "JinyiweiAdaptiveInteractionV1",
+  "type": "object",
+  "required": [
+    "mode",
+    "defaultView",
+    "availableUserChoices",
+    "lockedFloor",
+    "escalationApplied",
+    "enabledSubOffices",
+    "sourceLabel"
+  ],
+  "properties": {
+    "mode": {
+      "enum": [
+        "founder_info_assistant",
+        "small_team_research",
+        "growth_intelligence",
+        "chief_intelligence_office",
+        "enterprise_intelligence_governance"
+      ]
+    },
+    "defaultView": { "enum": ["brief", "evidence_detail", "professional_detail"] },
+    "availableUserChoices": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "brief",
+          "evidence_detail",
+          "professional_detail",
+          "enter_junjichu_deep_review",
+          "generate_intelligence_pack",
+          "generate_competitor_compare",
+          "generate_customer_intel_card",
+          "setup_watchlist",
+          "request_source_verification"
+        ]
+      }
+    },
+    "lockedFloor": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "source_label_required",
+          "evidence_or_gap_required",
+          "source_reliability_required",
+          "privacy_sensitive_data_guard",
+          "no_unauthorized_collection",
+          "no_unverified_claims",
+          "stale_info_must_be_marked"
+        ]
+      }
+    },
+    "escalationApplied": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "enabledSubOffices": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "exposeSubOfficeStructure": { "type": "boolean" },
+    "humanConfirmationRequired": { "type": "boolean" },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,59 @@
+flow_name: 小红书内容运营流程
+qa_version: v3
+default_model: openai/swarm-worker
+default_api_base: http://127.0.0.1:4444/v1
+default_api_key_env: LITELLM_PROXY_KEY
+default_retry:
+  max_retries: 2
+  delay: 3.0
+  backoff: 2.0
+  retry_on:
+  - error
+steps:
+- id: xhs_researcher
+  name: 小红书研究员
+  description: 分析账号定位、用户画像与竞品内容表现
+  prompt_key: xhs_researcher
+  prompt_module: src.prompts_xiaohongshu
+- id: xhs_strategy
+  name: 小红书策略专员
+  description: 输出选题、栏目、节奏和创意节奏
+  prompt_key: xhs_strategy
+  prompt_module: src.prompts_xiaohongshu
+- id: xhs_monitor
+  name: 小红书监测专员
+  description: 监测发布风险、流量波动与舆情信号
+  prompt_key: xhs_monitor
+  prompt_module: src.prompts_xiaohongshu
+- id: qa_tech_support
+  name: 质量检查专家
+  description: QA质量检查与综合输出
+  prompt_key: xiaohongshu_qa
+  prompt_module: src.prompts_xiaohongshu
+  assertions:
+    # 内核复用(零Python):无真上网搜情报源时,竞品/账号/搜索量等市场断言必须标信源或"待核",
+    # 否则脑补竞品当真=情报无源谣言,hard_fail。real_search 桥(scrapling/openclaw)装好后升级真情报。
+    post:
+    - type: disclaimer_when_unverified
+      facts_key: intel_docs
+      markers:
+      - 待核
+      - 无信源
+      - 未核实
+      - 信源
+      - 数据来源
+      on_fail: hard_fail
+repair:
+  enabled: true
+  max_retries: 1
+  min_score: 3.5
+  min_delta: 0.2
+  min_dimension_score: 3.0
+output_fields:
+- 平台与账号画像
+- 用户洞察
+- 内容选题矩阵
+- 发布运营方案
+- 预算排期与KPI
+- 舆情与合规风险
+- 增长建议

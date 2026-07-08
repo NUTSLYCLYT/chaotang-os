@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SalesRiskPolicyV1",
+  "type": "object",
+  "required": ["lockedGates", "highRiskTriggers", "forbiddenActions", "sourceLabel"],
+  "properties": {
+    "lockedGates": { "type": "array", "items": { "type": "string" } },
+    "highRiskTriggers": { "type": "array", "items": { "type": "string" } },
+    "forbiddenActions": { "type": "array", "items": { "type": "string" } },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

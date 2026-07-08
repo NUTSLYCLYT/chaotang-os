@@ -1,0 +1,55 @@
+[
+  {
+    "name": "osv-scanner",
+    "repo": "google/osv-scanner",
+    "purpose": "Scan local source dependencies against OSV vulnerability data.",
+    "install": [
+      "go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest",
+      "docker pull ghcr.io/google/osv-scanner:latest"
+    ],
+    "version_command": ["osv-scanner", "--version"],
+    "poc_command": [
+      "osv-scanner",
+      "scan",
+      "source",
+      "--lockfile",
+      "requirements.txt",
+      "--lockfile",
+      "requirements-core.txt",
+      "--lockfile",
+      "requirements-optional.txt",
+      "--lockfile",
+      "requirements-pg.txt",
+      "--lockfile",
+      "requirements-test.txt",
+      "--no-resolve",
+      "--format",
+      "json"
+    ],
+    "target": "local_source",
+    "owner": "yushi",
+    "evidence_sources": [
+      "https://google.github.io/osv-scanner/installation/",
+      "https://google.github.io/osv-scanner/usage/"
+    ],
+    "deep_scan_command": ["osv-scanner", "scan", "source", "--recursive", "--format", "json", "."]
+  },
+  {
+    "name": "scorecard",
+    "repo": "ossf/scorecard",
+    "purpose": "Score open-source repository security posture before adoption.",
+    "install": [
+      "docker pull ghcr.io/ossf/scorecard:latest",
+      "download standalone binary from https://github.com/ossf/scorecard/releases"
+    ],
+    "version_command": ["scorecard", "--help"],
+    "poc_command": ["scorecard", "--repo=github.com/ossf/scorecard", "--show-details"],
+    "target": "remote_repo",
+    "owner": "yushi",
+    "requires_env": ["GITHUB_AUTH_TOKEN"],
+    "evidence_sources": [
+      "https://github.com/ossf/scorecard",
+      "https://scorecard.dev/"
+    ]
+  }
+]

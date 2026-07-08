@@ -1,0 +1,58 @@
+# config/manor_groups.yaml
+# 庄园 6 大功能聚类组。
+# 运行策略：默认 subagent/spawn；配置 openclaw_base_url_env 且服务可用时升级为 OpenClaw。
+# OpenClaw 只承接长期、有工具、有记忆、有独立行动能力的庄园；失败回退 subagent。
+runtime_policy:
+  default: spawn
+  preferred_internal_runtime: subagent
+  openclaw_role: long_running_manor
+  fallback: spawn
+groups:
+  - id: intel
+    name: 情报组
+    ministers: [jin_yi_wei, qin_tian_jian]
+    subagent_max: 3
+    runtime: spawn
+    openclaw_mode: optional
+    openclaw_base_url_env: OPENCLAW_INTEL_URL
+    desc: 检索/竞品/政策/舆情/趋势预测
+  - id: content
+    name: 文创组
+    ministers: [li_bu_rites]
+    subagent_max: 3
+    runtime: spawn
+    openclaw_mode: optional
+    openclaw_base_url_env: OPENCLAW_CONTENT_URL
+    desc: 文档/PPT/方案/营销话术/客户画像
+  - id: finlaw
+    name: 财法组
+    ministers: [hu_bu, xing_bu]
+    subagent_max: 3
+    runtime: spawn
+    openclaw_mode: preferred_for_high_risk
+    openclaw_base_url_env: OPENCLAW_FINLAW_URL
+    desc: 财务测算/报价/合同审查/合规风险
+  - id: rnd
+    name: 产研组
+    ministers: [gong_bu]
+    subagent_max: 3
+    runtime: spawn
+    openclaw_mode: preferred_for_long_running
+    openclaw_base_url_env: OPENCLAW_RND_URL
+    desc: 产品/技术/供应链/交付方案
+  - id: exec
+    name: 执行组
+    ministers: [bing_bu, li_bu]
+    subagent_max: 3
+    runtime: spawn
+    openclaw_mode: optional
+    openclaw_base_url_env: OPENCLAW_EXEC_URL
+    desc: 项目拆解/里程碑/排期/人事
+  - id: review
+    name: 复盘组
+    ministers: [scribe]
+    subagent_max: 2
+    runtime: spawn
+    openclaw_mode: optional
+    openclaw_base_url_env: OPENCLAW_REVIEW_URL
+    desc: 复盘/知识沉淀/归档

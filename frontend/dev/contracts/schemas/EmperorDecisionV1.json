@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://courtos.local/schemas/EmperorDecisionV1.json",
+  "title": "EmperorDecisionV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "memorial_id",
+    "action",
+    "reason",
+    "human_confirmed",
+    "source_label"
+  ],
+  "properties": {
+    "schema_version": { "const": "EmperorDecisionV1" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "memorial_id": { "type": "string", "minLength": 1 },
+    "action": { "enum": ["adopt", "request_evidence", "request_recheck", "reject", "follow_up"] },
+    "reason": { "type": "string" },
+    "followup_question": { "type": "string" },
+    "human_confirmed": { "type": "boolean" },
+    "human_confirmation_note": { "type": "string" },
+    "source_label": { "$ref": "#/$defs/source_label" }
+  },
+  "$defs": {
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  }
+}

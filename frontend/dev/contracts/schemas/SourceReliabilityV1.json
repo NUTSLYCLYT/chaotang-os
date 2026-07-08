@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SourceReliabilityV1",
+  "type": "object",
+  "required": ["sourceId", "score", "rating", "reasons", "sourceLabel"],
+  "properties": {
+    "sourceId": { "type": "string" },
+    "score": { "type": "number", "minimum": 0, "maximum": 1 },
+    "rating": { "enum": ["HIGH", "MEDIUM", "LOW", "UNKNOWN", "CONFLICTED"] },
+    "reasons": { "type": "array", "items": { "type": "string" } },
+    "crossVerifiedBy": { "type": "array", "items": { "type": "string" } },
+    "conflictsWith": { "type": "array", "items": { "type": "string" } },
+    "stale": { "type": "boolean" },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

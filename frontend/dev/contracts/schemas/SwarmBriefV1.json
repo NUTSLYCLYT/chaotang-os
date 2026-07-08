@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SwarmBriefV1",
+  "description": "Backend swarm production-line output. It is not directly shown as a user-facing report; Junjichu and departments consume it as evidence, findings, conflicts, and quality signals.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "swarm_run_id",
+    "task_id",
+    "review_id",
+    "mode",
+    "status",
+    "selected_swarms",
+    "department_inputs",
+    "evidence_chain",
+    "swarm_findings",
+    "red_team_challenges",
+    "unsupported_claims",
+    "missing_evidence",
+    "conflict_summary",
+    "quality_gate_result",
+    "user_facing_trace",
+    "source_label"
+  ],
+  "properties": {
+    "schema_version": { "const": "SwarmBriefV1" },
+    "swarm_run_id": { "type": "string", "minLength": 1 },
+    "task_id": { "type": "string", "minLength": 1 },
+    "review_id": { "type": "string", "minLength": 1 },
+    "trace_id": { "type": "string" },
+    "mode": { "enum": ["FAST", "STANDARD", "DEEP", "LIVE_SWARM"] },
+    "status": { "enum": ["not_required", "running", "completed", "awaiting_evidence", "blocked", "failed_with_recovery"] },
+    "selected_swarms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["swarm_id", "reason"],
+        "properties": {
+          "swarm_id": { "type": "string" },
+          "reason": { "type": "string" },
+          "serves_department_id": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "department_inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["department_id", "input_summary"],
+        "properties": {
+          "department_id": { "type": "string" },
+          "input_summary": { "type": "string" },
+          "requested_output_schema": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "evidence_chain": { "type": "array", "items": { "$ref": "EvidenceItemV1.json" } },
+    "swarm_findings": { "type": "array", "items": { "type": "string" } },
+    "red_team_challenges": { "type": "array", "items": { "type": "string" } },
+    "unsupported_claims": { "type": "array", "items": { "type": "string" } },
+    "missing_evidence": { "type": "array", "items": { "type": "string" } },
+    "conflict_summary": { "type": "array", "items": { "$ref": "ConflictSummaryV1.json" } },
+    "quality_gate_result": { "$ref": "QualityGateResultV1.json" },
+    "user_facing_trace": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label", "status"],
+        "properties": {
+          "label": { "type": "string" },
+          "status": { "enum": ["pending", "running", "done", "blocked", "failed"] },
+          "summary": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "source_label": { "$ref": "#/$defs/source_label" }
+  },
+  "$defs": {
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

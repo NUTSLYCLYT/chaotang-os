@@ -1,0 +1,26 @@
+[
+  {
+    "id": "opc-01",
+    "baseline": {
+      "dim_covered": 8,
+      "dim_total": 8,
+      "dim_missing": [],
+      "spec_hit": 5,
+      "spec_total": 5,
+      "spec_missing": [],
+      "chars": 3803,
+      "elapsed": 29.9
+    },
+    "swarm": {
+      "dim_covered": 8,
+      "dim_total": 8,
+      "dim_missing": [],
+      "spec_hit": 5,
+      "spec_total": 5,
+      "spec_missing": [],
+      "chars": 854,
+      "elapsed": 134.2,
+      "run_id": "20260603_221114_460167"
+    }
+  }
+]

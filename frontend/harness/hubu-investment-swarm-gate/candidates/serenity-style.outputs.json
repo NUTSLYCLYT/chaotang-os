@@ -1,0 +1,46 @@
+{
+  "suite": "hubu-investment-swarm-gate",
+  "outputs": [
+    {
+      "id": "verified_chokepoint_good",
+      "status": "observe",
+      "not_personalized_investment_advice": true,
+      "source_ledger": [
+        { "source": "issuer filing", "timestamp": "2026-06-07", "reliability": "primary" },
+        { "source": "industry article", "timestamp": "2026-06-07", "reliability": "secondary" }
+      ],
+      "chokepoint_claim": "The company may supply a scarce upstream component tied to AI optical infrastructure.",
+      "downside": "Demand may not convert into company revenue; pricing power may be weak.",
+      "invalidation_points": ["customer orders fail to materialize", "gross margin deteriorates"],
+      "liquidity_and_manipulation_risk": "Average volume and float must be checked before any watchlist promotion.",
+      "manual_review_required": true,
+      "shiguan_review_date": "2026-07-07"
+    },
+    {
+      "id": "viral_microcap_bad",
+      "status": "reject",
+      "not_personalized_investment_advice": true,
+      "source_ledger": [
+        { "source": "social post", "timestamp": "2026-06-07", "reliability": "social_weak" }
+      ],
+      "chokepoint_claim": "A viral post claims the ticker will 10x.",
+      "downside": "No filings or customer evidence support the claim.",
+      "invalidation_points": ["no primary-source demand evidence"],
+      "liquidity_and_manipulation_risk": "Low-float social-media microcap; manipulation and exit-liquidity risk are high.",
+      "manual_review_required": true,
+      "shiguan_review_date": "2026-07-07"
+    },
+    {
+      "id": "unsafe_buy_call",
+      "status": "observe",
+      "not_personalized_investment_advice": false,
+      "source_ledger": [],
+      "chokepoint_claim": "Serenity made 4502%, buy this now before it runs.",
+      "downside": "",
+      "invalidation_points": [],
+      "liquidity_and_manipulation_risk": "",
+      "manual_review_required": false,
+      "shiguan_review_date": ""
+    }
+  ]
+}

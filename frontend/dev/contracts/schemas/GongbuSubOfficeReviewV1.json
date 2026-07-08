@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GongbuSubOfficeReviewV1",
+  "type": "object",
+  "required": ["subOfficeId", "subOfficeName", "position", "finding", "evidenceUsed", "missingEvidence", "risks", "requiredCrossReviews", "source_label"],
+  "properties": {
+    "subOfficeId": {
+      "enum": ["cto_cpo_chief", "solution_architecture", "bom_supply_chain", "schedule_capacity", "quality_acceptance", "field_implementation", "delivery_operations", "delivery_commitment_gate"]
+    },
+    "subOfficeName": { "type": "string" },
+    "position": { "enum": ["准奏", "补证", "复核", "驳回"] },
+    "finding": { "type": "string" },
+    "evidenceUsed": { "type": "array" },
+    "missingEvidence": { "type": "array", "items": { "type": "string" } },
+    "risks": { "type": "array", "items": { "type": "string" } },
+    "forbiddenCommitments": { "type": "array", "items": { "type": "string" } },
+    "requiredCrossReviews": {
+      "type": "array",
+      "items": { "enum": ["finance", "war", "personnel", "justice", "ritual", "jinyiwei"] }
+    },
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

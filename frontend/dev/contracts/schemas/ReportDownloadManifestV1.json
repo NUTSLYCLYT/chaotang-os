@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ReportDownloadManifestV1",
+  "description": "Download/export contract for a CourtOS memorial. Actual binary generation may be implemented later; this manifest defines what can be downloaded and what warnings must be shown.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "report_id",
+    "available_formats",
+    "default_format",
+    "download_items",
+    "warnings",
+    "source_label"
+  ],
+  "properties": {
+    "schema_version": { "const": "ReportDownloadManifestV1" },
+    "report_id": { "type": "string" },
+    "available_formats": {
+      "type": "array",
+      "items": { "enum": ["PDF", "DOCX", "JSON", "EVIDENCE_ZIP"] },
+      "minItems": 1
+    },
+    "default_format": { "enum": ["PDF", "DOCX", "JSON", "EVIDENCE_ZIP"] },
+    "download_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["format", "label", "endpoint", "user_visible"],
+        "properties": {
+          "format": { "enum": ["PDF", "DOCX", "JSON", "EVIDENCE_ZIP"] },
+          "label": { "type": "string" },
+          "endpoint": { "type": "string" },
+          "user_visible": { "type": "boolean" },
+          "requires_human_confirmation": { "type": "boolean" },
+          "contains_sensitive_data": { "type": "boolean" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "source_label": { "$ref": "#/$defs/source_label" }
+  },
+  "$defs": {
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

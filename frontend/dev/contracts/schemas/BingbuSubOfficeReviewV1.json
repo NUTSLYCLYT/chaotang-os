@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BingbuSubOfficeReviewV1",
+  "type": "object",
+  "required": ["officeId", "officeName", "position", "mustAnswer", "evidenceUsed", "missingEvidence", "riskFlags", "recommendedAction", "qualityGateResults", "sourceLabel"],
+  "properties": {
+    "officeId": { "type": "string" },
+    "officeName": { "type": "string" },
+    "position": { "enum": ["GREEN", "YELLOW", "RED", "GRAY"] },
+    "mustAnswer": { "type": "array", "items": { "type": "string" } },
+    "evidenceUsed": { "type": "array", "items": { "type": "string" } },
+    "missingEvidence": { "type": "array", "items": { "type": "string" } },
+    "riskFlags": { "type": "array", "items": { "type": "string" } },
+    "recommendedAction": { "type": "string" },
+    "qualityGateResults": { "type": "array", "items": { "type": "string" } },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

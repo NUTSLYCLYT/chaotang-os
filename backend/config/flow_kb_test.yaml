@@ -1,0 +1,29 @@
+# TEST-ONLY(2026-07-04标注):IMA+Jina双源检索联调用,非独立业务能力,
+# 未注册进swarm_orchestrator.yaml,见 docs/chaotang_workflow_swarm_upgrade_2026-06-07.md
+flow_name: 知识库双源测试（IMA + 全网）
+qa_version: v3
+default_model: openai/swarm-worker
+default_api_base: http://127.0.0.1:4444/v1
+default_api_key_env: LITELLM_PROXY_KEY
+output_fields:
+  - IMA检索状态
+  - 全网检索摘要
+  - 综合结论
+steps:
+- id: kb_researcher
+  name: 知识库研究员
+  description: 真实调用 IMA + Jina 双源知识检索
+  prompt_key: kb_researcher
+  max_tool_rounds: 8
+  tools:
+  - capabilities:
+    - ima_list_notebooks
+    - ima_search_notes
+    - ima_get_note_content
+    server: ima
+  - capabilities:
+    - fetch_url
+    server: web_search
+- id: qa_tech_support
+  name: QA
+  prompt_key: qa_tech_support

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "XingbuSubOfficeReviewV1",
+  "type": "object",
+  "required": [
+    "office_id",
+    "office_name",
+    "position",
+    "finding",
+    "evidence_used",
+    "missing_evidence",
+    "risks",
+    "forbidden_actions",
+    "next_best_action",
+    "source_label"
+  ],
+  "properties": {
+    "office_id": {
+      "enum": [
+        "clo_cco_chief",
+        "contract_office",
+        "corporate_governance",
+        "compliance",
+        "dispute_litigation",
+        "employment_law",
+        "ip_confidentiality",
+        "legal_operations"
+      ]
+    },
+    "office_name": { "type": "string" },
+    "position": { "enum": ["准奏", "补证", "复核", "驳回"] },
+    "finding": { "type": "string" },
+    "evidence_used": { "type": "array" },
+    "missing_evidence": { "type": "array", "items": { "type": "string" } },
+    "jurisdiction_or_scope_gap": { "type": "boolean" },
+    "assumptions": { "type": "array", "items": { "type": "string" } },
+    "risks": { "type": "array", "items": { "type": "string" } },
+    "forbidden_actions": { "type": "array", "items": { "type": "string" } },
+    "requires_cross_review": {
+      "type": "array",
+      "items": { "enum": ["finance", "war", "personnel", "jinyiwei", "ritual", "works"] }
+    },
+    "requires_human_confirmation": { "type": "boolean" },
+    "next_best_action": { "type": "string" },
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

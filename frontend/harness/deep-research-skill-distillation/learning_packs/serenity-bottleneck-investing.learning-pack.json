@@ -1,0 +1,34 @@
+{
+  "topic": "Serenity bottleneck investing method",
+  "source_pack": "source_packs/serenity-bottleneck-investing.source-pack.json",
+  "beginner_5_min": "Serenity is useful as a learning case because public articles describe a trader who searched for overlooked supply-chain bottlenecks behind large themes like AI infrastructure. The claimed returns are not audited, so the lesson is not 'copy this person's stocks.' The lesson is: when everyone talks about the obvious winner, look upstream for the rare material, substrate, laser, test equipment, or component that the whole trend depends on. Then check whether the company has real demand evidence, enough liquidity, financial runway, and a clear reason the market has not already priced it in.",
+  "practitioner_30_min": "The practical method has six steps. First, identify a large downstream demand wave such as AI data centers, optical interconnect, edge AI, robotics, or automotive connectivity. Second, draw the supply chain upstream until you find a narrow bottleneck: a material, substrate, laser, chip, standard, packaging process, or test tool with few credible suppliers. Third, collect primary sources: issuer filings, regulatory news, customer announcements, technical papers, and conference transcripts. Fourth, separate technical relevance from commercial capture; a company can have the right technology but weak timing, poor balance sheet, dilution, or no pricing power. Fifth, red-team the thesis: low float, viral social posts, design wins that are not revenue, customer concentration, export controls, and narrative overreach. Sixth, produce only watchlist-grade research with evidence, downside, invalidation, and a review date.",
+  "expert_memo": "For Hubu, the Serenity case should become a bottleneck-research skill rather than a trading style. The system should not optimize for spectacular return claims because those are unaudited, conflicting, and vulnerable to survivorship bias. Instead, it should operationalize a repeatable research loop: Jinyiwei source discovery, supply-chain mapping, chokepoint scoring, valuation and liquidity review, risk red-team, non-advice synthesis, and Shiguan outcome tracking. The highest-value insight is the distinction between downstream theme correctness and company-level monetization. AXTI-style substrate narratives, Sivers-style external laser narratives, Raspberry Pi edge-AI narratives, and Valens design-win narratives all need different evidence gates. Hubu must mark social media as a weak signal, issuer releases as biased primary evidence, and regulatory/financial results as higher-quality evidence. The swarm should reject any output that omits sources, timestamps, uncertainty labels, downside, liquidity, manipulation risk, or manual review.",
+  "scenario_ladder": {
+    "base_case": "The method improves Hubu's ability to generate watchlist-grade research by forcing source-backed chokepoint analysis and red-team review.",
+    "bull_case": "The skill discovers overlooked upstream suppliers before broad narrative adoption while avoiding low-evidence viral traps.",
+    "bear_case": "The skill overfits to a social-media success story and starts rationalizing illiquid small-cap speculation after large price moves.",
+    "change_our_mind": [
+      "A candidate has only social-source evidence and no primary-source demand link.",
+      "A candidate moved more than 300% before the thesis was found and liquidity is weak.",
+      "A design win has no disclosed timing, economics, or materiality.",
+      "A primary filing contradicts the social thesis."
+    ],
+    "review_date": "2026-07-07"
+  },
+  "glossary": [
+    { "term": "chokepoint", "definition": "A narrow supply-chain dependency that can gain power when downstream demand surges." },
+    { "term": "issuer-biased evidence", "definition": "Company-provided evidence that may be true but promotional or incomplete." },
+    { "term": "design win", "definition": "A customer selection that may or may not convert into meaningful revenue." },
+    { "term": "liquidity risk", "definition": "The risk that a position cannot be entered or exited without large price impact." },
+    { "term": "invalidation point", "definition": "A condition that would prove the thesis no longer works." }
+  ],
+  "quiz": [
+    { "question": "Why should Serenity's return number not be treated as verified fact?", "answer": "It is publicly reported but unaudited and conflicting across sources." },
+    { "question": "What is the difference between a theme and a chokepoint?", "answer": "A theme is broad demand; a chokepoint is a scarce upstream dependency tied to that demand." },
+    { "question": "Why is a design win not the same as revenue?", "answer": "It may lack timing, volume, economics, or materiality." },
+    { "question": "What must Hubu output instead of buy/sell advice?", "answer": "Observe, needs evidence, defer, or reject with sources and risk labels." },
+    { "question": "What is the main red-team risk in viral microcaps?", "answer": "Social attention can move the price and followers may become exit liquidity." }
+  ],
+  "teach_back": "Explain the method to a non-investor by comparing it to finding the one small bridge every truck must cross, then proving whether the bridge owner actually gets paid more when traffic rises."
+}

@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "XingbuComplexityProfileV1",
+  "type": "object",
+  "required": [
+    "mode",
+    "headcountBand",
+    "displayName",
+    "defaultView",
+    "exposeSubOfficeStructure",
+    "enabledSubOffices",
+    "nonNegotiableFloor",
+    "sourceLabel"
+  ],
+  "properties": {
+    "mode": {
+      "enum": ["founder_legal_safety", "small_team_legal_manager", "growth_legal_compliance", "clo_cco", "group_legal_ops"]
+    },
+    "headcountBand": { "enum": ["1-10", "10-50", "50-200", "200-1000", "1000+"] },
+    "displayName": { "type": "string" },
+    "defaultView": { "enum": ["brief", "management_detail", "professional_detail"] },
+    "exposeSubOfficeStructure": { "type": "boolean" },
+    "enabledSubOffices": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "clo_cco_chief",
+          "contract_office",
+          "corporate_governance",
+          "compliance",
+          "dispute_litigation",
+          "employment_law",
+          "ip_confidentiality",
+          "legal_operations"
+        ]
+      }
+    },
+    "lightweightSubOffices": { "type": "array", "items": { "type": "string" } },
+    "highRiskExtraOffices": { "type": "array", "items": { "type": "string" } },
+    "reservedCapabilities": { "type": "array", "items": { "type": "string" } },
+    "supportedScenarios": { "type": "array", "items": { "type": "string" } },
+    "nonNegotiableFloor": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "high_risk_requires_human_confirmation",
+          "contract_or_commitment_review",
+          "equity_or_governance_review",
+          "labor_risk_review",
+          "source_label_required",
+          "evidence_or_gap_required",
+          "privacy_sensitive_data_guard",
+          "no_irreversible_legal_action_without_approval"
+        ]
+      }
+    },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,200 @@
+id: bingbu_cro_sales_office_registry_v1
+department_id: war
+display_name: 兵部
+real_world_equivalent: CRO Office + Sales / RevOps Office
+positioning: CRO Office + 销售作战指挥部 + RevOps + 大客户攻坚 + 商机推进 + 报价策略 + 渠道增长 + 客户成功增长中心
+purpose: >
+  将兵部定义为 CourtOS 的收入作战与销售决策系统，替代现实企业的销售部、销售运营部、
+  渠道部、商务拓展部、客户成功增长团队和销售管理办公室。兵部不是销售话术助手，
+  不自动外发客户消息或报价；它负责判断销售机会值不值得打、怎么打、谁来打、何时报价、
+  如何谈判、何时止损、如何复盘。兵部只能通过 court_unified_decision_loop_v1 调用，
+  不创建 bingbu_special_review。
+
+forbidden_irreversible_actions:
+  - 自动发送客户消息
+  - 自动发送正式报价
+  - 自动承诺价格/折扣/交期/ROI/收益
+  - 自动签署合同/渠道协议/独家协议
+  - 自动修改 CRM 敏感信息
+  - 自动外发招商材料或销售材料
+  - 自动确认客户预算/采购意向/客户承诺
+
+sales_revenue_question_types:
+  - LEAD_QUALIFICATION
+  - OPPORTUNITY_REVIEW
+  - ACCOUNT_STRATEGY
+  - QUOTE_STRATEGY
+  - NEGOTIATION_STRATEGY
+  - CHANNEL_PARTNER
+  - FORECAST_REVIEW
+  - WIN_LOSS_REVIEW
+  - CUSTOMER_SUCCESS_GROWTH
+  - SALES_ORG_EXECUTION
+
+p0_sub_offices:
+  - id: cro_chief
+    name: 兵部尚书
+    priority: P0
+    purpose: CRO / VP Sales 总判断，合成销售作战、商机、报价、渠道、RevOps 和客户成功风险。
+    trigger: ["所有兵部任务最终合成", "跨子司分歧", "高风险销售动作", "需要总立场"]
+    inputs: [draft_edict, intelligence_pack, sales_evidence_pack, sub_office_reviews]
+    must_answer: ["这是什么销售/收入问题", "值不值得继续打", "谁负责", "下一步唯一销售动作", "缺哪些证据", "需要联动哪些部门", "风险和止损点是什么"]
+    must_not: ["自动外发客户消息或报价", "缺来源时确认客户承诺", "绕过户部/刑部/礼部/锦衣卫/吏部质门", "输出无 sourceLabel 结果"]
+    tools_allowed: [read_sales_evidence, summarize, classify_sales_question, request_cross_review, draft_cro_opinion]
+    tools_forbidden: [send_customer_message, send_quote, sign_contract, update_crm_sensitive_field, promise_roi, promise_delivery]
+    output_schema: BingbuCROOpinionV1
+    quality_gates: [source_label_required, sales_owner_or_gap_required, one_primary_sales_action_required, high_risk_requires_human_confirmation]
+    eval_cases: [bingbu_case_001_formal_quote, bingbu_case_002_stop_loss, bingbu_case_020_ai_sales_agent]
+
+  - id: gtm_strategy
+    name: 布阵司
+    priority: P0
+    purpose: GTM、ICP、行业/区域/客户分层、销售路线设计。
+    trigger: ["GTM", "ICP", "销售路线", "客户分层", "新产品上市", "重点客户", "区域策略"]
+    inputs: [draft_edict, market_context, customer_segments, intelligence_pack]
+    must_answer: ["目标客户是谁", "优先行业/区域/客户层级", "销售路线", "进入条件", "哪些假设需要验证"]
+    must_not: ["无证据定义 ICP", "把宣传话术当销售策略", "忽略资源约束"]
+    tools_allowed: [read_evidence, draft_gtm_plan, segment_accounts, request_jinyiwei_review]
+    tools_forbidden: [send_campaign, scrape_private_customer_data]
+    output_schema: BingbuSubOfficeReviewV1
+    quality_gates: [source_label_required, customer_claims_require_source, evidence_or_gap_required]
+    eval_cases: [bingbu_case_003_xiamen_ai_sales, bingbu_case_009_key_account, bingbu_case_014_new_product_gtm]
+
+  - id: opportunity_pipeline
+    name: 商机司
+    priority: P0
+    purpose: 线索、商机、pipeline、销售阶段、CRM 状态和下一步推进。
+    trigger: ["线索", "商机", "pipeline", "销售阶段", "CRM", "跟进", "成交概率", "阻塞"]
+    inputs: [draft_edict, crm_snapshot, meeting_notes, customer_claims]
+    must_answer: ["商机阶段是什么", "阶段证据是什么", "成交概率依据", "阻塞点", "下一步动作", "owner 或 owner_gap"]
+    must_not: ["无证据推进阶段", "把客户口头说法当事实", "忽略 CRM 敏感信息权限"]
+    tools_allowed: [read_authorized_crm, score_opportunity, draft_next_action_card, flag_stage_gap]
+    tools_forbidden: [update_crm_sensitive_field, send_customer_message, infer_private_customer_data]
+    output_schema: OpportunityReviewV1
+    quality_gates: [opportunity_stage_requires_evidence, no_unverified_customer_budget_claim, privacy_sensitive_crm_data_guard]
+    eval_cases: [bingbu_case_002_stop_loss, bingbu_case_004_customer_budget, bingbu_case_015_trade_show_leads]
+
+  - id: key_account_attack
+    name: 攻坚司
+    priority: P0
+    purpose: 大客户攻关、决策链、多线程推进、谈判策略。
+    trigger: ["大客户", "攻关", "决策链", "关键人", "多线程", "谈判", "异议"]
+    inputs: [draft_edict, account_map, stakeholder_notes, intelligence_pack]
+    must_answer: ["决策链是否清楚", "关键人和缺口", "多线程推进路径", "谈判边界", "下次会议目标"]
+    must_not: ["采集未授权个人信息", "用未核实客户关系判断", "自动发送谈判话术"]
+    tools_allowed: [draft_account_plan, draft_meeting_plan, draft_negotiation_strategy, request_jinyiwei_review]
+    tools_forbidden: [send_customer_message, collect_private_contact_data, promise_discount]
+    output_schema: DealStrategyV1
+    quality_gates: [customer_claims_require_source, privacy_sensitive_crm_data_guard, customer_message_requires_rites_review_when_high_risk]
+    eval_cases: [bingbu_case_008_decision_chain, bingbu_case_009_key_account, bingbu_case_017_framework_agreement]
+
+  - id: pricing_deal_desk
+    name: 价策司
+    priority: P0
+    purpose: 报价策略、折扣、商务条件、deal desk、报价前检查。
+    trigger: ["报价", "正式报价", "折扣", "八折", "底价", "付款条件", "有效期", "deal desk"]
+    inputs: [draft_edict, finance_context, legal_context, pricing_facts]
+    must_answer: ["能否报价", "正式/非正式报价边界", "折扣和毛利边界", "付款条件", "报价有效期", "必须复核的部门"]
+    must_not: ["未经户部/刑部复核给正式报价", "承诺底价/折扣/付款条款", "自动外发报价"]
+    tools_allowed: [draft_quote_checklist, draft_pricing_options, request_hubu_review, request_xingbu_review]
+    tools_forbidden: [send_quote, approve_discount, promise_price, sign_contract]
+    output_schema: DealStrategyV1
+    quality_gates: [formal_quote_requires_hubu_and_xingbu_review, discount_requires_margin_boundary, no_price_or_delivery_commitment_without_review]
+    eval_cases: [bingbu_case_001_formal_quote, bingbu_case_005_discount, bingbu_case_007_roi_response]
+
+  - id: channel_partner
+    name: 渠道司
+    priority: P0
+    purpose: 渠道、代理、伙伴、经销、渠道政策、分成和客户归属。
+    trigger: ["渠道", "代理", "伙伴", "经销", "分成", "客户归属", "独家", "渠道冲突"]
+    inputs: [draft_edict, partner_context, channel_policy, legal_context, finance_context]
+    must_answer: ["是否发展渠道", "渠道政策", "分成和归属", "冲突风险", "协议风险", "下一步"]
+    must_not: ["未经刑部/户部复核承诺独家或分成", "自动签渠道协议", "隐藏客户归属冲突"]
+    tools_allowed: [draft_partner_plan, draft_channel_policy, request_hubu_review, request_xingbu_review]
+    tools_forbidden: [sign_partner_agreement, promise_exclusivity, approve_commission]
+    output_schema: BingbuSubOfficeReviewV1
+    quality_gates: [external_commitment_requires_xingbu_review, discount_requires_margin_boundary, high_risk_requires_human_confirmation]
+    eval_cases: [bingbu_case_012_channel_agent, bingbu_case_013_channel_exclusive]
+
+  - id: sales_revops
+    name: 销运司
+    priority: P0
+    purpose: Sales Ops / RevOps、forecast、quota、节奏、销售数据质量。
+    trigger: ["forecast", "pipeline 健康度", "quota", "销售节奏", "销售数据", "CRM 质量", "周会"]
+    inputs: [draft_edict, pipeline_snapshot, forecast_data, crm_data_quality]
+    must_answer: ["forecast 是否可信", "pipeline 阶段真实性", "数据质量缺口", "节奏和 quota 风险", "需要更新哪些 CRM 字段"]
+    must_not: ["无阶段证据给 forecast", "自动修改 CRM 敏感数据", "隐藏风险商机"]
+    tools_allowed: [analyze_pipeline, draft_forecast_explanation, draft_pipeline_risk_table, draft_crm_update_suggestion]
+    tools_forbidden: [update_crm_sensitive_field, fabricate_forecast, hide_risk_deals]
+    output_schema: RevenueForecastV1
+    quality_gates: [forecast_requires_stage_and_evidence, opportunity_stage_requires_evidence, source_label_required]
+    eval_cases: [bingbu_case_010_forecast, bingbu_case_015_trade_show_leads, bingbu_case_019_commission_behavior]
+
+  - id: customer_success_growth
+    name: 客成司
+    priority: P0
+    purpose: 客户成功、续约、复购、交付价值反馈、老客户增长。
+    trigger: ["客户成功", "续约", "复购", "QBR", "满意度", "老客户", "交付价值", "续约风险"]
+    inputs: [draft_edict, customer_success_notes, delivery_feedback, renewal_context]
+    must_answer: ["续约/复购机会或风险", "交付价值证据", "客户满意度缺口", "QBR 或跟进计划", "需要联动哪些部门"]
+    must_not: ["无交付反馈承诺价值", "自动发送 QBR 或客户消息", "忽略交付能力缺口"]
+    tools_allowed: [draft_renewal_plan, draft_qbr_outline, draft_customer_success_growth_plan, request_cross_review]
+    tools_forbidden: [send_customer_message, promise_delivery, promise_roi]
+    output_schema: BingbuSubOfficeReviewV1
+    quality_gates: [customer_claims_require_source, no_price_or_delivery_commitment_without_review, customer_message_requires_rites_review_when_high_risk]
+    eval_cases: [bingbu_case_018_renewal_risk]
+
+p1_p2_sub_offices_reserved:
+  - 标书司   # RFP、投标、招投标材料
+  - 赋能司   # 销售培训、销售方法论、销售 playbook
+  - 数据司   # Revenue Analytics、转化率、预测模型
+  - 国际司   # 海外销售、区域策略、本地化
+  - 生态司   # 生态合作、联合销售、联盟伙伴
+  - AI 销售司 # AI SDR、AI Sales Agent、自动跟进、销售 agent 治理
+
+generated_artifact_types:
+  - 客户跟进方案
+  - 销售下一步行动卡
+  - 客户会议计划
+  - Discovery 问题清单
+  - 客户决策链图
+  - 大客户攻坚计划
+  - 谈判策略
+  - 报价前检查清单
+  - 报价策略草案
+  - 折扣审批建议
+  - 客户回复草稿
+  - 竞品 battlecard
+  - 商机评分卡
+  - Pipeline 风险表
+  - Forecast 解释卡
+  - Win/Loss 复盘
+  - 渠道伙伴计划
+  - 渠道政策草案
+  - 续约/复购计划
+  - 客户成功 QBR 大纲
+  - 销售周会 agenda
+  - 销售 playbook 片段
+  - CRM 更新建议
+  - 销售提成建议
+
+quality_gates:
+  - source_label_required
+  - customer_claims_require_source
+  - opportunity_stage_requires_evidence
+  - forecast_requires_stage_and_evidence
+  - formal_quote_requires_hubu_and_xingbu_review
+  - discount_requires_margin_boundary
+  - roi_or_revenue_claim_requires_hubu_review
+  - external_commitment_requires_xingbu_review
+  - customer_message_requires_rites_review_when_high_risk
+  - competitor_claims_require_jinyiwei_evidence
+  - no_unverified_customer_budget_claim
+  - no_price_or_delivery_commitment_without_review
+  - no_auto_send_customer_message
+  - one_primary_sales_action_required
+  - privacy_sensitive_crm_data_guard
+  - sales_owner_or_gap_required
+  - win_loss_reason_requires_evidence_or_gap
+  - high_risk_requires_human_confirmation
+  - evidence_or_gap_required

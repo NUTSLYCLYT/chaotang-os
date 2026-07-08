@@ -1,0 +1,15 @@
+{
+  "traceId": "trace_001",
+  "spanId": "span_001",
+  "parentSpanId": "",
+  "operationName": "flow_execution",
+  "startTime": "2026-04-25T12:26:58.770379+08:00",
+  "endTime": "2026-04-25T12:26:58.780463+08:00",
+  "duration_ms": 10.084,
+  "status": "OK",
+  "attributes": {
+    "flow": "opc",
+    "steps": 5
+  },
+  "events": []
+}

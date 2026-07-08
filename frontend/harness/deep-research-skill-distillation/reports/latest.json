@@ -1,0 +1,39 @@
+{
+  "suite": "deep-research-skill-distillation",
+  "generated_at": "2026-06-07T02:40:24.633Z",
+  "passed": 6,
+  "total": 6,
+  "status": "pass",
+  "checks": [
+    {
+      "name": "source_pack",
+      "status": "pass",
+      "evidence": "6 sources, 6 claims"
+    },
+    {
+      "name": "learning_pack",
+      "status": "pass",
+      "evidence": "beginner/practitioner/expert/scenario/quiz present"
+    },
+    {
+      "name": "candidate_skill",
+      "status": "pass",
+      "evidence": "hubu-bottleneck-investing"
+    },
+    {
+      "name": "golden_cases",
+      "status": "pass",
+      "evidence": "5 cases"
+    },
+    {
+      "name": "outcome_ledger",
+      "status": "pass",
+      "evidence": "30/60/90 review plan present"
+    },
+    {
+      "name": "genius_design_coverage",
+      "status": "pass",
+      "evidence": "5/5 designs covered"
+    }
+  ]
+}

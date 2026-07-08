@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IntelligenceSourceV1",
+  "type": "object",
+  "required": ["id", "title", "sourceType", "source_type", "sourceLabel", "source_label", "capturedAt", "reliability", "source_reliability", "authorized"],
+  "properties": {
+    "id": { "type": "string" },
+    "title": { "type": "string" },
+    "url": { "type": "string" },
+    "sourceRef": { "type": "string" },
+    "sourceType": { "enum": ["USER_INPUT", "USER_UPLOAD", "ARCHIVE", "INTERNAL_AUTHORIZED", "PUBLIC_WEB", "PUBLIC_REPORT", "NEWS", "GOVERNMENT", "DATABASE_AUTHORIZED", "MODEL_INFERENCE", "FALLBACK"] },
+    "source_type": { "enum": ["USER_INPUT", "USER_UPLOAD", "ARCHIVE", "INTERNAL_AUTHORIZED", "PUBLIC_WEB", "PUBLIC_REPORT", "NEWS", "GOVERNMENT", "DATABASE_AUTHORIZED", "MODEL_INFERENCE", "FALLBACK"] },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] },
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] },
+    "publishedAt": { "type": "string" },
+    "capturedAt": { "type": "string" },
+    "snapshotRef": { "type": "string" },
+    "authorized": { "type": "boolean" },
+    "permissionBasis": { "type": "string" },
+    "stale": { "type": "boolean" },
+    "reliability": { "enum": ["HIGH", "MEDIUM", "LOW", "UNKNOWN", "CONFLICTED"] },
+    "source_reliability": { "enum": ["HIGH", "MEDIUM", "LOW", "UNKNOWN", "CONFLICTED"] },
+    "privacyLevel": { "enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "PERSONAL", "SENSITIVE"] }
+  },
+  "additionalProperties": true
+}

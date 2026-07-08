@@ -1,0 +1,8 @@
+path,sourceLabel,sourceRef
+trialBalance.revenue,internal_uploaded_file,income-statement.xlsx
+trialBalance.costOfRevenue,internal_uploaded_file,income-statement.xlsx
+trialBalance.cash,manual_confirmed,cash-count.pdf
+trialBalance.bank,internal_uploaded_file,bank-export-2026-06.xlsx
+trialBalance.accountsReceivable,historical_archive,ar-aging.xlsx
+trialBalance.accountsPayable,historical_archive,ap-aging.xlsx
+trialBalance.shortTermDebt,manual_confirmed,loan-schedule.xlsx

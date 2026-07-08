@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IntelligencePrivacyPolicyV1",
+  "type": "object",
+  "required": ["privacySensitiveDataGuard", "noUnauthorizedCollection", "forbiddenData", "allowedWithPermission", "sourceLabel"],
+  "properties": {
+    "privacySensitiveDataGuard": { "type": "boolean" },
+    "noUnauthorizedCollection": { "type": "boolean" },
+    "forbiddenData": { "type": "array", "items": { "type": "string" } },
+    "allowedWithPermission": { "type": "array", "items": { "type": "string" } },
+    "retentionPolicy": { "type": "string" },
+    "redactionRequired": { "type": "boolean" },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

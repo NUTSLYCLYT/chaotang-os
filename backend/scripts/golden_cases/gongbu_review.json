@@ -1,0 +1,12 @@
+[
+  {
+    "task": "审查以下提交代码（jiqun_ai 蜂群引擎补丁）：\n```python\ndef resolve_model(swarm_id):\n    cfg = REGISTRY.get(swarm_id)\n    # 找不到就回退默认，别让流程断\n    model = cfg.get('model') if cfg else None\n    return model or 'gpt-3.5'  # ?? 兜底\n\nDEEPSEEK_API_KEY = 'sk-9f2c1aab8e7d4f10b3a6c5e2d1f0a9b8'\n\ntry:\n    facts = build_verified_facts(paths)\nexcept Exception:\n    facts = {}  # 失败就给空，继续跑\n```\n给出四维度审查与 PASS/BLOCK 总结论。",
+    "reference": "总结论必须为 BLOCK（存在 CRITICAL 问题，不得上线）。必须点出三处具体证据：① 硬编码密钥 DEEPSEEK_API_KEY 明文写死（CRITICAL 安全，须改环境变量）；② 静默回退 `model or 'gpt-3.5'` 把映射失败掩盖成默认值（本仓铁律：静默回退是大忌，应 fail-fast 或 logger.warn）；③ `except Exception: facts={}` 吞掉异常继续跑，掩盖数据缺失。每条须引用具体代码行/片段。must_not 条目须包含'不得硬编码密钥'与'不得静默回退掩盖映射失败'。",
+    "must_not": "把含硬编码密钥/静默回退/吞异常的代码判为 PASS；只说'整体质量一般'而不引用具体代码行；发现 CRITICAL 却给 PASS"
+  },
+  {
+    "task": "审查以下提交代码（一个纯函数 + 单测）：\n```python\ndef clamp(x: float, lo: float, hi: float) -> float:\n    \"\"\"把 x 夹到 [lo, hi] 区间。lo<=hi 由调用方保证。\"\"\"\n    if lo > hi:\n        raise ValueError(f'lo({lo}) > hi({hi})')\n    return max(lo, min(x, hi))\n\n# tests\nassert clamp(5, 0, 10) == 5\nassert clamp(-3, 0, 10) == 0\nassert clamp(99, 0, 10) == 10\n```\n给出四维度审查与 PASS/BLOCK 总结论。",
+    "reference": "总结论应为 PASS（可发布）。代码质量：类型注解完整、有 docstring、边界已校验（lo>hi 显式 raise 而非静默）、命名清晰。安全：无外部输入/无密钥/无注入面。功能：三个断言覆盖了区间内/低于下界/高于上界三种情况，符合规格。无 CRITICAL/HIGH，不应编造问题来凑 BLOCK。",
+    "must_not": "对干净且已测试的代码编造问题以给出 BLOCK；把'可以更完美'的主观偏好当作 CRITICAL；要求超出函数职责范围的改动"
+  }
+]

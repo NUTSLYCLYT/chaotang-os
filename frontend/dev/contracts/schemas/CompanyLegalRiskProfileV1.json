@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CompanyLegalRiskProfileV1",
+  "type": "object",
+  "required": [
+    "employeeCount",
+    "headcountBand",
+    "legalMaturity",
+    "defaultXingbuMode",
+    "sourceLabel"
+  ],
+  "properties": {
+    "employeeCount": { "type": "number", "minimum": 1 },
+    "headcountBand": { "enum": ["1-10", "10-50", "50-200", "200-1000", "1000+"] },
+    "legalMaturity": {
+      "enum": ["none", "founder_led", "ops_owner", "legal_manager", "legal_compliance_team", "clo_cco_office", "group_legal_ops"]
+    },
+    "defaultXingbuMode": {
+      "enum": ["founder_legal_safety", "small_team_legal_manager", "growth_legal_compliance", "clo_cco", "group_legal_ops"]
+    },
+    "hasDedicatedLegalOwner": { "type": "boolean" },
+    "hasComplianceOwner": { "type": "boolean" },
+    "hasContractRepository": { "type": "boolean" },
+    "hasAuthorityMatrix": { "type": "boolean" },
+    "hasExternalCounsel": { "type": "boolean" },
+    "preferredDetailLevel": { "enum": ["brief", "management_detail", "professional_detail"] },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

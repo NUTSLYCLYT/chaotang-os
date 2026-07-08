@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>朝堂 OS - 大殿体验</title>
+<link rel="icon" href="data:,">
+<style>
+@font-face{
+  font-family:"Noto Sans SC Chaotang";
+  src:url("/assets/fonts/NotoSansSC-Chaotang.ttf") format("truetype");
+  font-weight:100 900;
+  font-display:swap;
+}
+:root{
+  --ink:#11151c;
+  --ink-2:#1d2530;
+  --paper:#f7f8f5;
+  --paper-2:#eef3ef;
+  --jade:#dcebe4;
+  --jade-2:#7ca391;
+  --cinnabar:#a33a2f;
+  --cinnabar-2:#d85b4d;
+  --gold:#b9924a;
+  --line:#d6ded8;
+  --muted:#6d766f;
+  --risk:#9f2e2a;
+  --ok:#2f7b55;
+  --shadow:0 20px 60px rgba(17,21,28,.10);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Noto Sans SC Chaotang","Noto Sans SC","Source Han Sans SC","PingFang SC","Microsoft YaHei",-apple-system,BlinkMacSystemFont,sans-serif;background:linear-gradient(135deg,#fbfbf8 0%,#eef4ef 45%,#f7f3ea 100%);color:var(--ink);min-height:100vh}
+button,input,textarea{font:inherit}
+.app{min-height:100vh;display:grid;grid-template-columns:236px minmax(0,1fr) 320px}
+.nav{background:rgba(17,21,28,.96);color:#edf2ef;padding:22px 18px;display:flex;flex-direction:column;gap:18px}
+.brand{display:flex;align-items:center;gap:10px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,.12)}
+.brand-mark{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--cinnabar),#6f241f);display:grid;place-items:center;color:#fff;font-weight:800;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22)}
+.brand h1{font-size:16px;margin:0;font-weight:700}
+.brand p{font-size:11px;color:#aeb9b2;margin:2px 0 0}
+.nav-group{display:flex;flex-direction:column;gap:6px}
+.nav-title{font-size:11px;color:#8f9a94;margin:6px 8px;text-transform:uppercase;letter-spacing:.08em}
+.nav-btn{border:0;background:transparent;color:#cfd7d2;text-align:left;padding:10px 12px;border-radius:8px;cursor:pointer;display:flex;gap:9px;align-items:center;white-space:nowrap}
+.nav-btn:hover{background:rgba(255,255,255,.08)}
+.nav-btn.active{background:rgba(220,235,228,.14);color:#fff;box-shadow:inset 3px 0 0 var(--cinnabar-2)}
+.nav-foot{margin-top:auto;font-size:12px;color:#aeb9b2;line-height:1.6;padding:12px;border:1px solid rgba(255,255,255,.10);border-radius:8px}
+.main{padding:24px;overflow:auto}
+.topbar{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.weather{flex:1;background:rgba(255,255,255,.76);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:16px}
+.weather strong{font-size:16px}
+.weather span{font-size:13px;color:var(--muted)}
+.weather-grid{margin-left:auto;display:grid;grid-template-columns:repeat(4,auto);gap:12px}
+.weather-chip{font-size:12px;color:var(--muted);padding:5px 9px;background:#fff;border:1px solid var(--line);border-radius:999px}
+.surface{display:none}
+.surface.active{display:block}
+.hero{background:rgba(255,255,255,.82);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);padding:26px;min-height:360px;position:relative;overflow:hidden}
+.hero:before{content:"";position:absolute;right:-120px;top:-120px;width:300px;height:300px;border:1px solid rgba(124,163,145,.34);border-radius:50%}
+.hero h2{font-size:26px;line-height:1.2;margin:0 0 10px;letter-spacing:0}
+.hero-sub{font-size:14px;color:var(--muted);margin:0 0 22px;max-width:620px;line-height:1.7}
+.memorial{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start;position:relative;z-index:1}
+textarea{width:100%;min-height:126px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:14px;color:var(--ink);resize:vertical;line-height:1.6;outline:none}
+textarea:focus{border-color:var(--jade-2);box-shadow:0 0 0 3px rgba(124,163,145,.16)}
+.draft-panel{position:relative;z-index:1;margin-top:12px;border:1px solid var(--line);border-radius:8px;background:#fbfcfa;padding:12px;display:grid;gap:10px}
+.draft-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.draft-head h3{margin:0;font-size:13px}
+.draft-head p{margin:4px 0 0;color:var(--muted);font-size:12px;line-height:1.5}
+.draft-choice{display:flex;gap:8px;flex-wrap:wrap}
+.draft-choice button.active{background:var(--ink);border-color:var(--ink);color:#fff}
+.draft-text{margin:0;color:var(--muted);font-size:12px;line-height:1.7;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px;max-height:118px;overflow:auto}
+.research-strip{display:none;border-left:3px solid var(--gold);background:#fffaf0;border-radius:6px;padding:9px 10px;color:#6f5120;font-size:12px;line-height:1.6}
+.research-strip.show{display:block}
+.primary{border:0;background:var(--cinnabar);color:#fff;border-radius:8px;padding:12px 18px;cursor:pointer;font-weight:700;box-shadow:0 10px 22px rgba(163,58,47,.22)}
+.primary:hover{background:#8f3028}
+.secondary,.ghost,.commercial{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:10px 13px;cursor:pointer}
+.secondary:hover,.ghost:hover{border-color:var(--jade-2)}
+.commercial{border-color:rgba(185,146,74,.50);color:#6f5120;background:#fffaf0}
+.commercial:hover{background:#fff4dc}
+.hero-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:18px}
+.hero-grid.primary-signals{grid-template-columns:repeat(3,minmax(0,1fr))}
+.signal-drawer{margin-top:12px;position:relative;z-index:1}
+.signal-drawer summary{cursor:pointer;color:var(--ink);font-size:13px;font-weight:700;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.signal-drawer[open] summary{border-color:var(--jade-2)}
+.mini-card{background:#fbfcfa;border:1px solid var(--line);border-radius:8px;padding:14px;min-height:104px}
+.mini-card h3{margin:0 0 8px;font-size:13px}
+.mini-card p{margin:0;color:var(--muted);font-size:12px;line-height:1.6}
+.work-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px}
+.panel{background:rgba(255,255,255,.82);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);padding:18px}
+.panel h2{margin:0 0 14px;font-size:18px}
+.timeline{display:flex;flex-direction:column;gap:10px}
+.step{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center;padding:13px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.dot{width:18px;height:18px;border-radius:50%;background:var(--line);box-shadow:inset 0 0 0 4px #fff}
+.step.done .dot{background:var(--ok)}
+.step.run .dot{background:var(--gold)}
+.step.risk .dot{background:var(--risk)}
+.step h3{margin:0 0 3px;font-size:14px}
+.step p{margin:0;color:var(--muted);font-size:12px}
+.badge{font-size:11px;padding:4px 8px;border-radius:999px;background:var(--jade);color:#345849}
+.edict{background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);overflow:hidden}
+.edict-head{padding:20px 22px;background:linear-gradient(135deg,#fff 0%,#f5eee1 100%);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:16px}
+.grade{width:82px;height:82px;border-radius:8px;background:var(--cinnabar);color:#fff;display:grid;place-items:center;text-align:center;box-shadow:inset 0 0 0 2px rgba(255,255,255,.22)}
+.grade strong{font-size:28px}
+.grade span{font-size:12px}
+.edict h2{margin:0 0 6px;font-size:22px}
+.edict p{margin:0;color:var(--muted);line-height:1.6}
+.merit{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:18px 22px}
+.seal{border:1px solid rgba(163,58,47,.28);background:#fffaf7;border-radius:8px;padding:16px;text-align:center}
+.seal strong{display:block;font-size:24px;color:var(--cinnabar);margin-bottom:4px}
+.edict-body{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:0 22px 22px}
+.verdict,.archive,.offer{border:1px solid var(--line);border-radius:8px;padding:14px;background:#fbfcfa}
+.verdict h3,.archive h3,.offer h3{font-size:13px;margin:0 0 8px}
+.verdict p,.archive p,.offer p{font-size:12px;margin:0;color:var(--muted);line-height:1.7}
+.offer{border-color:rgba(185,146,74,.42);background:#fffaf0}
+.action-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.department-panel{margin-top:16px}
+.contract-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.contract-chip{background:#fbfcfa;border:1px solid var(--line);border-radius:8px;padding:11px 12px;min-height:62px}
+.contract-chip strong{display:block;font-size:17px;color:var(--ink);margin-bottom:3px}
+.contract-chip span{font-size:11px;color:var(--muted);line-height:1.4}
+.department-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px}
+.department-head p{margin:4px 0 0;color:var(--muted);font-size:12px;line-height:1.6}
+.department-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.dept-card{appearance:none;text-align:left;border:1px solid var(--line);background:#fff;border-radius:8px;padding:12px;cursor:pointer;min-height:164px;display:flex;flex-direction:column;gap:8px;color:var(--ink)}
+.dept-card:hover{border-color:var(--jade-2);box-shadow:0 8px 20px rgba(17,21,28,.08)}
+.dept-card.active{border-color:rgba(163,58,47,.56);box-shadow:inset 0 0 0 2px rgba(163,58,47,.12),0 10px 24px rgba(163,58,47,.12);background:#fffdfb}
+.dept-card h3{margin:0;font-size:14px}
+.dept-card p{margin:0;color:var(--muted);font-size:12px;line-height:1.55}
+.dept-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
+.swarm-pill{font-size:11px;padding:4px 7px;border-radius:999px;background:var(--jade);color:#345849;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.swarm-pill.gate{background:#fff1dd;color:#6f5120}
+.dept-empty{grid-column:1/-1;border:1px dashed var(--line);border-radius:8px;padding:16px;color:var(--muted);font-size:12px;background:#fbfcfa}
+.side{background:rgba(255,255,255,.76);border-left:1px solid var(--line);padding:22px 18px;overflow:auto}
+.side-secondary{display:none}
+.side-secondary.visible{display:block}
+.next-card,.companion{background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
+.next-card h2,.companion h2{font-size:15px;margin:0 0 10px}
+.next-card p,.companion p{font-size:12px;color:var(--muted);line-height:1.7;margin:0 0 10px}
+.q-list{display:flex;flex-direction:column;gap:8px}
+.q-item{padding:10px;border-left:3px solid var(--jade-2);background:#f8faf8;border-radius:6px;font-size:12px;line-height:1.6}
+.route-contract{border-color:rgba(163,58,47,.22);background:linear-gradient(135deg,#fff 0%,#fffaf7 100%)}
+.route-pills{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.pulse-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
+.pulse-item{border:1px solid var(--line);border-radius:8px;background:#fff;padding:10px;min-height:94px;position:relative;overflow:hidden}
+.pulse-item:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--line)}
+.pulse-item.done:before{background:var(--ok)}
+.pulse-item.running:before{background:var(--gold)}
+.pulse-item.pending:before{background:var(--jade-2)}
+.pulse-item h3{margin:0 0 5px;font-size:12px}
+.pulse-item p{margin:0;color:var(--muted);font-size:11px;line-height:1.5}
+.pulse-item .actor{display:inline-block;margin-top:7px;font-size:10px;color:#345849;background:var(--jade);padding:3px 6px;border-radius:999px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.persona-card{border-color:rgba(124,163,145,.36);background:linear-gradient(135deg,#fff 0%,#f8fbf8 100%)}
+.genius-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+.genius-card{border:1px solid var(--line);border-radius:8px;background:#fff;padding:12px;min-height:154px;display:flex;flex-direction:column;gap:8px}
+.genius-card h3{margin:0;font-size:13px}
+.genius-card p{margin:0;color:var(--muted);font-size:12px;line-height:1.55}
+.genius-card .order{width:24px;height:24px;border-radius:7px;background:var(--ink);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:700}
+.genius-card .module-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
+.float-help{position:fixed;right:344px;bottom:22px;z-index:10}
+.help-btn{border:0;background:var(--ink);color:#fff;border-radius:999px;padding:12px 16px;box-shadow:0 12px 28px rgba(17,21,28,.22);cursor:pointer}
+.help-pop{display:none;width:330px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);padding:16px;margin-bottom:10px}
+.help-pop.open{display:block}
+.help-pop h3{margin:0 0 10px;font-size:15px}
+.help-line{font-size:12px;color:var(--muted);line-height:1.7;margin:7px 0}
+.help-line strong{color:var(--ink)}
+.mode-tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.mode-tabs button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 12px;cursor:pointer;color:var(--muted)}
+.mode-tabs button.active{color:#fff;background:var(--ink);border-color:var(--ink)}
+.depth-rail{margin:0 0 12px;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fbfcfa}
+.depth-rail strong{display:block;font-size:12px;margin-bottom:8px}
+.depth-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.depth-step{font-size:11px;text-align:center;padding:6px 4px;border-radius:7px;background:#fff;border:1px solid var(--line);color:var(--muted)}
+.depth-step.active{background:var(--ink);border-color:var(--ink);color:#fff}
+.mode-suggestion{margin:0 0 12px;padding:12px;border:1px solid #d7b86c;border-radius:8px;background:#fff8df}
+.mode-suggestion[hidden]{display:none}
+.mode-suggestion strong{display:block;font-size:13px;margin-bottom:6px}
+.mode-suggestion p{margin:0;color:#66501b;font-size:12px;line-height:1.55}
+.mode-suggestion .action-row{margin-top:10px}
+.mode-suggestion .secondary{background:#fff8df}
+.mode-beginner .advanced-surface,.mode-beginner .expert-surface{display:none}
+.mode-senior_hobbyist .expert-surface{display:none}
+.mode-beginner [data-side-card="contract"],
+.mode-beginner [data-side-card="persona"],
+.mode-beginner [data-side-card="pulse"],
+.mode-beginner [data-side-card="genius"],
+.mode-beginner [data-side-card="users"]{display:none!important}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 14px;border-radius:8px;opacity:0;pointer-events:none;transition:.2s}
+.toast.show{opacity:1}
+@media(max-width:1100px){
+  .app{grid-template-columns:1fr}
+  .nav{position:static;top:auto;z-index:5;flex-direction:row;align-items:center;overflow:auto}
+  .nav-group{flex-direction:row}.nav-title,.nav-foot{display:none}
+  .nav-btn{flex:0 0 auto}
+  .side{display:none}
+  .float-help{right:16px;bottom:16px}
+  .weather-grid,.work-grid,.edict-body,.department-grid,.contract-strip,.pulse-grid,.genius-grid{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+  .main{padding:14px}.hero-grid,.hero-grid.primary-signals,.merit{grid-template-columns:1fr}.memorial{grid-template-columns:1fr}
+  .brand h1{white-space:nowrap}.brand p{display:none}
+  .topbar{display:block}.weather{display:block}.weather-grid{margin:12px 0 0;display:flex;flex-wrap:wrap}
+  .department-panel{margin-top:12px}
+  .dept-card{min-height:112px}
+}
+</style>
+</head>
+<body class="mode-beginner">
+<div class="app">
+  <aside class="nav">
+    <div class="brand">
+      <div class="brand-mark">朝</div>
+      <div><h1>朝堂 OS</h1><p>可信执行 · 御史审查 · 史馆记忆</p></div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-title">核心界面</div>
+      <button class="nav-btn active" data-view="home">大殿首页</button>
+      <button class="nav-btn" data-view="work">军机处执行</button>
+      <button class="nav-btn" data-view="report">朝堂战报</button>
+    </div>
+    <div class="nav-group">
+      <div class="nav-title">辅助</div>
+      <button class="nav-btn" data-view="yushi">御史审查</button>
+      <button class="nav-btn" data-view="shiguan">史馆归档</button>
+    </div>
+    <div class="nav-foot">页面原则：少展示、准行动、有证据、可回退。商业增强只买能力，不买荣誉。</div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="weather">
+        <div><strong id="weatherLabel">朝堂气象：稳</strong><br><span id="weatherSummary">今日 2 事已成，1 事待御史，0 高危。</span></div>
+        <div class="weather-grid" id="weatherChips">
+          <span class="weather-chip">钦天监：方向清楚</span>
+          <span class="weather-chip">御史：无阻断</span>
+          <span class="weather-chip">史馆：2 条新记忆</span>
+          <span class="weather-chip">工部：Lv.3</span>
+        </div>
+      </div>
+    </div>
+
+    <section id="home" class="surface active">
+      <div class="hero">
+        <h2>今日上奏</h2>
+        <p class="hero-sub">输入一个真实任务。系统会先让钦天监判断方向，再由部门执行、御史审查、史馆归档。</p>
+        <div class="memorial">
+          <textarea id="taskInput">帮我审查这次商业模式页面，找出风险并生成可复用战报。</textarea>
+          <button class="primary" onclick="startCourt()">开始朝议</button>
+        </div>
+        <div class="draft-panel" aria-label="丞相拟旨">
+          <div class="draft-head">
+            <div>
+              <h3>丞相拟旨</h3>
+              <p>默认把原始想法整理成可路由、可审查、可归档的旨意；你也可以保留原文。</p>
+            </div>
+            <div class="draft-choice">
+              <button id="draftOptimizedBtn" class="secondary active" type="button" onclick="setDraftChoice('optimized')">按丞相拟旨</button>
+              <button id="draftOriginalBtn" class="secondary" type="button" onclick="setDraftChoice('original')">按原文</button>
+            </div>
+          </div>
+          <p class="draft-text" id="draftText">丞相正在整理今日上奏。</p>
+          <div class="research-strip" id="researchStrip">这次拟旨是否更贴近你的真实意图？后续可作为钦天监蒸馏学习样本。</div>
+        </div>
+        <div class="hero-grid primary-signals">
+          <div class="mini-card"><h3>钦天监建议</h3><p>先跑最小闭环：任务、御史、史馆、战报，不展开全部部门。</p></div>
+          <div class="mini-card"><h3>最近战报</h3><p id="recentReportText">商业模型 harness 已通过，现金流评分 100，御史无偏移。</p></div>
+          <div class="mini-card"><h3>今日下一步</h3><p id="todayNextText">完成第一张圣旨战报 UI，并验证 5 秒测试。</p></div>
+        </div>
+        <details class="signal-drawer advanced-surface">
+          <summary>查看功业、称号、部门等级和用户评估</summary>
+          <div class="hero-grid">
+          <div class="mini-card"><h3>累计功业</h3><p id="runtimeLedgerText">等待第一条二审通过成果。</p></div>
+          <div class="mini-card"><h3>称号进度</h3><p id="accountTitleText">勤政之主，等待功业入账。</p></div>
+          <div class="mini-card"><h3>部门等级</h3><p id="departmentLevelText">二审通过后，主责部门会获得成长值。</p></div>
+          <div class="mini-card"><h3>历史圣旨</h3><p id="latestReportsText">暂无已发放功业的成果战报。</p></div>
+          <div class="mini-card"><h3>大神评估</h3><p id="expertEvaluationText">等待同步评估。</p></div>
+          <div class="mini-card"><h3>用户建议</h3><p id="userEvaluationText">企业家先看下一步，AI 爱好者看证据，AI 极客看 harness。</p></div>
+          </div>
+        </details>
+      </div>
+      <div class="panel department-panel advanced-surface">
+        <div class="department-head">
+          <div>
+            <h2>六部调度</h2>
+            <p id="departmentContractNext">部门契约同步中。上奏后，主责部门会点亮并给出首调蜂群。</p>
+          </div>
+          <button class="secondary" onclick="syncDepartmentSystem()">刷新契约</button>
+        </div>
+        <div class="contract-strip">
+          <div class="contract-chip"><strong id="contractReady">--</strong><span>六部 ready</span></div>
+          <div class="contract-chip"><strong id="contractGenius">--</strong><span>大神设计 ready</span></div>
+          <div class="contract-chip"><strong id="contractGate">--</strong><span>路由 golden gate</span></div>
+          <div class="contract-chip"><strong id="contractEndpoint">--</strong><span>派单接口</span></div>
+        </div>
+        <div class="department-grid" id="departmentPlaybook">
+          <div class="dept-empty">正在读取部门契约。</div>
+        </div>
+      </div>
+      <div class="panel department-panel advanced-surface">
+        <div class="department-head">
+          <div>
+            <h2>蜂群脉冲</h2>
+            <p id="swarmPulseSummary">等待上奏。每个可见阶段都来自 route、swarm、御史或史馆 payload。</p>
+          </div>
+          <button class="secondary" onclick="showView('report')">查看战报</button>
+        </div>
+        <div class="pulse-grid" id="swarmPulseGrid">
+          <div class="dept-empty">上奏后显示智能体和蜂群执行状态。</div>
+        </div>
+      </div>
+      <div class="panel department-panel expert-surface">
+        <div class="department-head">
+          <div>
+            <h2>天才设计四件套</h2>
+            <p id="geniusModuleSummary">按顺序落地：朝堂实时战报流、大神会审面板、史馆记忆回放、钦天监预测沙盘。</p>
+          </div>
+          <button class="secondary" onclick="showView('work')">进入执行</button>
+        </div>
+        <div class="genius-grid" id="geniusModuleGrid">
+          <div class="dept-empty">读取部门契约后显示四件套。</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="work" class="surface">
+      <div class="work-grid">
+        <div class="panel">
+          <h2>军机处执行</h2>
+          <div class="timeline">
+            <div class="step done"><span class="dot"></span><div><h3 id="workQintianTitle">钦天监定向</h3><p id="workQintianText">确认主线：先做战报与伴读，不扩散到全部页面。</p></div><span class="badge">已成</span></div>
+            <div class="step done"><span class="dot"></span><div><h3 id="workDeptTitle">工部构建</h3><p id="workDeptText">UI/UX harness 已生成，四个优秀页面达到 L5。</p></div><span class="badge">已成</span></div>
+            <div class="step run"><span class="dot"></span><div><h3>御史审查</h3><p id="workYushiText">检查商业入口是否可选、可解释、不可买分。</p></div><span class="badge">执行中</span></div>
+            <div class="step"><span class="dot"></span><div><h3>史馆归档</h3><p id="workArchiveText">通过后归档为可复用页面规格。</p></div><span class="badge">待办</span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>证据与风险</h2>
+          <div class="q-list" id="workEvidence">
+            <div class="q-item">证据：UI/UX golden cases 4 个 L5，坏案例 L0。</div>
+            <div class="q-item">风险：不要把商业增强做成主按钮。</div>
+            <div class="q-item">回退：用户可关闭伴读，所有升级建议可忽略。</div>
+          </div>
+          <div class="action-row">
+            <button class="primary" onclick="showView('report')">提交御史</button>
+            <button class="secondary" onclick="toast('证据面板已展开')">查看证据</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="report" class="surface">
+      <div class="edict">
+        <div class="edict-head">
+          <div class="grade"><div><strong id="reportScore">91</strong><br><span id="reportGrade">圣裁</span></div></div>
+          <div>
+            <h2 id="reportTitle">任务已成，御史已核，史馆可归档</h2>
+            <p id="reportSummary">本次页面设计满足 5 秒测试：用户知道在哪、发生了什么、风险在哪里、该点什么、获得了什么。</p>
+          </div>
+        </div>
+        <div class="merit">
+          <div class="seal"><strong id="meritGongji">+26</strong><span>功绩</span></div>
+          <div class="seal"><strong id="meritMingcha">+14</strong><span>明察</span></div>
+          <div class="seal"><strong id="meritJinglue">+18</strong><span>经略</span></div>
+        </div>
+        <div class="edict-body">
+          <div class="verdict"><h3>御史判词</h3><p id="yushiVerdict">未发现主线偏移。商业增强为可选能力，不影响评分、称号或御史通过。</p></div>
+          <div class="archive"><h3>史馆建议</h3><p id="shiguanRecommendation">保存为“朝堂战报首版模板”，后续所有页面先过 UI/UX harness。</p></div>
+          <div class="offer"><h3>可选增强</h3><p id="offerText">启动御史深审，可发现隐藏交互风险，预计消耗 180 朝币。</p><div class="action-row"><button class="commercial" onclick="toast('御史深审已加入待办')">启动深审</button></div></div>
+          <div class="archive"><h3>下一步</h3><p id="reportNextActionText">归档史馆，并继续打磨真实浏览器页面验证。</p><div class="action-row" id="reportNextActions"><button class="primary" onclick="toast('已归档史馆')">归档史馆</button><button class="secondary" onclick="toast('模板已保存')">保存为模板</button></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="yushi" class="surface">
+      <div class="panel">
+        <h2>御史审查</h2>
+        <div class="timeline">
+          <div class="step done"><span class="dot"></span><div><h3 id="yushiRiskTitle">风险等级：绿</h3><p id="yushiRiskText">页面只展示核心任务、风险、下一步和可选增强。</p></div><span class="badge">通过</span></div>
+          <div class="step risk"><span class="dot"></span><div><h3>禁止项</h3><p>圣君只能靠功业获得；任务分数、御史通过、排名和史馆事实不可付费改写。</p></div><span class="badge">硬规则</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="shiguan" class="surface">
+      <div class="panel">
+        <h2>史馆归档</h2>
+        <div class="hero-grid">
+          <div class="mini-card"><h3>已归档战报</h3><p id="archiveCandidates">朝堂 UI/UX 系统报告、商业模式圆桌报告、功业系统报告。</p></div>
+          <div class="mini-card"><h3>可复用模板</h3><p>圣旨战报、朝堂气象、钦天监伴读。</p></div>
+          <div class="mini-card"><h3>学习变化</h3><p id="learningText">后续页面默认先做 5 秒测试，再做美术扩展。</p></div>
+        </div>
+        <div class="action-row" id="shiguanActions">
+          <button class="secondary" onclick="toast('请先完成御史准归档')">等待归档</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <aside class="side">
+    <div class="mode-tabs">
+      <button class="active" data-mode="beginner">企业家</button>
+      <button data-mode="senior_hobbyist">AI 爱好者</button>
+      <button data-mode="geek_expert">AI 极客</button>
+    </div>
+    <div class="depth-rail" aria-label="御览深度">
+      <strong>御览深度</strong>
+      <div class="depth-steps">
+        <div class="depth-step active" data-depth="beginner">浅阅</div>
+        <div class="depth-step" data-depth="senior_hobbyist">审查</div>
+        <div class="depth-step" data-depth="geek_expert">源码</div>
+      </div>
+    </div>
+    <div class="mode-suggestion" id="modeSuggestion" hidden>
+      <strong id="modeSuggestionTitle">钦天监建议确认</strong>
+      <p id="modeSuggestionText">系统可建议更深御览，但必须由你确认切换。</p>
+      <div class="action-row">
+        <button class="primary" type="button" onclick="confirmUserModeSuggestion()">确认切换</button>
+        <button class="secondary" type="button" onclick="dismissUserModeSuggestion()">暂不切换</button>
+      </div>
+    </div>
+    <div class="next-card side-core" data-side-card="next">
+      <h2>下一步</h2>
+      <p id="nextText">推荐动作：开始朝议。原因：先建立任务方向，再交给部门执行。</p>
+      <button class="primary" onclick="showView('work')">执行下一步</button>
+    </div>
+    <div class="next-card route-contract side-core" data-side-card="contract">
+      <h2>部门契约</h2>
+      <p id="routeContractText">读取六部调度契约后，这里会显示主责部门、首调蜂群和御史门禁。</p>
+      <div class="route-pills" id="routeContractPills">
+        <span class="swarm-pill">等待契约</span>
+      </div>
+    </div>
+    <div class="next-card persona-card side-core" data-side-card="persona">
+      <h2>人格原型</h2>
+      <p id="personaText">部门接旨后，这里显示历史原型、现实原型和行为边界。</p>
+      <div class="route-pills" id="personaPills">
+        <span class="swarm-pill">等待接旨</span>
+      </div>
+    </div>
+    <div class="next-card side-secondary" data-side-card="pulse">
+      <h2>蜂群脉冲</h2>
+      <div class="q-list" id="sidePulse">
+        <div class="q-item">等待上奏后显示 route、swarm、御史和史馆状态。</div>
+      </div>
+    </div>
+    <div class="next-card side-secondary" data-side-card="genius">
+      <h2>天才设计</h2>
+      <div class="q-list" id="sideGeniusModules">
+        <div class="q-item">等待四件套契约：实时战报、大神会审、史馆记忆、预测沙盘。</div>
+      </div>
+    </div>
+    <div class="next-card side-secondary" data-side-card="users">
+      <h2>用户评估</h2>
+      <div class="q-list" id="sideUserEvaluation">
+        <div class="q-item">企业家：先完成第一条上奏。</div>
+        <div class="q-item">AI 爱好者：查看证据、功业、御史和史馆。</div>
+        <div class="q-item">AI 极客：检查 payload、harness 和 ledger。</div>
+      </div>
+    </div>
+    <div class="companion side-secondary" data-side-card="teaching">
+      <h2>钦天监伴读</h2>
+      <div class="q-list" id="sideTeaching">
+        <div class="q-item">你现在在大殿首页。</div>
+        <div class="q-item">输入任务后点击开始朝议。</div>
+        <div class="q-item">系统会先判断方向。</div>
+        <div class="q-item">风险动作会交给御史。</div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div class="float-help">
+  <div class="help-pop" id="helpPop">
+    <h3>召唤钦天监</h3>
+    <div class="help-line"><strong>你现在在哪：</strong><span id="helpWhere">大殿首页</span></div>
+    <div class="help-line"><strong>发生了什么：</strong><span id="helpState">等待你输入任务。</span></div>
+    <div class="help-line"><strong>建议下一步：</strong><span id="helpNext">点击开始朝议。</span></div>
+    <div class="help-line"><strong>为什么：</strong><span id="helpWhy">先定方向，后执行，避免部门空跑。</span></div>
+  </div>
+  <button class="help-btn" onclick="toggleHelp()">召唤钦天监</button>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const viewHelp={
+  home:["大殿首页","等待你输入任务。","点击开始朝议。","先定方向，后执行，避免部门空跑。"],
+  work:["军机处执行页","部门正在接力处理任务。","查看证据后提交御史。","证据充足，御史才能判定可信。"],
+  report:["朝堂战报页","任务已完成并形成战报。","归档史馆或保存为模板。","复用模板会提升经略值。"],
+  yushi:["御史审查页","系统正在检查风险边界。","补证据或申请复核。","高风险动作不能直接自动化。"],
+  shiguan:["史馆归档页","成果正在沉淀为长期记忆。","复用模板。","下一次任务会更快更准。"]
+};
+let currentMemorial=null;
+let currentYushiReview=null;
+let currentArchive=null;
+let currentOutcome=null;
+let currentSecondReview=null;
+let departmentSystem=null;
+let currentExperienceEvaluation=null;
+let currentPrimeMinisterDraft=null;
+let currentDraftChoice='optimized';
+let draftTimer=null;
+let pendingModeSuggestion=null;
+let dismissedModeSuggestionKey='';
+const modeLabels={beginner:'企业家',senior_hobbyist:'AI 爱好者',geek_expert:'AI 极客'};
+const modeDepthLabels={beginner:'浅阅',senior_hobbyist:'审查',geek_expert:'源码'};
+function setSideContext(view){
+  const visibleByView={
+    home:['genius','users'],
+    work:['pulse','teaching'],
+    report:['genius','users'],
+    yushi:['pulse','teaching'],
+    shiguan:['pulse','genius'],
+  }[view]||[];
+  document.querySelectorAll('.side-secondary').forEach(card=>{
+    card.classList.toggle('visible',visibleByView.includes(card.dataset.sideCard));
+  });
+}
+function showView(id){
+  document.querySelectorAll('.surface').forEach(el=>el.classList.toggle('active',el.id===id));
+  document.querySelectorAll('.nav-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.view===id));
+  setSideContext(id);
+  const h=viewHelp[id]||viewHelp.home;
+  document.getElementById('helpWhere').textContent=h[0];
+  document.getElementById('helpState').textContent=h[1];
+  document.getElementById('helpNext').textContent=h[2];
+  document.getElementById('helpWhy').textContent=h[3];
+  document.getElementById('nextText').textContent=`推荐动作：${h[2]} 原因：${h[3]}`;
+  document.getElementById('sideTeaching').innerHTML=[
+    `你现在在${h[0]}。`,
+    h[1],
+    `建议：${h[2]}`,
+    h[3],
+  ].map(text=>`<div class="q-item">${text}</div>`).join('');
+}
+function activeUserMode(){
+  return document.querySelector('.mode-tabs button.active')?.dataset.mode||'beginner';
+}
+function setActiveModeButton(mode){
+  document.querySelectorAll('.mode-tabs button').forEach(btn=>btn.classList.toggle('active',btn.dataset.mode===mode));
+}
+function applyUserMode(mode){
+  document.body.classList.remove('mode-beginner','mode-senior_hobbyist','mode-geek_expert');
+  document.body.classList.add(`mode-${mode}`);
+  setActiveModeButton(mode);
+  document.querySelectorAll('.depth-step').forEach(step=>step.classList.toggle('active',step.dataset.depth===mode));
+  pendingModeSuggestion=null;
+  const suggestion=document.getElementById('modeSuggestion');
+  if(suggestion)suggestion.hidden=true;
+  setSideContext(document.querySelector('.surface.active')?.id||'home');
+}
+function suggestUserMode(mode,reason,trigger=''){
+  if(!mode||activeUserMode()===mode)return;
+  const key=`${trigger}:${mode}`;
+  if(dismissedModeSuggestionKey===key)return;
+  pendingModeSuggestion={mode,reason,trigger,key};
+  setText('modeSuggestionTitle',`钦天监建议确认：切换到${modeLabels[mode]||mode}`);
+  setText('modeSuggestionText',`${reason}。确认后进入${modeDepthLabels[mode]||'更深'}视角；暂不切换则保持当前界面。`);
+  const suggestion=document.getElementById('modeSuggestion');
+  if(suggestion)suggestion.hidden=false;
+}
+function confirmUserModeSuggestion(){
+  if(!pendingModeSuggestion)return;
+  const mode=pendingModeSuggestion.mode;
+  applyUserMode(mode);
+  toast(`已切换到${modeLabels[mode]||mode}`);
+}
+function dismissUserModeSuggestion(){
+  if(pendingModeSuggestion)dismissedModeSuggestionKey=pendingModeSuggestion.key;
+  pendingModeSuggestion=null;
+  const suggestion=document.getElementById('modeSuggestion');
+  if(suggestion)suggestion.hidden=true;
+  toast('已保持当前御览深度');
+}
+function localPrimeMinisterDraft(task){
+  const clean=String(task||'').trim().replace(/\s+/g,' ');
+  return {
+    original_task:clean,
+    optimized_task:clean
+      ? `请以勤政陛下模式处理这项任务：${clean} 要求：目标明确、证据优先、输出可验收；先说明下一步，再给证据、风险、御史门禁和史馆归档建议；请先给最小可执行闭环。`
+      : '写下原始想法后，丞相会整理成可路由、可审查、可归档的旨意。',
+    research_prompt:'这次拟旨是否更贴近你的真实意图？',
+  };
+}
+function renderPrimeMinisterDraft(data){
+  currentPrimeMinisterDraft=data||localPrimeMinisterDraft(document.getElementById('taskInput').value);
+  const text=currentDraftChoice==='optimized'
+    ? currentPrimeMinisterDraft.optimized_task
+    : currentPrimeMinisterDraft.original_task;
+  setText('draftText',text||'写下原始想法后，丞相会整理成可路由、可审查、可归档的旨意。');
+  const strip=document.getElementById('researchStrip');
+  strip.textContent=currentPrimeMinisterDraft.research_prompt||'这次拟旨是否更贴近你的真实意图？';
+  strip.classList.toggle('show',Boolean(currentPrimeMinisterDraft.original_task));
+}
+function setDraftChoice(choice){
+  currentDraftChoice=choice;
+  document.getElementById('draftOptimizedBtn').classList.toggle('active',choice==='optimized');
+  document.getElementById('draftOriginalBtn').classList.toggle('active',choice==='original');
+  renderPrimeMinisterDraft(currentPrimeMinisterDraft);
+}
+async function updatePrimeMinisterDraft(){
+  const task=document.getElementById('taskInput').value.trim();
+  if(!task){
+    renderPrimeMinisterDraft(localPrimeMinisterDraft(task));
+    return;
+  }
+  try{
+    const response=await fetch('/chaotang-ui/prime-minister-draft',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        task,
+        mode:activeUserMode(),
+        emperor_style:'qinzheng',
+        depth:'standard'
+      })
+    });
+    const payload=await response.json();
+    renderPrimeMinisterDraft(payload.success?payload.data:localPrimeMinisterDraft(task));
+  }catch(error){
+    console.warn('chaotang-ui/prime-minister-draft failed',error);
+    renderPrimeMinisterDraft(localPrimeMinisterDraft(task));
+  }
+}
+function schedulePrimeMinisterDraft(){
+  window.clearTimeout(draftTimer);
+  draftTimer=window.setTimeout(()=>void updatePrimeMinisterDraft(),220);
+}
+function renderDepartmentSystem(payload){
+  departmentSystem=payload.data||payload;
+  const summary=departmentSystem.dashboardSummary||{};
+  const readiness=summary.readiness||{};
+  setText('contractReady',readiness.sixMinistriesReady??'--');
+  setText('contractGenius',readiness.geniusReady??'--');
+  setText('contractGate',readiness.routeGate||'--');
+  setText('contractEndpoint',(summary.routeEndpoint||'--').replace('/api/chaotang/',''));
+  setText('departmentContractNext',`部门契约：${summary.primaryAction||'输入任务后调用派单接口，得到六部和蜂群建议。'}`);
+  renderGeniusModules(departmentSystem.geniusExperienceModules,'四件套契约已同步：实时战报、大神会审、史馆记忆、预测沙盘都必须有 payload 和 harness。');
+  if(!currentMemorial){
+    setText('routeContractText',`六部已 ready：${readiness.sixMinistriesReady??'--'}；大神设计 ready：${readiness.geniusReady??'--'}；派单后这里显示主责部门契约。`);
+    document.getElementById('routeContractPills').innerHTML=[
+      readiness.routeGate||'department_routes',
+      summary.protocolHarness||'protocol harness',
+    ].map(text=>`<span class="swarm-pill">${escapeHtml(text)}</span>`).join('');
+  }
+  const playbook=document.getElementById('departmentPlaybook');
+  playbook.innerHTML='';
+  const items=departmentSystem.routingPlaybook||[];
+  if(!items.length){
+    playbook.innerHTML='<div class="dept-empty">暂未读取到 routingPlaybook。</div>';
+    return;
+  }
+  items.forEach(item=>{
+    const card=document.createElement('button');
+    card.type='button';
+    card.className='dept-card';
+    card.dataset.code=item.code;
+    const shortGate=String(item.harnessGate||'harness').split(/[，,。；;、]/)[0].slice(0,24);
+    card.setAttribute('aria-label',`${item.name||item.code}，首调 ${item.firstSwarm||'待定'}，门禁 ${item.harnessGate||'harness'}`);
+    card.title=item.nextActionTemplate||item.geniusDesign||'等待契约补齐。';
+    card.onclick=()=>highlightDepartment(item.code,true);
+    const swarms=[item.firstSwarm,...(item.callsSwarms||[]).filter(swarm=>swarm!==item.firstSwarm)].slice(0,2).map(swarm=>`<span class="swarm-pill">${escapeHtml(swarm)}</span>`).join('');
+    card.innerHTML=[
+      `<h3>${escapeHtml(item.name||item.code)}</h3>`,
+      `<p>首调 ${escapeHtml(item.firstSwarm||'待定')}，产出 ${escapeHtml(item.primaryOutputType||'证据')}。</p>`,
+      `<p>门禁：${escapeHtml(shortGate)}</p>`,
+      `<div class="dept-meta">${swarms}<span class="swarm-pill gate">${escapeHtml((item.advisorLenses||[])[0]||'advisor')}</span></div>`
+    ].join('');
+    playbook.appendChild(card);
+  });
+  if(currentMemorial?.work_order?.department){
+    highlightDepartment(currentMemorial.work_order.department);
+  }
+}
+function highlightDepartment(code,fromClick=false){
+  document.querySelectorAll('.dept-card').forEach(card=>card.classList.toggle('active',card.dataset.code===code));
+  const item=(departmentSystem?.routingPlaybook||[]).find(entry=>entry.code===code);
+  if(!item)return;
+  const persona=item.personaPrototype||{};
+  setText('departmentContractNext',`${item.name}：先调 ${item.firstSwarm}，再过 ${item.harnessGate}。`);
+  setText('routeContractText',`${item.name}接任务时，首调 ${item.firstSwarm}，默认产出 ${item.primaryOutputType}，再交御史审查。`);
+  setText('personaText',`${item.name}人格：${persona.historicalPrototype||'历史原型待定'} / ${persona.modernPrototype||'现实原型待定'}。${persona.archetype||''}`);
+  document.getElementById('personaPills').innerHTML=[
+    persona.skillPath,
+    persona.soulPath,
+    persona.userPath,
+  ].filter(Boolean).map(value=>`<span class="swarm-pill">${escapeHtml(value.split('/').pop())}</span>`).join('');
+  const pills=document.getElementById('routeContractPills');
+  pills.innerHTML='';
+  [item.firstSwarm,item.harnessGate,...(item.advisorLenses||[]).slice(0,2)].filter(Boolean).forEach(value=>{
+    const pill=document.createElement('span');
+    pill.className='swarm-pill';
+    pill.textContent=value;
+    pills.appendChild(pill);
+  });
+  if(fromClick){
+    setText('nextText',`推荐动作：按${item.name}契约调用 ${item.firstSwarm} 蜂群。原因：${item.geniusDesign}`);
+  }
+}
+function renderSwarmPulse(trace,summary='蜂群正在把路由建议转成可审查证据。'){
+  setText('swarmPulseSummary',summary);
+  const grid=document.getElementById('swarmPulseGrid');
+  grid.innerHTML='';
+  (trace||[]).forEach(item=>{
+    const el=document.createElement('div');
+    el.className=`pulse-item ${escapeHtml(item.status||'pending')}`;
+    el.innerHTML=[
+      `<h3>${escapeHtml(item.label||item.stage)}</h3>`,
+      `<p>${escapeHtml(item.visible_status||'等待证据。')}</p>`,
+      `<p>${escapeHtml(item.evidence||'')}</p>`,
+      `<span class="actor">${escapeHtml(item.actor||item.stage)}</span>`,
+    ].join('');
+    grid.appendChild(el);
+  });
+  const sidePulse=document.getElementById('sidePulse');
+  sidePulse.innerHTML='';
+  (trace||[]).slice(0,4).forEach(item=>{
+    const row=document.createElement('div');
+    row.className='q-item';
+    row.textContent=`${item.label||item.stage}：${item.actor||item.stage} · ${item.status||'pending'}`;
+    sidePulse.appendChild(row);
+  });
+  if(!sidePulse.children.length){
+    sidePulse.innerHTML='<div class="q-item">等待上奏后显示 route、swarm、御史和史馆状态。</div>';
+  }
+  if(!grid.children.length){
+    grid.innerHTML='<div class="dept-empty">等待蜂群执行 trace。</div>';
+  }
+}
+function renderGeniusModules(modules,summary='四件套让用户看见工作、分歧、记忆和未来路径。'){
+  setText('geniusModuleSummary',summary);
+  const grid=document.getElementById('geniusModuleGrid');
+  const side=document.getElementById('sideGeniusModules');
+  grid.innerHTML='';
+  side.innerHTML='';
+  (modules||[]).forEach(module=>{
+    const card=document.createElement('div');
+    card.className='genius-card';
+    const detail=[
+      module.summary,
+      module.accepted_design,
+      Array.isArray(module.memory_cards)?module.memory_cards[0]?.content:'',
+      Array.isArray(module.scenarios)?module.scenarios[0]?.move:'',
+    ].find(Boolean)||module.principle||'等待模块补齐。';
+    card.innerHTML=[
+      `<div class="order">${escapeHtml(module.order||'')}</div>`,
+      `<h3>${escapeHtml(module.title||module.module)}</h3>`,
+      `<p>${escapeHtml(detail)}</p>`,
+      `<p>${escapeHtml(module.next_action||'等待下一步。')}</p>`,
+      `<div class="module-meta"><span class="swarm-pill">${escapeHtml(module.status||'ready')}</span><span class="swarm-pill gate">${escapeHtml((module.harness_gate||'harness').split('.').pop())}</span></div>`
+    ].join('');
+    grid.appendChild(card);
+  });
+  (modules||[]).slice(0,4).forEach(module=>{
+    const row=document.createElement('div');
+    row.className='q-item';
+    row.textContent=`${module.order}. ${module.title}：${module.status} · ${module.next_action}`;
+    side.appendChild(row);
+  });
+  if(!grid.children.length){
+    grid.innerHTML='<div class="dept-empty">等待四件套契约。</div>';
+  }
+  if(!side.children.length){
+    side.innerHTML='<div class="q-item">等待四件套契约：实时战报、大神会审、史馆记忆、预测沙盘。</div>';
+  }
+}
+async function renderMemorial(payload){
+  currentMemorial=payload.data;
+  const data=payload.data;
+  const route=data.route;
+  const work=data.work_order;
+  const preview=data.battle_report_preview;
+  if(!departmentSystem){
+    await syncDepartmentSystem();
+  }
+  highlightDepartment(work.department);
+  renderSwarmPulse([
+    {stage:'route',label:'钦天监定向',visible_status:'读取任务并判断会改变决策的信号。',evidence:route.qintianjianTrigger.signal,actor:'qintianjian',status:'done'},
+    {stage:'department',label:'六部接旨',visible_status:`${work.department_name}已经接手。`,evidence:`首调 ${work.swarm}`,actor:work.department,status:'done'},
+    {stage:'swarm',label:'蜂群脉冲',visible_status:'等待蜂群产出第一版证据。',evidence:work.next_action,actor:work.swarm,status:'running'},
+    {stage:'yushi',label:'御史审查',visible_status:'等待证据后审查。',evidence:work.yushi_gate_hint,actor:'yushi',status:'pending'},
+  ],`${work.department_name}已接旨，${work.swarm} 蜂群正在准备第一版证据。`);
+  renderGeniusModules(data.genius_experience_modules,`${work.department_name}已启动四件套：先让用户看见工作，再显示分歧、记忆和未来路径。`);
+  setText('workQintianTitle',`钦天监定向：${route.qintianjianTrigger.signal}`);
+  setText('workQintianText',`触发阈值：${route.qintianjianTrigger.threshold}；变化后：${route.qintianjianTrigger.decision_change}`);
+  setText('workDeptTitle',`${work.department_name}接旨`);
+  setText('workDeptText',`${work.department_name}先调用 ${work.swarm} 蜂群形成第一版证据。`);
+  setText('workYushiText',work.yushi_gate_hint);
+  setText('workArchiveText',`证据通过后归档到 ${work.archive_target}。`);
+  const evidence=document.getElementById('workEvidence');
+  evidence.innerHTML='';
+  work.evidence.forEach(item=>{
+    const el=document.createElement('div');
+    el.className='q-item';
+    el.textContent=item;
+    evidence.appendChild(el);
+  });
+  setText('reportScore',preview.score);
+  setText('reportGrade',preview.grade);
+  setText('reportTitle',preview.title);
+  setText('reportSummary',preview.summary);
+  setText('meritGongji',plus(preview.merit?.gongji));
+  setText('meritMingcha',plus(preview.merit?.mingcha));
+  setText('meritJinglue',plus(preview.merit?.jinglue));
+  setText('yushiVerdict',preview.yushi_verdict);
+  setText('offerText',preview.commercial_offer);
+  setText('reportNextActionText','待审阶段先回到军机处补证据；证据通过后再归档史馆。');
+  setReportActions([
+    {label:'回到执行',className:'primary',onclick:()=>showView('work')},
+    {label:'提交御史',className:'secondary',onclick:()=>submitYushiReview()},
+  ]);
+  viewHelp.report=['朝堂战报页',preview.title,'回到军机处补证据或提交御史。','待审阶段不授功业，先形成证据。'];
+  setText('nextText',`推荐动作：${work.next_action} 原因：先补证据，再授功业。`);
+  document.getElementById('sideTeaching').innerHTML=[
+    `你提交的上奏已路由到${work.department_name}。`,
+    `${work.department_name}会先调用 ${work.swarm} 蜂群。`,
+    `御史规则：${work.yushi_gate_hint}`,
+    '此时只是待审预览，不会授予功业或称号。'
+  ].map(text=>`<div class="q-item">${text}</div>`).join('');
+  suggestUserMode('senior_hobbyist','你已经完成上奏，可以查看证据、御史规则和史馆归档建议','memorial_routed');
+}
+function renderYushiReview(payload){
+  const review=payload.data.yushi_review;
+  const update=payload.data.battle_report_update;
+  currentYushiReview=review;
+  setText('reportScore',update.score);
+  setText('reportGrade',update.grade);
+  setText('reportTitle',update.title);
+  setText('reportSummary',update.summary);
+  setText('meritGongji',plus(update.merit?.gongji));
+  setText('meritMingcha',plus(update.merit?.mingcha));
+  setText('meritJinglue',plus(update.merit?.jinglue));
+  setText('yushiVerdict',review.verdict);
+  setText('yushiRiskTitle',`风险等级：${review.risk_level}`);
+  setText('yushiRiskText',review.conditions.join('；'));
+  renderSwarmPulse([
+    {stage:'route',label:'钦天监定向',visible_status:'任务已路由。',evidence:review.memorial_id,actor:'qintianjian',status:'done'},
+    {stage:'yushi',label:'御史审查',visible_status:review.verdict,evidence:review.conditions.join('；'),actor:'yushi',status:review.archive_ready?'done':'running'},
+    {stage:'shiguan',label:'史馆归档',visible_status:'等待是否准归档。',evidence:review.next_action,actor:'shiguan',status:review.archive_ready?'running':'pending'},
+  ],`御史裁决：${review.decision}。`);
+  if(review.archive_ready){
+    setText('reportNextActionText','御史已准许归档路由记录；归档后仍不发功业，等待真实执行成果。');
+    setReportActions([
+      {label:'归档史馆',className:'primary',onclick:()=>archiveShiguan()},
+      {label:'回到执行',className:'secondary',onclick:()=>showView('work')},
+    ]);
+  }else{
+    setText('reportNextActionText','御史阻断：先回到军机处补证据。');
+    setReportActions([
+      {label:'回到执行',className:'primary',onclick:()=>showView('work')},
+    ]);
+  }
+  viewHelp.report=['朝堂战报页',update.title,review.next_action,review.verdict];
+  setText('nextText',`推荐动作：${review.next_action} 原因：${review.verdict}`);
+  document.getElementById('sideTeaching').innerHTML=[
+    `御史裁决：${review.decision}。`,
+    review.verdict,
+    `下一步：${review.next_action}`,
+    '未执行蜂群前，功业和称号保持为零。'
+  ].map(text=>`<div class="q-item">${text}</div>`).join('');
+  suggestUserMode('senior_hobbyist','御史已经给出裁决，可以进入审查视角查看证据和阻断原因','yushi_reviewed');
+}
+function renderShiguanArchive(payload){
+  const archive=payload.data.archive;
+  const update=payload.data.battle_report_update;
+  currentArchive=archive;
+  setText('reportScore',update.score);
+  setText('reportGrade',update.grade);
+  setText('reportTitle',update.title);
+  setText('reportSummary',update.summary);
+  setText('meritGongji',plus(update.merit?.gongji));
+  setText('meritMingcha',plus(update.merit?.mingcha));
+  setText('meritJinglue',plus(update.merit?.jinglue));
+  setText('archiveCandidates',`归档编号：${archive.archive_id}；类型：${archive.record_type}；部门：${archive.department_name}`);
+  setText('learningText',archive.learning);
+  renderSwarmPulse([
+    {stage:'route',label:'路由记录',visible_status:'主责部门和御史裁决已形成记录。',evidence:archive.archive_id,actor:archive.department,status:'done'},
+    {stage:'shiguan',label:'史馆归档',visible_status:archive.learning,evidence:archive.record_type,actor:'shiguan',status:'done'},
+    {stage:'swarm',label:'蜂群脉冲',visible_status:'等待真实执行成果。',evidence:archive.next_action,actor:archive.department,status:'running'},
+  ],`史馆已归档 ${archive.department_name} 路由，等待蜂群执行成果。`);
+  setText('reportNextActionText','路由记录已归档；下一步等待蜂群真实执行成果。');
+  setReportActions([
+    {label:'查看史馆',className:'primary',onclick:()=>showView('shiguan')},
+    {label:'回到执行',className:'secondary',onclick:()=>showView('work')},
+  ]);
+  setShiguanActions([
+    {label:'执行蜂群',className:'primary',onclick:()=>executeSwarm()},
+    {label:'查看战报',className:'secondary',onclick:()=>showView('report')},
+  ]);
+  viewHelp.report=['朝堂战报页',update.title,archive.next_action,archive.learning];
+  viewHelp.shiguan=['史馆归档页',`已归档 ${archive.archive_id}`,archive.next_action,archive.learning];
+  setText('nextText',`推荐动作：${archive.next_action} 原因：${archive.learning}`);
+  document.getElementById('sideTeaching').innerHTML=[
+    `史馆编号：${archive.archive_id}`,
+    archive.learning,
+    `下一步：${archive.next_action}`,
+    '归档路由记录不会发放功业。'
+  ].map(text=>`<div class="q-item">${text}</div>`).join('');
+  suggestUserMode('senior_hobbyist','史馆已经归档路由记录，可以查看复用模板和学习变化','shiguan_archived');
+}
+function renderSwarmExecution(payload){
+  const outcome=payload.data.outcome;
+  const update=payload.data.battle_report_update;
+  currentOutcome=outcome;
+  setText('reportScore',update.score);
+  setText('reportGrade',update.grade);
+  setText('reportTitle',update.title);
+  setText('reportSummary',update.summary);
+  setText('meritGongji',plus(update.merit?.gongji));
+  setText('meritMingcha',plus(update.merit?.mingcha));
+  setText('meritJinglue',plus(update.merit?.jinglue));
+  setText('yushiVerdict','模拟蜂群已产出成果证据；御史二审前不发功业。');
+  setText('archiveCandidates',`成果编号：${outcome.outcome_id}；状态：${outcome.status}；部门：${outcome.department_name}`);
+  setText('learningText',outcome.evidence.join('；'));
+  renderSwarmPulse(outcome.execution_trace,`${outcome.department_name}蜂群已形成成果记录，等待御史二审。`);
+  renderGeniusModules(outcome.genius_experience_modules,`${outcome.department_name}蜂群已产出成果，四件套同步进入可审查状态。`);
+  setText('reportNextActionText','成果已生成，下一步提交御史二审；二审通过后才进入功业发放。');
+  setReportActions([
+    {label:'提交二审',className:'primary',onclick:()=>submitSecondReview()},
+    {label:'查看史馆',className:'secondary',onclick:()=>showView('shiguan')},
+  ]);
+  setShiguanActions([
+    {label:'查看战报',className:'primary',onclick:()=>showView('report')},
+    {label:'提交二审',className:'secondary',onclick:()=>submitSecondReview()},
+  ]);
+  viewHelp.report=['朝堂战报页',update.title,outcome.next_action,'二审前不授功业，先核验证据。'];
+  viewHelp.shiguan=['史馆归档页',`成果已生成 ${outcome.outcome_id}`,outcome.next_action,'成果记录已形成，但还需要御史二审。'];
+  setText('nextText',`推荐动作：${outcome.next_action} 原因：成果记录已形成，但还需要御史二审。`);
+  document.getElementById('sideTeaching').innerHTML=[
+    `成果编号：${outcome.outcome_id}`,
+    outcome.evidence[1],
+    `下一步：${outcome.next_action}`,
+    '二审前，功业和称号仍保持为零。'
+  ].map(text=>`<div class="q-item">${text}</div>`).join('');
+  if(activeUserMode()==='beginner'){
+    suggestUserMode('senior_hobbyist','蜂群已经产生成果，可以先用审查视角查看证据和二审路径','swarm_executed');
+  }else{
+    suggestUserMode('geek_expert','蜂群已经产生成果 trace，适合查看 payload、harness、ledger 和回归证据','swarm_executed');
+  }
+}
+function renderSecondReview(payload){
+  const review=payload.data.second_review;
+  const update=payload.data.battle_report_update;
+  currentSecondReview=review;
+  setText('reportScore',update.score);
+  setText('reportGrade',update.grade);
+  setText('reportTitle',update.title);
+  setText('reportSummary',update.summary);
+  setText('meritGongji',plus(update.merit?.gongji));
+  setText('meritMingcha',plus(update.merit?.mingcha));
+  setText('meritJinglue',plus(update.merit?.jinglue));
+  setText('yushiVerdict',review.verdict);
+  setText('yushiRiskTitle',`风险等级：${review.risk_level}`);
+  setText('yushiRiskText',review.conditions.join('；'));
+  renderSwarmPulse([
+    {stage:'swarm',label:'蜂群成果',visible_status:'成果记录已形成。',evidence:review.outcome_id,actor:'swarm',status:'done'},
+    {stage:'second_review',label:'御史二审',visible_status:review.verdict,evidence:review.conditions.join('；'),actor:'yushi_second_review',status:review.merit_awardable?'done':'running'},
+    {stage:'shiguan',label:'史馆学习',visible_status:'成果将进入后续学习样本。',evidence:review.next_action,actor:'shiguan',status:review.merit_awardable?'running':'pending'},
+  ],`二审裁决：${review.decision}。`);
+  setText('offerText','功业已由御史二审发放；商业增强仍只买能力，不影响评分、称号、御史通过或史馆事实。');
+  setText('runtimeLedgerText',`本次功绩 ${update.merit.gongji}，明察 ${update.merit.mingcha}，经略 ${update.merit.jinglue}。刷新后进入累计功业。`);
+  setText('accountTitleText','功业已入账，刷新后查看称号进度。');
+  setText('departmentLevelText',`${currentOutcome?.department_name||'主责部门'}已获得成长值，刷新后查看等级。`);
+  setText('latestReportsText',`${update.grade} ${update.score}分，已准备进入历史圣旨。`);
+  setText('expertEvaluationText','二审已通过，刷新后同步大神评估。');
+  setText('userEvaluationText','AI 爱好者路线已点亮：继续追证据、史馆复用和功业记录。');
+  setText('reportNextActionText','功业已发放，下一步归档成果战报，并继续真实执行链路。');
+  setReportActions([
+    {label:'归档成果',className:'primary',onclick:()=>showView('shiguan')},
+    {label:'继续执行',className:'secondary',onclick:()=>showView('work')},
+  ]);
+  setShiguanActions([
+    {label:'查看圣裁',className:'primary',onclick:()=>showView('report')},
+    {label:'继续执行',className:'secondary',onclick:()=>showView('work')},
+  ]);
+  viewHelp.report=['朝堂战报页',update.title,'归档成果战报。','功业已发，称号仍由功业系统累计判定。'];
+  viewHelp.shiguan=['史馆归档页','成果二审已通过','归档成果战报。','史馆会把成果证据用于后续学习。'];
+  setText('nextText',`推荐动作：${review.next_action} 原因：${review.verdict}`);
+  document.getElementById('sideTeaching').innerHTML=[
+    `御史二审：${review.decision}`,
+    review.verdict,
+    `功业：功绩 ${update.merit.gongji}，明察 ${update.merit.mingcha}，经略 ${update.merit.jinglue}`,
+    '称号仍需功业系统累计判定，不能购买或跳级。'
+  ].map(text=>`<div class="q-item">${text}</div>`).join('');
+  if(activeUserMode()==='beginner'){
+    suggestUserMode('senior_hobbyist','二审已经发放功业，可以先进入审查视角看清功业、御史和史馆证据','second_reviewed');
+  }else{
+    suggestUserMode('geek_expert','二审已经发放功业，可以进入源码视角复核 ledger、gate 和归档证据','second_reviewed');
+  }
+}
+async function submitSecondReview(){
+  if(!currentOutcome){toast('请先执行蜂群');return}
+  toast('御史二审中');
+  try{
+    const response=await fetch('/chaotang-ui/yushi-second-review',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        outcome_id:currentOutcome.outcome_id,
+        archive_id:currentOutcome.archive_id,
+        task:currentOutcome.task,
+        department:currentOutcome.department,
+        status:currentOutcome.status,
+        evidence:currentOutcome.evidence,
+        findings:currentOutcome.findings
+      })
+    });
+    const payload=await response.json();
+    if(!payload.success){toast(payload.error||'御史二审失败');return}
+    renderSecondReview(payload);
+    showView('report');
+    toast('二审通过，功业已发放');
+  }catch(error){
+    console.warn('chaotang-ui/yushi-second-review failed',error);
+    toast('御史二审稍后重试');
+  }
+}
+async function executeSwarm(){
+  if(!currentArchive){toast('请先归档史馆');return}
+  toast('蜂群执行中');
+  try{
+    const response=await fetch('/chaotang-ui/swarm-execute',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        archive_id:currentArchive.archive_id,
+        task:currentArchive.task,
+        department:currentArchive.department,
+        archive_status:currentArchive.status
+      })
+    });
+    const payload=await response.json();
+    if(!payload.success){toast(payload.error||'蜂群执行失败');return}
+    renderSwarmExecution(payload);
+    showView('report');
+    toast('蜂群已执行');
+  }catch(error){
+    console.warn('chaotang-ui/swarm-execute failed',error);
+    toast('蜂群执行稍后重试');
+  }
+}
+async function archiveShiguan(){
+  if(!currentMemorial||!currentYushiReview){toast('请先通过御史审查');return}
+  toast('史馆归档中');
+  const memorial=currentMemorial.memorial;
+  const work=currentMemorial.work_order;
+  try{
+    const response=await fetch('/chaotang-ui/shiguan-archive',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        memorial_id:memorial.id,
+        task:memorial.task,
+        department:work.department,
+        yushi_review_id:currentYushiReview.review_id,
+        archive_ready:currentYushiReview.archive_ready,
+        merit_awardable:currentYushiReview.merit_awardable
+      })
+    });
+    const payload=await response.json();
+    if(!payload.success){toast(payload.error||'史馆归档失败');return}
+    renderShiguanArchive(payload);
+    showView('shiguan');
+    toast('史馆已归档');
+  }catch(error){
+    console.warn('chaotang-ui/shiguan-archive failed',error);
+    toast('史馆归档稍后重试');
+  }
+}
+async function submitYushiReview(){
+  if(!currentMemorial){toast('请先开始朝议');return}
+  toast('御史审查中');
+  const work=currentMemorial.work_order;
+  const memorial=currentMemorial.memorial;
+  try{
+    const response=await fetch('/chaotang-ui/yushi-review',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        memorial_id:memorial.id,
+        task:memorial.task,
+        department:work.department,
+        evidence:work.evidence,
+        yushi_gate_hint:work.yushi_gate_hint
+      })
+    });
+    const payload=await response.json();
+    if(!payload.success){toast(payload.error||'御史审查失败');return}
+    renderYushiReview(payload);
+    showView('report');
+    toast('御史已裁决');
+  }catch(error){
+    console.warn('chaotang-ui/yushi-review failed',error);
+    toast('御史审查稍后重试');
+  }
+}
+async function startCourt(){
+  const rawTask=document.getElementById('taskInput').value.trim();
+  if(!rawTask){toast('请先写下今日上奏');return}
+  if(!currentPrimeMinisterDraft||currentPrimeMinisterDraft.original_task!==rawTask){
+    await updatePrimeMinisterDraft();
+  }
+  const task=currentDraftChoice==='optimized'
+    ? (currentPrimeMinisterDraft?.optimized_task||rawTask)
+    : rawTask;
+  if(!task){toast('请先写下今日上奏');return}
+  showView('work');
+  toast('钦天监受理中');
+  try{
+    const response=await fetch('/chaotang-ui/memorial',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({task})
+    });
+    const payload=await response.json();
+    if(!payload.success){toast(payload.error||'上奏失败');return}
+    await renderMemorial(payload);
+    toast('已路由到'+payload.data.work_order.department_name);
+  }catch(error){
+    console.warn('chaotang-ui/memorial failed',error);
+    toast('上奏路由稍后重试');
+  }
+}
+function toggleHelp(){document.getElementById('helpPop').classList.toggle('open')}
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1800)}
+function setText(id,text){const el=document.getElementById(id);if(el&&text!==undefined&&text!==null)el.textContent=text}
+function setReportActions(actions){
+  const row=document.getElementById('reportNextActions');
+  row.innerHTML='';
+  actions.forEach(action=>{
+    const btn=document.createElement('button');
+    btn.className=action.className;
+    btn.textContent=action.label;
+    btn.onclick=action.onclick;
+    row.appendChild(btn);
+  });
+}
+function setShiguanActions(actions){
+  const row=document.getElementById('shiguanActions');
+  row.innerHTML='';
+  actions.forEach(action=>{
+    const btn=document.createElement('button');
+    btn.className=action.className;
+    btn.textContent=action.label;
+    btn.onclick=action.onclick;
+    row.appendChild(btn);
+  });
+}
+function plus(value){return `+${Number(value||0)}`}
+function renderState(state){
+  setText('weatherLabel',state.weather?.label);
+  setText('weatherSummary',state.weather?.summary);
+  if(Array.isArray(state.weather?.chips)){
+    const chips=document.getElementById('weatherChips');
+    chips.innerHTML='';
+    state.weather.chips.forEach(chip=>{
+      const el=document.createElement('span');
+      el.className='weather-chip';
+      el.textContent=chip;
+      chips.appendChild(el);
+    });
+  }
+  const report=state.battle_report||{};
+  setText('reportScore',report.score);
+  setText('reportGrade',report.grade);
+  setText('reportTitle',report.title);
+  setText('reportSummary',report.summary);
+  setText('meritGongji',plus(report.merit?.gongji));
+  setText('meritMingcha',plus(report.merit?.mingcha));
+  setText('meritJinglue',plus(report.merit?.jinglue));
+  setText('yushiVerdict',state.yushi?.verdict);
+  setText('shiguanRecommendation',state.shiguan?.recommendation);
+  setText('archiveCandidates',(state.shiguan?.archive_candidates||[]).join('、'));
+  setText('learningText',state.shiguan?.learning);
+  setText('reportNextActionText','归档史馆，并继续打磨真实浏览器页面验证。');
+  setReportActions([
+    {label:'归档史馆',className:'primary',onclick:()=>toast('已归档史馆')},
+    {label:'保存为模板',className:'secondary',onclick:()=>toast('模板已保存')},
+  ]);
+  const business=state.business||{};
+  const ledger=state.runtime_ledger||{};
+  const total=ledger.total_merit||{};
+  const latest=ledger.latest;
+  const account=ledger.account_summary||{};
+  const progress=account.title_progress||{};
+  const departments=account.department_levels||[];
+  const reports=account.latest_reports||[];
+  const evaluation=state.experience_evaluation||{};
+  currentExperienceEvaluation=evaluation;
+  setText('recentReportText',`商业模型 harness 已通过，现金流评分 ${business.cash_flow_score||0}，投资人状态：${business.investor_ready?'可展示':'待完善'}。`);
+  setText('todayNextText',`归档 ${report.grade||'战报'}，复用 ${report.department_title||'模板'}，继续验证 5 秒测试。`);
+  if(latest){
+    setText('runtimeLedgerText',`累计 ${ledger.event_count||0} 条成果，功绩 ${total.gongji||0}，明察 ${total.mingcha||0}，经略 ${total.jinglue||0}。最新：${latest.grade}。`);
+  }else{
+    setText('runtimeLedgerText','等待第一条二审通过成果。');
+  }
+  if(account.title){
+    setText('accountTitleText',`${account.title} · ${progress.percent||0}%；${account.next_upgrade||'继续积累功业。'}`);
+  }else{
+    setText('accountTitleText','勤政之主，等待功业入账。');
+  }
+  if(departments.length){
+    setText('departmentLevelText',departments.slice(0,2).map(item=>`${item.name} Lv.${item.level}（${item.points}）`).join('；'));
+  }else{
+    setText('departmentLevelText','二审通过后，主责部门会获得成长值。');
+  }
+  if(reports.length){
+    setText('latestReportsText',reports.map(item=>`${item.department_name}${item.grade} ${item.score}分`).join('；'));
+  }else{
+    setText('latestReportsText','暂无已发放功业的成果战报。');
+  }
+  if(evaluation.grade){
+    setText('expertEvaluationText',`${evaluation.grade} · ${evaluation.score}分。${evaluation.verdict}`);
+    const userSegments=evaluation.user_segments||[];
+    const senior=userSegments.find(item=>item.segment==='AI 爱好者')||userSegments[0];
+    setText('userEvaluationText',senior?`${senior.segment}：${senior.suggestion}`:'企业家先看下一步，AI 爱好者看证据，AI 极客看 harness。');
+    renderUserEvaluation(userSegments);
+  }else{
+    setText('expertEvaluationText','等待同步评估。');
+    setText('userEvaluationText','企业家先看下一步，AI 爱好者看证据，AI 极客看 harness。');
+  }
+  const offer=state.commercial_offer||{};
+  const amount=offer.amount||180;
+  const currency=offer.currency==='chaobi'?'朝币':offer.currency||'朝币';
+  setText('offerText',`${offer.visible_feedback||'启动御史深审，可发现隐藏交互风险。'} 预计消耗 ${amount} ${currency}。${offer.principle||''}`);
+  const decision=state.yushi?.decision||'allow';
+  setText('yushiRiskTitle',`风险等级：${decision==='block'?'红':'绿'}`);
+  setText('yushiRiskText',state.yushi?.red_team_required?'存在红黑风险样例，必须保留御史复核和人工确认。':'页面只展示核心任务、风险、下一步和可选增强。');
+}
+function renderUserEvaluation(segments){
+  const row=document.getElementById('sideUserEvaluation');
+  row.innerHTML='';
+  (segments||[]).forEach(item=>{
+    const el=document.createElement('div');
+    el.className='q-item';
+    el.textContent=`${item.segment}：${item.suggestion}`;
+    row.appendChild(el);
+  });
+  if(!row.children.length){
+    row.innerHTML='<div class="q-item">等待同步用户评估。</div>';
+  }
+}
+async function syncDepartmentSystem(){
+  try{
+    const response=await fetch('/chaotang-ui/department-system');
+    const payload=await response.json();
+    if(payload.success)renderDepartmentSystem(payload);
+  }catch(error){
+    console.warn('chaotang-ui/department-system sync failed',error);
+    document.getElementById('departmentPlaybook').innerHTML='<div class="dept-empty">部门契约同步失败，稍后重试。</div>';
+  }
+}
+async function syncState(){
+  try{
+    const response=await fetch('/chaotang-ui/state');
+    const payload=await response.json();
+    if(payload.success)renderState(payload.data);
+  }catch(error){
+    console.warn('chaotang-ui/state sync failed',error);
+    toast('证据同步稍后重试');
+  }
+}
+function escapeHtml(value){
+  return String(value??'').replace(/[&<>"']/g,char=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[char]));
+}
+document.querySelectorAll('.nav-btn').forEach(btn=>btn.addEventListener('click',()=>showView(btn.dataset.view)));
+document.getElementById('taskInput').addEventListener('input',schedulePrimeMinisterDraft);
+document.querySelectorAll('.mode-tabs button').forEach(btn=>btn.addEventListener('click',()=>{
+  document.querySelectorAll('.mode-tabs button').forEach(x=>x.classList.remove('active'));
+  btn.classList.add('active');
+  applyUserMode(btn.dataset.mode);
+  schedulePrimeMinisterDraft();
+  const mode=btn.dataset.mode;
+  const text={
+    beginner:'你现在只需要看任务、结果和下一步。',
+    senior_hobbyist:'你可以展开评分维度、复用策略、功业、御史和史馆规则。',
+    geek_expert:'你可以查看 payload、harness、eval 和 ledger。'
+  }[mode];
+  const segmentName={beginner:'企业家',senior_hobbyist:'AI 爱好者',geek_expert:'AI 极客'}[mode];
+  const segment=(currentExperienceEvaluation?.user_segments||[]).find(item=>item.segment===segmentName);
+  document.getElementById('sideTeaching').innerHTML=[
+    text,
+    segment?segment.excitement:'系统会按你的熟练度调整教学深度。',
+    segment?`建议：${segment.suggestion}`:'关闭伴读后不会反复打扰。',
+    segment?`下一步：${segment.next_action}`:'所有商业增强都是可选能力。'
+  ].map(item=>`<div class="q-item">${escapeHtml(item)}</div>`).join('');
+}));
+void updatePrimeMinisterDraft();
+applyUserMode('beginner');
+syncState();
+syncDepartmentSystem();
+</script>
+</body>
+</html>

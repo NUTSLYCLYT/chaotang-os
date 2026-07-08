@@ -1,0 +1,2 @@
+accountId,tradeDate,symbol,action,quantity,price,fees,currency,sourceLabel
+acct-demo,2026-06-21,MSFT,BUY,10,300,1.2,USD,broker_statement

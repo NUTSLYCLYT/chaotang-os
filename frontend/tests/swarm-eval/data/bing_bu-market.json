@@ -1,0 +1,11 @@
+{
+  "_note": "兵部(竞品/战略)数据源（脱敏）。生产环境替换为真实竞品情报/市场份额/价格监测 API。",
+  "us": { "name": "我司", "sharePct": 18, "aspYuan": 2980, "grossMarginPct": 38, "strength": "直销+线上自营渠道强、客服口碑好", "weakness": "海外几乎空白、研发投入低于行业" },
+  "competitors": [
+    { "name": "甲(龙头)", "sharePct": 34, "aspYuan": 3380, "grossMarginPct": 45, "strength": "品牌+渠道+专利壁垒，研发投入营收10%", "weakness": "组织臃肿、新品慢、价格刚性", "recentMove": "刚发布旗舰新品，未降价" },
+    { "name": "乙(挑战者)", "sharePct": 22, "aspYuan": 2380, "grossMarginPct": 28, "strength": "极致性价比、线上爆款打法、迭代快", "weakness": "毛利薄、品控波动、无海外", "recentMove": "主力机型降价 20% 抢量" },
+    { "name": "丙(新势力)", "sharePct": 9, "aspYuan": 3680, "grossMarginPct": 50, "strength": "AI/IoT 差异化、高端人群、资本充足", "weakness": "渠道弱、产能受限、份额小", "recentMove": "融资 5 亿，宣布进军线下" }
+  ],
+  "marketGrowthPct": 12,
+  "channels": { "online": 55, "offline": 30, "overseas": 15 }
+}

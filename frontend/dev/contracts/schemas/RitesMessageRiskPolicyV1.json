@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RitesMessageRiskPolicyV1",
+  "type": "object",
+  "required": ["policyId", "riskRules", "sourceLabel"],
+  "properties": {
+    "policyId": { "const": "rites_message_risk_policy_v1" },
+    "riskRules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["trigger", "requiredReviews", "gate"],
+        "properties": {
+          "trigger": { "type": "string" },
+          "requiredReviews": { "type": "array", "items": { "type": "string" } },
+          "gate": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": false
+}

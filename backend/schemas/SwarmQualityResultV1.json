@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://courtos.local/schemas/SwarmQualityResultV1.json",
+  "type": "object",
+  "required": ["passed", "blocking_reasons", "warnings", "revised_output"],
+  "properties": {
+    "passed": { "type": "boolean" },
+    "blocking_reasons": { "type": "array", "items": { "type": "string" } },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "revised_output": { "$ref": "SwarmBriefForJunjichuV1.json" }
+  }
+}

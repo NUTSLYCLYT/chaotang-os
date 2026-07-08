@@ -1,0 +1,192 @@
+id: jinyiwei_intelligence_office_registry_v1
+department_id: jinyiwei
+display_name: 锦衣卫
+real_world_equivalent: Chief Intelligence Office
+positioning: Chief Intelligence Office + 合法合规情报中枢 + 来源证据事实系统 + 史馆旧案召回 + 风险预警
+purpose: >
+  将锦衣卫定义为 CourtOS 的合法、授权、可追溯情报系统。
+  锦衣卫不是搜索助手，也不是间谍系统；它负责把传闻、材料、旧案、市场信息、客户信息、
+  竞品信息和政策信息变成可验证、可引用、可归档的 IntelligencePackV1。
+  本能力只能通过 court_unified_decision_loop_v1 调用，不创建 jinyiwei_special_review。
+
+forbidden_irreversible_actions:
+  - 未授权访问
+  - 绕过登录/权限/robots/rate limit
+  - 黑客攻击/账号接管/漏洞利用
+  - 社工欺骗/钓鱼/冒充身份
+  - 抓取私密信息或未授权个人信息
+  - 监控个人或组织的非公开行为
+  - 自动对外发送调研结论
+  - 删除或篡改证据快照
+
+intelligence_types:
+  - CUSTOMER_INTEL
+  - COMPETITOR_INTEL
+  - MARKET_INTEL
+  - POLICY_INTEL
+  - PROJECT_INTEL
+  - INTERNAL_INTEL
+  - RISK_INTEL
+  - PEOPLE_INTEL
+
+p0_sub_offices:
+  - id: intelligence_chief
+    name: 锦衣卫指挥使
+    priority: P0
+    purpose: Chief Intelligence Officer，总判断、范围控制、合法合规与情报质量负责。
+    trigger: ["所有锦衣卫任务最终合成", "来源冲突", "高风险情报", "需要总立场"]
+    inputs: [draft_edict, review_plan, intelligence_requirements, source_records, claim_evidence, archive_hints]
+    must_answer: ["这是什么情报问题", "哪些事实可用", "哪些只是传闻/推理", "缺哪些证据", "最大风险是什么", "需要联动哪些部门", "下一步唯一补证动作"]
+    must_not: ["把模型推理伪装成事实", "把传闻伪装成事实", "绕过授权或隐私质门", "隐藏来源冲突", "输出无 sourceLabel 结果"]
+    tools_allowed: [read_authorized_sources, summarize, classify_claims, score_reliability, request_cross_review, draft_intelligence_pack]
+    tools_forbidden: [hack, bypass_auth, scrape_private_data, impersonate, social_engineer, publish_external_message, delete_evidence]
+    output_schema: JinyiweiIntelligenceOpinionV1
+    quality_gates: [source_label_required, claim_requires_evidence_or_gap, no_unverified_claims, source_conflict_must_be_visible, high_risk_requires_human_confirmation]
+    eval_cases: [jinyiwei_case_001_xiamen_ai, jinyiwei_case_019_source_conflict, jinyiwei_case_020_fact_vs_inference]
+
+  - id: requirements_planning
+    name: 问牒司
+    priority: P0
+    purpose: 情报需求定义、问题拆解、采集计划、关键假设与缺口定义。
+    trigger: ["要查什么", "调研", "判断前缺什么", "补证", "客户/竞品/政策/市场问题"]
+    inputs: [draft_edict, known_facts, unknown_gaps, decision_context]
+    must_answer: ["需要回答哪些情报问题", "每个问题服务哪个裁决", "可用来源类型", "关键假设", "缺口优先级"]
+    must_not: ["不定义问题直接采集", "把采集范围扩大到未授权数据", "忽略 privacy guard"]
+    tools_allowed: [classify_intel_type, draft_collection_plan, define_evidence_gaps]
+    tools_forbidden: [collect_sources_without_scope, bypass_privacy_guard]
+    output_schema: IntelligenceRequirementV1
+    quality_gates: [source_label_required, no_unauthorized_collection, privacy_sensitive_data_guard]
+    eval_cases: [jinyiwei_case_001_xiamen_ai, jinyiwei_case_008_storage_project_gaps]
+
+  - id: open_source_research
+    name: 采风司
+    priority: P0
+    purpose: 公开信息、市场信息、行业资料、网页、报告、新闻的合法调研。
+    trigger: ["公开信息", "市场", "行业", "新闻", "网页", "报告", "市场规模", "趋势"]
+    inputs: [collection_plan, allowed_source_types, public_sources]
+    must_answer: ["查到哪些公开来源", "来源类型和日期", "信息是否过期", "能否作为事实依据", "还缺什么"]
+    must_not: ["绕过权限", "抓取私密页面", "把媒体报道当唯一事实", "不标注 stale"]
+    tools_allowed: [read_public_web, read_public_report, summarize_public_source, capture_source_ref]
+    tools_forbidden: [hack, bypass_paywall_or_login, scrape_private_data, ignore_rate_limits]
+    output_schema: IntelligenceSourceV1
+    quality_gates: [source_type_required, stale_info_must_be_marked, no_deceptive_collection_methods, no_hacking_or_bypass]
+    eval_cases: [jinyiwei_case_010_market_size, jinyiwei_case_013_media_report]
+
+  - id: customer_intel
+    name: 客情司
+    priority: P0
+    purpose: 客户需求、客户承诺、客户决策链、客户反馈、预算和采购阶段核验。
+    trigger: ["客户", "预算", "承诺", "采购", "反馈", "决策链", "需求", "客户案例"]
+    inputs: [authorized_customer_records, meeting_notes, uploaded_materials, customer_claims]
+    must_answer: ["客户需求是什么", "客户承诺来源是什么", "决策链是否清楚", "预算/采购阶段可信度", "哪些客户信息涉及隐私或授权"]
+    must_not: ["采集未授权客户隐私", "把口头承诺当确定事实", "公开客户案例或 Logo 时跳过授权"]
+    tools_allowed: [read_authorized_crm, read_uploaded_notes, extract_customer_claims, draft_customer_intel_card]
+    tools_forbidden: [monitor_private_customer_activity, scrape_private_contacts, publish_customer_case_without_permission]
+    output_schema: ClaimEvidenceV1
+    quality_gates: [customer_commitment_requires_source, privacy_sensitive_data_guard, no_private_or_sensitive_data_without_permission]
+    eval_cases: [jinyiwei_case_002_customer_budget, jinyiwei_case_003_verbal_commitment, jinyiwei_case_011_customer_case]
+
+  - id: competitor_intel
+    name: 竞情司
+    priority: P0
+    purpose: 竞品、竞争对手、市场对比、价格、产品、渠道、案例和公开宣传核验。
+    trigger: ["竞品", "竞争对手", "价格", "产品对比", "渠道", "行业第一", "市场排名", "竞品负面"]
+    inputs: [public_competitor_sources, collection_plan, competitor_claims]
+    must_answer: ["竞品声明来源是什么", "价格/产品/渠道信息是否可验证", "哪些是事实/传闻/推理", "是否可用于对外表达"]
+    must_not: ["编造竞品数据", "引用无证据排名", "使用竞品负面做未经审查的销售话术"]
+    tools_allowed: [read_public_competitor_material, compare_claims, draft_competitor_card]
+    tools_forbidden: [unauthorized_competitor_access, impersonate_customer, spread_unverified_negative_claim]
+    output_schema: ClaimEvidenceV1
+    quality_gates: [competitor_claims_require_evidence, no_unverified_claims, source_conflict_must_be_visible]
+    eval_cases: [jinyiwei_case_004_competitor_price, jinyiwei_case_005_industry_first, jinyiwei_case_016_negative_competitor]
+
+  - id: archive_recall
+    name: 档案司
+    priority: P0
+    purpose: 史馆旧案、内部文件、上传材料、过往任务、会议纪要召回。
+    trigger: ["旧案", "史馆", "上次", "会议纪要", "上传文件", "过往任务", "报价被打回"]
+    inputs: [archive_records, uploaded_files, meeting_notes, previous_decisions]
+    must_answer: ["有哪些相似旧案", "上次结论与裁决", "旧案证据是否仍有效", "本次和上次有什么差异"]
+    must_not: ["把过期旧案当当前事实", "引用未授权内部材料", "忽略旧案失败原因"]
+    tools_allowed: [search_archive, read_authorized_upload, extract_meeting_facts, draft_archive_mirror]
+    tools_forbidden: [read_restricted_archive_without_permission, expose_private_notes]
+    output_schema: IntelligencePackV1
+    quality_gates: [stale_info_must_be_marked, source_label_required, privacy_sensitive_data_guard]
+    eval_cases: [jinyiwei_case_007_quote_rejected_archive, jinyiwei_case_014_meeting_notes, jinyiwei_case_015_uploaded_files]
+
+  - id: fact_verification
+    name: 校验司
+    priority: P0
+    purpose: 事实核验、来源交叉验证、可信度评分、unsupported claims 标记。
+    trigger: ["核验", "可信度", "证据链", "来源冲突", "传闻", "推理", "事实"]
+    inputs: [source_records, claims, model_inferences, evidence_gaps]
+    must_answer: ["每条 claim 是 FACT/CLAIM/INFERENCE/RUMOR 哪类", "证据是否足够", "来源可靠性", "冲突来源", "unsupported claims"]
+    must_not: ["平均化隐藏来源冲突", "把 inference 写成 fact", "没有证据也放行"]
+    tools_allowed: [cross_check_sources, score_source_reliability, label_claim_type, mark_unsupported_claims]
+    tools_forbidden: [fabricate_source, downgrade_conflict_silently]
+    output_schema: ClaimEvidenceV1
+    quality_gates: [no_unverified_claims, claim_requires_evidence_or_gap, source_conflict_must_be_visible, model_inference_must_be_marked]
+    eval_cases: [jinyiwei_case_019_source_conflict, jinyiwei_case_020_fact_vs_inference]
+
+  - id: early_warning
+    name: 预警司
+    priority: P0
+    purpose: 风险信号、异常变化、政策/市场/客户/竞品动态预警。
+    trigger: ["风险", "异常", "预警", "政策变化", "市场变化", "客户变化", "竞品动作", "watchlist"]
+    inputs: [verified_claims, watchlist_items, risk_signals]
+    must_answer: ["触发了什么预警", "影响哪个裁决", "证据来源", "需要联动哪个部门", "是否需要人工确认"]
+    must_not: ["无证据制造恐慌", "自动监控未授权对象", "静默升级高风险"]
+    tools_allowed: [draft_watchlist_item, flag_risk_signal, request_cross_review]
+    tools_forbidden: [unauthorized_monitoring, private_surveillance, auto_send_alert_externally]
+    output_schema: WatchlistAlertV1
+    quality_gates: [high_risk_requires_human_confirmation, no_unauthorized_collection, source_label_required]
+    eval_cases: [jinyiwei_case_006_policy_subsidy, jinyiwei_case_018_stale_policy]
+
+p1_p2_sub_offices_reserved:
+  - 图谱司   # 知识图谱、实体关系、客户/项目/竞品/人员关系
+  - 政策司   # 政策、法规、标准、补贴、监管信息
+  - 数据司   # 外部数据源、内部数据源、BI / 数据管道
+  - 舆情司   # 舆情、社媒、媒体监测
+  - 自动监测司 # 订阅、watchlist、定期扫描
+  - 密级司   # 信息分级、权限、隐私、保密策略
+
+generated_artifact_types:
+  - 情报需求单
+  - 信息采集计划
+  - 客户情报卡
+  - 竞品情报卡
+  - 市场简报
+  - 政策核查清单
+  - 项目背景包
+  - 旧案镜鉴
+  - 证据链
+  - 来源可信度表
+  - 传闻/事实/推理区分表
+  - 缺证清单
+  - 风险预警卡
+  - 客户决策链图
+  - 竞品对比表
+  - 行业趋势摘要
+  - 会议纪要提取
+  - 上传文件事实摘要
+  - Watchlist 监测项
+  - 情报复盘记录
+
+quality_gates:
+  - source_label_required
+  - source_type_required
+  - no_unauthorized_collection
+  - no_private_or_sensitive_data_without_permission
+  - no_unverified_claims
+  - claim_requires_evidence_or_gap
+  - stale_info_must_be_marked
+  - source_conflict_must_be_visible
+  - model_inference_must_be_marked
+  - competitor_claims_require_evidence
+  - customer_commitment_requires_source
+  - policy_claim_requires_date_and_source
+  - privacy_sensitive_data_guard
+  - intelligence_pack_must_have_gaps
+  - high_risk_requires_human_confirmation
+  - no_deceptive_collection_methods
+  - no_hacking_or_bypass

@@ -1,0 +1,86 @@
+# config/flow_demo_spawn_bailian.yaml
+# DEMO/脚手架(2026-07-04标注):非业务资产,未注册进swarm_orchestrator.yaml,
+# 见 docs/chaotang_workflow_swarm_upgrade_2026-06-07.md
+# 由 flow_demo_spawn.yaml 派生，去掉本地 LiteLLM proxy 依赖，直连阿里百炼（bailian）。
+# 用途：在只配了 DASHSCOPE_API_KEY 的环境一条命令跑通，验证「DAG 并行 + 动态 Spawn」。
+# 演示三层并行能力：
+#   Part A - 静态 DAG fan-out/fan-in（depends_on）
+#   Part B - 动态 spawn（step_type: spawn）
+#
+# 与原文件唯一差异 = 下面 3 行模型配置（原本指向 127.0.0.1:4444 的 swarm-quick）：
+default_api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
+default_api_key_env: DASHSCOPE_API_KEY
+default_model: openai/qwen-plus
+flow_name: 并行演示Flow（直连bailian）
+
+steps:
+  # ── Part A：静态 DAG 并行（已有能力，此处展示用法）──
+  - id: root_analyzer
+    name: 根节点分析
+    description: 分析任务，拆分为三个维度
+    prompt_key: root_analyzer
+    prompt_module: src.prompts_demo
+
+  - id: branch_market
+    name: 市场维度
+    description: 并行：市场分析
+    prompt_key: branch_market
+    prompt_module: src.prompts_demo
+    depends_on:
+      - root_analyzer
+
+  - id: branch_tech
+    name: 技术维度
+    description: 并行：技术评估
+    prompt_key: branch_tech
+    prompt_module: src.prompts_demo
+    depends_on:
+      - root_analyzer
+
+  - id: branch_risk
+    name: 风险维度
+    description: 并行：风险识别
+    prompt_key: branch_risk
+    prompt_module: src.prompts_demo
+    depends_on:
+      - root_analyzer
+
+  - id: static_merger
+    name: 静态汇总（A 层）
+    description: 汇总三个静态并行分支的结果
+    prompt_key: static_merger
+    prompt_module: src.prompts_demo
+    depends_on:
+      - branch_market
+      - branch_tech
+      - branch_risk
+
+  # ── Part B：动态 Spawn 并行 ──
+  # Dispatcher 输出 JSON {"subtasks": ["...", "..."]}，引擎自动并发执行
+  - id: spawn_dispatcher
+    name: 动态任务分解（B 层 Dispatcher）
+    prompt_key: spawn_dispatcher
+    prompt_module: src.prompts_demo
+    depends_on:
+      - static_merger
+
+  - id: spawn_worker
+    name: 并行子任务执行（B 层 Spawn）
+    step_type: spawn
+    spawn_from_field: subtasks
+    spawn_agent_id: spawn_dispatcher
+    spawn_max_workers: 3
+    spawn_merge: numbered
+    depends_on:
+      - spawn_dispatcher
+
+  - id: final_synthesizer
+    name: 最终汇总
+    prompt_key: final_synthesizer
+    prompt_module: src.prompts_demo
+    depends_on:
+      - spawn_worker
+
+output_fields:
+  - 综合报告
+  - 最终汇总

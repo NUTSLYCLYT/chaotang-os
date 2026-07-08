@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chaotang Character Roster Preview</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #050711;
+      --panel: #0a0704;
+      --text: #f5e9c9;
+      --muted: #9aa3c4;
+      --gold: #f0c66a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at 50% 0%, rgba(240,198,106,0.09), transparent 32%), var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      width: min(1440px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 32px 0 56px;
+    }
+    header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid rgba(240,198,106,0.18);
+      padding-bottom: 18px;
+    }
+    h1 {
+      margin: 0;
+      font-family: Georgia, "Noto Serif SC", serif;
+      font-size: 28px;
+      letter-spacing: 0.08em;
+    }
+    .note {
+      max-width: 680px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.8;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+    .card {
+      position: relative;
+      min-height: 302px;
+      overflow: hidden;
+      border: 1px solid color-mix(in srgb, var(--accent), transparent 48%);
+      border-radius: 8px;
+      background: #080a12;
+      box-shadow: 0 18px 55px rgba(0,0,0,0.42), inset 0 0 0 1px rgba(255,255,255,0.03);
+    }
+    .card img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: 62% 32%;
+    }
+    .shade {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(90deg, rgba(4,5,9,0.88), rgba(4,5,9,0.42) 42%, rgba(4,5,9,0.18) 62%, rgba(4,5,9,0.72)),
+        linear-gradient(180deg, transparent 52%, rgba(4,5,9,0.82));
+    }
+    .copy {
+      position: absolute;
+      left: 22px;
+      right: 22px;
+      bottom: 20px;
+      z-index: 2;
+      max-width: 58%;
+    }
+    .tag {
+      position: absolute;
+      left: 18px;
+      top: 18px;
+      z-index: 2;
+      border: 1px solid color-mix(in srgb, var(--accent), transparent 20%);
+      border-radius: 5px;
+      background: rgba(10,7,4,0.68);
+      color: var(--accent);
+      padding: 5px 9px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+    .era {
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+    }
+    .name {
+      margin-top: 8px;
+      font-family: Georgia, "Noto Serif SC", serif;
+      font-size: 34px;
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: 0.1em;
+      text-shadow: 0 2px 18px rgba(0,0,0,0.9);
+    }
+    .title {
+      margin-top: 8px;
+      font-family: Georgia, "Noto Serif SC", serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: #eee0bd;
+    }
+    .meta {
+      margin-top: 8px;
+      color: #c8cdd8;
+      font-size: 12px;
+      line-height: 1.7;
+    }
+    .stat {
+      position: absolute;
+      right: 18px;
+      top: 18px;
+      z-index: 2;
+      min-width: 74px;
+      border: 1px solid var(--accent);
+      border-radius: 7px;
+      background: rgba(10,7,4,0.72);
+      padding: 8px 10px;
+      text-align: center;
+    }
+    .stat-label {
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+    }
+    .stat-value {
+      margin-top: 3px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 24px;
+      font-weight: 900;
+    }
+    @media (max-width: 980px) {
+      .grid { grid-template-columns: 1fr; }
+      .copy { max-width: 72%; }
+    }
+    @media (max-width: 640px) {
+      header { display: block; }
+      .card { min-height: 245px; }
+      .copy { max-width: none; }
+      .name { font-size: 26px; }
+      .stat { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>朝堂人物视觉预览</h1>
+        <p class="note">图片保持无字底图，所有姓名、朝代、职责和指标由 UI 叠层排版，便于统一风格、响应式适配和后续修改。</p>
+      </div>
+      <p class="note">P0/P1 已接入主配置；御座、群臣、狄仁杰、李时珍暂用现有图，后续可重生为统一 1672x941。</p>
+    </header>
+    <section class="grid">
+      <article class="card" style="--accent:#F0C66A"><img src="scene-overview-throne.webp" alt=""><div class="shade"></div><div class="tag">GREAT HALL · 大殿</div><div class="stat"><div class="stat-label">HALL</div><div class="stat-value">97</div></div><div class="copy"><div class="era">SOVEREIGN · 御座视角</div><div class="name">陛下登朝</div><div class="title">九龙御座 · 陛下登朝</div><div class="meta">百官皆安 · 惟户部一件急</div></div></article>
+      <article class="card" style="--accent:#3DD68C"><img src="v5-command-center-zhuge-liang.png" alt=""><div class="shade"></div><div class="tag">COMMAND · 军机处</div><div class="stat"><div class="stat-label">ACTIVE</div><div class="stat-value">12</div></div><div class="copy"><div class="era">181-234 · 三国</div><div class="name">诸葛 亮</div><div class="title">丞相定计 · 羽扇纶巾</div><div class="meta">要批一个方向 · 臣即分派</div></div></article>
+      <article class="card" style="--accent:#6BA0FF"><img src="archive-di-renjie.webp" alt=""><div class="shade"></div><div class="tag">INSPECTION · 御巡台</div><div class="stat"><div class="stat-label">ANOMALY</div><div class="stat-value">3</div></div><div class="copy"><div class="era">630-700 · 唐</div><div class="name">狄仁杰</div><div class="title">神探夜察 · 六部辨异</div><div class="meta">巡察六部 · 三处有异</div></div></article>
+      <article class="card" style="--accent:#F43F5E"><img src="v5-governance-wei-zheng.png" alt=""><div class="shade"></div><div class="tag">3 CHANCELLERIES · 三省</div><div class="stat"><div class="stat-label">PENDING</div><div class="stat-value">12</div></div><div class="copy"><div class="era">580-643 · 唐</div><div class="name">魏 徵</div><div class="title">谏官议政 · 三印流转</div><div class="meta">一案候审 · 中书未定稿</div></div></article>
+      <article class="card" style="--accent:#FB923C"><img src="v5-manors-su-qin.png" alt=""><div class="shade"></div><div class="tag">MANORS · 庄园</div><div class="stat"><div class="stat-label">SWARM</div><div class="stat-value">23</div></div><div class="copy"><div class="era">? - 前284 · 战国</div><div class="name">苏 秦</div><div class="title">纵横捭阖 · 六印加身</div><div class="meta">外交在攻 · 远洋遇阻</div></div></article>
+      <article class="card" style="--accent:#FB923C"><img src="v5-intel-qi-jiguang.png" alt=""><div class="shade"></div><div class="tag">INTEL · 锦衣卫</div><div class="stat"><div class="stat-label">MONITOR</div><div class="stat-value">47</div></div><div class="copy"><div class="era">1528-1588 · 明</div><div class="name">戚继光</div><div class="title">锦衣夜巡 · 烽火飞鸽</div><div class="meta">西北 3 烽火 · 东南 8 机</div></div></article>
+      <article class="card" style="--accent:#F0C66A"><img src="v5-reports-ouyang-xiu.png" alt=""><div class="shade"></div><div class="tag">REPORTS · 战报库</div><div class="stat"><div class="stat-label">ARCHIVE</div><div class="stat-value">48</div></div><div class="copy"><div class="era">1007-1072 · 北宋</div><div class="name">欧阳修</div><div class="title">玉玺落印 · 文章典籍</div><div class="meta">年终总报 · 待玺印</div></div></article>
+      <article class="card" style="--accent:#F0C66A"><img src="scene-departments-ministers.webp" alt=""><div class="shade"></div><div class="tag">MINISTERS · 群臣</div><div class="stat"><div class="stat-label">IN COURT</div><div class="stat-value">10/11</div></div><div class="copy"><div class="era">ACROSS DYNASTIES · 千古群臣</div><div class="name">国士无双</div><div class="title">朝贺班列 · 千古名臣</div><div class="meta">户部求见 · 事关春粮</div></div></article>
+      <article class="card" style="--accent:#3DD68C"><img src="health-li-shizhen.webp" alt=""><div class="shade"></div><div class="tag">HEALTH · 太医院</div><div class="stat"><div class="stat-label">VITALS</div><div class="stat-value">97</div></div><div class="copy"><div class="era">1518-1593 · 明</div><div class="name">李时珍</div><div class="title">本草钩沉 · 脉象洞明</div><div class="meta">六部体征平稳 · 户部有隐症</div></div></article>
+      <article class="card" style="--accent:#D4A84B"><img src="forecast-zhang-heng.png" alt=""><div class="shade"></div><div class="tag">OBSERVATORY · 钦天监</div><div class="stat"><div class="stat-label">SCENARIOS</div><div class="stat-value">12</div></div><div class="copy"><div class="era">78-139 · 东汉</div><div class="name">张 衡</div><div class="title">观象授时 · 推算有节</div><div class="meta">北方 90 天内变局窗口已开</div></div></article>
+      <article class="card" style="--accent:#F0C66A"><img src="scribe-sima-qian.webp" alt=""><div class="shade"></div><div class="tag">ANNALS · 史馆</div><div class="stat"><div class="stat-label">RECORDS</div><div class="stat-value">1k+</div></div><div class="copy"><div class="era">前145-前86 · 西汉</div><div class="name">司马迁</div><div class="title">秉笔直书 · 千载留名</div><div class="meta">史馆已存 1,247 件御批档案</div></div></article>
+      <article class="card" style="--accent:#A78BFA"><img src="grand-council-zhang-liang.webp" alt=""><div class="shade"></div><div class="tag">COUNCIL · 群臣会议</div><div class="stat"><div class="stat-label">SESSION</div><div class="stat-value">7</div></div><div class="copy"><div class="era">前250-前186 · 西汉</div><div class="name">张 良</div><div class="title">运筹帷幄 · 决胜千里</div><div class="meta">会议进行 · 三项争议收敛中</div></div></article>
+      <article class="card" style="--accent:#60A5FA"><img src="study-wang-yangming.png" alt=""><div class="shade"></div><div class="tag">STUDY · 上书房</div><div class="stat"><div class="stat-label">OFFICIALS</div><div class="stat-value">6</div></div><div class="copy"><div class="era">1472-1529 · 明</div><div class="name">王阳明</div><div class="title">知行合一 · 致良知</div><div class="meta">单独召见 · 先读 dossier 再批示</div></div></article>
+      <article class="card" style="--accent:#A78BFA"><img src="hanlin-su-shi.png" alt=""><div class="shade"></div><div class="tag">HANLIN · 翰林院</div><div class="stat"><div class="stat-label">INSIGHTS</div><div class="stat-value">24</div></div><div class="copy"><div class="era">1037-1101 · 北宋</div><div class="name">翰林 · 苏轼</div><div class="title">储君研判 · 未来孵化</div><div class="meta">太子主持 · 储君之学 · 未来之选</div></div></article>
+      <article class="card" style="--accent:#F43F5E"><img src="bingbu-sun-wu.png" alt=""><div class="shade"></div><div class="tag">MILITARY · 兵部</div><div class="stat"><div class="stat-label">MONITOR</div><div class="stat-value">3</div></div><div class="copy"><div class="era">约前544-前496 · 春秋</div><div class="name">孙 武</div><div class="title">知彼知己 · 百战不殆</div><div class="meta">竞品甲高危告急 · 请即定攻防</div></div></article>
+    </section>
+  </main>
+</body>
+</html>
+

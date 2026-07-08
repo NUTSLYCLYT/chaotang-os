@@ -1,0 +1,25 @@
+# 司注册表 — 部门下设的司(二级单元),每个司是"有履历/能力/贡献"的问责实体。
+# 前端司级二级页据此渲染;司档案见 src/si_profile.build_si_profile。
+# 只登记真实存在业务子单元的部门;司印章/骨架继承父部门(memorial_standard 第64行)。
+# 新增司在此登记即可,不改代码。
+
+departments:
+  hubu:            # 户部(财务)
+    - {code: accounting, name: 会计司, duty: 账务核算、科目归集、报表出具}
+    - {code: treasury,   name: 出纳司, duty: 现金流、收付款、垫资与账期风险}
+    - {code: budget,     name: 预算司, duty: 预算编制、ROI 测算、成本边界}
+    - {code: tax,        name: 税务司, duty: 税额税率税负、发票合规、税务红线(tax_source_gate/税负测算)}
+
+  xingbu:          # 刑部(法务/合规)
+    - {code: contract,   name: 合同司, duty: 合同审查、条款红线、违约风险}
+    - {code: compliance, name: 合规司, duty: 资质合规、认证红线、内控}
+    - {code: litigation, name: 诉讼司, duty: 争议研判、诉讼/和解、追偿}
+
+  bingbu:          # 兵部(销售/售后战情)
+    - {code: leads,      name: 线索司, duty: 客户身份核验、线索分级(haolong)}
+    - {code: quotation,  name: 报价司, duty: 报价假设、毛利边界、亏损红线}
+    - {code: aftercare,  name: 售后司, duty: 交付后战情、退换与仓储善后}
+
+  gongbu:          # 工部(产研/交付)
+    - {code: rd,         name: 产研司, duty: 技术方案、电芯选型、可制造性}
+    - {code: delivery,   name: 交付司, duty: 交付排期、发布门禁、质量基线}

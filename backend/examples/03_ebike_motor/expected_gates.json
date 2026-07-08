@@ -1,0 +1,12 @@
+{
+  "description": "两轮车动力 48V 960Wh 蓝牙 — 成本导向案例",
+  "flow": "config/flow_pack_rd.yaml",
+  "expected_gate_outcomes": {
+    "presale_cost_estimator": ["pass", "conditional"],
+    "supply_chain_feasibility": ["pass", "conditional"],
+    "expert_review_gate": ["pass", "conditional"]
+  },
+  "expected_edge_cases": [],
+  "qa_score_min": 3.0,
+  "notes": "此案例测试蓝牙协议适配 + 成本优先路径 + 两轮车场景"
+}

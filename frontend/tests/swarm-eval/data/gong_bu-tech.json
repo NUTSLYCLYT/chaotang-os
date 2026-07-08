@@ -1,0 +1,16 @@
+{
+  "_note": "工部(产品/技术)数据源（脱敏）。生产环境替换为真实 Jira/Sentry/CI 度量 API。",
+  "techDebt": [
+    { "id": "TD1", "item": "鉴权全链路不验签(JWT decode-only)", "severity": "critical", "effortWeeks": 2, "blastRadius": "全站越权风险", "incidentsQtr": 0 },
+    { "id": "TD2", "item": "agents/run fire-and-forget 卡 running", "severity": "high", "effortWeeks": 1, "blastRadius": "任务永久卡死", "incidentsQtr": 9 },
+    { "id": "TD3", "item": "/api/chat 旁路预算+限流", "severity": "high", "effortWeeks": 1.5, "blastRadius": "成本失控/被刷", "incidentsQtr": 3 },
+    { "id": "TD4", "item": "9 态状态机死代码", "severity": "medium", "effortWeeks": 0.5, "blastRadius": "契约假象", "incidentsQtr": 0 },
+    { "id": "TD5", "item": "v1/swarms 全 mock", "severity": "low", "effortWeeks": 3, "blastRadius": "前端假数据", "incidentsQtr": 1 }
+  ],
+  "roadmap": [
+    { "id": "RM1", "feature": "户部预算中台 v1", "valueScore": 9, "effortWeeks": 4, "depends": [] },
+    { "id": "RM2", "feature": "蜂群真实能力评测平台", "valueScore": 8, "effortWeeks": 2, "depends": [] },
+    { "id": "RM3", "feature": "东宫自主运营(渐进授权)", "valueScore": 7, "effortWeeks": 6, "depends": ["TD1", "TD2"] }
+  ],
+  "engMetrics": { "teamSize": 6, "velocityPtsPerSprint": 42, "p95DeployMin": 18, "incidentMTTRHours": 3.5, "testCoveragePct": 64 }
+}

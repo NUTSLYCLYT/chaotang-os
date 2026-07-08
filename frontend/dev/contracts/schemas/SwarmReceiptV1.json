@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://courtos.local/schemas/SwarmReceiptV1.json",
+  "title": "SwarmReceiptV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "session_id",
+    "task_input",
+    "status",
+    "release_gate",
+    "run_count",
+    "completed_runs",
+    "failed_runs",
+    "qa_run_count",
+    "final_output_count",
+    "can_label_live_swarm",
+    "can_show_valid_memorial",
+    "verification_level",
+    "user_message"
+  ],
+  "properties": {
+    "session_id": { "type": "string", "minLength": 1 },
+    "task_input": { "type": "string" },
+    "status": { "type": "string" },
+    "release_gate": { "type": ["string", "null"] },
+    "started_at": { "type": ["string", "null"] },
+    "finished_at": { "type": ["string", "null"] },
+    "run_count": { "type": "integer", "minimum": 0 },
+    "completed_runs": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "failed_runs": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "qa_run_count": { "type": "integer", "minimum": 0 },
+    "final_output_count": { "type": "integer", "minimum": 0 },
+    "can_label_live_swarm": { "type": "boolean" },
+    "can_show_valid_memorial": { "type": "boolean" },
+    "verification_level": {
+      "enum": ["running", "verified_blocked", "verified_clear", "invalid"]
+    },
+    "user_message": { "type": "string", "minLength": 1 }
+  }
+}

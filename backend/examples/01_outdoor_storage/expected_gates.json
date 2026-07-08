@@ -1,0 +1,14 @@
+{
+  "description": "户外储能 12V 1100Wh — 标准案例",
+  "flow": "config/flow_pack_rd.yaml",
+  "expected_gate_outcomes": {
+    "presale_cost_estimator": ["pass", "conditional"],
+    "supply_chain_feasibility": ["pass", "conditional", "blocked"],
+    "expert_review_gate": ["pass", "conditional"]
+  },
+  "expected_edge_cases": [
+    {"type": "requirement_violation", "note": "若选用低容量电芯可能出现能量不满足"}
+  ],
+  "qa_score_min": 2.5,
+  "notes": "此案例测试售前成本核算 + 供应链门控的基础路径"
+}

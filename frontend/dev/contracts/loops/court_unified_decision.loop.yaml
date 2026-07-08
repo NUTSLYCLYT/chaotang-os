@@ -1,0 +1,264 @@
+id: court_unified_decision_loop_v1
+name: CourtOS unified court decision loop
+version: 1.0.0
+owner: courtos/product
+status: protocol_only
+purpose: >
+  Turn one real operating question into a registry-driven decision loop:
+  intake, draft edict, review plan, department opinions, evidence audit,
+  conflict visibility, memorial, quality gate, emperor decision, Shiguan
+  archive, and EvoMap learning. This file is the protocol spine; it does
+  not define UI, deep department offices, Hermes/OpenClaw wiring, or live
+  swarm execution.
+
+north_star: >
+  A real boss asks a real business question. CourtOS returns a memorial with
+  source, evidence, risks, next order, and quality gates. The user decides
+  adopt / request evidence / recheck / reject / follow up. The result enters
+  Shiguan and can be cited by the next similar question.
+
+non_goals:
+  - no_full_ui_implementation
+  - no_deep_department_office
+  - no_hermes_or_openclaw_integration
+  - no_live_swarm_execution
+  - no_special_department_flow
+  - no_irreversible_auto_decision
+
+entrypoints:
+  - prepare_home_context
+  - intake_question
+  - pending_decision_resume
+  - followup_from_memorial
+
+task_state_model:
+  allowed_states:
+    - draft
+    - awaiting_confirm
+    - reviewing
+    - awaiting_evidence
+    - awaiting_decision
+    - followuping
+    - rechecking
+    - adopted
+    - rejected
+    - archived
+    - failed_with_recovery
+  rules:
+    - failed_with_recovery must preserve task_id, original_question, source_label, and recovery_action.
+    - followuping must inherit prior task_id, memorial_id, evidence, missing_evidence, and decision context.
+    - archived is reached only after an emperor_decision has been recorded.
+
+source_label_policy:
+  allowed_labels:
+    - LIVE
+    - LIVE_SWARM
+    - MIXED
+    - FALLBACK
+    - DEMO
+  rules:
+    - all draft_edict, department_opinion, memorial, emperor_decision, archive_record, and evomap_event objects must include source_label.
+    - DEMO must not enter real emperor_decision.
+    - FALLBACK must not be presented as final certainty.
+    - LIVE_SWARM requires a real swarm trace_id.
+    - MIXED must disclose which parts are live and which parts are fallback or demo.
+
+quality_gates:
+  - id: source_label_required
+    severity: blocking
+    rule: every key output must include source_label in LIVE, LIVE_SWARM, MIXED, FALLBACK, DEMO.
+  - id: no_demo_as_live
+    severity: blocking
+    rule: DEMO output cannot be relabeled as LIVE or used for real decision.
+  - id: no_fallback_as_final_certainty
+    severity: blocking
+    rule: FALLBACK output cannot produce an unconditional approve/adopt recommendation.
+  - id: evidence_or_gap_required
+    severity: blocking
+    rule: every conclusion must have evidence_items or missing_evidence.
+  - id: high_risk_requires_human_confirmation
+    severity: blocking
+    rule: contract, equity, legal liability, major payment, irreversible promise, or customer commitment requires human confirmation before adoption.
+  - id: conflict_visible
+    severity: blocking
+    rule: cross-department conflict must appear in conflict_summary and must not be averaged away.
+  - id: one_primary_action_required
+    severity: blocking
+    rule: memorial must expose exactly one primary next_order.
+  - id: followup_must_inherit_context
+    severity: blocking
+    rule: follow-up cannot start as an unrelated task; it must inherit prior context.
+  - id: archive_required_after_decision
+    severity: blocking
+    rule: adopted or rejected decisions must create a Shiguan archive record.
+  - id: missing_capability_must_be_disclosed
+    severity: blocking
+    rule: disabled departments, unavailable live sources, or absent swarm traces must be disclosed.
+
+steps:
+  - id: prepare_home_context
+    name: Prepare home context
+    state_after: draft
+    outputs:
+      - prepared_issues
+      - pending_decisions
+      - pending_evidence
+      - archive_hints
+    gates:
+      - source_label_required
+      - missing_capability_must_be_disclosed
+
+  - id: intake_question
+    name: Intake user question
+    inputs:
+      - raw_question
+      - optional_prior_task_id
+    outputs:
+      - task_id
+      - original_question
+      - source_label
+    gates:
+      - source_label_required
+
+  - id: chancellor_draft_edict
+    name: Chancellor draft edict
+    output_schema: DraftEdictV1
+    outputs:
+      - draft_edict
+    gates:
+      - source_label_required
+      - evidence_or_gap_required
+
+  - id: emperor_confirm_edict
+    name: Emperor confirms edict
+    type: human_approval
+    state_after: awaiting_confirm
+    outputs:
+      - confirmed_edict
+      - confirmation_record
+
+  - id: junjichu_plan_review
+    name: Junjichu plans registry-driven review
+    input_sources:
+      - confirmed_edict
+      - config/departments.registry.yaml
+    output_schema: ReviewPlanV1
+    outputs:
+      - review_plan
+    gates:
+      - source_label_required
+      - missing_capability_must_be_disclosed
+
+  - id: run_department_reviews
+    name: Run enabled department reviews
+    type: parallel
+    output_schema: DepartmentOpinionV1
+    outputs:
+      - department_opinions
+    gates:
+      - source_label_required
+      - evidence_or_gap_required
+
+  - id: optional_swarm_deepening
+    name: Optional swarm deepening
+    condition: review_depth in ["deep", "live_swarm"]
+    default_enabled: false
+    outputs:
+      - swarm_trace
+      - swarm_brief
+    gates:
+      - source_label_required
+      - missing_capability_must_be_disclosed
+    rules:
+      - LIVE_SWARM requires swarm_trace.trace_id.
+      - This Goal 1 protocol does not execute live swarm.
+
+  - id: evidence_audit
+    name: Evidence audit
+    output_schema: EvidenceAuditV1
+    outputs:
+      - evidence_audit
+      - unsupported_claims
+      - missing_evidence
+    gates:
+      - evidence_or_gap_required
+
+  - id: conflict_check
+    name: Conflict check
+    output_schema: ConflictSummaryV1
+    outputs:
+      - conflict_summary
+    gates:
+      - conflict_visible
+
+  - id: synthesize_memorial
+    name: Synthesize memorial
+    output_schema: MemorialV1
+    outputs:
+      - memorial
+    gates:
+      - source_label_required
+      - evidence_or_gap_required
+      - one_primary_action_required
+
+  - id: quality_gate
+    name: Quality gate
+    output_schema: QualityGateResultV1
+    outputs:
+      - quality_gate_result
+    gates:
+      - source_label_required
+      - no_demo_as_live
+      - no_fallback_as_final_certainty
+      - evidence_or_gap_required
+      - high_risk_requires_human_confirmation
+      - conflict_visible
+      - one_primary_action_required
+      - missing_capability_must_be_disclosed
+
+  - id: present_to_emperor
+    name: Present to emperor
+    state_after: awaiting_decision
+    outputs:
+      - emperor_brief
+      - memorial
+      - primary_action
+
+  - id: emperor_decision
+    name: Emperor decision
+    output_schema: EmperorDecisionV1
+    actions:
+      - adopt
+      - request_evidence
+      - request_recheck
+      - reject
+      - follow_up
+    outputs:
+      - emperor_decision
+    gates:
+      - high_risk_requires_human_confirmation
+      - followup_must_inherit_context
+
+  - id: archive_to_shiguan
+    name: Archive to Shiguan
+    output_schema: ShiguanArchiveRecordV1
+    outputs:
+      - archive_record
+    gates:
+      - source_label_required
+      - archive_required_after_decision
+
+  - id: evomap_update
+    name: EvoMap update
+    output_schema: EvoMapEventV1
+    outputs:
+      - evomap_event
+    gates:
+      - source_label_required
+    rules:
+      - EvoMap may affect next recommendation context but must not auto-decide.
+
+extension_rule: >
+  Add new departments or swarms by registry, skill/prompt/eval, and adapters only.
+  Do not create five_department_review, libu_special_review, rites_special_review,
+  jinyiwei_special_review, or any department-count-specific flow.

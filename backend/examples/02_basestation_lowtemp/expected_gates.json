@@ -1,0 +1,15 @@
+{
+  "description": "通信基站备电低温 24V 200Wh -40℃ — 高难度案例",
+  "flow": "config/flow_pack_rd.yaml",
+  "expected_gate_outcomes": {
+    "presale_cost_estimator": ["pass", "conditional"],
+    "supply_chain_feasibility": ["pass", "conditional"],
+    "expert_review_gate": ["conditional"]
+  },
+  "expected_edge_cases": [
+    {"type": "requirement_violation", "note": "尺寸约束可能触发违规"},
+    {"type": "supply_chain_block", "note": "通信基站备电低温电芯供应链收窄"}
+  ],
+  "qa_score_min": 2.0,
+  "notes": "此案例测试工业级认证路径 + 低温热管理约束 + IP67结构设计"
+}

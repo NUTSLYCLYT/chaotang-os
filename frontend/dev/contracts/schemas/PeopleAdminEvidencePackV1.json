@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PeopleAdminEvidencePackV1",
+  "type": "object",
+  "required": [
+    "facts",
+    "evidenceItems",
+    "missingEvidence",
+    "assumptions",
+    "sensitiveDataFlags",
+    "sourceLabel"
+  ],
+  "properties": {
+    "facts": { "type": "array", "items": { "type": "string" } },
+    "evidenceItems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim", "source"],
+        "properties": {
+          "claim": { "type": "string" },
+          "source": { "type": "string" },
+          "location": { "type": "string" },
+          "confidence": { "enum": ["高", "中", "低"] }
+        },
+        "additionalProperties": true
+      }
+    },
+    "missingEvidence": { "type": "array", "items": { "type": "string" } },
+    "assumptions": { "type": "array", "items": { "type": "string" } },
+    "sensitiveDataFlags": {
+      "type": "array",
+      "items": { "enum": ["薪酬", "健康", "纪律", "离职意向", "绩效", "个人隐私"] },
+      "description": "privacy_sensitive_data_guard：触及敏感数据须记录权限与来源。"
+    },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

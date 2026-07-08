@@ -1,0 +1,3 @@
+id,date,direction,amount,counterparty,matchRef,balanceAfter,sourceLabel,sourceRef
+bank-001,2026-06-01,in,800000,customer-a,invoice-001,980000,internal_uploaded_file,bank-export-2026-06.xlsx
+bank-002,2026-06-02,out,90000,supplier-a,payment-001,890000,internal_uploaded_file,bank-export-2026-06.xlsx

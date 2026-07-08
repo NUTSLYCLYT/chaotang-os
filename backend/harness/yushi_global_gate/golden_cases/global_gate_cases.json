@@ -1,0 +1,88 @@
+[
+  {
+    "case_id": "dependency_security_passed",
+    "payload": {
+      "run_id": "case-dep-pass",
+      "department": "gongbu",
+      "output_type": "dependency_security",
+      "summary": "OSV 受控 requirements 扫描通过。",
+      "security_status": "poc_passed",
+      "finding_summary": {"affected_packages": 0, "vulnerability_groups": 0, "max_severity": 0},
+      "evidence": [{"source": "osv-scanner", "status": "ok"}],
+      "benefit_score": 4.4,
+      "automation_level_requested": "L2"
+    },
+    "expect": {"risk_level": "green", "decision": "allow"}
+  },
+  {
+    "case_id": "dependency_security_high_vuln",
+    "payload": {
+      "run_id": "case-dep-red",
+      "department": "gongbu",
+      "output_type": "dependency_security",
+      "summary": "OSV 发现 litellm 高危漏洞。",
+      "security_status": "poc_needs_review",
+      "finding_summary": {"affected_packages": 7, "vulnerability_groups": 33, "max_severity": 9.8},
+      "evidence": [{"source": "osv-scanner", "status": "poc_needs_review"}],
+      "benefit_score": 4.8,
+      "automation_level_requested": "L2"
+    },
+    "expect": {"risk_level": "black", "decision": "block_and_escalate"}
+  },
+  {
+    "case_id": "customer_quote_without_evidence",
+    "payload": {
+      "run_id": "case-quote-red",
+      "department": "hubu",
+      "output_type": "customer_commitment",
+      "summary": "客户报价 800 万，承诺 30 天交付。",
+      "evidence": [],
+      "benefit_score": 3.8,
+      "automation_level_requested": "L1",
+      "human_signoff": false
+    },
+    "expect": {"risk_level": "red", "decision": "block"}
+  },
+  {
+    "case_id": "automation_without_qintianjian",
+    "payload": {
+      "run_id": "case-auto-black",
+      "department": "junji",
+      "output_type": "automation",
+      "summary": "自动执行生产删除任务。",
+      "evidence": [{"source": "operator", "status": "requested"}],
+      "benefit_score": 4.0,
+      "automation_level_requested": "L5",
+      "qintianjian_brief": false,
+      "human_signoff": false
+    },
+    "expect": {"risk_level": "black", "decision": "block_and_escalate"}
+  },
+  {
+    "case_id": "web_ui_mainline_drift",
+    "payload": {
+      "run_id": "case-web-red",
+      "department": "gongbu",
+      "output_type": "mainline_change",
+      "summary": "新增 Next.js React component 页面样式到主线。",
+      "changed_paths": ["web/app/court/page.tsx"],
+      "evidence": [],
+      "benefit_score": 2.2,
+      "automation_level_requested": "L1"
+    },
+    "expect": {"risk_level": "red", "decision": "block"}
+  },
+  {
+    "case_id": "grounded_internal_task",
+    "payload": {
+      "run_id": "case-grounded-green",
+      "department": "shiguan",
+      "output_type": "archive",
+      "summary": "归档 OSV 扫描结果，附工具版本和报告路径。",
+      "evidence": [{"source": "security_poc_latest.json", "status": "ok"}],
+      "benefit_score": 3.9,
+      "automation_level_requested": "L2"
+    },
+    "expect": {"risk_level": "green", "decision": "allow"}
+  }
+]

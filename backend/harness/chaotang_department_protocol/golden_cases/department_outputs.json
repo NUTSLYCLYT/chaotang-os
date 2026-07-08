@@ -1,0 +1,101 @@
+[
+  {
+    "case_id": "qintianjian_strategy_green",
+    "payload": {
+      "run_id": "dept-qintian-001",
+      "department": "qintianjian",
+      "output_type": "mainline_decision",
+      "summary": "建议开工御史总判第一版，目标是统一风险、收益、证据和自动化权限。",
+      "evidence": [{"source": "user_confirmed_scope", "status": "ok"}],
+      "benefit_score": 4.5,
+      "automation_level_requested": "L2",
+      "next_action": "交工部实现 harness。",
+      "prime_minister_next_step": {"owner": "gongbu", "route": "gongbu", "due": "next_release_candidate", "blocker": "缺少 harness 会阻断上线收口"},
+      "qintianjian_trigger": {"signal": "harness_pass_rate", "threshold": ">= 0.95", "watch_window": "每次发布前", "decision_change": "低于阈值则回御史整改"}
+    },
+    "expect": {"valid": true, "risk_level": "green", "next_department": "gongbu"}
+  },
+  {
+    "case_id": "gongbu_dependency_security_green",
+    "payload": {
+      "run_id": "dept-gongbu-001",
+      "department": "gongbu",
+      "output_type": "dependency_security",
+      "summary": "OSV requirements 扫描通过。",
+      "security_status": "poc_passed",
+      "finding_summary": {"affected_packages": 0, "vulnerability_groups": 0, "max_severity": 0},
+      "evidence": [{"source": "security_poc_latest.json", "status": "poc_passed"}],
+      "benefit_score": 4.8,
+      "automation_level_requested": "L2",
+      "next_action": "归档史馆，作为安全门禁基线。",
+      "prime_minister_next_step": {"owner": "shiguan", "route": "shiguan", "due": "same_day", "blocker": "缺少归档会影响后续复盘"},
+      "qintianjian_trigger": {"signal": "new_dependency_or_security_status_change", "threshold": "any", "watch_window": "持续", "decision_change": "触发御史复审"}
+    },
+    "expect": {"valid": true, "risk_level": "green", "next_department": "shiguan"}
+  },
+  {
+    "case_id": "hubu_quote_red",
+    "payload": {
+      "run_id": "dept-hubu-001",
+      "department": "hubu",
+      "output_type": "quotation",
+      "summary": "客户报价 800 万，承诺 30 天交付。",
+      "evidence": [],
+      "benefit_score": 3.5,
+      "automation_level_requested": "L1",
+      "next_action": "发给客户确认。",
+      "prime_minister_next_step": {"owner": "hubu", "route": "hubu", "due": "before_customer_send", "blocker": "缺少签字不得对外承诺"},
+      "qintianjian_trigger": {"signal": "delivery_or_price_assumption_change", "threshold": "any material change", "watch_window": "报价有效期内", "decision_change": "重新计算报价并回御史"},
+      "human_signoff": false
+    },
+    "expect": {"valid": true, "risk_level": "red", "next_department": "hubu"}
+  },
+  {
+    "case_id": "jinyiwei_open_source_yellow",
+    "payload": {
+      "run_id": "dept-jinyiwei-001",
+      "department": "jinyiwei",
+      "output_type": "dependency_security",
+      "summary": "Scorecard 已安装，但缺 GITHUB_AUTH_TOKEN，远程仓库评分暂不可跑。",
+      "security_status": "poc_blocked_missing_env",
+      "finding_summary": {"affected_packages": 0, "vulnerability_groups": 0, "max_severity": 0},
+      "evidence": [{"source": "security_poc_latest.json", "status": "poc_blocked_missing_env"}],
+      "benefit_score": 4.1,
+      "automation_level_requested": "L2",
+      "next_action": "补只读 token 后复跑。",
+      "prime_minister_next_step": {"owner": "jinyiwei", "route": "yushi", "due": "before_release_gate", "blocker": "缺少只读 token 会导致远程评分证据不完整"},
+      "qintianjian_trigger": {"signal": "github_token_available", "threshold": "true", "watch_window": "发布前", "decision_change": "复跑后若失败转刑部"}
+    },
+    "expect": {"valid": true, "risk_level": "yellow", "next_department": "yushi"}
+  },
+  {
+    "case_id": "libu_customer_message_red",
+    "payload": {
+      "run_id": "dept-libu-001",
+      "department": "libu",
+      "output_type": "customer_message",
+      "summary": "对外承诺本系统上线后 ROI 提升 200%。",
+      "evidence": [],
+      "benefit_score": 2.9,
+      "automation_level_requested": "L1",
+      "next_action": "发布到客户群。",
+      "prime_minister_next_step": {"owner": "libu", "route": "libu", "due": "before_publish", "blocker": "缺少证据和签字不得发布"},
+      "qintianjian_trigger": {"signal": "roi_claim_evidence_ready", "threshold": "source_linked_and_signed", "watch_window": "发布前", "decision_change": "证据不足则撤回话术"},
+      "human_signoff": false
+    },
+    "expect": {"valid": true, "risk_level": "red", "next_department": "libu"}
+  },
+  {
+    "case_id": "invalid_missing_evidence",
+    "payload": {
+      "run_id": "dept-invalid-001",
+      "department": "shiguan",
+      "output_type": "archive",
+      "summary": "归档一条记录。",
+      "benefit_score": 2.5,
+      "automation_level_requested": "L1",
+      "next_action": "归档。"
+    },
+    "expect": {"valid": false}
+  }
+]

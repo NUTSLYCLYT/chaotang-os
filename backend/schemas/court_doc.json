@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://courtos.local/schemas/court_doc.json",
+  "title": "朝堂文书标准 CourtDoc v1",
+  "description": "全院统一文书契约(机器面)。一份内容两副面孔:本 JSON 喂飞轮/归档/门禁/eval;前端据此渲染卷宗×现代人类面。所有部门(刑部判/户部奏/钦天监策…)共用此骨架,doc_type + dept + 印章/主色区分身份。",
+  "type": "object",
+  "required": [
+    "doc_type", "dept", "case_id", "light",
+    "headline", "items", "actions", "provenance", "source_label", "signed"
+  ],
+  "properties": {
+    "doc_type": {
+      "description": "文书类型:刑部判决/户部奏报/钦天监策/史馆卷宗/旨/审 等",
+      "enum": ["verdict", "memorial", "forecast", "brief", "archive", "edict", "review"]
+    },
+    "dept": {
+      "description": "出文部门 slug(对应 departments.yaml + 印章品牌系统)",
+      "type": "string"
+    },
+    "case_id": {
+      "description": "案号,如 XB-20260701-007(部门缩写-日期-序号)",
+      "type": "string"
+    },
+    "light": {
+      "description": "总裁定灯:绿可行/黄可行须改/红挡住/黑落刑部",
+      "enum": ["green", "yellow", "red", "black"]
+    },
+    "headline": {
+      "description": "一句话结论(人话在前,决策不是知识)",
+      "type": "string"
+    },
+    "shielded": {
+      "description": "心意①:本部门为客户挡了什么/争取了什么(可空)",
+      "type": ["string", "null"]
+    },
+    "items": {
+      "description": "核心条目(刑部=风险/户部=成本项/钦天监=情景…),按重要度/赔率排序",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["level"],
+        "properties": {
+          "level": { "enum": ["red", "yellow", "green"] },
+          "title": { "type": "string" },
+          "odds": { "type": ["string", "null"], "description": "赔率/可能性(高/中/低)" },
+          "impact": { "type": ["string", "null"], "description": "影响/金额,如 ¥80万" },
+          "fix": { "type": ["string", "null"], "description": "一句话怎么改就能过" },
+          "evidence_ref": { "type": ["string", "null"], "description": "回链 truth_ledger/史馆证据" },
+          "variants": {
+            "type": ["array", "null"],
+            "description": "多语域版本(礼部话术等):同一条目的不同口吻,共享同一边界/证据",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tone": { "type": "string", "description": "语域,如 正式/亲切/简洁" },
+                "text": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "adversarial": {
+      "description": "红蓝对抗(刑部等):攻击者视角找出最弱口子(可空)",
+      "type": ["object", "null"],
+      "properties": {
+        "attacker": { "type": "string" },
+        "weakest": { "type": "string" },
+        "why": { "type": "string" }
+      }
+    },
+    "actions": {
+      "description": "客户可执行动作(一键改/开庭/存证/豁免…)",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "provenance": {
+      "description": "可追溯:出场大神、证据归档号、御史闸状态",
+      "type": "object",
+      "required": ["advisors", "archive_id", "gate"],
+      "properties": {
+        "advisors": { "type": "array", "items": { "type": "string" } },
+        "archive_id": { "type": ["string", "null"] },
+        "gate": { "enum": ["passed", "blocked", "pending", "n/a"] },
+        "rag_grounded": { "type": "boolean", "description": "观点席结论是否经 RAG 命中(gate_conclusion)" },
+        "deterministic_gated": { "type": "boolean", "description": "是否经确定性重算接地(工程/财务,借工部)" },
+        "grounding": { "enum": ["rag", "deterministic", "none"], "description": "接地源:RAG命中 / 确定性重算 / 无" },
+        "qintianjian_reviewed": { "type": "boolean", "description": "是否经钦天监前置参谋封成 SEALED_BRIEF(见 src/qintianjian_brief.py);默认 false,诚实标注未经钦天监" }
+      }
+    },
+    "source_label": {
+      "description": "与全仓一致的来源真实性标签",
+      "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"]
+    },
+    "signed": {
+      "description": "是否已人工签字(不可逆动作必须 true 才执行)",
+      "type": "boolean"
+    },
+    "seal": {
+      "description": "心意②:印章/留痕展示(官印名 + 主色 + 史馆封存号)",
+      "type": ["object", "null"],
+      "properties": {
+        "stamp": { "type": "string", "description": "官印名,如 天平印/算盘印" },
+        "color": { "type": "string", "description": "部门主色,如 朱砂红/金/青" },
+        "sealed_archive": { "type": ["string", "null"] }
+      }
+    },
+    "opinion": {
+      "description": "奏折下部 0.382 区:丞相/钦天监 分析建议(精简正文,详情展开)",
+      "type": ["object", "null"],
+      "properties": {
+        "by": { "type": "string", "description": "丞相 / 钦天监" },
+        "summary": { "type": "string", "description": "一句话意见(精简明了)" },
+        "detail": { "type": ["string", "null"], "description": "展开阅读的详细分析" },
+        "advice": { "type": ["array", "null"], "items": { "type": "string" } }
+      }
+    },
+    "endorsements": {
+      "description": "部门附议(0.382 区):各部门对本奏折的表态",
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "properties": {
+          "dept": { "type": "string" },
+          "stance": { "enum": ["附议", "保留", "异议"] },
+          "note": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "charts": {
+      "description": "数据可视化(尽量所有数据相关内容配图表)。type 由前端渲染",
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "description": "bar|line|pie|radar|timeline|waterfall|gauge" },
+          "title": { "type": "string" },
+          "data": { "description": "图表数据(数组/对象,前端按 type 渲染)" }
+        }
+      }
+    },
+    "attachments": {
+      "description": "下载附件(合同原文/证据/报表等)",
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "ref": { "type": "string", "description": "下载地址/存证号" },
+          "kind": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "workflow": {
+      "description": "工作流展示(小字体):本奏折经过的部门/蜂群/门步骤,可追溯",
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "properties": {
+          "step": { "type": "string" },
+          "actor": { "type": ["string", "null"], "description": "部门/大神/门" },
+          "status": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

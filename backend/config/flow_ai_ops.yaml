@@ -1,0 +1,36 @@
+flow_name: AI运维元蜂群
+qa_version: v3
+default_model: openai/swarm-worker
+default_api_base: http://127.0.0.1:4444/v1
+default_api_key_env: LITELLM_PROXY_KEY
+# 通电:注入真实运维快照(scripts/build_ops_snapshot.py 从真run日志/质量基线/成本生成),
+# 让质量巡检员基于真数字巡检,而非真空编造。快照过期可重跑 build_ops_snapshot.py 刷新。
+knowledge_inject:
+  file: config/ops_snapshot.yaml
+  max_tokens: 12000
+steps:
+- id: idea_analyst
+  name: 想法分析师
+  prompt_key: idea_analyst_ops
+  description: 澄清用户需求，输出结构化需求文档，作为 OpenClaw 执行的输入
+- id: openclaw_research
+  name: 运维数据巡检
+  prompt_key: quality_inspector
+  description: 读取注入的质量基线与运行日志线索，输出质量、成本、异常和优先级巡检结果；OpenClaw 仅作可选外部能力，不得作为默认硬依赖
+- id: step_1776777995177_i0vk
+  name: 规划测试师
+  prompt_key: planning_scheduler
+  description: ''
+- id: qa_tech_support
+  name: 质量检查专家
+  prompt_key: ai_ops_qa
+  description: 综合需求分析与 OpenClaw 执行结果，生成优化建议和实施方案
+  prompt_module: src.prompts_ai_ops
+output_fields:
+- 需求分析
+- 系统健康
+- 成本分析
+- 优化提案
+- 测试方案
+- 风险评估
+- 实施建议

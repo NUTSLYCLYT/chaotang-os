@@ -1,0 +1,470 @@
+version: 1
+contract_required_fields:
+  - run_id
+  - department
+  - output_type
+  - summary
+  - evidence
+  - benefit_score
+  - automation_level_requested
+  - next_action
+  - prime_minister_next_step
+  - qintianjian_trigger
+global_next_step_design:
+  name: 丞相 x 钦天监下一步协议
+  purpose: 让所有部门对话都产出可执行、可路由、可验证、可复盘的下一步。
+  prime_minister:
+    role: 统筹所有部门的下一步，裁定 owner、route、deadline、blocker 和是否进入御史/史馆。
+    required_shape:
+      - owner
+      - route
+      - due
+      - blocker
+  qintianjian:
+    role: 为下一步补预测触发器，定义什么信号会改变当前判断。
+    required_shape:
+      - signal
+      - threshold
+      - watch_window
+      - decision_change
+  department_dialogue_rule: 每个部门发言必须先给专业判断，再给 next_action，再给 prime_minister_next_step 和 qintianjian_trigger。
+memorial_pipeline:
+  name: 全院回奏流水线
+  purpose: 把用户圣旨、各司报告、附件证据、部门回奏、军机处审核、丞相建议和用户交付收成一条可审计主线。
+  stages:
+    - id: edict_intake
+      owner: prime_minister
+      output: refined_edict
+      rule: 保留用户原旨，拆成任务、部门、成功标准、截止时间和禁止动作。
+    - id: dispatch
+      owner: junji
+      output: office_task_orders
+      rule: 军机处只派单和控节奏，不替各司编造事实。
+    - id: office_reports
+      owner: source_offices
+      output: office_report_payloads
+      rule: 各司只提交事实、证据、专业判断、附件和下一步，不写最终圣裁。
+    - id: attachments
+      owner: source_offices
+      output: downloadable_attachments
+      rule: 附件必须有编号、来源、生成时间、摘要、source_label 和可下载路径。
+    - id: department_memorial
+      owner: source_department
+      output: formatted_memorial
+      rule: 部门把各司材料压成标准七段回奏，不得软化各司红灯。
+    - id: junji_review
+      owner: junji
+      output: review_card
+      rule: 军机处审核证据、冲突、红线、缺口和是否可递交丞相。
+    - id: prime_minister_synthesis
+      owner: prime_minister
+      output: final_recommendation
+      rule: 丞相只排序、综合和给建议，不改写部门原始结论和红线。
+    - id: user_delivery
+      owner: prime_minister
+      output: user_brief
+      rule: 用户首屏只看结论、建议、今日要事、风险红线和附件下载。
+  required_office_report_fields:
+    - office
+    - task_id
+    - summary
+    - facts
+    - evidence
+    - attachments
+    - risks
+    - next_action
+    - source_label
+  attachment_required_fields:
+    - attachment_id
+    - title
+    - source_office
+    - source_label
+    - generated_at
+    - summary
+    - download_path
+  department_memorial_sections:
+    - 圣裁
+    - 分奏
+    - 证据
+    - 风险
+    - 后令
+    - 质门
+    - 来源
+  junji_review_checks:
+    - evidence_present
+    - attachment_traceable
+    - cross_office_conflict
+    - forbidden_commitment
+    - human_signoff_required
+    - source_label_consistent
+  user_value_blocks:
+    - 当前结论
+    - 丞相建议
+    - 今日要办
+    - 风险红线
+    - 附件下载
+  hard_rules:
+    - 没有附件或证据来源的内容只能标为待确认，不能写成事实。
+    - 各司负责证据，部门负责回奏，军机处负责审核，丞相负责综合建议。
+    - 丞相不得把任何部门或各司红灯改成黄灯或绿灯。
+top_advisor_design:
+  name: 顶级大神天才设计规则
+  purpose: 让大神视角成为每个部门的可调用审查和设计能力，而不是会后点评。
+  required_lenses:
+    - product_or_customer
+    - long_term_business
+    - engineering_simplicity
+    - quality_system
+  rules:
+    - 每个部门至少绑定两个 advisor_lenses，形成有张力的设计监督。
+    - 每个 genius_design 必须说明用户价值、系统收益、禁止动作和可验证信号。
+    - 每个 function_upgrades 必须能转成部门 payload、蜂群调用或 harness gate。
+    - 大神建议不替代证据；涉及客户、资金、生产、权限、合规时仍进御史和钦天监。
+    - 史馆归档真实结果后，钦天监触发器必须能改变下一轮建议。
+six_ministries:
+  gongbu:
+    name: 工部
+    definition: 工程建设、产品实现、研发交付和技术验收部门。
+    function: 把钦天监/丞相/客户任务变成可运行系统、POC、测试结果和工程交付。
+    calls_swarms:
+      - sdlc
+      - gongbu_review
+      - product
+      - sourcing
+      - pack_rd
+      - battery_stage_gate
+    completes_work:
+      - 需求拆解、架构、代码生成、测试、代码审查
+      - 产品规划、供应链技术方案、PACK 研发和 stage gate
+      - 工具接入、依赖安全 POC、生产问题工程修复
+    output_types:
+      - implementation
+      - dependency_security
+      - poc_result
+      - stage_gate_decision
+    advisor_lenses:
+      - karpathy
+      - deming
+    genius_design: 最小可运行系统先行；每个工程建议必须有测试、观测事件和回滚路径。
+    function_upgrades:
+      - 把复杂需求拆成可运行 smoke、focused tests、release gate 三段。
+      - 把 prompt / workflow 当代码管理，失败样本进入 regression。
+      - 工程产出默认写 production_events，供发布红黄绿门禁读取。
+    harness_gate: 工部产出必须通过测试、flow 校验、御史漂移和 release observability gate。
+    gate: 御史看安全/证据/自动化权限，史馆归档工程证据。
+  hubu:
+    name: 户部
+    definition: 钱、预算、ROI、报价、成本和收益真实性部门。
+    function: 判断任务是否值得做、花多少钱、报什么价、收益证据是否成立。
+    calls_swarms:
+      - finance
+      - quotation
+      - product
+      - ima
+    completes_work:
+      - ROI、现金流、成本、预算、报价和毛利复核
+      - 商业模式付费点、朝币/功绩兑换边界和不可售项复核
+      - 数字声明证据化，阻断无依据报价和收益承诺
+    output_types:
+      - roi_analysis
+      - quotation
+      - budget
+      - verified_roi
+    advisor_lenses:
+      - jeff-bezos-perspective
+      - deming
+    genius_design: 从客户长期不变需求和真实成本反推报价；所有数字都要能被证据和复盘修正。
+    function_upgrades:
+      - 报价/ROI 统一输出证据、假设、敏感性和禁止承诺。
+      - 对付费能力区分可售、不可售、需人工签字三类。
+      - 成交/流失结果回填后更新报价基线和商业 golden cases。
+    harness_gate: 无来源数字、无签字报价、虚假 ROI 自动 red。
+    gate: 报价、收益、成本数字必须有证据和人工签字。
+  libu_personnel:
+    name: 吏部
+    definition: 人员、角色、权限、绩效、任免和责任归属部门。
+    function: 决定谁负责、谁复核、谁能自动化执行、功绩如何记录。
+    calls_swarms:
+      - court
+      - ai_ops
+      - ima
+    completes_work:
+      - owner/role/permission/approval path 分配
+      - 部门绩效、功绩、任务积分和责任归档
+      - 识别无人负责、权限过大、职责冲突的问题
+    output_types:
+      - personnel_assignment
+      - permission_review
+      - merit_record
+      - accountability_map
+    advisor_lenses:
+      - deming
+      - jeff-bezos-perspective
+    genius_design: 不靠考核制造恐惧；用责任图和权限边界让系统稳定地把事交给正确的人。
+    function_upgrades:
+      - 每个跨部门任务必须有 owner、reviewer、approval path 和替补责任人。
+      - L4/L5 自动化、客户承诺和资金动作必须有人类负责人。
+      - 功绩记录只奖励真实结果和可复用学习，不奖励自评分数。
+    harness_gate: 无 owner、权限过大、职责冲突或无人签字自动 yellow/red。
+    gate: 高权限、L4/L5 自动化和客户承诺必须有人类负责人。
+  libu:
+    name: 礼部
+    definition: 对外表达、品牌、客户话术、内容发布和关系礼仪部门。
+    function: 把内部方案转成客户能理解、可信、不越界的表达。
+    calls_swarms:
+      - xiaohongshu
+      - opc
+      - haolong
+      - ima
+    completes_work:
+      - 客户话术、公开内容、品牌一致性和渠道发布
+      - 对外消息事实核查，过滤无依据 ROI、报价、交期承诺
+      - 客户反馈沉淀为可复用表达样本
+    output_types:
+      - customer_message
+      - public_copy
+      - brand_output
+      - content_plan
+    advisor_lenses:
+      - zhang-xiaolong
+      - jeff-bezos-perspective
+    genius_design: 对外表达要克制、真实、用完即走；客户看完应知道下一步，而不是被话术绑架。
+    function_upgrades:
+      - 客户话术默认包含证据、边界、禁用动作和下一步。
+      - 公开内容先问客户真正摩擦，不为流量牺牲信任。
+      - 复用兵部真实反馈，淘汰被客户证伪的话术。
+    harness_gate: 对外承诺缺证据、夸大 ROI、诱导性话术或未签字自动 red。
+    gate: 对外内容必须带证据、边界、禁用动作和必要签字。
+  bingbu:
+    name: 兵部
+    definition: 销售、售后、客户战情、竞争攻防和现场问题推进部门。
+    function: 负责线索推进、客户澄清、方案攻防、售后响应和真实客户结果回填。
+    calls_swarms:
+      - haolong
+      - opc
+      - quotation
+      - storage_aftercare
+      - shiguan_archive
+    completes_work:
+      - 获客、跟进、客户需求澄清、OPC 方案推进
+      - 售后故障诊断、客户结果回填、复用 golden case
+      - 竞争态势、成交/流失原因和下一步销售动作
+    output_types:
+      - sales_battlecard
+      - aftercare_case
+      - customer_outcome
+      - commercial_golden_case
+    advisor_lenses:
+      - jeff-bezos-perspective
+      - zhang-xiaolong
+    genius_design: 兵部不是催单机器；它从客户真实摩擦反向工作，把销售和售后反馈变成下一轮产品优势。
+    function_upgrades:
+      - 每个线索输出客户状态、风险、禁止动作、下一步和需签字项。
+      - 售后故障必须回填真实结果，触发史馆归档和钦天监复盘。
+      - golden case 只能人工 promote/reject，且写入 production_events。
+    harness_gate: 无客户证据、无户部报价复核、无礼部话术复核或无售后结果回填自动 yellow/red。
+    gate: 禁止无签字报价、交期、ROI 和安全承诺；真实反馈必须回钦天监和史馆。
+  xingbu:
+    name: 刑部
+    definition: 法务、合规、安全、红蓝对抗、事故和制度惩戒部门。
+    function: 找滥用、越权、违法、隐私、安全和事故路径，并给出阻断或豁免条件。
+    calls_swarms:
+      - legal
+      - ai_ops
+      - sdlc
+      - gongbu_review
+      - shiguan_archive
+    completes_work:
+      - 合同/合规审查、事故复盘、红队测试和安全扫描
+      - 高危自动化、客户承诺、数据权限和生产发布阻断
+      - 形成制度控制、修复要求和豁免记录
+    output_types:
+      - red_team_case
+      - incident
+      - policy_control
+      - compliance_review
+    advisor_lenses:
+      - deming
+      - karpathy
+    genius_design: 刑部用最小可复现失败样本暴露系统性风险；它阻断的是坏路径，不是阻断进度。
+    function_upgrades:
+      - 每个 red/black 风险必须有复现条件、影响面、修复要求和豁免条件。
+      - 安全/合规问题进入 regression，避免同类错误重复出现。
+      - 对普通波动不乱惩罚，对特殊原因快速隔离和复盘。
+    harness_gate: red/black 不可绕过御史；事故、豁免和客户风险必须归档。
+    gate: red/black 风险不可绕过御史；事故和豁免必须归档。
+departments:
+  prime_minister:
+    name: 丞相
+    job: 总揽上书房、三省六部、诸司的下一步，压缩成一条可执行主线。
+    owns:
+      - next_step_orchestration
+      - cross_department_priority
+      - owner_route_deadline
+    input_from:
+      - all
+    next:
+      green: qintianjian
+      yellow: yushi
+      red: shangshufang
+      black: xingbu
+  qintianjian:
+    name: 钦天监
+    job: 判断重大方向、主线价值、是否开工和是否需要红线。
+    owns:
+      - strategy_brief
+      - forecast
+      - mainline_decision
+    input_from:
+      - shangshufang
+      - jinyiwei
+      - yushi
+    next:
+      green: gongbu
+      yellow: yushi
+      red: shangshufang
+      black: xingbu
+  bingbu:
+    name: 兵部
+    job: 销售、售后、客户战情、竞争攻防和现场问题推进。
+    owns:
+      - sales_battlecard
+      - aftercare_case
+      - customer_outcome
+      - commercial_golden_case
+    input_from:
+      - qintianjian
+      - libu
+      - hubu
+      - shiguan
+    next:
+      green: shiguan
+      yellow: yushi
+      red: bingbu
+      black: xingbu
+  gongbu:
+    name: 工部
+    job: 实现、POC、工具接入、测试和工程验收。
+    owns:
+      - implementation
+      - dependency_security
+      - poc_result
+    input_from:
+      - qintianjian
+      - junji
+      - yushi
+    next:
+      green: shiguan
+      yellow: yushi
+      red: gongbu
+      black: xingbu
+  hubu:
+    name: 户部
+    job: ROI、成本、报价、预算、收益真实性。
+    owns:
+      - roi_analysis
+      - quotation
+      - budget
+    input_from:
+      - qintianjian
+      - gongbu
+    next:
+      green: junji
+      yellow: yushi
+      red: hubu
+      black: xingbu
+  libu_personnel:
+    name: 吏部
+    job: 人员、角色、权限、绩效、任免和责任归属。
+    owns:
+      - personnel_assignment
+      - permission_review
+      - merit_record
+      - accountability_map
+    input_from:
+      - prime_minister
+      - yushi
+      - shiguan
+    next:
+      green: shiguan
+      yellow: yushi
+      red: libu_personnel
+      black: xingbu
+  jinyiwei:
+    name: 锦衣卫
+    job: 外部信号、开源项目、竞品、风险情报。
+    owns:
+      - open_source_signal
+      - external_signal
+      - risk_intel
+    input_from:
+      - shiguan
+      - qintianjian
+    next:
+      green: qintianjian
+      yellow: yushi
+      red: jinyiwei
+      black: xingbu
+  yushi:
+    name: 御史
+    job: 全局风险、收益、证据、自动化权限总判。
+    owns:
+      - global_gate
+      - drift_monitor
+      - release_gate
+    input_from:
+      - qintianjian
+      - gongbu
+      - hubu
+      - jinyiwei
+      - libu
+      - shiguan
+    next:
+      green: shiguan
+      yellow: source_department
+      red: source_department
+      black: xingbu
+  shiguan:
+    name: 史馆
+    job: 归档证据、复盘、学习样本、能力清单。
+    owns:
+      - archive
+      - learning_record
+      - capability_manifest
+    input_from:
+      - all
+    next:
+      green: done
+      yellow: yushi
+      red: source_department
+      black: xingbu
+  libu:
+    name: 礼部
+    job: 对外表达、客户话术、品牌一致性。
+    owns:
+      - customer_message
+      - public_copy
+      - brand_output
+    input_from:
+      - qintianjian
+      - hubu
+    next:
+      green: shiguan
+      yellow: yushi
+      red: libu
+      black: xingbu
+  xingbu:
+    name: 刑部
+    job: 高危风险、红蓝对抗、事故、制度和惩戒边界。
+    owns:
+      - red_team_case
+      - incident
+      - policy_control
+    input_from:
+      - yushi
+      - shiguan
+    next:
+      green: yushi
+      yellow: yushi
+      red: xingbu
+      black: xingbu

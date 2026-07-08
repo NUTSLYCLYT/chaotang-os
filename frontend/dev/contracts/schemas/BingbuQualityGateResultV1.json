@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BingbuQualityGateResultV1",
+  "type": "object",
+  "required": ["passed", "blockedGates", "warnings", "humanConfirmationRequired", "sourceLabel"],
+  "properties": {
+    "passed": { "type": "boolean" },
+    "blockedGates": { "type": "array", "items": { "type": "string" } },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "humanConfirmationRequired": { "type": "boolean" },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

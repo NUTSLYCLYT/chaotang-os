@@ -1,0 +1,82 @@
+# opc 蜂群黄金评测集 — 直击大神②"eval 必须有 ground truth 锚"。
+#
+# 用法：scripts/baseline_compare.py 读取本文件，对每个 task 同时跑
+#   (A) single-model baseline（一个强模型一个 prompt）
+#   (B) opc 蜂群（5 步 flow）
+# 然后做两类打分：
+#   - 自动初筛：dimensions 维度覆盖 + spec_must_hit 硬约束命中（关键词存在性，零成本、确定性）
+#   - 人工校准：human_score（1-5/维度）由领域专家填，建立 LLM打分 vs 人类 的相关性基线
+#
+# 自动覆盖只是"有没有谈到"，不代表"谈得对"。真质量靠 human_score + 真实 KPI。
+swarm: opc
+
+# 通用评分维度（对齐 flow_opc output_fields）；any=任一关键词命中即记该维度"已覆盖"
+rubric:
+  dimensions:
+    - {key: 客户背景, any: ["背景", "客户", "行业", "现状"]}
+    - {key: 核心需求, any: ["需求", "痛点", "目标", "要求"]}
+    - {key: 市场分析, any: ["市场", "规模", "TAM", "趋势", "格局"]}
+    - {key: 竞品情况, any: ["竞品", "对手", "对标", "竞争"]}
+    - {key: 解决方案, any: ["方案", "系统", "配置", "拓扑", "BOM", "选型"]}
+    - {key: 客户价值, any: ["价值", "ROI", "收益", "降本", "回报"]}
+    - {key: 风险与建议, any: ["风险", "建议", "注意", "缓解"]}
+    - {key: 可执行性, any: ["交付", "周期", "里程碑", "报价", "成本", "排期"]}
+
+scoring:
+  auto: "dimension_coverage(0-8) + spec_hit_rate(0-1)"
+  human_scale: "每维度 1-5；total = 维度均值；A>=4.0 / B 3.0-3.9 / C<3.0"
+  truth_note: "自动分仅作初筛；权威质量 = human_score。后续接真实 KPI（方案被客户采纳率）做最终真北。"
+
+# 10 个代表性任务。spec_must_hit = 该任务的硬约束关键词，
+# 检验模型是否真的咬住了具体规格，而非输出通用储能方案样板。
+tasks:
+  - id: opc-01
+    task: "某储能集成商需要 -40℃ 工况 100MWh 集装箱储能方案，预算800万，6个月交付，倾向磷酸铁锂"
+    spec_must_hit: ["-40", "100MWh", "800", "6个月", "磷酸铁锂"]
+    human_score: null
+    human_notes: ""
+  - id: opc-02
+    task: "工商业园区 2MWh 用户侧储能，峰谷套利为主，要求 10 年运营、IRR≥8%，江苏地区"
+    spec_must_hit: ["2MWh", "峰谷", "套利", "IRR", "10年", "江苏"]
+    human_score: null
+    human_notes: ""
+  - id: opc-03
+    task: "通信基站备电改造 500 个站点，单站 5kWh，要求 -20℃ 可用、循环≥3000 次、3 个月铺完"
+    spec_must_hit: ["500", "5kWh", "-20", "3000", "3个月", "基站"]
+    human_score: null
+    human_notes: ""
+  - id: opc-04
+    task: "海外离网光储项目，东南亚某岛屿微网 1MWh+500kW PCS，高温高湿 45℃，需含 EMS"
+    spec_must_hit: ["1MWh", "500kW", "PCS", "45", "离网", "EMS", "东南亚"]
+    human_score: null
+    human_notes: ""
+  - id: opc-05
+    task: "数据中心备电 10MWh 锂电替代铅酸，要求毫秒级切换、占地减半、消防合规"
+    spec_must_hit: ["10MWh", "数据中心", "铅酸", "毫秒", "消防", "占地"]
+    human_score: null
+    human_notes: ""
+  - id: opc-06
+    task: "电网侧独立储能电站 100MWh/200MWh，参与调频与现货市场，山东，要求 2 小时时长"
+    spec_must_hit: ["100MWh", "调频", "现货", "山东", "2小时", "电网侧"]
+    human_score: null
+    human_notes: ""
+  - id: opc-07
+    task: "矿山重卡换电站 6 个，单站日换电 80 次，电池包 300kWh，西北戈壁 -25~50℃ 宽温"
+    spec_must_hit: ["换电", "300kWh", "80次", "-25", "50", "重卡"]
+    human_score: null
+    human_notes: ""
+  - id: opc-08
+    task: "户用光储一体机 10kWh，目标价 2 万以内，欧洲市场 CE+VDE 认证，2026 Q3 上市"
+    spec_must_hit: ["10kWh", "2万", "户用", "CE", "VDE", "欧洲", "Q3"]
+    human_score: null
+    human_notes: ""
+  - id: opc-09
+    task: "工业园区光储充一体 500kW 充电 + 1MWh 储能 + 800kWp 光伏，要求需量管理、广东"
+    spec_must_hit: ["500kW", "1MWh", "800kWp", "光储充", "需量", "广东"]
+    human_score: null
+    human_notes: ""
+  - id: opc-10
+    task: "极寒地区应急电源 50kWh 移动电源舱，-45℃ 自加热，可拖行，工业级认证"
+    spec_must_hit: ["50kWh", "-45", "自加热", "电源舱", "工业级", "移动"]
+    human_score: null
+    human_notes: ""

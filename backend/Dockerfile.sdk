@@ -1,0 +1,25 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# 依赖安装（利用 layer cache）
+COPY requirements-core.txt .
+RUN pip install --no-cache-dir -r requirements-core.txt && \
+    pip install --no-cache-dir markdown
+
+# 项目代码
+COPY src/ src/
+COPY scripts/ scripts/
+COPY config/ config/
+COPY runtime_prompts/ runtime_prompts/
+COPY knowledge/ knowledge/
+COPY examples/ examples/
+COPY tests/ tests/
+
+# 输出目录
+RUN mkdir -p reports knowledge/flywheel
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+
+CMD ["python", "scripts/run_flow.py", "--help"]

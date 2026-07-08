@@ -1,0 +1,4 @@
+{"_schema": "钦天监预测·回测真值。每行=一个'预测区间 vs 已兑现真实结局'。realized 字段在结局发生后由人/数据填入,填了才参与回测评分。", "_fields": "forecast_id, metric(指标名), scenario(乐观/中性/悲观), predicted_low, predicted_high, unit, realized(真实值,未兑现填null), as_of(兑现日期), source(真实值来源)"}
+{"forecast_id": "2026H2储能", "metric": "碳酸锂价格", "scenario": "中性", "predicted_low": 8, "predicted_high": 12, "unit": "万元/吨", "realized": null, "as_of": null, "source": "待2026下半年兑现后填入(如上海有色网现货均价)"}
+{"forecast_id": "2026H2储能", "metric": "工商业储能IRR", "scenario": "中性", "predicted_low": 5, "predicted_high": 10, "unit": "%", "realized": null, "as_of": null, "source": "待兑现"}
+{"forecast_id": "2026H2储能", "metric": "新增装机", "scenario": "中性", "predicted_low": 20, "predicted_high": 25, "unit": "GWh", "realized": null, "as_of": null, "source": "待CNESA年度数据"}

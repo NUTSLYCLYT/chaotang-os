@@ -1,0 +1,38 @@
+[
+  {
+    "case_id": "aftercare_sales_goes_to_bingbu",
+    "task": "客户售后故障升级，需要销售跟进并沉淀真实反馈",
+    "expect": {
+      "primary_department": "bingbu",
+      "candidate_departments": ["bingbu"],
+      "required_swarms": ["haolong", "opc", "quotation", "storage_aftercare"]
+    }
+  },
+  {
+    "case_id": "quote_roi_copy_routes_hubu_libu",
+    "task": "客户要求报价和ROI测算，同时准备对外话术",
+    "expect": {
+      "primary_department": "hubu",
+      "candidate_departments": ["hubu", "libu"],
+      "required_swarms": ["finance", "quotation"]
+    }
+  },
+  {
+    "case_id": "security_contract_routes_xingbu",
+    "task": "上线前复核合同合规、安全风险和隐私越权",
+    "expect": {
+      "primary_department": "xingbu",
+      "candidate_departments": ["xingbu", "gongbu"],
+      "required_swarms": ["legal", "ai_ops", "sdlc"]
+    }
+  },
+  {
+    "case_id": "unknown_task_defaults_gongbu",
+    "task": "整理内部事项",
+    "expect": {
+      "primary_department": "gongbu",
+      "candidate_departments": ["gongbu"],
+      "required_swarms": ["sdlc"]
+    }
+  }
+]

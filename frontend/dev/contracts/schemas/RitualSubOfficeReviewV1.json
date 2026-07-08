@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RitualSubOfficeReviewV1",
+  "type": "object",
+  "required": [
+    "officeId",
+    "officeName",
+    "position",
+    "finding",
+    "evidenceUsed",
+    "missingEvidence",
+    "forbiddenExpressions",
+    "risks",
+    "sourceLabel"
+  ],
+  "properties": {
+    "officeId": {
+      "enum": [
+        "cmo_chief",
+        "customer_insight",
+        "message",
+        "brand",
+        "partnership",
+        "public_sentiment",
+        "commitment_boundary"
+      ]
+    },
+    "officeName": { "type": "string" },
+    "position": { "enum": ["可发布", "先改稿", "复核", "禁止发布"] },
+    "finding": { "type": "string" },
+    "evidenceUsed": { "type": "array" },
+    "missingEvidence": { "type": "array", "items": { "type": "string" } },
+    "forbiddenExpressions": { "type": "array", "items": { "type": "string" } },
+    "risks": { "type": "array", "items": { "type": "string" } },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": false
+}

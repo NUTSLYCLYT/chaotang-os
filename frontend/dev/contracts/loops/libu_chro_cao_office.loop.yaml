@@ -1,0 +1,116 @@
+id: libu_chro_cao_office_loop_v1
+name: 吏部 CHRO/CAO Office 子循环
+version: 0.1.0
+owner: courtos/libu
+purpose: >
+  接收军机处工作令，从 CHRO 与行政总监 CAO 视角组织组织编制、招聘、绩效、薪酬、
+  人事运营、员工关系、行政保障等子司会审，形成可进入朝堂奏折的吏部分奏。
+  作为统一朝堂 Loop (court_unified_decision_loop_v1) 的可插拔部门能力接入，
+  不建立单独人事专线，不创建 libu_special_review。
+
+entrypoints:
+  - enabled_department_review.personnel
+  - junjichu_department_work_order.personnel
+  - resubmit_after_people_admin_evidence
+
+state_model:
+  allowed_states:
+    - received
+    - classified
+    - evidence_collecting
+    - sub_offices_reviewing
+    - chro_cao_synthesizing
+    - quality_gating
+    - returned_to_junjichu
+    - failed_with_recovery
+
+steps:
+  - id: receive_libu_work_order
+    name: 吏部接令
+    inputs:
+      - confirmed_edict
+      - review_plan
+      - intelligence_pack
+      - department_work_order
+
+  - id: classify_people_admin_question
+    name: 人力行政问题分类
+    skill: skill.libu.classify_people_admin_question
+    outputs:
+      - people_admin_question_type
+      - required_libu_sub_offices
+      - required_people_admin_evidence
+      - risk_watchlist
+
+  - id: collect_people_admin_evidence
+    name: 收集人力行政证据
+    skill: skill.libu.collect_people_admin_evidence
+    outputs:
+      - people_admin_evidence_pack
+      - missing_people_admin_evidence
+      - assumptions
+
+  - id: run_libu_sub_offices
+    name: 吏部子司并行审查
+    type: parallel
+    branches:
+      - id: org_design
+        skill: skill.libu.org_design_review
+      - id: talent_acquisition
+        skill: skill.libu.talent_acquisition_review
+      - id: performance
+        skill: skill.libu.performance_review
+      - id: total_rewards
+        skill: skill.libu.total_rewards_review
+      - id: hr_operations
+        skill: skill.libu.hr_operations_review
+      - id: employee_relations
+        skill: skill.libu.employee_relations_review
+      - id: admin_operations
+        skill: skill.libu.admin_operations_review
+
+  - id: synthesize_chro_cao_position
+    name: 吏部尚书合议
+    skill: skill.libu.chro_cao_synthesize_position
+    outputs:
+      - libu_chro_cao_opinion
+
+  - id: libu_quality_gate
+    name: 吏部质门
+    skill: skill.libu.chro_cao_quality_gate
+    gates:
+      - source_label_required
+      - owner_or_gap_required
+      - role_scope_required
+      - hiring_requires_budget_and_success_criteria
+      - compensation_requires_hubu_review
+      - termination_requires_evidence_and_xingbu_review
+      - labor_risk_requires_xingbu_review
+      - admin_cost_requires_budget_source
+      - no_people_decision_without_context
+      - privacy_sensitive_data_guard
+      - ai_agent_role_requires_permission_review
+      - high_risk_requires_human_confirmation
+      - no_irreversible_hr_action_without_approval
+
+  - id: return_to_junjichu
+    name: 回传军机处
+    outputs:
+      - DepartmentOpinionV1
+
+# 跨部门确定性触发（由统一 Loop 的军机处定审在 Goal 3 落地；此处为契约声明）
+cross_department_triggers:
+  - when: COMPENSATION
+    must_review: [finance]          # 薪酬/奖金/提成/调薪 → 户部复核
+  - when: TERMINATION
+    must_review: [justice]          # 辞退/处分/解除 → 刑部复核（且需证据）
+  - when: LABOR_RISK
+    must_review: [justice]          # 劳动合同/竞业/纠纷/仲裁 → 刑部复核
+  - when: ADMIN_COST
+    must_review: [finance]          # 行政采购/搬迁/租赁/活动费 → 户部预算来源
+  - when: ORG_DESIGN
+    must_review: [war, finance]     # 组织调整 → 兵部(承接)+户部(成本)
+  - when: OFFICE_RELOCATION
+    must_review: [finance, justice, jinyiwei]
+  - when: AI_WORKFORCE
+    must_review: [justice, jinyiwei]  # AI Agent/蜂群岗位 → 刑部(责任)+锦衣卫(审计)

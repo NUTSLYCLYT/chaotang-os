@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CollectionPlanV1",
+  "type": "object",
+  "required": ["id", "requirements", "allowedSourceTypes", "forbiddenMethods", "permissionChecks", "sourceLabel"],
+  "properties": {
+    "id": { "type": "string" },
+    "requirements": { "type": "array", "items": { "type": "string" } },
+    "allowedSourceTypes": { "type": "array", "items": { "enum": ["USER_INPUT", "USER_UPLOAD", "ARCHIVE", "INTERNAL_AUTHORIZED", "PUBLIC_WEB", "PUBLIC_REPORT", "NEWS", "GOVERNMENT", "DATABASE_AUTHORIZED"] } },
+    "forbiddenMethods": { "type": "array", "items": { "enum": ["HACKING", "BYPASS_AUTH", "ACCOUNT_TAKEOVER", "SOCIAL_ENGINEERING", "PRIVATE_SCRAPING", "UNAUTHORIZED_MONITORING", "DECEPTIVE_COLLECTION"] } },
+    "permissionChecks": { "type": "array", "items": { "type": "string" } },
+    "collectionSteps": { "type": "array", "items": { "type": "string" } },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

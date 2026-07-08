@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RitesGeneratedArtifactV1",
+  "type": "object",
+  "required": [
+    "artifactType",
+    "audience",
+    "goal",
+    "channel",
+    "draftStatus",
+    "contentOutline",
+    "evidenceUsed",
+    "missingEvidence",
+    "riskFlags",
+    "requiredReviews",
+    "mayPublish",
+    "sourceLabel"
+  ],
+  "properties": {
+    "artifactType": {
+      "enum": [
+        "客户回复草稿",
+        "销售话术",
+        "招商话术",
+        "公司介绍",
+        "产品介绍",
+        "官网文案",
+        "宣传册文案",
+        "Pitch Deck 大纲",
+        "合作方案大纲",
+        "销售 PPT 大纲",
+        "客户会议议程",
+        "展会话术",
+        "公众号 / 朋友圈 / 小红书 / LinkedIn 草稿",
+        "新闻稿",
+        "媒体 Q&A",
+        "危机回应 holding statement",
+        "舆情回应草稿",
+        "品牌定位卡",
+        "客户价值主张卡",
+        "竞品对比话术",
+        "FAQ",
+        "对外邮件草稿",
+        "招商落地页文案",
+        "案例故事草稿"
+      ]
+    },
+    "audience": { "type": "string" },
+    "goal": { "type": "string" },
+    "channel": { "type": "string" },
+    "draftStatus": { "enum": ["草稿", "待补证", "待复核", "禁止外发"] },
+    "contentOutline": { "type": "array", "items": { "type": "string" } },
+    "evidenceUsed": { "type": "array", "items": { "type": "string" } },
+    "missingEvidence": { "type": "array", "items": { "type": "string" } },
+    "riskFlags": { "type": "array", "items": { "type": "string" } },
+    "requiredReviews": {
+      "type": "array",
+      "items": { "enum": ["户部", "刑部", "兵部", "锦衣卫", "吏部", "工部", "军机处", "人工确认"] }
+    },
+    "mayPublish": { "const": false },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": false
+}

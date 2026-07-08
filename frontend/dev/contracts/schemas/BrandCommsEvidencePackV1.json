@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BrandCommsEvidencePackV1",
+  "type": "object",
+  "required": [
+    "audience",
+    "goal",
+    "channel",
+    "facts",
+    "evidenceUsed",
+    "missingEvidence",
+    "unsupportedClaims",
+    "permissionGaps",
+    "sourceLabel"
+  ],
+  "properties": {
+    "audience": { "type": "string" },
+    "goal": { "type": "string" },
+    "channel": { "type": "string" },
+    "facts": { "type": "array", "items": { "type": "string" } },
+    "evidenceUsed": { "type": "array", "items": { "type": "string" } },
+    "missingEvidence": { "type": "array", "items": { "type": "string" } },
+    "unsupportedClaims": { "type": "array", "items": { "type": "string" } },
+    "permissionGaps": { "type": "array", "items": { "type": "string" } },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://courtos.local/schemas/ShiguanArchiveRecordV1.json",
+  "title": "ShiguanArchiveRecordV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "archive_id",
+    "task_id",
+    "original_question",
+    "draft_edict",
+    "memorial",
+    "emperor_decision",
+    "source_label",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "ShiguanArchiveRecordV1" },
+    "archive_id": { "type": "string", "minLength": 1 },
+    "task_id": { "type": "string", "minLength": 1 },
+    "loop_trace_id": { "type": "string", "minLength": 1 },
+    "original_question": { "type": "string", "minLength": 5 },
+    "draft_edict": { "$ref": "DraftEdictV1.json" },
+    "memorial": { "$ref": "MemorialV1.json" },
+    "emperor_decision": { "$ref": "EmperorDecisionV1.json" },
+    "human_confirmation_record": { "type": "object" },
+    "reusable_lessons": { "type": "array", "items": { "type": "string" } },
+    "synthetic": { "type": "boolean", "default": false },
+    "source_label": { "$ref": "#/$defs/source_label" },
+    "created_at": { "type": "string", "minLength": 1 }
+  },
+  "$defs": {
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  }
+}

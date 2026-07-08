@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# 防复发·阶段5(2026-07-03 落地)：提交前拦冲突标记，别等 build 才发现。
+# 由 scripts/install-git-hooks.sh 复制到 .git/hooks/pre-commit(那里不入库，这份才是 SoT)。
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+bash scripts/guard-conflict-markers.sh

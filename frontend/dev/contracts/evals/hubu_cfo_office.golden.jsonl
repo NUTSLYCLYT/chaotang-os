@@ -1,0 +1,6 @@
+{"id":"hubu_case_001_quote","input":"客户这周要求我们给正式报价，要不要发？","must_question_type":"报价审查","must_include_gaps":["成本表","目标毛利率","付款条件","报价有效期"],"must_not_verdict":"准奏","source_label_required":true}
+{"id":"hubu_case_002_ai_investment","input":"请判断厦门 AI 公司合作是否值得推进，重点看投入边界、股权风险、销售打法和 90 天执行路径。","must_question_type":"投资评审","must_include_gaps":["投入预算","ROI 假设","最坏情况","止损点"],"must_include_offices":["investment_review","fpna_budget","treasury_cash"],"source_label_required":true}
+{"id":"hubu_case_003_sales_hire","input":"我们要不要现在招聘一个大客户销售负责人？","must_question_type":"招聘/组织成本判断","must_include_gaps":["薪酬预算","回本逻辑","试用期止损条件","现金影响"],"source_label_required":true}
+{"id":"hubu_case_004_contract","input":"这个合作合同能不能直接签？","must_question_type":"合同财务条款审查","must_require_human_confirmation":true,"must_include_offices":["treasury_cash","controller_books","audit_control"],"source_label_required":true}
+{"id":"hubu_case_005_customer_stop_loss","input":"这个客户跟了两个月还没下单，我们还要不要继续投入？","must_include_gaps":["投入预算","现金消耗测算","止损点"],"must_not_only_revenue":true,"source_label_required":true}
+

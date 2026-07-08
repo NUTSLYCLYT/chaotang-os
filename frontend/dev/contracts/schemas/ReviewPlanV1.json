@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://courtos.local/schemas/ReviewPlanV1.json",
+  "title": "ReviewPlanV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "selected_departments",
+    "selection_reasons",
+    "review_depth",
+    "source_label"
+  ],
+  "properties": {
+    "schema_version": { "const": "ReviewPlanV1" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "selected_departments": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "selection_reasons": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "review_depth": { "enum": ["shallow", "standard", "deep", "live_swarm"] },
+    "complexity_score": { "type": "number" },
+    "complexity_reasons": { "type": "array", "items": { "type": "string" } },
+    "swarm_required": { "type": "boolean", "default": false },
+    "swarm_trace_required": { "type": "boolean", "default": false },
+    "swarm_bundles": { "type": "array", "items": { "type": "string" } },
+    "swarm_runtime_status": {
+      "enum": ["skipped_not_required", "skipped_no_live_adapter", "completed", "blocked"]
+    },
+    "swarm_missing_capabilities": { "type": "array", "items": { "type": "string" } },
+    "swarm_trace_summary": { "$ref": "SwarmTraceV1.json" },
+    "interaction_question": { "type": "string" },
+    "source_label": { "$ref": "#/$defs/source_label" }
+  },
+  "$defs": {
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  }
+}

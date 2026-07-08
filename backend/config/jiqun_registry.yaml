@@ -1,0 +1,318 @@
+# jiqun_ai 总注册表。
+# 这份文件描述系统制度，不替代 flow YAML；flow YAML 仍是每个蜂群的运行配置。
+system:
+  id: jiqun_ai
+  name: 集群 AI 组织操作系统
+  definition: 三省六部治理任务，蜂群执行业务，庄园补充专家，大神提升判断，红蓝对抗保证质量，IMA 沉淀知识。
+  court_entry: config/flow_court.yaml
+  swarm_orchestrator: config/swarm_orchestrator.yaml
+  manor_groups: config/manor_groups.yaml
+  review_committee: config/review_committee.yaml
+  global_tail_flow: config/global_tail_flow.yaml
+
+terms:
+  flow: 工作流配置，一个可运行流程。
+  swarm: 业务蜂群，由一个 flow 和多个子 agent 组成。
+  agent: flow 里的执行角色，通常对应 runtime_prompts/<prompt_key>/。
+  manor: 专家庄园/能力池，可用 subagent 或 OpenClaw 运行。
+  court: 三省六部治理层，负责理解、审议、派发、复核。
+  persona: 大神视角，用于评审，不替代执行 agent。
+  critic: 红蓝对抗/质疑角色，负责找失败路径。
+
+runtime_policy:
+  default: subagent
+  subagent:
+    use_for:
+      - workflow_steps
+      - qa
+      - critic
+      - persona_review
+      - low_latency_business_tasks
+    reason: 轻、快、便宜、可观测，适合作为 14 个蜂群的主流程骨架。
+  openclaw:
+    use_for:
+      - long_running_manors
+      - external_tool_execution
+      - cross_task_memory
+      - independent_department_agents
+    fallback: subagent
+    reason: 更适合长期、有工具、有记忆、有独立行动能力的庄园。
+
+layers:
+  - id: court
+    name: 三省六部治理层
+    config: config/flow_court.yaml
+    responsibility: 总入口、审议、派单、复核和回传。
+  - id: swarms
+    name: 蜂群执行层
+    config: config/swarm_orchestrator.yaml
+    responsibility: 14 个业务蜂群按事件和质量门控联动。
+  - id: manors
+    name: 庄园专家层
+    config: config/manor_groups.yaml
+    responsibility: 横向专家能力池，默认 subagent，可升级 OpenClaw。
+  - id: critics
+    name: 红蓝对抗层
+    config: config/global_tail_flow.yaml
+    responsibility: 质疑、找漏洞、找失败路径。
+  - id: personas
+    name: 大神评审层
+    config: config/review_committee.yaml
+    responsibility: 战略、风险、产品、工程和商业本质评审。
+  - id: memory
+    name: 知识沉淀层
+    config: config/flow_ima.yaml
+    responsibility: 归档高质量结果、争论过程和复盘经验。
+
+swarm_categories:
+  core_business:
+    name: 核心业务链
+    order:
+      - haolong
+      - opc
+      - product
+      - quotation
+  rnd_delivery:
+    name: 研发交付链
+    order:
+      - sourcing
+      - pack_rd
+      - hardware_design
+      - process_manufacturing
+      - battery_stage_gate
+  functional_support:
+    name: 职能支撑链
+    order:
+      - finance
+      - legal
+      - brand_strategy
+      - xiaohongshu
+      - ima
+  governance_ops:
+    name: 治理运维链
+    order:
+      - court
+      - ai_ops
+  tools:
+    name: 工具型蜂群
+    order:
+      - sdlc
+
+swarms:
+  - id: haolong
+    name: 郝龙获客 Pipeline
+    category: core_business
+    config: config/flow_haolong.yaml
+    runtime: subagent
+    agents: [lead_acquisition, lead_archive, lead_outreach, content_publish, qa_tech_support]
+    tail_policy: standard
+
+  - id: opc
+    name: OPC 市场方案流程
+    category: core_business
+    config: config/flow_opc.yaml
+    runtime: subagent
+    agents: [opc_leader, market_intel, solution_architect, customer_success, qa_tech_support]
+    manor_routes: [intel, content, rnd, finlaw]
+    tail_policy: standard
+
+  - id: product
+    name: 产品部产品规划流程
+    category: core_business
+    config: config/flow_product.yaml
+    runtime: subagent
+    agents: [product_manager, competitive_research, product_planning, compliance_check, qa_tech_support]
+    manor_routes: [intel, content, rnd, finlaw]
+    tail_policy: standard
+
+  - id: quotation
+    name: 报价单生成流程
+    category: core_business
+    config: config/flow_quotation.yaml
+    runtime: subagent
+    agents: [quotation_analyst, cost_engineer, commercial_manager, tech_solution, qa_tech_support]
+    manor_routes: [finlaw, rnd]
+    tail_policy: standard
+
+  - id: sourcing
+    name: 电芯 Sourcing 搜寻流程
+    category: rnd_delivery
+    config: config/flow_sourcing.yaml
+    runtime: subagent
+    agents: [sourcing_dispatcher, supplier_intel, cell_spec_collector, spec_normalizer, virtual_inquirer, sourcing_synthesizer, qa_tech_support]
+    manor_routes: [intel, rnd]
+    tail_policy: standard
+
+  - id: pack_rd
+    name: PACK 研发蜂群
+    category: rnd_delivery
+    config: config/flow_pack_rd.yaml
+    runtime: subagent
+    agents: [pack_rd_leader, bms_hw_engineer, cell_engineer, bms_sw_engineer, structure_thermal_engineer, pack_reliability_tester, bms_summary, process_test_summary, cross_module_checker, pack_summary_expert, qa_tech_support, critic]
+    manor_routes: [rnd, finlaw, review]
+    tail_policy: critic_first
+
+  - id: hardware_design
+    name: 工部硬件设计蜂群
+    category: rnd_delivery
+    config: config/flow_hardware_design.yaml
+    runtime: subagent
+    agents: [cell_selection_deep, bms_hardware_designer, thermal_engineer, mechanical_structure_engineer, connector_harness_engineer, hardware_dfm_reviewer, hardware_bom_compiler, qa_tech_support]
+    manor_routes: [rnd, review]
+    tail_policy: standard
+
+  - id: process_manufacturing
+    name: 工部工艺生产蜂群
+    category: rnd_delivery
+    config: config/flow_process_manufacturing.yaml
+    runtime: subagent
+    agents: [assembly_process_engineer, welding_process_engineer, production_line_planner, yield_analyst, process_fmea_analyst, spc_quality_control_planner, qa_tech_support]
+    manor_routes: [rnd, review]
+    tail_policy: standard
+
+  - id: battery_stage_gate
+    name: 电池研发 Stage Gate 决策蜂群
+    category: rnd_delivery
+    config: config/flow_battery_stage_gate.yaml
+    runtime: subagent
+    agents: [battery_project_reviewer, architecture_reviewer, manufacturing_reviewer, failure_analyst, stage_gate_reviewer, qa_tech_support]
+    manor_routes: [rnd, review]
+    tail_policy: standard
+
+  - id: finance
+    name: 财务分析流程
+    category: functional_support
+    config: config/flow_finance.yaml
+    runtime: subagent
+    agents: [finance_analyst, finance_cashflow, finance_risk, qa_tech_support]
+    manor_routes: [finlaw]
+    tail_policy: standard
+
+  - id: legal
+    name: 法律合规流程
+    category: functional_support
+    config: config/flow_legal.yaml
+    runtime: subagent
+    agents: [legal_review, contract_counsel, legal_compliance, qa_tech_support]
+    manor_routes: [finlaw]
+    tail_policy: standard
+
+  - id: jinyiwei
+    name: 锦衣卫情报蜂群
+    category: functional_support
+    config: config/flow_jinyiwei.yaml
+    runtime: subagent
+    agents: [jinyiwei_collect, jinyiwei_vet, jinyiwei_synthesize, qa_tech_support]
+    manor_routes: [intel, review]
+    tail_policy: standard
+
+  - id: tianjian
+    name: 钦天监预测参谋蜂群
+    category: governance_ops
+    config: config/flow_tianjian.yaml
+    runtime: subagent
+    agents: [tianjian_observe, tianjian_forecast, tianjian_advise, qa_tech_support]
+    manor_routes: [intel, review]
+    tail_policy: standard
+
+  - id: libu_personnel  # 2026-07-04 由 libu 改名,和礼部(court_doc_builder 等的 libu)消歧
+    name: 吏部人才蜂群
+    category: functional_support
+    config: config/flow_libu.yaml
+    runtime: subagent
+    agents: [libu_profile, libu_screen, libu_interview, qa_tech_support]
+    manor_routes: [exec, review]
+    tail_policy: standard
+
+  - id: lipu
+    name: 礼部出版蜂群
+    category: functional_support
+    config: config/flow_lipu.yaml
+    runtime: subagent
+    agents: [lipu_compose, lipu_review, lipu_finalize, qa_tech_support]
+    manor_routes: [content, review]
+    tail_policy: standard
+
+  - id: brand_strategy
+    name: 礼部品牌战略蜂群
+    category: functional_support
+    config: config/flow_brand_strategy.yaml
+    runtime: subagent
+    agents: [brand_positioning_strategist, corporate_culture_narrator, visual_identity_reviewer, brand_asset_compiler, qa_tech_support]
+    manor_routes: [content, review]
+    tail_policy: standard
+
+  - id: xiaohongshu
+    name: 小红书运营流程
+    category: functional_support
+    config: config/flow_xiaohongshu.yaml
+    runtime: subagent
+    agents: [xhs_researcher, xhs_strategy, xhs_monitor, qa_tech_support]
+    manor_routes: [intel, content]
+    tail_policy: standard
+
+  - id: ima
+    name: IMA 知识蜂群
+    category: functional_support
+    config: config/flow_ima.yaml
+    runtime: subagent
+    agents: [ima_searcher, ima_analyst, ima_curator, qa_tech_support]
+    tail_policy: archive_only
+
+  - id: court
+    name: 三省六部朝堂治理流
+    category: governance_ops
+    config: config/flow_court.yaml
+    runtime: subagent
+    agents: [taizi_intake, zhongshu_analyze, menxia_review, shangshu_dispatch, liubu_execute, zhuangyuan_analyze, shangshu_aggregate, zhongshu_conclude, taizi_output, qa_tech_support]
+    manor_routes: [intel, content, finlaw, rnd, exec, review]
+    tail_policy: governance
+
+  - id: ai_ops
+    name: AI 运维元蜂群
+    category: governance_ops
+    config: config/flow_ai_ops.yaml
+    runtime: subagent
+    agents: [idea_analyst_ops, qa_tech_support]
+    manor_routes: [review, exec]
+    tail_policy: standard
+
+  - id: sdlc
+    name: SDLC 开发生命周期蜂群
+    category: tools
+    config: config/flow_sdlc.yaml
+    runtime: subagent
+    isolated: true
+    agents: [requirements_analyst, arch_planner, code_generator, qa_tester, security_auditor, qa_tech_support]
+    manor_routes: [exec, review]
+    tail_policy: standard
+
+  # T3(2026-06-10)补登记:这 3 个蜂群已在 swarm_orchestrator.yaml 注册并运行,
+  # 此前漏登记导致 registry↔orchestrator 漂移(validate_registry_sync 检出)。
+  - id: storage_aftercare
+    name: 储能电站售后故障诊断蜂群
+    category: functional_support
+    config: config/flow_storage_aftercare.yaml
+    runtime: subagent
+    agents: [fault_triager, telemetry_collector, bms_diagnostician, field_failure_analyst, workorder_generator, qa_tech_support]
+    manor_routes: [intel, rnd, review]
+    tail_policy: standard
+
+  - id: gongbu_review
+    name: 工部代码审查蜂群
+    category: tools
+    config: config/flow_gongbu_review.yaml
+    runtime: subagent
+    agents: [code_analyst, security_inspector, func_verifier, review_synthesizer, qa_tech_support]
+    manor_routes: [exec, review]
+    tail_policy: standard
+
+  - id: shiguan_archive
+    name: 史馆归档流程
+    category: governance_ops
+    config: config/flow_shiguan_archive.yaml
+    runtime: subagent
+    isolated: true
+    agents: [archive_extractor, lesson_distiller, annals_writer, archive_indexer, qa_tech_support]
+    manor_routes: [review]
+    tail_policy: archive_only

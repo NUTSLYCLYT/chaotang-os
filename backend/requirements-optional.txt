@@ -1,0 +1,7 @@
+# chromadb 暂停默认安装：OSV GHSA-f4j7-r4q5-qw2c 对 1.5.9 仍无 fixed version。
+# 上游发布修复后再恢复到安全下限。
+gunicorn>=22.0.0
+httpx>=0.27.0
+jieba>=0.42
+rank-bm25>=0.2.2
+markitdown[pdf,docx,xlsx,pptx]>=0.1.6  # 微软,PDF/Word/Excel/PPT/HTML→Markdown,RAG灌库用

@@ -1,0 +1,203 @@
+{
+  "version": "1.0.0",
+  "tasks": [
+    {
+      "id": "prime_minister-single",
+      "dept": "丞相",
+      "deptCode": "prime_minister",
+      "mode": "single",
+      "command": "拆解「三个月内把新品AI助手推向海外市场」这个目标，列出需要哪些部门参与、依赖顺序和关键里程碑。",
+      "expectDims": ["completeness", "actionability"],
+      "notes": "中枢编排能力：意图识别+子任务拆解+依赖图。单档快返，核验拆解结构是否覆盖多部门与里程碑。"
+    },
+    {
+      "id": "prime_minister-deep",
+      "dept": "丞相",
+      "deptCode": "prime_minister",
+      "mode": "deep",
+      "command": "为公司制定下一季度的整体经营战略方向，需统筹财务、产品、竞品与风控，并给出可执行的优先级排序。",
+      "expectDims": ["completeness", "actionability", "traceability"],
+      "notes": "三院深档主路径：考查中枢调度多部协同与冲突仲裁，门下verdict应给出准/再议判定。"
+    },
+    {
+      "id": "scribe-single",
+      "dept": "史官",
+      "deptCode": "scribe",
+      "mode": "single",
+      "command": "召回历史上与「跨境电商合规整改」相似的决策案例，并总结当时采用的成功路径模板。",
+      "expectDims": ["relevance", "traceability"],
+      "notes": "记忆审计：相似召回+成功模板抽取。核验是否引用可追溯历史记录而非凭空生成。"
+    },
+    {
+      "id": "scribe-deep",
+      "dept": "史官",
+      "deptCode": "scribe",
+      "mode": "deep",
+      "command": "对过去一个季度所有重大决策做年度复盘，梳理决策时间线、批示记录与偏好规律，输出复盘报告。",
+      "expectDims": ["completeness", "traceability", "accuracy"],
+      "notes": "深档复盘：时间线重建+审计日志。门下应核查证据链完整性，traceability为关键维度。"
+    },
+    {
+      "id": "li_bu-single",
+      "dept": "吏部",
+      "deptCode": "li_bu",
+      "mode": "single",
+      "command": "诊断当前研发团队的关键岗位风险，识别哪些核心岗位缺少继任人选并给出继任规划建议。",
+      "expectDims": ["relevance", "actionability"],
+      "notes": "人力组织：关键岗位识别+继任规划。realDataConnected=false，核验是否走模板降级且标注假设。"
+    },
+    {
+      "id": "li_bu-deep",
+      "dept": "吏部",
+      "deptCode": "li_bu",
+      "mode": "deep",
+      "command": "设计一套面向快速扩张阶段的扁平化组织架构改造方案，含绩效体系、晋升通道与招聘计划。",
+      "expectDims": ["completeness", "actionability", "accuracy"],
+      "notes": "深档组织设计：多子能力协同。门下应评估方案可行性与内部一致性。"
+    },
+    {
+      "id": "hu_bu-single",
+      "dept": "户部",
+      "deptCode": "hu_bu",
+      "mode": "single",
+      "command": "对英伟达(NVIDIA)做一次估值研判，给出买入/持有/卖出评级和目标价区间，说明关键假设。",
+      "expectDims": ["accuracy", "traceability"],
+      "notes": "金融投资：DCF/相对估值。realDataConnected=true，核验是否给区间而非点估计、是否标注数据源。"
+    },
+    {
+      "id": "hu_bu-deep",
+      "dept": "户部",
+      "deptCode": "hu_bu",
+      "mode": "deep",
+      "command": "为一个一千万规模的核心资产组合设计配置方案，权衡风险收益、行业景气度与宏观流动性，给出再平衡建议。",
+      "expectDims": ["accuracy", "completeness", "actionability"],
+      "notes": "深档资产配置：组合构建+风险平价+宏观分析。门下核查估值逻辑与风险披露。"
+    },
+    {
+      "id": "li_bu_rites-single",
+      "dept": "礼部",
+      "deptCode": "li_bu_rites",
+      "mode": "single",
+      "command": "为即将上线的新品撰写一份小红书与抖音双渠道的传播策略，含内容方向、节奏与关键KPI。",
+      "expectDims": ["relevance", "actionability"],
+      "notes": "品牌营销：渠道组合优化+内容策划。核验渠道策略具体性与可执行KPI。"
+    },
+    {
+      "id": "li_bu_rites-deep",
+      "dept": "礼部",
+      "deptCode": "li_bu_rites",
+      "mode": "deep",
+      "command": "针对一起品牌负面舆情设计完整危机公关响应方案，含对外声明口径、分阶段动作与高管摘要。",
+      "expectDims": ["completeness", "actionability", "accuracy"],
+      "notes": "深档危机公关：crisis_pr+高管摘要。门下应核查响应是否保守稳妥、口径一致。"
+    },
+    {
+      "id": "bing_bu-single",
+      "dept": "兵部",
+      "deptCode": "bing_bu",
+      "mode": "single",
+      "command": "对当前赛道前三名竞品做一次SWOT与波特五力分析，指出我方主要威胁与可攻击的薄弱点。",
+      "expectDims": ["relevance", "accuracy"],
+      "notes": "竞品战略：competitor_intelligence+SWOT。realDataConnected=false，核验是否标注情报来源与置信度。"
+    },
+    {
+      "id": "bing_bu-deep",
+      "dept": "兵部",
+      "deptCode": "bing_bu",
+      "mode": "deep",
+      "command": "评估进入东南亚新市场的可行性，给出市场进入策略、定价战术与防御性预案(A/B两套)。",
+      "expectDims": ["completeness", "actionability", "accuracy"],
+      "notes": "深档市场进入：market_entry+pricing。低置信度应给A/B预案，门下核查论证严密度。"
+    },
+    {
+      "id": "xing_bu-single",
+      "dept": "刑部",
+      "deptCode": "xing_bu",
+      "mode": "single",
+      "command": "对公司现行用户数据处理流程做一次合规审查，识别在数据收集与存储环节的主要合规风险点。",
+      "expectDims": ["accuracy", "traceability"],
+      "notes": "制度风控：compliance_review+风险识别。法规未明走保守解读，核验是否引用法规依据。"
+    },
+    {
+      "id": "xing_bu-deep",
+      "dept": "刑部",
+      "deptCode": "xing_bu",
+      "mode": "deep",
+      "command": "为公司搭建一套覆盖运营、财务与数据安全的风控体系，含风险矩阵、内控措施与对应的OKR指标。",
+      "expectDims": ["completeness", "accuracy", "actionability"],
+      "notes": "深档风控体系：risk_assessment+okr_framework。门下核查风险矩阵覆盖度与制度可落地性。"
+    },
+    {
+      "id": "gong_bu-single",
+      "dept": "工部",
+      "deptCode": "gong_bu",
+      "mode": "single",
+      "command": "为「实时多智能体协同看板」功能撰写一份PRD要点，含核心用户故事、关键约束与API契约草案。",
+      "expectDims": ["relevance", "completeness"],
+      "notes": "产品技术：requirement_analysis+api_design。realDataConnected=true，核验PRD结构与契约清晰度。"
+    },
+    {
+      "id": "gong_bu-deep",
+      "dept": "工部",
+      "deptCode": "gong_bu",
+      "mode": "deep",
+      "command": "为一个新的高并发实时系统做架构设计，给出技术选型(2-3方案对比)、12周交付计划与工程量估算。",
+      "expectDims": ["completeness", "accuracy", "actionability"],
+      "notes": "深档架构设计：tech_selection+effort_estimation。复杂选型应给trade-off表，门下核查方案合理性。"
+    },
+    {
+      "id": "qin_tian_jian-single",
+      "dept": "钦天监",
+      "deptCode": "qin_tian_jian",
+      "mode": "single",
+      "command": "推演未来12个月内AI应用赛道的关键趋势与可能出现的战略窗口期，标注大致概率。",
+      "expectDims": ["relevance", "traceability"],
+      "notes": "未来推演：trend_forecasting+window_detection。confidenceBaseline低(0.65)，核验是否给概率而非断言。"
+    },
+    {
+      "id": "qin_tian_jian-deep",
+      "dept": "钦天监",
+      "deptCode": "qin_tian_jian",
+      "mode": "deep",
+      "command": "对「监管政策大幅收紧」这一假设做黑天鹅压力测试，输出A/B/C三套情景及各自概率区间与连锁反应。",
+      "expectDims": ["completeness", "accuracy", "traceability"],
+      "notes": "深档情景建模：fallback强制A/B/C三情景+概率区间。门下核查情景互斥完整与概率标注。"
+    },
+    {
+      "id": "jin_yi_wei-single",
+      "dept": "锦衣卫",
+      "deptCode": "jin_yi_wei",
+      "mode": "single",
+      "command": "扫描过去一周与「欧盟AI Act执行细则」相关的全球情报信号，标注来源可信度并给出转派建议。",
+      "expectDims": ["relevance", "traceability"],
+      "notes": "全球情报：global_scanning+source_validation。realDataConnected=true，核验来源可信度评级与转派目标部门。"
+    },
+    {
+      "id": "jin_yi_wei-deep",
+      "dept": "锦衣卫",
+      "deptCode": "jin_yi_wei",
+      "mode": "deep",
+      "command": "生成一份本周全球情报简报，覆盖地缘、政策与行业三条线，标注关键预警并建议分发到对应部门。",
+      "expectDims": ["completeness", "traceability", "accuracy"],
+      "notes": "深档情报简报：weekly_brief+signal_routing。多来源应交叉验证，门下核查信号可信度与分发合理性。"
+    },
+    {
+      "id": "tai_yi_yuan-single",
+      "dept": "太医院",
+      "deptCode": "tai_yi_yuan",
+      "mode": "single",
+      "command": "解读一份体检报告中LDL偏高与血压临界的情况，给出健康评分、风险分层和初步生活干预建议。",
+      "expectDims": ["accuracy", "actionability"],
+      "notes": "健康管理：biomarker_analysis+risk_stratification。严重异常须建议就诊不下诊断，核验免责与循证依据。"
+    },
+    {
+      "id": "tai_yi_yuan-deep",
+      "dept": "太医院",
+      "deptCode": "tai_yi_yuan",
+      "mode": "deep",
+      "command": "为一位中年慢病高风险人群制定为期三个月的综合健康干预计划，含用药提示、运动方案与就诊路径。",
+      "expectDims": ["accuracy", "completeness", "traceability"],
+      "notes": "深档干预计划：intervention_planning+visit_recommendation。涉处方标免责，门下核查循证来源与安全边界。"
+    }
+  ]
+}

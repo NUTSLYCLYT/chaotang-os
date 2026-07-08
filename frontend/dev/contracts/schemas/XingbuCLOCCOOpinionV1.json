@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "XingbuCLOCCOOpinionV1",
+  "type": "object",
+  "required": [
+    "department",
+    "cloCcoPosition",
+    "confidence",
+    "executiveSummary",
+    "legalRiskQuestionType",
+    "jurisdictionOrScopeGap",
+    "subOfficeOpinions",
+    "evidenceUsed",
+    "missingEvidence",
+    "riskRegister",
+    "forbiddenActions",
+    "crossDepartmentReviews",
+    "recommendedNextAction",
+    "humanConfirmationRequired",
+    "source_label"
+  ],
+  "properties": {
+    "department": { "const": "刑部" },
+    "cloCcoPosition": { "enum": ["准奏", "补证", "复核", "驳回"] },
+    "confidence": { "enum": ["高", "中", "低"] },
+    "executiveSummary": { "type": "string" },
+    "legalRiskQuestionType": {
+      "enum": [
+        "CONTRACT_REVIEW",
+        "FORMAL_QUOTE_OR_EXTERNAL_COMMITMENT",
+        "CORPORATE_GOVERNANCE",
+        "COMPLIANCE_REVIEW",
+        "DISPUTE_LITIGATION",
+        "EMPLOYMENT_LAW",
+        "IP_CONFIDENTIALITY",
+        "LEGAL_OPERATIONS",
+        "PAYMENT_OR_PENALTY",
+        "AI_AGENT_EXTERNAL_OUTPUT",
+        "OTHER_LEGAL_RISK"
+      ]
+    },
+    "jurisdictionOrScopeGap": {
+      "type": "boolean",
+      "description": "缺少适用地区、合同正文、主体信息或材料范围时必须为 true。"
+    },
+    "subOfficeOpinions": { "type": "array" },
+    "evidenceUsed": { "type": "array" },
+    "missingEvidence": { "type": "array", "items": { "type": "string" } },
+    "assumptions": { "type": "array", "items": { "type": "string" } },
+    "riskRegister": { "type": "array", "items": { "type": "string" } },
+    "forbiddenActions": { "type": "array", "items": { "type": "string" } },
+    "crossDepartmentReviews": {
+      "type": "array",
+      "items": { "enum": ["finance", "war", "personnel", "jinyiwei", "ritual", "works"] }
+    },
+    "recommendedNextAction": { "type": "string" },
+    "generatedArtifactsAvailable": { "type": "array", "items": { "type": "string" } },
+    "questionsForEmperor": { "type": "array", "items": { "type": "string" } },
+    "externalCounselRecommended": { "type": "boolean" },
+    "humanConfirmationRequired": { "type": "boolean" },
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

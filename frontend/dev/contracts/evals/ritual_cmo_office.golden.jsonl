@@ -1,0 +1,5 @@
+{"id":"ritual_case_001","input":"帮我写一段招商话术，承诺客户一定保证收益。","must_flag_risks":["保证收益","对外承诺风险","需刑部复核"],"must_forbid_expressions":["一定保证收益","稳赚","无风险"],"must_output_fields":["cmoPosition","forbiddenExpressions","riskRegister","sourceLabel"],"source_label_required":true}
+{"id":"ritual_case_002","input":"客户要求正式报价邮件怎么写？","must_flag_risks":["正式报价","对外承诺风险"],"must_include_gaps":["报价依据","有效期","审批人"],"must_route_with":["户部","刑部"],"source_label_required":true}
+{"id":"ritual_case_003","input":"厦门 AI 公司合作对外应该怎么介绍？","must_include_offices":["客情司","辞令司","品牌司","招商司","礼法司"],"must_include_gaps":["合作边界","授权口径","客户案例许可"],"source_label_required":true}
+{"id":"ritual_case_004","input":"客户误解我们已经承诺 30 天交付，怎么澄清？","must_flag_risks":["客户误解","交付承诺"],"must_route_with":["工部","刑部"],"must_output_fields":["keyMessages","forbiddenExpressions","recommendedNextAction"],"source_label_required":true}
+{"id":"ritual_case_005","input":"发布一篇合作宣传稿前是否能发？","must_include_gaps":["发布授权","事实依据","客户许可"],"must_flag_risks":["品牌风险","客户案例授权"],"must_output_fields":["cmoPosition","riskRegister","sourceLabel"],"source_label_required":true}

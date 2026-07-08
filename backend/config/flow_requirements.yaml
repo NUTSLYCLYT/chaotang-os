@@ -1,0 +1,31 @@
+flow_name: 需求澄清对话
+default_model: openai/swarm-worker
+default_api_key_env: LITELLM_PROXY_KEY
+default_api_base: http://127.0.0.1:4444/v1
+qa_version: v3
+repair:
+  enabled: false
+  max_retries: 2
+  min_score: 3.5
+output_fields:
+- 需求背景
+- 核心功能
+- 技术可行性
+- 用户故事
+- 风险评估
+steps:
+- id: idea_analyst
+  name: 想法分析师
+  prompt_key: idea_analyst
+  description: 需求澄清、可行性分析、用户故事拆解。对话结束后输出结构化需求文档，作为 SDLC 流程的任务输入。
+  output_rules:
+  - sections:
+    - 需求背景
+    - 核心功能
+    - 技术可行性
+    - 用户故事
+    - 风险评估
+    type: required_sections
+  - type: not_empty
+  - chars: 200
+    type: min_length

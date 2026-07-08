@@ -1,0 +1,57 @@
+flow_name: "钦天监预测蜂群"
+max_llm_calls: 40
+
+# 由 new_swarm.py 生成的骨架。提示词在 src/prompts_tianjian_forecast.py 精修。
+knowledge_pre_retrieval:
+  enabled: false
+
+qa_version: "v3"
+
+default_model: "openai/glm-5.1"
+default_api_base: "http://127.0.0.1:4000/v1"
+default_api_key_env: "LITELLM_PROXY_KEY"
+
+default_retry:
+  max_retries: 2
+  delay: 3.0
+  backoff: 2.0
+  retry_on:
+    - error
+
+steps:
+  - id: "trend_scanner"
+    name: "趋势扫描官"
+    description: "扫描行业/技术/政策/舆情趋势信号并去噪"
+    prompt_key: "trend_scanner"
+    prompt_module: "src.prompts_tianjian_forecast"
+    tier: "generation"
+  - id: "risk_forecaster"
+    name: "风险推演师"
+    description: "基于信号推演风险点、概率与时间窗"
+    prompt_key: "risk_forecaster"
+    prompt_module: "src.prompts_tianjian_forecast"
+    tier: "generation"
+  - id: "scenario_writer"
+    name: "情景撰写官"
+    description: "产出乐观/中性/悲观三情景预测与应对建议"
+    prompt_key: "scenario_writer"
+    prompt_module: "src.prompts_tianjian_forecast"
+    tier: "generation"
+  - id: "qa_tech_support"
+    name: "质量检查专家"
+    description: "QA 质量检查与综合输出"
+    prompt_key: "qa_tech_support"
+    tier: "validation"
+
+repair:
+  enabled: false
+  max_retries: 3
+  min_score: 3.5
+  min_delta: 0.2
+  min_dimension_score: 3.0
+
+output_fields:
+  - "趋势扫描官产出"
+  - "风险推演师产出"
+  - "情景撰写官产出"
+

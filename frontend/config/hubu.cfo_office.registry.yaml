@@ -1,0 +1,50 @@
+id: hubu_cfo_office_registry_v1
+department_id: finance
+display_name: 户部
+real_world_equivalent: CFO Office
+purpose: >
+  将户部升级为 CFO Office，覆盖预算、现金、核算、成本、投资、内控等财务投资决策能力。
+  户部仍作为统一朝堂 Loop 的可插拔部门能力，不建立单独五部流程。
+
+p0_sub_offices:
+  - id: hubu_cfo_chief_swarm
+    office: 户部尚书
+    priority: P0
+    responsibility: CFO 总裁决、财务立场、风险兜底、CFO Brief。
+  - id: hubu_fpna_budget_swarm
+    office: 度支司
+    priority: P0
+    responsibility: 预算、预测、经营模型、滚动计划。
+  - id: hubu_treasury_cash_swarm
+    office: 金库司
+    priority: P0
+    responsibility: 现金、回款、付款、融资、资金安全。
+  - id: hubu_controller_books_swarm
+    office: 计簿司
+    priority: P0
+    responsibility: 核算、结账、报表、账实一致。
+  - id: hubu_cost_pricing_swarm
+    office: 价本司
+    priority: P0
+    responsibility: 成本模型、报价边界、毛利分析。
+  - id: hubu_investment_review_swarm
+    office: 投审司
+    priority: P0
+    responsibility: ROI、NPV、IRR、回收期、情景分析。
+  - id: hubu_audit_control_swarm
+    office: 稽核司
+    priority: P0
+    responsibility: 审批、舞弊、异常、财务红线。
+
+quality_gates:
+  - source_label_required
+  - no_financial_certainty_without_numbers
+  - cash_risk_must_be_visible
+  - roi_must_mark_assumptions
+  - formal_quote_requires_cost_and_margin
+  - investment_requires_downside_case
+  - budget_approval_requires_owner
+  - payment_requires_authority
+  - no_tax_claim_without_tax_office
+  - no_accounting_claim_without_source
+

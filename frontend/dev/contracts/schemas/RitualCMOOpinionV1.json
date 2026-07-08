@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RitualCMOOpinionV1",
+  "type": "object",
+  "required": [
+    "department",
+    "cmoPosition",
+    "confidence",
+    "executiveSummary",
+    "expressionQuestionType",
+    "keyMessages",
+    "subOfficeOpinions",
+    "evidenceUsed",
+    "missingEvidence",
+    "forbiddenExpressions",
+    "riskRegister",
+    "recommendedNextAction",
+    "humanConfirmationRequired",
+    "sourceLabel"
+  ],
+  "properties": {
+    "department": { "const": "礼部" },
+    "cmoPosition": { "enum": ["可发布", "先改稿", "复核", "禁止发布"] },
+    "confidence": { "enum": ["高", "中", "低"] },
+    "executiveSummary": { "type": "string" },
+    "expressionQuestionType": {
+      "enum": [
+        "客户沟通",
+        "招商话术",
+        "正式报价表达",
+        "合作对外介绍",
+        "品牌公关",
+        "客户误解澄清",
+        "发布前审查",
+        "舆情风险",
+        "其他表达问题"
+      ]
+    },
+    "keyMessages": { "type": "array", "items": { "type": "string" } },
+    "subOfficeOpinions": { "type": "array" },
+    "evidenceUsed": { "type": "array" },
+    "missingEvidence": { "type": "array", "items": { "type": "string" } },
+    "forbiddenExpressions": { "type": "array", "items": { "type": "string" } },
+    "riskRegister": { "type": "array", "items": { "type": "string" } },
+    "recommendedNextAction": { "type": "string" },
+    "questionsForEmperor": { "type": "array", "items": { "type": "string" } },
+    "humanConfirmationRequired": { "type": "boolean" },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": false
+}

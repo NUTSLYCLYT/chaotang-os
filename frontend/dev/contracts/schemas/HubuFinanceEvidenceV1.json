@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HubuFinanceEvidenceV1",
+  "type": "object",
+  "required": ["title", "sourceType", "usable", "confidence"],
+  "properties": {
+    "title": { "type": "string" },
+    "sourceType": {
+      "enum": ["USER_INPUT", "USER_UPLOAD", "ARCHIVE", "WIKI_RULE", "TOOL_RESULT", "MODEL_INFERENCE", "FALLBACK"]
+    },
+    "sourceRef": { "type": "string" },
+    "usable": { "type": "boolean" },
+    "confidence": { "enum": ["高", "中", "低"] }
+  }
+}
+

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HubuFinanceMetricV1",
+  "type": "object",
+  "required": ["metric", "value", "status", "meaningForEmperor"],
+  "properties": {
+    "metric": { "type": "string" },
+    "value": { "type": ["string", "null"] },
+    "unit": { "type": "string" },
+    "status": { "enum": ["available", "missing", "assumption", "blocked"] },
+    "meaningForEmperor": { "type": "string" },
+    "sourceRef": { "type": "string" }
+  }
+}
+

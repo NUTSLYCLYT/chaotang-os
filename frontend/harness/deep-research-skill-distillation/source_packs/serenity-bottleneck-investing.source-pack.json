@@ -1,0 +1,154 @@
+{
+  "topic": "Serenity bottleneck investing method for Hubu investment swarm",
+  "created_at": "2026-06-07T00:00:00Z",
+  "owner": "jinyiwei_market_osint",
+  "risk_level": "high",
+  "sources": [
+    {
+      "source_id": "s001",
+      "url": "https://www.htx.com/news/deconstructing-the-investment-methodology-of-the-stock-god-s-vFBdU6Bb/",
+      "title": "Deconstructing the Investment Methodology of the Stock God's 45x Return",
+      "publisher": "HTX repost / media",
+      "published_at": null,
+      "accessed_at": "2026-06-07T00:00:00Z",
+      "source_type": "media_repost",
+      "reliability": "low",
+      "license_or_terms_note": "public web article; use as secondary media context only",
+      "red_flags": ["performance claim appears social-media based", "not audited"]
+    },
+    {
+      "source_id": "s002",
+      "url": "https://www.coinlive.com/zh/news/decoding-the-45x-returns-of-us-stock-market-guru-serenity",
+      "title": "Decoding the 45x Returns of US Stock Market Guru Serenity",
+      "publisher": "Coinlive",
+      "published_at": null,
+      "accessed_at": "2026-06-07T00:00:00Z",
+      "source_type": "media_repost",
+      "reliability": "low",
+      "license_or_terms_note": "public web article; use as secondary media context only",
+      "red_flags": ["stock-god framing", "unverified biography and returns"]
+    },
+    {
+      "source_id": "s003",
+      "url": "https://www.htx.com/ru-ru/news/Trading-Dsb4qeq8/",
+      "title": "Stock Call King Serenity: 3840% Annual Return",
+      "publisher": "HTX / Odaily-style repost",
+      "published_at": "2026-06",
+      "accessed_at": "2026-06-07T00:00:00Z",
+      "source_type": "media_repost",
+      "reliability": "low",
+      "license_or_terms_note": "public web article; use as conflicting media context",
+      "red_flags": ["conflicts with 4502.45% version", "not audited"]
+    },
+    {
+      "source_id": "s004",
+      "url": "https://www.investegate.co.uk/announcement/rns/raspberry-pi-holdings-wi---rpi/trading-update/9603039",
+      "title": "Raspberry Pi Holdings Trading Update",
+      "publisher": "Raspberry Pi Holdings / RNS",
+      "published_at": "2026-06-05",
+      "accessed_at": "2026-06-07T00:00:00Z",
+      "source_type": "primary",
+      "reliability": "high",
+      "license_or_terms_note": "issuer regulatory news; issuer-biased but primary",
+      "red_flags": ["company disclosure still needs independent market validation"]
+    },
+    {
+      "source_id": "s005",
+      "url": "https://investors.valens.com/news-and-events/news/news-details/2026/Valens-Semiconductor-Secures-4th-VA7000-MIPI-A-PHY-Design-Win-with-a-Premium-Carmaker-Serving-the-Chinese-Market/default.aspx",
+      "title": "Valens Semiconductor Secures 4th VA7000 MIPI A-PHY Design Win",
+      "publisher": "Valens Semiconductor",
+      "published_at": "2026-01-06",
+      "accessed_at": "2026-06-07T00:00:00Z",
+      "source_type": "issuer",
+      "reliability": "medium",
+      "license_or_terms_note": "issuer release; use for design-win evidence, not revenue certainty",
+      "red_flags": ["design win is not revenue", "issuer incentive to promote"]
+    },
+    {
+      "source_id": "s006",
+      "url": "https://www.sivers-semiconductors.com/wp-content/uploads/2026/05/Sivers_annualreport_2025_2.pdf",
+      "title": "Sivers Semiconductor Annual Report 2025",
+      "publisher": "Sivers Semiconductor",
+      "published_at": "2026-05",
+      "accessed_at": "2026-06-07T00:00:00Z",
+      "source_type": "issuer",
+      "reliability": "medium",
+      "license_or_terms_note": "issuer annual report; use with issuer-bias label",
+      "red_flags": ["forward-looking commercial timing risk"]
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "c001",
+      "claim": "Public media claims Serenity achieved about 4502.45% return in 2026.",
+      "source_ids": ["s001", "s002"],
+      "claim_type": "performance_claim",
+      "evidence_level": "media_social_unverified",
+      "confidence": "low",
+      "uncertainty": "No audited account statement, full trade log, drawdown, or realized/unrealized split was found.",
+      "card_color": "red",
+      "contradictions": ["c002"],
+      "requires_manual_review": true
+    },
+    {
+      "claim_id": "c002",
+      "claim": "Another public article version claims Serenity achieved about 3840.39% YTD return.",
+      "source_ids": ["s003"],
+      "claim_type": "performance_claim",
+      "evidence_level": "conflicting",
+      "confidence": "low",
+      "uncertainty": "The return figure conflicts with the 4502.45% version and remains unaudited.",
+      "card_color": "red",
+      "contradictions": ["c001"],
+      "requires_manual_review": true
+    },
+    {
+      "claim_id": "c003",
+      "claim": "The useful method pattern is upstream supply-chain chokepoint discovery, not copying posted trades.",
+      "source_ids": ["s001", "s002", "s003"],
+      "claim_type": "method_interpretation",
+      "evidence_level": "media_social_unverified",
+      "confidence": "medium",
+      "uncertainty": "The method is inferred from public writeups; not confirmed by full Serenity trade records.",
+      "card_color": "yellow",
+      "contradictions": [],
+      "requires_manual_review": true
+    },
+    {
+      "claim_id": "c004",
+      "claim": "Raspberry Pi reported strong H1 FY2026 trading expectations, including more than 4 million units and adjusted EBITDA of at least $38 million.",
+      "source_ids": ["s004"],
+      "claim_type": "issuer_fact",
+      "evidence_level": "primary_verified",
+      "confidence": "high",
+      "uncertainty": "Issuer disclosure is primary but still should be cross-checked against subsequent results.",
+      "card_color": "green",
+      "contradictions": [],
+      "requires_manual_review": false
+    },
+    {
+      "claim_id": "c005",
+      "claim": "Valens announced a fourth VA7000 MIPI A-PHY design win with a premium carmaker serving China.",
+      "source_ids": ["s005"],
+      "claim_type": "issuer_fact",
+      "evidence_level": "issuer_biased",
+      "confidence": "medium",
+      "uncertainty": "A design win does not prove revenue timing, margin, or materiality.",
+      "card_color": "yellow",
+      "contradictions": [],
+      "requires_manual_review": true
+    },
+    {
+      "claim_id": "c006",
+      "claim": "Any Hubu output that turns Serenity research into a buy/sell/position-size instruction is prohibited.",
+      "source_ids": ["s001", "s002", "s003"],
+      "claim_type": "policy_guardrail",
+      "evidence_level": "prohibited",
+      "confidence": "high",
+      "uncertainty": "Financial research must remain educational and non-personalized.",
+      "card_color": "black",
+      "contradictions": [],
+      "requires_manual_review": true
+    }
+  ]
+}

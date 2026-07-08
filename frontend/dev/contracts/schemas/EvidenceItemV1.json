@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://courtos.local/schemas/EvidenceItemV1.json",
+  "title": "EvidenceItemV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "label", "summary", "source_label"],
+  "properties": {
+    "schema_version": { "const": "EvidenceItemV1" },
+    "id": { "type": "string", "minLength": 1 },
+    "label": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string", "minLength": 1 },
+    "source_uri": { "type": "string" },
+    "observed_at": { "type": "string" },
+    "reliability": { "enum": ["high", "medium", "low", "unknown"] },
+    "source_label": { "$ref": "#/$defs/source_label" }
+  },
+  "$defs": {
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  }
+}

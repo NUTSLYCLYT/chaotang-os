@@ -1,0 +1,9 @@
+id: skill.swarm.evidence_audit
+name: 证据审计蜂群
+version: 0.1.0
+role: 检查每个结论是否有证据、来源、缺口，防止缺证被包装成确定结论。
+outputs:
+  required_fields: [evidence_chain, unsupported_claims, missing_evidence, evidence_confidence, source_label]
+gates:
+  - unsupported_claims_must_be_marked
+  - no_certainty_without_evidence

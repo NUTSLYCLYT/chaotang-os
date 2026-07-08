@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://courtos.local/schemas/ConflictSummaryV1.json",
+  "title": "ConflictSummaryV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "task_id", "conflicts", "source_label"],
+  "properties": {
+    "schema_version": { "const": "ConflictSummaryV1" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["between", "summary", "visible_to_user"],
+        "properties": {
+          "between": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "string" } },
+          "summary": { "type": "string", "minLength": 1 },
+          "visible_to_user": { "type": "boolean" }
+        }
+      }
+    },
+    "source_label": { "$ref": "#/$defs/source_label" }
+  },
+  "$defs": {
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  }
+}

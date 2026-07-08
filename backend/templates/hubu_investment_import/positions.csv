@@ -1,0 +1,2 @@
+accountId,symbol,assetType,quantity,costBasis,industry,sourceLabel,lastPrice,quoteSourceLabel
+acct-demo,MSFT,STOCK,10,300,software,broker_statement,420,market_data_provider

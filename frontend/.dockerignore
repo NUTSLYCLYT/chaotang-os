@@ -1,0 +1,46 @@
+# 盒子镜像构建排除(2026-06-25 · 渗透审计 C2 修复)。
+# Dockerfile 用 `COPY . .` → 无本文件则把真数据/密钥/git历史全烘进镜像层(一次镜像交接=泄密)。
+# 红线:真数据(data/*.local.json)运行时只读挂载,绝不入镜像;密钥经 .env.box 运行时注入。
+
+# 版本历史(含曾提交过的任何密钥)
+.git
+.gitignore
+.gitattributes
+
+# 真数据快照(运行时挂载,绝不烘进镜像)
+data
+*.local.json
+*.local.db
+.chaotang-main-dev.db
+
+# 密钥/环境
+.env
+.env.*
+*.pem
+*.key
+
+# 依赖与构建产物(容器内重装/重建)
+node_modules
+.next
+out
+coverage
+
+# 开发/内部资料(不入客户交付镜像)
+dev
+docs
+*.md
+.claude
+.vscode
+.idea
+
+# 测试与机器产物
+e2e/test-results
+playwright-report
+.playwright-mcp
+test-results
+**/*.log
+.DS_Store
+
+# CI/本地工具配置
+.github
+.husky

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GongbuInteractionCardV1",
+  "type": "object",
+  "required": ["question", "reason", "actions", "sourceLabel"],
+  "properties": {
+    "question": { "type": "string" },
+    "reason": { "type": "string" },
+    "actions": {
+      "type": "array",
+      "items": { "enum": ["UPLOAD_BOM", "UPLOAD_SCHEDULE", "UPLOAD_ACCEPTANCE_CRITERIA", "ANSWER_TEXT", "CONTINUE_WITH_GAPS"] }
+    },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

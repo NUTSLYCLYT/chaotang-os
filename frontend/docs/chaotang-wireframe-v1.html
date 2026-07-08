@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>朝堂 OS 页面收敛线框图 V2</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      --bg: #f6f3ed;
+      --paper: #fffdf8;
+      --ink: #211f1b;
+      --muted: #706b61;
+      --line: #d8d0c2;
+      --line-dark: #a59a89;
+      --gold: #b88a2b;
+      --blue: #4169a8;
+      --green: #2f7a56;
+      --red: #a64d43;
+      --shadow: 0 16px 40px rgba(43, 35, 23, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    .page {
+      width: min(1480px, 100%);
+      margin: 0 auto;
+      padding: 28px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 20px;
+      align-items: end;
+      padding-bottom: 18px;
+      border-bottom: 2px solid var(--line);
+    }
+
+    h1, h2, h3, p { margin: 0; }
+
+    h1 {
+      font-size: 30px;
+      line-height: 1.15;
+      font-weight: 760;
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+      max-width: 880px;
+    }
+
+    .badge {
+      border: 1px solid var(--line-dark);
+      border-radius: 999px;
+      padding: 8px 12px;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+      background: rgba(255,255,255,0.5);
+    }
+
+    .grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    .two-col {
+      grid-template-columns: 320px minmax(0, 1fr);
+      margin-top: 22px;
+      align-items: start;
+    }
+
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .card-head h2 {
+      font-size: 15px;
+      font-weight: 760;
+    }
+
+    .note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .nav-list {
+      display: grid;
+      gap: 8px;
+      padding: 14px;
+    }
+
+    .topbar-wire {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      background: #fffaf0;
+    }
+
+    .brand-mark {
+      font-size: 14px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .primary-nav {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+
+    .nav-link,
+    .menu-button {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 7px 10px;
+      background: white;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .nav-link.active {
+      border-color: var(--gold);
+      background: #fff3cf;
+      color: #5b3b08;
+      font-weight: 740;
+    }
+
+    .overflow-menu {
+      margin: 12px 14px 14px;
+      border: 1px dashed var(--line-dark);
+      border-radius: 8px;
+      background: #fbfaf7;
+      padding: 12px;
+    }
+
+    .menu-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .nav-item {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      min-height: 54px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fffaf0;
+    }
+
+    .nav-item.secondary { background: #fbfaf7; }
+    .nav-item.dev { background: #f3f1f8; }
+
+    .num {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--line-dark);
+      border-radius: 50%;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .nav-title {
+      font-size: 14px;
+      font-weight: 720;
+    }
+
+    .nav-desc {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 4px 8px;
+      color: var(--muted);
+      font-size: 11px;
+      background: white;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      padding: 16px;
+    }
+
+    .homepage-clean {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) 300px;
+      gap: 14px;
+      padding: 16px;
+    }
+
+    .hero-question {
+      min-height: 240px;
+      border: 1.5px solid var(--line-dark);
+      border-radius: 8px;
+      padding: 18px;
+      background: white;
+    }
+
+    .hero-question h3 {
+      font-size: 23px;
+      line-height: 1.25;
+      max-width: 520px;
+    }
+
+    .hero-question p {
+      margin-top: 12px;
+      max-width: 620px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .quiet-stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .collapsed-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      min-height: 54px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: white;
+    }
+
+    .flow-step {
+      position: relative;
+      min-height: 112px;
+      padding: 14px;
+      border: 1.5px solid var(--line-dark);
+      border-radius: 8px;
+      background: white;
+    }
+
+    .flow-step:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: -10px;
+      width: 10px;
+      border-top: 2px solid var(--line-dark);
+    }
+
+    .flow-step strong {
+      display: block;
+      font-size: 15px;
+    }
+
+    .flow-step span {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .wireframes {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .screen {
+      min-height: 440px;
+      padding: 14px;
+    }
+
+    .screen-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px;
+      background: #faf7ef;
+    }
+
+    .tabs, .actions, .mini-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .tab, .button, .chip {
+      min-height: 28px;
+      border: 1px solid var(--line-dark);
+      border-radius: 5px;
+      padding: 6px 9px;
+      background: white;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .button.primary {
+      border-color: var(--gold);
+      background: #fff3cf;
+      color: #5b3b08;
+      font-weight: 700;
+    }
+
+    .wire-grid {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .layout-briefing { grid-template-columns: 1.2fr 0.85fr 0.85fr; }
+    .layout-command { grid-template-columns: 230px minmax(0, 1fr) 260px; }
+    .layout-archive { grid-template-columns: 260px minmax(0, 1fr); }
+    .layout-dept { grid-template-columns: minmax(0, 1fr) 280px; }
+
+    .box {
+      min-height: 70px;
+      border: 1px dashed var(--line-dark);
+      border-radius: 7px;
+      padding: 12px;
+      background: rgba(255,255,255,0.66);
+    }
+
+    .box.solid {
+      border-style: solid;
+      background: white;
+    }
+
+    .box.hero { min-height: 170px; }
+    .box.tall { min-height: 260px; }
+    .box.mid { min-height: 132px; }
+    .box.short { min-height: 48px; }
+
+    .box-title {
+      font-size: 12px;
+      font-weight: 760;
+    }
+
+    .box-copy {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .lines {
+      display: grid;
+      gap: 7px;
+      margin-top: 12px;
+    }
+
+    .line {
+      height: 9px;
+      border-radius: 99px;
+      background: #e5ded2;
+    }
+
+    .line.w70 { width: 70%; }
+    .line.w55 { width: 55%; }
+    .line.w40 { width: 40%; }
+    .line.w90 { width: 90%; }
+
+    .matrix {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      padding: 16px;
+    }
+
+    .matrix .box {
+      min-height: 120px;
+    }
+
+    .status-keep { color: var(--green); }
+    .status-merge { color: var(--blue); }
+    .status-hide { color: var(--red); }
+
+    .mobile-stack {
+      display: grid;
+      grid-template-columns: 210px minmax(0, 1fr);
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .phone {
+      width: 210px;
+      min-height: 430px;
+      border: 2px solid var(--line-dark);
+      border-radius: 22px;
+      padding: 12px;
+      background: #fffdf9;
+    }
+
+    .phone .box {
+      min-height: 54px;
+      margin-top: 8px;
+      padding: 9px;
+    }
+
+    .rules {
+      display: grid;
+      gap: 10px;
+    }
+
+    .rule {
+      display: grid;
+      grid-template-columns: 130px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: white;
+    }
+
+    .rule strong {
+      font-size: 12px;
+    }
+
+    .rule span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    @media (max-width: 1100px) {
+      .two-col, .wireframes, .mobile-stack, .homepage-clean { grid-template-columns: 1fr; }
+      .flow { grid-template-columns: 1fr; }
+      .flow-step:not(:last-child)::after { display: none; }
+      .layout-briefing, .layout-command, .layout-archive, .layout-dept, .matrix, .menu-grid { grid-template-columns: 1fr; }
+      .phone { width: min(360px, 100%); }
+    }
+
+    @media (max-width: 620px) {
+      .page { padding: 16px; }
+      header { grid-template-columns: 1fr; }
+      h1 { font-size: 24px; }
+      .rule { grid-template-columns: 1fr; }
+      .topbar-wire { grid-template-columns: 1fr auto; }
+      .brand-mark { display: none; }
+      .primary-nav { justify-content: flex-start; }
+      .primary-nav .nav-link:nth-child(n+3) { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div>
+        <h1>朝堂 OS 页面收敛线框图 V2</h1>
+        <p class="subtitle">低保真草图，只讨论信息架构和动线。V2 按张小龙的克制原则继续减法: 首页只暴露一个主问题、一个主按钮、少量必要状态，其余进入“更多”菜单或对象详情。</p>
+      </div>
+      <div class="badge">Wireframe · 2026-06-07 · 不改业务代码</div>
+    </header>
+
+    <section class="grid two-col">
+      <aside class="card">
+        <div class="card-head">
+          <h2>克制后主导航</h2>
+          <span class="pill">显性 4 个</span>
+        </div>
+        <div class="topbar-wire">
+          <div class="brand-mark">朝堂 OS</div>
+          <div class="primary-nav">
+            <span class="nav-link active">上书房</span>
+            <span class="nav-link">圣旨</span>
+            <span class="nav-link">军机处</span>
+            <span class="nav-link">史馆</span>
+          </div>
+          <span class="menu-button">更多 ▾</span>
+        </div>
+        <div class="overflow-menu">
+          <div class="note">更多菜单只在用户主动打开时出现。部门、庄园、后台、演示、设置都不占首页注意力。</div>
+          <div class="menu-grid">
+            <div class="nav-item secondary">
+              <div class="num">部</div>
+              <div><div class="nav-title">部门/庄园</div><div class="nav-desc">按任务需要召唤</div></div>
+              <span class="pill status-merge">收纳</span>
+            </div>
+            <div class="nav-item secondary">
+              <div class="num">报</div>
+              <div><div class="nav-title">报告/任务详情</div><div class="nav-desc">从对象进入</div></div>
+              <span class="pill status-merge">链接</span>
+            </div>
+            <div class="nav-item dev">
+              <div class="num">工</div>
+              <div><div class="nav-title">jiqun 后台</div><div class="nav-desc">只给开发/运维</div></div>
+              <span class="pill status-hide">隐藏</span>
+            </div>
+            <div class="nav-item dev">
+              <div class="num">设</div>
+              <div><div class="nav-title">设置/帮助</div><div class="nav-desc">右上角链接入口</div></div>
+              <span class="pill status-hide">低频</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <main class="grid">
+        <section class="card">
+          <div class="card-head">
+            <h2>北极星闭环</h2>
+            <span class="note">用户不选页面，系统推下一步</span>
+          </div>
+          <div class="flow">
+            <div class="flow-step"><strong>上书房</strong><span>压缩今天的信息，给出 1-3 个必须裁决的问题。</span></div>
+            <div class="flow-step"><strong>圣旨</strong><span>把意图写清楚，生成任务对象、证据要求和责任归属。</span></div>
+            <div class="flow-step"><strong>军机处</strong><span>拆解、派发、直播执行，暴露阻塞和验收条件。</span></div>
+            <div class="flow-step"><strong>部门/庄园</strong><span>专业工作站承接，只有任务需要时才出现。</span></div>
+            <div class="flow-step"><strong>史馆</strong><span>归档结果、证据、复盘，让明天的上书房更聪明。</span></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+          <h2>首页心智</h2>
+          <span class="note">默认只给一个主问题</span>
+        </div>
+          <div class="homepage-clean">
+            <div class="hero-question">
+              <div class="note">今天最该处理</div>
+              <h3>官网增长实验是否要调整优先级？</h3>
+              <p>系统只展示一个被压缩后的问题: 为什么现在重要、需要你拍什么板、拍完会交给谁执行。</p>
+              <div class="actions" style="margin-top:18px;"><span class="button primary">下圣旨</span><span class="button">先追问</span><span class="button">搁置</span></div>
+            </div>
+            <div class="quiet-stack">
+              <div class="collapsed-row"><div><div class="box-title">待裁决</div><div class="box-copy">2 件，展开查看</div></div><span class="pill">展开</span></div>
+              <div class="collapsed-row"><div><div class="box-title">执行中</div><div class="box-copy">4 件，1 件阻塞</div></div><span class="pill">进入军机处</span></div>
+              <div class="collapsed-row"><div><div class="box-title">史馆回写</div><div class="box-copy">1 条新经验</div></div><span class="pill">查看</span></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </section>
+
+    <section class="wireframes">
+      <article class="card screen">
+        <div class="card-head">
+          <h2>上书房 · 清爽首页</h2>
+          <span class="pill">/court-briefing</span>
+        </div>
+        <div class="screen-top">
+          <div class="tabs"><span class="tab">今日</span><span class="tab">历史</span></div>
+          <div class="actions"><span class="button primary">下圣旨</span><span class="button">更多 ▾</span></div>
+        </div>
+        <div class="wire-grid">
+          <div class="box hero solid">
+            <div class="box-title">主议题: 今天只处理一件最重要的事</div>
+            <div class="box-copy">首页不再铺满奏折、部门、图表。只给一个问题、一个理由、一个主按钮。</div>
+            <div class="lines"><div class="line w90"></div><div class="line w70"></div><div class="line w55"></div></div>
+          </div>
+          <div class="collapsed-row"><div><div class="box-title">还有 2 件待裁决</div><div class="box-copy">默认折叠，用户主动展开。</div></div><span class="pill">展开</span></div>
+          <div class="collapsed-row"><div><div class="box-title">4 件正在执行</div><div class="box-copy">只显示数量和风险，不展示完整日志。</div></div><span class="pill">军机处</span></div>
+          <div class="collapsed-row"><div><div class="box-title">部门/庄园/后台</div><div class="box-copy">全部进入“更多”或从任务对象链接进入。</div></div><span class="pill">更多</span></div>
+        </div>
+      </article>
+
+      <article class="card screen">
+        <div class="card-head">
+          <h2>圣旨 · 命令入口</h2>
+          <span class="pill">/throne/compose</span>
+        </div>
+        <div class="screen-top">
+          <div class="tabs"><span class="tab">圣旨</span><span class="tab">模板</span><span class="tab">证据</span></div>
+          <div class="actions"><span class="button primary">交军机处</span></div>
+        </div>
+        <div class="wire-grid">
+          <div class="box hero solid">
+            <div class="box-title">一句话下旨</div>
+            <div class="box-copy">用户只写要解决的问题，系统补齐意图、范围、验收标准。</div>
+            <div class="lines"><div class="line w90"></div><div class="line w90"></div><div class="line w70"></div></div>
+          </div>
+          <div class="box mid">
+            <div class="box-title">自动生成任务对象</div>
+            <div class="box-copy">负责人、部门、优先级、证据、风险、预计回报时间。</div>
+          </div>
+          <div class="box mid">
+            <div class="box-title">圣旨预览</div>
+            <div class="box-copy">给用户确认: 这是不是你真正想让朝堂做的事。</div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card screen">
+        <div class="card-head">
+          <h2>军机处 · 执行中枢</h2>
+          <span class="pill">/command-center</span>
+        </div>
+        <div class="screen-top">
+          <div class="tabs"><span class="tab">执行中</span><span class="tab">阻塞</span><span class="tab">验收</span></div>
+          <div class="actions"><span class="button">催办</span><span class="button primary">验收</span></div>
+        </div>
+        <div class="wire-grid layout-command">
+          <div class="box tall"><div class="box-title">任务队列</div><div class="box-copy">按“需要我处理”排序。</div></div>
+          <div class="box tall solid"><div class="box-title">执行流直播</div><div class="box-copy">拆解、agent、部门、日志、当前结论。</div><div class="lines"><div class="line w90"></div><div class="line w70"></div><div class="line w90"></div><div class="line w55"></div></div></div>
+          <div class="box tall"><div class="box-title">验收与风险</div><div class="box-copy">通过条件、缺证据、下一步。</div></div>
+        </div>
+      </article>
+
+      <article class="card screen">
+        <div class="card-head">
+          <h2>史馆 · 归档学习</h2>
+          <span class="pill">/archive + /scribe</span>
+        </div>
+        <div class="screen-top">
+          <div class="tabs"><span class="tab">归档</span><span class="tab">复盘</span><span class="tab">相似案例</span></div>
+          <div class="actions"><span class="button primary">回写上书房</span></div>
+        </div>
+        <div class="wire-grid layout-archive">
+          <div class="box tall"><div class="box-title">对象索引</div><div class="box-copy">任务、报告、裁决、情报、预算。</div></div>
+          <div class="box tall solid"><div class="box-title">复盘详情</div><div class="box-copy">当时为什么这样判断、证据是什么、结果如何、下次怎么变好。</div><div class="lines"><div class="line w90"></div><div class="line w90"></div><div class="line w70"></div><div class="line w40"></div></div></div>
+        </div>
+      </article>
+
+      <article class="card screen">
+        <div class="card-head">
+          <h2>部门工作站 · 按需出现</h2>
+          <span class="pill">/manor-dept/[deptCode]</span>
+        </div>
+        <div class="screen-top">
+          <div class="tabs"><span class="tab">户部</span><span class="tab">兵部</span><span class="tab">锦衣卫</span><span class="tab">太医院</span></div>
+          <div class="actions"><span class="button">回军机处</span></div>
+        </div>
+        <div class="wire-grid layout-dept">
+          <div class="box tall solid"><div class="box-title">部门承接任务</div><div class="box-copy">只看和当前任务有关的指标、建议、风险、证据。</div><div class="lines"><div class="line w90"></div><div class="line w70"></div><div class="line w55"></div></div></div>
+          <div class="box tall"><div class="box-title">输出给下一站</div><div class="box-copy">预算、风险、执行建议、归档材料。</div></div>
+        </div>
+      </article>
+
+      <article class="card screen">
+        <div class="card-head">
+          <h2>后台与支线 · 从主线隐藏</h2>
+          <span class="pill">/jiqun/* / battery</span>
+        </div>
+        <div class="screen-top">
+          <div class="tabs"><span class="tab">开发者</span><span class="tab">演示</span><span class="tab">业务实验</span></div>
+          <div class="actions"><span class="button">仅专家模式</span></div>
+        </div>
+        <div class="wire-grid">
+          <div class="box mid"><div class="box-title">蜂群后台</div><div class="box-copy">jiqun 调试、run、prompt、AB、knowledge 留给工程和运营。</div></div>
+          <div class="box mid"><div class="box-title">电池交易</div><div class="box-copy">独立业务应用，从庄园或独立入口进入，不混进朝堂首页。</div></div>
+          <div class="box mid"><div class="box-title">演示/分享</div><div class="box-copy">present、share、demo 面向外部传播，与日常工作隔离。</div></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="card" style="margin-top:18px;">
+      <div class="card-head">
+        <h2>手机首屏线框</h2>
+        <span class="note">移动端只保留一个问题和一个按钮</span>
+      </div>
+      <div class="mobile-stack">
+        <div class="phone">
+          <div class="box short solid"><div class="box-title">朝堂 OS · 更多 ▾</div></div>
+          <div class="box hero solid"><div class="box-title">今天只处理一件事</div><div class="box-copy">主议题 + 下圣旨</div></div>
+          <div class="box"><div class="box-title">待裁决 2 · 展开</div></div>
+          <div class="box"><div class="box-title">执行中 4 · 链接</div></div>
+          <div class="box"><div class="box-title">史馆回写 1 · 链接</div></div>
+        </div>
+        <div class="rules">
+          <div class="rule"><strong>移动端原则</strong><span>不要把 9 个部门平铺给用户。第一屏只回答: 今天我该处理什么，按哪个按钮。</span></div>
+          <div class="rule"><strong>导航原则</strong><span>显性入口最多 4 个，其余用“更多”、链接、任务详情承接。</span></div>
+          <div class="rule"><strong>首页原则</strong><span>默认不展示完整列表、完整日志、完整部门。用户需要时再展开。</span></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

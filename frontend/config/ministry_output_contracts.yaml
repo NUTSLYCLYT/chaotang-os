@@ -1,0 +1,170 @@
+id: ministry_output_contracts_v1
+purpose: >
+  Define what every CourtOS department, backend swarm, and final memorial must output.
+  Shangshufang consumes only the precise brief; Junjichu and department drill-downs consume the full structure.
+
+ui_visibility_policy:
+  shangshufang:
+    show:
+      - one_sentence_verdict
+      - overall_signal
+      - top_risk
+      - top_missing_evidence
+      - next_best_action
+      - source_label_display
+    hide_by_default:
+      - sub_office_reviews
+      - swarm_brief
+      - red_blue_highlights
+      - full_department_summaries
+      - download_manifest_details
+  junjichu:
+    show:
+      - ministry_signals
+      - department_summaries
+      - evidence_chain
+      - risk_register
+      - missing_evidence
+      - conflicts
+      - yushitai_audit
+      - quality_gate
+      - download_manifest
+  departments:
+    show:
+      - department_opinion
+      - sub_office_reviews
+      - evidence_used
+      - conditions_to_proceed
+      - risks
+      - conflicts
+
+department_output_contract:
+  schema: DepartmentOpinionV1
+  required_fields:
+    - schema_version
+    - department_id
+    - department_name
+    - role_summary
+    - verdict
+    - signal
+    - one_sentence
+    - key_findings
+    - evidence_used
+    - missing_evidence
+    - risks
+    - conflicts
+    - recommended_actions
+    - conditions_to_proceed
+    - needs_human_confirmation
+    - confidence
+    - source_label
+  quality_rules:
+    - source_label_required
+    - evidence_or_gap_required
+    - conflict_visible
+    - high_risk_requires_human_confirmation
+    - conditions_to_proceed_required_when_not_green
+
+department_focus:
+  jinyiwei:
+    output_focus:
+      - facts_checked
+      - source_reliability
+      - archive_matches
+      - intelligence_gaps
+      - watchlist_alerts
+  finance:
+    output_focus:
+      - cash_position
+      - cost_margin
+      - quote_boundary
+      - roi_assumptions
+      - payment_risk
+      - downside_case
+  ritual:
+    output_focus:
+      - audience
+      - message_goal
+      - customer_reply
+      - partnership_pitch
+      - external_claim_risk
+      - message_quality_gate
+  war:
+    output_focus:
+      - customer_decision_chain
+      - sales_stage
+      - competitive_position
+      - campaign_path
+      - win_loss_risk
+  personnel:
+    output_focus:
+      - dri
+      - approver
+      - raci
+      - staffing_need
+      - execution_rhythm
+  justice:
+    output_focus:
+      - contract_redlines
+      - commitment_risk
+      - signature_authority
+      - payment_obligation
+      - human_confirmation_checklist
+  works:
+    output_focus:
+      - technical_feasibility
+      - bom
+      - delivery_timeline
+      - supply_chain
+      - acceptance_criteria
+
+swarm_output_contract:
+  schema: SwarmBriefV1
+  user_visibility: business_trace_only
+  rules:
+    - swarms_do_not_face_user_directly
+    - no_agent_internal_logs_in_user_ui
+    - live_swarm_requires_trace_id
+    - unsupported_claims_must_be_visible
+    - quality_gate_result_required
+
+final_report_contract:
+  schema: ImperialMemorialV1
+  required_user_order:
+    - one_sentence_verdict
+    - verdict
+    - next_best_action
+    - ministry_signals
+    - evidence_chain
+    - missing_evidence
+    - risk_register
+    - conflicts
+    - quality_gate
+    - downloadable_artifacts
+  rules:
+    - one_primary_action_required
+    - red_signal_must_not_be_hidden
+    - missing_evidence_cannot_approve
+    - xingbu_red_requires_human_confirmation
+    - fallback_or_demo_cannot_unconditionally_approve
+
+download_contract:
+  schema: ReportDownloadManifestV1
+  default_button_label: 下载报告
+  formats:
+    - format: PDF
+      purpose: boss_meeting_customer_readable
+      default_visible: true
+    - format: DOCX
+      purpose: internal_edit_legal_review
+      default_visible: true
+    - format: JSON
+      purpose: system_integration_archive_eval
+      default_visible: false
+    - format: EVIDENCE_ZIP
+      purpose: evidence_chain_and_upload_package
+      default_visible: false
+  warning_rules:
+    - mixed_or_fallback_report_must_warn_not_external_commitment
+    - high_risk_download_requires_confirmation_banner
+    - sensitive_evidence_zip_requires_permission_guard

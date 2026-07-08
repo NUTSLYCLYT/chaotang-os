@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DealStrategyV1",
+  "type": "object",
+  "required": ["dealIdOrGap", "strategyType", "negotiationBoundary", "pricingBoundaryOrGap", "forbiddenCommitments", "crossDepartmentReviews", "sourceLabel"],
+  "properties": {
+    "dealIdOrGap": { "type": "string" },
+    "strategyType": { "enum": ["ACCOUNT_ATTACK", "QUOTE", "NEGOTIATION", "CHANNEL", "RENEWAL"] },
+    "negotiationBoundary": { "type": "string" },
+    "pricingBoundaryOrGap": { "type": "string" },
+    "forbiddenCommitments": { "type": "array", "items": { "type": "string" } },
+    "crossDepartmentReviews": { "type": "array", "items": { "enum": ["finance", "justice", "ritual", "jinyiwei", "personnel", "works"] } },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

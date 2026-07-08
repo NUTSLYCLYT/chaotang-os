@@ -1,0 +1,17 @@
+{
+  "_note": "会审令(Ng/Chase/Karpathy/Bezos):写第二行编排代码前先建评估集，且必须是【跨域硬冲突】问题——编排的价值只在 P95(一个问题同时跨财/法/战且部门结论会硬冲突)才体现；若评估集全是单域，数据会骗你得出'编排不值得'。每条标注期望召部门 + 冲突轴。human_pin(人类最终拍板)需真实使用回填，不可造。",
+  "cases": [
+    { "id": "acq-1", "question": "我们该不该收购这家竞品公司？给数据依据。", "expectDepts": ["finance", "ops", "legal"], "conflictAxis": "财务说估值划算 × 刑部说反垄断/合规风险 × 兵部说整合难", "human_pin": null },
+    { "id": "budget-cut", "question": "Q3 要不要把营销预算砍 40% 来补现金流？", "expectDepts": ["finance", "ops"], "conflictAxis": "户部说现金流该砍 × 兵部说丢市场份额", "human_pin": null },
+    { "id": "salt-iron", "question": "盐铁专营要不要扩大经营规模？", "expectDepts": ["finance", "legal", "ops"], "conflictAxis": "户部说 ROI 高 × 刑部说专营合规红线 × 兵部说竞争反制", "human_pin": null },
+    { "id": "overseas", "question": "现在要不要投入出海东南亚市场？", "expectDepts": ["finance", "ops", "legal"], "conflictAxis": "户部说投入大 × 兵部说市场窗口 × 刑部说当地合规未知", "human_pin": null },
+    { "id": "supplier", "question": "供应商 A 报价最低但有合规瑕疵，换不换它？", "expectDepts": ["finance", "legal"], "conflictAxis": "户部说成本最优 × 刑部说合规风险敞口", "human_pin": null },
+    { "id": "emergency-grain", "question": "兵部要追加应急粮草采购，户部该不该批这笔钱？", "expectDepts": ["finance", "ops"], "conflictAxis": "兵部说战备必需 × 户部说现金/ROI 不划算", "human_pin": null },
+    { "id": "price-war", "question": "对手主力机型降价 20% 抢量，我方跟不跟价？", "expectDepts": ["ops", "finance"], "conflictAxis": "兵部说守份额该跟 × 户部说毛利扛不住", "human_pin": null },
+    { "id": "litigation", "question": "三起契约纠纷临近诉讼时效，要不要花钱和解？", "expectDepts": ["legal", "finance"], "conflictAxis": "刑部说时效紧迫该和解 × 户部说和解金现金压力", "human_pin": null },
+    { "id": "layoff", "question": "现金紧，要不要裁减一个亏损业务线？", "expectDepts": ["finance", "ops", "legal"], "conflictAxis": "户部说止血 × 兵部说战略放弃代价 × 刑部说裁员合规/补偿", "human_pin": null },
+    { "id": "new-channel", "question": "新开一条线上渠道，该投多少、合规吗、抢不抢得到量？", "expectDepts": ["finance", "ops", "legal"], "conflictAxis": "户部投入回收 × 兵部获客 × 刑部渠道合规", "human_pin": null },
+    { "id": "single-fin", "question": "三个待批项目按 ROI 先批哪个？", "expectDepts": ["finance"], "conflictAxis": "单域(对照组：编排不该比单 agent 更好，验证不退化)", "human_pin": null },
+    { "id": "single-ops", "question": "当前最大的运营风险是哪个、先处置哪个？", "expectDepts": ["ops"], "conflictAxis": "单域(对照组)", "human_pin": null }
+  ]
+}

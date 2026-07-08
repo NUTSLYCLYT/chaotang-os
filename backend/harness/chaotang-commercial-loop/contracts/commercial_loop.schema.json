@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Chaotang Commercial Loop Harness Contract",
+  "type": "object",
+  "required": [
+    "case_id",
+    "mode",
+    "status",
+    "input",
+    "records",
+    "quality_gate",
+    "report"
+  ],
+  "properties": {
+    "case_id": { "type": "string", "minLength": 1 },
+    "mode": { "type": "string", "enum": ["dry-run", "real"] },
+    "status": { "type": "string", "enum": ["passed", "blocked", "failed"] },
+    "input": {
+      "type": "object",
+      "required": ["task", "source", "owner", "success_metric"],
+      "properties": {
+        "task": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "success_metric": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": true
+    },
+    "records": {
+      "type": "array",
+      "minItems": 4,
+      "items": { "$ref": "#/$defs/block_record" }
+    },
+    "quality_gate": {
+      "type": "object",
+      "required": [
+        "status",
+        "score",
+        "traceability",
+        "number_grounding",
+        "human_signoff_required",
+        "reasons"
+      ],
+      "properties": {
+        "status": { "type": "string", "enum": ["passed", "blocked"] },
+        "score": { "type": "number", "minimum": 0, "maximum": 5 },
+        "traceability": { "type": "number", "minimum": 0, "maximum": 1 },
+        "number_grounding": { "type": "number", "minimum": 0, "maximum": 1 },
+        "human_signoff_required": { "type": "boolean" },
+        "reasons": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "report": {
+      "type": "object",
+      "required": ["boss_summary", "customer_summary", "sales_followup"],
+      "properties": {
+        "boss_summary": { "type": "string" },
+        "customer_summary": { "type": "string" },
+        "sales_followup": { "type": "string" }
+      }
+    }
+  },
+  "$defs": {
+    "block_record": {
+      "type": "object",
+      "required": [
+        "block_id",
+        "status",
+        "owner",
+        "input",
+        "output",
+        "evidence",
+        "assumptions",
+        "confidence",
+        "next_action"
+      ],
+      "properties": {
+        "block_id": {
+          "type": "string",
+          "enum": ["lead", "opc", "product", "quotation", "archive", "report"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["passed", "blocked", "failed"]
+        },
+        "owner": { "type": "string", "minLength": 1 },
+        "input": { "type": "string", "minLength": 1 },
+        "output": { "type": "string", "minLength": 1 },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["source", "claim"],
+            "properties": {
+              "source": { "type": "string", "minLength": 1 },
+              "claim": { "type": "string", "minLength": 1 },
+              "timestamp": { "type": "string" }
+            },
+            "additionalProperties": true
+          }
+        },
+        "assumptions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "next_action": { "type": "string", "minLength": 1 },
+        "run_id": { "type": ["string", "null"] },
+        "quality_score": { "type": ["number", "null"], "minimum": 0, "maximum": 5 }
+      },
+      "additionalProperties": true
+    }
+  }
+}

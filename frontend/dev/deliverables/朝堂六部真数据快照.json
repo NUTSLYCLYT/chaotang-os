@@ -1,0 +1,35 @@
+{
+ "hubu": {
+  "部": "户部·成本",
+  "total": 61,
+  "costed": 60,
+  "clean": 22,
+  "flagged": 38,
+  "uncosted": 1
+ },
+ "libu": {
+  "部": "吏部·人事",
+  "违纪标准条数": 25
+ },
+ "lifu": {
+  "部": "礼部·客户经营",
+  "contractCount": 1171,
+  "totalAmount": 285930499.5,
+  "customerCount": 121
+ },
+ "gongbu": {
+  "部": "工部·交付",
+  "total": 316,
+  "complete": 4,
+  "incomplete": 312,
+  "avgCompleteness": 26.5
+ },
+ "xingbu": {
+  "部": "刑部·合规",
+  "total": 9,
+  "flag": 6,
+  "warn": 1,
+  "ok": 2,
+  "flaggedAmount": 2572800
+ }
+}

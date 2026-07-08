@@ -1,0 +1,130 @@
+id: jinyiwei_adaptive_intelligence_loop_v1
+name: 锦衣卫自适应复杂度子循环
+version: 0.1.0
+owner: courtos/jinyiwei
+purpose: >
+  在不创建多套锦衣卫流程的前提下，为 jinyiwei_intelligence_office_loop_v1 选择合适的默认深度、
+  展示方式、启用子司和高风险升维规则。它只改变运行深度和披露表面，不改变统一朝堂 Loop、
+  来源质门、证据质门、隐私质门和合法性底线。
+
+entrypoints:
+  - court_unified_decision_loop_v1.jinyiwei_intelligence_first
+  - jinyiwei_intelligence_office_loop_v1.receive_intelligence_work_order
+
+uses:
+  - config/jinyiwei_complexity_profiles.yaml
+  - schemas/CompanyIntelligenceProfileV1.json
+  - schemas/JinyiweiComplexityProfileV1.json
+  - schemas/JinyiweiAdaptiveInteractionV1.json
+
+non_goals:
+  - 不创建 jinyiwei_small_company_loop
+  - 不创建 jinyiwei_enterprise_loop
+  - 不让用户手动管理 8 个子司
+  - 不允许关闭来源、证据、隐私和合法性质量门
+  - 不实现未授权采集或绕过权限能力
+
+steps:
+  - id: load_company_intelligence_profile
+    name: 读取公司情报画像
+    inputs:
+      - company_profile
+      - user_preferences
+      - sourceLabel
+    outputs:
+      - CompanyIntelligenceProfileV1
+    gates:
+      - source_label_required
+
+  - id: determine_jinyiwei_mode
+    name: 判定锦衣卫模式
+    inputs:
+      - CompanyIntelligenceProfileV1
+      - config/jinyiwei_complexity_profiles.yaml
+    outputs:
+      - JinyiweiComplexityProfileV1
+    rules:
+      - 1-10 人默认 founder_info_assistant
+      - 10-50 人默认 small_team_research
+      - 50-200 人默认 growth_intelligence
+      - 200-1000 人默认 chief_intelligence_office
+      - 1000+ 人默认 enterprise_intelligence_governance
+
+  - id: classify_intelligence_question
+    name: 分类情报问题
+    inputs:
+      - confirmed_edict
+      - raw_question
+    outputs:
+      - intelligence_types
+      - risk_signals
+      - likely_artifacts
+    gates:
+      - evidence_or_gap_required
+
+  - id: apply_intelligence_risk_escalation_rules
+    name: 应用高风险自动升维规则
+    inputs:
+      - intelligence_types
+      - risk_signals
+      - config/jinyiwei_complexity_profiles.yaml.escalation_rules
+    outputs:
+      - escalationApplied
+      - mandatoryDepartmentReviews
+      - lockedQualityGates
+    rules:
+      - customer_commitment_requires_source_verification
+      - competitor_claims_require_evidence
+      - policy_claim_requires_current_source
+      - financial_or_roi_data_requires_hubu_review
+      - legal_or_compliance_info_requires_xingbu_review
+      - external_message_requires_rites_review
+      - people_info_requires_privacy_guard
+      - stale_info_requires_warning
+      - source_conflict_requires_conflict_summary
+      - rumor_must_not_be_treated_as_fact
+
+  - id: select_enabled_sub_offices
+    name: 选择启用子司
+    inputs:
+      - JinyiweiComplexityProfileV1
+      - escalationApplied
+    outputs:
+      - enabledSubOffices
+      - lightweightSubOffices
+      - exposeSubOfficeStructure
+    gates:
+      - no_manual_sub_office_management_for_users
+
+  - id: render_adaptive_interaction
+    name: 渲染自适应交互
+    inputs:
+      - JinyiweiComplexityProfileV1
+      - enabledSubOffices
+      - lockedQualityGates
+    outputs:
+      - JinyiweiAdaptiveInteractionV1
+    user_choices:
+      - brief
+      - evidence_detail
+      - professional_detail
+      - enter_junjichu_deep_review
+      - generate_intelligence_pack
+      - generate_competitor_compare
+      - generate_customer_intel_card
+      - setup_watchlist
+      - request_source_verification
+
+  - id: quality_gate
+    name: 自适应复杂度质门
+    gates:
+      - source_label_required
+      - evidence_or_gap_required
+      - source_reliability_required
+      - privacy_sensitive_data_guard
+      - no_unauthorized_collection
+      - no_unverified_claims
+      - stale_info_must_be_marked
+      - no_multiple_jinyiwei_flows
+      - small_company_default_brief
+      - high_risk_must_escalate

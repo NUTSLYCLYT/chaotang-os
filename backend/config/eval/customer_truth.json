@@ -1,0 +1,362 @@
+{
+  "某客户01（脱敏）": {
+    "deal_count": 2,
+    "total_cny": 60000.0,
+    "avg_deal_cny": 30000.0,
+    "first_year": "2018",
+    "last_year": "2018",
+    "repeat": true
+  },
+  "某客户21（脱敏）": {
+    "deal_count": 3,
+    "total_cny": 120000.0,
+    "avg_deal_cny": 40000.0,
+    "first_year": "2018",
+    "last_year": "2019",
+    "repeat": true
+  },
+  "某客户06（脱敏）": {
+    "deal_count": 3,
+    "total_cny": 31392.0,
+    "avg_deal_cny": 10464.0,
+    "first_year": "2018",
+    "last_year": "2018",
+    "repeat": true
+  },
+  "某客户10（脱敏）": {
+    "deal_count": 7,
+    "total_cny": 205082.0,
+    "avg_deal_cny": 29297.43,
+    "first_year": "2018",
+    "last_year": "2019",
+    "repeat": true
+  },
+  "某客户13（脱敏）": {
+    "deal_count": 24,
+    "total_cny": 1322410.0,
+    "avg_deal_cny": 55100.42,
+    "first_year": "2018",
+    "last_year": "2019",
+    "repeat": true
+  },
+  "某客户09（脱敏）": {
+    "deal_count": 1,
+    "total_cny": 26000.0,
+    "avg_deal_cny": 26000.0,
+    "first_year": "2018",
+    "last_year": "2018",
+    "repeat": false
+  },
+  "某客户15（脱敏）": {
+    "deal_count": 2,
+    "total_cny": 521000.0,
+    "avg_deal_cny": 260500.0,
+    "first_year": "2018",
+    "last_year": "2019",
+    "repeat": true
+  },
+  "某客户08（脱敏）": {
+    "deal_count": 1,
+    "total_cny": 12400.0,
+    "avg_deal_cny": 12400.0,
+    "first_year": "2018",
+    "last_year": "2018",
+    "repeat": false
+  },
+  "某客户05（脱敏）": {
+    "deal_count": 2,
+    "total_cny": 50760.0,
+    "avg_deal_cny": 25380.0,
+    "first_year": "2018",
+    "last_year": "2019",
+    "repeat": true
+  },
+  "某通信基站备电集成商（脱敏）": {
+    "deal_count": 1,
+    "total_cny": 180000.0,
+    "avg_deal_cny": 180000.0,
+    "first_year": "2018",
+    "last_year": "2018",
+    "repeat": false
+  },
+  "某客户20（脱敏）": {
+    "deal_count": 3,
+    "total_cny": 60450.0,
+    "avg_deal_cny": 20150.0,
+    "first_year": "2018",
+    "last_year": "2019",
+    "repeat": true
+  },
+  "某客户04（脱敏）": {
+    "deal_count": 1,
+    "total_cny": 12000.0,
+    "avg_deal_cny": 12000.0,
+    "first_year": "2019",
+    "last_year": "2019",
+    "repeat": false
+  },
+  "某客户03（脱敏）": {
+    "deal_count": 1,
+    "total_cny": 29775.0,
+    "avg_deal_cny": 29775.0,
+    "first_year": "2019",
+    "last_year": "2019",
+    "repeat": false
+  },
+  "某客户07（脱敏）": {
+    "deal_count": 1,
+    "total_cny": 70000.0,
+    "avg_deal_cny": 70000.0,
+    "first_year": "2019",
+    "last_year": "2019",
+    "repeat": false
+  },
+  "某客户17（脱敏）": {
+    "deal_count": 1,
+    "total_cny": 1000.0,
+    "avg_deal_cny": 1000.0,
+    "first_year": "2019",
+    "last_year": "2019",
+    "repeat": false
+  },
+  "某客户22（脱敏）": {
+    "deal_count": 3,
+    "total_cny": 314840.0,
+    "avg_deal_cny": 104946.67,
+    "first_year": "2019",
+    "last_year": "2019",
+    "repeat": true
+  },
+  "某客户11（脱敏）": {
+    "deal_count": 1,
+    "total_cny": 5005.0,
+    "avg_deal_cny": 5005.0,
+    "first_year": "2019",
+    "last_year": "2019",
+    "repeat": false
+  },
+  "某客户14（脱敏）": {
+    "deal_count": 2,
+    "total_cny": 9060000.0,
+    "avg_deal_cny": 4530000.0,
+    "first_year": "2019",
+    "last_year": "2019",
+    "repeat": true
+  },
+  "某客户18（脱敏）": {
+    "deal_count": 2,
+    "total_cny": 17000.0,
+    "avg_deal_cny": 8500.0,
+    "first_year": "2019",
+    "last_year": "2019",
+    "repeat": true
+  },
+  "某客户16（脱敏）": {
+    "deal_count": 1,
+    "total_cny": 600.0,
+    "avg_deal_cny": 600.0,
+    "first_year": "2019",
+    "last_year": "2019",
+    "repeat": false
+  },
+  "某客户12（脱敏）": {
+    "deal_count": 1,
+    "total_cny": 770.0,
+    "avg_deal_cny": 770.0,
+    "first_year": "2019",
+    "last_year": "2019",
+    "repeat": false
+  },
+  "某电子设备制造商乙（脱敏）": {
+    "deal_count": 4,
+    "total_cny": 467290.0,
+    "avg_deal_cny": 116822.5,
+    "first_year": "2019",
+    "last_year": "2019",
+    "repeat": true
+  },
+  "某技术服务商丙（脱敏）": {
+    "deal_count": 1,
+    "total_cny": 565000.0,
+    "avg_deal_cny": 565000.0,
+    "first_year": "2019",
+    "last_year": "2019",
+    "repeat": false
+  },
+  "某电子系统集成商甲（脱敏）": {
+    "deal_count": 1,
+    "total_cny": 183450.0,
+    "avg_deal_cny": 183450.0,
+    "first_year": "2019",
+    "last_year": "2019",
+    "repeat": false
+  },
+  "某电器制造商丁（脱敏）": {
+    "deal_count": 1,
+    "total_cny": 11000.0,
+    "avg_deal_cny": 11000.0,
+    "first_year": "2019",
+    "last_year": "2019",
+    "repeat": false
+  },
+  "制氧机电池\n产品开发费\n保护板开发费用\n低温电量显示板": {
+    "deal_count": 1,
+    "total_cny": 27500.0,
+    "avg_deal_cny": 27500.0,
+    "first_year": null,
+    "last_year": null,
+    "repeat": false
+  },
+  "电池保险模块\n电池保险模块\n电池保险模块": {
+    "deal_count": 1,
+    "total_cny": 24800.0,
+    "avg_deal_cny": 24800.0,
+    "first_year": null,
+    "last_year": null,
+    "repeat": false
+  },
+  "电池": {
+    "deal_count": 1,
+    "total_cny": 493000.0,
+    "avg_deal_cny": 493000.0,
+    "first_year": null,
+    "last_year": null,
+    "repeat": false
+  },
+  "能源管理装置": {
+    "deal_count": 1,
+    "total_cny": 290000.0,
+    "avg_deal_cny": 290000.0,
+    "first_year": null,
+    "last_year": null,
+    "repeat": false
+  },
+  "某工业终端电池采购方（脱敏）": {
+    "deal_count": 1,
+    "total_cny": 7220.0,
+    "avg_deal_cny": 7220.0,
+    "first_year": null,
+    "last_year": null,
+    "repeat": false
+  },
+  "充换电电池（二次电池）\n充换电电池（二次电池）\n充换电电池（二次电池）\n充换电电": {
+    "deal_count": 1,
+    "total_cny": 94400.0,
+    "avg_deal_cny": 94400.0,
+    "first_year": null,
+    "last_year": null,
+    "repeat": false
+  },
+  "3V-8(DDZ-01)\nHYLB1914\n12V-11（TBP-0307-3A": {
+    "deal_count": 1,
+    "total_cny": 94400.0,
+    "avg_deal_cny": 94400.0,
+    "first_year": null,
+    "last_year": null,
+    "repeat": false
+  },
+  "电池组\n适配器（含2米tepe-c充电线）": {
+    "deal_count": 1,
+    "total_cny": 13380.0,
+    "avg_deal_cny": 13380.0,
+    "first_year": null,
+    "last_year": null,
+    "repeat": false
+  },
+  "电芯": {
+    "deal_count": 1,
+    "total_cny": 10000.0,
+    "avg_deal_cny": 10000.0,
+    "first_year": null,
+    "last_year": null,
+    "repeat": false
+  },
+  "某工业通信终端电池（脱敏）": {
+    "deal_count": 8,
+    "total_cny": 977478.0,
+    "avg_deal_cny": 122184.75,
+    "first_year": null,
+    "last_year": null,
+    "repeat": true
+  },
+  "启动电源": {
+    "deal_count": 1,
+    "total_cny": 225000.0,
+    "avg_deal_cny": 225000.0,
+    "first_year": null,
+    "last_year": null,
+    "repeat": false
+  },
+  "某工业通信终端常温电池（脱敏）": {
+    "deal_count": 1,
+    "total_cny": 167800.0,
+    "avg_deal_cny": 167800.0,
+    "first_year": null,
+    "last_year": null,
+    "repeat": false
+  },
+  "地面电池": {
+    "deal_count": 1,
+    "total_cny": 25000.0,
+    "avg_deal_cny": 25000.0,
+    "first_year": null,
+    "last_year": null,
+    "repeat": false
+  },
+  "电池翻新维修": {
+    "deal_count": 1,
+    "total_cny": 2000.0,
+    "avg_deal_cny": 2000.0,
+    "first_year": null,
+    "last_year": null,
+    "repeat": false
+  },
+  "定制电池": {
+    "deal_count": 1,
+    "total_cny": 3000.0,
+    "avg_deal_cny": 3000.0,
+    "first_year": null,
+    "last_year": null,
+    "repeat": false
+  },
+  "电源线充电器线": {
+    "deal_count": 1,
+    "total_cny": 3900.0,
+    "avg_deal_cny": 3900.0,
+    "first_year": null,
+    "last_year": null,
+    "repeat": false
+  },
+  "某科研院所装备采购方（脱敏）": {
+    "deal_count": 1,
+    "total_cny": 29200.0,
+    "avg_deal_cny": 29200.0,
+    "first_year": null,
+    "last_year": null,
+    "repeat": false
+  },
+  "某科研院所平台服务采购方（脱敏）": {
+    "deal_count": 1,
+    "total_cny": 39500.0,
+    "avg_deal_cny": 39500.0,
+    "first_year": null,
+    "last_year": null,
+    "repeat": false
+  },
+  "某客户19（脱敏）": {
+    "deal_count": 1,
+    "total_cny": 85000.0,
+    "avg_deal_cny": 85000.0,
+    "first_year": null,
+    "last_year": null,
+    "repeat": false
+  },
+  "某客户02（脱敏）": {
+    "deal_count": 3,
+    "total_cny": 121980.0,
+    "avg_deal_cny": 40660.0,
+    "first_year": null,
+    "last_year": null,
+    "repeat": true
+  }
+}

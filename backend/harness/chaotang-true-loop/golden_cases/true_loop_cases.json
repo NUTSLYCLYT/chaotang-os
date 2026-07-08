@@ -1,0 +1,137 @@
+{
+  "version": "2026-06-08",
+  "cases": [
+    {
+      "case_id": "shangshufang_live_swarm_to_shiguan_v1",
+      "title": "上书房到后端蜂群再到史馆 replay artifact",
+      "user_input": "判断 100MWh 冷库储能项目是否推进",
+      "frontend_entry": "/study",
+      "backend_api": "/api/chaotang/study/run",
+      "mode": "live",
+      "adapter": {
+        "name": "swarm_orchestrator",
+        "entry_swarm": "ai_ops",
+        "session_id_pattern": "study-live-*"
+      },
+      "quality_gate": {
+        "required_fields": [
+          "status",
+          "score",
+          "reasons",
+          "human_signoff_required"
+        ],
+        "allowed_status": [
+          "passed",
+          "needs_review",
+          "blocked"
+        ],
+        "human_signoff_required_when": [
+          "customer_commitment",
+          "pricing",
+          "legal",
+          "procurement"
+        ]
+      },
+      "replay_artifact": {
+        "owner": "shiguan",
+        "api_path_pattern": "/api/swarm/sessions/{session_id}",
+        "path_pattern": "swarm_sessions/{session_id}.json"
+      },
+      "archive": {
+        "owner": "shiguan",
+        "retrospective_api_pattern": "/api/chaotang/archive/{task_id}/retrospective",
+        "fallback_allowed": true,
+        "fallback_must_be_labeled": true
+      },
+      "launch_loop_case": {
+        "schema_version": "launch_loop_case.v1",
+        "required_fields": [
+          "case_id",
+          "tenantSlug",
+          "source",
+          "sourceId",
+          "title",
+          "command",
+          "owner",
+          "targetDept",
+          "evidenceIds",
+          "taskId",
+          "runId",
+          "status",
+          "qualityGate",
+          "nextAction",
+          "archive",
+          "learning"
+        ],
+        "status_lifecycle": [
+          "drafted",
+          "dispatched",
+          "running",
+          "decision_ready",
+          "reviewed",
+          "archived"
+        ],
+        "archive_owner": "shiguan",
+        "learning_owner": "shiguan",
+        "append_only_store": "data/chaotang/launch_loop_cases.jsonl",
+        "observability_event": "launch_loop_case_created",
+        "tenant_isolation": true,
+        "idempotency": "client_key"
+      },
+      "next_action": {
+        "owner_required": true,
+        "label_required": true,
+        "allowed_owners": [
+          "user",
+          "hubu",
+          "gongbu",
+          "command-center",
+          "shiguan",
+          "prime_minister"
+        ]
+      },
+      "truth_steps": [
+        {
+          "id": "frontend_entry",
+          "state": "real",
+          "path": "/study"
+        },
+        {
+          "id": "study_run_api",
+          "state": "real",
+          "path": "/api/chaotang/study/run"
+        },
+        {
+          "id": "live_swarm_adapter",
+          "state": "real",
+          "path": "SwarmOrchestrator"
+        },
+        {
+          "id": "replay_artifact",
+          "state": "real",
+          "path": "/api/swarm/sessions/{session_id}"
+        },
+        {
+          "id": "archive_retrospective",
+          "state": "real",
+          "path": "/api/chaotang/archive/{task_id}/retrospective"
+        },
+        {
+          "id": "launch_loop_case",
+          "state": "real",
+          "path": "data/chaotang/launch_loop_cases.jsonl"
+        },
+        {
+          "id": "observability_event",
+          "state": "real",
+          "path": "production_events.launch_loop_case_created"
+        },
+        {
+          "id": "human_signoff",
+          "state": "real",
+          "path": "quality_gate.human_signoff_required"
+        }
+      ]
+    }
+  ]
+}

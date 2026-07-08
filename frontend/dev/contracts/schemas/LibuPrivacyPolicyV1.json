@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LibuPrivacyPolicyV1",
+  "type": "object",
+  "description": "privacy_sensitive_data_guard：吏部触及员工敏感数据时的权限与来源记录契约。",
+  "required": ["touchesSensitiveData", "sensitiveCategories", "accessJustification", "sourceRecorded", "sourceLabel"],
+  "properties": {
+    "touchesSensitiveData": { "type": "boolean" },
+    "sensitiveCategories": {
+      "type": "array",
+      "items": { "enum": ["薪酬", "健康", "纪律", "投诉", "离职意向", "绩效", "个人隐私"] }
+    },
+    "accessJustification": { "type": "string", "description": "为什么需要访问该敏感数据。" },
+    "accessGrantedBy": { "type": "string" },
+    "sourceRecorded": { "type": "boolean", "description": "敏感信息的来源是否已记录。" },
+    "redactionApplied": { "type": "boolean" },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

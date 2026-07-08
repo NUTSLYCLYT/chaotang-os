@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "XingbuQualityGateResultV1",
+  "type": "object",
+  "required": ["passed", "gateResults", "blockingIssues", "warnings", "humanConfirmationRequired", "sourceLabel"],
+  "properties": {
+    "passed": { "type": "boolean" },
+    "gateResults": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["gate", "status"],
+        "properties": {
+          "gate": {
+            "enum": [
+              "source_label_required",
+              "evidence_or_gap_required",
+              "no_legal_certainty_without_jurisdiction_and_evidence",
+              "high_risk_requires_human_confirmation",
+              "no_contract_signing_without_contract_source",
+              "no_external_commitment_without_authority",
+              "equity_or_governance_requires_corporate_review",
+              "payment_or_penalty_requires_hubu_review",
+              "labor_action_requires_libu_review",
+              "dispute_requires_evidence_preservation",
+              "ip_or_confidentiality_requires_ip_review",
+              "seal_or_signature_requires_authority_check",
+              "privacy_sensitive_data_guard",
+              "no_irreversible_legal_action_without_approval",
+              "fallback_cannot_be_final_legal_basis"
+            ]
+          },
+          "status": { "enum": ["pass", "block", "warn", "n/a"] },
+          "detail": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "blockingIssues": { "type": "array", "items": { "type": "string" } },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "humanConfirmationRequired": { "type": "boolean" },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

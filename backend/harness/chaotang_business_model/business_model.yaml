@@ -1,0 +1,196 @@
+harness: chaotang_business_model
+version: 1
+
+market_context:
+  updated_at: "2026-06-07"
+  references:
+    - name: OpenAI ChatGPT Pricing
+      url: https://openai.com/chatgpt/pricing
+      note: Individual, team/business, and enterprise tiers validate tiered subscription packaging.
+    - name: Claude Pricing
+      url: https://claude.com/pricing
+      note: Team and Enterprise plans validate governance and capacity packaging.
+    - name: Midjourney Plans
+      url: https://docs.midjourney.com/hc/en-us/articles/27870484040333-Comparing-Midjourney-Plans
+      note: Creative AI plans validate usage/capacity tiers around generation workload.
+    - name: BVP AI Pricing Playbook 2026
+      url: https://www.bvp.com/assets/uploads/2026/02/The_AI_pricing_playbook_for_founders_Bessemer_Venture_Partners_2026.pdf
+      note: Agents should move toward workflow or outcome-aligned pricing when ROI is tangible.
+
+pricing_principles:
+  - Subscriptions create predictable baseline cash flow.
+  - Chaobi captures variable high-intensity usage without punishing light users.
+  - Enterprise annual contracts fund support, governance, security, and custom deployment.
+  - Marketplace revenue grows after user workflows and agent styles prove repeat demand.
+  - Honor progression is earned only by verified work; paid credits buy capability, not status.
+
+segments:
+  free:
+    label: 免费
+    monthly_cny: 0
+    target: curious_beginner
+    included_chaobi: 0
+    seats_min: 1
+    value: Try first task, basic battle report, no long-term memory.
+  pro:
+    label: 主君 Pro
+    monthly_cny: 128
+    target: beginner_power_user
+    included_chaobi: 300
+    seats_min: 1
+    value: Core departments, Shiguan memory, title progression, starter Chaobi.
+  max:
+    label: 圣裁 Max
+    monthly_cny: 498
+    target: advanced_player_builder
+    included_chaobi: 1600
+    seats_min: 1
+    value: Stronger models, deeper Yushi review, red-team starter, more automation.
+  ultra:
+    label: 天命 Ultra
+    monthly_cny: 1288
+    target: heavy_operator_geek
+    included_chaobi: 5200
+    seats_min: 1
+    value: Long tasks, premium advisor agents, Jinyiwei scouting, elite battle reports.
+  team:
+    label: Team
+    monthly_cny: 299
+    billing_unit: seat
+    seats_min: 5
+    included_chaobi: 900
+    target: small_team
+    value: Shared Shiguan, team permissions, department ownership, pooled reports.
+  business:
+    label: Business
+    monthly_cny: 699
+    billing_unit: seat
+    seats_min: 10
+    included_chaobi: 2500
+    target: operating_team
+    value: Audit, budget, workflow governance, company knowledge, finance reporting.
+  enterprise:
+    label: Enterprise
+    annual_cny: 198000
+    seats_min: 20
+    included_chaobi: 120000
+    target: regulated_company
+    value: SSO, private deployment option, audit, budget caps, custom agents, SLA.
+
+chaobi_packs:
+  - label: 小额试炼包
+    price_cny: 98
+    chaobi: 1000
+    use_case: image_generation_small_tasks
+  - label: 深度作战包
+    price_cny: 498
+    chaobi: 6000
+    use_case: deep_tasks_yushi_review
+  - label: 军机共享包
+    price_cny: 1188
+    chaobi: 15000
+    use_case: team_pool_jinyiwei_scouting
+  - label: 企业朝币池
+    price_cny: 50000
+    chaobi: 720000
+    use_case: budgeted_enterprise_usage
+    requires_contract: true
+
+paid_capabilities:
+  model_token_pack:
+    chaobi_cost: 60
+    visible_feedback: "高级模型已启用，本轮推理深度提升。"
+    value_metric: completion_quality
+  image_generation_pack:
+    chaobi_cost: 120
+    visible_feedback: "礼部生成战报视觉稿，可用于分享。"
+    value_metric: shareable_artifact
+  yushi_deep_review:
+    chaobi_cost: 180
+    visible_feedback: "御史深审完成，输出风险和回退方案。"
+    value_metric: risk_reduction
+  red_team_review:
+    chaobi_cost: 220
+    visible_feedback: "红蓝对抗完成，发现可修正弱点。"
+    value_metric: blocked_failure_modes
+  shiguan_memory_pack:
+    chaobi_cost: 260
+    visible_feedback: "史馆扩容完成，长期记忆可用于后续任务。"
+    value_metric: reuse_rate
+  workflow_template:
+    chaobi_cost: 80
+    visible_feedback: "工部模板已解锁，可复用到后续任务。"
+    value_metric: workflow_reuse
+  jinyiwei_intel_pack:
+    chaobi_cost: 320
+    visible_feedback: "锦衣卫完成情报侦察，生成候选项目和风险卡。"
+    value_metric: opportunity_discovery
+  advanced_agent_style:
+    chaobi_cost: 480
+    visible_feedback: "主理 agent 已任命，输出风格和检查重点已更新。"
+    value_metric: workflow_fit
+  enterprise_audit_report:
+    chaobi_cost: 2400
+    visible_feedback: "企业审计报告已生成，进入御史和史馆双归档。"
+    value_metric: governance_readiness
+
+forbidden_monetization:
+  - user_title
+  - task_score
+  - yushi_approval
+  - leaderboard_rank
+  - verified_roi
+  - forged_archive
+  - cash_withdrawal
+  - external_transfer
+  - paid_random_loot
+
+delight_rules:
+  minimum_visible_feedback: 1
+  must_include_next_action: true
+  must_not_use_shame_or_fomo: true
+  must_show_value_metric: true
+  forbidden_triggers:
+    - fake_countdown
+    - shame_streak_loss
+    - forced_popup
+    - hidden_fee
+    - pay_to_pass_gate
+
+investor_story:
+  headline: "AI 朝堂 OS：把 AI 从答案工具升级为可信执行、审查、记忆和成长系统。"
+  must_have_sections:
+    - market_pain
+    - product_magic
+    - business_loop
+    - pricing_ladder
+    - moat
+    - proof_metrics
+    - compliance_boundary
+    - cash_flow_plan
+  proof_metrics:
+    - first_task_success_rate
+    - weekly_repeat_runs
+    - paid_conversion_rate
+    - chaobi_consumption_per_paid_user
+    - yushi_risk_blocks
+    - shiguan_reuse_rate
+    - team_expansion_rate
+    - enterprise_pipeline_value
+
+cash_flow_targets:
+  month_3:
+    paid_users: 100
+    arpu_cny: 180
+    enterprise_contracts: 0
+    target_mrr_cny: 18000
+  month_6:
+    paid_users: 600
+    arpu_cny: 260
+    enterprise_contracts: 2
+    target_mrr_cny: 156000
+  month_12:
+    paid_users: 3000
+    arpu_cny: 330
+    enterprise_contracts: 10
+    target_mrr_cny: 990000

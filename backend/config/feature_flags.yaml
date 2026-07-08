@@ -1,0 +1,80 @@
+flags:
+  reasoning_react:
+    enabled: false
+    description: "ReAct 推理模式（Thought→Action→Observation 循环）"
+    roll_percentage: 0
+    allowed_tenants: []
+
+  reasoning_tot:
+    enabled: false
+    description: "Tree-of-Thought 多路径探索"
+    roll_percentage: 0
+    allowed_tenants: []
+
+  reasoning_reflection:
+    enabled: false
+    description: "单步自我反思循环"
+    roll_percentage: 0
+    allowed_tenants: []
+
+  reasoning_debate:
+    enabled: false
+    description: "多模型辩论"
+    roll_percentage: 0
+    allowed_tenants: []
+
+  dynamic_planner:
+    enabled: false
+    description: "LLM 动态生成执行计划"
+    roll_percentage: 0
+    allowed_tenants: []
+
+  semantic_injection_detection:
+    enabled: true
+    description: "语义级 Prompt Injection 检测（替代纯正则）"
+    roll_percentage: 100
+
+  tool_sandbox:
+    enabled: true
+    description: "工具沙箱（命令预检+资源限制）"
+    roll_percentage: 100
+
+  working_memory:
+    enabled: false
+    description: "工作记忆/草稿本（单步内中间推理状态）"
+    roll_percentage: 0
+
+  memory_decay:
+    enabled: false
+    description: "记忆遗忘/衰减机制"
+    roll_percentage: 0
+
+  structured_logging:
+    enabled: false
+    description: "结构化 JSON 日志"
+    roll_percentage: 0
+
+  prometheus_metrics:
+    enabled: false
+    description: "Prometheus 指标导出"
+    roll_percentage: 0
+
+  distributed_event_bus:
+    enabled: false
+    description: "分布式 EventBus（结构化消息）"
+    roll_percentage: 0
+
+  approval_notifications:
+    enabled: false
+    description: "审批通知系统（邮件/Webhook）"
+    roll_percentage: 0
+
+  human_calibration:
+    enabled: false
+    description: "人工标定（LLM 自评 vs 人工对比）"
+    roll_percentage: 0
+
+  canary_deploy:
+    enabled: false
+    description: "金丝雀部署"
+    roll_percentage: 0

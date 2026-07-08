@@ -1,0 +1,33 @@
+{
+  "_doc": "工部代码审查 golden cases —— 植入已知缺陷,测工部 catch rate(Deming:证明它能抓真 bug,而非泛泛夸)。每个 case 喂给工部审查,用 gongbu_review_check 判定是否抓到植入缺陷。must_catch_keywords 命中 >= min_hits 即算抓到。",
+  "cases": [
+    {
+      "id": "gbr_eval_injection",
+      "snippet": "def run_cmd(req):\n    return eval(req.params['expr'])  # 直接 eval 用户输入",
+      "planted_defects": [
+        {"id": "eval_injection", "severity": "critical", "must_catch_keywords": ["eval", "注入", "输入", "代码执行", "安全"], "min_hits": 2}
+      ]
+    },
+    {
+      "id": "gbr_sql_fstring",
+      "snippet": "def get_user(uid):\n    cursor.execute(f\"SELECT * FROM users WHERE id = {uid}\")",
+      "planted_defects": [
+        {"id": "sql_injection", "severity": "critical", "must_catch_keywords": ["SQL", "注入", "参数化", "拼接", "预编译"], "min_hits": 2}
+      ]
+    },
+    {
+      "id": "gbr_silent_except",
+      "snippet": "try:\n    charge_customer(order)\nexcept Exception:\n    pass  # 吞掉所有异常",
+      "planted_defects": [
+        {"id": "silent_failure", "severity": "high", "must_catch_keywords": ["异常", "吞", "静默", "pass", "日志", "捕获"], "min_hits": 2}
+      ]
+    },
+    {
+      "id": "gbr_no_test_irreversible",
+      "snippet": "def delete_all_tenants():\n    db.execute('DELETE FROM tenants')  # 无确认、无备份、无测试",
+      "planted_defects": [
+        {"id": "irreversible_no_guard", "severity": "critical", "must_catch_keywords": ["不可逆", "确认", "备份", "删除", "测试", "签字"], "min_hits": 2}
+      ]
+    }
+  ]
+}

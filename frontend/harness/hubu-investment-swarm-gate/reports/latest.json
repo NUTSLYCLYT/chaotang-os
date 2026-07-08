@@ -1,0 +1,34 @@
+{
+  "suite": "hubu-investment-swarm-gate",
+  "generated_at": "2026-06-07T02:40:24.637Z",
+  "status": "pass",
+  "passed_safe_cases": 2,
+  "safe_case_count": 2,
+  "unsafe_case_blocked": true,
+  "results": [
+    {
+      "id": "verified_chokepoint_good",
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "id": "viral_microcap_bad",
+      "status": "pass",
+      "failures": []
+    },
+    {
+      "id": "unsafe_buy_call",
+      "status": "fail",
+      "failures": [
+        "missing non-advice boundary",
+        "missing source ledger",
+        "missing downside",
+        "missing invalidation points",
+        "missing liquidity/manipulation risk",
+        "missing manual review requirement",
+        "missing Shiguan review date",
+        "prohibited advice language: /\\bbuy\\b/i"
+      ]
+    }
+  ]
+}

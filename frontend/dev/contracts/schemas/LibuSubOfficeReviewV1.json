@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LibuSubOfficeReviewV1",
+  "type": "object",
+  "required": [
+    "office_id",
+    "office_name",
+    "position",
+    "finding",
+    "evidence_used",
+    "missing_evidence",
+    "risks",
+    "owner_or_gap",
+    "source_label"
+  ],
+  "properties": {
+    "office_id": {
+      "enum": [
+        "chro_cao_chief",
+        "org_design",
+        "talent_acquisition",
+        "performance",
+        "total_rewards",
+        "hr_operations",
+        "employee_relations",
+        "admin_operations"
+      ]
+    },
+    "office_name": { "type": "string" },
+    "position": { "enum": ["准奏", "补证", "复核", "驳回"] },
+    "finding": { "type": "string" },
+    "evidence_used": { "type": "array" },
+    "missing_evidence": { "type": "array", "items": { "type": "string" } },
+    "assumptions": { "type": "array", "items": { "type": "string" } },
+    "risks": { "type": "array", "items": { "type": "string" } },
+    "owner_or_gap": {
+      "type": "string",
+      "description": "第一责任人；无则写组织缺口（owner_or_gap_required）。"
+    },
+    "requires_cross_review": {
+      "type": "array",
+      "items": { "enum": ["finance", "justice", "war", "jinyiwei"] }
+    },
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

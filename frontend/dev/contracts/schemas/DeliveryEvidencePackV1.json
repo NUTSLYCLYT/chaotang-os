@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DeliveryEvidencePackV1",
+  "type": "object",
+  "required": ["knownFacts", "evidenceUsed", "missingEvidence", "assumptions", "source_label"],
+  "properties": {
+    "knownFacts": { "type": "array", "items": { "type": "string" } },
+    "evidenceUsed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "sourceType", "supports", "confidence"],
+        "properties": {
+          "title": { "type": "string" },
+          "sourceType": { "enum": ["USER_INPUT", "USER_UPLOAD", "ARCHIVE", "WIKI_RULE", "TOOL_RESULT", "MODEL_INFERENCE", "FALLBACK"] },
+          "supports": { "type": "string" },
+          "confidence": { "enum": ["高", "中", "低"] }
+        }
+      }
+    },
+    "missingEvidence": { "type": "array", "items": { "type": "string" } },
+    "assumptions": { "type": "array", "items": { "type": "string" } },
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

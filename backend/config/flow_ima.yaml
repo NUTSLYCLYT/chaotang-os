@@ -1,0 +1,60 @@
+flow_name: IMA知识蜂群
+flow_tools:
+- server: ima
+  capabilities:
+  - ima_search_knowledge
+  - ima_list_knowledge_bases
+  - ima_browse_knowledge
+  - ima_add_url
+qa_version: v3
+default_model: openai/swarm-worker
+# 通电:知识蜂群接真知识库(knowledge/chroma_db · fengqun_knowledge 141篇)。
+# 此前零检索→反幻觉铁律把它锁成"查无此料"空报告;现按任务描述预检索注入真知识片段。
+knowledge_pre_retrieval:
+  enabled: true
+  top_k: 5
+  max_tokens: 2000
+default_api_base: http://127.0.0.1:4444/v1
+default_api_key_env: LITELLM_PROXY_KEY
+default_retry:
+  max_retries: 2
+  delay: 3.0
+  backoff: 2.0
+  retry_on:
+  - error
+steps:
+- id: ima_searcher
+  name: IMA知识检索员
+  description: 在 ima 知识库中多维度检索与任务相关的行业知识
+  prompt_key: ima_searcher
+  prompt_module: src.prompts_ima
+- id: ima_analyst
+  name: IMA知识分析师
+  description: 深度分析检索结果，提炼技术洞察和竞争情报
+  prompt_key: ima_analyst
+  prompt_module: src.prompts_ima
+- id: ima_curator
+  name: IMA知识归档员
+  description: 评估本次任务成果的归档价值，整理结构化归档推荐
+  prompt_key: ima_curator
+  prompt_module: src.prompts_ima
+  tools:
+  - ima_add_url
+- id: qa_tech_support
+  name: 质量检查专家
+  description: QA质量检查与综合输出
+  prompt_key: ima_qa
+  prompt_module: src.prompts_ima
+repair:
+  enabled: true
+  max_retries: 1
+  min_score: 3.5
+  min_delta: 0.2
+  min_dimension_score: 3.0
+output_fields:
+- 检索策略
+- 检索结果汇总
+- 知识空白识别
+- 核心技术洞察
+- 竞争态势分析
+- 待归档内容清单

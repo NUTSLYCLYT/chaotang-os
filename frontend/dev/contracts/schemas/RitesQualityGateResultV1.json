@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RitesQualityGateResultV1",
+  "type": "object",
+  "required": [
+    "passed",
+    "messageRiskLevel",
+    "blockingIssues",
+    "warnings",
+    "requiredActions",
+    "highRiskRequiresHumanConfirmation",
+    "mayPublish",
+    "sourceLabel"
+  ],
+  "properties": {
+    "passed": { "type": "boolean" },
+    "messageRiskLevel": { "enum": ["LOW", "MEDIUM", "HIGH", "BLOCKED"] },
+    "blockingIssues": { "type": "array", "items": { "type": "string" } },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "requiredActions": { "type": "array", "items": { "type": "string" } },
+    "highRiskRequiresHumanConfirmation": { "type": "boolean" },
+    "mayPublish": { "const": false },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": false
+}

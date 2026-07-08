@@ -1,0 +1,8 @@
+id: skill.swarm.hubu_finance
+name: 户部财务蜂群
+version: 0.1.0
+role: 专审投入、ROI、报价、成本、预算、现金流、回款、毛利、资金占用。
+outputs:
+  schema: schemas/SwarmOutputV1.json
+must_not:
+  - 缺少报价、成本、回款周期、客户承诺时输出确定性推进结论

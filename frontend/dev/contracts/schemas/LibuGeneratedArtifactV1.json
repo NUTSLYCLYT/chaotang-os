@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LibuGeneratedArtifactV1",
+  "type": "object",
+  "required": ["type", "title", "status", "content", "sourceLabel"],
+  "properties": {
+    "type": {
+      "enum": [
+        "JD_岗位说明书",
+        "岗位画像",
+        "面试题",
+        "面试评分表",
+        "Offer审批单",
+        "90天试用期目标",
+        "转正评估表",
+        "PIP绩效改进计划",
+        "离职交接清单",
+        "劳动风险证据清单",
+        "RACI表",
+        "组织调整方案",
+        "销售提成方案草案",
+        "行政采购审批单",
+        "办公室搬迁方案",
+        "员工沟通话术",
+        "制度公告草案",
+        "AI_Agent岗位说明书",
+        "AI_Agent权限审批单"
+      ]
+    },
+    "title": { "type": "string" },
+    "status": {
+      "enum": ["draft", "needs_human_review", "needs_cross_review"],
+      "description": "吏部只产出草稿/待审；绝不自动执行不可逆动作。"
+    },
+    "content": { "type": "string" },
+    "ownerOrGap": { "type": "string" },
+    "requiresHumanConfirmation": { "type": "boolean" },
+    "requiresCrossReview": {
+      "type": "array",
+      "items": { "enum": ["finance", "justice", "war", "jinyiwei"] }
+    },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

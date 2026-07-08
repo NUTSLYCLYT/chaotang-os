@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "JinyiweiComplexityProfileV1",
+  "type": "object",
+  "required": [
+    "mode",
+    "headcountBand",
+    "defaultView",
+    "exposeSubOfficeStructure",
+    "enabledSubOffices",
+    "nonNegotiableFloor",
+    "sourceLabel"
+  ],
+  "properties": {
+    "mode": {
+      "enum": [
+        "founder_info_assistant",
+        "small_team_research",
+        "growth_intelligence",
+        "chief_intelligence_office",
+        "enterprise_intelligence_governance"
+      ]
+    },
+    "headcountBand": { "enum": ["1-10", "10-50", "50-200", "200-1000", "1000+"] },
+    "defaultView": { "enum": ["brief", "evidence_detail", "professional_detail"] },
+    "exposeSubOfficeStructure": {
+      "type": "boolean",
+      "description": "Small companies must not see the eight-sub-office structure by default."
+    },
+    "enabledSubOffices": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "intelligence_chief",
+          "requirements_planning",
+          "open_source_research",
+          "customer_intel",
+          "competitor_intel",
+          "archive_recall",
+          "fact_verification",
+          "early_warning"
+        ]
+      }
+    },
+    "lightweightSubOffices": { "type": "array", "items": { "type": "string" } },
+    "highRiskExtraOffices": { "type": "array", "items": { "type": "string" } },
+    "reservedCapabilities": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Enterprise-only placeholders, not implemented in v0."
+    },
+    "nonNegotiableFloor": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "source_label_required",
+          "evidence_or_gap_required",
+          "source_reliability_required",
+          "privacy_sensitive_data_guard",
+          "no_unauthorized_collection",
+          "no_unverified_claims",
+          "stale_info_must_be_marked"
+        ]
+      }
+    },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,8 @@
+id: skill.swarm.gongbu_delivery
+name: 工部交付技术蜂群
+version: 0.1.0
+role: 专审技术方案、BOM、施工周期、供应链、设备、交期、现场条件、交付可行性。
+outputs:
+  schema: schemas/SwarmOutputV1.json
+must_not:
+  - 缺少 BOM、交期、施工条件、供应链锁定时建议正式交付承诺

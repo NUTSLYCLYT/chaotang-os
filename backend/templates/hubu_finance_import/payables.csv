@@ -1,0 +1,2 @@
+id,counterparty,amount,daysOutstanding,sourceLabel,sourceRef
+ap-001,supplier-a,140000,20,historical_archive,ap-aging.xlsx

@@ -1,0 +1,137 @@
+id: courtos_department_boundary_matrix_v1
+version: 1.0.0
+owner: courtos/product
+purpose: >
+  Resolve department/sub-office drift where the same business word can trigger
+  multiple offices. Each boundary defines exactly one owner, optional reviewers,
+  and the blocking gate that decides whether the answer may proceed.
+
+rules:
+  - id: customer_decision_chain
+    keywords: ["客户", "决策链", "关键人", "客户痛点", "客户承诺", "采购阶段"]
+    owner:
+      department: jinyiwei
+      office: customer_intel
+      reason: 核实客户事实、预算、采购阶段、承诺和决策链真假。
+    reviewers:
+      - department: war
+        office: key_account_attack
+        when: 需要推进大客户、多线程谈判或成交路径。
+      - department: ritual
+        office: rites_customer_insight
+        when: 需要把已核实客户事实翻译成受众价值主张。
+    blocking_gate: customer_fact_owner_required
+
+  - id: channel
+    keywords: ["渠道", "代理", "经销", "社媒", "展会", "传播节奏", "渠道政策"]
+    owner:
+      department: war
+      office: channel_partner
+      reason: 代理、经销、分成、客户归属和渠道冲突属于销售作战。
+    reviewers:
+      - department: ritual
+        office: rites_channel_campaign
+        when: 渠道内容、活动、展会、社媒文案或传播节奏需要审辞。
+      - department: jinyiwei
+        office: competitor_intel
+        when: 需要核验竞品渠道、价格或市场排名事实。
+    blocking_gate: channel_commercial_owner_required
+
+  - id: formal_quote
+    keywords: ["报价", "正式报价", "折扣", "底价", "付款条件", "价格", "ROI", "收益承诺"]
+    owner:
+      department: finance
+      office: cost_pricing
+      reason: 数字、成本、毛利、现金流和 ROI 依据必须由户部定数。
+    reviewers:
+      - department: war
+        office: pricing_deal_desk
+        when: 需要销售策略、折扣策略、商务条件或 deal desk。
+      - department: justice
+        office: contract_office
+        when: 报价进入合同、付款条款、独家或法律承诺。
+      - department: ritual
+        office: rites_message_quality_gate
+        when: 报价或收益内容需要写成对外话术。
+    blocking_gate: quote_number_owner_required
+
+  - id: employment_and_labor
+    keywords: ["劳动合同", "辞退", "解除", "降薪", "调岗", "员工纠纷", "PIP", "竞业", "劳动仲裁", "提成"]
+    owner:
+      department: personnel
+      office: employee_relations
+      reason: 组织事实、绩效证据、沟通记录、PIP 和离职谈判由吏部先成案。
+    reviewers:
+      - department: justice
+        office: employment_law
+        when: 涉及辞退、解除、降薪、调岗、仲裁、竞业或不可逆劳动动作。
+      - department: finance
+        office: fpna_budget
+        when: 涉及赔偿、提成、奖金或人力成本影响。
+    blocking_gate: personnel_labor_fact_owner_required
+
+  - id: seal_signature_contract
+    keywords: ["印章", "盖章", "签字", "签署权限", "授权代表", "合同", "审批流", "证照"]
+    owner:
+      department: justice
+      office: legal_operations
+      reason: 签署权限、法律效力、合同台账、证据管理和外部律师归刑部法运司。
+    reviewers:
+      - department: personnel
+        office: admin_operations
+        when: 需要核对印章实物、证照保管、行政流程或会议材料。
+      - department: justice
+        office: contract_office
+        when: 需要审合同条款、履约义务或对外承诺边界。
+    blocking_gate: signature_authority_owner_required
+
+  - id: procurement
+    keywords: ["采购", "供应商", "物料", "BOM", "设备", "行政采购", "客户采购", "采购阶段"]
+    owner:
+      department: works
+      office: bom_supply_chain
+      reason: BOM、供应商、物料、设备、采购周期和替代方案属于工部交付可行性。
+    reviewers:
+      - department: personnel
+        office: admin_operations
+        when: 办公、后勤、资产、租赁或行政费用采购。
+      - department: jinyiwei
+        office: customer_intel
+        when: 需要核实客户采购阶段、预算或承诺。
+      - department: finance
+        office: treasury_cash
+        when: 涉及付款计划、现金流或预算闸门。
+    blocking_gate: procurement_domain_owner_required
+
+  - id: delivery_commitment
+    keywords: ["承诺", "一定交付", "固定交期", "交期承诺", "能力保证", "对外说明"]
+    owner:
+      department: works
+      office: delivery_commitment_gate
+      reason: 交期、能力、验收和交付承诺必须由工部判断是否可实现。
+    reviewers:
+      - department: justice
+        office: contract_office
+        when: 承诺进入合同、违约责任或客户确认函。
+      - department: ritual
+        office: rites_message_quality_gate
+        when: 需要改写成对外可发口径。
+      - department: war
+        office: key_account_attack
+        when: 承诺影响成交路径、客户谈判或续约。
+    blocking_gate: delivery_commitment_owner_required
+
+  - id: competitor_claim
+    keywords: ["竞品", "竞争对手", "竞品负面", "行业第一", "市场排名", "竞品比较"]
+    owner:
+      department: jinyiwei
+      office: competitor_intel
+      reason: 竞品事实、价格、渠道、排名和公开宣传必须先核验。
+    reviewers:
+      - department: ritual
+        office: rites_brand_strategy
+        when: 需要形成品牌主张、竞品回应或公开话术。
+      - department: war
+        office: gtm_strategy
+        when: 需要转成销售攻防、GTM 或客户分层策略。
+    blocking_gate: competitor_fact_owner_required

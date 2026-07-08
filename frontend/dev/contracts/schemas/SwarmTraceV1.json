@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://courtos.local/schemas/SwarmTraceV1.json",
+  "title": "SwarmTraceV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "mode",
+    "status",
+    "requested_bundles",
+    "departments",
+    "findings",
+    "missing_capabilities",
+    "user_visible_summary",
+    "source_label"
+  ],
+  "properties": {
+    "schema_version": { "const": "SwarmTraceV1" },
+    "task_id": { "type": "string", "minLength": 1 },
+    "trace_id": { "type": "string", "minLength": 1 },
+    "mode": { "enum": ["not_required", "local_placeholder", "live_adapter"] },
+    "status": { "enum": ["skipped_not_required", "skipped_no_live_adapter", "completed", "blocked"] },
+    "requested_bundles": { "type": "array", "items": { "type": "string" } },
+    "departments": { "type": "array", "items": { "type": "string" } },
+    "findings": { "type": "array", "items": { "type": "string" } },
+    "missing_capabilities": { "type": "array", "items": { "type": "string" } },
+    "user_visible_summary": { "type": "string", "minLength": 1 },
+    "source_label": { "$ref": "#/$defs/source_label" }
+  },
+  "$defs": {
+    "source_label": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  }
+}

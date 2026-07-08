@@ -1,0 +1,2 @@
+id,counterparty,amount,daysOutstanding,sourceLabel,sourceRef
+ar-001,customer-a,180000,45,historical_archive,ar-aging.xlsx

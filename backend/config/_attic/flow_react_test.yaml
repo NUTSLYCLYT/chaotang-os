@@ -1,0 +1,32 @@
+# config/flow_react_test.yaml
+# 实测 ReAct（reasoning_strategy: react）：验证 Thought→Action→Observation 循环、
+# read_step 动作、stop_reason、metadata.react_trace。
+# 注意：执行路径不查 feature_flags.reasoning_react（:985 只看 step 配置），故无需开 flag。
+# 设计：step1 输出一个暗号；step2(react) 被要求"必须先 read_step 读原文再 answer"，
+#       以此强制触发 read_step —— 同时检验 read_step 的磁盘路径是否正确。
+default_api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
+default_api_key_env: DASHSCOPE_API_KEY
+default_model: openai/qwen-plus
+flow_name: ReAct实测
+
+steps:
+  - id: secret_fact
+    name: 暗号提供者
+    prompt_inline: |
+      请只输出下面这一句话，一字不差，不要添加任何额外内容、解释或标点变化：
+      本次任务的暗号是 ALPHA-7719，对应的项目代号是「极光」。
+
+  - id: react_reader
+    name: ReAct推理读取
+    reasoning_strategy: react
+    max_react_steps: 4
+    depends_on:
+      - secret_fact
+    prompt_inline: |
+      你的任务：准确报告前序步骤 secret_fact 中记录的「暗号」和「项目代号」。
+      硬性要求：你必须先执行 `Action: read_step | secret_fact` 读取该步骤的原始输出，
+      以读到的原文为准（不得凭已有上下文记忆直接作答）。确认原文后，再用
+      `Action: answer | 暗号=<...> 项目代号=<...>` 给出最终结论。
+
+output_fields:
+  - 暗号

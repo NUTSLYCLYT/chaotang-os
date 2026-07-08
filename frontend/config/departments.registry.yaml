@@ -1,0 +1,203 @@
+id: courtos_departments_registry_v1
+version: 1.0.0
+owner: courtos/product
+purpose: >
+  Registry-driven department capability catalog for the unified CourtOS loop.
+  Registered departments are not special flows. The loop selects enabled
+  departments by route_keywords, default_participation, and complexity_profile.
+
+extension_rule: >
+  Add departments or swarms by changing registry, skill/prompt/eval, UI label,
+  and adapters. Do not add five_department_review, libu_special_review,
+  rites_special_review, jinyiwei_special_review, or any count-specific flow.
+
+departments:
+  - id: jinyiwei_intelligence
+    name: 锦衣卫
+    type: intelligence
+    enabled: true
+    display_role: 信息调研与证据核验
+    real_world_equivalent: Chief Intelligence Office
+    review_skill: evidence_collection_and_fact_check
+    office_profile: jinyiwei_intelligence_office
+    output_schema: EvidenceAuditV1
+    route_keywords:
+      - 情报
+      - 调研
+      - 事实
+      - 证据
+      - 来源
+      - 竞品
+      - 政策
+      - 客户需求
+      - 历史记录
+    swarm_bundle: null
+    default_participation: always
+    complexity_profile: shallow_required
+    user_visible_summary: 先核查事实、来源、旧案和证据缺口，缺证时不得给确定结论。
+
+  - id: hubu_cfo
+    name: 户部
+    type: department
+    enabled: true
+    display_role: CFO Office：财务、投资、ROI、成本、报价、现金流
+    real_world_equivalent: CFO Office
+    review_skill: finance_roi_cashflow_review
+    office_profile: hubu_cfo_office
+    output_schema: DepartmentOpinionV1
+    route_keywords:
+      - 预算
+      - ROI
+      - 成本
+      - 报价
+      - 利润
+      - 现金流
+      - 回款
+      - 投资
+      - 付款
+      - 资源
+    swarm_bundle: finance
+    default_participation: routed
+    complexity_profile: shallow_first
+    user_visible_summary: 判断投入、报价依据、成本边界、现金流和 ROI 是否成立。
+
+  - id: libu_hr_admin
+    name: 吏部
+    type: department
+    enabled: true
+    display_role: CHRO/CAO Office：组织、人事、职责、审批、执行承接
+    review_skill: org_execution_accountability_review
+    office_profile: libu_chro_cao_office
+    output_schema: DepartmentOpinionV1
+    route_keywords:
+      - 负责人
+      - 审批人
+      - 组织
+      - 人员
+      - 职责
+      - 执行
+      - 协同
+      - DRI
+      - 里程碑
+      - 招聘
+      - 绩效
+      - 团队
+    swarm_bundle: hr
+    default_participation: routed
+    complexity_profile: shallow_first
+    user_visible_summary: 判断责任人、审批人、组织承接、招聘或执行节奏是否明确。
+
+  - id: rites_brand_comms
+    name: 礼部
+    type: department
+    enabled: true
+    display_role: CMO/CCO Office：品牌、客户表达、招商话术、对外材料
+    review_skill: brand_comms_message_risk_review
+    office_profile: rites_cmo_cco_office
+    output_schema: DepartmentOpinionV1
+    route_keywords:
+      - 话术
+      - 品牌
+      - 宣传
+      - 邮件
+      - 会议
+      - 对外表达
+      - 招商
+      - 客户沟通
+      - 口径
+    swarm_bundle: brand_comms
+    default_participation: routed
+    complexity_profile: shallow_first
+    user_visible_summary: 判断对外表达、招商话术和客户沟通是否准确、克制、可发布。
+
+  - id: bingbu_sales
+    name: 兵部
+    type: department
+    enabled: true
+    display_role: 销售与市场攻坚：客户、渠道、竞争、成交路径
+    review_skill: sales_market_campaign_review
+    output_schema: DepartmentOpinionV1
+    route_keywords:
+      - 客户
+      - 销售
+      - 市场
+      - 渠道
+      - 成交
+      - 报价策略
+      - 竞争
+      - 机会
+      - 试点
+      - 合作
+      - 大客户
+    swarm_bundle: sales
+    default_participation: routed
+    complexity_profile: shallow_first
+    user_visible_summary: 判断客户意图、成交路径、竞争态势和市场推进策略。
+
+  - id: xingbu_legal_risk
+    name: 刑部
+    type: department
+    enabled: true
+    display_role: 法务与风险：合同、股权、合规、付款、不可逆承诺
+    review_skill: legal_compliance_risk_review
+    output_schema: DepartmentOpinionV1
+    route_keywords:
+      - 合同
+      - 股权
+      - 合规
+      - 法务
+      - 签字
+      - 正式报价
+      - 承诺
+      - 独家
+      - 违约
+      - 预付款
+      - 法律责任
+    swarm_bundle: legal_risk
+    default_participation: high_risk
+    complexity_profile: shallow_required
+    user_visible_summary: 判断合同、股权、对外承诺、正式报价和不可逆风险。
+
+  - id: works
+    name: 工部
+    type: department
+    enabled: true
+    display_role: CTO Office / CPO Office：产品方案、研发交付、BOM、交期、验收、交付与供应链办公室
+    review_skill: delivery_technical_supply_chain_review
+    office_profile: gongbu_cto_cpo_delivery_office
+    output_schema: DepartmentOpinionV1
+    route_keywords:
+      - 技术
+      - 产品
+      - BOM
+      - 设备
+      - 施工
+      - 交付
+      - 供应链
+      - 验收
+      - 开发
+      - 固定交期
+    swarm_bundle: delivery
+    default_participation: risk_triggered
+    complexity_profile: adaptive
+    user_visible_summary: 判断产品方案、技术可行性、研发交付、BOM、供应链、交期、验收和对外交付承诺风险。
+
+  - id: gongbu_delivery
+    name: 工部协议占位
+    type: department_protocol
+    enabled: false
+    display_role: Gongbu Delivery Protocol：工部交付协议占位，运行态仍由 works 承接
+    review_skill: delivery_technical_supply_chain_review
+    office_profile: gongbu_cto_cpo_delivery_office
+    output_schema: DepartmentOpinionV1
+    route_keywords:
+      - 工部
+      - 交付
+      - BOM
+      - 供应链
+      - 验收
+      - 固定交期
+    swarm_bundle: delivery
+    default_participation: disabled_placeholder
+    complexity_profile: adaptive
+    user_visible_summary: 协议名占位用于契约校验；未启用前不得作为独立特殊流程执行。

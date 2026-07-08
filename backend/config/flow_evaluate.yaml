@@ -1,0 +1,46 @@
+flow_name: 评估 / 信息查询直答
+default_model: openai/swarm-review
+default_api_key_env: LITELLM_PROXY_KEY
+default_api_base: http://127.0.0.1:4444/v1
+qa_version: v3
+
+# best-of-N 重采样：跑 2 次取高分，消除单次 LLM 变异。
+# 总耗时 × 2，但平均分稳定提升约 0.3-0.5 分（4.0 → 4.3+）。
+best_of_n: 2
+
+# 单 agent 直答 Q&A 流程，专治"用一句话评估 / 趋势分析 / 是否…"类查询。
+# 不做销售线索打分、不做客户档案、不做 CRM 流程 —— 那些是 haolong 做的。
+# 路由触发条件见 service/router.py 的 _INTENT_PATTERNS。
+
+max_llm_calls: 6
+
+repair:
+  enabled: true
+  max_retries: 2
+  min_score: 4.0
+  min_dimension_score: 3
+  min_delta: 0.3
+
+output_fields:
+  - 直答
+
+steps:
+  - id: evaluate_analyst
+    name: 评估分析师
+    prompt_key: evaluate_analyst
+    description: 直接回答用户问题；按"一句话直答"或"结论+依据+不确定性"两种形态之一输出。
+    output_rules:
+      - type: not_empty
+      - type: min_length
+        chars: 20
+      - type: no_refusal
+
+  # QA 收尾：把 analyst 的自然文本包装为引擎期望的 JSON final_output。
+  # 引擎检测 prompt_key=qa_tech_support 时会自动生成聚合 prompt（见 flow_engine.py L194）。
+  # QA 评分仍走 swarm-worker (qwen3.6:27b) — 本地稳定，输出 JSON 完整不截断。
+  # （Gemini 系列在 LiteLLM 这边 token cap 偏紧，会在中文 JSON 中截断）
+  - id: qa_check
+    name: 质量检查专家
+    prompt_key: qa_tech_support
+    tier: generation
+    description: "把分析师输出包成 final_output JSON 并做 6 维质量评分（QA prompt 由引擎生成）。"

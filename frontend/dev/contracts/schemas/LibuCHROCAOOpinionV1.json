@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LibuCHROCAOOpinionV1",
+  "type": "object",
+  "required": [
+    "department",
+    "chroCaoPosition",
+    "confidence",
+    "executiveSummary",
+    "peopleAdminQuestionType",
+    "subOfficeOpinions",
+    "evidenceUsed",
+    "missingEvidence",
+    "assumptions",
+    "riskRegister",
+    "recommendedNextAction",
+    "humanConfirmationRequired",
+    "sourceLabel"
+  ],
+  "properties": {
+    "department": { "const": "吏部" },
+    "chroCaoPosition": { "enum": ["准奏", "补证", "复核", "驳回"] },
+    "confidence": { "enum": ["高", "中", "低"] },
+    "executiveSummary": { "type": "string" },
+    "peopleAdminQuestionType": {
+      "enum": [
+        "ORG_DESIGN",
+        "HIRING",
+        "ONBOARDING",
+        "PERFORMANCE",
+        "COMPENSATION",
+        "HR_OPS",
+        "EMPLOYEE_RELATIONS",
+        "ADMIN_OPS",
+        "ORG_EXECUTION",
+        "AI_WORKFORCE",
+        "CULTURE_LD",
+        "PEOPLE_ANALYTICS",
+        "其他人事行政问题"
+      ]
+    },
+    "ownerOrGap": {
+      "type": "string",
+      "description": "执行建议的第一责任人；若无负责人，必须写明组织缺口。"
+    },
+    "subOfficeOpinions": { "type": "array" },
+    "evidenceUsed": { "type": "array" },
+    "missingEvidence": { "type": "array", "items": { "type": "string" } },
+    "assumptions": { "type": "array", "items": { "type": "string" } },
+    "riskRegister": { "type": "array", "items": { "type": "string" } },
+    "crossDepartmentReviews": {
+      "type": "array",
+      "items": { "enum": ["finance", "war", "justice", "jinyiwei", "ritual", "works"] },
+      "description": "本决策必须联动复核的其它部门（如薪酬→finance，辞退/劳动风险→justice）。"
+    },
+    "recommendedNextAction": { "type": "string" },
+    "questionsForEmperor": { "type": "array", "items": { "type": "string" } },
+    "humanConfirmationRequired": { "type": "boolean" },
+    "sourceLabel": { "enum": ["LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"] }
+  },
+  "additionalProperties": true
+}
