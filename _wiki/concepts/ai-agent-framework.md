@@ -12,6 +12,8 @@ status: stub
 （待 audit cron 合成）
 
 ## 来源
+- [[sources/01-daily-briefings-2026-07-08-daily-briefing]]
+- [[sources/01-daily-briefings-2026-07-07-daily-briefing]]
 - [[sources/01-daily-briefings-2026-07-03-daily-briefing]]
 - [[sources/01-daily-briefings-2026-07-02-daily-briefing]]
 - [[sources/01-daily-briefings-2026-06-28-daily-briefing]]

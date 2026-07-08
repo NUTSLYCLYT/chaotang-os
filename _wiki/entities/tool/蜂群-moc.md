@@ -11,6 +11,7 @@ status: stub
 - **kind**: tool
 
 ## 来源
+- [[sources/01-daily-briefings-2026-07-07-moc]]
 - [[sources/01-daily-briefings-2026-07-03-moc]]
 
 - [[sources/01-daily-briefings-2026-06-27-moc]]
