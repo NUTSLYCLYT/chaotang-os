@@ -1,0 +1,119 @@
+# chaotang-os — monorepo (frontend + backend, 原为两个独立仓库)
+# 全局 junk 放顶部(任意子树生效);各仓专属规则按目录前缀,避免 frontend/ 与 backend/ 互相误伤。
+
+# ── 全局:任意子树 ──
+.DS_Store
+*.pem
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.gstack/
+# env(secrets 绝不入库;需要示例文件时用 !.env.example 显式放行)
+.env*
+# debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+dev-server.err.log
+dev-server.out.log
+
+# ── frontend/ (Next.js) ──
+# dependencies
+frontend/.pnp
+frontend/.pnp.*
+frontend/.yarn/*
+!frontend/.yarn/patches
+!frontend/.yarn/plugins
+!frontend/.yarn/releases
+!frontend/.yarn/versions
+# testing
+frontend/coverage
+# playwright e2e artifacts (产物,不入库)
+frontend/test-results/
+frontend/playwright-report/
+frontend/.playwright-mcp/
+frontend/.playwright-cli/
+frontend/output/playwright/
+frontend/artifacts/
+frontend/dev/artifacts/
+frontend/dev/screenshots/
+frontend/dev/tmp/
+frontend/.dev-logs/
+# next.js
+frontend/.next/
+frontend/.next-dev/
+frontend/.next-e2e/
+frontend/.next-*check*/
+frontend/.next-broken*/
+frontend/out/
+# production
+frontend/build
+# vercel
+frontend/.vercel
+# typescript
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
+frontend/.chaotang/
+frontend/.chaotang-ledger.db
+frontend/.chaotang-ledger*.db
+frontend/.chaotang-main*.db
+# 锦衣卫情报管线运行时产物(由 scripts/jinyiwei_intel_pipeline.py 生成,非源码)
+frontend/public/intel-funnel.json
+frontend/public/.intel-prev-snapshot.json
+frontend/.pnpm-store/*
+# 真运营数据快照(从H盘导入,绝不入库)
+frontend/data/*.local.json
+frontend/*.db.bak*
+
+# ── backend/ (Python / jiqun) ──
+backend/runs/
+backend/ab_tests/
+backend/events/
+backend/swarm_sessions/
+backend/repairs/
+backend/cases/
+backend/knowledge/chroma_db/
+backend/knowledge/flywheel/
+backend/knowledge/essence/
+backend/reports/
+backend/drafts/
+backend/.codex
+backend/.workbuddy/
+backend/*.zip
+backend/*.zip:Zone.Identifier
+backend/opencode.json
+backend/.opencode.json.bak
+backend/.opencode/
+backend/.venv/
+backend/data/
+backend/sessions/
+backend/config/*.bak
+backend/config/*.bak*
+backend/config/_generated/
+backend/.context/
+backend/memory/*.db
+backend/direct_cache/
+backend/direct_feedback/
+backend/direct_server.*.log
+backend/harness/resource_consolidation/artifacts/
+backend/harness/resource_consolidation/archive/
+backend/harness/legal-redteam/artifacts/
+backend/harness/swarm-tool-matrix/artifacts/
+backend/harness/jinyiwei-scrapling-poc/artifacts/
+backend/harness/open_source_watch/artifacts/
+backend/harness/open_source_watch/tools/
+backend/harness/yushi_global_gate/artifacts/
+backend/harness/chaotang_department_protocol/artifacts/
+backend/harness/chaotang_ui_user_skills/artifacts/
+backend/harness/chaotang_merit_system/artifacts/
+backend/harness/chaotang_business_model/artifacts/
+backend/harness/chaotang_uiux_system/artifacts/
+backend/data/legal_cases.json
+backend/eval/truth_ledger.jsonl
+backend/eval/real_engine_calls.jsonl
+backend/local_data/
+# backend 私有运行态配置/产物,绝不入库
+backend/.claude/
