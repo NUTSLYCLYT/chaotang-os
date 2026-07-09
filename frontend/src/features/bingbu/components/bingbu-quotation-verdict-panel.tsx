@@ -88,7 +88,7 @@ export function BingbuQuotationVerdictPanel() {
         <input
           value={taskInput}
           onChange={(e) => setTaskInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') void runVerdict(); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && canDispatch) void runVerdict(); }}
           placeholder="如：100kWh工商业储能系统报价，成本38万，客户要求毛利率不低于20%"
           disabled={busy}
           className="min-w-[260px] flex-1 rounded-[9px] border bg-transparent px-3 py-2 text-[13px] outline-none disabled:opacity-60"

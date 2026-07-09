@@ -11,6 +11,11 @@
  * 命门保留：红色 finding(违约金/独家/诉讼等高风险条款)只读展示，不提供一键采纳——
  * 后端 `provenance.gate === 'pending'` 时前端强制显眼标"需人工/法务确认"，不绕开顶层
  * 单点裁决门(Russell:自动执行授权红线，§13.2#5/§8.7)。
+ *
+ * 2026-07-09 复审补强：命门此前完全依赖后端 LLM 给的 `level`——同一违约金/独家/诉讼
+ * 条款，LLM 判成 yellow 就不再强制显眼警示，跟旧(死链)设计"按条款类别硬性标记"的
+ * 确定性保证不是一回事。这里在 level 之上叠一道关键词类别检查，命中即强制显眼警示，
+ * 不完全交给模型judgment。
  */
 import { useState } from 'react';
 import { Loader2, Scale, ShieldAlert } from 'lucide-react';
@@ -19,7 +24,7 @@ import { ACCENT } from '@/features/xingbu/lib/xingbu-roster';
 
 const C = { warm: '#EEDDD6', dim: '#b3a19b', faint: '#8a7a75', border: `${ACCENT}30`, live: '#7FC9A8', amber: '#E5B84D', danger: '#E5847A' };
 
-interface LegalFinding {
+export interface LegalFinding {
   level?: 'red' | 'yellow' | 'green';
   title?: string;
   impact?: string;
@@ -38,6 +43,14 @@ interface LegalVerdictDoc {
 type PanelPhase = 'idle' | 'running' | 'done' | 'error';
 
 const LIGHT_COLOR: Record<string, string> = { red: C.danger, yellow: C.amber, green: C.live };
+
+// 后果性条款类别关键词(违约金/独家/诉讼/对外承诺)——不管 LLM 把 level 判成什么，
+// 命中这些类别一律强制"需人工/法务确认"，恢复旧设计"按类别硬性标记"的确定性保证。
+const CONSEQUENTIAL_CATEGORY_RE = /违约金|独家|诉讼|仲裁|对外(承诺|声明|立场)|连带责任|无限责任/;
+
+export function isConsequentialFinding(finding: LegalFinding): boolean {
+  return CONSEQUENTIAL_CATEGORY_RE.test(`${finding.title ?? ''}${finding.impact ?? ''}`);
+}
 
 function labelMeta(sourceLabel: string | undefined, gate: string | undefined): { text: string; color: string } {
   if (gate === 'pending') return { text: '未接地或未真跑，判决降级待核', color: C.amber };
@@ -94,7 +107,7 @@ export function XingbuLegalSwarmPanel() {
         <input
           value={taskInput}
           onChange={(e) => setTaskInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') void runVerdict(); }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && canDispatch) void runVerdict(); }}
           placeholder="贴合同/条款全文，如：这份独家供货协议有没有法律风险，重点看违约金和解约条款"
           disabled={busy}
           className="min-w-[260px] flex-1 rounded-[9px] border bg-transparent px-3 py-2 text-[13px] outline-none disabled:opacity-60"
@@ -133,28 +146,31 @@ export function XingbuLegalSwarmPanel() {
 
           {result.items && result.items.length > 0 && (
             <div className="mt-3 space-y-1.5">
-              {result.items.map((f, index) => (
-                <div
-                  key={`${f.title ?? 'finding'}-${index}`}
-                  className="rounded-[10px] border px-2.5 py-2"
-                  style={{ borderColor: `${LIGHT_COLOR[f.level ?? 'yellow']}30`, background: `${LIGHT_COLOR[f.level ?? 'yellow']}0a` }}
-                >
-                  <div className="flex items-start gap-1.5 text-[11.5px]" style={{ color: C.dim }}>
-                    {f.level === 'red' && <ShieldAlert size={13} className="mt-0.5 shrink-0" style={{ color: C.danger }} />}
-                    <span>
-                      <strong style={{ color: C.warm }}>{f.title ?? '风险点'}</strong>
-                      {f.impact ? `：${f.impact}` : ''}
-                    </span>
+              {result.items.map((f, index) => {
+                const needsHumanConfirmation = f.level === 'red' || isConsequentialFinding(f);
+                return (
+                  <div
+                    key={`${f.title ?? 'finding'}-${index}`}
+                    className="rounded-[10px] border px-2.5 py-2"
+                    style={{ borderColor: `${LIGHT_COLOR[f.level ?? 'yellow']}30`, background: `${LIGHT_COLOR[f.level ?? 'yellow']}0a` }}
+                  >
+                    <div className="flex items-start gap-1.5 text-[11.5px]" style={{ color: C.dim }}>
+                      {needsHumanConfirmation && <ShieldAlert size={13} className="mt-0.5 shrink-0" style={{ color: C.danger }} />}
+                      <span>
+                        <strong style={{ color: C.warm }}>{f.title ?? '风险点'}</strong>
+                        {f.impact ? `：${f.impact}` : ''}
+                      </span>
+                    </div>
+                    {f.fix && <p className="mt-1 text-[11px]" style={{ color: C.faint }}>建议：{f.fix}</p>}
+                    {f.basis && <p className="mt-0.5 text-[10.5px]" style={{ color: ACCENT }}>法条：{f.basis}</p>}
+                    {needsHumanConfirmation && (
+                      <p className="mt-1 text-[10px] font-semibold" style={{ color: C.danger }}>
+                        需人工/法务确认，此处只读，不提供一键采纳
+                      </p>
+                    )}
                   </div>
-                  {f.fix && <p className="mt-1 text-[11px]" style={{ color: C.faint }}>建议：{f.fix}</p>}
-                  {f.basis && <p className="mt-0.5 text-[10.5px]" style={{ color: ACCENT }}>法条：{f.basis}</p>}
-                  {f.level === 'red' && (
-                    <p className="mt-1 text-[10px] font-semibold" style={{ color: C.danger }}>
-                      需人工/法务确认，此处只读，不提供一键采纳
-                    </p>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

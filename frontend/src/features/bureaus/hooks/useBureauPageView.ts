@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import useSWR from 'swr';
 
 import { backendFetch } from '@/lib/backend-api';
@@ -17,16 +18,7 @@ const OVERVIEW_CODE: Record<string, string> = {
   legal: 'legal',
 };
 
-/**
- * 前端 BFF 层已于 2026-07-08 退休，`/api/court/bureaus/{dept}/{office}/page-view` 不存在
- * (从未在后端实现，纯前端 BFF 路由被删后成死链)。改为直接打真实后端部门 overview
- * (dept.py:120，真实聚合数据)，交给已存在的 buildBureauPageView 拼司级视图——
- * 该 builder 早已写好、只是没人接线。specialised overview(hubuOverview 等)本轮不接：
- * department-page-view-loader.ts 里那条路径本身指向的是同一个通用 overview 端点，
- * 传进来也不会是真的司级专属数据，不在此处新引入这层假真实。
- */
-async function fetchBureauPageView(department: string, bureau: string): Promise<BureauPageView> {
-  const overviewCode = OVERVIEW_CODE[department] ?? department;
+async function fetchDeptOverview(overviewCode: string): Promise<DeptOverview> {
   const res = await backendFetch(`/api/chaotang/dept/${encodeURIComponent(overviewCode)}/overview`, {
     cache: 'no-store',
   });
@@ -38,28 +30,46 @@ async function fetchBureauPageView(department: string, bureau: string): Promise<
   if (!res.ok || !json.success || !json.data) {
     throw new Error(json.error ?? 'bureau_page_view_overview_failed');
   }
-  const view = buildBureauPageView({
-    department,
-    bureau,
-    generatedAt: new Date().toISOString(),
-    sources: {
-      code: department,
-      overview: json.data,
-      hubuOverview: null,
-      legalOverview: null,
-      bingbuOverview: null,
-      libuPromoOverview: null,
-      taskInsights: [],
-    },
-  });
-  if (!view) throw new Error(`unknown_bureau_page:${department}/${bureau}`);
-  return view;
+  return json.data;
+}
+
+/**
+ * 部门 overview 单独一层 SWR，key 只按 overviewCode（不带 bureau）——同一部门下
+ * 几个司页面(如户部预算司/出纳司)共享同一个真实 overview 轮询，不是各司各自起一个
+ * 60s 定时器打同一个后端聚合端点(2026-07-09 复审修复：此前 key 里带 bureau，N 个司
+ * 就是 N 个独立 poller)。
+ */
+function useDeptOverview(department: string) {
+  const overviewCode = OVERVIEW_CODE[department] ?? department;
+  return useSWR<DeptOverview>(
+    `dept-overview:${overviewCode}`,
+    () => fetchDeptOverview(overviewCode),
+    { refreshInterval: 60_000, revalidateOnFocus: true },
+  );
 }
 
 export function useBureauPageView(department: string, bureau: string) {
-  return useSWR<BureauPageView>(
-    `bureau-page-view:${department}:${bureau}`,
-    () => fetchBureauPageView(department, bureau),
-    { refreshInterval: 60_000, revalidateOnFocus: true },
-  );
+  const { data: overview, error, isLoading } = useDeptOverview(department);
+
+  const view = useMemo<BureauPageView | null>(() => {
+    if (!overview) return null;
+    return buildBureauPageView({
+      department,
+      bureau,
+      generatedAt: new Date().toISOString(),
+      sources: {
+        code: department,
+        overview,
+        hubuOverview: null,
+        legalOverview: null,
+        bingbuOverview: null,
+        libuPromoOverview: null,
+        taskInsights: [],
+      },
+    });
+  }, [department, bureau, overview]);
+
+  const unknownBureauError = overview && !view ? new Error(`unknown_bureau_page:${department}/${bureau}`) : null;
+
+  return { data: view ?? undefined, error: error ?? unknownBureauError ?? undefined, isLoading };
 }

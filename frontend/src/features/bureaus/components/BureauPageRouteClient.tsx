@@ -13,8 +13,12 @@ const REPORTING_PREVIEW_PLACEHOLDER = `{
   "sources": { /* 各字段的 sourceLabel 溯源 */ }
 }`;
 
+// 形状对齐 backend/src/hubu_memorial_verdict.py 的 pack_from_body/_amount：
+// cash/bank 等金额字段是 {amount, source_label, source_ref} 对象，不是裸数字——
+// 裸数字会在 _amount() 里因 raw["amount"] 对 int 取下标而报错(2026-07-09 复审修复)。
 const CASHFLOW_PREVIEW_PLACEHOLDER = `{
-  "cash": 500000, "bank": 200000,
+  "cash": { "amount": 500000, "source_label": "银行流水2026-06", "source_ref": "bank-stmt-2026-06" },
+  "bank": { "amount": 200000, "source_label": "银行流水2026-06", "source_ref": "bank-stmt-2026-06" },
   "monthly_flows": [{ "period": "2026-06", "cash_receipts": 80000, "cash_payments": 60000 }],
   "receivables": [], "payables": [], "upcoming_inflows": [], "upcoming_outflows": []
 }`;
