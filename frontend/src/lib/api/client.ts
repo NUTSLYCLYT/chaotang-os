@@ -16,7 +16,6 @@ import type { IntelSignal, IntelFilter } from '@/types/intel';
 import type { HealthProfile } from '@/types/health';
 import type { Report, ReportTemplate } from '@/types/report';
 import type { ForecastScenario } from '@/types/forecast';
-import { withBasePath } from '@/lib/base-path';
 import {
   mockTasks,
   mockAgentRuns,
@@ -27,6 +26,7 @@ import {
   mockForecastScenarios,
   createMockTask,
 } from '@/lib/mock/fixtures';
+import { backendFetch } from '@/lib/backend-api';
 import {
   adaptV1Task,
   adaptV1FullTask,
@@ -52,7 +52,7 @@ async function authedFetch(input: string, init: RequestInit = {}): Promise<Respo
     ...(init.headers as Record<string, string> | undefined),
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  return fetch(input.startsWith('/') ? withBasePath(input) : input, { ...init, headers });
+  return backendFetch(input, { ...init, headers });
 }
 
 export type ApiMode = 'mock' | 'real' | 'hybrid';
@@ -64,7 +64,7 @@ export const API_MODE: ApiMode =
   (process.env.NEXT_PUBLIC_API_MODE as ApiMode) ?? 'real';
 
 export const V1_API_URL =
-  process.env.NEXT_PUBLIC_V1_API_URL ?? 'http://localhost:4000/api';
+  process.env.NEXT_PUBLIC_V1_API_URL ?? 'http://localhost:8081/api';
 
 /** 是否对支持的 endpoint 使用真实后端 */
 const USE_REAL = API_MODE === 'real' || API_MODE === 'hybrid';
@@ -185,7 +185,7 @@ async function bffRequest<T>(path: string, options: RequestInit = {}): Promise<T
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(path.startsWith('/') ? withBasePath(path) : path, {
+  const res = await backendFetch(path, {
     cache: 'no-store',
     ...options,
     headers,
@@ -294,7 +294,7 @@ export const tasksApi = {
       if (filter?.limit) params.set('limit', String(filter.limit));
       if (filter?.status?.[0]) params.set('status', filter.status[0]);
       const rawList = await bffEnvelopeRequest<unknown[]>(
-        `/api/court/backend/tasks${params.size ? `?${params.toString()}` : ''}`,
+        `/api/chaotang/tasks${params.size ? `?${params.toString()}` : ''}`,
       );
       const { valid, invalid } = partitionValidTasks(rawList);
       if (invalid.length > 0) {
@@ -324,7 +324,7 @@ export const tasksApi = {
     };
     if (ENDPOINT_MODE.tasks === 'real') {
       const full = await bffRequest<ReturnType<typeof adaptV1FullTask>>(
-        `/api/court/backend/tasks/${encodeURIComponent(id)}`,
+        `/api/chaotang/tasks/${encodeURIComponent(id)}`,
       );
       return withSynth(full.task);
     }
@@ -350,7 +350,7 @@ export const tasksApi = {
         status: string;
         acceptedAt: string;
         streamUrl: string;
-      }>('/api/court/backend/command/dispatch', {
+      }>('/api/chaotang/decree/dispatch', {
         method: 'POST',
         body: JSON.stringify(dto),
       });
@@ -372,7 +372,7 @@ export const tasksApi = {
   async getFullTask(id: string) {
     if (ENDPOINT_MODE.tasks === 'real') {
       return bffRequest<ReturnType<typeof adaptV1FullTask>>(
-        `/api/court/backend/tasks/${encodeURIComponent(id)}`,
+        `/api/chaotang/tasks/${encodeURIComponent(id)}`,
       );
     }
     const task = mockTasks.find((t) => t.id === id);

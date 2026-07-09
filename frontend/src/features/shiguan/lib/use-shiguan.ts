@@ -12,10 +12,10 @@
 import useSWR from 'swr';
 import { useState, useCallback } from 'react';
 import type { ArchiveStats, ArchiveRecord, ArchivePayload, ShiguanAnalysis } from '@/lib/contracts/archive';
-import { withBasePath } from '@/lib/base-path';
+import { backendFetch } from '@/lib/backend-api';
 
 async function jsonFetcher<T>(url: string): Promise<T> {
-  const res = await fetch(url, { cache: 'no-store' });
+  const res = await backendFetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error(`${url} → ${res.status}`);
   return res.json() as Promise<T>;
 }
@@ -23,7 +23,7 @@ async function jsonFetcher<T>(url: string): Promise<T> {
 /** 史馆统计数据（totalTasks / totalCases / successRate） */
 export function useArchiveStats() {
   return useSWR<ArchiveStats>(
-    withBasePath('/api/court/shiguan/stats'),
+    '/api/court/shiguan/stats',
     jsonFetcher<ArchiveStats>,
     { refreshInterval: 60_000 },
   );
@@ -32,7 +32,7 @@ export function useArchiveStats() {
 /** 史馆档案列表（Turso tasks + decisions 聚合） */
 export function useArchiveRecords(limit = 50) {
   return useSWR<ArchivePayload>(
-    withBasePath(`/api/court/shiguan/archive?limit=${limit}`),
+    `/api/chaotang/archive?limit=${limit}`,
     jsonFetcher<ArchivePayload>,
     { refreshInterval: 120_000 },
   );
@@ -79,7 +79,7 @@ export function useShiguanAnalysis() {
     setAnalyzing(true);
     setError(null);
     try {
-      const res = await fetch(withBasePath('/api/court/shiguan/analyze'), { method: 'POST' });
+      const res = await backendFetch('/api/court/shiguan/analyze', { method: 'POST' });
       if (!res.ok) throw new Error(`analyze → ${res.status}`);
       const data = (await res.json()) as ShiguanAnalysis;
       setAnalysis(data);

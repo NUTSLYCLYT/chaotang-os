@@ -13,16 +13,13 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import type { ShangshufangBriefing, BriefingResponse } from '@/lib/contracts/shangshufang';
+import type { ShangshufangBriefing } from '@/lib/contracts/shangshufang';
 import { loopTraceIdForTask } from '@/core/courtos/loop-trace';
-import { withBasePath } from '@/lib/base-path';
 import {
   shangshufangHome,
   type ShangshufangDecisionTaskSummary,
   type ShangshufangHomeResponse,
 } from '@/lib/jiqun-api';
-
-const BRIEFING_URL = withBasePath('/api/court/shangshufang/briefing');
 
 const EMPTY_BRIEFING: ShangshufangBriefing = {
   dailyStats: { taskTotal: 0, pendingCount: 0, runningCount: 0, completedToday: 0 },
@@ -32,14 +29,6 @@ const EMPTY_BRIEFING: ShangshufangBriefing = {
   // 尚未拿到任何真实数据：诚实标 unavailable（页面按 isLoading 屏蔽加载期闪烁）。
   sourceMode: 'unavailable',
 };
-
-async function briefingFetcher(url: string): Promise<ShangshufangBriefing> {
-  const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`briefing fetch ${res.status}`);
-  const json = (await res.json()) as BriefingResponse;
-  if (!json.success) throw new Error(json.error ?? 'briefing failed');
-  return json.data;
-}
 
 function priorityForTask(task: ShangshufangDecisionTaskSummary): 'urgent' | 'high' | 'medium' | 'low' {
   if (task.risk_flags.some((risk) => ['需人工确认', '股权风险', '合同风险', '付款风险'].includes(risk))) {
@@ -136,7 +125,7 @@ function mergeDecisionHome(
 }
 
 async function mergedBriefingFetcher(): Promise<ShangshufangBriefing> {
-  const briefing = await briefingFetcher(BRIEFING_URL);
+  const briefing = { ...EMPTY_BRIEFING, fetchedAt: new Date().toISOString() };
   const homeResult = await Promise.allSettled([shangshufangHome()]);
   const home = homeResult[0].status === 'fulfilled' ? homeResult[0].value : undefined;
   return mergeDecisionHome(briefing, home);

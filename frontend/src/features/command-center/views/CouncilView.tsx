@@ -5,7 +5,7 @@ import useSWR from 'swr';
 import { MessagesSquare } from 'lucide-react';
 import { GlassPanel } from '@/components/ui/glass-panel';
 import { useAppStore } from '@/lib/store/app-store';
-import { withBasePath } from '@/lib/base-path';
+import { backendFetch } from '@/lib/backend-api';
 import { CouncilConflictPanel } from '@/features/imperial/grand-council/components/council-conflict-panel';
 import { CouncilDiscussionStream } from '@/features/imperial/grand-council/components/council-discussion-stream';
 import { CouncilNextActions } from '@/features/imperial/grand-council/components/council-next-actions';
@@ -25,7 +25,7 @@ import {
  * 数据来源与逻辑完全复用 council-source.ts。
  */
 async function fetchCouncilLive(url: string): Promise<CouncilLiveSessionInput[]> {
-  const res = await fetch(url, { cache: 'no-store' });
+  const res = await backendFetch(url, { cache: 'no-store' });
   if (!res.ok) return [];
   const json = (await res.json()) as { success?: boolean; data?: { sessions?: CouncilLiveSessionInput[] } };
   return json?.data?.sessions ?? [];
@@ -37,7 +37,7 @@ export function CouncilView() {
   const [eventDepartment, setEventDepartment] = useState<string>('all');
   const agentRuns = useAppStore((s) => s.agentRuns);
   const { data: liveSessions } = useSWR<CouncilLiveSessionInput[]>(
-    withBasePath('/api/court/grand-council/live'),
+    '/api/court/grand-council/live',
     fetchCouncilLive,
     { refreshInterval: 30_000, revalidateOnFocus: true },
   );

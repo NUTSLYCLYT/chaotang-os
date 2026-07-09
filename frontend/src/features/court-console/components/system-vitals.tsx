@@ -7,6 +7,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { backendFetch } from '@/lib/backend-api';
 
 type Light = 'ok' | 'down' | 'unknown';
 
@@ -47,7 +48,7 @@ export function SystemVitals() {
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch('/api/health', { cache: 'no-store' });
+      const res = await backendFetch('/api/health', { cache: 'no-store' });
       const body = (await res.json()) as HealthBody;
       setData(body);
       setErr(false);

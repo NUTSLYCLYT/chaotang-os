@@ -7,6 +7,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import { AlertCircle, ArrowRight, CheckCircle } from 'lucide-react';
 import { AuthShell } from '@/features/auth/components/auth-shell';
 import { withBasePath } from '@/lib/base-path';
+import { backendFetch } from '@/lib/backend-api';
 
 export default function RegisterPage() {
   return (
@@ -57,7 +58,7 @@ function RegisterForm() {
     setError(null);
 
     try {
-      const response = await fetch(withBasePath('/api/auth/register'), {
+      const response = await backendFetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

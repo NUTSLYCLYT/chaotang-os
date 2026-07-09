@@ -15,6 +15,7 @@ import { GlassPanel } from '@/components/ui/glass-panel';
 import { useAppStore } from '@/lib/store/app-store';
 import { toast } from 'sonner';
 import type { AnnalChapter, MemoryEvent } from '@/features/scribe/lib/memory-palace';
+import { backendFetch } from '@/lib/backend-api';
 
 const STORAGE_KEY = 'courtos.scribe.annals.v1';
 
@@ -81,7 +82,7 @@ export function AnnalsReader() {
     setLoading(true);
     try {
       const p = periodLabel(new Date(), period);
-      const res = await fetch('/api/scribe/annals', {
+      const res = await backendFetch('/api/scribe/annals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

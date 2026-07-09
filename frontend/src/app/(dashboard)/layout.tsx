@@ -12,7 +12,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import useSWR from 'swr';
 import { DashboardAppShell } from '@/components/chaotang/layout/DashboardAppShell';
 import { API_MODE, ENDPOINT_MODE } from '@/lib/api/client';
-import { withBasePath } from '@/lib/base-path';
+import { backendFetch } from '@/lib/backend-api';
 import { useRealEventStream } from '@/lib/hooks/use-real-event-stream';
 import { useCourtPulse } from '@/features/shared/hooks/use-court-pulse';
 import { ChaotangTopNav } from '@/features/shangshufang/components/ChaotangTopNav';
@@ -45,9 +45,23 @@ interface TrueChainHealthResponse {
 }
 
 async function fetchTrueChain(): Promise<TrueChainHealthResponse> {
-  const res = await fetch(withBasePath('/api/court/true-chain-health'), { cache: 'no-store' });
+  const res = await backendFetch('/api/health', { cache: 'no-store' });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  return (await res.json()) as TrueChainHealthResponse;
+  const json = (await res.json().catch(() => ({}))) as { status?: string };
+  const ready = json.status === 'ok' || json.status === 'healthy';
+  return {
+    data: {
+      status: ready ? 'ready' : 'degraded',
+      summary: {
+        ready: ready ? 1 : 0,
+        degraded: ready ? 0 : 1,
+        down: 0,
+        missing: 0,
+        mock: 0,
+        requiredDown: 0,
+      },
+    },
+  };
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -71,7 +85,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const handleLogout = useCallback(async () => {
     setLoggingOut(true);
     try {
-      await fetch('/api/auth/session', { method: 'DELETE' });
+      await backendFetch('/api/auth/logout', { method: 'POST' });
     } catch {
       // Best-effort cookie revoke.
     } finally {

@@ -1,3 +1,5 @@
+import { backendApiUrl } from '@/lib/backend-api';
+
 const RAW_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 
 export const APP_BASE_PATH =
@@ -5,6 +7,9 @@ export const APP_BASE_PATH =
 
 export function withBasePath(path: string): string {
   const normalized = path.startsWith('/') ? path : `/${path}`;
+  if (normalized === '/api' || normalized.startsWith('/api/')) {
+    return backendApiUrl(normalized);
+  }
   if (!APP_BASE_PATH || normalized === APP_BASE_PATH || normalized.startsWith(`${APP_BASE_PATH}/`)) {
     return normalized;
   }

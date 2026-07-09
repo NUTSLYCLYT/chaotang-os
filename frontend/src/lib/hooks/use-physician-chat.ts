@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DockMessage } from '@/features/shared/components/bottom-dock';
 import type { PhysicianCitation } from '@/lib/contracts/taiyi';
+import { backendFetch } from '@/lib/backend-api';
 
 export interface PhysicianMessage extends DockMessage {
   citations?: PhysicianCitation[];
@@ -129,7 +130,7 @@ export function usePhysicianChat(initialGreeting: string) {
     setMessages((prev) => [...prev, { role: 'agent', text: '太医正在诊察中▋', time: agentTime }]);
 
     try {
-      const res = await fetch('/api/orchestration/run', {
+      const res = await backendFetch('/api/orchestration/run', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({

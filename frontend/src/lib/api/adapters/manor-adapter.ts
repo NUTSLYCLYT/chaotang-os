@@ -1,6 +1,7 @@
 import { API_MODE } from '@/lib/api/client';
 import type { ManorAnalyzeRequest, ManorAnalyzeResult, ManorDomain } from '@/types/manor';
 import { inferManorDomain } from '@/lib/routing/infer-manor-domain';
+import { backendFetch } from '@/lib/backend-api';
 
 export { inferManorDomain };
 
@@ -293,7 +294,7 @@ export const manorAdapter = {
     req: ManorAnalyzeRequest,
     signal?: AbortSignal,
   ): AsyncGenerator<ManorStreamEvent, void, void> {
-    const res = await fetch('/api/manor/stream', {
+    const res = await backendFetch('/api/manor/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req),

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { backendFetch } from '@/lib/backend-api';
 
 interface InviteLandingProps {
   code: string;
@@ -28,7 +29,7 @@ export function InviteLanding({ code }: InviteLandingProps) {
 
     async function verify() {
       try {
-        const res = await fetch('/api/auth/verify-invite', {
+        const res = await backendFetch('/api/auth/verify-invite', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code }),

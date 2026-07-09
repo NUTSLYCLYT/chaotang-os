@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import { AlertTriangle, CheckCircle2, Send, ShieldCheck, WalletCards } from 'lucide-react';
 import { withBasePath } from '@/lib/base-path';
+import { backendFetch } from '@/lib/backend-api';
 
 type LineItem = {
   id?: string;
@@ -30,7 +31,7 @@ type LoopCase = {
 const inputClass = 'w-full rounded-[8px] border border-[#7A4A08]/20 bg-[#FFF8E0]/45 px-3 py-2 text-[12px] text-[#281C0A] outline-none focus:border-[#8A6A2A]/55';
 
 async function fetchCase(path: string): Promise<LoopCase> {
-  const response = await fetch(withBasePath(path), { cache: 'no-store' });
+  const response = await backendFetch(path, { cache: 'no-store' });
   const payload = (await response.json().catch(() => null)) as { success?: boolean; data?: LoopCase; error?: string } | null;
   if (!response.ok || payload?.success !== true || !payload.data) {
     throw new Error(payload?.error ?? `request_failed:${response.status}`);
@@ -89,7 +90,7 @@ export function HubuBudgetCaseBody({ taskId, accent }: { taskId: string; accent:
     setBusy(decision);
     setDecisionError(null);
     try {
-      const response = await fetch(withBasePath(`/api/court/shangshufang/briefs/${encodeURIComponent(data.decisionBrief.id)}/decision/advance`), {
+      const response = await backendFetch(`/api/court/shangshufang/briefs/${encodeURIComponent(data.decisionBrief.id)}/decision/advance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ decision, reason, executionType: 'no_action_archive', manualConfirmation }),
@@ -219,7 +220,7 @@ export function HubuBudgetIntakeBody({ accent }: { accent: string }) {
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch(withBasePath('/api/court/shangshufang/research-budget-loop'), {
+      const response = await backendFetch('/api/court/shangshufang/research-budget-loop', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

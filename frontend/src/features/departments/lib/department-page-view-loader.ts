@@ -13,6 +13,7 @@ import type {
   LibuPromoOverview,
 } from '@/features/departments/lib/department-page-view-builder';
 import { loadDepartmentTaskInsights } from '@/features/departments/lib/department-task-insights';
+import { backendApiUrl } from '@/lib/backend-api';
 
 export type DepartmentPageViewSources = {
   code: DepartmentPageCode | string;
@@ -46,7 +47,7 @@ function authHeaders(req: NextRequest): HeadersInit {
 }
 
 async function loadJsonData<T>(req: NextRequest, path: string): Promise<T | null> {
-  const url = new URL(`${process.env.BASE_PATH ?? ''}${path}`, req.url);
+  const url = backendApiUrl(path);
   try {
     const res = await fetch(url, {
       cache: 'no-store',
@@ -68,7 +69,7 @@ export async function loadDepartmentPageViewSources(
 ): Promise<DepartmentPageViewSources> {
   const overviewCode = OVERVIEW_CODE[canonical] ?? canonical;
   const [overview, hubuOverview, legalOverview, bingbuOverview, libuPromoOverview, taskInsights] = await Promise.all([
-    loadJsonData<DeptOverview>(req, `/api/court/chaotang/dept/${encodeURIComponent(overviewCode)}/overview`),
+    loadJsonData<DeptOverview>(req, `/api/chaotang/dept/${encodeURIComponent(overviewCode)}/overview`),
     canonical === 'finance' ? loadJsonData<HubuOverview>(req, '/api/court/hubu/overview') : Promise.resolve(null),
     canonical === 'legal' ? loadJsonData<LegalOverview>(req, '/api/court/legal/overview') : Promise.resolve(null),
     canonical === 'ops' ? loadJsonData<BingbuSalesOverview>(req, '/api/court/bingbu/overview') : Promise.resolve(null),

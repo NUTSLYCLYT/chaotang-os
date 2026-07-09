@@ -49,6 +49,59 @@ def test_department_config_has_required_jobs_and_routes():
         assert spec["next"]
 
 
+def test_v1_taxonomy_matches_product_module_tree():
+    runner = load_runner()
+    config = runner.load_config()
+    taxonomy = config["v1_taxonomy"]
+
+    assert [item["name"] for item in taxonomy["primary_modules"]] == [
+        "大殿",
+        "上书房",
+        "军机处",
+        "六部",
+        "诸司",
+        "史馆",
+    ]
+    assert [item["name"] for item in taxonomy["zhusi"]] == ["锦衣卫"]
+    assert {
+        code: [office["name"] for office in spec["offices"]]
+        for code, spec in taxonomy["liubu"].items()
+    } == {
+        "hubu": ["预算司", "出纳司"],
+        "libu": ["任免司", "招聘司"],
+        "libu_rites": [],
+        "bingbu": ["报价司", "线索司"],
+        "xingbu": ["合同司"],
+        "gongbu": ["产研司"],
+    }
+    assert taxonomy["liubu"]["libu_rites"]["status"] == "pending"
+
+
+def test_v1_taxonomy_matches_project_fact_source():
+    runner = load_runner()
+    config = runner.load_config()
+    taxonomy = config["v1_taxonomy"]
+    fact_source = json.loads((ROOT.parent / "docs" / "chaotang-v1-taxonomy.json").read_text(encoding="utf-8"))
+
+    assert fact_source["version"] == "1.0"
+    assert taxonomy["version"] == fact_source["version"]
+    assert [item["id"] for item in taxonomy["primary_modules"]] == [
+        item["id"] for item in fact_source["primaryModules"]
+    ]
+    assert [item["id"] for item in taxonomy["zhusi"]] == [item["id"] for item in fact_source["zhusi"]]
+
+    backend_liubu = taxonomy["liubu"]
+    product_liubu = {item["id"]: item for item in fact_source["liubu"]}
+    assert set(backend_liubu) == set(product_liubu)
+    for department_id, backend_department in backend_liubu.items():
+        product_department = product_liubu[department_id]
+        assert backend_department["status"] == product_department["status"]
+        assert backend_department.get("href") == product_department["href"]
+        assert [office["id"] for office in backend_department["offices"]] == [
+            office["id"] for office in product_department["offices"]
+        ]
+
+
 def test_six_ministries_define_swarm_calls_and_outputs():
     runner = load_runner()
     config = runner.load_config()

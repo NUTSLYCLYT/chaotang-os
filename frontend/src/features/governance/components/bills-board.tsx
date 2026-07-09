@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { Plus, RefreshCw, ShieldCheck, Send, UserCheck, ShieldAlert } from 'lucide-react';
 import type { Bill, BillState, EventType, Actor } from '@/features/governance/lib/bill-fsm';
 import { legalNextEvents } from '@/features/governance/lib/bill-fsm';
+import { backendFetch } from '@/lib/backend-api';
 
 const ACTOR_LABEL: Record<Actor, string> = {
   ruler: '陛下',
@@ -99,7 +100,7 @@ export function BillsBoard() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/governance/bills');
+      const res = await backendFetch('/api/governance/bills');
       const data = (await res.json()) as { bills: Bill[]; count: number };
       setBills(data.bills);
       if (!activeId && data.bills.length > 0) setActiveId(data.bills[0]!.id);
@@ -112,7 +113,7 @@ export function BillsBoard() {
     void refresh();
     void (async () => {
       try {
-        const res = await fetch('/api/governance/whoami');
+        const res = await backendFetch('/api/governance/whoami');
         const data = (await res.json()) as { actor: Actor };
         setCurrentActor(data.actor);
       } catch {
@@ -123,7 +124,7 @@ export function BillsBoard() {
 
   async function changeActor(actor: Actor) {
     try {
-      const res = await fetch('/api/governance/whoami', {
+      const res = await backendFetch('/api/governance/whoami', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ actor }),
@@ -138,7 +139,7 @@ export function BillsBoard() {
 
   async function runFullAudit() {
     try {
-      const res = await fetch('/api/governance/audit/summary');
+      const res = await backendFetch('/api/governance/audit/summary');
       const data = (await res.json()) as AuditSummary;
       setAuditSummary(data);
       if (data.tamperedCount > 0) {
@@ -166,7 +167,7 @@ export function BillsBoard() {
     }
     setCreating(true);
     try {
-      const res = await fetch('/api/governance/bills', {
+      const res = await backendFetch('/api/governance/bills', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command: newCommand.trim() }),
@@ -191,7 +192,7 @@ export function BillsBoard() {
     const expectedEventCount = cur?.events.length;
 
     try {
-      const res = await fetch(`/api/governance/bills/${billId}/transition`, {
+      const res = await backendFetch(`/api/governance/bills/${billId}/transition`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -222,7 +223,7 @@ export function BillsBoard() {
 
   async function handleVerify(billId: string) {
     try {
-      const res = await fetch(`/api/governance/bills/${billId}/audit`);
+      const res = await backendFetch(`/api/governance/bills/${billId}/audit`);
       const data = (await res.json()) as {
         ok: boolean;
         totalChecked: number;
