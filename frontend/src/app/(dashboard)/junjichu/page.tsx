@@ -31,7 +31,6 @@ import {
   ShangshufangRailPanel,
 } from '@/features/shared/components/shangshufang-layout-shell';
 import { DepartmentWorkflowChip } from '@/features/departments/components/DepartmentWorkflowChip';
-import { CaseSpine } from '@/features/shared/components/case-spine';
 import type { CategorySelection } from '@/lib/contracts/decree';
 import type { SourceLabel } from '@/core/courtos/types';
 import { resolvePanelMode, type PanelMode } from './panel-mode';
@@ -49,6 +48,14 @@ import {
   shangshufangTaskStatus,
   type ShangshufangTaskStatusResponse,
 } from '@/lib/jiqun-api';
+import { proceedJunjichuDecree } from '@/features/command-center/junjichu/api/governance';
+import { JunjichuCenterWorkSurface } from '@/features/command-center/junjichu/components/JunjichuCenterWorkSurface';
+import { JunjichuLeftRail } from '@/features/command-center/junjichu/components/JunjichuLeftRail';
+import { JunjichuRightRail } from '@/features/command-center/junjichu/components/JunjichuRightRail';
+import { useArchiveFlywheel } from '@/features/command-center/junjichu/hooks/useArchiveFlywheel';
+import { useJunjichuPageView } from '@/features/command-center/junjichu/hooks/useJunjichuPageView';
+import { useSwarmRun } from '@/features/command-center/junjichu/hooks/useSwarmRun';
+import type { JunjichuSourceLabel, QualityGateStatus, SummonView, SwarmRunMode } from '@/features/command-center/junjichu/model/types';
 import { CouncilView } from '@/features/command-center/views/CouncilView';
 import { CasesView } from '@/features/command-center/views/CasesView';
 import {
@@ -2837,13 +2844,6 @@ function CommandCenterInner() {
   const isCouncilView = view === 'council';
   const isCasesView = view === 'cases';
 
-  if (isCouncilView) {
-    return <CouncilViewWithTab />;
-  }
-  if (isCasesView) {
-    return <CasesViewWithTab />;
-  }
-
   // ── 御座室外壳配置 ──
   const syntheticTaskSummary: TaskSummary | null = decisionIntent && activeTaskId
     ? {
@@ -2888,6 +2888,169 @@ function CommandCenterInner() {
     memorial: liveMemorial,
     ministryBrief,
   });
+  const swarmRuntime = useSwarmRun(displayTaskSummary?.jiqunSwarm?.taskId ? {
+    id: displayTaskSummary.jiqunSwarm.taskId,
+    mode: 'standard',
+    status: 'running',
+    progressUrl: displayTaskSummary.jiqunSwarm.streamUrl ?? undefined,
+    taskRuns: [],
+    qualityResult: null,
+    sourceLabel: 'LIVE_SWARM',
+  } : null);
+  const archiveFlywheel = useArchiveFlywheel(activeTaskId, objectLabel);
+  const gateStatus: QualityGateStatus = !hasTask
+    ? 'blocked'
+    : ministryBrief?.audit.passed === false || ministryBrief?.unified.qualityGateStatus === 'blocked'
+      ? 'blocked'
+      : liveMemorial || displayTaskSummary?.decisionId
+        ? 'passed'
+        : liveMinisters.length || mergeCouncil?.contributors.length || shangshufangStatus?.review
+          ? 'warning'
+          : 'idle';
+  const sourceLabel = (ministryBrief?.review.sourceLabel ?? displayTaskSummary?.source ?? (hasTask ? 'MIXED' : 'DEMO')) as JunjichuSourceLabel;
+  const missingEvidence = [
+    ...(ministryBrief?.report.missingEvidence ?? []),
+    ...(shangshufangStatus?.task.unknown_gaps ?? []),
+    ...(shangshufangStatus?.review?.memorial?.evidence_gaps ?? []),
+  ].filter(Boolean);
+  const summons: SummonView[] = liveMinisters.length
+    ? liveMinisters.slice(0, 8).map((minister) => ({
+        id: minister.agentCode,
+        name: minister.name,
+        status: 'summoned',
+        thesis: minister.opinion || minister.status,
+        sourceLabel: 'LIVE',
+      }))
+    : mergeCouncil?.contributors.length
+      ? mergeCouncil.contributors.slice(0, 8).map((item) => ({
+          id: item.dept,
+          name: item.name,
+          status: 'summoned',
+          thesis: item.answer,
+          sourceLabel: 'LIVE',
+        }))
+      : ministryBrief?.review.cards.slice(0, 8).map((card) => ({
+          id: card.ministryId,
+          name: MINISTRY_REGISTRY[card.ministryId].nameCn,
+          status: 'waiting',
+          thesis: card.mainThesis,
+          sourceLabel: card.sourceLabel as JunjichuSourceLabel,
+        })) ?? [];
+  const governanceWaiting = Boolean(
+    displayTaskSummary?.status &&
+    /approval|approve|proceed|governance|openclaw|waiting|paused/i.test(displayTaskSummary.status),
+  );
+  const junjichuViewModel = useJunjichuPageView({
+    caseIdentity: {
+      taskId: activeTaskId,
+      title: objectLabel,
+      rawCommand: displayTaskSummary?.rawCommand,
+      intent: displayTaskSummary?.intent,
+      status: displayTaskSummary?.status,
+      runId: displayTaskSummary?.runId,
+      updatedAt: displayTaskSummary?.updatedAt,
+      hasRealTask: Boolean(taskId),
+    },
+    sourceLabel,
+    routing: {
+      mode: hasTask ? 'junjichu' : 'unknown',
+      reason: hasTask
+        ? (liveCouncilSummary ?? ministryBrief?.report.verdict ?? '本案进入军机处，由丞相路由并召集相关部门会审。')
+        : '待上书房或圣旨立案后，军机处接案。',
+      recommendedDepartments: summons.map((item) => item.name),
+      sourceLabel,
+    },
+    summons,
+    evidence: {
+      known: shangshufangStatus?.task.known_facts ?? [],
+      missing: missingEvidence,
+      blocking: gateStatus === 'blocked' && missingEvidence.length > 0,
+      owner: missingEvidence.length ? '上书房 / 锦衣卫 / 六部' : undefined,
+      rerunScope: missingEvidence.length ? '补证后重跑会审与质量门' : undefined,
+    },
+    stream: {
+      active: Boolean(taskId && !liveMemorial && (liveMinisters.length || liveGroups.length || liveRisks.length)),
+      ministersCount: liveMinisters.length || mergeCouncil?.contributors.length || summons.length,
+      groupsCount: liveGroups.length,
+      risksCount: liveRisks.length || ministryBrief?.report.risks.length || 0,
+      councilSummary: liveCouncilSummary,
+    },
+    council: {
+      ministers: summons,
+      conflicts: [...(mergeCouncil?.conflicts ?? []), ...(ministryBrief?.review.conflicts.map((item) => item.summary) ?? [])],
+      risks: [...liveRisks.map((risk) => risk.label), ...(ministryBrief?.report.risks ?? [])],
+      verdict: liveCouncilSummary ?? ministryBrief?.report.verdict,
+      requiresHumanConfirmation: ministryBrief?.audit.passed === false || mergeCouncil?.escalate === true,
+    },
+    swarmRun: swarmRuntime.run,
+    gate: {
+      status: gateStatus,
+      blockingReasons: gateStatus === 'blocked'
+        ? [
+            ...(ministryBrief?.audit.blockingIssues ?? []),
+            ...(missingEvidence.length ? missingEvidence.map((item) => `缺证：${item}`) : []),
+            ...(!hasTask ? ['尚未接入真实任务'] : []),
+          ]
+        : [],
+      warnings: gateStatus === 'warning'
+        ? [
+            ...(ministryBrief?.audit.warnings ?? []),
+            '当前可形成裁决草案，但仍建议人工确认来源和风险。',
+          ]
+        : [],
+      sourceLabel,
+      canAdopt: gateStatus === 'passed' || gateStatus === 'warning',
+      requiresHumanConfirmation: gateStatus === 'warning' || mergeCouncil?.escalate === true,
+    },
+    governance: {
+      waiting: governanceWaiting,
+      reason: governanceWaiting ? '后端进入治理等待或人工确认态。' : undefined,
+      nextAfterProceed: '放行后继续会审、质量门或奏折成稿。',
+    },
+    decision: {
+      written: Boolean(displayTaskSummary?.decisionId || liveMemorial),
+      decisionId: displayTaskSummary?.decisionId == null ? undefined : String(displayTaskSummary.decisionId),
+      reviewId: shangshufangStatus?.review?.review_id,
+      canWriteBackendDecision: Boolean(taskId && !taskId.startsWith('local_')),
+      note: taskId ? '裁决将写回同一任务时间线' : '当前没有真实后端裁决锚点',
+    },
+    archive: {
+      archived: displayTaskSummary?.status === 'archived',
+      archiveId: displayTaskSummary?.status === 'archived' ? activeTaskId ?? undefined : undefined,
+      similarCases: [],
+    },
+  });
+
+  async function handleJunjichuDecision(
+    action: 'adopt' | 'request_evidence' | 'recheck' | 'reject' | 'followup',
+    reason: string,
+  ) {
+    if (!taskId || taskId.startsWith('local_')) {
+      throw new Error('当前没有真实后端裁决锚点，只能查看裁决策略。');
+    }
+    await shangshufangTaskDecision(taskId, action, reason, action === 'adopt' ? { human_confirmation_note: reason } : {});
+  }
+
+  async function handleJunjichuProceed() {
+    if (!taskId) return;
+    await proceedJunjichuDecree(taskId, '军机处人工门放行');
+  }
+
+  async function handleJunjichuStartSwarm(mode: SwarmRunMode) {
+    await swarmRuntime.start({
+      task_id: taskId ?? activeTaskId ?? undefined,
+      command: displayTaskSummary?.rawCommand ?? displayTaskSummary?.intent ?? objectLabel,
+      mode,
+      departments: summons.map((item) => item.id),
+    });
+  }
+
+  if (isCouncilView) {
+    return <CouncilViewWithTab />;
+  }
+  if (isCasesView) {
+    return <CasesViewWithTab />;
+  }
 
   return (
         <ShangshufangLayoutShell
@@ -2927,81 +3090,54 @@ function CommandCenterInner() {
         </>
       }
       left={
-        <ShangshufangRailPanel title="辅政与训诲" subtitle={objectLabel} accent="#F0C66A">
-          <div className="space-y-3">
-            <section className={COMMAND_CENTER_PANEL_CLASS}>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#F0C66A]">丞相 · 辅政</div>
-              <div className="mt-2">
-                <ChancellorBody
-                  taskSummary={displayTaskSummary}
-                  ministers={liveMinisters}
-                  risks={liveRisks}
-                  councilSummary={liveCouncilSummary}
-                  hasTask={hasTask}
-                />
-              </div>
-            </section>
-            <section className={COMMAND_CENTER_PANEL_CLASS}>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#AFC0FF]">钦天监 · 训诲</div>
-              <div className="mt-2">
-                <AstrologerBody hasTask={hasTask} />
-              </div>
-            </section>
-          </div>
-        </ShangshufangRailPanel>
+        <JunjichuLeftRail view={junjichuViewModel} onProceed={() => void handleJunjichuProceed()} />
       }
       center={
-        <div className="flex h-full min-h-0 flex-col gap-3">
-          <div className="shrink-0">
-            <CaseSpine
-              caseId={activeTaskId}
-              caseTitle={hasTask ? (displayTaskSummary?.title ?? displayTaskSummary?.intent ?? displayTaskSummary?.rawCommand ?? null) : null}
-              stage={hasTask ? 'review' : null}
-            />
-          </div>
-          {fromVerdict && (
-            <div className={`${COMMAND_CENTER_CARD_CLASS} px-3 py-2 text-[12px] text-[#F5E9C9]`}>
-              御前裁决已接收 · 下一步：{verdictMode === 'review' ? '复核争议点' : '督办执行'}
-            </div>
-          )}
-          <div className={`min-h-[380px] flex-1 ${!hasTask ? 'flex justify-center py-3' : ''}`}>
-            <div className={!hasTask ? 'h-full w-full max-w-[780px]' : 'h-full w-full'}>
-              <EdictStage view={commandCenterEdict} customBodyScroll="styled" />
-            </div>
-          </div>
-          {!activeTaskId && buildDraft && (
-            <div className={`shrink-0 ${COMMAND_CENTER_PANEL_CLASS}`}>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9FC1FF]">
-                Gongbu Build Draft · 工部建设案
-              </div>
-              <div className="mt-1 text-[15px] font-semibold text-[#F5E9C9]" style={{ fontFamily: 'var(--font-serif)' }}>
-                {buildDraft.title}
-              </div>
-              <p className="mt-2 text-[12px] leading-6 text-[#C6CEE6]">{buildDraft.command}</p>
-              {contextLines(buildDraft.context).length > 0 && (
-                <div className="mt-2 rounded border border-[#F0C66A]/24 bg-black/24 px-3 py-2">
-                  {contextLines(buildDraft.context).slice(0, 4).map((line) => (
-                    <div key={line} className="text-[11px] leading-5 text-[#B9F6D2]">· {line}</div>
-                  ))}
+        <JunjichuCenterWorkSurface
+          view={junjichuViewModel}
+          extra={
+            <>
+              {fromVerdict && (
+                <div className={`${COMMAND_CENTER_CARD_CLASS} px-3 py-2 text-[12px] text-[#F5E9C9]`}>
+                  御前裁决已接收 · 下一步：{verdictMode === 'review' ? '复核争议点' : '督办执行'}
                 </div>
               )}
-              {dispatchError && <div className="mt-2 text-[11px] text-[#F58B8B]">{dispatchError}</div>}
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => void handleDispatchBuild()}
-                  disabled={dispatchingBuild || !buildDraft.command.trim()}
-                  className="rounded-md border border-[#F0C66A]/45 bg-[#F0C66A]/[0.12] px-3 py-1.5 text-[12px] font-semibold text-[#F0C66A] transition hover:bg-[#F0C66A]/18 disabled:cursor-wait disabled:opacity-60"
-                >
-                  {dispatchingBuild ? '立项中...' : '正式下旨立项'}
-                </button>
-                <Link href="/departments/gongbu" className="rounded-md border border-[#6BA0FF]/35 px-3 py-1.5 text-[12px] text-[#9FC1FF]">
-                  回工部
-                </Link>
-              </div>
-            </div>
-          )}
-          {taskId && (
+              {!activeTaskId && buildDraft && (
+                <div className={`shrink-0 ${COMMAND_CENTER_PANEL_CLASS}`}>
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9FC1FF]">
+                    Gongbu Build Draft · 工部建设案
+                  </div>
+                  <div className="mt-1 text-[15px] font-semibold text-[#F5E9C9]" style={{ fontFamily: 'var(--font-serif)' }}>
+                    {buildDraft.title}
+                  </div>
+                  <p className="mt-2 text-[12px] leading-6 text-[#C6CEE6]">{buildDraft.command}</p>
+                  {contextLines(buildDraft.context).length > 0 && (
+                    <div className="mt-2 rounded border border-[#F0C66A]/24 bg-black/24 px-3 py-2">
+                      {contextLines(buildDraft.context).slice(0, 4).map((line) => (
+                        <div key={line} className="text-[11px] leading-5 text-[#B9F6D2]">· {line}</div>
+                      ))}
+                    </div>
+                  )}
+                  {dispatchError && <div className="mt-2 text-[11px] text-[#F58B8B]">{dispatchError}</div>}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleDispatchBuild()}
+                      disabled={dispatchingBuild || !buildDraft.command.trim()}
+                      className="rounded-md border border-[#F0C66A]/45 bg-[#F0C66A]/[0.12] px-3 py-1.5 text-[12px] font-semibold text-[#F0C66A] transition hover:bg-[#F0C66A]/18 disabled:cursor-wait disabled:opacity-60"
+                    >
+                      {dispatchingBuild ? '立项中...' : '正式下门立项'}
+                    </button>
+                    <Link href="/departments/gongbu" className="rounded-md border border-[#6BA0FF]/35 px-3 py-1.5 text-[12px] text-[#9FC1FF]">
+                      回工部
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </>
+          }
+          edictStage={<EdictStage view={commandCenterEdict} customBodyScroll="styled" />}
+          stream={taskId ? (
             <div className={`min-h-[260px] shrink-0 overflow-y-auto ${COMMAND_CENTER_PANEL_CLASS}`}>
               <BattleStream
                 taskId={taskId}
@@ -3012,126 +3148,17 @@ function CommandCenterInner() {
                 onMemorialChange={setLiveMemorial}
               />
             </div>
-          )}
-        </div>
+          ) : null}
+          onDecision={handleJunjichuDecision}
+        />
       }
       right={
-        <ShangshufangRailPanel title="会审右批" subtitle={objectContext} accent="#F0C66A">
-          <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                // 大臣数:SSE 未流时认后端 merge 快照的真会审部数,别再显 0 让"内容真/计数假"打架(张小龙)
-                ['大臣', liveMinisters.length || mergeCouncil?.contributors.length || 0],
-                ['蜂群', liveGroups.length],
-                ['风险', liveRisks.length],
-              ].map(([label, value]) => (
-                <div key={label} className={`${COMMAND_CENTER_CARD_CLASS} px-2 py-2`}>
-                  <div className="text-[9px] uppercase tracking-[0.16em] text-[#7C86A6]">{label}</div>
-                  <div className="mt-1 text-[18px] font-semibold text-[#F5E9C9]">{value}</div>
-                </div>
-              ))}
-            </div>
-
-            {!hasTask ? (
-              <div className={`${COMMAND_CENTER_PANEL_CLASS} text-[11.5px] leading-6 text-[#9AA3C4]`}>
-                待接案后于此展开六部会审与风险封询，奏折成稿即在此验收。先从上书房立一条真案。
-              </div>
-            ) : (
-            <>
-            <section className={COMMAND_CENTER_PANEL_CLASS}>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#F0C66A]">六部表态</div>
-              <div className="mt-2 space-y-2">
-                {liveMinisters.length ? liveMinisters.slice(0, 5).map((minister) => (
-                  <div key={minister.agentCode} className="rounded border border-[#F0C66A]/20 bg-black/24 px-2.5 py-2">
-                    <div className="text-[12px] font-semibold text-[#F5E9C9]">{minister.name}</div>
-                    <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-[#C6CEE6]">{minister.opinion || minister.status}</p>
-                  </div>
-                )) : mergeCouncil?.contributors.length ? (
-                  // 后端 result.merge 真六部合议(report_ready 快照):SSE 未流但任务已跑完时,军机处优先显真会审,
-                  // 不再只兜底 FALLBACK(修#1"后端有前端对不上"·照抄上书房早已在用的 merge 消费)。
-                  <>
-                    {mergeCouncil.escalate && (
-                      <div className="rounded border border-[#F58B8B]/32 bg-[#F58B8B]/[0.08] px-2.5 py-2 text-[11px] leading-5 text-[#F5C0B8]">
-                        ⚠ 硬冲突 · 伏候圣裁：{mergeCouncil.verdict.slice(0, 96)}
-                      </div>
-                    )}
-                    {mergeCouncil.contributors.slice(0, 6).map((c, i) => (
-                      <div key={`${c.dept}-${i}`} className="rounded border border-[#3DD68C]/24 bg-black/24 px-2.5 py-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[12px] font-semibold text-[#F5E9C9]">{c.name}</span>
-                          <span className="rounded-full border border-[#3DD68C]/55 px-1.5 py-px text-[9px] text-[#8AE4B4]">真会审</span>
-                        </div>
-                        <p className="mt-1 line-clamp-3 text-[11px] leading-5 text-[#C6CEE6]">{c.answer}</p>
-                      </div>
-                    ))}
-                  </>
-                ) : ministryBrief?.review.cards.length ? (
-                  // 再回落:SSE/后端快照都无时,显前端本地会审卡(ministryBrief)。户部那张由真 evaluateProject 直算(断点B)。
-                  ministryBrief.review.cards.slice(0, 6).map((card) => {
-                    const tone =
-                      card.signal === 'GREEN' ? '#3DD68C' : card.signal === 'RED' ? '#F58B8B' : card.signal === 'GRAY' ? '#8F9BB2' : '#F0C66A';
-                    // 溯源点(大神会审·张小龙)：区分"真算卡"(确定性引擎,MIXED)与"synth罐头"(FALLBACK),
-                    // 否则户部真数字卡和刑部关键词卡长得一样、被真算标签误导。
-                    const prov =
-                      card.sourceLabel === 'MIXED'
-                        ? { t: '真算', c: '#8AE4B4' }
-                        : card.sourceLabel === 'LIVE' || card.sourceLabel === 'LIVE_SWARM'
-                          ? { t: '推演', c: '#8AA4FF' }
-                          : card.sourceLabel === 'DEMO'
-                            ? { t: '示例', c: '#9AA3C4' }
-                            : { t: '离线', c: '#B6AB8C' };
-                    return (
-                      <div key={card.ministryId} className="rounded border bg-black/24 px-2.5 py-2" style={{ borderColor: `${tone}44` }}>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="flex items-center gap-1.5">
-                            <span className="text-[12px] font-semibold text-[#F5E9C9]">{MINISTRY_REGISTRY[card.ministryId].nameCn}</span>
-                            <span className="rounded-full border px-1.5 py-px text-[9px]" style={{ color: prov.c, borderColor: `${prov.c}55` }}>{prov.t}</span>
-                          </span>
-                          <span className="text-[10px] font-bold" style={{ color: tone }}>{card.signal}</span>
-                        </div>
-                        <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-[#C6CEE6]">{card.mainThesis}</p>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <p className="text-[11.5px] leading-6 text-[#9AA3C4]">{hasTask ? '会审待召，尚无大臣表态。' : '待接案后显示六部意见。'}</p>
-                )}
-              </div>
-            </section>
-
-            <section className={COMMAND_CENTER_PANEL_CLASS}>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#F58B8B]">风险封询</div>
-              <div className="mt-2 space-y-2">
-                {liveRisks.length ? liveRisks.slice(0, 4).map((risk) => (
-                  <div key={`${risk.level}-${risk.label}`} className="rounded border border-[#F0C66A]/20 bg-black/24 px-2.5 py-2">
-                    <div className="text-[11px] font-semibold text-[#F5E9C9]">{risk.level}</div>
-                    <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-[#C6CEE6]">{risk.label}</p>
-                  </div>
-                )) : (
-                  <p className="text-[11.5px] leading-6 text-[#9AA3C4]">暂无真风险回写。</p>
-                )}
-              </div>
-            </section>
-
-            {ministryBrief && (
-              <section className={COMMAND_CENTER_PANEL_CLASS}>
-                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8BE4B4]">奏折验收</div>
-                <p className="mt-2 text-[11.5px] leading-6 text-[#D7DFF2]">{ministryBrief.report.verdict}</p>
-                <p className="mt-2 text-[11px] leading-5 text-[#B9F6D2]">{ministryBrief.report.nextAction}</p>
-              </section>
-            )}
-            </>
-            )}
-
-            {/* 负责人汇报是部门级日报、非本案(taskId)数据；空态折叠避免"误导性满"。
-                Open Q #3(dev/notes PRD)：是否移出军机处到全局日报位仍待定，此处先只在接案态显示。 */}
-            {hasTask && (
-              <div className="command-center-workflow-wrapper">
-                <DepartmentWorkflowChip deptLabel="军机处" deptCode="command-center" embedded />
-              </div>
-            )}
-          </div>
-        </ShangshufangRailPanel>
+        <JunjichuRightRail
+          view={junjichuViewModel}
+          onStartSwarm={(mode) => void handleJunjichuStartSwarm(mode)}
+          onRetrySwarm={() => void swarmRuntime.retry()}
+          onSearchSimilar={() => void archiveFlywheel.searchSimilar()}
+        />
       }
       footer={
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">

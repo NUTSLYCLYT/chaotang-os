@@ -111,10 +111,18 @@ def api_login(body: LoginRequest, request: Request, response: Response) -> Login
 
     ip_ok, ip_err = rate_limiter.check(f"login_ip:{client_ip}", mode="login_ip")
     if not ip_ok:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=ip_err)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=ip_err,
+            headers={"Retry-After": str((ip_err or {}).get("retry_after", 60))},
+        )
     user_ok, user_err = rate_limiter.check(f"login_user:{username}", mode="login_user")
     if not user_ok:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=user_err)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=user_err,
+            headers={"Retry-After": str((user_err or {}).get("retry_after", 60))},
+        )
 
     result = authenticate(username, body.password)
     if not result:

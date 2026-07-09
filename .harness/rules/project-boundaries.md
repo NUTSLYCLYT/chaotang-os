@@ -22,3 +22,10 @@
 - 后端蜂群声明需要 harness、测试或 golden case 证据。
 - 跨项目架构声明需要根 doctor 与清单证据。
 - 用户可见的运行时事实必须保持 LIVE / MIXED / DEMO 边界清楚。
+
+## 大殿冻结边界
+
+- `/dadian` 大殿页面体验已经定稿，默认不得再改动页面结构、布局、滚动行为、底部栏、丞相今日要务展示规则或状态文案。
+- 大殿后端事实源已经定稿，默认不得再改动 `backend/web/routers/dadian.py` 暴露的 `/api/court/dadian/*`、`/api/court/chancellor-advice`、`/api/court/decision-judgment` 合约。
+- 后续任务如未明确点名“大殿”或“dadian 后端接口”，应避开 `frontend/src/features/dadian/`、`frontend/src/app/(dashboard)/dadian/`、`backend/web/routers/dadian.py` 与对应测试。
+- 若用户明确要求修改大殿，必须先说明会触碰冻结边界，并在 `.harness/changes/` 更新变更记录，写明原因、事实源和验证命令。

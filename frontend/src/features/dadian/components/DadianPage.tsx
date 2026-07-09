@@ -2,7 +2,6 @@
 
 // 顶导由 (dashboard)/layout.tsx 的 ChaotangTopNav 统一接管, 不再渲染自带 TopNav
 import PalaceHero from "./PalaceHero";
-import BottomBar from "./BottomBar";
 import MinisterHotspot from "./MinisterHotspot";
 import { ChancellorTodayCard } from "./ChancellorTodayCard";
 import { MINISTER_HOTSPOTS } from "@/features/dadian/lib/dadian";
@@ -10,7 +9,7 @@ import { assetUrl } from "@/lib/asset";
 
 export default function DadianPage() {
   return (
-    <main className="isolate relative h-full min-h-[820px] w-full overflow-hidden bg-[#02050d] text-parchment-50 max-md:h-auto max-md:min-h-[1180px] max-md:overflow-y-auto">
+    <main className="isolate relative h-full min-h-0 w-full overflow-hidden bg-[#02050d] text-parchment-50">
       {/* 全屏连续宫殿底图 */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -53,11 +52,10 @@ export default function DadianPage() {
 
       {/* —— 悬浮玻璃态 UI —— */}
       {/* 丞相今日要务(御前决策压缩器):左上御前位悬浮,真丞相 LLM 建议,不挤中央御座 */}
-      <div className="absolute left-6 top-[152px] z-10 w-[330px] max-xl:w-[300px] max-md:static max-md:mt-4 max-md:w-auto max-md:px-4">
+      <div className="absolute left-6 top-[152px] z-10 w-[330px] max-xl:w-[300px] max-md:left-3 max-md:right-3 max-md:top-[148px] max-md:w-auto">
         <ChancellorTodayCard />
       </div>
       <PalaceHero />
-      <BottomBar />
     </main>
   );
 }

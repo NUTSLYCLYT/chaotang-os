@@ -3,8 +3,8 @@
 /**
  * useShangshufangBriefing
  *
- * 用 SWR 从 /api/court/shangshufang/briefing 获取上书房今日简报。
- * 数据源：Turso 直查（不再依赖外部 jiqun 服务）。
+ * 从 /api/court/shangshufang/home 获取上书房今日简报。
+ * 数据源：后端上书房 home 接口，前端在 hook 内适配为 ShangshufangBriefing。
  *
  * 特性：
  *   - 60s 自动重验（revalidateOnFocus + refreshInterval）
@@ -58,8 +58,13 @@ function mergeDecisionHome(
   home: ShangshufangHomeResponse | undefined,
 ): ShangshufangBriefing {
   if (!home) return briefing;
+  const sourceMode = home.source_label === 'FALLBACK' || home.source_label === 'DEMO' ? 'fallback' : 'real';
+  const baseBriefing: ShangshufangBriefing = {
+    ...briefing,
+    sourceMode,
+  };
   const decisionTasks = [...home.pending_decisions, ...home.pending_evidence_tasks];
-  if (decisionTasks.length === 0) return briefing;
+  if (decisionTasks.length === 0) return baseBriefing;
 
   const existingMemorialIds = new Set(briefing.memorials.map((item) => item.id));
   const existingChancellorIds = new Set(briefing.chancellorItems.map((item) => item.id));
@@ -111,23 +116,21 @@ function mergeDecisionHome(
     decisionTasks.filter((task) => ['reviewing', 'awaiting_evidence'].includes(task.status)).length;
 
   return {
-    ...briefing,
-    sourceMode: briefing.sourceMode === 'unavailable' ? 'real' : briefing.sourceMode,
+    ...baseBriefing,
     dailyStats: {
-      ...briefing.dailyStats,
-      taskTotal: briefing.dailyStats.taskTotal + decisionTasks.length,
+      ...baseBriefing.dailyStats,
+      taskTotal: baseBriefing.dailyStats.taskTotal + decisionTasks.length,
       pendingCount,
       runningCount,
     },
-    chancellorItems: [...chancellorItems, ...briefing.chancellorItems],
-    memorials: [...memorials, ...briefing.memorials],
+    chancellorItems: [...chancellorItems, ...baseBriefing.chancellorItems],
+    memorials: [...memorials, ...baseBriefing.memorials],
   };
 }
 
 async function mergedBriefingFetcher(): Promise<ShangshufangBriefing> {
   const briefing = { ...EMPTY_BRIEFING, fetchedAt: new Date().toISOString() };
-  const homeResult = await Promise.allSettled([shangshufangHome()]);
-  const home = homeResult[0].status === 'fulfilled' ? homeResult[0].value : undefined;
+  const home = await shangshufangHome();
   return mergeDecisionHome(briefing, home);
 }
 
@@ -190,6 +193,7 @@ export function useShangshufangBriefing() {
     briefing,
     isLoading,
     isError: !!error,
+    error,
     refresh,
   };
 }

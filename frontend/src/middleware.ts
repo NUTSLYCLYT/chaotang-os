@@ -28,6 +28,7 @@ const PUBLIC_PREFIXES = [
   '/heroes',
   '/shangshufang',
   '/junjichu',
+  '/command-center',
   '/liubu',
   '/zhusi',
   '/shiguan',
@@ -42,7 +43,6 @@ const PUBLIC_PREFIXES = [
 const RETIRED_PAGE_PREFIXES = [
   '/overview',
   '/court-briefing',
-  '/command-center',
   '/departments',
   '/intel',
   '/manors',

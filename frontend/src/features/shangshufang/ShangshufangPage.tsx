@@ -4,7 +4,7 @@
  * 上书房 · 页面主入口（Turso + 三省审议）
  *
  * 数据来源（真实，不再 mock）:
- *   GET  /api/court/shangshufang/briefing  → Turso 直查（任务+决议+citations）
+ *   GET  /api/court/shangshufang/home      → 上书房任务首页（任务+决议+citations）
  *   POST /api/orchestration/run            → 三省审议 SSE 流水线（下旨模式）
  *   POST /api/court/orchestrate            → 问丞相会审（ask 模式）
  *   问钦天监 → 上书房 IM 内推演，必要时再从 IM 转正式旨意
@@ -42,7 +42,7 @@ import { ResourceGallery } from './components/ResourceGallery';
 import { SHANGSHUFANG_ASSETS } from './constants';
 import { assetUrl } from '@/lib/asset';
 import { getSession, getToken, refreshAccessToken } from '@/lib/auth';
-import { withBasePath } from '@/lib/base-path';
+import { APP_BASE_PATH, withBasePath } from '@/lib/base-path';
 import {
   chaotang,
   type LaunchLoopCase,
@@ -3406,7 +3406,7 @@ function DecisionDesk({
       id: 'briefing',
       name: '今日朝报',
       status: briefingCapability,
-      endpoint: 'GET /api/court/shangshufang/briefing',
+      endpoint: 'GET /api/court/shangshufang/home',
       detail:
         briefingSourceMode === 'real'
           ? `真实简报 · ${sourceLabelDisplay(sourceMode)}`
@@ -3414,7 +3414,7 @@ function DecisionDesk({
             ? '主库可读但今日无真任务 · 使用引导奏折'
             : '主库不可达 · 禁据此下旨',
       evidence: [
-        { label: 'endpoint', value: 'GET /api/court/shangshufang/briefing' },
+        { label: 'endpoint', value: 'GET /api/court/shangshufang/home' },
         { label: 'source', value: briefingSourceMode },
         { label: 'sourceLabel', value: sourceLabelDisplay(sourceMode) },
         { label: 'lastSuccess', value: capabilityTime(briefingFetchedAt) },
@@ -4476,6 +4476,19 @@ function JiqunReturnStatusBody({
   );
 }
 
+function isAuthExpiredError(error: Error | null | undefined): boolean {
+  const message = error?.message ?? '';
+  return message.includes('401') || message.includes('Unauthorized') || message.includes('登录');
+}
+
+function stripAppBasePath(path: string): string {
+  if (!APP_BASE_PATH) return path || '/';
+  if (path === APP_BASE_PATH) return '/';
+  if (!path.startsWith(`${APP_BASE_PATH}/`)) return path || '/';
+  const stripped = path.slice(APP_BASE_PATH.length);
+  return stripped || '/';
+}
+
 export function ShangshufangPage() {
   const router = useRouter();
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -4487,10 +4500,11 @@ export function ShangshufangPage() {
   const edictOverrideRef = useRef<EdictOverrideState | null>(null);
   const appliedJiqunReturnSessionsRef = useRef<Set<string>>(new Set());
   const restoredEdictReturnRef = useRef<string | null>(null);
+  const authRedirectedRef = useRef(false);
   // 「问丞相」与「问钦天监」共用 ask 模式,用此 ref 区分会审结果以何镜片展开
   const askPersonaRef = useRef<'chancellor' | 'tutorial'>('chancellor');
 
-  const { briefing, isLoading, refresh: refreshBriefing } = useShangshufangBriefing();
+  const { briefing, isLoading, error: briefingError, refresh: refreshBriefing } = useShangshufangBriefing();
   const {
     data: swarmSessions,
     error: swarmSessionsError,
@@ -4707,9 +4721,23 @@ export function ShangshufangPage() {
 
   const finishedSwarmSuggestions: ChancellorSuggestion[] = finishedSwarmSessions
     .map((session) => swarmSessionToSuggestion(session, swarmOutputBySession?.[session.session_id]));
+  const briefingAuthExpired = isAuthExpiredError(briefingError);
+  const swarmAuthExpired = isAuthExpiredError(swarmSessionsError);
+
+  useEffect(() => {
+    if ((!briefingAuthExpired && !swarmAuthExpired) || authRedirectedRef.current) return;
+    authRedirectedRef.current = true;
+    const rawNextPath =
+      typeof window === 'undefined'
+        ? '/shangshufang'
+        : `${window.location.pathname}${window.location.search}`;
+    router.replace(`/login?next=${encodeURIComponent(stripAppBasePath(rawNextPath))}`);
+  }, [briefingAuthExpired, router, swarmAuthExpired]);
 
   const chancellorEmptyHint =
-    briefing.sourceMode === 'unavailable' && swarmSessionsError
+    briefingAuthExpired || swarmAuthExpired
+      ? '登录态已失效，请重新登录后再查看上书房简报与蜂群流程。'
+      : briefing.sourceMode === 'unavailable' && swarmSessionsError
       ? '上书房简报接口与蜂群流程接口均不可用，当前没有可冒充真实要务的列表项。'
       : briefing.sourceMode === 'unavailable'
         ? '上书房简报接口已降级：Turso 不可达；可等待 jiqun_ai 蜂群完成后回流流程记录。'
@@ -6780,7 +6808,7 @@ export function ShangshufangPage() {
           </div>
         ) : (
           <>
-            {briefing.sourceMode === 'unavailable' && (
+            {briefing.sourceMode === 'unavailable' && !briefingAuthExpired && (
               <div
                 role="status"
                 className="mx-auto mb-3 flex w-full max-w-[1680px] items-center gap-2 rounded-lg border border-[#C2553D]/40 bg-[#C2553D]/10 px-3 py-2 text-[11px] text-[#E8B4A6]"

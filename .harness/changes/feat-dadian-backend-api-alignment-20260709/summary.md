@@ -13,4 +13,5 @@
 - Mainline: `/dadian` should call backend APIs directly through the frontend proxy, without restoring the old BFF layer.
 - Backend source of truth: `backend/web/routers/dadian.py` owns the `/api/court/dadian/*`, `/api/court/chancellor-advice`, and `/api/court/decision-judgment` contracts.
 - Frontend surface: `frontend/src/features/dadian/components/ChancellorTodayCard.tsx` accepts both live LLM advice and backend-derived advice without presenting derived output as live.
+- Freeze boundary: `/dadian` page UX and `backend/web/routers/dadian.py` API contracts are now treated as finalized; future work should not touch them unless the user explicitly reopens the dadian scope.
 - Verification: backend contract tests, frontend TypeScript check, and browser-path proxy probes.

@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, Suspense, useState } from 'react';
+import { FormEvent, Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
@@ -8,6 +8,26 @@ import { AuthShell } from '@/features/auth/components/auth-shell';
 import { setSession, decodeJwtExp, type AuthSession } from '@/lib/auth';
 import { withBasePath } from '@/lib/base-path';
 import { backendFetch } from '@/lib/backend-api';
+
+class LoginRateLimitError extends Error {
+  retryAfterSeconds: number;
+
+  constructor(retryAfterSeconds: number) {
+    super(`登录请求过于频繁，请 ${retryAfterSeconds} 秒后再试。`);
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
+async function readBackendError(res: Response): Promise<string | null> {
+  const body = (await res.json().catch(() => null)) as {
+    detail?: string | { message?: string; retry_after?: number } | null;
+    message?: string | null;
+  } | null;
+  if (typeof body?.detail === 'string') return body.detail;
+  if (typeof body?.detail?.message === 'string') return body.detail.message;
+  if (typeof body?.message === 'string') return body.message;
+  return null;
+}
 
 /**
  * 本地 mock 用户登录校验（后端不可用时的回退）。
@@ -21,7 +41,19 @@ async function tryBackendLogin(username: string, password: string): Promise<Auth
       body: JSON.stringify({ username, password }),
       signal: AbortSignal.timeout(20000),
     });
-    if (!res.ok) return null;
+    if (res.status === 429) {
+      const retryAfter = Number(res.headers.get('Retry-After'));
+      const detail = (await res.json().catch(() => null)) as { detail?: { retry_after?: number } | string } | null;
+      const retryAfterSeconds =
+        Number.isFinite(retryAfter) && retryAfter > 0
+          ? retryAfter
+          : typeof detail?.detail === 'object' && typeof detail.detail.retry_after === 'number'
+            ? detail.detail.retry_after
+            : 60;
+      throw new LoginRateLimitError(Math.max(1, Math.ceil(retryAfterSeconds)));
+    }
+    if (res.status === 401) throw new Error('账号或密码错误，请确认后再试。');
+    if (!res.ok) throw new Error((await readBackendError(res)) ?? `登录失败：${res.status}`);
     const body = (await res.json()) as {
       token: string;
       user?: { username?: string };
@@ -35,7 +67,8 @@ async function tryBackendLogin(username: string, password: string): Promise<Auth
       accountType: 0,
       expiresAt: decodeJwtExp(body.token) || Date.now() + 8 * 60 * 60 * 1000,
     };
-  } catch {
+  } catch (err) {
+    if (err instanceof LoginRateLimitError || err instanceof Error) throw err;
     return null;
   }
 }
@@ -56,15 +89,24 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [retryAfterSeconds, setRetryAfterSeconds] = useState(0);
+
+  useEffect(() => {
+    if (retryAfterSeconds <= 0) return;
+    const timer = window.setInterval(() => {
+      setRetryAfterSeconds((value) => Math.max(0, value - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [retryAfterSeconds]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (submitting) return;
+    if (submitting || retryAfterSeconds > 0) return;
     setError(null);
     setSubmitting(true);
     try {
       const user = username.trim();
-      const pass = password;
+      const pass = password.trim();
       if (!user || !pass) throw new Error('请填写账号和密码');
 
       // 1. 尝试 jiqun_ai 后端登录（直连后端）
@@ -78,6 +120,7 @@ function LoginForm() {
       if (!loggedIn) throw new Error('账号或密码错误，请确认已注册。');
       window.location.assign(withBasePath(next));
     } catch (err) {
+      if (err instanceof LoginRateLimitError) setRetryAfterSeconds(err.retryAfterSeconds);
       setError(err instanceof Error ? err.message : '登录失败');
     } finally {
       setSubmitting(false);
@@ -148,14 +191,14 @@ function LoginForm() {
 
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || retryAfterSeconds > 0}
           className="w-full rounded-lg px-4 py-3 text-sm font-semibold tracking-[0.2em] disabled:opacity-50 transition-colors"
           style={{
             background: 'linear-gradient(135deg, #F0C66A, #D4A84B 50%, #8A6A2A)',
             color: '#04060E',
           }}
         >
-          {submitting ? '验证中…' : '入朝议政'}
+          {retryAfterSeconds > 0 ? `${retryAfterSeconds} 秒后重试` : submitting ? '验证中…' : '入朝议政'}
         </button>
       </form>
       <style jsx global>{`

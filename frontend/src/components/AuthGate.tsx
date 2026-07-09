@@ -14,6 +14,7 @@ const PUBLIC_ROUTES = [
   '/dadian',
   '/shangshufang',
   '/junjichu',
+  '/command-center',
   '/liubu',
   '/zhusi',
   '/shiguan',

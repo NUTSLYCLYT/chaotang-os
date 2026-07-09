@@ -110,7 +110,7 @@ export interface ShangshufangEdictReturn {
   savedAt: string;
 }
 
-/** 上书房今日简报（Turso 直查返回） */
+/** 上书房今日简报（由 /api/court/shangshufang/home 适配生成） */
 export interface ShangshufangBriefing {
   dailyStats: DailyStats;
   chancellorItems: ChancellorItem[];
@@ -121,7 +121,7 @@ export interface ShangshufangBriefing {
   latestEdictReturn?: ShangshufangEdictReturn;
 }
 
-/** /api/court/shangshufang/briefing 响应信封 */
+/** 页面简报响应信封；当前事实源是 /api/court/shangshufang/home */
 export interface BriefingResponse {
   success: boolean;
   data: ShangshufangBriefing;

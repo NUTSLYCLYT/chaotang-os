@@ -42,15 +42,15 @@ export async function fetchLocalCourtApi(path: string, init: RequestInit = {}): 
 }
 
 export async function jiqunFetcher<T>(path: string): Promise<T> {
-  const res = await fetch(backendRuntimeUrl(`/api${path}`), { headers: await jiqunAuthHeaders() });
+  const res = await fetchLocalCourtApi(`/api${path}`);
   if (!res.ok) throw new Error(`${res.status} ${res.statusText} — ${path}`);
   return res.json() as Promise<T>;
 }
 
 export async function jiqunPost<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(backendRuntimeUrl(`/api${path}`), {
+  const res = await fetchLocalCourtApi(`/api${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(await jiqunAuthHeaders()) },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText} — ${path}`);
