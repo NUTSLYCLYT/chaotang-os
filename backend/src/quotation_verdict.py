@@ -98,6 +98,10 @@ def build_quotation_verdict(
     archive: bool = True,
 ) -> dict:
     items = quotation_qa_to_items(qa_result, run_id=run_id)
+    # source_label 跟着 hard_checks 是否真拿到走:拿到了才是 LIVE_SWARM,拿不到(QA数据
+    # 缺失,quotation_qa_to_items 落回那条黄条兜底)只能算 MIXED——不能不管数据全不全恒发
+    # LIVE_SWARM,否则"数据缺失"的黄条会跟一个自称"真·后端实算"的绿色徽章同时出现在前端。
+    has_hard_checks = bool((qa_result or {}).get("hard_checks"))
     # 不传 advisors/rag_hit/deterministic_gated:没有具体大神在这里签字放行,
     # 灯完全由 hard_checks 的 item 颜色决定(compute_light),不额外触发接地门下压。
     return cdb.build_court_doc(
@@ -109,7 +113,7 @@ def build_quotation_verdict(
         archive=archive,
         headline_map=_QUOTATION_HEADLINE,
         pending_note="报价复核 —— QA数据不全",
-        source_label="LIVE_SWARM",
+        source_label="LIVE_SWARM" if has_hard_checks else "MIXED",
     )
 
 

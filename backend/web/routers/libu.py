@@ -6,6 +6,7 @@ from typing import Any
 
 from fastapi import APIRouter, Body, Depends
 
+from src import libu_appointment_vet, libu_vet
 from web.deps import get_current_user
 from web.schemas.auth import CurrentUser
 from web.routers._envelope import fail, ok
@@ -27,11 +28,7 @@ def libu_appointment_verdict(
     if not task_text:
         return fail("task_text 不能为空(任免/权限决策描述)")
     try:
-        from src.libu_appointment_vet import run_libu_appointment
-
-        verdict = run_libu_appointment(
-            task_text, archive=bool(body.get("archive", False))
-        )
+        verdict = libu_appointment_vet.run_libu_appointment(task_text)
     except Exception as exc:  # noqa: BLE001
         return fail(f"任免复核失败: {exc}")
     return ok(verdict)
@@ -50,9 +47,7 @@ def libu_recruit_verdict(
     if not task_input:
         return fail("task_input 不能为空(招聘需求描述)")
     try:
-        from src.libu_vet import run_libu_verdict
-
-        verdict = run_libu_verdict(task_input, archive=bool(body.get("archive", False)))
+        verdict = libu_vet.run_libu_verdict(task_input)
     except Exception as exc:  # noqa: BLE001
         return fail(f"招聘裁决失败: {exc}")
     return ok(verdict)

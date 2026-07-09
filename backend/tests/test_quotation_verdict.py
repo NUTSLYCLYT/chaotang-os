@@ -79,6 +79,20 @@ def test_build_quotation_verdict_passes_when_all_green():
     assert "可发" in doc["headline"]
 
 
+def test_build_quotation_verdict_source_label_reflects_hard_checks_presence():
+    """source_label 不能不管 QA 数据全不全恒为 LIVE_SWARM——数据缺失时前端徽章会跟
+    "QA硬核查数据缺失"的黄条一起显示"真·后端实算"，自相矛盾(2026-07-09 复审修复)。"""
+    with_data = build_quotation_verdict(
+        _QA_ALL_PASS, run_id="r1", question=_SAMPLE_TASK, archive=False
+    )
+    assert with_data["source_label"] == "LIVE_SWARM"
+
+    without_data = build_quotation_verdict(
+        None, run_id="r1", question=_SAMPLE_TASK, archive=False
+    )
+    assert without_data["source_label"] == "MIXED"
+
+
 def test_verdict_endpoint_end_to_end(monkeypatch):
     """端点走真实链路,但用假 FlowEngine 顶替真 LLM 调用(不烧真 token)。"""
 
