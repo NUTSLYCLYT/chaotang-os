@@ -10,7 +10,7 @@
  * (TResult 泛型由调用方指定，做完只拿到原始 payload)。
  */
 import { useCallback, useRef, useState } from 'react';
-import { withBasePath } from '@/lib/base-path';
+import { backendFetch } from '@/lib/backend-api';
 
 export type SwarmDispatchPollState<TResult> =
   | { phase: 'idle' }
@@ -37,7 +37,7 @@ export function useSwarmDispatchPoll<TResult extends PollEnvelope>(dispatchPath:
       cancelledRef.current = false;
       setState({ phase: 'dispatching' });
       try {
-        const res = await fetch(withBasePath(dispatchPath), {
+        const res = await backendFetch(dispatchPath, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ task_input: taskInput }),
@@ -54,7 +54,7 @@ export function useSwarmDispatchPoll<TResult extends PollEnvelope>(dispatchPath:
           if (cancelledRef.current) return;
           await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
           if (cancelledRef.current) return;
-          const pollRes = await fetch(withBasePath(`${resultPath}?sid=${encodeURIComponent(traceId)}`));
+          const pollRes = await backendFetch(`${resultPath}?sid=${encodeURIComponent(traceId)}`);
           const payload = (await pollRes.json().catch(() => ({}))) as TResult;
           if (payload.status === 'completed' || payload.status === 'error' || payload.status === 'failed') {
             setState({ phase: 'done', traceId, result: payload });

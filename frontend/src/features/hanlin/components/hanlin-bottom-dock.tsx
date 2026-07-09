@@ -14,6 +14,7 @@ import { useState, useCallback } from 'react';
 import { BottomDock, DOCK_BOTTOM_PADDING } from '@/features/shared/components/bottom-dock';
 import type { DockMessage } from '@/features/shared/components/bottom-dock';
 import type { HanlinOrchestrationEvent } from '@/lib/contracts/hanlin';
+import { backendFetch } from '@/lib/backend-api';
 
 // 翰林院主色：帝金
 const HANLIN_ACCENT = '#F0C66A';
@@ -65,7 +66,7 @@ export function HanlinBottomDock({ noPadding }: HanlinBottomDockProps) {
 
     // 3. 调 /api/orchestration/run SSE
     try {
-      const response = await fetch('/api/orchestration/run', {
+      const response = await backendFetch('/api/orchestration/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command }),

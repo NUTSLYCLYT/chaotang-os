@@ -10,7 +10,7 @@
 
 import { useState } from 'react';
 import { Loader2, Cpu } from 'lucide-react';
-import { withBasePath } from '@/lib/base-path';
+import { backendFetch } from '@/lib/backend-api';
 
 const C = { warm: '#EAF3EE', dim: '#a7b3ac', muted: '#7a8a82', faint: '#5a6a62', gong: '#7FC9A8', blue: '#4A82F0', amber: '#E5B84D', border: '#22402f' };
 
@@ -41,7 +41,7 @@ export function GongbuPackSizingPanel() {
     setBusy(true);
     setRes(null);
     try {
-      const r = await fetch(withBasePath('/api/court/gongbu/pack-sizing'), {
+      const r = await backendFetch('/api/court/gongbu/pack-sizing', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ requirement }),

@@ -7,28 +7,33 @@ import { ArrowRight } from 'lucide-react';
 import { AuthShell } from '@/features/auth/components/auth-shell';
 import { setSession, decodeJwtExp, type AuthSession } from '@/lib/auth';
 import { withBasePath } from '@/lib/base-path';
+import { backendFetch } from '@/lib/backend-api';
 
 /**
  * 本地 mock 用户登录校验（后端不可用时的回退）。
  * 仅校验 /api/auth/register 写入 globalThis.__courtosLocalUsers 的已注册用户。
  */
-async function tryLocalLogin(username: string, password: string): Promise<AuthSession | null> {
+async function tryBackendLogin(username: string, password: string): Promise<AuthSession | null> {
   try {
-    const res = await fetch(withBasePath('/api/auth/local-login'), {
+    const res = await backendFetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
       signal: AbortSignal.timeout(20000),
     });
     if (!res.ok) return null;
-    const body = (await res.json()) as { accessToken: string; refreshToken: string; tenantId?: number };
+    const body = (await res.json()) as {
+      token: string;
+      user?: { username?: string };
+      tenant?: { id?: number };
+    };
     return {
-      accessToken: body.accessToken,
-      refreshToken: body.refreshToken,
-      tenantId: body.tenantId ?? 6,
-      username,
+      accessToken: body.token,
+      refreshToken: '',
+      tenantId: body.tenant?.id ?? 1,
+      username: body.user?.username ?? username,
       accountType: 0,
-      expiresAt: decodeJwtExp(body.accessToken) || Date.now() + 8 * 60 * 60 * 1000,
+      expiresAt: decodeJwtExp(body.token) || Date.now() + 8 * 60 * 60 * 1000,
     };
   } catch {
     return null;
@@ -62,40 +67,12 @@ function LoginForm() {
       const pass = password;
       if (!user || !pass) throw new Error('请填写账号和密码');
 
-      // 1. 尝试 jiqun_ai 后端登录（通过 BFF 转发）
+      // 1. 尝试 jiqun_ai 后端登录（直连后端）
       let loggedIn = false;
-      const localSession = await tryLocalLogin(user, pass);
+      const localSession = await tryBackendLogin(user, pass);
       if (localSession) {
         setSession(localSession);
         loggedIn = true;
-      }
-
-      // 2. 如果 BFF 失败，尝试直连 /api/v1/auth/login（旧版 NestJS 兼容）
-      if (!loggedIn) {
-        try {
-          const res = await fetch(withBasePath('/api/v1/auth/login'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tenantId: 6, username: user, password: pass }),
-            signal: AbortSignal.timeout(5000),
-          });
-          if (res.ok) {
-            const body = (await res.json()) as { data?: { access_token: string; refresh_token: string }; access_token?: string; refresh_token?: string };
-            const data = body.data ?? body;
-            const session: AuthSession = {
-              accessToken: data.access_token!,
-              refreshToken: data.refresh_token!,
-              tenantId: 6,
-              username: user,
-              accountType: 0,
-              expiresAt: decodeJwtExp(data.access_token!) || Date.now() + 8 * 60 * 60 * 1000,
-            };
-            setSession(session);
-            loggedIn = true;
-          }
-        } catch {
-          // unreachable — fall through
-        }
       }
 
       if (!loggedIn) throw new Error('账号或密码错误，请确认已注册。');

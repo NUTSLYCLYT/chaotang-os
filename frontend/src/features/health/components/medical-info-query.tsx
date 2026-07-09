@@ -11,6 +11,7 @@ import { Search, Sparkles, Shield, ExternalLink, Loader2 } from 'lucide-react';
 import { GlassPanel } from '@/components/ui/glass-panel';
 import type { MedicalInfoQueryResult } from '@/types/health';
 import { streamSseTokens } from '@/lib/sse-tokens';
+import { backendFetch } from '@/lib/backend-api';
 
 const SUGGESTIONS = [
   'LDL 连续偏高该怎么调整？',
@@ -45,7 +46,7 @@ export function MedicalInfoQuery() {
     };
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await backendFetch('/api/chat', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ message: finalQuery }),

@@ -156,6 +156,7 @@ from web.routers import auth as auth_router  # noqa: E402
 from web.routers import bingbu as bingbu_router  # noqa: E402
 from web.routers import cases as cases_router  # noqa: E402
 from web.routers import court as court_router  # noqa: E402
+from web.routers import dadian as dadian_router  # noqa: E402
 from web.routers import qintianjian as qintianjian_router  # noqa: E402
 from web.routers import quotation as quotation_router  # noqa: E402
 from web.routers import compare as compare_router  # noqa: E402
@@ -237,6 +238,7 @@ app.include_router(requirements_router.router)
 app.include_router(resources_router.router)
 app.include_router(cases_router.router)
 app.include_router(court_router.router)
+app.include_router(dadian_router.router)
 app.include_router(shangshufang_router.router)
 app.include_router(court_session_router.router)
 app.include_router(legal_router.router)

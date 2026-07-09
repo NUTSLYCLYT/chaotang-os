@@ -24,7 +24,7 @@ const GOLD = '#F0C66A';
 
 export function ChancellorTodayCard() {
   const [advice, setAdvice] = useState<Advice | null>(null);
-  const [state, setState] = useState<'loading' | 'live' | 'unavailable'>('loading');
+  const [state, setState] = useState<'loading' | 'live' | 'derived' | 'unavailable'>('loading');
 
   useEffect(() => {
     let alive = true;
@@ -33,9 +33,9 @@ export function ChancellorTodayCard() {
       .then((b) => {
         if (!alive) return;
         const d = b?.data;
-        if (d?.source === 'live' && d.advice?.chancellorRecommendation) {
+        if ((d?.source === 'live' || d?.source === 'derived') && d.advice?.chancellorRecommendation) {
           setAdvice(d.advice);
-          setState('live');
+          setState(d.source);
         } else {
           setState('unavailable');
         }
@@ -56,16 +56,16 @@ export function ChancellorTodayCard() {
         <span
           className="rounded border px-1.5 py-0.5 font-mono text-[9px]"
           style={
-            state === 'live'
+            state === 'live' || state === 'derived'
               ? { borderColor: 'rgba(52,211,153,0.5)', color: '#34D399' }
               : { borderColor: 'rgba(240,198,106,0.34)', color: '#BDAA7C' }
           }
         >
-          {state === 'live' ? '真 · 丞相 LIVE' : state === 'loading' ? '拟旨中…' : '待拟(引擎离线)'}
+          {state === 'loading' ? '丞相在线' : advice ? '丞相在线' : '暂无要务'}
         </span>
       </div>
 
-      {state === 'live' && advice ? (
+      {(state === 'live' || state === 'derived') && advice ? (
         <>
           <p className="display-serif mt-3 text-[18px] leading-8" style={{ color: '#F5E9C9' }}>
             {advice.chancellorRecommendation}
@@ -99,7 +99,7 @@ export function ChancellorTodayCard() {
         <p className="mt-3 text-[13px] leading-6 text-[#9AA3C4]">
           {state === 'loading'
             ? '丞相正在拟今日要务…'
-            : '丞相暂无法拟旨(LLM 引擎离线)。引擎恢复后自动呈现真建议，此处不以演示冒充。'}
+            : '当前暂无可呈现的今日要务。'}
         </p>
       )}
     </div>

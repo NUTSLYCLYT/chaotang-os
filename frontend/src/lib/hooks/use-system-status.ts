@@ -8,7 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import type { SystemStatus } from '@/lib/api/client';
-import { withBasePath } from '@/lib/base-path';
+import { backendFetch } from '@/lib/backend-api';
 
 interface HealthBody {
   status?: 'ok' | 'degraded' | 'down';
@@ -19,7 +19,7 @@ interface HealthBody {
 }
 
 async function fetchSystemStatus(): Promise<SystemStatus> {
-  const res = await fetch(withBasePath('/api/health'), { cache: 'no-store' });
+  const res = await backendFetch('/api/health', { cache: 'no-store' });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   const raw = (await res.json()) as HealthBody;
   return {

@@ -13,6 +13,7 @@ import { useState } from 'react';
 import { Crown, Gavel, ScrollText, ShieldAlert, Stamp, Loader2, Sparkles, Trash2 } from 'lucide-react';
 import { GlassPanel } from '@/components/ui/glass-panel';
 import { toast } from 'sonner';
+import { backendFetch } from '@/lib/backend-api';
 import type {
   Constitution,
   DeliberationResult,
@@ -90,7 +91,7 @@ export function DeliberationConsole() {
     setUpstream(null);
 
     try {
-      const res = await fetch('/api/governance/deliberate', {
+      const res = await backendFetch('/api/governance/deliberate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command: command.trim(), constitutions }),

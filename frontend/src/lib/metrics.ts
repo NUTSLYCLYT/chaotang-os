@@ -5,6 +5,8 @@
  * 每个关键路径节点调用 trackEvent，后端/监控栈从这里收 Prometheus 指标。
  */
 
+import { backendFetch } from '@/lib/backend-api';
+
 const IS_REAL = process.env.NEXT_PUBLIC_API_MODE === 'real';
 
 export type MetricEvent =
@@ -24,7 +26,7 @@ export function trackEvent(event: MetricEvent): void {
   }
 
   // Fire-and-forget — metrics loss is acceptable
-  fetch('/api/metrics', {
+  backendFetch('/api/metrics', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...event, ts: Date.now() }),

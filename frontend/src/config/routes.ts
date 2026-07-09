@@ -1,5 +1,5 @@
 /**
- * 朝堂 OS V2 · 路由注册表
+ * 朝堂 OS 1.0 · 路由注册表
  *
  * 单一事实来源：所有导航、面包屑、页面标题、侧栏链接都从这里读取
  * 修改路由必须同时改这里 + app/(dashboard)/* 实际目录
@@ -39,9 +39,9 @@ export interface RouteDef {
 }
 
 export const ROUTES = {
-  // ── 9 个 PRD 模块(showInNav:true,按 PRD 导航序) ────────────────────────
+  // ── 1.0 一级模块(showInNav:true,按 1.0 导航序) ────────────────────────
   COURT_BRIEFING: {
-    path: '/court-briefing',
+    path: '/shangshufang',
     label: '上书房',
     sublabel: 'Court Briefing',
     description: '朝堂导览 · 30 秒读懂全局 · 待裁决奏折',
@@ -52,7 +52,7 @@ export const ROUTES = {
     tier: 'green' as const,
   },
   OVERVIEW: {
-    path: '/overview',
+    path: '/dadian',
     label: '大殿',
     sublabel: 'Throne Hall',
     description: '陛下登朝 · 群臣排班 · 丞相参政',
@@ -96,7 +96,7 @@ export const ROUTES = {
     tier: 'yellow' as const,
   },
   COMMAND_CENTER: {
-    path: '/command-center',
+    path: '/junjichu',
     label: '军机处',
     sublabel: 'Grand Secretariat',
     description: '丞相定调 · 起 flow · 推送决策 · 一句话发起',
@@ -118,7 +118,7 @@ export const ROUTES = {
     tier: 'yellow' as const,
   },
   ARCHIVE: {
-    path: '/archive',
+    path: '/shiguan',
     label: '史馆',
     sublabel: 'Archive',
     description: '奏折归档 · 批阅结果 · 复盘记录',
@@ -135,7 +135,7 @@ export const ROUTES = {
     description: '庄园经营地图 · 商机田 · AI 建议',
     icon: 'Building2',
     priority: 'P0',
-    showInNav: true,
+    showInNav: false,
     implemented: true,
     tier: 'yellow' as const,
   },
@@ -220,10 +220,10 @@ export const ROUTES = {
     tier: 'yellow' as const,
   },
   DEPARTMENTS: {
-    path: '/departments',
-    label: '群臣与官署',
-    sublabel: 'Ministers & Offices',
-    description: '六部总览与详情入口',
+    path: '/liubu',
+    label: '六部',
+    sublabel: 'Six Ministries',
+    description: '户部、吏部、礼部、兵部、刑部、工部',
     icon: 'Building2',
     priority: 'P0',
     showInNav: true,
@@ -231,15 +231,15 @@ export const ROUTES = {
     tier: 'yellow' as const,
   },
   INTEL: {
-    path: '/intel',
-    label: '锦衣卫 · 情报',
-    sublabel: 'Jinyiwei Intel',
-    description: '锦衣卫夜巡 · 最新异动 · 机会与风险雷达',
+    path: '/zhusi',
+    label: '诸司',
+    sublabel: 'Court Offices',
+    description: '锦衣卫情报与风险核验入口',
     icon: 'Globe',
     priority: 'P0',
-    showInNav: false,
+    showInNav: true,
     implemented: true,
-    tier: 'red' as const,
+    tier: 'yellow' as const,
   },
   HEALTH: {
     path: '/health',
@@ -322,14 +322,15 @@ export type RouteKey = keyof typeof ROUTES;
  * 默认全部显示。设置里"专家模式"可隐藏 red tier。
  */
 export const NAV_ORDER: RouteKey[] = [
-  // 9 个 PRD 模块(D9 · 按 PRD 导航序)
+  // 1.0 一级模块
   'OVERVIEW',
   'COURT_BRIEFING',
   'COMMAND_CENTER',
   'DEPARTMENTS',
+  'INTEL',
   'ARCHIVE',
-  'MANORS',
   // 以下 showInNav:false,不渲染到侧栏,但仍可 URL 直达
+  'MANORS',
   'REPORTS',
   'SCRIBE',
   'DEMO',

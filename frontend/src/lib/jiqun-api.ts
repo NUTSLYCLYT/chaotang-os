@@ -1,15 +1,14 @@
 /**
  * jiqun_ai Flask backend client.
- * Frontend-owned BFF/proxy routes are retired, so requests go directly to
- * NEXT_PUBLIC_JIQUN_API_URL / NEXT_PUBLIC_CHAOTANG_API_URL, then /api/*.
+ * Frontend-owned BFF routes are retired. Browser requests go through the
+ * transparent Next proxy at /api/*; server-side requests may still use the
+ * backend absolute URL.
  */
 
-const JIQUN_BACKEND_BASE = (
-  process.env.NEXT_PUBLIC_JIQUN_API_URL ??
-  process.env.NEXT_PUBLIC_CHAOTANG_API_URL ??
-  'http://localhost:8081'
-).replace(/\/$/, '');
-const JIQUN_BASE = `${JIQUN_BACKEND_BASE}/api`;
+import {
+  backendFetch,
+  backendRuntimeUrl,
+} from '@/lib/backend-api';
 
 /**
  * jiqun 后端开启 FENGQUN_AUTH 时只认 `Authorization: Bearer` 或 cookie `token`，
@@ -24,47 +23,32 @@ async function jiqunAuthHeaders(): Promise<Record<string, string>> {
   return t ? { Authorization: `Bearer ${t}` } : {};
 }
 
-async function localCourtAuthHeaders(tokenOverride?: string | null): Promise<Record<string, string>> {
-  if (typeof window === 'undefined') return {};
-  if (tokenOverride !== undefined) {
-    return tokenOverride ? { Authorization: `Bearer ${tokenOverride}` } : {};
-  }
-  const { getSession, getToken } = await import('@/lib/auth');
-  const t = getToken() ?? getSession()?.accessToken ?? null;
-  return t ? { Authorization: `Bearer ${t}` } : {};
-}
-
 export async function fetchLocalCourtApi(path: string, init: RequestInit = {}): Promise<Response> {
-  const buildInit = async (tokenOverride?: string | null): Promise<RequestInit> => {
-    const headers = new Headers(init.headers);
-    const authHeaders = await localCourtAuthHeaders(tokenOverride);
-    for (const [key, value] of Object.entries(authHeaders)) headers.set(key, value);
-    return {
-      ...init,
-      headers,
-      credentials: init.credentials ?? 'same-origin',
-      cache: init.cache ?? 'no-store',
-    };
-  };
-
-  const url = path.startsWith('http') ? path : `${JIQUN_BACKEND_BASE}${path.startsWith('/') ? path : `/${path}`}`;
-  const first = await fetch(url, await buildInit());
+  const first = await backendFetch(path, init);
   if (first.status !== 401 || typeof window === 'undefined') return first;
 
   const { refreshAccessToken } = await import('@/lib/auth');
   const refreshed = await refreshAccessToken();
   if (!refreshed) return first;
-  return fetch(url, await buildInit(refreshed));
+  return fetch(backendRuntimeUrl(path), {
+    ...init,
+    headers: {
+      ...(init.headers as Record<string, string> | undefined),
+      Authorization: `Bearer ${refreshed}`,
+    },
+    credentials: init.credentials ?? 'include',
+    cache: init.cache ?? 'no-store',
+  });
 }
 
 export async function jiqunFetcher<T>(path: string): Promise<T> {
-  const res = await fetch(`${JIQUN_BASE}${path}`, { headers: await jiqunAuthHeaders() });
+  const res = await fetch(backendRuntimeUrl(`/api${path}`), { headers: await jiqunAuthHeaders() });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText} — ${path}`);
   return res.json() as Promise<T>;
 }
 
 export async function jiqunPost<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${JIQUN_BASE}${path}`, {
+  const res = await fetch(backendRuntimeUrl(`/api${path}`), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await jiqunAuthHeaders()) },
     body: JSON.stringify(body),

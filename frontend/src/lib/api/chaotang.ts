@@ -5,9 +5,9 @@ import type { DeptOverview } from '@/lib/contracts/dept';
 import type { SwarmRosterEntry } from '@/lib/contracts/swarm';
 import type { LegalOverview } from '@/lib/contracts/xingbu';
 import type { CourtSessionLatest } from '@/lib/contracts/court-session';
-import { withBasePath } from '@/lib/base-path';
+import { backendFetch, backendRuntimeUrl } from '@/lib/backend-api';
 
-const BASE = withBasePath('/api/court/chaotang');
+const BASE = '/api/chaotang';
 
 async function authHeaders(): Promise<Record<string, string>> {
   if (typeof window === 'undefined') return {};
@@ -17,13 +17,13 @@ async function authHeaders(): Promise<Record<string, string>> {
 }
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, { headers: await authHeaders(), cache: 'no-store' });
+  const res = await backendFetch(`${BASE}${path}`, { headers: await authHeaders(), cache: 'no-store' });
   const json = await res.json();
   if (!json.success) throw new Error(json.error ?? `GET ${path} failed`);
   return json.data as T;
 }
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await backendFetch(`${BASE}${path}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
     body: JSON.stringify(body),
   });
@@ -329,7 +329,7 @@ export const chaotang = {
   // ---- 群臣会审(蜂群):确定性路由→并行召部门 live agent→确定性 merge。
   //      直连 /api/court/orchestrate(返回 {ok,merge,...}),不经 /chaotang BFF 封套。----
   orchestrate: async (command: string): Promise<OrchestrateResult> => {
-    const res = await fetch(withBasePath('/api/court/orchestrate'), {
+    const res = await backendFetch('/api/court/orchestrate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
       body: JSON.stringify({ command }),
@@ -344,7 +344,7 @@ export const chaotang = {
   // ---- 后端蜂群直奏:普通圣旨与密旨共用真实 jiqun_ai 蜂群通道。
   //      上书房只展示简洁回奏;六部/蜂群细节留给军机处与报告页。----
   orchestrateAll: async (command: string, mode: 'order' | 'secret' = 'secret'): Promise<OrchestrateResult> => {
-    const res = await fetch(withBasePath('/api/court/orchestrate/all'), {
+    const res = await backendFetch('/api/court/orchestrate/all', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
       body: JSON.stringify({ command, mode }),
@@ -364,7 +364,7 @@ export const chaotang = {
     chosenDept?: string | null,
     note?: string,
   ): Promise<{ ok: true; outcomeHash?: string }> => {
-    const res = await fetch(withBasePath('/api/court/orchestrate/sign-off'), {
+    const res = await backendFetch('/api/court/orchestrate/sign-off', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
       body: JSON.stringify({ decisionId, action, chosenDept: chosenDept ?? undefined, note }),
@@ -392,7 +392,7 @@ export const chaotang = {
   //      后端已 join 全 21 蜂群 + 最近 run 状态/质量分/标题;前端只渲染,不在前端 join。
   //      走专用 BFF 路由(不经 /chaotang 封套,因后端路径在 /api/swarm/* 而非 /api/chaotang/*)。----
   swarmRoster: async (): Promise<SwarmRosterEntry[]> => {
-    const res = await fetch(withBasePath('/api/court/swarm/roster'), {
+    const res = await backendFetch('/api/court/swarm/roster', {
       headers: await authHeaders(),
       cache: 'no-store',
     });
@@ -409,7 +409,7 @@ export const chaotang = {
   //      后端 join 出真实天和合同案件 + 合规项 + 汇总({success,data:LegalOverview});
   //      BFF 不可达/非法时退本地 fallback,保证不白屏。走专用 BFF(不经 /chaotang 封套)。----
   legalOverview: async (): Promise<LegalOverview> => {
-    const res = await fetch(withBasePath('/api/court/legal/overview'), {
+    const res = await backendFetch('/api/court/legal/overview', {
       headers: await authHeaders(),
       cache: 'no-store',
     });
@@ -426,7 +426,7 @@ export const chaotang = {
   //      后端每日自转：八部 grounded 上奏 → 御史核真库 → 军机处矛盾 → 可信度章({success,data:CourtSessionLatest})；
   //      BFF 不可达/非法时退 available:false 空态，保证不白屏。走专用 BFF(不经 /chaotang 封套)。----
   courtSession: async (): Promise<CourtSessionLatest> => {
-    const res = await fetch(withBasePath('/api/court/court-session/latest'), {
+    const res = await backendFetch('/api/court/court-session/latest', {
       headers: await authHeaders(),
       cache: 'no-store',
     });
@@ -441,7 +441,7 @@ export const chaotang = {
 
   // ---- 庄园六部指标（Turso manor_metrics 表，直接走 BFF，不经 jiqun）----
   manorMinistryMetrics: async (): Promise<ManorMinistryMetricsMap> => {
-    const res = await fetch(withBasePath('/api/court/zhuangyuan/ministry-metrics'), {
+    const res = await backendFetch('/api/court/zhuangyuan/ministry-metrics', {
       cache: 'no-store',
     });
     const json = (await res.json()) as {
@@ -463,7 +463,7 @@ export function subscribeCourtStream(
   const ac = new AbortController();
   (async () => {
     try {
-      const res = await fetch(`${BASE}/stream/${encodeURIComponent(taskId)}`,
+      const res = await fetch(backendRuntimeUrl(`${BASE}/stream/${encodeURIComponent(taskId)}`),
         { headers: { Accept: 'text/event-stream', ...(await authHeaders()) }, signal: ac.signal });
       if (!res.body) return;
       const reader = res.body.getReader();

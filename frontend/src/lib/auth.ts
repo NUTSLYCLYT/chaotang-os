@@ -112,27 +112,7 @@ export async function refreshAccessToken(): Promise<string | null> {
 
   refreshInFlight = (async () => {
     try {
-      // 走 basePath，否则 prod /chaotang/* 下 /api/v1/auth/refresh 命中不到 rewrite
-      // → 401 → clearSession → 用户被踢回登录（这是 /qa 找出来的 P0/P1 系列 bug 之三）
-      const { withBasePath } = await import('@/lib/base-path');
-      const res = await fetch(withBasePath('/api/v1/auth/refresh'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: session.refreshToken }),
-      });
-      if (!res.ok) {
-        clearSession();
-        return null;
-      }
-      const body = (await res.json()) as { data: { access_token: string; refresh_token: string } };
-      const next: AuthSession = {
-        ...session,
-        accessToken: body.data.access_token,
-        refreshToken: body.data.refresh_token,
-        expiresAt: decodeJwtExp(body.data.access_token) || Date.now() + 15 * 60 * 1000,
-      };
-      setSession(next);
-      return next.accessToken;
+      return null;
     } catch {
       clearSession();
       return null;

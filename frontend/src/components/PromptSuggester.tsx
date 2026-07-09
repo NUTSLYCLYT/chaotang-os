@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Loader2, Sparkles, ChevronRight } from 'lucide-react'
 import type { PromptSuggestion, SuggestionOption } from '@/lib/prompt-suggest/types'
 import { logger } from '@/lib/logger'
+import { backendFetch } from '@/lib/backend-api'
 
 interface PromptSuggesterProps {
   onSelect: (prompt: string, mode: 'fast' | 'standard' | 'deep') => void
@@ -22,7 +23,7 @@ export function PromptSuggester({ onSelect }: PromptSuggesterProps) {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/prompt/suggest', {
+      const res = await backendFetch('/api/prompt/suggest', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

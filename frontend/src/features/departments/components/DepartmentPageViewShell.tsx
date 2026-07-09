@@ -94,21 +94,7 @@ export function DepartmentPageViewShell({
     setPendingAction(command.id);
     setActionError(null);
     try {
-      const res = await fetch(
-        withBasePath(`/api/court/departments/${encodeURIComponent(currentView.department.code)}/actions`),
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            viewId: currentView.viewId,
-            action: command.id,
-            targetDepartment: command.targetDepartment,
-          }),
-        },
-      );
-      const json = (await res.json().catch(() => ({}))) as { success?: boolean; data?: DepartmentPageView; error?: string };
-      if (!res.ok || !json.success || !json.data) throw new Error(json.error ?? 'department_action_failed');
-      setCurrentView(json.data);
+      throw new Error('department_action_backend_endpoint_missing');
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'department_action_failed');
     } finally {

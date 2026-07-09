@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DockMessage } from '@/features/shared/components/bottom-dock';
+import { backendFetch } from '@/lib/backend-api';
 
 export function useOrchestrationChat(initialGreeting: string) {
   const [messages, setMessages] = useState<DockMessage[]>([
@@ -38,7 +39,7 @@ export function useOrchestrationChat(initialGreeting: string) {
     setMessages((prev) => [...prev, { role: 'agent', text: '太史令正在翻阅档案…▋', time: agentTime }]);
 
     try {
-      const res = await fetch('/api/orchestration/run', {
+      const res = await backendFetch('/api/orchestration/run', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ command }),

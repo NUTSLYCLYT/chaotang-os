@@ -3,6 +3,7 @@
 import { FormEvent, Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { backendFetch } from '@/lib/backend-api';
 
 /**
  * 邀请码页面 — 用户输入邀请码后可直接跳转至登录页
@@ -37,7 +38,7 @@ function InviteForm() {
     setSubmitting(true);
 
     try {
-      const res = await fetch('/api/auth/verify-invite', {
+      const res = await backendFetch('/api/auth/verify-invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: trimmed }),
