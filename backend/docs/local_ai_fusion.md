@@ -1,13 +1,17 @@
-# Local AI / Shiguan Fusion
+# 本地 AI / 史馆融合
 
-This repository is the backend mainline for CourtOS agent, flow, provider, and quality logic. The local model runtime and the Obsidian vault remain external runtime resources:
+本文件只描述后端与外部本地 AI、史馆知识库的集成边界。外部运行资源不进入 git 仓库，后端只通过 `src/local_ai_bridge.py` 访问。
 
-- Local model runtime: `/home/ubuntu/local-ai`
-- Shiguan vault: `/home/ubuntu/CourtOS-Brain`
-- Main model: `qwen3.6-35b-a3b-q4`
-- OpenAI-compatible endpoint: `http://127.0.0.1:11434/v1`
+## 外部资源
 
-Do not copy model weights, Ollama blobs, or the Obsidian vault into this repository. The integration boundary is `src/local_ai_bridge.py`.
+以下路径是 Linux 部署环境的默认值，实际以环境变量为准：
+
+- 本地模型运行目录：`LOCAL_AI_ROOT`，默认 `/home/ubuntu/local-ai`
+- 史馆知识库：`COURTOS_BRAIN_PATH`，默认 `/home/ubuntu/CourtOS-Brain`
+- 主模型：`qwen3.6-35b-a3b-q4`
+- OpenAI-compatible endpoint：`http://127.0.0.1:11434/v1`
+
+不要把模型权重、Ollama blob 或 Obsidian vault 复制到本仓库。
 
 ## API
 
@@ -15,13 +19,13 @@ Do not copy model weights, Ollama blobs, or the Obsidian vault into this reposit
 - `GET /api/local-ai/audit-courtos-brain`
 - `POST /api/local-ai/index-courtos-brain`
 - `POST /api/local-ai/ask`
-- `GET /api/preflight` includes a `localAI` section and warns when the bridge or vault is unavailable.
+- `GET /api/preflight` 会包含 `localAI` 区段，并在 bridge 或 vault 不可用时给出 warning。
 
-`index-courtos-brain` passes the vault path to `/home/ubuntu/local-ai/play.sh index`. It indexes into the local-ai SQLite knowledge DB and does not write to the vault.
+`index-courtos-brain` 会把 `COURTOS_BRAIN_PATH` 传给 `${LOCAL_AI_ROOT}/play.sh index`。它只写入 local-ai 的 SQLite 知识库，不写入史馆 vault。
 
-`audit-courtos-brain` is read-only. It checks `_wiki/sources`, `_wiki/concepts`, and `_wiki/entities` for stale source paths, duplicate sources, orphan concepts/entities, and stub counts.
+`audit-courtos-brain` 是只读检查：扫描 `_wiki/sources`、`_wiki/concepts` 和 `_wiki/entities`，识别过期 source path、重复 source、孤立概念/实体和 stub 数量。
 
-## Environment
+## 环境变量
 
 ```bash
 LOCAL_AI_ROOT=/home/ubuntu/local-ai
@@ -32,18 +36,20 @@ LOCAL_AGENT_MODEL=qwen3.6-35b-a3b-q4
 LOCAL_AI_TIMEOUT_SEC=180
 ```
 
-## Operator Commands
+## 后端验证
+
+在当前仓库后端目录运行：
 
 ```bash
-cd /home/ubuntu/fe/fengQun/jiqun_ai_fresh
+cd backend
 python -m pytest -q tests/test_local_ai_bridge.py
 ```
 
-Direct local runtime checks:
+外部本地运行资源可单独检查：
 
 ```bash
-cd /home/ubuntu/local-ai
+cd "$LOCAL_AI_ROOT"
 ./play.sh status
-./play.sh index /home/ubuntu/CourtOS-Brain
+./play.sh index "$COURTOS_BRAIN_PATH"
 ./play.sh genius "基于史馆和本地 AI 配置，给我下一步建议"
 ```

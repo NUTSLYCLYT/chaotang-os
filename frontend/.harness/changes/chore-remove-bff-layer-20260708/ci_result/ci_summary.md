@@ -1,15 +1,18 @@
-# CI Summary: chore-remove-bff-layer-20260708
+﻿# CI 摘要：chore-remove-bff-layer-20260708
 
-- `pnpm exec tsc --noEmit`: PASS.
-- `NEXT_PUBLIC_API_MODE=real NEXT_DIST_DIR=.next-bff-removal-check pnpm build`: PASS.
-- Route residue check: `src/app/api` is absent and no `src/app/**/api/**/route.ts` remains.
+- `pnpm exec tsc --noEmit`：PASS。
+- `NEXT_PUBLIC_API_MODE=real NEXT_DIST_DIR=.next-bff-removal-check pnpm build`：PASS。
+- 路由残留检查：`src/app/api` 不存在，且没有残留 `src/app/**/api/**/route.ts`。
 
-Note: initial build without `NEXT_PUBLIC_API_MODE=real` was blocked by the existing release gate, then passed with the required env.
+说明：首次未设置 `NEXT_PUBLIC_API_MODE=real` 的 build 被既有 release gate 阻止；补充必要环境变量后通过。
 
-## Commands
+## 命令
 
-- TBD
+- `pnpm exec tsc --noEmit`
+- `NEXT_PUBLIC_API_MODE=real NEXT_DIST_DIR=.next-bff-removal-check pnpm build`
+- 搜索 `src/app/**/api/**/route.ts` 路由残留
 
-## Result
+## 结果
 
-PENDING
+PASS
+

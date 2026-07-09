@@ -45,7 +45,7 @@ def fetch_json(url: str) -> dict[str, Any]:
         url,
         headers={
             "Accept": "application/vnd.github+json",
-            "User-Agent": "jiqun-ai-security-tool-installer",
+            "User-Agent": "chaotang-os-security-tool-installer",
             "X-GitHub-Api-Version": "2022-11-28",
         },
     )
@@ -54,7 +54,7 @@ def fetch_json(url: str) -> dict[str, Any]:
 
 
 def download_bytes(url: str) -> bytes:
-    request = Request(url, headers={"User-Agent": "jiqun-ai-security-tool-installer"})
+    request = Request(url, headers={"User-Agent": "chaotang-os-security-tool-installer"})
     with urlopen(request, timeout=120) as response:
         return response.read()
 

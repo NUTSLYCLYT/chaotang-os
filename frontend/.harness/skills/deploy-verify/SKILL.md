@@ -1,25 +1,25 @@
 ---
 name: deploy-verify
-description: Verify build/start/release behavior for Chaotang frontend delivery.
+description: 验证前端发布路径、预览状态和发布证据。
 ---
 
-# Deploy Verify Skill
+# 部署验证 Skill
 
-## Checks
+## 检查项
 
-- `pnpm build` passes.
-- Production start remains port 3050.
-- Dev remains port 3002.
-- Base path `/chaotang` is preserved.
-- Release-facing routes smoke successfully.
-- Console errors are recorded for browser checks.
+- `pnpm build` 是否通过。
+- `pnpm start` 或预览服务是否能启动。
+- 端口是否保持 dev 3002、production 3050。
+- 控制台是否有阻断错误。
+- 关键路由是否可访问。
+- 涉及真实外部 API 数据时，source label 是否诚实。
 
-## Output
+## 输出
 
-Write `deployment/preview_report.md` with:
+写入 `deployment/preview_report.md`：
 
-- Commands.
-- Routes checked.
-- Screenshots or trace paths if present.
-- Console errors.
-- Known risks.
+- 命令。
+- URL。
+- 结果。
+- 截图或浏览器证据。
+- 剩余风险。

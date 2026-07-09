@@ -1,16 +1,14 @@
-# CI Summary
+﻿# CI 摘要：chore-v1-route-prune-20260708
 
-- `pnpm exec tsc --noEmit`: pass
-- `NEXT_PUBLIC_API_MODE=real pnpm build`: pass
-- `node scripts/harness-doctor.mjs`: fails on pre-existing harness skill frontmatter and `chore-remove-bff-layer-20260708` placeholders; this change directory has no TBD/template placeholders.
+## 命令
 
-Build route output confirmed the canonical 1.0 routes:
+- `pnpm exec tsc --noEmit`
+- `NEXT_PUBLIC_API_MODE=real pnpm build`
+- `node scripts/harness-doctor.mjs`
 
-- `/dadian`
-- `/shangshufang`
-- `/junjichu`
-- `/liubu`
-- `/zhusi`
-- `/shiguan`
-- `/zhusi/jinyiwei`
-- `/liubu/[code]/[office]` with generated v1 office paths.
+## 结果
+
+- TypeScript：通过。
+- Build：通过。
+- 当时 `node scripts/harness-doctor.mjs` 因既有 skill frontmatter 与 `chore-remove-bff-layer-20260708` 占位符问题失败；该 change 目录自身没有未解析模板标记。
+

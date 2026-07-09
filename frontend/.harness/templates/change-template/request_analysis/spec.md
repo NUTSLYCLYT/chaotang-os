@@ -1,25 +1,26 @@
-# Spec: {{CHANGE_ID}}
+﻿# 需求说明
 
-## Background
+## 背景
 
-TBD
+说明用户为什么要做这个变更。
 
-## Scope
+## 范围
 
-TBD
+列出本轮会修改的行为、文档或工具。
 
-## Non-goals
+## 非目标
 
-TBD
+列出本轮明确不做的事项。
 
-## Acceptance Criteria
+## 验收标准
 
-TBD
+说明怎样证明完成。
 
-## Risks
+## 风险
 
-TBD
+列出可能误伤的区域。
 
-## Verification Plan
+## 验证计划
 
-TBD
+列出准备运行的命令。
+

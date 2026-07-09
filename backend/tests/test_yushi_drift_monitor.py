@@ -5,12 +5,12 @@ from scripts.yushi_drift_monitor import (
 )
 
 
-def test_blocks_web_ui_paths():
-    finding = path_requires_attention("app/chaotang/study/page.tsx")
+def test_blocks_experience_paths():
+    finding = path_requires_attention("experience/court/surface.tsx")
 
     assert finding is not None
     assert finding.severity == "block"
-    assert "Web/UI" in finding.reason
+    assert "体验实现偏移" in finding.reason
 
 
 def test_blocks_runtime_and_environment_drift():
@@ -48,9 +48,9 @@ def test_no_qintian_warning_when_brief_is_explicit():
 
 def test_evaluate_combines_path_and_content_findings():
     findings = evaluate(
-        ["components/court/top-nav.tsx"],
-        "+ 新增 React component 用于页面样式\n",
+        ["experience/court/surface.tsx"],
+        "+ 新增体验实现的交互样式\n",
     )
 
     assert any(f.severity == "block" for f in findings)
-    assert any("Web/UI" in f.reason for f in findings)
+    assert any("体验实现偏移" in f.reason for f in findings)

@@ -1,33 +1,19 @@
-# Jinyiwei Scrapling PoC
+# 锦衣卫 Scrapling POC Harness
 
-Date: 2026-06-07
+本 harness 是锦衣卫网页采集/观测 POC 的主文档入口。它保持保守：只验证采集路径、失败原因和下一步，不把采集结果直接当成可信业务结论。
 
-Purpose: test whether Scrapling should become Jinyiwei's adaptive public-source
-crawler.
+## 关系
 
-This PoC is intentionally conservative:
+- `jinyiwei-scrapling-poc/`：人读文档与主入口。
+- `jinyiwei_scrapling_poc/`：Python 实现包。
 
-- ordinary public-page fetching only;
-- robots.txt checked before fetch;
-- no stealth fetcher by default;
-- no Cloudflare solving;
-- no paywall, login, or ToS bypass;
-- JSONL artifacts with source URL, timestamp, status, title, text excerpt, and
-  confidence.
+两者关系记录在 `backend/harness/manifest.json`。
 
-Install for local PoC only:
+## 入口
 
 ```bash
-python3 -m pip install "scrapling[fetchers]"
+cd backend
+python harness/jinyiwei_scrapling_poc/scripts/run_scrapling_poc.py
 ```
 
-Run:
-
-```bash
-python3 harness/jinyiwei_scrapling_poc/scripts/run_scrapling_poc.py \
-  --url https://example.com \
-  --out harness/jinyiwei-scrapling-poc/artifacts/sample.jsonl
-```
-
-If Scrapling is not installed, the runner exits with install guidance and does
-not modify project dependencies.
+如果 Scrapling 未安装，runner 应给出安装指引并安全退出。

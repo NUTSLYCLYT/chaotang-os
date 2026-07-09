@@ -1,24 +1,22 @@
 ---
 name: frontend-doctor
-description: Diagnose stuck frontend work by checking harness, ports, build, tests, and product boundaries.
+description: 当前端 harness、构建、测试或边界出现问题时进行排查。
 ---
 
-# Frontend Doctor Skill
+# 前端 Doctor Skill
 
-## Triage Order
+## 默认顺序
 
-1. `node scripts/harness-doctor.mjs`
-2. Confirm ports and running processes.
-3. Confirm package manager and dependencies.
-4. Run the smallest failing command again.
-5. Search for recent changes in the touched area.
-6. Check whether the issue is frontend-owned or backend-owned.
+1. 运行 `node scripts/harness-doctor.mjs`。
+2. 读取报错文件。
+3. 判断是入口文档、harness 结构、change 记录、脚本还是业务代码问题。
+4. 修复最小必要文件。
+5. 重新运行最小失败命令。
+6. 判断问题属于前端、根级项目协调还是跨线。
 
-## Output
+## 输出
 
-Write a diagnosis with:
-
-- Symptom.
-- Reproduction command.
-- Likely owner.
-- Suggested next stage.
+- 根因。
+- 修复内容。
+- 验证命令。
+- 剩余风险。

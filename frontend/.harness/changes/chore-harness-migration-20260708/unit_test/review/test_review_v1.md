@@ -1,4 +1,4 @@
-# Test Review v1: chore-harness-migration-20260708
+﻿# Test Review v1: chore-harness-migration-20260708
 
 ## Verdict
 
@@ -6,5 +6,6 @@ APPROVED
 
 ## Findings
 
-- For a docs/tooling-only migration, `harness-doctor` is the right mechanical check.
-- No Playwright or domain node tests are required because no runtime behavior changed.
+- 对于仅文档/工具迁移，`harness-doctor` 是合适的机械检查。
+- 没有运行时行为变化，因此不需要 Playwright 或领域 node 测试。
+

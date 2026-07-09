@@ -1,38 +1,29 @@
-# Swarm Tool Matrix Harness
+# 蜂群工具矩阵 Harness
 
-Date: 2026-06-07
+本 harness 用来选择第一批外部或开源工具候选，服务朝堂后端蜂群、评测、采证和质量门。
 
-Purpose: choose the first external/open-source tools for testing and extending
-the Oracle & Mentor swarm system.
+它不是热度榜。GitHub stars 只是一个信号，不能替代可集成性、许可、安全和失败可检测性。
 
-This matrix is intentionally not a popularity contest. GitHub stars are only one
-signal. A tool wins when it can improve one of these product loops:
+## 输入
 
-- synthetic user / market feedback for product decisions;
-- Jinyiwei external intelligence collection with source evidence;
-- browser-agent testing of real user journeys;
-- swarm red-team / regression evaluation;
-- observability and learning archive for repeated improvement.
+- `candidates.json`
 
-## Gate
-
-A candidate can enter the first integration wave only if:
-
-- it has a clear role in the Oracle & Mentor product loop;
-- it can produce auditable artifacts: input, output, source, timestamp, score;
-- its license is compatible with the way we plan to use it;
-- failure can be detected without trusting the model's own prose;
-- it reduces user effort rather than adding another dashboard for the user.
-
-## Output
-
-Run:
+## 入口
 
 ```bash
+cd backend
 python harness/swarm-tool-matrix/scripts/run_matrix.py
 ```
 
-Artifacts:
+## 入选条件
 
-- `harness/swarm-tool-matrix/artifacts/tool_matrix_results.json`
-- `harness/swarm-tool-matrix/artifacts/tool_matrix_report.md`
+候选工具进入第一批集成前，至少要满足：
+
+- 在朝堂产品闭环中有明确角色。
+- 许可证兼容预期使用方式。
+- 失败可以被确定性检测，而不是相信模型自述。
+- 能减少用户努力，而不是只新增一个看板。
+
+## 输出
+
+输出应保留工具名、用途、风险、集成成本、证据和下一步。

@@ -1,13 +1,14 @@
-# Coding Report v1: {{CHANGE_ID}}
+﻿# 实现报告 v1
 
-## Files Changed
+## 改动
 
-- TBD
+- 待填写。
 
-## Key Decisions
+## 取舍
 
-- TBD
+- 待填写。
 
-## Verification
+## 验证
 
-- TBD
+- 待填写。
+

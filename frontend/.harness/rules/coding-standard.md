@@ -1,45 +1,34 @@
-# Rule: Coding Standard
+# 规则：前端编码标准
 
 ## TypeScript
 
-- Keep `strict` on.
-- Prefer explicit parameter and return types for exported functions.
-- Use `unknown` plus narrowing instead of `any`.
-- Use stable shared/domain types from `src/types`, `src/shared`, or `src/core` instead of redefining contracts locally.
-- Avoid silent fallbacks for domain enums and department codes. Unknown code means warn or fail fast, not `?? code`.
+- 新代码默认写类型，不用 `any` 逃避契约。
+- 跨模块数据必须有明确类型来源。
+- 共享类型优先放在 `src/lib`、`src/shared` 或 `src/types` 的既有契约位置。
 
-## Data Contracts
+## 数据边界
 
-- External data entering the app should be validated or normalized at the boundary.
-- Zod is the preferred schema tool for new contracts.
-- IDs are strings.
-- Timestamps crossing boundaries are ISO-8601 strings.
-- Numbers that represent money, cost, or business-critical quantities need explicit unit semantics.
+- 外部数据进入应用时，要在边界做校验或归一化。
+- 新契约优先使用 Zod 或项目已有 schema 工具。
+- LIVE / MIXED / DEMO / FALLBACK 必须在 view model 或页面状态中保持清楚。
 
 ## Next.js
 
-- This repo uses Next.js 16 App Router.
-- Do not add frontend-owned BFF route handlers. Backend runtime truth belongs in `jiqun_ai` or another explicit backend service.
-- Do not use `/chaotang/api/**` as a replacement proxy path; connect through documented backend base URLs and typed adapters.
-- Server and client boundaries must be explicit. Add `"use client"` only where interactive browser behavior is required.
-- Base path `/chaotang` and port discipline are product constraints, not local preferences.
+- 当前前端使用 Next.js 16 App Router。
+- 不新增前端自有 BFF route handler。运行事实归明确 API 契约、运行证据或根级项目文档。
+- 页面、layout、server action、client component 的边界要清楚。
+- 需要浏览器状态或交互时才使用 client component。
 
-## React / UI
+## UI
 
-- Preserve existing design tokens and global CSS unless the change explicitly targets the design system.
-- Do not create a new page/surface when the capability can dissolve into the main loop.
-- Interactive controls must be accessible with semantic elements and labels.
-- Visual changes that affect decision weight require screenshots or Playwright evidence.
+- 保持现有设计 token、全局 CSS 和组件风格，除非任务明确要求改设计系统。
+- 能融回主闭环页面的能力，不新增独立页面。
+- 不用 demo 视觉权重伪装真实能力。
+- 高风险裁决、签字、发布、报价等状态必须有清晰风险提示。
 
-## Logging and Errors
+## 测试
 
-- No casual `console.log` in production paths.
-- `console.warn` / `console.error` must include a useful prefix.
-- Do not swallow errors silently. Surface them to UI, return typed failure, or log with context.
-
-## Tests and Guards
-
-- Prefer small focused node tests for domain logic.
-- Use Playwright for route-level/browser behavior.
-- High-risk fixes require a regression assertion.
-- Existing guard scripts are part of the product harness. Do not remove one without replacing its protection.
+- 行为改动优先补行为测试。
+- 用户可见流程优先 Playwright。
+- 纯函数或 adapter 优先小范围 node/unit 测试。
+- 现有 guard 是产品 harness 的一部分；删除 guard 必须提供等价保护。

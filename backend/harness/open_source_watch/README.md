@@ -91,7 +91,7 @@ python harness/open_source_watch/scripts/install_security_tools.py
 4. `security`: 许可证、依赖、权限、供应链风险。
 5. `maintenance`: 最近维护、issue 健康度、社区成熟度。
 6. `poc_cost`: 2 小时内能否验证价值。
-7. `mainline_value`: 是否提升 `jiqun_ai` 主线，而不是只让 Web 好看。
+7. `mainline_value`: 是否提升 `backend/` 后端主线，而不是只让 Web 好看。
 
 ## 阈值
 
@@ -105,9 +105,9 @@ must_not: 出现 license/security/abandoned/hype_only 等 block 风险
 
 ## 主线边界
 
-这个 harness 只服务 `jiqun_ai` 主线：钦天监、蜂群、flow、harness、质量门禁、史馆证据链。
+这个 harness 只服务 `backend/` 后端主线：钦天监、蜂群、flow、harness、质量门禁、史馆证据链。
 
-Web/UI 项目只能标为 `ui_optional`，不得直接进入主线实现。
+??? 项目只能标为 `ui_optional`，不得直接进入主线实现。
 
 ## 证据链
 

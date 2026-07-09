@@ -5,7 +5,7 @@
       "case_id": "shangshufang_live_swarm_to_shiguan_v1",
       "title": "上书房到后端蜂群再到史馆 replay artifact",
       "user_input": "判断 100MWh 冷库储能项目是否推进",
-      "frontend_entry": "/study",
+      "experience_entry": "/study",
       "backend_api": "/api/chaotang/study/run",
       "mode": "live",
       "adapter": {
@@ -92,7 +92,7 @@
       },
       "truth_steps": [
         {
-          "id": "frontend_entry",
+          "id": "experience_entry",
           "state": "real",
           "path": "/study"
         },

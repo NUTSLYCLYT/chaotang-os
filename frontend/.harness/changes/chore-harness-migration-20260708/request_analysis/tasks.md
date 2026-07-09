@@ -1,33 +1,34 @@
-# Tasks: chore-harness-migration-20260708
+﻿# 任务拆解：chore-harness-migration-20260708
 
-## Task 1 — Add Harness Core
+## 任务 1：新增 Harness 核心
 
-- Objective: Create the `.harness/` operating system.
-- Input: `harness-engineering` reference structure and current `chaotang-web-lyt`.
-- Output: agents, rules, skills, wiki, templates, MCP index.
-- Acceptance: required files exist and `harness-doctor` passes.
-- Dependencies: none.
+- 目标：创建 `.harness/` 工程工作系统。
+- 输入：当前 `chaotang-os/frontend` 结构。
+- 输出：agents、rules、skills、wiki、templates、MCP index。
+- 验收：必需文件存在，`harness-doctor` 通过。
+- 依赖：无。
 
-## Task 2 — Connect Scripts
+## 任务 2：接入脚本
 
-- Objective: Add programmable Harness entry points.
-- Input: existing `package.json` and scripts directory.
-- Output: `scripts/harness-doctor.mjs`, `scripts/new-change.mjs`, package scripts.
-- Acceptance: doctor passes and new-change creates a rendered change folder.
-- Dependencies: Task 1.
+- 目标：新增可编程 harness 入口。
+- 输入：现有 `package.json` 与 scripts 目录。
+- 输出：`scripts/harness-doctor.mjs`、`scripts/new-change.mjs`、package scripts。
+- 验收：doctor 通过，new-change 能创建渲染后的 change 目录。
+- 依赖：任务 1。
 
-## Task 3 — Update Entry Docs
+## 任务 3：更新入口文档
 
-- Objective: Make current docs route agents into the new Harness structure.
-- Input: root `AGENTS.md`, frontend `AGENTS.md`, frontend `README.md`.
-- Output: Harness entry sections and preserved historical rules.
-- Acceptance: docs point to `.harness/agents/frontend-owner.md` and `.harness/rules/*`.
-- Dependencies: Task 1.
+- 目标：让当前文档把 agent 路由到新的 harness 结构。
+- 输入：根 `AGENTS.md`、前端 `AGENTS.md`、前端 `README.md`。
+- 输出：当前三层架构入口说明。
+- 验收：文档指向 `.harness/agents/frontend-owner.md` 与 `.harness/rules/*`。
+- 依赖：任务 1。
 
-## Task 4 — Add Human Harness Guides
+## 任务 4：新增人工使用指南
 
-- Objective: Make daily Harness usage and authoring responsibilities discoverable from `docs/`.
-- Input: reference scaffold docs and current Chaotang constraints.
-- Output: `docs/HARNESS-USAGE-GUIDE.md`, `docs/AUTHORING-GUIDE.md`, `CLAUDE.md` Harness bootstrap.
-- Acceptance: `harness-doctor` checks entrypoint references.
-- Dependencies: Task 1.
+- 目标：让日常 harness 用法和编写责任能从 `docs/` 找到。
+- 输入：当前朝堂约束。
+- 输出：`docs/HARNESS-USAGE-GUIDE.md`、`docs/AUTHORING-GUIDE.md`、`CLAUDE.md` harness 启动说明。
+- 验收：`harness-doctor` 检查入口引用。
+- 依赖：任务 1。
+

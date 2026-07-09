@@ -1,146 +1,146 @@
-# Rule: 11-Stage Development Workflow
+# 规则：11 阶段前端工作流
 
-Every material frontend change should leave a trace in `.harness/changes/{change-id}/`.
+每个实质前端变更都应在 `.harness/changes/{change-id}/` 留下审计轨迹。
 
-## Stage 0 — Bootstrap
+## 阶段 0：启动
 
-Entry: new session or resumed task.
+入口：新会话或恢复任务。
 
-Output:
+输出：
 
-- Read `AGENTS.md`, `.harness/agents/frontend-owner.md`, and relevant rules.
-- Identify active change or create one.
+- 读取 `AGENTS.md`、`.harness/agents/frontend-owner.md` 和相关规则。
+- 找到当前 change，或创建一个新的 change。
 
-Gate:
+门禁：
 
-- Working directory confirmed.
-- `node scripts/harness-doctor.mjs` passes.
+- 已确认工作目录是 `chaotang-os/frontend`。
+- `node scripts/harness-doctor.mjs` 通过。
 
-## Stage 1 — Request Analysis
+## 阶段 1：需求分析
 
-Output:
+输出：
 
 - `request_analysis/spec.md`
 - `request_analysis/tasks.md`
 
-Gate:
+门禁：
 
-- Spec includes background, scope, non-goals, acceptance criteria, risks.
-- Tasks include objective, input, output, acceptance, dependencies.
+- spec 包含背景、范围、非目标、验收标准和风险。
+- tasks 包含目标、输入、输出、验收和依赖。
 
-## Stage 2 — Plan Review
+## 阶段 2：方案审查
 
-Output:
+输出：
 
 - `request_analysis/review/spec_review_v1.md`
 
-Gate:
+门禁：
 
-- Verdict is `APPROVED`, or revisions are made and review repeats.
+- 结论为 `APPROVED`，或修改后重新审查。
 
-## Stage 3 — Coding
+## 阶段 3：实现
 
-Output:
+输出：
 
-- Code/docs changes.
+- 代码或文档改动。
 - `coding/coding_report_v1.md`
 
-Gate:
+门禁：
 
-- Relevant type/build guard selected before implementation.
-- File placement follows `.harness/rules/project-structure.md`.
+- 实现前已选择相关 type/build/guard。
+- 文件位置符合 `.harness/rules/project-structure.md`。
 
-## Stage 4 — Code Review
+## 阶段 4：代码审查
 
-Output:
+输出：
 
 - `coding/review/code_review_v1.md`
 
-Gate:
+门禁：
 
-- No MUST FIX remains.
-- High-risk areas have a regression assertion or explicit documented reason.
+- 没有剩余 MUST FIX。
+- 高风险区域有回归断言，或明确记录暂不需要的原因。
 
-## Stage 5 — Test Writing
+## 阶段 5：测试编写
 
-Output:
+输出：
 
-- Unit/node tests or Playwright tests as appropriate.
-- `unit_test/test_plan.md` and/or `e2e_test/e2e_plan.md`.
+- 按需新增单测、node 测试或 Playwright 测试。
+- `unit_test/test_plan.md` 和/或 `e2e_test/e2e_plan.md`。
 
-Gate:
+门禁：
 
-- Test choice matches changed behavior and risk.
+- 测试类型与改动行为、风险匹配。
 
-## Stage 6 — Test Review
+## 阶段 6：测试审查
 
-Output:
+输出：
 
 - `unit_test/review/test_review_v1.md`
 
-Gate:
+门禁：
 
-- Tests prove behavior, not implementation trivia.
-- Browser flows use Playwright when UI behavior matters.
+- 测试证明行为，不只证明实现细节。
+- 涉及用户可见行为时优先用 Playwright。
 
-## Stage 7 — Commit / Push
+## 阶段 7：提交 / 推送
 
-Output:
+输出：
 
-- Commit message should include `Change: {change-id}` when committing.
+- 提交时 commit message 应包含 `Change: {change-id}`。
 
-Gate:
+门禁：
 
-- Do not commit unrelated user changes.
+- 不提交无关用户改动。
 
-## Stage 8 — CI Verification
+## 阶段 8：CI 验证
 
-Output:
+输出：
 
 - `ci_result/ci_summary.md`
 
-Gate:
+门禁：
 
-- Use the smallest sufficient set of programmable checks, commonly:
+- 使用足够小但能证明风险的检查，常见命令：
   - `pnpm exec tsc --noEmit`
   - `pnpm build`
   - `pnpm test:node` / `pnpm test:core`
-  - domain guards from `package.json`
+  - `package.json` 中的领域 guard
   - `pnpm harness:doctor`
 
-## Stage 9 — E2E Testing
+## 阶段 9：E2E 测试
 
-Output:
+输出：
 
 - `e2e_test/e2e_summary.md`
 
-Gate:
+门禁：
 
-- `pnpm test:e2e` or targeted Playwright route checks pass for user-facing behavior.
+- 用户可见行为用 `pnpm test:e2e` 或聚焦 Playwright 路由检查证明。
 
-## Stage 10 — Deploy Verify
+## 阶段 10：部署验证
 
-Output:
+输出：
 
 - `deployment/preview_report.md`
 
-Gate:
+门禁：
 
-- Build/start path and console health are checked for release-facing work.
-- Ports remain 3002 dev and 3050 production.
+- 面向发布的改动需要检查 build/start 路径和控制台健康。
+- 端口保持 dev 3002、production 3050。
 
-## Stage 11 — User Acceptance
+## 阶段 11：用户验收
 
-Output:
+输出：
 
-- `summary.md` status updated to `DELIVERED` or explicitly left `DRAFT/PENDING`.
+- `summary.md` 状态更新为 `DELIVERED`，或明确保留为 `DRAFT` / `PENDING`。
 
-Gate:
+门禁：
 
-- User confirms or remaining work is clearly recorded.
+- 用户已确认，或剩余工作已清楚记录。
 
-## Loop Limits
+## 循环限制
 
-- Plan review: at most 3 loops before human decision.
-- Code/test review: at most 2 loops before human decision.
-- Do not erase old review files; add `v2`, `v3`, etc.
+- 方案审查最多循环 3 次，之后交给人决策。
+- 代码/测试审查最多循环 2 次，之后交给人决策。
+- 不删除旧审查文件；新增 `v2`、`v3` 等版本。

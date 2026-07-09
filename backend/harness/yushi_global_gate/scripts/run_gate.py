@@ -194,16 +194,16 @@ def evaluate_automation(payload: dict[str, Any], rules: dict[str, Any]) -> list[
     ]
 
 
-def evaluate_web_drift(payload: dict[str, Any], rules: dict[str, Any]) -> list[Finding]:
+def evaluate_experience_drift(payload: dict[str, Any], rules: dict[str, Any]) -> list[Finding]:
     text = text_of(payload)
-    if not contains_any(text, rules.get("web_drift_terms", [])):
+    if not contains_any(text, rules.get("experience_drift_terms", [])):
         return []
     return [
         Finding(
-            "mainline.web_ui_drift",
+            "mainline.experience_drift",
             "red",
-            "输出包含 Web/UI 支线信号，可能偏离 jiqun_ai 主线。",
-            "迁往 Web 仓或形成钦天监纠偏说明。",
+            "输出包含跨工程线体验实现信号，可能偏离后端运行主线。",
+            "迁往根级清单指定的体验实现归属，或形成钦天监纠偏说明。",
             "yushi_drift_monitor",
         )
     ]
@@ -233,7 +233,7 @@ def evaluate_payload(payload: dict[str, Any], rules: dict[str, Any] | None = Non
     findings.extend(evaluate_dependency_security(payload, rules))
     findings.extend(evaluate_customer_commitment(payload, rules))
     findings.extend(evaluate_automation(payload, rules))
-    findings.extend(evaluate_web_drift(payload, rules))
+    findings.extend(evaluate_experience_drift(payload, rules))
     findings.extend(evaluate_ungrounded_numbers(payload, rules))
 
     risk_level = highest_risk([finding.risk_level for finding in findings])

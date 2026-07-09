@@ -1,32 +1,33 @@
-# Change Summary: {{CHANGE_ID}}
+﻿# 变更摘要：{{CHANGE_ID}}
 
 | Field | Value |
 | --- | --- |
 | Change ID | {{CHANGE_ID}} |
 | Type | {{TYPE}} |
 | Status | DRAFT |
-| Owner | Frontend Owner Agent |
+| Owner | Frontend Agent |
 | Created | {{DATE}} |
 
-## Stage Progress
+## 阶段
 
-| # | Stage | Status | Output |
-| --- | --- | --- | --- |
-| 0 | Bootstrap | DONE | Harness context loaded |
-| 1 | Request Analysis | TODO | request_analysis/spec.md, tasks.md |
-| 2 | Plan Review | TODO | request_analysis/review/spec_review_v1.md |
-| 3 | Coding | TODO | coding/coding_report_v1.md |
-| 4 | Code Review | TODO | coding/review/code_review_v1.md |
-| 5 | Test Writing | TODO | unit_test/test_plan.md, e2e_test/e2e_plan.md |
-| 6 | Test Review | TODO | unit_test/review/test_review_v1.md |
-| 7 | Commit / Push | TODO | commit message |
-| 8 | CI Verification | TODO | ci_result/ci_summary.md |
-| 9 | E2E Testing | TODO | e2e_test/e2e_summary.md |
-| 10 | Deploy Verify | TODO | deployment/preview_report.md |
-| 11 | User Acceptance | TODO | final confirmation |
+| # | 阶段 | Status | 证据 |
+| ---: | --- | --- | --- |
+| 0 | 加载上下文 | DONE | 已加载 harness 上下文 |
+| 1 | 需求分析 | TODO | request_analysis/spec.md, tasks.md |
+| 2 | 需求复核 | TODO | request_analysis/review/spec_review_v1.md |
+| 3 | 实现记录 | TODO | coding/coding_report_v1.md |
+| 4 | 代码复核 | TODO | coding/review/code_review_v1.md |
+| 5 | 测试计划 | TODO | unit_test/test_plan.md, e2e_test/e2e_plan.md |
+| 6 | 测试复核 | TODO | unit_test/review/test_review_v1.md |
+| 7 | 提交 / 收口 | TODO | commit message |
+| 8 | CI 验证 | TODO | ci_result/ci_summary.md |
+| 9 | E2E 验证 | TODO | e2e_test/e2e_summary.md |
+| 10 | 部署验证 | TODO | deployment/preview_report.md |
+| 11 | 用户确认 | TODO | 等待用户确认 |
 
-## Notes
+## 说明
 
-- Scope:
-- Risks:
-- Verification:
+- 范围：
+- 风险：
+- 验证：
+

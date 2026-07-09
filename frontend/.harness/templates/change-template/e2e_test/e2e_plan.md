@@ -1,9 +1,14 @@
-# E2E Plan: {{CHANGE_ID}}
+﻿# E2E 计划
 
-## Browser Paths
+## 覆盖范围
 
-- TBD
+- 待填写。
 
-## Commands
+## 命令
 
-- TBD
+- 待填写。
+
+## 浏览器证据
+
+- 待填写。
+

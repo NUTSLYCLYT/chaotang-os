@@ -1,39 +1,30 @@
 ---
 name: coding-skill
-description: Implement scoped frontend changes while respecting Chaotang structure and evidence boundaries.
+description: 按前端结构规则实现代码或文档改动，并留下实现记录。
 ---
 
-# Coding Skill
+# 实现 Skill
 
-## Before Editing
+## 开始前
 
-- Read the active `spec.md` and `tasks.md`.
-- Read relevant rules in `.harness/rules`.
-- Search existing code with `rg` before creating new modules.
-- Identify the smallest safe verification command.
+- 读取 active change 的 `spec.md` 与 `tasks.md`。
+- 读取相关 `.harness/rules/`。
+- 确认文件应该落在哪一层。
+- 选择最小充分验证命令。
 
-## Implementation Rules
+## 实现规则
 
-- Keep changes within scope.
-- Prefer existing patterns in `src/app`, `src/features`, `src/core`, and `src/lib`.
-- Do not duplicate backend swarm logic in frontend code.
-- Preserve LIVE/MIXED/DEMO labels.
-- Keep route handlers thin and explicit about trust boundaries.
+- 保持改动范围贴合任务。
+- 优先复用现有组件、adapter、类型和工具。
+- 不复制外部运行执行、运行记录、质量基线和生产逻辑。
+- 不把 DEMO 或 FALLBACK 写成 LIVE。
+- 高风险改动要同步准备 review 和测试证据。
 
-## Layer Specs
+## 输出
 
-- `specs/01-app-route-spec.md` — Next.js pages, layouts, route handlers.
-- `specs/02-feature-spec.md` — feature slices and user-facing workflows.
-- `specs/03-core-domain-spec.md` — CourtOS/domain engines and tests.
-- `specs/04-lib-shared-spec.md` — shared utilities, adapters, contracts.
-- `specs/05-styling-visual-spec.md` — visual trust, CSS, screenshots.
+更新 `coding/coding_report_v1.md`：
 
-## Report
-
-Write `coding/coding_report_v1.md` with:
-
-- Files changed.
-- Key decisions.
-- Boundaries respected.
-- Verification run or deferred.
-- Follow-ups not included.
+- 改了什么。
+- 为什么这样改。
+- 哪些文件属于本轮。
+- 已运行或待运行的验证。

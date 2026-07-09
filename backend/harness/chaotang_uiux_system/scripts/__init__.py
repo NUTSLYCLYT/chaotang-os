@@ -1,2 +1,2 @@
-"""Scripts for Chaotang UI/UX system harness."""
+"""Scripts for Chaotang experience-contract harness."""
 

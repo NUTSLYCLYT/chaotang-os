@@ -1,9 +1,10 @@
-# Tasks: {{CHANGE_ID}}
+﻿# 任务拆解
 
-## Task 1
+## 任务 1
 
-- Objective:
-- Input:
-- Output:
-- Acceptance:
-- Dependencies:
+- 目标：
+- 输入：
+- 输出：
+- 验收：
+- 依赖：
+

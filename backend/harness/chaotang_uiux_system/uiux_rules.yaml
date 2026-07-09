@@ -10,14 +10,14 @@ five_second_test:
     - what_did_i_gain
   min_required_answers: 5
 
-layout_shell:
+experience_shell:
   left: chaotang_navigation
   center: active_work_surface
   right: next_action_and_companion
   floating: qintianjian_companion
   max_primary_regions: 4
 
-core_pages:
+core_surfaces:
   throne_home:
     label: 大殿首页
     required_elements:
@@ -29,7 +29,7 @@ core_pages:
     primary_action: start_court
     max_visible_departments: 0
   task_execution:
-    label: 军机处执行页
+    label: 军机处执行面
     required_elements:
       - task_stage_timeline
       - active_department
@@ -39,7 +39,7 @@ core_pages:
     primary_action: submit_to_yushi
     max_visible_departments: 4
   battle_report:
-    label: 朝堂战报页
+    label: 朝堂战报面
     required_elements:
       - final_grade
       - merit_delta
@@ -50,7 +50,7 @@ core_pages:
     primary_action: archive_to_shiguan
     max_visible_departments: 4
   yushi_review:
-    label: 御史页
+    label: 御史审查面
     required_elements:
       - risk_level
       - block_reason
@@ -60,7 +60,7 @@ core_pages:
     primary_action: provide_evidence
     max_visible_departments: 2
   shiguan_archive:
-    label: 史馆页
+    label: 史馆归档面
     required_elements:
       - archived_reports
       - reusable_templates
@@ -69,11 +69,11 @@ core_pages:
     primary_action: reuse_template
     max_visible_departments: 2
 
-button_taxonomy:
+action_taxonomy:
   primary:
     examples: [开始朝议, 归档史馆, 提交御史]
     visual_role: cinnabar_or_jade_solid
-    max_per_page: 1
+    max_per_surface: 1
   secondary:
     examples: [查看证据, 保存为模板, 查看战报]
     visual_role: neutral_outline
@@ -157,4 +157,3 @@ quality_levels:
   L3: Evidence-backed
   L4: Closed-loop
   L5: Self-improving
-

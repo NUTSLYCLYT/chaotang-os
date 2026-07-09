@@ -1,56 +1,68 @@
-# Architecture
+# 前端架构
 
-## System
+## 系统位置
 
-`chaotang-web-lyt` is the frontend experience line for Chaotang OS.
-
-```text
-Browser
-  -> Next.js App Router pages in src/app
-  -> feature UI/workflows in src/features
-  -> CourtOS/domain engines in src/core/courtos and src/core/*
-  -> adapters/utilities in src/lib
-  -> direct backend contracts / jiqun_ai / external sources
-```
-
-## Main Product Loop
+`frontend/` 是朝堂 OS 的前端体验线。
 
 ```text
-Operating signal
-  -> Shangshufang
-  -> decree / task
-  -> Junjichu orchestration
-  -> ministry review
-  -> memorial / report
-  -> boss decision
-  -> Shiguan archive and recall
+浏览器
+  -> src/app 中的 Next.js App Router 页面
+  -> src/features 中的功能 UI / 工作流
+  -> src/core 中的前端领域逻辑与 CourtOS 协议适配
+  -> src/lib 中的类型化 adapter、source label、工具函数
+  -> 明确 API 契约 / 外部来源
 ```
 
-## State and Data
+## 主产品闭环
 
-- UI state: React state, lightweight client stores, and URL state.
-- Runtime data: direct backend contracts and typed fetch adapters.
-- Domain logic: `src/core/**`, especially `src/core/courtos/**`.
-- Backend truth: `jiqun_ai` and real provider/database paths.
-- Evaluation assets: `harness/**` and `tests/swarm-eval/**`.
+```text
+经营信号
+  -> 上书房
+  -> 圣旨 / 任务
+  -> 军机处编排
+  -> 部门会审
+  -> 奏折 / 报告
+  -> 老板裁决
+  -> 史馆归档与召回
+```
 
-## Evidence Boundary
+前端只负责用户可见体验与浏览器证据。非前端运行事实以根级 manifest、API 契约和明确验证输出为准。
 
-UI must not blur:
+## 状态与数据
 
-- LIVE: real model, real run, real record.
-- MIXED: real source with fallback.
-- DEMO: fixture/static/mock.
+- UI 状态：React state、轻量客户端 store、URL state。
+- 运行数据：明确 API 契约与类型化 fetch adapter。
+- 领域逻辑：`src/core/**`，尤其是 CourtOS 协议适配与前端可执行的纯逻辑。
+- 运行事实证据：根级 manifest、API 契约和明确验证输出。
+- 前端工程事实源：`frontend/.harness/` 与 `frontend/scripts/harness-doctor.mjs`。
 
-When a component displays a result from a fallback or sample, the view model should carry a source label or the page should disclose the boundary.
+## Harness 分层
 
-## Release Path
+```text
+../.harness
+  -> 项目级边界、manifest、根级 doctor
+frontend/.harness
+  -> 前端 owner、rules、skills、wiki、templates、changes
+运行证据
+  -> 根级 manifest、API 契约、验证输出
+```
 
-- Dev HMR: `pnpm dev`, port 3002.
-- Production build: `pnpm build`.
-- Production start: `pnpm start`, port 3050.
-- Release gates: `pnpm harness:chaotang:gates`, `pnpm gate:prod-release`, plus domain guards as needed.
+前端 `.harness` 可以引用根级运行评测验证结果，但不能吸收运行记录、质量基线和生产执行逻辑。
 
-## Historical Assets
+## 证据边界
 
-`dev/_attic` and old docs are reference material. Production routes should not depend on retired code unless a change explicitly restores it and adds verification.
+UI 不得模糊：
+
+- LIVE：真实模型、真实运行、真实记录。
+- MIXED：有真实来源，但仍有 fallback、缓存或部分样例。
+- DEMO：fixture、静态样例、mock 或说明性流程。
+- FALLBACK：主来源不可用后的降级结果。
+
+组件展示 fallback 或样例结果时，view model 应携带 source label，或页面必须明确披露边界。
+
+## 发布路径
+
+- Dev HMR：`pnpm dev`，端口 3002。
+- Production build：`pnpm build`。
+- Production start：`pnpm start`，端口 3050。
+- 发布门禁：`pnpm harness:chaotang:gates`、`pnpm gate:prod-release`，并按需运行领域 guard。

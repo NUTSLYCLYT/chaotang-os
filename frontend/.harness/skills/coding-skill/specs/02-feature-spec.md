@@ -1,22 +1,17 @@
-# Coding Spec 02 — Features
+# Feature 规格
 
-Use for files under `src/features/**`.
+## 适用范围
 
-## Responsibilities
+`src/features/**` 下的产品能力切片、UI 工作流和 feature-local helper。
 
-- Product capability slices and workflow UI.
-- View models and orchestration of user-facing interactions.
-- Composition around domain logic from `src/core` and adapters from `src/lib`.
+## 规则
 
-## Rules
+- feature 不直接引用另一个 feature 的内部文件。
+- 跨 feature 共享能力放到 `src/core`、`src/lib`、`src/shared` 或公共入口。
+- feature 可以编排 UI 状态，但不能伪造外部运行执行结果。
+- 涉及真实外部运行能力时必须标明 source label。
 
-- Do not import another feature's internals when a core/lib/shared abstraction is more appropriate.
-- Do not duplicate CourtOS or backend swarm algorithms for display convenience.
-- Carry LIVE / MIXED / DEMO source information through view models when it affects user trust.
-- New feature UI should dissolve into existing loop stations before creating new surfaces.
+## 验证
 
-## Verification
-
-- targeted component/page checks
-- Playwright for user-visible flows
-- domain tests when feature logic transforms decisions, risks, or source labels
+- 聚焦单测或 node 测试。
+- 用户可见流程用 Playwright。

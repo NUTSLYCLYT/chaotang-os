@@ -20,17 +20,17 @@ def load_runner():
     return module
 
 
-def test_rules_define_core_pages_buttons_and_visual_system():
+def test_rules_define_core_surfaces_actions_and_visual_system():
     runner = load_runner()
     rules = runner.load_rules()
 
-    for page in ["throne_home", "task_execution", "battle_report", "yushi_review", "shiguan_archive"]:
-        assert page in rules["core_pages"]
-        assert rules["core_pages"][page]["required_elements"]
-        assert rules["core_pages"][page]["primary_action"]
+    for surface in ["throne_home", "task_execution", "battle_report", "yushi_review", "shiguan_archive"]:
+        assert surface in rules["core_surfaces"]
+        assert rules["core_surfaces"][surface]["required_elements"]
+        assert rules["core_surfaces"][surface]["primary_action"]
 
-    assert rules["button_taxonomy"]["primary"]["max_per_page"] == 1
-    assert rules["button_taxonomy"]["commercial"]["must_be_optional"] is True
+    assert rules["action_taxonomy"]["primary"]["max_per_surface"] == 1
+    assert rules["action_taxonomy"]["commercial"]["must_be_optional"] is True
     assert "cheap_ancient_texture" in rules["visual_direction"]["prohibited"]
     assert rules["teaching"]["name"] == "钦天监伴读"
 
@@ -72,15 +72,15 @@ def test_pay_to_title_offer_is_rejected_as_trust_pollution():
     assert "too_many_visible_departments" in result.findings
 
 
-def test_home_page_keeps_beginner_surface_simple():
+def test_home_surface_keeps_beginner_surface_simple():
     runner = load_runner()
     rules = runner.load_rules()
     case = next(item for item in runner.load_cases() if item["case_id"] == "throne_home_beginner")
     result = runner.evaluate_case(case, rules)
 
     assert result.valid is True
-    assert result.first_viewport_score == 20
-    assert result.button_score == 15
+    assert result.first_view_score == 20
+    assert result.action_score == 15
     assert "too_many_visible_departments" not in result.findings
 
 
@@ -95,5 +95,5 @@ def test_writes_report_and_ledger(tmp_path):
     runner.append_ledger(report, ledger)
 
     assert json.loads(json_out.read_text(encoding="utf-8"))["harness"] == "chaotang_uiux_system"
-    assert "朝堂 UI/UX 系统报告" in md_out.read_text(encoding="utf-8")
+    assert "朝堂体验契约系统报告" in md_out.read_text(encoding="utf-8")
     assert len(ledger.read_text(encoding="utf-8").splitlines()) == len(report["results"])

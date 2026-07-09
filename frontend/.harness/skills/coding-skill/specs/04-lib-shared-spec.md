@@ -1,23 +1,18 @@
-# Coding Spec 04 — Lib, Shared, Types
+# Lib / Shared 规格
 
-Use for files under `src/lib/**`, `src/shared/**`, and `src/types/**`.
+## 适用范围
 
-## Responsibilities
+`src/lib/**`、`src/shared/**`、`src/types/**` 下的共享工具、adapter、类型与公共契约。
 
-- Stable utilities, adapters, stores, cross-cutting contracts, and type definitions.
-- Runtime bridges to backend/BFF systems.
-- Shared metadata and common helpers.
+## 规则
 
-## Rules
+- 共享层不能 import UI 或 route 模块。
+- 外部数据 adapter 必须处理错误态和 source label。
+- 避免隐式全局状态，除非该文件已有模式且有测试覆盖。
+- 类型变更要考虑所有调用方。
 
-- `src/lib` and `src/shared` must not import UI/page modules.
-- Shared contracts should be stable and named clearly.
-- External payloads need validation or explicit normalization.
-- Money/cost/quantity fields must state units.
-- Avoid hidden global state unless the file already owns that pattern and tests cover it.
+## 验证
 
-## Verification
-
-- `pnpm exec tsc --noEmit`
-- focused node tests for helpers/adapters
-- relevant guard scripts for auth/tenant/realdata boundaries
+- TypeScript。
+- 相关 adapter/contract 单测。
+- 需要时跑 build。

@@ -1,235 +1,111 @@
-# Chaotang Harness Plan
+# 后端 Harness 架构
 
-Date: 2026-06-07
+日期：2026-07-09
 
-## Purpose
+后端 harness 是朝堂 OS 后端的可靠性层，覆盖蜂群流程、业务闭环、安全红队、资源治理、质量闸门和可审计归档。它不替代业务代码，而是在高风险输出进入客户、运营、预算、安全决策或归档前，回答一个问题：
 
-The Chaotang harness is the reliability layer around swarms, workflows, and
-department loops. It should answer one question before any AI output reaches a
-customer, operator, budget, safety decision, or archive:
+> 这次流程是否产生了可追溯、可复验、可回滚判断的结果；如果没有，阻塞点在哪里、归谁处理、下一步是什么。
 
-> Did this workflow produce a grounded, traceable, reversible-enough result, and
-> if not, what exactly blocks it?
-
-This harness does not replace existing flows. It wraps them with contracts,
-golden cases, deterministic checks, model-graded evals, human signoff gates,
-observability, and regression reports.
-
-## Current Baseline
-
-Existing pieces already present:
-
-- `scripts/score_swarm.py`: independent LLM judge against golden cases.
-- `scripts/golden_cases/`: swarm-level truth cases.
-- `src/decision_guard.py`: irreversible-decision advisory/signoff gate.
-- `scripts/governance_monitor.py`: quality-rate based governance downgrade.
-- `harness/chaotang-commercial-loop/`: deterministic commercial-loop harness.
-
-Verified on 2026-06-07:
-
-- `pytest -q tests/test_commercial_loop_harness.py` -> `23 passed`.
-- `python harness/chaotang-commercial-loop/scripts/run_harness.py --dry-run --all --no-write-ledger`
-  passes all 3 commercial golden cases with `score=5.0`, `trace=1.0`,
-  `grounding=1.0`.
-- `python scripts/governance_monitor.py --dry-run` reports 5 suspended swarms:
-  `opc`, `quotation`, `pack_rd`, `sourcing`, `storage_aftercare`.
-
-## Target Structure
-
-Use one harness package per operating loop, plus shared conventions:
+## 当前结构
 
 ```text
 harness/
   README.md
+  manifest.json
   _shared/
-    contracts/
-    evaluators/
-    gates/
-    reports/
-    observability/
+    README.md
+    contracts/base.schema.json
+    gates/README.md
+    observability/README.md
+  changes/
+    <change-id>/
   chaotang-commercial-loop/
-    README.md
-    contracts/
-    golden_cases/
-    scripts/
-    artifacts/
-  <next-loop>/
-    README.md
-    contracts/
-    golden_cases/
-    scripts/
-    artifacts/
+  chaotang-true-loop/
+  chaotang_business_model/
+  chaotang_department_protocol/
+  chaotang_merit_system/
+  chaotang_uiux_system/
+  jinyiwei-scrapling-poc/
+  legal-redteam/
+  open_source_watch/
+  resource_consolidation/
+  swarm-tool-matrix/
+  yushi_global_gate/
 ```
 
-Recommended next loops:
+`manifest.json` 是后端 harness 的唯一清单。`scripts/harness_doctor.py` 会读取这份清单，检查主 harness、实现包、命名映射、共享约定和变更记录是否完整。
 
-- `chaotang-swarm-quality-loop`: score, govern, suspend, repair, and re-score swarms.
-- `chaotang-archive-learning-loop`: turn failures and business outcomes into reviewed golden cases.
-- `chaotang-human-signoff-loop`: enforce advisory -> human review -> executable decision.
-- `chaotang-department-board-loop`: verify each department board has input, output, next action, owner, evidence, state, archive, and learning.
+## 主 Harness
 
-## Standard Harness Contract
+| Harness | 职责 |
+| --- | --- |
+| `chaotang-commercial-loop` | 商机闭环确定性评测，检查部门块、数字归因、追溯和人工签字闸。 |
+| `chaotang-true-loop` | 真实闭环契约，验证目标、证据、状态和复盘记录是否闭合。 |
+| `chaotang_business_model` | 商业模式假设、客户价值、收入路径和风险证据检查。 |
+| `chaotang_department_protocol` | 部门协议与路由检查，保证输入、输出、owner、证据和下一步一致。 |
+| `chaotang_merit_system` | 功劳系统和贡献记录检查，避免奖励与证据脱钩。 |
+| `chaotang_uiux_system` | 体验契约评测，为后端输出提供可复验的呈现标准。 |
+| `jinyiwei-scrapling-poc` | 锦衣卫采集观察 POC 的主文档入口。 |
+| `legal-redteam` | 法务红队用例和 promptfoo 配置入口。 |
+| `open_source_watch` | 开源项目观察、安全工具安装和候选仓库评分。 |
+| `resource_consolidation` | 资源归并分类，识别哪些路径应沉淀、忽略或拆分。 |
+| `swarm-tool-matrix` | 蜂群工具矩阵，评估工具候选和部门适配关系。 |
+| `yushi_global_gate` | 御史全局闸门，统一处理漂移、证据、风险和发布判断。 |
 
-Every harness loop should define:
+## 实现包与命名映射
 
-- `case_id`: stable identifier.
-- `task`: user/customer/system input.
-- `source`: where the task came from.
-- `owner`: responsible department or person.
-- `success_metric`: observable pass condition.
-- `records`: one record per block/department.
-- `quality_gate`: score, traceability, grounding, signoff, reasons.
-- `report`: boss/customer/operator-facing summary.
-- `artifacts`: event logs, failure samples, golden candidates, run ids.
+部分目录是实现包，不单独作为主 harness 发布：
 
-Every block record should include:
+- `chaotang_department_personas`：部门人格与职责样本运行器。
+- `chaotang_ui_user_skills`：体验技能覆盖检查运行器。
+- `gongbu_review`：工部评审 golden case 数据。
+- `jinyiwei_scrapling_poc`：`jinyiwei-scrapling-poc` 的 Python 实现包。
+- `legal_redteam`：`legal-redteam` 的 Python 实现包。
 
-- `block_id`
-- `status`: `passed | blocked | failed`
-- `owner`
-- `input`
-- `output`
-- `evidence`
-- `assumptions`
-- `confidence`
-- `next_action`
-- optional `run_id`
-- optional `quality_score`
+横线命名目录保留给人读文档和 CLI 入口，蛇形命名目录保留给 Python import。两者的关系必须写入 `manifest.json`，不能靠口头约定。
 
-## Gate Rules
+## 标准契约
 
-A workflow is releasable only if all are true:
+每个主 harness 至少需要：
 
-- Required blocks produced valid contract records.
-- Traceability is at least `0.8`.
-- Number grounding is `1.0` for deterministic commercial/safety workflows.
-- Quality score is at least `3.5/5`.
-- No runtime/model error is embedded in output.
-- No irreversible decision is executable without human signoff.
-- Any low-sample or high-impact decision is marked advisory or abstain.
+- `README.md`：说明职责、输入、输出、闸门和验证命令。
+- 可执行入口或配置：例如 `scripts/`、`golden_cases/`、`contracts/`、`cases.json`、`promptfooconfig.yaml`。
+- 测试或验证命令：写入 `manifest.json` 的 `tests` 字段。
+- 失败可追溯：输出中保留 case id、owner、证据、阻塞原因和下一步。
 
-Irreversible examples:
+`_shared/contracts/base.schema.json` 定义公共记录形状。具体 harness 可以继续使用自己的 schema，但字段语义不能与共享契约冲突。
 
-- Quote or pricing commitment.
-- Battery/cell/pack selection.
-- Safety, discharge, charging, aftercare instructions.
-- Product gate release.
-- Production BOM/design freeze.
+## 闸门规则
 
-## Eval Types
+高风险流程默认按以下规则收口：
 
-Use three grader layers:
+- 必需块必须输出有效记录。
+- 关键数字必须有来源或明确标成假设。
+- 不可逆动作必须保留人工签字闸。
+- 运行时错误、模型错误、空输出不能伪装成业务结论。
+- 低样本或高影响判断必须标记为 advisory、blocked 或 abstain。
+- 每次失败都应能沉淀为 golden candidate 或修复任务。
 
-1. Deterministic code graders:
-   - JSON schema validation.
-   - Required fields.
-   - Number grounding.
-   - Empty output/runtime error detection.
-   - Signoff status.
-2. Model graders:
-   - Domain correctness against golden reference.
-   - Completeness/actionability/safety/no hallucination.
-3. Human graders:
-   - Promote/reject golden candidates.
-   - Sign irreversible decisions.
-   - Approve customer-facing material.
+## 验证命令
 
-## Recovery Path For Suspended Swarms
-
-Do not directly re-enable suspended swarms. Use this loop:
-
-1. Identify failing golden cases and irreversible-risk reasons.
-2. Add deterministic pre-checks for the failure mode where possible.
-3. Fix prompt/flow constraints with the smallest reversible change.
-4. Run `score_swarm.py --swarm <id> --no-log` first.
-5. If average >= 3 and irreversible risk = 0, run with logging.
-6. Run `governance_monitor.py --dry-run`.
-7. Only update governance state after evidence is stable.
-8. Keep human signoff required for irreversible outputs even after recovery.
-
-Priority recovery order:
-
-1. `opc`: top-of-funnel solution framing; currently blocks commercial loop depth.
-2. `quotation`: high business risk; keep signoff gate strict.
-3. `sourcing`: procurement irreversibility; needs evidence/sample gate.
-4. `storage_aftercare`: safety-critical; require highest bar and human signoff.
-5. `pack_rd`: design/BOM freeze; recover after testable engineering constraints improve.
-
-## Minimal Next Implementation
-
-Phase 1: Shared Harness Package
-
-- Add `harness/_shared/contracts/base.schema.json`.
-- Add `harness/_shared/gates/common_gate.py`.
-- Add `harness/_shared/observability/jsonl.py`.
-- Move reusable logic from `chaotang-commercial-loop/scripts/run_harness.py`
-  into shared helpers without changing behavior.
-- Keep commercial-loop tests green.
-
-Phase 2: Swarm Quality Loop
-
-- Add `harness/chaotang-swarm-quality-loop/README.md`.
-- Add cases that wrap `scripts/golden_cases/*.json`.
-- Add a runner that calls `score_swarm.py --no-log` and summarizes:
-  `avg`, `pass_rate`, `irreversible_risk_count`, `blocked_reason`.
-- Add a gate that prevents governance updates when judge/runtime fails.
-
-Phase 3: Human Signoff Loop
-
-- Add a harness wrapper around `src/decision_guard.py`.
-- Test:
-  - irreversible flow starts as `PENDING_HUMAN_SIGNOFF`;
-  - empty signer fails;
-  - insufficient evidence becomes `ABSTAIN`;
-  - unsigned advisory cannot execute.
-
-Phase 4: Dashboard Data
-
-- Normalize JSONL event shape for Metabase/PostHog dashboards:
-  - run id
-  - case id
-  - loop id
-  - block id
-  - status
-  - gate score
-  - grounding
-  - traceability
-  - signoff required
-  - failure reason
-  - owner
-  - next action
-
-## Verification Commands
-
-Safe commands:
+本地架构检查：
 
 ```bash
-pytest -q tests/test_commercial_loop_harness.py
-python harness/chaotang-commercial-loop/scripts/run_harness.py --dry-run --all --no-write-ledger
-python scripts/governance_monitor.py --dry-run
+cd backend
+python scripts/harness_doctor.py
 ```
 
-High-cost/model commands:
+代表性行为检查：
 
 ```bash
-python scripts/score_swarm.py --swarm opc --no-log
-python harness/chaotang-commercial-loop/scripts/run_harness.py --real --fast --case-id cold_storage_100mwh --blocks opc --block-timeout 30
+cd backend
+python -m pytest -q tests/test_commercial_loop_harness.py tests/test_legal_redteam_harness.py
 ```
 
-Run high-cost/model commands only when provider credentials and timeout budget
-are ready.
+根级工程检查会委托后端 doctor：
 
-## Advisor Notes
+```bash
+node scripts/harness-doctor.mjs
+```
 
-- Harness optimizer: improve configuration and gates first, not product code.
-- Eval harness: define expected behavior before changing prompts or workflows.
-- Verification loop: every behavior change must end with build/test/security/diff evidence.
-- Chaotang product panel: every department must expose input, output, next action, evidence, state, archive, and learning.
-
-## Success Criteria
-
-- Commercial-loop deterministic harness stays green.
-- Suspended swarms are never re-enabled without new evidence.
-- Every high-risk output is advisory until signed.
-- Every failure can become a reviewed golden candidate.
-- Operators can see the current block, owner, reason, and next action.
+真实模型、高成本或会写入运行账本的命令，需要先确认 provider、预算、超时和输出路径。

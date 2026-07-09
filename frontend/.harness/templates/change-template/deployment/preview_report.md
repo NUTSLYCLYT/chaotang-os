@@ -1,13 +1,16 @@
-# Preview / Deploy Report: {{CHANGE_ID}}
+﻿# 预览 / 部署报告
 
-## Environment
+结论：PENDING
 
-- TBD
+## URL
 
-## Routes Checked
+- 待填写。
 
-- TBD
+## 检查
 
-## Result
+- 待填写。
 
-PENDING
+## 剩余风险
+
+- 待填写。
+

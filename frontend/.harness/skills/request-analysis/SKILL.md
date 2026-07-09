@@ -1,40 +1,34 @@
 ---
 name: request-analysis
-description: Convert a user request into spec.md and tasks.md for a Chaotang frontend change.
+description: 把用户请求收束成前端可执行、可验证、边界清楚的规格。
 ---
 
-# Request Analysis Skill
+# 需求分析 Skill
 
-## Inputs
+## 目标
 
-- User request.
-- Relevant project docs and code.
-- `.harness/rules/product-boundaries.md`.
-- `.harness/rules/dev-workflow.md`.
+把用户请求转成 `.harness/changes/{change-id}/request_analysis/spec.md` 和 `tasks.md`。
 
-## Produce `request_analysis/spec.md`
+## spec.md 应包含
 
-Required sections:
+- 背景：为什么要做。
+- 范围：本轮会改哪些行为、文档或工具。
+- 非目标：本轮明确不做什么。
+- 验收标准：怎样证明完成。
+- 风险：哪些地方容易误伤。
+- 验证计划：准备跑哪些命令。
 
-- Background
-- Scope
-- Non-goals
-- Acceptance Criteria
-- Risks
-- Verification Plan
+## tasks.md 应包含
 
-## Produce `request_analysis/tasks.md`
+- 每个任务的目标。
+- 输入。
+- 输出。
+- 验收方式。
+- 依赖。
 
-Each task must include:
+## 边界规则
 
-- Objective
-- Input
-- Output
-- Acceptance
-- Dependencies
-
-## Rules
-
-- State assumptions explicitly.
-- If a request depends on backend truth, mark the boundary and identify `jiqun_ai` evidence needed.
-- Do not expand the scope with opportunistic refactors.
+- 如果请求依赖运行事实，必须说明需要哪类 API 契约、运行证据或根级项目证据。
+- 不借机扩范围做无关重构。
+- UI 请求必须说明是否需要浏览器证据。
+- 文档或 harness 请求必须说明是否需要 `pnpm harness:doctor`。

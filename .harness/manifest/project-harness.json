@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "root": {
+    "entrypoints": ["AGENTS.md", "README.md", "scripts/harness-doctor.mjs", "scripts/new-change.mjs"],
+    "harness": ".harness",
+    "verification": ".harness/wiki/verification-matrix.md"
+  },
+  "frontend": {
+    "path": "frontend",
+    "entrypoints": ["frontend/AGENTS.md", "frontend/README.md"],
+    "harness": "frontend/.harness",
+    "doctor": "frontend/scripts/harness-doctor.mjs"
+  },
+  "backend": {
+    "path": "backend",
+    "entrypoints": ["backend/AGENTS.md", "backend/README.md"],
+    "harnessRoot": "backend/harness",
+    "harnessManifest": "backend/harness/manifest.json",
+    "doctor": "backend/scripts/harness_doctor.py",
+    "primaryHarnesses": [
+      "chaotang-commercial-loop",
+      "chaotang-true-loop",
+      "chaotang_business_model",
+      "chaotang_department_protocol",
+      "chaotang_merit_system",
+      "chaotang_uiux_system",
+      "jinyiwei-scrapling-poc",
+      "legal-redteam",
+      "open_source_watch",
+      "resource_consolidation",
+      "swarm-tool-matrix",
+      "yushi_global_gate"
+    ],
+    "implementationPackages": [
+      "chaotang_department_personas",
+      "chaotang_ui_user_skills",
+      "gongbu_review",
+      "jinyiwei_scrapling_poc",
+      "legal_redteam"
+    ],
+    "allowedInfrastructureDirs": ["_shared", "changes"]
+  },
+  "docs": {
+    "path": "docs",
+    "entrypoints": ["docs/README.md"]
+  }
+}

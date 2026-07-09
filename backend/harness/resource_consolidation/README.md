@@ -1,43 +1,32 @@
-# Resource Consolidation Harness
+# 资源归并 Harness
 
-Purpose: help the release crew keep the mainline clean while preserving useful
-work from old branches, experiments, and generated resources.
+本 harness 帮助后端主线保持干净：识别哪些路径应该沉淀、忽略、拆分或进入后续评审。
 
-The harness is intentionally conservative:
-
-- default mode is `dry-run`;
-- tracked files are never moved;
-- environment drift and databases are reported, not cleaned;
-- cleanup uses an archive directory with a restore manifest;
-- useful harnesses, docs, scripts, prompts, configs, and tests are marked as
-  `absorb_candidate` for human review.
-
-## Commands
+## 入口
 
 ```bash
-python harness/resource_consolidation/scripts/resource_consolidation.py --json
-python harness/resource_consolidation/scripts/resource_consolidation.py --report
-python harness/resource_consolidation/scripts/resource_consolidation.py --apply --mode archive
-python harness/resource_consolidation/scripts/resource_consolidation.py --apply --mode quarantine-local-drift
+cd backend
+python harness/resource_consolidation/scripts/resource_consolidation.py
 ```
 
-Artifacts:
+## 输出
 
-- `harness/resource_consolidation/artifacts/resource_manifest.json`
-- `harness/resource_consolidation/artifacts/resource_report.md`
-- archived files under `harness/resource_consolidation/archive/<run_id>/`
-- local drift backups and binary patches under `harness/resource_consolidation/archive/<run_id>/`
+典型输出可以写入：
 
-## Release Gate
+```text
+harness/resource_consolidation/artifacts/resource_manifest.json
+```
 
-Before release, run:
+## 分类原则
+
+- 能提升后端主线质量、证据链或可复验能力的资源，进入保留或沉淀。
+- 运行产物、环境漂移、本机缓存默认不提交。
+- 归属其他工程线的体验实现不纳入后端 harness 资产。
+- 修复后的蜂群质量基线应单独生成、单独提交。
+
+## 测试
 
 ```bash
-python scripts/commit_closeout_check.py
-python harness/resource_consolidation/scripts/resource_consolidation.py --report
-python scripts/validate_flows.py --skip-quality
-python scripts/commit_closeout_check.py --strict
+cd backend
+python -m pytest -q tests/test_resource_consolidation.py
 ```
-
-Full quality release still requires `python scripts/validate_flows.py` to pass
-after the quality baseline has been regenerated from the fixed swarms.

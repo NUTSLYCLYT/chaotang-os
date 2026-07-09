@@ -1,11 +1,17 @@
 @AGENTS.md
 
-> Claude Code 入口：本仓规则的真相源是同目录 `AGENTS.md`（Codex 也读它），此处用 `@AGENTS.md` 导入，
-> 不维护第二套平行文本。全局工作约定见 `~/.claude/CLAUDE.md`。
+# Claude 入口
 
-## 本仓速记（最高优先级）
+本文档只做极简启动提示。后端事实源是同目录 `AGENTS.md`、`harness/README.md` 与 `harness/manifest.json`，不维护第二套规则。
 
-- 本仓只承接**后端 / 蜂群 / flow / agent / harness / 质量基线 / 真实客户样本**；前端/网站/浏览器验证回 `/home/ubuntu/workspace/chaotang-web-lyt`。
-- 后端端口优先 **8081**；不混合前端提交。
-- Git：禁 `git add .`，文件级分拣；提交前跑 `python scripts/commit_closeout_check.py`；推 `git@gitee.com:msxn/jiqun_ai.git`。
-- harness/flow 改动按需调 lens：`flow-engine-god` + `python-god`（引擎）、`eval-governance-god` + `harness-god`（评测/治理）、`decision-guard-god` + `bruce-schneier`（不可逆决策）。
+## 启动顺序
+
+1. 读取 `AGENTS.md`。
+2. 读取 `harness/README.md` 与 `harness/manifest.json`。
+3. 按任务读取对应 harness 的 README、运行器、基准样本或测试。
+4. 修改后端 harness 文档、清单或脚本后运行 `python scripts/harness_doctor.py`。
+5. 项目级改动后，回到根目录运行 `node scripts/harness-doctor.mjs`。
+
+## 当前边界
+
+`backend/` 负责运行服务、flow、agent、prompt、provider、数据源、真实客户样本和后端运行/评测 harness。其他工程线的体验实现、发布体验或构建产物只通过根级清单协调，不在后端入口文档中展开。

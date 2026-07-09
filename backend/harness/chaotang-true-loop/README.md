@@ -1,62 +1,30 @@
-# Chaotang True Loop Harness
+# 朝堂真实闭环 Harness
 
-Purpose: keep the first production-like Chaotang loop small, auditable, and replayable.
+本 harness 的目标是让第一条接近生产的朝堂闭环保持小、可审计、可回放。
 
-Chosen V1 loop:
+它不调用模型或外部 provider，只验证一次 live run 在被运行记录或发布说明称为“真实闭环”前必须满足的契约。
 
-```text
-Shangshufang command
--> POST /api/chaotang/study/run
--> live SwarmOrchestrator adapter
--> /api/swarm/sessions/{session_id} replay artifact
--> LaunchLoopCase append-only archive
--> /api/chaotang/archive/{task_id}/retrospective
--> production observability event
--> user next action
-```
+## 必需证据
 
-This harness does not call models or external providers. It validates the contract that a live run must satisfy before a UI or release note can call the loop "real".
+- 真实任务输入。
+- 后端 API 或 runner 记录。
+- 归档或回放 artifact owner。
+- case id、run id、状态、owner、证据和下一步。
 
-## Contract Gate
+## 失败条件
 
-Each case must declare:
+- 没有发出 `launch_loop_case_created`。
+- 缺少归档记录。
+- 缺少 owner 或下一步。
+- 把 demo/fallback 结果标成真实闭环。
 
-- user input and owner
-- frontend entry
-- backend API
-- swarm adapter and session pattern
-- replay artifact owner and API path
-- quality gate fields
-- archive/retrospective path
-- launch-loop case schema and append-only store
-- production observability event name
-- next action owner and label
-- truth labels for every step: `real`, `fallback_labeled`, `mock`, or `missing`
+## 归属边界
 
-Release blocks when:
+本 harness 只验证后端闭环证据：蜂群调用、运行记录、归档契约、状态流转和复盘记录。
 
-- a required step is `mock` or `missing`
-- replay artifact is not owned by `shiguan`
-- quality gate omits score, status, reasons, or human signoff
-- next action has no owner
-- fallback exists but is not labeled
-- LaunchLoopCase omits evidence, quality gate, next action, archive, or learning
-- launch-loop cases are not written to an append-only JSONL boundary
-- `launch_loop_case_created` is not emitted for the loop
-
-## Run
+## 入口
 
 ```bash
+cd backend
 python harness/chaotang-true-loop/scripts/run_true_loop_contract.py
-pytest -q tests/test_chaotang_true_loop_contract.py
 ```
-
-## Mainline Boundary
-
-Frontend browser evidence belongs in:
-
-```text
-/home/ubuntu/workspace/chaotang-web-lyt/e2e/true-loop-contract.spec.ts
-```
-
-Backend swarm/archive contract evidence belongs here.

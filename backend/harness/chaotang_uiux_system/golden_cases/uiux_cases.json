@@ -1,11 +1,11 @@
 [
   {
     "case_id": "throne_home_beginner",
-    "page": {
+    "surface": {
       "type": "throne_home",
       "audience": "beginner",
       "elements": ["today_memorial_input", "start_court_button", "chaotang_weather", "recent_battle_report", "qintianjian_companion"],
-      "buttons": [{"label": "开始朝议", "role": "primary"}, {"label": "召唤钦天监", "role": "teaching"}],
+      "actions": [{"label": "开始朝议", "role": "primary"}, {"label": "召唤钦天监", "role": "teaching"}],
       "visible_departments": [],
       "five_second_answers": ["where_am_i", "what_happened", "what_is_the_risk", "what_should_i_click", "what_did_i_gain"],
       "teaching": {"trigger": "first_visit", "lines": ["你现在在大殿首页。", "先输入一个真实任务。", "建议点击开始朝议。", "钦天监会先判断方向。"]},
@@ -15,11 +15,11 @@
   },
   {
     "case_id": "battle_report_sacred_edict",
-    "page": {
+    "surface": {
       "type": "battle_report",
       "audience": "player",
       "elements": ["final_grade", "merit_delta", "yushi_verdict", "shiguan_archive_action", "next_action", "optional_commercial_offer"],
-      "buttons": [{"label": "归档史馆", "role": "primary"}, {"label": "保存为模板", "role": "secondary"}, {"label": "启动深审", "role": "commercial"}],
+      "actions": [{"label": "归档史馆", "role": "primary"}, {"label": "保存为模板", "role": "secondary"}, {"label": "启动深审", "role": "commercial"}],
       "visible_departments": ["qintianjian", "gongbu", "yushi", "shiguan"],
       "five_second_answers": ["where_am_i", "what_happened", "what_is_the_risk", "what_should_i_click", "what_did_i_gain"],
       "teaching": {"trigger": "reusable_template_available", "lines": ["你现在在朝堂战报。", "任务已完成，御史已核。", "建议归档史馆。", "此产物可复用。"]},
@@ -30,25 +30,25 @@
   },
   {
     "case_id": "task_execution_junji",
-    "page": {
+    "surface": {
       "type": "task_execution",
       "audience": "advanced",
       "elements": ["task_stage_timeline", "active_department", "evidence_panel", "yushi_status", "next_action"],
-      "buttons": [{"label": "提交御史", "role": "primary"}, {"label": "查看证据", "role": "secondary"}, {"label": "暂停", "role": "secondary"}],
+      "actions": [{"label": "提交御史", "role": "primary"}, {"label": "查看证据", "role": "secondary"}, {"label": "暂停", "role": "secondary"}],
       "visible_departments": ["qintianjian", "gongbu", "yushi"],
       "five_second_answers": ["where_am_i", "what_happened", "what_is_the_risk", "what_should_i_click", "what_did_i_gain"],
-      "teaching": {"trigger": "idle_20s", "lines": ["你现在在军机处执行页。", "工部正在处理任务。", "建议查看证据后提交御史。", "御史会检查偏移。"]},
+      "teaching": {"trigger": "idle_20s", "lines": ["你现在在军机处执行面。", "工部正在处理任务。", "建议查看证据后提交御史。", "御史会检查偏移。"]},
       "visual": {"palette": ["冷白", "墨黑", "极浅玉青"], "motifs": ["token"], "prohibited": []}
     },
     "expect": {"valid": true, "level": "L5"}
   },
   {
     "case_id": "qintianjian_companion",
-    "page": {
+    "surface": {
       "type": "battle_report",
       "audience": "beginner",
       "elements": ["final_grade", "merit_delta", "yushi_verdict", "shiguan_archive_action", "next_action", "optional_commercial_offer"],
-      "buttons": [{"label": "归档史馆", "role": "primary"}, {"label": "召唤钦天监", "role": "teaching"}],
+      "actions": [{"label": "归档史馆", "role": "primary"}, {"label": "召唤钦天监", "role": "teaching"}],
       "visible_departments": ["gongbu", "yushi", "shiguan"],
       "five_second_answers": ["where_am_i", "what_happened", "what_is_the_risk", "what_should_i_click", "what_did_i_gain"],
       "teaching": {"trigger": "new_title_or_unlock", "lines": ["你现在看到战报。", "工部刚刚升级。", "建议归档史馆。", "下次任务会更快。"]},
@@ -58,11 +58,11 @@
   },
   {
     "case_id": "bad_dashboard_data_dump",
-    "page": {
+    "surface": {
       "type": "throne_home",
       "audience": "beginner",
       "elements": ["today_memorial_input", "start_court_button"],
-      "buttons": [{"label": "详情", "role": "secondary"}, {"label": "立刻购买圣君", "role": "commercial"}, {"label": "更多", "role": "secondary"}],
+      "actions": [{"label": "详情", "role": "secondary"}, {"label": "立刻购买圣君", "role": "commercial"}, {"label": "更多", "role": "secondary"}],
       "visible_departments": ["qintianjian", "gongbu", "hubu", "yushi", "shiguan", "jinyiwei", "libu", "bingbu"],
       "five_second_answers": ["where_am_i"],
       "teaching": {"trigger": "fake_urgency", "lines": ["赶快购买，否则错过。"]},

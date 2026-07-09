@@ -1,38 +1,40 @@
-# Harness Usage Guide
+# Harness 使用指南
 
-> This is the daily manual for using the Chaotang frontend harness. For ownership and authoring rules, read `AUTHORING-GUIDE.md`.
+> 这是朝堂前端 harness 的日常使用手册。所有权与编写规则见 `AUTHORING-GUIDE.md`。
 
-## Mental Model
+## 心智模型
 
 ```text
-Prompt Engineering   -> improve one conversation
-Context Engineering  -> improve one context window
-Harness Engineering  -> design a durable cross-session engineering system
+Prompt Engineering   -> 改善一次对话
+Context Engineering  -> 改善一个上下文窗口
+Harness Engineering  -> 设计可跨会话延续的工程系统
 ```
 
-In this repo, business code tells the browser how to run; `.harness/` tells agents how to work.
+在这个仓库里，业务代码告诉浏览器如何运行；`.harness/` 告诉 agent 如何工作。
 
-## Directory Map
+不要把它和根级运行评测资料混淆；前端 `.harness/` 是修改前端线时使用的跨会话工程系统。
 
-| Directory | Purpose |
+## 目录地图
+
+| 目录 | 用途 |
 | --- | --- |
-| `.harness/agents/` | Owner/orchestration entry |
-| `.harness/rules/` | Non-negotiable constraints |
-| `.harness/skills/` | Stage playbooks |
-| `.harness/wiki/` | Current project facts |
-| `.harness/changes/` | Audit trail for each change |
-| `.harness/templates/` | New-change skeleton |
-| `.harness/mcp/` | Tool/server index |
+| `.harness/agents/` | Owner / 调度入口 |
+| `.harness/rules/` | 不可绕过的约束 |
+| `.harness/skills/` | 阶段操作手册 |
+| `.harness/wiki/` | 当前项目事实 |
+| `.harness/changes/` | 每个变更的审计轨迹 |
+| `.harness/templates/` | 新 change 骨架 |
+| `.harness/mcp/` | 工具 / server 索引 |
 
-## Daily Loop
+## 日常闭环
 
 ```bash
-cd chaotang-web-lyt
+cd frontend
 pnpm harness:doctor
 pnpm harness:new-change feat short-name
 ```
 
-Then fill the generated directory:
+然后填写生成目录：
 
 ```text
 .harness/changes/{change-id}/
@@ -50,9 +52,9 @@ Then fill the generated directory:
   deployment/preview_report.md
 ```
 
-## Stage Flow
+## 阶段流
 
-The canonical flow is defined in `.harness/rules/dev-workflow.md`:
+规范流程定义在 `.harness/rules/dev-workflow.md`：
 
 ```text
 0 Bootstrap
@@ -63,23 +65,23 @@ The canonical flow is defined in `.harness/rules/dev-workflow.md`:
                 8 CI Verify -> 9 E2E -> 10 Deploy Verify -> 11 User Acceptance
 ```
 
-## Which Skill To Use
+## 使用哪个 Skill
 
-| Situation | Skill |
+| 场景 | Skill |
 | --- | --- |
-| First time entering project | `.harness/skills/project-analysis/SKILL.md` |
-| Turning a request into work | `.harness/skills/request-analysis/SKILL.md` |
-| Reviewing plan/code/tests | `.harness/skills/expert-reviewer/SKILL.md` |
-| Implementing scoped change | `.harness/skills/coding-skill/SKILL.md` |
-| Static/architecture review | `.harness/skills/code-review/SKILL.md` |
-| Adding domain tests | `.harness/skills/unit-test-write/SKILL.md` |
-| Adding browser tests | `.harness/skills/e2e-test-write/SKILL.md` |
-| Release verification | `.harness/skills/deploy-verify/SKILL.md` |
-| Stuck diagnosis | `.harness/skills/frontend-doctor/SKILL.md` |
+| 第一次进入项目 | `.harness/skills/project-analysis/SKILL.md` |
+| 把需求转成工作 | `.harness/skills/request-analysis/SKILL.md` |
+| 评审计划 / 代码 / 测试 | `.harness/skills/expert-reviewer/SKILL.md` |
+| 实现有边界的改动 | `.harness/skills/coding-skill/SKILL.md` |
+| 静态 / 架构评审 | `.harness/skills/code-review/SKILL.md` |
+| 增加领域测试 | `.harness/skills/unit-test-write/SKILL.md` |
+| 增加浏览器测试 | `.harness/skills/e2e-test-write/SKILL.md` |
+| 发布验证 | `.harness/skills/deploy-verify/SKILL.md` |
+| 卡住诊断 | `.harness/skills/frontend-doctor/SKILL.md` |
 
-## Verification Menu
+## 验证菜单
 
-Pick the smallest sufficient set:
+选择最小充分集合：
 
 ```bash
 pnpm harness:doctor
@@ -94,10 +96,10 @@ pnpm guard:realdata
 pnpm gate:prod-release
 ```
 
-## Common Rules
+## 常见规则
 
-- Keep frontend truth and backend truth separate.
-- Mark LIVE / MIXED / DEMO capability honestly.
-- Do not create a new surface when the capability can fit the main loop.
-- Preserve ports: dev 3002, production 3050, never 3001.
-- For repeated agent mistakes, strengthen `.harness/` before merely patching code.
+- 前端事实源与根级运行评测资料必须分开。
+- 诚实标记 LIVE / MIXED / DEMO 能力。
+- 能进入主闭环的能力，不要新建页面承载。
+- 保持端口：dev 3002，production 3050，禁止 3001。
+- 对重复出现的 agent 错误，优先加固 `.harness/`，不要只补业务代码。

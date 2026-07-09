@@ -1,9 +1,12 @@
-# CI Summary: {{CHANGE_ID}}
+﻿# CI 验证摘要
 
-## Commands
+结论：PENDING
 
-- TBD
+## 命令
 
-## Result
+- 待填写。
 
-PENDING
+## 结果
+
+- 待填写。
+

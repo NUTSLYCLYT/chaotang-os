@@ -57,7 +57,7 @@
     "signals": ["ui", "hype"],
     "risks": ["license_unknown", "hype_only"],
     "fit_for_chaotang": ["skip"],
-    "notes": "High stars but not useful for jiqun_ai mainline."
+    "notes": "Stars are high, but it is not useful for the backend/ harness mainline."
   },
   {
     "repo": "example/abandoned-eval",

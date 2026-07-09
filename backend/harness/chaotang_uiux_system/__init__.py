@@ -1,2 +1,2 @@
-"""Chaotang UI/UX design-system harness."""
+"""Chaotang experience-contract harness."""
 

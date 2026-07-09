@@ -1,35 +1,39 @@
-# Domain Model
+# 领域模型
 
-This wiki is a navigation map, not the full product encyclopedia.
+本 wiki 是前端领域导航地图，不是完整产品百科。需要新增长期事实时，先确认它属于前端体验线还是根级项目协调层。
 
-## Product Terms
+## 核心对象
 
-| Term | Meaning |
+| 对象 | 含义 | 前端责任 |
+| --- | --- | --- |
+| 上书房 | 经营信号与问题入口 | 展示、交互、source label、下旨入口 |
+| 军机处 | 编排与会审工作台 | 展示任务状态、部门意见、下一步 |
+| 六部/诸司 | 领域视角与执行责任 | 渲染部门状态和证据，不在前端重算服务端结果 |
+| 史馆 | 归档与召回 | 展示归档、引用旧案、说明证据链 |
+| 庄园 | 外部能力/能力域入口 | 浏览器入口和状态展示 |
+| 御史/刑部/钦天监 | 风险、法务、不可逆判断 | 可视化风险门，不替代服务端签字或评测证据 |
+
+## Source Label
+
+| 标签 | 说明 |
 | --- | --- |
-| 朝堂OS | Product and main user-facing system |
-| CourtOS | Internal decision protocol/kernel inside Chaotang OS |
-| 上书房 | Signal intake, briefing, decree drafting |
-| 军机处 | Orchestration and task routing |
-| 六部 | Domain review perspectives |
-| 庄园 / 蜂群 | Swarm execution center and industry capability home |
-| 史馆 | Archive, evidence, recall, learning |
+| LIVE | 真实模型、真实 API、真实记录或真实运行证据 |
+| MIXED | 有真实来源，但含 fallback、缓存或部分样例 |
+| DEMO | fixture、静态样例、mock 或说明性流程 |
+| FALLBACK | 主来源不可用后的降级输出 |
 
-## Capability Truth
+前端展示的每个高影响判断都应能说明自己属于哪一档。
 
-| Label | Meaning |
-| --- | --- |
-| LIVE | Real execution path |
-| MIXED | Real path plus fallback or partial truth |
-| DEMO | Static sample, mock, or illustrative surface |
+## 单一事实源
 
-## Department Ownership
+部门码、角色码、任务状态、source label 等跨进程概念必须有单一事实源。不要为同一领域概念创建本地平行 map。映射失败时应 warning 或 fail fast，不能静默回退。
 
-Department/office codes and cross-process mappings must have a single source of truth. Do not create local parallel maps for the same domain concept. If mapping fails, warn or fail fast.
+## 运行证据边界
 
-## Important Docs
+真实外部能力执行、模型调用、运行记录和质量基线不在前端实现。前端只消费契约、展示证据、运行浏览器验证。
 
-- `README.md` for project positioning and operating commands.
-- `docs/FINAL_PRODUCT_RESOURCE_HARNESS.md` for PROD / FIX / DEMO / STOP resource posture.
-- `docs/NORTHSTAR_REAL_LOOP_V1_PRD.md` for the current north-star loop.
-- `docs/SELF_EVOLVING_COURT_SYSTEM.md` for the learning loop.
-- `dev/notes/00-朝堂总索引.md` for broader historical notes.
+## 相关文档
+
+- `docs/NORTHSTAR_REAL_LOOP_V1_PRD.md`：当前北极星闭环。
+- `docs/SELF_EVOLVING_COURT_SYSTEM.md`：学习闭环。
+- `.harness/wiki/api-contracts.md`：前端 API 契约边界。

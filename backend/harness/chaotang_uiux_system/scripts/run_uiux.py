@@ -20,14 +20,14 @@ DEFAULT_LEDGER = ROOT / "artifacts" / "ledger.jsonl"
 
 
 @dataclass(frozen=True)
-class UIUXResult:
+class ExperienceResult:
     case_id: str
-    page_type: str
+    surface_type: str
     valid: bool
     level: str
     score: int
-    first_viewport_score: int
-    button_score: int
+    first_view_score: int
+    action_score: int
     teaching_score: int
     visual_score: int
     trust_score: int
@@ -48,9 +48,9 @@ def load_cases(path: Path = DEFAULT_CASES) -> list[dict[str, Any]]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def score_first_viewport(page: dict[str, Any], rules: dict[str, Any]) -> tuple[int, list[str]]:
+def score_first_view(surface: dict[str, Any], rules: dict[str, Any]) -> tuple[int, list[str]]:
     findings: list[str] = []
-    answers = set(page.get("five_second_answers", []))
+    answers = set(surface.get("five_second_answers", []))
     required = set(rules["five_second_test"]["required_questions"])
     missing = sorted(required - answers)
     score = round(20 * len(answers & required) / len(required))
@@ -59,37 +59,37 @@ def score_first_viewport(page: dict[str, Any], rules: dict[str, Any]) -> tuple[i
     return score, findings
 
 
-def score_required_elements(page: dict[str, Any], rules: dict[str, Any]) -> tuple[int, list[str]]:
+def score_required_elements(surface: dict[str, Any], rules: dict[str, Any]) -> tuple[int, list[str]]:
     findings: list[str] = []
-    page_type = page.get("type")
-    spec = rules["core_pages"].get(page_type, {})
+    surface_type = surface.get("type")
+    spec = rules["core_surfaces"].get(surface_type, {})
     required = set(spec.get("required_elements", []))
-    present = set(page.get("elements", []))
+    present = set(surface.get("elements", []))
     missing = sorted(required - present)
     score = round(20 * len(present & required) / max(1, len(required)))
     if missing:
         findings.append(f"missing_elements:{','.join(missing)}")
     max_depts = int(spec.get("max_visible_departments", 99))
-    if len(page.get("visible_departments", [])) > max_depts:
+    if len(surface.get("visible_departments", [])) > max_depts:
         findings.append("too_many_visible_departments")
         score = min(score, 10)
     return score, findings
 
 
-def score_buttons(page: dict[str, Any], rules: dict[str, Any]) -> tuple[int, list[str]]:
+def score_actions(surface: dict[str, Any], rules: dict[str, Any]) -> tuple[int, list[str]]:
     findings: list[str] = []
-    buttons = page.get("buttons", [])
-    roles = [button.get("role") for button in buttons]
+    actions = surface.get("actions", [])
+    roles = [action.get("role") for action in actions]
     primary_count = roles.count("primary")
     if primary_count != 1:
-        findings.append("primary_button_count_not_one")
-    known_roles = set(rules["button_taxonomy"])
+        findings.append("primary_action_count_not_one")
+    known_roles = set(rules["action_taxonomy"])
     unknown = [str(role) for role in roles if role not in known_roles]
     if unknown:
-        findings.append(f"unknown_button_roles:{','.join(unknown)}")
+        findings.append(f"unknown_action_roles:{','.join(unknown)}")
     vague_labels = {"详情", "更多", "管理"}
-    if any(button.get("label") in vague_labels for button in buttons):
-        findings.append("vague_button_label")
+    if any(action.get("label") in vague_labels for action in actions):
+        findings.append("vague_action_label")
     commercial_count = roles.count("commercial")
     if commercial_count and primary_count == 0:
         findings.append("commercial_without_primary")
@@ -98,15 +98,15 @@ def score_buttons(page: dict[str, Any], rules: dict[str, Any]) -> tuple[int, lis
     score = 15
     score -= 5 if primary_count != 1 else 0
     score -= 3 if unknown else 0
-    score -= 3 if "vague_button_label" in findings else 0
+    score -= 3 if "vague_action_label" in findings else 0
     score -= 4 if "commercial_without_primary" in findings else 0
     score -= 2 if "too_many_commercial_actions" in findings else 0
     return max(0, score), findings
 
 
-def score_teaching(page: dict[str, Any], rules: dict[str, Any]) -> tuple[int, list[str]]:
+def score_teaching(surface: dict[str, Any], rules: dict[str, Any]) -> tuple[int, list[str]]:
     findings: list[str] = []
-    teaching = page.get("teaching") or {}
+    teaching = surface.get("teaching") or {}
     lines = teaching.get("lines", [])
     trigger = teaching.get("trigger")
     if trigger not in set(rules["teaching"]["allowed_triggers"]):
@@ -125,9 +125,9 @@ def score_teaching(page: dict[str, Any], rules: dict[str, Any]) -> tuple[int, li
     return max(0, score), findings
 
 
-def score_visual(page: dict[str, Any], rules: dict[str, Any]) -> tuple[int, list[str]]:
+def score_visual(surface: dict[str, Any], rules: dict[str, Any]) -> tuple[int, list[str]]:
     findings: list[str] = []
-    visual = page.get("visual") or {}
+    visual = surface.get("visual") or {}
     prohibited = set(visual.get("prohibited", []))
     configured_prohibited = set(rules["visual_direction"]["prohibited"])
     if prohibited & configured_prohibited:
@@ -152,9 +152,9 @@ def score_visual(page: dict[str, Any], rules: dict[str, Any]) -> tuple[int, list
     return max(0, score), findings
 
 
-def score_commercial(page: dict[str, Any], rules: dict[str, Any]) -> tuple[int, list[str]]:
+def score_commercial(surface: dict[str, Any], rules: dict[str, Any]) -> tuple[int, list[str]]:
     findings: list[str] = []
-    offer = page.get("commercial_offer")
+    offer = surface.get("commercial_offer")
     if not offer:
         return 10, findings
     required = set(rules["commercial_offer"]["required_elements"])
@@ -166,7 +166,7 @@ def score_commercial(page: dict[str, Any], rules: dict[str, Any]) -> tuple[int, 
         findings.append("commercial_trust_pollution")
     if not offer.get("fairness_principle"):
         findings.append("commercial_missing_fairness_principle")
-    trigger = (page.get("teaching") or {}).get("trigger")
+    trigger = (surface.get("teaching") or {}).get("trigger")
     if trigger in {"fake_urgency", "paywall_pressure"}:
         findings.append("commercial_dark_pattern")
     score = 10
@@ -191,27 +191,27 @@ def quality_level(score: int, valid: bool) -> str:
     return "L1"
 
 
-def evaluate_case(case: dict[str, Any], rules: dict[str, Any] | None = None) -> UIUXResult:
+def evaluate_case(case: dict[str, Any], rules: dict[str, Any] | None = None) -> ExperienceResult:
     rules = rules or load_rules()
-    page = case.get("page", case)
-    first_score, first_findings = score_first_viewport(page, rules)
-    element_score, element_findings = score_required_elements(page, rules)
-    button_score, button_findings = score_buttons(page, rules)
-    teaching_score, teaching_findings = score_teaching(page, rules)
-    visual_score, visual_findings = score_visual(page, rules)
-    trust_score, trust_findings = score_commercial(page, rules)
-    delight_score = 10 if not (button_findings or teaching_findings or visual_findings) else 5
+    surface = case.get("surface", case)
+    first_score, first_findings = score_first_view(surface, rules)
+    element_score, element_findings = score_required_elements(surface, rules)
+    action_score, action_findings = score_actions(surface, rules)
+    teaching_score, teaching_findings = score_teaching(surface, rules)
+    visual_score, visual_findings = score_visual(surface, rules)
+    trust_score, trust_findings = score_commercial(surface, rules)
+    delight_score = 10 if not (action_findings or teaching_findings or visual_findings) else 5
     findings = (
         first_findings
         + element_findings
-        + button_findings
+        + action_findings
         + teaching_findings
         + visual_findings
         + trust_findings
     )
     score = min(
         100,
-        first_score + element_score + button_score + teaching_score + visual_score + trust_score + delight_score,
+        first_score + element_score + action_score + teaching_score + visual_score + trust_score + delight_score,
     )
     valid = score >= 65 and not any(
         item in findings
@@ -228,14 +228,14 @@ def evaluate_case(case: dict[str, Any], rules: dict[str, Any] | None = None) -> 
     if expected:
         checks = {"valid": valid, "level": level}
         passed = all(checks.get(key) == value for key, value in expected.items())
-    return UIUXResult(
-        case_id=str(case.get("case_id", page.get("type", "manual"))),
-        page_type=str(page.get("type", "unknown")),
+    return ExperienceResult(
+        case_id=str(case.get("case_id", surface.get("type", "manual"))),
+        surface_type=str(surface.get("type", "unknown")),
         valid=valid,
         level=level,
         score=score,
-        first_viewport_score=first_score,
-        button_score=button_score,
+        first_view_score=first_score,
+        action_score=action_score,
         teaching_score=teaching_score,
         visual_score=visual_score,
         trust_score=trust_score,
@@ -259,32 +259,32 @@ def build_report(cases: list[dict[str, Any]], rules: dict[str, Any] | None = Non
             "invalid": sum(1 for result in results if not result.valid),
             "levels": sorted({result.level for result in results}),
         },
-        "design_trio": ["朝堂气象", "圣旨战报", "钦天监伴读"],
+        "experience_trio": ["朝堂气象", "圣门战报", "钦天监伴读"],
         "results": [asdict(result) for result in results],
     }
 
 
 def render_markdown(report: dict[str, Any]) -> str:
     lines = [
-        "# 朝堂 UI/UX 系统报告",
+        "# 朝堂体验契约系统报告",
         "",
         f"- generated_at: `{report['generated_at']}`",
         f"- harness: `{report['harness']}`",
         f"- passed: `{report['passed']}`",
         "",
-        "## Design Trio",
+        "## Experience Trio",
         "",
     ]
-    for item in report["design_trio"]:
+    for item in report["experience_trio"]:
         lines.append(f"- {item}")
     lines.extend(["", "## Summary", ""])
     for key, value in report["summary"].items():
         lines.append(f"- `{key}`: {value}")
-    lines.extend(["", "## Page Results", "", "| Case | Page | Score | Level | Valid | Findings |", "|---|---|---:|---|---|---|"])
+    lines.extend(["", "## Surface Results", "", "| Case | Surface | Score | Level | Valid | Findings |", "|---|---|---:|---|---|---|"])
     for result in report["results"]:
         findings = ", ".join(result["findings"]) if result["findings"] else "-"
         lines.append(
-            f"| `{result['case_id']}` | `{result['page_type']}` | {result['score']} | "
+            f"| `{result['case_id']}` | `{result['surface_type']}` | {result['score']} | "
             f"`{result['level']}` | `{result['valid']}` | {findings} |"
         )
     lines.append("")
@@ -306,7 +306,7 @@ def append_ledger(report: dict[str, Any], ledger: Path = DEFAULT_LEDGER) -> None
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run Chaotang UI/UX system validation.")
+    parser = argparse.ArgumentParser(description="运行朝堂体验契约系统验证。")
     parser.add_argument("--rules", type=Path, default=DEFAULT_RULES)
     parser.add_argument("--cases", type=Path, default=DEFAULT_CASES)
     parser.add_argument("--json-out", type=Path, default=DEFAULT_JSON_OUT)

@@ -22,15 +22,11 @@ high_stakes_terms:
   - 花钱
   - 自动执行
   - 不可逆
-web_drift_terms:
-  - Next.js
-  - React component
-  - Tailwind
-  - 页面样式
-  - 浏览器截图
-  - web/app
-  - web/components
-  - 钦天监
+experience_drift_terms:
+  - 体验实现
+  - 呈现层改动
+  - 体验模块
+  - 体验线
 number_claim_terms:
   - 元
   - 万
@@ -57,7 +53,7 @@ risk_rules:
     red_without_human_signoff: true
   automation:
     black_without_qintianjian_at_or_above: L4
-  web_drift:
+  experience_drift:
     red_if_present: true
   ungrounded_numbers:
     yellow_without_evidence: true

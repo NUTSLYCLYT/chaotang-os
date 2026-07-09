@@ -235,7 +235,7 @@ def load_candidates(path: Path = DEFAULT_INPUT) -> list[dict[str, Any]]:
 def fetch_json(url: str, token: str | None = None, timeout: float = 10.0) -> dict[str, Any]:
     headers = {
         "Accept": "application/vnd.github+json",
-        "User-Agent": "jiqun-ai-open-source-watch",
+        "User-Agent": "chaotang-os-open-source-watch",
         "X-GitHub-Api-Version": "2022-11-28",
     }
     if token:

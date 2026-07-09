@@ -59,13 +59,13 @@
     "expect": {"risk_level": "black", "decision": "block_and_escalate"}
   },
   {
-    "case_id": "web_ui_mainline_drift",
+    "case_id": "experience_mainline_drift",
     "payload": {
-      "run_id": "case-web-red",
+      "run_id": "case-experience-red",
       "department": "gongbu",
       "output_type": "mainline_change",
-      "summary": "新增 Next.js React component 页面样式到主线。",
-      "changed_paths": ["web/app/court/page.tsx"],
+      "summary": "新增体验实现到后端主线。",
+      "changed_paths": ["backend/src/experience_surface.py"],
       "evidence": [],
       "benefit_score": 2.2,
       "automation_level_requested": "L1"

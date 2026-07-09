@@ -1,26 +1,27 @@
-# Change: no frontend BFF docs
+﻿# 变更：前端不再拥有 BFF 文档
 
-## Intent
+## 意图
 
-Record the durable project boundary that `chaotang-web-lyt` no longer needs or owns a BFF layer.
+记录当前前端线不再拥有 BFF 层的长期边界。
 
-## Decision
+## 决策
 
-- Do not add or restore `src/app/api/**` runtime route handlers.
-- Do not treat `/chaotang/api/**` as the frontend-to-backend integration path.
-- Connect frontend runtime data to explicit backend services such as `jiqun_ai` through documented adapters and environment-controlled base URLs.
+- 不新增或恢复 `src/app/api/**` 运行时 route handler。
+- 不把 `/chaotang/api/**` 当作前端 API集成路径。
+- 前端运行数据通过文档化 adapter 和环境变量控制的 base URL 连接明确外部 API。
 
-## Operational Note
+## 操作说明
 
-For local frontend servers on 3002 or 3003 that need backend 8081, configure the dev-server environment, for example:
+本地前端服务如果需要连接外部 API 外部运行端口，应配置 dev-server 环境，例如：
 
-- `JIQUN_API_URL=http://127.0.0.1:8081`
-- `NEXT_PUBLIC_JIQUN_API_URL=http://127.0.0.1:8081`
-- `NEXT_PUBLIC_CHAOTANG_API_URL=http://127.0.0.1:8081`
+- `EXTERNAL_RUNTIME_API_URL=http://127.0.0.1:外部运行端口`
+- `NEXT_PUBLIC_EXTERNAL_RUNTIME_API_URL=http://127.0.0.1:外部运行端口`
+- `NEXT_PUBLIC_CHAOTANG_API_URL=http://127.0.0.1:外部运行端口`
 - `NEXT_PUBLIC_API_MODE=real`
 
-Connectivity problems should be fixed in env configuration, backend reachability, CORS/auth expectations, or typed client adapters. They should not be fixed by reintroducing a frontend BFF.
+连接问题应在环境配置、外部运行可达性、CORS/auth 预期或类型化 client adapter 中修复，不应通过重新引入前端 BFF 修复。
 
-## Verification
+## 验证
 
-- Documentation-only change.
+- 仅文档变更。
+

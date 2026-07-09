@@ -105,23 +105,23 @@ def build_report() -> dict[str, Any]:
 
 def write_markdown(report: dict[str, Any], path: Path) -> None:
     lines = [
-        "# Chaotang Department Persona Harness",
+        "# 朝堂部门人格 Harness",
         "",
         f"- passed: {report['passed']}",
         f"- personas: {report['summary']['personas_passed']}/{report['summary']['personas']}",
         f"- visualization stages: {report['summary']['visualization_stages']}",
         f"- genius modules: {report['summary']['genius_modules']}",
         "",
-        "## Results",
+        "## 结果",
     ]
     for item in report["persona_results"]:
         mark = "PASS" if item["passed"] else "FAIL"
         lines.append(f"- {mark} {item['code']} {item['name']}: {', '.join(item['issues']) or 'ok'}")
     if report["stage_issues"]:
-        lines.extend(["", "## Stage Issues"])
+        lines.extend(["", "## 阶段问题"])
         lines.extend(f"- {issue}" for issue in report["stage_issues"])
     if report["module_issues"]:
-        lines.extend(["", "## Module Issues"])
+        lines.extend(["", "## 模块问题"])
         lines.extend(f"- {issue}" for issue in report["module_issues"])
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")

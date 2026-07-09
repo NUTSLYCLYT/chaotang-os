@@ -1,38 +1,29 @@
-# Chaotang Merit System Harness
+# 朝堂功劳系统 Harness
 
-This harness defines the first backend version of the Chaotang progression and
-economy loop:
+本 harness 定义朝堂后端第一版功劳、成长和权益检查规则。它不替代商业闭环或部门协议，而是在后续消费这些输出时保证“功劳有证据、权益不越权”。
 
-`task -> yushi verdict -> score -> merit -> title -> department growth -> battle report -> optional purchase`
+## 核心规则
 
-It is intentionally a harness layer. It does not replace `chaotang_department_protocol`
-or `chaotang-commercial-loop`; it consumes their outputs later and keeps the
-economy safe before UI or payment integration exists.
+- `gongye` 是荣誉账本，不能购买、转让或兑现。
+- 任何权益必须能追溯到真实贡献或已通过的任务。
+- 计分结果必须保留 case id、owner、证据和下一步。
+- 商业计费走平台计费流程，不由功劳系统直接决定。
 
-## Design Rules
+## 输入
 
-- Titles are earned by verified merit, never purchased.
-- `gongye` is the honor ledger. It cannot be bought, transferred, or cashed out.
-- `chaobi` is a platform wallet credit for in-product digital services only.
-- `shangyin` is promotional credit. It must be labeled as reward/promotional.
-- Purchases cannot change task score, yushi approval, verified ROI, archives, or ranks.
-- Paid random rewards are disabled in v1.
-- Mobile app sales of digital services, virtual currency, skins, or app features must
-  use the applicable platform billing flow.
+- `rules.yaml`
+- `golden_cases/merit_cases.json`
 
-## Commands
+## 入口
 
 ```bash
-python harness/chaotang_merit_system/scripts/run_merit.py --no-ledger
-pytest -q tests/test_chaotang_merit_system.py
+cd backend
+python harness/chaotang_merit_system/scripts/run_merit.py
 ```
 
-## Output
+## 测试
 
-The runner writes:
-
-- `artifacts/latest.json`
-- `artifacts/latest.md`
-- `artifacts/ledger.jsonl`
-
-Runtime artifacts are intentionally ignored by git.
+```bash
+cd backend
+python -m pytest -q tests/test_chaotang_merit_system.py
+```

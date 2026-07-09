@@ -1,0 +1,128 @@
+{
+  "version": 1,
+  "harnessRoot": "harness",
+  "doctor": "scripts/harness_doctor.py",
+  "shared": {
+    "required": [
+      "_shared/README.md",
+      "_shared/contracts/base.schema.json",
+      "_shared/gates/README.md",
+      "_shared/observability/README.md"
+    ]
+  },
+  "primaryHarnesses": [
+    {
+      "id": "chaotang-commercial-loop",
+      "summary": "商机闭环确定性 harness",
+      "required": ["README.md", "contracts/commercial_loop.schema.json", "golden_cases/commercial_loop_cases.json", "scripts/run_harness.py"],
+      "tests": ["tests/test_commercial_loop_harness.py"]
+    },
+    {
+      "id": "chaotang-true-loop",
+      "summary": "真实闭环契约 harness",
+      "required": ["README.md", "golden_cases/true_loop_cases.json", "scripts/run_true_loop_contract.py"],
+      "tests": []
+    },
+    {
+      "id": "chaotang_business_model",
+      "summary": "商业模式评测 harness",
+      "required": ["README.md", "business_model.yaml", "golden_cases/business_model_cases.json", "scripts/run_business_model.py"],
+      "tests": ["tests/test_chaotang_business_model.py"]
+    },
+    {
+      "id": "chaotang_department_protocol",
+      "summary": "部门协议与路由 harness",
+      "required": ["README.md", "departments.yaml", "golden_cases/department_outputs.json", "golden_cases/department_routes.json", "scripts/run_protocol.py"],
+      "tests": ["tests/test_chaotang_department_protocol.py"]
+    },
+    {
+      "id": "chaotang_merit_system",
+      "summary": "功劳系统 harness",
+      "required": ["README.md", "rules.yaml", "golden_cases/merit_cases.json", "scripts/run_merit.py"],
+      "tests": ["tests/test_chaotang_merit_system.py"]
+    },
+    {
+      "id": "chaotang_uiux_system",
+      "summary": "体验契约规则 harness",
+      "required": ["README.md", "uiux_rules.yaml", "golden_cases/uiux_cases.json", "scripts/run_uiux.py"],
+      "tests": ["tests/test_chaotang_uiux_system.py"]
+    },
+    {
+      "id": "jinyiwei-scrapling-poc",
+      "summary": "锦衣卫采集 POC 文档入口",
+      "required": ["README.md"],
+      "implementation": "jinyiwei_scrapling_poc",
+      "tests": []
+    },
+    {
+      "id": "legal-redteam",
+      "summary": "法务红队用例入口",
+      "required": ["README.md", "cases.json", "promptfooconfig.yaml"],
+      "implementation": "legal_redteam",
+      "tests": ["tests/test_legal_redteam_harness.py"]
+    },
+    {
+      "id": "open_source_watch",
+      "summary": "开源观察和安全工具 harness",
+      "required": ["README.md", "candidates.json", "security_tools.json", "sources.yaml", "scripts/score_repos.py", "scripts/run_security_poc.py", "scripts/install_security_tools.py"],
+      "tests": ["tests/test_open_source_watch.py", "tests/test_open_source_security_poc.py", "tests/test_open_source_security_install.py"]
+    },
+    {
+      "id": "resource_consolidation",
+      "summary": "资源归并分类 harness",
+      "required": ["README.md", "scripts/resource_consolidation.py"],
+      "tests": ["tests/test_resource_consolidation.py"]
+    },
+    {
+      "id": "swarm-tool-matrix",
+      "summary": "蜂群工具矩阵 harness",
+      "required": ["README.md", "candidates.json", "scripts/run_matrix.py"],
+      "tests": []
+    },
+    {
+      "id": "yushi_global_gate",
+      "summary": "御史全局闸门 harness",
+      "required": ["README.md", "rules.yaml", "golden_cases/global_gate_cases.json", "scripts/run_gate.py"],
+      "tests": ["tests/test_yushi_global_gate.py", "tests/test_yushi_verdict.py"]
+    }
+  ],
+  "implementationPackages": [
+    {
+      "id": "chaotang_department_personas",
+      "summary": "部门人格运行器",
+      "required": ["README.md", "scripts/run_persona_harness.py"],
+      "tests": []
+    },
+    {
+      "id": "chaotang_ui_user_skills",
+      "summary": "体验技能覆盖运行器",
+      "required": ["README.md", "scripts/run_user_skill_harness.py"],
+      "tests": ["tests/test_chaotang_ui_page.py"]
+    },
+    {
+      "id": "gongbu_review",
+      "summary": "工部评审 golden case 数据包",
+      "required": ["README.md", "golden_cases.json"],
+      "tests": []
+    },
+    {
+      "id": "jinyiwei_scrapling_poc",
+      "summary": "锦衣卫采集 POC Python 实现包",
+      "required": ["README.md", "scripts/run_scrapling_poc.py"],
+      "tests": []
+    },
+    {
+      "id": "legal_redteam",
+      "summary": "法务红队 Python 实现包",
+      "required": ["README.md", "scripts/run_redteam.py"],
+      "tests": ["tests/test_legal_redteam_harness.py"]
+    }
+  ],
+  "allowedInfrastructureDirs": ["_shared", "changes"],
+  "verification": {
+    "architecture": ["python scripts/harness_doctor.py"],
+    "representativeBehavior": [
+      "python -m pytest -q tests/test_commercial_loop_harness.py tests/test_legal_redteam_harness.py"
+    ]
+  }
+}

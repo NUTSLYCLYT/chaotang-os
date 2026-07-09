@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """御史偏移监控器。
 
-目标：防止把 Web/UI 支线、运行产物、环境漂移或未经钦天监的重大决策混进
-jiqun_ai 主线仓。
+目标：防止把体验实现、运行产物、环境漂移或未经钦天监的重大决策混进后端主线。
 
 默认检查当前 git 工作区改动：
   python scripts/yushi_drift_monitor.py
@@ -39,22 +38,19 @@ MAINLINE_ALLOWED_PREFIXES = (
     "web/main.py",
 )
 
-WEB_DRIFT_PREFIXES = (
+EXPERIENCE_DRIFT_PREFIXES = (
     "app/",
     "components/",
     "pages/",
     "public/",
     "styles/",
-    "web/app/",
-    "web/components/",
-    "web/pages/",
-    "web/static/",
+    "experience/",
+    "ui/",
 )
 
-WEB_DRIFT_FILENAMES = (
+EXPERIENCE_DRIFT_FILENAMES = (
     "next.config",
     "package.json",
-    "tailwind.config",
     "postcss.config",
     "tsconfig.json",
     "vite.config",
@@ -86,21 +82,20 @@ QINTIAN_REQUIRED_TERMS = (
     "自动执行",
     "花钱",
     "架构分叉",
-    "多蜂群",
+    "多服务",
     "删除",
     "报价",
     "合同",
 )
 
-WEB_CONTENT_TERMS = (
-    "Next.js",
-    "React component",
-    "Tailwind",
-    "页面样式",
-    "浏览器截图",
-    "钦天监",
-    "chaotang-os/web",
-    "chaotang-web-lyt",
+EXPERIENCE_CONTENT_TERMS = (
+    "体验实现",
+    "呈现层改动",
+    "交互样式",
+    "视觉样式",
+    "展示截图",
+    "体验模块",
+    "体验线",
 )
 
 
@@ -121,31 +116,31 @@ def path_requires_attention(path: str) -> DriftFinding | None:
         return DriftFinding(
             path,
             "block",
-            "环境漂移文件不属于主线功能提交。",
+            "环境漂移文件不属于后端主线功能提交。",
             "移出暂存区；必要时只保留本地。",
         )
     if starts_with_any(path, RUNTIME_PREFIXES):
         return DriftFinding(
             path,
             "block",
-            "运行产物/日志/会话/缓存不属于主线功能提交。",
+            "运行产物、日志、会话或缓存不属于后端主线功能提交。",
             "不要提交；如需基线更新，单独走质量基线流程。",
         )
-    if starts_with_any(path, WEB_DRIFT_PREFIXES) or any(
-        Path(path).name.startswith(name) for name in WEB_DRIFT_FILENAMES
+    if starts_with_any(path, EXPERIENCE_DRIFT_PREFIXES) or any(
+        Path(path).name.startswith(name) for name in EXPERIENCE_DRIFT_FILENAMES
     ):
         return DriftFinding(
             path,
             "block",
-            "疑似 Web/UI 支线改动，jiqun_ai 主线不承接页面/组件/样式。",
-            "回到 /home/ubuntu/workspace/chaotang-web-lyt 或对应 Web 仓处理。",
+            "疑似体验实现偏移，后端主线不承接体验实现文件。",
+            "按根级清单确认归属；若确属后端契约，只保留结构化契约和证据。",
         )
     if not starts_with_any(path, MAINLINE_ALLOWED_PREFIXES):
         return DriftFinding(
             path,
             "warn",
-            "路径不在主线常规承接范围。",
-            "确认是否属于后端/蜂群/flow/harness/质量基线/钦天监证据链。",
+            "路径不在后端主线常规承接范围。",
+            "确认是否属于后端、flow、harness、质量基线或钦天监证据链。",
         )
     return None
 
@@ -175,14 +170,14 @@ def scan_content_for_drift(patch_text: str) -> list[DriftFinding]:
     ]
     joined = "\n".join(added_lines)
 
-    for term in WEB_CONTENT_TERMS:
+    for term in EXPERIENCE_CONTENT_TERMS:
         if term in joined:
             findings.append(
                 DriftFinding(
                     "<diff>",
                     "warn",
-                    f"新增内容出现 Web/UI 支线信号：{term}",
-                    "确认是否只是纠偏记录；若是产品实现，请迁往 Web 仓。",
+                    f"新增内容出现体验实现偏移信号：{term}",
+                    "确认是否只是纠偏记录；若是实现内容，按根级清单迁往对应工程线。",
                 )
             )
 
@@ -191,7 +186,7 @@ def scan_content_for_drift(patch_text: str) -> list[DriftFinding]:
             DriftFinding(
                 "<diff>",
                 "warn",
-                "新增内容疑似重大/不可逆/生产/多蜂群事项，但未提到钦天监。",
+                "新增内容疑似重大、不可逆、生产或多服务事项，但未提到钦天监。",
                 "先形成钦天监简报，再进入执行或提交。",
             )
         )
@@ -214,7 +209,7 @@ def render(findings: list[DriftFinding]) -> str:
 
     lines = ["御史偏移监控：发现风险。"]
     for finding in findings:
-        icon = "⛔" if finding.severity == "block" else "⚠️"
+        icon = "BLOCK" if finding.severity == "block" else "WARN"
         lines.extend(
             [
                 f"- {icon} {finding.path}",

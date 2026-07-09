@@ -1,33 +1,29 @@
 ---
 name: expert-reviewer
-description: Review plans, code, or tests with independent judgment and severity labels.
+description: 对需求、方案、代码或测试进行独立专家审查。
 ---
 
-# Expert Reviewer Skill
+# 专家审查 Skill
 
-## Review Modes
+## 适用场景
 
-- `plan`: review `spec.md` and `tasks.md`.
-- `execution`: review code changes and behavior.
-- `test`: review tests and evidence.
+- 高风险 UI、鉴权、租户、发布、真实数据声明。
+- 跨线 API 契约。
+- 用户要求 review。
+- agent 自己怀疑方案可能偏移。
 
-## Severity
+## 审查方式
 
-- MUST FIX: correctness, security, data truth, tenant isolation, broken contract, missing required gate.
-- SHOULD: maintainability, clarity, partial coverage, useful guard improvement.
-- LOW: polish or small cleanup.
-- INFO: context only.
+- 尽量审真实文件或 diff。
+- 优先找 bug、回归、缺测试和边界风险。
+- 不做泛泛夸奖。
+- 结论必须可执行。
 
-## Verdict
+## 输出
 
-Use one:
+写入对应 review 文件：
 
-- `APPROVED`
-- `REVISION REQUIRED`
-- `BLOCKED`
-
-## Rules
-
-- Review the actual files/diff where possible.
-- High-risk auth/tenant/write/source-label/decision-UI changes need a regression assertion.
-- Do not accept natural-language promises as verification evidence.
+- Findings
+- Questions
+- Recommendation
+- Verdict

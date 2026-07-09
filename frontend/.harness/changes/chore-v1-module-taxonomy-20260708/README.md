@@ -1,37 +1,38 @@
-# chore-v1-module-taxonomy-20260708
+﻿# chore-v1-module-taxonomy-20260708
 
-## Intent
+## 意图
 
-Align the visible frontend information architecture with Chaotang OS 1.0.
+将可见的前端信息架构对齐到朝堂 OS 1.0。
 
-Primary modules:
+一级模块：
 
-- dadian
-- shangshufang
-- junjichu
-- liubu
-- zhusi
-- shiguan
+- 大殿
+- 上书房
+- 军机处
+- 六部
+- 诸司
+- 史馆
 
-V1 child modules:
+V1 子模块：
 
-- zhusi: jinyiwei
-- liubu/hubu: yusuan, chuna
-- liubu/libu: renmian, zhaopin
-- liubu/libu_rites: pending
-- liubu/bingbu: baojia, xiansuo
-- liubu/xingbu: hetong
-- liubu/gongbu: chan-yan
+- 诸司：锦衣卫
+- 六部 / 户部：预算、出纳
+- 六部 / 礼部：任免、招聘
+- 六部 / 礼部礼制：暂缓
+- 六部 / 兵部：报价、线索
+- 六部 / 刑部：合同
+- 六部 / 工部：产研
 
-## Scope
+## 范围
 
-- Added a frontend SSOT for v1 modules and office exposure.
-- Updated top navigation and route metadata to expose only the v1 primary modules.
-- Removed old active pages from `src/app` by keeping only v1 route surfaces plus auth/invite/jiqun entry points.
-- Deleted old `page.tsx` route archives under `dev/_attic`.
-- Removed `next.config.ts` legacy redirects for old paths such as `/throne`, `/overview`, `/manor-dept/*`, and `/departments/*`.
+- 新增前端 V1 模块与 office 暴露的单一事实源。
+- 更新顶部导航与路由元数据，只暴露 V1 一级模块。
+- 从 `src/app` 移除旧 active pages，只保留 V1 路由面以及 auth / invite / 外部 API 入口。
+- 删除 `dev/_attic` 下旧 `page.tsx` 路由归档。
+- 移除 `next.config.ts` 中旧路径 redirects，例如 `/throne`、`/overview`、`/manor-dept/*`、`/departments/*`。
 
-## Verification
+## 验证
 
 - `pnpm exec tsc --noEmit`
 - `npx --yes tsx --test src/features/court-console/lib/launch-whitelist.nodetest.ts src/features/departments/lib/department-page-view-builder.nodetest.ts src/features/departments/lib/department-vitrine.nodetest.ts`
+

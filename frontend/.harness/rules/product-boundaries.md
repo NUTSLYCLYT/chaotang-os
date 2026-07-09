@@ -1,61 +1,37 @@
-# Rule: Product Boundaries
+# 产品与工程边界
 
-## Project Identity
+朝堂 OS 是唯一项目主线。`frontend/` 是前端体验线，不是整个项目，也不是运行服务线。
 
-The product is **朝堂OS**. `chaotang-web-lyt` is the frontend experience line. `jiqun_ai` is the backend swarm execution line. CourtOS is an internal decision protocol/kernel inside the product, not a third product line.
+| 责任线 | 当前路径 | 职责 |
+| --- | --- | --- |
+| 前端体验线 | `frontend/` | 页面、组件、浏览器工作流、前端契约、发布门禁、视觉证据 |
+| 根级协调层 | `../.harness/` | 跨线边界、项目 manifest、根级 doctor、变更审计 |
+| 运行证据引用 | 根级 manifest / API 契约 | 只记录来源，不展开服务端实现 |
 
-## Ownership
+`CourtOS` 是朝堂 OS 内部决策协议/内核名，不是第三条产品线。
 
-| Line | Owns |
-| --- | --- |
-| `chaotang-web-lyt` | Next.js UI, browser flows, frontend contracts, release gates, visual evidence |
-| `jiqun_ai` | Real swarm execution, agent flow, prompts, providers, backend databases, production execution |
+## 前端拥有
 
-## Capability Labels
+- `src/app/**` 页面与路由。
+- `src/features/**` 前端功能 UI 与工作流。
+- `src/core/**` 中不触碰真实产线资产的前端领域逻辑。
+- `src/lib/**` 中的前端适配器、类型、工具和 view model。
+- `e2e/**`、浏览器验证、截图证据和发布门禁。
+- `frontend/.harness/**` 前端工程 harness。
 
-Every user-facing claim that depends on runtime truth must be classifiable as:
+## 前端不拥有
 
-- `LIVE`: real model / real orchestration / real record.
-- `MIXED`: real source exists but fallback or partial path remains.
-- `DEMO`: static sample, mock, fixture, or illustrative flow.
+- 非前端运行事实和质量基线。
+- 非前端评测资产、运行账本、质量门禁和生产执行逻辑。
+- 对外承诺、报价、BOM、供应商锁定、安全建议等真实产线不可逆动作。
 
-Never present DEMO as LIVE. Never use frontend mock scores as proof that backend agents work.
+## 运行事实引用
 
-## Main Loop Priority
+当前端展示运行事实时，必须指向明确来源：
 
-The north star is one real boss completing one real operating decision through Chaotang OS and saying it helped.
+- API 契约。
+- 根级 manifest 登记的验证来源。
+- API 契约、doctor 或运行报告输出。
+- 明确标注为 MIXED、DEMO 或 FALLBACK 的样例数据。
 
-Default product loop:
-
-```text
-Shangshufang sees real operating signal
-  -> decree to Junjichu
-  -> ministries review with real model or explicit fallback
-  -> readable memorial
-  -> boss accepts / rejects / asks follow-up
-  -> Shiguan archives evidence
-```
-
-New surfaces must answer:
-
-1. Which existing loop station does this strengthen?
-2. Where does the first real datum come from?
-3. How is the LIVE / MIXED / DEMO boundary visible?
-
-If those cannot be answered, freeze the surface instead of adding another page.
-
-## Route Semantics
-
-- `/manors` is the manor and swarm execution center.
-- `/departments/*` and ministry pages are domain logic pages, not the swarm home.
-- `src/core/courtos/**` is the internal CourtOS protocol surface inside Chaotang OS. Frontend-owned `/api/**` BFF routes are retired.
-
-## Ports
-
-| Use | Port | Command |
-| --- | ---: | --- |
-| Dev HMR | 3002 | `pnpm dev` |
-| Production | 3050 | `pnpm start` |
-| Forbidden | 3001 | Do not bind |
-
-Do not change these scripts unless the deployment runbook is updated in the same change.
+无法证明来源时，不得标记为 LIVE。

@@ -1,4 +1,4 @@
-# Test Plan: chore-v1-route-prune-20260708
+﻿# Test Plan: chore-v1-route-prune-20260708
 
 ## Unit / Node Tests
 
@@ -9,3 +9,4 @@
 
 - `pnpm exec tsc --noEmit`
 - `NEXT_PUBLIC_API_MODE=real pnpm build`
+

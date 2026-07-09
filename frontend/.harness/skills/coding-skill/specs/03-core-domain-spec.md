@@ -1,23 +1,17 @@
-# Coding Spec 03 — Core Domain
+# Core Domain 规格
 
-Use for files under `src/core/**`.
+## 适用范围
 
-## Responsibilities
+`src/core/**` 下的前端领域逻辑、CourtOS 协议适配、评测器和纯业务逻辑。
 
-- CourtOS internal protocol and domain engines.
-- Ministry logic, decision loops, evidence gates, archive learning, and pure business rules.
-- Shared domain contracts that UI reads but should not reimplement.
+## 规则
 
-## Rules
+- 领域逻辑应可测试、可复用、低 UI 耦合。
+- live-path 承重逻辑不要为同一意图创建平行实现。
+- 真实产线资产、外部运行执行、外部运行记录和质量基线不在前端 core 中重建。
+- 高风险判断必须保留人工签字、API 契约或运行证据边界。
 
-- Prefer pure functions and explicit inputs/outputs.
-- Unknown domain codes must warn or fail fast, not silently fall back.
-- If logic is live-path bearing, avoid parallel implementations for the same intent.
-- If duplicate-looking logic is fallback-only, document that boundary before refactoring it away.
-- High-risk domain changes require a regression node test.
+## 验证
 
-## Verification
-
-- `pnpm test:core`
-- targeted `node --experimental-strip-types --test path/to/file.nodetest.ts`
-- `pnpm exec tsc --noEmit`
+- 小范围单测优先。
+- 涉及前端显示时补浏览器验证。

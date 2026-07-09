@@ -1,23 +1,18 @@
-# Coding Spec 05 — Styling and Visual Trust
+# Styling / Visual 规格
 
-Use for CSS, visual components, and UX changes.
+## 适用范围
 
-## Responsibilities
+样式、布局、组件视觉、状态标签和用户可见文案。
 
-- Preserve Chaotang visual language and Chinese-first presentation.
-- Keep decision-weighting UI honest and evidence-backed.
-- Maintain mobile/desktop usability.
+## 规则
 
-## Rules
+- 保持朝堂 OS 现有视觉体系。
+- 不新增与当前设计系统冲突的孤立风格。
+- 不用视觉权重把不确定判断伪装成定论。
+- 设计 token 和动画时序只有在任务明确要求时才改。
+- 移动端和桌面都不能出现文本溢出或组件重叠。
 
-- Do not rewrite `src/app/globals.css` wholesale.
-- Do not change frozen design tokens or animation timing unless the spec explicitly asks for design-system work.
-- Visual emphasis on decisions, risk, verdicts, or recommendations is high-risk.
-- UI text must not obscure LIVE / MIXED / DEMO boundaries.
-- Use screenshots or Playwright evidence for meaningful visual changes.
+## 验证
 
-## Verification
-
-- targeted Playwright route screenshots
-- `pnpm build`
-- manual or scripted console-error check for release-facing views
+- 浏览器截图或 Playwright。
+- 必要时跑 `pnpm build`。

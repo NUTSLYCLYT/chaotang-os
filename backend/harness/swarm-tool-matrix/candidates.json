@@ -109,39 +109,11 @@
       "recommended_use": "Evaluate as isolated service/API only; AGPL is a product-integration risk."
     },
     {
-      "id": "browser_use",
-      "name": "browser-use",
-      "category": "browser_agent",
-      "repo": "browser-use/browser-use",
-      "role": "AI browser agent for dynamic pages and real user journey testing.",
-      "strategic_fit": 5,
-      "integration_fit": 4,
-      "eval_value": 5,
-      "security_fit": 3,
-      "maintainability": 3,
-      "risk_penalty": 3,
-      "recommended_use": "Use for user-journey testing and dynamic pages, behind strict sandbox and audit logs."
-    },
-    {
-      "id": "playwright",
-      "name": "Playwright",
-      "category": "browser_control",
-      "repo": "microsoft/playwright",
-      "role": "Deterministic browser automation and screenshot verification.",
-      "strategic_fit": 5,
-      "integration_fit": 5,
-      "eval_value": 4,
-      "security_fit": 5,
-      "maintainability": 5,
-      "risk_penalty": 1,
-      "recommended_use": "Use as default deterministic browser substrate for web and swarm UI tests."
-    },
-    {
       "id": "crawlee",
       "name": "Crawlee",
       "category": "crawler_queue",
       "repo": "apify/crawlee",
-      "role": "Production crawler queue with Playwright/Puppeteer/Cheerio support.",
+      "role": "Production crawler queue with Cheerio support.",
       "strategic_fit": 4,
       "integration_fit": 4,
       "eval_value": 4,
@@ -219,20 +191,6 @@
       "maintainability": 2,
       "risk_penalty": 3,
       "recommended_use": "Track; nightly/early-stage warning makes it second-wave, not first-wave."
-    },
-    {
-      "id": "clawbench",
-      "name": "ClawBench",
-      "category": "browser_agent_benchmark",
-      "repo": "TIGER-AI-Lab/ClawBench",
-      "role": "Benchmark for browser agents on everyday live website tasks.",
-      "strategic_fit": 4,
-      "integration_fit": 3,
-      "eval_value": 5,
-      "security_fit": 4,
-      "maintainability": 3,
-      "risk_penalty": 2,
-      "recommended_use": "Use as benchmark inspiration for our browser-agent golden cases."
     }
   ]
 }

@@ -1,225 +1,90 @@
-# jiqun-flow
+# 朝堂 OS 后端
 
-**World's first LLM-native multi-agent engine for battery PACK design automation**
+本目录是 `chaotang-os/backend`，承载朝堂 OS 的运行服务线：flow engine、agent 编排、prompt、provider 路由、模型调用、API 与后端运行/评测 harness。
 
-> "LLM integration for battery digital twins is currently aspirational rather than deployed in production."
-> — arxiv:2509.02366, September 2025 (peer-reviewed, verified)
+当前后端入口以本文件、`AGENTS.md`、`harness/README.md` 和 `harness/manifest.json` 为准。历史 jiqun-flow / PACK 研发蜂群叙事已经降级到 `docs/history-jiqun-pack.md`。
 
-jiqun-flow is what that paper describes as a future direction. **It exists. It works. It ships HTML reports.**
+## 项目位置
 
----
+朝堂 OS 的主流程是：
 
-## What it does
-
-Send a customer requirement in natural language → receive a complete engineering evaluation in minutes:
-
-```bash
-python scripts/run_flow.py config/flow_pack_rd.yaml \
-  "12V 1100Wh outdoor storage, 0.2C charge/discharge, aluminum enclosure"
-
-# Output:
-# ✅ Presale cost estimate (BOM-grounded, reads internal price DB)
-# 🔗 Supply chain gate (blocks if no backup supplier found)
-# 🔋 Cell selection + BMS matching (no PCB design — assembly-model-aware)
-# 📡 Communication protocol adapter (RS485/CAN/BLE, not firmware dev)
-# ⚖️  5-dimension technical review (requirement fit / producibility / procurement / cost / testability)
-# 📄 reports/{run_id}.html  — self-contained, browser-preview + print-to-PDF
-# 🔄 knowledge/flywheel/{run_id}.json  — structured decision log for data flywheel
+```text
+老板一句真实经营问题
+  -> 上书房整理成事项
+  -> 丞相给初判和路径
+  -> 军机处召集专业视角
+  -> 六部 / 诸司给判断和风险
+  -> 形成一份奏折
+  -> 老板裁决
+  -> 史馆留痕
 ```
 
----
+后端负责其中的运行事实、专业判断、蜂群执行、provider 调用、质量闸门、证据记录和可复验输出。前端负责浏览器体验、展示、交互和用户可见验证。
 
-## Quick start
+## 后端拥有
+
+- flow engine、agent 编排、prompt 和 provider 路由。
+- 运行 API、数据源逻辑、真实客户样本、运行记录和质量基线。
+- 部门协议、商机闭环、真实闭环、御史全局闸门、法务红队等后端 harness。
+- 运行失败、模型错误、证据缺口、人工签字闸和 source label 的后端事实来源。
+
+## 后端不拥有
+
+- Next.js 页面、浏览器交互、前端发布页和前端构建产物。
+- 用前端 mock 或静态样例证明后端运行质量。
+- 把 DEMO、FALLBACK 或空输出包装成 LIVE 运行结论。
+- 本机 provider/API key、临时实验输出、模型评分日志等提交内容。
+
+## 目录导航
+
+| 路径 | 作用 |
+| --- | --- |
+| `src/` | 后端领域逻辑、flow、蜂群、provider、质量与安全模块。 |
+| `web/` | API、schemas、session、安全中间件和 Web 服务层。 |
+| `config/` | flow、角色、feature flag 和运行配置样例。 |
+| `runtime_prompts/` | 运行时 prompt 资产。 |
+| `harness/` | 后端运行/评测 harness 包和清单。 |
+| `tests/` | 后端单测、harness 测试和回归检查。 |
+| `docs/` | 后端运行服务线文档。 |
+
+## Harness 入口
+
+`harness/manifest.json` 是后端 harness 的唯一清单。新增主 harness、实现包、共享基础设施目录或代表性测试时，必须同步更新这份清单。
+
+常用命令：
 
 ```bash
-git clone https://github.com/your-org/jiqun-flow
-cd jiqun-flow
-pip install -e ".[all]"
-
-# Configure your LLM provider
-cp config/providers.yaml.example config/providers.yaml
-# edit: set your DeepSeek / OpenAI / Ollama API key
-
-# Run a canonical example
-python scripts/run_flow.py config/flow_pack_rd.yaml \
-  "$(cat examples/01_outdoor_storage/input.txt)"
-```
-
-## Chaotang operating manual
-
-If you are using the Chaotang/Codex workflow, start here:
-
-- `docs/CHAOTANG_2026_06_05_06_CLOSEOUT.md` — 2026-06-05/06 商机闭环、质量门、Golden 审批和部署收口
-- `docs/shiguan/README.md` — 史馆入口：能力建设档案
-- `docs/shiguan/user_quickstart.md` — 下载用户快速上手
-- `docs/codex_capability_map.md` — Codex 能力边界
-- `docs/chaotang_execution_protocol.md` — 朝堂开发执行协议
-
-Useful commands:
-
-```bash
-bash scripts/bootstrap_chaotang.sh
-python scripts/chaotang_task_protocol.py "修复 OPC 评分脚本并提交"
+python scripts/harness_doctor.py
+python -m pytest -q tests/test_commercial_loop_harness.py tests/test_legal_redteam_harness.py
 python scripts/commit_closeout_check.py
-python scripts/commit_closeout_check.py --staged-only
 ```
 
-Logged-in resource profile:
+根级工程检查会委托后端 doctor：
 
 ```bash
-GET /api/resources/profile
-POST /api/resources/profile {"mode": "hybrid"}
+cd ..
+node scripts/harness-doctor.mjs
 ```
 
-**Docker (zero-config reproducibility):**
+## 运行与配置
 
-```bash
-docker compose up
-# then POST to http://localhost:8080/run with {"task": "your PACK requirement"}
+真实模型、高成本或会写入运行账本的命令，需要先确认 provider、预算、超时和输出路径。
+
+不要把以下内容混进提交，除非用户明确要求：
+
+- `config/providers.yaml`、`.env`、本机 provider/API key 配置。
+- `data/`、`memory/`、`events/`、`swarm_sessions/`、`reports/`。
+- 临时实验、一次性脚本、下载结果、模型评分日志。
+
+Windows 终端如遇中文 diff 解码问题：
+
+```powershell
+$env:PYTHONUTF8='1'; python scripts\commit_closeout_check.py
 ```
 
----
+## 历史材料
 
-## Architecture: 3-layer SDK strategy
+- `docs/history-jiqun-pack.md`：旧 jiqun-flow / PACK 研发蜂群 README 内容，作为后端能力演进和行业样板历史保留。
+- `docs/jiqun_architecture.md`：jiqun 架构历史说明。
 
-```
-┌──────────────────────────────────────────────────────┐
-│  Layer 3  Private · Moat                              │
-│  runtime_prompts/ · failure case DB · knowledge graph │
-├──────────────────────────────────────────────────────┤
-│  Layer 2  Open Examples · Ecosystem entry             │
-│  examples/01_outdoor_storage/                         │
-│  examples/02_basestation_lowtemp/                     │
-│  examples/03_ebike_motor/                             │
-├──────────────────────────────────────────────────────┤
-│  Layer 1  Open Core · Industry substrate              │
-│  FlowEngine · YAML flow spec · Plugin API             │
-└──────────────────────────────────────────────────────┘
-     ↑ open (CUDA)                ↑ closed (GPU chip)
-```
-
-The scheduling runtime is open. The domain prompts and failure data are proprietary.
-
----
-
-## Extending with your own swarm
-
-```python
-from src.flow_engine import FlowEngine
-
-# Use the built-in PACK flow
-engine = FlowEngine("config/flow_pack_rd.yaml")
-log = engine.run("48V 20Ah e-bike, BLE, IP65, <5kg")
-
-# Or build your own flow in YAML
-engine = FlowEngine("my_custom_flow.yaml")
-
-# Hook into run events
-engine.register_hook("step_complete", my_callback)
-```
-
-**Custom agent in YAML:**
-```yaml
-steps:
-  - id: my_competitive_analyzer
-    name: 竞品分析专家
-    prompt_key: competitive_analyzer   # → runtime_prompts/competitive_analyzer/
-    depends_on: [cell_engineer]
-    max_tokens: 2000
-```
-
-Add `runtime_prompts/competitive_analyzer/IDENTITY.md` with your agent's role definition. That's it.
-
----
-
-## Data flywheel
-
-Every run logs structured decision traces to `knowledge/flywheel/`:
-
-```python
-from src.run_logger import flywheel_stats, load_flywheel
-
-# View accumulation stats
-stats = flywheel_stats(flow_name="PACK研发蜂群流程")
-# {'total_runs': 47, 'avg_qa_score': 3.2,
-#  'edge_case_distribution': {'supply_chain_block': 23, 'requirement_violation': 18},
-#  'gate_block_rates': {'supply_chain_feasibility': {'blocked_pct': 48.9, 'total': 47}}}
-
-# Load for training corpus
-records = load_flywheel(flow_name="PACK研发蜂群流程")
-# → list[RunRecord] with edge_cases, gate_outcomes, final_output_fields
-```
-
-The moat is not the 16-step pipeline — it's what gets logged every time the pipeline runs.
-
----
-
-## Golden test suite (regression for prompt changes)
-
-```bash
-# After modifying any runtime_prompts/*.md file:
-python tests/golden/run_golden.py
-
-# Output:
-# ▶ 案例: 01_outdoor_storage  PASS  QA=3.4
-# ▶ 案例: 02_basestation_lowtemp PASS  QA=2.8
-# ▶ 案例: 03_ebike_motor      PASS  QA=3.1
-# ✅ All passed — no regression
-```
-
----
-
-## Flow spec (YAML)
-
-The `flow_pack_rd.yaml` format is the open standard. Full spec:
-
-| Field | Description |
-|-------|-------------|
-| `steps[].id` | Unique step identifier |
-| `steps[].depends_on` | DAG dependencies (list of step IDs) |
-| `steps[].prompt_key` | Maps to `runtime_prompts/{key}/` |
-| `steps[].output_rules` | Validation: `not_empty`, `min_length`, `required_sections`, `forbidden_patterns` |
-| `steps[].max_tokens` | Per-step token limit |
-| `repair.enabled` | QA gate with auto-repair loop |
-| `repair.min_score` | Minimum QA score to pass (default 3.5) |
-
----
-
-## Three canonical examples
-
-| Example | Use case | Key test |
-|---------|----------|----------|
-| `01_outdoor_storage` | 12V 1100Wh outdoor, aluminum enclosure | Cost gate + supply chain |
-| `02_basestation_lowtemp` | 24V 200Wh -40°C IP67 | Low-temp + industrial cert + dimensional constraint |
-| `03_ebike_motor` | 48V 960Wh BLE IP65 cost-first | BLE protocol + cost optimization |
-
-Each example includes `input.txt` + `expected_gates.json` for regression testing.
-
----
-
-## Verified competitive landscape (deep research, 105 agents, 2025)
-
-| Company | What they have | What's missing |
-|---------|----------------|----------------|
-| Eacomp + CATL + PKU | Materials-layer BDA (first-principles + cell-level DT) | No PACK-level design, no customer proposals |
-| Ansys / Siemens / COMSOL | EV-level thermal simulation | Too expensive for SMEs, no LLM integration |
-| Monolith AI / Voltx.ai | Unverified marketing claims (0/3 adversarial review) | No confirmed production deployment |
-| **jiqun-flow** | **LLM-native PACK design + customer report generation** | **You're here** |
-
-25 claims tested. 2 confirmed. The field is wide open.
-
----
-
-## Roadmap
-
-- [ ] **Data flywheel v2**: fine-tune a small model on accumulated failure cases
-- [ ] **Physics consistency layer**: tag LLM-estimated vs. physics-model-computed parameters
-- [ ] **Client report v2**: risk quantification + decision audit trail (not just specs)
-- [ ] **SDK plugin registry**: community-contributed domain swarms
-- [ ] **Docker compose**: one-command reproducibility for all 3 canonical examples
-
----
-
-## License
-
-MIT for the engine core. Domain prompts (`runtime_prompts/`) are proprietary.
+当前项目口径以根级 `../AGENTS.md`、`../docs/PROJECT_PRODUCT.md`、后端 `AGENTS.md`、后端 harness manifest 和 doctor 输出为准。

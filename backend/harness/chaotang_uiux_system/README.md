@@ -1,23 +1,28 @@
-# Chaotang UI/UX System Harness
+# 朝堂体验契约 Harness
 
-This harness defines the first testable UI/UX contract for Chaotang OS pages.
-It does not implement a frontend. It validates future page designs against the
-product standard:
+本 harness 定义朝堂 OS 后端输出的第一版可测试体验契约。它不实现呈现层，只验证运行结果是否具备可解释、可导航、可复盘的结构。
 
-`clear first viewport -> visible state -> trusted evidence -> one next action -> restrained delight`
+## 覆盖对象
 
-## Core Design Trio
+- `朝堂气象`：全局状态条，回答系统当前是否稳定。
+- `圣门战报`：任务完成后的记忆点报告，包含分数、功劳、历史裁决、归档和下一步。
+- `钦天监伴读`：解释当前上下文、风险信号和下一步依据。
 
-- `朝堂气象`: global status strip that answers whether the system is stable.
-- `圣旨战报`: the memorable task-completion report with score, merit, yushi verdict, archive, and next action.
-- `钦天监伴读`: contextual help that teaches only the current page and next action.
+## 输入
 
-## Commands
+- `uiux_rules.yaml`
+- `golden_cases/uiux_cases.json`
+
+## 入口
 
 ```bash
-python harness/chaotang_uiux_system/scripts/run_uiux.py --no-ledger
-pytest -q tests/test_chaotang_uiux_system.py
+cd backend
+python harness/chaotang_uiux_system/scripts/run_uiux.py
 ```
 
-Runtime artifacts are written under `artifacts/` and ignored by git.
+## 测试
 
+```bash
+cd backend
+python -m pytest -q tests/test_chaotang_uiux_system.py
+```

@@ -1,17 +1,19 @@
-# 朝堂OS
+# 朝堂 OS 前端
+
+本目录是 `chaotang-os/frontend`，只承载朝堂 OS 的前端体验线：页面、组件、浏览器交互、前端发布门禁和前端工程 harness。
+
+整体产品定位、跨前后端架构、商业化、历史总账和跨线交接文档统一放在根目录 `../docs/`；本 README 不复述整体项目方案。
 
 ## Harness 入口
-
-本仓已按 `harness-engineering` 的 Harness Frontend Scaffold 架构改造：业务代码告诉浏览器怎么运行，`.harness/` 告诉 Agent 怎么工作。
 
 ```text
 .harness/
 ├── agents/       # Frontend Owner 调度中枢
-├── rules/        # 不可绕过的工程红线
-├── skills/       # 11 阶段流程的操作手册
-├── wiki/         # 架构、领域、API、发布事实库
-├── changes/      # 每个需求的审计轨迹
-├── templates/    # 新 change 骨架
+├── rules/        # 前端工程红线
+├── skills/       # 前端变更流程操作手册
+├── wiki/         # 前端架构、领域、API 契约和发布事实
+├── changes/      # 前端需求审计轨迹
+├── templates/    # 前端 change 骨架
 └── mcp/          # 外部工具配置索引
 ```
 
@@ -32,64 +34,22 @@ pnpm harness:new-change feat short-name
 6. `docs/HARNESS-USAGE-GUIDE.md`
 7. `docs/AUTHORING-GUIDE.md`
 
-朝堂OS 是项目主线名称。`chaotang-web-lyt` 是朝堂OS 的前端体验主仓：帮助真实用户用 AI agent 解决实际问题，而不是做一个古风控制台模拟器。
+## 前端边界
 
-当前只有一个项目整体：**朝堂OS**。前端体验线和后端蜂群线只是同一个项目里的两条工程责任线，不是两个产品，更不是分裂路线。
+前端线拥有：
 
-- 前端体验线：`chaotang-web-lyt`，承载页面、体验、Next.js BFF、浏览器验证和发布门禁。
-- 后端蜂群线：`jiqun_ai_fresh`，承载真实蜂群、agent flow、prompt、provider、数据库和重产线执行。
+- Next.js App Router 页面、组件、布局、导航和浏览器行为。
+- 用户可见体验：上书房、军机处、史馆、六部、庄园和 source label 展示。
+- 前端发布门禁、Playwright 验证、截图证据和浏览器回归记录。
+- `frontend/.harness/` 下的前端规则、skills、wiki、模板和变更记录。
 
-`CourtOS` 永远不作为第三条产品线 / 项目线 / 仓库主线，也不是另一个前端产品名。它已经被吸收为朝堂OS 这个整体项目里的内部决策内核 / 协议名，主要对应 loop、harness、sourceLabel、risk gate、archive learning、`src/core/courtos/**` 和 `/api/court/**`。
+前端线不拥有：
 
-```text
-用户真实问题
-  -> 先知：判断现在最该问什么、做什么、为什么
-  -> 导师：拆成行动路径、预算、风险、验收
-  -> 三省六部：治理、会审、裁断、归档
-  -> 客户自配蜂群：按行业场景执行
-  -> 史馆：沉淀证据、复盘、下一次建议
-```
+- 外部能力执行和非前端运行事实。
+- 未经 API 契约或运行证据支持的“真实能力”声明。
+- 非前端实现逻辑和质量规则。
 
-当前第一样板是铭硕电池业务，但产品主语不是“铭硕定制系统”。铭硕是 reference implementation，用来证明这套治理框架可以服务真实行业问题。
-
-## 北极星
-
-唯一目标：
-
-```text
-让 1 个真实老板，用朝堂真做成 1 件经营决策，并愿意说“这帮我了”。
-```
-
-当前优先闭环是：
-
-```text
-上书房看到真实经营信号
-  -> 一键下旨到军机处
-  -> 户部 / 刑部 / 礼部视角真模型参审
-  -> 汇总成一份可读、可裁、可归档的真奏折
-  -> 老板采纳 / 打回 / 追问
-  -> 史馆留证据链，次日上书房可引用
-```
-
-详见：
-
-- `docs/PRODUCT_POSITIONING_ORACLE_MENTOR.md`
-- `docs/NORTHSTAR_REAL_LOOP_V1_PRD.md`
-- `docs/FINAL_PRODUCT_RESOURCE_HARNESS.md`
-- `docs/SELF_EVOLVING_COURT_SYSTEM.md`
-- `docs/CODEX_COMMAND_LIBRARY.md`
-
-## 能力边界
-
-不要把演示能力伪装成真实能力。
-
-| 档位 | 含义 | 当前状态 |
-|---|---|---|
-| LIVE | 真模型 / 真编排 / 真记录 | `/api/chat`、`/api/court/orchestrate*` 已具备核心能力 |
-| MIXED | 有真实源，但存在 fallback | 部分 Turso / jiqun BFF 路径 |
-| DEMO | 样板数据或静态 mock | 部分部门页、庄园、情报、档案展示 |
-
-顶部导航的“真伪”入口会显示这条边界，演示时优先跑 LIVE 链路。
+需要表达跨线事实时，只引用根目录 `../docs/`、根 manifest 或明确 API 契约，不在前端文档中展开非前端实现。
 
 ## 技术栈
 
@@ -98,12 +58,11 @@ pnpm harness:new-change feat short-name
 - Tailwind 4
 - TypeScript 5
 - Playwright E2E
-- Turso / jiqun 后端 / OpenAI-compatible LLM provider
 
 ## 端口纪律
 
 | 用途 | 端口 | 命令 |
-|---|---:|---|
+| --- | ---: | --- |
 | Dev HMR | 3002 | `pnpm dev` |
 | Production | 3050 | `pnpm start` |
 | 禁用 | 3001 | 不要绑定 |
@@ -136,14 +95,11 @@ pnpm start
 
 ```bash
 NEXT_PUBLIC_API_MODE=real
-OPENAI_API_KEY=...
-OPENAI_BASE_URL=https://api.deepseek.com/v1
-OPENAI_MODEL=deepseek-chat
-JIQUN_API_URL=http://127.0.0.1:8081
+NEXT_PUBLIC_CHAOTANG_API_URL=http://127.0.0.1:8081
 BASE_PATH=/chaotang
 ```
 
-`OPENAI_BASE_URL` 支持 OpenAI-compatible provider。
+浏览器代码连接外部 API 时必须使用显式 base URL，不能新增同源 BFF 或隐藏代理。
 
 ## 中文字体
 
@@ -170,11 +126,3 @@ pnpm test:e2e
 - `/command-center`
 - `/overview`
 - `/archive`
-
-## 当前最高优先级
-
-1. 按 `docs/FINAL_PRODUCT_RESOURCE_HARNESS.md` 收束资源：PROD / FIX / DEMO / STOP。
-2. 跑通 `/api/court/true-chain-health`，确认主 DB、内部 CourtOS 协议层、蜂群 run、LLM、队列哪些是真可用。
-3. 先补最终产品第一链路依赖：主 DB、内部 CourtOS health/invoke、至少一个真实 agent run、史馆归档。
-4. 把真模型、真数据、fallback、mock 的边界显式化，不能把 DEMO 包装成 LIVE。
-5. 按 `docs/SELF_EVOLVING_COURT_SYSTEM.md` 建立自进化研发闭环：协作案归档、相似案召回、严口径验收、下一次 playbook。

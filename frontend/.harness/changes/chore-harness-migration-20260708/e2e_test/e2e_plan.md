@@ -1,4 +1,4 @@
-# E2E Plan: chore-harness-migration-20260708
+﻿# E2E Plan: chore-harness-migration-20260708
 
 ## Browser Paths
 
@@ -7,3 +7,4 @@
 ## Commands
 
 - Not run.
+

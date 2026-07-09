@@ -1,78 +1,85 @@
-# Chaotang Frontend Owner Agent
+# 朝堂前端 Owner Agent
 
-> This is the orchestration hub for `chaotang-web-lyt`. Keep it as an index and dispatch map; facts live in rules, skills, wiki, and change records.
+这是 `chaotang-os/frontend` 的前端调度中枢。它只负责前端体验线。
 
-## Role
+## 角色
 
-You are the Application Owner for the Chaotang OS frontend line. Your job is to steer every frontend change through a durable harness: clear intent, scoped work, mechanical checks, evidence, and a written audit trail.
+前端 Owner 负责让每个前端变更经过可审计的 harness：明确意图、限定范围、完成实现、跑机械检查、留下证据和 change 记录。
 
-The frontend line owns:
+前端线拥有：
 
-- Next.js App Router pages, UI, layout, browser behavior, release gates, and Playwright validation.
-- The web-facing expression of Chaotang OS: Shangshufang, Junjichu, Shiguan, six ministries, manors, and the evidence boundary between LIVE / MIXED / DEMO.
+- Next.js App Router 页面、组件、布局、导航和浏览器行为。
+- 朝堂 OS 的用户可见体验：上书房、军机处、史馆、六部、庄园和 LIVE / MIXED / DEMO 边界。
+- 前端发布门禁、Playwright 验证、截图证据、浏览器可见回归。
+- `frontend/.harness/` 下的前端规则、skills、wiki、模板和变更记录。
 
-The frontend line does not own:
+前端线不拥有：
 
-- BFF route handlers, `jiqun_ai` agent flow, prompts, providers, database production logic, or backend swarm execution.
-- Back-end quality claims without a verifiable frontend contract or backend evidence link.
+- 外部能力执行和非前端运行逻辑。
+- 非前端质量基线、运行记录和评测事实。
+- 未经 API 契约或运行证据支持的“真实能力”声明。
 
-## Always Load
+## 必读文件
 
-| Area | File |
+| 领域 | 文件 |
 | --- | --- |
-| Project boundaries | `.harness/rules/product-boundaries.md` |
-| Project structure | `.harness/rules/project-structure.md` |
-| Coding standard | `.harness/rules/coding-standard.md` |
-| Workflow | `.harness/rules/dev-workflow.md` |
-| Architecture facts | `.harness/wiki/architecture.md` |
+| 根项目入口 | `../AGENTS.md` |
+| 前端入口 | `AGENTS.md` |
+| 产品边界 | `.harness/rules/product-boundaries.md` |
+| 项目结构 | `.harness/rules/project-structure.md` |
+| 编码标准 | `.harness/rules/coding-standard.md` |
+| 工作流 | `.harness/rules/dev-workflow.md` |
+| 架构事实 | `.harness/wiki/architecture.md` |
+| API 契约 | `.harness/wiki/api-contracts.md` |
 
-## Skill Dispatch
+## Skill 调度
 
-| Stage | Skill |
+| 阶段 | Skill |
 | --- | --- |
-| 0 Project orientation | `.harness/skills/project-analysis/SKILL.md` |
-| 1 Request analysis | `.harness/skills/request-analysis/SKILL.md` |
-| 2 / 4 / 6 Review | `.harness/skills/expert-reviewer/SKILL.md` |
-| 3 Coding | `.harness/skills/coding-skill/SKILL.md` |
-| 4 Code review checks | `.harness/skills/code-review/SKILL.md` |
-| 5 Unit tests | `.harness/skills/unit-test-write/SKILL.md` |
-| 5 E2E tests | `.harness/skills/e2e-test-write/SKILL.md` |
-| 10 Deployment verify | `.harness/skills/deploy-verify/SKILL.md` |
-| Any stuck state | `.harness/skills/frontend-doctor/SKILL.md` |
+| 0 项目定向 | `.harness/skills/project-analysis/SKILL.md` |
+| 1 需求分析 | `.harness/skills/request-analysis/SKILL.md` |
+| 2 / 4 / 6 审查 | `.harness/skills/expert-reviewer/SKILL.md` |
+| 3 编码 | `.harness/skills/coding-skill/SKILL.md` |
+| 4 代码审查 | `.harness/skills/code-review/SKILL.md` |
+| 5 单测 | `.harness/skills/unit-test-write/SKILL.md` |
+| 5 E2E | `.harness/skills/e2e-test-write/SKILL.md` |
+| 10 部署验证 | `.harness/skills/deploy-verify/SKILL.md` |
+| 卡住或怀疑漂移 | `.harness/skills/frontend-doctor/SKILL.md` |
 
-## Workflow
+## 工作流
 
-All feature work follows the 11-stage pipeline in `.harness/rules/dev-workflow.md`:
+实质前端变更遵循 `.harness/rules/dev-workflow.md` 的 11 阶段：
 
 ```text
-0 Bootstrap
-1 Request Analysis -> 2 Plan Review -> 3 Coding -> 4 Code Review -> 5 Test Writing
+0 启动
+1 需求分析 -> 2 方案审查 -> 3 实现 -> 4 代码审查 -> 5 测试编写
                                                                |
-                         7 Commit / Push <- 6 Test Review <----+
+                         7 提交 / 推送 <- 6 测试审查 <----+
                               |
-                8 CI Verify -> 9 E2E -> 10 Deploy Verify -> 11 User Acceptance
+                8 CI 验证 -> 9 E2E -> 10 部署验证 -> 11 用户验收
 ```
 
-For this repository, "CI" means the local programmable gates currently available in `package.json`, especially:
+本目录的可用 CI/门禁包括：
 
+- `pnpm harness:doctor`
 - `pnpm exec tsc --noEmit`
 - `pnpm build`
-- targeted `pnpm test:node` / `pnpm test:core` / `pnpm test:e2e`
-- domain guards such as `pnpm guard:auth`, `pnpm guard:tenant`, `pnpm guard:realdata`, `pnpm guard:freeze`
-- `pnpm harness:doctor`
+- `pnpm test:e2e`
+- `pnpm harness:chaotang:gates`
+- `pnpm gate:prod-release`
 
-## Cold Start
+## 冷启动
 
-1. Confirm `pwd` is `chaotang-web-lyt`.
-2. Read root `AGENTS.md`, then this file.
-3. Run `pnpm harness:doctor` when dependencies are present, or `node scripts/harness-doctor.mjs` for the pure Node check.
-4. List `.harness/changes/` and read the most recent active `summary.md`.
-5. If no active change exists, create one with `pnpm harness:new-change feat short-name` before doing implementation work.
+1. 确认当前目录是 `chaotang-os/frontend`。
+2. 读取根 `../AGENTS.md` 与前端 `AGENTS.md`。
+3. 运行 `pnpm harness:doctor`。
+4. 查看 `.harness/changes/` 中最近的 active change。
+5. 如果没有对应 change，使用 `pnpm harness:new-change <type> <short-name>` 创建。
 
-## Non-Negotiables
+## 不可绕过
 
-- Do not overwrite historical rules in `AGENTS.md`; migrate lessons into `.harness/rules` or `.harness/wiki` when they become durable.
-- Do not hide uncertainty about LIVE / MIXED / DEMO capability. The UI must state evidence boundaries honestly.
-- Do not change ports: dev is 3002, production is 3050, 3001 is forbidden.
-- Do not bypass review and evidence for high-risk work: auth, tenant isolation, privileged writes, source labels, real-data claims, release gates, and decision-weighting UI.
-- If an Agent repeats an error, improve the harness first: rule, skill checklist, lint/guard script, or test.
+- 不把非前端运行事实、质量规则或生产执行逻辑搬进前端。
+- 不把 DEMO/FALLBACK 包装成 LIVE。
+- 不改端口纪律：dev 3002，production 3050，3001 禁用。
+- 高风险前端变更必须有 review 与回归证据。
+- agent 反复犯错时，优先补规则、skill checklist、guard 或测试，而不是只在聊天里提醒。

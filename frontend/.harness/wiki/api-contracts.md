@@ -1,39 +1,36 @@
-# API Contracts
+# API 契约
 
-## Contract Rule
+前端不再拥有运行时 BFF 层。不要新增 `src/app/api/**` route handler 来承接生产运行逻辑或代理运行服务。
 
-Frontend-owned BFF routes are retired. Do not create `src/app/api/**` route handlers for runtime behavior; browser-facing data contracts should point to an explicit backend service such as `jiqun_ai`, or to a documented external source.
+## 当前原则
 
-The frontend should not use `/chaotang/api/**` as a proxy contract. Local and production integrations should use explicit backend base URLs:
+- 浏览器数据通过类型化前端 adapter 调用明确 API 或外部来源。
+- 运行事实源以根级 manifest、API 契约和明确验证输出为准。
+- 前端可以做展示、编排入口、错误态和 source label，但不能伪造运行执行结果。
 
-- Server-side adapters: `JIQUN_API_URL`.
-- Browser-facing adapters: `NEXT_PUBLIC_JIQUN_API_URL` or `NEXT_PUBLIC_CHAOTANG_API_URL`.
-- Real backend mode, when needed locally: `NEXT_PUBLIC_API_MODE=real`.
+## 环境变量
 
-If a dev server such as 3002 or 3003 is not reaching backend 8081, diagnose environment variables, backend reachability, CORS/auth expectations, and the typed adapter contract. Do not solve it by recreating a frontend BFF layer.
+| 变量 | 用途 |
+| --- | --- |
+| `EXTERNAL_RUNTIME_API_URL` | 服务端访问运行 API 的 base URL |
+| `NEXT_PUBLIC_EXTERNAL_RUNTIME_API_URL` | 浏览器可见的运行 API base URL，需谨慎暴露 |
+| `NEXT_PUBLIC_CHAOTANG_API_URL` | 朝堂 API base URL |
+| `NEXT_PUBLIC_API_MODE` | real / mixed / demo 等模式控制 |
 
-## Auth / Privileged Writes
+## Source Label
 
-High-risk backend contracts include:
+| 标签 | 含义 |
+| --- | --- |
+| LIVE | 真实运行、真实模型、真实记录或真实 API 响应 |
+| MIXED | 有真实来源，但存在 fallback、缓存或部分样例 |
+| DEMO | 静态样例、fixture、mock 或说明性流程 |
+| FALLBACK | 主来源不可用后的降级结果 |
 
-- any handler writing tasks, ledgers, archives, preferences, or tenant-visible state
+UI 展示运行数据时，应把 source label 带到 view model 或页面说明中。
 
-Rules:
+## 禁止事项
 
-- Decode-only auth is not authorization for privileged writes.
-- Tenant isolation and CSRF/same-origin assumptions must be explicit.
-- Idempotency matters for decision/write endpoints.
-- Add regression tests for fixes in these areas.
-
-## Backend Boundary
-
-When frontend code calls `jiqun_ai` or a real provider contract:
-
-- Include timeout/error behavior.
-- Preserve source labels.
-- Do not turn fallback success into LIVE claims.
-- Keep the frontend contract documented in the active change.
-
-## Validation
-
-New contracts should use Zod or explicit runtime validation at the boundary. Do not cast untrusted payloads directly into domain types.
+- 禁止用前端 mock 证明运行服务质量。
+- 禁止用本地 route handler 临时代理来绕过 API 契约。
+- 禁止把运行器、供应方 key、运行记录或质量基线搬到前端。
+- 禁止把运行服务不可达时的样例数据标为 LIVE。

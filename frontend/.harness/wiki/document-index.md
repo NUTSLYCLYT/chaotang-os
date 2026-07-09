@@ -1,32 +1,22 @@
-# Document Index
+# 文档索引
 
-This repo has a large document surface. Use this index before adding new docs.
+前端文档很多。新增文档前先查这里，避免同一规则散成多份。
 
-## Stable Product Docs
+## 前端 harness 入口
 
-- `README.md` — project positioning, commands, ports, current priority.
-- `docs/HARNESS-USAGE-GUIDE.md` — daily Harness usage.
-- `docs/AUTHORING-GUIDE.md` — who edits Harness files and when.
-- `docs/NORTHSTAR_REAL_LOOP_V1_PRD.md` — north-star loop.
-- `docs/FINAL_PRODUCT_RESOURCE_HARNESS.md` — resource posture.
-- `docs/SELF_EVOLVING_COURT_SYSTEM.md` — self-evolving development loop.
-- `docs/CODEX_COMMAND_LIBRARY.md` — command reference.
-- `docs/CHAOTANG_WEB_LYT_ADVISOR_SKILL_SYSTEM.md` — historical advisor/skill system.
+- `AGENTS.md`：前端 agent 入口。
+- `CLAUDE.md`：Claude 极简入口，指向 `AGENTS.md`。
+- `.harness/agents/frontend-owner.md`：前端 owner 调度中枢。
+- `.harness/rules/`：不可绕过规则。
+- `.harness/skills/`：阶段化操作手册。
+- `.harness/wiki/`：稳定事实库。
+- `.harness/changes/`：变更审计轨迹。
 
-## Working Notes
+## 日常指南
 
-- `dev/notes/` — temporary or historical analysis.
-- `dev/handoffs/` — handoff notes.
-- `dev/release/` — release records.
+- `docs/HARNESS-USAGE-GUIDE.md`：日常使用 harness。
+- `docs/AUTHORING-GUIDE.md`：哪些文档由谁改、何时改。
 
-## Harness Docs
+## 规则
 
-- `.harness/agents/frontend-owner.md` — orchestration entry.
-- `.harness/rules/*.md` — non-negotiable constraints.
-- `.harness/skills/*/SKILL.md` — phase playbooks.
-- `.harness/wiki/*.md` — current project facts.
-- `.harness/changes/*` — change audit trail.
-
-## Rule
-
-If a lesson is reusable, put it in `.harness/rules` or a skill checklist. If it is historical evidence, put it in `dev/notes` or the relevant change directory.
+可复用教训放进 `.harness/rules/` 或 skill checklist。一次性证据放进 `dev/notes/` 或对应 change 目录。

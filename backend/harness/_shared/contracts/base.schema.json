@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chaotang.local/harness/base.schema.json",
+  "title": "Chaotang Backend Harness Base Record",
+  "type": "object",
+  "required": ["harness_id", "case_id", "status", "owner", "evidence", "next_action"],
+  "properties": {
+    "harness_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "case_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "block_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["passed", "blocked", "failed", "advisory", "abstain"]
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input": {},
+    "output": {},
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "quality_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 5
+    },
+    "traceability": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "grounding": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "signoff_required": {
+      "type": "boolean"
+    },
+    "failure_reason": {
+      "type": "string"
+    },
+    "next_action": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": true
+}

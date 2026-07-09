@@ -197,7 +197,7 @@ def build_report() -> dict[str, Any]:
 
 def write_markdown(report: dict[str, Any], path: Path) -> None:
     lines = [
-        "# Chaotang UI User Skill Harness",
+        "# Chaotang Experience User Skill Harness",
         "",
         f"- passed: {report['passed']}",
         f"- boards: {report['summary']['boards_passed']}/{report['summary']['boards']}",

@@ -1,23 +1,18 @@
-# Coding Spec 01 — App Routes and Pages
+# App Route 规格
 
-Use for files under `src/app/**`.
+## 适用范围
 
-## Responsibilities
+`src/app/**` 下的页面、layout、route segment、server/client 入口。
 
-- Route composition, layouts, metadata, server/client boundaries.
-- Next.js route handlers as BFF adapters.
-- Browser-visible page state and navigation.
+## 规则
 
-## Rules
+- 页面负责组合体验，不沉淀服务端运行事实。
+- route handler 不能作为前端自有 BFF 承接生产运行逻辑。
+- 鉴权、租户、source label、错误态必须在入口处清楚。
+- 用户可见行为需要浏览器验证。
 
-- Do not place core business algorithms in page files.
-- Add `"use client"` only when interactive browser behavior is required.
-- Keep route handlers explicit about auth, tenant, source labels, fallback, and idempotency.
-- Preserve base path `/chaotang`, dev port 3002, production port 3050.
-- For new pages, state which main loop station they strengthen.
-
-## Verification
+## 验证
 
 - `pnpm exec tsc --noEmit`
-- targeted Playwright for browser behavior
-- `pnpm build` for route/build changes
+- `pnpm build`
+- 相关 Playwright 检查

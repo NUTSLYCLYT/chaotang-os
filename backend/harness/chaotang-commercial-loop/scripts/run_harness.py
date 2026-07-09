@@ -927,12 +927,12 @@ def build_board_review(
     }
     missing = [
         "缺少真正面向小白用户的首屏仪表盘：红黄绿、负责人、下一步、禁止动作应一眼可见。",
-        "golden candidate 已有人工晋升/拒绝闸门；下一步要接 UI 审批和批量复核。" if candidates else "golden candidate 还没有生产样本输入。",
+        "golden candidate 已有人工晋升/拒绝闸门；下一步要接外部审批和批量复核。" if candidates else "golden candidate 还没有生产样本输入。",
         "生产上线还缺账号权限、成本记录、Sentry/日志入口和真实客户事件关联。",
     ]
     build = [
-        "把 business cards 接到朝堂 UI 首屏，默认显示 active cases 和下一步动作。",
-        "把 golden candidate promote/reject 接到 UI 审批，显示 reference、must_not 和审计记录。",
+        "把 business cards 接到朝堂呈现层首屏，默认显示 active cases 和下一步动作。",
+        "把 golden candidate promote/reject 接到外部审批，显示 reference、must_not 和审计记录。",
         "把 run_id、owner、case_id、provider/model、latency、gate reason 接入生产可观测后端。",
     ]
     verify = [

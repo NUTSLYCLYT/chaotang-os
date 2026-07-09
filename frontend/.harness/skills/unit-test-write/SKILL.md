@@ -1,31 +1,29 @@
 ---
 name: unit-test-write
-description: Add focused node/unit tests for changed domain logic or route helpers.
+description: 为前端纯逻辑、adapter、契约和 guard 编写聚焦测试。
 ---
 
-# Unit Test Write Skill
+# 单测编写 Skill
 
-## When To Use
+## 适用场景
 
-- Pure domain logic in `src/core/**`.
-- Data normalization and source-label logic.
-- Route helper functions.
-- Regression assertions for high-risk bugs.
+- 纯函数。
+- adapter。
+- source label 归一化。
+- route/helper 逻辑。
+- guard 或发布门禁脚本。
 
-## Rules
+## 原则
 
-- Test the behavior that could regress.
-- Prefer existing `*.nodetest.ts` and `*.itest.ts` patterns.
-- Avoid broad fixtures when a small table case will prove the boundary.
+- 测行为，不测实现细枝末节。
+- 小表格 case 优先于大 fixture。
+- 高风险 bug 应有“不会再发生”的回归断言。
 
-## Commands
+## 输出
 
-```bash
-pnpm test:node
-pnpm test:core
-node --experimental-strip-types --test path/to/file.nodetest.ts
-```
+更新 `unit_test/test_plan.md`：
 
-## Output
-
-Write `unit_test/test_plan.md` with test files, cases, and command evidence.
+- 覆盖了什么行为。
+- 为什么选择这类测试。
+- 运行命令。
+- 未覆盖风险。

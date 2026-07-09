@@ -30,7 +30,7 @@ def validate_case(case: dict[str, Any]) -> dict[str, Any]:
 
     _require(bool(case.get("case_id")), "missing case_id", failures)
     _require(bool(case.get("user_input")), "missing user_input", failures)
-    _require(case.get("frontend_entry") == "/study", "frontend entry must be /study", failures)
+    _require(case.get("experience_entry") == "/study", "experience entry must be /study", failures)
     _require(case.get("backend_api") == "/api/chaotang/study/run", "backend api must be study/run", failures)
     _require(case.get("mode") == "live", "true loop must exercise live mode", failures)
 
@@ -150,7 +150,7 @@ def validate_case(case: dict[str, Any]) -> dict[str, Any]:
     _require(not blocking_steps, f"required true loop contains blocking states: {', '.join(blocking_steps)}", failures)
     _require(
         {
-            "frontend_entry",
+            "experience_entry",
             "study_run_api",
             "live_swarm_adapter",
             "replay_artifact",
@@ -159,7 +159,7 @@ def validate_case(case: dict[str, Any]) -> dict[str, Any]:
             "observability_event",
             "human_signoff",
         }.issubset(seen_steps),
-        "truth_steps must cover frontend, api, swarm, replay, archive, launch case, observability, and signoff",
+        "truth_steps must cover experience, api, swarm, replay, archive, launch case, observability, and signoff",
         failures,
     )
 

@@ -115,14 +115,14 @@ def test_ungrounded_numbers_are_yellow_or_red_by_stakes():
     assert high.risk_level == "red"
 
 
-def test_web_ui_drift_is_blocked_from_mainline():
+def test_experience_drift_is_blocked_from_backend_mainline():
     runner = load_runner()
     card = runner.evaluate_payload(
         {
-            "run_id": "web",
+            "run_id": "experience",
             "department": "gongbu",
-            "summary": "新增 Tailwind 页面样式。",
-            "changed_paths": ["web/app/page.tsx"],
+            "summary": "新增体验实现的交互样式。",
+            "changed_paths": ["backend/src/experience_surface.py"],
             "automation_level_requested": "L1",
         }
     )

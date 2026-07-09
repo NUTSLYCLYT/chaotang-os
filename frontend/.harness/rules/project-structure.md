@@ -1,30 +1,30 @@
-# Rule: Project Structure
+# 规则：前端项目结构
 
-## Current Shape
+## 当前形态
 
-This is a Next.js App Router project, not the smaller Vite reference scaffold. The harness structure is adapted to the existing codebase rather than forcing a destructive folder migration.
+这是 `chaotang-os/frontend` 下的 Next.js App Router 前端。harness 结构遵循当前三层项目架构：根级协调、前端工程 harness、根级运行评测记录。
 
 ```text
 src/
-  app/          Next.js routes, route handlers, layouts, server/client entry points
-  components/   reusable visual components that predate feature slicing
-  features/     product capability slices and UI/workflow modules
-  core/         domain engines, CourtOS protocol, pure business logic, evaluators
-  lib/          shared runtime utilities, adapters, persistence helpers
-  shared/       stable shared types/metadata/public helpers
-  types/        cross-cutting TypeScript contracts
-e2e/            Playwright browser tests
-tests/          non-browser test harnesses and evaluation fixtures
-scripts/        programmable gates, guards, migration and release utilities
-docs/           durable product/architecture docs
-dev/            temporary notes, handoffs, release records, artifacts
-harness/        domain evaluation harness assets
-.harness/       agent operating system: rules, skills, wiki, changes, templates
+  app/          Next.js 路由、layout、server/client 入口
+  components/   可复用视觉组件
+  features/     产品能力切片与 UI 工作流
+  core/         领域逻辑、CourtOS 协议适配、纯业务逻辑、评测器
+  lib/          共享运行工具、adapter、持久化辅助
+  shared/       稳定共享类型、元数据与公共工具
+  types/        跨模块 TypeScript 契约
+e2e/            Playwright 浏览器测试
+tests/          非浏览器测试和评测 fixture
+scripts/        programmable gates、guard、迁移和发布工具
+docs/           长期产品/架构文档
+dev/            临时 notes、handoff、release、artifacts
+harness/        前端领域评测资产
+.harness/       agent 工作系统：rules、skills、wiki、changes、templates
 ```
 
-## Dependency Direction
+## 依赖方向
 
-Prefer this direction for new work:
+新代码优先保持：
 
 ```text
 src/app -> src/features -> src/core | src/lib | src/shared | src/types
@@ -34,33 +34,33 @@ src/lib -> src/shared | src/types
 src/shared -> src/types
 ```
 
-Rules:
+规则：
 
-- `src/app` may compose everything, but route handlers must keep auth, tenant, and source-label boundaries explicit.
-- `src/features/{slice}` should not import another feature's internals. Share through `src/core`, `src/lib`, `src/shared`, or a public entry.
-- `src/core/courtos/**` owns CourtOS domain logic. UI must not duplicate core algorithms to create prettier but divergent answers.
-- `src/lib` must not import UI or route modules.
-- `src/shared` must remain business-light and stable.
-- `dev/_attic` and retired routes are reference only; do not wire new production paths to them.
+- `src/app` 可以组合各层，但路由入口必须保持鉴权、租户、source label 边界清楚。
+- `src/features/{slice}` 不直接 import 另一个 feature 的内部实现；共享能力放到 `src/core`、`src/lib`、`src/shared` 或公共入口。
+- `src/core/courtos/**` 承载 CourtOS 前端领域逻辑，UI 不应复制核心算法来制造更好看的分叉答案。
+- `src/lib` 不 import UI 或 route 模块。
+- `src/shared` 保持轻量、稳定、低业务耦合。
+- 已退役代码只作参考，不接入新的生产路径。
 
-## Root Directory Discipline
+## 根目录纪律
 
-New scratch files do not belong in the repo root. Use:
+临时文件不要放在仓库根目录。使用：
 
-- `dev/notes/` for analysis.
-- `dev/handoffs/` for handoff records.
-- `dev/release/` for release records.
-- `dev/artifacts/` for generated evidence.
-- `.harness/changes/{change-id}/` for active change audit trails.
+- `dev/notes/`：分析记录。
+- `dev/handoffs/`：交接记录。
+- `dev/release/`：发布记录。
+- `dev/artifacts/`：生成证据。
+- `.harness/changes/{change-id}/`：当前变更审计轨迹。
 
-Root remains for framework-required files, stable entry docs, source/test/script directories, and `.harness`.
+根目录只放框架必需文件、稳定入口文档、源码/测试/脚本目录和 `.harness`。
 
-## High-Risk Areas
+## 高风险区域
 
-Treat these as high-risk and require review plus a regression assertion when changed:
+以下区域变更需要 review 与回归断言：
 
-- Auth, invite, session, tenant isolation, privileged write routes.
-- Main `tasks` table or shared ledgers read by briefing, Shiguan, KPI, or archive surfaces.
-- UI that gives decision/court verdicts visual authority.
-- LIVE/MIXED/DEMO source labels and evidence paths.
-- Release, production, port, base-path, or nginx assumptions.
+- 鉴权、邀请、session、租户隔离、特权写入路由。
+- 主 `tasks` 表或被 briefing、史馆、KPI、archive 读取的共享账本。
+- 给裁决/判断增加视觉权威的 UI。
+- LIVE / MIXED / DEMO / FALLBACK source label 与证据路径。
+- 发布、生产、端口、base path、nginx 假设。

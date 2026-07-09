@@ -1,32 +1,33 @@
-# Change Summary: chore-remove-bff-layer-20260708
+﻿# 变更摘要：chore-remove-bff-layer-20260708
 
 | Field | Value |
 | --- | --- |
 | Change ID | chore-remove-bff-layer-20260708 |
 | Type | chore |
 | Status | DELIVERED |
-| Owner | Frontend Owner Agent |
+| Owner | Frontend Agent |
 | Created | 20260708 |
 
-## Stage Progress
+## 阶段进度
 
-| # | Stage | Status | Output |
+| # | 阶段 | Status | 证据 |
 | --- | --- | --- | --- |
-| 0 | Bootstrap | DONE | Harness context loaded |
-| 1 | Request Analysis | DONE | request_analysis/spec.md, tasks.md |
-| 2 | Plan Review | SKIPPED | User requested direct deletion |
-| 3 | Coding | DONE | coding/coding_report_v1.md |
-| 4 | Code Review | TODO | coding/review/code_review_v1.md |
-| 5 | Test Writing | TODO | unit_test/test_plan.md, e2e_test/e2e_plan.md |
-| 6 | Test Review | TODO | unit_test/review/test_review_v1.md |
-| 7 | Commit / Push | TODO | commit message |
-| 8 | CI Verification | DONE | ci_result/ci_summary.md |
-| 9 | E2E Testing | TODO | e2e_test/e2e_summary.md |
-| 10 | Deploy Verify | TODO | deployment/preview_report.md |
-| 11 | User Acceptance | TODO | final confirmation |
+| 0 | 加载上下文 | DONE | 已加载 harness 上下文 |
+| 1 | 需求分析 | DONE | request_analysis/spec.md, tasks.md |
+| 2 | 需求复核 | DONE | request_analysis/review/spec_review_v1.md |
+| 3 | 实现记录 | DONE | coding/coding_report_v1.md |
+| 4 | 代码复核 | DONE | coding/review/code_review_v1.md |
+| 5 | 测试计划 | DONE | unit_test/test_plan.md, e2e_test/e2e_plan.md |
+| 6 | 测试复核 | DONE | unit_test/review/test_review_v1.md |
+| 7 | 提交 / 收口 | N/A | 仅本地 harness 记录 |
+| 8 | CI 验证 | DONE | ci_result/ci_summary.md |
+| 9 | E2E 验证 | N/A | e2e_test/e2e_summary.md |
+| 10 | 部署验证 | N/A | deployment/preview_report.md |
+| 11 | 用户确认 | DONE | 用户指令驱动的清理 |
 
-## Notes
+## 备注
 
-- Scope: deleted frontend-owned BFF route handlers and same-origin proxy rewrites.
-- Risks: runtime callers of retired `/api/**` paths need backend alignment and CORS/auth configuration.
-- Verification: `tsc` and production build passed.
+- 范围：删除前端拥有的 BFF route handlers 与同源 proxy rewrites。
+- 风险：调用已退休 `/api/**` 路径的运行时 caller 需要外部运行对齐和 CORS/auth 配置。
+- 验证：`tsc` 与 production build 已通过。
+
