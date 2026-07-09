@@ -1,17 +1,14 @@
 /**
  * jiqun_ai Flask backend client.
- * Frontend-owned BFF/proxy routes are retired, so requests go directly to
- * NEXT_PUBLIC_JIQUN_API_URL / NEXT_PUBLIC_CHAOTANG_API_URL, then /api/*.
+ * Frontend-owned BFF routes are retired. Browser requests go through the
+ * transparent Next proxy at /api/*; server-side requests may still use the
+ * backend absolute URL.
  */
 
 import {
-  backendApiUrl,
   backendFetch,
-  CHAOTANG_BACKEND_BASE,
+  backendRuntimeUrl,
 } from '@/lib/backend-api';
-
-const JIQUN_BACKEND_BASE = CHAOTANG_BACKEND_BASE;
-const JIQUN_BASE = `${JIQUN_BACKEND_BASE}/api`;
 
 /**
  * jiqun 后端开启 FENGQUN_AUTH 时只认 `Authorization: Bearer` 或 cookie `token`，
@@ -33,7 +30,7 @@ export async function fetchLocalCourtApi(path: string, init: RequestInit = {}): 
   const { refreshAccessToken } = await import('@/lib/auth');
   const refreshed = await refreshAccessToken();
   if (!refreshed) return first;
-  return fetch(backendApiUrl(path), {
+  return fetch(backendRuntimeUrl(path), {
     ...init,
     headers: {
       ...(init.headers as Record<string, string> | undefined),
@@ -45,13 +42,13 @@ export async function fetchLocalCourtApi(path: string, init: RequestInit = {}): 
 }
 
 export async function jiqunFetcher<T>(path: string): Promise<T> {
-  const res = await fetch(`${JIQUN_BASE}${path}`, { headers: await jiqunAuthHeaders() });
+  const res = await fetch(backendRuntimeUrl(`/api${path}`), { headers: await jiqunAuthHeaders() });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText} — ${path}`);
   return res.json() as Promise<T>;
 }
 
 export async function jiqunPost<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${JIQUN_BASE}${path}`, {
+  const res = await fetch(backendRuntimeUrl(`/api${path}`), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await jiqunAuthHeaders()) },
     body: JSON.stringify(body),

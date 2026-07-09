@@ -26,7 +26,7 @@ import {
   mockForecastScenarios,
   createMockTask,
 } from '@/lib/mock/fixtures';
-import { backendFetch } from '@/lib/backend-api';
+import { backendFetch, backendRuntimeUrl } from '@/lib/backend-api';
 import {
   adaptV1Task,
   adaptV1FullTask,
@@ -64,7 +64,12 @@ export const API_MODE: ApiMode =
   (process.env.NEXT_PUBLIC_API_MODE as ApiMode) ?? 'real';
 
 export const V1_API_URL =
-  process.env.NEXT_PUBLIC_V1_API_URL ?? 'http://localhost:8081/api';
+  process.env.NEXT_PUBLIC_V1_API_URL?.replace(/\/$/, '') ?? '';
+
+function v1ApiUrl(path: string): string {
+  if (V1_API_URL) return `${V1_API_URL}${path}`;
+  return backendRuntimeUrl(`/api${path}`);
+}
 
 /** 是否对支持的 endpoint 使用真实后端 */
 const USE_REAL = API_MODE === 'real' || API_MODE === 'hybrid';
@@ -137,7 +142,7 @@ async function v1Request<T>(path: string, options: RequestInit = {}): Promise<T>
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(`${V1_API_URL}${path}`, { ...options, headers });
+  const res = await fetch(v1ApiUrl(path), { ...options, headers });
 
   if (res.status === 401 && typeof window !== 'undefined') {
     const auth = await import('@/lib/auth');

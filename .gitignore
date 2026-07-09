@@ -42,6 +42,7 @@ frontend/dev/artifacts/
 frontend/dev/screenshots/
 frontend/dev/tmp/
 frontend/.dev-logs/
+frontend/.runtime/
 # next.js
 frontend/.next/
 frontend/.next-dev/
@@ -88,6 +89,7 @@ backend/opencode.json
 backend/.opencode.json.bak
 backend/.opencode/
 backend/.venv/
+backend/.runtime/
 backend/data/
 backend/sessions/
 backend/config/*.bak

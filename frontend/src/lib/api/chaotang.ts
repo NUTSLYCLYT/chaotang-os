@@ -5,7 +5,7 @@ import type { DeptOverview } from '@/lib/contracts/dept';
 import type { SwarmRosterEntry } from '@/lib/contracts/swarm';
 import type { LegalOverview } from '@/lib/contracts/xingbu';
 import type { CourtSessionLatest } from '@/lib/contracts/court-session';
-import { backendApiUrl, backendFetch } from '@/lib/backend-api';
+import { backendFetch, backendRuntimeUrl } from '@/lib/backend-api';
 
 const BASE = '/api/chaotang';
 
@@ -463,7 +463,7 @@ export function subscribeCourtStream(
   const ac = new AbortController();
   (async () => {
     try {
-      const res = await fetch(backendApiUrl(`${BASE}/stream/${encodeURIComponent(taskId)}`),
+      const res = await fetch(backendRuntimeUrl(`${BASE}/stream/${encodeURIComponent(taskId)}`),
         { headers: { Accept: 'text/event-stream', ...(await authHeaders()) }, signal: ac.signal });
       if (!res.body) return;
       const reader = res.body.getReader();

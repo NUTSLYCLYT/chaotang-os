@@ -7,6 +7,10 @@ export const CHAOTANG_BACKEND_BASE = (
   'http://localhost:8081'
 ).replace(/\/$/, '');
 
+const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+const APP_BASE_PATH =
+  PUBLIC_BASE_PATH && PUBLIC_BASE_PATH !== '/' ? PUBLIC_BASE_PATH.replace(/\/$/, '') : '';
+
 export function toBackendApiPath(path: string): string {
   const [pathname, query = ''] = path.split('?', 2);
   let next = pathname.startsWith('/') ? pathname : `/${pathname}`;
@@ -36,9 +40,18 @@ export function toBackendApiPath(path: string): string {
   return query ? `${next}?${query}` : next;
 }
 
+export function backendProxyUrl(path: string): string {
+  if (/^https?:\/\//.test(path)) return path;
+  return `${APP_BASE_PATH}${toBackendApiPath(path)}`;
+}
+
 export function backendApiUrl(path: string): string {
   if (/^https?:\/\//.test(path)) return path;
   return `${CHAOTANG_BACKEND_BASE}${toBackendApiPath(path)}`;
+}
+
+export function backendRuntimeUrl(path: string): string {
+  return typeof window === 'undefined' ? backendApiUrl(path) : backendProxyUrl(path);
 }
 
 export async function backendAuthHeaders(): Promise<Record<string, string>> {
@@ -61,12 +74,12 @@ export async function backendFetch(path: string, init: RequestInit = {}): Promis
     };
   };
 
-  const first = await fetch(backendApiUrl(path), await buildInit());
+  const first = await fetch(backendRuntimeUrl(path), await buildInit());
   if (first.status !== 401 || typeof window === 'undefined') return first;
 
   const refreshed = await refreshAccessToken();
   if (!refreshed) return first;
-  return fetch(backendApiUrl(path), await buildInit(refreshed));
+  return fetch(backendRuntimeUrl(path), await buildInit(refreshed));
 }
 
 export async function backendJson<T>(path: string, init: RequestInit = {}): Promise<T> {

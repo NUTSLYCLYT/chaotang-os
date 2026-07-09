@@ -1,6 +1,14 @@
 import type { NextConfig } from 'next';
 
 const BASE_PATH = process.env.BASE_PATH ?? '';
+const BACKEND_API_BASE = (
+  process.env.CHAOTANG_BACKEND_API_URL ??
+  process.env.JIQUN_API_URL ??
+  process.env.NEXT_PUBLIC_JIQUN_API_URL ??
+  process.env.NEXT_PUBLIC_CHAOTANG_API_URL ??
+  process.env.NEXT_PUBLIC_BACKEND_API_URL ??
+  'http://127.0.0.1:8081'
+).replace(/\/$/, '');
 // 隔离构建用:设 NEXT_DIST_DIR=.next-buildcheck 可 build 到临时目录,
 // 不覆盖正在被 `next start`(prod 3050)serve 的默认 .next。未设时行为不变。
 const DIST_DIR = process.env.NEXT_DIST_DIR ?? '';
@@ -47,6 +55,14 @@ const nextConfig: NextConfig = {
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
           { key: 'Content-Security-Policy-Report-Only', value: CSP_REPORT_ONLY },
         ],
+      },
+    ];
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${BACKEND_API_BASE}/api/:path*`,
       },
     ];
   },

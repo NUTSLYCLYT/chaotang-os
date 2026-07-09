@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { jiqunFetcher, type JiqunSessionSummary } from '@/lib/jiqun-api';
+import { backendProxyUrl } from '@/lib/backend-api';
 
 export interface JiqunRunProgress {
   taskId: string | null;
@@ -52,11 +53,6 @@ const IDLE: JiqunRunProgress = {
 };
 
 const POLL_INTERVAL_MS = 5_000;
-const JIQUN_BACKEND_BASE = (
-  process.env.NEXT_PUBLIC_JIQUN_API_URL ??
-  process.env.NEXT_PUBLIC_CHAOTANG_API_URL ??
-  'http://localhost:8081'
-).replace(/\/$/, '');
 const POLL_MAX_MS = 15 * 60_000; // 蜂群链路可达数分钟，超时后停表并标错
 
 function isDoneStatus(status: string): boolean {
@@ -213,7 +209,7 @@ export function useJiqunRunProgress() {
         return;
       }
 
-      const es = new EventSource(`${JIQUN_BACKEND_BASE}/api/runs/stream/${encodeURIComponent(taskId)}`);
+      const es = new EventSource(backendProxyUrl(`/api/runs/stream/${encodeURIComponent(taskId)}`));
       esRef.current = es;
 
       es.onmessage = (e: MessageEvent) => {

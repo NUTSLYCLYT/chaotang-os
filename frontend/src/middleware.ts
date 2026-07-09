@@ -27,7 +27,6 @@ const PUBLIC_PREFIXES = [
   '/fonts',
   '/heroes',
   '/shangshufang',
-  '/dadian',
   '/junjichu',
   '/liubu',
   '/zhusi',
@@ -166,6 +165,14 @@ export function middleware(req: NextRequest): NextResponse {
 
   // Inject request ID for all routes (used by logger + audit)
   const requestId = req.headers.get('x-request-id') ?? crypto.randomUUID()
+
+  // API requests are transparent backend proxy traffic. Do not enforce the
+  // frontend page-login guard here; backend auth owns these contracts.
+  if (routePath === '/api' || routePath.startsWith('/api/')) {
+    const res = NextResponse.next()
+    res.headers.set('x-request-id', requestId)
+    return res
+  }
 
   if (RETIRED_PAGE_PREFIXES.some((p) => routePath === p || routePath.startsWith(p + '/'))) {
     const res = NextResponse.next()
