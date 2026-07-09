@@ -3,6 +3,7 @@
 import { BureauPageViewError, BureauPageViewLoading, BureauPageViewShell } from '@/features/bureaus/components/BureauPageViewShell';
 import { useBureauPageView } from '@/features/bureaus/hooks/useBureauPageView';
 import { XingbuContractWorkbench } from '@/features/xingbu/components/xingbu-contract-workbench';
+import { BingbuQuotationVerdictPanel } from '@/features/bingbu/components/bingbu-quotation-verdict-panel';
 
 export function BureauPageRouteClient({ department, bureau }: { department: string; bureau: string }) {
   const { data, error, isLoading } = useBureauPageView(department, bureau);
@@ -15,6 +16,11 @@ export function BureauPageRouteClient({ department, bureau }: { department: stri
       {department === 'legal' && bureau === 'contract-review' && (
         <div className="mx-auto w-full max-w-5xl px-4 pb-8">
           <XingbuContractWorkbench />
+        </div>
+      )}
+      {department === 'ops' && bureau === 'sales' && (
+        <div className="mx-auto w-full max-w-5xl px-4 pb-8">
+          <BingbuQuotationVerdictPanel />
         </div>
       )}
     </>
