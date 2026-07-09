@@ -46,6 +46,14 @@ def test_qintianjian_reviewed_defaults_false_and_can_be_set_true():
     assert doc_reviewed["provenance"]["qintianjian_reviewed"] is True
 
 
+def test_auto_generated_case_id_does_not_collide_same_day():
+    """固定 "-000" 后缀会让同一天两次未显式传 case_id 的调用撞车，truth_ledger 按
+    case_id 查询时可能读到不相关的另一条判决(2026-07-09 复审修复)。"""
+    doc1 = cdb.build_court_doc("hubu", items=[{"level": "green"}], archive=False)
+    doc2 = cdb.build_court_doc("hubu", items=[{"level": "green"}], archive=False)
+    assert doc1["case_id"] != doc2["case_id"]
+
+
 def test_unregistered_dept_raises():
     with pytest.raises(ValueError, match="未注册部门"):
         cdb.build_court_doc("no-such-dept", items=[], archive=False)

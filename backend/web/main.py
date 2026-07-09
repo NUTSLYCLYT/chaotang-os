@@ -188,6 +188,7 @@ from web.routers import runs as runs_router  # noqa: E402
 from web.routers import shangshufang as shangshufang_router  # noqa: E402
 from web.routers import court_session as court_session_router  # noqa: E402
 from web.routers import legal as legal_router  # noqa: E402
+from web.routers import libu as libu_router  # noqa: E402
 from web.routers import swarm as swarm_router  # noqa: E402
 from web.routers import swarm_runs as swarm_runs_router  # noqa: E402
 from web.routers import tools as tools_router  # noqa: E402
@@ -242,6 +243,7 @@ app.include_router(dadian_router.router)
 app.include_router(shangshufang_router.router)
 app.include_router(court_session_router.router)
 app.include_router(legal_router.router)
+app.include_router(libu_router.router)
 app.include_router(swarm_router.router)
 app.include_router(swarm_runs_router.router)
 app.include_router(models_router.router)

@@ -27,6 +27,12 @@ export default defineConfig({
         // 的8小时故障根因)：此命令直接调 next dev，绕开 next-with-base-path.mjs 里的隔离逻辑，
         // 此前 e2e 套件自己起的 webServer 会跟 prod 共享默认 `.next`。显式设 NEXT_DIST_DIR，
         // 独立于 pnpm dev 用的 `.next-dev`，避免并发跑 e2e + 手动 dev 时二者互相打架。
+        //
+        // 注(2026-07-09 复审曾误改)：不要在这里加 BASE_PATH/NEXT_PUBLIC_BASE_PATH——试过一次，
+        // 全仓其余 e2e spec 的 page.goto() 都是裸路径（无 /chaotang 前缀），一旦这里的 server 真带上
+        // basePath，那些裸路径全部变成打 404。本 e2e harness 的既有约定就是"不带 basePath"，
+        // 需要 /chaotang 前缀的个别 spec（如涉及 nginx 生产路径的场景）应在自己文件里显式处理，
+        // 不要动这个全仓共享配置。
         env: { NEXT_DIST_DIR: '.next-e2e' },
       },
 });

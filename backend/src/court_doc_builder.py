@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime, timezone
 
 from src import persona_registry as pr
@@ -291,7 +292,12 @@ def build_court_doc(
             headline = f"{pending_note} —— 蜂群无产出({source_label}),未真跑不发绿灯;初判:{headline}"
 
     abbr = _DEPT_ABBR.get(dept, dept[:3].upper())
-    case_id = case_id or f"{abbr}-{_now_iso()[:10].replace('-', '')}-000"
+    # 随机后缀替代固定 "-000"(2026-07-09 复审修复):固定后缀 + 日期粒度下,同一天两次
+    # 未显式传 case_id 的调用会撞同一个 case_id,truth_ledger 按 case_id 查询时可能读到
+    # 不相关的另一条判决。调用方需要稳定 case_id 时应显式传,不依赖这里的自动生成。
+    case_id = (
+        case_id or f"{abbr}-{_now_iso()[:10].replace('-', '')}-{uuid.uuid4().hex[:6]}"
+    )
     archive_id = case_id if archive else None
     if archive:
         try:

@@ -58,7 +58,7 @@ export function normalizeDepartmentPageCode(code: string): DepartmentPageCanonic
   return null;
 }
 
-function sealFor(code: DepartmentPageCanonicalCode): EdictView['seal'] {
+export function sealFor(code: DepartmentPageCanonicalCode): EdictView['seal'] {
   return code === 'legal' ? 'secret' : 'imperial';
 }
 
@@ -74,7 +74,7 @@ function statusFromOverview(overview?: DeptOverview | null): DepartmentPageView[
   return map[overview.status] ?? { label: '待命', tone: 'idle' };
 }
 
-function metricRailFromOverview(overview?: DeptOverview | null): DepartmentRailSection | null {
+export function metricRailFromOverview(overview?: DeptOverview | null): DepartmentRailSection | null {
   if (!overview?.keyMetrics?.length) return null;
   return {
     id: 'live-metrics',
@@ -90,7 +90,7 @@ function metricRailFromOverview(overview?: DeptOverview | null): DepartmentRailS
   };
 }
 
-function riskRailFromOverview(overview?: DeptOverview | null): DepartmentRailSection | null {
+export function riskRailFromOverview(overview?: DeptOverview | null): DepartmentRailSection | null {
   if (!overview?.risks?.length) return null;
   return {
     id: 'live-risks',
@@ -106,7 +106,7 @@ function riskRailFromOverview(overview?: DeptOverview | null): DepartmentRailSec
   };
 }
 
-function activeTasksRail(overview?: DeptOverview | null): DepartmentRailSection | null {
+export function activeTasksRail(overview?: DeptOverview | null): DepartmentRailSection | null {
   if (!overview?.activeTasks?.length) return null;
   return {
     id: 'active-tasks',
