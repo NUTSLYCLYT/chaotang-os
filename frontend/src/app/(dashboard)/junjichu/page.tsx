@@ -1336,12 +1336,12 @@ interface CommandQuickLink {
 }
 
 const COMMAND_DEPARTMENT_LINKS: Record<MinistryId, CommandQuickLink> = {
-  personnel: { label: '吏部', href: '/departments/personnel', tone: 'blue' },
-  finance: { label: '户部', href: '/departments/finance', tone: 'gold' },
+  personnel: { label: '吏部', href: '/liubu/libu', tone: 'blue' },
+  finance: { label: '户部', href: '/liubu/hubu', tone: 'gold' },
   ritual: { label: '礼部', href: '/departments/market', tone: 'plain' },
-  war: { label: '兵部', href: '/departments/ops', tone: 'green' },
-  justice: { label: '刑部', href: '/departments/legal', tone: 'red' },
-  works: { label: '工部', href: '/departments/gongbu', tone: 'green' },
+  war: { label: '兵部', href: '/liubu/bingbu', tone: 'green' },
+  justice: { label: '刑部', href: '/liubu/xingbu', tone: 'red' },
+  works: { label: '工部', href: '/liubu/gongbu', tone: 'green' },
 };
 
 function linkToneStyle(tone: CommandQuickLinkTone): CSSProperties {
@@ -2995,7 +2995,7 @@ function CommandCenterInner() {
                 >
                   {dispatchingBuild ? '立项中...' : '正式下旨立项'}
                 </button>
-                <Link href="/departments/gongbu" className="rounded-md border border-[#6BA0FF]/35 px-3 py-1.5 text-[12px] text-[#9FC1FF]">
+                <Link href="/liubu/gongbu" className="rounded-md border border-[#6BA0FF]/35 px-3 py-1.5 text-[12px] text-[#9FC1FF]">
                   回工部
                 </Link>
               </div>

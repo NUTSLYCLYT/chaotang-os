@@ -49,7 +49,7 @@ export const PILOT_GROUPS: PilotGroup[] = [
         name: '户部 · 投资决策',
         sub: '这笔钱该不该投：ROI + 风险 + 单向门',
         status: 'live',
-        href: '/departments/finance',
+        href: '/liubu/hubu',
         realDataSource: 'GET /api/court/hubu/overview(Turso) + hubu-engines(纯函数真算) + 录入真决策',
         verifiedReal: true,
         ahaVerified: true, // 实测:录入真决策→当场准奏/缓议+评分+风险(无缺证)
@@ -59,7 +59,7 @@ export const PILOT_GROUPS: PilotGroup[] = [
         name: '兵部 · 销售决策',
         sub: '签约/报价/谈判该不该接，CRO 裁决 + 风险把关',
         status: 'live',
-        href: '/departments/ops',
+        href: '/liubu/bingbu',
         // 文案对齐真实:驾驶舱是"成交/签约/报价/谈判把关"(不止获客);8司含商机/布阵(获客)+价策/渠道(成交)。
         realDataSource: 'GET /api/court/bingbu/overview(主库 tasks 销售语义) → CRO 引擎 evaluateSalesItem 真裁决(质门/缺证/跨审/钦天监死法地图)',
         verifiedReal: true,
