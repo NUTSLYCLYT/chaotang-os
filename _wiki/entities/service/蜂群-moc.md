@@ -11,6 +11,7 @@ status: stub
 - **kind**: service
 
 ## 来源
+- [[sources/01-daily-briefings-2026-07-09-moc]]
 
 - [[sources/01-daily-briefings-2026-06-30-moc]]
 
