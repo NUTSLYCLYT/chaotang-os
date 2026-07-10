@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-10T01:40:16.166Z",
+  "generatedAt": "2026-07-10T01:53:44.152Z",
   "status": "pass_with_legacy_exceptions",
   "summary": {
     "usedBackendRoutes": 74,
@@ -75,6 +75,7 @@
       "auth": false,
       "envelope": "unknown",
       "tests": [
+        "backend/tests/test_auth_invite.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_contract_alignment_p0.py",
         "backend/tests/test_login_rate_limit_and_cookie.py",
@@ -95,6 +96,7 @@
       "auth": false,
       "envelope": "unknown",
       "tests": [
+        "backend/tests/test_auth_invite.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_contract_alignment_p0.py",
         "backend/tests/test_login_rate_limit_and_cookie.py",
@@ -115,6 +117,7 @@
       "auth": false,
       "envelope": "unknown",
       "tests": [
+        "backend/tests/test_auth_invite.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_contract_alignment_p0.py",
         "backend/tests/test_login_rate_limit_and_cookie.py",
@@ -135,6 +138,7 @@
       "auth": false,
       "envelope": "unknown",
       "tests": [
+        "backend/tests/test_auth_invite.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_contract_alignment_p0.py",
         "backend/tests/test_login_rate_limit_and_cookie.py",

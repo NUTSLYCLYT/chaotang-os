@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-10T01:39:51.396Z",
+  "generatedAt": "2026-07-10T01:59:54.014Z",
   "status": "pass_with_warnings",
   "policy": {
     "uiLayerFrozen": true,
@@ -9,7 +9,7 @@
     "frontendBffViolations": 0,
     "uiLayerViolations": 0,
     "knownWorkspaceUiIssues": 2,
-    "inaccessibleFrontendPaths": 8
+    "inaccessibleFrontendPaths": 0
   },
   "findings": [
     {
@@ -23,151 +23,180 @@
       "code": "KNOWN_WORKSPACE_UI_ISSUE",
       "path": "frontend/src/features/hubu/components/hubu-finance-preview-panel.tsx",
       "details": "Pre-existing deleted/permission-denied UI path is still present in git status."
-    },
-    {
-      "severity": "warning",
-      "code": "INACCESSIBLE_FRONTEND_PATH",
-      "path": "frontend/src/features/bingbu/components",
-      "details": "EPERM"
-    },
-    {
-      "severity": "warning",
-      "code": "INACCESSIBLE_FRONTEND_PATH",
-      "path": "frontend/src/features/bingbu/hooks",
-      "details": "EPERM"
-    },
-    {
-      "severity": "warning",
-      "code": "INACCESSIBLE_FRONTEND_PATH",
-      "path": "frontend/src/features/gongbu/components",
-      "details": "EPERM"
-    },
-    {
-      "severity": "warning",
-      "code": "INACCESSIBLE_FRONTEND_PATH",
-      "path": "frontend/src/features/gongbu/hooks",
-      "details": "EPERM"
-    },
-    {
-      "severity": "warning",
-      "code": "INACCESSIBLE_FRONTEND_PATH",
-      "path": "frontend/src/features/hubu/components",
-      "details": "EPERM"
-    },
-    {
-      "severity": "warning",
-      "code": "INACCESSIBLE_FRONTEND_PATH",
-      "path": "frontend/src/features/hubu/hooks",
-      "details": "EPERM"
-    },
-    {
-      "severity": "warning",
-      "code": "INACCESSIBLE_FRONTEND_PATH",
-      "path": "frontend/src/features/libu/components",
-      "details": "EPERM"
-    },
-    {
-      "severity": "warning",
-      "code": "INACCESSIBLE_FRONTEND_PATH",
-      "path": "frontend/src/features/lifu/components",
-      "details": "EPERM"
     }
   ],
   "changedFiles": [
     {
       "status": " M",
-      "file": "backend/web/main.py",
+      "file": "backend/tests/test_contract_alignment_p0.py",
       "knownWorkspaceIssue": false,
       "uiLayer": false,
       "frontendBff": false
     },
     {
       "status": " M",
-      "file": "backend/web/routers/auth.py",
+      "file": "docs/api-contract-alias-retirement-audit-2026-07-09.json",
       "knownWorkspaceIssue": false,
       "uiLayer": false,
       "frontendBff": false
     },
     {
       "status": " M",
-      "file": "backend/web/routers/chaotang.py",
+      "file": "docs/api-contract-alias-retirement-audit-2026-07-09.md",
       "knownWorkspaceIssue": false,
       "uiLayer": false,
       "frontendBff": false
     },
     {
       "status": " M",
-      "file": "backend/web/routers/court_session.py",
+      "file": "docs/api-contract-all-matrix-audit-2026-07-09.json",
       "knownWorkspaceIssue": false,
       "uiLayer": false,
       "frontendBff": false
     },
     {
       "status": " M",
-      "file": "backend/web/routers/dadian.py",
+      "file": "docs/api-contract-all-matrix-audit-2026-07-09.md",
       "knownWorkspaceIssue": false,
       "uiLayer": false,
       "frontendBff": false
     },
     {
       "status": " M",
-      "file": "backend/web/routers/dept.py",
+      "file": "docs/api-contract-boundary-audit-2026-07-09.json",
       "knownWorkspaceIssue": false,
       "uiLayer": false,
       "frontendBff": false
     },
     {
       "status": " M",
-      "file": "backend/web/routers/legal.py",
+      "file": "docs/api-contract-boundary-audit-2026-07-09.md",
       "knownWorkspaceIssue": false,
       "uiLayer": false,
       "frontendBff": false
     },
     {
       "status": " M",
-      "file": "backend/web/routers/metrics.py",
+      "file": "docs/api-contract-client-layer-audit-2026-07-09.json",
       "knownWorkspaceIssue": false,
       "uiLayer": false,
       "frontendBff": false
     },
     {
       "status": " M",
-      "file": "backend/web/routers/shangshufang.py",
+      "file": "docs/api-contract-client-layer-audit-2026-07-09.md",
       "knownWorkspaceIssue": false,
       "uiLayer": false,
       "frontendBff": false
     },
     {
       "status": " M",
-      "file": "backend/web/routers/swarm.py",
+      "file": "docs/api-contract-exact-test-audit-2026-07-09.json",
       "knownWorkspaceIssue": false,
       "uiLayer": false,
       "frontendBff": false
     },
     {
       "status": " M",
-      "file": "backend/web/routers/swarm_runs.py",
+      "file": "docs/api-contract-exact-test-audit-2026-07-09.md",
       "knownWorkspaceIssue": false,
       "uiLayer": false,
       "frontendBff": false
     },
     {
       "status": " M",
-      "file": "backend/web/schemas/swarm.py",
+      "file": "docs/api-contract-implementation-audit-2026-07-09.json",
       "knownWorkspaceIssue": false,
       "uiLayer": false,
       "frontendBff": false
     },
     {
       "status": " M",
-      "file": "frontend/.harness/wiki/api-contracts.md",
+      "file": "docs/api-contract-implementation-audit-2026-07-09.md",
       "knownWorkspaceIssue": false,
       "uiLayer": false,
       "frontendBff": false
     },
     {
       "status": " M",
-      "file": "frontend/.harness/wiki/document-index.md",
+      "file": "docs/api-contract-inventory-2026-07-09.json",
+      "knownWorkspaceIssue": false,
+      "uiLayer": false,
+      "frontendBff": false
+    },
+    {
+      "status": " M",
+      "file": "docs/api-contract-inventory-2026-07-09.md",
+      "knownWorkspaceIssue": false,
+      "uiLayer": false,
+      "frontendBff": false
+    },
+    {
+      "status": " M",
+      "file": "docs/api-contract-openapi-2026-07-09.json",
+      "knownWorkspaceIssue": false,
+      "uiLayer": false,
+      "frontendBff": false
+    },
+    {
+      "status": " M",
+      "file": "docs/api-contract-p0-matrix-audit-2026-07-09.json",
+      "knownWorkspaceIssue": false,
+      "uiLayer": false,
+      "frontendBff": false
+    },
+    {
+      "status": " M",
+      "file": "docs/api-contract-p0-matrix-audit-2026-07-09.md",
+      "knownWorkspaceIssue": false,
+      "uiLayer": false,
+      "frontendBff": false
+    },
+    {
+      "status": " M",
+      "file": "docs/api-contract-response-envelope-audit-2026-07-09.json",
+      "knownWorkspaceIssue": false,
+      "uiLayer": false,
+      "frontendBff": false
+    },
+    {
+      "status": " M",
+      "file": "docs/api-contract-response-envelope-audit-2026-07-09.md",
+      "knownWorkspaceIssue": false,
+      "uiLayer": false,
+      "frontendBff": false
+    },
+    {
+      "status": " M",
+      "file": "docs/api-contract-route-snapshot-2026-07-09.json",
+      "knownWorkspaceIssue": false,
+      "uiLayer": false,
+      "frontendBff": false
+    },
+    {
+      "status": " M",
+      "file": "docs/api-contract-source-label-audit-2026-07-09.json",
+      "knownWorkspaceIssue": false,
+      "uiLayer": false,
+      "frontendBff": false
+    },
+    {
+      "status": " M",
+      "file": "docs/api-contract-source-label-audit-2026-07-09.md",
+      "knownWorkspaceIssue": false,
+      "uiLayer": false,
+      "frontendBff": false
+    },
+    {
+      "status": " M",
+      "file": "docs/api-contract-stability-report-2026-07-09.json",
+      "knownWorkspaceIssue": false,
+      "uiLayer": false,
+      "frontendBff": false
+    },
+    {
+      "status": " M",
+      "file": "docs/api-contract-stability-report-2026-07-09.md",
       "knownWorkspaceIssue": false,
       "uiLayer": false,
       "frontendBff": false
@@ -188,363 +217,13 @@
     },
     {
       "status": " M",
-      "file": "frontend/src/lib/backend-api.ts",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": ".harness/changes/docs-frontend-backend-contract-alignment-plan-20260709/",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "backend/tests/test_all_frontend_used_routes_exact_contract.py",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "backend/tests/test_contract_alignment_p0.py",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "backend/tests/test_court_session_api_contract.py",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "backend/tests/test_swarm_runs_api_contract.py",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "backend/web/routers/court_compat.py",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "backend/web/routers/governance_compat.py",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "backend/web/routers/orchestration_compat.py",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-alias-retirement-audit-2026-07-09.json",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-alias-retirement-audit-2026-07-09.md",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-all-matrix-audit-2026-07-09.json",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-all-matrix-audit-2026-07-09.md",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-boundary-audit-2026-07-09.json",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-boundary-audit-2026-07-09.md",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-client-layer-audit-2026-07-09.json",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-client-layer-audit-2026-07-09.md",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-exact-test-audit-2026-07-09.json",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-exact-test-audit-2026-07-09.md",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-frontend-access-audit-2026-07-09.json",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-frontend-access-audit-2026-07-09.md",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-implementation-audit-2026-07-09.json",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-implementation-audit-2026-07-09.md",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-inventory-2026-07-09.json",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-inventory-2026-07-09.md",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-openapi-2026-07-09.json",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-p0-matrix-audit-2026-07-09.json",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-p0-matrix-audit-2026-07-09.md",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-response-envelope-audit-2026-07-09.json",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-response-envelope-audit-2026-07-09.md",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-route-snapshot-2026-07-09.json",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-source-label-audit-2026-07-09.json",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-source-label-audit-2026-07-09.md",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-stability-report-2026-07-09.json",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/api-contract-stability-report-2026-07-09.md",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/frontend-backend-contract-alignment-plan-2026-07-09.md",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/shangshufang-integration-plan.md",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "docs/军机处-全功能三栏实施方案-2026-07-09.md",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "frontend/e2e/dadian-api-contract.spec.ts",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "frontend/src/features/bureaus/api/",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "frontend/src/features/dadian/api/",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "frontend/src/features/shangshufang/api/",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "frontend/src/lib/backend-api.nodetest.ts",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "frontend/src/lib/contracts/api-envelope.ts",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
       "file": "frontend/src/lib/contracts/backend-openapi-2026-07-09.d.ts",
       "knownWorkspaceIssue": false,
       "uiLayer": false,
       "frontendBff": false
     },
     {
-      "status": "??",
-      "file": "scripts/api-contract-alias-retirement-audit.mjs",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "scripts/api-contract-all-matrix-audit.mjs",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "scripts/api-contract-boundary-audit.mjs",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "scripts/api-contract-client-layer-audit.mjs",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "scripts/api-contract-exact-test-audit.mjs",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "scripts/api-contract-frontend-access-audit.mjs",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
+      "status": " M",
       "file": "scripts/api-contract-implementation-audit.mjs",
       "knownWorkspaceIssue": false,
       "uiLayer": false,
@@ -552,35 +231,14 @@
     },
     {
       "status": "??",
-      "file": "scripts/api-contract-inventory.mjs",
+      "file": "backend/knowledge/docs/ima_archived/",
       "knownWorkspaceIssue": false,
       "uiLayer": false,
       "frontendBff": false
     },
     {
       "status": "??",
-      "file": "scripts/api-contract-p0-matrix-audit.mjs",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "scripts/api-contract-response-envelope-audit.mjs",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "scripts/api-contract-source-label-audit.mjs",
-      "knownWorkspaceIssue": false,
-      "uiLayer": false,
-      "frontendBff": false
-    },
-    {
-      "status": "??",
-      "file": "scripts/api-contract-stability.mjs",
+      "file": "backend/knowledge/docs/ima_uploads/",
       "knownWorkspaceIssue": false,
       "uiLayer": false,
       "frontendBff": false

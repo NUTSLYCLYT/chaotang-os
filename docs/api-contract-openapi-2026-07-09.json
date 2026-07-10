@@ -1,6 +1,34 @@
 {
   "components": {
     "schemas": {
+      "_ChronicleRequest": {
+        "properties": {
+          "days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days"
+          },
+          "type": {
+            "default": "日史",
+            "enum": [
+              "日史",
+              "周史",
+              "月史",
+              "专题史"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "title": "_ChronicleRequest",
+        "type": "object"
+      },
       "_DepartmentRouteRequest": {
         "properties": {
           "context": {
@@ -17,6 +45,84 @@
           "task"
         ],
         "title": "_DepartmentRouteRequest",
+        "type": "object"
+      },
+      "_ImaKnowledgeStatusRequest": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "archived"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ],
+        "title": "_ImaKnowledgeStatusRequest",
+        "type": "object"
+      },
+      "_ImaKnowledgeUploadRequest": {
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "lastModified": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastmodified"
+          },
+          "mimeType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mimetype"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size"
+          },
+          "source": {
+            "default": "shangshufang_upload",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "filename",
+          "content"
+        ],
+        "title": "_ImaKnowledgeUploadRequest",
         "type": "object"
       },
       "_QuickCommandRequest": {
@@ -72,6 +178,16 @@
             },
             "title": "Lessons",
             "type": "array"
+          },
+          "outcome": {
+            "default": "pending",
+            "enum": [
+              "success",
+              "blocked",
+              "pending"
+            ],
+            "title": "Outcome",
+            "type": "string"
           },
           "playbook": {
             "anyOf": [
@@ -4854,19 +4970,19 @@
       "VerifyInviteRequest": {
         "properties": {
           "code": {
+            "default": "",
+            "maxLength": 64,
             "title": "Code",
             "type": "string"
           }
         },
-        "required": [
-          "code"
-        ],
         "title": "VerifyInviteRequest",
         "type": "object"
       },
       "VerifyInviteResponse": {
         "properties": {
           "message": {
+            "default": "",
             "title": "Message",
             "type": "string"
           },
@@ -4876,8 +4992,7 @@
           }
         },
         "required": [
-          "valid",
-          "message"
+          "valid"
         ],
         "title": "VerifyInviteResponse",
         "type": "object"
@@ -5197,6 +5312,12 @@
             "title": "Email",
             "type": "string"
           },
+          "invite_code": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Invite Code",
+            "type": "string"
+          },
           "password": {
             "maxLength": 256,
             "minLength": 6,
@@ -5213,7 +5334,8 @@
         "required": [
           "username",
           "email",
-          "password"
+          "password",
+          "invite_code"
         ],
         "title": "RegisterRequest",
         "type": "object"
@@ -6987,6 +7109,7 @@
     },
     "/api/auth/verify-invite": {
       "post": {
+        "description": "校验邀请码是否可用 — 只读预览，不消耗次数（真正消耗发生在 /register）。",
         "operationId": "api_verify_invite_api_auth_verify_invite_post",
         "requestBody": {
           "content": {
@@ -7793,6 +7916,84 @@
           }
         },
         "summary": "Archive Retrospective Save",
+        "tags": [
+          "chaotang"
+        ]
+      }
+    },
+    "/api/chaotang/archive/chronicle": {
+      "post": {
+        "description": "史册生成:窗口内真实奏折/决策/复盘聚合 + LLM 写一段摘要。按需生成,不归档存表\n(是否要建史册归档表是独立产品决策,见 docs/shiguan-jinyiwei-wiring-plan P3)。",
+        "operationId": "archive_chronicle_api_chaotang_archive_chronicle_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/_ChronicleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Archive Chronicle Api Chaotang Archive Chronicle Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Archive Chronicle",
         "tags": [
           "chaotang"
         ]
@@ -12435,6 +12636,81 @@
         "summary": "Ima Knowledge Patch",
         "tags": [
           "governance-compat"
+        ]
+      },
+      "post": {
+        "operationId": "ima_knowledge_upload_api_court_ima_knowledge_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/_ImaKnowledgeUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Ima Knowledge Upload Api Court Ima Knowledge Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ima Knowledge Upload",
+        "tags": [
+          "ima-knowledge"
         ]
       }
     },

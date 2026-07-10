@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-10T01:40:33.342Z |
+| Generated at | 2026-07-10T01:59:54.118Z |
 | Overall | in_progress |
 | Done | 11 |
 | Blocked | 3 |
@@ -31,7 +31,7 @@
 
 | Code | Details | Evidence |
 | --- | --- | --- |
-| FRONTEND_TYPECHECK_BLOCKED_BY_WORKSPACE_UI_ISSUES | Two imported UI modules are deleted/permission-denied and eight frontend feature paths are inaccessible. | frontend/src/features/bingbu/components/bingbu-quotation-verdict-panel.tsx<br>frontend/src/features/hubu/components/hubu-finance-preview-panel.tsx<br>docs/api-contract-boundary-audit-2026-07-09.md |
+| FRONTEND_TYPECHECK_BLOCKED_BY_WORKSPACE_UI_ISSUES | Two imported UI modules are deleted/permission-denied; inaccessible frontend paths: 0. | frontend/src/features/bingbu/components/bingbu-quotation-verdict-panel.tsx<br>frontend/src/features/hubu/components/hubu-finance-preview-panel.tsx<br>docs/api-contract-boundary-audit-2026-07-09.md |
 | FRONTEND_ACCESS_CONVERGENCE_BLOCKED_BY_UI_FREEZE | 30 existing page/component/hook call sites need migration to business clients/adapters. | docs/api-contract-frontend-access-audit-2026-07-09.md<br>docs/frontend-backend-contract-alignment-plan-2026-07-09.md |
 
 ## Policy

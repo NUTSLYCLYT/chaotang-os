@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-10T01:40:33.675Z |
+| Generated at | 2026-07-10T01:53:44.660Z |
 | Status | pass |
 | Used backend routes | 74 |
 | Exact routes | 74 |
@@ -30,7 +30,7 @@ None.
 | GET /api/court/backend/tasks/{task_id} | backend/tests/test_all_frontend_used_routes_exact_contract.py |
 | GET /api/court/chancellor-advice | backend/tests/test_dadian_api.py |
 | GET /api/court/decision-judgment | backend/tests/test_dadian_api.py |
-| GET /api/court/ima-knowledge | backend/tests/test_contract_alignment_p0.py |
+| GET /api/court/ima-knowledge | backend/tests/test_contract_alignment_p0.py<br>backend/tests/test_ima_knowledge.py |
 | GET /api/court/shiguan/promo-archive | backend/tests/test_contract_alignment_p0.py |
 | GET /api/court/shiguan/release-gates | backend/tests/test_contract_alignment_p0.py |
 | GET /api/court/true-chain-health | backend/tests/test_contract_alignment_p0.py |
@@ -43,7 +43,7 @@ None.
 | GET /api/legal/overview | backend/tests/test_all_frontend_used_routes_exact_contract.py |
 | GET /api/runs/stream/{task_id} | backend/tests/test_production_observability.py<br>backend/tests/test_system_communication_topology.py |
 | GET /api/runs/stream/{task_id}/status | backend/tests/test_production_observability.py<br>backend/tests/test_system_communication_topology.py |
-| GET /api/scribe/lessons | backend/tests/test_contract_alignment_p0.py |
+| GET /api/scribe/lessons | backend/tests/test_contract_alignment_p0.py<br>backend/tests/test_scribe_lessons.py |
 | GET /api/shangshufang/home | backend/tests/test_shangshufang_loop_api.py |
 | GET /api/shangshufang/tasks/{task_id}/status | backend/tests/test_shangshufang_loop_api.py<br>backend/tests/test_swarm_execution_loop_api.py |
 | GET /api/swarm-runs/{swarm_run_id} | backend/tests/test_all_frontend_used_routes_exact_contract.py<br>backend/tests/test_swarm_execution_loop_api.py<br>backend/tests/test_swarm_runs_api_contract.py |
@@ -52,11 +52,11 @@ None.
 | GET /api/swarm/roster | backend/tests/test_swarm_roster.py |
 | GET /api/swarm/sessions/{session_id} | backend/tests/test_chaotang_launch_loop.py<br>backend/tests/test_chaotang_study_run_edict.py<br>backend/tests/test_chaotang_true_loop_contract.py<br>backend/tests/test_finance_intel_loop_contract.py<br>backend/tests/test_pack_rd_report.py<br>backend/tests/test_swarm_release_gate.py<br>backend/tests/test_swarm_roster.py<br>backend/tests/test_system_communication_topology.py |
 | PATCH /api/chaotang/tasks/{task_id}/persist | backend/tests/test_chaotang_tasks.py<br>backend/tests/test_endpoints_s10.py |
-| PATCH /api/court/ima-knowledge | backend/tests/test_contract_alignment_p0.py |
+| PATCH /api/court/ima-knowledge | backend/tests/test_contract_alignment_p0.py<br>backend/tests/test_ima_knowledge.py |
 | POST /api/auth/login | backend/tests/test_login_rate_limit_and_cookie.py<br>backend/tests/test_web_api.py |
 | POST /api/auth/logout | backend/tests/test_web_api.py |
-| POST /api/auth/register | backend/tests/test_register_no_enumeration.py |
-| POST /api/auth/verify-invite | backend/tests/test_contract_alignment_p0.py |
+| POST /api/auth/register | backend/tests/test_auth_invite.py<br>backend/tests/test_register_no_enumeration.py |
+| POST /api/auth/verify-invite | backend/tests/test_auth_invite.py<br>backend/tests/test_contract_alignment_p0.py |
 | POST /api/chaotang/archive/knowledge/feedback | backend/tests/test_be7_knowledge_feedback.py |
 | POST /api/chaotang/decree/{task_id}/proceed | backend/tests/test_chaotang_decree.py<br>backend/tests/test_endpoints_s10.py |
 | POST /api/chaotang/tasks/persist | backend/tests/test_chaotang_tasks.py |

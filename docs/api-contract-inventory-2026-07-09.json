@@ -1,6 +1,6 @@
 {
   "schemaVersion": "ApiContractInventoryV1",
-  "generatedAt": "2026-07-10T01:40:18.350Z",
+  "generatedAt": "2026-07-10T01:53:31.717Z",
   "policy": {
     "uiLayerFrozen": true,
     "noNewFrontendBff": true,
@@ -8,8 +8,8 @@
   },
   "summary": {
     "frontendCalls": 91,
-    "backendRoutes": 298,
-    "inaccessiblePaths": 8,
+    "backendRoutes": 303,
+    "inaccessiblePaths": 0,
     "byStatus": {
       "MATCHED": 75,
       "PATH_ALIAS": 16
@@ -61,10 +61,11 @@
         "path": "/api/auth/logout",
         "router": "auth",
         "file": "backend/web/routers/auth.py",
-        "line": 202,
+        "line": 231,
         "auth": false,
         "envelope": "unknown",
         "tests": [
+          "backend/tests/test_auth_invite.py",
           "backend/tests/test_auth_whitelist.py",
           "backend/tests/test_contract_alignment_p0.py",
           "backend/tests/test_login_rate_limit_and_cookie.py",
@@ -98,10 +99,11 @@
         "path": "/api/auth/verify-invite",
         "router": "auth",
         "file": "backend/web/routers/auth.py",
-        "line": 65,
+        "line": 55,
         "auth": false,
         "envelope": "unknown",
         "tests": [
+          "backend/tests/test_auth_invite.py",
           "backend/tests/test_auth_whitelist.py",
           "backend/tests/test_contract_alignment_p0.py",
           "backend/tests/test_login_rate_limit_and_cookie.py",
@@ -135,10 +137,11 @@
         "path": "/api/auth/verify-invite",
         "router": "auth",
         "file": "backend/web/routers/auth.py",
-        "line": 65,
+        "line": 55,
         "auth": false,
         "envelope": "unknown",
         "tests": [
+          "backend/tests/test_auth_invite.py",
           "backend/tests/test_auth_whitelist.py",
           "backend/tests/test_contract_alignment_p0.py",
           "backend/tests/test_login_rate_limit_and_cookie.py",
@@ -172,10 +175,11 @@
         "path": "/api/auth/login",
         "router": "auth",
         "file": "backend/web/routers/auth.py",
-        "line": 143,
+        "line": 174,
         "auth": false,
         "envelope": "unknown",
         "tests": [
+          "backend/tests/test_auth_invite.py",
           "backend/tests/test_auth_whitelist.py",
           "backend/tests/test_contract_alignment_p0.py",
           "backend/tests/test_login_rate_limit_and_cookie.py",
@@ -209,10 +213,11 @@
         "path": "/api/auth/register",
         "router": "auth",
         "file": "backend/web/routers/auth.py",
-        "line": 75,
+        "line": 90,
         "auth": false,
         "envelope": "unknown",
         "tests": [
+          "backend/tests/test_auth_invite.py",
           "backend/tests/test_auth_whitelist.py",
           "backend/tests/test_contract_alignment_p0.py",
           "backend/tests/test_login_rate_limit_and_cookie.py",
@@ -290,7 +295,8 @@
           "backend/tests/test_court_observability_and_wait_hint.py",
           "backend/tests/test_court_router.py",
           "backend/tests/test_court_session_api_contract.py",
-          "backend/tests/test_dadian_api.py"
+          "backend/tests/test_dadian_api.py",
+          "backend/tests/test_ima_knowledge.py"
         ]
       },
       "notes": "Method/path matched and at least one related backend test was found."
@@ -325,6 +331,7 @@
         "tests": [
           "backend/tests/test_admin_depts.py",
           "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+          "backend/tests/test_archive_chronicle.py",
           "backend/tests/test_auth_whitelist.py",
           "backend/tests/test_be6_real_data.py",
           "backend/tests/test_be7_knowledge_feedback.py",
@@ -385,7 +392,8 @@
           "backend/tests/test_court_observability_and_wait_hint.py",
           "backend/tests/test_court_router.py",
           "backend/tests/test_court_session_api_contract.py",
-          "backend/tests/test_dadian_api.py"
+          "backend/tests/test_dadian_api.py",
+          "backend/tests/test_ima_knowledge.py"
         ]
       },
       "notes": "Method/path matched and at least one related backend test was found."
@@ -414,11 +422,12 @@
         "path": "/api/chaotang/archive/search",
         "router": "chaotang",
         "file": "backend/web/routers/chaotang.py",
-        "line": 1703,
+        "line": 1812,
         "auth": true,
         "envelope": "success-data-error-or-ok-helper",
         "tests": [
           "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+          "backend/tests/test_archive_chronicle.py",
           "backend/tests/test_auth_whitelist.py",
           "backend/tests/test_be6_real_data.py",
           "backend/tests/test_be7_knowledge_feedback.py",
@@ -484,11 +493,12 @@
         "path": "/api/chaotang/archive/knowledge/count",
         "router": "chaotang",
         "file": "backend/web/routers/chaotang.py",
-        "line": 1487,
+        "line": 1596,
         "auth": true,
         "envelope": "success-data-error-or-ok-helper",
         "tests": [
           "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+          "backend/tests/test_archive_chronicle.py",
           "backend/tests/test_auth_whitelist.py",
           "backend/tests/test_be6_real_data.py",
           "backend/tests/test_be7_knowledge_feedback.py",
@@ -554,11 +564,12 @@
         "path": "/api/chaotang/archive/knowledge/feedback",
         "router": "chaotang",
         "file": "backend/web/routers/chaotang.py",
-        "line": 1500,
+        "line": 1609,
         "auth": true,
         "envelope": "success-data-error-or-ok-helper",
         "tests": [
           "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+          "backend/tests/test_archive_chronicle.py",
           "backend/tests/test_auth_whitelist.py",
           "backend/tests/test_be6_real_data.py",
           "backend/tests/test_be7_knowledge_feedback.py",
@@ -623,11 +634,12 @@
         "path": "/api/chaotang/decree/{task_id}/proceed",
         "router": "chaotang",
         "file": "backend/web/routers/chaotang.py",
-        "line": 1880,
+        "line": 1991,
         "auth": true,
         "envelope": "success-data-error-or-ok-helper",
         "tests": [
           "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+          "backend/tests/test_archive_chronicle.py",
           "backend/tests/test_auth_whitelist.py",
           "backend/tests/test_be6_real_data.py",
           "backend/tests/test_be7_knowledge_feedback.py",
@@ -913,7 +925,8 @@
           "backend/tests/test_court_observability_and_wait_hint.py",
           "backend/tests/test_court_router.py",
           "backend/tests/test_court_session_api_contract.py",
-          "backend/tests/test_dadian_api.py"
+          "backend/tests/test_dadian_api.py",
+          "backend/tests/test_ima_knowledge.py"
         ]
       },
       "notes": "Method/path matched and at least one related backend test was found."
@@ -987,7 +1000,8 @@
           "backend/tests/test_court_observability_and_wait_hint.py",
           "backend/tests/test_court_router.py",
           "backend/tests/test_court_session_api_contract.py",
-          "backend/tests/test_dadian_api.py"
+          "backend/tests/test_dadian_api.py",
+          "backend/tests/test_ima_knowledge.py"
         ]
       },
       "notes": "Method/path matched and at least one related backend test was found."
@@ -1112,6 +1126,7 @@
         "tests": [
           "backend/tests/test_admin_depts.py",
           "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+          "backend/tests/test_archive_chronicle.py",
           "backend/tests/test_auth_whitelist.py",
           "backend/tests/test_be6_real_data.py",
           "backend/tests/test_be7_knowledge_feedback.py",
@@ -1594,7 +1609,8 @@
           "backend/tests/test_court_router.py",
           "backend/tests/test_court_session_api_contract.py",
           "backend/tests/test_dadian_api.py",
-          "backend/tests/test_hubu_finance_dispatch.py"
+          "backend/tests/test_hubu_finance_dispatch.py",
+          "backend/tests/test_ima_knowledge.py"
         ]
       },
       "notes": "Method/path matched and at least one related backend test was found."
@@ -1704,7 +1720,8 @@
         "auth": false,
         "envelope": "success-data-error-or-ok-helper",
         "tests": [
-          "backend/tests/test_contract_alignment_p0.py"
+          "backend/tests/test_contract_alignment_p0.py",
+          "backend/tests/test_scribe_lessons.py"
         ]
       },
       "notes": "Method/path matched and at least one related backend test was found."
@@ -1743,7 +1760,8 @@
           "backend/tests/test_court_observability_and_wait_hint.py",
           "backend/tests/test_court_router.py",
           "backend/tests/test_court_session_api_contract.py",
-          "backend/tests/test_dadian_api.py"
+          "backend/tests/test_dadian_api.py",
+          "backend/tests/test_ima_knowledge.py"
         ]
       },
       "notes": "Method/path matched and at least one related backend test was found."
@@ -2260,7 +2278,8 @@
           "backend/tests/test_court_observability_and_wait_hint.py",
           "backend/tests/test_court_router.py",
           "backend/tests/test_court_session_api_contract.py",
-          "backend/tests/test_dadian_api.py"
+          "backend/tests/test_dadian_api.py",
+          "backend/tests/test_ima_knowledge.py"
         ]
       },
       "notes": "Method/path matched and at least one related backend test was found."
@@ -2299,7 +2318,8 @@
           "backend/tests/test_court_observability_and_wait_hint.py",
           "backend/tests/test_court_router.py",
           "backend/tests/test_court_session_api_contract.py",
-          "backend/tests/test_dadian_api.py"
+          "backend/tests/test_dadian_api.py",
+          "backend/tests/test_ima_knowledge.py"
         ]
       },
       "notes": "Method/path matched and at least one related backend test was found."
@@ -2339,7 +2359,8 @@
           "backend/tests/test_court_router.py",
           "backend/tests/test_court_session_api_contract.py",
           "backend/tests/test_dadian_api.py",
-          "backend/tests/test_hubu_finance_dispatch.py"
+          "backend/tests/test_hubu_finance_dispatch.py",
+          "backend/tests/test_ima_knowledge.py"
         ]
       },
       "notes": "Method/path matched and at least one related backend test was found."
@@ -2378,7 +2399,8 @@
           "backend/tests/test_court_observability_and_wait_hint.py",
           "backend/tests/test_court_router.py",
           "backend/tests/test_court_session_api_contract.py",
-          "backend/tests/test_dadian_api.py"
+          "backend/tests/test_dadian_api.py",
+          "backend/tests/test_ima_knowledge.py"
         ]
       },
       "notes": "Method/path matched and at least one related backend test was found."
@@ -2459,7 +2481,8 @@
           "backend/tests/test_court_observability_and_wait_hint.py",
           "backend/tests/test_court_router.py",
           "backend/tests/test_court_session_api_contract.py",
-          "backend/tests/test_dadian_api.py"
+          "backend/tests/test_dadian_api.py",
+          "backend/tests/test_ima_knowledge.py"
         ]
       },
       "notes": "Method/path matched and at least one related backend test was found."
@@ -2492,7 +2515,8 @@
         "auth": false,
         "envelope": "success-data-error-or-ok-helper",
         "tests": [
-          "backend/tests/test_contract_alignment_p0.py"
+          "backend/tests/test_contract_alignment_p0.py",
+          "backend/tests/test_scribe_lessons.py"
         ]
       },
       "notes": "Method/path matched and at least one related backend test was found."
@@ -2531,7 +2555,8 @@
           "backend/tests/test_court_observability_and_wait_hint.py",
           "backend/tests/test_court_router.py",
           "backend/tests/test_court_session_api_contract.py",
-          "backend/tests/test_dadian_api.py"
+          "backend/tests/test_dadian_api.py",
+          "backend/tests/test_ima_knowledge.py"
         ]
       },
       "notes": "Method/path matched and at least one related backend test was found."
@@ -2570,7 +2595,8 @@
           "backend/tests/test_court_observability_and_wait_hint.py",
           "backend/tests/test_court_router.py",
           "backend/tests/test_court_session_api_contract.py",
-          "backend/tests/test_dadian_api.py"
+          "backend/tests/test_dadian_api.py",
+          "backend/tests/test_ima_knowledge.py"
         ]
       },
       "notes": "Method/path matched and at least one related backend test was found."
@@ -2609,7 +2635,8 @@
           "backend/tests/test_court_observability_and_wait_hint.py",
           "backend/tests/test_court_router.py",
           "backend/tests/test_court_session_api_contract.py",
-          "backend/tests/test_dadian_api.py"
+          "backend/tests/test_dadian_api.py",
+          "backend/tests/test_ima_knowledge.py"
         ]
       },
       "notes": "Method/path matched and at least one related backend test was found."
@@ -2681,7 +2708,8 @@
           "backend/tests/test_court_observability_and_wait_hint.py",
           "backend/tests/test_court_router.py",
           "backend/tests/test_court_session_api_contract.py",
-          "backend/tests/test_dadian_api.py"
+          "backend/tests/test_dadian_api.py",
+          "backend/tests/test_ima_knowledge.py"
         ]
       },
       "notes": "Method/path matched and at least one related backend test was found."
@@ -2832,7 +2860,8 @@
           "backend/tests/test_court_observability_and_wait_hint.py",
           "backend/tests/test_court_router.py",
           "backend/tests/test_court_session_api_contract.py",
-          "backend/tests/test_dadian_api.py"
+          "backend/tests/test_dadian_api.py",
+          "backend/tests/test_ima_knowledge.py"
         ]
       },
       "notes": "Method/path matched and at least one related backend test was found."
@@ -2871,7 +2900,8 @@
           "backend/tests/test_court_observability_and_wait_hint.py",
           "backend/tests/test_court_router.py",
           "backend/tests/test_court_session_api_contract.py",
-          "backend/tests/test_dadian_api.py"
+          "backend/tests/test_dadian_api.py",
+          "backend/tests/test_ima_knowledge.py"
         ]
       },
       "notes": "Method/path matched and at least one related backend test was found."
@@ -2914,6 +2944,7 @@
           "backend/tests/test_dadian_api.py",
           "backend/tests/test_haolong_final_output_fallback.py",
           "backend/tests/test_ima_final_output_fallback.py",
+          "backend/tests/test_ima_knowledge.py",
           "backend/tests/test_open_source_security_install.py",
           "backend/tests/test_product_redline_fallback.py",
           "backend/tests/test_release_final_output_fallbacks.py",
@@ -2956,7 +2987,8 @@
           "backend/tests/test_court_observability_and_wait_hint.py",
           "backend/tests/test_court_router.py",
           "backend/tests/test_court_session_api_contract.py",
-          "backend/tests/test_dadian_api.py"
+          "backend/tests/test_dadian_api.py",
+          "backend/tests/test_ima_knowledge.py"
         ]
       },
       "notes": "Method/path matched and at least one related backend test was found."
@@ -3140,7 +3172,8 @@
           "backend/tests/test_court_observability_and_wait_hint.py",
           "backend/tests/test_court_router.py",
           "backend/tests/test_court_session_api_contract.py",
-          "backend/tests/test_dadian_api.py"
+          "backend/tests/test_dadian_api.py",
+          "backend/tests/test_ima_knowledge.py"
         ]
       },
       "notes": "Method/path matched and at least one related backend test was found."
@@ -3644,11 +3677,12 @@
         "path": "/api/chaotang/tasks/persist",
         "router": "chaotang",
         "file": "backend/web/routers/chaotang.py",
-        "line": 381,
+        "line": 382,
         "auth": true,
         "envelope": "success-data-error-or-ok-helper",
         "tests": [
           "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+          "backend/tests/test_archive_chronicle.py",
           "backend/tests/test_auth_whitelist.py",
           "backend/tests/test_be6_real_data.py",
           "backend/tests/test_be7_knowledge_feedback.py",
@@ -3714,11 +3748,12 @@
         "path": "/api/chaotang/tasks/{task_id}/persist",
         "router": "chaotang",
         "file": "backend/web/routers/chaotang.py",
-        "line": 417,
+        "line": 418,
         "auth": true,
         "envelope": "success-data-error-or-ok-helper",
         "tests": [
           "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+          "backend/tests/test_archive_chronicle.py",
           "backend/tests/test_auth_whitelist.py",
           "backend/tests/test_be6_real_data.py",
           "backend/tests/test_be7_knowledge_feedback.py",
@@ -3784,11 +3819,12 @@
         "path": "/api/chaotang/tasks",
         "router": "chaotang",
         "file": "backend/web/routers/chaotang.py",
-        "line": 455,
+        "line": 456,
         "auth": true,
         "envelope": "success-data-error-or-ok-helper",
         "tests": [
           "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+          "backend/tests/test_archive_chronicle.py",
           "backend/tests/test_auth_whitelist.py",
           "backend/tests/test_be6_real_data.py",
           "backend/tests/test_be7_knowledge_feedback.py",
@@ -3853,11 +3889,12 @@
         "path": "/api/chaotang/tasks/{task_id}",
         "router": "chaotang",
         "file": "backend/web/routers/chaotang.py",
-        "line": 517,
+        "line": 518,
         "auth": true,
         "envelope": "success-data-error-or-ok-helper",
         "tests": [
           "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+          "backend/tests/test_archive_chronicle.py",
           "backend/tests/test_auth_whitelist.py",
           "backend/tests/test_be6_real_data.py",
           "backend/tests/test_be7_knowledge_feedback.py",
@@ -4171,10 +4208,11 @@
       "path": "/api/auth/verify-invite",
       "router": "auth",
       "file": "backend/web/routers/auth.py",
-      "line": 65,
+      "line": 55,
       "auth": false,
       "envelope": "unknown",
       "tests": [
+        "backend/tests/test_auth_invite.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_contract_alignment_p0.py",
         "backend/tests/test_login_rate_limit_and_cookie.py",
@@ -4187,10 +4225,11 @@
       "path": "/api/auth/register",
       "router": "auth",
       "file": "backend/web/routers/auth.py",
-      "line": 75,
+      "line": 90,
       "auth": false,
       "envelope": "unknown",
       "tests": [
+        "backend/tests/test_auth_invite.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_contract_alignment_p0.py",
         "backend/tests/test_login_rate_limit_and_cookie.py",
@@ -4203,10 +4242,11 @@
       "path": "/api/auth/login",
       "router": "auth",
       "file": "backend/web/routers/auth.py",
-      "line": 143,
+      "line": 174,
       "auth": false,
       "envelope": "unknown",
       "tests": [
+        "backend/tests/test_auth_invite.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_contract_alignment_p0.py",
         "backend/tests/test_login_rate_limit_and_cookie.py",
@@ -4219,10 +4259,11 @@
       "path": "/api/auth/me",
       "router": "auth",
       "file": "backend/web/routers/auth.py",
-      "line": 187,
+      "line": 216,
       "auth": true,
       "envelope": "unknown",
       "tests": [
+        "backend/tests/test_auth_invite.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_build_investment_risk_memorial_cli.py",
         "backend/tests/test_build_supply_chain_memorial_cli.py",
@@ -4262,10 +4303,11 @@
       "path": "/api/auth/logout",
       "router": "auth",
       "file": "backend/web/routers/auth.py",
-      "line": 202,
+      "line": 231,
       "auth": false,
       "envelope": "unknown",
       "tests": [
+        "backend/tests/test_auth_invite.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_contract_alignment_p0.py",
         "backend/tests/test_login_rate_limit_and_cookie.py",
@@ -4370,11 +4412,12 @@
       "path": "/api/chaotang/throne/overview",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 75,
+      "line": 76,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -4418,11 +4461,12 @@
       "path": "/api/chaotang/manor/groups",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 141,
+      "line": 142,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -4467,11 +4511,12 @@
       "path": "/api/chaotang/system/status",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 158,
+      "line": 159,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -4515,11 +4560,12 @@
       "path": "/api/chaotang/department-system",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 163,
+      "line": 164,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -4563,11 +4609,12 @@
       "path": "/api/chaotang/department-system/route",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 174,
+      "line": 175,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -4617,11 +4664,12 @@
       "path": "/api/chaotang/decree/draft",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 186,
+      "line": 187,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -4666,11 +4714,12 @@
       "path": "/api/chaotang/decree/dispatch",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 220,
+      "line": 221,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -4715,11 +4764,12 @@
       "path": "/api/chaotang/stream/{task_id}",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 327,
+      "line": 328,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -4763,11 +4813,12 @@
       "path": "/api/chaotang/tasks/persist",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 381,
+      "line": 382,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -4812,11 +4863,12 @@
       "path": "/api/chaotang/tasks/{task_id}/persist",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 417,
+      "line": 418,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -4861,11 +4913,12 @@
       "path": "/api/chaotang/tasks",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 455,
+      "line": 456,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -4909,11 +4962,12 @@
       "path": "/api/chaotang/tasks/{task_id}",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 517,
+      "line": 518,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -4957,11 +5011,12 @@
       "path": "/api/chaotang/memorials",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 615,
+      "line": 616,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -5005,11 +5060,12 @@
       "path": "/api/chaotang/memorials/{run_id}",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 672,
+      "line": 673,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -5053,11 +5109,12 @@
       "path": "/api/chaotang/memorials/{run_id}/review",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 699,
+      "line": 700,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -5105,11 +5162,12 @@
       "path": "/api/chaotang/study/briefing",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 733,
+      "line": 734,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -5153,12 +5211,13 @@
       "path": "/api/chaotang/study/run",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 797,
+      "line": 798,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/golden/run_golden.py",
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -5208,11 +5267,12 @@
       "path": "/api/chaotang/launch-loop/cases",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 976,
+      "line": 977,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -5256,11 +5316,12 @@
       "path": "/api/chaotang/archive",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 1468,
+      "line": 1469,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -5304,15 +5365,65 @@
       ]
     },
     {
-      "method": "GET",
-      "path": "/api/chaotang/archive/knowledge/count",
+      "method": "POST",
+      "path": "/api/chaotang/archive/chronicle",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 1487,
+      "line": 1500,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
+        "backend/tests/test_auth_whitelist.py",
+        "backend/tests/test_be6_real_data.py",
+        "backend/tests/test_be7_knowledge_feedback.py",
+        "backend/tests/test_chaotang_agents.py",
+        "backend/tests/test_chaotang_assemble.py",
+        "backend/tests/test_chaotang_business_model.py",
+        "backend/tests/test_chaotang_closed_loop.py",
+        "backend/tests/test_chaotang_decree.py",
+        "backend/tests/test_chaotang_department_autosubmit.py",
+        "backend/tests/test_chaotang_department_protocol.py",
+        "backend/tests/test_chaotang_department_router.py",
+        "backend/tests/test_chaotang_department_submit.py",
+        "backend/tests/test_chaotang_draft.py",
+        "backend/tests/test_chaotang_launch_loop.py",
+        "backend/tests/test_chaotang_manor_dept.py",
+        "backend/tests/test_chaotang_memorials.py",
+        "backend/tests/test_chaotang_merit_system.py",
+        "backend/tests/test_chaotang_router_basic.py",
+        "backend/tests/test_chaotang_run.py",
+        "backend/tests/test_chaotang_sansheng.py",
+        "backend/tests/test_chaotang_schemas.py",
+        "backend/tests/test_chaotang_smoke_real.py",
+        "backend/tests/test_chaotang_store.py",
+        "backend/tests/test_chaotang_study_archive.py",
+        "backend/tests/test_chaotang_study_run_edict.py",
+        "backend/tests/test_chaotang_tasks.py",
+        "backend/tests/test_chaotang_task_protocol.py",
+        "backend/tests/test_chaotang_true_loop_contract.py",
+        "backend/tests/test_chaotang_uiux_system.py",
+        "backend/tests/test_chaotang_ui_page.py",
+        "backend/tests/test_endpoints_s10.py",
+        "backend/tests/test_hubu_cashflow_endpoint.py",
+        "backend/tests/test_hubu_finance_intake.py",
+        "backend/tests/test_hubu_financial_reporting.py",
+        "backend/tests/test_hubu_payment_preview_api.py",
+        "backend/tests/test_manor_group_subagents.py"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/chaotang/archive/knowledge/count",
+      "router": "chaotang",
+      "file": "backend/web/routers/chaotang.py",
+      "line": 1596,
+      "auth": true,
+      "envelope": "success-data-error-or-ok-helper",
+      "tests": [
+        "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -5357,11 +5468,12 @@
       "path": "/api/chaotang/archive/knowledge/feedback",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 1500,
+      "line": 1609,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -5405,11 +5517,12 @@
       "path": "/api/chaotang/study/teaching",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 1558,
+      "line": 1667,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -5453,11 +5566,12 @@
       "path": "/api/chaotang/throne/quick-summon",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 1631,
+      "line": 1740,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -5501,11 +5615,12 @@
       "path": "/api/chaotang/archive/search",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 1703,
+      "line": 1812,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -5550,11 +5665,12 @@
       "path": "/api/chaotang/archive/{task_id}/retrospective",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 1766,
+      "line": 1875,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -5598,11 +5714,12 @@
       "path": "/api/chaotang/archive/{task_id}/retrospective",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 1799,
+      "line": 1910,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -5646,11 +5763,12 @@
       "path": "/api/chaotang/study/quick-command",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 1819,
+      "line": 1930,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -5694,11 +5812,12 @@
       "path": "/api/chaotang/decree/{task_id}/proceed",
       "router": "chaotang",
       "file": "backend/web/routers/chaotang.py",
-      "line": 1880,
+      "line": 1991,
       "auth": true,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -5893,6 +6012,7 @@
         "backend/tests/test_court_state_and_roles.py",
         "backend/tests/test_dadian_api.py",
         "backend/tests/test_hubu_cashflow_court_doc.py",
+        "backend/tests/test_ima_knowledge.py",
         "backend/tests/test_pending_action.py"
       ]
     },
@@ -5918,6 +6038,7 @@
         "backend/tests/test_court_state_and_roles.py",
         "backend/tests/test_dadian_api.py",
         "backend/tests/test_hubu_cashflow_court_doc.py",
+        "backend/tests/test_ima_knowledge.py",
         "backend/tests/test_register_no_enumeration.py"
       ]
     },
@@ -5943,6 +6064,7 @@
         "backend/tests/test_court_state_and_roles.py",
         "backend/tests/test_dadian_api.py",
         "backend/tests/test_hubu_cashflow_court_doc.py",
+        "backend/tests/test_ima_knowledge.py",
         "backend/tests/test_pending_action.py"
       ]
     },
@@ -5967,7 +6089,8 @@
         "backend/tests/test_court_session_api_contract.py",
         "backend/tests/test_court_state_and_roles.py",
         "backend/tests/test_dadian_api.py",
-        "backend/tests/test_hubu_cashflow_court_doc.py"
+        "backend/tests/test_hubu_cashflow_court_doc.py",
+        "backend/tests/test_ima_knowledge.py"
       ]
     },
     {
@@ -5995,7 +6118,8 @@
         "backend/tests/test_cross_dept_conflict.py",
         "backend/tests/test_dadian_api.py",
         "backend/tests/test_dept_doc_and_swarm_bridge.py",
-        "backend/tests/test_hubu_cashflow_court_doc.py"
+        "backend/tests/test_hubu_cashflow_court_doc.py",
+        "backend/tests/test_ima_knowledge.py"
       ]
     },
     {
@@ -6025,6 +6149,7 @@
         "backend/tests/test_decision_guard.py",
         "backend/tests/test_h1_terminal_persist.py",
         "backend/tests/test_hubu_cashflow_court_doc.py",
+        "backend/tests/test_ima_knowledge.py",
         "backend/tests/test_irreversible_output_lock.py",
         "backend/tests/test_pack_rd_sizing.py",
         "backend/tests/test_qintianjian_signals.py",
@@ -6051,7 +6176,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ]
     },
     {
@@ -6069,7 +6195,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ]
     },
     {
@@ -6087,7 +6214,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ]
     },
     {
@@ -6105,7 +6233,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ]
     },
     {
@@ -6127,6 +6256,7 @@
         "backend/tests/test_dadian_api.py",
         "backend/tests/test_haolong_final_output_fallback.py",
         "backend/tests/test_ima_final_output_fallback.py",
+        "backend/tests/test_ima_knowledge.py",
         "backend/tests/test_open_source_security_install.py",
         "backend/tests/test_product_redline_fallback.py",
         "backend/tests/test_release_final_output_fallbacks.py",
@@ -6148,7 +6278,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ]
     },
     {
@@ -6166,7 +6297,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ]
     },
     {
@@ -6220,7 +6352,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ]
     },
     {
@@ -6239,7 +6372,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ]
     },
     {
@@ -6257,7 +6391,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ]
     },
     {
@@ -6275,7 +6410,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ]
     },
     {
@@ -6293,7 +6429,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ]
     },
     {
@@ -6307,6 +6444,7 @@
       "tests": [
         "backend/tests/test_admin_depts.py",
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -6841,7 +6979,8 @@
       "auth": false,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
-        "backend/tests/test_contract_alignment_p0.py"
+        "backend/tests/test_contract_alignment_p0.py",
+        "backend/tests/test_scribe_lessons.py"
       ]
     },
     {
@@ -6853,7 +6992,8 @@
       "auth": false,
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
-        "backend/tests/test_contract_alignment_p0.py"
+        "backend/tests/test_contract_alignment_p0.py",
+        "backend/tests/test_scribe_lessons.py"
       ]
     },
     {
@@ -6871,7 +7011,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ]
     },
     {
@@ -6889,7 +7030,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ]
     },
     {
@@ -6907,7 +7049,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ]
     },
     {
@@ -6925,7 +7068,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ]
     },
     {
@@ -6955,7 +7099,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ]
     },
     {
@@ -6973,7 +7118,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ]
     },
     {
@@ -7026,6 +7172,7 @@
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -7073,6 +7220,7 @@
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -7120,6 +7268,7 @@
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -7167,6 +7316,7 @@
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -7214,6 +7364,7 @@
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -7261,6 +7412,7 @@
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -7299,6 +7451,63 @@
       ]
     },
     {
+      "method": "GET",
+      "path": "/api/court/ima-knowledge",
+      "router": "ima_knowledge",
+      "file": "backend/web/routers/ima_knowledge.py",
+      "line": 37,
+      "auth": true,
+      "envelope": "success-data-error-or-ok-helper",
+      "tests": [
+        "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_contract_alignment_p0.py",
+        "backend/tests/test_court_flywheel_button.py",
+        "backend/tests/test_court_observability_and_wait_hint.py",
+        "backend/tests/test_court_router.py",
+        "backend/tests/test_court_session_api_contract.py",
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/court/ima-knowledge",
+      "router": "ima_knowledge",
+      "file": "backend/web/routers/ima_knowledge.py",
+      "line": 46,
+      "auth": true,
+      "envelope": "success-data-error-or-ok-helper",
+      "tests": [
+        "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_contract_alignment_p0.py",
+        "backend/tests/test_court_flywheel_button.py",
+        "backend/tests/test_court_observability_and_wait_hint.py",
+        "backend/tests/test_court_router.py",
+        "backend/tests/test_court_session_api_contract.py",
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/court/ima-knowledge",
+      "router": "ima_knowledge",
+      "file": "backend/web/routers/ima_knowledge.py",
+      "line": 59,
+      "auth": true,
+      "envelope": "success-data-error-or-ok-helper",
+      "tests": [
+        "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_contract_alignment_p0.py",
+        "backend/tests/test_court_flywheel_button.py",
+        "backend/tests/test_court_observability_and_wait_hint.py",
+        "backend/tests/test_court_router.py",
+        "backend/tests/test_court_session_api_contract.py",
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
+      ]
+    },
+    {
       "method": "POST",
       "path": "/api/intel/brief",
       "router": "jinyiwei",
@@ -7325,6 +7534,7 @@
       "envelope": "unknown",
       "tests": [
         "backend/tests/test_be7_knowledge_feedback.py",
+        "backend/tests/test_ima_knowledge.py",
         "backend/tests/test_jinyiwei_search.py",
         "backend/tests/test_knowledge_inject.py",
         "backend/tests/test_knowledge_rag.py",
@@ -7343,6 +7553,7 @@
       "envelope": "unknown",
       "tests": [
         "backend/tests/test_be7_knowledge_feedback.py",
+        "backend/tests/test_ima_knowledge.py",
         "backend/tests/test_knowledge_inject.py",
         "backend/tests/test_knowledge_rag.py",
         "backend/tests/test_knowledge_router.py",
@@ -7360,6 +7571,7 @@
       "envelope": "unknown",
       "tests": [
         "backend/tests/test_be7_knowledge_feedback.py",
+        "backend/tests/test_ima_knowledge.py",
         "backend/tests/test_knowledge_inject.py",
         "backend/tests/test_knowledge_rag.py",
         "backend/tests/test_knowledge_router.py",
@@ -7379,6 +7591,7 @@
       "envelope": "unknown",
       "tests": [
         "backend/tests/test_be7_knowledge_feedback.py",
+        "backend/tests/test_ima_knowledge.py",
         "backend/tests/test_knowledge_inject.py",
         "backend/tests/test_knowledge_rag.py",
         "backend/tests/test_knowledge_router.py",
@@ -7396,6 +7609,7 @@
       "envelope": "unknown",
       "tests": [
         "backend/tests/test_be7_knowledge_feedback.py",
+        "backend/tests/test_ima_knowledge.py",
         "backend/tests/test_knowledge_inject.py",
         "backend/tests/test_knowledge_rag.py",
         "backend/tests/test_knowledge_router.py",
@@ -7413,6 +7627,7 @@
       "envelope": "unknown",
       "tests": [
         "backend/tests/test_be7_knowledge_feedback.py",
+        "backend/tests/test_ima_knowledge.py",
         "backend/tests/test_knowledge_inject.py",
         "backend/tests/test_knowledge_rag.py",
         "backend/tests/test_knowledge_router.py",
@@ -7430,6 +7645,7 @@
       "envelope": "unknown",
       "tests": [
         "backend/tests/test_be7_knowledge_feedback.py",
+        "backend/tests/test_ima_knowledge.py",
         "backend/tests/test_knowledge_inject.py",
         "backend/tests/test_knowledge_rag.py",
         "backend/tests/test_knowledge_router.py",
@@ -7671,6 +7887,7 @@
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -7704,6 +7921,7 @@
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -7737,6 +7955,7 @@
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -7770,6 +7989,7 @@
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -7803,6 +8023,7 @@
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -7836,6 +8057,7 @@
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -7869,6 +8091,7 @@
       "envelope": "success-data-error-or-ok-helper",
       "tests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -8206,7 +8429,8 @@
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
         "backend/tests/test_dadian_api.py",
-        "backend/tests/test_hubu_finance_dispatch.py"
+        "backend/tests/test_hubu_finance_dispatch.py",
+        "backend/tests/test_ima_knowledge.py"
       ]
     },
     {
@@ -8224,7 +8448,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ]
     },
     {
@@ -8900,6 +9125,19 @@
     },
     {
       "method": "GET",
+      "path": "/api/scribe/lessons",
+      "router": "scribe",
+      "file": "backend/web/routers/scribe.py",
+      "line": 21,
+      "auth": true,
+      "envelope": "success-data-error-or-ok-helper",
+      "tests": [
+        "backend/tests/test_contract_alignment_p0.py",
+        "backend/tests/test_scribe_lessons.py"
+      ]
+    },
+    {
+      "method": "GET",
       "path": "/api/shangshufang/home",
       "router": "shangshufang",
       "file": "backend/web/routers/shangshufang.py",
@@ -9109,6 +9347,7 @@
         "backend/tests/test_hubu_financial_reporting.py",
         "backend/tests/test_hubu_real_data_importer.py",
         "backend/tests/test_ima_final_output_fallback.py",
+        "backend/tests/test_ima_knowledge.py",
         "backend/tests/test_init_hubu_finance_import_workspace.py",
         "backend/tests/test_investment_import_parser.py",
         "backend/tests/test_login_rate_limit_and_cookie.py",
@@ -9133,6 +9372,7 @@
         "backend/tests/test_hubu_financial_reporting.py",
         "backend/tests/test_hubu_real_data_importer.py",
         "backend/tests/test_ima_final_output_fallback.py",
+        "backend/tests/test_ima_knowledge.py",
         "backend/tests/test_init_hubu_finance_import_workspace.py",
         "backend/tests/test_investment_import_parser.py",
         "backend/tests/test_login_rate_limit_and_cookie.py",
@@ -9713,46 +9953,5 @@
       ]
     }
   ],
-  "inaccessiblePaths": [
-    {
-      "inaccessible": true,
-      "path": "frontend/src/features/bingbu/components",
-      "error": "EPERM"
-    },
-    {
-      "inaccessible": true,
-      "path": "frontend/src/features/bingbu/hooks",
-      "error": "EPERM"
-    },
-    {
-      "inaccessible": true,
-      "path": "frontend/src/features/gongbu/components",
-      "error": "EPERM"
-    },
-    {
-      "inaccessible": true,
-      "path": "frontend/src/features/gongbu/hooks",
-      "error": "EPERM"
-    },
-    {
-      "inaccessible": true,
-      "path": "frontend/src/features/hubu/components",
-      "error": "EPERM"
-    },
-    {
-      "inaccessible": true,
-      "path": "frontend/src/features/hubu/hooks",
-      "error": "EPERM"
-    },
-    {
-      "inaccessible": true,
-      "path": "frontend/src/features/libu/components",
-      "error": "EPERM"
-    },
-    {
-      "inaccessible": true,
-      "path": "frontend/src/features/lifu/components",
-      "error": "EPERM"
-    }
-  ]
+  "inaccessiblePaths": []
 }

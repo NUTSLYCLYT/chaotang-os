@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-07-10T01:40:46.554Z",
-  "routeCount": 297,
+  "generatedAt": "2026-07-10T01:54:12.696Z",
+  "routeCount": 299,
   "routes": [
     {
       "key": "DELETE /api/admin/depts/{dept_id}",
@@ -2381,6 +2381,20 @@
       }
     },
     {
+      "key": "POST /api/chaotang/archive/chronicle",
+      "method": "POST",
+      "path": "/api/chaotang/archive/chronicle",
+      "operationId": "archive_chronicle_api_chaotang_archive_chronicle_post",
+      "tags": [
+        "chaotang"
+      ],
+      "requestBody": "#/components/schemas/_ChronicleRequest",
+      "responses": {
+        "200": "object",
+        "422": "#/components/schemas/HTTPValidationError"
+      }
+    },
+    {
       "key": "POST /api/chaotang/archive/knowledge/feedback",
       "method": "POST",
       "path": "/api/chaotang/archive/knowledge/feedback",
@@ -2739,6 +2753,20 @@
         "orchestration-compat"
       ],
       "requestBody": "object",
+      "responses": {
+        "200": "object",
+        "422": "#/components/schemas/HTTPValidationError"
+      }
+    },
+    {
+      "key": "POST /api/court/ima-knowledge",
+      "method": "POST",
+      "path": "/api/court/ima-knowledge",
+      "operationId": "ima_knowledge_upload_api_court_ima_knowledge_post",
+      "tags": [
+        "ima-knowledge"
+      ],
+      "requestBody": "#/components/schemas/_ImaKnowledgeUploadRequest",
       "responses": {
         "200": "object",
         "422": "#/components/schemas/HTTPValidationError"

@@ -1,22 +1,26 @@
 from fastapi.testclient import TestClient
+from uuid import uuid4
 
+from src.tenant import create_invite
 from web.main import app
 from web.routers import court_compat
 from web.schemas.auth import CurrentUser
 
 
-def test_verify_invite_accepts_seed_code():
-    response = TestClient(app).post("/api/auth/verify-invite", json={"code": " court2026 "})
+def test_verify_invite_accepts_real_unconsumed_code():
+    code = f"P0-{uuid4().hex[:12]}"
+    create_invite(code, max_uses=1)
+    response = TestClient(app).post("/api/auth/verify-invite", json={"code": f" {code} "})
 
     assert response.status_code == 200
-    assert response.json() == {"valid": True, "message": "邀请码有效"}
+    assert response.json()["valid"] is True
 
 
 def test_verify_invite_rejects_unknown_code():
     response = TestClient(app).post("/api/auth/verify-invite", json={"code": "not-real"})
 
-    assert response.status_code == 200
-    assert response.json()["valid"] is False
+    assert response.status_code == 403
+    assert response.json()["detail"]["valid"] is False
 
 
 def test_court_backend_task_detail_returns_legacy_shape(monkeypatch):
@@ -250,7 +254,7 @@ def test_scribe_and_shiguan_contracts_return_empty_backend_states():
     ).json()
     assert annal["sourceEventIds"] == ["e1"]
 
-    assert client.get("/api/scribe/lessons").json()["lessons"] == []
+    assert client.get("/api/scribe/lessons").json()["data"]["lessons"] == []
     assert client.post("/api/court/shiguan/analyze").json()["citations"] == []
     assert client.get("/api/court/shiguan/release-gates").json()["success"] is True
     assert client.get("/api/court/shiguan/promo-archive").json()["success"] is True
@@ -263,15 +267,22 @@ def test_scribe_and_shiguan_contracts_return_empty_backend_states():
 
 def test_ima_knowledge_patch_and_list_contract():
     client = TestClient(app)
+    filename = f"doc-{uuid4().hex[:12]}.md"
+    uploaded = client.post(
+        "/api/court/ima-knowledge",
+        json={"filename": filename, "content": "contract evidence"},
+    ).json()
+    assert uploaded["data"]["document"]["id"] == filename
+
     patched = client.patch(
         "/api/court/ima-knowledge",
-        json={"id": "doc-1", "status": "active"},
+        json={"id": filename, "status": "archived"},
     ).json()
 
-    assert patched["data"]["document"]["id"] == "doc-1"
+    assert patched["data"]["document"]["id"] == filename
     listed = client.get("/api/court/ima-knowledge?limit=20").json()
     assert listed["success"] is True
-    assert listed["data"]["documents"][0]["id"] == "doc-1"
+    assert any(document["id"] == filename for document in listed["data"]["documents"])
 
 
 def test_medical_chat_contract_streams_sse_tokens():

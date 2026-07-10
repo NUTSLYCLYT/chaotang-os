@@ -99,8 +99,7 @@ async function main() {
     boundary.summary?.uiLayerViolations === 0
   );
   const frontendTypecheckBlocked = Boolean(
-    boundary?.summary?.knownWorkspaceUiIssues >= 2 &&
-    boundary?.summary?.inaccessibleFrontendPaths >= 8
+    boundary?.summary?.knownWorkspaceUiIssues >= 2
   );
 
   const files = {
@@ -364,7 +363,7 @@ async function main() {
   if (frontendTypecheckBlocked) {
     blockers.push({
       code: 'FRONTEND_TYPECHECK_BLOCKED_BY_WORKSPACE_UI_ISSUES',
-      details: 'Two imported UI modules are deleted/permission-denied and eight frontend feature paths are inaccessible.',
+      details: `Two imported UI modules are deleted/permission-denied; inaccessible frontend paths: ${boundary?.summary?.inaccessibleFrontendPaths ?? 0}.`,
       evidence: [
         'frontend/src/features/bingbu/components/bingbu-quotation-verdict-panel.tsx',
         'frontend/src/features/hubu/components/hubu-finance-preview-panel.tsx',

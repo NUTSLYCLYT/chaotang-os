@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-07-10T01:40:46.556Z",
+  "generatedAt": "2026-07-10T01:54:12.700Z",
   "status": "pass",
-  "routeCount": 297,
+  "routeCount": 299,
   "artifacts": {
     "openapi": "docs\\api-contract-openapi-2026-07-09.json",
     "routeSnapshot": "docs\\api-contract-route-snapshot-2026-07-09.json",
@@ -10,6 +10,15 @@
   "diff": {
     "mode": "diff_checked",
     "breaking": [],
-    "warnings": []
+    "warnings": [
+      {
+        "type": "route_added",
+        "key": "POST /api/chaotang/archive/chronicle"
+      },
+      {
+        "type": "route_added",
+        "key": "POST /api/court/ima-knowledge"
+      }
+    ]
   }
 }

@@ -2,12 +2,12 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-10T01:40:46.556Z |
+| Generated at | 2026-07-10T01:54:12.700Z |
 | Status | pass |
 | Diff mode | diff_checked |
-| Route count | 297 |
+| Route count | 299 |
 | Breaking changes | 0 |
-| Warnings | 0 |
+| Warnings | 2 |
 
 ## Artifacts
 
@@ -21,7 +21,10 @@ None.
 
 ## Warnings
 
-None.
+| Type | Key |
+| --- | --- |
+| route_added | POST /api/chaotang/archive/chronicle |
+| route_added | POST /api/court/ima-knowledge |
 
 ## CI Policy
 

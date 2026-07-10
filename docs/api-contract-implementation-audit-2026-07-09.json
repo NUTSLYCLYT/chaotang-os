@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-10T01:40:33.342Z",
+  "generatedAt": "2026-07-10T01:59:54.118Z",
   "overall": "in_progress",
   "summary": {
     "done": 11,
@@ -176,7 +176,7 @@
   "blockers": [
     {
       "code": "FRONTEND_TYPECHECK_BLOCKED_BY_WORKSPACE_UI_ISSUES",
-      "details": "Two imported UI modules are deleted/permission-denied and eight frontend feature paths are inaccessible.",
+      "details": "Two imported UI modules are deleted/permission-denied; inaccessible frontend paths: 0.",
       "evidence": [
         "frontend/src/features/bingbu/components/bingbu-quotation-verdict-panel.tsx",
         "frontend/src/features/hubu/components/hubu-finance-preview-panel.tsx",

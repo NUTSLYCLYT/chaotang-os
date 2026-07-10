@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-10T01:40:16.188Z",
+  "generatedAt": "2026-07-10T01:53:44.222Z",
   "status": "pass",
   "summary": {
     "usedBackendRoutes": 74,
@@ -13,7 +13,7 @@
       "method": "GET",
       "path": "/api/chaotang/archive/knowledge/count",
       "file": "backend/web/routers/chaotang.py",
-      "line": 1487,
+      "line": 1596,
       "frontendCalls": [
         "frontend/src/features/command-center/junjichu/api/archive.ts:20"
       ],
@@ -25,7 +25,7 @@
       "method": "GET",
       "path": "/api/chaotang/archive/search",
       "file": "backend/web/routers/chaotang.py",
-      "line": 1703,
+      "line": 1812,
       "frontendCalls": [
         "frontend/src/features/command-center/junjichu/api/archive.ts:15"
       ],
@@ -50,7 +50,7 @@
       "method": "GET",
       "path": "/api/chaotang/tasks",
       "file": "backend/web/routers/chaotang.py",
-      "line": 455,
+      "line": 456,
       "frontendCalls": [
         "frontend/src/lib/server/jiqun-task-persistence.ts:152"
       ],
@@ -62,7 +62,7 @@
       "method": "GET",
       "path": "/api/chaotang/tasks/{task_id}",
       "file": "backend/web/routers/chaotang.py",
-      "line": 517,
+      "line": 518,
       "frontendCalls": [
         "frontend/src/lib/server/jiqun-task-persistence.ts:171"
       ],
@@ -330,7 +330,7 @@
       "method": "PATCH",
       "path": "/api/chaotang/tasks/{task_id}/persist",
       "file": "backend/web/routers/chaotang.py",
-      "line": 417,
+      "line": 418,
       "frontendCalls": [
         "frontend/src/lib/server/jiqun-task-persistence.ts:128"
       ],
@@ -354,7 +354,7 @@
       "method": "POST",
       "path": "/api/chaotang/archive/knowledge/feedback",
       "file": "backend/web/routers/chaotang.py",
-      "line": 1500,
+      "line": 1609,
       "frontendCalls": [
         "frontend/src/features/command-center/junjichu/api/archive.ts:29"
       ],
@@ -366,7 +366,7 @@
       "method": "POST",
       "path": "/api/chaotang/decree/{task_id}/proceed",
       "file": "backend/web/routers/chaotang.py",
-      "line": 1880,
+      "line": 1991,
       "frontendCalls": [
         "frontend/src/features/command-center/junjichu/api/governance.ts:4"
       ],
@@ -378,7 +378,7 @@
       "method": "POST",
       "path": "/api/chaotang/tasks/persist",
       "file": "backend/web/routers/chaotang.py",
-      "line": 381,
+      "line": 382,
       "frontendCalls": [
         "frontend/src/lib/server/jiqun-task-persistence.ts:104"
       ],
@@ -847,7 +847,7 @@
       "method": "POST",
       "path": "/api/auth/login",
       "file": "backend/web/routers/auth.py",
-      "line": 143,
+      "line": 174,
       "frontendCalls": [
         "frontend/src/app/login/page.tsx:38"
       ],
@@ -859,7 +859,7 @@
       "method": "POST",
       "path": "/api/auth/logout",
       "file": "backend/web/routers/auth.py",
-      "line": 202,
+      "line": 231,
       "frontendCalls": [
         "frontend/src/app/(dashboard)/layout.tsx:35"
       ],
@@ -871,7 +871,7 @@
       "method": "POST",
       "path": "/api/auth/register",
       "file": "backend/web/routers/auth.py",
-      "line": 75,
+      "line": 90,
       "frontendCalls": [
         "frontend/src/app/register/page.tsx:61"
       ],
@@ -883,7 +883,7 @@
       "method": "POST",
       "path": "/api/auth/verify-invite",
       "file": "backend/web/routers/auth.py",
-      "line": 65,
+      "line": 55,
       "frontendCalls": [
         "frontend/src/app/invite/InviteLanding.tsx:32",
         "frontend/src/app/invite/page.tsx:41"

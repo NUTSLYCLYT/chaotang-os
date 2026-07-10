@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-10T01:40:33.339Z",
+  "generatedAt": "2026-07-10T01:53:44.201Z",
   "status": "pass",
   "summary": {
     "frontendCalls": 91,
@@ -16,6 +16,7 @@
       "backendOwner": "backend/web/routers/chaotang.py",
       "backendTests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -79,6 +80,7 @@
       "backendOwner": "backend/web/routers/chaotang.py",
       "backendTests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -143,6 +145,7 @@
       "backendTests": [
         "backend/tests/test_admin_depts.py",
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -193,6 +196,7 @@
       "backendOwner": "backend/web/routers/chaotang.py",
       "backendTests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -254,6 +258,7 @@
       "backendOwner": "backend/web/routers/chaotang.py",
       "backendTests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -345,7 +350,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ],
       "frontendCalls": [
         "frontend/src/features/command-center/hooks/use-command-center-data.ts:73",
@@ -378,7 +384,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ],
       "frontendCalls": [
         "frontend/src/features/dadian/components/ChancellorTodayCard.tsx:31"
@@ -410,7 +417,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ],
       "frontendCalls": [
         "frontend/src/features/shared/components/DecisionTrustBar.tsx:23"
@@ -441,7 +449,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ],
       "frontendCalls": [
         "frontend/src/features/shiguan-ui/components/ShiguanPage.tsx:238"
@@ -471,7 +480,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ],
       "frontendCalls": [
         "frontend/src/features/shiguan-ui/components/ShiguanPromoArchive.tsx:29"
@@ -501,7 +511,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ],
       "frontendCalls": [
         "frontend/src/features/shiguan-ui/components/ShiguanPage.tsx:223"
@@ -531,7 +542,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ],
       "frontendCalls": [
         "frontend/src/features/shangshufang/components/ChaotangTopNav.tsx:252"
@@ -561,7 +573,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ],
       "frontendCalls": [
         "frontend/src/lib/api/chaotang.ts:444"
@@ -811,7 +824,8 @@
       "domain": "archive",
       "backendOwner": "backend/web/routers/governance_compat.py",
       "backendTests": [
-        "backend/tests/test_contract_alignment_p0.py"
+        "backend/tests/test_contract_alignment_p0.py",
+        "backend/tests/test_scribe_lessons.py"
       ],
       "frontendCalls": [
         "frontend/src/features/shiguan-ui/components/ShiguanPage.tsx:207"
@@ -1066,6 +1080,7 @@
       "backendOwner": "backend/web/routers/chaotang.py",
       "backendTests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -1133,7 +1148,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ],
       "frontendCalls": [
         "frontend/src/features/shiguan-ui/components/ShiguanPage.tsx:257"
@@ -1157,6 +1173,7 @@
       "domain": "auth",
       "backendOwner": "backend/web/routers/auth.py",
       "backendTests": [
+        "backend/tests/test_auth_invite.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_contract_alignment_p0.py",
         "backend/tests/test_login_rate_limit_and_cookie.py",
@@ -1187,6 +1204,7 @@
       "domain": "auth",
       "backendOwner": "backend/web/routers/auth.py",
       "backendTests": [
+        "backend/tests/test_auth_invite.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_contract_alignment_p0.py",
         "backend/tests/test_login_rate_limit_and_cookie.py",
@@ -1217,6 +1235,7 @@
       "domain": "auth",
       "backendOwner": "backend/web/routers/auth.py",
       "backendTests": [
+        "backend/tests/test_auth_invite.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_contract_alignment_p0.py",
         "backend/tests/test_login_rate_limit_and_cookie.py",
@@ -1247,6 +1266,7 @@
       "domain": "auth",
       "backendOwner": "backend/web/routers/auth.py",
       "backendTests": [
+        "backend/tests/test_auth_invite.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_contract_alignment_p0.py",
         "backend/tests/test_login_rate_limit_and_cookie.py",
@@ -1279,6 +1299,7 @@
       "backendOwner": "backend/web/routers/chaotang.py",
       "backendTests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -1341,6 +1362,7 @@
       "backendOwner": "backend/web/routers/chaotang.py",
       "backendTests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -1403,6 +1425,7 @@
       "backendOwner": "backend/web/routers/chaotang.py",
       "backendTests": [
         "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+        "backend/tests/test_archive_chronicle.py",
         "backend/tests/test_auth_whitelist.py",
         "backend/tests/test_be6_real_data.py",
         "backend/tests/test_be7_knowledge_feedback.py",
@@ -1496,7 +1519,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ],
       "frontendCalls": [
         "frontend/src/features/bureaus/components/BureauPageViewShell.tsx:71"
@@ -1528,7 +1552,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ],
       "frontendCalls": [
         "frontend/src/features/shared/components/DecisionJudgment.tsx:31"
@@ -1559,7 +1584,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ],
       "frontendCalls": [
         "frontend/src/features/shared/components/swarm-dispatch-panel.tsx:37"
@@ -1592,7 +1618,8 @@
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
         "backend/tests/test_dadian_api.py",
-        "backend/tests/test_hubu_finance_dispatch.py"
+        "backend/tests/test_hubu_finance_dispatch.py",
+        "backend/tests/test_ima_knowledge.py"
       ],
       "frontendCalls": [
         "frontend/src/features/intel/components/route-to-task-dialog.tsx:92",
@@ -1624,7 +1651,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ],
       "frontendCalls": [
         "frontend/src/features/command-center/views/CasesView.tsx:223"
@@ -1656,7 +1684,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ],
       "frontendCalls": [
         "frontend/src/lib/api/chaotang.ts:332"
@@ -1690,6 +1719,7 @@
         "backend/tests/test_dadian_api.py",
         "backend/tests/test_haolong_final_output_fallback.py",
         "backend/tests/test_ima_final_output_fallback.py",
+        "backend/tests/test_ima_knowledge.py",
         "backend/tests/test_open_source_security_install.py",
         "backend/tests/test_product_redline_fallback.py",
         "backend/tests/test_release_final_output_fallbacks.py",
@@ -1723,7 +1753,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ],
       "frontendCalls": [
         "frontend/src/lib/api/chaotang.ts:367"
@@ -1753,7 +1784,8 @@
         "backend/tests/test_court_observability_and_wait_hint.py",
         "backend/tests/test_court_router.py",
         "backend/tests/test_court_session_api_contract.py",
-        "backend/tests/test_dadian_api.py"
+        "backend/tests/test_dadian_api.py",
+        "backend/tests/test_ima_knowledge.py"
       ],
       "frontendCalls": [
         "frontend/src/features/shiguan/lib/use-shiguan.ts:82"
@@ -2058,7 +2090,8 @@
       "domain": "archive",
       "backendOwner": "backend/web/routers/governance_compat.py",
       "backendTests": [
-        "backend/tests/test_contract_alignment_p0.py"
+        "backend/tests/test_contract_alignment_p0.py",
+        "backend/tests/test_scribe_lessons.py"
       ],
       "frontendCalls": [
         "frontend/src/features/scribe/components/annals-reader.tsx:85"
