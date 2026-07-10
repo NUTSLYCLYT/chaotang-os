@@ -7,6 +7,7 @@ POST /api/shangshufang/confirm-edict
 GET  /api/shangshufang/tasks/{task_id}/status
 POST /api/shangshufang/tasks/{task_id}/decision
 """
+
 from __future__ import annotations
 
 import json
@@ -22,6 +23,7 @@ from web.routers._envelope import fail, ok
 from web.schemas.auth import CurrentUser
 from web.schemas.swarm import SwarmRunRequest
 
+from src.chancellor.routing_service import chancellor_routing_service, legacy_route_dict
 from src.finance_intel_loop_contract import build_finance_intel_session
 from src.hubu_financial_reporting import build_shangshufang_finance_reporting_loop
 from src.db.models import (
@@ -45,7 +47,10 @@ from src.shangshufang_loop import (
     routing_plan_for,
 )
 from src.swarm_execution_loop import run_swarm_execution_loop
-from src.swarm_persistence import attach_swarm_result_to_review, persist_swarm_execution_result
+from src.swarm_persistence import (
+    attach_swarm_result_to_review,
+    persist_swarm_execution_result,
+)
 from src.swarm_orchestrator import SESSIONS_DIR
 
 router = APIRouter(prefix="/api/shangshufang", tags=["shangshufang"])
@@ -68,10 +73,23 @@ class ConfirmEdictRequest(BaseModel):
     task_id: str
     confirmed: bool = True
     edited_edict: dict[str, Any] | None = None
+    # 方案7.2节：路由必须依据这份最终确认正文，不是 edited_edict 里内嵌的
+    # refined_edict(那是丞相生成的元描述模板，含"请军机处组织XX参审"字样，
+    # 重新解析会自我污染出多余部门命中)。未传时退回 task.raw_question。
+    confirmed_edict_text: str | None = None
+    idempotency_key: str | None = None
 
 
 class DecisionRequest(BaseModel):
-    action: Literal["approve", "archive", "adopt", "reject", "request_evidence", "recheck", "followup"]
+    action: Literal[
+        "approve",
+        "archive",
+        "adopt",
+        "reject",
+        "request_evidence",
+        "recheck",
+        "followup",
+    ]
     reason: str = ""
     human_confirmed: bool = True
     human_confirmation_note: str | None = None
@@ -120,7 +138,9 @@ def _clean_llm_polish_output(text: str, original: str) -> str | None:
     if not cleaned:
         return None
     if "\n" in cleaned:
-        cleaned = " ".join(part.strip() for part in cleaned.splitlines() if part.strip())
+        cleaned = " ".join(
+            part.strip() for part in cleaned.splitlines() if part.strip()
+        )
     if len(cleaned) > max(800, len(original) * 4):
         return None
     for word in _POLISH_FORBIDDEN_WORDS:
@@ -143,7 +163,11 @@ def _llm_polish_edict_text(raw_question: str, mode: str) -> str | None:
         if not api_key and "localhost" not in api_base and "127.0.0.1" not in api_base:
             return None
 
-        tone = "密旨口吻，克制、明确、不可外泄" if mode == "secret" else "正式口吻，清楚、简洁、可执行"
+        tone = (
+            "密旨口吻，克制、明确、不可外泄"
+            if mode == "secret"
+            else "正式口吻，清楚、简洁、可执行"
+        )
         adapter = ModelAdapter(
             model=model,
             api_base=api_base,
@@ -317,8 +341,16 @@ def _chancellor_fallback_reply(message: str) -> str:
         if route.get("mode") == "direct"
         else "此事风险或缺口较多，若要执行，应先转军机处会审。"
     )
-    gaps = f"缺口：{'、'.join(edict.unknown_gaps[:3])}。" if edict.unknown_gaps else "当前未识别到必须阻断初判的证据缺口。"
-    risks = f"风险：{'、'.join(edict.risk_flags[:3])}。" if edict.risk_flags else "未命中高风险标记。"
+    gaps = (
+        f"缺口：{'、'.join(edict.unknown_gaps[:3])}。"
+        if edict.unknown_gaps
+        else "当前未识别到必须阻断初判的证据缺口。"
+    )
+    risks = (
+        f"风险：{'、'.join(edict.risk_flags[:3])}。"
+        if edict.risk_flags
+        else "未命中高风险标记。"
+    )
     return f"臣先按丞相单 Agent 初判：{next_step}\n\n{gaps}\n{risks}\n\n若陛下要正式推进，请再下旨；若只是讨论，可继续追问臣一个具体点。"
 
 
@@ -352,7 +384,10 @@ def _call_chancellor_agent(message: str) -> tuple[str, str]:
             skip_budget=True,
             fallback_models=active_fallback_models(),
         )
-        if result.get("status") == "success" and str(result.get("output") or "").strip():
+        if (
+            result.get("status") == "success"
+            and str(result.get("output") or "").strip()
+        ):
             return str(result["output"]).strip(), "LIVE"
     except Exception:
         pass
@@ -418,7 +453,9 @@ def _write_swarm_session(session_id: str, payload: dict[str, Any]) -> None:
     os.replace(tmp, path)
 
 
-def _finance_case_from_task(task: DecisionTask, review: CourtReview | None = None) -> dict[str, Any]:
+def _finance_case_from_task(
+    task: DecisionTask, review: CourtReview | None = None
+) -> dict[str, Any]:
     question = task.raw_question
     brief_id = review.id if review is not None else make_id("brief", task.id)
     amount = 0
@@ -429,7 +466,9 @@ def _finance_case_from_task(task: DecisionTask, review: CourtReview | None = Non
     if isinstance(budget, dict):
         amount = float(budget.get("requestedAmount") or 0)
         currency = str(budget.get("currency") or "CNY")
-        line_items = [item for item in budget.get("lineItems") or [] if isinstance(item, dict)]
+        line_items = [
+            item for item in budget.get("lineItems") or [] if isinstance(item, dict)
+        ]
     missing = _loads(task.unknown_gaps_json, [])
     budget_brief = {
         "budgetKind": "research_department_budget",
@@ -440,14 +479,30 @@ def _finance_case_from_task(task: DecisionTask, review: CourtReview | None = Non
         "evidenceCompleteness": 0 if missing else 100,
         "riskGate": {
             "manualConfirmationRequired": amount >= 500000,
-            "reasons": ["large_budget_requires_manual_confirmation"] if amount >= 500000 else [],
+            "reasons": (
+                ["large_budget_requires_manual_confirmation"]
+                if amount >= 500000
+                else []
+            ),
         },
-        "decisionOptions": ["issue_decree", "request_more_evidence", "request_review", "reject"],
+        "decisionOptions": [
+            "issue_decree",
+            "request_more_evidence",
+            "request_review",
+            "reject",
+        ],
     }
     return {
         "taskId": task.id,
-        "stage": "awaiting_authorized_decision" if task.status in {"awaiting_decision", "reviewing"} else task.status,
-        "task": {"rawCommand": task.raw_question, "result": memorial if isinstance(memorial, dict) else {}},
+        "stage": (
+            "awaiting_authorized_decision"
+            if task.status in {"awaiting_decision", "reviewing"}
+            else task.status
+        ),
+        "task": {
+            "rawCommand": task.raw_question,
+            "result": memorial if isinstance(memorial, dict) else {},
+        },
         "issue": {
             "id": make_id("issue", task.id),
             "title": (task.refined_edict or question)[:80],
@@ -455,13 +510,24 @@ def _finance_case_from_task(task: DecisionTask, review: CourtReview | None = Non
             "intent": task.decision_type or "shangshufang_decision",
         },
         "evidencePacks": [{"id": make_id("pack", task.id), "pack": budget_brief}],
-        "memorials": [{"id": review.id if review is not None else make_id("memorial", task.id), "memorial": budget_brief}],
-        "decisionBrief": {"id": brief_id, "status": "awaiting_authorized_decision", "brief": budget_brief},
+        "memorials": [
+            {
+                "id": review.id if review is not None else make_id("memorial", task.id),
+                "memorial": budget_brief,
+            }
+        ],
+        "decisionBrief": {
+            "id": brief_id,
+            "status": "awaiting_authorized_decision",
+            "brief": budget_brief,
+        },
         "instruction": None,
     }
 
 
-def _finance_status_view(command: str, mode: str, source_label: str = "FALLBACK") -> dict[str, Any]:
+def _finance_status_view(
+    command: str, mode: str, source_label: str = "FALLBACK"
+) -> dict[str, Any]:
     now = now_iso()
     return {
         "id": make_id("finance-status", command, now),
@@ -472,16 +538,31 @@ def _finance_status_view(command: str, mode: str, source_label: str = "FALLBACK"
             "reporter": "上书房 / 户部",
             "priority": "high",
             "badges": [
-                {"label": "密旨" if mode == "secret" else "圣旨", "tone": "red" if mode == "secret" else "amber"},
-                {"label": source_label, "tone": "red" if source_label == "FALLBACK" else "green"},
+                {
+                    "label": "密旨" if mode == "secret" else "圣旨",
+                    "tone": "red" if mode == "secret" else "amber",
+                },
+                {
+                    "label": source_label,
+                    "tone": "red" if source_label == "FALLBACK" else "green",
+                },
             ],
         },
         "rows": [
             {"label": "所问", "body": command},
-            {"label": "户部", "body": "当前 FastAPI 后端未接入实时财务总账；本回奏只列接口闭环状态与缺证边界。"},
-            {"label": "证据", "body": "需补齐：现金余额、应收应付、预算执行、审计异常、来源时间戳。"},
+            {
+                "label": "户部",
+                "body": "当前 FastAPI 后端未接入实时财务总账；本回奏只列接口闭环状态与缺证边界。",
+            },
+            {
+                "label": "证据",
+                "body": "需补齐：现金余额、应收应付、预算执行、审计异常、来源时间戳。",
+            },
             {"label": "后令", "body": "请户部补齐财务事实包后再进入准奏或归档。"},
-            {"label": "来源", "body": f"source_label={source_label}; generated_at={now}"},
+            {
+                "label": "来源",
+                "body": f"source_label={source_label}; generated_at={now}",
+            },
         ],
         "seal": "secret" if mode == "secret" else "imperial",
     }
@@ -514,7 +595,11 @@ def shangshufang_home(user: CurrentUser = Depends(get_current_user)) -> dict:
         payload = home_payload()
         pending = (
             db.query(DecisionTask)
-            .filter(DecisionTask.status.in_(["awaiting_emperor_confirm", "awaiting_decision"]))
+            .filter(
+                DecisionTask.status.in_(
+                    ["awaiting_emperor_confirm", "awaiting_decision"]
+                )
+            )
             .order_by(DecisionTask.updated_at.desc())
             .limit(10)
             .all()
@@ -534,7 +619,9 @@ def shangshufang_home(user: CurrentUser = Depends(get_current_user)) -> dict:
             payload["today_issue"] = {
                 "title": (top.refined_edict or top.raw_question)[:80],
                 "why_now": "该事项已完成丞相拟旨，正在等待皇上确认。",
-                "urgency": "高" if "需人工确认" in _loads(top.risk_flags_json, []) else "中",
+                "urgency": (
+                    "高" if "需人工确认" in _loads(top.risk_flags_json, []) else "中"
+                ),
                 "recommended_action": "立即处理",
                 "evidence_basis": _loads(top.known_facts_json, []),
                 "missing_evidence": _loads(top.unknown_gaps_json, []),
@@ -632,7 +719,13 @@ def shangshufang_draft_edict(
                 loop_id=LOOP_ID,
                 status="awaiting_emperor_confirm",
                 input_json=_json(body.model_dump()),
-                output_json=_json({"draft_edict": edict_payload, "route": route, "eval_result": eval_result}),
+                output_json=_json(
+                    {
+                        "draft_edict": edict_payload,
+                        "route": route,
+                        "eval_result": eval_result,
+                    }
+                ),
                 trace_id=run_id,
                 created_at=now,
                 updated_at=now,
@@ -664,7 +757,14 @@ def shangshufang_draft_edict(
         )
     except Exception as exc:  # noqa: BLE001
         db.rollback()
-        return fail(str(exc), {"task_id": task_id, "status": "failed_with_recovery", "source_label": "FALLBACK"})
+        return fail(
+            str(exc),
+            {
+                "task_id": task_id,
+                "status": "failed_with_recovery",
+                "source_label": "FALLBACK",
+            },
+        )
     finally:
         db.close()
 
@@ -686,13 +786,31 @@ def shangshufang_confirm_edict(
             task.status = "draft_cancelled"
             task.updated_at = now_iso()
             db.commit()
-            return ok({"task_id": task.id, "status": task.status, "message": "拟旨已取消"})
+            return ok(
+                {"task_id": task.id, "status": task.status, "message": "拟旨已取消"}
+            )
 
         draft_payload = body.edited_edict or _loads(task.draft_edict_json, {})
-        edict_for_review = draft_edict(task.raw_question, source_label=task.source_label)
-        route = draft_payload.get("route") if isinstance(draft_payload, dict) else None
-        if not isinstance(route, dict):
-            route = chancellor_decide_route(edict_for_review)
+        # 注意：不能用 draft_payload["refined_edict"] 或 task.refined_edict 作为重新
+        # 路由的输入——那是丞相生成的元描述模板("请军机处组织XX参审...")，其中"组织"
+        # 等措辞会重新命中部门关键词、自我污染出多余部门。真正的"确认正文"只能是
+        # 用户原问，或客户端显式传入的 confirmed_edict_text(方案7.2节请求体)。
+        confirmed_edict_text = body.confirmed_edict_text or task.raw_question
+        # 阶段1(方案6.6节)：路由必须依据用户确认/编辑后的最终正文重新生成，
+        # 不得信任客户端 draft_payload 里回传的 route——2026-07-10 前的实现在这里
+        # 直接读 draft_payload["route"]，等于让浏览器决定路由结果。
+        idempotency_key = body.idempotency_key or f"confirm-{task.id}"
+        route_decision = chancellor_routing_service.decide(
+            db,
+            task_id=task.id,
+            confirmed_edict_text=confirmed_edict_text,
+            idempotency_key=idempotency_key,
+            source_label=task.source_label,
+        )
+        route = legacy_route_dict(route_decision)
+        edict_for_review = draft_edict(
+            confirmed_edict_text, source_label=task.source_label
+        )
         routing_plan = routing_plan_for(edict_for_review, route)
         now = now_iso()
 
@@ -721,7 +839,14 @@ def shangshufang_confirm_edict(
                     loop_id=LOOP_ID,
                     status="direct_completed",
                     input_json=_json(body.model_dump()),
-                    output_json=_json({"routing_plan": routing_plan, "review_id": review_id, "memorial": memorial, "route": route}),
+                    output_json=_json(
+                        {
+                            "routing_plan": routing_plan,
+                            "review_id": review_id,
+                            "memorial": memorial,
+                            "route": route,
+                        }
+                    ),
                     trace_id=review_id,
                     created_at=now,
                     updated_at=now,
@@ -735,7 +860,12 @@ def shangshufang_confirm_edict(
                     reason="皇上确认简单任务单，由丞相判定直接承办",
                     human_confirmed=True,
                     confirmation_record_json=_json(
-                        {"user_id": _user_id(user), "confirmed_at": now, "edited": body.edited_edict is not None, "route": route}
+                        {
+                            "user_id": _user_id(user),
+                            "confirmed_at": now,
+                            "edited": body.edited_edict is not None,
+                            "route": route,
+                        }
                     ),
                     created_at=now,
                 )
@@ -748,8 +878,15 @@ def shangshufang_confirm_edict(
                     "message": f"丞相判定为简单任务单，已交由{route.get('targetDepartment', '承办方')}直接承办。",
                     "review_id": review_id,
                     "routing_plan": routing_plan,
-                    "memorial": _loads(db.query(CourtReview).filter_by(id=review_id).first().memorial_json, memorial),
+                    "memorial": _loads(
+                        db.query(CourtReview)
+                        .filter_by(id=review_id)
+                        .first()
+                        .memorial_json,
+                        memorial,
+                    ),
                     "route": route,
+                    "route_decision": route_decision.model_dump(),
                     "direct_receipt": memorial,
                     "review_status_url": f"/api/shangshufang/tasks/{task.id}/status",
                 }
@@ -801,7 +938,11 @@ def shangshufang_confirm_edict(
                 reason="皇上确认发起军机处会审",
                 human_confirmed=True,
                 confirmation_record_json=_json(
-                    {"user_id": _user_id(user), "confirmed_at": now, "edited": body.edited_edict is not None}
+                    {
+                        "user_id": _user_id(user),
+                        "confirmed_at": now,
+                        "edited": body.edited_edict is not None,
+                    }
                 ),
                 created_at=now,
             )
@@ -814,8 +955,12 @@ def shangshufang_confirm_edict(
                 "message": "圣旨已登记，下旨记录已生成；回奏不在本次请求内同步等待。",
                 "review_id": review_id,
                 "routing_plan": routing_plan,
-                "memorial": _loads(db.query(CourtReview).filter_by(id=review_id).first().memorial_json, memorial),
+                "memorial": _loads(
+                    db.query(CourtReview).filter_by(id=review_id).first().memorial_json,
+                    memorial,
+                ),
                 "route": route,
+                "route_decision": route_decision.model_dump(),
                 "decree_record": {
                     "task_id": task.id,
                     "review_id": review_id,
@@ -834,7 +979,9 @@ def shangshufang_confirm_edict(
 
 
 @router.get("/tasks/{task_id}/status")
-def shangshufang_task_status(task_id: str, _: CurrentUser = Depends(get_current_user)) -> dict:
+def shangshufang_task_status(
+    task_id: str, _: CurrentUser = Depends(get_current_user)
+) -> dict:
     from src.db.engine import SessionLocal
 
     db = SessionLocal()
@@ -889,7 +1036,9 @@ def shangshufang_task_decision(
             .order_by(CourtReview.created_at.desc())
             .first()
         )
-        final_memorial = _loads(review.memorial_json, None) if review is not None else None
+        final_memorial = (
+            _loads(review.memorial_json, None) if review is not None else None
+        )
         archive_record = None
         if body.action in {"adopt", "approve", "archive"}:
             archive_record = _archive_task(
@@ -932,7 +1081,9 @@ def shangshufang_task_decision(
                     {
                         "decision_id": decision.id,
                         "archive_record": archive_record,
-                        "review_status": review.review_status if review is not None else None,
+                        "review_status": (
+                            review.review_status if review is not None else None
+                        ),
                     }
                 ),
                 trace_id=decision.id,
@@ -958,7 +1109,9 @@ def shangshufang_task_decision(
 
 
 @router.post("/tasks/{task_id}/swarm-deepen")
-def shangshufang_swarm_deepen(task_id: str, user: CurrentUser = Depends(get_current_user)) -> dict:
+def shangshufang_swarm_deepen(
+    task_id: str, user: CurrentUser = Depends(get_current_user)
+) -> dict:
     from src.db.engine import SessionLocal
 
     db = SessionLocal()
@@ -1011,7 +1164,9 @@ def shangshufang_swarm_deepen(task_id: str, user: CurrentUser = Depends(get_curr
             )
             db.add(review)
             db.flush()
-        draft_payload = _loads(task.draft_edict_json, {}) or draft_to_dict(draft_edict(task.raw_question, source_label=task.source_label))
+        draft_payload = _loads(task.draft_edict_json, {}) or draft_to_dict(
+            draft_edict(task.raw_question, source_label=task.source_label)
+        )
         routing_plan = _loads(review.routing_plan_json, {})
         if routing_plan.get("route", {}).get("mode") == "direct":
             memorial = _loads(review.memorial_json, {})
@@ -1037,7 +1192,11 @@ def shangshufang_swarm_deepen(task_id: str, user: CurrentUser = Depends(get_curr
         )
         persist_swarm_execution_result(db, swarm_result)
         attach_swarm_result_to_review(db, review.id, swarm_result)
-        task.status = "awaiting_decision" if swarm_result["quality_result"]["passed"] else "awaiting_evidence"
+        task.status = (
+            "awaiting_decision"
+            if swarm_result["quality_result"]["passed"]
+            else "awaiting_evidence"
+        )
         task.updated_at = now_iso()
         db.commit()
         db.refresh(review)
@@ -1054,10 +1213,13 @@ def shangshufang_swarm_deepen(task_id: str, user: CurrentUser = Depends(get_curr
                     "ok": swarm_result["quality_result"]["passed"],
                     "external_task_id": task.id,
                     "external_session_id": swarm_result["swarm_run"]["id"],
-                    "trace_id": swarm_result["swarm_run"]["trace_id"] or swarm_result["swarm_run"]["id"],
+                    "trace_id": swarm_result["swarm_run"]["trace_id"]
+                    or swarm_result["swarm_run"]["id"],
                     "status": swarm_result["swarm_run"]["status"],
                     "findings": memorial.get("evidence_gaps", []),
-                    "missing_capabilities": swarm_result["quality_result"].get("blocking_reasons", []),
+                    "missing_capabilities": swarm_result["quality_result"].get(
+                        "blocking_reasons", []
+                    ),
                     "user_visible_summary": memorial.get("summary", "蜂群深挖已完成。"),
                     "source_label": swarm_result["swarm_run"]["source_label"],
                 },
@@ -1070,7 +1232,9 @@ def shangshufang_swarm_deepen(task_id: str, user: CurrentUser = Depends(get_curr
                     "requested_bundles": selected,
                     "departments": selected,
                     "findings": memorial.get("evidence_gaps", []),
-                    "missing_capabilities": swarm_result["quality_result"].get("blocking_reasons", []),
+                    "missing_capabilities": swarm_result["quality_result"].get(
+                        "blocking_reasons", []
+                    ),
                     "user_visible_summary": memorial.get("summary", "蜂群深挖已完成。"),
                     "source_label": swarm_result["swarm_run"]["source_label"],
                 },
@@ -1099,7 +1263,10 @@ def shangshufang_pack_swarm_loop(
         source_label = "MIXED" if body.source_urls else "FALLBACK"
         edict = draft_edict(
             body.command,
-            evidence_summary={"live": bool(body.source_urls), "source_urls": body.source_urls},
+            evidence_summary={
+                "live": bool(body.source_urls),
+                "source_urls": body.source_urls,
+            },
             source_label=source_label,
         )
         edict_payload = draft_to_dict(edict)
@@ -1157,7 +1324,9 @@ def shangshufang_pack_swarm_loop(
             "测试标准、质保与售后边界",
             "竞品价格与市场样本",
         ]
-        missing = [] if body.source_urls else ["客户样本来源", "BOM/报价来源", "测试报告来源"]
+        missing = (
+            [] if body.source_urls else ["客户样本来源", "BOM/报价来源", "测试报告来源"]
+        )
         adapter_ok = bool(body.source_urls) and swarm_result["quality_result"]["passed"]
         return ok(
             {
@@ -1169,15 +1338,50 @@ def shangshufang_pack_swarm_loop(
                 "entry_swarm": "pack_rd",
                 "source_label": "MIXED" if adapter_ok else "FALLBACK",
                 "departments": [
-                    {"id": "jinyiwei", "label": "锦衣卫", "role": "采集客户、竞品、报价和来源证据"},
-                    {"id": "hu_bu", "label": "户部", "role": "预算、成本、ROI 和付款风险"},
-                    {"id": "gong_bu", "label": "工部", "role": "PACK 技术方案、BOM、测试和交付"},
-                    {"id": "xing_bu", "label": "刑部", "role": "合同、责任边界和对外承诺"},
+                    {
+                        "id": "jinyiwei",
+                        "label": "锦衣卫",
+                        "role": "采集客户、竞品、报价和来源证据",
+                    },
+                    {
+                        "id": "hu_bu",
+                        "label": "户部",
+                        "role": "预算、成本、ROI 和付款风险",
+                    },
+                    {
+                        "id": "gong_bu",
+                        "label": "工部",
+                        "role": "PACK 技术方案、BOM、测试和交付",
+                    },
+                    {
+                        "id": "xing_bu",
+                        "label": "刑部",
+                        "role": "合同、责任边界和对外承诺",
+                    },
                 ],
                 "collection_checklist": collection_checklist,
-                "data_schema": ["customer_profile", "pack_spec", "bom", "supplier_quote", "test_report", "after_sales_scope"],
-                "scoring_rubric": ["证据完整度", "成本可信度", "技术可交付性", "合同风险", "战略优先级"],
-                "validation_methods": ["来源链接核验", "报价交叉验证", "BOM 复算", "测试报告复核", "人工裁决确认"],
+                "data_schema": [
+                    "customer_profile",
+                    "pack_spec",
+                    "bom",
+                    "supplier_quote",
+                    "test_report",
+                    "after_sales_scope",
+                ],
+                "scoring_rubric": [
+                    "证据完整度",
+                    "成本可信度",
+                    "技术可交付性",
+                    "合同风险",
+                    "战略优先级",
+                ],
+                "validation_methods": [
+                    "来源链接核验",
+                    "报价交叉验证",
+                    "BOM 复算",
+                    "测试报告复核",
+                    "人工裁决确认",
+                ],
                 "evidence_bound_run": {
                     "schema_version": "EvidenceBoundSwarmRunV1",
                     "entry_swarm": "pack_rd",
@@ -1190,11 +1394,19 @@ def shangshufang_pack_swarm_loop(
                         "sourceUrls": body.source_urls,
                         "facts": edict.known_facts,
                         "missingEvidence": missing,
-                        "qualityGates": ["source_urls_present", "bom_quote_traceable", "human_decision_required"],
+                        "qualityGates": [
+                            "source_urls_present",
+                            "bom_quote_traceable",
+                            "human_decision_required",
+                        ],
                     },
                     "evidence_refs": body.source_urls,
                     "missing_evidence": missing,
-                    "forbidden_outputs": ["external_commitment", "payment_instruction", "binding_quote"],
+                    "forbidden_outputs": [
+                        "external_commitment",
+                        "payment_instruction",
+                        "binding_quote",
+                    ],
                     "source_label": "MIXED" if body.source_urls else "FALLBACK",
                 },
                 "adapter_result": {
@@ -1206,7 +1418,9 @@ def shangshufang_pack_swarm_loop(
                     "status": swarm_result["swarm_run"]["status"],
                     "findings": swarm_result["brief"].get("missing_evidence", []),
                     "missing_capabilities": [] if adapter_ok else missing,
-                    "user_visible_summary": swarm_result["brief"].get("executive_summary", "PACK 蜂群协同评估已生成。"),
+                    "user_visible_summary": swarm_result["brief"].get(
+                        "executive_summary", "PACK 蜂群协同评估已生成。"
+                    ),
                     "source_label": "MIXED" if body.source_urls else "FALLBACK",
                 },
                 "swarm_trace_summary": {
@@ -1219,7 +1433,9 @@ def shangshufang_pack_swarm_loop(
                     "departments": ["锦衣卫", "户部", "工部", "刑部"],
                     "findings": swarm_result["brief"].get("missing_evidence", []),
                     "missing_capabilities": [] if adapter_ok else missing,
-                    "user_visible_summary": swarm_result["brief"].get("executive_summary", "PACK 蜂群协同评估已生成。"),
+                    "user_visible_summary": swarm_result["brief"].get(
+                        "executive_summary", "PACK 蜂群协同评估已生成。"
+                    ),
                     "source_label": "MIXED" if body.source_urls else "FALLBACK",
                 },
                 "human_intervention_required": bool(missing) or not adapter_ok,
@@ -1232,13 +1448,37 @@ def shangshufang_pack_swarm_loop(
                     "priority": "high",
                     "risk_level": "high" if missing else "medium",
                 },
-                "final_recommendation": "先补齐锦衣卫采集清单与 BOM/报价来源，再进入户部核算和工部评审。" if missing else "可进入建设评审，但仍需人工裁决确认。",
+                "final_recommendation": (
+                    "先补齐锦衣卫采集清单与 BOM/报价来源，再进入户部核算和工部评审。"
+                    if missing
+                    else "可进入建设评审，但仍需人工裁决确认。"
+                ),
                 "timeline": [
-                    {"stage": "上书房立案", "status": "done", "summary": f"task={task_id}"},
-                    {"stage": "锦衣卫采集", "status": "blocked" if missing else "done", "summary": "来源证据待补齐" if missing else "来源已挂载"},
-                    {"stage": "户部预算", "status": "blocked" if missing else "done", "summary": "等待 BOM/报价" if missing else "可核算预算"},
-                    {"stage": "工部方案", "status": "done", "summary": "已形成评审口径"},
-                    {"stage": "上书房裁决", "status": "blocked" if missing else "done", "summary": "需人工确认" if missing else "等待裁决"},
+                    {
+                        "stage": "上书房立案",
+                        "status": "done",
+                        "summary": f"task={task_id}",
+                    },
+                    {
+                        "stage": "锦衣卫采集",
+                        "status": "blocked" if missing else "done",
+                        "summary": "来源证据待补齐" if missing else "来源已挂载",
+                    },
+                    {
+                        "stage": "户部预算",
+                        "status": "blocked" if missing else "done",
+                        "summary": "等待 BOM/报价" if missing else "可核算预算",
+                    },
+                    {
+                        "stage": "工部方案",
+                        "status": "done",
+                        "summary": "已形成评审口径",
+                    },
+                    {
+                        "stage": "上书房裁决",
+                        "status": "blocked" if missing else "done",
+                        "summary": "需人工确认" if missing else "等待裁决",
+                    },
                 ],
             }
         )
@@ -1258,7 +1498,9 @@ def shangshufang_finance_intel_loop_complete(
 
     db = SessionLocal()
     now = now_iso()
-    task_id = make_id("finance", body.ticker.upper(), body.question, _user_id(user), now)
+    task_id = make_id(
+        "finance", body.ticker.upper(), body.question, _user_id(user), now
+    )
     session_id = make_id("session", "finance-intel", task_id, now)
     question = body.question
     source_urls = body.sourceUrls or []
@@ -1270,10 +1512,18 @@ def shangshufang_finance_intel_loop_complete(
             courtos_user_id=_user_id(user),
             courtos_edict_mode=body.edictMode,
             intelligence_pack_id=make_id("intelpack", task_id),
-            intelligence_pack={"ticker": body.ticker.upper(), "market": body.market, "sourceUrls": source_urls},
+            intelligence_pack={
+                "ticker": body.ticker.upper(),
+                "market": body.market,
+                "sourceUrls": source_urls,
+            },
             evidence_refs=source_urls,
             missing_evidence=[] if source_urls else [],
-            forbidden_outputs=["trade_recommendation", "payment_instruction", "external_commitment"],
+            forbidden_outputs=[
+                "trade_recommendation",
+                "payment_instruction",
+                "external_commitment",
+            ],
             source_label="LIVE" if source_urls else "FALLBACK",
             evidence_bound_run={
                 "ticker": body.ticker.upper(),
@@ -1283,22 +1533,48 @@ def shangshufang_finance_intel_loop_complete(
                 "sourceUrls": source_urls,
             },
         )
-        session = build_finance_intel_session(session_id=session_id, task_input=question, body=request)
+        session = build_finance_intel_session(
+            session_id=session_id, task_input=question, body=request
+        )
         _write_swarm_session(session_id, session)
         loop = session.get("finance_intel_loop") or {}
         generated_urls = [str(url) for url in loop.get("sourceUrls") or []]
-        evidence_complete = bool(generated_urls) and not (loop.get("qualityGate") or {}).get("checks", {}).get("missing_evidence_clear") is False
-        edict = draft_edict(question, evidence_summary={"live": bool(generated_urls)}, source_label="LIVE" if generated_urls else "FALLBACK")
+        evidence_complete = (
+            bool(generated_urls)
+            and not (loop.get("qualityGate") or {})
+            .get("checks", {})
+            .get("missing_evidence_clear")
+            is False
+        )
+        edict = draft_edict(
+            question,
+            evidence_summary={"live": bool(generated_urls)},
+            source_label="LIVE" if generated_urls else "FALLBACK",
+        )
         edict_payload = draft_to_dict(edict)
         review_id = make_id("brief", task_id, "finance-intel")
         brief = {
             "title": f"{body.ticker.upper()} finance-intel-loop brief",
-            "verdict": "awaiting_authorized_decision" if evidence_complete else "needs_evidence",
-            "summary": (loop.get("memorial") or {}).get("summary", "户部已生成 finance-intel-loop 奏折。"),
+            "verdict": (
+                "awaiting_authorized_decision"
+                if evidence_complete
+                else "needs_evidence"
+            ),
+            "summary": (loop.get("memorial") or {}).get(
+                "summary", "户部已生成 finance-intel-loop 奏折。"
+            ),
             "sourceUrls": generated_urls,
             "budgetKind": "finance_intel_loop",
-            "decisionOptions": ["issue_decree", "request_more_evidence", "request_review", "reject"],
-            "riskGate": {"manualConfirmationRequired": True, "reasons": ["finance_decision_requires_authorized_human_review"]},
+            "decisionOptions": [
+                "issue_decree",
+                "request_more_evidence",
+                "request_review",
+                "reject",
+            ],
+            "riskGate": {
+                "manualConfirmationRequired": True,
+                "reasons": ["finance_decision_requires_authorized_human_review"],
+            },
         }
         db.add(
             DecisionTask(
@@ -1307,11 +1583,17 @@ def shangshufang_finance_intel_loop_complete(
                 raw_question=question,
                 refined_edict=edict.refined_edict,
                 decision_type="finance_intel_loop",
-                status="awaiting_decision" if evidence_complete else "awaiting_evidence",
+                status=(
+                    "awaiting_decision" if evidence_complete else "awaiting_evidence"
+                ),
                 source_label="LIVE" if generated_urls else "FALLBACK",
                 risk_flags_json=_json(["需人工确认", "投资建议边界"]),
-                known_facts_json=_json([f"ticker={body.ticker.upper()}", *generated_urls]),
-                unknown_gaps_json=_json([] if evidence_complete else ["SEC 官方来源链接"]),
+                known_facts_json=_json(
+                    [f"ticker={body.ticker.upper()}", *generated_urls]
+                ),
+                unknown_gaps_json=_json(
+                    [] if evidence_complete else ["SEC 官方来源链接"]
+                ),
                 recommended_departments_json=_json(["锦衣卫", "户部", "上书房"]),
                 draft_edict_json=_json(edict_payload),
                 created_at=now,
@@ -1322,11 +1604,24 @@ def shangshufang_finance_intel_loop_complete(
             CourtReview(
                 id=review_id,
                 task_id=task_id,
-                routing_plan_json=_json({"ministry_candidates": ["锦衣卫", "户部", "上书房"], "source_label": "LIVE" if generated_urls else "FALLBACK"}),
-                review_status="awaiting_decision" if evidence_complete else "awaiting_evidence",
+                routing_plan_json=_json(
+                    {
+                        "ministry_candidates": ["锦衣卫", "户部", "上书房"],
+                        "source_label": "LIVE" if generated_urls else "FALLBACK",
+                    }
+                ),
+                review_status=(
+                    "awaiting_decision" if evidence_complete else "awaiting_evidence"
+                ),
                 ministry_outputs_json=_json([loop.get("memorial") or {}]),
                 conflict_summary_json=_json([]),
-                memorial_json=_json({"decisionBrief": brief, "finance_intel_loop": loop, "source_label": "LIVE_SWARM"}),
+                memorial_json=_json(
+                    {
+                        "decisionBrief": brief,
+                        "finance_intel_loop": loop,
+                        "source_label": "LIVE_SWARM",
+                    }
+                ),
                 created_at=now,
                 updated_at=now,
             )
@@ -1375,7 +1670,9 @@ def shangshufang_finance_intel_loop_complete(
 
 
 @router.get("/finance-intel-loop/cases/{task_id}")
-def shangshufang_finance_intel_loop_case(task_id: str, _: CurrentUser = Depends(get_current_user)) -> dict:
+def shangshufang_finance_intel_loop_case(
+    task_id: str, _: CurrentUser = Depends(get_current_user)
+) -> dict:
     from src.db.engine import SessionLocal
 
     db = SessionLocal()
@@ -1427,14 +1724,28 @@ def shangshufang_brief_decision_advance(
             action=action,
             reason=body.reason,
             human_confirmed=bool(body.manualConfirmation),
-            confirmation_record_json=_json({"user_id": _user_id(user), "brief_id": brief_id, "at": now, "execution_type": body.executionType}),
+            confirmation_record_json=_json(
+                {
+                    "user_id": _user_id(user),
+                    "brief_id": brief_id,
+                    "at": now,
+                    "execution_type": body.executionType,
+                }
+            ),
             created_at=now,
         )
         db.add(decision)
         final_memorial = _loads(review.memorial_json, None)
         archive_record = None
         if action == "adopt":
-            archive_record = _archive_task(db, task=task, action=action, reason=body.reason, final_memorial=final_memorial, now=now)
+            archive_record = _archive_task(
+                db,
+                task=task,
+                action=action,
+                reason=body.reason,
+                final_memorial=final_memorial,
+                now=now,
+            )
             review.review_status = "archived"
         elif action == "request_evidence":
             task.status = "awaiting_evidence"
@@ -1448,7 +1759,15 @@ def shangshufang_brief_decision_advance(
         task.updated_at = now
         review.updated_at = now
         db.commit()
-        return ok({"task_id": task.id, "sourceLabel": "LIVE", "status": task.status, "decision_id": decision.id, "archive_record": archive_record})
+        return ok(
+            {
+                "task_id": task.id,
+                "sourceLabel": "LIVE",
+                "status": task.status,
+                "decision_id": decision.id,
+                "archive_record": archive_record,
+            }
+        )
     except Exception as exc:  # noqa: BLE001
         db.rollback()
         return fail(str(exc))
@@ -1473,7 +1792,9 @@ def shangshufang_polish_edict(
                 "original_question": body.raw_question,
                 "polished_edict": polished,
                 "source_label": source_label,
-                "audit_id": make_id("polish", body.raw_question, _user_id(user), now_iso()),
+                "audit_id": make_id(
+                    "polish", body.raw_question, _user_id(user), now_iso()
+                ),
                 "fallback_used": fallback_used,
                 "read_only_reason": None,
             }
@@ -1492,9 +1813,10 @@ def shangshufang_im_list(
     filtered = [
         msg
         for msg in _IM_MESSAGES
-        if msg.get("mode") == mode and (sessionId is None or msg.get("sessionId") == sessionId)
+        if msg.get("mode") == mode
+        and (sessionId is None or msg.get("sessionId") == sessionId)
     ]
-    return ok({"messages": filtered[-max(1, min(limit, 200)):]} )
+    return ok({"messages": filtered[-max(1, min(limit, 200)) :]})
 
 
 @router.post("/im")
@@ -1505,7 +1827,9 @@ def shangshufang_im_persist(
     created = now_iso()
     msg = body.message.model_dump()
     message = {
-        "id": msg.get("id") or msg.get("clientId") or make_id("im", msg.get("text", ""), created),
+        "id": msg.get("id")
+        or msg.get("clientId")
+        or make_id("im", msg.get("text", ""), created),
         "role": msg["role"],
         "label": msg.get("label") or ("陛下" if msg["role"] == "user" else "上书房"),
         "text": msg.get("text") or "",
@@ -1580,7 +1904,13 @@ def shangshufang_finance_status_memorial(
     user: CurrentUser = Depends(get_current_user),
 ) -> dict:
     _user_id(user)
-    return ok({"done": True, "sourceLabel": "FALLBACK", "view": _finance_status_view(body.command, body.mode)})
+    return ok(
+        {
+            "done": True,
+            "sourceLabel": "FALLBACK",
+            "view": _finance_status_view(body.command, body.mode),
+        }
+    )
 
 
 @router.post("/research-budget-loop")
@@ -1595,7 +1925,10 @@ def shangshufang_research_budget_loop(
     task_id = make_id("budget", body.sacredEdict, _user_id(user), now)
     review_id = make_id("brief", task_id, "research-budget")
     try:
-        evidence_names = [str(item.get("label") or item.get("id") or "证据") for item in body.evidenceRefs]
+        evidence_names = [
+            str(item.get("label") or item.get("id") or "证据")
+            for item in body.evidenceRefs
+        ]
         missing = [] if body.evidenceRefs else ["预算依据", "历史支出", "供应商报价"]
         if body.requestedAmount >= body.riskThresholdAmount:
             missing.append("大额预算人工确认")
@@ -1605,13 +1938,26 @@ def shangshufang_research_budget_loop(
             "currency": body.currency,
             "lineItems": body.lineItems,
             "missingEvidence": missing,
-            "evidenceSummary": {"evidenceRefs": evidence_names, "missingEvidence": missing},
+            "evidenceSummary": {
+                "evidenceRefs": evidence_names,
+                "missingEvidence": missing,
+            },
             "evidenceCompleteness": max(0, 100 - len(missing) * 25),
             "riskGate": {
-                "manualConfirmationRequired": body.requestedAmount >= body.riskThresholdAmount,
-                "reasons": ["large_budget_requires_manual_confirmation"] if body.requestedAmount >= body.riskThresholdAmount else [],
+                "manualConfirmationRequired": body.requestedAmount
+                >= body.riskThresholdAmount,
+                "reasons": (
+                    ["large_budget_requires_manual_confirmation"]
+                    if body.requestedAmount >= body.riskThresholdAmount
+                    else []
+                ),
             },
-            "decisionOptions": ["issue_decree", "request_more_evidence", "request_review", "reject"],
+            "decisionOptions": [
+                "issue_decree",
+                "request_more_evidence",
+                "request_review",
+                "reject",
+            ],
         }
         db.add(
             DecisionTask(
@@ -1622,11 +1968,27 @@ def shangshufang_research_budget_loop(
                 decision_type="research_department_budget",
                 status="awaiting_decision",
                 source_label="MIXED" if body.evidenceRefs else "FALLBACK",
-                risk_flags_json=_json(["大额预算人工确认"] if body.requestedAmount >= body.riskThresholdAmount else []),
-                known_facts_json=_json([f"department={body.department}", f"owner={body.owner}", *evidence_names]),
+                risk_flags_json=_json(
+                    ["大额预算人工确认"]
+                    if body.requestedAmount >= body.riskThresholdAmount
+                    else []
+                ),
+                known_facts_json=_json(
+                    [
+                        f"department={body.department}",
+                        f"owner={body.owner}",
+                        *evidence_names,
+                    ]
+                ),
                 unknown_gaps_json=_json(missing),
                 recommended_departments_json=_json(["户部", "锦衣卫", "上书房"]),
-                draft_edict_json=_json({"original_question": body.sacredEdict, "refined_edict": f"请户部承办{body.department}{body.budgetPeriod}预算：{body.purpose}", "source_label": "MIXED" if body.evidenceRefs else "FALLBACK"}),
+                draft_edict_json=_json(
+                    {
+                        "original_question": body.sacredEdict,
+                        "refined_edict": f"请户部承办{body.department}{body.budgetPeriod}预算：{body.purpose}",
+                        "source_label": "MIXED" if body.evidenceRefs else "FALLBACK",
+                    }
+                ),
                 created_at=now,
                 updated_at=now,
             )
@@ -1635,17 +1997,33 @@ def shangshufang_research_budget_loop(
             CourtReview(
                 id=review_id,
                 task_id=task_id,
-                routing_plan_json=_json({"ministry_candidates": ["户部", "锦衣卫", "上书房"], "source_label": "MIXED" if body.evidenceRefs else "FALLBACK"}),
+                routing_plan_json=_json(
+                    {
+                        "ministry_candidates": ["户部", "锦衣卫", "上书房"],
+                        "source_label": "MIXED" if body.evidenceRefs else "FALLBACK",
+                    }
+                ),
                 review_status="awaiting_decision",
                 ministry_outputs_json=_json([budget_brief]),
                 conflict_summary_json=_json([]),
-                memorial_json=_json({"budget": body.model_dump(), "decisionBrief": budget_brief, "source_label": "MIXED" if body.evidenceRefs else "FALLBACK"}),
+                memorial_json=_json(
+                    {
+                        "budget": body.model_dump(),
+                        "decisionBrief": budget_brief,
+                        "source_label": "MIXED" if body.evidenceRefs else "FALLBACK",
+                    }
+                ),
                 created_at=now,
                 updated_at=now,
             )
         )
         db.commit()
-        return ok(_finance_case_from_task(db.query(DecisionTask).filter_by(id=task_id).first(), db.query(CourtReview).filter_by(id=review_id).first()))
+        return ok(
+            _finance_case_from_task(
+                db.query(DecisionTask).filter_by(id=task_id).first(),
+                db.query(CourtReview).filter_by(id=review_id).first(),
+            )
+        )
     except Exception as exc:  # noqa: BLE001
         db.rollback()
         return fail(str(exc))

@@ -486,3 +486,32 @@ class SwarmQualityResult(Base):
     __table_args__ = (
         sa.Index("ix_swarm_quality_run_created", "swarm_run_id", "created_at"),
     )
+
+
+# ── super-chancellor routing (阶段1) ────────────────────────────────────────
+# 见 docs/super-chancellor-routing-implementation-plan-2026-07-10.md 第7.1/9节。
+
+
+class ChancellorRouteDecision(Base):
+    """不可变路由快照。每次下旨生成一份；改道走 supersedes_decision_id 指向旧快照，
+    旧记录不删(审计要求)。decision_json 是 RouteDecisionV2 的完整序列化，
+    其余列是供索引/查询用的冗余字段，事实源仍是 decision_json。"""
+
+    __tablename__ = "chancellor_route_decisions"
+
+    decision_id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    mode: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    primary_department: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    source_label: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    supersedes_decision_id: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    decision_json: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
+
+    __table_args__ = (
+        sa.Index("ix_chancellor_route_decisions_task_created", "task_id", "created_at"),
+        sa.UniqueConstraint(
+            "task_id", "idempotency_key", name="uq_chancellor_route_task_idem"
+        ),
+    )
