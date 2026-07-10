@@ -80,7 +80,6 @@ import {
   shangshufangFinanceReportingLoop,
   shangshufangPackSwarmLoop,
   shangshufangTaskDecision,
-  shangshufangTaskStatus,
   type JiqunSessionDetail,
   type JiqunSessionSummary,
   type ShangshufangAttachmentMeta,
@@ -88,7 +87,12 @@ import {
   type ShangshufangDraftResponse,
   type ShangshufangFinanceReportingLoopResponse,
   type ShangshufangPackSwarmLoopResponse,
+  type ShangshufangTaskStatusResponse,
 } from '@/lib/jiqun-api';
+import {
+  getShangshufangTaskStatus,
+  shangshufangTaskStatusPath,
+} from './api';
 import { useJiqunRunProgress, type JiqunRunProgress } from './hooks/useJiqunRunProgress';
 import { SwarmProgressStrip } from './components/SwarmProgressStrip';
 import {
@@ -1756,7 +1760,105 @@ function draftEdictToView(result: ShangshufangDraftResponse): EdictView {
   };
 }
 
+/** 军机处刚派单、真实回奏还没发生时的诚实占位视图——不生成/展示丞相建议。 */
+function awaitingRealMemorialView(taskId: string, confirm: ShangshufangConfirmResponse): EdictView {
+  const ministries = departmentLabels(confirm.routing_plan.ministry_candidates) || '待路由';
+  const swarmRows = confirm.routing_plan.swarm_plan.map((item) => `${item.department}：${item.focus}`);
+  const draft = confirm.memorial.draft_edict;
+  return {
+    id: `shangshufang-awaiting:${taskId}:${confirm.review_id}`,
+    title: '军机处会审中',
+    subtitle: '真实分奏尚未回报，圣裁待回奏后生成，不提前展示结论',
+    question: draft?.refined_edict ?? draft?.original_question,
+    meta: {
+      reporter: '军机处',
+      priority: 'medium',
+      badges: [{ label: '会审中', tone: 'blue' }],
+    },
+    rows: [
+      { label: '案 号', body: taskId },
+      { label: '参审部门', body: ministries },
+      { label: '蜂群计划', body: swarmRows.join('\n') || '待生成' },
+      {
+        label: '状 态',
+        body: '军机处已自动派单到后台执行，真实分奏回报后本页会自动切换为圣裁展示。',
+      },
+      { label: '查询接口', body: confirm.review_status_url },
+    ],
+    seal: 'chancellor',
+  };
+}
+
+/** 轮询状态接口直到真实分奏回报，再把"军机处会审中"占位视图换成真实圣裁。
+ * 不用 useJiqunRunProgress 那种 SSE(蜂群深挖没有对应的流式端点)，用既有的
+ * setTimeout 链式轮询，跟该 hook 的降级路径同一模式。primaryTaskId 匹配检查
+ * 防止用户已经切到别的任务时，迟到的轮询结果覆盖当前展示。 */
+function pollForRealVerdict(
+  taskId: string,
+  setEdictOverride: (updater: (prev: EdictOverrideState | null) => EdictOverrideState | null) => void,
+): void {
+  const POLL_INTERVAL_MS = 4_000;
+  const MAX_ATTEMPTS = 45; // ~3分钟，量级对齐 outbox worker 的预期完成时间
+  let attempts = 0;
+
+  const tick = async () => {
+    attempts += 1;
+    try {
+      const envelope = await getShangshufangTaskStatus(taskId);
+      const stage = envelope.data?.execution_status?.current_stage;
+      const stillWaiting = stage === 'executing' || stage === 'department_reporting';
+      if (envelope.success && envelope.data && !stillWaiting) {
+        const realConfirm = taskStatusToConfirmLike(taskId, envelope.data);
+        if (realConfirm) {
+          const realView = confirmedEdictToView(taskId, realConfirm);
+          setEdictOverride((prev) => (prev && prev.primaryTaskId === taskId ? { ...prev, view: realView } : prev));
+        }
+        return;
+      }
+    } catch {
+      /* 单次轮询失败不终止，等下一轮；用户仍可点"查看状态"手动核实 */
+    }
+    if (attempts < MAX_ATTEMPTS) {
+      window.setTimeout(() => void tick(), POLL_INTERVAL_MS);
+    }
+  };
+
+  window.setTimeout(() => void tick(), POLL_INTERVAL_MS);
+}
+
+/** 状态接口回报真实回奏后，适配成 confirmedEdictToView 认识的形状——4个字段
+ * (routing_plan/memorial/review_id/loop_trace_id)跟 confirm 响应完全同构，
+ * 不用另建一整套渲染逻辑。status 换成真实值后会绕开 confirmedEdictToView
+ * 顶部的 edict_recorded 硬门，走到真实分奏的完整渲染链路。 */
+function taskStatusToConfirmLike(
+  taskId: string,
+  status: ShangshufangTaskStatusResponse,
+): ShangshufangConfirmResponse | null {
+  const review = status.review;
+  if (!review || !review.memorial) return null;
+  return {
+    task_id: taskId,
+    loop_trace_id: review.loop_trace_id,
+    status: status.task?.status ?? review.review_status,
+    message: '',
+    review_id: review.review_id,
+    routing_plan: review.routing_plan as ShangshufangConfirmResponse['routing_plan'],
+    memorial: review.memorial,
+    review_status_url: shangshufangTaskStatusPath(taskId),
+  };
+}
+
 function confirmedEdictToView(taskId: string, confirm: ShangshufangConfirmResponse): EdictView {
+  // 硬门(super-chancellor-routing 方案第2/11节)：edict_recorded 是军机处刚下旨派单、
+  // 真实回奏还没发生的状态(见 backend confirm-edict 的 cluster 分支)——这时候
+  // memorial 只是丞相拟旨阶段的诚实占位骨架(部门意见形如"当前不能直接作定论；
+  // 需先补齐XX")，不是真实分奏。之前的实现在此刻就本地跑六部评审+御史审计+统一
+  // 决策合成，把结果当"圣裁"展示成页面第一行——2026-07-10 复审发现并修复：
+  // 回奏前不生成/展示丞相建议，改为诚实的"军机处会审中"状态，真实完成后由
+  // usePollForRealMemorial 轮询状态接口重新渲染成下面这条完整链路。
+  if (confirm.status === 'edict_recorded') {
+    return awaitingRealMemorialView(taskId, confirm);
+  }
   const ministries = departmentLabels(confirm.routing_plan.ministry_candidates) || '待路由';
   const swarmRows = confirm.routing_plan.swarm_plan.map((item) => `${item.department}：${item.focus}`);
   const memorial = confirm.memorial;
@@ -5940,6 +6042,11 @@ export function ShangshufangPage() {
             setDecreeMsg(confirmedReply);
             appendDecreeChat({ role: 'assistant', label: '军机处', text: confirmedReply }, 'order');
             const confirmedView = confirmedEdictToView(draft.task_id, confirmed);
+            if (confirmed.status === 'edict_recorded') {
+              // 军机处刚派单，memorial 还是占位骨架——轮询状态接口，真实分奏
+              // 回报后把下面这份 override 的 view 换成含圣裁的完整渲染。
+              pollForRealVerdict(draft.task_id, setEdictOverride);
+            }
             setEdictOverride({
               view: confirmedView,
               srcId: `confirmed-edict-${draft.task_id}`,
@@ -5967,11 +6074,18 @@ export function ShangshufangPage() {
                       type="button"
                       onClick={async () => {
                         try {
-                          const status = await shangshufangTaskStatus(draft.task_id);
+                          const envelope = await getShangshufangTaskStatus(draft.task_id);
+                          if (!envelope.success || !envelope.data) {
+                            throw new Error(envelope.error ?? '读取任务状态失败');
+                          }
+                          const status = envelope.data;
+                          const executionNote = status.execution_status
+                            ? ` · ${status.execution_status.current_owner}正在处理，阶段：${status.execution_status.current_stage}`
+                            : '';
                           showNotice(
                             withTraceMessage(
-                              `军机处状态：${status.task.status}${status.review ? ` · ${status.review.review_status}` : ''}`,
-                              status.task.loop_trace_id ?? status.review?.loop_trace_id ?? draft.loop_trace_id,
+                              `军机处状态：${status.task?.status ?? '未知'}${status.review ? ` · ${status.review.review_status}` : ''}${executionNote}`,
+                              status.task?.loop_trace_id ?? status.review?.loop_trace_id ?? draft.loop_trace_id,
                             ),
                           );
                         } catch (e) {

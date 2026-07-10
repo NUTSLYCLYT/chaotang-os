@@ -9,6 +9,7 @@ import {
   backendFetch,
   backendRuntimeUrl,
 } from '@/lib/backend-api';
+import type { DecreeExecutionStatusV1 } from '@/lib/contracts/chancellor-routing';
 
 /**
  * jiqun 后端开启 FENGQUN_AUTH 时只认 `Authorization: Bearer` 或 cookie `token`，
@@ -471,6 +472,9 @@ export interface ShangshufangTaskStatusResponse {
     created_at: string;
     updated_at: string;
   } | null;
+  /** 方案 super-chancellor-routing 阶段2b：DecreeExecutionStatusV1，null 表示尚未
+   * 下旨确认(还没有路由快照)。见 src/lib/contracts/chancellor-routing.ts。 */
+  execution_status: DecreeExecutionStatusV1 | null;
 }
 
 export interface ShangshufangDecisionTaskSummary {
