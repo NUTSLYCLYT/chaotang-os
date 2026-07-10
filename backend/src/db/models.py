@@ -515,3 +515,47 @@ class ChancellorRouteDecision(Base):
             "task_id", "idempotency_key", name="uq_chancellor_route_task_idem"
         ),
     )
+
+
+class OutboxEvent(Base):
+    """事务性 outbox(阶段2)。confirm-edict 在同一 DB 事务里写下旨记录+路由快照
+    +本行；事务提交后由 dispatch_after_commit 触发消费。status 流转：
+    pending → processing → completed | failed(attempts<max_attempts 时保留可重试)
+    | dead_letter(达到 max_attempts)。"""
+
+    __tablename__ = "outbox_events"
+
+    id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    decision_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    event_type: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    status: Mapped[str] = mapped_column(sa.Text, nullable=False, default="pending")
+    attempts: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
+    max_attempts: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=3)
+    last_error: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    payload_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="{}")
+    created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
+    updated_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
+
+    __table_args__ = (
+        sa.Index("ix_outbox_events_status_created", "status", "created_at"),
+        sa.Index("ix_outbox_events_task", "task_id"),
+    )
+
+
+class DecreeExecutionEvent(Base):
+    """状态时间线(阶段2b，方案9节 decree_execution_events)。每次状态变化写一行事件，
+    不只覆盖主表字段——DecreeExecutionStatusV1.timeline 从这张表拼。"""
+
+    __tablename__ = "decree_execution_events"
+
+    id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    stage: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    actor: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    message: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    occurred_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
+
+    __table_args__ = (
+        sa.Index("ix_decree_execution_events_task_occurred", "task_id", "occurred_at"),
+    )

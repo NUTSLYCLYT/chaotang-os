@@ -24,6 +24,7 @@ from web.schemas.auth import CurrentUser
 from web.schemas.swarm import SwarmRunRequest
 
 from src.chancellor.routing_service import chancellor_routing_service, legacy_route_dict
+from src.execution.decree_dispatcher import dispatch_after_commit, enqueue_dispatch
 from src.finance_intel_loop_contract import build_finance_intel_session
 from src.hubu_financial_reporting import build_shangshufang_finance_reporting_loop
 from src.db.models import (
@@ -922,7 +923,7 @@ def shangshufang_confirm_edict(
                         "review_id": review_id,
                         "memorial": memorial,
                         "decree_recorded": True,
-                        "next_action": "await_async_memorial",
+                        "next_action": "dispatched_to_outbox",
                     }
                 ),
                 trace_id=review_id,
@@ -947,12 +948,22 @@ def shangshufang_confirm_edict(
                 created_at=now,
             )
         )
+        # 阶段2(方案6.7节)：下旨记录+路由快照+outbox事件同一事务提交，
+        # 事务成功后再触发后台派单——不能反过来先派单再提交，否则会出现
+        # "蜂群已经在跑但下旨记录还没落库"的不一致窗口。
+        outbox_event_id = enqueue_dispatch(
+            db,
+            task_id=task.id,
+            decision_id=route_decision.decision_id,
+            event_type="route.council",
+        )
         db.commit()
+        dispatch_after_commit(outbox_event_id)
         return ok(
             {
                 "task_id": task.id,
                 "status": "edict_recorded",
-                "message": "圣旨已登记，下旨记录已生成；回奏不在本次请求内同步等待。",
+                "message": "圣旨已登记，军机处已自动进入后台派单，无需再手动调用 swarm-deepen。",
                 "review_id": review_id,
                 "routing_plan": routing_plan,
                 "memorial": _loads(

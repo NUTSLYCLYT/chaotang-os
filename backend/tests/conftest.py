@@ -94,6 +94,27 @@ def _no_network_real_department_engines(request, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _no_background_outbox_dispatch(monkeypatch):
+    """confirm-edict 提交事务后会调用 decree_dispatcher.dispatch_after_commit()
+    起一个后台线程真的执行 outbox_worker._execute_council()(含真实
+    run_swarm_execution_loop 调用)——同 _no_network_real_department_engines
+    的道理，测试环境不应该意外触发真实异步执行:它跟测试自身后续对同一个
+    task 的操作(如紧接着调用 /decision)在时间上不确定谁先谁后，会产生竞态、
+    互相覆盖 task.status(2026-07-10 实测:一个测紧接着 followup 的用例，
+    被后台线程算完的 council 结果覆盖了 awaiting_evidence 状态)。
+    专门测 outbox 机制的 tests/test_outbox_worker.py 直接调用
+    enqueue_dispatch/process_event，不经过这个函数，不受影响。
+
+    注意：web/routers/shangshufang.py 用 `from ... import dispatch_after_commit`
+    直接把名字导入本地命名空间，patch 源模块 src.execution.decree_dispatcher
+    上的属性不会影响它已经绑定的引用，必须 patch 调用方模块本身的这个名字。"""
+    shangshufang_router = importlib.import_module("web.routers.shangshufang")
+    monkeypatch.setattr(
+        shangshufang_router, "dispatch_after_commit", lambda event_id: None
+    )
+
+
+@pytest.fixture(autouse=True)
 def _reset_login_rate_limiter():
     """login rate limiter(src.direct_rate_limit.rate_limiter)是模块级单例,
     整个 pytest 进程共用同一份状态。不重置会导致跨文件/跨测试的登录请求
