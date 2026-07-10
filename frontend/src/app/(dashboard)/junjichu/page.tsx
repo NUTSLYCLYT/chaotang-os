@@ -2913,6 +2913,10 @@ function CommandCenterInner() {
     ...(shangshufangStatus?.task.unknown_gaps ?? []),
     ...(shangshufangStatus?.review?.memorial?.evidence_gaps ?? []),
   ].filter(Boolean);
+  // 真实回奏(confirm-edict/outbox 已跑完的 ministry_outputs)比本地 ministry-review-loop
+  // 合成更真实,取本地合成之前先用它——之前这里完全没读这份数据,六部表态卡片显示的是
+  // 本地通用模板句,跟真实回奏对不上(2026-07-11 生产实测发现)。
+  const realMinistryOutputs = shangshufangStatus?.review?.ministry_outputs ?? [];
   const summons: SummonView[] = liveMinisters.length
     ? liveMinisters.slice(0, 8).map((minister) => ({
         id: minister.agentCode,
@@ -2929,13 +2933,21 @@ function CommandCenterInner() {
           thesis: item.answer,
           sourceLabel: 'LIVE',
         }))
-      : ministryBrief?.review.cards.slice(0, 8).map((card) => ({
-          id: card.ministryId,
-          name: MINISTRY_REGISTRY[card.ministryId].nameCn,
-          status: 'waiting',
-          thesis: card.mainThesis,
-          sourceLabel: card.sourceLabel as JunjichuSourceLabel,
-        })) ?? [];
+      : realMinistryOutputs.length
+        ? realMinistryOutputs.slice(0, 8).map((output) => ({
+            id: output.department,
+            name: output.department,
+            status: 'summoned',
+            thesis: output.opinion,
+            sourceLabel: output.source_label as JunjichuSourceLabel,
+          }))
+        : ministryBrief?.review.cards.slice(0, 8).map((card) => ({
+            id: card.ministryId,
+            name: MINISTRY_REGISTRY[card.ministryId].nameCn,
+            status: 'waiting',
+            thesis: card.mainThesis,
+            sourceLabel: card.sourceLabel as JunjichuSourceLabel,
+          })) ?? [];
   const governanceWaiting = Boolean(
     displayTaskSummary?.status &&
     /approval|approve|proceed|governance|openclaw|waiting|paused/i.test(displayTaskSummary.status),
