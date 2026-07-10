@@ -3,6 +3,22 @@ from fastapi.testclient import TestClient
 from web.main import app
 
 
+def test_chancellor_chat_streams_single_agent_reply(isolated_session_local):
+    client = TestClient(app)
+
+    with client.stream(
+        "POST",
+        "/api/shangshufang/chancellor-chat",
+        json={"message": "这个项目先怎么判断？"},
+    ) as response:
+        body = "".join(response.iter_text())
+
+    assert response.status_code == 200
+    assert "data:" in body
+    assert "chancellor" in body
+    assert "丞相" in body
+
+
 def test_draft_edict_preserves_question_and_flags_risk(isolated_session_local):
     client = TestClient(app)
 
@@ -24,7 +40,65 @@ def test_draft_edict_preserves_question_and_flags_risk(isolated_session_local):
     assert "证据不足" in draft["risk_flags"]
     assert "设备报价" in draft["unknown_gaps"]
     assert draft["source_label"] == "FALLBACK"
+    assert data["route"]["mode"] == "cluster"
+    assert data["route"]["decidedBy"] == "chancellor"
+    assert data["route"]["swarmRequired"] is True
     assert data["eval_result"]["passed"] is True
+
+
+def test_chancellor_routes_simple_task_to_direct_agent(isolated_session_local):
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/shangshufang/draft-edict",
+        json={"raw_question": "请礼部整理一份客户拜访纪要。"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    route = data["route"]
+    assert route["mode"] == "direct"
+    assert route["decidedBy"] == "chancellor"
+    assert route["targetDepartment"] == "礼部"
+    assert route["targetAgent"] == "libu_communication_agent"
+    assert route["swarmRequired"] is False
+    assert data["draft_edict"]["route"]["mode"] == "direct"
+
+
+def test_confirm_direct_task_creates_simple_receipt_without_swarm(isolated_session_local):
+    client = TestClient(app)
+    draft_response = client.post(
+        "/api/shangshufang/draft-edict",
+        json={"raw_question": "请礼部整理一份客户拜访纪要。"},
+    )
+    task_id = draft_response.json()["data"]["task_id"]
+
+    confirm_response = client.post(
+        "/api/shangshufang/confirm-edict",
+        json={"task_id": task_id, "confirmed": True},
+    )
+
+    assert confirm_response.status_code == 200
+    confirm_data = confirm_response.json()["data"]
+    assert confirm_data["status"] == "direct_completed"
+    assert confirm_data["route"]["mode"] == "direct"
+    assert confirm_data["routing_plan"]["swarm_required"] is False
+    assert confirm_data["routing_plan"]["ministry_candidates"] == ["礼部"]
+    assert confirm_data["memorial"]["title"] == "上书房简单任务单回执"
+    assert confirm_data["memorial"]["target_agent"] == "libu_communication_agent"
+
+    deepen = client.post(f"/api/shangshufang/tasks/{task_id}/swarm-deepen")
+    assert deepen.status_code == 200
+    deepen_data = deepen.json()["data"]
+    assert deepen_data["status"] == "direct_completed"
+    assert deepen_data["swarm_trace_summary"]["status"] == "skipped_direct_route"
+    assert deepen_data["swarm_trace_summary"]["mode"] == "not_required"
+
+    status_response = client.get(f"/api/shangshufang/tasks/{task_id}/status")
+    assert status_response.status_code == 200
+    status_data = status_response.json()["data"]
+    assert status_data["task"]["status"] == "direct_completed"
+    assert status_data["review"]["review_status"] == "direct_completed"
 
 
 def test_confirm_edict_creates_review_status(isolated_session_local):

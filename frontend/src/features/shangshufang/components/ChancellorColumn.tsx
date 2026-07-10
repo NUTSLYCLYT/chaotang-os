@@ -7,6 +7,7 @@
  */
 
 import { CheckCircle2, ChevronRight, CircleDashed, MessageSquareText, ShieldAlert } from 'lucide-react';
+import { useState } from 'react';
 
 import type { ChancellorSuggestion } from '../types';
 import { SHANGSHUFANG_ASSETS } from '../constants';
@@ -104,7 +105,7 @@ export function ChancellorColumn({
 }: {
   suggestions: ChancellorSuggestion[];
   onSelect: (s: ChancellorSuggestion) => void;
-  onQuickAsk: () => void;
+  onQuickAsk: (text?: string) => void;
   onMizhi?: (text: string, source: 'chancellor') => void;
   activeId?: string;
   showQuickAsk?: boolean;
@@ -270,10 +271,67 @@ export function ChancellorColumn({
             另 {hiddenCount} 件已入丞相后台，不占御前首屏。
           </div>
         )}
+        {showQuickAsk && <ChancellorAskInput onSubmit={onQuickAsk} className="mt-2" />}
       </div>
-
-      {showQuickAsk && <ChancellorAssistantDecisionButton onClick={onQuickAsk} className="m-3 mt-1" />}
     </GlassPanel>
+  );
+}
+
+function ChancellorAskInput({
+  onSubmit,
+  className = '',
+}: {
+  onSubmit: (text?: string) => void;
+  className?: string;
+}) {
+  const [text, setText] = useState('');
+  const submit = () => {
+    const value = text.trim();
+    onSubmit(value || undefined);
+    if (value) setText('');
+  };
+
+  return (
+    <div
+      className={`rounded-lg border px-2.5 py-2 ${className}`}
+      style={{
+        borderColor: 'rgba(240,198,106,0.18)',
+        background: 'rgba(240,198,106,0.035)',
+      }}
+    >
+      <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-medium tracking-[0.08em] text-[#B6AB8C]">
+        <MessageSquareText size={12} className="text-[#F0C66A]/80" />
+        问丞相
+      </div>
+      <div className="flex items-center gap-1.5">
+        <input
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              submit();
+            }
+          }}
+          className="global-edict-chat-input min-w-0 flex-1 px-3 py-1.5 text-[12px] leading-[1.45] text-[#F5E9C9] placeholder:text-[#8F835F] focus:outline-none"
+          style={{
+            ['--chat-accent' as string]: '#F0C66A',
+            fontFamily: 'var(--font-serif)',
+          }}
+          placeholder="请丞相判断一事..."
+          maxLength={400}
+        />
+        <button
+          type="button"
+          onClick={submit}
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-md border transition hover:border-[#F0C66A]/45 hover:bg-[#F0C66A]/[0.08]"
+          style={{ borderColor: 'rgba(240,198,106,0.22)', color: '#F0C66A' }}
+          aria-label="发送给丞相"
+        >
+          <ChevronRight size={14} />
+        </button>
+      </div>
+    </div>
   );
 }
 

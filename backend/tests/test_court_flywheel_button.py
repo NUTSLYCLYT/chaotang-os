@@ -1,4 +1,4 @@
-"""tests/test_court_flywheel_button.py — 史馆"喂飞轮"按钮真的写知识库了(诸司能力核查挖出的洞)。
+"""tests/test_court_flywheel_button.py — 史馆"喂飞轮"按钮真的写知识库了(专署能力核查挖出的洞)。
 
 修前:POST /api/court/action action=feed_flywheel 只走状态机(to_state=None),dispatch 校验完
 直接返回 ok——用户点了看到"成功",但从没真的调用 court_flywheel.archive_session_to_knowledge。

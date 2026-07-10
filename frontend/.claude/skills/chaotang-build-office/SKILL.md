@@ -1,6 +1,6 @@
 ---
 name: chaotang-build-office
-description: 朝堂"建部/建司"套件——用统一模具快速搭一个顶级智能体部门(六部/诸司)或给现有部加一个司。当用户要"建一个部门/司、给某部加柜台、把某部顶级化、按吏部/户部模板做另一个部、决策前算账的顾问司、部门办公厅"时用。强制:声明式(roster+30行引擎)、复用 office-kit(VerdictCard/resolveDecisionLadder/DeptDigestBar/finance-capability)、诚实标、协办徽、守铁律5/6/9。触发词:建部 建司 部门 办公厅 柜台 顶级化 吏部模板 决策算账 智能体司。
+description: 朝堂"建部/建司"套件——用统一模具快速搭一个顶级智能体部门(六部/专署)或给现有部加一个司。当用户要"建一个部门/司、给某部加柜台、把某部顶级化、按吏部/户部模板做另一个部、决策前算账的顾问司、部门办公厅"时用。强制:声明式(roster+30行引擎)、复用 office-kit(VerdictCard/resolveDecisionLadder/DeptDigestBar/finance-capability)、诚实标、协办徽、守铁律5/6/9。触发词:建部 建司 部门 办公厅 柜台 顶级化 吏部模板 决策算账 智能体司。
 ---
 
 # 朝堂 · 建部/建司套件(office-kit)

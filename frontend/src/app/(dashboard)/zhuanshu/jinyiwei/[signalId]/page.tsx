@@ -1,5 +1,5 @@
 /**
- * 锦衣卫 · 信号详情二级页
+ * 专署 · 锦衣卫信号详情二级页
  *
  * 从三栏主页面点击信号 → 进入此页查看完整情报内容
  * 锦衣卫朱砂红单色体系 · 印章标示
@@ -62,7 +62,7 @@ export default function SignalDetailPage({ params }: PageProps) {
     <div className="h-full overflow-y-auto" style={{ background: 'linear-gradient(180deg, #050812 0%, #0A0E1A 100%)' }}>
       <div className="mx-auto max-w-[860px] space-y-4 p-6">
         <Link
-          href="/intel"
+          href="/zhuanshu/jinyiwei"
           className="inline-flex items-center gap-1.5 text-[11px] text-[#6A7299] transition-colors hover:text-[#E0553A]"
         >
           <ArrowLeft size={12} />

@@ -77,7 +77,7 @@ export const PILOT_GROUPS: PilotGroup[] = [
     ],
   },
   {
-    title: '诸司 · 陆续上线',
+    title: '专署 · 陆续上线',
     tiles: [
       { key: 'qintian', name: '钦天监 · 预测', sub: '未来推演 / 情景模拟', status: 'coming' },
       { key: 'taiyi', name: '太医院 · 健康', sub: '系统/经营健康（不诊断）', status: 'coming' },

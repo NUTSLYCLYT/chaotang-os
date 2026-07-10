@@ -2,6 +2,7 @@
 
 隔离测试:in-memory SQLite + 临时 JSON 目录(不碰 data/default/)。
 """
+
 from __future__ import annotations
 
 import json
@@ -18,8 +19,8 @@ os.environ.setdefault("DB_URL", "sqlite:///:memory:")
 from src.db.models import Base, Decree, Task, Memorial, Review, Retrospective
 from src.db import flow_store
 
-
 # ── 夹具 ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture()
 def engine():
@@ -46,6 +47,7 @@ def tmp_data(tmp_path):
 
 # ── 1. save_decree_and_task ────────────────────────────────────────────────
 
+
 def test_save_decree_and_task(session):
     """dispatch 后写 decrees + tasks。"""
     flow_store.save_decree_and_task(
@@ -71,6 +73,7 @@ def test_save_decree_and_task(session):
 
 
 # ── 2. update_task_status ─────────────────────────────────────────────────
+
 
 def test_update_task_status(session):
     """mark_status 后更新 tasks 表。"""
@@ -104,6 +107,7 @@ def test_update_task_status_missing_noop(session):
 
 
 # ── 3. upsert_memorial ────────────────────────────────────────────────────
+
 
 def test_upsert_memorial_insert(session):
     """新 memorial 插入。"""
@@ -156,6 +160,7 @@ def test_upsert_memorial_update(session):
 
 
 # ── 4. save_review_db ─────────────────────────────────────────────────────
+
 
 def test_save_review_db(session):
     """写 reviews + 联动更新 memorials.status。"""
@@ -242,6 +247,7 @@ def test_save_review_db_inquire(session):
 
 # ── 5. save_retrospective_db ──────────────────────────────────────────────
 
+
 def test_save_retrospective_db_insert(session):
     rec = flow_store.save_retrospective_db(
         session=session,
@@ -285,7 +291,42 @@ def test_save_retrospective_db_upsert(session):
     assert json.loads(r.successes_json) == ["X"]
 
 
+def test_retrospective_outcome_self_heals_on_old_table():
+    """2026-07-10 独立复审:Alembic 004 只在生产迁移路径跑,老 DB 文件(create_all
+    补救、未跑迁移)的 retrospectives 表没有 outcome 列——save/get 不能因此崩,
+    必须现场补列(同 ensure_task_result_json_column 的既有惯例)。"""
+    from sqlalchemy import create_engine, text as sa_text
+
+    eng = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    with eng.begin() as conn:
+        conn.execute(sa_text("""CREATE TABLE retrospectives (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    task_id TEXT UNIQUE NOT NULL,
+                    tenant_id INTEGER NOT NULL DEFAULT 1,
+                    score INTEGER NOT NULL DEFAULT 3,
+                    successes_json TEXT NOT NULL DEFAULT '[]',
+                    failures_json TEXT NOT NULL DEFAULT '[]',
+                    lessons_json TEXT NOT NULL DEFAULT '[]',
+                    playbook TEXT,
+                    authored_by TEXT NOT NULL DEFAULT '史官',
+                    authored_at TEXT NOT NULL DEFAULT '',
+                    synthetic BOOLEAN NOT NULL DEFAULT 0
+                )"""))
+    with Session(eng) as old_session:
+        rec = flow_store.save_retrospective_db(
+            session=old_session, task_id="t_old_schema", score=4, outcome="success"
+        )
+        old_session.commit()
+        assert rec["outcome"] == "success"
+
+        fetched = flow_store.get_retrospective_db(old_session, "t_old_schema")
+        assert fetched is not None
+        assert fetched["outcome"] == "success"
+    eng.dispose()
+
+
 # ── 6. get_memorial_status_db ──────────────────────────────────────────────
+
 
 def test_get_memorial_status_db_exists(session):
     flow_store.upsert_memorial(
@@ -310,6 +351,7 @@ def test_get_memorial_status_db_missing(session):
 
 
 # ── 7. get_review_for_memorial_db ────────────────────────────────────────
+
 
 def test_get_review_for_memorial_db(session):
     flow_store.upsert_memorial(

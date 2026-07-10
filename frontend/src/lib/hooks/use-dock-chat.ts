@@ -2,8 +2,32 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DockMessage } from '@/features/shared/components/bottom-dock';
-import { withBasePath } from '@/lib/base-path';
+import { backendFetch } from '@/lib/backend-api';
 import { streamSseTokens } from '@/lib/sse-tokens';
+
+function readResponseText(record: Record<string, unknown> | null, keys: string[]): string | null {
+  if (!record) return null;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+function fallbackReply(apiPath: string, text: string): string {
+  if (apiPath.includes('/api/shangshufang/chancellor-chat')) {
+    const command = text.trim();
+    return [
+      '臣先按丞相单 Agent 兜底初判：当前丞相后端对话端点暂未连通，未召军机处，也未启动六部会审。',
+      command ? `所问：${command}` : null,
+      '建议先把目标、现有证据、缺口和期望产出各补一句；若要正式执行，再走下旨流程。',
+    ].filter(Boolean).join('\n\n');
+  }
+  if (apiPath.includes('/api/qintian/chat')) {
+    return '钦天监暂未连通；可先补充时间窗口、关键风险和要比较的方案，再继续占验。';
+  }
+  return '当前对话端点暂未连通，请稍后再试。';
+}
 
 /** Drop-in replacement for the setTimeout+mockReply pattern in all bottom docks */
 export function useDockChat(
@@ -45,23 +69,32 @@ export function useDockChat(
     setMessages((prev) => [...prev, { id: agentMessageId, role: 'agent', text: '▋', time: agentTime }]);
 
     try {
-      const apiUrl = apiPath.startsWith('/') ? withBasePath(apiPath) : apiPath;
-      const res = await fetch(apiUrl, {
+      const res = await backendFetch(apiPath, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { accept: 'text/event-stream, application/json', 'content-type': 'application/json' },
         body: JSON.stringify({ message: text }),
         signal: controller.signal,
       });
-      if (!res.ok || !res.body) throw new Error('upstream');
+      if (!res.ok) throw new Error('upstream');
 
       let accumulated = '';
-      for await (const token of streamSseTokens(res.body)) {
-        accumulated += token;
-        setMessages((prev) => {
-          const next = [...prev];
-          next[next.length - 1] = { id: agentMessageId, role: 'agent', text: accumulated + '▋', time: agentTime };
-          return next;
-        });
+      const contentType = res.headers.get('content-type') ?? '';
+      if (contentType.includes('text/event-stream') && res.body) {
+        for await (const token of streamSseTokens(res.body)) {
+          accumulated += token;
+          setMessages((prev) => {
+            const next = [...prev];
+            next[next.length - 1] = { id: agentMessageId, role: 'agent', text: accumulated + '▋', time: agentTime };
+            return next;
+          });
+        }
+      } else {
+        const json = await res.json().catch(() => null) as Record<string, unknown> | null;
+        const data = json?.data && typeof json.data === 'object' ? json.data as Record<string, unknown> : null;
+        accumulated =
+          readResponseText(json, ['reply', 'message', 'answer', 'text', 'content']) ??
+          readResponseText(data, ['reply', 'message', 'answer', 'text', 'content', 'summary']) ??
+          '';
       }
 
       setMessages((prev) => {
@@ -81,7 +114,7 @@ export function useDockChat(
         next[next.length - 1] = {
           id: agentMessageId,
           role: 'agent',
-          text: '臣一时无对 · 请陛下再次下旨。',
+          text: fallbackReply(apiPath, text),
           time: agentTime,
         };
         return next;

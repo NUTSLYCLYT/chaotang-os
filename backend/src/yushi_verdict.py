@@ -1,6 +1,6 @@
 """src/yushi_verdict.py — 御史封驳/放行书引擎(接 harness/yushi_global_gate 真实四维确定性门)。
 
-诸司能力核查发现:harness/yushi_global_gate/scripts/run_gate.py 是真实、测过的四维确定性
+专署能力核查发现:harness/yushi_global_gate/scripts/run_gate.py 是真实、测过的四维确定性
 门禁(依赖安全/客户承诺/自动化权限/Web漂移/无据数字→green/yellow/red/black),但从来没有
 任何 build_court_doc(dept="yushi") 的生产调用方——不是少传参数,是压根没有调用方。
 

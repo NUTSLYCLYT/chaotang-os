@@ -24,7 +24,7 @@ export default async function DepartmentSubpage({ params, searchParams }: Depart
   const query = await searchParams;
 
   if (code === 'guard') {
-    redirect('/zhusi/jinyiwei');
+    redirect('/zhuanshu/jinyiwei');
   }
 
   if (code === 'works') {

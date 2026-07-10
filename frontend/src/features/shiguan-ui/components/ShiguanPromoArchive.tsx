@@ -33,9 +33,12 @@ export function ShiguanPromoArchive() {
     return () => { alive = false; };
   }, []);
 
-  if (!data || data.source === 'unavailable' || data.curatedCount === 0) return null;
+  const curated = Array.isArray(data?.curated) ? data.curated : [];
+  const curatedCount = data?.curatedCount ?? curated.length;
 
-  const shown = open ? data.curated : data.curated.slice(0, 6);
+  if (!data || data.source === 'unavailable' || curatedCount === 0) return null;
+
+  const shown = open ? curated : curated.slice(0, 6);
 
   return (
     <div className="rounded-2xl border border-gold-300/14 bg-black/18 px-3 py-3 backdrop-blur-sm">
@@ -44,7 +47,7 @@ export function ShiguanPromoArchive() {
         <span className="rounded-full border border-[#F0C66A]/35 bg-[#F0C66A]/10 px-2 py-0.5 text-[9px] text-[#F0C66A]">真 · H盘</span>
       </div>
       <div className="mt-1 text-[11px] text-slatey-400">
-        永久档 <span className="font-serif text-[15px] text-gold-gradient">{data.curatedCount}</span> 件（可对外） · 展会留档 {data.bulkArchiveCount} 张（折叠）
+        永久档 <span className="font-serif text-[15px] text-gold-gradient">{curatedCount}</span> 件（可对外） · 展会留档 {data.bulkArchiveCount ?? 0} 张（折叠）
       </div>
 
       <div className="mt-2.5 space-y-1">
@@ -56,13 +59,13 @@ export function ShiguanPromoArchive() {
         ))}
       </div>
 
-      {data.curatedCount > 6 && (
+      {curatedCount > 6 && (
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           className="mt-2 text-[10px] text-[#F0C66A]/80 transition hover:text-[#F0C66A]"
         >
-          {open ? '收起' : `展开全部 ${data.curatedCount} 件永久档 ↓`}
+          {open ? '收起' : `展开全部 ${curatedCount} 件永久档 ↓`}
         </button>
       )}
     </div>

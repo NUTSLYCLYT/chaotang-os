@@ -5,11 +5,11 @@
     { "id": "shangshufang", "name": "上书房", "href": "/shangshufang" },
     { "id": "junjichu", "name": "军机处", "href": "/junjichu" },
     { "id": "liubu", "name": "六部", "href": "/liubu" },
-    { "id": "zhusi", "name": "诸司", "href": "/zhusi" },
+    { "id": "zhuanshu", "name": "专署", "href": "/zhuanshu" },
     { "id": "shiguan", "name": "史馆", "href": "/shiguan" }
   ],
-  "zhusi": [
-    { "id": "jinyiwei", "name": "锦衣卫", "href": "/zhusi/jinyiwei" }
+  "zhuanshu": [
+    { "id": "jinyiwei", "name": "锦衣卫", "href": "/zhuanshu/jinyiwei" }
   ],
   "liubu": [
     {

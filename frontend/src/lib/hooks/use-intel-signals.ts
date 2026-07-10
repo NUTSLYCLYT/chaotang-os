@@ -10,6 +10,7 @@
 import useSWR from 'swr';
 import type { IntelFilter, IntelSignal, IntelSignalsResponse } from '@/lib/contracts/intel';
 import { withBasePath } from '@/lib/base-path';
+import { mockIntelSignals } from '@/lib/mock/fixtures/intel';
 
 /** 真实性来源：turso=真实摄入情报；fallback=Turso 空/不可达时的 mock 兜底（诚实纪律，须明示）。 */
 export type IntelSource = 'turso' | 'fallback';
@@ -23,10 +24,10 @@ const fetcher = async (url: string): Promise<IntelFetchResult> => {
   const res = await fetch(url, {
     cache: 'no-store',
     headers: { 'Content-Type': 'application/json' },
-  });
-  if (!res.ok) throw new Error(`intel signals fetch failed: ${res.status}`);
-  const payload = (await res.json()) as IntelSignalsResponse;
-  if (!payload.success) throw new Error('intel signals API returned success=false');
+  }).catch(() => null);
+  if (!res?.ok) return { signals: mockIntelSignals, source: 'fallback' };
+  const payload = (await res.json().catch(() => null)) as IntelSignalsResponse | null;
+  if (!payload?.success) return { signals: mockIntelSignals, source: 'fallback' };
   // 透传 meta.source —— 前端据此明示「兜底演示」，不把 mock 当真情报（诚实纪律）。
   return { signals: payload.data, source: payload.meta?.source ?? 'fallback' };
 };

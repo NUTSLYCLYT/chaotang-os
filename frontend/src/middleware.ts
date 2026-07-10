@@ -32,7 +32,7 @@ const PUBLIC_PREFIXES = [
   '/junjichu',
   '/command-center',
   '/liubu',
-  '/zhusi',
+  '/zhuanshu',
   '/shiguan',
   // '/api/shangshufang' B栈已退役进 dev/_attic(2026-07-02·融合吸收清单阶段1,客户端0引用死码);白名单同步移除。
   // '/api/reviews' 移出公开白名单(2026-06-25 安全扫描):reviews 是内部军机处会审(create→run 烧 LLM/swarm),

@@ -20,7 +20,7 @@
  * 上线战略：集中兵力打一个点，第一周只让老板看见**一条杀手 loop**：
  *   上传真决策(上书房) → 六部蜂群审 → 军机处会审 → 准奏/驳回 → 史馆归档。
  * 六部审是 loop 内部的蜂群结果（在上书房/军机处呈现），**不是**让老板逐个点 /departments。
- * 其余面（情报/庄园/钦天监/翰林/太医/官印/诸司/原型…）代码不删，运行时 redirect→上书房，
+ * 其余面（情报/庄园/钦天监/翰林/太医/官印/专署/原型…）代码不删，运行时 redirect→上书房，
  * 拿到第一个真实客户反馈后再按需解冻。放开某面前先答铁律5：它的第一条真实数据从哪来？
  */
 export const LAUNCH_ALLOWED_PREFIXES: readonly string[] = [
@@ -28,7 +28,7 @@ export const LAUNCH_ALLOWED_PREFIXES: readonly string[] = [
   '/shangshufang',
   '/junjichu',
   '/liubu',
-  '/zhusi',
+  '/zhuanshu',
   '/shiguan',
   '/intro',
   '/enter',

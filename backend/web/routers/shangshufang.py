@@ -14,6 +14,7 @@ import os
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from web.deps import get_current_user
@@ -32,6 +33,8 @@ from src.db.models import (
     ShiguanArchive,
 )
 from src.shangshufang_loop import (
+    chancellor_decide_route,
+    direct_receipt_for,
     draft_edict,
     draft_to_dict,
     evaluate_draft,
@@ -98,6 +101,10 @@ class FinanceIntelLoopCompleteRequest(BaseModel):
 class PolishEdictRequest(BaseModel):
     raw_question: str = Field(..., min_length=1, max_length=4000)
     mode: Literal["order", "secret"] = "order"
+
+
+class ChancellorChatRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=4000)
 
 
 class ImMessagePayload(BaseModel):
@@ -190,6 +197,100 @@ def _latest_review(db, task_id: str) -> CourtReview | None:
         .order_by(CourtReview.created_at.desc())
         .first()
     )
+
+
+def _direct_swarm_skip_payload(
+    *,
+    task: DecisionTask,
+    review: CourtReview,
+    memorial: dict[str, Any],
+    routing_plan: dict[str, Any],
+) -> dict[str, Any]:
+    summary = memorial.get("summary", "简单任务单无需蜂群深研。")
+    findings = memorial.get("evidence_gaps", [])
+    return {
+        "task_id": task.id,
+        "status": task.status,
+        "source_label": task.source_label,
+        "adapter_result": {
+            "adapter_id": "jiqun",
+            "ok": True,
+            "external_task_id": task.id,
+            "external_session_id": review.id,
+            "trace_id": review.id,
+            "status": "skipped_direct_route",
+            "findings": findings,
+            "missing_capabilities": [],
+            "user_visible_summary": summary,
+            "source_label": task.source_label,
+        },
+        "swarm_trace_summary": {
+            "schema_version": "SwarmTraceV1",
+            "task_id": task.id,
+            "trace_id": review.id,
+            "mode": "not_required",
+            "status": "skipped_direct_route",
+            "requested_bundles": [],
+            "departments": routing_plan.get("ministry_candidates", []),
+            "findings": findings,
+            "missing_capabilities": [],
+            "user_visible_summary": summary,
+            "source_label": task.source_label,
+        },
+        "memorial": memorial,
+        "routing_plan": routing_plan,
+        "route": routing_plan.get("route"),
+    }
+
+
+def _chancellor_fallback_reply(message: str) -> str:
+    edict = draft_edict(message)
+    route = chancellor_decide_route(edict)
+    next_step = (
+        f"此事可先交由{route.get('targetDepartment', '承办方')}直接办一版。"
+        if route.get("mode") == "direct"
+        else "此事风险或缺口较多，若要执行，应先转军机处会审。"
+    )
+    gaps = f"缺口：{'、'.join(edict.unknown_gaps[:3])}。" if edict.unknown_gaps else "当前未识别到必须阻断初判的证据缺口。"
+    risks = f"风险：{'、'.join(edict.risk_flags[:3])}。" if edict.risk_flags else "未命中高风险标记。"
+    return f"臣先按丞相单 Agent 初判：{next_step}\n\n{gaps}\n{risks}\n\n若陛下要正式推进，请再下旨；若只是讨论，可继续追问臣一个具体点。"
+
+
+def _call_chancellor_agent(message: str) -> tuple[str, str]:
+    system_prompt = (
+        "你是朝堂 OS 的丞相单 Agent，只回答皇上的咨询，不召集军机处，不调用六部会审。"
+        "你的职责是把问题压成老板能判断的下一步：目标、证据缺口、风险、建议动作。"
+        "必须诚实说明不确定性；不得伪装实时数据；不得替皇上自动执行。"
+        "用中文，简洁，最多 5 段。"
+    )
+    try:
+        import os
+
+        from src.model_adapter import ModelAdapter
+        from src.provider import active_fallback_models, get_active_provider
+
+        provider = get_active_provider() or {}
+        api_key = os.environ.get(provider.get("api_key_env", "DEEPSEEK_API_KEY"), "")
+        api_base = str(provider.get("api_base", ""))
+        if not api_key and "localhost" not in api_base and "127.0.0.1" not in api_base:
+            return _chancellor_fallback_reply(message), "FALLBACK"
+        adapter = ModelAdapter(
+            model=provider.get("default_model", "openai/deepseek-chat"),
+            api_base=api_base,
+            api_key=api_key,
+            temperature=0.2,
+        )
+        result = adapter.call(
+            system_prompt,
+            message[:4000],
+            skip_budget=True,
+            fallback_models=active_fallback_models(),
+        )
+        if result.get("status") == "success" and str(result.get("output") or "").strip():
+            return str(result["output"]).strip(), "LIVE"
+    except Exception:
+        pass
+    return _chancellor_fallback_reply(message), "FALLBACK"
 
 
 def _archive_task(
@@ -377,6 +478,18 @@ def shangshufang_home(user: CurrentUser = Depends(get_current_user)) -> dict:
         db.close()
 
 
+@router.post("/chancellor-chat")
+def shangshufang_chancellor_chat(body: ChancellorChatRequest) -> StreamingResponse:
+    message = body.message.strip()
+
+    def events():
+        text, source_label = _call_chancellor_agent(message)
+        yield f"data: {json.dumps({'token': text, 'sourceLabel': source_label, 'agent': 'chancellor'}, ensure_ascii=False)}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(events(), media_type="text/event-stream")
+
+
 @router.post("/finance-reporting-loop")
 def shangshufang_finance_reporting_loop(
     body: FinanceReportingLoopRequest,
@@ -423,7 +536,8 @@ def shangshufang_draft_edict(
             evidence_summary=evidence_summary,
             archive_matches=body.archive_matches,
         )
-        edict_payload = draft_to_dict(edict)
+        route = chancellor_decide_route(edict)
+        edict_payload = {**draft_to_dict(edict), "route": route}
         eval_result = evaluate_draft(edict)
         now = now_iso()
 
@@ -452,7 +566,7 @@ def shangshufang_draft_edict(
                 loop_id=LOOP_ID,
                 status="awaiting_emperor_confirm",
                 input_json=_json(body.model_dump()),
-                output_json=_json({"draft_edict": edict_payload, "eval_result": eval_result}),
+                output_json=_json({"draft_edict": edict_payload, "route": route, "eval_result": eval_result}),
                 trace_id=run_id,
                 created_at=now,
                 updated_at=now,
@@ -477,6 +591,7 @@ def shangshufang_draft_edict(
                 "task_id": task_id,
                 "status": "awaiting_emperor_confirm",
                 "draft_edict": edict_payload,
+                "route": route,
                 "eval_result": eval_result,
                 "trace_id": run_id,
             }
@@ -509,9 +624,72 @@ def shangshufang_confirm_edict(
 
         draft_payload = body.edited_edict or _loads(task.draft_edict_json, {})
         edict_for_review = draft_edict(task.raw_question, source_label=task.source_label)
-        routing_plan = routing_plan_for(edict_for_review)
-        memorial = review_memorial_for(edict_for_review, routing_plan)
+        route = draft_payload.get("route") if isinstance(draft_payload, dict) else None
+        if not isinstance(route, dict):
+            route = chancellor_decide_route(edict_for_review)
+        routing_plan = routing_plan_for(edict_for_review, route)
         now = now_iso()
+
+        if route.get("mode") == "direct":
+            memorial = direct_receipt_for(edict_for_review, routing_plan)
+            review_id = make_id("review", task.id, "direct")
+            task.status = "direct_completed"
+            task.updated_at = now
+            db.add(
+                CourtReview(
+                    id=review_id,
+                    task_id=task.id,
+                    routing_plan_json=_json(routing_plan),
+                    review_status="direct_completed",
+                    ministry_outputs_json=_json(memorial["ministry_outputs"]),
+                    conflict_summary_json=_json(memorial["conflict_summary"]),
+                    memorial_json=_json({**memorial, "draft_edict": draft_payload}),
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+            db.add(
+                CourtLoopRun(
+                    id=make_id("loop", task.id, "confirm-direct", now),
+                    task_id=task.id,
+                    loop_id=LOOP_ID,
+                    status="direct_completed",
+                    input_json=_json(body.model_dump()),
+                    output_json=_json({"routing_plan": routing_plan, "review_id": review_id, "memorial": memorial, "route": route}),
+                    trace_id=review_id,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+            db.add(
+                EmperorDecision(
+                    id=make_id("decision", task.id, "confirm-direct", now),
+                    task_id=task.id,
+                    action="confirm_direct_task",
+                    reason="皇上确认简单任务单，由丞相判定直接承办",
+                    human_confirmed=True,
+                    confirmation_record_json=_json(
+                        {"user_id": _user_id(user), "confirmed_at": now, "edited": body.edited_edict is not None, "route": route}
+                    ),
+                    created_at=now,
+                )
+            )
+            db.commit()
+            return ok(
+                {
+                    "task_id": task.id,
+                    "status": "direct_completed",
+                    "message": f"丞相判定为简单任务单，已交由{route.get('targetDepartment', '承办方')}直接承办。",
+                    "review_id": review_id,
+                    "routing_plan": routing_plan,
+                    "memorial": _loads(db.query(CourtReview).filter_by(id=review_id).first().memorial_json, memorial),
+                    "route": route,
+                    "direct_receipt": memorial,
+                    "review_status_url": f"/api/shangshufang/tasks/{task.id}/status",
+                }
+            )
+
+        memorial = review_memorial_for(edict_for_review, routing_plan)
         review_id = make_id("review", task.id, "junjichu")
         task.status = "awaiting_decision"
         task.updated_at = now
@@ -575,6 +753,7 @@ def shangshufang_confirm_edict(
                 "routing_plan": routing_plan,
                 "memorial": _loads(db.query(CourtReview).filter_by(id=review_id).first().memorial_json, memorial),
                 "swarm_run": swarm_result["swarm_run"],
+                "route": route,
                 "review_status_url": f"/api/shangshufang/tasks/{task.id}/status",
             }
         )
@@ -722,6 +901,32 @@ def shangshufang_swarm_deepen(task_id: str, user: CurrentUser = Depends(get_curr
         if review is None:
             edict = draft_edict(task.raw_question, source_label=task.source_label)
             routing_plan = routing_plan_for(edict)
+            if routing_plan.get("route", {}).get("mode") == "direct":
+                memorial = direct_receipt_for(edict, routing_plan)
+                now = now_iso()
+                review = CourtReview(
+                    id=make_id("review", task.id, "swarm-deepen-direct", now),
+                    task_id=task.id,
+                    routing_plan_json=_json(routing_plan),
+                    review_status="direct_completed",
+                    ministry_outputs_json=_json(memorial["ministry_outputs"]),
+                    conflict_summary_json=_json(memorial["conflict_summary"]),
+                    memorial_json=_json(memorial),
+                    created_at=now,
+                    updated_at=now,
+                )
+                db.add(review)
+                task.status = "direct_completed"
+                task.updated_at = now
+                db.commit()
+                return ok(
+                    _direct_swarm_skip_payload(
+                        task=task,
+                        review=review,
+                        memorial=memorial,
+                        routing_plan=routing_plan,
+                    )
+                )
             memorial = review_memorial_for(edict, routing_plan)
             now = now_iso()
             review = CourtReview(
@@ -739,6 +944,19 @@ def shangshufang_swarm_deepen(task_id: str, user: CurrentUser = Depends(get_curr
             db.flush()
         draft_payload = _loads(task.draft_edict_json, {}) or draft_to_dict(draft_edict(task.raw_question, source_label=task.source_label))
         routing_plan = _loads(review.routing_plan_json, {})
+        if routing_plan.get("route", {}).get("mode") == "direct":
+            memorial = _loads(review.memorial_json, {})
+            task.status = "direct_completed"
+            task.updated_at = now_iso()
+            db.commit()
+            return ok(
+                _direct_swarm_skip_payload(
+                    task=task,
+                    review=review,
+                    memorial=memorial,
+                    routing_plan=routing_plan,
+                )
+            )
         swarm_result = _run_swarm_execution_loop_sync(
             {
                 "task_id": task.id,

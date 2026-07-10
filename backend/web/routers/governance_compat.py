@@ -213,6 +213,81 @@ def shiguan_analyze() -> dict:
     }
 
 
+@router.get("/api/court/shiguan/stats")
+def shiguan_stats() -> dict:
+    return {
+        "totalTasks": 0,
+        "totalCases": 0,
+        "successRate": 0,
+        "sourceLabel": "FALLBACK",
+    }
+
+
+@router.get("/api/court/shiguan/archives")
+def shiguan_archives(limit: int = 80) -> dict:
+    return {
+        "success": True,
+        "data": {
+            "archives": [],
+            "total": 0,
+            "limit": limit,
+            "sourceLabel": "FALLBACK",
+        },
+        "error": None,
+    }
+
+
+@router.get("/api/court/shiguan/archives/{archive_id}")
+def shiguan_archive_detail(archive_id: str) -> dict:
+    return {
+        "success": True,
+        "data": {
+            "archive": {
+                "id": archive_id,
+                "title": "史馆兼容空案卷",
+                "type": "fallback",
+                "summary": "正式案卷详情接口已接通；当前后端未找到对应真实案卷。",
+                "decisionChain": [],
+                "evidence": [],
+                "lessons": [],
+                "retrospectiveStatus": "pending",
+                "sourceLabel": "FALLBACK",
+            },
+            "sourceLabel": "FALLBACK",
+        },
+        "error": None,
+    }
+
+
+@router.get("/api/court/shiguan/archives/{archive_id}/similar")
+def shiguan_archive_similar(archive_id: str, limit: int = 5) -> dict:
+    return {
+        "success": True,
+        "data": {
+            "archiveId": archive_id,
+            "similar": [],
+            "limit": limit,
+            "sourceLabel": "FALLBACK",
+        },
+        "error": None,
+    }
+
+
+@router.post("/api/court/shiguan/archives/{archive_id}/verdict")
+def shiguan_archive_verdict(archive_id: str) -> dict:
+    return {
+        "success": True,
+        "data": {
+            "archiveId": archive_id,
+            "verdict": "仅作兼容空态；未生成真实史馆判词。",
+            "reusableLessons": [],
+            "blockedReasons": ["missing_live_archive_detail"],
+            "sourceLabel": "FALLBACK",
+        },
+        "error": None,
+    }
+
+
 @router.get("/api/court/shiguan/release-gates")
 def shiguan_release_gates() -> dict:
     return {
@@ -258,7 +333,20 @@ def shiguan_retrospective(archive_id: str, body: dict[str, Any] = Body(default_f
 
 @router.get("/api/court/shiguan/promo-archive")
 def shiguan_promo_archive() -> dict:
-    return {"success": True, "data": {"items": [], "sourceLabel": "FALLBACK"}, "error": None}
+    return {
+        "success": True,
+        "data": {
+            "source": "fallback",
+            "sourceLabel": "FALLBACK",
+            "archivedTotal": 0,
+            "curatedCount": 0,
+            "bulkArchiveCount": 0,
+            "byCategory": {},
+            "curated": [],
+            "items": [],
+        },
+        "error": None,
+    }
 
 
 @router.get("/api/court/true-chain-health")

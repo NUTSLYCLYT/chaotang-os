@@ -16,7 +16,7 @@ const PUBLIC_ROUTES = [
   '/junjichu',
   '/command-center',
   '/liubu',
-  '/zhusi',
+  '/zhuanshu',
   '/shiguan',
 ];
 

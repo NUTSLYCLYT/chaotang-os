@@ -31,6 +31,10 @@ def test_brief_endpoint_grades_findings():
     assert lights == ["green", "red"]
     assert doc["seal"]["stamp"] == "绣春刀印"
     assert doc["sourceLabel"] == "CALLER_FINDINGS"
+    assert doc["items"][0]["primary_source"] is True
+    assert doc["items"][0]["distinct_sources"] == 0
+    assert doc["items"][1]["hard_claim"] is False
+    assert doc["items"][0]["sources"][0]["tier"] == "一手"
 
 
 def test_brief_endpoint_uses_tavily_when_no_findings(monkeypatch):

@@ -91,6 +91,36 @@ POSITION_STATUS_MAP = {
     "驳回": "rejected",
 }
 
+DIRECT_AGENT_MAP = {
+    "户部": "hubu_finance_agent",
+    "刑部": "xingbu_legal_risk_agent",
+    "礼部": "libu_communication_agent",
+    "工部": "gongbu_delivery_agent",
+    "兵部": "bingbu_strategy_agent",
+    "吏部": "libu_org_agent",
+    "锦衣卫": "jinyiwei_intel_agent",
+    "丞相": "chancellor_agent",
+}
+
+EXPLICIT_CLUSTER_WORDS = ["会审", "军机处", "六部", "各部门", "群臣", "集群", "蜂群", "多部门"]
+DIRECT_ACTION_WORDS = [
+    "整理",
+    "总结",
+    "摘要",
+    "改写",
+    "润色",
+    "草拟",
+    "生成",
+    "通知",
+    "纪要",
+    "翻译",
+    "看一下",
+    "初判",
+    "初步",
+    "简单",
+]
+HIGH_RISK_FLAGS = {"股权风险", "合同风险", "付款风险", "对外承诺风险", "需人工确认"}
+
 
 @dataclass(frozen=True)
 class DraftEdict:
@@ -468,9 +498,94 @@ def draft_to_dict(edict: DraftEdict) -> dict:
     return asdict(edict)
 
 
-def routing_plan_for(edict: DraftEdict) -> dict:
+def chancellor_decide_route(edict: DraftEdict) -> dict:
+    """丞相判定下旨走简单任务单还是复杂集群任务。
+
+    这是业务角色语义，不是前端按钮规则。实现保持确定性，便于审计和测试。
+    """
+    question = edict.original_question
+    explicit_cluster = _contains_any(question, EXPLICIT_CLUSTER_WORDS)
+    direct_action = _contains_any(question, DIRECT_ACTION_WORDS)
+    high_risks = [risk for risk in edict.risk_flags if risk in HIGH_RISK_FLAGS]
+    business_departments = [dept for dept in edict.recommended_departments if dept != "刑部" or "刑部" in question]
+    legal_only_from_question = "刑部" in edict.recommended_departments and not _contains_any(
+        question,
+        list(DEPARTMENT_RULES["刑部"]["keywords"]),
+    )
+    candidate_departments = [dept for dept in edict.recommended_departments if not (dept == "刑部" and legal_only_from_question)]
+    target_department = candidate_departments[0] if candidate_departments else (edict.recommended_departments[0] if edict.recommended_departments else "丞相")
+
+    cluster_reasons: list[str] = []
+    if explicit_cluster:
+        cluster_reasons.append("皇上原问明确要求会审/军机处/六部/集群")
+    if high_risks:
+        cluster_reasons.append(f"命中高风险：{'、'.join(high_risks)}")
+    if len(business_departments) >= 2 and not direct_action:
+        cluster_reasons.append(f"涉及多部门：{'、'.join(_dedupe(business_departments))}")
+    if edict.unknown_gaps and not direct_action:
+        cluster_reasons.append(f"存在关键证据缺口：{'、'.join(edict.unknown_gaps[:3])}")
+
+    if cluster_reasons:
+        return {
+            "mode": "cluster",
+            "decidedBy": "chancellor",
+            "reason": "；".join(cluster_reasons),
+            "reviewDepth": "deep",
+            "targetAgent": None,
+            "targetDepartment": "军机处",
+            "departments": edict.recommended_departments,
+            "swarmRequired": True,
+            "humanSignoffRequired": "需人工确认" in edict.risk_flags,
+            "riskFlags": edict.risk_flags,
+            "evidenceGaps": edict.unknown_gaps,
+        }
+
+    reason_parts = [f"丞相判定可由{target_department}直接承办"]
+    if direct_action:
+        reason_parts.append("原问属于整理/草拟/初判类轻量任务")
+    if edict.unknown_gaps:
+        reason_parts.append("存在缺口但不阻断初步任务单，结果需标注限制")
+    if not edict.risk_flags or edict.risk_flags == ["证据不足"]:
+        reason_parts.append("未命中付款/合同/股权/对外承诺等高风险")
+
+    return {
+        "mode": "direct",
+        "decidedBy": "chancellor",
+        "reason": "；".join(reason_parts),
+        "reviewDepth": "shallow",
+        "targetAgent": DIRECT_AGENT_MAP.get(target_department, "chancellor_agent"),
+        "targetDepartment": target_department,
+        "departments": [target_department],
+        "swarmRequired": False,
+        "humanSignoffRequired": False,
+        "riskFlags": edict.risk_flags,
+        "evidenceGaps": edict.unknown_gaps,
+    }
+
+
+def routing_plan_for(edict: DraftEdict, route: dict | None = None) -> dict:
+    route = route or chancellor_decide_route(edict)
+    if route.get("mode") == "direct":
+        department = route.get("targetDepartment") or (edict.recommended_departments[0] if edict.recommended_departments else "丞相")
+        return {
+            "routing_id": make_id("route", edict.original_question, "direct", department),
+            "route": route,
+            "ministry_candidates": [department],
+            "swarm_plan": [
+                {
+                    "department": department,
+                    "focus": DEPARTMENT_RULES.get(department, {}).get("focus", "丞相直接任务单"),
+                    "status": "direct",
+                }
+            ],
+            "route_reason": route.get("reason", "丞相判定可直接承办"),
+            "review_depth": "shallow",
+            "swarm_required": False,
+            "source_label": edict.source_label,
+        }
     return {
         "routing_id": make_id("route", edict.original_question, ",".join(edict.recommended_departments)),
+        "route": route,
         "ministry_candidates": edict.recommended_departments,
         "swarm_plan": [
             {
@@ -480,9 +595,77 @@ def routing_plan_for(edict: DraftEdict) -> dict:
             }
             for dept in edict.recommended_departments
         ],
-        "route_reason": "根据原问关键词、风险标记和证据缺口自动推荐；用户无需选择蜂群。",
+        "route_reason": route.get("reason") or "根据原问关键词、风险标记和证据缺口自动推荐；用户无需选择蜂群。",
+        "review_depth": "deep",
+        "swarm_required": True,
         "source_label": edict.source_label,
     }
+
+
+def direct_receipt_for(edict: DraftEdict, routing_plan: dict) -> dict:
+    """生成简单任务单回执，不启动军机处集群。"""
+    route = routing_plan.get("route") or chancellor_decide_route(edict)
+    department = str(route.get("targetDepartment") or "丞相")
+    agent = str(route.get("targetAgent") or DIRECT_AGENT_MAP.get(department, "chancellor_agent"))
+    limits = []
+    if edict.unknown_gaps:
+        limits.append(f"缺证限制：{'、'.join(edict.unknown_gaps[:5])}")
+    if edict.risk_flags:
+        limits.append(f"风险提示：{'、'.join(edict.risk_flags)}")
+    if not limits:
+        limits.append("未命中高风险；仍按来源标签保留审计边界")
+
+    ministry_output = {
+        "department": department,
+        "focus": DEPARTMENT_RULES.get(department, {}).get("focus", "丞相直接任务单"),
+        "opinion": f"丞相已判定本旨可由{department}直接承办；承办 Agent：{agent}。当前回执为任务单，不代表对外承诺或最终经营裁决。",
+        "status": "direct_ready",
+        "source_label": edict.source_label,
+    }
+    memorial = {
+        "title": "上书房简单任务单回执",
+        "verdict": "可直接承办",
+        "summary": f"丞相判定为简单任务单，由{department}直接承办，不开军机处集群。",
+        "draft_edict": draft_to_dict(edict) | {"route": route},
+        "route": route,
+        "target_agent": agent,
+        "ministry_outputs": [ministry_output],
+        "conflict_summary": [],
+        "evidence_gaps": edict.unknown_gaps,
+        "risk_flags": edict.risk_flags,
+        "risk_register": [],
+        "evidence_chain": [{"title": "皇上原问", "claim_supported": edict.original_question, "status": "recorded"}],
+        "recommended_next_action": f"交由{department}按任务单办理；如后续命中风险或多部门冲突，再转军机处会审。",
+        "decision_options": [
+            {
+                "action": "archive",
+                "label": "准奏归档",
+                "reason": "归档当前简单任务单回执。",
+                "enabled": True,
+            },
+            {
+                "action": "request_evidence",
+                "label": "要求补证",
+                "reason": "如需形成确定性结论，先补齐缺口。",
+                "enabled": bool(edict.unknown_gaps),
+            },
+            {
+                "action": "escalate_cluster",
+                "label": "转军机处",
+                "reason": "如皇上认为需多部门会审，可升级为复杂集群任务。",
+                "enabled": True,
+            },
+        ],
+        "next_best_action": "archive" if not edict.unknown_gaps else "request_evidence",
+        "source_label": edict.source_label,
+        "quality_gate": {
+            "status": "passed" if not edict.unknown_gaps else "needs_review",
+            "reasons": limits,
+            "human_signoff_required": False,
+        },
+    }
+    memorial["formatted_memorial"] = format_memorial_sections(memorial)
+    return memorial
 
 
 def review_memorial_for(edict: DraftEdict, routing_plan: dict) -> dict:

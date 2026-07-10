@@ -21,7 +21,7 @@ _DECISION_LIGHT = {"拒": "red", "待核": "yellow", "入库": "green"}
 
 # docs/dept_design/jinyiwei.md §三:判官(bruce-schneier 治情报投毒/deming 判异动真伪)+
 # 顾问(soros-perspective/charity-majors/taleb-perspective)。此前 gather_intel 没传,
-# provenance.advisors 一直是空的(诸司能力核查挖出的同款洞)。
+# provenance.advisors 一直是空的(专署能力核查挖出的同款洞)。
 _INTEL_ADVISORS = [
     "bruce-schneier",
     "deming",
@@ -34,12 +34,35 @@ _INTEL_ADVISORS = [
 def _finding_to_item(claim: str, sources) -> dict:
     v = vet_intel(claim, sources)
     decision = v.get("decision", "待核")
+    first_source = sources[0] if sources else None
+    if isinstance(first_source, dict):
+        evidence_ref = str(first_source.get("url") or first_source.get("name") or "")
+    else:
+        evidence_ref = str(first_source or "")
+    normalized_sources = []
+    for source in sources or []:
+        if isinstance(source, dict):
+            normalized_sources.append({
+                "name": str(source.get("name") or source.get("url") or "未命名来源"),
+                "url": str(source.get("url") or "") or None,
+                "tier": source.get("tier"),
+                "published_at": source.get("published_at") or source.get("publishedAt"),
+            })
+        else:
+            normalized_sources.append({"name": str(source), "url": None, "tier": None, "published_at": None})
     return {
         "level": _DECISION_LIGHT.get(decision, "yellow"),
         "title": claim[:60],
         "odds": v.get("grade"),  # 可信度等级(一手/二手/未证实)
         "impact": decision,  # 入库/待核/拒
-        "evidence_ref": str(v.get("primary") or (sources[0] if sources else "")),
+        "evidence_ref": evidence_ref,
+        # 前端核验处置栏所需的真实 vet 结果。只透传后端已经计算的字段，
+        # 不让前端根据标题/URL 猜一手、多源或硬声明。
+        "primary_source": bool(v.get("primary")),
+        "distinct_sources": int(v.get("distinct_sources") or 0),
+        "hard_claim": bool(v.get("hard_claim")),
+        "vet_reason": str(v.get("reason") or ""),
+        "sources": normalized_sources,
         "fix": ("补一手来源/多源印证再入库" if decision != "入库" else None),
     }
 

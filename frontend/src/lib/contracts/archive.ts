@@ -69,7 +69,7 @@ export interface AnalysisCitation {
   relevance: string;
 }
 
-/** /api/court/shiguan/archive 路由返回体 */
+/** 史馆页面消费的扁平归档视图，由 archive adapter 从后端响应归一化得到。 */
 export interface ArchivePayload {
   success: boolean;
   data: ArchiveRecord[];

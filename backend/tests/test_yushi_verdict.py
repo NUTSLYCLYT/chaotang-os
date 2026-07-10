@@ -1,4 +1,4 @@
-"""tests/test_yushi_verdict.py — 御史封驳/放行书(诸司能力核查挖出的洞)。
+"""tests/test_yushi_verdict.py — 御史封驳/放行书(专署能力核查挖出的洞)。
 
 harness/yushi_global_gate/scripts/run_gate.py 是真实、测过的四维确定性门禁,但从来没有
 任何 build_court_doc(dept="yushi") 的生产调用方。这里薄包装接上,court 全套已验证的

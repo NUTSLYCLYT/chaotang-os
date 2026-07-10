@@ -707,7 +707,7 @@ function defaultHeaderKicker(view: EdictView, kind: string) {
   if (kind === '奏折' || /奏折/.test(titleText)) return '据实奏闻';
   if (kind === '圣旨') return '奉天承运';
   if (view.seal === 'chancellor' || kind === '辅政奏议') return '丞相辅政';
-  if (kind === '回奏' || /回奏/.test(titleText)) return '诸司回奏';
+  if (kind === '回奏' || /回奏/.test(titleText)) return '专署回奏';
   return '奉天承运';
 }
 
@@ -716,7 +716,7 @@ function defaultIssuerLine(view: EdictView, kind: string) {
   if (kind === '圣旨') return '皇帝诏曰';
   if (view.seal === 'tutorial' || kind === '钦天监') return '钦天监启';
   if (view.seal === 'chancellor' || kind === '辅政奏议') return '丞相谨奏';
-  if (kind === '回奏') return '诸司谨回';
+  if (kind === '回奏') return '专署谨回';
   return '皇帝诏曰';
 }
 

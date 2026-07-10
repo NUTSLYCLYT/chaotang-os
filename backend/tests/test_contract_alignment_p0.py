@@ -124,6 +124,16 @@ def test_intel_dispatch_contract_registers_backend_task():
     assert body["data"]["taskId"].startswith("intel-signal-1-")
 
 
+def test_intel_signals_list_contract_exists():
+    response = TestClient(app).get("/api/court/intel/signals?limit=1")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    assert len(body["data"]) == 1
+    assert body["meta"]["source"] == "fallback"
+
+
 def test_dept_swarm_dispatch_contract_is_honest_fallback():
     response = TestClient(app).post(
         "/api/court/dept/swarm-dispatch",
@@ -257,7 +267,10 @@ def test_scribe_and_shiguan_contracts_return_empty_backend_states():
     assert client.get("/api/scribe/lessons").json()["data"]["lessons"] == []
     assert client.post("/api/court/shiguan/analyze").json()["citations"] == []
     assert client.get("/api/court/shiguan/release-gates").json()["success"] is True
-    assert client.get("/api/court/shiguan/promo-archive").json()["success"] is True
+    promo = client.get("/api/court/shiguan/promo-archive").json()
+    assert promo["success"] is True
+    assert promo["data"]["curated"] == []
+    assert promo["data"]["curatedCount"] == 0
     retrospective = client.post(
         "/api/shiguan/archives/archive-1/retrospective",
         json={"retrospective_status": "达成"},

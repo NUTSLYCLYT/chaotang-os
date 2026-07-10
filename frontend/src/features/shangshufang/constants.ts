@@ -5,7 +5,7 @@
 import {
   CHAOTANG_V1_LIUBU,
   CHAOTANG_V1_PRIMARY_MODULES,
-  CHAOTANG_V1_ZHUSI,
+  CHAOTANG_V1_ZHUANSHU,
 } from '@/config/chaotang-v1-modules';
 import type { NavItem } from './types';
 
@@ -29,7 +29,7 @@ export const SHANGSHUFANG_ASSETS = {
  */
 /**
  * 减法 A(2026-06-03):顶导 11 → 6 核心 + 二级菜单,避免皇帝被入口淹没。
- * 核心(高频、皇帝视角)直挂顶导;六部与诸司收进下拉。
+ * 核心(高频、皇帝视角)直挂顶导;六部与专署收进下拉。
  */
 export const CORE_NAV: NavItem[] = CHAOTANG_V1_PRIMARY_MODULES.map((item) => ({
   key: item.id,
@@ -37,22 +37,22 @@ export const CORE_NAV: NavItem[] = CHAOTANG_V1_PRIMARY_MODULES.map((item) => ({
   href: item.href,
 }));
 
-/** 核心庄园入口:顶导单独渲染,不混入六部/诸司下拉。 */
-export const MANOR_NAV: NavItem = { key: 'zhusi', label: '诸司', href: '/zhusi' };
+/** 核心专署入口:顶导单独渲染,不混入六部/专署下拉。 */
+export const MANOR_NAV: NavItem = { key: 'zhuanshu', label: '专署', href: '/zhuanshu' };
 
 /** 二级"六部"菜单:只放传统六部,不混入专署。 */
 export const SIX_MINISTRIES_NAV: NavItem[] = CHAOTANG_V1_LIUBU
   .filter((item) => item.href)
   .map((item) => ({ key: item.code, label: item.name, href: item.href! }));
 
-/** 二级"诸司"菜单:专门机构,不再归入六部。 */
-export const COURT_OFFICES_NAV: NavItem[] = CHAOTANG_V1_ZHUSI.map((item) => ({
+/** 二级"专署"菜单:专门机构,不再归入六部。 */
+export const COURT_OFFICES_NAV: NavItem[] = CHAOTANG_V1_ZHUANSHU.map((item) => ({
   key: item.code,
   label: item.name,
   href: item.href,
 }));
 
-/** 兼容旧引用:核心 + 六部 + 诸司的全集。 */
+/** 兼容旧引用:核心 + 六部 + 专署的全集。 */
 export const DEPT_NAV: NavItem[] = [...SIX_MINISTRIES_NAV, ...COURT_OFFICES_NAV];
 export const TOPNAV_ITEMS: NavItem[] = [...CORE_NAV, ...DEPT_NAV];
 

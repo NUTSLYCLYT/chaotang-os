@@ -19,8 +19,8 @@ test('杀手 loop 脊柱放行（上传→审→准奏→归档）', () => {
     '/liubu',
     '/liubu/hubu',
     '/liubu/hubu/yusuan',
-    '/zhusi',
-    '/zhusi/jinyiwei',
+    '/zhuanshu',
+    '/zhuanshu/jinyiwei',
     '/shiguan',
     '/shiguan/case-123',
   ]) {
@@ -35,7 +35,7 @@ test('启动流/认证放行（首日要能登录进来）', () => {
   }
 });
 
-test('v1 脊柱外的面一律挡住（曾放行的情报/庄园/诸司/原型…本轮收窄）', () => {
+test('v1 脊柱外的面一律挡住（曾放行的情报/庄园/专署/原型…本轮收窄）', () => {
   for (const p of [
     '/intel', // 锦衣卫情报 —— 解冻待第一条真实反馈
     '/intel/sig-123',

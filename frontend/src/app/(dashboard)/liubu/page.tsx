@@ -1,123 +1,160 @@
-import Link from 'next/link';
-import { ArrowRight, Building2, CircleDot, Landmark, LockKeyhole, ScrollText } from 'lucide-react';
+'use client';
 
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import useSWR from 'swr';
+
+import { ThreeAxisOfficeRails } from '@/components/chaotang/department/ThreeAxisOfficeRails';
 import { CHAOTANG_V1_LIUBU } from '@/config/chaotang-v1-modules';
+import DomainCard from '@/features/zhuangyuan/components/DomainCard';
+import { MINISTRIES, type Ministry } from '@/features/zhuangyuan/components/manorData';
+import { assetUrl } from '@/lib/asset';
+import { backendFetch } from '@/lib/backend-api';
+import type { ManorMinistryMetricsMap } from '@/lib/contracts/manor';
 
-const MODULE_CONTEXT = [
-  { label: '一级模块', value: '六部' },
-  { label: '1.0 范围', value: '6 部 / 8 个已定司' },
-  { label: '事实边界', value: '礼部暂不定' },
-];
+const CANVAS_W = 1672;
+const CANVAS_H = 941;
+const TOP_CROP = 52;
+
+const MINISTRY_TO_DEPT_CODE: Record<string, string> = {
+  libu: 'personnel',
+  hubu: 'finance',
+  libu2: 'market',
+  bingbu: 'ops',
+  xingbu: 'legal',
+  gongbu: 'gongbu',
+};
+
+function isMinistryLive(ministryKey: string): boolean {
+  const code = MINISTRY_TO_DEPT_CODE[ministryKey];
+  return CHAOTANG_V1_LIUBU.some(
+    (department) => department.canonicalCode === code && department.status === 'active',
+  );
+}
+
+async function fetchMinistryMetrics(url: string): Promise<ManorMinistryMetricsMap> {
+  const res = await backendFetch(url, { cache: 'no-store' });
+  const json = (await res.json()) as {
+    success: boolean;
+    data: ManorMinistryMetricsMap;
+    error?: string;
+  };
+  if (!json.success) throw new Error(json.error ?? 'departments-metrics failed');
+  return json.data;
+}
+
+function applyMetrics(base: Ministry[], metricsMap: ManorMinistryMetricsMap): Ministry[] {
+  return base.map((ministry) => {
+    const rows = metricsMap[ministry.key];
+    if (!rows || rows.length === 0) return ministry;
+    return {
+      ...ministry,
+      metrics: rows.map((row) => ({
+        label: row.label,
+        value: row.value,
+        delta: row.deltaPositive,
+      })),
+    };
+  });
+}
 
 export default function LiubuPage() {
-  const activeDepartments = CHAOTANG_V1_LIUBU.filter((department) => department.status === 'active');
-  const pendingDepartments = CHAOTANG_V1_LIUBU.filter((department) => department.status === 'pending');
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+
+  const { data: metricsMap } = useSWR<ManorMinistryMetricsMap>(
+    '/api/court/zhuangyuan/ministry-metrics',
+    fetchMinistryMetrics,
+    { refreshInterval: 60_000, revalidateOnFocus: true },
+  );
+
+  const ministries = useMemo(
+    () => (metricsMap ? applyMetrics(MINISTRIES, metricsMap) : MINISTRIES),
+    [metricsMap],
+  );
+  const selectedMinistry = selectedKey
+    ? (ministries.find((ministry) => ministry.key === selectedKey) ?? null)
+    : null;
+  const activeDeptCode = selectedKey ? (MINISTRY_TO_DEPT_CODE[selectedKey] ?? 'manors') : 'manors';
+  const activeDeptLabel = selectedMinistry ? selectedMinistry.title.split('·')[0].trim() : '六部';
+
+  useLayoutEffect(() => {
+    const stage = stageRef.current;
+    const parent = stage?.parentElement;
+    if (!stage || !parent) return;
+
+    const update = () => {
+      const width = parent.clientWidth;
+      const height = parent.clientHeight;
+      if (width > 0 && height > 0) {
+        setScale(Math.max(width / CANVAS_W, height / (CANVAS_H - TOP_CROP)));
+      }
+    };
+
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(parent);
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <main className="min-h-full bg-[#05070d] text-[#F5E9C9]">
-      <section className="border-b border-[#F0C66A]/14 bg-[linear-gradient(180deg,rgba(16,22,36,0.96),rgba(5,7,13,0.98))]">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-5 py-6 lg:px-8">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#F0C66A]">
-                <Landmark size={14} />
-                Chaotang OS 1.0
-              </div>
-              <h1 className="mt-2 text-2xl font-semibold tracking-normal text-[#F7EFD5]">六部</h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-[#AEB7CC]">
-                1.0 版本只承诺当前已定的部门和司局：户部、吏部、兵部、刑部、工部进入执行面，礼部保留席位但暂不展开二级模块。
-              </p>
-            </div>
-            <Link
-              href="/shangshufang"
-              className="inline-flex items-center gap-2 rounded-[8px] border border-[#F0C66A]/30 bg-[#F0C66A]/10 px-3 py-2 text-sm font-semibold text-[#F0C66A] transition hover:bg-[#F0C66A]/16"
-            >
-              回上书房
-              <ArrowRight size={15} />
-            </Link>
-          </div>
+    <main className="h-full w-full overflow-hidden bg-[#04060e]">
+      <div className="relative h-full overflow-hidden">
+        {selectedKey ? (
+          <ThreeAxisOfficeRails
+            deptCode={activeDeptCode}
+            deptLabel={activeDeptLabel}
+            accent={selectedMinistry?.color}
+          />
+        ) : null}
 
-          <div className="grid gap-3 md:grid-cols-3">
-            {MODULE_CONTEXT.map((item) => (
-              <div key={item.label} className="rounded-[8px] border border-[#F0C66A]/16 bg-black/24 px-4 py-3">
-                <div className="text-[11px] text-[#8F98B8]">{item.label}</div>
-                <div className="mt-1 text-sm font-semibold text-[#F7EFD5]">{item.value}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+        <div
+          ref={stageRef}
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: -TOP_CROP * scale,
+            width: CANVAS_W,
+            height: CANVAS_H,
+            transform: `translateX(-50%) scale(${scale})`,
+            transformOrigin: 'top center',
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={assetUrl('/assets/zhuangyuan/04-zhuangyuan-new.webp')}
+            alt="六部宫苑全景"
+            draggable={false}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              display: 'block',
+              userSelect: 'none',
+              pointerEvents: 'none',
+            }}
+          />
 
-      <section className="mx-auto grid w-full max-w-7xl gap-4 px-5 py-6 lg:grid-cols-[1fr_320px] lg:px-8">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {activeDepartments.map((department) => (
-            <article key={department.code} className="rounded-[8px] border border-[#F0C66A]/16 bg-[#0b0f19] p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2 text-[11px] font-semibold text-[#F0C66A]">
-                    <Building2 size={14} />
-                    已纳入 1.0
-                  </div>
-                  <h2 className="mt-2 text-lg font-semibold text-[#F7EFD5]">{department.name}</h2>
-                </div>
-                {department.href ? (
-                  <Link
-                    href={department.href}
-                    className="rounded-[8px] border border-[#F0C66A]/24 px-2.5 py-1.5 text-xs text-[#F0C66A] transition hover:bg-[#F0C66A]/10"
-                  >
-                    进入
-                  </Link>
-                ) : null}
-              </div>
-
-              <div className="mt-4 space-y-2">
-                {department.offices.map((office) => (
-                  <Link
-                    key={office.slug}
-                    href={`${department.href}/${office.slug}`}
-                    className="group flex items-start justify-between gap-3 rounded-[8px] border border-white/10 bg-white/[0.03] px-3 py-2 transition hover:border-[#F0C66A]/32 hover:bg-[#F0C66A]/8"
-                  >
-                    <span>
-                      <span className="flex items-center gap-2 text-sm font-semibold text-[#F7EFD5]">
-                        <CircleDot size={12} className="text-[#F0C66A]" />
-                        {office.name}
-                      </span>
-                      <span className="mt-1 block text-xs leading-5 text-[#9AA3C4]">{office.scope}</span>
-                    </span>
-                    <ArrowRight size={13} className="mt-1 shrink-0 text-[#7C86A6] transition group-hover:translate-x-0.5" />
-                  </Link>
-                ))}
-              </div>
-            </article>
+          {ministries.map((ministry, index) => (
+            <DomainCard
+              key={ministry.key}
+              keyName={ministry.key}
+              title={ministry.title}
+              mark={ministry.mark}
+              color={ministry.color}
+              metrics={ministry.metrics}
+              box={ministry.box}
+              selected={selectedKey === ministry.key}
+              enterDelayMs={120 + index * 80}
+              markHref={ministry.href}
+              live={isMinistryLive(ministry.key)}
+              dimWhenInactive={false}
+              onClick={() => setSelectedKey((current) => (current === ministry.key ? null : ministry.key))}
+            />
           ))}
         </div>
-
-        <aside className="space-y-4">
-          <section className="rounded-[8px] border border-[#6BA0FF]/18 bg-[#08101c] p-4">
-            <div className="flex items-center gap-2 text-sm font-semibold text-[#9EC8FF]">
-              <ScrollText size={15} />
-              二级模块清单
-            </div>
-            <div className="mt-3 space-y-2 text-sm leading-6 text-[#D7DFF2]">
-              <p>户部：预算司、出纳司</p>
-              <p>吏部：任免司、招聘司</p>
-              <p>兵部：报价司、线索司</p>
-              <p>刑部：合同司</p>
-              <p>工部：产研司</p>
-            </div>
-          </section>
-
-          {pendingDepartments.map((department) => (
-            <section key={department.code} className="rounded-[8px] border border-[#8F98B8]/18 bg-black/24 p-4">
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#C8CDD8]">
-                <LockKeyhole size={15} />
-                {department.name}
-              </div>
-              <p className="mt-2 text-sm leading-6 text-[#9AA3C4]">1.0 暂不定，不展示二级模块，不承诺运行能力。</p>
-            </section>
-          ))}
-        </aside>
-      </section>
+      </div>
     </main>
   );
 }

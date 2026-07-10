@@ -411,7 +411,7 @@ export default function SwarmDetailPage({ swarmId }: { swarmId: string }) {
       margin: '0 auto'
     }}>
       <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#6A7299' }}>
-        <Link href="/zhusi" style={{ color: '#F0C66A', textDecoration: 'none' }}>诸司</Link>
+        <Link href="/zhuanshu" style={{ color: '#F0C66A', textDecoration: 'none' }}>专署</Link>
         <span>/</span>
         <span style={{ color: '#F5E9C9' }}>{config.label}</span>
       </div>
@@ -569,7 +569,7 @@ export default function SwarmDetailPage({ swarmId }: { swarmId: string }) {
 
       <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center', gap: 12 }}>
         <Link
-          href="/zhusi"
+          href="/zhuanshu"
           style={{
             padding: '10px 24px',
             borderRadius: 8,

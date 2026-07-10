@@ -119,6 +119,37 @@ def ensure_task_result_json_column(session: Session) -> None:
             raise
 
 
+def ensure_retrospective_outcome_column(session: Session) -> None:
+    """Ensure older DB files can accept Retrospective.outcome writes.
+
+    同 ensure_task_result_json_column 的必要性:Alembic 004 只在生产迁移路径跑,
+    dev/旧进程仍靠 create_all(checkfirst=True)补救——它只建"不存在的表",不给
+    已存在的表加新列,旧 retrospectives 表会永远缺这一列(2026-07-10 独立复审)。
+    """
+    bind = session.get_bind()
+    dialect = bind.dialect.name if bind is not None else ""
+    try:
+        if dialect == "sqlite":
+            rows = session.execute(text("PRAGMA table_info(retrospectives)")).all()
+            if any(row[1] == "outcome" for row in rows):
+                return
+            session.execute(
+                text(
+                    "ALTER TABLE retrospectives ADD COLUMN outcome TEXT NOT NULL DEFAULT 'pending'"
+                )
+            )
+            return
+        session.execute(
+            text(
+                "ALTER TABLE retrospectives ADD COLUMN IF NOT EXISTS outcome TEXT NOT NULL DEFAULT 'pending'"
+            )
+        )
+    except Exception as exc:  # noqa: BLE001 - tolerate duplicate-column races only.
+        message = str(exc).lower()
+        if "duplicate column" not in message and "already exists" not in message:
+            raise
+
+
 def task_record(row: Task) -> dict[str, Any]:
     display_status = row.task_status or _normalize_display_status(row.status)
     result = _parse_json_object(row.result_json)
@@ -524,6 +555,7 @@ def save_retrospective_db(
 
     返回与 chaotang_store.save_retrospective 格式一致的 dict。
     """
+    ensure_retrospective_outcome_column(session)
     now = _now()
     row = session.query(Retrospective).filter_by(task_id=task_id).first()
     if row is None:
@@ -555,6 +587,7 @@ def save_retrospective_db(
 
 def get_retrospective_db(session: Session, task_id: str) -> dict[str, Any] | None:
     """读 retrospective;不存在返回 None。"""
+    ensure_retrospective_outcome_column(session)
     row = session.query(Retrospective).filter_by(task_id=task_id).first()
     if row is None:
         return None

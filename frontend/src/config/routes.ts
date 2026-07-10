@@ -231,8 +231,8 @@ export const ROUTES = {
     tier: 'yellow' as const,
   },
   INTEL: {
-    path: '/zhusi',
-    label: '诸司',
+    path: '/zhuanshu',
+    label: '专署',
     sublabel: 'Court Offices',
     description: '锦衣卫情报与风险核验入口',
     icon: 'Globe',

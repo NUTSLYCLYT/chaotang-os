@@ -302,28 +302,60 @@ function FooterTypewriterText({
 
 function AdvisorDecreeButton({
   meta,
+  draft,
+  onDraftChange,
+  onSendDraft,
   disabled,
   onDispatch,
 }: {
   meta: (typeof TARGET_META)[AdvisorTarget];
+  draft: string;
+  onDraftChange: (value: string) => void;
+  onSendDraft: () => void;
   disabled: boolean;
   onDispatch: () => void;
 }) {
+  const hasDraft = draft.trim().length > 0;
+  const handleSubmit = () => {
+    if (hasDraft) {
+      onSendDraft();
+      return;
+    }
+    onDispatch();
+  };
+
   return (
     <div
-      className="flex shrink-0 justify-end border-t px-3 py-2"
+      className="flex shrink-0 items-center gap-1.5 border-t px-3 py-2"
       style={{ borderColor: 'rgba(240,198,106,0.30)' }}
     >
+      <input
+        value={draft}
+        onChange={(event) => onDraftChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            if (hasDraft) onSendDraft();
+          }
+        }}
+        className="global-edict-chat-input min-w-0 flex-1 px-3 py-1.5 text-[12px] leading-[1.45] text-[#F5E9C9] placeholder:text-[#8F835F] focus:outline-none"
+        style={{
+          ['--chat-accent' as string]: meta.accent,
+          fontFamily: 'var(--font-serif)',
+        }}
+        placeholder={meta.placeholder}
+        maxLength={1200}
+      />
       <button
         type="button"
         disabled={disabled}
-        onClick={onDispatch}
-        className="grid h-8 w-8 shrink-0 place-items-center border text-[#F0C66A] transition hover:bg-[#F0C66A]/10 disabled:cursor-not-allowed disabled:opacity-40"
+        onClick={handleSubmit}
+        className="grid h-9 w-9 shrink-0 place-items-center border text-[#F0C66A] transition hover:bg-[#F0C66A]/10 disabled:cursor-not-allowed disabled:opacity-40"
         style={{ borderColor: 'rgba(240,198,106,0.34)' }}
-        aria-label={`${meta.title}下旨`}
-        title={disabled ? '暂无可下旨内容' : '下旨调用蜂群'}
+        aria-label={hasDraft ? `发送给${meta.title.replace('问', '')}` : `${meta.title}下旨`}
+        title={hasDraft ? '发送' : disabled ? '暂无可下旨内容' : '下旨调用蜂群'}
       >
-        <Send size={13} />
+        <Send size={14} />
       </button>
     </div>
   );
@@ -334,7 +366,7 @@ export function GlobalEdictQuickDock() {
   const pageLabel = routeLabel(pathname);
   const centerSlot = useGlobalEdictDockSlot();
   const sidePanels = useGlobalEdictDockSidePanels();
-  const chancellorChat = useDockChat('丞相在此，可即时追问判断、缺证与下一步。', '/api/chat');
+  const chancellorChat = useDockChat('丞相在此，可即时追问判断、缺证与下一步。', '/api/shangshufang/chancellor-chat');
   const qintianChat = useDockChat('钦天监在此，可即时推演时机、风险与变局。', '/api/qintian/chat');
   // 锦衣卫情报徽标(2026-07-04)：只信真实turso来源，fallback/demo数据不计入角标，
   // 避免把演示数据伪装成"有N条新情报"(sourceLabel铁律)。
@@ -354,6 +386,10 @@ export function GlobalEdictQuickDock() {
   const [closingTargets, setClosingTargets] = useState<Record<AdvisorTarget, boolean>>({
     chancellor: false,
     qintian: false,
+  });
+  const [chatDrafts, setChatDrafts] = useState<Record<AdvisorTarget, string>>({
+    chancellor: '',
+    qintian: '',
   });
   const [drawerBounds, setDrawerBounds] = useState<{ top: number; height: number } | null>(null);
   const chatScrollRefs = useRef<Partial<Record<AdvisorTarget, HTMLDivElement | null>>>({});
@@ -433,6 +469,13 @@ export function GlobalEdictQuickDock() {
     window.dispatchEvent(new CustomEvent<DockDecreeDispatchDetail>('shangshufang:dock-decree-dispatch', {
       detail: { command, source: drawerTarget },
     }));
+  };
+
+  const sendDockChat = (drawerTarget: AdvisorTarget) => {
+    const text = chatDrafts[drawerTarget].trim();
+    if (!text) return;
+    setChatDrafts((current) => ({ ...current, [drawerTarget]: '' }));
+    void chatForTarget(drawerTarget).handleSend(text);
   };
 
   const renderDrawer = (drawerTarget: AdvisorTarget) => {
@@ -563,7 +606,12 @@ export function GlobalEdictQuickDock() {
 
           <AdvisorDecreeButton
             meta={activeMeta}
-            disabled={!lastUserMessageForTarget(drawerTarget)}
+            draft={chatDrafts[drawerTarget]}
+            onDraftChange={(nextValue) => {
+              setChatDrafts((current) => ({ ...current, [drawerTarget]: nextValue }));
+            }}
+            onSendDraft={() => sendDockChat(drawerTarget)}
+            disabled={!chatDrafts[drawerTarget].trim() && !lastUserMessageForTarget(drawerTarget)}
             onDispatch={() => dispatchLastMessageAsDecree(drawerTarget)}
           />
         </div>

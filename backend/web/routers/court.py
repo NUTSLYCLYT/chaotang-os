@@ -106,7 +106,7 @@ def court_action(req: ActionRequest, user: CurrentUser = Depends(get_current_use
             css.set_idempotent(req.idempotency_key, result)
         else:
             css.release_idempotent(req.idempotency_key)
-    # 修史馆空按钮(诸司能力核查挖出的洞):feed_flywheel 之前只走状态机(to_state=None),
+    # 修史馆空按钮(专署能力核查挖出的洞):feed_flywheel 之前只走状态机(to_state=None),
     # dispatch 校验完就直接返回 ok——用户点了看到"成功",但从没真的调用 court_flywheel
     # 把这条文书写进知识库。现在真的写:失败不炸(飞轮本身"失败不抛异常"),
     # 统计数字并进响应,前端能看到"到底存没存进去",不是一句空话的"成功"。

@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from 'react';
-import { FileText, Lock, MessageSquare, Paperclip, Scroll, Telescope, X } from 'lucide-react';
+import { FileText, Lock, Paperclip, Scroll, X } from 'lucide-react';
 
 import type { DecreeMode, DecreeState } from '../types';
 import type { DepartmentSourceLabel } from '@/components/chaotang/department/DepartmentScrollStage';
@@ -18,17 +18,15 @@ export type AskTarget = 'chancellor' | 'mentor';
 const GOLD = '#F0C66A';
 const SECRET = '#E8A38C'; // 密旨态:暖红金(暗底上的機密色)
 const MODE_OPTIONS: Array<{
-  key: 'order' | 'secret' | 'ask-chancellor' | 'ask-mentor';
+  key: 'order' | 'secret';
   mode: DecreeMode;
   askTarget?: AskTarget;
   label: string;
-  icon: 'ask' | 'mentor' | 'order' | 'secret';
+  icon: 'order' | 'secret';
   title: string;
 }> = [
   { key: 'order', mode: 'order', label: '下旨', icon: 'order', title: '下旨 · 先进入拟旨，准奏后才启动后端蜂群' },
   { key: 'secret', mode: 'secret', label: '密旨', icon: 'secret', title: '密旨 · 先生成密旨稿，人工确认后才全朝并奏' },
-  { key: 'ask-chancellor', mode: 'ask', askTarget: 'chancellor', label: '丞相', icon: 'ask', title: '丞相 · 只咨询、补判断，不执行' },
-  { key: 'ask-mentor', mode: 'ask', askTarget: 'mentor', label: '钦天监', icon: 'mentor', title: '钦天监 · 推演时机、风险和下一步，不执行' },
 ];
 
 function dispatchImperialActionAccepted() {
@@ -354,7 +352,7 @@ export function DecreeInput({
                 {visibleModeOptions.map((item) => {
                   const selected = mode === item.mode && (item.mode !== 'ask' || item.askTarget === askTarget);
                   const active = selected && !showPolishActive;
-                  const Icon = item.icon === 'ask' ? MessageSquare : item.icon === 'mentor' ? Telescope : item.icon === 'order' ? Scroll : Lock;
+                  const Icon = item.icon === 'order' ? Scroll : Lock;
                   const tone = item.mode === 'secret' ? SECRET : GOLD;
                   return (
                     <button

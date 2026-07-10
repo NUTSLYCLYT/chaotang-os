@@ -13,6 +13,7 @@ import useSWR from 'swr';
 import { useState, useCallback } from 'react';
 import type { ArchiveStats, ArchiveRecord, ArchivePayload, ShiguanAnalysis } from '@/lib/contracts/archive';
 import { backendFetch } from '@/lib/backend-api';
+import { normalizeArchiveResponse } from './archive-adapter';
 
 async function jsonFetcher<T>(url: string): Promise<T> {
   const res = await backendFetch(url, { cache: 'no-store' });
@@ -33,7 +34,7 @@ export function useArchiveStats() {
 export function useArchiveRecords(limit = 50) {
   return useSWR<ArchivePayload>(
     `/api/chaotang/archive?limit=${limit}`,
-    jsonFetcher<ArchivePayload>,
+    async (url: string) => normalizeArchiveResponse(await jsonFetcher<unknown>(url)),
     { refreshInterval: 120_000 },
   );
 }

@@ -14,7 +14,7 @@ import { Suspense } from 'react';
 export default function ShiguanRoutePage() {
   return (
     <div
-      className="fixed inset-0 z-[60] overflow-auto"
+      className="fixed inset-x-0 bottom-24 top-16 z-[60] overflow-hidden"
       style={{
         backgroundColor: '#070b16',
         backgroundImage: `url('${assetUrl('/assets/shiguan/shiguan.webp')}')`,
@@ -23,7 +23,7 @@ export default function ShiguanRoutePage() {
         backgroundRepeat: 'no-repeat',
       }}
     >
-      <div className="relative" style={{ zIndex: 1 }}>
+      <div className="relative h-full min-h-0" style={{ zIndex: 1 }}>
         <Suspense fallback={null}>
           <ShiguanPage />
         </Suspense>

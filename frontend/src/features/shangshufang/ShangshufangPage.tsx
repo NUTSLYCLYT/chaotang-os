@@ -563,7 +563,7 @@ function FinanceIntelLoopConsole() {
           )}
           {!result?.done && result?.blockedAt && (
             <a
-              href={withBasePath(result.blockedAt.includes('hubu') ? '/liubu/finance' : '/zhusi/jinyiwei')}
+              href={withBasePath(result.blockedAt.includes('hubu') ? '/liubu/finance' : '/zhuanshu/jinyiwei')}
               className="ml-3 inline-flex font-semibold text-[#F0C66A] hover:text-[#FFE2A0]"
             >
               {result.blockedAt.includes('hubu') ? '去户部补材料' : '去锦衣卫补证'}
@@ -819,6 +819,7 @@ type DecreeDraftPreview = {
   mode: ExecutableDecreeMode;
   original?: string;
   polished: string | null;
+  draftResponse?: ShangshufangDraftResponse;
   sourceLabel?: SourceLabel;
   auditId?: string;
   fallbackUsed?: boolean;
@@ -4991,8 +4992,8 @@ export function ShangshufangPage() {
       });
     }, []);
 
-  const openChancellorWorkbenchAsk = useCallback(() => {
-    focusDecree('ask', '', 'chancellor');
+  const openChancellorWorkbenchAsk = useCallback((prefill?: string) => {
+    focusDecree('ask', typeof prefill === 'string' ? prefill : '', 'chancellor');
   }, [focusDecree]);
 
   const openQintianWorkbenchAsk = useCallback((prefill?: string) => {
@@ -5469,7 +5470,7 @@ export function ShangshufangPage() {
           footer: makeFooter({
             label: archived ? '查看归档 / 案件链路' : awaitingDecision ? '查看裁决 brief' : '去锦衣卫补证',
             onClick: () =>
-              router.push(archived ? '/shiguan' : awaitingDecision ? '/shangshufang' : '/zhusi/jinyiwei'),
+              router.push(archived ? '/shiguan' : awaitingDecision ? '/shangshufang' : '/zhuanshu/jinyiwei'),
           }),
         };
         setEdictOverride(edictOverrideRef.current);
@@ -5817,7 +5818,7 @@ export function ShangshufangPage() {
   );
 
   const runOrderDecree = useCallback(
-    async (cmd: string) => {
+    async (cmd: string, existingDraft?: ShangshufangDraftResponse) => {
       if (isPackSwarmLoopCommand(cmd)) {
         await runPackSwarmLoop(cmd, 'order');
         return;
@@ -5827,7 +5828,7 @@ export function ShangshufangPage() {
       setDecreeMsg('丞相正在拟旨，随后正式下旨并启动蜂群……');
       try {
         const attachments = decreeAttachmentMeta();
-        const draft = await shangshufangDraftEdict(cmd, attachments);
+        const draft = existingDraft ?? await shangshufangDraftEdict(cmd, attachments);
         const sourceNote =
           draft.draft_edict.source_label === 'FALLBACK' || draft.draft_edict.source_label === 'DEMO'
             ? ` · 来源 ${draft.draft_edict.source_label}，未伪装成实时经营判断`
@@ -6006,6 +6007,28 @@ export function ShangshufangPage() {
       setDecreeState('consulting');
       setDecreeMsg(mode === 'secret' ? '密旨正在拟定，批示前不会启动蜂群……' : '圣旨正在拟定，批示前不会启动蜂群……');
       try {
+        if (mode === 'order') {
+          const draft = await shangshufangDraftEdict(cmd, decreeAttachmentMeta());
+          const sourceText =
+            draft.draft_edict.source_label === 'LIVE'
+              ? 'LIVE'
+              : `${draft.draft_edict.source_label} · 需人工复核，未伪装实时判断`;
+          setDecreeDraftPreview({
+            mode,
+            original: cmd,
+            polished: draft.draft_edict.refined_edict,
+            sourceLabel: draft.draft_edict.source_label,
+            fallbackUsed: draft.draft_edict.source_label === 'FALLBACK',
+            draftResponse: draft,
+          });
+          setEdictCollapsed(false);
+          setDecreeState('submitted');
+          setDecreeMsg(
+            `拟旨已生成 · 案号 ${draft.task_id} · 来源 ${sourceText} · 点击“批示”后正式下发军机处。`,
+          );
+          return;
+        }
+
         const preview = await polishShangshufangEdict(cmd, mode);
         const sourceText =
           preview.source_label === 'LIVE'
@@ -6030,7 +6053,7 @@ export function ShangshufangPage() {
         setDecreeMsg(reply);
       }
     },
-    [decreeAttachments, decreeText],
+    [decreeAttachments, decreeAttachmentMeta, decreeText],
   );
 
   const confirmDraftedDecree = useCallback(
@@ -6073,7 +6096,7 @@ export function ShangshufangPage() {
       if (mode === 'secret') {
         await runSecretDecree(executable);
       } else {
-        await runOrderDecree(executable);
+        await runOrderDecree(originalCommand, decreeDraftPreview?.draftResponse);
       }
     },
     [decreeAttachments, decreeDraftPreview, decreeText, runFinanceIntelLoopFromDecree, runFinanceReportingLoopFromDecree, runFinanceStatusMemorialFromDecree, runOrderDecree, runPackSwarmLoop, runSecretDecree],
@@ -6266,12 +6289,12 @@ export function ShangshufangPage() {
           appendDecreeChat({ role: 'assistant', label: '朝堂', text: reply }, 'ask', 'chancellor');
         }
       } else if (effectiveMode === 'secret') {
-        await submitDecreeDirectly(composeDecreeCommandWithEvidence(decreeText, decreeAttachments), 'secret');
+        await polishDraftFromBody('secret');
       } else {
-        await submitDecreeDirectly(composeDecreeCommandWithEvidence(decreeText, decreeAttachments), 'order');
+        await polishDraftFromBody('order');
       }
     },
-    [decreeAttachments, decreeText, decreeMode, decreeState, showNotice, makeFooter, makeVerdictFooter, focusDecree, appendDecreeChat, router, runFinanceIntelLoopFromDecree, runFinanceReportingLoopFromDecree, runFinanceStatusMemorialFromDecree, runPackSwarmLoop, submitDecreeDirectly],
+    [decreeAttachments, decreeText, decreeMode, decreeState, showNotice, makeFooter, makeVerdictFooter, focusDecree, appendDecreeChat, router, runFinanceIntelLoopFromDecree, runFinanceReportingLoopFromDecree, runFinanceStatusMemorialFromDecree, runPackSwarmLoop, polishDraftFromBody],
   );
 
   const openSuggestionDetail = useCallback(
@@ -6724,7 +6747,7 @@ export function ShangshufangPage() {
         onSelect={(t) => {
           showQintianPlainEdict(tutorialToEdict(t), t.id);
         }}
-        onQuickAsk={() => openQintianWorkbenchAsk()}
+        onQuickAsk={openQintianWorkbenchAsk}
         onDeepWorkSelect={(item) => {
           showQintianPlainEdict(qintianDeepWorkToEdict(item), item.id, '继续问钦天监');
         }}
@@ -7105,6 +7128,7 @@ export function ShangshufangPage() {
               suggestions={displayedSuggestions}
               onSelect={handleSelectSuggestion}
               onQuickAsk={() => focusDecree('ask', '向丞相指示：')}
+              showQuickAsk={false}
               emptyHint={chancellorEmptyHint}
               activeId={
                 edictOverride?.view.seal === 'chancellor'
@@ -7131,6 +7155,7 @@ export function ShangshufangPage() {
                   showQintianPlainEdict(tutorialToEdict(t), t.id)
                 }
                 onQuickAsk={() => openQintianWorkbenchAsk()}
+                showQuickAsk={false}
                 onDeepWorkSelect={(item) => {
                   setTutorialModal(null);
                   showQintianPlainEdict(qintianDeepWorkToEdict(item), item.id, '继续问钦天监');

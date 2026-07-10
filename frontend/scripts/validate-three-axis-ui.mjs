@@ -44,7 +44,7 @@ const routes = [
   { id: 'ops', name: '兵部', path: '/departments/ops?skipOnboarding=1', requireDecreeInput: true, requireScrollToggle: true },
   { id: 'legal', name: '刑部', path: '/departments/legal?skipOnboarding=1', requireDecreeInput: true, requireScrollToggle: true },
   { id: 'personnel', name: '吏部', path: '/departments/personnel?skipOnboarding=1', requireDecreeInput: false, requireScrollToggle: true },
-  { id: 'offices', name: '诸司', path: '/offices?skipOnboarding=1', requireDecreeInput: false, requireAgents: false },
+  { id: 'offices', name: '专署', path: '/offices?skipOnboarding=1', requireDecreeInput: false, requireAgents: false },
   { id: 'manors', name: '庄园', path: '/manors?skipOnboarding=1', requireDecreeInput: true, requireScrollToggle: true },
   { id: 'command-center', name: '军机处', path: '/command-center?skipOnboarding=1', requireDecreeInput: true, requireScrollToggle: true },
 ];
@@ -603,7 +603,7 @@ async function inspectGeometry(page, route, screenshotPath) {
   }
 
   if (route.id === 'offices') {
-    addCheck(checks, blockers, 'art.ornamentDepth', true, `诸司为聚合页，当前装饰层=${metrics.ornaments.count}`, 'warn');
+    addCheck(checks, blockers, 'art.ornamentDepth', true, `专署为聚合页，当前装饰层=${metrics.ornaments.count}`, 'warn');
   } else {
     const minimumOrnaments = route.id === 'study' ? 2 : 4;
     addCheck(

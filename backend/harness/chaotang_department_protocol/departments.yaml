@@ -14,16 +14,16 @@ v1_taxonomy:
     - id: liubu
       name: 六部
       href: /liubu
-    - id: zhusi
-      name: 诸司
-      href: /zhusi
+    - id: zhuanshu
+      name: 专署
+      href: /zhuanshu
     - id: shiguan
       name: 史馆
       href: /shiguan
-  zhusi:
+  zhuanshu:
     - id: jinyiwei
       name: 锦衣卫
-      href: /zhusi/jinyiwei
+      href: /zhuanshu/jinyiwei
   liubu:
     hubu:
       name: 户部
@@ -376,7 +376,7 @@ six_ministries:
 departments:
   prime_minister:
     name: 丞相
-    job: 总揽上书房、三省六部、诸司的下一步，压缩成一条可执行主线。
+    job: 总揽上书房、三省六部、专署的下一步，压缩成一条可执行主线。
     owns:
       - next_step_orchestration
       - cross_department_priority

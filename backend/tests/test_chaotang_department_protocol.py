@@ -59,10 +59,10 @@ def test_v1_taxonomy_matches_product_module_tree():
         "上书房",
         "军机处",
         "六部",
-        "诸司",
+        "专署",
         "史馆",
     ]
-    assert [item["name"] for item in taxonomy["zhusi"]] == ["锦衣卫"]
+    assert [item["name"] for item in taxonomy["zhuanshu"]] == ["锦衣卫"]
     assert {
         code: [office["name"] for office in spec["offices"]]
         for code, spec in taxonomy["liubu"].items()
@@ -88,7 +88,7 @@ def test_v1_taxonomy_matches_project_fact_source():
     assert [item["id"] for item in taxonomy["primary_modules"]] == [
         item["id"] for item in fact_source["primaryModules"]
     ]
-    assert [item["id"] for item in taxonomy["zhusi"]] == [item["id"] for item in fact_source["zhusi"]]
+    assert [item["id"] for item in taxonomy["zhuanshu"]] == [item["id"] for item in fact_source["zhuanshu"]]
 
     backend_liubu = taxonomy["liubu"]
     product_liubu = {item["id"]: item for item in fact_source["liubu"]}

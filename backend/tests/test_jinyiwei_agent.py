@@ -25,6 +25,16 @@ def test_gather_intel_grades_and_lights():
     # 硬声明那条必须"待核",不自动过闸(锦衣卫铁律)
     hard = doc["items"][2]
     assert hard["impact"] == "待核" and hard["level"] == "yellow"
+    assert hard["hard_claim"] is True
+    assert hard["primary_source"] is False
+    assert hard["distinct_sources"] == 1
+    assert "必须人工核实" in hard["vet_reason"]
+    # primary 是布尔核验结果，不能再被误写成 evidence_ref="True"。
+    assert doc["items"][0]["evidence_ref"] == ""
+    assert doc["items"][1]["sources"] == [
+        {"name": "财新", "url": None, "tier": None, "published_at": None},
+        {"name": "第一财经", "url": None, "tier": None, "published_at": None},
+    ]
     # 谍报头灯汇总:1 脏 + 1 待核
     assert "挡门外 1" in doc["shielded"] and "1 条待核" in doc["shielded"]
 

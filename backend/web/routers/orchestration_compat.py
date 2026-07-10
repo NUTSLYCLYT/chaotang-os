@@ -11,7 +11,7 @@ import secrets
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -43,6 +43,100 @@ class QintianChatRequest(BaseModel):
 
 class PromptSuggestRequest(BaseModel):
     input: str
+
+
+def _qintian_fallback_reply(message: str) -> str:
+    clean = " ".join((message or "").strip().split())
+    return (
+        "钦天监先按单 Agent 兜底占验：当前未接入实时外部检索，也未召集军机处会审。"
+        f"\n\n所问：{clean[:160] or '未给出具体问题'}"
+        "\n\n请补齐时间窗口、关键变量、最坏情形和可接受损失；若要正式推进，再由丞相判断是否下旨进入执行链。"
+    )
+
+
+def _call_qintian_agent(message: str) -> tuple[str, str]:
+    system_prompt = (
+        "你是朝堂 OS 的钦天监单 Agent，只回答时机、风险、情景推演和不确定性问题。"
+        "你不能召集军机处，不能调用六部会审，不能伪装实时预测或实时检索。"
+        "输出必须包含：时机判断、主要变数、最坏情形、建议观察信号。"
+        "用中文，简洁，最多 5 段。"
+    )
+    try:
+        import os
+
+        from src.model_adapter import ModelAdapter
+        from src.provider import active_fallback_models, get_active_provider
+
+        provider = get_active_provider() or {}
+        api_key = os.environ.get(provider.get("api_key_env", "DEEPSEEK_API_KEY"), "")
+        api_base = str(provider.get("api_base", ""))
+        if not api_key and "localhost" not in api_base and "127.0.0.1" not in api_base:
+            return _qintian_fallback_reply(message), "FALLBACK"
+        adapter = ModelAdapter(
+            model=provider.get("default_model", "openai/deepseek-chat"),
+            api_base=api_base,
+            api_key=api_key,
+            temperature=0.2,
+        )
+        result = adapter.call(
+            system_prompt,
+            message[:4000],
+            skip_budget=True,
+            fallback_models=active_fallback_models(),
+        )
+        if result.get("status") == "success" and str(result.get("output") or "").strip():
+            return str(result["output"]).strip(), "LIVE"
+    except Exception:
+        pass
+    return _qintian_fallback_reply(message), "FALLBACK"
+
+
+def _fallback_intel_signals() -> list[dict[str, Any]]:
+    now = _now_iso()
+    return [
+        {
+            "id": "signal-fallback-001",
+            "category": "risk",
+            "level": "warning",
+            "title": "Backend intel source is not connected",
+            "summary": "The compatibility endpoint is live, but no Turso intel_signals reader is configured in this backend process.",
+            "region": "GLOBAL",
+            "regionLabel": "Global",
+            "industry": "system",
+            "credibility": "low",
+            "sources": [{"name": "backend.compat", "publishedAt": now}],
+            "firstSeenAt": now,
+            "lastUpdatedAt": now,
+            "impactScore": 40,
+            "soWhat": "This is an honest fallback signal. Do not treat it as real market intelligence.",
+        }
+    ]
+
+
+@router.get("/api/court/intel/signals")
+def list_intel_signals(
+    limit: int = Query(default=80, ge=1, le=200),
+    category: str | None = None,
+    level: str | None = None,
+    region: str | None = None,
+) -> dict:
+    signals = _fallback_intel_signals()
+    if category:
+        signals = [item for item in signals if item.get("category") == category]
+    if level:
+        signals = [item for item in signals if item.get("level") == level]
+    if region:
+        signals = [item for item in signals if item.get("region") == region]
+    signals = signals[:limit]
+    return {
+        "success": True,
+        "data": signals,
+        "meta": {
+            "total": len(signals),
+            "source": "fallback",
+            "fetchedAt": _now_iso(),
+        },
+    }
 
 
 @router.post("/api/orchestration/run")
@@ -130,7 +224,7 @@ def orchestration_run(
     return StreamingResponse(events(), media_type="text/event-stream")
 
 
-@router.post("/api/qintian/chat")
+@router.post("/api/qintian/chat-legacy")
 def qintian_chat(body: QintianChatRequest) -> StreamingResponse:
     message = body.message.strip()
 
@@ -142,6 +236,18 @@ def qintian_chat(body: QintianChatRequest) -> StreamingResponse:
         for token in [text]:
             yield f"data: {json.dumps({'token': token, 'sourceLabel': 'FALLBACK', 'toolsUsed': []}, ensure_ascii=False)}\n\n"
         yield f"data: {json.dumps({'done': True, 'sourceLabel': 'FALLBACK'}, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(events(), media_type="text/event-stream")
+
+
+@router.post("/api/qintian/chat")
+def qintian_chat_single_agent(body: QintianChatRequest) -> StreamingResponse:
+    message = body.message.strip()
+
+    def events():
+        text, source_label = _call_qintian_agent(message)
+        yield f"data: {json.dumps({'token': text, 'sourceLabel': source_label, 'agent': 'qintian'}, ensure_ascii=False)}\n\n"
+        yield f"data: {json.dumps({'done': True, 'sourceLabel': source_label}, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(events(), media_type="text/event-stream")
 

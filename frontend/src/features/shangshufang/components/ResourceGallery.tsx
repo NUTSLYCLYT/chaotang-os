@@ -18,10 +18,10 @@ type ResourceItem = {
 const PRD_RESOURCES: ResourceItem[] = [
   { id: 'prd-shangshufang', title: '上书房', subtitle: '最终入口 · 御前下旨与问策', src: '/prd/01-shangshufang.webp', href: '/shangshufang', tag: '主入口' },
   { id: 'prd-dadian', title: '大殿', subtitle: '经营总览与中枢态势', src: '/prd/02-dadian.webp', href: '/dadian', tag: '总览' },
-  { id: 'prd-zhuangyuan', title: '庄园', subtitle: '业务域与增长资产', src: '/prd/03-zhuangyuan.webp', href: '/zhusi', tag: '业务' },
+  { id: 'prd-zhuangyuan', title: '庄园', subtitle: '业务域与增长资产', src: '/prd/03-zhuangyuan.webp', href: '/zhuanshu', tag: '业务' },
   { id: 'prd-shiguan', title: '史馆', subtitle: '归档、复盘、长期记忆', src: '/prd/04-shiguan.webp', href: '/shiguan', tag: '复盘' },
   { id: 'prd-junjichu', title: '军机处', subtitle: '任务拆解与群臣会审', src: '/prd/05-junjichu.webp', href: '/junjichu', tag: '执行' },
-  { id: 'prd-jinyiwei', title: '锦衣卫', subtitle: '情报、竞品、风险侦察', src: '/prd/06-jinyiwei.webp', href: '/zhusi/jinyiwei', tag: '情报' },
+  { id: 'prd-jinyiwei', title: '锦衣卫', subtitle: '情报、竞品、风险侦察', src: '/prd/06-jinyiwei.webp', href: '/zhuanshu/jinyiwei', tag: '情报' },
   { id: 'prd-hubu', title: '户部', subtitle: '预算、现金流与经营测算', src: '/prd/07-hubu.webp', href: '/liubu/hubu', tag: '财务' },
   { id: 'prd-bingbu', title: '兵部', subtitle: '运营、市场与战役调度', src: '/prd/08-bingbu.webp', href: '/liubu/bingbu', tag: '运营' },
   { id: 'prd-taiyi', title: '太医院', subtitle: '系统健康与诊断', src: '/prd/09-taiyi.webp', href: '/liubu', tag: '健康' },
@@ -34,7 +34,7 @@ const SCENE_RESOURCES: ResourceItem[] = [
   { id: 'scene-hubu', title: '户部账房', subtitle: '预算与现金流场景', src: '/assets/hubu/scene-full.webp', href: '/liubu/hubu', tag: '场景' },
   { id: 'scene-gongbu', title: '工部营造', subtitle: '项目与工程场景', src: '/assets/gongbu/gongbu.webp', href: '/liubu/gongbu', tag: '场景' },
   { id: 'scene-bingbu', title: '兵部沙盘', subtitle: '运营战役场景', src: '/assets/bingbu/scene-full.webp', href: '/liubu/bingbu', tag: '场景' },
-  { id: 'scene-jinyiwei', title: '锦衣卫密探', subtitle: '情报风险场景', src: '/assets/jinyiwei/scene-full.webp', href: '/zhusi/jinyiwei', tag: '场景' },
+  { id: 'scene-jinyiwei', title: '锦衣卫密探', subtitle: '情报风险场景', src: '/assets/jinyiwei/scene-full.webp', href: '/zhuanshu/jinyiwei', tag: '场景' },
   { id: 'scene-taiyi', title: '太医院诊断', subtitle: '系统健康场景', src: '/assets/taiyi/scene-full.webp', href: '/liubu', tag: '场景' },
   { id: 'scene-shiguan', title: '史馆卷宗', subtitle: '复盘与归档视觉资产', src: '/assets/shiguan/shiguan.webp', href: '/shiguan', tag: '场景' },
 ];

@@ -4,19 +4,19 @@ import test from 'node:test';
 import {
   CHAOTANG_V1_LIUBU,
   CHAOTANG_V1_PRIMARY_MODULES,
-  CHAOTANG_V1_ZHUSI,
+  CHAOTANG_V1_ZHUANSHU,
 } from './chaotang-v1-modules.ts';
 
 test('chaotang 1.0 primary modules are the only top-level product modules', () => {
   assert.deepEqual(
     CHAOTANG_V1_PRIMARY_MODULES.map((item) => item.label),
-    ['大殿', '上书房', '军机处', '六部', '诸司', '史馆'],
+    ['大殿', '上书房', '军机处', '六部', '专署', '史馆'],
   );
 });
 
-test('chaotang 1.0 secondary modules match the requested liubu and zhusi tree', () => {
+test('chaotang 1.0 secondary modules match the requested liubu and zhuanshu tree', () => {
   assert.deepEqual(
-    CHAOTANG_V1_ZHUSI.map((item) => item.name),
+    CHAOTANG_V1_ZHUANSHU.map((item) => item.name),
     ['锦衣卫'],
   );
 

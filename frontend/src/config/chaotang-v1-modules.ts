@@ -3,7 +3,7 @@ export type ChaotangPrimaryModuleId =
   | 'shangshufang'
   | 'junjichu'
   | 'liubu'
-  | 'zhusi'
+  | 'zhuanshu'
   | 'shiguan';
 
 export type V1LiubuCode = 'hubu' | 'libu' | 'libu_rites' | 'bingbu' | 'xingbu' | 'gongbu';
@@ -42,12 +42,17 @@ export const CHAOTANG_V1_PRIMARY_MODULES: Array<{
   { id: 'shangshufang', label: '上书房', href: '/shangshufang' },
   { id: 'junjichu', label: '军机处', href: '/junjichu' },
   { id: 'liubu', label: '六部', href: '/liubu' },
-  { id: 'zhusi', label: '诸司', href: '/zhusi' },
+  { id: 'zhuanshu', label: '专署', href: '/zhuanshu' },
   { id: 'shiguan', label: '史馆', href: '/shiguan' },
 ];
 
-export const CHAOTANG_V1_ZHUSI = [
-  { code: 'jinyiwei', name: '锦衣卫', href: '/zhusi/jinyiwei' },
+export const CHAOTANG_V1_ZHUANSHU = [
+  {
+    code: 'jinyiwei',
+    name: '锦衣卫',
+    href: '/zhuanshu/jinyiwei',
+    duty: '外部信号、开源项目、竞品与风险情报',
+  },
 ] as const;
 
 export const CHAOTANG_V1_LIUBU: readonly V1LiubuDef[] = [

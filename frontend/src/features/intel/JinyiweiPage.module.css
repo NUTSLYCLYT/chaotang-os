@@ -1,0 +1,44 @@
+.layout {
+  display: grid;
+  min-height: 0;
+  gap: 0.75rem;
+}
+
+.composer { grid-area: composer; }
+.center { grid-area: center; min-width: 0; }
+.verdict { grid-area: verdict; min-width: 0; }
+.status { grid-area: status; }
+.mobileAux { grid-area: auxiliary; }
+
+.layout {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "composer"
+    "center"
+    "verdict"
+    "status"
+    "auxiliary";
+}
+
+@media (min-width: 48rem) {
+  .layout {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "center center"
+      "composer verdict"
+      "status verdict";
+  }
+
+  .mobileAux { display: none; }
+}
+
+@media (min-width: 80rem) {
+  .layout {
+    flex: 1 1 0%;
+    grid-template-columns: 300px minmax(620px, 1fr) 340px;
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "composer center verdict"
+      "status center verdict";
+  }
+}

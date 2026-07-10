@@ -1,4 +1,4 @@
-"""御史封驳/放行端点 — 诸司能力核查挖出的洞(docs/dept_design/yushi.md §四设计好的端点一直没建)。
+"""御史封驳/放行端点 — 专署能力核查挖出的洞(docs/dept_design/yushi.md §四设计好的端点一直没建)。
 
 harness/yushi_global_gate/scripts/run_gate.py 是真实、测过的四维确定性门禁,但一直没有
 build_court_doc(dept="yushi") 的生产调用方。src/yushi_verdict.py 是薄包装,不改 run_gate
