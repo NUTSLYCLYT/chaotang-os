@@ -65,7 +65,9 @@ def test_chancellor_routes_simple_task_to_direct_agent(isolated_session_local):
     assert data["draft_edict"]["route"]["mode"] == "direct"
 
 
-def test_confirm_direct_task_creates_simple_receipt_without_swarm(isolated_session_local):
+def test_confirm_direct_task_creates_simple_receipt_without_swarm(
+    isolated_session_local,
+):
     client = TestClient(app)
     draft_response = client.post(
         "/api/shangshufang/draft-edict",
@@ -147,6 +149,54 @@ def test_confirm_edict_creates_review_status(isolated_session_local):
     assert "刑部奏" in memorial["formatted_memorial"]["text"]
 
 
+def test_confirm_edict_twice_is_idempotent_and_does_not_redispatch(
+    isolated_session_local,
+):
+    """独立审查发现(2026-07-10)的 HIGH 修复缺一条 HTTP 层回归：同一 task_id 重复
+    调用 confirm-edict(重复点击/浏览器重试)不应该重复写 ChancellorRouteDecision，
+    也不应该产生第二个 CourtReview，第二次调用要原样返回第一次的结果。"""
+    from src.db.models import ChancellorRouteDecision, CourtReview
+
+    client = TestClient(app)
+    draft_response = client.post(
+        "/api/shangshufang/draft-edict",
+        json={"raw_question": "这个合同能不能直接签？"},
+    )
+    task_id = draft_response.json()["data"]["task_id"]
+
+    first = client.post(
+        "/api/shangshufang/confirm-edict",
+        json={"task_id": task_id, "confirmed": True},
+    )
+    assert first.status_code == 200
+    first_data = first.json()["data"]
+    assert first_data["status"] == "edict_recorded"
+
+    second = client.post(
+        "/api/shangshufang/confirm-edict",
+        json={"task_id": task_id, "confirmed": True},
+    )
+    assert second.status_code == 200
+    second_data = second.json()["data"]
+    assert "幂等" in second_data["message"]
+    assert second_data["review_id"] == first_data["review_id"]
+    assert (
+        second_data["route_decision"]["decision_id"]
+        == first_data["route_decision"]["decision_id"]
+    )
+
+    db = isolated_session_local()
+    try:
+        decision_count = (
+            db.query(ChancellorRouteDecision).filter_by(task_id=task_id).count()
+        )
+        review_count = db.query(CourtReview).filter_by(task_id=task_id).count()
+    finally:
+        db.close()
+    assert decision_count == 1
+    assert review_count == 1
+
+
 def test_archive_decision_writes_shiguan_record(isolated_session_local):
     client = TestClient(app)
     draft_response = client.post(
@@ -197,7 +247,11 @@ def test_frontend_decision_actions_are_accepted(isolated_session_local):
 
         decision_response = client.post(
             f"/api/shangshufang/tasks/{task_id}/decision",
-            json={"action": action, "reason": f"test {action}", "human_confirmed": True},
+            json={
+                "action": action,
+                "reason": f"test {action}",
+                "human_confirmed": True,
+            },
         )
 
         assert decision_response.status_code == 200
@@ -215,7 +269,10 @@ def test_home_reads_pending_confirm_decision_and_evidence(isolated_session_local
         json={"raw_question": "判断这个 PACK 项目是否推进。"},
     ).json()["data"]
     confirmed_task = draft["task_id"]
-    client.post("/api/shangshufang/confirm-edict", json={"task_id": confirmed_task, "confirmed": True})
+    client.post(
+        "/api/shangshufang/confirm-edict",
+        json={"task_id": confirmed_task, "confirmed": True},
+    )
     client.post(
         f"/api/shangshufang/tasks/{confirmed_task}/decision",
         json={"action": "followup", "reason": "请补证"},
@@ -242,7 +299,9 @@ def test_swarm_deepen_endpoint(isolated_session_local):
         json={"raw_question": "判断这个内部流程是否推进。"},
     ).json()["data"]
     task_id = draft["task_id"]
-    client.post("/api/shangshufang/confirm-edict", json={"task_id": task_id, "confirmed": True})
+    client.post(
+        "/api/shangshufang/confirm-edict", json={"task_id": task_id, "confirmed": True}
+    )
 
     deepen = client.post(f"/api/shangshufang/tasks/{task_id}/swarm-deepen")
     assert deepen.status_code == 200
@@ -254,7 +313,11 @@ def test_pack_swarm_loop_endpoint(isolated_session_local):
     client = TestClient(app)
     pack = client.post(
         "/api/shangshufang/pack-swarm-loop",
-        json={"command": "请 PACK 蜂群协同评估储能电池包建设方案", "mode": "order", "source_urls": []},
+        json={
+            "command": "请 PACK 蜂群协同评估储能电池包建设方案",
+            "mode": "order",
+            "source_urls": [],
+        },
     )
     assert pack.status_code == 200
     pack_data = pack.json()["data"]
@@ -269,7 +332,9 @@ def test_polish_im_and_edict_return_endpoints(isolated_session_local):
         json={"raw_question": "记录一个内部复命测试任务。"},
     ).json()["data"]
     task_id = draft["task_id"]
-    client.post("/api/shangshufang/confirm-edict", json={"task_id": task_id, "confirmed": True})
+    client.post(
+        "/api/shangshufang/confirm-edict", json={"task_id": task_id, "confirmed": True}
+    )
 
     polish = client.post(
         "/api/shangshufang/polish-edict",
@@ -283,7 +348,14 @@ def test_polish_im_and_edict_return_endpoints(isolated_session_local):
 
     im = client.post(
         "/api/shangshufang/im",
-        json={"message": {"role": "user", "label": "陛下", "text": "测试消息", "mode": "order"}},
+        json={
+            "message": {
+                "role": "user",
+                "label": "陛下",
+                "text": "测试消息",
+                "mode": "order",
+            }
+        },
     )
     assert im.status_code == 200
     messages = client.get("/api/shangshufang/im?mode=order").json()["data"]["messages"]
@@ -291,7 +363,14 @@ def test_polish_im_and_edict_return_endpoints(isolated_session_local):
 
     returned = client.post(
         "/api/shangshufang/edict-return",
-        json={"taskId": task_id, "sessionId": "session_test", "mode": "order", "command": "测试", "edictView": {}, "finalOutputs": []},
+        json={
+            "taskId": task_id,
+            "sessionId": "session_test",
+            "mode": "order",
+            "command": "测试",
+            "edictView": {},
+            "finalOutputs": [],
+        },
     )
     assert returned.status_code == 200
     assert returned.json()["success"] is True
@@ -316,7 +395,9 @@ def test_finance_intel_status_and_budget_endpoints(isolated_session_local):
     assert finance_data["briefId"]
     assert finance_data["sourceUrls"]
 
-    case = client.get(f"/api/shangshufang/finance-intel-loop/cases/{finance_data['taskId']}")
+    case = client.get(
+        f"/api/shangshufang/finance-intel-loop/cases/{finance_data['taskId']}"
+    )
     assert case.status_code == 200
     assert case.json()["data"]["taskId"] == finance_data["taskId"]
 
@@ -337,7 +418,9 @@ def test_finance_intel_status_and_budget_endpoints(isolated_session_local):
             "purpose": "AI 工具链",
             "requestedAmount": 600000,
             "currency": "CNY",
-            "lineItems": [{"id": "cloud", "title": "云算力", "amount": 600000, "currency": "CNY"}],
+            "lineItems": [
+                {"id": "cloud", "title": "云算力", "amount": 600000, "currency": "CNY"}
+            ],
             "evidenceRefs": [{"id": "quote", "label": "报价"}],
         },
     )
@@ -348,7 +431,11 @@ def test_finance_intel_status_and_budget_endpoints(isolated_session_local):
 
     advanced = client.post(
         f"/api/shangshufang/briefs/{budget_data['decisionBrief']['id']}/decision/advance",
-        json={"decision": "request_more_evidence", "reason": "补证", "manualConfirmation": False},
+        json={
+            "decision": "request_more_evidence",
+            "reason": "补证",
+            "manualConfirmation": False,
+        },
     )
     assert advanced.status_code == 200
     assert advanced.json()["data"]["status"] == "awaiting_evidence"

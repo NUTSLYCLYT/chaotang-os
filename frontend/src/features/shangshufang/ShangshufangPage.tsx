@@ -1792,7 +1792,10 @@ function awaitingRealMemorialView(taskId: string, confirm: ShangshufangConfirmRe
 /** 轮询状态接口直到真实分奏回报，再把"军机处会审中"占位视图换成真实圣裁。
  * 不用 useJiqunRunProgress 那种 SSE(蜂群深挖没有对应的流式端点)，用既有的
  * setTimeout 链式轮询，跟该 hook 的降级路径同一模式。primaryTaskId 匹配检查
- * 防止用户已经切到别的任务时，迟到的轮询结果覆盖当前展示。 */
+ * 防止用户已经切到别的任务时，迟到的轮询结果覆盖当前展示；
+ * 独立审查(2026-07-10)发现只做"防污染"不够——用户切走后轮询仍会跑满45次
+ * 网络请求(资源浪费，非正确性问题)。这里补一次"只读探测"：每轮先确认
+ * primaryTaskId 是否还匹配当前展示，不匹配就提前停止调度，不用等到 MAX_ATTEMPTS。 */
 function pollForRealVerdict(
   taskId: string,
   setEdictOverride: (updater: (prev: EdictOverrideState | null) => EdictOverrideState | null) => void,
@@ -1801,8 +1804,17 @@ function pollForRealVerdict(
   const MAX_ATTEMPTS = 45; // ~3分钟，量级对齐 outbox worker 的预期完成时间
   let attempts = 0;
 
+  const isStillRelevant = (): Promise<boolean> =>
+    new Promise((resolve) => {
+      setEdictOverride((prev) => {
+        resolve(!!(prev && prev.primaryTaskId === taskId));
+        return prev; // 只读探测，不修改 state，不触发多余渲染
+      });
+    });
+
   const tick = async () => {
     attempts += 1;
+    if (!(await isStillRelevant())) return; // 用户已切到别的任务，提前停止，不再调度
     try {
       const envelope = await getShangshufangTaskStatus(taskId);
       const stage = envelope.data?.execution_status?.current_stage;

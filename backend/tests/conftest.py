@@ -8,6 +8,15 @@ autouse _restore_session_local:每个 test 前保存、后恢复 src.db.engine.S
 from __future__ import annotations
 
 import importlib
+import os
+
+# src.tenant.JWT_SECRET 是导入时求值的模块常量;谁先导入 src.tenant 就决定了它的值。
+# web/main.py 会在导入时把 backend/.env 的 FENGQUN_JWT_SECRET 灌进 os.environ,但如果
+# 全量测试套件里某个更早收集到的文件先导入了 src.tenant(不经过 web.main),常量就会
+# 冻结成弱默认值,导致后面任何 TestClient(app) 触发的 enforce_jwt_secret() 硬停 ——
+# 这与被测代码无关,是纯粹的收集顺序问题,所以在这里、所有测试文件被导入之前，
+# 保证一个足够强度的测试专用密钥。
+os.environ.setdefault("FENGQUN_JWT_SECRET", "test-only-" + "x" * 40)
 
 import pytest
 from sqlalchemy import create_engine

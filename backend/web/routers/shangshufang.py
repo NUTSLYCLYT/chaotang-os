@@ -22,7 +22,7 @@ from web.deps import get_current_user
 from web.routers._envelope import fail, ok
 from web.schemas.auth import CurrentUser
 from web.schemas.swarm import SwarmRunRequest
-
+from src.chancellor.contracts import RouteDecisionV2
 from src.chancellor.decree_status import (
     build_decree_execution_status,
     record_timeline_event,
@@ -33,6 +33,7 @@ from src.finance_intel_loop_contract import build_finance_intel_session
 from src.hubu_financial_reporting import build_shangshufang_finance_reporting_loop
 from src.db.models import (
     AgentSkillRun,
+    ChancellorRouteDecision,
     CourtLoopRun,
     CourtReview,
     DecisionTask,
@@ -637,7 +638,12 @@ def shangshufang_home(user: CurrentUser = Depends(get_current_user)) -> dict:
 
 
 @router.post("/chancellor-chat")
-def shangshufang_chancellor_chat(body: ChancellorChatRequest) -> StreamingResponse:
+def shangshufang_chancellor_chat(
+    body: ChancellorChatRequest, _: CurrentUser = Depends(get_current_user)
+) -> StreamingResponse:
+    # 独立审查发现(2026-07-10)：此前缺鉴权依赖，等于匿名可烧真实LLM调用——
+    # 同一分支几个提交前(2030baf)才刚修过 swarm-dispatch 的同类"匿名烧蜂群"漏洞，
+    # 这里是遗漏的同类端点，补齐依赖。
     message = body.message.strip()
 
     def events():
@@ -794,6 +800,46 @@ def shangshufang_confirm_edict(
             return ok(
                 {"task_id": task.id, "status": task.status, "message": "拟旨已取消"}
             )
+
+        # 独立审查发现(2026-07-10)：ChancellorRoutingService.decide() 只在
+        # decision 行这一层幂等——同一 task_id 重复调用 confirm-edict(重复点击/
+        # 浏览器重试)之前会无条件重新创建 CourtReview/CourtLoopRun/EmperorDecision
+        # 并再 enqueue 一次 outbox 事件，导致 council 任务被真实执行两次(真实LLM
+        # 成本+task.status 竞态覆盖)。这里在真正处理前短路：任务已经confirm过
+        # (direct_completed/edict_recorded 及其后续终态)就直接返回既有结果，
+        # 不重复写副作用、不重复派单。
+        _TERMINAL_CONFIRMED_STATUSES = {
+            "direct_completed",
+            "edict_recorded",
+            "reviewing",
+            "awaiting_decision",
+            "awaiting_evidence",
+        }
+        if task.status in _TERMINAL_CONFIRMED_STATUSES:
+            existing_review = _latest_review(db, task.id)
+            existing_decision_row = (
+                db.query(ChancellorRouteDecision)
+                .filter_by(task_id=task.id)
+                .order_by(ChancellorRouteDecision.created_at.desc())
+                .first()
+            )
+            if existing_review is not None and existing_decision_row is not None:
+                existing_decision = RouteDecisionV2.model_validate_json(
+                    existing_decision_row.decision_json
+                )
+                return ok(
+                    {
+                        "task_id": task.id,
+                        "status": task.status,
+                        "message": "该任务已确认下旨，返回既有结果(幂等，未重复派单)。",
+                        "review_id": existing_review.id,
+                        "routing_plan": _loads(existing_review.routing_plan_json, {}),
+                        "memorial": _loads(existing_review.memorial_json, {}),
+                        "route": legacy_route_dict(existing_decision),
+                        "route_decision": existing_decision.model_dump(),
+                        "review_status_url": f"/api/shangshufang/tasks/{task.id}/status",
+                    }
+                )
 
         draft_payload = body.edited_edict or _loads(task.draft_edict_json, {})
         # 注意：不能用 draft_payload["refined_edict"] 或 task.refined_edict 作为重新

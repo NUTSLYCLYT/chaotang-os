@@ -70,3 +70,18 @@ def test_status_shows_blocked_reason_and_departments_for_cluster_task(
     assert status["route_decision"]["human_confirmation_required"] is True
     assert len(status["departments"]) >= 1
     assert len(status["timeline"]) >= 1
+
+
+def test_department_status_for_reflects_stage_not_fabricated_per_department_progress():
+    """独立审查发现(2026-07-10)：修复前按 index==0 编造"第一个部门在执行、其余
+    已汇报"，但 _execute_council() 是单次黑箱调用，完成前不存在"部分汇报"，完成
+    后(awaiting_decision)也不存在"还有一个在执行"。这里直接测纯函数，不需要
+    绕开测试环境禁用的后台 outbox 派单去凑真实状态流转。"""
+    from src.chancellor.decree_status import _department_status_for
+
+    for index in (0, 1, 2):
+        assert _department_status_for("awaiting_emperor_decision", index) == "reported"
+        assert _department_status_for("completed", index) == "reported"
+        assert _department_status_for("department_reporting", index) == "executing"
+        assert _department_status_for("executing", index) == "executing"
+        assert _department_status_for("awaiting_emperor_confirm", index) == "planned"

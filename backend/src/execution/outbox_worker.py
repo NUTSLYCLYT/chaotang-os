@@ -133,19 +133,49 @@ def _execute_council(db: "Session", task_id: str) -> dict[str, Any]:
     }
 
 
-def process_event(db: "Session", event_id: str) -> dict[str, Any]:
-    """消费单个 outbox 事件。幂等：completed/dead_letter 直接跳过，不重复执行。"""
+def _claim_event(db: "Session", event_id: str) -> "OutboxEvent | None":
+    """原子声明事件的处理权：UPDATE ... WHERE status IN (pending, failed) 一条语句
+    完成"检查+转移状态"，用受影响行数(rowcount)判断是否抢到——不是读后判断再写，
+    避免两个并发消费者(即时派单线程 + 手动 process_pending_events)同时读到
+    同一个 pending 事件、都跳过状态检查、都真的执行一遍 _execute_council
+    (独立审查 2026-07-10 发现的竞态)。SQLite 单文件锁本身能保证这条 UPDATE
+    的原子性，不需要额外的 SELECT ... FOR UPDATE。"""
+    from sqlalchemy import update
+
     from src.db.models import OutboxEvent
 
-    event = db.query(OutboxEvent).filter_by(id=event_id).first()
-    if event is None:
-        return {"status": "not_found", "event_id": event_id}
-    if event.status in {"completed", "dead_letter"}:
-        return {"status": event.status, "event_id": event_id, "skipped": True}
-
-    event.status = "processing"
-    event.updated_at = _now_iso()
+    now = _now_iso()
+    result = db.execute(
+        update(OutboxEvent)
+        .where(
+            OutboxEvent.id == event_id,
+            OutboxEvent.status.in_(["pending", "failed"]),
+        )
+        .values(status="processing", updated_at=now)
+    )
     db.commit()
+    if result.rowcount == 0:
+        return None
+    return db.query(OutboxEvent).filter_by(id=event_id).first()
+
+
+def process_event(db: "Session", event_id: str) -> dict[str, Any]:
+    """消费单个 outbox 事件。幂等：completed/dead_letter 直接跳过，不重复执行；
+    并发安全：用原子 claim 防止两个消费者同时执行同一事件。"""
+    from src.db.models import OutboxEvent
+
+    probe = db.query(OutboxEvent).filter_by(id=event_id).first()
+    if probe is None:
+        return {"status": "not_found", "event_id": event_id}
+    if probe.status in {"completed", "dead_letter"}:
+        return {"status": probe.status, "event_id": event_id, "skipped": True}
+    if probe.status == "processing":
+        return {"status": "processing", "event_id": event_id, "skipped": True}
+
+    event = _claim_event(db, event_id)
+    if event is None:
+        # 没抢到：另一个消费者已经先一步把它转成 processing/completed 了。
+        return {"status": "claimed_elsewhere", "event_id": event_id, "skipped": True}
 
     try:
         if event.event_type == "route.direct":
@@ -172,13 +202,49 @@ def process_event(db: "Session", event_id: str) -> dict[str, Any]:
         return {"status": event.status, "event_id": event_id, "error": str(exc)}
 
 
+_STALE_PROCESSING_SECONDS = 15 * 60  # 15分钟：council 真实LLM调用量级的宽松上限
+
+
+def _reap_stale_processing_events(db: "Session") -> int:
+    """独立审查发现(2026-07-10)：worker 进程崩溃/被杀时(_execute_council 是真实、
+    无超时的LLM/蜂群调用，最容易撞上)，事件永远卡在 processing——process_pending_events
+    之前只扫 pending/failed，永远捞不回卡死的事件。这里把 updated_at 超过阈值、
+    仍是 processing 的事件重置为 failed(计入一次 attempts)，让它能被下面的批处理
+    重新捞起来，不需要人工介入清库。"""
+    from datetime import datetime, timedelta, timezone
+
+    from src.db.models import OutboxEvent
+
+    cutoff = (
+        datetime.now(timezone.utc) - timedelta(seconds=_STALE_PROCESSING_SECONDS)
+    ).isoformat(timespec="seconds")
+    stale = (
+        db.query(OutboxEvent)
+        .filter(OutboxEvent.status == "processing", OutboxEvent.updated_at < cutoff)
+        .all()
+    )
+    for event in stale:
+        event.attempts += 1
+        event.last_error = "重置：processing 状态超过 15 分钟未完成，视为卡死"
+        event.status = (
+            "dead_letter" if event.attempts >= event.max_attempts else "failed"
+        )
+        event.updated_at = _now_iso()
+    if stale:
+        db.commit()
+    return len(stale)
+
+
 def process_pending_events(db: "Session", *, limit: int = 10) -> list[dict[str, Any]]:
-    """批处理入口：扫描 pending/failed(未达 max_attempts)事件逐个处理。
+    """批处理入口：先捞回卡死的 processing 事件，再扫描 pending/failed(未达
+    max_attempts)事件逐个处理。
 
     供运维重试或未来定时调度调用；不是本次实现的自动触发路径(那条走
     decree_dispatcher.dispatch_after_commit 的即时线程)，这里是补漏用的。
     """
     from src.db.models import OutboxEvent
+
+    _reap_stale_processing_events(db)
 
     candidates = (
         db.query(OutboxEvent)

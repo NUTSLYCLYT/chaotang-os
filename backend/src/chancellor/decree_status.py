@@ -30,14 +30,25 @@ def record_timeline_event(
     db: "Session", *, task_id: str, stage: str, actor: str, message: str
 ) -> None:
     """写一行 DecreeExecutionEvent。调用方负责 commit——本函数只 add，
-    保持跟其余下旨记录同一事务，不单独提交产生不一致窗口。"""
+    保持跟其余下旨记录同一事务，不单独提交产生不一致窗口。
+
+    2026-07-11 生产实测发现的真实故障：event_id 原来只哈希
+    task_id|stage|秒级时间戳，不含 actor/message/随机量——confirm-edict 写的
+    chancellor "executing" 事件，和 dispatch_after_commit 几乎同一秒内触发的
+    worker "executing" 事件会算出同一个 id，撞 UNIQUE 约束，
+    直接把整个 outbox 事件炸成 failed(_execute_council 还没真正调蜂群就
+    先死在这一行)，且没有自动重试——上书房从此卡在"蜂群执行中"占位态，
+    实际上后端已经放弃处理。这里把 actor/message 和随机量都并入哈希，
+    消除同秒同 stage 的确定性碰撞。"""
+    import secrets
     from datetime import datetime, timezone
     from hashlib import sha1
 
     from src.db.models import DecreeExecutionEvent
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    event_id = f"evt_{sha1(f'{task_id}|{stage}|{now}'.encode()).hexdigest()[:12]}"
+    nonce = secrets.token_hex(4)
+    event_id = f"evt_{sha1(f'{task_id}|{stage}|{actor}|{message}|{now}|{nonce}'.encode()).hexdigest()[:12]}"
     db.add(
         DecreeExecutionEvent(
             id=event_id,
@@ -149,11 +160,16 @@ def build_decree_execution_status(
 
 
 def _department_status_for(stage: str, index: int) -> str:
-    if stage == "completed":
+    """独立审查发现(2026-07-10)：此前按 index==0 区分"第一个部门在执行、其余已
+    汇报"，但 _execute_council() 是单次黑箱调用，跑完才会把 task.status 推进到
+    awaiting_decision——到那一步时全部部门都已经跑完，不存在"部分汇报"；而
+    reviewing(department_reporting)阶段是刚派单、真实调用还没跑，也不存在
+    "部分已汇报"。这里改成按 stage 统一给同一个 status，不编造实际不存在的
+    逐部门进度粒度。index 参数保留只是为了不改调用签名，当前未使用。"""
+    del index
+    if stage in {"completed", "awaiting_emperor_decision"}:
         return "reported"
-    if stage in {"department_reporting", "awaiting_emperor_decision"}:
-        return "executing" if index == 0 else "reported"
-    if stage == "executing":
+    if stage in {"executing", "department_reporting"}:
         return "executing"
     return "planned"
 
