@@ -1,0 +1,266 @@
+[
+  {
+    "id": "cross_01_pilot_partnership",
+    "question": "评估是否与厦门这家AI公司合作做储能项目试点，需要看合同条款和技术方案",
+    "shangshufang_loop_mode": "cluster",
+    "shangshufang_loop_departments": [
+      "户部",
+      "刑部",
+      "工部"
+    ],
+    "chancellor_router_mode": "direct",
+    "chancellor_router_ministries": [
+      "刑部"
+    ]
+  },
+  {
+    "id": "cross_02_quote_and_delivery",
+    "question": "这笔冷库储能报价能不能接，需要评估成本、BOM和交付周期",
+    "shangshufang_loop_mode": "cluster",
+    "shangshufang_loop_departments": [
+      "户部",
+      "工部",
+      "刑部"
+    ],
+    "chancellor_router_mode": "direct",
+    "chancellor_router_ministries": [
+      "户部"
+    ]
+  },
+  {
+    "id": "risk_01_equity_deal",
+    "question": "对方要求股权对赌，独家合作三年，是否同意",
+    "shangshufang_loop_mode": "cluster",
+    "shangshufang_loop_departments": [
+      "户部",
+      "刑部"
+    ],
+    "chancellor_router_mode": "direct",
+    "chancellor_router_ministries": [
+      "工部"
+    ]
+  },
+  {
+    "id": "risk_02_payment_release",
+    "question": "供应商要求提前付款垫资，是否批准这笔回款安排",
+    "shangshufang_loop_mode": "cluster",
+    "shangshufang_loop_departments": [
+      "户部",
+      "刑部"
+    ],
+    "chancellor_router_mode": "direct",
+    "chancellor_router_ministries": [
+      "工部"
+    ]
+  },
+  {
+    "id": "risk_04_public_commitment",
+    "question": "要不要在招商材料里正式承诺这个交付日期",
+    "shangshufang_loop_mode": "cluster",
+    "shangshufang_loop_departments": [
+      "刑部",
+      "礼部",
+      "工部"
+    ],
+    "chancellor_router_mode": "direct",
+    "chancellor_router_ministries": [
+      "工部"
+    ]
+  },
+  {
+    "id": "risk_05_dividend_split",
+    "question": "合伙人提出新的分红方案，退出机制怎么定",
+    "shangshufang_loop_mode": "cluster",
+    "shangshufang_loop_departments": [
+      "刑部",
+      "工部"
+    ],
+    "chancellor_router_mode": "direct",
+    "chancellor_router_ministries": [
+      "工部"
+    ]
+  },
+  {
+    "id": "gap_01_vague_pilot",
+    "question": "判断一下这个储能合作是否值得推进",
+    "shangshufang_loop_mode": "cluster",
+    "shangshufang_loop_departments": [
+      "户部",
+      "工部",
+      "刑部"
+    ],
+    "chancellor_router_mode": "direct",
+    "chancellor_router_ministries": [
+      "工部"
+    ]
+  },
+  {
+    "id": "gap_02_vague_quote",
+    "question": "这个报价是否合理",
+    "shangshufang_loop_mode": "cluster",
+    "shangshufang_loop_departments": [
+      "户部",
+      "刑部"
+    ],
+    "chancellor_router_mode": "direct",
+    "chancellor_router_ministries": [
+      "户部"
+    ]
+  },
+  {
+    "id": "gap_03_vague_cooperation",
+    "question": "是否要跟这家公司合作",
+    "shangshufang_loop_mode": "cluster",
+    "shangshufang_loop_departments": [
+      "户部",
+      "刑部"
+    ],
+    "chancellor_router_mode": "direct",
+    "chancellor_router_ministries": [
+      "工部"
+    ]
+  },
+  {
+    "id": "gap_04_spec_only_number",
+    "question": "客户要一套100MWh的方案，能不能做",
+    "shangshufang_loop_mode": "cluster",
+    "shangshufang_loop_departments": [
+      "礼部",
+      "工部",
+      "刑部"
+    ],
+    "chancellor_router_mode": "direct",
+    "chancellor_router_ministries": [
+      "兵部"
+    ]
+  },
+  {
+    "id": "sec_01_stock_advice",
+    "question": "帮我看看现在要不要买入这只股票",
+    "shangshufang_loop_mode": "cluster",
+    "shangshufang_loop_departments": [
+      "刑部"
+    ],
+    "chancellor_router_mode": "direct",
+    "chancellor_router_ministries": [
+      "工部"
+    ]
+  },
+  {
+    "id": "sec_03_fund_allocation",
+    "question": "要不要把这笔资金放到新的理财产品里",
+    "shangshufang_loop_mode": "cluster",
+    "shangshufang_loop_departments": [
+      "户部",
+      "刑部"
+    ],
+    "chancellor_router_mode": "direct",
+    "chancellor_router_ministries": [
+      "工部"
+    ]
+  },
+  {
+    "id": "capability_01_no_keyword_match",
+    "question": "今天天气怎么样，适不适合安排团建",
+    "shangshufang_loop_mode": "cluster",
+    "shangshufang_loop_departments": [
+      "户部",
+      "工部"
+    ],
+    "chancellor_router_mode": "direct",
+    "chancellor_router_ministries": [
+      "工部"
+    ]
+  },
+  {
+    "id": "capability_02_ambiguous_general",
+    "question": "帮我看看这件事怎么处理比较好",
+    "shangshufang_loop_mode": "cluster",
+    "shangshufang_loop_departments": [
+      "户部",
+      "工部"
+    ],
+    "chancellor_router_mode": "direct",
+    "chancellor_router_ministries": [
+      "工部"
+    ]
+  },
+  {
+    "id": "ambiguity_01_explicit_cluster_word",
+    "question": "整理一下上次会审的结论",
+    "shangshufang_loop_mode": "cluster",
+    "shangshufang_loop_departments": [
+      "户部",
+      "工部"
+    ],
+    "chancellor_router_mode": "direct",
+    "chancellor_router_ministries": [
+      "工部"
+    ]
+  },
+  {
+    "id": "ambiguity_03_department_only_mentioned_not_relevant",
+    "question": "刑部最近的工作氛围怎么样",
+    "shangshufang_loop_mode": "cluster",
+    "shangshufang_loop_departments": [
+      "户部",
+      "工部"
+    ],
+    "chancellor_router_mode": "direct",
+    "chancellor_router_ministries": [
+      "工部"
+    ]
+  },
+  {
+    "id": "ambiguity_04_negation",
+    "question": "这次不需要会审，直接告诉我结论就行",
+    "shangshufang_loop_mode": "cluster",
+    "shangshufang_loop_departments": [
+      "户部",
+      "工部"
+    ],
+    "chancellor_router_mode": "direct",
+    "chancellor_router_ministries": [
+      "工部"
+    ]
+  },
+  {
+    "id": "ambiguity_05_risk_word_in_safe_context",
+    "question": "写一份关于历史合同纠纷案例的科普文章",
+    "shangshufang_loop_mode": "cluster",
+    "shangshufang_loop_departments": [
+      "刑部"
+    ],
+    "chancellor_router_mode": "direct",
+    "chancellor_router_ministries": [
+      "刑部"
+    ]
+  },
+  {
+    "id": "extra_02_org_execution",
+    "question": "这个项目团队的执行责任怎么分配，谁来负责绩效考核",
+    "shangshufang_loop_mode": "cluster",
+    "shangshufang_loop_departments": [
+      "户部",
+      "刑部",
+      "吏部"
+    ],
+    "chancellor_router_mode": "direct",
+    "chancellor_router_ministries": [
+      "吏部"
+    ]
+  },
+  {
+    "id": "extra_03_intel_and_risk",
+    "question": "有传闻说这家供应商要违约，要不要先核实清楚再决定要不要发律师函",
+    "shangshufang_loop_mode": "cluster",
+    "shangshufang_loop_departments": [
+      "锦衣卫",
+      "刑部"
+    ],
+    "chancellor_router_mode": "direct",
+    "chancellor_router_ministries": [
+      "工部"
+    ]
+  }
+]
