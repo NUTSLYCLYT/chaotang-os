@@ -32,18 +32,10 @@ def _make_id(prefix: str, *parts: object) -> str:
 def _record_timeline(
     db: "Session", *, task_id: str, stage: str, actor: str, message: str
 ) -> None:
-    from src.db.models import DecreeExecutionEvent
+    from src.chancellor.decree_status import record_timeline_event
 
-    now = _now_iso()
-    db.add(
-        DecreeExecutionEvent(
-            id=_make_id("evt", task_id, stage, now),
-            task_id=task_id,
-            stage=stage,
-            actor=actor,
-            message=message,
-            occurred_at=now,
-        )
+    record_timeline_event(
+        db, task_id=task_id, stage=stage, actor=actor, message=message
     )
 
 

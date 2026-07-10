@@ -23,6 +23,10 @@ from web.routers._envelope import fail, ok
 from web.schemas.auth import CurrentUser
 from web.schemas.swarm import SwarmRunRequest
 
+from src.chancellor.decree_status import (
+    build_decree_execution_status,
+    record_timeline_event,
+)
 from src.chancellor.routing_service import chancellor_routing_service, legacy_route_dict
 from src.execution.decree_dispatcher import dispatch_after_commit, enqueue_dispatch
 from src.finance_intel_loop_contract import build_finance_intel_session
@@ -820,6 +824,13 @@ def shangshufang_confirm_edict(
             review_id = make_id("review", task.id, "direct")
             task.status = "direct_completed"
             task.updated_at = now
+            record_timeline_event(
+                db,
+                task_id=task.id,
+                stage="completed",
+                actor="chancellor",
+                message=f"丞相判定为简单任务单，已交由{route.get('targetDepartment', '承办方')}直接承办。",
+            )
             db.add(
                 CourtReview(
                     id=review_id,
@@ -948,6 +959,13 @@ def shangshufang_confirm_edict(
                 created_at=now,
             )
         )
+        record_timeline_event(
+            db,
+            task_id=task.id,
+            stage="executing",
+            actor="chancellor",
+            message=route_decision.reason_summary or "圣旨已登记，军机处已派单。",
+        )
         # 阶段2(方案6.7节)：下旨记录+路由快照+outbox事件同一事务提交，
         # 事务成功后再触发后台派单——不能反过来先派单再提交，否则会出现
         # "蜂群已经在跑但下旨记录还没落库"的不一致窗口。
@@ -1006,11 +1024,17 @@ def shangshufang_task_status(
             .order_by(CourtReview.created_at.desc())
             .first()
         )
+        execution_status = build_decree_execution_status(db, task_id)
         return ok(
             {
                 "sourceLabel": "LIVE",
                 "task": _task_to_payload(task),
                 "review": _review_payload(review),
+                # 方案10.3节 DecreeExecutionStatusV1；None 表示尚未下旨确认，
+                # 还没有 ChancellorRouteDecision，不伪造占位路由快照。
+                "execution_status": (
+                    execution_status.model_dump() if execution_status else None
+                ),
             }
         )
     finally:
