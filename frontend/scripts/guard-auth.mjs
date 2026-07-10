@@ -15,6 +15,15 @@
  * 这个guard抓到的原因。现在向下追一层 `@/lib/...`/相对路径 import，把被引用的 lib 文件文本
  * 也纳入扫描。同时新增对 GET 端点读取敏感部门学习数据的检测(此前 STATE_CHANGE 只看
  * POST/PUT/DELETE/PATCH，GET 泄露天然是盲区)。
+ *
+ * 假阴性修复第二轮(2026-07-10 · 独立复审抓到 intel/signals、build-ledger 两个 CRITICAL 裸奔)：
+ * 上一轮的 WRITE_LOCAL/READ_SENSITIVE 都是"把已知事故里出现过的函数名抄进正则"的白名单式
+ * 检测——下一个用新函数名写本地存储的路由，天然漏判，属于同一根因换了张脸。build-ledger
+ * 的 POST 调 upsertBuildLedgerEntry/transitionBuildLedgerInStore，intel/signals 的 GET 调
+ * ensurePrimaryDbReady，两个函数名都不在旧正则里，guard 跑过也是绿的。改成按导入路径
+ * 判定"是否触达本地持久层"(`@/lib/db/` 或 `@/features/.../server/` 下任意模块)而不是记函数名——
+ * 新模块只要从这两类路径导入，不用等它的写函数名先出一次事故才会被纳入名单。
+ * 旧注释"intel/signals 是设计上就公开的共享展示端点"已被 2026-07-10 的 CRITICAL 证伪，删除。
  */
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { join, relative, dirname } from 'node:path';
@@ -30,9 +39,11 @@ const EXPOSED = [/^api\/court\//, /^api\/shangshufang\//, /^api\/shiguan\//];
 const STATE_CHANGE = /export\s+async\s+function\s+(POST|PUT|DELETE|PATCH)/;
 const HAS_GET = /export\s+async\s+function\s+GET/;
 const WRITE_LOCAL = /upsertPrimaryTask|saveCourtArchive|updateArchive|writeFileSync|appendFile|INTO tasks|primaryStore|primary-store|courtos-decision-store|decision-store|saveLearningRecord|applyDepartmentLearningRealSource/;
-// GET 端点读取内部敏感数据的已知类别(部门学习信号/记录)。窄口径，避免误伤设计上就公开
-// 的共享展示端点(如intel/signals)——只覆盖两轮会审实测抓到的这一类。
+// GET 端点读取内部敏感数据的已知类别(部门学习信号/记录)。
 const READ_SENSITIVE = /loadLearningRecords|loadAdvisorSignals/;
+// 按导入路径判定"是否触达本地持久层"，不依赖具体函数名——本地存储模块统一收在这两类路径下
+// (src/lib/db/**、src/features/**/server/**)，新写函数名不会漏判，只要它从这里导入。
+const LOCAL_STORE_IMPORT = /from\s+['"]@\/(lib\/db\/|features\/[^'"]+\/server\/)/;
 const OWN_AUTH = /requireSession|requireTenantScope|getUserIdFromSession|isAdminAccount|Bearer |getSession|readSession/;
 
 // 已核实诚实/豁免(读回写但本质安全/或读端点)。加入前须人工核实。
@@ -80,8 +91,9 @@ for (const f of walk(API)) {
   const txt = readFileSync(f, 'utf8');
   const combinedTxt = txt + '\n' + resolveImportedText(f, txt);
 
-  const isWrite = STATE_CHANGE.test(txt) && WRITE_LOCAL.test(combinedTxt);
-  const isSensitiveRead = HAS_GET.test(txt) && READ_SENSITIVE.test(combinedTxt);
+  const touchesLocalStore = WRITE_LOCAL.test(combinedTxt) || LOCAL_STORE_IMPORT.test(txt);
+  const isWrite = STATE_CHANGE.test(txt) && touchesLocalStore;
+  const isSensitiveRead = HAS_GET.test(txt) && (READ_SENSITIVE.test(combinedTxt) || LOCAL_STORE_IMPORT.test(txt));
   if (!isWrite && !isSensitiveRead) continue;
   if (OWN_AUTH.test(combinedTxt)) continue;
   hits.push('/' + rel + (isSensitiveRead && !isWrite ? '  [GET 敏感读]' : ''));

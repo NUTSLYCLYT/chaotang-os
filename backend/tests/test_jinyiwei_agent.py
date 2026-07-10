@@ -1,13 +1,20 @@
 """锦衣卫情报 agent 测试:检索(注入)→ vet 分级 → court_doc。不打网,search_fn 全 mock。"""
+
 from src import jinyiwei_agent as ja
 
 
 def _search_ok(_q):
     return [
-        {"claim": "竞品A中标某储能电站", "sources": [{"tier": "一手"}]},                       # 入库→绿
-        {"claim": "行业传闻B扩产", "sources": [{"name": "财新"}, {"name": "第一财经"}]},         # 二手多源→绿
-        {"claim": "某产品通过UL9540认证", "sources": [{"name": "某公众号"}]},                    # 硬声明非一手→待核黄
-        {"claim": "未证实小道消息", "sources": []},                                              # 无源→拒红
+        {"claim": "竞品A中标某储能电站", "sources": [{"tier": "一手"}]},  # 入库→绿
+        {
+            "claim": "行业传闻B扩产",
+            "sources": [{"name": "财新"}, {"name": "第一财经"}],
+        },  # 二手多源→绿
+        {
+            "claim": "某产品通过UL9540认证",
+            "sources": [{"name": "某公众号"}],
+        },  # 硬声明非一手→待核黄
+        {"claim": "未证实小道消息", "sources": []},  # 无源→拒红
     ]
 
 
@@ -33,11 +40,16 @@ def test_empty_search_is_honest_not_fabricated():
     doc = ja.gather_intel("无结果查询", search_fn=lambda _q: [], archive=False)
     assert doc["items"] == []
     assert "不编造" in doc["shielded"]
+    # 2026-07-09 复审修复:空产出必须传 source_label="FALLBACK" 给 build_court_doc 的
+    # 降级门,否则 light 恒 green——调用方(前端/仪表盘)只读 light 就会看到假的"可信"。
+    assert doc["light"] == "yellow"
+    assert doc["provenance"]["gate"] == "pending"
 
 
 def test_search_fn_failure_degrades_to_empty():
     def boom(_q):
         raise RuntimeError("网关挂了")
+
     doc = ja.gather_intel("x", search_fn=boom, archive=False)
     assert doc["items"] == []  # 检索失败不崩,空态诚实
 
