@@ -5,6 +5,7 @@
 .DS_Store
 *.pem
 node_modules/
+.pnpm-store/
 __pycache__/
 *.pyc
 .pytest_cache/
