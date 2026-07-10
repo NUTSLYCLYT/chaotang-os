@@ -1,0 +1,195 @@
+{
+  "generatedAt": "2026-07-10T01:40:33.342Z",
+  "overall": "in_progress",
+  "summary": {
+    "done": 11,
+    "blocked": 3,
+    "missing": 0
+  },
+  "requirements": [
+    {
+      "phase": "0",
+      "requirement": "Generate API inventory and classify MATCHED / PATH_ALIAS / SHAPE_DRIFT / MISSING_BACKEND.",
+      "status": "done",
+      "evidence": [
+        "docs/api-contract-inventory-2026-07-09.md",
+        "docs/api-contract-inventory-2026-07-09.json"
+      ],
+      "notes": "No MISSING_BACKEND or SHAPE_DRIFT remains."
+    },
+    {
+      "phase": "0",
+      "requirement": "Freeze UI layer and avoid frontend BFF during implementation.",
+      "status": "done",
+      "evidence": [
+        "docs/api-contract-boundary-audit-2026-07-09.md",
+        "scripts/api-contract-boundary-audit.mjs"
+      ],
+      "notes": "0 frontend BFF changes and 0 new UI layer changes; known workspace UI issues remain warnings."
+    },
+    {
+      "phase": "1",
+      "requirement": "Record contract owner, source label policy, validation commands and P0 contract evidence.",
+      "status": "done",
+      "evidence": [
+        "frontend/.harness/wiki/api-contracts.md",
+        "scripts/api-contract-p0-matrix-audit.mjs",
+        "docs/api-contract-p0-matrix-audit-2026-07-09.md",
+        "backend/tests/test_contract_alignment_p0.py",
+        "backend/tests/test_swarm_runs_api_contract.py"
+      ],
+      "notes": "5 P0 domains have frontend contract, backend owner and test evidence."
+    },
+    {
+      "phase": "1",
+      "requirement": "Record all frontend-used API routes with contract, backend owner, tests, envelope and source evidence.",
+      "status": "done",
+      "evidence": [
+        "scripts/api-contract-all-matrix-audit.mjs",
+        "docs/api-contract-all-matrix-audit-2026-07-09.md",
+        "docs/api-contract-all-matrix-audit-2026-07-09.json",
+        "scripts/api-contract-exact-test-audit.mjs",
+        "docs/api-contract-exact-test-audit-2026-07-09.md"
+      ],
+      "notes": "74 / 74 frontend-used backend routes have complete evidence; 74 routes have exact test evidence."
+    },
+    {
+      "phase": "1",
+      "requirement": "Classify backend response envelopes and document legacy exceptions.",
+      "status": "done",
+      "evidence": [
+        "scripts/api-contract-response-envelope-audit.mjs",
+        "docs/api-contract-response-envelope-audit-2026-07-09.md",
+        "docs/api-contract-response-envelope-audit-2026-07-09.json"
+      ],
+      "notes": "67 used routes have standard envelopes; 7 legacy exceptions are documented; 0 review-required routes."
+    },
+    {
+      "phase": "1",
+      "requirement": "Classify source label coverage for backend routes used by the frontend.",
+      "status": "done",
+      "evidence": [
+        "scripts/api-contract-source-label-audit.mjs",
+        "docs/api-contract-source-label-audit-2026-07-09.md",
+        "docs/api-contract-source-label-audit-2026-07-09.json"
+      ],
+      "notes": "64 used routes have source evidence; 10 non-business exceptions are documented; 0 review-required routes."
+    },
+    {
+      "phase": "1",
+      "requirement": "Frontend typecheck gate.",
+      "status": "blocked",
+      "evidence": [
+        "cd frontend; npx --yes tsc --noEmit",
+        "docs/api-contract-boundary-audit-2026-07-09.md"
+      ],
+      "notes": "Blocked by pre-existing missing/permission-denied UI modules, not by new API contract files."
+    },
+    {
+      "phase": "2",
+      "requirement": "Keep aliases centralized in frontend transport and document owner/deprecation plan.",
+      "status": "done",
+      "evidence": [
+        "frontend/src/lib/backend-api.ts",
+        "frontend/src/lib/backend-api.nodetest.ts",
+        "scripts/api-contract-alias-retirement-audit.mjs",
+        "docs/api-contract-alias-retirement-audit-2026-07-09.md",
+        "docs/api-contract-inventory-2026-07-09.md"
+      ],
+      "notes": "16 PATH_ALIAS calls across 4 groups have owner, retireWhen and transport test evidence."
+    },
+    {
+      "phase": "2",
+      "requirement": "Provide business API clients/adapters for P0 frontend domains without touching UI or adding frontend BFF.",
+      "status": "done",
+      "evidence": [
+        "frontend/src/features/dadian/api/index.ts",
+        "frontend/src/features/bureaus/api/index.ts",
+        "frontend/src/features/shangshufang/api/index.ts",
+        "frontend/src/features/command-center/junjichu/api/*",
+        "scripts/api-contract-client-layer-audit.mjs",
+        "docs/api-contract-client-layer-audit-2026-07-09.md"
+      ],
+      "notes": "4 / 4 required business client groups are complete; 0 review-required items."
+    },
+    {
+      "phase": "2",
+      "requirement": "Converge page/component direct API calls into business clients/adapters.",
+      "status": "blocked",
+      "evidence": [
+        "scripts/api-contract-frontend-access-audit.mjs",
+        "docs/api-contract-frontend-access-audit-2026-07-09.md",
+        "docs/api-contract-frontend-access-audit-2026-07-09.json"
+      ],
+      "notes": "30 existing API call sites still need migration, but this implementation line cannot edit UI/component callers."
+    },
+    {
+      "phase": "3",
+      "requirement": "Backend provides missing/legacy endpoints or structured errors with contract tests.",
+      "status": "done",
+      "evidence": [
+        "backend/web/routers/court_compat.py",
+        "backend/web/routers/orchestration_compat.py",
+        "backend/web/routers/governance_compat.py",
+        "backend/tests/test_contract_alignment_p0.py"
+      ],
+      "notes": "Compatibility routes are backend-owned and return honest source labels or structured errors."
+    },
+    {
+      "phase": "3",
+      "requirement": "Run documented backend specialty contract tests and backend harness doctor.",
+      "status": "done",
+      "evidence": [
+        "cd backend; python -m pytest -q tests/test_dadian_api.py tests/test_libu_router.py tests/test_shangshufang_loop_api.py",
+        "cd backend; python scripts/harness_doctor.py",
+        ".harness/changes/docs-frontend-backend-contract-alignment-plan-20260709/ci_result/ci_summary.md"
+      ],
+      "notes": "Latest recorded result: 19 passed; backend harness doctor 0 errors / 0 warnings."
+    },
+    {
+      "phase": "4",
+      "requirement": "Playwright browser closure over login, Shangshufang, Junjichu, Liubu, deep review and Dadian.",
+      "status": "blocked",
+      "evidence": [
+        "frontend/e2e/dadian-api-contract.spec.ts",
+        "cd frontend; npx --yes tsc --noEmit",
+        "cd frontend; npx playwright test e2e/dadian-api-contract.spec.ts",
+        "cd frontend; npx playwright test e2e/liubu-bureau-pages-smoke.spec.ts",
+        "cd frontend; pnpm test:e2e"
+      ],
+      "notes": "P0 Dadian Playwright contract smoke exists, but browser closure is not proven because frontend typecheck/build is blocked before e2e can honestly run."
+    },
+    {
+      "phase": "P2",
+      "requirement": "OpenAPI diff / generated TS types / contract-breaking CI.",
+      "status": "done",
+      "evidence": [
+        "scripts/api-contract-stability.mjs",
+        "docs/api-contract-openapi-2026-07-09.json",
+        "docs/api-contract-route-snapshot-2026-07-09.json",
+        "frontend/src/lib/contracts/backend-openapi-2026-07-09.d.ts",
+        "docs/api-contract-stability-report-2026-07-09.md"
+      ],
+      "notes": "OpenAPI export, route diff snapshot and generated TypeScript contract snapshot are in place."
+    }
+  ],
+  "blockers": [
+    {
+      "code": "FRONTEND_TYPECHECK_BLOCKED_BY_WORKSPACE_UI_ISSUES",
+      "details": "Two imported UI modules are deleted/permission-denied and eight frontend feature paths are inaccessible.",
+      "evidence": [
+        "frontend/src/features/bingbu/components/bingbu-quotation-verdict-panel.tsx",
+        "frontend/src/features/hubu/components/hubu-finance-preview-panel.tsx",
+        "docs/api-contract-boundary-audit-2026-07-09.md"
+      ]
+    },
+    {
+      "code": "FRONTEND_ACCESS_CONVERGENCE_BLOCKED_BY_UI_FREEZE",
+      "details": "30 existing page/component/hook call sites need migration to business clients/adapters.",
+      "evidence": [
+        "docs/api-contract-frontend-access-audit-2026-07-09.md",
+        "docs/frontend-backend-contract-alignment-plan-2026-07-09.md"
+      ]
+    }
+  ]
+}

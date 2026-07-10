@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from pydantic import BaseModel
 
 from src.direct_rate_limit import rate_limiter
 from src.tenant import authenticate, create_user, get_db
@@ -21,12 +22,54 @@ from web.schemas.common import StatusResponse
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
+_SEED_INVITE_CODES = {
+    "COURT2026",
+    "COURT2025",
+    "CHAOTANG2026",
+    "CHAOTANG2025",
+    "COURTOS2026",
+    "COURTOS2025",
+    "EMPEROR2026",
+    "MINGSHUO2026",
+    "INVITE2026",
+    "WELCOME2026",
+    "JIQUN2026",
+}
+
+
+class VerifyInviteRequest(BaseModel):
+    code: str
+
+
+class VerifyInviteResponse(BaseModel):
+    valid: bool
+    message: str
+
 # Secure cookie 默认开启(fail-safe);仅本机 http 开发场景可显式关闭。
 _COOKIE_SECURE = os.environ.get("FENGQUN_COOKIE_SECURE", "true").lower() in (
     "true",
     "1",
     "yes",
 )
+
+
+def _allowed_invite_codes() -> set[str]:
+    configured = {
+        item.strip().upper()
+        for item in os.environ.get("CHAOTANG_INVITE_CODES", "").split(",")
+        if item.strip()
+    }
+    return _SEED_INVITE_CODES | configured
+
+
+@router.post("/verify-invite", response_model=VerifyInviteResponse)
+def api_verify_invite(body: VerifyInviteRequest) -> VerifyInviteResponse:
+    code = body.code.strip().upper()
+    if not code:
+        return VerifyInviteResponse(valid=False, message="邀请码不能为空")
+    if code in _allowed_invite_codes():
+        return VerifyInviteResponse(valid=True, message="邀请码有效")
+    return VerifyInviteResponse(valid=False, message="邀请码无效或已过期")
 
 
 @router.post("/register", response_model=RegisterResponse, status_code=201)

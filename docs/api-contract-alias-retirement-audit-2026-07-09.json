@@ -1,0 +1,794 @@
+{
+  "generatedAt": "2026-07-10T01:40:32.883Z",
+  "status": "pass",
+  "summary": {
+    "pathAliasCalls": 16,
+    "aliasGroups": 4,
+    "testedGroups": 4,
+    "reviewRequired": 0
+  },
+  "groups": [
+    {
+      "group": "/api/court/court-session/latest",
+      "owner": "backend/web/routers/court_session.py",
+      "retireWhen": "court session callers use /api/court-session/latest directly",
+      "calls": [
+        {
+          "file": "frontend/src/lib/api/chaotang.ts",
+          "line": 429,
+          "callee": "backendFetch",
+          "method": "GET",
+          "path": "/api/court/court-session/latest",
+          "domain": "court_session",
+          "firstScreenDependency": false,
+          "writeOperation": false,
+          "normalizedPath": "/api/court-session/latest",
+          "owner": "backend/web/routers/court_session.py",
+          "alias": {
+            "owner": "backend/web/routers/court_session.py",
+            "retireWhen": "court session callers use /api/court-session/latest directly",
+            "verification": [
+              "node scripts/api-contract-inventory.mjs",
+              "node scripts/api-contract-boundary-audit.mjs",
+              "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+              "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+            ]
+          },
+          "verification": [
+            "node scripts/api-contract-inventory.mjs",
+            "node scripts/api-contract-boundary-audit.mjs",
+            "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+            "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+          ],
+          "status": "PATH_ALIAS",
+          "backendRoute": {
+            "method": "GET",
+            "path": "/api/court-session/latest",
+            "router": "court_session",
+            "file": "backend/web/routers/court_session.py",
+            "line": 47,
+            "auth": true,
+            "envelope": "success-data-error-or-ok-helper",
+            "tests": [
+              "backend/tests/test_court_session_api_contract.py"
+            ]
+          },
+          "notes": "Frontend path is mapped by existing transport alias."
+        }
+      ],
+      "transportHasRule": true,
+      "ownerExists": true,
+      "transportTestEvidence": "frontend/src/lib/backend-api.nodetest.ts",
+      "status": "complete"
+    },
+    {
+      "group": "/api/court/legal/overview",
+      "owner": "backend/web/routers/legal.py",
+      "retireWhen": "legal overview callers use /api/legal/overview directly",
+      "calls": [
+        {
+          "file": "frontend/src/lib/api/chaotang.ts",
+          "line": 412,
+          "callee": "backendFetch",
+          "method": "GET",
+          "path": "/api/court/legal/overview",
+          "domain": "xingbu",
+          "firstScreenDependency": false,
+          "writeOperation": false,
+          "normalizedPath": "/api/legal/overview",
+          "owner": "backend/web/routers/legal.py",
+          "alias": {
+            "owner": "backend/web/routers/legal.py",
+            "retireWhen": "legal overview callers use /api/legal/overview directly",
+            "verification": [
+              "node scripts/api-contract-inventory.mjs",
+              "node scripts/api-contract-boundary-audit.mjs",
+              "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+              "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+            ]
+          },
+          "verification": [
+            "node scripts/api-contract-inventory.mjs",
+            "node scripts/api-contract-boundary-audit.mjs",
+            "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+            "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+          ],
+          "status": "PATH_ALIAS",
+          "backendRoute": {
+            "method": "GET",
+            "path": "/api/legal/overview",
+            "router": "legal",
+            "file": "backend/web/routers/legal.py",
+            "line": 28,
+            "auth": true,
+            "envelope": "success-data-error-or-ok-helper",
+            "tests": [
+              "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+              "backend/tests/test_legal_prompt_safety.py",
+              "backend/tests/test_legal_redteam_harness.py",
+              "backend/tests/test_xingbu_verdict.py"
+            ]
+          },
+          "notes": "Frontend path is mapped by existing transport alias."
+        }
+      ],
+      "transportHasRule": true,
+      "ownerExists": true,
+      "transportTestEvidence": "frontend/src/lib/backend-api.nodetest.ts",
+      "status": "complete"
+    },
+    {
+      "group": "/api/court/shangshufang/*",
+      "owner": "backend/web/routers/shangshufang.py",
+      "retireWhen": "inventory has no /api/court/shangshufang/* frontend callers",
+      "calls": [
+        {
+          "file": "frontend/src/features/departments/components/HubuBudgetCaseBody.tsx",
+          "line": 93,
+          "callee": "backendFetch",
+          "method": "POST",
+          "path": "/api/court/shangshufang/briefs/{param}/decision/advance",
+          "domain": "shangshufang",
+          "firstScreenDependency": false,
+          "writeOperation": true,
+          "normalizedPath": "/api/shangshufang/briefs/{param}/decision/advance",
+          "owner": "backend/web/routers/shangshufang.py",
+          "alias": {
+            "owner": "backend/web/routers/shangshufang.py",
+            "retireWhen": "inventory has no /api/court/shangshufang/* frontend callers",
+            "verification": [
+              "node scripts/api-contract-inventory.mjs",
+              "node scripts/api-contract-boundary-audit.mjs",
+              "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+              "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+            ]
+          },
+          "verification": [
+            "node scripts/api-contract-inventory.mjs",
+            "node scripts/api-contract-boundary-audit.mjs",
+            "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+            "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+          ],
+          "status": "PATH_ALIAS",
+          "backendRoute": {
+            "method": "POST",
+            "path": "/api/shangshufang/briefs/{brief_id}/decision/advance",
+            "router": "shangshufang",
+            "file": "backend/web/routers/shangshufang.py",
+            "line": 1113,
+            "auth": true,
+            "envelope": "success-data-error-or-ok-helper",
+            "tests": [
+              "backend/tests/test_hubu_financial_reporting.py",
+              "backend/tests/test_shangshufang_entry.py",
+              "backend/tests/test_shangshufang_loop_api.py",
+              "backend/tests/test_swarm_execution_loop_api.py"
+            ]
+          },
+          "notes": "Frontend path is mapped by existing transport alias."
+        },
+        {
+          "file": "frontend/src/features/departments/components/HubuBudgetCaseBody.tsx",
+          "line": 223,
+          "callee": "backendFetch",
+          "method": "POST",
+          "path": "/api/court/shangshufang/research-budget-loop",
+          "domain": "shangshufang",
+          "firstScreenDependency": false,
+          "writeOperation": true,
+          "normalizedPath": "/api/shangshufang/research-budget-loop",
+          "owner": "backend/web/routers/shangshufang.py",
+          "alias": {
+            "owner": "backend/web/routers/shangshufang.py",
+            "retireWhen": "inventory has no /api/court/shangshufang/* frontend callers",
+            "verification": [
+              "node scripts/api-contract-inventory.mjs",
+              "node scripts/api-contract-boundary-audit.mjs",
+              "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+              "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+            ]
+          },
+          "verification": [
+            "node scripts/api-contract-inventory.mjs",
+            "node scripts/api-contract-boundary-audit.mjs",
+            "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+            "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+          ],
+          "status": "PATH_ALIAS",
+          "backendRoute": {
+            "method": "POST",
+            "path": "/api/shangshufang/research-budget-loop",
+            "router": "shangshufang",
+            "file": "backend/web/routers/shangshufang.py",
+            "line": 1300,
+            "auth": true,
+            "envelope": "success-data-error-or-ok-helper",
+            "tests": [
+              "backend/tests/test_hubu_financial_reporting.py",
+              "backend/tests/test_shangshufang_entry.py",
+              "backend/tests/test_shangshufang_loop_api.py",
+              "backend/tests/test_swarm_execution_loop_api.py"
+            ]
+          },
+          "notes": "Frontend path is mapped by existing transport alias."
+        },
+        {
+          "file": "frontend/src/features/shangshufang/ShangshufangPage.tsx",
+          "line": 4879,
+          "callee": "fetchLocalCourtApi",
+          "method": "POST",
+          "path": "/api/court/shangshufang/edict-return",
+          "domain": "shangshufang",
+          "firstScreenDependency": false,
+          "writeOperation": true,
+          "normalizedPath": "/api/shangshufang/edict-return",
+          "owner": "backend/web/routers/shangshufang.py",
+          "alias": {
+            "owner": "backend/web/routers/shangshufang.py",
+            "retireWhen": "inventory has no /api/court/shangshufang/* frontend callers",
+            "verification": [
+              "node scripts/api-contract-inventory.mjs",
+              "node scripts/api-contract-boundary-audit.mjs",
+              "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+              "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+            ]
+          },
+          "verification": [
+            "node scripts/api-contract-inventory.mjs",
+            "node scripts/api-contract-boundary-audit.mjs",
+            "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+            "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+          ],
+          "status": "PATH_ALIAS",
+          "backendRoute": {
+            "method": "POST",
+            "path": "/api/shangshufang/edict-return",
+            "router": "shangshufang",
+            "file": "backend/web/routers/shangshufang.py",
+            "line": 1238,
+            "auth": true,
+            "envelope": "success-data-error-or-ok-helper",
+            "tests": [
+              "backend/tests/test_hubu_financial_reporting.py",
+              "backend/tests/test_shangshufang_entry.py",
+              "backend/tests/test_shangshufang_loop_api.py",
+              "backend/tests/test_swarm_execution_loop_api.py"
+            ]
+          },
+          "notes": "Frontend path is mapped by existing transport alias."
+        },
+        {
+          "file": "frontend/src/features/shangshufang/ShangshufangPage.tsx",
+          "line": 433,
+          "callee": "fetchWithBasePath",
+          "method": "POST",
+          "path": "/api/court/shangshufang/finance-intel-loop/complete",
+          "domain": "shangshufang",
+          "firstScreenDependency": false,
+          "writeOperation": true,
+          "normalizedPath": "/api/shangshufang/finance-intel-loop/complete",
+          "owner": "backend/web/routers/shangshufang.py",
+          "alias": {
+            "owner": "backend/web/routers/shangshufang.py",
+            "retireWhen": "inventory has no /api/court/shangshufang/* frontend callers",
+            "verification": [
+              "node scripts/api-contract-inventory.mjs",
+              "node scripts/api-contract-boundary-audit.mjs",
+              "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+              "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+            ]
+          },
+          "verification": [
+            "node scripts/api-contract-inventory.mjs",
+            "node scripts/api-contract-boundary-audit.mjs",
+            "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+            "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+          ],
+          "status": "PATH_ALIAS",
+          "backendRoute": {
+            "method": "POST",
+            "path": "/api/shangshufang/finance-intel-loop/complete",
+            "router": "shangshufang",
+            "file": "backend/web/routers/shangshufang.py",
+            "line": 965,
+            "auth": true,
+            "envelope": "success-data-error-or-ok-helper",
+            "tests": [
+              "backend/tests/test_hubu_financial_reporting.py",
+              "backend/tests/test_shangshufang_entry.py",
+              "backend/tests/test_shangshufang_loop_api.py",
+              "backend/tests/test_swarm_execution_loop_api.py"
+            ]
+          },
+          "notes": "Frontend path is mapped by existing transport alias."
+        },
+        {
+          "file": "frontend/src/features/shangshufang/ShangshufangPage.tsx",
+          "line": 5440,
+          "callee": "fetchWithBasePath",
+          "method": "POST",
+          "path": "/api/court/shangshufang/finance-intel-loop/complete",
+          "domain": "shangshufang",
+          "firstScreenDependency": false,
+          "writeOperation": true,
+          "normalizedPath": "/api/shangshufang/finance-intel-loop/complete",
+          "owner": "backend/web/routers/shangshufang.py",
+          "alias": {
+            "owner": "backend/web/routers/shangshufang.py",
+            "retireWhen": "inventory has no /api/court/shangshufang/* frontend callers",
+            "verification": [
+              "node scripts/api-contract-inventory.mjs",
+              "node scripts/api-contract-boundary-audit.mjs",
+              "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+              "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+            ]
+          },
+          "verification": [
+            "node scripts/api-contract-inventory.mjs",
+            "node scripts/api-contract-boundary-audit.mjs",
+            "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+            "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+          ],
+          "status": "PATH_ALIAS",
+          "backendRoute": {
+            "method": "POST",
+            "path": "/api/shangshufang/finance-intel-loop/complete",
+            "router": "shangshufang",
+            "file": "backend/web/routers/shangshufang.py",
+            "line": 965,
+            "auth": true,
+            "envelope": "success-data-error-or-ok-helper",
+            "tests": [
+              "backend/tests/test_hubu_financial_reporting.py",
+              "backend/tests/test_shangshufang_entry.py",
+              "backend/tests/test_shangshufang_loop_api.py",
+              "backend/tests/test_swarm_execution_loop_api.py"
+            ]
+          },
+          "notes": "Frontend path is mapped by existing transport alias."
+        },
+        {
+          "file": "frontend/src/features/shangshufang/ShangshufangPage.tsx",
+          "line": 5540,
+          "callee": "fetchWithBasePath",
+          "method": "POST",
+          "path": "/api/court/shangshufang/finance-status-memorial",
+          "domain": "shangshufang",
+          "firstScreenDependency": false,
+          "writeOperation": true,
+          "normalizedPath": "/api/shangshufang/finance-status-memorial",
+          "owner": "backend/web/routers/shangshufang.py",
+          "alias": {
+            "owner": "backend/web/routers/shangshufang.py",
+            "retireWhen": "inventory has no /api/court/shangshufang/* frontend callers",
+            "verification": [
+              "node scripts/api-contract-inventory.mjs",
+              "node scripts/api-contract-boundary-audit.mjs",
+              "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+              "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+            ]
+          },
+          "verification": [
+            "node scripts/api-contract-inventory.mjs",
+            "node scripts/api-contract-boundary-audit.mjs",
+            "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+            "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+          ],
+          "status": "PATH_ALIAS",
+          "backendRoute": {
+            "method": "POST",
+            "path": "/api/shangshufang/finance-status-memorial",
+            "router": "shangshufang",
+            "file": "backend/web/routers/shangshufang.py",
+            "line": 1291,
+            "auth": true,
+            "envelope": "success-data-error-or-ok-helper",
+            "tests": [
+              "backend/tests/test_hubu_financial_reporting.py",
+              "backend/tests/test_shangshufang_entry.py",
+              "backend/tests/test_shangshufang_loop_api.py",
+              "backend/tests/test_swarm_execution_loop_api.py"
+            ]
+          },
+          "notes": "Frontend path is mapped by existing transport alias."
+        },
+        {
+          "file": "frontend/src/lib/jiqun-api.ts",
+          "line": 510,
+          "callee": "fetchLocalCourtApi",
+          "method": "POST",
+          "path": "/api/court/shangshufang/draft-edict",
+          "domain": "shangshufang",
+          "firstScreenDependency": false,
+          "writeOperation": true,
+          "normalizedPath": "/api/shangshufang/draft-edict",
+          "owner": "backend/web/routers/shangshufang.py",
+          "alias": {
+            "owner": "backend/web/routers/shangshufang.py",
+            "retireWhen": "inventory has no /api/court/shangshufang/* frontend callers",
+            "verification": [
+              "node scripts/api-contract-inventory.mjs",
+              "node scripts/api-contract-boundary-audit.mjs",
+              "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+              "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+            ]
+          },
+          "verification": [
+            "node scripts/api-contract-inventory.mjs",
+            "node scripts/api-contract-boundary-audit.mjs",
+            "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+            "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+          ],
+          "status": "PATH_ALIAS",
+          "backendRoute": {
+            "method": "POST",
+            "path": "/api/shangshufang/draft-edict",
+            "router": "shangshufang",
+            "file": "backend/web/routers/shangshufang.py",
+            "line": 398,
+            "auth": true,
+            "envelope": "success-data-error-or-ok-helper",
+            "tests": [
+              "backend/tests/test_hubu_financial_reporting.py",
+              "backend/tests/test_shangshufang_entry.py",
+              "backend/tests/test_shangshufang_loop_api.py",
+              "backend/tests/test_swarm_execution_loop_api.py"
+            ]
+          },
+          "notes": "Frontend path is mapped by existing transport alias."
+        },
+        {
+          "file": "frontend/src/lib/jiqun-api.ts",
+          "line": 535,
+          "callee": "fetchLocalCourtApi",
+          "method": "POST",
+          "path": "/api/court/shangshufang/confirm-edict",
+          "domain": "shangshufang",
+          "firstScreenDependency": false,
+          "writeOperation": true,
+          "normalizedPath": "/api/shangshufang/confirm-edict",
+          "owner": "backend/web/routers/shangshufang.py",
+          "alias": {
+            "owner": "backend/web/routers/shangshufang.py",
+            "retireWhen": "inventory has no /api/court/shangshufang/* frontend callers",
+            "verification": [
+              "node scripts/api-contract-inventory.mjs",
+              "node scripts/api-contract-boundary-audit.mjs",
+              "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+              "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+            ]
+          },
+          "verification": [
+            "node scripts/api-contract-inventory.mjs",
+            "node scripts/api-contract-boundary-audit.mjs",
+            "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+            "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+          ],
+          "status": "PATH_ALIAS",
+          "backendRoute": {
+            "method": "POST",
+            "path": "/api/shangshufang/confirm-edict",
+            "router": "shangshufang",
+            "file": "backend/web/routers/shangshufang.py",
+            "line": 491,
+            "auth": true,
+            "envelope": "success-data-error-or-ok-helper",
+            "tests": [
+              "backend/tests/test_hubu_financial_reporting.py",
+              "backend/tests/test_shangshufang_entry.py",
+              "backend/tests/test_shangshufang_loop_api.py",
+              "backend/tests/test_swarm_execution_loop_api.py"
+            ]
+          },
+          "notes": "Frontend path is mapped by existing transport alias."
+        },
+        {
+          "file": "frontend/src/lib/jiqun-api.ts",
+          "line": 550,
+          "callee": "fetchLocalCourtApi",
+          "method": "GET",
+          "path": "/api/court/shangshufang/tasks/{param}/status",
+          "domain": "shangshufang",
+          "firstScreenDependency": false,
+          "writeOperation": false,
+          "normalizedPath": "/api/shangshufang/tasks/{param}/status",
+          "owner": "backend/web/routers/shangshufang.py",
+          "alias": {
+            "owner": "backend/web/routers/shangshufang.py",
+            "retireWhen": "inventory has no /api/court/shangshufang/* frontend callers",
+            "verification": [
+              "node scripts/api-contract-inventory.mjs",
+              "node scripts/api-contract-boundary-audit.mjs",
+              "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+              "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+            ]
+          },
+          "verification": [
+            "node scripts/api-contract-inventory.mjs",
+            "node scripts/api-contract-boundary-audit.mjs",
+            "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+            "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+          ],
+          "status": "PATH_ALIAS",
+          "backendRoute": {
+            "method": "GET",
+            "path": "/api/shangshufang/tasks/{task_id}/status",
+            "router": "shangshufang",
+            "file": "backend/web/routers/shangshufang.py",
+            "line": 588,
+            "auth": true,
+            "envelope": "success-data-error-or-ok-helper",
+            "tests": [
+              "backend/tests/test_hubu_financial_reporting.py",
+              "backend/tests/test_shangshufang_entry.py",
+              "backend/tests/test_shangshufang_loop_api.py",
+              "backend/tests/test_swarm_execution_loop_api.py"
+            ]
+          },
+          "notes": "Frontend path is mapped by existing transport alias."
+        },
+        {
+          "file": "frontend/src/lib/jiqun-api.ts",
+          "line": 557,
+          "callee": "fetchLocalCourtApi",
+          "method": "POST",
+          "path": "/api/court/shangshufang/tasks/{param}/swarm-deepen",
+          "domain": "shangshufang",
+          "firstScreenDependency": false,
+          "writeOperation": true,
+          "normalizedPath": "/api/shangshufang/tasks/{param}/swarm-deepen",
+          "owner": "backend/web/routers/shangshufang.py",
+          "alias": {
+            "owner": "backend/web/routers/shangshufang.py",
+            "retireWhen": "inventory has no /api/court/shangshufang/* frontend callers",
+            "verification": [
+              "node scripts/api-contract-inventory.mjs",
+              "node scripts/api-contract-boundary-audit.mjs",
+              "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+              "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+            ]
+          },
+          "verification": [
+            "node scripts/api-contract-inventory.mjs",
+            "node scripts/api-contract-boundary-audit.mjs",
+            "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+            "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+          ],
+          "status": "PATH_ALIAS",
+          "backendRoute": {
+            "method": "POST",
+            "path": "/api/shangshufang/tasks/{task_id}/swarm-deepen",
+            "router": "shangshufang",
+            "file": "backend/web/routers/shangshufang.py",
+            "line": 712,
+            "auth": true,
+            "envelope": "success-data-error-or-ok-helper",
+            "tests": [
+              "backend/tests/test_hubu_financial_reporting.py",
+              "backend/tests/test_shangshufang_entry.py",
+              "backend/tests/test_shangshufang_loop_api.py",
+              "backend/tests/test_swarm_execution_loop_api.py"
+            ]
+          },
+          "notes": "Frontend path is mapped by existing transport alias."
+        },
+        {
+          "file": "frontend/src/lib/jiqun-api.ts",
+          "line": 568,
+          "callee": "fetchLocalCourtApi",
+          "method": "POST",
+          "path": "/api/court/shangshufang/pack-swarm-loop",
+          "domain": "shangshufang",
+          "firstScreenDependency": false,
+          "writeOperation": true,
+          "normalizedPath": "/api/shangshufang/pack-swarm-loop",
+          "owner": "backend/web/routers/shangshufang.py",
+          "alias": {
+            "owner": "backend/web/routers/shangshufang.py",
+            "retireWhen": "inventory has no /api/court/shangshufang/* frontend callers",
+            "verification": [
+              "node scripts/api-contract-inventory.mjs",
+              "node scripts/api-contract-boundary-audit.mjs",
+              "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+              "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+            ]
+          },
+          "verification": [
+            "node scripts/api-contract-inventory.mjs",
+            "node scripts/api-contract-boundary-audit.mjs",
+            "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+            "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+          ],
+          "status": "PATH_ALIAS",
+          "backendRoute": {
+            "method": "POST",
+            "path": "/api/shangshufang/pack-swarm-loop",
+            "router": "shangshufang",
+            "file": "backend/web/routers/shangshufang.py",
+            "line": 801,
+            "auth": true,
+            "envelope": "success-data-error-or-ok-helper",
+            "tests": [
+              "backend/tests/test_hubu_financial_reporting.py",
+              "backend/tests/test_shangshufang_entry.py",
+              "backend/tests/test_shangshufang_loop_api.py",
+              "backend/tests/test_swarm_execution_loop_api.py"
+            ]
+          },
+          "notes": "Frontend path is mapped by existing transport alias."
+        },
+        {
+          "file": "frontend/src/lib/jiqun-api.ts",
+          "line": 599,
+          "callee": "fetchLocalCourtApi",
+          "method": "GET",
+          "path": "/api/court/shangshufang/home",
+          "domain": "shangshufang",
+          "firstScreenDependency": false,
+          "writeOperation": false,
+          "normalizedPath": "/api/shangshufang/home",
+          "owner": "backend/web/routers/shangshufang.py",
+          "alias": {
+            "owner": "backend/web/routers/shangshufang.py",
+            "retireWhen": "inventory has no /api/court/shangshufang/* frontend callers",
+            "verification": [
+              "node scripts/api-contract-inventory.mjs",
+              "node scripts/api-contract-boundary-audit.mjs",
+              "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+              "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+            ]
+          },
+          "verification": [
+            "node scripts/api-contract-inventory.mjs",
+            "node scripts/api-contract-boundary-audit.mjs",
+            "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+            "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+          ],
+          "status": "PATH_ALIAS",
+          "backendRoute": {
+            "method": "GET",
+            "path": "/api/shangshufang/home",
+            "router": "shangshufang",
+            "file": "backend/web/routers/shangshufang.py",
+            "line": 341,
+            "auth": true,
+            "envelope": "success-data-error-or-ok-helper",
+            "tests": [
+              "backend/tests/test_hubu_financial_reporting.py",
+              "backend/tests/test_shangshufang_entry.py",
+              "backend/tests/test_shangshufang_loop_api.py",
+              "backend/tests/test_swarm_execution_loop_api.py"
+            ]
+          },
+          "notes": "Frontend path is mapped by existing transport alias."
+        },
+        {
+          "file": "frontend/src/lib/jiqun-api.ts",
+          "line": 611,
+          "callee": "fetchLocalCourtApi",
+          "method": "POST",
+          "path": "/api/court/shangshufang/tasks/{param}/decision",
+          "domain": "shangshufang",
+          "firstScreenDependency": false,
+          "writeOperation": true,
+          "normalizedPath": "/api/shangshufang/tasks/{param}/decision",
+          "owner": "backend/web/routers/shangshufang.py",
+          "alias": {
+            "owner": "backend/web/routers/shangshufang.py",
+            "retireWhen": "inventory has no /api/court/shangshufang/* frontend callers",
+            "verification": [
+              "node scripts/api-contract-inventory.mjs",
+              "node scripts/api-contract-boundary-audit.mjs",
+              "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+              "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+            ]
+          },
+          "verification": [
+            "node scripts/api-contract-inventory.mjs",
+            "node scripts/api-contract-boundary-audit.mjs",
+            "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+            "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+          ],
+          "status": "PATH_ALIAS",
+          "backendRoute": {
+            "method": "POST",
+            "path": "/api/shangshufang/tasks/{task_id}/decision",
+            "router": "shangshufang",
+            "file": "backend/web/routers/shangshufang.py",
+            "line": 614,
+            "auth": true,
+            "envelope": "success-data-error-or-ok-helper",
+            "tests": [
+              "backend/tests/test_decision_guard.py",
+              "backend/tests/test_hubu_financial_reporting.py",
+              "backend/tests/test_shangshufang_entry.py",
+              "backend/tests/test_shangshufang_loop_api.py",
+              "backend/tests/test_swarm_execution_loop_api.py"
+            ]
+          },
+          "notes": "Frontend path is mapped by existing transport alias."
+        }
+      ],
+      "transportHasRule": true,
+      "ownerExists": true,
+      "transportTestEvidence": "frontend/src/lib/backend-api.nodetest.ts",
+      "status": "complete"
+    },
+    {
+      "group": "/api/court/swarm/roster",
+      "owner": "backend/web/routers/swarm.py",
+      "retireWhen": "swarm roster callers use /api/swarm/roster directly",
+      "calls": [
+        {
+          "file": "frontend/src/lib/api/chaotang.ts",
+          "line": 395,
+          "callee": "backendFetch",
+          "method": "GET",
+          "path": "/api/court/swarm/roster",
+          "domain": "swarm",
+          "firstScreenDependency": false,
+          "writeOperation": false,
+          "normalizedPath": "/api/swarm/roster",
+          "owner": "backend/web/routers/swarm.py",
+          "alias": {
+            "owner": "backend/web/routers/swarm.py",
+            "retireWhen": "swarm roster callers use /api/swarm/roster directly",
+            "verification": [
+              "node scripts/api-contract-inventory.mjs",
+              "node scripts/api-contract-boundary-audit.mjs",
+              "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+              "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+            ]
+          },
+          "verification": [
+            "node scripts/api-contract-inventory.mjs",
+            "node scripts/api-contract-boundary-audit.mjs",
+            "cd frontend; npx --yes tsx --test src/lib/backend-api.nodetest.ts",
+            "cd backend; python -m pytest -q tests/test_contract_alignment_p0.py tests/test_swarm_runs_api_contract.py"
+          ],
+          "status": "PATH_ALIAS",
+          "backendRoute": {
+            "method": "GET",
+            "path": "/api/swarm/roster",
+            "router": "swarm",
+            "file": "backend/web/routers/swarm.py",
+            "line": 645,
+            "auth": true,
+            "envelope": "success-data-error-or-ok-helper",
+            "tests": [
+              "backend/tests/test_all_frontend_used_routes_exact_contract.py",
+              "backend/tests/test_chaotang_launch_loop.py",
+              "backend/tests/test_chaotang_study_run_edict.py",
+              "backend/tests/test_chaotang_true_loop_contract.py",
+              "backend/tests/test_decree_swarm_router.py",
+              "backend/tests/test_dept_doc_and_swarm_bridge.py",
+              "backend/tests/test_finance_intel_loop_contract.py",
+              "backend/tests/test_live_swarm.py",
+              "backend/tests/test_pack_rd_report.py",
+              "backend/tests/test_production_observability.py",
+              "backend/tests/test_swarm_execution_loop_api.py",
+              "backend/tests/test_swarm_loop_perf_outcomes_wiring.py",
+              "backend/tests/test_swarm_release_gate.py",
+              "backend/tests/test_swarm_roster.py",
+              "backend/tests/test_swarm_runs_api_contract.py",
+              "backend/tests/test_swarm_weld.py",
+              "backend/tests/test_system_communication_topology.py"
+            ]
+          },
+          "notes": "Frontend path is mapped by existing transport alias."
+        }
+      ],
+      "transportHasRule": true,
+      "ownerExists": true,
+      "transportTestEvidence": "frontend/src/lib/backend-api.nodetest.ts",
+      "status": "complete"
+    }
+  ],
+  "reviewRequired": [],
+  "policy": {
+    "transportFile": "frontend/src/lib/backend-api.ts",
+    "transportTest": "frontend/src/lib/backend-api.nodetest.ts",
+    "uiLayerFrozen": true,
+    "noNewFrontendBff": true
+  }
+}

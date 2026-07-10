@@ -675,6 +675,7 @@ def api_swarm_roster(
                 name=sw.name,
                 group=gmap.get(swid, "unassigned"),
                 status=(run.get("status") if run else None) or "idle",
+                source_label=(run.get("source_label") if run else None) or "LIVE_SWARM",
                 last_run_id=(run or {}).get("run_id"),
                 last_quality_score=(run or {}).get("quality_score"),
                 last_run_at=(run or {}).get("start_time"),

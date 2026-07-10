@@ -1,0 +1,381 @@
+{
+  "generatedAt": "2026-07-10T01:40:16.547Z",
+  "status": "needs_migration",
+  "summary": {
+    "filesScanned": 1006,
+    "callSites": 63,
+    "allowedCallSites": 25,
+    "reviewRequiredCallSites": 30,
+    "inaccessiblePaths": 8
+  },
+  "byLayer": [
+    {
+      "layer": "api-client",
+      "count": 18
+    },
+    {
+      "layer": "app",
+      "count": 5
+    },
+    {
+      "layer": "feature-component",
+      "count": 17
+    },
+    {
+      "layer": "hook",
+      "count": 4
+    },
+    {
+      "layer": "lib",
+      "count": 17
+    },
+    {
+      "layer": "other",
+      "count": 1
+    },
+    {
+      "layer": "shared-component",
+      "count": 1
+    }
+  ],
+  "reviewRequired": [
+    {
+      "file": "frontend/src/app/(dashboard)/layout.tsx",
+      "line": 35,
+      "layer": "app",
+      "callee": "backendFetch",
+      "path": "/api/auth/logout",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/app/invite/InviteLanding.tsx",
+      "line": 32,
+      "layer": "app",
+      "callee": "backendFetch",
+      "path": "/api/auth/verify-invite",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/app/invite/page.tsx",
+      "line": 41,
+      "layer": "app",
+      "callee": "backendFetch",
+      "path": "/api/auth/verify-invite",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/app/login/page.tsx",
+      "line": 38,
+      "layer": "app",
+      "callee": "backendFetch",
+      "path": "/api/auth/login",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/app/register/page.tsx",
+      "line": 61,
+      "layer": "app",
+      "callee": "backendFetch",
+      "path": "/api/auth/register",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/components/PromptSuggester.tsx",
+      "line": 26,
+      "layer": "shared-component",
+      "callee": "backendFetch",
+      "path": "/api/prompt/suggest",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/bureaus/hooks/useBureauPageView.ts",
+      "line": 22,
+      "layer": "hook",
+      "callee": "backendFetch",
+      "path": "/api/chaotang/dept/${encodeURIComponent(overviewCode)}/overview",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/court-console/components/system-vitals.tsx",
+      "line": 51,
+      "layer": "feature-component",
+      "callee": "backendFetch",
+      "path": "/api/health",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/departments/components/HubuBudgetCaseBody.tsx",
+      "line": 93,
+      "layer": "feature-component",
+      "callee": "backendFetch",
+      "path": "/api/court/shangshufang/briefs/${encodeURIComponent(data.decisionBrief.id)}/decision/advance",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/departments/components/HubuBudgetCaseBody.tsx",
+      "line": 223,
+      "layer": "feature-component",
+      "callee": "backendFetch",
+      "path": "/api/court/shangshufang/research-budget-loop",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/departments/hooks/useDepartmentPageView.ts",
+      "line": 22,
+      "layer": "hook",
+      "callee": "backendFetch",
+      "path": "/api/chaotang/dept/${encodeURIComponent(overviewCode)}/overview",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/governance/components/bills-board.tsx",
+      "line": 103,
+      "layer": "feature-component",
+      "callee": "backendFetch",
+      "path": "/api/governance/bills",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/governance/components/bills-board.tsx",
+      "line": 116,
+      "layer": "feature-component",
+      "callee": "backendFetch",
+      "path": "/api/governance/whoami",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/governance/components/bills-board.tsx",
+      "line": 127,
+      "layer": "feature-component",
+      "callee": "backendFetch",
+      "path": "/api/governance/whoami",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/governance/components/bills-board.tsx",
+      "line": 142,
+      "layer": "feature-component",
+      "callee": "backendFetch",
+      "path": "/api/governance/audit/summary",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/governance/components/bills-board.tsx",
+      "line": 170,
+      "layer": "feature-component",
+      "callee": "backendFetch",
+      "path": "/api/governance/bills",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/governance/components/bills-board.tsx",
+      "line": 195,
+      "layer": "feature-component",
+      "callee": "backendFetch",
+      "path": "/api/governance/bills/${billId}/transition",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/governance/components/bills-board.tsx",
+      "line": 226,
+      "layer": "feature-component",
+      "callee": "backendFetch",
+      "path": "/api/governance/bills/${billId}/audit",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/governance/components/deliberation-console.tsx",
+      "line": 94,
+      "layer": "feature-component",
+      "callee": "backendFetch",
+      "path": "/api/governance/deliberate",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/governance/lib/three-chamber-engine.ts",
+      "line": 368,
+      "layer": "lib",
+      "callee": "fetch",
+      "path": "${baseUrl}/api/shangshufang/draft-edict",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/governance/lib/three-chamber-engine.ts",
+      "line": 389,
+      "layer": "lib",
+      "callee": "fetch",
+      "path": "${baseUrl}/api/shangshufang/confirm-edict",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/hanlin/components/hanlin-bottom-dock.tsx",
+      "line": 69,
+      "layer": "feature-component",
+      "callee": "backendFetch",
+      "path": "/api/orchestration/run",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/health/components/medical-info-query.tsx",
+      "line": 49,
+      "layer": "feature-component",
+      "callee": "backendFetch",
+      "path": "/api/chat",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/intel/components/route-to-task-dialog.tsx",
+      "line": 92,
+      "layer": "feature-component",
+      "callee": "fetchLocalCourtApi",
+      "path": "/api/court/intel/signals/${encodeURIComponent(signal.id)}/dispatch",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/scribe/components/annals-reader.tsx",
+      "line": 85,
+      "layer": "feature-component",
+      "callee": "backendFetch",
+      "path": "/api/scribe/annals",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/shangshufang/ShangshufangPage.tsx",
+      "line": 4879,
+      "layer": "other",
+      "callee": "fetchLocalCourtApi",
+      "path": "/api/court/shangshufang/edict-return",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/shiguan/lib/use-orchestration-chat.ts",
+      "line": 42,
+      "layer": "lib",
+      "callee": "backendFetch",
+      "path": "/api/orchestration/run",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/shiguan/lib/use-shiguan.ts",
+      "line": 82,
+      "layer": "lib",
+      "callee": "backendFetch",
+      "path": "/api/court/shiguan/analyze",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/xingbu/components/xingbu-legal-swarm-panel.tsx",
+      "line": 76,
+      "layer": "feature-component",
+      "callee": "backendFetch",
+      "path": "/api/legal/verdict/from-text",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    },
+    {
+      "file": "frontend/src/features/zhuangyuan/components/BottomBar.tsx",
+      "line": 50,
+      "layer": "feature-component",
+      "callee": "fetch",
+      "path": "/api/orchestration/run",
+      "allowed": false,
+      "reviewRequired": true,
+      "reason": "API call is outside the transport/client allowlist."
+    }
+  ],
+  "inaccessible": [
+    {
+      "path": "frontend/src/features/bingbu/components",
+      "error": "EPERM"
+    },
+    {
+      "path": "frontend/src/features/bingbu/hooks",
+      "error": "EPERM"
+    },
+    {
+      "path": "frontend/src/features/gongbu/components",
+      "error": "EPERM"
+    },
+    {
+      "path": "frontend/src/features/gongbu/hooks",
+      "error": "EPERM"
+    },
+    {
+      "path": "frontend/src/features/hubu/components",
+      "error": "EPERM"
+    },
+    {
+      "path": "frontend/src/features/hubu/hooks",
+      "error": "EPERM"
+    },
+    {
+      "path": "frontend/src/features/libu/components",
+      "error": "EPERM"
+    },
+    {
+      "path": "frontend/src/features/lifu/components",
+      "error": "EPERM"
+    }
+  ],
+  "policy": {
+    "uiLayerFrozen": true,
+    "noNewFrontendBff": true
+  }
+}

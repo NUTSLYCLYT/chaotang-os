@@ -51,6 +51,7 @@ def latest_court_session(_: CurrentUser = Depends(get_current_user)) -> dict:
         return ok(
             {
                 "available": False,
+                "sourceLabel": "FALLBACK",
                 "stamp": "",
                 "content": "",
                 "summary": {
@@ -67,6 +68,7 @@ def latest_court_session(_: CurrentUser = Depends(get_current_user)) -> dict:
     return ok(
         {
             "available": True,
+            "sourceLabel": "MIXED",
             "stamp": stamp,
             "content": content,
             "summary": _parse(content),

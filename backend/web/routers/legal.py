@@ -70,6 +70,8 @@ def legal_verdict(
         )
     except Exception as exc:  # noqa: BLE001
         return fail(str(exc))
+    if isinstance(verdict, dict):
+        verdict.setdefault("sourceLabel", "LIVE")
     return ok(verdict)
 
 
@@ -92,4 +94,6 @@ def legal_verdict_from_text(
         )
     except Exception as exc:  # noqa: BLE001
         return fail(f"判决生成失败: {exc}")
+    if isinstance(verdict, dict):
+        verdict.setdefault("sourceLabel", "LIVE")
     return ok(verdict)

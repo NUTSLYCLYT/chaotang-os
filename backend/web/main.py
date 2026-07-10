@@ -155,6 +155,7 @@ from web.routers import approval as approval_router  # noqa: E402
 from web.routers import auth as auth_router  # noqa: E402
 from web.routers import bingbu as bingbu_router  # noqa: E402
 from web.routers import cases as cases_router  # noqa: E402
+from web.routers import court_compat as court_compat_router  # noqa: E402
 from web.routers import court as court_router  # noqa: E402
 from web.routers import dadian as dadian_router  # noqa: E402
 from web.routers import qintianjian as qintianjian_router  # noqa: E402
@@ -167,6 +168,7 @@ from web.routers import feature_flags as feature_flags_router  # noqa: E402
 from web.routers import feedback as feedback_router  # noqa: E402
 from web.routers import flows as flows_router  # noqa: E402
 from web.routers import gongbu as gongbu_router  # noqa: E402
+from web.routers import governance_compat as governance_compat_router  # noqa: E402
 from web.routers import health as health_router  # noqa: E402
 from web.routers import hubu as hubu_router  # noqa: E402
 from web.routers import jinyiwei as jinyiwei_router  # noqa: E402
@@ -178,6 +180,7 @@ from web.routers import metrics as metrics_router  # noqa: E402
 from web.routers import models as models_router  # noqa: E402
 from web.routers import optimize as optimize_router  # noqa: E402
 from web.routers import observability as observability_router  # noqa: E402
+from web.routers import orchestration_compat as orchestration_compat_router  # noqa: E402
 from web.routers import preferences as preferences_router  # noqa: E402
 from web.routers import prompts as prompts_router  # noqa: E402
 from web.routers import preflight as preflight_router  # noqa: E402
@@ -239,6 +242,7 @@ app.include_router(requirements_router.router)
 app.include_router(resources_router.router)
 app.include_router(cases_router.router)
 app.include_router(court_router.router)
+app.include_router(court_compat_router.router)
 app.include_router(dadian_router.router)
 app.include_router(shangshufang_router.router)
 app.include_router(court_session_router.router)
@@ -282,6 +286,8 @@ app.include_router(quotation_router.router)
 app.include_router(manor_router.router)
 app.include_router(dept_router.router)
 app.include_router(direct_router.router)
+app.include_router(orchestration_compat_router.router)
+app.include_router(governance_compat_router.router)
 
 
 # ── 前端首页 ───────────────────────────────────────────

@@ -404,6 +404,8 @@ def task_persist(
             user_id=_safe_user_id(getattr(user, "user_id", None)),
         )
         db.commit()
+        if isinstance(record, dict):
+            record.setdefault("sourceLabel", "LIVE")
         return ok(record)
     except Exception as exc:
         db.rollback()
@@ -440,6 +442,8 @@ def task_persist_patch(
             db.rollback()
             return fail(f"task {task_id} does not exist")
         db.commit()
+        if isinstance(record, dict):
+            record.setdefault("sourceLabel", "LIVE")
         return ok(record)
     except Exception as exc:
         db.rollback()
@@ -457,6 +461,7 @@ def tasks_list(
     live = {}
     for tid, t in task_snapshot().items():
         live[tid] = {
+            "sourceLabel": "LIVE",
             "taskId": tid,
             "title": (t.get("task_input") or "")[:40] or "未命名",
             "status": _RUNSTATE_TO_TASKSTATUS.get(t.get("status"), "running"),
@@ -489,7 +494,10 @@ def tasks_list(
             for r in rows:
                 # 内存优先:内存已有该任务则跳过,DB 仅在内存为空时兜底历史终态。
                 if r.task_id not in live:
-                    live[r.task_id] = task_record(r)
+                    record = task_record(r)
+                    if isinstance(record, dict):
+                        record.setdefault("sourceLabel", "LIVE")
+                    live[r.task_id] = record
             _db.commit()
         finally:
             _db.close()
@@ -525,6 +533,7 @@ def task_detail(task_id: str, _: CurrentUser = Depends(get_current_user)) -> dic
                 if row:
                     persisted = task_record(row)
                     t = {
+                        "sourceLabel": "LIVE",
                         "status": row.status,
                         "task_status": row.task_status,
                         "title": persisted.get("title") or "",
@@ -586,6 +595,7 @@ def task_detail(task_id: str, _: CurrentUser = Depends(get_current_user)) -> dic
         {
             "task": {
                 "id": task_id,
+                "sourceLabel": "LIVE",
                 "title": t.get("title") or (t.get("task_input") or "")[:80],
                 "rawCommand": t.get("task_input", ""),
                 "status": display_status,
@@ -1697,7 +1707,7 @@ def archive_search(q: str = "", _: CurrentUser = Depends(get_current_user)) -> d
     搜索范围:奏折标题+摘要+决策评语。
     """
     if not q.strip():
-        return ok({"results": [], "query": q, "total": 0})
+        return ok({"results": [], "query": q, "total": 0, "sourceLabel": "LIVE"})
 
     from web.routers.throne import _build_memorial_list
 
@@ -1748,6 +1758,7 @@ def archive_search(q: str = "", _: CurrentUser = Depends(get_current_user)) -> d
             "results": results[:20],
             "query": q.strip(),
             "total": len(results),
+            "sourceLabel": "LIVE",
         }
     )
 
@@ -1876,4 +1887,4 @@ def decree_proceed(task_id: str, _: CurrentUser = Depends(get_current_user)) -> 
     resolved = resolve_governance_event(task_id)
     if not resolved:
         return fail(f"task {task_id} 无待批准的治理事件（可能已超时或不需审批）")
-    return ok({"proceeded": True, "taskId": task_id})
+    return ok({"proceeded": True, "taskId": task_id, "sourceLabel": "LIVE"})

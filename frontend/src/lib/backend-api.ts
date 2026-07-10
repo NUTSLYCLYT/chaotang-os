@@ -11,6 +11,18 @@ const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 const APP_BASE_PATH =
   PUBLIC_BASE_PATH && PUBLIC_BASE_PATH !== '/' ? PUBLIC_BASE_PATH.replace(/\/$/, '') : '';
 
+/*
+ * Historical path aliases live only in this transport layer.
+ *
+ * Owner: backend route owner named by each target path in docs/api-contract-inventory-2026-07-09.md.
+ * Verification:
+ *   - node scripts/api-contract-inventory.mjs
+ *   - npx --yes tsx --test src/lib/backend-api.nodetest.ts
+ * Retirement plan:
+ *   - Keep aliases while legacy callers still emit /api/court/* paths.
+ *   - New contracts must call backend-owned canonical routes directly.
+ *   - Remove an alias only after inventory shows no frontend caller for its legacy path.
+ */
 export function toBackendApiPath(path: string): string {
   const [pathname, query = ''] = path.split('?', 2);
   let next = pathname.startsWith('/') ? pathname : `/${pathname}`;

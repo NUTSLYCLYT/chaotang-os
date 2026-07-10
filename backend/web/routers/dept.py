@@ -193,6 +193,7 @@ def dept_overview(code: str, _: CurrentUser = Depends(get_current_user)) -> dict
 
     return ok({
         "code": requested_code,
+        "sourceLabel": "MIXED",
         "agentCode": agent_code_of(code),
         "minister": minister_info,
         "status": status,

@@ -1,0 +1,15 @@
+{
+  "generatedAt": "2026-07-10T01:40:46.556Z",
+  "status": "pass",
+  "routeCount": 297,
+  "artifacts": {
+    "openapi": "docs\\api-contract-openapi-2026-07-09.json",
+    "routeSnapshot": "docs\\api-contract-route-snapshot-2026-07-09.json",
+    "tsTypes": "frontend\\src\\lib\\contracts\\backend-openapi-2026-07-09.d.ts"
+  },
+  "diff": {
+    "mode": "diff_checked",
+    "breaking": [],
+    "warnings": []
+  }
+}

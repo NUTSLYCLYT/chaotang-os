@@ -602,6 +602,7 @@ def shangshufang_task_status(task_id: str, _: CurrentUser = Depends(get_current_
         )
         return ok(
             {
+                "sourceLabel": "LIVE",
                 "task": _task_to_payload(task),
                 "review": _review_payload(review),
             }
@@ -695,6 +696,7 @@ def shangshufang_task_decision(
         return ok(
             {
                 "task_id": task_id,
+                "sourceLabel": "LIVE",
                 "status": task.status,
                 "decision_id": decision.id,
                 "archive_record": archive_record,
@@ -1159,7 +1161,7 @@ def shangshufang_brief_decision_advance(
         task.updated_at = now
         review.updated_at = now
         db.commit()
-        return ok({"task_id": task.id, "status": task.status, "decision_id": decision.id, "archive_record": archive_record})
+        return ok({"task_id": task.id, "sourceLabel": "LIVE", "status": task.status, "decision_id": decision.id, "archive_record": archive_record})
     except Exception as exc:  # noqa: BLE001
         db.rollback()
         return fail(str(exc))

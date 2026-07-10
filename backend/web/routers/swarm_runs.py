@@ -251,7 +251,10 @@ def get_swarm_run_brief(swarm_run_id: str, _: CurrentUser = Depends(get_current_
         quality = db.query(SwarmQualityResult).filter_by(swarm_run_id=swarm_run_id).order_by(SwarmQualityResult.created_at.desc()).first()
         if quality is None:
             return fail("swarm_run_id 不存在或尚无质门结果")
-        return ok(_loads(quality.revised_output_json, {}))
+        payload = _loads(quality.revised_output_json, {})
+        if isinstance(payload, dict):
+            payload.setdefault("source_label", "LIVE_SWARM")
+        return ok(payload)
     finally:
         db.close()
 
@@ -268,4 +271,9 @@ def retry_swarm_run(swarm_run_id: str, user: CurrentUser = Depends(get_current_u
         body = CreateSwarmRunRequest(task_id=run.task_id, review_id=run.review_id, mode=run.mode)  # type: ignore[arg-type]
     finally:
         db.close()
-    return create_swarm_run(user, body)
+    result = create_swarm_run(user, body)
+    if isinstance(result, dict):
+        data = result.get("data")
+        if isinstance(data, dict):
+            data.setdefault("source_label", "LIVE_SWARM")
+    return result

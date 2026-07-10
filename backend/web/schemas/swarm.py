@@ -88,6 +88,7 @@ class SwarmRosterItem(BaseModel):
     name: str
     group: str = "unassigned"
     status: str = "idle"
+    source_label: str = "LIVE_SWARM"
     last_run_id: str | None = None
     last_quality_score: float | None = None
     last_run_at: str | None = None
