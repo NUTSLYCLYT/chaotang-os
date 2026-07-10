@@ -21,6 +21,7 @@ import {
   Gavel,
   Hash,
   Lock,
+  Loader2,
   Maximize2,
   MessageSquare,
   Minimize2,
@@ -78,7 +79,6 @@ import {
   shangshufangDraftEdict,
   shangshufangFinanceReportingLoop,
   shangshufangPackSwarmLoop,
-  shangshufangSwarmDeepen,
   shangshufangTaskDecision,
   shangshufangTaskStatus,
   type JiqunSessionDetail,
@@ -753,7 +753,7 @@ const CHANCELLOR_SOURCE_LABEL: Record<ChancellorItem['source'], string> = {
 const FIRST_DECREE_FLAG = 'courtos.first-decree-seeded';
 const ONBOARDING_FIRST_DECREE = '为了冲季度营收，要不要大幅压价清库存抢市场份额？请户部与兵部各陈利弊。';
 const SHANGSHUFANG_IM_URL = withBasePath('/api/court/shangshufang/im');
-const SHANGSHUFANG_POLISH_EDICT_URL = withBasePath('/api/court/shangshufang/polish-edict');
+const SHANGSHUFANG_POLISH_EDICT_URL = withBasePath('/api/shangshufang/polish-edict');
 const IMA_KNOWLEDGE_URL = withBasePath('/api/court/ima-knowledge');
 const DECREE_ATTACHMENT_LIMIT = 6;
 const DECREE_ATTACHMENT_MAX_BYTES = 512 * 1024;
@@ -1495,6 +1495,95 @@ function decreeDraftToView(mode: ExecutableDecreeMode): EdictView {
   };
 }
 
+function decreeSubmittingToView(mode: ExecutableDecreeMode, command: string): EdictView {
+  const isSecret = mode === 'secret';
+  const trimmed = command.trim();
+  return {
+    id: `decree-submitting:${mode}:${trimmed.slice(0, 32)}`,
+    title: isSecret ? '密旨' : '圣旨',
+    subtitle: isSecret ? '密旨已递 · 正在调度' : '圣旨已递 · 正在下发',
+    question: trimmed || undefined,
+    meta: {
+      reporter: isSecret ? '蜂群密报' : '上书房',
+      priority: 'high',
+      badges: [
+        { label: '下旨中', tone: 'amber' },
+        { label: isSecret ? '密旨直发' : '丞相拟旨', tone: isSecret ? 'red' : 'blue' },
+      ],
+    },
+    rows: [
+      {
+        label: isSecret ? '密旨正文' : '圣旨正文',
+        body: trimmed || '旨意正在递送。',
+      },
+      {
+        label: '当前状态',
+        body: isSecret
+          ? '密旨已送达上书房，正在汇集蜂群直奏。'
+          : '圣旨已送达上书房，丞相正在拟旨并递交后端流程。',
+      },
+      {
+        label: '后令',
+        body: '请稍候，系统正在生成回奏并写回卷轴。',
+      },
+    ],
+    sealDate: '下旨中',
+    seal: isSecret ? 'secret' : 'imperial',
+  };
+}
+
+function DecreeSubmittingBody({ mode, command }: { mode: ExecutableDecreeMode; command: string }) {
+  const isSecret = mode === 'secret';
+  const accent = isSecret ? '#7A2F2A' : '#8A5A18';
+  const faintAccent = isSecret ? 'rgba(122,47,42,0.14)' : 'rgba(138,90,24,0.12)';
+
+  return (
+    <div data-testid="decree-submitting-body" className="mx-auto flex min-h-full w-full max-w-[1180px] flex-col justify-center gap-3 px-1">
+      <div
+        className="rounded-xl border px-4 py-4 md:px-5"
+        style={{
+          borderColor: 'rgba(107,74,29,0.28)',
+          background: `linear-gradient(135deg, ${faintAccent}, rgba(255,248,224,0.14) 58%, rgba(255,248,224,0.06))`,
+          boxShadow: 'inset 0 1px 0 rgba(255,248,224,0.38), 0 12px 28px rgba(86,50,16,0.10)',
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <span
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border"
+            style={{ borderColor: 'rgba(138,90,24,0.28)', background: 'rgba(255,248,224,0.18)', color: accent }}
+          >
+            <Loader2 size={20} className="animate-spin" />
+          </span>
+          <div className="min-w-0">
+            <div className="text-[12px] font-bold tracking-[0.22em]" style={{ color: accent, fontFamily: 'var(--font-serif)' }}>
+              下旨中
+            </div>
+            <p className="mt-1 text-[14px] leading-[1.7]" style={{ color: '#3F2C12', fontFamily: 'var(--font-serif)' }}>
+              {isSecret ? '密旨已发，正在等待蜂群直奏回写。' : '圣旨已发，正在等待丞相拟旨、后端确认与回奏写回。'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <section
+        className="rounded-xl border px-4 py-3 md:px-5"
+        style={{
+          borderColor: 'rgba(107,74,29,0.24)',
+          background: 'linear-gradient(180deg, rgba(255,248,224,0.18), rgba(255,248,224,0.07))',
+          boxShadow: 'inset 0 1px 0 rgba(255,248,224,0.34)',
+        }}
+      >
+        <div className="border-b pb-2 text-[12px] font-semibold tracking-[0.18em]" style={{ color: accent, borderColor: 'rgba(107,74,29,0.20)', fontFamily: 'var(--font-serif)' }}>
+          正在递送的旨意
+        </div>
+        <p className="mt-2 max-h-[220px] overflow-y-auto whitespace-pre-wrap text-[15px] leading-8 text-[#3A260B] md:text-[16px]" style={{ fontFamily: 'var(--font-serif)' }}>
+          {command.trim() || '旨意正在递送。'}
+        </p>
+      </section>
+    </div>
+  );
+}
+
 function DecreeDraftBody({
   mode,
   original,
@@ -1503,7 +1592,6 @@ function DecreeDraftBody({
   sourceLabel,
   fallbackUsed,
   readOnlyReason,
-  onConfirm,
 }: {
   mode: ExecutableDecreeMode;
   original: string;
@@ -1523,7 +1611,6 @@ function DecreeDraftBody({
   const faintAccent = mode === 'secret' ? 'rgba(122,47,42,0.14)' : 'rgba(138,90,24,0.12)';
   const hasPolished = trimmedPolished.length > 0;
   const hasDraftBodyText = draftBodyText.length > 0;
-  const confirmLabel = '下旨';
   const sourceText = sourceLabel ? `来源 ${sourceLabel}${fallbackUsed ? ' · 需人工复核' : ''}` : '润色后会在此标注来源';
 
   return (
@@ -1539,10 +1626,10 @@ function DecreeDraftBody({
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div className="min-w-0">
             <div className="text-[10px] font-bold tracking-[0.22em]" style={{ color: accent, fontFamily: 'var(--font-serif)' }}>
-              御前草案台
+              御前润色回执
             </div>
             <p className="mt-1 text-[13px] leading-[1.65]" style={{ color: '#3F2C12', fontFamily: 'var(--font-serif)' }}>
-              {readOnlyReason ?? '先在此查看拟旨；润色后才可批示，批示前不会启动蜂群。'}
+              {readOnlyReason ?? '润色后只展示文字预览，不会在卷轴内直接启动蜂群。'}
             </p>
           </div>
           {(readOnly || hasPolished) && (
@@ -1554,7 +1641,7 @@ function DecreeDraftBody({
                 color: readOnly ? '#5B4A30' : '#176B45',
               }}
             >
-              {readOnly ? '只读 · 已生成' : '拟旨已成 · 待批示'}
+              {readOnly ? '只读 · 已生成' : '润色完成 · 待确认文字'}
             </span>
           )}
         </div>
@@ -1574,7 +1661,7 @@ function DecreeDraftBody({
           }}
         >
           <div className="flex items-center justify-between gap-3 border-b pb-2 text-[12px] font-semibold tracking-[0.18em]" style={{ color: accent, fontFamily: 'var(--font-serif)' }}>
-            <span>拟旨</span>
+            <span>润色结果</span>
             <span className="text-[10px] font-normal tracking-[0.08em]" style={{ color: '#7D6B48' }}>{sourceText}</span>
           </div>
           <p
@@ -1584,10 +1671,10 @@ function DecreeDraftBody({
             }`}
             style={{ fontFamily: 'var(--font-serif)' }}
           >
-            {draftBodyText || (readOnly ? '已生成奏折正文只读，不再改写拟旨。' : '点击“润色”后，这里展示可批示的正文。')}
+            {draftBodyText || (readOnly ? '已生成奏折正文只读，不再改写拟旨。' : '点击“润色”后，这里展示整理后的文字。')}
           </p>
           <div
-            className="mt-auto grid gap-2 border-t pt-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
+            className="mt-auto grid gap-2 border-t pt-3 md:items-center"
             style={{
               borderColor: 'rgba(107,74,29,0.20)',
             }}
@@ -1605,23 +1692,9 @@ function DecreeDraftBody({
                 ? '这份正文来自已生成奏折，只可查看；如需改写，请退回再审或重新下旨。'
                 : canConfirm
                 ? mode === 'secret'
-                  ? '密旨拟稿已就绪。点击“批示”后才会下发并启动蜂群。'
-                  : '拟旨已就绪。点击“批示”后才会正式生成任务并启动蜂群。'
-                : '拟旨待生成；批示前不会启动蜂群。'}
-            </div>
-            <div className="flex justify-end self-end md:self-auto md:pl-3">
-              <ImperialButton
-                variant="gold"
-                size="md"
-                serif
-                className="min-w-[112px]"
-                data-testid="decree-confirm"
-                disabled={!canConfirm}
-                icon={mode === 'secret' ? <Lock size={14} /> : <Gavel size={14} />}
-                onClick={onConfirm}
-              >
-                {confirmLabel}
-              </ImperialButton>
+                  ? '密旨文字已润色；请回到底部输入区继续调整或另行发起。'
+                  : '旨意文字已润色；请回到底部输入区继续调整或点击下旨按钮。'
+                : '等待润色；润色只返回文字，不会启动蜂群。'}
             </div>
           </div>
         </section>
@@ -4540,6 +4613,9 @@ export function ShangshufangPage() {
   const [secretInputFocused, setSecretInputFocused] = useState(false);
   const [decreeModePreview, setDecreeModePreview] = useState<DecreeMode | null>(null);
   const [decreeDraftPreview, setDecreeDraftPreview] = useState<DecreeDraftPreview | null>(null);
+  const [polishBusy, setPolishBusy] = useState(false);
+  const [decreeSubmittingPreview, setDecreeSubmittingPreview] =
+    useState<{ mode: ExecutableDecreeMode; command: string } | null>(null);
 
   const [tutorialModal, setTutorialModal] = useState<WangTutorial | 'list' | null>(null);
   const [resourceOpen, setResourceOpen] = useState(false);
@@ -4575,6 +4651,12 @@ export function ShangshufangPage() {
   useEffect(() => {
     decreeModeRef.current = decreeMode;
   }, [decreeMode]);
+
+  useEffect(() => {
+    if (decreeState !== 'consulting' && decreeSubmittingPreview) {
+      setDecreeSubmittingPreview(null);
+    }
+  }, [decreeState, decreeSubmittingPreview]);
 
   const updateDecreeText = useCallback((next: string) => {
     setDecreeText(next);
@@ -5756,6 +5838,8 @@ export function ShangshufangPage() {
         return;
       }
       if (decreeMode !== 'secret') setDecreeMode('secret');
+      setDecreeSubmittingPreview({ mode: 'secret', command: cmd });
+      setEdictCollapsed(false);
       appendDecreeChat({ role: 'user', label: '陛下 · 密旨', text: cmd }, 'secret');
       setDecreeState('consulting');
       setDecreeMsg('密旨已发，全蜂群直奏中……');
@@ -5775,6 +5859,7 @@ export function ShangshufangPage() {
               : '';
         setDecreeState('submitted');
         // 首句白话结论（"实司/直奏/残缺待补"对新用户是黑话，无法判断成功还是失败）
+        setDecreeSubmittingPreview(null);
         const respondedN = cov?.realResponded ?? result.called.length;
         const expectedN = cov?.realExpected ?? result.called.length;
         const reply =
@@ -5823,6 +5908,8 @@ export function ShangshufangPage() {
         await runPackSwarmLoop(cmd, 'order');
         return;
       }
+      setDecreeSubmittingPreview({ mode: 'order', command: cmd });
+      setEdictCollapsed(false);
       appendDecreeChat({ role: 'user', label: '陛下 · 圣旨', text: cmd }, 'order');
       setDecreeState('consulting');
       setDecreeMsg('丞相正在拟旨，随后正式下旨并启动蜂群……');
@@ -5913,47 +6000,6 @@ export function ShangshufangPage() {
                 </div>
               ),
             });
-            const backendStartReply = `${confirmedReply} · 后端蜂群正在围绕本案号深挖，完成后会把 trace 写回原卷轴。`;
-            setDecreeMsg(backendStartReply);
-            appendDecreeChat({ role: 'assistant', label: '军机处', text: backendStartReply }, 'order');
-            void (async () => {
-              try {
-                const result = await shangshufangSwarmDeepen(draft.task_id);
-                const jiqunTaskId = result.adapter_result.external_task_id ?? null;
-                const jiqunSessionId = result.adapter_result.external_session_id ?? null;
-                const backendRef = jiqunSessionId
-                  ? `后端会话 ${jiqunSessionId}`
-                  : jiqunTaskId
-                    ? `后端任务 ${jiqunTaskId}`
-                    : '后端蜂群已接令';
-                const source = ` · 来源：${result.source_label}`;
-                const trace = result.swarm_trace_summary.trace_id ? ` · trace：${result.swarm_trace_summary.trace_id}` : '';
-                const backendReply = `${backendRef}${source}${trace}。${result.swarm_trace_summary.user_visible_summary}`;
-                setDecreeMsg(backendReply);
-                appendDecreeChat({ role: 'assistant', label: '后端蜂群', text: backendReply }, 'order');
-                setEdictOverride((current) =>
-                  current?.srcId === `confirmed-edict-${draft.task_id}`
-                    ? { ...current, view: confirmedView, variant: undefined }
-                    : current,
-                );
-                if (jiqunTaskId || jiqunSessionId) {
-                  activeJiqunReturnRef.current = {
-                    primaryTaskId: draft.task_id,
-                    jiqunTaskId,
-                    sessionId: jiqunSessionId,
-                    mode: 'order',
-                    command: cmd,
-                  };
-                  trackJiqunRun({ taskId: jiqunTaskId, sessionId: jiqunSessionId });
-                }
-                void refreshSwarmSessions();
-              } catch (error) {
-                const backendError =
-                  error instanceof Error && error.message ? error.message : '后端蜂群启动失败，请稍后重试。';
-                setDecreeMsg(withTraceMessage(`军机处本地奏折已生成；${backendError}`, draft.loop_trace_id));
-                appendDecreeChat({ role: 'assistant', label: '后端蜂群', text: withTraceMessage(`后端蜂群未启动：${backendError}`, draft.loop_trace_id) }, 'order');
-              }
-            })();
             setDecreeText('');
             setDecreeAttachments([]);
             void refreshBriefing();
@@ -5991,49 +6037,18 @@ export function ShangshufangPage() {
       const cmd = composeDecreeCommandWithEvidence(decreeText, decreeAttachments);
       if (cmd.length < 5) {
         setDecreeState('error');
-        setDecreeMsg('陛下，旨意太短 · 请把所议之事说到 5 字以上');
+        setDecreeMsg(null);
         return;
       }
 
       setDecreeMode(mode);
-      setDecreeModePreview(mode);
-      activeJiqunReturnRef.current = null;
-      edictOverrideRef.current = null;
-      setEdictOverride(null);
-      setPackSwarmLoopResult(null);
-      setPackSwarmDisplayView(null);
-      setDecreeDraftPreview({ mode, original: cmd, polished: null });
       setSecretInputFocused(false);
       setDecreeState('consulting');
-      setDecreeMsg(mode === 'secret' ? '密旨正在拟定，批示前不会启动蜂群……' : '圣旨正在拟定，批示前不会启动蜂群……');
+      setPolishBusy(true);
+      setDecreeMsg(null);
       try {
-        if (mode === 'order') {
-          const draft = await shangshufangDraftEdict(cmd, decreeAttachmentMeta());
-          const sourceText =
-            draft.draft_edict.source_label === 'LIVE'
-              ? 'LIVE'
-              : `${draft.draft_edict.source_label} · 需人工复核，未伪装实时判断`;
-          setDecreeDraftPreview({
-            mode,
-            original: cmd,
-            polished: draft.draft_edict.refined_edict,
-            sourceLabel: draft.draft_edict.source_label,
-            fallbackUsed: draft.draft_edict.source_label === 'FALLBACK',
-            draftResponse: draft,
-          });
-          setEdictCollapsed(false);
-          setDecreeState('submitted');
-          setDecreeMsg(
-            `拟旨已生成 · 案号 ${draft.task_id} · 来源 ${sourceText} · 点击“批示”后正式下发军机处。`,
-          );
-          return;
-        }
-
         const preview = await polishShangshufangEdict(cmd, mode);
-        const sourceText =
-          preview.source_label === 'LIVE'
-            ? 'LIVE'
-            : `${preview.source_label} · 需人工复核，未伪装实时判断`;
+        setDecreeText(preview.polished_edict);
         setDecreeDraftPreview({
           mode: preview.mode,
           original: cmd,
@@ -6044,16 +6059,15 @@ export function ShangshufangPage() {
         });
         setEdictCollapsed(false);
         setDecreeState('submitted');
-        setDecreeMsg(
-          `拟旨已生成 · 来源 ${sourceText} · 点击“批示”后才启动蜂群。`,
-        );
+        setDecreeMsg(null);
       } catch (e) {
-        const reply = e instanceof Error && e.message ? e.message : '润色失败，请稍后重试。';
         setDecreeState('error');
-        setDecreeMsg(reply);
+        setDecreeMsg(null);
+      } finally {
+        setPolishBusy(false);
       }
     },
-    [decreeAttachments, decreeAttachmentMeta, decreeText],
+    [decreeAttachments, decreeText],
   );
 
   const confirmDraftedDecree = useCallback(
@@ -6175,21 +6189,16 @@ export function ShangshufangPage() {
       }
       const selectedMode = modeOverride ?? decreeMode;
       const effectiveMode: DecreeMode = selectedMode === 'ask' && isSwarmSecretCommand(cmd) ? 'secret' : selectedMode;
+      if (effectiveMode === 'order' || effectiveMode === 'secret') {
+        await submitDecreeDirectly(cmd, effectiveMode);
+        return;
+      }
       if (effectiveMode !== selectedMode) {
         showNotice('检测到蜂群调度指令，已按「密旨」生成润色预览；人工确认后才会启动蜂群。');
       }
 
       if (isPackSwarmLoopCommand(cmd)) {
-        await runPackSwarmLoop(cmd, effectiveMode === 'secret' ? 'secret' : 'order');
-        return;
-      }
-      if ((effectiveMode === 'order' || effectiveMode === 'secret') && await runFinanceStatusMemorialFromDecree(cmd, effectiveMode)) {
-        return;
-      }
-      if ((effectiveMode === 'order' || effectiveMode === 'secret') && await runFinanceReportingLoopFromDecree(cmd, effectiveMode)) {
-        return;
-      }
-      if ((effectiveMode === 'order' || effectiveMode === 'secret') && await runFinanceIntelLoopFromDecree(cmd, effectiveMode)) {
+        await runPackSwarmLoop(cmd, 'order');
         return;
       }
 
@@ -6288,13 +6297,9 @@ export function ShangshufangPage() {
           setDecreeMsg(reply);
           appendDecreeChat({ role: 'assistant', label: '朝堂', text: reply }, 'ask', 'chancellor');
         }
-      } else if (effectiveMode === 'secret') {
-        await polishDraftFromBody('secret');
-      } else {
-        await polishDraftFromBody('order');
       }
     },
-    [decreeAttachments, decreeText, decreeMode, decreeState, showNotice, makeFooter, makeVerdictFooter, focusDecree, appendDecreeChat, router, runFinanceIntelLoopFromDecree, runFinanceReportingLoopFromDecree, runFinanceStatusMemorialFromDecree, runPackSwarmLoop, polishDraftFromBody],
+    [decreeAttachments, decreeText, decreeMode, decreeState, showNotice, submitDecreeDirectly, makeFooter, makeVerdictFooter, focusDecree, appendDecreeChat, router, runFinanceIntelLoopFromDecree, runFinanceReportingLoopFromDecree, runFinanceStatusMemorialFromDecree, runPackSwarmLoop],
   );
 
   const openSuggestionDetail = useCallback(
@@ -6553,10 +6558,12 @@ export function ShangshufangPage() {
     edictOverride?.variant === 'suggestion-report' && edictOverride.suggestion
       ? displayedSuggestions.find((item) => item.id === edictOverride.suggestion?.id) ?? edictOverride.suggestion
       : defaultTopSuggestionReport;
+  const isDecreeSubmitting = decreeState === 'consulting' && Boolean(decreeSubmittingPreview);
   const currentEdictTitle =
     packSwarmDisplayView?.title ??
     (packSwarmLoopResult ? 'PACK 蜂群协同评估' : null) ??
     edictOverride?.view.title ??
+    (isDecreeSubmitting && decreeSubmittingPreview ? decreeModeBodyTitle(decreeSubmittingPreview.mode) : null) ??
     (decreeDraftPreview ? decreeModeBodyTitle(decreeDraftPreview.mode) : null) ??
     (decreeModePreview && topSuggestion ? decreeModeBodyTitle(decreeModePreview) : null) ??
     activeMemorial?.subtitle ??
@@ -6572,9 +6579,11 @@ export function ShangshufangPage() {
     topSuggestion?.sourceLabel ??
     '来源待核';
   const currentEdictSourceLabel = sourceLabelDisplay(String(currentEdictSourceRaw));
-  const currentEdictStatus = decreeDraftPreview
+  const currentEdictStatus = isDecreeSubmitting
+    ? '下旨中'
+    : decreeDraftPreview
     ? decreeDraftPreview.polished
-      ? '待下旨'
+      ? '润色完成'
       : '待润色'
     : packSwarmDisplayView
       ? packSwarmLoopResult && jiqunProgress.status === 'running'
@@ -6641,6 +6650,7 @@ export function ShangshufangPage() {
             void polishDraftFromBody('order');
           }
         }}
+        polishBusy={polishBusy}
         state={decreeState}
         message={decreeMsg}
         inputRef={inputRef}
@@ -6675,6 +6685,7 @@ export function ShangshufangPage() {
     handleInputFocusChange,
     handleSend,
     orchState.approved,
+    polishBusy,
     polishDraftFromBody,
     removeDecreeAttachment,
     runOrchestration,
@@ -6813,6 +6824,34 @@ export function ShangshufangPage() {
         />
       </div>
 
+      {isDecreeSubmitting && decreeSubmittingPreview ? (
+        <div
+          data-testid="decree-global-loading"
+          role="status"
+          aria-live="polite"
+          className="pointer-events-auto fixed inset-0 z-[80] flex items-start justify-center bg-[#02030A]/20 px-4 pt-[76px] backdrop-blur-[1px]"
+        >
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#F0C66A]/35 bg-[#070A13]/82 px-4 py-2 text-[12px] font-semibold tracking-[0.12em] text-[#F5E9C9] shadow-[0_16px_42px_rgba(0,0,0,0.35)]">
+            <Loader2 size={15} className="animate-spin text-[#F0C66A]" />
+            <span>下旨中 · 正在递送上书房</span>
+          </div>
+        </div>
+      ) : null}
+
+      <style>{`
+        @keyframes ssfEdictModeSwitch {
+          from {
+            opacity: 0.72;
+            transform: translateY(8px) scale(0.996);
+            filter: saturate(0.86);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            filter: saturate(1);
+          }
+        }
+      `}</style>
 
       <main className={`relative z-10 mx-auto flex min-h-0 w-full flex-1 flex-col overflow-hidden px-2 py-2 md:px-3 max-w-none pb-[128px] md:pb-[120px] lg:pb-[104px]`}>
         <div
@@ -6868,6 +6907,11 @@ export function ShangshufangPage() {
                 </button>
               </div>
               <div className={`${edictCollapsed ? 'min-h-[78px] lg:min-h-[70px] lg:flex-none' : 'min-h-[min(74vh,680px)] lg:h-[clamp(420px,calc(100dvh-260px),660px)] lg:flex-none'} flex-1 basis-0 overflow-visible lg:min-h-0`}>
+                <div
+                  key={`edict-mode-${decreeModePreview ?? decreeMode}`}
+                  className="h-full"
+                  style={{ animation: 'ssfEdictModeSwitch 220ms ease-out both' }}
+                >
                 {edictCollapsed ? (
                   <div className="flex h-full min-h-[70px] items-end pb-1">
                     <CollapsedEdictScroll
@@ -6906,6 +6950,13 @@ export function ShangshufangPage() {
                       onClick: () => focusDecree('order', `请锦衣卫按 PACK 采集清单补齐证据：\n${fallbackPackSwarmCommand}`),
                     })}
                   />
+                ) : isDecreeSubmitting && decreeSubmittingPreview ? (
+                  <EdictStage
+                    view={decreeSubmittingToView(decreeSubmittingPreview.mode, decreeSubmittingPreview.command)}
+                    customBodyScroll="native"
+                  >
+                    <DecreeSubmittingBody mode={decreeSubmittingPreview.mode} command={decreeSubmittingPreview.command} />
+                  </EdictStage>
                 ) : decreeDraftPreview ? (
                   <EdictStage
                     view={decreeDraftToView(decreeDraftPreview.mode)}
@@ -7048,6 +7099,7 @@ export function ShangshufangPage() {
                     </p>
                   </div>
                 )}
+                </div>
               </div>
               {!showingJiqunReturnEdict && jiqunProgress.status !== 'idle' && <SwarmProgressStrip
                 progress={jiqunProgress}

@@ -5,7 +5,7 @@ import test from 'node:test';
 const dbPath = `/tmp/courtos-mvp-api-${process.pid}.db`;
 process.env.TURSO_DB_URL = `file:${dbPath}`;
 
-test('swarm-deepen goes through the direct backend bridge instead of a frontend BFF route', async (t) => {
+test('swarm-deepen remains a direct backend bridge and is not auto-triggered after decree confirmation', async (t) => {
   t.after(async () => {
     await rm(dbPath, { force: true });
     await rm(`${dbPath}-shm`, { force: true });
@@ -23,7 +23,7 @@ test('swarm-deepen goes through the direct backend bridge instead of a frontend 
   assert.match(jiqunApiText, /\/api\/court\/shangshufang\/tasks\/\$\{encodeURIComponent\(taskId\)\}\/swarm-deepen/);
 
   const shangshufangPageText = await readFile(new URL('../../../features/shangshufang/ShangshufangPage.tsx', import.meta.url), 'utf8');
-  assert.match(shangshufangPageText, /shangshufangSwarmDeepen\(draft\.task_id\)/);
+  assert.doesNotMatch(shangshufangPageText, /shangshufangSwarmDeepen\(draft\.task_id\)/);
   assert.doesNotMatch(shangshufangPageText, /chaotang\.orchestrateAll\(backendCommand/);
 });
 

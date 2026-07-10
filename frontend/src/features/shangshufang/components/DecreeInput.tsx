@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type RefObject } from 'react';
-import { FileText, Lock, Paperclip, Scroll, X } from 'lucide-react';
+import { FileText, Loader2, Lock, Paperclip, Scroll, X } from 'lucide-react';
 
 import type { DecreeMode, DecreeState } from '../types';
 import type { DepartmentSourceLabel } from '@/components/chaotang/department/DepartmentScrollStage';
@@ -83,6 +83,7 @@ export function DecreeInput({
   onAskTargetChange,
   onSend,
   onPolish,
+  polishBusy = false,
   onClose,
   state,
   message,
@@ -108,6 +109,7 @@ export function DecreeInput({
   onAskTargetChange?: (target: AskTarget) => void;
   onSend: (modeOverride?: DecreeMode, targetOverride?: AskTarget) => void;
   onPolish?: () => void;
+  polishBusy?: boolean;
   onClose?: () => void;
   state: DecreeState;
   message: string | null;
@@ -137,16 +139,19 @@ export function DecreeInput({
   const isComposingRef = useRef(false);
   const lastFocusedModeRef = useRef<string | null>(null);
   const polishPulseTimerRef = useRef<number | null>(null);
+  const actionLockTimerRef = useRef<number | null>(null);
   const [localValue, setLocalValue] = useState(value);
   const [polishPressed, setPolishPressed] = useState(false);
+  const [actionLocked, setActionLocked] = useState(false);
   const visibleModeOptions = MODE_OPTIONS.filter(m => availableModes.includes(m.mode));
   const singleMode = visibleModeOptions.length === 1;
+  const activeModeIndex = Math.max(0, visibleModeOptions.findIndex((item) => item.mode === mode && (item.mode !== 'ask' || item.askTarget === askTarget)));
   const isAsk = mode === 'ask';
   const isOrder = mode === 'order';
   const isSecret = mode === 'secret';
   const isMentorAsk = isAsk && askTarget === 'mentor';
   const inSlot = placement === 'slot';
-  const showPolishActive = polishPressed;
+  const showPolishActive = polishPressed || polishBusy;
   const busy = state === 'consulting';
   const accent = isSecret ? SECRET : GOLD;
   const modeLabel = isSecret
@@ -162,6 +167,7 @@ export function DecreeInput({
   }, [value]);
   useEffect(() => () => {
     if (polishPulseTimerRef.current !== null) window.clearTimeout(polishPulseTimerRef.current);
+    if (actionLockTimerRef.current !== null) window.clearTimeout(actionLockTimerRef.current);
   }, []);
 
   const remaining = 2000 - localValue.length;
@@ -190,10 +196,22 @@ export function DecreeInput({
   const handlePrimarySubmit = (modeOverride = mode, targetOverride = askTarget) => {
     const command = (inputRef?.current?.value ?? localValue).trim();
     dispatchImperialActionAccepted();
-    window.dispatchEvent(new CustomEvent('shangshufang:decree-submit', {
-      detail: { command, mode: modeOverride, askTarget: targetOverride },
-    }));
+    if (modeOverride === 'ask') {
+      window.dispatchEvent(new CustomEvent('shangshufang:decree-submit', {
+        detail: { command, mode: modeOverride, askTarget: targetOverride },
+      }));
+    }
     onSend(modeOverride, targetOverride);
+  };
+  const withActionDebounce = (action: () => void) => {
+    if (busy || actionLocked) return;
+    setActionLocked(true);
+    if (actionLockTimerRef.current !== null) window.clearTimeout(actionLockTimerRef.current);
+    actionLockTimerRef.current = window.setTimeout(() => {
+      setActionLocked(false);
+      actionLockTimerRef.current = null;
+    }, 800);
+    action();
   };
   const handleModeButtonClick = (item: (typeof MODE_OPTIONS)[number]) => {
     const nextAskTarget = item.askTarget ?? 'chancellor';
@@ -333,9 +351,10 @@ export function DecreeInput({
               <div className="order-4 flex shrink-0 flex-wrap items-center gap-1.5 self-start md:self-auto">
                 <button
                   type="button"
-                  onClick={handlePolishClick}
-                  disabled={busy}
+                  onClick={() => withActionDebounce(handlePolishClick)}
+                  disabled={busy || actionLocked || polishBusy}
                   data-testid="decree-polish-inline"
+                  aria-busy={polishBusy}
                   aria-pressed={showPolishActive}
                   className={`${inSlot ? 'h-6 px-2' : 'h-7 px-2.5'} inline-flex items-center justify-center gap-1 rounded-full border text-[11px] font-semibold transition-all duration-200 hover:-translate-y-px hover:brightness-110 disabled:opacity-50`}
                   style={{
@@ -346,47 +365,10 @@ export function DecreeInput({
                     transform: showPolishActive ? 'translateY(-1px)' : 'translateY(0)',
                   }}
                 >
-                  <FileText size={11} />
+                  {polishBusy ? <Loader2 size={11} className="animate-spin" /> : <FileText size={11} />}
                   润色
                 </button>
-                {visibleModeOptions.map((item) => {
-                  const selected = mode === item.mode && (item.mode !== 'ask' || item.askTarget === askTarget);
-                  const active = selected && !showPolishActive;
-                  const Icon = item.icon === 'order' ? Scroll : Lock;
-                  const tone = item.mode === 'secret' ? SECRET : GOLD;
-                  return (
-                    <button
-                      key={item.key}
-                      type="button"
-                      data-testid={`decree-mode-${item.key}`}
-                      onClick={() => handleModeButtonClick(item)}
-                      aria-label={item.label}
-                      aria-pressed={active}
-                      title={item.title}
-                      className={`${inSlot ? 'h-6 px-2' : 'h-7 px-2.5'} inline-flex items-center justify-center gap-1 rounded-full border text-[11px] font-semibold transition-all duration-200 hover:-translate-y-px hover:brightness-110`}
-                      style={{
-                        borderColor: active ? `${tone}66` : 'rgba(255,255,255,0.10)',
-                        background: active ? `${tone}1F` : 'rgba(255,255,255,0.025)',
-                        boxShadow: active ? `0 0 12px ${tone}22` : 'none',
-                        color: active ? tone : '#9AA3C4',
-                        transform: active ? 'translateY(-1px)' : 'translateY(0)',
-                      }}
-                    >
-                      <Icon size={11} />
-                      {item.label}
-                    </button>
-                  );
-                })}
               </div>
-              )}
-              {singleMode && (
-                <span
-                  className="order-4 shrink-0 rounded-full border px-2.5 py-[3px] text-[11px]"
-                  style={{ borderColor: `${GOLD}66`, color: GOLD, background: `${GOLD}10` }}
-                >
-                  <Scroll size={11} className="inline mr-1" />
-                  旨 · 预览
-                </span>
               )}
 
               <label
@@ -419,6 +401,71 @@ export function DecreeInput({
                   }}
                 />
               </label>
+
+              {!singleMode && visibleModeOptions.length > 0 && (
+                <div
+                  className={`${inSlot ? 'h-8' : 'h-9'} relative inline-grid shrink-0 overflow-hidden rounded-full border p-0.5 self-start md:self-auto`}
+                  style={{
+                    borderColor: `${accent}3D`,
+                    background: 'rgba(0,0,0,0.28)',
+                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)',
+                    gridTemplateColumns: `repeat(${visibleModeOptions.length}, minmax(0, 1fr))`,
+                  }}
+                  role="group"
+                  aria-label="切换圣旨或密旨"
+                >
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute bottom-0.5 top-0.5 rounded-full border transition-all duration-300 ease-out"
+                    style={{
+                      left: `calc(${activeModeIndex} * (100% - 4px) / ${visibleModeOptions.length} + 2px)`,
+                      width: `calc((100% - 4px) / ${visibleModeOptions.length})`,
+                      borderColor: `${accent}55`,
+                      background: `${accent}1F`,
+                      boxShadow: `0 0 14px ${accent}24`,
+                    }}
+                  />
+                  {visibleModeOptions.map((item) => {
+                    const selected = mode === item.mode && (item.mode !== 'ask' || item.askTarget === askTarget);
+                    const active = selected && !showPolishActive;
+                    const Icon = item.icon === 'order' ? Scroll : Lock;
+                    const tone = item.mode === 'secret' ? SECRET : GOLD;
+                    const displayLabel = item.mode === 'order' ? '圣旨' : item.label;
+                    const displayTitle = item.mode === 'order' ? '圣旨 · 先进入拟旨，准奏后才启动后端蜂群' : item.title;
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        data-testid={`decree-mode-${item.key}`}
+                        onClick={() => handleModeButtonClick(item)}
+                        disabled={busy}
+                        aria-label={displayLabel}
+                        aria-pressed={active}
+                        title={displayTitle}
+                        className={`${inSlot ? 'h-7 px-2.5' : 'h-8 px-3'} relative z-10 inline-flex items-center justify-center gap-1 rounded-full border text-[11px] font-semibold transition-all duration-300 ease-out hover:brightness-110 disabled:opacity-50`}
+                        style={{
+                          borderColor: 'transparent',
+                          background: 'transparent',
+                          boxShadow: 'none',
+                          color: active ? tone : '#9AA3C4',
+                        }}
+                      >
+                        <Icon size={11} />
+                        {displayLabel}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {singleMode && (
+                <span
+                  className="shrink-0 rounded-full border px-2.5 py-[3px] text-[11px]"
+                  style={{ borderColor: `${GOLD}66`, color: GOLD, background: `${GOLD}10` }}
+                >
+                  <Scroll size={11} className="inline mr-1" />
+                  旨 · 预览
+                </span>
+              )}
 
               <textarea
                 ref={inputRef}
@@ -469,9 +516,26 @@ export function DecreeInput({
                         border: `1px solid ${accent}44`,
                         fontFamily: 'var(--font-serif)',
                         height: '36px',
-                      }),
+                  }),
                 }}
               />
+              <button
+                type="button"
+                data-testid="decree-submit"
+                onClick={() => withActionDebounce(() => handlePrimarySubmit(mode, askTarget))}
+                disabled={busy || actionLocked}
+                className={`${inSlot ? 'h-8 px-3' : 'h-9 px-4'} inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full border text-[11px] font-semibold transition-all duration-200 hover:-translate-y-px hover:brightness-110 disabled:opacity-50`}
+                style={{
+                  borderColor: `${accent}66`,
+                  background: `${accent}1F`,
+                  boxShadow: `0 0 12px ${accent}22`,
+                  color: accent,
+                  fontFamily: 'var(--font-serif)',
+                }}
+              >
+                {isSecret ? <Lock size={12} /> : <Scroll size={12} />}
+                下旨
+              </button>
               {onClose && (
                 <button
                   type="button"

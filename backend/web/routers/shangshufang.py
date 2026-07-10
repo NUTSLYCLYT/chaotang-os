@@ -54,6 +54,7 @@ LOOP_ID = "shangshufang_intake_loop_v1"
 SKILL_ID = "skill.chancellor.draft_edict"
 SKILL_VERSION = "0.1.0"
 _IM_MESSAGES: list[dict[str, Any]] = []
+_POLISH_FORBIDDEN_WORDS = ("军机处", "会审", "六部", "蜂群", "任务单", "立案")
 
 
 class DraftEdictRequest(BaseModel):
@@ -101,6 +102,71 @@ class FinanceIntelLoopCompleteRequest(BaseModel):
 class PolishEdictRequest(BaseModel):
     raw_question: str = Field(..., min_length=1, max_length=4000)
     mode: Literal["order", "secret"] = "order"
+
+
+def _rule_polish_edict_text(raw_question: str, mode: str) -> str:
+    raw = " ".join(raw_question.strip().split())
+    if not raw:
+        raise ValueError("raw_question 不能为空")
+    if raw[-1] not in "。！？.!?":
+        raw = f"{raw}。"
+    if mode == "secret":
+        return raw if raw.startswith("密") else f"密请{raw}"
+    return raw if raw.startswith(("请", "准", "令", "安排", "推进")) else f"请{raw}"
+
+
+def _clean_llm_polish_output(text: str, original: str) -> str | None:
+    cleaned = str(text or "").strip().strip("`\"' \n\r\t")
+    if not cleaned:
+        return None
+    if "\n" in cleaned:
+        cleaned = " ".join(part.strip() for part in cleaned.splitlines() if part.strip())
+    if len(cleaned) > max(800, len(original) * 4):
+        return None
+    for word in _POLISH_FORBIDDEN_WORDS:
+        if word in cleaned and word not in original:
+            return None
+    return cleaned
+
+
+def _llm_polish_edict_text(raw_question: str, mode: str) -> str | None:
+    try:
+        from src.model_adapter import ModelAdapter
+        from src.provider import active_fallback_models, get_provider_env
+
+        provider = get_provider_env()
+        api_base = provider.get("api_base")
+        api_key = provider.get("api_key")
+        model = provider.get("model")
+        if not (api_base and model):
+            return None
+        if not api_key and "localhost" not in api_base and "127.0.0.1" not in api_base:
+            return None
+
+        tone = "密旨口吻，克制、明确、不可外泄" if mode == "secret" else "正式口吻，清楚、简洁、可执行"
+        adapter = ModelAdapter(
+            model=model,
+            api_base=api_base,
+            api_key=api_key,
+            merge_system_to_user=bool(provider.get("merge_system_to_user", False)),
+            temperature=0.2,
+            max_tokens=260,
+        )
+        result = adapter.call(
+            system_prompt=(
+                "你只负责中文文字润色。只改写用户给出的原句，使其更正式、更顺畅。"
+                "不得新增事实、不得新增部门、不得新增流程、不得提到军机处、会审、六部、蜂群、立案或任务单。"
+                "只输出润色后的正文，不要解释，不要标题，不要引号。"
+            ),
+            user_prompt=f"润色口吻：{tone}\n原文：{raw_question}",
+            fallback_models=active_fallback_models(),
+            skip_budget=True,
+        )
+        if result.get("status") != "success":
+            return None
+        return _clean_llm_polish_output(str(result.get("output") or ""), raw_question)
+    except Exception:
+        return None
 
 
 class ChancellorChatRequest(BaseModel):
@@ -691,14 +757,14 @@ def shangshufang_confirm_edict(
 
         memorial = review_memorial_for(edict_for_review, routing_plan)
         review_id = make_id("review", task.id, "junjichu")
-        task.status = "awaiting_decision"
+        task.status = "edict_recorded"
         task.updated_at = now
         db.add(
             CourtReview(
                 id=review_id,
                 task_id=task.id,
                 routing_plan_json=_json(routing_plan),
-                review_status="awaiting_decision",
+                review_status="edict_recorded",
                 ministry_outputs_json=_json(memorial["ministry_outputs"]),
                 conflict_summary_json=_json(memorial["conflict_summary"]),
                 memorial_json=_json({**memorial, "draft_edict": draft_payload}),
@@ -711,25 +777,22 @@ def shangshufang_confirm_edict(
                 id=make_id("loop", task.id, "confirm", now),
                 task_id=task.id,
                 loop_id=LOOP_ID,
-                status="awaiting_decision",
+                status="edict_recorded",
                 input_json=_json(body.model_dump()),
-                output_json=_json({"routing_plan": routing_plan, "review_id": review_id, "memorial": memorial}),
+                output_json=_json(
+                    {
+                        "routing_plan": routing_plan,
+                        "review_id": review_id,
+                        "memorial": memorial,
+                        "decree_recorded": True,
+                        "next_action": "await_async_memorial",
+                    }
+                ),
                 trace_id=review_id,
                 created_at=now,
                 updated_at=now,
             )
         )
-        swarm_result = _run_swarm_execution_loop_sync(
-            {
-                "task_id": task.id,
-                "review_id": review_id,
-                "mode": "standard",
-                "confirmed_edict": {**draft_payload, "source_label": task.source_label},
-                "review_plan": routing_plan,
-            }
-        )
-        persist_swarm_execution_result(db, swarm_result)
-        attach_swarm_result_to_review(db, review_id, swarm_result)
         db.add(
             EmperorDecision(
                 id=make_id("decision", task.id, "confirm", now),
@@ -747,13 +810,19 @@ def shangshufang_confirm_edict(
         return ok(
             {
                 "task_id": task.id,
-                "status": "awaiting_decision",
-                "message": "已下发军机处，并形成第一版会审回奏，待皇上裁决。",
+                "status": "edict_recorded",
+                "message": "圣旨已登记，下旨记录已生成；回奏不在本次请求内同步等待。",
                 "review_id": review_id,
                 "routing_plan": routing_plan,
                 "memorial": _loads(db.query(CourtReview).filter_by(id=review_id).first().memorial_json, memorial),
-                "swarm_run": swarm_result["swarm_run"],
                 "route": route,
+                "decree_record": {
+                    "task_id": task.id,
+                    "review_id": review_id,
+                    "status": "edict_recorded",
+                    "recorded_at": now,
+                    "source_label": task.source_label,
+                },
                 "review_status_url": f"/api/shangshufang/tasks/{task.id}/status",
             }
         )
@@ -1393,21 +1462,20 @@ def shangshufang_polish_edict(
     user: CurrentUser = Depends(get_current_user),
 ) -> dict:
     try:
-        edict = draft_edict(body.raw_question)
-        polished = edict.refined_edict
-        if body.mode == "secret":
-            polished = f"密旨：{polished} 不得外发，不得形成付款、签约或对外承诺。"
-        else:
-            polished = f"圣旨：{polished}"
+        polished = _llm_polish_edict_text(body.raw_question, body.mode)
+        source_label = "LIVE" if polished else "FALLBACK"
+        fallback_used = polished is None
+        if polished is None:
+            polished = _rule_polish_edict_text(body.raw_question, body.mode)
         return ok(
             {
                 "mode": body.mode,
                 "original_question": body.raw_question,
                 "polished_edict": polished,
-                "source_label": edict.source_label,
+                "source_label": source_label,
                 "audit_id": make_id("polish", body.raw_question, _user_id(user), now_iso()),
-                "fallback_used": edict.source_label == "FALLBACK",
-                "read_only_reason": "deterministic_draft_no_llm" if edict.source_label == "FALLBACK" else None,
+                "fallback_used": fallback_used,
+                "read_only_reason": None,
             }
         )
     except Exception as exc:  # noqa: BLE001

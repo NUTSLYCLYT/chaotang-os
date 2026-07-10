@@ -119,7 +119,8 @@ def test_confirm_edict_creates_review_status(isolated_session_local):
 
     assert confirm_response.status_code == 200
     confirm_data = confirm_response.json()["data"]
-    assert confirm_data["status"] == "awaiting_decision"
+    assert confirm_data["status"] == "edict_recorded"
+    assert confirm_data["decree_record"]["status"] == "edict_recorded"
     assert confirm_data["routing_plan"]["ministry_candidates"] == ["刑部"]
     assert confirm_data["memorial"]["title"] == "军机处会审回奏"
     assert confirm_data["memorial"]["verdict"] == "需人工复核"
@@ -128,13 +129,11 @@ def test_confirm_edict_creates_review_status(isolated_session_local):
     status_response = client.get(f"/api/shangshufang/tasks/{task_id}/status")
     assert status_response.status_code == 200
     status_data = status_response.json()["data"]
-    assert status_data["task"]["status"] == "awaiting_decision"
-    assert status_data["review"]["review_status"] == "awaiting_decision"
+    assert status_data["task"]["status"] == "edict_recorded"
+    assert status_data["review"]["review_status"] == "edict_recorded"
     assert status_data["review"]["memorial"]["source_label"] == "FALLBACK"
     assert status_data["review"]["ministry_outputs"][0]["department"] == "刑部"
     memorial = status_data["review"]["memorial"]
-    assert memorial["ministry_outputs"][0]["swarm_id"] == "xingbu_legal_risk_swarm"
-    assert memorial["ministry_outputs"][0]["ability_basis"]
     assert memorial["formatted_memorial"]["section_order"] == [
         "圣裁",
         "分奏",
@@ -277,7 +276,10 @@ def test_polish_im_and_edict_return_endpoints(isolated_session_local):
         json={"raw_question": "判断这个项目是否推进", "mode": "order"},
     )
     assert polish.status_code == 200
-    assert polish.json()["data"]["polished_edict"]
+    polished = polish.json()["data"]["polished_edict"]
+    assert polished
+    assert "军机处" not in polished
+    assert "会审" not in polished
 
     im = client.post(
         "/api/shangshufang/im",
