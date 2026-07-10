@@ -1,4 +1,5 @@
 """认证相关 schema。"""
+
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
@@ -32,6 +33,7 @@ class LoginResponse(BaseModel):
 
 class CurrentUser(BaseModel):
     """从 JWT 解出的当前用户上下文（注入到下游路由）。"""
+
     user_id: int | None = None
     username: str | None = None
     role: str | None = None
@@ -47,9 +49,19 @@ class RegisterRequest(BaseModel):
     username: str = Field(..., min_length=2, max_length=32)
     email: str = Field(..., min_length=3, max_length=128)
     password: str = Field(..., min_length=6, max_length=256)
+    invite_code: str = Field(..., min_length=1, max_length=64)
 
 
 class RegisterResponse(BaseModel):
     message: str
     username: str
     user_id: int
+
+
+class VerifyInviteRequest(BaseModel):
+    code: str = Field(default="", max_length=64)
+
+
+class VerifyInviteResponse(BaseModel):
+    valid: bool
+    message: str = ""

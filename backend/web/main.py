@@ -67,6 +67,13 @@ async def lifespan(app: FastAPI):
         logger.warning("ensure_admin 失败: %s", e)
 
     try:
+        from src.tenant import ensure_bootstrap_invite
+
+        ensure_bootstrap_invite()
+    except Exception as e:
+        logger.warning("ensure_bootstrap_invite 失败: %s", e)
+
+    try:
         from src.security import enforce_jwt_secret
 
         enforce_jwt_secret()
@@ -188,6 +195,7 @@ from web.routers import repairs as repairs_router  # noqa: E402
 from web.routers import requirements as requirements_router  # noqa: E402
 from web.routers import resources as resources_router  # noqa: E402
 from web.routers import runs as runs_router  # noqa: E402
+from web.routers import scribe as scribe_router  # noqa: E402
 from web.routers import shangshufang as shangshufang_router  # noqa: E402
 from web.routers import court_session as court_session_router  # noqa: E402
 from web.routers import legal as legal_router  # noqa: E402
@@ -244,6 +252,7 @@ app.include_router(cases_router.router)
 app.include_router(court_router.router)
 app.include_router(court_compat_router.router)
 app.include_router(dadian_router.router)
+app.include_router(scribe_router.router)
 app.include_router(shangshufang_router.router)
 app.include_router(court_session_router.router)
 app.include_router(legal_router.router)

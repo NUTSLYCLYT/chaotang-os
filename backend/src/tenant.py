@@ -134,6 +134,16 @@ def _get_db() -> sqlite3.Connection:
             created_at TEXT NOT NULL DEFAULT (datetime('now'))
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS invites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code TEXT NOT NULL UNIQUE,
+            max_uses INTEGER NOT NULL DEFAULT 1,
+            used_count INTEGER NOT NULL DEFAULT 0,
+            expires_at TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+    """)
     conn.commit()
 
     # 迁移：为已有数据库添加 email 列
@@ -324,6 +334,54 @@ def verify_token(token: str) -> dict | None:
     return _jwt_decode(token)
 
 
+# ---------------------------------------------------------------------------
+# 邀请码
+# ---------------------------------------------------------------------------
+
+
+def create_invite(code: str, max_uses: int = 1, expires_at: str | None = None) -> int:
+    """创建邀请码，返回 invite_id。"""
+    db = get_db()
+    cursor = db.execute(
+        "INSERT INTO invites (code, max_uses, expires_at) VALUES (?, ?, ?)",
+        (code, max_uses, expires_at),
+    )
+    db.commit()
+    return cursor.lastrowid
+
+
+def check_invite(code: str) -> tuple[bool, str]:
+    """只读校验邀请码是否可用，不消耗次数（用于 /invite 落地页预览）。"""
+    db = get_db()
+    row = db.execute(
+        "SELECT max_uses, used_count, expires_at FROM invites WHERE code = ?", (code,)
+    ).fetchone()
+    if not row:
+        return False, "邀请码不存在"
+    if row["expires_at"] and row["expires_at"] < datetime.now().isoformat():
+        return False, "邀请码已过期"
+    if row["used_count"] >= row["max_uses"]:
+        return False, "邀请码已被使用"
+    return True, ""
+
+
+def consume_invite(code: str) -> bool:
+    """原子消耗一次邀请码用量，返回是否成功。
+
+    用 UPDATE ... WHERE 条件在一条语句里完成"仍有效才消耗"，靠 SQLite 单文件
+    写锁保证并发下不会超发，不需要额外加锁。
+    """
+    db = get_db()
+    now_iso = datetime.now().isoformat()
+    cursor = db.execute(
+        "UPDATE invites SET used_count = used_count + 1 "
+        "WHERE code = ? AND used_count < max_uses AND (expires_at IS NULL OR expires_at >= ?)",
+        (code, now_iso),
+    )
+    db.commit()
+    return cursor.rowcount > 0
+
+
 def list_tenants() -> list[dict]:
     db = get_db()
     rows = db.execute(
@@ -382,3 +440,27 @@ def ensure_admin():
             "ADMIN_INITIAL_PASSWORD 未设置,已生成随机初始密码(仅此次启动打印,请立即登录后修改): %s",
             password,
         )
+
+
+def ensure_bootstrap_invite():
+    """按需确保一个引导邀请码存在。
+
+    默认不做任何事(安全默认:没配置就没有可用邀请码,注册闭环保持关闭)。
+    只有显式设置 FENGQUN_BOOTSTRAP_INVITE_CODE 环境变量(本地开发/CI/e2e 场景)
+    才会幂等创建/续期该邀请码,不会覆盖已手动调整过用量的同名邀请码。
+    """
+    code = os.environ.get("FENGQUN_BOOTSTRAP_INVITE_CODE", "").strip()
+    if not code:
+        return
+    db = get_db()
+    existing = db.execute("SELECT id FROM invites WHERE code = ?", (code,)).fetchone()
+    if existing:
+        return
+    create_invite(code, max_uses=100_000)
+    import logging
+
+    logging.getLogger(__name__).warning(
+        "FENGQUN_BOOTSTRAP_INVITE_CODE 已生效,创建了一个开放注册邀请码(2026-07-10 安全复审:"
+        "此项只应在本地开发/CI/e2e 场景启用,生产环境出现此告警需要立即核查):code=%r max_uses=100000",
+        code,
+    )

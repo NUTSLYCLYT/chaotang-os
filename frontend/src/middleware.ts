@@ -22,6 +22,8 @@ const PUBLIC_PREFIXES = [
   '/login',
   '/register',
   '/enter',
+  '/invite',
+  '/dadian',
   '/_next',
   '/assets',
   '/fonts',

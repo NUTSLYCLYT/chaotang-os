@@ -24,13 +24,22 @@ const BACKEND_BASE =
 const E2E_USERNAME = 'e2e_liubu_smoke';
 const E2E_PASSWORD = 'e2e-liubu-smoke-pw-2026';
 const E2E_EMAIL = 'e2e-liubu-smoke@example.local';
+// 2026-07-09 起 /register 要求 invite_code；backend/scripts/bootstrap_chaotang.sh
+// 默认导出 FENGQUN_BOOTSTRAP_INVITE_CODE=CHAOTANG-DEV-E2E（未设置该变量的后端不会有此邀请码，
+// 需自行用 backend/scripts/manage_invites.py 建一个同名的）。
+const E2E_INVITE_CODE = process.env.FENGQUN_BOOTSTRAP_INVITE_CODE ?? 'CHAOTANG-DEV-E2E';
 
 /** 对真实后端注册（已存在则忽略 409）+ 登录，拿到一个真正签过名、能通过 verify_token 的 token。 */
 async function getRealBackendToken(): Promise<string> {
   await fetch(`${BACKEND_BASE}/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: E2E_USERNAME, email: E2E_EMAIL, password: E2E_PASSWORD }),
+    body: JSON.stringify({
+      username: E2E_USERNAME,
+      email: E2E_EMAIL,
+      password: E2E_PASSWORD,
+      invite_code: E2E_INVITE_CODE,
+    }),
   }).catch(() => null); // 409(已存在)是预期的稳态，忽略即可
 
   const loginRes = await fetch(`${BACKEND_BASE}/api/auth/login`, {

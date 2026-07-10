@@ -79,5 +79,14 @@ PY
 )"
   echo "generated an ephemeral FENGQUN_JWT_SECRET for this local process"
 fi
+# 本地/e2e 固定邀请码(非随机——e2e spec 需要用字面量对上),让首次注册闭环开箱可用。
+# 这个脚本只用于本地开发，不在 docker-compose.yaml / gunicorn 生产路径里被调用；
+# 但这串码是明文写进公开仓库的，一旦被复制粘贴进任何面向公网的启动路径而不覆盖，
+# 就等于一个公开可用、上限 10 万次的开放注册后门——生产部署必须显式设置自己的
+# FENGQUN_BOOTSTRAP_INVITE_CODE，不要依赖这个默认值。
+if [ -z "${FENGQUN_BOOTSTRAP_INVITE_CODE:-}" ]; then
+  echo "警告: 使用固定的本地邀请码 CHAOTANG-DEV-E2E（仅供本地开发使用，绝不要带进生产部署）"
+fi
+export FENGQUN_BOOTSTRAP_INVITE_CODE="${FENGQUN_BOOTSTRAP_INVITE_CODE:-CHAOTANG-DEV-E2E}"
 export FENGQUN_WEB_PORT="$PORT"
 "$PY" -m web.main

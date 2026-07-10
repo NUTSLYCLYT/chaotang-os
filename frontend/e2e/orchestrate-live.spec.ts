@@ -29,7 +29,11 @@ test.describe('@live 上书房编排真链', () => {
     const password = 'Verify123456';
 
     // 1. 注册(BFF 转后端 :8081 建用户)
-    const reg = await ctx.post(url('/api/auth/register'), { data: { username, email, password } });
+    // 2026-07-09 起 /register 要求 invite_code；见 e2e/liubu-bureau-pages-smoke.spec.ts 同款说明。
+    const inviteCode = process.env.FENGQUN_BOOTSTRAP_INVITE_CODE ?? 'CHAOTANG-DEV-E2E';
+    const reg = await ctx.post(url('/api/auth/register'), {
+      data: { username, email, password, invite_code: inviteCode },
+    });
     expect(reg.status(), `register(${await reg.text()})`).toBe(201);
 
     // 2. 登录 → 真 JWT(strict 姿态走后端验签;dev 姿态本地 decode-only)
