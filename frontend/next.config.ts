@@ -66,6 +66,31 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      // /departments 路由族已随孤儿 office-page 系统退役(ee4f44f, 2026-07-09)，真正的六部
+      // 页面在 /liubu/*。/liubu/[code] 已经支持新旧两种部门代码写法(见
+      // src/config/chaotang-v1-modules.ts 的 V1_DEPARTMENT_ALIASES：finance/hubu 都认，
+      // ops/bingbu 都认……)，所以这里直接透传 :code，不需要额外的代码映射表。
+      {
+        source: '/departments',
+        destination: '/liubu',
+        permanent: false,
+      },
+      {
+        source: '/departments/:code*',
+        destination: '/liubu/:code*',
+        permanent: false,
+      },
+      // /command-center 和 /junjichu 是同一个页面(app/(dashboard)/junjichu/page.tsx 导出的
+      // 组件本身就叫 CommandCenterPage)，路由改名时全仓 25+ 处硬编码引用没有跟着迁移。
+      {
+        source: '/command-center',
+        destination: '/junjichu',
+        permanent: false,
+      },
+    ];
+  },
   // autoresearch/build-speed-jul4 experiment: parallelize output file tracing
   // across the ~96 routes instead of tracing them serially.
   experimental: {
