@@ -11,6 +11,7 @@ status: stub
 - **kind**: tool
 
 ## 来源
+- [[sources/05-swarms-evolution-2026-07-09]]
 - [[sources/05-swarms-evolution-2026-07-06]]
 - [[sources/02-chancellor-reports-2026-07-05-weekly-retrospective]]
 - [[sources/05-swarms-evolution-2026-07-01]]

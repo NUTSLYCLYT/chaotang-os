@@ -12,6 +12,10 @@ status: stub
 （待 audit cron 合成）
 
 ## 来源
+- [[sources/06-hermes-research-huggingface-2026-07-10-hf-papers]]
+- [[sources/01-daily-briefings-2026-07-10-moc]]
+- [[sources/05-swarms-meta-2026-07-09-self-diagnose]]
+- [[sources/05-swarms-stock-2026-07-09-close-alert]]
 - [[sources/05-swarms-stock-2026-07-09-pre-market]]
 - [[sources/01-daily-briefings-2026-07-09-moc]]
 - [[sources/05-swarms-stock-2026-07-08-close-alert]]
