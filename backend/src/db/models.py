@@ -12,6 +12,7 @@
 MemorialStatus 值域(KP-7 全链路枚举):
   pending | running | approved | archived | rejected
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -30,8 +31,10 @@ class Base(DeclarativeBase):
 
 # ── decrees ───────────────────────────────────────────────────────────────
 
+
 class Decree(Base):
     """下旨记录。decree_id 与 tasks.task_id 共用同一 8 字节 hex 串(D16①)。"""
+
     __tablename__ = "decrees"
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
@@ -45,8 +48,7 @@ class Decree(Base):
     # JSON 列:存 list[str]
     ministers_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="[]")
     groups_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="[]")
-    created_at: Mapped[str] = mapped_column(sa.Text, nullable=False,
-                                             default=_now_iso)
+    created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
 
     __table_args__ = (
         sa.Index("ix_decrees_decree_id", "decree_id"),
@@ -56,8 +58,10 @@ class Decree(Base):
 
 # ── tasks ─────────────────────────────────────────────────────────────────
 
+
 class Task(Base):
     """任务执行记录。双写:内存 task_registry(SSE)+ 此表(持久化)。"""
+
     __tablename__ = "tasks"
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
@@ -95,11 +99,13 @@ class Task(Base):
 
 # ── memorials ─────────────────────────────────────────────────────────────
 
+
 class Memorial(Base):
     """奏折索引表(Run JSON 文件保留;此表存结构化摘要+索引字段)。
 
     status 值域(KP-7):pending | running | approved | archived | rejected
     """
+
     __tablename__ = "memorials"
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
@@ -128,6 +134,7 @@ class Memorial(Base):
 
 # ── reviews ───────────────────────────────────────────────────────────────
 
+
 class Review(Base):
     """裁决记录。双写:JSON 文件(兜底)+ 此表(优先读)。
 
@@ -136,6 +143,7 @@ class Review(Base):
       reject  → rejected
       inquire → pending
     """
+
     __tablename__ = "reviews"
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
@@ -157,8 +165,10 @@ class Review(Base):
 
 # ── retrospectives ────────────────────────────────────────────────────────
 
+
 class Retrospective(Base):
     """任务复盘。双写:JSON 文件(兜底)+ 此表(优先读)。"""
+
     __tablename__ = "retrospectives"
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
@@ -174,16 +184,19 @@ class Retrospective(Base):
     authored_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
     # 0=真实复盘, 1=系统合成兜底
     synthetic: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=False)
+    # 简单三态结果:success/blocked/pending。真实存储字段,不由 score/failures 派生
+    # (2026-07-10:score/failures 是否为空都不能可靠推出三态,见 004 迁移注释)。
+    outcome: Mapped[str] = mapped_column(sa.Text, nullable=False, default="pending")
 
-    __table_args__ = (
-        sa.Index("ix_retrospectives_task_id", "task_id"),
-    )
+    __table_args__ = (sa.Index("ix_retrospectives_task_id", "task_id"),)
 
 
 # ── shangshufang decision loop ─────────────────────────────────────────────
 
+
 class DecisionTask(Base):
     """上书房决策任务：一句话原问 → 丞相拟旨 → 皇上确认 → 军机处会审。"""
+
     __tablename__ = "decision_tasks"
 
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
@@ -192,11 +205,17 @@ class DecisionTask(Base):
     refined_edict: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     decision_type: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     status: Mapped[str] = mapped_column(sa.Text, nullable=False, default="draft")
-    source_label: Mapped[str] = mapped_column(sa.Text, nullable=False, default="FALLBACK")
+    source_label: Mapped[str] = mapped_column(
+        sa.Text, nullable=False, default="FALLBACK"
+    )
     risk_flags_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="[]")
     known_facts_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="[]")
-    unknown_gaps_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="[]")
-    recommended_departments_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="[]")
+    unknown_gaps_json: Mapped[str] = mapped_column(
+        sa.Text, nullable=False, default="[]"
+    )
+    recommended_departments_json: Mapped[str] = mapped_column(
+        sa.Text, nullable=False, default="[]"
+    )
     draft_edict_json: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
     updated_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
@@ -209,6 +228,7 @@ class DecisionTask(Base):
 
 class CourtLoopRun(Base):
     """上书房 loop 运行记录，记录每次拟旨/确认/归档的输入输出。"""
+
     __tablename__ = "court_loop_runs"
 
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
@@ -229,6 +249,7 @@ class CourtLoopRun(Base):
 
 class AgentSkillRun(Base):
     """单个 skill 的可追溯运行记录。第一版用于丞相拟旨 deterministic skill。"""
+
     __tablename__ = "agent_skill_runs"
 
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
@@ -237,7 +258,9 @@ class AgentSkillRun(Base):
     skill_version: Mapped[str] = mapped_column(sa.Text, nullable=False)
     input_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="{}")
     output_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="{}")
-    source_label: Mapped[str] = mapped_column(sa.Text, nullable=False, default="FALLBACK")
+    source_label: Mapped[str] = mapped_column(
+        sa.Text, nullable=False, default="FALLBACK"
+    )
     eval_score: Mapped[float | None] = mapped_column(sa.Float, nullable=True)
     created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
 
@@ -248,14 +271,23 @@ class AgentSkillRun(Base):
 
 class CourtReview(Base):
     """军机处会审任务壳。第一版先持久化状态和路由计划。"""
+
     __tablename__ = "court_reviews"
 
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
     task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
-    routing_plan_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="{}")
-    review_status: Mapped[str] = mapped_column(sa.Text, nullable=False, default="reviewing")
-    ministry_outputs_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="[]")
-    conflict_summary_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="[]")
+    routing_plan_json: Mapped[str] = mapped_column(
+        sa.Text, nullable=False, default="{}"
+    )
+    review_status: Mapped[str] = mapped_column(
+        sa.Text, nullable=False, default="reviewing"
+    )
+    ministry_outputs_json: Mapped[str] = mapped_column(
+        sa.Text, nullable=False, default="[]"
+    )
+    conflict_summary_json: Mapped[str] = mapped_column(
+        sa.Text, nullable=False, default="[]"
+    )
     memorial_json: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
     updated_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
@@ -267,13 +299,16 @@ class CourtReview(Base):
 
 class EmperorDecision(Base):
     """皇上裁决记录。"""
+
     __tablename__ = "emperor_decisions"
 
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
     task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     action: Mapped[str] = mapped_column(sa.Text, nullable=False)
     reason: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
-    human_confirmed: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=False)
+    human_confirmed: Mapped[bool] = mapped_column(
+        sa.Boolean, nullable=False, default=False
+    )
     confirmation_record_json: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
 
@@ -284,6 +319,7 @@ class EmperorDecision(Base):
 
 class ShiguanArchive(Base):
     """史馆归档记录：保存任务、拟旨、回奏、裁决、证据链和来源标签。"""
+
     __tablename__ = "shiguan_archives"
 
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
@@ -292,9 +328,13 @@ class ShiguanArchive(Base):
     refined_edict: Mapped[str] = mapped_column(sa.Text, nullable=False)
     final_memorial_json: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     emperor_decision_json: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
-    evidence_chain_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="[]")
+    evidence_chain_json: Mapped[str] = mapped_column(
+        sa.Text, nullable=False, default="[]"
+    )
     source_label: Mapped[str] = mapped_column(sa.Text, nullable=False)
-    synthetic_flag: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=False)
+    synthetic_flag: Mapped[bool] = mapped_column(
+        sa.Boolean, nullable=False, default=False
+    )
     created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
 
     __table_args__ = (
@@ -304,12 +344,14 @@ class ShiguanArchive(Base):
 
 # ── admin 可编辑部门管理 ────────────────────────────────────────────────────
 
+
 class Department(Base):
     """admin 可编辑部门。按 tenant_id 隔离（逻辑 FK → tenants.id）。
 
     与 harness/chaotang_department_protocol/departments.yaml 的静态花名册（按 code
     只读）不同：这是前端 admin/jiqun-depts 页可增删改、按数字 id、可挂 flow 的动态部门。
     """
+
     __tablename__ = "departments"
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
@@ -325,6 +367,7 @@ class Department(Base):
 
 class DepartmentFlow(Base):
     """部门 ↔ flow 挂载。flow_id = config/flow_*.yaml 的文件名 stem。"""
+
     __tablename__ = "department_flows"
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
@@ -340,6 +383,7 @@ class DepartmentFlow(Base):
 
 class UserDepartment(Base):
     """用户 ↔ 部门授权。user_id 逻辑 FK → users.id（src.tenant 原生 sqlite3 管理）。"""
+
     __tablename__ = "user_departments"
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
@@ -356,12 +400,14 @@ class UserDepartment(Base):
 
 # ── swarm execution loop ──────────────────────────────────────────────────
 
+
 class SwarmRun(Base):
     """军机处后台蜂群产线运行记录。
 
     第一版用于保存规则路由 + mock 专业蜂群输出；真实后端蜂群接入后沿用同一
     run/trace 形状，只有 source_label 才能升级为 LIVE_SWARM。
     """
+
     __tablename__ = "swarm_runs"
 
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
@@ -384,6 +430,7 @@ class SwarmRun(Base):
 
 class SwarmTaskRun(Base):
     """单个后台蜂群的结构化输出。"""
+
     __tablename__ = "swarm_task_runs"
 
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
@@ -406,6 +453,7 @@ class SwarmTaskRun(Base):
 
 class SwarmEvidenceLink(Base):
     """蜂群结论与证据/缺口的可追溯链接。"""
+
     __tablename__ = "swarm_evidence_links"
 
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
@@ -417,19 +465,20 @@ class SwarmEvidenceLink(Base):
     confidence: Mapped[str] = mapped_column(sa.Text, nullable=False, default="中")
     created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
 
-    __table_args__ = (
-        sa.Index("ix_swarm_evidence_run", "swarm_run_id"),
-    )
+    __table_args__ = (sa.Index("ix_swarm_evidence_run", "swarm_run_id"),)
 
 
 class SwarmQualityResult(Base):
     """蜂群质门结果。"""
+
     __tablename__ = "swarm_quality_results"
 
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
     swarm_run_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     passed: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=False)
-    blocking_reasons_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="[]")
+    blocking_reasons_json: Mapped[str] = mapped_column(
+        sa.Text, nullable=False, default="[]"
+    )
     warnings_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="[]")
     revised_output_json: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)

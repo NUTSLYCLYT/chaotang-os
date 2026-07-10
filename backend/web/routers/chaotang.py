@@ -11,6 +11,7 @@ import re
 import secrets
 import threading
 from datetime import datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -1481,6 +1482,114 @@ def archive_list(_: CurrentUser = Depends(get_current_user)) -> dict:
     return ok({"memorials": memorials, "decisions": reviews})
 
 
+# ── P3-C(2026-07-10):问太史令·生成史册,真实数据聚合 + LLM 摘要,不落库 ──
+
+_CHRONICLE_TYPE_DAYS = {"日史": 1, "周史": 7, "月史": 30, "专题史": 30}
+_CHRONICLE_DECISION_STATUS = {
+    "approve": "已完成",
+    "reject": "已完成",
+    "inquire": "执行中",
+}
+
+
+class _ChronicleRequest(BaseModel):
+    type: Literal["日史", "周史", "月史", "专题史"] = "日史"
+    days: int | None = None
+
+
+@router.post("/archive/chronicle")
+def archive_chronicle(
+    body: _ChronicleRequest, _: CurrentUser = Depends(get_current_user)
+) -> dict:
+    """史册生成:窗口内真实奏折/决策/复盘聚合 + LLM 写一段摘要。按需生成,不归档存表
+    (是否要建史册归档表是独立产品决策,见 docs/shiguan-jinyiwei-wiring-plan P3)。
+    """
+    from datetime import date, timedelta
+
+    from web.routers.throne import _build_memorial_list
+
+    window_days = body.days or _CHRONICLE_TYPE_DAYS.get(body.type, 1)
+    cutoff = (date.today() - timedelta(days=window_days)).isoformat()
+
+    memorials = [
+        m
+        for m in _build_memorial_list()
+        if m.get("status") in ("approved", "archived", "done")
+        and (m.get("createdAt") or "") >= cutoff
+    ]
+    reviews = [
+        r for r in chaotang_store.list_reviews() if (r.get("createdAt") or "") >= cutoff
+    ]
+    memorial_by_id = {m["id"]: m for m in memorials}
+
+    events = [m.get("title", "") for m in memorials if m.get("title")]
+    decisions = []
+    for r in reviews:
+        m = memorial_by_id.get(r.get("memorialId"))
+        title = m.get("title") if m else f"批阅：{r.get('memorialId', '')}"
+        decisions.append(
+            {
+                "title": title,
+                "status": _CHRONICLE_DECISION_STATUS.get(r.get("action"), "执行中"),
+            }
+        )
+
+    knowledge: list[str] = []
+    for m in memorials:
+        rec = chaotang_store.get_retrospective(m["id"])
+        if rec and not rec.get("synthetic"):
+            knowledge.extend(rec.get("lessons") or [])
+
+    summary, llm_degraded = _chronicle_summary(events, decisions)
+
+    return ok(
+        {
+            "type": body.type,
+            "days": window_days,
+            "events": events,
+            "decisions": decisions,
+            "summary": summary,
+            "knowledge": knowledge,
+            "llmDegraded": llm_degraded,
+        }
+    )
+
+
+def _chronicle_summary(events: list[str], decisions: list[dict]) -> tuple[str, bool]:
+    """真实事件/决策 → LLM 摘要。LLM 不可用或空产出 → 诚实兜底,不冒充生成成功。"""
+    import os
+
+    if not events and not decisions:
+        return "此窗口内没有真实归档事件，未生成摘要(不编造)。", False
+
+    fallback = f"(LLM 摘要暂不可用，以下为真实数据直陈)本窗口共 {len(events)} 件事项、{len(decisions)} 项决策。"
+    try:
+        from src.model_adapter import ModelAdapter
+
+        event_digest = "\n".join(f"- {e}" for e in events[:20]) or "(无事件)"
+        decision_digest = (
+            "\n".join(f"- {d['title']}({d['status']})" for d in decisions[:20])
+            or "(无决策)"
+        )
+        adapter = ModelAdapter(
+            model="openai/qwen-turbo",
+            api_base="https://dashscope.aliyuncs.com/compatible-mode/v1",
+            api_key=os.getenv("DASHSCOPE_API_KEY"),
+        )
+        res = adapter.call(
+            system_prompt=(
+                "你是朝堂OS的太史令,用简洁的古风口吻,把下面的真实朝堂事件和决策写成一段"
+                "不超过120字的复盘摘要,只依据给出的内容,不夸大、不编造未提及的事项。"
+            ),
+            user_prompt=f"事件:\n{event_digest}\n\n决策:\n{decision_digest}",
+        )
+        if res.get("status") == "success" and (res.get("output") or "").strip():
+            return res["output"].strip(), False
+        return fallback, True
+    except Exception:
+        return fallback, True
+
+
 # ── P1-4: 史馆知识条目 count(静态路由须在 {task_id} 通配之前注册)──
 
 
@@ -1783,6 +1892,7 @@ def archive_retrospective(
         "authoredBy": "史官",
         "authoredAt": datetime.now().isoformat(timespec="seconds"),
         "synthetic": True,
+        "outcome": "success" if score >= 4 else "pending",
     }
     return ok(synth)
 
@@ -1794,6 +1904,7 @@ class _RetrospectiveRequest(BaseModel):
     lessons: list[str] = []
     playbook: str | None = None
     authoredBy: str = "史官"
+    outcome: Literal["success", "blocked", "pending"] = "pending"
 
 
 @router.post("/archive/{task_id}/retrospective")

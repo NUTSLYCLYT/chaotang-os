@@ -8,6 +8,7 @@ KP-7 action→MemorialStatus 映射:
   reject  → rejected
   inquire → pending
 """
+
 from __future__ import annotations
 
 import json
@@ -109,7 +110,9 @@ def ensure_task_result_json_column(session: Session) -> None:
                 return
             session.execute(text("ALTER TABLE tasks ADD COLUMN result_json TEXT"))
             return
-        session.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS result_json TEXT"))
+        session.execute(
+            text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS result_json TEXT")
+        )
     except Exception as exc:  # noqa: BLE001 - tolerate duplicate-column races only.
         message = str(exc).lower()
         if "duplicate column" not in message and "already exists" not in message:
@@ -126,9 +129,11 @@ def task_record(row: Task) -> dict[str, Any]:
         "rawCommand": row.task_input or "",
         "status": display_status,
         "mode": result.get("mode") or "hybrid",
-        "progressPct": int((row.completed_steps or 0) / row.total_steps * 100)
-        if row.total_steps
-        else (100 if row.status == "done" else 0),
+        "progressPct": (
+            int((row.completed_steps or 0) / row.total_steps * 100)
+            if row.total_steps
+            else (100 if row.status == "done" else 0)
+        ),
         "createdAt": row.created_at or row.started_at or "",
         "updatedAt": row.updated_at or row.finished_at or row.created_at or "",
         "result": result,
@@ -154,7 +159,9 @@ def upsert_persisted_task(
     display_status = _normalize_display_status(status)
     internal = _internal_status(display_status)
     row = session.query(Task).filter_by(task_id=task_id).first()
-    result_json = _merge_result_json(None if row is None else row.result_json, result, title=title, mode=mode)
+    result_json = _merge_result_json(
+        None if row is None else row.result_json, result, title=title, mode=mode
+    )
 
     if row is None:
         row = Task(
@@ -184,17 +191,19 @@ def upsert_persisted_task(
             row.decree_id = task_id
 
     if not session.query(Decree).filter_by(decree_id=task_id).first():
-        session.add(Decree(
-            decree_id=task_id,
-            tenant_id=tenant_id,
-            user_id=user_id,
-            raw_command=raw_command,
-            intent=title,
-            task_type=mode,
-            ministers_json="[]",
-            groups_json="[]",
-            created_at=now,
-        ))
+        session.add(
+            Decree(
+                decree_id=task_id,
+                tenant_id=tenant_id,
+                user_id=user_id,
+                raw_command=raw_command,
+                intent=title,
+                task_type=mode,
+                ministers_json="[]",
+                groups_json="[]",
+                created_at=now,
+            )
+        )
 
     session.flush()
     return task_record(row)
@@ -248,6 +257,7 @@ def patch_persisted_task_result(
 
 # ── decree + task 双写 ────────────────────────────────────────────────────
 
+
 def save_decree_and_task(
     *,
     session: Session,
@@ -271,32 +281,36 @@ def save_decree_and_task(
 
     # 幂等:已存在则跳过
     if not session.query(Decree).filter_by(decree_id=task_id).first():
-        session.add(Decree(
-            decree_id=task_id,
-            tenant_id=tenant_id,
-            user_id=user_id,
-            raw_command=raw_command,
-            intent=intent,
-            task_type=task_type,
-            ministers_json=json.dumps(ministers or [], ensure_ascii=False),
-            groups_json=json.dumps(groups or [], ensure_ascii=False),
-            created_at=now,
-        ))
+        session.add(
+            Decree(
+                decree_id=task_id,
+                tenant_id=tenant_id,
+                user_id=user_id,
+                raw_command=raw_command,
+                intent=intent,
+                task_type=task_type,
+                ministers_json=json.dumps(ministers or [], ensure_ascii=False),
+                groups_json=json.dumps(groups or [], ensure_ascii=False),
+                created_at=now,
+            )
+        )
 
     if not session.query(Task).filter_by(task_id=task_id).first():
-        session.add(Task(
-            task_id=task_id,
-            decree_id=task_id,  # FK 与 decree_id 共用同一串
-            tenant_id=tenant_id,
-            status="running",
-            task_status="running",
-            task_input=raw_command[:120] if raw_command else "",
-            departments_json=json.dumps(departments or [], ensure_ascii=False),
-            started_at=now,
-            last_stage="dispatched",
-            created_at=now,
-            updated_at=now,
-        ))
+        session.add(
+            Task(
+                task_id=task_id,
+                decree_id=task_id,  # FK 与 decree_id 共用同一串
+                tenant_id=tenant_id,
+                status="running",
+                task_status="running",
+                task_input=raw_command[:120] if raw_command else "",
+                departments_json=json.dumps(departments or [], ensure_ascii=False),
+                started_at=now,
+                last_stage="dispatched",
+                created_at=now,
+                updated_at=now,
+            )
+        )
 
     session.flush()
 
@@ -342,6 +356,7 @@ def update_task_status(
 
 # ── memorial 双写 ─────────────────────────────────────────────────────────
 
+
 def upsert_memorial(
     *,
     session: Session,
@@ -363,19 +378,21 @@ def upsert_memorial(
     """
     row = session.query(Memorial).filter_by(memorial_id=memorial_id).first()
     if row is None:
-        session.add(Memorial(
-            memorial_id=memorial_id,
-            tenant_id=tenant_id,
-            task_id=task_id,
-            title=title,
-            source_department=source_department,
-            agent_code=agent_code,
-            priority=priority,
-            status=status,
-            summary=summary,
-            created_at=created_at,
-            updated_at=_now(),
-        ))
+        session.add(
+            Memorial(
+                memorial_id=memorial_id,
+                tenant_id=tenant_id,
+                task_id=task_id,
+                title=title,
+                source_department=source_department,
+                agent_code=agent_code,
+                priority=priority,
+                status=status,
+                summary=summary,
+                created_at=created_at,
+                updated_at=_now(),
+            )
+        )
     else:
         row.status = status
         row.summary = summary
@@ -392,6 +409,7 @@ def get_memorial_status_db(session: Session, memorial_id: str) -> str | None:
 
 
 # ── review 双写 ───────────────────────────────────────────────────────────
+
 
 def save_review_db(
     *,
@@ -412,15 +430,17 @@ def save_review_db(
 
     # 幂等:已存在则跳过写入
     if not session.query(Review).filter_by(review_id=review_id).first():
-        session.add(Review(
-            review_id=review_id,
-            memorial_id=memorial_id,
-            tenant_id=tenant_id,
-            action=action,
-            comment=comment,
-            reviewer_name=reviewer_name,
-            created_at=now,
-        ))
+        session.add(
+            Review(
+                review_id=review_id,
+                memorial_id=memorial_id,
+                tenant_id=tenant_id,
+                action=action,
+                comment=comment,
+                reviewer_name=reviewer_name,
+                created_at=now,
+            )
+        )
 
     # 联动更新 memorials.status(approve→archived, reject→rejected, inquire→pending)
     mapped_status = _ACTION_TO_STATUS.get(action)
@@ -441,7 +461,9 @@ def save_review_db(
     }
 
 
-def get_review_for_memorial_db(session: Session, memorial_id: str) -> dict[str, Any] | None:
+def get_review_for_memorial_db(
+    session: Session, memorial_id: str
+) -> dict[str, Any] | None:
     """读 memorial 最新 review;不存在返回 None。"""
     row = (
         session.query(Review)
@@ -484,6 +506,7 @@ def list_reviews_db(session: Session, tenant_id: int = 1) -> list[dict[str, Any]
 
 # ── retrospective 双写 ────────────────────────────────────────────────────
 
+
 def save_retrospective_db(
     *,
     session: Session,
@@ -495,6 +518,7 @@ def save_retrospective_db(
     playbook: str | None = None,
     authored_by: str = "史官",
     tenant_id: int = 1,
+    outcome: str = "pending",
 ) -> dict[str, Any]:
     """INSERT OR UPDATE retrospectives 表。
 
@@ -513,6 +537,7 @@ def save_retrospective_db(
     row.authored_by = authored_by
     row.authored_at = now
     row.synthetic = False
+    row.outcome = outcome
     session.flush()
 
     return {
@@ -524,6 +549,7 @@ def save_retrospective_db(
         "authoredBy": authored_by,
         "authoredAt": now,
         "synthetic": False,
+        "outcome": outcome,
     }
 
 
@@ -541,4 +567,5 @@ def get_retrospective_db(session: Session, task_id: str) -> dict[str, Any] | Non
         "authoredBy": row.authored_by,
         "authoredAt": row.authored_at,
         "synthetic": row.synthetic,
+        "outcome": getattr(row, "outcome", "pending"),
     }

@@ -5,6 +5,7 @@
   写 → JSON 文件先落(保险兜底) + 同时写 SQLite(src/db/flow_store)
   读 → 优先 SQLite;SQLite 不可用/空时 fallback JSON
 """
+
 from __future__ import annotations
 
 import json
@@ -22,6 +23,7 @@ def _get_default_tenant_id() -> int:
     try:
         import sqlite3
         from pathlib import Path as _Path
+
         db = _Path(__file__).resolve().parent.parent / "data" / "fengqun.db"
         if not db.exists():
             return 1
@@ -37,9 +39,11 @@ def _db_session():
     """获取 SQLAlchemy Session;失败返回 None(降级到 JSON only)。"""
     try:
         from src.db.engine import SessionLocal
+
         return SessionLocal()
     except Exception:
         return None
+
 
 # 裁决动作 → 持久化奏折状态(覆盖 run 派生状态)
 _ACTION_TO_STATUS: dict[str, str] = {
@@ -77,6 +81,7 @@ def get_memorial_status(memorial_id: str) -> str | None:
     if db is not None:
         try:
             from src.db.flow_store import get_memorial_status_db
+
             status = get_memorial_status_db(db, memorial_id)
             if status and status != "running":
                 return status
@@ -94,7 +99,9 @@ def get_memorial_status(memorial_id: str) -> str | None:
         return None
 
 
-def save_review(memorial_id: str, *, action: str, comment: str, reviewer: str) -> dict[str, Any]:
+def save_review(
+    memorial_id: str, *, action: str, comment: str, reviewer: str
+) -> dict[str, Any]:
     """批阅裁决:先写 JSON(兜底),再双写 SQLite(优先)。"""
     if action not in _VALID_ACTIONS:
         raise ValueError(f"action 必须是 {_VALID_ACTIONS} 之一")
@@ -108,18 +115,26 @@ def save_review(memorial_id: str, *, action: str, comment: str, reviewer: str) -
     }
     # ① 先写 JSON(兜底,保险)
     (_reviews_dir() / f"{rec['id']}.json").write_text(
-        json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8")
+        json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     (_reviews_dir() / f"by_memorial_{memorial_id}.json").write_text(
-        json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8")
-    status_rec = {"memorialId": memorial_id, "status": _ACTION_TO_STATUS[action],
-                  "action": action, "updatedAt": rec["createdAt"]}
+        json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    status_rec = {
+        "memorialId": memorial_id,
+        "status": _ACTION_TO_STATUS[action],
+        "action": action,
+        "updatedAt": rec["createdAt"],
+    }
     (_memorial_status_dir() / f"{memorial_id}.json").write_text(
-        json.dumps(status_rec, ensure_ascii=False, indent=2), encoding="utf-8")
+        json.dumps(status_rec, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     # ② 双写 SQLite(优先读,写失败静默降级 JSON)
     db = _db_session()
     if db is not None:
         try:
             from src.db.flow_store import save_review_db
+
             save_review_db(
                 session=db,
                 review_id=rec["id"],
@@ -144,6 +159,7 @@ def get_review_for_memorial(memorial_id: str) -> dict[str, Any] | None:
     if db is not None:
         try:
             from src.db.flow_store import get_review_for_memorial_db
+
             result = get_review_for_memorial_db(db, memorial_id)
             if result:
                 return result
@@ -164,6 +180,7 @@ def list_reviews() -> list[dict[str, Any]]:
     if db is not None:
         try:
             from src.db.flow_store import list_reviews_db
+
             results = list_reviews_db(db, tenant_id=_get_default_tenant_id())
             if results:
                 return results
@@ -179,8 +196,14 @@ def list_reviews() -> list[dict[str, Any]]:
     return out
 
 
+_RETROSPECTIVE_OUTCOMES = {"success", "blocked", "pending"}
+
+
 def save_retrospective(task_id: str, data: dict[str, Any]) -> dict[str, Any]:
     """保存复盘:先写 JSON(兜底),再双写 SQLite。"""
+    outcome = data.get("outcome", "pending")
+    if outcome not in _RETROSPECTIVE_OUTCOMES:
+        outcome = "pending"
     rec = {
         "score": int(data.get("score", 3)),
         "successes": list(data.get("successes", [])),
@@ -190,15 +213,18 @@ def save_retrospective(task_id: str, data: dict[str, Any]) -> dict[str, Any]:
         "authoredBy": data.get("authoredBy", "史官"),
         "authoredAt": datetime.now().isoformat(timespec="seconds"),
         "synthetic": bool(data.get("synthetic", False)),
+        "outcome": outcome,
     }
     # ① JSON 兜底
     (_retros_dir() / f"{task_id}.json").write_text(
-        json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8")
+        json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     # ② 双写 SQLite
     db = _db_session()
     if db is not None:
         try:
             from src.db.flow_store import save_retrospective_db
+
             save_retrospective_db(
                 session=db,
                 task_id=task_id,
@@ -209,6 +235,7 @@ def save_retrospective(task_id: str, data: dict[str, Any]) -> dict[str, Any]:
                 playbook=rec["playbook"],
                 authored_by=rec["authoredBy"],
                 tenant_id=_get_default_tenant_id(),
+                outcome=rec["outcome"],
             )
             db.commit()
         except Exception:
@@ -224,6 +251,7 @@ def get_retrospective(task_id: str) -> dict[str, Any] | None:
     if db is not None:
         try:
             from src.db.flow_store import get_retrospective_db
+
             result = get_retrospective_db(db, task_id)
             if result:
                 return result
@@ -245,6 +273,7 @@ def feedback_to_knowledge(title: str, content: str) -> bool:
     """
     try:
         from src.knowledge_rag import get_rag
+
         get_rag().add_texts([(content, "chaotang_approved", {"title": title})])
         return True
     except Exception:
@@ -258,6 +287,7 @@ def count_knowledge_items() -> int:
     """
     try:
         from src.knowledge_rag import get_rag
+
         return get_rag().count_by_source("chaotang_approved")
     except Exception:
         return 0
