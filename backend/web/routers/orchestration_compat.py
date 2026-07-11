@@ -353,3 +353,56 @@ def dept_swarm_dispatch(body: dict[str, Any] = Body(default_factory=dict)) -> di
         "traceId": task_id,
         "verified": False,
     }
+
+
+def _dept_true_chain_dispatch(prefix: str, task_input: str) -> dict:
+    """工部可行性研判 / 吏部招募共用的诚实兜底登记逻辑,同 dept_swarm_dispatch
+    风格:登记任务、给可轮询的 sessionId,不假装已跑真实蜂群。"""
+    task_id = f"{prefix}-{secrets.token_hex(4)}"
+    register_task(task_id, task_input=task_input, config=f"{prefix}-compat", monitor=True)
+    mark_status(task_id, "done", finished_at=_now_iso(), run_index_required=False)
+    return {"session_id": task_id, "sourceLabel": "FALLBACK"}
+
+
+@router.post("/api/court/dept/gong-bu/feasibility")
+def gongbu_feasibility(body: dict[str, Any] = Body(default_factory=dict)) -> dict:
+    return _dept_true_chain_dispatch("gongbu-feasibility", str(body.get("task_input") or "").strip())
+
+
+@router.get("/api/court/dept/gong-bu/feasibility/result")
+def gongbu_feasibility_result(sid: str = Query(...)) -> dict:
+    from web.task_registry import get_task
+
+    task = get_task(sid)
+    if task is None:
+        return {"ok": False, "sourceLabel": "FALLBACK", "status": "not_found", "sessionId": sid}
+    return {
+        "ok": False,
+        "sourceLabel": "FALLBACK",
+        "status": "compat_registered",
+        "sessionId": sid,
+        "summary": "工部 PACK 可行性蜂群兼容端点已登记任务；当前未接入实时产线资产研判。",
+        "missingCapabilities": ["gongbu_pack_feasibility_swarm"],
+    }
+
+
+@router.post("/api/court/dept/li-bu/recruit")
+def libu_recruit(body: dict[str, Any] = Body(default_factory=dict)) -> dict:
+    return _dept_true_chain_dispatch("libu-recruit", str(body.get("task_input") or "").strip())
+
+
+@router.get("/api/court/dept/li-bu/recruit/result")
+def libu_recruit_result(sid: str = Query(...)) -> dict:
+    from web.task_registry import get_task
+
+    task = get_task(sid)
+    if task is None:
+        return {"ok": False, "sourceLabel": "FALLBACK", "status": "not_found", "sessionId": sid}
+    return {
+        "ok": False,
+        "sourceLabel": "FALLBACK",
+        "status": "compat_registered",
+        "sessionId": sid,
+        "summary": "吏部招聘真链兼容端点已登记任务；当前未接入实时人才蜂群验真。",
+        "missingCapabilities": ["libu_recruit_swarm"],
+    }

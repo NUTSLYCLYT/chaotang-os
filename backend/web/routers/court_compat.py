@@ -265,6 +265,93 @@ def zhuangyuan_ministry_metrics() -> dict:
     }
 
 
+_LIVE_COUNCIL_STATUSES = {"edict_recorded", "reviewing", "awaiting_decision", "awaiting_evidence"}
+_CONFIDENCE_MAP = {"高": 0.9, "中": 0.6, "低": 0.3}
+
+
+@router.get("/grand-council/live")
+def grand_council_live(
+    limit: int = 10,
+    user: CurrentUser = Depends(get_current_user),
+) -> dict:
+    """给 CouncilView.tsx 的 /command-center?view=council 供真实在审会审会话。
+
+    数据源直接复用 confirm-edict/outbox 已经产出的 ChancellorRouteDecision +
+    CourtReview(与 decree_status.py 同一份事实),不新造推理链路——只是从
+    单任务视图换成多任务列表视图。空列表时前端会优雅退回 demo 夹具(见
+    CouncilView.tsx 的 buildCouncilSource 分支),这里返回空比伪造更诚实。
+    """
+    import json
+
+    from src.chancellor.contracts import RouteDecisionV2
+    from src.db.engine import SessionLocal
+    from src.db.models import ChancellorRouteDecision, CourtReview, DecisionTask
+
+    db = SessionLocal()
+    try:
+        tasks = (
+            db.query(DecisionTask)
+            .filter(DecisionTask.status.in_(_LIVE_COUNCIL_STATUSES))
+            .order_by(DecisionTask.updated_at.desc())
+            .limit(max(1, min(limit, 50)))
+            .all()
+        )
+        sessions: list[dict[str, Any]] = []
+        for task in tasks:
+            decision_row = (
+                db.query(ChancellorRouteDecision)
+                .filter_by(task_id=task.id)
+                .order_by(ChancellorRouteDecision.created_at.desc())
+                .first()
+            )
+            review = (
+                db.query(CourtReview)
+                .filter_by(task_id=task.id)
+                .order_by(CourtReview.created_at.desc())
+                .first()
+            )
+            if decision_row is None or review is None:
+                continue
+            route = RouteDecisionV2.model_validate_json(decision_row.decision_json)
+            memorial = json.loads(review.memorial_json or "{}")
+            ministry_outputs = memorial.get("ministry_outputs") or []
+            conflict_summary = memorial.get("conflict_summary") or []
+            contributors = [
+                {
+                    "dept": item.get("department") or "",
+                    "name": item.get("department") or "",
+                    "answer": item.get("opinion") or "",
+                    "confidence": _CONFIDENCE_MAP.get(item.get("confidence"), 0.5),
+                    "grounded": item.get("source_label") in {"LIVE", "LIVE_ENGINE"},
+                }
+                for item in ministry_outputs
+            ]
+            sessions.append(
+                {
+                    "taskId": task.id,
+                    "command": task.raw_question,
+                    "at": task.updated_at,
+                    "verdict": memorial.get("verdict") or "合议进行中",
+                    "escalateToBoss": route.human_confirmation_required,
+                    "grounded": route.source_label == "LIVE",
+                    "leadDept": route.primary_department,
+                    "contributors": contributors,
+                    "conflicts": [
+                        {"depts": c.get("departments") or [], "detail": c.get("summary") or ""}
+                        for c in conflict_summary
+                    ],
+                }
+            )
+        return {
+            "success": True,
+            "data": {"sessions": sessions},
+            "error": None,
+            "sourceLabel": "LIVE" if sessions else "DEMO",
+        }
+    finally:
+        db.close()
+
+
 def json_safe_hash_basis(body: dict[str, Any]) -> str:
     import hashlib
     import json

@@ -226,6 +226,60 @@ def test_zhuangyuan_ministry_metrics_contract_returns_envelope():
     assert body["data"]["hu_bu"]["sourceLabel"] == "FALLBACK"
 
 
+def test_grand_council_live_contract_returns_real_sessions_from_chancellor_routing(
+    isolated_session_local,
+):
+    """独立审查(2026-07-11)发现: CouncilView.tsx 调 /api/court/grand-council/live
+    但后端从未实现过,页面只能永远显示演示数据。这里验证真实 confirm-edict 产生的
+    council 任务会出现在这个列表里,而不是复用同一份 demo 夹具。"""
+    client = TestClient(app)
+    draft = client.post(
+        "/api/shangshufang/draft-edict",
+        json={"raw_question": "对方要求股权对赌，独家合作三年，是否同意"},
+    ).json()["data"]
+    client.post(
+        "/api/shangshufang/confirm-edict",
+        json={"task_id": draft["task_id"], "confirmed": True},
+    )
+
+    response = client.get("/api/court/grand-council/live")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["success"] is True
+    sessions = body["data"]["sessions"]
+    assert any(s["taskId"] == draft["task_id"] for s in sessions)
+    matched = next(s for s in sessions if s["taskId"] == draft["task_id"])
+    assert matched["command"] == draft["draft_edict"]["original_question"]
+    assert matched["contributors"]
+
+
+def test_gongbu_feasibility_and_libu_recruit_contracts_are_honest_fallback():
+    """独立审查(2026-07-11)发现的孤立缺口: 前端 department-actions.ts 描述了
+    这两条"真链"端点,但从未真正被调用过(只有 import type 引用),后端也从没
+    实现过。这里补齐成跟 dept_swarm_dispatch 一样的诚实兜底,不假装真跑了蜂群。"""
+    client = TestClient(app)
+
+    gongbu = client.post(
+        "/api/court/dept/gong-bu/feasibility", json={"task_input": "PACK 可行性研判"}
+    ).json()
+    assert gongbu["sourceLabel"] == "FALLBACK"
+    result = client.get(
+        f"/api/court/dept/gong-bu/feasibility/result?sid={gongbu['session_id']}"
+    ).json()
+    assert result["ok"] is False
+    assert result["sourceLabel"] == "FALLBACK"
+
+    libu = client.post(
+        "/api/court/dept/li-bu/recruit", json={"task_input": "招聘销售总监"}
+    ).json()
+    assert libu["sourceLabel"] == "FALLBACK"
+    result2 = client.get(
+        f"/api/court/dept/li-bu/recruit/result?sid={libu['session_id']}"
+    ).json()
+    assert result2["ok"] is False
+    assert result2["sourceLabel"] == "FALLBACK"
+
+
 def test_governance_bill_lifecycle_contract():
     client = TestClient(app)
     created = client.post("/api/governance/bills", json={"command": "请中书起草预算案"}).json()
