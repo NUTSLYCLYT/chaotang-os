@@ -186,6 +186,7 @@ from web.routers import governance_compat as governance_compat_router  # noqa: E
 from web.routers import hanlin as hanlin_router  # noqa: E402
 from web.routers import health as health_router  # noqa: E402
 from web.routers import hubu_ask as hubu_ask_router  # noqa: E402
+from web.routers import manor_and_task_events as manor_and_task_events_router  # noqa: E402
 from web.routers import qintian_forecast as qintian_forecast_router  # noqa: E402
 from web.routers import hubu as hubu_router  # noqa: E402
 from web.routers import ima_knowledge as ima_knowledge_router  # noqa: E402
@@ -244,6 +245,7 @@ app.include_router(qintian_forecast_router.router)
 app.include_router(hubu_ask_router.router)
 app.include_router(department_learning_router.router)
 app.include_router(forecast_intel_taiyi_router.router)
+app.include_router(manor_and_task_events_router.router)
 app.include_router(preflight_router.router)
 app.include_router(auth_router.router)
 app.include_router(admin_router.router)
