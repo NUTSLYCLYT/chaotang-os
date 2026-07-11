@@ -14,8 +14,19 @@ from web.deps import get_current_user
 from web.routers._envelope import fail, ok
 from web.schemas.auth import CurrentUser
 
-from src.db.models import CourtReview, DecisionTask, SwarmQualityResult, SwarmRun, SwarmTaskRun
-from src.shangshufang_loop import draft_edict, draft_to_dict, make_id, now_iso
+from src.chancellor.contracts import RouteDecisionV2
+from src.chancellor.routing_service import legacy_route_dict
+from src.db.models import ChancellorRouteDecision, CourtReview, DecisionTask, SwarmQualityResult, SwarmRun, SwarmTaskRun
+from src.shangshufang_loop import (
+    DraftEdict,
+    chancellor_decide_route,
+    direct_receipt_for,
+    draft_edict,
+    draft_to_dict,
+    make_id,
+    now_iso,
+    routing_plan_for,
+)
 from src.swarm_execution_loop import run_swarm_execution_loop
 from src.swarm_persistence import attach_swarm_result_to_review, persist_swarm_execution_result
 
@@ -89,6 +100,88 @@ def _default_context(db, task_id: str, review_id: str | None) -> tuple[str, dict
     return actual_review_id, confirmed_edict, review_plan
 
 
+def _edict_from_confirmed(confirmed_edict: dict[str, Any]) -> DraftEdict:
+    """confirmed_edict 是 draft_to_dict(DraftEdict) 形状(task.draft_edict_json 或客户端回传)；
+    这里防御性补全缺字段,避免客户端传半个 dict 时构造失败。"""
+    defaults: dict[str, Any] = {
+        "original_question": "",
+        "refined_edict": "",
+        "decision_type": "",
+        "known_facts": [],
+        "unknown_gaps": [],
+        "recommended_departments": [],
+        "risk_flags": [],
+        "expected_memorial_format": [],
+        "emperor_confirmation_question": "",
+        "source_label": "FALLBACK",
+    }
+    fields = DraftEdict.__dataclass_fields__.keys()
+    payload = {key: confirmed_edict.get(key, defaults[key]) for key in fields}
+    return DraftEdict(**payload)
+
+
+def _resolve_chancellor_route(db, task_id: str, edict: DraftEdict) -> dict:
+    """优先复用上书房下旨时已落盘、皇上已确认过的路由决策；查不到才现算一个。"""
+    persisted = (
+        db.query(ChancellorRouteDecision)
+        .filter_by(task_id=task_id)
+        .order_by(ChancellorRouteDecision.created_at.desc())
+        .first()
+    )
+    if persisted is not None:
+        return legacy_route_dict(RouteDecisionV2.model_validate_json(persisted.decision_json))
+    return chancellor_decide_route(edict)
+
+
+def _direct_swarm_short_circuit(
+    db, body: "CreateSwarmRunRequest", edict: DraftEdict, route: dict, review_id: str
+) -> dict:
+    """丞相判定为 direct 时跳过全量蜂群,写一条 degenerate SwarmRun 记录,复用上书房
+    direct_receipt_for 的回执文案。不复制 CourtReview/CourtLoopRun/EmperorDecision 三件套——
+    那是上书房下旨时的人工确认审计,军机处派蜂群按钮不是二次确认。"""
+    routing_plan = routing_plan_for(edict, route)
+    receipt = direct_receipt_for(edict, routing_plan)
+    now = now_iso()
+    run_id = make_id("swarmrun", body.task_id, review_id, now, "direct")
+    db.add(
+        SwarmRun(
+            id=run_id,
+            task_id=body.task_id,
+            review_id=review_id,
+            mode=body.mode,
+            status="direct_completed",
+            source_label=edict.source_label,
+            route_plan_json=_json(routing_plan),
+            trace_id=body.trace_id or review_id,
+            started_at=now,
+            finished_at=now,
+            error=None,
+        )
+    )
+    review = db.query(CourtReview).filter_by(id=review_id).first()
+    if review is not None:
+        review.review_status = "direct_completed"
+        review.updated_at = now
+    db.commit()
+    return ok(
+        {
+            "swarm_run": _run_to_payload(db.query(SwarmRun).filter_by(id=run_id).first()),
+            "progress_url": f"/api/swarm-runs/{run_id}/progress",
+            "brief_url": None,
+            "brief": receipt.get("formatted_memorial"),
+            "quality_result": {
+                "status": "passed" if not edict.unknown_gaps else "warning",
+                "blocking_reasons": [],
+                "warnings": receipt.get("quality_gate", {}).get("reasons", []),
+                "source_label": edict.source_label,
+            },
+            "direct_receipt": receipt,
+            "route": route,
+            "routing_plan": routing_plan,
+        }
+    )
+
+
 def _run_and_persist(db, params: dict[str, Any], review_id: str) -> dict:
     """跑一轮蜂群产线 + 落库 + 挂到 review。军机处/串行两条路径共用,避免复制持久化块。"""
     result = run_swarm_execution_loop(params)
@@ -115,13 +208,18 @@ def create_swarm_run(_: CurrentUser = Depends(get_current_user), body: CreateSwa
     db = SessionLocal()
     try:
         review_id, confirmed_edict, review_plan = _default_context(db, body.task_id, body.review_id)
+        resolved_edict = body.confirmed_edict or confirmed_edict
+        edict = _edict_from_confirmed(resolved_edict)
+        route = _resolve_chancellor_route(db, body.task_id, edict)
+        if body.mode != "live_swarm" and route.get("mode") == "direct":
+            return _direct_swarm_short_circuit(db, body, edict, route, review_id)
         return _run_and_persist(
             db,
             {
                 "task_id": body.task_id,
                 "review_id": review_id,
                 "mode": body.mode,
-                "confirmed_edict": body.confirmed_edict or confirmed_edict,
+                "confirmed_edict": resolved_edict,
                 "review_plan": body.review_plan or review_plan,
                 "trace_id": body.trace_id,
             },

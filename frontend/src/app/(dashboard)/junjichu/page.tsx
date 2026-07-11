@@ -2965,7 +2965,11 @@ function CommandCenterInner() {
     },
     sourceLabel,
     routing: {
-      mode: hasTask ? 'junjichu' : 'unknown',
+      mode: !hasTask
+        ? 'unknown'
+        : shangshufangStatus?.review?.routing_plan?.swarm_required === false
+          ? 'direct'
+          : 'junjichu',
       reason: hasTask
         ? (liveCouncilSummary ?? ministryBrief?.report.verdict ?? '本案进入军机处，由丞相路由并召集相关部门会审。')
         : '待上书房或圣旨立案后，军机处接案。',

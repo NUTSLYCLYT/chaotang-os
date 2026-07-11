@@ -29,6 +29,7 @@ function readString(value: unknown): string | undefined {
 function normalizeStatus(value: unknown): SwarmRunStatus {
   if (value === 'running' || value === 'completed' || value === 'quality_blocked' || value === 'failed') return value;
   if (value === 'blocked') return 'quality_blocked';
+  if (value === 'direct_completed') return 'completed';
   return 'idle';
 }
 
