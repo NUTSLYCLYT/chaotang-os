@@ -53,7 +53,7 @@ function decisionOptionsForTask(task: ShangshufangDecisionTaskSummary): string[]
   return ['查看状态'];
 }
 
-function mergeDecisionHome(
+export function mergeDecisionHome(
   briefing: ShangshufangBriefing,
   home: ShangshufangHomeResponse | undefined,
 ): ShangshufangBriefing {
@@ -75,11 +75,20 @@ function mergeDecisionHome(
       const draft = task.draft_edict;
       const gaps = task.unknown_gaps.length ? `缺口：${task.unknown_gaps.join('、')}` : '暂无显式缺口';
       const risks = task.risk_flags.length ? `风险：${task.risk_flags.join('、')}` : '风险待复核';
+      // 独立复审(2026-07-11)发现: 真实回奏产出后(awaiting_decision/reviewing/
+      // awaiting_evidence)这里之前只读 draft_edict,导致"建议"栏永远显示下旨前
+      // 的丞相拟旨草稿,不是真实六部分奏结论——真实内容存在时必须优先它。
+      const memorial = task.latest_memorial;
+      const ministryLine = memorial?.ministry_outputs.length
+        ? memorial.ministry_outputs.map((item) => `${item.department}：${item.opinion}`).join('\n')
+        : null;
       return {
         id: task.task_id,
         loopTraceId: task.loop_trace_id ?? loopTraceIdForTask(task.task_id),
         title: draft?.refined_edict || task.raw_question,
-        summary: `${tagForTask(task)} · 来源 ${task.source_label}。${gaps}。${risks}。`,
+        summary: memorial?.summary
+          ? `${tagForTask(task)} · 来源 ${memorial.source_label ?? task.source_label}。${memorial.summary}`
+          : `${tagForTask(task)} · 来源 ${task.source_label}。${gaps}。${risks}。`,
         priority: priorityForTask(task),
         status: task.status,
         petitioner: '皇上原问',
@@ -87,9 +96,10 @@ function mergeDecisionHome(
         sealDate: task.updated_at || task.created_at,
         decisionOptions: decisionOptionsForTask(task),
         enhancedSuggestion:
+          [memorial?.summary, ministryLine].filter(Boolean).join('\n\n') ||
           draft?.refined_edict ||
           `请围绕“${task.raw_question}”继续形成可裁决、可归档的上书房任务。`,
-        verdict: task.status === 'awaiting_decision' ? '圣裁建议：补证或复核' : undefined,
+        verdict: memorial?.verdict ?? (task.status === 'awaiting_decision' ? '圣裁建议：补证或复核' : undefined),
         citations: [],
       };
     });

@@ -593,6 +593,7 @@ export function toDecisionTaskSummary(record: LocalDecisionRecord): Shangshufang
     recommended_departments: record.draft_edict.suggested_perspectives ?? record.draft_edict.recommended_departments,
     created_at: record.created_at,
     updated_at: record.updated_at,
+    latest_memorial: null,
   };
 }
 

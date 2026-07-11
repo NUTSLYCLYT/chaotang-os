@@ -270,7 +270,23 @@ def _user_id(user: CurrentUser) -> str:
     return str(user.user_id or user.username or user.tenant_slug or "anonymous")
 
 
-def _task_to_payload(row: DecisionTask) -> dict:
+def _task_to_payload(row: DecisionTask, review: "CourtReview | None" = None) -> dict:
+    """独立复审(2026-07-11)发现: /home 的任务摘要只有 draft_edict(下旨前的丞相
+    拟旨),从不带真实回奏——上书房首页"建议"栏因此永远显示下旨前的草拟文字，
+    即使任务早已跑完真实六部会审(awaiting_decision/reviewing/awaiting_evidence)。
+    传入 review 时附上最新 CourtReview 的精简摘要，调用方(useShangshufangBriefing)
+    优先用它而不是 draft_edict.refined_edict。调用方负责批量取 review，避免
+    在列表推导里逐行查询(N+1)。"""
+    latest_memorial: dict[str, Any] | None = None
+    if review is not None:
+        memorial = _loads(review.memorial_json, {})
+        if memorial:
+            latest_memorial = {
+                "verdict": memorial.get("verdict"),
+                "summary": memorial.get("summary"),
+                "source_label": memorial.get("source_label"),
+                "ministry_outputs": memorial.get("ministry_outputs", []),
+            }
     return {
         "task_id": row.id,
         "status": row.status,
@@ -283,6 +299,7 @@ def _task_to_payload(row: DecisionTask) -> dict:
         "recommended_departments": _loads(row.recommended_departments_json, []),
         "created_at": row.created_at,
         "updated_at": row.updated_at,
+        "latest_memorial": latest_memorial,
     }
 
 
@@ -293,6 +310,22 @@ def _latest_review(db, task_id: str) -> CourtReview | None:
         .order_by(CourtReview.created_at.desc())
         .first()
     )
+
+
+def _latest_reviews_by_task(db, task_ids: list[str]) -> dict[str, CourtReview]:
+    """批量取每个 task_id 的最新一条 CourtReview，避免逐行查询(N+1)。"""
+    if not task_ids:
+        return {}
+    rows = (
+        db.query(CourtReview)
+        .filter(CourtReview.task_id.in_(task_ids))
+        .order_by(CourtReview.task_id, CourtReview.created_at.desc())
+        .all()
+    )
+    latest: dict[str, CourtReview] = {}
+    for row in rows:
+        latest.setdefault(row.task_id, row)
+    return latest
 
 
 def _direct_swarm_skip_payload(
@@ -617,8 +650,14 @@ def shangshufang_home(user: CurrentUser = Depends(get_current_user)) -> dict:
             .limit(10)
             .all()
         )
-        payload["pending_decisions"] = [_task_to_payload(row) for row in pending]
-        payload["pending_evidence_tasks"] = [_task_to_payload(row) for row in reviewing]
+        task_ids = [row.id for row in (*pending, *reviewing)]
+        latest_reviews = _latest_reviews_by_task(db, task_ids)
+        payload["pending_decisions"] = [
+            _task_to_payload(row, latest_reviews.get(row.id)) for row in pending
+        ]
+        payload["pending_evidence_tasks"] = [
+            _task_to_payload(row, latest_reviews.get(row.id)) for row in reviewing
+        ]
         if pending:
             top = pending[0]
             payload["source_label"] = top.source_label
@@ -1074,7 +1113,7 @@ def shangshufang_task_status(
         return ok(
             {
                 "sourceLabel": "LIVE",
-                "task": _task_to_payload(task),
+                "task": _task_to_payload(task, review),
                 "review": _review_payload(review),
                 # 方案10.3节 DecreeExecutionStatusV1；None 表示尚未下旨确认，
                 # 还没有 ChancellorRouteDecision，不伪造占位路由快照。

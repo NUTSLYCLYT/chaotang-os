@@ -490,6 +490,13 @@ export interface ShangshufangDecisionTaskSummary {
   recommended_departments: string[];
   created_at: string;
   updated_at: string;
+  /** 2026-07-11 补齐: 真实回奏已产出时的精简摘要, 取代下旨前的 draft_edict 展示。 */
+  latest_memorial: {
+    verdict: string | null;
+    summary: string | null;
+    source_label: ShangshufangSourceLabel | null;
+    ministry_outputs: Array<{ department: string; opinion: string; source_label: ShangshufangSourceLabel }>;
+  } | null;
 }
 
 export interface ShangshufangHomeResponse {
