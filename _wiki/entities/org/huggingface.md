@@ -11,6 +11,7 @@ status: stub
 - **kind**: org
 
 ## 来源
+- [[sources/06-hermes-research-huggingface-2026-07-11-hf-papers]]
 
 - [[sources/06-hermes-research-huggingface-2026-07-05-hf-papers]]
 
