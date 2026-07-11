@@ -26,11 +26,15 @@ const MODE_OPTIONS: Array<{
   title: string;
 }> = [
   { key: 'order', mode: 'order', label: '下旨', icon: 'order', title: '下旨 · 先进入拟旨，准奏后才启动后端蜂群' },
-  // 独立复审(2026-07-11)发现: 这句话此前暗示密旨走一条独立的"先生成密旨稿、
-  // 人工确认后才全朝并奏"流程,但后端 draft-edict/confirm-edict 压根不接收
-  // mode 字段——密旨和下旨走的是同一条链路,唯一的真实区别只在措辞更收敛
-  // (走 /polish-edict 时的语气切换)。改成如实描述,不承诺不存在的保密路由。
-  { key: 'secret', mode: 'secret', label: '密旨', icon: 'secret', title: '密旨 · 同下旨流程，仅措辞更收敛克制' },
+  // 独立复审(2026-07-11)两轮修正:
+  // 第一轮误判为"密旨和下旨走同一条链路,只是措辞不同"——这是错的,Codex 停止前
+  // 审查已指出。真相更严重:runSecretDecree() 走的根本不是 draft-edict/confirm-edict
+  // 这条链路,而是 chaotang.orchestrateAll() → POST /api/court/orchestrate/all，
+  // 命中的是 court_compat.py 里的兼容占位实现——called 恒为 ["prime_minister"]、
+  // jiqunSwarm.ok 恒为 false、"未执行实时蜂群"、merge.contributors 恒为空数组。
+  // 也就是说密旨目前不调用任何真实部门引擎或 LLM,是个诚实的空转兼容端点,
+  // 跟下旨那条已验证真实可用的链路完全是两回事,不是"同流程只是语气不同"。
+  { key: 'secret', mode: 'secret', label: '密旨', icon: 'secret', title: '密旨 · 走独立直发通道，当前为兼容占位，未接入真实蜂群' },
 ];
 
 function dispatchImperialActionAccepted() {
