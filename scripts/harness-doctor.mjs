@@ -204,10 +204,19 @@ if (frontendDoctor.status === 0) {
 }
 
 if (manifest?.backend?.doctor) {
-  const backendDoctor = spawnSync('python', ['scripts/harness_doctor.py'], {
+  // 有的环境只装了 python3，没有 python 这个别名（本仓文档/其他机器上假设两者
+  // 等价，但不是所有环境都这样配置）——先按文档约定试 python，ENOENT 时(命令
+  // 压根不存在，不是脚本本身报错)退回 python3，两边都试不到才算真失败。
+  let backendDoctor = spawnSync('python', ['scripts/harness_doctor.py'], {
     cwd: join(root, 'backend'),
     encoding: 'utf8',
   });
+  if (backendDoctor.error?.code === 'ENOENT') {
+    backendDoctor = spawnSync('python3', ['scripts/harness_doctor.py'], {
+      cwd: join(root, 'backend'),
+      encoding: 'utf8',
+    });
+  }
   if (backendDoctor.status === 0) {
     ok('delegated backend harness doctor');
   } else {
