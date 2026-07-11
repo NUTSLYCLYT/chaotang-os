@@ -106,3 +106,29 @@ def test_build_ledger_prune_removes_stale_entries(isolated_session_local):
     assert pruned["success"] is True
     assert pruned["data"]["removed"] == 1
     assert pruned["data"]["after"] == 0
+
+
+def test_build_ledger_prune_requires_admin_role(isolated_session_local):
+    """独立安全审查(2026-07-11)发现: 批量硬删除最初对任何登录用户开放,
+    这里验证非 admin 角色被拒绝(403),而不是能清空别人的台账。"""
+    import importlib
+
+    from web.schemas.auth import CurrentUser
+
+    app_mod = importlib.import_module("web.main")
+    deps = importlib.import_module("web.deps")
+    original = app_mod.app.dependency_overrides.get(deps.get_current_user)
+    app_mod.app.dependency_overrides[deps.get_current_user] = lambda: CurrentUser(
+        user_id=99, username="normal_user", role="user", tenant_slug="default"
+    )
+    try:
+        client = TestClient(app)
+        response = client.post(
+            "/api/court/build-ledger", json={"action": "prune", "retentionDays": 90}
+        )
+        assert response.status_code == 403
+    finally:
+        if original is None:
+            app_mod.app.dependency_overrides.pop(deps.get_current_user, None)
+        else:
+            app_mod.app.dependency_overrides[deps.get_current_user] = original

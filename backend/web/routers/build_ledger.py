@@ -122,6 +122,12 @@ def build_ledger_post(
 ) -> dict:
     action = body.get("action")
     if action == "prune":
+        # 独立安全审查(2026-07-11)发现: 批量硬删除不该对所有已登录用户开放,
+        # 只有 admin 能清理台账保留期外的记录。
+        from fastapi import HTTPException
+
+        if user.role != "admin":
+            raise HTTPException(status_code=403, detail="需要管理员权限才能清理台账")
         return _prune(int(body.get("retentionDays") or _DEFAULT_RETENTION_DAYS))
     if action == "dispatch":
         return _dispatch(body.get("entry") or {})

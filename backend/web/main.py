@@ -183,6 +183,7 @@ from web.routers import gongbu as gongbu_router  # noqa: E402
 from web.routers import governance_compat as governance_compat_router  # noqa: E402
 from web.routers import hanlin as hanlin_router  # noqa: E402
 from web.routers import health as health_router  # noqa: E402
+from web.routers import qintian_forecast as qintian_forecast_router  # noqa: E402
 from web.routers import hubu as hubu_router  # noqa: E402
 from web.routers import ima_knowledge as ima_knowledge_router  # noqa: E402
 from web.routers import jinyiwei as jinyiwei_router  # noqa: E402
@@ -236,6 +237,7 @@ from web.routers import direct as direct_router  # noqa: E402
 app.include_router(health_router.router)
 app.include_router(build_ledger_router.router)
 app.include_router(hanlin_router.router)
+app.include_router(qintian_forecast_router.router)
 app.include_router(preflight_router.router)
 app.include_router(auth_router.router)
 app.include_router(admin_router.router)
