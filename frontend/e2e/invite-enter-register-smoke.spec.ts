@@ -142,11 +142,32 @@ test.describe('邀请准入闭环（/enter、/invite、/register）', () => {
     await page.getByRole('button', { name: /使用引荐码注册|注册账号/ }).click();
     await expect(page.getByText('注册成功')).toBeVisible({ timeout: 10_000 });
     await page.waitForURL(/\/login/, { timeout: 10_000 });
+    // register/page.tsx 用 window.location.assign() 触发整页硬跳转（不是 SPA 路由），
+    // 跳过去之后有一小段 HTML 已渲染、但 React 尚未 hydrate 完成（受控 input 的
+    // onChange 还没接上）的窗口——第一次实测在这里直接 fill() 就撞上了，两个输入框
+    // 填了但值没进 React state，提交时读到空字符串，登录页自己报"请填写账号和密码"，
+    // 而不是我们要测的登录成功/失败。等标题渲染完成只能证明 DOM 有了，不能证明已经
+    // hydrate；用 networkidle 等 hydration 相关的脚本执行/请求真正完事。
+    await page.waitForLoadState('networkidle');
 
     // 用刚注册的账号真实登录，走到底：断言落地已登录页 /dadian，不是只到登录页为止。
+    //
+    // 2026-07-11 Codex 停止前审查纠正：register/page.tsx 带邀请码时跳的是
+    // `/login?next=/dadian&invite=...`——这个 URL 字符串本身就含有 "/dadian" 子串
+    // (来自 query 里的 next 参数)，如果最终断言用 /\/dadian/ 去匹配"完整 URL 字符串"，
+    // 哪怕登录压根没提交成功、页面一直停在 /login，这条正则也会命中查询字符串里的
+    // "/dadian" 而误判通过——等于这条断言从写下的那一刻起就没有真正验证过登录是否成功。
+    // 改用 URL 对象的 pathname 精确比较，只认路径部分，查询字符串里出现同名子串不会
+    // 再造成误判。
     await page.getByLabel('用户名').fill(username);
     await page.getByLabel('密码').fill(password);
+    // fill() 之后立刻断言输入框真的拿到了值——比"直接点提交"更早发现"填了但没进
+    // React state"这类 hydration 竞态，失败信息也更直接指向问题所在，而不是十秒后
+    // 才在登录页报"请填写账号和密码"、让人误以为是登录接口本身的问题。
+    await expect(page.getByLabel('用户名')).toHaveValue(username);
+    await expect(page.getByLabel('密码')).toHaveValue(password);
     await page.getByRole('button', { name: '入朝议政' }).click();
-    await page.waitForURL(/\/dadian/, { timeout: 10_000 });
+    await page.waitForURL((url) => url.pathname === '/dadian', { timeout: 10_000 });
+    expect(new URL(page.url()).pathname, `登录后仍停留在 ${page.url()}，未真正落地 /dadian`).toBe('/dadian');
   });
 });

@@ -26,6 +26,16 @@ Codex 停止前审查又指出:"新增 E2E 未完成其声明的'注册→登录
 
 验证：`pnpm exec playwright test e2e/invite-enter-register-smoke.spec.ts` 9/9 全绿(含完整走完注册→登录→落地 `/dadian` 的这条用例)。`tsc --noEmit`、`test:node`(989/995，同一组既有失败)复跑均绿。
 
+### Codex 停止前审查第三次纠正(任务 1，2026-07-11 第三轮)
+
+Codex 停止前审查第三次指出:"最终登录断言会在仍停留登录页时误通过"。复核发现这是真的——`register/page.tsx` 带邀请码时跳转目标是 `` `/login?next=/dadian&invite=${...}` ``，这个完整 URL 字符串本身就含有 `/dadian` 子串(来自 query 参数 `next` 的取值，不是路径)。上一轮写的断言是 `page.waitForURL(/\/dadian/)`，这个正则匹配的是"完整 URL 字符串"，只要页面还停在 `/login?next=/dadian&invite=...`，哪怕登录压根没有提交、没有任何真实跳转，正则照样会命中查询字符串里那段"/dadian"而判定通过——这条断言从写下的那一刻起就没有真正验证过登录是否成功，是一处货真价实的"看起来在测，其实测不出问题"的假断言。
+
+修复：改用 `page.waitForURL((url) => url.pathname === '/dadian')`，只比较 URL 对象的 `pathname`，query 字符串里出现同名子串不再影响判断；额外补一条 `expect(new URL(page.url()).pathname).toBe('/dadian')` 双重确认。
+
+修复后重跑立刻在同一处**真实失败**了——`TimeoutError: page.waitForURL: Timeout 10000ms exceeded`，页面快照显示还停在登录页，且登录页自己报了"请填写账号和密码"，说明 `getByLabel('用户名').fill(username)`/`getByLabel('密码').fill(password)` 没有把值真正写进 React 受控组件的 state。根因：`register/page.tsx` 用 `window.location.assign()` 做的是整页硬跳转，不是 SPA 内路由；跳到 `/login` 后有一小段"HTML 已经渲染、但 React 尚未 hydrate 完成(受控 input 的 onChange 还没接上)"的窗口，`waitForURL` 只等 URL 变化，不等 hydrate，`fill()` 的 dispatch 时机撞进了这个窗口，值写进了 DOM 但没同步进 React state。修复：`waitForURL` 之后加 `page.waitForLoadState('networkidle')`，并且在 `fill()` 之后立刻加 `expect(...).toHaveValue(...)` 断言，让"填了但没进 state"这类竞态在填表这一步就暴露、报错信息直接指向问题所在，而不是十秒后在登录页报一个容易被误读成"登录接口本身有问题"的错误。
+
+最终验证：`pnpm exec playwright test e2e/invite-enter-register-smoke.spec.ts` 9/9 全绿，且这次登录用例是真的走完了整条路径(fill→断言真填入→提交→pathname 精确匹配 `/dadian`)，不是靠字符串子串巧合"蒙对"。`tsc --noEmit`、`test:node`(989/995，同一组既有失败)复跑均绿。
+
 ## 改动(任务 3 · 密旨入口诚实降级)
 
 - `src/features/shangshufang/components/DecreeInput.tsx`：
