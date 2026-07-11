@@ -15,7 +15,6 @@ import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import {
   AlertTriangle,
-  CheckCircle2,
   ClipboardCheck,
   FileSearch,
   Gavel,
@@ -27,7 +26,6 @@ import {
   ShieldCheck,
   Sparkles,
   Telescope,
-  Waypoints,
 } from 'lucide-react';
 
 import { ChancellorColumn } from './components/ChancellorColumn';
@@ -37,6 +35,14 @@ import { DecreeInput, type AskTarget, type DecreeAttachment, type DecreeChatMess
 import { ImperialModal } from './components/ImperialModal';
 import { ImperialButton } from './components/atoms';
 import { ResourceGallery } from './components/ResourceGallery';
+import { RoleScenarioStrip } from './components/RoleScenarioStrip';
+import { QintianPlainTextBody } from './components/QintianPlainTextBody';
+import { MemoryRecallPanel, buildMemoryRecallItems } from './components/MemoryRecallPanel';
+import { BuildCaseBriefingPanel } from './components/BuildCaseBriefingPanel';
+import { DecreeSubmittingBody, DecreeDraftBody } from './components/DecreeDraftBodies';
+import { CollapsedEdictScroll } from './components/CollapsedEdictScroll';
+import { JiqunReturnStatusBody } from './components/JiqunReturnStatusBody';
+import { VerdictReceiptCard, ImperialVerdictSealButton } from './components/VerdictReceiptCard';
 
 import { SHANGSHUFANG_ASSETS } from './constants';
 import { assetUrl } from '@/lib/asset';
@@ -50,17 +56,12 @@ import {
   type StudyEdict,
 } from '@/lib/api/chaotang';
 import {
-  BUILD_LEDGER_STATUS_LABEL,
-  assessBuildLedgerEntry,
   readBuildLedger,
   subscribeBuildLedger,
   syncBuildLedgerFromServer,
   type BuildLedgerEntry,
 } from '@/features/operating-loop/lib/build-ledger';
-import {
-  OPERATING_KNOWLEDGE_CASES,
-  type KnowledgeCase,
-} from '@/features/operating-loop/lib/knowledge-kernel';
+import { OPERATING_KNOWLEDGE_CASES } from '@/features/operating-loop/lib/knowledge-kernel';
 import type { ShangshufangImListData, ShangshufangImMessage } from '@/lib/contracts/shangshufang-im';
 import type { ChancellorSuggestion, DecreeMode, DecreeState, Memorial, WangTutorial } from './types';
 import type { EdictRow, EdictView } from './edict-content';
@@ -116,7 +117,7 @@ import { recallBadgeLabel } from './lib/recall-badge';
 type VerdictTaskAction = 'adopt' | 'request_evidence' | 'recheck' | 'reject' | 'followup';
 type VerdictLegacyAction = 'approve' | 'reject' | 'inquire';
 
-type VerdictReceipt = {
+export type VerdictReceipt = {
   option: string;
   status: string;
   taskId: string;
@@ -556,31 +557,6 @@ const DECREE_SUGGESTIONS = [
   '钦天监推演：下半年储能市场价格走势',
 ];
 
-const ROLE_SCENARIOS = [
-  {
-    role: '运营',
-    prompt: '复盘本周阻塞任务，找出先补流程还是先补资源',
-    outcome: '任务状态 · 阻塞原因 · 验收下一步',
-  },
-  {
-    role: '销售',
-    prompt: '让销售庄园和外交部院分析大客户采购特征，筛出本周最该跟进的商机任务',
-    outcome: '客户线索 · 商机优先级 · 销售任务',
-  },
-  {
-    role: '内容',
-    prompt: '把本周客户案例和资料整理成可发布内容素材，并送史馆标注风险边界',
-    outcome: '资料素材 · 史馆归档 · 发布口径',
-  },
-];
-
-const SOURCE_MODE_LABEL: Record<NonNullable<Memorial['sourceMode']>, string> = {
-  LIVE: '真实任务',
-  MIXED: '证据待补',
-  FALLBACK: '降级建议',
-  DEMO: '演示数据',
-};
-
 const PRIORITY_DISPLAY: Record<Memorial['priority'], { label: string; tone: string }> = {
   urgent: { label: '急', tone: '#C2553D' },
   high: { label: '高', tone: '#F0C66A' },
@@ -637,7 +613,7 @@ const DECREE_CHAT_HISTORY_SCOPES: DecreeChatHistoryScope[] = [
   { mode: 'secret' },
 ];
 
-type ExecutableDecreeMode = Extract<DecreeMode, 'order' | 'secret'>;
+export type ExecutableDecreeMode = Extract<DecreeMode, 'order' | 'secret'>;
 type DecreeChatHistoryByMode = {
   ask: Record<AskTarget, DecreeChatMessage[]>;
   order: DecreeChatMessage[];
@@ -716,7 +692,7 @@ function toDecreeChatMessage(message: ShangshufangImMessage): DecreeChatMessage 
   };
 }
 
-type MemoryRecallItem =
+export type MemoryRecallItem =
   | {
       id: string;
       kind: 'ledger';
@@ -1379,177 +1355,6 @@ function decreeSubmittingToView(mode: ExecutableDecreeMode, command: string): Ed
   };
 }
 
-function DecreeSubmittingBody({ mode, command }: { mode: ExecutableDecreeMode; command: string }) {
-  const isSecret = mode === 'secret';
-  const accent = isSecret ? '#7A2F2A' : '#8A5A18';
-  const faintAccent = isSecret ? 'rgba(122,47,42,0.14)' : 'rgba(138,90,24,0.12)';
-
-  return (
-    <div data-testid="decree-submitting-body" className="mx-auto flex min-h-full w-full max-w-[1180px] flex-col justify-center gap-3 px-1">
-      <div
-        className="rounded-xl border px-4 py-4 md:px-5"
-        style={{
-          borderColor: 'rgba(107,74,29,0.28)',
-          background: `linear-gradient(135deg, ${faintAccent}, rgba(255,248,224,0.14) 58%, rgba(255,248,224,0.06))`,
-          boxShadow: 'inset 0 1px 0 rgba(255,248,224,0.38), 0 12px 28px rgba(86,50,16,0.10)',
-        }}
-      >
-        <div className="flex items-center gap-3">
-          <span
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border"
-            style={{ borderColor: 'rgba(138,90,24,0.28)', background: 'rgba(255,248,224,0.18)', color: accent }}
-          >
-            <Loader2 size={20} className="animate-spin" />
-          </span>
-          <div className="min-w-0">
-            <div className="text-[12px] font-bold tracking-[0.22em]" style={{ color: accent, fontFamily: 'var(--font-serif)' }}>
-              下旨中
-            </div>
-            <p className="mt-1 text-[14px] leading-[1.7]" style={{ color: '#3F2C12', fontFamily: 'var(--font-serif)' }}>
-              {isSecret ? '密旨已发，正在等待蜂群直奏回写。' : '圣旨已发，正在等待丞相拟旨、后端确认与回奏写回。'}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <section
-        className="rounded-xl border px-4 py-3 md:px-5"
-        style={{
-          borderColor: 'rgba(107,74,29,0.24)',
-          background: 'linear-gradient(180deg, rgba(255,248,224,0.18), rgba(255,248,224,0.07))',
-          boxShadow: 'inset 0 1px 0 rgba(255,248,224,0.34)',
-        }}
-      >
-        <div className="border-b pb-2 text-[12px] font-semibold tracking-[0.18em]" style={{ color: accent, borderColor: 'rgba(107,74,29,0.20)', fontFamily: 'var(--font-serif)' }}>
-          正在递送的旨意
-        </div>
-        <p className="mt-2 max-h-[220px] overflow-y-auto whitespace-pre-wrap text-[15px] leading-8 text-[#3A260B] md:text-[16px]" style={{ fontFamily: 'var(--font-serif)' }}>
-          {command.trim() || '旨意正在递送。'}
-        </p>
-      </section>
-    </div>
-  );
-}
-
-function DecreeDraftBody({
-  mode,
-  original,
-  polished,
-  busy,
-  sourceLabel,
-  fallbackUsed,
-  readOnlyReason,
-}: {
-  mode: ExecutableDecreeMode;
-  original: string;
-  polished: string | null;
-  busy: boolean;
-  sourceLabel?: SourceLabel;
-  fallbackUsed?: boolean;
-  readOnlyReason?: string;
-  onConfirm: () => void;
-}) {
-  const trimmedOriginal = original.trim();
-  const trimmedPolished = polished?.trim() ?? '';
-  const draftBodyText = trimmedPolished || trimmedOriginal;
-  const readOnly = Boolean(readOnlyReason);
-  const canConfirm = trimmedPolished.length > 0 && !busy && !readOnly;
-  const accent = mode === 'secret' ? '#7A2F2A' : '#8A5A18';
-  const faintAccent = mode === 'secret' ? 'rgba(122,47,42,0.14)' : 'rgba(138,90,24,0.12)';
-  const hasPolished = trimmedPolished.length > 0;
-  const hasDraftBodyText = draftBodyText.length > 0;
-  const sourceText = sourceLabel ? `来源 ${sourceLabel}${fallbackUsed ? ' · 需人工复核' : ''}` : '润色后会在此标注来源';
-
-  return (
-    <div data-testid="decree-draft-body" className="mx-auto flex min-h-full w-full max-w-[1180px] flex-col gap-2.5">
-      <div
-        className="rounded-xl border px-3 py-2.5 md:px-4"
-        style={{
-          borderColor: 'rgba(107,74,29,0.28)',
-          background: `linear-gradient(135deg, ${faintAccent}, rgba(255,248,224,0.13) 58%, rgba(255,248,224,0.05))`,
-          boxShadow: 'inset 0 1px 0 rgba(255,248,224,0.34)',
-        }}
-      >
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div className="min-w-0">
-            <div className="text-[10px] font-bold tracking-[0.22em]" style={{ color: accent, fontFamily: 'var(--font-serif)' }}>
-              御前润色回执
-            </div>
-            <p className="mt-1 text-[13px] leading-[1.65]" style={{ color: '#3F2C12', fontFamily: 'var(--font-serif)' }}>
-              {readOnlyReason ?? '润色后只展示文字预览，不会在卷轴内直接启动蜂群。'}
-            </p>
-          </div>
-          {(readOnly || hasPolished) && (
-            <span
-              className="shrink-0 rounded-full border px-2.5 py-1 text-[10.5px] font-bold"
-              style={{
-                borderColor: readOnly ? 'rgba(107,74,29,0.30)' : 'rgba(23,107,69,0.34)',
-                background: readOnly ? 'rgba(107,74,29,0.08)' : 'rgba(23,107,69,0.08)',
-                color: readOnly ? '#5B4A30' : '#176B45',
-              }}
-            >
-              {readOnly ? '只读 · 已生成' : '润色完成 · 待确认文字'}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="flex min-h-0 flex-1 flex-col gap-2.5">
-        <section
-          className="flex min-h-[min(46vh,380px)] flex-1 flex-col rounded-xl border px-4 py-3 md:px-5"
-          style={{
-            borderColor: 'rgba(107,74,29,0.26)',
-            background: hasDraftBodyText
-              ? 'linear-gradient(180deg, rgba(255,248,224,0.20), rgba(255,248,224,0.075))'
-              : 'rgba(255,248,224,0.09)',
-            boxShadow: hasDraftBodyText
-              ? 'inset 0 1px 0 rgba(255,248,224,0.42), 0 10px 26px rgba(86,50,16,0.08)'
-              : 'inset 0 1px 0 rgba(255,248,224,0.24)',
-          }}
-        >
-          <div className="flex items-center justify-between gap-3 border-b pb-2 text-[12px] font-semibold tracking-[0.18em]" style={{ color: accent, fontFamily: 'var(--font-serif)' }}>
-            <span>润色结果</span>
-            <span className="text-[10px] font-normal tracking-[0.08em]" style={{ color: '#7D6B48' }}>{sourceText}</span>
-          </div>
-          <p
-            data-testid="decree-draft-polished"
-            className={`mt-2 flex-1 overflow-y-auto overscroll-contain whitespace-pre-wrap text-[15px] leading-8 md:text-[16px] ${
-              hasDraftBodyText ? 'text-[#3A260B]' : 'text-[#7D6B48]/70'
-            }`}
-            style={{ fontFamily: 'var(--font-serif)' }}
-          >
-            {draftBodyText || (readOnly ? '已生成奏折正文只读，不再改写拟旨。' : '点击“润色”后，这里展示整理后的文字。')}
-          </p>
-          <div
-            className="mt-auto grid gap-2 border-t pt-3 md:items-center"
-            style={{
-              borderColor: 'rgba(107,74,29,0.20)',
-            }}
-          >
-            <div
-              className="min-w-0 rounded-lg border px-2.5 py-1.5 text-[11px] leading-[1.7]"
-              style={{
-                color: canConfirm ? '#31523C' : '#6E5A38',
-                borderColor: canConfirm ? 'rgba(23,107,69,0.22)' : 'rgba(138,106,42,0.22)',
-                background: canConfirm ? 'rgba(23,107,69,0.06)' : 'rgba(138,106,42,0.055)',
-                fontFamily: 'var(--font-serif)',
-              }}
-            >
-              {readOnly
-                ? '这份正文来自已生成奏折，只可查看；如需改写，请退回再审或重新下旨。'
-                : canConfirm
-                ? mode === 'secret'
-                  ? '密旨文字已润色；请回到底部输入区继续调整或另行发起。'
-                  : '旨意文字已润色；请回到底部输入区继续调整或点击下旨按钮。'
-                : '等待润色；润色只返回文字，不会启动蜂群。'}
-            </div>
-          </div>
-        </section>
-      </div>
-    </div>
-  );
-}
-
 function draftEdictToView(result: ShangshufangDraftResponse): EdictView {
   const d = result.draft_edict;
   const rows: EdictRow[] = [
@@ -1963,35 +1768,6 @@ function qintianDeepWorkToEdict(item: QintianDeepWorkItem): EdictView {
   };
 }
 
-function QintianPlainTextBody({ view }: { view: EdictView }) {
-  const paragraphs = view.rows
-    .filter((row) => !/来源|追踪/.test(row.label))
-    .flatMap((row) => row.body.split(/\n+/))
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const bodyLines = paragraphs.length ? paragraphs : [view.subtitle, view.question].filter((line): line is string => Boolean(line?.trim()));
-
-  return (
-    <article
-      data-testid="qintian-plain-body"
-      className="mx-auto flex min-h-[min(48vh,420px)] w-full max-w-[760px] flex-col justify-start rounded-xl border px-5 py-5 md:px-7 md:py-6"
-      style={{
-        borderColor: 'rgba(107,74,29,0.22)',
-        background: 'linear-gradient(180deg, rgba(255,248,224,0.18), rgba(255,248,224,0.065))',
-        boxShadow: 'inset 0 1px 0 rgba(255,248,224,0.36), 0 12px 28px rgba(86,50,16,0.08)',
-      }}
-    >
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
-        <div className="space-y-4 whitespace-pre-wrap text-[15px] leading-8 text-[#3A260B] md:text-[16px]" style={{ fontFamily: 'var(--font-serif)' }}>
-          {bodyLines.map((line, index) => (
-            <p key={`${view.id}:qintian-line:${index}`}>{line}</p>
-          ))}
-        </div>
-      </div>
-    </article>
-  );
-}
-
 function compactLine(value: string | null | undefined, max = 96): string {
   const text = String(value ?? '').replace(/\s+/g, ' ').trim();
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
@@ -2085,20 +1861,60 @@ function secretBriefToEdict(command: string, result: OrchestrateResult, seq: num
   const seedAbsent = (cov?.absent ?? []).filter((a) => a.kind === 'seed').map((a) => swarmToCn(a.dept));
   const jiqunTaskId = result.jiqunSwarm?.taskId;
   const jiqunSessionId = result.jiqunSwarm?.sessionId;
+  // jiqunSwarm.ok === false 是后端兼容占位端点(court_compat.py::orchestrate_all)的恒定返回值,
+  // 不是"暂时没回应、等等就好"——这条通道压根没有调度过真实部门引擎,覆盖率数字不会随时间推移变化。
+  // 之前这里只写"待补全"，容易被读成"处理中，稍后完成"，跟事实相反，已按 Codex 停止前审查意见改写。
+  const isPlaceholderStub = result.jiqunSwarm?.ok === false;
 
   const rows: EdictRow[] = [{ label: '密旨正文', body: command }];
+  // MemorialScroll 的「圣旨来源」摘要卡 / 建议区靠精确匹配特定 label(见 findFirstRow/
+  // buildEdictBriefModel)才会展示对应内容，标签对不上就整体 fallback 成通用占位文案
+  // ("来源待核"/"请先看圣旨来源，再由皇上选择准奏..")——之前只写了"蜂群任务执行状态"
+  // "风险摘录"这类自定义标签，没有一个命中，导致诚实文案进了 rows 数组但从未出现在用户
+  // 实际看到的首屏摘要卡上。这里补两行标准标签("来源"/"建议")让诚实文案真正显示出来，
+  // 而不是只存在于永远不会被渲染的 rows 里。
+  rows.push({
+    label: '来源',
+    body: isPlaceholderStub
+      ? `兼容占位端点(未接入真实蜂群)${result.jiqunSwarm?.message ? ` · ${result.jiqunSwarm.message}` : ''}`
+      : `蜂群直奏 · ${realResponded}/${realExpected} 实司已回话`,
+  });
+  rows.push({
+    label: '建议',
+    body: isPlaceholderStub
+      ? '此功能当前不产生真实分部门意见，仅作登记；如需真实六部会审，请改用「下旨」。'
+      : incomplete
+        ? `已有 ${realResponded}/${realExpected} 实司直奏，其余未应，可先看已回话部分或等待补全。`
+        : '各司已直奏完毕，请皇上审阅后选择准奏、驳回或转正式会审。',
+  });
   rows.push({
     label: '蜂群任务执行状态',
     body: [
-      result.jiqunSwarm ? '状态：后端蜂群已接令' : '状态：前端蜂群直奏已完成',
+      // jiqunSwarm 对象存在不等于真实蜂群已接令——兼容占位端点也会恒定返回一个
+      // ok:false 的 jiqunSwarm(带假 taskId/sessionId)，之前只判断对象是否存在，
+      // 导致占位路径也显示"后端蜂群已接令"，跟 jiqunSwarm.ok===false 直接矛盾。
+      isPlaceholderStub
+        ? '状态：兼容占位端点已登记，未接令任何真实蜂群'
+        : result.jiqunSwarm
+          ? '状态：后端蜂群已接令'
+          : '状态：前端蜂群直奏已完成',
       jiqunSessionId ? `Session：${jiqunSessionId}` : null,
       jiqunTaskId ? `Task：${jiqunTaskId}` : null,
       result.jiqunSwarm?.entrySwarm ? `入口蜂群：${result.jiqunSwarm.entrySwarm}` : null,
       `直奏进度：${realResponded}/${realExpected}`,
-      incomplete ? '当前结论：部分实司未应答，密报待补全' : '当前结论：已汇齐当前可用直奏',
+      isPlaceholderStub
+        ? `⚠ 占位模式：未执行真实蜂群，此数字不会随时间变化${result.jiqunSwarm?.message ? `（${result.jiqunSwarm.message}）` : ''}`
+        : incomplete
+          ? '当前结论：部分实司未应答，密报待补全'
+          : '当前结论：已汇齐当前可用直奏',
     ].filter(Boolean).join('\n'),
   });
-  if (result.jiqunSwarm) {
+  if (result.jiqunSwarm && isPlaceholderStub) {
+    rows.push({
+      label: '后端蜂群',
+      body: `未启动任何真实会话/任务——${jiqunSessionId ?? jiqunTaskId ?? 'taskId'} 是兼容占位端点回显的占位标识，不对应真实蜂群执行。`,
+    });
+  } else if (result.jiqunSwarm) {
     const entry = result.jiqunSwarm.entrySwarm ? `；入口蜂群：${result.jiqunSwarm.entrySwarm}` : '';
     rows.push({
       label: '后端蜂群',
@@ -2120,12 +1936,16 @@ function secretBriefToEdict(command: string, result: OrchestrateResult, seq: num
   rows.push({
     label: '风险摘录',
     body:
-      (incomplete ? `（仅据 ${realResponded}/${realExpected} 实司，余司未应，结论待补全）\n` : '') + m.verdict,
+      (isPlaceholderStub
+        ? `（占位模式：未执行真实蜂群，以下并非分部门真实意见）\n`
+        : incomplete
+          ? `（仅据 ${realResponded}/${realExpected} 实司，余司未应，结论待补全）\n`
+          : '') + m.verdict,
   });
   return {
     id: `secret:${seq}`,
     title: '密旨正文',
-    subtitle: `機密 · ${realResponded}/${realExpected} 实司直奏${incomplete ? ' · 待补全' : ' · 全司在场'}`,
+    subtitle: `機密 · ${realResponded}/${realExpected} 实司直奏${isPlaceholderStub ? ' · 占位未执行' : incomplete ? ' · 待补全' : ' · 全司在场'}`,
     meta: { reporter: '蜂群', priority: m.escalateToBoss ? 'urgent' : 'high' },
     rows,
     seal: 'secret',
@@ -2566,88 +2386,6 @@ function memorialToChancellorSuggestion(m: Memorial): ChancellorSuggestion {
   };
 }
 
-function verdictSealMeta(option: string, index: number) {
-  if (/批示/.test(option)) {
-    return {
-      seal: '批',
-      title: '批示',
-      tone: '#B91C1C',
-      hint: '打开朱批，确认后落裁',
-      consequence: '进入朱批确认；确认后写入任务裁决并送史馆归档。高风险内容仍需人工确认。',
-      owner: '承办：丞相督办 · 史馆归档',
-    };
-  }
-  if (/\u51c6|\u91c7\u7eb3|\u6279\u51c6|\u6279\u793a|\u8f6c\u4e3a\u5723\u65e8|\u5f52\u6863/.test(option)) {
-    return {
-      seal: '准',
-      title: '准奏',
-      tone: '#B91C1C',
-      hint: '立刻进入执行/圣旨流程',
-      consequence: '生成圣旨，写入任务裁决并送史馆归档；若含合同、报价、付款等高风险内容，先弹人工确认。',
-      owner: '承办：丞相督办 · 史馆归档',
-    };
-  }
-  if (/补证|询问|补充/.test(option)) {
-    return {
-      seal: '问',
-      title: '补证',
-      tone: '#B46F12',
-      hint: '退回丞相补关键证据',
-      consequence: '保持任务未闭环，向原奏折追加缺证要求；丞相汇总后重新上呈。',
-      owner: '承办：丞相台 · 相关部门补材料',
-    };
-  }
-  if (/复核|再审/.test(option)) {
-    return {
-      seal: '复',
-      title: '复核',
-      tone: '#24537B',
-      hint: '交军机处或相关部门复议',
-      consequence: '打开复核回路，要求军机处或争议部门重做判断，保留原奏折证据链。',
-      owner: '承办：军机处 · 争议部门会审',
-    };
-  }
-  if (/会审/.test(option)) {
-    return {
-      seal: '审',
-      title: '会审',
-      tone: '#24537B',
-      hint: '交军机处或相关部门会审',
-      consequence: '打开会审回路，要求军机处或争议部门重做判断，保留原奏折证据链。',
-      owner: '承办：军机处 · 争议部门会审',
-    };
-  }
-  if (/驳回|不准/.test(option)) {
-    return {
-      seal: '驳',
-      title: '驳回',
-      tone: '#7A241E',
-      hint: '记录原因并终止此版',
-      consequence: '要求填写驳回理由；奏折保持原位，不送史馆归档，后续可继续改判或重议。',
-      owner: '承办：丞相留档 · 待重新批示',
-    };
-  }
-  if (/暂缓|留中/.test(option)) {
-    return {
-      seal: '留',
-      title: '留中',
-      tone: '#6B5A3A',
-      hint: '暂不执行，保留待议',
-      consequence: '暂不写入最终裁决，保留当前奏折；稍后可继续御览或交丞相后台跟进。',
-      owner: '承办：丞相留档 · 钦天监提醒',
-    };
-  }
-  const fallbackSeals = ['裁', '审', '议', '令'];
-  return {
-    seal: fallbackSeals[index % fallbackSeals.length]!,
-    title: '裁决',
-    tone: '#8A6A2A',
-    hint: '按此项落裁',
-    consequence: '按当前选项写入裁决记录，后续由丞相台分派下一步。',
-    owner: '承办：丞相台',
-  };
-}
-
 function verdictTaskAction(option: string): VerdictTaskAction {
   if (/\u51c6|\u91c7\u7eb3|\u6279\u51c6|\u6279\u793a|\u8f6c\u4e3a\u5723\u65e8|\u5f52\u6863/.test(option)) return 'adopt';
   if (/补证/.test(option)) return 'request_evidence';
@@ -2802,741 +2540,6 @@ function buildVerdictReceipt({
       { label: department ? `${department}补充` : '部门补充', href: departmentHref },
     ],
   };
-}
-
-function VerdictReceiptCard({
-  receipt,
-  result,
-}: {
-  receipt: VerdictReceipt | null;
-  result: string;
-}) {
-  if (!receipt) {
-    return (
-      <p className="text-[13px] leading-[1.9]" style={{ fontFamily: 'var(--font-serif)' }}>
-        {result}
-      </p>
-    );
-  }
-
-  const trace = receipt.loopTraceId ?? '待后端返回';
-  const source = receipt.sourceMode ? SOURCE_MODE_LABEL[receipt.sourceMode] : '真实接口回执';
-  const actionItems = [
-    { label: '负责人', body: receipt.nextOwner },
-    { label: '下一次回看', body: receipt.nextCheckpoint },
-    { label: '最大风险/缺口', body: receipt.sourceMode === 'FALLBACK' || receipt.sourceMode === 'DEMO' ? '当前来源不是 LIVE，不能当最终依据。' : '重点看证据缺口、合同报价、付款和对外承诺风险。' },
-  ];
-
-  return (
-    <div data-testid="verdict-receipt" className="space-y-3">
-      <div
-        className="rounded-xl border px-3 py-3"
-        style={{
-          borderColor: 'rgba(62,214,140,0.22)',
-          background: 'linear-gradient(180deg, rgba(62,214,140,0.10), rgba(255,255,255,0.025))',
-        }}
-      >
-        <div className="flex items-center gap-2">
-          <span className="grid h-8 w-8 place-items-center rounded-full border border-[#3ED68C]/35 bg-[#3ED68C]/10 text-[#3ED68C]">
-            <CheckCircle2 size={16} />
-          </span>
-          <div className="min-w-0">
-            <div className="text-[10px] tracking-[0.24em] text-[#8F835F]">落子回执</div>
-            <div className="mt-0.5 truncate text-[15px] font-semibold text-[#F5E9C9]" style={{ fontFamily: 'var(--font-serif)' }}>
-              已落子，组织开始运转
-            </div>
-          </div>
-        </div>
-        <p className="mt-3 text-[12px] leading-[1.8] text-[#C6BB9D]" style={{ fontFamily: 'var(--font-serif)' }}>
-          {result}
-        </p>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <a
-            href={receipt.detailHref}
-            data-testid="verdict-detail-link"
-            className="inline-flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-b from-[#FFE09A] to-[#F0C66A] px-3.5 py-1.5 text-[11.5px] font-bold tracking-[0.04em] text-[#1B1306] shadow-[0_4px_18px_rgba(240,198,106,0.28)] transition-all hover:brightness-110"
-            style={{ fontFamily: 'var(--font-serif)' }}
-          >
-            <FileSearch size={13} />
-            {receipt.detailLabel}
-          </a>
-          <span className="text-[10.5px] leading-[1.6] text-[#8F835F]">
-            {receipt.detailHint}
-          </span>
-        </div>
-      </div>
-
-      <div
-        data-testid="boss-action-card"
-        className="rounded-xl border px-3 py-3"
-        style={{
-          borderColor: 'rgba(240,198,106,0.18)',
-          background: 'linear-gradient(180deg, rgba(240,198,106,0.075), rgba(255,255,255,0.018))',
-        }}
-      >
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <div>
-            <div className="text-[10px] tracking-[0.22em] text-[#D9C79A]">老板行动卡</div>
-            <div className="mt-0.5 text-[12px] text-[#8F835F]">这一步已经有责任人、有回看点、有风险边界。</div>
-          </div>
-          <span className="shrink-0 rounded-full border border-[#F0C66A]/20 px-2 py-0.5 text-[10px] text-[#B6AB8C]">
-            已推进
-          </span>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-3">
-          {actionItems.map((item) => (
-            <div key={item.label} className="min-h-[74px] rounded-lg border border-white/[0.07] bg-black/20 px-2.5 py-2">
-              <div className="mb-1 text-[10px] font-semibold tracking-[0.10em] text-[#F5E9C9]">
-                {item.label}
-              </div>
-              <div className="text-[10.5px] leading-[1.55] text-[#B6AB8C]">
-                {item.body}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <details
-        data-testid="verdict-technical-receipt"
-        className="group rounded-lg border px-3 py-2.5"
-        style={{
-          borderColor: 'rgba(240,198,106,0.14)',
-          background: 'rgba(0,0,0,0.18)',
-        }}
-      >
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 marker:hidden">
-          <span className="text-[10px] tracking-[0.18em] text-[#D9C79A]">技术回执</span>
-          <span className="text-[10px] text-[#8F835F] group-open:hidden">展开</span>
-          <span className="hidden text-[10px] text-[#F0C66A] group-open:inline">收起</span>
-        </summary>
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-[10.5px] text-[#8F835F]">
-          <span>状态：{receipt.status}</span>
-          <span>任务号：{receipt.taskId}</span>
-          {receipt.decisionId ? <span>决策号：{receipt.decisionId}</span> : null}
-          <span>Trace：{trace}</span>
-          <span>来源：{source}</span>
-          <span>史馆：{receipt.archiveHint}</span>
-        </div>
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          {receipt.inspectionChain.map((item, index) => (
-            <span key={`${item.href}-${item.label}`} className="inline-flex items-center gap-1.5">
-              {index > 0 ? <span className="text-[#5A5340]">→</span> : null}
-              <button
-                type="button"
-                onClick={() => {
-                  window.location.href = item.href;
-                }}
-                className="rounded-full border border-white/[0.10] bg-white/[0.025] px-2.5 py-1 text-[10.5px] text-[#B6AB8C] transition hover:border-[#F0C66A]/35 hover:text-[#F0C66A]"
-              >
-                {item.label}
-              </button>
-            </span>
-          ))}
-        </div>
-      </details>
-    </div>
-  );
-}
-
-function ImperialVerdictSealButton({
-  option,
-  index,
-  onClick,
-}: {
-  option: string;
-  index: number;
-  onClick: () => void;
-}) {
-  const meta = verdictSealMeta(option, index);
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group relative min-h-[188px] overflow-hidden rounded-xl border px-3 py-3 text-left transition-all hover:-translate-y-0.5 hover:brightness-110"
-      style={{
-        borderColor: `${meta.tone}55`,
-        background:
-          'linear-gradient(180deg, rgba(246,233,201,0.14), rgba(240,198,106,0.045)), rgba(8,10,18,0.62)',
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08), 0 12px 28px rgba(0,0,0,0.24)',
-        fontFamily: 'var(--font-serif)',
-      }}
-    >
-      <span
-        aria-hidden
-        className="absolute -right-3 -top-3 grid h-20 w-20 rotate-[-12deg] place-items-center rounded-full border text-[34px] font-black opacity-80 transition-transform group-hover:scale-105"
-        style={{
-          borderColor: `${meta.tone}88`,
-          color: meta.tone,
-          background: `${meta.tone}12`,
-          textShadow: '0 1px 0 rgba(255,240,220,0.18)',
-        }}
-      >
-        {meta.seal}
-      </span>
-      <span className="relative z-10 block text-[11px] tracking-[0.22em]" style={{ color: meta.tone }}>
-        朱批
-      </span>
-      <span className="relative z-10 mt-2 block text-[18px] font-black text-[#F5E9C9]">
-        {meta.title}
-      </span>
-      <span className="relative z-10 mt-2 block line-clamp-2 text-[12px] leading-[1.65] text-[#C6BB9D]">
-        {option}
-      </span>
-      <span className="relative z-10 mt-2 block text-[10px] text-[#8F835F]">
-        {meta.hint}
-      </span>
-      <span className="relative z-10 mt-3 block border-t pt-2 text-[10.5px] leading-[1.65] text-[#B6AB8C]" style={{ borderColor: `${meta.tone}33` }}>
-        <span className="mb-1 block font-semibold tracking-[0.16em]" style={{ color: meta.tone }}>
-          后果预览
-        </span>
-        {meta.consequence}
-      </span>
-      <span className="relative z-10 mt-1 block text-[10px] text-[#8F835F]">
-        {meta.owner}
-      </span>
-    </button>
-  );
-}
-
-function RoleScenarioStrip({ onSelect }: { onSelect: (prompt: string) => void }) {
-  return (
-    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3" aria-label="上书房角色场景">
-      {ROLE_SCENARIOS.map((item) => (
-        <button
-          key={item.role}
-          type="button"
-          onClick={() => onSelect(item.prompt)}
-          className="group rounded-lg border border-white/10 bg-white/[0.035] px-2.5 py-2 text-left transition hover:border-[#F0C66A]/35 hover:bg-[#F0C66A]/[0.06]"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] tracking-[0.16em] text-[#D9C79A]">{item.role}</span>
-            <span className="text-[9px] text-[#6A7299] group-hover:text-[#B9F6D2]">真案示例</span>
-          </div>
-          <div className="mt-1 line-clamp-2 text-[11px] leading-4 text-[#EAEEFB]">
-            {item.prompt}
-          </div>
-          <div className="mt-1 line-clamp-1 text-[10px] text-[#8F98B8]">
-            {item.outcome}
-          </div>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function buildMemoryRecallItems(
-  buildLedger: BuildLedgerEntry[],
-  knowledgeCases: KnowledgeCase[],
-): MemoryRecallItem[] {
-  const ledgerItems: MemoryRecallItem[] = buildLedger.slice(0, 2).map((entry) => {
-    const assessment = assessBuildLedgerEntry(entry);
-    return {
-      id: `ledger-${entry.id}`,
-      kind: 'ledger',
-      title: entry.title,
-      source: entry.source ? `Build Ledger · ${entry.source}` : 'Build Ledger',
-      capturedAt: entry.updatedAt ?? entry.createdAt,
-      matchReason: `同属朝堂建设闭环 · ${assessment.grade} · ${assessment.riskLevel === 'low' ? '证据较完整' : '需补证据'}`,
-      confidence: Math.min(0.96, assessment.score / 100),
-      summary: assessment.nextSuggestion,
-      applyText: `参考史馆建设台账《${entry.title}》：${assessment.nextSuggestion}`,
-    };
-  });
-
-  const knowledgeItems: MemoryRecallItem[] = knowledgeCases.map((item) => {
-    const gene = item.reusableGenes[0];
-    const evidence = item.evidence[0];
-    return {
-      id: `knowledge-${item.id}`,
-      kind: 'knowledge',
-      title: item.title,
-      source: `经营记忆内核 · ${item.source}`,
-      capturedAt: item.updatedAt,
-      matchReason: item.targetDept ? `可复用到 ${item.targetDept}` : '跨部门可复用案卷',
-      confidence: Math.max(0.72, gene?.confidence ?? evidence?.confidence ?? 0.72),
-      summary: gene?.rule ?? item.nextSuggestion,
-      applyText: `参考经营记忆《${item.title}》：${gene?.rule ?? item.nextSuggestion}`,
-    };
-  });
-
-  const seenTitles = new Set<string>();
-  return [...ledgerItems, ...knowledgeItems].filter((item) => {
-    const titleKey = item.title.trim();
-    if (seenTitles.has(titleKey)) return false;
-    seenTitles.add(titleKey);
-    return true;
-  }).slice(0, 3);
-}
-
-function MemoryRecallPanel({
-  items,
-  onApply,
-}: {
-  items: MemoryRecallItem[];
-  onApply: (item: MemoryRecallItem) => void;
-}) {
-  if (items.length === 0) return null;
-
-  return (
-    <div
-      className="mt-2 rounded-xl border border-[#F0C66A]/18 bg-[#F0C66A]/[0.045] px-3 py-2"
-      aria-label="历史可复用依据"
-    >
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-[10px] tracking-[0.18em] text-[#D9C79A]">史馆召回</div>
-          <div className="mt-0.5 text-[12px] font-semibold text-[#F5E9C9]">
-            历史可复用依据
-          </div>
-        </div>
-        <span className="shrink-0 rounded border border-[#3DD68C]/20 bg-[#3DD68C]/[0.06] px-2 py-0.5 text-[10px] text-[#B9F6D2]">
-          {items.length} 条
-        </span>
-      </div>
-      <div className="mt-2 grid gap-2">
-        {items.map((item) => (
-          <div
-            key={item.id}
-            className="rounded-lg border border-white/10 bg-black/15 px-2.5 py-2"
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className="line-clamp-1 text-[11.5px] font-semibold text-[#EAEEFB]">
-                  {item.title}
-                </div>
-                <div className="mt-0.5 text-[9.5px] text-[#8F98B8]">
-                  {item.source} · {new Date(item.capturedAt).toLocaleDateString('zh-CN')}
-                </div>
-              </div>
-              <span className="shrink-0 text-[10px] text-[#F0C66A]">
-                {Math.round(item.confidence * 100)}%
-              </span>
-            </div>
-            <div className="mt-1 line-clamp-2 text-[10.5px] leading-4 text-[#C6BB9D]">
-              {item.summary}
-            </div>
-            <div className="mt-1 text-[10px] text-[#7D88A4]">
-              匹配原因：{item.matchReason}
-            </div>
-            <button
-              type="button"
-              onClick={() => onApply(item)}
-              className="mt-2 rounded border border-[#F0C66A]/24 bg-[#F0C66A]/[0.06] px-2 py-1 text-[10px] text-[#F0C66A] transition hover:bg-[#F0C66A]/[0.12]"
-            >
-              带入下旨
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function buildCaseStatusTone(status: BuildLedgerEntry['status']) {
-  if (status === 'archived') return '#3DD68C';
-  if (status === 'returned') return '#FB923C';
-  if (status === 'reviewing') return '#7EC8E3';
-  return '#F0C66A';
-}
-
-function buildCasePrimaryHref(entry: BuildLedgerEntry): string {
-  const params = new URLSearchParams({ from: 'study', taskId: entry.taskId });
-  if (entry.status === 'archived') return `/shiguan?${params.toString()}`;
-  if (entry.status === 'returned') return `/departments?${params.toString()}`;
-  return `/command-center?${params.toString()}`;
-}
-
-function buildCasePrimaryLabel(status: BuildLedgerEntry['status']): string {
-  if (status === 'archived') return '去史馆';
-  if (status === 'returned') return '去六部补证';
-  if (status === 'reviewing') return '去军机处';
-  return '交军机处';
-}
-
-function BuildCaseBriefingPanel({
-  entries,
-  onApply,
-}: {
-  entries: BuildLedgerEntry[];
-  onApply: (entry: BuildLedgerEntry) => void;
-}) {
-  const visible = entries.slice(0, 3);
-  if (visible.length === 0) return null;
-
-  return (
-    <section
-      data-testid="build-case-briefing"
-      aria-label="建设案待办"
-      className="mt-2 rounded-xl border border-[#6BA0FF]/20 bg-[#08101F]/72 px-3 py-2.5 shadow-[0_18px_48px_rgba(0,0,0,0.24)]"
-    >
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8F98B8]">
-            Build Ledger · 工部建设案
-          </div>
-          <h2 className="mt-0.5 text-[13px] font-semibold text-[#F5E9C9]" style={{ fontFamily: 'var(--font-serif)' }}>
-            建设案待办
-          </h2>
-        </div>
-        <span className="rounded-full border border-[#6BA0FF]/28 bg-[#6BA0FF]/10 px-2 py-0.5 text-[10px] text-[#B9D0FF]">
-          {visible.length} 件回流上书房
-        </span>
-      </div>
-
-      <div className="grid gap-2 xl:grid-cols-3">
-        {visible.map((entry) => {
-          const assessment = assessBuildLedgerEntry(entry);
-          const tone = buildCaseStatusTone(entry.status);
-          return (
-            <article
-              key={entry.id}
-              className="min-h-[148px] rounded-lg border bg-black/18 px-3 py-2.5"
-              style={{ borderColor: `${tone}33` }}
-            >
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span
-                  className="rounded border px-1.5 py-0.5 text-[10px] font-semibold"
-                  style={{ borderColor: `${tone}4D`, background: `${tone}14`, color: tone }}
-                >
-                  {BUILD_LEDGER_STATUS_LABEL[entry.status]}
-                </span>
-                <span className="rounded border border-white/10 bg-white/[0.035] px-1.5 py-0.5 text-[10px] text-[#AAB4C4]">
-                  质量 {assessment.grade}
-                </span>
-              </div>
-
-              <h3 className="mt-2 line-clamp-2 text-[13px] font-semibold leading-5 text-[#EAEEFB]" style={{ fontFamily: 'var(--font-serif)' }}>
-                {entry.title}
-              </h3>
-              <p className="mt-2 line-clamp-2 text-[11px] leading-5 text-[#9DA8C5]">
-                {entry.suggestion ?? assessment.nextSuggestion}
-              </p>
-              <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] text-[#8F98B8]">
-                <span>证据 {entry.evidence.length} 条</span>
-                <span>部门 {entry.ministers.slice(0, 3).join('、') || '待分派'}</span>
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <a
-                  href={buildCasePrimaryHref(entry)}
-                  className="inline-flex items-center justify-center rounded-full border px-3 py-1.5 text-[11px] font-semibold transition hover:brightness-110"
-                  style={{ borderColor: `${tone}55`, background: `${tone}12`, color: tone }}
-                >
-                  {buildCasePrimaryLabel(entry.status)}
-                </a>
-                <a
-                  href={`/departments?from=study&taskId=${encodeURIComponent(entry.taskId)}`}
-                  className="rounded-full border border-white/10 px-3 py-1.5 text-[11px] text-[#C8CDD8] transition hover:border-[#6BA0FF]/35 hover:text-[#B9D0FF]"
-                >
-                  看六部
-                </a>
-                <button
-                  type="button"
-                  onClick={() => onApply(entry)}
-                  className="rounded-full border border-[#F0C66A]/28 bg-[#F0C66A]/[0.07] px-3 py-1.5 text-[11px] font-semibold text-[#F0C66A] transition hover:bg-[#F0C66A]/[0.14]"
-                >
-                  带入下旨
-                </button>
-              </div>
-            </article>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function CollapsedEdictScroll({
-  title,
-  status,
-  sourceLabel,
-  departmentCount,
-  onOpen,
-}: {
-  title: string;
-  status: string;
-  sourceLabel: string;
-  departmentCount: number;
-  onOpen: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      data-three-axis-scroll
-      data-testid="collapsed-edict-scroll"
-      className="group relative mx-auto block w-full max-w-[900px] px-2 text-left transition duration-[260ms] hover:-translate-y-0.5 md:px-8"
-      aria-label="展开圣旨"
-    >
-      <span
-        aria-hidden
-        className="absolute inset-x-10 top-1/2 hidden h-16 -translate-y-1/2 rounded-full blur-2xl md:block"
-        style={{
-          background:
-            'radial-gradient(ellipse at 50% 50%, rgba(240,198,106,0.24), rgba(185,246,210,0.08) 42%, transparent 72%)',
-        }}
-      />
-      <span className="relative grid h-[58px] grid-cols-[30px_minmax(0,1fr)_30px] items-center md:h-[64px] md:grid-cols-[46px_minmax(0,1fr)_46px]">
-        {(['left', 'right'] as const).map((side) => (
-          <span
-            key={side}
-            aria-hidden
-            className={`relative z-20 flex h-[58px] items-center justify-center md:h-[64px] ${side === 'left' ? 'order-1' : 'order-3'}`}
-          >
-            <span
-              className="absolute h-[46px] w-[19px] rounded-full md:h-[54px] md:w-[23px]"
-              style={{
-                background:
-                  'linear-gradient(90deg, #2b1a07 0%, #8a6426 22%, #f0c66a 48%, #6f4a16 78%, #1a1005 100%)',
-                boxShadow:
-                  'inset 0 0 10px rgba(255,242,184,0.32), 0 14px 28px rgba(0,0,0,0.42)',
-              }}
-            />
-            <span
-              className="absolute top-1/2 h-[25px] w-[25px] -translate-y-1/2 rounded-full md:h-[32px] md:w-[32px]"
-              style={{
-                background:
-                  'radial-gradient(circle at 35% 28%, #f5fff0 0%, #bfd9bd 24%, #7d9f7f 56%, #263629 100%)',
-                boxShadow:
-                  'inset -5px -7px 12px rgba(11,28,18,0.40), inset 5px 5px 10px rgba(255,255,255,0.32), 0 0 22px rgba(213,239,206,0.20)',
-              }}
-            />
-          </span>
-        ))}
-
-        <span
-          className="relative order-2 z-10 mx-[-10px] flex h-[44px] min-w-0 items-center overflow-hidden rounded-full border px-4 md:mx-[-15px] md:h-[50px] md:px-7"
-          style={{
-            borderColor: 'rgba(140,92,36,0.62)',
-            background:
-              'radial-gradient(ellipse at 50% 18%, rgba(255,249,226,0.98), rgba(239,211,151,0.96) 58%, rgba(194,137,58,0.95) 100%), repeating-linear-gradient(90deg, rgba(120,74,22,0.11) 0 1px, transparent 1px 14px)',
-            boxShadow:
-              'inset 0 1px 0 rgba(255,250,232,0.82), inset 0 -12px 22px rgba(110,64,18,0.18), 0 20px 52px rgba(0,0,0,0.50), 0 0 32px rgba(240,198,106,0.10)',
-          }}
-        >
-          <span
-            aria-hidden
-            className="absolute inset-y-2 left-4 w-px"
-            style={{ background: 'linear-gradient(180deg, transparent, rgba(122,74,8,0.34), transparent)' }}
-          />
-          <span
-            aria-hidden
-            className="absolute inset-y-2 right-4 w-px"
-            style={{ background: 'linear-gradient(180deg, transparent, rgba(122,74,8,0.34), transparent)' }}
-          />
-          <span
-            aria-hidden
-            className="absolute left-1/2 top-0 h-full w-[58%] -translate-x-1/2 opacity-55"
-            style={{
-              background:
-                'radial-gradient(ellipse at 50% 50%, rgba(255,248,224,0.72), transparent 72%)',
-            }}
-          />
-          <span
-            aria-hidden
-            className="absolute left-1/2 top-1/2 grid h-[42px] w-[42px] -translate-x-1/2 -translate-y-1/2 rotate-[-14deg] place-items-center rounded-full border text-[16px] font-black opacity-80 md:h-[50px] md:w-[50px]"
-            style={{
-              borderColor: 'rgba(122,36,30,0.22)',
-              color: 'rgba(122,36,30,0.18)',
-              fontFamily: 'var(--font-serif)',
-            }}
-          >
-            旨
-          </span>
-          <span
-            aria-hidden
-            className="absolute inset-x-8 top-2 h-px"
-            style={{ background: 'linear-gradient(90deg, transparent, rgba(122,74,8,0.30), transparent)' }}
-          />
-          <span
-            aria-hidden
-            className="absolute inset-x-8 bottom-2 h-px"
-            style={{ background: 'linear-gradient(90deg, transparent, rgba(122,74,8,0.30), transparent)' }}
-          />
-          <span className="relative z-10 grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-            <span className="min-w-0">
-              <span
-                className="block truncate text-[14px] font-black leading-none md:text-[16px]"
-                style={{
-                  color: '#211406',
-                  fontFamily: '"LiSu", "STLiti", "STKaiti", "KaiTi", var(--font-serif)',
-                  letterSpacing: title.length <= 8 ? '0.08em' : 0,
-                  textShadow: '0 1px 0 rgba(255,250,232,0.58), 0 8px 18px rgba(80,45,12,0.14)',
-                }}
-              >
-                {title}
-              </span>
-              <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] font-bold" style={{ color: 'rgba(63,44,18,0.78)', fontFamily: 'var(--font-serif)' }}>
-                <span>{status}</span>
-                <span aria-hidden>·</span>
-                <span className="max-w-[120px] truncate md:max-w-[190px]">{sourceLabel}</span>
-                <span aria-hidden>·</span>
-                <span>{departmentCount} 部门</span>
-              </span>
-            </span>
-            <span
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10.5px] font-bold transition group-hover:border-[#7a4a08]/45 group-hover:bg-[#7a4a08]/10 md:px-2.5"
-              style={{ borderColor: 'rgba(122,74,8,0.24)', color: '#7a4a08', background: 'rgba(122,74,8,0.06)', fontFamily: 'var(--font-serif)' }}
-            >
-              展卷
-              <Maximize2 size={12} />
-            </span>
-          </span>
-          <span
-            aria-hidden
-            className="absolute right-8 top-1/2 z-10 hidden h-9 w-7 -translate-y-1/2 rotate-[-8deg] place-items-center rounded-[5px] border text-[12px] font-black text-[#7A241E] md:grid"
-            style={{
-              borderColor: 'rgba(122,36,30,0.42)',
-              background: 'rgba(122,36,30,0.07)',
-              fontFamily: 'var(--font-serif)',
-              boxShadow: 'inset 0 0 0 1px rgba(255,248,224,0.24)',
-            }}
-          >
-            封
-          </span>
-        </span>
-      </span>
-    </button>
-  );
-}
-
-function jiqunReturnProgressCopy(progress: JiqunRunProgress): {
-  label: string;
-  body: string;
-  accent: string;
-} {
-  if (progress.status === 'done') {
-    return {
-      label: '蜂群已回奏',
-      body: progress.sessionId
-        ? `编排会话〔${progress.sessionId}〕已完成，回奏正在写回本卷。`
-        : '后端蜂群已完成，回奏正在写回本卷。',
-      accent: '#2D8A5B',
-    };
-  }
-  if (progress.status === 'error') {
-    return {
-      label: '蜂群执行失败',
-      body: progress.error ?? '后端蜂群执行失败，请查看军机处流程或稍后重试。',
-      accent: '#9B2F25',
-    };
-  }
-
-  const parts: string[] = [];
-  if (progress.routedSwarm) parts.push(`入口〔${progress.routedSwarm}〕`);
-  if (progress.swarmName) {
-    parts.push(
-      progress.total > 0
-        ? `${progress.swarmName} · 第 ${progress.step}/${progress.total} 步${progress.stepName ? `〔${progress.stepName}〕` : ''}`
-        : `${progress.swarmName} 执行中`,
-    );
-  }
-  if (progress.swarmsDone > 0) parts.push(`已成 ${progress.swarmsDone} 群`);
-
-  return {
-    label: '蜂群执行中',
-    body: parts.length > 0 ? parts.join(' · ') : '后端蜂群已接旨，正在调度…',
-    accent: '#8A6A2A',
-  };
-}
-
-function JiqunReturnStatusBody({
-  progress,
-  taskId,
-  traceId,
-}: {
-  progress: JiqunRunProgress;
-  taskId?: string;
-  traceId?: string;
-}) {
-  const copy = jiqunReturnProgressCopy(progress);
-  const running = progress.status === 'idle' || progress.status === 'running';
-  const StatusIcon = progress.status === 'error' ? AlertTriangle : progress.status === 'done' ? CheckCircle2 : Waypoints;
-
-  return (
-    <div
-      data-testid="ssf-jiqun-return-status"
-      className="flex min-h-0 flex-1 flex-col justify-center gap-5 px-1 py-2 md:px-6"
-      style={{ fontFamily: 'var(--font-serif)' }}
-    >
-      <section
-        className="relative overflow-hidden rounded-[18px] border px-5 py-5 md:px-7 md:py-6"
-        style={{
-          borderColor: `${copy.accent}55`,
-          background:
-            'linear-gradient(180deg, rgba(255,248,224,0.18), rgba(255,248,224,0.06))',
-          boxShadow: 'inset 0 1px 0 rgba(255,250,235,0.28), 0 18px 42px rgba(58,33,8,0.12)',
-        }}
-      >
-        <div
-          aria-hidden
-          className="absolute -right-10 -top-14 h-36 w-36 rounded-full"
-          style={{ background: `${copy.accent}14` }}
-        />
-        <div className="relative z-10 flex items-start gap-4">
-          <span
-            className="mt-1 grid h-10 w-10 shrink-0 place-items-center rounded-full border"
-            style={{
-              borderColor: `${copy.accent}55`,
-              background: `${copy.accent}10`,
-              color: copy.accent,
-            }}
-          >
-            {running ? (
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
-            ) : (
-              <StatusIcon size={18} aria-hidden />
-            )}
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <span
-                className="text-[12px] font-black tracking-[0.18em]"
-                style={{ color: copy.accent }}
-              >
-                {copy.label}
-              </span>
-              <span
-                className="rounded-full border px-2.5 py-0.5 text-[10px] font-bold"
-                style={{
-                  borderColor: `${copy.accent}40`,
-                  background: `${copy.accent}0F`,
-                  color: copy.accent,
-                }}
-              >
-                蜂群调度
-              </span>
-            </div>
-            <p
-              className="text-[19px] font-semibold leading-[1.85] md:text-[23px]"
-              style={{
-                color: '#211406',
-                letterSpacing: '0.02em',
-                textShadow: '0 1px 0 rgba(255,250,232,0.52)',
-              }}
-            >
-              {copy.body}
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <div
-        className="grid gap-2 rounded-[14px] border px-4 py-3 text-[11px] leading-6 md:grid-cols-2"
-        style={{
-          borderColor: 'rgba(120,90,40,0.22)',
-          background: 'rgba(120,90,40,0.045)',
-          color: '#5F3C12',
-        }}
-      >
-        {taskId && <span className="truncate">案号：{taskId}</span>}
-        {traceId && <span className="truncate">Trace：{traceId}</span>}
-        {progress.taskId && <span className="truncate">后端任务：{progress.taskId}</span>}
-        {progress.sessionId && <span className="truncate">会话：{progress.sessionId}</span>}
-      </div>
-    </div>
-  );
 }
 
 function isAuthExpiredError(error: Error | null | undefined): boolean {
@@ -4851,12 +3854,16 @@ export function ShangshufangPage() {
         setDecreeSubmittingPreview(null);
         const respondedN = cov?.realResponded ?? result.called.length;
         const expectedN = cov?.realExpected ?? result.called.length;
-        const reply =
-          `${expectedN} 个部门中 ${respondedN} 个已回话` +
-            (respondedN < expectedN ? `（${expectedN - respondedN} 个未应答，结论待补全）` : '') +
-            '，密旨正文已写入下方卷轴' +
-            (escalated ? ' · 存在重大分歧，已按密报留痕，不进入会审裁决' : '') +
-            backendSuffix;
+        const isPlaceholderStub = result.jiqunSwarm?.ok === false;
+        const reply = isPlaceholderStub
+          ? `密旨当前为兼容占位通道，不产生真实分部门意见（${respondedN}/${expectedN} 恒为占位值，不会随时间变化）` +
+              '，密旨正文已写入下方卷轴' +
+              backendSuffix
+          : `${expectedN} 个部门中 ${respondedN} 个已回话` +
+              (respondedN < expectedN ? `（${expectedN - respondedN} 个未应答，结论待补全）` : '') +
+              '，密旨正文已写入下方卷轴' +
+              (escalated ? ' · 存在重大分歧，已按密报留痕，不进入会审裁决' : '') +
+              backendSuffix;
         setDecreeMsg(reply);
         appendDecreeChat({ role: 'assistant', label: '蜂群密报', text: reply }, 'secret');
         setEdictOverride({
@@ -4868,7 +3875,18 @@ export function ShangshufangPage() {
         setDecreeText(''); // 已发出的旨意不留在输入框，防误按 Enter 重复下旨
         setDecreeAttachments([]);
         // 闭环：追踪后端蜂群任务直到回奏/失败（此前 UI 拿到 taskId 后即失明）
-        if (result.jiqunSwarm?.taskId || result.jiqunSwarm?.sessionId) {
+        // isPlaceholderStub 时 taskId/sessionId 是兼容占位端点回显的假标识，没有真实后端任务
+        // 可供 SSE/轮询追踪——之前不区分真假，一律起追踪，最终会在 15 分钟超时后才显示
+        // "执行超时"，中途这 15 分钟全程显示"蜂群执行中/已接旨，正在调度…"，跟
+        // jiqunSwarm.ok===false 直接矛盾。占位路径直接跳过追踪，不显示假进度条。
+        if (isPlaceholderStub) {
+          // 只跳过"起新追踪"还不够——如果用户之前提交过一个真实下旨、那次追踪还没结束
+          // (jiqunProgress.status 仍是 running)，这里不清掉的话，占位密旨提交后画面上
+          // 会继续显示"上一个真实任务"的进度条，看起来像是这次密旨触发的，构成误导。
+          // 显式 reset，保证提交占位密旨之后画面上确定性地不出现任何蜂群进度条。
+          activeJiqunReturnRef.current = null;
+          resetJiqunRun();
+        } else if (result.jiqunSwarm?.taskId || result.jiqunSwarm?.sessionId) {
           activeJiqunReturnRef.current = {
             primaryTaskId: result.taskId ?? null,
             jiqunTaskId: result.jiqunSwarm.taskId,
@@ -4888,7 +3906,7 @@ export function ShangshufangPage() {
         void refreshBriefing();
       }
     },
-    [decreeMode, appendDecreeChat, makeFooter, makeVerdictFooter, focusDecree, refreshBriefing, refreshSwarmSessions, trackJiqunRun, runPackSwarmLoop],
+    [decreeMode, appendDecreeChat, makeFooter, makeVerdictFooter, focusDecree, refreshBriefing, refreshSwarmSessions, trackJiqunRun, resetJiqunRun, runPackSwarmLoop],
   );
 
   const runOrderDecree = useCallback(
