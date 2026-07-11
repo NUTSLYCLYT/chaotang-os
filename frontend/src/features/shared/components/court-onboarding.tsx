@@ -18,6 +18,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'motion/react';
 import {
@@ -147,7 +148,17 @@ export function CourtOnboarding() {
     }, 820);
   };
 
-  return (
+  // 独立复审(2026-07-11)发现的真实点击穿透 bug:底部御前对话栏(footer)及其容器
+  // 实测 z-index 是 210/215,比这个弹窗原来的 z-[180] 更高,弹窗按钮会被footer的
+  // 附件上传图标挡住点击——纯粹是数值比较问题,不是层叠上下文转义问题。改成
+  // z-[241],压过全仓库目前已知最高的普通 UI z-index(240,global-edict-quick-dock),
+  // 仍留在 toast(z-[9999])之下。同时改用 portal 直接挂到 document.body,避免
+  // 弹窗以后又被嵌套到某个开新层叠上下文的祖先节点里,重蹈同类覆辙。
+  // createPortal 的第二个参数在服务端渲染时会立即求值,document 在服务端不存在,
+  // 所以这里必须显式判断,不能只靠 visible(那个只影响子节点渲染与否)。
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <AnimatePresence>
       {visible && (
         <motion.div
@@ -155,7 +166,7 @@ export function CourtOnboarding() {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
-          className="fixed inset-0 z-[180] flex items-center justify-center overflow-hidden px-3 py-3 backdrop-blur-md sm:px-4 sm:py-4"
+          className="fixed inset-0 z-[241] flex items-center justify-center overflow-hidden px-3 py-3 backdrop-blur-md sm:px-4 sm:py-4"
           style={{
             background:
               'radial-gradient(ellipse at 50% 50%, rgba(240,198,106,0.08), rgba(0,0,0,0.82))',
@@ -507,7 +518,8 @@ export function CourtOnboarding() {
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
 
