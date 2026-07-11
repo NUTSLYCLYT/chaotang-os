@@ -32,7 +32,8 @@ import { colors } from '@/config/design-tokens';
 import { ANNALS_ENTRIES, OUTCOME_META, type AnnalsEntry } from '../lib/annals-entries';
 import { ArchiveCard } from './archive-card';
 import { EvidenceChainPanel } from './evidence-chain-panel';
-import { MOCK_COURT_DOCS, canExportAmulet, type CourtDoc } from '../lib/court-doc';
+import { canExportAmulet, type CourtDoc } from '../lib/court-doc';
+import { useCourtDocs } from '../lib/use-court-docs';
 
 const GOLD = colors.goldBright;
 
@@ -103,7 +104,9 @@ export function ScribeHubBoard({ onJump }: ScribeHubBoardProps) {
     URL.revokeObjectURL(url);
   };
 
-  const exportableDoc = MOCK_COURT_DOCS.find((d) => canExportAmulet(d)) ?? null;
+  const { data: courtDocs } = useCourtDocs();
+  const docs = courtDocs ?? [];
+  const exportableDoc = docs.find((d) => canExportAmulet(d)) ?? null;
 
   const total = ANNALS_ENTRIES.length;
   const s = ANNALS_ENTRIES.filter((e) => e.outcome === 'success').length;
@@ -254,18 +257,17 @@ export function ScribeHubBoard({ onJump }: ScribeHubBoardProps) {
               <div className="section-eyebrow">Amulet Archive · 护身符卷宗</div>
               <div className="mt-0.5 text-[11px]" style={{ color: colors.textDim }}>出事调依据 · 无源一律"待考"，不美化</div>
             </div>
-            <span
-              className="rounded-full border px-2 py-0.5 text-[9px]"
-              style={{ borderColor: `${colors.textMuted}55`, color: colors.textMuted }}
-              title="待接后端 /api/archive/case 等 HTTP 路由(现只有 CLI 脚本)"
-            >
-              示例 · 待接真实归档接口
-            </span>
           </div>
           <div className="mt-3 flex flex-col gap-3">
-            {MOCK_COURT_DOCS.map((doc) => (
-              <ArchiveCard key={doc.caseId} doc={doc} onTraceEvidence={handleTraceEvidence} onExportAmulet={handleExportAmulet} />
-            ))}
+            {docs.length === 0 ? (
+              <div className="rounded-lg border px-3 py-4 text-center text-[11px]" style={{ borderColor: `${colors.textMuted}33`, color: colors.textMuted }}>
+                暂无已归档卷宗（尚无真实复盘记录）
+              </div>
+            ) : (
+              docs.map((doc) => (
+                <ArchiveCard key={doc.caseId} doc={doc} onTraceEvidence={handleTraceEvidence} onExportAmulet={handleExportAmulet} />
+              ))
+            )}
           </div>
         </GlassPanel>
       </div>
