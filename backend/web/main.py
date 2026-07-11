@@ -169,6 +169,7 @@ from web.routers import build_ledger as build_ledger_router  # noqa: E402
 from web.routers import cases as cases_router  # noqa: E402
 from web.routers import court_compat as court_compat_router  # noqa: E402
 from web.routers import court as court_router  # noqa: E402
+from web.routers import department_learning as department_learning_router  # noqa: E402
 from web.routers import dadian as dadian_router  # noqa: E402
 from web.routers import qintianjian as qintianjian_router  # noqa: E402
 from web.routers import quotation as quotation_router  # noqa: E402
@@ -240,6 +241,7 @@ app.include_router(build_ledger_router.router)
 app.include_router(hanlin_router.router)
 app.include_router(qintian_forecast_router.router)
 app.include_router(hubu_ask_router.router)
+app.include_router(department_learning_router.router)
 app.include_router(preflight_router.router)
 app.include_router(auth_router.router)
 app.include_router(admin_router.router)
