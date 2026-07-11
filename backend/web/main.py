@@ -180,6 +180,7 @@ from web.routers import exports as exports_router  # noqa: E402
 from web.routers import feature_flags as feature_flags_router  # noqa: E402
 from web.routers import feedback as feedback_router  # noqa: E402
 from web.routers import flows as flows_router  # noqa: E402
+from web.routers import forecast_intel_taiyi as forecast_intel_taiyi_router  # noqa: E402
 from web.routers import gongbu as gongbu_router  # noqa: E402
 from web.routers import governance_compat as governance_compat_router  # noqa: E402
 from web.routers import hanlin as hanlin_router  # noqa: E402
@@ -242,6 +243,7 @@ app.include_router(hanlin_router.router)
 app.include_router(qintian_forecast_router.router)
 app.include_router(hubu_ask_router.router)
 app.include_router(department_learning_router.router)
+app.include_router(forecast_intel_taiyi_router.router)
 app.include_router(preflight_router.router)
 app.include_router(auth_router.router)
 app.include_router(admin_router.router)
