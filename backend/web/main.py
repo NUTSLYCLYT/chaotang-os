@@ -165,6 +165,7 @@ from web.routers import analytics as analytics_router  # noqa: E402
 from web.routers import approval as approval_router  # noqa: E402
 from web.routers import auth as auth_router  # noqa: E402
 from web.routers import bingbu as bingbu_router  # noqa: E402
+from web.routers import build_ledger as build_ledger_router  # noqa: E402
 from web.routers import cases as cases_router  # noqa: E402
 from web.routers import court_compat as court_compat_router  # noqa: E402
 from web.routers import court as court_router  # noqa: E402
@@ -232,6 +233,7 @@ from web.routers import dept as dept_router  # noqa: E402
 from web.routers import direct as direct_router  # noqa: E402
 
 app.include_router(health_router.router)
+app.include_router(build_ledger_router.router)
 app.include_router(preflight_router.router)
 app.include_router(auth_router.router)
 app.include_router(admin_router.router)

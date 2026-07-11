@@ -559,3 +559,41 @@ class DecreeExecutionEvent(Base):
     __table_args__ = (
         sa.Index("ix_decree_execution_events_task_occurred", "task_id", "occurred_at"),
     )
+
+
+class BuildLedgerEntry(Base):
+    """运营闭环构建台账(2026-07-11 补齐)。frontend/src/features/operating-loop/
+    lib/build-ledger.ts 调用的 /api/court/build-ledger 一直是死链——前端曾有一份
+    Node fs 版本(build-ledger-store.ts)，随"前端 BFF 退休"一起变成孤儿代码，
+    这里在后端用真实数据库表重新实现同一份契约。"""
+
+    __tablename__ = "build_ledger_entries"
+
+    id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    status: Mapped[str] = mapped_column(sa.Text, nullable=False, default="dispatched")
+    entry_json: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
+    updated_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
+
+    __table_args__ = (
+        sa.Index("ix_build_ledger_entries_task", "task_id"),
+        sa.Index("ix_build_ledger_entries_created", "created_at"),
+    )
+
+
+class BuildLedgerAuditEvent(Base):
+    __tablename__ = "build_ledger_audit_events"
+
+    id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    actor: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    action: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    from_status: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    to_status: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    note: Mapped[str] = mapped_column(sa.Text, nullable=False, default="")
+    created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
+
+    __table_args__ = (
+        sa.Index("ix_build_ledger_audit_task", "task_id"),
+    )
