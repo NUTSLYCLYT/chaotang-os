@@ -26,7 +26,11 @@ const MODE_OPTIONS: Array<{
   title: string;
 }> = [
   { key: 'order', mode: 'order', label: '下旨', icon: 'order', title: '下旨 · 先进入拟旨，准奏后才启动后端蜂群' },
-  { key: 'secret', mode: 'secret', label: '密旨', icon: 'secret', title: '密旨 · 先生成密旨稿，人工确认后才全朝并奏' },
+  // 独立复审(2026-07-11)发现: 这句话此前暗示密旨走一条独立的"先生成密旨稿、
+  // 人工确认后才全朝并奏"流程,但后端 draft-edict/confirm-edict 压根不接收
+  // mode 字段——密旨和下旨走的是同一条链路,唯一的真实区别只在措辞更收敛
+  // (走 /polish-edict 时的语气切换)。改成如实描述,不承诺不存在的保密路由。
+  { key: 'secret', mode: 'secret', label: '密旨', icon: 'secret', title: '密旨 · 同下旨流程，仅措辞更收敛克制' },
 ];
 
 function dispatchImperialActionAccepted() {
