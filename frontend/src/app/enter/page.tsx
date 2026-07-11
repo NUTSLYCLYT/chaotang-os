@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { backendFetch } from '@/lib/backend-api'
 
 function EnterPageInner() {
   const router = useRouter()
@@ -13,12 +14,35 @@ function EnterPageInner() {
       setPhase('denied')
       return
     }
-    setTimeout(() => {
-      setPhase('granted')
-      setTimeout(() => {
-        router.push(`/dadian?token=${encodeURIComponent(token)}`)
-      }, 2000)
-    }, 1500)
+    let cancelled = false
+    // 此前这里是纯前端 setTimeout，任意非空 token 都会判定为有效并放行到 /dadian——
+    // 没有调用任何后端校验，是一处真实的准入绕过。改为调用 /invite 页面同款的
+    // /api/auth/verify-invite 真实校验，只有后端确认 valid 才放行。
+    ;(async () => {
+      try {
+        const res = await backendFetch('/api/auth/verify-invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: token }),
+          signal: AbortSignal.timeout(5000),
+        })
+        const body = (await res.json().catch(() => ({}))) as { valid?: boolean }
+        if (cancelled) return
+        if (!res.ok || !body.valid) {
+          setPhase('denied')
+          return
+        }
+        setPhase('granted')
+        setTimeout(() => {
+          if (!cancelled) router.push(`/dadian?token=${encodeURIComponent(token)}`)
+        }, 2000)
+      } catch {
+        if (!cancelled) setPhase('denied')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [token, router])
 
   return (

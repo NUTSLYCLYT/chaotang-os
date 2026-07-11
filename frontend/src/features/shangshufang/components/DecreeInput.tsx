@@ -152,6 +152,7 @@ export function DecreeInput({
   const [polishPressed, setPolishPressed] = useState(false);
   const [actionLocked, setActionLocked] = useState(false);
   const visibleModeOptions = MODE_OPTIONS.filter(m => availableModes.includes(m.mode));
+  const secretOptionVisible = visibleModeOptions.some((m) => m.mode === 'secret');
   const singleMode = visibleModeOptions.length === 1;
   const activeModeIndex = Math.max(0, visibleModeOptions.findIndex((item) => item.mode === mode && (item.mode !== 'ask' || item.askTarget === askTarget)));
   const isAsk = mode === 'ask';
@@ -440,6 +441,7 @@ export function DecreeInput({
                     const tone = item.mode === 'secret' ? SECRET : GOLD;
                     const displayLabel = item.mode === 'order' ? '圣旨' : item.label;
                     const displayTitle = item.mode === 'order' ? '圣旨 · 先进入拟旨，准奏后才启动后端蜂群' : item.title;
+                    const isSecretOption = item.mode === 'secret';
                     return (
                       <button
                         key={item.key}
@@ -460,10 +462,32 @@ export function DecreeInput({
                       >
                         <Icon size={11} />
                         {displayLabel}
+                        {isSecretOption && (
+                          <span
+                            aria-hidden
+                            data-testid="decree-mode-secret-placeholder-dot"
+                            className="ml-0.5 h-1.5 w-1.5 shrink-0 rounded-full"
+                            style={{ background: '#E8A38C', boxShadow: '0 0 5px #E8A38C99' }}
+                          />
+                        )}
                       </button>
                     );
                   })}
                 </div>
+              )}
+              {secretOptionVisible && (
+                <span
+                  data-testid="decree-secret-placeholder-badge"
+                  className={`${inSlot ? 'h-7 px-2' : 'h-8 px-2.5'} order-3 inline-flex shrink-0 items-center gap-1 rounded-full border text-[10px] font-semibold`}
+                  style={{
+                    borderColor: 'rgba(232,163,140,0.5)',
+                    color: '#E8A38C',
+                    background: isSecret ? 'rgba(232,163,140,0.14)' : 'rgba(232,163,140,0.06)',
+                  }}
+                  title="密旨走独立直发通道，命中后端兼容占位实现，不产生真实分部门意见"
+                >
+                  {isSecret ? '密旨 · 占位未接蜂群' : '密旨为占位模式'}
+                </span>
               )}
               {singleMode && (
                 <span

@@ -37,6 +37,13 @@ function RegisterForm() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // 后端 RegisterRequest.invite_code 是必填字段(邀请制注册)，没有邀请码提交必然
+    // 422——与其让用户填完整张表单才在网络请求里看到后端报错，不如在真正发请求前就
+    // 挡住，给出清楚的下一步(通过邀请链接进入)。
+    if (!inviteCode) {
+      setError('注册需要有效邀请码，请通过邀请链接进入本页面。');
+      return;
+    }
     if (!username.trim() || !email.trim() || !password.trim() || !confirm.trim()) {
       setError('请先完成所有必填字段。');
       return;
@@ -65,7 +72,7 @@ function RegisterForm() {
           username: username.trim(),
           email: email.trim(),
           password,
-          inviteCode: inviteCode || undefined,
+          invite_code: inviteCode || undefined,
         }),
       });
 

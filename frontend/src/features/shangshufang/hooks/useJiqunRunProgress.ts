@@ -8,6 +8,13 @@
  * 本 hook 消费既有 SSE 代理 /jiqun/api/runs/stream/{taskId}（事件：route/swarm_start/
  * step/swarm_done/done/error），SSE 断线时降级轮询 /runs/stream/{taskId}/status，
  * 把执行进度与终态（含失败原因）交还陛下。
+ *
+ * 2026-07-11 Codex 停止前审查发现的竞态：轮询用 window.setInterval(async () => ...)，
+ * cleanup() 只 clearInterval，无法撤回一个已经在 await 中的 tick——reset()/track() 清了
+ * 定时器之后，上一轮已经发出去的 fetch 仍会在之后的某个时刻 resolve 并调用 setProgress，
+ * 把刚清空的 IDLE 状态用一份陈旧进度覆盖回去。用单调递增的 epochRef 解决：每次 track()/
+ * reset() 都令 epoch 自增，每个轮询 tick/SSE 消息在真正调用 setProgress 前都必须核对自己
+ * 持有的 epoch 快照与当前 epochRef 一致，不一致（说明期间发生过 reset/新 track）则丢弃。
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -82,6 +89,9 @@ export function useJiqunRunProgress() {
   const esRef = useRef<EventSource | null>(null);
   const pollTimerRef = useRef<number | null>(null);
   const terminalRef = useRef(false);
+  // 每次 track()/reset() 自增；任何异步回调在写 setProgress 前都要核对自己捕获的快照
+  // 是否仍等于当前值，不等于就说明期间已经 reset/重新 track，丢弃这次写入。
+  const epochRef = useRef(0);
 
   const cleanup = useCallback(() => {
     esRef.current?.close();
@@ -95,6 +105,7 @@ export function useJiqunRunProgress() {
   useEffect(() => cleanup, [cleanup]);
 
   const reset = useCallback(() => {
+    epochRef.current += 1;
     terminalRef.current = false;
     cleanup();
     setProgress(IDLE);
@@ -102,11 +113,11 @@ export function useJiqunRunProgress() {
 
   /** SSE 不可用时的兜底：轮询任务状态直到终态。 */
   const startPolling = useCallback(
-    (taskId: string) => {
+    (taskId: string, epoch: number) => {
       if (pollTimerRef.current != null) return;
       const startedAt = Date.now();
       pollTimerRef.current = window.setInterval(async () => {
-        if (terminalRef.current) {
+        if (epochRef.current !== epoch || terminalRef.current) {
           cleanup();
           return;
         }
@@ -114,6 +125,7 @@ export function useJiqunRunProgress() {
           const s = await jiqunFetcher<{ status: string; run_id?: string | null; error?: string | null }>(
             `/runs/stream/${encodeURIComponent(taskId)}/status`,
           );
+          if (epochRef.current !== epoch) return; // await 期间发生过 reset/新 track，丢弃
           if (s.status === 'done') {
             terminalRef.current = true;
             cleanup();
@@ -126,7 +138,7 @@ export function useJiqunRunProgress() {
         } catch {
           /* 单次轮询失败不终止，等下一轮 */
         }
-        if (Date.now() - startedAt > POLL_MAX_MS && !terminalRef.current) {
+        if (epochRef.current === epoch && Date.now() - startedAt > POLL_MAX_MS && !terminalRef.current) {
           terminalRef.current = true;
           cleanup();
           setProgress((p) => ({ ...p, status: 'error', error: '执行超时未回报，请前往庄园主页查看' }));
@@ -137,11 +149,11 @@ export function useJiqunRunProgress() {
   );
 
   const startSessionPolling = useCallback(
-    (sessionId: string) => {
+    (sessionId: string, epoch: number) => {
       if (pollTimerRef.current != null) return;
       const startedAt = Date.now();
       pollTimerRef.current = window.setInterval(async () => {
-        if (terminalRef.current) {
+        if (epochRef.current !== epoch || terminalRef.current) {
           cleanup();
           return;
         }
@@ -149,6 +161,7 @@ export function useJiqunRunProgress() {
           const s = await jiqunFetcher<JiqunSessionSummary>(
             `/swarm/sessions/${encodeURIComponent(sessionId)}`,
           );
+          if (epochRef.current !== epoch) return; // await 期间发生过 reset/新 track，丢弃
           const swarmsDone = Number(s.completed_count ?? 0);
           const total = Number(s.swarm_count ?? 0);
           setProgress((p) => ({
@@ -183,7 +196,7 @@ export function useJiqunRunProgress() {
         } catch {
           /* session 文件可能尚未落盘，等下一轮 */
         }
-        if (Date.now() - startedAt > POLL_MAX_MS && !terminalRef.current) {
+        if (epochRef.current === epoch && Date.now() - startedAt > POLL_MAX_MS && !terminalRef.current) {
           terminalRef.current = true;
           cleanup();
           setProgress((p) => ({ ...p, status: 'error', error: '执行超时未回报，请前往庄园主页查看' }));
@@ -200,12 +213,14 @@ export function useJiqunRunProgress() {
       const sessionId = typeof ref === 'string' ? null : ref.sessionId ?? null;
       if (!taskId && !sessionId) return;
 
+      epochRef.current += 1;
+      const epoch = epochRef.current;
       terminalRef.current = false;
       cleanup();
       setProgress({ ...IDLE, taskId, sessionId, status: 'running' });
 
       if (!taskId) {
-        startSessionPolling(sessionId!);
+        startSessionPolling(sessionId!, epoch);
         return;
       }
 
@@ -213,6 +228,7 @@ export function useJiqunRunProgress() {
       esRef.current = es;
 
       es.onmessage = (e: MessageEvent) => {
+        if (epochRef.current !== epoch) return; // 陈旧连接的消息，已经 reset/重新 track
         let ev: StreamEvent;
         try {
           ev = JSON.parse(e.data) as StreamEvent;
@@ -255,10 +271,10 @@ export function useJiqunRunProgress() {
       };
 
       es.onerror = () => {
-        if (terminalRef.current) return;
+        if (epochRef.current !== epoch || terminalRef.current) return;
         // SSE 断流（代理缓冲/网络/任务不存在）→ 降级轮询，不让陛下失明
         es.close();
-        startPolling(taskId);
+        startPolling(taskId, epoch);
       };
     },
     [cleanup, startPolling, startSessionPolling],
