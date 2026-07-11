@@ -18,6 +18,14 @@ Codex 停止前审查指出:"注册页关键修复没有被现有 E2E 真正覆�
 
 修完后 `pnpm exec playwright test e2e/invite-enter-register-smoke.spec.ts` 9/9 全绿(含新增的 2 处断言)。
 
+### Codex 停止前审查再纠正(任务 1，2026-07-11 第二轮)
+
+Codex 停止前审查又指出:"新增 E2E 未完成其声明的'注册→登录→已登录落地'闭环"。复核发现上一轮补的那条正向用例，标题和描述都写着"注册→登录"，但实际断言只走到 `page.waitForURL(/\/login/)`——跳转到登录页就算结束，从来没有真的用刚创建的账号密码去提交登录、也没断言最终落地到已登录页(`/dadian`)。这跟任务 1 在 `request_analysis/tasks.md` 里写的原始目标"新用户注册→登录→落地到已登录页"名不副实，只做了前一半。
+
+修复：在原有断言之后，续接真实登录动作——`page.getByLabel('用户名')`/`page.getByLabel('密码')` 填入刚注册的同一组用户名密码(`login/page.tsx` 的两个输入框是 `<label>` 包裹 `<span>用户名/密码</span>` + `<input>`，用 `getByLabel` 能正确关联)，点击"入朝议政"提交，断言 `page.waitForURL(/\/dadian/)`(登录页默认 `next=/dadian`)。用例名同步改成"真实注册成功→登录→落地已登录页"，不再半路声称完成。
+
+验证：`pnpm exec playwright test e2e/invite-enter-register-smoke.spec.ts` 9/9 全绿(含完整走完注册→登录→落地 `/dadian` 的这条用例)。`tsc --noEmit`、`test:node`(989/995，同一组既有失败)复跑均绿。
+
 ## 改动(任务 3 · 密旨入口诚实降级)
 
 - `src/features/shangshufang/components/DecreeInput.tsx`：
