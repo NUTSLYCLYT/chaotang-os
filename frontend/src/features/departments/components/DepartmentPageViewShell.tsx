@@ -201,7 +201,7 @@ export function DepartmentPageViewShell({
                 {actionError ? <span className="mr-auto text-[11px] text-[#FFB0B0]">{actionError}</span> : null}
                 {currentView.department.code === 'finance' && !showHubuBudgetIntake ? (
                   <Link
-                    href={withBasePath('/liubu/hubu?newBudget=1')}
+                    href="/liubu/hubu?newBudget=1"
                     className="inline-flex h-9 items-center justify-center rounded-[8px] border border-[#F0C66A]/35 bg-[#F0C66A]/10 px-3 text-[12px] font-semibold text-[#F4D98C] transition hover:brightness-110"
                   >
                     研发预算承办

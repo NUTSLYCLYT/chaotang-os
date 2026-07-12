@@ -83,7 +83,7 @@ export function ChancellorTodayCard() {
           </ul>
           <div className="mt-3 flex items-center gap-2">
             <Link
-              href="/court-briefing"
+              href="/shangshufang"
               className="rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition hover:brightness-110"
               style={{ background: `${GOLD}1c`, border: `1px solid ${GOLD}55`, color: GOLD }}
             >

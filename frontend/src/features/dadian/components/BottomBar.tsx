@@ -71,7 +71,7 @@ export default function BottomBar() {
             继续办理
           </Link>
           <Link
-            href="/court-briefing"
+            href="/shangshufang"
             className="hidden rounded border border-white/12 bg-white/[0.035] px-3 py-2 text-[12px] text-parchment-200/76 transition hover:bg-white/[0.07] sm:inline-flex"
           >
             回上书房

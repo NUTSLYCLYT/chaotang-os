@@ -574,7 +574,7 @@ function BuildDraftPanel({
         <Link href="/departments" style={{ border: '1px solid rgba(240,198,106,0.28)', color: '#F0C66A', borderRadius: 6, padding: '8px 12px', fontSize: 12 }}>
           户部预算
         </Link>
-        <Link href={buildTask?.archiveHref ?? '/archive'} style={{ border: '1px solid rgba(255,255,255,0.12)', color: '#C8CDD8', borderRadius: 6, padding: '8px 12px', fontSize: 12 }}>
+        <Link href={buildTask?.archiveHref ?? '/shiguan'} style={{ border: '1px solid rgba(255,255,255,0.12)', color: '#C8CDD8', borderRadius: 6, padding: '8px 12px', fontSize: 12 }}>
           史馆归档
         </Link>
       </div>
@@ -1711,7 +1711,7 @@ function ChancellorLoopPanel({
         ].map(([label, note]) => (
           <Link
             key={label}
-            href={taskId ? `/court-briefing?taskId=${encodeURIComponent(taskId)}` : '/court-briefing'}
+            href={taskId ? `/shangshufang?taskId=${encodeURIComponent(taskId)}` : '/shangshufang'}
             style={{
               border: '1px solid rgba(255,255,255,0.10)',
               background: 'rgba(255,255,255,0.034)',
@@ -2636,7 +2636,7 @@ function ChancellorBody({
     return (
       <div style={{ display: 'grid', gap: 9 }}>
         <div style={rowStyle}><div style={labelStyle}>辅政待命</div><div style={valueStyle}>当前没有真案。先从上书房立一条可执行军令，丞相即在此辅政：拆解议题、汇总六部分歧、标注风险。</div></div>
-        <Link href="/court-briefing" style={{ ...rowStyle, display: 'block', textAlign: 'center', color: '#F5E9C9', fontFamily: 'var(--font-serif)', fontWeight: 700, textDecoration: 'none' }}>回上书房立真案 →</Link>
+        <Link href="/shangshufang" style={{ ...rowStyle, display: 'block', textAlign: 'center', color: '#F5E9C9', fontFamily: 'var(--font-serif)', fontWeight: 700, textDecoration: 'none' }}>回上书房立真案 →</Link>
       </div>
     );
   }
@@ -2821,7 +2821,7 @@ function CommandCenterInner() {
 
   const handleDecreeFromBar = useCallback(async (draft: string) => {
     const command = draft.trim();
-    if (!command) { router.push('/court-briefing'); return; }
+    if (!command) { router.push('/shangshufang'); return; }
     setDispatchError(null);
     setDispatching(true); // P0:立刻给"蜂群集结中"反馈,不让用户对着死按钮等 89 秒
     try {
@@ -2874,9 +2874,9 @@ function CommandCenterInner() {
     shangshufangStatus,
   });
   const dialogueActions: CourtDialogueAction[] = [
-    { key: 'ask', glyph: '策', label: '推进方案', tone: 'plain', onClick: () => router.push('/court-briefing') },
+    { key: 'ask', glyph: '策', label: '推进方案', tone: 'plain', onClick: () => router.push('/shangshufang') },
     { key: 'decree', glyph: '旨', label: '发圣旨', tone: 'gold', onClick: (d) => void handleDecreeFromBar(d) },
-    { key: 'secret', glyph: '密', label: '密旨', tone: 'danger', onClick: () => router.push('/court-briefing') },
+    { key: 'secret', glyph: '密', label: '密旨', tone: 'danger', onClick: () => router.push('/shangshufang') },
   ];
   const commandCenterEdict = commandCenterToEdict({
     taskId: activeTaskId,
@@ -3091,7 +3091,7 @@ function CommandCenterInner() {
           </Link>
           <span className="mx-0.5 h-4 w-px bg-white/12" aria-hidden />
           <Link
-            href="/court-briefing"
+            href="/shangshufang"
             className="rounded-full border border-white/12 bg-white/[0.04] px-3.5 py-1.5 text-[12px] text-[#D7DFF2] transition hover:border-[#F0C66A]/45 hover:text-[#F0C66A]"
           >
             回上书房
@@ -3188,7 +3188,7 @@ function CommandCenterInner() {
               serif
               icon={<ScrollText size={13} />}
               title="回上书房拟一条新圣旨（不改动当前案）"
-              onClick={() => router.push('/court-briefing')}
+              onClick={() => router.push('/shangshufang')}
             >
               发圣旨
             </ImperialButton>
@@ -3216,7 +3216,7 @@ function CommandCenterInner() {
               icon={<Archive size={13} />}
               disabled={!hasTask}
               title={!hasTask ? '奏折成稿后可转史馆归档' : undefined}
-              onClick={() => router.push(activeTaskId ? `/archive?taskId=${encodeURIComponent(activeTaskId)}` : '/archive')}
+              onClick={() => router.push(activeTaskId ? `/shiguan?taskId=${encodeURIComponent(activeTaskId)}` : '/shiguan')}
             >
               转史馆
             </ImperialButton>

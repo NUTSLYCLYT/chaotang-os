@@ -245,7 +245,7 @@ export function HubuBudgetIntakeBody({ accent }: { accent: string }) {
       });
       const payload = (await response.json().catch(() => null)) as { success?: boolean; data?: { taskId?: string }; error?: string } | null;
       if (!response.ok || payload?.success !== true || !payload.data?.taskId) throw new Error(payload?.error ?? `request_failed:${response.status}`);
-      router.push(withBasePath(`/liubu/hubu?taskId=${encodeURIComponent(payload.data.taskId)}`));
+      router.push(`/liubu/hubu?taskId=${encodeURIComponent(payload.data.taskId)}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'research_budget_submit_failed');
     } finally {
