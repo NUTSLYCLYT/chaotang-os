@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Query
 
 from src import jinyiwei_agent as ja
 from src.jinyiwei_search import tavily_search
@@ -20,6 +20,41 @@ from web.routers._envelope import fail, ok
 from web.schemas.auth import CurrentUser
 
 router = APIRouter(prefix="/api/intel", tags=["jinyiwei"])
+
+
+def _persist_brief_items(*, query: str, findings: list, doc: dict, source_label: str) -> None:
+    """把 gather_intel 已经算好的每条情报存进共享池，供以后任意任务查询复用。
+    最佳努力：持久化失败不影响 /api/intel/brief 本身的返回(同
+    court_doc_builder.py 里 truth_ledger.record() 的既有 best-effort 惯例)。"""
+    items = doc.get("items") if isinstance(doc, dict) else None
+    if not items:
+        return
+    try:
+        from src.chaotang_store import _get_default_tenant_id
+        from src.db.engine import SessionLocal
+        from src.jinyiwei_evidence_store import upsert_evidence
+
+        tenant_id = _get_default_tenant_id()
+        db = SessionLocal()
+        try:
+            for finding, item in zip(findings, items):
+                claim = str(finding.get("claim", "")) if isinstance(finding, dict) else ""
+                if not claim:
+                    continue
+                upsert_evidence(
+                    db,
+                    tenant_id=tenant_id,
+                    query=query,
+                    claim=claim,
+                    sources=item.get("sources"),
+                    item=item,
+                    source_label=source_label,
+                )
+            db.commit()
+        finally:
+            db.close()
+    except Exception:  # noqa: BLE001 - 情报入库失败不影响谍报简报本身返回
+        pass
 
 
 @router.post("/brief")
@@ -41,11 +76,19 @@ def intel_brief(
         return fail("findings 必须是 array(调用方已检索到的 claim/sources 列表)")
 
     if findings:
-        search_fn = lambda _q: findings  # noqa: E731  调用方自带证据链
         source_label = "CALLER_FINDINGS"
     else:
-        search_fn = tavily_search        # 真实联网;无 key/失败 → 返回 [],gather_intel 诚实空态
         source_label = "LIVE_SEARCH"
+        try:
+            findings = tavily_search(query) or []  # 真实联网;无 key/失败 → 空态
+        except Exception:  # noqa: BLE001 - 诚实空态,不编造
+            findings = []
+
+    # 两条采证路径统一成同一种"调用方已有 findings"形状——这样路由层自己手上
+    # 始终留着未截断的原始 claim 列表，供 gather_intel 返回后按下标跟 vet 过的
+    # items 配对存进共享情报池(_finding_to_item 只把 claim 截断进 title 前60字，
+    # 不保留完整文本，只能靠路由层自己留一份)。
+    search_fn = lambda _q: findings  # noqa: E731
 
     try:
         doc = ja.gather_intel(query, search_fn=search_fn, archive=True)
@@ -54,6 +97,56 @@ def intel_brief(
     # gather_intel 空态(采证一无所获)诚实降级标签,不冒充有货
     if not (doc.get("items") if isinstance(doc, dict) else None):
         source_label = "FALLBACK"
+    else:
+        _persist_brief_items(query=query, findings=findings, doc=doc, source_label=source_label)
     if isinstance(doc, dict):
         doc["sourceLabel"] = source_label
     return ok(doc)
+
+
+@router.get("/evidence")
+def intel_evidence(
+    query: str | None = Query(default=None),
+    dept: str | None = Query(default=None),
+    include_pending: bool = Query(default=False),
+    limit: int = Query(default=50, ge=1, le=200),
+    _: CurrentUser = Depends(get_current_user),
+) -> dict:
+    """查共享情报池——锦衣卫已核实过的情报，跨任务可复用查询。字段命名对齐
+    frontend/src/lib/contracts/evidence.ts::EvidenceRecord，方便前端接线时
+    接近直通，不需要二次映射。"""
+    from src.chaotang_store import _get_default_tenant_id
+    from src.db.engine import SessionLocal
+    from src.jinyiwei_evidence_store import query_evidence
+
+    tenant_id = _get_default_tenant_id()
+    db = SessionLocal()
+    try:
+        rows = query_evidence(
+            db,
+            tenant_id=tenant_id,
+            keyword=query,
+            dept=dept,
+            include_pending=include_pending,
+            limit=limit,
+        )
+    finally:
+        db.close()
+
+    return ok(
+        {
+            "items": [
+                {
+                    "evidenceType": "intel",
+                    "trust": row["trust"],
+                    "deptAffinity": row["dept_affinity"],
+                    "insight": f"{row['claim']}({row['grade']})",
+                    "sourceLabel": row["source_label"],
+                    "originTaskId": row["origin_task_id"],
+                    "createdAt": row["created_at"],
+                    "updatedAt": row["updated_at"],
+                }
+                for row in rows
+            ]
+        }
+    )

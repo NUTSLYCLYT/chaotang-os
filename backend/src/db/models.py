@@ -468,6 +468,38 @@ class SwarmEvidenceLink(Base):
     __table_args__ = (sa.Index("ix_swarm_evidence_run", "swarm_run_id"),)
 
 
+class JinyiweiEvidence(Base):
+    """锦衣卫可信度分级后的情报——跨任务可查的共享情报池。
+
+    跟 SwarmEvidenceLink(单次蜂群运行的证据引用审计,只写不读)是两回事:
+    这张表是"我们已经知道什么"的内容池,按 (tenant_id, claim_key) 去重、
+    可被任意后续任务查询复用,不是某一次运行的追溯记录。"""
+
+    __tablename__ = "jinyiwei_evidence"
+
+    id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
+    origin_task_id: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    swarm_run_id: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    query: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    claim: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    claim_key: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    grade: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    decision: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    trust: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    source_label: Mapped[str] = mapped_column(sa.Text, nullable=False, default="FALLBACK")
+    sources_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="[]")
+    dept_affinity_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="[]")
+    created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
+    updated_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
+
+    __table_args__ = (
+        sa.Index("ix_jinyiwei_evidence_tenant_key", "tenant_id", "claim_key"),
+        sa.Index("ix_jinyiwei_evidence_tenant_query", "tenant_id", "query"),
+        sa.Index("ix_jinyiwei_evidence_tenant_decision", "tenant_id", "decision"),
+    )
+
+
 class SwarmQualityResult(Base):
     """蜂群质门结果。"""
 

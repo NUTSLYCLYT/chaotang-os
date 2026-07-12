@@ -83,3 +83,49 @@ def test_brief_endpoint_rejects_non_list_findings():
     body = r.json()
     assert body["success"] is False
     assert "findings" in body["error"]
+
+
+def test_brief_endpoint_persists_items_to_shared_evidence_pool(isolated_session_local):
+    """见 valiant-crunching-candy.md「锦衣卫作为跨阶段共享证据服务」阶段1验收:
+    真实调一次 /api/intel/brief，确认落进 jinyiwei_evidence 表，
+    再调 GET /api/intel/evidence 能查到，不是只存在于 court_doc 响应里。"""
+    r = client.post("/api/intel/brief", json={
+        "query": "厦门合作方尽调",
+        "findings": [
+            {"claim": "该合作方资质齐全", "sources": [{"tier": "一手"}]},
+        ],
+    })
+    assert r.status_code == 200
+    assert r.json()["data"]["sourceLabel"] == "CALLER_FINDINGS"
+
+    r2 = client.get("/api/intel/evidence", params={"query": "厦门"})
+    assert r2.status_code == 200
+    items = r2.json()["data"]["items"]
+    assert len(items) == 1
+    assert "该合作方资质齐全" in items[0]["insight"]
+    assert items[0]["trust"] == "jinyiwei_verified"
+
+
+def test_brief_endpoint_live_search_findings_have_untruncated_claim_persisted(
+    isolated_session_local, monkeypatch
+):
+    """Tavily 真检索路径下，路由层不能只拿到 gather_intel 已截断的 title——
+    必须自己留一份原始 claim 才能正确落库。用一条超过 60 字的 claim 验证
+    共享池里存的是完整文本，不是 _finding_to_item 截断后的 60 字标题。"""
+    long_claim = "该客户在过去十二个月内多次公开表达对本轮融资方案的强烈保留意见并要求补充尽调" * 2
+    assert len(long_claim) > 60
+    monkeypatch.setattr(
+        jinyiwei_router, "tavily_search",
+        # tier="二手" 让 vet_intel 判成"二手(单源)/待核"，而不是默认无 tier 时
+        # 判成"未证实/拒"——这里要验证的是"待核也能正确落库、claim 未被截断"，
+        # 不是脏情报拦截门本身(那条已经在 evidence_store 的测试里覆盖过)。
+        lambda q, **kw: [{"claim": long_claim, "sources": [{"name": "https://a.com", "tier": "二手"}]}],
+    )
+    r = client.post("/api/intel/brief", json={"query": "某客户态度核实"})
+    assert r.status_code == 200
+    assert r.json()["data"]["sourceLabel"] == "LIVE_SEARCH"
+
+    r2 = client.get("/api/intel/evidence", params={"query": "某客户态度核实", "include_pending": True})
+    items = r2.json()["data"]["items"]
+    assert len(items) == 1
+    assert long_claim in items[0]["insight"]
