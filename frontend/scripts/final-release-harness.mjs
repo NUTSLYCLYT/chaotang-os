@@ -265,7 +265,12 @@ async function checkStudyEdictContract() {
       cwd: process.cwd(),
       timeout: 40000,
       maxBuffer: 1024 * 1024,
-      env: { ...process.env },
+      env: {
+        ...process.env,
+        ...(process.env.HARNESS_AUTH_TOKEN
+          ? { COURT_TOKEN: process.env.HARNESS_AUTH_TOKEN }
+          : {}),
+      },
     });
     const tail = stdout.trim().split('\n').slice(-3).join(' ');
     return { id: 'study-edict-contract', ok: true, decision: 'PROD', detail: tail.slice(0, 240) };
@@ -284,7 +289,10 @@ async function checkStudyEdictContract() {
 async function setupContext(context) {
   const token = makeToken();
   const now = Math.floor(Date.now() / 1000);
-  await context.addCookies([{ name: 'courtos.access_token', value: token, url: baseUrl, sameSite: 'Lax' }]);
+  await context.addCookies([
+    { name: 'courtos.access_token', value: token, url: baseUrl, sameSite: 'Lax' },
+    { name: 'token', value: token, url: baseUrl, sameSite: 'Lax', httpOnly: true },
+  ]);
   await context.addInitScript((session) => {
     localStorage.setItem('courtos.auth', JSON.stringify(session));
     localStorage.setItem('courtos.onboarded', '1');
