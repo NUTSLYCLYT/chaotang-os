@@ -325,11 +325,14 @@ def test_retrospective_outcome_self_heals_on_old_table():
     eng.dispose()
 
 
-def test_decree_execution_event_sequence_self_heals_on_old_table():
-    """2026-07-12 Codex 停止前审查发现:Alembic 005 只在生产迁移路径跑,老 DB 文件
-    (create_all 补救、未跑迁移)的 decree_execution_events 表没有 sequence 列——
-    record_timeline_event/_load_timeline 不能因此崩，必须现场补列(同
-    ensure_task_result_json_column/ensure_retrospective_outcome_column 的既有惯例)。"""
+def test_decree_execution_event_sequence_self_heals_and_backfills_existing_rows():
+    """2026-07-12 Codex 停止前二次审查纠正:"自愈避免了崩溃，但没有完成旧库的
+    正确迁移"——第一版自愈只加列，旧表里本来就有的历史行全部落到 DEFAULT 0，
+    同一 task_id 下互相之间还是没有确定顺序，等于没修 sequence 要解决的问题
+    本身。这里验证:老表里已经有多条同 task_id 历史行(含两条 occurred_at
+    完全相同、模拟同秒碰撞)时，第一次调用 record_timeline_event/_load_timeline
+    触发的自愈，必须把这些历史行也按 occurred_at/id 顺序回填出单调递增、
+    互不相同的 sequence，而不只是让"新写入"不报错。"""
     from sqlalchemy import create_engine
     from sqlalchemy import text as sa_text
 
@@ -349,19 +352,40 @@ def test_decree_execution_event_sequence_self_heals_on_old_table():
                 )"""
             )
         )
+        for row in [
+            ("evt_old_1", "t_old", "drafting", "chancellor", "旧-第一条", "2026-07-01T00:00:00+00:00"),
+            ("evt_old_2", "t_old", "executing", "worker", "旧-第二条", "2026-07-01T00:00:00+00:00"),
+            ("evt_old_3", "t_old", "reporting", "worker", "旧-第三条", "2026-07-01T00:00:05+00:00"),
+        ]:
+            conn.execute(
+                sa_text(
+                    "INSERT INTO decree_execution_events "
+                    "(id, task_id, stage, actor, message, occurred_at) "
+                    "VALUES (:id, :task_id, :stage, :actor, :message, :occurred_at)"
+                ),
+                dict(zip(["id", "task_id", "stage", "actor", "message", "occurred_at"], row)),
+            )
+
     with Session(eng) as old_session:
+        # 触发自愈的是新事件写入——真实场景里，老库升级后第一次有任务被
+        # 操作就会经过 record_timeline_event，不需要额外的一次性迁移步骤。
         record_timeline_event(
             old_session,
-            task_id="t_old_timeline",
-            stage="a",
+            task_id="t_old",
+            stage="d",
             actor="chancellor",
-            message="第一条",
+            message="新-第四条",
         )
         old_session.commit()
 
-        timeline = _load_timeline(old_session, "t_old_timeline")
-        assert [e.message for e in timeline] == ["第一条"]
-        assert timeline[0].sequence == 1
+        timeline = _load_timeline(old_session, "t_old")
+        assert [e.message for e in timeline] == [
+            "旧-第一条",
+            "旧-第二条",
+            "旧-第三条",
+            "新-第四条",
+        ]
+        assert [e.sequence for e in timeline] == [1, 2, 3, 4]
     eng.dispose()
 
 

@@ -32,4 +32,16 @@ Codex 停止前审查指出:"旧数据库在常规启动路径下缺少 `sequenc
 4. 新增 `test_decree_execution_event_sequence_self_heals_on_old_table`(`backend/tests/test_flow_db_dualwrite.py`)，手工建一张缺 `sequence` 列的旧表，验证 `record_timeline_event`/`_load_timeline` 直接调用即可自愈，不崩。
 5. 真实复现验证：本沙箱的 `backend/data/fengqun.db` 在修复前确认缺列(`PRAGMA table_info` 只有 6 列)；手动重放 `lifespan()` 里那段 schema-bootstrap 逻辑(`create_all` + 三个 `ensure_*`)后，`PRAGMA table_info` 确认 `sequence` 列已加上，23 条既有行全部拿到默认值 0(未做精确回填——这与另外两个既有 `ensure_*` 函数的行为完全一致：运行时自愈只保证"不崩"，不做 Alembic 迁移那种精确的历史数据回填；精确回填仍然是 `alembic upgrade head` 的职责)。`backend/data/fengqun.db` 本身在 `.gitignore` 里，这次手动验证不会进入提交。
 
-验证：`python3 -m pytest -q tests/test_flow_db_dualwrite.py tests/test_decree_execution_status.py tests/test_chancellor_contracts.py` 26 passed；全量 `pytest` 重跑确认无新增失败(结果见下方补充记录)。
+验证：`python3 -m pytest -q tests/test_flow_db_dualwrite.py tests/test_decree_execution_status.py tests/test_chancellor_contracts.py` 26 passed；全量 `pytest` 重跑确认无新增失败(2391 passed，同一组 8 个既有无关失败)；三层 `harness:doctor` 全绿。
+
+## Codex 停止前二次审查纠正(2026-07-12)
+
+Codex 停止前二次审查指出:"自愈避免了崩溃，但没有完成旧库的正确迁移"。复核确认属实且是比第一次更根本的问题：第一版 `ensure_decree_execution_event_sequence_column` 只加列，旧表里本来就有的历史行全部落到 `DEFAULT 0`——同一 `task_id` 下的多条历史事件互相之间仍然没有确定顺序，这正是 `sequence` 列本身要解决的问题，第一版自愈"没崩但也没真的修"。而这条运行时自愈路径(而非 `alembic upgrade head`)恰恰是本仓库实际会被走到的路径(dev 环境、乃至任何忘记手动跑迁移的旧进程)，不能只满足"不报错"这一个更低的门槛。
+
+修复：给 `ensure_decree_execution_event_sequence_column` 加一个"只在本次调用真的把列加上时才触发"的回填分支 `_backfill_decree_execution_event_sequence`——按 `task_id` 分组、`occurred_at`/`id` 排序，逐行编号，跟 `alembic/versions/005_decree_execution_event_sequence.py` 的回填逻辑同源(只是用 ORM 查询而不是裸 SQL table()，因为 `flow_store.py` 本来就允许直接 import ORM 模型)。为 postgres 分支也补了"先查 `information_schema.columns` 确认列是否已存在"的判断(此前直接无条件 `ADD COLUMN IF NOT EXISTS`，无法区分"新加"还是"已存在"，回填也就无法安全地只在新加时触发一次)。
+
+把 `test_decree_execution_event_sequence_self_heals_on_old_table` 升级成 `test_decree_execution_event_sequence_self_heals_and_backfills_existing_rows`：老表里预先插入 3 条同 `task_id` 的历史行(含两条 `occurred_at` 完全相同，模拟历史同秒碰撞)，再调用 `record_timeline_event` 触发自愈，断言 4 条事件(3 条历史+1 条新写入)的 `sequence` 是 `[1,2,3,4]`，而不只是断言新写入的那一条不报错。
+
+真实复现闭环：本沙箱 `backend/data/fengqun.db` 在第一版自愈(未回填)修复后，确认全部 23 条既有行的 `sequence` 都是 `0`(可复现"没真的修"的确切现象)；手动调用新的 `_backfill_decree_execution_event_sequence` 后，`SELECT id, task_id, sequence, occurred_at ... ORDER BY task_id, sequence` 确认每个 `task_id` 下的多条历史行都拿到了按 `occurred_at` 顺序单调递增、互不相同的序号。`backend/data/fengqun.db` 仍在 `.gitignore` 内，这次手动验证同样不会进入提交，但真实证明了修复对已经处于"第一版自愈中间状态"的库同样有效(不需要重建 DB 文件)。
+
+验证：`python3 -m pytest -q tests/test_flow_db_dualwrite.py tests/test_decree_execution_status.py tests/test_chancellor_contracts.py` 26 passed；全量 `pytest` 2391 passed，同一组 8 个既有无关失败；`tsc --noEmit` 绿；三层 `harness:doctor` 全绿。

@@ -158,9 +158,15 @@ def ensure_decree_execution_event_sequence_column(session: Session) -> None:
     它只建"不存在的表",不给已存在的表加新列,旧 decree_execution_events 表会永远
     缺这一列(2026-07-12 复审：record_timeline_event/_load_timeline 会直接因
     "no such column: sequence" 报错，状态接口和事件写入全部失败)。
-    """
+
+    2026-07-12 Codex 停止前二次审查纠正："自愈避免了崩溃，但没有完成旧库的正确
+    迁移"——只加列、旧行全部落到 DEFAULT 0，同一 task_id 下的历史事件互相之间
+    仍然没有确定顺序，等于没修 sequence 要解决的排序问题本身。这里在"确认列是
+    本次调用新加的"之后，额外做一次跟 Alembic 005 迁移同源的回填：按 task_id
+    分组、occurred_at/id 排序，逐行编号。"""
     bind = session.get_bind()
     dialect = bind.dialect.name if bind is not None else ""
+    column_newly_added = False
     try:
         if dialect == "sqlite":
             rows = session.execute(
@@ -173,16 +179,56 @@ def ensure_decree_execution_event_sequence_column(session: Session) -> None:
                     "ALTER TABLE decree_execution_events ADD COLUMN sequence INTEGER NOT NULL DEFAULT 0"
                 )
             )
-            return
-        session.execute(
-            text(
-                "ALTER TABLE decree_execution_events ADD COLUMN IF NOT EXISTS sequence INTEGER NOT NULL DEFAULT 0"
+            column_newly_added = True
+        else:
+            exists = session.execute(
+                text(
+                    "SELECT 1 FROM information_schema.columns "
+                    "WHERE table_name='decree_execution_events' AND column_name='sequence'"
+                )
+            ).first()
+            if exists:
+                return
+            session.execute(
+                text(
+                    "ALTER TABLE decree_execution_events ADD COLUMN IF NOT EXISTS sequence INTEGER NOT NULL DEFAULT 0"
+                )
             )
-        )
+            column_newly_added = True
     except Exception as exc:  # noqa: BLE001 - tolerate duplicate-column races only.
         message = str(exc).lower()
         if "duplicate column" not in message and "already exists" not in message:
             raise
+        # 另一个并发调用已经加过列(大概率也已回填)，这里不重复处理。
+        return
+
+    if column_newly_added:
+        _backfill_decree_execution_event_sequence(session)
+
+
+def _backfill_decree_execution_event_sequence(session: Session) -> None:
+    """给刚补上 sequence 列的旧行回填单调递增序号。跟
+    alembic/versions/005_decree_execution_event_sequence.py 的回填逻辑同源
+    (按 task_id 分组、occurred_at/id 排序、逐行编号)，这里直接用 ORM 查询，
+    因为 flow_store.py 本来就允许 import ORM 模型，不需要 Alembic 迁移那种
+    "不依赖 app 模型"的克制。"""
+    from src.db.models import DecreeExecutionEvent
+
+    rows = (
+        session.query(DecreeExecutionEvent.id, DecreeExecutionEvent.task_id)
+        .order_by(
+            DecreeExecutionEvent.task_id,
+            DecreeExecutionEvent.occurred_at,
+            DecreeExecutionEvent.id,
+        )
+        .all()
+    )
+    counters: dict[str, int] = {}
+    for row in rows:
+        counters[row.task_id] = counters.get(row.task_id, 0) + 1
+        session.query(DecreeExecutionEvent).filter_by(id=row.id).update(
+            {"sequence": counters[row.task_id]}
+        )
 
 
 def task_record(row: Task) -> dict[str, Any]:
