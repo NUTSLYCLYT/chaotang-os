@@ -361,13 +361,19 @@ def test_medical_chat_contract_streams_sse_tokens():
     assert "FALLBACK" in body
 
 
-def test_true_chain_health_contract_returns_honest_degraded_status():
+def test_true_chain_health_contract_returns_evidence_backed_readiness():
     response = TestClient(app).get("/api/court/true-chain-health")
 
     assert response.status_code == 200
     body = response.json()
     assert body["success"] is True
-    assert body["data"]["sourceLabel"] == "FALLBACK"
+    assert body["data"]["sourceLabel"] in {"FALLBACK", "LIVE_ENGINE", "LIVE_SWARM"}
+    assert set(body["data"]["liveReady"]) == {
+        "backend",
+        "swarmRun",
+        "requiredDependencies",
+    }
+    assert all("requiredForLive" in check for check in body["data"]["checks"])
 
 
 def test_manor_stream_contract_emits_open_fallback_eof():

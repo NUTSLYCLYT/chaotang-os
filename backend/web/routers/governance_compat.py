@@ -351,22 +351,16 @@ def shiguan_promo_archive() -> dict:
 
 @router.get("/api/court/true-chain-health")
 def true_chain_health() -> dict:
-    return {
-        "success": True,
-        "data": {
-            "status": "degraded",
-            "sourceLabel": "FALLBACK",
-            "checks": [
-                {
-                    "id": "compat_endpoint",
-                    "ok": True,
-                    "message": "Backend compatibility endpoint is reachable; full true-chain probe is not wired here.",
-                }
-            ],
-            "generatedAt": _now_iso(),
-        },
-        "error": None,
-    }
+    from src.db.engine import SessionLocal
+    from src.true_chain_health import evaluate_true_chain_health
+
+    db = SessionLocal()
+    try:
+        data = evaluate_true_chain_health(db)
+        data["generatedAt"] = _now_iso()
+        return {"success": True, "data": data, "error": None}
+    finally:
+        db.close()
 
 
 @router.post("/api/manor/stream")
