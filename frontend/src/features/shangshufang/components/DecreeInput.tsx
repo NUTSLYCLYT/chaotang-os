@@ -355,7 +355,7 @@ export function DecreeInput({
             </div>}
 
             {/* 操作行：模式切换 + 单行输入 + 下旨 */}
-            <div className={inSlot ? 'flex items-center gap-1.5' : 'flex flex-col gap-2 md:flex-row md:items-center'}>
+            <div className={inSlot ? 'flex flex-wrap items-center gap-1.5 sm:flex-nowrap' : 'flex flex-col gap-2 md:flex-row md:items-center'}>
               {!singleMode && visibleModeOptions.length > 0 && (
               <div className="order-4 flex shrink-0 flex-wrap items-center gap-1.5 self-start md:self-auto">
                 <button
