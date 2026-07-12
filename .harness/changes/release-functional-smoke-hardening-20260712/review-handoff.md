@@ -31,8 +31,10 @@ feature-chaotang-ext
 - `backend/src/db/models.py`
 - `backend/web/main.py`
 - `backend/web/routers/build_ledger.py`
-- `backend/tests/test_build_ledger_tenant_isolation.py`（新增）
+- `backend/tests/test_build_ledger_tenant_isolation.py`（新增，第二轮再次修改：补
+  includeUnowned 测试）
 - `backend/tests/test_build_ledger_self_heal.py`（新增）
+- `backend/tests/test_build_ledger_persist_concurrency.py`（第二轮新增：并发竞态测试）
 - `backend/tests/test_migration_008_build_ledger_ownership.py`（新增）
 - `frontend/src/features/operating-loop/lib/build-ledger.ts`
 - `frontend/src/features/operating-loop/lib/build-ledger.nodetest.ts`（新增）
@@ -208,6 +210,60 @@ PostgreSQL 等原生支持 ALTER 的方言下 batch 模式自动退化成普通 
 - `python3 backend/scripts/harness_doctor.py` / `node scripts/harness-doctor.mjs`：均
   0 errors。
 
+## Tests Run — P0-A 第二轮
+- `test_admin_can_see_unowned_entries_with_include_unowned_flag`、
+  `test_include_unowned_never_leaks_other_real_users_entries`、
+  `test_include_unowned_scoped_to_own_tenant`(3 条，追加进
+  `test_build_ledger_tenant_isolation.py`)：admin 不带 flag 看不到孤儿行；带 flag 才能看到
+  本租户孤儿行；非 admin 带 flag 被忽略；孤儿桶不会顺带暴露其他真实用户自己拥有的行；孤儿桶
+  按 tenant_id 收口(另一个租户的孤儿行看不到)。
+- `test_build_ledger_persist_concurrency.py`(新增，2 条)：两个真实线程 + 两个共享同一文件型
+  sqlite 的独立 Session，暂停点精确打在 `session.add()` 之后、flush/commit 之前(不是暂停某次
+  读查询——`_persist` 插入前有不止一次读检查，暂停哪次读只能精确复现某一种特定实现，换实现
+  就失真)。先针对改动前的 `_persist` 跑通确认 RED：两条测试都真实复现了
+  `IntegrityError: UNIQUE constraint failed: build_ledger_entries.id` 崩溃，逐字匹配 review
+  描述的场景。改完后 GREEN，额外单独跑 5 次确认非 flaky。验证：不同 owner 竞态——赢家成功、
+  输家拿到稳定的 `id_conflict`、最终只有一行落库；同 owner 竞态——两次都成功、不产生重复行、
+  不产生未处理异常、最终内容是"最后一个真正把更新应用上去的"那次。
+- `python3 -m pytest -q tests/test_build_ledger.py tests/test_build_ledger_tenant_isolation.py tests/test_build_ledger_self_heal.py tests/test_build_ledger_persist_concurrency.py -v`：
+  18 passed。
+- `<venv-with-alembic>/python3 -m pytest -q ... tests/test_migration_008_build_ledger_ownership.py tests/test_migration_007_jinyiwei_evidence_unique_constraint.py -v`：
+  22 passed（真实 alembic 对真实 SQLite 跑完整 upgrade/downgrade，回归确认第一轮的迁移仍然
+  正确）。
+- 全量后端套件：`python3 -m pytest -q`：2434 passed，8 failed(跟第一轮交接时同一批既有失败，
+  逐一核对用例名完全相同，没有新增失败)。
+- `python3 backend/scripts/harness_doctor.py` / `node scripts/harness-doctor.mjs`：均
+  0 errors。
+- 独立只读 code-reviewer agent 审查(全部 4 个新增点逐条核实 + 独立跑了并发测试 15 遍 +
+  40 轮压力测试验证非 flaky)：判定 **GO**，0 CRITICAL/HIGH/MEDIUM。发现两条低优先级、
+  超出本轮范围的既有项(见下方 Known Risks 的 `_transition` audit id 竞态)。
+
+### P0-A 第二轮独立审查纠正(2026-07-12，用户直接指出，本次交接新增)
+
+针对 e012203 的独立审查发现两个新问题，均已修复：
+
+**① 历史数据归属**——migration 008 / `ensure_build_ledger_ownership_columns` 把迁移前的行
+回填成 `tenant_id=1, user_id="anonymous"`。调查确认(见下方 Reviewer Focus)：`"anonymous"`
+是任何真实请求的 `_owner_id()` 都不可能算出来的哨兵值(`CurrentUser.tenant_slug` 永远有
+非空默认值 `"default"`)，这些行默认对所有人(包括 admin)永久不可见——不是"低权限"而是
+"静默永久丢失"。也确认了没有任何字段能可靠推断真实 owner(`entry_json` 无归属字段、
+`Task` 表没有 `user_id` 列、`BuildLedgerAuditEvent.actor` 是用户名字符串且跟 `_owner_id()`
+偏好数字 `user_id` 的取值方式不一致、也不是每条记录都有)。把三个选项摆出来交给用户拍板，
+选中"admin 可见的孤儿桶"：GET 端点新增 `?includeUnowned=1`，只对 `role=="admin"` 生效，
+按 `tenant_id` 收口，只多 OR 进 `user_id == "anonymous"` 这一种情况，不会暴露其他真实用户
+自己拥有的行。migration/self-heal 的回填策略本身没有改变(仍然是 `tenant_id=1,
+user_id="anonymous"`)，天然保持一致，不需要额外同步。
+
+**② `_persist` 并发同 ID 竞态**——原来是"查当前 owner 范围内有没有 → 查全局 id 冲突 →
+INSERT"三步 check-then-insert，两个并发请求可能都在对方提交前通过检查，第二个 commit 时
+撞主键抛 `IntegrityError`，变成未处理的 500。用两个共享同一个文件型 sqlite 的独立 Session +
+monkeypatch 精确暂停点(暂停在 `session.add()` 之后、真正 flush/commit 之前——不是暂停某次
+读查询，那样精确度依赖具体实现的读查询次数，换实现就失真)真实复现了这个崩溃(报错文本
+`IntegrityError: UNIQUE constraint failed: build_ledger_entries.id`，逐字匹配 review 描述的
+场景)。改成跟 `upsert_evidence`(P0-1/P0-C)同源的手法：插入包进 `db.begin_nested()`
+(SAVEPOINT)，捕获 `IntegrityError`，原地查出真正冲突的是谁——同一个 `(tenant_id, user_id)`
+就当成同 owner 并发写入(退回去原地更新，不是错误)，不同 owner 才是真正的 `id_conflict`。
+
 ## Known Risks — P0-A
 - `_prune` 按 `tenant_id` 收口而不是 `(tenant_id, user_id)`——admin 能清理同租户内其他用户
   的过期条目。这是记录在案的判断调用(见上方 What Changed)，不是遗漏；如果产品期望 admin
@@ -217,6 +273,23 @@ PostgreSQL 等原生支持 ALTER 的方言下 batch 模式自动退化成普通 
 - `pruneBuildLedger`(前端)目前在真实业务代码里没有调用方(只有测试和已退休的
   `build-ledger-store.ts` 提到同名但不同的函数)，改成 throw 不会破坏现有调用方，但也意味着
   这条改进暂时没接入任何 UI 错误提示。
+- `_transition` 的 audit 事件 id(`_make_id("audit", task_id, from_status, to_status, 秒级
+  时间戳)`)没有跟 `_persist` 一样的 SAVEPOINT/IntegrityError 保护，同一秒内的重复
+  transition 竞态理论上还是有主键冲突风险——本轮独立审查指出，判定为超出这次交接范围(只
+  要求修 `_persist`)，记录为未来可能需要跟进的低优先级项。
+- **环境问题(非本次改动引入，跨整个后端测试套件)**：`python3 -m pytest -q
+  tests/test_build_ledger.py tests/test_build_ledger_tenant_isolation.py
+  tests/test_build_ledger_self_heal.py -v` 在独立 Codex 环境里卡在第一条测试超过 60 秒。
+  根因已确认：`conftest.py` 的 autouse fixture 在整个测试会话第一次收集到的测试上导入
+  `web.main`，传递触发 `import litellm`——litellm 默认会在 import 时去
+  `raw.githubusercontent.com` 抓一份定价表，除非设了 `LITELLM_LOCAL_MODEL_COST_MAP=True`；
+  这个仓库自己的 `.env`/配置里没有设这个变量(只在本次交接所在的这个交互式 shell 里被
+  单独 export 过，不是项目配置的一部分)。已经手工验证：去掉这个变量后 litellm 确实会真的
+  发一次远程请求(`source: 'remote'`)，在本机网络畅通的情况下只要 ~3.5s；在网络受限/出站
+  被静默丢包的沙箱里，DNS 解析本身可能不受 httpx 声明的 5s 超时约束，可以卡到远超 60 秒——
+  跟报告的症状精确吻合。这是一个跨全套件的既有环境配置缺口，不是死锁，也不是本次两个修复
+  引入的资源泄漏或未释放的测试资源；按"不修改无关代码"的要求未处理，建议后续单独在项目
+  `.env`/pytest 配置里补 `LITELLM_LOCAL_MODEL_COST_MAP=True`。
 
 ## Not Touched
 - `feature-chaotang-release`（未切换、未 push）
@@ -241,6 +314,15 @@ PostgreSQL 等原生支持 ALTER 的方言下 batch 模式自动退化成普通 
 - 是否还有其他地方(前端或后端)构造/依赖 `BuildLedgerEntry`/`BuildLedgerAuditEvent` 但没有
   经过这次的归属过滤——已用 grep 确认 `build_ledger.py` 是全仓库唯一的构造点，值得独立复核
   一次。
+
+### P0-A 第二轮(历史数据 + 并发竞态，已通过独立 code-reviewer 只读审查判定 GO)
+- 历史数据的"admin 孤儿桶"方案是用户在三个选项里拍板选定的(见上方"第二轮独立审查纠正")——
+  如果产品后续改变主意(比如想要更自动化的回填、或想彻底不暴露孤儿数据)，这是一处需要重新
+  拍板而不是代码层面能单方面调整的决定。
+- `_transition` 的 audit 事件 id 生成没有跟 `_persist` 一样的并发保护(见上方 Known Risks 新
+  增项)——本轮范围明确只要求修 `_persist`，这条留作已知、记录在案的后续项。
+- `LITELLM_LOCAL_MODEL_COST_MAP` 环境变量缺口(见上方 Known Risks)——已确认是环境问题、
+  不是死锁/资源泄漏，按"不修改无关代码"要求本轮未处理，是否要在项目配置里补上需要你决定。
 
 ### 下一步(P0-B/P0-D，本次交接**均未开始**)
 - P0-B(上书房任务归属过滤，`shangshufang.py`)：范围、复现材料、要求已在用户消息里给出

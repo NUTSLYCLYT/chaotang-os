@@ -624,6 +624,13 @@ class BuildLedgerEntry(Base):
     # tenants.id，通过 src.tenant.resolve_current_tenant_id() 解析)；user_id
     # 沿用 DecisionTask 的既有惯例(str，_user_id(user) 风格：
     # user.user_id or user.username or user.tenant_slug or "anonymous")。
+    #
+    # 迁移前的历史行 owner 不可靠推断(见 alembic 008/ensure_build_ledger_
+    # ownership_columns)，一律回填 user_id="anonymous"——这个哨兵值任何真实
+    # 请求的 _owner_id() 都不会算出来(tenant_slug 永远有非空默认值)，默认对
+    # 所有人永久不可见。web/routers/build_ledger.py 的 GET 端点给 admin 加了
+    # 一个显式 opt-in 的 ?includeUnowned=1，按 tenant_id 收口去找这些孤儿行，
+    # 避免"迁移后历史数据静默永久丢失"（2026-07-12 用户拍板选定的方案）。
     tenant_id: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
     user_id: Mapped[str] = mapped_column(sa.Text, nullable=False, default="anonymous")
     created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)

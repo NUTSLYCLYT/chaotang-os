@@ -39,9 +39,17 @@ from web.schemas.auth import CurrentUser
 
 router = APIRouter(prefix="/api/court/build-ledger", tags=["build-ledger"])
 
+# 2026-07-12 历史数据归属方案(用户拍板选定，见 review-handoff.md)：迁移前的行
+# owner 不可靠推断，回填成这个哨兵值——_owner_id() 对任何真实请求都不会算出
+# "anonymous"(CurrentUser.tenant_slug 永远有非空默认值 "default")，所以这些
+# 行默认对所有人都不可见，不是"低权限"而是"永久孤儿"。GET 端点给 admin 加一个
+# 显式 opt-in 的 ?includeUnowned=1，按 tenant_id 收口，让 admin 能找到、处理
+# 这些孤儿行，而不是放着它们默认永久不可达。
+_UNOWNED_SENTINEL = "anonymous"
+
 
 def _owner_id(user: CurrentUser) -> str:
-    return str(user.user_id or user.username or user.tenant_slug or "anonymous")
+    return str(user.user_id or user.username or user.tenant_slug or _UNOWNED_SENTINEL)
 
 _LIMIT = 50
 _DEFAULT_RETENTION_DAYS = 90
@@ -85,21 +93,37 @@ def build_ledger_get(
     taskId: str | None = Query(default=None),
     audit: str | None = Query(default=None),
     format: str | None = Query(default=None),
+    includeUnowned: str | None = Query(default=None),
     user: CurrentUser = Depends(get_current_user),
 ) -> dict:
+    from sqlalchemy import or_
+
     from src.db.engine import SessionLocal
     from src.db.models import BuildLedgerAuditEvent, BuildLedgerEntry
     from src.tenant import resolve_current_tenant_id
 
     tenant_id = resolve_current_tenant_id()
     owner_id = _owner_id(user)
+    # 只有 admin 显式传 includeUnowned=1 才放宽——普通用户传这个参数会被
+    # 忽略,不会因此看到孤儿行,更不会看到其他真实用户的行(见下方 or_ 条件,
+    # 只多加了 user_id == 哨兵值这一种情况,不是"admin 能看租户内一切")。
+    include_unowned = includeUnowned == "1" and user.role == "admin"
 
     db = SessionLocal()
     try:
         if audit == "1":
-            q = db.query(BuildLedgerAuditEvent).filter_by(
-                tenant_id=tenant_id, user_id=owner_id
+            q = db.query(BuildLedgerAuditEvent).filter(
+                BuildLedgerAuditEvent.tenant_id == tenant_id
             )
+            if include_unowned:
+                q = q.filter(
+                    or_(
+                        BuildLedgerAuditEvent.user_id == owner_id,
+                        BuildLedgerAuditEvent.user_id == _UNOWNED_SENTINEL,
+                    )
+                )
+            else:
+                q = q.filter(BuildLedgerAuditEvent.user_id == owner_id)
             if taskId:
                 q = q.filter_by(task_id=taskId)
             rows = q.order_by(BuildLedgerAuditEvent.created_at.desc()).limit(_LIMIT).all()
@@ -118,7 +142,16 @@ def build_ledger_get(
             ]
             return {"success": True, "data": data, "error": None}
 
-        q = db.query(BuildLedgerEntry).filter_by(tenant_id=tenant_id, user_id=owner_id)
+        q = db.query(BuildLedgerEntry).filter(BuildLedgerEntry.tenant_id == tenant_id)
+        if include_unowned:
+            q = q.filter(
+                or_(
+                    BuildLedgerEntry.user_id == owner_id,
+                    BuildLedgerEntry.user_id == _UNOWNED_SENTINEL,
+                )
+            )
+        else:
+            q = q.filter(BuildLedgerEntry.user_id == owner_id)
         if taskId:
             q = q.filter_by(task_id=taskId)
         rows = q.order_by(BuildLedgerEntry.created_at.desc()).limit(_LIMIT).all()
@@ -178,6 +211,24 @@ def build_ledger_post(
 
 
 def _persist(entry: dict[str, Any], *, tenant_id: int, user_id: str) -> dict[str, Any]:
+    """2026-07-12 独立审查第二轮纠正："_persist 的 check-then-insert 存在并发
+    同 ID 竞态"——原来是"查当前 owner 范围内有没有 → 查全局 id 冲突 →
+    INSERT"三步走，两个并发请求可能都在对方提交前通过前两步检查，第二个在
+    commit 时因主键冲突抛 IntegrityError，变成未处理的 500(已用真实并发线程
+    测试复现，见 test_build_ledger_persist_concurrency.py)。
+
+    改成跟 upsert_evidence(P0-1/P0-C)同源的手法:owner 范围内的查询只是常见
+    路径的性能优化,真正的仲裁是数据库主键唯一约束——插入包进
+    db.begin_nested()(SAVEPOINT),失败时捕获 IntegrityError、回滚 SAVEPOINT
+    (不拖累外层事务)，再原地查一次真正冲突的是谁:
+    - 冲突行属于同一个 (tenant_id, user_id):说明是同一个 owner 的并发写入
+      (比如同一个人两次几乎同时提交)，退回去做原地更新,不是错误。
+    - 冲突行属于别的 owner:这才是真正的 id 冲突,返回 id_conflict,不泄露
+      对方身份，也不静默接管。
+    - 唯一约束报错却查不到冲突的那一行:不是预期里的并发场景,不静默吞掉。
+    """
+    from sqlalchemy.exc import IntegrityError
+
     from src.db.engine import SessionLocal
     from src.db.models import BuildLedgerEntry
 
@@ -188,35 +239,47 @@ def _persist(entry: dict[str, Any], *, tenant_id: int, user_id: str) -> dict[str
         status = str(entry.get("status") or "dispatched")
         now = _now_iso()
         stored = {k: v for k, v in entry.items() if k not in {"id", "taskId", "status", "createdAt", "updatedAt"}}
+
+        def _apply_update(target: BuildLedgerEntry) -> None:
+            target.status = status
+            target.entry_json = json.dumps(stored, ensure_ascii=False)
+            target.updated_at = now
+
         row = (
             db.query(BuildLedgerEntry)
             .filter_by(id=entry_id, tenant_id=tenant_id, user_id=user_id)
             .first()
         )
-        if row is None:
-            # id 可能被别的租户/用户占用——这里不能静默接管对方的行(会计入
-            # 错误的归属),也不能直接 INSERT 撞主键让 IntegrityError 变成
-            # 未处理的 500。按"这个 id 不可用"处理,不透露对方是否存在/是谁。
+        if row is not None:
+            _apply_update(row)
+            db.commit()
+            return {"success": True, "data": {"entry": _row_to_entry(row)}, "error": None}
+
+        new_row = BuildLedgerEntry(
+            id=entry_id,
+            task_id=task_id,
+            status=status,
+            entry_json=json.dumps(stored, ensure_ascii=False),
+            tenant_id=tenant_id,
+            user_id=user_id,
+            created_at=str(entry.get("createdAt") or now),
+            updated_at=now,
+        )
+        try:
+            with db.begin_nested():
+                db.add(new_row)
+                db.flush()
+        except IntegrityError:
             conflict = db.query(BuildLedgerEntry).filter_by(id=entry_id).first()
-            if conflict is not None:
-                return {"success": False, "data": None, "error": "id_conflict"}
-            row = BuildLedgerEntry(
-                id=entry_id,
-                task_id=task_id,
-                status=status,
-                entry_json=json.dumps(stored, ensure_ascii=False),
-                tenant_id=tenant_id,
-                user_id=user_id,
-                created_at=str(entry.get("createdAt") or now),
-                updated_at=now,
-            )
-            db.add(row)
-        else:
-            row.status = status
-            row.entry_json = json.dumps(stored, ensure_ascii=False)
-            row.updated_at = now
+            if conflict is None:
+                raise
+            if conflict.tenant_id == tenant_id and conflict.user_id == user_id:
+                _apply_update(conflict)
+                db.commit()
+                return {"success": True, "data": {"entry": _row_to_entry(conflict)}, "error": None}
+            return {"success": False, "data": None, "error": "id_conflict"}
         db.commit()
-        return {"success": True, "data": {"entry": _row_to_entry(row)}, "error": None}
+        return {"success": True, "data": {"entry": _row_to_entry(new_row)}, "error": None}
     finally:
         db.close()
 

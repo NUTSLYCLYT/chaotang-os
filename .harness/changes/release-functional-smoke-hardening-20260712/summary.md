@@ -17,9 +17,16 @@
      重复行；一并修复了约束自愈函数在 PostgreSQL 上因重复 `ADD CONSTRAINT` 而毒死事务的
      问题、错误消息分支误判导致去重永远不触发的问题、alembic 007 对默认 SQLite DB_URL
      直接跑不通的问题（均已用真实 PostgreSQL 16 / 真实 alembic+SQLite 验证修复）。
-  2. P0-A（本轮完成）：`/api/court/build-ledger` 的 `BuildLedgerEntry`/
+  2. P0-A（已完成，`e012203` + 第二轮收尾）：`/api/court/build-ledger` 的 `BuildLedgerEntry`/
      `BuildLedgerAuditEvent` 补齐 `(tenant_id, user_id)` 归属过滤(独立只读审查确认的
      CRITICAL IDOR)，前端 `build-ledger.ts` 改用 `backendFetch` 修复认证从不生效的问题。
+     第二轮独立审查又发现两个问题并已修复：①迁移前历史数据回填成 `user_id="anonymous"`
+     会让这些行永久不可见(该哨兵值任何真实请求都算不出来)——调查确认无法可靠推断真实
+     owner，把三个方案交给用户拍板，选中"GET 端点给 admin 加 `?includeUnowned=1`，按
+     tenant_id 收口"；②`_persist` 的 check-then-insert 有并发同 id 竞态(已用真实并发线程
+     复现出 `IntegrityError: UNIQUE constraint failed` 崩溃)，改成 SAVEPOINT +
+     IntegrityError 捕获、按冲突行 owner 分类处理(同 owner 当更新，不同 owner 返回
+     `id_conflict`)。
   3. P0-B（未开始）：上书房任务归属过滤——`DecisionTask.user_id` 存在但十几个按 `task_id`
      查询的端点未使用它，`/home` 列表会把其他用户的 `task_id` 暴露出去；用户已给出完整
      spec，下一阶段可直接开工。
@@ -27,11 +34,14 @@
      阻塞——追完整条链路(tavily 8s 超时+兜底、gather_intel 包裹、best-effort 持久化)未
      发现未加保护的同步调用/裸写入；建议开工前先跟最初报告者核实具体复现步骤。
 - 文件：见 `review-handoff.md` 的 Files Changed（按 P0 分小节列出）。
-- 验证：P0-1/P0-C 相关面 88 passed；P0-A 相关面 13 passed（隔离 7 + 自愈 2 + 既有 4）+
-  迁移 2 passed + 前端 nodetest 3 passed + `tsc --noEmit` 0 errors；全量后端套件
-  2427 passed / 8 failed（与改动前同一批既有失败，无新增失败）；
-  `python3 backend/scripts/harness_doctor.py` 与 `node scripts/harness-doctor.mjs` 均
-  0 errors；P0-1/P0-C 的 PostgreSQL 问题额外用真实 Postgres 16 容器手工 `psql` 复现 +
-  验证修复；P0-1/P0-C 与 P0-A 的迁移额外起了一个 Python 3.12 隔离 venv 装满
-  `requirements-core.txt`，用真实 alembic 对真实 SQLite 文件跑完整 upgrade/downgrade
-  验证。详见 `review-handoff.md`。
+- 验证：P0-1/P0-C 相关面 88 passed；P0-A 相关面(两轮合计) 18 passed（隔离 10 + 自愈 2 +
+  并发竞态 2 + 既有 4）+ 迁移 2 passed + 前端 nodetest 3 passed + `tsc --noEmit` 0 errors；
+  全量后端套件 2434 passed / 8 failed（与改动前同一批既有失败，逐一核对用例名相同，无新增
+  失败）；`python3 backend/scripts/harness_doctor.py` 与 `node scripts/harness-doctor.mjs`
+  均 0 errors；P0-1/P0-C 的 PostgreSQL 问题额外用真实 Postgres 16 容器手工 `psql` 复现 +
+  验证修复；两轮迁移额外起了一个 Python 3.12 隔离 venv 装满 `requirements-core.txt`，用
+  真实 alembic 对真实 SQLite 文件跑完整 upgrade/downgrade 验证；P0-A 并发竞态额外用两个
+  真实线程 + 两个共享同一文件型 sqlite 的独立 Session 复现出真实
+  `IntegrityError: UNIQUE constraint failed` 崩溃(改动前)、验证修复后不再崩溃(改动后，
+  额外单独跑 5 次确认非 flaky)；独立 code-reviewer 只读审查两轮均判定 GO，0 CRITICAL/HIGH。
+  详见 `review-handoff.md`。

@@ -262,4 +262,112 @@ def test_prune_only_affects_current_tenant(isolated_session_local, monkeypatch):
         assert survivor is not None, "租户甲的过期条目不应该被默认租户的 admin 清理动作删掉"
     finally:
         db.close()
+
+
+def test_admin_can_see_unowned_entries_with_include_unowned_flag(isolated_session_local):
+    """2026-07-12 历史数据归属方案(用户拍板选定):迁移前的台账行 owner 不可靠
+    推断,回填成 tenant_id=1, user_id='anonymous'——这个哨兵值任何真实请求的
+    _owner_id() 都不会算出来,所以这些行默认对所有人(包括 admin)都不可见,
+    等同于永久孤儿。这里给 admin 加一个显式 opt-in 的 ?includeUnowned=1，
+    让 admin 能在自己租户内看到这些孤儿行——不是默认行为,不影响普通用户。"""
+    from src.db.engine import SessionLocal
+    from src.db.models import BuildLedgerEntry
+
+    db = SessionLocal()
+    try:
+        db.add(BuildLedgerEntry(
+            id="orphan-1", task_id="task-orphan-1", status="dispatched",
+            entry_json='{"title": "迁移前的孤儿数据"}',
+            created_at="2026-07-11T00:00:00Z", updated_at="2026-07-11T00:00:00Z",
+            tenant_id=1, user_id="anonymous",
+        ))
+        db.commit()
+    finally:
+        db.close()
+
+    original = _with_identity(_as_user(1, "admin-ops", role="admin"))
+    try:
+        without_flag = client.get("/api/court/build-ledger").json()
+        assert without_flag["data"] == [], "不带 includeUnowned 时,admin 也看不到孤儿行(不是默认行为)"
+
+        with_flag = client.get("/api/court/build-ledger?includeUnowned=1").json()
+        ids = [e["id"] for e in with_flag["data"]]
+        assert "orphan-1" in ids, "admin 带上 includeUnowned=1 之后应该能看到本租户的孤儿行"
+    finally:
+        _restore_identity(original)
+
+    original = _with_identity(_as_user(202, "normal-user", role="user"))
+    try:
+        as_normal_user = client.get("/api/court/build-ledger?includeUnowned=1").json()
+        assert as_normal_user["data"] == [], "非 admin 传 includeUnowned=1 应该被忽略,不能看到孤儿行"
+    finally:
+        _restore_identity(original)
+
+
+def test_include_unowned_never_leaks_other_real_users_entries(isolated_session_local):
+    """includeUnowned 只应该多暴露"确实无主"的行,绝不能顺带暴露其他真实用户
+    自己拥有的行——这不是"admin 能看到租户内一切",而是"admin 能看到租户内
+    确实没人认领的历史孤儿"。"""
+    original = _with_identity(_as_user(101, "user-a"))
+    try:
+        client.post(
+            "/api/court/build-ledger",
+            json={"entry": _entry("ledger-owned-by-a", "task-owned-by-a", "用户A自己的台账")},
+        )
+    finally:
+        _restore_identity(original)
+
+    original = _with_identity(_as_user(1, "admin-ops", role="admin"))
+    try:
+        with_flag = client.get("/api/court/build-ledger?includeUnowned=1").json()
+        ids = [e["id"] for e in with_flag["data"]]
+        assert "ledger-owned-by-a" not in ids, "admin 不应该通过 includeUnowned 看到用户A自己拥有的行"
+    finally:
+        _restore_identity(original)
+
+
+def test_include_unowned_scoped_to_own_tenant(isolated_session_local, monkeypatch):
+    """孤儿桶必须按 tenant_id 收口,跟 prune 同一个理由:本项目没有跨租户
+    super-admin 角色,admin 权限局限在自己的 tenant_slug 内。"""
+    import sqlite3
+
+    import src.tenant as tenant_module
+    from src.db.engine import SessionLocal
+    from src.db.models import BuildLedgerEntry
+
+    conn = sqlite3.connect(":memory:", check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute(
+        "CREATE TABLE tenants (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, slug TEXT UNIQUE)"
+    )
+    conn.execute("INSERT INTO tenants (name, slug) VALUES ('默认租户', 'default')")
+    conn.execute("INSERT INTO tenants (name, slug) VALUES ('租户甲', 'tenant-a')")
+    conn.commit()
+    monkeypatch.setattr(tenant_module, "get_db", lambda: conn)
+
+    db = SessionLocal()
+    try:
+        db.add(BuildLedgerEntry(
+            id="orphan-tenant-a", task_id="task-orphan-a", status="dispatched",
+            entry_json="{}", created_at="2026-07-11T00:00:00Z", updated_at="2026-07-11T00:00:00Z",
+            tenant_id=2, user_id="anonymous",
+        ))
+        db.commit()
+    finally:
+        db.close()
+
+    def _as_tenant_admin(slug: str):
+        def _override() -> CurrentUser:
+            tenant_module.set_current_tenant(slug)
+            return CurrentUser(user_id=1, username="ops", role="admin", tenant_slug=slug)
+
+        return _override
+
+    original = _with_identity(_as_tenant_admin("default"))
+    try:
+        with_flag = client.get("/api/court/build-ledger?includeUnowned=1").json()
+        ids = [e["id"] for e in with_flag["data"]]
+        assert "orphan-tenant-a" not in ids, "默认租户的 admin 不应该看到租户甲的孤儿行"
+    finally:
+        _restore_identity(original)
         conn.close()
