@@ -26,15 +26,16 @@ const MODE_OPTIONS: Array<{
   title: string;
 }> = [
   { key: 'order', mode: 'order', label: '下旨', icon: 'order', title: '下旨 · 先进入拟旨，准奏后才启动后端蜂群' },
-  // 独立复审(2026-07-11)两轮修正:
-  // 第一轮误判为"密旨和下旨走同一条链路,只是措辞不同"——这是错的,Codex 停止前
-  // 审查已指出。真相更严重:runSecretDecree() 走的根本不是 draft-edict/confirm-edict
-  // 这条链路,而是 chaotang.orchestrateAll() → POST /api/court/orchestrate/all，
-  // 命中的是 court_compat.py 里的兼容占位实现——called 恒为 ["prime_minister"]、
-  // jiqunSwarm.ok 恒为 false、"未执行实时蜂群"、merge.contributors 恒为空数组。
-  // 也就是说密旨目前不调用任何真实部门引擎或 LLM,是个诚实的空转兼容端点,
-  // 跟下旨那条已验证真实可用的链路完全是两回事,不是"同流程只是语气不同"。
-  { key: 'secret', mode: 'secret', label: '密旨', icon: 'secret', title: '密旨 · 走独立直发通道，当前为兼容占位，未接入真实蜂群' },
+  // 历史记录(不要删,后面写的人别重蹈覆辙):
+  // 2026-07-11 独立复审两轮修正——第一轮误判为"密旨和下旨走同一条链路,只是
+  // 措辞不同",这是错的;真相更严重:runSecretDecree() 当时走的是
+  // chaotang.orchestrateAll() → court_compat.py 兼容占位实现,从不调用任何
+  // 真实部门引擎或 LLM,跟下旨完全是两条路。
+  // 2026-07-12"统一决策任务生命周期"阶段2:上面这个问题从架构上根治了——
+  // runSecretDecree 现在就是 runOrderDecree(cmd, undefined, 'secret'),并入
+  // 同一条 draft-edict/confirm-edict 真实管线,不再有独立的兼容占位岔路。
+  // 密旨现在是真功能,只是措辞更收敛,不再需要"占位"这类诚实降级标注。
+  { key: 'secret', mode: 'secret', label: '密旨', icon: 'secret', title: '密旨 · 同下旨走一条真实管线，仅措辞更收敛克制' },
 ];
 
 function dispatchImperialActionAccepted() {
@@ -152,7 +153,6 @@ export function DecreeInput({
   const [polishPressed, setPolishPressed] = useState(false);
   const [actionLocked, setActionLocked] = useState(false);
   const visibleModeOptions = MODE_OPTIONS.filter(m => availableModes.includes(m.mode));
-  const secretOptionVisible = visibleModeOptions.some((m) => m.mode === 'secret');
   const singleMode = visibleModeOptions.length === 1;
   const activeModeIndex = Math.max(0, visibleModeOptions.findIndex((item) => item.mode === mode && (item.mode !== 'ask' || item.askTarget === askTarget)));
   const isAsk = mode === 'ask';
@@ -441,7 +441,6 @@ export function DecreeInput({
                     const tone = item.mode === 'secret' ? SECRET : GOLD;
                     const displayLabel = item.mode === 'order' ? '圣旨' : item.label;
                     const displayTitle = item.mode === 'order' ? '圣旨 · 先进入拟旨，准奏后才启动后端蜂群' : item.title;
-                    const isSecretOption = item.mode === 'secret';
                     return (
                       <button
                         key={item.key}
@@ -462,32 +461,10 @@ export function DecreeInput({
                       >
                         <Icon size={11} />
                         {displayLabel}
-                        {isSecretOption && (
-                          <span
-                            aria-hidden
-                            data-testid="decree-mode-secret-placeholder-dot"
-                            className="ml-0.5 h-1.5 w-1.5 shrink-0 rounded-full"
-                            style={{ background: '#E8A38C', boxShadow: '0 0 5px #E8A38C99' }}
-                          />
-                        )}
                       </button>
                     );
                   })}
                 </div>
-              )}
-              {secretOptionVisible && (
-                <span
-                  data-testid="decree-secret-placeholder-badge"
-                  className={`${inSlot ? 'h-7 px-2' : 'h-8 px-2.5'} order-3 inline-flex shrink-0 items-center gap-1 rounded-full border text-[10px] font-semibold`}
-                  style={{
-                    borderColor: 'rgba(232,163,140,0.5)',
-                    color: '#E8A38C',
-                    background: isSecret ? 'rgba(232,163,140,0.14)' : 'rgba(232,163,140,0.06)',
-                  }}
-                  title="密旨走独立直发通道，命中后端兼容占位实现，不产生真实分部门意见"
-                >
-                  {isSecret ? '密旨 · 占位未接蜂群' : '密旨为占位模式'}
-                </span>
               )}
               {singleMode && (
                 <span

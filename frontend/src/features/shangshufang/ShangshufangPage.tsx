@@ -1845,112 +1845,11 @@ function councilToEdict(command: string, result: OrchestrateResult, seq: number)
   };
 }
 
-/**
- * 密旨全蜂群 → 「機密」密报视图:覆盖面(应奏/缺席)+ 各司密奏逐条 + 合议。
- * 硬冲突时合议文本与分歧行已含飞轮历史偏好。这是"密旨直发蜂群得密报"的呈现终点。
- */
-function secretBriefToEdict(command: string, result: OrchestrateResult, seq: number): EdictView {
-  const m = result.merge;
-  const cov = result.coverage;
-  // 覆盖率以"真司"计:种子(无 agent)缺席不算残缺;真司缺席才算。结论可信度随覆盖面降级,不靠脚注。
-  const realExpected = cov?.realExpected ?? m.contributors.length;
-  const realResponded = cov?.realResponded ?? m.contributors.length;
-  const incomplete = realResponded < realExpected;
-  const respondedCn = (cov?.responded ?? result.called ?? []).map(swarmToCn);
-  const realAbsent = (cov?.absent ?? []).filter((a) => a.kind !== 'seed').map((a) => swarmToCn(a.dept));
-  const seedAbsent = (cov?.absent ?? []).filter((a) => a.kind === 'seed').map((a) => swarmToCn(a.dept));
-  const jiqunTaskId = result.jiqunSwarm?.taskId;
-  const jiqunSessionId = result.jiqunSwarm?.sessionId;
-  // jiqunSwarm.ok === false 是后端兼容占位端点(court_compat.py::orchestrate_all)的恒定返回值,
-  // 不是"暂时没回应、等等就好"——这条通道压根没有调度过真实部门引擎,覆盖率数字不会随时间推移变化。
-  // 之前这里只写"待补全"，容易被读成"处理中，稍后完成"，跟事实相反，已按 Codex 停止前审查意见改写。
-  const isPlaceholderStub = result.jiqunSwarm?.ok === false;
-
-  const rows: EdictRow[] = [{ label: '密旨正文', body: command }];
-  // MemorialScroll 的「圣旨来源」摘要卡 / 建议区靠精确匹配特定 label(见 findFirstRow/
-  // buildEdictBriefModel)才会展示对应内容，标签对不上就整体 fallback 成通用占位文案
-  // ("来源待核"/"请先看圣旨来源，再由皇上选择准奏..")——之前只写了"蜂群任务执行状态"
-  // "风险摘录"这类自定义标签，没有一个命中，导致诚实文案进了 rows 数组但从未出现在用户
-  // 实际看到的首屏摘要卡上。这里补两行标准标签("来源"/"建议")让诚实文案真正显示出来，
-  // 而不是只存在于永远不会被渲染的 rows 里。
-  rows.push({
-    label: '来源',
-    body: isPlaceholderStub
-      ? `兼容占位端点(未接入真实蜂群)${result.jiqunSwarm?.message ? ` · ${result.jiqunSwarm.message}` : ''}`
-      : `蜂群直奏 · ${realResponded}/${realExpected} 实司已回话`,
-  });
-  rows.push({
-    label: '建议',
-    body: isPlaceholderStub
-      ? '此功能当前不产生真实分部门意见，仅作登记；如需真实六部会审，请改用「下旨」。'
-      : incomplete
-        ? `已有 ${realResponded}/${realExpected} 实司直奏，其余未应，可先看已回话部分或等待补全。`
-        : '各司已直奏完毕，请皇上审阅后选择准奏、驳回或转正式会审。',
-  });
-  rows.push({
-    label: '蜂群任务执行状态',
-    body: [
-      // jiqunSwarm 对象存在不等于真实蜂群已接令——兼容占位端点也会恒定返回一个
-      // ok:false 的 jiqunSwarm(带假 taskId/sessionId)，之前只判断对象是否存在，
-      // 导致占位路径也显示"后端蜂群已接令"，跟 jiqunSwarm.ok===false 直接矛盾。
-      isPlaceholderStub
-        ? '状态：兼容占位端点已登记，未接令任何真实蜂群'
-        : result.jiqunSwarm
-          ? '状态：后端蜂群已接令'
-          : '状态：前端蜂群直奏已完成',
-      jiqunSessionId ? `Session：${jiqunSessionId}` : null,
-      jiqunTaskId ? `Task：${jiqunTaskId}` : null,
-      result.jiqunSwarm?.entrySwarm ? `入口蜂群：${result.jiqunSwarm.entrySwarm}` : null,
-      `直奏进度：${realResponded}/${realExpected}`,
-      isPlaceholderStub
-        ? `⚠ 占位模式：未执行真实蜂群，此数字不会随时间变化${result.jiqunSwarm?.message ? `（${result.jiqunSwarm.message}）` : ''}`
-        : incomplete
-          ? '当前结论：部分实司未应答，密报待补全'
-          : '当前结论：已汇齐当前可用直奏',
-    ].filter(Boolean).join('\n'),
-  });
-  if (result.jiqunSwarm && isPlaceholderStub) {
-    rows.push({
-      label: '后端蜂群',
-      body: `未启动任何真实会话/任务——${jiqunSessionId ?? jiqunTaskId ?? 'taskId'} 是兼容占位端点回显的占位标识，不对应真实蜂群执行。`,
-    });
-  } else if (result.jiqunSwarm) {
-    const entry = result.jiqunSwarm.entrySwarm ? `；入口蜂群：${result.jiqunSwarm.entrySwarm}` : '';
-    rows.push({
-      label: '后端蜂群',
-      body: jiqunSessionId
-        ? `jiqun_ai 已启动会话：${jiqunSessionId}${entry}`
-        : jiqunTaskId
-          ? `jiqun_ai 已启动任务：${jiqunTaskId}${entry}`
-          : `jiqun_ai 已接令（HTTP ${result.jiqunSwarm.status}）${entry}`,
-    });
-  }
-  rows.push({
-    label: '应 奏',
-    body:
-      `实司 ${realResponded}/${realExpected} 直奏：${respondedCn.join('、') || '—'}` +
-      (realAbsent.length > 0 ? `\n　⚠ 真司缺席：${realAbsent.join('、')}` : '') +
-      (seedAbsent.length > 0 ? `\n　未设 agent：${seedAbsent.join('、')}` : ''),
-  });
-  for (const c of m.contributors) rows.push({ label: c.name, body: c.answer });
-  rows.push({
-    label: '风险摘录',
-    body:
-      (isPlaceholderStub
-        ? `（占位模式：未执行真实蜂群，以下并非分部门真实意见）\n`
-        : incomplete
-          ? `（仅据 ${realResponded}/${realExpected} 实司，余司未应，结论待补全）\n`
-          : '') + m.verdict,
-  });
-  return {
-    id: `secret:${seq}`,
-    title: '密旨正文',
-    subtitle: `機密 · ${realResponded}/${realExpected} 实司直奏${isPlaceholderStub ? ' · 占位未执行' : incomplete ? ' · 待补全' : ' · 全司在场'}`,
-    meta: { reporter: '蜂群', priority: m.escalateToBoss ? 'urgent' : 'high' },
-    rows,
-    seal: 'secret',
-  };
-}
+// secretBriefToEdict()(渲染 OrchestrateResult/court_compat.py::orchestrate_all
+// 兼容占位端点的密报视图)已随"统一决策任务生命周期"阶段2移除——密旨现在
+// 并入 runOrderDecree 同一条真实 draft-edict/confirm-edict 管线，直接复用
+// confirmedEdictToView 渲染真实回奏，不再需要一份单独的、专门处理占位数据
+// 的渲染函数。见 /home/ubuntu/.claude/plans/valiant-crunching-candy.md。
 
 function gateTone(status: StudyEdict['quality_gate']['status']): 'green' | 'amber' | 'red' | 'blue' {
   if (status === 'passed') return 'green';
@@ -3823,103 +3722,29 @@ export function ShangshufangPage() {
     [decreeMode, appendDecreeChat, makeFooter, focusDecree, refreshBriefing, refreshSwarmSessions, trackJiqunRun],
   );
 
-  const runSecretDecree = useCallback(
-    async (cmd: string) => {
-      if (isPackSwarmLoopCommand(cmd)) {
-        await runPackSwarmLoop(cmd, 'secret');
-        return;
-      }
-      if (decreeMode !== 'secret') setDecreeMode('secret');
-      setDecreeSubmittingPreview({ mode: 'secret', command: cmd });
-      setEdictCollapsed(false);
-      appendDecreeChat({ role: 'user', label: '陛下 · 密旨', text: cmd }, 'secret');
-      setDecreeState('consulting');
-      setDecreeMsg('密旨已发，全蜂群直奏中……');
-      try {
-        const result = await chaotang.orchestrateAll(cmd);
-        const merge = result.merge;
-        dialogueSeqRef.current += 1;
-        const seq = dialogueSeqRef.current;
-        const escalated = merge.escalateToBoss;
-        const cov = result.coverage;
-        const backendSuffix = result.jiqunSwarm?.sessionId
-          ? ` · 后端会话 ${result.jiqunSwarm.sessionId}`
-          : result.jiqunSwarm?.taskId
-            ? ` · 后端任务 ${result.jiqunSwarm.taskId}`
-            : result.taskId
-              ? ` · 主库任务 ${result.taskId}`
-              : '';
-        setDecreeState('submitted');
-        // 首句白话结论（"实司/直奏/残缺待补"对新用户是黑话，无法判断成功还是失败）
-        setDecreeSubmittingPreview(null);
-        const respondedN = cov?.realResponded ?? result.called.length;
-        const expectedN = cov?.realExpected ?? result.called.length;
-        const isPlaceholderStub = result.jiqunSwarm?.ok === false;
-        const reply = isPlaceholderStub
-          ? `密旨当前为兼容占位通道，不产生真实分部门意见（${respondedN}/${expectedN} 恒为占位值，不会随时间变化）` +
-              '，密旨正文已写入下方卷轴' +
-              backendSuffix
-          : `${expectedN} 个部门中 ${respondedN} 个已回话` +
-              (respondedN < expectedN ? `（${expectedN - respondedN} 个未应答，结论待补全）` : '') +
-              '，密旨正文已写入下方卷轴' +
-              (escalated ? ' · 存在重大分歧，已按密报留痕，不进入会审裁决' : '') +
-              backendSuffix;
-        setDecreeMsg(reply);
-        appendDecreeChat({ role: 'assistant', label: '蜂群密报', text: reply }, 'secret');
-        setEdictOverride({
-          view: secretBriefToEdict(cmd, result, seq),
-          srcId: `secret-${seq}`,
-          chatMode: 'secret',
-          footer: makeFooter({ label: '再发密旨', onClick: () => focusDecree('secret', '') }),
-        });
-        setDecreeText(''); // 已发出的旨意不留在输入框，防误按 Enter 重复下旨
-        setDecreeAttachments([]);
-        // 闭环：追踪后端蜂群任务直到回奏/失败（此前 UI 拿到 taskId 后即失明）
-        // isPlaceholderStub 时 taskId/sessionId 是兼容占位端点回显的假标识，没有真实后端任务
-        // 可供 SSE/轮询追踪——之前不区分真假，一律起追踪，最终会在 15 分钟超时后才显示
-        // "执行超时"，中途这 15 分钟全程显示"蜂群执行中/已接旨，正在调度…"，跟
-        // jiqunSwarm.ok===false 直接矛盾。占位路径直接跳过追踪，不显示假进度条。
-        if (isPlaceholderStub) {
-          // 只跳过"起新追踪"还不够——如果用户之前提交过一个真实下旨、那次追踪还没结束
-          // (jiqunProgress.status 仍是 running)，这里不清掉的话，占位密旨提交后画面上
-          // 会继续显示"上一个真实任务"的进度条，看起来像是这次密旨触发的，构成误导。
-          // 显式 reset，保证提交占位密旨之后画面上确定性地不出现任何蜂群进度条。
-          activeJiqunReturnRef.current = null;
-          resetJiqunRun();
-        } else if (result.jiqunSwarm?.taskId || result.jiqunSwarm?.sessionId) {
-          activeJiqunReturnRef.current = {
-            primaryTaskId: result.taskId ?? null,
-            jiqunTaskId: result.jiqunSwarm.taskId,
-            sessionId: result.jiqunSwarm.sessionId,
-            mode: 'secret',
-            command: cmd,
-          };
-          trackJiqunRun({ taskId: result.jiqunSwarm.taskId, sessionId: result.jiqunSwarm.sessionId });
-        }
-        void refreshSwarmSessions();
-        void refreshBriefing();
-      } catch (e) {
-        const reply = e instanceof Error && e.message ? e.message : '密旨直发失败，请重试。';
-        setDecreeState('error');
-        setDecreeMsg(reply);
-        appendDecreeChat({ role: 'assistant', label: '蜂群密报', text: reply }, 'secret');
-        void refreshBriefing();
-      }
-    },
-    [decreeMode, appendDecreeChat, makeFooter, makeVerdictFooter, focusDecree, refreshBriefing, refreshSwarmSessions, trackJiqunRun, resetJiqunRun, runPackSwarmLoop],
-  );
+  // runSecretDecree 曾经是完全独立的一份实现，调用 chaotang.orchestrateAll()
+  // 命中后端兼容占位端点(court_compat.py::orchestrate_all)，恒为 FALLBACK、
+  // 从不触发真实部门引擎——这是"统一决策任务生命周期"这轮架构工作要消除的
+  // 三条并行路径之一(见 /home/ubuntu/.claude/plans/valiant-crunching-candy.md
+  // 阶段2)。现在密旨改为并入 runOrderDecree 同一条已验证真实可用的
+  // draft-edict/confirm-edict → 真实部门引擎管线，只在文案措辞上区分模式，
+  // 不再另起一套判断/渲染逻辑——confirmedEdictToView 本身就是通用的(案号/
+  // 圣裁/参审部门/分奏这些标签跟"圣旨"或"密旨"无关，真实来源标签
+  // 也是直接读 memorial.source_label，不需要密旨专属的诚实判断分支)。
 
   const runOrderDecree = useCallback(
-    async (cmd: string, existingDraft?: ShangshufangDraftResponse) => {
+    async (cmd: string, existingDraft?: ShangshufangDraftResponse, mode: ExecutableDecreeMode = 'order') => {
+      const isSecret = mode === 'secret';
       if (isPackSwarmLoopCommand(cmd)) {
-        await runPackSwarmLoop(cmd, 'order');
+        await runPackSwarmLoop(cmd, mode);
         return;
       }
-      setDecreeSubmittingPreview({ mode: 'order', command: cmd });
+      if (isSecret && decreeMode !== 'secret') setDecreeMode('secret');
+      setDecreeSubmittingPreview({ mode, command: cmd });
       setEdictCollapsed(false);
-      appendDecreeChat({ role: 'user', label: '陛下 · 圣旨', text: cmd }, 'order');
+      appendDecreeChat({ role: 'user', label: isSecret ? '陛下 · 密旨' : '陛下 · 圣旨', text: cmd }, mode);
       setDecreeState('consulting');
-      setDecreeMsg('丞相正在拟旨，随后正式下旨并启动蜂群……');
+      setDecreeMsg(isSecret ? '密旨已发，正在拟旨并启动蜂群……' : '丞相正在拟旨，随后正式下旨并启动蜂群……');
       try {
         const attachments = decreeAttachmentMeta();
         const draft = existingDraft ?? await shangshufangDraftEdict(cmd, attachments);
@@ -3928,14 +3753,14 @@ export function ShangshufangPage() {
             ? ` · 来源 ${draft.draft_edict.source_label}，未伪装成实时经营判断`
             : ` · 来源 ${draft.draft_edict.source_label}`;
         setDecreeState('consulting');
-        const reply = `丞相已拟旨，正在正式下旨并启动后端蜂群。质门 ${
+        const reply = `丞相已拟旨，正在${isSecret ? '密旨直发' : '正式下旨'}并启动后端蜂群。质门 ${
           draft.eval_result.passed ? '通过' : '需复核'
         }${sourceNote}${attachments.length ? ` · 已收补证 ${attachments.length} 份` : ''}`;
         setDecreeMsg(reply);
-        appendDecreeChat({ role: 'assistant', label: '上书房', text: reply }, 'order');
+        appendDecreeChat({ role: 'assistant', label: '上书房', text: reply }, mode);
         const confirmDraft = async () => {
           setDecreeState('consulting');
-          setDecreeMsg('圣旨已下，正在启动统一朝堂 Loop……');
+          setDecreeMsg(isSecret ? '密旨已发，正在启动统一朝堂 Loop……' : '圣旨已下，正在启动统一朝堂 Loop……');
           try {
             const confirmed = await shangshufangConfirmEdict(draft.task_id, draft.draft_edict);
             const confirmedTraceId = confirmed.loop_trace_id ?? draft.loop_trace_id ?? loopTraceIdForTask(draft.task_id);
@@ -3945,7 +3770,7 @@ export function ShangshufangPage() {
             );
             setDecreeState('submitted');
             setDecreeMsg(confirmedReply);
-            appendDecreeChat({ role: 'assistant', label: '军机处', text: confirmedReply }, 'order');
+            appendDecreeChat({ role: 'assistant', label: '军机处', text: confirmedReply }, mode);
             const confirmedView = confirmedEdictToView(draft.task_id, confirmed);
             if (confirmed.status === 'edict_recorded') {
               // 军机处刚派单，memorial 还是占位骨架——轮询状态接口，真实分奏
@@ -3955,7 +3780,7 @@ export function ShangshufangPage() {
             setEdictOverride({
               view: confirmedView,
               srcId: `confirmed-edict-${draft.task_id}`,
-              chatMode: 'order',
+              chatMode: mode,
               variant: 'jiqun-return-status',
               primaryTaskId: draft.task_id,
               traceId: confirmedTraceId,
@@ -4023,22 +3848,29 @@ export function ShangshufangPage() {
             setDecreeAttachments([]);
             void refreshBriefing();
           } catch (e) {
-            const msg = withTraceMessage(e instanceof Error && e.message ? e.message : '下旨失败，请重试。', draft.loop_trace_id);
+            const msg = withTraceMessage(
+              e instanceof Error && e.message ? e.message : `${isSecret ? '密旨' : '下旨'}失败，请重试。`,
+              draft.loop_trace_id,
+            );
             setDecreeState('error');
             setDecreeMsg(msg);
-            appendDecreeChat({ role: 'assistant', label: '军机处', text: msg }, 'order');
+            appendDecreeChat({ role: 'assistant', label: '军机处', text: msg }, mode);
           }
         };
         await confirmDraft();
       } catch (e) {
-        const reply = e instanceof Error && e.message ? e.message : '圣旨生成失败，请确认后端上书房服务可用。';
+        const reply =
+          e instanceof Error && e.message
+            ? e.message
+            : `${isSecret ? '密旨' : '圣旨'}生成失败，请确认后端上书房服务可用。`;
         setDecreeState('error');
         setDecreeMsg(reply);
-        appendDecreeChat({ role: 'assistant', label: '上书房', text: reply }, 'order');
+        appendDecreeChat({ role: 'assistant', label: '上书房', text: reply }, mode);
         void refreshBriefing();
       }
     },
     [
+      decreeMode,
       appendDecreeChat,
       closeOverride,
       decreeAttachmentMeta,
@@ -4049,6 +3881,11 @@ export function ShangshufangPage() {
       trackJiqunRun,
       runPackSwarmLoop,
     ],
+  );
+
+  const runSecretDecree = useCallback(
+    (cmd: string) => runOrderDecree(cmd, undefined, 'secret'),
+    [runOrderDecree],
   );
 
   const polishDraftFromBody = useCallback(

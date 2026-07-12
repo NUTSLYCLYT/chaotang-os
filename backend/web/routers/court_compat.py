@@ -220,6 +220,13 @@ def orchestrate(body: dict[str, Any] = Body(default_factory=dict)) -> dict:
 
 @router.post("/orchestrate/all")
 def orchestrate_all(body: dict[str, Any] = Body(default_factory=dict)) -> dict:
+    """已弃用(2026-07-12):密旨(secret 模式)此前是这个兼容占位端点唯一的真实
+    调用方，"统一决策任务生命周期"阶段2把它迁到了 draft-edict/confirm-edict
+    真实管线，前端不再调用这个路由。保留此端点(不立即删除)是为了不打破
+    `backend/tests/test_contract_alignment_p0.py` 里对这个契约形状的既有断言，
+    以及任何本仓库之外可能还在调用它的调用方——它本来就诚实标注
+    sourceLabel=FALLBACK、jiqunSwarm.ok=false，不会伪造真实结果。
+    见 /home/ubuntu/.claude/plans/valiant-crunching-candy.md 阶段2。"""
     result = orchestrate(body)
     result.setdefault("sourceLabel", "FALLBACK")
     result["secret"] = body.get("mode") == "secret"

@@ -341,20 +341,11 @@ export const chaotang = {
     return json as OrchestrateResult;
   },
 
-  // ---- 后端蜂群直奏:普通圣旨与密旨共用真实 jiqun_ai 蜂群通道。
-  //      上书房只展示简洁回奏;六部/蜂群细节留给军机处与报告页。----
-  orchestrateAll: async (command: string, mode: 'order' | 'secret' = 'secret'): Promise<OrchestrateResult> => {
-    const res = await backendFetch('/api/court/orchestrate/all', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
-      body: JSON.stringify({ command, mode }),
-    });
-    const json = (await res.json().catch(() => ({}))) as Partial<OrchestrateResult> & {
-      error?: string;
-    };
-    if (!res.ok || !json.ok) throw new Error(json.error ?? '密旨直发蜂群失败,请重试');
-    return json as OrchestrateResult;
-  },
+  // orchestrateAll()(POST /api/court/orchestrate/all)已随"统一决策任务生命
+  // 周期"阶段2移除——密旨现在并入 draft-edict/confirm-edict 真实管线(见
+  // shangshufangDraftEdict/shangshufangConfirmEdict)，不再调用这个命中后端
+  // 兼容占位端点(court_compat.py::orchestrate_all)的独立入口。见
+  // /home/ubuntu/.claude/plans/valiant-crunching-candy.md。
 
   // ---- Bezos 判断飞轮闭环:陛下对一次群臣会审的最终圣裁(准/驳),焊入哈希链 + 累积偏好。
   //      chosenDept 须为 prime-minister 部门代号(hu_bu/bing_bu...);需管理员身份。----
