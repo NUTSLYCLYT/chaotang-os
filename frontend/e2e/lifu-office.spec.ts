@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
 import { clearSession } from './fixtures';
 
 /**
@@ -20,13 +21,17 @@ const BACKEND_BASE =
   process.env.NEXT_PUBLIC_BACKEND_API_URL ??
   'http://localhost:8081';
 
-const E2E_USERNAME = 'e2e_lifu_office';
-const E2E_PASSWORD = 'e2e-lifu-office-pw-2026';
-const E2E_EMAIL = 'e2e-lifu-office@example.local';
+const RUN_ID = randomUUID().replaceAll('-', '').slice(0, 12);
+const E2E_USERNAME = `e2e_lifu_${RUN_ID}`;
+const E2E_PASSWORD = `E2E-${randomUUID()}-aA1!`;
+const E2E_EMAIL = `${E2E_USERNAME}@example.local`;
 const E2E_INVITE_CODE = process.env.FENGQUN_BOOTSTRAP_INVITE_CODE ?? 'CHAOTANG-DEV-E2E';
 
 async function getRealBackendToken(): Promise<string> {
-  await fetch(`${BACKEND_BASE}/api/auth/register`, {
+  const injectedToken = (process.env.HARNESS_AUTH_TOKEN ?? '').trim();
+  if (injectedToken) return injectedToken;
+
+  const registerRes = await fetch(`${BACKEND_BASE}/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -35,7 +40,10 @@ async function getRealBackendToken(): Promise<string> {
       password: E2E_PASSWORD,
       invite_code: E2E_INVITE_CODE,
     }),
-  }).catch(() => null); // 409(已存在)是预期的稳态，忽略即可
+  });
+  if (!registerRes.ok) {
+    throw new Error(`e2e 注册失败，无法创建一次性测试会话：HTTP ${registerRes.status}`);
+  }
 
   const loginRes = await fetch(`${BACKEND_BASE}/api/auth/login`, {
     method: 'POST',
