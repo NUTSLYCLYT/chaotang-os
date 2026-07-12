@@ -28,21 +28,21 @@ export function PrCrisisTab() {
 
       <label className="block text-[11px] text-[#8a9aaa]">
         危机簇(人工判断,归责越重越靠可预防型)
-        <select value={cluster} onChange={(e) => setCluster(e.target.value as CrisisCluster)} className={`${inputClass} mt-1`}>
+        <select value={cluster} onChange={(e) => { setCluster(e.target.value as CrisisCluster); setResult(null); }} className={`${inputClass} mt-1`}>
           {Object.entries(CLUSTER_CN).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </label>
 
       <label className="flex items-center gap-2 text-[11px] text-[#8a9aaa]">
-        <input type="checkbox" checked={priorCrisisHistory} onChange={(e) => setPriorCrisisHistory(e.target.checked)} />
+        <input type="checkbox" checked={priorCrisisHistory} onChange={(e) => { setPriorCrisisHistory(e.target.checked); setResult(null); }} />
         有同类前科
       </label>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <SliderField label="影响范围 reach" value={reach} onChange={setReach} />
-        <SliderField label="伤害程度 harm" value={harm} onChange={setHarm} />
-        <SliderField label="法律风险 legalRisk" value={legalRisk} onChange={setLegalRisk} />
-        <SliderField label="扩散速度 velocity" value={velocity} onChange={setVelocity} />
+        <SliderField label="影响范围 reach" value={reach} onChange={(v) => { setReach(v); setResult(null); }} />
+        <SliderField label="伤害程度 harm" value={harm} onChange={(v) => { setHarm(v); setResult(null); }} />
+        <SliderField label="法律风险 legalRisk" value={legalRisk} onChange={(v) => { setLegalRisk(v); setResult(null); }} />
+        <SliderField label="扩散速度 velocity" value={velocity} onChange={(v) => { setVelocity(v); setResult(null); }} />
       </div>
 
       <button

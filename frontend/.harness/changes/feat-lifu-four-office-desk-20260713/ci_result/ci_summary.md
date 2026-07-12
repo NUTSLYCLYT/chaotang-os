@@ -4,7 +4,7 @@
 
 ## 命令
 
-- 礼部 nodetest 37/37；TypeScript；production build；production release gate。
+- 礼部 nodetest 37/37；Playwright 6/6；TypeScript；production build；production release gate。
 
 ## 结果
 

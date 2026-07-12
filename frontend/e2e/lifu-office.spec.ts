@@ -1,149 +1,175 @@
-import { test, expect } from '@playwright/test';
-import { seedSession, clearSession } from './fixtures';
+import { expect, test, type Page } from '@playwright/test';
+import { clearSession } from './fixtures';
 
 /**
- * E2E：礼部对外增长办公厅 /departments/market
+ * E2E：礼部对外增长办公厅 /liubu/libu_rites（旧稿测的是从未存在过的 /departments/market，
+ * 用的也是另一版 UI/引擎选型——2026-07-13 对齐真实实现后整份重写，不是增量修补）。
  *
- * 设计要点（无需后端·纯客户端计算）：
- *  - 双门鉴权：seedSession() 同时种 cookie + localStorage（见 e2e/fixtures.ts）
- *  - 关系台账：prioritizeStakeholders 是纯客户端同步函数，无需 mock API
- *  - 流量增长：rankChannels 是纯客户端同步函数，无需 mock API
- *  - 断言：8 司编制可见（真/骨架）+ 关系台账出优先序 + 流量增长出 ROI 排序
- *
- * 注：URL 不含 /chaotang 前缀——playwright 的 webServer 配置
- * (pnpm exec next dev -p 3002 --webpack) 不传 BASE_PATH，Next.js 无 basePath。
+ * 鉴权注意（同 e2e/liubu-bureau-pages-smoke.spec.ts 的复审结论，2026-07-13 本文件复现同一个坑）：
+ * useDepartmentPageView（DepartmentPageRouteClient 实际用的 hook）对 overview 拉取失败没有降级态，
+ * 直接抛 department_page_view_failed，把整页替成错误壳——4 个已接线司的工作台完全渲染不出来。
+ * e2e/fixtures.ts 的 seedSession() 用的假 token 会被真后端 401，所以这里不能用它，必须像
+ * liubu-bureau-pages-smoke.spec.ts 一样对真后端注册+登录拿一个真签名 token。
+ * 4 个司引擎本身仍是纯客户端同步函数，无需 mock 具体业务数据——只是页面壳需要一个能通过
+ * verify_token 的 token 才能先跑到 DepartmentPageViewShell。
  */
 
-const MARKET_URL = '/departments/market';
+const BACKEND_BASE =
+  process.env.NEXT_PUBLIC_JIQUN_API_URL ??
+  process.env.NEXT_PUBLIC_CHAOTANG_API_URL ??
+  process.env.NEXT_PUBLIC_BACKEND_API_URL ??
+  'http://localhost:8081';
+
+const E2E_USERNAME = 'e2e_lifu_office';
+const E2E_PASSWORD = 'e2e-lifu-office-pw-2026';
+const E2E_EMAIL = 'e2e-lifu-office@example.local';
+const E2E_INVITE_CODE = process.env.FENGQUN_BOOTSTRAP_INVITE_CODE ?? 'CHAOTANG-DEV-E2E';
+
+async function getRealBackendToken(): Promise<string> {
+  await fetch(`${BACKEND_BASE}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      username: E2E_USERNAME,
+      email: E2E_EMAIL,
+      password: E2E_PASSWORD,
+      invite_code: E2E_INVITE_CODE,
+    }),
+  }).catch(() => null); // 409(已存在)是预期的稳态，忽略即可
+
+  const loginRes = await fetch(`${BACKEND_BASE}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: E2E_USERNAME, password: E2E_PASSWORD }),
+  });
+  if (!loginRes.ok) {
+    throw new Error(`e2e 登录失败，无法拿到真实 token：HTTP ${loginRes.status}`);
+  }
+  const body = (await loginRes.json()) as { token: string };
+  return body.token;
+}
+
+let cachedToken: string | null = null;
+
+async function seedRealSession(page: Page): Promise<void> {
+  cachedToken ??= await getRealBackendToken();
+  const token = cachedToken;
+  await page.context().addCookies([
+    { name: 'courtos.access_token', value: token, url: 'http://localhost:3002' },
+    { name: 'courtos.access_token', value: token, url: 'http://127.0.0.1:3002' },
+  ]);
+  await page.addInitScript((accessToken) => {
+    window.localStorage.setItem('courtos.auth', JSON.stringify({
+      accessToken,
+      refreshToken: 'e2e-refresh',
+      tenantId: 1,
+      username: 'lifu-office-e2e',
+      accountType: 0,
+      expiresAt: 4102444800000,
+    }));
+    window.localStorage.setItem('courtos.onboarded', '1');
+  }, token);
+}
+
+const MARKET_URL = '/liubu/libu_rites';
 
 test.describe('礼部对外增长办公厅', () => {
+  // 单 worker 串行：同账号并发 register/login 会撞后端限流(429)，同 liubu-bureau-pages-smoke.spec.ts。
+  test.describe.configure({ mode: 'serial' });
+
   test.beforeEach(async ({ page }) => {
-    await seedSession(page);
+    await seedRealSession(page);
   });
 
-  test('8 司编制文案可见（真/骨架区分）', async ({ page }) => {
-    await page.goto(MARKET_URL);
+  test('顶条显示 4 真司可算,3 骨架司诚实标待通电', async ({ page }) => {
+    await page.goto(MARKET_URL, { waitUntil: 'networkidle' });
 
-    const rail = page.locator('aside').first();
-    // 两个真引擎司
-    await expect(rail.getByText('关系台账司').first()).toBeVisible({ timeout: 10000 });
-    await expect(rail.getByText('流量增长司').first()).toBeVisible();
-    // 骨架司
-    await expect(rail.getByText('新媒体运营司').first()).toBeVisible();
-    await expect(rail.getByText('对外承诺可逆司').first()).toBeVisible();
-    await expect(rail.getByText('商务公关司').first()).toBeVisible();
-    await expect(rail.getByText('场合作战司').first()).toBeVisible();
-    await expect(rail.getByText('品牌文化司').first()).toBeVisible();
-    await expect(rail.getByText('礼部尚书').first()).toBeVisible();
+    await expect(page.getByText('4 真司可算')).toBeVisible({ timeout: 10000 });
+    // 8 司编制 - 1 尚书(chief,不进"能算"清单) - 4 已接真引擎 = 3 骨架待通电(新媒体运营/场合作战/品牌文化)
+    await expect(page.getByText(/3 待通电/)).toBeVisible();
+    // 4 个已接线司的 tab 按钮都在
+    await expect(page.getByRole('button', { name: '关系台账司' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '流量增长司' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '对外承诺可逆司' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '商务公关司' })).toBeVisible();
   });
 
-  test('关系台账填入一个干系人后分析出优先序清单', async ({ page }) => {
-    await page.goto(MARKET_URL);
+  test('关系台账司：填一个对外关系后算出关系健康', async ({ page }) => {
+    await page.goto(MARKET_URL, { waitUntil: 'networkidle' });
 
-    // 确认关系台账 tab 默认激活
-    await expect(page.getByText('关系台账司 · 干系人优先序')).toBeVisible({ timeout: 10000 });
+    // 默认激活关系台账司
+    await expect(page.getByText('对外关系台账')).toBeVisible({ timeout: 10000 });
 
-    // 填入干系人姓名
-    await page.getByPlaceholder('干系人姓名/机构').first().fill('张总监');
+    await page.getByPlaceholder('姓名/机构').first().fill('张总监');
+    await page.getByRole('button', { name: '算关系健康' }).click();
 
-    // 点击分析
-    await page.getByRole('button', { name: '分析优先序' }).click();
+    await expect(page.getByText('共 1 个对外关系')).toBeVisible({ timeout: 5000 });
 
-    // 断言结果出现
-    await expect(page.getByText('优先序清单 · 1 人')).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText('张总监')).toBeVisible();
+    // 裁决卡不能显示过期结果：编辑输入后（未重新点算）旧卡必须消失
+    await page.getByPlaceholder('姓名/机构').first().fill('张总监（改名）');
+    await expect(page.getByText('共 1 个对外关系')).toHaveCount(0);
   });
 
-  test('流量增长填入渠道后分析出 ROI 排序', async ({ page }) => {
-    await page.goto(MARKET_URL);
+  test('流量增长司：填一个渠道后算出 ROI 裁决', async ({ page }) => {
+    await page.goto(MARKET_URL, { waitUntil: 'networkidle' });
 
-    // 切换到流量增长 tab（exact: true 避免匹配左栏"流量增长司"按钮）
-    await page.getByRole('button', { name: '流量增长', exact: true }).click();
+    await page.getByRole('button', { name: '流量增长司' }).click();
+    await expect(page.getByText('渠道投入产出')).toBeVisible({ timeout: 10000 });
 
-    // 确认工作台已切换
-    await expect(page.getByText('流量增长司 · 渠道 ROI 决策')).toBeVisible({ timeout: 10000 });
-
-    // 填入渠道
-    await page.getByPlaceholder('渠道名（公众号/视频号/SEM/展会…）').first().fill('公众号');
-
-    // 填投入
+    await page.getByPlaceholder('公众号/抖音/SEM…').first().fill('公众号');
     const inputs = page.getByRole('spinbutton');
-    await inputs.nth(0).fill('10000');
-    // 填转化
-    await inputs.nth(1).fill('20');
-    // 填营收
-    await inputs.nth(2).fill('30000');
+    await inputs.nth(0).fill('10000'); // 投入
+    await inputs.nth(1).fill('20'); // 转化数
+    await inputs.nth(2).fill('30000'); // 营收 → ROAS=3 → 加投
 
-    // 点击分析
-    await page.getByRole('button', { name: '分析 ROI' }).click();
+    await page.getByRole('button', { name: '算渠道 ROI' }).click();
 
-    // 断言 ROI 排序结果出现
-    await expect(page.getByText('渠道 ROI 排序 · 1 个')).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText('公众号')).toBeVisible();
-    // ROAS=3 → 加投
-    await expect(page.getByText('加投')).toBeVisible();
+    await expect(page.getByText('公众号').last()).toBeVisible({ timeout: 5000 });
+    // exact: true —— "加投" 也会作为子串出现在推荐语("加投【公众号】。")和 nextStep("ROAS 3 高,加投")里，
+    // 只有裁决徽章是精确等于"加投"。
+    await expect(page.getByText('加投', { exact: true })).toBeVisible();
   });
 
-  test('危机公关 tab：生成响应方案含姿态和严重度 tier', async ({ page }) => {
-    await page.goto(MARKET_URL);
+  test('对外承诺可逆司：报价评估出 decision,防失真门查出违规', async ({ page }) => {
+    await page.goto(MARKET_URL, { waitUntil: 'networkidle' });
 
-    // 切换到危机公关 tab
-    await page.getByRole('tab', { name: '危机公关' }).click();
+    await page.getByRole('button', { name: '对外承诺可逆司' }).click();
+    await expect(page.getByText('报价/让步评估')).toBeVisible({ timeout: 10000 });
 
-    // 确认工作台已切换
-    await expect(page.getByText('商务公关司 · 危机响应')).toBeVisible({ timeout: 10000 });
-
-    // 默认选中"受害者型"，直接点生成
-    await page.getByRole('button', { name: '生成响应方案' }).click();
-
-    // 断言结果：危机响应方案出现
-    await expect(page.getByText('危机响应方案')).toBeVisible({ timeout: 5000 });
-
-    // 姿态（否认/淡化/重建 之一）可见
-    const postureVisible =
-      (await page.getByText('否认').count()) > 0 ||
-      (await page.getByText('淡化').count()) > 0 ||
-      (await page.getByText('重建').count()) > 0;
-    expect(postureVisible).toBe(true);
-
-    // 严重度 Tier 行可见
-    await expect(page.getByText('严重度 Tier')).toBeVisible();
-  });
-
-  test('对外谈判 tab：评估报价出现 decision 结果', async ({ page }) => {
-    await page.goto(MARKET_URL);
-
-    // 切换到对外谈判 tab
-    await page.getByRole('tab', { name: '对外谈判' }).click();
-
-    // 确认工作台已切换
-    await expect(page.getByText('对外承诺司 · 谈判评估')).toBeVisible({ timeout: 10000 });
-
-    // 填入己方保留价和对方报价
     const inputs = page.getByRole('spinbutton');
-    await inputs.nth(0).fill('100000');
-    await inputs.nth(1).fill('120000');
+    await inputs.nth(0).fill('100000'); // 己方保留价
+    await inputs.nth(2).fill('120000'); // 当前报价(第 3 个 spinbutton，第 2 个是对方保留价)
+    await page.getByRole('button', { name: '算报价决策' }).click();
+    // needsSignoff 恒真但渲染在 VerdictCard 折叠区，断言 nextStep(未折叠即可见)而非折叠内的 blockers 文案
+    await expect(page.getByText('报价达到/优于己方保留价,可接受(仍须人工确认)')).toBeVisible({ timeout: 5000 });
 
-    // 点击评估
-    await page.getByRole('button', { name: '评估报价' }).click();
-
-    // 断言结果：谈判评估结果出现
-    await expect(page.getByText('谈判评估结果')).toBeVisible({ timeout: 5000 });
-
-    // decision（接受/还价/走人 之一）可见
-    const decisionVisible =
-      (await page.getByText('接受').count()) > 0 ||
-      (await page.getByText('还价').count()) > 0 ||
-      (await page.getByText('走人').count()) > 0;
-    expect(decisionVisible).toBe(true);
-
-    // needsSignoff 提示恒存在
-    await expect(page.getByText(/needsSignoff/)).toBeVisible();
+    // 防失真门：源标 FALLBACK 但表达用了确定性措辞 → 应查出违规
+    await page.getByLabel('源结论标签').selectOption('FALLBACK');
+    await page.getByLabel('对外表达文案').fill('本方案已验证,保证效果');
+    await page.getByRole('button', { name: '查失真' }).click();
+    await expect(page.getByText(/处失真/)).toBeVisible({ timeout: 5000 });
   });
 
-  test('未登录访问被拦截到 /login', async ({ page }) => {
+  test('商务公关司：默认参数即可算出响应姿态和协办徽', async ({ page }) => {
+    await page.goto(MARKET_URL, { waitUntil: 'networkidle' });
+
+    await page.getByRole('button', { name: '商务公关司' }).click();
+    await expect(page.getByText('危机响应姿态')).toBeVisible({ timeout: 10000 });
+
+    await page.getByRole('button', { name: '算响应姿态' }).click();
+
+    await expect(page.getByText(/Tier \d/)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('锦衣卫')).toBeVisible();
+  });
+
+  test('未登录访问不跳 /login,但会诚实降级(overview 接口拒匿名读)', async ({ page }) => {
+    // src/components/AuthGate.tsx 的 PUBLIC_ROUTES 显式包含 '/liubu'（routePath.startsWith('/liubu/')
+    // 即命中），六部页面本身不做客户端登录跳转。但 /api/chaotang/dept/market/overview 本身要真
+    // token（curl 空 Authorization 头验证过：{"detail":"未登录，请先认证"}），useDepartmentPageView
+    // 对取数失败没有降级态，会把整页替成"部门案卷暂不可用"错误壳——不是白屏，也不是登录跳转。
     await clearSession(page);
-    await page.goto(MARKET_URL);
-    await expect(page).toHaveURL(/\/login(\?|$)/);
+    await page.goto(MARKET_URL, { waitUntil: 'networkidle' });
+    await expect(page).toHaveURL(new RegExp(`${MARKET_URL}$`));
+    await expect(page.getByText('部门案卷暂不可用')).toBeVisible({ timeout: 10000 });
   });
 });

@@ -23,6 +23,7 @@ export function TrafficGrowthTab() {
 
   function updateRow(id: string, patch: Partial<ChannelRow>) {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    setResult(null);
   }
 
   function run() {
@@ -44,12 +45,12 @@ export function TrafficGrowthTab() {
             <input type="number" min={0} value={row.conversions} onChange={(e) => updateRow(row.id, { conversions: Number(e.target.value || 0) })} className={inputClass} />
             <input type="number" min={0} value={row.revenue ?? ''} onChange={(e) => updateRow(row.id, { revenue: e.target.value === '' ? undefined : Number(e.target.value) })} className={inputClass} />
             <input type="number" min={0} value={row.clicks ?? ''} onChange={(e) => updateRow(row.id, { clicks: e.target.value === '' ? undefined : Number(e.target.value) })} className={inputClass} />
-            <button type="button" onClick={() => setRows((prev) => prev.filter((r) => r.id !== row.id))} className="text-[#6a7080] hover:text-[#FF8A8A]" aria-label="删除">
+            <button type="button" onClick={() => { setRows((prev) => prev.filter((r) => r.id !== row.id)); setResult(null); }} className="text-[#6a7080] hover:text-[#FF8A8A]" aria-label="删除">
               <Trash2 size={14} />
             </button>
           </div>
         ))}
-        <button type="button" onClick={() => setRows((prev) => [...prev, blankRow()])} className="inline-flex items-center gap-1 text-[11px] text-[#C070D0] hover:brightness-110">
+        <button type="button" onClick={() => { setRows((prev) => [...prev, blankRow()]); setResult(null); }} className="inline-flex items-center gap-1 text-[11px] text-[#C070D0] hover:brightness-110">
           <Plus size={12} /> 添加渠道
         </button>
       </div>

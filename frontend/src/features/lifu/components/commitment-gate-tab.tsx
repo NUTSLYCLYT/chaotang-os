@@ -33,18 +33,18 @@ function OfferSection() {
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
         <label className="block text-[11px] text-[#8a9aaa]">
           己方保留价
-          <input type="number" min={0} value={ownReservation} onChange={(e) => setOwnReservation(Number(e.target.value || 0))} className={`${inputClass} mt-1`} />
+          <input type="number" min={0} value={ownReservation} onChange={(e) => { setOwnReservation(Number(e.target.value || 0)); setResult(null); }} className={`${inputClass} mt-1`} />
         </label>
         <label className="block text-[11px] text-[#8a9aaa]">
           对方保留价(估,可缺)
-          <input type="number" min={0} value={counterpartReservation} onChange={(e) => setCounterpartReservation(e.target.value === '' ? '' : Number(e.target.value))} className={`${inputClass} mt-1`} />
+          <input type="number" min={0} value={counterpartReservation} onChange={(e) => { setCounterpartReservation(e.target.value === '' ? '' : Number(e.target.value)); setResult(null); }} className={`${inputClass} mt-1`} />
         </label>
         <label className="block text-[11px] text-[#8a9aaa]">
           当前报价
-          <input type="number" min={0} value={offer} onChange={(e) => setOffer(Number(e.target.value || 0))} className={`${inputClass} mt-1`} />
+          <input type="number" min={0} value={offer} onChange={(e) => { setOffer(Number(e.target.value || 0)); setResult(null); }} className={`${inputClass} mt-1`} />
         </label>
         <label className="flex items-center gap-2 pt-5 text-[11px] text-[#8a9aaa]">
-          <input type="checkbox" checked={betterWhenHigher} onChange={(e) => setBetterWhenHigher(e.target.checked)} />
+          <input type="checkbox" checked={betterWhenHigher} onChange={(e) => { setBetterWhenHigher(e.target.checked); setResult(null); }} />
           越高越好(卖方)
         </label>
       </div>
@@ -91,18 +91,18 @@ function FidelitySection() {
       <div className="grid gap-2 md:grid-cols-2">
         <label className="block text-[11px] text-[#8a9aaa]">
           源结论标签
-          <select value={sourceLabel} onChange={(e) => setSourceLabel(e.target.value as SourceLabel)} className={`${inputClass} mt-1`}>
+          <select value={sourceLabel} onChange={(e) => { setSourceLabel(e.target.value as SourceLabel); setResult(null); }} className={`${inputClass} mt-1`}>
             {SOURCE_LABELS.map((l) => <option key={l} value={l}>{l}</option>)}
           </select>
         </label>
         <label className="block text-[11px] text-[#8a9aaa]">
           源带的风险/缺证(逗号分隔)
-          <input value={risksText} onChange={(e) => setRisksText(e.target.value)} className={`${inputClass} mt-1`} />
+          <input value={risksText} onChange={(e) => { setRisksText(e.target.value); setResult(null); }} className={`${inputClass} mt-1`} />
         </label>
       </div>
       <label className="block text-[11px] text-[#8a9aaa]">
         对外表达文案
-        <textarea value={expression} onChange={(e) => setExpression(e.target.value)} className={`${inputClass} mt-1 min-h-16`} />
+        <textarea value={expression} onChange={(e) => { setExpression(e.target.value); setResult(null); }} className={`${inputClass} mt-1 min-h-16`} />
       </label>
       <button
         type="button"

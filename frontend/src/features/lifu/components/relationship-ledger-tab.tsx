@@ -31,6 +31,7 @@ export function RelationshipLedgerTab() {
 
   function updateRow(id: string, patch: Partial<Stakeholder>) {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    setResult(null);
   }
 
   function run() {
@@ -50,7 +51,7 @@ export function RelationshipLedgerTab() {
         <span className="text-[12px] font-bold tracking-[0.14em] text-[#F5E9C9]">对外关系台账</span>
         <label className="flex items-center gap-2 text-[11px] text-[#8a9aaa]">
           今日
-          <input type="date" value={nowIso} onChange={(e) => setNowIso(e.target.value)} className={`${inputClass} w-auto`} />
+          <input type="date" value={nowIso} onChange={(e) => { setNowIso(e.target.value); setResult(null); }} className={`${inputClass} w-auto`} />
         </label>
       </div>
 
@@ -66,14 +67,14 @@ export function RelationshipLedgerTab() {
             </select>
             <input type="date" value={row.lastContact ?? ''} onChange={(e) => updateRow(row.id, { lastContact: e.target.value })} className={inputClass} />
             <input placeholder="下一步动作" value={row.nextAction ?? ''} onChange={(e) => updateRow(row.id, { nextAction: e.target.value })} className={inputClass} />
-            <button type="button" onClick={() => setRows((prev) => prev.filter((r) => r.id !== row.id))} className="text-[#6a7080] hover:text-[#FF8A8A]" aria-label="删除">
+            <button type="button" onClick={() => { setRows((prev) => prev.filter((r) => r.id !== row.id)); setResult(null); }} className="text-[#6a7080] hover:text-[#FF8A8A]" aria-label="删除">
               <Trash2 size={14} />
             </button>
           </div>
         ))}
         <button
           type="button"
-          onClick={() => setRows((prev) => [...prev, blankRow()])}
+          onClick={() => { setRows((prev) => [...prev, blankRow()]); setResult(null); }}
           className="inline-flex items-center gap-1 text-[11px] text-[#C070D0] hover:brightness-110"
         >
           <Plus size={12} /> 添加一行
