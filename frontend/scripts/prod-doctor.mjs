@@ -16,6 +16,8 @@ import https from 'node:https';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
+import { classifyProductionListenerOwnership } from './prod-runtime-identity.mjs';
+
 const execFileAsync = promisify(execFile);
 const cwd = process.cwd();
 const baseUrl = process.env.PROD_DOCTOR_BASE_URL ?? process.env.HARNESS_BASE_URL ?? 'http://127.0.0.1:3050';
@@ -157,6 +159,7 @@ function classifyPorts(listeningLines, processLines) {
 
   const failures = [];
   if (!prod3050) failures.push('3050_not_listening');
+  failures.push(...classifyProductionListenerOwnership(prod3050));
   if (nonStandardNext.length > 0) failures.push(`non_standard_next_ports:${nonStandardNext.map((item) => item.port).join(',')}`);
   if (!allowDev && dev3002 && nextDevSameRepo.length > 0) failures.push('same_repo_dev_3002_running');
 
