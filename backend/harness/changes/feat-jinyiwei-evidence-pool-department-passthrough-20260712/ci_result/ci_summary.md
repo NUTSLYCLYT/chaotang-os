@@ -56,3 +56,13 @@ Codex 停止前三次审查指出:"reverse substring match can merge unrelated h
 新增测试 `test_merge_known_evidence_ignores_generic_short_historical_query`：第一次任务描述本身就是通用短词"核实"，第二次是完全不相关但恰好包含"核实"两字的任务描述，验证不会发生误合并。用负对照验证：临时去掉长度门槛重跑这条新测试，确认失败(误合并了不相关的历史结论)，恢复后确认转绿。
 
 验证：`python3 -m pytest -q tests/test_real_department_engines.py tests/test_jinyiwei_evidence_store.py tests/test_jinyiwei_endpoint.py` 66 passed；全量 `pytest` 2415 passed，同一组 8 个既有无关失败；三层 `harness:doctor` 全绿。
+
+## Codex 停止前四次审查纠正(2026-07-12)
+
+Codex 停止前四次审查指出:"min-length fix overcorrects and drops valid short entities"。复核确认属实——三次审查后直接把最短长度门槛提到4个字符，确实挡住了"核实"/"情况"这类2字通用词的误命中，但中文里大量真实、具体的实体名(公司/城市/产品)本来就只有2-3个字，例如"厦门"——长度本身分不出"这是通用连接词"还是"这是具体实体名"，一刀切的长度门槛会把这类短但语义具体的实体名一起挡掉，反而让"读历史复用"在"提到具体短地名/公司名"这种常见场景里失效，属于矫枉过正。
+
+修复：把区分逻辑从"长度阈值"换成"停用词表"——新增 `_GENERIC_STOPWORDS`(核实/确认/审查/评估/追加/情况/是否/关于/针对/需要/相关/问题/核查/说明/内容/方案/进行/这份/这个/那个/一下/请问/麻烦/如何/为什么/什么/哪些/哪个/怎么/怎样/是不是/有没有/我们/你们/他们，共30余个高频通用连接词/套话，不是穷举，语料量大了发现漏网的再补)，`_MIN_MATCH_LEN` 降回 2(只挡单字这种噪音下限)。候选短语过滤和反向包含检查都改成"长度达标 且 不在停用词表里"，不再靠长度本身区分通用词和具体实体。
+
+新增测试 `test_merge_known_evidence_still_matches_short_specific_entity`：用"厦门"(2字真实地名，不在停用词表里)作为历史 query，验证追加式后续问法仍能正确合并历史情报。用负对照验证：临时把 `_MIN_MATCH_LEN` 改回 4 重跑这条新测试，确认失败(短实体名被一刀切的长度门槛错误挡在外面，复现 Codex 指出的矫枉过正)，恢复后确认转绿。
+
+验证：`python3 -m pytest -q tests/test_real_department_engines.py tests/test_jinyiwei_evidence_store.py tests/test_jinyiwei_endpoint.py` 67 passed；全量 `pytest` 2416 passed，同一组 8 个既有无关失败；三层 `harness:doctor` 全绿。

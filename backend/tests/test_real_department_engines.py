@@ -311,6 +311,53 @@ def test_merge_known_evidence_ignores_generic_short_historical_query(
     assert any("本次真实检索到的新结论" in (c or "") for c in claims_seen)
 
 
+def test_merge_known_evidence_still_matches_short_specific_entity(
+    isolated_session_local, monkeypatch
+):
+    """2026-07-12 Codex 停止前四次审查纠正:"min-length fix overcorrects and
+    drops valid short entities"——三次审查后把最短长度提到4个字符，确实
+    挡住了"核实"这类通用词，但中文很多真实、具体的实体名(公司/城市/产品)
+    本来就只有2-3个字，比如"厦门"——一刀切的长度门槛会把这类短但语义具体
+    的实体名也一起挡掉，反而让"读历史复用"在这些常见场景里失效。这里验证
+    历史 query 是"厦门"这个2字真实地名时，后续追加式问法仍然能正确合并
+    历史情报——停用词表挡的是通用连接词/套话，不是所有短字符串。"""
+    import src.jinyiwei_search as js
+
+    responses = [
+        [
+            {
+                "claim": "厦门分公司合规资质完备",
+                "sources": [{"name": "https://a.com", "tier": "一手"}],
+            }
+        ],
+        [
+            {
+                "claim": "合作方近期新增股权变更",
+                "sources": [{"name": "https://b.com", "tier": "一手"}],
+            }
+        ],
+    ]
+    call_count = {"n": 0}
+
+    def _fake_tavily(query, **kw):
+        idx = call_count["n"]
+        call_count["n"] += 1
+        return responses[idx] if idx < len(responses) else []
+
+    monkeypatch.setattr(js, "tavily_search", _fake_tavily)
+
+    doc1 = rde.adapt_jinyiwei("厦门")
+    assert doc1 is not None
+
+    # 追加式问法，无标点，且共享的"厦门"只有2个字——如果又退化回长度
+    # 一刀切，这条历史情报会被错误挡在外面。
+    doc2 = rde.adapt_jinyiwei("厦门合作方尽调追加材料")
+    assert doc2 is not None
+    claims_seen = {item.get("title") for item in doc2["items"]}
+    assert any("厦门分公司合规资质完备" in (c or "") for c in claims_seen)  # 历史合并
+    assert any("合作方近期新增股权变更" in (c or "") for c in claims_seen)  # 本次新检索
+
+
 def test_contract_mapping_fields(monkeypatch):
     import src.bingbu_battlecard as bb
 
