@@ -127,6 +127,51 @@ def test_adapt_jinyiwei_failure_returns_none(monkeypatch):
     assert rde.adapt_jinyiwei("任何任务") is None
 
 
+def test_adapt_jinyiwei_reuses_persisted_evidence_without_duplicate_claims(
+    isolated_session_local, monkeypatch
+):
+    """锦衣卫共享证据服务阶段2验收:两次主题重叠的 adapt_jinyiwei 调用，
+    第二次应该能读到第一次写回共享池的"入库"级历史情报并合并进检索结果，
+    且不会在池子里插入重复的 claim_key 行。"""
+    import src.jinyiwei_search as js
+    from src.db.models import JinyiweiEvidence
+
+    call_count = {"n": 0}
+
+    def _fake_tavily(query, **kw):
+        call_count["n"] += 1
+        return [
+            {
+                "claim": "该供应商已通过一手资质核验",
+                "sources": [{"name": "https://a.com", "tier": "一手"}],
+            }
+        ]
+
+    monkeypatch.setattr(js, "tavily_search", _fake_tavily)
+
+    doc1 = rde.adapt_jinyiwei("某供应商资质尽调")
+    assert doc1 is not None
+    assert call_count["n"] == 1
+
+    doc2 = rde.adapt_jinyiwei("某供应商资质尽调追加核实")
+    assert doc2 is not None
+    assert call_count["n"] == 2  # 第二次仍会真实检索，但检索结果会跟历史合并
+    # 合并后的 items 里应该能看到第一次写回的那条历史情报(通过 vet 门重新分级)
+    claims_seen = {item.get("title") for item in doc2["items"]}
+    assert any("资质核验" in (c or "") for c in claims_seen)
+
+    db = isolated_session_local()
+    try:
+        rows = (
+            db.query(JinyiweiEvidence)
+            .filter_by(claim="该供应商已通过一手资质核验")
+            .all()
+        )
+        assert len(rows) == 1  # 没有插入重复行，是原地更新
+    finally:
+        db.close()
+
+
 def test_contract_mapping_fields(monkeypatch):
     import src.bingbu_battlecard as bb
 

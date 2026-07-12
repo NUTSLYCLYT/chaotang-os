@@ -198,6 +198,75 @@ def adapt_bingbu(task_text: str) -> dict | None:
     return doc
 
 
+def _merge_known_evidence(task_text: str, fresh_findings: list) -> list:
+    """把共享情报池里已经核实过的"入库"级历史情报，合并进本次检索结果——
+    下一个任务问到同一个主题时不用重新打一次真实检索。合并进来的历史情报
+    仍然会被 gather_intel 内部的 _finding_to_item 重新过一遍确定性 vet 门
+    (它对所有 findings 一视同仁，不因为来源是"历史缓存"就跳过分级或放水)。
+    查历史本身失败不影响真实检索结果，直接退回原始 findings。"""
+    try:
+        from src.db.engine import SessionLocal
+        from src.jinyiwei_evidence_store import query_evidence
+        from src.tenant import resolve_current_tenant_id
+
+        tenant_id = resolve_current_tenant_id()
+        db = SessionLocal()
+        try:
+            known = query_evidence(
+                db,
+                tenant_id=tenant_id,
+                keyword=task_text[:120],
+                include_pending=False,
+            )
+        finally:
+            db.close()
+    except Exception:  # noqa: BLE001 - 查历史失败不影响真实检索
+        return fresh_findings
+    if not known:
+        return fresh_findings
+    reused = [{"claim": row["claim"], "sources": row["sources"]} for row in known]
+    return reused + fresh_findings
+
+
+def _persist_department_evidence(*, query: str, findings: list, doc: dict) -> None:
+    """镜像 web/routers/jinyiwei.py::_persist_brief_items 的写回逻辑——六部
+    派单读到的锦衣卫结论也要写回共享池，不是只有 /api/intel/brief 这一个
+    入口在维护它。最佳努力：入库失败不影响六部派单本身的返回。"""
+    items = doc.get("items") if isinstance(doc, dict) else None
+    if not items:
+        return
+    try:
+        from src.db.engine import SessionLocal
+        from src.jinyiwei_evidence_store import upsert_evidence
+        from src.tenant import resolve_current_tenant_id
+
+        tenant_id = resolve_current_tenant_id()
+        db = SessionLocal()
+        try:
+            for finding, item in zip(findings, items):
+                claim = (
+                    str(finding.get("claim", ""))
+                    if isinstance(finding, dict)
+                    else ""
+                )
+                if not claim:
+                    continue
+                upsert_evidence(
+                    db,
+                    tenant_id=tenant_id,
+                    query=query,
+                    claim=claim,
+                    sources=item.get("sources"),
+                    item=item,
+                    source_label=str(doc.get("source_label") or "LIVE_ENGINE"),
+                )
+            db.commit()
+        finally:
+            db.close()
+    except Exception:  # noqa: BLE001 - 入库失败不影响六部派单本身
+        pass
+
+
 def adapt_jinyiwei(task_text: str) -> dict | None:
     """真实锦衣卫引擎(Tavily真实检索 → jinyiwei_vet 确定性可信度分级 → court_doc)。
 
@@ -205,14 +274,38 @@ def adapt_jinyiwei(task_text: str) -> dict | None:
     search_fn=None,只能诚实返回"未获取到可核情报")。TAVILY_API_KEY 缺失/请求
     失败/查无结果时 tavily_search 本身会返回 []，gather_intel 仍然诚实退回空态
     court_doc,不编造——这本身是有效输出,不在此处判 None。
+
+    2026-07-12(锦衣卫共享证据服务阶段2)：读写穿透持久情报池——真实检索前先
+    查已核实过的历史情报合并进来，真实检索/分级完成后把新条目写回池子。用
+    闭包捕获 search_fn 实际返回的 findings(而不是自己提前调用 tavily_search)，
+    是为了保持跟改动前完全一致的惰性:只有 gather_intel 真的调用 search_fn
+    时才会触发检索/查历史，被 mock 掉 gather_intel 的既有测试不会因此意外
+    触发真实网络请求(TAVILY_API_KEY 在测试环境里通过 web.main 的 .env 加载
+    是真实有效值,提前调用 tavily_search 会导致既有测试打真实网络请求)。
     """
-    try:
-        from src.jinyiwei_agent import gather_intel
+    captured_findings: list = []
+
+    def _search_and_capture(query: str) -> list:
         from src.jinyiwei_search import tavily_search
 
-        doc = gather_intel(task_text, search_fn=tavily_search, archive=False)
+        try:
+            fresh = tavily_search(query) or []
+        except Exception:  # noqa: BLE001 - 诚实空态,不编造
+            fresh = []
+        merged = _merge_known_evidence(query, fresh)
+        captured_findings[:] = merged
+        return merged
+
+    try:
+        from src.jinyiwei_agent import gather_intel
+
+        doc = gather_intel(task_text, search_fn=_search_and_capture, archive=False)
     except Exception:
         return None
+    if isinstance(doc, dict):
+        _persist_department_evidence(
+            query=task_text, findings=captured_findings, doc=doc
+        )
     return doc if isinstance(doc, dict) else None
 
 
