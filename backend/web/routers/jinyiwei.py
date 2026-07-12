@@ -9,6 +9,7 @@ src/jinyiwei_agent.gather_intel 是真实、确定性分级的情报可信度门
 """
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Query
@@ -20,6 +21,7 @@ from web.routers._envelope import fail, ok
 from web.schemas.auth import CurrentUser
 
 router = APIRouter(prefix="/api/intel", tags=["jinyiwei"])
+_logger = logging.getLogger(__name__)
 
 
 def _persist_brief_items(
@@ -67,7 +69,7 @@ def _persist_brief_items(
         finally:
             db.close()
     except Exception:  # noqa: BLE001 - 情报入库失败不影响调用方本身返回
-        pass
+        _logger.warning("锦衣卫情报写回共享池失败(不影响调用方本身返回)", exc_info=True)
 
 
 @router.post("/brief")

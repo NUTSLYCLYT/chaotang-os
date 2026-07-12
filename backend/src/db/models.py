@@ -494,7 +494,15 @@ class JinyiweiEvidence(Base):
     updated_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
 
     __table_args__ = (
-        sa.Index("ix_jinyiwei_evidence_tenant_key", "tenant_id", "claim_key"),
+        # 2026-07-12 P0(外部审查指出):(tenant_id, claim_key) 此前只是索引，
+        # 不是数据库级唯一约束——upsert_evidence 的去重是应用层"先查后写"，
+        # 并发场景下两次写入都可能在对方提交前查到"不存在"，都插入，产生
+        # 重复行。改成真正的唯一约束，配合 upsert_evidence 里的
+        # insert-then-catch-conflict 逻辑，把去重不变式下沉到数据库层，
+        # 不再只靠应用层一次性检查。
+        sa.UniqueConstraint(
+            "tenant_id", "claim_key", name="uq_jinyiwei_evidence_tenant_claim_key"
+        ),
         sa.Index("ix_jinyiwei_evidence_tenant_query", "tenant_id", "query"),
         sa.Index("ix_jinyiwei_evidence_tenant_decision", "tenant_id", "decision"),
     )

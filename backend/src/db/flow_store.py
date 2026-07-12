@@ -250,6 +250,99 @@ def _backfill_decree_execution_event_sequence(session: Session) -> None:
         )
 
 
+def ensure_jinyiwei_evidence_unique_constraint(session: Session) -> None:
+    """给已存在的 jinyiwei_evidence 表补上 (tenant_id, claim_key) 唯一约束。
+
+    P0(2026-07-12,外部审查指出)：`upsert_evidence()` 原来是"先 SELECT
+    有没有,没有就 INSERT"的应用层去重,是经典 TOCTOU 竞态。真正的修复是
+    数据库级 `UniqueConstraint`(见 alembic/versions/007_...、
+    src/db/models.py::JinyiweiEvidence.__table_args__)，但 `create_all
+    (checkfirst=True)`(web/main.py)对已经存在的表不做约束/索引级 diff——
+    只对没跑过 alembic 007 迁移的旧 create_all 建表(dev 环境的常态)补这个
+    约束，SQLite 的 ALTER TABLE 不支持给已有表加表级约束，等价的强制手段
+    是建一个唯一索引。
+
+    如果表里已经有重复的 (tenant_id, claim_key)(旧竞态遗留的坏数据)，
+    直接建唯一索引会失败——那种情况下先去重(保留 updated_at 最新的一行)，
+    再重试一次建索引。"""
+    bind = session.get_bind()
+    dialect = bind.dialect.name if bind is not None else ""
+    try:
+        if dialect == "sqlite":
+            session.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS "
+                    "uq_jinyiwei_evidence_tenant_claim_key "
+                    "ON jinyiwei_evidence(tenant_id, claim_key)"
+                )
+            )
+            return
+        session.execute(
+            text(
+                "ALTER TABLE jinyiwei_evidence "
+                "ADD CONSTRAINT uq_jinyiwei_evidence_tenant_claim_key "
+                "UNIQUE (tenant_id, claim_key)"
+            )
+        )
+    except Exception as exc:  # noqa: BLE001 - 区分"已存在"/"有重复数据"两种已知情况
+        message = str(exc).lower()
+        if "already exists" in message or "duplicate" in message:
+            return
+        if "unique" in message and (
+            "constraint failed" in message or "violat" in message
+        ):
+            _dedupe_jinyiwei_evidence(session)
+            if dialect == "sqlite":
+                session.execute(
+                    text(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS "
+                        "uq_jinyiwei_evidence_tenant_claim_key "
+                        "ON jinyiwei_evidence(tenant_id, claim_key)"
+                    )
+                )
+            else:
+                session.execute(
+                    text(
+                        "ALTER TABLE jinyiwei_evidence "
+                        "ADD CONSTRAINT uq_jinyiwei_evidence_tenant_claim_key "
+                        "UNIQUE (tenant_id, claim_key)"
+                    )
+                )
+            return
+        raise
+
+
+def _dedupe_jinyiwei_evidence(session: Session) -> None:
+    """同一 (tenant_id, claim_key) 保留 updated_at 最新的一行，删掉其余——
+    跟 alembic/versions/007_jinyiwei_evidence_unique_constraint.py 的去重
+    逻辑同源，这里是运行时自愈版本。"""
+    from src.db.models import JinyiweiEvidence
+
+    rows = (
+        session.query(
+            JinyiweiEvidence.id, JinyiweiEvidence.tenant_id, JinyiweiEvidence.claim_key
+        )
+        .order_by(
+            JinyiweiEvidence.tenant_id,
+            JinyiweiEvidence.claim_key,
+            JinyiweiEvidence.updated_at.desc(),
+        )
+        .all()
+    )
+    seen: set[tuple[int, str]] = set()
+    stale_ids: list[str] = []
+    for row in rows:
+        key = (row.tenant_id, row.claim_key)
+        if key in seen:
+            stale_ids.append(row.id)
+        else:
+            seen.add(key)
+    if stale_ids:
+        session.query(JinyiweiEvidence).filter(
+            JinyiweiEvidence.id.in_(stale_ids)
+        ).delete(synchronize_session=False)
+
+
 def task_record(row: Task) -> dict[str, Any]:
     display_status = row.task_status or _normalize_display_status(row.status)
     result = _parse_json_object(row.result_json)

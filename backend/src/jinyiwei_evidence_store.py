@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 from hashlib import sha1
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy.exc import IntegrityError
+
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
@@ -51,8 +53,21 @@ def upsert_evidence(
     claim 文本——item["title"] 只是前 60 字截断,不能拿来存。
 
     按 (tenant_id, claim_key) 查重:命中则原地更新(允许再次核实改变结论),
-    未命中则插入。调用方负责 commit(同本仓库其余写入函数的既有惯例)。"""
+    未命中则插入。调用方负责 commit(同本仓库其余写入函数的既有惯例)。
+
+    2026-07-12 P0(外部审查指出):"先 SELECT 有没有,没有就 INSERT"是经典
+    TOCTOU 竞态——两个并发写入(比如两个任务几乎同时发现同一条情报)都可能
+    在对方提交前查到"不存在"，都插入，产生重复行。`(tenant_id, claim_key)`
+    现在是数据库级 `UniqueConstraint`(见 `src/db/models.py`)，这里配合改成
+    "先查(常见路径的性能优化，大多数调用不会撞冲突)→没查到就在 SAVEPOINT
+    里尝试插入→数据库唯一约束拒绝时捕获冲突、退回去原地更新"，把去重的
+    最终正确性下沉到数据库层，不再只靠应用层这一次性检查。"""
+    from src.db.flow_store import ensure_jinyiwei_evidence_unique_constraint
     from src.db.models import JinyiweiEvidence
+
+    # 老库(create_all 建的、没跑过 alembic 007)可能还没有这个唯一约束——
+    # 没有它,下面的 IntegrityError 捕获逻辑就没有数据库层面的东西可捕获。
+    ensure_jinyiwei_evidence_unique_constraint(db)
 
     claim_key = _claim_key(claim)
     grade = str(item.get("odds") or "未证实")
@@ -62,46 +77,68 @@ def upsert_evidence(
     dept_affinity_json = json.dumps(dept_affinity or [], ensure_ascii=False)
     now = _now_iso()
 
+    def _apply_update(row: "JinyiweiEvidence") -> str:
+        row.grade = grade
+        row.decision = decision
+        row.trust = trust
+        row.source_label = source_label
+        row.sources_json = sources_json
+        row.updated_at = now
+        if origin_task_id:
+            row.origin_task_id = origin_task_id
+        if swarm_run_id:
+            row.swarm_run_id = swarm_run_id
+        return row.id
+
     existing = (
         db.query(JinyiweiEvidence)
         .filter_by(tenant_id=tenant_id, claim_key=claim_key)
         .first()
     )
     if existing is not None:
-        existing.grade = grade
-        existing.decision = decision
-        existing.trust = trust
-        existing.source_label = source_label
-        existing.sources_json = sources_json
-        existing.updated_at = now
-        if origin_task_id:
-            existing.origin_task_id = origin_task_id
-        if swarm_run_id:
-            existing.swarm_run_id = swarm_run_id
-        return existing.id
+        return _apply_update(existing)
 
     evidence_id = (
         f"jye_{sha1(f'{tenant_id}|{claim_key}|{secrets.token_hex(4)}'.encode()).hexdigest()[:12]}"
     )
-    db.add(
-        JinyiweiEvidence(
-            id=evidence_id,
-            tenant_id=tenant_id,
-            origin_task_id=origin_task_id,
-            swarm_run_id=swarm_run_id,
-            query=query,
-            claim=claim,
-            claim_key=claim_key,
-            grade=grade,
-            decision=decision,
-            trust=trust,
-            source_label=source_label,
-            sources_json=sources_json,
-            dept_affinity_json=dept_affinity_json,
-            created_at=now,
-            updated_at=now,
-        )
+    new_row = JinyiweiEvidence(
+        id=evidence_id,
+        tenant_id=tenant_id,
+        origin_task_id=origin_task_id,
+        swarm_run_id=swarm_run_id,
+        query=query,
+        claim=claim,
+        claim_key=claim_key,
+        grade=grade,
+        decision=decision,
+        trust=trust,
+        source_label=source_label,
+        sources_json=sources_json,
+        dept_affinity_json=dept_affinity_json,
+        created_at=now,
+        updated_at=now,
     )
+    try:
+        with db.begin_nested():
+            db.add(new_row)
+            db.flush()
+    except IntegrityError:
+        # 并发场景下，另一个事务在我们上面那次查询之后、这次插入之前，
+        # 抢先插入并提交了同一个 (tenant_id, claim_key)——数据库唯一约束
+        # 挡住了我们的重复插入。SAVEPOINT 回滚时 SQLAlchemy 已经自动把
+        # new_row 从 session 里清掉了(不能再手动 expunge 一次，那会因为
+        # "已经不在 session 里"而报 InvalidRequestError)，这里直接退回来
+        # 原地更新冲突的那一行，而不是让异常直接抛给调用方。
+        existing = (
+            db.query(JinyiweiEvidence)
+            .filter_by(tenant_id=tenant_id, claim_key=claim_key)
+            .first()
+        )
+        if existing is None:
+            # 唯一约束冲突却查不到冲突的那一行，不是预期里的并发场景，
+            # 不静默吞掉，交回给调用方处理。
+            raise
+        return _apply_update(existing)
     return evidence_id
 
 

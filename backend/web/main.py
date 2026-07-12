@@ -92,6 +92,7 @@ async def lifespan(app: FastAPI):
         from src.db.engine import SessionLocal
         from src.db.flow_store import (
             ensure_decree_execution_event_sequence_column,
+            ensure_jinyiwei_evidence_unique_constraint,
             ensure_retrospective_outcome_column,
             ensure_task_result_json_column,
         )
@@ -101,6 +102,7 @@ async def lifespan(app: FastAPI):
             ensure_task_result_json_column(db)
             ensure_retrospective_outcome_column(db)
             ensure_decree_execution_event_sequence_column(db)
+            ensure_jinyiwei_evidence_unique_constraint(db)
             db.commit()
         finally:
             db.close()

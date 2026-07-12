@@ -26,11 +26,14 @@ gongbu_review_verdict/hubu_cashflow/yushi_verdict/jinyiwei_agent)。①②从未
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import time
 from pathlib import Path
 from typing import Callable
+
+_logger = logging.getLogger(__name__)
 
 # 灯 → 部门立场(与 swarm_execution_loop 现有 position 词表对齐)
 _LIGHT_POSITION = {"green": "准奏", "yellow": "补证", "red": "复核", "black": "驳回"}
@@ -316,6 +319,7 @@ def _merge_known_evidence(task_text: str, fresh_findings: list) -> list:
         finally:
             db.close()
     except Exception:  # noqa: BLE001 - 查历史失败不影响真实检索
+        _logger.warning("查询锦衣卫共享情报池失败(不影响真实检索)", exc_info=True)
         return fresh_findings
     if not pool:
         return fresh_findings
@@ -374,7 +378,7 @@ def _persist_department_evidence(*, query: str, findings: list, doc: dict) -> No
         finally:
             db.close()
     except Exception:  # noqa: BLE001 - 入库失败不影响六部派单本身
-        pass
+        _logger.warning("锦衣卫情报写回共享池失败(不影响六部派单本身)", exc_info=True)
 
 
 def adapt_jinyiwei(task_text: str) -> dict | None:
