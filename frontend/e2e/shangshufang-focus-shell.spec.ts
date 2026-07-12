@@ -74,7 +74,7 @@ test.describe('上书房首屏收口', () => {
     await page.route('**/api/court/build-ledger', (route) =>
       route.fulfill({ json: { success: true, data: [] } }),
     );
-    await page.route('**/api/court/shangshufang/im**', (route) =>
+    await page.route('**/api/shangshufang/im**', (route) =>
       route.fulfill({ json: { success: true, data: { messages: [] } } }),
     );
     await page.route('**/jiqun/api/swarm/sessions', (route) =>

@@ -404,7 +404,7 @@ test.describe('上书房 UX', () => {
     await page.route('**/api/court/build-ledger**', (route) =>
       route.fulfill({ json: { success: true, data: [] } }),
     );
-    await page.route('**/api/court/shangshufang/im**', async (route) => {
+    await page.route('**/api/shangshufang/im**', async (route) => {
       const request = route.request();
       const url = new URL(request.url());
       const sessionId = url.searchParams.get('sessionId') ?? 'default';

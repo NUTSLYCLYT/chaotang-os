@@ -575,7 +575,7 @@ const CHANCELLOR_SOURCE_LABEL: Record<ChancellorItem['source'], string> = {
 // （户部"保利润/守现金"必撞兵部"抢份额/可压价"），让第一次下旨就撞见"AI 替我发现了我没看见的冲突"。
 const FIRST_DECREE_FLAG = 'courtos.first-decree-seeded';
 const ONBOARDING_FIRST_DECREE = '为了冲季度营收，要不要大幅压价清库存抢市场份额？请户部与兵部各陈利弊。';
-const SHANGSHUFANG_IM_URL = withBasePath('/api/court/shangshufang/im');
+const SHANGSHUFANG_IM_URL = withBasePath('/api/shangshufang/im');
 const SHANGSHUFANG_POLISH_EDICT_URL = withBasePath('/api/shangshufang/polish-edict');
 const IMA_KNOWLEDGE_URL = withBasePath('/api/court/ima-knowledge');
 const DECREE_ATTACHMENT_LIMIT = 6;
