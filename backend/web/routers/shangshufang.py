@@ -480,14 +480,20 @@ def _apply_task_decision(
     2026-07-12 复审发现：shangshufang_task_decision 和
     shangshufang_brief_decision_advance 此前各自独立写了一份几乎逐字重复的
     分支——两处一旦改动不同步，就会出现"同一个 action 在两个入口算出不同
-    task.status/review_status"的漂移。这里收口成唯一实现；调用方负责把自己
-    的 action 词表(比如 "approve"/"archive" 这类别名)映射成这里认的 canonical
-    四选一(adopt/request_evidence/recheck/reject)，映射不到的落到 else 分支
-    (task.status = "awaiting_decision")，跟原 shangshufang_task_decision 的
-    行为一致。不放进 decree_status.py 是因为需要调用同文件的 _archive_task，
-    放过去会和该模块互相 import 成环。"""
+    task.status/review_status"的漂移。这里收口成唯一实现。不放进
+    decree_status.py 是因为需要调用同文件的 _archive_task，放过去会和该
+    模块互相 import 成环。
+
+    2026-07-12 Codex 停止前审查纠正：第一版要求调用方先把自己的 action 词表
+    (比如 "approve"/"archive" 这类别名)归一化成 canonical "adopt" 再传进来——
+    这会导致 _archive_task 写进 ShiguanArchive.emperor_decision_json 的
+    action 字段恒为 "adopt"，丢失史馆归档里"陛下当时具体点的是哪个按钮"这个
+    信息(原实现是把 body.action 原样传给 _archive_task，"approve"/"archive"
+    这类别名会原样留在归档记录里)。改为在这个函数内部直接认所有别名，调用方
+    传原始 action 字符串即可，_archive_task 拿到的还是调用方传入时的原始
+    字面量，不做归一化，历史归档记录不再失真。"""
     archive_record: dict[str, Any] | None = None
-    if action == "adopt":
+    if action in {"adopt", "approve", "archive"}:
         final_memorial = _loads(review.memorial_json, None) if review is not None else None
         archive_record = _archive_task(
             db,
@@ -500,7 +506,7 @@ def _apply_task_decision(
         if review is not None:
             review.review_status = "archived"
             review.updated_at = now
-    elif action == "request_evidence":
+    elif action in {"request_evidence", "followup"}:
         task.status = "awaiting_evidence"
         if review is not None:
             review.review_status = "awaiting_evidence"
@@ -1212,17 +1218,15 @@ def shangshufang_task_decision(
             .order_by(CourtReview.created_at.desc())
             .first()
         )
-        if body.action in {"adopt", "approve", "archive"}:
-            canonical_action = "adopt"
-        elif body.action in {"request_evidence", "followup"}:
-            canonical_action = "request_evidence"
-        else:
-            canonical_action = body.action  # recheck/reject 透传，其余落到共享函数的 else 分支
+        # 直接传原始 body.action(可能是 "approve"/"archive" 这类别名)，不在
+        # 这里预先归一化——_apply_task_decision 内部自己认得所有别名，同时
+        # 会把这个原始字面量原样传给 _archive_task，史馆归档记录里保留的是
+        # 陛下当时具体点的哪个动作，不是归一化后的 "adopt"。
         archive_record = _apply_task_decision(
             db,
             task=task,
             review=review,
-            action=canonical_action,
+            action=body.action,
             reason=body.reason,
             now=now,
         )

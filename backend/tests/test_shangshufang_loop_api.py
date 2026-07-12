@@ -262,6 +262,49 @@ def test_frontend_decision_actions_are_accepted(isolated_session_local):
             assert payload["data"]["archive_record"]["archive_id"]
 
 
+def test_archive_preserves_original_decision_action_alias(isolated_session_local):
+    """2026-07-12 Codex 停止前审查纠正:状态转移收口(_apply_task_decision)第一版
+    要求调用方先把 "approve"/"archive"/"adopt" 这类别名归一化成 canonical
+    "adopt" 再传入，导致 ShiguanArchive.emperor_decision_json 里存的 action
+    恒为 "adopt"，丢失了"陛下当时具体点的是哪个按钮"这个史馆归档信息。这里
+    直接查数据库验证:提交 "approve" 和 "archive" 两个不同别名，归档记录里
+    存的 action 必须原样保留，不能都被抹平成 "adopt"。"""
+    import json as _json_mod
+
+    from src.db.models import ShiguanArchive
+
+    client = TestClient(app)
+
+    for action in ("approve", "archive", "adopt"):
+        draft = client.post(
+            "/api/shangshufang/draft-edict",
+            json={"raw_question": f"判断这个方案是否推进：{action}"},
+        ).json()["data"]
+        task_id = draft["task_id"]
+        client.post(
+            "/api/shangshufang/confirm-edict",
+            json={"task_id": task_id, "confirmed": True},
+        )
+        resp = client.post(
+            f"/api/shangshufang/tasks/{task_id}/decision",
+            json={"action": action, "reason": "test", "human_confirmed": True},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["data"]["status"] == "archived"
+
+        db = isolated_session_local()
+        try:
+            archive = db.query(ShiguanArchive).filter_by(task_id=task_id).first()
+        finally:
+            db.close()
+        assert archive is not None, f"task {task_id} 没有生成史馆归档记录"
+        stored_action = _json_mod.loads(archive.emperor_decision_json)["action"]
+        assert stored_action == action, (
+            f"提交的 action={action!r}，但史馆归档记录里存的是 {stored_action!r}"
+            "——原始动作别名被归一化抹平了"
+        )
+
+
 def test_task_decision_and_brief_decision_advance_agree(isolated_session_local):
     """2026-07-12 收口:shangshufang_task_decision(/tasks/{id}/decision)和
     shangshufang_brief_decision_advance(/briefs/{id}/decision/advance)此前各自

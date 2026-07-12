@@ -29,3 +29,11 @@
 - `python3 -m pytest -q tests/test_shangshufang_loop_api.py tests/test_shangshufang_entry.py tests/test_outbox_worker.py`：26 passed，1 failed(`test_chancellor_chat_streams_single_agent_reply`，对真实 LLM 输出文本的断言，`git stash` 验证过改动前就失败，与本次改动无关)。
 - `python3 -m pytest -q tests/test_commercial_loop_harness.py tests/test_legal_redteam_harness.py`：33 passed。
 - `python3 scripts/harness_doctor.py`：0 errors, 0 warnings。
+
+## Codex 停止前审查纠正(2026-07-12)
+
+Codex 停止前审查指出:"状态收口破坏了史馆归档中的原始裁决动作"。复核确认属实:`_apply_task_decision` 第一版要求调用方(`shangshufang_task_decision`)先把 `body.action` 里的别名("approve"/"archive")归一化成 canonical "adopt" 再传入，导致 `_archive_task` 写进 `ShiguanArchive.emperor_decision_json` 的 `action` 字段恒为 "adopt"——原实现是把 `body.action` 原样传给 `_archive_task`，"approve"/"archive" 这类别名本应原样留在史馆归档记录里。
+
+修复:把别名匹配逻辑移进 `_apply_task_decision` 内部(`if action in {"adopt", "approve", "archive"}:` 等)，调用方直接传原始 `body.action`，不再预先归一化——`_archive_task` 拿到的还是调用方传入的原始字面量，史馆归档记录不再失真。补 `test_archive_preserves_original_decision_action_alias`，直接查数据库验证提交 "approve"/"archive"/"adopt" 三个不同别名后，归档记录里存的 `action` 与提交值逐一相符，不会被抹平成同一个值。
+
+验证：`python3 -m pytest -q tests/test_shangshufang_loop_api.py tests/test_shangshufang_entry.py tests/test_outbox_worker.py tests/test_commercial_loop_harness.py tests/test_legal_redteam_harness.py` 54 passed / 1 failed(同一条既有 flaky LLM 断言，与本次改动无关)。`python3 scripts/harness_doctor.py` 0 errors, 0 warnings。
