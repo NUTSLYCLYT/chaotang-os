@@ -389,6 +389,73 @@ def test_decree_execution_event_sequence_self_heals_and_backfills_existing_rows(
     eng.dispose()
 
 
+def test_decree_execution_event_sequence_repairs_previously_broken_intermediate_state():
+    """2026-07-12 Codex 停止前三次审查纠正:"自愈仍然没有修复此前遗留在中间坏
+    状态的数据库"——上一版只在"本次调用真的把列加上"时才回填，如果一个库已经
+    在早期(只加列不回填的)自愈版本下跑过一次、卡在"sequence 列已存在但全部
+    是残留的 0"这种中间坏状态(本沙箱 data/fengqun.db 在这次修复过程中真实
+    经历过这个状态)，之后每次调用只会在探测到列已存在时直接放行，永远不会
+    再去补回填。这里模拟这种中间坏状态本身(不是"列不存在"，而是"列存在但
+    是坏的")：预先建好带 sequence 列的表，同一 task_id 下插入 3 条历史行，
+    全部卡在 sequence=0(模拟已经跑过一次旧版自愈、但从未真正回填过)，验证
+    下一次调用 record_timeline_event 时能检测到这个退化状态并重新回填出
+    确定顺序，而不是因为"列已经在"就什么也不做。"""
+    from sqlalchemy import create_engine
+    from sqlalchemy import text as sa_text
+
+    from src.chancellor.decree_status import _load_timeline, record_timeline_event
+
+    eng = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    with eng.begin() as conn:
+        conn.execute(
+            sa_text(
+                """CREATE TABLE decree_execution_events (
+                    id TEXT PRIMARY KEY,
+                    task_id TEXT NOT NULL,
+                    stage TEXT NOT NULL,
+                    actor TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    occurred_at TEXT NOT NULL,
+                    sequence INTEGER NOT NULL DEFAULT 0
+                )"""
+            )
+        )
+        for row in [
+            ("evt_broken_1", "t_broken", "drafting", "chancellor", "坏态-第一条", "2026-07-01T00:00:00+00:00"),
+            ("evt_broken_2", "t_broken", "executing", "worker", "坏态-第二条", "2026-07-01T00:00:03+00:00"),
+            ("evt_broken_3", "t_broken", "reporting", "worker", "坏态-第三条", "2026-07-01T00:00:03+00:00"),
+        ]:
+            conn.execute(
+                sa_text(
+                    "INSERT INTO decree_execution_events "
+                    "(id, task_id, stage, actor, message, occurred_at, sequence) "
+                    "VALUES (:id, :task_id, :stage, :actor, :message, :occurred_at, 0)"
+                ),
+                dict(zip(["id", "task_id", "stage", "actor", "message", "occurred_at"], row)),
+            )
+
+    with Session(eng) as old_session:
+        # 触发点是任意一次读写调用——不需要针对 t_broken 本身操作，
+        # 真实场景里可能是任何任务的状态变更先撞上这次修复上线后的第一次调用。
+        record_timeline_event(
+            old_session,
+            task_id="t_unrelated",
+            stage="a",
+            actor="chancellor",
+            message="无关任务的新事件",
+        )
+        old_session.commit()
+
+        repaired = _load_timeline(old_session, "t_broken")
+        assert [e.message for e in repaired] == [
+            "坏态-第一条",
+            "坏态-第二条",
+            "坏态-第三条",
+        ]
+        assert [e.sequence for e in repaired] == [1, 2, 3]
+    eng.dispose()
+
+
 # ── 6. get_memorial_status_db ──────────────────────────────────────────────
 
 

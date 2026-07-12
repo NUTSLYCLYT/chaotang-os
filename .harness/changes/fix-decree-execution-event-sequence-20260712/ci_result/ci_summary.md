@@ -45,3 +45,13 @@ Codex 停止前二次审查指出:"自愈避免了崩溃，但没有完成旧库
 真实复现闭环：本沙箱 `backend/data/fengqun.db` 在第一版自愈(未回填)修复后，确认全部 23 条既有行的 `sequence` 都是 `0`(可复现"没真的修"的确切现象)；手动调用新的 `_backfill_decree_execution_event_sequence` 后，`SELECT id, task_id, sequence, occurred_at ... ORDER BY task_id, sequence` 确认每个 `task_id` 下的多条历史行都拿到了按 `occurred_at` 顺序单调递增、互不相同的序号。`backend/data/fengqun.db` 仍在 `.gitignore` 内，这次手动验证同样不会进入提交，但真实证明了修复对已经处于"第一版自愈中间状态"的库同样有效(不需要重建 DB 文件)。
 
 验证：`python3 -m pytest -q tests/test_flow_db_dualwrite.py tests/test_decree_execution_status.py tests/test_chancellor_contracts.py` 26 passed；全量 `pytest` 2391 passed，同一组 8 个既有无关失败；`tsc --noEmit` 绿；三层 `harness:doctor` 全绿。
+
+## Codex 停止前三次审查纠正(2026-07-12)
+
+Codex 停止前三次审查指出:"自愈仍然没有修复此前遗留在中间坏状态的数据库"。复核确认属实——这正是本沙箱 `backend/data/fengqun.db` 在上一轮修复过程中真实经历过的状态：上一版 `ensure_decree_execution_event_sequence_column` 只在"本次调用真的把列加上"时才触发回填(`column_newly_added` 门槛)；如果一个库已经在这次修复上线前跑过一次(此前遗留的、只加列不回填的版本)，`sequence` 列已经存在但全部卡在 `DEFAULT 0`，那么修复上线之后，每次调用都会在 PRAGMA/`information_schema` 探测到"列已存在"就直接放行，永远不会再触发回填——本沙箱的库就正处于这个状态(上一轮我用手动脚本临时修复了它，但代码本身并不会自动修复同类库)。
+
+修复：不再用"列是不是本次调用加的"做回填触发条件，改成检测"表里是否存在退化行"——合法 `sequence` 永远从 1 开始(本函数的回填逻辑、`alembic/versions/005_decree_execution_event_sequence.py` 的回填逻辑、以及 `record_timeline_event` 的 `MAX(已有值)+1` 写入逻辑，三处产生的最小值都是 1)，所以任何 `sequence=0` 的行只可能是"从未被回填过"的残留状态，不可能是合法产生的值。新增 `_repair_decree_execution_event_sequence_if_degenerate()`：查一次"是否存在 `sequence=0` 的行"，有就重新触发全量回填。回填函数本身是幂等的纯重新推导(按 `occurred_at`/`id` 排序重新编号整张表)，多次调用不会破坏已经正确的排序，也不会因为"回填过一次"而跳过后续修复。
+
+新增测试 `test_decree_execution_event_sequence_repairs_previously_broken_intermediate_state`：预先建一张**已经带 `sequence` 列**的表(不是"列不存在"，是"列存在但是坏的")，同一 `task_id` 下插入 3 条历史行全部卡在 `sequence=0`，验证下一次任意 `record_timeline_event` 调用(即使是操作另一个不相关的 `task_id`)能检测到这个退化状态并重新回填出确定顺序 `[1,2,3]`。
+
+验证：`python3 -m pytest -q tests/test_flow_db_dualwrite.py tests/test_decree_execution_status.py tests/test_chancellor_contracts.py` 27 passed；全量 `pytest` 无新增失败；三层 `harness:doctor` 全绿。本沙箱 `backend/data/fengqun.db` 复查确认 `sequence=0` 的退化行数为 0(上一轮已手动修复过)，本轮修复让这种情况以后能被代码自身检测并自动修复，不再需要手动介入。

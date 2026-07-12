@@ -161,25 +161,32 @@ def ensure_decree_execution_event_sequence_column(session: Session) -> None:
 
     2026-07-12 Codex 停止前二次审查纠正："自愈避免了崩溃，但没有完成旧库的正确
     迁移"——只加列、旧行全部落到 DEFAULT 0，同一 task_id 下的历史事件互相之间
-    仍然没有确定顺序，等于没修 sequence 要解决的排序问题本身。这里在"确认列是
-    本次调用新加的"之后，额外做一次跟 Alembic 005 迁移同源的回填：按 task_id
-    分组、occurred_at/id 排序，逐行编号。"""
+    仍然没有确定顺序，等于没修 sequence 要解决的排序问题本身。
+
+    2026-07-12 Codex 停止前三次审查纠正："自愈仍然没有修复此前遗留在中间坏状态
+    的数据库"——上一版只在"本次调用真的把列加上"时才回填，如果一个库已经在
+    早期(只加列不回填的)自愈版本下跑过一次、卡在"列存在但全是 DEFAULT 0"的
+    中间坏状态，之后每次调用都会在 PRAGMA/information_schema 检测到列已存在
+    就直接 return，永远不会再去补回填。这里改成:不管列是不是本次调用加的，
+    只要检测到"列存在但存在退化值"就重新回填。退化值判定依据：合法 sequence
+    永远从 1 开始(本函数的回填、以及 alembic 005 迁移的回填，都是从 1 开始
+    编号；record_timeline_event 写入时也是 MAX(已有值)+1，最小可能是 1)，
+    所以任何 sequence=0 的行都只可能是"从未被回填过"的残留状态，不可能是
+    合法产生的值。回填函数本身是幂等的纯重新推导(按 occurred_at/id 排序
+    重新编号整张表)，重复调用不会破坏已经正确的排序。"""
     bind = session.get_bind()
     dialect = bind.dialect.name if bind is not None else ""
-    column_newly_added = False
     try:
         if dialect == "sqlite":
             rows = session.execute(
                 text("PRAGMA table_info(decree_execution_events)")
             ).all()
-            if any(row[1] == "sequence" for row in rows):
-                return
-            session.execute(
-                text(
-                    "ALTER TABLE decree_execution_events ADD COLUMN sequence INTEGER NOT NULL DEFAULT 0"
+            if not any(row[1] == "sequence" for row in rows):
+                session.execute(
+                    text(
+                        "ALTER TABLE decree_execution_events ADD COLUMN sequence INTEGER NOT NULL DEFAULT 0"
+                    )
                 )
-            )
-            column_newly_added = True
         else:
             exists = session.execute(
                 text(
@@ -187,23 +194,35 @@ def ensure_decree_execution_event_sequence_column(session: Session) -> None:
                     "WHERE table_name='decree_execution_events' AND column_name='sequence'"
                 )
             ).first()
-            if exists:
-                return
-            session.execute(
-                text(
-                    "ALTER TABLE decree_execution_events ADD COLUMN IF NOT EXISTS sequence INTEGER NOT NULL DEFAULT 0"
+            if not exists:
+                session.execute(
+                    text(
+                        "ALTER TABLE decree_execution_events ADD COLUMN IF NOT EXISTS sequence INTEGER NOT NULL DEFAULT 0"
+                    )
                 )
-            )
-            column_newly_added = True
     except Exception as exc:  # noqa: BLE001 - tolerate duplicate-column races only.
         message = str(exc).lower()
         if "duplicate column" not in message and "already exists" not in message:
             raise
-        # 另一个并发调用已经加过列(大概率也已回填)，这里不重复处理。
-        return
+        # 另一个并发调用已经加过列——继续往下走，仍然要检查是否需要回填。
 
-    if column_newly_added:
-        _backfill_decree_execution_event_sequence(session)
+    _repair_decree_execution_event_sequence_if_degenerate(session)
+
+
+def _repair_decree_execution_event_sequence_if_degenerate(session: Session) -> None:
+    """检测表里是否存在 sequence=0 的退化行(只可能来自"从未被回填过"的旧状态，
+    不可能是合法写入产生的值)，有就重新触发全量回填。"""
+    from src.db.models import DecreeExecutionEvent
+
+    has_degenerate_row = (
+        session.query(DecreeExecutionEvent.id)
+        .filter(DecreeExecutionEvent.sequence == 0)
+        .first()
+        is not None
+    )
+    if not has_degenerate_row:
+        return
+    _backfill_decree_execution_event_sequence(session)
 
 
 def _backfill_decree_execution_event_sequence(session: Session) -> None:
