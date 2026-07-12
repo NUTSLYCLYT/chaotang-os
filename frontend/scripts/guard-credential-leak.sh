@@ -19,16 +19,8 @@ cd "$(git rev-parse --show-toplevel)"
 
 # 只查本次真正要提交的新增行(staged diff)，不是整棵树——否则历史遗留内容会
 # 一直噪音式挡住每一次不相关的提交。
-
-# 2026-07-13 加排除：frontend/e2e/*.spec.ts 里的 E2E_PASSWORD/E2E_USERNAME 是给
-# 一次性 e2e 测试账号(如 e2e_lifu_office)用的固定 fixture 凭据，注册在真后端但
-# 只用于本地/CI 跑测试——liubu-bureau-pages-smoke.spec.ts 已有同款先例(2026-07-09
-# 提交，早于本守卫，从未被这条规则检查过)。这类账号本身就是低权限、可随时重建，
-# 跟本守卫要拦的"真实账号密码写进文档"不是一类事，人工确认后排除，而不是弱化整条
-# 守卫。
 diff_content=$(git diff --cached -U0 -- \
   ':(exclude)frontend/scripts/guard-credential-leak.sh' \
-  ':(exclude)frontend/e2e/*.spec.ts' \
   '*.md' '*.ts' '*.tsx' '*.js' '*.mjs' '*.py' '*.json' '*.yaml' '*.yml' 2>/dev/null || true)
 
 added_lines=$(echo "$diff_content" | grep -E '^\+[^+]' || true)
@@ -44,7 +36,16 @@ fi
 # 别名(alias="token")都不会被误伤。
 pattern='(密码|password|passwd|api[_-]?key|secret)[^A-Za-z0-9]{0,15}[`"'"'"'][A-Za-z0-9!@#$%^&*_.-]{8,}[`"'"'"']'
 
-hits=$(echo "$added_lines" | grep -inE "$pattern" || true)
+hits_raw=$(echo "$added_lines" | grep -inE "$pattern" || true)
+
+# 白名单(2026-07-13，只放行这一种形状，不是整个文件/目录)：`const E2E_XXX = '...';`
+# 声明——变量名本身就自证"一次性 e2e 测试账号 fixture"(如 E2E_PASSWORD，见
+# liubu-bureau-pages-smoke.spec.ts 2026-07-09 的同款先例，早于本守卫)。真实密码
+# 被误粘贴进任何文件(包括 e2e/*.spec.ts)时几乎不会恰好赋给一个 E2E_ 前缀常量，
+# 所以只排这一条形状，e2e 目录里其余任何凭据样字符串仍然全挡。
+safe_pattern='^[0-9]+:\+[[:space:]]*const[[:space:]]+E2E_[A-Z_]+[[:space:]]*=[[:space:]]*[`"'"'"'][A-Za-z0-9!@#$%^&*_.-]+[`"'"'"']'
+
+hits=$(echo "$hits_raw" | grep -viE "$safe_pattern" || true)
 
 if [ -n "$hits" ]; then
   echo "✗ 疑似把真实密码/密钥写进了本次提交(禁止提交):"
