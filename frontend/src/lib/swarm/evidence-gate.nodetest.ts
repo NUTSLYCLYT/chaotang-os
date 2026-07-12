@@ -43,3 +43,11 @@ test('同类既有脏情报又有已核 → 已核可用,pass', () => {
   assert.equal(r.verdict, 'pass');
   assert.deepEqual(r.blocked, []);
 });
+
+test('已拒(jinyiwei_rejected)被安全门挡 → blocked 且记未满足 → reject', () => {
+  const r = checkEvidenceGate([rec('a', 'intel', 'jinyiwei_rejected')], { required: ['intel'] });
+  assert.equal(r.verdict, 'reject');
+  assert.equal(r.blocked.length, 1);
+  assert.equal(r.blocked[0].type, 'intel');
+  assert.ok(r.missing.includes('intel')); // 已拒的脏情报不算"满足"
+});

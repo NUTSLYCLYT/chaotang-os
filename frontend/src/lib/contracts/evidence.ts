@@ -22,11 +22,12 @@ export type EvidenceType =
   | 'health_doc' // 健康/医疗
   | 'other';
 
-/** 可信度/来源 —— Schneier 安全门:pending 的证据**禁止**直接喂给司。 */
+/** 可信度/来源 —— Schneier 安全门:pending/rejected 的证据**禁止**直接喂给司。 */
 export type EvidenceTrust =
   | 'user_uploaded' // 用户上传:高信但未验,司用时须标"基于未核证据"
   | 'jinyiwei_pending' // 锦衣卫采集:**待可信度核查,不可直接用**(脏情报挡门外)
   | 'jinyiwei_verified' // 锦衣卫:已核查
+  | 'jinyiwei_rejected' // 锦衣卫:确定性 vet 门判"拒"(脏情报),**禁止直接使用**
   | 'external_live'; // 外部 API:LIVE 实时
 
 /** 三维分类结果。 */
@@ -64,6 +65,11 @@ export interface EvidenceRecord {
 
 /** 司能不能直接用这份证据(可信度安全门)。 */
 export function isUsableByDept(rec: EvidenceRecord, dept: AgentCode): boolean {
-  if (rec.classification.trust === 'jinyiwei_pending') return false; // 脏情报挡门外
+  // 待核/已拒的锦衣卫情报都挡门外——待核是"还没判完"，已拒是"判完了、是脏的"，
+  // 两种都不能直接喂给司(2026-07-12 补 jinyiwei_rejected：后端 jinyiwei_evidence
+  // 共享情报池的 vet 门判"拒"的记录不会出现在查询结果里，但契约上仍需要覆盖
+  // 这个字面量，不能让它悄悄落进"deptAffinity 命中就算可用"的默认分支)。
+  if (rec.classification.trust === 'jinyiwei_pending') return false;
+  if (rec.classification.trust === 'jinyiwei_rejected') return false;
   return rec.classification.deptAffinity.includes(dept);
 }

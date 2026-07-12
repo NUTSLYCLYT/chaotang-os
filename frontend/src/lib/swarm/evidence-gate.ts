@@ -47,9 +47,11 @@ export function checkEvidenceGate(
       present.push(type);
       continue;
     }
-    // 有该类证据但全被安全门挡(脏情报)→ blocked + 未满足
+    // 有该类证据但全被安全门挡(待核或已判定为脏)→ blocked + 未满足
     if (ofType.some((r) => r.classification.trust === 'jinyiwei_pending')) {
       blocked.push({ type, reason: '该类证据存在,但属锦衣卫待核(脏情报),安全门挡下,不得直接采信' });
+    } else if (ofType.some((r) => r.classification.trust === 'jinyiwei_rejected')) {
+      blocked.push({ type, reason: '该类证据存在,但锦衣卫已判定为脏情报(拒),安全门挡下,不得直接采信' });
     }
     missing.push(type);
   }
