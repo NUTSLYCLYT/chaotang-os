@@ -1,14 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  chronicleTypes,
-  type ChronicleType,
-  drawerEvents,
-  drawerDecisions,
-  drawerAISummary,
-  drawerKnowledge,
-} from "@/features/shiguan-ui/lib/shiguan-data";
+import { useEffect } from "react";
 
 interface ShiguanDrawerProps {
   open: boolean;
@@ -16,8 +8,6 @@ interface ShiguanDrawerProps {
 }
 
 export default function ShiguanDrawer({ open, onClose }: ShiguanDrawerProps) {
-  const [type, setType] = useState<ChronicleType>("日史");
-
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -41,7 +31,7 @@ export default function ShiguanDrawer({ open, onClose }: ShiguanDrawerProps) {
       {/* 抽屉 */}
       <aside
         role="dialog"
-        aria-label="生成史册"
+        aria-label="史馆说明"
         aria-modal="true"
         className={`fixed inset-y-0 right-0 z-50 flex w-full max-w-[440px] flex-col border-l border-gold-300/25 bg-[#080c18]/95 backdrop-blur-xl shadow-[0_0_60px_-10px_rgba(0,0,0,0.8)] transition-transform duration-300 ${
           open ? "translate-x-0" : "translate-x-full"
@@ -52,10 +42,10 @@ export default function ShiguanDrawer({ open, onClose }: ShiguanDrawerProps) {
         <header className="flex items-center justify-between border-b border-gold-300/15 px-5 py-4">
           <div>
             <h2 className="font-serif text-[18px] font-semibold text-gold-gradient">
-              生成史册
+              史馆说明
             </h2>
             <p className="mt-0.5 text-[12px] text-slatey-400">
-              将今日朝堂记忆凝练成册
+              真实归档与史册生成边界
             </p>
           </div>
           <button
@@ -69,93 +59,25 @@ export default function ShiguanDrawer({ open, onClose }: ShiguanDrawerProps) {
         </header>
 
         <div className="thin-scroll flex-1 space-y-5 overflow-y-auto px-5 py-5">
-          {/* 史册类型 */}
-          <Section title="史册类型">
-            <div className="flex flex-wrap gap-2">
-              {chronicleTypes.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setType(t)}
-                  className={
-                    type === t
-                      ? "rounded-lg border border-gold-300/55 bg-gold-300/12 px-3.5 py-1.5 text-[13px] text-gold-100"
-                      : "rounded-lg border border-gold-300/15 px-3.5 py-1.5 text-[13px] text-slatey-300 transition-colors hover:border-gold-300/40 hover:text-gold-100"
-                  }
-                >
-                  {t}
-                </button>
-              ))}
+          <Section title="当前能力边界">
+            <div className="rounded-lg border border-gold-300/12 bg-gold-300/[0.04] px-3.5 py-3 text-[12.5px] leading-relaxed text-jade-100/85">
+              史册生成功能尚未接入真实归档写入。当前页面只展示后端返回的真实案卷、决策和知识记录；没有真实记录时保持空态，不生成示例事件或模拟复盘。
             </div>
           </Section>
-
-          {/* 今日重要事件 */}
-          <Section title="今日重要事件">
-            <ul className="space-y-2">
-              {drawerEvents.map((e, i) => (
-                <li
-                  key={i}
-                  className="flex gap-2.5 rounded-lg border border-gold-300/10 bg-white/[0.03] px-3 py-2 text-[12.5px] text-jade-100/90"
-                >
-                  <span className="mt-0.5 text-gold-300">◆</span>
-                  <span>{e}</span>
-                </li>
-              ))}
-            </ul>
-          </Section>
-
-          {/* 关键决策 */}
-          <Section title="关键决策">
-            <ul className="space-y-2">
-              {drawerDecisions.map((d, i) => (
-                <li
-                  key={i}
-                  className="flex items-center justify-between rounded-lg border border-gold-300/10 bg-white/[0.03] px-3 py-2"
-                >
-                  <span className="text-[12.5px] text-jade-100/90">{d.title}</span>
-                  <span
-                    className={`rounded-md border px-1.5 py-0.5 text-[10.5px] leading-none ${
-                      d.status === "执行中"
-                        ? "border-emerald-400/35 bg-emerald-500/12 text-emerald-200"
-                        : "border-slatey-400/30 bg-slatey-400/10 text-slatey-300"
-                    }`}
-                  >
-                    {d.status}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </Section>
-
-          {/* AI 复盘摘要 */}
-          <Section title="AI 复盘摘要">
-            <p className="rounded-lg border border-gold-300/12 bg-gold-300/[0.04] px-3.5 py-3 text-[12.5px] leading-relaxed text-jade-100/85">
-              {drawerAISummary}
+          <Section title="怎样形成真实案卷">
+            <p className="text-[12.5px] leading-relaxed text-jade-100/85">
+              在上书房完成裁决、由军机处完成会审，并通过人工确认与归档门后，记录才会进入史馆。未完成补证或仍在执行中的事项不会提前归档。
             </p>
-          </Section>
-
-          {/* 可入库知识 */}
-          <Section title="可入库知识">
-            <ul className="space-y-1.5">
-              {drawerKnowledge.map((k, i) => (
-                <li
-                  key={i}
-                  className="flex items-center gap-2 text-[12.5px] text-jade-100/85"
-                >
-                  <span className="h-1.5 w-1.5 rounded-full bg-gold-300" />
-                  {k}
-                </li>
-              ))}
-            </ul>
           </Section>
         </div>
 
         <footer className="border-t border-gold-300/15 px-5 py-4">
           <button
             type="button"
-            className="w-full rounded-xl border border-gold-300/55 bg-gradient-to-b from-gold-200/25 to-gold-500/12 py-3 font-serif text-[15px] font-semibold tracking-wide text-gold-100 transition-all duration-200 hover:from-gold-200/35 hover:border-gold-200/70 hover:shadow-gold-glow"
+            onClick={onClose}
+            className="w-full rounded-xl border border-gold-300/35 bg-gold-300/[0.06] py-3 font-serif text-[15px] font-semibold tracking-wide text-gold-100 transition-colors hover:bg-gold-300/[0.12]"
           >
-            生成奏折并归档「{type}」
+            知道了
           </button>
         </footer>
       </aside>
