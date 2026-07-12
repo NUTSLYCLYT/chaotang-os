@@ -38,12 +38,14 @@ pattern='(密码|password|passwd|api[_-]?key|secret)[^A-Za-z0-9]{0,15}[`"'"'"'][
 
 hits_raw=$(echo "$added_lines" | grep -inE "$pattern" || true)
 
-# 白名单(2026-07-13，只放行这一种形状，不是整个文件/目录)：`const E2E_XXX = '...';`
-# 声明——变量名本身就自证"一次性 e2e 测试账号 fixture"(如 E2E_PASSWORD，见
-# liubu-bureau-pages-smoke.spec.ts 2026-07-09 的同款先例，早于本守卫)。真实密码
-# 被误粘贴进任何文件(包括 e2e/*.spec.ts)时几乎不会恰好赋给一个 E2E_ 前缀常量，
-# 所以只排这一条形状，e2e 目录里其余任何凭据样字符串仍然全挡。
-safe_pattern='^[0-9]+:\+[[:space:]]*const[[:space:]]+E2E_[A-Z_]+[[:space:]]*=[[:space:]]*[`"'"'"'][A-Za-z0-9!@#$%^&*_.-]+[`"'"'"']'
+# 白名单(2026-07-13，收到复审后再收紧一版)：只放行`const E2E_XXX = 'e2e...';`这一种
+# 形状——变量名前缀 E2E_ 只是第一层信号，光靠它不够(把一个真实密钥随手改名叫
+# E2E_API_KEY 就能绕过，之前那版就是这个漏洞)。真正的判据是**值本身**也以
+# e2e(不分大小写)开头，这是本仓库已有先例的自证写法(E2E_PASSWORD='e2e-liubu-
+# smoke-pw-2026'、'e2e-lifu-office-pw-2026')——真实凭据的值不会天然长这样，除非
+# 有人故意伪装成这个前缀，那已经不是"顺手写错"能防的范畴了。变量名和值必须同时
+# 匹配才放行，任一不满足仍然全挡。
+safe_pattern='^[0-9]+:\+[[:space:]]*const[[:space:]]+E2E_[A-Z_]+[[:space:]]*=[[:space:]]*[`"'"'"'][Ee]2[Ee][A-Za-z0-9!@#$%^&*_.-]*[`"'"'"']'
 
 hits=$(echo "$hits_raw" | grep -viE "$safe_pattern" || true)
 
