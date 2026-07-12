@@ -2510,6 +2510,12 @@ export function ShangshufangPage() {
 
   const [tutorialModal, setTutorialModal] = useState<WangTutorial | 'list' | null>(null);
   const [resourceOpen, setResourceOpen] = useState(false);
+
+  useEffect(() => {
+    const openResources = () => setResourceOpen(true);
+    window.addEventListener('courtos:open-resources', openResources);
+    return () => window.removeEventListener('courtos:open-resources', openResources);
+  }, []);
   const [verdictOpen, setVerdictOpen] = useState(false);
   const [verdictResult, setVerdictResult] = useState<string | null>(null);
   const [verdictReceipt, setVerdictReceipt] = useState<VerdictReceipt | null>(null);

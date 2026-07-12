@@ -45,6 +45,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const header = !hideTopNav ? (
     <ChaotangTopNav
       onLogout={() => void handleLogout()}
+      onOpenResources={() => window.dispatchEvent(new CustomEvent('courtos:open-resources'))}
       loggingOut={loggingOut}
       notifyCount={pulse.pendingReviews ?? 2}
     />

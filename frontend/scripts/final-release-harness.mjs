@@ -97,6 +97,7 @@ const apiChecks = [
 ];
 
 function makeToken() {
+  if (process.env.HARNESS_AUTH_TOKEN) return process.env.HARNESS_AUTH_TOKEN;
   // 真 HS256 签名(替代旧 alg:none) —— FENGQUN_AUTH 上膛后后端 verify_token 才认;
   // FENGQUN_AUTH=false 时后端返匿名忽略 token,两种姿态都能跑,向后兼容。
   return signGateToken({
@@ -386,7 +387,7 @@ async function checkRoute(browser, block, route) {
 }
 
 async function checkResourceGallery(page) {
-  await page.goto(`${baseUrl}${basePath}/court-briefing`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+  await page.goto(`${baseUrl}${basePath}/shangshufang`, { waitUntil: 'domcontentloaded', timeout: 45000 });
   await page.waitForTimeout(2500);
   await page.locator('[aria-label="朝堂资源阁"]').click();
   await page.waitForTimeout(1000);
@@ -409,7 +410,7 @@ async function checkMobileOverflow(browser) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
   await setupContext(context);
   const page = await context.newPage();
-  await page.goto(`${baseUrl}${basePath}/court-briefing`, { waitUntil: 'domcontentloaded', timeout: 45000 });
+  await page.goto(`${baseUrl}${basePath}/shangshufang`, { waitUntil: 'domcontentloaded', timeout: 45000 });
   await page.waitForTimeout(2500);
   const overflow = await page.evaluate(() => {
     const w = document.documentElement.clientWidth;
