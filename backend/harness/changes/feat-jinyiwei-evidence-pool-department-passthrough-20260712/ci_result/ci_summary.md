@@ -30,3 +30,17 @@ Codex 停止前审查(未跑完就中途失败，但 rawOutput 里的中间推�
 - 用负对照验证测试真的能捕获这个回归：临时把 `_merge_known_evidence`/`query_evidence` 改回旧的整段子串写法重跑这条测试，确认失败(`assert any("资质核验"...)` 断言不成立)，再恢复修复确认转绿——不是一条只是"看起来测了什么"但实际测不出问题的假阳性测试。
 
 验证：`python3 -m pytest -q tests/test_real_department_engines.py tests/test_jinyiwei_evidence_store.py tests/test_jinyiwei_endpoint.py` 64 passed；全量 `pytest` 2413 passed，同一组 8 个既有无关失败；三层 `harness:doctor` 全绿。
+
+## Codex 停止前二次审查纠正(2026-07-12)
+
+Codex 停止前二次审查指出:"keyword split still misses common unpunctuated follow-ups"。复核确认属实——第一版修复只解决了"整段当一个候选"这一半问题，仍然遗漏一个更常见的场景：`_candidate_keywords()` 靠标点/空白切分，遇到"某供应商资质尽调追加核实"这种中间**没有**逗号/句号的追加式后续问法(现实中相当常见——很多人打字不加标点直接续写)，`re.split()` 找不到分隔符会原样返回整段文本，退化回"整段当一个候选"的老问题——第一轮修复实际上只覆盖了"恰好带标点"这一种情况，没有真正解决 Codex 第一次指出的根本问题。
+
+修复：不再依赖猜标点或猜一个刚好对齐的滑动窗口大小，改成双向判断：
+1. 标点切分出的候选短语出现在历史 `claim`/`query` 里(带标点时能帮上忙)。
+2. **新增**：反过来，历史 `query`(通常较短，是过去某次任务的完整描述)整个作为子串出现在这次的任务描述里——"旧问题 + 追加内容"这种最常见的后续问法(不管有没有标点)天然满足这条，因为新文本本来就是"旧文本+更多字"。
+
+为了在 Python 侧做这个双向检查，`query_evidence()` 不再需要 `keyword: str | list[str]` 的列表支持——`_merge_known_evidence` 改成不传 `keyword`、直接拉一个按 `tenant_id`/`decision` 过滤的候选池(上限 200 行，`# 候选池上限` 注释标注了升级路径)，双向匹配逻辑整个放在 Python 侧做。因此把 `query_evidence()` 的 `keyword` 参数改回 `str | None`(移除上一轮加的列表支持——没有任何调用方还在用它，留着是死代码)，连带移除因此变成未使用的 `import sqlalchemy as sa`。
+
+新增测试 `test_adapt_jinyiwei_reuses_evidence_for_unpunctuated_follow_up`：专门用没有标点分隔的追加式后续问法("某供应商资质尽调追加核实合同风险")验证反向包含检查。用负对照验证：临时去掉反向包含检查重跑这条新测试，确认失败(`assert any("资质核验"...)` 不成立)，恢复后确认转绿。
+
+验证：`python3 -m pytest -q tests/test_real_department_engines.py tests/test_jinyiwei_evidence_store.py tests/test_jinyiwei_endpoint.py` 65 passed；全量 `pytest` 2414 passed，同一组 8 个既有无关失败；三层 `harness:doctor` 全绿。

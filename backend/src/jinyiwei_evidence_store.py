@@ -14,8 +14,6 @@ from datetime import datetime, timezone
 from hashlib import sha1
 from typing import TYPE_CHECKING, Any
 
-import sqlalchemy as sa
-
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
@@ -111,7 +109,7 @@ def query_evidence(
     db: "Session",
     *,
     tenant_id: int,
-    keyword: str | list[str] | None = None,
+    keyword: str | None = None,
     dept: str | None = None,
     include_pending: bool = False,
     limit: int = 50,
@@ -120,14 +118,11 @@ def query_evidence(
     锦衣卫铁律"脏情报挡门外"在查询侧也要守住,不能因为调用方想看"待核"
     就连"拒"也放出去。
 
-    `keyword` 可以是单个字符串(如 `/api/intel/evidence?query=` 里人工输入
-    的短查询词)，也可以是候选关键词列表(如
-    `real_department_engines._merge_known_evidence` 从一整段任务描述里
-    切出来的几个短语)——命中其中任意一个即算相关。2026-07-12 Codex 停止
-    前审查发现：把一整段(甚至截断到120字的)任务描述当成单个子串去
-    LIKE 匹配，现实中几乎不可能命中历史 claim/query(除非两次任务描述
-    逐字重复)，等同于让"读历史复用"这个功能形同虚设——所以这里支持列表，
-    调用方应该传候选短语而不是整段长文本。"""
+    `keyword` 是给人工输入的短查询词用的(`/api/intel/evidence?query=`)。
+    `real_department_engines._merge_known_evidence` 需要按一整段任务描述
+    做双向、更宽松的相关性判断，不适合用这里的单一 LIKE 子串——它改成不传
+    `keyword`、拉一个按 `tenant_id`/`decision` 过滤的候选池，自己在 Python
+    侧做双向包含检查(见该函数说明)，不复用这个参数。"""
     from src.db.models import JinyiweiEvidence
 
     q = db.query(JinyiweiEvidence).filter(
@@ -137,16 +132,10 @@ def query_evidence(
     if not include_pending:
         q = q.filter(JinyiweiEvidence.decision == "入库")
     if keyword:
-        keywords = [keyword] if isinstance(keyword, str) else list(keyword)
-        clauses = []
-        for kw in keywords:
-            if not kw:
-                continue
-            like = f"%{kw}%"
-            clauses.append(JinyiweiEvidence.claim.like(like))
-            clauses.append(JinyiweiEvidence.query.like(like))
-        if clauses:
-            q = q.filter(sa.or_(*clauses))
+        like = f"%{keyword}%"
+        q = q.filter(
+            (JinyiweiEvidence.claim.like(like)) | (JinyiweiEvidence.query.like(like))
+        )
     if dept:
         # dept_affinity_json 为空数组("[]")表示不限定部门、任何人可用;
         # 否则要求 JSON 数组文本里包含带引号的部门码,避免子串误命中

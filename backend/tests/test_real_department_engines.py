@@ -202,6 +202,68 @@ def test_adapt_jinyiwei_reuses_persisted_evidence_without_duplicate_claims(
         db.close()
 
 
+def test_adapt_jinyiwei_reuses_evidence_for_unpunctuated_follow_up(
+    isolated_session_local, monkeypatch
+):
+    """2026-07-12 Codex 停止前二次审查纠正:"keyword split still misses
+    common unpunctuated follow-ups"——第一版修复只按标点切候选词，遇到
+    "某供应商资质尽调追加核实"这种中间没有逗号/句号的追加式后续问法，
+    `_candidate_keywords` 切不出比整句更短的候选，退化回"整段当一个候选"
+    的老问题。这里专门测这种没有标点分隔的后续问法，验证反向包含检查
+    (历史 query 整个作为子串出现在新任务描述里)能补上这个场景。"""
+    import src.jinyiwei_search as js
+    from src.db.models import JinyiweiEvidence
+
+    responses = [
+        [
+            {
+                "claim": "该供应商已通过一手资质核验",
+                "sources": [{"name": "https://a.com", "tier": "一手"}],
+            }
+        ],
+        [
+            {
+                "claim": "该供应商合同条款审查无异常",
+                "sources": [{"name": "https://b.com", "tier": "一手"}],
+            }
+        ],
+    ]
+    call_count = {"n": 0}
+
+    def _fake_tavily(query, **kw):
+        idx = call_count["n"]
+        call_count["n"] += 1
+        return responses[idx] if idx < len(responses) else []
+
+    monkeypatch.setattr(js, "tavily_search", _fake_tavily)
+
+    doc1 = rde.adapt_jinyiwei("某供应商资质尽调")
+    assert doc1 is not None
+    assert call_count["n"] == 1
+
+    # 关键:第二次任务描述在第一次的基础上直接追加文字，中间没有任何
+    # 标点分隔——_candidate_keywords 单独切不出"某供应商资质尽调"这个候选，
+    # 必须靠 _merge_known_evidence 的反向包含检查(历史 query 整段是新任务
+    # 描述的子串)才能命中。
+    doc2 = rde.adapt_jinyiwei("某供应商资质尽调追加核实合同风险")
+    assert doc2 is not None
+    assert call_count["n"] == 2
+    claims_seen = {item.get("title") for item in doc2["items"]}
+    assert any("资质核验" in (c or "") for c in claims_seen)  # 来自历史合并
+    assert any("合同条款" in (c or "") for c in claims_seen)  # 来自本次新检索
+
+    db = isolated_session_local()
+    try:
+        rows = (
+            db.query(JinyiweiEvidence)
+            .filter_by(claim="该供应商已通过一手资质核验")
+            .all()
+        )
+        assert len(rows) == 1
+    finally:
+        db.close()
+
+
 def test_contract_mapping_fields(monkeypatch):
     import src.bingbu_battlecard as bb
 

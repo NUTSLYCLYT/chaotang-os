@@ -201,6 +201,10 @@ def adapt_bingbu(task_text: str) -> dict | None:
 
 _KEYWORD_SPLIT_RE = re.compile(r"[，,。.？?！!、；;：:\s]+")
 
+# 候选池上限——不做游标分页，量级真的成为问题(单租户"入库"级情报堆到
+# 数千条以上)再引入更精细的检索策略。
+_KNOWN_EVIDENCE_POOL_LIMIT = 200
+
 
 def _candidate_keywords(task_text: str, *, max_candidates: int = 5) -> list[str]:
     """从一整段任务描述里粗略切出几个候选关键词短语。
@@ -211,7 +215,12 @@ def _candidate_keywords(task_text: str, *, max_candidates: int = 5) -> list[str]
     永远不会命中，等同于让"读历史复用"这个功能形同虚设。这里按常见中文
     标点/空白切分成短语，取长度>=2的前几个作为候选，命中任意一个就算
     相关——中文没有天然空格分词，jieba 之类的真分词是更大的依赖，这里
-    先用标点切分这种"朴素"办法，语料量/匹配质量真的成为问题再升级。"""
+    先用标点切分这种"朴素"办法，语料量/匹配质量真的成为问题再升级。
+
+    注意：这只是候选短语的其中一个来源。没有标点分隔的追加式后续问法
+    (例如"某供应商资质尽调追加核实"，中间没有逗号)切不出比整句更短的
+    候选——这种情况交给 `_merge_known_evidence` 里的反向包含检查处理，
+    不是这个函数单独就能覆盖的，见该函数的说明。"""
     parts = [p for p in _KEYWORD_SPLIT_RE.split(task_text) if len(p) >= 2]
     return parts[:max_candidates]
 
@@ -221,26 +230,47 @@ def _merge_known_evidence(task_text: str, fresh_findings: list) -> list:
     下一个任务问到同一个主题时不用重新打一次真实检索。合并进来的历史情报
     仍然会被 gather_intel 内部的 _finding_to_item 重新过一遍确定性 vet 门
     (它对所有 findings 一视同仁，不因为来源是"历史缓存"就跳过分级或放水)。
-    查历史本身失败不影响真实检索结果，直接退回原始 findings。"""
+    查历史本身失败不影响真实检索结果，直接退回原始 findings。
+
+    2026-07-12 Codex 停止前二次审查纠正："keyword split still misses common
+    unpunctuated follow-ups"——第一版只按标点切候选词，遇到"某供应商资质
+    尽调追加核实"这种中间没有逗号/句号的追加式后续问法，`_candidate_keywords`
+    的正则切不出比整句更短的片段(`re.split` 找不到分隔符时原样返回整段
+    文本)，退化回"整段当一个候选"的老问题，第一轮修复实际上只覆盖了
+    "恰好带标点"这一种情况。这里改成:不在 SQL 层做关键词过滤，而是先拉
+    该租户近期"入库"级情报的候选池，再在 Python 侧做双向子串检查——
+    ①候选短语出现在历史 claim/query 里(标点切分帮得上的情况)，②反过来，
+    历史 query 整个作为子串出现在这次的任务描述里(不管有没有标点，"旧问题
+    +追加内容"这种最常见的后续问法天然满足这条)。两个方向都不依赖标点，
+    也不依赖猜中一个刚好对齐的滑动窗口大小。"""
     try:
         from src.db.engine import SessionLocal
         from src.jinyiwei_evidence_store import query_evidence
         from src.tenant import resolve_current_tenant_id
 
-        keywords = _candidate_keywords(task_text) or [task_text[:30]]
         tenant_id = resolve_current_tenant_id()
         db = SessionLocal()
         try:
-            known = query_evidence(
+            pool = query_evidence(
                 db,
                 tenant_id=tenant_id,
-                keyword=keywords,
                 include_pending=False,
+                limit=_KNOWN_EVIDENCE_POOL_LIMIT,
             )
         finally:
             db.close()
     except Exception:  # noqa: BLE001 - 查历史失败不影响真实检索
         return fresh_findings
+    if not pool:
+        return fresh_findings
+
+    candidates = _candidate_keywords(task_text)
+    known = [
+        row
+        for row in pool
+        if any(kw in row["claim"] or kw in row["query"] for kw in candidates)
+        or (row["query"] and row["query"] in task_text)
+    ]
     if not known:
         return fresh_findings
     reused = [{"claim": row["claim"], "sources": row["sources"]} for row in known]
