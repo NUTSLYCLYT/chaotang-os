@@ -333,3 +333,163 @@ monkeypatch 精确暂停点(暂停在 `session.add()` 之后、真正 flush/comm
   8s+兜底、gather_intel 包裹、`_persist_brief_items` best-effort)，**没有找到**未加保护的
   同步调用或裸写入，判定为"看起来已经不是问题"——建议下一阶段开工前先跟最初报告这个问题的
   人核实具体复现步骤，而不是假设审查结论一定全面。
+
+---
+
+## P0-A 真实闭环验证(2026-07-12，第三轮：真实服务 + 浏览器)
+
+目标：不再改 P0-A 功能本身，只用真实运行的后端(8081)+ production 前端(3050)+ 真实浏览器
+证明 P0-A 业务闭环是否跑通，同时查清此前 handoff 里"litellm 抓价目表"这个 pytest 卡住根因
+结论是否站得住(用户明确指出:设了 `LITELLM_LOCAL_MODEL_COST_MAP=True` 依然会卡，不能照抄
+上一轮结论)。
+
+### 阶段一:pytest 卡住根因——诚实结论是"本环境复现不了，但修了一个真实隔离缺口"
+
+用 `faulthandler_timeout=15` 跑给定复现命令，本机环境**未能复现卡住**(1.97s~4s 正常通过)。
+逐条排除了以下假设，每条都有直接验证证据，不是猜测：
+- litellm 抓价目表：直接 unset `LITELLM_LOCAL_MODEL_COST_MAP` 测试，本机网络通畅只需 3.5s
+  完成一次真实抓取——机制存在，但不足以解释 60 秒级卡住，且用户已证实设成 True 依然会卡，
+  这个理论对用户环境不成立。
+- TestClient(app) 触发 lifespan 重跑全部 `ensure_*` 自愈：直接写小脚本验证，`TestClient(app)`
+  不用 `with` 语法时**根本不触发** startup 事件——排除。
+- `data/fengqun.db` 文件锁竞争：手工模拟另一个连接持有 `BEGIN IMMEDIATE` 独占锁 8 秒，
+  `_get_db()` 仍然 0.02s 完成(因为表已存在，多数写入是条件性 no-op)——排除。
+- 全新库首次初始化耗时：对临时空文件跑 `_get_db()`，0.018s——排除。
+
+过程中发现一个**真实的、独立成立的测试隔离缺口**：`resolve_current_tenant_id()`(P0-A 让
+`build_ledger.py` 第一次用上它)走 `src.tenant.get_db()`——这个函数直接连接真实的
+`data/fengqun.db` 磁盘文件，完全独立于 `isolated_session_local` fixture(那个 fixture 只
+换 `src.db.engine.SessionLocal`，是另一套机制)。`test_build_ledger.py`/
+`test_build_ledger_tenant_isolation.py` 这两个用 `TestClient(app)` 发真实 HTTP 请求的文件，
+因此在跑测试时会真的读写共享磁盘文件——`jinyiwei` 那边已经有过同样问题的先例
+(`test_jinyiwei_endpoint.py::test_brief_endpoint_evidence_is_isolated_per_tenant` 早就
+monkeypatch 了 `get_db`)，但 build-ledger 的普通测试没有跟进。已修:给这两个文件加
+`autouse=True` fixture，换成内存 sqlite，不再碰真实文件。**诚实说明：这个修复不能证明是
+原始 60 秒卡住的根因(本环境复现不了那个卡住)，但它是一个独立成立、值得修的真实缺口，
+修完后不会让隔离问题掩盖未来其他真正的卡住原因。**
+
+验证:`python3 -m pytest -q tests/test_build_ledger.py tests/test_build_ledger_tenant_isolation.py tests/test_build_ledger_self_heal.py tests/test_build_ledger_persist_concurrency.py -v`
+→ **18 passed**，进程正常退出(exit 0)，非 timeout 强制判定。独立 code-reviewer 只读审查
+判定 GO：确认 autouse fixture 在 `TestClient` 发请求前生效、两个自带多租户场景的测试的
+`monkeypatch` 覆盖正确不冲突、连接正确关闭、tenant_slug 覆盖面确认无遗漏。
+
+### 阶段二:前端 tsx 测试恢复
+
+根因:`tsx` 从未作为依赖固定过，`test:node` 脚本一直靠 `npx --yes tsx` 每次现抓，这正是
+"受限网络卡住"的原因。仓库里已有 ~30 个 `.nodetest.ts` 文件依赖它，早就是事实上的永久测试
+依赖，只是没锁定——最小修复:`pnpm add -D tsx`(4.23.0)，diff 干净(`package.json` 只加一行，
+lockfile 只加 tsx + 其 esbuild/fsevents 可选依赖，无其它包变动)。
+
+验证:`pnpm exec tsx --test src/features/operating-loop/lib/build-ledger.nodetest.ts` →
+**3 passed**，exit 0。`pnpm exec tsc --noEmit` 全量 0 errors(确认新依赖没破坏类型检查)。
+
+### 阶段三:真实服务链路 + release gate
+
+- 发现两个陈旧进程仍在监听 8081/3050，都是本次改动**之前**启动的(分别 17:25、13:01)，
+  没有反映今天的代码——已终止并用当前代码重启。
+- 后端 8081：`python3 -m web.main`，`/api/health` 200，真实 JWT 登录(`/api/auth/login`
+  对错误密码正确返回 401)。
+- 前端 3050：`NEXT_PUBLIC_API_MODE=real pnpm start`(production build，非 dev/mock)，
+  `/chaotang` 200，3001 端口未被占用。
+- `NEXT_PUBLIC_API_MODE=real pnpm gate:prod-release`：
+  - `prod-doctor` ✅、`prod-doctor-decision — PROD` ✅
+  - `http-health`/`true-chain` ✅ (frontend/backend/database/swarmRun 均 liveReady=true)
+  - `final-release-harness` ❌——卡在 `checkResourceGallery`(`/court-briefing` 页面里
+    `ChaotangTopNav.tsx`/`ResourceGallery.tsx` 的"朝堂资源阁"按钮，30s 超时点不到)。这个
+    组件跟 build-ledger、P0-A 完全无关，本次会话从未碰过，判定为既有缺口，未修(不修改无关
+    代码/不碰大殿冻结区域)。
+
+### 阶段四:Playwright 真实业务闭环——发现一个新的、严重的、跟 P0-A 无关的生产问题
+
+先按计划走真实登录 → `/junjichu`，发现 `/junjichu` 无 `taskId` 时会重定向到 `/court-briefing`
+(需要先走"立项"决策派发向导才能进入，那是 shangshufang/军机处的另一套流程，不是
+build-ledger 自己的入口)。为了不越界去逆向另一个功能的多步向导，改用同一个真实登录会话拿到
+的真实 token，通过浏览器 `fetch()` 直接调 `/api/court/build-ledger`——这仍然是 100% 真实
+登录、真实 token、真实后端、真实数据库，只是不点击那个跟 build-ledger 无关的多步向导 UI。
+
+**过程中发现一个严重的、独立于 P0-A 的生产问题**：production 前端(3050)到后端(8081)的
+rewrite 代理对 `/api/court/*` 前缀的请求**系统性损坏**——不只是 build-ledger，用完全不相关
+的既有端点 `shangshufang/draft-edict` 直接复现同样的问题(通过 3050 得到
+`{"error":"unauthorized"}`，直连 8081 正确处理请求)。现象：
+- POST 请求：`Authorization` 头没有正确转发到后端，得到 `{"error":"unauthorized"}` 401 或
+  `{"success":false,"error":"jiqun_dispatch_failed:未登录，请先认证","status":401}` 502
+  (取决于是否带 Cookie，两种响应都不是我的后端会产生的格式)。
+- GET 请求更隐蔽：返回 HTTP 200 加合法 JSON 形状，但内容是错的(空列表，而直连 8081 同一个
+  查询能看到真实数据)——**不报错，静默返回错误结果**，比 POST 的显式失败更危险。
+- 响应头带 `vary: rsc, next-router-state-tree, next-router-prefetch,
+  next-router-segment-prefetch`——这是 Next.js App Router **页面** RSC 协商专属的 header，
+  不该出现在一个纯 API 代理响应上，说明这条路径根本没有真正走到 `next.config.ts` 里配置的
+  `/api/:path*` rewrite，而是被某个页面路由层面的东西拦截了。
+- 排除过的假设(全部有直接验证，不是猜测)：`middleware.ts` 的 `/api/` 早退分支(代码逻辑
+  上应该命中，但观测行为不符)；`shouldRedirectForLaunch` 首发白名单(该函数显式排除
+  `/api/` 前缀)；沙箱系统级 `HTTP_PROXY`/`HTTPS_PROXY`(去掉这两个环境变量重启前端后问题
+  依旧)；`next.config.ts` 里 rewrite 的目标地址(manifest 里确认写的就是正确的
+  `http://127.0.0.1:8081`)；`.next` 构建产物比 `middleware.ts` 源码旧(构建时间反而更新)；
+  App Router 里存在字面匹配的动态路由文件(逐级 `find` 确认没有)。**没有查到框架内部机制
+  层面的最终根因**——这已经超出本次"验证 P0-A"的授权范围(不修改冻结页面/不做无关代码变更)，
+  停止深挖，如实报告，不擅自去改 `middleware.ts`/`next.config.ts`。
+- 影响面：浏览器 console 里能看到同一个问题在页面自己的后台请求上真实发生
+  (`502 @ .../api/court/build-ledger`、`ERR_CONNECTION_REFUSED @
+  .../api/court/chaotang/tasks`、`ERR_INCOMPLETE_CHUNKED_ENCODING @
+  .../api/court/events/stream`)——不止 build-ledger，任务轮询、事件流等其它真实功能在生产
+  前端下也会受影响。
+
+**绕过方式(为了完成 Playwright 验收，不是修复)**：浏览器导航到 8081 的 origin(它是纯 API
+服务，没有页面，但足够承载 `fetch()` 调用)，在那个 tab 里用真实登录拿到的 token 直连
+8081——仍然是真实浏览器、真实 session、真实后端、真实数据库，只是不经过这个坏掉的 3050
+代理层。
+
+### Playwright 12 项验收结果
+
+| # | 项目 | 结果 | 证据 |
+|---|---|---|---|
+| 1 | 用户 A 登录 | ✅ 真实 UI 登录(`/chaotang/login`)，`/api/auth/local-login` 200，重定向到 `/overview` | 截图 `p0a-e2e-01-login-page.png`、`p0a-e2e-02-logged-in-overview.png` |
+| 2 | 创建构建台账 | ✅ `ledger-p0a-usera-real` 真实创建成功(8081 直连，真实 token) | 见上方响应 JSON |
+| 3 | 页面重新查询显示 | ✅(经workaround)按 taskId 查询正确返回刚创建的条目 | 同上 |
+| 4 | dispatched → reviewing | ✅ transition 成功，状态真实变更 | 同上 |
+| 5 | audit 出现对应事件 | ✅ `actor: p0a_user_a`，`fromStatus/toStatus` 正确记录 | 同上 |
+| 6 | 刷新后数据仍存在(非 localStorage) | ✅ 在 8081 origin(该 origin 的 localStorage 从未写过 build-ledger key)重新拉取，数据仍在且状态正确 | `localStorageHasEntry: false` + 服务端数据仍在 |
+| 7 | 用户 B 看不到 A 的 list/taskId/audit/export | ✅ 四项全部返回空 | 见上方 JSON |
+| 8 | 用户 B 不能 transition/覆盖 A 的台账 | ✅ transition→`entry_not_found`；覆盖→`id_conflict`；事后确认 A 的条目原样未受影响 | 见上方 JSON |
+| 9 | 本租户 admin `includeUnowned=1` 看到历史无主数据 | ✅ 看到真实历史孤儿行 `e1`/`t1`(2026-07-11 遗留测试数据)，不带 flag 看不到 | 见上方 JSON |
+| 10 | 普通用户 + 其他租户 admin 看不到无主数据 | ✅ 普通用户带 flag 仍只看到自己的 2 条；租户乙 admin 带 flag 得到空列表 | 见上方 JSON |
+| 11 | console 无关键错误/无 401-403-500 泄漏 | ⚠️ **有错误，但全部可归因**：见上方"阶段四"发现的 `/api/court/*` 代理 bug(页面自身后台请求触发)、`localhost:4000` socket.io 服务未起(跟本次改动无关的既有服务)、我自己测试脚本产生的 CORS/429/401(跨源尝试+限流+过期 token 重试)。没有发现新的数据泄漏类错误。 | console log 见 Playwright 会话记录 |
+| 12 | 截图/trace | ✅ 2 张截图(登录页、已登录 overview)存于本机 `/tmp/.../scratchpad/p0a-e2e-evidence/`(未提交进仓库，属临时验收产物) | 见上方路径 |
+
+**关于用 workaround 而非纯 3050 UI 完成验收的说明**：受阶段四发现的 3050 代理 bug 所限，
+第 2/3/4/5/6/7/8/9/10 项无法通过 3050 的 API 可靠验证(GET 会静默返回错误的空结果，POST
+会被拒绝)——这些项改用同一个真实登录会话拿到的真实 token 直连 8081 完成，仍然是真实浏览器
++ 真实鉴权 + 真实后端 + 真实数据库，没有用 mock/静态样例/单测代替。这证明的是 **P0-A 自身
+后端逻辑闭环真实可用**；它不能证明"3050 生产前端这条链路"是可用的——那条链路本身有独立于
+P0-A 的严重 bug，见上方说明。
+
+### READY / NOT READY
+
+- **P0-A 后端逻辑闭环：READY**——租户/用户隔离、并发竞态防护、历史数据孤儿桶、审计追踪，
+  12 项验收里跟 P0-A 直接相关的全部通过，且是用真实浏览器会话+真实后端+真实数据库验证的，
+  不是单测。
+- **整体 production release：NOT READY**——原因不是 P0-A，是阶段四发现的
+  `/api/court/*` 代理层 bug：生产前端(3050)对这整个前缀的请求要么被错误拒绝(POST)、
+  要么静默返回错误数据(GET，返回 200 但内容是空/错的)。这个 bug 比 P0-A 本身更紧急，因为
+  它会影响生产环境下**所有**走 `/api/court/*` 的真实功能(build-ledger、部分 shangshufang
+  端点、任务轮询、事件流)，且已确认跟今天任何一次代码改动无关(该路径本会话完全没碰)。
+  `final-release-harness` 的资源阁超时是另一个独立的、无关的既有缺口。
+
+### 剩余阻塞项(按紧急度)
+
+1. **P0(新发现，紧急，超出本次授权范围)**：`/api/court/*` 通过 3050 生产前端代理系统性
+   损坏(POST 拒绝、GET 静默返回错误数据)。建议立刻单独立项调查，不要当成 P0-A 的一部分——
+   本次会话已经排除了 middleware.ts 早退逻辑、首发白名单、系统代理环境变量、rewrite 目标
+   地址、构建产物过期、字面匹配的动态路由这几个假设，下一步需要更深入调试 Next.js 16 的
+   rewrite/RSC 内部行为(比如加临时 console.log 到 middleware 里重新构建观察，或者用
+   Next.js 自己的 debug 日志)。
+2. `final-release-harness` 的资源阁(`/court-briefing` 页 "朝堂资源阁" 按钮)30s 超时——
+   跟 P0-A/build-ledger 无关的既有缺口，未处理。
+3. 已知既有项(见上方各轮 Known Risks)：`_prune` 按 tenant 收口的产品判断调用、`_persist`
+   的 `id_conflict` 弱 oracle、`_transition` audit id 无并发保护、
+   `LITELLM_LOCAL_MODEL_COST_MAP` 环境配置缺口。
+4. 本轮在真实 dev 数据库里创建了测试账号(`p0a_user_a`/`p0a_user_b`/`p0a_admin_a`/
+   `p0a_admin_b`)和测试租户(`p0a-tenant-b`，tenant_id=2)、测试台账条目
+   (`ledger-p0a-usera-real`/`task-p0a-usera-real`)——均带 `p0a_`/`P0A` 前缀明显可识别。
+   验证完成后已删除全部测试账号/租户/台账条目/审计事件，凭据已彻底失效(重新登录验证返回
+   "用户名或密码错误")。

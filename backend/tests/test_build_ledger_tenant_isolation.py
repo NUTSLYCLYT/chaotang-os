@@ -11,14 +11,39 @@ TDD 纪律，测试先行。
 from __future__ import annotations
 
 import importlib
+import sqlite3
 
+import pytest
 from fastapi.testclient import TestClient
 
+import src.tenant as tenant_module
 from web.schemas.auth import CurrentUser
 
 app = importlib.import_module("web.main").app
 deps = importlib.import_module("web.deps")
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _isolated_tenant_db(monkeypatch):
+    """2026-07-12 独立验证阶段发现:`resolve_current_tenant_id()`(P0-A 让
+    build_ledger.py 第一次用上它)走 `src.tenant.get_db()`——独立于
+    `isolated_session_local` 的机制，直接连接真实的 `data/fengqun.db`
+    磁盘文件。跟 test_build_ledger.py 同款修复:默认换成内存 sqlite。本文件
+    里 `test_prune_only_affects_current_tenant`/
+    `test_include_unowned_scoped_to_own_tenant` 需要真正的多租户场景，会在
+    测试体内自己再 monkeypatch 一次覆盖掉这里的默认值(monkeypatch 后设置的
+    生效，不会冲突)。"""
+    conn = sqlite3.connect(":memory:", check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute(
+        "CREATE TABLE tenants (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, slug TEXT UNIQUE)"
+    )
+    conn.execute("INSERT INTO tenants (name, slug) VALUES ('默认租户', 'default')")
+    conn.commit()
+    monkeypatch.setattr(tenant_module, "get_db", lambda: conn)
+    yield
+    conn.close()
 
 
 def _as_user(user_id: int, username: str, role: str = "user", tenant_slug: str = "default"):

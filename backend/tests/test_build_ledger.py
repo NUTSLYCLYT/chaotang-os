@@ -7,9 +7,36 @@
 
 from __future__ import annotations
 
+import sqlite3
+
+import pytest
 from fastapi.testclient import TestClient
 
+import src.tenant as tenant_module
 from web.main import app
+
+
+@pytest.fixture(autouse=True)
+def _isolated_tenant_db(monkeypatch):
+    """2026-07-12 独立验证阶段发现:`resolve_current_tenant_id()`
+    (build_ledger.py 的 P0-A 改动首次让这个路由用上它) 走
+    `src.tenant.get_db()`——一个完全独立于 `isolated_session_local` 的机制,
+    直接用裸 sqlite3 连接真实的 `data/fengqun.db` 磁盘文件(`DB_PATH` 是
+    模块级硬编码常量,没有环境变量或 fixture 能重定向它),不受任何测试隔离
+    保护。P0-A 之前 build_ledger.py 从没调过这个函数，这是这份测试文件第一次
+    真正触达那条路径。跟 jinyiwei 那边已有的先例
+    (`test_jinyiwei_endpoint.py::test_brief_endpoint_evidence_is_isolated_per_tenant`)
+    同款手法:换成内存 sqlite，测试不再依赖、不再写入真实共享文件。"""
+    conn = sqlite3.connect(":memory:", check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute(
+        "CREATE TABLE tenants (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, slug TEXT UNIQUE)"
+    )
+    conn.execute("INSERT INTO tenants (name, slug) VALUES ('默认租户', 'default')")
+    conn.commit()
+    monkeypatch.setattr(tenant_module, "get_db", lambda: conn)
+    yield
+    conn.close()
 
 
 def test_build_ledger_persist_list_and_export(isolated_session_local):

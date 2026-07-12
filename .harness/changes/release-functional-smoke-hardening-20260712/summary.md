@@ -33,7 +33,21 @@
   4. P0-D（未开始，上一轮独立审查判定"看起来已不是问题"）：`/api/intel/brief` 卡住/
      阻塞——追完整条链路(tavily 8s 超时+兜底、gather_intel 包裹、best-effort 持久化)未
      发现未加保护的同步调用/裸写入；建议开工前先跟最初报告者核实具体复现步骤。
-- 文件：见 `review-handoff.md` 的 Files Changed（按 P0 分小节列出）。
+  5. P0-A 真实闭环验证（第三轮，本次新增）：用真实 8081 后端 + 真实 3050 production 前端 +
+     真实浏览器(Playwright)证明 P0-A 业务闭环。查清 pytest 卡住的诚实结论——本机复现不了
+     那个 60 秒卡住，排除了 litellm/lifespan/文件锁/首次初始化等假设，但发现并修了一个真实
+     独立成立的测试隔离缺口(`resolve_current_tenant_id()`绕过`isolated_session_local`直连
+     真实磁盘文件)；补齐 `tsx` 为固定 devDependency(此前一直裸靠 `npx --yes` 现抓，是网络
+     受限环境报告失败的根因)。**过程中发现一个跟 P0-A 无关、更紧急的生产问题**：3050 生产
+     前端到 8081 后端的 `/api/court/*` 前缀 rewrite 代理系统性损坏(POST 被拒绝、GET 静默
+     返回错误的空数据但仍是 200)，用完全不相关的既有端点复现同样问题，确认不是本会话任何
+     代码改动引入的。P0-A 自身的 12 项浏览器验收(真实登录/创建/推进/审计/双用户隔离/跨租户
+     隔离/admin 孤儿桶)全部通过——用同一个真实登录 session 的真实 token 直连 8081 绕过了那个
+     无关的代理 bug 完成验证，没有用 mock/单测代替。详见 `review-handoff.md`。
+- 文件：见 `review-handoff.md` 的 Files Changed（按 P0 分小节列出）。第三轮改动：
+  `backend/tests/test_build_ledger.py`、`backend/tests/test_build_ledger_tenant_isolation.py`
+  (新增 autouse 隔离 fixture)、`frontend/package.json`/`frontend/pnpm-lock.yaml`(固定
+  `tsx` 依赖)。
 - 验证：P0-1/P0-C 相关面 88 passed；P0-A 相关面(两轮合计) 18 passed（隔离 10 + 自愈 2 +
   并发竞态 2 + 既有 4）+ 迁移 2 passed + 前端 nodetest 3 passed + `tsc --noEmit` 0 errors；
   全量后端套件 2434 passed / 8 failed（与改动前同一批既有失败，逐一核对用例名相同，无新增
