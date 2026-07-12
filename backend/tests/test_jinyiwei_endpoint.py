@@ -195,13 +195,15 @@ def test_brief_endpoint_evidence_is_isolated_per_tenant(isolated_session_local, 
         conn.close()
 
 
-def _seed_awaiting_evidence_task(db, task_id: str) -> None:
+def _seed_awaiting_evidence_task(db, task_id: str, user_id: str = "1") -> None:
+    """user_id 默认 "1"——匹配 conftest.py::_authenticated_api_user 注入的
+    CurrentUser(user_id=1, ...)，让测试请求通过归属校验。"""
     from src.db.models import DecisionTask
 
     db.add(
         DecisionTask(
             id=task_id,
-            user_id="tester",
+            user_id=user_id,
             raw_question="是否应该追加两百万投资？",
             status="awaiting_evidence",
             source_label="LIVE",
@@ -225,7 +227,7 @@ def test_fill_gap_rejects_task_not_awaiting_evidence(isolated_session_local):
     db.add(
         DecisionTask(
             id="task_reviewing_1",
-            user_id="tester",
+            user_id="1",  # 匹配 conftest.py 注入的 CurrentUser(user_id=1)，让归属校验通过
             raw_question="测试问题",
             status="reviewing",
             source_label="LIVE",
@@ -241,6 +243,24 @@ def test_fill_gap_rejects_task_not_awaiting_evidence(isolated_session_local):
     body = r.json()
     assert body["success"] is False
     assert "awaiting_evidence" in body["error"]
+
+
+def test_fill_gap_rejects_task_owned_by_another_user(isolated_session_local):
+    """2026-07-12 Codex 停止前审查纠正:"new fill-gap endpoint is tenant/user
+    blind"——即使任务确实处于 awaiting_evidence，也不能让任意认证用户填补
+    别人任务的证据缺口。这里用一个 user_id 明确不是当前测试身份("1")的
+    任务验证会被拒绝，而不是静默放行。"""
+    db = isolated_session_local()
+    _seed_awaiting_evidence_task(db, "task_owned_by_other", user_id="someone_else")
+    db.close()
+
+    r = client.post("/api/intel/evidence/fill-gap", json={
+        "task_id": "task_owned_by_other",
+        "gap": "任意缺口",
+    })
+    body = r.json()
+    assert body["success"] is False
+    assert "无权" in body["error"]
 
 
 def test_fill_gap_rejects_empty_task_id_or_gap():

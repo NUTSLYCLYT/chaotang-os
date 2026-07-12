@@ -168,12 +168,25 @@ def intel_evidence(
 @router.post("/evidence/fill-gap")
 def intel_evidence_fill_gap(
     body: dict[str, Any] = Body(...),
-    _: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(get_current_user),
 ) -> dict:
     """人工触发的证据缺口填补——锦衣卫共享证据服务阶段3。
 
-    body = {task_id, gap}。只对处于"证据不足"决策阶段的任务开放
-    (DecisionTask.status == "awaiting_evidence")，不是任意任务都能调用。
+    body = {task_id, gap}。只对处于"证据不足"决策阶段、且属于当前请求者
+    自己的任务开放(DecisionTask.status == "awaiting_evidence" 且
+    DecisionTask.user_id == 当前用户)，不是任意任务都能调用。
+
+    2026-07-12 Codex 停止前审查纠正："new fill-gap endpoint is tenant/user
+    blind"——第一版只把 CurrentUser 当鉴权门槛(参数名 `_`，取到手直接丢掉)，
+    没有核对 task_id 是不是调用者自己的任务。DecisionTask 表本身没有
+    tenant_id 列(这是一个更大的、跨越 shangshufang.py 十几个端点的既有系统性
+    缺口，见 harness 记录里的讨论，不在本次改动范围内一起修)，但它有
+    user_id 列且在任务创建时(draft_edict 等)真实填了当前用户的身份
+    (_user_id(user)，不是恒定的 "anonymous")，所以按 user_id 做归属校验
+    是一个对新增端点而言真实、有效的最小修复——不去追平其余十几个既有端点
+    同样缺失的整体授权模型，但新写的代码不应该带着明知可以做、却不做的
+    同类漏洞上线。
+
     这是"evidence_gap_detected"从纯计划文档短语变成一个真实、人工触发动作
     的落点——不建自动化监听/自动重审流水线(那是更大的独立工程)，只给正在
     处理"证据不足"决策的人一个"点一下让锦衣卫去查这条缺口"的真实按钮，
@@ -189,11 +202,15 @@ def intel_evidence_fill_gap(
     if not gap:
         return fail("gap 不能为空")
 
+    requester_id = str(user.user_id or user.username or user.tenant_slug or "anonymous")
+
     db = SessionLocal()
     try:
         task = db.query(DecisionTask).filter_by(id=task_id).first()
         if task is None:
             return fail("task_id 不存在")
+        if task.user_id != requester_id:
+            return fail("无权操作该任务")
         if task.status != "awaiting_evidence":
             return fail(
                 f"任务当前状态是 {task.status}，不是 awaiting_evidence，"
