@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # 防复发·阶段5(2026-07-03 落地)：提交前拦冲突标记，别等 build 才发现。
-# 由 scripts/install-git-hooks.sh 复制到 .git/hooks/pre-commit(那里不入库，这份才是 SoT)。
+# 由 scripts/install-git-hooks.mjs 复制到 .git/hooks/pre-commit(那里不入库，这份才是 SoT)。
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
-bash scripts/guard-conflict-markers.sh
+
+# 2026-07-12 修复：这里原来写的是 `scripts/guard-conflict-markers.sh`(相对仓库根)，
+# 但实际脚本在 `frontend/scripts/guard-conflict-markers.sh`——monorepo 合并时路径没
+# 跟着改，导致这个钩子从合并那天起就没被真正装进 .git/hooks/ 后成功跑过一次
+# (装的时候会在这一行直接因为文件不存在而失败)。
+bash frontend/scripts/guard-conflict-markers.sh
+bash frontend/scripts/guard-credential-leak.sh
