@@ -3,7 +3,7 @@
 见 /home/ubuntu/.claude/plans/valiant-crunching-candy.md「锦衣卫作为跨阶段共享证据服务」阶段1。
 """
 from __future__ import annotations
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy import create_engine
@@ -277,6 +277,43 @@ def test_ensure_jinyiwei_evidence_unique_constraint_uses_savepoint_on_postgres()
     session.begin_nested.assert_called_once()
     executed_sql = str(session.execute.call_args.args[0])
     assert "ADD CONSTRAINT" in executed_sql
+
+
+def test_ensure_jinyiwei_evidence_unique_constraint_dedupes_on_postgres_duplicate_data():
+    """2026-07-12 Codex 独立审查纠正(P0-1 交接后审)："PostgreSQL 写入路径的错误消息
+    分支判断有 bug"——真实 PostgreSQL 在表里已有重复 (tenant_id, claim_key) 时建唯一
+    索引会报 `could not create unique index "..." DETAIL: Key (...)=(1, a) is
+    duplicated.`(本机真实 PostgreSQL 16 手工复现，见 review-handoff.md)。这条消息里
+    包含"duplicate"(是"duplicated"的子串)，而原代码判断分支顺序是先查
+    `"already exists" in message or "duplicate" in message`——这个真实的"数据本身有
+    重复,需要去重"场景被误判成"约束已存在,直接返回"，`_dedupe_jinyiwei_evidence()`
+    永远不会被调用，约束永远建不成，而这正是本次 P0 要修的那个竞态坏数据场景，等于
+    白修。改成先判定"是不是因为数据重复导致建索引/约束失败"(用 PostgreSQL 的
+    "is duplicated"/"could not create unique index"和 SQLite 的
+    "unique constraint failed"这些真实观测到的消息模式)，命中就去重重试；判定不出来
+    才退回"大概率是约束名已存在"分支。"""
+    session = MagicMock()
+    session.get_bind.return_value.dialect.name = "postgresql"
+    nested_cm = MagicMock()
+    nested_cm.__enter__ = MagicMock(return_value=None)
+    nested_cm.__exit__ = MagicMock(return_value=False)
+    session.begin_nested.return_value = nested_cm
+    pg_duplicate_data_error = Exception(
+        'could not create unique index "uq_jinyiwei_evidence_tenant_claim_key"\n'
+        "DETAIL:  Key (tenant_id, claim_key)=(1, a) is duplicated."
+    )
+    session.execute.side_effect = [pg_duplicate_data_error, None]
+
+    with patch(
+        "src.db.flow_store._dedupe_jinyiwei_evidence"
+    ) as mock_dedupe:
+        ensure_jinyiwei_evidence_unique_constraint(session)
+
+    mock_dedupe.assert_called_once_with(session)
+    assert session.execute.call_count == 2, (
+        "第二次 execute 应该是去重后的重试 ADD CONSTRAINT，"
+        "不该在第一次'is duplicated'报错后就直接放弃"
+    )
 
 
 def test_query_evidence_is_tenant_scoped(db):

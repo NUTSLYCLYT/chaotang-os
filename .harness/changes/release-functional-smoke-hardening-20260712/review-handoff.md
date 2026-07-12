@@ -8,12 +8,13 @@ P0-1：锦衣卫情报去重（`upsert_evidence`）此前是应用层"先查后�
 只有索引没有唯一约束，并发写入可能都在对方提交前查到"不存在"，各自插入，产生重复行。
 
 ## Files Changed
-- `backend/alembic/versions/007_jinyiwei_evidence_unique_constraint.py`（新增）
+- `backend/alembic/versions/007_jinyiwei_evidence_unique_constraint.py`（新增，本轮再次修改）
 - `backend/src/db/flow_store.py`
 - `backend/src/db/models.py`
 - `backend/src/jinyiwei_evidence_store.py`
 - `backend/src/real_department_engines.py`
 - `backend/tests/test_jinyiwei_evidence_store.py`
+- `backend/tests/test_migration_007_jinyiwei_evidence_unique_constraint.py`（新增）
 - `backend/web/main.py`
 - `backend/web/routers/jinyiwei.py`
 
@@ -66,6 +67,39 @@ exists`，紧接着任意语句都报 `current transaction is aborted`；同一�
 - `node scripts/harness-doctor.mjs`：0 errors（root-level）。
 - 手工验证（真实 PostgreSQL 16，非自动化）：见上方"Codex 停止前审查纠正"小节，直接对
   `litellm_db` 容器执行 `psql` 复现问题并验证 SAVEPOINT 修复有效。
+
+### 独立审查纠正(2026-07-12，第二轮：code-reviewer agent 只读审查)
+
+针对 P0-1 未提交 diff 的独立只读审查发现一个真实 bug（非本次交接前已提交的两个 commit，
+是当时正在写、还没提交的后续修改）：`ensure_jinyiwei_evidence_unique_constraint` 的错误
+消息分支判断顺序有问题——PostgreSQL 表里已有重复数据时建唯一索引报的是
+`could not create unique index "..." DETAIL: Key (...) is duplicated.`，这条消息天然
+包含"duplicate"(是"duplicated"的子串)，原代码先判断"already exists" or "duplicate"，
+会把这个真正需要去重的场景误判成"约束已存在，直接返回"——`_dedupe_jinyiwei_evidence()`
+永远不会被调用，约束永远建不成，等于白修了这个 P0 本来要挡的竞态坏数据场景。已修复
+（先判定"是不是数据本身有重复"的精确消息模式，命中才去重重试；判定不出来才退回更宽泛的
+"约束已存在"分支），补了一条 Mock 断言测试用真实 PostgreSQL 错误文案复现这个误判、验证
+修复后不再误判。同一轮独立审查同时确认：`_dedupe_jinyiwei_evidence` 在 SAVEPOINT 回滚后
+调用是安全的(纯新查询，不复用回滚前的 ORM 实例)；发现一个未阻塞的既存缺口——错误消息
+分类只覆盖 SQLite/PostgreSQL 措辞，MySQL 的"Duplicate entry"文案两个分支都不匹配(本项目
+无 MySQL 路径，不阻塞)。
+
+### 独立审查纠正(2026-07-12，第三轮：用户直接指出，本次交接新增)
+
+alembic 007 迁移脚本本身对本项目默认 SQLite DB_URL 不安全——`op.create_unique_constraint`
+(非 batch 模式)编译到 SQLite 方言是 `ALTER TABLE ... ADD CONSTRAINT ...`，SQLite 语法
+根本不支持这个语句，报的是 `OperationalError: near "UNIQUE": syntax error`，是迁移脚本
+在默认配置下直接跑不通，不是运行时可以捕获、降级处理的错误。用纯 SQLAlchemy 直接对内存
+SQLite 执行等价 DDL 复现确认。改用 `op.batch_alter_table`(SQLite 下整表重建复制；
+PostgreSQL 等原生支持 ALTER 的方言下 batch 模式自动退化成普通 ALTER，行为不变)。新增
+`backend/tests/test_migration_007_jinyiwei_evidence_unique_constraint.py`，用真实 alembic
+(`pytest.importorskip("alembic")`，本仓库当前交互式 shell 的解释器没装—— alembic 是
+`requirements-core.txt` 的核心依赖，非可选项，CI/正常 dev 环境装了这个测试就会真实执行)
+对真实 SQLite 文件跑完整的 upgrade+downgrade：构造 P0-1 之前(git 历史里的旧 schema：普通
+索引不是约束)的表结构、灌入旧竞态遗留的重复行(同 claim_key 两行)+ 一行干净数据，跑
+`alembic upgrade head`，断言：去重只保留 `updated_at` 最新的一行、干净行不受影响、旧索引
+被换成真正的 `UNIQUE (tenant_id, claim_key)` 约束、其余两个索引原样保留、新插入的重复行
+被约束正确拒绝；再跑 `alembic downgrade -1`，断言约束消失、旧索引恢复。
 
 ## Known Risks
 - 老库自愈路径（`ensure_jinyiwei_evidence_unique_constraint`）依赖 lifespan 启动时执行；

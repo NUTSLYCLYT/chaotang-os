@@ -13,6 +13,17 @@ P0(外部审查指出)：`upsert_evidence()` 的去重逻辑是"先 SELECT 有�
 对已有行做一次性去重(保留 updated_at 最新的一行，删掉同组里其余的)，
 再加真正的 UniqueConstraint——不依赖任何数据库方言特有语法，纯
 SQLAlchemy Core，sqlite/postgres 通用。
+
+2026-07-12 独立审查纠正："alembic 007 用 op.create_unique_constraint，对
+本项目默认的 SQLite DB_URL 不安全"——SQLite 的 ALTER TABLE 完全不支持给
+已有表加约束(`ALTER TABLE ... ADD CONSTRAINT ...`在 SQLite 语法里直接是
+语法错误,不是"不支持所以报already exists"那种可以捕获的错误)。已用纯
+SQLAlchemy 直接对内存 SQLite 执行等价的 AddConstraint DDL 复现:
+`OperationalError: near "UNIQUE": syntax error`。改用 Alembic 的
+`batch_alter_table`(SQLite 下会整表重建复制、把约束一并建进新表;
+Postgres/其他支持原生 ALTER 的方言下 batch 模式默认直接退化成普通
+ALTER，行为不变)，drop_index 和 create_unique_constraint 放进同一个
+batch 里，一次表重建同时完成两件事。
 """
 
 from __future__ import annotations
@@ -51,20 +62,19 @@ def upgrade() -> None:
     for stale_id in stale_ids:
         conn.execute(evidence.delete().where(evidence.c.id == stale_id))
 
-    op.drop_index("ix_jinyiwei_evidence_tenant_key", table_name="jinyiwei_evidence")
-    op.create_unique_constraint(
-        "uq_jinyiwei_evidence_tenant_claim_key",
-        "jinyiwei_evidence",
-        ["tenant_id", "claim_key"],
-    )
+    with op.batch_alter_table("jinyiwei_evidence") as batch_op:
+        batch_op.drop_index("ix_jinyiwei_evidence_tenant_key")
+        batch_op.create_unique_constraint(
+            "uq_jinyiwei_evidence_tenant_claim_key",
+            ["tenant_id", "claim_key"],
+        )
 
 
 def downgrade() -> None:
-    op.drop_constraint(
-        "uq_jinyiwei_evidence_tenant_claim_key",
-        "jinyiwei_evidence",
-        type_="unique",
-    )
-    op.create_index(
-        "ix_jinyiwei_evidence_tenant_key", "jinyiwei_evidence", ["tenant_id", "claim_key"]
-    )
+    with op.batch_alter_table("jinyiwei_evidence") as batch_op:
+        batch_op.drop_constraint(
+            "uq_jinyiwei_evidence_tenant_claim_key", type_="unique"
+        )
+        batch_op.create_index(
+            "ix_jinyiwei_evidence_tenant_key", ["tenant_id", "claim_key"]
+        )

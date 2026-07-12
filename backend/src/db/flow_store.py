@@ -293,13 +293,26 @@ def ensure_jinyiwei_evidence_unique_constraint(session: Session) -> None:
                     "UNIQUE (tenant_id, claim_key)"
                 )
             )
-    except Exception as exc:  # noqa: BLE001 - 区分"已存在"/"有重复数据"两种已知情况
+    except Exception as exc:  # noqa: BLE001 - 区分"有重复数据需要去重"/"约束已存在"两种已知情况
         message = str(exc).lower()
-        if "already exists" in message or "duplicate" in message:
-            return
-        if "unique" in message and (
-            "constraint failed" in message or "violat" in message
-        ):
+        # 2026-07-12 Codex 独立审查纠正："PostgreSQL 写入路径的错误消息分支判断有 bug"
+        # ——PostgreSQL 表里已有重复数据时建唯一索引报的是
+        # `could not create unique index "..." DETAIL: Key (...) is duplicated.`(本机
+        # 真实 PostgreSQL 16 手工复现)，这条消息里天然包含"duplicate"(是"duplicated"
+        # 的子串)。原来的分支顺序是先查"already exists" or "duplicate"，会把这个真正
+        # 需要去重的场景误判成"约束已存在，直接返回"——_dedupe_jinyiwei_evidence()
+        # 永远不会被调用，约束永远建不成，白修了这个 P0 本来要挡的竞态坏数据场景。
+        # 改成先判定"是不是因为数据本身有重复导致建索引/约束失败"(PostgreSQL 的
+        # "is duplicated"/"could not create unique index"、SQLite 的
+        # "unique constraint failed"，都是真实观测到的消息)，命中就去重重试；
+        # 判定不出来才退回"大概率是约束名已存在"这个更宽泛、误判代价更小的分支。
+        is_duplicate_data_conflict = (
+            "is duplicated" in message
+            or "could not create unique index" in message
+            or ("unique" in message and "constraint failed" in message)
+            or ("unique" in message and "violat" in message)
+        )
+        if is_duplicate_data_conflict:
             _dedupe_jinyiwei_evidence(session)
             if dialect == "sqlite":
                 session.execute(
@@ -318,6 +331,8 @@ def ensure_jinyiwei_evidence_unique_constraint(session: Session) -> None:
                             "UNIQUE (tenant_id, claim_key)"
                         )
                     )
+            return
+        if "already exists" in message:
             return
         raise
 
