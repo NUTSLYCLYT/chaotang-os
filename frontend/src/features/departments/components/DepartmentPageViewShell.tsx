@@ -11,6 +11,7 @@ import {
 } from '@/features/shared/components/shangshufang-layout-shell';
 import { RailSectionRenderer } from '@/features/departments/components/RailSectionRenderer';
 import { HubuBudgetCaseBody, HubuBudgetIntakeBody } from '@/features/departments/components/HubuBudgetCaseBody';
+import { LifuOfficeDesk } from '@/features/lifu/components/LifuOfficeDesk';
 import type {
   DepartmentCommand,
   DepartmentCommandTone,
@@ -124,6 +125,7 @@ export function DepartmentPageViewShell({
   const showEmptyState = Boolean(currentView.emptyState && !hasOperationalRail);
   const showHubuBudgetCase = currentView.department.code === 'finance' && Boolean(focusTaskId);
   const showHubuBudgetIntake = currentView.department.code === 'finance' && newBudget && !focusTaskId;
+  const showLifuOfficeDesk = currentView.department.code === 'market';
 
   return (
     <ShangshufangLayoutShell
@@ -222,6 +224,8 @@ export function DepartmentPageViewShell({
               <HubuBudgetCaseBody taskId={focusTaskId} accent={currentView.department.accent} />
             ) : showHubuBudgetIntake ? (
               <HubuBudgetIntakeBody accent={currentView.department.accent} />
+            ) : showLifuOfficeDesk ? (
+              <LifuOfficeDesk />
             ) : null}
           </EdictStage>
         </div>

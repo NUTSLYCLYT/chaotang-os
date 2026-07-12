@@ -301,11 +301,11 @@ export const SIX_DEPARTMENTS: Record<SixDepartmentCode, SixDepartmentContent> = 
     titleEn: 'Rites Office',
     accent: '#C070D0',
     background: '/assets/six-ministries/libu-rites-bg.webp',
-    maturity: '1.0 暂不定',
-    bureauCount: 0,
+    maturity: '4 真司已接线',
+    bureauCount: 4,
     positioning: '把品牌、客户沟通、公关、内容和体验转成稳妥的对外奏折。',
-    bossLine: '礼部 1.0 暂不定，不进入当前二级模块承诺。',
-    statusNote: '礼部页面能力很丰富，已经具备“品牌决策与编排台”形态。',
+    bossLine: '礼部对外增长本命：关系台账、流量增长、对外承诺可逆、商务公关 4 司先接真引擎，其余 4 司仍是骨架。',
+    statusNote: '中栏新增礼部真工作台：关系台账/流量增长/对外承诺可逆/商务公关 4 司可直接算，其余 4 司诚实标待通电。',
     capabilities: [
       '品牌总览：看品牌主张、传播节奏、企业文化和公关门禁。',
       '品牌主张梳理：统一客户、员工、伙伴的核心复述。',
@@ -355,9 +355,10 @@ export const SIX_DEPARTMENTS: Record<SixDepartmentCode, SixDepartmentContent> = 
     ],
     currentState: [
       '页面能力完整，品牌决策与编排台形态已成。',
-      '品牌健康、战役、舆情、线索等主业务数据仍未全量接真。',
+      '中栏新增真工作台：关系台账/流量增长/对外承诺可逆/商务公关 4 司为纯函数本地引擎(LOCAL)，数据不出浏览器。',
+      '品牌健康、战役、舆情、线索等主业务数据，以及总调度/新媒体运营/场合作战/品牌文化 4 骨架司仍未接真。',
     ],
-    nextFocus: '补真实战役库、舆情源、CRM/线索回写。',
+    nextFocus: '给剩余 4 骨架司接真引擎；补真实战役库、舆情源、CRM/线索回写打通到 4 个已接线司。',
   },
   personnel: {
     code: 'personnel',
@@ -435,7 +436,7 @@ export function getSixDepartmentLinks() {
 
 export function getDepartmentBureaus(code: SixDepartmentCode) {
   const v1Department = getV1LiubuByCanonicalCode(code as V1CanonicalDepartmentCode);
-  if (v1Department) {
+  if (v1Department && v1Department.offices.length > 0) {
     return v1Department.offices.map((office) => ({
       name: office.name,
       role: office.role,
