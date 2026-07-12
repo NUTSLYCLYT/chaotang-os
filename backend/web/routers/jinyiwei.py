@@ -22,10 +22,18 @@ from web.schemas.auth import CurrentUser
 router = APIRouter(prefix="/api/intel", tags=["jinyiwei"])
 
 
-def _persist_brief_items(*, query: str, findings: list, doc: dict, source_label: str) -> None:
+def _persist_brief_items(
+    *,
+    query: str,
+    findings: list,
+    doc: dict,
+    source_label: str,
+    origin_task_id: str | None = None,
+) -> None:
     """把 gather_intel 已经算好的每条情报存进共享池，供以后任意任务查询复用。
-    最佳努力：持久化失败不影响 /api/intel/brief 本身的返回(同
-    court_doc_builder.py 里 truth_ledger.record() 的既有 best-effort 惯例)。"""
+    最佳努力：持久化失败不影响调用方(/api/intel/brief 或
+    /api/intel/evidence/fill-gap)本身的返回(同 court_doc_builder.py 里
+    truth_ledger.record() 的既有 best-effort 惯例)。"""
     items = doc.get("items") if isinstance(doc, dict) else None
     if not items:
         return
@@ -53,11 +61,12 @@ def _persist_brief_items(*, query: str, findings: list, doc: dict, source_label:
                     sources=item.get("sources"),
                     item=item,
                     source_label=source_label,
+                    origin_task_id=origin_task_id,
                 )
             db.commit()
         finally:
             db.close()
-    except Exception:  # noqa: BLE001 - 情报入库失败不影响谍报简报本身返回
+    except Exception:  # noqa: BLE001 - 情报入库失败不影响调用方本身返回
         pass
 
 
@@ -154,3 +163,67 @@ def intel_evidence(
             ]
         }
     )
+
+
+@router.post("/evidence/fill-gap")
+def intel_evidence_fill_gap(
+    body: dict[str, Any] = Body(...),
+    _: CurrentUser = Depends(get_current_user),
+) -> dict:
+    """人工触发的证据缺口填补——锦衣卫共享证据服务阶段3。
+
+    body = {task_id, gap}。只对处于"证据不足"决策阶段的任务开放
+    (DecisionTask.status == "awaiting_evidence")，不是任意任务都能调用。
+    这是"evidence_gap_detected"从纯计划文档短语变成一个真实、人工触发动作
+    的落点——不建自动化监听/自动重审流水线(那是更大的独立工程)，只给正在
+    处理"证据不足"决策的人一个"点一下让锦衣卫去查这条缺口"的真实按钮，
+    结果同时写回共享池供后续任务复用。
+    """
+    from src.db.engine import SessionLocal
+    from src.db.models import DecisionTask
+
+    task_id = str(body.get("task_id") or "").strip()
+    gap = str(body.get("gap") or "").strip()
+    if not task_id:
+        return fail("task_id 不能为空")
+    if not gap:
+        return fail("gap 不能为空")
+
+    db = SessionLocal()
+    try:
+        task = db.query(DecisionTask).filter_by(id=task_id).first()
+        if task is None:
+            return fail("task_id 不存在")
+        if task.status != "awaiting_evidence":
+            return fail(
+                f"任务当前状态是 {task.status}，不是 awaiting_evidence，"
+                "不能填补证据缺口"
+            )
+    finally:
+        db.close()
+
+    findings: list = []
+    source_label = "LIVE_SEARCH"
+    try:
+        findings = tavily_search(gap) or []
+    except Exception:  # noqa: BLE001 - 诚实空态,不编造
+        findings = []
+    search_fn = lambda _q: findings  # noqa: E731
+
+    try:
+        doc = ja.gather_intel(gap, search_fn=search_fn, archive=True)
+    except Exception as exc:  # noqa: BLE001
+        return fail(f"证据缺口填补失败: {exc}")
+    if not (doc.get("items") if isinstance(doc, dict) else None):
+        source_label = "FALLBACK"
+    else:
+        _persist_brief_items(
+            query=gap,
+            findings=findings,
+            doc=doc,
+            source_label=source_label,
+            origin_task_id=task_id,
+        )
+    if isinstance(doc, dict):
+        doc["sourceLabel"] = source_label
+    return ok(doc)

@@ -193,3 +193,83 @@ def test_brief_endpoint_evidence_is_isolated_per_tenant(isolated_session_local, 
         else:
             app.dependency_overrides[deps.get_current_user] = original_override
         conn.close()
+
+
+def _seed_awaiting_evidence_task(db, task_id: str) -> None:
+    from src.db.models import DecisionTask
+
+    db.add(
+        DecisionTask(
+            id=task_id,
+            user_id="tester",
+            raw_question="是否应该追加两百万投资？",
+            status="awaiting_evidence",
+            source_label="LIVE",
+        )
+    )
+    db.commit()
+
+
+def test_fill_gap_rejects_unknown_task_id():
+    r = client.post("/api/intel/evidence/fill-gap", json={
+        "task_id": "task_no_such_id",
+        "gap": "客户资质是否齐全",
+    })
+    assert r.json()["success"] is False
+
+
+def test_fill_gap_rejects_task_not_awaiting_evidence(isolated_session_local):
+    from src.db.models import DecisionTask
+
+    db = isolated_session_local()
+    db.add(
+        DecisionTask(
+            id="task_reviewing_1",
+            user_id="tester",
+            raw_question="测试问题",
+            status="reviewing",
+            source_label="LIVE",
+        )
+    )
+    db.commit()
+    db.close()
+
+    r = client.post("/api/intel/evidence/fill-gap", json={
+        "task_id": "task_reviewing_1",
+        "gap": "任意缺口",
+    })
+    body = r.json()
+    assert body["success"] is False
+    assert "awaiting_evidence" in body["error"]
+
+
+def test_fill_gap_rejects_empty_task_id_or_gap():
+    r1 = client.post("/api/intel/evidence/fill-gap", json={"task_id": "", "gap": "x"})
+    assert r1.json()["success"] is False
+    r2 = client.post("/api/intel/evidence/fill-gap", json={"task_id": "task_x", "gap": ""})
+    assert r2.json()["success"] is False
+
+
+def test_fill_gap_success_persists_to_shared_pool(isolated_session_local, monkeypatch):
+    db = isolated_session_local()
+    _seed_awaiting_evidence_task(db, "task_evidence_gap_1")
+    db.close()
+
+    monkeypatch.setattr(
+        jinyiwei_router, "tavily_search",
+        lambda q, **kw: [{"claim": "该客户资质已通过核验", "sources": [{"tier": "一手"}]}],
+    )
+    r = client.post("/api/intel/evidence/fill-gap", json={
+        "task_id": "task_evidence_gap_1",
+        "gap": "客户资质是否齐全",
+    })
+    assert r.status_code == 200
+    body = r.json()
+    assert body["success"] is True
+    assert body["data"]["sourceLabel"] == "LIVE_SEARCH"
+    assert len(body["data"]["items"]) == 1
+
+    r2 = client.get("/api/intel/evidence", params={"query": "客户资质是否齐全"})
+    items = r2.json()["data"]["items"]
+    assert len(items) == 1
+    assert items[0]["originTaskId"] == "task_evidence_gap_1"
