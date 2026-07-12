@@ -20,7 +20,7 @@ import { signGateToken } from './lib/jwt-sign.mjs';
 const baseUrl = process.env.HARNESS_BASE_URL ?? 'http://127.0.0.1:3050';
 const basePath = process.env.HARNESS_BASE_PATH ?? '/chaotang';
 const trueChainGatePath = process.env.HARNESS_TRUE_CHAIN_BACKEND_PATH ?? '/api/court/true-chain-health';
-const skipTrueChainGate = process.env.HARNESS_SKIP_TRUE_CHAIN !== '0';
+const skipTrueChainGate = process.env.HARNESS_SKIP_TRUE_CHAIN === '1';
 const execFileAsync = promisify(execFile);
 const requireTrueChainGate = process.env.HARNESS_REQUIRE_TRUE_CHAIN === '1';
 const skipStudyEdict = process.env.HARNESS_SKIP_STUDY_EDICT === '1';

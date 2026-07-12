@@ -34,3 +34,8 @@ test('发布页面矩阵只检查当前首发路由', () => {
     assert.match(matrix, new RegExp(active.replaceAll('/', '\\/')));
   }
 });
+
+test('true-chain 默认执行，只有显式设置 1 才允许跳过', () => {
+  assert.match(source, /HARNESS_SKIP_TRUE_CHAIN === '1'/);
+  assert.doesNotMatch(source, /HARNESS_SKIP_TRUE_CHAIN !== '0'/);
+});
