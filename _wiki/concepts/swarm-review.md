@@ -12,6 +12,8 @@ status: stub
 （待 audit cron 合成）
 
 ## 来源
+- [[sources/05-swarms-meta-2026-07-11-self-diagnose]]
+- [[sources/01-daily-briefings-2026-07-11-daily-briefing]]
 - [[sources/05-swarms-evolution-2026-07-10]]
 - [[sources/05-swarms-meta-2026-07-10-self-diagnose]]
 - [[sources/01-daily-briefings-2026-07-10-daily-briefing]]
