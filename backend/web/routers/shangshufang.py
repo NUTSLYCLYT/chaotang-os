@@ -25,6 +25,7 @@ from web.schemas.swarm import SwarmRunRequest
 from src.chancellor.contracts import RouteDecisionV2
 from src.chancellor.decree_status import (
     build_decree_execution_status,
+    decide_post_review_status,
     record_timeline_event,
 )
 from src.chancellor.routing_service import chancellor_routing_service, legacy_route_dict
@@ -463,6 +464,61 @@ def _archive_task(
         "created_at": now,
         "source_label": task.source_label,
     }
+
+
+def _apply_task_decision(
+    db,
+    *,
+    task: "DecisionTask",
+    review: "CourtReview | None",
+    action: str,
+    reason: str | None,
+    now: str,
+) -> dict[str, Any] | None:
+    """收口 adopt/request_evidence/recheck/reject 四类裁决动作的状态转移。
+
+    2026-07-12 复审发现：shangshufang_task_decision 和
+    shangshufang_brief_decision_advance 此前各自独立写了一份几乎逐字重复的
+    分支——两处一旦改动不同步，就会出现"同一个 action 在两个入口算出不同
+    task.status/review_status"的漂移。这里收口成唯一实现；调用方负责把自己
+    的 action 词表(比如 "approve"/"archive" 这类别名)映射成这里认的 canonical
+    四选一(adopt/request_evidence/recheck/reject)，映射不到的落到 else 分支
+    (task.status = "awaiting_decision")，跟原 shangshufang_task_decision 的
+    行为一致。不放进 decree_status.py 是因为需要调用同文件的 _archive_task，
+    放过去会和该模块互相 import 成环。"""
+    archive_record: dict[str, Any] | None = None
+    if action == "adopt":
+        final_memorial = _loads(review.memorial_json, None) if review is not None else None
+        archive_record = _archive_task(
+            db,
+            task=task,
+            action=action,
+            reason=reason or "",
+            final_memorial=final_memorial,
+            now=now,
+        )
+        if review is not None:
+            review.review_status = "archived"
+            review.updated_at = now
+    elif action == "request_evidence":
+        task.status = "awaiting_evidence"
+        if review is not None:
+            review.review_status = "awaiting_evidence"
+            review.updated_at = now
+    elif action == "recheck":
+        task.status = "reviewing"
+        if review is not None:
+            review.review_status = "reviewing"
+            review.updated_at = now
+    elif action == "reject":
+        task.status = "rejected"
+        if review is not None:
+            review.review_status = "rejected"
+            review.updated_at = now
+    else:
+        task.status = "awaiting_decision"
+    task.updated_at = now
+    return archive_record
 
 
 def _review_payload(review: CourtReview | None) -> dict[str, Any] | None:
@@ -1156,40 +1212,20 @@ def shangshufang_task_decision(
             .order_by(CourtReview.created_at.desc())
             .first()
         )
-        final_memorial = (
-            _loads(review.memorial_json, None) if review is not None else None
-        )
-        archive_record = None
         if body.action in {"adopt", "approve", "archive"}:
-            archive_record = _archive_task(
-                db,
-                task=task,
-                action=body.action,
-                reason=body.reason,
-                final_memorial=final_memorial,
-                now=now,
-            )
-            if review is not None:
-                review.review_status = "archived"
-                review.updated_at = now
+            canonical_action = "adopt"
         elif body.action in {"request_evidence", "followup"}:
-            task.status = "awaiting_evidence"
-            if review is not None:
-                review.review_status = "awaiting_evidence"
-                review.updated_at = now
-        elif body.action == "recheck":
-            task.status = "reviewing"
-            if review is not None:
-                review.review_status = "reviewing"
-                review.updated_at = now
-        elif body.action == "reject":
-            task.status = "rejected"
-            if review is not None:
-                review.review_status = "rejected"
-                review.updated_at = now
+            canonical_action = "request_evidence"
         else:
-            task.status = "awaiting_decision"
-        task.updated_at = now
+            canonical_action = body.action  # recheck/reject 透传，其余落到共享函数的 else 分支
+        archive_record = _apply_task_decision(
+            db,
+            task=task,
+            review=review,
+            action=canonical_action,
+            reason=body.reason,
+            now=now,
+        )
         db.add(
             CourtLoopRun(
                 id=make_id("loop", task.id, "decision", body.action, now),
@@ -1312,11 +1348,7 @@ def shangshufang_swarm_deepen(
         )
         persist_swarm_execution_result(db, swarm_result)
         attach_swarm_result_to_review(db, review.id, swarm_result)
-        task.status = (
-            "awaiting_decision"
-            if swarm_result["quality_result"]["passed"]
-            else "awaiting_evidence"
-        )
+        task.status = decide_post_review_status(swarm_result["quality_result"])
         task.updated_at = now_iso()
         db.commit()
         db.refresh(review)
@@ -1855,29 +1887,16 @@ def shangshufang_brief_decision_advance(
             created_at=now,
         )
         db.add(decision)
-        final_memorial = _loads(review.memorial_json, None)
-        archive_record = None
-        if action == "adopt":
-            archive_record = _archive_task(
-                db,
-                task=task,
-                action=action,
-                reason=body.reason,
-                final_memorial=final_memorial,
-                now=now,
-            )
-            review.review_status = "archived"
-        elif action == "request_evidence":
-            task.status = "awaiting_evidence"
-            review.review_status = "awaiting_evidence"
-        elif action == "recheck":
-            task.status = "reviewing"
-            review.review_status = "reviewing"
-        else:
-            task.status = "rejected"
-            review.review_status = "rejected"
-        task.updated_at = now
-        review.updated_at = now
+        # action 恒为 mapping 里四个 canonical 值之一(默认 "request_evidence")，
+        # 跟 _apply_task_decision 认的词表一致，不需要再映射。
+        archive_record = _apply_task_decision(
+            db,
+            task=task,
+            review=review,
+            action=action,
+            reason=body.reason,
+            now=now,
+        )
         db.commit()
         return ok(
             {

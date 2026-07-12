@@ -262,6 +262,77 @@ def test_frontend_decision_actions_are_accepted(isolated_session_local):
             assert payload["data"]["archive_record"]["archive_id"]
 
 
+def test_task_decision_and_brief_decision_advance_agree(isolated_session_local):
+    """2026-07-12 收口:shangshufang_task_decision(/tasks/{id}/decision)和
+    shangshufang_brief_decision_advance(/briefs/{id}/decision/advance)此前各自
+    独立实现 adopt/request_evidence/recheck/reject 四类裁决的状态转移，现在都
+    改为调用共享的 _apply_task_decision。这里用参数化断言证明两个入口对等价
+    动作产生完全一致的 task.status，而不是分别断言两次可能悄悄不一致的
+    期望值——这正是本次收口要防止再发生的那类漂移。"""
+    client = TestClient(app)
+
+    cases = [
+        ("adopt", "issue_decree", "archived"),
+        ("followup", "request_more_evidence", "awaiting_evidence"),
+        ("recheck", "request_review", "reviewing"),
+        ("reject", "reject", "rejected"),
+    ]
+
+    for task_action, brief_decision, expected_status in cases:
+        # 入口一:/tasks/{id}/decision
+        draft_a = client.post(
+            "/api/shangshufang/draft-edict",
+            json={"raw_question": f"判断预算案A是否推进：{task_action}"},
+        ).json()["data"]
+        task_id_a = draft_a["task_id"]
+        client.post(
+            "/api/shangshufang/confirm-edict",
+            json={"task_id": task_id_a, "confirmed": True},
+        )
+        resp_a = client.post(
+            f"/api/shangshufang/tasks/{task_id_a}/decision",
+            json={"action": task_action, "reason": "test", "human_confirmed": True},
+        )
+        assert resp_a.status_code == 200
+        status_a = resp_a.json()["data"]["status"]
+
+        # 入口二:/briefs/{id}/decision/advance
+        draft_b = client.post(
+            "/api/shangshufang/draft-edict",
+            json={"raw_question": f"判断预算案B是否推进：{task_action}"},
+        ).json()["data"]
+        task_id_b = draft_b["task_id"]
+        client.post(
+            "/api/shangshufang/confirm-edict",
+            json={"task_id": task_id_b, "confirmed": True},
+        )
+        status_response = client.get(f"/api/shangshufang/tasks/{task_id_b}/status")
+        brief_id = status_response.json()["data"]["review"]["review_id"]
+        resp_b = client.post(
+            f"/api/shangshufang/briefs/{brief_id}/decision/advance",
+            json={
+                "decision": brief_decision,
+                "reason": "test",
+                "manualConfirmation": True,
+            },
+        )
+        assert resp_b.status_code == 200
+        status_b = resp_b.json()["data"]["status"]
+
+        assert status_a == expected_status, (
+            f"/tasks/{{id}}/decision action={task_action} 产生了 {status_a}，"
+            f"期望 {expected_status}"
+        )
+        assert status_b == expected_status, (
+            f"/briefs/{{id}}/decision/advance decision={brief_decision} 产生了 "
+            f"{status_b}，期望 {expected_status}"
+        )
+        assert status_a == status_b, (
+            f"两个入口对等价动作({task_action} vs {brief_decision})产生了不同状态: "
+            f"{status_a} vs {status_b}"
+        )
+
+
 def test_home_reads_pending_confirm_decision_and_evidence(isolated_session_local):
     client = TestClient(app)
     draft = client.post(

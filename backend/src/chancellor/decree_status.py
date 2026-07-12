@@ -61,6 +61,16 @@ def record_timeline_event(
     )
 
 
+def decide_post_review_status(quality_result: dict) -> str:
+    """质量门通过则进入待裁决，否则打回补证。
+
+    2026-07-12 复审发现：sync 路径(shangshufang_swarm_deepen)和 async 路径
+    (outbox_worker._execute_council)此前各自独立写了一份完全相同的三元表达式，
+    两处一旦有一边改了判断条件、另一边忘了同步，就会出现"同一份 quality_result
+    在两条路径上判成不同状态"的漂移。收口成这一处，两条路径都改成调用它。"""
+    return "awaiting_decision" if quality_result["passed"] else "awaiting_evidence"
+
+
 _STAGE_MAP: dict[str, str] = {
     "draft": "drafting",
     "awaiting_emperor_confirm": "awaiting_emperor_confirm",

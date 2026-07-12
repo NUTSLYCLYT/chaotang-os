@@ -113,11 +113,9 @@ def _execute_council(db: "Session", task_id: str) -> dict[str, Any]:
     )
     persist_swarm_execution_result(db, swarm_result)
     attach_swarm_result_to_review(db, review.id, swarm_result)
-    task.status = (
-        "awaiting_decision"
-        if swarm_result["quality_result"]["passed"]
-        else "awaiting_evidence"
-    )
+    from src.chancellor.decree_status import decide_post_review_status
+
+    task.status = decide_post_review_status(swarm_result["quality_result"])
     task.updated_at = _now_iso()
     _record_timeline(
         db,
