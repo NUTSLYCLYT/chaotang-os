@@ -38,14 +38,15 @@ pattern='(密码|password|passwd|api[_-]?key|secret)[^A-Za-z0-9]{0,15}[`"'"'"'][
 
 hits_raw=$(echo "$added_lines" | grep -inE "$pattern" || true)
 
-# 白名单(2026-07-13，收到复审后再收紧一版)：只放行`const E2E_XXX = 'e2e...';`这一种
-# 形状——变量名前缀 E2E_ 只是第一层信号，光靠它不够(把一个真实密钥随手改名叫
-# E2E_API_KEY 就能绕过，之前那版就是这个漏洞)。真正的判据是**值本身**也以
-# e2e(不分大小写)开头，这是本仓库已有先例的自证写法(E2E_PASSWORD='e2e-liubu-
-# smoke-pw-2026'、'e2e-lifu-office-pw-2026')——真实凭据的值不会天然长这样，除非
-# 有人故意伪装成这个前缀，那已经不是"顺手写错"能防的范畴了。变量名和值必须同时
-# 匹配才放行，任一不满足仍然全挡。
-safe_pattern='^[0-9]+:\+[[:space:]]*const[[:space:]]+E2E_[A-Z_]+[[:space:]]*=[[:space:]]*[`"'"'"'][Ee]2[Ee][A-Za-z0-9!@#$%^&*_.-]*[`"'"'"']'
+# 白名单(2026-07-13，第三版，复审再抓出一个洞)：只放行`const E2E_XXX = 'e2e...';`
+# 这一整行、且仅此一行——变量名前缀 E2E_ 只是第一层信号，光靠它不够(把一个真实
+# 密钥随手改名叫 E2E_API_KEY 就能绕过，第一版漏洞)；值本身也要求以 e2e(不分大小
+# 写)开头，这是本仓库已有先例的自证写法(E2E_PASSWORD='e2e-liubu-smoke-pw-2026'、
+# 'e2e-lifu-office-pw-2026')。但只锚了行首没锚行尾时还留一个口子：同一行分号后面
+# 接一个真实凭据("const E2E_PASSWORD='e2e-x'; const realSecret='真密码...';")会
+# 被当整行放过——grep -v 是按行取舍的，白名单必须精确匹配到行尾(允许结尾分号+
+# 空白)，不能只匹配到行首就收手，否则等于给"合法声明+夹带私货"开了后门。
+safe_pattern='^[0-9]+:\+[[:space:]]*const[[:space:]]+E2E_[A-Z_]+[[:space:]]*=[[:space:]]*[`"'"'"'][Ee]2[Ee][A-Za-z0-9!@#$%^&*_.-]*[`"'"'"'];?[[:space:]]*$'
 
 hits=$(echo "$hits_raw" | grep -viE "$safe_pattern" || true)
 
