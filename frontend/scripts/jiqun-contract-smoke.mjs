@@ -150,6 +150,7 @@ function buildAuthToken() {
   const explicitToken = (
     process.env.JIQUN_AUTH_TOKEN
     || process.env.FENGQUN_JWT_TOKEN
+    || process.env.HARNESS_AUTH_TOKEN
     || ''
   ).trim();
   if (explicitToken) return explicitToken;
