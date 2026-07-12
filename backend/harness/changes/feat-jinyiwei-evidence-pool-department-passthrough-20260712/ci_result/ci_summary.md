@@ -66,3 +66,13 @@ Codex 停止前四次审查指出:"min-length fix overcorrects and drops valid s
 新增测试 `test_merge_known_evidence_still_matches_short_specific_entity`：用"厦门"(2字真实地名，不在停用词表里)作为历史 query，验证追加式后续问法仍能正确合并历史情报。用负对照验证：临时把 `_MIN_MATCH_LEN` 改回 4 重跑这条新测试，确认失败(短实体名被一刀切的长度门槛错误挡在外面，复现 Codex 指出的矫枉过正)，恢复后确认转绿。
 
 验证：`python3 -m pytest -q tests/test_real_department_engines.py tests/test_jinyiwei_evidence_store.py tests/test_jinyiwei_endpoint.py` 67 passed；全量 `pytest` 2416 passed，同一组 8 个既有无关失败；三层 `harness:doctor` 全绿。
+
+## Codex 停止前五次审查纠正(2026-07-12)
+
+Codex 停止前五次审查指出:"short stopword gate reopens unrelated evidence merges"。复核确认属实——上一版停用词表只收了"核实"/"确认"/"是否"这类通用连接词/套话/动词，把最短长度门槛降回2之后，"合同"/"证据"/"报告"/"客户"/"公司"这类同样通用、同样2字、但词性是**名词**而不是动词的高频业务词，完全没被挡住。这类通用业务名词在供应商/合同/投资/尽调类任务描述里几乎无处不在，跟当初"核实"这类通用动词造成的误合并是同一类风险(高频但不携带具体主题信息)，只是换了词性——上一轮修复只堵了一半的口子。
+
+修复：把通用业务名词也补进 `_GENERIC_STOPWORDS`(合同/客户/公司/项目/数据/信息/文件/结果/意见/证据/资料/报告/风险/产品/服务/业务/市场/交易/协议/条款/标的/金额/费用/价格/时间/人员/部门/材料/供应商/合作方)，跟原有的连接词/套话/动词并列，不是穷举，语料量大了发现漏网的通用词(不管词性)再补。
+
+新增测试 `test_merge_known_evidence_ignores_generic_short_historical_noun`：用"合同"(2字通用名词，此前不在停用词表里)作为历史 query，验证不会误合并完全不相关主题的历史结论。用负对照验证：临时去掉新增的名词停用词重跑这条新测试，确认失败(复现 Codex 指出的名词类误合并)，恢复后确认转绿。
+
+验证：`python3 -m pytest -q tests/test_real_department_engines.py tests/test_jinyiwei_evidence_store.py tests/test_jinyiwei_endpoint.py` 68 passed；全量 `pytest` 2417 passed，同一组 8 个既有无关失败；三层 `harness:doctor` 全绿。

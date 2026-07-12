@@ -358,6 +358,52 @@ def test_merge_known_evidence_still_matches_short_specific_entity(
     assert any("合作方近期新增股权变更" in (c or "") for c in claims_seen)  # 本次新检索
 
 
+def test_merge_known_evidence_ignores_generic_short_historical_noun(
+    isolated_session_local, monkeypatch
+):
+    """2026-07-12 Codex 停止前五次审查纠正:"short stopword gate reopens
+    unrelated evidence merges"——第一版停用词表只收了"核实"这类通用连接词/
+    套话/动词，把最短长度门槛降回2之后，"合同"这类同样通用、但词性是名词
+    的高频业务词完全没被挡住——这类通用名词在供应商/合同/投资/尽调类任务
+    描述里几乎无处不在，跟"核实"是同一类误合并风险，只是换了词性。这里
+    验证历史 query 是通用名词"合同"两个字时，同样不应该触发合并。"""
+    import src.jinyiwei_search as js
+
+    responses = [
+        [
+            {
+                "claim": "某个完全无关主题的旧结论",
+                "sources": [{"name": "https://a.com", "tier": "一手"}],
+            }
+        ],
+        [
+            {
+                "claim": "本次真实检索到的新结论",
+                "sources": [{"name": "https://b.com", "tier": "一手"}],
+            }
+        ],
+    ]
+    call_count = {"n": 0}
+
+    def _fake_tavily(query, **kw):
+        idx = call_count["n"]
+        call_count["n"] += 1
+        return responses[idx] if idx < len(responses) else []
+
+    monkeypatch.setattr(js, "tavily_search", _fake_tavily)
+
+    doc1 = rde.adapt_jinyiwei("合同")
+    assert doc1 is not None
+
+    # 第二次是完全不相关的主题，只是措辞上恰好包含"合同"这两个字——
+    # 几乎任何供应商/尽调类任务描述都可能提到"合同"这个通用名词。
+    doc2 = rde.adapt_jinyiwei("请审阅这份新采购合同的付款条款是否合理")
+    assert doc2 is not None
+    claims_seen = {item.get("title") for item in doc2["items"]}
+    assert not any("完全无关主题的旧结论" in (c or "") for c in claims_seen)
+    assert any("本次真实检索到的新结论" in (c or "") for c in claims_seen)
+
+
 def test_contract_mapping_fields(monkeypatch):
     import src.bingbu_battlecard as bb
 
