@@ -1,4 +1,4 @@
-import { withBasePath } from '@/lib/base-path';
+import { backendFetch } from '@/lib/backend-api';
 
 export type BuildLedgerStatus = 'dispatched' | 'reviewing' | 'returned' | 'archived';
 
@@ -53,7 +53,13 @@ export interface BuildLedgerExport {
 
 const LEDGER_KEY = 'chaotang:build-ledger:v1';
 const LEDGER_EVENT = 'chaotang:build-ledger-updated';
-const LEDGER_API = withBasePath('/api/court/build-ledger');
+// 2026-07-12 P0-A(独立只读审查发现):这里之前用裸 fetch() 打
+// withBasePath() 拼出的相对路径——从不带 Authorization: Bearer 头。后端
+// FENGQUN_AUTH 默认开启,只认 Bearer 头或 cookie `token`,浏览器登录态只有
+// courtos.access_token 这个 cookie(后端不消费它),所以生产环境下每一次
+// 调用都会 401。backendFetch() 会自动附带当前会话 token(必要时刷新重试)，
+// 换成它之后这些请求在真实鉴权下才能成功,而不是永远悄悄拿到"空台账"。
+const LEDGER_PATH = '/api/court/build-ledger';
 
 export const BUILD_LEDGER_STATUS_LABEL: Record<BuildLedgerStatus, string> = {
   dispatched: '待军机复核',
@@ -99,15 +105,15 @@ export function saveBuildLedgerEntry(entry: BuildLedgerEntry) {
 }
 
 export async function fetchBuildLedger(): Promise<BuildLedgerEntry[]> {
-  const response = await fetch(LEDGER_API, { cache: 'no-store' });
-  const payload = await response.json();
+  const response = await backendFetch(LEDGER_PATH, { cache: 'no-store' });
+  const payload = await response.json().catch(() => null);
   if (!payload?.success || !Array.isArray(payload.data)) return [];
   return payload.data as BuildLedgerEntry[];
 }
 
 export async function fetchBuildLedgerByTask(taskId: string): Promise<BuildLedgerEntry[]> {
-  const response = await fetch(`${LEDGER_API}?taskId=${encodeURIComponent(taskId)}`, { cache: 'no-store' });
-  const payload = await response.json();
+  const response = await backendFetch(`${LEDGER_PATH}?taskId=${encodeURIComponent(taskId)}`, { cache: 'no-store' });
+  const payload = await response.json().catch(() => null);
   if (!payload?.success || !Array.isArray(payload.data)) return [];
   return payload.data as BuildLedgerEntry[];
 }
@@ -115,27 +121,34 @@ export async function fetchBuildLedgerByTask(taskId: string): Promise<BuildLedge
 export async function fetchBuildLedgerAudit(taskId?: string): Promise<BuildLedgerAuditEvent[]> {
   const params = new URLSearchParams({ audit: '1' });
   if (taskId) params.set('taskId', taskId);
-  const response = await fetch(`${LEDGER_API}?${params.toString()}`, { cache: 'no-store' });
-  const payload = await response.json();
+  const response = await backendFetch(`${LEDGER_PATH}?${params.toString()}`, { cache: 'no-store' });
+  const payload = await response.json().catch(() => null);
   if (!payload?.success || !Array.isArray(payload.data)) return [];
   return payload.data as BuildLedgerAuditEvent[];
 }
 
 export async function exportBuildLedger(): Promise<BuildLedgerExport | null> {
-  const response = await fetch(`${LEDGER_API}?format=export`, { cache: 'no-store' });
-  const payload = await response.json();
+  const response = await backendFetch(`${LEDGER_PATH}?format=export`, { cache: 'no-store' });
+  const payload = await response.json().catch(() => null);
   if (!payload?.success || !payload.data) return null;
   return payload.data as BuildLedgerExport;
 }
 
-export async function pruneBuildLedger(retentionDays = 90): Promise<{ before: number; after: number; removed: number } | null> {
-  const response = await fetch(LEDGER_API, {
+export async function pruneBuildLedger(retentionDays = 90): Promise<{ before: number; after: number; removed: number }> {
+  const response = await backendFetch(LEDGER_PATH, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'prune', retentionDays }),
   });
-  const payload = await response.json();
-  return payload?.success ? payload.data as { before: number; after: number; removed: number } : null;
+  const payload = await response.json().catch(() => null);
+  // 2026-07-12 P0-A:这里原来失败就静默返回 null,跟 persist/dispatch/
+  // transition 三个写路径的"失败就 throw"不一致——prune 是批量硬删除,
+  // 静默失败最危险(调用方以为清理成功了)。改成跟其余写路径同款:失败就
+  // throw,不再假装成功。
+  if (!response.ok || !payload?.success) {
+    throw new Error(payload?.error ?? 'build_ledger_prune_failed');
+  }
+  return payload.data as { before: number; after: number; removed: number };
 }
 
 export async function syncBuildLedgerFromServer(): Promise<BuildLedgerEntry[]> {
@@ -146,7 +159,7 @@ export async function syncBuildLedgerFromServer(): Promise<BuildLedgerEntry[]> {
 }
 
 export async function persistBuildLedgerEntry(entry: BuildLedgerEntry): Promise<void> {
-  const response = await fetch(LEDGER_API, {
+  const response = await backendFetch(LEDGER_PATH, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ entry }),
@@ -158,7 +171,7 @@ export async function persistBuildLedgerEntry(entry: BuildLedgerEntry): Promise<
 }
 
 export async function dispatchBuildLedgerEntry(entry: BuildLedgerEntry): Promise<BuildLedgerEntry> {
-  const response = await fetch(LEDGER_API, {
+  const response = await backendFetch(LEDGER_PATH, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'dispatch', entry }),
@@ -203,7 +216,7 @@ export async function transitionBuildLedgerOnServer(
   toStatus: BuildLedgerStatus,
   note: string,
 ): Promise<BuildLedgerEntry> {
-  const response = await fetch(LEDGER_API, {
+  const response = await backendFetch(LEDGER_PATH, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

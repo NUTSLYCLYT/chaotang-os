@@ -368,6 +368,73 @@ def _dedupe_jinyiwei_evidence(session: Session) -> None:
         ).delete(synchronize_session=False)
 
 
+def ensure_build_ledger_ownership_columns(session: Session) -> None:
+    """给老库(create_all 建的、没跑过 alembic 008 迁移的)补
+    build_ledger_entries/build_ledger_audit_events 的 tenant_id/user_id 归属列。
+
+    P0-A(2026-07-12,独立只读审查发现):这两张表原来完全没有归属列，
+    /api/court/build-ledger 的 GET(不带 taskId)会把最近 50 条记录跨所有
+    用户/租户返回给任意已登录调用方——是 IDOR/broken access control。跟
+    ensure_task_result_json_column 同一个理由:纯 ADD COLUMN(不是约束)，
+    SQLite/PostgreSQL 都不需要 SAVEPOINT——这不是 alembic 007 那种"PostgreSQL
+    的 ADD CONSTRAINT 不支持 IF NOT EXISTS"的问题，ADD COLUMN IF NOT EXISTS
+    在 PostgreSQL 上是合法语法，不会报错、不会毒死事务。"""
+    bind = session.get_bind()
+    dialect = bind.dialect.name if bind is not None else ""
+    for table in ("build_ledger_entries", "build_ledger_audit_events"):
+        try:
+            if dialect == "sqlite":
+                rows = session.execute(text(f"PRAGMA table_info({table})")).all()
+                existing = {row[1] for row in rows}
+                if "tenant_id" not in existing:
+                    session.execute(
+                        text(
+                            f"ALTER TABLE {table} ADD COLUMN tenant_id INTEGER NOT NULL DEFAULT 1"
+                        )
+                    )
+                if "user_id" not in existing:
+                    session.execute(
+                        text(
+                            f"ALTER TABLE {table} ADD COLUMN user_id TEXT NOT NULL DEFAULT 'anonymous'"
+                        )
+                    )
+                continue
+            session.execute(
+                text(
+                    f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS "
+                    "tenant_id INTEGER NOT NULL DEFAULT 1"
+                )
+            )
+            session.execute(
+                text(
+                    f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS "
+                    "user_id TEXT NOT NULL DEFAULT 'anonymous'"
+                )
+            )
+        except Exception as exc:  # noqa: BLE001 - tolerate duplicate-column races only.
+            message = str(exc).lower()
+            if "duplicate column" not in message and "already exists" not in message:
+                raise
+
+    # 独立只读审查(2026-07-12)指出:自愈只补列、不补 (tenant_id, user_id) 组合
+    # 索引——create_all(checkfirst=True) 对已存在的表不做索引级 diff,只靠这条
+    # 自愈路径升级过的老库会一直缺这个索引(过滤仍然正确,只是没走索引)。
+    # CREATE INDEX IF NOT EXISTS 在 SQLite/PostgreSQL 上都合法、不需要
+    # dialect 分支,也不会像 alembic 007 的 ADD CONSTRAINT 那样在已存在时报错。
+    session.execute(
+        text(
+            "CREATE INDEX IF NOT EXISTS ix_build_ledger_entries_tenant_user "
+            "ON build_ledger_entries(tenant_id, user_id)"
+        )
+    )
+    session.execute(
+        text(
+            "CREATE INDEX IF NOT EXISTS ix_build_ledger_audit_tenant_user "
+            "ON build_ledger_audit_events(tenant_id, user_id)"
+        )
+    )
+
+
 def task_record(row: Task) -> dict[str, Any]:
     display_status = row.task_status or _normalize_display_status(row.status)
     result = _parse_json_object(row.result_json)

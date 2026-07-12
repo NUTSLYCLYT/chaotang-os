@@ -617,12 +617,22 @@ class BuildLedgerEntry(Base):
     task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     status: Mapped[str] = mapped_column(sa.Text, nullable=False, default="dispatched")
     entry_json: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    # P0-A(2026-07-12,独立只读审查发现):原来完全没有归属列，GET(不带 taskId)
+    # 会把最近 50 条记录跨所有用户/租户返回给任意已登录调用方，transition/
+    # persist/prune 也都不按归属校验——是 IDOR/broken access control。tenant_id
+    # 沿用本仓库 Decree/Task/JinyiweiEvidence 的既有惯例(int，逻辑 FK →
+    # tenants.id，通过 src.tenant.resolve_current_tenant_id() 解析)；user_id
+    # 沿用 DecisionTask 的既有惯例(str，_user_id(user) 风格：
+    # user.user_id or user.username or user.tenant_slug or "anonymous")。
+    tenant_id: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
+    user_id: Mapped[str] = mapped_column(sa.Text, nullable=False, default="anonymous")
     created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
     updated_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
 
     __table_args__ = (
         sa.Index("ix_build_ledger_entries_task", "task_id"),
         sa.Index("ix_build_ledger_entries_created", "created_at"),
+        sa.Index("ix_build_ledger_entries_tenant_user", "tenant_id", "user_id"),
     )
 
 
@@ -636,8 +646,12 @@ class BuildLedgerAuditEvent(Base):
     from_status: Mapped[str] = mapped_column(sa.Text, nullable=False)
     to_status: Mapped[str] = mapped_column(sa.Text, nullable=False)
     note: Mapped[str] = mapped_column(sa.Text, nullable=False, default="")
+    # P0-A：跟 BuildLedgerEntry 同一套归属列，同一个理由。
+    tenant_id: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
+    user_id: Mapped[str] = mapped_column(sa.Text, nullable=False, default="anonymous")
     created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
 
     __table_args__ = (
         sa.Index("ix_build_ledger_audit_task", "task_id"),
+        sa.Index("ix_build_ledger_audit_tenant_user", "tenant_id", "user_id"),
     )

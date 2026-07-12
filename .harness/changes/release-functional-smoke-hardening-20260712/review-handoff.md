@@ -4,21 +4,44 @@
 feature-chaotang-ext
 
 ## Scope
-P0-1：锦衣卫情报去重（`upsert_evidence`）此前是应用层"先查后写"，`(tenant_id, claim_key)`
-只有索引没有唯一约束，并发写入可能都在对方提交前查到"不存在"，各自插入，产生重复行。
+- P0-1/P0-C：锦衣卫情报去重（`upsert_evidence`）此前是应用层"先查后写"，
+  `(tenant_id, claim_key)` 只有索引没有唯一约束，并发写入可能都在对方提交前
+  查到"不存在"，各自插入，产生重复行。
+- P0-A（本轮新增）：`/api/court/build-ledger` 的 `BuildLedgerEntry`/
+  `BuildLedgerAuditEvent` 完全没有租户/用户归属，GET(不带 taskId)会把最近
+  50 条记录跨所有用户/租户返回给任意已登录调用方，transition/persist/prune
+  也都不按归属校验——独立只读审查确认的 CRITICAL IDOR/broken access
+  control。前端 `build-ledger.ts` 同时用裸 `fetch()`，从不带
+  `Authorization: Bearer`，生产环境下每次调用都会 401，还被当成"空台账"
+  静默吞掉。
 
 ## Files Changed
+
+### P0-1/P0-C
 - `backend/alembic/versions/007_jinyiwei_evidence_unique_constraint.py`（新增，本轮再次修改）
-- `backend/src/db/flow_store.py`
-- `backend/src/db/models.py`
 - `backend/src/jinyiwei_evidence_store.py`
 - `backend/src/real_department_engines.py`
 - `backend/tests/test_jinyiwei_evidence_store.py`
 - `backend/tests/test_migration_007_jinyiwei_evidence_unique_constraint.py`（新增）
-- `backend/web/main.py`
 - `backend/web/routers/jinyiwei.py`
 
-## What Changed
+### P0-A
+- `backend/alembic/versions/008_build_ledger_ownership.py`（新增）
+- `backend/src/db/flow_store.py`
+- `backend/src/db/models.py`
+- `backend/web/main.py`
+- `backend/web/routers/build_ledger.py`
+- `backend/tests/test_build_ledger_tenant_isolation.py`（新增）
+- `backend/tests/test_build_ledger_self_heal.py`（新增）
+- `backend/tests/test_migration_008_build_ledger_ownership.py`（新增）
+- `frontend/src/features/operating-loop/lib/build-ledger.ts`
+- `frontend/src/features/operating-loop/lib/build-ledger.nodetest.ts`（新增）
+
+`backend/src/db/flow_store.py`、`backend/src/db/models.py`、`backend/web/main.py`
+两轮都有改动（P0-1/P0-C 加 jinyiwei 唯一约束自愈，P0-A 加 build-ledger 归属列
+自愈），归属关系见下方各自的 What Changed 小节。
+
+## What Changed — P0-1/P0-C
 - `models.py`：`JinyiweiEvidence.__table_args__` 把 `(tenant_id, claim_key)` 从普通索引
   改为 `sa.UniqueConstraint(..., name="uq_jinyiwei_evidence_tenant_claim_key")`。
 - `flow_store.py`：新增 `ensure_jinyiwei_evidence_unique_constraint(db)`，幂等地给
@@ -113,6 +136,88 @@ PostgreSQL 等原生支持 ALTER 的方言下 batch 模式自动退化成普通 
 - 全量套件的 8 个既有失败尚未逐条核对是否真的与本次改动无关（只是数量与改动前一致），
   建议下一次交接前跑一次 `git stash` 前后对照，把用例名写进这里。
 
+---
+
+## What Changed — P0-A
+
+- `models.py`：`BuildLedgerEntry`/`BuildLedgerAuditEvent` 各加 `tenant_id: int`（default 1，
+  经 `src.tenant.resolve_current_tenant_id()` 解析，沿用 Decree/Task/JinyiweiEvidence 的
+  既有惯例）、`user_id: str`（default "anonymous"，沿用 DecisionTask 的 `_user_id(user)`
+  惯例：`user.user_id or user.username or user.tenant_slug or "anonymous"`），各加一条
+  `(tenant_id, user_id)` 组合索引。
+- `flow_store.py`：新增 `ensure_build_ledger_ownership_columns(db)`，给老库补两张表的归属列
+  + 组合索引；跟 `ensure_task_result_json_column` 同款(纯 `ADD COLUMN`，不是约束，
+  PostgreSQL 上 `ADD COLUMN IF NOT EXISTS` 合法不报错，不需要 alembic 007 那种 SAVEPOINT)；
+  `web/main.py` 的 `lifespan` 里调用它。
+- `alembic/versions/008_build_ledger_ownership.py`：给已跑迁移的库补同样两列 + 两条索引的
+  正式迁移，纯 `op.add_column`(不需要 batch 模式——只有约束才需要，加列不需要)。
+- `web/routers/build_ledger.py`：新增 `_owner_id(user)` helper；`GET`(list/audit/export)、
+  `_persist`、`_transition`、`_prune` 全部按 `(tenant_id, user_id)` 过滤：
+  - `GET`/`_transition` 对"存在但不是自己的"和"真的不存在"统一返回同一个结果(空列表 /
+    `entry_not_found`)，不泄露对方是否存在。
+  - `_persist` 的 `id` 冲突处理：先按 owner 查，查不到再看这个 id 是否被别人占用；被占用时
+    返回 `id_conflict`，既不会静默接管对方的行，也不会让主键冲突变成未处理的 500。
+  - `_prune` 只按 `tenant_id` 收口(不含 `user_id`)——本项目没有独立的跨租户 super-admin
+    角色，`admin` 权限本就局限在自己的 `tenant_slug` 内，admin 清理"本租户"所有用户的过期
+    条目是这个动作本身的合理范围，但绝不碰其他租户的数据（这是一个记录在案的判断调用，见
+    下方 Reviewer Focus）。
+- `frontend/.../build-ledger.ts`：所有裸 `fetch()` 换成 `backendFetch()`(自动附带
+  `Authorization: Bearer` + 401 时刷新重试)；顺手把 `pruneBuildLedger` 从"失败静默返回
+  `null`"改成跟 `persist`/`dispatch`/`transition` 一致的"失败就 `throw`"(它是本文件里唯一
+  一个批量写操作，静默失败风险最大)。
+
+### 独立只读审查（code-reviewer agent，2026-07-12）
+
+针对完整 P0-A diff 的独立只读审查判定 **Go, no CRITICAL**，逐点核实：`_persist` 的 id 冲突
+处理正确(不接管、不 500)；`_prune` 按 tenant_id 收口是可辩护的判断调用；GET/transition 的
+"不存在"框定对两种真实场景（真不存在 / 存在但不是自己的）确实产生完全相同的响应，无法
+从响应区分；测试是真实的，不是套套逻辑（用 `isolated_session_local` + FastAPI
+`dependency_overrides` 真的跑通了鉴权/查询/过滤全链路）。给了两条 MEDIUM 建议（均已在本轮
+采纳修复,不是遗留 TODO）：① `ensure_build_ledger_ownership_columns` 当时没有直接测试覆盖
+（`test_build_ledger_tenant_isolation.py` 全部用 `isolated_session_local`，表天生从当前
+`models.py` 建，从没真正跑过"老库缺列 → ALTER TABLE 补列"这条分支）——已新增
+`test_build_ledger_self_heal.py`，直接对手搭的旧 schema(缺列)跑这个函数，验证列/索引被
+正确补上、旧行被 DEFAULT 正确回填、幂等重复调用不报错，外加一条 Mock 断言覆盖 PostgreSQL
+分支用的是 `ADD COLUMN IF NOT EXISTS` 而不是裸 `ADD CONSTRAINT`（这片代码区域已经连续出过
+两次 P0，`ensure_jinyiwei_evidence_unique_constraint` 的 SAVEPOINT 缺失 + 错误消息误判，
+不能靠"看起来安全"跳过测试）。② 自愈路径原来只补列、不补组合索引——`create_all
+(checkfirst=True)` 对已存在的表不做索引级 diff，只靠自愈升级过的老库会一直缺这个索引(过滤
+仍然正确，只是没走索引)——已补上 `CREATE INDEX IF NOT EXISTS`(SQLite/PostgreSQL 都合法，
+不需要 dialect 分支)。
+
+## Tests Run — P0-A
+- `python3 -m pytest -q tests/test_build_ledger.py tests/test_build_ledger_tenant_isolation.py tests/test_build_ledger_self_heal.py -v`：
+  13 passed。
+- 隔离测试(`test_build_ledger_tenant_isolation.py`，7 条，全部先跑 RED 确认针对改动前实现
+  真的失败，再实现让它们变绿)：跨用户 list/taskId 查询/export/audit/transition 全部验证
+  "看不到对方的数据"；`id` 冲突不接管、不 500；`prune` 只影响自己租户(用假的内存 tenants
+  表 + `dependency_overrides` 让 `get_current_user` 真的调用
+  `set_current_tenant()`，跟 `test_jinyiwei_endpoint.py::test_brief_endpoint_evidence_is_isolated_per_tenant`
+  同款手法)。
+- 自愈单测(`test_build_ledger_self_heal.py`，2 条，独立审查后新增)：手搭缺列的旧 SQLite
+  schema 验证真实 ALTER 路径 + DEFAULT 回填 + 幂等；Mock 断言 PostgreSQL 分支语句正确。
+- 迁移测试(`test_migration_008_build_ledger_ownership.py`，2 条，需要真实 alembic——本仓库
+  当前交互式 shell 没装，`pytest.importorskip` 会跳过；CI/正常 dev 环境会真实执行)：对真实
+  SQLite 文件跑完整 upgrade+downgrade，验证旧行正确回填、索引正确创建/移除。
+- 前端(`build-ledger.nodetest.ts`，3 条，`npx tsx --test`)：mock 真实 `fetch`/`Headers`，
+  断言 `fetchBuildLedger`/`dispatchBuildLedgerEntry` 真的带上了 `Authorization: Bearer
+  <token>`(不是伪造 backendFetch 本身)，`pruneBuildLedger` 失败时真的 `throw`。
+- `pnpm exec tsc --noEmit -p tsconfig.json`：0 errors(全量，非仅改动文件)。
+- 全量后端套件：`python3 -m pytest -q`：2427 passed，8 failed(跟 P0-C 交接时同一批既有失败，
+  没有新增失败，`build_ledger` 相关用例全绿)。
+- `python3 backend/scripts/harness_doctor.py` / `node scripts/harness-doctor.mjs`：均
+  0 errors。
+
+## Known Risks — P0-A
+- `_prune` 按 `tenant_id` 收口而不是 `(tenant_id, user_id)`——admin 能清理同租户内其他用户
+  的过期条目。这是记录在案的判断调用(见上方 What Changed)，不是遗漏；如果产品期望 admin
+  权限也要按用户收窄，需要另开一轮明确这个语义。
+- `_persist` 的 `id_conflict` 响应是一个弱"这个 id 是否存在"的 oracle(不泄露是谁的、内容是
+  什么)——独立审查判定风险低(id 是不透明的 hash/时间戳字符串)，未处理，不阻塞。
+- `pruneBuildLedger`(前端)目前在真实业务代码里没有调用方(只有测试和已退休的
+  `build-ledger-store.ts` 提到同名但不同的函数)，改成 throw 不会破坏现有调用方，但也意味着
+  这条改进暂时没接入任何 UI 错误提示。
+
 ## Not Touched
 - `feature-chaotang-release`（未切换、未 push）
 - `.playwright-cli/`
@@ -120,12 +225,29 @@ PostgreSQL 等原生支持 ALTER 的方言下 batch 模式自动退化成普通 
 - `backend/knowledge/docs/ima_archived/doc-*.md`
 
 ## Reviewer Focus
-请重点审查：
+
+### P0-1/P0-C
 - SAVEPOINT 冲突回滚后，`existing` 查询是否真的能看到并发对手已提交的行（session 隔离级别、
   是否需要 `db.expire_all()`）——这是本次修复能否真正生效的关键点，值得单独核实而不是只看
   测试通过。
 - `ensure_jinyiwei_evidence_unique_constraint` 的幂等性：多进程/多次调用是否会互相竞态
   报错（"约束已存在"之类），目前实现方式需要复核。
 - 是否遗漏了其他调用 `upsert_evidence` 的路径，没有走到新的 SAVEPOINT 分支。
-- P0-2（上书房任务归属过滤）、P0-3（`/api/intel/brief` 阻塞）：本次交接**未开始**，
-  尚无具体 bug 复现材料——下一阶段开工前需要先确认这两个问题的具体现象/复现步骤来源。
+
+### P0-A
+- `_prune` 按 `tenant_id`(不含 `user_id`)收口这个判断调用是否符合产品预期——见上方
+  Known Risks，这是本轮唯一一个"故意做出但可能需要产品拍板"的范围决定。
+- `_persist` 的 `id_conflict` 弱 oracle 是否需要进一步处理，还是维持现状。
+- 是否还有其他地方(前端或后端)构造/依赖 `BuildLedgerEntry`/`BuildLedgerAuditEvent` 但没有
+  经过这次的归属过滤——已用 grep 确认 `build_ledger.py` 是全仓库唯一的构造点，值得独立复核
+  一次。
+
+### 下一步(P0-B/P0-D，本次交接**均未开始**)
+- P0-B(上书房任务归属过滤，`shangshufang.py`)：范围、复现材料、要求已在用户消息里给出
+  完整 spec（`DecisionTask.user_id` 存在但未被十几个按 `task_id` 查询的端点使用，`/home`
+  列表会把其他用户的 `task_id` 暴露出去），下一阶段可以直接按那份 spec 开工，不需要再确认
+  来源。
+- P0-D(`/api/intel/brief` 阻塞/可靠性)：上一轮独立只读审查已经追完整条链路(tavily 超时
+  8s+兜底、gather_intel 包裹、`_persist_brief_items` best-effort)，**没有找到**未加保护的
+  同步调用或裸写入，判定为"看起来已经不是问题"——建议下一阶段开工前先跟最初报告这个问题的
+  人核实具体复现步骤，而不是假设审查结论一定全面。

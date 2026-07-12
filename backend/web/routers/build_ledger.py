@@ -7,6 +7,22 @@ frontend/src/features/operating-loop/lib/build-ledger.ts 调用的
 ?format=export 全量导出；POST 支持 {entry} 直接持久化、
 {action:'dispatch', entry}、{action:'prune', retentionDays}、
 {action:'transition', taskId, toStatus, note} 四种动作。
+
+P0-A(2026-07-12,独立只读审查发现):"BuildLedgerEntry/BuildLedgerAuditEvent
+完全没有租户/用户归属，GET(不带 taskId)会把最近 50 条记录跨所有用户/
+租户返回给任意已登录调用方"——是 IDOR/broken access control。这里给每个
+读写路径都补上 (tenant_id, user_id) 归属校验:
+- tenant_id 走 src.tenant.resolve_current_tenant_id()(本仓库 Decree/Task/
+  JinyiweiEvidence 的既有惯例)。
+- user_id 走 _owner_id(user) —— DecisionTask/_user_id() 的同款惯例:
+  user.user_id or user.username or user.tenant_slug or "anonymous"。
+- 按 taskId 查询别人的条目、transition 别人的条目，统一表现得像"不存在"
+  (不泄露对方存在)，而不是返回一个专门的"无权限"错误。
+- prune 是唯一的例外:本项目没有独立的"跨租户 super-admin"角色模型，role
+  只有 admin/user 一种区分，admin 权限始终局限在其 JWT 自带的那个
+  tenant_slug 内——所以 prune 按 tenant_id 收口(admin 可以清理"本租户"
+  所有用户的过期条目，这是"管理本租户台账"这个动作本身的合理范围，不算
+  跨用户泄漏)，但绝不触碰其他租户的数据。
 """
 
 from __future__ import annotations
@@ -22,6 +38,10 @@ from web.deps import get_current_user
 from web.schemas.auth import CurrentUser
 
 router = APIRouter(prefix="/api/court/build-ledger", tags=["build-ledger"])
+
+
+def _owner_id(user: CurrentUser) -> str:
+    return str(user.user_id or user.username or user.tenant_slug or "anonymous")
 
 _LIMIT = 50
 _DEFAULT_RETENTION_DAYS = 90
@@ -69,11 +89,17 @@ def build_ledger_get(
 ) -> dict:
     from src.db.engine import SessionLocal
     from src.db.models import BuildLedgerAuditEvent, BuildLedgerEntry
+    from src.tenant import resolve_current_tenant_id
+
+    tenant_id = resolve_current_tenant_id()
+    owner_id = _owner_id(user)
 
     db = SessionLocal()
     try:
         if audit == "1":
-            q = db.query(BuildLedgerAuditEvent)
+            q = db.query(BuildLedgerAuditEvent).filter_by(
+                tenant_id=tenant_id, user_id=owner_id
+            )
             if taskId:
                 q = q.filter_by(task_id=taskId)
             rows = q.order_by(BuildLedgerAuditEvent.created_at.desc()).limit(_LIMIT).all()
@@ -92,7 +118,7 @@ def build_ledger_get(
             ]
             return {"success": True, "data": data, "error": None}
 
-        q = db.query(BuildLedgerEntry)
+        q = db.query(BuildLedgerEntry).filter_by(tenant_id=tenant_id, user_id=owner_id)
         if taskId:
             q = q.filter_by(task_id=taskId)
         rows = q.order_by(BuildLedgerEntry.created_at.desc()).limit(_LIMIT).all()
@@ -120,6 +146,11 @@ def build_ledger_post(
     body: dict[str, Any] = Body(default_factory=dict),
     user: CurrentUser = Depends(get_current_user),
 ) -> dict:
+    from src.tenant import resolve_current_tenant_id
+
+    tenant_id = resolve_current_tenant_id()
+    owner_id = _owner_id(user)
+
     action = body.get("action")
     if action == "prune":
         # 独立安全审查(2026-07-11)发现: 批量硬删除不该对所有已登录用户开放,
@@ -128,23 +159,25 @@ def build_ledger_post(
 
         if user.role != "admin":
             raise HTTPException(status_code=403, detail="需要管理员权限才能清理台账")
-        return _prune(int(body.get("retentionDays") or _DEFAULT_RETENTION_DAYS))
+        return _prune(int(body.get("retentionDays") or _DEFAULT_RETENTION_DAYS), tenant_id=tenant_id)
     if action == "dispatch":
-        return _dispatch(body.get("entry") or {})
+        return _dispatch(body.get("entry") or {}, tenant_id=tenant_id, user_id=owner_id)
     if action == "transition":
         return _transition(
             task_id=str(body.get("taskId") or ""),
             to_status=str(body.get("toStatus") or ""),
             note=str(body.get("note") or ""),
-            actor=user.username,
+            actor=user.username or owner_id,
+            tenant_id=tenant_id,
+            user_id=owner_id,
         )
     entry = body.get("entry")
     if entry:
-        return _persist(entry)
+        return _persist(entry, tenant_id=tenant_id, user_id=owner_id)
     return {"success": False, "data": None, "error": "unsupported_action"}
 
 
-def _persist(entry: dict[str, Any]) -> dict[str, Any]:
+def _persist(entry: dict[str, Any], *, tenant_id: int, user_id: str) -> dict[str, Any]:
     from src.db.engine import SessionLocal
     from src.db.models import BuildLedgerEntry
 
@@ -155,13 +188,25 @@ def _persist(entry: dict[str, Any]) -> dict[str, Any]:
         status = str(entry.get("status") or "dispatched")
         now = _now_iso()
         stored = {k: v for k, v in entry.items() if k not in {"id", "taskId", "status", "createdAt", "updatedAt"}}
-        row = db.query(BuildLedgerEntry).filter_by(id=entry_id).first()
+        row = (
+            db.query(BuildLedgerEntry)
+            .filter_by(id=entry_id, tenant_id=tenant_id, user_id=user_id)
+            .first()
+        )
         if row is None:
+            # id 可能被别的租户/用户占用——这里不能静默接管对方的行(会计入
+            # 错误的归属),也不能直接 INSERT 撞主键让 IntegrityError 变成
+            # 未处理的 500。按"这个 id 不可用"处理,不透露对方是否存在/是谁。
+            conflict = db.query(BuildLedgerEntry).filter_by(id=entry_id).first()
+            if conflict is not None:
+                return {"success": False, "data": None, "error": "id_conflict"}
             row = BuildLedgerEntry(
                 id=entry_id,
                 task_id=task_id,
                 status=status,
                 entry_json=json.dumps(stored, ensure_ascii=False),
+                tenant_id=tenant_id,
+                user_id=user_id,
                 created_at=str(entry.get("createdAt") or now),
                 updated_at=now,
             )
@@ -176,12 +221,14 @@ def _persist(entry: dict[str, Any]) -> dict[str, Any]:
         db.close()
 
 
-def _dispatch(entry: dict[str, Any]) -> dict[str, Any]:
+def _dispatch(entry: dict[str, Any], *, tenant_id: int, user_id: str) -> dict[str, Any]:
     entry = {**entry, "status": entry.get("status") or "dispatched"}
-    return _persist(entry)
+    return _persist(entry, tenant_id=tenant_id, user_id=user_id)
 
 
-def _transition(*, task_id: str, to_status: str, note: str, actor: str) -> dict[str, Any]:
+def _transition(
+    *, task_id: str, to_status: str, note: str, actor: str, tenant_id: int, user_id: str
+) -> dict[str, Any]:
     from src.db.engine import SessionLocal
     from src.db.models import BuildLedgerAuditEvent, BuildLedgerEntry
 
@@ -192,11 +239,13 @@ def _transition(*, task_id: str, to_status: str, note: str, actor: str) -> dict[
     try:
         row = (
             db.query(BuildLedgerEntry)
-            .filter_by(task_id=task_id)
+            .filter_by(task_id=task_id, tenant_id=tenant_id, user_id=user_id)
             .order_by(BuildLedgerEntry.created_at.desc())
             .first()
         )
         if row is None:
+            # 真的不存在、和"存在但属于别人"统一表现成同一个错误——不泄露
+            # 别人是否有这个 taskId 的台账条目。
             return {"success": False, "data": None, "error": "entry_not_found"}
         if to_status not in _ALLOWED_TRANSITIONS.get(row.status, []):
             return {
@@ -214,6 +263,8 @@ def _transition(*, task_id: str, to_status: str, note: str, actor: str) -> dict[
                 from_status=row.status,
                 to_status=to_status,
                 note=note,
+                tenant_id=tenant_id,
+                user_id=user_id,
                 created_at=now,
             )
         )
@@ -225,19 +276,30 @@ def _transition(*, task_id: str, to_status: str, note: str, actor: str) -> dict[
         db.close()
 
 
-def _prune(retention_days: int) -> dict[str, Any]:
+def _prune(retention_days: int, *, tenant_id: int) -> dict[str, Any]:
+    """按 tenant_id 收口(不是 tenant_id+user_id)——本项目没有独立的跨租户
+    super-admin 角色模型,admin 权限局限在其自己的 tenant_slug 内;admin 清理
+    "本租户"所有用户的过期条目是这个动作本身的合理范围,但绝不触碰其他
+    租户的数据。"""
     from src.db.engine import SessionLocal
     from src.db.models import BuildLedgerEntry
 
     db = SessionLocal()
     try:
-        before = db.query(BuildLedgerEntry).count()
+        before = db.query(BuildLedgerEntry).filter_by(tenant_id=tenant_id).count()
         cutoff = (datetime.now(timezone.utc) - timedelta(days=retention_days)).isoformat(timespec="seconds")
-        stale = db.query(BuildLedgerEntry).filter(BuildLedgerEntry.created_at < cutoff).all()
+        stale = (
+            db.query(BuildLedgerEntry)
+            .filter(
+                BuildLedgerEntry.tenant_id == tenant_id,
+                BuildLedgerEntry.created_at < cutoff,
+            )
+            .all()
+        )
         for row in stale:
             db.delete(row)
         db.commit()
-        after = db.query(BuildLedgerEntry).count()
+        after = db.query(BuildLedgerEntry).filter_by(tenant_id=tenant_id).count()
         return {
             "success": True,
             "data": {"before": before, "after": after, "removed": before - after},

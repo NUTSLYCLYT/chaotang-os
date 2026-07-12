@@ -91,6 +91,7 @@ async def lifespan(app: FastAPI):
         Base.metadata.create_all(engine, checkfirst=True)
         from src.db.engine import SessionLocal
         from src.db.flow_store import (
+            ensure_build_ledger_ownership_columns,
             ensure_decree_execution_event_sequence_column,
             ensure_jinyiwei_evidence_unique_constraint,
             ensure_retrospective_outcome_column,
@@ -103,6 +104,7 @@ async def lifespan(app: FastAPI):
             ensure_retrospective_outcome_column(db)
             ensure_decree_execution_event_sequence_column(db)
             ensure_jinyiwei_evidence_unique_constraint(db)
+            ensure_build_ledger_ownership_columns(db)
             db.commit()
         finally:
             db.close()
