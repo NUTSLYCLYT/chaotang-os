@@ -51,7 +51,7 @@ const blocks = [
   {
     id: 'p0-entry',
     name: 'P0 Entry · 上书房最终入口',
-    routes: ['/court-briefing'],
+    routes: ['/shangshufang'],
     // 2026-06-28: 旧断言 ['奏折','LIVE'] 已词汇漂移——现役 UI 叫"真实任务/件任务"、来源标叫 REAL(非 LIVE)。
     // 改成实际渲染且证明真数据已加载的词(OR 匹配,任一即过)。
     requiredText: ['真实任务', '件任务', 'REAL'],
@@ -59,41 +59,37 @@ const blocks = [
   {
     id: 'p0-command',
     name: 'P0 Command · 军机处执行面',
-    routes: ['/command-center'],
+    routes: ['/junjichu'],
     requiredText: ['军机处'],
   },
   {
     id: 'p0-archive',
     name: 'P0 Archive · 史馆归档面',
-    routes: ['/archive', '/shiguan'],
-    requiredAny: true,
+    routes: ['/shiguan'],
     requiredText: ['史馆'],
   },
   {
     id: 'p1-overview',
     name: 'P1 Overview · 大殿总览',
-    routes: ['/overview'],
+    routes: ['/dadian'],
     requiredText: ['朝堂'],
   },
   {
     id: 'p1-business',
-    name: 'P1 Business · 庄园/部门',
-    routes: ['/manors', '/departments/finance', '/departments/ops', '/departments/guard'],
-    requiredAny: true,
-    requiredText: ['庄园', '户部', '兵部', '锦衣卫'],
+    name: 'P1 Business · 六部总览',
+    routes: ['/liubu'],
+    requiredText: ['六部'],
   },
   {
-    // 2026-06-28: p1-business 因 requiredAny 命中 /manors 即 break,4 个绿色商家面从未单独验证。
-    // 本块逐个验 intel/libu/部门:导航哨兵"朝堂"保证 matched,真验证靠 console error/404/崩溃浮层/内容长度。
     id: 'p1-green-faces',
-    name: 'P1 GreenFaces · 首发商家真业务面(intel/御书房/部门)',
-    routes: ['/intel', '/libu', '/departments/finance', '/departments/ops'],
+    name: 'P1 GreenFaces · 首发商家真业务面(锦衣卫/户部/兵部)',
+    routes: ['/zhuanshu/jinyiwei', '/liubu/hubu', '/liubu/bingbu'],
     requiredText: ['朝堂'],
   },
 ];
 
 const apiChecks = [
-  { id: 'resources-page', path: '/court-briefing', html: true },
+  { id: 'resources-page', path: '/shangshufang', html: true },
 ];
 
 function makeToken() {

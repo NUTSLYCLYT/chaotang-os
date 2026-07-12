@@ -22,3 +22,13 @@ test('全局顶栏资源按钮与上书房现有 ResourceGallery 完成接线', 
 test('严格鉴权环境允许注入真实测试会话 token', () => {
   assert.match(source, /process\.env\.HARNESS_AUTH_TOKEN/);
 });
+
+test('发布页面矩阵只检查当前首发路由', () => {
+  const matrix = source.slice(source.indexOf('const blocks ='), source.indexOf('function makeToken'));
+  for (const retired of ['/court-briefing', '/command-center', '/archive', '/overview', '/manors', '/intel']) {
+    assert.doesNotMatch(matrix, new RegExp(retired.replace('/', '\\/')));
+  }
+  for (const active of ['/shangshufang', '/junjichu', '/shiguan', '/dadian', '/liubu', '/zhuanshu/jinyiwei']) {
+    assert.match(matrix, new RegExp(active.replaceAll('/', '\\/')));
+  }
+});
