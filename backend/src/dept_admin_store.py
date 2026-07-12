@@ -34,13 +34,9 @@ def _session():
 
 def _current_tenant_id() -> int:
     """当前线程租户 slug → tenants.id；查不到回退默认租户 1。"""
-    from src.tenant import get_current_tenant, get_db
+    from src.tenant import resolve_current_tenant_id
 
-    slug = get_current_tenant()
-    row = get_db().execute(
-        "SELECT id FROM tenants WHERE slug=?", (slug,)
-    ).fetchone()
-    return int(row["id"]) if row else 1
+    return resolve_current_tenant_id()
 
 
 # ── 部门 CRUD ───────────────────────────────────────────────────────────────

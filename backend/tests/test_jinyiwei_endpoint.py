@@ -129,3 +129,67 @@ def test_brief_endpoint_live_search_findings_have_untruncated_claim_persisted(
     items = r2.json()["data"]["items"]
     assert len(items) == 1
     assert long_claim in items[0]["insight"]
+
+
+def test_brief_endpoint_evidence_is_isolated_per_tenant(isolated_session_local, monkeypatch):
+    """2026-07-12 Codex 停止前审查纠正:"tenant-scoped evidence uses the default
+    tenant"——之前 intel_brief/intel_evidence 一律走
+    chaotang_store._get_default_tenant_id()，硬查 slug='default'，完全不看
+    当前请求实际是哪个租户在调用，等同于假装系统单租户。
+
+    这里用一张假的内存 tenants 表(不碰真实 data/fengqun.db)模拟两个真实
+    租户，通过 dependency_overrides 让 get_current_user 依赖像生产环境
+    真实实现那样在依赖解析阶段调用 set_current_tenant()——不能直接在测试
+    自己的线程里用 tenant_context() 设线程本地变量，因为 Starlette 对同步
+    endpoint 走 run_in_threadpool，endpoint 函数体本身运行在独立的工作线程
+    里；只有让"设置租户"和"读取租户"发生在同一次请求分派出的同一个工作
+    线程内(即通过依赖注入，而不是测试外部代码)，这条断言才真实覆盖生产
+    路径。验证在租户甲身份下写入的情报，切换到默认租户身份查询时看不到——
+    如果又退化回硬编码默认租户，这条测试会因为"默认租户也能看到租户甲的
+    情报"而失败。"""
+    import sqlite3
+
+    import src.tenant as tenant_module
+    from web.schemas.auth import CurrentUser
+
+    conn = sqlite3.connect(":memory:", check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute(
+        "CREATE TABLE tenants (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, slug TEXT UNIQUE)"
+    )
+    conn.execute("INSERT INTO tenants (name, slug) VALUES ('默认租户', 'default')")
+    conn.execute("INSERT INTO tenants (name, slug) VALUES ('租户甲', 'tenant-a')")
+    conn.commit()
+    monkeypatch.setattr(tenant_module, "get_db", lambda: conn)
+
+    def _as_tenant(slug: str):
+        def _override() -> CurrentUser:
+            tenant_module.set_current_tenant(slug)
+            return CurrentUser(user_id=1, username="ops", role="admin", tenant_slug=slug)
+
+        return _override
+
+    deps = importlib.import_module("web.deps")
+    original_override = app.dependency_overrides.get(deps.get_current_user)
+    try:
+        app.dependency_overrides[deps.get_current_user] = _as_tenant("tenant-a")
+        r = client.post("/api/intel/brief", json={
+            "query": "租户甲专属尽调",
+            "findings": [{"claim": "租户甲的机密情报", "sources": [{"tier": "一手"}]}],
+        })
+        assert r.status_code == 200
+        # 租户甲自己能查到自己写的情报
+        own = client.get("/api/intel/evidence", params={"query": "租户甲专属尽调"})
+        assert len(own.json()["data"]["items"]) == 1
+
+        app.dependency_overrides[deps.get_current_user] = _as_tenant("default")
+        # 默认租户查不到租户甲的情报——不能因为两次调用都没显式传 tenant_id
+        # 就落进同一个桶。
+        leaked = client.get("/api/intel/evidence", params={"query": "租户甲专属尽调"})
+        assert leaked.json()["data"]["items"] == []
+    finally:
+        if original_override is None:
+            app.dependency_overrides.pop(deps.get_current_user, None)
+        else:
+            app.dependency_overrides[deps.get_current_user] = original_override
+        conn.close()

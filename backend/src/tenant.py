@@ -172,6 +172,24 @@ def get_db():
         return _get_db()
 
 
+def resolve_current_tenant_id() -> int:
+    """当前线程租户 slug(由 get_current_user() 在请求进入时从 JWT 设好)→ tenants.id；
+    查不到回退默认租户 1。
+
+    2026-07-12 Codex 停止前审查发现："tenant-scoped evidence uses the default
+    tenant"——jinyiwei_evidence 一律走 src.chaotang_store._get_default_tenant_id()，
+    那个函数硬查 slug='default'，完全不看当前请求实际是哪个租户在调用，
+    等同于假装系统是单租户。真正的每请求租户解析(src/dept_admin_store.py
+    的 _current_tenant_id，已经在给部门管理端点用)反而没被复用到其余
+    5 张 flow 表(decrees/tasks/memorials/reviews/retrospectives)和现在的
+    jinyiwei_evidence 上——这个函数是提炼出来的共享实现，两边都改成调用它。"""
+    slug = get_current_tenant()
+    row = get_db().execute(
+        "SELECT id FROM tenants WHERE slug=?", (slug,)
+    ).fetchone()
+    return int(row["id"]) if row else 1
+
+
 # ---------------------------------------------------------------------------
 # 密码哈希
 # ---------------------------------------------------------------------------

@@ -30,11 +30,15 @@ def _persist_brief_items(*, query: str, findings: list, doc: dict, source_label:
     if not items:
         return
     try:
-        from src.chaotang_store import _get_default_tenant_id
         from src.db.engine import SessionLocal
         from src.jinyiwei_evidence_store import upsert_evidence
+        from src.tenant import resolve_current_tenant_id
 
-        tenant_id = _get_default_tenant_id()
+        # 用当前请求真实的租户(get_current_user() 已在请求进入时从 JWT 设好
+        # 线程本地租户 slug)，不能用 _get_default_tenant_id() 那种硬查
+        # slug='default' 的写法——那个函数不看是谁在调用，会把所有租户的
+        # 情报都错误地写进同一个 tenant_id，等同于假装系统是单租户。
+        tenant_id = resolve_current_tenant_id()
         db = SessionLocal()
         try:
             for finding, item in zip(findings, items):
@@ -115,11 +119,11 @@ def intel_evidence(
     """查共享情报池——锦衣卫已核实过的情报，跨任务可复用查询。字段命名对齐
     frontend/src/lib/contracts/evidence.ts::EvidenceRecord，方便前端接线时
     接近直通，不需要二次映射。"""
-    from src.chaotang_store import _get_default_tenant_id
     from src.db.engine import SessionLocal
     from src.jinyiwei_evidence_store import query_evidence
+    from src.tenant import resolve_current_tenant_id
 
-    tenant_id = _get_default_tenant_id()
+    tenant_id = resolve_current_tenant_id()
     db = SessionLocal()
     try:
         rows = query_evidence(
