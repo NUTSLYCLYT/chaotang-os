@@ -46,7 +46,13 @@ def record_timeline_event(
 
     import sqlalchemy as sa
 
+    from src.db.flow_store import ensure_decree_execution_event_sequence_column
     from src.db.models import DecreeExecutionEvent
+
+    # 2026-07-12(Codex 停止前审查发现)：Alembic 005 只在生产迁移路径跑，老 DB 文件
+    # (create_all 补救、未跑迁移)的 decree_execution_events 表没有 sequence 列——
+    # 不现场补列就会直接 OperationalError，同 ensure_task_result_json_column 的既有惯例。
+    ensure_decree_execution_event_sequence_column(db)
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     nonce = secrets.token_hex(4)
@@ -199,7 +205,11 @@ def _department_status_for(stage: str, index: int) -> str:
 
 
 def _load_timeline(db: "Session", task_id: str) -> list[TimelineEvent]:
+    from src.db.flow_store import ensure_decree_execution_event_sequence_column
     from src.db.models import DecreeExecutionEvent
+
+    # 同 record_timeline_event：老 DB 文件缺 sequence 列时现场补列，不让状态接口崩。
+    ensure_decree_execution_event_sequence_column(db)
 
     rows = (
         db.query(DecreeExecutionEvent)

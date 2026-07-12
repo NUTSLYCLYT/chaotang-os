@@ -150,6 +150,41 @@ def ensure_retrospective_outcome_column(session: Session) -> None:
             raise
 
 
+def ensure_decree_execution_event_sequence_column(session: Session) -> None:
+    """Ensure older DB files can accept DecreeExecutionEvent.sequence writes.
+
+    同 ensure_task_result_json_column/ensure_retrospective_outcome_column 的必要性:
+    Alembic 005 只在生产迁移路径跑,dev/旧进程仍靠 create_all(checkfirst=True)补救——
+    它只建"不存在的表",不给已存在的表加新列,旧 decree_execution_events 表会永远
+    缺这一列(2026-07-12 复审：record_timeline_event/_load_timeline 会直接因
+    "no such column: sequence" 报错，状态接口和事件写入全部失败)。
+    """
+    bind = session.get_bind()
+    dialect = bind.dialect.name if bind is not None else ""
+    try:
+        if dialect == "sqlite":
+            rows = session.execute(
+                text("PRAGMA table_info(decree_execution_events)")
+            ).all()
+            if any(row[1] == "sequence" for row in rows):
+                return
+            session.execute(
+                text(
+                    "ALTER TABLE decree_execution_events ADD COLUMN sequence INTEGER NOT NULL DEFAULT 0"
+                )
+            )
+            return
+        session.execute(
+            text(
+                "ALTER TABLE decree_execution_events ADD COLUMN IF NOT EXISTS sequence INTEGER NOT NULL DEFAULT 0"
+            )
+        )
+    except Exception as exc:  # noqa: BLE001 - tolerate duplicate-column races only.
+        message = str(exc).lower()
+        if "duplicate column" not in message and "already exists" not in message:
+            raise
+
+
 def task_record(row: Task) -> dict[str, Any]:
     display_status = row.task_status or _normalize_display_status(row.status)
     result = _parse_json_object(row.result_json)

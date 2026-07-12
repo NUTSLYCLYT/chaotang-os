@@ -20,3 +20,16 @@
 - `tsc --noEmit`：绿，无新增错误。
 - 三层 `harness:doctor`：0 errors 0 warnings。
 - Alembic 迁移风险：本沙箱 `alembic` 未安装(`requirements-core.txt` 声明为依赖，但 `import alembic` 在当前 python3 环境里只解析到本地 `backend/alembic/` 目录，没有真正的库)，无法直接跑 `alembic upgrade head` 验证。改用裸 SQLAlchemy Core 脚本，在内存 SQLite 上手工重建 004 版本的旧 schema(无 `sequence` 列)，插入含同秒碰撞的种子数据，逐字重放迁移 005 的 `upgrade()` 函数体(加列、加索引、删旧索引、按 `task_id` 分组回填)，验证结果序号确定且按 `task_id` 独立计数——脚本输出与断言均通过。
+
+## Codex 停止前审查纠正(2026-07-12)
+
+Codex 停止前审查指出:"旧数据库在常规启动路径下缺少 `sequence`，状态接口和事件写入会直接失败"。复核确认属实且**在本沙箱是可复现的真实 bug**：`backend/data/fengqun.db` 是纯靠 `create_all(checkfirst=True)` 建的旧库(没有 `alembic_version` 表，从未跑过任何 alembic 迁移)，`decree_execution_events` 表当时确实缺 `sequence` 列。根因：`web/main.py::lifespan()` 的常规启动路径只用 `create_all(checkfirst=True)` 补建表(对已存在的表不做列级 diff)，此前只对 `tasks.result_json`(002)和 `retrospectives.outcome`(004)两处已知的"加列迁移"配了对应的 `ensure_*_column` 自愈函数(`src/db/flow_store.py`)，`sequence` 这次遗漏了同款自愈函数。
+
+修复(照搬既有惯例，未发明新机制)：
+1. `src/db/flow_store.py` 新增 `ensure_decree_execution_event_sequence_column()`，逻辑与 `ensure_retrospective_outcome_column` 完全对称(PRAGMA table_info 探测 → 缺列则 `ALTER TABLE ... ADD COLUMN sequence INTEGER NOT NULL DEFAULT 0`)。
+2. `web/main.py::lifespan()` 里跟另外两个 `ensure_*` 一起调用。
+3. 按既有惯例(`ensure_task_result_json_column`/`ensure_retrospective_outcome_column` 均在各自的 save/get 函数内部也调用一次)，在 `decree_status.py::record_timeline_event`/`_load_timeline` 内部也各调用一次——保证即使某条路径绕开了 `lifespan()`(例如测试用不同 DB_URL、或旧进程尚未重启)，读写这张表时依然会现场自愈，不是只靠一次性启动钩子。
+4. 新增 `test_decree_execution_event_sequence_self_heals_on_old_table`(`backend/tests/test_flow_db_dualwrite.py`)，手工建一张缺 `sequence` 列的旧表，验证 `record_timeline_event`/`_load_timeline` 直接调用即可自愈，不崩。
+5. 真实复现验证：本沙箱的 `backend/data/fengqun.db` 在修复前确认缺列(`PRAGMA table_info` 只有 6 列)；手动重放 `lifespan()` 里那段 schema-bootstrap 逻辑(`create_all` + 三个 `ensure_*`)后，`PRAGMA table_info` 确认 `sequence` 列已加上，23 条既有行全部拿到默认值 0(未做精确回填——这与另外两个既有 `ensure_*` 函数的行为完全一致：运行时自愈只保证"不崩"，不做 Alembic 迁移那种精确的历史数据回填；精确回填仍然是 `alembic upgrade head` 的职责)。`backend/data/fengqun.db` 本身在 `.gitignore` 里，这次手动验证不会进入提交。
+
+验证：`python3 -m pytest -q tests/test_flow_db_dualwrite.py tests/test_decree_execution_status.py tests/test_chancellor_contracts.py` 26 passed；全量 `pytest` 重跑确认无新增失败(结果见下方补充记录)。

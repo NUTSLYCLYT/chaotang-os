@@ -325,6 +325,46 @@ def test_retrospective_outcome_self_heals_on_old_table():
     eng.dispose()
 
 
+def test_decree_execution_event_sequence_self_heals_on_old_table():
+    """2026-07-12 Codex 停止前审查发现:Alembic 005 只在生产迁移路径跑,老 DB 文件
+    (create_all 补救、未跑迁移)的 decree_execution_events 表没有 sequence 列——
+    record_timeline_event/_load_timeline 不能因此崩，必须现场补列(同
+    ensure_task_result_json_column/ensure_retrospective_outcome_column 的既有惯例)。"""
+    from sqlalchemy import create_engine
+    from sqlalchemy import text as sa_text
+
+    from src.chancellor.decree_status import _load_timeline, record_timeline_event
+
+    eng = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    with eng.begin() as conn:
+        conn.execute(
+            sa_text(
+                """CREATE TABLE decree_execution_events (
+                    id TEXT PRIMARY KEY,
+                    task_id TEXT NOT NULL,
+                    stage TEXT NOT NULL,
+                    actor TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    occurred_at TEXT NOT NULL
+                )"""
+            )
+        )
+    with Session(eng) as old_session:
+        record_timeline_event(
+            old_session,
+            task_id="t_old_timeline",
+            stage="a",
+            actor="chancellor",
+            message="第一条",
+        )
+        old_session.commit()
+
+        timeline = _load_timeline(old_session, "t_old_timeline")
+        assert [e.message for e in timeline] == ["第一条"]
+        assert timeline[0].sequence == 1
+    eng.dispose()
+
+
 # ── 6. get_memorial_status_db ──────────────────────────────────────────────
 
 
