@@ -44,11 +44,24 @@ def record_timeline_event(
     from datetime import datetime, timezone
     from hashlib import sha1
 
+    import sqlalchemy as sa
+
     from src.db.models import DecreeExecutionEvent
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     nonce = secrets.token_hex(4)
     event_id = f"evt_{sha1(f'{task_id}|{stage}|{actor}|{message}|{now}|{nonce}'.encode()).hexdigest()[:12]}"
+    # 2026-07-12(方案阶段4)：occurred_at 只精确到秒，同一秒内的多个事件排序不确定。
+    # sequence 按 task_id 单调递增。SessionLocal 全局关闭了 autoflush(src/db/engine.py)，
+    # 所以同一事务内此前 db.add 过、尚未 flush 的同任务事件，MAX 查询默认看不到——
+    # 这里显式 flush 一次，保证同一事务内连续多次调用也不会算出重复的 sequence。
+    db.flush()
+    prev_max = (
+        db.query(sa.func.max(DecreeExecutionEvent.sequence))
+        .filter_by(task_id=task_id)
+        .scalar()
+    )
+    next_sequence = (prev_max or 0) + 1
     db.add(
         DecreeExecutionEvent(
             id=event_id,
@@ -57,6 +70,7 @@ def record_timeline_event(
             actor=actor,
             message=message,
             occurred_at=now,
+            sequence=next_sequence,
         )
     )
 
@@ -190,7 +204,7 @@ def _load_timeline(db: "Session", task_id: str) -> list[TimelineEvent]:
     rows = (
         db.query(DecreeExecutionEvent)
         .filter_by(task_id=task_id)
-        .order_by(DecreeExecutionEvent.occurred_at)
+        .order_by(DecreeExecutionEvent.sequence)
         .all()
     )
     return [
@@ -200,6 +214,7 @@ def _load_timeline(db: "Session", task_id: str) -> list[TimelineEvent]:
             actor=row.actor,
             message=row.message,
             occurred_at=row.occurred_at,
+            sequence=row.sequence,
         )
         for row in rows
     ]

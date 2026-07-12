@@ -72,6 +72,41 @@ def test_status_shows_blocked_reason_and_departments_for_cluster_task(
     assert len(status["timeline"]) >= 1
 
 
+def test_load_timeline_orders_by_sequence_when_occurred_at_collides(
+    isolated_session_local,
+):
+    """方案阶段4验收(见 valiant-crunching-candy.md)：occurred_at 只精确到秒，
+    同一秒内触发的多个事件必须靠 sequence 而不是时间戳保证确定性排序。"""
+    from src.chancellor.decree_status import _load_timeline, record_timeline_event
+    from src.db.models import DecreeExecutionEvent
+
+    db = isolated_session_local()
+    try:
+        record_timeline_event(
+            db, task_id="task_seq_1", stage="a", actor="chancellor", message="第一条"
+        )
+        record_timeline_event(
+            db, task_id="task_seq_1", stage="b", actor="worker", message="第二条"
+        )
+        record_timeline_event(
+            db, task_id="task_seq_1", stage="c", actor="worker", message="第三条"
+        )
+        db.commit()
+
+        # 强制把三行的 occurred_at 改成完全相同的时间戳，模拟同一秒内触发——
+        # 此时唯一还能区分先后顺序的就只剩 sequence。
+        db.query(DecreeExecutionEvent).filter_by(task_id="task_seq_1").update(
+            {"occurred_at": "2026-07-12T00:00:00+00:00"}
+        )
+        db.commit()
+
+        timeline = _load_timeline(db, "task_seq_1")
+        assert [e.message for e in timeline] == ["第一条", "第二条", "第三条"]
+        assert [e.sequence for e in timeline] == [1, 2, 3]
+    finally:
+        db.close()
+
+
 def test_department_status_for_reflects_stage_not_fabricated_per_department_progress():
     """独立审查发现(2026-07-10)：修复前按 index==0 编造"第一个部门在执行、其余
     已汇报"，但 _execute_council() 是单次黑箱调用，完成前不存在"部分汇报"，完成

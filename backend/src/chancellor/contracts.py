@@ -75,6 +75,7 @@ class TimelineEvent(BaseModel):
     actor: str
     message: str
     occurred_at: str
+    sequence: int
 
 
 class DecreeExecutionStatusV1(BaseModel):

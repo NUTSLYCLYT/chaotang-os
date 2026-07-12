@@ -75,6 +75,7 @@ export const ZTimelineEvent = z.object({
   actor: z.string(),
   message: z.string(),
   occurred_at: z.string(),
+  sequence: z.number(),
 });
 
 export const ZDecreeExecutionStatusV1 = z.object({

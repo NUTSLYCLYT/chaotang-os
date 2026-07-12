@@ -68,6 +68,7 @@ test('ZDecreeExecutionStatusV1 内嵌 route_decision 且状态字段齐全', () 
         actor: 'chancellor',
         message: '路由已生成',
         occurred_at: '2026-07-10T00:00:01+00:00',
+        sequence: 1,
       },
     ],
   });

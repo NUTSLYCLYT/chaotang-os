@@ -555,9 +555,13 @@ class DecreeExecutionEvent(Base):
     actor: Mapped[str] = mapped_column(sa.Text, nullable=False)
     message: Mapped[str] = mapped_column(sa.Text, nullable=False)
     occurred_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
+    # task_id 内单调递增的排序序号(2026-07-12 补，见方案阶段4)：occurred_at 只精确到秒，
+    # 同一秒内触发的多个事件排序会退化成不确定的插入顺序/主键顺序，sequence 是唯一
+    # 保证确定性排序的字段。occurred_at 仍保留用于展示时间戳，不再承担排序职责。
+    sequence: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
 
     __table_args__ = (
-        sa.Index("ix_decree_execution_events_task_occurred", "task_id", "occurred_at"),
+        sa.Index("ix_decree_execution_events_task_sequence", "task_id", "sequence"),
     )
 
 
