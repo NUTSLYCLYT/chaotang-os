@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from pathlib import Path
 from typing import Callable
@@ -198,6 +199,23 @@ def adapt_bingbu(task_text: str) -> dict | None:
     return doc
 
 
+_KEYWORD_SPLIT_RE = re.compile(r"[，,。.？?！!、；;：:\s]+")
+
+
+def _candidate_keywords(task_text: str, *, max_candidates: int = 5) -> list[str]:
+    """从一整段任务描述里粗略切出几个候选关键词短语。
+
+    2026-07-12 Codex 停止前审查发现：把整段(甚至截断到120字的)任务描述
+    当成一个整体子串去 LIKE 匹配，要求历史 claim/query 逐字包含这一大段
+    文本才算命中——两次任务描述只要措辞稍有不同(现实中几乎总是如此)就
+    永远不会命中，等同于让"读历史复用"这个功能形同虚设。这里按常见中文
+    标点/空白切分成短语，取长度>=2的前几个作为候选，命中任意一个就算
+    相关——中文没有天然空格分词，jieba 之类的真分词是更大的依赖，这里
+    先用标点切分这种"朴素"办法，语料量/匹配质量真的成为问题再升级。"""
+    parts = [p for p in _KEYWORD_SPLIT_RE.split(task_text) if len(p) >= 2]
+    return parts[:max_candidates]
+
+
 def _merge_known_evidence(task_text: str, fresh_findings: list) -> list:
     """把共享情报池里已经核实过的"入库"级历史情报，合并进本次检索结果——
     下一个任务问到同一个主题时不用重新打一次真实检索。合并进来的历史情报
@@ -209,13 +227,14 @@ def _merge_known_evidence(task_text: str, fresh_findings: list) -> list:
         from src.jinyiwei_evidence_store import query_evidence
         from src.tenant import resolve_current_tenant_id
 
+        keywords = _candidate_keywords(task_text) or [task_text[:30]]
         tenant_id = resolve_current_tenant_id()
         db = SessionLocal()
         try:
             known = query_evidence(
                 db,
                 tenant_id=tenant_id,
-                keyword=task_text[:120],
+                keyword=keywords,
                 include_pending=False,
             )
         finally:

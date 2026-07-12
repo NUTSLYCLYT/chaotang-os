@@ -127,25 +127,52 @@ def test_adapt_jinyiwei_failure_returns_none(monkeypatch):
     assert rde.adapt_jinyiwei("任何任务") is None
 
 
+def test_merge_known_evidence_extracts_multiple_short_candidates():
+    """2026-07-12 Codex 停止前审查发现:把一整段任务描述当成一个整体子串去
+    LIKE 匹配，要求历史 claim/query 逐字包含这一大段文本才算命中——两次
+    任务描述只要措辞稍有不同就永远不会命中，等同于让"读历史复用"这个
+    功能形同虚设。这里直接测 `_candidate_keywords` 按标点切出的候选短语，
+    不是整段原文一个字不差地当子串。"""
+    keywords = rde._candidate_keywords("某供应商资质尽调，追加核实新情况")
+    assert "某供应商资质尽调" in keywords
+    assert "追加核实新情况" in keywords
+    assert "某供应商资质尽调，追加核实新情况" not in keywords  # 不是整段当一个候选
+
+
 def test_adapt_jinyiwei_reuses_persisted_evidence_without_duplicate_claims(
     isolated_session_local, monkeypatch
 ):
-    """锦衣卫共享证据服务阶段2验收:两次主题重叠的 adapt_jinyiwei 调用，
-    第二次应该能读到第一次写回共享池的"入库"级历史情报并合并进检索结果，
-    且不会在池子里插入重复的 claim_key 行。"""
+    """锦衣卫共享证据服务阶段2验收:两次主题重叠但措辞不同的 adapt_jinyiwei
+    调用，第二次应该能读到第一次写回共享池的"入库"级历史情报并合并进检索
+    结果，且不会在池子里插入重复的 claim_key 行。两次调用的模拟检索结果
+    刻意设成互不相同的 claim 文本——如果只断言"资质核验"这个词出现在第二
+    次结果里，即使历史合并完全失效，也会因为第二次自己的新检索结果恰好
+    包含这个词而误判通过(这正是 Codex 停止前审查抓到的第一版测试假阳性)。
+    这里同时断言第二次结果里出现"资质核验"(来自历史合并)和"合同条款"
+    (来自本次新检索)两条互不相同的内容，才能证明合并是真的生效。"""
     import src.jinyiwei_search as js
     from src.db.models import JinyiweiEvidence
 
-    call_count = {"n": 0}
-
-    def _fake_tavily(query, **kw):
-        call_count["n"] += 1
-        return [
+    responses = [
+        [
             {
                 "claim": "该供应商已通过一手资质核验",
                 "sources": [{"name": "https://a.com", "tier": "一手"}],
             }
-        ]
+        ],
+        [
+            {
+                "claim": "该供应商合同条款审查无异常",
+                "sources": [{"name": "https://b.com", "tier": "一手"}],
+            }
+        ],
+    ]
+    call_count = {"n": 0}
+
+    def _fake_tavily(query, **kw):
+        idx = call_count["n"]
+        call_count["n"] += 1
+        return responses[idx] if idx < len(responses) else []
 
     monkeypatch.setattr(js, "tavily_search", _fake_tavily)
 
@@ -153,12 +180,15 @@ def test_adapt_jinyiwei_reuses_persisted_evidence_without_duplicate_claims(
     assert doc1 is not None
     assert call_count["n"] == 1
 
-    doc2 = rde.adapt_jinyiwei("某供应商资质尽调追加核实")
+    # 第二次任务描述在第一次的基础上加了一句，措辞不同但共享
+    # "某供应商资质尽调" 这个短语——_candidate_keywords 会把它切成候选词，
+    # 而不是要求整段文本逐字匹配历史记录。
+    doc2 = rde.adapt_jinyiwei("某供应商资质尽调，追加核实合同风险")
     assert doc2 is not None
     assert call_count["n"] == 2  # 第二次仍会真实检索，但检索结果会跟历史合并
-    # 合并后的 items 里应该能看到第一次写回的那条历史情报(通过 vet 门重新分级)
     claims_seen = {item.get("title") for item in doc2["items"]}
-    assert any("资质核验" in (c or "") for c in claims_seen)
+    assert any("资质核验" in (c or "") for c in claims_seen)  # 来自历史合并
+    assert any("合同条款" in (c or "") for c in claims_seen)  # 来自本次新检索
 
     db = isolated_session_local()
     try:

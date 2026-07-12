@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 from hashlib import sha1
 from typing import TYPE_CHECKING, Any
 
+import sqlalchemy as sa
+
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
@@ -109,14 +111,23 @@ def query_evidence(
     db: "Session",
     *,
     tenant_id: int,
-    keyword: str | None = None,
+    keyword: str | list[str] | None = None,
     dept: str | None = None,
     include_pending: bool = False,
     limit: int = 50,
 ) -> list[dict[str, Any]]:
     """查共享情报池。脏情报("拒")无论 include_pending 传什么都不出这个端点——
     锦衣卫铁律"脏情报挡门外"在查询侧也要守住,不能因为调用方想看"待核"
-    就连"拒"也放出去。"""
+    就连"拒"也放出去。
+
+    `keyword` 可以是单个字符串(如 `/api/intel/evidence?query=` 里人工输入
+    的短查询词)，也可以是候选关键词列表(如
+    `real_department_engines._merge_known_evidence` 从一整段任务描述里
+    切出来的几个短语)——命中其中任意一个即算相关。2026-07-12 Codex 停止
+    前审查发现：把一整段(甚至截断到120字的)任务描述当成单个子串去
+    LIKE 匹配，现实中几乎不可能命中历史 claim/query(除非两次任务描述
+    逐字重复)，等同于让"读历史复用"这个功能形同虚设——所以这里支持列表，
+    调用方应该传候选短语而不是整段长文本。"""
     from src.db.models import JinyiweiEvidence
 
     q = db.query(JinyiweiEvidence).filter(
@@ -126,10 +137,16 @@ def query_evidence(
     if not include_pending:
         q = q.filter(JinyiweiEvidence.decision == "入库")
     if keyword:
-        like = f"%{keyword}%"
-        q = q.filter(
-            (JinyiweiEvidence.claim.like(like)) | (JinyiweiEvidence.query.like(like))
-        )
+        keywords = [keyword] if isinstance(keyword, str) else list(keyword)
+        clauses = []
+        for kw in keywords:
+            if not kw:
+                continue
+            like = f"%{kw}%"
+            clauses.append(JinyiweiEvidence.claim.like(like))
+            clauses.append(JinyiweiEvidence.query.like(like))
+        if clauses:
+            q = q.filter(sa.or_(*clauses))
     if dept:
         # dept_affinity_json 为空数组("[]")表示不限定部门、任何人可用;
         # 否则要求 JSON 数组文本里包含带引号的部门码,避免子串误命中
