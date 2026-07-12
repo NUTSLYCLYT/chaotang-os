@@ -456,6 +456,82 @@ def test_decree_execution_event_sequence_repairs_previously_broken_intermediate_
     eng.dispose()
 
 
+def test_decree_execution_event_sequence_backfill_persists_after_read_only_session_closes():
+    """2026-07-12 Codex 停止前四次审查纠正:"只读状态请求触发的'自愈'会在关闭
+    Session 时回滚，数据库仍停留在坏状态"——GET /tasks/{id}/status 这类纯读
+    端点从不 commit，只在 finally 里 db.close()；_load_timeline 里触发的回填
+    UPDATE 如果不自己提交，会在 session 关闭时被回滚(sqlite 的 ALTER TABLE
+    有隐式自动提交的怪癖所以加列本身会侥幸留下，但真正修复排序的回填数据
+    永远不会真正落盘，状态接口会陷入"每次都检测到坏数据→重新回填→白做"的
+    死循环)。之前几版测试都在同一个 session 里既写又读，从未真正暴露这个
+    问题——这里模拟"只读请求"的真实调用形态：一个 session 只调用
+    `_load_timeline`(不调用任何写入函数)，关闭它(不 commit)，再开一个全新
+    的、独立的 session 直接查库，确认回填结果真的持久化了，而不是只在第一个
+    session 自己的事务视图里显得对。"""
+    from sqlalchemy import create_engine
+    from sqlalchemy import text as sa_text
+    from sqlalchemy.pool import StaticPool
+
+    from src.chancellor.decree_status import _load_timeline
+    from src.db.models import DecreeExecutionEvent
+
+    eng = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    with eng.begin() as conn:
+        conn.execute(
+            sa_text(
+                """CREATE TABLE decree_execution_events (
+                    id TEXT PRIMARY KEY,
+                    task_id TEXT NOT NULL,
+                    stage TEXT NOT NULL,
+                    actor TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    occurred_at TEXT NOT NULL
+                )"""
+            )
+        )
+        for row in [
+            ("evt_ro_1", "t_readonly", "drafting", "chancellor", "只读-第一条", "2026-07-02T00:00:00+00:00"),
+            ("evt_ro_2", "t_readonly", "executing", "worker", "只读-第二条", "2026-07-02T00:00:00+00:00"),
+        ]:
+            conn.execute(
+                sa_text(
+                    "INSERT INTO decree_execution_events "
+                    "(id, task_id, stage, actor, message, occurred_at) "
+                    "VALUES (:id, :task_id, :stage, :actor, :message, :occurred_at)"
+                ),
+                dict(zip(["id", "task_id", "stage", "actor", "message", "occurred_at"], row)),
+            )
+
+    # 模拟 shangshufang_task_status 这类只读端点：新开一个 session，只读、
+    # 不写、不 commit，最后直接关闭。
+    read_only_session = Session(eng)
+    try:
+        timeline = _load_timeline(read_only_session, "t_readonly")
+        assert [e.sequence for e in timeline] == [1, 2]
+    finally:
+        read_only_session.close()  # 故意不 commit，模拟真实只读端点的行为
+
+    # 用一个全新的、独立的 session 验证回填是否真的持久化了，而不是只在
+    # 上面那个已经关闭的 session 自己的事务视图里显得对。
+    verify_session = Session(eng)
+    try:
+        rows = (
+            verify_session.query(DecreeExecutionEvent)
+            .filter_by(task_id="t_readonly")
+            .order_by(DecreeExecutionEvent.id)
+            .all()
+        )
+        assert {row.sequence for row in rows} == {1, 2}
+        assert not any(row.sequence == 0 for row in rows)
+    finally:
+        verify_session.close()
+    eng.dispose()
+
+
 # ── 6. get_memorial_status_db ──────────────────────────────────────────────
 
 

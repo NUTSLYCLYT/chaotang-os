@@ -55,3 +55,15 @@ Codex 停止前三次审查指出:"自愈仍然没有修复此前遗留在中间
 新增测试 `test_decree_execution_event_sequence_repairs_previously_broken_intermediate_state`：预先建一张**已经带 `sequence` 列**的表(不是"列不存在"，是"列存在但是坏的")，同一 `task_id` 下插入 3 条历史行全部卡在 `sequence=0`，验证下一次任意 `record_timeline_event` 调用(即使是操作另一个不相关的 `task_id`)能检测到这个退化状态并重新回填出确定顺序 `[1,2,3]`。
 
 验证：`python3 -m pytest -q tests/test_flow_db_dualwrite.py tests/test_decree_execution_status.py tests/test_chancellor_contracts.py` 27 passed；全量 `pytest` 无新增失败；三层 `harness:doctor` 全绿。本沙箱 `backend/data/fengqun.db` 复查确认 `sequence=0` 的退化行数为 0(上一轮已手动修复过)，本轮修复让这种情况以后能被代码自身检测并自动修复，不再需要手动介入。
+
+## Codex 停止前四次审查纠正(2026-07-12)
+
+Codex 停止前四次审查指出:"只读状态请求触发的'自愈'会在关闭 Session 时回滚，数据库仍停留在坏状态"。复核确认属实——`GET /tasks/{task_id}/status`(`web/routers/shangshufang.py:1157` 起)是纯读端点，全程只 `db.query(...)`，从不调用 `db.commit()`，只在 `finally` 里 `db.close()`。`_load_timeline` 里触发的 `ensure_decree_execution_event_sequence_column`/`_repair_decree_execution_event_sequence_if_degenerate` 如果不自己提交，回填产生的 UPDATE 会在 session 关闭时被回滚——用真实调用序列复现确认：sqlite DBAPI 对 DDL(`ALTER TABLE`)有隐式自动提交的怪癖，所以"加列"本身会侥幸留下，但真正修复排序问题的"回填"数据(ORM 层面的 `UPDATE`)每次都在 session 关闭时被丢弃，状态接口会陷入"检测到坏数据→重新回填→白做"的死循环，从未真正落盘。
+
+排查过程中发现这不是本次改动独有的新问题：`web/routers/dadian.py::_task_rows()`(被 3 个纯 GET 端点调用)对 `ensure_task_result_json_column` 也是同样"调用但从不 commit"的既有模式，是这个代码库里已经存在、跟本次改动无关的同类缺口；反而 `web/routers/chaotang.py` 的 `tasks_list`/`task_detail` 已经在类似位置正确地加了 `_db.commit()`。本次只修复被 Codex 点名的 `_load_timeline` 这一处，不顺手扩大范围去修 `dadian.py` 的既有缺口。
+
+修复：在 `_load_timeline` 里 `ensure_decree_execution_event_sequence_column(db)` 之后立即 `db.commit()`——这里安全的原因是 `_load_timeline`/`build_decree_execution_status` 全程是纯读，提交之前没有任何待写入的业务状态会被这次提前 commit 误伤(唯一调用方 `shangshufang_task_status` 本来就只读不写)。没有对 `record_timeline_event` 做同样处理：核实过它当前所有调用方(`shangshufang.py:1109-1125`、`outbox_worker.py` 的 `_execute_direct`/`_execute_council` 两条路径)都会在函数返回后不久可靠地 `db.commit()`，提前插入一次 commit 反而会破坏该函数文档里明确写着的"跟其余下旨记录同一事务，避免不一致窗口"这个设计意图。
+
+新增测试 `test_decree_execution_event_sequence_backfill_persists_after_read_only_session_closes`：模拟真实只读端点的调用形态——一个 session 只调用 `_load_timeline`(不写入、不显式 commit)后关闭，再用一个全新独立的 session 直接查库，断言回填结果真的持久化了。为确认这条测试真的能捕获这个回归，临时把 `_load_timeline` 里的 `db.commit()` 去掉重跑这条测试，确认它会失败(`{0} == {1, 2}`，回填数据被回滚)，再恢复修复确认测试转绿——不是一条只是“看起来测了什么”但实际测不出问题的假阳性测试。
+
+验证：`python3 -m pytest -q tests/test_flow_db_dualwrite.py tests/test_decree_execution_status.py tests/test_chancellor_contracts.py` 28 passed；全量 `pytest` 无新增失败；三层 `harness:doctor` 全绿。
