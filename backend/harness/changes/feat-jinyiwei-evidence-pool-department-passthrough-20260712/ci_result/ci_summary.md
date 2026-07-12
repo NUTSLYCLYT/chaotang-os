@@ -44,3 +44,15 @@ Codex 停止前二次审查指出:"keyword split still misses common unpunctuate
 新增测试 `test_adapt_jinyiwei_reuses_evidence_for_unpunctuated_follow_up`：专门用没有标点分隔的追加式后续问法("某供应商资质尽调追加核实合同风险")验证反向包含检查。用负对照验证：临时去掉反向包含检查重跑这条新测试，确认失败(`assert any("资质核验"...)` 不成立)，恢复后确认转绿。
 
 验证：`python3 -m pytest -q tests/test_real_department_engines.py tests/test_jinyiwei_evidence_store.py tests/test_jinyiwei_endpoint.py` 65 passed；全量 `pytest` 2414 passed，同一组 8 个既有无关失败；三层 `harness:doctor` 全绿。
+
+## Codex 停止前三次审查纠正(2026-07-12)
+
+Codex 停止前三次审查指出:"reverse substring match can merge unrelated historical evidence"。复核确认属实——上一版加的反向包含检查(历史 `query` 整个作为子串出现在新任务描述里)没有设最短长度门槛。一条很短、很通用的历史 `query`(比如"核实"这两个字)几乎必然是任何任务描述的子串——"核实"/"情况"/"是否"这类通用词在业务任务描述里到处都是，会把完全不相关主题的历史情报错误合并进来，污染六部派单的判断依据。
+
+修复：新增共享常量 `_MIN_MATCH_LEN = 4`，同时应用到两处：
+1. `_candidate_keywords()` 的标点切分候选过滤，从 `len(p) >= 2` 提高到 `len(p) >= _MIN_MATCH_LEN`。
+2. 反向包含检查新增 `len(row["query"]) >= _MIN_MATCH_LEN` 门槛，只有历史 `query` 本身足够长(4 字中文短语通常已经带具体主题，跟 2 字通用词有质的区别)才纳入反向匹配。
+
+新增测试 `test_merge_known_evidence_ignores_generic_short_historical_query`：第一次任务描述本身就是通用短词"核实"，第二次是完全不相关但恰好包含"核实"两字的任务描述，验证不会发生误合并。用负对照验证：临时去掉长度门槛重跑这条新测试，确认失败(误合并了不相关的历史结论)，恢复后确认转绿。
+
+验证：`python3 -m pytest -q tests/test_real_department_engines.py tests/test_jinyiwei_evidence_store.py tests/test_jinyiwei_endpoint.py` 66 passed；全量 `pytest` 2415 passed，同一组 8 个既有无关失败；三层 `harness:doctor` 全绿。

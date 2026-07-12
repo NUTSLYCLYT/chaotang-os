@@ -264,6 +264,53 @@ def test_adapt_jinyiwei_reuses_evidence_for_unpunctuated_follow_up(
         db.close()
 
 
+def test_merge_known_evidence_ignores_generic_short_historical_query(
+    isolated_session_local, monkeypatch
+):
+    """2026-07-12 Codex 停止前三次审查纠正:"reverse substring match can
+    merge unrelated historical evidence"——反向包含检查如果不设最短长度
+    门槛，一条很短、很通用的历史 query(比如"核实"这两个字)几乎必然是
+    任何任务描述的子串，会把完全不相关主题的历史情报错误合并进来。这里
+    验证:历史 query 只有 2 个字时，即使这 2 个字确实是新任务描述的子串，
+    也不应该触发合并——`_MIN_MATCH_LEN` 挡住了这种通用词误命中。"""
+    import src.jinyiwei_search as js
+
+    responses = [
+        [
+            {
+                "claim": "某个完全无关主题的旧结论",
+                "sources": [{"name": "https://a.com", "tier": "一手"}],
+            }
+        ],
+        [
+            {
+                "claim": "本次真实检索到的新结论",
+                "sources": [{"name": "https://b.com", "tier": "一手"}],
+            }
+        ],
+    ]
+    call_count = {"n": 0}
+
+    def _fake_tavily(query, **kw):
+        idx = call_count["n"]
+        call_count["n"] += 1
+        return responses[idx] if idx < len(responses) else []
+
+    monkeypatch.setattr(js, "tavily_search", _fake_tavily)
+
+    # 第一次任务描述本身就很短、很通用("核实"两个字)——这类查询词
+    # 几乎必然是后面任何任务描述的子串。
+    doc1 = rde.adapt_jinyiwei("核实")
+    assert doc1 is not None
+
+    # 第二次是完全不相关的主题，只是措辞上恰好包含"核实"这两个字。
+    doc2 = rde.adapt_jinyiwei("请核实这份完全无关的采购合同细节")
+    assert doc2 is not None
+    claims_seen = {item.get("title") for item in doc2["items"]}
+    assert not any("完全无关主题的旧结论" in (c or "") for c in claims_seen)
+    assert any("本次真实检索到的新结论" in (c or "") for c in claims_seen)
+
+
 def test_contract_mapping_fields(monkeypatch):
     import src.bingbu_battlecard as bb
 

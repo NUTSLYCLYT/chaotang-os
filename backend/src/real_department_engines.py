@@ -205,6 +205,14 @@ _KEYWORD_SPLIT_RE = re.compile(r"[，,。.？?！!、；;：:\s]+")
 # 数千条以上)再引入更精细的检索策略。
 _KNOWN_EVIDENCE_POOL_LIMIT = 200
 
+# 2026-07-12 Codex 停止前三次审查纠正："reverse substring match can merge
+# unrelated historical evidence"——候选短语/历史 query 如果只有 2-3 个字，
+# 很可能是"核实"/"情况"/"是否"这类通用词，几乎任何任务描述都可能巧合
+# 包含它，会把完全不相关的历史情报也合并进来。提高最短长度门槛到 4 个
+# 字符，减少这种通用词误命中(4 字中文短语通常已经带具体主题，如
+# "资质核验"/"尽职调查"，跟 2 字通用词有质的区别)。
+_MIN_MATCH_LEN = 4
+
 
 def _candidate_keywords(task_text: str, *, max_candidates: int = 5) -> list[str]:
     """从一整段任务描述里粗略切出几个候选关键词短语。
@@ -213,15 +221,17 @@ def _candidate_keywords(task_text: str, *, max_candidates: int = 5) -> list[str]
     当成一个整体子串去 LIKE 匹配，要求历史 claim/query 逐字包含这一大段
     文本才算命中——两次任务描述只要措辞稍有不同(现实中几乎总是如此)就
     永远不会命中，等同于让"读历史复用"这个功能形同虚设。这里按常见中文
-    标点/空白切分成短语，取长度>=2的前几个作为候选，命中任意一个就算
-    相关——中文没有天然空格分词，jieba 之类的真分词是更大的依赖，这里
-    先用标点切分这种"朴素"办法，语料量/匹配质量真的成为问题再升级。
+    标点/空白切分成短语，取长度>=_MIN_MATCH_LEN 的前几个作为候选，命中
+    任意一个就算相关——中文没有天然空格分词，jieba 之类的真分词是更大的
+    依赖，这里先用标点切分这种"朴素"办法，语料量/匹配质量真的成为问题
+    再升级。候选太短(2-3 字)容易是通用词导致误命中，见 `_MIN_MATCH_LEN`
+    的说明。
 
     注意：这只是候选短语的其中一个来源。没有标点分隔的追加式后续问法
     (例如"某供应商资质尽调追加核实"，中间没有逗号)切不出比整句更短的
     候选——这种情况交给 `_merge_known_evidence` 里的反向包含检查处理，
     不是这个函数单独就能覆盖的，见该函数的说明。"""
-    parts = [p for p in _KEYWORD_SPLIT_RE.split(task_text) if len(p) >= 2]
+    parts = [p for p in _KEYWORD_SPLIT_RE.split(task_text) if len(p) >= _MIN_MATCH_LEN]
     return parts[:max_candidates]
 
 
@@ -242,7 +252,14 @@ def _merge_known_evidence(task_text: str, fresh_findings: list) -> list:
     ①候选短语出现在历史 claim/query 里(标点切分帮得上的情况)，②反过来，
     历史 query 整个作为子串出现在这次的任务描述里(不管有没有标点，"旧问题
     +追加内容"这种最常见的后续问法天然满足这条)。两个方向都不依赖标点，
-    也不依赖猜中一个刚好对齐的滑动窗口大小。"""
+    也不依赖猜中一个刚好对齐的滑动窗口大小。
+
+    2026-07-12 Codex 停止前三次审查纠正："reverse substring match can merge
+    unrelated historical evidence"——反向检查(历史 query 整个是新任务描述
+    的子串)如果不设长度门槛，一条很短、很通用的历史 query(比如两三个字的
+    "核实"/"情况")几乎必然是任何任务描述的子串，会把完全不相关主题的历史
+    情报也合并进来。这里要求 `row["query"]` 至少 `_MIN_MATCH_LEN` 个字符
+    才纳入反向检查，跟候选短语的最短长度门槛保持一致。"""
     try:
         from src.db.engine import SessionLocal
         from src.jinyiwei_evidence_store import query_evidence
@@ -269,7 +286,11 @@ def _merge_known_evidence(task_text: str, fresh_findings: list) -> list:
         row
         for row in pool
         if any(kw in row["claim"] or kw in row["query"] for kw in candidates)
-        or (row["query"] and row["query"] in task_text)
+        or (
+            row["query"]
+            and len(row["query"]) >= _MIN_MATCH_LEN
+            and row["query"] in task_text
+        )
     ]
     if not known:
         return fresh_findings
