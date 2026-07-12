@@ -277,13 +277,22 @@ def ensure_jinyiwei_evidence_unique_constraint(session: Session) -> None:
                 )
             )
             return
-        session.execute(
-            text(
-                "ALTER TABLE jinyiwei_evidence "
-                "ADD CONSTRAINT uq_jinyiwei_evidence_tenant_claim_key "
-                "UNIQUE (tenant_id, claim_key)"
+        # PostgreSQL 的 ADD CONSTRAINT 不支持 IF NOT EXISTS(只有 ADD COLUMN
+        # 才支持)——约束已存在时这条语句必然报错，重启后每次都会撞上。裸
+        # execute 报错会让 PostgreSQL 把当前事务标记为 aborted，即便这里
+        # try/except 接住了 Python 异常，同一 session 后续任何语句(下一个
+        # ensure_*、lifespan 里的 db.commit())都会因为
+        # "current transaction is aborted" 连带失败。用 begin_nested()
+        # (SAVEPOINT)顶住失败只回滚这一小步，跟 upsert_evidence 里
+        # IntegrityError 的处理手法同源。
+        with session.begin_nested():
+            session.execute(
+                text(
+                    "ALTER TABLE jinyiwei_evidence "
+                    "ADD CONSTRAINT uq_jinyiwei_evidence_tenant_claim_key "
+                    "UNIQUE (tenant_id, claim_key)"
+                )
             )
-        )
     except Exception as exc:  # noqa: BLE001 - 区分"已存在"/"有重复数据"两种已知情况
         message = str(exc).lower()
         if "already exists" in message or "duplicate" in message:
@@ -301,13 +310,14 @@ def ensure_jinyiwei_evidence_unique_constraint(session: Session) -> None:
                     )
                 )
             else:
-                session.execute(
-                    text(
-                        "ALTER TABLE jinyiwei_evidence "
-                        "ADD CONSTRAINT uq_jinyiwei_evidence_tenant_claim_key "
-                        "UNIQUE (tenant_id, claim_key)"
+                with session.begin_nested():
+                    session.execute(
+                        text(
+                            "ALTER TABLE jinyiwei_evidence "
+                            "ADD CONSTRAINT uq_jinyiwei_evidence_tenant_claim_key "
+                            "UNIQUE (tenant_id, claim_key)"
+                        )
                     )
-                )
             return
         raise
 

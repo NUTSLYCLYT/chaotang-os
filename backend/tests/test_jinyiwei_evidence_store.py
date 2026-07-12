@@ -3,11 +3,13 @@
 见 /home/ubuntu/.claude/plans/valiant-crunching-candy.md「锦衣卫作为跨阶段共享证据服务」阶段1。
 """
 from __future__ import annotations
+from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+from src.db.flow_store import ensure_jinyiwei_evidence_unique_constraint
 from src.db.models import Base
 from src.jinyiwei_evidence_store import query_evidence, upsert_evidence
 
@@ -253,6 +255,28 @@ def test_upsert_evidence_does_not_duplicate_under_concurrent_race(tmp_path):
         verify_session.close()
         session_a.close()
         session_b.close()
+
+
+def test_ensure_jinyiwei_evidence_unique_constraint_uses_savepoint_on_postgres():
+    """2026-07-12 Codex 停止前审查纠正："PostgreSQL 写入路径会因重复添加约束
+    而使事务失效"——PostgreSQL 的 ADD CONSTRAINT 不支持 IF NOT EXISTS(只有
+    ADD COLUMN 才支持)，约束已存在时(每次重启后都是这个状态)裸 execute()
+    报错会让 PostgreSQL 把当前事务标记为 aborted；catch 住 Python 异常并不
+    能让 PostgreSQL 事务恢复，同一 session 后续任何语句(下一个 ensure_*、
+    lifespan 里的 db.commit())都会级联失败。已用本机真实 PostgreSQL 16
+    手工复现("current transaction is aborted")并验证 SAVEPOINT
+    (session.begin_nested())能修复。这里断言:非 sqlite dialect 下 ALTER
+    语句必须包在 session.begin_nested() 里，回归成裸 execute 会在真实
+    PostgreSQL 上重新引入这个问题，但本仓库测试只跑 SQLite，光靠已有的
+    upsert_evidence 测试挡不住这种回归。"""
+    session = MagicMock()
+    session.get_bind.return_value.dialect.name = "postgresql"
+
+    ensure_jinyiwei_evidence_unique_constraint(session)
+
+    session.begin_nested.assert_called_once()
+    executed_sql = str(session.execute.call_args.args[0])
+    assert "ADD CONSTRAINT" in executed_sql
 
 
 def test_query_evidence_is_tenant_scoped(db):
