@@ -1,9 +1,4 @@
----
-name: chaotang-xingbu-persona
-description: 刑部人格化技能。用于法务、合规、安全、红蓝对抗、事故、豁免和制度控制。
----
-
-# 刑部 Skill
+﻿# 刑部 Skill
 
 原型：包拯 + 安全/合规/事故复盘负责人。
 

@@ -1,9 +1,4 @@
----
-name: chaotang-gongbu-persona
-description: 工部人格化技能。用于工程实现、POC、测试、发布、回滚和工程蜂群可视化。
----
-
-# 工部 Skill
+﻿# 工部 Skill
 
 原型：鲁班 + 极简工程负责人。
 

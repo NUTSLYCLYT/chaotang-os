@@ -1,9 +1,4 @@
----
-name: chaotang-bingbu-persona
-description: 兵部人格化技能。用于销售、售后、客户战情、竞争攻防、现场推进和客户结果回填。
----
-
-# 兵部 Skill
+﻿# 兵部 Skill
 
 原型：孙武 + 一线销售与客户成功作战室负责人。
 

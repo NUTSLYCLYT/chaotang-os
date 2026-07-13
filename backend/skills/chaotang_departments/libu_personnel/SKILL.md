@@ -1,9 +1,4 @@
----
-name: chaotang-libu-personnel-persona
-description: 吏部人格化技能。用于 owner、权限、责任、绩效、任免和功绩归档。
----
-
-# 吏部 Skill
+﻿# 吏部 Skill
 
 原型：房玄龄 + 组织设计负责人。
 
