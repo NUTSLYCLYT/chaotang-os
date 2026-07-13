@@ -95,6 +95,7 @@ if (manifest) {
   for (const rel of manifest.frontend?.entrypoints ?? []) checkExists(rel, `manifest frontend entrypoint: ${rel}`);
   for (const rel of manifest.backend?.entrypoints ?? []) checkExists(rel, `manifest backend entrypoint: ${rel}`);
   for (const rel of manifest.docs?.entrypoints ?? []) checkExists(rel, `manifest docs entrypoint: ${rel}`);
+  for (const rel of manifest.courtosBrain?.entrypoints ?? []) checkExists(rel, `manifest courtosBrain entrypoint: ${rel}`);
 
   if (manifest.controlPlane) {
     for (const key of ['blueprint', 'documentation', 'baseline']) {
@@ -108,6 +109,26 @@ if (manifest) {
     const componentStates = Object.values(manifest.controlPlane.components ?? {});
     if (manifest.controlPlane.status === 'ENFORCED' && componentStates.some((state) => state !== 'ENFORCED')) {
       error('manifest control plane cannot be ENFORCED while a component is not ENFORCED');
+    }
+
+    const rolloutHistoryFile = join(H, 'rollout-history.jsonl');
+    if (!existsSync(rolloutHistoryFile)) {
+      error('missing .harness/rollout-history.jsonl (required to track rolloutStage/components changes)');
+    } else {
+      const lines = (await readText(rolloutHistoryFile)).trim().split('\n').filter(Boolean);
+      const last = lines.length > 0 ? JSON.parse(lines[lines.length - 1]) : null;
+      if (!last) {
+        error('.harness/rollout-history.jsonl is empty; append an entry for the current rolloutStage/components');
+      } else if (
+        last.rolloutStage !== manifest.controlPlane.rolloutStage ||
+        JSON.stringify(last.components) !== JSON.stringify(manifest.controlPlane.components)
+      ) {
+        error(
+          'manifest controlPlane.rolloutStage/components changed but .harness/rollout-history.jsonl has no matching last entry; append {date, actor, rolloutStage, components, reason, relatedIncident}',
+        );
+      } else {
+        ok('rollout-history.jsonl matches current controlPlane state');
+      }
     }
   }
 
