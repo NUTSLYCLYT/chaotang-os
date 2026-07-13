@@ -1,4 +1,5 @@
 import { readFileSync, readlinkSync, readdirSync, realpathSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { auditEvent, nextFencingEpoch, nowIso, openControlPlaneDb, registeredProcessAlive, registeredProcessIdentity, resolveControlPlanePaths, withImmediateTransaction } from './control-plane-db.mjs';
 
@@ -46,7 +47,7 @@ export function inspectResource({ dbPath, key }) { return withDb(dbPath, (db) =>
 function assertOwner(row, fencingEpoch, nonce) {
   if (!row || row.nonce !== nonce) throw new Error('resource owner nonce mismatch');
   if (row.fencing_epoch !== fencingEpoch) throw new Error('resource fencing epoch mismatch');
-  if(!registeredProcessAlive({pid:row.pid,pgid:row.pgid,start_ticks:row.start_ticks,cwd:row.cwd,nonce:row.nonce}))throw new Error('resident resource holder is not alive');
+  if(!registeredProcessAlive({host_id:row.host_id,boot_id:row.boot_id,pid_namespace:row.pid_namespace,pid:row.pid,pgid:row.pgid,start_ticks:row.start_ticks,cwd:row.cwd,nonce:row.nonce}))throw new Error('resident resource holder is not alive');
 }
 
 export function portSocketOwners(port) {
@@ -63,22 +64,14 @@ export function portSocketOwners(port) {
   return owners;
 }
 
-function matchingProcessAlive(row) {
-  try {
-    const stat = readFileSync(`/proc/${row.pid}/stat`, 'utf8');
-    const tail = stat.slice(stat.lastIndexOf(')') + 2).split(' ');
-    const pgid = Number(tail[2]); const startTicks = Number(tail[19]);
-    const cwd = readlinkSync(`/proc/${row.pid}/cwd`);
-    return pgid === row.pgid && startTicks === row.start_ticks && cwd === row.cwd;
-  } catch { return false; }
-}
+function matchingProcessAlive(row) { return registeredProcessAlive({host_id:row.host_id,boot_id:row.boot_id,pid_namespace:row.pid_namespace,pid:row.pid,pgid:row.pgid,start_ticks:row.start_ticks,cwd:row.cwd,nonce:row.nonce}); }
 
 function resourceIsFree(row) {
   if (row.resource_key.startsWith('port:')) return portSocketOwners(row.resource_key.slice(5)).length===0;
   if (matchingProcessAlive(row)) return false;
   // Fail closed if another process in the recorded PGID remains alive.
   let pids;try{pids=readdirSync('/proc').filter((name)=>/^\d+$/.test(name));}catch{return false;}
-  for(const pid of pids){let stat;try{stat=readFileSync(`/proc/${pid}/stat`,'utf8');}catch(error){if(error?.code==='ENOENT')continue;return false;}const tail=stat.slice(stat.lastIndexOf(')')+2).split(' ');if(Number(tail[2])===row.pgid)return false;
+  for(const pid of pids){let stat;try{stat=readFileSync(`/proc/${pid}/stat`,'utf8');}catch(error){if(error?.code==='ENOENT')continue;return false;}const tail=stat.slice(stat.lastIndexOf(')')+2).split(' ');if(tail[0]==='Z')continue;if(Number(tail[2])===row.pgid)return false;
     if(row.resource_key.startsWith('build:')){try{if(statSync(`/proc/${pid}`).uid!==process.getuid())continue;}catch(error){if(error?.code==='ENOENT')continue;return false;}const frozen=JSON.parse(row.protected_paths_json||'[]'),protectedRoots=[];for(const item of frozen){protectedRoots.push(item.canonical);try{protectedRoots.push(canonicalAbsolute(item.input));}catch{return false;}}let fds;try{fds=readdirSync(`/proc/${pid}/fd`);}catch(error){if(error?.code==='ENOENT')continue;return false;}for(const fd of fds){try{const target=readlinkSync(`/proc/${pid}/fd/${fd}`);if(protectedRoots.some(root=>target===root||target.startsWith(`${root}${sep}`)))return false;}catch(error){if(error?.code!=='ENOENT')return false;}}}
   }
   return true;
@@ -118,7 +111,7 @@ export function markResourceSuspect({ dbPath, key, nowMs = Date.now() }) {
 
 export function fenceResource({dbPath,key,expectedEpoch,actor,reason,evidence}){if(!actor||!reason||!evidence)throw new Error('fence requires actor, reason and evidence');return withDb(dbPath,db=>withImmediateTransaction(db,()=>{const row=db.prepare('SELECT * FROM resource_locks WHERE resource_key=?').get(key);if(!row||row.state!=='suspect'||row.pending_fencing_epoch!==expectedEpoch)throw new Error('suspect fencing epoch mismatch');db.prepare("UPDATE resource_locks SET state='fenced',evidence=? WHERE resource_key=?").run(evidence,key);auditEvent(db,{event:'resource.fence',actor,subject:key,reason,payload:{evidence,expectedEpoch}});return rowToLock(db.prepare('SELECT * FROM resource_locks WHERE resource_key=?').get(key));}));}
 
-export function breakGlassResource({dbPath,key,actor,reason,evidence,ticket,ticketExpiresAt,nowMs=Date.now()}){if(!actor||!reason||!evidence||!ticket||!Number.isFinite(Date.parse(ticketExpiresAt))||Date.parse(ticketExpiresAt)<=nowMs)throw new Error('break-glass requires actor, reason, evidence and unexpired ticket');return withDb(dbPath,db=>withImmediateTransaction(db,()=>{const row=db.prepare('SELECT * FROM resource_locks WHERE resource_key=?').get(key);if(!row||!['active','suspect'].includes(row.state))throw new Error('resource is not break-glass eligible');const epoch=nextFencingEpoch(db);db.prepare("UPDATE resource_locks SET state='fenced',pending_fencing_epoch=?,evidence=? WHERE resource_key=?").run(epoch,evidence,key);auditEvent(db,{event:'resource.break_glass',actor,subject:key,reason,payload:{evidence,ticket,ticketExpiresAt,epoch}});return rowToLock(db.prepare('SELECT * FROM resource_locks WHERE resource_key=?').get(key));}));}
+export function breakGlassResource({dbPath,key,actor,reason,evidence,ticketId}){if(!actor||!reason||!evidence||!ticketId)throw new Error('break-glass requires a verified single-use authorization');return withDb(dbPath,db=>withImmediateTransaction(db,()=>{const authorization=db.prepare("SELECT * FROM break_glass_uses WHERE ticket_id=? AND status='authorized'").get(ticketId);if(!authorization||authorization.actor!==actor||authorization.reason!==reason||authorization.evidence!==evidence||authorization.resource_key!==key)throw new Error('verified break-glass authorization is missing or mismatched');const expected=JSON.parse(authorization.expected_lock_json),row=db.prepare('SELECT * FROM resource_locks WHERE resource_key=?').get(key);if(!row||!['active','suspect'].includes(row.state)||row.owner!==expected.owner||row.task_id!==expected.task_id||row.commit_sha!==expected.commit_sha||row.fencing_epoch!==expected.fencing_epoch)throw new Error('resource current owner identity differs from signed break-glass target');if(key==='release:production'){const release=db.prepare('SELECT release_id,task_id,commander,commit_sha,release_fencing_epoch FROM release_runs WHERE release_id=?').get(authorization.release_id);if(!release||release.task_id!==row.task_id||release.commander!==row.owner||release.commit_sha!==row.commit_sha||release.release_fencing_epoch!==row.fencing_epoch)throw new Error('signed release identity does not own current production lock');}const epoch=nextFencingEpoch(db),outcome=`sha256:${createHash('sha256').update(JSON.stringify({ticket_id:ticketId,resource_key:key,state:'fenced',fencing_epoch:epoch})).digest('hex')}`;db.prepare("UPDATE resource_locks SET state='fenced',pending_fencing_epoch=?,evidence=? WHERE resource_key=?").run(epoch,evidence,key);db.prepare("UPDATE break_glass_uses SET status='operation_applied',operation_evidence=? WHERE ticket_id=? AND status='authorized'").run(outcome,ticketId);auditEvent(db,{event:'resource.break_glass',actor,subject:key,reason,payload:{evidence,ticket_id:ticketId,epoch,operation_outcome_digest:outcome,expected_lock:expected,release_id:authorization.release_id}});return rowToLock(db.prepare('SELECT * FROM resource_locks WHERE resource_key=?').get(key));}));}
 
 export function reclaimResource({ dbPath, key, expectedEpoch, evidence }) {
   if (!evidence) throw new Error('reclaim evidence is required');

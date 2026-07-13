@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { acquireResource, breakGlassResource, fenceResource, heartbeatResource, inspectResource, markResourceSuspect, reclaimResource, releaseResource } from './lib/resource-lock.mjs';
+import { acquireResource, fenceResource, heartbeatResource, inspectResource, markResourceSuspect, reclaimResource, releaseResource } from './lib/resource-lock.mjs';
 import { processIdentity, registeredProcessIdentity } from './lib/control-plane-db.mjs';
 import { existsSync } from 'node:fs';
 
@@ -22,8 +22,7 @@ try {
   else if (command === 'release') result = releaseResource({ dbPath,key: args.key, fencingEpoch: Number(args.epoch), nonce: args.nonce });
   else if (command === 'suspect') result = markResourceSuspect({ dbPath,key: args.key });
   else if (command === 'fence') result = fenceResource({dbPath,key:args.key,expectedEpoch:Number(args.epoch),actor:args.actor,reason:args.reason,evidence:args.evidence});
-  else if (command === 'break-glass') result = breakGlassResource({dbPath,key:args.key,actor:args.actor,reason:args.reason,evidence:args.evidence,ticket:args.ticket,ticketExpiresAt:args['ticket-expires-at']});
   else if (command === 'reclaim') result = reclaimResource({ dbPath,key: args.key, expectedEpoch: Number(args.epoch), evidence: args.evidence });
-  else throw new Error('usage: harness-lock.mjs acquire|heartbeat|release|status|suspect|fence|reclaim|break-glass');
+  else throw new Error('usage: harness-lock.mjs acquire|heartbeat|release|status|suspect|fence|reclaim; signed emergency recovery uses harness-recovery.mjs');
   console.log(JSON.stringify(result, null, 2));
 } catch (error) { console.error(`STOP/${error.message}`); process.exitCode = 1; }

@@ -46,7 +46,7 @@
   },
   "controlPlane": {
     "status": "IMPLEMENTING",
-    "rolloutStage": "s8-local",
+    "rolloutStage": "s9-local",
     "blueprint": "docs/multi-agent-harness-control-plane-blueprint-2026-07-13.md",
     "documentation": ".harness/wiki/multi-agent-control-plane.md",
     "baseline": ".harness/baselines/multi-agent-control-plane-20260713.json",
@@ -67,7 +67,7 @@
       "contracts": "IMPLEMENTED", "taskRegistry": "IMPLEMENTED", "leaseManager": "IMPLEMENTED",
       "resourceLocks": "IMPLEMENTED", "leaseAttestation": "IMPLEMENTED_LOCAL", "integrationGate": "IMPLEMENTED_LOCAL", "worktreeManager": "IMPLEMENTED_LOCAL", "immutableBuilds": "IMPLEMENTED_LOCAL",
       "releaseCommander": "IMPLEMENTED_LOCAL", "testIdentity": "IMPLEMENTED_LOCAL", "releaseEvidence": "IMPLEMENTED_LOCAL",
-      "recovery": "DESIGNED", "mandatoryRollout": "DESIGNED"
+      "recovery": "IMPLEMENTED_LOCAL", "mandatoryRollout": "DESIGNED"
     },
     "verification": [
       "node --test scripts/multi-agent-contracts.nodetest.mjs",
@@ -80,6 +80,7 @@
       "node --test scripts/release-commander.nodetest.mjs",
       "node --test scripts/test-identity.nodetest.mjs",
       "node --test scripts/release-evidence.nodetest.mjs",
+      "node --test scripts/recovery-drill.nodetest.mjs",
       "node --test frontend/scripts/prod-runtime-identity.nodetest.ts",
       "python3 -m pytest -q backend/tests/test_production_has_no_test_identity_routes.py",
       "node scripts/harness-doctor.mjs"

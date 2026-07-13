@@ -10,7 +10,7 @@ import {
   withImmediateTransaction,
 } from './control-plane-db.mjs';
 import {
-  acquireResource, breakGlassResource, inspectResource, portSocketOwners,
+  acquireResource, inspectResource, portSocketOwners,
   reclaimResource, releaseResource,
 } from './resource-lock.mjs';
 
@@ -253,6 +253,8 @@ export function recoverWorktrees({ cwd = process.cwd(), databasePath, registryPa
     if (registeredProcessAlive(record.holder)) { results.push({ task_id: record.task_id, state: 'blocked', reason: 'holder alive' }); continue; }
     const pid = processUsesPath(record.worktree);
     if (pid) { results.push({ task_id: record.task_id, state: 'blocked', reason: `cwd held by pid ${pid}` }); continue; }
+    const preflightLock = inspectResource({ dbPath: databasePath, key: record.port_lock.key });
+    if (preflightLock?.state === 'active' || preflightLock?.state === 'suspect') { results.push({ task_id: record.task_id, state: 'blocked', reason: 'signed break-glass authorization required' }); continue; }
     try {
       removeAndVerify(cwd, record.worktree);
     } catch (error) {
@@ -264,7 +266,6 @@ export function recoverWorktrees({ cwd = process.cwd(), databasePath, registryPa
     try {
       if (portSocketOwners(record.port).length) throw new Error('port listening');
       let lock = inspectResource({ dbPath: databasePath, key: record.port_lock.key });
-      if (lock?.state === 'active' || lock?.state === 'suspect') lock = breakGlassResource({ dbPath: databasePath, key: record.port_lock.key, actor, reason, evidence, ticket, ticketExpiresAt: new Date(Date.now() + 60000).toISOString() });
       if (lock?.state === 'fenced') reclaimResource({ dbPath: databasePath, key: record.port_lock.key, expectedEpoch: lock.fencingEpoch, evidence });
       else if (lock && !['released', 'reclaimed'].includes(lock.state)) throw new Error(`port lock is ${lock.state}`);
     } catch (error) {

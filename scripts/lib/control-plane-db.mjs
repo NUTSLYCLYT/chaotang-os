@@ -1,8 +1,9 @@
 import { DatabaseSync } from 'node:sqlite';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, realpathSync, statSync, readFileSync, copyFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, realpathSync, statSync, readFileSync, readlinkSync, copyFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 
 export const nowIso = () => new Date().toISOString();
 
@@ -17,7 +18,7 @@ export function resolveControlPlanePaths(cwd = process.cwd()) {
 
 function migrate(db) {
   const version = db.prepare('PRAGMA user_version').get().user_version;
-  if(version>7) throw new Error(`unknown control-plane schema version ${version}`);
+  if(version>8) throw new Error(`unknown control-plane schema version ${version}`);
   if (version < 1) {
     db.exec(`BEGIN IMMEDIATE;
       CREATE TABLE IF NOT EXISTS tasks(task_id TEXT PRIMARY KEY, spec_json TEXT NOT NULL, owner TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL);
@@ -48,9 +49,40 @@ function migrate(db) {
     CREATE INDEX IF NOT EXISTS idx_release_runs_status ON release_runs(status,updated_at); PRAGMA user_version=5;`);});}
   if(version<6){withImmediateTransaction(db,()=>{const columns=db.prepare('PRAGMA table_info(release_runs)').all().map(row=>row.name);if(!columns.includes('phase'))db.exec("ALTER TABLE release_runs ADD COLUMN phase TEXT NOT NULL DEFAULT 'planned'");db.exec('PRAGMA user_version=6');});}
   if(version<7){withImmediateTransaction(db,()=>{const columns=db.prepare('PRAGMA table_info(release_runs)').all().map(row=>row.name);if(!columns.includes('release_pending'))db.exec('ALTER TABLE release_runs ADD COLUMN release_pending INTEGER NOT NULL DEFAULT 0');if(!columns.includes('terminal_target'))db.exec('ALTER TABLE release_runs ADD COLUMN terminal_target TEXT');db.exec('PRAGMA user_version=7');});}
+  if(version<8){withImmediateTransaction(db,()=>{db.exec(`CREATE TABLE IF NOT EXISTS break_glass_uses(
+    ticket_id TEXT PRIMARY KEY, release_id TEXT NOT NULL, commit_sha TEXT NOT NULL, actor TEXT NOT NULL,
+    reason TEXT NOT NULL, evidence TEXT NOT NULL, ticket_digest TEXT NOT NULL,
+    approval_key_ids_json TEXT NOT NULL, resource_key TEXT NOT NULL, expected_lock_json TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('in_progress','authorized','operation_applied','consumed','failed')),
+    created_at TEXT NOT NULL, completed_at TEXT, gate_evidence TEXT, operation_evidence TEXT);
+    CREATE TRIGGER IF NOT EXISTS trg_break_glass_no_delete BEFORE DELETE ON break_glass_uses BEGIN SELECT RAISE(ABORT,'break-glass audit is append-only'); END;
+    CREATE TRIGGER IF NOT EXISTS trg_break_glass_immutable_identity BEFORE UPDATE ON break_glass_uses
+      WHEN OLD.ticket_id<>NEW.ticket_id OR OLD.release_id<>NEW.release_id OR OLD.commit_sha<>NEW.commit_sha OR OLD.actor<>NEW.actor OR OLD.reason<>NEW.reason OR OLD.evidence<>NEW.evidence OR OLD.ticket_digest<>NEW.ticket_digest OR OLD.approval_key_ids_json<>NEW.approval_key_ids_json OR OLD.resource_key<>NEW.resource_key OR OLD.expected_lock_json<>NEW.expected_lock_json OR OLD.created_at<>NEW.created_at
+      BEGIN SELECT RAISE(ABORT,'break-glass identity is immutable'); END;
+    CREATE TRIGGER IF NOT EXISTS trg_break_glass_state_machine BEFORE UPDATE ON break_glass_uses
+      WHEN NOT ((OLD.status='in_progress' AND NEW.status IN ('authorized','failed')) OR (OLD.status='authorized' AND NEW.status IN ('operation_applied','failed')) OR (OLD.status='operation_applied' AND NEW.status='consumed'))
+      BEGIN SELECT RAISE(ABORT,'invalid break-glass state transition'); END;
+    CREATE TRIGGER IF NOT EXISTS trg_audit_no_update BEFORE UPDATE ON audit_events BEGIN SELECT RAISE(ABORT,'control-plane audit is append-only'); END;
+    CREATE TRIGGER IF NOT EXISTS trg_audit_no_delete BEFORE DELETE ON audit_events BEGIN SELECT RAISE(ABORT,'control-plane audit is append-only'); END;`);
+    for(const row of db.prepare("SELECT resource_key,pid,pgid,start_ticks,cwd,nonce FROM resource_locks WHERE state IN ('active','suspect')").all()){try{const current=registeredProcessIdentity(row);db.prepare('UPDATE resource_locks SET host_id=?,boot_id=?,pid_namespace=? WHERE resource_key=?').run(current.host_id,current.boot_id,current.pid_namespace,row.resource_key);}catch{}}
+    for(const row of db.prepare("SELECT lease_id,process_json FROM leases WHERE state='active'").all()){try{const prior=JSON.parse(row.process_json),current=registeredProcessIdentity(prior);db.prepare('UPDATE leases SET process_json=? WHERE lease_id=?').run(JSON.stringify({...prior,host_id:current.host_id,boot_id:current.boot_id,pid_namespace:current.pid_namespace}),row.lease_id);}catch{}}
+    db.exec('PRAGMA user_version=8');});}
   db.exec("CREATE TRIGGER IF NOT EXISTS trg_release_locked_phase AFTER UPDATE OF status ON release_runs WHEN NEW.status='locked' AND NEW.phase<>'frozen' BEGIN UPDATE release_runs SET phase='frozen' WHERE release_id=NEW.release_id; END;");
   db.exec("CREATE TRIGGER IF NOT EXISTS trg_release_planned_phase AFTER UPDATE OF status ON release_runs WHEN NEW.status='planned' AND NEW.phase<>'planned' BEGIN UPDATE release_runs SET phase='planned' WHERE release_id=NEW.release_id; END;");
   db.exec("CREATE TRIGGER IF NOT EXISTS trg_release_failed_phase AFTER UPDATE OF status ON release_runs WHEN NEW.status='failed' AND NEW.phase<>'red' BEGIN UPDATE release_runs SET phase='red' WHERE release_id=NEW.release_id; END;");
+}
+
+function preserveOpenFailure(path, runtimeDir, override, error) {
+  try {
+    const directory = join(override ? dirname(path) : runtimeDir, 'recovery-snapshots'); mkdirSync(directory, { recursive: true, mode: 0o700 });if((statSync(directory).mode&0o077)!==0)return null;
+    const stem = join(directory, `control-plane-open-failure-${Date.now()}-${randomUUID()}`), snapshot = `${stem}.sqlite3`, report = `${stem}.json`;
+    if (statSync(path).isFile()) copyFileSync(path, snapshot); else return null;for(const suffix of ['-wal','-shm'])try{copyFileSync(`${path}${suffix}`,`${snapshot}${suffix}`);}catch{}
+    chmodSync(snapshot,0o600);
+    const digest = createHash('sha256').update(String(error?.message ?? error)).digest('hex');
+    const files=[snapshot,...['-wal','-shm'].map(s=>`${snapshot}${s}`).filter(file=>{try{return statSync(file).isFile();}catch{return false;}})].map(file=>({path:file,size:statSync(file).size,digest:`sha256:${createHash('sha256').update(readFileSync(file)).digest('hex')}`}));
+    writeFileSync(report, `${JSON.stringify({ schema: 'chaotang.control-plane-failure.v1', database_path: path, snapshot_path: snapshot, snapshot_files:files,consistency:'best-effort-crash-set',failure_class: error?.code ?? error?.name ?? 'Error', failure_digest: `sha256:${digest}`, captured_at: nowIso() }, null, 2)}\n`, { mode: 0o600 });
+    return snapshot;
+  } catch { return null; }
 }
 
 export function openControlPlaneDb({ cwd = process.cwd(), databasePath } = {}) {
@@ -58,38 +90,47 @@ export function openControlPlaneDb({ cwd = process.cwd(), databasePath } = {}) {
   if(databasePath && !(process.env.NODE_ENV==='test' && process.env.CHAOTANG_CONTROL_PLANE_TEST_ADAPTER==='1')) throw new Error('databasePath override requires explicit test adapter');
   const path = databasePath ?? paths.databasePath;
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-  const db = new DatabaseSync(path, { timeout: 10000 });
-  db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=10000;');
-  const integrity = db.prepare('PRAGMA integrity_check').get().integrity_check;
-  if (integrity !== 'ok') { db.close(); throw new Error(`control-plane integrity check failed: ${integrity}`); }
-  migrate(db);
-  return { db, paths: { ...paths, databasePath: path } };
+  let db;
+  try {
+    db = new DatabaseSync(path, { timeout: 10000 });
+    db.exec('PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=10000;');
+    const integrity = db.prepare('PRAGMA integrity_check').get().integrity_check;
+    if (integrity !== 'ok') throw new Error(`control-plane integrity check failed: ${integrity}`);
+    migrate(db);
+    return { db, paths: { ...paths, databasePath: path } };
+  } catch (error) {
+    try { db?.close(); } catch {}
+    const snapshot = preserveOpenFailure(path, paths.runtimeDir, Boolean(databasePath), error);
+    const wrapped = new Error(`control-plane open failed closed${snapshot ? `; snapshot=${snapshot}` : ''}: ${error.message}`, { cause: error }); wrapped.code = 'CONTROL_PLANE_FAIL_CLOSED'; throw wrapped;
+  }
 }
 
 export function snapshotControlPlaneDb({cwd=process.cwd(),destination,databasePath}={}){const opened=openControlPlaneDb({cwd,databasePath});try{opened.db.exec('PRAGMA wal_checkpoint(TRUNCATE)');}finally{opened.db.close();}copyFileSync(opened.paths.databasePath,destination);return destination;}
 
 export function withImmediateTransaction(db, fn) {
-  db.exec('BEGIN IMMEDIATE');
-  try { const value = fn(); db.exec('COMMIT'); return value; }
-  catch (error) { try { db.exec('ROLLBACK'); } catch {} throw error; }
+  try { db.exec('BEGIN IMMEDIATE'); const value = fn(); db.exec('COMMIT'); return value; }
+  catch (error) { try { db.exec('ROLLBACK'); } catch {} const snapshot=preserveTransactionStorageFailure(db,error);if(snapshot){const wrapped=new Error(`STOP/control_plane_storage_failure; snapshot=${snapshot}: ${error.message}`,{cause:error});wrapped.code='CONTROL_PLANE_FAIL_CLOSED';wrapped.snapshot=snapshot;throw wrapped;}throw error; }
 }
 
+function preserveTransactionStorageFailure(db,error){if(!/(SQLITE_(FULL|READONLY|CORRUPT|IOERR|NOTADB)|database or disk is full|readonly database|database disk image is malformed)/i.test(`${error?.code??''} ${error?.message??''}`))return null;try{const source=db.location(),configured=process.env.CHAOTANG_RECOVERY_SNAPSHOT_DIR,directory=configured&&isAbsolute(configured)?configured:join(dirname(source),'recovery-snapshots');mkdirSync(directory,{recursive:true,mode:0o700});const mode=statSync(directory).mode&0o777;if(mode&0o077)throw new Error('recovery snapshot directory is not owner-only');const snapshot=join(directory,`transaction-failure-${Date.now()}-${randomUUID()}.sqlite3`),escaped=snapshot.replaceAll("'","''");db.exec(`VACUUM INTO '${escaped}'`);chmodSync(snapshot,0o600);writeFileSync(`${snapshot}.json`,`${JSON.stringify({schema:'chaotang.control-plane-failure.v1',database_path:source,snapshot_path:snapshot,failure_class:error.code??error.name??'Error',captured_at:nowIso()},null,2)}\n`,{mode:0o600,flag:'wx'});return snapshot;}catch{return null;}}
+
 export function processIdentity(cwd = process.cwd()) {
-  let bootId = 'unknown', startTicks = 0, pgid = process.pid, pidNamespace = 'unknown';
+  let hostId = 'unknown', bootId = 'unknown', startTicks = 0, pgid = process.pid, pidNamespace = 'unknown';
+  try { hostId = readFileSync('/etc/machine-id', 'utf8').trim(); } catch { hostId = process.env.HOSTNAME ?? 'unknown'; }
   try { bootId = readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim(); } catch {}
   try { const tail=readFileSync(`/proc/${process.pid}/stat`, 'utf8').trim().slice(readFileSync(`/proc/${process.pid}/stat`, 'utf8').lastIndexOf(')')+2).split(' '); pgid=Number(tail[2]); startTicks=Number(tail[19]); } catch {}
-  try { pidNamespace = realpathSync('/proc/self/ns/pid'); } catch {}
-  return { host_id: process.env.HOSTNAME ?? 'unknown', boot_id: bootId, pid_namespace: pidNamespace, pid: process.pid, pgid, start_ticks: startTicks, cwd: realpathSync(cwd), nonce: randomUUID() };
+  try { pidNamespace = readlinkSync(`/proc/${process.pid}/ns/pid`); } catch {}
+  return { host_id: hostId, boot_id: bootId, pid_namespace: pidNamespace, pid: process.pid, pgid, start_ticks: startTicks, cwd: realpathSync(cwd), nonce: randomUUID() };
 }
 
 export function registeredProcessIdentity({pid=process.pid,pgid,start_ticks,cwd=process.cwd(),nonce}={}){
   let stat,actualCwd;try{stat=readFileSync(`/proc/${pid}/stat`,'utf8');actualCwd=realpathSync(`/proc/${pid}/cwd`);}catch{throw new Error('registered holder process is not alive');}
   const tail=stat.trim().slice(stat.lastIndexOf(')')+2).split(' '),actualPgid=Number(tail[2]),actualStart=Number(tail[19]);
   const expectedCwd=realpathSync(cwd);if(pgid!==undefined&&Number(pgid)!==actualPgid||start_ticks!==undefined&&Number(start_ticks)!==actualStart||expectedCwd!==actualCwd)throw new Error('registered holder process identity mismatch');
-  const base=processIdentity(actualCwd);return{...base,pid:Number(pid),pgid:actualPgid,start_ticks:actualStart,cwd:actualCwd,nonce:nonce??randomUUID()};
+  const base=processIdentity(actualCwd);let pidNamespace=base.pid_namespace;try{pidNamespace=readlinkSync(`/proc/${pid}/ns/pid`);}catch{}return{...base,pid_namespace:pidNamespace,pid:Number(pid),pgid:actualPgid,start_ticks:actualStart,cwd:actualCwd,nonce:nonce??randomUUID()};
 }
 
-export function registeredProcessAlive(identity){try{const current=registeredProcessIdentity(identity);return current.pid===identity.pid&&current.pgid===identity.pgid&&current.start_ticks===identity.start_ticks&&current.cwd===identity.cwd;}catch{return false;}}
+export function registeredProcessAlive(identity){try{const current=registeredProcessIdentity(identity);return current.host_id===identity.host_id&&current.boot_id===identity.boot_id&&current.pid_namespace===identity.pid_namespace&&current.pid===identity.pid&&current.pgid===identity.pgid&&current.start_ticks===identity.start_ticks&&current.cwd===identity.cwd;}catch{return false;}}
 
 export function normalizeRepoPath(input, cwd = process.cwd()) {
   const { repositoryRoot } = resolveControlPlanePaths(cwd);

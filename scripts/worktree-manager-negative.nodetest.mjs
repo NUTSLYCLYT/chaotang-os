@@ -98,7 +98,7 @@ test('crash recovery blocks reclaim while the assigned port is listening', async
     await new Promise((resolve) => setTimeout(resolve, 100));
     const result = recoverWorktrees({ cwd, databasePath, actor: 'supervisor', reason: 'crash', evidence: 'listener observed', ticket: 'INC-LISTENER' });
     assert.equal(result[0].state, 'blocked');
-    assert.match(result[0].reason, /port reclaim failed/);
+    assert.match(result[0].reason, /signed break-glass authorization required/);
     assert.equal(inspectResource({ dbPath: databasePath, key: `port:${task.port}` }).state, 'active');
   } finally {
     resident.kill();

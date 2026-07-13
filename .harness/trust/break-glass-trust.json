@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "status": "EXTERNAL_REQUIRED",
+  "independent": false,
+  "authority_mode": "external-protected",
+  "threshold": 2,
+  "approvers": [],
+  "replay_claim_command": null,
+  "replay_claim_command_digest": null,
+  "note": "Fail-closed placeholder. Before rollout, pin two independently controlled Ed25519 approver public keys and one externally protected atomic replay claim/complete adapter through review; private keys must remain outside the repository."
+}
