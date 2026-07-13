@@ -10,7 +10,7 @@
     "status": { "enum": ["draft", "ready", "leased", "running", "blocked", "review", "completed", "cancelled"] },
     "owner": { "type": "string", "minLength": 1 },
     "read_paths": { "$ref": "#/$defs/paths" }, "write_paths": { "$ref": "#/$defs/paths" },
-    "resources": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^(port:(3002|3050)|build:[A-Za-z0-9._-]+|release:[A-Za-z0-9._-]+|integration:[A-Za-z0-9._-]+)$" } },
+    "resources": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^(port:(3002|3050|31[0-9]{2})|build:[A-Za-z0-9._-]+|release:[A-Za-z0-9._-]+|integration:[A-Za-z0-9._-]+)$" } },
     "dependencies": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^task-[A-Za-z0-9._-]+$" } },
     "worktree": { "type": "string", "minLength": 1 },
     "risk": { "enum": ["low", "medium", "high", "critical"] },

@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://chaotang.local/harness/release-evidence.schema.json",
   "title": "Release evidence envelope", "type": "object", "additionalProperties": false,
-  "required": ["schema_version", "release_id", "repository_id", "worktree", "commit_sha", "rollback_commit_sha", "status", "commander_lease_id", "build_id", "build_digest", "runtime_artifact_digest", "runtime_process", "listener", "base_url", "gate_report", "ledger_checkpoint", "external_trust_anchor", "evidence_digest", "started_at", "completed_at", "checks"],
+  "required": ["schema_version", "profile", "release_id", "repository_id", "worktree", "commit_sha", "rollback_commit_sha", "status", "commander_lease_id", "build_id", "build_digest", "runtime_artifact_digest", "runtime_process", "listener", "base_url", "gate_report", "ledger_checkpoint", "external_trust_anchor", "evidence_digest", "started_at", "completed_at", "checks"],
   "properties": {
-    "schema_version": { "const": 1 }, "release_id": { "type": "string", "pattern": "^release-[A-Za-z0-9._-]+$" },
+    "schema_version": { "const": 1 }, "profile": { "const": "production" }, "release_id": { "type": "string", "pattern": "^release-[A-Za-z0-9._-]+$" },
     "repository_id": { "type": "string", "minLength": 1 }, "worktree": { "type": "string", "minLength": 1 },
     "commit_sha": { "$ref": "#/$defs/sha" }, "rollback_commit_sha": { "$ref": "#/$defs/sha" },
     "status": { "enum": ["verified", "rejected", "rolled_back"] }, "commander_lease_id": { "type": "string", "pattern": "^lease-[A-Za-z0-9._-]+$" },
@@ -16,11 +16,19 @@
     "ledger_checkpoint": { "type": "object", "additionalProperties": false, "required": ["sequence", "previous_hash", "record_hash"], "properties": { "sequence": { "type": "integer", "minimum": 1 }, "previous_hash": { "$ref": "#/$defs/digest" }, "record_hash": { "$ref": "#/$defs/digest" } } },
     "external_trust_anchor": { "type": "object", "additionalProperties": false, "required": ["provider", "checkpoint", "verified"], "properties": { "provider": { "type": "string", "minLength": 1 }, "checkpoint": { "type": "string", "minLength": 1 }, "verified": { "const": true } } },
     "evidence_digest": { "$ref": "#/$defs/digest" }, "started_at": { "type": "string", "format": "date-time" }, "completed_at": { "type": "string", "format": "date-time" },
-    "checks": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/check" } }
+    "checks": { "type": "array", "minItems": 8, "items": { "$ref": "#/$defs/check" } }
   },
   "allOf": [
     { "if": { "properties": { "status": { "const": "verified" } }, "required": ["status"] }, "then": { "properties": { "checks": { "items": { "properties": { "status": { "const": "passed" } } } } } } },
-    { "if": { "properties": { "status": { "const": "rejected" } }, "required": ["status"] }, "then": { "properties": { "checks": { "contains": { "properties": { "status": { "const": "failed" } }, "required": ["status"] } } } } }
+    { "if": { "properties": { "status": { "const": "rejected" } }, "required": ["status"] }, "then": { "properties": { "checks": { "contains": { "properties": { "status": { "const": "failed" } }, "required": ["status"] } } } } },
+    { "properties": { "checks": { "contains": { "properties": { "id": { "const": "root-doctor" } }, "required": ["id"] } } } },
+    { "properties": { "checks": { "contains": { "properties": { "id": { "const": "frontend-doctor" } }, "required": ["id"] } } } },
+    { "properties": { "checks": { "contains": { "properties": { "id": { "const": "backend-doctor" } }, "required": ["id"] } } } },
+    { "properties": { "checks": { "contains": { "properties": { "id": { "const": "production-build" } }, "required": ["id"] } } } },
+    { "properties": { "checks": { "contains": { "properties": { "id": { "const": "browser" } }, "required": ["id"] } } } },
+    { "properties": { "checks": { "contains": { "properties": { "id": { "const": "true-chain" } }, "required": ["id"] } } } },
+    { "properties": { "checks": { "contains": { "properties": { "id": { "const": "jiqun" } }, "required": ["id"] } } } },
+    { "properties": { "checks": { "contains": { "properties": { "id": { "const": "security" } }, "required": ["id"] } } } }
   ],
   "$defs": {
     "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" }, "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },

@@ -14,6 +14,7 @@
 - 契约：`.harness/contracts/`。
 - 初始基线：`.harness/baselines/multi-agent-control-plane-20260713.json`；`null` 表示历史无可靠遥测，不等于零。
 - 运行数据库：后续步骤固定在 `git rev-parse --git-common-dir` 所指目录下的 `chaotang-harness/control-plane.sqlite3`。
+- 端口：`3002`/`3050` 为共享受保护端口；`3100–3199` 为 worktree 动态隔离池，均必须持有资源租约。
 - 根级登记：`.harness/manifest/project-harness.json`。
 
 ## S0 验证
