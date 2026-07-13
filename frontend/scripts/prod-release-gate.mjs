@@ -18,6 +18,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { runJiqunContractSmoke } from './jiqun-contract-smoke.mjs';
+import { assertReleaseCommander } from '../../scripts/lib/release-commander.mjs';
 
 const execFileAsync = promisify(execFile);
 const cwd = process.cwd();
@@ -169,6 +170,8 @@ function printSummary(ok) {
 }
 
 async function main() {
+  const testBypass=process.env.NODE_ENV==='test'&&process.env.CHAOTANG_CONTROL_PLANE_TEST_ADAPTER==='1'&&process.env.CHAOTANG_TEST_COMMANDER_BYPASS==='1';
+  if(!testBypass)assertReleaseCommander({releaseId:process.env.CHAOTANG_RELEASE_RUN_ID,taskId:process.env.CHAOTANG_RELEASE_TASK_ID,commander:process.env.CHAOTANG_RELEASE_COMMANDER,credential:{fencingEpoch:Number(process.env.CHAOTANG_RELEASE_EPOCH),nonce:process.env.CHAOTANG_RELEASE_NONCE}},{cwd:path.resolve(cwd,'..')});
   console.log(`ChaotangOS production release gate`);
   console.log(`baseUrl=${baseUrl} basePath=${basePath}`);
   console.log(`requireTrueChain=${requireTrueChain} requireAuthArmed=${requireAuthArmed} allowJiqunSkip=${allowJiqunSkip}`);

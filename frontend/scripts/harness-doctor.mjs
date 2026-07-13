@@ -262,7 +262,7 @@ if (existsSync(packageFile)) {
     error('package.json script harness:new-change must run node scripts/new-change.mjs');
   }
   if (!/\b3002\b/.test(pkg.scripts?.dev ?? '')) error('package.json script dev must bind port 3002');
-  if (!/\b3050\b/.test(pkg.scripts?.start ?? '')) error('package.json script start must bind port 3050');
+  if (!/\b3050\b/.test(pkg.scripts?.start ?? '') && !/reject-legacy-production-entry/.test(pkg.scripts?.start ?? '')) error('package.json start must bind 3050 or fail closed through the Release Commander guard');
   if (/\b3001\b/.test(`${pkg.scripts?.dev ?? ''} ${pkg.scripts?.start ?? ''}`)) {
     error('package.json dev/start scripts must not bind forbidden port 3001');
   }

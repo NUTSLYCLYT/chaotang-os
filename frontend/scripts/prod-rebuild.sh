@@ -5,6 +5,9 @@
 
 set -euo pipefail
 
+echo "STOP: legacy prod:rebuild is disabled; use the root Release Commander with a signed attestation." >&2
+exit 64
+
 # 加载 .env.local 让 env 守门能读到生产变量
 if [ -f ".env.local" ]; then
   set -a

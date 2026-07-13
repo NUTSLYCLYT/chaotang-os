@@ -17,7 +17,7 @@ export function resolveControlPlanePaths(cwd = process.cwd()) {
 
 function migrate(db) {
   const version = db.prepare('PRAGMA user_version').get().user_version;
-  if(version>4) throw new Error(`unknown control-plane schema version ${version}`);
+  if(version>7) throw new Error(`unknown control-plane schema version ${version}`);
   if (version < 1) {
     db.exec(`BEGIN IMMEDIATE;
       CREATE TABLE IF NOT EXISTS tasks(task_id TEXT PRIMARY KEY, spec_json TEXT NOT NULL, owner TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL);
@@ -39,6 +39,18 @@ function migrate(db) {
     CREATE INDEX IF NOT EXISTS idx_resource_locks_task ON resource_locks(task_id); PRAGMA user_version=2;`);});}
   if(version<3){withImmediateTransaction(db,()=>{const columns=db.prepare('PRAGMA table_info(resource_locks)').all().map(row=>row.name);if(!columns.includes('protected_paths_json'))db.exec("ALTER TABLE resource_locks ADD COLUMN protected_paths_json TEXT NOT NULL DEFAULT '[]'");db.exec('PRAGMA user_version=3');});}
   if(version<4){withImmediateTransaction(db,()=>{const columns=db.prepare('PRAGMA table_info(leases)').all().map(row=>row.name);if(!columns.includes('entry_resource')){db.exec('ALTER TABLE leases ADD COLUMN entry_resource TEXT');db.exec('UPDATE leases SET entry_resource=resource WHERE entry_resource IS NULL');}db.exec('CREATE INDEX IF NOT EXISTS idx_leases_entry_active ON leases(state,resource_type,entry_resource); PRAGMA user_version=4');});}
+  if(version<5){withImmediateTransaction(db,()=>{db.exec(`CREATE TABLE IF NOT EXISTS release_runs(
+    release_id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(task_id), commander TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('planned','locked','building','starting','verifying','ready','failed','rolled_back')),
+    commit_sha TEXT NOT NULL, attestation_digest TEXT NOT NULL, build_id TEXT, artifact_digest TEXT,
+    release_fencing_epoch INTEGER, nonce_commitment TEXT, previous_release_id TEXT, failure_json TEXT,
+    checks_json TEXT NOT NULL DEFAULT '[]', log_json TEXT NOT NULL DEFAULT '[]', created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+    CREATE INDEX IF NOT EXISTS idx_release_runs_status ON release_runs(status,updated_at); PRAGMA user_version=5;`);});}
+  if(version<6){withImmediateTransaction(db,()=>{const columns=db.prepare('PRAGMA table_info(release_runs)').all().map(row=>row.name);if(!columns.includes('phase'))db.exec("ALTER TABLE release_runs ADD COLUMN phase TEXT NOT NULL DEFAULT 'planned'");db.exec('PRAGMA user_version=6');});}
+  if(version<7){withImmediateTransaction(db,()=>{const columns=db.prepare('PRAGMA table_info(release_runs)').all().map(row=>row.name);if(!columns.includes('release_pending'))db.exec('ALTER TABLE release_runs ADD COLUMN release_pending INTEGER NOT NULL DEFAULT 0');if(!columns.includes('terminal_target'))db.exec('ALTER TABLE release_runs ADD COLUMN terminal_target TEXT');db.exec('PRAGMA user_version=7');});}
+  db.exec("CREATE TRIGGER IF NOT EXISTS trg_release_locked_phase AFTER UPDATE OF status ON release_runs WHEN NEW.status='locked' AND NEW.phase<>'frozen' BEGIN UPDATE release_runs SET phase='frozen' WHERE release_id=NEW.release_id; END;");
+  db.exec("CREATE TRIGGER IF NOT EXISTS trg_release_planned_phase AFTER UPDATE OF status ON release_runs WHEN NEW.status='planned' AND NEW.phase<>'planned' BEGIN UPDATE release_runs SET phase='planned' WHERE release_id=NEW.release_id; END;");
+  db.exec("CREATE TRIGGER IF NOT EXISTS trg_release_failed_phase AFTER UPDATE OF status ON release_runs WHEN NEW.status='failed' AND NEW.phase<>'red' BEGIN UPDATE release_runs SET phase='red' WHERE release_id=NEW.release_id; END;");
 }
 
 export function openControlPlaneDb({ cwd = process.cwd(), databasePath } = {}) {

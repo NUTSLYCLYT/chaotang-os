@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chaotang.local/harness/release-run.schema.json",
+  "title": "Release Commander run",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["release_id", "task_id", "commander", "status", "phase", "commit_sha", "attestation_digest", "created_at", "updated_at", "log"],
+  "properties": {
+    "release_id": {"type":"string","pattern":"^release-[A-Za-z0-9._-]+$"},
+    "task_id": {"type":"string","pattern":"^task-[A-Za-z0-9._-]+$"},
+    "commander": {"type":"string","minLength":1},
+    "status": {"enum":["planned","locked","building","starting","verifying","ready","failed","rolled_back"]},
+    "phase": {"enum":["planned","locked","frozen","built","started","identity_verified","gates_running","green","red","rollback_verified","released","rolled_back"]},
+    "release_pending": {"type":"boolean"},
+    "terminal_target": {"type":["string","null"]},
+    "commit_sha": {"type":"string","pattern":"^[0-9a-f]{40}$"},
+    "attestation_digest": {"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},
+    "build_id": {"type":["string","null"]},
+    "artifact_digest": {"type":["string","null"],"pattern":"^sha256:[0-9a-f]{64}$"},
+    "release_fencing_epoch": {"type":["integer","null"],"minimum":1},
+    "previous_release_id": {"type":["string","null"]},
+    "failure": {"type":["object","null"]},
+    "checks": {"type":"array"},
+    "log": {"type":"array","items":{"type":"object","required":["sequence","event","at","payload"]}},
+    "created_at": {"type":"string","format":"date-time"},
+    "updated_at": {"type":"string","format":"date-time"}
+  }
+}
