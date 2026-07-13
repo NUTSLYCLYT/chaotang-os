@@ -1,0 +1,44 @@
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +114
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 114, reused 114, downloaded 0, added 114, done
+
+dependencies:
++ @libsql/client 0.17.4
++ @xyflow/react 12.10.2
++ clsx 2.1.1
++ lucide-react 1.14.0
++ motion 12.38.0
++ next 16.2.6
++ react 19.2.4
++ react-dom 19.2.4
++ socket.io-client 4.8.3
++ sonner 2.0.7
++ swr 2.4.1
++ tailwind-merge 3.5.0
++ xlsx 0.18.5
++ zod 4.4.1
++ zustand 5.0.12
+
+devDependencies:
++ @playwright/test 1.60.0
++ @tailwindcss/postcss 4.2.4
++ @types/node 20.19.39
++ @types/react 19.2.14
++ @types/react-dom 19.2.3
++ tailwindcss 4.2.4
++ tsx 4.23.0
++ typescript 5.9.3
+
+. prepare$ node scripts/install-git-hooks.mjs
+. prepare: [install-git-hooks] installed: pre-commit
+. prepare: Done
+╭ Warning ─────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│   Ignored build scripts: esbuild@0.28.1.                                     │
+│   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+│   to run scripts.                                                            │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+Done in 1.4s using pnpm v10.33.0

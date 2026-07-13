@@ -1,0 +1,59 @@
+
+> web@0.1.0 build /home/ubuntu/Projects/chaotang-os/.worktrees/task-s4-manager-real-1/frontend
+> node scripts/next-with-base-path.mjs build --webpack
+
+▲ Next.js 16.2.6 (webpack)
+- Experiments (use with caution):
+  ✓ parallelServerBuildTraces
+  ✓ parallelServerCompiles
+  ✓ workerThreads
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 19.9s
+  Running TypeScript ...
+
+  We detected TypeScript in your project and reconfigured your tsconfig.json file for you.
+  The following suggested values were added to your tsconfig.json. These values can be changed to fit your project's needs:
+
+  	- include was updated to add '.next-agent-s4-manager-real-1/types/**/*.ts'
+  	- include was updated to add '.next-agent-s4-manager-real-1/dev/types/**/*.ts'
+
+  Finished TypeScript in 17.3s ...
+  Collecting page data using 22 workers ...
+  Generating static pages using 22 workers (0/31) ...
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /command-center
+├ ○ /dadian
+├ ○ /enter
+├ ○ /icon.svg
+├ ○ /invite
+├ ƒ /invite/[code]
+├ ○ /junjichu
+├ ○ /liubu
+├ ƒ /liubu/[code]
+├ ● /liubu/[code]/[office]
+│ ├ /liubu/hubu/yusuan
+│ ├ /liubu/hubu/chuna
+│ ├ /liubu/libu/renmian
+│ └ [+5 more paths]
+├ ○ /login
+├ ○ /register
+├ ○ /shangshufang
+├ ○ /shiguan
+├ ○ /zhuanshu
+├ ○ /zhuanshu/jinyiwei
+└ ƒ /zhuanshu/jinyiwei/[signalId]
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+●  (SSG)      prerendered as static HTML (uses generateStaticParams)
+ƒ  (Dynamic)  server-rendered on demand
+
