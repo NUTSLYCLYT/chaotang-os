@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "key_id": "chaotang-release-evidence-local-20260713",
+  "provider": "local-protected-ed25519",
+  "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA0EuGHmn7OurzEPR3ea21OQ/mlq/3ZDq8WrV6bOGrd/A=\n-----END PUBLIC KEY-----\n",
+  "public_key_fingerprint": "sha256:8309ccddaec0943b5175fb02d148f0bfab440da14e17300e9df90ab47cbed447",
+  "authority_mode": "local-private-key",
+  "independent": false
+}

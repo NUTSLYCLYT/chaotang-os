@@ -9,5 +9,6 @@
 | 多 Agent 控制面契约 | `node --test scripts/multi-agent-contracts.nodetest.mjs` | 校验 task、lease、release evidence 正反例与 manifest 登记 | S0 实现；不得据此声明发布门禁已强制 |
 | 多 Agent 任务与路径租约 | `node --test scripts/multi-agent-lease.nodetest.mjs` | 验证共享 registry、canonical scope、TTL、fencing、CLI、迁移和多 worktree 竞争 | S1：23 passed；独立复审 GO |
 | 多 Agent 资源锁 | `node --test scripts/resource-lock.nodetest.mjs` | 验证 Task 授权、真实 holder、端口/构建取证、fencing、break-glass、200 轮真实竞争及数据库隔离 | S2：10 passed；联合 S1/S2 33 passed；独立复审 GO |
+| 发布证据与运行身份 | `node --test scripts/release-evidence.nodetest.mjs frontend/scripts/prod-runtime-identity.nodetest.ts` | 从 Git object DB、实际 build 目录和 3050 socket owner 独立重算身份，并验证 SQLite hash chain 与 Ed25519 checkpoint | S8 本地实现；外部 CI protected trust root 未启用前不得 READY/ENFORCED |
 
 高成本或真实模型驱动的后端 harness 命令需要显式确认 provider 凭证、超时和预算后再运行。

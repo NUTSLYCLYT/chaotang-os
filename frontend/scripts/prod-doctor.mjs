@@ -16,7 +16,7 @@ import https from 'node:https';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
-import { classifyProductionListenerOwnership } from './prod-runtime-identity.mjs';
+import { classifyProductionListenerOwnership, inspectProductionRuntime } from './prod-runtime-identity.mjs';
 
 const execFileAsync = promisify(execFile);
 const cwd = process.cwd();
@@ -100,33 +100,12 @@ function requestText(url, timeoutMs, token) {
 }
 
 function checkBuildArtifacts() {
-  const required = [
-    '.next/package.json',
-    '.next/required-server-files.json',
-    '.next/server/app-paths-manifest.json',
-    '.next/server/middleware-manifest.json',
-    '.next/static',
-  ];
-  const missing = required.filter((file) => !fs.existsSync(path.join(cwd, file)));
-  const devArtifactPresent = fs.existsSync(path.join(cwd, '.next/dev'));
-  const buildDiagnosticsPath = path.join(cwd, '.next/diagnostics/build-diagnostics.json');
-  const buildDiagnostics = fs.existsSync(buildDiagnosticsPath)
-    ? JSON.parse(fs.readFileSync(buildDiagnosticsPath, 'utf8'))
-    : null;
-
-  return {
-    id: 'build-artifacts',
-    ok: missing.length === 0,
-    state: missing.length > 0 ? 'missing' : 'ready',
-    missing,
-    devArtifactPresent,
-    buildDiagnostics,
-    detail: missing.length > 0
-        ? `missing production artifacts: ${missing.join(', ')}`
-        : devArtifactPresent
-          ? 'production artifacts present; .next/dev exists but no dev listener is allowed by port-discipline.'
-          : 'production artifacts present',
-  };
+  try {
+    const identity = inspectProductionRuntime();
+    return { id: 'build-artifacts', ok: true, state: 'ready', identity, detail: `immutable runtime ${identity.releaseId} ${identity.commit} ${identity.artifactDigest}` };
+  } catch (error) {
+    return { id: 'build-artifacts', ok: false, state: 'stop', missing: [], detail: error.message };
+  }
 }
 
 function classifyPorts(listeningLines, processLines) {
@@ -179,7 +158,9 @@ function listenerBelongsToCwd(line) {
   const match = line.match(/pid=(\d+)/);
   if (!match) return false;
   try {
-    return fs.realpathSync(`/proc/${match[1]}/cwd`) === fs.realpathSync(cwd);
+    const processCwd = fs.realpathSync(`/proc/${match[1]}/cwd`), frontend = fs.realpathSync(cwd), builds = path.join(frontend, 'builds');
+    const rel = path.relative(builds, processCwd);
+    return processCwd === frontend || rel === '' || (rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel));
   } catch {
     return false;
   }

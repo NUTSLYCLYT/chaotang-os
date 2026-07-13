@@ -56,6 +56,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "prod:doctor": "node scripts/prod-doctor.mjs",
+    "prod:identity": "node scripts/prod-runtime-identity.mjs",
     "gate:prod-release": "node scripts/prod-release-gate.mjs",
     "package:release": "node scripts/package-release.mjs",
     "visual:doctor": "node scripts/check-visual-production.mjs",

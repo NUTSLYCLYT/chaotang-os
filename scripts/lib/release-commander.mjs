@@ -6,6 +6,7 @@ import {auditEvent,nowIso,openControlPlaneDb,processIdentity,resolveControlPlane
 import {acquireResource,fenceResource,heartbeatResource,inspectResource,markResourceSuspect,reclaimResource,releaseResource} from './resource-lock.mjs';
 import {verifyLeaseAttestation} from './lease-attestation.mjs';
 import {immutableBuildPaths,inspectActiveBuild,rollbackBuild} from '../../frontend/scripts/lib/immutable-build-manager.mjs';
+import {persistProductionGateReport,recordVerifiedRelease} from './release-evidence-gate.mjs';
 
 const sha=value=>createHash('sha256').update(value).digest('hex');
 const ACTIVE=new Set(['locked','building','starting','verifying']);
@@ -73,6 +74,8 @@ export async function runProductionRelease(input,options={}){
     const checks=[];for(const [id,bin,args,cwd] of [['root-doctor','node',['scripts/harness-doctor.mjs'],root],['frontend-doctor','node',['scripts/harness-doctor.mjs'],join(root,'frontend')],['backend-doctor','python3',['scripts/harness_doctor.py'],join(root,'backend')],['security','python3',['scripts/commit_closeout_check.py'],join(root,'backend')]])checks.push(await commandEvidence(id,bin,args,cwd,releaseEnv,health));checks.push({id:'production-build',status:'passed',evidence:build.evidence});
     const gate=await commandEvidence('production-gate','pnpm',['gate:prod-release'],join(root,'frontend'),releaseEnv,health);checks.push(...['browser','true-chain','jiqun'].map(id=>({id,status:gate.status,evidence:gate.evidence})));
     if(gate.status!=='passed'||!/GREEN: release gate passed/.test(gate.output)||/SKIP/.test(gate.output)||checks.some(check=>check.status!=='passed'))throw new Error('one or more mandatory release gates failed or skipped');
+    const evidenceOptions={...(options.evidenceOptions??{}),cwd:root},gateReportPath=persistProductionGateReport({releaseId:input.releaseId,commander:locked.commander,taskId:locked.task_id,credential,checks,startedAt:locked.created_at},evidenceOptions),prior=locked.previous_release_id?inspectRelease(locked.previous_release_id,options):null,evidence=recordVerifiedRelease({releaseId:input.releaseId,rollbackCommitSha:prior?.commit_sha??locked.commit_sha,commander:locked.commander,taskId:locked.task_id,credential,gateReportPath},evidenceOptions);
+    if(!evidence.readyEligible)throw new Error('external independent release evidence trust anchor is not configured; local checkpoint cannot authorize READY');
     return transitionRelease({releaseId:input.releaseId,credential,to:'ready',checks},options,READY_AUTHORITY);
   }catch(error){
     if(startAttempted){const stopped=await commandEvidence('production-stop',process.execPath,[join(root,'frontend','scripts','safe-prod-stop.mjs')],root,releaseEnv,health);if(stopped.status!=='passed')throw new AggregateError([error,stopped.error],'release failed and production stop could not be verified; Commander lock retained');}
