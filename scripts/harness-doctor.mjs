@@ -153,6 +153,40 @@ if (manifest) {
           ok('rollout-history.jsonl is append-only relative to HEAD');
         }
       }
+
+      // append-only 挡不住"同一次改动里把检查代码本身也改弱/删掉"——checker和被
+      // 检查的状态住在同一个仓库，任何本地脚本检查天然防不住这种自我修改。这里
+      // 不假装能防住，只在检测到两者同批改动时强制要求显式承认，把"悄悄绕过"
+      // 变成"写进永久记录里的公开承认"，成本从0提到"要在审计日志里承认"。
+      const doctorScriptPath = fileURLToPath(import.meta.url);
+      const doctorDiskText = await readFile(doctorScriptPath, 'utf8');
+      const doctorCommitted = spawnSync('git', ['show', 'HEAD:scripts/harness-doctor.mjs'], {
+        cwd: root,
+        encoding: 'utf8',
+      });
+      const manifestCommitted = spawnSync('git', ['show', 'HEAD:.harness/manifest/project-harness.json'], {
+        cwd: root,
+        encoding: 'utf8',
+      });
+      if (doctorCommitted.status === 0 && manifestCommitted.status === 0 && last) {
+        const checkerChanged = doctorCommitted.stdout !== doctorDiskText;
+        let manifestControlPlaneChanged = false;
+        try {
+          const prevManifest = JSON.parse(manifestCommitted.stdout);
+          manifestControlPlaneChanged =
+            prevManifest.controlPlane?.rolloutStage !== manifest.controlPlane.rolloutStage ||
+            JSON.stringify(prevManifest.controlPlane?.components) !== JSON.stringify(manifest.controlPlane.components);
+        } catch {
+          manifestControlPlaneChanged = true;
+        }
+        if (checkerChanged && manifestControlPlaneChanged && last.checkerChangedInThisTransition !== true) {
+          error(
+            'scripts/harness-doctor.mjs and controlPlane rolloutStage/components changed in the same revision; set checkerChangedInThisTransition:true in the rollout-history.jsonl entry and explain why in reason',
+          );
+        } else if (checkerChanged && manifestControlPlaneChanged) {
+          ok('rollout gate change disclosed via checkerChangedInThisTransition');
+        }
+      }
     }
   }
 

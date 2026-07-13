@@ -80,7 +80,8 @@
       "contracts": "IMPLEMENTED", "taskRegistry": "IMPLEMENTED", "leaseManager": "IMPLEMENTED",
       "resourceLocks": "IMPLEMENTED", "leaseAttestation": "IMPLEMENTED_LOCAL", "integrationGate": "IMPLEMENTED_LOCAL", "worktreeManager": "IMPLEMENTED_LOCAL", "immutableBuilds": "IMPLEMENTED_LOCAL",
       "releaseCommander": "IMPLEMENTED_LOCAL", "testIdentity": "IMPLEMENTED_LOCAL", "releaseEvidence": "IMPLEMENTED_LOCAL",
-      "recovery": "IMPLEMENTED_LOCAL", "mandatoryRollout": "IMPLEMENTED_LOCAL_OBSERVE_PENDING"
+      "recovery": "IMPLEMENTED_LOCAL", "mandatoryRollout": "IMPLEMENTED_LOCAL_OBSERVE_PENDING",
+      "rolloutHistoryGate": "IMPLEMENTED_LOCAL"
     },
     "verification": [
       "node --test scripts/multi-agent-contracts.nodetest.mjs",

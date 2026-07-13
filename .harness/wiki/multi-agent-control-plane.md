@@ -43,3 +43,4 @@ node scripts/harness-doctor.mjs
 - Observe 仅记录；Warn 需要带原因的人工 continue 并审计；Enforce paths 绑定外部 S3 required check；Enforce resources 绑定 S2/S5/S6/S8/S9 和外部信任；Mandatory 还要求 A1–A12 与 20 个唯一、连续、真实、无事故 production release。
 - 自动回退会冻结当时 active lease/lock 与 wrapper pointer 快照，不删除活跃状态。Mandatory break-glass 仍只能使用 S9 的双签、最长 30 分钟、commit/release 单次票据，并且必须运行原 `pnpm gate:prod-release`。
 - 当前事实是 `IMPLEMENTED_LOCAL_OBSERVE_PENDING`，尚未从 clean committed policy 启动 Observe。真实 2–3 天、后续各阶段真实时间、外部权威配置和 20 次真实发布不能由测试或文档替代。
+- `rolloutHistoryGate`（`scripts/harness-doctor.mjs` 校验 `.harness/rollout-history.jsonl`）同样是 `IMPLEMENTED_LOCAL`：它能挡住"改状态不留痕"和"改完再悄悄改回去"，但检查代码本身和被检查的状态同住一个仓库，任何本地脚本都防不住"同一次改动里把检查代码也改弱"——这不是能靠更多代码修完的洞，需要外部（不受同一提交控制的）CI 强制状态检查或 CODEOWNERS 才能真正堵住。当前只做到：同一改动里检查代码和 rolloutStage/components 一起变化时，必须在 `rollout-history.jsonl` 显式写 `checkerChangedInThisTransition: true` 并说明原因，把"悄悄绕过"变成"写进永久记录的公开承认"，成本不是零但也不是不可绕过。
