@@ -118,5 +118,6 @@ backend/data/legal_cases.json
 backend/eval/truth_ledger.jsonl
 backend/eval/real_engine_calls.jsonl
 backend/local_data/
+frontend/builds/
 # backend 私有运行态配置/产物,绝不入库
 backend/.claude/

@@ -1,0 +1,35 @@
+(node:274898) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+{
+  "schema_version": 1,
+  "pid": 274921,
+  "pgid": 274921,
+  "start_ticks": 9044202,
+  "cwd": "/tmp/s5-real-wrapper-evidence-Yefble/repository/frontend/builds/s5-wrapper-r1-20260713",
+  "recorded_at": "2026-07-13T06:10:11.778Z",
+  "supervisor": {
+    "pid": 274898,
+    "pgid": 270988,
+    "start_ticks": 9044142,
+    "cwd": "/tmp/s5-real-wrapper-evidence-Yefble/repository"
+  },
+  "release_id": "s5-wrapper-r1-20260713",
+  "commit": "6ba701f55c2f44d8b3a9628292fd8ad5d44abcba",
+  "build_id": "R5qvE0EtD0hX9dRlHS0p5",
+  "runtime_dir": "/tmp/s5-real-wrapper-evidence-Yefble/repository/frontend/builds/s5-wrapper-r1-20260713/next",
+  "release_root": "/tmp/s5-real-wrapper-evidence-Yefble/repository/frontend/builds/s5-wrapper-r1-20260713",
+  "artifact_digest": "3133bd66103a3237da8697508f99a1a5f3ec6bf76249bddafac86c766c3479e7",
+  "port": 3199,
+  "port_lock": {
+    "key": "port:3199",
+    "fencing_epoch": 4
+  },
+  "readiness": {
+    "release_id": "s5-wrapper-r1-20260713",
+    "build_id": "R5qvE0EtD0hX9dRlHS0p5",
+    "socket_owner_pid": 274921,
+    "http_status": 200,
+    "response_bytes": 1170,
+    "url_path": "/chaotang/_next/static/R5qvE0EtD0hX9dRlHS0p5/_buildManifest.js"
+  }
+}

@@ -57,7 +57,7 @@
     ],
     "components": {
       "contracts": "IMPLEMENTED", "taskRegistry": "IMPLEMENTED", "leaseManager": "IMPLEMENTED",
-      "resourceLocks": "IMPLEMENTED", "leaseAttestation": "IMPLEMENTED_LOCAL", "integrationGate": "IMPLEMENTED_LOCAL", "worktreeManager": "IMPLEMENTED_LOCAL", "immutableBuilds": "DESIGNED",
+      "resourceLocks": "IMPLEMENTED", "leaseAttestation": "IMPLEMENTED_LOCAL", "integrationGate": "IMPLEMENTED_LOCAL", "worktreeManager": "IMPLEMENTED_LOCAL", "immutableBuilds": "IMPLEMENTED_LOCAL",
       "releaseCommander": "DESIGNED", "testIdentity": "DESIGNED", "releaseEvidence": "DESIGNED",
       "recovery": "DESIGNED", "mandatoryRollout": "DESIGNED"
     },
@@ -68,6 +68,7 @@
       "node --test scripts/lease-attestation.nodetest.mjs",
       "node scripts/integration-lease-gate.mjs --status",
       "node --test scripts/worktree-manager.nodetest.mjs",
+      "node --experimental-strip-types --test frontend/scripts/safe-prod-lifecycle.nodetest.ts",
       "node scripts/harness-doctor.mjs"
     ]
   }

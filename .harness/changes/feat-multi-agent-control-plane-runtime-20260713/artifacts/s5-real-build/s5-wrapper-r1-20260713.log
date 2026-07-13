@@ -1,0 +1,77 @@
+(node:271205) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+> web@0.1.0 build /tmp/s5-real-wrapper-evidence-Yefble/repository/frontend
+> node scripts/next-with-base-path.mjs build --webpack
+
+⚠ No build cache found. Please configure build caching for faster rebuilds. Read more: https://nextjs.org/docs/messages/no-cache
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+▲ Next.js 16.2.6 (webpack)
+- Experiments (use with caution):
+  ✓ parallelServerBuildTraces
+  ✓ parallelServerCompiles
+  ✓ workerThreads
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 16.3s
+  Running TypeScript ...
+
+  We detected TypeScript in your project and reconfigured your tsconfig.json file for you.
+  The following suggested values were added to your tsconfig.json. These values can be changed to fit your project's needs:
+
+  	- include was updated to add 'builds/.candidate-s5-wrapper-r1-20260713/next/types/**/*.ts'
+  	- include was updated to add 'builds/.candidate-s5-wrapper-r1-20260713/next/dev/types/**/*.ts'
+
+  Finished TypeScript in 16.0s ...
+  Collecting page data using 22 workers ...
+  Generating static pages using 22 workers (0/31) ...
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /command-center
+├ ○ /dadian
+├ ○ /enter
+├ ○ /icon.svg
+├ ○ /invite
+├ ƒ /invite/[code]
+├ ○ /junjichu
+├ ○ /liubu
+├ ƒ /liubu/[code]
+├ ● /liubu/[code]/[office]
+│ ├ /liubu/hubu/yusuan
+│ ├ /liubu/hubu/chuna
+│ ├ /liubu/libu/renmian
+│ └ [+5 more paths]
+├ ○ /login
+├ ○ /register
+├ ○ /shangshufang
+├ ○ /shiguan
+├ ○ /zhuanshu
+├ ○ /zhuanshu/jinyiwei
+└ ƒ /zhuanshu/jinyiwei/[signalId]
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+●  (SSG)      prerendered as static HTML (uses generateStaticParams)
+ƒ  (Dynamic)  server-rendered on demand
+
+{
+  "release_id": "s5-wrapper-r1-20260713",
+  "commit": "6ba701f55c2f44d8b3a9628292fd8ad5d44abcba",
+  "artifact_digest": "3133bd66103a3237da8697508f99a1a5f3ec6bf76249bddafac86c766c3479e7",
+  "env_commitment": "a159b410fa1b6a119290dca2fe2a4afd72913a01dc2b98f93783ee090ac1603e",
+  "tsconfig_restore": {
+    "generated_commitment": "49167125a85d57bf231a5c07c3f5510ecde7c27b012dab591c504d06d5239886",
+    "restored_commitment": "6f752e09d2d24bc12e80f239b529ac831f082b86d426776df5cd3c60e8c22482"
+  }
+}

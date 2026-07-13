@@ -1,0 +1,91 @@
+{
+  "source_head": "ac9b0020d25038a9fd909d53a7519c211c49fe01",
+  "evidence_snapshot_commit": "6ba701f55c2f44d8b3a9628292fd8ad5d44abcba",
+  "releases": [
+    {
+      "release_id": "s5-wrapper-r1-20260713",
+      "started_at": "2026-07-13T06:08:55.385Z",
+      "completed_at": "2026-07-13T06:09:32.445Z",
+      "build_id": "R5qvE0EtD0hX9dRlHS0p5",
+      "artifact": {
+        "digest": "3133bd66103a3237da8697508f99a1a5f3ec6bf76249bddafac86c766c3479e7",
+        "file_count": 623,
+        "next": {
+          "digest": "dbe68665c291b7f834771be648b4a6ade17057272db19f5a455850ad43057380",
+          "file_count": 446
+        },
+        "public": {
+          "digest": "0e83b9593eaf7b8a33f49f40abe59ae86e827702664351a6c5787d00c084c154",
+          "file_count": 176
+        },
+        "runtime_config": {
+          "digest": "403c36cac8971af1f784e62361fe5182d869dfbf37cd35a2953fc7b46b7ba81d",
+          "file_count": 1
+        }
+      },
+      "env": {
+        "NEXT_PUBLIC_API_MODE": "real",
+        "NODE_ENV": "production",
+        "BASE_PATH": "/chaotang",
+        "NEXT_PUBLIC_BASE_PATH": "/chaotang",
+        "CHAOTANG_BACKEND_API_URL": "http://127.0.0.1:8081"
+      },
+      "env_commitment": "a159b410fa1b6a119290dca2fe2a4afd72913a01dc2b98f93783ee090ac1603e",
+      "active_release": "s5-wrapper-r1-20260713",
+      "wrapper_output_sha256": "85fbddaf155325e33a9fa0b7258cc48fc0793926e50a764a44b7031912c9ed62"
+    },
+    {
+      "release_id": "s5-wrapper-r2-20260713",
+      "started_at": "2026-07-13T06:09:32.445Z",
+      "completed_at": "2026-07-13T06:10:09.593Z",
+      "build_id": "k2agqinBGv37TYu2s5S9C",
+      "artifact": {
+        "digest": "0003337faa1738c138f25101ed7a66a145129eba829b337f4afe60c6231ededc",
+        "file_count": 623,
+        "next": {
+          "digest": "6e2081757926beef34867d173dc812b339677936f3cb0784c0dc38fcd962dc0c",
+          "file_count": 446
+        },
+        "public": {
+          "digest": "0e83b9593eaf7b8a33f49f40abe59ae86e827702664351a6c5787d00c084c154",
+          "file_count": 176
+        },
+        "runtime_config": {
+          "digest": "403c36cac8971af1f784e62361fe5182d869dfbf37cd35a2953fc7b46b7ba81d",
+          "file_count": 1
+        }
+      },
+      "env": {
+        "NEXT_PUBLIC_API_MODE": "real",
+        "NODE_ENV": "production",
+        "BASE_PATH": "/chaotang",
+        "NEXT_PUBLIC_BASE_PATH": "/chaotang",
+        "CHAOTANG_BACKEND_API_URL": "http://127.0.0.1:8081"
+      },
+      "env_commitment": "a159b410fa1b6a119290dca2fe2a4afd72913a01dc2b98f93783ee090ac1603e",
+      "active_release": "s5-wrapper-r2-20260713",
+      "wrapper_output_sha256": "7b25357f1126c413fa166f57b23b1639c0974879a3765ab4ab7d18fb9e05fda5"
+    }
+  ],
+  "active_before_rollback": "s5-wrapper-r2-20260713",
+  "active_after_rollback": "s5-wrapper-r1-20260713",
+  "real_start_readiness": {
+    "release_id": "s5-wrapper-r1-20260713",
+    "build_id": "R5qvE0EtD0hX9dRlHS0p5",
+    "socket_owner_pid": 274921,
+    "http_status": 200,
+    "response_bytes": 1170,
+    "url_path": "/chaotang/_next/static/R5qvE0EtD0hX9dRlHS0p5/_buildManifest.js"
+  },
+  "worktree_status_after_two_wrappers": "",
+  "primary_checkout_before": "414a77ad3551e2ca134d93c3334d14e2a592b11fc37ea7e6a2ed230e733425fe",
+  "primary_checkout_after": "414a77ad3551e2ca134d93c3334d14e2a592b11fc37ea7e6a2ed230e733425fe",
+  "true_db_before": "505ddf548c92a9a02c3f67dd1fa44b172869641fe636462488f70d34ca6a2207",
+  "true_db_after": "505ddf548c92a9a02c3f67dd1fa44b172869641fe636462488f70d34ca6a2207",
+  "logs": [
+    "s5-wrapper-r1-20260713.log",
+    "s5-wrapper-r2-20260713.log",
+    "s5-real-start.log",
+    "s5-real-stop.log"
+  ]
+}
