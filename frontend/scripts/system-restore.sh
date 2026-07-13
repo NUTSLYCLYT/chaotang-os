@@ -37,7 +37,16 @@ maybe_restart() {
 
 wait_healthy() {
   local name="$1" url="$2" max_secs="${3:-10}"
-  [ "$DRY_RUN" = "--dry-run" ] && return 0
+  if [ "$DRY_RUN" = "--dry-run" ]; then
+    if curl -sf --max-time 2 "$url" -o /dev/null 2>/dev/null; then
+      ok "$name 健康 [dry-run]"
+    else
+      fail "$name 健康检查失败 [dry-run] — $url"
+    fi
+    # fail() records the error; keep checking the remaining services so the
+    # final dry-run summary reports the whole stack instead of stopping early.
+    return 0
+  fi
   for i in $(seq 1 "$max_secs"); do
     if curl -sf --max-time 2 "$url" -o /dev/null 2>/dev/null; then
       ok "$name 健康 (${i}s)"
@@ -85,9 +94,11 @@ fi
 printf "\n[4/5] nginx\n"
 if systemctl --user list-units --no-legend 2>/dev/null | grep -q "nginx-app"; then
   maybe_restart "nginx-app.service" "nginx"
-  sleep 1
+  [ "$DRY_RUN" = "--dry-run" ] || sleep 1
   if curl -sf --max-time 3 "http://127.0.0.1:3050/chaotang/admin" -o /dev/null 2>/dev/null; then
     ok "nginx → courtos-web 通路正常"
+  elif [ "$DRY_RUN" = "--dry-run" ]; then
+    fail "nginx → courtos-web 通路不可用 [dry-run]"
   else
     warn "nginx 已重启但 :3050 未响应（courtos-web 可能还在初始化）"
   fi
@@ -100,6 +111,7 @@ printf "\n[5/5] courtos-web (:3050)\n"
 if systemctl --user is-active --quiet "courtos-web.service" 2>/dev/null; then
   if [ "$DRY_RUN" = "--dry-run" ]; then
     ok "courtos-web 运行中"
+    wait_healthy "courtos-web" "http://127.0.0.1:3050/chaotang/admin" 20
   else
     info "courtos-web 已在运行，跳过重启"
     ok "courtos-web (:3050) 正常"
@@ -117,7 +129,7 @@ if [ "$FAIL" -eq 0 ]; then
   printf "  端口速查:\n"
   for port_svc in "4444:LiteLLM" "18003:legal-agent" "8081:jiqun" "3050:courtos-web"; do
     port="${port_svc%%:*}"; svc="${port_svc##*:}"
-    if ss -tlnp 2>/dev/null | grep -q ":${port}.*LISTEN"; then
+    if ss -tlnp 2>/dev/null | grep -Eq "LISTEN[[:space:]].*:${port}([[:space:]]|$)"; then
       printf "  ${C_GREEN}✓${C_RESET} :%-6s %s\n" "$port" "$svc"
     else
       printf "  ${C_YELLOW}⚠${C_RESET} :%-6s %s (未监听)\n" "$port" "$svc"
