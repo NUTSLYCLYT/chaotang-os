@@ -1325,7 +1325,7 @@ def shangshufang_confirm_edict(
 
 @router.get("/tasks/{task_id}/status")
 def shangshufang_task_status(
-    task_id: str, _: CurrentUser = Depends(get_current_user)
+    task_id: str, user: CurrentUser = Depends(get_current_user)
 ) -> dict:
     from src.db.engine import SessionLocal
 
@@ -1334,6 +1334,10 @@ def shangshufang_task_status(
         task = db.query(DecisionTask).filter_by(id=task_id).first()
         if task is None:
             return fail("task_id 不存在")
+        # P0-B(2026-07-14):归属校验。跟 jinyiwei.py 的 fill-gap 同款口径——
+        # 别人的任务一律拒绝,不泄露其状态和会审内容。
+        if task.user_id != _user_id(user):
+            return fail("无权查看该任务")
         review = (
             db.query(CourtReview)
             .filter_by(task_id=task_id)

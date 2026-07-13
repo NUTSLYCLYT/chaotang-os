@@ -1,23 +1,25 @@
-"""P0-B 归属过滤棘轮门(2026-07-14 新建)。
+"""P0-B 表面积棘轮门(2026-07-14 新建)——只挡新增,不验证归属。
 
-问题:P0-B(DecisionTask 按 id 裸查、无 user_id 归属校验)的"未修清单"以前
-写在文档里(roadmap/plan 的硬编码行号),而 shangshufang.py 被并发 session
-频繁重写,行号第二天就失真——文档清单天生腐烂。
+**本文件不是 P0-B 硬门。** 归属校验的权威验证在
+`test_p0b_cross_user_behavioral.py`(跨用户行为门)。
 
-本测试把清单变成可执行事实源(棘轮):
-- 精确计数每个 router 文件里 `query(DecisionTask).filter_by(id=` 的出现次数;
-- 与基线严格相等:多了 = 有人新增了裸查(P0-B 债务增长,立即失败);
-  少了 = 有人修掉了一处(好事,但必须有意识地下调基线,让修复被记录)。
-- 行号一律不进基线,只进计数——行号会漂移,计数不会说谎。
+划清职责的原因(2026-07-14 Codex 停止前审查纠正):本文件初版自称"P0-B 硬门",
+但它只数 `query(DecisionTask).filter_by(id=` 的出现次数,根本验证不了归属——
+修复 P0-B 是在裸查**后面加一行 user_id 校验**,裸查还在、计数不变;反过来
+删掉 jinyiwei 已有的校验,计数同样不变。初版还写着"修复一处请下调基线",
+这条指示本身就是错的(修复不减少裸查数),说明"计数=归属"的前提从根上不成立。
+一个存在漏洞时仍然全绿的门,比没有门更危险——它给人已设防的错觉。
 
-基线(2026-07-14 实测):
-- jinyiwei.py 的 1 处带完整归属检查(task.user_id != requester_id → 拒绝),
-  是修复样板,计入原始计数但标注 guarded;
-- 其余 9 处(shangshufang×8 + swarm_runs×1)无归属检查,即 P0-B 待修债务;
-- court_compat.py 曾有 1 处,并发 session 重写后已消失(2026-07-14 复核)。
+本文件保留的唯一职责:**表面积棘轮**——DecisionTask 按 id 裸查的总处数不许
+增长。新增一处裸查(无论是否带校验)都会让本测试红,强制新代码显式进入
+P0-B 视野:要么在行为门里补一条跨用户测试,要么在这里有意识地上调基线并
+说明理由。行号一律不进基线(会漂移),只计数。
 
-P0-B 清零的定义:UNGUARDED 部分归零(全部补上归属检查后,把它们挪进
-GUARDED 基线),不是把裸查删掉。
+基线(2026-07-14 实测,含已修点):
+- jinyiwei.py ×1(fill-gap,已有归属校验)
+- shangshufang.py ×8(其中 tasks/{id}/status 已于 2026-07-14 修复)
+- swarm_runs.py ×1
+计数不区分 guarded/unguarded——因为它区分不了,这正是它不是硬门的原因。
 """
 
 from __future__ import annotations
@@ -29,11 +31,9 @@ ROUTERS = Path(__file__).resolve().parent.parent / "web" / "routers"
 
 _PATTERN = re.compile(r"query\(DecisionTask\)\.filter_by\(id=")
 
-# 文件名 → 预期裸查次数。修复一处 = 把该文件计数下调并在 commit message 里说明。
-_BASELINE_GUARDED = {
-    "jinyiwei.py": 1,  # task.user_id != requester_id 检查在场(修复样板)
-}
-_BASELINE_UNGUARDED = {
+# 文件名 → DecisionTask 按 id 裸查的处数(不区分是否带归属校验——本门区分不了)。
+_BASELINE = {
+    "jinyiwei.py": 1,
     "shangshufang.py": 8,
     "swarm_runs.py": 1,
 }
@@ -48,19 +48,18 @@ def _count_lookups() -> dict[str, int]:
     return counts
 
 
-def test_p0b_decision_task_lookup_ratchet():
-    expected = {**_BASELINE_GUARDED, **_BASELINE_UNGUARDED}
+def test_p0b_lookup_surface_area_ratchet():
+    """DecisionTask 裸查表面积不许增长。新增一处 = 新增一处必须证明归属安全的
+    地方 → 必须同时在 test_p0b_cross_user_behavioral.py 补一条跨用户测试,
+    然后有意识地上调这里的基线。计数减少(端点被删/重构)也要求更新基线,
+    避免基线与现实脱节后这道门静默失效。"""
     actual = _count_lookups()
-    assert actual == expected, (
-        f"DecisionTask 裸查计数偏离基线。actual={actual} expected={expected}。"
-        "多了:你新增了无归属校验的 DecisionTask 查询——禁止,照 jinyiwei.py 的"
-        "requester_id 检查补上归属校验;少了:你修复了 P0-B 债务,请下调本文件"
-        "基线并在 commit message 记录修的是哪个端点。"
-    )
-
-
-def test_p0b_unguarded_debt_direction():
-    """债务只许减不许增:unguarded 基线总数是 9,P0-B 清零即此数归 0。"""
-    assert sum(_BASELINE_UNGUARDED.values()) <= 9, (
-        "P0-B unguarded 基线只能下调(修复)不能上调(新增债务)"
+    assert actual == _BASELINE, (
+        f"DecisionTask 裸查表面积偏离基线。actual={actual} expected={_BASELINE}。\n"
+        "多了:每一处新裸查都必须在 test_p0b_cross_user_behavioral.py 有对应的"
+        "跨用户拒绝测试(照 jinyiwei.py fill-gap 的 requester_id 校验写),然后"
+        "上调本基线。\n"
+        "少了:端点被删或重构,请更新基线。\n"
+        "注意:本门只管表面积,不验证归属——归属是 test_p0b_cross_user_behavioral.py"
+        "的职责,别把这里全绿当成 P0-B 已清零。"
     )
