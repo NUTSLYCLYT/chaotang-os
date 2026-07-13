@@ -1,6 +1,8 @@
 {
   "schema_version": 1,
-  "captured_at": "2026-07-13T00:00:00+08:00",
+  "captured_at": "2026-07-13T08:23:01+08:00",
+  "captured_at_commit": "69dbd4aca43d50e991b139a8249e742470e9b2c3",
+  "capture_command": "repository evidence review; no authoritative aggregate event ledger existed",
   "observation_window": "repository evidence available before S0",
   "completeness": "insufficient_historical_telemetry",
   "metrics": {

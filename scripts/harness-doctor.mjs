@@ -102,8 +102,12 @@ if (manifest) {
       else error(`manifest control plane missing ${key}`);
     }
     for (const rel of manifest.controlPlane.contracts ?? []) checkExists(rel, `manifest control plane contract: ${rel}`);
-    if (!['DESIGNED', 'IMPLEMENTED', 'ROLLOUT', 'ENFORCED'].includes(manifest.controlPlane.status)) {
+    if (!['DESIGNED', 'IMPLEMENTING', 'IMPLEMENTED', 'ROLLOUT', 'ENFORCED'].includes(manifest.controlPlane.status)) {
       error(`manifest control plane has invalid status: ${manifest.controlPlane.status}`);
+    }
+    const componentStates = Object.values(manifest.controlPlane.components ?? {});
+    if (manifest.controlPlane.status === 'ENFORCED' && componentStates.some((state) => state !== 'ENFORCED')) {
+      error('manifest control plane cannot be ENFORCED while a component is not ENFORCED');
     }
   }
 
