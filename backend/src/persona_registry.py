@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-_PERSONA_DIR = Path(__file__).resolve().parent.parent / "skills" / "personas"
+_PERSONA_DIR = Path(__file__).resolve().parent.parent.parent / "skills" / "personas"
 
 # 分席阈值(钦天监签字口径):以**字节为准**——内容量才是真证据,文件数会被空壳灌水
 # (例:7 个近空文件 8KB 不该算判官)。file_count 仅作展示。

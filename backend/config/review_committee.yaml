@@ -27,7 +27,7 @@ trigger_policy:
 personas:
   - id: munger
     name: 芒格
-    skill_path: skills/personas/munger
+    skill_path: skills/personas/munger-perspective
     role: 反愚蠢与激励机制审查
     asks:
       - 有没有把假设当事实？
@@ -63,7 +63,7 @@ personas:
 
   - id: musk
     name: 马斯克
-    skill_path: skills/personas/musk
+    skill_path: skills/personas/elon-musk-perspective
     role: 第一性原理与工程极限审查
     asks:
       - 这个方案从物理/成本/时间上是否成立？
@@ -99,7 +99,7 @@ personas:
 
   - id: zhang_xiaolong
     name: 张小龙
-    skill_path: skills/personas/zhang-xiaolong
+    skill_path: skills/personas/zhangxiaolong-perspective
     role: 克制与用户心智审查
     asks:
       - 用户是否被迫理解系统内部复杂性？
