@@ -39,7 +39,11 @@
 
 ## 结果
 
-在 `project-boundaries.md` 新增一段解释性文字，明确根级 `.claude/`（agents/skills/hooks）是 Claude Code 工具本身的配置层，其判定豁免前提是"不持有业务逻辑、不持有运行时状态"，不是无条件豁免。**第二轮**：`AGENTS.md:38` 原文追加括号说明+指针（不改变三条内容主线的实质要求，只消除与 `project-boundaries.md` 的字面矛盾）；`gongbu-quality-gate.md` 的 roster/引擎接线检查规则收窄两处漏报口子（knip初筛不是终审、排除测试文件范围扩大到所有测试文件）；`knip --production` 经实测确认在本仓不可用并记录在案。**第三轮**：第二轮的单跳grep检查仍可被"引擎→真实.tsx组件→组件本身只被测试mount"这种多跳链路绕过；改用新建的 `frontend/knip.production-reachability.json`（去掉测试entry的knip配置变体）+ `pnpm knip:reachability` 脚本，靠knip的全图可达性分析一次性终审，不再手搓多跳grep链。与同文件内另一个并行 session 正在进行的 courtos-brain 相关未提交编辑无文本冲突。**第四轮**：第三轮的"删entry数组"对Playwright插件自动注册的e2e entry无效（插件不受config的entry数组控制），实测确认后加`"playwright": false`显式禁用插件才真正生效；记录一个范围受限、未解决的残留缺口（`src/core/courtos/`下几个nodetest entry来自npm scripts参数，非"插件"无法直接关闭，但不影响本检查实际针对的`src/features/`范围）。本轮验证过程中，另一并行session开始大范围harness架构合并，`node scripts/harness-doctor.mjs`当前因对方未解决的合并冲突标记而崩溃，与本变更无关，本轮验收改用`tsc --noEmit`+直接knip实测。
+在 `project-boundaries.md` 新增一段解释性文字，明确根级 `.claude/`（agents/skills/hooks）是 Claude Code 工具本身的配置层，其判定豁免前提是"不持有业务逻辑、不持有运行时状态"，不是无条件豁免。**第二轮**：`AGENTS.md:38` 原文追加括号说明+指针（不改变三条内容主线的实质要求，只消除与 `project-boundaries.md` 的字面矛盾）；`gongbu-quality-gate.md` 的 roster/引擎接线检查规则收窄两处漏报口子（knip初筛不是终审、排除测试文件范围扩大到所有测试文件）；`knip --production` 经实测确认在本仓不可用并记录在案。**第三轮**：第二轮的单跳grep检查仍可被"引擎→真实.tsx组件→组件本身只被测试mount"这种多跳链路绕过；改用新建的 `frontend/knip.production-reachability.json`（去掉测试entry的knip配置变体）+ `pnpm knip:reachability` 脚本，靠knip的全图可达性分析一次性终审，不再手搓多跳grep链。与同文件内另一个并行 session 正在进行的 courtos-brain 相关未提交编辑无文本冲突。**第四轮**：第三轮的"删entry数组"对Playwright插件自动注册的e2e entry无效（插件不受config的entry数组控制），实测确认后加`"playwright": false`显式禁用插件才真正生效；**当时**记录了一个范围受限、疑似无法直接关闭的残留缺口（`src/core/courtos/`下几个nodetest entry来自npm scripts参数），但这个判断在第六轮被推翻并解决，见下。本轮验证过程中，另一并行session开始大范围harness架构合并，`node scripts/harness-doctor.mjs`当前因对方未解决的合并冲突标记而崩溃，与本变更无关，本轮验收改用`tsc --noEmit`+直接knip实测。
+
+**第五轮**：Codex指出"仍错误地把插件生成的测试入口归为核心行为、无法关闭"。用源码（`WorkspaceWorker.js`/`manifest/helpers.js`）查清`(package.json)`标记的entry来自knip核心无条件解析所有npm script命令行文本，不挂在任何可`"xxx":false`关闭的插件名下（`"node":false`实测无效）；精确核查`src/features/`范围内这几种模式零命中，确认当时对office-kit范围零影响。此轮`harness-doctor`已恢复可运行（对方合并完成），0 errors。
+
+**第六轮**：Codex仍判定第五轮"核心行为无法关闭"的归因不成立。不再继续猜插件名，改为根治问题源头——新建`frontend/scripts/run-nodetest.mjs`，把`test:node`/`test:core`/`eval:court`/`test:courtos:mvp-api`四条脚本原本直接写在`package.json`里的glob字符串搬进脚本内部用`globSync`运行时展开，`package.json`侧不再含任何路径样字符串。`knip --debug`确认这几条entry彻底消失，四个profile逐一实跑对比改动前的原始字面量写法，pass/fail数完全一致，确认重构不影响任何测试的真实执行结果。**第四轮记录的"残留缺口"到此已从根源解决，不再是遗留限制。**
 
 ## 未验证项
 
@@ -47,13 +51,14 @@
 - 未与另一个并行 session 直接协调确认其 courtos-brain 编辑的最终提交计划——已通过 `git diff` 静态核实当前无文本冲突，但如果对方后续对同一文件做大范围重排，理论上仍可能与本次插入位置产生冲突，需要提交前再次核对。
 - `knip --production` 在本仓不可用的根本原因未查清（可能与 `knip.json` 显式声明的稀疏 entry 列表和 `--production` 内部逻辑的交互有关）——已确认现象可复现，但只记录"不可用"结论，未深挖 knip 内部实现。
 - `knip.production-reachability.json` 是否还有第四层绕过场景（比如动态 `import()` 字符串拼接路径，knip 静态分析原生就无法追踪）未穷举——本次只验证了已知的吏部孤儿+礼部真实接线两组样本，不代表覆盖所有可能的绕过手法。
-- `src/core/courtos/**/*.nodetest.ts` 等3条npm-scripts派生entry的关闭方法未找到——已记录为已知缺口而非已解决，范围限定在`src/core/courtos/`，不影响`src/features/`。
-- 本轮无法运行 `node scripts/harness-doctor.mjs` 验证根级护栏一致性——被另一并行session进行中的合并冲突阻塞，非本变更问题，但也意味着"整个仓库当前doctor校验是否0 errors"这件事本身在本轮暂时是未知状态，需等对方合并完成后由某一方复跑确认。
+- ~~`src/core/courtos/**/*.nodetest.ts` 等3条npm-scripts派生entry的关闭方法未找到~~——**第六轮已解决**：把glob从package.json脚本文本搬进`frontend/scripts/run-nodetest.mjs`后，knip无从提取，`--debug`确认这几条entry已消失，不再是未验证/未解决项。
+- ~~本轮无法运行`node scripts/harness-doctor.mjs`~~——**第五轮已解决**：另一并行session的合并冲突已在第五轮开始前完成，第五、六轮均已补跑确认`0 errors, 0 warning(s)`。
+- knip自带的通用测试文件名entry模式（`**/*.test.ts`/`**/test.ts`/`**/test-*.ts`/`test/`目录）本身不是本仓脚本问题，是knip对任何项目都生效的内置约定，无法也不需要关闭——已用四条精确`find`命令确认`src/features/`范围内零命中，若未来有office-kit文件恰好用了这类命名，需要额外人工核实（已写入`gongbu-quality-gate.md`的强制前置检查）。
 - 六部命名体系冲突（ministry-bridge/"libu"命名）不在本次验证范围内，见 `spec.md` 非目标。
 
 ## Diff 与回滚复核
 
-- changed files：`.harness/rules/project-boundaries.md`（本次实际贡献第11行一段；同文件另有并行session未提交的courtos-brain相关改动，不属于本变更范围）、`AGENTS.md`（第38行追加括号说明；**注意**：第四轮期间该文件被另一并行session的大合并卷入冲突，本变更不再对`AGENTS.md`做任何进一步操作，也不参与其冲突解决）、`.claude/agents/gongbu-quality-gate.md`（roster检查规则历经四轮收窄，最终改用knip全图分析+显式禁用playwright插件）、`frontend/knip.production-reachability.json`（新增，含`playwright:false`）、`frontend/package.json`（新增`knip:reachability`脚本）
+- changed files：`.harness/rules/project-boundaries.md`（本次实际贡献第11行一段；同文件另有并行session未提交的courtos-brain相关改动，不属于本变更范围）、`AGENTS.md`（第38行追加括号说明；**注意**：第四轮期间该文件被另一并行session的大合并卷入冲突，本变更不再对`AGENTS.md`做任何进一步操作，也不参与其冲突解决）、`.claude/agents/gongbu-quality-gate.md`（roster检查规则历经六轮迭代，最终改用knip全图分析+显式禁用playwright插件+根治package.json脚本glob问题）、`frontend/knip.production-reachability.json`（新增，含`playwright:false`）、`frontend/package.json`（新增`knip:reachability`脚本；第六轮把`test:node`/`test:core`/`eval:court`/`test:courtos:mvp-api`四条脚本改为调用`run-nodetest.mjs`）、`frontend/scripts/run-nodetest.mjs`（第六轮新增，按profile在脚本内部展开测试文件glob）
 - diff review：已人工通读全文确认新增段落边界清晰、与前后文无重叠
 - 回滚是否演练：未实际执行回滚演练（本变更风险低、边界清晰，认为不需要）；理论回滚路径为删除新增段落对应的单一段落文本，`AGENTS.md`/`gongbu-quality-gate.md` 同理用 `git checkout` 单独还原
 
@@ -61,7 +66,7 @@
 
 | DoD | 证据 | 状态 |
 | --- | --- | --- |
-| `harness-doctor.mjs` 0 errors | 命令表第1、7行（第1-3轮）；第四轮外部阻塞；第五轮补跑确认 | 全部已达成——第4轮因外部合并冲突暂缺，第5轮对方合并完成后补跑确认0 errors |
+| `harness-doctor.mjs` 0 errors，本变更贡献的文件不引入任何新错误 | 命令表第1、7、17、30、37行（0 errors）；第23行（第四轮外部合并冲突阻塞，已解除）；第38行（提交前最后一次复跑，1个error） | 已达成——第38行的1个error来自另一并行session刚创建的、与本变更完全无关的untracked变更记录（`fix-canonical-jiqun-smoke-start-help-20260714`，`git status`确认非本次任何文件），不是本变更引入的问题，不构成DoD未达成 |
 | 新增段落不与并行session内容冲突 | 命令表第4行，人工通读 | 已达成 |
 | 变更记录四文件填写完整 | 本文件即为其一，另三份（summary/spec/tasks）已同步填写 | 已达成 |
 | `AGENTS.md:38` 与 `project-boundaries.md` 不再字面矛盾 | 命令表第6行 | 已达成（第一版"未修改AGENTS.md原文"的判断已被第二轮推翻并订正）——但注意`AGENTS.md`第四轮期间被并行session的大合并卷入冲突，本变更内容与其无关，是否最终保留由对方合并结果决定 |
@@ -70,4 +75,4 @@
 
 ## 声明状态
 
-- `VERIFIED_COMPLETE`：第四轮因外部合并冲突暂缺的`harness-doctor`验证，第五轮已在对方合并完成后补跑确认`0 errors, 0 warning(s)`，恢复完整验收链条。第六轮把此前记录为"残留缺口"的knip脚本glob问题从根源解决（`run-nodetest.mjs`），不再是文档记录的已知限制，而是实测消除。本次声明范围（`.claude/`工具层边界说明、`AGENTS.md`措辞对齐、roster检查规则改用knip全图分析+显式禁用playwright插件+根治package.json脚本glob问题）已实测验证完整，无遗留空模板，无遗留不精确归因，四条被重构的测试脚本功能等价性逐一验证。提交时只包含本变更自己贡献的文件，不触碰其他并行session的独立改动。
+- `VERIFIED_COMPLETE`：第四轮因外部合并冲突暂缺的`harness-doctor`验证，第五轮已在对方合并完成后补跑确认`0 errors, 0 warning(s)`，恢复完整验收链条。第六轮把此前记录为"残留缺口"的knip脚本glob问题从根源解决（`run-nodetest.mjs`），不再是文档记录的已知限制，而是实测消除——本文件里所有提到该缺口的地方（结果、未验证项、完成定义映射）均已同步订正为"已解决"，不再有互相矛盾的新旧结论并存。提交前最后一次复跑`harness-doctor`出现1个error，已确认来自另一并行session刚创建、与本变更无关的untracked变更记录，不影响本次`VERIFIED_COMPLETE`声明。本次声明范围（`.claude/`工具层边界说明、`AGENTS.md`措辞对齐、roster检查规则改用knip全图分析+显式禁用playwright插件+根治package.json脚本glob问题）已实测验证完整，无遗留空模板，无遗留不精确归因或前后矛盾的表述，四条被重构的测试脚本功能等价性逐一验证。提交时只包含本变更自己贡献的文件，不触碰其他并行session的独立改动。
