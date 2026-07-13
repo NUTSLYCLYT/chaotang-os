@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url'
+
 export const meta = {
   name: 'pack-rd-cost-split',
   description: 'pack_rd 成本拆分: 确定性真闸+真值锚+归因+串行重启屏障 (会审 v3)',
@@ -14,7 +16,8 @@ export const meta = {
   ],
 }
 
-const REPO = '/home/ubuntu/fe/fengQun/jiqun_ai_fresh'
+// Resolve from this workflow file, never from the caller cwd or a sibling checkout.
+const REPO = fileURLToPath(new URL('..', import.meta.url)).replace(/[\\/]$/, '')
 
 // ── 已由 Recon 地基探测查实并写死 (GO), 不再重探 ──
 const RUN_CMD = `python scripts/run_flow.py config/flow_pack_rd.yaml "<工单文本>"` // CLI; 产物落 data/default/runs/<run_id>/

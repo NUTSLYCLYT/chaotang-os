@@ -149,7 +149,7 @@ S10 公开上线 = S1–S9 全部通过
 
 ## 4. 十步执行方案
 
-### S1 — 冻结唯一真源并建立可信基线（PARTIAL）
+### S1 — 冻结唯一真源并建立可信基线（VERIFIED COMPLETE）
 
 **目标**：消灭“旧仓在运行、新仓在开发、文档指向第三处”的漂移。
 
@@ -184,12 +184,13 @@ S10 公开上线 = S1–S9 全部通过
 - 已将 `next-with-base-path`、`prod-release-gate` 与 shared LLM env loader 的自动环境发现统一为 canonical `backend/.env`，保留显式旧变量兼容；本轮 S1 联合回归 23/23，证据位于 `.harness/changes/fix-canonical-runtime-env-source-20260714/`；
 - 已将 release package 的目录、tar、manifest 与 INSTALL 身份统一为 `chaotang-os-frontend`，并建立能力入口清算表、`capability_entry_invoked.v1` 契约和 14 天零调用删除门；证据位于 `.harness/changes/fix-canonical-release-artifact-entry-governance-20260714/`；
 - 已将 `jiqun-contract-smoke` 的 DOWN 启动提示从旧绝对仓库/direct uvicorn 收敛到 canonical `backend/scripts/serve-dev.sh`，保留 SKIP/exit 0 语义；证据位于 `.harness/changes/fix-canonical-jiqun-smoke-start-help-20260714/`；
+- 已将 `wf_pack_rd_cost_split` 的仓库根从硬编码旧绝对路径改为按工作流文件定位 canonical `backend/`；S1 已登记的可执行旧路径归零，证据位于 `.harness/changes/fix-canonical-wf-pack-repository-root-20260714/`；
 - 已逐项清算 11 个 `READY_FOR_REVIEW`：10 项验收合入、lease adapter 退回修正、0 未决；证据位于 `.harness/changes/chore-ready-for-review-triage-20260714/triage.md`；
 
-**S1 未完成硬门**：
+**S1 后续移交（不阻塞 S1 退出）**：
 
 - foreign 3050 在 S1 保持 STOP/只读冻结；immutable artifact、接管与停机属于 S3，不作为 S1 退出条件；
-- 剩余可执行旧路径只剩 `backend/scripts/wf_pack_rd_cost_split.js` 的硬编码旧绝对仓库；该项仍在 capability inventory 的 `MIGRATE_REQUIRED`，必须独立先 RED 后修复；
+- capability inventory 中三个已登记旧入口均为 `MIGRATED_OBSERVE`，尚无 14 天调用遥测，因此任何一个都不得删除；
 - 退回的 backend lease adapter 需补委托路径专项并修复 closeout 仓库形状 fixture；不阻塞 S1 真源退出，但在 S10 前不得计为发布能力；
 - Gitee required check、外部 Ed25519 signer 和 lease-attestation authority 仍未配置，继续保持 `EXTERNAL_REQUIRED`。
 
@@ -702,7 +703,7 @@ node scripts/release-commander.mjs rollback \
 3. `[完成]` 列出并修复当前可执行部署/cron/service/monitor 中的旧路径与 sibling repo 依赖，历史文档只归档不机械改写；
 4. `[完成]` 在独立 worktree/分支承载 S1 路径收敛实现，以 `93a4483` 合入 ext；
 5. `[完成]` 对 11 个 `READY_FOR_REVIEW` 给出唯一结论：10 验收合入、1 退回修正、0 未决；
-6. `[进行中]` S1 路径、restore dry-run、runtime env discovery、release artifact identity 与 smoke 启动帮助已执行 verification-loop；剩余一个可执行旧路径按独立最小闭环复审后才进入 S2；
+6. `[完成]` S1 路径、restore dry-run、runtime env discovery、release artifact identity、smoke 启动帮助与 wf_pack 仓根均已执行 verification-loop；已登记可执行旧路径归零，下一阶段进入 S2；
 7. `[移交 S3]` immutable artifact、3050 接管和由原服务管理器停止 foreign 进程。
 
 这样做看似慢一天，实际会避免后续所有“改对了仓库但线上没变”“测试通过却污染真库”“健康 200 却不知道跑的谁”的返工。

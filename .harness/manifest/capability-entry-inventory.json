@@ -51,9 +51,13 @@
       "owner": "backend",
       "kind": "OPS",
       "entrypoint": "backend/scripts/wf_pack_rd_cost_split.js",
-      "routingTarget": "REPLACEMENT_PENDING",
-      "disposition": "MIGRATE_REQUIRED",
-      "replacement": { "id": "canonical-backend-wf-pack-task", "status": "PLANNED", "evidence": null },
+      "routingTarget": "ENGINEERING_TASK_KERNEL",
+      "disposition": "MIGRATED_OBSERVE",
+      "replacement": {
+        "id": "canonical-backend-wf-pack-task",
+        "status": "VERIFIED",
+        "evidence": "backend/tests/test_wf_pack_rd_cost_split_source.py"
+      },
       "telemetry": {
         "eventName": "capability_entry_invoked.v1",
         "source": null,
@@ -62,7 +66,7 @@
         "windowStart": null,
         "windowEnd": null
       },
-      "decisionEvidence": null
+      "decisionEvidence": ".harness/changes/fix-canonical-wf-pack-repository-root-20260714/summary.md"
     }
   ]
 }
