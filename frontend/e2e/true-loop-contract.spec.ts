@@ -148,7 +148,7 @@ test.describe('上书房 LIVE_SWARM edict 渲染契约 (fixture-driven · 非真
     await page.route('**/api/court/chaotang/study/run', (route) =>
       route.fulfill({ json: { success: true, data: { edict: TRUE_LOOP_EDICT } } }),
     );
-    await page.route('**/api/court/build-ledger', (route) =>
+    await page.route('**/api/build-ledger', (route) =>
       route.fulfill({ json: { success: true, data: [] } }),
     );
     // ⚠️ 把 true-chain-health mock 成全 'real' 仅为让页面渲染 —— 不代表真链路健康。

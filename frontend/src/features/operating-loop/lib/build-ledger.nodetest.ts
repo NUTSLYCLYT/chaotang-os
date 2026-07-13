@@ -66,7 +66,7 @@ test('fetchBuildLedger attaches Bearer auth via backendFetch', async (t) => {
     'Bearer session-token-abc',
     '必须带上 Authorization: Bearer——这正是原来裸 fetch() 从来不做的事，导致生产环境永远 401',
   );
-  assert.match(sentUrl, /\/api\/court\/build-ledger$/);
+  assert.match(sentUrl, /\/api\/build-ledger$/);
 });
 
 test('dispatchBuildLedgerEntry posts through authenticated transport with the right path', async (t) => {
@@ -103,7 +103,7 @@ test('dispatchBuildLedgerEntry posts through authenticated transport with the ri
 
   assert.equal(result.id, 'ledger-1');
   assert.equal(sentAuth, 'Bearer session-token-xyz');
-  assert.match(sentUrl, /\/api\/court\/build-ledger$/);
+  assert.match(sentUrl, /\/api\/build-ledger$/);
   assert.deepEqual((sentBody as { action?: string }).action, 'dispatch');
 });
 

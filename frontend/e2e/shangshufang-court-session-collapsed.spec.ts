@@ -78,7 +78,7 @@ async function gotoBriefing(page: Page) {
       },
     }),
   );
-  await page.route('**/api/court/build-ledger', (route) =>
+  await page.route('**/api/build-ledger', (route) =>
     route.fulfill({ json: { success: true, data: [] } }),
   );
   await page.route('**/api/shangshufang/im**', (route) =>

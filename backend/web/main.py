@@ -249,7 +249,8 @@ from web.routers import dept as dept_router  # noqa: E402
 from web.routers import direct as direct_router  # noqa: E402
 
 app.include_router(health_router.router)
-app.include_router(build_ledger_router.router)
+app.include_router(build_ledger_router.router, prefix="/api/court/build-ledger")
+app.include_router(build_ledger_router.router, prefix="/api/build-ledger")
 app.include_router(hanlin_router.router)
 app.include_router(qintian_forecast_router.router)
 app.include_router(hubu_ask_router.router)

@@ -68,6 +68,33 @@ def test_build_ledger_persist_list_and_export(isolated_session_local):
     assert exported["data"]["count"] == 1
 
 
+def test_build_ledger_canonical_path_is_dual_mounted(isolated_session_local):
+    """2026-07-14: /api/court/build-ledger 在 3050->8081 的 Next 代理链路上被
+    某种未定位的中间层拦截(见 review-handoff.md)，POST 鉴权失败、GET 静默
+    返回空数据。前端已经跳过代理直接走 /api/build-ledger 这个规范路径(跟
+    /api/legal/overview 等既有先例同款手法)——后端必须同时挂载新路径，且
+    行为跟旧路径完全一致，旧路径不下线(e2e/回归测试仍打旧路径)。"""
+    client = TestClient(app)
+    entry = {
+        "id": "ledger-e2",
+        "taskId": "task-e2",
+        "title": "规范路径测试台账",
+        "command": "测试命令",
+        "evidence": ["证据B"],
+        "ministers": ["刑部"],
+        "createdAt": "2026-07-14T00:00:00Z",
+        "status": "dispatched",
+    }
+    persisted = client.post("/api/build-ledger", json={"entry": entry}).json()
+    assert persisted["success"] is True
+    assert persisted["data"]["entry"]["status"] == "dispatched"
+
+    listed = client.get("/api/build-ledger?taskId=task-e2").json()
+    assert listed["success"] is True
+    assert len(listed["data"]) == 1
+    assert listed["data"][0]["taskId"] == "task-e2"
+
+
 def test_build_ledger_transition_enforces_allowed_states_and_writes_audit(
     isolated_session_local,
 ):

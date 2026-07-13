@@ -37,7 +37,12 @@ from fastapi import APIRouter, Body, Depends, Query
 from web.deps import get_current_user
 from web.schemas.auth import CurrentUser
 
-router = APIRouter(prefix="/api/court/build-ledger", tags=["build-ledger"])
+# 2026-07-14: `/api/court/build-ledger` 在 3050->8081 的 Next 代理链路上被
+# 未定位的中间层拦截,POST 鉴权失败、GET 静默返回空数据(review-handoff.md)。
+# 不构造前缀,改成在 main.py 里用同一个 router 对象挂载两次(旧路径 +
+# 规范路径 /api/build-ledger),前端跳过代理直连规范路径,旧路径继续给
+# e2e/回归测试和任何还没迁移的调用方用。
+router = APIRouter(tags=["build-ledger"])
 
 # 2026-07-12 历史数据归属方案(用户拍板选定，见 review-handoff.md)：迁移前的行
 # owner 不可靠推断，回填成这个哨兵值——_owner_id() 对任何真实请求都不会算出

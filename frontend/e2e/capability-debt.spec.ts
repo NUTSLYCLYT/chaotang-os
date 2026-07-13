@@ -107,7 +107,7 @@ test.describe('真能力与能力债务榜', () => {
         },
       });
     });
-    await page.route('**/api/court/build-ledger**', async (route) => {
+    await page.route('**/api/build-ledger**', async (route) => {
       if (route.request().method() === 'POST') {
         ledgerPayload = route.request().postDataJSON();
         await route.fulfill({

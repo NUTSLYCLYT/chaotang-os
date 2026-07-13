@@ -401,7 +401,7 @@ test.describe('上书房 UX', () => {
     await page.route('**/api/court/shangshufang/home**', (route) =>
       route.fulfill({ json: { success: true, data: SHANGSHUFANG_HOME_EMPTY.data } }),
     );
-    await page.route('**/api/court/build-ledger**', (route) =>
+    await page.route('**/api/build-ledger**', (route) =>
       route.fulfill({ json: { success: true, data: [] } }),
     );
     await page.route('**/api/shangshufang/im**', async (route) => {
@@ -1210,8 +1210,8 @@ test.describe('上书房 UX', () => {
   });
 
   test('史馆召回能反哺上书房起草', async ({ page }) => {
-    await page.unroute('**/api/court/build-ledger**');
-    await page.route('**/api/court/build-ledger**', (route) =>
+    await page.unroute('**/api/build-ledger**');
+    await page.route('**/api/build-ledger**', (route) =>
       route.fulfill({ json: { success: true, data: [RECALL_LEDGER_ENTRY] } }),
     );
     await gotoStudy(page);
@@ -1230,8 +1230,8 @@ test.describe('上书房 UX', () => {
   });
 
   test('工部建设案会回流上书房待办入口', async ({ page }) => {
-    await page.unroute('**/api/court/build-ledger**');
-    await page.route('**/api/court/build-ledger**', (route) =>
+    await page.unroute('**/api/build-ledger**');
+    await page.route('**/api/build-ledger**', (route) =>
       route.fulfill({ json: { success: true, data: [REVIEWING_BUILD_CASE_ENTRY] } }),
     );
     await gotoStudy(page);

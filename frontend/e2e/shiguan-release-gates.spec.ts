@@ -105,7 +105,7 @@ test.describe('史馆发布可信战报', () => {
     await page.route('**/api/scribe/lessons', async (route) => {
       await route.fulfill({ json: { lessons: [] } });
     });
-    await page.route('**/api/court/build-ledger**', async (route) => {
+    await page.route('**/api/build-ledger**', async (route) => {
       await route.fulfill({ json: { success: true, data: [] } });
     });
   });

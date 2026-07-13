@@ -59,7 +59,11 @@ const LEDGER_EVENT = 'chaotang:build-ledger-updated';
 // courtos.access_token 这个 cookie(后端不消费它),所以生产环境下每一次
 // 调用都会 401。backendFetch() 会自动附带当前会话 token(必要时刷新重试)，
 // 换成它之后这些请求在真实鉴权下才能成功,而不是永远悄悄拿到"空台账"。
-const LEDGER_PATH = '/api/court/build-ledger';
+// 2026-07-14: `/api/court/build-ledger` 在 3050->8081 的 Next 代理链路上被
+// 未定位的中间层拦截,POST 鉴权失败、GET 静默返回空数据(review-handoff.md)。
+// 跳过代理直接走后端新挂载的规范路径(跟 /api/legal/overview 等既有先例
+// 同款手法),旧路径继续在后端保留,不影响 e2e/回归测试。
+const LEDGER_PATH = '/api/build-ledger';
 
 export const BUILD_LEDGER_STATUS_LABEL: Record<BuildLedgerStatus, string> = {
   dispatched: '待军机复核',
