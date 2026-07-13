@@ -46,7 +46,7 @@
   },
   "controlPlane": {
     "status": "IMPLEMENTING",
-    "rolloutStage": "s0-contracts",
+    "rolloutStage": "s1-task-lease",
     "blueprint": "docs/multi-agent-harness-control-plane-blueprint-2026-07-13.md",
     "documentation": ".harness/wiki/multi-agent-control-plane.md",
     "baseline": ".harness/baselines/multi-agent-control-plane-20260713.json",
@@ -56,13 +56,14 @@
       ".harness/contracts/release-evidence.schema.json"
     ],
     "components": {
-      "contracts": "IMPLEMENTED", "taskRegistry": "DESIGNED", "leaseManager": "DESIGNED",
+      "contracts": "IMPLEMENTED", "taskRegistry": "IMPLEMENTED", "leaseManager": "IMPLEMENTED",
       "resourceLocks": "DESIGNED", "worktreeManager": "DESIGNED", "immutableBuilds": "DESIGNED",
       "releaseCommander": "DESIGNED", "testIdentity": "DESIGNED", "releaseEvidence": "DESIGNED",
       "recovery": "DESIGNED", "mandatoryRollout": "DESIGNED"
     },
     "verification": [
       "node --test scripts/multi-agent-contracts.nodetest.mjs",
+      "node --test scripts/multi-agent-lease.nodetest.mjs",
       "node scripts/harness-doctor.mjs"
     ]
   }
