@@ -46,10 +46,17 @@
   },
   "controlPlane": {
     "status": "IMPLEMENTING",
-    "rolloutStage": "s6-local",
+    "rolloutStage": "s7-local",
     "blueprint": "docs/multi-agent-harness-control-plane-blueprint-2026-07-13.md",
     "documentation": ".harness/wiki/multi-agent-control-plane.md",
     "baseline": ".harness/baselines/multi-agent-control-plane-20260713.json",
+    "testIdentityTrust": {
+      "status": "EXTERNAL_REQUIRED",
+      "keyId": null,
+      "publicKeySha256": null,
+      "runtimePublicKey": "trust/test-isolation/<key-id>.pem",
+      "note": "Set PINNED values in a reviewed commit and provision the matching public key under git-common-dir; the private key belongs only to the external isolation provisioner."
+    },
     "contracts": [
       ".harness/contracts/task.schema.json",
       ".harness/contracts/lease.schema.json",
@@ -59,7 +66,7 @@
     "components": {
       "contracts": "IMPLEMENTED", "taskRegistry": "IMPLEMENTED", "leaseManager": "IMPLEMENTED",
       "resourceLocks": "IMPLEMENTED", "leaseAttestation": "IMPLEMENTED_LOCAL", "integrationGate": "IMPLEMENTED_LOCAL", "worktreeManager": "IMPLEMENTED_LOCAL", "immutableBuilds": "IMPLEMENTED_LOCAL",
-      "releaseCommander": "IMPLEMENTED_LOCAL", "testIdentity": "DESIGNED", "releaseEvidence": "DESIGNED",
+      "releaseCommander": "IMPLEMENTED_LOCAL", "testIdentity": "IMPLEMENTED_LOCAL", "releaseEvidence": "DESIGNED",
       "recovery": "DESIGNED", "mandatoryRollout": "DESIGNED"
     },
     "verification": [
@@ -71,6 +78,8 @@
       "node --test scripts/worktree-manager.nodetest.mjs",
       "node --experimental-strip-types --test frontend/scripts/safe-prod-lifecycle.nodetest.ts",
       "node --test scripts/release-commander.nodetest.mjs",
+      "node --test scripts/test-identity.nodetest.mjs",
+      "python3 -m pytest -q backend/tests/test_production_has_no_test_identity_routes.py",
       "node scripts/harness-doctor.mjs"
     ]
   }

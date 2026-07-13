@@ -349,7 +349,20 @@ def authenticate(username: str, password: str) -> dict | None:
 
 def verify_token(token: str) -> dict | None:
     """验证 JWT token，返回 payload。"""
-    return _jwt_decode(token)
+    payload = _jwt_decode(token)
+    if not payload:
+        return None
+    # CI sidecar credentials are exchange-only and must never authenticate to
+    # the production API, even if someone signs them with the production key.
+    if (
+        payload.get("iss") == "chaotang-ci-sidecar"
+        or payload.get("env") in {"ci", "local-test"}
+        or payload.get("aud") == "chaotang-e2e"
+        or payload.get("scope") == "e2e:nonprivileged"
+        or payload.get("typ") == "chaotang-ci-exchange"
+    ):
+        return None
+    return payload
 
 
 # ---------------------------------------------------------------------------

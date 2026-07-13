@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import sys
 from hashlib import sha1
 from contextlib import asynccontextmanager
@@ -59,6 +60,9 @@ _load_env_file(_PROJECT_ROOT / ".env")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger = logging.getLogger(__name__)
+    # Re-check at actual startup as well as after static router registration so
+    # a late plugin/lifespan mutation cannot smuggle a CI identity route in.
+    assert_no_test_identity_routes(app)
     try:
         from src.tenant import ensure_admin
 
@@ -1151,6 +1155,25 @@ def chaotang_ui_yushi_second_review(body: _ChaotangYushiSecondReviewRequest) -> 
             "battle_report_update": battle_report_update,
         },
     }
+
+
+def assert_no_test_identity_routes(application: FastAPI) -> None:
+    """Production invariant: test identity control planes never live in this API."""
+    for route in application.routes:
+        identifiers = [getattr(route, "path", ""), getattr(route, "name", "")]
+        identifiers.extend(getattr(route, "tags", None) or [])
+        normalized = " ".join(
+            str(value).lower().replace("_", "-").replace("/", "-")
+            for value in identifiers
+        )
+        if re.search(
+            r"(?:^|[^a-z0-9])test-(?:session|identity)(?:$|[^a-z0-9])",
+            normalized,
+        ):
+            raise RuntimeError(f"forbidden test identity route: {normalized}")
+
+
+assert_no_test_identity_routes(app)
 
 
 # ── 本地启动入口（python -m web.main）─────────────────────

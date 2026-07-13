@@ -11,7 +11,7 @@
 ## 范围
 
 - 主线：根级多 Agent 控制面，按 S0-S10 分阶段交付。
-- 已完成：S0 契约、诚实基线、根级 manifest、说明与验证矩阵。
-- 文件：`.harness/contracts/`、`.harness/baselines/`、`.harness/wiki/`、`scripts/multi-agent-contracts.nodetest.mjs`。
-- 验证：契约测试 5/5 通过；根 harness doctor 0 errors、0 warnings；首轮独立审查 NO-GO 的契约字段、真实 validator、状态过度声明问题已修正，等待复审。
-- 状态声明：仅 S0 为 `IMPLEMENTED`；尚未进入 rollout，不声明 `ENFORCED`。
+- 已完成：S0-S6，以及 S7 外置测试身份管理器的本地实现；外部 CI 信任根仍需管理员配置，不声明生产强制生效。
+- 文件与逐步证据：见本目录 `s1-evidence.md` 至 `s7-evidence.md`；每步保持独立测试、审查和诚实边界。
+- S7 最新验证：Node 6/6、后端生产边界 7/7、邻接鉴权 79/79、TypeScript 0 errors、根/后端 doctor 0 errors。
+- 状态声明：当前推进到 `s7-local`；S3、S5、S6、S7 均保留 `IMPLEMENTED_LOCAL`/外部依赖边界，不声明 `ENFORCED`。
