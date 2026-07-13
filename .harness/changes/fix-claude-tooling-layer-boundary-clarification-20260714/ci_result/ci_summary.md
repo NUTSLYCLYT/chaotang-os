@@ -21,6 +21,13 @@
 | `cd frontend && pnpm exec knip --files --config knip.production-reachability.json`（加`playwright:false`后，对吏部/礼部真实样本复测） | 1 | 586行，吏部5引擎+其nodetest均在列，礼部3个真实接线文件均不在列 | 确认修复后对真实样本仍然准确，2次复现一致（586/586） | 本会话实测 |
 | `cd frontend && pnpm exec tsc --noEmit`（第四轮改动后） | 0 | 无类型错误 | 确认`playwright:false`未破坏类型检查 | 本会话实测 |
 | `node scripts/harness-doctor.mjs`（第四轮，尝试复跑） | 无法执行 | `SyntaxError: Unexpected token '<<'`——`frontend/scripts/harness-doctor.mjs`当前带未解决合并冲突标记（另一并行session"unify chaotang harness architecture"合并中） | 确认崩溃原因与本变更无关：`git status --short`确认我方5个目标文件均为干净`M`/`??`，不在`git status`报告的21个`both added`冲突路径列表内 | 本会话实测 |
+| `pnpm exec knip --config knip.production-reachability.json --debug`（加`"node": false`后） | 0 | `(package.json)`标记的entry（`**/*.itest.ts`、`src/core/courtos/**/*.nodetest.ts`等）原样全部存在，未受影响 | 证明这些entry不挂在"node"插件下，`"node":false`对此无效 | 本会话实测 |
+| `find src/features -type f -regex ".*[.\-_]test\.\(ts\|tsx\|js\|jsx\|cjs\|mjs\)$"` | 1（空结果） | 无输出 | 确认`src/features/`下无文件命中knip内置`.test.ts`/`-test.ts`/`_test.ts`模式 | 本会话实测 |
+| `find src/features -type f \( -name "test.ts" -o -name "test-*.ts" \)` | 1（空结果） | 无输出 | 确认无文件字面命名`test.ts`或以`test-`开头 | 本会话实测 |
+| `find src/features -type d -name "test"` | 1（空结果） | 无输出 | 确认无`test/`目录 | 本会话实测 |
+| `find src/features -type f -name "*.itest.ts"` | 1（空结果） | 无输出 | 确认无`.itest.ts`文件 | 本会话实测 |
+| `cd frontend && pnpm exec tsc --noEmit`（第五轮改动后） | 0 | 无类型错误 | 确认文档措辞修订未影响任何代码 | 本会话实测 |
+| `node scripts/harness-doctor.mjs`（第五轮，对方合并已完成后复跑） | 0 | `0 errors, 0 warning(s)` | 确认外部阻塞已解除，根级护栏一致性恢复可验证 | 本会话实测 |
 
 ## 结果
 
@@ -46,7 +53,7 @@
 
 | DoD | 证据 | 状态 |
 | --- | --- | --- |
-| `harness-doctor.mjs` 0 errors | 命令表第1、7行（第1-3轮均已达成）；第四轮**无法验证**，见命令表最后一行 | 第1-3轮已达成；第4轮因外部合并冲突暂缺该项证据，改用tsc+knip替代 |
+| `harness-doctor.mjs` 0 errors | 命令表第1、7行（第1-3轮）；第四轮外部阻塞；第五轮补跑确认 | 全部已达成——第4轮因外部合并冲突暂缺，第5轮对方合并完成后补跑确认0 errors |
 | 新增段落不与并行session内容冲突 | 命令表第4行，人工通读 | 已达成 |
 | 变更记录四文件填写完整 | 本文件即为其一，另三份（summary/spec/tasks）已同步填写 | 已达成 |
 | `AGENTS.md:38` 与 `project-boundaries.md` 不再字面矛盾 | 命令表第6行 | 已达成（第一版"未修改AGENTS.md原文"的判断已被第二轮推翻并订正）——但注意`AGENTS.md`第四轮期间被并行session的大合并卷入冲突，本变更内容与其无关，是否最终保留由对方合并结果决定 |
@@ -54,4 +61,4 @@
 
 ## 声明状态
 
-- `VERIFIED_PARTIAL`：本次声明范围内容层面已实测验证完整（`.claude/`工具层边界说明、`AGENTS.md`措辞对齐、roster检查规则改用knip全图分析+显式禁用playwright插件），无遗留空模板。降级为`VERIFIED_PARTIAL`而非`VERIFIED_COMPLETE`的原因：`node scripts/harness-doctor.mjs`本轮被另一并行session进行中的大合并阻塞，无法运行以确认"根级护栏一致性0 errors"这项标准验收证据；已用`tsc --noEmit`+直接knip实测作为替代证据，但根级doctor这一项本身处于外部未知状态，等对方合并完成、冲突标记清除后，需要有人补跑一次`node scripts/harness-doctor.mjs`确认整个仓库（含本变更+对方合并结果）整体0 errors，才能真正视为`VERIFIED_COMPLETE`。本提交只包含本变更自己贡献的文件（`.claude/agents/gongbu-quality-gate.md`、`frontend/knip.production-reachability.json`、`frontend/package.json`、本变更记录目录四文件），完全不触碰`AGENTS.md`/`project-boundaries.md`当前的合并冲突状态。
+- `VERIFIED_COMPLETE`：第四轮因外部合并冲突暂缺的`harness-doctor`验证，第五轮已在对方合并完成后补跑确认`0 errors, 0 warning(s)`，恢复完整验收链条。本次声明范围（`.claude/`工具层边界说明、`AGENTS.md`措辞对齐、roster检查规则改用knip全图分析+显式禁用playwright插件+精确记录核心script-parsing残留缺口及其零命中范围）已实测验证完整，无遗留空模板，无遗留"某插件"这类不精确归因。提交时只包含本变更自己贡献的文件，不触碰其他并行session的独立改动。

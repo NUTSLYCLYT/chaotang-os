@@ -79,4 +79,23 @@
   - `cd frontend && pnpm exec tsc --noEmit` → 0 错误
   - `node scripts/harness-doctor.mjs` → **无法运行**：另一个并行session当前正在进行一次大范围harness架构合并（"unify chaotang harness architecture"），`frontend/scripts/harness-doctor.mjs`等多个文件当前带有未解决的`<<<<<<< HEAD`冲突标记，导致脚本本身语法错误崩溃（`SyntaxError: Unexpected token '<<'`）。已确认这与本次改动无关（我方5个目标文件均为干净的`M`/`??`状态，不在冲突文件列表里），不属于本变更范围，不会尝试解决该合并冲突
 - 回滚边界：`git checkout frontend/knip.production-reachability.json .claude/agents/gongbu-quality-gate.md`
-- 完成定义：`gongbu-quality-gate.md` 的knip检查方法论证据完整、经人造样本正反验证；`harness-doctor.mjs` 暂时无法作为验收证据（外部原因），改用 `tsc --noEmit` + 直接knip实测作为本轮验收依据
+- 完成定义：`gongbu-quality-gate.md` 的knip检查方法论证据完整、经人造样本正反验证；`harness-doctor.mjs` 暂时无法作为验收证据（外部原因），改用 `tsc --noEmit` + 直接knip实测作为本轮验收依据（**未通过**，见任务5）
+
+## 任务 5（补充：Codex stop-time review 第五次拦截）
+
+- 目标：修正"生产可达性检查仍把测试文件注册为入口"
+- 前置条件：任务4只堵住了 Playwright 插件那一条路（e2e/spec entry）。用`--debug`完整核对entry列表发现还有一批`(package.json)`标记的entry未处理：`**/*.test.ts`/`**/test-*.ts`/`**/test.ts`/`**/test/**/*.ts`这几个knip内置通用测试文件名模式、`src/**/*.itest.ts`（不限于courtos的通用模式）、以及此前任务3已记录但归因为"某插件"的`src/core/courtos/**/*.nodetest.ts`等3条——尝试`"node": false`验证是否能像`"playwright": false`一样关掉，实测无效，说明这些不是挂在具体插件名下的行为
+- 输入：`node_modules/knip/dist/WorkspaceWorker.js`（`runPlugins()`方法里`getInputsFromScripts`调用）、`node_modules/knip/dist/manifest/helpers.js`（`getFilteredScripts`实现）源码直接阅读
+- 输出：
+  - 查清机制：knip 核心无条件解析 `package.json` 所有 npm script 的命令行文本提取文件glob注册为entry，不受任何`"<插件名>": false`配置项控制（`getFilteredScripts`只把字面量脚本名`start`归为production，其余（含所有`test:*`）都归development，但development脚本一样会贡献entry，只是在`--production`模式下会被过滤——这也解释了任务2里`--production`表现"清零"的诡异行为，可能与isProduction分支下`project`/`entry`整体判定方式的其他交互有关，未继续深挖）
+  - 精确核查`src/features/`范围内是否有文件命中这几个knip内置模式：`find src/features -type f -regex ".*[.\-_]test\.\(ts\|tsx\|js\|jsx\|cjs\|mjs\)$"`、`find src/features -type f \( -name "test.ts" -o -name "test-*.ts" \)`、`find src/features -type d -name "test"`、`find src/features -type f -name "*.itest.ts"`，四条命令全部空结果——确认该缺口在当前代码库对office-kit范围零命中，是记录在案的理论风险而非活跃bug
+  - `.claude/agents/gongbu-quality-gate.md` 补充：把"已知残留缺口"从"某插件关不掉"订正为"核心script-parsing关不掉"，列出精确的不可控pattern清单，加一条强制前置检查——审查具体文件前先确认文件名/路径不命中这些pattern，命中了knip判定对该文件不可信，需人工核实
+- 涉及文件：`.claude/agents/gongbu-quality-gate.md`
+- 状态 / 数据变化：无
+- 验证命令与证据：
+  - `pnpm exec knip --config knip.production-reachability.json --debug`（加`"node": false`后）→ `(package.json)`标记的entry原样全部存在，确认`"node": false`对此无效
+  - 四条`find`精确核查命令均空结果（见上）
+  - `cd frontend && pnpm exec tsc --noEmit` → 0 错误
+  - `node scripts/harness-doctor.mjs` → 本轮对方并行session的合并已完成，恢复可运行，`0 errors, 0 warning(s)`
+- 回滚边界：`git checkout .claude/agents/gongbu-quality-gate.md`
+- 完成定义：`gongbu-quality-gate.md` 对残留缺口的描述精确到机制层面（而非笼统归因"某插件"），列出可验证的精确pattern清单和前置检查步骤；`harness-doctor.mjs` 0 errors

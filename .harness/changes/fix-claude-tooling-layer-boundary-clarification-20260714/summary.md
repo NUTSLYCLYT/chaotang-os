@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | fix-claude-tooling-layer-boundary-clarification-20260714 |
 | 类型 | fix |
-| 状态 | DONE（本变更自身内容完整；根级`harness-doctor`全仓复核因外部合并冲突暂缺，见ci_result声明状态`VERIFIED_PARTIAL`） |
+| 状态 | DONE（第五轮已补跑`harness-doctor` 0 errors，恢复`VERIFIED_COMPLETE`，见ci_result） |
 | Owner | Project Agent |
 | 创建日期 | 20260714 |
 
@@ -40,3 +40,5 @@ Codex stop-time review 第三次拦截："仅测试可达"仍可经组件间接�
 Codex stop-time review 第四次拦截："备用 Knip 配置并未真正排除测试入口"——用人造探针文件（只被一个e2e spec引用）实测发现：光从`entry`数组删掉`e2e/**/*.spec.ts`没用，探针依然被判"used"。用`--debug`查证：knip的Playwright插件侦测到`playwright.config.ts`后会自动注册`e2e/**/*.@(spec|test).*`为entry，完全不受自定义config的`entry`数组控制。修复：显式加`"playwright": false`禁用该插件，同一份探针重跑后正确变为unused。顺带发现一个已知残留缺口——`src/core/courtos/`下几个nodetest entry来自npm scripts里直写的glob，不是能关闭的"插件"，暂无干净解法，但范围不影响`src/features/<部>/`（本检查实际针对的office-kit roster），已记录在案。
 
 本轮验证途中，另一并行session开始一次大范围harness架构合并（"unify chaotang harness architecture"），导致`frontend/scripts/harness-doctor.mjs`等多个文件当前带有未解决的合并冲突标记，`node scripts/harness-doctor.mjs`暂时无法运行（`SyntaxError: Unexpected token '<<'`）——已确认与本变更无关（我方5个目标文件均干净，不在冲突列表内），不属于本变更范围，改用`tsc --noEmit`+直接knip实测作为本轮验收依据。
+
+Codex stop-time review 第五次拦截："生产可达性检查仍把测试文件注册为入口"——直接阅读`node_modules/knip/dist/WorkspaceWorker.js`/`manifest/helpers.js`源码查清机制：knip核心无条件解析package.json所有npm script命令行文本提取文件glob注册entry，不挂在任何可`"xxx":false`关闭的插件名下（`"node":false`实测无效）。精确核查`src/features/`范围内knip内置通用测试文件名模式（`.test.ts`/`test.ts`/`test-*.ts`/`test/`目录/`.itest.ts`）零命中，确认该缺口目前对office-kit范围零影响。`gongbu-quality-gate.md`把"某插件关不掉"订正为精确的机制层面描述+可验证的pattern清单+强制前置检查步骤。此轮`harness-doctor`已恢复可运行（对方合并已完成），0 errors。
