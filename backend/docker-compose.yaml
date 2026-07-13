@@ -19,6 +19,8 @@ services:
       - FENGQUN_AUTH=${FENGQUN_AUTH:-true}
       # JWT 密钥（生产环境务必改成随机串）
       - FENGQUN_JWT_SECRET=${FENGQUN_JWT_SECRET:-fengqun-prod-change-me}
+      # 非秘密轮换标识；发布门用它确认运行实例与候选配置一致
+      - FENGQUN_JWT_KEY_ID=${FENGQUN_JWT_KEY_ID:-}
       # 商机闭环持久化路径（挂载到 fengqun-data volume）
       - FENGQUN_COMMERCIAL_BUSINESS_LEDGER=/app/data/commercial_loop_business.jsonl
       - FENGQUN_COMMERCIAL_GOLDEN_CANDIDATES=/app/data/commercial_loop_golden_candidates.jsonl

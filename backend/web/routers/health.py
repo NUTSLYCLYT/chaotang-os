@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 import time
 import urllib.request
 from pathlib import Path
@@ -15,6 +16,14 @@ from web.schemas.health import HealthResponse
 router = APIRouter(prefix="/api", tags=["health"])
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_JWT_KEY_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+
+
+def _auth_identity() -> dict:
+    enabled = os.getenv("FENGQUN_AUTH", "false").lower() in ("1", "true", "yes")
+    candidate = os.getenv("FENGQUN_JWT_KEY_ID", "")
+    key_id = candidate if _JWT_KEY_ID_RE.fullmatch(candidate) else None
+    return {"enabled": enabled, "jwt_key_id": key_id}
 
 
 def _check_model_gateway() -> tuple[str, dict]:
@@ -51,6 +60,7 @@ def _health_payload() -> HealthResponse:
     checks["litellm"], details["litellm"] = _check_model_gateway()
 
     checks["deepseek_key"] = "configured" if os.getenv("DEEPSEEK_API_KEY") else "missing"
+    details["auth"] = _auth_identity()
 
     overall = "ok" if all(v in ("up", "configured") for v in checks.values()) else "degraded"
     record_event(

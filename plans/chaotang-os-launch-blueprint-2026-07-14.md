@@ -223,6 +223,8 @@ cd ../backend && python3 scripts/harness_doctor.py
 2. `security/bootstrap-jwt-secret-lifecycle`：管理员首次 provisioning、JWT 强度、轮换和吊销；
 3. `security/repository-and-image-secret-gate`：当前树、Git 历史、镜像层和提交前扫描。
 
+**已完成的第一个最小闭环（2026-07-14）**：`fix-jwt-runtime-identity-contract-20260714` 建立非秘密 `FENGQUN_JWT_KEY_ID`、loopback Bearer 探针和 `prod:doctor` fail-closed 门。它证明候选配置与运行后端的认证身份是否一致，但不读取/散列 JWT secret，不重启 8081，也不代表 S2 完成。当前运行中 8081 尚未返回该元数据且未获得外部探针 token，因此生产状态继续为 STOP。
+
 **主要路径**：`backend/tests/`、`backend/src/tenant.py`、`backend/src/security.py`、`backend/Dockerfile`、根/前端控制面测试工具、`.harness/changes/<change-id>/`。
 
 **任务**：
@@ -704,7 +706,8 @@ node scripts/release-commander.mjs rollback \
 4. `[完成]` 在独立 worktree/分支承载 S1 路径收敛实现，以 `93a4483` 合入 ext；
 5. `[完成]` 对 11 个 `READY_FOR_REVIEW` 给出唯一结论：10 验收合入、1 退回修正、0 未决；
 6. `[完成]` S1 路径、restore dry-run、runtime env discovery、release artifact identity、smoke 启动帮助与 wf_pack 仓根均已执行 verification-loop；已登记可执行旧路径归零，下一阶段进入 S2；
-7. `[移交 S3]` immutable artifact、3050 接管和由原服务管理器停止 foreign 进程。
+7. `[完成 S2.1]` JWT 运行身份契约已按 RED→GREEN 收口；真实 8081 未配置 key id/外部探针前继续 fail closed；
+8. `[移交 S3]` immutable artifact、3050 接管和由原服务管理器停止 foreign 进程。
 
 这样做看似慢一天，实际会避免后续所有“改对了仓库但线上没变”“测试通过却污染真库”“健康 200 却不知道跑的谁”的返工。
 

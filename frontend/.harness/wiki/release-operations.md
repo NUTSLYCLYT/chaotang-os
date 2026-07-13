@@ -31,4 +31,14 @@ pnpm gate:prod-release
 - 浏览器截图或 Playwright 证据。
 - 涉及外部运行事实时，记录对应 API 契约、环境变量和运行验证证据来源。
 
+## JWT 运行身份门
+
+`prod:doctor` 直接检查 loopback 后端，不读取 `FENGQUN_JWT_SECRET`，也不输出 token：
+
+- 后端用 `FENGQUN_JWT_KEY_ID` 公开非秘密轮换标识；只允许 1–64 位字母、数字、点、下划线和短横线。
+- 发布候选用 `CHAOTANG_EXPECTED_JWT_KEY_ID` 声明预期标识。
+- 外部发布权限方临时注入 `CHAOTANG_RUNTIME_PROBE_TOKEN`；该值不得持久化到 env example、报告或 Git。
+- `PROD_DOCTOR_BACKEND_URL` 默认 `http://127.0.0.1:8081`，身份探针只允许 HTTP(S) loopback，防止 Bearer token 外泄。
+- 认证未启用、标识缺失/不匹配、token 缺失或 `/api/tasks` 拒绝 token，均判定 `STOP`。
+
 证据写入 `.harness/changes/{change-id}/deployment/preview_report.md`。

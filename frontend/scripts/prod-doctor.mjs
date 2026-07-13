@@ -17,6 +17,10 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { classifyProductionListenerOwnership, inspectProductionRuntime } from './prod-runtime-identity.mjs';
+import {
+  assertLoopbackBackendUrl,
+  classifyJwtRuntimeIdentity,
+} from './jwt-runtime-identity.mjs';
 
 const execFileAsync = promisify(execFile);
 const cwd = process.cwd();
@@ -24,6 +28,7 @@ const baseUrl = process.env.PROD_DOCTOR_BASE_URL ?? process.env.HARNESS_BASE_URL
 const basePath = process.env.PROD_DOCTOR_BASE_PATH ?? process.env.HARNESS_BASE_PATH ?? '/chaotang';
 const asJson = process.argv.slice(2).includes('--json');
 const allowDev = process.env.PROD_DOCTOR_ALLOW_DEV === '1';
+const backendUrl = process.env.PROD_DOCTOR_BACKEND_URL ?? 'http://127.0.0.1:8081';
 
 function b64url(input) {
   return Buffer.from(input).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
@@ -60,7 +65,7 @@ async function getListeningLines() {
   return stdout.split('\n').filter(Boolean);
 }
 
-function requestText(url, timeoutMs, token) {
+function requestText(url, timeoutMs, token, extraHeaders = {}) {
   return new Promise((resolve) => {
     let settled = false;
     const finish = (result) => {
@@ -74,8 +79,9 @@ function requestText(url, timeoutMs, token) {
       ? {
           Cookie: `courtos.access_token=${encodeURIComponent(token)}`,
           Accept: 'application/json',
+          ...extraHeaders,
         }
-      : { Accept: 'application/json' };
+      : { Accept: 'application/json', ...extraHeaders };
 
     const req = client.get(url, { headers }, (res) => {
       let body = '';
@@ -244,10 +250,66 @@ async function checkTrueChain() {
   };
 }
 
+async function checkJwtRuntimeIdentity() {
+  let target;
+  try {
+    target = assertLoopbackBackendUrl(backendUrl);
+  } catch (error) {
+    return {
+      id: 'jwt-runtime-identity',
+      ok: false,
+      state: 'stop',
+      failures: ['unsafe_backend_probe_url'],
+      detail: error.message,
+    };
+  }
+
+  const healthUrl = new URL('/api/health', target).toString();
+  const health = await requestText(healthUrl, 5000);
+  let payload = null;
+  try {
+    payload = JSON.parse(health.body);
+  } catch {
+    // Invalid health responses fail closed below.
+  }
+  if (!health.ok || payload == null) {
+    return {
+      id: 'jwt-runtime-identity',
+      ok: false,
+      state: 'stop',
+      failures: ['backend_health_unavailable'],
+      status: health.status,
+      url: healthUrl,
+      detail: `backend health unavailable (${health.status})`,
+    };
+  }
+
+  const probeToken = process.env.CHAOTANG_RUNTIME_PROBE_TOKEN ?? '';
+  const input = {
+    authEnabled: payload?.details?.auth?.enabled,
+    runtimeKeyId: payload?.details?.auth?.jwt_key_id,
+    expectedKeyId: process.env.CHAOTANG_EXPECTED_JWT_KEY_ID,
+    probeTokenPresent: probeToken.length > 0,
+    probeStatus: null,
+  };
+  const preflight = classifyJwtRuntimeIdentity(input);
+  if (!preflight.shouldProbe) return { ...preflight, url: healthUrl };
+
+  const probeUrl = new URL('/api/tasks', target).toString();
+  const probe = await requestText(probeUrl, 5000, null, {
+    Authorization: `Bearer ${probeToken}`,
+  });
+  return {
+    ...classifyJwtRuntimeIdentity({ ...input, probeStatus: probe.status }),
+    url: probeUrl,
+  };
+}
+
 function decide(checks) {
   if (!checks.find((check) => check.id === 'port-discipline')?.ok) return 'STOP';
   if (!checks.find((check) => check.id === 'build-artifacts')?.ok) return 'STOP';
   if (!checks.find((check) => check.id === 'http-health')?.ok) return 'STOP';
+  if (!checks.find((check) => check.id === 'jwt-runtime-identity')?.ok) return 'STOP';
   if (!checks.find((check) => check.id === 'true-chain')?.ok) return 'FIX';
   return 'PROD';
 }
@@ -256,6 +318,7 @@ const [processLines, listeningLines] = await Promise.all([getProcessLines(), get
 const portDiscipline = classifyPorts(listeningLines, processLines);
 const buildArtifacts = checkBuildArtifacts();
 const httpHealth = await checkHttpHealth();
+const jwtRuntimeIdentity = await checkJwtRuntimeIdentity();
 const trueChain = httpHealth.ok ? await checkTrueChain() : {
   id: 'true-chain',
   ok: false,
@@ -264,13 +327,14 @@ const trueChain = httpHealth.ok ? await checkTrueChain() : {
   failedRequired: ['http-health-unavailable'],
 };
 
-const checks = [portDiscipline, buildArtifacts, httpHealth, trueChain];
+const checks = [portDiscipline, buildArtifacts, httpHealth, jwtRuntimeIdentity, trueChain];
 const decision = decide(checks);
 const report = {
   checkedAt: new Date().toISOString(),
   cwd,
   baseUrl,
   basePath,
+  backendUrl,
   decision,
   allowDev,
   summary: {
