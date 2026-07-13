@@ -22,7 +22,7 @@
 
 - changed files：提交 `8dee499` 共5个文件——`AGENTS.md`（8行新增，无删除）+ 本变更记录目录4个文件（`summary.md`/`request_analysis/spec.md`/`request_analysis/tasks.md`/`ci_result/ci_summary.md`，均为新建）
 - diff review：`git diff --stat` 确认改动范围精确，人工通读确认新增章节独立成段、不与既有"不可绕过"条款交叉引用出错
-- 回滚是否演练：**已演练**（见命令表倒数两行）。本次改动分两次提交：`8dee499`（`AGENTS.md`+本目录4个文件）、`f09dae3`（订正本目录3个文件的回滚描述，未再碰`AGENTS.md`）。两次提交对本目录同一批文件都有改动，只revert较早的`8dee499`会与较晚的`f09dae3`冲突（已实测复现，3处`modify/delete`冲突）；必须按时间倒序——先`git revert f09dae3`，再`git revert 8dee499`，两步均实测无冲突。单独`git checkout AGENTS.md`同样不准确，会留下孤儿变更记录文件。风险仍然极低（纯文本+文档，无数据、无运行时状态，实验性revert已完整abort且验证过工作树恢复到实验前状态）。
+- 回滚是否演练：已用`git revert --no-commit`演练过两种顺序（见命令表，一种冲突一种不冲突）。**但基于commit hash的revert指令本身在本变更记录里已经连续失效三次**——`8dee499`→写"checkout AGENTS.md"→被`f09dae3`推翻→写"revert 8dee499"→被`ecedac9`（本轮订正的提交）再次推翻——根因是只要还在编辑本目录文件，任何"revert某commit"的说明都会被承载这次编辑的新提交自身弄失效，这是结构性问题，不是又找错了一次顺序。最终改用不引用任何commit hash的状态描述：从`AGENTS.md`移除"## Claude Code specific rules"整节 + 删除本变更记录整个目录。这个描述不依赖提交历史，不会再因本文件被继续编辑而失效。风险仍然极低（纯文本+文档，无数据、无运行时状态）。
 
 ## 完成定义映射
 
@@ -31,8 +31,8 @@
 | `harness-doctor.mjs` 0 errors | 命令表第2行 | 已达成 |
 | 新增内容与既有条款无冲突 | 人工通读 | 已达成 |
 | 变更记录四文件填写完整 | 本文件即为其一，另三份已同步填写 | 已达成 |
-| 回滚描述准确、经实测验证 | 命令表倒数两行（先revert 8dee499冲突复现，倒序revert无冲突） | 已达成——第一版"git checkout AGENTS.md即可完全撤销"和第二版"git revert 8dee499"均被推翻订正，第三版给出经实测的两步倒序revert |
+| 回滚描述准确、且不会因本文件后续被继续编辑而再次失效 | `AGENTS.md`/本目录三文件人工核对，均已改为状态描述（不引用任何commit hash） | 已达成——前三版分别写"checkout AGENTS.md"/"revert 8dee499"/"倒序revert f09dae3再8dee499"，均被各自的下一次订正提交自身推翻，根因是commit-hash描述与"还在编辑本文件"这件事结构性冲突；第四版改用状态描述（移除AGENTS.md章节+删目录）从根本解决 |
 
 ## 声明状态
 
-- `VERIFIED_COMPLETE`：本次声明范围（`AGENTS.md`新增5条规则 + 准确且经实测验证的回滚方法）已实测验证完整，无遗留空模板，无遗留矛盾或不准确表述。回滚方法本身经过两轮订正才最终经实测确认（先说"checkout AGENTS.md"→推翻→说"revert 8dee499"→推翻（会与后续订正commit冲突）→最终确认"倒序revert f09dae3再8dee499"无冲突），三处文档已同步为最终版本。
+- `VERIFIED_COMPLETE`：本次声明范围（`AGENTS.md`新增5条规则 + 不会自我失效的回滚方法）已验证完整，无遗留空模板，无遗留矛盾或不准确表述。回滚方法经过三轮订正——"checkout AGENTS.md"→"revert 8dee499"→"倒序revert f09dae3再8dee499"，每一版都被承载它的下一次提交自身推翻，因为只要还在编辑本目录文件，commit-hash描述就注定会过期。第四版换成状态描述（移除`AGENTS.md`章节+删除本变更记录目录），不再引用任何commit hash，理论上不会再因为本文件被继续编辑而失效——除非有人继续往本目录加新的commit-hash式描述。

@@ -9,7 +9,7 @@
 - 涉及文件：`AGENTS.md`
 - 状态 / 数据变化：纯文档编辑，无运行时状态变化
 - 验证命令与证据：`node scripts/harness-doctor.mjs` → `0 errors, 0 warning(s)`；人工通读确认新增章节与既有"不可绕过"条款无冲突、格式一致
-- 回滚边界：分两次提交落地——`8dee499`（`AGENTS.md` + 本目录4个文件）、`f09dae3`（订正本目录3个文件的回滚描述）。两者对同一批文件都有改动，必须倒序 revert：`git revert f09dae3` 后 `git revert 8dee499`（已用 `--no-commit` 验证两步均无冲突）；顺序反了会在本目录3个文件上产生冲突
+- 回滚边界：见任务4——改用不依赖具体commit hash的状态描述（移除`AGENTS.md`里的规则整节+删除本变更记录目录），不再写"revert哪个commit"
 - 完成定义：`harness-doctor.mjs` 0 errors；变更记录四文件填写完整（**未通过**，见任务2、任务3）
 
 ## 任务 2（补充：Codex stop-time review 第一次拦截）
@@ -42,4 +42,16 @@
   - `grep -c "Claude Code specific rules" AGENTS.md`（abort后）→ 1，确认规则段落还在
   - `node scripts/harness-doctor.mjs` → `0 errors, 0 warning(s)`
 - 回滚边界：`git checkout` 这三个文件
-- 完成定义：回滚描述给出经实测验证、按正确时间倒序的两步revert命令，不再有会产生冲突的错误顺序；`harness-doctor.mjs` 0 errors
+- 完成定义：回滚描述给出经实测验证、按正确时间倒序的两步revert命令，不再有会产生冲突的错误顺序；`harness-doctor.mjs` 0 errors（**未通过**，见任务4——本任务自己产生的提交`ecedac9`让刚写的两步revert顺序又失效了）
+
+## 任务 4（补充：Codex stop-time review 第三次拦截）
+
+- 目标：修正"回滚说明在提交`ecedac9`后再次失效"
+- 前置条件：任务3把回滚写成"revert f09dae3再revert 8dee499"，但任务3本身是靠新提交`ecedac9`落地的，而`ecedac9`又改了同样的3个文件（ci_summary.md/spec.md/tasks.md）——这条刚验证过的revert顺序，因为承载它的提交本身又编辑了同一批文件，立刻又过期了。这是同一个结构性问题第三次出现：只要还在用"revert某个具体commit"描述回滚，任何后续编辑这几个文件的提交都会让描述再次失效
+- 输入：`git log --oneline -- .harness/changes/docs-claude-code-specific-rules-20260714/`（确认8dee499/f09dae3/ecedac9三个提交都改过本目录文件）
+- 输出：不再追加第四个commit hash继续打补丁，改用根本不引用任何commit hash的**状态描述**回滚方法：①从`AGENTS.md`删除"## Claude Code specific rules"整节；②删除`.harness/changes/docs-claude-code-specific-rules-20260714/`整个目录。这个描述只依赖"改动前后的文件状态"，不依赖提交历史，因此不会再因为本变更记录被继续编辑而失效
+- 涉及文件：`request_analysis/spec.md`、`request_analysis/tasks.md`、`ci_result/ci_summary.md`
+- 状态 / 数据变化：无
+- 验证命令与证据：`node scripts/harness-doctor.mjs` → `0 errors, 0 warning(s)`；人工核对三个文件不再出现任何具体commit hash的revert指令
+- 回滚边界：`git checkout` 这三个文件（这一条本身也是状态描述，不是"revert哪个commit"）
+- 完成定义：三处回滚描述改为状态描述后，不会再因为承载这次修订的提交本身编辑了同一批文件而失效——这是本变更记录里回滚描述最后一次需要因为"文件同步问题"被订正
