@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync, mkdirSync, mkdtempSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join, basename } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -9,10 +9,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const frontendRoot = join(__dirname, '..');
 const doctorScript = join(__dirname, 'harness-doctor.mjs');
 const appRoot = join(frontendRoot, 'src', 'app');
-
-// Unique per test run so two concurrent invocations of this file (or a stray
-// leftover from a previous crashed run) can never collide on the same path.
-const markerName = `__bff_guard_regression_test_${process.pid}__`;
 
 function runDoctor() {
   return spawnSync(process.execPath, [doctorScript], { cwd: frontendRoot, encoding: 'utf8' });
@@ -42,9 +38,13 @@ test('BFF guard: clean repo has no src/app/api and no route.* handlers', () => {
 
 test('BFF guard: fails when src/app/api exists', () => {
   const apiDir = join(appRoot, 'api');
-  const bffMarker = join(apiDir, markerName);
   const apiDirPreexisted = existsSync(apiDir);
-  mkdirSync(bffMarker, { recursive: true });
+  if (!apiDirPreexisted) mkdirSync(apiDir, { recursive: true });
+  // mkdtempSync asks the OS for an atomically-unique path — unlike a
+  // hand-rolled name (e.g. process.pid), this cannot collide with a stale
+  // leftover, a concurrent run in a different PID namespace, or anything
+  // else already present, so it's safe to create-then-delete unconditionally.
+  const bffMarker = mkdtempSync(join(apiDir, 'bff-guard-test-'));
   try {
     const result = runDoctor();
     const output = `${result.stdout}${result.stderr}`;
@@ -60,15 +60,17 @@ test('BFF guard: fails when src/app/api exists', () => {
 });
 
 test('BFF guard: fails when a route.ts handler exists under src/app', () => {
-  const routeDir = join(appRoot, markerName);
-  mkdirSync(routeDir, { recursive: true });
+  // appRoot (src/app) always exists in a real Next.js project, so no
+  // preexistence tracking/parent-removal is needed here — same
+  // mkdtempSync-for-uniqueness reasoning as the case above.
+  const routeDir = mkdtempSync(join(appRoot, 'bff-guard-test-'));
   writeFileSync(join(routeDir, 'route.ts'), 'export async function GET() {\n  return new Response("x");\n}\n');
   try {
     const result = runDoctor();
     const output = `${result.stdout}${result.stderr}`;
     assert.notEqual(result.status, 0);
     assert.match(output, /BFF route handlers forbidden/);
-    assert.match(output, new RegExp(`${markerName}/route\\.ts`));
+    assert.match(output, new RegExp(`${basename(routeDir)}/route\\.ts`));
   } finally {
     removeOwnArtifact(routeDir, null);
   }
