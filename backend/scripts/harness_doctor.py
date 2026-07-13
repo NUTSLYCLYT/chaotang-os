@@ -84,6 +84,19 @@ def check_harness_item(item: dict, group: str, known_ids: set[str]) -> None:
     ok(f"{group}: {item_id}")
 
 
+def check_reference_artifacts(manifest: dict) -> None:
+    for item in manifest.get("referenceArtifacts", []):
+        artifact_id = item.get("id", "<unknown>")
+        rel_path = item.get("path", "")
+        base = (HARNESS_ROOT / rel_path).resolve()
+        if not base.exists() or not base.is_dir():
+            error(f"referenceArtifact {artifact_id}: directory missing: {base}")
+            continue
+        for rel in item.get("required", []):
+            check_exists(base / rel, f"referenceArtifact {artifact_id}/{rel}")
+        ok(f"referenceArtifact: {artifact_id}")
+
+
 def check_change_records() -> None:
     change_root = HARNESS_ROOT / "changes"
     if not change_root.exists():
@@ -140,6 +153,8 @@ def main() -> int:
 
     for item in manifest.get("implementationPackages", []):
         check_harness_item(item, "implementation package", known_ids)
+
+    check_reference_artifacts(manifest)
 
     allowed = set(manifest.get("allowedInfrastructureDirs", []))
     for child in sorted(path for path in HARNESS_ROOT.iterdir() if path.is_dir()):
