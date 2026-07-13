@@ -81,9 +81,11 @@ for (const [rel, needle] of entrypointExpectations) {
 
 const manifestFile = join(H, 'manifest', 'project-harness.json');
 let manifest = null;
+let rawManifestText = null;
 if (existsSync(manifestFile)) {
   try {
-    manifest = JSON.parse(await readText(manifestFile));
+    rawManifestText = await readText(manifestFile);
+    manifest = JSON.parse(rawManifestText);
     ok('manifest: project-harness.json');
   } catch (cause) {
     error(`manifest invalid JSON: ${cause.message}`);
@@ -137,55 +139,78 @@ if (manifest) {
         }
       }
 
-      // 只比对最新一行没法防"改到B又偷偷改回A、中间那次B从没写进日志"——B和A各自
-      // 落盘那一刻都必须先过 doctor，所以历史必须只能追加、不能改写已提交的行；
-      // 这样A→B→A两次真实落盘都各自留痕，不会被"最终状态没变"掩盖。
-      const committed = spawnSync('git', ['show', 'HEAD:.harness/rollout-history.jsonl'], {
-        cwd: root,
-        encoding: 'utf8',
-      });
-      if (committed.status === 0) {
-        const committedLines = committed.stdout.trim().split('\n').filter(Boolean);
-        const isPrefix = committedLines.every((line, index) => lines[index] === line);
-        if (!isPrefix) {
-          error('.harness/rollout-history.jsonl rewrote or removed a previously committed entry; history must be append-only');
-        } else {
-          ok('rollout-history.jsonl is append-only relative to HEAD');
-        }
+      // 只比"磁盘 vs HEAD"，一旦这次改动被 commit，磁盘就等于新HEAD，下次(尤其
+      // CI在干净checkout上跑，磁盘天生就等于HEAD)这两个检查永远查不出任何东西——
+      // 等于commit一落地,检查就失效。所以每项都要再补一次"HEAD vs HEAD~1"，把
+      // 刚落地的那一次改动本身也纳入检查,不管是交互式commit前还是CI在commit后跑。
+      const showAt = (ref, relPath) => {
+        const result = spawnSync('git', ['show', `${ref}:${relPath}`], { cwd: root, encoding: 'utf8' });
+        return result.status === 0 ? result.stdout : null;
+      };
+
+      function checkAppendOnly(oldText, newText, label) {
+        if (oldText === null) return;
+        const oldLines = oldText.trim().split('\n').filter(Boolean);
+        const newLines = newText.trim().split('\n').filter(Boolean);
+        const isPrefix = oldLines.every((line, index) => newLines[index] === line);
+        if (!isPrefix) error(`.harness/rollout-history.jsonl rewrote or removed a previously committed entry (${label}); history must be append-only`);
+        else ok(`rollout-history.jsonl is append-only (${label})`);
       }
+
+      checkAppendOnly(showAt('HEAD', '.harness/rollout-history.jsonl'), rawText, 'disk vs HEAD');
+      const headHistory = showAt('HEAD', '.harness/rollout-history.jsonl');
+      const parentHistory = showAt('HEAD~1', '.harness/rollout-history.jsonl');
+      if (headHistory !== null) checkAppendOnly(parentHistory, headHistory, 'HEAD vs HEAD~1');
 
       // append-only 挡不住"同一次改动里把检查代码本身也改弱/删掉"——checker和被
       // 检查的状态住在同一个仓库，任何本地脚本检查天然防不住这种自我修改。这里
       // 不假装能防住，只在检测到两者同批改动时强制要求显式承认，把"悄悄绕过"
-      // 变成"写进永久记录里的公开承认"，成本从0提到"要在审计日志里承认"。
-      const doctorScriptPath = fileURLToPath(import.meta.url);
-      const doctorDiskText = await readFile(doctorScriptPath, 'utf8');
-      const doctorCommitted = spawnSync('git', ['show', 'HEAD:scripts/harness-doctor.mjs'], {
-        cwd: root,
-        encoding: 'utf8',
-      });
-      const manifestCommitted = spawnSync('git', ['show', 'HEAD:.harness/manifest/project-harness.json'], {
-        cwd: root,
-        encoding: 'utf8',
-      });
-      if (doctorCommitted.status === 0 && manifestCommitted.status === 0 && last) {
-        const checkerChanged = doctorCommitted.stdout !== doctorDiskText;
+      // 变成"写进永久记录里的公开承认"，成本从0提到"要在审计日志里承认"。同样要
+      // 查两段(磁盘vs HEAD、HEAD vs HEAD~1)，否则commit一落地这条也会失效。
+      function checkCheckerDisclosure(oldDoctorText, newDoctorText, oldManifestText, newManifestText, entry, label) {
+        if (oldDoctorText === null || oldManifestText === null || !entry) return;
+        const checkerChanged = oldDoctorText !== newDoctorText;
         let manifestControlPlaneChanged = false;
         try {
-          const prevManifest = JSON.parse(manifestCommitted.stdout);
+          const prevManifest = JSON.parse(oldManifestText);
+          const newManifest = JSON.parse(newManifestText);
           manifestControlPlaneChanged =
-            prevManifest.controlPlane?.rolloutStage !== manifest.controlPlane.rolloutStage ||
-            JSON.stringify(prevManifest.controlPlane?.components) !== JSON.stringify(manifest.controlPlane.components);
+            prevManifest.controlPlane?.rolloutStage !== newManifest.controlPlane?.rolloutStage ||
+            JSON.stringify(prevManifest.controlPlane?.components) !== JSON.stringify(newManifest.controlPlane?.components);
         } catch {
           manifestControlPlaneChanged = true;
         }
-        if (checkerChanged && manifestControlPlaneChanged && last.checkerChangedInThisTransition !== true) {
+        if (checkerChanged && manifestControlPlaneChanged && entry.checkerChangedInThisTransition !== true) {
           error(
-            'scripts/harness-doctor.mjs and controlPlane rolloutStage/components changed in the same revision; set checkerChangedInThisTransition:true in the rollout-history.jsonl entry and explain why in reason',
+            `scripts/harness-doctor.mjs and controlPlane rolloutStage/components changed together (${label}); set checkerChangedInThisTransition:true in the rollout-history.jsonl entry and explain why in reason`,
           );
         } else if (checkerChanged && manifestControlPlaneChanged) {
-          ok('rollout gate change disclosed via checkerChangedInThisTransition');
+          ok(`rollout gate change disclosed via checkerChangedInThisTransition (${label})`);
         }
+      }
+
+      const doctorScriptPath = fileURLToPath(import.meta.url);
+      const doctorDiskText = await readFile(doctorScriptPath, 'utf8');
+      checkCheckerDisclosure(
+        showAt('HEAD', 'scripts/harness-doctor.mjs'),
+        doctorDiskText,
+        showAt('HEAD', '.harness/manifest/project-harness.json'),
+        rawManifestText,
+        last,
+        'disk vs HEAD',
+      );
+      const headDoctor = showAt('HEAD', 'scripts/harness-doctor.mjs');
+      const headManifest = showAt('HEAD', '.harness/manifest/project-harness.json');
+      if (headHistory !== null && headDoctor !== null && headManifest !== null) {
+        const headLast = headHistory.trim().split('\n').filter(Boolean).pop();
+        checkCheckerDisclosure(
+          showAt('HEAD~1', 'scripts/harness-doctor.mjs'),
+          headDoctor,
+          showAt('HEAD~1', '.harness/manifest/project-harness.json'),
+          headManifest,
+          headLast ? JSON.parse(headLast) : null,
+          'HEAD vs HEAD~1',
+        );
       }
     }
   }
