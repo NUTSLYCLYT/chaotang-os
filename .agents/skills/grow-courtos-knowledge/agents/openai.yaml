@@ -1,0 +1,4 @@
+interface:
+  display_name: "CourtOS 知识生长"
+  short_description: "把原始证据持续转成可追溯、可复用、可决策、可复盘的项目知识"
+  default_prompt: "Use $grow-courtos-knowledge to process the newest CourtOS-Brain material into verified concepts, links, and actionable outputs."

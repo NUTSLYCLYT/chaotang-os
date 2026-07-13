@@ -1,0 +1,5 @@
+# Local AI chat history and machine-specific plugin runtime files
+.claudian/sessions/
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/plugins/claudian/

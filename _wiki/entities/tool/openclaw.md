@@ -11,6 +11,7 @@ status: stub
 - **kind**: tool
 
 ## 来源
+- [[sources/01-daily-briefings-2026-07-13-daily-briefing]]
 - [[sources/05-swarms-meta-2026-07-12-self-diagnose]]
 - [[sources/01-daily-briefings-2026-07-12-daily-briefing]]
 - [[sources/05-swarms-evolution-2026-07-11]]

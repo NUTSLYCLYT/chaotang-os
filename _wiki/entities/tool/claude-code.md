@@ -11,6 +11,7 @@ status: stub
 - **kind**: tool
 
 ## 来源
+- [[sources/05-swarms-2026-07-13-info-swarm]]
 
 - [[sources/05-swarms-stock-2026-07-04-pre-market]]
 
