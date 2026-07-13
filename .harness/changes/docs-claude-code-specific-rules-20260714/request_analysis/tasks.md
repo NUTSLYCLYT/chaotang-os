@@ -75,4 +75,16 @@
   - `git diff --stat 8dee499^ -- AGENTS.md .harness/changes/docs-claude-code-specific-rules-20260714/` → `5 files changed, 187 insertions(+)`
   - `node scripts/harness-doctor.mjs` → `0 errors, 0 warning(s)`
 - 回滚边界：`git checkout .harness/changes/docs-claude-code-specific-rules-20260714/ci_result/ci_summary.md`
-- 完成定义：文档里不再有"看起来像当前仍成立、实际已经过期"的验证声明；"changed files"反映累积改动而非首次提交；`harness-doctor.mjs` 0 errors
+- 完成定义：文档里不再有"看起来像当前仍成立、实际已经过期"的验证声明；"changed files"反映累积改动而非首次提交；`harness-doctor.mjs` 0 errors（**未通过**，见任务6——"5 files changed, 187 insertions"这个写死的数字，本身在记录它的提交（`2d9f323`）落地那一刻就又过期了）
+
+## 任务 6（补充：Codex stop-time review 第五次拦截）
+
+- 目标：修正"累积 diff 统计在提交落地时已再次过期"
+- 前置条件：任务5把"changed files"从"只讲首次提交8dee499"改成"累积统计，5 files changed, 187 insertions(+)"，但这个具体数字是写死的快照——落地它的提交（`2d9f323`，4 files changed, 34 insertions(+)）本身又编辑了这几个文件，使得"187"这个数字在提交那一刻就已经不是真实的累积行数了。本质是同一类错误（"写死一个会随后续编辑变化的东西"）从"commit hash"换了个马甲变成"行数统计"又犯了一次
+- 输入：`summary.md`第16行、`ci_result/ci_summary.md`第24行里写死的"187 insertions"
+- 输出：两处都改为"只给可复现的命令（`git diff --stat 8dee499^ -- ...`），不写死具体数字"，并在文字里显式点破"上一版写死187这件事本身就是重蹈覆辙"，帮助未来的编辑者（包括我自己）识别这个模式、不再犯第三次。DoD表格和声明状态也同步概括成一条通用原则：本文档不应断言任何"当前是多少"的数值，只应记录"如何查"的命令
+- 涉及文件：`summary.md`、`ci_result/ci_summary.md`
+- 状态 / 数据变化：无
+- 验证命令与证据：`node scripts/harness-doctor.mjs` → `0 errors, 0 warning(s)`；`grep -n "187\|insertions" summary.md ci_result/ci_summary.md` 确认具体数字只残留在历史task记录（任务4/5，正确地作为"当时观察到什么"保留）里，"验证"/"Diff与回滚复核"等当前状态段落不再断言具体数值
+- 回滚边界：`git checkout summary.md ci_result/ci_summary.md`
+- 完成定义：本变更记录里，凡是描述"当前状态"（而非"某个历史任务当时做了什么"）的段落，不再包含任何会随后续编辑而过期的写死数值或commit hash；`harness-doctor.mjs` 0 errors

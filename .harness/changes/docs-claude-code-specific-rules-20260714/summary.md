@@ -13,7 +13,7 @@
 - 主线：根项目（`AGENTS.md`"不可绕过"条款之后新增一节，纯文档，不涉及任何一条内容主线的业务逻辑）
 - 文件：
   - `AGENTS.md`（新增"## Claude Code specific rules"一节，5条操作规则）
-- 验证：`node scripts/harness-doctor.mjs` 0 errors；人工核对新增内容与既有"不可绕过"条款无冲突；累积改动见 `git diff --stat 8dee499^ -- AGENTS.md .harness/changes/docs-claude-code-specific-rules-20260714/`（5 files changed, 187 insertions(+)，覆盖本变更记录全部4轮订正）
+- 验证：`node scripts/harness-doctor.mjs` 0 errors；人工核对新增内容与既有"不可绕过"条款无冲突；累积改动范围用 `git diff --stat 8dee499^ -- AGENTS.md .harness/changes/docs-claude-code-specific-rules-20260714/` 现查——**不在此处写死具体行数**，因为本变更记录后续每次编辑都会让任何写死的数字过期（曾经在这里记过一次"187 insertions"，写完当次提交本身就已经让它变旧，是同一类错误换了个形式重犯）。这条命令本身是稳定的（`8dee499^` 是固定的历史锚点），谁想知道当前累积改动量，跑一下这条命令即可，不要相信文档里任何写死的数字。
 
 ## 背景
 
