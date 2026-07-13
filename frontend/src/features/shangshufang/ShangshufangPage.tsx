@@ -2492,7 +2492,9 @@ export function ShangshufangPage() {
     { refreshInterval: 15_000 },
   );
   const [buildLedger, setBuildLedger] = useState<BuildLedgerEntry[]>([]);
-  const [buildLedgerSyncError, setBuildLedgerSyncError] = useState<string | null>(null);
+  const [buildLedgerSyncState, setBuildLedgerSyncState] = useState<
+    { status: 'loading' } | { status: 'idle' } | { status: 'error'; message: string }
+  >({ status: 'loading' });
 
   const [decreeText, setDecreeText] = useState('');
   const [decreeAttachments, setDecreeAttachments] = useState<DecreeAttachment[]>([]);
@@ -2541,19 +2543,22 @@ export function ShangshufangPage() {
 
   // 2026-07-14: fetchBuildLedger 失败会 throw(不再悄悄返回空数组),但如果这里
   // 还是只 console.warn,对真实用户来说"同步失败"和"本来就没有台账"看起来
-  // 还是完全一样——console 只有开发者能看到。补一个可见的 syncError 态,
-  // 台账面板旁边显示"同步失败"提示 + 手动重试,而不是假装成空态。
+  // 还是完全一样——console 只有开发者能看到。补一个可见的 syncState,台账
+  // 面板旁边显示"同步失败"提示 + 手动重试,而不是假装成空态。
+  // 2026-07-14 补:重试点击时不能先把上一次的 error 清成 null 再等结果——
+  // 那样请求挂起的这段时间横幅消失、面板看起来又是"无状态的空面板",跟
+  // 原来的病一样。改成显式 loading 态,清空(idle)只在真正成功之后发生。
   const syncBuildLedger = useCallback(() => {
-    setBuildLedgerSyncError(null);
+    setBuildLedgerSyncState({ status: 'loading' });
     void syncBuildLedgerFromServer()
       .then((entries) => {
         setBuildLedger(entries);
-        setBuildLedgerSyncError(null);
+        setBuildLedgerSyncState({ status: 'idle' });
       })
       .catch((error) => {
         const message = error instanceof Error ? error.message : String(error);
         console.warn('[ShangshufangPage] build ledger sync failed:', message);
-        setBuildLedgerSyncError(message);
+        setBuildLedgerSyncState({ status: 'error', message });
       });
   }, []);
 
@@ -4991,12 +4996,24 @@ export function ShangshufangPage() {
                 }}
                 onDismiss={resetJiqunRun}
               />}
-              {buildLedgerSyncError && (
+              {buildLedgerSyncState.status === 'loading' && (
+                <div
+                  className="mb-2 flex items-center gap-2.5 rounded-lg border px-3 py-2 text-[11.5px]"
+                  style={{ borderColor: '#F0C66A55', color: '#F0C66A', background: '#F0C66A12' }}
+                >
+                  <span
+                    className="h-3 w-3 shrink-0 animate-spin rounded-full border-[1.5px] border-current border-t-transparent"
+                    aria-hidden
+                  />
+                  <span className="min-w-0 flex-1 truncate">台账同步中……</span>
+                </div>
+              )}
+              {buildLedgerSyncState.status === 'error' && (
                 <div
                   className="mb-2 flex items-center gap-2.5 rounded-lg border px-3 py-2 text-[11.5px]"
                   style={{ borderColor: '#C2553D55', color: '#E8B4A6', background: '#C2553D12' }}
                 >
-                  <span className="min-w-0 flex-1 truncate">台账同步失败，不是没有记录：{buildLedgerSyncError}</span>
+                  <span className="min-w-0 flex-1 truncate">台账同步失败，不是没有记录：{buildLedgerSyncState.message}</span>
                   <button
                     type="button"
                     onClick={syncBuildLedger}
