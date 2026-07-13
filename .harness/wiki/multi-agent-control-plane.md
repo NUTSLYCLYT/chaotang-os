@@ -2,6 +2,8 @@
 
 本控制面为同一 Git 仓库内的并发 Agent 提供任务、租约、资源锁、构建与发布证据的唯一协调层。详细建设顺序以 `docs/multi-agent-harness-control-plane-blueprint-2026-07-13.md` 为准。
 
+**范围声明**：本控制面不管理业务部门派发（六部/`chaotang_department_protocol`/`chaotang_department_router.py`）。两边都用到"task""lease"等词，但分别指不同的东西——这里的 task/lease 是 git worktree、构建产物、发布证据的协调单元；部门系统的"task"是决策奏折（`DecisionTask`），走 SQLAlchemy `decision_tasks` 表，与本控制面的 SQLite 数据库、schema、生命周期完全独立，没有相互调用或数据转换路径。（2026-07-14 复核评审报告 `docs/chaotang-os-duplication-conflict-audit-2026-07-14.md` finding #3 时补充。）
+
 ## 状态语义
 
 - `DESIGNED`：仅存在设计，不可作为门禁。

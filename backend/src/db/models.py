@@ -195,7 +195,11 @@ class Retrospective(Base):
 
 
 class DecisionTask(Base):
-    """上书房决策任务：一句话原问 → 丞相拟旨 → 皇上确认 → 军机处会审。"""
+    """上书房决策任务：一句话原问 → 丞相拟旨 → 皇上确认 → 军机处会审。
+
+    与 .harness/contracts/task.schema.json 的 "task"（git worktree/coding-agent
+    协调单元，task_id 格式 task-*）同名不同物，两者无转换路径，不要假设有联动。
+    """
 
     __tablename__ = "decision_tasks"
 

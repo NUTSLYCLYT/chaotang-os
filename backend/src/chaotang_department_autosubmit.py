@@ -10,7 +10,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from src.chaotang_department_payload import build_text_payload
+from src.chaotang_department_payload import DEPARTMENT_ALIASES, build_text_payload
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -19,16 +19,14 @@ DEFAULT_JSON_OUT = ROOT / "harness" / "chaotang_department_protocol" / "artifact
 DEFAULT_MD_OUT = ROOT / "harness" / "chaotang_department_protocol" / "artifacts" / "auto_submit_latest.md"
 DEFAULT_LEDGER = ROOT / "harness" / "chaotang_department_protocol" / "artifacts" / "auto_submit_ledger.jsonl"
 
+# Derived from DEPARTMENT_ALIASES (single source of truth) plus the flow-only
+# aliases that table doesn't cover, so the two never drift out of sync again.
+# Values for overlapping keys (finance/legal/product/market/historian/guard/
+# astronomer) were verified identical to DEPARTMENT_ALIASES before merging.
 FLOW_DEPARTMENT_MAP = {
+    **DEPARTMENT_ALIASES,
     "chancellor": "qintianjian",
-    "finance": "hubu",
-    "legal": "xingbu",
-    "product": "gongbu",
-    "market": "libu",
     "ops": "gongbu",
-    "historian": "shiguan",
-    "guard": "jinyiwei",
-    "astronomer": "qintianjian",
     "physician": "yushi",
 }
 

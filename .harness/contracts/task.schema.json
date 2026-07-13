@@ -1,7 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://chaotang.local/harness/task.schema.json",
-  "title": "Multi-agent task", "type": "object", "additionalProperties": false,
+  "title": "Multi-agent task",
+  "description": "Git-worktree/coding-agent coordination unit (task_id pattern task-*). Unrelated to backend DecisionTask (backend/src/db/models.py, decision_tasks table, sha1 opaque id) despite the shared name 'task' — no conversion path between the two.",
+  "type": "object", "additionalProperties": false,
   "required": ["schema_version", "task_id", "title", "status", "owner", "read_paths", "write_paths", "resources", "dependencies", "worktree", "risk", "created_at", "expires_at"],
   "properties": {
     "schema_version": { "const": 1 },

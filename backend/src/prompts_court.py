@@ -2,6 +2,13 @@
 
 来源：agent_design/buildAgent/三省六部体系/ 下各部的 IDENTITY.md + SOUL.md
 运行时可通过 Web UI Prompt 管理面板覆盖，此文件为出厂默认版。
+
+活代码（已核实，2026-07-14）：`backend/config/flow_court.yaml` 十个 step 都声明
+`prompt_module: src.prompts_court`；`flow_engine.py` 用 `importlib.import_module()`
+按这个字段动态加载 prompt 模块（见 flow_engine.py 里 prompt_module 解析逻辑）；
+`chaotang_api.py` 把 `flow_court.yaml` 注册为 `chancellor` 部门的真实 flow。此前
+在这里写过"ORPHANED/零调用方"的结论是错的——只搜了 `.py` 里的静态 import，没查
+`.yaml` 配置驱动的动态加载路径，已撤回。
 """
 
 from src.prompts_versioned import register_prompt

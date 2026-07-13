@@ -3,6 +3,14 @@
 > 生成方式：4 agent 并行只读扫描（部门协议 / 多智能体控制面 / 文档一致性 / git 分支）+ 1 agent 汇总去重。
 > 目的：为"融合成一个主线、确定编排逻辑和飞轮体系"提供裁决依据，本身不包含任何代码改动。
 
+## 执行后核实更新（2026-07-14，处理任务 #1/#3 时发现）
+
+审计 agent 的发现在**动手改代码前**都需要人工复核一次运行时证据，不能直接按 severity 标注执行。两条重要修正：
+
+- **高优先级 #1（libu 命名冲突）已核实为假警报，代码零改动**：三套系统（`features/libu`+真实 `libu.py` 路由 / `features/lifu`→`market`→`backend-api.ts` 里明确记录在案的历史别名转译层→真实 `/api/chaotang/dept/market/overview` / `departments.yaml`+`chaotang_department_router.py`）运行时互不传递 "libu" 字符串，互不干扰。最初怀疑的"死链" `/api/court/libu/promo` 其实是刻意保留、有退役计划文档的合法别名（见 `frontend/src/lib/backend-api.ts` L14-25）。
+- **高优先级 #2（三套六部实现）机制描述有误，但结论方向对**：`chaotang_orchestrator.py` 实际读的是 `minister_personas.py`，从不读 `agent_design/buildAgent/三省六部体系/` 或 `prompts_court.py`——原文"被 prompts_court.py 显式引用来驱动…"这条引用链不存在。`departments.yaml` 协议层不是孤儿——它被 `chancellor_router.py`/`chancellor/routing_service.py` 真实使用，只是服务于"内部决策路由建议"而非 `libu.py`/`lifu` 的"用户可见办公真操作"，两者不是同一件事的重复实现，是分工不同的两层。
+- **补充修正（2026-07-14，第二轮）：上一条"prompts_court.py / department-registry.ts 零调用方"的结论本身错了，已撤回**。`prompts_court.py` 实际被 `backend/config/flow_court.yaml`（10 处 `prompt_module: src.prompts_court`）通过 `flow_engine.py` 的 `importlib.import_module()` 动态加载，且 `flow_court.yaml` 被 `chaotang_api.py` 注册为 `chancellor` 部门的真实 flow——是活代码。`department-registry.ts` 有三个真实 importer（`unified-loop.nodetest.ts`、`unified-ui-adapter.ts`、`unified-decision-loop.ts`），第一轮排查只查了其中经 `courtos-decision-store.ts` 这一条链，漏查了另外两条——`unified-decision-loop.ts`/`unified-ui-adapter.ts` 被 `frontend/src/app/(dashboard)/junjichu/page.tsx`、`frontend/src/features/shangshufang/ShangshufangPage.tsx` 等真实路由页面引用，同样是活代码。两处源文件头部的 ORPHANED 标记均已撤回改正。**教训：判断"零调用方"必须枚举全部 import 路径（含 YAML/JSON 配置驱动的动态加载），只查到一条链就下结论是本轮两次误判的共同原因。**`agent_design/buildAgent/三省六部体系/` 原始 markdown 文件本身是否被 `prompt_validator.py`/`prompt_composer.py` 这类通用 prompt 工具实际处理过，尚未查清，不再假设它是孤儿。
+
 ## 一句话总结
 
 共发现 **16 处**（原始 17 条 finding 中，2 条关于"libu 代码指代混乱"的 department 类发现系同一根因，已合并为 1 条）。severity 分布：**high 4 / medium 7 / low 5**。最值得优先处理：(1) `departments.yaml` 内部对 `libu` 代码含义自相矛盾并已级联到前后端代码方向相反；(2) 六部系统存在三套互不打通的独立实现（YAML 协议层 / 人设 prompt 层 / 前端 unified registry 层）；(3) 礼部（lifu）后端零引擎支撑却在前端标记为 `active` 并已接入真工作台，与 `PROJECT_PRODUCT.md` §7.1 明文承诺矛盾。
@@ -25,11 +33,11 @@
 ### 2. 六部体系存在三套互不知晓、互不调用的独立实现
 **涉及路径**：`backend/harness/chaotang_department_protocol/departments.yaml`、`backend/src/chaotang_department_router.py`、`backend/skills/chaotang_departments/*/SKILL.md`、`backend/agent_design/buildAgent/三省六部体系/*`、`backend/src/prompts_court.py`、`frontend/src/core/courtos/unified/department-registry.ts`、`frontend/src/core/courtos/departments/registry.ts`
 
-**冲突**：(a) Python "protocol" 方案（`departments.yaml` + `chaotang_department_router.py` + skill 文档，暴露于 `POST /api/chaotang/department-system/route`）；(b) 人设/prompt 方案（`agent_design/buildAgent/三省六部体系/` 下的 IDENTITY/SOUL 文件，内容明显是从无关的个人助理项目直接搬运——含 "Docker Sandbox""Telegram ID: 8682549016"等——被 `prompts_court.py` 显式引用来驱动完全不同的"太子→中书省→门下省→尚书省"治理流程）；(c) 前端 unified registry，自定义 id（`jinyiwei/finance/war/…`）和 `protocol_id`（`hubu_cfo/bingbu_sales/…`），与后端任何真实部门代码都不匹配，且没有前端代码实际调用后端真实路由（仅生成的 OpenAPI 类型文件引用了它）。
+**冲突（2026-07-14 二次核实后更新）**：(a) Python "protocol" 方案（`departments.yaml` + `chaotang_department_router.py`，服务 `chancellor_router.py` 内部决策路由建议，**活代码**）；(b) `prompts_court.py`（**活代码**——被 `backend/config/flow_court.yaml` 十处 `prompt_module: src.prompts_court` 声明，经 `flow_engine.py` 的 `importlib.import_module()` 动态加载，`flow_court.yaml` 本身被 `chaotang_api.py` 注册为 `chancellor` 部门的真实 flow；其内容源头 `agent_design/buildAgent/三省六部体系/` 原始 IDENTITY/SOUL 文件是否仍被读取未查清，不下结论）；(c) 前端 `department-registry.ts`（**活代码**——被 `unified-decision-loop.ts`/`unified-ui-adapter.ts` 引用，两者又被 `frontend/src/app/(dashboard)/junjichu/page.tsx`、`frontend/src/features/shangshufang/ShangshufangPage.tsx` 等真实路由页面引用；此前"没有前端代码实际调用"的判断是只查了一条 import 链就下的结论，已证伪）。
 
-**证据引用**：`prompts_court.py` 注释"来源：agent_design/buildAgent/三省六部体系/…"；grep `frontend/src` 显示唯一命中是 `backend-openapi-2026-07-09.d.ts`。
+**证据引用**：`prompts_court.py` 头部已加注运行时加载证据；`department-registry.ts` 头部已加注三个真实 importer；`agent_design/buildAgent/三省六部体系/` 里 IDENTITY.md 内容仍明显是从无关的个人助理项目直接搬运（"Docker Sandbox""Telegram ID: 8682549016"等），这一点未变。
 
-**为何严重**：三套系统各自演化、术语不通、无共享 ID，任何"给六部加能力"的改动都可能只命中其中一套，造成假完成。
+**为何严重（更新）**：三套系统术语不通、无共享部门 ID，是真的，但**不是"一个真两个假"，是三套都在跑、各管一段**（内部决策建议 / 治理流 prompt / 前端统一注册表），风险不是"往错的死系统里加功能"，而是"改一处以为影响全局，实际另外两套完全感知不到"——真正的修复方向是打通共享 ID 或明确分工文档，不是废弃其中任意一套。
 
 ---
 
@@ -52,6 +60,13 @@
 **证据引用**：`PROJECT_PRODUCT.md` §5.1.3/§7.1；`chaotang-v1-modules.ts` `status: 'active'`；`real_department_engines.py` grep 零命中 lifu/libu_rites。
 
 **为何严重**：文档失真的方向是"功能其实比文档说的更进一步"，但进一步的部分（前端）恰恰缺失了应该支撑它的后端能力——用户可能点开一个"活跃"的礼部工作台，背后完全没有真实决策引擎在跑。
+
+**核实更新（2026-07-14）——重新读取当前 `PROJECT_PRODUCT.md` 原文并枚举全部消费方后确认**：
+
+- `PROJECT_PRODUCT.md` §7.1/§8 现在的措辞更明确：1.0 客户交付树只有上书房/刑部合同决策单/圣裁确认/史馆档案，"其余模块在 5/3/1/1 客户证据门之前保持隐藏或实验状态"，礼部"不展示二级模块、不承诺运行能力"。这不是模糊的历史遗留措辞，是当前生效的、有具体门禁标准的产品纪律。
+- **`status` 字段并不能真正隐藏礼部**：`getV1LiubuStaticParams()` 只用 `status === 'active'` 控制静态生成，`[code]/page.tsx` 运行时路由从不检查 `status`；真正控制导航栏可见性的 `SIX_MINISTRIES_NAV`（`frontend/src/features/shangshufang/constants.ts` L44-46）只按 `href` 是否存在过滤，不看 `status`。也就是说**就算把 `status` 改成 `'pending'`，礼部依然会出现在侧边导航、依然能被直接访问**——现在没有任何机制能真正满足文档要求的"隐藏"。
+- `real_department_engines.py` 仍然零命中 `lifu`/`libu_rites`，缺口没有被并发工作补上。
+- **处理方式（用户决定）**：本轮只记录这个差距，不改代码也不改文档。真正"隐藏礼部"需要新建门控逻辑（导航过滤 + 路由守卫），属于功能开发，不是本次融合任务范围；是否要做、什么时候做，留给产品/工程负责人决定。
 
 ---
 
@@ -110,14 +125,15 @@ control-plane task_id 格式 `^task-[A-Za-z0-9._-]+$`，字段面向 git worktre
 ## 建议的下一步
 
 **需要裁决/合并（真冲突，不是文档缺口）**：
-- 高优先级 #1（libu 代码含义）：这是唯一一处会造成**实际业务路由错误**的冲突，必须先在 `departments.yaml` 内统一 `libu`/`libu_personnel`/`lifu` 三个 key 的唯一含义，再回填前端 `libu-roster.ts`/`lifu-roster.ts` 和 `chaotang_department_payload.py` 的 `DEPARTMENT_ALIASES`，并把 medium #6 的两张别名表在此次修复中合并成单一来源，避免二次分叉。
-- 高优先级 #2（三套六部实现）：需要产品/架构层先裁决哪一套是"唯一真实"（从证据看是 (a) Python protocol 层，因为它是唯一有真实 API 路由的），(b)(c) 要么被废弃要么被明确标注为"未接线的历史遗留"，否则新人会继续往错的那套里加功能。
-- 高优先级 #4（礼部状态矛盾）：需要产品决定是"补齐后端引擎让代码追上文档承诺"还是"文档追上代码现状"，这不是文档措辞问题，是需要业务决策的真实产品范围问题。
-- medium #10（origin/master 分叉）：在下次任何 master/dev 合并前必须先确认 `efaee776` 是否要 cherry-pick 进 dev，否则合并会在已被双方独立修改的 harness 文档上产生冲突。
+- ~~高优先级 #1（libu 代码含义）~~：**已证伪，撤回**。深挖运行时路径后确认三套系统从不互相传递 "libu" 字符串，怀疑的死链其实是 `backend-api.ts` 里有文档记录的合法历史别名。代码零改动，无需统一 key 含义，也不需要合并 `DEPARTMENT_ALIASES`（后者作为独立的"减少重复维护"改进已完成，跟 libu 含义无关）。
+- 高优先级 #2（三套六部实现）：**"裁决唯一真实、废弃另外两套"这条建议已证伪，撤回**——(a)(b)(c) 三套经核实全部是活代码，服务于不同职责（内部路由建议 / 治理流 prompt / 前端统一注册表），不是同一功能的重复实现，废弃任何一套都会破坏真实调用方（尤其 (c)，被 `junjichu`/`shangshufang` 真实页面依赖）。改为：需要产品/架构层做的是**给三者写清楚各自的职责边界和共享 ID 映射**（如果确实需要打通），而不是三选一淘汰两个。
+- 高优先级 #4（礼部状态矛盾）：**已重新核实（见上方"核实更新"），用户决定本轮只记录差距、不改代码不改文档**。需要注意：即使以后要"隐藏礼部"，光改 `status` 字段不够——导航栏和路由都不看这个字段，得新建门控逻辑，这是功能开发工作量，留给产品/工程负责人另行排期。
+- medium #10（origin/master 分叉）：**已实测验证，比预想更严重**——2026-07-14 对 `efaee776` 做了真实 dry-run cherry-pick（`-m 1`，非推演），19+ 个文件冲突，全部是 ext 分支这段时间独立演化、内容已经明显更成熟的核心 harness 文件（`project-boundaries.md`、`project-harness.json`、`architecture.md`、两处 `harness-doctor.mjs`）。已 abort 并确认 ext 分支未受影响（`courtos-brain` 相关内容抽查确认完整）。**结论：`efaee776` 不建议直接合并/cherry-pick 进 ext 或 dev，需要人工逐文件对比裁决哪边内容更新，工作量相当于重新走一遍这两条线各自的 harness 演进历史，不是机械合并能解决的。**
 
 **只是需要补文档说明，不算真冲突**：
-- 高优先级 #3（control-plane 与部门系统分离）：这是设计上的合理分离，只需要在 `.harness/wiki/multi-agent-control-plane.md` 或顶层架构文档里加一句明确声明"control-plane 不管理业务部门派发"，防止误读。
-- low #11（lease 术语）：同上，加一句范围说明即可。
-- medium #8（两套 task schema）：只要在两份 schema 文档互相加一句"同名不同物，无转换路径"的旁注，就能消除误解，不需要改代码。
+- ~~高优先级 #3（control-plane 与部门系统分离）~~：**已完成（2026-07-14）**。`.harness/wiki/multi-agent-control-plane.md` 加了"范围声明"段落，明确不管理业务部门派发。
+- low #11（lease 术语）：已随上一条一并覆盖（多智能体控制面新增段落里已说明 lease/task 词汇的边界）。
+- ~~medium #8（两套 task schema）~~：**已完成（2026-07-14）**。`.harness/contracts/task.schema.json` 加了 `description` 字段，`backend/src/db/models.py` 的 `DecisionTask` docstring 加了互相指向的旁注。
 - low #12（verification-matrix 缺行）：纯粹补一行文档，等这次 swarm_execution_loop 改动定稿后一并补上。
-- medium #9、low #13/14/15（分支类发现）：都不是代码冲突，是分支卫生问题，建议按 low→先删除/重命名 `chore/launch-s1-source-of-truth`，medium #9 的 `feature-changtang-ext` 需要人工决定是继续推进合并还是关闭该 fork。
+- ~~medium #9（`feature-changtang-ext` 的 `cb2b8b99`）~~：**已完成（2026-07-14，commit `962c6e8`）**。真实 cherry-pick 到 ext，只有一处文档冲突（`api-contracts.md`，两边内容互补，已手动合并保留双方），`frontend/scripts/harness-doctor.mjs` 自动合并干净，功能性代码零冲突。过程中发现 `git cherry-pick -n` 会把工作区里其他无关文件的改动一并带进 index（本例中带进了 3 个跟这次改动完全无关的并发文件），已逐一核实并 unstage，最终提交只含 18 个真正属于 `cb2b8b99` 的文件，行数与原 commit（232 insertions/3 deletions）完全一致。**教训：`-n` cherry-pick 之后一定要用 `git diff --cached --stat` 核对文件数和行数是否跟原 commit 吻合，不能只看有没有冲突标记。**
+- low #13/14/15（其余分支类发现）：都不是代码冲突，是分支卫生问题，建议按 low→先删除/重命名 `chore/launch-s1-source-of-truth`。

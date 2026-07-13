@@ -1,3 +1,10 @@
+// Live (verified 2026-07-14): imported by unified-decision-loop.ts and
+// unified-ui-adapter.ts, which are in turn imported by real routed pages —
+// frontend/src/app/(dashboard)/junjichu/page.tsx and
+// frontend/src/features/shangshufang/ShangshufangPage.tsx — plus
+// courtos-decision-store.ts and several feature engines. An earlier note here
+// called this ORPHANED based on checking only one of its three importers;
+// that was wrong and has been retracted. Do not treat this as unused.
 import type { DepartmentCapability, UnifiedDepartmentId } from './unified-types.ts';
 
 export const DEPARTMENT_REGISTRY: Record<UnifiedDepartmentId, DepartmentCapability> = {
