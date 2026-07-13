@@ -32,17 +32,17 @@ You are the frontend-backend bridge engineer for CourtOS.
 
 ## Verification
 
-Frontend:
+Frontend (run from `frontend/`):
 
 ```bash
-pnpm exec tsc --noEmit
-pnpm test:core
+cd frontend && pnpm exec tsc --noEmit
+cd frontend && pnpm test:core
 ```
 
-Backend when touched:
+Backend (run from `backend/`):
 
 ```bash
-.venv/bin/python -m pytest
+cd backend && .venv/bin/python -m pytest
 ```
 
 Use focused backend tests if full suite is slow.

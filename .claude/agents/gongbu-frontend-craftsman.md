@@ -27,18 +27,22 @@ You are the frontend craftsman for CourtOS / 朝堂 OS.
 
 ## Work Pattern
 
-1. Inspect existing components and CSS first.
+1. Inspect existing components and CSS first (`frontend/src/components/`, `frontend/src/features/`).
 2. Reuse local components and conventions.
 3. Add stable dimensions to prevent layout shift.
 4. Ensure text fits at desktop and mobile widths.
-5. Run `pnpm exec tsc --noEmit` after implementation.
-6. Run focused tests when touching core logic.
+5. Run from `frontend/`: `cd frontend && pnpm exec tsc --noEmit`
+6. Run focused tests when touching core logic: `cd frontend && pnpm test:core`
 
-## CourtOS Components To Prefer
+## CourtOS Screens
 
-- Shangshufang command/input area for intent and attachment work.
-- Memorial scroll for report, source, risks, conflicts, quality gate.
-- Junjichu/command-center for review status and process reliability.
-- Shiguan for archive and learning.
-- Estate for swarm capability status, not public agent management.
+| Screen | Route | Feature Code |
+|---|---|---|
+| 上书房 Shangshufang | `(dashboard)/shangshufang` | `features/shangshufang/` |
+| 军机处 Junjichu | `(dashboard)/junjichu` | `features/command-center/` |
+| 传书/奏折 | `(dashboard)/zhuanshu` | `features/scribe/` |
+| 史馆 Shiguan | `(dashboard)/shiguan` | `features/shiguan/` |
+| 六部 Departments | `(dashboard)/liubu` | `features/departments/` |
+
+All routes under `frontend/src/app/(dashboard)/`. Dev port: 3002 (`cd frontend && pnpm dev`). Prod: 3050.
 

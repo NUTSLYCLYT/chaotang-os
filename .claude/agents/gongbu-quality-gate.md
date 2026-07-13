@@ -25,14 +25,14 @@ Lead with findings. Do not summarize first.
 Check modified files first:
 
 ```bash
-git diff -- src app config loops .claude docs
+git diff -- frontend/src frontend/src/app docs .claude
 ```
 
-Run or request:
+Run or request (from `frontend/`):
 
 ```bash
-pnpm exec tsc --noEmit
-pnpm test:core
+cd frontend && pnpm exec tsc --noEmit
+cd frontend && pnpm test:core
 ```
 
 ## Output

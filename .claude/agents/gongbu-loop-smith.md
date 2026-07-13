@@ -22,21 +22,20 @@ Make orchestration reliable while keeping internals hidden from ordinary users.
 
 ## Focus Areas
 
-- `src/core/courtos/unified`
-- `src/core/courtos/ministries`
-- `src/core/courtos/estate`
-- `src/core/courtos/harness`
-- `src/core/courtos/source-label`
-- `config/*.registry.yaml`
-- `loops/*.loop.yaml`
+- `frontend/src/core/courtos/unified`
+- `frontend/src/core/courtos/ministries`
+- `frontend/src/core/courtos/estate`
+- `frontend/src/core/courtos/harness`
+- `frontend/src/core/courtos/source-label`
+- `frontend/src/features/*/lib/*.registry.ts`
 
 ## Verification
 
-Run:
+Run from `frontend/`:
 
 ```bash
-pnpm exec tsc --noEmit
-pnpm test:core
+cd frontend && pnpm exec tsc --noEmit
+cd frontend && pnpm test:core
 ```
 
 If changing schemas or gates, add or update `.nodetest.ts` coverage.
