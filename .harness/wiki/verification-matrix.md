@@ -11,5 +11,6 @@
 | 多 Agent 资源锁 | `node --test scripts/resource-lock.nodetest.mjs` | 验证 Task 授权、真实 holder、端口/构建取证、fencing、break-glass、200 轮真实竞争及数据库隔离 | S2：10 passed；联合 S1/S2 33 passed；独立复审 GO |
 | 发布证据与运行身份 | `node --test scripts/release-evidence.nodetest.mjs frontend/scripts/prod-runtime-identity.nodetest.ts` | 从 Git object DB、实际 build 目录和 3050 socket owner 独立重算身份，并验证 SQLite hash chain 与 Ed25519 checkpoint | S8 本地实现；外部 CI protected trust root 未启用前不得 READY/ENFORCED |
 | 故障恢复与 break-glass | `node --test scripts/recovery-drill.nodetest.mjs` | 验证 lease kill/TTL、PID 与机器身份、build 中断、存储故障快照、双人签名票据、原 production gate 和单次审计 | S9 `IMPLEMENTED_LOCAL`；双人外部公钥未配置前 break-glass fail closed，不得 READY/ENFORCED |
+| 分阶段控制面推广 | `node --test scripts/rollout-controller.nodetest.mjs scripts/rollout-watch.nodetest.mjs scripts/rollout-authority-integration.nodetest.mjs && node scripts/rollout-control.mjs status` | 验证真实时钟阶段机、20+20 同类任务基线、误报/延迟自动回退、稳定/候选 wrapper dispatcher、pending replay、真实 authority socket/单次操作授权与进程清理、A1–A12 与连续 20 次真实发布 | S10 `IMPLEMENTED_LOCAL_OBSERVE_PENDING`；提交后才可真实启动 Observe。外部 required check、独立 release/rollout anchor 和真实时间窗口未满足，不得 Mandatory/ENFORCED |
 
 高成本或真实模型驱动的后端 harness 命令需要显式确认 provider 凭证、超时和预算后再运行。

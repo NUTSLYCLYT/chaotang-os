@@ -126,5 +126,7 @@ test('root manifest reports component status without overstating the whole contr
   assert.equal(manifest.controlPlane.components.leaseManager, 'IMPLEMENTED');
   assert.equal(manifest.controlPlane.components.leaseAttestation, 'IMPLEMENTED_LOCAL');
   assert.equal(manifest.controlPlane.components.integrationGate, 'IMPLEMENTED_LOCAL');
+  assert.equal(manifest.controlPlane.components.mandatoryRollout, 'IMPLEMENTED_LOCAL_OBSERVE_PENDING');
+  assert.notEqual(manifest.controlPlane.status, 'ENFORCED');
   assert.ok(manifest.controlPlane.verification.includes('node --test scripts/multi-agent-contracts.nodetest.mjs'));
 });

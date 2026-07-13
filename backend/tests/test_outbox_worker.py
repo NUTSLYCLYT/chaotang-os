@@ -160,3 +160,65 @@ def test_council_event_runs_swarm_and_updates_task_status(isolated_session_local
     task = db.query(DecisionTask).filter_by(id="task_council_1").first()
     assert task.status == "awaiting_decision"
     db.close()
+
+
+def test_council_event_passes_recommended_departments_to_swarm_loop(isolated_session_local):
+    """单一事实源修复：draft_edict 阶段算出的 recommended_departments(审计记录用)
+    必须真正驱动 run_swarm_execution_loop 的部门选择，而不是让蜂群execution loop
+    自己用 route_swarms() 重新扫一遍关键词——否则"记录的参与者"和"实际执行的部门"
+    是两套独立推断，只是恰好经常算出同一个结果。"""
+    import json
+
+    from src.db.models import CourtReview, DecisionTask
+
+    db = isolated_session_local()
+    now = "2026-07-13T00:00:00+00:00"
+    db.add(
+        DecisionTask(
+            id="task_council_dept",
+            user_id="tester",
+            raw_question="这份合同能不能签",
+            status="edict_recorded",
+            source_label="LIVE",
+            draft_edict_json=json.dumps({"recommended_departments": ["户部", "刑部"]}),
+        )
+    )
+    db.add(
+        CourtReview(
+            id="review_council_dept",
+            task_id="task_council_dept",
+            routing_plan_json='{"route": {"mode": "cluster"}, "ministry_candidates": ["户部"]}',
+            review_status="edict_recorded",
+            ministry_outputs_json="[]",
+            conflict_summary_json="{}",
+            memorial_json="{}",
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    db.commit()
+
+    fake_swarm_result = {
+        "swarm_run": {"id": "run_2", "route_plan": {"selected_swarms": []}},
+        "quality_result": {"passed": True, "blocking_reasons": []},
+    }
+
+    with patch(
+        "src.swarm_execution_loop.run_swarm_execution_loop",
+        return_value=fake_swarm_result,
+    ) as mock_run, patch("src.swarm_persistence.persist_swarm_execution_result"), patch(
+        "src.swarm_persistence.attach_swarm_result_to_review"
+    ):
+        event_id = enqueue_dispatch(
+            db,
+            task_id="task_council_dept",
+            decision_id="dec_council_dept",
+            event_type="route.council",
+        )
+        db.commit()
+        result = process_event(db, event_id)
+
+    assert result["status"] == "completed"
+    call_params = mock_run.call_args.args[0]
+    assert call_params["department_ids"] == ["户部", "刑部"]
+    db.close()

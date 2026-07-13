@@ -122,7 +122,7 @@ const runOne = (spec, i, epoch) => agent(
   { phase:'Validate', label:`val:${spec.nominalV}V#${i}`, schema:VAL_SCHEMA })
 
 const restartBarrier = (epoch) => agent(
-  `仓库 ${REPO}. 串行重启后端恰好一次(收回重启权, Charity): pkill -f 'web.main' || true; ` +
+  `仓库 ${REPO}. 串行重启后端恰好一次(收回重启权, Charity): 只读取受管 runtime identity 中经 start_ticks/cwd/PGID 核验的后端进程并精确 TERM→超时 KILL，禁止按进程名批量杀进程; ` +
   `nohup ${SERVE} > /tmp/jiqun-dev-${epoch}.log 2>&1 & disown; 轮询 http://127.0.0.1:8081/health 直到 200(<=60s)且 :4444 可达, 再 ready:true. 不 ready 不得进 Validate.`,
   { phase:'Restart', label:`restart:e${epoch}`, schema:{ type:'object', additionalProperties:false, required:['ready'], properties:{ ready:{type:'boolean'} } } })
 

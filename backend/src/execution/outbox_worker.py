@@ -102,6 +102,11 @@ def _execute_council(db: "Session", task_id: str) -> dict[str, Any]:
     )
     db.commit()
 
+    # 单一事实源(阶段0任务0.2)：draft_edict 阶段已经算出 recommended_departments，
+    # 这里必须直接把它传给 run_swarm_execution_loop 的部门覆盖入口——不传的话
+    # run_swarm_execution_loop 内部会用 route_swarms() 自己重新扫一遍关键词，
+    # 变成跟"记录的参与者"互不知道对方存在的第二套独立推断，两者平时凑巧一致，
+    # 但没有任何机制保证。
     swarm_result = run_swarm_execution_loop(
         {
             "task_id": task.id,
@@ -109,6 +114,7 @@ def _execute_council(db: "Session", task_id: str) -> dict[str, Any]:
             "mode": "deep",
             "confirmed_edict": {**draft_payload, "source_label": task.source_label},
             "review_plan": routing_plan,
+            "department_ids": draft_payload.get("recommended_departments"),
         }
     )
     persist_swarm_execution_result(db, swarm_result)

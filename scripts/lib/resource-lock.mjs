@@ -2,6 +2,7 @@ import { readFileSync, readlinkSync, readdirSync, realpathSync, statSync } from 
 import { createHash } from 'node:crypto';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { auditEvent, nextFencingEpoch, nowIso, openControlPlaneDb, registeredProcessAlive, registeredProcessIdentity, resolveControlPlanePaths, withImmediateTransaction } from './control-plane-db.mjs';
+import {guardRolloutIfStarted} from './rollout-controller.mjs';
 
 function withDb(databasePath, action) {
   const { db } = openControlPlaneDb({ databasePath });
@@ -24,7 +25,10 @@ function freezeProtectedPaths(key,holder){if(!key.startsWith('build:'))return[];
 export function acquireResource({ dbPath, key, holder, ttlMs, nowMs = Date.now() }) {
   if (!key || !holder?.nonce || !Number.isFinite(ttlMs) || !(ttlMs > 0)) throw new Error('resource key, holder nonce and finite positive ttl are required');
   if (!/^(port:(3002|3050|31\d{2})|build:[A-Za-z0-9._-]+|release:[A-Za-z0-9._-]+|integration:[A-Za-z0-9._-]+)$/.test(key)) throw new Error(`unsupported resource key: ${key}`);
-  return withDb(dbPath, (db) => withImmediateTransaction(db, () => {
+  const guardCwd=holder.cwd;
+  if(!(process.env.NODE_ENV==='test'&&process.env.CHAOTANG_CONTROL_PLANE_TEST_ADAPTER==='1')){const authoritative=resolveControlPlanePaths(guardCwd);let actual,expected;try{actual=realpathSync(dbPath);expected=realpathSync(authoritative.databasePath);}catch{throw new Error('resource database/repository identity cannot be verified');}if(actual!==expected)throw new Error('resource database does not belong to holder repository');}
+  guardRolloutIfStarted({kind:key.startsWith('integration:')?'path':key.startsWith('release:')?'release':'resource',compliant:true,actor:holder.owner,subject:key},{cwd:guardCwd});
+  try{return withDb(dbPath, (db) => withImmediateTransaction(db, () => {
     const task=db.prepare('SELECT owner,status,expires_at,spec_json FROM tasks WHERE task_id=?').get(holder.taskId);
     if(!task||task.owner!==holder.owner||!['ready','leased','running'].includes(task.status)||Date.parse(task.expires_at)<=nowMs)throw new Error('task missing, owner mismatch, expired or not lockable');
     if(!JSON.parse(task.spec_json).resources.includes(key))throw new Error('resource is not authorized by task');
@@ -39,7 +43,7 @@ export function acquireResource({ dbPath, key, holder, ttlMs, nowMs = Date.now()
       .run(key, holder.owner, holder.taskId, epoch, identity.pid, identity.pgid, identity.cwd, holder.worktree, holder.commit, holder.command, identity.nonce, identity.host_id, identity.boot_id, identity.pid_namespace, identity.start_ticks, at, at, expires,JSON.stringify(protectedPaths));
     auditEvent(db, { event: 'resource.acquire', actor: holder.owner, subject: key, payload: { epoch } });
     return rowToLock(db.prepare('SELECT * FROM resource_locks WHERE resource_key=?').get(key));
-  }));
+  }));}catch(error){if(/resource already has/.test(error.message)){withDb(dbPath,db=>withImmediateTransaction(db,()=>auditEvent(db,{event:'resource.conflict',actor:holder.owner,subject:holder.taskId,payload:{resource:key,kind:key.split(':',1)[0]}})));guardRolloutIfStarted({kind:key.startsWith('integration:')?'path':key.startsWith('release:')?'release':'resource',compliant:false,actor:holder.owner,subject:key,continue:{reason:'underlying exclusive lock remains authoritative'}},{cwd:guardCwd});}throw error;}
 }
 
 export function inspectResource({ dbPath, key }) { return withDb(dbPath, (db) => rowToLock(db.prepare('SELECT * FROM resource_locks WHERE resource_key=?').get(key))); }

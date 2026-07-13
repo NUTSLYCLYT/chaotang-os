@@ -33,3 +33,13 @@ node scripts/harness-doctor.mjs
 - Emergency Maintainer 必须提交最长 30 分钟、绑定完整 commit SHA、release ID、operator、reason、evidence 和精确 resource operation 的 Ed25519 票据；两个不同信任域的审批人都必须签名。执行固定使用 `/usr/bin/corepack pnpm gate:prod-release`，任何失败或 `SKIP` 都不执行紧急操作。
 - 票据在操作前必须由控制面外的原子 replay authority `claim`，操作后先写外部 `complete` 再写本地 terminal；本地数据库回滚或终态落盘失败都不能让同一票据再次使用。
 - 仓库内的 `.harness/trust/break-glass-trust.json` 是 `EXTERNAL_REQUIRED` 占位配置，因此当前生产 break-glass 有意 fail closed。只有管理员经过审查固定两把独立公钥及外部 replay adapter 后才可进入 S10 rollout。
+
+## S10 rollout
+
+- 权威策略是 Git `HEAD` 中的 `.harness/policy/control-plane-rollout.json`；工作区副本与 Git object 不一致时 fail closed。用户的其他 tracked dirty 只作为晋级风险记录，不阻止 Observe 启动，也不得由控制面自动 stash 或提交。
+- `node scripts/rollout-control.mjs start-observe` 只启动真实 Observe。生产 CLI 不接受测试时钟、手工外部门禁布尔值、手工 20 次发布或手工 A1–A12 JSON。
+- Task 指标只能从已注册 task 的 `task.step.completed/retried` 与 `task.metrics.finalized` append-only audit 收集，baseline 必须早于 activation 且零重复 baseline 不可宣称下降；release 从完整 terminal history、失败/恢复/事故 audit 与独立验证的 `release_evidence=verified` 收集；A1–A12 只能在 clean detached Git worktree 运行固定 verifier，形成 `verification.acceptance` 后再经外部 checkpoint 收集。
+- git-common-dir 下独立 SQLite v1 rollout ledger 的 task/release/acceptance 指标均不可改写/删除；主控制库保持 schema v8。每个 rollout 事件形成 hash chain；晋级必须与仓库外单调 checkpoint 对齐，缺失或旧数据库回拨一律停止晋级。
+- Observe 仅记录；Warn 需要带原因的人工 continue 并审计；Enforce paths 绑定外部 S3 required check；Enforce resources 绑定 S2/S5/S6/S8/S9 和外部信任；Mandatory 还要求 A1–A12 与 20 个唯一、连续、真实、无事故 production release。
+- 自动回退会冻结当时 active lease/lock 与 wrapper pointer 快照，不删除活跃状态。Mandatory break-glass 仍只能使用 S9 的双签、最长 30 分钟、commit/release 单次票据，并且必须运行原 `pnpm gate:prod-release`。
+- 当前事实是 `IMPLEMENTED_LOCAL_OBSERVE_PENDING`，尚未从 clean committed policy 启动 Observe。真实 2–3 天、后续各阶段真实时间、外部权威配置和 20 次真实发布不能由测试或文档替代。

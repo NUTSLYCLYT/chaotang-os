@@ -337,3 +337,49 @@ def test_non_council_rejects_all_invalid_departments():
             "council": False,
             "department_ids": ["查无此部"],
         })
+
+
+def test_council_department_override_keeps_meta_swarms_in_audit_record():
+    """军机处/丞相指定部门列表时(council=True 的 explicit_departments 覆盖路径)，
+    route_plan.selected_swarms 不能把 route_swarms() 本该选中的元蜂群(证据审计/
+    质量闸/高风险时的红蓝对抗等)从审计记录里挤掉——哪怕它们仍然会照常执行，记录
+    里看不到就是"记录参与者 ≠ 实际执行者"这个分叉 bug 的一个变体。"""
+    result = run_swarm_execution_loop({
+        "task_id": "t_override_audit",
+        "review_id": "r_override_audit",
+        "mode": "deep",
+        "confirmed_edict": _storage_edict(),  # 含"合同/对外承诺风险"关键词 → high_risk
+        "council": True,
+        "department_ids": ["户部"],
+    })
+    selected = {item["swarm_id"] for item in result["swarm_run"]["route_plan"]["selected_swarms"]}
+    assert "hubu_finance_swarm" in selected
+    # 元蜂群：标准必跑的 + 高风险文本触发的，覆盖生效时不应该从记录里消失。
+    assert "evidence_audit_swarm" in selected
+    assert "synthesis_swarm" in selected
+    assert "quality_gate_swarm" in selected
+    assert "critic_swarm" in selected
+    assert "conflict_detector_swarm" in selected
+
+
+def test_council_department_override_reconciles_swarm_tasks():
+    """swarm_tasks 是 selected_swarms 的姊妹字段(route_swarms() 里两者从同一个
+    selected 列表算出)，覆盖生效时如果只改 selected_swarms、不改 swarm_tasks，
+    审计记录里的任务清单会停留在关键词路由算出的旧部门(_storage_edict() 命中的
+    是户部/工部/刑部)，而不是 department_ids 覆盖后真正执行的部门——两个字段自己
+    打架，也是"记录 ≠ 实际执行"的一种。"""
+    result = run_swarm_execution_loop({
+        "task_id": "t_override_tasks",
+        "review_id": "r_override_tasks",
+        "mode": "deep",
+        "confirmed_edict": _storage_edict(),  # 关键词会命中户部+工部+刑部，覆盖只留户部
+        "council": True,
+        "department_ids": ["户部"],
+    })
+    route_plan = result["swarm_run"]["route_plan"]
+    task_swarm_ids = {t["swarm_id"] for t in route_plan["swarm_tasks"]}
+    selected_swarm_ids = {s["swarm_id"] for s in route_plan["selected_swarms"]}
+    assert task_swarm_ids == selected_swarm_ids
+    assert "gongbu_delivery_swarm" not in task_swarm_ids
+    assert "xingbu_legal_risk_swarm" not in task_swarm_ids
+    assert "hubu_finance_swarm" in task_swarm_ids

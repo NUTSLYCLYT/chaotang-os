@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "policy_version": "s10-rollout-v1",
+  "stages": {
+    "observe": { "minimum_ms": 172800000 },
+    "warn": { "minimum_ms": 172800000 },
+    "enforce_paths": { "minimum_ms": 259200000 },
+    "enforce_resources": { "minimum_ms": 259200000 },
+    "mandatory": { "minimum_ms": 0 }
+  },
+  "thresholds": {
+    "minimum_window_tasks": 20,
+    "duplicate_work_reduction": 0.8,
+    "observation_conflicts": 0,
+    "data_completeness": 1,
+    "false_positive_warn": 0.02,
+    "false_positive_rollback": 0.05,
+    "path_false_positive_rollback": 0.02,
+    "max_task_overhead_seconds": 300,
+    "max_release_block_seconds": 900,
+    "consecutive_releases": 20
+  },
+  "external": {
+    "integration_required_check": "EXTERNAL_REQUIRED",
+    "release_trust_anchor": "EXTERNAL_REQUIRED",
+    "rollout_anchor": "EXTERNAL_REQUIRED",
+    "rollout_anchor_command": "/opt/chaotang-rollout-authority/bin/chaotang-rollout-authority",
+    "rollout_anchor_command_digest": "sha256:ec9be4dd130395f4cc4cec645aac596f09188c0d5d938728be99b296d0b566e9"
+  },
+  "wrapper": {
+    "stable": "s9-local",
+    "candidate": "s10-local"
+  }
+}

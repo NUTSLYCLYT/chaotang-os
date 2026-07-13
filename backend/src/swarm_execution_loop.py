@@ -866,11 +866,30 @@ def run_swarm_execution_loop(params: dict[str, Any]) -> dict[str, Any]:
         department_ids = normalize_departments(department_override)
         if not department_ids:
             raise ValueError("department_ids 无有效部门(部门名/别名/swarm_id 均未命中)")
+        # 覆盖生效时不能整体重写 selected_swarms：route_swarms() 已经按文本算出的
+        # 元蜂群(证据审计/质量闸/高风险时的红蓝对抗等)仍然会在下面无条件执行
+        # (evidence_audit/critic_report/synthesize_brief/quality_gate)，如果这里把
+        # 它们从审计记录里去掉，就会变成"记录的参与者 ≠ 实际执行者"的另一个变体。
+        meta_entries = [
+            item for item in route_plan["selected_swarms"] if item["swarm_id"] in META_SWARMS
+        ]
+        overridden_selected = [
+            {"swarm_id": sid, "role": SWARM_DEFS[sid]["role"]}
+            for sid in department_ids
+        ] + meta_entries
+        # swarm_tasks 是 selected_swarms 的姊妹字段(route_swarms() 里两者从同一个
+        # selected 列表算出，任务问题文案本就与部门无关，是同一句固定话术)，覆盖后
+        # 不重建的话会停留在关键词路由算出的旧部门，跟刚修好的 selected_swarms 自己
+        # 打架，同样是"记录 ≠ 实际执行"。
         route_plan = {
             **route_plan,
-            "selected_swarms": [
-                {"swarm_id": sid, "role": SWARM_DEFS[sid]["role"]}
-                for sid in department_ids
+            "selected_swarms": overridden_selected,
+            "swarm_tasks": [
+                {
+                    "swarm_id": item["swarm_id"],
+                    "question": "请按本蜂群职责输出结构化分奏、证据、缺口、风险和下一步。",
+                }
+                for item in overridden_selected
             ],
             "override_reason": "non_council_serial" if not council else "explicit_departments",
         }
