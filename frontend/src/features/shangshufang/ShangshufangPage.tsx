@@ -2492,6 +2492,7 @@ export function ShangshufangPage() {
     { refreshInterval: 15_000 },
   );
   const [buildLedger, setBuildLedger] = useState<BuildLedgerEntry[]>([]);
+  const [buildLedgerSyncError, setBuildLedgerSyncError] = useState<string | null>(null);
 
   const [decreeText, setDecreeText] = useState('');
   const [decreeAttachments, setDecreeAttachments] = useState<DecreeAttachment[]>([]);
@@ -2538,12 +2539,28 @@ export function ShangshufangPage() {
     edictOverrideRef.current = edictOverride;
   }, [edictOverride]);
 
+  // 2026-07-14: fetchBuildLedger 失败会 throw(不再悄悄返回空数组),但如果这里
+  // 还是只 console.warn,对真实用户来说"同步失败"和"本来就没有台账"看起来
+  // 还是完全一样——console 只有开发者能看到。补一个可见的 syncError 态,
+  // 台账面板旁边显示"同步失败"提示 + 手动重试,而不是假装成空态。
+  const syncBuildLedger = useCallback(() => {
+    setBuildLedgerSyncError(null);
+    void syncBuildLedgerFromServer()
+      .then((entries) => {
+        setBuildLedger(entries);
+        setBuildLedgerSyncError(null);
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn('[ShangshufangPage] build ledger sync failed:', message);
+        setBuildLedgerSyncError(message);
+      });
+  }, []);
+
   useEffect(() => {
     const refresh = () => setBuildLedger(readBuildLedger());
     refresh();
-    void syncBuildLedgerFromServer().then(setBuildLedger).catch((error) => {
-      console.warn('[ShangshufangPage] build ledger sync failed:', error instanceof Error ? error.message : String(error));
-    });
+    syncBuildLedger();
     return subscribeBuildLedger(refresh);
   }, []);
 
@@ -4974,6 +4991,22 @@ export function ShangshufangPage() {
                 }}
                 onDismiss={resetJiqunRun}
               />}
+              {buildLedgerSyncError && (
+                <div
+                  className="mb-2 flex items-center gap-2.5 rounded-lg border px-3 py-2 text-[11.5px]"
+                  style={{ borderColor: '#C2553D55', color: '#E8B4A6', background: '#C2553D12' }}
+                >
+                  <span className="min-w-0 flex-1 truncate">台账同步失败，不是没有记录：{buildLedgerSyncError}</span>
+                  <button
+                    type="button"
+                    onClick={syncBuildLedger}
+                    className="shrink-0 rounded-full border px-2.5 py-1 text-[11px] transition-all hover:brightness-110"
+                    style={{ borderColor: '#C2553D55' }}
+                  >
+                    重试
+                  </button>
+                </div>
+              )}
               <BuildCaseBriefingPanel entries={buildLedger} onApply={applyBuildCaseDirective} />
               {/* 钦天监校准标尺 */}
               {orchState.status === 'done' && (
