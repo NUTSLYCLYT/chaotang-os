@@ -171,7 +171,7 @@ class JiqunRegistry:
         committee = self.load_review_committee()
         for persona in committee.get("personas", []):
             skill_path = persona.get("skill_path")
-            if skill_path and not (self.root / skill_path).exists():
+            if skill_path and not (self.root.parent / skill_path).exists():
                 issues.append(
                     RegistryIssue(
                         "warning",

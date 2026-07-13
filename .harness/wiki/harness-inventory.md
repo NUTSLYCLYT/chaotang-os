@@ -18,10 +18,19 @@
 
 后端 harness 层包括 commercial-loop、true-loop、department protocol、体验契约、merit、legal red-team、open-source watch、resource consolidation、swarm tool matrix 和 yushi global gate 等检查。
 
-部分后端目录是实现包或横线命名目录的 Python 命名映射，manifest 会记录这些关系。
+部分后端目录是实现包或横线命名目录的 Python 命名映射，manifest 会记录这些关系。命名规则见 `backend/harness/_shared/naming-conventions.md`。
 
 - `backend/scripts/harness_doctor.py`：后端 harness 健康检查。
-- `backend/harness/_shared/`：后端共享契约、门禁语义和观测字段。
+- `backend/harness/_shared/`：后端共享契约、门禁语义、观测字段和命名规范。
+
+## 后端设计与运行时配置（referenceArtifacts）
+
+以下目录不是 harness 运行包，但由 `backend/harness/manifest.json` 的 `referenceArtifacts` 字段追踪，由 `harness_doctor.py` 验证 README.md 存在。
+
+| 目录 | 内容 |
+| --- | --- |
+| `backend/agent_design/` | 100+ Agent 职责与协作设计文档（buildAgent 下按部门/团队分组） |
+| `backend/runtime_prompts/` | 71 个 Agent 角色的运行时 prompt 配置 |
 
 ## 验证
 

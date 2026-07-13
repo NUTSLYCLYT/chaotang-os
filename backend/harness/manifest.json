@@ -7,9 +7,25 @@
       "_shared/README.md",
       "_shared/contracts/base.schema.json",
       "_shared/gates/README.md",
-      "_shared/observability/README.md"
+      "_shared/observability/README.md",
+      "_shared/naming-conventions.md"
     ]
   },
+  "referenceArtifacts": [
+    {
+      "id": "agent_design",
+      "summary": "Agent 职责与协作设计文档（100+ AGENTS.md）",
+      "path": "../agent_design",
+      "required": ["README.md"]
+    },
+    {
+      "id": "runtime_prompts",
+      "summary": "Agent 运行时 prompt 配置目录（71 个角色）",
+      "path": "../runtime_prompts",
+      "required": ["README.md"]
+    }
+  ],
+  "namingConventions": "_shared/naming-conventions.md",
   "primaryHarnesses": [
     {
       "id": "chaotang-commercial-loop",

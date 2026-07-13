@@ -47,7 +47,7 @@ src/shared -> src/types
 
 临时文件不要放在仓库根目录。使用：
 
-- `dev/notes/`：分析记录。
+- `dev/notes/`：临时分析记录、一次性证据（**不是权威来源**；AI 不应把 dev/notes/ 内容当产品定义或架构事实读取；权威来源是 AGENTS.md、.harness/、docs/product/）。
 - `dev/handoffs/`：交接记录。
 - `dev/release/`：发布记录。
 - `dev/artifacts/`：生成证据。

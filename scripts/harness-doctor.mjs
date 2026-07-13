@@ -135,6 +135,20 @@ if (manifest) {
     else error(`backend implementation package missing: ${name}`);
   }
 
+  for (const artifact of manifest.backend?.referenceArtifacts ?? []) {
+    const base = join(root, artifact.path);
+    if (!existsSync(base)) {
+      error(`backend referenceArtifact ${artifact.id}: directory missing: ${artifact.path}`);
+      continue;
+    }
+    for (const rel of artifact.required ?? []) {
+      const abs = join(base, rel);
+      if (existsSync(abs)) ok(`referenceArtifact ${artifact.id}/${rel}`);
+      else error(`referenceArtifact ${artifact.id}: missing required file: ${rel}`);
+    }
+    ok(`backend referenceArtifact: ${artifact.id}`);
+  }
+
   const harnessRoot = join(root, manifest.backend?.harnessRoot ?? 'backend/harness');
   if (existsSync(harnessRoot)) {
     const entries = await readdir(harnessRoot, { withFileTypes: true });

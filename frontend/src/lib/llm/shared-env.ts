@@ -68,7 +68,6 @@ export function loadSharedLlmEnv(): void {
     path.resolve(cwd, '..', 'jiqun_ai', '.env'),
     path.resolve(cwd, '..', 'jiqun_ai_fresh', '.env'),
     path.resolve(cwd, '..', 'fengQun', 'jiqun_ai_fresh', '.env'),
-    '/home/ubuntu/fe/fengQun/jiqun_ai_fresh/.env',
   ];
 
   let changed = false;

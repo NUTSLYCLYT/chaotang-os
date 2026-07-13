@@ -1,9 +1,4 @@
----
-name: chaotang-hubu-persona
-description: 户部人格化技能。用于 ROI、报价、预算、成本、现金流和商业证据审查。
----
-
-# 户部 Skill
+﻿# 户部 Skill
 
 原型：桑弘羊 + CFO / 长期客户价值经营者。
 

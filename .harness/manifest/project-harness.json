@@ -38,11 +38,24 @@
       "jinyiwei_scrapling_poc",
       "legal_redteam"
     ],
-    "allowedInfrastructureDirs": ["_shared", "changes"]
+    "allowedInfrastructureDirs": ["_shared", "changes"],
+    "referenceArtifacts": [
+      {
+        "id": "agent_design",
+        "path": "backend/agent_design",
+        "required": ["README.md"]
+      },
+      {
+        "id": "runtime_prompts",
+        "path": "backend/runtime_prompts",
+        "required": ["README.md"]
+      }
+    ]
   },
   "docs": {
     "path": "docs",
-    "entrypoints": ["docs/README.md"]
+    "entrypoints": ["docs/README.md", "docs/product/PROJECT_PRODUCT.md"],
+    "productDir": "docs/product"
   },
   "controlPlane": {
     "status": "IMPLEMENTING",
