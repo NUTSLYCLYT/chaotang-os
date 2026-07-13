@@ -2541,7 +2541,9 @@ export function ShangshufangPage() {
   useEffect(() => {
     const refresh = () => setBuildLedger(readBuildLedger());
     refresh();
-    void syncBuildLedgerFromServer().then(setBuildLedger).catch(() => {});
+    void syncBuildLedgerFromServer().then(setBuildLedger).catch((error) => {
+      console.warn('[ShangshufangPage] build ledger sync failed:', error instanceof Error ? error.message : String(error));
+    });
     return subscribeBuildLedger(refresh);
   }, []);
 

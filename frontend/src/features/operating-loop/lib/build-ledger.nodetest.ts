@@ -119,3 +119,35 @@ test('pruneBuildLedger throws on failure instead of silently returning null', as
     'prune 失败必须 throw，不能像改动前那样静默返回 null(调用方会误以为清理成功了)',
   );
 });
+
+test('fetchBuildLedger throws on failure instead of silently returning an empty array', async (t) => {
+  t.after(restoreEnv);
+  mockBrowserSession('session-token-fetch-fail');
+  mockFetch(() => new Response(JSON.stringify({ success: false, error: 'unauthorized' }), { status: 401 }));
+
+  const { fetchBuildLedger } = await import('./build-ledger.ts');
+  await assert.rejects(
+    () => fetchBuildLedger(),
+    /unauthorized/,
+    '读取失败必须 throw，不能返回空数组——空数组和"真的没数据"在调用方看来完全一样，把代理故障伪装成了空台账',
+  );
+});
+
+test('fetchBuildLedgerByTask and fetchBuildLedgerAudit throw on failure instead of returning []', async (t) => {
+  t.after(restoreEnv);
+  mockBrowserSession('session-token-fetch-fail-2');
+  mockFetch(() => new Response(JSON.stringify({ success: false, error: 'server_error' }), { status: 500 }));
+
+  const { fetchBuildLedgerByTask, fetchBuildLedgerAudit } = await import('./build-ledger.ts');
+  await assert.rejects(() => fetchBuildLedgerByTask('task-x'), /server_error/);
+  await assert.rejects(() => fetchBuildLedgerAudit(), /server_error/);
+});
+
+test('exportBuildLedger throws on failure instead of returning null', async (t) => {
+  t.after(restoreEnv);
+  mockBrowserSession('session-token-export-fail');
+  mockFetch(() => new Response(JSON.stringify({ success: false, error: 'export_forbidden' }), { status: 403 }));
+
+  const { exportBuildLedger } = await import('./build-ledger.ts');
+  await assert.rejects(() => exportBuildLedger(), /export_forbidden/);
+});

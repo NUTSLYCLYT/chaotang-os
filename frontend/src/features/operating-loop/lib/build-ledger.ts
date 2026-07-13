@@ -108,17 +108,25 @@ export function saveBuildLedgerEntry(entry: BuildLedgerEntry) {
   writeLocalLedger(next);
 }
 
+// 2026-07-14: 这四个读路径原来把"请求失败"和"真的没数据"合并成同一个空数组/
+// null——代理故障、401、500 全都悄悄变成"看起来正常的空台账"，跟本文件写
+// 路径(persist/dispatch/transition/prune)一贯的"失败就 throw"不一致，也正
+// 是这次代理bug长期没被发现的原因之一。统一改成失败必须 throw。
 export async function fetchBuildLedger(): Promise<BuildLedgerEntry[]> {
   const response = await backendFetch(LEDGER_PATH, { cache: 'no-store' });
   const payload = await response.json().catch(() => null);
-  if (!payload?.success || !Array.isArray(payload.data)) return [];
+  if (!response.ok || !payload?.success || !Array.isArray(payload.data)) {
+    throw new Error(payload?.error ?? 'build_ledger_fetch_failed');
+  }
   return payload.data as BuildLedgerEntry[];
 }
 
 export async function fetchBuildLedgerByTask(taskId: string): Promise<BuildLedgerEntry[]> {
   const response = await backendFetch(`${LEDGER_PATH}?taskId=${encodeURIComponent(taskId)}`, { cache: 'no-store' });
   const payload = await response.json().catch(() => null);
-  if (!payload?.success || !Array.isArray(payload.data)) return [];
+  if (!response.ok || !payload?.success || !Array.isArray(payload.data)) {
+    throw new Error(payload?.error ?? 'build_ledger_fetch_by_task_failed');
+  }
   return payload.data as BuildLedgerEntry[];
 }
 
@@ -127,14 +135,18 @@ export async function fetchBuildLedgerAudit(taskId?: string): Promise<BuildLedge
   if (taskId) params.set('taskId', taskId);
   const response = await backendFetch(`${LEDGER_PATH}?${params.toString()}`, { cache: 'no-store' });
   const payload = await response.json().catch(() => null);
-  if (!payload?.success || !Array.isArray(payload.data)) return [];
+  if (!response.ok || !payload?.success || !Array.isArray(payload.data)) {
+    throw new Error(payload?.error ?? 'build_ledger_fetch_audit_failed');
+  }
   return payload.data as BuildLedgerAuditEvent[];
 }
 
-export async function exportBuildLedger(): Promise<BuildLedgerExport | null> {
+export async function exportBuildLedger(): Promise<BuildLedgerExport> {
   const response = await backendFetch(`${LEDGER_PATH}?format=export`, { cache: 'no-store' });
   const payload = await response.json().catch(() => null);
-  if (!payload?.success || !payload.data) return null;
+  if (!response.ok || !payload?.success || !payload.data) {
+    throw new Error(payload?.error ?? 'build_ledger_export_failed');
+  }
   return payload.data as BuildLedgerExport;
 }
 
