@@ -9,6 +9,7 @@
     "build": "node scripts/next-with-base-path.mjs build --webpack",
     "harness:doctor": "node scripts/harness-doctor.mjs",
     "knip": "knip",
+    "knip:reachability": "knip --config knip.production-reachability.json --files",
     "harness:new-change": "node scripts/new-change.mjs",
     "test:node": "npx --yes tsx --test \"src/**/*.nodetest.ts\" \"src/**/*.itest.ts\"",
     "start": "node scripts/reject-legacy-production-entry.mjs start",

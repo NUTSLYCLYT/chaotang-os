@@ -39,4 +39,44 @@
 - 状态 / 数据变化：无
 - 验证命令与证据：`node scripts/harness-doctor.mjs` → 0 errors；`grep -n "内容/所有权主线\|不算第四条主线\|不是第四条内容主线" AGENTS.md .harness/rules/project-boundaries.md` 确认两文件措辞互相呼应、无矛盾
 - 回滚边界：`git checkout AGENTS.md`
-- 完成定义：`AGENTS.md:38` 与 `project-boundaries.md` 对同一问题的表述互相印证，不再需要"猜哪份文档说了算"
+- 完成定义：`AGENTS.md:38` 与 `project-boundaries.md` 对同一问题的表述互相印证，不再需要"猜哪份文档说了算"（**未通过**，见任务3）
+
+## 任务 3（补充：Codex stop-time review 第三次拦截）
+
+- 目标：修正"'仅测试可达'仍可经组件间接绕过门禁"
+- 前置条件：任务2a的检查规则只做单跳判断——查引擎的直接import者，排除掉是测试文件的情况，剩下是`.tsx`组件就算数。但如果这个`.tsx`组件本身只被某个e2e/spec文件单独mount渲染（测试专用挂载场景），从未被真实页面渲染，规则不会递归验证这一层，会误判为"已接线"
+- 输入：`frontend/knip.json`（entry含`**/*.nodetest.ts`/`e2e/**/*.spec.ts`）；knip 官方支持 `--config` 指定备用配置文件
+- 输出：
+  - 新建 `frontend/knip.production-reachability.json`：`knip.json`的变体，entry去掉两条测试相关的pattern，只保留`src/middleware.ts`/`next.config.ts`/`scripts/**/*.{ts,mjs,js}`（Next.js的`app/**/page.tsx`等由knip内置Next.js插件自动识别，不需要手动声明）
+  - `frontend/package.json` 新增脚本 `"knip:reachability": "knip --config knip.production-reachability.json --files"`
+  - `.claude/agents/gongbu-quality-gate.md` 的roster检查规则整条替换：不再手搓"查import者→排除测试文件类型→看是不是.tsx"这种单跳启发式，改成直接跑 `pnpm knip:reachability`，靠knip自己的全图可达性分析（从真实entry出发，不管中间隔几跳、中间是不是组件，只要某一跳只能靠测试到达就判unused）一次性给出终审结果
+- 涉及文件：`frontend/knip.production-reachability.json`（新增）、`frontend/package.json`、`.claude/agents/gongbu-quality-gate.md`
+- 状态 / 数据变化：新增一个开发期配置文件+脚本，不影响生产构建
+- 验证命令与证据：
+  - `pnpm exec knip --files --config knip.production-reachability.json` → 退出码1（有unused文件），585行，2次复现一致
+  - 吏部5个孤儿引擎（`hiring-review.ts`等）及其各自`.nodetest.ts`均在列表中——确认能抓住"仅测试可达"（含引擎自己和中间组件两种情况）
+  - 反向验证：礼部真实接线的`relationship-ledger-tab.tsx`/`LifuOfficeDesk`/`lifu-relationship.ts`均不在列表中——确认无误伤
+  - `pnpm knip:reachability`（走package.json声明的脚本）→ 590行，同样包含`hiring-review.ts`/`libu-roster.ts`——确认脚本化调用与直接`--config`调用结果一致
+  - `cd frontend && pnpm exec tsc --noEmit` → 0 错误
+  - `node scripts/harness-doctor.mjs` → 0 errors
+- 回滚边界：删除 `frontend/knip.production-reachability.json`，`git checkout frontend/package.json .claude/agents/gongbu-quality-gate.md`
+- 完成定义：`gongbu-quality-gate.md` 的roster检查不再依赖手搓的单跳grep链，改用有真实entry声明、可复现的knip全图分析；`harness-doctor.mjs` 0 errors（**未通过**，见任务4）
+
+## 任务 4（补充：Codex stop-time review 第四次拦截）
+
+- 目标：修正"备用 Knip 配置并未真正排除测试入口"
+- 前置条件：任务3只是把 `**/*.nodetest.ts`/`e2e/**/*.spec.ts` 从 `knip.production-reachability.json` 的 `entry` 数组里删掉，但用 `pnpm exec knip --debug` 查看实际生效的entry列表发现：knip 的 Playwright 插件会侦测仓库根的 `playwright.config.ts` 并自动注册 `entry:e2e/**/*.@(spec|test).?(c|m)[jt]s?(x) (playwright.config.ts)`，这条entry完全不受我自定义config的`entry`数组控制——用人造探针文件（`src/features/knipprobe/probe.ts`，只被一个临时e2e spec文件import）实测验证：删除`entry`数组里的e2e pattern后，探针依然不出现在unused列表里，证明排除从未真正生效
+- 输入：`pnpm exec knip --config knip.production-reachability.json --debug` 的完整entry列表；knip配置schema里插件可以设为`false`显式禁用
+- 输出：
+  - `knip.production-reachability.json` 新增 `"playwright": false`，显式禁用该插件——同一份探针文件重跑后正确出现在unused列表里，确认修复生效
+  - 发现并记录一个已知残留缺口：`src/core/courtos/**/*.nodetest.ts`等3条entry来自`test:core`/`eval:court`/`test:courtos:mvp-api`这几个npm script命令行里直接写的glob（knip解析package.json scripts参数自动注册entry，不是可关闭的"插件"），暂未找到干净的关闭方法；但这个缺口范围限定在`src/core/courtos/`（军机处体系），不影响本检查实际针对的`src/features/<部>/` office-kit roster/引擎，已用吏部/礼部真实样本反复验证`src/features/`范围内判定准确
+  - `.claude/agents/gongbu-quality-gate.md` 补充这两点说明（插件必须显式禁用+已知残留缺口的范围）
+- 涉及文件：`frontend/knip.production-reachability.json`、`.claude/agents/gongbu-quality-gate.md`
+- 状态 / 数据变化：无（探针文件为临时验证用，验证后已用`rm`删除，未提交）
+- 验证命令与证据：
+  - 探针实验：`src/features/knipprobe/probe.ts`（导出函数）+ `e2e/knipprobe-e2e.spec.ts`（唯一引用者）；禁用playwright插件前，`pnpm exec knip --files --config knip.production-reachability.json`不显示probe.ts为unused；禁用后（加`"playwright": false`），同一命令正确显示`src/features/knipprobe/probe.ts`为unused
+  - 禁用后对吏部/礼部真实样本重新验证：`hiring-review.ts`/`training-review.ts`/`org-headcount-review.ts`/`promotion-review.ts`/`compensation-band.ts`/`libu-roster.ts`均正确出现在586行的unused列表；`relationship-ledger-tab.tsx`/`LifuOfficeDesk`/`lifu-relationship.ts`均不出现；连续2次复现（586/586）稳定
+  - `cd frontend && pnpm exec tsc --noEmit` → 0 错误
+  - `node scripts/harness-doctor.mjs` → **无法运行**：另一个并行session当前正在进行一次大范围harness架构合并（"unify chaotang harness architecture"），`frontend/scripts/harness-doctor.mjs`等多个文件当前带有未解决的`<<<<<<< HEAD`冲突标记，导致脚本本身语法错误崩溃（`SyntaxError: Unexpected token '<<'`）。已确认这与本次改动无关（我方5个目标文件均为干净的`M`/`??`状态，不在冲突文件列表里），不属于本变更范围，不会尝试解决该合并冲突
+- 回滚边界：`git checkout frontend/knip.production-reachability.json .claude/agents/gongbu-quality-gate.md`
+- 完成定义：`gongbu-quality-gate.md` 的knip检查方法论证据完整、经人造样本正反验证；`harness-doctor.mjs` 暂时无法作为验收证据（外部原因），改用 `tsc --noEmit` + 直接knip实测作为本轮验收依据
