@@ -47,15 +47,24 @@
 
 解决方案：
 1. **前置硬门（本方案所有 P1+ 阶段的统一入口条件）**：
-   - `P0-B` 归属过滤债务 = **0**。事实源是可执行棘轮门 `backend/tests/test_p0b_ownership_ratchet.py`，
-     不是本文档——行号会因并发 session 重写而漂移（首版写进本文档的行号一天内就失真了，
-     教训已吸收），基线只记"每文件裸查计数"。2026-07-14 复核实测：unguarded 9 处
-     （shangshufang.py×8 + swarm_runs.py×1），guarded 1 处（jinyiwei.py，修复样板），
-     court_compat.py 曾有的 1 处已随重写消失。任何时刻的真实值以运行
-     `python3 -m pytest tests/test_p0b_ownership_ratchet.py` 为准；
+   - `P0-B` 归属漏洞 = **0**。唯一权威事实源是行为门
+     `backend/tests/test_p0b_cross_user_behavioral.py`：为每个"接受调用方传入 task/brief id"
+     的端点种一个属于 `someone_else` 的任务并尝试访问，**必须因归属被拒**。
+     未修端点以 `strict=True` xfail 实证在案；修好后 XPASS 会让测试失败，强制删标记（还债留痕）。
+     清零的可执行定义 = 该文件 xfail 数 == 0 **且**覆盖率门
+     `test_every_attack_surface_endpoint_has_a_probe` 绿（保证"没写测试"不会被误读成"没有漏洞"）。
+     2026-07-14 实测：**7 个 xfail = 7 个活漏洞**（task_decision / swarm_deepen / confirm_edict /
+     finance_intel_case / brief_decision_advance / edict_return / swarm_runs_create），
+     已修 1 个（task_status），guarded 样板 1 个（jinyiwei fill-gap）。
+   - 两个反面教训已固化进测试注释，勿重蹈：
+     (a) **计数 ≠ 归属**——`test_p0b_ownership_ratchet.py` 只数裸查处数，而修复是"在裸查后加一行校验"，
+         计数不变，故它**不是** P0-B 硬门，已降级为"攻击面不许增长"的表面积棘轮；
+     (b) **"被拒了" ≠ "因归属被拒"**——`/tasks/{id}/decision` 和 `/briefs/{id}/decision/advance`
+         当前会因"正式奏折质量门/需人工确认"这类**状态门**拒绝请求，跟归属毫无关系；
+         受害者任务只要状态合适就能被长驱直入。行为门因此强制断言错误信息含"无权"。
    - `pnpm prod:doctor` ≠ STOP；
    - 后端 8 个"既有失败"测试有钉死清单+owner（允许未清零，不允许无主）。
-2. **门检查方式**：每个 P 阶段的 change record 的 `request_analysis/spec.md` 必须引用本节并记录当时的三项实测值（P0-B 项 = 跑棘轮测试并粘贴 unguarded 基线数）；御前包工头（任何 agent）在 P1+ change 开工前先跑这三项。棘轮门同时挡住新增债务：任何人新增无归属校验的 DecisionTask 裸查，测试立即红。
+2. **门检查方式**：每个 P 阶段的 change record 的 `request_analysis/spec.md` 必须引用本节并记录当时的三项实测值（P0-B 项 = 跑行为门并粘贴 xfail 数）；御前包工头（任何 agent）在 P1+ change 开工前先跑这三项。表面积棘轮同时挡住新增攻击面：任何人新增 DecisionTask 裸查，必须同步补一条行为 probe 并上调基线。
 3. **国力仪表盘先行落地**（已完成，见下）：让"系统对自己表现负责"从第一天可见——没数据的指标诚实标 NO_DATA，绝不编数。
 4. **WIP 限制**：上一 P 阶段退出条件未绿，下一阶段不开工；两翼(P6/P7)不得打断 P0-P5 主线。
 
