@@ -6,9 +6,8 @@
 
 ```text
 docs/
-  product/                                产品描述——定位、模块定义、GTM、路线图、产品设计规格
-  2026-launch-development-roadmap.md      2026 高质量上线的跨线开发顺序、质量门禁、付费内测与变更协议
-  README.md                               本文件（入口与归属规则）
+  product/   产品描述——定位、模块定义、GTM、路线图、产品设计规格
+  README.md  本文件（入口与归属规则）
 ```
 
 ## product/（产品描述）
@@ -17,6 +16,7 @@ docs/
 | --- | --- |
 | `PROJECT_PRODUCT.md` | 产品定位、客户画像、商业模式、GTM、路线图和产品红线 |
 | `shiguan-three-column-redesign.md` | 史馆产品设计规格——功能定位、页面结构和内容格式 |
+| `2026-launch-development-roadmap.md` | 2026 高质量上线的跨线开发顺序、质量门禁、付费内测与变更协议路线图 |
 
 ## 归属规则
 
