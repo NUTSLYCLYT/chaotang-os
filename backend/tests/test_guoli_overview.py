@@ -61,6 +61,8 @@ def test_guoli_yushi_rejection_rate_live_from_truth_ledger(tmp_path, monkeypatch
         {"swarm": "yushi", "checker": "court_doc_builder", "verdict": "yellow", "case_id": "y4"},
         # 非御史判决必须被过滤,不许混进分母
         {"swarm": "pack_rd", "checker": "pack_rd_check", "verdict": "red", "case_id": "p1"},
+        # swarm 是 yushi 但 checker 不是唯一生产写入方 → 语义未知,同样不许进分母
+        {"swarm": "yushi", "checker": "some_future_path", "verdict": "red", "case_id": "y5"},
     ]
     _write_ledger(ledger, entries)
     monkeypatch.setattr(truth_ledger, "_ledger_path", lambda: ledger)
@@ -72,3 +74,36 @@ def test_guoli_yushi_rejection_rate_live_from_truth_ledger(tmp_path, monkeypatch
     assert yushi["status"] == "LIVE"
     assert yushi["value"] == 0.5  # 2 封驳(red+black) / 4 御史判决
     assert yushi["sample_size"] == 4
+
+
+def test_guoli_yushi_rate_anchored_to_real_production_write_path(tmp_path, monkeypatch):
+    """事实源可信度锚点:不用手写 fixture 猜台账条目长什么样,直接驱动真实
+    生产写入路径(yushi_verdict.build_yushi_review → court_doc_builder →
+    truth_ledger.record),然后断言指标端点算出正确结果。生产写入方改字段名/
+    verdict 取值,这条测试立刻红,防止 LIVE 指标静默变成永远 0 的假数字。"""
+    ledger = tmp_path / "truth_ledger.jsonl"
+    monkeypatch.setattr(truth_ledger, "_ledger_path", lambda: ledger)
+
+    from src import yushi_verdict as yv
+
+    ok_doc = yv.build_yushi_review(
+        {"department": "xingbu", "output_type": "report",
+         "summary": "常规合同风险报告", "human_signoff": True},
+        archive=True,
+    )
+    bad_doc = yv.build_yushi_review(
+        {"department": "hubu", "output_type": "action",
+         "summary": "自动向客户承诺30%回报并直接执行付款",
+         "automation_level_requested": "full_auto", "human_signoff": False},
+        archive=True,
+    )
+    assert ok_doc["light"] == "green"
+    assert bad_doc["light"] in ("red", "black")
+
+    client = TestClient(app)
+    payload = client.get("/api/guoli/overview").json()
+    yushi = {m["key"]: m for m in payload["data"]["metrics"]}["yushi_rejection_rate"]
+    assert yushi["status"] == "LIVE"
+    assert yushi["sample_size"] == 2
+    assert yushi["value"] == 0.5  # 1 放行 + 1 封驳
+    assert yushi["verdict_source"] == "deterministic_rules_gate"

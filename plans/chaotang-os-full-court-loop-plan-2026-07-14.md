@@ -47,10 +47,15 @@
 
 解决方案：
 1. **前置硬门（本方案所有 P1+ 阶段的统一入口条件）**：
-   - `P0-B` 上书房 `DecisionTask` 归属过滤未过滤查询点 = **0**（当前=9：`shangshufang.py:893,1165,1201,1279,1836,1866,2000,2166`、`swarm_runs.py:86`、`court_compat.py:300`）；
+   - `P0-B` 归属过滤债务 = **0**。事实源是可执行棘轮门 `backend/tests/test_p0b_ownership_ratchet.py`，
+     不是本文档——行号会因并发 session 重写而漂移（首版写进本文档的行号一天内就失真了，
+     教训已吸收），基线只记"每文件裸查计数"。2026-07-14 复核实测：unguarded 9 处
+     （shangshufang.py×8 + swarm_runs.py×1），guarded 1 处（jinyiwei.py，修复样板），
+     court_compat.py 曾有的 1 处已随重写消失。任何时刻的真实值以运行
+     `python3 -m pytest tests/test_p0b_ownership_ratchet.py` 为准；
    - `pnpm prod:doctor` ≠ STOP；
    - 后端 8 个"既有失败"测试有钉死清单+owner（允许未清零，不允许无主）。
-2. **门检查方式**：每个 P 阶段的 change record 的 `request_analysis/spec.md` 必须引用本节并记录当时的三项实测值；御前包工头（任何 agent）在 P1+ change 开工前先跑这三项。
+2. **门检查方式**：每个 P 阶段的 change record 的 `request_analysis/spec.md` 必须引用本节并记录当时的三项实测值（P0-B 项 = 跑棘轮测试并粘贴 unguarded 基线数）；御前包工头（任何 agent）在 P1+ change 开工前先跑这三项。棘轮门同时挡住新增债务：任何人新增无归属校验的 DecisionTask 裸查，测试立即红。
 3. **国力仪表盘先行落地**（已完成，见下）：让"系统对自己表现负责"从第一天可见——没数据的指标诚实标 NO_DATA，绝不编数。
 4. **WIP 限制**：上一 P 阶段退出条件未绿，下一阶段不开工；两翼(P6/P7)不得打断 P0-P5 主线。
 

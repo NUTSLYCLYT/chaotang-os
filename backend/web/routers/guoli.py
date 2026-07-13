@@ -39,7 +39,20 @@ def _no_data(key: str, label: str, reason: str, eta: str) -> dict:
 
 
 def _yushi_rejection_rate() -> dict:
-    entries = [e for e in truth_ledger._load() if e.get("swarm") == "yushi"]
+    # 事实源精确到唯一生产写入方:yushi_verdict.build_yushi_review →
+    # court_doc_builder → truth_ledger.record(swarm="yushi",
+    # checker="court_doc_builder", verdict=light)。只认这一个 checker,
+    # 防止未来其他路径往 swarm="yushi" 写入不同语义的条目混进分母。
+    # 已用真实生产路径实测(2026-07-14):放行 payload → verdict="green",
+    # 触红 payload → verdict="red";台账 provenance 恒为 "FALLBACK"——那个
+    # 字段指 RAG 接地(御史走确定性规则引擎,不经 RAG),不代表判决是伪造;
+    # 判决可信度由 deterministic_gated=True 的规则门保证,故此处不按
+    # provenance 过滤,LIVE 标签的含义是"数字来自真实生产判决记录"。
+    entries = [
+        e
+        for e in truth_ledger._load()
+        if e.get("swarm") == "yushi" and e.get("checker") == "court_doc_builder"
+    ]
     if not entries:
         return _no_data(
             "yushi_rejection_rate",
@@ -56,6 +69,8 @@ def _yushi_rejection_rate() -> dict:
         "sample_size": len(entries),
         "reason": None,
         "eta_stage": None,
+        "verdict_source": "deterministic_rules_gate",
+        "basis": "truth_ledger swarm=yushi checker=court_doc_builder; red/black=封驳",
     }
 
 
