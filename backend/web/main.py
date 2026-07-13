@@ -225,6 +225,7 @@ from web.routers import libu as libu_router  # noqa: E402
 from web.routers import swarm as swarm_router  # noqa: E402
 from web.routers import swarm_runs as swarm_runs_router  # noqa: E402
 from web.routers import tools as tools_router  # noqa: E402
+from web.routers import guoli as guoli_router  # noqa: E402
 from web.routers import voice as voice_router  # noqa: E402
 from web.routers import votes as votes_router  # noqa: E402
 from web.routers import yushi as yushi_router  # noqa: E402
@@ -318,6 +319,7 @@ app.include_router(hubu_router.router)
 app.include_router(gongbu_router.router)
 app.include_router(bingbu_router.router)
 app.include_router(yushi_router.router)
+app.include_router(guoli_router.router)
 app.include_router(ima_knowledge_router.router)
 app.include_router(jinyiwei_router.router)
 app.include_router(qintianjian_router.router)
