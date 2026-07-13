@@ -1,0 +1,59 @@
+---
+name: source-05-swarms-evolution-2026-07-03
+type: source
+source_kind: raw
+raw_path: /home/ubuntu/CourtOS-Brain/05-Swarms/Evolution/2026-07-03.md
+ingested_at: 2026-07-04
+updated_at: 2026-07-04
+schema_version: 1
+---
+
+# 05-Swarms/Evolution/2026-07-03.md
+
+## TL;DR
+
+蜂群评审于2026-07-03进行，主题为从今日产出提炼核心洞察。两个评审agent均因找不到文件'openclaw'调用失败。
+
+## 关键事实
+
+- 蜂群评审于2026-07-03 23:45进行
+- 评审主题为提炼核心洞察和明日应用
+- discovery-coach和product-manager两个agent均调用失败
+- 失败原因：找不到文件'openclaw'
+
+## 关联 concepts
+
+- _none_
+
+## 关联 entities
+
+- _none_
+
+## 原文摘录
+
+> # Lesson · 2026-07-03
+> *生成于 23:45 · daily-lesson cron*
+> 
+> # 蜂群评审 · 2026-07-03 23:45
+> **主题**：从今日产出里提炼 1 篇值得永久记住的 lesson（核心洞察 + 明天怎么用）
+> 
+> *评审 agent: discovery-coach, product-manager*
+> 
+> ---
+> 
+> ## 🎯 discovery-coach  _(响应 0.0s)_
+> 
+> ⚠️ 调用失败：[Errno 2] No such file or directory: 'openclaw'
+> 
+> ---
+> 
+> ## 🎯 product-manager  _(响应 0.0s)_
+> 
+> ⚠️ 调用失败：[Errno 2] No such file or directory: 'openclaw'
+> 
+> ---
+> 
+> 
+
+---
+*compiled by LLM-Wiki ingest · model=ollama-fast*

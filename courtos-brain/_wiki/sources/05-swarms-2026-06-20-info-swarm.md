@@ -1,0 +1,75 @@
+---
+name: source-05-swarms-2026-06-20-info-swarm
+type: source
+source_kind: raw
+raw_path: /home/ubuntu/CourtOS-Brain/05-Swarms/2026-06-20 Info Swarm.md
+ingested_at: 2026-06-20
+updated_at: 2026-06-20
+schema_version: 1
+---
+
+# 05-Swarms/2026-06-20 Info Swarm.md
+
+## TL;DR
+
+从55条技术资讯中筛选12条最有信号的：AI工程（如Emergent Alignment、ITNet）、系统架构（Spring Boot 4.1）、产品/创业（光象科技、ZuzuZoos）、开源项目（JetBrains开源Mellum2）
+
+## 关键事实
+
+- Emergent Alignment 提供LLM自我对齐新方法
+- ITNet 引入积分变换提升模型效率
+- Spring Boot 4.1 新增分布式事务支持
+- 光象科技推出机器人产品线
+- ZuzuZoos 开发AI陪伴机器人
+- JetBrains开源Mellum2 代码库
+
+## 关联 concepts
+
+- [[concepts/emergent-alignment]]
+- [[concepts/itnet]]
+- [[concepts/spring-boot]]
+- [[concepts/guangxiang-technology]]
+- [[concepts/zuzu-zoos]]
+- [[concepts/jetbrains-mellum2]]
+
+## 关联 entities
+
+- [[entities/org/光象科技]] · 光象科技
+- [[entities/org/zuzuzoos]] · ZuzuZoos
+- [[entities/org/jetbrains]] · JetBrains
+
+## 原文摘录
+
+> 首先，任务是：作为信息策展员，从55条技术资讯中选出最有信号的12条（去重、跳过明显标题党）。然后，每条用一句话概括"为什么值得5秒注意"。最后，按类目分组：AI工程、系统架构、产品/创业、开源项目。加emoji标头。
+> 
+> 类目定义：
+> - AI工程：可能指AI模型、算法、系统等
+> - 系统架构：系统设计、基础设施、架构
+> - 产品/创业：新产品、创业公司、市场动态
+> - 开源项目：开源工具、库、框架
+> 
+> 我需要先筛选出12条最有信号的资讯。去重：检查是否有重复的条目。从列表看，大部分是arxiv或InfoQ等，但标题不同，所以可能没有明显重复。跳过明显标题党：标题党通常是夸张、不实、吸引眼球但内容空洞的。例如，InfoQ中有些标题可能标题党，但需要判断。
+> 
+> 列出所有55条，快速扫描：
+> 
+> 1-10: arxiv cs.AI (AI工程相关)
+> 11-20: InfoQ AI (产品/创业、系统架构等)
+> 21-28: MIT Tech Review (AI、脑机接口等)
+> 29-55: 36Kr AI (产品、创业、科技新闻) 和 HF Papers proxy (AI工程)
+> 
+> HF Papers proxy 是arxiv的代理，但标题是论文。
+> 
+> 先去重：检查是否有相同内容。例如，条目21和22可能相关，但不同。条目39,40,41等是新闻。
+> 
+> 跳过明显标题党：例如，InfoQ中"当 Token 成为商品，AI 基础设施会怎么变化？" 可能标题党，但内容是讨论，不算明显标题党。"Gemini 联合负责人出走 OpenAI：Google 为什么总让 AI 天才感到挫败？" 可能标题党，但有具体事件。我需要谨慎。
+> 
+> 最有信号的：信号强的指有实际影响、新突破、趋势、潜在问题等。
+> 
+> 目标：12条。我需要选出12条。
+> 
+> 先分组：
+> 
+> - AI工程：涉及AI模型、训练、推理等。条目1,3,4,6,7,8,
+
+---
+*compiled by LLM-Wiki ingest · model=ollama-fast*

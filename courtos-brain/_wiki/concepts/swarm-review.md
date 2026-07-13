@@ -1,0 +1,47 @@
+---
+name: concept-swarm-review
+type: concept
+schema_version: 1
+status: stub
+---
+
+# swarm-review
+
+## 一句话定义
+
+（待 audit cron 合成）
+
+## 来源
+- [[sources/01-daily-briefings-2026-07-13-daily-briefing]]
+- [[sources/05-swarms-stock-2026-07-13-close-alert]]
+- [[sources/05-swarms-stock-2026-07-13-pre-market]]
+- [[sources/05-swarms-evolution-2026-07-12]]
+- [[sources/05-swarms-meta-2026-07-11-self-diagnose]]
+- [[sources/01-daily-briefings-2026-07-11-daily-briefing]]
+- [[sources/05-swarms-evolution-2026-07-10]]
+- [[sources/05-swarms-meta-2026-07-10-self-diagnose]]
+- [[sources/01-daily-briefings-2026-07-10-daily-briefing]]
+- [[sources/05-swarms-stock-2026-07-10-close-alert]]
+- [[sources/05-swarms-stock-2026-07-10-pre-market]]
+- [[sources/05-swarms-evolution-2026-07-09]]
+- [[sources/05-swarms-stock-2026-07-09-close-alert]]
+- [[sources/05-swarms-evolution-2026-07-06]]
+- [[sources/05-swarms-meta-2026-07-06-self-diagnose]]
+- [[sources/05-swarms-stock-2026-07-06-close-alert]]
+- [[sources/05-swarms-stock-2026-07-05-close-alert]]
+- [[sources/01-daily-briefings-2026-07-04-daily-briefing]]
+- [[sources/05-swarms-stock-2026-07-04-close-alert]]
+- [[sources/05-swarms-meta-2026-07-03-self-diagnose]]
+- [[sources/05-swarms-stock-2026-07-01-close-alert]]
+- [[sources/05-swarms-stock-2026-07-01-pre-market]]
+- [[sources/05-swarms-evolution-2026-06-30]]
+- [[sources/05-swarms-meta-2026-06-30-self-diagnose]]
+- [[sources/05-swarms-stock-2026-06-29-close-alert]]
+- [[sources/05-swarms-evolution-2026-06-28]]
+- [[sources/02-chancellor-reports-2026-06-28-weekly-retrospective]]
+- [[sources/05-swarms-stock-2026-06-28-close-alert]]
+
+- [[sources/05-swarms-stock-2026-06-27-close-alert]]
+
+---
+*auto-stub, awaiting LLM audit synthesis*

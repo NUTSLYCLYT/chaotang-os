@@ -1,0 +1,263 @@
+首先，我需要仔细阅读用户提供的所有信息，理解明朔的用户画像和偏好，然后从185条原始信息中提炼出今日晨报。
+
+用户画像：
+- 名字：NUTSLYCLYT (明朔)
+- 角色：AI 开发者 / 蜂群指挥家
+- 硬件：RTX 5090 32GB
+- 连续打卡：1 天
+- 能力评分：17.7/100
+- 偏好：零成本本地方案、关注AI Agent/量化交易/内容生产、不看模板化官话、要行动建议不要罗列
+- 关注领域优先排序：AI Agent框架、LLM本地部署、量化投资、独立开发SaaS、GPU优化
+- 最近复盘：2026-05-18和2026-04-06的复盘（避免重复）
+
+我需要从185条原始信息中：
+1. 去重（同一新闻多次出现的合并）
+2. 过滤（广告/营销/低质量的删除）
+3. 个性化排序：按用户关注领域优先排序（AI Agent框架、LLM本地部署、量化投资、独立开发SaaS、GPU优化）
+4. 每条用1句话精炼总结（20-40字）
+5. 必须保留原始URL
+6. 避开最近复盘里已讨论过的内容（2026-05-18和2026-04-06）
+
+输出格式必须严格按5个主题结构：
+1. 🌅 明朔晨报 · 2026-06-26
+2. 🌐 国际形势（3-5条）
+3. 📈 股票投资（3-5条A股/美股要闻）
+4. ⚕️ 医疗科技（3-4条）
+5. 🤖 AI前沿 + GitHub（按"突破"和"工具应用"两小节）
+6. ⚡ 新能源上下游（3-4条）
+7. 🎯 今日3个行动建议（3条具体可执行建议）
+
+首先，我将原始信息按主题分类：
+- [国际形势]：1-50条
+- [股票投资]：51-74条
+- [医疗科技]：75-108条
+- [AI前沿]：109-152条
+- [新能源]：153-157条
+- [开源]：158-177条
+- [市场行情]：178-185条
+
+我需要去重和过滤：
+- 检查同一新闻多次出现的：例如，条目158和163都是"GitHub: calesthio/OpenMontage"，159和164都是"GitHub: ZhuLinsen/daily_stock_analysis"，160和165都是"GitHub: apple/container"等。需要合并成一条。
+- 过滤广告/营销/低质量：例如，条目178-185是市场行情，但用户关注量化交易，所以保留；条目107-108是医疗科技相关，但可能低质量；条目116-117是新闻，但可能不重要。
+- 优先按用户关注领域排序：AI Agent框架、LLM本地部署、量化投资、独立开发SaaS、GPU优化。
+
+用户关注领域优先：
+1. AI Agent框架
+2. LLM本地部署
+3. 量化投资
+4. 独立开发SaaS
+5. GPU优化
+
+所以，在输出时，要确保每个主题的条目都符合这个优先级。
+
+现在，我将逐条分析原始信息，提取关键点，去重，过滤，然后按主题组织。
+
+**步骤1: 去重和过滤**
+
+先列出所有条目，标记重复和低质量。
+
+- 条目158和163：重复的OpenMontage
+- 条目159和164：重复的daily_stock_analysis
+- 条目160和165：重复的apple/container
+- 条目162和168：重复的ai-website-cloner-template
+- 条目165：重复的hiring-agent
+- 条目170-177：都是GitHub repo，但可能有重复或低质量
+
+过滤低质量：
+- 条目116：Om Malik has died — 可能是新闻，但用户关注科技，保留
+- 条目117：An entire Herculaneum scroll has been read — 可能不相关
+- 条目123-126：中文条目，但用户是中文，保留
+- 条目127-132：中文AI相关，保留
+- 条目133-135：中文，保留
+- 条目136-142：AI前沿，保留
+- 条目143-152：AI前沿，保留
+- 条目153-157：新能源，保留
+- 条目158-177：开源，保留
+- 条目178-185：市场行情，保留
+
+用户偏好：零成本本地方案，所以关注本地部署、开源工具等。
+
+**步骤2: 按用户关注领域排序**
+
+用户关注领域优先：
+1. AI Agent框架
+2. LLM本地部署
+3. 量化投资
+4. 独立开发SaaS
+5. GPU优化
+
+所以，在输出时：
+- 🤖 AI前沿 + GitHub 部分要突出AI Agent框架和LLM本地部署
+- 股票投资部分要突出量化投资
+- 新能源上下游可能涉及GPU优化
+
+**步骤3: 为每个主题提炼内容**
+
+先处理每个主题：
+
+**1. 国际形势 (3-5条)**
+
+从国际形势条目中，筛选重要事件：
+- 条目1-50：国际新闻
+- 重点：Venezuela earthquakes (条目1,2,17,21,29), Strait of Hormuz attack (条目4,9,13,33), US Supreme Court on Trump (条目6,23), Europe heatwave (条目3,30), etc.
+
+用户关注：AI Agent/量化交易，所以可能关注对科技和经济的影响。
+
+筛选3-5条：
+- Venezuela earthquakes: 重要，影响全球供应链和人道主义
+- Strait of Hormuz attack: 影响油价和全球贸易
+- US Supreme Court on Trump: 影响移民政策和科技
+- Europe heatwave: 影响科技基础设施
+- 但用户偏好零成本本地方案，所以可能关注本地部署相关事件
+
+**2. 股票投资 (3-5条)**
+
+从股票投资条目：51-74
+- 重点：量化投资、AI相关股票
+- 例如：条目57 (AI光互连), 60 (Health Care Fund), 61 (Mid Cap Core ETF), 62 (Microsoft), 63 (Quantum), 64 (BHP), 65 (China hardware), 66 (Asia stocks), 67 (Oil), 68 (Apple supplier), 69 (Oil), 70 (SpaceX), 71 (Oil), 72 (Personal story), 73 (S&P 500)
+
+用户关注量化投资，所以选与量化、AI相关的。
+
+**3. 医疗科技 (3-4条)**
+
+从医疗科技条目：75-108
+- 重点：AI在医疗的应用、新药、临床试验
+- 例如：条目83 (Stripe, Anthropic backing respiratory), 84-85 (BCI trials), 86 (reprogramming aging), 88-98 (Nature papers), 100-101 (AI in biotech)
+
+**4. AI前沿 + GitHub (2小节)**
+
+- 突破：AI Agent框架、LLM本地部署相关
+- 工具/ GitHub高星：开源工具、AI代理工具
+
+从AI前沿条目：109-152
+- 重点：条目113 (AI startup broke bottleneck), 114 (data center), 115 (privacy), 116 (Om Malik died), 117 (Herculaneum), 118 (IBM sub-1nm chip), 119 (Zig), 120 (Google Trends), 121 (Apple prices), 122 (unit test), 123-126 (中文AI), 127-132 (中文AI), 133-135 (中文), 136-142 (AI papers), 143-152 (arXiv)
+
+开源：158-177 (GitHub repos)
+
+用户关注：AI Agent框架、LLM本地部署、量化投资、独立开发SaaS、GPU优化
+
+**5. 新能源上下游 (3-4条)**
+
+从新能源条目：153-157
+- 重点：太阳能、电池等
+- 例如：条目153 (Romania solar), 154 (Africa solar), 155 (Sunwoda), 156 (North Macedonia), 157 (Top Cable)
+
+**6. 今日3个行动建议**
+
+基于以上，给明朔3条具体可执行建议，每条有"so what"，针对他的角色（AI开发者/蜂群指挥家）。
+
+**步骤4: 为每个条目写精炼总结 (20-40字)**
+
+每条必须：
+- 1句话
+- 20-40字
+- 保留原始URL
+- 严格按用户关注领域排序
+
+**步骤5: 避开最近复盘**
+
+最近复盘：
+- 2026-05-18: 评分8/10, 无评语
+- 2026-04-06: 评分9/10, 评语: "今天修了637次崩溃还建了进化系统,很硬核"
+
+避免重复：所以不讨论这些内容。例如，2026-04-06提到的"修了637次崩溃"，如果今天有类似，要避开。
+
+**开始提炼**
+
+先做去重：
+- 重复条目：158/163, 159/164, 160/165, 162/168, 165 (hiring-agent) — 合并为一条
+- 低质量：条目72,74 (个人故事), 116 (Om Malik died), 117 (Herculaneum scroll) — 可能过滤，因为不直接相关
+- 条目107: Retracted paper on timing of cancer therapy — 可能相关，但用户关注AI，保留
+
+现在，为每个主题组织内容。
+
+**1. 国际形势 (3-5条)**
+
+筛选：
+- Venezuela earthquakes (条目1,2,17,21,29)：重要，影响全球
+- Strait of Hormuz attack (条目4,9,13,33)：影响油价
+- US Supreme Court on Trump (条目6,23)：影响移民政策
+- Europe heatwave (条目3,30)：影响科技基础设施
+- 但用户关注AI，所以选对AI有影响的
+
+用户偏好：零成本本地方案，所以可能关注本地部署相关事件。
+
+选3条：
+1. Venezuela earthquakes: 造成至少188人死亡，救援努力加剧，影响全球供应链和人道主义。
+2. Strait of Hormuz attack: 货船被击中，导致撤离计划暂停，影响全球石油供应。
+3. US Supreme Court ruling: 允许特朗普结束庇护身份，可能影响科技移民。
+
+**2. 股票投资 (3-5条)**
+
+用户关注量化投资，所以选：
+- 条目57: 花旗最新研报：AI光互连进入结构性上行周期 (量化投资相关)
+- 条目65: China's hardware tech stocks look to earnings to sustain rally (量化)
+- 条目68: Apple supplier Lingyi set for HK debut after $1.1B float (量化)
+- 条目70: SpaceX stock is a terrible buy (量化)
+- 条目73: S&P 500 at critical crossroads (量化)
+
+选3条：57,65,73
+
+**3. 医疗科技 (3-4条)**
+
+用户关注AI，所以选：
+- 条目88: HPV vaccination linked to dramatic reduction in cervical cancer deaths (AI在医疗)
+- 条目90: Neoadjuvant stereotactic body radiation therapy... (AI在治疗)
+- 条目101: Rethinking controls: The rise of VCGs in drug development (AI在药物)
+- 条目102: Quantifying the true value of AI-driven in silico trials (AI在临床)
+
+选3条：88,90,102
+
+**4. AI前沿 + GitHub**
+
+- 突破 (
+
+## 📈 趋势对比 (vs 昨日)
+
+### 🆕 今日新出现
+- **Apple** (5 次提及)
+- **Google** (3 次提及)
+- **Microsoft** (2 次提及)
+
+### 🔼 热度上升
+- **AI** 84 次 (+2)
+- **GitHub** 22 次 (+2)
+- **Agent** 19 次 (+3)
+- **IPO** 2 次 (+1)
+- **智能体** 1 次 (+1)
+
+### 🔽 热度下降
+- Anthropic 3 次 (-4)
+- Rust 2 次 (-2)
+- Meta 1 次 (-1)
+
+
+## 💰 今日市场
+- 📈 上证指数: 4120.28 (+0.41%)
+- 📈 深证成指: 16344.08 (+1.52%)
+- 📈 创业板指: 4371.99 (+2.19%)
+- 📈 沪深300: 5020.10 (+1.40%)
+- 📉 BNB: $560 (-0.57%)
+- 📉 BTC: $59,754 (-2.03%)
+- 📉 ETH: $1,567 (-3.26%)
+- 📉 SOL: $68 (-0.53%)
+
+### Session log 11:27 — face_replica
+  - [no transcript summary]
+
+### Session log 11:27 — face_replica
+  - [no transcript summary]
+
+### Session log 11:27 — chaotang-web-lyt
+  - [no transcript summary]
+
+### Session log 11:27 — chaotang-web-lyt
+  - [no transcript summary]
+
+### Session log 11:27 — perf-outcomes-judge-wt
+  - [no transcript summary]
+
+
+---
+_自动智能填充 @ 21:35 · source: 2026-06-26_21-30-47.md_
+

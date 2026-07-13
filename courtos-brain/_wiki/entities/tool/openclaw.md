@@ -1,0 +1,36 @@
+---
+name: entity-tool-openclaw
+type: entity
+entity_kind: tool
+schema_version: 1
+status: stub
+---
+
+# openclaw
+
+- **kind**: tool
+
+## 来源
+- [[sources/01-daily-briefings-2026-07-13-daily-briefing]]
+- [[sources/05-swarms-meta-2026-07-12-self-diagnose]]
+- [[sources/01-daily-briefings-2026-07-12-daily-briefing]]
+- [[sources/05-swarms-evolution-2026-07-11]]
+- [[sources/05-swarms-meta-2026-07-11-self-diagnose]]
+- [[sources/01-daily-briefings-2026-07-11-daily-briefing]]
+- [[sources/05-swarms-meta-2026-07-10-self-diagnose]]
+- [[sources/01-daily-briefings-2026-07-10-daily-briefing]]
+- [[sources/05-swarms-2026-07-07-info-swarm]]
+- [[sources/00-inbox-swarm-2026-07-07]]
+- [[sources/05-swarms-meta-2026-07-06-self-diagnose]]
+- [[sources/01-daily-briefings-2026-07-04-daily-briefing]]
+- [[sources/05-swarms-meta-2026-06-30-self-diagnose]]
+- [[sources/01-daily-briefings-2026-06-27-daily-briefing]]
+- [[sources/05-swarms-evolution-2026-06-26]]
+- [[sources/05-swarms-evolution-2026-06-25]]
+- [[sources/05-swarms-meta-2026-06-25-self-diagnose]]
+- [[sources/05-swarms-evolution-2026-06-23]]
+
+- [[sources/05-swarms-stock-2026-06-21-close-alert]]
+
+---
+*auto-stub*

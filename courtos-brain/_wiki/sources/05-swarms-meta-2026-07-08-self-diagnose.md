@@ -1,0 +1,67 @@
+---
+name: source-05-swarms-meta-2026-07-08-self-diagnose
+type: source
+source_kind: raw
+raw_path: /home/ubuntu/CourtOS-Brain/05-Swarms/Meta/2026-07-08 self-diagnose.md
+ingested_at: 2026-07-08
+updated_at: 2026-07-08
+schema_version: 1
+---
+
+# 05-Swarms/Meta/2026-07-08 self-diagnose.md
+
+## TL;DR
+
+2-3 句压缩，不超过 120 字
+
+## 关键事实
+
+- 短句要点 1
+- 短句要点 2
+
+## 关联 concepts
+
+- [[concepts/concept-slug-1]]
+- [[concepts/concept-slug-2]]
+
+## 关联 entities
+
+- [[entities/tool/原名]] · 原名
+
+## 原文摘录
+
+> # 系统自检 · 2026-07-08 23:50
+> # 蜂群评审 · 2026-07-08 23:50
+> **主题**：**系统自检 → 明天的 3 个具体改进**：基于诊断报告，输出：① 1 个最紧急要修的 bug（精确到文件+行为）② 1 个可以加的新 cron（说明价值+实现思路）③ 1 个可以减掉/简化的（避免熵增）
+> 
+> *评审 agent: sprint-prioritizer, devops-automator*
+> 
+> ---
+> 
+> ## 🎯 sprint-prioritizer  _(响应 0.0s)_
+> 
+> ⚠️ 调用失败：[Errno 2] No such file or directory: 'openclaw'
+> 
+> ---
+> 
+> ## 🎯 devops-automator  _(响应 0.0s)_
+> 
+> ⚠️ 调用失败：[Errno 2] No such file or directory: 'openclaw'
+> 
+> ---
+> 
+> 
+> ---
+> # 今日系统诊断 · 2026-07-08
+> 
+> ## 🔧 Cron 任务状态
+> 
+> | job | last_run | exit | duration | stderr_tail |
+> |---|---|---|---|---|
+> | archive-to-brain | 2026-07-08T23:00 | 0 | 1s | ✓  |
+> | auto-llm-task | 2026-07-08T11:30 | 0 | 3s | ✓  |
+> | backend-upgrade-watch | 2026-07-08T11:02 | 0 | 293s | ✓ [state-migrations] Legacy state migration warnings: - Left plugin install index  |
+> | backup-agents | 20
+
+---
+*compiled by LLM-Wiki ingest · model=ollama-fast*

@@ -1,0 +1,60 @@
+---
+name: source-05-swarms-2026-06-25-info-swarm
+type: source
+source_kind: raw
+raw_path: /home/ubuntu/CourtOS-Brain/05-Swarms/2026-06-25 Info Swarm.md
+ingested_at: 2026-06-25
+updated_at: 2026-06-25
+schema_version: 1
+---
+
+# 05-Swarms/2026-06-25 Info Swarm.md
+
+## TL;DR
+
+从86条技术资讯中筛选12条最有信号的，每条用一句话概括'为什么值得5秒注意'，按AI工程、系统架构、产品/创业、开源项目分组，加emoji标头
+
+## 关键事实
+
+- 筛选12条最有信号的资讯（去重、跳过标题党）
+- 每条概括'为什么值得5秒注意'
+- 按类目分组：AI工程、系统架构、产品/创业、开源项目
+- 加emoji标头
+
+## 关联 concepts
+
+- [[concepts/ai工程]]
+- [[concepts/系统架构]]
+- [[concepts/产品创业]]
+- [[concepts/开源项目]]
+
+## 关联 entities
+
+- [[entities/service/hn-front]] · HN Front
+- [[entities/service/arxiv]] · arXiv
+- [[entities/service/cloudflare]] · Cloudflare
+- [[entities/tool/dolphin-emulator]] · Dolphin Emulator
+
+## 原文摘录
+
+> 首先，任务是作为信息策展员，从86条技术资讯中选出最有信号的12条（去重、跳过明显标题党）。然后，每条用一句话概括"为什么值得5秒注意"。最后，按类目分组：AI工程、系统架构、产品/创业、开源项目。加emoji标头。
+> 
+> 类目定义：
+> - AI工程：可能包括AI模型、算法、训练等。
+> - 系统架构：系统设计、基础设施、云服务等。
+> - 产品/创业：新公司、产品、创业动态。
+> - 开源项目：开源工具、框架、库等。
+> 
+> 我需要先浏览所有86条资讯，理解内容，然后筛选出12条最有信号的。去重：确保每条资讯只算一次。跳过明显标题党：比如那些太泛泛、没有实质内容的。
+> 
+> 列出所有资讯的标题和简要内容（从提供的信息中提取）：
+> 
+> 1. [HN Front] Countries are competing to see which can carry out mass surveillance the best - Mullvad on privacy
+> 2. [HN Front] Apple announces significant price increases for MacBooks, iPads, more - 9to5mac
+> 3. [HN Front] Why Does Everyone Hate AI? - Paul Krugman Substack
+> 4. [HN Front] You didn't vibe code it, you stole it from open source&enterprise-licensed code - Twitter
+> 5. [HN Front] LastPass notifies users of yet another data breach - 9to5mac
+> 6. [HN Front] Dolphin Emulator Progress Rele
+
+---
+*compiled by LLM-Wiki ingest · model=ollama-fast*
