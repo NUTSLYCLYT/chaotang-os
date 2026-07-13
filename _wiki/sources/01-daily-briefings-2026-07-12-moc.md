@@ -12,19 +12,21 @@ schema_version: 1
 
 ## TL;DR
 
-2026-07-12的蜂群MOC，记录今日产出和蜂群进化状态。连续打卡1天，累计Lessons2，等待评分中。能力评分低。
+2026-07-12蜂群MOC状态：连续打卡1天，累计Lessons 2，最后复盘2026-05-18评分8/10。当前等待评分，晨报暂停。
 
 ## 关键事实
 
 - 连续打卡1天
-- 累计Lessons2
-- 最后评分8/10
+- 累计Lessons 2
+- 最后复盘2026-05-18，评分8/10
 - 等待评分中
 - 晨报暂停
 
 ## 关联 concepts
 
-- [[concepts/bee-colony]]
+- [[concepts/hive-moc]]
+- [[concepts/daily-briefing]]
+- [[concepts/evolve-state]]
 
 ## 关联 entities
 
@@ -33,7 +35,7 @@ schema_version: 1
 ## 原文摘录
 
 > # 2026-07-12 · 蜂群 MOC
-> _生成于 08:10_
+> _生成于 23:00_
 > 
 > ## 今日产出
 > - [[2026-07-12 Daily Briefing]] · morning-brief
@@ -49,7 +51,7 @@ schema_version: 1
 >   最后复盘:     2026-05-18
 >   最后评分:     8/10
 > 
->   ⏳ 等待评分中 (自 2026-07-11 08:00)
+>   ⏳ 等待评分中 (自 2026-07-12 09:15)
 >   晨报暂停,直到你评分完今天
 > 
 >   能力评分:
