@@ -49,12 +49,10 @@ function loadSharedJiqunLlmEnv() {
   if (process.env.CHAOTANG_IMPORT_JIQUN_ENV === '0') return;
   const cwd = process.cwd();
   const candidates = [
+    process.env.CHAOTANG_BACKEND_ENV_FILE,
     process.env.JIQUN_ENV_FILE,
     process.env.JIQUN_AI_ENV_FILE,
-    path.resolve(cwd, '..', 'jiqun_ai', '.env'),
-    path.resolve(cwd, '..', 'jiqun_ai_fresh', '.env'),
-    path.resolve(cwd, '..', 'fengQun', 'jiqun_ai_fresh', '.env'),
-    '/home/ubuntu/fe/fengQun/jiqun_ai_fresh/.env',
+    path.resolve(cwd, '..', 'backend', '.env'),
   ];
   for (const filePath of candidates) {
     loadLlmEnvFromFile(filePath);
