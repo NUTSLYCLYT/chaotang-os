@@ -11,13 +11,14 @@ worker 要求(方案原文)：幂等消费、指数退避重试、最大重试�
 
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
 from hashlib import sha1
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+
+    from src.db.models import OutboxEvent
 
 
 def _now_iso() -> str:
@@ -30,12 +31,31 @@ def _make_id(prefix: str, *parts: object) -> str:
 
 
 def _record_timeline(
-    db: "Session", *, task_id: str, stage: str, actor: str, message: str
+    db: "Session",
+    *,
+    task_id: str,
+    stage: str,
+    actor: str,
+    message: str,
+    event_type: str = "timeline.note",
+    trace_id: str | None = None,
+    source_label: str = "FALLBACK",
+    payload: dict[str, Any] | None = None,
+    idempotency_key: str | None = None,
 ) -> None:
     from src.chancellor.decree_status import record_timeline_event
 
     record_timeline_event(
-        db, task_id=task_id, stage=stage, actor=actor, message=message
+        db,
+        task_id=task_id,
+        stage=stage,
+        actor=actor,
+        message=message,
+        event_type=event_type,
+        trace_id=trace_id,
+        source_label=source_label,
+        payload=payload,
+        idempotency_key=idempotency_key,
     )
 
 
@@ -66,7 +86,7 @@ def _execute_council(db: "Session", task_id: str) -> dict[str, Any]:
     这正是"确认下旨快速返回，重活挪到后台"这条主链要解决的问题。
     """
     from src.db.models import CourtReview, DecisionTask
-    from src.shangshufang_loop import draft_to_dict, draft_edict
+    from src.shangshufang_loop import draft_edict, draft_to_dict
     from src.swarm_execution_loop import run_swarm_execution_loop
     from src.swarm_persistence import (
         attach_swarm_result_to_review,
@@ -99,6 +119,11 @@ def _execute_council(db: "Session", task_id: str) -> dict[str, Any]:
         stage="executing",
         actor="worker",
         message="军机处开始异步派单，调用真实蜂群深挖。",
+        event_type="dispatch.started",
+        trace_id=review.id,
+        source_label=task.source_label,
+        payload={"review_id": review.id},
+        idempotency_key=f"dispatch.started:{review.id}",
     )
     db.commit()
 
@@ -119,21 +144,115 @@ def _execute_council(db: "Session", task_id: str) -> dict[str, Any]:
     )
     persist_swarm_execution_result(db, swarm_result)
     attach_swarm_result_to_review(db, review.id, swarm_result)
-    from src.chancellor.decree_status import decide_post_review_status
+    swarm_run_id = swarm_result["swarm_run"]["id"]
+    swarm_source_label = str(
+        swarm_result["swarm_run"].get("source_label") or "FALLBACK"
+    )
+    from src.formal_memorial import FormalMemorialBlocked, formalize_memorial
 
-    task.status = decide_post_review_status(swarm_result["quality_result"])
+    formal_memorial = None
+    memorial_block_reason = None
+    try:
+        formal_memorial = formalize_memorial(
+            db,
+            task_id=task.id,
+            review_id=review.id,
+            swarm_result=swarm_result,
+        )
+    except FormalMemorialBlocked as exc:
+        memorial_block_reason = str(exc)
+
+    effective_quality_passed = formal_memorial is not None
+    task.status = (
+        "awaiting_decision" if effective_quality_passed else "awaiting_evidence"
+    )
     task.updated_at = _now_iso()
+    review.review_status = task.status
+    review.updated_at = task.updated_at
     _record_timeline(
         db,
         task_id=task_id,
         stage="department_reporting",
         actor="worker",
         message=f"蜂群深挖完成，任务状态更新为 {task.status}。",
+        event_type="reports.completed",
+        trace_id=review.id,
+        source_label=task.source_label,
+        payload={"review_id": review.id, "swarm_run_id": swarm_run_id},
+        idempotency_key=f"reports.completed:{swarm_run_id}",
+    )
+    quality_result = swarm_result["quality_result"]
+    blocking_reasons = list(quality_result.get("blocking_reasons", []))
+    if memorial_block_reason and memorial_block_reason not in blocking_reasons:
+        blocking_reasons.append(memorial_block_reason)
+    _record_timeline(
+        db,
+        task_id=task_id,
+        stage=(
+            "awaiting_emperor_decision"
+            if effective_quality_passed
+            else "awaiting_evidence"
+        ),
+        actor="quality_gate",
+        message=(
+            "御史质量门通过，奏折可进入人工裁决。"
+            if effective_quality_passed
+            else "御史质量门阻断，必须补证后重新回奏。"
+        ),
+        event_type=(
+            "quality.passed" if effective_quality_passed else "quality.blocked"
+        ),
+        trace_id=review.id,
+        source_label=task.source_label,
+        payload={
+            "swarm_run_id": swarm_run_id,
+            "raw_quality_passed": bool(quality_result.get("passed")),
+            "passed": effective_quality_passed,
+            "task_status": task.status,
+            "blocking_reasons": blocking_reasons,
+            "warnings": quality_result.get("warnings", []),
+            "swarm_source_label": swarm_source_label,
+        },
+        idempotency_key=f"quality:{swarm_run_id}",
+    )
+    _record_timeline(
+        db,
+        task_id=task_id,
+        stage=(
+            "awaiting_emperor_decision"
+            if effective_quality_passed
+            else "awaiting_evidence"
+        ),
+        actor="junjichu",
+        message=(
+            "军机处已生成唯一正式奏折，等待皇上人工裁决。"
+            if effective_quality_passed
+            else f"候选奏折未晋升为正式奏折：{memorial_block_reason}。"
+        ),
+        event_type=(
+            "memorial.formalized"
+            if effective_quality_passed
+            else "memorial.blocked"
+        ),
+        trace_id=review.id,
+        source_label=task.source_label,
+        payload={
+            "swarm_run_id": swarm_run_id,
+            "swarm_source_label": swarm_source_label,
+            "formal_memorial_id": (
+                formal_memorial.id if formal_memorial is not None else None
+            ),
+            "blocking_reason": memorial_block_reason,
+        },
+        idempotency_key=f"memorial:{swarm_run_id}",
     )
     return {
         "mode": "council",
         "task_status": task.status,
-        "swarm_run_id": swarm_result["swarm_run"]["id"],
+        "swarm_run_id": swarm_run_id,
+        "formal_memorial_id": (
+            formal_memorial.id if formal_memorial is not None else None
+        ),
     }
 
 

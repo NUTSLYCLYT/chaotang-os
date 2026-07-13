@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -76,6 +76,10 @@ class TimelineEvent(BaseModel):
     message: str
     occurred_at: str
     sequence: int
+    event_type: str = "timeline.note"
+    trace_id: str | None = None
+    source_label: SourceLabel = "FALLBACK"
+    payload: dict[str, Any] = Field(default_factory=dict)
 
 
 class DecreeExecutionStatusV1(BaseModel):

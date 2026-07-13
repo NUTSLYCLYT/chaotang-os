@@ -137,15 +137,30 @@ def test_council_event_runs_swarm_and_updates_task_status(isolated_session_local
     db.commit()
 
     fake_swarm_result = {
-        "swarm_run": {"id": "run_1", "route_plan": {"selected_swarms": []}},
-        "quality_result": {"passed": True, "blocking_reasons": []},
+        "swarm_run": {
+            "id": "run_1",
+            "task_id": "task_council_1",
+            "review_id": "review_council_1",
+            "source_label": "LIVE_SWARM",
+            "route_plan": {"selected_swarms": []},
+        },
+        "quality_result": {
+            "id": "quality_run_1",
+            "passed": True,
+            "blocking_reasons": [],
+        },
     }
+
+    def attach_candidate(session, review_id, _result):
+        review = session.query(CourtReview).filter_by(id=review_id).one()
+        review.memorial_json = '{"title":"会审奏折","summary":"证据充分"}'
 
     with patch(
         "src.swarm_execution_loop.run_swarm_execution_loop",
         return_value=fake_swarm_result,
     ), patch("src.swarm_persistence.persist_swarm_execution_result"), patch(
-        "src.swarm_persistence.attach_swarm_result_to_review"
+        "src.swarm_persistence.attach_swarm_result_to_review",
+        side_effect=attach_candidate,
     ):
         event_id = enqueue_dispatch(
             db,

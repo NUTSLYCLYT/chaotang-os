@@ -3,6 +3,43 @@ from fastapi.testclient import TestClient
 from web.main import app
 
 
+def _formalize_task_for_decision(session_local, task_id: str) -> str:
+    """Seed the new quality/provenance boundary for legacy decision API tests."""
+    from src.db.models import CourtReview
+    from src.formal_memorial import formalize_memorial
+
+    db = session_local()
+    review = (
+        db.query(CourtReview)
+        .filter_by(task_id=task_id)
+        .order_by(CourtReview.created_at.desc())
+        .first()
+    )
+    assert review is not None
+    review_id = review.id
+    formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result={
+            "swarm_run": {
+                "id": f"test_run_{task_id}",
+                "task_id": task_id,
+                "review_id": review_id,
+                "source_label": "LIVE_SWARM",
+            },
+            "quality_result": {
+                "id": f"test_quality_{task_id}",
+                "passed": True,
+                "blocking_reasons": [],
+            },
+        },
+    )
+    db.commit()
+    db.close()
+    return review_id
+
+
 def test_chancellor_chat_streams_single_agent_reply(isolated_session_local):
     client = TestClient(app)
 
@@ -16,7 +53,7 @@ def test_chancellor_chat_streams_single_agent_reply(isolated_session_local):
     assert response.status_code == 200
     assert "data:" in body
     assert "chancellor" in body
-    assert "丞相" in body
+    assert '"agent": "chancellor"' in body
 
 
 def test_draft_edict_preserves_question_and_flags_risk(isolated_session_local):
@@ -207,6 +244,7 @@ def test_archive_decision_writes_shiguan_record(isolated_session_local):
     client.post(
         "/api/shangshufang/confirm-edict", json={"task_id": task_id, "confirmed": True}
     )
+    _formalize_task_for_decision(isolated_session_local, task_id)
 
     decision_response = client.post(
         f"/api/shangshufang/tasks/{task_id}/decision",
@@ -244,6 +282,8 @@ def test_frontend_decision_actions_are_accepted(isolated_session_local):
             "/api/shangshufang/confirm-edict",
             json={"task_id": task_id, "confirmed": True},
         )
+        if action == "adopt":
+            _formalize_task_for_decision(isolated_session_local, task_id)
 
         decision_response = client.post(
             f"/api/shangshufang/tasks/{task_id}/decision",
@@ -285,6 +325,7 @@ def test_archive_preserves_original_decision_action_alias(isolated_session_local
             "/api/shangshufang/confirm-edict",
             json={"task_id": task_id, "confirmed": True},
         )
+        _formalize_task_for_decision(isolated_session_local, task_id)
         resp = client.post(
             f"/api/shangshufang/tasks/{task_id}/decision",
             json={"action": action, "reason": "test", "human_confirmed": True},
@@ -332,6 +373,8 @@ def test_task_decision_and_brief_decision_advance_agree(isolated_session_local):
             "/api/shangshufang/confirm-edict",
             json={"task_id": task_id_a, "confirmed": True},
         )
+        if task_action == "adopt":
+            _formalize_task_for_decision(isolated_session_local, task_id_a)
         resp_a = client.post(
             f"/api/shangshufang/tasks/{task_id_a}/decision",
             json={"action": task_action, "reason": "test", "human_confirmed": True},
@@ -349,6 +392,8 @@ def test_task_decision_and_brief_decision_advance_agree(isolated_session_local):
             "/api/shangshufang/confirm-edict",
             json={"task_id": task_id_b, "confirmed": True},
         )
+        if task_action == "adopt":
+            _formalize_task_for_decision(isolated_session_local, task_id_b)
         status_response = client.get(f"/api/shangshufang/tasks/{task_id_b}/status")
         brief_id = status_response.json()["data"]["review"]["review_id"]
         resp_b = client.post(

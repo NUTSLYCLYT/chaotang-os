@@ -18,10 +18,6 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from web.deps import get_current_user
-from web.routers._envelope import fail, ok
-from web.schemas.auth import CurrentUser
-from web.schemas.swarm import SwarmRunRequest
 from src.chancellor.contracts import RouteDecisionV2
 from src.chancellor.decree_status import (
     build_decree_execution_status,
@@ -29,9 +25,6 @@ from src.chancellor.decree_status import (
     record_timeline_event,
 )
 from src.chancellor.routing_service import chancellor_routing_service, legacy_route_dict
-from src.execution.decree_dispatcher import dispatch_after_commit, enqueue_dispatch
-from src.finance_intel_loop_contract import build_finance_intel_session
-from src.hubu_financial_reporting import build_shangshufang_finance_reporting_loop
 from src.db.models import (
     AgentSkillRun,
     ChancellorRouteDecision,
@@ -39,8 +32,12 @@ from src.db.models import (
     CourtReview,
     DecisionTask,
     EmperorDecision,
+    FinalMemorial,
     ShiguanArchive,
 )
+from src.execution.decree_dispatcher import dispatch_after_commit, enqueue_dispatch
+from src.finance_intel_loop_contract import build_finance_intel_session
+from src.hubu_financial_reporting import build_shangshufang_finance_reporting_loop
 from src.shangshufang_loop import (
     chancellor_decide_route,
     direct_receipt_for,
@@ -54,11 +51,15 @@ from src.shangshufang_loop import (
     routing_plan_for,
 )
 from src.swarm_execution_loop import run_swarm_execution_loop
+from src.swarm_orchestrator import SESSIONS_DIR
 from src.swarm_persistence import (
     attach_swarm_result_to_review,
     persist_swarm_execution_result,
 )
-from src.swarm_orchestrator import SESSIONS_DIR
+from web.deps import get_current_user
+from web.routers._envelope import fail, ok
+from web.schemas.auth import CurrentUser
+from web.schemas.swarm import SwarmRunRequest
 
 router = APIRouter(prefix="/api/shangshufang", tags=["shangshufang"])
 
@@ -271,7 +272,11 @@ def _user_id(user: CurrentUser) -> str:
     return str(user.user_id or user.username or user.tenant_slug or "anonymous")
 
 
-def _task_to_payload(row: DecisionTask, review: "CourtReview | None" = None) -> dict:
+def _task_to_payload(
+    row: DecisionTask,
+    review: "CourtReview | None" = None,
+    formal: "FinalMemorial | None" = None,
+) -> dict:
     """独立复审(2026-07-11)发现: /home 的任务摘要只有 draft_edict(下旨前的丞相
     拟旨),从不带真实回奏——上书房首页"建议"栏因此永远显示下旨前的草拟文字，
     即使任务早已跑完真实六部会审(awaiting_decision/reviewing/awaiting_evidence)。
@@ -279,14 +284,26 @@ def _task_to_payload(row: DecisionTask, review: "CourtReview | None" = None) -> 
     优先用它而不是 draft_edict.refined_edict。调用方负责批量取 review，避免
     在列表推导里逐行查询(N+1)。"""
     latest_memorial: dict[str, Any] | None = None
-    if review is not None:
-        memorial = _loads(review.memorial_json, {})
+    if formal is not None or review is not None:
+        memorial = _loads(
+            formal.memorial_json if formal is not None else review.memorial_json,
+            {},
+        )
         if memorial:
             latest_memorial = {
                 "verdict": memorial.get("verdict"),
                 "summary": memorial.get("summary"),
-                "source_label": memorial.get("source_label"),
+                "source_label": (
+                    (
+                        "LIVE"
+                        if formal.source_label == "LIVE_ENGINE"
+                        else formal.source_label
+                    )
+                    if formal is not None
+                    else memorial.get("source_label")
+                ),
                 "ministry_outputs": memorial.get("ministry_outputs", []),
+                "formal_memorial_id": formal.id if formal is not None else None,
             }
     return {
         "task_id": row.id,
@@ -327,6 +344,20 @@ def _latest_reviews_by_task(db, task_ids: list[str]) -> dict[str, CourtReview]:
     for row in rows:
         latest.setdefault(row.task_id, row)
     return latest
+
+
+def _final_memorials_by_task(db, task_ids: list[str]) -> dict[str, FinalMemorial]:
+    if not task_ids:
+        return {}
+    from src.formal_memorial import ensure_final_memorial_table
+
+    ensure_final_memorial_table(db)
+    return {
+        row.task_id: row
+        for row in db.query(FinalMemorial)
+        .filter(FinalMemorial.task_id.in_(task_ids))
+        .all()
+    }
 
 
 def _direct_swarm_skip_payload(
@@ -441,6 +472,7 @@ def _archive_task(
     action: str,
     reason: str,
     final_memorial: dict[str, Any] | None,
+    source_label: str,
     now: str,
 ) -> dict[str, Any]:
     archive_id = make_id("archive", task.id, action, now)
@@ -452,8 +484,8 @@ def _archive_task(
         final_memorial_json=_json(final_memorial),
         emperor_decision_json=_json({"action": action, "reason": reason}),
         evidence_chain_json=_json(_loads(task.known_facts_json, [])),
-        source_label=task.source_label,
-        synthetic_flag=task.source_label in {"FALLBACK", "DEMO"},
+        source_label=source_label,
+        synthetic_flag=source_label in {"FALLBACK", "DEMO"},
         created_at=now,
     )
     db.add(archive)
@@ -462,7 +494,7 @@ def _archive_task(
         "archive_id": archive_id,
         "task_id": task.id,
         "created_at": now,
-        "source_label": task.source_label,
+        "source_label": source_label,
     }
 
 
@@ -473,6 +505,7 @@ def _apply_task_decision(
     review: "CourtReview | None",
     action: str,
     reason: str | None,
+    human_confirmed: bool,
     now: str,
 ) -> dict[str, Any] | None:
     """收口 adopt/request_evidence/recheck/reject 四类裁决动作的状态转移。
@@ -494,15 +527,24 @@ def _apply_task_decision(
     字面量，不做归一化，历史归档记录不再失真。"""
     archive_record: dict[str, Any] | None = None
     if action in {"adopt", "approve", "archive"}:
-        final_memorial = _loads(review.memorial_json, None) if review is not None else None
+        from src.db.models import FinalMemorial
+
+        if not human_confirmed:
+            raise ValueError("正式奏折必须经过皇上人工确认后才能裁决归档")
+        formal = db.query(FinalMemorial).filter_by(task_id=task.id).first()
+        if formal is None or formal.status != "ready_for_decision":
+            raise ValueError("正式奏折尚未通过质量与来源门，禁止裁决归档")
+        final_memorial = _loads(formal.memorial_json, None)
         archive_record = _archive_task(
             db,
             task=task,
             action=action,
             reason=reason or "",
             final_memorial=final_memorial,
+            source_label=formal.source_label,
             now=now,
         )
+        formal.status = "archived"
         if review is not None:
             review.review_status = "archived"
             review.updated_at = now
@@ -527,6 +569,54 @@ def _apply_task_decision(
     return archive_record
 
 
+def _record_task_decision_event(
+    db,
+    *,
+    task: "DecisionTask",
+    decision: "EmperorDecision",
+    archive_record: dict[str, Any] | None,
+) -> None:
+    """Append the human judgment to the same official task event stream."""
+    from src.chancellor.decree_status import record_timeline_event
+    from src.db.models import FinalMemorial
+
+    event_types = {
+        "adopt": "decision.adopted",
+        "approve": "decision.adopted",
+        "archive": "decision.adopted",
+        "request_evidence": "decision.evidence_requested",
+        "followup": "decision.evidence_requested",
+        "recheck": "decision.recheck_requested",
+        "reject": "decision.rejected",
+    }
+    formal = db.query(FinalMemorial).filter_by(task_id=task.id).first()
+    actual_source = formal.source_label if formal is not None else task.source_label
+    event_source = (
+        "LIVE" if actual_source in {"LIVE_ENGINE", "LIVE_SWARM"} else actual_source
+    )
+    record_timeline_event(
+        db,
+        task_id=task.id,
+        stage="completed" if task.status == "archived" else task.status,
+        actor="emperor",
+        message=f"皇上已人工裁决：{decision.action}。",
+        event_type=event_types.get(decision.action, "decision.recorded"),
+        trace_id=decision.id,
+        source_label=event_source,
+        payload={
+            "decision_id": decision.id,
+            "action": decision.action,
+            "human_confirmed": decision.human_confirmed,
+            "formal_memorial_id": formal.id if formal is not None else None,
+            "formal_source_label": actual_source,
+            "archive_id": (
+                archive_record.get("archive_id") if archive_record is not None else None
+            ),
+        },
+        idempotency_key=f"decision:{decision.id}",
+    )
+
+
 def _review_payload(review: CourtReview | None) -> dict[str, Any] | None:
     if review is None:
         return None
@@ -539,6 +629,24 @@ def _review_payload(review: CourtReview | None) -> dict[str, Any] | None:
         "memorial": _loads(review.memorial_json, None),
         "created_at": review.created_at,
         "updated_at": review.updated_at,
+    }
+
+
+def _formal_memorial_payload(formal) -> dict[str, Any] | None:
+    if formal is None:
+        return None
+    return {
+        "id": formal.id,
+        "task_id": formal.task_id,
+        "review_id": formal.review_id,
+        "swarm_run_id": formal.swarm_run_id,
+        "quality_result_id": formal.quality_result_id,
+        "status": formal.status,
+        "source_label": "LIVE" if formal.source_label == "LIVE_ENGINE" else formal.source_label,
+        "runtime_source_label": formal.source_label,
+        "memorial": _loads(formal.memorial_json, {}),
+        "content_hash": formal.content_hash,
+        "created_at": formal.created_at,
     }
 
 
@@ -714,8 +822,14 @@ def shangshufang_home(user: CurrentUser = Depends(get_current_user)) -> dict:
         )
         task_ids = [row.id for row in (*pending, *reviewing)]
         latest_reviews = _latest_reviews_by_task(db, task_ids)
+        final_memorials = _final_memorials_by_task(db, task_ids)
         payload["pending_decisions"] = [
-            _task_to_payload(row, latest_reviews.get(row.id)) for row in pending
+            _task_to_payload(
+                row,
+                latest_reviews.get(row.id),
+                final_memorials.get(row.id),
+            )
+            for row in pending
         ]
         payload["pending_evidence_tasks"] = [
             _task_to_payload(row, latest_reviews.get(row.id)) for row in reviewing
@@ -974,9 +1088,37 @@ def shangshufang_confirm_edict(
             record_timeline_event(
                 db,
                 task_id=task.id,
+                stage="chancellor_routing",
+                actor="chancellor",
+                message=route_decision.reason_summary or "丞相完成简单任务路由。",
+                event_type="routing.decided",
+                trace_id=review_id,
+                source_label=route_decision.source_label,
+                payload={
+                    "decision_id": route_decision.decision_id,
+                    "mode": route_decision.mode,
+                    "participants": [
+                        participant.department
+                        for participant in route_decision.participants
+                    ],
+                },
+                idempotency_key=f"routing.decided:{route_decision.decision_id}",
+            )
+            record_timeline_event(
+                db,
+                task_id=task.id,
                 stage="completed",
                 actor="chancellor",
                 message=f"丞相判定为简单任务单，已交由{route.get('targetDepartment', '承办方')}直接承办。",
+                event_type="memorial.direct_completed",
+                trace_id=review_id,
+                source_label=route_decision.source_label,
+                payload={
+                    "decision_id": route_decision.decision_id,
+                    "review_id": review_id,
+                    "target_department": route.get("targetDepartment"),
+                },
+                idempotency_key=f"memorial.direct_completed:{review_id}",
             )
             db.add(
                 CourtReview(
@@ -1109,9 +1251,20 @@ def shangshufang_confirm_edict(
         record_timeline_event(
             db,
             task_id=task.id,
-            stage="executing",
+            stage="chancellor_routing",
             actor="chancellor",
-            message=route_decision.reason_summary or "圣旨已登记，军机处已派单。",
+            message=route_decision.reason_summary or "丞相完成军机处参审路由。",
+            event_type="routing.decided",
+            trace_id=review_id,
+            source_label=route_decision.source_label,
+            payload={
+                "decision_id": route_decision.decision_id,
+                "mode": route_decision.mode,
+                "participants": [
+                    participant.department for participant in route_decision.participants
+                ],
+            },
+            idempotency_key=f"routing.decided:{route_decision.decision_id}",
         )
         # 阶段2(方案6.7节)：下旨记录+路由快照+outbox事件同一事务提交，
         # 事务成功后再触发后台派单——不能反过来先派单再提交，否则会出现
@@ -1121,6 +1274,22 @@ def shangshufang_confirm_edict(
             task_id=task.id,
             decision_id=route_decision.decision_id,
             event_type="route.council",
+        )
+        record_timeline_event(
+            db,
+            task_id=task.id,
+            stage="executing",
+            actor="chancellor",
+            message="圣旨与路由快照已登记，军机处派单进入可靠 outbox。",
+            event_type="dispatch.queued",
+            trace_id=review_id,
+            source_label=route_decision.source_label,
+            payload={
+                "decision_id": route_decision.decision_id,
+                "review_id": review_id,
+                "outbox_event_id": outbox_event_id,
+            },
+            idempotency_key=f"dispatch.queued:{outbox_event_id}",
         )
         db.commit()
         dispatch_after_commit(outbox_event_id)
@@ -1171,12 +1340,18 @@ def shangshufang_task_status(
             .order_by(CourtReview.created_at.desc())
             .first()
         )
+        from src.db.models import FinalMemorial
+        from src.formal_memorial import ensure_final_memorial_table
+
+        ensure_final_memorial_table(db)
+        formal_memorial = db.query(FinalMemorial).filter_by(task_id=task_id).first()
         execution_status = build_decree_execution_status(db, task_id)
         return ok(
             {
                 "sourceLabel": "LIVE",
                 "task": _task_to_payload(task, review),
                 "review": _review_payload(review),
+                "formal_memorial": _formal_memorial_payload(formal_memorial),
                 # 方案10.3节 DecreeExecutionStatusV1；None 表示尚未下旨确认，
                 # 还没有 ChancellorRouteDecision，不伪造占位路由快照。
                 "execution_status": (
@@ -1228,7 +1403,14 @@ def shangshufang_task_decision(
             review=review,
             action=body.action,
             reason=body.reason,
+            human_confirmed=body.human_confirmed,
             now=now,
+        )
+        _record_task_decision_event(
+            db,
+            task=task,
+            decision=decision,
+            archive_record=archive_record,
         )
         db.add(
             CourtLoopRun(
@@ -1697,10 +1879,9 @@ def shangshufang_finance_intel_loop_complete(
         generated_urls = [str(url) for url in loop.get("sourceUrls") or []]
         evidence_complete = (
             bool(generated_urls)
-            and not (loop.get("qualityGate") or {})
+            and (loop.get("qualityGate") or {})
             .get("checks", {})
-            .get("missing_evidence_clear")
-            is False
+            .get("missing_evidence_clear") is not False
         )
         edict = draft_edict(
             question,
@@ -1899,7 +2080,14 @@ def shangshufang_brief_decision_advance(
             review=review,
             action=action,
             reason=body.reason,
+            human_confirmed=bool(body.manualConfirmation),
             now=now,
+        )
+        _record_task_decision_event(
+            db,
+            task=task,
+            decision=decision,
+            archive_record=archive_record,
         )
         db.commit()
         return ok(

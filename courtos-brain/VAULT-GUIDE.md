@@ -1,4 +1,12 @@
-# CourtOS-Brain agent guidance
+# CourtOS-Brain vault guide
+
+> Archived reference only. This is not a live agent entrypoint — see `.harness/rules/project-boundaries.md`
+> at the repo root. The `$grow-courtos-knowledge` procedure referenced below is no longer a registered
+> skill or command; its write-up now lives at
+> `vault-workflows/grow-courtos-knowledge-notes/workflow-reference.md` (renamed from `.agents/skills/grow-courtos-knowledge/SKILL.md`,
+> with the `skills/`, `agents/`, and `SKILL.md` path segments removed so nothing here matches any
+> known agent/skill auto-discovery convention). Treat every mention of it below as documentation of a
+> past manual workflow, not an instruction to invoke anything.
 
 ## Mission
 
@@ -17,7 +25,7 @@ Turn evidence into decisions and reusable methods. Do not optimize for note coun
 - Evidence summaries: `_wiki/sources/`.
 - Reusable knowledge: `_wiki/concepts/` and `_wiki/entities/`.
 - Deliverables: `03-Outputs/`.
-- Reusable workflows: `.agents/skills/`.
+- Reusable workflows: `vault-workflows/grow-courtos-knowledge-notes/`.
 
 ## Non-negotiable rules
 

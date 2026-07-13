@@ -472,6 +472,19 @@ export interface ShangshufangTaskStatusResponse {
     created_at: string;
     updated_at: string;
   } | null;
+  formal_memorial: {
+    id: string;
+    task_id: string;
+    review_id: string;
+    swarm_run_id: string;
+    quality_result_id: string;
+    status: 'ready_for_decision' | 'archived' | string;
+    source_label: ShangshufangSourceLabel;
+    runtime_source_label?: string;
+    memorial: ShangshufangReviewMemorial;
+    content_hash: string;
+    created_at: string;
+  } | null;
   /** 方案 super-chancellor-routing 阶段2b：DecreeExecutionStatusV1，null 表示尚未
    * 下旨确认(还没有路由快照)。见 src/lib/contracts/chancellor-routing.ts。 */
   execution_status: DecreeExecutionStatusV1 | null;
@@ -496,6 +509,7 @@ export interface ShangshufangDecisionTaskSummary {
     summary: string | null;
     source_label: ShangshufangSourceLabel | null;
     ministry_outputs: Array<{ department: string; opinion: string; source_label: ShangshufangSourceLabel }>;
+    formal_memorial_id?: string | null;
   } | null;
 }
 

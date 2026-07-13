@@ -223,6 +223,63 @@ if (manifest) {
   }
 }
 
+const courtosBrainRoot = join(root, 'courtos-brain');
+if (existsSync(courtosBrainRoot)) {
+  // courtos-brain/ is an archived personal knowledge vault, not a 4th harness line
+  // (see .harness/rules/project-boundaries.md). It must present zero executable
+  // agent/skill entrypoints. AGENTS.md/CLAUDE.md discovery is filename-triggered by
+  // convention — compliant tooling reads any file with that exact name as directory
+  // instructions regardless of what's inside, so no frontmatter shape can make one
+  // "safe". The check is therefore an unconditional exact-case filename/dirname ban,
+  // no content inspection: real reserved names are always exact-case (AGENTS.md,
+  // CLAUDE.md, SKILL.md), so this does not flag the vault's own lowercase content
+  // notes (agents.md, claude.md) that happen to share a basename by coincidence.
+  const forbiddenDirNames = new Set(['.agents', 'agents', 'skills', 'commands', '.claude']);
+  const governanceFilenames = new Set(['AGENTS.md', 'CLAUDE.md', 'SKILL.md']);
+
+  async function scanCourtosBrainBoundary(dir) {
+    const items = await readdir(dir, { withFileTypes: true });
+    for (const item of items) {
+      const itemPath = join(dir, item.name);
+      const rel = itemPath.replace(root, '').replace(/^[/\\]/, '');
+      // Dirent reflects the link itself (DT_LNK), not its target: isDirectory()
+      // is false even for a symlink pointing at a directory, so a symlink named
+      // "agents"/"skills"/etc. would silently skip both the forbidden-dirname
+      // check below and recursion into it — the exact bypass this branch closes.
+      // A content-only archive has no legitimate need for symlinks, so instead of
+      // resolving targets (which reopens cycle/escape-outside-root risk), any
+      // symlink under courtos-brain/ is unconditionally a violation.
+      if (item.isSymbolicLink()) {
+        error(`courtos-brain boundary: symlink found (forbidden — could point at a live agent/skill tree): ${rel}`);
+        continue;
+      }
+      if (item.isDirectory()) {
+        // No .git exemption: courtos-brain/ is a plain subtree merge, not a nested
+        // git repo, so a .git directory has no legitimate reason to exist here at
+        // all. Exempting it by name would recreate the same class of blind spot
+        // just closed for _wiki/ and symlinks — anything dropped inside an
+        // unscanned .git/ (hooks, a smuggled nested repo, a symlink) would sit
+        // outside the scan. If .git ever does appear, it gets scanned like any
+        // other directory instead of being silently skipped.
+        if (forbiddenDirNames.has(item.name)) {
+          error(`courtos-brain boundary: forbidden agent-discovery directory: ${rel}`);
+          continue;
+        }
+        await scanCourtosBrainBoundary(itemPath);
+        continue;
+      }
+      if (governanceFilenames.has(item.name)) {
+        error(
+          `courtos-brain boundary: reserved governance filename found: ${rel} — agent tooling reads AGENTS.md/CLAUDE.md/SKILL.md by exact filename regardless of content, so no frontmatter can make this inert; rename it`,
+        );
+      }
+    }
+  }
+
+  await scanCourtosBrainBoundary(courtosBrainRoot);
+  ok('courtos-brain boundary scan complete');
+}
+
 const rootChangeRoot = join(H, 'changes');
 if (existsSync(rootChangeRoot)) {
   const entries = await readdir(rootChangeRoot, { withFileTypes: true });

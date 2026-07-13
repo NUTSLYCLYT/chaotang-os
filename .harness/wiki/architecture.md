@@ -35,9 +35,29 @@ chaotang-os/
 
 根 `.harness` 不是运行时。它是协调与验证层，用来防止前端、后端、文档和评测 harness 相互漂移。
 
+## 唯一业务运行主线
+
+```text
+Shangshufang confirm
+  -> ChancellorRouteDecision
+  -> OutboxEvent
+  -> outbox worker
+  -> swarm/department candidate reports
+  -> CourtReview candidate memorial
+  -> quality + provenance gate
+  -> FinalMemorial
+  -> EmperorDecision
+  -> ShiguanArchive
+```
+
+`DecreeExecutionEvent` 是这条主线的结构化事件账本，记录路由、入队、领取、回奏、质量裁决、正式奏折和人工裁决。前端状态与按钮必须从后端读模型派生，不能自行补造 LIVE 状态。
+
+工程多 Agent control-plane 只管理 Git 工作区里的任务、租约、资源锁和发布证据；它不管理朝堂业务中的 `DecisionTask`、部门派单或蜂群运行。两者同名的 task/lease 属于不同边界，没有隐式转换关系。
+
 ## 当前事实源
 
 - 根级项目事实源：`.harness/manifest/project-harness.json`。
 - 前端工程 harness 事实源：`frontend/.harness/` 与 `frontend/scripts/harness-doctor.mjs`。
 - 后端运行/评测 harness 事实源：`backend/harness/manifest.json` 与 `backend/scripts/harness_doctor.py`。
 - 所有当前工作入口以 `chaotang-os/` 下的根级、前端、后端三层结构为准。
+- `courtos-brain/` 是迁移进来的个人知识归档（详见 `.harness/rules/project-boundaries.md`），不构成第四层入口，不出现在事实源列表或 doctor 校验里。

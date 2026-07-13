@@ -1,0 +1,87 @@
+{
+  "schema_version": "shangshufang.contract-baseline.v1",
+  "captured_from_commit": "aa600fe",
+  "authority": "backend FastAPI OpenAPI plus deterministic API behavior tests",
+  "endpoints": [
+    {
+      "path": "/api/shangshufang/draft-edict",
+      "method": "post",
+      "request_schema": "DraftEdictRequest",
+      "required": ["raw_question"],
+      "properties": ["archive_matches", "attachments", "evidence_summary", "raw_question"],
+      "typed_response": false
+    },
+    {
+      "path": "/api/shangshufang/confirm-edict",
+      "method": "post",
+      "request_schema": "ConfirmEdictRequest",
+      "required": ["task_id"],
+      "properties": ["confirmed", "confirmed_edict_text", "edited_edict", "idempotency_key", "task_id"],
+      "typed_response": false
+    },
+    {
+      "path": "/api/shangshufang/tasks/{task_id}/status",
+      "method": "get",
+      "request_schema": null,
+      "required": [],
+      "properties": [],
+      "typed_response": false
+    },
+    {
+      "path": "/api/shangshufang/tasks/{task_id}/decision",
+      "method": "post",
+      "request_schema": "DecisionRequest",
+      "required": ["action"],
+      "properties": ["action", "followup_question", "human_confirmation_note", "human_confirmed", "reason"],
+      "action_enum": ["adopt", "approve", "archive", "followup", "recheck", "reject", "request_evidence"],
+      "typed_response": false
+    }
+  ],
+  "source_contract": {
+    "legacy_runtime_wire_source_labels": ["DEMO", "FALLBACK", "LIVE", "LIVE_ENGINE", "LIVE_SWARM", "MIXED"],
+    "formal_frontend_source_labels": ["DEMO", "FALLBACK", "LIVE", "LIVE_SWARM", "MIXED"],
+    "chancellor_contract_source_labels": ["DEMO", "FALLBACK", "LIVE", "MIXED"],
+    "engine_tier": {
+      "status": "missing_from_formal_api",
+      "candidate_values": ["llm_roleplay", "real", "rule_template"],
+      "blocking_step": "Launch S4/S8"
+    },
+    "known_gaps": [
+      "status top-level sourceLabel is hard-coded to LIVE even when the task is FALLBACK",
+      "decision top-level sourceLabel is hard-coded to LIVE",
+      "formal frontend and chancellor contracts omit source labels used by the swarm runtime/design standard",
+      "legacy LIVE_ENGINE couples engine identity into sourceLabel and must split during the S4 contract migration",
+      "the four formal success responses have no Pydantic response_model",
+      "unknown task and runtime failures use a success-shaped HTTP 200 envelope"
+    ],
+    "wire_aliases": {
+      "cluster": "legacy draft route alias; target RouteDecisionV2 mode is council",
+      "LIVE_ENGINE": "legacy source alias; target uses engineTier=real plus evidence-derived sourceLabel"
+    }
+  },
+  "golden_cases": [
+    {
+      "case_id": "direct_fallback",
+      "request": {"raw_question": "请礼部整理一份客户拜访纪要。"},
+      "expected": {"http_status": 200, "success": true, "route_mode": "direct", "source_label": "FALLBACK"}
+    },
+    {
+      "case_id": "council_fallback",
+      "request": {"raw_question": "这个合同能不能直接签？"},
+      "expected": {"http_status": 200, "success": true, "route_mode": "cluster", "source_label": "FALLBACK"}
+    },
+    {
+      "case_id": "attachment_mixed",
+      "request": {
+        "raw_question": "判断这个合同能不能签。",
+        "attachments": [{"name": "合同草案.pdf", "size": 120000, "type": "application/pdf"}]
+      },
+      "expected": {"http_status": 200, "success": true, "route_mode": "cluster", "source_label": "MIXED"}
+    },
+    {
+      "case_id": "empty_question_validation_error",
+      "request": {"raw_question": ""},
+      "expected": {"http_status": 422}
+    }
+  ]
+}

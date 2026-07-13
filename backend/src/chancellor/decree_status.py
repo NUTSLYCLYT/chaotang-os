@@ -13,7 +13,7 @@ DecisionTask.status 本身重新定义到方案状态机词表上。
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from src.chancellor.contracts import (
     DecreeExecutionStatusV1,
@@ -27,8 +27,18 @@ if TYPE_CHECKING:
 
 
 def record_timeline_event(
-    db: "Session", *, task_id: str, stage: str, actor: str, message: str
-) -> None:
+    db: "Session",
+    *,
+    task_id: str,
+    stage: str,
+    actor: str,
+    message: str,
+    event_type: str = "timeline.note",
+    trace_id: str | None = None,
+    source_label: str = "FALLBACK",
+    payload: dict[str, Any] | None = None,
+    idempotency_key: str | None = None,
+) -> str:
     """写一行 DecreeExecutionEvent。调用方负责 commit——本函数只 add，
     保持跟其余下旨记录同一事务，不单独提交产生不一致窗口。
 
@@ -40,19 +50,45 @@ def record_timeline_event(
     先死在这一行)，且没有自动重试——上书房从此卡在"蜂群执行中"占位态，
     实际上后端已经放弃处理。这里把 actor/message 和随机量都并入哈希，
     消除同秒同 stage 的确定性碰撞。"""
+    import json
     import secrets
     from datetime import datetime, timezone
     from hashlib import sha1
 
     import sqlalchemy as sa
 
-    from src.db.flow_store import ensure_decree_execution_event_sequence_column
+    from src.db.flow_store import ensure_decree_execution_event_ledger_columns
     from src.db.models import DecreeExecutionEvent
 
-    # 2026-07-12(Codex 停止前审查发现)：Alembic 005 只在生产迁移路径跑，老 DB 文件
-    # (create_all 补救、未跑迁移)的 decree_execution_events 表没有 sequence 列——
-    # 不现场补列就会直接 OperationalError，同 ensure_task_result_json_column 的既有惯例。
-    ensure_decree_execution_event_sequence_column(db)
+    ensure_decree_execution_event_ledger_columns(db)
+    if source_label not in {"LIVE", "MIXED", "FALLBACK", "DEMO"}:
+        raise ValueError(f"unsupported event source_label: {source_label}")
+    payload_json = json.dumps(
+        payload or {}, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
+
+    if idempotency_key:
+        existing = (
+            db.query(DecreeExecutionEvent)
+            .filter_by(task_id=task_id, idempotency_key=idempotency_key)
+            .first()
+        )
+        if existing is not None:
+            immutable = {
+                "stage": stage,
+                "actor": actor,
+                "message": message,
+                "event_type": event_type,
+                "trace_id": trace_id,
+                "source_label": source_label,
+                "payload_json": payload_json,
+            }
+            bound = {key: getattr(existing, key) for key in immutable}
+            if bound != immutable:
+                raise ValueError(
+                    "idempotency key already binds a different decree event payload"
+                )
+            return existing.id
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     nonce = secrets.token_hex(4)
@@ -75,10 +111,16 @@ def record_timeline_event(
             stage=stage,
             actor=actor,
             message=message,
+            event_type=event_type,
+            trace_id=trace_id,
+            source_label=source_label,
+            payload_json=payload_json,
+            idempotency_key=idempotency_key,
             occurred_at=now,
             sequence=next_sequence,
         )
     )
+    return event_id
 
 
 def decide_post_review_status(quality_result: dict) -> str:
@@ -205,7 +247,9 @@ def _department_status_for(stage: str, index: int) -> str:
 
 
 def _load_timeline(db: "Session", task_id: str) -> list[TimelineEvent]:
-    from src.db.flow_store import ensure_decree_execution_event_sequence_column
+    import json
+
+    from src.db.flow_store import ensure_decree_execution_event_ledger_columns
     from src.db.models import DecreeExecutionEvent
 
     # 同 record_timeline_event：老 DB 文件缺 sequence 列时现场补列，不让状态接口崩。
@@ -216,7 +260,7 @@ def _load_timeline(db: "Session", task_id: str) -> list[TimelineEvent]:
     # 排序问题的回填数据每次都在关闭 session 时被回滚，状态接口永远在"检测到坏数据
     # →重新回填→白做"的死循环里，从未真正落盘)。这里必须自己提交这次自愈——
     # 不能指望一个只读端点的调用方会为了这次自愈去 commit 整个只读事务。
-    ensure_decree_execution_event_sequence_column(db)
+    ensure_decree_execution_event_ledger_columns(db)
     db.commit()
 
     rows = (
@@ -233,6 +277,10 @@ def _load_timeline(db: "Session", task_id: str) -> list[TimelineEvent]:
             message=row.message,
             occurred_at=row.occurred_at,
             sequence=row.sequence,
+            event_type=row.event_type,
+            trace_id=row.trace_id,
+            source_label=row.source_label,
+            payload=json.loads(row.payload_json or "{}"),
         )
         for row in rows
     ]

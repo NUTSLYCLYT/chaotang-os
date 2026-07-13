@@ -297,6 +297,38 @@ class CourtReview(Base):
     )
 
 
+class FinalMemorial(Base):
+    """一道正式旨意唯一可供人工裁决的奏折快照。
+
+    CourtReview.memorial_json remains the mutable candidate assembled from swarm
+    reports.  A row enters this table only after both the deterministic quality gate
+    and the source-provenance gate pass.  task_id uniqueness prevents parallel swarm
+    paths from each publishing their own "official" answer.
+    """
+
+    __tablename__ = "final_memorials"
+
+    id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    review_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    swarm_run_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    quality_result_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    status: Mapped[str] = mapped_column(
+        sa.Text, nullable=False, default="ready_for_decision"
+    )
+    source_label: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    memorial_json: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
+
+    __table_args__ = (
+        sa.UniqueConstraint("task_id", name="uq_final_memorials_task_id"),
+        sa.Index("ix_final_memorials_review", "review_id"),
+        sa.Index("ix_final_memorials_swarm_run", "swarm_run_id"),
+        sa.Index("ix_final_memorials_status_created", "status", "created_at"),
+    )
+
+
 class EmperorDecision(Base):
     """皇上裁决记录。"""
 
@@ -594,6 +626,15 @@ class DecreeExecutionEvent(Base):
     stage: Mapped[str] = mapped_column(sa.Text, nullable=False)
     actor: Mapped[str] = mapped_column(sa.Text, nullable=False)
     message: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    event_type: Mapped[str] = mapped_column(
+        sa.Text, nullable=False, default="timeline.note"
+    )
+    trace_id: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    source_label: Mapped[str] = mapped_column(
+        sa.Text, nullable=False, default="FALLBACK"
+    )
+    payload_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="{}")
+    idempotency_key: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     occurred_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
     # task_id 内单调递增的排序序号(2026-07-12 补，见方案阶段4)：occurred_at 只精确到秒，
     # 同一秒内触发的多个事件排序会退化成不确定的插入顺序/主键顺序，sequence 是唯一
@@ -602,6 +643,12 @@ class DecreeExecutionEvent(Base):
 
     __table_args__ = (
         sa.Index("ix_decree_execution_events_task_sequence", "task_id", "sequence"),
+        sa.Index(
+            "uq_decree_execution_events_task_idempotency",
+            "task_id",
+            "idempotency_key",
+            unique=True,
+        ),
     )
 
 

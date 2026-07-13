@@ -209,6 +209,67 @@ def ensure_decree_execution_event_sequence_column(session: Session) -> None:
     _repair_decree_execution_event_sequence_if_degenerate(session)
 
 
+def ensure_decree_execution_event_ledger_columns(session: Session) -> None:
+    """Upgrade legacy timeline tables to the structured event-ledger envelope.
+
+    create_all(checkfirst=True) does not add columns to an existing table, so local/dev
+    databases that have not run Alembic 009 must be repaired before ORM reads or writes.
+    The defaults deliberately preserve old timeline rows as FALLBACK timeline notes.
+    """
+    ensure_decree_execution_event_sequence_column(session)
+    bind = session.get_bind()
+    dialect = bind.dialect.name if bind is not None else ""
+    columns = {
+        "event_type": "TEXT NOT NULL DEFAULT 'timeline.note'",
+        "trace_id": "TEXT",
+        "source_label": "TEXT NOT NULL DEFAULT 'FALLBACK'",
+        "payload_json": "TEXT NOT NULL DEFAULT '{}'",
+        "idempotency_key": "TEXT",
+    }
+    try:
+        if dialect == "sqlite":
+            existing = {
+                row[1]
+                for row in session.execute(
+                    text("PRAGMA table_info(decree_execution_events)")
+                ).all()
+            }
+            for name, definition in columns.items():
+                if name not in existing:
+                    session.execute(
+                        text(
+                            f"ALTER TABLE decree_execution_events ADD COLUMN {name} {definition}"
+                        )
+                    )
+            session.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS "
+                    "uq_decree_execution_events_task_idempotency "
+                    "ON decree_execution_events(task_id, idempotency_key)"
+                )
+            )
+            return
+
+        for name, definition in columns.items():
+            session.execute(
+                text(
+                    "ALTER TABLE decree_execution_events "
+                    f"ADD COLUMN IF NOT EXISTS {name} {definition}"
+                )
+            )
+        session.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS "
+                "uq_decree_execution_events_task_idempotency "
+                "ON decree_execution_events(task_id, idempotency_key)"
+            )
+        )
+    except Exception as exc:  # noqa: BLE001 - tolerate concurrent DDL only.
+        message = str(exc).lower()
+        if "duplicate column" not in message and "already exists" not in message:
+            raise
+
+
 def _repair_decree_execution_event_sequence_if_degenerate(session: Session) -> None:
     """检测表里是否存在 sequence=0 的退化行(只可能来自"从未被回填过"的旧状态，
     不可能是合法写入产生的值)，有就重新触发全量回填。"""
