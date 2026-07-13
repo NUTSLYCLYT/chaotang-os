@@ -54,4 +54,25 @@
 - 状态 / 数据变化：无
 - 验证命令与证据：`node scripts/harness-doctor.mjs` → `0 errors, 0 warning(s)`；人工核对三个文件不再出现任何具体commit hash的revert指令
 - 回滚边界：`git checkout` 这三个文件（这一条本身也是状态描述，不是"revert哪个commit"）
-- 完成定义：三处回滚描述改为状态描述后，不会再因为承载这次修订的提交本身编辑了同一批文件而失效——这是本变更记录里回滚描述最后一次需要因为"文件同步问题"被订正
+- 完成定义：三处回滚描述改为状态描述后，不会再因为承载这次修订的提交本身编辑了同一批文件而失效——这是本变更记录里回滚描述最后一次需要因为"文件同步问题"被订正（**未通过**，见任务5——旧的commit-hash验证证据本身也过期了，且"changed files"仍只描述首次提交）
+
+## 任务 5（补充：Codex stop-time review 第四次拦截）
+
+- 目标：修正"新增的回滚记录仍含无效命令和不实验证声明"
+- 前置条件：两处遗留问题——① `ci_summary.md`命令表里"倒序revert f09dae3再8dee499...无冲突"这条验证记录，是在`ecedac9`/`0b74711`落地**之前**测的，此后再没重新验证过，但文档语气读起来像"现在跑仍然成立"；② "Diff与回滚复核"的changed files仍只统计`8dee499`一次提交（5 files/首次内容），没有反映后续`f09dae3`/`ecedac9`/`0b74711`三次追加编辑的累积改动
+- 输入：用当前HEAD重新实测同一条`git revert --no-commit f09dae3 && git revert --no-commit 8dee499`命令；`git diff --stat 8dee499^ -- AGENTS.md .harness/changes/docs-claude-code-specific-rules-20260714/`
+- 输出：
+  - 重新实测确认：同一条"倒序revert"命令这次产生`CONFLICT (content)`（3个文件），与此前记录的"无冲突"结果矛盾——证明连"已验证"这个结论本身，只要挂在具体commit hash上，也会随后续编辑过期，不是验证一次就能永久引用
+  - `ci_summary.md`命令表新增一行记录这次的重新实测结果，明确标注"与第一次实验矛盾"及背后原因
+  - "changed files"改为用`git diff --stat 8dee499^ -- ...`统计的累积结果（5 files, 187 insertions(+)，覆盖全部4次提交），不再只讲首次提交
+  - "回滚是否演练"/DoD/声明状态三处同步说明"曾经验证通过的commit-hash式方法，其验证结果本身也可能过期"这一教训
+- 涉及文件：`ci_result/ci_summary.md`
+- 状态 / 数据变化：无（重新实测的revert同样已完整`--abort`，`git status`/`grep`确认恢复到实验前状态）
+- 验证命令与证据：
+  - `git revert --no-commit f09dae3 && git revert --no-commit 8dee499`（当前HEAD） → exit 1，3处`CONFLICT (content)`，`git revert --abort`
+  - `git status --short -- .harness/changes/docs-claude-code-specific-rules-20260714/ AGENTS.md`（abort后） → 空输出
+  - `grep -c "Claude Code specific rules" AGENTS.md`（abort后） → 1
+  - `git diff --stat 8dee499^ -- AGENTS.md .harness/changes/docs-claude-code-specific-rules-20260714/` → `5 files changed, 187 insertions(+)`
+  - `node scripts/harness-doctor.mjs` → `0 errors, 0 warning(s)`
+- 回滚边界：`git checkout .harness/changes/docs-claude-code-specific-rules-20260714/ci_result/ci_summary.md`
+- 完成定义：文档里不再有"看起来像当前仍成立、实际已经过期"的验证声明；"changed files"反映累积改动而非首次提交；`harness-doctor.mjs` 0 errors

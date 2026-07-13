@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-claude-code-specific-rules-20260714 |
 | 类型 | docs |
-| 状态 | DONE |
+| 状态 | DONE（历经4轮回滚描述订正，最终改用不依赖commit hash的状态描述，见背景与ci_result） |
 | Owner | Project Agent |
 | 创建日期 | 20260714 |
 
@@ -13,7 +13,7 @@
 - 主线：根项目（`AGENTS.md`"不可绕过"条款之后新增一节，纯文档，不涉及任何一条内容主线的业务逻辑）
 - 文件：
   - `AGENTS.md`（新增"## Claude Code specific rules"一节，5条操作规则）
-- 验证：`node scripts/harness-doctor.mjs` 0 errors；人工核对新增内容与既有"不可绕过"条款无冲突
+- 验证：`node scripts/harness-doctor.mjs` 0 errors；人工核对新增内容与既有"不可绕过"条款无冲突；累积改动见 `git diff --stat 8dee499^ -- AGENTS.md .harness/changes/docs-claude-code-specific-rules-20260714/`（5 files changed, 187 insertions(+)，覆盖本变更记录全部4轮订正）
 
 ## 背景
 
