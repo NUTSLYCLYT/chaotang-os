@@ -95,7 +95,6 @@ if (manifest) {
   for (const rel of manifest.frontend?.entrypoints ?? []) checkExists(rel, `manifest frontend entrypoint: ${rel}`);
   for (const rel of manifest.backend?.entrypoints ?? []) checkExists(rel, `manifest backend entrypoint: ${rel}`);
   for (const rel of manifest.docs?.entrypoints ?? []) checkExists(rel, `manifest docs entrypoint: ${rel}`);
-  for (const rel of manifest.courtosBrain?.entrypoints ?? []) checkExists(rel, `manifest courtosBrain entrypoint: ${rel}`);
 
   if (manifest.controlPlane) {
     for (const key of ['blueprint', 'documentation', 'baseline']) {
@@ -115,19 +114,44 @@ if (manifest) {
     if (!existsSync(rolloutHistoryFile)) {
       error('missing .harness/rollout-history.jsonl (required to track rolloutStage/components changes)');
     } else {
-      const lines = (await readText(rolloutHistoryFile)).trim().split('\n').filter(Boolean);
+      const rawText = await readText(rolloutHistoryFile);
+      const lines = rawText.trim().split('\n').filter(Boolean);
       const last = lines.length > 0 ? JSON.parse(lines[lines.length - 1]) : null;
       if (!last) {
         error('.harness/rollout-history.jsonl is empty; append an entry for the current rolloutStage/components');
-      } else if (
-        last.rolloutStage !== manifest.controlPlane.rolloutStage ||
-        JSON.stringify(last.components) !== JSON.stringify(manifest.controlPlane.components)
-      ) {
-        error(
-          'manifest controlPlane.rolloutStage/components changed but .harness/rollout-history.jsonl has no matching last entry; append {date, actor, rolloutStage, components, reason, relatedIncident}',
-        );
       } else {
-        ok('rollout-history.jsonl matches current controlPlane state');
+        const requiredFields = ['date', 'actor', 'reason'];
+        const missingFields = requiredFields.filter((key) => typeof last[key] !== 'string' || last[key].trim() === '');
+        if (!('relatedIncident' in last)) missingFields.push('relatedIncident');
+        if (missingFields.length > 0) {
+          error(`.harness/rollout-history.jsonl last entry missing required audit field(s): ${missingFields.join(', ')}`);
+        } else if (
+          last.rolloutStage !== manifest.controlPlane.rolloutStage ||
+          JSON.stringify(last.components) !== JSON.stringify(manifest.controlPlane.components)
+        ) {
+          error(
+            'manifest controlPlane.rolloutStage/components changed but .harness/rollout-history.jsonl has no matching last entry; append {date, actor, rolloutStage, components, reason, relatedIncident}',
+          );
+        } else {
+          ok('rollout-history.jsonl matches current controlPlane state with required audit fields');
+        }
+      }
+
+      // 只比对最新一行没法防"改到B又偷偷改回A、中间那次B从没写进日志"——B和A各自
+      // 落盘那一刻都必须先过 doctor，所以历史必须只能追加、不能改写已提交的行；
+      // 这样A→B→A两次真实落盘都各自留痕，不会被"最终状态没变"掩盖。
+      const committed = spawnSync('git', ['show', 'HEAD:.harness/rollout-history.jsonl'], {
+        cwd: root,
+        encoding: 'utf8',
+      });
+      if (committed.status === 0) {
+        const committedLines = committed.stdout.trim().split('\n').filter(Boolean);
+        const isPrefix = committedLines.every((line, index) => lines[index] === line);
+        if (!isPrefix) {
+          error('.harness/rollout-history.jsonl rewrote or removed a previously committed entry; history must be append-only');
+        } else {
+          ok('rollout-history.jsonl is append-only relative to HEAD');
+        }
       }
     }
   }
