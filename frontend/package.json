@@ -8,6 +8,7 @@
     "dev:turbo": "node scripts/next-with-base-path.mjs dev -p 3002",
     "build": "node scripts/next-with-base-path.mjs build --webpack",
     "harness:doctor": "node scripts/harness-doctor.mjs",
+    "knip": "knip",
     "harness:new-change": "node scripts/new-change.mjs",
     "test:node": "npx --yes tsx --test \"src/**/*.nodetest.ts\" \"src/**/*.itest.ts\"",
     "start": "node scripts/reject-legacy-production-entry.mjs start",
@@ -107,6 +108,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "knip": "5.88.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.0",
     "typescript": "^5"

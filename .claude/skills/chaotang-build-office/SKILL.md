@@ -8,16 +8,17 @@ description: 朝堂"建部/建司"套件——用统一模具快速搭一个顶�
 一个"部"= 一排"司"(柜台),每个司 = **决策前替老板算一件事**的顾问。不重写 UI,声明即成。
 前端主仓 `frontend/`。范式实证:户部/工部/吏部(吏部 8 司最全)。
 
-## 建一个司 = 4 步(照抄吏部)
+## 建一个司 = 5 步(照抄吏部)
 
 1. **写引擎**(`src/features/<部>/lib/<司>-review.ts`,纯函数 ~30 行):
    - 定 `Input`(字段)+ `Verdict`(4 标签)+ `VERDICT_CN`。
-   - 算指标(ROI/成本等)→ **点用户部能力** `finance-capability`(`annualLaborCost`/`computeRoi`),**禁自算钱**(铁律6)。
+   - 涉及**工资年成本/ROI**这两个具体指标 → **点用户部能力** `finance-capability`(`annualLaborCost`/`computeRoi`),禁自己重写这两个函数的逻辑(铁律6)。本部门自己专属的算账逻辑(如兵部定价毛利,见下文"每部找它独有的一条真回执")不受此限——那是本部该算的账,不用也不该套户部这两个函数。
    - 裁决用套件 `resolveDecisionLadder({missing,blockers,roi,extraValueFail})` → 映射成自己的 Verdict 标签。**禁重写 if 阶梯**。
    - 缺硬数字→`insufficient` / 缺质门→标"先定清楚" / ROI<1→"不值" / else→"准";缺则标缺,绝不替老板拍板。
 2. **写 tab**(`<司>-tab.tsx`,照 `libu-hiring-tab`):`INPUT_BASE`+`BoolChip`(质门)+ 审查按钮 + 空态。
 3. **写结果卡**:直接用 `office-kit/verdict-card` 的 `<VerdictCard verdictCn cfg title metrics nextStep opinions blockers collaborators sourceNote/>`。**禁抄卡片 JSX**。跨部借了谁→传 `collaborators`(从 `CAPABILITY_MENU` 取,如户部)。
 4. **登记 + 挂载**:司进 `<部>-roster.ts`(name/role/engine 真骨架诚实);tab 进工作台;`<DeptDigestBar>` 顶条自动显"N 智能体员工/能算什么/每年约省(估)"。
+5. **复核(必过,不可省)**:写引擎的 agent 不可自审。派 `gongbu-quality-gate`(独立 context,御史台)过一遍新司的 `sourceNote`/`metrics`/`opinions`,专挑"自己骗自己"的漏洞——仿 ai-job-search 的 drafter-reviewer:写的人和查的人必须是两个 context,查的人才敢真挑刺。
 
 ## 建一个新部 = 上面 ×N 司 + 注册一行
 
@@ -35,7 +36,7 @@ description: 朝堂"建部/建司"套件——用统一模具快速搭一个顶�
 
 ## 铁律(违反=返工)
 
-- **铁律6**:一个领域一个 owner。钱只户部算(点 finance-capability),合规只刑部,风险只钦天监——他部只"点用",不重造。跨部协作用 `collaborators` 协办徽显形。
+- **铁律6**:一个领域一个 owner。**户部通用算钱原语**(工资年成本、ROI,即 finance-capability 那两个函数)只户部维护,他部点用不重造;合规只刑部,风险只钦天监。但**部门自己专属的算账逻辑**(如兵部定价毛利、户部财政裁决本身)不算重造,那正是这个部该有的"独有一条真回执"——铁律6 管的是"抄户部的算钱函数",不是"不准算自己领域的账"。跨部协作用 `collaborators` 协办徽显形。
 - **铁律9**:工作台=咨询(纯函数·本地·标 LOCAL);真发钱/发文/真产线=转后端蜂群(经唯一桥 `dispatchDeptToSwarm`),前端不编。
 - **铁律5**:溶不进主 Loop 才给司;每司先答"第一条真实数据从哪来",答不出=空转,冻结别建。
 - **诚实**:roster 标真/骨架;来源标 LIVE/LOCAL/FALLBACK 不伪造;"每年约省"必标"估"+假设,不当承诺。
