@@ -223,53 +223,6 @@ if (manifest) {
   }
 }
 
-const courtosBrainRoot = join(root, 'courtos-brain');
-if (existsSync(courtosBrainRoot)) {
-  // courtos-brain/ is an archived personal knowledge vault, not a 4th harness line
-  // (see .harness/rules/project-boundaries.md). It must present zero executable
-  // agent/skill entrypoints. A path-based exemption (e.g. "skip everything under
-  // _wiki/") is a blind spot: the vault's own ingestion workflow writes new files
-  // into _wiki/ on every run, so anything could land there later. Instead this
-  // check is content-shape-based: a governance-filename match is only safe when
-  // its frontmatter matches the vault's own content-note shape (`type:` present,
-  // `description:` absent) — the same test regardless of where the file lives.
-  const forbiddenDirNames = new Set(['.agents', 'agents', 'skills', 'commands', '.claude']);
-  const governanceFilenames = new Set(['agents.md', 'claude.md', 'skill.md']);
-
-  async function scanCourtosBrainBoundary(dir) {
-    const items = await readdir(dir, { withFileTypes: true });
-    for (const item of items) {
-      const itemPath = join(dir, item.name);
-      const rel = itemPath.replace(root, '').replace(/^[/\\]/, '');
-      if (item.isDirectory()) {
-        if (item.name === '.git') continue;
-        if (forbiddenDirNames.has(item.name)) {
-          error(`courtos-brain boundary: forbidden agent-discovery directory: ${rel}`);
-          continue;
-        }
-        await scanCourtosBrainBoundary(itemPath);
-        continue;
-      }
-      if (!governanceFilenames.has(item.name.toLowerCase())) continue;
-      const body = await readText(itemPath);
-      const frontmatterMatch = body.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-      const frontmatter = frontmatterMatch ? frontmatterMatch[1] : '';
-      const hasDescriptionKey = /^description:/m.test(frontmatter);
-      const hasContentNoteShape = /^type:/m.test(frontmatter) && !hasDescriptionKey;
-      if (hasContentNoteShape) {
-        ok(`courtos-brain boundary: content note, not governance: ${rel}`);
-      } else {
-        error(
-          `courtos-brain boundary: ${rel} matches a governance filename without the recognized inert content-note shape (expects frontmatter with type: and no description:) — rename it or confirm it cannot be auto-discovered as an agent entrypoint`,
-        );
-      }
-    }
-  }
-
-  await scanCourtosBrainBoundary(courtosBrainRoot);
-  ok('courtos-brain boundary scan complete');
-}
-
 const rootChangeRoot = join(H, 'changes');
 if (existsSync(rootChangeRoot)) {
   const entries = await readdir(rootChangeRoot, { withFileTypes: true });
