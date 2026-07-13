@@ -98,4 +98,24 @@
   - `cd frontend && pnpm exec tsc --noEmit` → 0 错误
   - `node scripts/harness-doctor.mjs` → 本轮对方并行session的合并已完成，恢复可运行，`0 errors, 0 warning(s)`
 - 回滚边界：`git checkout .claude/agents/gongbu-quality-gate.md`
-- 完成定义：`gongbu-quality-gate.md` 对残留缺口的描述精确到机制层面（而非笼统归因"某插件"），列出可验证的精确pattern清单和前置检查步骤；`harness-doctor.mjs` 0 errors
+- 完成定义：`gongbu-quality-gate.md` 对残留缺口的描述精确到机制层面（而非笼统归因"某插件"），列出可验证的精确pattern清单和前置检查步骤；`harness-doctor.mjs` 0 errors（**未通过**，见任务6）
+
+## 任务 6（补充：Codex stop-time review 第六次拦截，根治）
+
+- 目标：修正"`cf18b73` 仍错误地把插件生成的测试入口归为'核心行为、无法关闭'"——用户拍板选择根治方案：改实际的test scripts把glob从package.json脚本文本里搬走，而不是继续在文档里描述这个"关不掉"的限制
+- 前置条件：任务5确认`src/**/*.itest.ts`、`src/core/courtos/**/*.nodetest.ts`等3条entry来自knip核心的`getInputsFromScripts`（无条件解析package.json所有script命令行文本提取文件glob，源码见`dist/binaries/bash-parser.js`，与`enabledPlugins`无关，`"node":false`/`"tsx":false`/`"typescript":false`/`"pnpm":false`/`ignore`字段实测均无效）。Codex仍判定该归因不成立，用户决定不再继续猜插件名，改为消除问题根源——glob字符串本身不再出现在package.json里，knip自然无从提取
+- 输入：`test:node`/`test:core`/`eval:court`/`test:courtos:mvp-api`四条脚本原文；Node 22内置`node:fs`的`globSync`（`node -e "console.log(typeof require('node:fs').globSync)"`确认可用）
+- 输出：
+  - 新建`frontend/scripts/run-nodetest.mjs`：按profile名（`node`/`core`/`evals`/`mvp-api`）在脚本内部硬编码对应glob+runner（tsx或`node --experimental-strip-types`），用`globSync`在运行时展开文件列表后`spawnSync`调用真正的测试runner，透传退出码
+  - `frontend/package.json`四条脚本改为`"node scripts/run-nodetest.mjs <profile>"`，脚本文本里不再包含任何glob/文件路径字符串
+  - `.claude/agents/gongbu-quality-gate.md`：把"已知残留缺口，无法通过配置关闭"改写为"已解决"，说明根治方式；保留一条与本仓脚本无关的、knip自带通用测试命名约定（`**/*.test.ts`等）的说明，因为那不是package.json script解析问题，是knip对任何项目都生效的独立行为
+- 涉及文件：`frontend/scripts/run-nodetest.mjs`（新增）、`frontend/package.json`、`.claude/agents/gongbu-quality-gate.md`
+- 状态 / 数据变化：无（纯脚本重构，不改变任何测试的实际执行内容）
+- 验证命令与证据：
+  - 功能等价性（关键）：`pnpm test:core`（397 pass/1 fail）、`pnpm eval:court`（34/0）、`pnpm test:courtos:mvp-api`（9/0）、`pnpm test:node`（997/7）——分别与改动前用原始字面量glob直接调用`node --experimental-strip-types --test`/`npx tsx --test`的结果逐一比对，通过/失败数完全一致，确认重构未改变任何测试的实际执行结果，失败均为改动前既有
+  - `pnpm exec knip --config knip.production-reachability.json --debug`：`entry:.*itest`、`entry:.*courtos.*nodetest`类目全部消失（改动前各有多条）
+  - `pnpm exec knip --files --config knip.production-reachability.json`：unused files从586（任务4/5基线）升到718-723（2次运行718/723，行数因文件系统遍历顺序有small variance但均远大于586，属正常），吏部5个孤儿引擎+`libu-roster.ts`仍正确在列，礼部3个真实接线文件仍正确不在列
+  - `cd frontend && pnpm exec tsc --noEmit` → 0 错误
+  - `node scripts/harness-doctor.mjs` → `0 errors, 0 warning(s)`
+- 回滚边界：删除`frontend/scripts/run-nodetest.mjs`，`git checkout frontend/package.json .claude/agents/gongbu-quality-gate.md`——回滚后四条脚本恢复原始字面量glob写法，行为不变
+- 完成定义：package.json脚本文本不再包含任何被knip核心script解析器提取的glob，`gongbu-quality-gate.md`不再有"某某无法关闭"的不精确归因；四个profile的真实测试执行结果与改动前逐一比对一致；`harness-doctor.mjs` 0 errors

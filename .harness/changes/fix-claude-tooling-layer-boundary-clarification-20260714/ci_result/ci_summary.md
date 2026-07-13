@@ -28,6 +28,14 @@
 | `find src/features -type f -name "*.itest.ts"` | 1（空结果） | 无输出 | 确认无`.itest.ts`文件 | 本会话实测 |
 | `cd frontend && pnpm exec tsc --noEmit`（第五轮改动后） | 0 | 无类型错误 | 确认文档措辞修订未影响任何代码 | 本会话实测 |
 | `node scripts/harness-doctor.mjs`（第五轮，对方合并已完成后复跑） | 0 | `0 errors, 0 warning(s)` | 确认外部阻塞已解除，根级护栏一致性恢复可验证 | 本会话实测 |
+| `pnpm test:core`（重构后 vs 原始字面量glob直接调用） | 0（两者一致） | 均为397 pass/1 fail，failing test相同 | 确认`run-nodetest.mjs`重构不改变`test:core`实际执行结果 | 本会话实测 |
+| `pnpm eval:court` / `pnpm test:courtos:mvp-api`（重构后） | 0 | 34 pass/0 fail；9 pass/0 fail | 确认另两个profile功能正常 | 本会话实测 |
+| `pnpm test:node`（重构后 vs 原始字面量glob直接调用） | 0（两者一致） | 均为997 pass/7 fail，failing数相同 | 确认最大的一个profile（1004个测试）重构后行为一致 | 本会话实测 |
+| `pnpm exec knip --config knip.production-reachability.json --debug`（重构后） | 0 | `entry:.*itest`、`entry:.*courtos.*nodetest` 类目完全消失 | 确认根治生效——glob不再出现在package.json文本里，knip无从提取 | 本会话实测 |
+| `pnpm exec knip --files --config knip.production-reachability.json`（重构后） | 1 | 718/723行（2次运行），较此前586行基线显著增加；吏部5引擎+`libu-roster.ts`仍在列，礼部3个真实接线文件仍不在列 | 确认修复后对已知真实样本判定依然准确，且抓到了更多此前被脚本glob掩盖的孤儿 | 本会话实测，2次复现（718/723，行数因文件系统遍历顺序略有浮动） |
+| `cd frontend && pnpm exec tsc --noEmit`（第六轮改动后） | 0 | 无类型错误 | 确认`run-nodetest.mjs`新增不破坏类型检查 | 本会话实测 |
+| `node scripts/harness-doctor.mjs`（第六轮改动完成时） | 0 | `0 errors, 0 warning(s)` | 第六轮最终验收 | 本会话实测 |
+| `node scripts/harness-doctor.mjs`（提交前最后复跑） | 1 | `[error] change fix-canonical-jiqun-smoke-start-help-20260714: DELIVERED but contains placeholders`——该目录是另一并行session刚创建的untracked变更记录（`git status --short`确认，非本变更任何文件），与本次改动无关，不阻塞本次提交 | 确认新报错来源与本变更无关 | 本会话实测 |
 
 ## 结果
 
@@ -57,8 +65,9 @@
 | 新增段落不与并行session内容冲突 | 命令表第4行，人工通读 | 已达成 |
 | 变更记录四文件填写完整 | 本文件即为其一，另三份（summary/spec/tasks）已同步填写 | 已达成 |
 | `AGENTS.md:38` 与 `project-boundaries.md` 不再字面矛盾 | 命令表第6行 | 已达成（第一版"未修改AGENTS.md原文"的判断已被第二轮推翻并订正）——但注意`AGENTS.md`第四轮期间被并行session的大合并卷入冲突，本变更内容与其无关，是否最终保留由对方合并结果决定 |
-| roster检查规则不再漏报"仅测试可达"（含多跳/组件间接绕过、插件自动注册的entry） | 命令表第8-13行（人造探针实验+吏部/礼部真实样本586行复测，2次复现一致） | 已达成（第二、三轮"已达成"的判断分别被后一轮推翻——先是单跳grep有多跳绕过口子，改knip全图分析后又发现knip插件自动entry不受config的entry数组控制，加`playwright:false`才真正堵上；已知残留缺口`src/core/courtos/`已如实记录，不算"已达成"范围内） |
+| roster检查规则不再漏报"仅测试可达"（含多跳/组件间接绕过、插件自动注册的entry、package.json脚本glob） | 命令表第8-13行+第六轮新增行（人造探针+吏部/礼部真实样本723行复测+四profile功能等价性验证） | 已达成——第2/3/4轮"已达成"的判断均被后一轮推翻过（单跳grep有多跳绕过口子→改knip全图分析→发现playwright插件entry不受config控制→加`playwright:false`→发现package.json脚本glob仍产生entry），第6轮把glob从package.json搬进`run-nodetest.mjs`后从根源解决，不再是"已知缺口"而是"已消除" |
+| `test:node`/`test:core`/`eval:court`/`test:courtos:mvp-api` 重构后功能等价 | 第六轮四条命令分别与改动前原始字面量写法比对，pass/fail数完全一致 | 已达成 |
 
 ## 声明状态
 
-- `VERIFIED_COMPLETE`：第四轮因外部合并冲突暂缺的`harness-doctor`验证，第五轮已在对方合并完成后补跑确认`0 errors, 0 warning(s)`，恢复完整验收链条。本次声明范围（`.claude/`工具层边界说明、`AGENTS.md`措辞对齐、roster检查规则改用knip全图分析+显式禁用playwright插件+精确记录核心script-parsing残留缺口及其零命中范围）已实测验证完整，无遗留空模板，无遗留"某插件"这类不精确归因。提交时只包含本变更自己贡献的文件，不触碰其他并行session的独立改动。
+- `VERIFIED_COMPLETE`：第四轮因外部合并冲突暂缺的`harness-doctor`验证，第五轮已在对方合并完成后补跑确认`0 errors, 0 warning(s)`，恢复完整验收链条。第六轮把此前记录为"残留缺口"的knip脚本glob问题从根源解决（`run-nodetest.mjs`），不再是文档记录的已知限制，而是实测消除。本次声明范围（`.claude/`工具层边界说明、`AGENTS.md`措辞对齐、roster检查规则改用knip全图分析+显式禁用playwright插件+根治package.json脚本glob问题）已实测验证完整，无遗留空模板，无遗留不精确归因，四条被重构的测试脚本功能等价性逐一验证。提交时只包含本变更自己贡献的文件，不触碰其他并行session的独立改动。

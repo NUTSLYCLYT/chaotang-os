@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | fix-claude-tooling-layer-boundary-clarification-20260714 |
 | 类型 | fix |
-| 状态 | DONE（第五轮已补跑`harness-doctor` 0 errors，恢复`VERIFIED_COMPLETE`，见ci_result） |
+| 状态 | DONE（第六轮根治knip脚本glob问题，四profile功能等价性逐一验证，`harness-doctor` 0 errors） |
 | Owner | Project Agent |
 | 创建日期 | 20260714 |
 
@@ -16,7 +16,8 @@
   - `AGENTS.md`（第38行追加括号说明，明确该约束管"内容/所有权主线"、`.claude/`不算第四主线，并指向 `project-boundaries.md` 的精确定义，消除两份文档字面矛盾）
   - `.claude/agents/gongbu-quality-gate.md`（roster/引擎接线检查规则前两轮收窄两处漏报口子后，第三轮整条替换为调用 `pnpm knip:reachability` 的全图可达性分析，不再用手搓多跳grep）
   - `frontend/knip.production-reachability.json`（新增：`knip.json` 去掉测试entry的变体，专供该检查使用）
-  - `frontend/package.json`（新增 `"knip:reachability": "knip --config knip.production-reachability.json --files"` 脚本）
+  - `frontend/package.json`（新增 `"knip:reachability"` 脚本；第六轮把 `test:node`/`test:core`/`eval:court`/`test:courtos:mvp-api` 四条脚本的字面量glob改为调用 `run-nodetest.mjs <profile>`）
+  - `frontend/scripts/run-nodetest.mjs`（第六轮新增：按profile在脚本内部用`globSync`展开测试文件glob，取代package.json里的字面量glob字符串）
 - 验证：`node scripts/harness-doctor.mjs` 0 errors；`cd frontend && pnpm exec tsc --noEmit` 0 错误；`pnpm knip:reachability` 585行输出且2次复现一致，吏部5个孤儿引擎+各自nodetest均在列，礼部真实接线的3个文件均不在列；`pnpm knip --files --production` 确认该参数不可用（0行输出，退出码0但无信号，与`knip:reachability`是两个不同机制，不要混淆）；`grep` 确认 `AGENTS.md`/`project-boundaries.md` 措辞互相呼应
 
 ## 背景
@@ -42,3 +43,5 @@ Codex stop-time review 第四次拦截："备用 Knip 配置并未真正排除�
 本轮验证途中，另一并行session开始一次大范围harness架构合并（"unify chaotang harness architecture"），导致`frontend/scripts/harness-doctor.mjs`等多个文件当前带有未解决的合并冲突标记，`node scripts/harness-doctor.mjs`暂时无法运行（`SyntaxError: Unexpected token '<<'`）——已确认与本变更无关（我方5个目标文件均干净，不在冲突列表内），不属于本变更范围，改用`tsc --noEmit`+直接knip实测作为本轮验收依据。
 
 Codex stop-time review 第五次拦截："生产可达性检查仍把测试文件注册为入口"——直接阅读`node_modules/knip/dist/WorkspaceWorker.js`/`manifest/helpers.js`源码查清机制：knip核心无条件解析package.json所有npm script命令行文本提取文件glob注册entry，不挂在任何可`"xxx":false`关闭的插件名下（`"node":false`实测无效）。精确核查`src/features/`范围内knip内置通用测试文件名模式（`.test.ts`/`test.ts`/`test-*.ts`/`test/`目录/`.itest.ts`）零命中，确认该缺口目前对office-kit范围零影响。`gongbu-quality-gate.md`把"某插件关不掉"订正为精确的机制层面描述+可验证的pattern清单+强制前置检查步骤。此轮`harness-doctor`已恢复可运行（对方合并已完成），0 errors。
+
+Codex stop-time review 第六次拦截：仍判定第五轮"核心行为无法关闭"的归因是错的。用户拍板不再继续猜插件名，改为根治——新建`frontend/scripts/run-nodetest.mjs`，把`test:node`/`test:core`/`eval:court`/`test:courtos:mvp-api`四条脚本原本直接写在package.json里的glob字符串搬进脚本内部（用`node:fs`的`globSync`运行时展开），package.json侧只剩`"node scripts/run-nodetest.mjs <profile>"`这种不含文件路径字符的调用。knip自然无从提取这几条entry（`--debug`确认`entry:.*itest`/`entry:.*courtos.*nodetest`类目全部消失）。四个profile逐一实跑，通过/失败数与改动前的原始字面量写法完全一致，确认重构不影响任何测试的真实执行结果。`gongbu-quality-gate.md`从"已知残留缺口/无法关闭"改写为"已解决"，只保留一条与本仓脚本无关的knip自带通用测试命名约定说明。
