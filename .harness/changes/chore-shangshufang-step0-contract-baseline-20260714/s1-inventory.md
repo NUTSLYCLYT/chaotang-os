@@ -58,6 +58,10 @@
 
 “初始分流”不是验收结论。每项后续仍必须检查 diff、测试、依赖和是否已被新实现替代，才能标记合入、退回或废弃。
 
+### 2026-07-14 独立验收结果
+
+队列已经清算：上述 10 个根级 change 全部验收合入；`backend/harness/changes/s3-lease-attestation-gate-20260713` 因 adapter 无聚焦委托测试且 backend closeout 当前 8/9，退回修正。未决 0，明确废弃 0。逐项 commit、现行测试和发布边界见 `.harness/changes/chore-ready-for-review-triage-20260714/triage.md`。
+
 ## 4. S1 安全执行顺序与 S3 移交
 
 1. 在独立 S1 worktree 从经用户确认的基线 SHA 建分支。
