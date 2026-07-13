@@ -35,3 +35,10 @@
 ## 验证
 
 当前根级、前端、后端 harness 验证命令见 `.harness/wiki/verification-matrix.md`。
+
+## 能力入口治理
+
+- `.harness/manifest/capability-entry-inventory.json`：跨线功能清算表。
+- `.harness/contracts/capability-entry.schema.json`：清算项契约。
+- `.harness/contracts/capability-entry-event.schema.json`：统一入口调用遥测契约。
+- `.harness/wiki/capability-entry-governance.md`：唯一任务内核、14 天零调用删除门和纵切证据规则。

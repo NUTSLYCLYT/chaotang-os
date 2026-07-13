@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chaotang.local/contracts/capability-entry.schema.json",
+  "title": "Capability Entry Inventory Item",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "owner", "kind", "entrypoint", "routingTarget", "disposition", "replacement", "telemetry", "decisionEvidence"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "owner": { "enum": ["root", "frontend", "backend"] },
+    "kind": { "enum": ["BUSINESS", "RELEASE", "OPS", "DEBUG"] },
+    "entrypoint": { "type": "string", "minLength": 1 },
+    "routingTarget": { "enum": ["DECISION_TASK_KERNEL", "ENGINEERING_TASK_KERNEL", "REPLACEMENT_PENDING"] },
+    "disposition": { "enum": ["DISCOVERED", "MIGRATE_REQUIRED", "MIGRATED_OBSERVE", "CANONICAL", "DELETE_CANDIDATE", "RETIRED"] },
+    "replacement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "evidence"],
+      "properties": {
+        "id": { "type": ["string", "null"] },
+        "status": { "enum": ["MISSING", "PLANNED", "VERIFIED"] },
+        "evidence": { "type": ["string", "null"] }
+      }
+    },
+    "telemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eventName", "source", "observationDays", "invocations", "windowStart", "windowEnd"],
+      "properties": {
+        "eventName": { "const": "capability_entry_invoked.v1" },
+        "source": { "type": ["string", "null"] },
+        "observationDays": { "type": "integer", "minimum": 0 },
+        "invocations": { "type": ["integer", "null"], "minimum": 0 },
+        "windowStart": { "type": ["string", "null"], "format": "date-time" },
+        "windowEnd": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "decisionEvidence": { "type": ["string", "null"] }
+  }
+}

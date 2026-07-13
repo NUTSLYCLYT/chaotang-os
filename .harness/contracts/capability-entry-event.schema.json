@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chaotang.local/contracts/capability-entry-event.schema.json",
+  "title": "Capability Entry Invoked Event V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "eventName", "eventId", "occurredAt", "entryId", "owner", "taskContext", "releaseIdentity"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "eventName": { "const": "capability_entry_invoked.v1" },
+    "eventId": { "type": "string", "minLength": 1 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "entryId": { "type": "string", "minLength": 1 },
+    "owner": { "enum": ["frontend", "backend", "root"] },
+    "taskContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kernel", "taskId"],
+      "properties": {
+        "kernel": { "enum": ["DECISION_TASK", "ENGINEERING_TASK"] },
+        "taskId": { "type": "string", "minLength": 1 }
+      }
+    },
+    "releaseIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "artifact", "schema"],
+      "properties": {
+        "commit": { "type": ["string", "null"] },
+        "artifact": { "type": ["string", "null"] },
+        "schema": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

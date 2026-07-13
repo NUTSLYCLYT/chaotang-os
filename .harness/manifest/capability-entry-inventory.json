@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "updatedAt": "2026-07-14",
+  "entries": [
+    {
+      "id": "legacy-chaotang-web-lyt-release-artifact",
+      "owner": "frontend",
+      "kind": "RELEASE",
+      "entrypoint": "frontend/scripts/package-release.mjs",
+      "routingTarget": "ENGINEERING_TASK_KERNEL",
+      "disposition": "MIGRATED_OBSERVE",
+      "replacement": {
+        "id": "chaotang-os-frontend-release-artifact",
+        "status": "VERIFIED",
+        "evidence": "frontend/scripts/package-release-identity.nodetest.mjs"
+      },
+      "telemetry": {
+        "eventName": "capability_entry_invoked.v1",
+        "source": "release-manifest.app",
+        "observationDays": 0,
+        "invocations": null,
+        "windowStart": null,
+        "windowEnd": null
+      },
+      "decisionEvidence": ".harness/changes/fix-canonical-release-artifact-entry-governance-20260714/summary.md"
+    },
+    {
+      "id": "legacy-jiqun-contract-smoke-start-help",
+      "owner": "frontend",
+      "kind": "OPS",
+      "entrypoint": "frontend/scripts/jiqun-contract-smoke.mjs",
+      "routingTarget": "REPLACEMENT_PENDING",
+      "disposition": "MIGRATE_REQUIRED",
+      "replacement": { "id": "canonical-backend-start-help", "status": "PLANNED", "evidence": null },
+      "telemetry": {
+        "eventName": "capability_entry_invoked.v1",
+        "source": null,
+        "observationDays": 0,
+        "invocations": null,
+        "windowStart": null,
+        "windowEnd": null
+      },
+      "decisionEvidence": null
+    },
+    {
+      "id": "legacy-wf-pack-rd-cost-split-script",
+      "owner": "backend",
+      "kind": "OPS",
+      "entrypoint": "backend/scripts/wf_pack_rd_cost_split.js",
+      "routingTarget": "REPLACEMENT_PENDING",
+      "disposition": "MIGRATE_REQUIRED",
+      "replacement": { "id": "canonical-backend-wf-pack-task", "status": "PLANNED", "evidence": null },
+      "telemetry": {
+        "eventName": "capability_entry_invoked.v1",
+        "source": null,
+        "observationDays": 0,
+        "invocations": null,
+        "windowStart": null,
+        "windowEnd": null
+      },
+      "decisionEvidence": null
+    }
+  ]
+}

@@ -6,7 +6,7 @@ import { dirname, join, relative, resolve } from 'node:path';
 
 const require = createRequire(import.meta.url);
 const root = process.cwd();
-const appName = 'chaotang-web-lyt';
+const appName = 'chaotang-os-frontend';
 const outRoot = resolve(root, 'dev', 'artifacts', 'release');
 const stageRoot = join(outRoot, appName);
 const archiveName = `${appName}-${new Date().toISOString().replace(/[:.]/g, '-')}.tar.gz`;
@@ -144,7 +144,7 @@ export PORT="\${PORT:-3050}"
 exec node server.js
 `);
 run('chmod', ['+x', join(stageRoot, 'start.sh')]);
-writeText(join(stageRoot, 'INSTALL.md'), `# Chaotang Web LYT Release Package
+writeText(join(stageRoot, 'INSTALL.md'), `# Chaotang OS Frontend Release Package
 
 This package is a Next.js standalone production bundle.
 

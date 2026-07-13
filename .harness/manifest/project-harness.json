@@ -57,6 +57,27 @@
     "entrypoints": ["docs/README.md", "docs/product/PROJECT_PRODUCT.md"],
     "productDir": "docs/product"
   },
+  "capabilityEntryGovernance": {
+    "status": "OBSERVE",
+    "documentation": ".harness/wiki/capability-entry-governance.md",
+    "inventory": ".harness/manifest/capability-entry-inventory.json",
+    "contracts": [
+      ".harness/contracts/capability-entry.schema.json",
+      ".harness/contracts/capability-entry-event.schema.json"
+    ],
+    "telemetry": {
+      "eventName": "capability_entry_invoked.v1",
+      "sink": "OWNER_DEFINED"
+    },
+    "deletionGate": {
+      "minimumObservationDays": 14,
+      "maximumInvocations": 0,
+      "requireVerifiedReplacement": true
+    },
+    "verification": [
+      "node --test scripts/capability-entry-governance.nodetest.mjs"
+    ]
+  },
   "controlPlane": {
     "status": "IMPLEMENTING",
     "rolloutStage": "s10-local-observe-pending",

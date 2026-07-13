@@ -1,0 +1,50 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+
+const root = new URL('../', import.meta.url);
+
+async function readJson(relativePath) {
+  return JSON.parse(await readFile(new URL(relativePath, root), 'utf8'));
+}
+
+test('project harness registers capability-entry inventory, telemetry and the 14-day deletion gate', async () => {
+  const manifest = await readJson('.harness/manifest/project-harness.json');
+  const governance = manifest.capabilityEntryGovernance;
+
+  assert.equal(governance.status, 'OBSERVE');
+  assert.equal(governance.telemetry.eventName, 'capability_entry_invoked.v1');
+  assert.equal(governance.deletionGate.minimumObservationDays, 14);
+  assert.equal(governance.deletionGate.maximumInvocations, 0);
+  assert.equal(governance.deletionGate.requireVerifiedReplacement, true);
+  assert.ok(governance.verification.includes('node --test scripts/capability-entry-governance.nodetest.mjs'));
+
+  for (const path of [governance.documentation, governance.inventory, ...governance.contracts]) {
+    await readFile(new URL(path, root));
+  }
+});
+
+test('inventory keeps every known legacy entry non-deletable until telemetry and replacement evidence exist', async () => {
+  const inventory = await readJson('.harness/manifest/capability-entry-inventory.json');
+  const entrySchema = await readJson('.harness/contracts/capability-entry.schema.json');
+  const eventSchema = await readJson('.harness/contracts/capability-entry-event.schema.json');
+  assert.ok(inventory.entries.length >= 3);
+  assert.equal(eventSchema.properties.eventName.const, 'capability_entry_invoked.v1');
+  assert.deepEqual(eventSchema.properties.taskContext.properties.kernel.enum, ['DECISION_TASK', 'ENGINEERING_TASK']);
+
+  for (const entry of inventory.entries) {
+    for (const field of entrySchema.required) assert.ok(Object.hasOwn(entry, field), `${entry.id ?? 'entry'} missing ${field}`);
+    assert.ok(entrySchema.properties.owner.enum.includes(entry.owner));
+    assert.ok(entrySchema.properties.kind.enum.includes(entry.kind));
+    assert.ok(entrySchema.properties.routingTarget.enum.includes(entry.routingTarget));
+    assert.ok(entrySchema.properties.disposition.enum.includes(entry.disposition));
+    assert.equal(entry.telemetry.eventName, 'capability_entry_invoked.v1');
+
+    if (entry.disposition === 'DELETE_CANDIDATE') {
+      assert.ok(entry.telemetry.observationDays >= 14);
+      assert.equal(entry.telemetry.invocations, 0);
+      assert.equal(entry.replacement.status, 'VERIFIED');
+      assert.ok(entry.decisionEvidence);
+    }
+  }
+});

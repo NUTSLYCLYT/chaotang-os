@@ -46,8 +46,12 @@ const required = [
   '.harness/rules/project-workflow.md',
   '.harness/wiki/architecture.md',
   '.harness/wiki/harness-inventory.md',
+  '.harness/wiki/capability-entry-governance.md',
   '.harness/wiki/verification-matrix.md',
   '.harness/manifest/project-harness.json',
+  '.harness/manifest/capability-entry-inventory.json',
+  '.harness/contracts/capability-entry.schema.json',
+  '.harness/contracts/capability-entry-event.schema.json',
   '.harness/templates/change-template/summary.md',
   '.harness/templates/change-template/request_analysis/spec.md',
   '.harness/templates/change-template/request_analysis/tasks.md',
@@ -95,6 +99,20 @@ if (manifest) {
   for (const rel of manifest.frontend?.entrypoints ?? []) checkExists(rel, `manifest frontend entrypoint: ${rel}`);
   for (const rel of manifest.backend?.entrypoints ?? []) checkExists(rel, `manifest backend entrypoint: ${rel}`);
   for (const rel of manifest.docs?.entrypoints ?? []) checkExists(rel, `manifest docs entrypoint: ${rel}`);
+
+  if (manifest.capabilityEntryGovernance) {
+    const governance = manifest.capabilityEntryGovernance;
+    checkExists(governance.documentation, 'manifest capability entry governance documentation');
+    checkExists(governance.inventory, 'manifest capability entry governance inventory');
+    for (const rel of governance.contracts ?? []) checkExists(rel, `manifest capability entry governance contract: ${rel}`);
+    if (governance.status !== 'OBSERVE') error(`capability entry governance has invalid status: ${governance.status}`);
+    if (governance.telemetry?.eventName !== 'capability_entry_invoked.v1') error('capability entry governance must use capability_entry_invoked.v1');
+    if (governance.deletionGate?.minimumObservationDays !== 14) error('capability entry deletion gate must observe 14 days');
+    if (governance.deletionGate?.maximumInvocations !== 0) error('capability entry deletion gate must require zero invocations');
+    if (governance.deletionGate?.requireVerifiedReplacement !== true) error('capability entry deletion gate must require a verified replacement');
+  } else {
+    error('manifest missing capabilityEntryGovernance');
+  }
 
   if (manifest.controlPlane) {
     for (const key of ['blueprint', 'documentation', 'baseline']) {
