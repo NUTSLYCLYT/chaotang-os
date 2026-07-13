@@ -24,7 +24,11 @@ Latest complete run before this evidence update:
 node --test scripts/multi-agent-lease.nodetest.mjs
 ```
 
-Result: 23 passed, 0 failed, 24.180 seconds; `git diff --check` was clean. This run included 100 barrier-synchronized races using 200 real Node child processes; every race produced exactly one winner. It also created three real detached temporary Git worktrees, verified common database path plus repository device/inode identity, and made the worktrees compete with exactly one winner.
+Result: 23 passed, 0 failed, 23.888 seconds; `git diff --check` was clean. This run included 100 barrier-synchronized races using 200 real Node child processes; every race produced exactly one winner. It also created three real detached temporary Git worktrees, verified common database path plus repository device/inode identity, and made the worktrees compete with exactly one winner.
+
+All S1 module calls without an explicit fixture, every child CLI, and every worktree child now share one doubly guarded temporary database. The S1 and S2 suites were also executed together under Node's default file-level parallelism: 33 passed, 0 failed in 28.347 seconds. The S2 stable-content guard proved the real database was unchanged during the joint run.
+
+Historical S1 real-database pollution and its exact-ID audited cancellation are recorded under `.harness/changes/incident-s1-real-db-test-pollution-20260713/`.
 
 Additional covered negatives: unauthorized parent scope, undeclared or duplicate resources, empty paths, past task expiry, non-leasable task state, non-path read mode and double ownership, production database override, stale nonce/fencing, dead registered holder, missing force-release evidence, write/write and parent/child conflict, symlink bypass, repository escape, corrupt database and unknown schema version. Three independent CLI processes prove acquire→heartbeat→release around one resident holder.
 

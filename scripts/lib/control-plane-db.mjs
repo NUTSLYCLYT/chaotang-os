@@ -17,7 +17,7 @@ export function resolveControlPlanePaths(cwd = process.cwd()) {
 
 function migrate(db) {
   const version = db.prepare('PRAGMA user_version').get().user_version;
-  if(version>2) throw new Error(`unknown control-plane schema version ${version}`);
+  if(version>3) throw new Error(`unknown control-plane schema version ${version}`);
   if (version < 1) {
     db.exec(`BEGIN IMMEDIATE;
       CREATE TABLE IF NOT EXISTS tasks(task_id TEXT PRIMARY KEY, spec_json TEXT NOT NULL, owner TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL);
@@ -29,12 +29,15 @@ function migrate(db) {
       PRAGMA user_version=1; COMMIT;`);
   }
   if(version<2){withImmediateTransaction(db,()=>{db.exec(`CREATE TABLE IF NOT EXISTS resource_locks(
-    resource_key TEXT PRIMARY KEY, owner TEXT NOT NULL, task_id TEXT NOT NULL, state TEXT NOT NULL,
+    resource_key TEXT PRIMARY KEY, owner TEXT NOT NULL, task_id TEXT NOT NULL REFERENCES tasks(task_id), state TEXT NOT NULL CHECK(state IN ('active','suspect','fenced','released','reclaimed')),
     fencing_epoch INTEGER NOT NULL, pid INTEGER NOT NULL, pgid INTEGER NOT NULL, cwd TEXT NOT NULL,
     worktree TEXT NOT NULL, commit_sha TEXT NOT NULL, command TEXT NOT NULL, nonce TEXT NOT NULL,
     host_id TEXT NOT NULL, boot_id TEXT NOT NULL, pid_namespace TEXT NOT NULL, start_ticks INTEGER NOT NULL,
     acquired_at TEXT NOT NULL, heartbeat_at TEXT NOT NULL, expires_at TEXT NOT NULL,
-    pending_fencing_epoch INTEGER, released_at TEXT, evidence TEXT); PRAGMA user_version=2;`);});}
+    pending_fencing_epoch INTEGER, released_at TEXT, evidence TEXT);
+    CREATE INDEX IF NOT EXISTS idx_resource_locks_state_expiry ON resource_locks(state,expires_at);
+    CREATE INDEX IF NOT EXISTS idx_resource_locks_task ON resource_locks(task_id); PRAGMA user_version=2;`);});}
+  if(version<3){withImmediateTransaction(db,()=>{const columns=db.prepare('PRAGMA table_info(resource_locks)').all().map(row=>row.name);if(!columns.includes('protected_paths_json'))db.exec("ALTER TABLE resource_locks ADD COLUMN protected_paths_json TEXT NOT NULL DEFAULT '[]'");db.exec('PRAGMA user_version=3');});}
 }
 
 export function openControlPlaneDb({ cwd = process.cwd(), databasePath } = {}) {
