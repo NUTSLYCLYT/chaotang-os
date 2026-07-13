@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chaotang.local/harness/lease.schema.json",
+  "title": "Fenced task lease",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "lease_id", "task_id", "holder", "state", "fencing_epoch", "acquired_at", "expires_at", "process"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "lease_id": { "type": "string", "pattern": "^lease-[A-Za-z0-9._-]+$" },
+    "task_id": { "type": "string", "pattern": "^task-[A-Za-z0-9._-]+$" },
+    "holder": { "type": "string", "minLength": 1 },
+    "state": { "type": "string", "enum": ["active", "suspect", "fenced", "released", "reclaimed"] },
+    "fencing_epoch": { "type": "integer", "minimum": 1 },
+    "acquired_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T.*Z$" },
+    "expires_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T.*Z$" },
+    "released_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T.*Z$" },
+    "process": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host_id", "boot_id", "pid_namespace", "pid", "start_ticks", "cwd", "nonce"],
+      "properties": {
+        "host_id": { "type": "string", "minLength": 1 }, "boot_id": { "type": "string", "minLength": 1 },
+        "pid_namespace": { "type": "string", "minLength": 1 }, "pid": { "type": "integer", "minimum": 1 },
+        "start_ticks": { "type": "integer", "minimum": 0 }, "cwd": { "type": "string", "minLength": 1 },
+        "nonce": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

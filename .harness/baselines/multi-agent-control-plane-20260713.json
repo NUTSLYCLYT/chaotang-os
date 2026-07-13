@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-07-13T00:00:00+08:00",
+  "observation_window": "repository evidence available before S0",
+  "completeness": "insufficient_historical_telemetry",
+  "metrics": {
+    "port_conflict_count": { "value": null, "unit": "events", "reason": "no durable event counter existed before S0" },
+    "build_failure_count": { "value": null, "unit": "builds", "reason": "build outcomes were recorded per change, not in an aggregate release series" },
+    "duplicate_repair_count": { "value": null, "unit": "repairs", "reason": "no durable repair event counter existed before S0" },
+    "release_total_duration_seconds": { "value": null, "unit": "seconds", "reason": "release start/end timestamps were not stored in one authoritative ledger" }
+  },
+  "policy": "Unknown historical values are not treated as zero. S1 onward must write authoritative events so the first rollout window becomes the measurable baseline."
+}

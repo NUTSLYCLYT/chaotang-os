@@ -96,6 +96,17 @@ if (manifest) {
   for (const rel of manifest.backend?.entrypoints ?? []) checkExists(rel, `manifest backend entrypoint: ${rel}`);
   for (const rel of manifest.docs?.entrypoints ?? []) checkExists(rel, `manifest docs entrypoint: ${rel}`);
 
+  if (manifest.controlPlane) {
+    for (const key of ['blueprint', 'documentation', 'baseline']) {
+      if (manifest.controlPlane[key]) checkExists(manifest.controlPlane[key], `manifest control plane ${key}`);
+      else error(`manifest control plane missing ${key}`);
+    }
+    for (const rel of manifest.controlPlane.contracts ?? []) checkExists(rel, `manifest control plane contract: ${rel}`);
+    if (!['DESIGNED', 'IMPLEMENTED', 'ROLLOUT', 'ENFORCED'].includes(manifest.controlPlane.status)) {
+      error(`manifest control plane has invalid status: ${manifest.controlPlane.status}`);
+    }
+  }
+
   if (manifest.frontend?.harness) checkExists(manifest.frontend.harness, 'manifest frontend harness');
   if (manifest.frontend?.doctor) checkExists(manifest.frontend.doctor, 'manifest frontend doctor');
   if (manifest.backend?.harnessRoot) checkExists(manifest.backend.harnessRoot, 'manifest backend harness root');

@@ -43,5 +43,21 @@
   "docs": {
     "path": "docs",
     "entrypoints": ["docs/README.md"]
+  },
+  "controlPlane": {
+    "status": "IMPLEMENTED",
+    "rolloutStage": "s0-contracts",
+    "blueprint": "docs/multi-agent-harness-control-plane-blueprint-2026-07-13.md",
+    "documentation": ".harness/wiki/multi-agent-control-plane.md",
+    "baseline": ".harness/baselines/multi-agent-control-plane-20260713.json",
+    "contracts": [
+      ".harness/contracts/task.schema.json",
+      ".harness/contracts/lease.schema.json",
+      ".harness/contracts/release-evidence.schema.json"
+    ],
+    "verification": [
+      "node --test scripts/multi-agent-contracts.nodetest.mjs",
+      "node scripts/harness-doctor.mjs"
+    ]
   }
 }
