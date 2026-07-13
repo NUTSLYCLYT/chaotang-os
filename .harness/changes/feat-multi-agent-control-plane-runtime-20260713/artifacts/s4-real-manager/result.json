@@ -1,0 +1,243 @@
+{
+  "approved_base_sha": "b57b29662058ecb8855020f28b1cc7df409577f5",
+  "concurrency_assertion": "three build intervals overlap",
+  "primary_checkout_before": "800d1c56ca01d3cc98ef749bfc36729162251b803c423fdc516fe30ab6184ebd",
+  "primary_checkout_after": "800d1c56ca01d3cc98ef749bfc36729162251b803c423fdc516fe30ab6184ebd",
+  "true_db_before": "c5332c5474f62ac71b9b5bc8c8208c48cca259dd7d488f7de81949fc37232f23",
+  "true_db_after": "c5332c5474f62ac71b9b5bc8c8208c48cca259dd7d488f7de81949fc37232f23",
+  "true_registry_before": "ENOENT",
+  "true_registry_after": "ENOENT",
+  "active_registry": [
+    {
+      "task_id": "task-s4-manager-real-1",
+      "owner": "s4-real-worker-1",
+      "branch": "agent/task-s4-manager-real-1",
+      "worktree": "/home/ubuntu/Projects/chaotang-os/.worktrees/task-s4-manager-real-1",
+      "commit": "b57b29662058ecb8855020f28b1cc7df409577f5",
+      "port": 3111,
+      "port_lock": {
+        "key": "port:3111",
+        "fencing_epoch": 2,
+        "nonce_commitment": "8997060831e9b1b30d6626891e25f9beab96c648f5b54e66cb99e1b3d3980c81"
+      },
+      "dist_dir": ".next-agent-s4-manager-real-1",
+      "artifact_dir": "dev/artifacts/task-s4-manager-real-1",
+      "holder": {
+        "pid": 3976616,
+        "pgid": 3976616,
+        "start_ticks": 8098170,
+        "cwd": "/home/ubuntu/Projects/chaotang-os",
+        "identity_commitment": "8997060831e9b1b30d6626891e25f9beab96c648f5b54e66cb99e1b3d3980c81"
+      },
+      "state": "active",
+      "handoff_token_commitment": "6111976bf4782a526cddace8ff66458ef9c6bc10be299ca92ac10c5b583f8bb6",
+      "created_at": "2026-07-13T03:32:32.456Z"
+    },
+    {
+      "task_id": "task-s4-manager-real-2",
+      "owner": "s4-real-worker-2",
+      "branch": "agent/task-s4-manager-real-2",
+      "worktree": "/home/ubuntu/Projects/chaotang-os/.worktrees/task-s4-manager-real-2",
+      "commit": "b57b29662058ecb8855020f28b1cc7df409577f5",
+      "port": 3112,
+      "port_lock": {
+        "key": "port:3112",
+        "fencing_epoch": 4,
+        "nonce_commitment": "7151fef81e659a2833543b695f0036b325a316017d9c5f8de81723cd060684c1"
+      },
+      "dist_dir": ".next-agent-s4-manager-real-2",
+      "artifact_dir": "dev/artifacts/task-s4-manager-real-2",
+      "holder": {
+        "pid": 3976616,
+        "pgid": 3976616,
+        "start_ticks": 8098170,
+        "cwd": "/home/ubuntu/Projects/chaotang-os",
+        "identity_commitment": "7151fef81e659a2833543b695f0036b325a316017d9c5f8de81723cd060684c1"
+      },
+      "state": "active",
+      "handoff_token_commitment": "c9bdb2f3243e25137134cd3446badd99135296b848358b74b8e28eff490acc44",
+      "created_at": "2026-07-13T03:32:33.290Z"
+    },
+    {
+      "task_id": "task-s4-manager-real-3",
+      "owner": "s4-real-worker-3",
+      "branch": "agent/task-s4-manager-real-3",
+      "worktree": "/home/ubuntu/Projects/chaotang-os/.worktrees/task-s4-manager-real-3",
+      "commit": "b57b29662058ecb8855020f28b1cc7df409577f5",
+      "port": 3113,
+      "port_lock": {
+        "key": "port:3113",
+        "fencing_epoch": 6,
+        "nonce_commitment": "20c898f28991ec607f36840ec23394b1f9353ccff94d6689c33ddc9ccf13e01e"
+      },
+      "dist_dir": ".next-agent-s4-manager-real-3",
+      "artifact_dir": "dev/artifacts/task-s4-manager-real-3",
+      "holder": {
+        "pid": 3976616,
+        "pgid": 3976616,
+        "start_ticks": 8098170,
+        "cwd": "/home/ubuntu/Projects/chaotang-os",
+        "identity_commitment": "20c898f28991ec607f36840ec23394b1f9353ccff94d6689c33ddc9ccf13e01e"
+      },
+      "state": "active",
+      "handoff_token_commitment": "3b62624f15d7aa7699722fe207cd4919c12bec2b4bba61d7d95b234c652ddb5b",
+      "created_at": "2026-07-13T03:32:34.125Z"
+    }
+  ],
+  "retired_registry": [
+    {
+      "task_id": "task-s4-manager-real-1",
+      "owner": "s4-real-worker-1",
+      "branch": "agent/task-s4-manager-real-1",
+      "worktree": "/home/ubuntu/Projects/chaotang-os/.worktrees/task-s4-manager-real-1",
+      "commit": "b57b29662058ecb8855020f28b1cc7df409577f5",
+      "port": 3111,
+      "port_lock": {
+        "key": "port:3111",
+        "fencing_epoch": 2,
+        "nonce_commitment": "8997060831e9b1b30d6626891e25f9beab96c648f5b54e66cb99e1b3d3980c81"
+      },
+      "dist_dir": ".next-agent-s4-manager-real-1",
+      "artifact_dir": "dev/artifacts/task-s4-manager-real-1",
+      "holder": {
+        "pid": 3976616,
+        "pgid": 3976616,
+        "start_ticks": 8098170,
+        "cwd": "/home/ubuntu/Projects/chaotang-os",
+        "identity_commitment": "8997060831e9b1b30d6626891e25f9beab96c648f5b54e66cb99e1b3d3980c81"
+      },
+      "state": "retired",
+      "handoff_token_commitment": "6111976bf4782a526cddace8ff66458ef9c6bc10be299ca92ac10c5b583f8bb6",
+      "created_at": "2026-07-13T03:32:32.456Z",
+      "retired_at": "2026-07-13T03:33:16.829Z"
+    },
+    {
+      "task_id": "task-s4-manager-real-2",
+      "owner": "s4-real-worker-2",
+      "branch": "agent/task-s4-manager-real-2",
+      "worktree": "/home/ubuntu/Projects/chaotang-os/.worktrees/task-s4-manager-real-2",
+      "commit": "b57b29662058ecb8855020f28b1cc7df409577f5",
+      "port": 3112,
+      "port_lock": {
+        "key": "port:3112",
+        "fencing_epoch": 4,
+        "nonce_commitment": "7151fef81e659a2833543b695f0036b325a316017d9c5f8de81723cd060684c1"
+      },
+      "dist_dir": ".next-agent-s4-manager-real-2",
+      "artifact_dir": "dev/artifacts/task-s4-manager-real-2",
+      "holder": {
+        "pid": 3976616,
+        "pgid": 3976616,
+        "start_ticks": 8098170,
+        "cwd": "/home/ubuntu/Projects/chaotang-os",
+        "identity_commitment": "7151fef81e659a2833543b695f0036b325a316017d9c5f8de81723cd060684c1"
+      },
+      "state": "retired",
+      "handoff_token_commitment": "c9bdb2f3243e25137134cd3446badd99135296b848358b74b8e28eff490acc44",
+      "created_at": "2026-07-13T03:32:33.290Z",
+      "retired_at": "2026-07-13T03:33:17.287Z"
+    },
+    {
+      "task_id": "task-s4-manager-real-3",
+      "owner": "s4-real-worker-3",
+      "branch": "agent/task-s4-manager-real-3",
+      "worktree": "/home/ubuntu/Projects/chaotang-os/.worktrees/task-s4-manager-real-3",
+      "commit": "b57b29662058ecb8855020f28b1cc7df409577f5",
+      "port": 3113,
+      "port_lock": {
+        "key": "port:3113",
+        "fencing_epoch": 6,
+        "nonce_commitment": "20c898f28991ec607f36840ec23394b1f9353ccff94d6689c33ddc9ccf13e01e"
+      },
+      "dist_dir": ".next-agent-s4-manager-real-3",
+      "artifact_dir": "dev/artifacts/task-s4-manager-real-3",
+      "holder": {
+        "pid": 3976616,
+        "pgid": 3976616,
+        "start_ticks": 8098170,
+        "cwd": "/home/ubuntu/Projects/chaotang-os",
+        "identity_commitment": "20c898f28991ec607f36840ec23394b1f9353ccff94d6689c33ddc9ccf13e01e"
+      },
+      "state": "retired",
+      "handoff_token_commitment": "3b62624f15d7aa7699722fe207cd4919c12bec2b4bba61d7d95b234c652ddb5b",
+      "created_at": "2026-07-13T03:32:34.125Z",
+      "retired_at": "2026-07-13T03:33:17.752Z"
+    }
+  ],
+  "installs": [
+    {
+      "task_id": "task-s4-manager-real-1",
+      "phase": "install",
+      "started_at": "2026-07-13T03:32:34.140Z",
+      "completed_at": "2026-07-13T03:32:35.621Z",
+      "started_ms": 1783913554140,
+      "completed_ms": 1783913555621,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "task_id": "task-s4-manager-real-2",
+      "phase": "install",
+      "started_at": "2026-07-13T03:32:34.142Z",
+      "completed_at": "2026-07-13T03:32:35.620Z",
+      "started_ms": 1783913554142,
+      "completed_ms": 1783913555620,
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "task_id": "task-s4-manager-real-3",
+      "phase": "install",
+      "started_at": "2026-07-13T03:32:34.144Z",
+      "completed_at": "2026-07-13T03:32:35.621Z",
+      "started_ms": 1783913554144,
+      "completed_ms": 1783913555621,
+      "exit": 0,
+      "signal": null
+    }
+  ],
+  "builds": [
+    {
+      "task_id": "task-s4-manager-real-1",
+      "phase": "build",
+      "started_at": "2026-07-13T03:32:35.621Z",
+      "completed_at": "2026-07-13T03:33:16.340Z",
+      "started_ms": 1783913555621,
+      "completed_ms": 1783913596340,
+      "exit": 0,
+      "signal": null,
+      "port": 3111,
+      "dist_dir": ".next-agent-s4-manager-real-1",
+      "commit": "b57b29662058ecb8855020f28b1cc7df409577f5",
+      "build_id_sha256": "fd5d991e605bcc33d2f72113ddff27ece7104614c5a0458dd8d0a26fc3ca802a"
+    },
+    {
+      "task_id": "task-s4-manager-real-2",
+      "phase": "build",
+      "started_at": "2026-07-13T03:32:35.623Z",
+      "completed_at": "2026-07-13T03:33:16.167Z",
+      "started_ms": 1783913555623,
+      "completed_ms": 1783913596167,
+      "exit": 0,
+      "signal": null,
+      "port": 3112,
+      "dist_dir": ".next-agent-s4-manager-real-2",
+      "commit": "b57b29662058ecb8855020f28b1cc7df409577f5",
+      "build_id_sha256": "cd68d903d868b0ae4ae7c124051ee41cef94e9430b78776c05e3a375d968caf4"
+    },
+    {
+      "task_id": "task-s4-manager-real-3",
+      "phase": "build",
+      "started_at": "2026-07-13T03:32:35.625Z",
+      "completed_at": "2026-07-13T03:33:16.195Z",
+      "started_ms": 1783913555625,
+      "completed_ms": 1783913596195,
+      "exit": 0,
+      "signal": null,
+      "port": 3113,
+      "dist_dir": ".next-agent-s4-manager-real-3",
+      "commit": "b57b29662058ecb8855020f28b1cc7df409577f5",
+      "build_id_sha256": "3f644e7c7581e382b01601edaecf2750c44c995af892ca19120a06e1dbba3086"
+    }
+  ]
+}
