@@ -29,9 +29,13 @@
       "owner": "frontend",
       "kind": "OPS",
       "entrypoint": "frontend/scripts/jiqun-contract-smoke.mjs",
-      "routingTarget": "REPLACEMENT_PENDING",
-      "disposition": "MIGRATE_REQUIRED",
-      "replacement": { "id": "canonical-backend-start-help", "status": "PLANNED", "evidence": null },
+      "routingTarget": "ENGINEERING_TASK_KERNEL",
+      "disposition": "MIGRATED_OBSERVE",
+      "replacement": {
+        "id": "canonical-backend-serve-dev-launcher",
+        "status": "VERIFIED",
+        "evidence": "frontend/scripts/jiqun-contract-smoke.nodetest.ts"
+      },
       "telemetry": {
         "eventName": "capability_entry_invoked.v1",
         "source": null,
@@ -40,7 +44,7 @@
         "windowStart": null,
         "windowEnd": null
       },
-      "decisionEvidence": null
+      "decisionEvidence": ".harness/changes/fix-canonical-jiqun-smoke-start-help-20260714/summary.md"
     },
     {
       "id": "legacy-wf-pack-rd-cost-split-script",

@@ -2,7 +2,7 @@
 /**
  * jiqun-contract-smoke.mjs — 跨仓契约烟测
  *
- * 验证 chaotang-web-lyt 依赖的 jiqun(:8081) 关键端点的：
+ * 验证朝堂 OS frontend 依赖的 backend(:8081) 关键端点的：
  *   1. 存活性（HTTP 可达）
  *   2. 响应 schema（字段不漂移）
  *
@@ -226,7 +226,7 @@ export async function runJiqunContractSmoke({ log = console.log } = {}) {
   if (!alive) {
     log(C.yellow(`\n⚠ jiqun(${JIQUN_BASE}) 不可达 — 全部契约 SKIP`));
     log(C.yellow(`  这意味着执行臂断路、蜂群无法运行、法务专用路由不可用`));
-    log(C.gray(`  启动 jiqun: cd /home/ubuntu/fe/fengQun/jiqun_ai_fresh && uvicorn web.main:app --host 127.0.0.1 --port 8081`));
+    log(C.gray(`  启动 backend（从 frontend/）: cd ../backend && bash scripts/serve-dev.sh`));
     log(`\n${'─'.repeat(50)}`);
     return { passed: 0, failed: 0, skipped: CONTRACTS.length, alive: false };
   }
