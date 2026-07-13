@@ -8,6 +8,8 @@
 | 后端 | `backend/` | 蜂群执行、运行时 prompt、flow engine、provider 路由、后端 harness | 浏览器 UI、Next.js 构建产物、前端发布页面 |
 | 根项目 | `.harness/`、`docs/` | 跨线协调、架构清单、所有权边界 | 运行时业务逻辑 |
 
+根级 `.claude/`（`agents/`、`skills/`、`hooks/`）是 Claude Code 这个开发工具本身的配置层，**不是第四条内容主线**，不违反 `AGENTS.md:38`"所有 agent 工作入口必须落在 frontend/backend/根 harness 三层结构内"这条约束。区别在于：`AGENTS.md:38` 管的是"内容/所有权主线"——像 `courtos-brain/` 差点变成的那种，自己一整棵业务/知识内容树，要求单独的事实源和 harness 验证。`.claude/` 不持有业务逻辑、不持有运行时状态、不产出需要独立验证的"事实"；它定义的 agent（如 `gongbu-quality-gate`）实际检查的对象——`frontend/src/features/...`、`backend/src/...`——完全落在三层结构内，`.claude/` 只是"怎么调这个 agent"的配置，不是"这个 agent 在哪工作"。7 个既有 `gongbu-*` agents 与 `chaotang-build-office` 等 skills 均遵循此约定，见根 `CLAUDE.md`"Claude Code 配置"一节。
+
 ## Harness 术语
 
 - 根 `.harness/`：整个项目的工程操作系统。
