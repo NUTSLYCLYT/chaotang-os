@@ -81,11 +81,9 @@ for (const [rel, needle] of entrypointExpectations) {
 
 const manifestFile = join(H, 'manifest', 'project-harness.json');
 let manifest = null;
-let rawManifestText = null;
 if (existsSync(manifestFile)) {
   try {
-    rawManifestText = await readText(manifestFile);
-    manifest = JSON.parse(rawManifestText);
+    manifest = JSON.parse(await readText(manifestFile));
     ok('manifest: project-harness.json');
   } catch (cause) {
     error(`manifest invalid JSON: ${cause.message}`);
@@ -162,56 +160,14 @@ if (manifest) {
       const parentHistory = showAt('HEAD~1', '.harness/rollout-history.jsonl');
       if (headHistory !== null) checkAppendOnly(parentHistory, headHistory, 'HEAD vs HEAD~1');
 
-      // append-only 挡不住"同一次改动里把检查代码本身也改弱/删掉"——checker和被
-      // 检查的状态住在同一个仓库，任何本地脚本检查天然防不住这种自我修改。这里
-      // 不假装能防住，只在检测到两者同批改动时强制要求显式承认，把"悄悄绕过"
-      // 变成"写进永久记录里的公开承认"，成本从0提到"要在审计日志里承认"。同样要
-      // 查两段(磁盘vs HEAD、HEAD vs HEAD~1)，否则commit一落地这条也会失效。
-      function checkCheckerDisclosure(oldDoctorText, newDoctorText, oldManifestText, newManifestText, entry, label) {
-        if (oldDoctorText === null || oldManifestText === null || !entry) return;
-        const checkerChanged = oldDoctorText !== newDoctorText;
-        let manifestControlPlaneChanged = false;
-        try {
-          const prevManifest = JSON.parse(oldManifestText);
-          const newManifest = JSON.parse(newManifestText);
-          manifestControlPlaneChanged =
-            prevManifest.controlPlane?.rolloutStage !== newManifest.controlPlane?.rolloutStage ||
-            JSON.stringify(prevManifest.controlPlane?.components) !== JSON.stringify(newManifest.controlPlane?.components);
-        } catch {
-          manifestControlPlaneChanged = true;
-        }
-        if (checkerChanged && manifestControlPlaneChanged && entry.checkerChangedInThisTransition !== true) {
-          error(
-            `scripts/harness-doctor.mjs and controlPlane rolloutStage/components changed together (${label}); set checkerChangedInThisTransition:true in the rollout-history.jsonl entry and explain why in reason`,
-          );
-        } else if (checkerChanged && manifestControlPlaneChanged) {
-          ok(`rollout gate change disclosed via checkerChangedInThisTransition (${label})`);
-        }
-      }
-
-      const doctorScriptPath = fileURLToPath(import.meta.url);
-      const doctorDiskText = await readFile(doctorScriptPath, 'utf8');
-      checkCheckerDisclosure(
-        showAt('HEAD', 'scripts/harness-doctor.mjs'),
-        doctorDiskText,
-        showAt('HEAD', '.harness/manifest/project-harness.json'),
-        rawManifestText,
-        last,
-        'disk vs HEAD',
-      );
-      const headDoctor = showAt('HEAD', 'scripts/harness-doctor.mjs');
-      const headManifest = showAt('HEAD', '.harness/manifest/project-harness.json');
-      if (headHistory !== null && headDoctor !== null && headManifest !== null) {
-        const headLast = headHistory.trim().split('\n').filter(Boolean).pop();
-        checkCheckerDisclosure(
-          showAt('HEAD~1', 'scripts/harness-doctor.mjs'),
-          headDoctor,
-          showAt('HEAD~1', '.harness/manifest/project-harness.json'),
-          headManifest,
-          headLast ? JSON.parse(headLast) : null,
-          'HEAD vs HEAD~1',
-        );
-      }
+      // 曾经在这里加过一个"checker和被检查状态同一commit变化就要求显式承认"的
+      // 检查，删掉了：它按"harness-doctor.mjs的原始文本有没有变"判断，任何跟绕过
+      // 完全无关的改动(改错误提示文案、加注释)撞上同批次的合法rolloutStage变更
+      // 都会被拦下来，而真正删检测函数的人只要顺手把承认字段设成true(或者分两次
+      // commit做)就能让它一路绿灯——一边挡不该挡的，一边放不该放的，比不加还差。
+      // 见 .harness/wiki/multi-agent-control-plane.md 和 .harness/policy/review-
+      // required-paths.md：这类同仓自检的天花板就是挡不住"检测代码本身被删"，
+      // 没有更多本地代码能修，只能靠仓库设置层面的外部强制复核。
     }
   }
 
@@ -265,6 +221,53 @@ if (manifest) {
       if (!known.has(entry.name)) warn(`backend harness directory not represented in manifest: ${entry.name}`);
     }
   }
+}
+
+const courtosBrainRoot = join(root, 'courtos-brain');
+if (existsSync(courtosBrainRoot)) {
+  // courtos-brain/ is an archived personal knowledge vault, not a 4th harness line
+  // (see .harness/rules/project-boundaries.md). It must present zero executable
+  // agent/skill entrypoints. A path-based exemption (e.g. "skip everything under
+  // _wiki/") is a blind spot: the vault's own ingestion workflow writes new files
+  // into _wiki/ on every run, so anything could land there later. Instead this
+  // check is content-shape-based: a governance-filename match is only safe when
+  // its frontmatter matches the vault's own content-note shape (`type:` present,
+  // `description:` absent) — the same test regardless of where the file lives.
+  const forbiddenDirNames = new Set(['.agents', 'agents', 'skills', 'commands', '.claude']);
+  const governanceFilenames = new Set(['agents.md', 'claude.md', 'skill.md']);
+
+  async function scanCourtosBrainBoundary(dir) {
+    const items = await readdir(dir, { withFileTypes: true });
+    for (const item of items) {
+      const itemPath = join(dir, item.name);
+      const rel = itemPath.replace(root, '').replace(/^[/\\]/, '');
+      if (item.isDirectory()) {
+        if (item.name === '.git') continue;
+        if (forbiddenDirNames.has(item.name)) {
+          error(`courtos-brain boundary: forbidden agent-discovery directory: ${rel}`);
+          continue;
+        }
+        await scanCourtosBrainBoundary(itemPath);
+        continue;
+      }
+      if (!governanceFilenames.has(item.name.toLowerCase())) continue;
+      const body = await readText(itemPath);
+      const frontmatterMatch = body.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+      const frontmatter = frontmatterMatch ? frontmatterMatch[1] : '';
+      const hasDescriptionKey = /^description:/m.test(frontmatter);
+      const hasContentNoteShape = /^type:/m.test(frontmatter) && !hasDescriptionKey;
+      if (hasContentNoteShape) {
+        ok(`courtos-brain boundary: content note, not governance: ${rel}`);
+      } else {
+        error(
+          `courtos-brain boundary: ${rel} matches a governance filename without the recognized inert content-note shape (expects frontmatter with type: and no description:) — rename it or confirm it cannot be auto-discovered as an agent entrypoint`,
+        );
+      }
+    }
+  }
+
+  await scanCourtosBrainBoundary(courtosBrainRoot);
+  ok('courtos-brain boundary scan complete');
 }
 
 const rootChangeRoot = join(H, 'changes');
