@@ -35,4 +35,4 @@
 - 不要把后端运行器、提示词、黄金样例或生产执行逻辑搬进前端 `.harness/`。
 - 后端 dry-run 不能证明浏览器体验，前端 mock 也不能证明后端蜂群质量。
 - 跨线变更必须记录：哪条线拥有事实源，以及哪条验证命令能证明它。
-- 所有 agent 工作入口必须落在 `frontend/`、`backend/` 和根 `.harness/` 三层结构内。
+- 所有 agent 工作入口必须落在 `frontend/`、`backend/` 和根 `.harness/` 三层结构内——这一条管的是**内容/所有权主线**（业务逻辑、运行时状态、需要独立事实源和 harness 验证的东西，如 `courtos-brain/` 差点变成的第四主线）。根级 `.claude/`（Claude Code 自身的 agent/skill/hook 配置）不算第四条主线，不在此约束范围内：它不持有业务逻辑或运行时状态，只是配置"怎么调用 agent"，agent 实际检查的对象仍落在三层结构内。精确定义、豁免前提和实例见 `.harness/rules/project-boundaries.md`。
