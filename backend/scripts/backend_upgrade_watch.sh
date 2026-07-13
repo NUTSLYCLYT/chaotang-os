@@ -11,7 +11,7 @@
 # 只在"有信息量"时才推送,没情况不打扰人(状态记一笔本地日志,不发消息)。
 set -uo pipefail
 
-PROJECT_ROOT="/home/ubuntu/fe/fengQun/jiqun_ai_fresh"
+PROJECT_ROOT="/home/ubuntu/Projects/chaotang-os/backend"
 BREW="/home/linuxbrew/.linuxbrew/bin/brew"
 PUSH="/home/ubuntu/.openclaw/script/push_ops_alert.sh"
 STATE_FILE="/home/ubuntu/.openclaw/log/backend-upgrade-watch/last_seen_stable.env"

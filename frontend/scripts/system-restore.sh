@@ -71,9 +71,8 @@ if systemctl --user list-units --no-legend 2>/dev/null | grep -q "jiqun"; then
   wait_healthy "jiqun" "http://127.0.0.1:8081/api/health" 12
 else
   warn "jiqun 未注册 systemd unit"
-  warn "  手动启动: cd /home/ubuntu/fe/fengQun/jiqun_ai_fresh"
-  warn "  bash scripts/serve-dev.sh   或"
-  warn "  uvicorn web.main:app --host 127.0.0.1 --port 8081"
+  warn "  手动启动: cd /home/ubuntu/Projects/chaotang-os/backend"
+  warn "  .venv/bin/python -m gunicorn -c gunicorn.conf.py web.main:app"
   # 检查是否已经在跑
   if curl -sf --max-time 2 "http://127.0.0.1:8081/api/health" -o /dev/null 2>/dev/null; then
     ok "jiqun 已在运行（手动启动）"

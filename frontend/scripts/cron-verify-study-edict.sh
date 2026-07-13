@@ -9,7 +9,7 @@
 # Cron: 0 7 * * *  (runs before the 07:18 morning briefing, so drift is known by then)
 set -uo pipefail
 
-FE=/home/ubuntu/workspace/frontend/chaotang-web-lyt
+FE=/home/ubuntu/Projects/chaotang-os/frontend
 BE_HEALTH="http://127.0.0.1:8081/api/health"
 LOG=/home/ubuntu/chaotang-logs/study-edict-daily.log
 mkdir -p "$(dirname "$LOG")"

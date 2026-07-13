@@ -19,32 +19,39 @@ deploy/
 ## 快速恢复（换机器/重装后）
 
 ```bash
-# 1. 克隆两个主仓
-git clone git@gitee.com:msxn/chaotang-web-lyt.git \
-  /home/ubuntu/workspace/frontend/chaotang-web-lyt
+# 1. 克隆唯一代码真源（前端与后端同属一个 monorepo）
+git clone git@gitee.com:msxn/chaotang-os.git \
+  /home/ubuntu/Projects/chaotang-os
 
-git clone git@gitee.com:msxn/jiqun_ai.git \
-  /home/ubuntu/fe/fengQun/jiqun_ai_fresh
-
+# 法务 agent 是独立外部依赖，不属于朝堂 OS 代码真源。
 git clone git@github.com:NUTSLYCLYT/legal-agent.git \
   /home/ubuntu/legal-agent
 
 # 2. 配置前端 env
-cd /home/ubuntu/workspace/frontend/chaotang-web-lyt
+cd /home/ubuntu/Projects/chaotang-os/frontend
 cp deploy/env.example .env.local
 # 编辑 .env.local，填写所有真实值
 
-# 3. 配置 LiteLLM
+# 3. 安装并验证后端生产运行环境
+cd /home/ubuntu/Projects/chaotang-os/backend
+python3 -m venv .venv
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m pip check
+.venv/bin/python -c "import gunicorn, uvicorn, web.main"
+
+# 4. 配置 LiteLLM
+cd /home/ubuntu/Projects/chaotang-os/frontend
 cp deploy/litellm-config.template.yaml ~/.openclaw/litellm_config.yaml
 # 编辑 ~/.openclaw/litellm_config.yaml，填写所有 <FILL_IN>
 
-# 4. 安装 systemd service
+# 5. 安装 systemd service
 for svc in courtos-web litellm legal-agent-manor jiqun; do
   cp deploy/services/${svc}.service.template ~/.config/systemd/user/${svc}.service
 done
 systemctl --user daemon-reload
 
-# 5. 一键恢复
+# 6. 一键恢复
 bash scripts/system-restore.sh
 ```
 

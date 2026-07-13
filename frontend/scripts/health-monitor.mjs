@@ -10,7 +10,7 @@
  *
  * cron 接入（每5分钟）：
  *   crontab -e  →  加入:
- *   *\/5 * * * * cd /home/ubuntu/workspace/frontend/chaotang-web-lyt && node scripts/health-monitor.mjs >> ~/.openclaw/log/chaotang-health.log 2>&1
+ *   *\/5 * * * * cd /home/ubuntu/Projects/chaotang-os/frontend && node scripts/health-monitor.mjs >> ~/.openclaw/log/chaotang-health.log 2>&1
  *
  * 告警通道：
  *   优先 CHAOTANG_ALERT_URL（Telegram bot webhook POST {text: ...}）
@@ -37,7 +37,7 @@ const SERVICES = [
     url: `${process.env.JIQUN_API_URL ?? 'http://127.0.0.1:8081'}/api/health`,
     critical: true,
     impact: '执行臂断路，蜂群无法运行，sign-off 圣裁黑洞',
-    restart: 'systemctl --user restart jiqun.service  # 或 bash /home/ubuntu/fe/fengQun/jiqun_ai_fresh/scripts/serve-dev.sh',
+    restart: 'systemctl --user restart jiqun.service  # manual: cd /home/ubuntu/Projects/chaotang-os/backend && .venv/bin/python -m gunicorn -c gunicorn.conf.py web.main:app',
   },
   {
     name: 'legal-agent',
@@ -107,7 +107,7 @@ if (failed.length > 0) {
     `${failed.length}个服务异常: ${failed.map(r => r.name).join(', ')}`,
     ...failed.map(r => `  ${r.critical ? '🔴' : '🟡'} ${r.name}: ${r.error ?? `HTTP ${r.httpStatus}`}`),
     ...failed.map(r => `     影响: ${r.impact}`),
-    `\n恢复: bash /home/ubuntu/workspace/frontend/chaotang-web-lyt/scripts/system-restore.sh`,
+    `\n恢复: bash /home/ubuntu/Projects/chaotang-os/frontend/scripts/system-restore.sh`,
   ];
   const alertMsg = lines.join('\n');
   await sendAlert(alertMsg);

@@ -12,7 +12,7 @@
  *   7. 异常告警
  *
  * 接入方式（每天 08:00 cron）：
- *   0 8 * * * cd /home/ubuntu/workspace/frontend/chaotang-web-lyt && \
+ *   0 8 * * * cd /home/ubuntu/Projects/chaotang-os/frontend && \
  *             node scripts/daily-metrics.mjs >> ~/.openclaw/log/chaotang-daily-metrics.log 2>&1
  *
  * 手动触发：

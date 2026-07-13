@@ -9,7 +9,7 @@
 #   5. 全绿 → 静默退出
 #
 # cron 接入（每 5 分钟）：
-#   */5 * * * * cd /home/ubuntu/workspace/frontend/chaotang-web-lyt && bash scripts/self-healing-monitor.sh >> ~/.openclaw/log/chaotang-self-healing.log 2>&1
+#   */5 * * * * cd /home/ubuntu/Projects/chaotang-os/frontend && bash scripts/self-healing-monitor.sh >> ~/.openclaw/log/chaotang-self-healing.log 2>&1
 #
 # 与直接跑 health-monitor.mjs 的区别：
 #   health-monitor: 探测 → 告警 → 等人工处理（MTTR ≈ 5-30 分钟）

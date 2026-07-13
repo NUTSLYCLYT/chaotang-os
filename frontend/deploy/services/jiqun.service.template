@@ -1,8 +1,8 @@
 # jiqun.service.template
 # 安装：cp deploy/services/jiqun.service.template ~/.config/systemd/user/jiqun.service
 #        systemctl --user daemon-reload && systemctl --user enable --now jiqun
-# 代码：/home/ubuntu/fe/fengQun/jiqun_ai_fresh
-# 仓库：git@gitee.com:msxn/jiqun_ai.git
+# 代码：/home/ubuntu/Projects/chaotang-os/backend
+# 仓库：git@gitee.com:msxn/chaotang-os.git
 
 [Unit]
 Description=Jiqun AI Backend (:8081)
@@ -11,10 +11,10 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/ubuntu/fe/fengQun/jiqun_ai_fresh
-Environment=PATH=/home/ubuntu/fe/fengQun/jiqun_ai_fresh/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
-EnvironmentFile=-/home/ubuntu/fe/fengQun/jiqun_ai_fresh/.env
-ExecStart=/home/ubuntu/fe/fengQun/jiqun_ai_fresh/.venv/bin/uvicorn web.main:app --host 127.0.0.1 --port 8081 --workers 2
+WorkingDirectory=/home/ubuntu/Projects/chaotang-os/backend
+Environment=PATH=/home/ubuntu/Projects/chaotang-os/backend/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=-/home/ubuntu/Projects/chaotang-os/backend/.env
+ExecStart=/home/ubuntu/Projects/chaotang-os/backend/.venv/bin/python -m gunicorn -c gunicorn.conf.py web.main:app
 Restart=on-failure
 RestartSec=5
 StandardOutput=append:/home/ubuntu/.openclaw/log/jiqun.log

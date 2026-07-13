@@ -12,7 +12,7 @@ StartLimitIntervalSec=60
 
 [Service]
 Type=simple
-WorkingDirectory=/home/ubuntu/workspace/frontend/chaotang-web-lyt
+WorkingDirectory=/home/ubuntu/Projects/chaotang-os/frontend
 Environment=PATH=/home/ubuntu/.npm-global/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
 Environment=NODE_ENV=production
 Environment=BASE_PATH=/chaotang
@@ -21,7 +21,7 @@ Environment=PORT=3050
 Environment=FENGQUN_AUTH=true
 Environment=JIQUN_VERIFY_PATH=/api/chaotang/study/briefing
 # 注入 .env.local（含 OPENAI_API_KEY / JWT_SECRET / TURSO_* 等，不进 git）
-EnvironmentFile=-/home/ubuntu/workspace/frontend/chaotang-web-lyt/.env.local
+EnvironmentFile=-/home/ubuntu/Projects/chaotang-os/frontend/.env.local
 ExecStart=/home/ubuntu/.npm-global/bin/pnpm start
 TimeoutStopSec=5
 KillSignal=SIGTERM

@@ -24,10 +24,10 @@ services:
     restart: unless-stopped
 
   jiqun:
-    # ⚠️ 跨仓:jiqun_ai_fresh 需自带 Dockerfile。盒子部署时换成其镜像或 build 上下文。
+    # 后端与前端共用 chaotang-os monorepo；构建上下文固定为根级 backend/。
     # 内部服务:不发布端口到主机(只 web 经 compose 内网 jiqun:8081 可达)。
     # 发布端口=蜂群后端公网裸奔、绕过 web 层鉴权 → 安全审查已拦,勿加 ports。
-    build: ../jiqun_ai_fresh
+    build: ../backend
     expose:
       - "8081"                    # 仅 compose 内网暴露,不绑主机
     environment:

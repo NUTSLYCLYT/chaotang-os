@@ -2,13 +2,13 @@
 # Daily Chaotang real-swarm release-gate smoke.
 #
 # Cron example:
-#   10 7 * * * /home/ubuntu/workspace/frontend/chaotang-web-lyt/scripts/cron-chaotang-real-swarm-gate.sh
+#   10 7 * * * /home/ubuntu/Projects/chaotang-os/frontend/scripts/cron-chaotang-real-swarm-gate.sh
 #
 # This intentionally reuses scripts/chaotang-release-gates.mjs so daily checks and
 # release checks write the same report/audit schema under dev/artifacts/chaotang-release-gates.
 set -uo pipefail
 
-FE=/home/ubuntu/workspace/frontend/chaotang-web-lyt
+FE=/home/ubuntu/Projects/chaotang-os/frontend
 BE_HEALTH="http://127.0.0.1:8081/api/health"
 LOG=/home/ubuntu/chaotang-logs/real-swarm-gate-daily.log
 mkdir -p "$(dirname "$LOG")"
