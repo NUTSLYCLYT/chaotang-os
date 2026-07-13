@@ -9,7 +9,7 @@ This project has the Codex `build-web-apps:frontend-app-builder` skill available
 
 Before using this skill, read:
 
-- `.impeccable.md`
+- `frontend/.impeccable.md`
 - `.claude/skills/impeccable/SKILL.md`
 - `.claude/skills/taste/SKILL.md`
 

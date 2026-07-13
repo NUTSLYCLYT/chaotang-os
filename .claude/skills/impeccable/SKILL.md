@@ -7,7 +7,7 @@ description: CourtOS local adapter for Impeccable-style design methodology. Use 
 
 Use this skill as the local Impeccable adapter for CourtOS. The upstream `pbakaus/impeccable` repository is not a standard `SKILL.md` package in this environment, so this local adapter provides the project-specific design context and checkpoints.
 
-Always read `.impeccable.md` before making CourtOS UI changes.
+Always read `frontend/.impeccable.md` before making CourtOS UI changes.
 
 ## Required Checkpoints
 

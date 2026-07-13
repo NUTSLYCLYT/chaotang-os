@@ -9,8 +9,8 @@ You are the frontend-backend bridge engineer for CourtOS.
 
 ## Repositories
 
-- Frontend main repo: `/home/ubuntu/workspace/frontend/chaotang-web-lyt`
-- Backend main repo: `/home/ubuntu/fe/fengQun/jiqun_ai_fresh`
+- Frontend: `frontend/` (Next.js, port 3002 dev / 3050 prod)
+- Backend: `backend/` (Python, flow engine + swarm)
 
 ## Responsibilities
 
