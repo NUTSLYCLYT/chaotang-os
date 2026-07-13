@@ -1,29 +1,290 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://chaotang.local/harness/lease.schema.json",
-  "title": "Fenced lease", "type": "object", "additionalProperties": false,
-  "required": ["schema_version", "lease_id", "task_id", "holder", "resource_type", "resource", "state", "fencing_epoch", "acquired_at", "heartbeat_at", "expires_at", "process"],
+  "title": "Fenced lease",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "lease_id",
+    "task_id",
+    "holder",
+    "resource_type",
+    "resource",
+    "state",
+    "fencing_epoch",
+    "acquired_at",
+    "heartbeat_at",
+    "expires_at",
+    "process"
+  ],
   "properties": {
-    "schema_version": { "const": 1 }, "lease_id": { "type": "string", "pattern": "^lease-[A-Za-z0-9._-]+$" },
-    "task_id": { "type": "string", "pattern": "^task-[A-Za-z0-9._-]+$" }, "holder": { "type": "string", "minLength": 1 },
-    "resource_type": { "enum": ["path", "port", "build", "release", "integration"] }, "resource": { "type": "string", "minLength": 1 },
-    "mode": { "enum": ["read", "write"] }, "state": { "enum": ["active", "suspect", "fenced", "released", "reclaimed"] },
-    "fencing_epoch": { "type": "integer", "minimum": 1 },
-    "acquired_at": { "type": "string", "format": "date-time" }, "heartbeat_at": { "type": "string", "format": "date-time" },
-    "expires_at": { "type": "string", "format": "date-time" }, "released_at": { "type": "string", "format": "date-time" },
-    "process": { "$ref": "#/$defs/process" }
+    "schema_version": {
+      "const": 1
+    },
+    "lease_id": {
+      "type": "string",
+      "pattern": "^lease-[A-Za-z0-9._-]+$"
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^task-[A-Za-z0-9._-]+$"
+    },
+    "holder": {
+      "type": "string",
+      "minLength": 1
+    },
+    "resource_type": {
+      "enum": [
+        "path",
+        "port",
+        "build",
+        "release",
+        "integration"
+      ]
+    },
+    "resource": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mode": {
+      "enum": [
+        "read",
+        "write"
+      ]
+    },
+    "state": {
+      "enum": [
+        "active",
+        "suspect",
+        "fenced",
+        "released",
+        "reclaimed"
+      ]
+    },
+    "fencing_epoch": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "acquired_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "heartbeat_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "released_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "process": {
+      "$ref": "#/$defs/process"
+    },
+    "entry_resource": {
+      "type": "string",
+      "minLength": 1
+    }
   },
   "allOf": [
-    { "if": { "properties": { "resource_type": { "const": "path" } }, "required": ["resource_type"] }, "then": { "required": ["mode"], "properties": { "resource": { "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$" } } } },
-    { "if": { "properties": { "resource_type": { "const": "port" } }, "required": ["resource_type"] }, "then": { "properties": { "resource": { "pattern": "^port:(3002|3050|31[0-9]{2})$" } }, "not": { "required": ["mode"] } } },
-    { "if": { "properties": { "resource_type": { "const": "build" } }, "required": ["resource_type"] }, "then": { "properties": { "resource": { "pattern": "^build:[A-Za-z0-9._-]+$" } }, "not": { "required": ["mode"] } } },
-    { "if": { "properties": { "resource_type": { "const": "release" } }, "required": ["resource_type"] }, "then": { "properties": { "resource": { "pattern": "^release:[A-Za-z0-9._-]+$" } }, "not": { "required": ["mode"] } } },
-    { "if": { "properties": { "resource_type": { "const": "integration" } }, "required": ["resource_type"] }, "then": { "properties": { "resource": { "pattern": "^integration:[A-Za-z0-9._-]+$" } }, "not": { "required": ["mode"] } } },
-    { "if": { "properties": { "state": { "enum": ["released", "reclaimed"] } }, "required": ["state"] }, "then": { "required": ["released_at"] }, "else": { "not": { "required": ["released_at"] } } }
+    {
+      "if": {
+        "properties": {
+          "resource_type": {
+            "const": "path"
+          }
+        },
+        "required": [
+          "resource_type"
+        ]
+      },
+      "then": {
+        "required": [
+          "mode"
+        ],
+        "properties": {
+          "resource": {
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "resource_type": {
+            "const": "port"
+          }
+        },
+        "required": [
+          "resource_type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "resource": {
+            "pattern": "^port:(3002|3050|31[0-9]{2})$"
+          }
+        },
+        "not": {
+          "required": [
+            "mode"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "resource_type": {
+            "const": "build"
+          }
+        },
+        "required": [
+          "resource_type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "resource": {
+            "pattern": "^build:[A-Za-z0-9._-]+$"
+          }
+        },
+        "not": {
+          "required": [
+            "mode"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "resource_type": {
+            "const": "release"
+          }
+        },
+        "required": [
+          "resource_type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "resource": {
+            "pattern": "^release:[A-Za-z0-9._-]+$"
+          }
+        },
+        "not": {
+          "required": [
+            "mode"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "resource_type": {
+            "const": "integration"
+          }
+        },
+        "required": [
+          "resource_type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "resource": {
+            "pattern": "^integration:[A-Za-z0-9._-]+$"
+          }
+        },
+        "not": {
+          "required": [
+            "mode"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "released",
+              "reclaimed"
+            ]
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "required": [
+          "released_at"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "released_at"
+          ]
+        }
+      }
+    }
   ],
-  "$defs": { "process": { "type": "object", "additionalProperties": false, "required": ["host_id", "boot_id", "pid_namespace", "pid", "pgid", "start_ticks", "cwd", "nonce"], "properties": {
-    "host_id": { "type": "string", "minLength": 1 }, "boot_id": { "type": "string", "minLength": 1 }, "pid_namespace": { "type": "string", "minLength": 1 },
-    "pid": { "type": "integer", "minimum": 1 }, "pgid": { "type": "integer", "minimum": 1 }, "start_ticks": { "type": "integer", "minimum": 0 },
-    "cwd": { "type": "string", "minLength": 1 }, "nonce": { "type": "string", "minLength": 16 }
-  } } }
+  "$defs": {
+    "process": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_id",
+        "boot_id",
+        "pid_namespace",
+        "pid",
+        "pgid",
+        "start_ticks",
+        "cwd",
+        "nonce"
+      ],
+      "properties": {
+        "host_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "boot_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pid_namespace": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "pgid": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "start_ticks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cwd": {
+          "type": "string",
+          "minLength": 1
+        },
+        "nonce": {
+          "type": "string",
+          "minLength": 16
+        }
+      }
+    }
+  }
 }

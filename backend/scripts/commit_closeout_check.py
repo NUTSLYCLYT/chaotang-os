@@ -170,7 +170,18 @@ def main() -> int:
         action="store_true",
         help="允许已完成独立评估的 quality_baseline.json 进入本次检查",
     )
+    parser.add_argument("--verify-lease-attestation", metavar="COMMIT", help="调用根级权威门验证候选提交租约证明")
     args = parser.parse_args()
+
+    if args.verify_lease_attestation:
+        verify = subprocess.run(
+            ["node", "../scripts/integration-lease-gate.mjs", "--candidate", args.verify_lease_attestation],
+            cwd=ROOT, text=True, capture_output=True, check=False,
+        )
+        if verify.returncode != 0:
+            print(verify.stderr.strip() or "lease attestation verification failed", file=sys.stderr)
+            return verify.returncode
+        print(verify.stdout.strip())
 
     entries = run_git_status(include_ignored=args.include_ignored)
     if args.staged_only:

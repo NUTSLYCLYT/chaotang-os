@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, realpathSync, statSync, readFileSync, copyFileSync } from 'node:fs';
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 export const nowIso = () => new Date().toISOString();
@@ -17,7 +17,7 @@ export function resolveControlPlanePaths(cwd = process.cwd()) {
 
 function migrate(db) {
   const version = db.prepare('PRAGMA user_version').get().user_version;
-  if(version>3) throw new Error(`unknown control-plane schema version ${version}`);
+  if(version>4) throw new Error(`unknown control-plane schema version ${version}`);
   if (version < 1) {
     db.exec(`BEGIN IMMEDIATE;
       CREATE TABLE IF NOT EXISTS tasks(task_id TEXT PRIMARY KEY, spec_json TEXT NOT NULL, owner TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL);
@@ -38,6 +38,7 @@ function migrate(db) {
     CREATE INDEX IF NOT EXISTS idx_resource_locks_state_expiry ON resource_locks(state,expires_at);
     CREATE INDEX IF NOT EXISTS idx_resource_locks_task ON resource_locks(task_id); PRAGMA user_version=2;`);});}
   if(version<3){withImmediateTransaction(db,()=>{const columns=db.prepare('PRAGMA table_info(resource_locks)').all().map(row=>row.name);if(!columns.includes('protected_paths_json'))db.exec("ALTER TABLE resource_locks ADD COLUMN protected_paths_json TEXT NOT NULL DEFAULT '[]'");db.exec('PRAGMA user_version=3');});}
+  if(version<4){withImmediateTransaction(db,()=>{const columns=db.prepare('PRAGMA table_info(leases)').all().map(row=>row.name);if(!columns.includes('entry_resource')){db.exec('ALTER TABLE leases ADD COLUMN entry_resource TEXT');db.exec('UPDATE leases SET entry_resource=resource WHERE entry_resource IS NULL');}db.exec('CREATE INDEX IF NOT EXISTS idx_leases_entry_active ON leases(state,resource_type,entry_resource); PRAGMA user_version=4');});}
 }
 
 export function openControlPlaneDb({ cwd = process.cwd(), databasePath } = {}) {
@@ -90,6 +91,7 @@ export function normalizeRepoPath(input, cwd = process.cwd()) {
   if (canonicalRel === '..' || canonicalRel.startsWith(`..${sep}`) || isAbsolute(canonicalRel)) throw new Error(`symlink escapes repository: ${input}`);
   return canonicalRel.split(sep).join('/');
 }
+export function normalizeGitEntryPath(input,cwd=process.cwd()){const{repositoryRoot}=resolveControlPlanePaths(cwd),absolute=resolve(repositoryRoot,input);let parentInput=dirname(absolute),suffix=[];while(true){try{parentInput=realpathSync(parentInput);break;}catch{const up=dirname(parentInput);if(up===parentInput)throw new Error(`cannot resolve Git entry parent: ${input}`);suffix.unshift(basename(parentInput));parentInput=up;}}const entry=join(parentInput,...suffix,basename(absolute)),rel=relative(repositoryRoot,entry);if(rel==='..'||rel.startsWith(`..${sep}`)||isAbsolute(rel))throw new Error(`Git entry escapes repository: ${input}`);return rel.split(sep).join('/');}
 
 export function pathsOverlap(a, b) { return a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`); }
 export function nextFencingEpoch(db) { db.prepare("UPDATE control_meta SET integer_value=integer_value+1 WHERE key='fencing_epoch'").run(); return db.prepare("SELECT integer_value FROM control_meta WHERE key='fencing_epoch'").get().integer_value; }

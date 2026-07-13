@@ -123,6 +123,8 @@ test('root manifest reports component status without overstating the whole contr
   const manifest = await json('.harness/manifest/project-harness.json');
   assert.equal(manifest.controlPlane.status, 'IMPLEMENTING');
   assert.equal(manifest.controlPlane.components.contracts, 'IMPLEMENTED');
-  assert.equal(manifest.controlPlane.components.leaseManager, 'DESIGNED');
+  assert.equal(manifest.controlPlane.components.leaseManager, 'IMPLEMENTED');
+  assert.equal(manifest.controlPlane.components.leaseAttestation, 'IMPLEMENTED_LOCAL');
+  assert.equal(manifest.controlPlane.components.integrationGate, 'IMPLEMENTED_LOCAL');
   assert.ok(manifest.controlPlane.verification.includes('node --test scripts/multi-agent-contracts.nodetest.mjs'));
 });

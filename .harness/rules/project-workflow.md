@@ -16,6 +16,13 @@
    - 前端：`cd frontend && pnpm harness:doctor`
    - 后端：对应 README 中列出的 pytest 或 harness runner。
 
+## 候选提交租约证明
+
+- 每个候选提交必须在租约仍有效且 holder 身份仍存活时生成 unsigned request，绑定 Task、Lease、fencing epoch、credential commitment、进程身份、repository identity、worktree、parent、tree、commit、规范化 diff paths 与 lease audit checkpoint。
+- 独立 Ed25519 signer 进程是唯一签发方；私钥只能从仓库外 secret path 读取，worker 不得读取私钥或签发证明。integrator 只信配置的外部公钥和签名 checkpoint。
+- pre-commit hook 只运行快速反馈，可以被 `--no-verify` 绕过，因此不构成安全边界。
+- integration/CI 必须运行 `node scripts/integration-lease-gate.mjs --candidate <exact-40-char-sha>`，从 Git object 重算 parent/tree/name-status-z diff，并验证 Ed25519 签名、checkpoint 和 lease epoch。缺失、篡改、越权或已撤销证明一律 STOP。Gitee required check 未由仓库代码自动配置时，状态只能是 `IMPLEMENTED_LOCAL`。
+
 ## 根级 Change 记录
 
 根级变更使用 `.harness/templates/change-template/`，至少包含：
