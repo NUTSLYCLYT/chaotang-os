@@ -13,6 +13,8 @@
   -> 明确 API 契约 / 外部来源
 ```
 
+`src/app` 不承载 BFF 层。禁止新增 `src/app/api/**` 或 `src/app/**/route.*`；运行服务必须由后端线提供明确 API，前端只通过类型化 adapter 调用。
+
 ## 主产品闭环
 
 ```text

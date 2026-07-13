@@ -16,6 +16,7 @@
 - 非前端运行事实和质量基线。
 - 用 mock 或静态样例证明运行服务质量。
 - 把真实产线不可逆动作伪装成前端本地能力。
+- 新增或恢复 BFF 层；不得创建 `src/app/api/**` 或 App Router `route.*` 来代理、编排或承接后端运行服务。
 
 跨线归属以根级 `../.harness/manifest/project-harness.json` 为准；运行事实以 API 契约、根级文档和明确验证输出为准。
 
@@ -62,6 +63,7 @@ pnpm test:e2e
 - 类型或契约改动至少跑 TypeScript/build 或对应单测。
 - 高风险前端能力，如鉴权、租户隔离、特权写入、source label、真实数据声明和发布门禁，必须有 review 与回归验证。
 - 涉及运行服务事实时，必须标明证据来源、API 契约或根级验证命令。
+- 前端 harness 变更必须保持无 BFF 层；`pnpm harness:doctor` 对 `src/app/api/**` 和 `src/app/**/route.*` 执行阻断检查。
 
 ## 收口
 

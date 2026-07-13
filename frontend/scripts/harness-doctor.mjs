@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 import { existsSync } from 'node:fs';
 import { readdir, readFile, stat } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 const harness = join(root, '.harness');
+const appRoot = join(root, 'src', 'app');
 
 const expectedChangeFiles = [
   'summary.md',
@@ -55,6 +56,26 @@ function error(message) {
 
 async function readText(path) {
   return readFile(path, 'utf8');
+}
+
+async function collectForbiddenRouteHandlers(dir, found = []) {
+  if (!existsSync(dir)) return found;
+  const entries = await readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const abs = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      await collectForbiddenRouteHandlers(abs, found);
+      continue;
+    }
+    if (/^route\.(ts|tsx|js|jsx)$/.test(entry.name)) {
+      found.push(abs);
+    }
+  }
+  return found;
+}
+
+function displayPath(path) {
+  return relative(root, path).replaceAll('\\', '/');
 }
 
 function extractSummaryField(text, field) {
@@ -119,6 +140,20 @@ for (const [rel, needle] of entryPointExpectations) {
   const text = await readText(abs);
   if (text.includes(needle)) ok(`entrypoint: ${rel} -> ${needle}`);
   else error(`entrypoint ${rel}: missing reference to ${needle}`);
+}
+
+const appApiDir = join(appRoot, 'api');
+if (existsSync(appApiDir)) {
+  error('BFF layer forbidden: remove src/app/api/** and call backend APIs through typed adapters');
+} else {
+  ok('no BFF directory: src/app/api');
+}
+
+const forbiddenRouteHandlers = await collectForbiddenRouteHandlers(appRoot);
+if (forbiddenRouteHandlers.length > 0) {
+  error(`BFF route handlers forbidden: ${forbiddenRouteHandlers.map(displayPath).join(', ')}`);
+} else {
+  ok('no App Router route handlers in src/app');
 }
 
 const expectedSkills = [

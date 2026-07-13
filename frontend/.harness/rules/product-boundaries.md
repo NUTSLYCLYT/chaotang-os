@@ -24,6 +24,18 @@
 - 非前端运行事实和质量基线。
 - 非前端评测资产、运行账本、质量门禁和生产执行逻辑。
 - 对外承诺、报价、BOM、供应商锁定、安全建议等真实产线不可逆动作。
+- BFF 层、API route handler、运行服务代理、服务端编排入口或任何把后端能力包进 `frontend/src/app/api/**` 的实现。
+
+## BFF 禁令
+
+前端不得新增、恢复或迁移 BFF 层。具体禁止：
+
+- 禁止创建 `src/app/api/**`。
+- 禁止创建 `src/app/**/route.ts`、`route.tsx`、`route.js` 或 `route.jsx`。
+- 禁止用 Next.js route handler 临时代理后端、拼装运行结果、隐藏真实 API 契约或绕过跨线边界。
+- 禁止把后端 provider key、运行 prompt、蜂群编排、质量基线、运行账本或生产执行逻辑放入前端。
+
+需要服务端能力时，应在后端线实现明确 API，并由前端通过类型化 adapter 调用。
 
 ## 运行事实引用
 

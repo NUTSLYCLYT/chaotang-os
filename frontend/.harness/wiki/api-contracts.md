@@ -1,6 +1,6 @@
 # API 契约
 
-前端不再拥有运行时 BFF 层。不要新增 `src/app/api/**` route handler 来承接生产运行逻辑或代理运行服务。
+前端不拥有运行时 BFF 层。不要新增、恢复或迁移 `src/app/api/**`，也不要新增 App Router `route.*` handler 来承接生产运行逻辑或代理运行服务。
 
 ## 当前原则
 
@@ -90,6 +90,7 @@ node scripts/harness-doctor.mjs
 - 每条 alias 的 owner、canonical path 与退役条件以 `docs/api-contract-inventory-2026-07-09.md` 为准。
 - 删除 alias 前必须先运行 inventory，确认 legacy path 已没有前端调用。
 - 删除 alias 后必须运行 `frontend/src/lib/backend-api.nodetest.ts` 并更新本 wiki。
+- 前端 harness doctor 会阻断 `src/app/api/**` 与 `src/app/**/route.*`，确保 BFF 层不会回流。
 
 ## 环境变量
 
@@ -115,6 +116,7 @@ UI 展示运行数据时，应把 source label 带到 view model 或页面说明
 
 - 禁止用前端 mock 证明运行服务质量。
 - 禁止用本地 route handler 临时代理来绕过 API 契约。
+- 禁止创建 `src/app/api/**` 或 `src/app/**/route.*`。
 - 禁止把运行器、供应方 key、运行记录或质量基线搬到前端。
 - 禁止把运行服务不可达时的样例数据标为 LIVE。
 

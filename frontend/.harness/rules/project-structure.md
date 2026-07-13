@@ -6,7 +6,7 @@
 
 ```text
 src/
-  app/          Next.js 路由、layout、server/client 入口
+  app/          Next.js 页面、layout、server/client 入口；不得包含 api/ 或 route handler
   components/   可复用视觉组件
   features/     产品能力切片与 UI 工作流
   core/         领域逻辑、CourtOS 协议适配、纯业务逻辑、评测器
@@ -37,6 +37,7 @@ src/shared -> src/types
 规则：
 
 - `src/app` 可以组合各层，但路由入口必须保持鉴权、租户、source label 边界清楚。
+- `src/app` 只承载页面、layout、loading、error、metadata 等前端体验入口；禁止 `src/app/api/**` 与 `src/app/**/route.*`。
 - `src/features/{slice}` 不直接 import 另一个 feature 的内部实现；共享能力放到 `src/core`、`src/lib`、`src/shared` 或公共入口。
 - `src/core/courtos/**` 承载 CourtOS 前端领域逻辑，UI 不应复制核心算法来制造更好看的分叉答案。
 - `src/lib` 不 import UI 或 route 模块。
