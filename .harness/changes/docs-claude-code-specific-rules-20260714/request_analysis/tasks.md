@@ -9,5 +9,5 @@
 - 涉及文件：`AGENTS.md`
 - 状态 / 数据变化：纯文档编辑，无运行时状态变化
 - 验证命令与证据：`node scripts/harness-doctor.mjs` → `0 errors, 0 warning(s)`；人工通读确认新增章节与既有"不可绕过"条款无冲突、格式一致
-- 回滚边界：`git checkout AGENTS.md`
+- 回滚边界：本任务与本变更记录目录在同一次提交（`8dee499`，5 files changed：`AGENTS.md` + 本目录4个文件）里一起落地，单独 `git checkout AGENTS.md` 不会移除本目录、会留下孤儿变更记录。准确回滚：`git revert 8dee499`，或 `git checkout AGENTS.md` 后手动删除本变更记录目录
 - 完成定义：`harness-doctor.mjs` 0 errors；变更记录四文件填写完整

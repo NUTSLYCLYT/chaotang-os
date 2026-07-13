@@ -18,9 +18,9 @@
 
 ## Diff 与回滚复核
 
-- changed files：`AGENTS.md`（仅8行新增，无删除）
+- changed files：提交 `8dee499` 共5个文件——`AGENTS.md`（8行新增，无删除）+ 本变更记录目录4个文件（`summary.md`/`request_analysis/spec.md`/`request_analysis/tasks.md`/`ci_result/ci_summary.md`，均为新建）
 - diff review：`git diff --stat` 确认改动范围精确，人工通读确认新增章节独立成段、不与既有"不可绕过"条款交叉引用出错
-- 回滚是否演练：未演练（风险极低，纯文本新增，`git checkout AGENTS.md` 即可完全撤销）
+- 回滚是否演练：未演练。**订正**：先前描述"`git checkout AGENTS.md` 即可完全撤销"不准确——实际提交 `8dee499` 是 `AGENTS.md` + 本变更记录目录4个文件一起落地的单次提交（`git show --stat 8dee499` 确认 5 files changed），只 checkout `AGENTS.md` 会把变更记录4个文件留成描述一个已撤销改动的孤儿文档。准确回滚方式：`git revert 8dee499`（整体撤销），或 `git checkout AGENTS.md` 后再手动删除本变更记录目录。风险仍然极低（纯文本+文档，无数据、无运行时状态）。
 
 ## 完成定义映射
 
