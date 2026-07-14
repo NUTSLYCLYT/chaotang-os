@@ -32,13 +32,15 @@ ROUTERS = Path(__file__).resolve().parent.parent / "web" / "routers"
 # 2026-07-14:与行为门 test_p0b_cross_user_behavioral.py 用同一个 form-agnostic
 # 检测(query(DecisionTask) / get(DecisionTask,),不再是只认 filter_by(id= 的窄正则)——
 # 否则两道门口径不一,表面积棘轮会漏掉列表查询等形态。
-_PATTERN = re.compile(r"query\(\s*DecisionTask\s*\)|\.get\(\s*DecisionTask\s*,")
+_PATTERN = re.compile(
+    r"query\(\s*DecisionTask\s*\)|\.get\(\s*DecisionTask\s*,|filter\(\s*DecisionTask\."
+)
 
 # 文件名 → DecisionTask 查询处数(所有形态;不区分是否带归属校验——本门区分不了)。
 _BASELINE = {
-    "court_compat.py": 1,
+    "court_compat.py": 2,
     "jinyiwei.py": 1,
-    "shangshufang.py": 10,
+    "shangshufang.py": 12,
     "swarm_runs.py": 1,
 }
 

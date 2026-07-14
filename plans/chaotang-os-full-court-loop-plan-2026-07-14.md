@@ -53,11 +53,17 @@
      未修端点以 `strict=True` xfail 实证在案；修好后 XPASS 会让测试失败，强制删标记（还债留痕）。
      清零的可执行定义 = 该文件 xfail 数 == 0 **且**覆盖率门
      `test_every_attack_surface_endpoint_has_a_probe` 绿（保证"没写测试"不会被误读成"没有漏洞"）。
-     2026-07-14 实测：**10 个 xfail = 10 个活漏洞**（8 个点查:task_decision / swarm_deepen /
-     confirm_edict / finance_intel_case / brief_decision_advance / edict_return /
-     swarm_runs_create / swarm_runs_create_serial_loop；2 个列表泄露:grand_council_live /
-     shangshufang_home），已修 1 个（task_status），guarded 样板 1 个（jinyiwei fill-gap）。
-   - 四个反面教训已固化进测试注释，勿重蹈：
+     2026-07-14 实测：**12 个 xfail = 12 个活漏洞**（点查/委托:task_decision / swarm_deepen /
+     confirm_edict / finance_intel_case / brief_decision_advance / brief_decision /
+     edict_return / swarm_runs_create / swarm_runs_create_serial_loop / swarm_runs_retry；
+     列表泄露:grand_council_live / shangshufang_home），已修 1 个（task_status），
+     guarded 样板 1 个（jinyiwei fill-gap）。
+   - **静态门有已知天花板，不能只凭它全绿宣称 P0-B 清零**：同仓静态扫描无法 sound 地
+     枚举"某 route 是否读 DecisionTask"（动态派发、原生 SQL、别名 import、超一跳跨文件链
+     都抓不到）。真正 sound 的关闭是**结构性**的——把所有 DecisionTask 按 id 的读收口到
+     唯一一个带归属校验的 accessor，届时"未经 accessor 直接 query"成为可精确 grep 的违规。
+     这是 P0-B 收尾项。在此之前**行为 probe 才是权威**，静态门只是尽力而为的绊线。
+   - 五个反面教训已固化进测试注释，勿重蹈：
      (a) **计数 ≠ 归属**——`test_p0b_ownership_ratchet.py` 只数裸查处数，而修复是"在裸查后加一行校验"，
          计数不变，故它**不是** P0-B 硬门，已降级为"攻击面不许增长"的表面积棘轮；
      (b) **"被拒了" ≠ "因归属被拒"**——`/tasks/{id}/decision` 和 `/briefs/{id}/decision/advance`
@@ -78,6 +84,13 @@
          "机密哨兵字符串绝不能出现在返回体"检验（弱断言 success is False 对列表端点无效）；
          且列表端点要种齐触发上榜所需的全部关联行（grand-council 需 RouteDecision+CourtReview，
          否则受害者任务因"数据不全没上榜"假绿）。
+     (e) **只扫 router 文件 = 假绿**——检测原来只读 `web/routers/*.py`,route 若把
+         DecisionTask 读委托给跨文件 helper（如 `decree_status.build_decree_execution_status`）
+         就整个漏过。改为:全仓找出所有"直接读 DecisionTask"的函数名,router 里 import 到
+         这些名字并调用 → route 进攻击面;同文件多级 helper 传染取不动点。抓出
+         `brief_decision`(委托)和 `swarm_runs_retry`(经 `_default_context`)两个新面。
+         已用"纯跨文件委托、函数体无 query"的新端点实验验证门会红。**但此法仍非 sound**
+         (见上方天花板声明),这也是为什么把结构性 accessor 收口列为收尾项。
    - `pnpm prod:doctor` ≠ STOP；
    - 后端 8 个"既有失败"测试有钉死清单+owner（允许未清零，不允许无主）。
 2. **门检查方式**：每个 P 阶段的 change record 的 `request_analysis/spec.md` 必须引用本节并记录当时的三项实测值（P0-B 项 = 跑行为门并粘贴 xfail 数）；御前包工头（任何 agent）在 P1+ change 开工前先跑这三项。表面积棘轮同时挡住新增攻击面：任何人新增 DecisionTask 裸查，必须同步补一条行为 probe 并上调基线。

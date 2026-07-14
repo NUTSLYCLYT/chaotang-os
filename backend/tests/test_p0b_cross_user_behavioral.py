@@ -59,15 +59,35 @@ client = TestClient(app)
 # 它当时也确实漏了 `create_serial_loop` 这条真实攻击面)。
 # 新端点只要碰 DecisionTask 裸查,就自动要求一条 probe,不需要谁记得更新清单。
 
-_ROUTERS_DIR = Path(__file__).resolve().parent.parent / "web" / "routers"
-# 2026-07-14 四次纠正:上一版检测用 `query\(DecisionTask\)\.filter_by\(id=` 这个
-# 窄正则,只认一种查询写法。任何别的形态——`.filter(DecisionTask.status...)`
-# 列表查询、`.get(DecisionTask, x)`、`.filter(DecisionTask.id == x)`——都读得到
-# 他人的 DecisionTask 却被静默漏掉(假绿)。实测该窄正则漏了 grand_council_live
-# 和 shangshufang_home 两个真实**列表泄露**端点(都是 status-only 过滤、无 user_id)。
-# 现在改为 form-agnostic:任何从 DB 取 DecisionTask 行的查询都算,不管 filter 语法。
+_BACKEND_ROOT = Path(__file__).resolve().parent.parent
+_ROUTERS_DIR = _BACKEND_ROOT / "web" / "routers"
+# form-agnostic:任何从 DB 取 DecisionTask 行的查询都算,不管 filter 语法。
 # 排除构造器创建(db.add(DecisionTask(...)))——那是写自己的行,不是读别人的。
-_LOOKUP = re.compile(r"query\(\s*DecisionTask\s*\)|\.get\(\s*DecisionTask\s*,")
+_LOOKUP = re.compile(
+    r"query\(\s*DecisionTask\s*\)|\.get\(\s*DecisionTask\s*,|filter\(\s*DecisionTask\."
+)
+
+# ============================ 已知天花板(本门不 sound)============================
+# 2026-07-14 五次纠正后的诚实声明:经过四轮"加宽检测"(窄正则→form-agnostic→AST
+# 推导→跨文件),每轮都抓出真漏洞,但每轮又被指出"仍可假绿"。根本原因是——
+# **同仓静态扫描无法 sound 地枚举"某 route 是否读 DecisionTask"**。这跟
+# rollout-history 自检器"改不了检查它自己被删"是同一类不可消除的天花板。
+#
+# 本门现在做到:直接读 + import 解析的跨文件一跳 reader + 同文件多级 helper 传染
+# (下面 derive_attack_surface 实现,已实测能抓出跨文件的 build_decree_execution_status
+#  和 helper 链上的 create_serial_loop/retry_swarm_run)。
+#
+# 本门**仍然抓不到**(会假绿,已知且接受,不假装完整):
+#   - 动态派发 / getattr / 反射调用读 DecisionTask;
+#   - 原生 SQL 字符串("SELECT ... FROM decision_tasks");
+#   - 把 DecisionTask 用别名 import(`import ... as DT`)后 query(DT);
+#   - 跨文件超过一跳的调用链(route→A→B→读)。
+# 真正的 sound 关闭方式是**结构性**的,不是更强的扫描:把所有 DecisionTask 按 id 的
+# 读收口到唯一一个带归属校验的 accessor,届时"未经 accessor 直接 query(DecisionTask)"
+# 变成一条可精确 grep 的违规——把无界的检测问题变成有界的。这是一次会与并发 session
+# 冲突的重构,列为 P0-B 的收尾项(见 plan)。在此之前:**本文件的行为 probe 才是权威**,
+# 静态门只是尽力而为的绊线;"P0-B 清零"不能只凭静态门全绿宣称。
+# ================================================================================
 
 
 def _is_route(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
@@ -79,27 +99,72 @@ def _is_route(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     return False
 
 
+def _funcs_reading_decision_task(path: Path) -> set[str]:
+    """某文件里"函数体直接含 DecisionTask 读查询"的函数名集合。"""
+    src = path.read_text(encoding="utf-8")
+    if not _LOOKUP.search(src):
+        return set()
+    tree = ast.parse(src)
+    out: set[str] = set()
+    for n in ast.walk(tree):
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if _LOOKUP.search(ast.get_source_segment(src, n) or ""):
+                out.add(n.name)
+    return out
+
+
+def _cross_file_reader_names() -> set[str]:
+    """全仓(排除 tests)所有"函数体直接读 DecisionTask"的函数名——用于解析 router
+    import 进来的名字是否是个 reader。按裸名匹配(过度近似=偏安全,宁可多报)。"""
+    names: set[str] = set()
+    for path in _BACKEND_ROOT.rglob("*.py"):
+        sp = str(path)
+        if "/tests/" in sp or "__pycache__" in sp:
+            continue
+        try:
+            names |= _funcs_reading_decision_task(path)
+        except (SyntaxError, UnicodeDecodeError):
+            continue
+    return names
+
+
 def derive_attack_surface() -> set[str]:
-    """从源码推导:所有"读写 DecisionTask 按 id 裸查"的 route 函数名(含经 helper 传染)。"""
+    """推导所有"读 DecisionTask 行"的 route:直接查询 + import 来的跨文件 reader +
+    同文件多级 helper 传染。已知天花板见文件上方声明。"""
+    cross_file_readers = _cross_file_reader_names()
     surface: set[str] = set()
     for path in sorted(_ROUTERS_DIR.glob("*.py")):
         src = path.read_text(encoding="utf-8")
-        if not _LOOKUP.search(src):
-            continue
         tree = ast.parse(src)
         funcs = [
             n for n in ast.walk(tree)
             if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
         ]
         segs = {n.name: (ast.get_source_segment(src, n) or "") for n in funcs}
-        tainted_helpers = {
-            n.name for n in funcs if not _is_route(n) and _LOOKUP.search(segs[n.name])
-        }
+
+        # 本文件 import 进来的、确实是 reader 的名字。
+        imported_readers: set[str] = set()
+        for n in ast.walk(tree):
+            if isinstance(n, ast.ImportFrom):
+                for alias in n.names:
+                    if alias.name in cross_file_readers:
+                        imported_readers.add(alias.asname or alias.name)
+
+        # 起始污染集:本文件直接读的函数 + import 来的 reader。
+        tainted = {name for name in segs if _LOOKUP.search(segs[name])} | imported_readers
+        # 多级传染:调用了污染函数的函数,自己也污染,迭代到不动点。
+        changed = True
+        while changed:
+            changed = False
+            for name, seg in segs.items():
+                if name in tainted:
+                    continue
+                if any(re.search(rf"\b{re.escape(t)}\(", seg) for t in tainted):
+                    tainted.add(name)
+                    changed = True
+
         for n in funcs:
-            if not _is_route(n):
-                continue
-            seg = segs[n.name]
-            if _LOOKUP.search(seg) or any(f"{h}(" in seg for h in tainted_helpers):
+            if _is_route(n) and n.name in tainted:
                 surface.add(f"{path.stem}:{n.name}")
     return surface
 
@@ -120,6 +185,9 @@ _PROBES = {
     # form-agnostic 检测新抓出的两个列表泄露端点(窄正则漏掉的):
     "court_compat:grand_council_live": "test_grand_council_live_list_leak",
     "shangshufang:shangshufang_home": "test_shangshufang_home_list_leak",
+    # 跨文件/多级传染检测新抓出的(直接扫 router 漏掉的):
+    "shangshufang:shangshufang_brief_decision": "test_shangshufang_brief_decision",
+    "swarm_runs:retry_swarm_run": "test_swarm_runs_retry",
 }
 
 # 推导出来但**不是**跨用户攻击面的,必须在这里显式豁免并写明理由(不许静默忽略)。
@@ -334,6 +402,47 @@ def test_swarm_runs_create_serial_loop(isolated_session_local):
         json={"task_id": "p0b_swarmrun_serial", "mode": "dry_run"},
     ).json()
     _assert_denied(body, "swarm run serial")
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="P0-B 未修:POST /briefs/{id}/decision 直接委托 brief_decision_advance,"
+    "同样无归属校验。这条经跨文件/委托检测抓出",
+)
+def test_shangshufang_brief_decision(isolated_session_local):
+    _seed_other_users_review(isolated_session_local, "p0b_bd", "p0b_bd_task")
+    body = client.post(
+        "/api/shangshufang/briefs/p0b_bd/decision",
+        json={"decision": "issue_decree"},
+    ).json()
+    _assert_denied(body, "brief decision")
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="P0-B 未修:POST /api/swarm-runs/{id}/retry 按 swarm_run_id 取别人的 run,"
+    "再用其 task_id 经 _default_context 读他人 DecisionTask 并重跑。跨 helper 传染检测抓出",
+)
+def test_swarm_runs_retry(isolated_session_local):
+    from src.db.models import DecisionTask, SwarmRun
+
+    db = isolated_session_local()
+    db.add(
+        DecisionTask(
+            id="p0b_retry_task", user_id="someone_else", raw_question="别人的任务",
+            status="reviewing", source_label="LIVE",
+        )
+    )
+    db.add(
+        SwarmRun(
+            id="p0b_retry_run", task_id="p0b_retry_task", review_id="p0b_retry_review",
+            mode="dry_run", status="failed",
+        )
+    )
+    db.commit()
+    db.close()
+    body = client.post("/api/swarm-runs/p0b_retry_run/retry").json()
+    _assert_denied(body, "swarm run retry")
 
 
 # ---------------------------------------------------------------------------
