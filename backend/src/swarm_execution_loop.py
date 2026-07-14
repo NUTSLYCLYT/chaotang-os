@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import contextvars
 import hashlib
 import os
@@ -20,6 +21,35 @@ from typing import Any
 
 from src.perf_outcomes_guard import enrich_quality_result
 from src.real_department_engines import get_real_engine_fn_for_swarm
+
+# 页面同步路径覆盖开关。2026-07-14 Codex 复审发现:原实现用 os.environ[...] = ...
+# 在 shangshufang.py 里 set/finally-restore,但 FastAPI 同步 route 跑在线程池,
+# os.environ 是进程级共享状态——并发请求(两个用户同时点/同一用户双击)会互相踩踏
+# 对方的开关,退化回 hang 或提前把开关踩灭。ContextVar 按线程/task 隔离,且本文件
+# 下方 _run_departments_cross_referenced 已经用 contextvars.copy_context() 把
+# 调用方 context 带进 ThreadPoolExecutor worker,这两个开关天然复用同一条链路。
+_PAGE_SYNC_LIVE_OVERRIDE: contextvars.ContextVar[bool | None] = contextvars.ContextVar(
+    "_PAGE_SYNC_LIVE_OVERRIDE", default=None
+)
+_PAGE_SYNC_SKIP_REAL_OVERRIDE: contextvars.ContextVar[bool | None] = contextvars.ContextVar(
+    "_PAGE_SYNC_SKIP_REAL_OVERRIDE", default=None
+)
+
+
+@contextlib.contextmanager
+def page_sync_scope():
+    """页面同步路径专用作用域:关通用角色扮演 LLM(FENGQUN_LIVE_SWARM 语义)+
+    跳过真实部门引擎 LLM 外呼(FENGQUN_PAGE_SYNC_SKIP_REAL_ENGINES 语义)。
+    用 contextvars.Token 精确 reset,不做"读旧值再写回"快照,天然支持并发/嵌套调用。
+    """
+    live_token = _PAGE_SYNC_LIVE_OVERRIDE.set(False)
+    skip_token = _PAGE_SYNC_SKIP_REAL_OVERRIDE.set(True)
+    try:
+        yield
+    finally:
+        _PAGE_SYNC_LIVE_OVERRIDE.reset(live_token)
+        _PAGE_SYNC_SKIP_REAL_OVERRIDE.reset(skip_token)
+
 
 SWARM_DOER_MODEL = (
     "swarm-deepseek-pro"  # 蜂群 doer 路由(bias 判定用;真 executor 接入后即此族)
@@ -432,7 +462,12 @@ def run_department_swarm(
         if real_out is not None:
             return _enforce_xingbu_hard_stop(swarm_id, text, real_out)
     if live is None:
-        live = os.environ.get("FENGQUN_LIVE_SWARM", "").lower() in ("1", "true", "yes")
+        override = _PAGE_SYNC_LIVE_OVERRIDE.get()
+        live = (
+            override
+            if override is not None
+            else os.environ.get("FENGQUN_LIVE_SWARM", "").lower() in ("1", "true", "yes")
+        )
     rule = _rule_department_swarm(swarm_id, confirmed_edict, source_label)
     if not live and call_fn is None:
         return rule
@@ -621,7 +656,12 @@ def _run_one_department(
     卡死上书房页面点击(hang 根因,2026-07-14 定位)。页面路径改走确定性规则兜底
     ——各部仍有分奏(不空),快;昂贵的真 LLM 分析留给 async 深议 session。
     """
-    skip_real = os.environ.get("FENGQUN_PAGE_SYNC_SKIP_REAL_ENGINES") == "1"
+    override = _PAGE_SYNC_SKIP_REAL_OVERRIDE.get()
+    skip_real = (
+        override
+        if override is not None
+        else os.environ.get("FENGQUN_PAGE_SYNC_SKIP_REAL_ENGINES") == "1"
+    )
     real_fn = (
         None
         if skip_real

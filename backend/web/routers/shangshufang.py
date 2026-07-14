@@ -51,7 +51,7 @@ from src.shangshufang_loop import (
     review_memorial_for,
     routing_plan_for,
 )
-from src.swarm_execution_loop import run_swarm_execution_loop
+from src.swarm_execution_loop import page_sync_scope, run_swarm_execution_loop
 from src.swarm_orchestrator import SESSIONS_DIR
 from src.swarm_persistence import (
     attach_swarm_result_to_review,
@@ -781,26 +781,18 @@ def _finance_status_view(
 def _run_swarm_execution_loop_sync(params: dict[str, Any]) -> dict[str, Any]:
     """Run the page-facing sync loop fast: no generic live LLM, no real-engine LLM.
 
-    2026-07-14 hang 根因:此前只设 FENGQUN_LIVE_SWARM=0(关通用角色扮演 LLM),但
-    真实部门引擎(兵部/刑部/户部…)每部一次真 LLM 外呼不受该 flag 管;配了 provider
-    key 时串起来 >2min,卡死上书房页面点击。这里再设 FENGQUN_PAGE_SYNC_SKIP_REAL_ENGINES=1
-    让页面路径走确定性规则兜底(各部仍有分奏、快),昂贵真 LLM 分析留给 async 深议。
+    2026-07-14 hang 根因:此前只关通用角色扮演 LLM,但真实部门引擎(兵部/刑部/
+    户部…)每部一次真 LLM 外呼不受管;配了 provider key 时串起来 >2min,卡死
+    上书房页面点击。页面路径改走确定性规则兜底(各部仍有分奏、快),昂贵真 LLM
+    分析留给 async 深议。
+
+    2026-07-14 复审:此前用 os.environ[...] set/finally-restore 实现开关,但本
+    路由是同步 def,FastAPI 扔进线程池跑,os.environ 是进程级共享状态——并发请求
+    会互相踩踏对方的开关。改用 page_sync_scope()(contextvars,按线程/task 隔离,
+    详见 src.swarm_execution_loop)。
     """
-    old_live = os.environ.get("FENGQUN_LIVE_SWARM")
-    old_skip = os.environ.get("FENGQUN_PAGE_SYNC_SKIP_REAL_ENGINES")
-    os.environ["FENGQUN_LIVE_SWARM"] = "0"
-    os.environ["FENGQUN_PAGE_SYNC_SKIP_REAL_ENGINES"] = "1"
-    try:
+    with page_sync_scope():
         return run_swarm_execution_loop(params)
-    finally:
-        for key, old in (
-            ("FENGQUN_LIVE_SWARM", old_live),
-            ("FENGQUN_PAGE_SYNC_SKIP_REAL_ENGINES", old_skip),
-        ):
-            if old is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = old
 
 
 @router.get("/home")
