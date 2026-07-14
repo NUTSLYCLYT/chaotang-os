@@ -13,6 +13,7 @@
 - 主线：P2 legacy writer fail-closed、governance compat 持久化、迁移 telemetry、前后端依赖守门。
 - 文件：`backend/src/{legacy_write_tripwire,migration_telemetry,legacy_writer_architecture,governance_compat_store}.py`、旧写调用点、`frontend/scripts/architecture-import-guard.mjs` 及测试。
 - 验证：新增测试先 RED；178 backend targeted、tsc、5 项前端守门、ruff、三层 doctor 全绿；完整 nodetest 1013 pass / 7 个既有基线失败。
+- P2 residual：补齐 P1 审查条件 F1，常驻校验后端 `departments.yaml` 与前端 `dept.ts` 的六部 `v1Code`、`agent_code`、名称和 legacy aliases 双向一致；P3 在 residual 获独立 GO 前不开工。
 
 ## 结果
 
@@ -21,6 +22,7 @@
 - outbox、DecreeExecutionEvent、FinalMemorial 指标只在事务成功后计数，rollback 不计，幂等 replay 不重复。
 - chaotang 待吸收端点和 chaotang_store 读写输出 caller 标识 deprecation 计数，供 P3 用流量证据逐端点拆除。
 - 后端 AST gate 与前端 Node import gate 冻结当前精确依赖面；新增符号、module import、side-effect attic import 或跨本地引擎 import 均会让常规测试失败。
+- `dept-yaml-parity.nodetest.ts` 进入完整 `test:node` profile；受控改坏户部 agent code 时精准 RED，恢复后 5 项 parity 断言全绿。
 
 ## 数据安全
 

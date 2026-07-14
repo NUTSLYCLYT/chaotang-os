@@ -13,10 +13,18 @@
 | `node scripts/harness-doctor.mjs` | 0 | 0 errors / 0 warnings | 根、前端、后端三层 harness | 2026-07-15 |
 | metrics 独立进程读取 | 0 | canonical 三阶段 `0.0`；未知 writer `blocked_unregistered=1.0` | 零/非零观测证据 | 2026-07-15 |
 | `git diff --check` | 0 | clean | whitespace/diff | 2026-07-15 |
+| P2 residual mutation：临时将户部前端 `agentCode` 改为 `li_bu` | 1 | RED：3 passed / 1 failed，精确报出 backend `hu_bu` ≠ frontend `li_bu` | F1 parity 守门有效性 | 2026-07-15 residual worktree |
+| `pnpm exec tsx --test src/lib/contracts/dept-yaml-parity.nodetest.ts` | 0 | 5 passed | 六部字段、v1Code 唯一/双向 key、agent/name、legacy aliases | 2026-07-15 residual worktree |
+| `python3 -m pytest -q tests/test_department_identity_ssot.py tests/test_chaotang_department_protocol.py` | 0 | 21 passed | 后端 identity SSOT 与 protocol golden | 2026-07-15 residual worktree |
+| `pnpm exec tsc --noEmit -p tsconfig.json` | 0 | 0 errors | residual 前端类型 | 2026-07-15 residual worktree |
+| `pnpm test:node` | 1 | 1018 pass / 7 baseline fail | residual 纳入完整前端 nodetest | 2026-07-15 residual worktree |
+| `node scripts/harness-doctor.mjs` | 0 | 0 errors / 0 warnings | residual 后三层 harness | 2026-07-15 residual worktree |
 
 ## 结果
 
 P2 新增测试均按 TDD 取得有效 RED 后转绿。受影响后端专项、TypeScript、常驻架构守门、三层 doctor 与 diff 均通过。完整前端 nodetest 仅保留 campaign 基线中的同一组 7 个失败；新增 5 项架构守门均通过。
+
+P2 residual 另以受控 agent-code 漂移证明跨端 parity 门会失败，恢复后 5/5；完整 nodetest 新增 5 项通过，7 个失败仍与 campaign 基线逐项同名。residual 只在 task 分支收口，未在 Claude 独立复审前合入 EXT。
 
 前端仓当前没有 ESLint 依赖/配置，未为单条规则引入新的依赖链；采用进入既有 `test:node` profile 的 Node 静态 import gate，实现 `no-restricted-imports` 等价行为，并额外覆盖 side-effect import 与“已允许文件新增另一引擎”负例。
 
@@ -42,6 +50,7 @@ P2 新增测试均按 TDD 取得有效 RED 后转绿。受影响后端专项、T
 | canonical/legacy 指标 | commit/rollback/idempotency tests + 独立 zero/nonzero 输出 | PASS |
 | 架构守门与违规 fixture | backend 3 项、frontend 5 项；完整 profiles 收录 | PASS |
 | 既有契约不回归 | 178 backend + 1013 frontend pass；7 baseline retained | PASS |
+| P1-F1 跨端 parity residual | mutation RED；5 parity + 21 backend identity/protocol GREEN；完整 profile 无新增失败 | PASS |
 
 ## 声明状态
 
