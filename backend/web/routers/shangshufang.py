@@ -805,6 +805,7 @@ def shangshufang_home(user: CurrentUser = Depends(get_current_user)) -> dict:
         pending = (
             db.query(DecisionTask)
             .filter(
+                DecisionTask.user_id == _user_id(user),
                 DecisionTask.status.in_(
                     ["awaiting_emperor_confirm", "awaiting_decision"]
                 )
@@ -815,7 +816,10 @@ def shangshufang_home(user: CurrentUser = Depends(get_current_user)) -> dict:
         )
         reviewing = (
             db.query(DecisionTask)
-            .filter(DecisionTask.status.in_(["reviewing", "awaiting_evidence"]))
+            .filter(
+                DecisionTask.user_id == _user_id(user),
+                DecisionTask.status.in_(["reviewing", "awaiting_evidence"]),
+            )
             .order_by(DecisionTask.updated_at.desc())
             .limit(10)
             .all()
@@ -1008,6 +1012,9 @@ def shangshufang_confirm_edict(
         if task is None:
             db.rollback()
             return fail("task_id 不存在")
+        if task.user_id != _user_id(user):
+            db.rollback()
+            return fail("无权确认该任务")
         if not body.confirmed:
             task.status = "draft_cancelled"
             task.updated_at = now_iso()
@@ -1380,6 +1387,8 @@ def shangshufang_task_decision(
         task = db.query(DecisionTask).filter_by(id=task_id).first()
         if task is None:
             return fail("task_id 不存在")
+        if task.user_id != _user_id(user):
+            return fail("无权裁决该任务")
         now = now_iso()
         decision = EmperorDecision(
             id=make_id("decision", task_id, body.action, now),
@@ -1465,6 +1474,8 @@ def shangshufang_swarm_deepen(
         task = db.query(DecisionTask).filter_by(id=task_id).first()
         if task is None:
             return fail("task_id 不存在")
+        if task.user_id != _user_id(user):
+            return fail("无权对该任务发起深议")
         review = _latest_review(db, task_id)
         if review is None:
             edict = draft_edict(task.raw_question, source_label=task.source_label)
@@ -2012,7 +2023,7 @@ def shangshufang_finance_intel_loop_complete(
 
 @router.get("/finance-intel-loop/cases/{task_id}")
 def shangshufang_finance_intel_loop_case(
-    task_id: str, _: CurrentUser = Depends(get_current_user)
+    task_id: str, user: CurrentUser = Depends(get_current_user)
 ) -> dict:
     from src.db.engine import SessionLocal
 
@@ -2021,6 +2032,8 @@ def shangshufang_finance_intel_loop_case(
         task = db.query(DecisionTask).filter_by(id=task_id).first()
         if task is None:
             return fail("task_id 不存在")
+        if task.user_id != _user_id(user):
+            return fail("无权查看该任务案卷")
         return ok(_finance_case_from_task(task, _latest_review(db, task_id)))
     finally:
         db.close()
@@ -2051,6 +2064,8 @@ def shangshufang_brief_decision_advance(
         task = db.query(DecisionTask).filter_by(id=review.task_id).first()
         if task is None:
             return fail("task_id 不存在")
+        if task.user_id != _user_id(user):
+            return fail("无权裁决该任务")
         mapping = {
             "issue_decree": "adopt",
             "request_more_evidence": "request_evidence",
@@ -2192,6 +2207,8 @@ def shangshufang_edict_return(
         task = db.query(DecisionTask).filter_by(id=body.taskId).first()
         if task is None:
             return fail("task_id 不存在")
+        if task.user_id != _user_id(user):
+            return fail("无权回填该任务")
         review = _latest_review(db, body.taskId)
         now = now_iso()
         return_payload = {

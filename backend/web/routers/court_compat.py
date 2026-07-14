@@ -25,6 +25,10 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _user_id(user: CurrentUser) -> str:
+    return str(user.user_id or user.username or user.tenant_slug or "anonymous")
+
+
 @router.get("/backend/tasks/{task_id}")
 def backend_task_detail(
     task_id: str,
@@ -298,7 +302,10 @@ def grand_council_live(
     try:
         tasks = (
             db.query(DecisionTask)
-            .filter(DecisionTask.status.in_(_LIVE_COUNCIL_STATUSES))
+            .filter(
+                DecisionTask.user_id == _user_id(user),
+                DecisionTask.status.in_(_LIVE_COUNCIL_STATUSES),
+            )
             .order_by(DecisionTask.updated_at.desc())
             .limit(max(1, min(limit, 50)))
             .all()
