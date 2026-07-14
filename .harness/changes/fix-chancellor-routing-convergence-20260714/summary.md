@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | fix-chancellor-routing-convergence-20260714 |
 | 类型 | fix |
-| 状态 | IN_PROGRESS |
+| 状态 | DONE |
 | Owner | Project Agent |
 | 创建日期 | 20260714 |
 
