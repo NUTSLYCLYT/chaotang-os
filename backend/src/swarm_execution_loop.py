@@ -614,15 +614,20 @@ _INTEL_GATHERING_SWARM = "jinyiwei_intel_swarm"
 def _run_one_department(
     sid: str, edict: dict[str, Any], source_label: str
 ) -> dict[str, Any]:
-    """跑单个部门蜂群(真实引擎优先,失败退兜底)。抽出来供串行/并行两条路径复用。"""
-    return run_department_swarm(
-        sid,
-        edict,
-        source_label,
-        real_engine_fn=get_real_engine_fn_for_swarm(
-            sid, swarm_role=SWARM_DEFS[sid]["role"]
-        ),
+    """跑单个部门蜂群(真实引擎优先,失败退兜底)。抽出来供串行/并行两条路径复用。
+
+    页面同步路径(FENGQUN_PAGE_SYNC_SKIP_REAL_ENGINES=1)跳过真实引擎:真实引擎
+    (兵部/刑部/户部…)每部一次真 LLM 外呼,配了 provider key 时串起来 >2min,
+    卡死上书房页面点击(hang 根因,2026-07-14 定位)。页面路径改走确定性规则兜底
+    ——各部仍有分奏(不空),快;昂贵的真 LLM 分析留给 async 深议 session。
+    """
+    skip_real = os.environ.get("FENGQUN_PAGE_SYNC_SKIP_REAL_ENGINES") == "1"
+    real_fn = (
+        None
+        if skip_real
+        else get_real_engine_fn_for_swarm(sid, swarm_role=SWARM_DEFS[sid]["role"])
     )
+    return run_department_swarm(sid, edict, source_label, real_engine_fn=real_fn)
 
 
 def _run_departments_cross_referenced(

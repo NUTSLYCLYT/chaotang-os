@@ -779,21 +779,28 @@ def _finance_status_view(
 
 
 def _run_swarm_execution_loop_sync(params: dict[str, Any]) -> dict[str, Any]:
-    """Run the page-facing sync loop without generic live LLM calls.
+    """Run the page-facing sync loop fast: no generic live LLM, no real-engine LLM.
 
-    Real department engines still participate when they have deterministic
-    inputs. The expensive open-ended LLM branch belongs in async swarm sessions,
-    not in Shangshufang page click handlers.
+    2026-07-14 hang 根因:此前只设 FENGQUN_LIVE_SWARM=0(关通用角色扮演 LLM),但
+    真实部门引擎(兵部/刑部/户部…)每部一次真 LLM 外呼不受该 flag 管;配了 provider
+    key 时串起来 >2min,卡死上书房页面点击。这里再设 FENGQUN_PAGE_SYNC_SKIP_REAL_ENGINES=1
+    让页面路径走确定性规则兜底(各部仍有分奏、快),昂贵真 LLM 分析留给 async 深议。
     """
-    old = os.environ.get("FENGQUN_LIVE_SWARM")
+    old_live = os.environ.get("FENGQUN_LIVE_SWARM")
+    old_skip = os.environ.get("FENGQUN_PAGE_SYNC_SKIP_REAL_ENGINES")
     os.environ["FENGQUN_LIVE_SWARM"] = "0"
+    os.environ["FENGQUN_PAGE_SYNC_SKIP_REAL_ENGINES"] = "1"
     try:
         return run_swarm_execution_loop(params)
     finally:
-        if old is None:
-            os.environ.pop("FENGQUN_LIVE_SWARM", None)
-        else:
-            os.environ["FENGQUN_LIVE_SWARM"] = old
+        for key, old in (
+            ("FENGQUN_LIVE_SWARM", old_live),
+            ("FENGQUN_PAGE_SYNC_SKIP_REAL_ENGINES", old_skip),
+        ):
+            if old is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = old
 
 
 @router.get("/home")

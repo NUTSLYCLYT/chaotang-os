@@ -20,7 +20,10 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "005_decree_execution_event_sequence"
-down_revision = "004_retrospective_outcome"
+# 2026-07-14: 原 down_revision 是 004,但 005 假设 create_all 已建好
+# decree_execution_events 才去 ALTER 它,干净库上会崩。插入 004b 先按 004 时代
+# schema 建该表(及其余 14 张裸表),让迁移链自包含。见 004b 迁移文件说明。
+down_revision = "004b_create_untracked_base_tables"
 branch_labels = None
 depends_on = None
 
