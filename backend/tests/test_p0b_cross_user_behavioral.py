@@ -34,6 +34,10 @@
 
 from __future__ import annotations
 
+import ast
+import re
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -41,17 +45,78 @@ from web.main import app
 
 client = TestClient(app)
 
-# 真实跨用户攻击面:调用方传入 task/brief id → 端点据此读写 DecisionTask。
-# 每一项都必须在本文件里有一条同名 probe(见覆盖率门)。
-_ATTACK_SURFACE = {
-    "shangshufang_task_status",
-    "shangshufang_task_decision",
-    "shangshufang_swarm_deepen",
-    "shangshufang_confirm_edict",
-    "shangshufang_finance_intel_case",
-    "shangshufang_brief_decision_advance",
-    "shangshufang_edict_return",
-    "swarm_runs_create",
+# ---------------------------------------------------------------------------
+# 攻击面:从代码 AST 推导,不手工维护
+# ---------------------------------------------------------------------------
+# 2026-07-14 三次纠正:上一版的攻击面是一个手写 set,而覆盖率门拿这个 set 去
+# 对照本文件的函数——两边都由我维护,是循环论证:新增一个有漏洞的端点、忘了
+# 往 set 里加,门照样全绿。这跟被我批过的"文档清单天生腐烂"是同一个病。
+#
+# 现在攻击面**从 router 源码 AST 推导**:任何函数体里出现
+# `query(DecisionTask).filter_by(id=` 就是"沾了"的;沾了的 route 直接进攻击面;
+# 沾了的 helper 会污染所有调用它的 route(实测抓到:swarm_runs.py 的裸查在
+# helper `_default_context` 里,只扫 route 会整个漏掉——这正是手写 set 的盲区,
+# 它当时也确实漏了 `create_serial_loop` 这条真实攻击面)。
+# 新端点只要碰 DecisionTask 裸查,就自动要求一条 probe,不需要谁记得更新清单。
+
+_ROUTERS_DIR = Path(__file__).resolve().parent.parent / "web" / "routers"
+_LOOKUP = re.compile(r"query\(DecisionTask\)\.filter_by\(id=")
+
+
+def _is_route(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    for dec in node.decorator_list:
+        target = dec.func if isinstance(dec, ast.Call) else dec
+        if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name):
+            if target.value.id == "router":
+                return True
+    return False
+
+
+def derive_attack_surface() -> set[str]:
+    """从源码推导:所有"读写 DecisionTask 按 id 裸查"的 route 函数名(含经 helper 传染)。"""
+    surface: set[str] = set()
+    for path in sorted(_ROUTERS_DIR.glob("*.py")):
+        src = path.read_text(encoding="utf-8")
+        if not _LOOKUP.search(src):
+            continue
+        tree = ast.parse(src)
+        funcs = [
+            n for n in ast.walk(tree)
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+        ]
+        segs = {n.name: (ast.get_source_segment(src, n) or "") for n in funcs}
+        tainted_helpers = {
+            n.name for n in funcs if not _is_route(n) and _LOOKUP.search(segs[n.name])
+        }
+        for n in funcs:
+            if not _is_route(n):
+                continue
+            seg = segs[n.name]
+            if _LOOKUP.search(seg) or any(f"{h}(" in seg for h in tainted_helpers):
+                surface.add(f"{path.stem}:{n.name}")
+    return surface
+
+
+# 攻击面 route → 本文件里对应的 probe 函数名。
+# 加一个碰 DecisionTask 裸查的新端点 → 推导出的攻击面多一项 → 这里没登记 → 覆盖率门红。
+_PROBES = {
+    "jinyiwei:intel_evidence_fill_gap": "test_guarded_exemplar_jinyiwei_fill_gap",
+    "shangshufang:shangshufang_task_status": "test_shangshufang_task_status",
+    "shangshufang:shangshufang_task_decision": "test_shangshufang_task_decision",
+    "shangshufang:shangshufang_swarm_deepen": "test_shangshufang_swarm_deepen",
+    "shangshufang:shangshufang_confirm_edict": "test_shangshufang_confirm_edict",
+    "shangshufang:shangshufang_finance_intel_loop_case": "test_shangshufang_finance_intel_case",
+    "shangshufang:shangshufang_brief_decision_advance": "test_shangshufang_brief_decision_advance",
+    "shangshufang:shangshufang_edict_return": "test_shangshufang_edict_return",
+    "swarm_runs:create_swarm_run": "test_swarm_runs_create",
+    "swarm_runs:create_serial_loop": "test_swarm_runs_create_serial_loop",
+}
+
+# 推导出来但**不是**跨用户攻击面的,必须在这里显式豁免并写明理由(不许静默忽略)。
+_EXEMPT = {
+    # 读回的是它自己刚用 make_id("budget", ..., _user_id(user), ...) 创建的 task,
+    # id 不由调用方提供,别人的任务碰不到。
+    "shangshufang:shangshufang_research_budget_loop": "自建 task,id 不由调用方提供",
 }
 
 
@@ -213,24 +278,52 @@ def test_swarm_runs_create(isolated_session_local):
     _assert_denied(body, "swarm run create")
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="P0-B 未修:POST /api/swarm-runs/serial 可对他人任务发起串行蜂群。"
+    "这条攻击面是手写清单漏掉、AST 推导抓出来的——裸查藏在 helper _default_context 里",
+)
+def test_swarm_runs_create_serial_loop(isolated_session_local):
+    _seed_other_users_task(isolated_session_local, "p0b_swarmrun_serial")
+    body = client.post(
+        "/api/swarm-runs/serial",
+        json={"task_id": "p0b_swarmrun_serial", "mode": "dry_run"},
+    ).json()
+    _assert_denied(body, "swarm run serial")
+
+
 # ---------------------------------------------------------------------------
 # 覆盖率门:没有测试 ≠ 没有漏洞
 # ---------------------------------------------------------------------------
 
 
 def test_every_attack_surface_endpoint_has_a_probe():
-    """本文件必须为每一个攻击面端点提供一条 probe。
+    """代码里每一个碰 DecisionTask 裸查的 route,都必须有一条跨用户 probe。
 
-    这道门存在的原因:初版把"P0-B 清零"定义成"xfail 数 == 0",而当时只写了
-    1 条测试——另外 8 处漏洞零测试,xfail 数天然为 0,门会宣布"已清零"。
-    没有测试不等于没有漏洞。新增攻击面端点(见 test_p0b_ownership_ratchet 的
-    表面积棘轮)必须同步在这里加 probe,否则本测试红。
+    攻击面**从 AST 推导**,不是手写清单——上一版用手写 set 对照本文件函数,
+    两边都由我维护,新增漏洞端点忘了登记就照样全绿(循环论证)。而且那个手写
+    set 当时确实已经漏了 swarm_runs 的 `create_serial_loop`(它的裸查藏在
+    helper 里),推导版一上来就把它抓了出来。
+
+    没有测试 ≠ 没有漏洞。新端点碰裸查 → 自动进攻击面 → 必须登记 probe 或
+    显式豁免(带理由),否则本测试红。
     """
-    module = globals()
-    missing = [
-        name for name in sorted(_ATTACK_SURFACE) if f"test_{name}" not in module
-    ]
-    assert not missing, (
-        f"以下攻击面端点没有跨用户 probe:{missing}。"
-        "没有测试 ≠ 没有漏洞——每个接受调用方传入 task/brief id 的端点都必须有一条。"
+    derived = derive_attack_surface()
+    covered = set(_PROBES) | set(_EXEMPT)
+
+    unprobed = sorted(derived - covered)
+    assert not unprobed, (
+        f"以下 route 碰了 DecisionTask 裸查但没有跨用户 probe:{unprobed}。"
+        "每一个都必须在 _PROBES 里登记一条行为测试(照 jinyiwei fill-gap 的"
+        "归属校验写),或在 _EXEMPT 里写明为何不构成跨用户攻击面。"
     )
+
+    stale = sorted(covered - derived)
+    assert not stale, (
+        f"_PROBES/_EXEMPT 里登记了代码中已不存在的 route:{stale}。"
+        "端点被删或改名后请同步清理,避免清单与现实脱节后这道门静默失效。"
+    )
+
+    module = globals()
+    missing_fn = sorted(p for p in _PROBES.values() if p not in module)
+    assert not missing_fn, f"_PROBES 指向了本文件里不存在的测试函数:{missing_fn}"

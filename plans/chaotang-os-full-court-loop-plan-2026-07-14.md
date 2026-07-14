@@ -53,15 +53,21 @@
      未修端点以 `strict=True` xfail 实证在案；修好后 XPASS 会让测试失败，强制删标记（还债留痕）。
      清零的可执行定义 = 该文件 xfail 数 == 0 **且**覆盖率门
      `test_every_attack_surface_endpoint_has_a_probe` 绿（保证"没写测试"不会被误读成"没有漏洞"）。
-     2026-07-14 实测：**7 个 xfail = 7 个活漏洞**（task_decision / swarm_deepen / confirm_edict /
-     finance_intel_case / brief_decision_advance / edict_return / swarm_runs_create），
-     已修 1 个（task_status），guarded 样板 1 个（jinyiwei fill-gap）。
-   - 两个反面教训已固化进测试注释，勿重蹈：
+     2026-07-14 实测：**8 个 xfail = 8 个活漏洞**（task_decision / swarm_deepen / confirm_edict /
+     finance_intel_case / brief_decision_advance / edict_return / swarm_runs_create /
+     swarm_runs_create_serial_loop），已修 1 个（task_status），guarded 样板 1 个（jinyiwei fill-gap）。
+   - 三个反面教训已固化进测试注释，勿重蹈：
      (a) **计数 ≠ 归属**——`test_p0b_ownership_ratchet.py` 只数裸查处数，而修复是"在裸查后加一行校验"，
          计数不变，故它**不是** P0-B 硬门，已降级为"攻击面不许增长"的表面积棘轮；
      (b) **"被拒了" ≠ "因归属被拒"**——`/tasks/{id}/decision` 和 `/briefs/{id}/decision/advance`
          当前会因"正式奏折质量门/需人工确认"这类**状态门**拒绝请求，跟归属毫无关系；
-         受害者任务只要状态合适就能被长驱直入。行为门因此强制断言错误信息含"无权"。
+         受害者任务只要状态合适就能被长驱直入。行为门因此强制断言错误信息含"无权"；
+     (c) **手写攻击面清单 = 循环论证**——覆盖率门原来拿一个手写 set 去对照本文件的函数，
+         两边都由同一个人维护，新增漏洞端点忘了登记就照样全绿。且那个手写 set 当时**确实已经漏了**
+         `swarm_runs:create_serial_loop`（裸查藏在 helper `_default_context` 里，只扫 route 看不见）。
+         攻击面现已改为**从 router 源码 AST 推导**（route 直接沾裸查 + helper 传染），
+         新端点碰裸查就自动进攻击面，不依赖任何人记得更新清单。已用两个破坏性实验验证：
+         删掉一条 probe 登记 → 门红；往 router 加一个新漏洞端点、测试文件一字不动 → 门红。
    - `pnpm prod:doctor` ≠ STOP；
    - 后端 8 个"既有失败"测试有钉死清单+owner（允许未清零，不允许无主）。
 2. **门检查方式**：每个 P 阶段的 change record 的 `request_analysis/spec.md` 必须引用本节并记录当时的三项实测值（P0-B 项 = 跑行为门并粘贴 xfail 数）；御前包工头（任何 agent）在 P1+ change 开工前先跑这三项。表面积棘轮同时挡住新增攻击面：任何人新增 DecisionTask 裸查，必须同步补一条行为 probe 并上调基线。
