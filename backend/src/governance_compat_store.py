@@ -51,27 +51,36 @@ def get_bill(bill_id: str) -> dict[str, Any] | None:
 
 
 def save_bill(bill: dict[str, Any], *, actor: str) -> dict[str, Any]:
+    from src.decision_task_kernel import create_decision_task
     from src.db.models import DecisionTask
 
     db = _session()
     try:
+        raw_question = str(
+            bill.get("command") or bill.get("title") or "未命名案卷"
+        )
         row = db.query(DecisionTask).filter_by(id=str(bill["id"])).first()
         if row is not None and row.decision_type != _DECISION_TYPE:
             raise RuntimeError(f"governance bill id collides with non-compat DecisionTask: {bill['id']}")
         if row is None:
-            row = DecisionTask(
-                id=str(bill["id"]),
+            row = create_decision_task(
+                db,
+                task_id=str(bill["id"]),
                 user_id=actor,
-                raw_question=str(bill.get("command") or ""),
+                raw_question=raw_question,
+                refined_edict=None,
                 decision_type=_DECISION_TYPE,
                 status=str(bill.get("state") or "drafted"),
                 source_label=str(bill.get("sourceLabel") or "FALLBACK"),
-                created_at=str(bill.get("createdAt") or ""),
-                updated_at=str(bill.get("lastTransitionAt") or ""),
+                risk_flags=[],
+                known_facts=[],
+                unknown_gaps=[],
+                recommended_departments=[],
+                draft_edict=bill,
+                now=str(bill.get("createdAt") or bill.get("lastTransitionAt") or ""),
             )
-            db.add(row)
         row.user_id = actor
-        row.raw_question = str(bill.get("command") or "")
+        row.raw_question = raw_question
         row.decision_type = _DECISION_TYPE
         row.status = str(bill.get("state") or "drafted")
         row.source_label = str(bill.get("sourceLabel") or "FALLBACK")

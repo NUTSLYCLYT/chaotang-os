@@ -10,6 +10,14 @@ from src.db import flow_store
 from src.db.models import Base, Task
 
 
+def _metric_value(exported: str, series: str) -> float:
+    prefix = f"{series} "
+    for line in exported.splitlines():
+        if line.startswith(prefix):
+            return float(line.removeprefix(prefix))
+    return 0.0
+
+
 @pytest.fixture()
 def session():
     engine = create_engine("sqlite:///:memory:")
@@ -123,6 +131,11 @@ def test_direct_review_json_copy_is_observed_as_write(monkeypatch, tmp_path):
     from src import chaotang_store
     from src.observability import metrics_exporter
 
+    series = (
+        'legacy_endpoint_calls_total{caller_id="pytest-chaotang-store",'
+        'endpoint="chaotang_store.write_review_files",operation="write"}'
+    )
+    before = _metric_value(metrics_exporter.export(), series)
     monkeypatch.setattr(chaotang_store, "_DATA_ROOT", tmp_path)
     chaotang_store.write_review_files(
         {
@@ -134,8 +147,5 @@ def test_direct_review_json_copy_is_observed_as_write(monkeypatch, tmp_path):
         legacy_writer_id="pytest-chaotang-store",
     )
 
-    exported = metrics_exporter.export()
-    assert (
-        'legacy_endpoint_calls_total{caller_id="pytest-chaotang-store",'
-        'endpoint="chaotang_store.write_review_files",operation="write"} 1.0' in exported
-    )
+    after = _metric_value(metrics_exporter.export(), series)
+    assert after == before + 1
