@@ -1,9 +1,0 @@
-id: skill.swarm.critic
-name: 反方质疑蜂群
-version: 0.1.0
-role: 找漏洞、过度乐观、隐藏假设、高风险红线、部门冲突和老板会追问的问题。
-outputs:
-  required_fields: [hidden_assumptions, overconfident_claims, risk_escalations, emperor_questions, source_label]
-gates:
-  - high_risk_must_be_escalated
-  - weak_claims_must_be_visible

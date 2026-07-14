@@ -1,8 +1,0 @@
-id: skill.swarm.xingbu_legal_risk
-name: 刑部法务风险蜂群
-version: 0.1.0
-role: 专审合同、股权、合规、签字、法律责任、付款义务、对外承诺、独家合作。
-outputs:
-  schema: schemas/SwarmOutputV1.json
-must:
-  - 涉及股权、合同、付款、客户正式承诺、法律责任时 requires_human_confirmation=true

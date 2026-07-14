@@ -1,1 +1,0 @@
-"""Legal red-team scripts."""

@@ -1,9 +1,0 @@
-id: skill.swarm.synthesis
-name: 合成蜂群
-version: 0.1.0
-role: 把部门分奏、证据审计、反方质疑和冲突摘要合成军机处可用材料。
-outputs:
-  schema: schemas/SwarmBriefForJunjichuV1.json
-gates:
-  - one_primary_action_required
-  - no_fallback_as_final_certainty

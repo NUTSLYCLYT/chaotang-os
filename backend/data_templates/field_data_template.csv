@@ -1,6 +1,0 @@
-chem,temp_zone,soc_window,batch,min_temp_c,duration_days,failed,failure_mode,availability_pct
-LFP,-40~-30,20-80,B2301,-38,365,0,,99.2
-LFP,-40~-30,20-80,B2302,-41,365,0,,98.7
-LFP,-40~-30,20-80,B2305,-43,200,1,低温冷启动失败,91.0
-LFP,-30~-20,30-90,B2210,-28,365,0,,99.5
-NCM,-40~-30,20-80,B2401,-40,180,1,容量跳水,88.0

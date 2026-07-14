@@ -1,2 +1,0 @@
-id,contractId,counterparty,amount,issueDate,dueDate,sourceLabel,sourceRef
-invoice-001,contract-001,customer-a,800000,2026-06-01,2026-07-01,internal_uploaded_file,invoice-001.pdf

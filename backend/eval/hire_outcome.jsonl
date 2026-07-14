@@ -1,2 +1,0 @@
-{"_schema": "HR招聘结局回写台账(飞轮燃料·单向门)。每个 offer 发出后建一行,随时间回填入职→90天留存→首年绩效。realized 字段填了才参与评分。", "_fields": "run_id(join当初recruit推荐), candidate(候选人), role(岗位), dept, channel(渠道), recruit_verdict(当初录用建议:录用/有条件/淘汰), hired(是否入职,null=待定), retained_90d(90天留存,null=未到), perf_score(首年岗位绩效0-5,null=未评), offer_date, source"}
-{"run_id": "示例-待替换", "candidate": "张工", "role": "储能PACK结构工程师", "dept": "工部", "channel": "猎头", "recruit_verdict": "有条件录用", "hired": null, "retained_90d": null, "perf_score": null, "offer_date": null, "source": "待入职后逐步回填(入职/90天留存/绩效)"}

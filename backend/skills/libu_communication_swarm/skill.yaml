@@ -1,8 +1,0 @@
-id: skill.swarm.libu_communication
-name: 礼部对外表达蜂群
-version: 0.1.0
-role: 专审客户表达、招商话术、销售材料、报价话术、品牌、公关、合作沟通。
-outputs:
-  schema: schemas/SwarmOutputV1.json
-must:
-  - 涉及正式报价、招商承诺、收益承诺、排他合作表达时提示对外承诺风险

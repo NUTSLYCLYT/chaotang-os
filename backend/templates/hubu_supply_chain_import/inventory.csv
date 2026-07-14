@@ -1,3 +1,0 @@
-sku,itemName,quantity,onHandValue,lastMovementDate,sourceLabel
-INV-RAW-001,copper sheet,100,120000,2025-11-01,internal_uploaded_file
-INV-PKG-001,carton,1000,6000,2026-06-10,manual_confirmed

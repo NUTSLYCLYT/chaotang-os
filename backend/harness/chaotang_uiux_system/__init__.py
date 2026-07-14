@@ -1,2 +1,0 @@
-"""Chaotang experience-contract harness."""
-

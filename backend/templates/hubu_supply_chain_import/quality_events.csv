@@ -1,2 +1,0 @@
-eventId,supplierId,eventDate,eventType,severity,description,sourceLabel
-QE-001,S001,2026-06-03,delay,HIGH,late delivery twice,internal_uploaded_file

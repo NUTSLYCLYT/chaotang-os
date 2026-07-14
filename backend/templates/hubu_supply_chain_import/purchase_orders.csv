@@ -1,3 +1,0 @@
-poId,supplierId,orderDate,item,quantity,unitPrice,currency,budgetCode,budgetLimit,status,sourceLabel
-PO-001,S001,2026-06-01,copper sheet,100,1200,CNY,RAW-2026,100000,APPROVED,internal_uploaded_file
-PO-002,S002,2026-06-02,carton,1000,6,CNY,PKG-2026,10000,APPROVED,manual_confirmed

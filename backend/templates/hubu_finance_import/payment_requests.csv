@@ -1,2 +1,0 @@
-id,payee,contractId,invoiceId,amount,purpose,sourceLabel,sourceRef
-payment-001,supplier-a,contract-001,invoice-001,90000,equipment-final-payment,internal_uploaded_file,payment-001.pdf
