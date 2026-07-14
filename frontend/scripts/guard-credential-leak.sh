@@ -19,11 +19,27 @@ cd "$(git rev-parse --show-toplevel)"
 
 # 只查本次真正要提交的新增行(staged diff)，不是整棵树——否则历史遗留内容会
 # 一直噪音式挡住每一次不相关的提交。
-diff_content=$(git diff --cached -U0 -- \
-  ':(exclude)frontend/scripts/guard-credential-leak.sh' \
-  '*.md' '*.ts' '*.tsx' '*.js' '*.mjs' '*.py' '*.json' '*.yaml' '*.yml' 2>/dev/null || true)
+added_lines_against() {
+  git diff --cached -U0 "$1" -- \
+    ':(exclude)frontend/scripts/guard-credential-leak.sh' \
+    '*.md' '*.ts' '*.tsx' '*.js' '*.mjs' '*.py' '*.json' '*.yaml' '*.yml' 2>/dev/null \
+    | grep -E '^\+[^+]' || true
+}
 
-added_lines=$(echo "$diff_content" | grep -E '^\+[^+]' || true)
+added_lines=$(added_lines_against HEAD)
+
+# 合并提交有两个事实父节点。来自任一父节点、已经过该分支审查的凭据样文本，不能
+# 因为它相对另一个父节点是新增行就被重复判为“本次提交泄露”。这里只保留相对每个
+# 父节点都新增的精确行，因此合并过程中真正新写入的凭据仍会被拦截。
+merge_head_path=$(git rev-parse --git-path MERGE_HEAD)
+if [ -f "$merge_head_path" ]; then
+  while IFS= read -r parent; do
+    parent_added=$(added_lines_against "$parent")
+    added_lines=$(comm -12 \
+      <(printf '%s\n' "$added_lines" | LC_ALL=C sort -u) \
+      <(printf '%s\n' "$parent_added" | LC_ALL=C sort -u))
+  done < "$merge_head_path"
+fi
 
 if [ -z "$added_lines" ]; then
   exit 0
