@@ -380,8 +380,9 @@ def test_shangshufang_edict_return(isolated_session_local):
     _assert_denied(body, "edict return")
 
 
-@pytest.mark.xfail(strict=True, reason="P0-B 未修:POST /api/swarm-runs 可对他人任务发起蜂群运行")
 def test_swarm_runs_create(isolated_session_local):
+    """P0-B 已修(2026-07-14):归属校验收口在 _default_context,create/serial/retry
+    三个端点共用这条唯一入口,一处 guard 全挡。此后谁绕开该 guard,这里立刻红。"""
     _seed_other_users_task(isolated_session_local, "p0b_swarmrun")
     body = client.post(
         "/api/swarm-runs",
@@ -390,12 +391,8 @@ def test_swarm_runs_create(isolated_session_local):
     _assert_denied(body, "swarm run create")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="P0-B 未修:POST /api/swarm-runs/serial 可对他人任务发起串行蜂群。"
-    "这条攻击面是手写清单漏掉、AST 推导抓出来的——裸查藏在 helper _default_context 里",
-)
 def test_swarm_runs_create_serial_loop(isolated_session_local):
+    """P0-B 已修(2026-07-14):同经 _default_context 的归属校验。"""
     _seed_other_users_task(isolated_session_local, "p0b_swarmrun_serial")
     body = client.post(
         "/api/swarm-runs/serial",
@@ -418,12 +415,9 @@ def test_shangshufang_brief_decision(isolated_session_local):
     _assert_denied(body, "brief decision")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="P0-B 未修:POST /api/swarm-runs/{id}/retry 按 swarm_run_id 取别人的 run,"
-    "再用其 task_id 经 _default_context 读他人 DecisionTask 并重跑。跨 helper 传染检测抓出",
-)
 def test_swarm_runs_retry(isolated_session_local):
+    # P0-B 已修(2026-07-14):retry 取别人的 SwarmRun 后转 create_swarm_run,
+    # 后者经 _default_context 归属校验拒绝——transitively 覆盖,无需在 retry 里重复。
     from src.db.models import DecisionTask, SwarmRun
 
     db = isolated_session_local()

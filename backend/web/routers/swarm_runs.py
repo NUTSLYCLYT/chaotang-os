@@ -82,10 +82,24 @@ def _run_to_payload(row: SwarmRun) -> dict[str, Any]:
     }
 
 
-def _default_context(db, task_id: str, review_id: str | None) -> tuple[str, dict[str, Any], dict[str, Any]]:
+class _NotOwner(Exception):
+    """调用者不是该 task 的归属者。由 route 捕获后返回 fail(不泄露对方存在细节)。"""
+
+
+def _owner_id(user: CurrentUser) -> str:
+    return str(user.user_id or user.username or user.tenant_slug or "anonymous")
+
+
+def _default_context(
+    db, task_id: str, review_id: str | None, owner_id: str
+) -> tuple[str, dict[str, Any], dict[str, Any]]:
+    # P0-B(2026-07-14):归属校验收口在此——create/serial/retry 都经这条唯一入口,
+    # 一处 guard 挡住三个端点对他人 DecisionTask 的读取与蜂群发起。
     task = db.query(DecisionTask).filter_by(id=task_id).first()
     if task is None:
         raise ValueError("task_id 不存在")
+    if task.user_id != owner_id:
+        raise _NotOwner()
     review = None
     if review_id:
         review = db.query(CourtReview).filter_by(id=review_id).first()
@@ -200,14 +214,17 @@ def _run_and_persist(db, params: dict[str, Any], review_id: str) -> dict:
 
 
 @router.post("")
-def create_swarm_run(_: CurrentUser = Depends(get_current_user), body: CreateSwarmRunRequest | None = None) -> dict:
+def create_swarm_run(user: CurrentUser = Depends(get_current_user), body: CreateSwarmRunRequest | None = None) -> dict:
     from src.db.engine import SessionLocal
 
     if body is None:
         return fail("请求体不能为空")
     db = SessionLocal()
     try:
-        review_id, confirmed_edict, review_plan = _default_context(db, body.task_id, body.review_id)
+        try:
+            review_id, confirmed_edict, review_plan = _default_context(db, body.task_id, body.review_id, _owner_id(user))
+        except _NotOwner:
+            return fail("无权操作该任务")
         resolved_edict = body.confirmed_edict or confirmed_edict
         edict = _edict_from_confirmed(resolved_edict)
         route = _resolve_chancellor_route(db, body.task_id, edict)
@@ -233,7 +250,7 @@ def create_swarm_run(_: CurrentUser = Depends(get_current_user), body: CreateSwa
 
 
 @router.post("/serial")
-def create_serial_loop(_: CurrentUser = Depends(get_current_user), body: SerialLoopRequest | None = None) -> dict:
+def create_serial_loop(user: CurrentUser = Depends(get_current_user), body: SerialLoopRequest | None = None) -> dict:
     """非军机处串行闭环:锦衣卫采证 → 户部核算 → 丞相回奏(直呈上书房,不进军机处会审)。
 
     departments 默认[锦衣卫,户部];传单个部门即"单部门直办"。锦衣卫自动置首先采证,
@@ -246,7 +263,10 @@ def create_serial_loop(_: CurrentUser = Depends(get_current_user), body: SerialL
         return fail("请求体不能为空")
     db = SessionLocal()
     try:
-        review_id, confirmed_edict, review_plan = _default_context(db, body.task_id, body.review_id)
+        try:
+            review_id, confirmed_edict, review_plan = _default_context(db, body.task_id, body.review_id, _owner_id(user))
+        except _NotOwner:
+            return fail("无权操作该任务")
         return _run_and_persist(
             db,
             {
