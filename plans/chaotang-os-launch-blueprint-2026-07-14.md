@@ -713,7 +713,9 @@ node scripts/release-commander.mjs rollback \
 7. `[完成 S2.1]` JWT 运行身份契约已按 RED→GREEN 收口；真实 8081 未配置 key id/外部探针前继续 fail closed；
 8. `[完成 S2.2]` 正式奏折测试 owner/认证契约已对齐；主链 41 passed，真实 DB 三元证据未变化；
 9. `[完成 S2.3a]` pytest SQLAlchemy 默认生产库已双层阻断，5 个命中测试已迁移到显式隔离 Session；
-10. `[移交 S3]` immutable artifact、3050 接管和由原服务管理器停止 foreign 进程。
+10. `[完成 S2.3b]` pytest legacy `src.tenant` sqlite3 已在收集前绑定临时库，并在真实默认路径连接前 fail closed；完整回归无新增失败，真实库三元证据不变；
+11. `[待执行 S2.3c]` 收口其余裸 `sqlite3.connect`、Node/E2E 与脚本的生产路径门禁；
+12. `[移交 S3]` immutable artifact、3050 接管和由原服务管理器停止 foreign 进程。
 
 这样做看似慢一天，实际会避免后续所有“改对了仓库但线上没变”“测试通过却污染真库”“健康 200 却不知道跑的谁”的返工。
 

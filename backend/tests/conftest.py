@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import importlib
 import os
+import tempfile
+from pathlib import Path
 
 # src.tenant.JWT_SECRET 是导入时求值的模块常量;谁先导入 src.tenant 就决定了它的值。
 # web/main.py 会在导入时把 backend/.env 的 FENGQUN_JWT_SECRET 灌进 os.environ,但如果
@@ -20,6 +22,16 @@ os.environ.setdefault("FENGQUN_JWT_SECRET", "test-only-" + "x" * 40)
 # collection-time `from src.db.engine import SessionLocal` aliases that an
 # autouse monkeypatch cannot replace later.
 os.environ["DB_URL"] = "sqlite:///:memory:"
+# src.tenant uses a separate legacy sqlite3 connection rather than the
+# SQLAlchemy engine above.  Bind it to a process-unique temporary file before
+# any test module can import src.tenant, and enable the connection-time guard.
+_PYTEST_TENANT_DB_DIR = tempfile.TemporaryDirectory(
+    prefix="chaotang-pytest-tenant-"
+)
+os.environ["FENGQUN_DB_PATH"] = str(
+    Path(_PYTEST_TENANT_DB_DIR.name) / "fengqun.db"
+)
+os.environ["FENGQUN_TEST_DB_GUARD"] = "1"
 
 import pytest
 from sqlalchemy import create_engine
