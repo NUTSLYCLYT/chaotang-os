@@ -29,7 +29,7 @@ def test_hanlin_list_endpoints_return_empty_arrays_not_404():
         ("/api/hanlin/contributions", "contributions"),
         ("/api/hanlin/reviews", "reviews"),
         ("/api/hanlin/recommendations", "recommendations"),
-        ("/api/hanlin/experiments", "experiments"),
+        # experiments 已接 truth_ledger 真源(P9),见 test_hanlin_truth_source.py
         ("/api/hanlin/incubation", "modules"),
         ("/api/hanlin/export-offerings", "offerings"),
     ]:

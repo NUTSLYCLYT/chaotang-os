@@ -1631,6 +1631,86 @@ def _gate_reasons(memorials: list[dict], high_risk: list[dict]) -> list[str]:
     return reasons
 
 
+def _shiguan_archive_projection() -> tuple[list[dict], list[dict]]:
+    """K5 读链统一第一步:把 canonical ShiguanArchive 行投影成史馆页的
+    memorials/decisions 形状(id/title/status/createdAt 与 archive-adapter 契约对齐)。
+    表空或 DB 不可用时返回空,由调用方回退旧 review/memorial 投影。"""
+    import json as _json_mod
+
+    from src.db.engine import SessionLocal
+    from src.db.models import ShiguanArchive
+
+    # shiguan_archives 表无 tenant_id 列(上书房写链目前单租户 default)。
+    # 在补列迁移前,非 default 租户上下文一律不读 canonical 层,防止跨租户泄漏。
+    try:
+        from src.tenant import DEFAULT_TENANT_SLUG, get_current_tenant
+
+        if (get_current_tenant() or DEFAULT_TENANT_SLUG) != DEFAULT_TENANT_SLUG:
+            return [], []
+    except Exception:
+        return [], []
+
+    memorials: list[dict] = []
+    decisions: list[dict] = []
+    try:
+        db = SessionLocal()
+        try:
+            rows = (
+                db.query(ShiguanArchive)
+                .order_by(ShiguanArchive.created_at.desc())
+                .limit(200)
+                .all()
+            )
+        finally:
+            db.close()
+    except Exception:
+        import logging as _logging
+
+        _logging.getLogger(__name__).warning(
+            "shiguan canonical projection unavailable", exc_info=True
+        )
+        return [], []
+    seen_tasks: set[str] = set()
+    for row in rows:
+        # 同 task 多次归档时取最新(rows 已按 created_at desc)
+        if row.task_id in seen_tasks:
+            continue
+        seen_tasks.add(row.task_id)
+        try:
+            memorial = _json_mod.loads(row.final_memorial_json or "{}") or {}
+            decision = _json_mod.loads(row.emperor_decision_json or "{}") or {}
+        except ValueError:
+            memorial, decision = {}, {}
+        title = (
+            memorial.get("title")
+            or (row.refined_edict or row.raw_question or "").strip()[:60]
+            or row.task_id
+        )
+        memorials.append(
+            {
+                "id": row.task_id,
+                "title": title,
+                "status": "archived",
+                "sourceDepartment": memorial.get("sourceDepartment", "上书房"),
+                "createdAt": row.created_at,
+                "sourceLabel": row.source_label,
+                "synthetic": bool(row.synthetic_flag),
+            }
+        )
+        if decision.get("action"):
+            decisions.append(
+                {
+                    "id": f"{row.id}:decision",
+                    "memorialId": row.task_id,
+                    "action": decision["action"],
+                    "reason": decision.get("reason", ""),
+                    "reviewerName": "御前裁决",
+                    "createdAt": row.created_at,
+                }
+            )
+    return memorials, decisions
+
+
 @router.get("/archive")
 def archive_list(_: CurrentUser = Depends(get_current_user)) -> dict:
     from web.routers.throne import _build_memorial_list
@@ -1644,7 +1724,19 @@ def archive_list(_: CurrentUser = Depends(get_current_user)) -> dict:
         if m.get("status") in ("approved", "archived", "done")
         or m.get("id") in archived_ids
     ]
-    return ok({"memorials": memorials, "decisions": reviews})
+    # K5:canonical 归档并入同一读模型(按 task_id 去重,canonical 优先)
+    arch_memorials, arch_decisions = _shiguan_archive_projection()
+    canonical_ids = {m["id"] for m in arch_memorials}
+    memorials = arch_memorials + [m for m in memorials if m.get("id") not in canonical_ids]
+    memorials.sort(key=lambda m: m.get("createdAt") or "", reverse=True)
+    # 裁决同样 canonical 优先去重:同一 (memorialId, action) 不重复出现
+    canonical_decisions = {(d["memorialId"], d["action"]) for d in arch_decisions}
+    decisions = arch_decisions + [
+        r
+        for r in reviews
+        if (r.get("memorialId"), r.get("action")) not in canonical_decisions
+    ]
+    return ok({"memorials": memorials, "decisions": decisions})
 
 
 # ── P3-C(2026-07-10):问太史令·生成史册,真实数据聚合 + LLM 摘要,不落库 ──

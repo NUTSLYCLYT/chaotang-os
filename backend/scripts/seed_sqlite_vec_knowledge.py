@@ -33,6 +33,27 @@ if _envf.exists():
             os.environ.setdefault(_k.strip(), _v.strip())
 
 
+def _strip_absorb_frontmatter(text: str) -> tuple[str | None, str]:
+    """剥离吸收脚本写的 provenance frontmatter,返回(trust_tier, 正文)。
+
+    frontmatter 是溯源记账,不是知识——留在正文里会成为首个检索噪声块。
+    非吸收脚本写的 frontmatter(无 absorbed_at)原样保留。
+    """
+    if not text.startswith("---\n"):
+        return None, text
+    end = text.find("\n---\n", 4)
+    if end == -1:
+        return None, text
+    header = text[4:end]
+    if "absorbed_at:" not in header:
+        return None, text
+    tier = None
+    for line in header.splitlines():
+        if line.startswith("trust_tier:"):
+            tier = line.split(":", 1)[1].strip()
+    return tier, text[end + 5 :]
+
+
 def main() -> int:
     from src.sqlite_vec_rag import SqliteVecRAG
 
@@ -49,10 +70,13 @@ def main() -> int:
         if rag.count_by_source(fp.name) > 0:
             skipped += 1
             continue
+        tier, body = _strip_absorb_frontmatter(
+            fp.read_text(encoding="utf-8", errors="replace")
+        )
         ingested += rag.add_text(
-            fp.read_text(encoding="utf-8", errors="replace"),
+            body,
             source=fp.name,
-            extra_metadata={"knowledge_domain": "document"},
+            extra_metadata={"knowledge_domain": "document", "trust_tier": tier},
         )
 
     print(

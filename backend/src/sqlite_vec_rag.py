@@ -24,6 +24,10 @@ from src.runtime_paths import resolve_runtime_paths
 
 DEFAULT_DB = resolve_runtime_paths().data / "sqlite_vec_rag.db"
 
+# trust_tier 检索权重:乘在向量距离上,越小越靠前。
+# statute=硬法条加权,self_generated=自产内容降权;未标注(None/未知)=1.0 平权。
+_TRUST_TIER_WEIGHT = {"statute": 0.85, "curated": 1.0, "self_generated": 1.25}
+
 
 class SqliteVecRAG:
     """sqlite-vec 向量检索后端。单表存文档 + vec0 虚拟表存向量,rowid 对齐。"""
@@ -47,8 +51,13 @@ class SqliteVecRAG:
         self._db.execute(
             "CREATE TABLE IF NOT EXISTS docs("
             "id INTEGER PRIMARY KEY AUTOINCREMENT, content TEXT, source TEXT, "
-            "tenant_id TEXT, knowledge_domain TEXT)"
+            "tenant_id TEXT, knowledge_domain TEXT, trust_tier TEXT)"
         )
+        # 旧库无 trust_tier 列时补列(sqlite 无 IF NOT EXISTS for column)
+        try:
+            self._db.execute("ALTER TABLE docs ADD COLUMN trust_tier TEXT")
+        except sqlite3.OperationalError:
+            pass
         self._db.execute(
             f"CREATE VIRTUAL TABLE IF NOT EXISTS vec_docs USING vec0(embedding float[{self._dim}])"
         )
@@ -69,8 +78,15 @@ class SqliteVecRAG:
         vec = self._embed([text])[0]
         with self._lock:
             cur = self._db.execute(
-                "INSERT INTO docs(content, source, tenant_id, knowledge_domain) VALUES (?,?,?,?)",
-                (text, source, meta.get("tenant_id"), meta.get("knowledge_domain")),
+                "INSERT INTO docs(content, source, tenant_id, knowledge_domain, trust_tier)"
+                " VALUES (?,?,?,?,?)",
+                (
+                    text,
+                    source,
+                    meta.get("tenant_id"),
+                    meta.get("knowledge_domain"),
+                    meta.get("trust_tier"),
+                ),
             )
             rowid = cur.lastrowid
             self._db.execute(
@@ -164,11 +180,14 @@ class SqliteVecRAG:
         if self.count() == 0:
             return []
         qvec = self._serialize(self._embed([query])[0])
-        # 过量取候选(供 scope/source/tenant 过滤后仍够 top_k)
+        # 过量取候选(供 scope/source/tenant 过滤 + tier 重排后仍够 top_k)。
+        # ponytail: tier 重排只发生在原始距离 top-fetch 窗口内——排在窗口外的
+        # 高信任文档救不回来;库规模上万且出现该症状时再调大 fetch 或做两段检索。
         fetch = max(top_k * 6, 30)
         with self._lock:
             rows = self._db.execute(
-                "SELECT d.content, d.source, d.tenant_id, d.knowledge_domain, v.distance "
+                "SELECT d.content, d.source, d.tenant_id, d.knowledge_domain, "
+                "d.trust_tier, v.distance "
                 "FROM vec_docs v JOIN docs d ON d.id = v.rowid "
                 "WHERE v.embedding MATCH ? AND k = ? ORDER BY v.distance",
                 (qvec, fetch),
@@ -180,22 +199,28 @@ class SqliteVecRAG:
 
             current = get_current_tenant()
 
-        out: list[dict] = []
-        for content, source, tenant_id, kdomain, distance in rows:
+        candidates: list[dict] = []
+        for content, source, tenant_id, kdomain, tier, distance in rows:
             if scope and kdomain not in scope:
                 continue
             if source_filter and source != source_filter:
                 continue
             if tenant_isolation and not tenant_doc_visible(tenant_id, current):
                 continue
-            out.append(
+            weighted = float(distance) * _TRUST_TIER_WEIGHT.get(tier, 1.0)
+            candidates.append(
                 {
                     "content": content,
                     "source": source or "?",
-                    "score": round(1.0 / (1.0 + float(distance)), 4),
+                    "score": round(1.0 / (1.0 + weighted), 4),
                     "tenant_id": tenant_id,
+                    "trust_tier": tier,
+                    "_weighted_distance": weighted,
                 }
             )
-            if len(out) >= top_k:
-                break
+        # trust_tier 重排:法条加权靠前,自生成内容降权(2026-07-14 吸收方案)
+        candidates.sort(key=lambda c: c["_weighted_distance"])
+        out = candidates[:top_k]
+        for hit in out:
+            hit.pop("_weighted_distance", None)
         return out

@@ -37,14 +37,30 @@ _EMPTY_SUMMARY: dict[str, Any] = {
 }
 
 
+def _truth_ledger_health() -> dict | None:
+    """P9 最小真源:翰林院读 truth_ledger 健康度(评测账本=翰林离线 eval 的现有事实源)。
+    账本缺失/为空返回 None,调用方保持诚实 FALLBACK。"""
+    try:
+        from src.truth_ledger import health
+
+        h = health()
+        return h if h.get("total_entries") else None
+    except Exception:
+        return None
+
+
 @router.get("/overview")
 def hanlin_overview() -> dict:
+    ledger = _truth_ledger_health()
     return {
         "overview": {
             "summary": _EMPTY_SUMMARY,
             "topContribution": None,
             "topCandidate": None,
             "topModule": None,
+            # P9(2026-07-14):第一条真源数据线。奖项/孵化等仍无产品数据,保持空。
+            "truthLedger": ledger,
+            "sourceLabel": "TRUTH_LEDGER" if ledger else "FALLBACK",
         }
     }
 
@@ -70,8 +86,31 @@ def hanlin_recommendations() -> dict:
 
 
 @router.get("/experiments")
-def hanlin_experiments() -> dict:
-    return {"experiments": []}
+def hanlin_experiments(limit: int = 50) -> dict:
+    """P9:实验列表接真源——truth_ledger 每条确定性判定就是一次翰林离线实验。
+    账本为空时维持原诚实空响应。"""
+    try:
+        from src.truth_ledger import _load
+
+        rows = [r for r in _load() if r.get("deterministic")]
+    except Exception:
+        # 账本损坏(半行写入/磁盘满)也走诚实 FALLBACK,不 500
+        return {"experiments": [], "source": "FALLBACK"}
+    if not rows:
+        return {"experiments": [], "source": "FALLBACK"}
+    rows.sort(key=lambda r: r.get("ts") or "", reverse=True)
+    experiments = [
+        {
+            "id": r.get("hash", "")[:12],
+            "name": f"{r.get('swarm', '?')}/{r.get('checker', '?')}",
+            "caseId": r.get("case_id", ""),
+            "verdict": str(r.get("verdict", "")).upper(),
+            "provenance": r.get("provenance", "unknown"),
+            "createdAt": r.get("ts", ""),
+        }
+        for r in rows[: max(1, min(limit, 200))]
+    ]
+    return {"experiments": experiments, "source": "TRUTH_LEDGER"}
 
 
 @router.get("/awards")
