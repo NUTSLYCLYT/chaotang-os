@@ -141,6 +141,8 @@ export BASE_PATH="\${BASE_PATH:-${basePath}}"
 export NEXT_PUBLIC_BASE_PATH="\${NEXT_PUBLIC_BASE_PATH:-$BASE_PATH}"
 export HOSTNAME="\${HOSTNAME:-127.0.0.1}"
 export PORT="\${PORT:-3050}"
+# 首发面档位:demo(默认,对外) | internal(放行 INTERNAL/SHADOW 面,如 /hanlin) | pilot
+export COURTOS_LAUNCH_MODE="\${COURTOS_LAUNCH_MODE:-demo}"
 exec node server.js
 `);
 run('chmod', ['+x', join(stageRoot, 'start.sh')]);
@@ -161,6 +163,19 @@ HOSTNAME=127.0.0.1 PORT=3050 ./start.sh
 - Node.js compatible with this repository's Next.js runtime.
 - jiqun backend reachable through the configured reverse proxy or \`JIQUN_API_URL\`.
 - Production secrets supplied outside the package, for example via systemd or a local env file created on the target host.
+
+## Launch Surface Mode
+
+\`COURTOS_LAUNCH_MODE\` controls which surfaces the launch whitelist exposes at runtime:
+
+- \`demo\` (default) / \`pilot\`: merchant-facing kill-loop only; INTERNAL/SHADOW surfaces (e.g. \`/hanlin\`) redirect to \`/shangshufang\`.
+- \`internal\`: additionally allows INTERNAL/SHADOW surfaces per the FULL_COURT 2026-07-14 ruling.
+
+\`\`\`bash
+COURTOS_LAUNCH_MODE=internal HOSTNAME=127.0.0.1 PORT=3050 ./start.sh
+\`\`\`
+
+Set it as a plain runtime variable (not \`NEXT_PUBLIC_*\`, which is baked at build time).
 
 To build an archive mounted under \`/chaotang\`, run:
 
