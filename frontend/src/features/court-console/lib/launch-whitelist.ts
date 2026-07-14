@@ -14,6 +14,8 @@
  * routePath 不含 BASE_PATH（middleware 已剥离）。
  */
 
+import { getLaunchEnvironment } from './launch-governance.ts';
+
 /**
  * 首发放行的页面前缀 —— 2026-07-08 v1 极简脊柱（张小龙：一入口一条路）。
  *
@@ -41,6 +43,11 @@ export const LAUNCH_ALLOWED_PREFIXES: readonly string[] = [
 /** 部门：v1 极简脊柱不放行任何 /departments 详情——六部审在上书房/军机处内以蜂群结果呈现，
  *  不让老板逐个点部门稀释信号。拿到首个真实客户反馈后再按需解冻（铁律5）。 */
 export const LAUNCH_ALLOWED_DEPARTMENTS: readonly string[] = [];
+
+/** INTERNAL 环境专属面(FULL_COURT 2026-07-14 裁决:非刑部能力默认 INTERNAL/SHADOW)。
+ *  对外生产(demo/pilot)仍 redirect;COURTOS_LAUNCH_MODE=internal 时放行。
+ *  翰林院的铁律5答案:第一条真实数据 = truth_ledger 确定性判定(P9 已接通)。 */
+export const INTERNAL_ONLY_PREFIXES: readonly string[] = ['/hanlin'];
 
 /** 非页面路由（API / 后端代理 / 静态资源）——永不参与首发 redirect。 */
 const NON_PAGE_PREFIXES: readonly string[] = [
@@ -71,7 +78,13 @@ export function isLaunchAllowedPage(routePath: string): boolean {
   // legacy departments surface stays retired; v1 uses /liubu.
   if (routePath === '/departments' || routePath.startsWith('/departments/')) return false;
 
-  return LAUNCH_ALLOWED_PREFIXES.some((p) => matchesPrefix(routePath, p));
+  if (LAUNCH_ALLOWED_PREFIXES.some((p) => matchesPrefix(routePath, p))) return true;
+
+  // INTERNAL/SHADOW 面:仅 internal 环境放行,对外生产不暴露
+  if (INTERNAL_ONLY_PREFIXES.some((p) => matchesPrefix(routePath, p))) {
+    return getLaunchEnvironment() === 'internal';
+  }
+  return false;
 }
 
 /**

@@ -128,3 +128,23 @@ test('同名前缀的页面路由仍被挡（/prd/[space] 是内部页，不能�
   // /prd/somespace 无文件扩展名 → 仍走页面白名单 → 内部页应 redirect。
   assert.equal(shouldRedirectForLaunch('/prd/finance-space'), true, '/prd/[space] 页应被 redirect');
 });
+
+// FULL_COURT 2026-07-14 裁决回归：非刑部能力默认 INTERNAL/SHADOW。
+// 翰林院(铁律5答案=truth_ledger 真实判定)仅 internal 环境放行，对外生产(demo/pilot)仍挡。
+test('翰林院 INTERNAL 放行、demo/pilot 仍挡（INTERNAL/SHADOW 裁决）', () => {
+  const prev = process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE;
+  try {
+    process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE = 'internal';
+    assert.equal(shouldRedirectForLaunch('/hanlin'), false, 'internal 应放行 /hanlin');
+    assert.equal(shouldRedirectForLaunch('/hanlin/experiments'), false, 'internal 应放行子路由');
+
+    process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE = 'pilot';
+    assert.equal(shouldRedirectForLaunch('/hanlin'), true, 'pilot 应挡 /hanlin');
+
+    delete process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE; // demo 默认
+    assert.equal(shouldRedirectForLaunch('/hanlin'), true, 'demo 默认应挡 /hanlin');
+  } finally {
+    if (prev === undefined) delete process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE;
+    else process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE = prev;
+  }
+});
