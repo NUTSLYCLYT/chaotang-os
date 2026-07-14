@@ -39,7 +39,8 @@ def upgrade() -> None:
     existing_cols = {c["name"] for c in insp.get_columns("decree_execution_events")}
     existing_idx = {i["name"] for i in insp.get_indexes("decree_execution_events")}
 
-    if "sequence" not in existing_cols:
+    sequence_is_new = "sequence" not in existing_cols
+    if sequence_is_new:
         op.add_column(
             "decree_execution_events",
             sa.Column("sequence", sa.Integer(), nullable=False, server_default="0"),
@@ -56,27 +57,33 @@ def upgrade() -> None:
             table_name="decree_execution_events",
         )
 
-    conn = bind
-    events = sa.table(
-        "decree_execution_events",
-        sa.column("id", sa.Text),
-        sa.column("task_id", sa.Text),
-        sa.column("occurred_at", sa.Text),
-        sa.column("sequence", sa.Integer),
-    )
-    rows = conn.execute(
-        sa.select(events.c.id, events.c.task_id).order_by(
-            events.c.task_id, events.c.occurred_at, events.c.id
+    # 2026-07-14 复审 #2:回填只能在 sequence 是本迁移新建的那一支跑——如果
+    # sequence 早就存在(create_all-first 库,已经跑了真实业务、真实写入顺序赋过
+    # 值),不判断就无条件按 occurred_at/id 重算,会用一个"事后猜的"顺序覆盖
+    # 已经合法、真实写入序的 sequence(occurred_at 只精确到秒、id 是随机 UUID,
+    # 兜底排序跟真实写入顺序不保证一致),等于用假顺序覆盖真顺序。
+    if sequence_is_new:
+        conn = bind
+        events = sa.table(
+            "decree_execution_events",
+            sa.column("id", sa.Text),
+            sa.column("task_id", sa.Text),
+            sa.column("occurred_at", sa.Text),
+            sa.column("sequence", sa.Integer),
         )
-    ).fetchall()
-    counters: dict[str, int] = {}
-    for row in rows:
-        counters[row.task_id] = counters.get(row.task_id, 0) + 1
-        conn.execute(
-            events.update()
-            .where(events.c.id == row.id)
-            .values(sequence=counters[row.task_id])
-        )
+        rows = conn.execute(
+            sa.select(events.c.id, events.c.task_id).order_by(
+                events.c.task_id, events.c.occurred_at, events.c.id
+            )
+        ).fetchall()
+        counters: dict[str, int] = {}
+        for row in rows:
+            counters[row.task_id] = counters.get(row.task_id, 0) + 1
+            conn.execute(
+                events.update()
+                .where(events.c.id == row.id)
+                .values(sequence=counters[row.task_id])
+            )
 
 
 def downgrade() -> None:
