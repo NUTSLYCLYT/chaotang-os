@@ -35,29 +35,51 @@ ROUTERS = Path(__file__).resolve().parent.parent / "web" / "routers"
 #   - 七次纠正:去掉 filter 后又漏形态——`query(DecisionTask, CourtReview)`(多实体)、
 #     `query(DecisionTask.id)`(列查询)、`select(DecisionTask)`(2.0 风格)都读 DecisionTask
 #     行却匹配不上窄正则(漏计新增查询)。
-# AST 计数只认"查询入口 Call 节点":`.query(DecisionTask...)` / `.get(DecisionTask, ...)` /
-# `select(DecisionTask...)`——每条查询算一次(链上的 .filter/.first 不是入口,不重复计),
-# 且 form-tolerant(多实体/列/2.0 都算),同时不误计 dict.get('key') 和别的模型。
+# AST 计数只认"查询入口 Call 节点":`.query(...)` / `.get(...)` / `select(...)`
+# (含 `sa.select(...)` 属性形态)——每条查询算一次(链上的 .filter/.first 不是入口,不重复计)。
+# 八次纠正:入口的判定改为"该 Call 的**任一参数子树**里引用了 DecisionTask",不再只看
+# args[0]、不再只认裸 Name/`DecisionTask.col`。否则会漏合法形态:
+#   - query(CourtReview, DecisionTask)  DecisionTask 在第二个参数;
+#   - query(models.DecisionTask)        限定名引用;
+#   - query(DecisionTask.id.label('x')) / query(func.count(DecisionTask.id))  嵌套表达式;
+#   - sa.select(DecisionTask)            select 以属性形态出现。
+# 仍不双计:.filter(DecisionTask.status...) 的 func.attr 是 "filter",不在入口集合里。
+# 仍不误计:dict.get('key') 参数不含 DecisionTask;query(CourtReview).filter(DecisionTask...)
+# 的 query 自身参数不含 DecisionTask(join 列由行为门 _LOOKUP 的布尔检测覆盖)。
+# 已知残余天花板:别名 import(`DecisionTask as DT` 后 query(DT))仍漏——需 import 解析,
+# 与行为门同一天花板,见 test_p0b_cross_user_behavioral 顶部声明。
 # 见 test_ast_counter_is_form_tolerant_and_dedup 的合成自检。
 
+_ENTRY_METHODS = frozenset({"query", "get", "select"})
 
-def _refs_decision_task(node: ast.AST) -> bool:
-    if isinstance(node, ast.Name):
-        return node.id == "DecisionTask"
-    if isinstance(node, ast.Attribute):
-        return isinstance(node.value, ast.Name) and node.value.id == "DecisionTask"
+
+def _call_refs_decision_task(call: ast.Call) -> bool:
+    for arg in call.args:
+        for sub in ast.walk(arg):
+            if isinstance(sub, ast.Name) and sub.id == "DecisionTask":
+                return True
+            if isinstance(sub, ast.Attribute) and sub.attr == "DecisionTask":
+                return True
+    return False
+
+
+def _is_query_entry_func(f: ast.AST) -> bool:
+    if isinstance(f, ast.Attribute):
+        return f.attr in _ENTRY_METHODS
+    if isinstance(f, ast.Name):
+        return f.id == "select"
     return False
 
 
 def _count_query_entries(src: str) -> int:
     n = 0
     for node in ast.walk(ast.parse(src)):
-        if not isinstance(node, ast.Call) or not node.args:
-            continue
-        f = node.func
-        if isinstance(f, ast.Attribute) and f.attr in ("query", "get") and _refs_decision_task(node.args[0]):
-            n += 1
-        elif isinstance(f, ast.Name) and f.id == "select" and _refs_decision_task(node.args[0]):
+        if (
+            isinstance(node, ast.Call)
+            and node.args
+            and _is_query_entry_func(node.func)
+            and _call_refs_decision_task(node)
+        ):
             n += 1
     return n
 
@@ -81,17 +103,23 @@ def _count_lookups() -> dict[str, int]:
 
 
 def test_ast_counter_is_form_tolerant_and_dedup():
-    """AST 计数器的合成自检:多实体/列/2.0-select 都算一次(正则会漏),
-    链续接不重复计(正则会双计),dict.get 和别的模型不误计。"""
+    """AST 计数器的合成自检:各种合法 ORM 形态都算一次(正则会漏),链续接不重复计
+    (正则会双计),join 列/dict.get/别的模型不误计。"""
     cases = {
         "db.query(DecisionTask).first()": 1,
-        "db.query(DecisionTask, CourtReview).all()": 1,
-        "db.query(DecisionTask.id).filter_by(x=1)": 1,
-        "select(DecisionTask).where(x)": 1,
-        "db.query(DecisionTask).filter(DecisionTask.status.in_(y))": 1,
+        "db.query(DecisionTask, CourtReview).all()": 1,       # 多实体,DT 在首位
+        "db.query(CourtReview, DecisionTask).all()": 1,       # DT 在第二位(旧漏)
+        "db.query(models.DecisionTask).first()": 1,           # 限定名(旧漏)
+        "sa.select(DecisionTask).where(x)": 1,                # select 属性形态(旧漏)
+        "db.query(DecisionTask.id.label('x')).all()": 1,      # 嵌套表达式(旧漏)
+        "db.query(func.count(DecisionTask.id)).scalar()": 1,  # 嵌套 func(旧漏)
+        "db.query(DecisionTask.id).filter_by(x=1)": 1,        # 列查询
+        "select(DecisionTask).where(x)": 1,                   # 2.0 裸 select
+        "db.query(DecisionTask).filter(DecisionTask.status.in_(y))": 1,  # 链续接不双计
         "db.get(DecisionTask, tid)": 1,
-        "payload.get('key')": 0,
-        "db.query(CourtReview).filter_by(id=x)": 0,
+        "payload.get('key')": 0,                              # dict.get 不误计
+        "db.query(CourtReview).filter_by(id=x)": 0,           # 别的模型
+        "db.query(CourtReview).filter(DecisionTask.id==CourtReview.task_id)": 0,  # join 列,query 自身不含 DT
     }
     for src, expected in cases.items():
         assert _count_query_entries(src) == expected, f"AST 计数错:{src}"
