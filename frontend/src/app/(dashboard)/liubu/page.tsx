@@ -31,6 +31,13 @@ function isMinistryLive(ministryKey: string): boolean {
   );
 }
 
+function getMinistryWorkbenchHref(ministryKey: string): string | undefined {
+  const code = MINISTRY_TO_DEPT_CODE[ministryKey];
+  return CHAOTANG_V1_LIUBU.find(
+    (department) => department.canonicalCode === code && department.status === 'active',
+  )?.href ?? undefined;
+}
+
 async function fetchMinistryMetrics(url: string): Promise<ManorMinistryMetricsMap> {
   const res = await backendFetch(url, { cache: 'no-store' });
   const json = (await res.json()) as {
@@ -147,7 +154,7 @@ export default function LiubuPage() {
               box={ministry.box}
               selected={selectedKey === ministry.key}
               enterDelayMs={120 + index * 80}
-              markHref={ministry.href}
+              markHref={getMinistryWorkbenchHref(ministry.key)}
               live={isMinistryLive(ministry.key)}
               dimWhenInactive={false}
               onClick={() => setSelectedKey((current) => (current === ministry.key ? null : ministry.key))}

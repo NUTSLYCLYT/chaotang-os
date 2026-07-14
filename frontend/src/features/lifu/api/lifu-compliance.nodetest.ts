@@ -27,10 +27,29 @@ test('礼部合规 adapter 解析三源结果并原样保留后端 source_label'
   assert.equal(result.status, 'success');
   assert.equal(result.sourceLabel, 'DETERMINISTIC_GATE');
   if (result.status === 'success') {
+    assert.equal(result.report.source_label, 'DETERMINISTIC_GATE');
     assert.equal(result.report.light, 'red');
     assert.equal(result.report.review_opinion?.source_label, 'LLM_ONLY');
     assert.equal(result.report.xhs_monitor_opinion?.source_label, 'ENGINE_BACKED');
   }
+});
+
+test('礼部合规 adapter 拒绝后端未定义的 source_label', async () => {
+  const result = await requestLifuComplianceReport('核验文案', async () =>
+    new Response(JSON.stringify({
+      light: 'green',
+      headline: '可以发布',
+      items: [],
+      source_label: 'UNEXPECTED_SOURCE',
+      deterministic_gated: true,
+      review_opinion: null,
+      xhs_monitor_opinion: null,
+      missing_coverage: [],
+    }), { status: 200, headers: { 'content-type': 'application/json' } }),
+  );
+
+  assert.equal(result.status, 'fallback');
+  assert.equal(result.sourceLabel, 'FALLBACK');
 });
 
 test('礼部合规 adapter 在后端不可达时诚实降级为 FALLBACK', async () => {
@@ -53,4 +72,22 @@ test('礼部合规 adapter 不把非成功响应伪装成真实结果', async ()
   assert.equal(result.status, 'fallback');
   assert.equal(result.sourceLabel, 'FALLBACK');
   if (result.status === 'fallback') assert.match(result.error, /401 Unauthorized/);
+});
+
+test('礼部合规 adapter 在 transport 永不返回时按超时诚实降级', async () => {
+  const watchdog = Symbol('watchdog');
+  const result = await Promise.race([
+    requestLifuComplianceReport(
+      '核验文案',
+      async () => new Promise<Response>(() => undefined),
+      10,
+    ),
+    new Promise<typeof watchdog>((resolve) => setTimeout(() => resolve(watchdog), 100)),
+  ]);
+
+  assert.notEqual(result, watchdog, 'adapter 未在配置的超时内返回');
+  if (result === watchdog) return;
+  assert.equal(result.status, 'fallback');
+  assert.equal(result.sourceLabel, 'FALLBACK');
+  if (result.status === 'fallback') assert.match(result.error, /timed out|timeout|超时/i);
 });

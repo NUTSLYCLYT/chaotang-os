@@ -1,8 +1,10 @@
 import { backendFetch } from '@/lib/backend-api';
 
 export const LIFU_COMPLIANCE_REPORT_PATH = '/api/swarm/lipu/compliance-report';
+export const LIFU_COMPLIANCE_TIMEOUT_MS = 8_000;
 
 export type LipuHardGateLight = 'green' | 'yellow' | 'red' | 'black';
+export type LipuComplianceSourceLabel = 'DETERMINISTIC_GATE' | 'LLM_ONLY' | 'ENGINE_BACKED';
 
 export interface LipuComplianceItem {
   level: 'green' | 'yellow' | 'red';
@@ -13,7 +15,7 @@ export interface LipuComplianceItem {
 
 export interface LipuReviewOpinion {
   text: string;
-  source_label: string;
+  source_label: LipuComplianceSourceLabel;
 }
 
 export interface LipuXhsMonitorOpinion extends LipuReviewOpinion {
@@ -24,7 +26,7 @@ export interface LipuComplianceReport {
   light: LipuHardGateLight;
   headline: string;
   items: LipuComplianceItem[];
-  source_label: string;
+  source_label: LipuComplianceSourceLabel;
   deterministic_gated: true;
   review_opinion: LipuReviewOpinion | null;
   xhs_monitor_opinion: LipuXhsMonitorOpinion | null;
@@ -48,8 +50,12 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function isComplianceSourceLabel(value: unknown): value is LipuComplianceSourceLabel {
+  return value === 'DETERMINISTIC_GATE' || value === 'LLM_ONLY' || value === 'ENGINE_BACKED';
+}
+
 function isOpinion(value: unknown): value is LipuReviewOpinion {
-  return isRecord(value) && isNonEmptyString(value.text) && isNonEmptyString(value.source_label);
+  return isRecord(value) && isNonEmptyString(value.text) && isComplianceSourceLabel(value.source_label);
 }
 
 function isXhsOpinion(value: unknown): value is LipuXhsMonitorOpinion {
@@ -66,29 +72,42 @@ function isComplianceItem(value: unknown): value is LipuComplianceItem {
   );
 }
 
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
+
 function parseLipuComplianceReport(value: unknown): LipuComplianceReport {
   if (!isRecord(value)) throw new Error('响应不是对象');
   const light = value.light;
+  const reviewOpinion = value.review_opinion;
+  const xhsMonitorOpinion = value.xhs_monitor_opinion;
+  const missingCoverage = value.missing_coverage;
   const validLight = light === 'green' || light === 'yellow' || light === 'red' || light === 'black';
-  const validReview = value.review_opinion === null || isOpinion(value.review_opinion);
-  const validXhs = value.xhs_monitor_opinion === null || isXhsOpinion(value.xhs_monitor_opinion);
-  const validMissing = Array.isArray(value.missing_coverage) && value.missing_coverage.every((item) => typeof item === 'string');
 
   if (
     !validLight ||
     typeof value.headline !== 'string' ||
     !Array.isArray(value.items) ||
     !value.items.every(isComplianceItem) ||
-    !isNonEmptyString(value.source_label) ||
+    !isComplianceSourceLabel(value.source_label) ||
     value.deterministic_gated !== true ||
-    !validReview ||
-    !validXhs ||
-    !validMissing
+    !(reviewOpinion === null || isOpinion(reviewOpinion)) ||
+    !(xhsMonitorOpinion === null || isXhsOpinion(xhsMonitorOpinion)) ||
+    !isStringArray(missingCoverage)
   ) {
     throw new Error('响应字段不符合礼部合规契约');
   }
 
-  return value as unknown as LipuComplianceReport;
+  return {
+    light,
+    headline: value.headline,
+    items: value.items,
+    source_label: value.source_label,
+    deterministic_gated: true,
+    review_opinion: reviewOpinion,
+    xhs_monitor_opinion: xhsMonitorOpinion,
+    missing_coverage: missingCoverage,
+  };
 }
 
 function errorMessage(error: unknown): string {
@@ -98,12 +117,20 @@ function errorMessage(error: unknown): string {
 export async function requestLifuComplianceReport(
   taskInput: string,
   transport: LipuComplianceTransport = backendFetch,
+  timeoutMs: number = LIFU_COMPLIANCE_TIMEOUT_MS,
 ): Promise<LipuComplianceOutcome> {
   try {
-    const response = await transport(LIFU_COMPLIANCE_REPORT_PATH, {
+    const signal = AbortSignal.timeout(timeoutMs);
+    const transportPromise = transport(LIFU_COMPLIANCE_REPORT_PATH, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ task_input: taskInput, archive: false }),
+      signal,
+    });
+    const response = await new Promise<Response>((resolve, reject) => {
+      const onAbort = () => reject(signal.reason ?? new Error(`request timed out after ${timeoutMs}ms`));
+      signal.addEventListener('abort', onAbort, { once: true });
+      transportPromise.then(resolve, reject).finally(() => signal.removeEventListener('abort', onAbort));
     });
     if (!response.ok) {
       throw new Error(`${response.status} ${response.statusText}`.trim());

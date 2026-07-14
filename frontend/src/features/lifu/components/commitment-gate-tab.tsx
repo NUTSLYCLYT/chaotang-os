@@ -40,7 +40,7 @@ function ComplianceReportSection() {
       <div>
         <span className="text-[11px] font-bold tracking-[0.14em] text-[#8a9aaa]">真实合规三源会审</span>
         <p className="mt-1 text-[11px] text-[#657080]">
-          提交待发布任务；红黄绿灯只取礼部素材回链硬闸，LLM 复核和舆情源仅作软意见。
+          提交待发布任务；红黄绿黑四灯只取礼部素材回链硬闸，LLM 复核和舆情源仅作软意见。
         </p>
       </div>
       <label className="block text-[11px] text-[#8a9aaa]">
