@@ -142,9 +142,9 @@
       "routingTarget": "DECISION_TASK_KERNEL",
       "disposition": "MIGRATE_REQUIRED",
       "replacement": {
-        "id": "canonical-shangshufang-decision-loop",
-        "status": "PLANNED",
-        "evidence": null
+        "id": "canonical-compat-decision-task-adapter",
+        "status": "VERIFIED",
+        "evidence": "backend/tests/test_compat_decision_task_adapters.py"
       },
       "telemetry": {
         "eventName": "capability_entry_invoked.v1",
@@ -154,7 +154,7 @@
         "windowStart": null,
         "windowEnd": null
       },
-      "decisionEvidence": ".harness/changes/chore-single-fact-c0a-baseline-20260714/summary.md"
+      "decisionEvidence": ".harness/changes/fix-compat-decision-task-adapters-20260714/summary.md"
     },
     {
       "id": "legacy-orchestration-registry-chain",
@@ -164,9 +164,9 @@
       "routingTarget": "DECISION_TASK_KERNEL",
       "disposition": "MIGRATE_REQUIRED",
       "replacement": {
-        "id": "canonical-d0-or-decision-task-ingress",
-        "status": "PLANNED",
-        "evidence": null
+        "id": "canonical-compat-decision-task-adapter",
+        "status": "VERIFIED",
+        "evidence": "backend/tests/test_compat_decision_task_adapters.py"
       },
       "telemetry": {
         "eventName": "capability_entry_invoked.v1",
@@ -176,7 +176,7 @@
         "windowStart": null,
         "windowEnd": null
       },
-      "decisionEvidence": ".harness/changes/chore-single-fact-c0a-baseline-20260714/summary.md"
+      "decisionEvidence": ".harness/changes/fix-compat-decision-task-adapters-20260714/summary.md"
     },
     {
       "id": "legacy-frontend-decision-store",

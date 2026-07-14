@@ -85,7 +85,7 @@ def test_prompt_suggest_contract_returns_existing_frontend_shape():
     assert suggestion["recommended"] in {"fast", "standard", "deep"}
 
 
-def test_orchestration_run_contract_streams_stage_events():
+def test_orchestration_run_contract_streams_stage_events(isolated_session_local):
     with TestClient(app).stream(
         "POST",
         "/api/orchestration/run",
@@ -157,7 +157,7 @@ def test_frontend_metric_ingest_accepts_fire_and_forget_event():
     assert response.json()["data"]["accepted"] is True
 
 
-def test_junjichu_cases_contract_returns_case_file():
+def test_junjichu_cases_contract_returns_case_file(isolated_session_local):
     response = TestClient(app).post(
         "/api/court/junjichu/cases",
         json={"command": "请军机处评估这个报价是否值得推进"},
@@ -182,7 +182,7 @@ def test_bureau_action_contract_returns_structured_error_not_404():
     assert body["error"] == "bureau_action_requires_backend_view_model"
 
 
-def test_court_orchestrate_contract_returns_legacy_shape():
+def test_court_orchestrate_contract_returns_legacy_shape(isolated_session_local):
     response = TestClient(app).post("/api/court/orchestrate", json={"command": "核算预算"})
 
     assert response.status_code == 200
@@ -192,7 +192,9 @@ def test_court_orchestrate_contract_returns_legacy_shape():
     assert body["merge"]["grounded"] is False
 
 
-def test_court_orchestrate_all_contract_returns_swarm_receipt_shape():
+def test_court_orchestrate_all_contract_returns_swarm_receipt_shape(
+    isolated_session_local,
+):
     response = TestClient(app).post(
         "/api/court/orchestrate/all",
         json={"command": "密旨评估", "mode": "secret"},

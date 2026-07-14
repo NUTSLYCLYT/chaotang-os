@@ -13,6 +13,7 @@ from typing import Any
 from fastapi import Body
 from fastapi import APIRouter, Depends, HTTPException
 
+from src.compat_decision_adapter import persist_compat_decision_task
 from web.deps import get_current_user
 from web.routers.chaotang import task_detail
 from web.schemas.auth import CurrentUser
@@ -178,7 +179,20 @@ def junjichu_cases(
     if len(command) < 5:
         return {"success": False, "data": None, "error": "command_too_short", "message": "请把要办的事写得再具体一点。", "sourceLabel": "FALLBACK"}
     task_id = f"junjichu-{secrets.token_hex(6)}"
-    register_task(task_id, task_input=command, config="junjichu-case-compat", monitor=True)
+    persist_compat_decision_task(
+        task_id=task_id,
+        user_id=_user_id(user),
+        command=command,
+        source_label="MIXED",
+        compat_entrypoint="court.junjichu_cases",
+    )
+    register_task(
+        task_id,
+        task_input=command,
+        config="junjichu-case-compat",
+        monitor=True,
+        decision_task_id=task_id,
+    )
     mark_status(task_id, "done", finished_at=_now_iso(), run_index_required=False, user_id=user.user_id)
     case = _case_file(command, task_id)
     return {
@@ -199,10 +213,30 @@ def junjichu_cases(
 
 
 @router.post("/orchestrate")
-def orchestrate(body: dict[str, Any] = Body(default_factory=dict)) -> dict:
+def orchestrate(
+    body: dict[str, Any] = Body(default_factory=dict),
+    user: CurrentUser = Depends(get_current_user),
+) -> dict:
+    return _orchestrate(body, user)
+
+
+def _orchestrate(body: dict[str, Any], user: CurrentUser) -> dict:
     command = str(body.get("command") or "").strip()
     task_id = f"court-orch-{secrets.token_hex(5)}"
-    register_task(task_id, task_input=command, config="court-orchestrate-compat", monitor=True)
+    persist_compat_decision_task(
+        task_id=task_id,
+        user_id=_user_id(user),
+        command=command,
+        source_label="FALLBACK",
+        compat_entrypoint="court.orchestrate",
+    )
+    register_task(
+        task_id,
+        task_input=command,
+        config="court-orchestrate-compat",
+        monitor=True,
+        decision_task_id=task_id,
+    )
     mark_status(task_id, "done", finished_at=_now_iso(), run_index_required=False)
     return {
         "ok": True,
@@ -223,7 +257,10 @@ def orchestrate(body: dict[str, Any] = Body(default_factory=dict)) -> dict:
 
 
 @router.post("/orchestrate/all")
-def orchestrate_all(body: dict[str, Any] = Body(default_factory=dict)) -> dict:
+def orchestrate_all(
+    body: dict[str, Any] = Body(default_factory=dict),
+    user: CurrentUser = Depends(get_current_user),
+) -> dict:
     """已弃用(2026-07-12):密旨(secret 模式)此前是这个兼容占位端点唯一的真实
     调用方，"统一决策任务生命周期"阶段2把它迁到了 draft-edict/confirm-edict
     真实管线，前端不再调用这个路由。保留此端点(不立即删除)是为了不打破
@@ -231,7 +268,7 @@ def orchestrate_all(body: dict[str, Any] = Body(default_factory=dict)) -> dict:
     以及任何本仓库之外可能还在调用它的调用方——它本来就诚实标注
     sourceLabel=FALLBACK、jiqunSwarm.ok=false，不会伪造真实结果。
     见 /home/ubuntu/.claude/plans/valiant-crunching-candy.md 阶段2。"""
-    result = orchestrate(body)
+    result = _orchestrate(body, user)
     result.setdefault("sourceLabel", "FALLBACK")
     result["secret"] = body.get("mode") == "secret"
     result["coverage"] = {
