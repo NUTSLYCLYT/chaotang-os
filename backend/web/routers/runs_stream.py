@@ -166,7 +166,6 @@ def _run_swarm(
         plan_run_kwargs,
         record_routing_decision,
     )
-    from src.securities_redline import route_with_redline_precheck
     from src.swarm_orchestrator import PROJECT_ROOT, SwarmOrchestrator
 
     orch = SwarmOrchestrator(str(PROJECT_ROOT / "config" / "swarm_orchestrator.yaml"))
@@ -239,10 +238,10 @@ def _run_swarm(
         )
         q.put({"type": "route", "swarm": body.swarm, "reason": "explicit"})
     else:
-        # 证券红线仍在**入口**一次（第0步b），三层计划内部不重跑（防分解旁路）。
-        routed = route_with_redline_precheck(body.task_input, orch.swarms)
+        # 计划收口(2026-07-14):红线预检/钉死/三层选择/双 tier 全在 build_plan 一次完成
+        plan = build_plan(body.task_input, set(orch.swarms))
         # 证券红线无合规落点 → 拒绝,不下放给 orch.run 默认兜底(会审 MEDIUM:防 fail-open)
-        if routed.get("needs_compliance"):
+        if plan.get("needs_compliance"):
             q.put(
                 {
                     "type": "error",
@@ -250,19 +249,6 @@ def _run_swarm(
                 }
             )
             return
-        if routed.get("redline") == "securities_advice" and routed.get("swarm"):
-            # 红线已定合规落点:钉死单入口,不进三层分解(junjichu 窄集不跑红线,防旁路;
-            # 收敛后 loop 更常召集 junjichu,该钉死是 PR1 的合并前置条件)
-            plan = {
-                "mode": "direct",
-                "entry_swarms": [routed["swarm"]],
-                "abstained": [],
-                "ministries": [],
-                "reason": routed.get("reason", ""),
-                "qintianjian_trigger": None,
-            }
-        else:
-            plan = build_plan(body.task_input, set(orch.swarms))
         # routing_truth 账本:攒真实路由决定,供校准军机处阈值(拍脑袋值的尺子原料)
         record_routing_decision(plan, body.task_input, task_id=task_id)
         tier_envelopes = [he.envelope_route(plan), he.envelope_pick(plan)]

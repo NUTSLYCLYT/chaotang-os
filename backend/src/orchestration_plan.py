@@ -42,20 +42,81 @@ def build_plan(
     available_swarms: Any,
     *,
     force_mode: str | None = None,
+    tenant_slug: str | None = None,
 ) -> dict[str, Any]:
-    """三层选择产执行计划:丞相 decide → (junjichu 时)各尚书在 allowed_swarms 有界集里选。
+    """三层选择产完整路由快照(计划收口,2026-07-14):红线预检 → 丞相 decide →
+    (junjichu 时)各尚书在 allowed_swarms 有界集里选 → 双 tier。一次调用 = 一份可落盘可回放的完整决定。
 
-    返回 {mode, entry_swarms, abstained, ministries, reason, qintianjian_trigger}。
-    entry_swarms 去重保序;尚书弃权(窄集无自信命中)进 abstained 诚实上报,不硬选。
+    返回旧键 {mode, entry_swarms, abstained, ministries, reason, qintianjian_trigger} 全不动,增量加:
+      route_matched     direct 模式 select_entry_swarm 的 matched;junjichu 为 None
+      redline           route_with_redline_precheck 原样结果(仅红线命中时非 None)
+      needs_compliance  证券红线无合规落点 → True,调用方拒单判据
+      orchestration_tier {tier, reason, value_thesis}
+      model_tier         {tier, target, cost, reason}
+    红线在**入口只跑这一次**(第0步b纪律);红线命中且有合规落点 → 钉死单入口 direct,不进三层分解
+    (junjichu 窄集 select_dept_swarm 不跑红线,分解会旁路)。
     """
+    from src.decree_swarm_router import select_model_tier, select_orchestration_tier
+    from src.securities_redline import route_with_redline_precheck
+
+    routed = route_with_redline_precheck(
+        command, available_swarms, tenant_slug=tenant_slug
+    )
+
+    def _with_tiers(plan: dict[str, Any]) -> dict[str, Any]:
+        entries = plan.get("entry_swarms") or []
+        plan["orchestration_tier"] = select_orchestration_tier(
+            command,
+            entry_swarm=entries[0] if entries else None,
+            involved_depts=[
+                m["code"] for m in plan.get("ministries", []) if m.get("code")
+            ],
+        )
+        plan["model_tier"] = select_model_tier(command)
+        return plan
+
+    if routed.get("needs_compliance"):
+        # 红线无合规落点:诚实空计划,调用方按 needs_compliance 拒单,不 fail-open
+        return _with_tiers(
+            {
+                "mode": "direct",
+                "entry_swarms": [],
+                "abstained": [],
+                "ministries": [],
+                "reason": routed.get("reason", ""),
+                "qintianjian_trigger": None,
+                "route_matched": False,
+                "redline": routed,
+                "needs_compliance": True,
+            }
+        )
+    if routed.get("redline") == "securities_advice" and routed.get("swarm"):
+        # 红线已定合规落点:钉死单入口,不进三层分解
+        return _with_tiers(
+            {
+                "mode": "direct",
+                "entry_swarms": [routed["swarm"]],
+                "abstained": [],
+                "ministries": [],
+                "reason": routed.get("reason", ""),
+                "qintianjian_trigger": None,
+                "route_matched": bool(routed.get("matched")),
+                "redline": routed,
+                "needs_compliance": False,
+            }
+        )
+
     decision = decide(command, available_swarms, force_mode=force_mode)
 
     entry_swarms: list[str] = []
     abstained: list[dict[str, Any]] = []
+    route_matched: bool | None = None
 
     if decision["mode"] == "direct":
         if decision.get("direct_swarm"):
             entry_swarms.append(decision["direct_swarm"])
+        # direct 分支 select_entry_swarm 与红线预检同选;matched 直接取预检结果,避免第三次选路
+        route_matched = bool(routed.get("matched"))
     else:
         for ministry in decision["selected_ministries"]:
             pick = select_dept_swarm(command, ministry)
@@ -66,14 +127,19 @@ def build_plan(
             elif pick["swarm"] not in entry_swarms:  # 去重保序:两部选中同一蜂群只跑一次
                 entry_swarms.append(pick["swarm"])
 
-    return {
-        "mode": decision["mode"],
-        "entry_swarms": entry_swarms,
-        "abstained": abstained,
-        "ministries": decision["selected_ministries"],
-        "reason": decision["reason"],
-        "qintianjian_trigger": decision.get("qintianjian_trigger"),
-    }
+    return _with_tiers(
+        {
+            "mode": decision["mode"],
+            "entry_swarms": entry_swarms,
+            "abstained": abstained,
+            "ministries": decision["selected_ministries"],
+            "reason": decision["reason"],
+            "qintianjian_trigger": decision.get("qintianjian_trigger"),
+            "route_matched": route_matched,
+            "redline": routed if routed.get("redline") else None,
+            "needs_compliance": False,
+        }
+    )
 
 
 def plan_run_kwargs(plan: dict[str, Any]) -> dict[str, Any]:
@@ -338,6 +404,12 @@ def record_routing_decision(
             {"code": m.get("code"), "score": m.get("score")}
             for m in (plan.get("ministries") or [])
         ],
+        # 计划收口(2026-07-14):tier/红线也是路由决定的一部分,一并落账供校准
+        "orchestration_tier": (plan.get("orchestration_tier") or {}).get("tier"),
+        "value_thesis": (plan.get("orchestration_tier") or {}).get("value_thesis"),
+        "model_tier": (plan.get("model_tier") or {}).get("tier"),
+        "redline": (plan.get("redline") or {}).get("redline"),
+        "route_matched": plan.get("route_matched"),
     }
     try:
         path = get_tenant_data_dir("routing") / "decisions.jsonl"

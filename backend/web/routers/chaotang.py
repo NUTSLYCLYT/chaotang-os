@@ -41,7 +41,6 @@ from src.decree_swarm_router import (
     select_model_tier,
     select_orchestration_tier,
 )
-from src.securities_redline import route_with_redline_precheck
 from src.chaotang_launch_loop import (
     build_launch_loop_case,
     build_prior_context,
@@ -1050,26 +1049,37 @@ def _attach_live_study_run(
     # 按密旨内容选对蜂群,取代旧的"盲投 ai_ops"默认(就绪度审计根因:储能密旨被 ai_ops 答非所问)。
     if entry_swarm:
         selected_entry = entry_swarm
+        # 显式人选无三层计划,tier 决策单独跑(与旧行为一致)
+        tier_decision = select_orchestration_tier(command, entry_swarm=selected_entry)
+        model_tier = select_model_tier(command)
     else:
-        routed = route_with_redline_precheck(command, orch.swarms)
+        # 计划收口(2026-07-14):红线预检+选路+双 tier 由 build_plan 一次完成。
+        # force_mode="direct" 保持 study run 单入口语义:direct 分支内 select_entry_swarm
+        # 与旧 route_with_redline_precheck 逐字节同选。
+        from src.orchestration_plan import build_plan, record_routing_decision
+
+        plan = build_plan(command, orch.swarms, force_mode="direct")
         # 证券红线无合规落点 → 拒绝,绝不下放给 orch.run 的默认兜底(会审 MEDIUM:防 fail-open 到业务蜂群)
-        if routed.get("needs_compliance"):
+        if plan.get("needs_compliance"):
             raise HTTPException(
                 status_code=422,
                 detail="证券/投资类问题需合规蜂群或人工裁决,当前无合规落点,已拒绝自动派单。",
             )
-        selected_entry = routed["swarm"]
+        selected_entry = (plan["entry_swarms"] or [None])[0]
         # 不静默:把意图路由决策记进事件流,账面可见密旨去了哪个蜂群、为什么。
         record_event(
             "decree_swarm_routed",
             command=command[:120],
             selected_swarm=selected_entry,
-            reason=routed["reason"],
-            matched=routed["matched"],
+            reason=plan["reason"],
+            matched=plan["route_matched"],
         )
+        # routing_truth 账本:study run 路径此前从未落路由账,收口后一并记
+        record_routing_decision(plan, command)
+        tier_decision = plan["orchestration_tier"]
+        model_tier = plan["model_tier"]
     # §8 四档编排:把"是否值得多 agent + 用哪档"做成一次显式可观测决策(decision_class
     # 暂由 command 关键词推断,待 StudyRunRequest.v2 接入后改传真值)。value_thesis=回本理由。
-    tier_decision = select_orchestration_tier(command, entry_swarm=selected_entry)
     record_event(
         "orchestration_tier_selected",
         command=command[:120],
@@ -1079,7 +1089,6 @@ def _attach_live_study_run(
         entry_swarm=selected_entry,
     )
     # A2②:分层模型路由(该用哪档脑子:红线人工/Hermes专家/litellm/本地免费),可观测
-    model_tier = select_model_tier(command)
     record_event(
         "model_tier_selected",
         command=command[:120],

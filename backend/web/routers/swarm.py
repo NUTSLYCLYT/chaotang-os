@@ -18,7 +18,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from src.tenant import with_tenant
 from src.decree_swarm_router import is_light_health_check
-from src.securities_redline import route_with_redline_precheck
 from src.finance_intel_loop_contract import (
     build_finance_intel_session,
     is_finance_intel_loop_request,
@@ -234,10 +233,14 @@ def api_swarm_run(
             route_reason = "light_health_check (只读联通自检, 跳过重型蜂群)"
             route_matched = True
         else:
-            routed = route_with_redline_precheck(body.task_input, orch.swarms)
-            selected_entry = routed.get("swarm") or None
-            route_reason = str(routed.get("reason") or "")
-            route_matched = bool(routed.get("matched"))
+            # 计划收口(2026-07-14):红线预检+选路由 build_plan 一次完成;
+            # force_mode="direct" 保持本端点单入口语义,选路与旧 precheck 逐字节同选
+            from src.orchestration_plan import build_plan
+
+            plan = build_plan(body.task_input, orch.swarms, force_mode="direct")
+            selected_entry = (plan["entry_swarms"] or [None])[0]
+            route_reason = str(plan.get("reason") or "")
+            route_matched = bool(plan.get("route_matched"))
         if not selected_entry:
             raise HTTPException(status_code=422, detail="没有可用入口蜂群")
 

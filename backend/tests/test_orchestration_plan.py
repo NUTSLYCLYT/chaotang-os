@@ -52,6 +52,57 @@ def test_all_abstain_refuses_to_run():
         op.plan_run_kwargs(plan)
 
 
+# ── 计划收口(2026-07-14):build_plan = 完整路由快照 ──────────────────
+
+
+def test_plan_carries_tier_snapshot():
+    """一次 build_plan = 红线+选路+双 tier 完整快照,新键齐全。"""
+    plan = op.build_plan("帮我整理这批储能柜的报价摘要", FULL_SET)
+    assert plan["orchestration_tier"]["tier"]
+    assert plan["model_tier"]["tier"]
+    assert plan["needs_compliance"] is False
+    assert plan["route_matched"] is True
+    assert plan["redline"] is None
+
+
+def test_securities_with_compliance_landing_pins_direct():
+    """证券红线命中且有合规落点(legal 在集合里)→ 钉死单入口 direct,不进三层分解。"""
+    plan = op.build_plan("用公司现金流加仓这只股票", FULL_SET)
+    assert plan["needs_compliance"] is False
+    assert plan["mode"] == "direct"
+    assert plan["entry_swarms"] == ["legal"]
+    assert plan["ministries"] == []  # 没跑三层分解
+    assert plan["redline"]["redline"] == "securities_advice"
+
+
+def test_securities_without_compliance_landing_refuses():
+    """证券红线无合规落点 → needs_compliance=True,空入口,调用方拒单。"""
+    plan = op.build_plan("用公司现金流加仓这只股票", {"finance", "quotation", "opc"})
+    assert plan["needs_compliance"] is True
+    assert plan["entry_swarms"] == []
+    with pytest.raises(ValueError):
+        op.plan_run_kwargs(plan)
+
+
+def test_record_routing_decision_persists_tier_fields(tenant_tmp):
+    """routing_truth 账本记 tier/红线/matched 新字段。"""
+    import json as _json
+
+    plan = op.build_plan("帮我整理这批储能柜的报价摘要", FULL_SET)
+    op.record_routing_decision(plan, "帮我整理这批储能柜的报价摘要", task_id="t1")
+    line = (
+        (tenant_tmp / "t_a" / "routing" / "decisions.jsonl")
+        .read_text(encoding="utf-8")
+        .strip()
+        .splitlines()[-1]
+    )
+    rec = _json.loads(line)
+    assert rec["orchestration_tier"] == plan["orchestration_tier"]["tier"]
+    assert rec["model_tier"] == plan["model_tier"]["tier"]
+    assert rec["route_matched"] is True
+    assert rec["redline"] is None
+
+
 # ── overlay 生命周期:propose → 质量门+人工门 → enabled ────────────────
 
 
