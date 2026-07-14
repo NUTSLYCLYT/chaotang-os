@@ -19,6 +19,8 @@
 9. 圣裁有人工确认、状态前置条件、幂等和审计；归档只接收已裁决的完整证据链。
 10. Alembic 能从受支持基线升级；备份、回滚、重启恢复、多租户、并发、真实浏览器与可观测性验收全部通过。
 
+发布回归集固定为 **30 条正式工作流黄金旨意，候选发布必须 30/30 通过**：10 条 D1 直办、10 条正常 D2 会办、10 条失败/对抗/恢复。D0 咨询另建契约案例，不进入正式任务数量对账。该 30/30 只证明工作流回归；合同领域的引用正确、重大风险召回、虚构条款、缺证降级与法域边界由 Step 7B 的 owner、样本量、统计窗口和批准阈值独立裁决，不得混算。
+
 任何一项缺少命令、退出码、日志/数据库/浏览器证据，整体状态只能是 `VERIFIED_PARTIAL`。
 
 ## 2. 已确认现状、推测与未知
@@ -95,7 +97,7 @@
 - **目标**：把现状、黄金样例、部署拓扑和非功能指标变成可执行基线。
 - **前置**：无。
 - **文件**：`backend/docs/` 或 backend change；`backend/tests/`；`frontend/src/lib/__tests__/`；根 change 索引。
-- **实施**：冻结 draft/confirm/status/decision OpenAPI 快照及 sourceLabel/engineTier 的枚举、正交关系和 fallback 传播；收集 direct/council/fallback/失败黄金样例；记录生产拓扑、流量、时长、限流与数据规模；完成 LLM/tool threat model；裁决第 3 节 ADR。
+- **实施**：冻结 draft/confirm/status/decision OpenAPI 快照及 sourceLabel/engineTier 的枚举、正交关系和 fallback 传播；形成 `processing_depth=D0|D1|D2`、风险硬门、动态升级和 D0 ingress/审计边界 ADR；冻结 30 条正式工作流黄金旨意目录及 D0 咨询契约案例；独立冻结合同领域黄金集 schema、支持法域、标注 owner 和授权边界；记录生产拓扑、流量、时长、限流与数据规模；完成 LLM/tool threat model；裁决第 3 节 ADR。
 - **验证**：后端契约测试、前端 adapter 测试、当前浏览器 happy path、DB 表/索引只读审计；所有命令及失败写入 CI 摘要。
 - **回滚**：仅测试和文档，可整体回滚。
 - **完成证据**：基线测试可稳定复现；未知项被回答或带 `blocks_steps` 记录。Step 0 的文档闭环完成不自动解锁仍被阻塞的后续阶段。
@@ -216,7 +218,7 @@
 - **依赖**：Step 1–11 全部通过。
 - **文件**：deploy/CI 配置、runbook、monitoring、backend/frontend harness、根 change CI 记录；具体归属在 Step 0 ADR 决定。
 - **实施**：**12A** release-readiness PR（runbook、SLO、告警、retention/PII 删除与不可变审计协调、kill switch）；**12B** migration/备份恢复演练；**12C** canary 部署检查点；**12D** 独立 24h/72h 观察；**12E** 有批准人的 rollout 决策。另以容量数据定义 Temporal/外部引擎 ADR 的触发阈值。
-- **验证**：真实浏览器 E2E；多租户隔离；并发/长任务；worker/web/DB/provider 故障注入；滚动发布；版本兼容；备份恢复；回滚演练；24h/72h 指标。外部平台不可用时对应检查点标 `BLOCKED`，不得用本地测试替代。
+- **验证**：30 条正式工作流黄金旨意 30/30；合同领域质量达到 Step 7B 批准阈值；真实浏览器 E2E；多租户隔离；并发/长任务；worker/web/DB/provider 故障注入；滚动发布；版本兼容；备份恢复；回滚演练；24h/72h 指标。外部平台不可用时对应检查点标 `BLOCKED`，不得用本地测试替代。
 - **回滚**：按 feature flag、worker 版本、API 兼容层与数据库 forward-fix 分层回滚，禁止破坏性降级。
 - **完成证据**：第 1 节十项 DoD 全有链接、命令、退出码、指标与责任人，才能标记 `VERIFIED_COMPLETE`。
 

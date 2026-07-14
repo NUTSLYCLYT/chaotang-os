@@ -31,12 +31,14 @@
 - 本机进程、STOP、数据库只读基线。
 - 控制面 ADR、威胁基线、旧路径和 READY_FOR_REVIEW 队列。
 - 完善 `plans/chaotang-os-launch-blueprint-2026-07-14.md`。
+- Step 0 closeout：入口清算、D0/D1/D2 ADR、双黄金资产目录、生产/数据治理 unknowns 和动态 CI 失败基线。
 
 ## 非目标
 
 - 不停止 foreign 3050，不修改 deploy/runtime，不修复 API 运行逻辑。
 - 不进入 S2–S10，不把测试绿灯声明为生产 READY。
 - 不读取或复制客户正文，不修改用户已有脏树文件。
+- 不实施 tenant migration、状态机、worker、DAG、质量门或 UI；这些仍按 canonical Step 1–12 领取。
 
 ## 边界条件
 
@@ -45,7 +47,7 @@
 | OpenAPI 响应仍宽松 | 测试冻结为 known gap，不美化成熟度 | snapshot test + baseline |
 | prod:doctor STOP | 保持 STOP，不降低门槛 | doctor 原始退出码 2 |
 | 当前工作区脏 | 只修改授权文件，不 reset/stash | git status/diff review |
-| 无 UI 行为变化 | 不要求浏览器 E2E | Node test + tsc；记录未验证项 |
+| 无 UI 行为变化 | 仍需冻结当前真实浏览器 happy-path 基线；foreign 3050、非隔离 DB、凭据或环境不满足时必须 BLOCKED | Playwright trace/screenshot + network/console；不得用 Node test 替代 |
 
 ## 风险与回滚边界
 
@@ -68,5 +70,5 @@
 ## 验证计划
 
 - 后端：新契约测试 + 既有上书房 API/路由/outbox 契约测试。
-- 前端：新 Node contract test + TypeScript + harness doctor。
+- 前端：新 Node contract test + TypeScript + harness doctor；固定 `3050 + /chaotang`、真实后端和隔离测试身份/DB 的 Playwright happy-path baseline，无法安全运行时保持 BLOCKED。
 - 根/后端 doctor、diff check；对抗复审。

@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chaotang.local/contracts/knowledge-quality-rubric.schema.json",
+  "title": "Knowledge Quality Rubric",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "status", "validFrom", "reviewDueAt", "approvedBy", "decisionEvidence",
+    "supportedScope", "dataset", "qualityThresholds", "outcomeThresholds", "economicsThresholds",
+    "evidenceLifecycle", "owners", "evidencePaths", "retestTriggers"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "knowledge-quality-rubric.v1" },
+    "status": { "const": "FROZEN_LOCAL" },
+    "validFrom": { "type": "string", "format": "date" },
+    "reviewDueAt": { "type": "string", "format": "date" },
+    "approvedBy": { "type": "string", "minLength": 1 },
+    "decisionEvidence": { "type": "string", "minLength": 1 },
+    "supportedScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["languages", "jurisdictions", "contractFamilies", "unsupportedBehavior"],
+      "properties": {
+        "languages": { "const": ["zh-CN"] },
+        "jurisdictions": { "const": ["CN-mainland"] },
+        "contractFamilies": { "const": ["manufacturing-b2b"] },
+        "unsupportedBehavior": { "const": "FAIL_CLOSED_HUMAN_ESCALATION" }
+      }
+    },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimums", "requiredAdversarialTypes", "labelPolicy"],
+      "properties": {
+        "minimums": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cases", "p0Findings", "p1Findings", "adversarialTypes", "repeatedRuns"],
+          "properties": {
+            "cases": { "const": 30 },
+            "p0Findings": { "const": 10 },
+            "p1Findings": { "const": 20 },
+            "adversarialTypes": { "const": 7 },
+            "repeatedRuns": { "const": 3 }
+          }
+        },
+        "requiredAdversarialTypes": { "type": "array", "minItems": 7, "uniqueItems": true },
+        "labelPolicy": { "const": "TWO_INDEPENDENT_REVIEWERS_THIRD_PARTY_ARBITRATION" }
+      }
+    },
+    "qualityThresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requiredEvidenceRecallAt10", "relevantChunkPrecisionAt10", "citationResolvableRate",
+        "p0Recall", "p1Recall", "highRiskPrecision", "highRiskCitationCoverage",
+        "highRiskCitationCorrectness", "missingEvidenceMarkRate", "unsupportedScopeFailClosedRate",
+        "fabricatedClauseCount", "gateOutcomeConsistency"
+      ],
+      "properties": {
+        "requiredEvidenceRecallAt10": { "const": 1.0 },
+        "relevantChunkPrecisionAt10": { "const": 0.8 },
+        "citationResolvableRate": { "const": 1.0 },
+        "p0Recall": { "const": 1.0 },
+        "p1Recall": { "const": 0.9 },
+        "highRiskPrecision": { "const": 0.8 },
+        "highRiskCitationCoverage": { "const": 1.0 },
+        "highRiskCitationCorrectness": { "const": 1.0 },
+        "missingEvidenceMarkRate": { "const": 1.0 },
+        "unsupportedScopeFailClosedRate": { "const": 1.0 },
+        "fabricatedClauseCount": { "const": 0 },
+        "gateOutcomeConsistency": { "const": 1.0 }
+      }
+    },
+    "outcomeThresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["formalArchives", "settledOutcomes", "authenticatedRatio", "distinctTenants", "observationDays"],
+      "properties": {
+        "formalArchives": { "const": 30 },
+        "settledOutcomes": { "const": 30 },
+        "authenticatedRatio": { "const": 1.0 },
+        "distinctTenants": { "const": 5 },
+        "observationDays": { "const": 30 }
+      }
+    },
+    "economicsThresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxCostCnyPerCase", "maxP95LatencySeconds"],
+      "properties": {
+        "maxCostCnyPerCase": { "const": 20 },
+        "maxP95LatencySeconds": { "const": 180 }
+      }
+    },
+    "evidenceLifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evaluationReportMaxAgeHours", "outcomeSnapshotMaxAgeDays", "goldenLabelReviewDays", "rubricReviewDays"],
+      "properties": {
+        "evaluationReportMaxAgeHours": { "const": 168 },
+        "outcomeSnapshotMaxAgeDays": { "const": 30 },
+        "goldenLabelReviewDays": { "const": 90 },
+        "rubricReviewDays": { "const": 90 }
+      }
+    },
+    "owners": { "type": "object", "minProperties": 5 },
+    "evidencePaths": { "type": "object", "minProperties": 4 },
+    "retestTriggers": { "type": "array", "minItems": 11, "uniqueItems": true }
+  }
+}
