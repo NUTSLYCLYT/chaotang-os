@@ -190,3 +190,24 @@ test('运行时 COURTOS_LAUNCH_MODE 优先于 NEXT_PUBLIC_*', () => {
     else process.env.COURTOS_LAUNCH_MODE = prevRuntime;
   }
 });
+
+// 审查门回归(2026-07-14 第7轮):NEXT_PUBLIC_* 单独生效路径不可失守——
+// 运行时变量缺席时(客户端 bundle / 构建期内联部署),内联值必须仍能决定档位。
+test('NEXT_PUBLIC_* 单独设值时生效（运行时变量缺席的内联路径）', () => {
+  const prevPublic = process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE;
+  const prevRuntime = process.env.COURTOS_LAUNCH_MODE;
+  try {
+    delete process.env.COURTOS_LAUNCH_MODE;
+
+    process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE = 'internal';
+    assert.equal(shouldRedirectForLaunch('/hanlin'), false, '内联 internal 应放行 /hanlin');
+
+    process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE = 'pilot';
+    assert.equal(shouldRedirectForLaunch('/hanlin'), true, '内联 pilot 应挡 /hanlin');
+  } finally {
+    if (prevPublic === undefined) delete process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE;
+    else process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE = prevPublic;
+    if (prevRuntime === undefined) delete process.env.COURTOS_LAUNCH_MODE;
+    else process.env.COURTOS_LAUNCH_MODE = prevRuntime;
+  }
+});
