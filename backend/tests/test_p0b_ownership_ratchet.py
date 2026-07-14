@@ -54,7 +54,11 @@ _ENTRY_METHODS = frozenset({"query", "get", "select"})
 
 
 def _call_refs_decision_task(call: ast.Call) -> bool:
-    for arg in call.args:
+    # 九次纠正:关键字形态 `session.get(entity=DecisionTask, ident=tid)` 的实参在
+    # call.keywords 里,不在 call.args。只看 args 会让 keyword-form 的 get/query
+    # 整个绕过。这里把位置实参和关键字实参的值子树一起扫。
+    subtrees = list(call.args) + [kw.value for kw in call.keywords]
+    for arg in subtrees:
         for sub in ast.walk(arg):
             if isinstance(sub, ast.Name) and sub.id == "DecisionTask":
                 return True
@@ -76,7 +80,7 @@ def _count_query_entries(src: str) -> int:
     for node in ast.walk(ast.parse(src)):
         if (
             isinstance(node, ast.Call)
-            and node.args
+            and (node.args or node.keywords)
             and _is_query_entry_func(node.func)
             and _call_refs_decision_task(node)
         ):
@@ -117,7 +121,10 @@ def test_ast_counter_is_form_tolerant_and_dedup():
         "select(DecisionTask).where(x)": 1,                   # 2.0 裸 select
         "db.query(DecisionTask).filter(DecisionTask.status.in_(y))": 1,  # 链续接不双计
         "db.get(DecisionTask, tid)": 1,
+        "db.get(entity=DecisionTask, ident=tid)": 1,          # keyword 形态(旧漏)
+        "session.get(DecisionTask, ident=tid, options=[o])": 1,
         "payload.get('key')": 0,                              # dict.get 不误计
+        "request.headers.get('x', default='y')": 0,           # keyword 但不含 DT
         "db.query(CourtReview).filter_by(id=x)": 0,           # 别的模型
         "db.query(CourtReview).filter(DecisionTask.id==CourtReview.task_id)": 0,  # join 列,query 自身不含 DT
     }
