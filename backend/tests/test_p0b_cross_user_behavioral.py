@@ -60,7 +60,14 @@ client = TestClient(app)
 # 新端点只要碰 DecisionTask 裸查,就自动要求一条 probe,不需要谁记得更新清单。
 
 _ROUTERS_DIR = Path(__file__).resolve().parent.parent / "web" / "routers"
-_LOOKUP = re.compile(r"query\(DecisionTask\)\.filter_by\(id=")
+# 2026-07-14 四次纠正:上一版检测用 `query\(DecisionTask\)\.filter_by\(id=` 这个
+# 窄正则,只认一种查询写法。任何别的形态——`.filter(DecisionTask.status...)`
+# 列表查询、`.get(DecisionTask, x)`、`.filter(DecisionTask.id == x)`——都读得到
+# 他人的 DecisionTask 却被静默漏掉(假绿)。实测该窄正则漏了 grand_council_live
+# 和 shangshufang_home 两个真实**列表泄露**端点(都是 status-only 过滤、无 user_id)。
+# 现在改为 form-agnostic:任何从 DB 取 DecisionTask 行的查询都算,不管 filter 语法。
+# 排除构造器创建(db.add(DecisionTask(...)))——那是写自己的行,不是读别人的。
+_LOOKUP = re.compile(r"query\(\s*DecisionTask\s*\)|\.get\(\s*DecisionTask\s*,")
 
 
 def _is_route(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
@@ -98,7 +105,7 @@ def derive_attack_surface() -> set[str]:
 
 
 # 攻击面 route → 本文件里对应的 probe 函数名。
-# 加一个碰 DecisionTask 裸查的新端点 → 推导出的攻击面多一项 → 这里没登记 → 覆盖率门红。
+# 加一个碰 DecisionTask 查询的新端点 → 推导出的攻击面多一项 → 这里没登记 → 覆盖率门红。
 _PROBES = {
     "jinyiwei:intel_evidence_fill_gap": "test_guarded_exemplar_jinyiwei_fill_gap",
     "shangshufang:shangshufang_task_status": "test_shangshufang_task_status",
@@ -110,6 +117,9 @@ _PROBES = {
     "shangshufang:shangshufang_edict_return": "test_shangshufang_edict_return",
     "swarm_runs:create_swarm_run": "test_swarm_runs_create",
     "swarm_runs:create_serial_loop": "test_swarm_runs_create_serial_loop",
+    # form-agnostic 检测新抓出的两个列表泄露端点(窄正则漏掉的):
+    "court_compat:grand_council_live": "test_grand_council_live_list_leak",
+    "shangshufang:shangshufang_home": "test_shangshufang_home_list_leak",
 }
 
 # 推导出来但**不是**跨用户攻击面的,必须在这里显式豁免并写明理由(不许静默忽略)。
@@ -155,6 +165,40 @@ def _seed_other_users_review(session_local, review_id: str, task_id: str) -> Non
     db.add(CourtReview(id=review_id, task_id=task_id, review_status="reviewing"))
     db.commit()
     db.close()
+
+
+_SENTINEL = "机密哨兵_只属于someone_else_勿泄露_a7f3"
+
+
+def _seed_victim_with_sentinel(session_local, task_id: str, status: str = "reviewing") -> None:
+    from src.db.models import DecisionTask
+
+    db = session_local()
+    db.add(
+        DecisionTask(
+            id=task_id,
+            user_id="someone_else",
+            raw_question=_SENTINEL,
+            status=status,
+            source_label="LIVE",
+        )
+    )
+    db.commit()
+    db.close()
+
+
+def _assert_sentinel_not_leaked(resp, what: str) -> None:
+    """列表端点的跨用户检验:他人任务的机密内容绝不能出现在返回体任何角落。
+
+    列表泄露不是"返回失败",而是"200 + 受害者的任务混在数组里"——弱断言
+    (success is False)对列表端点完全无效。这里直接扫整个序列化响应,只要
+    哨兵字符串出现就是泄露。form-independent,不耦合内部 payload 结构(并发
+    session 正在重写这些端点的字段名)。"""
+    raw = resp.text
+    assert _SENTINEL not in raw, (
+        f"{what}:他人任务的机密内容出现在列表响应里——跨用户列表泄露(P0-B)。"
+        "该端点按 status 过滤但没按 user_id 过滤。"
+    )
 
 
 def _assert_denied(body: dict, what: str) -> None:
@@ -290,6 +334,63 @@ def test_swarm_runs_create_serial_loop(isolated_session_local):
         json={"task_id": "p0b_swarmrun_serial", "mode": "dry_run"},
     ).json()
     _assert_denied(body, "swarm run serial")
+
+
+# ---------------------------------------------------------------------------
+# 列表泄露端点(form-agnostic 检测新抓出;窄正则曾整个漏掉)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="P0-B 未修:GET /api/court/grand-council/live 按 status 过滤但不按 user_id,"
+    "把所有用户的在审任务(command=raw_question)混在一个列表里返回。窄正则漏了它",
+)
+def test_grand_council_live_list_leak(isolated_session_local):
+    # 该端点只列出同时有 ChancellorRouteDecision + CourtReview 的任务(否则 continue)。
+    # 必须种齐这一组,受害者任务才会真的出现在列表里——否则测试会因"数据不全没上榜"
+    # 假绿,而不是因为端点安全。(2026-07-14 实测踩到:只种裸任务 → XPASS 假通过。)
+    from src.chancellor.contracts import RouteDecisionV2
+    from src.db.models import ChancellorRouteDecision, CourtReview, DecisionTask
+
+    db = isolated_session_local()
+    db.add(
+        DecisionTask(
+            id="p0b_council_leak", user_id="someone_else", raw_question=_SENTINEL,
+            status="reviewing", source_label="LIVE",
+        )
+    )
+    decision = RouteDecisionV2(
+        decision_id="p0b_council_dec", task_id="p0b_council_leak", mode="council",
+        strategy="parallel_review", primary_department="刑部", primary_agent=None,
+        participants=[], reason_summary="x", complexity_score=0.5, confidence=0.8,
+        human_confirmation_required=True, capability_snapshot_version="v1",
+        source_label="LIVE",
+    )
+    db.add(
+        ChancellorRouteDecision(
+            decision_id="p0b_council_dec", task_id="p0b_council_leak",
+            idempotency_key="p0b_council_idem", mode="council", primary_department="刑部",
+            source_label="LIVE", decision_json=decision.model_dump_json(),
+        )
+    )
+    db.add(CourtReview(id="p0b_council_review", task_id="p0b_council_leak", review_status="reviewing"))
+    db.commit()
+    db.close()
+
+    resp = client.get("/api/court/grand-council/live")
+    _assert_sentinel_not_leaked(resp, "grand-council live")
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="P0-B 未修:GET /api/shangshufang(home)按 status 过滤但不按 user_id,"
+    "首页奏折流会把别人的任务标题/内容展示给当前用户。窄正则漏了它,form-agnostic 抓出",
+)
+def test_shangshufang_home_list_leak(isolated_session_local):
+    _seed_victim_with_sentinel(isolated_session_local, "p0b_home_leak")
+    resp = client.get("/api/shangshufang/home")
+    _assert_sentinel_not_leaked(resp, "shangshufang home")
 
 
 # ---------------------------------------------------------------------------
