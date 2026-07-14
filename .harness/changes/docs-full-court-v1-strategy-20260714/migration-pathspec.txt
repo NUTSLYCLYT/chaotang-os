@@ -1,0 +1,5 @@
+.harness/changes/chore-evidence-driven-shangshufang-workflow-20260714/blueprint.md
+.harness/changes/docs-full-court-v1-strategy-20260714/
+docs/plans/FULL_COURT_V2_BACKLOG.md
+docs/plans/chaotang-os-launch-blueprint-2026-07-14.md
+docs/product/CHAOTANG_CONVERGENCE_GUIDE.md

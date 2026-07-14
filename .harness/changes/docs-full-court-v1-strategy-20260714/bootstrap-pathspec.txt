@@ -1,0 +1,6 @@
+# 记录：bootstrap commit 9fd856d 实际包含的路径（已执行，仅存档）
+docs/product/CHAOTANG_CONVERGENCE_GUIDE.md
+plans/chaotang-os-launch-blueprint-2026-07-14.md
+plans/FULL_COURT_V2_BACKLOG.md
+.harness/changes/docs-full-court-v1-strategy-20260714/
+.harness/changes/chore-evidence-driven-shangshufang-workflow-20260714/blueprint.md

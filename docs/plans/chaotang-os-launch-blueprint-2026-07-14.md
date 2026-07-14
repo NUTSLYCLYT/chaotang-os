@@ -8,6 +8,8 @@
 >
 > S1 合入提交：`feature-chaotang-ext` / `93a4483`；本轮文档开始前 ext HEAD 为 `22dc4e2`，工作区仍保留待审主线变更
 > 依赖路线图：`.harness/changes/docs-2026-launch-development-roadmap-20260712/roadmap.md`
+>
+> **2026-07-14 范围裁决**：开发范围调整为 FULL_COURT_V1——全部有效能力先接入统一事实链并内测跑通（至少 L3，核心 L4），非首发能力可开发但默认 INTERNAL/SHADOW/EXPERIMENTAL，不进入生产。本蓝图中"首发只做刑部切片、第二条付费切片才可解冻"等表述自此只约束**发布/收费范围**，不再约束**开发范围**。权威表述见 `docs/product/CHAOTANG_CONVERGENCE_GUIDE.md` 顶部"2026-07-14 开发策略裁决"；留痕 `.harness/changes/docs-full-court-v1-strategy-20260714/`。
 
 ## 0. 先给结论
 
