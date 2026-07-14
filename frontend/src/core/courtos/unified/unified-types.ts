@@ -4,15 +4,9 @@ import type { GongbuCTOCPOOpinion, GongbuDepartmentWorkOrder } from '../gongbu/g
 import type { HubuCFOOpinion, HubuDepartmentWorkOrder } from '../hubu/hubu-types.ts';
 import type { RitesCMOCCOOpinion, RitesDepartmentWorkOrder } from '../rites/rites-types.ts';
 import type { XingbuCLOCCOOpinion, XingbuDepartmentWorkOrder } from '../xingbu/xingbu-types.ts';
+import type { UnifiedDepartmentId as ContractUnifiedDepartmentId } from '@/lib/contracts/dept';
 
-export type UnifiedDepartmentId =
-  | 'jinyiwei'
-  | 'finance'
-  | 'war'
-  | 'personnel'
-  | 'justice'
-  | 'ritual'
-  | 'works';
+export type UnifiedDepartmentId = ContractUnifiedDepartmentId;
 
 export type UnifiedLoopState =
   | 'DAILY_PREP'

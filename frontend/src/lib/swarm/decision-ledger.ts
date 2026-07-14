@@ -12,11 +12,16 @@
 import { getDb } from '@/lib/db/turso';
 import { ledgerDb } from './ledger-db';
 import { logger } from '@/lib/logger';
-import { DEPT_DISPLAY } from '@/lib/contracts/dept';
-import { swarmToCn } from './dept-identity';
+import {
+  DEPARTMENT_NAME_BY_ALIAS,
+  departmentNameCn,
+  isPrivacySensitiveDepartment,
+} from '@/lib/contracts/dept';
 import type { AgentResult } from './dept-agent';
 
 let ensured = false;
+
+export const shouldRedactDepartmentCommand = isPrivacySensitiveDepartment;
 
 async function ensureTable(db: ReturnType<typeof getDb>): Promise<void> {
   if (ensured) return;
@@ -60,7 +65,7 @@ export async function recordDecision(
     const db = await ledgerDb();
     await ensureTable(db);
     // Schneier(验收会审)：判人部门的原始指令是 PII/法务负债 → 脱敏存档（answer 本身系统级、不点名，保留供对账）。
-    const isPeople = swarmToCn(dept) === '人和部';
+    const isPeople = shouldRedactDepartmentCommand(dept);
     const storedCommand = isPeople ? '[人事相关·原文已脱敏]' : command.slice(0, 2000);
     const res = await db.execute({
       sql: `INSERT INTO agent_decisions
@@ -86,7 +91,9 @@ export async function recordDecision(
     // Wilson 浓度场：本部 conflicts 里点名了哪些他部 → 强化那条冲突边
     const conflictsText = String(result.conflicts ?? '');
     if (conflictsText && conflictsText !== '无') {
-      const others = ['户部', '兵部', '刑部', '工部', '礼部', '锦衣卫', '太医院'].filter(
+      const others = ['finance', 'ops', 'legal', 'gongbu', 'market', 'guard', 'physician']
+        .map(departmentNameCn)
+        .filter(
         (n) => n !== DEPT_CN[dept] && conflictsText.includes(n),
       );
       for (const other of others) await reinforceEdge(dept, other, createdAtIso);
@@ -188,10 +195,7 @@ export function fieldToSignals(field: FieldEdge[]): PriorSignal[] {
 }
 
 /** 部门码→中文名:canonical 6 派生自 SSOT contracts/dept.ts DEPT_DISPLAY(铁律2),余为别名/拼写变体。 */
-export const DEPT_CN: Record<string, string> = {
-  ...Object.fromEntries(Object.entries(DEPT_DISPLAY).map(([code, d]) => [code, d.nameCn])),
-  hubu: '户部', works: '工部', gong_bu: '工部', gongbu: '工部',
-};
+export const DEPT_CN: Readonly<Record<string, string>> = DEPARTMENT_NAME_BY_ALIAS;
 
 /**
  * 把他部冲突信号格式化进 context（stigmergy 注入块）。明确"供参考、勿替他们下结论"，

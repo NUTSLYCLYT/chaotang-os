@@ -16,19 +16,13 @@ import type { ShangshufangReviewMemorial, ShangshufangSourceLabel } from '@/lib/
 import type { MinistryReviewResult, MinistryVerdict, MinistryId } from '../ministries/ministry-types.ts';
 import type { ImperialReport } from '../ministries/imperial-report-synthesizer.ts';
 import { mergeHonestSource } from '../../../lib/reality/merge-source.ts';
+import { MINISTRY_TO_AGENT_CODE } from '@/lib/contracts/dept';
 
 /**
  * 六部 MinistryId(本特性 SSOT)↔ 部门码(contracts/agent.ts Tier0)。
  * 铁律2:单一映射,禁静默回退。真码见 src/lib/contracts/agent.ts。
  */
-export const MINISTRY_TO_DEPT_CODE: Record<MinistryId, string> = {
-  personnel: 'li_bu',
-  finance: 'hu_bu',
-  ritual: 'li_bu_rites',
-  war: 'bing_bu',
-  justice: 'xing_bu',
-  works: 'gong_bu',
-};
+export const MINISTRY_TO_DEPT_CODE: Record<MinistryId, string> = MINISTRY_TO_AGENT_CODE;
 
 /** 圣裁枚举 → 奏折 sacred_judgement(中文)。诚实:FALLBACK/DEMO 不会走到这(见桥接层 isRecallableSource 门)。 */
 export const VERDICT_TO_JUDGEMENT: Record<MinistryVerdict, NonNullable<ShangshufangReviewMemorial['sacred_judgement']>> = {

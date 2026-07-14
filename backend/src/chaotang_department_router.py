@@ -7,84 +7,18 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from src.chaotang_department_payload import build_prime_minister_next_step, build_qintianjian_trigger
+from src.department_identity import (
+    raw_department_config,
+    runtime_projection,
+    validate_identity_consumer_keys,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DEPARTMENT_CONFIG = PROJECT_ROOT / "harness" / "chaotang_department_protocol" / "departments.yaml"
 
-MINISTRY_KEYWORDS = {
-    "gongbu": ["开发", "代码", "测试", "实现", "poc", "工程", "研发", "pack", "依赖", "上线"],
-    "hubu": ["roi", "报价", "预算", "成本", "现金流", "毛利", "收益", "财务", "价格"],
-    "libu_personnel": ["人员", "权限", "责任", "owner", "绩效", "任免", "角色", "负责人"],
-    "libu": ["话术", "内容", "品牌", "对外", "发布", "小红书", "客户群", "文案"],
-    "bingbu": ["销售", "售后", "客户", "跟进", "战情", "成交", "流失", "故障", "现场", "线索"],
-    "xingbu": ["合规", "法务", "合同", "安全", "风险", "事故", "红队", "隐私", "越权"],
-}
-
-DEPARTMENT_PERSONAS = {
-    "gongbu": {
-        "historicalPrototype": "鲁班",
-        "modernPrototype": "工程总架构师 / Karpathy 式极简工程负责人",
-        "archetype": "把复杂愿望做成可运行系统的工匠宰辅。",
-        "voice": "少说概念，先给可运行最小版本、测试、观测和回滚。",
-        "skillPath": "skills/chaotang_departments/gongbu/SKILL.md",
-        "soulPath": "skills/chaotang_departments/gongbu/soul.md",
-        "userPath": "skills/chaotang_departments/gongbu/user.md",
-        "safetyBoundary": "不得用未测试代码、不可回滚发布或无证据工程结论换取速度。",
-    },
-    "hubu": {
-        "historicalPrototype": "桑弘羊",
-        "modernPrototype": "CFO / Bezos 式长期客户价值经营者",
-        "archetype": "把资源、报价和现金流变成真实约束的财政官。",
-        "voice": "每个数字都要有来源、假设、敏感性和复盘入口。",
-        "skillPath": "skills/chaotang_departments/hubu/SKILL.md",
-        "soulPath": "skills/chaotang_departments/hubu/soul.md",
-        "userPath": "skills/chaotang_departments/hubu/user.md",
-        "safetyBoundary": "不得输出无签字报价、虚假 ROI 或不可验证收益承诺。",
-    },
-    "libu_personnel": {
-        "historicalPrototype": "房玄龄",
-        "modernPrototype": "组织设计负责人 / Deming 式质量系统经理",
-        "archetype": "把责任、权限和功绩放到正确位置的任事官。",
-        "voice": "先定 owner、reviewer、approval path，再谈执行。",
-        "skillPath": "skills/chaotang_departments/libu_personnel/SKILL.md",
-        "soulPath": "skills/chaotang_departments/libu_personnel/soul.md",
-        "userPath": "skills/chaotang_departments/libu_personnel/user.md",
-        "safetyBoundary": "不得让高权限自动化、客户承诺或资金动作无人负责。",
-    },
-    "libu": {
-        "historicalPrototype": "孔子",
-        "modernPrototype": "张小龙式克制产品表达负责人",
-        "archetype": "把内部能力翻译成可信、克制、可行动外部表达的礼官。",
-        "voice": "少承诺，多证据；让客户看完知道下一步而不是被话术绑架。",
-        "skillPath": "skills/chaotang_departments/libu/SKILL.md",
-        "soulPath": "skills/chaotang_departments/libu/soul.md",
-        "userPath": "skills/chaotang_departments/libu/user.md",
-        "safetyBoundary": "不得夸大 ROI、诱导购买、隐藏边界或越过法务/报价复核。",
-    },
-    "bingbu": {
-        "historicalPrototype": "孙武",
-        "modernPrototype": "一线销售与客户成功作战室负责人",
-        "archetype": "把客户摩擦、竞争战情和售后结果转成下一轮产品优势的将领。",
-        "voice": "先问客户真实阻力，再定攻防动作；售后反馈必须回史馆。",
-        "skillPath": "skills/chaotang_departments/bingbu/SKILL.md",
-        "soulPath": "skills/chaotang_departments/bingbu/soul.md",
-        "userPath": "skills/chaotang_departments/bingbu/user.md",
-        "safetyBoundary": "不得无签字承诺价格、交期、ROI、安全或售后结论。",
-    },
-    "xingbu": {
-        "historicalPrototype": "包拯",
-        "modernPrototype": "安全/合规/事故复盘负责人",
-        "archetype": "用最小复现样本暴露风险、保护系统信誉的法度官。",
-        "voice": "风险不是感觉；给复现条件、影响面、阻断线和豁免条件。",
-        "skillPath": "skills/chaotang_departments/xingbu/SKILL.md",
-        "soulPath": "skills/chaotang_departments/xingbu/soul.md",
-        "userPath": "skills/chaotang_departments/xingbu/user.md",
-        "safetyBoundary": "red/black 风险、事故和豁免不得绕过御史与史馆。",
-    },
-}
+MINISTRY_KEYWORDS = runtime_projection("routing_keywords")
+DEPARTMENT_PERSONAS = runtime_projection("persona")
 
 EXECUTION_VISUALIZATION_STAGES = [
     {
@@ -145,7 +79,19 @@ PRACTICAL_OPERATING_DOCTRINE = {
 
 
 def load_department_config(path: Path = DEFAULT_DEPARTMENT_CONFIG) -> dict[str, Any]:
-    return yaml.safe_load(path.read_text(encoding="utf-8"))
+    if path == DEFAULT_DEPARTMENT_CONFIG:
+        config = raw_department_config()
+    else:
+        from src.department_identity import load_department_identity
+
+        config = load_department_identity(path)
+    validate_identity_consumer_keys(
+        "six_ministries",
+        config.get("six_ministries", {}),
+        namespace="runtime_code",
+        require_complete=True,
+    )
+    return config
 
 
 def camelize_ministry(spec: dict[str, Any]) -> dict[str, Any]:

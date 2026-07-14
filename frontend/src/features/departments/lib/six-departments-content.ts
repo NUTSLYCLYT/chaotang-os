@@ -3,14 +3,9 @@ import {
   getV1LiubuByCanonicalCode,
   type V1CanonicalDepartmentCode,
 } from '@/config/chaotang-v1-modules';
+import { departmentIdentity } from '@/lib/contracts/dept';
 
-export type SixDepartmentCode =
-  | 'finance'
-  | 'ops'
-  | 'gongbu'
-  | 'legal'
-  | 'market'
-  | 'personnel';
+export type SixDepartmentCode = V1CanonicalDepartmentCode;
 
 export type DepartmentPanelSection = {
   title: string;
@@ -57,7 +52,7 @@ const PERSONNEL = getDepartmentGovernance('personnel');
 export const SIX_DEPARTMENTS: Record<SixDepartmentCode, SixDepartmentContent> = {
   finance: {
     code: 'finance',
-    name: '户部',
+    name: departmentIdentity('finance').nameCn,
     titleEn: 'Revenue Office',
     accent: '#F0C66A',
     background: '/assets/six-ministries/hubu-bg.webp',
@@ -120,7 +115,7 @@ export const SIX_DEPARTMENTS: Record<SixDepartmentCode, SixDepartmentContent> = 
   },
   ops: {
     code: 'ops',
-    name: '兵部',
+    name: departmentIdentity('ops').nameCn,
     titleEn: 'Operations Office',
     accent: '#6BA0FF',
     background: '/assets/six-ministries/bingbu-bg.webp',
@@ -181,7 +176,7 @@ export const SIX_DEPARTMENTS: Record<SixDepartmentCode, SixDepartmentContent> = 
   },
   gongbu: {
     code: 'gongbu',
-    name: '工部',
+    name: departmentIdentity('gongbu').nameCn,
     titleEn: 'Works Office',
     accent: '#7FC9A8',
     background: '/assets/six-ministries/gongbu-bg.webp',
@@ -238,7 +233,7 @@ export const SIX_DEPARTMENTS: Record<SixDepartmentCode, SixDepartmentContent> = 
   },
   legal: {
     code: 'legal',
-    name: '刑部',
+    name: departmentIdentity('legal').nameCn,
     titleEn: 'Justice Office',
     accent: '#3DD68C',
     background: '/assets/six-ministries/xingbu-bg.webp',
@@ -297,7 +292,7 @@ export const SIX_DEPARTMENTS: Record<SixDepartmentCode, SixDepartmentContent> = 
   },
   market: {
     code: 'market',
-    name: '礼部',
+    name: departmentIdentity('market').nameCn,
     titleEn: 'Rites Office',
     accent: '#C070D0',
     background: '/assets/six-ministries/libu-rites-bg.webp',
@@ -362,7 +357,7 @@ export const SIX_DEPARTMENTS: Record<SixDepartmentCode, SixDepartmentContent> = 
   },
   personnel: {
     code: 'personnel',
-    name: '吏部',
+    name: departmentIdentity('personnel').nameCn,
     titleEn: 'Personnel Office',
     accent: '#A99CF0',
     background: '/assets/six-ministries/libu-officials-bg.webp',
@@ -479,4 +474,3 @@ export function getDepartmentBureauBySlug(code: SixDepartmentCode, slug: string)
   const index = Number(match[1]) - 1;
   return getDepartmentBureaus(code)[index];
 }
-

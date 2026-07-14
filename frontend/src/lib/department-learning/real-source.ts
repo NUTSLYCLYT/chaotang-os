@@ -7,7 +7,7 @@ import type {
   DepartmentLearningRecord,
 } from '@/lib/contracts/department-learning';
 import { loadBossDecisionOutcomeEvidence } from '@/lib/swarm/boss-ledger';
-import { agentCodeForDept } from './advisor-signal';
+import { resolveDepartmentAgentCode } from '@/lib/contracts/dept';
 import { resolveArchiveConfirmation } from './archive-correlation';
 import { buildDepartmentLearningRecord } from './loop';
 import { loadLearningRecords, saveLearningRecord } from './store';
@@ -19,7 +19,7 @@ function verdictForAction(action: DepartmentLearningRealSourceAction): 'confirme
 
 function resolveAgentCode(input: Pick<DepartmentLearningRealSourceInput, 'agentCode' | 'dept'>): AgentCode | null {
   if (input.agentCode && input.agentCode in AGENT_META) return input.agentCode;
-  if (input.dept) return agentCodeForDept(input.dept);
+  if (input.dept) return resolveDepartmentAgentCode(input.dept);
   return null;
 }
 

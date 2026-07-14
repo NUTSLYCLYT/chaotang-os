@@ -1,8 +1,9 @@
 import type { EdictView } from '@/features/shangshufang/edict-content';
+import type { V1CanonicalDepartmentCode } from '@/lib/contracts/dept';
 
-export type DepartmentPageCode = 'finance' | 'gongbu' | 'works' | 'personnel' | 'market' | 'ops' | 'legal';
+export type DepartmentPageCode = V1CanonicalDepartmentCode | 'works';
 
-export type DepartmentPageCanonicalCode = 'finance' | 'gongbu' | 'personnel' | 'market' | 'ops' | 'legal';
+export type DepartmentPageCanonicalCode = V1CanonicalDepartmentCode;
 
 export type DepartmentPageStatusTone = 'idle' | 'processing' | 'risk' | 'pending_review' | 'done';
 

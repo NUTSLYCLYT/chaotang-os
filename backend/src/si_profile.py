@@ -18,15 +18,24 @@ from typing import Callable
 import yaml
 
 from src import capability_scoring as cap
+from src.department_identity import validate_identity_consumer_keys
 
 _REGISTRY_PATH = Path(__file__).resolve().parent.parent / "config" / "si_registry.yaml"
 
 
-def _load_registry() -> dict:
-    try:
-        return yaml.safe_load(_REGISTRY_PATH.read_text(encoding="utf-8")) or {}
-    except Exception:
-        return {}
+def _load_registry(path: Path = _REGISTRY_PATH) -> dict:
+    registry = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if not isinstance(registry, dict):
+        raise ValueError("si_registry must be a mapping")
+    departments = registry.get("departments", {})
+    if not isinstance(departments, dict):
+        raise ValueError("si_registry.departments must be a mapping")
+    validate_identity_consumer_keys(
+        "si_registry",
+        departments,
+        namespace="canonical_id",
+    )
+    return registry
 
 
 def list_si(dept: str) -> list[dict]:

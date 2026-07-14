@@ -1,7 +1,7 @@
 import type { AgentCode } from '@/lib/contracts/agent';
 import type { DepartmentLearningRealSourceAction } from '@/lib/contracts/department-learning';
 import type { ShiguanArchiveRecordV1 } from '@/lib/shangshufang/local-decision-loop';
-import { agentCodeForDept } from './advisor-signal';
+import { resolveDepartmentAgentCode } from '@/lib/contracts/dept';
 import { applyDepartmentLearningRealSource } from './real-source';
 import { loadLearningRecords } from './store';
 
@@ -11,7 +11,7 @@ function archiveAgents(record: ShiguanArchiveRecordV1): Set<AgentCode> {
     ...(record.draft_edict.recommended_departments ?? []),
     ...(record.memorial.department_memorials ?? []).map((item) => item.department_id),
   ];
-  return new Set(ids.map(agentCodeForDept).filter((agent): agent is AgentCode => Boolean(agent)));
+  return new Set(ids.map(resolveDepartmentAgentCode).filter((agent): agent is AgentCode => Boolean(agent)));
 }
 
 function pendingBossEvidence(evidence: string[]): {

@@ -13,6 +13,8 @@ agent_design/retired_standalone_swarms/)。其精修提示词的领域铁律在�
 
 from __future__ import annotations
 
+from src.department_identity import agent_code_for, validate_identity_consumer_keys
+
 # minister code(见 chaotang_agents.AGENT_CODE_BY_DEPT) → 会审专属人格 prompt。
 MINISTER_PERSONAS: dict[str, str] = {
     # 锦衣卫 — 情报/检索/研判
@@ -36,7 +38,7 @@ MINISTER_PERSONAS: dict[str, str] = {
         "输出(200-400 字):关键趋势信号(分级) / 主要风险(概率·时间窗) / 乐观-中性-悲观简要情景与应对。"
     ),
     # 吏部 — 人事/组织/能力评估
-    "li_bu": (
+    agent_code_for("libu"): (
         "你是吏部(人事/组织)大臣,参与军机处会审。专长:岗位与人才结构化、能力评估、组织排期。\n"
         "针对圣旨与丞相理解,给出本部门的人事视角意见。\n"
         "铁律:\n"
@@ -57,7 +59,7 @@ MINISTER_PERSONAS: dict[str, str] = {
     ),
     # —— 六部专属人格补全(2026-06-10 T1,让"户部vs兵部"等分歧有真实人格根)——
     # 户部 — 财务/现金/利润红线(横向权威:财务口径·毛利红线·现金缺口)
-    "hu_bu": (
+    agent_code_for("hubu"): (
         "你是户部(财务)大臣,参与军机处会审。专长:财务测算、现金流、利润与风险边界。\n"
         "你天然守利润和现金,对烧钱换增长的叙事保持警惕——这是你的立场,不要被增长故事盖过。\n"
         "铁律:\n"
@@ -67,7 +69,7 @@ MINISTER_PERSONAS: dict[str, str] = {
         "输出(200-400 字):财务视角意见(带口径) / 现金与毛利红线判断 / 风险与可执行建议。"
     ),
     # 兵部 — 竞争/增长/运营资源(横向权威:竞品定位·增长打法·资源冲突)
-    "bing_bu": (
+    agent_code_for("bingbu"): (
         "你是兵部(竞争/运营)大臣,参与军机处会审。专长:竞品定位、增长打法、运营资源调度。\n"
         "你天然抢增长抢身位,对过度保守、错失窗口保持警惕——这是你的立场,与户部的守成天然对立。\n"
         "铁律:\n"
@@ -77,7 +79,7 @@ MINISTER_PERSONAS: dict[str, str] = {
         "输出(200-400 字):竞争与增长视角意见 / 关键窗口与资源冲突 / 风险与可执行建议。"
     ),
     # 工部 — 产研/可交付性(横向权威:可交付性·技术冲突·交付排期)
-    "gong_bu": (
+    agent_code_for("gongbu"): (
         "你是工部(产研/交付)大臣,参与军机处会审。专长:技术方案、可制造性、交付排期。\n"
         "你天然守可交付性,对『先卖了再说』的承诺保持警惕——这是你的立场,与户部的预算压缩天然对立。\n"
         "铁律:\n"
@@ -87,7 +89,7 @@ MINISTER_PERSONAS: dict[str, str] = {
         "输出(200-400 字):可交付性视角意见 / 技术冲突与排期卡点 / 风险与可执行建议。"
     ),
     # 刑部 — 法务/合规/内控(横向权威:法务可签性·合规红线·内控)
-    "xing_bu": (
+    agent_code_for("xingbu"): (
         "你是刑部(法务/合规)大臣,参与军机处会审。专长:合同审查、合规红线、内控风险。\n"
         "你天然守合规边界,对激进的对外承诺保持警惕——这是你的立场,与礼部的对外表达天然对立。\n"
         "铁律:\n"
@@ -97,7 +99,7 @@ MINISTER_PERSONAS: dict[str, str] = {
         "输出(200-400 字):法务合规视角意见 / 可签性与红线判断 / 风险与替代表述。"
     ),
     # 礼部 — 对外表达/品牌(横向权威:品牌口径·对外措辞·发布合规)
-    "li_bu_rites": (
+    agent_code_for("libu_rites"): (
         "你是礼部(对外表达/品牌)大臣,参与军机处会审。专长:品牌叙事、对外措辞、内容营销。\n"
         "你要表达力与传播力,但所有对外表述必须可被证明——这是你的立场,与刑部的合规约束天然有张力。\n"
         "铁律:\n"
@@ -122,11 +124,19 @@ MINISTER_PERSONAS: dict[str, str] = {
 # 4 对天然对立的部门,是 edict.v2.conflicts[].axis 的合法取值(见后端整体方略 §2)。
 # 编排器只在这 4 个 axis 上做 stance 方向冲突检测,不做平均合成(Deming:surface variation 不 average)。
 CONFLICT_AXES: list[dict] = [
-    {"axis": "户部 vs 兵部", "a": "hu_bu", "b": "bing_bu", "tension": "利润 vs 增长"},
-    {"axis": "工部 vs 户部", "a": "gong_bu", "b": "hu_bu", "tension": "可交付性 vs 预算"},
-    {"axis": "刑部 vs 礼部", "a": "xing_bu", "b": "li_bu_rites", "tension": "合规边界 vs 对外表达"},
+    {"axis": "户部 vs 兵部", "a": agent_code_for("hubu"), "b": agent_code_for("bingbu"), "tension": "利润 vs 增长"},
+    {"axis": "工部 vs 户部", "a": agent_code_for("gongbu"), "b": agent_code_for("hubu"), "tension": "可交付性 vs 预算"},
+    {"axis": "刑部 vs 礼部", "a": agent_code_for("xingbu"), "b": agent_code_for("libu_rites"), "tension": "合规边界 vs 对外表达"},
     {"axis": "锦衣卫 vs 钦天监", "a": "jin_yi_wei", "b": "qin_tian_jian", "tension": "既成事实 vs 趋势推演"},
 ]
+
+validate_identity_consumer_keys(
+    "MINISTER_PERSONAS",
+    MINISTER_PERSONAS,
+    namespace="agent_code",
+    require_complete=True,
+    allow_unknown=True,
+)
 
 
 def conflict_axis_of(code_a: str, code_b: str) -> dict | None:

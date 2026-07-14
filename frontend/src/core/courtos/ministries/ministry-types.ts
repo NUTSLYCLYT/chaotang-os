@@ -11,13 +11,14 @@
  *   A = 主手(尚书视角)提推进主张；B = 副手(侍郎视角)提挑战与风险；再综合 → 尚书裁断。
  */
 import type { SourceLabel, RiskLevel } from '../types';
+import {
+  MINISTRY_IDS as CONTRACT_MINISTRY_IDS,
+  type MinistryId as ContractMinistryId,
+} from '@/lib/contracts/dept';
 
-/** 六部(吏户礼兵刑工)—— 本特性 SSOT。 */
-export type MinistryId = 'personnel' | 'finance' | 'ritual' | 'war' | 'justice' | 'works';
-
-export const MINISTRY_IDS: readonly MinistryId[] = [
-  'personnel', 'finance', 'ritual', 'war', 'justice', 'works',
-] as const;
+/** 六部 ID 由 contracts/dept.ts 派生；本文件只拥有会审行为契约。 */
+export type MinistryId = ContractMinistryId;
+export const MINISTRY_IDS: readonly MinistryId[] = CONTRACT_MINISTRY_IDS;
 
 /** 红黄绿灰灯。 */
 export type MinistrySignal = 'GREEN' | 'YELLOW' | 'RED' | 'GRAY';
