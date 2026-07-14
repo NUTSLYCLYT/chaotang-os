@@ -32,15 +32,21 @@ ROUTERS = Path(__file__).resolve().parent.parent / "web" / "routers"
 # 2026-07-14:与行为门 test_p0b_cross_user_behavioral.py 用同一个 form-agnostic
 # 检测(query(DecisionTask) / get(DecisionTask,),不再是只认 filter_by(id= 的窄正则)——
 # 否则两道门口径不一,表面积棘轮会漏掉列表查询等形态。
-_PATTERN = re.compile(
-    r"query\(\s*DecisionTask\s*\)|\.get\(\s*DecisionTask\s*,|filter\(\s*DecisionTask\."
-)
+# 2026-07-14 六次纠正:计数只认**查询入口**(query(DecisionTask) / get(DecisionTask,),
+# 每条查询算一次。故意**不**含 `filter(DecisionTask.` —— 它是 query(DecisionTask) 链上的
+# 续接子句(如 `db.query(DecisionTask).filter(DecisionTask.status.in_(...))`),不是一条新
+# 查询。上一版把它并进计数正则,导致同一条 ORM 查询被数两次,court_compat/shangshufang
+# 基线虚高(1→2、10→12)。实测确认所有 `filter(DecisionTask.` 都挂在某条 query(DecisionTask)
+# 链上、从不独立出现,故只数入口不会漏计任何真实查询。
+# 注意:行为门 test_p0b_cross_user_behavioral._LOOKUP 仍保留 filter 形态——那里是**布尔
+# 检测**(某函数是否碰 DecisionTask),多匹配无害;这里是**计数**,必须去重。两者刻意解耦。
+_PATTERN = re.compile(r"query\(\s*DecisionTask\s*\)|\.get\(\s*DecisionTask\s*,")
 
-# 文件名 → DecisionTask 查询处数(所有形态;不区分是否带归属校验——本门区分不了)。
+# 文件名 → DecisionTask 查询处数(每条查询一次;不区分是否带归属校验——本门区分不了)。
 _BASELINE = {
-    "court_compat.py": 2,
+    "court_compat.py": 1,
     "jinyiwei.py": 1,
-    "shangshufang.py": 12,
+    "shangshufang.py": 10,
     "swarm_runs.py": 1,
 }
 
