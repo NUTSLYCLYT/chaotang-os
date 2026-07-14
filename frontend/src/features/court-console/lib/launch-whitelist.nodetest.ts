@@ -1,10 +1,28 @@
-import test from 'node:test';
+import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
   isLaunchAllowedPage,
   shouldRedirectForLaunch,
 } from './launch-whitelist.ts';
+
+// 环境钳制：launch 档位由两个环境变量决定（运行时 COURTOS_LAUNCH_MODE 优先）。
+// 宿主机器上任何合法配置（如 internal 部署机跑测试）都不得影响断言——
+// 全文件在 demo 基线下跑，档位相关行为由下方专项测试自行设值验证。
+const _ENV_KEYS = ['COURTOS_LAUNCH_MODE', 'NEXT_PUBLIC_COURTOS_LAUNCH_MODE'] as const;
+const _envSnapshot: Record<string, string | undefined> = {};
+before(() => {
+  for (const k of _ENV_KEYS) {
+    _envSnapshot[k] = process.env[k];
+    delete process.env[k];
+  }
+});
+after(() => {
+  for (const k of _ENV_KEYS) {
+    if (_envSnapshot[k] === undefined) delete process.env[k];
+    else process.env[k] = _envSnapshot[k];
+  }
+});
 
 // 铁律4 回归：上线首日，商家点进去必须是真的。
 // 2026-07-08 v1 收窄为「极简脊柱」——只放行一条杀手 loop + 启动流，其余全 redirect→上书房。
@@ -132,20 +150,27 @@ test('同名前缀的页面路由仍被挡（/prd/[space] 是内部页，不能�
 // FULL_COURT 2026-07-14 裁决回归：非刑部能力默认 INTERNAL/SHADOW。
 // 翰林院(铁律5答案=truth_ledger 真实判定)仅 internal 环境放行，对外生产(demo/pilot)仍挡。
 test('翰林院 INTERNAL 放行、demo/pilot 仍挡（INTERNAL/SHADOW 裁决）', () => {
-  const prev = process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE;
+  // 两个环境变量都要钳制:运行时 COURTOS_LAUNCH_MODE 优先级更高,
+  // 宿主机器上任何合法残留值都不得影响断言。
+  const prevPublic = process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE;
+  const prevRuntime = process.env.COURTOS_LAUNCH_MODE;
   try {
-    process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE = 'internal';
+    delete process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE;
+
+    process.env.COURTOS_LAUNCH_MODE = 'internal';
     assert.equal(shouldRedirectForLaunch('/hanlin'), false, 'internal 应放行 /hanlin');
     assert.equal(shouldRedirectForLaunch('/hanlin/experiments'), false, 'internal 应放行子路由');
 
-    process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE = 'pilot';
+    process.env.COURTOS_LAUNCH_MODE = 'pilot';
     assert.equal(shouldRedirectForLaunch('/hanlin'), true, 'pilot 应挡 /hanlin');
 
-    delete process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE; // demo 默认
+    delete process.env.COURTOS_LAUNCH_MODE; // 双变量皆空 → demo 默认
     assert.equal(shouldRedirectForLaunch('/hanlin'), true, 'demo 默认应挡 /hanlin');
   } finally {
-    if (prev === undefined) delete process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE;
-    else process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE = prev;
+    if (prevPublic === undefined) delete process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE;
+    else process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE = prevPublic;
+    if (prevRuntime === undefined) delete process.env.COURTOS_LAUNCH_MODE;
+    else process.env.COURTOS_LAUNCH_MODE = prevRuntime;
   }
 });
 
