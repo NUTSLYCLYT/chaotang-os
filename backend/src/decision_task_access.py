@@ -22,3 +22,26 @@ def get_owned_decision_task(
     if decision.user_id != requester_id:
         return None, "无权访问他人的 DecisionTask"
     return decision, None
+
+
+def resolve_memorial_task_id(
+    db: Session, *, memorial_id: str
+) -> tuple[str | None, str | None]:
+    """Resolve a legacy run/memorial id to exactly one formal task id."""
+    from src.db.models import Memorial, Task
+
+    execution = db.query(Task.task_id).filter_by(run_id=memorial_id).first()
+    memorial = db.query(Memorial.task_id).filter_by(memorial_id=memorial_id).first()
+    candidates = {
+        value
+        for value in (
+            execution[0] if execution else None,
+            memorial[0] if memorial else None,
+        )
+        if value
+    }
+    if not candidates:
+        return None, "奏折未关联正式 DecisionTask"
+    if len(candidates) != 1:
+        return None, "奏折任务映射冲突，禁止裁决"
+    return candidates.pop(), None

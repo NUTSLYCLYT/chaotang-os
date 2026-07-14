@@ -499,7 +499,7 @@ def _archive_task(
     }
 
 
-def _apply_task_decision(
+def apply_task_decision(
     db,
     *,
     task: "DecisionTask",
@@ -570,7 +570,7 @@ def _apply_task_decision(
     return archive_record
 
 
-def _record_task_decision_event(
+def record_task_decision_event(
     db,
     *,
     task: "DecisionTask",
@@ -1406,10 +1406,10 @@ def shangshufang_task_decision(
             .first()
         )
         # 直接传原始 body.action(可能是 "approve"/"archive" 这类别名)，不在
-        # 这里预先归一化——_apply_task_decision 内部自己认得所有别名，同时
+        # 这里预先归一化——apply_task_decision 内部自己认得所有别名，同时
         # 会把这个原始字面量原样传给 _archive_task，史馆归档记录里保留的是
         # 陛下当时具体点的哪个动作，不是归一化后的 "adopt"。
-        archive_record = _apply_task_decision(
+        archive_record = apply_task_decision(
             db,
             task=task,
             review=review,
@@ -1418,7 +1418,7 @@ def shangshufang_task_decision(
             human_confirmed=body.human_confirmed,
             now=now,
         )
-        _record_task_decision_event(
+        record_task_decision_event(
             db,
             task=task,
             decision=decision,
@@ -2083,8 +2083,8 @@ def shangshufang_brief_decision_advance(
         )
         db.add(decision)
         # action 恒为 mapping 里四个 canonical 值之一(默认 "request_evidence")，
-        # 跟 _apply_task_decision 认的词表一致，不需要再映射。
-        archive_record = _apply_task_decision(
+        # 跟 apply_task_decision 认的词表一致，不需要再映射。
+        archive_record = apply_task_decision(
             db,
             task=task,
             review=review,
@@ -2093,7 +2093,7 @@ def shangshufang_brief_decision_advance(
             human_confirmed=bool(body.manualConfirmation),
             now=now,
         )
-        _record_task_decision_event(
+        record_task_decision_event(
             db,
             task=task,
             decision=decision,

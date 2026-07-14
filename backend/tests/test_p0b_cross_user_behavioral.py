@@ -190,6 +190,7 @@ _PROBES = {
     "swarm_runs:retry_swarm_run": "test_swarm_runs_retry",
     "chaotang:task_persist": "test_chaotang_task_persist",
     "chaotang:task_persist_patch": "test_chaotang_task_persist_patch",
+    "chaotang:memorial_review": "test_chaotang_memorial_review",
 }
 
 # 推导出来但**不是**跨用户攻击面的,必须在这里显式豁免并写明理由(不许静默忽略)。
@@ -438,6 +439,33 @@ def test_chaotang_task_persist_patch(isolated_session_local):
         json={"status": "archived", "result": {"tampered": True}},
     ).json()
     _assert_denied(body, "chaotang task persist patch")
+
+
+def test_chaotang_memorial_review(isolated_session_local, monkeypatch):
+    from src.db.models import Task
+    import web.routers.chaotang as chaotang
+
+    _seed_other_users_task(isolated_session_local, "p0b_memorial_review")
+    with isolated_session_local() as db:
+        db.add(
+            Task(
+                task_id="p0b_memorial_review",
+                run_id="p0b_memorial_run",
+                status="done",
+            )
+        )
+        db.commit()
+
+    class _Run:
+        task_input = "别人的任务"
+        final_output = {"recommendation": "机密"}
+
+    monkeypatch.setattr(chaotang, "load_run", lambda run_id: _Run())
+    body = client.post(
+        "/api/chaotang/memorials/p0b_memorial_run/review",
+        json={"action": "reject", "comment": "越权"},
+    ).json()
+    _assert_denied(body, "chaotang memorial review")
 
 
 # ---------------------------------------------------------------------------

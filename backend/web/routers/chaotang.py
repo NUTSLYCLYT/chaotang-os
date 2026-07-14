@@ -29,7 +29,10 @@ from web.schemas.chaotang import (
 )
 from src import chaotang_store
 from src.tenant import with_tenant
-from src.decision_task_access import get_owned_decision_task
+from src.decision_task_access import (
+    get_owned_decision_task,
+    resolve_memorial_task_id,
+)
 from src.swarm_orchestrator import SESSIONS_DIR, SwarmOrchestrator
 from web.task_registry import register_task, get_task, task_snapshot, mark_status
 from src.step_log import load_run
@@ -752,20 +755,127 @@ def memorial_review(
     run = load_run(run_id)
     if run is None:
         return fail(f"奏折 {run_id} 不存在")
+
+    from src.db.engine import SessionLocal
+    from src.db.flow_store import save_review_db
+    from src.db.models import CourtLoopRun, CourtReview, EmperorDecision
+    from src.shangshufang_loop import make_id, now_iso
+    from web.routers.shangshufang import (
+        LOOP_ID,
+        apply_task_decision,
+        record_task_decision_event,
+    )
+
+    action_map = {
+        "approve": "approve",
+        "reject": "reject",
+        "inquire": "request_evidence",
+    }
+    owner_id = str(user.user_id or user.username or user.tenant_slug or "anonymous")
+    reviewer = getattr(user, "username", "皇上") or "皇上"
+    db = SessionLocal()
     try:
-        rec = chaotang_store.save_review(
-            run_id,
+        task_id, mapping_error = resolve_memorial_task_id(db, memorial_id=run_id)
+        if task_id is None:
+            return fail(mapping_error or "奏折未关联正式 DecisionTask")
+        task, access_error = get_owned_decision_task(
+            db, task_id=task_id, requester_id=owner_id
+        )
+        if task is None:
+            return fail(access_error or "无权裁决该任务")
+
+        canonical_action = action_map[body.action]
+        now = now_iso()
+        decision = EmperorDecision(
+            id=make_id("decision", task.id, canonical_action, now),
+            task_id=task.id,
+            action=canonical_action,
+            reason=body.comment,
+            human_confirmed=True,
+            confirmation_record_json=json.dumps(
+                {"user_id": owner_id, "at": now, "legacy_memorial_id": run_id},
+                ensure_ascii=False,
+            ),
+            created_at=now,
+        )
+        db.add(decision)
+        court_review = (
+            db.query(CourtReview)
+            .filter_by(task_id=task.id)
+            .order_by(CourtReview.created_at.desc())
+            .first()
+        )
+        archive_record = apply_task_decision(
+            db,
+            task=task,
+            review=court_review,
+            action=canonical_action,
+            reason=body.comment,
+            human_confirmed=True,
+            now=now,
+        )
+        record_task_decision_event(
+            db,
+            task=task,
+            decision=decision,
+            archive_record=archive_record,
+        )
+        rec = chaotang_store.build_review_record(
+            run_id, action=body.action, comment=body.comment, reviewer=reviewer
+        )
+        save_review_db(
+            session=db,
+            review_id=rec["id"],
+            memorial_id=run_id,
             action=body.action,
             comment=body.comment,
-            reviewer=getattr(user, "username", "皇上") or "皇上",
+            reviewer_name=reviewer,
+            tenant_id=_default_tenant_id(),
+            created_at=rec["createdAt"],
         )
-    except ValueError as e:
-        return fail(str(e))
+        db.add(
+            CourtLoopRun(
+                id=make_id("loop", task.id, "legacy-review", canonical_action, now),
+                task_id=task.id,
+                loop_id=LOOP_ID,
+                status=task.status,
+                input_json=json.dumps(
+                    {"run_id": run_id, **body.model_dump()}, ensure_ascii=False
+                ),
+                output_json=json.dumps(
+                    {"decision_id": decision.id, "task_status": task.status},
+                    ensure_ascii=False,
+                ),
+                trace_id=decision.id,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        task_status = task.status
+        db.commit()
+    except (KeyError, ValueError) as exc:
+        db.rollback()
+        return fail(str(exc))
+    except Exception as exc:
+        db.rollback()
+        return fail(f"memorial_review_failed: {exc}")
+    finally:
+        db.close()
+
+    try:
+        chaotang_store.write_review_files(rec)
+    except Exception as exc:
+        record_event(
+            "legacy_review_json_copy_failed",
+            task_id=task_id,
+            run_id=run_id,
+            status="warning",
+            error=str(exc),
+        )
     # 批阅后立即失效 memorial 缓存,下次列表端点返回更新后状态
     from web.routers.throne import _CT_MEMORIAL_CACHE
 
     _CT_MEMORIAL_CACHE["expires_at"] = 0.0
-    task_status = "archived" if body.action == "approve" else "reviewed"
     if body.action == "approve" and run.final_output:
         from src.chaotang_api import build_memorial_sections
 

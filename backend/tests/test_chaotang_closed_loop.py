@@ -53,6 +53,38 @@ def _make_memorial(
     }
 
 
+def _seed_review_chain(session_factory, run_id: str, *, final_ready: bool = False):
+    from src.db.models import DecisionTask, FinalMemorial, Task
+
+    task_id = f"task_{run_id}"
+    with session_factory() as db:
+        db.add(
+            DecisionTask(
+                id=task_id,
+                user_id="1",
+                raw_question=f"正式任务 {run_id}",
+                status="awaiting_decision",
+                source_label="MIXED",
+            )
+        )
+        db.add(Task(task_id=task_id, run_id=run_id, status="done"))
+        if final_ready:
+            db.add(
+                FinalMemorial(
+                    id=f"formal_{run_id}",
+                    task_id=task_id,
+                    review_id=f"court_{run_id}",
+                    swarm_run_id=run_id,
+                    quality_result_id=f"quality_{run_id}",
+                    status="ready_for_decision",
+                    source_label="MIXED",
+                    memorial_json=json.dumps({"title": run_id, "summary": "可裁决"}),
+                    content_hash=f"hash_{run_id}",
+                )
+            )
+        db.commit()
+
+
 # ──────────────── 1. throne/overview 大臣状态真实联动 ────────────────
 
 
@@ -199,11 +231,14 @@ class TestMemorialReviewEdges:
             ct, "load_run", lambda rid: _FakeRun() if rid == run_id else None
         )
 
-    def test_approve_returns_ok(self, client, monkeypatch, tmp_path):
+    def test_approve_returns_ok(
+        self, client, monkeypatch, tmp_path, isolated_session_local
+    ):
         import src.chaotang_store as cs
 
         monkeypatch.setattr(cs, "_DATA_ROOT", tmp_path)
         self._inject_run(monkeypatch, "run_ok")
+        _seed_review_chain(isolated_session_local, "run_ok", final_ready=True)
         r = client.post(
             "/api/chaotang/memorials/run_ok/review",
             json={"action": "approve", "comment": "准"},
@@ -214,23 +249,29 @@ class TestMemorialReviewEdges:
         assert body["data"]["action"] == "approve"
         assert body["data"]["taskStatus"] == "archived"
 
-    def test_reject_returns_reviewed_status(self, client, monkeypatch, tmp_path):
+    def test_reject_returns_reviewed_status(
+        self, client, monkeypatch, tmp_path, isolated_session_local
+    ):
         import src.chaotang_store as cs
 
         monkeypatch.setattr(cs, "_DATA_ROOT", tmp_path)
         self._inject_run(monkeypatch, "run_rej")
+        _seed_review_chain(isolated_session_local, "run_rej")
         r = client.post(
             "/api/chaotang/memorials/run_rej/review",
             json={"action": "reject", "comment": "驳回"},
         )
         assert r.status_code == 200
-        assert r.json()["data"]["taskStatus"] == "reviewed"
+        assert r.json()["data"]["taskStatus"] == "rejected"
 
-    def test_inquire_action_valid(self, client, monkeypatch, tmp_path):
+    def test_inquire_action_valid(
+        self, client, monkeypatch, tmp_path, isolated_session_local
+    ):
         import src.chaotang_store as cs
 
         monkeypatch.setattr(cs, "_DATA_ROOT", tmp_path)
         self._inject_run(monkeypatch, "run_inq")
+        _seed_review_chain(isolated_session_local, "run_inq")
         r = client.post(
             "/api/chaotang/memorials/run_inq/review",
             json={"action": "inquire", "comment": "需追问"},
@@ -267,13 +308,14 @@ class TestMemorialReviewEdges:
         assert r.json()["success"] is False
 
     def test_approve_no_final_output_does_not_crash(
-        self, client, monkeypatch, tmp_path
+        self, client, monkeypatch, tmp_path, isolated_session_local
     ):
         """final_output 为空时 approve 不应 500。"""
         import src.chaotang_store as cs
 
         monkeypatch.setattr(cs, "_DATA_ROOT", tmp_path)
         self._inject_run(monkeypatch, "run_empty", has_output=False)
+        _seed_review_chain(isolated_session_local, "run_empty", final_ready=True)
         r = client.post(
             "/api/chaotang/memorials/run_empty/review",
             json={"action": "approve", "comment": ""},
@@ -540,12 +582,15 @@ class TestMemorialStatusSync:
         fake.run_id = run_id
         monkeypatch.setattr(ct, "load_run", lambda rid: fake if rid == run_id else None)
 
-    def test_approve_persists_archived_status(self, client, monkeypatch, tmp_path):
+    def test_approve_persists_archived_status(
+        self, client, monkeypatch, tmp_path, isolated_session_local
+    ):
         """approve 后 get_memorial_status 应返回 'archived'。"""
         import src.chaotang_store as cs
 
         monkeypatch.setattr(cs, "_DATA_ROOT", tmp_path)
         self._inject_run(monkeypatch, "run_sync1")
+        _seed_review_chain(isolated_session_local, "run_sync1", final_ready=True)
 
         r = client.post(
             "/api/chaotang/memorials/run_sync1/review",
@@ -557,12 +602,15 @@ class TestMemorialStatusSync:
             cs.get_memorial_status("run_sync1") == "archived"
         ), "approve 后持久状态应为 archived"
 
-    def test_reject_persists_rejected_status(self, client, monkeypatch, tmp_path):
+    def test_reject_persists_rejected_status(
+        self, client, monkeypatch, tmp_path, isolated_session_local
+    ):
         """reject 后 get_memorial_status 应返回 'rejected'。"""
         import src.chaotang_store as cs
 
         monkeypatch.setattr(cs, "_DATA_ROOT", tmp_path)
         self._inject_run(monkeypatch, "run_sync2")
+        _seed_review_chain(isolated_session_local, "run_sync2")
 
         r = client.post(
             "/api/chaotang/memorials/run_sync2/review",
@@ -575,13 +623,14 @@ class TestMemorialStatusSync:
         ), "reject 后持久状态应为 rejected"
 
     def test_memorial_detail_shows_archived_after_approve(
-        self, client, monkeypatch, tmp_path
+        self, client, monkeypatch, tmp_path, isolated_session_local
     ):
         """approve 后 GET /memorials/{id} 返回的 status 应为 archived,不再 pending。"""
         import src.chaotang_store as cs
 
         monkeypatch.setattr(cs, "_DATA_ROOT", tmp_path)
         self._inject_run(monkeypatch, "run_sync3")
+        _seed_review_chain(isolated_session_local, "run_sync3", final_ready=True)
 
         client.post(
             "/api/chaotang/memorials/run_sync3/review",
@@ -595,13 +644,14 @@ class TestMemorialStatusSync:
         ), f"approve 后详情 status 应为 archived,得 {r.json()['data'].get('status')!r}"
 
     def test_memorial_detail_shows_rejected_after_reject(
-        self, client, monkeypatch, tmp_path
+        self, client, monkeypatch, tmp_path, isolated_session_local
     ):
         """reject 后 GET /memorials/{id} 返回的 status 应为 rejected。"""
         import src.chaotang_store as cs
 
         monkeypatch.setattr(cs, "_DATA_ROOT", tmp_path)
         self._inject_run(monkeypatch, "run_sync4")
+        _seed_review_chain(isolated_session_local, "run_sync4")
 
         client.post(
             "/api/chaotang/memorials/run_sync4/review",

@@ -121,8 +121,8 @@
       "disposition": "MIGRATE_REQUIRED",
       "replacement": {
         "id": "canonical-shangshufang-decision-loop",
-        "status": "PLANNED",
-        "evidence": "backend/tests/test_chaotang_task_projection.py"
+        "status": "VERIFIED",
+        "evidence": "backend/tests/test_chaotang_memorial_review_adapter.py"
       },
       "telemetry": {
         "eventName": "capability_entry_invoked.v1",
@@ -132,7 +132,7 @@
         "windowStart": null,
         "windowEnd": null
       },
-      "decisionEvidence": ".harness/changes/fix-chaotang-task-projection-boundary-20260714/summary.md"
+      "decisionEvidence": ".harness/changes/fix-chaotang-memorial-review-decision-chain-20260714/summary.md"
     },
     {
       "id": "legacy-court-compat-task-chain",
