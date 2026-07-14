@@ -29,21 +29,34 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "decree_execution_events",
-        sa.Column("sequence", sa.Integer(), nullable=False, server_default="0"),
-    )
-    op.create_index(
-        "ix_decree_execution_events_task_sequence",
-        "decree_execution_events",
-        ["task_id", "sequence"],
-    )
-    op.drop_index(
-        "ix_decree_execution_events_task_occurred",
-        table_name="decree_execution_events",
-    )
+    # 2026-07-14 复审:004b 对已经靠 create_all 建过表的库是 checkfirst 直接跳过
+    # 创建——那种库里 decree_execution_events 已经是"最终" ORM schema(sequence
+    # 列、索引都已存在),这里如果不判断存在性直接 add_column/create_index/
+    # drop_index,会在这类库上炸"duplicate column"/"index already exists"/
+    # "no such index",迁移链在非干净库上会中途崩溃(数据丢失风险)。
+    bind = op.get_bind()
+    insp = sa.inspect(bind)
+    existing_cols = {c["name"] for c in insp.get_columns("decree_execution_events")}
+    existing_idx = {i["name"] for i in insp.get_indexes("decree_execution_events")}
 
-    conn = op.get_bind()
+    if "sequence" not in existing_cols:
+        op.add_column(
+            "decree_execution_events",
+            sa.Column("sequence", sa.Integer(), nullable=False, server_default="0"),
+        )
+    if "ix_decree_execution_events_task_sequence" not in existing_idx:
+        op.create_index(
+            "ix_decree_execution_events_task_sequence",
+            "decree_execution_events",
+            ["task_id", "sequence"],
+        )
+    if "ix_decree_execution_events_task_occurred" in existing_idx:
+        op.drop_index(
+            "ix_decree_execution_events_task_occurred",
+            table_name="decree_execution_events",
+        )
+
+    conn = bind
     events = sa.table(
         "decree_execution_events",
         sa.column("id", sa.Text),
