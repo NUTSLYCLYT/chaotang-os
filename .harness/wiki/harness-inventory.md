@@ -42,3 +42,5 @@
 - `.harness/contracts/capability-entry.schema.json`：清算项契约。
 - `.harness/contracts/capability-entry-event.schema.json`：统一入口调用遥测契约。
 - `.harness/wiki/capability-entry-governance.md`：唯一任务内核、14 天零调用删除门和纵切证据规则。
+- `.harness/manifest/knowledge-quality-rubric.v1.json`：K0B 合同/检索/outcome/成本/时效硬门；当前证据状态 `NO_DATA`。
+- `.harness/contracts/knowledge-quality-rubric.schema.json` 与 `scripts/knowledge-quality-rubric.mjs`：rubric 契约和确定性 PASS/FAIL/NO_DATA/EXPIRED evaluator。

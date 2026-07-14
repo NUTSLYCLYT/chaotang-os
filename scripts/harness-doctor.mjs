@@ -52,6 +52,10 @@ const required = [
   '.harness/manifest/capability-entry-inventory.json',
   '.harness/contracts/capability-entry.schema.json',
   '.harness/contracts/capability-entry-event.schema.json',
+  '.harness/contracts/knowledge-quality-rubric.schema.json',
+  '.harness/manifest/knowledge-quality-rubric.v1.json',
+  'scripts/knowledge-quality-rubric.mjs',
+  'scripts/knowledge-quality-rubric.nodetest.mjs',
   '.harness/templates/change-template/summary.md',
   '.harness/templates/change-template/request_analysis/spec.md',
   '.harness/templates/change-template/request_analysis/tasks.md',
@@ -112,6 +116,19 @@ if (manifest) {
     if (governance.deletionGate?.requireVerifiedReplacement !== true) error('capability entry deletion gate must require a verified replacement');
   } else {
     error('manifest missing capabilityEntryGovernance');
+  }
+
+  if (manifest.knowledgeQualityRubric) {
+    const rubric = manifest.knowledgeQualityRubric;
+    checkExists(rubric.rubric, 'manifest knowledge quality rubric');
+    checkExists(rubric.contract, 'manifest knowledge quality rubric contract');
+    checkExists(rubric.evaluator, 'manifest knowledge quality rubric evaluator');
+    if (rubric.status !== 'FROZEN_LOCAL') error(`knowledge quality rubric has invalid status: ${rubric.status}`);
+    if (rubric.currentEvidenceStatus !== 'NO_DATA') {
+      error('knowledge quality rubric evidence must remain NO_DATA until real golden/outcome artifacts exist');
+    }
+  } else {
+    error('manifest missing knowledgeQualityRubric');
   }
 
   if (manifest.controlPlane) {

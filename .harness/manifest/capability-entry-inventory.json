@@ -230,9 +230,9 @@
       "routingTarget": "DECISION_TASK_KERNEL",
       "disposition": "MIGRATE_REQUIRED",
       "replacement": {
-        "id": "canonical-workflow-profile-registry",
-        "status": "PLANNED",
-        "evidence": null
+        "id": "canonical-decision-task-create-kernel",
+        "status": "VERIFIED",
+        "evidence": "backend/tests/test_decision_task_single_writer.py"
       },
       "telemetry": {
         "eventName": "capability_entry_invoked.v1",

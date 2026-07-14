@@ -1,0 +1,90 @@
+{
+  "schemaVersion": "knowledge-quality-rubric.v1",
+  "status": "FROZEN_LOCAL",
+  "validFrom": "2026-07-14",
+  "reviewDueAt": "2026-10-12",
+  "approvedBy": "project-owner:user-confirmed-next-step",
+  "decisionEvidence": ".harness/changes/chore-knowledge-quality-rubric-k0b-20260714/request_analysis/spec.md",
+  "supportedScope": {
+    "languages": ["zh-CN"],
+    "jurisdictions": ["CN-mainland"],
+    "contractFamilies": ["manufacturing-b2b"],
+    "unsupportedBehavior": "FAIL_CLOSED_HUMAN_ESCALATION"
+  },
+  "dataset": {
+    "minimums": {
+      "cases": 30,
+      "p0Findings": 10,
+      "p1Findings": 20,
+      "adversarialTypes": 7,
+      "repeatedRuns": 3
+    },
+    "requiredAdversarialTypes": [
+      "prompt-injection",
+      "malicious-attachment",
+      "contradictory-clauses",
+      "scanned-document",
+      "empty-document",
+      "oversized-document",
+      "induced-fabrication"
+    ],
+    "labelPolicy": "TWO_INDEPENDENT_REVIEWERS_THIRD_PARTY_ARBITRATION"
+  },
+  "qualityThresholds": {
+    "requiredEvidenceRecallAt10": 1.0,
+    "relevantChunkPrecisionAt10": 0.8,
+    "citationResolvableRate": 1.0,
+    "p0Recall": 1.0,
+    "p1Recall": 0.9,
+    "highRiskPrecision": 0.8,
+    "highRiskCitationCoverage": 1.0,
+    "highRiskCitationCorrectness": 1.0,
+    "missingEvidenceMarkRate": 1.0,
+    "unsupportedScopeFailClosedRate": 1.0,
+    "fabricatedClauseCount": 0,
+    "gateOutcomeConsistency": 1.0
+  },
+  "outcomeThresholds": {
+    "formalArchives": 30,
+    "settledOutcomes": 30,
+    "authenticatedRatio": 1.0,
+    "distinctTenants": 5,
+    "observationDays": 30
+  },
+  "economicsThresholds": {
+    "maxCostCnyPerCase": 20,
+    "maxP95LatencySeconds": 180
+  },
+  "evidenceLifecycle": {
+    "evaluationReportMaxAgeHours": 168,
+    "outcomeSnapshotMaxAgeDays": 30,
+    "goldenLabelReviewDays": 90,
+    "rubricReviewDays": 90
+  },
+  "owners": {
+    "quality": { "type": "role", "roleId": "gongbu-quality-gate" },
+    "legal": { "type": "role", "roleId": "xingbu-domain-owner" },
+    "privacy": { "type": "role", "roleId": "data-privacy-owner" },
+    "pilot": { "type": "role", "roleId": "product-pilot-owner" },
+    "release": { "type": "role", "roleId": "release-commander" }
+  },
+  "evidencePaths": {
+    "goldenDataset": "backend/harness/contract-review-quality/golden_cases/contracts.json",
+    "qualityRuns": ".harness/changes/<release-change>/ci_result/artifacts/contract-quality/",
+    "outcomeSnapshot": ".harness/changes/<pilot-change>/ci_result/artifacts/outcomes.json",
+    "approvalRecord": ".harness/changes/<release-change>/ci_result/artifacts/knowledge-promotion-approval.json"
+  },
+  "retestTriggers": [
+    "model-change",
+    "prompt-change",
+    "provider-change",
+    "knowledge-or-license-change",
+    "retriever-change",
+    "scorer-change",
+    "dataset-label-change",
+    "jurisdiction-or-contract-scope-change",
+    "outcome-snapshot-expired",
+    "rubric-review-due",
+    "release-candidate"
+  ]
+}

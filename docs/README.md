@@ -15,6 +15,7 @@ docs/
 | 文件 | 内容 |
 | --- | --- |
 | `PROJECT_PRODUCT.md` | 产品定位、客户画像、商业模式、GTM、路线图和产品红线 |
+| `CHAOTANG_CONVERGENCE_GUIDE.md` | 唯一主线、任务分级、企业治理、部门能力、技术雷达和完整执行计划 |
 | `shiguan-three-column-redesign.md` | 史馆产品设计规格——功能定位、页面结构和内容格式 |
 
 ## 归属规则

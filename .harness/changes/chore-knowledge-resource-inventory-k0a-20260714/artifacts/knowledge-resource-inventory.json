@@ -1,0 +1,237 @@
+{
+  "manifest_hash": "sha256:8175856ef3e7daa465bce414d0c81ad03ed37d4ff83810739342f3bce1b6967c",
+  "observed_at": "2026-07-14T05:40:06Z",
+  "privacy": {
+    "contains_content": false,
+    "contains_payload_values": false,
+    "contains_source_paths": false,
+    "root_identifiers": "sha256"
+  },
+  "producer": {
+    "legacy_app_sha256": "sha256:7910903402488e3e8704fbdbb87fb331963a20056a164bb42a083e3e282990a5",
+    "python_version": "3.14.4",
+    "repository_commit": "417a90eea010598b36bffc46eed01d62e0a9f049",
+    "script_sha256": "sha256:adf15cccda831c44ab9090b725b763e8e2e2858635fa0befa683e7267e4cf674"
+  },
+  "schema_version": "knowledge-resource-inventory.v1",
+  "snapshot_set_hash": "sha256:acced4eb07a21689de4a7d05b6a949f03764f8c8123142ae243617c9a3ebd4ac",
+  "sources": [
+    {
+      "counts": {},
+      "disposition": {
+        "accepted": 0,
+        "quarantined": 0,
+        "rejected": 0
+      },
+      "freeze_eligible": true,
+      "metadata": {
+        "reason": "optional source is absent"
+      },
+      "root_identity": "sha256:ada8f539e8ea8194ce4121f7b59bc4c518e01263507f23b5b32d8b3c302f1d43",
+      "snapshot_token": "sha256:747531d6567a801ca4ab40dc51c262fcc7f9de4851522269f0f2b70ed1a92087",
+      "source_id": "current_rag_db",
+      "source_type": "sqlite",
+      "status": "ABSENT"
+    },
+    {
+      "counts": {
+        "bytes": 13123,
+        "files": 52
+      },
+      "disposition": {
+        "accepted": 0,
+        "quarantined": 52,
+        "rejected": 0
+      },
+      "freeze_eligible": true,
+      "metadata": {
+        "extensions": {
+          ".md": 52
+        },
+        "symlinks_rejected": 0
+      },
+      "root_identity": "sha256:c8c2c2c74a7a6273ae539709a52d7cd542e041e3474123ab4a46baeb2951b3ce",
+      "snapshot_token": "sha256:ff841bcd24e1a67f7f466f952b9051e21a71c63ad53bff17e209fb693dd1040c",
+      "source_id": "ima_docs",
+      "source_type": "file_tree",
+      "status": "STABLE"
+    },
+    {
+      "counts": {
+        "bytes": 45056,
+        "rows": 88,
+        "tables": 2
+      },
+      "disposition": {
+        "accepted": 0,
+        "quarantined": 88,
+        "rejected": 0
+      },
+      "freeze_eligible": true,
+      "metadata": {
+        "tables": {
+          "messages": 88,
+          "summaries": 0
+        }
+      },
+      "root_identity": "sha256:12e724b4f5ed5f3137e2602554cd25b8c14b559c1a07210b2f435b9787032690",
+      "snapshot_token": "sha256:4eb4f9590e701157271f69e789aae77e0406d5b3f28acfda00ecd09950f5a5e6",
+      "source_id": "legacy_brain_db",
+      "source_type": "sqlite",
+      "status": "STABLE"
+    },
+    {
+      "counts": {
+        "collections": 2,
+        "points": 13970
+      },
+      "disposition": {
+        "accepted": 0,
+        "quarantined": 13970,
+        "rejected": 0
+      },
+      "freeze_eligible": true,
+      "metadata": {
+        "collections": [
+          {
+            "declared_points": 13970,
+            "observed_points": 13970,
+            "status": "green",
+            "vectors": {
+              "distance": "Cosine",
+              "size": 768
+            }
+          },
+          {
+            "declared_points": 0,
+            "observed_points": 0,
+            "status": "green",
+            "vectors": {
+              "distance": "Cosine",
+              "size": 768
+            }
+          }
+        ],
+        "payload_key_presence": {
+          "chunk_index": 13970,
+          "content": 13970,
+          "metadata": 13970,
+          "source": 13970,
+          "tags": 13970,
+          "title": 13970
+        }
+      },
+      "root_identity": "sha256:1fd43907823a12eff25d8d7fe7e4d004cd05b43579a04c33ed51fdfeba45b815",
+      "snapshot_token": "sha256:fab909751269a8789aa6605faf907d4121425e66c45514d0cffd1393ba1b8b80",
+      "source_id": "legacy_qdrant",
+      "source_type": "qdrant",
+      "status": "STABLE"
+    },
+    {
+      "counts": {
+        "bytes": 62654,
+        "files": 6
+      },
+      "disposition": {
+        "accepted": 0,
+        "quarantined": 6,
+        "rejected": 0
+      },
+      "freeze_eligible": true,
+      "metadata": {
+        "extensions": {
+          ".md": 6
+        },
+        "filter_id": "sha256:90356594f6489cc45f50de436f283b41d7756d76509b49330cbbabc103c4870c",
+        "symlinks_rejected": 0
+      },
+      "root_identity": "sha256:6e4e22d97788b42dd8f96458604e0dfa7d8740f1651740ccd147b4b2e4f1791e",
+      "snapshot_token": "sha256:20c2ec1afa2abcbbd4552761785cd14323d57d7c3626a44b1350223d7f76e326",
+      "source_id": "legal_statutes",
+      "source_type": "file_tree",
+      "status": "STABLE"
+    },
+    {
+      "counts": {
+        "bytes": 1458326,
+        "files": 418
+      },
+      "disposition": {
+        "accepted": 0,
+        "quarantined": 418,
+        "rejected": 0
+      },
+      "freeze_eligible": true,
+      "metadata": {
+        "extensions": {
+          ".md": 190,
+          ".sample": 14,
+          "<none>": 214
+        },
+        "symlinks_rejected": 0
+      },
+      "root_identity": "sha256:90e9cf49ac70b5074d80b17ec55b08c86d8abb0b9b9d2881707a6ccc9ecaec90",
+      "snapshot_token": "sha256:4e6b405e56aab99a645da563c3257bc94129189ceee20f9e4150ac475f4517e6",
+      "source_id": "live_vault",
+      "source_type": "file_tree",
+      "status": "STABLE"
+    },
+    {
+      "counts": {
+        "bytes": 4899462,
+        "files": 1700
+      },
+      "disposition": {
+        "accepted": 0,
+        "quarantined": 1700,
+        "rejected": 0
+      },
+      "freeze_eligible": true,
+      "metadata": {
+        "extensions": {
+          ".bak-pre-fill-1782048901": 1,
+          ".bak-pre-fill-1782394506": 1,
+          ".bak-pre-fill-1782480901": 1,
+          ".bak-pre-fill-1782567301": 1,
+          ".bak-pre-fill-1782653701": 1,
+          ".bak-pre-fill-1782826501": 1,
+          ".bak-pre-fill-1782912901": 1,
+          ".bak-pre-fill-1783085701": 1,
+          ".bak-pre-fill-1783172101": 1,
+          ".bak-pre-fill-1783258501": 1,
+          ".bak-pre-fill-1783344901": 1,
+          ".bak-pre-fill-1783431301": 1,
+          ".bak-pre-fill-1783517701": 1,
+          ".bak-pre-fill-1783604101": 1,
+          ".bak-pre-fill-1783690500": 1,
+          ".bak-pre-fill-1783776901": 1,
+          ".bak-pre-fill-1783863301": 1,
+          ".bak-pre-fill-1783954802": 1,
+          ".css": 1,
+          ".js": 1,
+          ".json": 6,
+          ".md": 1672,
+          ".yaml": 1,
+          "<none>": 1
+        },
+        "symlinks_rejected": 0
+      },
+      "root_identity": "sha256:d186719a4203e9c4db6d59014034c9d9621c47b4a9d15d5d34e2c91e8c540c60",
+      "snapshot_token": "sha256:8e944de6c327cb9868e588abe3ae34c2478ce0cc92f48e8dc0030e6011665d71",
+      "source_id": "repo_archive",
+      "source_type": "file_tree",
+      "status": "STABLE"
+    }
+  ],
+  "summary": {
+    "absent": 1,
+    "accepted": 0,
+    "freeze_eligible": true,
+    "quarantined": 16234,
+    "rejected": 0,
+    "sources": 7,
+    "stable": 6,
+    "unavailable": 0,
+    "unstable": 0
+  }
+}

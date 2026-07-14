@@ -78,6 +78,16 @@
       "node --test scripts/capability-entry-governance.nodetest.mjs"
     ]
   },
+  "knowledgeQualityRubric": {
+    "status": "FROZEN_LOCAL",
+    "currentEvidenceStatus": "NO_DATA",
+    "rubric": ".harness/manifest/knowledge-quality-rubric.v1.json",
+    "contract": ".harness/contracts/knowledge-quality-rubric.schema.json",
+    "evaluator": "scripts/knowledge-quality-rubric.mjs",
+    "verification": [
+      "node --test scripts/knowledge-quality-rubric.nodetest.mjs"
+    ]
+  },
   "controlPlane": {
     "status": "IMPLEMENTING",
     "rolloutStage": "s10-local-observe-pending",
