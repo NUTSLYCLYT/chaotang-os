@@ -3,7 +3,7 @@ from uuid import uuid4
 
 from src.tenant import create_invite
 from web.main import app
-from web.routers import court_compat
+from web.routers import court_compat, orchestration_compat
 from web.schemas.auth import CurrentUser
 
 
@@ -99,7 +99,17 @@ def test_orchestration_run_contract_streams_stage_events(isolated_session_local)
     assert '"sourceLabel": "FALLBACK"' in body
 
 
-def test_qintian_chat_contract_streams_fallback_tokens():
+def test_qintian_chat_contract_streams_fallback_tokens(monkeypatch):
+    def fake_qintian_agent(message: str) -> tuple[str, str]:
+        assert message == "预测 AI 采纳率"
+        return "测试环境确定性占验", "FALLBACK"
+
+    monkeypatch.setattr(
+        orchestration_compat,
+        "_call_qintian_agent",
+        fake_qintian_agent,
+    )
+
     with TestClient(app).stream(
         "POST",
         "/api/qintian/chat",
