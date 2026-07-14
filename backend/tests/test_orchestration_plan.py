@@ -27,8 +27,9 @@ def tenant_tmp(tmp_path, monkeypatch):
 
 
 def test_direct_plan_single_entry():
-    """单域密旨 → direct 计划,单入口喂 orch.run(entry_swarm=...)。"""
-    plan = op.build_plan("帮我算这批储能柜的报价", FULL_SET)
+    """单域直办密旨 → direct 计划,单入口喂 orch.run(entry_swarm=...)。
+    (2026-07-14 阶段1收敛:改直办措辞;"帮我算…报价"在 loop 口径下带证据缺口判 junjichu)"""
+    plan = op.build_plan("帮我整理这批储能柜的报价摘要", FULL_SET)
     assert plan["mode"] == "direct"
     assert len(plan["entry_swarms"]) == 1
     kwargs = op.plan_run_kwargs(plan)

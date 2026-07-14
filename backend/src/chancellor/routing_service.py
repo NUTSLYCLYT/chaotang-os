@@ -4,14 +4,15 @@
 
 收敛策略（务实、渐进，不是重写）：
 - 继续复用 shangshufang_loop.chancellor_decide_route()——这是唯一已被 web 层
-  真实调用、有完整测试覆盖(34个黄金案例)的确定性规则集，收敛的意义是"包一层
+  真实调用、有完整测试覆盖(33个黄金案例)的确定性规则集，收敛的意义是"包一层
   统一契约+持久化+幂等"，不是重新发明部门打分逻辑。
 - 引入 chaotang_department_router.route_department_task() 的打分结果计算
-  complexity_score，让两套路由器至少在"复杂度量化"这一点上共用同一个信号，
-  而不是各自独立、互不可比。
-- chancellor_router.decide()(密旨直发路径)保持独立不动——两者服务不同产品
-  路径，方案第2节已说明这不是"同一意图两实现"，收敛前先过铁律7三问（见
-  chancellor_router.py 模块注释）。本服务只统一"上书房正式下旨"这一条主链。
+  complexity_score，让路由决策在"复杂度量化"这一点上共用同一个信号。
+- 阶段1收敛完成(2026-07-14)：chancellor_router.decide()(密旨直发路径)已同样
+  委托 chancellor_decide_route 判 mode+部门集，只保留部名→蜂群适配层。
+  两套规则引擎并存的历史到此为止；分歧回归 tripwire 见
+  tests/test_chancellor_golden_cases.py。本服务继续负责"上书房正式下旨"主链的
+  契约+持久化+幂等。
 """
 
 from __future__ import annotations

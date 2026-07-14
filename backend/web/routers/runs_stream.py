@@ -250,7 +250,19 @@ def _run_swarm(
                 }
             )
             return
-        plan = build_plan(body.task_input, set(orch.swarms))
+        if routed.get("redline") == "securities_advice" and routed.get("swarm"):
+            # 红线已定合规落点:钉死单入口,不进三层分解(junjichu 窄集不跑红线,防旁路;
+            # 收敛后 loop 更常召集 junjichu,该钉死是 PR1 的合并前置条件)
+            plan = {
+                "mode": "direct",
+                "entry_swarms": [routed["swarm"]],
+                "abstained": [],
+                "ministries": [],
+                "reason": routed.get("reason", ""),
+                "qintianjian_trigger": None,
+            }
+        else:
+            plan = build_plan(body.task_input, set(orch.swarms))
         # routing_truth 账本:攒真实路由决定,供校准军机处阈值(拍脑袋值的尺子原料)
         record_routing_decision(plan, body.task_input, task_id=task_id)
         tier_envelopes = [he.envelope_route(plan), he.envelope_pick(plan)]

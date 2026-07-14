@@ -47,8 +47,9 @@ def test_golden_case_matches_expected_mode(case):
 
 
 def test_golden_cases_record_divergence_between_two_routers():
-    """对照 chancellor_router.decide() 的独立输出，只记录分歧不做断言（方案第14节：
-    "为当前两套路由器建立对照输出，记录不一致，不立即删除旧实现"）。"""
+    """收敛 tripwire（阶段1完成后翻转）：chancellor_router.decide 已委托
+    chancellor_decide_route 判 mode，两套路由器 mode 级分歧必须为零。
+    任何人再把规则分叉，这里立即红。分歧 JSON 保留落盘作证据（应为 []）。"""
     divergences = []
     for case in GOLDEN_CASES:
         edict = draft_edict(case["question"])
@@ -76,6 +77,7 @@ def test_golden_cases_record_divergence_between_two_routers():
     _DIVERGENCE_LOG_PATH.write_text(
         json.dumps(divergences, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    # 不断言 divergences 为空——两套路由器目前就是不同规则，分歧是预期现状。
-    # 这个测试的价值是"每次跑都留下可读的分歧记录"，供阶段1收敛时对照。
-    assert isinstance(divergences, list)
+    assert divergences == [], (
+        "两套路由器 mode 级分歧必须为零(阶段1已收敛,decide 委托 chancellor_decide_route)。"
+        f"分歧详情见 {_DIVERGENCE_LOG_PATH}"
+    )

@@ -13,13 +13,21 @@ from src.chancellor_router import (
 FULL_SET = {"finance", "quotation", "product", "legal", "opc", "tianjian", "sourcing"}
 
 
-def test_single_domain_goes_direct():
-    """单域密旨(报价)→ direct,选一个入口蜂群,1 个尚书。"""
-    d = decide("帮我算这批储能柜的报价", FULL_SET)
+def test_single_domain_direct_action_goes_direct():
+    """单域直办密旨(整理/摘要类轻量措辞)→ direct,选一个入口蜂群,1 个尚书。"""
+    d = decide("帮我整理这批储能柜的报价摘要", FULL_SET)
     assert d["mode"] == "direct"
     assert d["direct_swarm"] is not None
     assert len(d["selected_ministries"]) == 1
     assert d["selected_ministries"][0]["code"] == "hubu"
+
+
+def test_evidence_gap_wording_convenes_junjichu():
+    """收敛后有意变更(2026-07-14,阶段1):"帮我算这批储能柜的报价"无直办动词且带证据缺口,
+    loop 口径(黄金案例钦定)判 cluster → junjichu。旧 decide 判 direct 是弱关键词引擎的漏判。"""
+    d = decide("帮我算这批储能柜的报价", FULL_SET)
+    assert d["mode"] == "junjichu"
+    assert any(m["code"] == "hubu" for m in d["selected_ministries"])
 
 
 def test_cross_domain_convenes_junjichu():

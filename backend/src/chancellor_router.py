@@ -1,46 +1,53 @@
 """丞相顶层选择器(2026-07-07 · 三层递归架构第2步·顶层)。
 
-丞相 = 唯一对用户说话的编排者。decide() 是它的脑子:把密旨判成
+丞相 = 唯一对用户说话的编排者。decide() 把密旨判成
   - direct:单域任务,直接选一个入口蜂群(select_entry_swarm);
   - junjichu:跨域任务,开军机处,选参加的尚书子集(六部),由各尚书在自己的 calls_swarms 里再选蜂群(第2步·中层)。
 
-设计纪律(继承会审):
-1. 纯函数组合已有 router(route_department_task 六部打分 + select_entry_swarm 单蜂群),不调 LLM——
-   编排是受约束选择,不是自由 agent(Karpathy)。
-2. 证券红线已在**入口**(securities_redline.route_with_redline_precheck,第0步b)短路,decide **不再**下放给
-   窄化的部级候选集——这正是会审头号 CRITICAL"红线经三层分解旁路"的修法:全局硬门只在入口一次,不分解。
-3. 开军机处保守默认(会审警告:关键词重叠会过度会审=成本×3):≥2 部真得分才 convene,不确定→direct(便宜可逆)。
-   每次决定结构化返回,供上层 record_event 落账 → 将来攒 routing_truth 尺子校准这个阈值(第5步)。
-4. selected_ministries 每个带 allowed_swarms(=该部 calls_swarms),是给中层尚书的契约:尚书只在这个有界集里选。
+收敛注(2026-07-14,超级丞相方案阶段1):mode 与部门集**唯一事实源是
+shangshufang_loop.chancellor_decide_route**(黄金案例钦定口径,见 tests/fixtures/chancellor_golden_cases.py)。
+本模块降级为蜂群适配层:部名 → six_ministries code → allowed_swarms → 入口蜂群。
+2026-07-08 的"两套路由不同意图保持独立"边界注就此作废——两套规则引擎并存造成 mode 级分歧
+(见 chancellor_golden_cases_divergence.json 历史记录),收敛是方案文档
+docs/super-chancellor-routing-implementation-plan-2026-07-10.md 第14节阶段1的既定交付。
 
-边界注(2026-07-08,防铁律3误收敛):本模块是**密旨直发路径**的丞相(确定性关键词,不调 LLM,
-喂唯一 SwarmOrchestrator);chaotang_orchestrator.draft_decree 是**拟旨/圣旨路径**的丞相
-(LLM 分诊+人确认后才会审)。两者服务不同通路、失败模式不同(本处 confident-wrong 靠弃权兜,
-彼处幻觉靠 evidence 硬约束兜),不是同一意图两实现——收敛前先过铁律7三问。
+设计纪律(继承会审,仍然有效):
+1. 确定性规则,不调 LLM——编排是受约束选择,不是自由 agent(Karpathy)。
+2. 证券红线已在**入口**(securities_redline.route_with_redline_precheck,第0步b)短路,decide **不再**下放给
+   窄化的部级候选集——全局硬门只在入口一次,不分解。
+3. selected_ministries 每个带 allowed_swarms(=该部 calls_swarms),是给中层尚书的契约:尚书只在这个有界集里选。
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from src.chaotang_department_router import route_department_task
+from src.chaotang_department_router import load_department_config, score_ministry
+from src.chaotang_department_payload import build_qintianjian_trigger
 from src.confidence_tag import classify
 from src.decree_swarm_router import select_entry_swarm
+from src.shangshufang_loop import chancellor_decide_route, draft_edict
 
-# ≥2 部得分>0 = 跨域,开军机处。保守默认——会审警告过度会审=成本×3,宁可 direct。
+# 已收敛(2026-07-14):mode 由 chancellor_decide_route 判,此阈值仅作历史下界/测试兼容,勿再用于分支。
 JUNJICHU_MIN_MINISTRIES = 2
 
 
-def _ministry_view(dept: dict[str, Any]) -> dict[str, Any]:
-    """把 route_department_task 的候选部门压成给中层尚书的契约视图。"""
+def _ministry_view_from_name(
+    name: str, command: str, by_name: dict[str, tuple[str, dict[str, Any]]]
+) -> dict[str, Any]:
+    """部名(loop 口径,中文)→ 给中层尚书的契约视图。
+
+    未映射名(锦衣卫/丞相等 six_ministries 之外的角色)→ allowed_swarms=[],
+    走 select_dept_swarm 既有的诚实弃权机制,不硬选。
+    """
+    code, spec = by_name.get(name, ("", {}))
+    score, hits = score_ministry(code, command) if code else (0, [])
     return {
-        "code": dept.get("code", ""),
-        "name": dept.get("name", ""),
-        "allowed_swarms": list(
-            dept.get("callsSwarms", [])
-        ),  # 尚书只在这个有界集里选(第2步中层)
-        "score": dept.get("score", 0),
-        "matched_keywords": list(dept.get("matchedKeywords", [])),
+        "code": code,
+        "name": name,
+        "allowed_swarms": list(spec.get("calls_swarms", [])),
+        "score": score,
+        "matched_keywords": hits,
     }
 
 
@@ -52,16 +59,28 @@ def decide(
 ) -> dict[str, Any]:
     """丞相顶层裁决:direct 单蜂群 or junjichu 选尚书子集。
 
-    force_mode:用户/上游可强制 'direct' 或 'junjichu'(人选优先,留痕)。默认按打分启发式,保守偏 direct。
+    mode+部门集委托唯一规则引擎 chancellor_decide_route(收敛注见模块头);
+    本函数只做部名→蜂群适配。force_mode:用户/上游可强制 'direct' 或 'junjichu'(人选优先,留痕)。
     返回 {mode, selected_ministries[], direct_swarm?, reason, qintianjian_trigger}。
     注:调用前证券红线应已在入口处理(route_with_redline_precheck),decide 不再重跑红线。
     """
-    route = route_department_task(command)
-    scoring = route.get("candidateDepartments", [])  # 已 score>0 且按分排名
-    ministries = [_ministry_view(d) for d in scoring]
+    by_name = {
+        spec.get("name", ""): (code, spec)
+        for code, spec in load_department_config().get("six_ministries", {}).items()
+    }
+    if (command or "").strip():
+        route = chancellor_decide_route(draft_edict(command))
+    else:
+        # draft_edict 对空密旨 raise;空命令退单蜂群直发,保持旧 decide("") 不炸的契约
+        route = {"mode": "direct", "departments": [], "reason": "空密旨,退单蜂群直发"}
+
+    ministries = [
+        _ministry_view_from_name(n, command, by_name)
+        for n in (route.get("departments") or [])
+    ]
 
     convene = force_mode == "junjichu" or (
-        force_mode != "direct" and len(scoring) >= JUNJICHU_MIN_MINISTRIES
+        force_mode != "direct" and route.get("mode") == "cluster"
     )
 
     if convene and ministries:
@@ -69,7 +88,7 @@ def decide(
             "mode": "junjichu",
             "selected_ministries": ministries,
             "direct_swarm": None,
-            "reason": f"跨 {len(ministries)} 部({'/'.join(m['name'] for m in ministries)}),开军机处会审",
+            "reason": route.get("reason", ""),
         }
     else:
         routed = select_entry_swarm(command, available_swarms)
@@ -81,7 +100,7 @@ def decide(
             "reason": routed.get("reason", ""),
         }
 
-    decision["qintianjian_trigger"] = route.get("qintianjianTrigger")
+    decision["qintianjian_trigger"] = build_qintianjian_trigger(command)
     return decision
 
 
