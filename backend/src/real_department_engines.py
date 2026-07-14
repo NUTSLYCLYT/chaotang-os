@@ -33,6 +33,12 @@ import time
 from pathlib import Path
 from typing import Callable
 
+from src.department_identity import (
+    agent_to_name_projection,
+    canonical_name,
+    swarm_to_name_projection,
+)
+
 _logger = logging.getLogger(__name__)
 
 # 灯 → 部门立场(与 swarm_execution_loop 现有 position 词表对齐)
@@ -841,13 +847,13 @@ def adapt_tianjian(task_text: str) -> dict | None:
 # 部门中文名 → 原始 adapter(返回 court_doc 原始 dict 或 None)。
 # L3(丞相动态会审)直接消费这份，只需要 light/headline/items 拼文本。
 REAL_ENGINE_ADAPTERS: dict[str, Callable[[str], dict | None]] = {
-    "兵部": adapt_bingbu,
+    canonical_name("bingbu"): adapt_bingbu,
     "锦衣卫": adapt_jinyiwei,
-    "刑部": adapt_xingbu,
-    "户部": adapt_hubu,
-    "礼部": adapt_lipu,
+    canonical_name("xingbu"): adapt_xingbu,
+    canonical_name("hubu"): adapt_hubu,
+    canonical_name("libu_rites"): adapt_lipu,
     "钦天监": adapt_tianjian,
-    "吏部": adapt_libu_personnel,
+    canonical_name("libu"): adapt_libu_personnel,
 }
 
 # swarm_id(L4 上书房链路用) → 部门中文名。key 必须是 SWARM_DEFS(swarm_execution_loop)
@@ -855,26 +861,23 @@ REAL_ENGINE_ADAPTERS: dict[str, Callable[[str], dict | None]] = {
 # 是死键,正确 sid 是 "libu_communication_swarm"。钦天监不在 SWARM_DEFS(它是参谋蜂群、
 # 非六部上书房链路),只走下方 L3 minister 路,故不在此登记。
 _SWARM_ID_DEPT: dict[str, str] = {
-    "bingbu_strategy_swarm": "兵部",
-    "jinyiwei_intel_swarm": "锦衣卫",
-    "xingbu_legal_risk_swarm": "刑部",
-    "hubu_finance_swarm": "户部",
-    "libu_communication_swarm": "礼部",
-    "libu_org_execution_swarm": "吏部",
+    swarm_id: name
+    for swarm_id, name in swarm_to_name_projection().items()
+    if name in REAL_ENGINE_ADAPTERS
 }
+_SWARM_ID_DEPT["jinyiwei_intel_swarm"] = "锦衣卫"
 
 # minister persona code(L3 丞相会审用,见 src/minister_personas.py) → 部门中文名。
 # 礼部=li_bu_rites(li_bu 是吏部)、钦天监=qin_tian_jian。engine-backed 部门应同时登记
 # L3(此表)+L4(_SWARM_ID_DEPT),两路都能取到真实引擎;钦天监无 L4 dept swarm,仅此一路。
 _MINISTER_CODE_DEPT: dict[str, str] = {
-    "bing_bu": "兵部",
-    "jin_yi_wei": "锦衣卫",
-    "xing_bu": "刑部",
-    "hu_bu": "户部",
-    "li_bu_rites": "礼部",
-    "qin_tian_jian": "钦天监",
-    "li_bu": "吏部",
+    agent_code: name
+    for agent_code, name in agent_to_name_projection().items()
+    if name in REAL_ENGINE_ADAPTERS
 }
+_MINISTER_CODE_DEPT.update(
+    {"jin_yi_wei": "锦衣卫", "qin_tian_jian": "钦天监"}
+)
 
 
 def get_real_engine_fn_for_swarm(

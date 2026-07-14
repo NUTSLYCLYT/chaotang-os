@@ -5,18 +5,17 @@
  * Karpathy：多方协作沟通 O(N) 非 O(N²)。任何跨方/跨部门决策都 import 这个，不各写一套(铁律2)。
  */
 
-export type Dept = 'libu' | 'jinyiwei' | 'hubu' | 'xingbu' | 'bingbu' | 'gongbu' | 'qintian' | 'prime';
+import {
+  STAMP_DEPARTMENT_CODES,
+  departmentNameCn,
+  type StampDepartmentCode,
+} from '@/lib/contracts/dept';
 
-export const DEPT_CN: Record<Dept, string> = {
-  libu: '吏部',
-  jinyiwei: '锦衣卫',
-  hubu: '户部',
-  xingbu: '刑部',
-  bingbu: '兵部',
-  gongbu: '工部',
-  qintian: '钦天监',
-  prime: '丞相',
-};
+export type Dept = StampDepartmentCode;
+
+export const DEPT_CN: Record<Dept, string> = Object.fromEntries(
+  STAMP_DEPARTMENT_CODES.map((code) => [code, departmentNameCn(code)]),
+) as Record<Dept, string>;
 
 export type StampVerdict = 'pass' | 'caution' | 'block';
 

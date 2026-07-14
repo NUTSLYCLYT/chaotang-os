@@ -11,7 +11,7 @@
 
 import type { AgentResult } from './dept-agent';
 import { verifyNumbers } from './number-verifier';
-import { swarmToCn as cn } from './dept-identity'; // 部门命名 SSOT(铁律2)
+import { departmentNameCn as cn } from '@/lib/contracts/dept';
 
 export interface DeptContribution {
   dept: string;

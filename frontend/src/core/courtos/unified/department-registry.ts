@@ -6,11 +6,14 @@
 // called this ORPHANED based on checking only one of its three importers;
 // that was wrong and has been retracted. Do not treat this as unused.
 import type { DepartmentCapability, UnifiedDepartmentId } from './unified-types.ts';
+import { canonicalForUnifiedId, departmentIdentity } from '@/lib/contracts/dept';
+
+const unifiedIdentity = (id: UnifiedDepartmentId) => departmentIdentity(canonicalForUnifiedId(id));
 
 export const DEPARTMENT_REGISTRY: Record<UnifiedDepartmentId, DepartmentCapability> = {
   jinyiwei: {
-    id: 'jinyiwei',
-    name: '锦衣卫',
+    id: unifiedIdentity('jinyiwei').unifiedId as UnifiedDepartmentId,
+    name: unifiedIdentity('jinyiwei').nameCn,
     modernRole: '信息 / 调研 / 事实核验 / 证据包',
     mission: '先行核查事实、来源、旧案和证据缺口。',
     enabled: true,
@@ -22,8 +25,8 @@ export const DEPARTMENT_REGISTRY: Record<UnifiedDepartmentId, DepartmentCapabili
     sourceLabelRequired: true,
   },
   finance: {
-    id: 'finance',
-    name: '户部',
+    id: unifiedIdentity('finance').unifiedId as UnifiedDepartmentId,
+    name: unifiedIdentity('finance').nameCn,
     modernRole: '财务 / 投资 / ROI / 成本 / 报价 / 现金流',
     mission: '判断投入、报价依据、成本边界、现金流和 ROI 是否成立。',
     enabled: true,
@@ -35,8 +38,8 @@ export const DEPARTMENT_REGISTRY: Record<UnifiedDepartmentId, DepartmentCapabili
     sourceLabelRequired: true,
   },
   war: {
-    id: 'war',
-    name: '兵部',
+    id: unifiedIdentity('war').unifiedId as UnifiedDepartmentId,
+    name: unifiedIdentity('war').nameCn,
     modernRole: '销售 / 客户 / 渠道 / 成交路径 / 报价策略',
     mission: '判断客户意图、成交路径、竞争态势和推进策略。',
     enabled: true,
@@ -48,8 +51,8 @@ export const DEPARTMENT_REGISTRY: Record<UnifiedDepartmentId, DepartmentCapabili
     sourceLabelRequired: true,
   },
   personnel: {
-    id: 'personnel',
-    name: '吏部',
+    id: unifiedIdentity('personnel').unifiedId as UnifiedDepartmentId,
+    name: unifiedIdentity('personnel').nameCn,
     modernRole: 'HR / 组织 / 人员 / 职责 / 绩效 / 执行承接',
     mission: '判断负责人、审批人、协同部门和执行节奏是否明确。',
     enabled: true,
@@ -61,8 +64,8 @@ export const DEPARTMENT_REGISTRY: Record<UnifiedDepartmentId, DepartmentCapabili
     sourceLabelRequired: true,
   },
   justice: {
-    id: 'justice',
-    name: '刑部',
+    id: unifiedIdentity('justice').unifiedId as UnifiedDepartmentId,
+    name: unifiedIdentity('justice').nameCn,
     modernRole: 'CLO / General Counsel / CCO / Legal Operations / 法务 / 合规 / 合同 / 股权 / 印章 / 争议',
     mission: '拦截合同、股权、付款、正式报价、对外承诺、劳动、知产、合规、印章和诉讼等不可逆法律风险。',
     enabled: true,
@@ -74,8 +77,8 @@ export const DEPARTMENT_REGISTRY: Record<UnifiedDepartmentId, DepartmentCapabili
     sourceLabelRequired: true,
   },
   ritual: {
-    id: 'ritual',
-    name: '礼部',
+    id: unifiedIdentity('ritual').unifiedId as UnifiedDepartmentId,
+    name: unifiedIdentity('ritual').nameCn,
     modernRole: 'CMO / CCO / 品牌传播 / 客户表达 / 招商材料 / 公关舆情 / 对外内容质门',
     mission: '判断对外表达是否服务经营目标、是否可信、是否安全、是否需要跨部门复核。',
     enabled: true,
@@ -87,8 +90,8 @@ export const DEPARTMENT_REGISTRY: Record<UnifiedDepartmentId, DepartmentCapabili
     sourceLabelRequired: true,
   },
   works: {
-    id: 'works',
-    name: '工部',
+    id: unifiedIdentity('works').unifiedId as UnifiedDepartmentId,
+    name: unifiedIdentity('works').nameCn,
     modernRole: 'CTO / CPO / 交付 / BOM / 供应链 / 验收 / 对外交付承诺质门',
     mission: '判断技术方案、产品范围、BOM、供应链、交期、现场条件、验收和交付承诺是否成立。',
     enabled: true,

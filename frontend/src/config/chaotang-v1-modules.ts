@@ -1,3 +1,13 @@
+import {
+  V1_DEPARTMENT_ALIASES,
+  departmentIdentity,
+  type V1CanonicalDepartmentCode,
+  type V1LiubuCode,
+} from '@/lib/contracts/dept';
+
+export { V1_DEPARTMENT_ALIASES };
+export type { V1CanonicalDepartmentCode, V1LiubuCode };
+
 export type ChaotangPrimaryModuleId =
   | 'dadian'
   | 'shangshufang'
@@ -5,16 +15,6 @@ export type ChaotangPrimaryModuleId =
   | 'liubu'
   | 'zhuanshu'
   | 'shiguan';
-
-export type V1LiubuCode = 'hubu' | 'libu' | 'libu_rites' | 'bingbu' | 'xingbu' | 'gongbu';
-
-export type V1CanonicalDepartmentCode =
-  | 'finance'
-  | 'personnel'
-  | 'market'
-  | 'ops'
-  | 'legal'
-  | 'gongbu';
 
 export type V1OfficeDef = {
   slug: string;
@@ -32,6 +32,15 @@ export type V1LiubuDef = {
   status: 'active' | 'pending';
   offices: readonly V1OfficeDef[];
 };
+
+function v1Identity(canonicalCode: V1CanonicalDepartmentCode) {
+  const identity = departmentIdentity(canonicalCode);
+  return {
+    code: identity.v1Code as V1LiubuCode,
+    canonicalCode,
+    name: identity.nameCn,
+  };
+}
 
 export const CHAOTANG_V1_PRIMARY_MODULES: Array<{
   id: ChaotangPrimaryModuleId;
@@ -57,9 +66,7 @@ export const CHAOTANG_V1_ZHUANSHU = [
 
 export const CHAOTANG_V1_LIUBU: readonly V1LiubuDef[] = [
   {
-    code: 'hubu',
-    canonicalCode: 'finance',
-    name: '户部',
+    ...v1Identity('finance'),
     href: '/liubu/hubu',
     status: 'active',
     offices: [
@@ -68,9 +75,7 @@ export const CHAOTANG_V1_LIUBU: readonly V1LiubuDef[] = [
     ],
   },
   {
-    code: 'libu',
-    canonicalCode: 'personnel',
-    name: '吏部',
+    ...v1Identity('personnel'),
     href: '/liubu/libu',
     status: 'active',
     offices: [
@@ -79,17 +84,13 @@ export const CHAOTANG_V1_LIUBU: readonly V1LiubuDef[] = [
     ],
   },
   {
-    code: 'libu_rites',
-    canonicalCode: 'market',
-    name: '礼部',
+    ...v1Identity('market'),
     href: '/liubu/libu_rites',
     status: 'active',
     offices: [],
   },
   {
-    code: 'bingbu',
-    canonicalCode: 'ops',
-    name: '兵部',
+    ...v1Identity('ops'),
     href: '/liubu/bingbu',
     status: 'active',
     offices: [
@@ -98,9 +99,7 @@ export const CHAOTANG_V1_LIUBU: readonly V1LiubuDef[] = [
     ],
   },
   {
-    code: 'xingbu',
-    canonicalCode: 'legal',
-    name: '刑部',
+    ...v1Identity('legal'),
     href: '/liubu/xingbu',
     status: 'active',
     offices: [
@@ -108,9 +107,7 @@ export const CHAOTANG_V1_LIUBU: readonly V1LiubuDef[] = [
     ],
   },
   {
-    code: 'gongbu',
-    canonicalCode: 'gongbu',
-    name: '工部',
+    ...v1Identity('gongbu'),
     href: '/liubu/gongbu',
     status: 'active',
     offices: [
@@ -118,22 +115,6 @@ export const CHAOTANG_V1_LIUBU: readonly V1LiubuDef[] = [
     ],
   },
 ];
-
-export const V1_DEPARTMENT_ALIASES: Record<string, V1CanonicalDepartmentCode | null> = {
-  hubu: 'finance',
-  finance: 'finance',
-  libu: 'personnel',
-  personnel: 'personnel',
-  libu_rites: 'market',
-  rites: 'market',
-  market: 'market',
-  bingbu: 'ops',
-  ops: 'ops',
-  xingbu: 'legal',
-  legal: 'legal',
-  gongbu: 'gongbu',
-  works: 'gongbu',
-};
 
 export function getV1LiubuByCode(code: string): V1LiubuDef | undefined {
   return CHAOTANG_V1_LIUBU.find((department) => department.code === code);

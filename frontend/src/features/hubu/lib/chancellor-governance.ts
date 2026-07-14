@@ -15,11 +15,15 @@ import {
   type ActionClassification,
 } from '@/core/courtos/chancellor/mandate';
 import { ZChancellorDecision, type TChancellorDecision } from '@/lib/contracts/chancellor-decision';
+import {
+  UNIFIED_DEPARTMENT_ID_VALUES,
+  departmentNameCn,
+} from '@/lib/contracts/dept';
 
 /** 部门中文名 SSOT(会审 LOW-1:原在组件里重复,收口到此处一处)。 */
-export const DEPT_CN: Record<UnifiedDepartmentId, string> = {
-  jinyiwei: '锦衣卫', finance: '户部', war: '兵部', personnel: '吏部', justice: '刑部', ritual: '礼部', works: '工部',
-};
+export const DEPT_CN: Record<UnifiedDepartmentId, string> = Object.fromEntries(
+  UNIFIED_DEPARTMENT_ID_VALUES.map((id) => [id, departmentNameCn(id)]),
+) as Record<UnifiedDepartmentId, string>;
 
 export interface ChancellorGovernance {
   /** 校验通过的裁断(null=校验未过,见 issues)。 */

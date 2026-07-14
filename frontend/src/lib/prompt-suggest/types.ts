@@ -1,6 +1,7 @@
 /**
  * 下旨推荐系统类型定义
  */
+import type { PromptDepartmentCode } from '@/lib/contracts/dept';
 
 export type TaskIntent =
   | 'analysis'      // 分析、统计、总结
@@ -11,16 +12,7 @@ export type TaskIntent =
   | 'decision'      // 决策、选型、方案对标
   | 'other'
 
-export type DeptCode =
-  | 'hu_bu'         // 户部（财务）
-  | 'li_bu'         // 吏部（人事）
-  | 'bing_bu'       // 兵部（战略）
-  | 'xing_bu'       // 刑部（合规）
-  | 'gong_bu'       // 工部（技术）
-  | 'li_bu_dept'    // 礼部（品牌）
-  | 'jinyiwei'      // 锦衣卫（情报）
-  | 'qintian'       // 钦天监（趋势）
-  | 'taiyi'         // 太医院（健康）
+export type DeptCode = PromptDepartmentCode;
 
 export interface PromptSuggestion {
   // 用户原始意图

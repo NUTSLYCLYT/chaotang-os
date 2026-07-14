@@ -9,35 +9,23 @@
 
 import { z } from 'zod';
 import type { AgentCode } from './agent';
+import {
+  PRIME_MINISTER_DEPARTMENT_CODES,
+  departmentNameCn,
+  type PrimeMinisterDepartmentCode,
+} from './dept';
 
 /* ==========================================================================
    Department code (后端使用 8 部 + 钦天监；不含 prime_minister/scribe/tai_yi_yuan)
    ========================================================================== */
 
-export const DEPARTMENT_CODES = [
-  'hu_bu',
-  'gong_bu',
-  'li_bu_rites',
-  'qin_tian_jian',
-  'jin_yi_wei',
-  'li_bu',
-  'bing_bu',
-  'xing_bu',
-] as const;
-
-export type DepartmentCode = (typeof DEPARTMENT_CODES)[number];
+export const DEPARTMENT_CODES = PRIME_MINISTER_DEPARTMENT_CODES;
+export type DepartmentCode = PrimeMinisterDepartmentCode;
 
 /** 部门代号 → 中文显示名（用于拆解卡） */
-export const DEPARTMENT_NAME_CN: Record<DepartmentCode, string> = {
-  hu_bu: '户部',
-  gong_bu: '工部',
-  li_bu_rites: '礼部',
-  qin_tian_jian: '钦天监',
-  jin_yi_wei: '锦衣卫',
-  li_bu: '吏部',
-  bing_bu: '兵部',
-  xing_bu: '刑部',
-};
+export const DEPARTMENT_NAME_CN: Record<DepartmentCode, string> = Object.fromEntries(
+  DEPARTMENT_CODES.map((code) => [code, departmentNameCn(code)]),
+) as Record<DepartmentCode, string>;
 
 /* ==========================================================================
    Task type (与后端 intent-parser 对齐)

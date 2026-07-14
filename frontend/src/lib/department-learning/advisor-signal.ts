@@ -1,4 +1,5 @@
-import { AGENT_META, type AgentCode } from '@/lib/contracts/agent';
+import type { AgentCode } from '@/lib/contracts/agent';
+import { resolveDepartmentAgentCode } from '@/lib/contracts/dept';
 import type {
   DepartmentLearningAdvisorSignal,
   DepartmentLearningRecord,
@@ -6,29 +7,6 @@ import type {
 } from '@/lib/contracts/department-learning';
 import { ALL_DEPARTMENT_AGENT_CODES, buildDepartmentLearningRecord } from './loop';
 import { loadLearningRecords } from './store';
-
-const DEPT_TO_AGENT: Record<string, AgentCode> = {
-  finance: 'hu_bu',
-  hubu_cfo: 'hu_bu',
-  ops: 'bing_bu',
-  war: 'bing_bu',
-  bingbu_sales: 'bing_bu',
-  legal: 'xing_bu',
-  justice: 'xing_bu',
-  xingbu_legal_risk: 'xing_bu',
-  works: 'gong_bu',
-  gongbu_delivery: 'gong_bu',
-  hr: 'li_bu',
-  personnel: 'li_bu',
-  libu_hr_admin: 'li_bu',
-  market: 'li_bu_rites',
-  ritual: 'li_bu_rites',
-  rites_brand_comms: 'li_bu_rites',
-  guard: 'jin_yi_wei',
-  jinyiwei: 'jin_yi_wei',
-  jinyiwei_intelligence: 'jin_yi_wei',
-  physician: 'tai_yi_yuan',
-};
 
 const VERDICT_WEIGHT: Record<DepartmentLearningVerdict, number> = {
   confirmed: 1.15,
@@ -73,7 +51,7 @@ export async function loadAdvisorSignals(now = new Date()): Promise<DepartmentLe
 }
 
 export function agentCodeForDept(dept: string): AgentCode | null {
-  return DEPT_TO_AGENT[dept] ?? (dept in AGENT_META ? (dept as AgentCode) : null);
+  return resolveDepartmentAgentCode(dept);
 }
 
 export function orderDepartmentsByAdvisorSignal(

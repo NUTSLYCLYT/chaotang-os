@@ -12,14 +12,20 @@ from pathlib import Path
 
 import yaml
 
+from src.department_identity import validate_authority_role_keys
+
 _ROLES_PATH = Path(__file__).resolve().parent.parent / "config" / "court_roles.yaml"
 
 
 def _load(path: Path | None = None) -> dict:
-    try:
-        return yaml.safe_load((path or _ROLES_PATH).read_text(encoding="utf-8")) or {}
-    except Exception:
-        return {}
+    config = yaml.safe_load((path or _ROLES_PATH).read_text(encoding="utf-8")) or {}
+    if not isinstance(config, dict):
+        raise ValueError("court_roles must be a mapping")
+    validate_authority_role_keys("court_roles", config)
+    for role, principals in config.items():
+        if not isinstance(principals, list) or not all(isinstance(item, str) for item in principals):
+            raise ValueError(f"court_roles.{role} must be a list of usernames")
+    return config
 
 
 def effective_role(username: str | None, base_role: str | None, *, path: Path | None = None) -> str:
