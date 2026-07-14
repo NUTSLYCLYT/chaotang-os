@@ -91,7 +91,9 @@ class TestDispatchDualWrite:
         "budget": {"maxCalls": 5, "maxSubagentsPerGroup": 1},
     }
 
-    def test_dispatch_returns_200_and_taskId(self, monkeypatch):
+    def test_dispatch_returns_200_and_taskId(
+        self, monkeypatch, isolated_session_local
+    ):
         """dispatch 端点返回 200 + taskId。"""
         monkeypatch.setenv("FENGQUN_AUTH", "false")
         # mock _spawn_run 不真跑 LLM
@@ -160,8 +162,10 @@ class TestDispatchDualWrite:
         assert written_decrees
         assert "hu_bu" in (written_decrees[0].get("ministers") or [])
 
-    def test_dispatch_db_failure_does_not_break_200(self, monkeypatch):
-        """DB 双写失败(异常)不影响 dispatch 返回 200。"""
+    def test_dispatch_db_failure_blocks_execution(
+        self, monkeypatch, isolated_session_local
+    ):
+        """正式事实无法落库时必须封驳，不能返回假成功。"""
         monkeypatch.setenv("FENGQUN_AUTH", "false")
         import web.routers.chaotang as ct
 
@@ -175,8 +179,9 @@ class TestDispatchDualWrite:
 
         c = _make_client()
         r = c.post("/api/chaotang/decree/dispatch", json=self._BODY)
-        assert r.status_code == 200  # 主流程不受 DB 失败影响
-        assert r.json()["success"] is True
+        assert r.status_code == 200
+        assert r.json()["success"] is False
+        assert "DB故障" in r.json()["error"]
 
 
 # ── GET /memorials — DB 优先合并 + KP-8 ──────────────────────────────────

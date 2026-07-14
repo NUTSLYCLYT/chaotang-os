@@ -122,7 +122,7 @@
       "replacement": {
         "id": "canonical-shangshufang-decision-loop",
         "status": "PLANNED",
-        "evidence": null
+        "evidence": "backend/tests/test_chaotang_dispatch_decision_fact.py"
       },
       "telemetry": {
         "eventName": "capability_entry_invoked.v1",
@@ -132,7 +132,7 @@
         "windowStart": null,
         "windowEnd": null
       },
-      "decisionEvidence": ".harness/changes/chore-single-fact-c0a-baseline-20260714/summary.md"
+      "decisionEvidence": ".harness/changes/fix-chaotang-dispatch-durable-fact-20260714/summary.md"
     },
     {
       "id": "legacy-court-compat-task-chain",
