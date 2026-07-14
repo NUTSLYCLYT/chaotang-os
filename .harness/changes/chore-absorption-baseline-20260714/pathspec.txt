@@ -1,0 +1,1 @@
+.harness/changes/chore-absorption-baseline-20260714/
