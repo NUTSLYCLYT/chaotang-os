@@ -38,6 +38,7 @@
 
 ## 任务 4 — 正式入口清算
 
+- 状态：`DOC_COMPLETE_WITH_BLOCKED_UNKNOWNS`（8 组 UNKNOWN 均带 `blocks_steps`，不视为已裁决）。
 - 目标：列出所有建案、派单、状态、奏折、裁决和归档入口，并标记 `KEEP / ADAPT / READ_ONLY / RETIRE`。
 - 前置条件：只读调查；不修改运行逻辑。
 - 输入：`backend/web/`、`backend/src/`、`frontend/src/` 的路由、adapter 和 dispatch 调用点。
@@ -49,6 +50,7 @@
 
 ## 任务 5 — D0/D1/D2 与升级 ADR
 
+- 状态：`APPROVED_FOR_PLANNING`（ADR-005 已冻结；运行时尚未实施）。
 - 目标：冻结 `processing_depth=D0|D1|D2`、风险硬门、动态升级、D0 ingress/审计边界和 D1/D2 共用 `DecisionTask` 的语义。
 - 前置条件：任务 4 入口清算完成；复用现有 ADR-001–004，不重新裁决 direct/durable planning。
 - 输入：`docs/product/CHAOTANG_CONVERGENCE_GUIDE.md` 第 3 节、现有 `adr.md`、产品法域/人工门红线。
@@ -60,6 +62,7 @@
 
 ## 任务 6 — 双黄金资产目录
 
+- 状态：`DOC_COMPLETE`（目录与治理边界已冻结；fixtures/runner、双人实名标注和 `30/30` 尚未实施）。
 - 目标：分别冻结工作流黄金旨意和合同领域黄金案例，禁止混算。
 - 前置条件：ADR-005 已批准；不写运行代码或真实客户正文。
 - 输入：canonical blueprint Step 0/7/12、产品支持法域和质量红线。
@@ -72,6 +75,7 @@
 
 ## 任务 7 — 生产与数据治理 unknown closeout
 
+- 状态：`DOC_COMPLETE_WITH_BLOCKERS`（本机/仓库事实已记录；production-only 项与真实客户数据门均保持 BLOCKED）。
 - 目标：回答或明确阻断生产拓扑、容量、tenant 回填、provider 数据政策、删除、上传和备份治理未知项。
 - 前置条件：具备相应环境/负责人授权；无权限时必须写 `BLOCKED`。
 - 输入：当前部署/监控/数据字典/供应商政策；禁止复制客户正文。
@@ -83,6 +87,7 @@
 
 ## 任务 8 — 动态验证基线与 Step 0 closeout
 
+- 状态：`VERIFIED_PARTIAL_BLOCKED`（最终证据快照 `96d9a38`；构建/类型、前后端合同、上书房组合回归和三层 doctor 通过；全量后端为 2601 passed / 26 skipped / 9 failed，浏览器前置仍为 STOP，浏览器未运行）。
 - 目标：从当前工作树重新生成契约、类型、doctor、相关回归和全量失败基线；不得在长期文档固定旧失败数字。
 - 前置条件：任务 4–7 完成或带明确 BLOCKED；高成本 provider 测试仍需单独凭证/预算确认。
 - 输出：更新 `ci_result/ci_summary.md`、`baseline.md` 和 `summary.md`，记录命令、退出码、通过/失败、owner、证据范围和未验证项；浏览器证据写入 `ci_result/artifacts/playwright/`。如现有 spec 缺最终截图或 console/pageerror 附件，可只修改 `frontend/e2e/shangshufang-unified-loop-smoke.spec.ts` 的证据采集，不改变业务行为。

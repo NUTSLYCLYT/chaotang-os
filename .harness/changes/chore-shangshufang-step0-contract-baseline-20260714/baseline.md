@@ -90,3 +90,25 @@ draft 当前外部 wire mode 使用 `cluster`，而 RouteDecisionV2 目标模式
 ## 7. Step 0 完成边界
 
 本步完成只表示：契约现状可重复、黄金行为可重复、ADR 与威胁边界已记录、未知项有阻断关系。它不表示权限、worker、DAG、前端事实源或上线门已经修复。
+
+## 8. Task 8 动态复验（2026-07-14 23:55–2026-07-15 00:04）
+
+最终记录快照：`feature-chaotang-ext` / `96d9a382f978bc457b9f4eb1e8c4a77ad650ac26`。复验期间 HEAD 曾从 `a073811` 前进到 `cbbe5e2`，全量测试期间又前进到 `96d9a38`；因此上书房组合与全量后端均在稳定的 `96d9a38` 上复跑。以下结果只绑定该最终快照和本机环境。
+
+| 验证面 | 结果 | 结论 |
+| --- | --- | --- |
+| Build | PASS | 无环境首次 fail-closed；显式 `NEXT_PUBLIC_API_MODE=real` 后 `pnpm build` exit 0，40 routes |
+| TypeScript | PASS | `pnpm exec tsc --noEmit` exit 0 |
+| Lint | UNAVAILABLE | `package.json` 无 lint script，`node_modules/.bin/eslint` 不存在；不伪报 PASS |
+| Frontend contract | PASS | 沙箱内 tsx IPC 为 EPERM；沙箱外同命令 2/2 passed |
+| Backend OpenAPI baseline | PASS | 单测 1/1 passed，保留 2 个既有 duplicate operation ID warning |
+| Backend contract baseline | PASS outside sandbox | 沙箱内 `direct_fallback` 超时根因为 asyncio 自唤醒 socket `send()` 被拒绝（`PermissionError: EPERM`），不是业务 hang；沙箱外整文件 6/6 passed，2 warnings，3.46s |
+| Shangshufang related regression | PASS outside sandbox | 最终 SHA 上合同、主循环、outbox、Chancellor 和 execution status 组合回归 38/38 passed，4 warnings，9.87s |
+| Backend harness doctor | PASS | 0 errors / 0 warnings |
+| Frontend/root doctor | PASS on final SHA | 中途因范围外不完整 change 各失败一次；owner 收口后最终均 0 errors / 0 warnings |
+| Secret scan | PASS | 本 change 未发现常见 token/private-key/credential assignment 模式 |
+| Diff check | PASS | `git diff --check` exit 0 |
+| Browser | BLOCKED | `prod:doctor` exit 2/STOP：foreign 3050、missing `frontend/builds`、JWT runtime identity 缺失 |
+| Full backend | FAIL baseline captured | 最终 SHA 沙箱外全量 2601 passed / 26 skipped / 9 failed / 12 warnings，330.85s；失败集中在 doc duplicate、DecisionTask 单写门、legacy metric、lawyer RAG、persona roster、Tianjian item count，均不在本 change 文件范围 |
+
+本轮总体结论：`NOT READY`。Task 8 已排除后端合同 hang，并获得合同及上书房相关回归绿色；全量后端仍有 9 个范围外失败，且没有真实浏览器或生产证据，不能把 Step 0 或发布状态升级为完成。
