@@ -1,3 +1,11 @@
+---
+source_id: ima_docs
+source_path: backend/knowledge/docs/battery_prices_reference.md
+content_hash: sha256:b2449b3d7a444da4766d37d8b57b023b7ab7f97daa68b1def1210b4090f81e49
+trust_tier: curated
+k0a_snapshot_token: sha256:ff841bcd24e1a67f7f466f952b9051e21a71c63ad53bff17e209fb693dd1040c
+absorbed_at: 2026-07-14
+---
 # 电池产品参数与价格区间(内部参考)
 
 > 来源:产品部人工维护价目 `knowledge/battery_prices.yaml`(版本 1.0,更新于 2026-04-01,维护人:产品部)。

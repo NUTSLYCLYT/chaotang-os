@@ -1,3 +1,11 @@
+---
+source_id: ima_docs
+source_path: backend/knowledge/docs/low_temp_charging_risk_analysis.md
+content_hash: sha256:23b2826e524ef06df27da7ac9699d43f9bf3e0edac281da21341eab177dbbf6f
+trust_tier: curated
+k0a_snapshot_token: sha256:ff841bcd24e1a67f7f466f952b9051e21a71c63ad53bff17e209fb693dd1040c
+absorbed_at: 2026-07-14
+---
 # 三元锂电池低温充电风险分析（低温项目技术资料）
 
 > 来源：公司真实技术资料（技术部/低温项目），用于测试 `knowledge_pre_retrieval`

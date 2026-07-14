@@ -1,3 +1,11 @@
+---
+source_id: ima_docs
+source_path: backend/knowledge/docs/industry_standards.md
+content_hash: sha256:8022ca6f3f4141b78dc146132bacc1c094a87ac7f7922c55eec1d8e45610b8df
+trust_tier: curated
+k0a_snapshot_token: sha256:ff841bcd24e1a67f7f466f952b9051e21a71c63ad53bff17e209fb693dd1040c
+absorbed_at: 2026-07-14
+---
 # 低温电池相关行业标准
 
 ## 国家标准

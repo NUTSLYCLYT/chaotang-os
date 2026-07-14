@@ -1,3 +1,11 @@
+---
+source_id: ima_docs
+source_path: backend/knowledge/docs/low_temp_starter_power_spec.md
+content_hash: sha256:7fefc193d3361fe41d8ea04ffb6ac1841d90b4bb5d920875005c13b8a37e43ae
+trust_tier: curated
+k0a_snapshot_token: sha256:ff841bcd24e1a67f7f466f952b9051e21a71c63ad53bff17e209fb693dd1040c
+absorbed_at: 2026-07-14
+---
 # 超低温便携式启动电源规格书（24V-3000A型）
 
 > 来源：公司真实产品规格书（技术部，2024-06-29），用于测试 `knowledge_pre_retrieval`

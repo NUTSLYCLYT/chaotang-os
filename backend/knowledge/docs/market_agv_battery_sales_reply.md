@@ -1,3 +1,11 @@
+---
+source_id: ima_docs
+source_path: backend/knowledge/docs/market_agv_battery_sales_reply.md
+content_hash: sha256:68b9d87b94ac1c12df9cf707ae2d08035fee6372409c7df17856854b49efb8d2
+trust_tier: curated
+k0a_snapshot_token: sha256:ff841bcd24e1a67f7f466f952b9051e21a71c63ad53bff17e209fb693dd1040c
+absorbed_at: 2026-07-14
+---
 # AGV电池方案销售回复范例（市场部真实案例）
 
 > 来源：市场部真实销售材料，用于测试 `knowledge_pre_retrieval` 能否检索到公司真实

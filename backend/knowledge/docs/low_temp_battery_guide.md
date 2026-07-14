@@ -1,3 +1,11 @@
+---
+source_id: ima_docs
+source_path: backend/knowledge/docs/low_temp_battery_guide.md
+content_hash: sha256:5bd2c36f92382b6402336ef9f2582943b1171f2ca62f042f01106112195222f0
+trust_tier: curated
+k0a_snapshot_token: sha256:ff841bcd24e1a67f7f466f952b9051e21a71c63ad53bff17e209fb693dd1040c
+absorbed_at: 2026-07-14
+---
 # 低温锂电池技术指南
 
 ## 低温放电性能
