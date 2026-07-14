@@ -27,6 +27,10 @@ down_revision = "004b_create_untracked_base_tables"
 branch_labels = None
 depends_on = None
 
+# 保守取值:远低于 SQLite 历史默认的 SQLITE_MAX_VARIABLE_NUMBER(999)和
+# Postgres 的 int16 参数上限(32767),两边都留足余量。
+_IN_CLAUSE_CHUNK_SIZE = 500
+
 
 def upgrade() -> None:
     # 2026-07-14 复审:004b 对已经靠 create_all 建过表的库是 checkfirst 直接跳过
@@ -77,6 +81,13 @@ def upgrade() -> None:
     # 行退化数据完全无关的其它 task_id 已经合法的 sequence。改成:只把"存在退化
     # 行"的那些 task_id 挑出来重排,其余 task_id 的行完全不碰。回填仍是幂等的
     # 纯重新推导,同一 task_id 内重复跑不会破坏排序;跨 task_id 不再互相牵连。
+    #
+    # 2026-07-14 复审 #4:退化 task_id 多的库上,单条 `task_id.in_(degenerate_
+    # task_ids)` 会把整个集合塞进一条 SQL 的参数列表——SQLite 默认
+    # SQLITE_MAX_VARIABLE_NUMBER、Postgres 的 int16 参数上限都会在退化任务数
+    # 一大就直接报"too many SQL variables"炸掉整个迁移,而不是慢一点。改成按
+    # _IN_CLAUSE_CHUNK_SIZE 分批查询/分批回填,单批参数数量固定,不随退化任务
+    # 规模增长;各批 task_id 互不相交,共享的 counters 字典不会跨批串号。
     conn = bind
     events = sa.table(
         "decree_execution_events",
@@ -85,19 +96,22 @@ def upgrade() -> None:
         sa.column("occurred_at", sa.Text),
         sa.column("sequence", sa.Integer),
     )
-    degenerate_task_ids = {
-        row.task_id
-        for row in conn.execute(
-            sa.select(events.c.task_id).where(events.c.sequence == 0).distinct()
-        )
-    }
-    if degenerate_task_ids:
+    degenerate_task_ids = sorted(
+        {
+            row.task_id
+            for row in conn.execute(
+                sa.select(events.c.task_id).where(events.c.sequence == 0).distinct()
+            )
+        }
+    )
+    counters: dict[str, int] = {}
+    for start in range(0, len(degenerate_task_ids), _IN_CLAUSE_CHUNK_SIZE):
+        chunk = degenerate_task_ids[start : start + _IN_CLAUSE_CHUNK_SIZE]
         rows = conn.execute(
             sa.select(events.c.id, events.c.task_id)
-            .where(events.c.task_id.in_(degenerate_task_ids))
+            .where(events.c.task_id.in_(chunk))
             .order_by(events.c.task_id, events.c.occurred_at, events.c.id)
         ).fetchall()
-        counters: dict[str, int] = {}
         for row in rows:
             counters[row.task_id] = counters.get(row.task_id, 0) + 1
             conn.execute(
