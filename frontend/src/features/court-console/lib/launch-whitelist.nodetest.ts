@@ -148,3 +148,20 @@ test('翰林院 INTERNAL 放行、demo/pilot 仍挡（INTERNAL/SHADOW 裁决）'
     else process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE = prev;
   }
 });
+
+// 审查门回归(2026-07-14):运行时 COURTOS_LAUNCH_MODE 必须压过构建期 NEXT_PUBLIC_*,
+// 否则构建机残留的 NEXT_PUBLIC 值会把部署方的 internal 档位永久锁死。
+test('运行时 COURTOS_LAUNCH_MODE 优先于 NEXT_PUBLIC_*', () => {
+  const prevPublic = process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE;
+  const prevRuntime = process.env.COURTOS_LAUNCH_MODE;
+  try {
+    process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE = 'demo';
+    process.env.COURTOS_LAUNCH_MODE = 'internal';
+    assert.equal(shouldRedirectForLaunch('/hanlin'), false, '运行时 internal 应压过构建期 demo');
+  } finally {
+    if (prevPublic === undefined) delete process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE;
+    else process.env.NEXT_PUBLIC_COURTOS_LAUNCH_MODE = prevPublic;
+    if (prevRuntime === undefined) delete process.env.COURTOS_LAUNCH_MODE;
+    else process.env.COURTOS_LAUNCH_MODE = prevRuntime;
+  }
+});
