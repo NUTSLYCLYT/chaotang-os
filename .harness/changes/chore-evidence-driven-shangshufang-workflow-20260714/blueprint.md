@@ -1,6 +1,8 @@
 # 上书房 → 蜂群全链路生产化蓝图
 
 > 状态：计划已确认，运行时部分实施。本文是后续多会话工作的唯一总控蓝图；每次只领取一个最小闭环。
+>
+> **2026-07-14 范围裁决**：开发范围调整为 FULL_COURT_V1（全量能力接入统一事实链后再收敛上线范围）。本蓝图的统一底座步骤（契约、tenant、状态机、outbox/worker、读模型、质量门、迁移）即 FULL_COURT_V1 Wave 1 的事实源，依赖顺序不变；变化仅是：非刑部能力允许并行开发接入，但默认 INTERNAL/SHADOW，不得进入生产，也不得建立第二事实源。权威表述见 `docs/product/CHAOTANG_CONVERGENCE_GUIDE.md` 顶部裁决节；留痕 `.harness/changes/docs-full-court-v1-strategy-20260714/`。
 
 > 2026-07-14 已完成两个先行纵切面：结构化 `DecreeExecutionEvent` 账本，以及受质量/来源门保护的一旨一条 `FinalMemorial`。它们为 Step 2、7、8、11 提供局部实现证据，不代表这些步骤整体完成；tenant、完整状态机、常驻 worker、DAG、黄金样例、浏览器与生产演练仍按原依赖执行。
 

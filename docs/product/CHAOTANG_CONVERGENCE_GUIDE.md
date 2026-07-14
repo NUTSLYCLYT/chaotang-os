@@ -5,6 +5,50 @@
 > 产品事实源：[`PROJECT_PRODUCT.md`](./PROJECT_PRODUCT.md)
 > 技术实施总控：[`chore-evidence-driven-shangshufang-workflow-20260714/blueprint.md`](../../.harness/changes/chore-evidence-driven-shangshufang-workflow-20260714/blueprint.md)
 
+## 2026-07-14 开发策略裁决
+
+> 本节为最新产品裁决，优先于本文件后续章节中"只开发刑部首发切片、达到门后才扩张"的旧开发范围表述。旧表述继续约束**发布范围**，不再约束**开发范围**。变更留痕：[`docs-full-court-v1-strategy-20260714`](../../.harness/changes/docs-full-court-v1-strategy-20260714/summary.md)。
+
+### 开发范围
+
+朝堂 OS 当前开发目标调整为 FULL_COURT_V1：
+
+先将现有权威规划和仓库中的全部有效能力接入统一事实链，
+完成全量内部集成和真实跑通。
+
+功能宇宙现在冻结（截至 2026-07-14 已出现在权威产品文档、权威 blueprint、当前代码仓库和已批准规划中的能力）；此后新想法只能进入 FULL_COURT_V2_BACKLOG（见 [`docs/plans/FULL_COURT_V2_BACKLOG.md`](../plans/FULL_COURT_V2_BACKLOG.md)）。
+
+成熟度目标：所有 FULL_COURT_V1 功能至少做到 L3（已接入主链），核心功能做到 L4（内测跑通）。L5/L6（候选上线/生产上线）只对收敛后确定上线的能力实施。
+
+### 发布范围
+
+发布范围暂不冻结。
+
+待全部能力达到统一的可运行成熟度，
+并完成真实用户、质量、成本、稳定性和安全评估后，
+再决定 GA、Beta、Internal、Deferred 和 Retired。
+
+### 不变约束
+
+- 单写者
+- 单一事实链
+- 证据不断链
+- 失败是一等状态
+- 不恢复前端 BFF
+- 不跨租户
+- 不伪造 LIVE
+- 人工圣裁
+- 机器门不可由实现者绕过
+
+### 实现原则
+
+保留全部有效产品能力，但不保留重复运行实现。
+重复协议、状态机、部门注册表和数据所有者必须统一。
+
+> 发散的是产品能力，不是代码事实源；保留全部有效功能，不保留三套重复实现。
+
+---
+
 ## 0. 本文件解决什么问题
 
 本文件把目前已经形成的产品判断、架构警示、任务分级、企业治理、部门专业机制、质量门、发布标准和 GitHub 技术雷达整合为一份长期指导文件。
