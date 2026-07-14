@@ -529,8 +529,12 @@ def upsert_persisted_task(
     at: str | None = None,
     tenant_id: int = 1,
     user_id: int | None = None,
+    legacy_writer_id: str | None = None,
 ) -> dict[str, Any]:
     """Idempotently write a frontend/BFF task into the backend tasks table."""
+    from src.legacy_write_tripwire import require_legacy_write
+
+    require_legacy_write("flow_store.upsert_persisted_task", legacy_writer_id)
     ensure_task_result_json_column(session)
     now = at or _now()
     display_status = _normalize_display_status(status)
@@ -598,8 +602,12 @@ def patch_persisted_task_result(
     at: str | None = None,
     tenant_id: int = 1,
     user_id: int | None = None,
+    legacy_writer_id: str | None = None,
 ) -> dict[str, Any] | None:
     """Patch result_json/status. If command is supplied, missing rows are created."""
+    from src.legacy_write_tripwire import require_legacy_write
+
+    require_legacy_write("flow_store.patch_persisted_task_result", legacy_writer_id)
     ensure_task_result_json_column(session)
     row = session.query(Task).filter_by(task_id=task_id).first()
     if row is None:
@@ -616,6 +624,7 @@ def patch_persisted_task_result(
             at=at,
             tenant_id=tenant_id,
             user_id=user_id,
+            legacy_writer_id=legacy_writer_id,
         )
 
     display_status = _normalize_display_status(status or row.task_status or row.status)
@@ -648,11 +657,15 @@ def save_decree_and_task(
     started_at: str | None = None,
     tenant_id: int = 1,
     user_id: int | None = None,
+    legacy_writer_id: str | None = None,
 ) -> None:
     """POST /decree/dispatch 后写 decrees + tasks 两表。
 
     decree_id == task_id(D16①)。
     """
+    from src.legacy_write_tripwire import require_legacy_write
+
+    require_legacy_write("flow_store.save_decree_and_task", legacy_writer_id)
     now = started_at or _now()
     ensure_task_result_json_column(session)
 
@@ -704,11 +717,15 @@ def update_task_status(
     completed_steps: int | None = None,
     total_steps: int | None = None,
     error: str | None = None,
+    legacy_writer_id: str | None = None,
 ) -> None:
     """mark_status / 运行进度更新后同步 tasks 表。
 
     不存在的 task_id 幂等忽略(内存与 DB 可能不同步)。
     """
+    from src.legacy_write_tripwire import require_legacy_write
+
+    require_legacy_write("flow_store.update_task_status", legacy_writer_id)
     row = session.query(Task).filter_by(task_id=task_id).first()
     if row is None:
         return
@@ -747,12 +764,16 @@ def upsert_memorial(
     status: str = "running",
     summary: str = "",
     created_at: str = "",
+    legacy_writer_id: str | None = None,
 ) -> None:
     """INSERT(新) 或 UPDATE status/summary/updated_at(已存在)。
 
     status 必须在 MemorialStatus 值域内(KP-7):
     pending | running | approved | archived | rejected
     """
+    from src.legacy_write_tripwire import require_legacy_write
+
+    require_legacy_write("flow_store.upsert_memorial", legacy_writer_id)
     row = session.query(Memorial).filter_by(memorial_id=memorial_id).first()
     if row is None:
         session.add(
@@ -798,11 +819,15 @@ def save_review_db(
     reviewer_name: str = "",
     tenant_id: int = 1,
     created_at: str | None = None,
+    legacy_writer_id: str | None = None,
 ) -> dict[str, Any]:
     """写 reviews 表 + 联动更新 memorials.status(KP-7)。
 
     返回 ReviewAction 格式 dict(与 chaotang_store.save_review 返回对齐)。
     """
+    from src.legacy_write_tripwire import require_legacy_write
+
+    require_legacy_write("flow_store.save_review_db", legacy_writer_id)
     now = created_at or _now()
 
     # 幂等:已存在则跳过写入
@@ -896,11 +921,15 @@ def save_retrospective_db(
     authored_by: str = "史官",
     tenant_id: int = 1,
     outcome: str = "pending",
+    legacy_writer_id: str | None = None,
 ) -> dict[str, Any]:
     """INSERT OR UPDATE retrospectives 表。
 
     返回与 chaotang_store.save_retrospective 格式一致的 dict。
     """
+    from src.legacy_write_tripwire import require_legacy_write
+
+    require_legacy_write("flow_store.save_retrospective_db", legacy_writer_id)
     ensure_retrospective_outcome_column(session)
     now = _now()
     row = session.query(Retrospective).filter_by(task_id=task_id).first()

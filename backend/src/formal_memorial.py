@@ -116,4 +116,10 @@ def formalize_memorial(
         content_hash=content_hash,
     )
     db.add(row)
+    from src.migration_telemetry import record_canonical_chain_event_after_commit
+
+    record_canonical_chain_event_after_commit(
+        db,
+        "final_memorial_promoted", caller_id="formal_memorial.formalize_memorial"
+    )
     return row

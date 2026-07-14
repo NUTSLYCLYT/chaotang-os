@@ -115,6 +115,7 @@ def _run_persist_done(task_id: str, run_log, finished_at: str, db_engine):
             last_stage="report_ready",
             completed_steps=total,
             total_steps=total,
+            legacy_writer_id="pytest-flow-store",
         )
         summary = run_summary(run_log)
         summary["final_output"] = run_log.final_output
@@ -131,6 +132,7 @@ def _run_persist_done(task_id: str, run_log, finished_at: str, db_engine):
             status="pending",
             summary=mem.get("summary", ""),
             created_at=mem.get("createdAt", ""),
+            legacy_writer_id="pytest-flow-store",
         )
         db.commit()
 
@@ -148,6 +150,7 @@ def _run_persist_error(task_id: str, error_msg: str, db_engine):
             finished_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
             last_stage="error",
             error=error_msg[:500],
+            legacy_writer_id="pytest-flow-store",
         )
         db.commit()
 
@@ -168,6 +171,7 @@ def _seed_task(db_engine, task_id: str):
             departments=["finance"],
             started_at="2026-05-31T10:00:00",
             tenant_id=1,
+            legacy_writer_id="pytest-flow-store",
         )
         db.commit()
 
@@ -417,6 +421,7 @@ class TestH1EndToEndIntegration:
                 task_id=task_id,
                 raw_command="集成测试指令",
                 tenant_id=1,
+                legacy_writer_id="pytest-flow-store",
             )
             db.commit()
 

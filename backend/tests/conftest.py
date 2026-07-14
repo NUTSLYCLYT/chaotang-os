@@ -73,6 +73,33 @@ def _block_default_session_local(monkeypatch):
     monkeypatch.setattr(eng_mod, "SessionLocal", blocked_session_local)
 
 
+_LEGACY_CHAOTANG_STORE_TEST_FILES = {
+    "test_archive_chronicle.py",
+    "test_archive_endpoint.py",
+    "test_archive_endpoint_db.py",
+    "test_chaotang_closed_loop.py",
+    "test_chaotang_store.py",
+    "test_scribe_archive_docs.py",
+    "test_scribe_lessons.py",
+}
+
+
+@pytest.fixture(autouse=True)
+def _identify_legacy_chaotang_store_test_writers(request, monkeypatch):
+    """Legacy-store behavior tests use a registry entry unavailable outside pytest."""
+    if request.node.path.name not in _LEGACY_CHAOTANG_STORE_TEST_FILES:
+        return
+    store = importlib.import_module("src.chaotang_store")
+    for name in ("save_review", "save_retrospective"):
+        original = getattr(store, name)
+
+        def identified(*args, _original=original, **kwargs):
+            kwargs.setdefault("legacy_writer_id", "pytest-chaotang-store")
+            return _original(*args, **kwargs)
+
+        monkeypatch.setattr(store, name, identified)
+
+
 # 这几个文件直接测 bingbu/jinyiwei/xingbu/quotation 本体的真实行为(解析/分级/court_doc
 # 组装逻辑),自己会按需 mock 更底层的 LLM 调用——如果这里也无差别 patch 掉它们测的目标
 # 函数本身,这些测试的核心断言就失去意义了(2026-07-04 实测:第一版无差别 patch 直接

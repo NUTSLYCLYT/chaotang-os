@@ -225,6 +225,7 @@ def _spawn_run(
 def decree_dispatch(
     body: DispatchRequest, user: CurrentUser = Depends(get_current_user)
 ) -> dict:
+    _observe_legacy_endpoint("decree_dispatch", user, operation="write")
     from src import chaotang_orchestrator as orch
 
     ALL_GROUPS = ["intel", "content", "finlaw", "rnd", "exec", "review"]
@@ -320,6 +321,7 @@ def decree_dispatch(
             started_at=accepted_at,
             tenant_id=_get_default_tenant_id(),
             user_id=_safe_user_id(user.user_id),
+            legacy_writer_id="chaotang-router-p3-pending",
         )
         _db.commit()
     except Exception as exc:
@@ -355,8 +357,9 @@ def decree_dispatch(
 
 @router.get("/stream/{task_id}")
 def decree_stream(
-    task_id: str, _: CurrentUser = Depends(get_current_user)
+    task_id: str, user: CurrentUser = Depends(get_current_user)
 ) -> StreamingResponse:
+    _observe_legacy_endpoint("decree_stream", user, operation="read")
     task = get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="task 不存在")
@@ -407,10 +410,26 @@ def _default_tenant_id() -> int:
         return 1
 
 
+def _observe_legacy_endpoint(
+    endpoint: str, user: CurrentUser, *, operation: str
+) -> None:
+    from src.migration_telemetry import record_legacy_endpoint_call
+
+    caller_id = str(
+        user.user_id or user.username or user.tenant_slug or "anonymous"
+    )
+    record_legacy_endpoint_call(
+        endpoint=f"chaotang.{endpoint}",
+        caller_id=caller_id,
+        operation=operation,
+    )
+
+
 @router.post("/tasks/persist")
 def task_persist(
     body: PersistTaskRequest, user: CurrentUser = Depends(get_current_user)
 ) -> dict:
+    _observe_legacy_endpoint("task_persist", user, operation="write")
     from src.db.engine import SessionLocal
     from src.db.flow_store import upsert_persisted_task
 
@@ -442,6 +461,7 @@ def task_persist(
             at=body.at,
             tenant_id=_default_tenant_id(),
             user_id=_safe_user_id(getattr(user, "user_id", None)),
+            legacy_writer_id="chaotang-router-p3-pending",
         )
         db.commit()
         if isinstance(record, dict):
@@ -458,6 +478,7 @@ def task_persist(
 def task_persist_patch(
     task_id: str, body: PatchTaskRequest, user: CurrentUser = Depends(get_current_user)
 ) -> dict:
+    _observe_legacy_endpoint("task_persist_patch", user, operation="write")
     if not _validate_id(task_id):
         return fail("invalid task_id")
 
@@ -486,6 +507,7 @@ def task_persist_patch(
             at=body.at,
             tenant_id=_default_tenant_id(),
             user_id=_safe_user_id(getattr(user, "user_id", None)),
+            legacy_writer_id="chaotang-router-p3-pending",
         )
         if record is None:
             db.rollback()
@@ -503,9 +525,10 @@ def task_persist_patch(
 
 @router.get("/tasks")
 def tasks_list(
-    limit: int = Query(100, ge=1, le=200), _: CurrentUser = Depends(get_current_user)
+    limit: int = Query(100, ge=1, le=200), user: CurrentUser = Depends(get_current_user)
 ) -> dict:
     """任务列表:内存在飞任务优先,重启后从 DB 读历史任务补全。"""
+    _observe_legacy_endpoint("tasks_list", user, operation="read")
     # 内存在飞任务
     live = {}
     for tid, t in task_snapshot().items():
@@ -564,8 +587,9 @@ def tasks_list(
 
 
 @router.get("/tasks/{task_id}")
-def task_detail(task_id: str, _: CurrentUser = Depends(get_current_user)) -> dict:
+def task_detail(task_id: str, user: CurrentUser = Depends(get_current_user)) -> dict:
     """任务详情:内存优先,重启后从 DB 恢复终态(静态渲染,无 SSE queue)。"""
+    _observe_legacy_endpoint("task_detail", user, operation="read")
     t = get_task(task_id)
     _db_fallback = False
     if not t:
@@ -662,12 +686,13 @@ def task_detail(task_id: str, _: CurrentUser = Depends(get_current_user)) -> dic
 
 
 @router.get("/memorials")
-def memorials_list(_: CurrentUser = Depends(get_current_user)) -> dict:
+def memorials_list(user: CurrentUser = Depends(get_current_user)) -> dict:
     """奏折列表:优先读 DB memorials 表(含新 dispatch 终态),空时 fallback JSON 扫描。
 
     M-3/GAP-1: DB 表有数据时直接返回 MemorialBrief 格式,无需重扫 60 个 run 目录。
     两路结果按 createdAt 降序合并:DB 条目(含持久终态)优先,JSON 路扫描补缺。
     """
+    _observe_legacy_endpoint("memorials_list", user, operation="read")
     from web.routers.throne import _build_memorial_list
 
     # 尝试读 DB
@@ -719,7 +744,8 @@ def memorials_list(_: CurrentUser = Depends(get_current_user)) -> dict:
 
 
 @router.get("/memorials/{run_id}")
-def memorial_detail(run_id: str, _: CurrentUser = Depends(get_current_user)) -> dict:
+def memorial_detail(run_id: str, user: CurrentUser = Depends(get_current_user)) -> dict:
+    _observe_legacy_endpoint("memorial_detail", user, operation="read")
     if not _validate_id(run_id):
         return fail("无效的 run_id")
     from src.chaotang_api import enrich_memorial, build_memorial_sections
@@ -732,7 +758,9 @@ def memorial_detail(run_id: str, _: CurrentUser = Depends(get_current_user)) -> 
     summary["final_output"] = run.final_output
     mem = enrich_memorial(summary)
     # 批阅后持久状态覆盖 run 派生状态
-    persisted = chaotang_store.get_memorial_status(run_id)
+    persisted = chaotang_store.get_memorial_status(
+        run_id, caller_id="chaotang-router-p3-pending"
+    )
     if persisted:
         mem = {**mem, "status": persisted}
     return ok(
@@ -740,7 +768,9 @@ def memorial_detail(run_id: str, _: CurrentUser = Depends(get_current_user)) -> 
             **mem,
             "memorial": build_memorial_sections(run.final_output),
             "fullContent": run.final_output or {},
-            "review": chaotang_store.get_review_for_memorial(run_id),
+            "review": chaotang_store.get_review_for_memorial(
+                run_id, caller_id="chaotang-router-p3-pending"
+            ),
         }
     )
 
@@ -749,6 +779,7 @@ def memorial_detail(run_id: str, _: CurrentUser = Depends(get_current_user)) -> 
 def memorial_review(
     run_id: str, body: ReviewRequest, user: CurrentUser = Depends(get_current_user)
 ) -> dict:
+    _observe_legacy_endpoint("memorial_review", user, operation="write")
     if not _validate_id(run_id):
         return fail("无效的 run_id")
     run = load_run(run_id)
@@ -831,6 +862,7 @@ def memorial_review(
             reviewer_name=reviewer,
             tenant_id=_default_tenant_id(),
             created_at=rec["createdAt"],
+            legacy_writer_id="chaotang-router-p3-pending",
         )
         db.add(
             CourtLoopRun(
@@ -862,7 +894,9 @@ def memorial_review(
         db.close()
 
     try:
-        chaotang_store.write_review_files(rec)
+        chaotang_store.write_review_files(
+            rec, legacy_writer_id="chaotang-router-p3-pending"
+        )
     except Exception as exc:
         record_event(
             "legacy_review_json_copy_failed",
@@ -1712,10 +1746,11 @@ def _shiguan_archive_projection() -> tuple[list[dict], list[dict]]:
 
 
 @router.get("/archive")
-def archive_list(_: CurrentUser = Depends(get_current_user)) -> dict:
+def archive_list(user: CurrentUser = Depends(get_current_user)) -> dict:
+    _observe_legacy_endpoint("archive_list", user, operation="read")
     from web.routers.throne import _build_memorial_list
 
-    reviews = chaotang_store.list_reviews()
+    reviews = chaotang_store.list_reviews(caller_id="chaotang-router-p3-pending")
     # 已批准/归档裁决的奏折 id —— 即便其 run 派生状态未到 done,也应进"已归档奏折"
     archived_ids = {r["memorialId"] for r in reviews if r.get("action") in ("approve",)}
     memorials = [
@@ -1775,7 +1810,11 @@ def archive_chronicle(
         and (m.get("createdAt") or "") >= cutoff
     ]
     reviews = [
-        r for r in chaotang_store.list_reviews() if (r.get("createdAt") or "") >= cutoff
+        r
+        for r in chaotang_store.list_reviews(
+            caller_id="chaotang-router-p3-pending"
+        )
+        if (r.get("createdAt") or "") >= cutoff
     ]
     memorial_by_id = {m["id"]: m for m in memorials}
 
@@ -1793,7 +1832,9 @@ def archive_chronicle(
 
     knowledge: list[str] = []
     for m in memorials:
-        rec = chaotang_store.get_retrospective(m["id"])
+        rec = chaotang_store.get_retrospective(
+            m["id"], caller_id="chaotang-router-p3-pending"
+        )
         if rec and not rec.get("synthetic"):
             knowledge.extend(rec.get("lessons") or [])
 
@@ -2078,7 +2119,7 @@ def archive_search(q: str = "", _: CurrentUser = Depends(get_current_user)) -> d
     from web.routers.throne import _build_memorial_list
 
     memorials = _build_memorial_list()
-    reviews = chaotang_store.list_reviews()
+    reviews = chaotang_store.list_reviews(caller_id="chaotang-router-p3-pending")
 
     query_lower = q.strip().lower()
     results = []
@@ -2131,11 +2172,14 @@ def archive_search(q: str = "", _: CurrentUser = Depends(get_current_user)) -> d
 
 @router.get("/archive/{task_id}/retrospective")
 def archive_retrospective(
-    task_id: str, _: CurrentUser = Depends(get_current_user)
+    task_id: str, user: CurrentUser = Depends(get_current_user)
 ) -> dict:
+    _observe_legacy_endpoint("archive_retrospective", user, operation="read")
     if not _validate_id(task_id):
         return fail("无效的 task_id")
-    existing = chaotang_store.get_retrospective(task_id)
+    existing = chaotang_store.get_retrospective(
+        task_id, caller_id="chaotang-router-p3-pending"
+    )
     if existing:
         return ok(existing)
     run = load_run(task_id)
@@ -2168,12 +2212,17 @@ class _RetrospectiveRequest(BaseModel):
 def archive_retrospective_save(
     task_id: str,
     body: _RetrospectiveRequest,
-    _: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(get_current_user),
 ) -> dict:
     """保存或更新任务复盘。task_id 仅允许安全字符集,防止路径穿越。"""
+    _observe_legacy_endpoint("archive_retrospective_save", user, operation="write")
     if not _validate_id(task_id):
         return fail("无效的 task_id")
-    rec = chaotang_store.save_retrospective(task_id, body.model_dump())
+    rec = chaotang_store.save_retrospective(
+        task_id,
+        body.model_dump(),
+        legacy_writer_id="chaotang-router-p3-pending",
+    )
     return ok(rec)
 
 
