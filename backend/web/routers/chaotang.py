@@ -29,6 +29,7 @@ from web.schemas.chaotang import (
 )
 from src import chaotang_store
 from src.tenant import with_tenant
+from src.decision_task_access import get_owned_decision_task
 from src.swarm_orchestrator import SESSIONS_DIR, SwarmOrchestrator
 from web.task_registry import register_task, get_task, task_snapshot, mark_status
 from src.step_log import load_run
@@ -411,16 +412,27 @@ def task_persist(
     from src.db.engine import SessionLocal
     from src.db.flow_store import upsert_persisted_task
 
-    task_id = (body.taskId or "").strip() or f"task_{secrets.token_hex(8)}"
+    task_id = (body.taskId or "").strip()
+    if not task_id:
+        return fail("taskId 必填；执行投影不能创建正式任务")
     if not _validate_id(task_id):
         return fail("invalid task_id")
 
     db = SessionLocal()
     try:
+        owner_id = str(user.user_id or user.username or user.tenant_slug or "anonymous")
+        decision, error = get_owned_decision_task(
+            db, task_id=task_id, requester_id=owner_id
+        )
+        if decision is None:
+            return fail(
+                f"{error or '正式 DecisionTask 不可用'}，"
+                "禁止由执行投影创建或修改业务任务"
+            )
         record = upsert_persisted_task(
             session=db,
             task_id=task_id,
-            raw_command=body.command.strip(),
+            raw_command=decision.raw_question,
             title=body.title,
             status=body.status,
             mode=body.mode,
@@ -452,12 +464,21 @@ def task_persist_patch(
 
     db = SessionLocal()
     try:
+        owner_id = str(user.user_id or user.username or user.tenant_slug or "anonymous")
+        decision, error = get_owned_decision_task(
+            db, task_id=task_id, requester_id=owner_id
+        )
+        if decision is None:
+            return fail(
+                f"{error or '正式 DecisionTask 不可用'}，"
+                "禁止由执行投影创建或修改业务任务"
+            )
         record = patch_persisted_task_result(
             session=db,
             task_id=task_id,
             status=body.status,
             result=body.result,
-            raw_command=body.command.strip() if body.command else None,
+            raw_command=decision.raw_question,
             title=body.title,
             mode=body.mode,
             at=body.at,

@@ -188,6 +188,8 @@ _PROBES = {
     # 跨文件/多级传染检测新抓出的(直接扫 router 漏掉的):
     "shangshufang:shangshufang_brief_decision": "test_shangshufang_brief_decision",
     "swarm_runs:retry_swarm_run": "test_swarm_runs_retry",
+    "chaotang:task_persist": "test_chaotang_task_persist",
+    "chaotang:task_persist_patch": "test_chaotang_task_persist_patch",
 }
 
 # 推导出来但**不是**跨用户攻击面的,必须在这里显式豁免并写明理由(不许静默忽略)。
@@ -418,6 +420,24 @@ def test_swarm_runs_retry(isolated_session_local):
     db.close()
     body = client.post("/api/swarm-runs/p0b_retry_run/retry").json()
     _assert_denied(body, "swarm run retry")
+
+
+def test_chaotang_task_persist(isolated_session_local):
+    _seed_other_users_task(isolated_session_local, "p0b_task_persist")
+    body = client.post(
+        "/api/chaotang/tasks/persist",
+        json={"taskId": "p0b_task_persist", "command": "篡改别人的任务"},
+    ).json()
+    _assert_denied(body, "chaotang task persist")
+
+
+def test_chaotang_task_persist_patch(isolated_session_local):
+    _seed_other_users_task(isolated_session_local, "p0b_task_persist_patch")
+    body = client.patch(
+        "/api/chaotang/tasks/p0b_task_persist_patch/persist",
+        json={"status": "archived", "result": {"tampered": True}},
+    ).json()
+    _assert_denied(body, "chaotang task persist patch")
 
 
 # ---------------------------------------------------------------------------
