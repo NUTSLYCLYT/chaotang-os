@@ -44,10 +44,20 @@ def test_experiments_read_truth_ledger(tmp_path, monkeypatch):
     r = TestClient(app).get("/api/hanlin/experiments").json()
     assert r["source"] == "TRUTH_LEDGER"
     assert len(r["experiments"]) == 2
-    exp = r["experiments"][0]
-    assert exp["name"] == "xingbu/grounding"
-    assert exp["verdict"] in ("PASS", "FAIL")
-    assert exp["provenance"] == "authenticated"
+    # 前端 Experiment 契约字段(features/hanlin/types)必须齐
+    for exp in r["experiments"]:
+        for key in ("id", "contributionId", "scenario", "status", "feedbackSummary"):
+            assert key in exp, key
+        assert exp["scenario"] == "xingbu/grounding"
+        assert exp["contributionId"] == "case_1"
+    statuses = {e["status"] for e in r["experiments"]}
+    assert statuses == {"completed", "stopped"}  # PASS→completed, FAIL→stopped
+
+
+def test_experiments_unknown_verdict_maps_to_pending(tmp_path, monkeypatch):
+    _seed_ledger(tmp_path, monkeypatch, [_entry("c", verdict="UNKNOWN")])
+    r = TestClient(app).get("/api/hanlin/experiments").json()
+    assert r["experiments"][0]["status"] == "pending"
 
 
 def test_overview_carries_ledger_health(tmp_path, monkeypatch):

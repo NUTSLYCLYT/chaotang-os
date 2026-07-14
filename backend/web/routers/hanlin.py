@@ -99,12 +99,21 @@ def hanlin_experiments(limit: int = 50) -> dict:
     if not rows:
         return {"experiments": [], "source": "FALLBACK"}
     rows.sort(key=lambda r: r.get("ts") or "", reverse=True)
+    # 前端 Experiment 契约(features/hanlin/types):id/contributionId/scenario/
+    # status/feedbackSummary。verdict 映射:PASS=completed(判过且过),
+    # FAIL=stopped(判过且叫停), 其余=pending(检查器抽不出,待判)。
+    _STATUS = {"PASS": "completed", "FAIL": "stopped"}
     experiments = [
         {
             "id": r.get("hash", "")[:12],
-            "name": f"{r.get('swarm', '?')}/{r.get('checker', '?')}",
-            "caseId": r.get("case_id", ""),
-            "verdict": str(r.get("verdict", "")).upper(),
+            "contributionId": r.get("case_id", ""),
+            "scenario": f"{r.get('swarm', '?')}/{r.get('checker', '?')}",
+            "status": _STATUS.get(str(r.get("verdict", "")).upper(), "pending"),
+            "feedbackSummary": (
+                r.get("detail")
+                or f"verdict={str(r.get('verdict', '')).upper()} "
+                f"provenance={r.get('provenance', 'unknown')}"
+            ),
             "provenance": r.get("provenance", "unknown"),
             "createdAt": r.get("ts", ""),
         }
