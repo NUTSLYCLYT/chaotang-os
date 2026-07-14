@@ -242,7 +242,9 @@ class FakeApiOrchestrator:
         # double 须honor此契约,否则 entry_swarm 校验抛 AttributeError。
         self.swarms = {"ai_ops": object()}
 
-    def run(self, task_input: str, entry_swarm=None, session_id=None):
+    def run(
+        self, task_input: str, entry_swarm=None, session_id=None, project_id=None
+    ):
         return SimpleNamespace(
             session_id=session_id,
             swarm_runs=[

@@ -112,7 +112,9 @@ class FakeApiOrchestrator:
             )
         ]
 
-    def run(self, task_input: str, entry_swarm=None, session_id=None):
+    def run(
+        self, task_input: str, entry_swarm=None, session_id=None, project_id=None
+    ):
         type(self).run_calls += 1
         path = Path("swarm_sessions") / f"{session_id}.json"
         path.parent.mkdir(exist_ok=True)
