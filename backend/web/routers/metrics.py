@@ -58,7 +58,10 @@ def ingest_metric(event: MetricEventRequest) -> dict:
 @router.get("/metrics", include_in_schema=False)
 def prometheus_metrics() -> Response:
     try:
+        from src.migration_telemetry import ensure_migration_metric_series
         from src.observability import metrics_exporter
+
+        ensure_migration_metric_series()
         body = metrics_exporter.export()
     except ImportError:
         body = "# metrics unavailable\n"

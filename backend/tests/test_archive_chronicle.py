@@ -29,7 +29,7 @@ def test_chronicle_empty_window_is_honest_not_fabricated(client, monkeypatch):
     import src.chaotang_store as cs
 
     monkeypatch.setattr(throne_mod, "_build_memorial_list", lambda: [])
-    monkeypatch.setattr(cs, "list_reviews", lambda: [])
+    monkeypatch.setattr(cs, "list_reviews", lambda **_: [])
 
     r = client.post("/api/chaotang/archive/chronicle", json={"type": "日史"})
     assert r.status_code == 200
@@ -54,7 +54,7 @@ def test_chronicle_aggregates_real_events_decisions_knowledge(
     monkeypatch.setattr(
         cs,
         "list_reviews",
-        lambda: [
+        lambda **_: [
             {
                 "memorialId": "task_c1",
                 "action": "approve",
@@ -82,7 +82,7 @@ def test_chronicle_respects_days_window(client, monkeypatch):
 
     old_mem = _memorial("task_old", "很久以前的奏折", "2020-01-01T00:00:00")
     monkeypatch.setattr(throne_mod, "_build_memorial_list", lambda: [old_mem])
-    monkeypatch.setattr(cs, "list_reviews", lambda: [])
+    monkeypatch.setattr(cs, "list_reviews", lambda **_: [])
 
     r = client.post("/api/chaotang/archive/chronicle", json={"type": "月史"})
     assert r.json()["data"]["events"] == []  # 2020 年的奏折不在 30 天窗口内
@@ -94,7 +94,7 @@ def test_chronicle_uses_llm_summary_when_available(client, monkeypatch):
     import web.routers.chaotang as chaotang_mod
 
     monkeypatch.setattr(throne_mod, "_build_memorial_list", lambda: [])
-    monkeypatch.setattr(cs, "list_reviews", lambda: [])
+    monkeypatch.setattr(cs, "list_reviews", lambda **_: [])
     monkeypatch.setattr(
         chaotang_mod,
         "_chronicle_summary",

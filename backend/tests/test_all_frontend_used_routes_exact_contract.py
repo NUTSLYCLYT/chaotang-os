@@ -21,7 +21,7 @@ def test_court_backend_task_exact_missing_contract():
     assert "missing-task" in response.json()["detail"]
 
 
-def test_governance_actor_and_audit_exact_contracts():
+def test_governance_actor_and_audit_exact_contracts(isolated_session_local):
     client = TestClient(app)
 
     actor = client.get("/api/governance/whoami")

@@ -120,6 +120,13 @@ def record_timeline_event(
             sequence=next_sequence,
         )
     )
+    from src.migration_telemetry import record_canonical_chain_event_after_commit
+
+    record_canonical_chain_event_after_commit(
+        db,
+        "decree_execution_event_written",
+        caller_id="chancellor.record_timeline_event",
+    )
     return event_id
 
 

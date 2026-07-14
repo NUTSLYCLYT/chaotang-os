@@ -311,6 +311,11 @@ def process_event(db: "Session", event_id: str) -> dict[str, Any]:
         event.status = "completed"
         event.updated_at = _now_iso()
         db.commit()
+        from src.migration_telemetry import record_canonical_chain_event
+
+        record_canonical_chain_event(
+            "outbox_consumed", caller_id="outbox_worker.process_event"
+        )
         return {"status": "completed", "event_id": event_id, "result": result}
     except Exception as exc:  # noqa: BLE001
         db.rollback()

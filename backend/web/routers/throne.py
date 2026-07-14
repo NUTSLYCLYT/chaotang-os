@@ -67,7 +67,9 @@ def _build_memorial_list() -> list[dict[str, Any]]:
             summary["final_output"] = run_log.final_output
             mem = enrich_memorial(summary)
             # 批阅后持久状态覆盖 run 派生状态(approve→archived, reject→rejected)
-            persisted = chaotang_store.get_memorial_status(run_id)
+            persisted = chaotang_store.get_memorial_status(
+                run_id, caller_id="throne-p3-deferred"
+            )
             if persisted:
                 mem = {**mem, "status": persisted}
             items.append(mem)

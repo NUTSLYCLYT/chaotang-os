@@ -10,11 +10,11 @@ from typing import Any
 from fastapi import APIRouter, Body, Response
 from fastapi.responses import StreamingResponse
 
+from src import governance_compat_store
+
 router = APIRouter(tags=["governance-compat"])
 
-_BILLS: dict[str, dict[str, Any]] = {}
 _ACTOR = "liubu"
-_IMA_DOCS: dict[str, dict[str, Any]] = {}
 
 
 def _now_iso() -> str:
@@ -47,13 +47,12 @@ def _new_bill(command: str) -> dict[str, Any]:
         "revisionCount": 0,
         "sourceLabel": "FALLBACK",
     }
-    _BILLS[bill_id] = bill
-    return bill
+    return governance_compat_store.save_bill(bill, actor="zhongshu")
 
 
 @router.get("/api/governance/bills")
 def governance_bills() -> dict:
-    bills = sorted(_BILLS.values(), key=lambda item: item["lastTransitionAt"], reverse=True)
+    bills = governance_compat_store.list_bills()
     return {"bills": bills, "count": len(bills), "sourceLabel": "FALLBACK"}
 
 
@@ -80,10 +79,11 @@ def governance_set_actor(body: dict[str, Any] = Body(default_factory=dict)) -> d
 
 @router.get("/api/governance/audit/summary")
 def governance_audit_summary() -> dict:
-    total_frames = sum(len(bill.get("events", [])) for bill in _BILLS.values())
+    bills = governance_compat_store.list_bills()
+    total_frames = sum(len(bill.get("events", [])) for bill in bills)
     return {
-        "totalBills": len(_BILLS),
-        "okCount": len(_BILLS),
+        "totalBills": len(bills),
+        "okCount": len(bills),
         "tamperedCount": 0,
         "totalFrames": total_frames,
         "tampered": [],
@@ -96,7 +96,7 @@ def governance_transition_bill(
     bill_id: str,
     body: dict[str, Any] = Body(default_factory=dict),
 ):
-    bill = _BILLS.get(bill_id)
+    bill = governance_compat_store.get_bill(bill_id)
     if not bill:
         return Response(
             json.dumps({"error": "bill_not_found"}, ensure_ascii=False),
@@ -124,12 +124,12 @@ def governance_transition_bill(
     bill["sourceLabel"] = "FALLBACK"
     if event_type == "reject_for_revision":
         bill["revisionCount"] = int(bill.get("revisionCount") or 0) + 1
-    return bill
+    return governance_compat_store.save_bill(bill, actor=actor)
 
 
 @router.get("/api/governance/bills/{bill_id}/audit")
 def governance_bill_audit(bill_id: str) -> dict:
-    bill = _BILLS.get(bill_id)
+    bill = governance_compat_store.get_bill(bill_id)
     return {
         "ok": bill is not None,
         "totalChecked": len(bill.get("events", [])) if bill else 0,
@@ -295,27 +295,6 @@ def shiguan_release_gates() -> dict:
         "data": {"sourceLabel": "FALLBACK", "gates": [], "blocking": []},
         "error": None,
     }
-
-
-@router.get("/api/court/ima-knowledge")
-def ima_knowledge(limit: int = 20) -> dict:
-    docs = list(_IMA_DOCS.values())[:limit]
-    return {"success": True, "data": {"documents": docs, "sourceLabel": "FALLBACK"}, "error": None}
-
-
-@router.patch("/api/court/ima-knowledge")
-def ima_knowledge_patch(body: dict[str, Any] = Body(default_factory=dict)) -> dict:
-    doc_id = str(body.get("id") or f"ima-{secrets.token_hex(4)}")
-    doc = _IMA_DOCS.get(doc_id) or {
-        "id": doc_id,
-        "title": "兼容知识条目",
-        "summary": "后端兼容端点生成的空态知识条目。",
-        "createdAt": _now_iso(),
-    }
-    doc["status"] = str(body.get("status") or doc.get("status") or "active")
-    doc["updatedAt"] = _now_iso()
-    _IMA_DOCS[doc_id] = doc
-    return {"success": True, "data": {"document": doc, "sourceLabel": "FALLBACK"}, "error": None}
 
 
 @router.post("/api/shiguan/archives/{archive_id}/retrospective")

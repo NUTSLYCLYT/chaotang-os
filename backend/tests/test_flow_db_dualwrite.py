@@ -45,6 +45,28 @@ def tmp_data(tmp_path):
     return tmp_path
 
 
+@pytest.fixture(autouse=True)
+def _registered_flow_store_test_writer(monkeypatch):
+    """Keep legacy behavior tests on the real tripwire's test-only identity."""
+    writer_names = (
+        "upsert_persisted_task",
+        "patch_persisted_task_result",
+        "save_decree_and_task",
+        "update_task_status",
+        "upsert_memorial",
+        "save_review_db",
+        "save_retrospective_db",
+    )
+    for name in writer_names:
+        original = getattr(flow_store, name)
+
+        def identified(*args, _original=original, **kwargs):
+            kwargs.setdefault("legacy_writer_id", "pytest-flow-store")
+            return _original(*args, **kwargs)
+
+        monkeypatch.setattr(flow_store, name, identified)
+
+
 # ── 1. save_decree_and_task ────────────────────────────────────────────────
 
 

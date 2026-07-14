@@ -292,7 +292,7 @@ def test_gongbu_feasibility_and_libu_recruit_contracts_are_honest_fallback():
     assert result2["sourceLabel"] == "FALLBACK"
 
 
-def test_governance_bill_lifecycle_contract():
+def test_governance_bill_lifecycle_contract(isolated_session_local):
     client = TestClient(app)
     created = client.post("/api/governance/bills", json={"command": "请中书起草预算案"}).json()
 

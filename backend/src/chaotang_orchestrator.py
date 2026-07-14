@@ -887,6 +887,7 @@ def _persist_task_done(task_id: str, run_log, finished_at: str) -> None:
                 last_stage="report_ready",
                 completed_steps=total,
                 total_steps=total,
+                legacy_writer_id="chaotang-orchestrator-p3-pending",
             )
             # memorials 索引表:派生完整 memorial 字段(含 riskLevel,KP-8)
             try:
@@ -905,6 +906,7 @@ def _persist_task_done(task_id: str, run_log, finished_at: str) -> None:
                     status="approved" if mem.get("status") == "approved" else "pending",
                     summary=mem.get("summary", ""),
                     created_at=mem.get("createdAt", ""),
+                    legacy_writer_id="chaotang-orchestrator-p3-pending",
                 )
             except Exception as _me:
                 _orch_logger.error(
@@ -965,6 +967,7 @@ def _persist_task_error(task_id: str, error_msg: str) -> None:
                 finished_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 last_stage="error",
                 error=error_msg[:500],
+                legacy_writer_id="chaotang-orchestrator-p3-pending",
             )
             db.commit()
         except Exception as _e:

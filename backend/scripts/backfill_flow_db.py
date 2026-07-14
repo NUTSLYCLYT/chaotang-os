@@ -123,6 +123,7 @@ def backfill_memorials(session, tenant_id: int) -> tuple[int, int, int]:
             status=status,
             summary=fields.get("summary", ""),
             created_at=fields.get("createdAt", ""),
+            legacy_writer_id="flow-store-backfill",
         )
         inserted += 1
 
@@ -169,6 +170,7 @@ def backfill_reviews(session, tenant_id: int) -> tuple[int, int, int]:
             reviewer_name=rec.get("reviewerName", ""),
             tenant_id=tenant_id,
             created_at=rec.get("createdAt", ""),
+            legacy_writer_id="flow-store-backfill",
         )
         inserted += 1
 
@@ -210,6 +212,7 @@ def backfill_retrospectives(session, tenant_id: int) -> tuple[int, int, int]:
             playbook=rec.get("playbook"),
             authored_by=rec.get("authoredBy", "史官"),
             tenant_id=tenant_id,
+            legacy_writer_id="flow-store-backfill",
         )
         inserted += 1
 

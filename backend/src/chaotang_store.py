@@ -45,6 +45,21 @@ def _db_session():
         return None
 
 
+def _record_legacy_access(operation: str, caller_id: str) -> None:
+    try:
+        from src.migration_telemetry import record_legacy_endpoint_call
+
+        record_legacy_endpoint_call(
+            endpoint=f"chaotang_store.{operation}",
+            caller_id=caller_id,
+            operation=(
+                "write" if operation.startswith(("save_", "write_")) else "read"
+            ),
+        )
+    except Exception:
+        pass
+
+
 # 裁决动作 → 持久化奏折状态(覆盖 run 派生状态)
 _ACTION_TO_STATUS: dict[str, str] = {
     "approve": "archived",
@@ -71,11 +86,14 @@ def _memorial_status_dir() -> Path:
     return d
 
 
-def get_memorial_status(memorial_id: str) -> str | None:
+def get_memorial_status(
+    memorial_id: str, *, caller_id: str = "unidentified"
+) -> str | None:
     """返回批阅后持久化的奏折状态(覆盖 run 派生值);若无批阅记录返回 None。
 
     读取优先级:SQLite memorials.status → JSON 文件兜底。
     """
+    _record_legacy_access("get_memorial_status", caller_id)
     # 优先读 SQLite
     db = _db_session()
     if db is not None:
@@ -100,13 +118,22 @@ def get_memorial_status(memorial_id: str) -> str | None:
 
 
 def save_review(
-    memorial_id: str, *, action: str, comment: str, reviewer: str
+    memorial_id: str,
+    *,
+    action: str,
+    comment: str,
+    reviewer: str,
+    legacy_writer_id: str | None = None,
 ) -> dict[str, Any]:
     """批阅裁决:先写 JSON(兜底),再双写 SQLite(优先)。"""
+    from src.legacy_write_tripwire import require_legacy_write
+
+    require_legacy_write("chaotang_store.save_review", legacy_writer_id)
+    _record_legacy_access("save_review", legacy_writer_id or "missing")
     rec = build_review_record(
         memorial_id, action=action, comment=comment, reviewer=reviewer
     )
-    write_review_files(rec)
+    write_review_files(rec, legacy_writer_id=legacy_writer_id)
     # ② 双写 SQLite(优先读,写失败静默降级 JSON)
     db = _db_session()
     if db is not None:
@@ -122,6 +149,7 @@ def save_review(
                 reviewer_name=reviewer,
                 tenant_id=_get_default_tenant_id(),
                 created_at=rec["createdAt"],
+                legacy_writer_id=legacy_writer_id,
             )
             db.commit()
         except Exception:
@@ -147,8 +175,14 @@ def build_review_record(
     }
 
 
-def write_review_files(rec: dict[str, Any]) -> None:
+def write_review_files(
+    rec: dict[str, Any], *, legacy_writer_id: str | None = None
+) -> None:
     """Write the JSON compatibility copies after the formal DB commit."""
+    from src.legacy_write_tripwire import require_legacy_write
+
+    require_legacy_write("chaotang_store.write_review_files", legacy_writer_id)
+    _record_legacy_access("write_review_files", legacy_writer_id or "missing")
     memorial_id = str(rec["memorialId"])
     action = str(rec["action"])
     (_reviews_dir() / f"{rec['id']}.json").write_text(
@@ -168,8 +202,11 @@ def write_review_files(rec: dict[str, Any]) -> None:
     )
 
 
-def get_review_for_memorial(memorial_id: str) -> dict[str, Any] | None:
+def get_review_for_memorial(
+    memorial_id: str, *, caller_id: str = "unidentified"
+) -> dict[str, Any] | None:
     """读 memorial 最新 review:优先 SQLite,兜底 JSON。"""
+    _record_legacy_access("get_review_for_memorial", caller_id)
     db = _db_session()
     if db is not None:
         try:
@@ -189,8 +226,9 @@ def get_review_for_memorial(memorial_id: str) -> dict[str, Any] | None:
     return json.loads(p.read_text(encoding="utf-8"))
 
 
-def list_reviews() -> list[dict[str, Any]]:
+def list_reviews(*, caller_id: str = "unidentified") -> list[dict[str, Any]]:
     """读全量 reviews:优先 SQLite,兜底扫 JSON。"""
+    _record_legacy_access("list_reviews", caller_id)
     db = _db_session()
     if db is not None:
         try:
@@ -214,8 +252,17 @@ def list_reviews() -> list[dict[str, Any]]:
 _RETROSPECTIVE_OUTCOMES = {"success", "blocked", "pending"}
 
 
-def save_retrospective(task_id: str, data: dict[str, Any]) -> dict[str, Any]:
+def save_retrospective(
+    task_id: str,
+    data: dict[str, Any],
+    *,
+    legacy_writer_id: str | None = None,
+) -> dict[str, Any]:
     """保存复盘:先写 JSON(兜底),再双写 SQLite。"""
+    from src.legacy_write_tripwire import require_legacy_write
+
+    require_legacy_write("chaotang_store.save_retrospective", legacy_writer_id)
+    _record_legacy_access("save_retrospective", legacy_writer_id or "missing")
     outcome = data.get("outcome", "pending")
     if outcome not in _RETROSPECTIVE_OUTCOMES:
         outcome = "pending"
@@ -251,6 +298,7 @@ def save_retrospective(task_id: str, data: dict[str, Any]) -> dict[str, Any]:
                 authored_by=rec["authoredBy"],
                 tenant_id=_get_default_tenant_id(),
                 outcome=rec["outcome"],
+                legacy_writer_id=legacy_writer_id,
             )
             db.commit()
         except Exception:
@@ -260,8 +308,11 @@ def save_retrospective(task_id: str, data: dict[str, Any]) -> dict[str, Any]:
     return rec
 
 
-def get_retrospective(task_id: str) -> dict[str, Any] | None:
+def get_retrospective(
+    task_id: str, *, caller_id: str = "unidentified"
+) -> dict[str, Any] | None:
     """读复盘:优先 SQLite,兜底 JSON。"""
+    _record_legacy_access("get_retrospective", caller_id)
     db = _db_session()
     if db is not None:
         try:

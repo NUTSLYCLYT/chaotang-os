@@ -34,7 +34,9 @@ def scribe_lessons(_: CurrentUser = Depends(get_current_user)) -> dict:
         task_id = m.get("id")
         if not task_id:
             continue
-        rec = chaotang_store.get_retrospective(task_id)
+        rec = chaotang_store.get_retrospective(
+            task_id, caller_id="scribe-p3-pending"
+        )
         if not rec or rec.get("synthetic") or not rec.get("lessons"):
             continue
         entries.append(
@@ -85,7 +87,9 @@ def scribe_archive_docs(_: CurrentUser = Depends(get_current_user)) -> dict:
         task_id = m.get("id")
         if not task_id:
             continue
-        rec = chaotang_store.get_retrospective(task_id)
+        rec = chaotang_store.get_retrospective(
+            task_id, caller_id="scribe-p3-pending"
+        )
         if not rec or rec.get("synthetic") or not rec.get("lessons"):
             continue
         status = str(m.get("status") or "")
