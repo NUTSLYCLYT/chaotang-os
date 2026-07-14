@@ -13,14 +13,16 @@ from sqlalchemy.orm import Session
 from web.main import app
 
 
-def _seed_candidate(db, *, task_id: str, source_label: str = "LIVE"):
+def _seed_candidate(
+    db, *, task_id: str, source_label: str = "LIVE", user_id: str = "1"
+):
     from src.db.models import CourtReview, DecisionTask
 
     review_id = f"review_{task_id}"
     db.add(
         DecisionTask(
             id=task_id,
-            user_id="formal-memorial-tester",
+            user_id=user_id,
             raw_question="请形成一份有证据、可裁决的正式奏折",
             status="awaiting_decision",
             source_label=source_label,
@@ -97,9 +99,11 @@ def test_live_quality_passed_candidate_is_formalized_once(isolated_session_local
     assert stored.source_label == "LIVE_SWARM"
     assert stored.swarm_run_id == result["swarm_run"]["id"]
     assert json.loads(stored.memorial_json)["recommendation"] == "adopt_with_conditions"
-    status_payload = TestClient(app).get(
+    status_response = TestClient(app).get(
         f"/api/shangshufang/tasks/{task_id}/status"
-    ).json()["data"]
+    ).json()
+    assert status_response["success"] is True, status_response
+    status_payload = status_response["data"]
     assert status_payload["formal_memorial"]["id"] == stored.id
     assert status_payload["formal_memorial"]["status"] == "ready_for_decision"
     assert status_payload["formal_memorial"]["source_label"] == "LIVE_SWARM"
