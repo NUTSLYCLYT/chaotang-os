@@ -107,9 +107,36 @@ export function openControlPlaneDb({ cwd = process.cwd(), databasePath } = {}) {
 
 export function snapshotControlPlaneDb({cwd=process.cwd(),destination,databasePath}={}){const opened=openControlPlaneDb({cwd,databasePath});try{opened.db.exec('PRAGMA wal_checkpoint(TRUNCATE)');}finally{opened.db.close();}copyFileSync(opened.paths.databasePath,destination);return destination;}
 
+const immediateCommitCallbacks = new WeakMap();
+const immediateBeforeCommitCallbacks = new WeakMap();
+
+export function beforeImmediateCommit(db, callback) {
+  if (!db.isTransaction) throw new Error('before-commit callback requires an active transaction');
+  const callbacks = immediateBeforeCommitCallbacks.get(db) ?? [];
+  callbacks.push(callback);
+  immediateBeforeCommitCallbacks.set(db, callbacks);
+}
+
+export function afterImmediateCommit(db, callback) {
+  if (!db.isTransaction) throw new Error('after-commit callback requires an active transaction');
+  const callbacks = immediateCommitCallbacks.get(db) ?? [];
+  callbacks.push(callback);
+  immediateCommitCallbacks.set(db, callbacks);
+}
+
 export function withImmediateTransaction(db, fn) {
-  try { db.exec('BEGIN IMMEDIATE'); const value = fn(); db.exec('COMMIT'); return value; }
-  catch (error) { try { db.exec('ROLLBACK'); } catch {} const snapshot=preserveTransactionStorageFailure(db,error);if(snapshot){const wrapped=new Error(`STOP/control_plane_storage_failure; snapshot=${snapshot}: ${error.message}`,{cause:error});wrapped.code='CONTROL_PLANE_FAIL_CLOSED';wrapped.snapshot=snapshot;throw wrapped;}throw error; }
+  try {
+    db.exec('BEGIN IMMEDIATE');
+    const value = fn();
+    for (const callback of immediateBeforeCommitCallbacks.get(db) ?? []) callback();
+    db.exec('COMMIT');
+    immediateBeforeCommitCallbacks.delete(db);
+    const callbacks = immediateCommitCallbacks.get(db) ?? [];
+    immediateCommitCallbacks.delete(db);
+    for (const callback of callbacks) callback();
+    return value;
+  }
+  catch (error) { immediateBeforeCommitCallbacks.delete(db); immediateCommitCallbacks.delete(db); try { db.exec('ROLLBACK'); } catch {} const snapshot=preserveTransactionStorageFailure(db,error);if(snapshot){const wrapped=new Error(`STOP/control_plane_storage_failure; snapshot=${snapshot}: ${error.message}`,{cause:error});wrapped.code='CONTROL_PLANE_FAIL_CLOSED';wrapped.snapshot=snapshot;throw wrapped;}throw error; }
 }
 
 function preserveTransactionStorageFailure(db,error){if(!/(SQLITE_(FULL|READONLY|CORRUPT|IOERR|NOTADB)|database or disk is full|readonly database|database disk image is malformed)/i.test(`${error?.code??''} ${error?.message??''}`))return null;try{const source=db.location(),configured=process.env.CHAOTANG_RECOVERY_SNAPSHOT_DIR,directory=configured&&isAbsolute(configured)?configured:join(dirname(source),'recovery-snapshots');mkdirSync(directory,{recursive:true,mode:0o700});const mode=statSync(directory).mode&0o777;if(mode&0o077)throw new Error('recovery snapshot directory is not owner-only');const snapshot=join(directory,`transaction-failure-${Date.now()}-${randomUUID()}.sqlite3`),escaped=snapshot.replaceAll("'","''");db.exec(`VACUUM INTO '${escaped}'`);chmodSync(snapshot,0o600);writeFileSync(`${snapshot}.json`,`${JSON.stringify({schema:'chaotang.control-plane-failure.v1',database_path:source,snapshot_path:snapshot,failure_class:error.code??error.name??'Error',captured_at:nowIso()},null,2)}\n`,{mode:0o600,flag:'wx'});return snapshot;}catch{return null;}}

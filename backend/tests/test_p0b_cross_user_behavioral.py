@@ -314,15 +314,10 @@ def test_guarded_exemplar_jinyiwei_fill_gap(isolated_session_local):
 
 
 # ---------------------------------------------------------------------------
-# 未修端点(strict xfail:实证漏洞在案。修好一个 → XPASS 失败 → 删掉标记)
+# 已收口端点：曾以 strict xfail 留债，现已全部转为永久回归门
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="P0-B 未修:POST /tasks/{id}/decision 无归属校验。注意它当前会因"
-    "「正式奏折质量门」被拒——那是状态门不是归属门,受害者任务状态合适时可绕过",
-)
 def test_shangshufang_task_decision(isolated_session_local):
     _seed_other_users_task(isolated_session_local, "p0b_decision")
     body = client.post(
@@ -332,14 +327,12 @@ def test_shangshufang_task_decision(isolated_session_local):
     _assert_denied(body, "task decision")
 
 
-@pytest.mark.xfail(strict=True, reason="P0-B 未修:POST /tasks/{id}/swarm-deepen 可对他人任务发起深议")
 def test_shangshufang_swarm_deepen(isolated_session_local):
     _seed_other_users_task(isolated_session_local, "p0b_deepen")
     body = client.post("/api/shangshufang/tasks/p0b_deepen/swarm-deepen").json()
     _assert_denied(body, "swarm deepen")
 
 
-@pytest.mark.xfail(strict=True, reason="P0-B 未修:POST /confirm-edict 可确认他人任务的旨意")
 def test_shangshufang_confirm_edict(isolated_session_local):
     _seed_other_users_task(isolated_session_local, "p0b_confirm")
     body = client.post(
@@ -349,18 +342,12 @@ def test_shangshufang_confirm_edict(isolated_session_local):
     _assert_denied(body, "confirm edict")
 
 
-@pytest.mark.xfail(strict=True, reason="P0-B 未修:GET /finance-intel-loop/cases/{id} 可读他人任务案卷")
 def test_shangshufang_finance_intel_case(isolated_session_local):
     _seed_other_users_task(isolated_session_local, "p0b_finance")
     body = client.get("/api/shangshufang/finance-intel-loop/cases/p0b_finance").json()
     _assert_denied(body, "finance intel case")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="P0-B 未修:POST /briefs/{id}/decision/advance 无归属校验。当前会因"
-    "「需皇上人工确认」被拒——那是状态门不是归属门,受害者任务状态合适时可绕过",
-)
 def test_shangshufang_brief_decision_advance(isolated_session_local):
     _seed_other_users_review(isolated_session_local, "p0b_brief", "p0b_brief_task")
     body = client.post(
@@ -370,7 +357,6 @@ def test_shangshufang_brief_decision_advance(isolated_session_local):
     _assert_denied(body, "brief decision advance")
 
 
-@pytest.mark.xfail(strict=True, reason="P0-B 未修:POST /edict-return 可向他人任务回填蜂群结果")
 def test_shangshufang_edict_return(isolated_session_local):
     _seed_other_users_task(isolated_session_local, "p0b_return")
     body = client.post(
@@ -401,11 +387,6 @@ def test_swarm_runs_create_serial_loop(isolated_session_local):
     _assert_denied(body, "swarm run serial")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="P0-B 未修:POST /briefs/{id}/decision 直接委托 brief_decision_advance,"
-    "同样无归属校验。这条经跨文件/委托检测抓出",
-)
 def test_shangshufang_brief_decision(isolated_session_local):
     _seed_other_users_review(isolated_session_local, "p0b_bd", "p0b_bd_task")
     body = client.post(
@@ -444,11 +425,6 @@ def test_swarm_runs_retry(isolated_session_local):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="P0-B 未修:GET /api/court/grand-council/live 按 status 过滤但不按 user_id,"
-    "把所有用户的在审任务(command=raw_question)混在一个列表里返回。窄正则漏了它",
-)
 def test_grand_council_live_list_leak(isolated_session_local):
     # 该端点只列出同时有 ChancellorRouteDecision + CourtReview 的任务(否则 continue)。
     # 必须种齐这一组,受害者任务才会真的出现在列表里——否则测试会因"数据不全没上榜"
@@ -468,7 +444,7 @@ def test_grand_council_live_list_leak(isolated_session_local):
         strategy="parallel_review", primary_department="刑部", primary_agent=None,
         participants=[], reason_summary="x", complexity_score=0.5, confidence=0.8,
         human_confirmation_required=True, capability_snapshot_version="v1",
-        source_label="LIVE",
+        source_label="LIVE", created_at="2026-07-14T00:00:00+00:00",
     )
     db.add(
         ChancellorRouteDecision(
@@ -485,11 +461,6 @@ def test_grand_council_live_list_leak(isolated_session_local):
     _assert_sentinel_not_leaked(resp, "grand-council live")
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="P0-B 未修:GET /api/shangshufang(home)按 status 过滤但不按 user_id,"
-    "首页奏折流会把别人的任务标题/内容展示给当前用户。窄正则漏了它,form-agnostic 抓出",
-)
 def test_shangshufang_home_list_leak(isolated_session_local):
     _seed_victim_with_sentinel(isolated_session_local, "p0b_home_leak")
     resp = client.get("/api/shangshufang/home")
