@@ -2,30 +2,29 @@
 
   GET  /api/knowledge/search
   GET  /api/knowledge/stats
-  POST /api/knowledge/index
+  POST /api/knowledge/index     （K0C fail-closed；旧写入口固定返回 409）
   GET  /api/knowledge/sources
   GET  /api/knowledge/health    （30s 缓存防止 ImaSource 远端反复检查）
-  POST /api/knowledge/upload    （支持 multipart 与 JSON 两种入参）
+  POST /api/knowledge/upload    （K0C fail-closed；旧写入口固定返回 409）
   GET  /api/presets             （tool+knowledge 组合预设）
 """
 from __future__ import annotations
 
 import time
-from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 
+from src import legacy_write_tripwire
 from web.deps import get_current_user
+from web.routers._envelope import fail
 from web.schemas.auth import CurrentUser
 from web.schemas.knowledge import (
     KnowledgeSearchResponse,
-    KnowledgeUploadResponse,
 )
 
 router = APIRouter(prefix="/api", tags=["knowledge"])
-
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 # /api/knowledge/health 30s 内存缓存
 _HEALTH_CACHE: dict[str, Any] = {"data": None, "expires_at": 0.0}
@@ -57,16 +56,25 @@ def api_knowledge_stats(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-@router.post("/knowledge/index")
+@router.post(
+    "/knowledge/index",
+    status_code=409,
+    responses={409: {"description": "Legacy knowledge writer blocked"}},
+)
 def api_knowledge_index(
     _: CurrentUser = Depends(get_current_user),
-) -> dict[str, Any]:
-    """将 knowledge/docs/ 目录下的文档入库。"""
-    try:
-        from src.knowledge_rag import get_rag
-        return get_rag().add_directory()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+) -> JSONResponse:
+    """K0C: reject the retired direct index writer before any side effect."""
+    detail = legacy_write_tripwire.blocked_write_detail(
+        "legacy-knowledge-api-writers"
+    )
+    return JSONResponse(
+        status_code=409,
+        content=fail(
+            "旧知识索引入口已封禁；索引只能消费 canonical promotion 产物",
+            extra=detail,
+        ),
+    )
 
 
 @router.get("/knowledge/sources")
@@ -109,63 +117,22 @@ def api_knowledge_health(
 
 @router.post(
     "/knowledge/upload",
-    response_model=KnowledgeUploadResponse,
-    status_code=201,
+    status_code=409,
+    responses={409: {"description": "Legacy knowledge writer blocked"}},
 )
 async def api_knowledge_upload(
-    request: Request,
     _: CurrentUser = Depends(get_current_user),
-) -> KnowledgeUploadResponse:
-    """支持 multipart 文件上传 或 JSON {filename, content, dataset?}。"""
-    upload_dir = _PROJECT_ROOT / "knowledge" / "docs" / "uploads"
-    upload_dir.mkdir(parents=True, exist_ok=True)
-
-    content_type = request.headers.get("content-type", "")
-
-    if "multipart" in content_type:
-        form = await request.form()
-        # 取第一个文件
-        file_obj = None
-        for v in form.values():
-            if hasattr(v, "filename") and hasattr(v, "read"):
-                file_obj = v
-                break
-        if file_obj is None or not getattr(file_obj, "filename", ""):
-            raise HTTPException(status_code=400, detail="无文件")
-        safe_name = Path(file_obj.filename).name
-        target = upload_dir / safe_name
-        target.write_bytes(await file_obj.read())
-    else:
-        try:
-            body_json = await request.json() if await request.body() else {}
-        except Exception:
-            body_json = {}
-        filename = (body_json.get("filename") or "").strip()
-        body_content = body_json.get("content") or ""
-        if not filename or not body_content:
-            raise HTTPException(
-                status_code=400,
-                detail="filename 与 content 必填",
-            )
-        safe_name = Path(filename).name
-        if not safe_name.endswith((".md", ".txt")):
-            safe_name = safe_name + ".md"
-        target = upload_dir / safe_name
-        target.write_text(body_content, encoding="utf-8")
-
-    indexed = 0
-    try:
-        from src.knowledge_rag import get_rag
-        result = get_rag().add_directory(str(upload_dir.parent))
-        indexed = result.get("indexed", 0) if isinstance(result, dict) else 0
-    except Exception:
-        pass
-
-    return KnowledgeUploadResponse(
-        status="uploaded",
-        filename=safe_name,
-        path=str(target.relative_to(_PROJECT_ROOT)),
-        indexed_documents=indexed,
+) -> JSONResponse:
+    """K0C: reject the retired direct upload writer before any side effect."""
+    detail = legacy_write_tripwire.blocked_write_detail(
+        "legacy-knowledge-api-writers"
+    )
+    return JSONResponse(
+        status_code=409,
+        content=fail(
+            "旧知识上传入口已封禁；内容必须经 canonical archive/outcome promotion 晋升",
+            extra=detail,
+        ),
     )
 
 

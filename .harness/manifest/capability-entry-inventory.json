@@ -294,11 +294,11 @@
       "kind": "BUSINESS",
       "entrypoint": "backend/web/routers/{court.py,court_compat.py}:/api/court/{action,register,bureaus/*/actions}",
       "routingTarget": "REPLACEMENT_PENDING",
-      "disposition": "DISCOVERED",
+      "disposition": "MIGRATE_REQUIRED",
       "replacement": {
-        "id": null,
-        "status": "MISSING",
-        "evidence": null
+        "id": "canonical-archive-outcome-knowledge-promotion",
+        "status": "PLANNED",
+        "evidence": "backend/tests/test_court_flywheel_button.py"
       },
       "telemetry": {
         "eventName": "capability_entry_invoked.v1",
@@ -308,7 +308,29 @@
         "windowStart": null,
         "windowEnd": null
       },
-      "decisionEvidence": ".harness/changes/chore-single-fact-c0a-baseline-20260714/summary.md"
+      "decisionEvidence": ".harness/changes/fix-k0c-block-legacy-court-flywheel-write-20260714/summary.md"
+    },
+    {
+      "id": "legacy-knowledge-api-writers",
+      "owner": "backend",
+      "kind": "BUSINESS",
+      "entrypoint": "backend/web/routers/knowledge.py:/api/knowledge/{upload,index}",
+      "routingTarget": "REPLACEMENT_PENDING",
+      "disposition": "MIGRATE_REQUIRED",
+      "replacement": {
+        "id": "canonical-archive-outcome-knowledge-promotion",
+        "status": "PLANNED",
+        "evidence": "backend/tests/test_knowledge_write_tripwire.py"
+      },
+      "telemetry": {
+        "eventName": "capability_entry_invoked.v1",
+        "source": null,
+        "observationDays": 0,
+        "invocations": null,
+        "windowStart": null,
+        "windowEnd": null
+      },
+      "decisionEvidence": ".harness/changes/fix-k0c-block-legacy-knowledge-index-20260714/summary.md"
     },
     {
       "id": "legacy-governance-and-shiguan-writers",

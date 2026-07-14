@@ -1377,8 +1377,8 @@ export interface BackendApiRoutes {
   "POST /api/governance/deliberate": { method: "POST"; path: "/api/governance/deliberate"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/governance/whoami": { method: "POST"; path: "/api/governance/whoami"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/intel/brief": { method: "POST"; path: "/api/intel/brief"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/knowledge/index": { method: "POST"; path: "/api/knowledge/index"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/knowledge/upload": { method: "POST"; path: "/api/knowledge/upload"; requestBody: unknown; responses: {"201":"#/components/schemas/KnowledgeUploadResponse","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/knowledge/index": { method: "POST"; path: "/api/knowledge/index"; requestBody: unknown; responses: {"409":"unknown","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/knowledge/upload": { method: "POST"; path: "/api/knowledge/upload"; requestBody: unknown; responses: {"409":"unknown","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/kpi/business/{run_id}": { method: "POST"; path: "/api/kpi/business/{run_id}"; requestBody: "#/components/schemas/BusinessOutcomeRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/kpi/calibration": { method: "POST"; path: "/api/kpi/calibration"; requestBody: "#/components/schemas/CalibrationRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/legal/verdict": { method: "POST"; path: "/api/legal/verdict"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };

@@ -5,7 +5,7 @@
  * 诚实渲染宪法级铁律（不得违反）：
  *   - evidence_ref=null 或 grounding=none → 灰"待考·需人工补证"，禁绿灯/权威结论
  *   - gate=pending → 整卡盖半透"需人工复核"印，禁绿、不可导护身符
- *   - signed=false → "未签字"水印，export_amulet/feed_flywheel 等不可逆按钮置灰
+ *   - signed=false → "未签字"水印，export_amulet 等不可逆按钮置灰
  *   - source_label=FALLBACK/DEMO → 卡顶显式"演示/降级数据，非真实封存"，禁导护身符
  *
  * 官印固定为「史笔印 / 墨」，不跟随灯色（史馆身份色）。
@@ -14,7 +14,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ScrollText, Link2, ShieldAlert, ShieldCheck, Download, FileSearch, RefreshCw } from 'lucide-react';
+import { ScrollText, Link2, ShieldAlert, ShieldCheck, Download, FileSearch } from 'lucide-react';
 import { colors } from '@/config/design-tokens';
 import {
   LIGHT_COLOR,
@@ -152,9 +152,6 @@ export function ArchiveCard({ doc, onTraceEvidence, onExportAmulet }: ArchiveCar
       <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
         {doc.actions.includes('trace_evidence') && (
           <ActionBtn icon={FileSearch} label="查证据" onClick={() => onTraceEvidence(doc.items.find((it) => it.evidenceRef)?.evidenceRef ?? null)} />
-        )}
-        {doc.actions.includes('feed_flywheel') && (
-          <ActionBtn icon={RefreshCw} label="喂飞轮" disabled={!doc.signed} />
         )}
         {doc.actions.includes('export_amulet') && (
           <ActionBtn icon={Download} label="导护身符" disabled={!canExport} onClick={() => onExportAmulet(doc)} highlight />

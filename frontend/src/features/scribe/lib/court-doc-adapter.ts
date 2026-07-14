@@ -22,7 +22,7 @@ const LIGHTS: ReadonlySet<string> = new Set(['green', 'yellow', 'red', 'black'])
 const GATES: ReadonlySet<string> = new Set(['passed', 'pending', 'blocked', 'n/a']);
 const GROUNDINGS: ReadonlySet<string> = new Set(['rag', 'deterministic', 'none']);
 const SOURCE_LABELS: ReadonlySet<string> = new Set(['LIVE', 'LIVE_SWARM', 'MIXED', 'FALLBACK', 'DEMO']);
-const ACTIONS: ReadonlySet<string> = new Set(['open_annals', 'trace_evidence', 'feed_flywheel', 'export_amulet']);
+const ACTIONS: ReadonlySet<string> = new Set(['open_annals', 'trace_evidence', 'export_amulet']);
 const ITEM_LEVELS: ReadonlySet<string> = new Set(['green', 'yellow', 'red']);
 
 function toItem(value: unknown): CourtDocItem | null {

@@ -1,7 +1,8 @@
 """src/ima_knowledge_store.py — IMA 知识库(上书房补证附件)文件 + 元数据存储。
 
 2026-07-10 接线(P3-B):`/api/court/ima-knowledge` 此前从未有过后端实现——
-knowledge.py 的 /api/knowledge/upload 是最接近的既有能力(写文件+RAG 索引),
+knowledge.py 的 /api/knowledge/upload 曾是最接近的既有能力(写文件+RAG 索引；
+该 legacy writer 现已由 K0C 固定封禁为 409),
 但没有 id/status/元数据列表,不支持这里要的按文件维度归档/启用契约。这里独立
 建一套元数据存储(单 JSON 文件,同 chaotang_store.py 的 JSON 落盘惯例),复用
 knowledge_rag 做真实检索索引,不重造一套 RAG。

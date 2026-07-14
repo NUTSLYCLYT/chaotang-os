@@ -65,7 +65,7 @@ DEPT_REGISTRY: dict[str, dict] = {
         "doc_type": "archive",
         "stamp": "史笔印",
         "color": "墨",
-        "actions": ["trace_evidence", "feed_flywheel", "export_amulet"],
+        "actions": ["trace_evidence", "export_amulet"],
     },
     "jinyiwei": {
         "doc_type": "brief",

@@ -49,7 +49,7 @@
 
 ## 当前限制
 
-- inventory v2 已登记 12 个 BUSINESS 事实面：1 个 canonical 主链、7 个待迁移入口族、4 个待遥测/裁决入口族；该分类只冻结所有权和下一步，不证明运行时已经融合。
+- inventory v2 已登记 13 个 BUSINESS 事实面：1 个 canonical 主链、9 个待迁移入口族、3 个待遥测/裁决入口族；K0C-1 已封禁 `legacy-court-flywheel-writers` 的 `feed_flywheel` 直写，K0C-2/K0C-3 已封禁 `POST /api/knowledge/{upload,index}` 的文件与索引直写；CLI、IMA 和其他 legacy writers 尚未全部融合。
 - 当前清算表刚进入 `OBSERVE`，尚未建立统一 runtime telemetry sink。
 - 因此任何入口都不能仅凭本清单进入删除候选。
 - 生产仍受 immutable build、foreign 3050 和外部 trust anchor 门约束。

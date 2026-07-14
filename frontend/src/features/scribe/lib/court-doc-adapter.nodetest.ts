@@ -32,6 +32,7 @@ test('normalizes the /api/scribe/archive-docs success envelope', () => {
   assert.equal(docs[0]?.items[0]?.evidenceRef, null);
   assert.equal(docs[0]?.provenance.gate, 'passed');
   assert.equal(docs[0]?.signed, true);
+  assert.deepEqual(docs[0]?.actions, ['open_annals', 'trace_evidence', 'export_amulet']);
 });
 
 test('drops malformed doc entries instead of throwing', () => {

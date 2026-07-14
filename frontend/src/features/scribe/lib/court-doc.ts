@@ -15,7 +15,7 @@ export type CourtDocGate = 'passed' | 'pending' | 'blocked' | 'n/a';
 export type CourtDocGrounding = 'rag' | 'deterministic' | 'none';
 export type CourtDocSourceLabel = 'LIVE' | 'LIVE_SWARM' | 'MIXED' | 'FALLBACK' | 'DEMO';
 export type EvidenceAuth = 'authenticated' | 'orphan' | 'unknown';
-export type CourtDocAction = 'open_annals' | 'trace_evidence' | 'feed_flywheel' | 'export_amulet';
+export type CourtDocAction = 'open_annals' | 'trace_evidence' | 'export_amulet';
 
 export interface CourtDocItem {
   level: 'green' | 'yellow' | 'red';
@@ -137,7 +137,7 @@ export const MOCK_COURT_DOCS: CourtDoc[] = [
       { level: 'yellow', title: '成交率明细缺 per-case 数据', odds: '中', impact: '复盘失真', fix: '补回各主因数量再算占比，当前标"待考"', evidenceRef: 'annals://shiguan_annals/2026Q2' },
       { level: 'green', title: '教训已喂飞轮', odds: null, impact: null, fix: 'failure_memory + signoff_learning 已写入，下次同部规避', evidenceRef: 'truth://flywheel/health' },
     ],
-    actions: ['open_annals', 'trace_evidence', 'feed_flywheel', 'export_amulet'],
+    actions: ['open_annals', 'trace_evidence', 'export_amulet'],
     provenance: { advisors: ['deming', 'andrew-ng', 'charity-majors', 'karpathy', 'jeff-bezos-perspective'], grounding: 'rag', gate: 'passed' },
     sourceLabel: 'LIVE_SWARM',
     signed: true,

@@ -1,7 +1,7 @@
 # 朝堂 OS · 史馆、翰林院、知识内核与可信飞轮 10 分建设蓝图
 
 > 日期：2026-07-14
-> 状态：K0A_K0B_IMPLEMENTED_LOCAL / EXTERNAL_EVIDENCE_REQUIRED / K0C_PENDING_OWNER_APPROVAL
+> 状态：K0A_K0B_K0C1_K0C2_K0C3_IMPLEMENTED_LOCAL / EXTERNAL_EVIDENCE_REQUIRED / K0C_IN_PROGRESS
 > 本文件只做调查、契约和施工排序，不代表运行时已实施或生产 READY。
 > 上位施工权威：`chaotang-os-single-fact-source-convergence-blueprint-2026-07-14.md` 的 C0–C10。
 > 上线约束：首发仍冻结为刑部合同审查决策工作台，不因知识工程扩大客户导航。
@@ -435,7 +435,7 @@ K2/K3 可在 K1 后并行；K5/K6 可在 K4 后并行，但首个实施闭环仍
 
 ## 10. 第一实施闭环（待用户确认）
 
-K0A/K0B 已按上述范围完成。下一闭环变为 **K0C：建立 legacy write inventory、写面 tripwire，并封禁 8099 写 API、Q&A 回流及 Vault/brain DB/Qdrant 写入，只保留只读 observation**；这是运行状态变化，未经再次确认不实施。
+K0A/K0B 已按上述范围完成。K0C-1 已封禁 `POST /api/court/action` 的 `feed_flywheel` 旁路写入：新 CourtDoc 不再下发动作，旧客户端被 409 runtime tripwire 阻断，RAG 零调用。K0C-2/K0C-3 已删除 `POST /api/knowledge/{upload,index}` handler 内的文件与 RAG 写实现，旧客户端均得到结构化 409，OpenAPI/前端快照不再宣称 201/200。K0C 仍须逐项清算 CLI、IMA、8099 写 API、Q&A 回流及 Vault/brain DB/Qdrant 写入，只保留只读 observation；不得因 API 入口族完成而宣称系统已是单写者。
 
 RED 至少覆盖：
 

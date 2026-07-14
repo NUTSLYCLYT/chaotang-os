@@ -12,12 +12,14 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from src import case_archive
 from src import court_action as ca
 from src import court_roles
 from src import court_state_store as css
+from src import legacy_write_tripwire
 from src import production_events as pe
 from src import si_profile as sp
 from web.deps import get_current_user
@@ -68,6 +70,15 @@ class RegisterRequest(BaseModel):
 def court_action(req: ActionRequest, user: CurrentUser = Depends(get_current_user)) -> dict:
     """执行一个 court_doc 动作。全闸在 dispatch 内;状态以存储为准并落库,角色走白名单。"""
     doc_id = _doc_id(req.doc)
+    if req.action == "feed_flywheel":
+        detail = legacy_write_tripwire.blocked_write_detail("legacy-court-flywheel-writers")
+        return JSONResponse(
+            status_code=409,
+            content=fail(
+                "旧飞轮写入口已封禁；知识晋升必须来自 canonical archive/outcome 流程",
+                extra=detail,
+            ),
+        )
     # 洞A:权威状态取自存储(不信前端回传,防伪造回退);无记录则用初始态
     doc = dict(req.doc)
     stored = css.get_state(doc_id) if doc_id else None
@@ -106,19 +117,6 @@ def court_action(req: ActionRequest, user: CurrentUser = Depends(get_current_use
             css.set_idempotent(req.idempotency_key, result)
         else:
             css.release_idempotent(req.idempotency_key)
-    # 修史馆空按钮(专署能力核查挖出的洞):feed_flywheel 之前只走状态机(to_state=None),
-    # dispatch 校验完就直接返回 ok——用户点了看到"成功",但从没真的调用 court_flywheel
-    # 把这条文书写进知识库。现在真的写:失败不炸(飞轮本身"失败不抛异常"),
-    # 统计数字并进响应,前端能看到"到底存没存进去",不是一句空话的"成功"。
-    if req.action == "feed_flywheel" and result.get("status") == "ok":
-        from src import court_flywheel
-        stamp = (req.at or "")[:10] or datetime.now().date().isoformat()
-        flywheel_stats = court_flywheel.archive_session_to_knowledge(
-            memorials=[{"swarm": doc.get("dept", ""), "dept": doc.get("dept", ""),
-                       "status": "ok", "summary": doc.get("headline", "")}],
-            report_text="", stamp=stamp,
-        )
-        result = {**result, "flywheel": flywheel_stats}
     return ok(result)   # ok / needs_confirm 都是正常响应,needs_confirm 由前端弹二次确认
 
 

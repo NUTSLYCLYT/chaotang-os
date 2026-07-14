@@ -108,7 +108,7 @@ def scribe_archive_docs(_: CurrentUser = Depends(get_current_user)) -> dict:
                     }
                     for text in rec["lessons"]
                 ],
-                "actions": ["open_annals", "trace_evidence", "feed_flywheel", "export_amulet"],
+                "actions": ["open_annals", "trace_evidence", "export_amulet"],
                 "provenance": {"advisors": [], "grounding": "none", "gate": gate},
                 "sourceLabel": "LIVE",
                 "signed": signed,

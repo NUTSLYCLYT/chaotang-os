@@ -128,10 +128,10 @@
 |------|----------|------------|------|
 | `GET  /api/knowledge/search` | `web/app.py` | `web/routers/knowledge.py` | ✅ Query 必填校验 |
 | `GET  /api/knowledge/stats` | `web/app.py` | `web/routers/knowledge.py` | ⚠️ 500 (chromadb 未装) |
-| `POST /api/knowledge/index` | `web/app.py` | `web/routers/knowledge.py` | ✅ |
+| `POST /api/knowledge/index` | `web/app.py` | `web/routers/knowledge.py` | ⛔ K0C legacy writer blocked；固定 409 |
 | `GET  /api/knowledge/sources` | `web/app.py` | `web/routers/knowledge.py` | ✅ |
 | `GET  /api/knowledge/health` | `web/app.py` | `web/routers/knowledge.py` | ✅ 30s 内存缓存 |
-| `POST /api/knowledge/upload` | `web/app.py` | `web/routers/knowledge.py` | ✅ multipart + JSON |
+| `POST /api/knowledge/upload` | `web/app.py` | `web/routers/knowledge.py` | ⛔ K0C legacy writer blocked；固定 409 |
 | `GET  /api/presets` | `web/app.py` | `web/routers/knowledge.py` | ✅ |
 | `GET  /api/memory` | `web/app.py` | `web/routers/memory.py` | ⚠️ 500 (fcntl Windows) |
 | `POST /api/memory` | `web/app.py` | `web/routers/memory.py` | ⚠️ 同上 |
