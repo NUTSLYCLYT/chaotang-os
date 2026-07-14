@@ -16,7 +16,7 @@
 | change ID | `fix-flow-store-legacy-tripwire-20260715` |
 | PREDECESSOR（ext HEAD@P2 起点） | `cbbe5e2`——P1 内容合入后的 ext HEAD；晚 4 分钟的两笔 docs 提交（`187c1f2`/`6c5ebd3`）不在其基内，属可接受偏差（纯审查文档，无代码交叉） |
 | git status --porcelain | 0 行（clean）——v1.3 重跑，命令输出 `CHECK_AT=2026-07-15 07:51:26 CST`，HEAD 复核仍为 `4b4118c` |
-| push/upstream | `fatal: no upstream configured`，未 push——同上 07:51:26 复核 |
+| push/upstream | 无 upstream（07:51:26 复核）。"无 upstream"本身不证明未 push；v1.4 补远端证明：`git ls-remote origin 'refs/heads/task/*' 'refs/heads/integration/*' 'refs/heads/archive/*'` 返回 **0 条**（`CHECK_AT=2026-07-15 07:55:12 CST`）——campaign 全部工作分支均不存在于 origin，未 push 成立 |
 | 审查 diff 范围 | `cbbe5e2..4b4118c`（单提交，33 文件 +1296/-68） |
 | ext merge | `96d9a38`（**审查前已合入**，见 D5） |
 | 审查时间 | 内容审查 2026-07-15 00:55 前后（未精确记录）；绑定复核权威时刻 07:51:26（自带戳） |
