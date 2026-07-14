@@ -229,6 +229,10 @@ import 上述引擎）；sourceLabel 不出现 MIXED 本地合成路径；浏览
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ### P5 迁移权威归一（type: fix, name: alembic-single-authority）
 
+> **范围递减登记（2026-07-15，随 P1 落地）**：alembic 005 degenerate sequence
+> 三连修已合入 ext（`a073811`、`df0c5d5`、`9968418`，P1 验证阻塞修复）。
+> P5 执行时计入这三笔、不得重复修；P5 的 expand/contract 验证须覆盖修复后的 005。
+
 - create_all 降级为 dev-only：backend/web/main.py:95、formal_memorial.py:50、
   flow_store.py 多处——生产路径启动断言"必须 Alembic head"，否则 fail-fast。
 - flow_store.py 内手写 DDL/索引补丁迁入正式 alembic 版本后移除。

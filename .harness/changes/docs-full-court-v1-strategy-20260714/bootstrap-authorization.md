@@ -89,3 +89,11 @@ plans/chaotang-os-launch-blueprint-2026-07-14.md                                
 审批日志：
 
 - [x] 2026-07-14，迁移候选 staged stat 为 17 files / +1557；用户批复原文：“批”。授权仅覆盖 docs/pathspec 迁移 commit，不覆盖 P0 或后续代码 commit。
+
+## 2026-07-15 00:45 分支线裁决（D4，用户批复"批" 2026-07-15 00:41）
+
+- campaign 自 P1 起正式改为：task 分支 → Claude 逐行审 → 用户批 → **直合 ext**。
+- `integration/full-court-v1` 线退役，改名归档 `archive/integration-full-court-v1-2a92646`（f9b3e88）；
+  `task/p0-absorption-baseline` 终态归档为 `archive/p0-absorption-baseline-final`（037ceb6）。
+- P1 审查报告见 `packet-reviews/p1-dept-id-ssot-review.md`（GO 附条件 F1/D2/D3/D4）。
+- 后续 Packet 的 PREDECESSOR 定义更新为：上一个已 GO Packet 合入后的 **ext HEAD**。
