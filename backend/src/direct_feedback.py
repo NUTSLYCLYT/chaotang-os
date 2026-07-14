@@ -5,7 +5,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-FEEDBACK_DIR = Path(__file__).parent.parent / "direct_feedback"
+from src.runtime_paths import resolve_runtime_paths
+
+FEEDBACK_DIR = resolve_runtime_paths().direct_feedback
 
 @dataclass
 class Feedback:

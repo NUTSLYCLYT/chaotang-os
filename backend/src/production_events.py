@@ -18,9 +18,10 @@ from pathlib import Path
 from typing import Any
 
 from src.observability import metrics_exporter
+from src.runtime_paths import resolve_runtime_paths
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_EVENT_PATH = PROJECT_ROOT / "data" / "observability" / "production_events.jsonl"
+DEFAULT_EVENT_PATH = resolve_runtime_paths().data / "observability" / "production_events.jsonl"
 RED_EVENT_TYPES = {
     "run_async_failed",
     "run_index_drift_detected",

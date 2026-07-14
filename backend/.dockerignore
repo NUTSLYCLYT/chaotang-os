@@ -10,4 +10,5 @@ drafts/
 events/
 swarm_sessions/
 data/
+var/
 *.db

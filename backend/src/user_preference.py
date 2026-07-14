@@ -26,9 +26,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from src.runtime_paths import resolve_runtime_paths
+
 logger = logging.getLogger(__name__)
 
-DEFAULT_PREFERENCE_DIR = "data/preferences"
+DEFAULT_PREFERENCE_DIR = resolve_runtime_paths().data / "preferences"
 
 
 @dataclass

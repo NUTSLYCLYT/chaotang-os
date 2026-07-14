@@ -35,6 +35,8 @@ node scripts/new-change.mjs chore project-change
 | --- | --- | --- |
 | 前端 | `frontend/` | Next.js 界面、浏览器工作流、发布门禁、视觉证据 |
 | 后端 | `backend/` | 蜂群执行、提示词、模型服务、运行流程、后端评测护栏 |
-| 文档 | `docs/` | 跨项目产品与运行文档 |
+| 文档 | `docs/` | 跨项目产品、实施蓝图与历史状态文档 |
+
+可变后端运行数据统一写入 `backend/var/`（不入 Git）；版本化输入放在 `backend/resources/`，测试样例放在 `backend/tests/fixtures/`。根目录结构由 `node scripts/harness-doctor.mjs` 的 tracked-file 策略检查持续约束。
 
 开始工作前先读 `AGENTS.md`。

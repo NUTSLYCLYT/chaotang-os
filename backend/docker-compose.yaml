@@ -21,25 +21,33 @@ services:
       - FENGQUN_JWT_SECRET=${FENGQUN_JWT_SECRET:-fengqun-prod-change-me}
       # 非秘密轮换标识；发布门用它确认运行实例与候选配置一致
       - FENGQUN_JWT_KEY_ID=${FENGQUN_JWT_KEY_ID:-}
+      - FENGQUN_RUNTIME_ROOT=/app/var
       # 商机闭环持久化路径（挂载到 fengqun-data volume）
-      - FENGQUN_COMMERCIAL_BUSINESS_LEDGER=/app/data/commercial_loop_business.jsonl
-      - FENGQUN_COMMERCIAL_GOLDEN_CANDIDATES=/app/data/commercial_loop_golden_candidates.jsonl
-      - FENGQUN_COMMERCIAL_EVENTS=/app/data/commercial_loop_events.jsonl
-      - FENGQUN_COMMERCIAL_FAILURES=/app/data/commercial_loop_failures.jsonl
-      - FENGQUN_COMMERCIAL_GOLDEN_CASES=/app/data/commercial_loop_promoted_cases.json
+      - FENGQUN_COMMERCIAL_BUSINESS_LEDGER=/app/var/data/commercial_loop_business.jsonl
+      - FENGQUN_COMMERCIAL_GOLDEN_CANDIDATES=/app/var/data/commercial_loop_golden_candidates.jsonl
+      - FENGQUN_COMMERCIAL_EVENTS=/app/var/data/commercial_loop_events.jsonl
+      - FENGQUN_COMMERCIAL_FAILURES=/app/var/data/commercial_loop_failures.jsonl
+      - FENGQUN_COMMERCIAL_GOLDEN_CASES=/app/var/data/commercial_loop_promoted_cases.json
       # CORS 允许的源（逗号分隔），留空 = 不允许跨域
       - FENGQUN_ALLOWED_ORIGINS=${FENGQUN_ALLOWED_ORIGINS:-}
       # Prometheus 多进程指标目录
       - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus_multiproc
     volumes:
       # 持久化数据
-      - fengqun-data:/app/data                     # 多租户 SQLite
-      - fengqun-runs:/app/runs                     # 运行日志
-      - fengqun-repairs:/app/repairs               # 修复历史
-      - fengqun-drafts:/app/drafts                 # 工具草稿
-      - fengqun-events:/app/events                 # 事件总线日志
-      - fengqun-swarm-sessions:/app/swarm_sessions # 编排会话
-      - fengqun-cases:/app/cases                   # 经验沉淀案例
+      - fengqun-data:/app/var/data                 # 多租户 SQLite（沿用既有 volume）
+      - fengqun-runs:/app/var/data/default/runs    # 运行日志（沿用既有 volume）
+      - fengqun-repairs:/app/var/repairs           # 修复历史
+      - fengqun-drafts:/app/var/drafts             # 工具草稿
+      - fengqun-events:/app/var/events                 # 事件总线日志
+      - fengqun-swarm-sessions:/app/var/swarm_sessions # 编排会话
+      - fengqun-memory:/app/var/memory
+      - fengqun-sessions:/app/var/sessions
+      - fengqun-traces:/app/var/traces
+      - fengqun-direct-cache:/app/var/direct_cache
+      - fengqun-direct-feedback:/app/var/direct_feedback
+      - fengqun-cases:/app/var/cases               # 经验沉淀案例
+      - fengqun-reports:/app/var/reports
+      - fengqun-ab-tests:/app/var/ab_tests
       - fengqun-prompts:/app/runtime_prompts       # 运行时 Prompt（Web UI 编辑）
       - fengqun-versions:/app/prompt_versions      # Prompt 版本存档
       - fengqun-knowledge:/app/knowledge           # YAML 知识 + ChromaDB 向量库
@@ -52,7 +60,14 @@ volumes:
   fengqun-drafts:
   fengqun-events:
   fengqun-swarm-sessions:
+  fengqun-memory:
+  fengqun-sessions:
+  fengqun-traces:
+  fengqun-direct-cache:
+  fengqun-direct-feedback:
   fengqun-cases:
+  fengqun-reports:
+  fengqun-ab-tests:
   fengqun-prompts:
   fengqun-versions:
   fengqun-knowledge:

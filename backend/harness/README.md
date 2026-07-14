@@ -21,6 +21,8 @@ harness/
     <change-id>/
   chaotang-commercial-loop/
   chaotang-true-loop/
+  deep-research-skill-distillation/
+  hubu-investment-swarm-gate/
   chaotang_business_model/
   chaotang_department_protocol/
   chaotang_merit_system/
@@ -41,6 +43,8 @@ harness/
 | --- | --- |
 | `chaotang-commercial-loop` | 商机闭环确定性评测，检查部门块、数字归因、追溯和人工签字闸。 |
 | `chaotang-true-loop` | 真实闭环契约，验证目标、证据、状态和复盘记录是否闭合。 |
+| `deep-research-skill-distillation` | 检查来源包、学习包、技能蒸馏、黄金样例和 outcome ledger 是否闭合。 |
+| `hubu-investment-swarm-gate` | 阻断缺证据、个性化或确定性投资建议，并保留人工复核闸。 |
 | `chaotang_business_model` | 商业模式假设、客户价值、收入路径和风险证据检查。 |
 | `chaotang_department_protocol` | 部门协议与路由检查，保证输入、输出、owner、证据和下一步一致。 |
 | `chaotang_merit_system` | 功劳系统和贡献记录检查，避免奖励与证据脱钩。 |
@@ -109,3 +113,6 @@ node scripts/harness-doctor.mjs
 ```
 
 真实模型、高成本或会写入运行账本的命令，需要先确认 provider、预算、超时和输出路径。
+
+研究类 JavaScript evaluator 只把本次运行报告写入各自的 `artifacts/`
+（目录内容被忽略）；已审核的参考结果固定在 `baselines/`，运行验证不会污染工作树。

@@ -18,10 +18,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from src.runtime_paths import resolve_runtime_paths
+
 logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_ARCHIVE_PATH = PROJECT_ROOT / "data" / "chaotang" / "launch_loop_cases.jsonl"
+DEFAULT_ARCHIVE_PATH = resolve_runtime_paths().data / "chaotang" / "launch_loop_cases.jsonl"
 
 TERMINAL_STATUSES = {"reviewed", "archived"}
 

@@ -13,11 +13,12 @@ import yaml
 from src.model_adapter import BudgetExceeded
 from src.schema import calculate_total_score
 from src.step_log import RunLog
+from src.runtime_paths import resolve_runtime_paths
 
 # ---------------------------------------------------------------------------
 # 持久化目录
 # ---------------------------------------------------------------------------
-REPAIRS_DIR = Path(__file__).resolve().parent.parent / "repairs"
+REPAIRS_DIR = resolve_runtime_paths().repairs
 
 # ---------------------------------------------------------------------------
 # 默认维度 → 责任步骤 映射表（OPC，向后兼容）

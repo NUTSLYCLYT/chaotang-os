@@ -12,10 +12,11 @@ from src import xingbu_verdict
 from web.deps import get_current_user
 from web.schemas.auth import CurrentUser
 from web.routers._envelope import fail, ok
+from src.runtime_paths import resolve_runtime_paths
 
 router = APIRouter(prefix="/api/legal", tags=["legal"])
 
-_CASES_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "legal_cases.json"
+_CASES_PATH = resolve_runtime_paths().data / "legal_cases.json"
 
 
 def _load_cases() -> list[dict]:

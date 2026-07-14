@@ -26,11 +26,13 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from pathlib import Path
 
+from src.runtime_paths import resolve_runtime_paths
+
 logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parent.parent
-GOV_STATE_PATH = ROOT / "data" / "governance_state.json"
-QUALITY_EVAL_LOG = ROOT / "data" / "quality_eval_log.jsonl"
+GOV_STATE_PATH = resolve_runtime_paths().data / "governance_state.json"
+QUALITY_EVAL_LOG = resolve_runtime_paths().data / "quality_eval_log.jsonl"
 
 # ── 阈值常数 ──────────────────────────────────────────────────────────
 PASS_THRESHOLD = 3.0  # qa_score ≥ 此值算"良"（与 score_swarm 1-5 及 QA step 0-5 对齐）

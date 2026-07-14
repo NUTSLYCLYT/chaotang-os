@@ -14,6 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+from src.runtime_paths import resolve_runtime_paths
 
 _envf = ROOT / ".env"
 if _envf.exists():
@@ -112,7 +113,7 @@ def main() -> int:
         # 熔断失败必须可见：写入 guard_failures.log，不能静默（Charity Majors: 烟雾报警器不能哑火）
         import traceback
 
-        _guard_log = Path(__file__).resolve().parent.parent / "data" / "guard_failures.log"
+        _guard_log = resolve_runtime_paths().data / "guard_failures.log"
         _guard_log.parent.mkdir(parents=True, exist_ok=True)
         _msg = f"[{flow_id}] run_id={getattr(log, 'run_id', '?')} guard失败: {_e}\n{traceback.format_exc()}"
         _guard_log.open("a").write(_msg + "\n---\n")

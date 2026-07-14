@@ -20,11 +20,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from src.runtime_paths import resolve_runtime_paths
+
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _DOCS_ROOT = _PROJECT_ROOT / "knowledge" / "docs"
 _ACTIVE_DIR = _DOCS_ROOT / "ima_uploads"
 _ARCHIVED_DIR = _DOCS_ROOT / "ima_archived"
-_METADATA_DIR = _PROJECT_ROOT / "data" / "default" / "ima_knowledge"
+_METADATA_DIR = resolve_runtime_paths().data / "default" / "ima_knowledge"
 _METADATA_FILE = _METADATA_DIR / "documents.json"
 
 _MIME_BY_EXT = {

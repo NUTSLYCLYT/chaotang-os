@@ -24,7 +24,11 @@ RUN pip install --no-cache-dir -i ${PIP_INDEX_URL} -r requirements.txt
 COPY . .
 
 # 数据目录（挂载点）
-RUN mkdir -p data runs repairs drafts events swarm_sessions prompt_versions cases knowledge/chroma_db traces
+ENV FENGQUN_RUNTIME_ROOT=/app/var
+RUN mkdir -p var/data var/events var/memory var/sessions var/swarm_sessions \
+    var/traces var/direct_cache var/direct_feedback \
+    var/repairs var/drafts var/reports var/cases var/ab_tests \
+    prompt_versions knowledge/chroma_db
 
 # 初始化 runtime_prompts（如果不存在）— 必须包含所有 prompts_* 模块
 RUN python3 -c "\

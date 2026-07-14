@@ -47,7 +47,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 os.chdir(ROOT)
 
-LEDGER_PATH = ROOT / "data" / "must_not_ledger.json"
+from src.runtime_paths import resolve_runtime_paths
+
+LEDGER_PATH = resolve_runtime_paths().data / "must_not_ledger.json"
 AUTO_APPROVE_THRESHOLD = 2  # 同一 pattern 第N次复现时自动推送 approved 建议
 
 

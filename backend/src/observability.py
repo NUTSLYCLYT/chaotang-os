@@ -20,6 +20,8 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any
 
+from src.runtime_paths import resolve_runtime_paths
+
 logger = logging.getLogger(__name__)
 
 
@@ -256,7 +258,7 @@ class TraceCollector:
     """OpenTelemetry 兼容的追踪收集器（文件持久化）。"""
 
     def __init__(self, traces_dir: Path | None = None):
-        self.traces_dir = traces_dir or Path(__file__).resolve().parent.parent / "traces"
+        self.traces_dir = traces_dir or resolve_runtime_paths().traces
         self.traces_dir.mkdir(parents=True, exist_ok=True)
         self._active_spans: dict[str, TraceSpan] = {}
         self._lock = threading.Lock()

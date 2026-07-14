@@ -6,7 +6,9 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 from pathlib import Path
 
-CACHE_DIR = Path(__file__).parent.parent / "direct_cache"
+from src.runtime_paths import resolve_runtime_paths
+
+CACHE_DIR = resolve_runtime_paths().direct_cache
 CACHE_TTL_HOURS = 24
 
 @dataclass

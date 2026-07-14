@@ -17,7 +17,7 @@ is the self-hosted fallback and long-term default.
 ## Directory Layout
 
 ```text
-harness/deep-research-skill-distillation/
+backend/harness/deep-research-skill-distillation/
   README.md
   schemas/
     source-pack.schema.json
@@ -34,13 +34,23 @@ harness/deep-research-skill-distillation/
     serenity-bottleneck-investing.cases.json
   evaluators/
     run-deep-research-harness.mjs
+  baselines/
+    reference.json
+    reference.md
+  artifacts/                  # ignored runtime reports
 ```
 
 ## Run
 
 ```bash
-node harness/deep-research-skill-distillation/evaluators/run-deep-research-harness.mjs
+node backend/harness/deep-research-skill-distillation/evaluators/run-deep-research-harness.mjs
+# or: cd backend && node harness/deep-research-skill-distillation/evaluators/run-deep-research-harness.mjs
 ```
+
+The evaluator resolves inputs relative to its own file, so either invocation
+works without cwd-dependent data paths. Generated `latest.json` and `latest.md`
+reports go to the ignored `artifacts/` directory. The committed
+`baselines/reference.*` files are historical review evidence, not mutable output.
 
 ## Gate
 

@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = process.cwd();
-const HARNESS = path.join(ROOT, 'harness/hubu-investment-swarm-gate');
+const EVALUATOR_DIR = path.dirname(fileURLToPath(import.meta.url));
+const HARNESS = path.resolve(EVALUATOR_DIR, '..');
 const INPUT = path.join(HARNESS, 'candidates/serenity-style.outputs.json');
-const REPORT_DIR = path.join(HARNESS, 'reports');
+const REPORT_DIR = path.join(HARNESS, 'artifacts');
 const ALLOWED_STATUS = new Set(['observe', 'needs_evidence', 'defer', 'reject']);
 
 const PROHIBITED_PATTERNS = [

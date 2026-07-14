@@ -6,8 +6,10 @@
 
 ```text
 docs/
-  product/   产品描述——定位、模块定义、GTM、路线图、产品设计规格
-  README.md  本文件（入口与归属规则）
+  product/         产品描述——定位、模块定义、GTM、路线图、产品设计规格
+  plans/           经批准的跨线实施蓝图与阶段计划
+  status/archive/  带日期的历史状态快照（非当前事实源）
+  README.md        本文件（入口与归属规则）
 ```
 
 ## product/（产品描述）
@@ -18,11 +20,18 @@ docs/
 | `CHAOTANG_CONVERGENCE_GUIDE.md` | 唯一主线、任务分级、企业治理、部门能力、技术雷达和完整执行计划 |
 | `shiguan-three-column-redesign.md` | 史馆产品设计规格——功能定位、页面结构和内容格式 |
 
+## plans/ 与 status/archive/
+
+- `plans/` 保存跨前后端、需要长期引用的实施蓝图；执行事实和验证证据仍归对应 `.harness/changes/`。
+- `status/archive/` 只保存带日期的审计快照。它们不得作为“当前分支、当前完成度、当前发布状态”的事实源。
+
 ## 归属规则
 
 - **放 `product/`**：产品定位、用户问题定义、产品模块设计规格——不依赖具体技术实现的内容。
 - **放 `frontend/docs/`**：只描述前端实现、页面体验、视觉系统、浏览器验证或前端部署的文档。
 - **放 `backend/docs/`**：只描述后端运行服务、flow、agent、provider、API 实现、数据源或后端评测的文档。
+- **放 `plans/`**：跨线且已经确认的实施蓝图；不得重新创建根级 `plans/`。
+- **放 `status/archive/`**：一次性项目盘点和历史快照；文件名必须带日期并标注非当前事实源。
 - 技术实施方案、API 审计、接口对接计划等技术文档不在本目录维护，由对应工程线的 harness 或 changes 记录管理。
 - 新增文档时先判断归属，不要把整体项目叙述写进前端或后端局部 docs。
 

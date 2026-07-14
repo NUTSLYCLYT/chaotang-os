@@ -35,6 +35,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 os.chdir(ROOT)
 
+from src.runtime_paths import resolve_runtime_paths
+
 _envf = ROOT / ".env"
 if _envf.exists():
     for _ln in _envf.read_text(encoding="utf-8").splitlines():
@@ -45,7 +47,7 @@ if _envf.exists():
 
 logging.basicConfig(level=logging.WARNING)
 
-ANNALS_PATH = ROOT / "data" / "annals.jsonl"
+ANNALS_PATH = resolve_runtime_paths().data / "annals.jsonl"
 FLOW_CONFIG = ROOT / "config" / "flow_shiguan_archive.yaml"
 CHROMA_DB_DIR = ROOT / "knowledge" / "chroma_db"
 CHROMA_COLLECTION = "fengqun_knowledge"
@@ -59,7 +61,7 @@ SHIGUAN_DOMAIN = "shiguan_annals"
 SHIGUAN_INDEX_MIN_SCORE = float(
     os.environ.get("SHIGUAN_ARCHIVE_MIN_SCORE", "3.0")
 )  # 0-5 制
-ANNALS_REJECTED_PATH = ROOT / "data" / "annals_rejected.jsonl"
+ANNALS_REJECTED_PATH = resolve_runtime_paths().data / "annals_rejected.jsonl"
 _QA_OVERALL_KEY = "__qa_overall__"  # run_shiguan 在 final_output 私有键挂综合分;archive_event 读后 pop,不入档
 
 

@@ -24,6 +24,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from src.runtime_paths import resolve_runtime_paths
+
 # ── 合成测试用例 ───────────────────────────────────────────────────────
 # 覆盖低温电池、储能系统、特种应用等核心场景
 TEST_CASES = [
@@ -238,7 +240,7 @@ def main():
 
     # 保存结果
     output_path = args.output or str(
-        PROJECT_ROOT / "ab_tests" / f"knowledge_ab_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        resolve_runtime_paths().ab_tests / f"knowledge_ab_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     )
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     Path(output_path).write_text(

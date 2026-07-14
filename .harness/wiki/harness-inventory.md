@@ -16,7 +16,12 @@
 
 主要后端 harness 包列在 `.harness/manifest/project-harness.json` 和 `backend/harness/manifest.json`。
 
-后端 harness 层包括 commercial-loop、true-loop、department protocol、体验契约、merit、legal red-team、open-source watch、resource consolidation、swarm tool matrix 和 yushi global gate 等检查。
+后端 harness 层包括 commercial-loop、true-loop、deep-research skill distillation、户部投资研究安全闸门、department protocol、体验契约、merit、legal red-team、open-source watch、resource consolidation、swarm tool matrix 和 yushi global gate 等检查。
+
+原 `frontend/harness/` 下的 `deep-research-skill-distillation` 与
+`hubu-investment-swarm-gate` 已归入 `backend/harness/`。它们验证研究证据、
+候选技能和蜂群输出安全，不承担浏览器体验验证；浏览器闭环仍由
+`frontend/e2e/` 和 `frontend/.harness/` 的工程规则负责。
 
 部分后端目录是实现包或横线命名目录的 Python 命名映射，manifest 会记录这些关系。命名规则见 `backend/harness/_shared/naming-conventions.md`。
 

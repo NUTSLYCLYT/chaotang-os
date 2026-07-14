@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from web.deps import get_current_user
 from web.main import app
 from web.schemas.auth import CurrentUser
+from src.runtime_paths import resolve_runtime_paths
 
 
 def _test_user() -> CurrentUser:
@@ -116,7 +117,7 @@ class FakeApiOrchestrator:
         self, task_input: str, entry_swarm=None, session_id=None, project_id=None
     ):
         type(self).run_calls += 1
-        path = Path("swarm_sessions") / f"{session_id}.json"
+        path = resolve_runtime_paths().swarm_sessions / f"{session_id}.json"
         path.parent.mkdir(exist_ok=True)
         path.write_text(
             json.dumps(

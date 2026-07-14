@@ -20,7 +20,9 @@ import threading
 from pathlib import Path
 from typing import Any
 
-DEFAULT_DB = Path(__file__).resolve().parent.parent / "data" / "sqlite_vec_rag.db"
+from src.runtime_paths import resolve_runtime_paths
+
+DEFAULT_DB = resolve_runtime_paths().data / "sqlite_vec_rag.db"
 
 
 class SqliteVecRAG:

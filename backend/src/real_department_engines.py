@@ -530,7 +530,9 @@ def _load_canonical_cashflow_pack() -> dict | None:
     if not path:
         if "PYTEST_CURRENT_TEST" in os.environ:
             return None  # 测试隔离:pytest 下不自动读默认存储,除非显式 env 指定
-        path = "data/hubu/cashflow_pack.json"
+        from src.runtime_paths import resolve_runtime_paths
+
+        path = str(resolve_runtime_paths().data / "hubu" / "cashflow_pack.json")
     try:
         fp = Path(path)
         if not fp.is_absolute():
@@ -598,7 +600,9 @@ def _extract_payment_case(task_text: str) -> dict | None:
     if not path:
         if "PYTEST_CURRENT_TEST" in os.environ:
             return None  # 测试隔离:pytest 下不自动读默认存储,除非显式 env 指定
-        path = "data/hubu/payment_case.json"
+        from src.runtime_paths import resolve_runtime_paths
+
+        path = str(resolve_runtime_paths().data / "hubu" / "payment_case.json")
     try:
         fp = Path(path)
         if not fp.is_absolute():

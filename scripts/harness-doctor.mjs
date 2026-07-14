@@ -4,6 +4,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { validateRepositoryStructure } from './lib/repository-structure.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
@@ -46,6 +47,7 @@ const required = [
   '.harness/rules/project-workflow.md',
   '.harness/wiki/architecture.md',
   '.harness/wiki/harness-inventory.md',
+  '.harness/wiki/courtos-brain-extraction.md',
   '.harness/wiki/capability-entry-governance.md',
   '.harness/wiki/verification-matrix.md',
   '.harness/manifest/project-harness.json',
@@ -70,6 +72,19 @@ const required = [
 ];
 
 for (const rel of required) checkExists(rel);
+
+const trackedFilesResult = spawnSync('git', ['ls-files', '-z'], {
+  cwd: root,
+  encoding: 'utf8',
+});
+if (trackedFilesResult.status !== 0) {
+  error(`unable to inspect tracked repository structure: ${trackedFilesResult.stderr.trim()}`);
+} else {
+  const trackedFiles = trackedFilesResult.stdout.split('\0').filter(Boolean);
+  const structureErrors = validateRepositoryStructure(trackedFiles);
+  if (structureErrors.length === 0) ok('repository structure follows the canonical ownership policy');
+  else for (const message of structureErrors) error(message);
+}
 
 const entrypointExpectations = [
   ['AGENTS.md', '.harness/agents/project-owner.md'],

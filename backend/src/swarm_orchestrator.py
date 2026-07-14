@@ -41,11 +41,12 @@ from src.event_bus import Event, EventBus
 from src.flow_engine import FlowEngine
 from src.step_log import RunLog
 from src.tenant import with_tenant
+from src.runtime_paths import resolve_runtime_paths
 
 logger = logging.getLogger(__name__)
 
 
-SESSIONS_DIR = Path(__file__).resolve().parent.parent / "swarm_sessions"
+SESSIONS_DIR = resolve_runtime_paths().swarm_sessions
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 

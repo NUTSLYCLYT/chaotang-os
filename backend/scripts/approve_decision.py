@@ -22,6 +22,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 os.chdir(ROOT)
 
+from src.runtime_paths import resolve_runtime_paths
+
 _envf = ROOT / ".env"
 if _envf.exists():
     for _ln in _envf.read_text(encoding="utf-8").splitlines():
@@ -30,7 +32,7 @@ if _envf.exists():
             _k, _v = _ln.split("=", 1)
             os.environ.setdefault(_k.strip(), _v.strip())
 
-SIGNED_LOG = ROOT / "data" / "signed_decisions.jsonl"
+SIGNED_LOG = resolve_runtime_paths().data / "signed_decisions.jsonl"
 
 
 def _load_final_output(run_id: str) -> tuple[str, dict] | None:
@@ -47,8 +49,8 @@ def _load_final_output(run_id: str) -> tuple[str, dict] | None:
     except Exception:
         pass
 
-    # 方式2：从 runs/ 目录
-    runs_dir = ROOT / "runs"
+    # 方式2：从当前默认租户的 canonical runs 目录
+    runs_dir = resolve_runtime_paths().runs
     if runs_dir.exists():
         for run_dir in runs_dir.iterdir():
             if run_dir.name == run_id or run_dir.name.startswith(run_id):

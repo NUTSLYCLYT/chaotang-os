@@ -73,7 +73,7 @@ node scripts/harness-doctor.mjs
 不要把以下内容混进提交，除非用户明确要求：
 
 - `config/providers.yaml`、`.env`、本机 provider/API key 配置。
-- `data/`、`memory/`、`events/`、`swarm_sessions/`、`reports/`。
+- `var/` 下的全部可变运行态。旧 `data/`、`memory/`、`events/`、`swarm_sessions/`、`reports/` 只用于显式迁移，不得新增提交。
 - 临时实验、一次性脚本、下载结果、模型评分日志。
 
 Windows 终端如遇中文 diff 解码问题：
@@ -87,4 +87,4 @@ $env:PYTHONUTF8='1'; python scripts\commit_closeout_check.py
 - `docs/history-jiqun-pack.md`：旧 jiqun-flow / PACK 研发蜂群 README 内容，作为后端能力演进和行业样板历史保留。
 - `docs/jiqun_architecture.md`：jiqun 架构历史说明。
 
-当前项目口径以根级 `../AGENTS.md`、`../docs/PROJECT_PRODUCT.md`、后端 `AGENTS.md`、后端 harness manifest 和 doctor 输出为准。
+当前项目口径以根级 `../AGENTS.md`、`../docs/product/PROJECT_PRODUCT.md`、后端 `AGENTS.md`、后端 harness manifest 和 doctor 输出为准。

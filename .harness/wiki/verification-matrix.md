@@ -8,6 +8,7 @@
 | 前端工程 harness | `cd frontend && pnpm harness:doctor` | 验证前端 `.harness` 结构、模板、skills 和变更记录 | 由根 doctor 委托；2026-07-09 通过 |
 | 后端 harness 架构 | `cd backend && python scripts/harness_doctor.py` | 验证后端 harness manifest、共享契约、主 harness、实现包和变更记录 | 由根 doctor 委托；2026-07-09 通过 |
 | 后端运行/评测 harness 代表检查 | `cd backend && python -m pytest -q tests/test_commercial_loop_harness.py tests/test_legal_redteam_harness.py` | 验证 commercial-loop 与 legal red-team harness 行为 | 2026-07-09，28 个测试通过 |
+| 研究技能与户部投资蜂群安全评测 | `cd backend && node harness/deep-research-skill-distillation/evaluators/run-deep-research-harness.mjs && node harness/hubu-investment-swarm-gate/evaluators/run-hubu-investment-gate.mjs` | 验证研究证据链、技能蒸馏、30/60/90 outcome 计划，以及非建议边界和不安全买入指令阻断 | 2026-07-14，两个 evaluator 通过；报告写入忽略的 `artifacts/` |
 | 正式下旨、事件账本与正式奏折主链 | `cd backend && python3 -m pytest -q tests/test_final_memorial_gate.py tests/test_decree_event_ledger.py tests/test_outbox_worker.py tests/test_decree_execution_status.py tests/test_shangshufang_loop_api.py tests/test_chaotang_memorials.py -k 'not chancellor_chat_streams_single_agent_reply'` | 验证路由/派单/回奏/质量来源门/唯一正式奏折/人工裁决/史馆归档 | 2026-07-14，43 passed；实时聊天字面量用例独立列为不稳定外部模型测试 |
 | 多 Agent 控制面契约 | `node --test scripts/multi-agent-contracts.nodetest.mjs` | 校验 task、lease、release evidence 正反例与 manifest 登记 | S0 实现；不得据此声明发布门禁已强制 |
 | 多 Agent 任务与路径租约 | `node --test scripts/multi-agent-lease.nodetest.mjs` | 验证共享 registry、canonical scope、TTL、fencing、CLI、迁移和多 worktree 竞争 | S1：23 passed；独立复审 GO |

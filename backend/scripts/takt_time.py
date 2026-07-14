@@ -25,7 +25,10 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-RUNS_DIR = ROOT / "data" / "default" / "runs"
+sys.path.insert(0, str(ROOT))
+from src.runtime_paths import resolve_runtime_paths
+
+RUNS_DIR = resolve_runtime_paths().data / "default" / "runs"
 
 # 测试/演示任务的特征词（这些 run 不算被采纳）
 _TEST_KEYWORDS = {"演示", "demo", "test", "测试", "示例", "example", "dummy", "sample"}

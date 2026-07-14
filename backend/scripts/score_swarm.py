@@ -34,6 +34,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 os.chdir(ROOT)
 
+from src.runtime_paths import resolve_runtime_paths
+
 # 载入 .env(与 test_swarms 同款)
 _envf = ROOT / ".env"
 if _envf.exists():
@@ -112,7 +114,7 @@ def judge(task: str, reference: str, must_not: str, output: str) -> dict:
         return {"overall": 0, "verdict": "解析失败", "reasons": txt[:200]}
 
 
-EVAL_LOG = ROOT / "data" / "quality_eval_log.jsonl"
+EVAL_LOG = resolve_runtime_paths().data / "quality_eval_log.jsonl"
 
 
 class CaseTimeoutError(TimeoutError):

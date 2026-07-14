@@ -8,8 +8,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-SESSIONS_DIR = Path(__file__).resolve().parent.parent / "sessions"
-SESSIONS_DIR.mkdir(exist_ok=True)
+from src.runtime_paths import resolve_runtime_paths
+
+SESSIONS_DIR = resolve_runtime_paths().chat_sessions
+SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def load_session(session_id: str) -> dict[str, Any] | None:

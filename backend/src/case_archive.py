@@ -17,10 +17,12 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
+from src.runtime_paths import resolve_runtime_paths
+
 logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CASES_DIR = PROJECT_ROOT / "cases"
+CASES_DIR = resolve_runtime_paths().cases
 PENDING_DIR = CASES_DIR / "pending_review"
 APPROVED_DIR = CASES_DIR / "approved"
 

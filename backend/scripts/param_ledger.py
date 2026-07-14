@@ -27,7 +27,10 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
-LEDGER = ROOT / "data" / "param_ledger.jsonl"
+sys.path.insert(0, str(ROOT))
+from src.runtime_paths import resolve_runtime_paths
+
+LEDGER = resolve_runtime_paths().data / "param_ledger.jsonl"
 PARAMS = ROOT / "config" / "eval" / "storage_params.yaml"
 
 

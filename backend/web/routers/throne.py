@@ -30,6 +30,7 @@ from src.chaotang_api import (
 )
 from src import chaotang_store
 from src.step_log import list_runs, load_run
+from src.runtime_paths import resolve_runtime_paths
 
 from web.deps import get_current_user, validate_run_id
 from web.run_utils import run_summary, signoff_annotation
@@ -252,7 +253,7 @@ def api_throne_transfer(
     if run_log is None:
         raise HTTPException(status_code=404, detail=f"Run {run_id} 不存在")
 
-    transfer_dir = _PROJECT_ROOT / "data" / "default" / "transfers"
+    transfer_dir = resolve_runtime_paths().data / "default" / "transfers"
     transfer_dir.mkdir(parents=True, exist_ok=True)
     transfer_id = f"transfer_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
     operator = user.username or "anonymous"
@@ -330,7 +331,7 @@ def api_throne_digest(
             archive_id = case_archive.save_pending(archive_payload)
         else:
             pending_dir = (
-                _PROJECT_ROOT / "data" / "default" / "case_archive" / "pending"
+                resolve_runtime_paths().data / "default" / "case_archive" / "pending"
             )
             pending_dir.mkdir(parents=True, exist_ok=True)
             archive_id = archive_payload["case_id"]

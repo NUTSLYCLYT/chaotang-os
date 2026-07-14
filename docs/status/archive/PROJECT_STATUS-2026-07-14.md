@@ -1,5 +1,7 @@
 # 朝堂 OS 项目状态盘点
 
+> **归档快照，不是当前状态事实源。** 本文仅保留 2026-07-14 当时的审计证据；当前结构以 `.harness/manifest/project-harness.json` 和各层 `AGENTS.md` 为准，当前 Git 状态必须重新执行命令获取。
+
 > 盘点时间：2026-07-14 07:46:06 +08:00（Asia/Shanghai）
 > 盘点对象：当前检出的 `feature-chaotang-ext`。仓库不存在精确名为 `ext` 的本地或远端 ref；验证命令 `git show-ref --verify refs/heads/ext` 与 `git show-ref --verify refs/remotes/origin/ext` 均退出 1。
 > 盘点方式：只读检查仓库和执行安全验证；未安装依赖、未修改配置、未写生产数据库、未自动修复。前端 build/dev/test 在 `/tmp` 副本运行；唯一预期仓库写入是本文件。

@@ -10,13 +10,15 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+
+from src.runtime_paths import resolve_runtime_paths
 from typing import Any
 
 import yaml
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-_OPP_PATH = _PROJECT_ROOT / "data" / "default" / "opportunities.json"
+_OPP_PATH = resolve_runtime_paths().data / "default" / "opportunities.json"
 _BATTERY_PATH = _PROJECT_ROOT / "knowledge" / "battery_prices.yaml"
 
 # 商机田 6 态

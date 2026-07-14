@@ -35,8 +35,11 @@ except ImportError:
 
 
 ROOT = Path(__file__).resolve().parent.parent
-RUNS_DIR = ROOT / "data" / "default" / "runs"
-REPORTS_DIR = ROOT / "reports"
+sys.path.insert(0, str(ROOT))
+from src.runtime_paths import resolve_runtime_paths
+
+RUNS_DIR = resolve_runtime_paths().data / "default" / "runs"
+REPORTS_DIR = resolve_runtime_paths().reports
 
 
 # ─── HTML 模板 ────────────────────────────────────────────────────────────────

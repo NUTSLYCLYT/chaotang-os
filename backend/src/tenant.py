@@ -25,14 +25,18 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from src.runtime_paths import guard_legacy_database, resolve_runtime_paths
+
 # ---------------------------------------------------------------------------
 # 路径配置
 # ---------------------------------------------------------------------------
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "fengqun.db"
-DB_PATH = Path(os.environ.get("FENGQUN_DB_PATH", str(DEFAULT_DB_PATH))).expanduser()
-DATA_ROOT = PROJECT_ROOT / "data"
+_RUNTIME_PATHS = resolve_runtime_paths()
+DEFAULT_DB_PATH = _RUNTIME_PATHS.data / "fengqun.db"
+LEGACY_DB_PATH = PROJECT_ROOT / "data" / "fengqun.db"
+DB_PATH = _RUNTIME_PATHS.database
+DATA_ROOT = _RUNTIME_PATHS.data
 
 # 单租户模式下的默认租户（向后兼容）
 DEFAULT_TENANT_SLUG = "default"
@@ -113,12 +117,13 @@ def _get_db() -> sqlite3.Connection:
     """获取数据库连接（自动建表）。"""
     if (
         os.environ.get("FENGQUN_TEST_DB_GUARD") == "1"
-        and DB_PATH.resolve() == DEFAULT_DB_PATH.resolve()
+        and DB_PATH.resolve() in {DEFAULT_DB_PATH.resolve(), LEGACY_DB_PATH.resolve()}
     ):
         raise RuntimeError(
             "pytest tenant production DB tripwire: refusing to open "
             f"{DEFAULT_DB_PATH}"
         )
+    guard_legacy_database(destination=DB_PATH)
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
     conn.row_factory = sqlite3.Row

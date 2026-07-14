@@ -4,25 +4,27 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
 from typing import Optional
 
-_LEGACY_RUNS_DIR = Path(__file__).resolve().parent.parent / "runs"
-RUNS_DIR = _LEGACY_RUNS_DIR  # backward compat alias
+from src.runtime_paths import resolve_runtime_paths
+
+_DEFAULT_RUNS_DIR = resolve_runtime_paths().runs
+RUNS_DIR = _DEFAULT_RUNS_DIR
+# Deprecated test/extension compatibility symbol. Runtime resolution never reads
+# from it; operators must use the explicit migration command.
+_LEGACY_RUNS_DIR = resolve_runtime_paths().root.parent / "runs"
 
 
 def _get_runs_dir() -> Path:
-    """获取当前租户的 runs 目录（向后兼容旧的 runs/ 目录）。"""
+    """获取当前租户的 canonical runs 目录。"""
+    if RUNS_DIR != _DEFAULT_RUNS_DIR:
+        return RUNS_DIR
     try:
-        from src.tenant import DEFAULT_TENANT_SLUG, get_current_tenant, get_tenant_data_dir
-        slug = get_current_tenant()
-        tenant_dir = get_tenant_data_dir("runs")
-        # 默认租户时，如果旧目录存在，继续使用旧目录（向后兼容）
-        if slug == DEFAULT_TENANT_SLUG and _LEGACY_RUNS_DIR.exists():
-            return _LEGACY_RUNS_DIR
-        return tenant_dir
+        from src.tenant import get_tenant_data_dir
+
+        return get_tenant_data_dir("runs")
     except ImportError:
-        return _LEGACY_RUNS_DIR
+        return RUNS_DIR
 
 
 @dataclass
@@ -81,10 +83,6 @@ class RunLog:
 
 def _run_dir(run_id: str) -> Path:
     runs_dir = _get_runs_dir()
-    # Legacy fallback: if run exists in old location, use it
-    legacy_path = _LEGACY_RUNS_DIR / run_id
-    if legacy_path.exists() and runs_dir != _LEGACY_RUNS_DIR:
-        return legacy_path
     return runs_dir / run_id
 
 
@@ -93,13 +91,10 @@ def get_run_dir(run_id: str) -> Path | None:
 
     Older API paths can expose ``YYYYMMDD_HHMMSS`` prefixes while FlowEngine
     persists microsecond-qualified ids. Exact matches win; prefix matches must
-    be unique across the tenant and legacy run directories.
+    be unique inside the current tenant.
     """
     runs_dir = _get_runs_dir()
-    bases: list[Path] = []
-    for base in (runs_dir, _LEGACY_RUNS_DIR):
-        if base not in bases:
-            bases.append(base)
+    bases = [runs_dir]
 
     for base in bases:
         exact = base / run_id
@@ -240,8 +235,7 @@ def list_runs() -> list[str]:
     seen = set()
     run_ids = []
 
-    # 当前租户目录
-    for d in [runs_dir, _LEGACY_RUNS_DIR]:
+    for d in [runs_dir]:
         if d.exists():
             for item in d.iterdir():
                 if item.is_dir() and item.name not in seen:

@@ -29,11 +29,10 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
+
+from src.step_log import get_run_dir
 
 logger = logging.getLogger(__name__)
-
-_RUNS_DIR = Path(__file__).resolve().parent.parent / "runs"
 
 _THOUGHT_RE = re.compile(r"Thought\s*[：:]\s*(.+?)(?=\nAction\s*[：:]|\Z)", re.DOTALL)
 _ACTION_RE = re.compile(r"Action\s*[：:]\s*(\w+)\s*[|｜]\s*(.+?)(?=\nThought\s*[：:]|\Z)", re.DOTALL)
@@ -72,8 +71,8 @@ def _read_step_from_disk(run_id: str, step_id: str) -> str:
     绕过 WorkingMemory 的压缩，拿到原始未截断内容。
     这是 ReAct Observe 阶段与 StepLog 自我引用的核心。
     """
-    run_dir = _RUNS_DIR / run_id
-    if not run_dir.exists():
+    run_dir = get_run_dir(run_id)
+    if run_dir is None:
         return f"[ERROR] run {run_id} 不存在"
 
     # 查找 step_*_{step_id}.json（不依赖 step_index，支持 DAG 乱序）

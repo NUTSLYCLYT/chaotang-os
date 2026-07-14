@@ -15,11 +15,12 @@ from fastapi import APIRouter, Depends
 from web.deps import get_current_user
 from web.routers._envelope import ok
 from web.schemas.auth import CurrentUser
+from src.runtime_paths import resolve_runtime_paths
 
 router = APIRouter(prefix="/api/court-session", tags=["court-session"])
 
 _REPORT_DIR = (
-    Path(__file__).resolve().parent.parent.parent / "reports" / "court_session"
+    resolve_runtime_paths().reports / "court_session"
 )
 
 

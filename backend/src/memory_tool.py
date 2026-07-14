@@ -5,22 +5,31 @@ Hermes 风格 memory 工具 — 操作 memory/persons/{id}.md 快照文件
 from __future__ import annotations
 
 import logging
+import shutil
 from pathlib import Path
+
+from src.runtime_paths import BACKEND_ROOT, resolve_runtime_paths
 
 logger = logging.getLogger(__name__)
 
 # memory/persons/ 目录
-MEMORY_DIR = Path(__file__).parent.parent / "memory"
+MEMORY_DIR = resolve_runtime_paths().memory
 PERSONS_DIR = MEMORY_DIR / "persons"
+PERSON_SEEDS_DIR = BACKEND_ROOT / "resources" / "memory_profiles" / "persons"
 
 MAX_CHARS = 2000  # 约 500 tokens（500 tokens ≈ 2000 中文字符）
 WARN_PCT = 0.80   # 超过 80% 时给出警告
 
 
 def _person_path(person_id: str) -> Path:
-    """返回 persons/{person_id}.md 路径，但不创建文件。"""
+    """返回可写 profile；首次访问时从版本化种子复制。"""
     PERSONS_DIR.mkdir(parents=True, exist_ok=True)
-    return PERSONS_DIR / f"{person_id}.md"
+    destination = PERSONS_DIR / f"{person_id}.md"
+    seed = PERSON_SEEDS_DIR / f"{person_id}.md"
+    if not destination.exists() and seed.is_file():
+        # copy2 保留种子的时间元数据；之后只修改 var/ 下的运行副本。
+        shutil.copy2(seed, destination)
+    return destination
 
 
 def _read_content(person_id: str) -> str:

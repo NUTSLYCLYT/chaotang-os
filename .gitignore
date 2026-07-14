@@ -33,6 +33,9 @@ frontend/.yarn/*
 # testing
 frontend/coverage
 # playwright e2e artifacts (产物,不入库)
+.playwright-mcp/
+.playwright-cli/
+frontend/.next-stale-*/
 frontend/test-results/
 frontend/playwright-report/
 frontend/.playwright-mcp/
@@ -71,6 +74,7 @@ frontend/data/*.local.json
 frontend/*.db.bak*
 
 # ── backend/ (Python / jiqun) ──
+backend/var/
 backend/runs/
 backend/ab_tests/
 backend/events/

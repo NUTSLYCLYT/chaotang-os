@@ -35,14 +35,15 @@ from src.db.flow_store import (  # noqa: E402
 )
 from src.db.models import Base, Memorial  # noqa: E402
 from src.step_log import load_run  # noqa: E402
+from src.runtime_paths import resolve_runtime_paths  # noqa: E402
 
-_DATA_DEFAULT = _ROOT / "data" / "default"
+_DATA_DEFAULT = resolve_runtime_paths().data / "default"
 
 
 # ── 动态查询 tenant_id(D16②) ─────────────────────────────────────────────
 
 def _get_default_tenant_id() -> int:
-    db_path = _ROOT / "data" / "fengqun.db"
+    db_path = resolve_runtime_paths().database
     if not db_path.exists():
         return 1
     try:

@@ -13,6 +13,8 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+from src.runtime_paths import resolve_runtime_paths
+
 try:
     import fcntl
 except ImportError:  # pragma: no cover - Windows only
@@ -23,8 +25,8 @@ try:
 except ImportError:  # pragma: no cover - Unix only
     msvcrt = None
 
-_DEFAULT_PATH = Path(__file__).resolve().parent.parent / "data" / "court_state.json"
-_IDEM_PATH = Path(__file__).resolve().parent.parent / "data" / "court_idempotency.json"
+_DEFAULT_PATH = resolve_runtime_paths().data / "court_state.json"
+_IDEM_PATH = resolve_runtime_paths().data / "court_idempotency.json"
 
 
 @contextlib.contextmanager

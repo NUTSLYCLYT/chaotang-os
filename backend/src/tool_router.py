@@ -33,11 +33,13 @@ from typing import Any
 
 import yaml
 
+from src.runtime_paths import resolve_runtime_paths
+
 # ---------------------------------------------------------------------------
 # 数据结构
 # ---------------------------------------------------------------------------
 
-DRAFTS_DIR = Path(__file__).resolve().parent.parent / "drafts"
+DRAFTS_DIR = resolve_runtime_paths().drafts
 
 
 @dataclass

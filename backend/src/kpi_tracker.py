@@ -18,9 +18,11 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from src.runtime_paths import resolve_runtime_paths
+
 logger = logging.getLogger(__name__)
 
-_KPI_DB_PATH = Path(__file__).resolve().parent.parent / "data" / "kpi.db"
+_KPI_DB_PATH = resolve_runtime_paths().data / "kpi.db"
 
 
 @dataclass

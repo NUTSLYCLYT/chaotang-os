@@ -31,10 +31,12 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
+from src.runtime_paths import resolve_runtime_paths
+
 logger = logging.getLogger(__name__)
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
-_DEFAULT_PATH = _PROJECT_ROOT / "data" / "signoff_learning.jsonl"
+_DEFAULT_PATH = resolve_runtime_paths().data / "signoff_learning.jsonl"
 
 # 合法签字判决。approve=准奏(正向)，reject=驳回(教训)。
 _VALID_DECISIONS = ("approve", "reject")

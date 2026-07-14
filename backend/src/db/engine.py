@@ -11,16 +11,18 @@ SQLite 注意:
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
 
+from src.runtime_paths import guard_legacy_database, resolve_runtime_paths
+
 # ── DB_URL ────────────────────────────────────────────────────────────────
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-_DEFAULT_DB = f"sqlite:///{_PROJECT_ROOT / 'data' / 'fengqun.db'}"
+_DEFAULT_DB = f"sqlite:///{resolve_runtime_paths().database}"
 DB_URL: str = os.environ.get("DB_URL", _DEFAULT_DB)
+if "DB_URL" not in os.environ:
+    guard_legacy_database()
 
 # ── Engine ────────────────────────────────────────────────────────────────
 

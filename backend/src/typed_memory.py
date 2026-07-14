@@ -18,6 +18,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import BinaryIO, Callable
 
+from src.runtime_paths import resolve_runtime_paths
+
 try:
     import fcntl
 except ImportError:  # pragma: no cover - Windows only
@@ -30,7 +32,7 @@ except ImportError:  # pragma: no cover - Unix only
 
 logger = logging.getLogger(__name__)
 
-MEMORY_BASE = Path(__file__).resolve().parent.parent / "memory"
+MEMORY_BASE = resolve_runtime_paths().memory
 ENTRYPOINT = "MEMORY.md"
 MAX_ENTRYPOINT_LINES = 200
 MAX_ENTRYPOINT_BYTES = 25_000

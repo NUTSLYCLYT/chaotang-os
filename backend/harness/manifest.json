@@ -40,6 +40,31 @@
       "tests": []
     },
     {
+      "id": "deep-research-skill-distillation",
+      "summary": "来源可追溯的研究技能蒸馏与黄金样例评测",
+      "required": [
+        "README.md",
+        "evaluators/run-deep-research-harness.mjs",
+        "source_packs/serenity-bottleneck-investing.source-pack.json",
+        "golden_cases/serenity-bottleneck-investing.cases.json",
+        "baselines/reference.json",
+        "artifacts/.gitignore"
+      ],
+      "tests": []
+    },
+    {
+      "id": "hubu-investment-swarm-gate",
+      "summary": "户部投资研究蜂群非建议边界与证据安全闸门",
+      "required": [
+        "README.md",
+        "evaluators/run-hubu-investment-gate.mjs",
+        "candidates/serenity-style.outputs.json",
+        "baselines/reference.json",
+        "artifacts/.gitignore"
+      ],
+      "tests": []
+    },
+    {
       "id": "chaotang_business_model",
       "summary": "商业模式评测 harness",
       "required": ["README.md", "business_model.yaml", "golden_cases/business_model_cases.json", "scripts/run_business_model.py"],
@@ -138,7 +163,9 @@
   "verification": {
     "architecture": ["python scripts/harness_doctor.py"],
     "representativeBehavior": [
-      "python -m pytest -q tests/test_commercial_loop_harness.py tests/test_legal_redteam_harness.py"
+      "python -m pytest -q tests/test_commercial_loop_harness.py tests/test_legal_redteam_harness.py",
+      "node harness/deep-research-skill-distillation/evaluators/run-deep-research-harness.mjs",
+      "node harness/hubu-investment-swarm-gate/evaluators/run-hubu-investment-gate.mjs"
     ]
   }
 }

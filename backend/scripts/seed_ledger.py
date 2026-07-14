@@ -24,7 +24,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 
-RUNS = ROOT / "data" / "default" / "runs"
+from src.runtime_paths import resolve_runtime_paths
+
+RUNS = resolve_runtime_paths().data / "default" / "runs"
 
 # 注意:Stage Gate 是决策门流程,不是 PACK 设计——用 C1-C5 评它是张冠李戴(会造假 FAIL)。
 # 它需要自己的确定性检查器(见 #10),此处不混入,宁可不评也不错评。
@@ -45,7 +47,7 @@ def _authenticated_run_ids() -> set:
     """
     import sqlite3
 
-    db = ROOT / "data" / "fengqun.db"
+    db = resolve_runtime_paths().database
     if not db.exists():
         return set()
     try:

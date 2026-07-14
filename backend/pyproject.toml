@@ -46,7 +46,7 @@ include = ["src*", "scripts*"]
 [tool.ruff]
 line-length = 120
 target-version = "py312"
-exclude = [".venv", "__pycache__", "runs", "events", "swarm_sessions", "data"]
+exclude = [".venv", "__pycache__", "runs", "events", "swarm_sessions", "data", "var"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

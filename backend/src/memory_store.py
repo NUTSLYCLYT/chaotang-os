@@ -12,6 +12,8 @@ from contextlib import closing
 from pathlib import Path
 from typing import Optional
 
+from src.runtime_paths import resolve_runtime_paths
+
 logger = logging.getLogger(__name__)
 
 
@@ -37,7 +39,7 @@ def _cosine_sim(a: list[float], b: list[float]) -> float:
     return sum(x * y for x, y in zip(a, b, strict=False))
 
 # DB 路径：memory/state.db
-MEMORY_DIR = Path(__file__).parent.parent / "memory"
+MEMORY_DIR = resolve_runtime_paths().memory
 DB_PATH = MEMORY_DIR / "state.db"
 
 CREATE_SCHEMA = """

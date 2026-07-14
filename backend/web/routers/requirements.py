@@ -16,11 +16,12 @@ from web.schemas.requirements import (
     RequirementSaveRequest,
     RequirementSaveResponse,
 )
+from src.runtime_paths import resolve_runtime_paths
 
 router = APIRouter(prefix="/api/requirements", tags=["requirements"])
 
 _REQS_DIR = (
-    Path(__file__).resolve().parent.parent.parent / "data" / "requirements"
+    resolve_runtime_paths().data / "requirements"
 )
 _REQS_DIR.mkdir(parents=True, exist_ok=True)
 

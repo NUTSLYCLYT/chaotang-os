@@ -522,7 +522,13 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     root = _repo_root()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--vault", type=Path, default=Path("/home/ubuntu/CourtOS-Brain"))
-    parser.add_argument("--archive", type=Path, default=root / "courtos-brain")
+    archive_default = os.getenv("COURTOS_BRAIN_ARCHIVE_PATH")
+    parser.add_argument(
+        "--archive",
+        type=Path,
+        default=Path(archive_default) if archive_default else None,
+        help="Optional independent CourtOS-Brain archive (or COURTOS_BRAIN_ARCHIVE_PATH); never defaults to a repo subtree",
+    )
     parser.add_argument("--brain-db", type=Path, default=DEFAULT_LEGACY_ROOT / "data" / "brain.db")
     parser.add_argument("--qdrant-path", type=Path, default=DEFAULT_LEGACY_ROOT / "data" / "qdrant")
     parser.add_argument("--qdrant-python", type=Path, default=DEFAULT_LEGACY_ROOT / ".venv" / "bin" / "python")
@@ -543,7 +549,6 @@ def main(argv: list[str] | None = None) -> int:
 
     sources = [
         inventory_file_tree("live_vault", args.vault, default_disposition="quarantine"),
-        inventory_file_tree("repo_archive", args.archive, default_disposition="quarantine"),
         inventory_sqlite("legacy_brain_db", args.brain_db, default_disposition="quarantine"),
         (
             inventory_qdrant("legacy_qdrant", request=_http_requester(args.qdrant_url))
@@ -559,6 +564,8 @@ def main(argv: list[str] | None = None) -> int:
         inventory_file_tree("ima_docs", args.ima_docs, default_disposition="quarantine"),
         inventory_sqlite("current_rag_db", args.rag_db, default_disposition="quarantine", allow_absent=True),
     ]
+    if args.archive is not None:
+        sources.insert(1, inventory_file_tree("independent_archive", args.archive, default_disposition="quarantine"))
     manifest = build_manifest(sources)
     serialized = json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
     if args.output:

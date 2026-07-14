@@ -27,8 +27,11 @@ import hashlib
 import json
 from pathlib import Path
 
+from src.runtime_paths import BACKEND_ROOT, resolve_runtime_paths
+
 RUNTIME_PROMPTS_DIR = Path(__file__).resolve().parent.parent / "runtime_prompts"
-MEMORY_PERSONS_DIR = Path(__file__).resolve().parent.parent / "memory" / "persons"
+MEMORY_PERSONS_DIR = resolve_runtime_paths().memory / "persons"
+MEMORY_PERSON_SEEDS_DIR = BACKEND_ROOT / "resources" / "memory_profiles" / "persons"
 
 
 def load_person_profile(person_id: str) -> str:
@@ -41,6 +44,8 @@ def load_person_profile(person_id: str) -> str:
         profile 文件内容字符串；找不到文件时返回空字符串，不抛异常。
     """
     profile_path = MEMORY_PERSONS_DIR / f"{person_id}.md"
+    if not profile_path.exists():
+        profile_path = MEMORY_PERSON_SEEDS_DIR / f"{person_id}.md"
     if not profile_path.exists():
         return ""
     try:

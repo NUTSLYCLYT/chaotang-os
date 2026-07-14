@@ -10,7 +10,7 @@
 
 根级 `.claude/`（`agents/`、`skills/`、`hooks/`）是 Claude Code 这个开发工具本身的配置层，**不是第四条内容主线**，不违反 `AGENTS.md:38`"所有 agent 工作入口必须落在 frontend/backend/根 harness 三层结构内"这条约束。区别在于：`AGENTS.md:38` 管的是"内容/所有权主线"——像 `courtos-brain/` 差点变成的那种，自己一整棵业务/知识内容树，要求单独的事实源和 harness 验证。`.claude/` 不持有业务逻辑、不持有运行时状态、不产出需要独立验证的"事实"；它定义的 agent（如 `gongbu-quality-gate`）实际检查的对象——`frontend/src/features/...`、`backend/src/...`——完全落在三层结构内，`.claude/` 只是"怎么调这个 agent"的配置，不是"这个 agent 在哪工作"。7 个既有 `gongbu-*` agents 与 `chaotang-build-office` 等 skills 均遵循此约定，见根 `CLAUDE.md`"Claude Code 配置"一节。
 
-`courtos-brain/` 是迁移进来的个人知识归档，**不是 agent 工作入口，不构成第四主线**，不纳入三层 harness 验证，也不出现在 `.harness/manifest/project-harness.json` 的模块表里。为保证这一点在文件系统层面成立（而不只是文档声明）：
+`courtos-brain/` 是等待安全独立化的历史 subtree，**不是 agent 工作入口，不构成第四主线**，不纳入三层 harness 验证，也不出现在 `.harness/manifest/project-harness.json` 的模块表里。生产代码不得默认依赖该仓内路径；独立远端、克隆恢复、内容对账和依赖解除全部完成前也不得直接删除。完整门禁见 `.harness/wiki/courtos-brain-extraction.md`。为保证暂留期间的边界在文件系统层面成立（而不只是文档声明）：
 
 - 没有 `AGENTS.md` / `CLAUDE.md`（治理说明见 `courtos-brain/VAULT-GUIDE.md`）。
 - 没有任何名为 `.agents/`、`agents/`、`skills/`、`commands/`、`.claude/` 的目录，也没有任何名为 `SKILL.md` 的文件，无论嵌套多深。原 `courtos-brain/.agents/skills/grow-courtos-knowledge/`（`SKILL.md` 带 Claude Skill frontmatter，`agents/openai.yaml` 带 Codex `default_prompt`，两层路径都会被对应工具按约定名自动发现）已整体改名为 `courtos-brain/vault-workflows/grow-courtos-knowledge-notes/`：`SKILL.md` → `workflow-reference.md`，`agents/openai.yaml` → `provider-configs/openai-interface.yaml`。内容原样保留，只消除路径上的约定名。

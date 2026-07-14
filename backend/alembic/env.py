@@ -29,8 +29,12 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # DB_URL 环境变量优先;兜底用 SQLite fengqun.db
-_default_db = str(_HERE / "data" / "fengqun.db")
+from src.runtime_paths import guard_legacy_database, resolve_runtime_paths
+
+_default_db = str(resolve_runtime_paths().database)
 db_url = os.environ.get("DB_URL", f"sqlite:///{_default_db}")
+if "DB_URL" not in os.environ:
+    guard_legacy_database()
 config.set_main_option("sqlalchemy.url", db_url)
 
 target_metadata = Base.metadata

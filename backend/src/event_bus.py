@@ -12,10 +12,11 @@ import json
 import threading
 from dataclasses import asdict, dataclass
 from datetime import datetime
-from pathlib import Path
 from typing import Callable
 
-EVENTS_DIR = Path(__file__).resolve().parent.parent / "events"
+from src.runtime_paths import resolve_runtime_paths
+
+EVENTS_DIR = resolve_runtime_paths().events
 
 
 @dataclass

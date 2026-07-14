@@ -199,7 +199,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="每日朝会自转 runner")
     ap.add_argument("--dry-run", action="store_true", help="只看议程+grounding,不跑LLM")
     ap.add_argument("--depts", default="", help="逗号分隔 swarm_id,只跑这些部")
-    ap.add_argument("--out", default="reports/court_session", help="朝报输出目录")
+    from src.runtime_paths import resolve_runtime_paths
+
+    ap.add_argument("--out", default=str(resolve_runtime_paths().reports / "court_session"), help="朝报输出目录")
     ap.add_argument("--stamp", default="", help="日期戳(默认今日);可复现用")
     ap.add_argument(
         "--archive", action="store_true", help="朝会跑完把朝报回流知识库(飞轮⑤·需EMBED)"

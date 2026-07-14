@@ -10,6 +10,7 @@
 - 真实客户样本、运行记录、质量基线、API 与数据源逻辑。
 - 后端运行/评测 harness：`harness/`。
 - commercial-loop、legal-redteam、department protocol、yushi global gate 等可靠性闸门。
+- 研究技能蒸馏、户部投资研究安全等非 UI 质量评测资产。
 
 `backend/` 不负责其他工程线的体验实现、发布体验或构建产物。涉及跨线归属时，只记录根级协调结论，不把对应实现细节写入后端 harness。
 
@@ -50,7 +51,7 @@ $env:PYTHONUTF8='1'; python scripts\commit_closeout_check.py
 不要把以下内容混进功能提交，除非用户明确要求：
 
 - `config/providers.yaml`、`.env`、本机 provider/API key 配置。
-- `data/`、`memory/`、`events/`、`swarm_sessions/`、`reports/`。
+- `var/`（全部运行态）、`reports/`；旧版 `data/`、`memory/`、`events/`、`swarm_sessions/` 只允许迁移，不得新增。
 - 临时实验、一次性脚本、下载结果、模型评分日志。
 - 根级清单归属到其他工程线的体验实现或构建产物。
 

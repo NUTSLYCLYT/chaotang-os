@@ -13,8 +13,9 @@ from typing import Optional
 from src.compare import compare_quality
 from src.flow_engine import FlowEngine
 from src.step_log import RunLog
+from src.runtime_paths import resolve_runtime_paths
 
-AB_TESTS_DIR = Path(__file__).resolve().parent.parent / "ab_tests"
+AB_TESTS_DIR = resolve_runtime_paths().ab_tests
 
 
 @dataclass

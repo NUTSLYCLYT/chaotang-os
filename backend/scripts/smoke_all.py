@@ -19,6 +19,8 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+from src.runtime_paths import resolve_runtime_paths
 TIMEOUT = 480
 CONCURRENCY = 3
 
@@ -145,7 +147,7 @@ def main(argv: list[str] | None = None):
             )
 
     results.sort(key=lambda r: r["swarm"])
-    out = ROOT / "reports" / "smoke_readiness.json"
+    out = resolve_runtime_paths().reports / "smoke_readiness.json"
     out.parent.mkdir(exist_ok=True)
     out.write_text(json.dumps(results, ensure_ascii=False, indent=2))
 

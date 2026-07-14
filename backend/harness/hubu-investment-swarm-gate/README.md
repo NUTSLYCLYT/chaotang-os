@@ -10,8 +10,13 @@ case.
 ## Run
 
 ```bash
-node harness/hubu-investment-swarm-gate/evaluators/run-hubu-investment-gate.mjs
+node backend/harness/hubu-investment-swarm-gate/evaluators/run-hubu-investment-gate.mjs
+# or: cd backend && node harness/hubu-investment-swarm-gate/evaluators/run-hubu-investment-gate.mjs
 ```
+
+The evaluator resolves inputs relative to its own file. Runtime reports are
+written to the ignored `artifacts/` directory; `baselines/reference.*` preserves
+the reviewed reference result without making every run dirty the worktree.
 
 ## Gate
 
@@ -43,7 +48,9 @@ recommendation.
 
 ### Contract
 
-Frontend sends `POST /api/swarm/run` through the live jiqun adapter with:
+The browser uses the typed frontend adapter to call the backend-owned
+`POST /api/shangshufang/finance-intel-loop/complete` contract. The backend then
+builds the finance swarm request with:
 
 - `entry_swarm: "finance"`
 - `source_label: "LIVE"`
@@ -51,7 +58,8 @@ Frontend sends `POST /api/swarm/run` through the live jiqun adapter with:
 - `intelligence_pack.financialSources` preserving the same URLs as evidence
 - `evidence_bound_run` preserving `missing_evidence` and `forbidden_outputs`
 
-Backend must return a replayable session at `/api/swarm/sessions/{session_id}`.
+Backend must persist a replayable session available at
+`GET /api/swarm/sessions/{session_id}`. The session must include:
 The session must include:
 
 - `session_type: "finance_intel_loop"`
@@ -59,18 +67,24 @@ The session must include:
 - `finance_intel_loop.memorial.executionAllowed: false`
 - `finance_intel_loop.memorial.sideEffects: "none"`
 - `finance_intel_loop.sourceUrls` with the same SEC URLs
-- `release_gate: "clear"` only when official source URLs are present
-- `release_gate: "blocked"` when source URLs are missing
+- `finance_intel_loop.qualityGate.checks.missing_evidence_clear: true` only
+  when the required official source evidence is complete
 
-Frontend BFF must stop the chain when `release_gate` is `blocked`. In that case
-`POST /api/court/hubu/memorials/from-swarm` returns `409 release_gate_blocked`
-and must not create a Hu Bu memorial or authorized decision brief.
+There is no frontend BFF enforcement point. The backend contract owns the gate:
+missing official sources keep the case at `awaiting_jinyiwei_evidence`; no
+authorized decision, decree, execution, or archive may be produced. Frontend
+code may display that state but cannot upgrade it.
 
 ### Harness Commands
+
+The following UI/build commands are cross-line checks owned by `frontend/`;
+run them from that directory. They complement this backend safety evaluator but
+do not replace it.
 
 Focused type and unit checks:
 
 ```bash
+cd frontend
 pnpm exec tsc --noEmit
 npx --yes tsx --test src/lib/intel/signal-dispatch.nodetest.ts
 ```
@@ -78,12 +92,14 @@ npx --yes tsx --test src/lib/intel/signal-dispatch.nodetest.ts
 Production build gate:
 
 ```bash
+cd frontend
 NEXT_PUBLIC_API_MODE=real pnpm build
 ```
 
 Browser UI closed-loop smoke with fake jiqun:
 
 ```bash
+cd frontend
 PLAYWRIGHT_SKIP_WEBSERVER=1 \
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3050 \
 FINANCE_INTEL_LOOP_UI=1 \
@@ -96,6 +112,7 @@ pnpm exec playwright test e2e/finance-intel-loop-ui.spec.ts --project=chromium
 API closed-loop smoke with fake jiqun:
 
 ```bash
+cd frontend
 PLAYWRIGHT_SKIP_WEBSERVER=1 \
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3050 \
 FINANCE_INTEL_LOOP_SMOKE=1 \
@@ -130,8 +147,9 @@ user operates:
 
 ### PACK Contract
 
-Frontend sends `POST /api/court/shangshufang/pack-swarm-loop`, which dispatches
-to jiqun `/api/swarm/run` through the live adapter with:
+The browser calls the backend-owned
+`POST /api/shangshufang/pack-swarm-loop` contract through its typed adapter.
+The backend dispatches the `pack_rd` swarm request with:
 
 - `entry_swarm: "pack_rd"`
 - `courtos_departments: ["jinyiwei", "hubu", "gongbu", "qintianjian"]`
@@ -151,6 +169,7 @@ commitments are treated as final.
 Browser UI closed-loop smoke with fake jiqun:
 
 ```bash
+cd frontend
 PLAYWRIGHT_SKIP_WEBSERVER=1 \
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3050 \
 PACK_SWARM_SHANGSHUFANG_E2E=1 \

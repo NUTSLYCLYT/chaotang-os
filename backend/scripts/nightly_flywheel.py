@@ -29,10 +29,11 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from src import persona_registry  # noqa: E402
+from src.runtime_paths import resolve_runtime_paths  # noqa: E402
 
 _GOLDEN_DIR = _ROOT / "scripts" / "golden_cases"
 _BASELINE_PATH = _GOLDEN_DIR / "quality_baseline.json"
-_REPORT_DIR = _ROOT / "reports" / "flywheel"
+_REPORT_DIR = resolve_runtime_paths().reports / "flywheel"
 
 
 # ── ⑤ 硬棘轮门(命门,纯函数,可单测,不依赖 LLM)─────────────────────────────

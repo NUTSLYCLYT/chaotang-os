@@ -20,6 +20,23 @@ from scripts.knowledge_resource_inventory import (
 )
 
 
+def test_archive_source_is_opt_in_and_never_defaults_to_repo_subtree(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("COURTOS_BRAIN_ARCHIVE_PATH", raising=False)
+
+    args = inventory._parse_args([])
+
+    assert args.archive is None
+
+
+def test_archive_source_can_be_configured_outside_repo(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    archive = tmp_path / "independent-courtos-brain"
+    monkeypatch.setenv("COURTOS_BRAIN_ARCHIVE_PATH", str(archive))
+
+    args = inventory._parse_args([])
+
+    assert args.archive == archive
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:

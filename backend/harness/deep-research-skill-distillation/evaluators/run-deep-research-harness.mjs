@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = process.cwd();
-const HARNESS = path.join(ROOT, 'harness/deep-research-skill-distillation');
-const REPORT_DIR = path.join(HARNESS, 'reports');
+const EVALUATOR_DIR = path.dirname(fileURLToPath(import.meta.url));
+const HARNESS = path.resolve(EVALUATOR_DIR, '..');
+const REPORT_DIR = path.join(HARNESS, 'artifacts');
 
 const files = {
   sourcePack: 'source_packs/serenity-bottleneck-investing.source-pack.json',

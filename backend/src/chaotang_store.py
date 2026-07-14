@@ -14,7 +14,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-_DATA_ROOT = Path(__file__).resolve().parent.parent / "data" / "default"
+from src.runtime_paths import resolve_runtime_paths
+
+_DATA_ROOT = resolve_runtime_paths().data / "default"
 _VALID_ACTIONS = {"approve", "reject", "inquire"}
 
 
@@ -22,9 +24,7 @@ def _get_default_tenant_id() -> int:
     """动态查询 slug='default' 的 tenant_id(D16②,不硬编码)。"""
     try:
         import sqlite3
-        from pathlib import Path as _Path
-
-        db = _Path(__file__).resolve().parent.parent / "data" / "fengqun.db"
+        db = resolve_runtime_paths().database
         if not db.exists():
             return 1
         conn = sqlite3.connect(str(db))

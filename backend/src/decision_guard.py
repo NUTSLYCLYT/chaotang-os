@@ -25,6 +25,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from src.runtime_paths import resolve_runtime_paths
+
 # 输出会导致【不可逆后果】的蜂群 → 决策类型说明。新增不可逆出口在此登记。
 # 2026-06-22 会审第②刀补登记:协议声明 level=irreversible 却漏登记的 finance/legal/appointment。
 IRREVERSIBLE_FLOWS: dict[str, str] = {
@@ -41,7 +43,7 @@ IRREVERSIBLE_FLOWS: dict[str, str] = {
 # 签字真值源:approve_decision.py 写,本模块读。"没人读这本台账"是会审red线之一,
 # 本模块把它升级为可被执行/交付口校验的唯一签字真值源。
 _DEFAULT_SIGNED_LOG = (
-    Path(__file__).resolve().parent.parent / "data" / "signed_decisions.jsonl"
+    resolve_runtime_paths().data / "signed_decisions.jsonl"
 )
 
 ADVISORY_HEADER = (
