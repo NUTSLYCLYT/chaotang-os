@@ -49,6 +49,7 @@
 
 ## 当前限制
 
+- inventory v2 已登记 12 个 BUSINESS 事实面：1 个 canonical 主链、7 个待迁移入口族、4 个待遥测/裁决入口族；该分类只冻结所有权和下一步，不证明运行时已经融合。
 - 当前清算表刚进入 `OBSERVE`，尚未建立统一 runtime telemetry sink。
 - 因此任何入口都不能仅凭本清单进入删除候选。
 - 生产仍受 immutable build、foreign 3050 和外部 trust anchor 门约束。

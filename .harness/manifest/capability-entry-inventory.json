@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "updatedAt": "2026-07-14",
   "entries": [
     {
@@ -67,6 +67,270 @@
         "windowEnd": null
       },
       "decisionEvidence": ".harness/changes/fix-canonical-wf-pack-repository-root-20260714/summary.md"
+    },
+    {
+      "id": "canonical-shangshufang-decision-loop",
+      "owner": "backend",
+      "kind": "BUSINESS",
+      "entrypoint": "backend/web/routers/shangshufang.py:/api/shangshufang/{draft-edict,confirm-edict,tasks/*/status,tasks/*/decision}",
+      "routingTarget": "DECISION_TASK_KERNEL",
+      "disposition": "CANONICAL",
+      "replacement": {
+        "id": "canonical-shangshufang-decision-loop",
+        "status": "VERIFIED",
+        "evidence": "backend/tests/test_shangshufang_contract_baseline.py"
+      },
+      "telemetry": {
+        "eventName": "capability_entry_invoked.v1",
+        "source": null,
+        "observationDays": 0,
+        "invocations": null,
+        "windowStart": null,
+        "windowEnd": null
+      },
+      "decisionEvidence": ".harness/changes/chore-single-fact-c0a-baseline-20260714/summary.md"
+    },
+    {
+      "id": "canonical-swarm-runs-execution-adapter",
+      "owner": "backend",
+      "kind": "BUSINESS",
+      "entrypoint": "backend/web/routers/swarm_runs.py:/api/swarm-runs",
+      "routingTarget": "DECISION_TASK_KERNEL",
+      "disposition": "MIGRATE_REQUIRED",
+      "replacement": {
+        "id": "canonical-assignment-attempt-adapter",
+        "status": "PLANNED",
+        "evidence": null
+      },
+      "telemetry": {
+        "eventName": "capability_entry_invoked.v1",
+        "source": null,
+        "observationDays": 0,
+        "invocations": null,
+        "windowStart": null,
+        "windowEnd": null
+      },
+      "decisionEvidence": ".harness/changes/chore-single-fact-c0a-baseline-20260714/summary.md"
+    },
+    {
+      "id": "legacy-chaotang-task-chain",
+      "owner": "backend",
+      "kind": "BUSINESS",
+      "entrypoint": "backend/web/routers/chaotang.py:/api/chaotang/{decree/dispatch,tasks/persist,memorials/*/review}",
+      "routingTarget": "DECISION_TASK_KERNEL",
+      "disposition": "MIGRATE_REQUIRED",
+      "replacement": {
+        "id": "canonical-shangshufang-decision-loop",
+        "status": "PLANNED",
+        "evidence": null
+      },
+      "telemetry": {
+        "eventName": "capability_entry_invoked.v1",
+        "source": null,
+        "observationDays": 0,
+        "invocations": null,
+        "windowStart": null,
+        "windowEnd": null
+      },
+      "decisionEvidence": ".harness/changes/chore-single-fact-c0a-baseline-20260714/summary.md"
+    },
+    {
+      "id": "legacy-court-compat-task-chain",
+      "owner": "backend",
+      "kind": "BUSINESS",
+      "entrypoint": "backend/web/routers/court_compat.py:/api/court/{junjichu/cases,orchestrate,orchestrate/all,orchestrate/sign-off}",
+      "routingTarget": "DECISION_TASK_KERNEL",
+      "disposition": "MIGRATE_REQUIRED",
+      "replacement": {
+        "id": "canonical-shangshufang-decision-loop",
+        "status": "PLANNED",
+        "evidence": null
+      },
+      "telemetry": {
+        "eventName": "capability_entry_invoked.v1",
+        "source": null,
+        "observationDays": 0,
+        "invocations": null,
+        "windowStart": null,
+        "windowEnd": null
+      },
+      "decisionEvidence": ".harness/changes/chore-single-fact-c0a-baseline-20260714/summary.md"
+    },
+    {
+      "id": "legacy-orchestration-registry-chain",
+      "owner": "backend",
+      "kind": "BUSINESS",
+      "entrypoint": "backend/web/routers/orchestration_compat.py:/api/orchestration/run",
+      "routingTarget": "DECISION_TASK_KERNEL",
+      "disposition": "MIGRATE_REQUIRED",
+      "replacement": {
+        "id": "canonical-d0-or-decision-task-ingress",
+        "status": "PLANNED",
+        "evidence": null
+      },
+      "telemetry": {
+        "eventName": "capability_entry_invoked.v1",
+        "source": null,
+        "observationDays": 0,
+        "invocations": null,
+        "windowStart": null,
+        "windowEnd": null
+      },
+      "decisionEvidence": ".harness/changes/chore-single-fact-c0a-baseline-20260714/summary.md"
+    },
+    {
+      "id": "legacy-frontend-decision-store",
+      "owner": "frontend",
+      "kind": "BUSINESS",
+      "entrypoint": "frontend/src/lib/db/courtos-decision-store.ts",
+      "routingTarget": "DECISION_TASK_KERNEL",
+      "disposition": "MIGRATE_REQUIRED",
+      "replacement": {
+        "id": "canonical-backend-decision-services",
+        "status": "PLANNED",
+        "evidence": null
+      },
+      "telemetry": {
+        "eventName": "capability_entry_invoked.v1",
+        "source": null,
+        "observationDays": 0,
+        "invocations": null,
+        "windowStart": null,
+        "windowEnd": null
+      },
+      "decisionEvidence": ".harness/changes/chore-single-fact-c0a-baseline-20260714/summary.md"
+    },
+    {
+      "id": "legacy-court-prefixed-shangshufang-paths",
+      "owner": "frontend",
+      "kind": "BUSINESS",
+      "entrypoint": "frontend/src/lib/jiqun-api.ts:/api/court/shangshufang/*",
+      "routingTarget": "DECISION_TASK_KERNEL",
+      "disposition": "MIGRATE_REQUIRED",
+      "replacement": {
+        "id": "frontend-shangshufang-canonical-api-adapter",
+        "status": "PLANNED",
+        "evidence": "frontend/src/features/shangshufang/api/contract-baseline.nodetest.ts"
+      },
+      "telemetry": {
+        "eventName": "capability_entry_invoked.v1",
+        "source": null,
+        "observationDays": 0,
+        "invocations": null,
+        "windowStart": null,
+        "windowEnd": null
+      },
+      "decisionEvidence": ".harness/changes/chore-single-fact-c0a-baseline-20260714/summary.md"
+    },
+    {
+      "id": "specialized-pack-finance-research-loops",
+      "owner": "backend",
+      "kind": "BUSINESS",
+      "entrypoint": "backend/web/routers/shangshufang.py:/{pack-swarm-loop,finance-intel-loop/complete,research-budget-loop}",
+      "routingTarget": "DECISION_TASK_KERNEL",
+      "disposition": "MIGRATE_REQUIRED",
+      "replacement": {
+        "id": "canonical-workflow-profile-registry",
+        "status": "PLANNED",
+        "evidence": null
+      },
+      "telemetry": {
+        "eventName": "capability_entry_invoked.v1",
+        "source": null,
+        "observationDays": 0,
+        "invocations": null,
+        "windowStart": null,
+        "windowEnd": null
+      },
+      "decisionEvidence": ".harness/changes/chore-single-fact-c0a-baseline-20260714/summary.md"
+    },
+    {
+      "id": "legacy-swarm-session-runner",
+      "owner": "backend",
+      "kind": "BUSINESS",
+      "entrypoint": "backend/web/routers/swarm.py:/api/swarm/run",
+      "routingTarget": "REPLACEMENT_PENDING",
+      "disposition": "DISCOVERED",
+      "replacement": {
+        "id": "canonical-swarm-runs-execution-adapter",
+        "status": "PLANNED",
+        "evidence": null
+      },
+      "telemetry": {
+        "eventName": "capability_entry_invoked.v1",
+        "source": null,
+        "observationDays": 0,
+        "invocations": null,
+        "windowStart": null,
+        "windowEnd": null
+      },
+      "decisionEvidence": ".harness/changes/chore-single-fact-c0a-baseline-20260714/summary.md"
+    },
+    {
+      "id": "legacy-direct-executor",
+      "owner": "backend",
+      "kind": "BUSINESS",
+      "entrypoint": "backend/web/routers/direct.py:/api/direct/{execute,feedback}",
+      "routingTarget": "REPLACEMENT_PENDING",
+      "disposition": "DISCOVERED",
+      "replacement": {
+        "id": "canonical-durable-single-node-executor",
+        "status": "PLANNED",
+        "evidence": null
+      },
+      "telemetry": {
+        "eventName": "capability_entry_invoked.v1",
+        "source": null,
+        "observationDays": 0,
+        "invocations": null,
+        "windowStart": null,
+        "windowEnd": null
+      },
+      "decisionEvidence": ".harness/changes/chore-single-fact-c0a-baseline-20260714/summary.md"
+    },
+    {
+      "id": "legacy-court-flywheel-writers",
+      "owner": "backend",
+      "kind": "BUSINESS",
+      "entrypoint": "backend/web/routers/{court.py,court_compat.py}:/api/court/{action,register,bureaus/*/actions}",
+      "routingTarget": "REPLACEMENT_PENDING",
+      "disposition": "DISCOVERED",
+      "replacement": {
+        "id": null,
+        "status": "MISSING",
+        "evidence": null
+      },
+      "telemetry": {
+        "eventName": "capability_entry_invoked.v1",
+        "source": null,
+        "observationDays": 0,
+        "invocations": null,
+        "windowStart": null,
+        "windowEnd": null
+      },
+      "decisionEvidence": ".harness/changes/chore-single-fact-c0a-baseline-20260714/summary.md"
+    },
+    {
+      "id": "legacy-governance-and-shiguan-writers",
+      "owner": "backend",
+      "kind": "BUSINESS",
+      "entrypoint": "backend/web/routers/governance_compat.py:/api/{governance/*,scribe/annals,court/shiguan/*,shiguan/*}",
+      "routingTarget": "REPLACEMENT_PENDING",
+      "disposition": "DISCOVERED",
+      "replacement": {
+        "id": null,
+        "status": "MISSING",
+        "evidence": null
+      },
+      "telemetry": {
+        "eventName": "capability_entry_invoked.v1",
+        "source": null,
+        "observationDays": 0,
+        "invocations": null,
+        "windowStart": null,
+        "windowEnd": null
+      },
+      "decisionEvidence": ".harness/changes/chore-single-fact-c0a-baseline-20260714/summary.md"
     }
   ]
 }
