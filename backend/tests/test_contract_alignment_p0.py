@@ -361,7 +361,9 @@ def test_medical_chat_contract_streams_sse_tokens():
     assert "FALLBACK" in body
 
 
-def test_true_chain_health_contract_returns_evidence_backed_readiness():
+def test_true_chain_health_contract_returns_evidence_backed_readiness(
+    isolated_session_local,
+):
     response = TestClient(app).get("/api/court/true-chain-health")
 
     assert response.status_code == 200

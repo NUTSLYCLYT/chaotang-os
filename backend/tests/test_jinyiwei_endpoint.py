@@ -212,7 +212,7 @@ def _seed_awaiting_evidence_task(db, task_id: str, user_id: str = "1") -> None:
     db.commit()
 
 
-def test_fill_gap_rejects_unknown_task_id():
+def test_fill_gap_rejects_unknown_task_id(isolated_session_local):
     r = client.post("/api/intel/evidence/fill-gap", json={
         "task_id": "task_no_such_id",
         "gap": "客户资质是否齐全",

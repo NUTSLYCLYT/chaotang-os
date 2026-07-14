@@ -53,7 +53,7 @@ def test_legal_overview_and_from_text_exact_contracts():
     assert verdict_payload["error"]
 
 
-def test_swarm_runs_serial_exact_validation_contract():
+def test_swarm_runs_serial_exact_validation_contract(isolated_session_local):
     response = TestClient(app).post(
         "/api/swarm-runs/serial",
         json={"task_id": "missing-task", "review_id": None, "mode": "standard"},

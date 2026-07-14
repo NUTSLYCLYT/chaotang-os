@@ -107,7 +107,7 @@ class TestDispatchDualWrite:
         assert "taskId" in body["data"]
         assert body["data"]["status"] == "running"
 
-    def test_dispatch_writes_tasks_row(self, monkeypatch):
+    def test_dispatch_writes_tasks_row(self, monkeypatch, isolated_session_local):
         """dispatch 后 flow_store.save_decree_and_task 被调用一次(tasks 行写入)。"""
         monkeypatch.setenv("FENGQUN_AUTH", "false")
         import web.routers.chaotang as ct
@@ -134,7 +134,9 @@ class TestDispatchDualWrite:
         assert written_tasks[0]["task_id"] == task_id
         assert written_tasks[0].get("departments") is not None
 
-    def test_dispatch_decrees_row_has_ministers(self, monkeypatch):
+    def test_dispatch_decrees_row_has_ministers(
+        self, monkeypatch, isolated_session_local
+    ):
         """dispatch 后 decrees 表的 ministers_json 含 hu_bu。"""
         monkeypatch.setenv("FENGQUN_AUTH", "false")
         import web.routers.chaotang as ct

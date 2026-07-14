@@ -227,6 +227,8 @@ cd ../backend && python3 scripts/harness_doctor.py
 
 **已完成的第二个最小闭环（2026-07-14）**：`fix-final-memorial-test-owner-isolation-20260714` 将正式奏折测试数据的 owner 与隔离认证身份对齐。对象级授权继续拒绝他人任务；测试不再把正确的 403/业务拒绝误判为数据库隔离失败。正式主链 41 项通过，真实 `backend/data/fengqun.db` 的 SHA-256、大小和 mtime 在测试前后完全不变。该证据只覆盖本组主链测试，S2 全仓 production-path tripwire 仍未完成。
 
+**已完成的第三个最小闭环（2026-07-14）**：`test-sqlalchemy-production-db-tripwire-20260714` 在 pytest 收集前强制 SQLAlchemy `DB_URL=sqlite:///:memory:`，并用 autouse fixture 阻断默认 `SessionLocal()`；数据库测试必须显式安装 `isolated_session_local` 或其他临时 factory。5 个被新门命中的 API 测试已迁移，正式主链与 tripwire 聚焦测试 44 项通过；完整套件暴露的非 DB 基线失败独立登记。legacy `src.tenant` sqlite3、直接 `sqlite3.connect`、Node/E2E 仍归后续闭环。
+
 **主要路径**：`backend/tests/`、`backend/src/tenant.py`、`backend/src/security.py`、`backend/Dockerfile`、根/前端控制面测试工具、`.harness/changes/<change-id>/`。
 
 **任务**：
@@ -710,7 +712,8 @@ node scripts/release-commander.mjs rollback \
 6. `[完成]` S1 路径、restore dry-run、runtime env discovery、release artifact identity、smoke 启动帮助与 wf_pack 仓根均已执行 verification-loop；已登记可执行旧路径归零，下一阶段进入 S2；
 7. `[完成 S2.1]` JWT 运行身份契约已按 RED→GREEN 收口；真实 8081 未配置 key id/外部探针前继续 fail closed；
 8. `[完成 S2.2]` 正式奏折测试 owner/认证契约已对齐；主链 41 passed，真实 DB 三元证据未变化；
-9. `[移交 S3]` immutable artifact、3050 接管和由原服务管理器停止 foreign 进程。
+9. `[完成 S2.3a]` pytest SQLAlchemy 默认生产库已双层阻断，5 个命中测试已迁移到显式隔离 Session；
+10. `[移交 S3]` immutable artifact、3050 接管和由原服务管理器停止 foreign 进程。
 
 这样做看似慢一天，实际会避免后续所有“改对了仓库但线上没变”“测试通过却污染真库”“健康 200 却不知道跑的谁”的返工。
 

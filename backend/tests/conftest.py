@@ -1,8 +1,7 @@
 """tests/conftest.py — 跨文件共享 fixture。
 
-autouse _restore_session_local:每个 test 前保存、后恢复 src.db.engine.SessionLocal。
-防止 TestH1EndToEndIntegration 的 monkeypatch 在跨文件 collection 时泄漏,
-导致其他测试文件拿到错误的 SessionLocal。
+默认阻断 src.db.engine.SessionLocal，强制数据库测试显式选择隔离 Session factory。
+既防止 monkeypatch 跨文件泄漏，也防止没有隔离 fixture 的测试静默打开真实数据库。
 """
 
 from __future__ import annotations
@@ -17,6 +16,10 @@ import os
 # 这与被测代码无关,是纯粹的收集顺序问题,所以在这里、所有测试文件被导入之前，
 # 保证一个足够强度的测试专用密钥。
 os.environ.setdefault("FENGQUN_JWT_SECRET", "test-only-" + "x" * 40)
+# Must be set before test modules import src.db.engine.  This protects even
+# collection-time `from src.db.engine import SessionLocal` aliases that an
+# autouse monkeypatch cannot replace later.
+os.environ["DB_URL"] = "sqlite:///:memory:"
 
 import pytest
 from sqlalchemy import create_engine
@@ -45,12 +48,17 @@ def _authenticated_api_user():
 
 
 @pytest.fixture(autouse=True)
-def _restore_session_local():
-    """session 级隔离:每个 test 前记录 SessionLocal 原值,test 后恢复。"""
+def _block_default_session_local(monkeypatch):
+    """Fail closed unless a test explicitly installs an isolated Session factory."""
     eng_mod = importlib.import_module("src.db.engine")
-    original = eng_mod.SessionLocal
-    yield
-    eng_mod.SessionLocal = original
+
+    def blocked_session_local(*_args, **_kwargs):
+        raise RuntimeError(
+            "pytest production DB tripwire: use isolated_session_local or inject "
+            "an explicit temporary Session factory"
+        )
+
+    monkeypatch.setattr(eng_mod, "SessionLocal", blocked_session_local)
 
 
 # 这几个文件直接测 bingbu/jinyiwei/xingbu/quotation 本体的真实行为(解析/分级/court_doc
