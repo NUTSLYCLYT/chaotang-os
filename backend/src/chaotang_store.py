@@ -103,32 +103,10 @@ def save_review(
     memorial_id: str, *, action: str, comment: str, reviewer: str
 ) -> dict[str, Any]:
     """批阅裁决:先写 JSON(兜底),再双写 SQLite(优先)。"""
-    if action not in _VALID_ACTIONS:
-        raise ValueError(f"action 必须是 {_VALID_ACTIONS} 之一")
-    rec = {
-        "id": f"review_{datetime.now():%Y%m%d_%H%M%S}_{secrets.token_hex(3)}",
-        "memorialId": memorial_id,
-        "action": action,
-        "comment": comment,
-        "reviewerName": reviewer,
-        "createdAt": datetime.now().isoformat(timespec="seconds"),
-    }
-    # ① 先写 JSON(兜底,保险)
-    (_reviews_dir() / f"{rec['id']}.json").write_text(
-        json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8"
+    rec = build_review_record(
+        memorial_id, action=action, comment=comment, reviewer=reviewer
     )
-    (_reviews_dir() / f"by_memorial_{memorial_id}.json").write_text(
-        json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-    status_rec = {
-        "memorialId": memorial_id,
-        "status": _ACTION_TO_STATUS[action],
-        "action": action,
-        "updatedAt": rec["createdAt"],
-    }
-    (_memorial_status_dir() / f"{memorial_id}.json").write_text(
-        json.dumps(status_rec, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    write_review_files(rec)
     # ② 双写 SQLite(优先读,写失败静默降级 JSON)
     db = _db_session()
     if db is not None:
@@ -151,6 +129,43 @@ def save_review(
         finally:
             db.close()
     return rec
+
+
+def build_review_record(
+    memorial_id: str, *, action: str, comment: str, reviewer: str
+) -> dict[str, Any]:
+    """Build one legacy-compatible review record without side effects."""
+    if action not in _VALID_ACTIONS:
+        raise ValueError(f"action 必须是 {_VALID_ACTIONS} 之一")
+    return {
+        "id": f"review_{datetime.now():%Y%m%d_%H%M%S}_{secrets.token_hex(3)}",
+        "memorialId": memorial_id,
+        "action": action,
+        "comment": comment,
+        "reviewerName": reviewer,
+        "createdAt": datetime.now().isoformat(timespec="seconds"),
+    }
+
+
+def write_review_files(rec: dict[str, Any]) -> None:
+    """Write the JSON compatibility copies after the formal DB commit."""
+    memorial_id = str(rec["memorialId"])
+    action = str(rec["action"])
+    (_reviews_dir() / f"{rec['id']}.json").write_text(
+        json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    (_reviews_dir() / f"by_memorial_{memorial_id}.json").write_text(
+        json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    status_rec = {
+        "memorialId": memorial_id,
+        "status": _ACTION_TO_STATUS[action],
+        "action": action,
+        "updatedAt": rec["createdAt"],
+    }
+    (_memorial_status_dir() / f"{memorial_id}.json").write_text(
+        json.dumps(status_rec, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
 
 def get_review_for_memorial(memorial_id: str) -> dict[str, Any] | None:

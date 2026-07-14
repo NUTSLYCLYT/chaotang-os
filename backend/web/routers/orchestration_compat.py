@@ -15,7 +15,8 @@ from fastapi import APIRouter, Body, Depends, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from web.deps import try_get_current_user
+from src.compat_decision_adapter import persist_compat_decision_task
+from web.deps import get_current_user, try_get_current_user
 from web.schemas.auth import CurrentUser
 from web.task_registry import mark_status, register_task
 
@@ -142,11 +143,25 @@ def list_intel_signals(
 @router.post("/api/orchestration/run")
 def orchestration_run(
     body: OrchestrationRunRequest,
-    user: CurrentUser | None = Depends(try_get_current_user),
+    user: CurrentUser = Depends(get_current_user),
 ) -> StreamingResponse:
     command = body.command.strip()
     task_id = f"orch-{secrets.token_hex(6)}"
-    register_task(task_id, task_input=command, config="orchestration-compat", monitor=True)
+    user_id = str(user.user_id or user.username or user.tenant_slug or "anonymous")
+    persist_compat_decision_task(
+        task_id=task_id,
+        user_id=user_id,
+        command=command,
+        source_label="FALLBACK",
+        compat_entrypoint="orchestration.run",
+    )
+    register_task(
+        task_id,
+        task_input=command,
+        config="orchestration-compat",
+        monitor=True,
+        decision_task_id=task_id,
+    )
 
     def events():
         try:
@@ -202,7 +217,7 @@ def orchestration_run(
                 "done",
                 finished_at=_now_iso(),
                 run_index_required=False,
-                user_id=user.user_id if user else None,
+                user_id=user.user_id,
             )
             yield _sse(
                 "pipeline_done",

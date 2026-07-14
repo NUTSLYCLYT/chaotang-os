@@ -32,11 +32,13 @@ def register_task(
     config: str | None = None,
     monitor: bool = False,
     departments: "list[str] | None" = None,
+    decision_task_id: str | None = None,
 ) -> queue.Queue:
-    """创建新任务记录，返回其事件 queue。
+    """创建短生命周期 execution run 记录，返回其事件 queue。
 
     monitor=True 时附加 /api/tasks 监控字段（仅 /api/runs/async 启用）。
     departments: 与本任务关联的部门 slug 列表(P1-10),供 dept/overview activeTasks 过滤用。
+    decision_task_id: 对应的正式 DecisionTask；仅业务兼容适配入口需要。
     """
     q: queue.Queue = queue.Queue()
     base: dict[str, Any] = {
@@ -45,6 +47,8 @@ def register_task(
         "run_id": None,
         "error": None,
         "departments": list(departments) if departments else [],
+        "fact_kind": "execution_run",
+        "decision_task_id": decision_task_id,
     }
     if monitor:
         base.update(

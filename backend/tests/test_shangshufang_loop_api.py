@@ -303,7 +303,7 @@ def test_frontend_decision_actions_are_accepted(isolated_session_local):
 
 
 def test_archive_preserves_original_decision_action_alias(isolated_session_local):
-    """2026-07-12 Codex 停止前审查纠正:状态转移收口(_apply_task_decision)第一版
+    """2026-07-12 Codex 停止前审查纠正:状态转移收口(apply_task_decision)第一版
     要求调用方先把 "approve"/"archive"/"adopt" 这类别名归一化成 canonical
     "adopt" 再传入，导致 ShiguanArchive.emperor_decision_json 里存的 action
     恒为 "adopt"，丢失了"陛下当时具体点的是哪个按钮"这个史馆归档信息。这里
@@ -350,7 +350,7 @@ def test_task_decision_and_brief_decision_advance_agree(isolated_session_local):
     """2026-07-12 收口:shangshufang_task_decision(/tasks/{id}/decision)和
     shangshufang_brief_decision_advance(/briefs/{id}/decision/advance)此前各自
     独立实现 adopt/request_evidence/recheck/reject 四类裁决的状态转移，现在都
-    改为调用共享的 _apply_task_decision。这里用参数化断言证明两个入口对等价
+    改为调用共享的 apply_task_decision。这里用参数化断言证明两个入口对等价
     动作产生完全一致的 task.status，而不是分别断言两次可能悄悄不一致的
     期望值——这正是本次收口要防止再发生的那类漂移。"""
     client = TestClient(app)

@@ -35,6 +35,7 @@ from src.db.models import (
     FinalMemorial,
     ShiguanArchive,
 )
+from src.decision_task_kernel import create_decision_task
 from src.execution.decree_dispatcher import dispatch_after_commit, enqueue_dispatch
 from src.finance_intel_loop_contract import build_finance_intel_session
 from src.hubu_financial_reporting import build_shangshufang_finance_reporting_loop
@@ -498,7 +499,7 @@ def _archive_task(
     }
 
 
-def _apply_task_decision(
+def apply_task_decision(
     db,
     *,
     task: "DecisionTask",
@@ -569,7 +570,7 @@ def _apply_task_decision(
     return archive_record
 
 
-def _record_task_decision_event(
+def record_task_decision_event(
     db,
     *,
     task: "DecisionTask",
@@ -924,23 +925,21 @@ def shangshufang_draft_edict(
         eval_result = evaluate_draft(edict)
         now = now_iso()
 
-        db.add(
-            DecisionTask(
-                id=task_id,
-                user_id=_user_id(user),
-                raw_question=edict.original_question,
-                refined_edict=edict.refined_edict,
-                decision_type=edict.decision_type,
-                status="awaiting_emperor_confirm",
-                source_label=edict.source_label,
-                risk_flags_json=_json(edict.risk_flags),
-                known_facts_json=_json(edict.known_facts),
-                unknown_gaps_json=_json(edict.unknown_gaps),
-                recommended_departments_json=_json(edict.recommended_departments),
-                draft_edict_json=_json(edict_payload),
-                created_at=now,
-                updated_at=now,
-            )
+        create_decision_task(
+            db,
+            task_id=task_id,
+            user_id=_user_id(user),
+            raw_question=edict.original_question,
+            refined_edict=edict.refined_edict,
+            decision_type=edict.decision_type,
+            status="awaiting_emperor_confirm",
+            source_label=edict.source_label,
+            risk_flags=edict.risk_flags,
+            known_facts=edict.known_facts,
+            unknown_gaps=edict.unknown_gaps,
+            recommended_departments=edict.recommended_departments,
+            draft_edict=edict_payload,
+            now=now,
         )
         db.add(
             CourtLoopRun(
@@ -1407,10 +1406,10 @@ def shangshufang_task_decision(
             .first()
         )
         # 直接传原始 body.action(可能是 "approve"/"archive" 这类别名)，不在
-        # 这里预先归一化——_apply_task_decision 内部自己认得所有别名，同时
+        # 这里预先归一化——apply_task_decision 内部自己认得所有别名，同时
         # 会把这个原始字面量原样传给 _archive_task，史馆归档记录里保留的是
         # 陛下当时具体点的哪个动作，不是归一化后的 "adopt"。
-        archive_record = _apply_task_decision(
+        archive_record = apply_task_decision(
             db,
             task=task,
             review=review,
@@ -1419,7 +1418,7 @@ def shangshufang_task_decision(
             human_confirmed=body.human_confirmed,
             now=now,
         )
-        _record_task_decision_event(
+        record_task_decision_event(
             db,
             task=task,
             decision=decision,
@@ -1626,23 +1625,21 @@ def shangshufang_pack_swarm_loop(
         routing_plan = routing_plan_for(edict)
         review_id = make_id("review", task_id, "pack-swarm-loop", now)
         memorial = review_memorial_for(edict, routing_plan)
-        db.add(
-            DecisionTask(
-                id=task_id,
-                user_id=_user_id(user),
-                raw_question=edict.original_question,
-                refined_edict=edict.refined_edict,
-                decision_type="PACK 蜂群协同评估",
-                status="awaiting_evidence",
-                source_label=source_label,
-                risk_flags_json=_json(edict.risk_flags),
-                known_facts_json=_json(edict.known_facts),
-                unknown_gaps_json=_json(edict.unknown_gaps),
-                recommended_departments_json=_json(["锦衣卫", "户部", "工部", "刑部"]),
-                draft_edict_json=_json(edict_payload),
-                created_at=now,
-                updated_at=now,
-            )
+        create_decision_task(
+            db,
+            task_id=task_id,
+            user_id=_user_id(user),
+            raw_question=edict.original_question,
+            refined_edict=edict.refined_edict,
+            decision_type="PACK 蜂群协同评估",
+            status="awaiting_evidence",
+            source_label=source_label,
+            risk_flags=edict.risk_flags,
+            known_facts=edict.known_facts,
+            unknown_gaps=edict.unknown_gaps,
+            recommended_departments=["锦衣卫", "户部", "工部", "刑部"],
+            draft_edict=edict_payload,
+            now=now,
         )
         db.add(
             CourtReview(
@@ -1928,29 +1925,23 @@ def shangshufang_finance_intel_loop_complete(
                 "reasons": ["finance_decision_requires_authorized_human_review"],
             },
         }
-        db.add(
-            DecisionTask(
-                id=task_id,
-                user_id=_user_id(user),
-                raw_question=question,
-                refined_edict=edict.refined_edict,
-                decision_type="finance_intel_loop",
-                status=(
-                    "awaiting_decision" if evidence_complete else "awaiting_evidence"
-                ),
-                source_label="LIVE" if generated_urls else "FALLBACK",
-                risk_flags_json=_json(["需人工确认", "投资建议边界"]),
-                known_facts_json=_json(
-                    [f"ticker={body.ticker.upper()}", *generated_urls]
-                ),
-                unknown_gaps_json=_json(
-                    [] if evidence_complete else ["SEC 官方来源链接"]
-                ),
-                recommended_departments_json=_json(["锦衣卫", "户部", "上书房"]),
-                draft_edict_json=_json(edict_payload),
-                created_at=now,
-                updated_at=now,
-            )
+        create_decision_task(
+            db,
+            task_id=task_id,
+            user_id=_user_id(user),
+            raw_question=question,
+            refined_edict=edict.refined_edict,
+            decision_type="finance_intel_loop",
+            status=(
+                "awaiting_decision" if evidence_complete else "awaiting_evidence"
+            ),
+            source_label="LIVE" if generated_urls else "FALLBACK",
+            risk_flags=["需人工确认", "投资建议边界"],
+            known_facts=[f"ticker={body.ticker.upper()}", *generated_urls],
+            unknown_gaps=[] if evidence_complete else ["SEC 官方来源链接"],
+            recommended_departments=["锦衣卫", "户部", "上书房"],
+            draft_edict=edict_payload,
+            now=now,
         )
         db.add(
             CourtReview(
@@ -2092,8 +2083,8 @@ def shangshufang_brief_decision_advance(
         )
         db.add(decision)
         # action 恒为 mapping 里四个 canonical 值之一(默认 "request_evidence")，
-        # 跟 _apply_task_decision 认的词表一致，不需要再映射。
-        archive_record = _apply_task_decision(
+        # 跟 apply_task_decision 认的词表一致，不需要再映射。
+        archive_record = apply_task_decision(
             db,
             task=task,
             review=review,
@@ -2102,7 +2093,7 @@ def shangshufang_brief_decision_advance(
             human_confirmed=bool(body.manualConfirmation),
             now=now,
         )
-        _record_task_decision_event(
+        record_task_decision_event(
             db,
             task=task,
             decision=decision,
@@ -2311,39 +2302,33 @@ def shangshufang_research_budget_loop(
                 "reject",
             ],
         }
-        db.add(
-            DecisionTask(
-                id=task_id,
-                user_id=_user_id(user),
-                raw_question=body.sacredEdict,
-                refined_edict=f"请户部承办{body.department}{body.budgetPeriod}预算：{body.purpose}",
-                decision_type="research_department_budget",
-                status="awaiting_decision",
-                source_label="MIXED" if body.evidenceRefs else "FALLBACK",
-                risk_flags_json=_json(
-                    ["大额预算人工确认"]
-                    if body.requestedAmount >= body.riskThresholdAmount
-                    else []
-                ),
-                known_facts_json=_json(
-                    [
-                        f"department={body.department}",
-                        f"owner={body.owner}",
-                        *evidence_names,
-                    ]
-                ),
-                unknown_gaps_json=_json(missing),
-                recommended_departments_json=_json(["户部", "锦衣卫", "上书房"]),
-                draft_edict_json=_json(
-                    {
-                        "original_question": body.sacredEdict,
-                        "refined_edict": f"请户部承办{body.department}{body.budgetPeriod}预算：{body.purpose}",
-                        "source_label": "MIXED" if body.evidenceRefs else "FALLBACK",
-                    }
-                ),
-                created_at=now,
-                updated_at=now,
-            )
+        create_decision_task(
+            db,
+            task_id=task_id,
+            user_id=_user_id(user),
+            raw_question=body.sacredEdict,
+            refined_edict=f"请户部承办{body.department}{body.budgetPeriod}预算：{body.purpose}",
+            decision_type="research_department_budget",
+            status="awaiting_decision",
+            source_label="MIXED" if body.evidenceRefs else "FALLBACK",
+            risk_flags=(
+                ["大额预算人工确认"]
+                if body.requestedAmount >= body.riskThresholdAmount
+                else []
+            ),
+            known_facts=[
+                f"department={body.department}",
+                f"owner={body.owner}",
+                *evidence_names,
+            ],
+            unknown_gaps=missing,
+            recommended_departments=["户部", "锦衣卫", "上书房"],
+            draft_edict={
+                "original_question": body.sacredEdict,
+                "refined_edict": f"请户部承办{body.department}{body.budgetPeriod}预算：{body.purpose}",
+                "source_label": "MIXED" if body.evidenceRefs else "FALLBACK",
+            },
+            now=now,
         )
         db.add(
             CourtReview(

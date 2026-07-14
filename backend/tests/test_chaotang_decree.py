@@ -22,7 +22,7 @@ def test_draft_endpoint(monkeypatch):
     assert data["recommendedCategories"][0]["groups"] == ["finlaw"]
 
 
-def test_dispatch_returns_taskid_and_streamurl(monkeypatch):
+def test_dispatch_returns_taskid_and_streamurl(monkeypatch, isolated_session_local):
     from src import chaotang_orchestrator as orch
     monkeypatch.setattr(orch, "assemble_flow", lambda *a, **k: "/tmp/fake.yaml")
     monkeypatch.setattr("web.routers.chaotang._spawn_run", lambda *a, **k: None)

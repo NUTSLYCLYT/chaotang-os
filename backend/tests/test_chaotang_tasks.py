@@ -32,6 +32,19 @@ def test_task_detail_404_when_missing(monkeypatch, isolated_session_local):
 
 
 def test_tasks_persist_patch_and_readback(monkeypatch, isolated_session_local):
+    from src.db.models import DecisionTask
+
+    with isolated_session_local() as db:
+        db.add(
+            DecisionTask(
+                id="task_frontend_1",
+                user_id="1",
+                raw_question="评估上书房刷新持久化",
+                status="executing",
+                source_label="MIXED",
+            )
+        )
+        db.commit()
     c = _client(monkeypatch)
 
     created = c.post(

@@ -1,0 +1,132 @@
+{
+  "version": "1.0",
+  "generated_from": "backend/harness/chaotang_department_protocol/departments.yaml v1_taxonomy (2026-07-14, CT-CONV-004)",
+  "primaryModules": [
+    {
+      "id": "dadian",
+      "name": "大殿",
+      "href": "/dadian"
+    },
+    {
+      "id": "shangshufang",
+      "name": "上书房",
+      "href": "/shangshufang"
+    },
+    {
+      "id": "junjichu",
+      "name": "军机处",
+      "href": "/junjichu"
+    },
+    {
+      "id": "liubu",
+      "name": "六部",
+      "href": "/liubu"
+    },
+    {
+      "id": "zhuanshu",
+      "name": "专署",
+      "href": "/zhuanshu"
+    },
+    {
+      "id": "shiguan",
+      "name": "史馆",
+      "href": "/shiguan"
+    }
+  ],
+  "zhuanshu": [
+    {
+      "id": "jinyiwei",
+      "name": "锦衣卫",
+      "href": "/zhuanshu/jinyiwei"
+    }
+  ],
+  "liubu": [
+    {
+      "id": "hubu",
+      "name": "户部",
+      "status": "active",
+      "href": "/liubu/hubu",
+      "offices": [
+        {
+          "id": "yusuan",
+          "name": "预算司",
+          "canonical_slug": "budget"
+        },
+        {
+          "id": "chuna",
+          "name": "出纳司",
+          "canonical_slug": "treasury"
+        }
+      ]
+    },
+    {
+      "id": "libu",
+      "name": "吏部",
+      "status": "active",
+      "href": "/liubu/libu",
+      "offices": [
+        {
+          "id": "renmian",
+          "name": "任免司",
+          "canonical_slug": "appointment"
+        },
+        {
+          "id": "zhaopin",
+          "name": "招聘司",
+          "canonical_slug": "talent"
+        }
+      ]
+    },
+    {
+      "id": "libu_rites",
+      "name": "礼部",
+      "status": "pending",
+      "href": null,
+      "offices": []
+    },
+    {
+      "id": "bingbu",
+      "name": "兵部",
+      "status": "active",
+      "href": "/liubu/bingbu",
+      "offices": [
+        {
+          "id": "baojia",
+          "name": "报价司",
+          "canonical_slug": "sales"
+        },
+        {
+          "id": "xiansuo",
+          "name": "线索司",
+          "canonical_slug": "marketing"
+        }
+      ]
+    },
+    {
+      "id": "xingbu",
+      "name": "刑部",
+      "status": "active",
+      "href": "/liubu/xingbu",
+      "offices": [
+        {
+          "id": "hetong",
+          "name": "合同司",
+          "canonical_slug": "contract-review"
+        }
+      ]
+    },
+    {
+      "id": "gongbu",
+      "name": "工部",
+      "status": "active",
+      "href": "/liubu/gongbu",
+      "offices": [
+        {
+          "id": "chan-yan",
+          "name": "产研司",
+          "canonical_slug": "solution"
+        }
+      ]
+    }
+  ]
+}

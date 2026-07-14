@@ -20,7 +20,7 @@ def test_build_sections_tolerates_missing():
 from fastapi.testclient import TestClient
 
 
-def test_review_persists(monkeypatch, tmp_path):
+def test_review_persists(monkeypatch, tmp_path, isolated_session_local):
     monkeypatch.setenv("FENGQUN_AUTH", "false")
     import src.chaotang_store as cs
     monkeypatch.setattr(cs, "_DATA_ROOT", tmp_path)
@@ -29,6 +29,33 @@ def test_review_persists(monkeypatch, tmp_path):
         final_output = {}
         task_input = "x"
     monkeypatch.setattr(ct, "load_run", lambda rid: _Run())
+    from src.db.models import DecisionTask, FinalMemorial, Task
+
+    with isolated_session_local() as db:
+        db.add(
+            DecisionTask(
+                id="task_run_x",
+                user_id="1",
+                raw_question="正式任务 x",
+                status="awaiting_decision",
+                source_label="MIXED",
+            )
+        )
+        db.add(Task(task_id="task_run_x", run_id="run_x", status="done"))
+        db.add(
+            FinalMemorial(
+                id="formal_run_x",
+                task_id="task_run_x",
+                review_id="court_run_x",
+                swarm_run_id="run_x",
+                quality_result_id="quality_run_x",
+                status="ready_for_decision",
+                source_label="MIXED",
+                memorial_json='{"title":"正式奏折"}',
+                content_hash="hash_run_x",
+            )
+        )
+        db.commit()
     from web.main import app
     c = TestClient(app)
     r = c.post("/api/chaotang/memorials/run_x/review",
