@@ -1,89 +1,172 @@
-"""tests/test_scribe_lessons.py — GET /api/scribe/lessons 聚合真实复盘。"""
+"""P3a: GET /api/scribe/lessons reads the canonical archive projection."""
 
 from __future__ import annotations
+
+import inspect
+import json
 
 import pytest
 from fastapi.testclient import TestClient
 
 
 @pytest.fixture()
-def client(monkeypatch):
+def client(monkeypatch, isolated_session_local):
     monkeypatch.setenv("FENGQUN_AUTH", "false")
     from web.main import app
 
     return TestClient(app)
 
 
-def _memorial(run_id: str, status: str = "approved", title: str = "示例奏折") -> dict:
-    return {"id": run_id, "title": title, "status": status}
+def _archive(
+    session_local,
+    *,
+    task_id: str,
+    memorial: dict | None,
+    archive_id: str | None = None,
+    synthetic: bool = False,
+    created_at: str = "2026-07-15T08:00:00+00:00",
+):
+    from src.db.models import ShiguanArchive
 
-
-def test_lessons_aggregates_real_retrospectives(client, monkeypatch, tmp_path):
-    import src.chaotang_store as cs
-    import web.routers.throne as throne_mod
-
-    monkeypatch.setattr(cs, "_DATA_ROOT", tmp_path)
-    monkeypatch.setattr(
-        throne_mod, "_build_memorial_list", lambda: [_memorial("task_a", title="奏折A")]
+    db = session_local()
+    db.add(
+        ShiguanArchive(
+            id=archive_id or f"archive_{task_id}",
+            task_id=task_id,
+            raw_question="原始问题",
+            refined_edict="核查真实证据后再裁决",
+            final_memorial_json=(
+                json.dumps(memorial, ensure_ascii=False)
+                if memorial is not None
+                else None
+            ),
+            emperor_decision_json=json.dumps(
+                {"action": "adopt", "reason": "证据充分，同意归档"},
+                ensure_ascii=False,
+            ),
+            evidence_chain_json="[]",
+            source_label="LIVE_SWARM",
+            synthetic_flag=synthetic,
+            created_at=created_at,
+        )
     )
-    cs.save_retrospective(
-        "task_a",
-        {
-            "score": 4,
-            "successes": ["跑通"],
-            "failures": [],
-            "lessons": ["下次先测超时"],
-            "playbook": "先测 SSE",
+    db.commit()
+    db.close()
+
+
+def _formal(session_local, *, task_id: str, memorial: dict):
+    from src.db.models import FinalMemorial
+
+    db = session_local()
+    db.add(
+        FinalMemorial(
+            id=f"formal_{task_id}",
+            task_id=task_id,
+            review_id=f"review_{task_id}",
+            swarm_run_id=f"run_{task_id}",
+            quality_result_id=f"quality_{task_id}",
+            status="archived",
+            source_label="LIVE_SWARM",
+            memorial_json=json.dumps(memorial, ensure_ascii=False),
+            content_hash=f"hash_{task_id}",
+            created_at="2026-07-15T07:00:00+00:00",
+        )
+    )
+    db.commit()
+    db.close()
+
+
+def test_scribe_read_path_has_no_legacy_store_or_frozen_throne_dependency():
+    from web.routers import scribe
+
+    source = inspect.getsource(scribe)
+    assert "chaotang_store" not in source
+    assert "web.routers.throne" not in source
+
+
+def test_lessons_projects_real_canonical_archive_summary(
+    client, isolated_session_local
+):
+    _archive(
+        isolated_session_local,
+        task_id="task_a",
+        memorial={
+            "title": "奏折A",
+            "summary": "先核验超时证据，再放行 SSE。",
+            "recommendation": "adopt_with_conditions",
         },
     )
 
-    r = client.get("/api/scribe/lessons")
-    assert r.status_code == 200
-    body = r.json()
-    assert body["success"] is True
-    lessons = body["data"]["lessons"]
-    assert len(lessons) == 1
-    assert lessons[0]["billId"] == "task_a"
-    assert lessons[0]["billTitle"] == "奏折A"
-    assert lessons[0]["lessons"] == [
-        {"id": "task_a-0", "text": "下次先测超时", "severity": "note"}
+    response = client.get("/api/scribe/lessons")
+
+    assert response.status_code == 200
+    lessons = response.json()["data"]["lessons"]
+    assert lessons == [
+        {
+            "billId": "task_a",
+            "billTitle": "奏折A",
+            "extractedAt": "2026-07-15T08:00:00+00:00",
+            "lessons": [
+                {
+                    "id": "task_a-0",
+                    "text": "先核验超时证据，再放行 SSE。",
+                    "severity": "note",
+                }
+            ],
+            "patterns": [],
+            "tags": [],
+            "summary": "证据充分，同意归档",
+        }
     ]
-    assert lessons[0]["summary"] == "先测 SSE"
-    # patterns/tags 后端没有数据源,诚实留空,不编造
-    assert lessons[0]["patterns"] == []
-    assert lessons[0]["tags"] == []
 
 
-def test_lessons_skips_synthetic_and_empty(client, monkeypatch, tmp_path):
-    """没有真实复盘(只有 GET 时自动合成的占位)或 lessons 为空的奏折,不进列表。"""
-    import src.chaotang_store as cs
-    import web.routers.throne as throne_mod
-
-    monkeypatch.setattr(cs, "_DATA_ROOT", tmp_path)
-    monkeypatch.setattr(
-        throne_mod,
-        "_build_memorial_list",
-        lambda: [_memorial("task_no_retro"), _memorial("task_empty_lessons")],
+def test_lessons_uses_formal_memorial_when_archive_snapshot_is_missing(
+    client, isolated_session_local
+):
+    _formal(
+        isolated_session_local,
+        task_id="task_formal_fallback",
+        memorial={"title": "正式奏折", "lessons": ["保留正式证据链"]},
     )
-    # task_no_retro: 从未保存过复盘 → get_retrospective 返回 None
-    cs.save_retrospective("task_empty_lessons", {"score": 3, "lessons": []})
-
-    r = client.get("/api/scribe/lessons")
-    assert r.json()["data"]["lessons"] == []
-
-
-def test_lessons_only_includes_approved_archived_done(client, monkeypatch, tmp_path):
-    """running/pending 奏折的复盘(哪怕真实存在)不算"已归档旧案",不进列表。"""
-    import src.chaotang_store as cs
-    import web.routers.throne as throne_mod
-
-    monkeypatch.setattr(cs, "_DATA_ROOT", tmp_path)
-    monkeypatch.setattr(
-        throne_mod,
-        "_build_memorial_list",
-        lambda: [_memorial("task_running", status="running")],
+    _archive(
+        isolated_session_local,
+        task_id="task_formal_fallback",
+        memorial=None,
     )
-    cs.save_retrospective("task_running", {"score": 4, "lessons": ["提前写的"]})
 
-    r = client.get("/api/scribe/lessons")
-    assert r.json()["data"]["lessons"] == []
+    lessons = client.get("/api/scribe/lessons").json()["data"]["lessons"]
+
+    assert lessons[0]["billTitle"] == "正式奏折"
+    assert lessons[0]["lessons"][0]["text"] == "保留正式证据链"
+
+
+def test_lessons_skips_synthetic_empty_and_older_duplicate_archives(
+    client, isolated_session_local
+):
+    _archive(
+        isolated_session_local,
+        task_id="task_synthetic",
+        memorial={"summary": "不得展示"},
+        synthetic=True,
+    )
+    _archive(isolated_session_local, task_id="task_empty", memorial={})
+    _archive(
+        isolated_session_local,
+        task_id="task_duplicate",
+        archive_id="archive_old",
+        memorial={"title": "旧标题", "summary": "旧摘要"},
+        created_at="2026-07-14T08:00:00+00:00",
+    )
+    _archive(
+        isolated_session_local,
+        task_id="task_duplicate",
+        archive_id="archive_new",
+        memorial={"title": "新标题", "summary": "新摘要"},
+        created_at="2026-07-15T09:00:00+00:00",
+    )
+
+    lessons = client.get("/api/scribe/lessons").json()["data"]["lessons"]
+
+    assert [entry["billId"] for entry in lessons] == ["task_duplicate"]
+    assert lessons[0]["billTitle"] == "新标题"
+    assert lessons[0]["lessons"][0]["text"] == "新摘要"

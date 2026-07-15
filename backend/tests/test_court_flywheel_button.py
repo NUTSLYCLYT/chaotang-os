@@ -16,21 +16,36 @@ def test_shiguan_doc_builder_no_longer_advertises_legacy_flywheel_write():
     assert "feed_flywheel" not in court_doc_builder.DEPT_REGISTRY["shiguan"]["actions"]
 
 
-def test_scribe_archive_docs_no_longer_advertise_legacy_flywheel_write():
+def test_scribe_archive_docs_no_longer_advertise_legacy_flywheel_write(
+    isolated_session_local,
+):
+    import json
+
+    from src.db.models import ShiguanArchive
     from web.routers import scribe
 
-    memorial = {"id": "task-1", "title": "已归档奏折", "status": "archived"}
-    retrospective = {
-        "authoredAt": "2026-07-14T00:00:00Z",
-        "lessons": ["必须保留证据"],
-        "playbook": "先核证据",
-        "synthetic": False,
-    }
-    with (
-        patch("web.routers.throne._build_memorial_list", return_value=[memorial]),
-        patch("src.chaotang_store.get_retrospective", return_value=retrospective),
-    ):
-        response = scribe.scribe_archive_docs(None)
+    db = isolated_session_local()
+    db.add(
+        ShiguanArchive(
+            id="archive_task-1",
+            task_id="task-1",
+            raw_question="原始问题",
+            refined_edict="已归档奏折",
+            final_memorial_json=json.dumps(
+                {"title": "已归档奏折", "summary": "必须保留证据"},
+                ensure_ascii=False,
+            ),
+            emperor_decision_json='{"action":"adopt"}',
+            evidence_chain_json="[]",
+            source_label="LIVE_SWARM",
+            synthetic_flag=False,
+            created_at="2026-07-15T08:00:00+00:00",
+        )
+    )
+    db.commit()
+    db.close()
+
+    response = scribe.scribe_archive_docs(None)
 
     assert "feed_flywheel" not in response["data"]["docs"][0]["actions"]
 
