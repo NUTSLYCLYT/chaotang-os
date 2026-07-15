@@ -16,6 +16,12 @@
 - 默认需要 P2 canonical 事件计数上升且旧端点在观测窗口归零。
 - 若证据不足，只允许 feature flag 关闭，不物理删除 daemon/runstate。
 - 是否压缩默认建议的三个真实使用日窗口，需要用户书面确认。
+- 2026-07-15 P3d 审计结果：P2 只记录单次独立进程快照，canonical 三阶段均为
+  `0.0`，没有旧链连续窗口归零数据；门不满足。
+- 当前处置：`FENGQUN_LEGACY_CHAOTANG_DAEMON` 默认关闭；decree 转 canonical outbox；
+  study live async 明确拒绝；flag=1 可回滚。旧函数和 `_RUNSTATE_TO_TASKSTATUS` 不删除。
+- 后续物理删除条件：补齐真实观测窗口并证明 canonical 计数上升、对应 legacy 调用归零；
+  或用户书面确认压缩窗口后重新审查。
 
 ## P3b→P3d/P3e 临时兼容桥
 

@@ -390,6 +390,7 @@ def test_study_run_live_async_returns_task_immediately_and_streams_final_edict(
 ):
     """live + asyncRun must NOT block on the 51s swarm: return a taskId + skeleton at once,
     then push the full LIVE_SWARM edict over the existing /stream/{task_id} SSE."""
+    monkeypatch.setenv("FENGQUN_LEGACY_CHAOTANG_DAEMON", "1")
     _install_fake_swarm(monkeypatch)
 
     response = client.post(

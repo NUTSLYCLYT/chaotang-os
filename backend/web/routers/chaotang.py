@@ -65,6 +65,16 @@ router = APIRouter(prefix="/api/chaotang", tags=["chaotang"])
 _SAFE_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
+def _legacy_chaotang_daemon_enabled() -> bool:
+    """Rollback-only switch; default-off until deprecation evidence permits deletion."""
+    return os.getenv("FENGQUN_LEGACY_CHAOTANG_DAEMON", "0").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 def _validate_id(id_str: str) -> bool:
     """仅允许安全字符集,防止路径穿越(path traversal)攻击。"""
     return bool(_SAFE_ID_RE.match(id_str))
@@ -227,7 +237,6 @@ def decree_dispatch(
     body: DispatchRequest, user: CurrentUser = Depends(get_current_user)
 ) -> dict:
     _observe_legacy_endpoint("decree_dispatch", user, operation="write")
-    from src import chaotang_orchestrator as orch
 
     ALL_GROUPS = ["intel", "content", "finlaw", "rnd", "exec", "review"]
     if body.councilAll:
@@ -255,11 +264,52 @@ def decree_dispatch(
         task_type = chosen[0].taskType
     intent = body.intent or body.rawCommand[:60]
     task_id = secrets.token_hex(8)
-    # 推断部门 slug 列表,供 dept/overview activeTasks 按部门过滤(P1-10)
+    accepted_at = datetime.now().isoformat(timespec="seconds")
+    budget_out = body.budget.model_dump() if body.budget else None
+
+    if not _legacy_chaotang_daemon_enabled():
+        from src.execution.canonical_court_dispatch import (
+            dispatch_compat_court_task,
+        )
+
+        try:
+            receipt = dispatch_compat_court_task(
+                task_id=task_id,
+                user_id=str(
+                    user.user_id
+                    or user.username
+                    or user.tenant_slug
+                    or "anonymous"
+                ),
+                command=body.rawCommand,
+                compat_entrypoint="chaotang.decree_dispatch",
+            )
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "canonical chaotang decree dispatch failed", exc_info=True
+            )
+            return fail("canonical_dispatch_failed")
+        return ok(
+            {
+                "taskId": task_id,
+                "status": receipt["status"],
+                "acceptedAt": accepted_at,
+                "streamUrl": f"/api/chaotang/stream/{task_id}",
+                "intent": intent,
+                "taskType": task_type,
+                "ministers": ministers,
+                "groups": groups,
+                "budget": budget_out,
+            }
+        )
+
+    from src import chaotang_orchestrator as orch
     from src.chaotang_agents import dept_of_agent_code
 
+    # Rollback-only legacy execution metadata.
     task_depts = sorted({dept_of_agent_code(m) for m in ministers})
-    accepted_at = datetime.now().isoformat(timespec="seconds")
     plan = {
         "rawCommand": body.rawCommand,
         "intent": intent,
@@ -267,6 +317,7 @@ def decree_dispatch(
         "ministers": ministers,
         "groups": groups,
     }
+
     max_sub = body.budget.maxSubagentsPerGroup if body.budget else None
     flow_path = orch.assemble_flow(
         plan, task_id=task_id, max_subagents_per_group=max_sub
@@ -340,7 +391,6 @@ def decree_dispatch(
         decision_task_id=task_id,
     )
     _spawn_run(task_id, q, flow_path, budget_calls, 1, body.rawCommand, stakes=stakes)
-    budget_out = body.budget.model_dump() if body.budget else None
     return ok(
         {
             "taskId": task_id,
@@ -1009,6 +1059,14 @@ def study_run_edict(
     # 异步 live：不阻塞 HTTP（蜂群 ~51s > 代理 20s 必 502）。立即交接 taskId + skeleton，
     # 蜂群后台跑完经 /api/chaotang/stream/{taskId} 推送最终 LIVE_SWARM edict。
     if body.mode == "live" and body.asyncRun:
+        if not _legacy_chaotang_daemon_enabled():
+            record_event(
+                "legacy_chaotang_daemon_blocked",
+                endpoint="study_live_async",
+                status="blocked",
+                tenant_slug=tenant,
+            )
+            return fail("legacy_study_async_daemon_disabled")
         return _dispatch_study_live_async(
             edict=edict, command=command, body=body, tenant=tenant
         )

@@ -15,7 +15,7 @@ P2 已用 tripwire 和观测守门关住 parallel legacy writer。P3 在同一�
 | 已确认事实 | 两表尚无 `tenant_id`，非 default 租户不可安全读取 | 模型定义与 `test_non_default_tenant_cannot_read_unscoped_canonical_archives` | Backend / 已验证 | 否 |
 | 已确认事实 | 当前 `manor.py` 自仓库导入以来没有 `chaotang_orchestrator` 或其它生产派发调用 | 当前源码 + 历史 `git show`/`git log -S`，2026-07-15 | Backend / 已验证 | 否 |
 | 已确认事实 | `direct.py` 的 `mode=court` 仍在线程中调用 `assemble_flow/run_chaotang_task` | P3c RED 2 failed / 2 passed | Backend / 已验证 | 否 |
-| 未知问题 | P3d 是否满足物理拆除所需观测窗口 | P2 deprecation/canonical 计数待 P3d 汇总 | P3d 门禁 | 是（仅阻塞物理拆除） |
+| 已确认事实 | P2 只有单次独立进程快照，canonical 三阶段均为 `0.0`；没有新链上升与旧链连续窗口归零证据 | P2 `ci_result/ci_summary.md`，P3d 复核 2026-07-15 | P3d 门禁 | 是（仅阻塞物理拆除） |
 
 ## 数据流与调用链
 
@@ -35,7 +35,13 @@ DecreeExecutionEvent + OutboxEvent（同事务） -> commit -> dispatch_after_co
 outbox_worker`。简单任务进入 `route.direct`，复杂会审进入 `route.council`；响应仍含
 `task_id/status/result/mode/latency_ms`。`manor.py` 没有可迁写链。
 
-P3d–P3e 的数据流在各原子检查点开始前补充；不得并行改写。
+P3d 默认链：`decree/dispatch -> canonical dispatch adapter -> outbox_worker`；旧
+`_spawn_run` 只在 `FENGQUN_LEGACY_CHAOTANG_DAEMON=1` 时可达。`study/run` 的
+`live + asyncRun` 尚没有可保持最终 edict/launch-loop 契约的 outbox consumer，默认
+fail closed 为 `legacy_study_async_daemon_disabled`；同一 rollback flag 可临时恢复。
+由于拆除证据不足，旧函数与 `_RUNSTATE_TO_TASKSTATUS` 保留在代码中。
+
+P3e 的数据流在原子检查点开始前补充；不得并行改写。
 
 ## 接口、数据结构与事实源
 
@@ -45,6 +51,8 @@ P3d–P3e 的数据流在各原子检查点开始前补充；不得并行改写�
 | `GET /api/scribe/archive-docs` | 同一 canonical 投影 | CourtDoc adapter / 史馆卡片 | CourtDoc 字段同形；传播 canonical source；不编造 evidence |
 | P3b taskDetail/stream | `DecisionTask` / latest `SwarmRun` / ordered `DecreeExecutionEvent` | 军机处页 / BattleStream | 原响应 shape；canonical SSE 经前端 adapter 映射；正常/失败/权限测试 |
 | `POST /api/direct/execute`，`mode=court` | canonical routing decision + transaction outbox | direct API 兼容调用方 | 原五字段 data shape；正常 council/direct、DB 失败、认证与 P0-B 门测试 |
+| `POST /api/chaotang/decree/dispatch` | 默认 canonical routing + transaction outbox；flag=1 才回旧 daemon | 军机处旧页面调用 | 原九字段 data shape；默认 canonical、rollback legacy、失败/权限测试 |
+| `POST /api/chaotang/study/run` live async | 无等价 canonical consumer，默认关闭旧 daemon | 非当前前端调用；兼容调用方 | 明确失败码；flag=1 保留既有异步 SSE 契约 |
 
 ## 范围
 
@@ -81,6 +89,10 @@ P3d–P3e 的数据流在各原子检查点开始前补充；不得并行改写�
 | direct court 路由为 direct | 原五字段响应，status=`direct_completed`；outbox=`route.direct`；canonical SSE 终态 | P3c direct test |
 | direct court canonical DB 不可用 | fail closed，稳定错误码 `canonical_dispatch_failed`，不回落旧 orchestrator | P3c failure test |
 | direct execute 的跨用户边界 | task ID 为服务端随机自建且请求模型不接受目标 ID；P0-B 门显式豁免并说明原因 | P0-B derived attack-surface gate |
+| P2 观测证据不足 | 不删除 `_spawn_run`、study daemon、`_RUNSTATE_TO_TASKSTATUS`；默认 flag=off | P2 evidence audit + structural diff |
+| chaotang decree 默认派单 | 不调用 `assemble_flow/_spawn_run`，不写 legacy Decree/Task；同形返回 canonical status | P3d default-path test |
+| rollback flag=1 | 旧双写/daemon 路径仍可运行并受原 tripwire 约束 | S10 legacy rollback tests |
+| study live async 且 flag=off | 不创建线程，返回 `legacy_study_async_daemon_disabled` 并记 blocked event | P3d gate test |
 
 ## 风险与回滚边界
 
@@ -96,6 +108,10 @@ unavailable 均 fail closed。
 P3c 主要风险是为保留同步“completed”假象而继续等待旧 daemon，或出现“派单成功但
 canonical 事实未提交”的窗口。缓解：兼容响应只保留字段形状，不伪装完成状态；所有
 canonical 事实与 outbox 同事务提交，提交后才触发 worker；失败不回落旧 orchestrator。
+
+P3d 主要风险是无流量数据就删除 rollback 代码，或把尚无等价 consumer 的 study 异步
+任务谎报为 canonical 成功。缓解：物理代码保留；默认 flag 关闭；decree 有等价 outbox
+才迁移，study async 明确失败并留下 blocked event；恢复只需显式设 flag=1。
 
 回滚按 P3a 原子 commit；若临时恢复旧读链，必须按 P2 清单的临时恢复程序登记，不能
 静默加回 writer 白名单。
@@ -117,6 +133,8 @@ canonical 事实与 outbox 同事务提交，提交后才触发 worker；失败�
   BattleStream 继续消费稳定事件词表。
 - P3c direct court 不再导入/调用 `chaotang_orchestrator`；normal council/direct、失败、
   认证、P0-B 与 outbox 相邻测试通过；manor 无写链的证据已登记。
+- P3d 默认 decree 路径不调用旧 daemon/flow-store 双写；study async flag-off 不启动线程；
+  rollback flag 测试通过；无证据时不得删除保留代码或 `_RUNSTATE_TO_TASKSTATUS`。
 - P3e 后已吸收 writer 白名单清零；整包独立审查 GO 后才允许合并。
 
 ## 验证计划

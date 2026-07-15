@@ -40,7 +40,15 @@
 
 ## 任务 4 — P3d daemon / runstate
 
-- 状态：PENDING；物理拆除受 P2 deprecation 计数证据门约束。
+- 目标：审计 P2 计数证据；满足门才物理删除，否则只默认关闭旧 daemon 并保留回滚。
+- 证据结论：P2 canonical 三阶段单次快照均为 0.0，且无旧链连续窗口归零；不满足门。
+- 输出：`FENGQUN_LEGACY_CHAOTANG_DAEMON` 默认 off；decree 默认 canonical outbox；
+  study live async flag-off 明确失败；flag=1 保留旧链。
+- 状态 / 数据变化：无 schema/迁移；默认不写 legacy Decree/Task，不注册旧 queue；
+  `_spawn_run`、study daemon、`_RUNSTATE_TO_TASKSTATUS` 物理保留。
+- 验证：RED 2 failed；focused/affected 42 passed；P0-B/ownership 20 passed；更广结果见 CI。
+- 回滚边界：设 flag=1 恢复两条旧 daemon；仍受 P2 tripwire 与 telemetry 约束。
+- 状态：VERIFIED_FLAG_ONLY，随本 P3d 检查点原子提交。
 
 ## 任务 5 — P3e whitelist zero
 

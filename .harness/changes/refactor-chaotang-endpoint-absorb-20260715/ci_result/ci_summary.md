@@ -20,10 +20,18 @@
 | P3c 核心安全/worker/终态相邻集 | 0 | 40 passed | direct canonical、P0-B、outbox、event ledger、P3b terminal projection | 2026-07-15 本地终端 |
 | P3c backend 扩展集 | 0 | 135 passed | outbox/decree ledger、丞相 routing/golden、swarm direct、P3b、compat/API/P0-B | 2026-07-15 本地终端 |
 | 根 / backend / frontend harness doctor（P3c） | 0 | 三层均 0 errors / 0 warnings | P3c 后端写链与根 change 证据更新后的护栏结构 | 2026-07-15 本地终端 |
+| P3d evidence audit | N/A | BLOCKED_PHYSICAL_DELETE：canonical 三阶段单次快照均 0.0，无连续旧链归零窗口 | P2 门，只阻塞物理删除 | 2026-07-15 本地文档/源码复核 |
+| P3d RED：`pytest -q tests/test_chaotang_daemon_feature_gate.py` | 1 | 2 failed（预期 RED） | decree 仍 assemble/spawn；study async 仍起 daemon | 2026-07-15 本地终端 |
+| P3d focused + affected chaotang | 0 | 42 passed | 默认 canonical、study gate、rollback 双写/async、task/stream 相邻 | 2026-07-15 本地终端 |
+| P3d P0-B / ownership | 0 | 20 passed | 服务端随机自建 task 显式边界、攻击面派生门 | 2026-07-15 本地终端 |
+| P3a–P3d backend 联合扩展集 | 0 | 196 passed | scribe、task/stream、direct/decree outbox、daemon flag、routing/golden、tripwire/P0-B | 2026-07-15 本地终端 |
+| P3d frontend canonical stream adapter | 0 | 3 passed | 默认 canonical 终态与 rollback legacy 事件同形消费 | 2026-07-15 本地终端 |
+| 根 / backend / frontend harness doctor（P3d） | 0 | 三层均 0 errors / 0 warnings | flag-only 决策与跨线证据更新后的护栏结构 | 2026-07-15 本地终端 |
 
 ## 结果
 
-P3a–P3c 聚焦与相邻回归全绿；P3 整包仍为部分验证，P3d–P3e 未执行。
+P3a–P3d 聚焦与相邻回归全绿；P3d 按证据门只完成 flag-only，未物理删除。
+P3 整包仍为部分验证，P3e 未执行。
 
 ## 未验证项
 
@@ -54,7 +62,9 @@ P3a–P3c 聚焦与相邻回归全绿；P3 整包仍为部分验证，P3d–P3e 
 | 冻结王座不修改 | changed-files + deferred record | PASS |
 | P3b task/stream canonical 投影 | backend 25 focused + 76 expanded；frontend 3 passed | PASS |
 | P3c direct court canonical outbox | RED→GREEN + focused 5 + adjacent 40 + expanded 135 | PASS |
-| 整个 P3 完成 | P3d–P3e | PENDING |
+| P3d daemon default-off / canonical decree | evidence audit + RED→GREEN + 42 + 20 + joint 196 | PASS_FLAG_ONLY |
+| P3d 物理删除 | 缺真实观测窗口 | DEFERRED_BY_GATE |
+| 整个 P3 完成 | P3e | PENDING |
 
 ## 声明状态
 
