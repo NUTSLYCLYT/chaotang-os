@@ -22,7 +22,12 @@ P3a 旧链：`scribe -> throne memorial projection + legacy retrospective -> res
 P3a 新链：`scribe -> canonical DB (latest ShiguanArchive per task -> embedded formal
 snapshot; missing snapshot -> FinalMemorial) -> same response envelope`。
 
-P3b–P3e 的数据流在各原子检查点开始前补充；不得并行改写。
+P3b 新链：`chaotang taskDetail -> canonical task projection -> legacy response shape`；
+`chaotang stream -> ordered DecreeExecutionEvent replay/current snapshot -> frontend
+same-shape adapter -> BattleStream`。未迁移的活动 queue 只作为 P3d 前传输桥，不覆盖
+canonical 终态或跨用户权限判断。
+
+P3c–P3e 的数据流在各原子检查点开始前补充；不得并行改写。
 
 ## 接口、数据结构与事实源
 
@@ -30,7 +35,7 @@ P3b–P3e 的数据流在各原子检查点开始前补充；不得并行改写�
 | --- | --- | --- | --- |
 | `GET /api/scribe/lessons` | latest real `ShiguanArchive`，可选 `FinalMemorial` fallback | 史馆页 | 维持 `{success,data:{lessons}}`；正常、空/失败、租户、认证测试 |
 | `GET /api/scribe/archive-docs` | 同一 canonical 投影 | CourtDoc adapter / 史馆卡片 | CourtDoc 字段同形；传播 canonical source；不编造 evidence |
-| P3b taskDetail/stream | `SwarmRun` / `DecreeExecutionEvent`（待实施） | chaotang 前端 API | 后续原子检查点验证 |
+| P3b taskDetail/stream | `DecisionTask` / latest `SwarmRun` / ordered `DecreeExecutionEvent` | 军机处页 / BattleStream | 原响应 shape；canonical SSE 经前端 adapter 映射；正常/失败/权限测试 |
 
 ## 范围
 
@@ -58,12 +63,21 @@ P3b–P3e 的数据流在各原子检查点开始前补充；不得并行改写�
 | non-default tenant | 因表无 tenant 字段而 fail closed 返回空 | tenant isolation test |
 | canonical DB 不可用 | 保持 200 空数组契约并记录 warning | failure contract test |
 | 未认证且启用认证 | 401，不进入投影 | auth test |
+| canonical task 属于其他用户 | 详情统一“不存在”，stream 404；不得回退旧 queue | P3b ownership tests |
+| canonical DB 不可用 | 详情显式 fail；stream 503；不得伪装空成功 | P3b failure tests |
+| 终态 task 重放 | 严格按 event sequence 输出 canonical events，最后输出 terminal snapshot | P3b SSE test |
+| 尚无 canonical row 的活动 study-live | P3d 前临时沿用 queue；前端 adapter 保持旧事件同形 | study-live regression |
 
 ## 风险与回滚边界
 
 P3a 主要风险是把旧 retrospective 语义误装成 canonical 事实。缓解：仅取正式奏折真实
 `lessons`，缺失时取真实 `summary`；裁决 reason 只放 summary；patterns/tags/evidence
 保持空。归档端点只展示实际 `ShiguanArchive`，不把未归档/驳回状态臆造成卷宗。
+
+P3b 主要风险是迁移读端点时让正在运行的旧任务断流，或在 canonical 权限校验失败后
+回落 queue 造成越权。缓解：canonical 终态任务只读账本；canonical 尚未终态且旧 daemon
+仍在产出，或 canonical row 尚不存在时，才允许活动 queue 桥；AccessDenied 与 DB
+unavailable 均 fail closed。
 
 回滚按 P3a 原子 commit；若临时恢复旧读链，必须按 P2 清单的临时恢复程序登记，不能
 静默加回 writer 白名单。
@@ -81,6 +95,8 @@ P3a 主要风险是把旧 retrospective 语义误装成 canonical 事实。缓�
 - 前端调用无 404 / 响应形状漂移，相关 contract audit 通过。
 - golden cases 与三层 doctor 通过或与登记基线一致。
 - P3a 生产代码不再出现旧复盘存储或冻结王座依赖。
+- P3b taskDetail 不再读内存 registry / RunLog；终态 stream 不触碰旧 queue；前端
+  BattleStream 继续消费稳定事件词表。
 - P3e 后已吸收 writer 白名单清零；整包独立审查 GO 后才允许合并。
 
 ## 验证计划

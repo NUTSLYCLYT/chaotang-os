@@ -385,7 +385,9 @@ def test_study_run_live_empty_swarm_output_must_not_pass_gate(client, monkeypatc
     assert qg["human_signoff_required"] is True
 
 
-def test_study_run_live_async_returns_task_immediately_and_streams_final_edict(client, monkeypatch):
+def test_study_run_live_async_returns_task_immediately_and_streams_final_edict(
+    client, monkeypatch, isolated_session_local
+):
     """live + asyncRun must NOT block on the 51s swarm: return a taskId + skeleton at once,
     then push the full LIVE_SWARM edict over the existing /stream/{task_id} SSE."""
     _install_fake_swarm(monkeypatch)

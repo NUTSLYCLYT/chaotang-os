@@ -9,23 +9,35 @@
 | `python3 -m py_compile ... && python3 -m pytest -q tests/test_final_memorial_gate.py tests/test_chaotang_memorials.py tests/test_contract_alignment_p0.py tests/test_commercial_loop_harness.py tests/test_legal_redteam_harness.py` | 0 | compile PASS；65 passed | canonical 正式奏折、旧契约、两组 golden harness | 2026-07-15 本地终端 |
 | `frontend/node_modules/.bin/tsx --test .../court-doc-adapter.nodetest.ts .../shiguan-view-model.nodetest.ts` | 0 | 3 passed | 前端 CourtDoc adapter 同形消费 | 2026-07-15 本地终端 |
 | 根 / backend / frontend harness doctor | 0 | 三层均 0 errors / 0 warnings | 护栏结构与边界 | 2026-07-15 本地终端 |
+| P3b backend RED：`python3 -m pytest -q tests/test_chaotang_canonical_task_projection.py` | 1 | 2 failed / 1 passed（预期 RED） | taskDetail/stream 仍读取 registry/RunLog | 2026-07-15 本地终端 |
+| P3b frontend RED：`tsx --test .../chaotang-canonical-stream.nodetest.ts` | 1 | module not found（预期 RED） | canonical SSE adapter 尚不存在 | 2026-07-15 本地终端 |
+| P3b focused backend suite（canonical projection、tasks、study-live、decree、compat、execution status） | 0 | 25 passed | 正常/失败/权限、终态重放、活动 queue 兼容 | 2026-07-15 本地终端 |
+| P3b frontend canonical stream adapter | 0 | 3 passed | canonical→BattleStream 同形映射、失败诚实性、旧事件透传 | 2026-07-15 本地终端 |
+| P3b backend 相邻/API 契约扩展集 | 0 | 76 passed | 全前端已用路由精确契约、P0/P0b 权限、canonical 指标与 flow dual-write 相邻回归 | 2026-07-15 本地终端 |
+| 根 / backend / frontend harness doctor（P3b） | 0 | 三层均 0 errors / 0 warnings | P3b 跨线变更后的护栏结构与边界 | 2026-07-15 本地终端 |
 
 ## 结果
 
-P3a 聚焦与相邻回归全绿；P3 整包仍为部分验证，P3b–P3e 未执行。
+P3a–P3b 聚焦与相邻回归全绿；P3 整包仍为部分验证，P3c–P3e 未执行。
 
 ## 未验证项
 
 - backend/frontend 全量与全仓 API contract 生成式 audit 留到 P3e 汇总；P3a 已跑接口
-  精确/相邻契约、前端 adapter 与代表性 golden harness。
+  精确/相邻契约、前端 adapter 与代表性 golden harness；P3b 已追加 76 项后端扩展集。
+- P3 worktree 未安装独立 `frontend/node_modules`，从主工作树借用 `tsc` 可执行文件时模块
+  解析仍以 P3 worktree 为根，因缺 `react` / `next` / Node typings 等依赖产生环境性失败；
+  本检查点以可实际解析目标文件的 `tsx --test` 3 项通过为准，全量前端检查留到 P3e
+  的已安装依赖环境，不把本次无效 `tsc` 结果登记为产品 known-red。
 - 项目环境未安装 `ruff` / `black`；用 `py_compile`、`diff --check` 与现有 pytest 代替，
   此项不构成产品门禁缺失。
 
 ## Diff 与回滚复核
 
-- changed files：P3a 生产文件 1、测试 3、根 change 证据。
-- diff review：`git diff --check` 通过；`scribe.py` 旧依赖 grep 为 0；changed-files 未含
-  `throne.py` 或 `backend/src/db/flow_store.py`。
+- changed files：P3a 已提交；P3b 生产文件为 canonical projection、chaotang 路由与前端
+  adapter，另含聚焦/相邻测试和根 change 证据。
+- diff review：`git diff --check` 通过；`scribe.py` 旧依赖 grep 为 0；P3b taskDetail
+  不再调用 registry / RunLog；changed-files 未含 `throne.py` 或
+  `backend/src/db/flow_store.py`。
 - 回滚是否演练：未演练；P3a 单 commit 可精确 revert。
 
 ## 完成定义映射
@@ -35,7 +47,8 @@ P3a 聚焦与相邻回归全绿；P3 整包仍为部分验证，P3b–P3e 未执
 | canonical 单读源 | canonical projection tests + structural grep | PASS |
 | 正常/失败/权限 | focused pytest | PASS |
 | 冻结王座不修改 | changed-files + deferred record | PASS |
-| 整个 P3 完成 | P3b–P3e | PENDING |
+| P3b task/stream canonical 投影 | backend 25 focused + 76 expanded；frontend 3 passed | PASS |
+| 整个 P3 完成 | P3c–P3e | PENDING |
 
 ## 声明状态
 

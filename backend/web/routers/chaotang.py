@@ -10,6 +10,7 @@ import queue
 import re
 import secrets
 import threading
+import time
 from datetime import datetime
 from typing import Literal
 
@@ -360,21 +361,77 @@ def decree_stream(
     task_id: str, user: CurrentUser = Depends(get_current_user)
 ) -> StreamingResponse:
     _observe_legacy_endpoint("decree_stream", user, operation="read")
-    task = get_task(task_id)
-    if not task:
+    from src.chaotang_task_projection import (
+        CanonicalTaskAccessDenied,
+        read_stream_snapshot,
+    )
+
+    owner_id = str(
+        user.user_id or user.username or user.tenant_slug or "anonymous"
+    )
+    try:
+        initial = read_stream_snapshot(task_id, owner_id)
+    except CanonicalTaskAccessDenied:
+        raise HTTPException(status_code=404, detail="task 不存在") from None
+    except Exception:
+        import logging as _logging
+
+        _logging.getLogger(__name__).warning(
+            "canonical task stream projection unavailable", exc_info=True
+        )
+        raise HTTPException(status_code=503, detail="任务事件流暂不可用") from None
+
+    # Until P3d removes the old daemon producer, an active compatibility task may
+    # still have richer transient queue events. Terminal/replayed tasks never touch
+    # this bridge and read exclusively from the canonical ledger.
+    legacy_task = None
+    if initial is None or not initial["snapshot"]["terminal"]:
+        legacy_task = get_task(task_id)
+    legacy_queue: queue.Queue | None = (
+        legacy_task.get("queue") if isinstance(legacy_task, dict) else None
+    )
+    if initial is None and legacy_queue is None:
         raise HTTPException(status_code=404, detail="task 不存在")
-    q: queue.Queue = task["queue"]
 
     def gen():
+        last_sequence = 0
+        batch = initial
+        last_heartbeat = time.monotonic()
         try:
             while True:
-                try:
-                    ev = q.get(timeout=8)
+                if batch is not None:
+                    for event in batch["events"]:
+                        last_sequence = max(
+                            last_sequence, int(event.get("sequence") or 0)
+                        )
+                        yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+                    snapshot = batch["snapshot"]
+                    if snapshot["terminal"]:
+                        yield f"data: {json.dumps(snapshot, ensure_ascii=False)}\n\n"
+                        break
+
+                if legacy_queue is not None:
+                    try:
+                        ev = legacy_queue.get(timeout=8)
+                    except queue.Empty:
+                        yield 'data: {"type": "heartbeat"}\n\n'
+                        continue
                     yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
                     if ev.get("type") in ("done", "error"):
                         break
-                except queue.Empty:
+                    continue
+
+                time.sleep(0.25)
+                refreshed = read_stream_snapshot(
+                    task_id, owner_id, after_sequence=last_sequence
+                )
+                if refreshed is None:
+                    yield 'data: {"type": "error", "message": "task 不存在"}\n\n'
+                    break
+                batch = refreshed
+                if time.monotonic() - last_heartbeat >= 8:
                     yield 'data: {"type": "heartbeat"}\n\n'
+                    last_heartbeat = time.monotonic()
         except GeneratorExit:
             return
 
@@ -588,101 +645,30 @@ def tasks_list(
 
 @router.get("/tasks/{task_id}")
 def task_detail(task_id: str, user: CurrentUser = Depends(get_current_user)) -> dict:
-    """任务详情:内存优先,重启后从 DB 恢复终态(静态渲染,无 SSE queue)。"""
+    """任务详情：canonical DecisionTask / SwarmRun / event ledger 投影。"""
     _observe_legacy_endpoint("task_detail", user, operation="read")
-    t = get_task(task_id)
-    _db_fallback = False
-    if not t:
-        # DB fallback:重启后内存清空,从 tasks 表读历史终态
-        try:
-            from src.db.engine import SessionLocal
-            from src.db.flow_store import ensure_task_result_json_column, task_record
-            from src.db.models import Task as DbTask
+    from src.chaotang_task_projection import (
+        CanonicalTaskAccessDenied,
+        read_task_projection,
+    )
 
-            _db2 = SessionLocal()
-            try:
-                ensure_task_result_json_column(_db2)
-                row = _db2.query(DbTask).filter_by(task_id=task_id).first()
-                if row:
-                    persisted = task_record(row)
-                    t = {
-                        "sourceLabel": "LIVE",
-                        "status": row.status,
-                        "task_status": row.task_status,
-                        "title": persisted.get("title") or "",
-                        "task_input": row.task_input or "",
-                        "mode": persisted.get("mode") or "hybrid",
-                        "result": persisted.get("result") or {},
-                        "run_id": row.run_id,
-                        "started_at": row.started_at or "",
-                        "finished_at": row.finished_at or "",
-                        "created_at": persisted.get("createdAt") or "",
-                        "updated_at": persisted.get("updatedAt") or "",
-                        "completed_steps": row.completed_steps or 0,
-                        "total_steps": row.total_steps or 0,
-                    }
-                    _db_fallback = True
-                _db2.commit()
-            finally:
-                _db2.close()
-        except Exception:
-            pass
-    if not t:
+    owner_id = str(
+        user.user_id or user.username or user.tenant_slug or "anonymous"
+    )
+    try:
+        projection = read_task_projection(task_id, owner_id)
+    except CanonicalTaskAccessDenied:
+        projection = None
+    except Exception:
+        import logging as _logging
+
+        _logging.getLogger(__name__).warning(
+            "canonical task detail projection unavailable", exc_info=True
+        )
+        return fail("任务详情暂不可用")
+    if projection is None:
         return fail(f"task {task_id} 不存在")
-    run_id = t.get("run_id")
-    result = t.get("result") if isinstance(t.get("result"), dict) else {}
-    display_status = t.get("task_status") or _RUNSTATE_TO_TASKSTATUS.get(
-        t.get("status"), "running"
-    )
-    council, group_runs = [], []
-    if run_id:
-        run = load_run(run_id)
-        if run:
-            for s in run.steps:
-                name = s.agent_name or ""
-                if name.startswith("council_"):
-                    council.append(
-                        {
-                            "agentCode": name[len("council_") :],
-                            "name": name,
-                            "opinion": (s.output or "")[:800],
-                            "qualityScore": (
-                                (s.quality_score or {}).get("total_score")
-                                if s.quality_score
-                                else None
-                            ),
-                            "status": s.status,
-                        }
-                    )
-                elif name.startswith("group_") and not name.endswith("_dispatch"):
-                    group_runs.append(
-                        {
-                            "groupId": name[len("group_") :],
-                            "name": name,
-                            "status": s.status,
-                            "subagents": [],
-                            "aggregateSummary": (s.output or "")[:800],
-                        }
-                    )
-    return ok(
-        {
-            "task": {
-                "id": task_id,
-                "sourceLabel": "LIVE",
-                "title": t.get("title") or (t.get("task_input") or "")[:80],
-                "rawCommand": t.get("task_input", ""),
-                "status": display_status,
-                "mode": t.get("mode") or "live",
-                "createdAt": t.get("created_at") or t.get("started_at", ""),
-                "updatedAt": t.get("updated_at") or t.get("finished_at") or "",
-                "finalReportId": run_id,
-                "result": result,
-            },
-            "council": council,
-            "groupRuns": group_runs,
-            "runId": run_id,
-        }
-    )
+    return ok(projection)
 
 
 @router.get("/memorials")

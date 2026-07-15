@@ -11,11 +11,19 @@
 - 验证命令与证据：`ci_result/ci_summary.md`，22 passed。
 - 回滚边界：P3a 原子 commit；恢复 legacy 需走 P2 临时程序。
 - 完成定义：结构依赖清零；正常/失败/权限/租户/去重/来源测试通过。
-- 状态：VERIFIED，待原子 commit。
+- 状态：VERIFIED，已提交（`c21127e`）。
 
 ## 任务 2 — P3b taskDetail / stream
 
-- 状态：PENDING；P3a commit 后开始。
+- 目标：用 canonical task/run/event 投影替代 taskDetail 旧内存/RunLog 读链，并让
+  `/api/chaotang/stream/*` 可重启后重放终态事件。
+- 输出：既有 task detail shape；`canonical.event` + `canonical.snapshot` SSE；前端
+  same-shape BattleStream adapter。
+- 状态 / 数据变化：只读投影；无 schema/迁移/新 writer。P3d/P3e 前保留两项显式桥。
+- 验证：P3b focused 25 passed；后端扩展契约 76 passed；前端 adapter 3 passed；
+  三层 doctor 均为 0 errors / 0 warnings，详见 CI summary。
+- 回滚边界：P3b 独立原子 commit，不影响 P3a。
+- 状态：VERIFIED，随本 P3b 检查点原子提交。
 
 ## 任务 3 — P3c manor / direct dispatch
 

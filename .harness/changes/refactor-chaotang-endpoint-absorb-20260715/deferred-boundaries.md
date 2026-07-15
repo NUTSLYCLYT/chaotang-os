@@ -16,3 +16,13 @@
 - 默认需要 P2 canonical 事件计数上升且旧端点在观测窗口归零。
 - 若证据不足，只允许 feature flag 关闭，不物理删除 daemon/runstate。
 - 是否压缩默认建议的三个真实使用日窗口，需要用户书面确认。
+
+## P3b→P3d/P3e 临时兼容桥
+
+- 活动 queue：canonical row 尚不存在，或 canonical task 尚未到终态且仍由旧 daemon
+  生产临时细粒度事件时，stream 保留 queue 输送；canonical 终态重放绝不触碰 queue。
+  P3d 统一到 outbox worker 后删除。
+- view-only result：`tasks/persist` 尚未被吸收且没有 `SwarmRun` 时，taskDetail 可从
+  legacy `Task.result_json` 保持页面回读；一旦存在 canonical run，canonical 结果强制优先。
+  P3e 白名单清零时删除。
+- 安全边界：canonical owner 不匹配或 canonical DB 不可用时不得进入兼容桥。
