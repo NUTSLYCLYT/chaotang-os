@@ -9,7 +9,7 @@
 | git status --porcelain | 空（clean） |
 | push 暴露 | ls-remote task/* = 0 条（08:02 复核，见 regression-fix 报告同批） |
 | 审查 diff 范围 | `92d84d7..345b7e2`（单提交，4 文件 +136） |
-| ext merge | 审查时点未合入，本报告放行；**v2 后记**：已于 2026-07-15 08:2x 以 `31ad69a` 合入 ext（merge --no-ff，引用本报告），合入后复跑 parity 5 pass、根 doctor 0 errors（见该 merge 后紧邻的验证命令输出） |
+| ext merge | 审查时点未合入，本报告放行；**v2 后记**：已以 `31ad69a` 合入 ext（git 戳 `2026-07-15 08:19:46 +0800`，merge --no-ff 引用本报告），合入后复跑 parity 5 pass、根 doctor 0 errors |
 
 ## 利益声明
 

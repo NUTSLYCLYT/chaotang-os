@@ -253,6 +253,12 @@ import 上述引擎）；sourceLabel 不出现 MIXED 本地合成路径；浏览
  （qintianjian.py 为 canonical 保留）；
 - `config/flow_opc.yaml.bak` 等 `.bak` 副本也移动到明确 attic/archive，并记录原路径；
   本 Packet 不物理删除任何文件，Git 历史不能替代本轮要求的显式恢复路径。
+- （v2.1 增补，2026-07-15，随 known-red-baseline-ledger 建立）两个显式子步骤：
+  a) **BFF 死测试退役**：退役引用已删除 `frontend/src/app/api/**` 的测试
+     （招聘 BFF、C1 学习持久化、real-source、e2e 伪造后门、dispatchDeptToSwarm
+     守门计数——台账前端 #2/#4/#5-7）；
+  b) **陈旧断言清理**：修正 chaotang 1.0 secondary modules `active/pending`
+     与 bureau `出纳司/国库司` 旧预期（台账前端 #1/#3）。
 验收：退役清单+恢复路径落盘；仅在生产路径 tripwire/隔离 wrapper 已证明安全时
 运行全量测试，否则按 P0 口径执行批准代表套件并显式记录 `NOT_RUN_SAFETY_BLOCKED`；
 harness-doctor 通过；
@@ -262,6 +268,8 @@ harness-doctor 通过；
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ### P7 收尾对账（type: docs, name: absorption-closeout）
 
+- （v2.1 增补）步骤一：修复 `test_commit_closeout_check.py`（文档重复主题
+  检测，台账后端 #1），使收官文档自身通过机器门。
 - 与 P0 基线对比：legacy 写入点清零证明、状态机计数（目标：后端 1 权威+投影、
   前端 0）、部门码定义点计数（目标：后端 1 + 前端 1）。
 - （v2 新增）战役 KPI 对账：净删除 LOC（目标为负增长——本战役成功标志是仓库
