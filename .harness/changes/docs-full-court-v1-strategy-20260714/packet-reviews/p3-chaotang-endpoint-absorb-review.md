@@ -45,9 +45,29 @@ constraints/budget/stakes 零命中——chaotang 派单默认路径仍静默丢
 - 在途脏改动（models.py 等）须形成独立 commit 后走增量复核，不得混入
   已审 HEAD 的合并。
 
-## 裁决
+## 裁决（v1，HEAD `ee89259` 时点）
 
 PACKET_REVIEW_NO_GO（阻塞清单：仅 P3-F1）
 
-F1 修复 commit + 针对 budget/departments/stakes 三类字段的测试落分支后，
-提交增量 diff 即可快速复审——其余全部已验证通过，复审只看 F1。
+## v2 增量复审（HEAD `5a4c712`）
+
+初审后分支新增三笔：
+- `a82dab0`/`77434a6`：append-only 归档结果投影——`ArchiveOutcomeEvent`
+  事件表（alembic 011+回填脚本），census ARCH-03 推荐 canonical owner 的
+  原样落地，填补 P3e 退役 legacy retrospective writer 后的结果落点。
+  登记要求：alembic 011 计入 P5 认知；新数据对象入主链骨架图（census 修订带上）。
+- `5a4c712`：**F1 修复**——`build_compat_dispatch_constraints` 规范化约束：
+  departments（ministers/groups→canonical 部门）经 `_apply_department_override`
+  真实写入路由事实（mode 重算+来源注记+compat_constraints 入档）；
+  budget/stakes≠low/mode≠live 及未知 minister/group 一律
+  `UnsupportedCanonicalConstraints` 显式拒绝，router 捕获后 fail 带原因——
+  零静默丢弃。审查者重跑 gate/dispatch/decision-fact 测试 12 passed。
+
+F1 验收三类字段全满足（真实尊重或显式拒绝+测试覆盖）。**F1 关闭。**
+
+## 裁决（v2，最终）
+
+PACKET_REVIEW_GO
+
+条件：Q1 继承关系与 Q2 构造点登记已随 spec/deferred-boundaries 更新核实在档；
+合 ext 后 alembic 011 与 ArchiveOutcomeEvent 的登记项由 census 修订承接。
