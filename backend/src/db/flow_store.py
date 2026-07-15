@@ -20,6 +20,12 @@ from sqlalchemy.orm import Session
 
 from src.db.models import Decree, Memorial, Retrospective, Review, Task
 
+# 保守取值:远低于 SQLite 历史默认的 SQLITE_MAX_VARIABLE_NUMBER(999)和
+# Postgres 的 int16 参数上限(32767),两边都留足余量。跟
+# alembic/versions/005_decree_execution_event_sequence.py 的
+# _IN_CLAUSE_CHUNK_SIZE 同源同值。
+_SEQUENCE_REPAIR_CHUNK_SIZE = 500
+
 # ── 枚举常量(KP-7 全链路一致) ────────────────────────────────────────────
 
 # ReviewActionType → MemorialStatus
@@ -271,44 +277,60 @@ def ensure_decree_execution_event_ledger_columns(session: Session) -> None:
 
 
 def _repair_decree_execution_event_sequence_if_degenerate(session: Session) -> None:
-    """检测表里是否存在 sequence=0 的退化行(只可能来自"从未被回填过"的旧状态，
-    不可能是合法写入产生的值)，有就重新触发全量回填。"""
+    """检测哪些 task_id 存在 sequence=0 的退化行(只可能来自"从未被回填过"的旧
+    状态，不可能是合法写入产生的值)，只回填这些 task_id。
+
+    2026-07-14 复审(跟 alembic 005 同一轮审查揪出的同款 bug):原实现只要检测
+    到"表里存在任意一行退化"就对全表所有 task_id 重新编号，会拿"事后猜的"顺序
+    覆盖跟这行退化数据完全无关的其它 task_id 已经合法的 sequence——这个函数
+    在每次 app 启动时都跑，live risk 比 alembic 那条一次性迁移路径还大。改成
+    只收集有退化行的 task_id，只回填这些，其余任务完全不碰。"""
     from src.db.models import DecreeExecutionEvent
 
-    has_degenerate_row = (
-        session.query(DecreeExecutionEvent.id)
+    degenerate_task_ids = [
+        row.task_id
+        for row in session.query(DecreeExecutionEvent.task_id)
         .filter(DecreeExecutionEvent.sequence == 0)
-        .first()
-        is not None
-    )
-    if not has_degenerate_row:
+        .distinct()
+        .all()
+    ]
+    if not degenerate_task_ids:
         return
-    _backfill_decree_execution_event_sequence(session)
+    _backfill_decree_execution_event_sequence(session, degenerate_task_ids)
 
 
-def _backfill_decree_execution_event_sequence(session: Session) -> None:
-    """给刚补上 sequence 列的旧行回填单调递增序号。跟
+def _backfill_decree_execution_event_sequence(
+    session: Session, task_ids: list[str]
+) -> None:
+    """给指定 task_id 集合回填单调递增序号。跟
     alembic/versions/005_decree_execution_event_sequence.py 的回填逻辑同源
     (按 task_id 分组、occurred_at/id 排序、逐行编号)，这里直接用 ORM 查询，
     因为 flow_store.py 本来就允许 import ORM 模型，不需要 Alembic 迁移那种
-    "不依赖 app 模型"的克制。"""
+    "不依赖 app 模型"的克制。
+
+    只回填传入的 task_id，不碰其余任务已经合法的顺序；task_id 数量按
+    _SEQUENCE_REPAIR_CHUNK_SIZE 分批查询，避免单条 IN(...) 在退化任务多的库
+    上撞 SQL 参数上限。"""
     from src.db.models import DecreeExecutionEvent
 
-    rows = (
-        session.query(DecreeExecutionEvent.id, DecreeExecutionEvent.task_id)
-        .order_by(
-            DecreeExecutionEvent.task_id,
-            DecreeExecutionEvent.occurred_at,
-            DecreeExecutionEvent.id,
-        )
-        .all()
-    )
     counters: dict[str, int] = {}
-    for row in rows:
-        counters[row.task_id] = counters.get(row.task_id, 0) + 1
-        session.query(DecreeExecutionEvent).filter_by(id=row.id).update(
-            {"sequence": counters[row.task_id]}
+    for start in range(0, len(task_ids), _SEQUENCE_REPAIR_CHUNK_SIZE):
+        chunk = task_ids[start : start + _SEQUENCE_REPAIR_CHUNK_SIZE]
+        rows = (
+            session.query(DecreeExecutionEvent.id, DecreeExecutionEvent.task_id)
+            .filter(DecreeExecutionEvent.task_id.in_(chunk))
+            .order_by(
+                DecreeExecutionEvent.task_id,
+                DecreeExecutionEvent.occurred_at,
+                DecreeExecutionEvent.id,
+            )
+            .all()
         )
+        for row in rows:
+            counters[row.task_id] = counters.get(row.task_id, 0) + 1
+            session.query(DecreeExecutionEvent).filter_by(id=row.id).update(
+                {"sequence": counters[row.task_id]}
+            )
 
 
 def ensure_jinyiwei_evidence_unique_constraint(session: Session) -> None:
