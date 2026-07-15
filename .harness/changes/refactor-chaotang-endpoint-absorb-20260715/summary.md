@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | refactor-chaotang-endpoint-absorb-20260715 |
 | 类型 | refactor |
-| 状态 | VERIFIED_PENDING_REREVIEW（P3-F1 已修；P3d 物理删除延期） |
+| 状态 | VERIFIED_COMPLETE（独立复审 GO；P3d 物理删除按证据门延期） |
 | Owner | Project Agent |
 | 创建日期 | 20260715 |
 
@@ -30,6 +30,8 @@
   当前已改为“可等价的部门约束真实落 route/worker；不可等价的硬约束落库前拒绝”。
 - 同次预审的 P3-Q1 `direct_completed` 语义与 P3-Q2 `EmperorDecision` 构造点已登记为
   ING-04 / DEC-01（FCV1-009）继承项，不在 P3 扩张修复范围。
+- 独立增量复审已核验 `5a4c712`、重跑 gate/dispatch 12 tests 并给出
+  `PACKET_REVIEW_GO`；审查证据随 `c94d4e3` 落入本分支。
 - 当前文件：P3a–P3e 后端投影/dispatch adapter/路由、P3b 前端 adapter、相邻测试及
   本 change 证据。
 - 验证：P3a repair RED 5 failed，GREEN 16 passed；P0-B/相邻最终 91 passed；最终后端
@@ -45,5 +47,4 @@
   回灌后的组合分支最终全量 2635 passed / 27 skipped / 7 known-red，无新增失败。
 - 冻结边界：`backend/web/routers/throne.py` 未修改，其旧读依赖登记为
   `DEFERRED_REQUIRES_USER_DECISION`。
-- 未完成：P3-F1 独立复核；P3d 物理删除延期至满足观测窗口。审查 GO 前不得输出顶层
-  Packet 停审 token。
+- 延期项：P3d 物理删除须等待连续观测窗口；该证据门不阻塞本次 flag-only 检查点完成。

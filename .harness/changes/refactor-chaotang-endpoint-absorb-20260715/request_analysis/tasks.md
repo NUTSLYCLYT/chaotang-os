@@ -72,4 +72,6 @@
   group 在落库前明确拒绝。RED 3 failed；相关扩展 80 passed；P3 联合集 179 passed；
   clean 快照全量 2628 passed / 26 skipped / 7 known baseline failed；与 P3a repair
   回灌后的组合分支最终全量 2635 passed / 27 skipped / 7 known baseline failed。
-- 状态：VERIFIED_PENDING_REREVIEW；P3-F1 需独立 reviewer 复核后才宣告 P3 完成。
+- 独立复审：gate/dispatch/decision-fact 12 passed，F1 关闭，裁决
+  `PACKET_REVIEW_GO`（本分支 `c94d4e3`）。
+- 状态：VERIFIED_COMPLETE；P3d 物理删除继续受观测证据门约束。
