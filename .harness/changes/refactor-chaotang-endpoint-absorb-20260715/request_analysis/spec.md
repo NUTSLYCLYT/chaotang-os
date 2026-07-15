@@ -44,6 +44,13 @@ P3d 默认链：`decree/dispatch -> canonical dispatch adapter -> outbox_worker`
 fail closed 为 `legacy_study_async_daemon_disabled`；同一 rollback flag 可临时恢复。
 由于拆除证据不足，旧函数与 `_RUNSTATE_TO_TASKSTATUS` 保留在代码中。
 
+P3 独立预审发现默认 canonical dispatch 曾只传 `rawCommand`，静默丢弃调用方的
+预算、stakes、intent 与指定 categories。修正后，ministers/groups 会被规范化为
+canonical department override，并同时进入 `DecisionTask.draft_edict_json`、
+`recommended_departments_json`、`ChancellorRouteDecision` 与 worker 输入；intent/
+taskType 进入兼容约束元数据。当前 canonical worker 不能逐请求等价执行的预算、非 low
+stakes、非 live mode 或无 canonical 部门等价的 legacy group，在任何事实落库前明确拒绝。
+
 P3e 默认链：`taskDetail -> DecisionTask/SwarmRun/event ledger`，不再读取
 `Task.result_json`；`tasks/persist` 与 `archive/*/retrospective` 写端点在完成原有 ID、
 认证/所有权检查后返回稳定只读错误；`memorial review` 只提交正式裁决链，详情从
@@ -110,6 +117,8 @@ runtime allowlist 移除，仅保留 pytest 专用 writer。
 | memorial review 成功 | 只写 formal decision chain；legacy DB/JSON writer 即使不可用也不影响成功 | P3e memorial adapter test |
 | production legacy writer ID | tripwire 默认 fail closed；allowlist 只含两个 pytest ID | P3e exact allowlist tests |
 | 紧急恢复旧 daemon | 同时 `FENGQUN_LEGACY_CHAOTANG_DAEMON=1` 与 `FENGQUN_LEGACY_WRITE_TRIPWIRE=0` | rollback-only S10/H1 tests |
+| canonical decree 带 ministers/groups | 规范化为真实部门覆盖，路由事实与 worker 执行部门一致 | P3-F1 constraint application test |
+| canonical decree 带无法等价执行的 budget/high stakes/mode/group | 落库前返回 `canonical_constraints_unsupported: ...`，不得假成功 | P3-F1 fail-closed tests |
 
 ## 风险与回滚边界
 
@@ -134,6 +143,10 @@ daemon flag 并关闭 legacy-write tripwire，避免单一误配置恢复旧写�
 P3e 主要风险是删掉 legacy 双写后，批阅状态与任务详情仍从旧表回读，造成页面状态倒退；
 或直接把写端点统一拒绝而丢失 owner 门。缓解：批阅详情改投影正式裁决，task detail 删除
 `result_json` fallback；persist 端点先做 ownership 检查再返回只读错误；历史 GET 保持只读。
+
+独立预审 P3-F1 指出 canonical dispatch 会静默吞用户约束，这是成本与风险控制缺陷。
+缓解：只把有明确 canonical 等价物的部门约束落入唯一事实链；其余硬约束一律 fail
+closed。不能用“响应字段仍回显 budget/groups”冒充约束已执行。
 
 回滚按 P3a repair 原子 commit；若 ledger 已有数据，禁止直接 downgrade 丢账，应先停写、
 回退读投影并保留表。临时恢复旧读链仍须按 P2 程序登记，不能静默加回 writer 白名单。

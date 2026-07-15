@@ -269,10 +269,21 @@ def decree_dispatch(
 
     if not _legacy_chaotang_daemon_enabled():
         from src.execution.canonical_court_dispatch import (
+            UnsupportedCanonicalConstraints,
+            build_compat_dispatch_constraints,
             dispatch_compat_court_task,
         )
 
         try:
+            constraints = build_compat_dispatch_constraints(
+                intent=intent,
+                task_type=task_type,
+                ministers=ministers,
+                groups=groups,
+                budget=budget_out,
+                stakes=body.stakes,
+                mode=body.mode,
+            )
             receipt = dispatch_compat_court_task(
                 task_id=task_id,
                 user_id=str(
@@ -283,7 +294,10 @@ def decree_dispatch(
                 ),
                 command=body.rawCommand,
                 compat_entrypoint="chaotang.decree_dispatch",
+                constraints=constraints,
             )
+        except UnsupportedCanonicalConstraints as exc:
+            return fail(str(exc))
         except Exception:
             import logging
 

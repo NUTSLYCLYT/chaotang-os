@@ -30,7 +30,7 @@
 | P3e RED：tripwire/task/review/retrospective focused | 1 | 10 failed / 44 passed（预期 RED） | production writer 尚在白名单；旧端点仍写；detail 仍回退旧 result | 2026-07-15 本地终端 |
 | P3e focused GREEN | 0 | 54 passed | 白名单精确清零、端点只读、canonical review/detail | 2026-07-15 本地终端 |
 | P3a–P3e backend 联合集 | 0 | 131 passed | 五检查点核心与 P0-B/rollback 相邻回归 | 2026-07-15 本地终端 |
-| backend 全量 | 1（基线） | 2619 passed / 26 skipped / 7 known failed；首次运行另 6 条旧期望已更新并聚焦复验通过 | 全仓回归与基线对账 | 2026-07-15 本地终端 |
+| backend 全量（P3e clean snapshot） | 1（基线） | 2625 passed / 26 skipped / 7 known failed | 全仓回归与基线对账 | 2026-07-15 本地终端 |
 | P3e API exact / P0-B / tripwire / architecture | 0 | 65 passed | 前端已用路由契约、所有权、写入阻断、AST gate | 2026-07-15 本地终端 |
 | P3e frontend canonical stream adapter | 0 | 3 passed | canonical/legacy rollback 事件同形消费 | 2026-07-15 本地终端 |
 | 根 / backend / frontend harness doctor（P3e） | 0 | 三层均 0 errors / 0 warnings | P3e 根变更与三层结构 | 2026-07-15 本地终端 |
@@ -40,12 +40,17 @@
 | P3a 011 真实迁移 | 0 | 2 passed | `/tmp` system-site venv 补 Alembic；真实 SQLite 010→011 upgrade/downgrade、约束/索引 | 2026-07-15 本地终端 |
 | P3a repair 最终 backend 全量 | 1（基线） | 2632 passed / 27 skipped / 7 known failed | 最终代码全仓回归；失败集合与登记基线一致 | 2026-07-15 本地终端 |
 | P3a repair compile/diff/三层 doctor | 0 | compile/diff PASS；三层 0 errors / 0 warnings | 语法、提交边界与项目结构 | 2026-07-15 本地终端 |
+| 独立预审 P3-F1 | N/A | HIGH：默认 canonical decree 静默丢 budget/departments/groups/stakes/intent | `e595818` 外部独立预审记录 | 2026-07-15 |
+| P3-F1 RED | 1 | 3 failed / 2 passed（预期 RED） | 部门约束未落账；预算/high stakes/不支持 group 仍假成功 | 2026-07-15 clean worktree |
+| P3-F1 related GREEN | 0 | 80 passed | constraints、routing/golden、outbox、P0-B、API exact | 2026-07-15 clean worktree |
+| P3-F1 后 P3 联合集 | 0 | 179 passed | P3a–P3e + chancellor/outbox/constraints | 2026-07-15 clean worktree |
+| backend 全量（P3-F1 clean snapshot） | 1（基线） | 2628 passed / 26 skipped / 7 known failed | 无新增失败；尚未包含随后落入任务分支的 P3a repair | 2026-07-15 clean worktree |
 
 ## 结果
 
 P3a stop-gate repair、P3b–P3e 聚焦、相邻、API 契约与前端 adapter 全绿；P3d 按证据门
-只完成 flag-only，未物理删除。最终后端全量无新增失败，7 条失败与登记基线完全一致。
-P3a repair 与整包均等待独立审查。
+只完成 flag-only，未物理删除。P3a repair 与 P3-F1 各自的全量快照均无新增失败，
+组合分支将在回灌后再次全量对账；整包等待 P3-F1 独立复核。
 
 ## 未验证项
 
@@ -80,8 +85,10 @@ P3a repair 与整包均等待独立审查。
 | P3d daemon default-off / canonical decree | evidence audit + RED→GREEN + 42 + 20 + joint 196 | PASS_FLAG_ONLY |
 | P3d 物理删除 | 缺真实观测窗口 | DEFERRED_BY_GATE |
 | P3e writer whitelist zero / legacy production read-only | RED→GREEN + 54 + 131 + 65 | PASS |
-| 后端全量 | 2632 pass / 27 skip / 7 known baseline fail | PASS_WITH_BASELINE |
-| 整个 P3 完成 | 独立 diff review | PENDING_REVIEW |
+| 后端全量快照 | P3a repair 2632/27/7；P3-F1 clean 2628/26/7 | PASS_WITH_BASELINE |
+| 组合分支后端全量 | 回灌后复验 | PENDING |
+| P3-F1 canonical constraints | RED 3 + related 80 + P3 joint 179 | PASS_PENDING_REREVIEW |
+| 整个 P3 完成 | P3-F1 独立复核 | PENDING_REREVIEW |
 
 ## 声明状态
 

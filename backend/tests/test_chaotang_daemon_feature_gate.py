@@ -105,3 +105,102 @@ def test_study_live_async_fails_closed_when_legacy_daemon_is_disabled(
     assert response.json()["success"] is False
     assert response.json()["error"] == "legacy_study_async_daemon_disabled"
     assert started == []
+
+
+def test_decree_dispatch_applies_selected_ministers_and_groups_to_canonical_route(
+    isolated_session_local, monkeypatch
+):
+    import json
+
+    from src.execution import decree_dispatcher
+    from web.main import app
+
+    monkeypatch.setenv("FENGQUN_LEGACY_CHAOTANG_DAEMON", "0")
+    monkeypatch.setattr(decree_dispatcher, "dispatch_after_commit", lambda _: None)
+    response = TestClient(app).post(
+        "/api/chaotang/decree/dispatch",
+        json={
+            "rawCommand": "整理例行材料",
+            "intent": "按财法口径整理",
+            "selectedCategories": [
+                {
+                    "taskType": "analysis",
+                    "ministers": ["hu_bu"],
+                    "groups": ["finlaw"],
+                    "label": "财法会审",
+                }
+            ],
+        },
+    )
+
+    assert response.json()["success"] is True
+    task_id = response.json()["data"]["taskId"]
+    from src.db.models import ChancellorRouteDecision, DecisionTask
+
+    with isolated_session_local() as db:
+        task = db.get(DecisionTask, task_id)
+        route = (
+            db.query(ChancellorRouteDecision).filter_by(task_id=task_id).one()
+        )
+        draft = json.loads(task.draft_edict_json)
+        decision = json.loads(route.decision_json)
+        assert json.loads(task.recommended_departments_json) == ["户部", "刑部"]
+        assert draft["recommended_departments"] == ["户部", "刑部"]
+        assert draft["compat_constraints"]["intent"] == "按财法口径整理"
+        assert draft["compat_constraints"]["taskType"] == "analysis"
+        assert [item["department"] for item in decision["participants"]] == [
+            "户部",
+            "刑部",
+        ]
+
+
+def test_decree_dispatch_rejects_unenforced_budget_and_stakes(
+    isolated_session_local, monkeypatch
+):
+    from src.db.models import DecisionTask, OutboxEvent
+    from web.main import app
+
+    monkeypatch.setenv("FENGQUN_LEGACY_CHAOTANG_DAEMON", "0")
+    response = TestClient(app).post(
+        "/api/chaotang/decree/dispatch",
+        json={
+            **_DISPATCH_BODY,
+            "budget": {"maxCalls": 5, "maxCostUsd": 0.25},
+            "stakes": "high",
+        },
+    )
+
+    assert response.json()["success"] is False
+    assert response.json()["error"] == (
+        "canonical_constraints_unsupported: "
+        "budget.maxCalls,budget.maxCostUsd,stakes=high"
+    )
+    with isolated_session_local() as db:
+        assert db.query(DecisionTask).count() == 0
+        assert db.query(OutboxEvent).count() == 0
+
+
+def test_decree_dispatch_rejects_group_without_canonical_department_equivalent(
+    isolated_session_local, monkeypatch
+):
+    from web.main import app
+
+    monkeypatch.setenv("FENGQUN_LEGACY_CHAOTANG_DAEMON", "0")
+    response = TestClient(app).post(
+        "/api/chaotang/decree/dispatch",
+        json={
+            "rawCommand": "整理史馆材料",
+            "selectedCategories": [
+                {
+                    "taskType": "general",
+                    "ministers": ["scribe"],
+                    "groups": ["review"],
+                }
+            ],
+        },
+    )
+
+    assert response.json()["success"] is False
+    assert response.json()["error"] == (
+        "canonical_constraints_unsupported: minister=scribe"
+    )

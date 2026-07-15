@@ -15,7 +15,7 @@ _BODY = {
         {
             "taskType": "analysis",
             "ministers": ["hu_bu"],
-            "groups": ["intel"],
+            "groups": ["finlaw"],
             "label": "市场分析",
         }
     ],

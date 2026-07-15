@@ -3,7 +3,82 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from typing import Any
+
+
+_CANONICAL_DEPARTMENT_BY_MINISTER = {
+    "hu_bu": "户部",
+    "li_bu": "吏部",
+    "xing_bu": "刑部",
+    "gong_bu": "工部",
+    "li_bu_rites": "礼部",
+    "bing_bu": "兵部",
+    "jin_yi_wei": "锦衣卫",
+}
+
+
+class UnsupportedCanonicalConstraints(ValueError):
+    """The compatibility request contains a constraint canonical cannot honor."""
+
+
+def build_compat_dispatch_constraints(
+    *,
+    intent: str,
+    task_type: str,
+    ministers: list[str],
+    groups: list[str],
+    budget: dict[str, Any] | None,
+    stakes: str,
+    mode: str | None,
+) -> dict[str, Any]:
+    """Normalize legacy hints, rejecting every hard constraint we cannot enforce."""
+    unsupported: list[str] = []
+    for key, value in (budget or {}).items():
+        if value is not None:
+            unsupported.append(f"budget.{key}")
+    if stakes != "low":
+        unsupported.append(f"stakes={stakes}")
+    if mode not in (None, "live"):
+        unsupported.append(f"mode={mode}")
+
+    from src.manor_groups import load_manor_groups
+
+    known_groups = {group.id: group for group in load_manor_groups()}
+    requested_ministers = list(ministers)
+    for group_id in groups:
+        group = known_groups.get(group_id)
+        if group is None:
+            unsupported.append(f"group={group_id}")
+            continue
+        requested_ministers.extend(group.ministers)
+
+    departments: list[str] = []
+    unsupported_ministers: list[str] = []
+    for minister in requested_ministers:
+        department = _CANONICAL_DEPARTMENT_BY_MINISTER.get(minister)
+        if department is None:
+            if minister not in unsupported_ministers:
+                unsupported_ministers.append(minister)
+            continue
+        if department not in departments:
+            departments.append(department)
+    unsupported.extend(
+        f"minister={minister}" for minister in unsupported_ministers
+    )
+    if unsupported:
+        raise UnsupportedCanonicalConstraints(
+            "canonical_constraints_unsupported: " + ",".join(unsupported)
+        )
+    return {
+        "intent": intent,
+        "taskType": task_type,
+        "ministers": list(ministers),
+        "groups": list(groups),
+        "appliedDepartments": departments,
+        "stakes": stakes,
+        "mode": mode or "live",
+    }
 
 
 def _json(value: Any) -> str:
@@ -16,6 +91,7 @@ def dispatch_compat_court_task(
     user_id: str,
     command: str,
     compat_entrypoint: str,
+    constraints: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Persist one canonical routing decision and enqueue its durable execution.
 
@@ -44,6 +120,15 @@ def dispatch_compat_court_task(
     outbox_event_id: str | None = None
     receipt: dict[str, Any] | None = None
     try:
+        routing_departments = list(
+            (constraints or {}).get("appliedDepartments") or []
+        )
+        draft_context: dict[str, Any] = {
+            "human_confirmed": True,
+            "compat_constraints": constraints or {},
+        }
+        if routing_departments:
+            draft_context["recommended_departments"] = routing_departments
         add_compat_decision_task(
             db,
             task_id=task_id,
@@ -52,12 +137,14 @@ def dispatch_compat_court_task(
             source_label="MIXED",
             compat_entrypoint=compat_entrypoint,
             status="executing",
-            draft_context={"human_confirmed": True},
+            draft_context=draft_context,
         )
         db.flush()
         task = db.get(DecisionTask, task_id)
         if task is None:
             raise RuntimeError(f"canonical DecisionTask not created: {task_id}")
+        if routing_departments:
+            task.recommended_departments_json = _json(routing_departments)
 
         route_decision = chancellor_routing_service.decide(
             db,
@@ -65,9 +152,12 @@ def dispatch_compat_court_task(
             confirmed_edict_text=command,
             idempotency_key=f"{compat_entrypoint}:{task_id}",
             source_label=task.source_label,
+            department_override=routing_departments or None,
         )
         route = legacy_route_dict(route_decision)
         edict = draft_edict(command, source_label=task.source_label)
+        if routing_departments:
+            edict = replace(edict, recommended_departments=routing_departments)
         routing_plan = routing_plan_for(edict, route)
         is_direct = route_decision.mode == "direct"
         memorial = (

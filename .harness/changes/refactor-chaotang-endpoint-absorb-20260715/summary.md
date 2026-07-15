@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | refactor-chaotang-endpoint-absorb-20260715 |
 | 类型 | refactor |
-| 状态 | VERIFIED_PENDING_REVIEW（P3a–P3e 已实现；P3d 物理删除延期） |
+| 状态 | VERIFIED_PENDING_REREVIEW（P3-F1 已修；P3d 物理删除延期） |
 | Owner | Project Agent |
 | 创建日期 | 20260715 |
 
@@ -26,6 +26,10 @@
 - P3e 已把 runtime production writer allowlist 清零，仅保留 pytest writer；task persist
   与 retrospective 旧写端点显式只读，task detail 不再回退 `Task.result_json`，memorial
   review 不再双写 legacy review 表/JSON，详情改读 formal decision 投影。
+- 独立预审 `e595818` 发现 P3-F1 HIGH：canonical decree 静默丢预算、风险和派单约束。
+  当前已改为“可等价的部门约束真实落 route/worker；不可等价的硬约束落库前拒绝”。
+- 同次预审的 P3-Q1 `direct_completed` 语义与 P3-Q2 `EmperorDecision` 构造点已登记为
+  ING-04 / DEC-01（FCV1-009）继承项，不在 P3 扩张修复范围。
 - 当前文件：P3a–P3e 后端投影/dispatch adapter/路由、P3b 前端 adapter、相邻测试及
   本 change 证据。
 - 验证：P3a repair RED 5 failed，GREEN 16 passed；P0-B/相邻最终 91 passed；最终后端
@@ -36,9 +40,10 @@
   为 focused 5 passed，核心安全/worker/终态相邻集 40 passed。
 - P3d RED 为 2 failed，证明两条 daemon 默认仍可达；实现后聚焦/相邻 42 passed、
   P0-B/ownership 20 passed。
-- P3e RED 为 10 failed / 44 passed；GREEN focused 54、P3 联合 131、精确 API/P0-B 65、
-  frontend adapter 3。P3a repair 后最终全量剩余 7 failed 与登记基线一致。
+- P3e RED 为 10 failed / 44 passed；GREEN focused 54、精确 API/P0-B 65、frontend
+  adapter 3。P3-F1 RED 3 failed；修正后相关 80、P3 联合 179。P3a repair 与 P3-F1
+  clean 全量快照均只剩登记的 7 条基线失败；组合分支回灌后再做最终全量对账。
 - 冻结边界：`backend/web/routers/throne.py` 未修改，其旧读依赖登记为
   `DEFERRED_REQUIRES_USER_DECISION`。
-- 未完成：整包独立 diff review；P3d 物理删除延期至满足观测窗口。审查 GO 前不得输出
-  顶层 Packet 停审 token。
+- 未完成：P3-F1 独立复核；P3d 物理删除延期至满足观测窗口。审查 GO 前不得输出顶层
+  Packet 停审 token。

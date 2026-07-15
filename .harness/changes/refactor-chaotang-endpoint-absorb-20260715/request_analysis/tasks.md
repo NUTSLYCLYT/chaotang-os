@@ -63,8 +63,12 @@
   formal decision 投影；旧 daemon 仅在 daemon=1 + tripwire=0 双开关下紧急回滚。
 - 状态 / 数据变化：无 schema/迁移；production legacy 表只读，历史 GET 保留。
 - 验证：RED 10 failed / 44 passed；focused 54 passed；P3 联合集 131 passed；精确 API /
-  P0-B / tripwire 65 passed；frontend adapter 3 passed；全量后端 2619 passed、26 skipped，
+  P0-B / tripwire 65 passed；frontend adapter 3 passed；全量后端 2625 passed、26 skipped，
   另 7 条与登记基线完全一致；三层 doctor 0 errors / 0 warnings。
 - 回滚边界：紧急旧链需同时设 `FENGQUN_LEGACY_CHAOTANG_DAEMON=1` 和
   `FENGQUN_LEGACY_WRITE_TRIPWIRE=0`，并按 P2 程序登记；不得重新加生产 allowlist。
-- 状态：VERIFIED_PENDING_REVIEW；整包独立审查完成后才宣告 P3 完成。
+- 独立预审：`e595818` 记录 P3-F1 HIGH，指出默认 canonical dispatch 静默丢约束。
+- P3-F1 修复：可映射 ministers/groups 真实驱动 route/worker；budget/high stakes/不支持
+  group 在落库前明确拒绝。RED 3 failed；相关扩展 80 passed；P3 联合集 179 passed；
+  全量 2628 passed / 26 skipped / 7 known baseline failed。
+- 状态：VERIFIED_PENDING_REREVIEW；P3-F1 需独立 reviewer 复核后才宣告 P3 完成。

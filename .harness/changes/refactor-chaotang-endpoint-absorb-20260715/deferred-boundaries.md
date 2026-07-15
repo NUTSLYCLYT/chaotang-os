@@ -41,3 +41,20 @@
   但其 production writer ID 已全部从 runtime allowlist 移除，默认调用会 fail closed。
 - 测试专用 `pytest-flow-store` / `pytest-chaotang-store` 仅在
   `FENGQUN_TEST_DB_GUARD=1` 下授权，用于覆盖旧数据结构行为，不构成生产白名单。
+
+## P3-F1 canonical 约束边界
+
+- 已支持：可映射到 canonical swarm 的 ministers/groups，被展开为明确部门覆盖并落入
+  task draft、route decision 与 worker `department_ids`。
+- 默认且等价：`stakes=low`、`mode` 未指定或 `live`。
+- 显式拒绝：任一逐请求 budget 字段、非 low stakes、scripted/hybrid mode、未知 group，
+  或包含史官/钦天监等尚无 canonical department swarm 的 minister/group。
+- 解除拒绝条件：先给 canonical worker 增加可审计、可测试的逐请求预算/风险执行策略或
+  对应部门 swarm，再把该字段从 `canonical_constraints_unsupported` 移除；不得仅回显字段。
+
+## 独立预审继承项
+
+- P3-Q1：direct 路由入队即记 `direct_completed`，继承 canonical 上书房现行语义与
+  census ING-04 的 ADR 缺口；P3 不另改终态模型。
+- P3-Q2：`compat_court_dispatch` 是 DEC-01“确认下旨与最终圣裁共用
+  `EmperorDecision`”的新增构造点，继续归入 FCV1-009 的奏折/裁决收口范围；P3 不扩表。
