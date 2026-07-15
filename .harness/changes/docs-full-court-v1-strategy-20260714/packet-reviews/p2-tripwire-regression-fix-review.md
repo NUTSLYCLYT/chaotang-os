@@ -32,3 +32,11 @@
 ## 裁决
 
 PACKET_REVIEW_GO（条件：G2 的 ci_summary 补充随本分支追加 commit 后即可合 ext）
+
+## v2 确认（G2 已满足）
+
+`af064fb`（2026-07-15 08:11）补齐：a) 四项解锁前提（legacy tripwire fail-closed、
+chaotang_store 门禁、create_decision_task 单写入口、pytest 阻断 production
+SessionLocal）；b) 全量 pytest 带跑前（08:06:00）/跑后（08:10:25）真实 DB
+三元指纹，`10dbcf48…` 与 P0 基线及审查者独立实测一致；c) 正确限定"解除安全
+阻断≠7 个基线失败已解决"。**G2 关闭，合 ext 放行。**
