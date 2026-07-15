@@ -115,7 +115,7 @@ def _latest_run(db, task_id: str):
 def read_task_projection(task_id: str, owner_id: str) -> dict[str, Any] | None:
     """Project canonical task/run/events into the existing taskDetail shape."""
     from src.db.engine import SessionLocal
-    from src.db.models import DecreeExecutionEvent, SwarmTaskRun, Task
+    from src.db.models import DecreeExecutionEvent, SwarmTaskRun
 
     db = SessionLocal()
     try:
@@ -135,11 +135,6 @@ def read_task_projection(task_id: str, owner_id: str) -> dict[str, Any] | None:
             .all()
         )
 
-        # Temporary P3 bridge: tasks/persist still writes its view-only payload to
-        # the compatibility table. Canonical runs always win; this fallback is
-        # removed with the remaining writer whitelist in P3e.
-        legacy = db.query(Task).filter_by(task_id=task_id).first() if run is None else None
-        legacy_result = _loads(legacy.result_json, {}) if legacy is not None else {}
         result = (
             {
                 "source": "canonical",
@@ -148,19 +143,11 @@ def read_task_projection(task_id: str, owner_id: str) -> dict[str, Any] | None:
                 "timeline": [_event_payload(event) for event in events],
             }
             if run is not None
-            else (legacy_result if isinstance(legacy_result, dict) else {})
+            else {}
         )
-        wire_status = (
-            (legacy.task_status or legacy.status)
-            if legacy is not None
-            else _WIRE_STATUS.get(task.status, task.status)
-        )
+        wire_status = _WIRE_STATUS.get(task.status, task.status)
         mode = run.mode if run is not None else "hybrid"
-        run_id = (
-            run.id
-            if run is not None
-            else (legacy.run_id if legacy is not None else None)
-        )
+        run_id = run.id if run is not None else None
 
         council = [
             {
@@ -198,6 +185,62 @@ def read_task_projection(task_id: str, owner_id: str) -> dict[str, Any] | None:
             "council": council,
             "groupRuns": group_runs,
             "runId": run_id,
+        }
+    finally:
+        db.close()
+
+
+def read_memorial_decision_projection(
+    memorial_id: str, owner_id: str
+) -> dict[str, Any] | None:
+    """Project the latest formal decision for one legacy memorial/run id."""
+    from src.db.engine import SessionLocal
+    from src.db.models import EmperorDecision
+    from src.decision_task_access import resolve_memorial_task_id
+
+    db = SessionLocal()
+    try:
+        task_id, _ = resolve_memorial_task_id(db, memorial_id=memorial_id)
+        if task_id is None:
+            return None
+        task = _owned_task(db, task_id, owner_id)
+        if task is None:
+            return None
+        decision = (
+            db.query(EmperorDecision)
+            .filter_by(task_id=task_id)
+            .order_by(EmperorDecision.created_at.desc())
+            .first()
+        )
+        if decision is None:
+            return None
+        action = {
+            "approve": "approve",
+            "reject": "reject",
+            "request_evidence": "inquire",
+        }.get(decision.action, decision.action)
+        status = {
+            "archived": "archived",
+            "rejected": "rejected",
+            "awaiting_evidence": "pending",
+        }.get(task.status, _WIRE_STATUS.get(task.status, task.status))
+        confirmation = _loads(decision.confirmation_record_json, {})
+        reviewer = (
+            str(confirmation.get("user_id", "皇上"))
+            if isinstance(confirmation, dict)
+            else "皇上"
+        )
+        return {
+            "status": status,
+            "review": {
+                "id": decision.id,
+                "memorialId": memorial_id,
+                "action": action,
+                "comment": decision.reason or "",
+                "reviewer": reviewer,
+                "createdAt": decision.created_at,
+                "sourceLabel": "canonical",
+            },
         }
     finally:
         db.close()

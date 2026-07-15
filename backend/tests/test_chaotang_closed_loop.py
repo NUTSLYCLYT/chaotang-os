@@ -449,8 +449,8 @@ class TestArchiveRetrospective:
         assert data["score"] == 5
         assert data["synthetic"] is False
 
-    def test_post_retrospective_persists(self, client, monkeypatch, tmp_path):
-        """POST /archive/{task_id}/retrospective 保存后 GET 应返回真实版本(非 synthetic)。"""
+    def test_post_retrospective_is_read_only(self, client, monkeypatch, tmp_path):
+        """P3e 后兼容端点保留读取，但不再写 legacy retrospective。"""
         import src.chaotang_store as cs
 
         monkeypatch.setattr(cs, "_DATA_ROOT", tmp_path)
@@ -465,17 +465,15 @@ class TestArchiveRetrospective:
         }
         r = client.post("/api/chaotang/archive/task_post/retrospective", json=payload)
         assert r.status_code == 200
-        assert r.json()["success"] is True
-        saved = r.json()["data"]
-        assert saved["score"] == 4
-        assert saved["lessons"] == ["心跳延长到 15s"]
-        assert saved["outcome"] == "success"
+        assert r.json() == {
+            "success": False,
+            "data": None,
+            "error": "legacy_retrospective_store_read_only",
+        }
 
-        # GET 应返回刚保存的版本
+        # GET 仍可用，但不得看到这次被拒绝的写入。
         r2 = client.get("/api/chaotang/archive/task_post/retrospective")
-        assert r2.json()["data"]["synthetic"] is False
-        assert r2.json()["data"]["score"] == 4
-        assert r2.json()["data"]["outcome"] == "success"
+        assert r2.json()["data"]["synthetic"] is True
 
     def test_post_retrospective_rejects_invalid_outcome(
         self, client, monkeypatch, tmp_path
@@ -490,8 +488,8 @@ class TestArchiveRetrospective:
         )
         assert r.status_code == 422  # pydantic Literal 校验直接拒绝
 
-    def test_post_invalid_score_still_saves(self, client, monkeypatch, tmp_path):
-        """score 缺失时默认 3,不崩。"""
+    def test_post_missing_score_still_reports_read_only(self, client, monkeypatch, tmp_path):
+        """合法旧 payload 仍得到稳定的只读错误。"""
         import src.chaotang_store as cs
 
         monkeypatch.setattr(cs, "_DATA_ROOT", tmp_path)
@@ -500,8 +498,11 @@ class TestArchiveRetrospective:
             json={"successes": [], "failures": [], "lessons": []},
         )
         assert r.status_code == 200
-        assert r.json()["success"] is True
-        assert r.json()["data"]["score"] == 3
+        assert r.json() == {
+            "success": False,
+            "data": None,
+            "error": "legacy_retrospective_store_read_only",
+        }
 
 
 # ──────────────── 6. 路径穿越校验 ────────────────
@@ -548,8 +549,8 @@ class TestPathTraversalGuard:
                     r.json()["success"] is False
                 ), f"期望拒绝恶意 task_id={bad_id!r},但返回 success=True"
 
-    def test_safe_id_still_works(self, client, monkeypatch, tmp_path):
-        """合法 id 校验通过后端正常处理,不误拦。"""
+    def test_safe_id_reaches_read_only_boundary(self, client, monkeypatch, tmp_path):
+        """合法 id 不被路径校验误伤，并命中稳定只读边界。"""
         import src.chaotang_store as cs
 
         monkeypatch.setattr(cs, "_DATA_ROOT", tmp_path)
@@ -558,7 +559,11 @@ class TestPathTraversalGuard:
             json={"score": 4, "successes": ["ok"], "failures": [], "lessons": []},
         )
         assert r.status_code == 200
-        assert r.json()["success"] is True
+        assert r.json() == {
+            "success": False,
+            "data": None,
+            "error": "legacy_retrospective_store_read_only",
+        }
 
 
 # ──────────────── 7. 批阅后 memorial.status 同步 ────────────────
@@ -598,9 +603,10 @@ class TestMemorialStatusSync:
         )
         assert r.json()["success"] is True
 
-        assert (
-            cs.get_memorial_status("run_sync1") == "archived"
-        ), "approve 后持久状态应为 archived"
+        from src.db.models import DecisionTask
+
+        with isolated_session_local() as db:
+            assert db.get(DecisionTask, "task_run_sync1").status == "archived"
 
     def test_reject_persists_rejected_status(
         self, client, monkeypatch, tmp_path, isolated_session_local
@@ -618,9 +624,10 @@ class TestMemorialStatusSync:
         )
         assert r.json()["success"] is True
 
-        assert (
-            cs.get_memorial_status("run_sync2") == "rejected"
-        ), "reject 后持久状态应为 rejected"
+        from src.db.models import DecisionTask
+
+        with isolated_session_local() as db:
+            assert db.get(DecisionTask, "task_run_sync2").status == "rejected"
 
     def test_memorial_detail_shows_archived_after_approve(
         self, client, monkeypatch, tmp_path, isolated_session_local

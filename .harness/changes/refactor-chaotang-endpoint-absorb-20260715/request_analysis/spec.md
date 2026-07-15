@@ -41,7 +41,11 @@ P3d 默认链：`decree/dispatch -> canonical dispatch adapter -> outbox_worker`
 fail closed 为 `legacy_study_async_daemon_disabled`；同一 rollback flag 可临时恢复。
 由于拆除证据不足，旧函数与 `_RUNSTATE_TO_TASKSTATUS` 保留在代码中。
 
-P3e 的数据流在原子检查点开始前补充；不得并行改写。
+P3e 默认链：`taskDetail -> DecisionTask/SwarmRun/event ledger`，不再读取
+`Task.result_json`；`tasks/persist` 与 `archive/*/retrospective` 写端点在完成原有 ID、
+认证/所有权检查后返回稳定只读错误；`memorial review` 只提交正式裁决链，详情从
+`DecisionTask + EmperorDecision` 投影批阅结果。所有 production legacy writer ID 从
+runtime allowlist 移除，仅保留 pytest 专用 writer。
 
 ## 接口、数据结构与事实源
 
@@ -53,6 +57,9 @@ P3e 的数据流在原子检查点开始前补充；不得并行改写。
 | `POST /api/direct/execute`，`mode=court` | canonical routing decision + transaction outbox | direct API 兼容调用方 | 原五字段 data shape；正常 council/direct、DB 失败、认证与 P0-B 门测试 |
 | `POST /api/chaotang/decree/dispatch` | 默认 canonical routing + transaction outbox；flag=1 才回旧 daemon | 军机处旧页面调用 | 原九字段 data shape；默认 canonical、rollback legacy、失败/权限测试 |
 | `POST /api/chaotang/study/run` live async | 无等价 canonical consumer，默认关闭旧 daemon | 非当前前端调用；兼容调用方 | 明确失败码；flag=1 保留既有异步 SSE 契约 |
+| `POST/PATCH /api/chaotang/tasks/*persist` | 无 legacy writer；canonical task 只读投影 | 已无活跃前端写调用；历史兼容调用方 | 保留认证、ID 与 owner 门；稳定返回 `legacy_task_projection_read_only` |
+| `POST /api/chaotang/archive/{id}/retrospective` | 无等价 canonical 写契约 | 已无活跃前端调用；历史兼容调用方 | 合法请求稳定返回 `legacy_retrospective_store_read_only`；GET 历史读保持 |
+| `POST /api/chaotang/memorials/{id}/review` | `EmperorDecision` + 正式 task/archive/event 链 | 朝堂批阅页 | 不再双写 reviews/JSON；详情从 canonical decision 投影同形 review |
 
 ## 范围
 
@@ -93,6 +100,12 @@ P3e 的数据流在原子检查点开始前补充；不得并行改写。
 | chaotang decree 默认派单 | 不调用 `assemble_flow/_spawn_run`，不写 legacy Decree/Task；同形返回 canonical status | P3d default-path test |
 | rollback flag=1 | 旧双写/daemon 路径仍可运行并受原 tripwire 约束 | S10 legacy rollback tests |
 | study live async 且 flag=off | 不创建线程，返回 `legacy_study_async_daemon_disabled` 并记 blocked event | P3d gate test |
+| owned legacy task persist 请求 | 完成 owner 校验后稳定拒绝，不写 `Task/Decree` | P3e task projection tests |
+| other-user persist 请求 | 仍返回无权，不用统一只读错误掩盖权限门 | P0-B behavioral gate |
+| taskDetail 没有 SwarmRun 但有旧 `Task.result_json` | 只返回 canonical task 状态与空 result，不泄漏旧 payload | P3e canonical detail test |
+| memorial review 成功 | 只写 formal decision chain；legacy DB/JSON writer 即使不可用也不影响成功 | P3e memorial adapter test |
+| production legacy writer ID | tripwire 默认 fail closed；allowlist 只含两个 pytest ID | P3e exact allowlist tests |
+| 紧急恢复旧 daemon | 同时 `FENGQUN_LEGACY_CHAOTANG_DAEMON=1` 与 `FENGQUN_LEGACY_WRITE_TRIPWIRE=0` | rollback-only S10/H1 tests |
 
 ## 风险与回滚边界
 
@@ -111,7 +124,12 @@ canonical 事实与 outbox 同事务提交，提交后才触发 worker；失败�
 
 P3d 主要风险是无流量数据就删除 rollback 代码，或把尚无等价 consumer 的 study 异步
 任务谎报为 canonical 成功。缓解：物理代码保留；默认 flag 关闭；decree 有等价 outbox
-才迁移，study async 明确失败并留下 blocked event；恢复只需显式设 flag=1。
+才迁移，study async 明确失败并留下 blocked event。P3e 后紧急恢复必须同时显式打开
+daemon flag 并关闭 legacy-write tripwire，避免单一误配置恢复旧写链。
+
+P3e 主要风险是删掉 legacy 双写后，批阅状态与任务详情仍从旧表回读，造成页面状态倒退；
+或直接把写端点统一拒绝而丢失 owner 门。缓解：批阅详情改投影正式裁决，task detail 删除
+`result_json` fallback；persist 端点先做 ownership 检查再返回只读错误；历史 GET 保持只读。
 
 回滚按 P3a 原子 commit；若临时恢复旧读链，必须按 P2 清单的临时恢复程序登记，不能
 静默加回 writer 白名单。

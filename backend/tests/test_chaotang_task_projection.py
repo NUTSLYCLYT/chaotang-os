@@ -1,4 +1,4 @@
-"""Legacy task persistence is a projection of an owned DecisionTask."""
+"""Legacy task persistence is read-only and preserves canonical ownership."""
 
 from __future__ import annotations
 
@@ -40,7 +40,9 @@ def test_persist_rejects_orphan_execution_projection(isolated_session_local):
         assert db.query(Decree).count() == 0
 
 
-def test_persist_uses_owned_decision_as_projection_source(isolated_session_local):
+def test_persist_rejects_owned_decision_without_legacy_projection_write(
+    isolated_session_local,
+):
     _seed_decision(isolated_session_local, "decision_projection_1")
 
     created = TestClient(app).post(
@@ -55,13 +57,12 @@ def test_persist_uses_owned_decision_as_projection_source(isolated_session_local
     )
 
     assert created.status_code == 200
-    assert created.json()["success"] is True
-    assert created.json()["data"]["rawCommand"] == "正式任务中的权威原问"
+    assert created.json()["success"] is False
+    assert created.json()["error"] == "legacy_task_projection_read_only"
     with isolated_session_local() as db:
         decision = db.get(DecisionTask, "decision_projection_1")
-        projection = db.query(Task).filter_by(task_id="decision_projection_1").one()
         assert decision.raw_question == "正式任务中的权威原问"
-        assert projection.task_input == decision.raw_question
+        assert db.query(Task).filter_by(task_id="decision_projection_1").first() is None
 
 
 def test_patch_rejects_other_users_decision_projection(isolated_session_local):

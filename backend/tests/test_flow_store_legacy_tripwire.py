@@ -10,6 +10,14 @@ from src.db import flow_store
 from src.db.models import Base, Task
 
 
+_RETIRED_PRODUCTION_WRITERS = {
+    "chaotang-router-p3-pending": "flow_store.upsert_persisted_task",
+    "chaotang-orchestrator-p3-pending": "flow_store.update_task_status",
+    "chaotang-store-p3-pending": "chaotang_store.save_review",
+    "flow-store-backfill": "flow_store.upsert_memorial",
+}
+
+
 def _metric_value(exported: str, series: str) -> float:
     prefix = f"{series} "
     for line in exported.splitlines():
@@ -62,6 +70,23 @@ def test_registered_test_writer_can_use_declared_operation(session):
     )
 
     assert session.query(Task).filter_by(task_id="allowed-test").one().status == "running"
+
+
+def test_runtime_allowlist_contains_only_test_writers():
+    from src.legacy_write_tripwire import _LEGACY_WRITER_ALLOWLIST
+
+    assert set(_LEGACY_WRITER_ALLOWLIST) == {
+        "pytest-flow-store",
+        "pytest-chaotang-store",
+    }
+
+
+@pytest.mark.parametrize("writer_id,operation", _RETIRED_PRODUCTION_WRITERS.items())
+def test_retired_production_writer_ids_fail_closed(writer_id, operation):
+    from src.legacy_write_tripwire import require_legacy_write
+
+    with pytest.raises(RuntimeError, match="unregistered legacy writer"):
+        require_legacy_write(operation, writer_id)
 
 
 def test_global_rollback_switch_bypasses_tripwire(monkeypatch, session):

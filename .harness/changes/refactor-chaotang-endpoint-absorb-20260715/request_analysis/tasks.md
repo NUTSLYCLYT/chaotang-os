@@ -52,4 +52,14 @@
 
 ## 任务 5 — P3e whitelist zero
 
-- 状态：PENDING；完成后才汇总整包并请求独立审查。
+- 目标：清空 production legacy writer allowlist；把已吸收写端点改成显式只读，并删除
+  task detail 的 `Task.result_json` fallback 与 memorial review legacy 双写。
+- 输出：allowlist 仅保留 pytest writer；persist/retrospective 稳定只读错误；批阅结果从
+  formal decision 投影；旧 daemon 仅在 daemon=1 + tripwire=0 双开关下紧急回滚。
+- 状态 / 数据变化：无 schema/迁移；production legacy 表只读，历史 GET 保留。
+- 验证：RED 10 failed / 44 passed；focused 54 passed；P3 联合集 131 passed；精确 API /
+  P0-B / tripwire 65 passed；frontend adapter 3 passed；全量后端 2619 passed、26 skipped，
+  另 7 条与登记基线完全一致；三层 doctor 0 errors / 0 warnings。
+- 回滚边界：紧急旧链需同时设 `FENGQUN_LEGACY_CHAOTANG_DAEMON=1` 和
+  `FENGQUN_LEGACY_WRITE_TRIPWIRE=0`，并按 P2 程序登记；不得重新加生产 allowlist。
+- 状态：VERIFIED_PENDING_REVIEW；整包独立审查完成后才宣告 P3 完成。

@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | refactor-chaotang-endpoint-absorb-20260715 |
 | 类型 | refactor |
-| 状态 | VERIFIED_PARTIAL（P3a–P3d 完成，P3d 为 flag-only；P3e 待执行） |
+| 状态 | VERIFIED_PENDING_REVIEW（P3a–P3e 已实现；P3d 物理删除延期） |
 | Owner | Project Agent |
 | 创建日期 | 20260715 |
 
@@ -22,7 +22,10 @@
 - P3d 因 P2 没有满足连续观测窗口的拆除证据，没有物理删 daemon/runstate；新增默认
   关闭、显式可回滚的 `FENGQUN_LEGACY_CHAOTANG_DAEMON`。`decree/dispatch` 默认走
   canonical outbox；study live async 在旧 daemon 关闭时明确拒绝，不伪装已启动。
-- 当前文件：P3a–P3d 后端投影/dispatch adapter/路由、P3b 前端 adapter、相邻测试及
+- P3e 已把 runtime production writer allowlist 清零，仅保留 pytest writer；task persist
+  与 retrospective 旧写端点显式只读，task detail 不再回退 `Task.result_json`，memorial
+  review 不再双写 legacy review 表/JSON，详情改读 formal decision 投影。
+- 当前文件：P3a–P3e 后端投影/dispatch adapter/路由、P3b 前端 adapter、相邻测试及
   本 change 证据。
 - 验证：P3a RED 见 6 failed / 5 passed，实现后 22 passed；P3b RED 证明旧
   registry/RunLog 与缺失 adapter，GREEN 为后端 focused 25、扩展契约 76、前端 3，
@@ -31,7 +34,9 @@
   为 focused 5 passed，核心安全/worker/终态相邻集 40 passed。
 - P3d RED 为 2 failed，证明两条 daemon 默认仍可达；实现后聚焦/相邻 42 passed、
   P0-B/ownership 20 passed。
+- P3e RED 为 10 failed / 44 passed；GREEN focused 54、P3 联合 131、精确 API/P0-B 65、
+  frontend adapter 3。后端全量 2619 passed / 26 skipped；剩余 7 failed 与登记基线一致。
 - 冻结边界：`backend/web/routers/throne.py` 未修改，其旧读依赖登记为
   `DEFERRED_REQUIRES_USER_DECISION`。
-- 未完成：P3e 白名单清零；P3d 物理删除延期至满足观测窗口。P3e 前不得输出顶层
-  Packet 停审 token。
+- 未完成：整包独立 diff review；P3d 物理删除延期至满足观测窗口。审查 GO 前不得输出
+  顶层 Packet 停审 token。

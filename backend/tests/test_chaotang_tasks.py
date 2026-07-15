@@ -31,8 +31,43 @@ def test_task_detail_404_when_missing(monkeypatch, isolated_session_local):
     assert r.status_code == 200 and r.json()["success"] is False
 
 
-def test_tasks_persist_patch_and_readback(monkeypatch, isolated_session_local):
-    from src.db.models import DecisionTask
+def test_tasks_list_reads_legacy_rows_without_schema_write(
+    monkeypatch, isolated_session_local
+):
+    import src.db.flow_store as flow_store
+    from src.db.models import Task
+
+    with isolated_session_local() as db:
+        db.add(
+            Task(
+                task_id="legacy_read_only_row",
+                status="done",
+                task_status="report_ready",
+                task_input="只读历史任务",
+            )
+        )
+        db.commit()
+    monkeypatch.setattr(
+        flow_store,
+        "ensure_task_result_json_column",
+        lambda session: (_ for _ in ()).throw(AssertionError("schema write")),
+    )
+
+    response = _client(monkeypatch).get("/api/chaotang/tasks")
+
+    assert response.status_code == 200
+    assert any(
+        item["taskId"] == "legacy_read_only_row"
+        for item in response.json()["data"]
+    )
+
+
+def test_tasks_persist_endpoints_are_read_only_and_detail_is_canonical(
+    monkeypatch, isolated_session_local
+):
+    import json
+
+    from src.db.models import DecisionTask, Task
 
     with isolated_session_local() as db:
         db.add(
@@ -42,6 +77,14 @@ def test_tasks_persist_patch_and_readback(monkeypatch, isolated_session_local):
                 raw_question="评估上书房刷新持久化",
                 status="executing",
                 source_label="MIXED",
+            )
+        )
+        db.add(
+            Task(
+                task_id="task_frontend_1",
+                status="done",
+                task_status="report_ready",
+                result_json=json.dumps({"legacy": "must-not-leak"}),
             )
         )
         db.commit()
@@ -59,8 +102,11 @@ def test_tasks_persist_patch_and_readback(monkeypatch, isolated_session_local):
         },
     )
     assert created.status_code == 200
-    assert created.json()["success"] is True
-    assert created.json()["data"]["taskId"] == "task_frontend_1"
+    assert created.json() == {
+        "success": False,
+        "data": None,
+        "error": "legacy_task_projection_read_only",
+    }
 
     patched = c.patch(
         "/api/chaotang/tasks/task_frontend_1/persist",
@@ -70,18 +116,19 @@ def test_tasks_persist_patch_and_readback(monkeypatch, isolated_session_local):
         },
     )
     assert patched.status_code == 200
-    assert patched.json()["success"] is True
-    assert patched.json()["data"]["status"] == "report_ready"
-
-    listed = c.get("/api/chaotang/tasks")
-    assert listed.status_code == 200
-    item = next(i for i in listed.json()["data"] if i["taskId"] == "task_frontend_1")
-    assert item["status"] == "report_ready"
-    assert item["result"]["source"] == "orchestrate"
-    assert item["result"]["shangshufangEdictReturn"]["mode"] == "secret"
+    assert patched.json() == {
+        "success": False,
+        "data": None,
+        "error": "legacy_task_projection_read_only",
+    }
 
     detail = c.get("/api/chaotang/tasks/task_frontend_1")
     assert detail.status_code == 200
     task = detail.json()["data"]["task"]
-    assert task["status"] == "report_ready"
-    assert task["result"]["shangshufangEdictReturn"]["finalOutputs"] == ["done"]
+    assert task["status"] == "running"
+    assert task["result"] == {}
+    assert task["finalReportId"] is None
+
+    with isolated_session_local() as db:
+        legacy = db.query(Task).filter_by(task_id="task_frontend_1").one()
+        assert json.loads(legacy.result_json) == {"legacy": "must-not-leak"}

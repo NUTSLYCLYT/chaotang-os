@@ -27,16 +27,23 @@
 | P3a–P3d backend 联合扩展集 | 0 | 196 passed | scribe、task/stream、direct/decree outbox、daemon flag、routing/golden、tripwire/P0-B | 2026-07-15 本地终端 |
 | P3d frontend canonical stream adapter | 0 | 3 passed | 默认 canonical 终态与 rollback legacy 事件同形消费 | 2026-07-15 本地终端 |
 | 根 / backend / frontend harness doctor（P3d） | 0 | 三层均 0 errors / 0 warnings | flag-only 决策与跨线证据更新后的护栏结构 | 2026-07-15 本地终端 |
+| P3e RED：tripwire/task/review/retrospective focused | 1 | 10 failed / 44 passed（预期 RED） | production writer 尚在白名单；旧端点仍写；detail 仍回退旧 result | 2026-07-15 本地终端 |
+| P3e focused GREEN | 0 | 54 passed | 白名单精确清零、端点只读、canonical review/detail | 2026-07-15 本地终端 |
+| P3a–P3e backend 联合集 | 0 | 131 passed | 五检查点核心与 P0-B/rollback 相邻回归 | 2026-07-15 本地终端 |
+| backend 全量 | 1（基线） | 2619 passed / 26 skipped / 7 known failed；首次运行另 6 条旧期望已更新并聚焦复验通过 | 全仓回归与基线对账 | 2026-07-15 本地终端 |
+| P3e API exact / P0-B / tripwire / architecture | 0 | 65 passed | 前端已用路由契约、所有权、写入阻断、AST gate | 2026-07-15 本地终端 |
+| P3e frontend canonical stream adapter | 0 | 3 passed | canonical/legacy rollback 事件同形消费 | 2026-07-15 本地终端 |
+| 根 / backend / frontend harness doctor（P3e） | 0 | 三层均 0 errors / 0 warnings | P3e 根变更与三层结构 | 2026-07-15 本地终端 |
 
 ## 结果
 
-P3a–P3d 聚焦与相邻回归全绿；P3d 按证据门只完成 flag-only，未物理删除。
-P3 整包仍为部分验证，P3e 未执行。
+P3a–P3e 聚焦、相邻、API 契约与前端 adapter 全绿；P3d 按证据门只完成 flag-only，
+未物理删除。后端全量无新增失败，7 条失败与 P2 登记基线完全一致。整包等待独立审查。
 
 ## 未验证项
 
-- backend/frontend 全量与全仓 API contract 生成式 audit 留到 P3e 汇总；P3a 已跑接口
-  精确/相邻契约、前端 adapter 与代表性 golden harness；P3b 已追加 76 项后端扩展集。
+- frontend 全量 type/build 仍受下述 worktree 依赖环境限制；目标 adapter 与全仓 API exact
+  audit 已通过。backend 全量已执行并完成 known-red 对账。
 - P3 worktree 未安装独立 `frontend/node_modules`，从主工作树借用 `tsc` 可执行文件时模块
   解析仍以 P3 worktree 为根，因缺 `react` / `next` / Node typings 等依赖产生环境性失败；
   本检查点以可实际解析目标文件的 `tsx --test` 3 项通过为准，全量前端检查留到 P3e
@@ -64,8 +71,10 @@ P3 整包仍为部分验证，P3e 未执行。
 | P3c direct court canonical outbox | RED→GREEN + focused 5 + adjacent 40 + expanded 135 | PASS |
 | P3d daemon default-off / canonical decree | evidence audit + RED→GREEN + 42 + 20 + joint 196 | PASS_FLAG_ONLY |
 | P3d 物理删除 | 缺真实观测窗口 | DEFERRED_BY_GATE |
-| 整个 P3 完成 | P3e | PENDING |
+| P3e writer whitelist zero / legacy production read-only | RED→GREEN + 54 + 131 + 65 | PASS |
+| 后端全量 | 2619 pass / 26 skip / 7 known baseline fail | PASS_WITH_BASELINE |
+| 整个 P3 完成 | 独立 diff review | PENDING_REVIEW |
 
 ## 声明状态
 
-- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：VERIFIED_PARTIAL
+- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：VERIFIED_PARTIAL（仅待审查）

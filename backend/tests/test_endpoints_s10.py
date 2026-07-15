@@ -97,6 +97,7 @@ class TestDispatchDualWrite:
         """dispatch 端点返回 200 + taskId。"""
         monkeypatch.setenv("FENGQUN_AUTH", "false")
         monkeypatch.setenv("FENGQUN_LEGACY_CHAOTANG_DAEMON", "1")
+        monkeypatch.setenv("FENGQUN_LEGACY_WRITE_TRIPWIRE", "0")
         # mock _spawn_run 不真跑 LLM
         import web.routers.chaotang as ct
 
@@ -114,6 +115,7 @@ class TestDispatchDualWrite:
         """dispatch 后 flow_store.save_decree_and_task 被调用一次(tasks 行写入)。"""
         monkeypatch.setenv("FENGQUN_AUTH", "false")
         monkeypatch.setenv("FENGQUN_LEGACY_CHAOTANG_DAEMON", "1")
+        monkeypatch.setenv("FENGQUN_LEGACY_WRITE_TRIPWIRE", "0")
         import web.routers.chaotang as ct
 
         monkeypatch.setattr(ct, "_spawn_run", lambda *a, **kw: None)

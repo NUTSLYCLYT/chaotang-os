@@ -538,7 +538,6 @@ def task_persist(
 ) -> dict:
     _observe_legacy_endpoint("task_persist", user, operation="write")
     from src.db.engine import SessionLocal
-    from src.db.flow_store import upsert_persisted_task
 
     task_id = (body.taskId or "").strip()
     if not task_id:
@@ -557,23 +556,7 @@ def task_persist(
                 f"{error or '正式 DecisionTask 不可用'}，"
                 "禁止由执行投影创建或修改业务任务"
             )
-        record = upsert_persisted_task(
-            session=db,
-            task_id=task_id,
-            raw_command=decision.raw_question,
-            title=body.title,
-            status=body.status,
-            mode=body.mode,
-            result=body.result,
-            at=body.at,
-            tenant_id=_default_tenant_id(),
-            user_id=_safe_user_id(getattr(user, "user_id", None)),
-            legacy_writer_id="chaotang-router-p3-pending",
-        )
-        db.commit()
-        if isinstance(record, dict):
-            record.setdefault("sourceLabel", "LIVE")
-        return ok(record)
+        return fail("legacy_task_projection_read_only")
     except Exception as exc:
         db.rollback()
         return fail(str(exc))
@@ -590,7 +573,6 @@ def task_persist_patch(
         return fail("invalid task_id")
 
     from src.db.engine import SessionLocal
-    from src.db.flow_store import patch_persisted_task_result
 
     db = SessionLocal()
     try:
@@ -603,26 +585,7 @@ def task_persist_patch(
                 f"{error or '正式 DecisionTask 不可用'}，"
                 "禁止由执行投影创建或修改业务任务"
             )
-        record = patch_persisted_task_result(
-            session=db,
-            task_id=task_id,
-            status=body.status,
-            result=body.result,
-            raw_command=decision.raw_question,
-            title=body.title,
-            mode=body.mode,
-            at=body.at,
-            tenant_id=_default_tenant_id(),
-            user_id=_safe_user_id(getattr(user, "user_id", None)),
-            legacy_writer_id="chaotang-router-p3-pending",
-        )
-        if record is None:
-            db.rollback()
-            return fail(f"task {task_id} does not exist")
-        db.commit()
-        if isinstance(record, dict):
-            record.setdefault("sourceLabel", "LIVE")
-        return ok(record)
+        return fail("legacy_task_projection_read_only")
     except Exception as exc:
         db.rollback()
         return fail(str(exc))
@@ -658,12 +621,11 @@ def tasks_list(
     # DB 历史任务补全(重启后内存为空时兜底)
     try:
         from src.db.engine import SessionLocal
-        from src.db.flow_store import ensure_task_result_json_column, task_record
+        from src.db.flow_store import task_record
         from src.db.models import Task as DbTask
 
         _db = SessionLocal()
         try:
-            ensure_task_result_json_column(_db)
             rows = (
                 _db.query(DbTask)
                 .order_by(DbTask.updated_at.desc(), DbTask.created_at.desc())
@@ -677,7 +639,6 @@ def tasks_list(
                     if isinstance(record, dict):
                         record.setdefault("sourceLabel", "LIVE")
                     live[r.task_id] = record
-            _db.commit()
         finally:
             _db.close()
     except Exception as _e:
@@ -793,20 +754,35 @@ def memorial_detail(run_id: str, user: CurrentUser = Depends(get_current_user)) 
     summary = run_summary(run)
     summary["final_output"] = run.final_output
     mem = enrich_memorial(summary)
-    # 批阅后持久状态覆盖 run 派生状态
-    persisted = chaotang_store.get_memorial_status(
-        run_id, caller_id="chaotang-router-p3-pending"
+    from src.chaotang_task_projection import (
+        CanonicalTaskAccessDenied,
+        read_memorial_decision_projection,
     )
-    if persisted:
-        mem = {**mem, "status": persisted}
+
+    owner_id = str(user.user_id or user.username or user.tenant_slug or "anonymous")
+    try:
+        formal_decision = read_memorial_decision_projection(run_id, owner_id)
+    except CanonicalTaskAccessDenied:
+        return fail(f"奏折 {run_id} 不存在")
+    if formal_decision is not None:
+        mem = {**mem, "status": formal_decision["status"]}
+        review = formal_decision["review"]
+    else:
+        # 未迁移历史记录只读兼容；正式任务绝不再依赖 legacy review 写副本。
+        persisted = chaotang_store.get_memorial_status(
+            run_id, caller_id="chaotang-router-p3-pending"
+        )
+        if persisted:
+            mem = {**mem, "status": persisted}
+        review = chaotang_store.get_review_for_memorial(
+            run_id, caller_id="chaotang-router-p3-pending"
+        )
     return ok(
         {
             **mem,
             "memorial": build_memorial_sections(run.final_output),
             "fullContent": run.final_output or {},
-            "review": chaotang_store.get_review_for_memorial(
-                run_id, caller_id="chaotang-router-p3-pending"
-            ),
+            "review": review,
         }
     )
 
@@ -823,7 +799,6 @@ def memorial_review(
         return fail(f"奏折 {run_id} 不存在")
 
     from src.db.engine import SessionLocal
-    from src.db.flow_store import save_review_db
     from src.db.models import CourtLoopRun, CourtReview, EmperorDecision
     from src.shangshufang_loop import make_id, now_iso
     from web.routers.shangshufang import (
@@ -889,17 +864,6 @@ def memorial_review(
         rec = chaotang_store.build_review_record(
             run_id, action=body.action, comment=body.comment, reviewer=reviewer
         )
-        save_review_db(
-            session=db,
-            review_id=rec["id"],
-            memorial_id=run_id,
-            action=body.action,
-            comment=body.comment,
-            reviewer_name=reviewer,
-            tenant_id=_default_tenant_id(),
-            created_at=rec["createdAt"],
-            legacy_writer_id="chaotang-router-p3-pending",
-        )
         db.add(
             CourtLoopRun(
                 id=make_id("loop", task.id, "legacy-review", canonical_action, now),
@@ -929,18 +893,6 @@ def memorial_review(
     finally:
         db.close()
 
-    try:
-        chaotang_store.write_review_files(
-            rec, legacy_writer_id="chaotang-router-p3-pending"
-        )
-    except Exception as exc:
-        record_event(
-            "legacy_review_json_copy_failed",
-            task_id=task_id,
-            run_id=run_id,
-            status="warning",
-            error=str(exc),
-        )
     # 批阅后立即失效 memorial 缓存,下次列表端点返回更新后状态
     from web.routers.throne import _CT_MEMORIAL_CACHE
 
@@ -2262,12 +2214,7 @@ def archive_retrospective_save(
     _observe_legacy_endpoint("archive_retrospective_save", user, operation="write")
     if not _validate_id(task_id):
         return fail("无效的 task_id")
-    rec = chaotang_store.save_retrospective(
-        task_id,
-        body.model_dump(),
-        legacy_writer_id="chaotang-router-p3-pending",
-    )
-    return ok(rec)
+    return fail("legacy_retrospective_store_read_only")
 
 
 # ── P0-1: 快捷下旨智能路由 ──

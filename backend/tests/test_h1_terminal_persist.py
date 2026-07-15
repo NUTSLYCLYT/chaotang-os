@@ -402,9 +402,11 @@ class TestH1EndToEndIntegration:
         return eng
 
     def _setup(self, monkeypatch, task_id: str):
-        """创建共享 engine,seed 初始行,patch SessionLocal,返回 engine。"""
+        """显式开启紧急回滚 bypass 后验证已冻结旧 orchestrator 的历史行为。"""
         import importlib
         from sqlalchemy.orm import sessionmaker
+
+        monkeypatch.setenv("FENGQUN_LEGACY_WRITE_TRIPWIRE", "0")
 
         eng = self._make_shared_engine()
         TestSession = sessionmaker(bind=eng, autocommit=False, autoflush=False)
