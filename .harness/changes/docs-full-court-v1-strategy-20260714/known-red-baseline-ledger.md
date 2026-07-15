@@ -24,10 +24,10 @@
 | # | 测试 | 根因 | 执行单元 | 验收 | 状态 |
 | - | --- | --- | --- | --- | --- |
 | 1 | chaotang 1.0 secondary modules `active/pending` | 旧预期 vs 现状 | P6 change 步骤"陈旧断言清理" | 断言与产品现状一致后通过 | OPEN |
-| 2 | 铁律4 招聘 BFF 零写主库 | 引用已退役 BFF route（ENOENT） | P6 change 步骤"BFF 死测试退役"（census 重复地图第 15 行同源） | 测试退役入 attic 或改写为真实 backend boundary test | OPEN |
-| 3 | bureau page view `出纳司/国库司` | 旧 office 预期 | P6"陈旧断言清理" | 同 #1 | OPEN |
-| 4 | dispatchDeptToSwarm auth 守门计数 | 退役 dispatch route，预期≥4 实际 0 | P6"BFF 死测试退役" | 同 #2 | OPEN |
-| 5-7 | C1 学习持久化 / real-source / e2e 伪造后门（3 项） | 引用已退役 BFF route（ENOENT） | P6"BFF 死测试退役" | 同 #2 | OPEN |
+| 2 | 铁律4 招聘 BFF 零写主库 | 守门意图有效，锚定路径已退役（ENOENT） | P6 子步骤 a"失效守门语义迁移" | 零写主库守门重写为现行架构等价断言并通过；禁止无迁移退役 | OPEN |
+| 3 | bureau page view `出纳司/国库司` | 旧 office 展示预期，无守门语义 | P6 子步骤 b"陈旧断言清理" | 断言与产品现状一致后通过 | OPEN |
+| 4 | dispatchDeptToSwarm auth 守门计数 | 守门意图有效（auth 全覆盖），计数锚定退役 route | P6 子步骤 a | requireCourtSwarmAuth 守门改锚现行调用面（计数>0）并通过 | OPEN |
+| 5-7 | C1 学习持久化 / real-source / e2e 伪造后门（3 项） | 守门意图有效（数据隔离/sign-off/后门已除），锚定路径退役 | P6 子步骤 a | 三条守门逐一重写为现行架构等价断言并通过；威胁模型消失者单独说明后方可退役 | OPEN |
 
 ## 其他登记
 

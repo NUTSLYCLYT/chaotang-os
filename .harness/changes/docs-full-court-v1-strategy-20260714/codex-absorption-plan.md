@@ -253,12 +253,18 @@ import 上述引擎）；sourceLabel 不出现 MIXED 本地合成路径；浏览
  （qintianjian.py 为 canonical 保留）；
 - `config/flow_opc.yaml.bak` 等 `.bak` 副本也移动到明确 attic/archive，并记录原路径；
   本 Packet 不物理删除任何文件，Git 历史不能替代本轮要求的显式恢复路径。
-- （v2.1 增补，2026-07-15，随 known-red-baseline-ledger 建立）两个显式子步骤：
-  a) **BFF 死测试退役**：退役引用已删除 `frontend/src/app/api/**` 的测试
-     （招聘 BFF、C1 学习持久化、real-source、e2e 伪造后门、dispatchDeptToSwarm
-     守门计数——台账前端 #2/#4/#5-7）；
+- （v2.1 增补，2026-07-15；v2.2 修正措辞）两个显式子步骤：
+  a) **失效守门语义迁移（不是退役）**：台账前端 #2/#4/#5-7 五项测试因引用
+     已删除 `frontend/src/app/api/**` 而 ENOENT，但其守门意图仍有效——
+     零写主库隔离（铁律4/C1）、real-source 生产 sign-off 回填、
+     e2e 伪造后门已除、dispatchDeptToSwarm 全部过 requireCourtSwarmAuth。
+     处置：把每条守门**重写为针对现行架构的等价断言**（真实 backend
+     boundary / 现行调用面），新旧意图一一对照落盘；只有当某条守门的
+     威胁模型被证明整体消失时才允许退役，且须单独说明。禁止以"文件不存在"
+     为由整批删除安全与数据隔离守门。
   b) **陈旧断言清理**：修正 chaotang 1.0 secondary modules `active/pending`
-     与 bureau `出纳司/国库司` 旧预期（台账前端 #1/#3）。
+     与 bureau `出纳司/国库司` 旧预期（台账前端 #1/#3——纯展示预期漂移，
+     无守门语义）。
 验收：退役清单+恢复路径落盘；仅在生产路径 tripwire/隔离 wrapper 已证明安全时
 运行全量测试，否则按 P0 口径执行批准代表套件并显式记录 `NOT_RUN_SAFETY_BLOCKED`；
 harness-doctor 通过；
