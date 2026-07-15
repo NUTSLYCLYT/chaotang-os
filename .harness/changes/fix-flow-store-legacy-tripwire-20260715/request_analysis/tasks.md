@@ -26,3 +26,14 @@
 - 输出：pytest AST gate、Node import gate、阳性违规 fixture。
 - 完成定义：当前精确白名单通过；两个违规 fixture 均被拒绝；进入常规测试 profile。
 - 状态：完成（前端以既有 Node test profile 的等价静态守门实现；仓内无 ESLint 依赖）。
+
+## 任务 4：P1-F1 跨端 SSOT parity residual
+
+- 目标：关闭 P2 事后审查 G1，在 P3 开工前为后端 YAML 与前端 `dept.ts` 建立机器 parity 守门。
+- 前置锚：`PREDECESSOR_EXT_SHA=92d84d78e6278211ca40430937398ac5527a73b1`；分支 `task/p2-dept-parity-residual`，独立 worktree `/home/ubuntu/Projects/.fullcourt-worktrees/p2-dept-parity-residual`。
+- 输入：`backend/harness/chaotang_department_protocol/departments.yaml` 的 `v1_taxonomy.liubu` 与 `frontend/src/lib/contracts/dept.ts` 的 `DEPARTMENT_IDENTITIES`。
+- 输出：`frontend/src/lib/contracts/dept-yaml-parity.nodetest.ts`。
+- 完成定义：六部数量/字段完整；YAML key 与 `v1Code` 双向对应；`agent_code`、中文名一致；`legacy_api_slugs` 全部属于前端 aliases；受控漂移 RED，真实值 GREEN。
+- 边界：`runtime_code` 存在已知两义（例如 backend runtime `libu` 指礼部、前端 alias `libu` 指吏部），不纳入 alias parity，避免制造错误事实源。
+- 停审门：本 residual 只提交 task 分支，未获 Claude `PACKET_REVIEW_GO` 前不合 EXT、不启动 P3。
+- 状态：完成，待 Claude 复审。
