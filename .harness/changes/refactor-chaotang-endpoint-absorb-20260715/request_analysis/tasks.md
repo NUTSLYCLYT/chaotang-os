@@ -27,7 +27,16 @@
 
 ## 任务 3 — P3c manor / direct dispatch
 
-- 状态：PENDING；P3b commit 后开始。
+- 目标：将实际存在的 `direct.py mode=court` 旧 orchestrator 派发改为 canonical
+  routing + transaction outbox，同时保持兼容响应五字段；核实 manor 是否有写链。
+- 输出：`canonical_court_dispatch` 等形适配器；direct/council 两种 outbox 事件；
+  canonical terminal direct 状态；P0-B 显式边界证据。
+- 状态 / 数据变化：写入既有 canonical 表，无 schema/迁移；`manor.py` 无生产派发，
+  不修改、不裁决去留。
+- 验证：RED 2 failed / 2 passed；focused 5 passed；核心安全/worker/终态相邻 40 passed；
+  完整扩展结果见 CI summary。
+- 回滚边界：P3c 独立原子 commit，不影响 P3a/P3b。
+- 状态：VERIFIED，随本 P3c 检查点原子提交。
 
 ## 任务 4 — P3d daemon / runstate
 

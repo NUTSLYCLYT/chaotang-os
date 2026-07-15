@@ -115,27 +115,8 @@ def _run_direct_task(task_id, q, command, plan_mode, target):
             cache.set(command, final, "swarm")
             q.put({"type": "done", "result": final, "cache_hit": False})
         
-        else:  # court
-            from src import chaotang_orchestrator as orch
-            draft = orch.draft_decree(command)
-            plan = {
-                "rawCommand": command,
-                "intent": draft.get("intent", command[:60]),
-                "taskType": "general",
-                "ministers": ["scribe"],
-                "groups": ["intel"]
-            }
-            flow_path = orch.assemble_flow(plan, task_id=task_id)
-            orch.run_chaotang_task(
-                task_id, q,
-                flow_path=flow_path,
-                task_input=command,
-                budget_max_calls=80,
-                min_success_groups=1,
-                stakes="low"
-            )
-            cache.set(command, {"status": "done"}, "court")
-            q.put({"type": "done", "result": {"status": "done"}, "cache_hit": False})
+        else:
+            raise RuntimeError("court mode must dispatch through canonical outbox")
     
     except Exception as e:
         q.put({"type": "error", "message": str(e)})
@@ -173,6 +154,63 @@ async def direct_execute(body: DirectCommandRequest, user: CurrentUser = Depends
     allowed, error = rate_limiter.check(_direct_user_key(user), plan_mode)
     if not allowed:
         return fail(error["message"], extra={"retry_after": error["retry_after"]})
+
+    if plan_mode == "court":
+        from src.execution.canonical_court_dispatch import (
+            dispatch_compat_court_task,
+        )
+
+        try:
+            result = dispatch_compat_court_task(
+                task_id=task_id,
+                user_id=_direct_user_key(user),
+                command=command,
+                compat_entrypoint="direct.execute",
+            )
+        except Exception:
+            import logging
+
+            latency_ms = (time.time() - start_time) * 1000
+            from src.direct_monitor import RoutingMetrics
+
+            logging.getLogger(__name__).warning(
+                "canonical direct court dispatch failed", exc_info=True
+            )
+            metrics_collector.record(RoutingMetrics(
+                command=command[:100],
+                mode=plan_mode,
+                target=target,
+                latency_ms=latency_ms,
+                success=False,
+                cache_hit=False,
+            ))
+            return fail("canonical_dispatch_failed")
+
+        latency_ms = (time.time() - start_time) * 1000
+        from src.direct_monitor import RoutingMetrics
+
+        metrics_collector.record(RoutingMetrics(
+            command=command[:100],
+            mode=plan_mode,
+            target=target,
+            latency_ms=latency_ms,
+            success=True,
+            cache_hit=False,
+        ))
+        if body.save_to_file:
+            out_path = Path(body.save_to_file)
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_text(
+                json.dumps(result, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        return ok({
+            "task_id": task_id,
+            "status": result["status"],
+            "result": result,
+            "mode": plan_mode,
+            "latency_ms": round(latency_ms, 2),
+        })
     
     # 执行任务
     q = queue.Queue()

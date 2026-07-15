@@ -10,6 +10,7 @@ _TERMINAL_TASK_STATUSES = frozenset(
     {
         "awaiting_decision",
         "awaiting_evidence",
+        "direct_completed",
         "archived",
         "rejected",
         "cancelled",
@@ -23,6 +24,7 @@ _WIRE_STATUS = {
     "reviewing": "running",
     "awaiting_decision": "report_ready",
     "awaiting_evidence": "report_ready",
+    "direct_completed": "report_ready",
     "archived": "archived",
     "rejected": "failed",
     "cancelled": "failed",

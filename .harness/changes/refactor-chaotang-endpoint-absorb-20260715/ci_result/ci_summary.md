@@ -15,10 +15,15 @@
 | P3b frontend canonical stream adapter | 0 | 3 passed | canonical→BattleStream 同形映射、失败诚实性、旧事件透传 | 2026-07-15 本地终端 |
 | P3b backend 相邻/API 契约扩展集 | 0 | 76 passed | 全前端已用路由精确契约、P0/P0b 权限、canonical 指标与 flow dual-write 相邻回归 | 2026-07-15 本地终端 |
 | 根 / backend / frontend harness doctor（P3b） | 0 | 三层均 0 errors / 0 warnings | P3b 跨线变更后的护栏结构与边界 | 2026-07-15 本地终端 |
+| P3c RED：`python3 -m pytest -q tests/test_direct_canonical_dispatch.py` | 1 | 2 failed / 2 passed（预期 RED） | direct court 仍进入旧 chaotang_orchestrator；权限/manor 基线已绿 | 2026-07-15 本地终端 |
+| P3c focused GREEN | 0 | 5 passed | canonical council/direct outbox、原响应形状、DB failure、认证、manor 无派发 | 2026-07-15 本地终端 |
+| P3c 核心安全/worker/终态相邻集 | 0 | 40 passed | direct canonical、P0-B、outbox、event ledger、P3b terminal projection | 2026-07-15 本地终端 |
+| P3c backend 扩展集 | 0 | 135 passed | outbox/decree ledger、丞相 routing/golden、swarm direct、P3b、compat/API/P0-B | 2026-07-15 本地终端 |
+| 根 / backend / frontend harness doctor（P3c） | 0 | 三层均 0 errors / 0 warnings | P3c 后端写链与根 change 证据更新后的护栏结构 | 2026-07-15 本地终端 |
 
 ## 结果
 
-P3a–P3b 聚焦与相邻回归全绿；P3 整包仍为部分验证，P3c–P3e 未执行。
+P3a–P3c 聚焦与相邻回归全绿；P3 整包仍为部分验证，P3d–P3e 未执行。
 
 ## 未验证项
 
@@ -48,7 +53,8 @@ P3a–P3b 聚焦与相邻回归全绿；P3 整包仍为部分验证，P3c–P3e 
 | 正常/失败/权限 | focused pytest | PASS |
 | 冻结王座不修改 | changed-files + deferred record | PASS |
 | P3b task/stream canonical 投影 | backend 25 focused + 76 expanded；frontend 3 passed | PASS |
-| 整个 P3 完成 | P3c–P3e | PENDING |
+| P3c direct court canonical outbox | RED→GREEN + focused 5 + adjacent 40 + expanded 135 | PASS |
+| 整个 P3 完成 | P3d–P3e | PENDING |
 
 ## 声明状态
 
