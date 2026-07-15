@@ -42,7 +42,7 @@
   P0-B/ownership 20 passed。
 - P3e RED 为 10 failed / 44 passed；GREEN focused 54、精确 API/P0-B 65、frontend
   adapter 3。P3-F1 RED 3 failed；修正后相关 80、P3 联合 179。P3a repair 与 P3-F1
-  clean 全量快照均只剩登记的 7 条基线失败；组合分支回灌后再做最终全量对账。
+  回灌后的组合分支最终全量 2635 passed / 27 skipped / 7 known-red，无新增失败。
 - 冻结边界：`backend/web/routers/throne.py` 未修改，其旧读依赖登记为
   `DEFERRED_REQUIRES_USER_DECISION`。
 - 未完成：P3-F1 独立复核；P3d 物理删除延期至满足观测窗口。审查 GO 前不得输出顶层

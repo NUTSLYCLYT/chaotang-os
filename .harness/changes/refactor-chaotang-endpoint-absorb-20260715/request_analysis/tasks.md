@@ -70,5 +70,6 @@
 - 独立预审：`e595818` 记录 P3-F1 HIGH，指出默认 canonical dispatch 静默丢约束。
 - P3-F1 修复：可映射 ministers/groups 真实驱动 route/worker；budget/high stakes/不支持
   group 在落库前明确拒绝。RED 3 failed；相关扩展 80 passed；P3 联合集 179 passed；
-  全量 2628 passed / 26 skipped / 7 known baseline failed。
+  clean 快照全量 2628 passed / 26 skipped / 7 known baseline failed；与 P3a repair
+  回灌后的组合分支最终全量 2635 passed / 27 skipped / 7 known baseline failed。
 - 状态：VERIFIED_PENDING_REREVIEW；P3-F1 需独立 reviewer 复核后才宣告 P3 完成。

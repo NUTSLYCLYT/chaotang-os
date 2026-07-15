@@ -45,12 +45,13 @@
 | P3-F1 related GREEN | 0 | 80 passed | constraints、routing/golden、outbox、P0-B、API exact | 2026-07-15 clean worktree |
 | P3-F1 后 P3 联合集 | 0 | 179 passed | P3a–P3e + chancellor/outbox/constraints | 2026-07-15 clean worktree |
 | backend 全量（P3-F1 clean snapshot） | 1（基线） | 2628 passed / 26 skipped / 7 known failed | 无新增失败；尚未包含随后落入任务分支的 P3a repair | 2026-07-15 clean worktree |
+| backend 组合分支最终全量 | 1（基线） | 2635 passed / 27 skipped / 7 known failed | P3a repair + P3-F1 回灌后无新增失败 | 2026-07-15 task worktree |
 
 ## 结果
 
 P3a stop-gate repair、P3b–P3e 聚焦、相邻、API 契约与前端 adapter 全绿；P3d 按证据门
-只完成 flag-only，未物理删除。P3a repair 与 P3-F1 各自的全量快照均无新增失败，
-组合分支将在回灌后再次全量对账；整包等待 P3-F1 独立复核。
+只完成 flag-only，未物理删除。P3a repair 与 P3-F1 回灌后的组合分支全量无新增失败，
+7 条失败与登记基线完全一致；整包等待 P3-F1 独立复核。
 
 ## 未验证项
 
@@ -86,7 +87,7 @@ P3a stop-gate repair、P3b–P3e 聚焦、相邻、API 契约与前端 adapter �
 | P3d 物理删除 | 缺真实观测窗口 | DEFERRED_BY_GATE |
 | P3e writer whitelist zero / legacy production read-only | RED→GREEN + 54 + 131 + 65 | PASS |
 | 后端全量快照 | P3a repair 2632/27/7；P3-F1 clean 2628/26/7 | PASS_WITH_BASELINE |
-| 组合分支后端全量 | 回灌后复验 | PENDING |
+| 组合分支后端全量 | 2635 pass / 27 skip / 7 known baseline fail | PASS_WITH_BASELINE |
 | P3-F1 canonical constraints | RED 3 + related 80 + P3 joint 179 | PASS_PENDING_REREVIEW |
 | 整个 P3 完成 | P3-F1 独立复核 | PENDING_REREVIEW |
 
