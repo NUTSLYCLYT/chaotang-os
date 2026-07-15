@@ -11,8 +11,9 @@
 ## 范围
 
 - 主线：P3 chaotang legacy 链逐端点吸收；同一 change、同一任务分支，严格按 P3a→P3e。
-- 当前检查点：P3a 已把史官 `lessons` / `archive-docs` 从 legacy 双读切到
-  `ShiguanArchive` + 可选 `FinalMemorial` canonical 投影；返回信封与 CourtDoc 形状不变。
+- 当前检查点：P3a 原实现 `c21127e` 被 stop-gate BLOCK；repair 已新增 append-only
+  `ArchiveOutcomeEvent`、默认 dry-run 幂等 backfill，并让史官只投影真实 terminal outcome。
+  奏折 summary 不再冒充 lesson，DB 故障显式 503，拒绝/无 archive 结果保留红灯且未签署。
 - P3b 已把 `taskDetail` 与终态 `/api/chaotang/stream/*` 切到
   `DecisionTask` / `SwarmRun` / `DecreeExecutionEvent` 投影，前端用同形 adapter
   消费 canonical SSE；活动旧任务 queue 桥留至 P3d，view-only result 桥留至 P3e。
@@ -27,7 +28,8 @@
   review 不再双写 legacy review 表/JSON，详情改读 formal decision 投影。
 - 当前文件：P3a–P3e 后端投影/dispatch adapter/路由、P3b 前端 adapter、相邻测试及
   本 change 证据。
-- 验证：P3a RED 见 6 failed / 5 passed，实现后 22 passed；P3b RED 证明旧
+- 验证：P3a repair RED 5 failed，GREEN 16 passed；P0-B/相邻最终 91 passed；最终后端
+  全量 2632 passed / 27 skipped / 7 known-red，三层 doctor 0/0。P3b RED 证明旧
   registry/RunLog 与缺失 adapter，GREEN 为后端 focused 25、扩展契约 76、前端 3，
   三层 doctor 均 0 errors / 0 warnings。
 - P3c RED 为 2 failed / 2 passed，证明 direct court 仍进入旧 orchestrator；GREEN
@@ -35,7 +37,7 @@
 - P3d RED 为 2 failed，证明两条 daemon 默认仍可达；实现后聚焦/相邻 42 passed、
   P0-B/ownership 20 passed。
 - P3e RED 为 10 failed / 44 passed；GREEN focused 54、P3 联合 131、精确 API/P0-B 65、
-  frontend adapter 3。后端全量 2619 passed / 26 skipped；剩余 7 failed 与登记基线一致。
+  frontend adapter 3。P3a repair 后最终全量剩余 7 failed 与登记基线一致。
 - 冻结边界：`backend/web/routers/throne.py` 未修改，其旧读依赖登记为
   `DEFERRED_REQUIRES_USER_DECISION`。
 - 未完成：整包独立 diff review；P3d 物理删除延期至满足观测窗口。审查 GO 前不得输出

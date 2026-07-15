@@ -1,17 +1,22 @@
 # 任务：refactor-chaotang-endpoint-absorb-20260715
 
-## 任务 1 — P3a scribe canonical read
+## 任务 1 — P3a scribe canonical outcome repair
 
-- 目标：移除史官对旧复盘存储与冻结王座投影的双读，改读 canonical 归档。
+- 目标：移除史官对旧复盘存储与冻结王座投影的双读，并修复首次实现把奏折摘要
+  冒充事后教训、DB 故障伪装空态、拒绝案消失的问题。
 - 前置条件：P2 tripwire/观测守门已合入 ext；王座保持冻结。
-- 输入：`ShiguanArchive` + 可选 `FinalMemorial`。
+- 输入：append-only `ArchiveOutcomeEvent` + 可选 `ShiguanArchive` / `FinalMemorial` 标题快照。
 - 输出：既有 lessons / CourtDoc 响应形状。
-- 涉及文件：`backend/web/routers/scribe.py`、scribe/flywheel 相邻测试、本 change 证据。
-- 状态 / 数据变化：只读投影；无 schema、写入或迁移。
-- 验证命令与证据：`ci_result/ci_summary.md`，22 passed。
-- 回滚边界：P3a 原子 commit；恢复 legacy 需走 P2 临时程序。
+- 涉及文件：outcome model/service/migration/dry-run backfill、`scribe.py`、scribe/flywheel
+  相邻测试、本 change 证据。
+- 状态 / 数据变化：新增 `archive_outcome_events` append-only 表；旧 `Retrospective`
+  仅通过显式、幂等、默认 dry-run 的离线程序追加，绝不原地改写账本。
+- 验证命令与证据：`ci_result/ci_summary.md`；聚焦 16、P0-B/相邻 91、最终全量
+  2632 passed / 27 skipped / 7 known-red；三层 doctor 全绿。
+- 回滚边界：P3a repair 原子 commit；已有 outcome event 后不得直接 downgrade 丢账，
+  应先停写/回退读投影并保留表。
 - 完成定义：结构依赖清零；正常/失败/权限/租户/去重/来源测试通过。
-- 状态：VERIFIED，已提交（`c21127e`）。
+- 状态：REPAIRED_PENDING_INDEPENDENT_REVIEW；原提交 `c21127e` 已被 stop-gate BLOCK。
 
 ## 任务 2 — P3b taskDetail / stream
 

@@ -34,11 +34,18 @@
 | P3e API exact / P0-B / tripwire / architecture | 0 | 65 passed | 前端已用路由契约、所有权、写入阻断、AST gate | 2026-07-15 本地终端 |
 | P3e frontend canonical stream adapter | 0 | 3 passed | canonical/legacy rollback 事件同形消费 | 2026-07-15 本地终端 |
 | 根 / backend / frontend harness doctor（P3e） | 0 | 三层均 0 errors / 0 warnings | P3e 根变更与三层结构 | 2026-07-15 本地终端 |
+| P3a repair RED：`pytest -q tests/test_scribe_canonical_outcome_red.py` | 1 | 5 failed | summary 冒充 lesson、DB 故障伪空、缺 outcome/backfill、拒绝案错误 | 2026-07-15 本地终端 |
+| P3a repair focused | 0 | 16 passed | 历史保真/幂等、no-archive reject、correction supersedes、503 | 2026-07-15 本地终端 |
+| P3a repair P0-B + adjacent | 0 | 72 passed；扩展 91 passed / 1 base-env skip | 无新增 DecisionTask 裸查面；史馆/正式奏折/golden 相邻 | 2026-07-15 本地终端 |
+| P3a 011 真实迁移 | 0 | 2 passed | `/tmp` system-site venv 补 Alembic；真实 SQLite 010→011 upgrade/downgrade、约束/索引 | 2026-07-15 本地终端 |
+| P3a repair 最终 backend 全量 | 1（基线） | 2632 passed / 27 skipped / 7 known failed | 最终代码全仓回归；失败集合与登记基线一致 | 2026-07-15 本地终端 |
+| P3a repair compile/diff/三层 doctor | 0 | compile/diff PASS；三层 0 errors / 0 warnings | 语法、提交边界与项目结构 | 2026-07-15 本地终端 |
 
 ## 结果
 
-P3a–P3e 聚焦、相邻、API 契约与前端 adapter 全绿；P3d 按证据门只完成 flag-only，
-未物理删除。后端全量无新增失败，7 条失败与 P2 登记基线完全一致。整包等待独立审查。
+P3a stop-gate repair、P3b–P3e 聚焦、相邻、API 契约与前端 adapter 全绿；P3d 按证据门
+只完成 flag-only，未物理删除。最终后端全量无新增失败，7 条失败与登记基线完全一致。
+P3a repair 与整包均等待独立审查。
 
 ## 未验证项
 
@@ -48,8 +55,9 @@ P3a–P3e 聚焦、相邻、API 契约与前端 adapter 全绿；P3d 按证据�
   解析仍以 P3 worktree 为根，因缺 `react` / `next` / Node typings 等依赖产生环境性失败；
   本检查点以可实际解析目标文件的 `tsx --test` 3 项通过为准，全量前端检查留到 P3e
   的已安装依赖环境，不把本次无效 `tsc` 结果登记为产品 known-red。
-- 项目环境未安装 `ruff` / `black`；用 `py_compile`、`diff --check` 与现有 pytest 代替，
-  此项不构成产品门禁缺失。
+- 项目基础解释器未安装 `ruff` / `black` / `alembic`；全量中的迁移测试因此 skip 1。
+  已在 `/tmp` 临时 system-site venv 补 Alembic，真实执行 010→011 upgrade/downgrade 2 passed；
+  另以 `py_compile`、模型 create_all 与 `diff --check` 复核。
 
 ## Diff 与回滚复核
 
@@ -64,7 +72,7 @@ P3a–P3e 聚焦、相邻、API 契约与前端 adapter 全绿；P3d 按证据�
 
 | DoD | 证据 | 状态 |
 | --- | --- | --- |
-| canonical 单读源 | canonical projection tests + structural grep | PASS |
+| canonical 单读源 | append-only outcome projection tests + structural grep | PASS |
 | 正常/失败/权限 | focused pytest | PASS |
 | 冻结王座不修改 | changed-files + deferred record | PASS |
 | P3b task/stream canonical 投影 | backend 25 focused + 76 expanded；frontend 3 passed | PASS |
@@ -72,7 +80,7 @@ P3a–P3e 聚焦、相邻、API 契约与前端 adapter 全绿；P3d 按证据�
 | P3d daemon default-off / canonical decree | evidence audit + RED→GREEN + 42 + 20 + joint 196 | PASS_FLAG_ONLY |
 | P3d 物理删除 | 缺真实观测窗口 | DEFERRED_BY_GATE |
 | P3e writer whitelist zero / legacy production read-only | RED→GREEN + 54 + 131 + 65 | PASS |
-| 后端全量 | 2619 pass / 26 skip / 7 known baseline fail | PASS_WITH_BASELINE |
+| 后端全量 | 2632 pass / 27 skip / 7 known baseline fail | PASS_WITH_BASELINE |
 | 整个 P3 完成 | 独立 diff review | PENDING_REVIEW |
 
 ## 声明状态

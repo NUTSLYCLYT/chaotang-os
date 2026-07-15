@@ -13,6 +13,8 @@ P2 已用 tripwire 和观测守门关住 parallel legacy writer。P3 在同一�
 | 已确认事实 | `scribe.py` 同时依赖冻结王座列表与旧复盘读 API | 变更前源码；P3a RED structural test，2026-07-15 | Backend / 已验证 | 否 |
 | 已确认事实 | canonical `ShiguanArchive` 保存正式奏折快照、人工裁决、来源与 synthetic 标记；`FinalMemorial` 可为早期空快照补齐正式内容 | `backend/src/db/models.py`、`backend/web/routers/shangshufang.py::_archive_task` | Backend / 已验证 | 否 |
 | 已确认事实 | 两表尚无 `tenant_id`，非 default 租户不可安全读取 | 模型定义与 `test_non_default_tenant_cannot_read_unscoped_canonical_archives` | Backend / 已验证 | 否 |
+| stop-gate 事实 | `FinalMemorial`/`ShiguanArchive` 描述当时奏折，不是事后结果；旧实现却把 memorial `summary` 投成 lesson | `test_scribe_canonical_outcome_red.py` RED | Backend / 已验证 | 是（P3a 原实现） |
+| stop-gate 事实 | 真实历史 lessons/playbook/authored_at 仍在 mutable `Retrospective`；拒绝路径可没有 archive | 模型、reject 路径与 RED 回归 | Backend / 已验证 | 是（P3a 原实现） |
 | 已确认事实 | 当前 `manor.py` 自仓库导入以来没有 `chaotang_orchestrator` 或其它生产派发调用 | 当前源码 + 历史 `git show`/`git log -S`，2026-07-15 | Backend / 已验证 | 否 |
 | 已确认事实 | `direct.py` 的 `mode=court` 仍在线程中调用 `assemble_flow/run_chaotang_task` | P3c RED 2 failed / 2 passed | Backend / 已验证 | 否 |
 | 已确认事实 | P2 只有单次独立进程快照，canonical 三阶段均为 `0.0`；没有新链上升与旧链连续窗口归零证据 | P2 `ci_result/ci_summary.md`，P3d 复核 2026-07-15 | P3d 门禁 | 是（仅阻塞物理拆除） |
@@ -21,8 +23,9 @@ P2 已用 tripwire 和观测守门关住 parallel legacy writer。P3 在同一�
 
 P3a 旧链：`scribe -> throne memorial projection + legacy retrospective -> response`。
 
-P3a 新链：`scribe -> canonical DB (latest ShiguanArchive per task -> embedded formal
-snapshot; missing snapshot -> FinalMemorial) -> same response envelope`。
+P3a 修复链：`legacy Retrospective --显式幂等 backfill--> append-only
+ArchiveOutcomeEvent -> scribe latest terminal outcome per task -> optional archive/formal
+title snapshot -> same response envelope`。奏折正文只提供标题上下文，绝不提供 lesson。
 
 P3b 新链：`chaotang taskDetail -> canonical task projection -> legacy response shape`；
 `chaotang stream -> ordered DecreeExecutionEvent replay/current snapshot -> frontend
@@ -51,8 +54,8 @@ runtime allowlist 移除，仅保留 pytest 专用 writer。
 
 | 契约 | 生产者 / 事实源 | 消费者 | 兼容性与验证 |
 | --- | --- | --- | --- |
-| `GET /api/scribe/lessons` | latest real `ShiguanArchive`，可选 `FinalMemorial` fallback | 史馆页 | 维持 `{success,data:{lessons}}`；正常、空/失败、租户、认证测试 |
-| `GET /api/scribe/archive-docs` | 同一 canonical 投影 | CourtDoc adapter / 史馆卡片 | CourtDoc 字段同形；传播 canonical source；不编造 evidence |
+| `GET /api/scribe/lessons` | latest terminal `ArchiveOutcomeEvent`；archive/formal 只补标题 | 史馆页 | 维持 `{success,data:{lessons}}`；DB 故障显式 503；不把 summary 当 lesson |
+| `GET /api/scribe/archive-docs` | 同一 outcome 投影 | CourtDoc adapter / 史馆卡片 | success→green；blocked/reject→red/unsigned；无 archive 的拒绝案也保留 |
 | P3b taskDetail/stream | `DecisionTask` / latest `SwarmRun` / ordered `DecreeExecutionEvent` | 军机处页 / BattleStream | 原响应 shape；canonical SSE 经前端 adapter 映射；正常/失败/权限测试 |
 | `POST /api/direct/execute`，`mode=court` | canonical routing decision + transaction outbox | direct API 兼容调用方 | 原五字段 data shape；正常 council/direct、DB 失败、认证与 P0-B 门测试 |
 | `POST /api/chaotang/decree/dispatch` | 默认 canonical routing + transaction outbox；flag=1 才回旧 daemon | 军机处旧页面调用 | 原九字段 data shape；默认 canonical、rollback legacy、失败/权限测试 |
@@ -64,7 +67,8 @@ runtime allowlist 移除，仅保留 pytest 专用 writer。
 ## 范围
 
 - P3a→P3e 五个顺序检查点，共用本 change 与 `task/p3-chaotang-endpoint-absorb` 分支。
-- P3a：只改史官两个读端点及其测试/证据。
+- P3a：首次实现被 stop-gate BLOCK 后，批准补齐 outcome ledger、迁移、离线 backfill、
+  两个史官读端点及其测试/证据；不借机改王座或决策 UI。
 - P3b：taskDetail 与 stream canonical 投影及最小前端 adapter。
 - P3c：迁移实际存在的 direct court 写链；manor 经源码/历史核实无派发，不改文件。
 - P3d：仅在 P2 计数证据满足时物理拆 daemon；否则只关 feature flag。
@@ -75,7 +79,7 @@ runtime allowlist 移除，仅保留 pytest 专用 writer。
 - 不修改冻结的 `backend/web/routers/throne.py`。
 - 不裁决庄园产品去留。
 - 不迁移 `direct.py` 的纯 LLM / swarm 模式；它们不调用 chaotang orchestrator。
-- 不在 P3a 创建新的 retrospective/outcome 事实；正式奏折没有内容就诚实返回空。
+- 不把正式奏折、裁决 reason 或 synthetic retrospective 伪装成真实 outcome。
 - 不在 P3e 前合并或宣告顶层 P3 完成。
 
 ## 边界条件
@@ -83,10 +87,10 @@ runtime allowlist 移除，仅保留 pytest 专用 writer。
 | 条件 | 预期行为 | 证据 / 验证 |
 | --- | --- | --- |
 | synthetic / FALLBACK / DEMO 归档 | 不进入史官真实旧案列表 | canonical tests |
-| archive snapshot 缺失 | 同一 canonical DB 中回退 `FinalMemorial`; 仍无内容则跳过 | canonical fallback test |
-| 同 task 多次归档 | 只取 `created_at` 最新一条 | duplicate archive test |
+| archive snapshot 缺失 | outcome 仍保留；标题可回退 `FinalMemorial`/task id | no-archive rejected test |
+| 同 task 多次 outcome | 追加 correction + supersedes；稳定投影最新一条，旧事件保留 | correction regression |
 | non-default tenant | 因表无 tenant 字段而 fail closed 返回空 | tenant isolation test |
-| canonical DB 不可用 | 保持 200 空数组契约并记录 warning | failure contract test |
+| canonical DB 不可用 | 显式 503，不把故障伪装成“没有历史” | failure contract test |
 | 未认证且启用认证 | 401，不进入投影 | auth test |
 | canonical task 属于其他用户 | 详情统一“不存在”，stream 404；不得回退旧 queue | P3b ownership tests |
 | canonical DB 不可用 | 详情显式 fail；stream 503；不得伪装空成功 | P3b failure tests |
@@ -109,9 +113,9 @@ runtime allowlist 移除，仅保留 pytest 专用 writer。
 
 ## 风险与回滚边界
 
-P3a 主要风险是把旧 retrospective 语义误装成 canonical 事实。缓解：仅取正式奏折真实
-`lessons`，缺失时取真实 `summary`；裁决 reason 只放 summary；patterns/tags/evidence
-保持空。归档端点只展示实际 `ShiguanArchive`，不把未归档/驳回状态臆造成卷宗。
+P3a 主要风险是把“当时建议”误装成“后来结果”，或迁移 mutable retrospective 时覆盖
+历史。缓解：lesson/playbook 只来自 append-only outcome payload；内容哈希幂等回填，修订
+追加 correction + supersedes；synthetic 跳过；legacy_unverified 诚实 unsigned；DB 故障 503。
 
 P3b 主要风险是迁移读端点时让正在运行的旧任务断流，或在 canonical 权限校验失败后
 回落 queue 造成越权。缓解：canonical 终态任务只读账本；canonical 尚未终态且旧 daemon
@@ -131,14 +135,16 @@ P3e 主要风险是删掉 legacy 双写后，批阅状态与任务详情仍从�
 或直接把写端点统一拒绝而丢失 owner 门。缓解：批阅详情改投影正式裁决，task detail 删除
 `result_json` fallback；persist 端点先做 ownership 检查再返回只读错误；历史 GET 保持只读。
 
-回滚按 P3a 原子 commit；若临时恢复旧读链，必须按 P2 清单的临时恢复程序登记，不能
-静默加回 writer 白名单。
+回滚按 P3a repair 原子 commit；若 ledger 已有数据，禁止直接 downgrade 丢账，应先停写、
+回退读投影并保留表。临时恢复旧读链仍须按 P2 程序登记，不能静默加回 writer 白名单。
 
 ## 计划确认记录
 
 - 批准人：用户
 - 批准日期：2026-07-15
 - 批准范围：按既定 P3a→P3e 顺序继续执行
+- P3a stop-gate 修复授权：用户要求按顶尖专家方式处理并按顺序执行；先修 P3a，独立
+  review GO 前不推进新的决策按钮/UI 工作。
 - 明确未批准：修改冻结王座；无流量证据物理拆除 P3d；P3e 前合并/宣告完成
 
 ## 验收标准

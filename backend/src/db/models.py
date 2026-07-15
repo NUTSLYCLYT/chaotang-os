@@ -191,6 +191,61 @@ class Retrospective(Base):
     __table_args__ = (sa.Index("ix_retrospectives_task_id", "task_id"),)
 
 
+class ArchiveOutcomeEvent(Base):
+    """史馆实际结果的 append-only 事实账本。
+
+    Retrospective 是历史上的可变复盘表，不能直接充当“后来怎样”的事实源。
+    本表保存每次已署名结果或纠错事件；旧复盘只可通过幂等 backfill 追加进来。
+    archive_id 允许为空，是为了诚实承接尚未形成 ShiguanArchive 的拒绝/旧案，
+    task_id 始终是稳定关联键。
+    """
+
+    __tablename__ = "archive_outcome_events"
+
+    id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    archive_id: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    event_type: Mapped[str] = mapped_column(
+        sa.Text, nullable=False, default="outcome.recorded"
+    )
+    actual: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    source_type: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    source_auth_level: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    occurred_at: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    recorded_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
+    recorded_by: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    evidence_ref: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    idempotency_key: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    supersedes_event_id: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    payload_hash: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    payload_json: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    synthetic_flag: Mapped[bool] = mapped_column(
+        sa.Boolean, nullable=False, default=False
+    )
+
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "tenant_id",
+            "idempotency_key",
+            name="uq_archive_outcome_events_tenant_idempotency",
+        ),
+        sa.Index(
+            "ix_archive_outcome_events_tenant_archive_recorded",
+            "tenant_id",
+            "archive_id",
+            "recorded_at",
+        ),
+        sa.Index(
+            "ix_archive_outcome_events_tenant_task_recorded",
+            "tenant_id",
+            "task_id",
+            "recorded_at",
+        ),
+        sa.Index("ix_archive_outcome_events_supersedes", "supersedes_event_id"),
+    )
+
+
 # ── shangshufang decision loop ─────────────────────────────────────────────
 
 

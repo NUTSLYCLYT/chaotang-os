@@ -21,7 +21,8 @@ def test_scribe_archive_docs_no_longer_advertise_legacy_flywheel_write(
 ):
     import json
 
-    from src.db.models import ShiguanArchive
+    from src.archive_outcomes import backfill_legacy_retrospectives
+    from src.db.models import Retrospective, ShiguanArchive
     from web.routers import scribe
 
     db = isolated_session_local()
@@ -42,6 +43,23 @@ def test_scribe_archive_docs_no_longer_advertise_legacy_flywheel_write(
             created_at="2026-07-15T08:00:00+00:00",
         )
     )
+    db.add(
+        Retrospective(
+            task_id="task-1",
+            tenant_id=1,
+            score=4,
+            successes_json="[]",
+            failures_json="[]",
+            lessons_json='["必须保留证据"]',
+            playbook="核验后再执行",
+            authored_by="史官",
+            authored_at="2026-07-15T08:00:00+00:00",
+            synthetic=False,
+            outcome="success",
+        )
+    )
+    db.commit()
+    backfill_legacy_retrospectives(session=db)
     db.commit()
     db.close()
 

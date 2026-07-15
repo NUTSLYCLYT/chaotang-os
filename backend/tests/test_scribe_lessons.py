@@ -84,7 +84,7 @@ def test_scribe_read_path_has_no_legacy_store_or_frozen_throne_dependency():
     assert "web.routers.throne" not in source
 
 
-def test_lessons_projects_real_canonical_archive_summary(
+def test_lessons_does_not_project_memorial_summary_as_retrospective(
     client, isolated_session_local
 ):
     _archive(
@@ -100,27 +100,10 @@ def test_lessons_projects_real_canonical_archive_summary(
     response = client.get("/api/scribe/lessons")
 
     assert response.status_code == 200
-    lessons = response.json()["data"]["lessons"]
-    assert lessons == [
-        {
-            "billId": "task_a",
-            "billTitle": "奏折A",
-            "extractedAt": "2026-07-15T08:00:00+00:00",
-            "lessons": [
-                {
-                    "id": "task_a-0",
-                    "text": "先核验超时证据，再放行 SSE。",
-                    "severity": "note",
-                }
-            ],
-            "patterns": [],
-            "tags": [],
-            "summary": "证据充分，同意归档",
-        }
-    ]
+    assert response.json()["data"]["lessons"] == []
 
 
-def test_lessons_uses_formal_memorial_when_archive_snapshot_is_missing(
+def test_lessons_does_not_treat_formal_memorial_lessons_as_actual_outcome(
     client, isolated_session_local
 ):
     _formal(
@@ -134,13 +117,10 @@ def test_lessons_uses_formal_memorial_when_archive_snapshot_is_missing(
         memorial=None,
     )
 
-    lessons = client.get("/api/scribe/lessons").json()["data"]["lessons"]
-
-    assert lessons[0]["billTitle"] == "正式奏折"
-    assert lessons[0]["lessons"][0]["text"] == "保留正式证据链"
+    assert client.get("/api/scribe/lessons").json()["data"]["lessons"] == []
 
 
-def test_lessons_skips_synthetic_empty_and_older_duplicate_archives(
+def test_lessons_skips_archives_without_a_real_outcome_event(
     client, isolated_session_local
 ):
     _archive(
@@ -165,8 +145,4 @@ def test_lessons_skips_synthetic_empty_and_older_duplicate_archives(
         created_at="2026-07-15T09:00:00+00:00",
     )
 
-    lessons = client.get("/api/scribe/lessons").json()["data"]["lessons"]
-
-    assert [entry["billId"] for entry in lessons] == ["task_duplicate"]
-    assert lessons[0]["billTitle"] == "新标题"
-    assert lessons[0]["lessons"][0]["text"] == "新摘要"
+    assert client.get("/api/scribe/lessons").json()["data"]["lessons"] == []

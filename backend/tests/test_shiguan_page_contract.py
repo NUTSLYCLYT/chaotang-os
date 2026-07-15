@@ -62,7 +62,7 @@ def test_shiguan_formal_archive_contracts_exist():
     assert verdict.json()["data"]["sourceLabel"] == "FALLBACK"
 
 
-def test_scribe_lessons_contract_has_lessons_list():
+def test_scribe_lessons_contract_has_lessons_list(isolated_session_local):
     response = TestClient(app).get("/api/scribe/lessons")
 
     assert response.status_code == 200

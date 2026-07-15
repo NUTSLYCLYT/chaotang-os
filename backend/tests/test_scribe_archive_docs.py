@@ -17,7 +17,7 @@ def client(monkeypatch, isolated_session_local):
 
 
 def _archive(session_local, *, task_id: str, source_label: str = "LIVE_SWARM"):
-    from src.db.models import ShiguanArchive
+    from src.db.models import Retrospective, ShiguanArchive
 
     db = session_local()
     db.add(
@@ -44,6 +44,25 @@ def _archive(session_local, *, task_id: str, source_label: str = "LIVE_SWARM"):
             created_at="2026-07-15T08:00:00+00:00",
         )
     )
+    db.add(
+        Retrospective(
+            task_id=task_id,
+            tenant_id=1,
+            score=4,
+            successes_json="[]",
+            failures_json="[]",
+            lessons_json=json.dumps(["先核证据，再执行。"], ensure_ascii=False),
+            playbook="核验后再放行",
+            authored_by="史官",
+            authored_at="2026-07-15T08:00:00+00:00",
+            synthetic=False,
+            outcome="success",
+        )
+    )
+    db.commit()
+    from src.archive_outcomes import backfill_legacy_retrospectives
+
+    backfill_legacy_retrospectives(session=db)
     db.commit()
     db.close()
 
@@ -79,7 +98,7 @@ def test_archive_docs_maps_canonical_archive_without_inventing_evidence(
                 "gate": "passed",
             },
             "sourceLabel": "LIVE_SWARM",
-            "signed": True,
+            "signed": False,
             "sealedArchive": "archive_task_a",
         }
     ]
@@ -108,7 +127,7 @@ def test_non_default_tenant_cannot_read_unscoped_canonical_archives(
     assert client.get("/api/scribe/archive-docs").json()["data"]["docs"] == []
 
 
-def test_archive_docs_returns_empty_contract_when_canonical_db_is_unavailable(
+def test_archive_docs_returns_503_when_canonical_db_is_unavailable(
     client, monkeypatch
 ):
     import importlib
@@ -122,8 +141,7 @@ def test_archive_docs_returns_empty_contract_when_canonical_db_is_unavailable(
 
     response = client.get("/api/scribe/archive-docs")
 
-    assert response.status_code == 200
-    assert response.json()["data"] == {"docs": []}
+    assert response.status_code == 503
 
 
 def test_archive_docs_requires_auth_when_backend_auth_is_enabled(
