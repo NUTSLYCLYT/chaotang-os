@@ -22,3 +22,5 @@ jobs:
         run: node scripts/check_harness.mjs --self-test
       - name: Test shared Stop hook protocol
         run: node .agents/hooks/check-harness.mjs --self-test
+      - name: Test product-flow Claude runner
+        run: node .agents/skills/product-flow/scripts/run-claude-delivery.mjs --self-test

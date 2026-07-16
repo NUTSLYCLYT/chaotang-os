@@ -4,6 +4,9 @@
 
 - `agentic-engineering.md`：本项目的 agent 协作、验证闭环和能力引入原则。
 - `tooling-compatibility.md`：共享 harness 的客户端适配、运行环境和冒烟检查。
+- `product-collaboration.md`：Codex 产品经理与 Claude Code 程序团队的职责和交接协议。
+- `product/tasks/`：经用户确认的产品任务、实现证据和验收结论。
+- 根目录 `.agents/skills/product-flow/`：由 Codex 桌面任务调用 Claude Code 并自动验收的项目 skill。
 - `decisions/`：已经作出的重要架构或流程选择，以及选择原因。
 - `failures/`：高风险、用户可见或可能复发问题的根因和检测方式。
 

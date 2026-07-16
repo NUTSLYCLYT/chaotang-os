@@ -15,18 +15,29 @@ const REQUIRED_FILES = [
   "backend/CLAUDE.md",
   "docs/README.md",
   "docs/agentic-engineering.md",
+  "docs/product-collaboration.md",
+  "docs/product/tasks/TEMPLATE.md",
   "docs/tooling-compatibility.md",
   "docs/decisions/0001-agentic-engineering-baseline.md",
   "docs/decisions/0002-dual-tool-harness-sharing.md",
+  "docs/decisions/0003-codex-product-claude-delivery-handoff.md",
+  "docs/decisions/0004-claude-specialist-delivery-roles.md",
+  "docs/decisions/0005-codex-desktop-product-flow-skill.md",
   "docs/failures/2026-07-15-shared-harness-stop-hook-false-green.md",
   ".github/workflows/harness.yml",
   ".agents/hooks/check-harness.mjs",
   ".agents/skills/record-decision/SKILL.md",
   ".agents/skills/record-failure/SKILL.md",
+  ".agents/skills/product-flow/SKILL.md",
+  ".agents/skills/product-flow/agents/openai.yaml",
+  ".agents/skills/product-flow/scripts/run-claude-delivery.mjs",
   ".claude/skills/record-decision/SKILL.md",
   ".claude/skills/record-failure/SKILL.md",
   ".claude/settings.json",
   ".claude/agents/harness-doctor.md",
+  ".claude/agents/solution-architect.md",
+  ".claude/agents/module-engineer.md",
+  ".claude/agents/test-engineer.md",
   ".codex/hooks.json",
   ".codex/agents/harness-doctor.toml",
 ];
@@ -34,7 +45,7 @@ const REQUIRED_FILES = [
 const LEGACY_META_HARNESS = [".harness", "frontend/.harness"];
 
 // Codex 与 Claude Code 曾各存一份内容相同的 hook 脚本;现在统一收敛到
-// .agents/hooks/check-harness.sh,这两个旧路径不应该复活。
+// .agents/hooks/check-harness.mjs,旧路径不应该复活。
 const LEGACY_DUPLICATED_HOOKS = [
   ".claude/hooks/check-harness.sh",
   ".codex/hooks/check-harness.sh",
@@ -48,12 +59,93 @@ const SHARED_HOOK_COMMAND = `node ${SHARED_HOOK_SCRIPT}`;
 // WSL 软链接无法被 Windows Node 通过 UNC 稳定读取,因此保留两份实际入口文件,
 // 并用字节级检查阻止内容漂移。
 const SHARED_SKILLS = ["record-decision", "record-failure"];
+const PRODUCT_TASK_SECTIONS = [
+  "Status",
+  "Product Definition",
+  "Acceptance Criteria",
+  "Delivery Constraints",
+  "Affected Modules",
+  "Technical Plan",
+  "Implementation Report",
+  "Acceptance Review",
+];
+const PRODUCT_TASK_STATUSES = [
+  "Draft",
+  "Ready",
+  "In Progress",
+  "Blocked",
+  "Implemented",
+  "Accepted",
+];
+const CLAUDE_DELIVERY_AGENTS = [
+  {
+    name: "solution-architect",
+    tools: ["Read", "Grep", "Glob", "Bash"],
+    permissionMode: "plan",
+    requiredText: ["Technical Plan", "不修改任何文件", "不要编辑任务文件"],
+  },
+  {
+    name: "module-engineer",
+    tools: ["Read", "Grep", "Glob", "Bash", "Edit", "Write"],
+    permissionMode: "acceptEdits",
+    requiredText: ["允许路径", "frontend/", "backend/", "不得修改产品任务文件", "不得调用其他角色"],
+  },
+  {
+    name: "test-engineer",
+    tools: ["Read", "Grep", "Glob", "Bash", "Edit", "Write"],
+    permissionMode: "acceptEdits",
+    requiredText: ["Affected Modules", "Technical Plan", "允许路径", "不得修改产品任务文件", "不得调用其他角色"],
+  },
+];
 
 export function missingSections(markdown, sections) {
   return sections.filter((section) => {
     const escaped = section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return !new RegExp(`^## ${escaped}\\s*$`, "m").test(markdown);
   });
+}
+
+export function sectionBody(markdown, section) {
+  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
+  const header = `## ${section}`;
+  const start = lines.findIndex((line) => line.trimEnd() === header);
+  if (start === -1) return null;
+  let end = start + 1;
+  while (end < lines.length && !lines[end].startsWith("## ")) end += 1;
+  return lines.slice(start + 1, end).join("\n").trim();
+}
+
+export function productTaskErrors(path, content) {
+  const errors = [];
+  for (const section of missingSections(content, PRODUCT_TASK_SECTIONS)) {
+    errors.push(`产品任务 ${path} 缺少章节: ## ${section}`);
+  }
+
+  if (!/^# [^#\r\n].+$/m.test(content)) {
+    errors.push(`产品任务 ${path} 缺少一级标题`);
+  }
+
+  const statusBody = sectionBody(content, "Status");
+  const status = statusBody?.split(/\r?\n/, 1)[0].trim();
+  if (statusBody !== null && !PRODUCT_TASK_STATUSES.includes(status)) {
+    errors.push(
+      `产品任务 ${path} 的 Status 必须是 ${PRODUCT_TASK_STATUSES.join(", ")}，当前为: ${status || "空"}`,
+    );
+  }
+
+  const criteria = sectionBody(content, "Acceptance Criteria");
+  if (criteria !== null && !/^- \[(?: |x|X)\] .+/m.test(criteria)) {
+    errors.push(`产品任务 ${path} 的 Acceptance Criteria 至少需要一个 Markdown checkbox`);
+  }
+
+  const modules = sectionBody(content, "Affected Modules");
+  if (modules !== null && !/^- 模块：\s*\S.+$/m.test(modules)) {
+    errors.push(`产品任务 ${path} 的 Affected Modules 必须登记模块`);
+  }
+  if (modules !== null && !/^- 允许路径：\s*\S.+$/m.test(modules)) {
+    errors.push(`产品任务 ${path} 的 Affected Modules 必须登记允许路径`);
+  }
+  return errors;
 }
 
 function requireFile(root, path, errors) {
@@ -85,6 +177,29 @@ export function parseMarkdownAgentBody(content) {
     tools: toolsMatch ? toolsMatch[1].split(",").map((tool) => tool.trim()) : [],
     permissionMode: permissionMatch?.[1].trim() ?? null,
   };
+}
+
+export function claudeAgentErrors(path, content, expected) {
+  const errors = [];
+  const parsed = parseMarkdownAgentBody(content);
+  if (!parsed) return [`Claude 专业角色 ${path} 格式无法解析`];
+
+  const name = content.replace(/\r\n/g, "\n").match(/^name:\s*(.+)$/m)?.[1].trim();
+  if (name !== expected.name) {
+    errors.push(`Claude 专业角色 ${path} 的 name 必须是 ${expected.name}`);
+  }
+  if (JSON.stringify(parsed.tools) !== JSON.stringify(expected.tools)) {
+    errors.push(`Claude 专业角色 ${path} 的 tools 必须精确为 ${expected.tools.join(", ")}`);
+  }
+  if (parsed.permissionMode !== expected.permissionMode) {
+    errors.push(`Claude 专业角色 ${path} 的 permissionMode 必须是 ${expected.permissionMode}`);
+  }
+  for (const value of expected.requiredText) {
+    if (!parsed.body.includes(value)) {
+      errors.push(`Claude 专业角色 ${path} 缺少关键边界: ${value}`);
+    }
+  }
+  return errors;
 }
 
 export function parseTomlAgentBody(content) {
@@ -136,6 +251,18 @@ function validateMarkdownDirectory(root, relativeDir, sections, label, errors) {
   }
 }
 
+function validateProductTasks(root, errors) {
+  const relativeDir = "docs/product/tasks";
+  const directory = join(root, relativeDir);
+  if (!existsSync(directory)) return;
+  const files = readdirSync(directory).filter((name) => name.endsWith(".md")).sort();
+  for (const name of files) {
+    const path = join(directory, name);
+    if (!statSync(path).isFile()) continue;
+    errors.push(...productTaskErrors(`${relativeDir}/${name}`, readFileSync(path, "utf8")));
+  }
+}
+
 export function validateHarness(root) {
   const errors = [];
   for (const path of REQUIRED_FILES) requireFile(root, path, errors);
@@ -173,6 +300,44 @@ export function validateHarness(root) {
     }));
   }
 
+  if (existsSync(join(root, ".claude", "skills", "product-flow"))) {
+    errors.push("product-flow 是 Codex 专用 skill，不应复制到 .claude/skills/product-flow");
+  }
+
+  const productFlowSkillPath = join(root, ".agents", "skills", "product-flow", "SKILL.md");
+  if (existsSync(productFlowSkillPath)) {
+    requireText(".agents/skills/product-flow/SKILL.md", readFileSync(productFlowSkillPath, "utf8"), [
+      "name: product-flow",
+      "$product-flow",
+      "自动交付：",
+      "run-claude-delivery.mjs --task",
+      "总交付次数最多两次",
+      "Accepted",
+      "Blocked",
+    ], errors);
+  }
+
+  const productFlowUiPath = join(root, ".agents", "skills", "product-flow", "agents", "openai.yaml");
+  if (existsSync(productFlowUiPath)) {
+    requireText(".agents/skills/product-flow/agents/openai.yaml", readFileSync(productFlowUiPath, "utf8"), [
+      "display_name: \"自动产品交付\"",
+      "short_description:",
+      "Use $product-flow",
+    ], errors);
+  }
+
+  const productFlowRunnerPath = join(root, ".agents", "skills", "product-flow", "scripts", "run-claude-delivery.mjs");
+  if (existsSync(productFlowRunnerPath)) {
+    requireText(".agents/skills/product-flow/scripts/run-claude-delivery.mjs", readFileSync(productFlowRunnerPath, "utf8"), [
+      "docs/product/tasks",
+      "status !== \"Ready\"",
+      "\"--permission-mode\", \"acceptEdits\"",
+      "\"--max-turns\", \"100\"",
+      "--dry-run",
+      "--self-test",
+    ], errors);
+  }
+
   const mdAgentPath = join(root, ".claude", "agents", "harness-doctor.md");
   const tomlAgentPath = join(root, ".codex", "agents", "harness-doctor.toml");
   if (existsSync(mdAgentPath) && existsSync(tomlAgentPath)) {
@@ -199,6 +364,13 @@ export function validateHarness(root) {
     }
   }
 
+  for (const expected of CLAUDE_DELIVERY_AGENTS) {
+    const relativePath = `.claude/agents/${expected.name}.md`;
+    const absolutePath = join(root, relativePath);
+    if (!existsSync(absolutePath)) continue;
+    errors.push(...claudeAgentErrors(relativePath, readFileSync(absolutePath, "utf8"), expected));
+  }
+
   const agentsPath = join(root, "AGENTS.md");
   if (existsSync(agentsPath)) {
     const content = readFileSync(agentsPath, "utf8");
@@ -207,12 +379,33 @@ export function validateHarness(root) {
     requireText("AGENTS.md", content, [
       "ARCHITECTURE.md",
       "docs/agentic-engineering.md",
+      "docs/product-collaboration.md",
       "docs/tooling-compatibility.md",
       "frontend/AGENTS.md",
       "backend/AGENTS.md",
       "node scripts/check_harness.mjs",
       "node .agents/hooks/check-harness.mjs --self-test",
       "事实冲突",
+      "Codex 客户端中，默认担任产品经理",
+      "Claude Code 主会话默认担任程序团队负责人",
+      "$product-flow",
+      "自动交付：",
+      "node .agents/skills/product-flow/scripts/run-claude-delivery.mjs --self-test",
+    ], errors);
+  }
+
+  const claudePath = join(root, "CLAUDE.md");
+  if (existsSync(claudePath)) {
+    requireText("CLAUDE.md", readFileSync(claudePath, "utf8"), [
+      "Claude Code 程序团队负责人入口",
+      "任务必须是 `Ready`",
+      "solution-architect",
+      "module-engineer",
+      "test-engineer",
+      "Affected Modules",
+      "Technical Plan",
+      "Implementation Report",
+      "`Accepted` 只能由 Codex",
     ], errors);
   }
 
@@ -231,6 +424,18 @@ export function validateHarness(root) {
     for (const section of missing) errors.push(`docs/agentic-engineering.md 缺少章节: ## ${section}`);
   }
 
+  const productGuidePath = join(root, "docs", "product-collaboration.md");
+  if (existsSync(productGuidePath)) {
+    const missing = missingSections(readFileSync(productGuidePath, "utf8"), [
+      "Roles", "Task Contract", "Workflow", "Automation", "Conflict Rules", "Verification",
+    ]);
+    for (const section of missing) {
+      errors.push(`docs/product-collaboration.md 缺少章节: ## ${section}`);
+    }
+  }
+
+  validateProductTasks(root, errors);
+
   validateMarkdownDirectory(root, "docs/decisions", [
     "Status", "Context", "Decision", "Consequences", "Verification",
   ], "架构决策", errors);
@@ -244,6 +449,7 @@ export function validateHarness(root) {
       "node scripts/check_harness.mjs",
       "node scripts/check_harness.mjs --self-test",
       "node .agents/hooks/check-harness.mjs --self-test",
+      "node .agents/skills/product-flow/scripts/run-claude-delivery.mjs --self-test",
     ], errors);
   }
 
@@ -265,6 +471,41 @@ export function validateHarness(root) {
 }
 
 function runSelfTest() {
+  const validProductTask = `# 任务：最小闭环
+
+## Status
+
+Ready
+
+## Product Definition
+
+解决一个问题。
+
+## Acceptance Criteria
+
+- [ ] 可以验证
+
+## Delivery Constraints
+
+保持最小范围。
+
+## Affected Modules
+
+- 模块：认证
+- 允许路径：frontend/auth, backend/auth
+
+## Technical Plan
+
+按顺序实施并验证。
+
+## Implementation Report
+
+待填写。
+
+## Acceptance Review
+
+Pending
+`;
   const tests = [
     ["接受完整章节", missingSections("## Workflow\n\n内容\n\n## Security\n", ["Workflow", "Security"]), []],
     ["拒绝缺失章节", missingSections("## Workflow\n", ["Workflow", "Security"]), ["Security"]],
@@ -273,6 +514,27 @@ function runSelfTest() {
       "解析 Markdown agent 正文",
       parseMarkdownAgentBody("---\nname: x\ndescription: 说明\ntools: Read, Bash\npermissionMode: plan\n---\n正文内容\n"),
       { description: "说明", body: "正文内容", tools: ["Read", "Bash"], permissionMode: "plan" },
+    ],
+    [
+      "接受合法 Claude 专业角色",
+      claudeAgentErrors(
+        "x.md",
+        "---\nname: x\ndescription: 说明\ntools: Read, Bash\npermissionMode: plan\n---\n边界说明\n",
+        { name: "x", tools: ["Read", "Bash"], permissionMode: "plan", requiredText: ["边界"] },
+      ),
+      [],
+    ],
+    [
+      "拒绝 Claude 专业角色扩大权限",
+      claudeAgentErrors(
+        "x.md",
+        "---\nname: x\ndescription: 说明\ntools: Read, Bash, Write\npermissionMode: acceptEdits\n---\n边界说明\n",
+        { name: "x", tools: ["Read", "Bash"], permissionMode: "plan", requiredText: ["边界"] },
+      ),
+      [
+        "Claude 专业角色 x.md 的 tools 必须精确为 Read, Bash",
+        "Claude 专业角色 x.md 的 permissionMode 必须是 plan",
+      ],
     ],
     ["拒绝缺 frontmatter 的 Markdown agent", parseMarkdownAgentBody("没有 frontmatter"), null],
     [
@@ -296,6 +558,34 @@ function runSelfTest() {
       "拒绝 skill 内容漂移",
       sharedSkillErrors("x", { sourceExists: true, claudeExists: true, contentMatches: false }),
       [".claude/skills/x 与 .agents/skills/x 内容不一致"],
+    ],
+    [
+      "提取 Markdown 章节正文",
+      sectionBody("## Status\n\nReady\n\n## Next\n内容\n", "Status"),
+      "Ready",
+    ],
+    ["接受合法产品任务", productTaskErrors("task.md", validProductTask), []],
+    [
+      "拒绝非法产品任务状态和空验收清单",
+      productTaskErrors(
+        "bad.md",
+        validProductTask.replace("Ready", "Unknown").replace("- [ ] 可以验证", "没有复选框"),
+      ),
+      [
+        `产品任务 bad.md 的 Status 必须是 ${PRODUCT_TASK_STATUSES.join(", ")}，当前为: Unknown`,
+        "产品任务 bad.md 的 Acceptance Criteria 至少需要一个 Markdown checkbox",
+      ],
+    ],
+    [
+      "拒绝缺少模块与允许路径",
+      productTaskErrors(
+        "bad-modules.md",
+        validProductTask.replace("- 模块：认证\n- 允许路径：frontend/auth, backend/auth", "模块待定"),
+      ),
+      [
+        "产品任务 bad-modules.md 的 Affected Modules 必须登记模块",
+        "产品任务 bad-modules.md 的 Affected Modules 必须登记允许路径",
+      ],
     ],
   ];
   const failures = tests.filter(([, actual, expected]) => JSON.stringify(actual) !== JSON.stringify(expected));
