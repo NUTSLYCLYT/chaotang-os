@@ -15,8 +15,12 @@ micro-packet 粒度：免全套 spec/tasks，保留 ci_summary+DB 指纹）
 
 P4.5a EmperorDecision.kind：加列（edict_confirm/compat_dispatch/final_verdict），
   按现有 action 字符串回填（alembic 012）；TDD——先写"无 kind 行必须失败"断言。
-P4.5b direct 语义封口：入队时写 direct_enqueued，worker 完成后才置终态；
-  先写"worker 完成前状态不得为终态"的 RED 断言。ING-04 缺口就此冻结。
+P4.5b direct 语义封口（契约兼容式，v2 修正）：`direct_completed` 属 Step 0
+  冻结 status 契约、前端在消费——**不改既有枚举**。改为加法：DecisionTask
+  增加 `execution_state` 派生字段（enqueued/running/completed，从
+  outbox/DecreeExecutionEvent 投影，非新状态机），读模型透出；status 枚举
+  原样保留并在 ADR 注记"direct_completed=受理完成语义"。先写 RED 断言
+  "worker 完成前 execution_state 不得为 completed"。ING-04 就此冻结且零破坏。
 P4.5c 质量门搬门框：quality_gate 调用从 swarm_review 内部抽到独立模块边界
   （import seam），逻辑零改动；架构守门加"生产者模块不得直接判门"断言。
 P4.5d CourtReview 构造点冻结：架构守门禁止新增 CourtReview 写入点，
@@ -24,8 +28,11 @@ P4.5d CourtReview 构造点冻结：架构守门禁止新增 CourtReview 写入�
 P4.5e DepartmentMemorial 供给侧：memorial_from_swarm_result 把现有 sections
   投影成 department_memorials 数组（含 signal/source_label）——P4a 读模型
   主路径即刻激活；一等对象表不建（归 FCV1-007）。
-P4.5f tenant 扩展半步：主链新写入行带 tenant_id（nullable+默认租户，
-  alembic 013 expand-only）；contract 归 FCV1-002。
+P4.5f tenant 扩展半步（v2 修正——蓝图 Step 1A 禁止假定默认 tenant）：
+  加 nullable tenant_id 列（alembic 013 expand-only）；新写入行从真实请求
+  上下文取 tenant（user 映射可得则写，不可得则留 NULL 并计入 quarantine
+  清单——**禁止填默认租户**）；存量行不回填（归 FCV1-002 按回填 ADR 处理）。
+  RED 断言："新写入在有租户上下文时 tenant_id 不得为 NULL"。
 
 每步 RED→GREEN 证据 + DB 三元指纹。全部完成一次停审。
 
@@ -36,7 +43,9 @@ alembic 005 三连修已随 P1 落地，不重复修）
 - create_all 降级 dev-only；生产路径启动断言 Alembic head，否则 fail-fast；
 - flow_store 手写 DDL/索引补丁迁入正式 alembic 版本后移除；
 - expand/contract 双起点证据（旧库升 head / 空库从零到 head）；
-- 与 P4.5 的 012/013 迁移串号协调，勿分叉。
+- 与 P4.5 的 012/013 迁移串号协调，勿分叉；P4.5 两笔迁移落地时 create_all
+  路径仍在（P5 才退役），故 models.py 与 alembic 必须同 commit 同步改，
+  autogenerate 白名单核对后再提交——防 DATA-02 已知的"白名单不覆盖新表"坑。
 
 完成后末行 PACKET_P5_READY_FOR_CLAUDE_REVIEW。
 
