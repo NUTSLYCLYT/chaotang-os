@@ -224,9 +224,23 @@ def build_decree_execution_status(
 
     timeline = _load_timeline(db, task_id)
     latest_message = timeline[-1].message if timeline else f"任务状态：{task.status}"
+    from src.execution_state import derive_execution_state_from_db
+
+    execution = derive_execution_state_from_db(
+        db,
+        task_id=task_id,
+        decision_id=latest_decision_row.decision_id,
+        mode=route_decision.mode,
+    )
+    if execution.quarantined and blocked_reason is None:
+        blocked_reason = execution.reason
 
     return DecreeExecutionStatusV1(
         task_id=task_id,
+        execution_state=execution.execution_state,
+        execution_quarantined=execution.quarantined,
+        execution_state_reason=execution.reason,
+        execution_attempt=execution.selected_attempt,
         current_stage=stage,
         current_owner=_OWNER_MAP.get(stage, "军机处"),
         latest_message=latest_message,

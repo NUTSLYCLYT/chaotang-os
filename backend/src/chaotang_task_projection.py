@@ -112,6 +112,26 @@ def _latest_run(db, task_id: str):
     )
 
 
+def _execution_projection(db, task_id: str):
+    from src.db.models import ChancellorRouteDecision
+    from src.execution_state import derive_execution_state_from_db
+
+    route = (
+        db.query(ChancellorRouteDecision)
+        .filter_by(task_id=task_id)
+        .order_by(ChancellorRouteDecision.created_at.desc())
+        .first()
+    )
+    if route is None:
+        return None
+    return derive_execution_state_from_db(
+        db,
+        task_id=task_id,
+        decision_id=route.decision_id,
+        mode=route.mode,
+    )
+
+
 def read_task_projection(task_id: str, owner_id: str) -> dict[str, Any] | None:
     """Project canonical task/run/events into the existing taskDetail shape."""
     from src.db.engine import SessionLocal
@@ -134,6 +154,7 @@ def read_task_projection(task_id: str, owner_id: str) -> dict[str, Any] | None:
             .order_by(DecreeExecutionEvent.sequence)
             .all()
         )
+        execution = _execution_projection(db, task_id)
 
         result = (
             {
@@ -176,6 +197,15 @@ def read_task_projection(task_id: str, owner_id: str) -> dict[str, Any] | None:
                 "title": task.refined_edict or task.raw_question[:80],
                 "rawCommand": task.raw_question,
                 "status": wire_status,
+                "executionState": (
+                    execution.execution_state if execution is not None else None
+                ),
+                "executionQuarantined": (
+                    execution.quarantined if execution is not None else False
+                ),
+                "executionStateReason": (
+                    execution.reason if execution is not None else None
+                ),
                 "mode": mode,
                 "createdAt": task.created_at,
                 "updatedAt": task.updated_at,
@@ -259,6 +289,7 @@ def read_stream_snapshot(
         if task is None:
             return None
         run = _latest_run(db, task_id)
+        execution = _execution_projection(db, task_id)
         events = (
             db.query(DecreeExecutionEvent)
             .filter(
@@ -269,13 +300,26 @@ def read_stream_snapshot(
             .all()
         )
         wire_status = _WIRE_STATUS.get(task.status, task.status)
-        terminal = task.status in _TERMINAL_TASK_STATUSES
+        terminal = (
+            execution.terminal
+            if execution is not None
+            else task.status in _TERMINAL_TASK_STATUSES
+        )
         return {
             "events": [_stream_event(event, task_id) for event in events],
             "snapshot": {
                 "type": "canonical.snapshot",
                 "taskId": task_id,
                 "status": wire_status,
+                "executionState": (
+                    execution.execution_state if execution is not None else None
+                ),
+                "executionQuarantined": (
+                    execution.quarantined if execution is not None else False
+                ),
+                "executionStateReason": (
+                    execution.reason if execution is not None else None
+                ),
                 "terminal": terminal,
                 "runId": run.id if run is not None else None,
                 "sourceLabel": (

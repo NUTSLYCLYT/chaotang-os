@@ -18,15 +18,18 @@ def client(monkeypatch, isolated_session_local):
 
 def _seed_canonical_task(session_local, *, owner: str = "1") -> None:
     from src.db.models import (
+        ChancellorRouteDecision,
         DecisionTask,
         DecreeExecutionEvent,
+        OutboxEvent,
+        SwarmQualityResult,
         SwarmRun,
         SwarmTaskRun,
     )
+    from src.chancellor.routing_service import ChancellorRoutingService
 
     db = session_local()
-    db.add(
-        DecisionTask(
+    task = DecisionTask(
             id="task_p3b",
             user_id=owner,
             raw_question="核查供应商合同风险",
@@ -36,6 +39,19 @@ def _seed_canonical_task(session_local, *, owner: str = "1") -> None:
             created_at="2026-07-15T09:00:00+00:00",
             updated_at="2026-07-15T09:05:00+00:00",
         )
+    db.add(task)
+    db.flush()
+    route = ChancellorRoutingService().decide(
+        db,
+        task_id=task.id,
+        confirmed_edict_text="请刑部核查合同证据并给出裁决建议",
+        idempotency_key="route-p3b",
+        source_label="LIVE",
+    )
+    db.flush()
+    assert isinstance(
+        db.query(ChancellorRouteDecision).filter_by(decision_id=route.decision_id).one(),
+        ChancellorRouteDecision,
     )
     db.add(
         SwarmRun(
@@ -68,6 +84,31 @@ def _seed_canonical_task(session_local, *, owner: str = "1") -> None:
             finished_at="2026-07-15T09:03:00+00:00",
         )
     )
+    db.add(
+        SwarmQualityResult(
+            id="quality_p3b",
+            swarm_run_id="swarm_p3b",
+            passed=True,
+            blocking_reasons_json="[]",
+            warnings_json="[]",
+            revised_output_json="{}",
+            created_at="2026-07-15T09:04:00+00:00",
+        )
+    )
+    db.add(
+        OutboxEvent(
+            id="outbox_p3b",
+            task_id=task.id,
+            decision_id=route.decision_id,
+            event_type="route.council",
+            status="completed",
+            attempts=0,
+            max_attempts=3,
+            payload_json="{}",
+            created_at="2026-07-15T09:00:30+00:00",
+            updated_at="2026-07-15T09:05:00+00:00",
+        )
+    )
     db.add_all(
         [
             DecreeExecutionEvent(
@@ -86,6 +127,22 @@ def _seed_canonical_task(session_local, *, owner: str = "1") -> None:
             DecreeExecutionEvent(
                 id="evt_p3b_2",
                 task_id="task_p3b",
+                stage="department_reporting",
+                actor="worker",
+                message="各部回奏完成。",
+                event_type="reports.completed",
+                trace_id="review_p3b",
+                source_label="LIVE",
+                payload_json=(
+                    '{"attempt":1,"outbox_event_id":"outbox_p3b",'
+                    '"swarm_run_id":"swarm_p3b"}'
+                ),
+                occurred_at="2026-07-15T09:04:00+00:00",
+                sequence=2,
+            ),
+            DecreeExecutionEvent(
+                id="evt_p3b_3",
+                task_id="task_p3b",
                 stage="awaiting_emperor_decision",
                 actor="junjichu",
                 message="军机处已生成唯一正式奏折。",
@@ -97,7 +154,7 @@ def _seed_canonical_task(session_local, *, owner: str = "1") -> None:
                     '"formal_memorial_id":"formal_p3b"}'
                 ),
                 occurred_at="2026-07-15T09:05:00+00:00",
-                sequence=2,
+                sequence=3,
             ),
         ]
     )
@@ -132,7 +189,12 @@ def test_task_detail_projects_canonical_task_run_and_events(
         "sourceLabel": "LIVE_SWARM",
         "title": "请刑部核查合同证据并给出裁决建议",
         "rawCommand": "核查供应商合同风险",
-        "status": "report_ready",
+            "status": "report_ready",
+            "executionState": "completed",
+            "executionQuarantined": False,
+            "executionStateReason": (
+                "reports.completed is paired with complete swarm and quality artifacts"
+            ),
         "mode": "deep",
         "createdAt": "2026-07-15T09:00:00+00:00",
         "updatedAt": "2026-07-15T09:05:00+00:00",
@@ -150,10 +212,17 @@ def test_task_detail_projects_canonical_task_run_and_events(
                     "sourceLabel": "MIXED",
                 },
                 {
+                    "eventType": "reports.completed",
+                    "stage": "department_reporting",
+                    "message": "各部回奏完成。",
+                    "sequence": 2,
+                    "sourceLabel": "LIVE",
+                },
+                {
                     "eventType": "memorial.formalized",
                     "stage": "awaiting_emperor_decision",
                     "message": "军机处已生成唯一正式奏折。",
-                    "sequence": 2,
+                    "sequence": 3,
                     "sourceLabel": "LIVE_SWARM",
                 },
             ],
@@ -187,14 +256,20 @@ def test_terminal_stream_replays_canonical_events_and_snapshot(
     assert [event["type"] for event in events] == [
         "canonical.event",
         "canonical.event",
+        "canonical.event",
         "canonical.snapshot",
     ]
     assert events[0]["eventType"] == "dispatch.started"
-    assert events[1]["payload"]["formal_memorial_id"] == "formal_p3b"
-    assert events[2] == {
+    assert events[2]["payload"]["formal_memorial_id"] == "formal_p3b"
+    assert events[3] == {
         "type": "canonical.snapshot",
         "taskId": "task_p3b",
         "status": "report_ready",
+        "executionState": "completed",
+        "executionQuarantined": False,
+        "executionStateReason": (
+            "reports.completed is paired with complete swarm and quality artifacts"
+        ),
         "terminal": True,
         "runId": "swarm_p3b",
         "sourceLabel": "LIVE_SWARM",

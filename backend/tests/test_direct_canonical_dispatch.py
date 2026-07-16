@@ -148,7 +148,9 @@ def test_direct_court_mode_preserves_canonical_direct_short_circuit(
 
     snapshot = read_stream_snapshot(data["task_id"], "1")
     assert snapshot is not None
-    assert snapshot["snapshot"]["terminal"] is True
+    assert snapshot["snapshot"]["executionState"] == "queued"
+    assert snapshot["snapshot"]["executionQuarantined"] is False
+    assert snapshot["snapshot"]["terminal"] is False
     assert snapshot["snapshot"]["status"] == "report_ready"
     assert triggered == [outbox.id]
 

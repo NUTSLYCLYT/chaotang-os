@@ -81,6 +81,9 @@ def test_decree_execution_status_v1_embeds_route_decision():
     decision = _route_decision()
     status = DecreeExecutionStatusV1(
         task_id="task_1",
+        execution_state="queued",
+        execution_quarantined=False,
+        execution_state_reason="the durable outbox event is waiting to be claimed",
         current_stage="chancellor_routing",
         current_owner="丞相",
         latest_message="正在生成路由",

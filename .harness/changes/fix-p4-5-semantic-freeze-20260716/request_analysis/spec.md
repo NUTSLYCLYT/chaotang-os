@@ -11,7 +11,7 @@ P5 迁移权威归一前，先冻结会被后续拆表和读模型依赖的语�
 | 已确认事实 | `EmperorDecision` 有 6 个生产构造点、10 个 action 字面量；迁移 head 为 011 | AST 盘点、`backend/src/db/models.py`、`backend/alembic/versions/`，2026-07-16 | 契约测试 + 代码审查 | 否 |
 | 已确认事实 | CourtReview 当前生产构造点基线为 8，不是早期计划中的 7 | P4.5d 实施前 AST multiset 盘点 | 待 P4.5d 固化守门 | 是（仅阻止沿用错误基线） |
 | 已确认事实 | 真实库不得作为迁移试验目标 | `backend/tests/conftest.py` tripwire 与项目边界 | 只读 size/mtime/inode/SHA-256 前后对比 | 否 |
-| 未知问题 | P4.5b 的完整执行事件词表和失败事件缺口 | 待从生产代码穷举 | event-vocabulary + 性质测试 | 是（P4.5b） |
+| 已确认事实 | 正式执行事件原先无失败终态；worker 事务边界不支持独立 `reports.failed` 事实 | `backend/docs/adr-2026-07-16-execution-state-semantics.md` | AST 词表守门 + 独立只读审计 | 否 |
 
 ## 数据流与调用链
 
@@ -41,6 +41,7 @@ P4.5a `kind`；P4.5b execution state；P4.5c quality gate import seam；P4.5d Co
 | 未知 EmperorDecision action | 写入与 012 升级均 fail closed | 映射单测 + 临时旧库迁移失败测试 |
 | 004b 从当前 metadata 预建 `kind` | 012 检测已有列/约束后幂等继续 | 空库 `alembic upgrade head` |
 | direct 只有回执、无真实执行工件 | `receipt_only`，不得伪报 completed | P4.5b 六路径 fixture |
+| council 只出现部分工件 | 当前 worker 是单事务边界，该组合必须 inconsistent/quarantine，不发明 partial 正常态 | 全组合性质测试 |
 | 缺 tenant 上下文 | 留 NULL 并进入 quarantine，不填默认租户 | P4.5f 写入与迁移测试 |
 
 ## 风险与回滚边界

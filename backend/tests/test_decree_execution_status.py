@@ -41,6 +41,8 @@ def test_status_shows_completed_owner_for_direct_task(isolated_session_local):
     assert status is not None
     assert status["current_stage"] == "completed"
     assert status["current_owner"] == "已完结"
+    assert status["execution_state"] == "receipt_only"
+    assert status["execution_quarantined"] is False
     assert status["route_decision"]["mode"] == "direct"
     assert len(status["timeline"]) >= 1
 
@@ -66,6 +68,8 @@ def test_status_shows_blocked_reason_and_departments_for_cluster_task(
     assert status is not None
     assert status["current_stage"] == "executing"
     assert status["current_owner"] == "军机处"
+    assert status["execution_state"] == "queued"
+    assert status["execution_quarantined"] is False
     assert status["route_decision"]["mode"] == "council"
     assert status["route_decision"]["human_confirmation_required"] is True
     assert len(status["departments"]) >= 1

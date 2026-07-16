@@ -10,11 +10,13 @@
 - 回滚边界：代码可原子 revert；迁移降级会删除 kind，需先导出核验。
 - 完成定义：契约、API 回归、旧库/空库迁移和真实库指纹全部通过。
 
-## P4.5b — execution_state（PENDING）
+## P4.5b — execution_state（VERIFIED）
 
-- 穷举真实事件/工件词表；建立 first-match-wins 全函数判定表。
-- attempt 优先、同 attempt sequence 次序；未知组合 quarantine。
-- 保留既有 status 枚举，覆盖六条真实路径 fixture。
+- 已穷举真实事件/工件词表并形成 ADR；只新增真实边界支持的 `dispatch.failed` 与 `dispatch.receipt_only`。
+- 已建立 first-match-wins 全函数判定表：attempt 优先、同 attempt sequence 次序、末行 quarantine。
+- council 部分工件因不符合现有单事务边界而 fail closed；不发明正常 `partial` 状态。
+- 保留既有 status 枚举；上书房状态、朝堂 task detail 与 SSE snapshot 复用同一派生器。
+- RED：5 个契约/写入测试失败；读模型 6 个断言失败。GREEN：后端相关 82 passed，前端镜像 4 passed。
 
 ## P4.5c — 质量门 import seam（PENDING）
 

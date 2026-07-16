@@ -30,6 +30,19 @@ def _make_id(prefix: str, *parts: object) -> str:
     return f"{prefix}_{sha1(seed.encode('utf-8')).hexdigest()[:12]}"
 
 
+def _task_source_label(db: "Session", task_id: str) -> str:
+    from src.db.models import DecisionTask
+
+    task = db.query(DecisionTask).filter_by(id=task_id).first()
+    if task is None:
+        return "FALLBACK"
+    if task.source_label in {"LIVE_SWARM", "LIVE_ENGINE"}:
+        return "LIVE"
+    if task.source_label in {"LIVE", "MIXED", "FALLBACK", "DEMO"}:
+        return task.source_label
+    return "FALLBACK"
+
+
 def _record_timeline(
     db: "Session",
     *,
@@ -59,25 +72,56 @@ def _record_timeline(
     )
 
 
-def _execute_direct(db: "Session", task_id: str) -> dict[str, Any]:
+def _execute_direct(
+    db: "Session",
+    task_id: str,
+    *,
+    outbox_event_id: str,
+    attempt: int,
+) -> dict[str, Any]:
     """direct 模式：confirm-edict 同步内已经用 direct_receipt_for() 生成完整回执，
     outbox worker 只需要确认+记录时间线，不需要额外调用蜂群。"""
-    from src.db.models import DecisionTask
+    from src.db.models import CourtReview, DecisionTask
 
     task = db.query(DecisionTask).filter_by(id=task_id).first()
     if task is None:
         raise ValueError(f"task_id 不存在: {task_id}")
+    review = (
+        db.query(CourtReview)
+        .filter_by(task_id=task_id, review_status="direct_completed")
+        .order_by(CourtReview.created_at.desc())
+        .first()
+    )
+    if review is None or not review.memorial_json:
+        raise ValueError(f"task_id={task_id} 缺少可核验的 direct 回执")
     _record_timeline(
         db,
         task_id=task_id,
         stage="dispatched",
         actor="worker",
         message="direct 任务单已在下旨时生成完整回执，无需异步执行。",
+        event_type="dispatch.receipt_only",
+        trace_id=review.id,
+        source_label=task.source_label,
+        payload={
+            "attempt": attempt,
+            "outbox_event_id": outbox_event_id,
+            "review_id": review.id,
+        },
+        idempotency_key=(
+            f"dispatch.receipt_only:{outbox_event_id}:attempt:{attempt}"
+        ),
     )
     return {"mode": "direct", "task_status": task.status}
 
 
-def _execute_council(db: "Session", task_id: str) -> dict[str, Any]:
+def _execute_council(
+    db: "Session",
+    task_id: str,
+    *,
+    outbox_event_id: str,
+    attempt: int,
+) -> dict[str, Any]:
     """council 模式：真正触发蜂群深挖。
 
     刻意不像 web/routers/shangshufang.py::_run_swarm_execution_loop_sync 那样
@@ -178,8 +222,15 @@ def _execute_council(db: "Session", task_id: str) -> dict[str, Any]:
         event_type="reports.completed",
         trace_id=review.id,
         source_label=task.source_label,
-        payload={"review_id": review.id, "swarm_run_id": swarm_run_id},
-        idempotency_key=f"reports.completed:{swarm_run_id}",
+        payload={
+            "attempt": attempt,
+            "outbox_event_id": outbox_event_id,
+            "review_id": review.id,
+            "swarm_run_id": swarm_run_id,
+        },
+        idempotency_key=(
+            f"reports.completed:{outbox_event_id}:attempt:{attempt}"
+        ),
     )
     quality_result = swarm_result["quality_result"]
     blocking_reasons = list(quality_result.get("blocking_reasons", []))
@@ -300,11 +351,22 @@ def process_event(db: "Session", event_id: str) -> dict[str, Any]:
         # 没抢到：另一个消费者已经先一步把它转成 processing/completed 了。
         return {"status": "claimed_elsewhere", "event_id": event_id, "skipped": True}
 
+    attempt = event.attempts + 1
     try:
         if event.event_type == "route.direct":
-            result = _execute_direct(db, event.task_id)
+            result = _execute_direct(
+                db,
+                event.task_id,
+                outbox_event_id=event.id,
+                attempt=attempt,
+            )
         elif event.event_type == "route.council":
-            result = _execute_council(db, event.task_id)
+            result = _execute_council(
+                db,
+                event.task_id,
+                outbox_event_id=event.id,
+                attempt=attempt,
+            )
         else:
             raise ValueError(f"未知 event_type: {event.event_type}")
 
@@ -320,12 +382,30 @@ def process_event(db: "Session", event_id: str) -> dict[str, Any]:
     except Exception as exc:  # noqa: BLE001
         db.rollback()
         event = db.query(OutboxEvent).filter_by(id=event_id).first()
-        event.attempts += 1
+        error_type = type(exc).__name__
+        event.attempts = max(event.attempts, attempt)
         event.last_error = str(exc)
         event.status = (
             "dead_letter" if event.attempts >= event.max_attempts else "failed"
         )
         event.updated_at = _now_iso()
+        _record_timeline(
+            db,
+            task_id=event.task_id,
+            stage="failed",
+            actor="worker",
+            message=f"第 {attempt} 次派单失败，详情已记录在 outbox。",
+            event_type="dispatch.failed",
+            trace_id=event.decision_id,
+            source_label=_task_source_label(db, event.task_id),
+            payload={
+                "attempt": attempt,
+                "error_type": error_type,
+                "outbox_event_id": event.id,
+                "outbox_status": event.status,
+            },
+            idempotency_key=f"dispatch.failed:{event.id}:attempt:{attempt}",
+        )
         db.commit()
         return {"status": event.status, "event_id": event_id, "error": str(exc)}
 
@@ -352,12 +432,30 @@ def _reap_stale_processing_events(db: "Session") -> int:
         .all()
     )
     for event in stale:
-        event.attempts += 1
+        attempt = event.attempts + 1
+        event.attempts = attempt
         event.last_error = "重置：processing 状态超过 15 分钟未完成，视为卡死"
         event.status = (
             "dead_letter" if event.attempts >= event.max_attempts else "failed"
         )
         event.updated_at = _now_iso()
+        _record_timeline(
+            db,
+            task_id=event.task_id,
+            stage="failed",
+            actor="worker_reaper",
+            message=f"第 {attempt} 次派单超时，processing 已由回收器重置。",
+            event_type="dispatch.failed",
+            trace_id=event.decision_id,
+            source_label=_task_source_label(db, event.task_id),
+            payload={
+                "attempt": attempt,
+                "error_type": "StaleProcessingTimeout",
+                "outbox_event_id": event.id,
+                "outbox_status": event.status,
+            },
+            idempotency_key=f"dispatch.failed:{event.id}:attempt:{attempt}",
+        )
     if stale:
         db.commit()
     return len(stale)

@@ -45,6 +45,10 @@ test('ZDecreeExecutionStatusV1 内嵌 route_decision 且状态字段齐全', () 
   const parsed = ZDecreeExecutionStatusV1.parse({
     schema_version: 'DecreeExecutionStatusV1',
     task_id: 'task_1',
+    execution_state: 'queued',
+    execution_quarantined: false,
+    execution_state_reason: 'outbox queued',
+    execution_attempt: null,
     current_stage: 'chancellor_routing',
     current_owner: '丞相',
     latest_message: '正在生成路由',
@@ -73,6 +77,7 @@ test('ZDecreeExecutionStatusV1 内嵌 route_decision 且状态字段齐全', () 
     ],
   });
   assert.equal(parsed.route_decision.decision_id, 'decision_1');
+  assert.equal(parsed.execution_state, 'queued');
 });
 
 test('ZChancellorAdviceV1 要求 3-5 个选项，2 个应被拒绝', () => {

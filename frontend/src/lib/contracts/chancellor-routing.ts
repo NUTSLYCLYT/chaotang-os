@@ -81,6 +81,17 @@ export const ZTimelineEvent = z.object({
 export const ZDecreeExecutionStatusV1 = z.object({
   schema_version: z.literal('DecreeExecutionStatusV1'),
   task_id: z.string(),
+  execution_state: z.enum([
+    'queued',
+    'running',
+    'receipt_only',
+    'completed',
+    'failed',
+    'inconsistent',
+  ]),
+  execution_quarantined: z.boolean(),
+  execution_state_reason: z.string(),
+  execution_attempt: z.number().int().positive().nullable(),
   current_stage: z.string(),
   current_owner: z.string(),
   latest_message: z.string(),
