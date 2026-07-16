@@ -30,15 +30,26 @@
 | final memorial gate | 0 | 8 passed | 新投影随正式奏折安全快照 | 3.27s，2026-07-16 |
 | 前端 canonical 消费者 3 文件 | 0 | 22 passed | 军机处读模型、上书房视图、live bridge | tsx nodetest，2026-07-16 |
 | P4.5e ruff + py_compile | 0 | PASS | 3 个变更 Python 文件 | 本地终端，2026-07-16 |
+| P4.5f core writer 契约（实现前） | 1 | 2 failed（预期 RED） | 8 张表字段、20 个生产构造点缺失 | brew Python 3.14，2026-07-16 |
+| P4.5f core writer + 传播/auth/worker | 0 | 18 passed | 严格入口、同事务继承、NULL quarantine、冲突阻断 | brew Python 3.14，2026-07-16 |
+| P4.5f 相关后端 17 文件 | 0 | 106 passed | canonical/compat、outbox、时间线、正式奏折与读模型回归 | brew Python 3.14，2026-07-16 |
+| 013 迁移（实现前） | 1 | 7 failed（预期 RED） | revision 尚不存在 | `.venv-alembic` + pytest，2026-07-16 |
+| 013 迁移 | 0 | 9 passed | 012 旧库、合规重放、类型/约束阻断、DDL 前置预检、缺表、降级、fresh chain | 临时 SQLite，2026-07-16 |
+| 全部 migration pytest | 0 | 18 passed | 007–013 真实 Alembic 回归 | 临时 SQLite，2026-07-16 |
+| 完整 backend pytest | 1 | 2667 passed / 29 skipped / 7 failed | 全后端回归；7 个失败均在基线复现 | brew Python 3.14，275.63s，2026-07-16 |
+| 基线失败复跑 | 1 | 同样 7 failed / 3 passed | 文档/RAG/persona/钦天监既有漂移，P4.5f 新增失败 0 | 基线工作区，2026-07-16 |
+| `python3 backend/scripts/harness_doctor.py` | 0 | 0 errors / 0 warnings | 后端 harness 完整性收口复核 | 本地终端，2026-07-16 |
+| `node scripts/harness-doctor.mjs` | 0 | 0 errors / 0 warnings | 根级边界与两线委托收口复核 | 本地终端，2026-07-16 |
+| 真实库只读指纹复核 | 0 | 与实施前完全一致 | size/mtime/inode/SHA-256 | 本地只读，2026-07-16 |
 
 ## 结果
 
-P4.5a-e VERIFIED；P4.5 全包仍在进行中。
+P4.5a-f VERIFIED；全包处于独立审查前收口阶段。
 
 ## 未验证项
 
 - 系统 Python 缺 Alembic，pytest 迁移文件收集为 1 skipped；已用仓库现有 `.venv-alembic` 对同等场景取得真实执行证据。
-- P4.5f 与全包独立审查尚未执行；收口时仍须重跑 doctor。
+- 全包独立审查尚未执行。
 - ministry output YAML/validator 与可执行 JSON Schema/TS 类型的既有漂移已记录，另立变更处理。
 
 ## Diff 与回滚复核
@@ -61,7 +72,10 @@ P4.5a-e VERIFIED；P4.5 全包仍在进行中。
 | P4.5c 质量门归属 | AST import/definition 守门 + 24 个行为回归 | PASS |
 | P4.5d writer 基线 | 独立 AST multiset + 42 个相邻回归 | PASS |
 | P4.5e 完整意见投影 | 严格 schema 7 tests + 后端 49 tests + 前端 22 tests | PASS |
+| P4.5f 八表 lineage | 20 writer AST + 传播/auth/worker 18 tests + 106 相关回归 | PASS |
+| 013 expand-only | 9 个临时库场景 + 全迁移 18 tests | PASS |
+| 完整后端新增失败 | 基线与任务分支均为同一 7 failures | PASS（新增 0） |
 
 ## 声明状态
 
-- `VERIFIED_PARTIAL`：P4.5a-e 完成；全包未完成。
+- `VERIFIED_PENDING_REVIEW`：P4.5a-f 完成；独立 GO 尚未签发。

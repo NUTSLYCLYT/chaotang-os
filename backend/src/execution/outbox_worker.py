@@ -55,6 +55,7 @@ def _record_timeline(
     source_label: str = "FALLBACK",
     payload: dict[str, Any] | None = None,
     idempotency_key: str | None = None,
+    tenant_id: int | None,
 ) -> None:
     from src.chancellor.decree_status import record_timeline_event
 
@@ -69,6 +70,7 @@ def _record_timeline(
         source_label=source_label,
         payload=payload,
         idempotency_key=idempotency_key,
+        tenant_id=tenant_id,
     )
 
 
@@ -78,6 +80,7 @@ def _execute_direct(
     *,
     outbox_event_id: str,
     attempt: int,
+    tenant_id: int | None,
 ) -> dict[str, Any]:
     """direct 模式：confirm-edict 同步内已经用 direct_receipt_for() 生成完整回执，
     outbox worker 只需要确认+记录时间线，不需要额外调用蜂群。"""
@@ -111,6 +114,7 @@ def _execute_direct(
         idempotency_key=(
             f"dispatch.receipt_only:{outbox_event_id}:attempt:{attempt}"
         ),
+        tenant_id=tenant_id,
     )
     return {"mode": "direct", "task_status": task.status}
 
@@ -121,6 +125,7 @@ def _execute_council(
     *,
     outbox_event_id: str,
     attempt: int,
+    tenant_id: int | None,
 ) -> dict[str, Any]:
     """council 模式：真正触发蜂群深挖。
 
@@ -168,6 +173,7 @@ def _execute_council(
         source_label=task.source_label,
         payload={"review_id": review.id},
         idempotency_key=f"dispatch.started:{review.id}",
+        tenant_id=tenant_id,
     )
     db.commit()
 
@@ -231,6 +237,7 @@ def _execute_council(
         idempotency_key=(
             f"reports.completed:{outbox_event_id}:attempt:{attempt}"
         ),
+        tenant_id=tenant_id,
     )
     quality_result = swarm_result["quality_result"]
     blocking_reasons = list(quality_result.get("blocking_reasons", []))
@@ -265,6 +272,7 @@ def _execute_council(
             "swarm_source_label": swarm_source_label,
         },
         idempotency_key=f"quality:{swarm_run_id}",
+        tenant_id=tenant_id,
     )
     _record_timeline(
         db,
@@ -296,6 +304,7 @@ def _execute_council(
             "blocking_reason": memorial_block_reason,
         },
         idempotency_key=f"memorial:{swarm_run_id}",
+        tenant_id=tenant_id,
     )
     return {
         "mode": "council",
@@ -353,12 +362,18 @@ def process_event(db: "Session", event_id: str) -> dict[str, Any]:
 
     attempt = event.attempts + 1
     try:
+        from src.core_tenant_lineage import assert_no_tenant_lineage_conflict
+
+        assert_no_tenant_lineage_conflict(
+            db, task_id=event.task_id, inherited_tenant_id=event.tenant_id
+        )
         if event.event_type == "route.direct":
             result = _execute_direct(
                 db,
                 event.task_id,
                 outbox_event_id=event.id,
                 attempt=attempt,
+                tenant_id=event.tenant_id,
             )
         elif event.event_type == "route.council":
             result = _execute_council(
@@ -366,6 +381,7 @@ def process_event(db: "Session", event_id: str) -> dict[str, Any]:
                 event.task_id,
                 outbox_event_id=event.id,
                 attempt=attempt,
+                tenant_id=event.tenant_id,
             )
         else:
             raise ValueError(f"未知 event_type: {event.event_type}")
@@ -405,6 +421,7 @@ def process_event(db: "Session", event_id: str) -> dict[str, Any]:
                 "outbox_status": event.status,
             },
             idempotency_key=f"dispatch.failed:{event.id}:attempt:{attempt}",
+            tenant_id=event.tenant_id,
         )
         db.commit()
         return {"status": event.status, "event_id": event_id, "error": str(exc)}
@@ -455,6 +472,7 @@ def _reap_stale_processing_events(db: "Session") -> int:
                 "outbox_status": event.status,
             },
             idempotency_key=f"dispatch.failed:{event.id}:attempt:{attempt}",
+            tenant_id=event.tenant_id,
         )
     if stale:
         db.commit()

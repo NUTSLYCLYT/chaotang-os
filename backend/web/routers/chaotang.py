@@ -295,6 +295,7 @@ def decree_dispatch(
                 ),
                 command=body.rawCommand,
                 compat_entrypoint="chaotang.decree_dispatch",
+                tenant_id=user.tenant_id,
                 constraints=constraints,
             )
         except UnsupportedCanonicalConstraints as exc:
@@ -358,6 +359,7 @@ def decree_dispatch(
             command=body.rawCommand,
             source_label="MIXED",
             compat_entrypoint="chaotang.decree_dispatch",
+            tenant_id=user.tenant_id,
             status="executing",
             draft_context={
                 "human_confirmed": True,
@@ -844,6 +846,7 @@ def memorial_review(
         now = now_iso()
         decision = EmperorDecision(
             id=make_id("decision", task.id, canonical_action, now),
+            tenant_id=task.tenant_id,
             task_id=task.id,
             action=canonical_action,
             kind=emperor_decision_kind(canonical_action),

@@ -204,6 +204,16 @@ def resolve_current_tenant_id() -> int:
     return int(row["id"]) if row else 1
 
 
+def resolve_tenant_slug_id(slug: str | None) -> int | None:
+    """Resolve a supplied tenant slug without a default fallback."""
+    if not slug:
+        return None
+    row = get_db().execute(
+        "SELECT id FROM tenants WHERE slug=?", (slug,)
+    ).fetchone()
+    return int(row["id"]) if row else None
+
+
 # ---------------------------------------------------------------------------
 # 密码哈希
 # ---------------------------------------------------------------------------

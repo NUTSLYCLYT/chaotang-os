@@ -226,6 +226,7 @@ def ensure_decree_execution_event_ledger_columns(session: Session) -> None:
     bind = session.get_bind()
     dialect = bind.dialect.name if bind is not None else ""
     columns = {
+        "tenant_id": "INTEGER",
         "event_type": "TEXT NOT NULL DEFAULT 'timeline.note'",
         "trace_id": "TEXT",
         "source_label": "TEXT NOT NULL DEFAULT 'FALLBACK'",

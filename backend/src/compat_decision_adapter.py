@@ -23,6 +23,7 @@ def persist_compat_decision_task(
     command: str,
     source_label: str,
     compat_entrypoint: str,
+    tenant_id: int | None,
 ) -> None:
     """Persist one unconfirmed DecisionTask for a legacy compatibility request."""
     db_engine = importlib.import_module("src.db.engine")
@@ -35,6 +36,7 @@ def persist_compat_decision_task(
             command=command,
             source_label=source_label,
             compat_entrypoint=compat_entrypoint,
+            tenant_id=tenant_id,
         )
         db.commit()
     except Exception:
@@ -52,6 +54,7 @@ def add_compat_decision_task(
     command: str,
     source_label: str,
     compat_entrypoint: str,
+    tenant_id: int | None,
     status: str = "awaiting_emperor_confirm",
     draft_context: dict[str, Any] | None = None,
 ) -> None:
@@ -78,4 +81,5 @@ def add_compat_decision_task(
         recommended_departments=edict.recommended_departments,
         draft_edict=draft_payload,
         now=now,
+        tenant_id=tenant_id,
     )

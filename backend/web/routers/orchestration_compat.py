@@ -154,6 +154,7 @@ def orchestration_run(
         command=command,
         source_label="FALLBACK",
         compat_entrypoint="orchestration.run",
+        tenant_id=user.tenant_id,
     )
     register_task(
         task_id,

@@ -106,6 +106,7 @@ def formalize_memorial(
     memorial_id = f"formal_{sha256(task_id.encode('utf-8')).hexdigest()[:16]}"
     row = FinalMemorial(
         id=memorial_id,
+        tenant_id=review.tenant_id,
         task_id=task_id,
         review_id=review_id,
         swarm_run_id=swarm_run_id,

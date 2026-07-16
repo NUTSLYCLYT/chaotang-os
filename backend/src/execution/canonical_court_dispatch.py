@@ -91,6 +91,7 @@ def dispatch_compat_court_task(
     user_id: str,
     command: str,
     compat_entrypoint: str,
+    tenant_id: int | None,
     constraints: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Persist one canonical routing decision and enqueue its durable execution.
@@ -137,6 +138,7 @@ def dispatch_compat_court_task(
             command=command,
             source_label="MIXED",
             compat_entrypoint=compat_entrypoint,
+            tenant_id=tenant_id,
             status="executing",
             draft_context=draft_context,
         )
@@ -176,6 +178,7 @@ def dispatch_compat_court_task(
         db.add(
             CourtReview(
                 id=review_id,
+                tenant_id=task.tenant_id,
                 task_id=task_id,
                 routing_plan_json=_json(routing_plan),
                 review_status=status,
@@ -189,6 +192,7 @@ def dispatch_compat_court_task(
         db.add(
             EmperorDecision(
                 id=make_id("decision", task_id, compat_entrypoint, now),
+                tenant_id=task.tenant_id,
                 task_id=task_id,
                 action="compat_court_dispatch",
                 kind=emperor_decision_kind("compat_court_dispatch"),

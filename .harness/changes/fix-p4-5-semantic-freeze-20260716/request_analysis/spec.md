@@ -13,6 +13,7 @@ P5 迁移权威归一前，先冻结会被后续拆表和读模型依赖的语�
 | 已确认事实 | swarm sections 已含完整部门事实，但旧投影缺少 `department_memorials`，导致 canonical signal 退成 GRAY | `backend/src/shangshufang_loop.py`、前端 canonical read model，2026-07-16 | JSON Schema + API/前端消费者回归 | 否 |
 | 已确认事实 | 真实库不得作为迁移试验目标 | `backend/tests/conftest.py` tripwire 与项目边界 | 只读 size/mtime/inode/SHA-256 前后对比 | 否 |
 | 已确认事实 | 正式执行事件原先无失败终态；worker 事务边界不支持独立 `reports.failed` 事实 | `backend/docs/adr-2026-07-16-execution-state-semantics.md` | AST 词表守门 + 独立只读审计 | 否 |
+| 已确认事实 | 八张产品权威核心表共有 20 个生产 ORM 构造点；线程局部解析会对未知上下文回退默认租户，不能用于 lineage | `test_core_tenant_lineage_contract.py` 与独立只读审计 | AST 精确计数 + 传播测试 | 否 |
 
 ## 数据流与调用链
 
@@ -46,6 +47,8 @@ P4.5a `kind`；P4.5b execution state；P4.5c quality gate import seam；P4.5d Co
 | direct 只有回执、无真实执行工件 | `receipt_only`，不得伪报 completed | P4.5b 六路径 fixture |
 | council 只出现部分工件 | 当前 worker 是单事务边界，该组合必须 inconsistent/quarantine，不发明 partial 正常态 | 全组合性质测试 |
 | 缺 tenant 上下文 | 留 NULL 并进入 quarantine，不填默认租户 | P4.5f 写入与迁移测试 |
+| task/outbox 两个已知 tenant 不一致 | worker 在派单前 fail closed，并留下失败尝试 | P4.5f worker 冲突测试 |
+| 013 遇到缺表、NOT NULL 或默认 tenant | 阻断升级，不接受伪兼容 schema | 013 临时库参数化测试 |
 
 ## 风险与回滚边界
 

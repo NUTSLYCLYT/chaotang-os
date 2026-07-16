@@ -185,6 +185,7 @@ def junjichu_cases(
         command=command,
         source_label="MIXED",
         compat_entrypoint="court.junjichu_cases",
+        tenant_id=user.tenant_id,
     )
     register_task(
         task_id,
@@ -229,6 +230,7 @@ def _orchestrate(body: dict[str, Any], user: CurrentUser) -> dict:
         command=command,
         source_label="FALLBACK",
         compat_entrypoint="court.orchestrate",
+        tenant_id=user.tenant_id,
     )
     register_task(
         task_id,

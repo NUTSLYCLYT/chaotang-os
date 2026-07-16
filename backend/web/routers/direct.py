@@ -166,6 +166,7 @@ async def direct_execute(body: DirectCommandRequest, user: CurrentUser = Depends
                 user_id=_direct_user_key(user),
                 command=command,
                 compat_entrypoint="direct.execute",
+                tenant_id=user.tenant_id,
             )
         except Exception:
             import logging

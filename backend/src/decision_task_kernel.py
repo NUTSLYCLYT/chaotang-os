@@ -34,6 +34,7 @@ def create_decision_task(
     recommended_departments: list[Any],
     draft_edict: dict[str, Any] | None,
     now: str,
+    tenant_id: int | None,
 ) -> DecisionTask:
     """构造并登记一条正式 DecisionTask；事务提交仍由调用方统一控制。"""
     if not task_id.strip():
@@ -47,6 +48,7 @@ def create_decision_task(
 
     task = DecisionTask(
         id=task_id,
+        tenant_id=tenant_id,
         user_id=user_id,
         raw_question=raw_question,
         refined_edict=refined_edict,

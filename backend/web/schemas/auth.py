@@ -38,6 +38,7 @@ class CurrentUser(BaseModel):
     username: str | None = None
     role: str | None = None
     tenant_slug: str = "default"
+    tenant_id: int | None = None
 
 
 class AuthMeResponse(BaseModel):

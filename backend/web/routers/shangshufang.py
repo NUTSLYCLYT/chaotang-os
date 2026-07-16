@@ -480,6 +480,7 @@ def _archive_task(
     archive_id = make_id("archive", task.id, action, now)
     archive = ShiguanArchive(
         id=archive_id,
+        tenant_id=task.tenant_id,
         task_id=task.id,
         raw_question=task.raw_question,
         refined_edict=task.refined_edict or "",
@@ -940,6 +941,7 @@ def shangshufang_draft_edict(
             recommended_departments=edict.recommended_departments,
             draft_edict=edict_payload,
             now=now,
+            tenant_id=user.tenant_id,
         )
         db.add(
             CourtLoopRun(
@@ -1129,6 +1131,7 @@ def shangshufang_confirm_edict(
             db.add(
                 CourtReview(
                     id=review_id,
+                    tenant_id=task.tenant_id,
                     task_id=task.id,
                     routing_plan_json=_json(routing_plan),
                     review_status="direct_completed",
@@ -1162,6 +1165,7 @@ def shangshufang_confirm_edict(
             db.add(
                 EmperorDecision(
                     id=make_id("decision", task.id, "confirm-direct", now),
+                    tenant_id=task.tenant_id,
                     task_id=task.id,
                     action="confirm_direct_task",
                     kind=emperor_decision_kind("confirm_direct_task"),
@@ -1207,6 +1211,7 @@ def shangshufang_confirm_edict(
         db.add(
             CourtReview(
                 id=review_id,
+                tenant_id=task.tenant_id,
                 task_id=task.id,
                 routing_plan_json=_json(routing_plan),
                 review_status="edict_recorded",
@@ -1241,6 +1246,7 @@ def shangshufang_confirm_edict(
         db.add(
             EmperorDecision(
                 id=make_id("decision", task.id, "confirm", now),
+                tenant_id=task.tenant_id,
                 task_id=task.id,
                 action="confirm_edict",
                 kind=emperor_decision_kind("confirm_edict"),
@@ -1393,6 +1399,7 @@ def shangshufang_task_decision(
         now = now_iso()
         decision = EmperorDecision(
             id=make_id("decision", task_id, body.action, now),
+            tenant_id=task.tenant_id,
             task_id=task_id,
             action=body.action,
             kind=emperor_decision_kind(body.action),
@@ -1487,6 +1494,7 @@ def shangshufang_swarm_deepen(
                 now = now_iso()
                 review = CourtReview(
                     id=make_id("review", task.id, "swarm-deepen-direct", now),
+                    tenant_id=task.tenant_id,
                     task_id=task.id,
                     routing_plan_json=_json(routing_plan),
                     review_status="direct_completed",
@@ -1512,6 +1520,7 @@ def shangshufang_swarm_deepen(
             now = now_iso()
             review = CourtReview(
                 id=make_id("review", task.id, "swarm-deepen", now),
+                tenant_id=task.tenant_id,
                 task_id=task.id,
                 routing_plan_json=_json(routing_plan),
                 review_status="reviewing",
@@ -1643,10 +1652,12 @@ def shangshufang_pack_swarm_loop(
             recommended_departments=["锦衣卫", "户部", "工部", "刑部"],
             draft_edict=edict_payload,
             now=now,
+            tenant_id=user.tenant_id,
         )
         db.add(
             CourtReview(
                 id=review_id,
+                tenant_id=user.tenant_id,
                 task_id=task_id,
                 routing_plan_json=_json(routing_plan),
                 review_status="awaiting_evidence",
@@ -1945,10 +1956,12 @@ def shangshufang_finance_intel_loop_complete(
             recommended_departments=["锦衣卫", "户部", "上书房"],
             draft_edict=edict_payload,
             now=now,
+            tenant_id=user.tenant_id,
         )
         db.add(
             CourtReview(
                 id=review_id,
+                tenant_id=user.tenant_id,
                 task_id=task_id,
                 routing_plan_json=_json(
                     {
@@ -2070,6 +2083,7 @@ def shangshufang_brief_decision_advance(
         now = now_iso()
         decision = EmperorDecision(
             id=make_id("decision", task.id, action, now),
+            tenant_id=task.tenant_id,
             task_id=task.id,
             action=action,
             kind=emperor_decision_kind(action),
@@ -2333,10 +2347,12 @@ def shangshufang_research_budget_loop(
                 "source_label": "MIXED" if body.evidenceRefs else "FALLBACK",
             },
             now=now,
+            tenant_id=user.tenant_id,
         )
         db.add(
             CourtReview(
                 id=review_id,
+                tenant_id=user.tenant_id,
                 task_id=task_id,
                 routing_plan_json=_json(
                     {

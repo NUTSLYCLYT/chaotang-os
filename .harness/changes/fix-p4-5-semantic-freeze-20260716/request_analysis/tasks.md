@@ -38,16 +38,28 @@
 - 证据、风险、后令与人工确认均来自真实 section；非法 position/source fail closed。
 - RED：2 failed；GREEN：契约 7 passed、相关后端 41+8 passed、前端消费者 22 passed。
 
-## P4.5f — tenant lineage + 013（PENDING）
+## P4.5f — tenant lineage + 013（VERIFIED）
 
-- 8 张核心表增加 nullable tenant_id；从真实上下文传播，未知留 NULL/quarantine。
-- 禁止 default-tenant 掩盖，不宣称租户隔离完成。
+- `DecisionTask / ChancellorRouteDecision / OutboxEvent /
+  DecreeExecutionEvent / CourtReview / FinalMemorial / EmperorDecision /
+  ShiguanArchive` 8 张核心表已增加 nullable、无 default 的 `tenant_id`。
+- 20 个生产构造点均显式写入 lineage：请求根任务只接收已验证 slug 的严格解析结果，
+  下游沿 task/review/outbox 继承；治理兼容入口无认证事实，明确写 NULL。
+- worker 对两个已知但不一致的 tenant 值 fail closed；未知值不猜测、不回填，进入
+  `list_tenant_lineage_quarantine()` 可审计清单。
+- 013 expand-only：无 default/backfill/index/FK；缺核心表、已有 NOT NULL 或默认值均阻断。
+- RED：字段与 20 个 writer 契约 2 failed，013 缺失 7 failed；GREEN：相关回归
+  106 passed，全部迁移测试 18 passed（其中 013 为 9 passed）。
+- 真实数据库从未作为测试目标；只在临时 SQLite 演练 upgrade/downgrade/fresh chain。
 
-## 收口（PENDING）
+## 收口（IN REVIEW）
 
-- 全量相关验证、两层 doctor、独立审查；GO 后方可合入 ext/进入 P5。
+- 全量相关验证完成；两层 doctor、真实库指纹复核与独立审查待最后执行。
+- 独立审查 GO 后方可合入 ext/进入 P5。
 
 ## 范围外问题（RECORDED）
 
 - `frontend/config/ministry_output_contracts.yaml` 与其 validator 描述了另一套扩张字段，当前只读基线即报 `DepartmentOpinionV1 missing field: department_name`。
 - P4.5e 以可执行 JSON Schema 和两个 TS 运行时类型为事实源；YAML/validator 漂移须另立变更，不在本包顺手扩 scope。
+- 完整后端基线已有 7 个与本包无关的失败：文档重复检测 1、律师 RAG 本地资料 4、
+  persona 清单 1、钦天监期望数量 1；在基线提交重跑完全相同，不纳入 P4.5f 修复。

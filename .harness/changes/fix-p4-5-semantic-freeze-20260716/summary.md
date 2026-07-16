@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | fix-p4-5-semantic-freeze-20260716 |
 | 类型 | fix |
-| 状态 | IN_PROGRESS（P4.5a-e VERIFIED） |
+| 状态 | IN_REVIEW（P4.5a-f VERIFIED） |
 | Owner | Project Agent |
 | 创建日期 | 20260716 |
 
@@ -21,4 +21,7 @@
 - P4.5c：质量门独立 import seam 已落地，原行为与兼容 patch target 保持不变。
 - P4.5d：生产代码中 8 个 `CourtReview(...)` 写入调用已按路径/函数/数量冻结并由 AST 守门。
 - P4.5e：swarm `department_sections` 已完整投影为严格 `DepartmentOpinionV1`，逐部门 signal/source provenance 不再丢失。
-- P4.5f：待按批准顺序执行；P5 在 P4.5 获得 GO 前不得开始。
+- P4.5f：八张权威核心表的 nullable tenant lineage、20 个显式生产写入点、NULL
+  quarantine、worker 冲突阻断与迁移 013 已实现并验证。
+- 收口：相关回归与全部迁移已通过；完整后端套件的 7 个失败已在基线复现，新增失败 0。
+  两级 doctor、真实库指纹复核与独立 packet review 完成后才可声明 GO。

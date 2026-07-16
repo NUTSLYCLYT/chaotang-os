@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING
 
 from src.chancellor.contracts import RouteDecisionV2, RouteParticipant
 from src.chaotang_department_router import route_department_task
+from src.core_tenant_lineage import tenant_id_for_task
 from src.shangshufang_loop import (
     DIRECT_AGENT_MAP,
     chancellor_decide_route,
@@ -191,6 +192,7 @@ class ChancellorRoutingService:
         db.add(
             ChancellorRouteDecision(
                 decision_id=decision.decision_id,
+                tenant_id=tenant_id_for_task(db, task_id),
                 task_id=task_id,
                 idempotency_key=idempotency_key,
                 mode=decision.mode,
