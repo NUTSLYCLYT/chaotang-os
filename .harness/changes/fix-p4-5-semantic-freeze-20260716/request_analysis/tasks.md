@@ -53,13 +53,14 @@
 - 独立审查首轮 NO-GO 指出 route/final replay、review 三方校验与冲突失败时间线
   四处缺口；均已追加 RED 用例并修复，待复审签发 GO。
 - 独立复审发现 nullable 中间节点可绕过两次两两校验；timeline 与 formal replay
-  已改为把 task/existing/replay 或 task/review/memorial 放进一次一致性检查，待三审。
+  已改为把 task/existing/replay 或 task/review/memorial 放进一次一致性检查。
+- 独立三审对 `4746d87` 签发 GO；未发现新的高/中风险或幂等绕过。
 - 真实数据库从未作为测试目标；只在临时 SQLite 演练 upgrade/downgrade/fresh chain。
 
-## 收口（IN REVIEW）
+## 收口（VERIFIED / GO）
 
-- 全量相关验证完成；两层 doctor、真实库指纹复核与独立审查待最后执行。
-- 独立审查 GO 后方可合入 ext/进入 P5。
+- 全量相关验证、两层 doctor、真实库指纹复核与独立审查均完成。
+- 已满足合入 ext 的门槛；P5 仍需按后续已批准顺序单独启动。
 
 ## 范围外问题（RECORDED）
 

@@ -47,15 +47,16 @@
 | P4.5f 独立审查 v2 | — | NO-GO | formal/timeline replay 的 nullable-bridge 绕过 | 只读 reviewer，2026-07-16 |
 | nullable-bridge RED | 1 | 2 failed / 2 passed（预期 RED） | task=7、中间=NULL、末端=8 | brew Python 3.14，2026-07-16 |
 | nullable-bridge GREEN | 0 | 4 passed；核心 44 passed；全相关 112 passed | 每条 replay 边界一次性校验全部已知值 | brew Python 3.14，2026-07-16 |
+| P4.5f 独立审查 v3 | — | GO（HEAD `4746d87`） | 全部首轮/复审阻断关闭，无新高/中问题 | 只读 reviewer，2026-07-16 |
+| 独立 reviewer 定向回归 | 0 | 41 passed | lineage、route、formal、timeline、worker | brew Python 3.14，2026-07-16 |
 
 ## 结果
 
-P4.5a-f VERIFIED；全包处于独立审查前收口阶段。
+P4.5a-f VERIFIED；独立审查最终 GO。
 
 ## 未验证项
 
 - 系统 Python 缺 Alembic，pytest 迁移文件收集为 1 skipped；已用仓库现有 `.venv-alembic` 对同等场景取得真实执行证据。
-- 全包独立审查尚未执行。
 - ministry output YAML/validator 与可执行 JSON Schema/TS 类型的既有漂移已记录，另立变更处理。
 
 ## Diff 与回滚复核
@@ -78,10 +79,10 @@ P4.5a-f VERIFIED；全包处于独立审查前收口阶段。
 | P4.5c 质量门归属 | AST import/definition 守门 + 24 个行为回归 | PASS |
 | P4.5d writer 基线 | 独立 AST multiset + 42 个相邻回归 | PASS |
 | P4.5e 完整意见投影 | 严格 schema 7 tests + 后端 49 tests + 前端 22 tests | PASS |
-| P4.5f 八表 lineage | 20 writer AST + 传播/auth/worker 24 tests + 112 相关回归 | PASS，待三审 |
+| P4.5f 八表 lineage | 20 writer AST + 传播/auth/worker 24 tests + 112 相关回归 | PASS / 独立 GO |
 | 013 expand-only | 9 个临时库场景 + 全迁移 18 tests | PASS |
 | 完整后端新增失败 | 基线与任务分支均为同一 7 failures | PASS（新增 0） |
 
 ## 声明状态
 
-- `VERIFIED_PENDING_REVIEW`：P4.5a-f 完成；独立 GO 尚未签发。
+- `VERIFIED_GO`：P4.5a-f 完成；独立审查 GO 已签发。
