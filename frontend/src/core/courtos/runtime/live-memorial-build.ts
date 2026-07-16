@@ -14,9 +14,18 @@
  */
 import type { ShangshufangReviewMemorial, ShangshufangSourceLabel } from '@/lib/jiqun-api';
 import type { MinistryReviewResult, MinistryVerdict, MinistryId } from '../ministries/ministry-types.ts';
-import type { ImperialReport } from '../ministries/imperial-report-synthesizer.ts';
 import { mergeHonestSource } from '../../../lib/reality/merge-source.ts';
 import { MINISTRY_TO_AGENT_CODE } from '@/lib/contracts/dept';
+
+/** Neutral compatibility shape retained for the archived live-memorial builder tests. */
+export interface LegacyImperialReportProjection {
+  verdict: MinistryVerdict;
+  oneSentence: string;
+  risks: string[];
+  nextAction: string;
+  yushitaiWarnings?: string[];
+  qualityGate: { warnings: string[] };
+}
 
 /**
  * 六部 MinistryId(本特性 SSOT)↔ 部门码(contracts/agent.ts Tier0)。
@@ -103,7 +112,7 @@ export interface BuildLiveMemorialContext {
   reviewSource: ShangshufangSourceLabel;
   refinedIntent: string;
   ministryReview: MinistryReviewResult;
-  imperialReport: ImperialReport;
+  imperialReport: LegacyImperialReportProjection;
   needsHumanConfirmation: boolean;
 }
 

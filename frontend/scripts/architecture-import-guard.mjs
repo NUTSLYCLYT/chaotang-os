@@ -10,20 +10,7 @@ const ENGINE_NAMES = [
   'unified-decision-loop',
 ];
 
-const ALLOWED_ENGINE_IMPORTS = new Map([
-  ['src/app/(dashboard)/junjichu/page.tsx', new Set(ENGINE_NAMES)],
-  ['src/core/courtos/ministries/real-ministry-review.ts', new Set(['ministry-review-loop'])],
-  [
-    'src/core/courtos/runtime/live-memorial-bridge.ts',
-    new Set(['ministry-review-loop', 'yushitai-auditor', 'imperial-report-synthesizer']),
-  ],
-  [
-    'src/core/courtos/runtime/live-memorial-build.ts',
-    new Set(['imperial-report-synthesizer']),
-  ],
-  ['src/features/shangshufang/ShangshufangPage.tsx', new Set(ENGINE_NAMES)],
-  ['src/lib/db/courtos-decision-store.ts', new Set(['unified-decision-loop'])],
-]);
+const ALLOWED_ENGINE_IMPORTS = new Map();
 
 const IMPORT_SPECIFIER = /(?:\bfrom\s*|\bimport\s*(?:\(\s*)?)['"]([^'"]+)['"]/g;
 

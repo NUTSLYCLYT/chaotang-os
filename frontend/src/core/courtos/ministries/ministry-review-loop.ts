@@ -1,4 +1,5 @@
 /**
+ * @deprecated P4c: test/eval-only decision engine; production imports are forbidden.
  * 六部会审总 Loop（Loop3+编排）—— 选部 → 各部红蓝 → 汇总否决/冲突/缺证/总灯号。
  * 不强行平均分歧（冲突摊给老板）。纯函数，无 @/ 运行时依赖 → 可离线单测。
  */

@@ -34,20 +34,12 @@ import { DepartmentWorkflowChip } from '@/features/departments/components/Depart
 import type { CategorySelection } from '@/lib/contracts/decree';
 import type { SourceLabel } from '@/core/courtos/types';
 import { resolvePanelMode, type PanelMode } from './panel-mode';
-import { runMinistryReview } from '@/core/courtos/ministries/ministry-review-loop.ts';
-import { hubuEngineCard } from '@/features/hubu/lib/hubu-ministry-card';
-import { gongbuEngineCard } from '@/features/gongbu/lib/gongbu-ministry-card';
-import { runYushitaiAudit } from '@/core/courtos/ministries/yushitai-auditor.ts';
-import { synthesizeImperialReport, type ImperialReport } from '@/core/courtos/ministries/imperial-report-synthesizer.ts';
-import { MINISTRY_REGISTRY } from '@/core/courtos/ministries/ministry-registry.ts';
-import type { MinistryId, MinistryReviewResult, YushitaiAuditResult } from '@/core/courtos/ministries/ministry-types.ts';
-import { runCourtUnifiedDecisionLoop } from '@/core/courtos/unified/unified-decision-loop.ts';
-import { buildUnifiedLoopViewModel, type UnifiedLoopViewModel } from '@/core/courtos/unified/unified-ui-adapter.ts';
 import {
   shangshufangTaskDecision,
   shangshufangTaskStatus,
   type ShangshufangTaskStatusResponse,
 } from '@/lib/jiqun-api';
+import { departmentNameCn, type MinistryId } from '@/lib/contracts/dept';
 import { proceedJunjichuDecree } from '@/features/command-center/junjichu/api/governance';
 import { JunjichuCenterWorkSurface } from '@/features/command-center/junjichu/components/JunjichuCenterWorkSurface';
 import { JunjichuLeftRail } from '@/features/command-center/junjichu/components/JunjichuLeftRail';
@@ -55,6 +47,10 @@ import { JunjichuRightRail } from '@/features/command-center/junjichu/components
 import { useArchiveFlywheel } from '@/features/command-center/junjichu/hooks/useArchiveFlywheel';
 import { useJunjichuPageView } from '@/features/command-center/junjichu/hooks/useJunjichuPageView';
 import { useSwarmRun } from '@/features/command-center/junjichu/hooks/useSwarmRun';
+import {
+  projectCanonicalCourtStatus,
+  type CanonicalCourtProjection,
+} from '@/features/command-center/junjichu/model/canonical-read-model';
 import type { JunjichuSourceLabel, QualityGateStatus, SummonView, SwarmRunMode } from '@/features/command-center/junjichu/model/types';
 import { CouncilView } from '@/features/command-center/views/CouncilView';
 import { CasesView } from '@/features/command-center/views/CasesView';
@@ -119,7 +115,7 @@ function commandCenterToEdict(input: {
   const { taskId, taskSummary, ministers, risks, groups, councilSummary, memorial, ministryBrief } = input;
   const hasTask = Boolean(taskId);
   const title = taskSummary?.title ?? taskSummary?.intent ?? taskSummary?.rawCommand ?? (hasTask ? '军机处已接案' : '军机处待接案');
-  const sourceLabel = taskSummary?.source ?? ministryBrief?.review.sourceLabel ?? (hasTask ? 'MIXED' : 'DEMO');
+  const sourceLabel = ministryBrief?.review.sourceLabel ?? taskSummary?.source ?? (hasTask ? 'FALLBACK' : 'DEMO');
   const riskText = risks.length
     ? risks.map((risk) => `${risk.level}：${risk.label}`).join('\n')
     : hasTask
@@ -173,13 +169,7 @@ function commandCenterToEdict(input: {
   };
 }
 
-interface CommandCenterMinistryBrief {
-  review: MinistryReviewResult;
-  audit: YushitaiAuditResult;
-  report: ImperialReport;
-  unified: UnifiedLoopViewModel;
-  source: 'shangshufang' | 'stream' | 'demo';
-}
+type CommandCenterMinistryBrief = CanonicalCourtProjection;
 
 interface BuildDraftContext {
   origin?: string | null;
@@ -324,105 +314,9 @@ function departmentReviewLabel(id: string): string {
 }
 
 function buildCommandCenterMinistryBrief(input: {
-  taskId: string | null;
-  taskIntent?: string | null;
-  taskSummary: TaskSummary | null;
-  ministers: MinisterRow[];
-  risks: RiskBanner[];
-  councilSummary?: string;
   shangshufangStatus: ShangshufangTaskStatusResponse | null;
 }): CommandCenterMinistryBrief | null {
-  const { taskId, taskIntent, taskSummary, ministers, risks, councilSummary, shangshufangStatus } = input;
-  if (!taskId && !taskIntent?.trim()) return null;
-
-  const localTaskId = taskId ?? `local_${Array.from(taskIntent ?? '').reduce((acc, char) => (acc * 33 + char.charCodeAt(0)) >>> 0, 5381).toString(36)}`;
-  const shangTask = shangshufangStatus?.task;
-  const shangMemorial = shangshufangStatus?.review?.memorial ?? null;
-  const backendSwarmBrief = shangMemorial?.swarm_brief_for_junjichu;
-  const streamEvidence = [
-    ...ministers.map((item) => `${item.name}:${item.opinion || item.status}`),
-    ...risks.map((item) => `${item.level}:${item.label}`),
-  ];
-  const originalQuestion =
-    shangTask?.raw_question ||
-    taskSummary?.rawCommand ||
-    taskSummary?.intent ||
-    taskSummary?.title ||
-    taskIntent ||
-    councilSummary ||
-    localTaskId;
-  const refinedIntent =
-    shangTask?.draft_edict?.refined_edict ||
-    shangMemorial?.summary ||
-    councilSummary ||
-    taskSummary?.intent ||
-    originalQuestion;
-  const evidenceSummary = [
-    ...(shangTask?.known_facts ?? []),
-    ...(shangTask?.unknown_gaps ?? []),
-    ...(shangTask?.risk_flags ?? []),
-    ...(shangMemorial?.evidence_gaps ?? []),
-    ...(shangMemorial?.risk_flags ?? []),
-    ...(backendSwarmBrief?.missing_evidence ?? []),
-    ...(backendSwarmBrief?.risk_register ?? []).map((item) => JSON.stringify(item)),
-    ...(backendSwarmBrief?.conflict_summary ?? []).map((item) =>
-      typeof item === 'string' ? item : item.summary ?? JSON.stringify(item),
-    ),
-    ...streamEvidence,
-  ].join('\n');
-  // 诚实纪律(铁律13.2.3 · 禁假冒):无真来源标时,只有绑定了真案(taskId)才算 MIXED(真案但标注未全);
-  // 没绑真案而仅有大臣/风险 = 关键词触发的罐头演示,必须老实标 DEMO,不得用 MIXED 谎称"半真"。
-  // (与本页 hasTask→DEMO 判据一致,见 derivePanelMode。)
-  const sourceLabel = (backendSwarmBrief?.source_label ?? shangTask?.source_label ?? (taskId ? 'MIXED' : 'DEMO')) as SourceLabel;
-  // 断点B(一案穿堂)：户部若参审，其会审卡由真户部引擎 evaluateProject 直算，替掉通用 synth。
-  // 与户部页手动算走同一个 evaluateProject(两入口一脑，见 hubu-ministry-card.nodetest.ts)。
-  // 只传覆盖，是否真显示由 selectMinistries 决定；非预算类案不选户部则此卡被丢弃，无害。
-  const review = runMinistryReview({
-    taskId: localTaskId,
-    originalQuestion,
-    refinedIntent,
-    evidenceSummary,
-    sourceLabel,
-    cardOverrides: {
-      finance: hubuEngineCard(localTaskId, originalQuestion, sourceLabel),
-      works: gongbuEngineCard(localTaskId, originalQuestion, sourceLabel),
-    },
-  });
-  const audit = runYushitaiAudit({
-    review,
-    draftVerdict: shangMemorial?.verdict,
-    draftSourceLabel: sourceLabel,
-  });
-  const report = synthesizeImperialReport({
-    review,
-    audit,
-    evidence: shangTask?.known_facts ?? streamEvidence,
-  });
-  const unifiedResult = runCourtUnifiedDecisionLoop({
-    taskId: localTaskId,
-    rawQuestion: originalQuestion,
-    sourceLabel,
-  });
-  const unified = buildUnifiedLoopViewModel(unifiedResult);
-  if (backendSwarmBrief?.recommended_next_action) {
-    report.nextAction = backendSwarmBrief.recommended_next_action;
-  }
-  if (backendSwarmBrief?.missing_evidence?.length) {
-    report.missingEvidence = [...new Set([...report.missingEvidence, ...backendSwarmBrief.missing_evidence])];
-  }
-  report.missingEvidence = [...new Set([...report.missingEvidence, ...unified.evidenceGaps])];
-  report.risks = [...new Set([...report.risks, ...unified.risks])];
-  if (unified.qualityGateStatus === 'blocked' && audit.passed) {
-    audit.passed = false;
-    audit.blockingIssues = [...new Set([...audit.blockingIssues, '统一质门阻断：缺证、高风险或不可信来源未消解'])];
-  }
-  return {
-    review,
-    audit,
-    report,
-    unified,
-    source: shangshufangStatus ? 'shangshufang' : ministers.length || risks.length ? 'stream' : 'demo',
-  };
+  return projectCanonicalCourtStatus(input.shangshufangStatus);
 }
 
 function isBusinessDecisionIntent(intent: string | null): boolean {
@@ -957,7 +851,7 @@ function CouncilPanel({
             <div style={{ marginTop: 9, display: 'grid', gap: 7 }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
                 {ministryBrief.review.cards.slice(0, 6).map((card) => {
-                  const ministry = MINISTRY_REGISTRY[card.ministryId].nameCn;
+                  const ministry = departmentNameCn(card.ministryId);
                   const color =
                     card.signal === 'GREEN' ? '#3DD68C' : card.signal === 'RED' ? '#F58B8B' : card.signal === 'YELLOW' ? '#F0C66A' : '#8F9BB2';
                   return (
@@ -978,13 +872,13 @@ function CouncilPanel({
                 })}
               </div>
               <div style={{ border: '1px solid rgba(240,198,106,0.16)', background: 'rgba(240,198,106,0.035)', borderRadius: 6, padding: 8 }}>
-                <div style={{ color: '#F5E9C9', fontFamily: 'var(--font-serif)', fontSize: 12, fontWeight: 700 }}>红蓝对抗</div>
+                <div style={{ color: '#F5E9C9', fontFamily: 'var(--font-serif)', fontSize: 12, fontWeight: 700 }}>部门奏报</div>
                 <div style={{ marginTop: 5, display: 'grid', gap: 5 }}>
                   {ministryBrief.review.cards.slice(0, 2).map((card) => {
-                    const ministry = MINISTRY_REGISTRY[card.ministryId].nameCn;
+                    const ministry = departmentNameCn(card.ministryId);
                     return (
                       <p key={card.ministryId} style={{ margin: 0, color: '#AAB4C4', fontSize: 11, lineHeight: 1.55 }}>
-                        <span style={{ color: '#F0C66A' }}>{ministry}</span>：{card.mainThesis}；{card.deputyChallenge}
+                        <span style={{ color: '#F0C66A' }}>{ministry}</span>：{card.mainThesis}
                       </p>
                     );
                   })}
@@ -1080,7 +974,7 @@ function FinalMemorialPanel({
   const isError = memorial?.streamStatus === 'error';
   const sourceLabel = ministryBrief?.report.sourceLabel;
   const sourceColor = sourceLabel ? commandCenterSourceTone(sourceLabel) : '#8F9BB2';
-  const isBlocked = Boolean(ministryBrief && (!ministryBrief.audit.passed || ministryBrief.review.overallSignal === 'RED'));
+  const isBlocked = Boolean(ministryBrief && (ministryBrief.audit.passed === false || ministryBrief.review.overallSignal === 'RED'));
   const archiveLabel = ministryBrief?.report.needsHumanConfirmation ? '人工确认后归档' : '呈报皇上';
   const quoteBrief = ministryBrief?.unified.formalQuoteDecisionBrief;
   const scroll = ministryBrief?.unified.memorialScroll;
@@ -1185,16 +1079,18 @@ function FinalMemorialPanel({
                 </div>
               </div>
 
-              <div style={{ border: '1px solid rgba(138,164,255,0.18)', background: 'rgba(138,164,255,0.045)', borderRadius: 6, padding: 8 }}>
-                <div style={{ color: '#9FC1FF', fontFamily: 'var(--font-serif)', fontSize: 11, fontWeight: 900 }}>红蓝对抗</div>
-                <div style={{ marginTop: 5, display: 'grid', gap: 5 }}>
-                  {scroll.redBlueHighlights.slice(0, 2).map((item) => (
-                    <p key={item.department} style={{ margin: 0, color: '#B8C5CF', fontSize: 10, lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                      <span style={{ color: '#F0C66A' }}>{item.department}</span>：{item.main} / {item.deputy}
-                    </p>
-                  ))}
+              {scroll.redBlueHighlights.length > 0 ? (
+                <div style={{ border: '1px solid rgba(138,164,255,0.18)', background: 'rgba(138,164,255,0.045)', borderRadius: 6, padding: 8 }}>
+                  <div style={{ color: '#9FC1FF', fontFamily: 'var(--font-serif)', fontSize: 11, fontWeight: 900 }}>红蓝对抗</div>
+                  <div style={{ marginTop: 5, display: 'grid', gap: 5 }}>
+                    {scroll.redBlueHighlights.slice(0, 2).map((item) => (
+                      <p key={item.department} style={{ margin: 0, color: '#B8C5CF', fontSize: 10, lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        <span style={{ color: '#F0C66A' }}>{item.department}</span>：{item.main} / {item.deputy}
+                      </p>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              ) : null}
 
               {scroll.conflicts.length > 0 ? (
                 <div style={{ border: '1px solid rgba(245,139,139,0.24)', background: 'rgba(245,139,139,0.055)', borderRadius: 6, padding: 8 }}>
@@ -1422,7 +1318,7 @@ function CommandMetric({
 
 function commandTeamLabels(ministryBrief: CommandCenterMinistryBrief | null, ministers: MinisterRow[], groups: GroupCard[]) {
   const labels = new Set<string>();
-  ministryBrief?.review.selectedMinistries.forEach((id) => labels.add(MINISTRY_REGISTRY[id].nameCn));
+  ministryBrief?.review.selectedMinistries.forEach((id) => labels.add(departmentNameCn(id)));
   ministers.slice(0, 4).forEach((minister) => labels.add(minister.name));
   groups.slice(0, 3).forEach((group) => labels.add(group.name || group.groupId));
   if (labels.size === 0) {
@@ -1524,12 +1420,12 @@ function ConflictResolutionPanel({
   const mode = resolvePanelMode(hasTask, Boolean(ministryBrief || risks.length), ministryBrief?.report.sourceLabel);
   const conflictRows = ministryBrief?.review.conflicts.length
     ? ministryBrief.review.conflicts.slice(0, 3).map((conflict) => ({
-        title: conflict.between.map((id) => MINISTRY_REGISTRY[id].nameCn).join(' × '),
+        title: conflict.between.map((id) => departmentNameCn(id)).join(' × '),
         body: conflict.summary,
         fix: '不做平均结论，拆成可裁决选项交老板拍板。',
       }))
     : ministryBrief?.review.cards.slice(0, 3).map((card) => ({
-        title: MINISTRY_REGISTRY[card.ministryId].nameCn,
+        title: departmentNameCn(card.ministryId),
         body: card.disputeFocus || card.deputyChallenge,
         fix: card.conditionsToProceed[0] ?? card.missingEvidence[0] ?? card.ruling,
       })) ?? [
@@ -1753,7 +1649,7 @@ function BossDecisionPanel({
   const sourceLabel = ministryBrief?.report.sourceLabel;
   const mode = resolvePanelMode(hasTask, hasMemorial, sourceLabel);
   const sourceColor = sourceLabel ? commandCenterSourceTone(sourceLabel) : '#8F9BB2';
-  const isBlocked = Boolean(ministryBrief && (!ministryBrief.audit.passed || ministryBrief.review.overallSignal === 'RED'));
+  const isBlocked = Boolean(ministryBrief && (ministryBrief.audit.passed === false || ministryBrief.review.overallSignal === 'RED'));
   const throneHref = taskId
     ? `/throne/brief/${encodeURIComponent(taskId)}${memorial?.memorialId ? `?memorialId=${encodeURIComponent(memorial.memorialId)}` : ''}`
     : '/throne/pulse';
@@ -1863,7 +1759,7 @@ function buildHexagonAssessment(input: {
   const completedMinisters = ministers.filter((minister) => minister.status === 'completed').length;
   const selectedMinistries = ministryBrief?.review.selectedMinistries.length ?? ministers.length;
   const blockingIssues = ministryBrief?.audit.blockingIssues.length ?? 0;
-  const sourceLabel = ministryBrief?.report.sourceLabel ?? (taskId ? 'MIXED' : 'DEMO');
+  const sourceLabel = ministryBrief?.report.sourceLabel ?? (taskId ? 'FALLBACK' : 'DEMO');
   const liveSourceBonus = sourceLabel === 'LIVE' || sourceLabel === 'LIVE_SWARM' ? 18 : sourceLabel === 'MIXED' ? 8 : 0;
   const hasBossDecision = Boolean(ministryBrief?.report.oneSentence || ministryBrief?.unified.memorialScroll?.oneSentence || memorial?.memorialId);
 
@@ -2172,7 +2068,7 @@ function CoreMemoScroll({
   ministryBrief: CommandCenterMinistryBrief | null;
 }) {
   const title = taskSummary?.title ?? taskSummary?.intent ?? taskSummary?.rawCommand ?? '今日军机处价值纪要';
-  const sourceLabel = ministryBrief?.report.sourceLabel ?? (taskId ? 'MIXED' : 'DEMO');
+  const sourceLabel = ministryBrief?.report.sourceLabel ?? (taskId ? 'FALLBACK' : 'DEMO');
   const sourceColor = commandCenterSourceTone(sourceLabel);
   const conflicts = ministryBrief?.review.conflicts.map((item) => item.summary) ?? [];
   const missingEvidence = ministryBrief?.report.missingEvidence ?? [];
@@ -2684,7 +2580,7 @@ function CommandCenterInner() {
   const buildTaskKey = searchParams.get('task') ?? null;
   const buildIntent = searchParams.get('intent') ?? null;
   const decisionIntent = !taskId && !buildTaskKey && isBusinessDecisionIntent(buildIntent) ? buildIntent : null;
-  const activeTaskId = taskId ?? (decisionIntent ? `local_${Array.from(decisionIntent).reduce((acc, char) => (acc * 33 + char.charCodeAt(0)) >>> 0, 5381).toString(36)}` : null);
+  const activeTaskId = taskId;
   const buildContext: BuildDraftContext = {
     origin: searchParams.get('origin'),
     source: searchParams.get('source'),
@@ -2845,18 +2741,18 @@ function CommandCenterInner() {
   const isCasesView = view === 'cases';
 
   // ── 御座室外壳配置 ──
-  const syntheticTaskSummary: TaskSummary | null = decisionIntent && activeTaskId
+  const syntheticTaskSummary: TaskSummary | null = decisionIntent
     ? {
-        id: activeTaskId,
+        id: 'undispatched-draft',
         rawCommand: decisionIntent,
         intent: decisionIntent,
-        status: 'local_decision',
-        title: decisionIntent.includes('报价') ? '正式报价决策' : '本地经营决策',
-        source: 'MIXED',
+        status: 'draft_not_dispatched',
+        title: decisionIntent.includes('报价') ? '正式报价草稿（尚未立案）' : '经营决策草稿（尚未立案）',
+        source: 'DEMO',
       }
     : null;
   const displayTaskSummary = taskSummary ?? syntheticTaskSummary;
-  const hasTask = Boolean(activeTaskId);
+  const hasTask = Boolean(taskId);
   const objectTone: 'live' | 'demo' | 'pending' = !hasTask ? 'demo' : taskId && taskSummary ? 'live' : 'pending';
   const objectLabel = hasTask
     ? displayTaskSummary?.title ?? displayTaskSummary?.intent ?? displayTaskSummary?.rawCommand ?? '军机处已接案'
@@ -2865,12 +2761,6 @@ function CommandCenterInner() {
     ? `大臣 ${liveMinisters.length || mergeCouncil?.contributors.length || 0} · 蜂群 ${liveGroups.length} · 风险 ${liveRisks.length}`
     : '从上书房立一条可执行军令，军机处即接案作战';
   const ministryBrief = buildCommandCenterMinistryBrief({
-    taskId: activeTaskId,
-    taskIntent: decisionIntent,
-    taskSummary: displayTaskSummary,
-    ministers: liveMinisters,
-    risks: liveRisks,
-    councilSummary: liveCouncilSummary,
     shangshufangStatus,
   });
   const dialogueActions: CourtDialogueAction[] = [
@@ -2900,23 +2790,17 @@ function CommandCenterInner() {
   const archiveFlywheel = useArchiveFlywheel(activeTaskId, objectLabel);
   const gateStatus: QualityGateStatus = !hasTask
     ? 'blocked'
-    : ministryBrief?.audit.passed === false || ministryBrief?.unified.qualityGateStatus === 'blocked'
+    : ministryBrief?.gate.status === 'blocked'
       ? 'blocked'
-      : liveMemorial || displayTaskSummary?.decisionId
+      : ministryBrief?.gate.status === 'passed'
         ? 'passed'
         : liveMinisters.length || mergeCouncil?.contributors.length || shangshufangStatus?.review
           ? 'warning'
           : 'idle';
-  const sourceLabel = (ministryBrief?.review.sourceLabel ?? displayTaskSummary?.source ?? (hasTask ? 'MIXED' : 'DEMO')) as JunjichuSourceLabel;
-  const missingEvidence = [
-    ...(ministryBrief?.report.missingEvidence ?? []),
-    ...(shangshufangStatus?.task.unknown_gaps ?? []),
-    ...(shangshufangStatus?.review?.memorial?.evidence_gaps ?? []),
-  ].filter(Boolean);
-  // 真实回奏(confirm-edict/outbox 已跑完的 ministry_outputs)比本地 ministry-review-loop
-  // 合成更真实,取本地合成之前先用它——之前这里完全没读这份数据,六部表态卡片显示的是
-  // 本地通用模板句,跟真实回奏对不上(2026-07-11 生产实测发现)。
-  const realMinistryOutputs = shangshufangStatus?.review?.ministry_outputs ?? [];
+  const sourceLabel = (ministryBrief?.review.sourceLabel ?? displayTaskSummary?.source ?? (hasTask ? 'FALLBACK' : 'DEMO')) as JunjichuSourceLabel;
+  const missingEvidence = ministryBrief?.report.missingEvidence
+    ?? shangshufangStatus?.task.unknown_gaps
+    ?? [];
   const summons: SummonView[] = liveMinisters.length
     ? liveMinisters.slice(0, 8).map((minister) => ({
         id: minister.agentCode,
@@ -2933,18 +2817,10 @@ function CommandCenterInner() {
           thesis: item.answer,
           sourceLabel: 'LIVE',
         }))
-      : realMinistryOutputs.length
-        ? realMinistryOutputs.slice(0, 8).map((output) => ({
-            id: output.department,
-            name: output.department,
-            status: 'summoned',
-            thesis: output.opinion,
-            sourceLabel: output.source_label as JunjichuSourceLabel,
-          }))
-        : ministryBrief?.review.cards.slice(0, 8).map((card) => ({
+      : ministryBrief?.review.cards.slice(0, 8).map((card) => ({
             id: card.ministryId,
-            name: MINISTRY_REGISTRY[card.ministryId].nameCn,
-            status: 'waiting',
+            name: departmentNameCn(card.ministryId),
+            status: 'summoned',
             thesis: card.mainThesis,
             sourceLabel: card.sourceLabel as JunjichuSourceLabel,
           })) ?? [];

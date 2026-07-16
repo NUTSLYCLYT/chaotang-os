@@ -1,4 +1,5 @@
 /**
+ * @deprecated P4c test-only archive. No production imports are permitted.
  * 真 agent 版六部会审（2026-06-24 · 缺口#3 · 价值解锁）。
  *
  * 与纯 runMinistryReview 同形,但指定的「真 agent 部门」走 runRealMinistryCard(真 LLM 推理,

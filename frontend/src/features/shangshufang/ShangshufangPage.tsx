@@ -100,12 +100,8 @@ import {
 } from '@/features/shared/components/global-edict-dock-slot';
 import { extractJiqunFinalOutputs, jiqunFinalOutputText, jiqunReturnChatText, mergeJiqunReturnIntoEdict } from './jiqun-return-edict';
 import type { SourceLabel } from '@/core/courtos/types';
-import { runMinistryReview } from '@/core/courtos/ministries/ministry-review-loop.ts';
-import { runYushitaiAudit } from '@/core/courtos/ministries/yushitai-auditor.ts';
-import { synthesizeImperialReport } from '@/core/courtos/ministries/imperial-report-synthesizer.ts';
-import { MINISTRY_REGISTRY } from '@/core/courtos/ministries/ministry-registry.ts';
-import { runCourtUnifiedDecisionLoop } from '@/core/courtos/unified/unified-decision-loop.ts';
 import { loopTraceIdForTask } from '@/core/courtos/loop-trace';
+import { projectCanonicalMemorialView } from './canonical-memorial-view';
 import {
   CapabilityEvidenceMatrix,
   type CapabilityEvidenceItem,
@@ -1465,15 +1461,15 @@ function pollForRealVerdict(
     if (!(await isStillRelevant())) return; // 用户已切到别的任务，提前停止，不再调度
     try {
       const envelope = await getShangshufangTaskStatus(taskId);
-      const stage = envelope.data?.execution_status?.current_stage;
-      const stillWaiting = stage === 'executing' || stage === 'department_reporting';
-      if (envelope.success && envelope.data && !stillWaiting) {
-        const realConfirm = taskStatusToConfirmLike(taskId, envelope.data);
-        if (realConfirm) {
-          const realView = confirmedEdictToView(taskId, realConfirm);
-          setEdictOverride((prev) => (prev && prev.primaryTaskId === taskId ? { ...prev, view: realView } : prev));
+      if (envelope.success && envelope.data) {
+        const projection = projectCanonicalMemorialView(taskId, envelope.data);
+        if (projection.view) {
+          setEdictOverride((prev) =>
+            prev && prev.primaryTaskId === taskId ? { ...prev, view: projection.view! } : prev,
+          );
+          return;
         }
-        return;
+        if (!projection.shouldRetry) return;
       }
     } catch {
       /* 单次轮询失败不终止，等下一轮；用户仍可点"查看状态"手动核实 */
@@ -1486,233 +1482,48 @@ function pollForRealVerdict(
   window.setTimeout(() => void tick(), POLL_INTERVAL_MS);
 }
 
-/** 状态接口回报真实回奏后，适配成 confirmedEdictToView 认识的形状——4个字段
- * (routing_plan/memorial/review_id/loop_trace_id)跟 confirm 响应完全同构，
- * 不用另建一整套渲染逻辑。status 换成真实值后会绕开 confirmedEdictToView
- * 顶部的 edict_recorded 硬门，走到真实分奏的完整渲染链路。 */
-function taskStatusToConfirmLike(
-  taskId: string,
-  status: ShangshufangTaskStatusResponse,
-): ShangshufangConfirmResponse | null {
-  const review = status.review;
-  if (!review || !review.memorial) return null;
-  return {
-    task_id: taskId,
-    loop_trace_id: review.loop_trace_id,
-    status: status.task?.status ?? review.review_status,
-    message: '',
-    review_id: review.review_id,
-    routing_plan: review.routing_plan as ShangshufangConfirmResponse['routing_plan'],
-    memorial: review.memorial,
-    review_status_url: shangshufangTaskStatusPath(taskId),
-  };
-}
-
 function confirmedEdictToView(taskId: string, confirm: ShangshufangConfirmResponse): EdictView {
-  // 硬门(super-chancellor-routing 方案第2/11节)：edict_recorded 是军机处刚下旨派单、
-  // 真实回奏还没发生的状态(见 backend confirm-edict 的 cluster 分支)——这时候
-  // memorial 只是丞相拟旨阶段的诚实占位骨架(部门意见形如"当前不能直接作定论；
-  // 需先补齐XX")，不是真实分奏。之前的实现在此刻就本地跑六部评审+御史审计+统一
-  // 决策合成，把结果当"圣裁"展示成页面第一行——2026-07-10 复审发现并修复：
-  // 回奏前不生成/展示丞相建议，改为诚实的"军机处会审中"状态，真实完成后由
-  // usePollForRealMemorial 轮询状态接口重新渲染成下面这条完整链路。
+  // edict_recorded only proves dispatch. It cannot be rendered as a review or decision.
   if (confirm.status === 'edict_recorded') {
     return awaitingRealMemorialView(taskId, confirm);
   }
-  const ministries = departmentLabels(confirm.routing_plan.ministry_candidates) || '待路由';
-  const swarmRows = confirm.routing_plan.swarm_plan.map((item) => `${item.department}：${item.focus}`);
+
   const memorial = confirm.memorial;
   const draft = memorial.draft_edict;
-  const review = runMinistryReview({
-    taskId,
-    originalQuestion: draft?.original_question ?? memorial.title ?? taskId,
-    refinedIntent: draft?.refined_edict ?? memorial.summary,
-    evidenceSummary: [
-      ...(draft?.known_facts ?? []),
-      ...(draft?.unknown_gaps ?? []),
-      ...memorial.evidence_gaps,
-      ...memorial.risk_flags,
-      ...memorial.ministry_outputs.map((item) => `${item.department}:${item.opinion}`),
-    ].join('\n'),
-    sourceLabel: memorial.source_label as SourceLabel,
-  });
-  const audit = runYushitaiAudit({
-    review,
-    draftVerdict: memorial.verdict,
-    draftSourceLabel: memorial.source_label as SourceLabel,
-  });
-  const imperialReport = synthesizeImperialReport({
-    review,
-    audit,
-    evidence: draft?.known_facts ?? [],
-  });
-  const unified = runCourtUnifiedDecisionLoop({
-    taskId,
-    rawQuestion: draft?.original_question ?? memorial.title ?? taskId,
-    sourceLabel: memorial.source_label as SourceLabel,
-  });
-  const signalRows = review.cards.map((card) => {
-    const ministry = MINISTRY_REGISTRY[card.ministryId].nameCn;
-    return `${ministry} ${card.signal}：${card.ruling}`;
-  });
-  const redBlueRows = imperialReport.redBlueHighlights.map((item) => `${item.ministry}：${item.main}\n　${item.deputy}`);
-  const conflictRows = [
-    ...imperialReport.conflicts.map((item) => item.summary),
-    ...memorial.conflict_summary.slice(0, 4).map((item) => item.summary),
-  ];
-  const yushitaiRows = [
-    ...(audit.blockingIssues.length ? audit.blockingIssues.map((item) => `阻断：${item}`) : []),
-    ...(audit.warnings.length ? audit.warnings.map((item) => `警告：${item}`) : []),
-    ...(audit.requiredActions.length ? audit.requiredActions.map((item) => `动作：${item}`) : []),
-  ];
-  const missingEvidence = [...new Set([...imperialReport.missingEvidence, ...memorial.evidence_gaps])];
-  const riskFlags = [...new Set([...imperialReport.risks, ...memorial.risk_flags, ...unified.memorial.risks])];
-  const ministryOpinions = memorial.ministry_outputs
-    .slice(0, 5)
-    .map((item) => `${item.department}：${item.opinion}`);
-  const departmentBriefs = memorial.department_memorials?.length
-    ? memorial.department_memorials
-        .slice(0, 6)
-        .map((item) => {
-          const evidence = item.evidence.length ? `证据：${item.evidence.map((e) => e.summary).join('；')}` : '证据：待补';
-          const missing = item.missing_evidence.length ? `缺口：${item.missing_evidence.join('、')}` : '缺口：暂无新增';
-          const risks = item.risks.length ? `风险：${item.risks.join('、')}` : '风险：暂无新增';
-          return `${item.department_id} ${item.signal} / ${item.verdict}：${item.summary}\n　${evidence}\n　${missing}\n　${risks}\n　后令：${item.next_order}`;
-        })
-    : ministryOpinions;
-  const decisionOptions = memorial.decision_options
-    .filter((option) => option.enabled)
-    .map((option) => `${option.label}：${option.reason}`);
-  const sourceTrace = [
-    imperialReport.sourceLabel,
-    `案号：${taskId}`,
-    `review：${confirm.review_id}`,
-    confirm.loop_trace_id ? `trace：${confirm.loop_trace_id}` : null,
-    `参审：${ministries}`,
-  ].filter(Boolean);
-  const rows: EdictRow[] = [
-    { label: '案 号', body: taskId },
-    { label: '圣 裁', body: imperialReport.oneSentence },
-    { label: '三省路由', body: confirm.routing_plan.route_reason },
-    { label: '参审部门', body: ministries },
-  ];
-  if (signalRows.length) rows.push({ label: '六部灯号', body: signalRows.join('\n') });
-  if (ministryOpinions.length) rows.push({ label: '分 奏', body: ministryOpinions.join('\n') });
-  if (redBlueRows.length) rows.push({ label: '红蓝对抗', body: redBlueRows.join('\n') });
-  if (conflictRows.length || unified.conflicts.length) {
-    rows.push({ label: '部门冲突', body: [...conflictRows, ...unified.conflicts.map((item) => item.summary)].join('\n') });
-  }
-  if (missingEvidence.length || unified.memorial.missingEvidence.length) {
-    rows.push({ label: '缺 口', body: [...new Set([...missingEvidence, ...unified.memorial.missingEvidence])].join('、') });
-  }
-  if (riskFlags.length) rows.push({ label: '风 险', body: riskFlags.join('、') });
-  if (yushitaiRows.length) rows.push({ label: '御史台', body: yushitaiRows.join('\n') });
-  if (swarmRows.length) rows.push({ label: '蜂群计划', body: swarmRows.join('\n') });
-  rows.push({
-    label: '后 令',
-    body:
-      `${imperialReport.nextAction}\n` +
-      (memorial.decision_options
-        .filter((option) => option.enabled)
-        .map((option) => `${option.label}：${option.reason}`)
-        .join('\n') || '候皇上裁决'),
-  });
-  rows.push({
-    label: '质 门',
-    body:
-      `${audit.passed && unified.memorial.qualityGate.passed ? '御史台通过' : '御史台/统一质门阻断'} · ${imperialReport.sourceLabel}` +
-      (imperialReport.needsHumanConfirmation ? ' · 需人工圣裁' : ' · 可按流程推进') +
-      (imperialReport.yushitaiWarnings.length ? `\n${imperialReport.yushitaiWarnings.join('\n')}` : '') +
-      (unified.memorial.qualityGate.blockingIssues.length ? `\n${unified.memorial.qualityGate.blockingIssues.join('\n')}` : ''),
-  });
-  rows.push({ label: '来 源', body: imperialReport.sourceLabel });
-  const unifiedRows: EdictRow[] = [
-    { label: '所议', body: draft?.original_question ?? memorial.title ?? taskId },
-    {
-      label: '军机处总回报',
-      body: [
-        memorial.executive_summary || imperialReport.oneSentence,
-        `会审层级：${memorial.review_depth ?? confirm.routing_plan.review_depth}`,
-        `路由：${confirm.routing_plan.route_reason}`,
-        swarmRows.length ? `蜂群计划：${swarmRows.join('；')}` : null,
-      ].filter(Boolean).join('\n'),
+  const status: ShangshufangTaskStatusResponse = {
+    task: {
+      task_id: taskId,
+      loop_trace_id: confirm.loop_trace_id,
+      status: confirm.status,
+      raw_question: draft?.original_question ?? memorial.title ?? taskId,
+      draft_edict: draft ?? null,
+      source_label: memorial.source_label,
+      risk_flags: draft?.risk_flags ?? memorial.risk_flags,
+      known_facts: draft?.known_facts ?? [],
+      unknown_gaps: draft?.unknown_gaps ?? memorial.evidence_gaps,
+      recommended_departments: confirm.routing_plan.selected_departments
+        ?? confirm.routing_plan.ministry_candidates,
+      created_at: '',
+      updated_at: '',
     },
-    {
-      label: '各司汇报',
-      body: departmentBriefs.length
-        ? departmentBriefs.join('\n')
-        : `军机处已登记议题，当前参审部门为 ${ministries}；尚无可展示的分司回报。`,
+    review: {
+      review_id: confirm.review_id,
+      loop_trace_id: confirm.loop_trace_id,
+      review_status: confirm.status,
+      routing_plan: confirm.routing_plan,
+      ministry_outputs: memorial.ministry_outputs,
+      conflict_summary: memorial.conflict_summary,
+      memorial,
+      unified_loop: confirm.unified_loop ?? null,
+      created_at: '',
+      updated_at: '',
     },
-    {
-      label: '丞相分析',
-      body: [
-        imperialReport.oneSentence,
-        redBlueRows.length ? `红蓝对抗：\n${redBlueRows.join('\n')}` : null,
-        conflictRows.length || unified.conflicts.length
-          ? `分歧：\n${[...conflictRows, ...unified.conflicts.map((item) => item.summary)].join('\n')}`
-          : '分歧：暂未形成需要皇上裁断的部门冲突。',
-      ].filter(Boolean).join('\n'),
-    },
-    {
-      label: '决策建议',
-      body:
-        [
-          `建议裁断：${memorial.verdict || imperialReport.oneSentence}`,
-          ...decisionOptions,
-        ].join('\n') || '暂无可执行决策项，建议先补证。',
-    },
-    {
-      label: '风险与缺证',
-      body:
-        [
-          ...riskFlags,
-          ...missingEvidence.map((item) => `缺证：${item}`),
-          ...yushitaiRows,
-        ].join('\n') || '质门未提示阻断红线；仍需按证据边界裁决。',
-    },
-    {
-      label: '行动建议',
-      body:
-        `${imperialReport.nextAction}\n` +
-        (decisionOptions.join('\n') || memorial.next_order || '候皇上裁决。'),
-    },
-    {
-      label: '质门',
-      body: [
-        `${audit.passed && unified.memorial.qualityGate.passed ? '御史台通过' : '御史台/统一质门阻断'} · ${imperialReport.sourceLabel}`,
-        imperialReport.needsHumanConfirmation ? '需人工圣裁' : '可按流程推进',
-        `signal：${review.overallSignal}`,
-        `gate：${audit.passed && unified.memorial.qualityGate.passed ? 'passed' : 'blocked'}`,
-        ...unified.memorial.qualityGate.blockingIssues,
-      ].join('\n'),
-    },
-    {
-      label: '来源',
-      body: [
-        ...sourceTrace,
-        `追溯：${confirm.loop_trace_id ?? loopTraceIdForTask(taskId)}`,
-      ].join('\n'),
-    },
-  ];
-
-  return {
-    id: `shangshufang-confirmed:${taskId}:${confirm.review_id}`,
-    title: '圣旨正文',
-    subtitle: `${review.overallSignal} · 待皇上裁决 · 可补证、驳回或归档`,
-    meta: {
-      reporter: '军机处',
-      priority: audit.blockingIssues.length || review.overallSignal === 'RED' ? 'urgent' : 'high',
-      badges: [
-        { label: imperialReport.sourceLabel, tone: sourceTone(imperialReport.sourceLabel) },
-        { label: `六部 ${review.overallSignal}`, tone: review.overallSignal === 'GREEN' ? 'green' : review.overallSignal === 'RED' ? 'red' : 'amber' },
-        ...(imperialReport.needsHumanConfirmation ? [{ label: '需人工圣裁', tone: 'red' as const }] : []),
-      ],
-    },
-    rows: unifiedRows,
-    seal: 'imperial',
+    formal_memorial: null,
+    execution_status: null,
   };
+  const projection = projectCanonicalMemorialView(taskId, status);
+  return projection.view ?? awaitingRealMemorialView(taskId, confirm);
 }
-
 /**
  * 群臣会审 → 丞相主判镜片(辅政印)。
  * 天才设计:群臣都接地却硬冲突(escalateToBoss)时,丞相不擅裁,合议自动升格为

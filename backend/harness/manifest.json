@@ -73,8 +73,8 @@
     {
       "id": "chaotang_department_protocol",
       "summary": "部门协议与路由 harness",
-      "required": ["README.md", "departments.yaml", "golden_cases/department_outputs.json", "golden_cases/department_routes.json", "scripts/run_protocol.py"],
-      "tests": ["tests/test_chaotang_department_protocol.py"]
+      "required": ["README.md", "departments.yaml", "contracts/frontend_second_brain_distillation.schema.json", "golden_cases/department_outputs.json", "golden_cases/department_routes.json", "golden_cases/frontend_second_brain_distillation.json", "scripts/run_protocol.py"],
+      "tests": ["tests/test_chaotang_department_protocol.py", "tests/test_frontend_second_brain_distillation.py"]
     },
     {
       "id": "chaotang_merit_system",

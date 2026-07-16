@@ -4,17 +4,43 @@
 | --- | --- |
 | Change ID | refactor-frontend-second-brain-sunset-20260716 |
 | 类型 | refactor |
-| 状态 | VERIFIED_PARTIAL（P4a 施工图完成；P4b/P4c 尚未实现） |
+| 状态 | VERIFIED_COMPLETE / READY_FOR_REVIEW |
 | Owner | Project Agent |
 | 创建日期 | 20260716 |
 
 ## 范围
 
-- 主线：P4 前端 second-brain 退役，收敛军机处/上书房重复读模型计算。
-- 当前检查点：P4a 只读分析；从军机处实际 UI 消费字段反推后端 brief/memorial
-  投影缺口，未修改运行时、接口或状态。
-- 文件：`.harness/changes/docs-full-court-v1-strategy-20260714/p4a-read-model-gap-map.md`
-  与本根级 change 记录。
-- 结论：9 个缺口均可从现有 `court_doc`、brief、memorial 与 quality gate 纯派生，
-  不需要新表或新状态机；P4b 应先删除已有后端等价物的本地叠加。
-- 验证：commit diff check、根/backend harness doctor、backend closeout；无运行时代码测试需求。
+- 主线：FULL_COURT_V1 absorption P4，严格按 P4a 军机处 → P4b 上书房 →
+  P4c 规则蒸馏后退役；三步共用本 change 与任务分支。
+- 事实源：既有 court-owned `GET /api/shangshufang/tasks/{task_id}/status` 的
+  `task/review/formal_memorial/execution_status` 与 swarm-runs；前端只做格式化、分组和
+  视觉映射，不再产生六部意见、御史结论、综合报告或圣裁。
+- 文件：军机处/上书房投影与测试、生产 import 守门、后端 golden cases、四个本地引擎
+  的 deprecated/test-only 边界，以及本 change 证据。若现有读模型确实缺字段，只允许
+  扩展 court-owned projection；平台路由族保持冻结。
+- 验证：每步 RED→GREEN；生产 import/sourceLabel 守门；前后端相邻与全量套件；三层
+  doctor；上书房下旨→军机处看状态→圣裁浏览器冒烟；数据库前后指纹一致。
+- 基线：`feature-chaotang-ext@188fb3d`；worktree
+  `~/Projects/.fullcourt-worktrees/p4-frontend-second-brain-sunset`；真实数据库 SHA-256
+  `10dbcf48d3fb4c6a5297bd2f42b73c030d9db7a79c1e0e47734df5dac60859e2`，三层 doctor 0/0。
+- P4a 开工前施工图随 ext `6b68719` 落盘，确认已有等价字段、9 个纯派生缺口与
+  golden 蒸馏清单；根记录收口为 `59923f8`，已同步进任务分支。
+- P4a：RED 为 projector module 缺失（1 suite failed）及军机处四项受限 import
+  （1 failed / 4 passed；扩展 marker 后 2 failed / 4 passed）；GREEN 为 projector 4、
+  import/marker guard 6、军机处相邻合计 20、case orchestrator 3，tsc 0，frontend doctor 0/0。
+- P4b：RED 为 projector module 缺失、上书房四项受限 import、旧 MVP 反向断言各 1
+  failed；GREEN 为 projector 6、import guard 12、MVP 4、上书房相邻 30，tsc 0。
+  正式快照优先于候选；direct 回执、候选阻断与空态分别诚实展示；终态空读继续有限重试。
+- P4c：蒸馏 RED 3 failed / 1 passed（schema/dataset 缺失），资产入库后发现并修复
+  `FALLBACK + missing_evidence` 仍可过 quality gate，扩展相邻集通过；退役 import RED
+  为 1 failed / 5 passed、精确列出 6 个生产 import，GREEN 为 allowlist 清零且 bridge/guard
+  16 passed。侧脑诚实降级 RED 4 failed，GREEN 4，连同相邻共 21 passed；tsc/doctor 全绿。
+- P4c 保留策略：四引擎只标 deprecated、供 test/eval；三个无生产调用方的 writer/bridge
+  搬入 `dev/_attic/frontend-second-brain-2026-07-16/`，恢复须新 change 重审，复核日 2026-08-16。
+- rollout 收口：`NEXT_PUBLIC_COURTOS_CANONICAL_PROJECTION` 默认启用；显式关闭或未知值
+  只进入无裁决/安全等待态，不恢复已退役引擎。RED 3 failed / 10 passed，GREEN 14 passed。
+- 收官：P4 定向前端 34 passed、后端蒸馏/质门 10 passed、更新后的持久化契约 1 passed；
+  三层 doctor 0/0，TypeScript 0，architecture import guard 通过。全量仅保留登记基线的
+  frontend 7 项与 backend 7 项 known-red；浏览器完成下旨、军机处 canonical 状态与补证裁决。
+- 数据安全：真实 `fengqun.db` 的 size/mtime/SHA-256 与开工基线完全一致。用户后续以
+  “收口提交上传”明确授权合并并 push `feature-chaotang-ext`；部署仍不在本 Packet 范围。

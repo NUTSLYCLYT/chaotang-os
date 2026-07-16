@@ -1,3 +1,4 @@
+/** @deprecated P4c: test/eval-only decision engine; production imports are forbidden. */
 import type { SourceLabel } from '../types';
 import { mergeSourceLabels } from '../source-label.ts';
 import { detectHighRisk } from '../harness/human-approval-gate.ts';

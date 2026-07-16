@@ -1,4 +1,5 @@
 /**
+ * @deprecated P4c: test/eval-only decision engine; production imports are forbidden.
  * 奏折合成 Loop（Loop5）—— 六部红蓝 + 御史台审计 → 老板可读的圣旨/奏折。
  * 纯函数，无 @/ 运行时依赖 → 可离线单测。
  */

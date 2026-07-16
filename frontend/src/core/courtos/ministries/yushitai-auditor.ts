@@ -1,4 +1,5 @@
 /**
+ * @deprecated P4c: test/eval-only decision engine; production imports are forbidden.
  * 御史台审计 Loop（Loop6）—— 全局红队，审最终结论有没有"装懂/冒进/绕过风险"。
  * 纯函数，无 @/ 运行时依赖 → 可离线单测。
  */

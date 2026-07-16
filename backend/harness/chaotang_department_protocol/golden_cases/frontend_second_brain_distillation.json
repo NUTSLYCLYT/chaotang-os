@@ -1,0 +1,170 @@
+[
+  {
+    "case_id": "contract_equity_exclusive_prepayment_hard_stop",
+    "input": {
+      "raw_question": "签署含股权对赌、独家条款和预付款的合同",
+      "source_label": "LIVE",
+      "known_facts": ["存在合同草案"],
+      "unknown_gaps": ["授权记录", "对赌上限", "退出条款"]
+    },
+    "expected": {
+      "required_swarms": ["xingbu_legal_risk_swarm", "critic_swarm", "quality_gate_swarm"],
+      "allowed_verdicts": ["补证", "复核", "驳回"],
+      "forbidden_verdicts": ["准奏"],
+      "required_missing_evidence_any": ["授权", "上限", "退出"],
+      "required_risk_tokens_any": ["股权", "独家", "预付款"],
+      "needs_human_confirmation": true,
+      "conflict_visible": false,
+      "decision_eligible": false,
+      "required_provenance": ["合同草案", "人工签字"]
+    },
+    "legacy_origins": ["ministry-review-loop.ts:18", "yushitai-auditor.ts:16", "unified-decision-loop.ts:519"]
+  },
+  {
+    "case_id": "formal_quote_customer_commitment_needs_evidence",
+    "input": {
+      "raw_question": "给客户发送正式报价并承诺交付",
+      "source_label": "LIVE",
+      "known_facts": ["客户表达采购意向"],
+      "unknown_gaps": ["成本表", "毛利底线", "客户确认范围"]
+    },
+    "expected": {
+      "required_swarms": ["hubu_finance_swarm", "bingbu_strategy_swarm", "xingbu_legal_risk_swarm"],
+      "allowed_verdicts": ["补证", "复核"],
+      "forbidden_verdicts": ["准奏"],
+      "required_missing_evidence_any": ["成本", "毛利", "客户确认"],
+      "required_risk_tokens_any": ["报价", "承诺"],
+      "needs_human_confirmation": true,
+      "conflict_visible": true,
+      "decision_eligible": false,
+      "required_provenance": ["客户确认", "内部审批"]
+    },
+    "legacy_origins": ["imperial-report-synthesizer.ts:34", "unified-decision-loop.ts:397"]
+  },
+  {
+    "case_id": "storage_delivery_missing_bom_acceptance",
+    "input": {
+      "raw_question": "推进储能项目交付",
+      "source_label": "LIVE",
+      "known_facts": ["项目已立项"],
+      "unknown_gaps": ["BOM", "交期", "验收口径"]
+    },
+    "expected": {
+      "required_swarms": ["gongbu_delivery_swarm", "evidence_audit_swarm", "quality_gate_swarm"],
+      "allowed_verdicts": ["补证"],
+      "forbidden_verdicts": ["准奏"],
+      "required_missing_evidence_any": ["BOM", "交期", "验收"],
+      "required_risk_tokens_any": ["交付"],
+      "needs_human_confirmation": false,
+      "conflict_visible": false,
+      "decision_eligible": false,
+      "required_provenance": ["BOM", "验收记录"]
+    },
+    "legacy_origins": ["ministry-review-loop.ts:43", "unified-decision-loop.ts:653"]
+  },
+  {
+    "case_id": "fixed_delivery_promise_requires_legal_review",
+    "input": {
+      "raw_question": "对外承诺固定交期并保证一定交付",
+      "source_label": "LIVE",
+      "known_facts": ["客户要求固定日期"],
+      "unknown_gaps": ["产能证明", "违约边界"]
+    },
+    "expected": {
+      "required_swarms": ["gongbu_delivery_swarm", "xingbu_legal_risk_swarm", "critic_swarm"],
+      "allowed_verdicts": ["复核", "补证"],
+      "forbidden_verdicts": ["准奏"],
+      "required_missing_evidence_any": ["产能", "违约"],
+      "required_risk_tokens_any": ["固定交期", "保证交付"],
+      "needs_human_confirmation": true,
+      "conflict_visible": true,
+      "decision_eligible": false,
+      "required_provenance": ["产能证明", "法务复核"]
+    },
+    "legacy_origins": ["yushitai-auditor.ts:32", "unified-decision-loop.ts:594"]
+  },
+  {
+    "case_id": "guaranteed_return_zero_risk_language_blocked",
+    "input": {
+      "raw_question": "宣传保证收益、零风险方案",
+      "source_label": "LIVE",
+      "known_facts": ["已有宣传草稿"],
+      "unknown_gaps": ["收益依据", "免责声明"]
+    },
+    "expected": {
+      "required_swarms": ["libu_communication_swarm", "xingbu_legal_risk_swarm", "quality_gate_swarm"],
+      "allowed_verdicts": ["驳回", "复核"],
+      "forbidden_verdicts": ["准奏"],
+      "required_missing_evidence_any": ["收益依据", "免责声明"],
+      "required_risk_tokens_any": ["保证收益", "零风险"],
+      "needs_human_confirmation": true,
+      "conflict_visible": false,
+      "decision_eligible": false,
+      "required_provenance": ["宣传草稿", "合规审查"]
+    },
+    "legacy_origins": ["ministry-review-loop.ts:18", "imperial-report-synthesizer.ts:50"]
+  },
+  {
+    "case_id": "customer_competitor_opportunity_requires_intel",
+    "input": {
+      "raw_question": "评估客户与竞品机会并制定推进策略",
+      "source_label": "LIVE_SWARM",
+      "known_facts": ["发现潜在线索"],
+      "unknown_gaps": ["客户决策链", "竞品证据"]
+    },
+    "expected": {
+      "required_swarms": ["bingbu_strategy_swarm", "jinyiwei_intel_swarm", "evidence_audit_swarm"],
+      "allowed_verdicts": ["补证", "复核"],
+      "forbidden_verdicts": ["准奏"],
+      "required_missing_evidence_any": ["客户决策链", "竞品证据"],
+      "required_risk_tokens_any": ["客户", "竞品"],
+      "needs_human_confirmation": false,
+      "conflict_visible": false,
+      "decision_eligible": false,
+      "required_provenance": ["情报来源", "客户访谈"]
+    },
+    "legacy_origins": ["ministry-review-loop.ts:43", "unified-decision-loop.ts:66"]
+  },
+  {
+    "case_id": "vague_internal_matter_default_never_green",
+    "input": {
+      "raw_question": "整理一下内部事项",
+      "source_label": "FALLBACK",
+      "known_facts": [],
+      "unknown_gaps": ["目标", "owner", "完成标准"]
+    },
+    "expected": {
+      "required_swarms": ["hubu_finance_swarm", "xingbu_legal_risk_swarm", "gongbu_delivery_swarm"],
+      "allowed_verdicts": ["补证"],
+      "forbidden_verdicts": ["准奏"],
+      "required_missing_evidence_any": ["目标", "owner", "完成标准"],
+      "required_risk_tokens_any": [],
+      "needs_human_confirmation": false,
+      "conflict_visible": false,
+      "decision_eligible": false,
+      "required_provenance": ["真实任务来源"]
+    },
+    "legacy_origins": ["ministry-review-loop.ts:43", "unified-decision-loop.ts:130"]
+  },
+  {
+    "case_id": "demo_mixed_opinions_never_formal",
+    "input": {
+      "raw_question": "演示一部准奏、一部复核的会审",
+      "source_label": "DEMO",
+      "known_facts": [],
+      "unknown_gaps": []
+    },
+    "expected": {
+      "required_swarms": ["conflict_detector_swarm", "quality_gate_swarm"],
+      "allowed_verdicts": ["补证", "复核"],
+      "forbidden_verdicts": ["准奏"],
+      "required_missing_evidence_any": [],
+      "required_risk_tokens_any": [],
+      "needs_human_confirmation": true,
+      "conflict_visible": true,
+      "decision_eligible": false,
+      "required_provenance": ["真实来源标签"]
+    },
+    "legacy_origins": ["yushitai-auditor.ts:45", "imperial-report-synthesizer.ts:78", "unified-decision-loop.ts:653"]
+  }
+]

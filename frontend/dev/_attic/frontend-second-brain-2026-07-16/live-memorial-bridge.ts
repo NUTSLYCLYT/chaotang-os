@@ -1,4 +1,5 @@
 /**
+ * @deprecated P4c test-only archive. No production imports are permitted.
  * 飞轮点火桥（2026-07-02 · 会审正确版）—— 把 demo 页独享的 C 栈真闭环,接到主 UI 的 confirm-edict。
  *
  * 复用 `/api/court/decision/route.ts` 已验证的真闭环(refine 真丞相 LLM → 户/刑/工真 agent 会审
