@@ -10,7 +10,10 @@ verified Gitee required check. Only an external signature plus protected require
 `ENFORCED`.
 
 The gate applies prospectively after activation commit
-`d8d8a6ae23d013bede6b1db649b06eb5ed38ea1f`; it does not reinterpret P0–P4 history.
+`d8d8a6ae23d013bede6b1db649b06eb5ed38ea1f`; it does not reinterpret P0–P4 history. If the remote
+predecessor does not yet contain that commit, the only permitted bootstrap candidate is the exact
+activation SHA. A candidate containing any commit after activation is rejected and must use the
+reviewed shape below.
 
 ## Install and inspect
 
@@ -28,8 +31,10 @@ node scripts/install-packet-review-hooks.mjs --uninstall
 ```
 
 The installer resolves hooks through `git rev-parse --git-path hooks`, supports linked worktrees and
-`core.hooksPath`, replays pre-push stdin to every executable `pre-push.d` hook, and refuses to overwrite
-an existing unmanaged `pre-push` or packet-review subhook.
+`core.hooksPath`, and copies a managed verifier snapshot into the shared hooks directory so an older
+sibling worktree does not need to contain the scripts. It replays pre-push stdin to every executable
+`pre-push.d` hook and refuses to overwrite or remove an unmanaged/symlinked dispatcher, packet-review
+subhook, or verifier snapshot.
 
 ## Candidate shape
 

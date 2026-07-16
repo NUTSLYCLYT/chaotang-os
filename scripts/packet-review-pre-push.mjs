@@ -14,6 +14,7 @@ const status = {
   target_remote: TARGET_REMOTE,
   target_ref: TARGET_REF,
   activation_sha: DEFAULT_ACTIVATION_SHA,
+  bootstrap_policy: 'exact_activation_commit_only',
   security_boundary: false,
   required_check_verified: false,
   bypassable_by: [

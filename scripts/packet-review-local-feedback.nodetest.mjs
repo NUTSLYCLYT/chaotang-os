@@ -212,13 +212,20 @@ test('rejects deletion, new-target creation, and non-fast-forward target updates
   }
 });
 
-test('pre-activation allows only remote-to-activation-to-candidate ancestry and rejects divergent history', () => {
+test('pre-activation allows only the exact activation commit and rejects later or divergent history', () => {
   const fixture = makeRepository();
   try {
-    assert.deepEqual(verify(fixture, {activationSha: fixture.implementation}), {
+    assert.deepEqual(verify(fixture, {
+      activationSha: fixture.implementation,
+      localSha: fixture.implementation,
+    }), {
       allowed: true,
       status: 'pre_activation',
     });
+    assert.throws(
+      () => verify(fixture, {activationSha: fixture.implementation}),
+      /exact activation commit/,
+    );
     const divergent = git(fixture.repository, ['commit-tree', `${fixture.predecessor}^{tree}`, '-m', 'divergent activation']);
     assert.throws(() => verify(fixture, {activationSha: divergent}), /activation history/);
   } finally {
@@ -239,16 +246,20 @@ test('pre-push stdin parsing preserves every ref update and rejects malformed ro
 
 const installer = fileURLToPath(new URL('./install-packet-review-hooks.mjs', import.meta.url));
 const cli = fileURLToPath(new URL('./packet-review-pre-push.mjs', import.meta.url));
+const coreVerifier = fileURLToPath(new URL('./lib/packet-review-local-feedback.mjs', import.meta.url));
 
 function prepareHookRepository({hooksPath} = {}) {
   const repository = mkdtempSync(join(tmpdir(), 'packet-review-hook-'));
   git(repository, ['init', '-q']);
   git(repository, ['config', 'user.email', 'gate@test']);
   git(repository, ['config', 'user.name', 'Gate Test']);
-  mkdirSync(join(repository, 'scripts'), {recursive: true});
-  cpSync(cli, join(repository, 'scripts', 'packet-review-pre-push.mjs'));
   writeFileSync(join(repository, 'base.txt'), 'base\n');
-  commit(repository, 'base');
+  commit(repository, 'base without gate scripts');
+  mkdirSync(join(repository, 'scripts'), {recursive: true});
+  mkdirSync(join(repository, 'scripts', 'lib'), {recursive: true});
+  cpSync(cli, join(repository, 'scripts', 'packet-review-pre-push.mjs'));
+  cpSync(coreVerifier, join(repository, 'scripts', 'lib', 'packet-review-local-feedback.mjs'));
+  commit(repository, 'add gate scripts');
   if (hooksPath) git(repository, ['config', 'core.hooksPath', hooksPath]);
   return repository;
 }
@@ -258,6 +269,7 @@ test('status output admits the local feedback gate is bypassable and not enforce
   assert.equal(result.status, 0, result.stderr);
   const status = JSON.parse(result.stdout);
   assert.equal(status.implementation, 'LOCAL_FEEDBACK_ONLY');
+  assert.equal(status.bootstrap_policy, 'exact_activation_commit_only');
   assert.equal(status.security_boundary, false);
   assert.equal(status.required_check_verified, false);
   assert.ok(status.bypassable_by.includes('git push --no-verify'));
@@ -316,6 +328,46 @@ test('installer refuses to overwrite an existing non-dispatcher pre-push hook', 
     assert.equal(readFileSync(existing, 'utf8'), before);
   } finally {
     rmSync(repository, {recursive: true, force: true});
+  }
+});
+
+test('uninstall refuses to delete an unmanaged same-name packet-review subhook', () => {
+  const repository = prepareHookRepository();
+  try {
+    const install = spawnSync(process.execPath, [installer], {cwd: repository, encoding: 'utf8'});
+    assert.equal(install.status, 0, install.stderr);
+    const hooks = git(repository, ['rev-parse', '--path-format=absolute', '--git-path', 'hooks']);
+    const target = join(hooks, 'pre-push.d', 'chaotang-packet-review');
+    writeFileSync(target, '#!/bin/sh\necho unmanaged\n');
+    const before = readFileSync(target, 'utf8');
+    const uninstall = spawnSync(process.execPath, [installer, '--uninstall'], {cwd: repository, encoding: 'utf8'});
+    assert.equal(uninstall.status, 1);
+    assert.equal(readFileSync(target, 'utf8'), before);
+  } finally {
+    rmSync(repository, {recursive: true, force: true});
+  }
+});
+
+test('installed hook does not depend on the current linked worktree containing gate scripts', () => {
+  const repository = prepareHookRepository();
+  const linked = `${repository}-legacy-linked`;
+  try {
+    const legacyCommit = git(repository, ['rev-list', '--max-parents=0', 'HEAD']);
+    git(repository, ['worktree', 'add', '--detach', linked, legacyCommit]);
+    const install = spawnSync(process.execPath, [installer], {cwd: repository, encoding: 'utf8'});
+    assert.equal(install.status, 0, install.stderr);
+    const hooks = git(repository, ['rev-parse', '--path-format=absolute', '--git-path', 'hooks']);
+    const input = `refs/heads/dev ${'1'.repeat(40)} refs/heads/dev ${'2'.repeat(40)}\n`;
+    const result = spawnSync(join(hooks, 'pre-push'), ['origin', 'ssh://example'], {
+      cwd: linked,
+      input,
+      encoding: 'utf8',
+    });
+    assert.equal(result.status, 0, result.stderr);
+  } finally {
+    try { git(repository, ['worktree', 'remove', '--force', linked]); } catch {}
+    rmSync(repository, {recursive: true, force: true});
+    rmSync(linked, {recursive: true, force: true});
   }
 });
 

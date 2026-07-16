@@ -129,11 +129,12 @@ export function verifyPacketReviewPush({
   const activation = assertExactCommit(cwd, activationSha, 'activation SHA');
 
   if (!isAncestor(cwd, activation, predecessor)) {
-    if (
-      isAncestor(cwd, predecessor, activation) &&
-      isAncestor(cwd, activation, candidate) &&
-      isAncestor(cwd, predecessor, candidate)
-    ) return {allowed: true, status: 'pre_activation'};
+    if (isAncestor(cwd, predecessor, activation)) {
+      if (candidate !== activation) {
+        throw new Error('pre-activation target update must end at the exact activation commit');
+      }
+      return {allowed: true, status: 'pre_activation'};
+    }
     throw new Error('activation history is divergent from the target update');
   }
   if (!isAncestor(cwd, predecessor, candidate)) throw new Error('target update must be fast-forward');
