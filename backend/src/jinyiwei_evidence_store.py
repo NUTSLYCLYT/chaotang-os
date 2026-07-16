@@ -62,12 +62,7 @@ def upsert_evidence(
     "先查(常见路径的性能优化，大多数调用不会撞冲突)→没查到就在 SAVEPOINT
     里尝试插入→数据库唯一约束拒绝时捕获冲突、退回去原地更新"，把去重的
     最终正确性下沉到数据库层，不再只靠应用层这一次性检查。"""
-    from src.db.flow_store import ensure_jinyiwei_evidence_unique_constraint
     from src.db.models import JinyiweiEvidence
-
-    # 老库(create_all 建的、没跑过 alembic 007)可能还没有这个唯一约束——
-    # 没有它,下面的 IntegrityError 捕获逻辑就没有数据库层面的东西可捕获。
-    ensure_jinyiwei_evidence_unique_constraint(db)
 
     claim_key = _claim_key(claim)
     grade = str(item.get("odds") or "未证实")

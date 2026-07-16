@@ -61,7 +61,6 @@ def record_timeline_event(
 
     import sqlalchemy as sa
 
-    from src.db.flow_store import ensure_decree_execution_event_ledger_columns
     from src.db.models import DecreeExecutionEvent
 
     if tenant_id is _TENANT_FROM_TASK:
@@ -71,7 +70,6 @@ def record_timeline_event(
     else:
         event_tenant_id = cast(int | None, tenant_id)
 
-    ensure_decree_execution_event_ledger_columns(db)
     if source_label not in {"LIVE", "MIXED", "FALLBACK", "DEMO"}:
         raise ValueError(f"unsupported event source_label: {source_label}")
     payload_json = json.dumps(payload or {}, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
@@ -275,19 +273,7 @@ def _department_status_for(stage: str, index: int) -> str:
 def _load_timeline(db: "Session", task_id: str) -> list[TimelineEvent]:
     import json
 
-    from src.db.flow_store import ensure_decree_execution_event_ledger_columns
     from src.db.models import DecreeExecutionEvent
-
-    # 同 record_timeline_event：老 DB 文件缺 sequence 列时现场补列，不让状态接口崩。
-    # 2026-07-12 Codex 停止前四次审查纠正：_load_timeline 只在 GET /tasks/{id}/status
-    # 这种纯读路径里被调用，调用方(shangshufang_task_status)从不 commit，只在
-    # finally 里 db.close()——ORM 层面的回填 UPDATE 不提交就直接被丢弃(sqlite DBAPI
-    # 对 DDL/ALTER TABLE 有隐式自动提交的怪癖，所以加列本身会侥幸留下，但真正修复
-    # 排序问题的回填数据每次都在关闭 session 时被回滚，状态接口永远在"检测到坏数据
-    # →重新回填→白做"的死循环里，从未真正落盘)。这里必须自己提交这次自愈——
-    # 不能指望一个只读端点的调用方会为了这次自愈去 commit 整个只读事务。
-    ensure_decree_execution_event_ledger_columns(db)
-    db.commit()
 
     rows = db.query(DecreeExecutionEvent).filter_by(task_id=task_id).order_by(DecreeExecutionEvent.sequence).all()
     return [

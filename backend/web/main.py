@@ -63,6 +63,18 @@ async def lifespan(app: FastAPI):
     # Re-check at actual startup as well as after static router registration so
     # a late plugin/lifespan mutation cannot smuggle a CI identity route in.
     assert_no_test_identity_routes(app)
+    from src.db.engine import engine
+    from src.db.models import Base
+    from src.schema_authority import prepare_database_schema
+
+    schema_identity = prepare_database_schema(engine, Base.metadata)
+    app.state.schema_identity = schema_identity
+    logger.info(
+        "primary schema ready mode=%s current=%s head=%s",
+        schema_identity.mode,
+        schema_identity.current,
+        schema_identity.head,
+    )
     try:
         from src.tenant import ensure_admin
 
@@ -84,38 +96,6 @@ async def lifespan(app: FastAPI):
     except ImportError:
         pass
 
-    # H-2/BUG-1: 幂等建表(start-before-migrate 防护)。
-    # Alembic 001_flow_tables 已在生产路径建表;此处 create_all 仅为:
-    # ① 开发环境跑测试/dev server 时无需手动 alembic upgrade;
-    # ② 旧进程早于迁移启动时补救(checkfirst=True 保幂等,不覆盖已有表)。
-    try:
-        from src.db.engine import engine
-        from src.db.models import Base
-
-        Base.metadata.create_all(engine, checkfirst=True)
-        from src.db.engine import SessionLocal
-        from src.db.flow_store import (
-            ensure_build_ledger_ownership_columns,
-            ensure_decree_execution_event_sequence_column,
-            ensure_jinyiwei_evidence_unique_constraint,
-            ensure_retrospective_outcome_column,
-            ensure_task_result_json_column,
-        )
-
-        db = SessionLocal()
-        try:
-            ensure_task_result_json_column(db)
-            ensure_retrospective_outcome_column(db)
-            ensure_decree_execution_event_sequence_column(db)
-            ensure_jinyiwei_evidence_unique_constraint(db)
-            ensure_build_ledger_ownership_columns(db)
-            db.commit()
-        finally:
-            db.close()
-        logger.info("flow DB tables ready (create_all checkfirst=True)")
-    except Exception as e:
-        logger.error("flow DB create_all 失败(非致命): %s", e)
-
     # #1 启动 key 校验:active provider 无 key → loud 告警(别跑到一半才哑)。
     try:
         from src.provider import check_active_provider_key
@@ -125,8 +105,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("provider key 校验跳过: %s", e)
 
-    yield
-    # 关闭时无清理动作
+    from src.execution.decree_dispatcher import start_outbox_poller
+
+    outbox_poller = start_outbox_poller()
+    try:
+        yield
+    finally:
+        if outbox_poller is not None:
+            outbox_poller.stop()
 
 
 # ── App 实例 ───────────────────────────────────────────

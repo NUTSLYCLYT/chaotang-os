@@ -1,4 +1,5 @@
 """健康检查端点 — 等价于旧 /api/health。"""
+
 from __future__ import annotations
 
 import os
@@ -7,7 +8,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from src.production_events import record_event, timed_ms
@@ -47,7 +48,7 @@ def _check_model_gateway() -> tuple[str, dict]:
         return "down", detail
 
 
-def _health_payload() -> HealthResponse:
+def _health_payload(*, schema_identity=None) -> HealthResponse:
     checks: dict[str, str] = {}
     details: dict[str, dict] = {}
 
@@ -61,33 +62,57 @@ def _health_payload() -> HealthResponse:
 
     checks["deepseek_key"] = "configured" if os.getenv("DEEPSEEK_API_KEY") else "missing"
     details["auth"] = _auth_identity()
+    if schema_identity is None:
+        checks["schema"] = "unknown"
+        details["schema"] = {"mode": None, "current": None, "head": None}
+    else:
+        checks["schema"] = (
+            "at_head"
+            if schema_identity.ready and schema_identity.current == schema_identity.head
+            else "test_bootstrap"
+            if schema_identity.ready and schema_identity.mode == "test"
+            else "drifted"
+        )
+        details["schema"] = {
+            "mode": schema_identity.mode,
+            "current": schema_identity.current,
+            "head": schema_identity.head,
+        }
 
-    overall = "ok" if all(v in ("up", "configured") for v in checks.values()) else "degraded"
+    healthy_states = {"up", "configured", "at_head", "test_bootstrap"}
+    overall = "ok" if all(v in healthy_states for v in checks.values()) else "degraded"
     record_event(
         "health_probe",
         status=overall,
         gate_status="clear" if overall == "ok" else "blocked",
-        gate_reason=";".join(f"{k}={v}" for k, v in checks.items() if v not in ("up", "configured")),
+        gate_reason=";".join(f"{k}={v}" for k, v in checks.items() if v not in healthy_states),
         model="litellm",
         latency_ms=details.get("litellm", {}).get("latency_ms"),
     )
     return HealthResponse(status=overall, version="1.0", checks=checks, details=details)
 
 
+def _readiness_blockers(payload: HealthResponse) -> list[str]:
+    blockers: list[str] = []
+    require_gateway = os.getenv("FENGQUN_REQUIRE_MODEL_GATEWAY", "true").lower() in ("1", "true", "yes")
+    if require_gateway and payload.checks.get("litellm") != "up" and payload.checks.get("deepseek_key") != "configured":
+        blockers.append("model_gateway_unavailable")
+    if payload.checks.get("schema") not in {"at_head", "test_bootstrap"}:
+        blockers.append("schema_not_ready")
+    return blockers
+
+
 @router.get("/health", response_model=HealthResponse)
-def api_health() -> HealthResponse:
+def api_health(request: Request) -> HealthResponse:
     """Health check for UI status: degraded is visible but still HTTP 200."""
-    return _health_payload()
+    return _health_payload(schema_identity=getattr(request.app.state, "schema_identity", None))
 
 
 @router.get("/ready")
-def api_ready() -> JSONResponse:
+def api_ready(request: Request) -> JSONResponse:
     """Release readiness check: fail securely when required deps are down."""
-    payload = _health_payload()
-    require_gateway = os.getenv("FENGQUN_REQUIRE_MODEL_GATEWAY", "true").lower() in ("1", "true", "yes")
-    blockers = []
-    if require_gateway and payload.checks.get("litellm") != "up" and payload.checks.get("deepseek_key") != "configured":
-        blockers.append("model_gateway_unavailable")
+    payload = _health_payload(schema_identity=getattr(request.app.state, "schema_identity", None))
+    blockers = _readiness_blockers(payload)
     if blockers:
         record_event(
             "release_readiness",

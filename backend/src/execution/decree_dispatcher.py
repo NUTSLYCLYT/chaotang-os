@@ -14,13 +14,20 @@ outbox 表本身才是可靠性的来源(事件落库了，即使这次触发失
 
 from __future__ import annotations
 
+import logging
+import os
 import threading
 from datetime import datetime, timezone
 from hashlib import sha1
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from sqlalchemy.orm import Session
+
+
+_logger = logging.getLogger(__name__)
 
 
 def _now_iso() -> str:
@@ -78,3 +85,72 @@ def dispatch_after_commit(event_id: str) -> None:
             db.close()
 
     threading.Thread(target=_run, daemon=True).start()
+
+
+def _poll_pending_once() -> None:
+    from src.db.engine import SessionLocal
+    from src.execution.outbox_worker import process_pending_events
+
+    db = SessionLocal()
+    try:
+        results = process_pending_events(db, limit=10)
+        if results:
+            _logger.info("outbox poll processed=%d", len(results))
+    finally:
+        db.close()
+
+
+class OutboxPoller:
+    """Small lifecycle-owned trigger for the durable database outbox.
+
+    Correctness remains in the compare-and-swap claim and persisted retry state;
+    this thread only guarantees that pending and stale events are revisited after
+    a process crash even when no external scheduler is installed.
+    """
+
+    def __init__(
+        self,
+        *,
+        interval_seconds: float,
+        poll_once: "Callable[[], object]" = _poll_pending_once,
+    ) -> None:
+        self._interval_seconds = interval_seconds
+        self._poll_once = poll_once
+        self._stop = threading.Event()
+        self._thread = threading.Thread(
+            target=self._run,
+            name="chaotang-outbox-poller",
+            daemon=True,
+        )
+
+    def _run(self) -> None:
+        while not self._stop.is_set():
+            try:
+                self._poll_once()
+            except Exception:  # noqa: BLE001 - a later retry must survive one poll failure.
+                _logger.exception("outbox poll failed")
+            self._stop.wait(self._interval_seconds)
+
+    def start(self) -> None:
+        self._thread.start()
+
+    def stop(self, *, timeout: float = 5.0) -> None:
+        self._stop.set()
+        self._thread.join(timeout=timeout)
+
+    def is_alive(self) -> bool:
+        return self._thread.is_alive()
+
+
+def start_outbox_poller() -> OutboxPoller | None:
+    schema_mode = os.environ.get("FENGQUN_SCHEMA_MODE", "strict").strip().lower()
+    configured = os.environ.get("FENGQUN_OUTBOX_POLLER", "true").strip().lower()
+    if schema_mode == "test" or configured not in {"1", "true", "yes"}:
+        return None
+    try:
+        interval = max(1.0, float(os.environ.get("FENGQUN_OUTBOX_POLL_SECONDS", "30")))
+    except ValueError:
+        interval = 30.0
+    poller = OutboxPoller(interval_seconds=interval)
+    poller.start()
+    return poller

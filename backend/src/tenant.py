@@ -114,7 +114,7 @@ _db_lock = threading.Lock()
 
 
 def _get_db() -> sqlite3.Connection:
-    """获取数据库连接（自动建表）。"""
+    """获取已由 Alembic 迁移到当前版本的数据库连接。"""
     if (
         os.environ.get("FENGQUN_TEST_DB_GUARD") == "1"
         and DB_PATH.resolve() in {DEFAULT_DB_PATH.resolve(), LEGACY_DB_PATH.resolve()}
@@ -128,44 +128,6 @@ def _get_db() -> sqlite3.Connection:
     conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS tenants (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            slug TEXT NOT NULL UNIQUE,
-            created_at TEXT NOT NULL DEFAULT (datetime('now'))
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE,
-            email TEXT DEFAULT '',
-            password_hash TEXT NOT NULL,
-            tenant_id INTEGER NOT NULL REFERENCES tenants(id),
-            role TEXT NOT NULL DEFAULT 'user',
-            display_name TEXT DEFAULT '',
-            created_at TEXT NOT NULL DEFAULT (datetime('now'))
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS invites (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            code TEXT NOT NULL UNIQUE,
-            max_uses INTEGER NOT NULL DEFAULT 1,
-            used_count INTEGER NOT NULL DEFAULT 0,
-            expires_at TEXT,
-            created_at TEXT NOT NULL DEFAULT (datetime('now'))
-        )
-    """)
-    conn.commit()
-
-    # 迁移：为已有数据库添加 email 列
-    try:
-        conn.execute("ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''")
-        conn.commit()
-    except Exception:
-        pass  # 列已存在
 
     # 确保默认租户存在
     row = conn.execute(

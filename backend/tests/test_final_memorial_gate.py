@@ -293,6 +293,7 @@ def test_worker_uses_effective_quality_and_source_gate_before_formalizing(
     db.close()
 
 
+@pytest.mark.skip(reason="runtime schema self-heal retired; Alembic 010 owns this upgrade")
 def test_legacy_database_self_heals_missing_final_memorial_table(tmp_path):
     from src.db.models import CourtReview, DecisionTask, FinalMemorial
     from src.formal_memorial import formalize_memorial

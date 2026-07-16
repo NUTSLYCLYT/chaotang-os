@@ -351,9 +351,6 @@ def _latest_reviews_by_task(db, task_ids: list[str]) -> dict[str, CourtReview]:
 def _final_memorials_by_task(db, task_ids: list[str]) -> dict[str, FinalMemorial]:
     if not task_ids:
         return {}
-    from src.formal_memorial import ensure_final_memorial_table
-
-    ensure_final_memorial_table(db)
     return {
         row.task_id: row
         for row in db.query(FinalMemorial)
@@ -1359,9 +1356,6 @@ def shangshufang_task_status(
             .first()
         )
         from src.db.models import FinalMemorial
-        from src.formal_memorial import ensure_final_memorial_table
-
-        ensure_final_memorial_table(db)
         formal_memorial = db.query(FinalMemorial).filter_by(task_id=task_id).first()
         execution_status = build_decree_execution_status(db, task_id)
         return ok(

@@ -10,10 +10,13 @@ from __future__ import annotations
 
 import importlib
 
+from tests.tenant_test_schema import initialize_tenant_test_schema
+
 
 def _isolated_tenant(monkeypatch, tmp_path):
     tenant = importlib.import_module("src.tenant")
     db_path = tmp_path / "fengqun_test.db"
+    initialize_tenant_test_schema(db_path)
     monkeypatch.setattr(tenant, "DB_PATH", db_path)
     return tenant
 

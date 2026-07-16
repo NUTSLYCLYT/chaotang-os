@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from src.schema_authority import SchemaIdentity
 from web.routers import health
 
 
@@ -30,3 +31,24 @@ def test_health_rejects_invalid_auth_key_id(monkeypatch):
         "jwt_key_id": None,
     }
 
+
+def test_health_exposes_active_schema_identity(monkeypatch):
+    monkeypatch.setattr(health, "_check_model_gateway", lambda: ("up", {}))
+    identity = SchemaIdentity(mode="strict", current="014", head="014", ready=True)
+
+    payload = health._health_payload(schema_identity=identity).model_dump()
+
+    assert payload["checks"]["schema"] == "at_head"
+    assert payload["details"]["schema"] == {
+        "mode": "strict",
+        "current": "014",
+        "head": "014",
+    }
+
+
+def test_readiness_blocks_when_schema_identity_is_unavailable(monkeypatch):
+    monkeypatch.setattr(health, "_check_model_gateway", lambda: ("up", {}))
+
+    payload = health._health_payload()
+
+    assert "schema_not_ready" in health._readiness_blockers(payload)

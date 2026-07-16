@@ -50,9 +50,7 @@ def test_process_event_not_found_returns_status(isolated_session_local):
 def test_direct_event_completes_and_is_idempotent(isolated_session_local):
     db = isolated_session_local()
     _seed_direct_task(db)
-    event_id = enqueue_dispatch(
-        db, task_id="task_direct_1", decision_id="dec_1", event_type="route.direct"
-    )
+    event_id = enqueue_dispatch(db, task_id="task_direct_1", decision_id="dec_1", event_type="route.direct")
     db.commit()
 
     first = process_event(db, event_id)
@@ -95,14 +93,47 @@ def test_unknown_event_type_retries_then_dead_letters(isolated_session_local):
     db.close()
 
 
+def test_failure_finalizer_does_not_leave_processing_when_timeline_recording_fails(
+    isolated_session_local,
+):
+    """Regression for the live 2026-07-17 stuck decree.
+
+    The primary worker failure must be committed even if the richer timeline
+    writer also fails.  Error reporting is never allowed to become a second
+    exception that strands the event in processing with attempts=0.
+    """
+    from src.db.models import OutboxEvent
+
+    db = isolated_session_local()
+    _seed_direct_task(db, task_id="task_failure_finalizer")
+    event_id = enqueue_dispatch(
+        db,
+        task_id="task_failure_finalizer",
+        decision_id="decision_failure_finalizer",
+        event_type="route.nonexistent",
+    )
+    db.commit()
+
+    with patch(
+        "src.execution.outbox_worker._record_timeline",
+        side_effect=RuntimeError("timeline schema is unavailable"),
+    ):
+        result = process_event(db, event_id)
+
+    event = db.query(OutboxEvent).filter_by(id=event_id).one()
+    assert result["status"] == "failed"
+    assert event.status == "failed"
+    assert event.attempts == 1
+    assert "未知 event_type" in (event.last_error or "")
+    db.close()
+
+
 def test_process_pending_events_skips_exhausted_failed_events(isolated_session_local):
     from src.db.models import OutboxEvent
 
     db = isolated_session_local()
     _seed_direct_task(db, task_id="task_batch")
-    event_id = enqueue_dispatch(
-        db, task_id="task_batch", decision_id="dec_batch", event_type="route.bad"
-    )
+    event_id = enqueue_dispatch(db, task_id="task_batch", decision_id="dec_batch", event_type="route.bad")
     db.commit()
     event = db.query(OutboxEvent).filter_by(id=event_id).first()
     event.max_attempts = 1
@@ -144,11 +175,7 @@ def test_stale_processing_reaper_records_attempt_scoped_failure(
     assert _reap_stale_processing_events(db) == 1
 
     event = db.query(OutboxEvent).filter_by(id=event_id).one()
-    terminal = (
-        db.query(DecreeExecutionEvent)
-        .filter_by(task_id="task_stale", event_type="dispatch.failed")
-        .one()
-    )
+    terminal = db.query(DecreeExecutionEvent).filter_by(task_id="task_stale", event_type="dispatch.failed").one()
     assert event.status == "failed"
     assert event.attempts == 1
     assert json.loads(terminal.payload_json) == {
@@ -158,6 +185,88 @@ def test_stale_processing_reaper_records_attempt_scoped_failure(
         "outbox_status": "failed",
     }
     assert terminal.idempotency_key == f"dispatch.failed:{event_id}:attempt:1"
+    db.close()
+
+
+def test_stale_reaper_keeps_event_retryable_when_timeline_write_fails(
+    isolated_session_local,
+):
+    from src.db.models import OutboxEvent
+    from src.execution.outbox_worker import _reap_stale_processing_events
+
+    db = isolated_session_local()
+    _seed_direct_task(db, task_id="task_stale_timeline_failure")
+    event_id = enqueue_dispatch(
+        db,
+        task_id="task_stale_timeline_failure",
+        decision_id="decision_stale_timeline_failure",
+        event_type="route.direct",
+    )
+    db.commit()
+    event = db.query(OutboxEvent).filter_by(id=event_id).one()
+    event.status = "processing"
+    event.updated_at = "2000-01-01T00:00:00+00:00"
+    db.commit()
+
+    with patch(
+        "src.execution.outbox_worker._record_timeline",
+        side_effect=RuntimeError("timeline unavailable"),
+    ):
+        assert _reap_stale_processing_events(db) == 1
+
+    event = db.query(OutboxEvent).filter_by(id=event_id).one()
+    assert event.status == "failed"
+    assert event.attempts == 1
+    assert "timeline unavailable" in (event.last_error or "")
+    db.close()
+
+
+def test_stale_reaper_never_reclaims_work_claimed_by_this_process(isolated_session_local, monkeypatch):
+    from src.db.models import OutboxEvent
+    from src.execution import outbox_worker
+
+    db = isolated_session_local()
+    _seed_direct_task(db, task_id="task_current_process_lease")
+    event_id = enqueue_dispatch(
+        db,
+        task_id="task_current_process_lease",
+        decision_id="decision_current_process_lease",
+        event_type="route.direct",
+    )
+    db.commit()
+    event = db.query(OutboxEvent).filter_by(id=event_id).one()
+    event.status = "processing"
+    event.updated_at = "2000-01-01T00:00:00+00:00"
+    db.commit()
+    monkeypatch.setattr(outbox_worker, "_PROCESS_STARTED_AT", "1999-01-01T00:00:00+00:00")
+
+    assert outbox_worker._reap_stale_processing_events(db) == 0
+    assert db.query(OutboxEvent).filter_by(id=event_id).one().status == "processing"
+    db.close()
+
+
+def test_successful_retry_clears_stale_last_error(isolated_session_local):
+    from src.db.models import OutboxEvent
+
+    db = isolated_session_local()
+    _seed_direct_task(db, task_id="task_successful_retry")
+    event_id = enqueue_dispatch(
+        db,
+        task_id="task_successful_retry",
+        decision_id="decision_successful_retry",
+        event_type="route.direct",
+    )
+    db.commit()
+    event = db.query(OutboxEvent).filter_by(id=event_id).one()
+    event.status = "failed"
+    event.attempts = 1
+    event.last_error = "transient failure"
+    db.commit()
+
+    assert process_event(db, event_id)["status"] == "completed"
+
+    event = db.query(OutboxEvent).filter_by(id=event_id).one()
+    assert event.last_error is None
     db.close()
 
 
@@ -210,12 +319,16 @@ def test_council_event_runs_swarm_and_updates_task_status(isolated_session_local
         review = session.query(CourtReview).filter_by(id=review_id).one()
         review.memorial_json = '{"title":"会审奏折","summary":"证据充分"}'
 
-    with patch(
-        "src.swarm_execution_loop.run_swarm_execution_loop",
-        return_value=fake_swarm_result,
-    ), patch("src.swarm_persistence.persist_swarm_execution_result"), patch(
-        "src.swarm_persistence.attach_swarm_result_to_review",
-        side_effect=attach_candidate,
+    with (
+        patch(
+            "src.swarm_execution_loop.run_swarm_execution_loop",
+            return_value=fake_swarm_result,
+        ),
+        patch("src.swarm_persistence.persist_swarm_execution_result"),
+        patch(
+            "src.swarm_persistence.attach_swarm_result_to_review",
+            side_effect=attach_candidate,
+        ),
     ):
         event_id = enqueue_dispatch(
             db,
@@ -273,11 +386,13 @@ def test_council_event_passes_recommended_departments_to_swarm_loop(isolated_ses
         "quality_result": {"passed": True, "blocking_reasons": []},
     }
 
-    with patch(
-        "src.swarm_execution_loop.run_swarm_execution_loop",
-        return_value=fake_swarm_result,
-    ) as mock_run, patch("src.swarm_persistence.persist_swarm_execution_result"), patch(
-        "src.swarm_persistence.attach_swarm_result_to_review"
+    with (
+        patch(
+            "src.swarm_execution_loop.run_swarm_execution_loop",
+            return_value=fake_swarm_result,
+        ) as mock_run,
+        patch("src.swarm_persistence.persist_swarm_execution_result"),
+        patch("src.swarm_persistence.attach_swarm_result_to_review"),
     ):
         event_id = enqueue_dispatch(
             db,

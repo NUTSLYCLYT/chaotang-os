@@ -370,6 +370,7 @@ def process_event(db: "Session", event_id: str) -> dict[str, Any]:
             raise ValueError(f"未知 event_type: {event.event_type}")
 
         event.status = "completed"
+        event.last_error = None
         event.updated_at = _now_iso()
         db.commit()
         from src.migration_telemetry import record_canonical_chain_event
@@ -382,34 +383,55 @@ def process_event(db: "Session", event_id: str) -> dict[str, Any]:
 
         event = db.query(OutboxEvent).filter_by(id=event_id).first()
         error_type = type(exc).__name__
-        event.attempts = max(event.attempts, attempt)
-        event.last_error = str(exc)
-        event.status = "dead_letter" if event.attempts >= event.max_attempts else "failed"
-        event.updated_at = _now_iso()
+        if event is None:
+            return {"status": "not_found", "event_id": event_id, "error": str(exc)}
+        primary_error = str(exc)
+
+        def apply_failure_state(target: "OutboxEvent", *, timeline_error: Exception | None = None) -> None:
+            target.attempts = max(target.attempts, attempt)
+            primary = primary_error
+            if timeline_error is not None:
+                primary += f"; failure_timeline_error={type(timeline_error).__name__}: {timeline_error}"
+            target.last_error = primary
+            target.status = "dead_letter" if target.attempts >= target.max_attempts else "failed"
+            target.updated_at = _now_iso()
+
+        apply_failure_state(event)
         if not isinstance(exc, TenantLineageConflict):
-            _record_timeline(
-                db,
-                task_id=event.task_id,
-                stage="failed",
-                actor="worker",
-                message=f"第 {attempt} 次派单失败，详情已记录在 outbox。",
-                event_type="dispatch.failed",
-                trace_id=event.decision_id,
-                source_label=_task_source_label(db, event.task_id),
-                payload={
-                    "attempt": attempt,
-                    "error_type": error_type,
-                    "outbox_event_id": event.id,
-                    "outbox_status": event.status,
-                },
-                idempotency_key=f"dispatch.failed:{event.id}:attempt:{attempt}",
-                tenant_id=event.tenant_id,
-            )
+            try:
+                _record_timeline(
+                    db,
+                    task_id=event.task_id,
+                    stage="failed",
+                    actor="worker",
+                    message=f"第 {attempt} 次派单失败，详情已记录在 outbox。",
+                    event_type="dispatch.failed",
+                    trace_id=event.decision_id,
+                    source_label=_task_source_label(db, event.task_id),
+                    payload={
+                        "attempt": attempt,
+                        "error_type": error_type,
+                        "outbox_event_id": event.id,
+                        "outbox_status": event.status,
+                    },
+                    idempotency_key=f"dispatch.failed:{event.id}:attempt:{attempt}",
+                    tenant_id=getattr(event, "tenant_id", None),
+                )
+            except Exception as timeline_exc:  # noqa: BLE001
+                # The rich timeline is secondary evidence.  If its schema is
+                # unavailable, roll back that write and still commit the
+                # minimal outbox failure so the event is retryable/auditable.
+                db.rollback()
+                event = db.query(OutboxEvent).filter_by(id=event_id).first()
+                if event is None:
+                    return {"status": "not_found", "event_id": event_id, "error": str(exc)}
+                apply_failure_state(event, timeline_error=timeline_exc)
         db.commit()
         return {"status": event.status, "event_id": event_id, "error": str(exc)}
 
 
 _STALE_PROCESSING_SECONDS = 15 * 60  # 15分钟：council 真实LLM调用量级的宽松上限
+_PROCESS_STARTED_AT = _now_iso()
 
 
 def _reap_stale_processing_events(db: "Session") -> int:
@@ -427,7 +449,19 @@ def _reap_stale_processing_events(db: "Session") -> int:
     from src.db.models import OutboxEvent
 
     cutoff = (datetime.now(timezone.utc) - timedelta(seconds=_STALE_PROCESSING_SECONDS)).isoformat(timespec="seconds")
-    stale = db.query(OutboxEvent).filter(OutboxEvent.status == "processing", OutboxEvent.updated_at < cutoff).all()
+    stale = (
+        db.query(OutboxEvent)
+        .filter(
+            OutboxEvent.status == "processing",
+            OutboxEvent.updated_at < cutoff,
+            # A slow operation claimed by this live process is not abandoned.
+            # Without a persisted heartbeat, reclaiming it would execute the
+            # decree twice.  Crash residue becomes eligible after the next
+            # process start, when its timestamp is older than this boundary.
+            OutboxEvent.updated_at < _PROCESS_STARTED_AT,
+        )
+        .all()
+    )
     for event in stale:
         attempt = event.attempts + 1
         event.attempts = attempt
@@ -438,27 +472,38 @@ def _reap_stale_processing_events(db: "Session") -> int:
             assert_no_tenant_lineage_conflict(db, task_id=event.task_id, inherited_tenant_id=event.tenant_id)
         except TenantLineageConflict as exc:
             event.last_error = str(exc)
+            db.commit()
             continue
-        _record_timeline(
-            db,
-            task_id=event.task_id,
-            stage="failed",
-            actor="worker_reaper",
-            message=f"第 {attempt} 次派单超时，processing 已由回收器重置。",
-            event_type="dispatch.failed",
-            trace_id=event.decision_id,
-            source_label=_task_source_label(db, event.task_id),
-            payload={
-                "attempt": attempt,
-                "error_type": "StaleProcessingTimeout",
-                "outbox_event_id": event.id,
-                "outbox_status": event.status,
-            },
-            idempotency_key=f"dispatch.failed:{event.id}:attempt:{attempt}",
-            tenant_id=event.tenant_id,
-        )
-    if stale:
+        # Persist the retryable state before writing secondary timeline evidence.
+        # A broken audit writer must not roll the event back to "processing".
         db.commit()
+        try:
+            _record_timeline(
+                db,
+                task_id=event.task_id,
+                stage="failed",
+                actor="worker_reaper",
+                message=f"第 {attempt} 次派单超时，processing 已由回收器重置。",
+                event_type="dispatch.failed",
+                trace_id=event.decision_id,
+                source_label=_task_source_label(db, event.task_id),
+                payload={
+                    "attempt": attempt,
+                    "error_type": "StaleProcessingTimeout",
+                    "outbox_event_id": event.id,
+                    "outbox_status": event.status,
+                },
+                idempotency_key=f"dispatch.failed:{event.id}:attempt:{attempt}",
+                tenant_id=event.tenant_id,
+            )
+            db.commit()
+        except Exception as timeline_exc:  # noqa: BLE001
+            db.rollback()
+            persisted = db.query(OutboxEvent).filter_by(id=event.id).one()
+            persisted.last_error = (
+                f"{persisted.last_error}; failure_timeline_error={type(timeline_exc).__name__}: {timeline_exc}"
+            )
+            db.commit()
     return len(stale)
 
 

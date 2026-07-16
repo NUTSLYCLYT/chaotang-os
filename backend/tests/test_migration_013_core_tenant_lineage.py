@@ -134,14 +134,14 @@ def test_migration_013_temporary_downgrade_removes_only_its_columns(tmp_path, mo
     assert all(_column(path, table, "tenant_id") is None for table in _TABLES)
 
 
-def test_fresh_migration_chain_reaches_013_with_all_columns(tmp_path, monkeypatch):
+def test_fresh_migration_chain_reaches_head_with_all_013_columns(tmp_path, monkeypatch):
     path = tmp_path / "fresh.db"
     cfg = _config(path, monkeypatch)
     alembic_command.upgrade(cfg, "head")
 
     conn = sqlite3.connect(path)
     try:
-        assert conn.execute("SELECT version_num FROM alembic_version").fetchone()[0] == _REVISION
+        assert conn.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "014_tenant_identity_tables"
         for table in _TABLES:
             column = _column(path, table, "tenant_id")
             assert column is not None, table

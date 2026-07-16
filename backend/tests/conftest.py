@@ -22,6 +22,7 @@ os.environ.setdefault("FENGQUN_JWT_SECRET", "test-only-" + "x" * 40)
 # collection-time `from src.db.engine import SessionLocal` aliases that an
 # autouse monkeypatch cannot replace later.
 os.environ["DB_URL"] = "sqlite:///:memory:"
+os.environ["FENGQUN_SCHEMA_MODE"] = "test"
 # src.tenant uses a separate legacy sqlite3 connection rather than the
 # SQLAlchemy engine above.  Bind it to a process-unique temporary file before
 # any test module can import src.tenant, and enable the connection-time guard.
@@ -32,6 +33,12 @@ os.environ["FENGQUN_DB_PATH"] = str(
     Path(_PYTEST_TENANT_DB_DIR.name) / "fengqun.db"
 )
 os.environ["FENGQUN_TEST_DB_GUARD"] = "1"
+
+# The production tenant connection is migration-only.  Tests that exercise the
+# legacy sqlite3 auth adapter receive an explicit test-owned identity schema.
+from tests.tenant_test_schema import initialize_tenant_test_schema  # noqa: E402
+
+initialize_tenant_test_schema(os.environ["FENGQUN_DB_PATH"])
 
 import pytest
 from sqlalchemy import create_engine

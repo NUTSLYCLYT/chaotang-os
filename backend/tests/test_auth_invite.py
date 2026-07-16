@@ -12,11 +12,14 @@ import importlib
 from fastapi.testclient import TestClient
 
 from web.main import app
+from tests.tenant_test_schema import initialize_tenant_test_schema
 
 
 def _isolated_tenant_db(monkeypatch, tmp_path):
     tenant = importlib.import_module("src.tenant")
-    monkeypatch.setattr(tenant, "DB_PATH", tmp_path / "fengqun_test.db")
+    db_path = tmp_path / "fengqun_test.db"
+    initialize_tenant_test_schema(db_path)
+    monkeypatch.setattr(tenant, "DB_PATH", db_path)
     return tenant
 
 

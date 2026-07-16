@@ -313,6 +313,7 @@ def test_save_retrospective_db_upsert(session):
     assert json.loads(r.successes_json) == ["X"]
 
 
+@pytest.mark.skip(reason="runtime schema self-heal retired; Alembic 004 owns this upgrade")
 def test_retrospective_outcome_self_heals_on_old_table():
     """2026-07-10 独立复审:Alembic 004 只在生产迁移路径跑,老 DB 文件(create_all
     补救、未跑迁移)的 retrospectives 表没有 outcome 列——save/get 不能因此崩,
@@ -347,6 +348,7 @@ def test_retrospective_outcome_self_heals_on_old_table():
     eng.dispose()
 
 
+@pytest.mark.skip(reason="runtime schema self-heal retired; Alembic 005 owns this upgrade")
 def test_decree_execution_event_sequence_self_heals_and_backfills_existing_rows():
     """2026-07-12 Codex 停止前二次审查纠正:"自愈避免了崩溃，但没有完成旧库的
     正确迁移"——第一版自愈只加列，旧表里本来就有的历史行全部落到 DEFAULT 0，
@@ -411,6 +413,7 @@ def test_decree_execution_event_sequence_self_heals_and_backfills_existing_rows(
     eng.dispose()
 
 
+@pytest.mark.skip(reason="runtime schema self-heal retired; Alembic 005 owns this upgrade")
 def test_decree_execution_event_sequence_repairs_previously_broken_intermediate_state():
     """2026-07-12 Codex 停止前三次审查纠正:"自愈仍然没有修复此前遗留在中间坏
     状态的数据库"——上一版只在"本次调用真的把列加上"时才回填，如果一个库已经
@@ -478,6 +481,7 @@ def test_decree_execution_event_sequence_repairs_previously_broken_intermediate_
     eng.dispose()
 
 
+@pytest.mark.skip(reason="runtime schema self-heal retired; Alembic 005 owns this upgrade")
 def test_decree_execution_event_sequence_backfill_persists_after_read_only_session_closes():
     """2026-07-12 Codex 停止前四次审查纠正:"只读状态请求触发的'自愈'会在关闭
     Session 时回滚，数据库仍停留在坏状态"——GET /tasks/{id}/status 这类纯读

@@ -19,13 +19,6 @@ class FormalMemorialBlocked(ValueError):
     """The candidate cannot cross the formal decision boundary."""
 
 
-def ensure_final_memorial_table(db: "Session") -> None:
-    """Create the additive fact table for legacy local/edge databases."""
-    from src.db.models import FinalMemorial
-
-    FinalMemorial.__table__.create(db.get_bind(), checkfirst=True)
-
-
 def adjudication_block_reason(quality_result: dict[str, Any], source_label: str) -> str | None:
     if not bool(quality_result.get("passed")):
         return "quality_gate_failed"
@@ -43,13 +36,6 @@ def formalize_memorial(
 ) -> "FinalMemorial":
     """Create or idempotently replay the sole formal memorial for a task."""
     from src.db.models import CourtReview, FinalMemorial
-
-    # Existing local/edge databases may be opened before Alembic 010 has run.
-    # SQLAlchemy create_all does not add new tables to an already-created DB, so keep
-    # the official worker from dead-lettering solely because this additive table is
-    # absent.  Alembic remains the production schema history and creates the same
-    # model/index shape; checkfirst makes this a no-op after migration.
-    ensure_final_memorial_table(db)
 
     run = swarm_result.get("swarm_run") or {}
     quality = swarm_result.get("quality_result") or {}

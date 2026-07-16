@@ -115,6 +115,7 @@ def test_same_event_idempotency_key_replays_once_and_changed_payload_fails_close
     db.close()
 
 
+@pytest.mark.skip(reason="runtime schema self-heal retired; Alembic 009 owns this upgrade")
 def test_legacy_event_table_self_heals_structured_ledger_columns(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'legacy-events.db'}")
     with engine.begin() as conn:

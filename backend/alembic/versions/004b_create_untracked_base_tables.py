@@ -46,7 +46,13 @@ depends_on = None
 #     → 建 pre-008 版(去掉这两列和该索引)
 # (下面 robust 扫描 upgrade 路径确认只有这 3 张;测试会兜底任何遗漏。)
 _ALTERED_LATER = {
+    "chancellor_route_decisions",
+    "court_reviews",
+    "decision_tasks",
     "decree_execution_events",
+    "emperor_decisions",
+    "outbox_events",
+    "shiguan_archives",
     "build_ledger_entries",
     "build_ledger_audit_events",
 }
@@ -131,6 +137,115 @@ def _create_build_ledger_pre008(bind) -> None:
         op.create_index("ix_build_ledger_audit_task", "build_ledger_audit_events", ["task_id"])
 
 
+def _create_core_authority_pre012_013(bind) -> None:
+    """Freeze the actual 011-era shape of tables changed by 012/013.
+
+    Importing current ``Base.metadata`` here made historical revision 011 change
+    whenever a later ORM column was added.  That destroys migration
+    reproducibility and caused clean 011 databases to contain future columns.
+    These definitions therefore intentionally omit EmperorDecision.kind and all
+    P4.5 nullable tenant lineage columns.
+    """
+    existing = set(sa.inspect(bind).get_table_names())
+    if "decision_tasks" not in existing:
+        op.create_table(
+            "decision_tasks",
+            sa.Column("id", sa.Text(), primary_key=True),
+            sa.Column("user_id", sa.Text(), nullable=False),
+            sa.Column("raw_question", sa.Text(), nullable=False),
+            sa.Column("refined_edict", sa.Text(), nullable=True),
+            sa.Column("decision_type", sa.Text(), nullable=True),
+            sa.Column("status", sa.Text(), nullable=False),
+            sa.Column("source_label", sa.Text(), nullable=False),
+            sa.Column("risk_flags_json", sa.Text(), nullable=False),
+            sa.Column("known_facts_json", sa.Text(), nullable=False),
+            sa.Column("unknown_gaps_json", sa.Text(), nullable=False),
+            sa.Column("recommended_departments_json", sa.Text(), nullable=False),
+            sa.Column("draft_edict_json", sa.Text(), nullable=True),
+            sa.Column("created_at", sa.Text(), nullable=False),
+            sa.Column("updated_at", sa.Text(), nullable=False),
+        )
+        op.create_index("ix_decision_tasks_status_created", "decision_tasks", ["status", "created_at"])
+        op.create_index("ix_decision_tasks_user_updated", "decision_tasks", ["user_id", "updated_at"])
+    if "court_reviews" not in existing:
+        op.create_table(
+            "court_reviews",
+            sa.Column("id", sa.Text(), primary_key=True),
+            sa.Column("task_id", sa.Text(), nullable=False),
+            sa.Column("routing_plan_json", sa.Text(), nullable=False),
+            sa.Column("review_status", sa.Text(), nullable=False),
+            sa.Column("ministry_outputs_json", sa.Text(), nullable=False),
+            sa.Column("conflict_summary_json", sa.Text(), nullable=False),
+            sa.Column("memorial_json", sa.Text(), nullable=True),
+            sa.Column("created_at", sa.Text(), nullable=False),
+            sa.Column("updated_at", sa.Text(), nullable=False),
+        )
+        op.create_index("ix_court_reviews_task_status", "court_reviews", ["task_id", "review_status"])
+    if "emperor_decisions" not in existing:
+        op.create_table(
+            "emperor_decisions",
+            sa.Column("id", sa.Text(), primary_key=True),
+            sa.Column("task_id", sa.Text(), nullable=False),
+            sa.Column("action", sa.Text(), nullable=False),
+            sa.Column("reason", sa.Text(), nullable=True),
+            sa.Column("human_confirmed", sa.Boolean(), nullable=False),
+            sa.Column("confirmation_record_json", sa.Text(), nullable=True),
+            sa.Column("created_at", sa.Text(), nullable=False),
+        )
+        op.create_index("ix_emperor_decisions_task_created", "emperor_decisions", ["task_id", "created_at"])
+    if "shiguan_archives" not in existing:
+        op.create_table(
+            "shiguan_archives",
+            sa.Column("id", sa.Text(), primary_key=True),
+            sa.Column("task_id", sa.Text(), nullable=False),
+            sa.Column("raw_question", sa.Text(), nullable=False),
+            sa.Column("refined_edict", sa.Text(), nullable=False),
+            sa.Column("final_memorial_json", sa.Text(), nullable=True),
+            sa.Column("emperor_decision_json", sa.Text(), nullable=True),
+            sa.Column("evidence_chain_json", sa.Text(), nullable=False),
+            sa.Column("source_label", sa.Text(), nullable=False),
+            sa.Column("synthetic_flag", sa.Boolean(), nullable=False),
+            sa.Column("created_at", sa.Text(), nullable=False),
+        )
+        op.create_index("ix_shiguan_archives_task_created", "shiguan_archives", ["task_id", "created_at"])
+    if "chancellor_route_decisions" not in existing:
+        op.create_table(
+            "chancellor_route_decisions",
+            sa.Column("decision_id", sa.Text(), primary_key=True),
+            sa.Column("task_id", sa.Text(), nullable=False),
+            sa.Column("idempotency_key", sa.Text(), nullable=False),
+            sa.Column("mode", sa.Text(), nullable=False),
+            sa.Column("primary_department", sa.Text(), nullable=False),
+            sa.Column("source_label", sa.Text(), nullable=False),
+            sa.Column("supersedes_decision_id", sa.Text(), nullable=True),
+            sa.Column("decision_json", sa.Text(), nullable=False),
+            sa.Column("created_at", sa.Text(), nullable=False),
+            sa.UniqueConstraint("task_id", "idempotency_key", name="uq_chancellor_route_task_idem"),
+        )
+        op.create_index(
+            "ix_chancellor_route_decisions_task_created",
+            "chancellor_route_decisions",
+            ["task_id", "created_at"],
+        )
+    if "outbox_events" not in existing:
+        op.create_table(
+            "outbox_events",
+            sa.Column("id", sa.Text(), primary_key=True),
+            sa.Column("task_id", sa.Text(), nullable=False),
+            sa.Column("decision_id", sa.Text(), nullable=False),
+            sa.Column("event_type", sa.Text(), nullable=False),
+            sa.Column("status", sa.Text(), nullable=False),
+            sa.Column("attempts", sa.Integer(), nullable=False),
+            sa.Column("max_attempts", sa.Integer(), nullable=False),
+            sa.Column("last_error", sa.Text(), nullable=True),
+            sa.Column("payload_json", sa.Text(), nullable=False),
+            sa.Column("created_at", sa.Text(), nullable=False),
+            sa.Column("updated_at", sa.Text(), nullable=False),
+        )
+        op.create_index("ix_outbox_events_status_created", "outbox_events", ["status", "created_at"])
+        op.create_index("ix_outbox_events_task", "outbox_events", ["task_id"])
+
+
 def upgrade() -> None:
     bind = op.get_bind()
     from src.db.models import Base
@@ -138,6 +253,7 @@ def upgrade() -> None:
     # ① 被后续迁移 ALTER 的 3 张裸表:按历史(pre-alter)schema 手建。
     _create_decree_execution_events_004era(bind)  # 供 005/009 ALTER
     _create_build_ledger_pre008(bind)             # 供 008 ALTER
+    _create_core_authority_pre012_013(bind)        # 供 012/013 ALTER
 
     # ② 其余 12 张纯裸表(任何迁移都不碰):最终模型 schema,checkfirst 幂等。
     for name in _UNTRACKED_TABLES:
