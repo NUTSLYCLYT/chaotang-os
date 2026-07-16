@@ -20,30 +20,30 @@ P4.5b direct 语义封口（契约兼容式，v3 修正）：`direct_completed` 
   增加 `execution_state` 派生字段，读模型透出；status 枚举原样保留并在
   ADR 注记"direct_completed=受理完成语义"。
 
-  派生规则 v4（两个正交条件缺一不可：**终态成功事件 × 真实工件**。
-  工件证明"真的跑过"，成功事件证明"跑的结果是成功"——单看任何一个
-  都会造假终态）：
-  - enqueued：outbox 事件存在且未被领取；
-  - running：有执行开始事件，尚无终态事件；
-  - completed：**当且仅当** 终态成功事件（execution.finished/success）
-    **且** 真实执行工件（SwarmRun/部门引擎产出落库）同时存在；
-  - failed：存在终态失败事件（execution.failed/dead_letter/重试耗尽），
-    **无论有无工件**——失败执行常留部分工件，工件不得洗白失败；
-  - receipt_only：direct 回执已出且**无真实执行工件**——注意事件分类：
-    只有 execution.started/finished/failed 计为执行事件；说明性/记账类
-    timeline 事件（含现行 _execute_direct no-op 通知，outbox_worker.py:62-77
-    "无需异步执行"）**不算**执行事件。现行 direct no-op 路径由此显式落入
-    receipt_only——这是判定表必须覆盖的第一个真实案例；
-  - inconsistent（兜底态，v5 新增）：任何不匹配上述规则的组合（如有终态
-    成功事件却无工件）落此态并进 quarantine 清单——数据不变量已破，
-    **呈现破损，永不猜测**；
-  - **完备性要求**：判定函数必须是全函数（每种事件×工件组合有且仅有
-    一个归宿），用穷举测试证明——含"现行 direct no-op"与"council 正常/
-    失败/部分"至少五个真实路径 fixture。
-  RED 断言四条："现行 direct no-op 必须 receipt_only"；"无终态成功事件
-  不得 completed（含有工件的失败必须 failed）"；"worker 完成前不得
-  completed"；"构造不匹配组合必须 inconsistent 且入 quarantine"。
-  ING-04 被诚实呈现而非掩盖，零契约破坏。
+  规格方法论 v6（前五版反复漏的根因：审查者在用发明的事件名写判定表。
+  改为交付方法+验收不变量，判定表由 Codex 基于真实词表构建）：
+
+  第一步 **词表盘点**（交付物 event-vocabulary.md）：从代码穷举当前全部
+  DecreeExecutionEvent event_type（初查仅有 routing.decided / dispatch.queued /
+  dispatch.started / reports.completed / memorial.direct_completed 及 outbox
+  的 route.direct/council）与全部执行工件表；**注意现行词表没有任何失败
+  事件类型**——若确认失败路径无账本词汇，先补加法事件类型（如
+  dispatch.failed / reports.failed），这是本步的一部分。
+
+  第二步 **有序判定表**（first-match-wins + 末行 catch-all）：对真实输入
+  （事件集合 × 工件存在性 × mode）逐行匹配，**末行必为 inconsistent+
+  quarantine**——全函数性由构造保证，不靠枚举自觉。
+
+  第三步 **性质测试**：全组合穷举断言"有且仅有一行命中"；至少五个真实
+  路径 fixture（现行 direct no-op、council 成功、council 失败、council
+  部分、回执后补真实执行）。
+
+  验收不变量（判定表内容必须满足，形式不限）：
+  a) completed 需要 成功语义终态事件 × 真实工件 两证齐全；
+  b) 失败事件一票定性 failed，部分工件不得洗白；
+  c) 现行 _execute_direct no-op（outbox_worker.py:62-77）必须落 receipt_only；
+  d) 说明性/记账事件不得参与终态判定；
+  e) 任何未覆盖组合 → inconsistent+quarantine，永不猜测。
 P4.5c 质量门搬门框：quality_gate 调用从 swarm_review 内部抽到独立模块边界
   （import seam），逻辑零改动；架构守门加"生产者模块不得直接判门"断言。
 P4.5d CourtReview 构造点冻结：架构守门禁止新增 CourtReview 写入点，
