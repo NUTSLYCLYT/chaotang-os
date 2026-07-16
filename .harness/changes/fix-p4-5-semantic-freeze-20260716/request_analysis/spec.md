@@ -9,7 +9,8 @@ P5 迁移权威归一前，先冻结会被后续拆表和读模型依赖的语�
 | 分类 | 结论 | 证据路径 / 命令与时间 | 验证方式 / Owner | 是否阻塞 |
 | --- | --- | --- | --- | --- |
 | 已确认事实 | `EmperorDecision` 有 6 个生产构造点、10 个 action 字面量；迁移 head 为 011 | AST 盘点、`backend/src/db/models.py`、`backend/alembic/versions/`，2026-07-16 | 契约测试 + 代码审查 | 否 |
-| 已确认事实 | CourtReview 当前生产构造点基线为 8，不是早期计划中的 7 | P4.5d 实施前 AST multiset 盘点 | 待 P4.5d 固化守门 | 是（仅阻止沿用错误基线） |
+| 已确认事实 | CourtReview 当前生产构造点基线为 8，不是早期计划中的 7 | P4.5d 独立 AST multiset | 冻结清单 + 架构测试 | 否 |
+| 已确认事实 | swarm sections 已含完整部门事实，但旧投影缺少 `department_memorials`，导致 canonical signal 退成 GRAY | `backend/src/shangshufang_loop.py`、前端 canonical read model，2026-07-16 | JSON Schema + API/前端消费者回归 | 否 |
 | 已确认事实 | 真实库不得作为迁移试验目标 | `backend/tests/conftest.py` tripwire 与项目边界 | 只读 size/mtime/inode/SHA-256 前后对比 | 否 |
 | 已确认事实 | 正式执行事件原先无失败终态；worker 事务边界不支持独立 `reports.failed` 事实 | `backend/docs/adr-2026-07-16-execution-state-semantics.md` | AST 词表守门 + 独立只读审计 | 否 |
 
@@ -33,6 +34,8 @@ P4.5a `kind`；P4.5b execution state；P4.5c quality gate import seam；P4.5d Co
 ## 非目标
 
 不改前端既有 status 枚举；不拆 CourtReview；不建立 DepartmentMemorial 新表；不声称完成租户隔离；不开始 P5；不迁移真实数据库。
+
+另已记录但不在本包修复：`frontend/config/ministry_output_contracts.yaml`/validator 与可执行 `DepartmentOpinionV1` JSON Schema、TS 类型存在既有漂移；本包不把 V1 扩写成 YAML 的另一套模型。
 
 ## 边界条件
 

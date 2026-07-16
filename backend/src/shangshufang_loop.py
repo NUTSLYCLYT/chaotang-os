@@ -9,10 +9,10 @@
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+import re
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from hashlib import sha1
-import re
 
 SOURCE_LABELS = {"LIVE", "MIXED", "FALLBACK", "DEMO"}
 EXPECTED_MEMORIAL_FORMAT = ["圣裁", "分奏", "证据", "风险", "后令", "质门", "来源"]
@@ -89,6 +89,29 @@ POSITION_STATUS_MAP = {
     "补证": "needs_evidence",
     "复核": "needs_review",
     "驳回": "rejected",
+}
+
+POSITION_SIGNAL_MAP = {
+    "准奏": "GREEN",
+    "补证": "YELLOW",
+    "复核": "RED",
+    "驳回": "RED",
+}
+
+POSITION_VERDICT_MAP = {
+    "准奏": "APPROVE",
+    "补证": "NEED_EVIDENCE",
+    "复核": "RECHECK",
+    "驳回": "REJECT",
+}
+
+DEPARTMENT_OPINION_SIGNALS = {"GREEN", "YELLOW", "RED", "GRAY"}
+DEPARTMENT_OPINION_SOURCE_LABELS = {
+    "LIVE",
+    "LIVE_SWARM",
+    "MIXED",
+    "FALLBACK",
+    "DEMO",
 }
 
 DIRECT_AGENT_MAP = {
@@ -313,6 +336,142 @@ def ministry_outputs_from_swarm(result: dict) -> list[dict]:
     return outputs
 
 
+def _department_opinion_source_label(value: object) -> str:
+    label = str(value or "FALLBACK")
+    if label == "LIVE_ENGINE":
+        return "LIVE"
+    if label in DEPARTMENT_OPINION_SOURCE_LABELS:
+        return label
+    return "FALLBACK"
+
+
+def _evidence_reliability(value: object) -> str:
+    return {
+        "高": "high",
+        "中": "medium",
+        "低": "low",
+        "high": "high",
+        "medium": "medium",
+        "low": "low",
+        "unknown": "unknown",
+    }.get(str(value or "").lower(), "unknown")
+
+
+def _department_evidence_items(
+    item: dict, *, task_id: str, department: str, source_label: str
+) -> list[dict]:
+    projected: list[dict] = []
+    for index, evidence in enumerate(item.get("evidence_used") or [], start=1):
+        raw = evidence if isinstance(evidence, dict) else {"summary": str(evidence)}
+        label = str(
+            raw.get("title")
+            or raw.get("label")
+            or raw.get("source_type")
+            or raw.get("claim_supported")
+            or f"部门证据 {index}"
+        ).strip()
+        summary = str(
+            raw.get("claim_supported")
+            or raw.get("summary")
+            or raw.get("title")
+            or label
+        ).strip()
+        evidence_item = {
+            "schema_version": "EvidenceItemV1",
+            "id": str(raw.get("id") or f"{task_id}:{department}:evidence:{index}"),
+            "label": label or f"部门证据 {index}",
+            "summary": summary or "已记录部门证据。",
+            "reliability": _evidence_reliability(
+                raw.get("reliability") or raw.get("confidence") or item.get("confidence")
+            ),
+            "source_label": source_label,
+        }
+        source_uri = str(
+            raw.get("source_uri") or raw.get("quote_or_location") or ""
+        ).strip()
+        observed_at = str(raw.get("observed_at") or "").strip()
+        if source_uri:
+            evidence_item["source_uri"] = source_uri
+        if observed_at:
+            evidence_item["observed_at"] = observed_at
+        projected.append(evidence_item)
+    return projected
+
+
+def department_memorials_from_swarm(result: dict) -> list[dict]:
+    """Project raw department sections into the strict product wire contract.
+
+    Raw sections remain available in ``swarm_brief_for_junjichu``.  This
+    projection exposes only DepartmentOpinionV1 fields and maps the internal
+    LIVE_ENGINE provenance label to the product-facing LIVE label.
+    """
+    brief = result.get("brief") or {}
+    sections = brief.get("department_sections") or []
+    if not sections:
+        return []
+    task_id = str((result.get("swarm_run") or {}).get("task_id") or "").strip()
+    if not task_id:
+        raise ValueError("DepartmentOpinionV1 projection requires swarm_run.task_id")
+
+    opinions: list[dict] = []
+    for item in sections:
+        if not isinstance(item, dict):
+            continue
+        department = _swarm_department(item).strip() or "未知部门"
+        position = str(item.get("position") or "")
+        raw_signal = item.get("signal")
+        if raw_signal is None:
+            signal = POSITION_SIGNAL_MAP.get(position, "GRAY")
+        else:
+            signal_value = str(raw_signal)
+            signal = (
+                signal_value
+                if signal_value in DEPARTMENT_OPINION_SIGNALS
+                else "GRAY"
+            )
+        verdict = POSITION_VERDICT_MAP.get(position, "NEED_EVIDENCE")
+        source_label = _department_opinion_source_label(
+            item.get("source_label") or brief.get("source_label")
+        )
+        missing = _dedupe(
+            [str(value) for value in (item.get("missing_evidence") or [])]
+        )
+        risks = item.get("risks") or []
+        risk_titles = _dedupe([_risk_title(risk) for risk in risks])
+        human_confirmation_required = bool(
+            item.get("requires_human")
+            or item.get("human_confirmation_required")
+            or any(_risk_requires_human(risk) for risk in risks)
+        )
+        opinions.append(
+            {
+                "schema_version": "DepartmentOpinionV1",
+                "task_id": task_id,
+                "department_id": department,
+                "signal": signal,
+                "verdict": verdict,
+                "summary": str(
+                    item.get("summary") or "本部门已完成能力范围内审查。"
+                ),
+                "evidence": _department_evidence_items(
+                    item,
+                    task_id=task_id,
+                    department=department,
+                    source_label=source_label,
+                ),
+                "missing_evidence": missing,
+                "risks": risk_titles,
+                "next_order": str(
+                    item.get("recommended_next_action")
+                    or "回到本部门补齐证据后再呈报。"
+                ),
+                "human_confirmation_required": human_confirmation_required,
+                "source_label": source_label,
+            }
+        )
+    return opinions
+
+
 def _format_list(values: list[str], empty: str = "无") -> str:
     values = [v for v in values if v]
     if not values:
@@ -371,6 +530,7 @@ def memorial_from_swarm_result(base_memorial: dict, result: dict) -> dict:
     brief = result.get("brief") or {}
     quality = result.get("quality_result") or {}
     ministry_outputs = ministry_outputs_from_swarm(result)
+    department_memorials = department_memorials_from_swarm(result)
     missing = [str(x) for x in (brief.get("missing_evidence") or [])]
     risks = brief.get("risk_register") or []
     conflicts = brief.get("conflict_summary") or []
@@ -405,6 +565,7 @@ def memorial_from_swarm_result(base_memorial: dict, result: dict) -> dict:
         "verdict": verdict,
         "summary": summary,
         "ministry_outputs": ministry_outputs,
+        "department_memorials": department_memorials,
         "conflict_summary": conflicts,
         "evidence_chain": brief.get("evidence_chain") or [],
         "evidence_gaps": missing,

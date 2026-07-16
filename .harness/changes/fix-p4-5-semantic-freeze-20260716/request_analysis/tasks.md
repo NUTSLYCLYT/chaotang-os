@@ -31,9 +31,12 @@
 - 当前基线为 6 个路径/函数条目、8 次构造调用；不拆分或改写现有 writer。
 - RED：冻结清单模块缺失，测试收集失败；GREEN：架构门 1 passed，相邻事实链回归 42 passed。
 
-## P4.5e — DepartmentOpinionV1（PENDING）
+## P4.5e — DepartmentOpinionV1（VERIFIED）
 
-- 从现有 sections 完整投影 department opinions，保留 signal/source_label。
+- 从现有 `brief.department_sections` 一对一投影严格 V1 的全部 12 个字段，不建立新表。
+- 冻结 position→signal/verdict；逐部门来源优先，内部 `LIVE_ENGINE` 在产品 wire 边界映射为 `LIVE`，原始值仍保留在 raw brief。
+- 证据、风险、后令与人工确认均来自真实 section；非法 position/source fail closed。
+- RED：2 failed；GREEN：契约 7 passed、相关后端 41+8 passed、前端消费者 22 passed。
 
 ## P4.5f — tenant lineage + 013（PENDING）
 
@@ -43,3 +46,8 @@
 ## 收口（PENDING）
 
 - 全量相关验证、两层 doctor、独立审查；GO 后方可合入 ext/进入 P5。
+
+## 范围外问题（RECORDED）
+
+- `frontend/config/ministry_output_contracts.yaml` 与其 validator 描述了另一套扩张字段，当前只读基线即报 `DepartmentOpinionV1 missing field: department_name`。
+- P4.5e 以可执行 JSON Schema 和两个 TS 运行时类型为事实源；YAML/validator 漂移须另立变更，不在本包顺手扩 scope。
