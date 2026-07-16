@@ -29,13 +29,21 @@ P4.5b direct 语义封口（契约兼容式，v3 修正）：`direct_completed` 
     **且** 真实执行工件（SwarmRun/部门引擎产出落库）同时存在；
   - failed：存在终态失败事件（execution.failed/dead_letter/重试耗尽），
     **无论有无工件**——失败执行常留部分工件，工件不得洗白失败；
-  - receipt_only：direct 回执已出、无任何执行事件与工件——诚实暴露
-    ING-04 现状，禁止折算 completed；
-  - 不明组合（如有工件无终态事件）落 running 或 failed 按事件判，
-    **永不猜成 completed**——宁可显示未完成，不显示假完成。
-  RED 断言三条："仅回执无工件必须 receipt_only"；"无终态成功事件不得
-  completed（含有工件的失败执行必须 failed）"；"worker 完成前不得
-  completed"。ING-04 被诚实呈现而非掩盖，零契约破坏。
+  - receipt_only：direct 回执已出且**无真实执行工件**——注意事件分类：
+    只有 execution.started/finished/failed 计为执行事件；说明性/记账类
+    timeline 事件（含现行 _execute_direct no-op 通知，outbox_worker.py:62-77
+    "无需异步执行"）**不算**执行事件。现行 direct no-op 路径由此显式落入
+    receipt_only——这是判定表必须覆盖的第一个真实案例；
+  - inconsistent（兜底态，v5 新增）：任何不匹配上述规则的组合（如有终态
+    成功事件却无工件）落此态并进 quarantine 清单——数据不变量已破，
+    **呈现破损，永不猜测**；
+  - **完备性要求**：判定函数必须是全函数（每种事件×工件组合有且仅有
+    一个归宿），用穷举测试证明——含"现行 direct no-op"与"council 正常/
+    失败/部分"至少五个真实路径 fixture。
+  RED 断言四条："现行 direct no-op 必须 receipt_only"；"无终态成功事件
+  不得 completed（含有工件的失败必须 failed）"；"worker 完成前不得
+  completed"；"构造不匹配组合必须 inconsistent 且入 quarantine"。
+  ING-04 被诚实呈现而非掩盖，零契约破坏。
 P4.5c 质量门搬门框：quality_gate 调用从 swarm_review 内部抽到独立模块边界
   （import seam），逻辑零改动；架构守门加"生产者模块不得直接判门"断言。
 P4.5d CourtReview 构造点冻结：架构守门禁止新增 CourtReview 写入点，
