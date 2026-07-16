@@ -144,12 +144,14 @@ async function createImmutableBundle({hooks, bundlesDir, cli, core}) {
 
 async function atomicWriteFile(destination, content, mode, temporaryRoot) {
   const temporary = join(temporaryRoot, `.chaotang-packet-review-file-next-${randomUUID()}`);
+  let activated = false;
   try {
     await writeFile(temporary, content, {mode});
     await chmod(temporary, mode);
     await rename(temporary, destination);
+    activated = true;
   } finally {
-    await rm(temporary, {force: true});
+    if (!activated) await rm(temporary, {force: true});
   }
 }
 

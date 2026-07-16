@@ -271,6 +271,13 @@ test('current activation is the final fallible step in an existing snapshot refr
   assert.ok(activationIndex >= 0, 'existing snapshot refresh must atomically activate current');
   assert.ok(validationIndex < activationIndex, 'full validation must precede current activation');
   assert.doesNotMatch(body.slice(activationIndex + 1), /\bawait\b/);
+
+  const helperStart = source.indexOf('async function atomicWriteFile');
+  const helperEnd = source.indexOf('\nasync function installManagedAssetBundle', helperStart);
+  const helper = source.slice(helperStart, helperEnd);
+  assert.match(helper, /let activated = false;/);
+  assert.match(helper, /await rename\(temporary, destination\);\s*activated = true;/);
+  assert.match(helper, /if \(!activated\) await rm\(temporary, \{force: true\}\);/);
 });
 
 function prepareHookRepository({hooksPath} = {}) {

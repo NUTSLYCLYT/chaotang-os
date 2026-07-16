@@ -39,6 +39,9 @@ hooks，未配置或宣称外部 required check。
 | 独立复核 v10 | `PACKET_REVIEW_NO_GO` | E7/E8 关闭；发现 current 写后仍有一次可失败全量校验 |
 | RED 12 | 结构顺序断言失败 | asset 全量校验位于 current 激活之后 |
 | GREEN 12 | 29/29 | 全量校验前置；current 写后无任何 `await` |
+| 独立复核 v11 | `PACKET_REVIEW_NO_GO` | 调用方顺序已修；发现 helper finally 在成功 rename 后仍 await 清理 |
+| RED 13 | helper 结构断言失败 | `atomicWriteFile` 缺少 activated 标志，成功路径仍执行 `await rm` |
+| GREEN 13 | 29/29 | 成功 rename 后同步返回；仅失败分支 await 清理临时文件 |
 
 ## 最终验证
 
@@ -67,7 +70,7 @@ hooks，未配置或宣称外部 required check。
 
 - 未安装到真实 `.git/hooks`；仅在隔离临时仓库验证安装、卸载和执行。
 - 未配置外部签名、公钥信任锚、Gitee required check 或分支保护。
-- 修复提交尚待新一轮独立复核；最后一个正式裁决 v10 仍为 `NO_GO`，不能提前合入。
+- 修复提交尚待新一轮独立复核；最后一个正式裁决 v11 仍为 `NO_GO`，不能提前合入。
 
 ## 环境偏差与恢复
 
@@ -94,7 +97,7 @@ hooks，未配置或宣称外部 required check。
 | 安装刷新无活动路径空窗 | 内容寻址 bundle + 原子 current + 旧 bundle 保留 | PASS |
 | target 路径不越出 hooks | symlinked `pre-push.d` 退出 1 且用户目录无新文件 | PASS |
 | 非零刷新不先激活新版本 | target 稳定不重写，`current` 最后提交 | PASS |
-| current 后无可失败步骤 | 安装器结构顺序回归测试 | PASS |
+| current 后无可失败步骤 | 调用方顺序 + atomicWrite helper 成功/失败分支结构回归 | PASS |
 | linked worktree 不依赖旧 checkout | 兄弟 worktree 端到端 dispatcher 测试 | PASS |
 | 诚实信任边界 | status、manifest、wiki | PASS |
 | 修复后独立 GO | 新一轮版本化复核 | PENDING |
