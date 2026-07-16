@@ -24,6 +24,8 @@ const REQUIRED_FILES = [
   "docs/decisions/0004-claude-specialist-delivery-roles.md",
   "docs/decisions/0005-codex-desktop-product-flow-skill.md",
   "docs/decisions/0007-langgraph-runtime-foundation.md",
+  "docs/decisions/0008-deepseek-langgraph-integration.md",
+  "backend/config/providers.yaml",
   "docs/failures/2026-07-15-shared-harness-stop-hook-false-green.md",
   ".github/workflows/harness.yml",
   ".agents/hooks/check-harness.mjs",

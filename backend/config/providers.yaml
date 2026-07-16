@@ -1,0 +1,18 @@
+# DeepSeek provider configuration for the LangGraph runtime.
+#
+# Scope: this file activates and declares exactly one provider (DeepSeek), sourced from the
+# fields relevant to DeepSeek in `dev:backend/config/providers.yaml`. It does
+# not carry over Ollama/Claude/MiniMax entries, model tiering, or fallback
+# provider fields from `dev` -- see docs/decisions/0008-*.md for the
+# rationale. No real secret values are stored here; `api_key_env` names the
+# environment variable that holds the key at runtime (see
+# `backend/.env.example` and `DEEPSEEK_API_KEY`).
+active: deepseek
+providers:
+  deepseek:
+    base_url: https://api.deepseek.com/v1
+    api_key_env: DEEPSEEK_API_KEY
+    default_model: openai/deepseek-chat
+    models:
+      - openai/deepseek-chat
+      - openai/deepseek-reasoner

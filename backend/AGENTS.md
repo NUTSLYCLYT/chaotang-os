@@ -107,6 +107,67 @@ python -m venv .venv
 - 未来若要接入真实模型、构建具体业务 agent/workflow 图，或引入持久化/
   checkpointer，需要新的产品任务并记录新的 ADR，不得直接在本模块基础上扩展。
 
+## DeepSeek LangGraph 模块
+
+`app/langgraph_runtime/deepseek_config.py`、`deepseek_client.py`、
+`deepseek_graph.py` 在上述确定性运行时基础之上，新增一个独立的、可调用真实
+DeepSeek 模型的图工厂，决策见 `docs/decisions/0008-*.md`。这是与
+`build_minimal_graph()` 完全独立的能力：不修改、不复用 `graph.py`/`state.py`，
+`build_minimal_graph()` 和 `GET /health` 的行为不受影响。
+
+- 配置来源：`backend/config/providers.yaml`，顶层 `active` 必须为 `deepseek`，且只声明
+  一个 `providers.deepseek` provider（`base_url`、`api_key_env`、`default_model`、`models`），不含真实
+  密钥、不含 Ollama/Claude/MiniMax、不含模型分层或 fallback 字段。
+- 密钥：只从进程环境变量 `DEEPSEEK_API_KEY` 读取（见 `backend/.env.example`）；
+  配置文件本身只存变量名，不存密钥值。缺文件、缺字段、缺 provider、缺少或非法的 `active`、
+  `default_model` 不在 `models` 中、或 `DEEPSEEK_API_KEY` 缺失/为空，都会在
+  发起任何网络请求之前抛出不泄露密钥的明确错误。
+- `build_deepseek_graph(chat_model=None)`：
+  - 传入兼容的假聊天模型（签名：接收消息列表、返回字符串）时，图完全离线
+    运行，不读取任何环境变量、不构造真实客户端，用于测试。
+  - 不传入时，函数在**返回编译好的图之前**就完成配置加载、环境变量校验、
+    真实 `openai.OpenAI` 客户端构造，从而在 `DEEPSEEK_API_KEY` 缺失时于
+    `build_deepseek_graph()` 这一步就快速失败，而不是等到 `.invoke()`。
+  - 图节点捕获模型调用异常并包装后重新抛出（不吞掉、不写入状态）；每次
+    `.invoke()` 独立处理，连续调用不共享可变状态。
+- 依赖：`openai`、`pyyaml` 已在 `backend/pyproject.toml` 主依赖中显式声明
+  （核实安装版本见 `docs/decisions/0008-*.md`），随 `## Setup` 的
+  `pip install -e ".[dev]"` 一并安装。
+- 当前能力边界：仅提供图工厂和配置加载入口，不新增聊天 HTTP API 或
+  provider 管理 API，不做流式输出、工具调用、human-in-the-loop、
+  checkpointer 或数据库持久化。这些若要接入，需要新的产品任务和新的 ADR。
+
+本地调用示例（**会真实访问 DeepSeek API、产生真实 API 用量**；运行前需要在
+`backend/.env`（从 `backend/.env.example` 复制）中设置真实、有效的
+`DEEPSEEK_API_KEY`，且需要在已激活 `.venv` 的 `backend/` 目录下运行）：
+
+```python
+from app.langgraph_runtime import build_deepseek_graph
+
+# 未传入 chat_model：会立即加载配置、校验 DEEPSEEK_API_KEY、构造真实
+# openai.OpenAI 客户端；缺 key 时在这一行就抛出，不会等到 invoke()。
+graph = build_deepseek_graph()
+
+# 这一步会对 DeepSeek 发起真实请求，消耗真实 API 额度。
+result = graph.invoke({"input_text": "用一句话介绍你自己", "response_text": ""})
+print(result["response_text"])
+```
+
+离线测试可注入假聊天模型，完全不访问网络、不需要真实 key：
+
+```python
+from app.langgraph_runtime import build_deepseek_graph
+
+
+def fake_chat_model(messages: list[dict[str, str]]) -> str:
+    return f"echo:{messages[0]['content']}"
+
+
+graph = build_deepseek_graph(chat_model=fake_chat_model)
+result = graph.invoke({"input_text": "hello", "response_text": ""})
+# result["response_text"] == "echo:hello"
+```
+
 ## 后续变更要求
 
 再次改变语言、运行方式、包管理器或评测方式时，在同一变更中：
