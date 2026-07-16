@@ -171,6 +171,10 @@ def _expected_unique_shapes(table: sa.Table) -> set[tuple[str, ...]]:
     return shapes
 
 
+def _normalize_check_sql(value: object) -> str:
+    return " ".join(str(value).strip().lower().split())
+
+
 def _validate_table(
     inspector: sa.Inspector,
     table: sa.Table,
@@ -229,6 +233,24 @@ def _validate_table(
                     f"{table_name} index {name} mismatch: expected {expected_indexes.get(name)}, "
                     f"got {actual_indexes.get(name)}"
                 )
+
+    actual_checks = {
+        (item.get("name"), _normalize_check_sql(item.get("sqltext")))
+        for item in inspector.get_check_constraints(table_name)
+    }
+    expected_checks = {
+        (constraint.name, _normalize_check_sql(constraint.sqltext))
+        for constraint in table.constraints
+        if isinstance(constraint, sa.CheckConstraint)
+    }
+    if table_name == "emperor_decisions" and "kind" not in actual_columns:
+        expected_checks = set()
+    if actual_checks != expected_checks:
+        errors.append(
+            f"{table_name} check constraints mismatch: "
+            f"expected {sorted(expected_checks, key=repr)}, "
+            f"got {sorted(actual_checks, key=repr)}"
+        )
     return errors
 
 

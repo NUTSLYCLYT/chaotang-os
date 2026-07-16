@@ -5,8 +5,8 @@
 | 命令 | 退出码 | 结果 | 证据覆盖范围 | 证据位置 / 时间 |
 | --- | ---: | --- | --- | --- |
 | 新增 RED 定向 pytest（实现前） | 1 | 13 failed, 12 passed | 证明新 head、missing-file、fingerprint、015、service 缺口确实存在 | 隔离 worktree，2026-07-17 |
-| authority/adoption/007-015/DDL guard 定向 pytest | 0 | 51 passed | 相邻迁移、strict、adoption、015 与 service 契约 | 隔离临时 SQLite，2026-07-17 |
-| 上游 P5 代表集 15 文件 | 0 | 109 passed, 6 skipped | auth、worker、poller、ledger、authority、adoption、migration | 隔离 worktree，2026-07-17 |
+| authority/adoption/007-015/DDL guard 定向 pytest | 0 | 52 passed | 相邻迁移、strict、adoption、015 与 service 契约 | 隔离临时 SQLite，2026-07-17 |
+| 上游 P5 代表集 15 文件 | 0 | 110 passed, 6 skipped | auth、worker、poller、ledger、authority、adoption、migration | 隔离 worktree，2026-07-17 |
 | `ruff check` 变更 Python 文件 | 0 | All checks passed | 静态错误、导入顺序 | 2026-07-17 |
 | `python3 -m compileall -q` 变更生产 Python | 0 | 通过 | 语法/字节码编译 | 2026-07-17 |
 | `python3 scripts/harness_doctor.py` | 0 | 0 errors / 0 warnings | 后端 harness | 2026-07-17 |

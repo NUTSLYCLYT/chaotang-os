@@ -286,6 +286,54 @@ def test_check_rejects_unknown_preexisting_emperor_kind_before_stamp(
     assert any("emperor_decisions unknown kinds" in item for item in report.mismatches)
 
 
+def test_check_rejects_a_wrong_preexisting_emperor_kind_constraint(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from src.schema_adoption import inspect_unversioned_database
+
+    path = tmp_path / "legacy-wrong-kind-check.db"
+    _unversioned_011_database(path, monkeypatch)
+    conn = sqlite3.connect(path)
+    try:
+        conn.executescript(
+            """
+            ALTER TABLE emperor_decisions RENAME TO emperor_decisions_old;
+            CREATE TABLE emperor_decisions (
+                id TEXT NOT NULL,
+                task_id TEXT NOT NULL,
+                action TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                reason TEXT,
+                human_confirmed BOOLEAN NOT NULL,
+                confirmation_record_json TEXT,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (id),
+                CONSTRAINT ck_emperor_decisions_kind
+                    CHECK (kind IN ('final_verdict', 'poisoned_kind'))
+            );
+            INSERT INTO emperor_decisions (
+                id, task_id, action, kind, reason, human_confirmed,
+                confirmation_record_json, created_at
+            )
+            SELECT id, task_id, action, 'final_verdict', reason, human_confirmed,
+                   confirmation_record_json, created_at
+            FROM emperor_decisions_old;
+            DROP TABLE emperor_decisions_old;
+            CREATE INDEX ix_emperor_decisions_task_created
+                ON emperor_decisions (task_id, created_at);
+            """
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    report = inspect_unversioned_database(f"sqlite:///{path}")
+
+    assert report.compatible is False
+    assert any("emperor_decisions check constraints mismatch" in item for item in report.mismatches)
+
+
 def test_apply_rejects_a_table_without_its_primary_and_unique_contract_before_backup_or_stamp(
     tmp_path: Path,
     monkeypatch,
