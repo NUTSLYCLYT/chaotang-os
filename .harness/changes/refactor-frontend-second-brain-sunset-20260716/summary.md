@@ -41,6 +41,8 @@
   只进入无裁决/安全等待态，不恢复已退役引擎。RED 3 failed / 10 passed，GREEN 14 passed。
 - 收官：P4 定向前端 34 passed、后端蒸馏/质门 10 passed、更新后的持久化契约 1 passed；
   三层 doctor 0/0，TypeScript 0，architecture import guard 通过。全量仅保留登记基线的
-  frontend 7 项与 backend 7 项 known-red；浏览器完成下旨、军机处 canonical 状态与补证裁决。
+  frontend 7 项与 backend 7 项 known-red；浏览器完成军机处 canonical 状态与补证裁决。fixture、
+  三张截图、干净 trace、运行命令、请求状态与 SHA-256 已提交至 `e2e_test/artifacts/`；该证据只覆盖
+  frontend 投影/回写，不冒充 backend 蜂群质量证明。
 - 数据安全：真实 `fengqun.db` 的 size/mtime/SHA-256 与开工基线完全一致。用户后续以
   “收口提交上传”明确授权合并并 push `feature-chaotang-ext`；部署仍不在本 Packet 范围。

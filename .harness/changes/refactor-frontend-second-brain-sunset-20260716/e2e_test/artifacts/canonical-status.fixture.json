@@ -1,0 +1,108 @@
+{
+  "success": true,
+  "data": {
+    "task": {
+      "task_id": "task_p4_browser_smoke_001",
+      "status": "awaiting_evidence",
+      "raw_question": "是否推进冷库储能项目？",
+      "draft_edict": null,
+      "source_label": "LIVE",
+      "risk_flags": ["客户承诺边界尚未签字"],
+      "known_facts": ["项目规模 100MWh"],
+      "unknown_gaps": ["毛利底线", "交付排期"],
+      "recommended_departments": ["finance", "works"],
+      "created_at": "2026-07-16T00:00:00Z",
+      "updated_at": "2026-07-16T00:02:00Z"
+    },
+    "review": {
+      "review_id": "review_p4_browser_smoke_001",
+      "review_status": "completed",
+      "routing_plan": {
+        "ministry_candidates": ["finance", "works"],
+        "selected_departments": ["finance", "works"],
+        "swarm_plan": [],
+        "route_reason": "后端明确选择户部与工部共同会审。",
+        "source_label": "LIVE_SWARM"
+      },
+      "ministry_outputs": [
+        {
+          "department": "finance",
+          "focus": "毛利与现金流",
+          "opinion": "户部：毛利底线未补齐前，不建议正式报价。",
+          "status": "completed",
+          "source_label": "LIVE_SWARM"
+        },
+        {
+          "department": "works",
+          "focus": "交付与产能",
+          "opinion": "工部：需补齐 BOM 与交付排期后再承诺。",
+          "status": "completed",
+          "source_label": "LIVE_SWARM"
+        }
+      ],
+      "conflict_summary": [
+        {
+          "type": "explicit",
+          "summary": "报价速度与交付证据不足存在冲突。",
+          "departments": ["finance", "works"],
+          "source_label": "LIVE_SWARM"
+        }
+      ],
+      "memorial": {
+        "title": "冷库储能项目会审候选奏折",
+        "verdict": "补证后再议",
+        "summary": "当前证据不足，暂不可进入正式裁决。",
+        "ministry_outputs": [
+          {
+            "department": "finance",
+            "focus": "毛利与现金流",
+            "opinion": "户部：毛利底线未补齐前，不建议正式报价。",
+            "status": "completed",
+            "source_label": "LIVE_SWARM"
+          },
+          {
+            "department": "works",
+            "focus": "交付与产能",
+            "opinion": "工部：需补齐 BOM 与交付排期后再承诺。",
+            "status": "completed",
+            "source_label": "LIVE_SWARM"
+          }
+        ],
+        "conflict_summary": [
+          {
+            "type": "explicit",
+            "summary": "报价速度与交付证据不足存在冲突。",
+            "departments": ["finance", "works"],
+            "source_label": "LIVE_SWARM"
+          }
+        ],
+        "evidence_gaps": ["毛利底线与交付排期尚未补齐"],
+        "risk_flags": ["客户承诺边界尚未签字"],
+        "decision_options": [
+          {
+            "action": "request_evidence",
+            "label": "补证",
+            "reason": "先补毛利与交付证据",
+            "enabled": true
+          }
+        ],
+        "next_best_action": "请户部补毛利底线，工部补 BOM 与交付排期。",
+        "source_label": "LIVE_SWARM",
+        "quality_gate": {
+          "passed": false,
+          "status": "blocked",
+          "reasons": ["missing_evidence_requires_resolution"],
+          "blocking_issues": ["毛利底线与交付排期尚未补齐"],
+          "warnings": ["禁止对外承诺"],
+          "human_signoff_required": true
+        },
+        "swarm_run_id": "swarmrun_p4_browser_smoke_001"
+      },
+      "created_at": "2026-07-16T00:01:00Z",
+      "updated_at": "2026-07-16T00:02:00Z"
+    },
+    "formal_memorial": null,
+    "execution_status": null
+  },
+  "error": null
+}
