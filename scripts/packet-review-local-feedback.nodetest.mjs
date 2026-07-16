@@ -2,7 +2,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {execFileSync, spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {chmodSync, cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
+import {
+  chmodSync,
+  cpSync,
+  existsSync,
+  lstatSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
@@ -346,6 +357,35 @@ test('uninstall refuses to delete an unmanaged same-name packet-review subhook',
   } finally {
     rmSync(repository, {recursive: true, force: true});
   }
+});
+
+function assertReinstallRefusesSnapshotSymlink(relativePath) {
+  const repository = prepareHookRepository();
+  try {
+    const install = spawnSync(process.execPath, [installer], {cwd: repository, encoding: 'utf8'});
+    assert.equal(install.status, 0, install.stderr);
+    const hooks = git(repository, ['rev-parse', '--path-format=absolute', '--git-path', 'hooks']);
+    const snapshotFile = join(hooks, 'chaotang-packet-review-local-feedback-v1', relativePath);
+    const userOwned = join(repository, 'user-owned.txt');
+    writeFileSync(userOwned, 'preserve me\n');
+    rmSync(snapshotFile);
+    symlinkSync(userOwned, snapshotFile);
+
+    const reinstall = spawnSync(process.execPath, [installer], {cwd: repository, encoding: 'utf8'});
+    assert.equal(reinstall.status, 1);
+    assert.equal(readFileSync(userOwned, 'utf8'), 'preserve me\n');
+    assert.equal(lstatSync(snapshotFile).isSymbolicLink(), true);
+  } finally {
+    rmSync(repository, {recursive: true, force: true});
+  }
+}
+
+test('reinstall refuses a symlinked snapshot CLI without overwriting its target', () => {
+  assertReinstallRefusesSnapshotSymlink('packet-review-pre-push.mjs');
+});
+
+test('reinstall refuses a symlinked snapshot core without overwriting its target', () => {
+  assertReinstallRefusesSnapshotSymlink(join('lib', 'packet-review-local-feedback.mjs'));
 });
 
 test('installed hook does not depend on the current linked worktree containing gate scripts', () => {

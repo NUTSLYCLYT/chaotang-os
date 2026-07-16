@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import {spawnSync} from 'node:child_process';
-import {chmod, copyFile, lstat, mkdir, readFile, readdir, rm, writeFile} from 'node:fs/promises';
+import {chmod, copyFile, lstat, mkdir, readFile, readdir, rename, rm, writeFile} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {join} from 'node:path';
 
@@ -31,18 +31,57 @@ async function readManagedFile(path, marker, label) {
   return current;
 }
 
+function assertExactEntries(actual, expected, label) {
+  const actualSorted = [...actual].sort();
+  const expectedSorted = [...expected].sort();
+  if (JSON.stringify(actualSorted) !== JSON.stringify(expectedSorted)) {
+    throw new Error(`${label} contents do not match the managed layout`);
+  }
+}
+
+async function assertManagedRegularFile(path, label) {
+  const stat = await pathStat(path);
+  if (!stat?.isFile() || stat.isSymbolicLink() || stat.nlink !== 1) {
+    throw new Error(`${label} is not a singly linked managed regular file`);
+  }
+  return stat;
+}
+
 async function assertManagedAssetDirectory(path) {
   const stat = await pathStat(path);
   if (!stat) return false;
   if (!stat.isDirectory() || stat.isSymbolicLink()) {
     throw new Error('verifier snapshot is not a managed directory');
   }
+  assertExactEntries(await readdir(path), ['.managed', 'lib', 'packet-review-pre-push.mjs'], 'verifier snapshot');
   const markerPath = join(path, '.managed');
-  const markerStat = await pathStat(markerPath);
-  if (!markerStat?.isFile() || markerStat.isSymbolicLink() || await readFile(markerPath, 'utf8') !== ASSET_MARKER) {
+  await assertManagedRegularFile(markerPath, 'verifier snapshot marker');
+  if (await readFile(markerPath, 'utf8') !== ASSET_MARKER) {
     throw new Error('verifier snapshot does not contain the exact management marker');
   }
+  await assertManagedRegularFile(join(path, 'packet-review-pre-push.mjs'), 'verifier snapshot CLI');
+  const lib = join(path, 'lib');
+  const libStat = await pathStat(lib);
+  if (!libStat?.isDirectory() || libStat.isSymbolicLink()) {
+    throw new Error('verifier snapshot lib is not a managed directory');
+  }
+  assertExactEntries(await readdir(lib), ['packet-review-local-feedback.mjs'], 'verifier snapshot lib');
+  await assertManagedRegularFile(
+    join(lib, 'packet-review-local-feedback.mjs'),
+    'verifier snapshot core',
+  );
   return true;
+}
+
+async function atomicCopy(source, destination) {
+  const temporary = `${destination}.tmp-${process.pid}`;
+  await rm(temporary, {force: true});
+  try {
+    await copyFile(source, temporary);
+    await rename(temporary, destination);
+  } finally {
+    await rm(temporary, {force: true});
+  }
 }
 
 function runGit(args, cwd = process.cwd()) {
@@ -140,8 +179,8 @@ done
 }
 
 await mkdir(join(assetDir, 'lib'), {recursive: true});
-await copyFile(sourceCli, join(assetDir, 'packet-review-pre-push.mjs'));
-await copyFile(sourceVerifier, join(assetDir, 'lib', 'packet-review-local-feedback.mjs'));
+await atomicCopy(sourceCli, join(assetDir, 'packet-review-pre-push.mjs'));
+await atomicCopy(sourceVerifier, join(assetDir, 'lib', 'packet-review-local-feedback.mjs'));
 await writeFile(join(assetDir, '.managed'), ASSET_MARKER, {mode: 0o600});
 
 await writeFile(target, `#!/bin/sh

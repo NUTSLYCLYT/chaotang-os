@@ -29,5 +29,6 @@ Packet ID: D6-L
 - 首次启用只接受精确 activation SHA；activation 后的任何提交都必须进入审查 DAG。
 - 安装器把 verifier 快照复制到共享 hooks 目录，支持 linked worktree、`core.hooksPath`、stdin replay、
   幂等和定向卸载；不会覆盖或删除 unmanaged/symlinked hook 与快照。
-- 独立复核 v2 的三个 `NO_GO` 阻塞均已用回归测试复现并修复，等待修复后复核。
+- 独立复核 v2 的三个阻塞与 v4 的 snapshot 内部 symlink 误写阻塞均已用回归测试复现并修复，
+  等待新一轮独立复核。
 - 安装保持显式 opt-in；本变更没有修改真实 `.git/hooks`，没有合并或推送。

@@ -34,7 +34,8 @@ The installer resolves hooks through `git rev-parse --git-path hooks`, supports 
 `core.hooksPath`, and copies a managed verifier snapshot into the shared hooks directory so an older
 sibling worktree does not need to contain the scripts. It replays pre-push stdin to every executable
 `pre-push.d` hook and refuses to overwrite or remove an unmanaged/symlinked dispatcher, packet-review
-subhook, or verifier snapshot.
+subhook, or verifier snapshot. Reinstall validates the snapshot's exact internal layout and atomically
+replaces its two managed JavaScript files; it never follows an existing snapshot symlink.
 
 ## Candidate shape
 

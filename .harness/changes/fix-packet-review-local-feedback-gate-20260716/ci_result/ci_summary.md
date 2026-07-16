@@ -24,13 +24,16 @@ hooks，未配置或宣称外部 required check。
 | GREEN 6 | 3/3 passed | bootstrap 绑定精确 activation；卸载 fail closed；共享 verifier 快照可执行 |
 | RED 7 | status 字段 `undefined` | status 尚未披露 bootstrap 例外的精确策略 |
 | GREEN 7 | 21/21 | status 输出 `bootstrap_policy=exact_activation_commit_only` |
+| 独立复核 v4 | `PACKET_REVIEW_NO_GO` | E1/E2/E3 关闭；发现 snapshot 内部 symlink 重装误写用户文件 |
+| RED 8 | 1/1 failed | symlinked snapshot CLI 被 `copyFile` 跟随，安装器错误退出 0 |
+| GREEN 8 | 2/2 passed | CLI/core symlink 均 fail closed，用户文件与 symlink 保持不变 |
 
 ## 最终验证
 
 | 命令 | 结果 |
 | --- | --- |
 | `node --check` 三个实现模块 | PASS |
-| `node --test scripts/packet-review-local-feedback.nodetest.mjs` | PASS：21/21，0 fail/skip |
+| `node --test scripts/packet-review-local-feedback.nodetest.mjs` | PASS：23/23，0 fail/skip |
 | `node scripts/packet-review-pre-push.mjs --status` | PASS：精确 bootstrap 策略、`LOCAL_FEEDBACK_ONLY`、`security_boundary=false`、`required_check_verified=false` |
 | `python3 -m json.tool` contract + manifest | PASS |
 | `node scripts/harness-doctor.mjs` | PASS：0 errors / 0 warnings |
@@ -40,8 +43,10 @@ hooks，未配置或宣称外部 required check。
 
 - 可阻断：历史/重复/非末行 GO、错 predecessor/head/digest、多个 Packet/change、review 夹带代码、
   merge 后改树、删除/新建/非 fast-forward ext 更新、分叉 activation、bootstrap 后夹带提交。
-- 安装边界：verifier 使用共享受管快照；unmanaged/symlinked hook 或快照在安装和卸载时均 fail closed。
-- 不能阻断：`git push --no-verify`、本地 hook/checker 篡改、其他机器/客户端直接推送。
+- 安装边界：verifier 使用共享受管快照；精确校验内部布局，原子替换受管文件；
+  unmanaged/symlinked hook 或快照在安装和卸载时均 fail closed。
+- 不能阻断：`git push --no-verify`、本地 hook/checker 篡改、其他机器/客户端直接推送，或使用
+  非 `origin` remote alias 推向同名 ref（本门明确只匹配精确 `origin`）。
 - 升格 `ENFORCED` 的前置条件仍是仓库外 reviewer 签名、公钥信任锚、受保护 base verifier、
   Gitee required check 与分支保护；本 Packet 不包含这些外部变更。
 
@@ -49,7 +54,7 @@ hooks，未配置或宣称外部 required check。
 
 - 未安装到真实 `.git/hooks`；仅在隔离临时仓库验证安装、卸载和执行。
 - 未配置外部签名、公钥信任锚、Gitee required check 或分支保护。
-- 修复提交尚待新一轮独立复核，v2 裁决仍为 `NO_GO`，不能提前合入。
+- 修复提交尚待新一轮独立复核，v4 裁决仍为 `NO_GO`，不能提前合入。
 
 ## Diff 与回滚复核
 
@@ -64,6 +69,7 @@ hooks，未配置或宣称外部 required check。
 | SHA/DAG/报告/envelope 精确绑定 | 临时真实 Git DAG 正反例 | PASS |
 | bootstrap 不可夹带 | exact activation 与后续候选回归测试 | PASS |
 | 不覆盖/不误删用户 hook | install/uninstall unmanaged 回归测试 | PASS |
+| snapshot 内部不可导向用户文件 | CLI/core symlink 重装回归测试 | PASS |
 | linked worktree 不依赖旧 checkout | 兄弟 worktree 端到端 dispatcher 测试 | PASS |
 | 诚实信任边界 | status、manifest、wiki | PASS |
 | 修复后独立 GO | 新一轮版本化复核 | PENDING |
