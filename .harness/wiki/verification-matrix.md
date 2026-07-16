@@ -5,6 +5,7 @@
 | 根级 harness 架构 | `node scripts/harness-doctor.mjs` | 验证根 `.harness`、manifest、前端委托、后端 harness 清单和 docs 入口 | 2026-07-09 通过 |
 | 能力入口清算与遥测契约 | `node --test scripts/capability-entry-governance.nodetest.mjs` | 验证功能清算表、统一调用事件、14 天零调用与 replacement 证据删除门 | 2026-07-14，OBSERVE；尚无统一 runtime sink，不得删除入口 |
 | K0B 知识质量 rubric | `node --test scripts/knowledge-quality-rubric.nodetest.mjs` | 验证合同/检索/outcome/成本/时效阈值、逐run门和 fail-closed 状态 | 2026-07-14，FROZEN_LOCAL / NO_DATA；门已冻结，真实黄金案例与 outcome 未到 |
+| Packet 独立复核本地反馈门 | `node --test scripts/packet-review-local-feedback.nodetest.mjs && node scripts/packet-review-pre-push.mjs --status` | 验证 B→H→R→M、唯一 change/approval、报告 digest、终态 GO、安装/卸载与 bypass 诚实声明 | 2026-07-16，`LOCAL_FEEDBACK_ONLY`；无外部签名/required check，不得称 ENFORCED |
 | 前端工程 harness | `cd frontend && pnpm harness:doctor` | 验证前端 `.harness` 结构、模板、skills 和变更记录 | 由根 doctor 委托；2026-07-09 通过 |
 | 后端 harness 架构 | `cd backend && python scripts/harness_doctor.py` | 验证后端 harness manifest、共享契约、主 harness、实现包和变更记录 | 由根 doctor 委托；2026-07-09 通过 |
 | 后端运行/评测 harness 代表检查 | `cd backend && python -m pytest -q tests/test_commercial_loop_harness.py tests/test_legal_redteam_harness.py` | 验证 commercial-loop 与 legal red-team harness 行为 | 2026-07-09，28 个测试通过 |

@@ -29,6 +29,17 @@ node scripts/harness-doctor.mjs
 node scripts/new-change.mjs chore project-change
 ```
 
+Packet 独立复核的本地防误操作门需要显式安装：
+
+```bash
+node scripts/install-packet-review-hooks.mjs
+node scripts/packet-review-pre-push.mjs --status
+```
+
+其状态固定为 `LOCAL_FEEDBACK_ONLY`：可被 `git push --no-verify` 或本机 hook 篡改绕过，
+不替代外部签名与 Gitee required check。完整协议见
+`.harness/wiki/packet-review-local-feedback.md`。
+
 ## 主线
 
 | 主线 | 路径 | 职责 |

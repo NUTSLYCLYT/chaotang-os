@@ -90,6 +90,21 @@
       "node --test scripts/knowledge-quality-rubric.nodetest.mjs"
     ]
   },
+  "packetReviewLocalFeedback": {
+    "status": "LOCAL_FEEDBACK_ONLY",
+    "activationSha": "d8d8a6ae23d013bede6b1db649b06eb5ed38ea1f",
+    "targetRemote": "origin",
+    "targetRef": "refs/heads/feature-chaotang-ext",
+    "securityBoundary": false,
+    "requiredCheckVerified": false,
+    "documentation": ".harness/wiki/packet-review-local-feedback.md",
+    "contract": ".harness/contracts/packet-review-approval.schema.json",
+    "installer": "scripts/install-packet-review-hooks.mjs",
+    "verifier": "scripts/packet-review-pre-push.mjs",
+    "verification": [
+      "node --test scripts/packet-review-local-feedback.nodetest.mjs"
+    ]
+  },
   "controlPlane": {
     "status": "IMPLEMENTING",
     "rolloutStage": "s10-local-observe-pending",
