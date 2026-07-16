@@ -25,9 +25,11 @@
 - 架构守门禁止生产者从 `swarm_review` 直接导入质量门，并禁止 review 模块继续定义门逻辑。
 - RED：2 failed；GREEN：seam/review/distillation 12 passed，execution API/perf 12 passed。
 
-## P4.5d — CourtReview 写入基线（PENDING）
+## P4.5d — CourtReview 写入基线（VERIFIED）
 
-- 以实施时 AST multiset 固化路径/函数/数量；已纠正当前初始基线为 8。
+- 以独立 AST 扫描和显式 multiset 固化生产路径、所属函数与调用数量。
+- 当前基线为 6 个路径/函数条目、8 次构造调用；不拆分或改写现有 writer。
+- RED：冻结清单模块缺失，测试收集失败；GREEN：架构门 1 passed，相邻事实链回归 42 passed。
 
 ## P4.5e — DepartmentOpinionV1（PENDING）
 

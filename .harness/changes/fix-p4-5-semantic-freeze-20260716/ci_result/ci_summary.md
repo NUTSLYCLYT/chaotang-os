@@ -21,15 +21,18 @@
 | `pytest tests/test_swarm_quality_gate_seam.py`（实现前） | 1 | 2 failed（预期 RED） | seam 缺失、生产者仍直连 review | 本地终端，2026-07-16 |
 | seam + review + distillation | 0 | 12 passed | 行为快照与兼容 re-export | 本地终端，2026-07-16 |
 | swarm execution API + perf wiring | 0 | 12 passed | 生产调用链零行为漂移 | 64.37s，本地终端，2026-07-16 |
+| CourtReview inventory（实现前） | 2 | 1 collection error（预期 RED） | 冻结清单模块缺失 | brew Python 3.14，2026-07-16 |
+| CourtReview inventory | 0 | 1 passed | 生产 AST 路径/函数/数量 multiset，总数 8 | brew Python 3.14，2026-07-16 |
+| CourtReview 事实链相邻回归 7 文件 | 0 | 42 passed | canonical dispatch、上书房循环、账本与终奏门 | 6.51s，2026-07-16 |
 
 ## 结果
 
-P4.5a-c VERIFIED；P4.5 全包仍在进行中。
+P4.5a-d VERIFIED；P4.5 全包仍在进行中。
 
 ## 未验证项
 
 - 系统 Python 缺 Alembic，pytest 迁移文件收集为 1 skipped；已用仓库现有 `.venv-alembic` 对同等场景取得真实执行证据。
-- P4.5d–f 与全包独立审查尚未执行；收口时仍须重跑 doctor。
+- P4.5e–f 与全包独立审查尚未执行；收口时仍须重跑 doctor。
 
 ## Diff 与回滚复核
 
@@ -49,7 +52,8 @@ P4.5a-c VERIFIED；P4.5 全包仍在进行中。
 | P4.5b attempt/工件双证 | 六路径 + 全组合唯一命中 + worker/stale 终态 | PASS |
 | 两套读模型一致 | 上书房、朝堂 task detail、canonical SSE | PASS |
 | P4.5c 质量门归属 | AST import/definition 守门 + 24 个行为回归 | PASS |
+| P4.5d writer 基线 | 独立 AST multiset + 42 个相邻回归 | PASS |
 
 ## 声明状态
 
-- `VERIFIED_PARTIAL`：P4.5a 完成；全包未完成。
+- `VERIFIED_PARTIAL`：P4.5a-d 完成；全包未完成。

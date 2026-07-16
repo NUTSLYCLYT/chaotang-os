@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | fix-p4-5-semantic-freeze-20260716 |
 | 类型 | fix |
-| 状态 | IN_PROGRESS（P4.5a-c VERIFIED） |
+| 状态 | IN_PROGRESS（P4.5a-d VERIFIED） |
 | Owner | Project Agent |
 | 创建日期 | 20260716 |
 
@@ -19,4 +19,5 @@
 - P4.5a：`EmperorDecision.kind` 三值语义、全部 6 个生产写入口和迁移 012 已实现并验证。
 - P4.5b：attempt-aware `execution_state`、失败/回执终态、两套读模型与 ADR 已实现并验证。
 - P4.5c：质量门独立 import seam 已落地，原行为与兼容 patch target 保持不变。
-- P4.5d–f：待按批准顺序执行；P5 在 P4.5 获得 GO 前不得开始。
+- P4.5d：生产代码中 8 个 `CourtReview(...)` 写入调用已按路径/函数/数量冻结并由 AST 守门。
+- P4.5e–f：待按批准顺序执行；P5 在 P4.5 获得 GO 前不得开始。
