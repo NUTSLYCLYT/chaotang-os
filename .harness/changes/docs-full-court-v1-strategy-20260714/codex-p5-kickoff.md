@@ -15,12 +15,22 @@ micro-packet 粒度：免全套 spec/tasks，保留 ci_summary+DB 指纹）
 
 P4.5a EmperorDecision.kind：加列（edict_confirm/compat_dispatch/final_verdict），
   按现有 action 字符串回填（alembic 012）；TDD——先写"无 kind 行必须失败"断言。
-P4.5b direct 语义封口（契约兼容式，v2 修正）：`direct_completed` 属 Step 0
+P4.5b direct 语义封口（契约兼容式，v3 修正）：`direct_completed` 属 Step 0
   冻结 status 契约、前端在消费——**不改既有枚举**。改为加法：DecisionTask
-  增加 `execution_state` 派生字段（enqueued/running/completed，从
-  outbox/DecreeExecutionEvent 投影，非新状态机），读模型透出；status 枚举
-  原样保留并在 ADR 注记"direct_completed=受理完成语义"。先写 RED 断言
-  "worker 完成前 execution_state 不得为 completed"。ING-04 就此冻结且零破坏。
+  增加 `execution_state` 派生字段，读模型透出；status 枚举原样保留并在
+  ADR 注记"direct_completed=受理完成语义"。
+
+  派生规则（关键——completed 必须锚定真实执行工件，不得从"outbox 消费完"
+  推导，否则回执冒充执行换个字段重演）：
+  - enqueued：outbox 事件存在且未被领取；
+  - running：存在执行开始事件；
+  - completed：**当且仅当**存在真实执行工件（SwarmRun/部门引擎产出落库，
+    或带真实 payload 的 execution.finished 事件）；
+  - receipt_only：direct 回执已出但无真实执行工件——诚实暴露 ING-04
+    现状，禁止折算成 completed。
+  RED 断言两条："仅回执无工件的 direct 任务 execution_state 必须为
+  receipt_only"；"worker 完成前不得为 completed"。ING-04 就此被诚实
+  呈现而非掩盖，零契约破坏。
 P4.5c 质量门搬门框：quality_gate 调用从 swarm_review 内部抽到独立模块边界
   （import seam），逻辑零改动；架构守门加"生产者模块不得直接判门"断言。
 P4.5d CourtReview 构造点冻结：架构守门禁止新增 CourtReview 写入点，
