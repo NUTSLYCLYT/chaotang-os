@@ -45,3 +45,17 @@ PACKET_REVIEW_NO_GO（阻塞清单：仅 E1 冒烟证据）
 
 E1 补齐（artifacts 落 change 目录）+ 工部/clause 降级 RED/GREEN 证据指认后，
 即出 v2 GO。其余内容含蒸馏、退役、投影、flag 全部已验证通过。
+
+## Follow-up evidence handoff（2026-07-16 15:3x）
+
+- E1 follow-up 已随 `2ae59d4` 提交，并由 ext merge `5d49646` 合入：
+  `.harness/changes/refactor-frontend-second-brain-sunset-20260716/e2e_test/artifacts/`。
+- 目录包含 backend-shaped canonical/decision fixture、三张截图（含“补证已提交”）、干净
+  `trace.zip`、运行命令、请求状态、SHA-256 和证据边界说明；trace 内 canonical status GET 与
+  decision POST 均为 200，未 mock 的 task list/detail/stream 401 原样保留且未生成正式投影。
+- 工部/刑部条款已指认：`frontend/src/lib/p4-shadow-capabilities.nodetest.ts`，命令
+  `pnpm exec tsx --test src/lib/p4-shadow-capabilities.nodetest.ts`，复跑 4/4；其中 Gongbu 明确
+  `non-canonical advice`，Xingbu 明确 `SHADOW first-pass` 且不得声称 low risk。完整输出同见
+  artifacts 下 `runtime.md`。
+- 本段仅交接补证，不修改上方独立复核的历史裁决。状态继续保持 `PACKET_REVIEW_NO_GO`，直到
+  独立 reviewer 出具 v2 复核结论。
