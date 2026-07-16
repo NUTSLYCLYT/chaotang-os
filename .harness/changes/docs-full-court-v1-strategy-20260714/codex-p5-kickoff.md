@@ -40,15 +40,17 @@ P4.5b direct 语义封口（契约兼容式，v3 修正）：`direct_completed` 
 
   验收不变量（判定表内容必须满足，形式不限）：
   a) completed 需要 成功语义终态事件 × 真实工件 两证齐全；
-  b) 终态按 sequence 序**最新的终态语义事件**判定（005 迁移已保证
-     per-task sequence 单调）——失败后重试成功者，成功事件 sequence
-     更大即 completed；可恢复失败不得被历史失败固化。
-     **不得用 dispatch.started 分界 attempt**：timeline 幂等键使 outbox
-     重试故意不重发 started（重试计数在 OutboxEvent.attempts 行，
-     不在事件流）——分界方案与现行幂等设计冲突，已废。
-     配套加法：worker 发终态语义事件时在 payload 嵌 attempt/run 标识
-     （取自 outbox 行），幂等键含 run 标识使不同代次的终态事件可共存
-     可排序；同 sequence 或排序不可判 → inconsistent；
+  b) 终态排序主键是 **payload 内 attempt 号**（取自 OutboxEvent.attempts，
+     worker 发终态事件时嵌入 payload+幂等键——本包配套加法）：
+     **最高 attempt 的终态事件胜出**；同 attempt 内再按 sequence。
+     sequence 是写入序非因果序——僵尸旧 attempt 迟到落库会拿到更大
+     sequence，故 sequence 只作 attempt 内次序，**不得跨 attempt 比较**
+     （零 fencing 前的僵尸容错；真 fencing 归 FCV1-006）。
+     失败后更高 attempt 重试成功 → completed；旧 attempt 迟到终态
+     不得覆盖更高 attempt 结果。
+     无 attempt 标识的存量事件：单终态按其值，多终态跨代次不可判 →
+     inconsistent。**不得用 dispatch.started 分界**（timeline 幂等键使
+     重试故意不重发 started，该方案与幂等设计冲突，已废）；
   c) 现行 _execute_direct no-op（outbox_worker.py:62-77）必须落 receipt_only；
   d) 说明性/记账事件不得参与终态判定；
   e) 任何未覆盖组合 → inconsistent+quarantine，永不猜测。
