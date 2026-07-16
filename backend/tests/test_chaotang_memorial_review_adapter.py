@@ -126,6 +126,48 @@ def test_inquire_enters_formal_evidence_state(isolated_session_local, monkeypatc
         assert event.event_type == "decision.evidence_requested"
 
 
+def test_review_succeeds_without_legacy_review_writers(
+    isolated_session_local, monkeypatch, tmp_path
+):
+    import src.chaotang_store as store
+    import src.db.flow_store as flow_store
+    import web.routers.chaotang as chaotang
+
+    monkeypatch.setattr(store, "_DATA_ROOT", tmp_path)
+    monkeypatch.setattr(chaotang, "load_run", lambda run_id: _Run())
+    monkeypatch.setattr(
+        flow_store,
+        "save_review_db",
+        lambda **kwargs: (_ for _ in ()).throw(AssertionError("legacy DB write")),
+    )
+    monkeypatch.setattr(
+        store,
+        "write_review_files",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("legacy JSON write")
+        ),
+    )
+    _seed_mapping(
+        isolated_session_local,
+        task_id="review_canonical_only_task",
+        run_id="run_canonical_only",
+    )
+
+    response = TestClient(app).post(
+        "/api/chaotang/memorials/run_canonical_only/review",
+        json={"action": "inquire", "comment": "只写正式链"},
+    )
+
+    assert response.json()["success"] is True
+    with isolated_session_local() as db:
+        assert (
+            db.query(EmperorDecision)
+            .filter_by(task_id="review_canonical_only_task")
+            .count()
+            == 1
+        )
+
+
 def test_approve_requires_ready_formal_memorial(
     isolated_session_local, monkeypatch, tmp_path
 ):

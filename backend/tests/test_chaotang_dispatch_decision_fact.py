@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from src.db.models import DecisionTask, DecreeExecutionEvent
-from web import task_registry
+from src.db.models import DecisionTask, DecreeExecutionEvent, OutboxEvent
 from web.main import app
 
 
@@ -16,7 +15,7 @@ _BODY = {
         {
             "taskType": "analysis",
             "ministers": ["hu_bu"],
-            "groups": ["intel"],
+            "groups": ["finlaw"],
             "label": "市场分析",
         }
     ],
@@ -26,22 +25,19 @@ _BODY = {
 def test_dispatch_commits_decision_fact_before_execution(
     isolated_session_local, monkeypatch
 ):
-    import web.routers.chaotang as chaotang
-    from src import chaotang_orchestrator
+    from src.execution import decree_dispatcher
 
-    monkeypatch.setattr(task_registry, "_task_registry", {})
-    monkeypatch.setattr(
-        chaotang_orchestrator, "assemble_flow", lambda *args, **kwargs: "/tmp/fake.yaml"
-    )
+    monkeypatch.setenv("FENGQUN_LEGACY_CHAOTANG_DAEMON", "0")
     observed: dict[str, object] = {}
 
-    def capture_spawn(task_id, *args, **kwargs):
+    def capture_trigger(event_id: str):
         with isolated_session_local() as db:
-            observed["decision_exists_before_spawn"] = (
-                db.get(DecisionTask, task_id) is not None
+            event = db.get(OutboxEvent, event_id)
+            observed["decision_exists_before_dispatch_trigger"] = (
+                event is not None and db.get(DecisionTask, event.task_id) is not None
             )
 
-    monkeypatch.setattr(chaotang, "_spawn_run", capture_spawn)
+    monkeypatch.setattr(decree_dispatcher, "dispatch_after_commit", capture_trigger)
 
     response = TestClient(app).post("/api/chaotang/decree/dispatch", json=_BODY)
 
@@ -52,35 +48,27 @@ def test_dispatch_commits_decision_fact_before_execution(
         decision = db.get(DecisionTask, task_id)
         assert decision is not None
         assert decision.user_id == "1"
-        assert decision.status == "executing"
+        assert decision.status == "edict_recorded"
         event = (
             db.query(DecreeExecutionEvent)
-            .filter_by(task_id=task_id, event_type="dispatch.started")
+            .filter_by(task_id=task_id, event_type="dispatch.queued")
             .one()
         )
-        assert event.actor == "emperor"
+        assert event.actor == "chancellor"
         assert event.source_label == "MIXED"
-    assert observed["decision_exists_before_spawn"] is True
-    execution = task_registry.get_task(task_id)
-    assert execution is not None
-    assert execution["fact_kind"] == "execution_run"
-    assert execution["decision_task_id"] == task_id
+    assert observed["decision_exists_before_dispatch_trigger"] is True
 
 
 def test_dispatch_persistence_failure_blocks_execution(
     isolated_session_local, monkeypatch
 ):
-    import src.db.flow_store as flow_store
     import web.routers.chaotang as chaotang
-    from src import chaotang_orchestrator
+    import src.execution.canonical_court_dispatch as canonical_dispatch
 
-    monkeypatch.setattr(task_registry, "_task_registry", {})
+    monkeypatch.setenv("FENGQUN_LEGACY_CHAOTANG_DAEMON", "0")
     monkeypatch.setattr(
-        chaotang_orchestrator, "assemble_flow", lambda *args, **kwargs: "/tmp/fake.yaml"
-    )
-    monkeypatch.setattr(
-        flow_store,
-        "save_decree_and_task",
+        canonical_dispatch,
+        "dispatch_compat_court_task",
         lambda **kwargs: (_ for _ in ()).throw(RuntimeError("DB故障")),
     )
     spawned: list[str] = []
@@ -92,8 +80,7 @@ def test_dispatch_persistence_failure_blocks_execution(
 
     assert response.status_code == 200
     assert response.json()["success"] is False
-    assert "DB故障" in response.json()["error"]
+    assert response.json()["error"] == "canonical_dispatch_failed"
     assert spawned == []
-    assert task_registry.task_snapshot() == {}
     with isolated_session_local() as db:
         assert db.query(DecisionTask).count() == 0

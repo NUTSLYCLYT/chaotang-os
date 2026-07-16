@@ -101,6 +101,27 @@ def _participants_for(route: dict) -> list[RouteParticipant]:
     return participants
 
 
+def _apply_department_override(route: dict, departments: list[str]) -> dict:
+    """Apply an already validated ingress constraint to the canonical route fact."""
+    constrained = list(dict.fromkeys(departments))
+    if not constrained:
+        return route
+    mode = "cluster" if route["mode"] != "direct" or len(constrained) > 1 else "direct"
+    reason = str(route.get("reason") or "").strip()
+    constraint_reason = f"兼容入口明确指定参审部门：{'、'.join(constrained)}。"
+    return {
+        **route,
+        "mode": mode,
+        "departments": constrained,
+        "targetDepartment": constrained[0],
+        "targetAgent": (
+            DIRECT_AGENT_MAP.get(constrained[0]) if mode == "direct" else None
+        ),
+        "swarmRequired": mode != "direct",
+        "reason": f"{reason} {constraint_reason}".strip(),
+    }
+
+
 class ChancellorRoutingService:
     """上书房正式下旨的唯一路由入口。confirm-edict 必须经此，不得信任客户端回传 route。"""
 
@@ -113,6 +134,7 @@ class ChancellorRoutingService:
         idempotency_key: str,
         source_label: str = "LIVE",
         supersedes_decision_id: str | None = None,
+        department_override: list[str] | None = None,
     ) -> RouteDecisionV2:
         from src.db.models import ChancellorRouteDecision
 
@@ -126,6 +148,8 @@ class ChancellorRoutingService:
 
         edict = draft_edict(confirmed_edict_text, source_label=source_label)
         route = chancellor_decide_route(edict)
+        if department_override:
+            route = _apply_department_override(route, department_override)
         scoring_result = route_department_task(confirmed_edict_text)
         scoring = scoring_result.get("candidateDepartments", [])
 

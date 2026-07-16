@@ -22,34 +22,6 @@ _BLOCKED_WRITERS = MappingProxyType(
 
 _LEGACY_WRITER_ALLOWLIST = MappingProxyType(
     {
-        "chaotang-router-p3-pending": frozenset(
-            {
-                "flow_store.upsert_persisted_task",
-                "flow_store.patch_persisted_task_result",
-                "flow_store.save_decree_and_task",
-                "flow_store.save_review_db",
-                "flow_store.save_retrospective_db",
-                "chaotang_store.save_retrospective",
-                "chaotang_store.write_review_files",
-            }
-        ),
-        "chaotang-orchestrator-p3-pending": frozenset({"flow_store.update_task_status", "flow_store.upsert_memorial"}),
-        "chaotang-store-p3-pending": frozenset(
-            {
-                "chaotang_store.save_review",
-                "chaotang_store.save_retrospective",
-                "chaotang_store.write_review_files",
-                "flow_store.save_review_db",
-                "flow_store.save_retrospective_db",
-            }
-        ),
-        "flow-store-backfill": frozenset(
-            {
-                "flow_store.upsert_memorial",
-                "flow_store.save_review_db",
-                "flow_store.save_retrospective_db",
-            }
-        ),
         "pytest-flow-store": frozenset(
             {
                 "flow_store.upsert_persisted_task",

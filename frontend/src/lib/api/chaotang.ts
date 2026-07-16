@@ -6,6 +6,9 @@ import type { SwarmRosterEntry } from '@/lib/contracts/swarm';
 import type { LegalOverview } from '@/lib/contracts/xingbu';
 import type { CourtSessionLatest } from '@/lib/contracts/court-session';
 import { backendFetch, backendRuntimeUrl } from '@/lib/backend-api';
+import {
+  adaptCanonicalCourtStreamEvent,
+} from '@/lib/api/adapters/chaotang-canonical-stream';
 
 const BASE = '/api/chaotang';
 
@@ -469,7 +472,12 @@ export function subscribeCourtStream(
           const chunk = buf.slice(0, idx); buf = buf.slice(idx + 2);
           for (const line of chunk.split('\n')) {
             if (line.startsWith('data:')) {
-              try { onEvent(JSON.parse(line.slice(5).trim())); } catch { /* ignore */ }
+              try {
+                const event = adaptCanonicalCourtStreamEvent(
+                  JSON.parse(line.slice(5).trim()),
+                );
+                if (event) onEvent(event);
+              } catch { /* ignore */ }
             }
           }
         }

@@ -165,8 +165,12 @@ def _no_background_outbox_dispatch(monkeypatch):
     直接把名字导入本地命名空间，patch 源模块 src.execution.decree_dispatcher
     上的属性不会影响它已经绑定的引用，必须 patch 调用方模块本身的这个名字。"""
     shangshufang_router = importlib.import_module("web.routers.shangshufang")
+    decree_dispatcher = importlib.import_module("src.execution.decree_dispatcher")
     monkeypatch.setattr(
         shangshufang_router, "dispatch_after_commit", lambda event_id: None
+    )
+    monkeypatch.setattr(
+        decree_dispatcher, "dispatch_after_commit", lambda event_id: None
     )
 
 

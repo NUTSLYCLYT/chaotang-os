@@ -1,124 +1,266 @@
-"""web/routers/scribe.py — 史官教训库:从真实复盘聚合旧案 lessons。
+"""史官读模型：只投影 canonical、append-only 的真实结果事件。
 
-2026-07-10 接线:此前 /api/scribe/lessons 无任何后端路由,前端 UnifiedMemoryPanel
-永远读空(见 docs/shiguan-jinyiwei-wiring-plan-2026-07-09.md P4 复审)。这里不新建
-存储 —— 已批准奏折 + 其 chaotang_store.save_retrospective 记的 lessons 就是
-"旧案教训"本身,直接聚合返回,不编造 patterns/tags(后端没有对应数据源,诚实留空)。
+正式奏折回答“当时建议什么”，结果事件回答“后来实际怎样”。两者不可互相
+冒充：奏折 summary 永远不会被合成 lesson；存储不可用时显式 503，而不是返回
+一个看似可信的空列表。
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+import json
+import logging
+from typing import Any
 
-from src import chaotang_store
+import sqlalchemy as sa
+from fastapi import APIRouter, Depends, HTTPException
+
 from web.deps import get_current_user
 from web.routers._envelope import ok
 from web.schemas.auth import CurrentUser
 
 router = APIRouter(prefix="/api/scribe", tags=["scribe"])
+logger = logging.getLogger(__name__)
+
+_ADJUDICABLE_SOURCES = frozenset({"LIVE", "MIXED", "LIVE_ENGINE", "LIVE_SWARM"})
+_TERMINAL_SUCCESS = frozenset({"success", "succeeded", "completed", "passed"})
+_TERMINAL_BLOCKED = frozenset({"blocked", "failed", "error", "rejected"})
+_ADOPT_ACTIONS = frozenset({"adopt", "approve", "archive"})
+
+
+def _loads_dict(value: str | None) -> dict[str, Any]:
+    try:
+        loaded = json.loads(value or "{}")
+    except (TypeError, ValueError):
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
+
+
+def _lesson_texts(payload: dict[str, Any]) -> list[str]:
+    explicit = payload.get("lessons")
+    if not isinstance(explicit, list):
+        return []
+    return [
+        item.strip()
+        for item in explicit
+        if isinstance(item, str) and item.strip()
+    ]
+
+
+def _wire_source_label(source_label: str) -> str:
+    return "LIVE" if source_label == "LIVE_ENGINE" else source_label
+
+
+def _canonical_outcomes() -> list[dict[str, Any]]:
+    """Read the latest terminal outcome per task, capped after task de-duplication."""
+    from src.tenant import (
+        DEFAULT_TENANT_SLUG,
+        get_current_tenant,
+        resolve_current_tenant_id,
+    )
+
+    # The legacy canonical court tables remain unscoped. Never expose them to a
+    # non-default tenant merely because the outcome ledger itself has tenant_id.
+    if (get_current_tenant() or DEFAULT_TENANT_SLUG) != DEFAULT_TENANT_SLUG:
+        return []
+    tenant_id = resolve_current_tenant_id()
+
+    from src.db.engine import SessionLocal
+    from src.db.models import (
+        ArchiveOutcomeEvent,
+        EmperorDecision,
+        FinalMemorial,
+        ShiguanArchive,
+    )
+
+    db = None
+    try:
+        db = SessionLocal()
+        rank = sa.func.row_number().over(
+            partition_by=ArchiveOutcomeEvent.task_id,
+            order_by=(
+                ArchiveOutcomeEvent.recorded_at.desc(),
+                ArchiveOutcomeEvent.id.desc(),
+            ),
+        ).label("row_rank")
+        ranked = (
+            db.query(ArchiveOutcomeEvent.id.label("event_id"), rank)
+            .filter(
+                ArchiveOutcomeEvent.tenant_id == tenant_id,
+                ArchiveOutcomeEvent.synthetic_flag.is_(False),
+            )
+            .subquery()
+        )
+        events = (
+            db.query(ArchiveOutcomeEvent)
+            .join(ranked, ranked.c.event_id == ArchiveOutcomeEvent.id)
+            .filter(ranked.c.row_rank == 1)
+            .order_by(
+                ArchiveOutcomeEvent.recorded_at.desc(),
+                ArchiveOutcomeEvent.id.desc(),
+            )
+            .limit(200)
+            .all()
+        )
+        task_ids = {event.task_id for event in events}
+        archive_ids = {event.archive_id for event in events if event.archive_id}
+
+        archives = (
+            db.query(ShiguanArchive)
+            .filter(
+                sa.or_(
+                    ShiguanArchive.id.in_(archive_ids) if archive_ids else sa.false(),
+                    ShiguanArchive.task_id.in_(task_ids) if task_ids else sa.false(),
+                )
+            )
+            .order_by(ShiguanArchive.created_at.desc(), ShiguanArchive.id.desc())
+            .all()
+        )
+        archive_by_id = {archive.id: archive for archive in archives}
+        latest_archive_by_task: dict[str, ShiguanArchive] = {}
+        for archive in archives:
+            latest_archive_by_task.setdefault(archive.task_id, archive)
+
+        formals = (
+            db.query(FinalMemorial).filter(FinalMemorial.task_id.in_(task_ids)).all()
+            if task_ids
+            else []
+        )
+        formal_by_task = {formal.task_id: formal for formal in formals}
+        decisions = (
+            db.query(EmperorDecision)
+            .filter(EmperorDecision.task_id.in_(task_ids))
+            .order_by(EmperorDecision.created_at.desc(), EmperorDecision.id.desc())
+            .all()
+            if task_ids
+            else []
+        )
+        latest_decision_by_task: dict[str, EmperorDecision] = {}
+        for decision in decisions:
+            latest_decision_by_task.setdefault(decision.task_id, decision)
+
+        projected: list[dict[str, Any]] = []
+        for event in events:
+            actual = str(event.actual or "").strip().lower()
+            if actual not in _TERMINAL_SUCCESS | _TERMINAL_BLOCKED:
+                continue
+            archive = archive_by_id.get(event.archive_id) or latest_archive_by_task.get(
+                event.task_id
+            )
+            if archive is not None and archive.synthetic_flag:
+                continue
+            source_label = str(
+                event.source_type
+                or (archive.source_label if archive is not None else "")
+            )
+            if source_label not in _ADJUDICABLE_SOURCES:
+                continue
+            payload = _loads_dict(event.payload_json)
+            lessons = _lesson_texts(payload)
+            if not lessons:
+                continue
+
+            memorial = _loads_dict(
+                archive.final_memorial_json if archive is not None else None
+            )
+            formal = formal_by_task.get(event.task_id)
+            if not memorial and formal is not None:
+                memorial = _loads_dict(formal.memorial_json)
+            archived_decision = _loads_dict(
+                archive.emperor_decision_json if archive is not None else None
+            )
+            latest_decision = latest_decision_by_task.get(event.task_id)
+            decision_action = str(
+                archived_decision.get("action")
+                or (latest_decision.action if latest_decision is not None else "")
+            ).lower()
+            blocked = actual in _TERMINAL_BLOCKED or decision_action == "reject"
+            title = str(memorial.get("title") or "").strip()
+            if not title and archive is not None:
+                title = str(archive.refined_edict or archive.raw_question or "").strip()
+
+            projected.append(
+                {
+                    "archive_id": archive.id if archive is not None else None,
+                    "task_id": event.task_id,
+                    "title": title or event.task_id,
+                    "occurred_at": event.occurred_at,
+                    "lessons": lessons,
+                    "playbook": str(payload.get("playbook") or ""),
+                    "actual": actual,
+                    "blocked": blocked,
+                    "source_label": source_label,
+                    "signed": event.source_auth_level
+                    in {"authenticated", "human_confirmed"},
+                    "adopted": decision_action in _ADOPT_ACTIONS,
+                }
+            )
+        return projected
+    except HTTPException:
+        raise
+    except Exception:
+        logger.warning("scribe canonical projection unavailable", exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail="史官事实账本暂不可用",
+        ) from None
+    finally:
+        if db is not None:
+            db.close()
 
 
 @router.get("/lessons")
 def scribe_lessons(_: CurrentUser = Depends(get_current_user)) -> dict:
-    """聚合已批准奏折的真实复盘 lessons。跳过 synthetic(系统合成兜底)和空 lessons。"""
-    from web.routers.throne import _build_memorial_list
-
-    memorials = [
-        m
-        for m in _build_memorial_list()
-        if m.get("status") in ("approved", "archived", "done")
-    ]
-
     entries = []
-    for m in memorials:
-        task_id = m.get("id")
-        if not task_id:
-            continue
-        rec = chaotang_store.get_retrospective(
-            task_id, caller_id="scribe-p3-pending"
-        )
-        if not rec or rec.get("synthetic") or not rec.get("lessons"):
-            continue
+    for outcome in _canonical_outcomes():
+        task_id = outcome["task_id"]
         entries.append(
             {
                 "billId": task_id,
-                "billTitle": m.get("title", ""),
-                "extractedAt": rec.get("authoredAt", ""),
+                "billTitle": outcome["title"],
+                "extractedAt": outcome["occurred_at"],
                 "lessons": [
-                    {"id": f"{task_id}-{i}", "text": text, "severity": "note"}
-                    for i, text in enumerate(rec["lessons"])
+                    {"id": f"{task_id}-{index}", "text": text, "severity": "note"}
+                    for index, text in enumerate(outcome["lessons"])
                 ],
-                # patterns/tags 后端无对应数据源,诚实留空,不编造
                 "patterns": [],
                 "tags": [],
-                "summary": rec.get("playbook") or "",
+                "summary": outcome["playbook"],
             }
         )
-
-    entries.sort(key=lambda e: e["extractedAt"], reverse=True)
     return ok({"lessons": entries})
-
-
-def _light_and_gate(status: str) -> tuple[str, str]:
-    if status in ("approved", "archived", "done"):
-        return "green", "passed"
-    if status in ("rejected", "failed"):
-        return "red", "blocked"
-    return "yellow", "pending"
 
 
 @router.get("/archive-docs")
 def scribe_archive_docs(_: CurrentUser = Depends(get_current_user)) -> dict:
-    """史馆卷宗卡(CourtDoc)真实数据源。前端 court-doc.ts 的 MOCK_COURT_DOCS 手填样例
-    对应的真实端点 —— 复用 scribe_lessons() 同款"已批准奏折 + 真实复盘"聚合,只是
-    重塑成 CourtDoc 契约。诚实映射,不编造：没有真实证据链就填 evidenceRef=null
-    (触发前端既有"待考"渲染分支),没有真实 grounding 就填 'none',advisors 留空
-    (archive-card.tsx 从不渲染这个字段，真填了也没意义)。"""
-    from web.routers.throne import _build_memorial_list
-
-    memorials = [
-        m
-        for m in _build_memorial_list()
-        if m.get("status") in ("approved", "archived", "done", "rejected", "failed")
-    ]
-
     docs = []
-    for m in memorials:
-        task_id = m.get("id")
-        if not task_id:
-            continue
-        rec = chaotang_store.get_retrospective(
-            task_id, caller_id="scribe-p3-pending"
-        )
-        if not rec or rec.get("synthetic") or not rec.get("lessons"):
-            continue
-        status = str(m.get("status") or "")
-        light, gate = _light_and_gate(status)
-        signed = status in ("approved", "archived", "done")
+    for outcome in _canonical_outcomes():
+        blocked = outcome["blocked"]
         docs.append(
             {
-                "caseId": task_id,
-                "light": light,
-                "headline": m.get("title", ""),
+                "caseId": outcome["task_id"],
+                "light": "red" if blocked else "green",
+                "headline": outcome["title"],
                 "shielded": None,
                 "items": [
                     {
-                        "level": "yellow",
+                        "level": "red" if blocked else "yellow",
                         "title": text,
                         "odds": None,
                         "impact": None,
                         "fix": None,
                         "evidenceRef": None,
                     }
-                    for text in rec["lessons"]
+                    for text in outcome["lessons"]
                 ],
                 "actions": ["open_annals", "trace_evidence", "export_amulet"],
-                "provenance": {"advisors": [], "grounding": "none", "gate": gate},
-                "sourceLabel": "LIVE",
-                "signed": signed,
-                "sealedArchive": task_id if status == "archived" else None,
+                "provenance": {
+                    "advisors": [],
+                    "grounding": "none",
+                    "gate": "blocked" if blocked else "passed",
+                },
+                "sourceLabel": _wire_source_label(outcome["source_label"]),
+                "signed": bool(outcome["signed"] and not blocked),
+                "sealedArchive": outcome["archive_id"],
             }
         )
-
-    docs.sort(key=lambda d: d["caseId"], reverse=True)
     return ok({"docs": docs})

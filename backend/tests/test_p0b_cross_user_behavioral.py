@@ -198,6 +198,12 @@ _EXEMPT = {
     # 读回的是它自己刚用 make_id("budget", ..., _user_id(user), ...) 创建的 task,
     # id 不由调用方提供,别人的任务碰不到。
     "shangshufang:shangshufang_research_budget_loop": "自建 task,id 不由调用方提供",
+    # direct_execute 的 task_id 由服务端 secrets.token_hex() 生成，请求模型不接受
+    # task_id；canonical adapter 只在同一调用中读回刚创建的这行，无法指定他人任务。
+    "direct:direct_execute": "服务端随机自建 task，请求方不能指定目标 task_id",
+    # decree_dispatch 同样用服务端 secrets.token_hex() 创建 task；请求体只有命令与
+    # 派单提示，没有可指向既有 DecisionTask 的 ID。
+    "chaotang:decree_dispatch": "服务端随机自建 task，请求方不能指定目标 task_id",
 }
 
 

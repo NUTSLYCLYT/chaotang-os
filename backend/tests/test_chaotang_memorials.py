@@ -20,7 +20,9 @@ def test_build_sections_tolerates_missing():
 from fastapi.testclient import TestClient
 
 
-def test_review_persists(monkeypatch, tmp_path, isolated_session_local):
+def test_review_persists_in_canonical_decision_chain(
+    monkeypatch, tmp_path, isolated_session_local
+):
     monkeypatch.setenv("FENGQUN_AUTH", "false")
     import src.chaotang_store as cs
     monkeypatch.setattr(cs, "_DATA_ROOT", tmp_path)
@@ -62,4 +64,10 @@ def test_review_persists(monkeypatch, tmp_path, isolated_session_local):
                json={"action": "approve", "comment": "准"})
     assert r.status_code == 200
     assert r.json()["data"]["action"] == "approve"
-    assert cs.get_review_for_memorial("run_x")["comment"] == "准"
+    from src.db.models import EmperorDecision
+
+    with isolated_session_local() as db:
+        decision = db.query(EmperorDecision).filter_by(task_id="task_run_x").one()
+        assert decision.action == "approve"
+        assert decision.reason == "准"
+    assert cs.get_review_for_memorial("run_x") is None

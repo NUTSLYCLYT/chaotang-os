@@ -14,7 +14,7 @@ def test_chaotang_archive_search_exact_contract():
     assert {"results", "query", "total", "sourceLabel"} <= set(payload["data"])
 
 
-def test_court_backend_task_exact_missing_contract():
+def test_court_backend_task_exact_missing_contract(isolated_session_local):
     response = TestClient(app).get("/api/court/backend/tasks/missing-task")
 
     assert response.status_code == 404

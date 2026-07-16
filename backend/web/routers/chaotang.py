@@ -10,6 +10,7 @@ import queue
 import re
 import secrets
 import threading
+import time
 from datetime import datetime
 from typing import Literal
 
@@ -62,6 +63,16 @@ from web.routers._envelope import ok, fail
 router = APIRouter(prefix="/api/chaotang", tags=["chaotang"])
 
 _SAFE_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def _legacy_chaotang_daemon_enabled() -> bool:
+    """Rollback-only switch; default-off until deprecation evidence permits deletion."""
+    return os.getenv("FENGQUN_LEGACY_CHAOTANG_DAEMON", "0").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 def _validate_id(id_str: str) -> bool:
@@ -226,7 +237,6 @@ def decree_dispatch(
     body: DispatchRequest, user: CurrentUser = Depends(get_current_user)
 ) -> dict:
     _observe_legacy_endpoint("decree_dispatch", user, operation="write")
-    from src import chaotang_orchestrator as orch
 
     ALL_GROUPS = ["intel", "content", "finlaw", "rnd", "exec", "review"]
     if body.councilAll:
@@ -254,11 +264,66 @@ def decree_dispatch(
         task_type = chosen[0].taskType
     intent = body.intent or body.rawCommand[:60]
     task_id = secrets.token_hex(8)
-    # 推断部门 slug 列表,供 dept/overview activeTasks 按部门过滤(P1-10)
+    accepted_at = datetime.now().isoformat(timespec="seconds")
+    budget_out = body.budget.model_dump() if body.budget else None
+
+    if not _legacy_chaotang_daemon_enabled():
+        from src.execution.canonical_court_dispatch import (
+            UnsupportedCanonicalConstraints,
+            build_compat_dispatch_constraints,
+            dispatch_compat_court_task,
+        )
+
+        try:
+            constraints = build_compat_dispatch_constraints(
+                intent=intent,
+                task_type=task_type,
+                ministers=ministers,
+                groups=groups,
+                budget=budget_out,
+                stakes=body.stakes,
+                mode=body.mode,
+            )
+            receipt = dispatch_compat_court_task(
+                task_id=task_id,
+                user_id=str(
+                    user.user_id
+                    or user.username
+                    or user.tenant_slug
+                    or "anonymous"
+                ),
+                command=body.rawCommand,
+                compat_entrypoint="chaotang.decree_dispatch",
+                constraints=constraints,
+            )
+        except UnsupportedCanonicalConstraints as exc:
+            return fail(str(exc))
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "canonical chaotang decree dispatch failed", exc_info=True
+            )
+            return fail("canonical_dispatch_failed")
+        return ok(
+            {
+                "taskId": task_id,
+                "status": receipt["status"],
+                "acceptedAt": accepted_at,
+                "streamUrl": f"/api/chaotang/stream/{task_id}",
+                "intent": intent,
+                "taskType": task_type,
+                "ministers": ministers,
+                "groups": groups,
+                "budget": budget_out,
+            }
+        )
+
+    from src import chaotang_orchestrator as orch
     from src.chaotang_agents import dept_of_agent_code
 
+    # Rollback-only legacy execution metadata.
     task_depts = sorted({dept_of_agent_code(m) for m in ministers})
-    accepted_at = datetime.now().isoformat(timespec="seconds")
     plan = {
         "rawCommand": body.rawCommand,
         "intent": intent,
@@ -266,6 +331,7 @@ def decree_dispatch(
         "ministers": ministers,
         "groups": groups,
     }
+
     max_sub = body.budget.maxSubagentsPerGroup if body.budget else None
     flow_path = orch.assemble_flow(
         plan, task_id=task_id, max_subagents_per_group=max_sub
@@ -339,7 +405,6 @@ def decree_dispatch(
         decision_task_id=task_id,
     )
     _spawn_run(task_id, q, flow_path, budget_calls, 1, body.rawCommand, stakes=stakes)
-    budget_out = body.budget.model_dump() if body.budget else None
     return ok(
         {
             "taskId": task_id,
@@ -360,21 +425,77 @@ def decree_stream(
     task_id: str, user: CurrentUser = Depends(get_current_user)
 ) -> StreamingResponse:
     _observe_legacy_endpoint("decree_stream", user, operation="read")
-    task = get_task(task_id)
-    if not task:
+    from src.chaotang_task_projection import (
+        CanonicalTaskAccessDenied,
+        read_stream_snapshot,
+    )
+
+    owner_id = str(
+        user.user_id or user.username or user.tenant_slug or "anonymous"
+    )
+    try:
+        initial = read_stream_snapshot(task_id, owner_id)
+    except CanonicalTaskAccessDenied:
+        raise HTTPException(status_code=404, detail="task 不存在") from None
+    except Exception:
+        import logging as _logging
+
+        _logging.getLogger(__name__).warning(
+            "canonical task stream projection unavailable", exc_info=True
+        )
+        raise HTTPException(status_code=503, detail="任务事件流暂不可用") from None
+
+    # Until P3d removes the old daemon producer, an active compatibility task may
+    # still have richer transient queue events. Terminal/replayed tasks never touch
+    # this bridge and read exclusively from the canonical ledger.
+    legacy_task = None
+    if initial is None or not initial["snapshot"]["terminal"]:
+        legacy_task = get_task(task_id)
+    legacy_queue: queue.Queue | None = (
+        legacy_task.get("queue") if isinstance(legacy_task, dict) else None
+    )
+    if initial is None and legacy_queue is None:
         raise HTTPException(status_code=404, detail="task 不存在")
-    q: queue.Queue = task["queue"]
 
     def gen():
+        last_sequence = 0
+        batch = initial
+        last_heartbeat = time.monotonic()
         try:
             while True:
-                try:
-                    ev = q.get(timeout=8)
+                if batch is not None:
+                    for event in batch["events"]:
+                        last_sequence = max(
+                            last_sequence, int(event.get("sequence") or 0)
+                        )
+                        yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+                    snapshot = batch["snapshot"]
+                    if snapshot["terminal"]:
+                        yield f"data: {json.dumps(snapshot, ensure_ascii=False)}\n\n"
+                        break
+
+                if legacy_queue is not None:
+                    try:
+                        ev = legacy_queue.get(timeout=8)
+                    except queue.Empty:
+                        yield 'data: {"type": "heartbeat"}\n\n'
+                        continue
                     yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
                     if ev.get("type") in ("done", "error"):
                         break
-                except queue.Empty:
+                    continue
+
+                time.sleep(0.25)
+                refreshed = read_stream_snapshot(
+                    task_id, owner_id, after_sequence=last_sequence
+                )
+                if refreshed is None:
+                    yield 'data: {"type": "error", "message": "task 不存在"}\n\n'
+                    break
+                batch = refreshed
+                if time.monotonic() - last_heartbeat >= 8:
                     yield 'data: {"type": "heartbeat"}\n\n'
+                    last_heartbeat = time.monotonic()
         except GeneratorExit:
             return
 
@@ -431,7 +552,6 @@ def task_persist(
 ) -> dict:
     _observe_legacy_endpoint("task_persist", user, operation="write")
     from src.db.engine import SessionLocal
-    from src.db.flow_store import upsert_persisted_task
 
     task_id = (body.taskId or "").strip()
     if not task_id:
@@ -450,23 +570,7 @@ def task_persist(
                 f"{error or '正式 DecisionTask 不可用'}，"
                 "禁止由执行投影创建或修改业务任务"
             )
-        record = upsert_persisted_task(
-            session=db,
-            task_id=task_id,
-            raw_command=decision.raw_question,
-            title=body.title,
-            status=body.status,
-            mode=body.mode,
-            result=body.result,
-            at=body.at,
-            tenant_id=_default_tenant_id(),
-            user_id=_safe_user_id(getattr(user, "user_id", None)),
-            legacy_writer_id="chaotang-router-p3-pending",
-        )
-        db.commit()
-        if isinstance(record, dict):
-            record.setdefault("sourceLabel", "LIVE")
-        return ok(record)
+        return fail("legacy_task_projection_read_only")
     except Exception as exc:
         db.rollback()
         return fail(str(exc))
@@ -483,7 +587,6 @@ def task_persist_patch(
         return fail("invalid task_id")
 
     from src.db.engine import SessionLocal
-    from src.db.flow_store import patch_persisted_task_result
 
     db = SessionLocal()
     try:
@@ -496,26 +599,7 @@ def task_persist_patch(
                 f"{error or '正式 DecisionTask 不可用'}，"
                 "禁止由执行投影创建或修改业务任务"
             )
-        record = patch_persisted_task_result(
-            session=db,
-            task_id=task_id,
-            status=body.status,
-            result=body.result,
-            raw_command=decision.raw_question,
-            title=body.title,
-            mode=body.mode,
-            at=body.at,
-            tenant_id=_default_tenant_id(),
-            user_id=_safe_user_id(getattr(user, "user_id", None)),
-            legacy_writer_id="chaotang-router-p3-pending",
-        )
-        if record is None:
-            db.rollback()
-            return fail(f"task {task_id} does not exist")
-        db.commit()
-        if isinstance(record, dict):
-            record.setdefault("sourceLabel", "LIVE")
-        return ok(record)
+        return fail("legacy_task_projection_read_only")
     except Exception as exc:
         db.rollback()
         return fail(str(exc))
@@ -551,12 +635,11 @@ def tasks_list(
     # DB 历史任务补全(重启后内存为空时兜底)
     try:
         from src.db.engine import SessionLocal
-        from src.db.flow_store import ensure_task_result_json_column, task_record
+        from src.db.flow_store import task_record
         from src.db.models import Task as DbTask
 
         _db = SessionLocal()
         try:
-            ensure_task_result_json_column(_db)
             rows = (
                 _db.query(DbTask)
                 .order_by(DbTask.updated_at.desc(), DbTask.created_at.desc())
@@ -570,7 +653,6 @@ def tasks_list(
                     if isinstance(record, dict):
                         record.setdefault("sourceLabel", "LIVE")
                     live[r.task_id] = record
-            _db.commit()
         finally:
             _db.close()
     except Exception as _e:
@@ -588,101 +670,30 @@ def tasks_list(
 
 @router.get("/tasks/{task_id}")
 def task_detail(task_id: str, user: CurrentUser = Depends(get_current_user)) -> dict:
-    """任务详情:内存优先,重启后从 DB 恢复终态(静态渲染,无 SSE queue)。"""
+    """任务详情：canonical DecisionTask / SwarmRun / event ledger 投影。"""
     _observe_legacy_endpoint("task_detail", user, operation="read")
-    t = get_task(task_id)
-    _db_fallback = False
-    if not t:
-        # DB fallback:重启后内存清空,从 tasks 表读历史终态
-        try:
-            from src.db.engine import SessionLocal
-            from src.db.flow_store import ensure_task_result_json_column, task_record
-            from src.db.models import Task as DbTask
+    from src.chaotang_task_projection import (
+        CanonicalTaskAccessDenied,
+        read_task_projection,
+    )
 
-            _db2 = SessionLocal()
-            try:
-                ensure_task_result_json_column(_db2)
-                row = _db2.query(DbTask).filter_by(task_id=task_id).first()
-                if row:
-                    persisted = task_record(row)
-                    t = {
-                        "sourceLabel": "LIVE",
-                        "status": row.status,
-                        "task_status": row.task_status,
-                        "title": persisted.get("title") or "",
-                        "task_input": row.task_input or "",
-                        "mode": persisted.get("mode") or "hybrid",
-                        "result": persisted.get("result") or {},
-                        "run_id": row.run_id,
-                        "started_at": row.started_at or "",
-                        "finished_at": row.finished_at or "",
-                        "created_at": persisted.get("createdAt") or "",
-                        "updated_at": persisted.get("updatedAt") or "",
-                        "completed_steps": row.completed_steps or 0,
-                        "total_steps": row.total_steps or 0,
-                    }
-                    _db_fallback = True
-                _db2.commit()
-            finally:
-                _db2.close()
-        except Exception:
-            pass
-    if not t:
+    owner_id = str(
+        user.user_id or user.username or user.tenant_slug or "anonymous"
+    )
+    try:
+        projection = read_task_projection(task_id, owner_id)
+    except CanonicalTaskAccessDenied:
+        projection = None
+    except Exception:
+        import logging as _logging
+
+        _logging.getLogger(__name__).warning(
+            "canonical task detail projection unavailable", exc_info=True
+        )
+        return fail("任务详情暂不可用")
+    if projection is None:
         return fail(f"task {task_id} 不存在")
-    run_id = t.get("run_id")
-    result = t.get("result") if isinstance(t.get("result"), dict) else {}
-    display_status = t.get("task_status") or _RUNSTATE_TO_TASKSTATUS.get(
-        t.get("status"), "running"
-    )
-    council, group_runs = [], []
-    if run_id:
-        run = load_run(run_id)
-        if run:
-            for s in run.steps:
-                name = s.agent_name or ""
-                if name.startswith("council_"):
-                    council.append(
-                        {
-                            "agentCode": name[len("council_") :],
-                            "name": name,
-                            "opinion": (s.output or "")[:800],
-                            "qualityScore": (
-                                (s.quality_score or {}).get("total_score")
-                                if s.quality_score
-                                else None
-                            ),
-                            "status": s.status,
-                        }
-                    )
-                elif name.startswith("group_") and not name.endswith("_dispatch"):
-                    group_runs.append(
-                        {
-                            "groupId": name[len("group_") :],
-                            "name": name,
-                            "status": s.status,
-                            "subagents": [],
-                            "aggregateSummary": (s.output or "")[:800],
-                        }
-                    )
-    return ok(
-        {
-            "task": {
-                "id": task_id,
-                "sourceLabel": "LIVE",
-                "title": t.get("title") or (t.get("task_input") or "")[:80],
-                "rawCommand": t.get("task_input", ""),
-                "status": display_status,
-                "mode": t.get("mode") or "live",
-                "createdAt": t.get("created_at") or t.get("started_at", ""),
-                "updatedAt": t.get("updated_at") or t.get("finished_at") or "",
-                "finalReportId": run_id,
-                "result": result,
-            },
-            "council": council,
-            "groupRuns": group_runs,
-            "runId": run_id,
-        }
-    )
+    return ok(projection)
 
 
 @router.get("/memorials")
@@ -757,20 +768,35 @@ def memorial_detail(run_id: str, user: CurrentUser = Depends(get_current_user)) 
     summary = run_summary(run)
     summary["final_output"] = run.final_output
     mem = enrich_memorial(summary)
-    # 批阅后持久状态覆盖 run 派生状态
-    persisted = chaotang_store.get_memorial_status(
-        run_id, caller_id="chaotang-router-p3-pending"
+    from src.chaotang_task_projection import (
+        CanonicalTaskAccessDenied,
+        read_memorial_decision_projection,
     )
-    if persisted:
-        mem = {**mem, "status": persisted}
+
+    owner_id = str(user.user_id or user.username or user.tenant_slug or "anonymous")
+    try:
+        formal_decision = read_memorial_decision_projection(run_id, owner_id)
+    except CanonicalTaskAccessDenied:
+        return fail(f"奏折 {run_id} 不存在")
+    if formal_decision is not None:
+        mem = {**mem, "status": formal_decision["status"]}
+        review = formal_decision["review"]
+    else:
+        # 未迁移历史记录只读兼容；正式任务绝不再依赖 legacy review 写副本。
+        persisted = chaotang_store.get_memorial_status(
+            run_id, caller_id="chaotang-router-p3-pending"
+        )
+        if persisted:
+            mem = {**mem, "status": persisted}
+        review = chaotang_store.get_review_for_memorial(
+            run_id, caller_id="chaotang-router-p3-pending"
+        )
     return ok(
         {
             **mem,
             "memorial": build_memorial_sections(run.final_output),
             "fullContent": run.final_output or {},
-            "review": chaotang_store.get_review_for_memorial(
-                run_id, caller_id="chaotang-router-p3-pending"
-            ),
+            "review": review,
         }
     )
 
@@ -787,7 +813,6 @@ def memorial_review(
         return fail(f"奏折 {run_id} 不存在")
 
     from src.db.engine import SessionLocal
-    from src.db.flow_store import save_review_db
     from src.db.models import CourtLoopRun, CourtReview, EmperorDecision
     from src.shangshufang_loop import make_id, now_iso
     from web.routers.shangshufang import (
@@ -853,17 +878,6 @@ def memorial_review(
         rec = chaotang_store.build_review_record(
             run_id, action=body.action, comment=body.comment, reviewer=reviewer
         )
-        save_review_db(
-            session=db,
-            review_id=rec["id"],
-            memorial_id=run_id,
-            action=body.action,
-            comment=body.comment,
-            reviewer_name=reviewer,
-            tenant_id=_default_tenant_id(),
-            created_at=rec["createdAt"],
-            legacy_writer_id="chaotang-router-p3-pending",
-        )
         db.add(
             CourtLoopRun(
                 id=make_id("loop", task.id, "legacy-review", canonical_action, now),
@@ -893,18 +907,6 @@ def memorial_review(
     finally:
         db.close()
 
-    try:
-        chaotang_store.write_review_files(
-            rec, legacy_writer_id="chaotang-router-p3-pending"
-        )
-    except Exception as exc:
-        record_event(
-            "legacy_review_json_copy_failed",
-            task_id=task_id,
-            run_id=run_id,
-            status="warning",
-            error=str(exc),
-        )
     # 批阅后立即失效 memorial 缓存,下次列表端点返回更新后状态
     from web.routers.throne import _CT_MEMORIAL_CACHE
 
@@ -1023,6 +1025,14 @@ def study_run_edict(
     # 异步 live：不阻塞 HTTP（蜂群 ~51s > 代理 20s 必 502）。立即交接 taskId + skeleton，
     # 蜂群后台跑完经 /api/chaotang/stream/{taskId} 推送最终 LIVE_SWARM edict。
     if body.mode == "live" and body.asyncRun:
+        if not _legacy_chaotang_daemon_enabled():
+            record_event(
+                "legacy_chaotang_daemon_blocked",
+                endpoint="study_live_async",
+                status="blocked",
+                tenant_slug=tenant,
+            )
+            return fail("legacy_study_async_daemon_disabled")
         return _dispatch_study_live_async(
             edict=edict, command=command, body=body, tenant=tenant
         )
@@ -2218,12 +2228,7 @@ def archive_retrospective_save(
     _observe_legacy_endpoint("archive_retrospective_save", user, operation="write")
     if not _validate_id(task_id):
         return fail("无效的 task_id")
-    rec = chaotang_store.save_retrospective(
-        task_id,
-        body.model_dump(),
-        legacy_writer_id="chaotang-router-p3-pending",
-    )
-    return ok(rec)
+    return fail("legacy_retrospective_store_read_only")
 
 
 # ── P0-1: 快捷下旨智能路由 ──

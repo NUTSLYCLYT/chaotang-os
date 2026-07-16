@@ -22,10 +22,7 @@ ALLOWED_IMPORTS = {
     "src/chaotang_store.py": frozenset({"save_review_db", "save_retrospective_db"}),
     "web/routers/chaotang.py": frozenset(
         {
-            "upsert_persisted_task",
-            "patch_persisted_task_result",
             "save_decree_and_task",
-            "save_review_db",
         }
     ),
     "scripts/backfill_flow_db.py": frozenset({"upsert_memorial", "save_review_db", "save_retrospective_db"}),

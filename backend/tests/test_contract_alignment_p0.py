@@ -321,7 +321,9 @@ def test_governance_deliberate_contract_returns_fallback_header():
     assert response.json()["finalVerdict"] == "再议"
 
 
-def test_scribe_and_shiguan_contracts_return_empty_backend_states():
+def test_scribe_and_shiguan_contracts_return_empty_backend_states(
+    isolated_session_local,
+):
     client = TestClient(app)
 
     annal = client.post(
