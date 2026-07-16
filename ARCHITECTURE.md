@@ -10,7 +10,11 @@ TypeScript，npm 管理依赖，扁平 `src/app/`、`src/lib/` 结构，`page.ts
 健康检查展示，`backendClient.ts` 封装对后端的服务端调用；选型与验证证据见同一
 决策记录的 `## 前端` 章节）。生产部署方式和业务数据模型仍未确定；`GET /health`
 跨端契约已确定为根级 `docs/contracts/health.schema.json`，调用路径为浏览器 →
-Next.js 服务端 → FastAPI。
+Next.js 服务端 → FastAPI。`backend/` 已新增最小、无外部服务依赖的 LangGraph
+运行时基础（`app/langgraph_runtime/`，仅暴露 `build_minimal_graph()` 与
+`GraphState`），仅用于证明运行时可编译、可调用，不接入模型供应商或持久化，也
+不构成已确定的业务 agent 架构；决策见
+`docs/decisions/0007-langgraph-runtime-foundation.md`。
 
 ## 所有权
 
@@ -21,7 +25,7 @@ Next.js 服务端 → FastAPI。
 | `.agents/skills/product-flow/` | Codex 桌面任务内的一键产品交付编排 | 定时/CI 常驻服务、Claude 自主编排入口 |
 | `.claude/agents/` | Claude Code 的架构、模块交付、测试专业角色 | 跨客户端通用角色、并行写入隔离 |
 | `frontend/` | 前端工程及其验证；已确定 Next.js + React + TypeScript + npm 最小骨架 | 业务页面、状态管理、UI 组件库、鉴权 |
-| `backend/` | 后端运行/评测工程及其验证；已确定 Python + FastAPI + uvicorn 最小骨架 | 业务服务、存储、agent runtime 结构和评测方式 |
+| `backend/` | 后端运行/评测工程及其验证；已确定 Python + FastAPI + uvicorn 最小骨架；已确定最小 LangGraph 运行时基础（依赖版本范围、`app/langgraph_runtime/` 模块边界、`GraphState` 状态类型，见 ADR 0007） | 业务服务、存储和评测方式；具体业务 agent/workflow 图结构、模型供应商接入、持久化/checkpointer 方案仍未确定 |
 
 `AGENTS.md` 只提供经常需要的操作指引；本文件只记录已确认架构事实。重要选择在
 `docs/decisions/` 记录原因，不能把尚未决定的方案写成现状。
@@ -40,6 +44,13 @@ Next.js 服务端 → FastAPI。
 - 当前最小骨架的运行时依赖方向为浏览器 → Next.js 服务端 → FastAPI，共享契约位于
   根级 `docs/contracts/`；改变这些依赖方向、契约位置或运行时边界时，必须用可运行
   原型或测试验证，并记录决策。
+- `backend/app/langgraph_runtime/` 只是一个最小、无外部服务依赖的 LangGraph
+  运行时基础，不是已确定的业务 agent 架构；不得据此推断已可以随意接入模型
+  供应商、扩展成业务工作流或启用持久化。当前仍明确排除：模型供应商/API Key
+  接入、聊天机器人、具体业务工作流、工具调用、RAG、LangSmith 追踪、LangGraph
+  Studio/CLI、持久化/checkpointer、数据库、流式接口、human-in-the-loop、分布式
+  执行、生产部署，以及任何新增的公开 HTTP 业务接口；`GET /health` 契约不变。
+  完整清单与理由见 `docs/decisions/0007-langgraph-runtime-foundation.md`。
 
 ## 结构变化门禁
 

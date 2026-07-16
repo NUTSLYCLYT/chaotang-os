@@ -7,8 +7,12 @@ pytest 测试，ruff 静态检查，pip + venv 管理依赖。选型理由、取
 ## 边界
 
 - 这里只放后端运行/评测工程及其验证，不实现前端内部功能。
-- 当前只暴露 `GET /health` 一个入口；不承载业务 API、鉴权、数据库模型、agent
-  runtime 或任务编排——这些超出本次范围，新增前先确认是否有对应产品任务。
+- 当前只暴露 `GET /health` 一个业务无关的入口。已引入最小、无外部服务依赖的
+  LangGraph 运行时基础模块（`app/langgraph_runtime/`，决策见
+  `docs/decisions/0007-langgraph-runtime-foundation.md`），仅提供一个可编译的
+  确定性图工厂函数，不接入任何模型供应商、不做持久化/checkpointer、不新增任何
+  HTTP 业务接口。除该模块外，后端仍不承载业务 API、鉴权、数据库模型或任务
+  编排——这些超出本次范围，新增前先确认是否有对应产品任务。
 - 不引入 `app/` 之外的多包结构、alembic、cli.py、多环境 docker-compose 或 `src/`
   布局，除非有新的 ADR 明确变更。
 
@@ -65,6 +69,43 @@ python -m venv .venv
 启动后可用 `curl http://127.0.0.1:8000/health`（或等效工具）确认返回
 `200 OK`、`application/json`、`{"status": "ok", "service": "chaotang-os-backend",
 "version": "<pyproject.toml 中的 version>"}`。本次范围不包含 eval 命令。
+
+## LangGraph 运行时基础
+
+`app/langgraph_runtime/` 是一个最小、无外部服务依赖的 LangGraph 运行时基础模块，
+决策与边界见 `docs/decisions/0007-langgraph-runtime-foundation.md`。
+
+- 安装：不需要额外命令，`langgraph` 已是主依赖，随上面 `## Setup` 中的
+  `pip install -e ".[dev]"` 一并安装。
+- 核实实际安装版本：
+
+  ```bash
+  # Windows
+  .venv\Scripts\python.exe -m pip show langgraph
+
+  # Ubuntu / CI
+  .venv/bin/python -m pip show langgraph
+  ```
+
+  已知交付时核实的版本为 `langgraph 1.2.9`（满足 `pyproject.toml` 中声明的
+  `langgraph>=1.2,<2`）。
+- 最小调用示例：
+
+  ```python
+  from app.langgraph_runtime import build_minimal_graph
+
+  graph = build_minimal_graph()
+  result = graph.invoke({"input_text": "  Hello World  ", "steps": [], "output_text": ""})
+  # result["output_text"] == "processed:hello world"
+  ```
+
+- 当前能力边界：只提供一个可编译、确定性的两节点图（`START -> normalize ->
+  transform -> END`）作为运行时基础的存在性证明；不接入任何模型供应商或
+  API Key，不使用持久化/checkpointer，不接数据库，不提供流式接口，不做
+  human-in-the-loop，未新增任何 HTTP 业务接口，`GET /health` 契约不变。完整
+  排除清单见 ADR 0007。
+- 未来若要接入真实模型、构建具体业务 agent/workflow 图，或引入持久化/
+  checkpointer，需要新的产品任务并记录新的 ADR，不得直接在本模块基础上扩展。
 
 ## 后续变更要求
 
