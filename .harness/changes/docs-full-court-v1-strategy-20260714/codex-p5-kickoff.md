@@ -40,10 +40,15 @@ P4.5b direct 语义封口（契约兼容式，v3 修正）：`direct_completed` 
 
   验收不变量（判定表内容必须满足，形式不限）：
   a) completed 需要 成功语义终态事件 × 真实工件 两证齐全；
-  b) 失败事件一票定性 failed，部分工件不得洗白；
+  b) 终态按**最新执行代次（attempt）**判定——同一 attempt 内失败事件
+     一票定性 failed、部分工件不得洗白；但失败后新 attempt 重试成功
+     必须 completed（可恢复失败不得被历史失败永久固化）；重试进行中
+     为 running；attempt 序需可从事件序列推导（sequence/时间戳+
+     dispatch.started 分界），推导不出即 inconsistent；
   c) 现行 _execute_direct no-op（outbox_worker.py:62-77）必须落 receipt_only；
   d) 说明性/记账事件不得参与终态判定；
   e) 任何未覆盖组合 → inconsistent+quarantine，永不猜测。
+  fixture 增至六条：+「失败后重试成功 → completed」。
 P4.5c 质量门搬门框：quality_gate 调用从 swarm_review 内部抽到独立模块边界
   （import seam），逻辑零改动；架构守门加"生产者模块不得直接判门"断言。
 P4.5d CourtReview 构造点冻结：架构守门禁止新增 CourtReview 写入点，
