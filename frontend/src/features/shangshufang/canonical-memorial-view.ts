@@ -4,6 +4,7 @@ import type {
   ShangshufangTaskStatusResponse,
 } from '@/lib/jiqun-api';
 import { departmentNameCn } from '@/lib/contracts/dept';
+import { isCanonicalProjectionEnabled } from '@/lib/courtos/canonical-projection-rollout';
 import type { EdictRow, EdictView } from './edict-content';
 
 export interface CanonicalMemorialViewResult {
@@ -141,7 +142,11 @@ function buildView(input: {
 export function projectCanonicalMemorialView(
   taskId: string,
   status: ShangshufangTaskStatusResponse,
+  options: { enabled?: boolean } = {},
 ): CanonicalMemorialViewResult {
+  if (!(options.enabled ?? isCanonicalProjectionEnabled())) {
+    return { kind: 'waiting', view: null, shouldRetry: false };
+  }
   if (status.formal_memorial?.memorial) {
     return {
       kind: 'formal',

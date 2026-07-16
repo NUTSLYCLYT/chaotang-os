@@ -176,3 +176,10 @@ test('no canonical review or formal memorial yields no court conclusion', () => 
     null,
   );
 });
+
+test('rollout off degrades to no court conclusion instead of reviving a local decision engine', () => {
+  assert.equal(
+    projectCanonicalCourtStatus(status({ formalMemorial: memorial('formal') }), { enabled: false }),
+    null,
+  );
+});

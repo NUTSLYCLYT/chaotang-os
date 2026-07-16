@@ -164,3 +164,15 @@ test('trace is shown only when the backend supplied one', () => {
   assert.equal(body(withoutTrace, '来源')?.includes('trace：'), false);
   assert.match(body(withTrace, '来源') ?? '', /trace：trace-real/);
 });
+
+test('rollout off degrades to a terminal safe waiting view', () => {
+  const result = projectCanonicalMemorialView(
+    'task-1',
+    status({ formal: memorial('formal') }),
+    { enabled: false },
+  );
+
+  assert.equal(result.kind, 'waiting');
+  assert.equal(result.view, null);
+  assert.equal(result.shouldRetry, false);
+});

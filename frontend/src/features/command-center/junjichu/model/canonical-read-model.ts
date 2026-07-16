@@ -9,6 +9,7 @@ import {
   resolveCanonicalDepartment,
   type MinistryId,
 } from '@/lib/contracts/dept';
+import { isCanonicalProjectionEnabled } from '@/lib/courtos/canonical-projection-rollout';
 
 type CanonicalSignal = 'GREEN' | 'YELLOW' | 'RED' | 'GRAY';
 type CanonicalGateStatus = 'passed' | 'blocked' | 'unknown';
@@ -220,7 +221,9 @@ function explicitGate(memorial: ShangshufangReviewMemorial) {
  */
 export function projectCanonicalCourtStatus(
   status: ShangshufangTaskStatusResponse | null,
+  options: { enabled?: boolean } = {},
 ): CanonicalCourtProjection | null {
+  if (!(options.enabled ?? isCanonicalProjectionEnabled())) return null;
   if (!status) return null;
   const formal = status.formal_memorial;
   const memorial = formal?.memorial ?? status.review?.memorial ?? null;
