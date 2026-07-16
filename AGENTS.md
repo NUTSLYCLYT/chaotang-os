@@ -1,6 +1,8 @@
 # chaotang-os
 
-仓库正在重建，前后端尚无业务代码或已确定技术栈。
+仓库正在重建。`frontend/`、`backend/` 已完成最小工程骨架的技术选型（详见
+`ARCHITECTURE.md` 与 `docs/decisions/0006-frontend-backend-foundation-stack.md`），
+仍不承载正式业务代码或业务 API。
 
 ## 导航
 
@@ -43,5 +45,7 @@
 - `node .agents/hooks/check-harness.mjs --self-test`
 - `node .agents/skills/product-flow/scripts/run-claude-delivery.mjs --self-test`
 
-前后端命令尚未定义。首次技术选型必须在同一变更中补充真实的 setup、lint、test、
-build/run 命令和对应 CI，禁止复制不存在的命令。
+前后端 setup、lint、typecheck、test、build/run 命令见 `frontend/AGENTS.md`、
+`backend/AGENTS.md`；CI（`.github/workflows/harness.yml`）已新增对应的
+`backend`、`frontend`、`integration` job 执行同一批真实命令。再次改变技术栈或
+命令时必须在同一变更中同步更新对应文档与 CI，禁止复制不存在的命令。

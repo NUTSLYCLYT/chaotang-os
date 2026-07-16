@@ -1,0 +1,29 @@
+{
+  "$id": "https://chaotang-os.local/contracts/health.schema.json",
+  "title": "GET /health contract",
+  "description": "Single source of truth for the backend health-check endpoint contract (path, method, success status code, response body shape). Both backend and frontend contract tests must read this file directly (not copy its values into hard-coded literals) so the contract cannot silently drift between the two sides.",
+  "path": "/health",
+  "method": "GET",
+  "successStatus": 200,
+  "responseBody": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "JSON Schema fragment for the successful (200 OK) response body. Reused as-is for real jsonschema validation on the backend, and mirrored by an equivalent field/type check on the frontend.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["status", "service", "version"],
+    "properties": {
+      "status": {
+        "type": "string",
+        "enum": ["ok"]
+      },
+      "service": {
+        "type": "string",
+        "minLength": 1
+      },
+      "version": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

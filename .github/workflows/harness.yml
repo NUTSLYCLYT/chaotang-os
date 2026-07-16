@@ -24,3 +24,142 @@ jobs:
         run: node .agents/hooks/check-harness.mjs --self-test
       - name: Test product-flow Claude runner
         run: node .agents/skills/product-flow/scripts/run-claude-delivery.mjs --self-test
+
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          # backend/pyproject.toml declares `requires-python = ">=3.11"`; CI pins
+          # Python 3.12 as the repository's selected verification version.
+          python-version: "3.12"
+      - name: Create virtualenv
+        working-directory: backend
+        run: python -m venv .venv
+      - name: Install backend (editable, with dev extras)
+        working-directory: backend
+        run: .venv/bin/python -m pip install -e ".[dev]"
+      - name: Lint (ruff)
+        working-directory: backend
+        run: .venv/bin/python -m ruff check .
+      - name: Test (pytest)
+        working-directory: backend
+        run: .venv/bin/python -m pytest
+      - name: Run entry smoke check (uvicorn + GET /health)
+        working-directory: backend
+        run: |
+          .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+
+          ready=""
+          for _ in $(seq 1 30); do
+            if curl -fsS -D /tmp/health.headers http://127.0.0.1:8000/health >/tmp/health.json; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ -z "$ready" ]; then
+            echo "backend did not become ready on :8000" >&2
+            exit 1
+          fi
+
+          echo "GET /health response:"
+          cat /tmp/health.headers
+          cat /tmp/health.json
+          echo
+
+          # Contract detail (schema-level validation, incl. additionalProperties)
+          # already lives in backend/tests/test_contract_health.py; this is a
+          # lightweight running-process smoke check, so plain grep on the known
+          # literal contract values is enough and avoids embedding another
+          # scripting language inside this shell step.
+          grep -q '^HTTP/[0-9.]* 200' /tmp/health.headers || {
+            echo "GET /health did not return 200" >&2
+            exit 1
+          }
+          grep -q '"status":"ok"' /tmp/health.json || {
+            echo "GET /health body missing status=ok" >&2
+            exit 1
+          }
+          grep -q '"service":"chaotang-os-backend"' /tmp/health.json || {
+            echo "GET /health body missing expected service name" >&2
+            exit 1
+          }
+          echo "GET /health contract smoke check passed."
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+      - name: Typecheck
+        working-directory: frontend
+        run: npm run typecheck
+      - name: Test (node --test)
+        working-directory: frontend
+        run: npm test
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+      - name: Run entry smoke check (next start + GET /)
+        working-directory: frontend
+        run: |
+          npm run start -- -p 3000 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+
+          ready=""
+          for _ in $(seq 1 30); do
+            if curl -fsS -o /tmp/index.html http://127.0.0.1:3000/; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ -z "$ready" ]; then
+            echo "frontend did not become ready on :3000" >&2
+            exit 1
+          fi
+
+          if ! grep -q "chaotang-os" /tmp/index.html; then
+            echo "entry page did not render expected content" >&2
+            cat /tmp/index.html
+            exit 1
+          fi
+          echo "GET / entry smoke check passed."
+
+  integration:
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install backend (editable, with dev extras)
+        working-directory: backend
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install -e ".[dev]"
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+      - name: Cross-process integration verification
+        run: node scripts/verify_integration.mjs
