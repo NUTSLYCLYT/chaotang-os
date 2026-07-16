@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "LOCAL_FEEDBACK_ONLY",
+  "review_version": 1,
+  "packet_id": "P5.1",
+  "change_id": "fix-alembic-authority-review-hardening-20260717",
+  "predecessor_integration_sha": "346dc81faf89effcf6998b944cdc5c7f66e60a28",
+  "reviewed_head_sha": "73a4d47618d7fe6f1c4c9a15343d7ef5b92822f7",
+  "report_path": ".harness/changes/fix-alembic-authority-review-hardening-20260717/packet_review/review-v1.md",
+  "report_sha256": "46c5e6a210b4f61677847e586670855f6422d21a2b42711c8de566a1b44eeb21",
+  "verdict": "PACKET_REVIEW_GO"
+}
