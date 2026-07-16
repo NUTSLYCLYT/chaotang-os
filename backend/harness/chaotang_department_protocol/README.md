@@ -28,6 +28,9 @@ python harness/chaotang_department_protocol/scripts/run_protocol.py
 
 - `golden_cases/department_outputs.json`：部门输出 payload 是否符合统一契约，并能进入御史总判。
 - `golden_cases/department_routes.json`：任务文本是否能正确派给六部、候选蜂群、丞相下一步和钦天监触发器。
+- `golden_cases/frontend_second_brain_distillation.json`：P4c 从退役前端引擎蒸馏的安全不变量。
+  只固定缺证、风险、人工确认、冲突可见、来源和决策资格，不复制旧前端完整中文句子或
+  关键词实现；schema 位于 `contracts/frontend_second_brain_distillation.schema.json`。
 
 ## 统一输出契约
 

@@ -29,7 +29,7 @@ import { XingbuLegalSwarmPanel } from '@/features/xingbu/components/xingbu-legal
 const VERDICT_CONFIG = {
   veto: {
     label: '一票否决',
-    sublabel: '命中高危条款，禁止径自签署，必须人工/法务复核',
+    sublabel: 'SHADOW · 客户端规则初筛 · 非法律意见/非刑部正式裁决；命中后必须人工/法务复核',
     color: '#E5604D',
     bg: '#E5604D12',
     border: '#E5604D3a',
@@ -37,15 +37,15 @@ const VERDICT_CONFIG = {
   },
   caution: {
     label: '谨慎',
-    sublabel: '存在风险条款，逐条人工确认后再定',
+    sublabel: 'SHADOW · 客户端规则初筛 · 非法律意见/非刑部正式裁决；逐条人工确认后再定',
     color: '#E5B84D',
     bg: '#E5B84D0e',
     border: '#E5B84D34',
     Icon: AlertTriangle,
   },
   pass: {
-    label: '低风险',
-    sublabel: '未命中已知高危，标准保护齐备；仍建议人工抽查',
+    label: '未命中已知规则',
+    sublabel: 'SHADOW · 客户端规则初筛 · 非法律意见/非刑部正式裁决；不代表低风险',
     color: '#3DD68C',
     bg: '#3DD68C0c',
     border: '#3DD68C2c',
@@ -129,6 +129,9 @@ export function XingbuContractWorkbench() {
 
   return (
     <div className="flex h-full flex-col gap-3 overflow-y-auto">
+      <div className="rounded-[10px] border border-[#E5B84D]/25 bg-[#E5B84D]/5 px-3 py-2 text-[11px] text-[#E5B84D]">
+        SHADOW · 客户端规则初筛 · 非法律意见/非刑部正式裁决 · FALLBACK · 不可进入正式结论
+      </div>
       {/* ── 输入区 ── */}
       <div
         className="rounded-[20px] border px-4 pt-4 pb-3"

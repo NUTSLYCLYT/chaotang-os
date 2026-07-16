@@ -257,7 +257,7 @@ test('② stampSourceLabelDeep 不改入参(不可变),且戳平嵌套数组/对
 
 test('③ confirm 步不 saveCourtArchive:桥接层静态零引用(幂等,归档留给 decision 步)', () => {
   const here = dirname(fileURLToPath(import.meta.url));
-  const bridgeSrc = readFileSync(join(here, 'live-memorial-bridge.ts'), 'utf8');
+  const bridgeSrc = readFileSync(join(here, '../../../../dev/_attic/frontend-second-brain-2026-07-16/live-memorial-bridge.ts'), 'utf8');
   assert.ok(
     !/saveCourtArchive/.test(bridgeSrc),
     '桥接层禁引用 saveCourtArchive —— confirm 步只召回不归档,否则与 decision 步双写污染召回池',
@@ -268,7 +268,7 @@ test('③ confirm 步不 saveCourtArchive:桥接层静态零引用(幂等,归档
 
 test('④ 决策飞轮读回路(2026-07-03 修)：召回的 priorCases 必须真正传进 createDraftTask，不能只召回不用', () => {
   const here = dirname(fileURLToPath(import.meta.url));
-  const bridgeSrc = readFileSync(join(here, 'live-memorial-bridge.ts'), 'utf8');
+  const bridgeSrc = readFileSync(join(here, '../../../../dev/_attic/frontend-second-brain-2026-07-16/live-memorial-bridge.ts'), 'utf8');
   assert.ok(
     /priorCases\.map\(summarizePriorCase\)/.test(bridgeSrc),
     '召回结果必须转成摘要',

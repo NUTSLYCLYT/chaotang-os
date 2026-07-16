@@ -87,6 +87,10 @@ export interface QualifiedLead extends Lead {
 }
 
 export interface LeadRadarResult {
+  /** Client-side heuristic only; never eligible to become a court decision. */
+  capabilityMode: 'SHADOW';
+  sourceLabel: 'FALLBACK';
+  decisionEligible: false;
   qualified: QualifiedLead[];
   rejected: Array<{ title: string; reason: string }>;
   summary: { total: number; qualified: number; dirty: number; irrelevant: number; complianceBlocked: number };
@@ -122,6 +126,9 @@ export function runLeadRadar(leads: Lead[], criteria: LeadCriteria): LeadRadarRe
   }
   qualified.sort((a, b) => (b.amount ?? 0) - (a.amount ?? 0));
   return {
+    capabilityMode: 'SHADOW',
+    sourceLabel: 'FALLBACK',
+    decisionEligible: false,
     qualified,
     rejected,
     summary: { total: leads.length, qualified: qualified.length, dirty, irrelevant, complianceBlocked: blocked },

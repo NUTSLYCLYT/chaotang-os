@@ -1,3 +1,4 @@
+/** @deprecated P4c test-only archive. No production imports are permitted. */
 import type { Client } from '@libsql/client';
 import { ensurePrimaryDbReady } from './primary-store.ts';
 import type { SourceLabel } from '../../core/courtos/types.ts';

@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | refactor-frontend-second-brain-sunset-20260716 |
 | 类型 | refactor |
-| 状态 | P4a_P4b_VERIFIED / P4c_PENDING |
+| 状态 | P4a_P4b_P4c_VERIFIED / CLOSEOUT_PENDING |
 | Owner | Project Agent |
 | 创建日期 | 20260716 |
 
@@ -29,3 +29,9 @@
 - P4b：RED 为 projector module 缺失、上书房四项受限 import、旧 MVP 反向断言各 1
   failed；GREEN 为 projector 6、import guard 12、MVP 4、上书房相邻 30，tsc 0。
   正式快照优先于候选；direct 回执、候选阻断与空态分别诚实展示；终态空读继续有限重试。
+- P4c：蒸馏 RED 3 failed / 1 passed（schema/dataset 缺失），资产入库后发现并修复
+  `FALLBACK + missing_evidence` 仍可过 quality gate，扩展相邻集通过；退役 import RED
+  为 1 failed / 5 passed、精确列出 6 个生产 import，GREEN 为 allowlist 清零且 bridge/guard
+  16 passed。侧脑诚实降级 RED 4 failed，GREEN 4，连同相邻共 21 passed；tsc/doctor 全绿。
+- P4c 保留策略：四引擎只标 deprecated、供 test/eval；三个无生产调用方的 writer/bridge
+  搬入 `dev/_attic/frontend-second-brain-2026-07-16/`，恢复须新 change 重审，复核日 2026-08-16。

@@ -37,7 +37,8 @@
 - 验证命令与证据：golden 先 RED/xfail 后可执行；生产 import graph 0；frontend/backend 相邻。
 - 回滚边界：P4c 原子提交；test-only 壳保留一个周期，不物理丢规则。
 - 完成定义：蒸馏证据早于退役；四引擎只在 test/eval 可达；侧脑不进入正式结论区。
-- 状态：PENDING。
+- 状态：VERIFIED；蒸馏、backend quality gate、生产 import 清零、attic 恢复说明与四类
+  SHADOW/FALLBACK 诚实标签均有 RED/GREEN 证据。
 
 ## 任务 4 — P4 收官与停审
 
@@ -47,4 +48,4 @@
 - 验证命令与证据：前后端全量、tsc、三层 doctor、browser journey、DB fingerprint、diff check。
 - 回滚边界：三步原子 commit 可独立回滚；不得 push/deploy。
 - 完成定义：证据落盘，输出 `PACKET_P4_READY_FOR_CLAUDE_REVIEW`，立即停工待 Claude 审查。
-- 状态：PENDING。
+- 状态：IN_PROGRESS；进入全量、三层 doctor、browser journey、DB 指纹和最终差异审计。

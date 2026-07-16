@@ -133,8 +133,14 @@ def quality_gate(brief: dict[str, Any]) -> dict[str, Any]:
         blocking.append("source_label_required")
     if label == "DEMO":
         blocking.append("demo_cannot_enter_real_decision")
-    if label == "FALLBACK" and not brief.get("missing_evidence"):
-        blocking.append("no_fallback_final_certainty")
+    if label == "FALLBACK":
+        blocking.append(
+            "fallback_cannot_enter_real_decision"
+            if brief.get("missing_evidence")
+            else "no_fallback_final_certainty"
+        )
+    if brief.get("missing_evidence"):
+        blocking.append("missing_evidence_requires_resolution")
     if not brief.get("evidence_chain") and not brief.get("missing_evidence"):
         blocking.append("evidence_or_gap_required")
     if any(

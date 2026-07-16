@@ -174,8 +174,9 @@ function enrichTaskInsight(
 
     return {
       ...base,
-      verdict: evaluation.verdictCn,
+      verdict: `SHADOW · 客户端规则参考 · 非后端工部裁决：${evaluation.verdictCn}`,
       evidence: [
+        'SHADOW · decisionEligible=false · sourceLabel=FALLBACK',
         evaluation.explain.type,
         evaluation.explain.verdict,
         evaluation.explain.locks,
