@@ -141,7 +141,7 @@ def test_fresh_migration_chain_reaches_head_with_all_013_columns(tmp_path, monke
 
     conn = sqlite3.connect(path)
     try:
-        assert conn.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "014_tenant_identity_tables"
+        assert conn.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "015_schema_contract_guard"
         for table in _TABLES:
             column = _column(path, table, "tenant_id")
             assert column is not None, table

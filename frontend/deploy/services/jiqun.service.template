@@ -14,7 +14,8 @@ Type=simple
 WorkingDirectory=/home/ubuntu/Projects/chaotang-os/backend
 Environment=PATH=/home/ubuntu/Projects/chaotang-os/backend/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
 EnvironmentFile=-/home/ubuntu/Projects/chaotang-os/backend/.env
-ExecStart=/home/ubuntu/Projects/chaotang-os/backend/.venv/bin/python -m gunicorn -c gunicorn.conf.py web.main:app
+Environment=FENGQUN_SCHEMA_MODE=strict
+ExecStart=/usr/bin/env FENGQUN_SCHEMA_MODE=strict /home/ubuntu/Projects/chaotang-os/backend/.venv/bin/python -m gunicorn -c gunicorn.conf.py web.main:app
 Restart=on-failure
 RestartSec=5
 StandardOutput=append:/home/ubuntu/.openclaw/log/jiqun.log

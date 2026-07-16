@@ -11,7 +11,7 @@ from sqlalchemy import create_engine, text
 def test_expected_head_is_derived_from_the_version_graph() -> None:
     from src.schema_authority import expected_alembic_head
 
-    assert expected_alembic_head() == "014_tenant_identity_tables"
+    assert expected_alembic_head() == "015_schema_contract_guard"
 
 
 def test_strict_mode_rejects_an_unversioned_database_without_writing(tmp_path: Path) -> None:
@@ -30,6 +30,24 @@ def test_strict_mode_rejects_an_unversioned_database_without_writing(tmp_path: P
     engine.dispose()
 
 
+@pytest.mark.parametrize("as_uri", [False, True])
+def test_strict_mode_rejects_a_missing_sqlite_file_without_creating_it(
+    tmp_path: Path,
+    as_uri: bool,
+) -> None:
+    from src.schema_authority import SchemaAuthorityError, assert_database_at_head
+
+    path = tmp_path / "must-not-be-created.db"
+    db_url = f"sqlite:///file:{path}?uri=true" if as_uri else f"sqlite:///{path}"
+    engine = create_engine(db_url)
+
+    with pytest.raises(SchemaAuthorityError, match="does not exist"):
+        assert_database_at_head(engine)
+
+    assert not path.exists()
+    engine.dispose()
+
+
 def test_strict_mode_rejects_a_database_behind_head(tmp_path: Path) -> None:
     from src.schema_authority import SchemaAuthorityError, assert_database_at_head
 
@@ -41,7 +59,7 @@ def test_strict_mode_rejects_a_database_behind_head(tmp_path: Path) -> None:
 
     with pytest.raises(
         SchemaAuthorityError,
-        match="current=013_core_tenant_lineage.*head=014_tenant_identity_tables",
+        match="current=013_core_tenant_lineage.*head=015_schema_contract_guard",
     ):
         assert_database_at_head(engine)
     engine.dispose()
@@ -54,11 +72,11 @@ def test_strict_mode_accepts_exactly_one_current_head(tmp_path: Path) -> None:
     engine = create_engine(f"sqlite:///{path}")
     with engine.begin() as connection:
         connection.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)"))
-        connection.execute(text("INSERT INTO alembic_version(version_num) VALUES ('014_tenant_identity_tables')"))
+        connection.execute(text("INSERT INTO alembic_version(version_num) VALUES ('015_schema_contract_guard')"))
 
     identity = assert_database_at_head(engine)
-    assert identity.current == "014_tenant_identity_tables"
-    assert identity.head == "014_tenant_identity_tables"
+    assert identity.current == "015_schema_contract_guard"
+    assert identity.head == "015_schema_contract_guard"
     assert identity.ready is True
     engine.dispose()
 
