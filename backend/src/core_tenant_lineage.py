@@ -35,6 +35,18 @@ CORE_TENANT_LINEAGE_MODELS = (
 )
 
 
+class TenantLineageConflict(RuntimeError):
+    """Two explicit tenant provenance values disagree."""
+
+
+def assert_known_tenant_lineage_consistent(*, context: str, **lineage: int | None) -> None:
+    """Reject disagreement without treating legacy NULL as an owner."""
+    known = {name: value for name, value in lineage.items() if value is not None}
+    if len(set(known.values())) > 1:
+        details = " ".join(f"{name}={value}" for name, value in known.items())
+        raise TenantLineageConflict(f"tenant lineage conflict: context={context} {details}")
+
+
 def tenant_id_for_task(db: Session, task_id: str) -> int | None:
     """Inherit lineage from the canonical task root; never resolve a default."""
     for pending in db.new:
@@ -52,13 +64,11 @@ def assert_no_tenant_lineage_conflict(db: Session, *, task_id: str, inherited_te
     A legacy NULL remains quarantinable and compatible.  It is not promoted to
     an owner here; only a conflict between two explicit values is rejected.
     """
-    task_tenant_id = tenant_id_for_task(db, task_id)
-    if task_tenant_id is not None and inherited_tenant_id is not None and task_tenant_id != inherited_tenant_id:
-        raise RuntimeError(
-            "tenant lineage conflict: "
-            f"task_id={task_id} task_tenant_id={task_tenant_id} "
-            f"inherited_tenant_id={inherited_tenant_id}"
-        )
+    assert_known_tenant_lineage_consistent(
+        context=f"task:{task_id}",
+        task_tenant_id=tenant_id_for_task(db, task_id),
+        inherited_tenant_id=inherited_tenant_id,
+    )
 
 
 def list_tenant_lineage_quarantine(db: Session, *, task_id: str | None = None) -> list[dict[str, Any]]:

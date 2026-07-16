@@ -31,8 +31,8 @@
 | 前端 canonical 消费者 3 文件 | 0 | 22 passed | 军机处读模型、上书房视图、live bridge | tsx nodetest，2026-07-16 |
 | P4.5e ruff + py_compile | 0 | PASS | 3 个变更 Python 文件 | 本地终端，2026-07-16 |
 | P4.5f core writer 契约（实现前） | 1 | 2 failed（预期 RED） | 8 张表字段、20 个生产构造点缺失 | brew Python 3.14，2026-07-16 |
-| P4.5f core writer + 传播/auth/worker | 0 | 18 passed | 严格入口、同事务继承、NULL quarantine、冲突阻断 | brew Python 3.14，2026-07-16 |
-| P4.5f 相关后端 17 文件 | 0 | 106 passed | canonical/compat、outbox、时间线、正式奏折与读模型回归 | brew Python 3.14，2026-07-16 |
+| P4.5f core writer + 传播/auth/worker | 0 | 22 passed | 严格入口、同事务继承、NULL quarantine、重放/三方/回收冲突阻断 | brew Python 3.14，2026-07-16 |
+| P4.5f 相关后端 17 文件 | 0 | 110 passed | canonical/compat、outbox、时间线、正式奏折与读模型回归 | brew Python 3.14，2026-07-16 |
 | 013 迁移（实现前） | 1 | 7 failed（预期 RED） | revision 尚不存在 | `.venv-alembic` + pytest，2026-07-16 |
 | 013 迁移 | 0 | 9 passed | 012 旧库、合规重放、类型/约束阻断、DDL 前置预检、缺表、降级、fresh chain | 临时 SQLite，2026-07-16 |
 | 全部 migration pytest | 0 | 18 passed | 007–013 真实 Alembic 回归 | 临时 SQLite，2026-07-16 |
@@ -41,6 +41,9 @@
 | `python3 backend/scripts/harness_doctor.py` | 0 | 0 errors / 0 warnings | 后端 harness 完整性收口复核 | 本地终端，2026-07-16 |
 | `node scripts/harness-doctor.mjs` | 0 | 0 errors / 0 warnings | 根级边界与两线委托收口复核 | 本地终端，2026-07-16 |
 | 真实库只读指纹复核 | 0 | 与实施前完全一致 | size/mtime/inode/SHA-256 | 本地只读，2026-07-16 |
+| P4.5f 独立审查 v1 | — | NO-GO | route/final replay、worker review、冲突 failure timeline 四项 | 只读 reviewer，2026-07-16 |
+| 独立审查修复 RED | 1 | 5 failed（预期 RED） | 四个阻断项与既有 worker 断言扩展 | brew Python 3.14，2026-07-16 |
+| 独立审查修复 GREEN | 0 | 42 passed；全相关 110 passed | 统一冲突异常、重放/三方/reaper fail closed | brew Python 3.14，2026-07-16 |
 
 ## 结果
 
@@ -72,7 +75,7 @@ P4.5a-f VERIFIED；全包处于独立审查前收口阶段。
 | P4.5c 质量门归属 | AST import/definition 守门 + 24 个行为回归 | PASS |
 | P4.5d writer 基线 | 独立 AST multiset + 42 个相邻回归 | PASS |
 | P4.5e 完整意见投影 | 严格 schema 7 tests + 后端 49 tests + 前端 22 tests | PASS |
-| P4.5f 八表 lineage | 20 writer AST + 传播/auth/worker 18 tests + 106 相关回归 | PASS |
+| P4.5f 八表 lineage | 20 writer AST + 传播/auth/worker 22 tests + 110 相关回归 | PASS，待复审 |
 | 013 expand-only | 9 个临时库场景 + 全迁移 18 tests | PASS |
 | 完整后端新增失败 | 基线与任务分支均为同一 7 failures | PASS（新增 0） |
 

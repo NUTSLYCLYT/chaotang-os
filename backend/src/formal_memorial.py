@@ -26,9 +26,7 @@ def ensure_final_memorial_table(db: "Session") -> None:
     FinalMemorial.__table__.create(db.get_bind(), checkfirst=True)
 
 
-def adjudication_block_reason(
-    quality_result: dict[str, Any], source_label: str
-) -> str | None:
+def adjudication_block_reason(quality_result: dict[str, Any], source_label: str) -> str | None:
     if not bool(quality_result.get("passed")):
         return "quality_gate_failed"
     if source_label not in ADJUDICABLE_SOURCE_LABELS:
@@ -67,6 +65,12 @@ def formalize_memorial(
     review = db.query(CourtReview).filter_by(id=review_id, task_id=task_id).first()
     if review is None:
         raise FormalMemorialBlocked("candidate_review_not_found")
+    from src.core_tenant_lineage import (
+        assert_known_tenant_lineage_consistent,
+        assert_no_tenant_lineage_conflict,
+    )
+
+    assert_no_tenant_lineage_conflict(db, task_id=task_id, inherited_tenant_id=review.tenant_id)
     try:
         memorial = json.loads(review.memorial_json or "null")
     except json.JSONDecodeError as exc:
@@ -74,9 +78,7 @@ def formalize_memorial(
     if not isinstance(memorial, dict) or not memorial:
         raise FormalMemorialBlocked("candidate_memorial_empty")
 
-    memorial_json = json.dumps(
-        memorial, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    )
+    memorial_json = json.dumps(memorial, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     content_hash = sha256(memorial_json.encode("utf-8")).hexdigest()
     swarm_run_id = str(run.get("id") or "")
     if not swarm_run_id:
@@ -85,6 +87,11 @@ def formalize_memorial(
 
     existing = db.query(FinalMemorial).filter_by(task_id=task_id).first()
     if existing is not None:
+        assert_known_tenant_lineage_consistent(
+            context=f"formal_memorial:{task_id}",
+            review_tenant_id=review.tenant_id,
+            memorial_tenant_id=existing.tenant_id,
+        )
         immutable = (
             existing.review_id,
             existing.swarm_run_id,
@@ -120,7 +127,6 @@ def formalize_memorial(
     from src.migration_telemetry import record_canonical_chain_event_after_commit
 
     record_canonical_chain_event_after_commit(
-        db,
-        "final_memorial_promoted", caller_id="formal_memorial.formalize_memorial"
+        db, "final_memorial_promoted", caller_id="formal_memorial.formalize_memorial"
     )
     return row

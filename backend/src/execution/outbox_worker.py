@@ -97,6 +97,14 @@ def _execute_direct(
     )
     if review is None or not review.memorial_json:
         raise ValueError(f"task_id={task_id} 缺少可核验的 direct 回执")
+    from src.core_tenant_lineage import assert_known_tenant_lineage_consistent
+
+    assert_known_tenant_lineage_consistent(
+        context=f"direct_worker:{outbox_event_id}",
+        task_tenant_id=task.tenant_id,
+        outbox_tenant_id=tenant_id,
+        review_tenant_id=review.tenant_id,
+    )
     _record_timeline(
         db,
         task_id=task_id,
@@ -111,9 +119,7 @@ def _execute_direct(
             "outbox_event_id": outbox_event_id,
             "review_id": review.id,
         },
-        idempotency_key=(
-            f"dispatch.receipt_only:{outbox_event_id}:attempt:{attempt}"
-        ),
+        idempotency_key=(f"dispatch.receipt_only:{outbox_event_id}:attempt:{attempt}"),
         tenant_id=tenant_id,
     )
     return {"mode": "direct", "task_status": task.status}
@@ -146,14 +152,17 @@ def _execute_council(
     if task is None:
         raise ValueError(f"task_id 不存在: {task_id}")
 
-    review = (
-        db.query(CourtReview)
-        .filter_by(task_id=task_id)
-        .order_by(CourtReview.created_at.desc())
-        .first()
-    )
+    review = db.query(CourtReview).filter_by(task_id=task_id).order_by(CourtReview.created_at.desc()).first()
     if review is None:
         raise ValueError(f"task_id={task_id} 没有对应的 CourtReview，无法派单")
+    from src.core_tenant_lineage import assert_known_tenant_lineage_consistent
+
+    assert_known_tenant_lineage_consistent(
+        context=f"council_worker:{outbox_event_id}",
+        task_tenant_id=task.tenant_id,
+        outbox_tenant_id=tenant_id,
+        review_tenant_id=review.tenant_id,
+    )
 
     import json
 
@@ -195,9 +204,7 @@ def _execute_council(
     persist_swarm_execution_result(db, swarm_result)
     attach_swarm_result_to_review(db, review.id, swarm_result)
     swarm_run_id = swarm_result["swarm_run"]["id"]
-    swarm_source_label = str(
-        swarm_result["swarm_run"].get("source_label") or "FALLBACK"
-    )
+    swarm_source_label = str(swarm_result["swarm_run"].get("source_label") or "FALLBACK")
     from src.formal_memorial import FormalMemorialBlocked, formalize_memorial
 
     formal_memorial = None
@@ -213,9 +220,7 @@ def _execute_council(
         memorial_block_reason = str(exc)
 
     effective_quality_passed = formal_memorial is not None
-    task.status = (
-        "awaiting_decision" if effective_quality_passed else "awaiting_evidence"
-    )
+    task.status = "awaiting_decision" if effective_quality_passed else "awaiting_evidence"
     task.updated_at = _now_iso()
     review.review_status = task.status
     review.updated_at = task.updated_at
@@ -234,9 +239,7 @@ def _execute_council(
             "review_id": review.id,
             "swarm_run_id": swarm_run_id,
         },
-        idempotency_key=(
-            f"reports.completed:{outbox_event_id}:attempt:{attempt}"
-        ),
+        idempotency_key=(f"reports.completed:{outbox_event_id}:attempt:{attempt}"),
         tenant_id=tenant_id,
     )
     quality_result = swarm_result["quality_result"]
@@ -246,20 +249,14 @@ def _execute_council(
     _record_timeline(
         db,
         task_id=task_id,
-        stage=(
-            "awaiting_emperor_decision"
-            if effective_quality_passed
-            else "awaiting_evidence"
-        ),
+        stage=("awaiting_emperor_decision" if effective_quality_passed else "awaiting_evidence"),
         actor="quality_gate",
         message=(
             "御史质量门通过，奏折可进入人工裁决。"
             if effective_quality_passed
             else "御史质量门阻断，必须补证后重新回奏。"
         ),
-        event_type=(
-            "quality.passed" if effective_quality_passed else "quality.blocked"
-        ),
+        event_type=("quality.passed" if effective_quality_passed else "quality.blocked"),
         trace_id=review.id,
         source_label=task.source_label,
         payload={
@@ -277,30 +274,20 @@ def _execute_council(
     _record_timeline(
         db,
         task_id=task_id,
-        stage=(
-            "awaiting_emperor_decision"
-            if effective_quality_passed
-            else "awaiting_evidence"
-        ),
+        stage=("awaiting_emperor_decision" if effective_quality_passed else "awaiting_evidence"),
         actor="junjichu",
         message=(
             "军机处已生成唯一正式奏折，等待皇上人工裁决。"
             if effective_quality_passed
             else f"候选奏折未晋升为正式奏折：{memorial_block_reason}。"
         ),
-        event_type=(
-            "memorial.formalized"
-            if effective_quality_passed
-            else "memorial.blocked"
-        ),
+        event_type=("memorial.formalized" if effective_quality_passed else "memorial.blocked"),
         trace_id=review.id,
         source_label=task.source_label,
         payload={
             "swarm_run_id": swarm_run_id,
             "swarm_source_label": swarm_source_label,
-            "formal_memorial_id": (
-                formal_memorial.id if formal_memorial is not None else None
-            ),
+            "formal_memorial_id": (formal_memorial.id if formal_memorial is not None else None),
             "blocking_reason": memorial_block_reason,
         },
         idempotency_key=f"memorial:{swarm_run_id}",
@@ -310,9 +297,7 @@ def _execute_council(
         "mode": "council",
         "task_status": task.status,
         "swarm_run_id": swarm_run_id,
-        "formal_memorial_id": (
-            formal_memorial.id if formal_memorial is not None else None
-        ),
+        "formal_memorial_id": (formal_memorial.id if formal_memorial is not None else None),
     }
 
 
@@ -364,9 +349,7 @@ def process_event(db: "Session", event_id: str) -> dict[str, Any]:
     try:
         from src.core_tenant_lineage import assert_no_tenant_lineage_conflict
 
-        assert_no_tenant_lineage_conflict(
-            db, task_id=event.task_id, inherited_tenant_id=event.tenant_id
-        )
+        assert_no_tenant_lineage_conflict(db, task_id=event.task_id, inherited_tenant_id=event.tenant_id)
         if event.event_type == "route.direct":
             result = _execute_direct(
                 db,
@@ -391,38 +374,37 @@ def process_event(db: "Session", event_id: str) -> dict[str, Any]:
         db.commit()
         from src.migration_telemetry import record_canonical_chain_event
 
-        record_canonical_chain_event(
-            "outbox_consumed", caller_id="outbox_worker.process_event"
-        )
+        record_canonical_chain_event("outbox_consumed", caller_id="outbox_worker.process_event")
         return {"status": "completed", "event_id": event_id, "result": result}
     except Exception as exc:  # noqa: BLE001
         db.rollback()
+        from src.core_tenant_lineage import TenantLineageConflict
+
         event = db.query(OutboxEvent).filter_by(id=event_id).first()
         error_type = type(exc).__name__
         event.attempts = max(event.attempts, attempt)
         event.last_error = str(exc)
-        event.status = (
-            "dead_letter" if event.attempts >= event.max_attempts else "failed"
-        )
+        event.status = "dead_letter" if event.attempts >= event.max_attempts else "failed"
         event.updated_at = _now_iso()
-        _record_timeline(
-            db,
-            task_id=event.task_id,
-            stage="failed",
-            actor="worker",
-            message=f"第 {attempt} 次派单失败，详情已记录在 outbox。",
-            event_type="dispatch.failed",
-            trace_id=event.decision_id,
-            source_label=_task_source_label(db, event.task_id),
-            payload={
-                "attempt": attempt,
-                "error_type": error_type,
-                "outbox_event_id": event.id,
-                "outbox_status": event.status,
-            },
-            idempotency_key=f"dispatch.failed:{event.id}:attempt:{attempt}",
-            tenant_id=event.tenant_id,
-        )
+        if not isinstance(exc, TenantLineageConflict):
+            _record_timeline(
+                db,
+                task_id=event.task_id,
+                stage="failed",
+                actor="worker",
+                message=f"第 {attempt} 次派单失败，详情已记录在 outbox。",
+                event_type="dispatch.failed",
+                trace_id=event.decision_id,
+                source_label=_task_source_label(db, event.task_id),
+                payload={
+                    "attempt": attempt,
+                    "error_type": error_type,
+                    "outbox_event_id": event.id,
+                    "outbox_status": event.status,
+                },
+                idempotency_key=f"dispatch.failed:{event.id}:attempt:{attempt}",
+                tenant_id=event.tenant_id,
+            )
         db.commit()
         return {"status": event.status, "event_id": event_id, "error": str(exc)}
 
@@ -438,24 +420,25 @@ def _reap_stale_processing_events(db: "Session") -> int:
     重新捞起来，不需要人工介入清库。"""
     from datetime import datetime, timedelta, timezone
 
+    from src.core_tenant_lineage import (
+        TenantLineageConflict,
+        assert_no_tenant_lineage_conflict,
+    )
     from src.db.models import OutboxEvent
 
-    cutoff = (
-        datetime.now(timezone.utc) - timedelta(seconds=_STALE_PROCESSING_SECONDS)
-    ).isoformat(timespec="seconds")
-    stale = (
-        db.query(OutboxEvent)
-        .filter(OutboxEvent.status == "processing", OutboxEvent.updated_at < cutoff)
-        .all()
-    )
+    cutoff = (datetime.now(timezone.utc) - timedelta(seconds=_STALE_PROCESSING_SECONDS)).isoformat(timespec="seconds")
+    stale = db.query(OutboxEvent).filter(OutboxEvent.status == "processing", OutboxEvent.updated_at < cutoff).all()
     for event in stale:
         attempt = event.attempts + 1
         event.attempts = attempt
         event.last_error = "重置：processing 状态超过 15 分钟未完成，视为卡死"
-        event.status = (
-            "dead_letter" if event.attempts >= event.max_attempts else "failed"
-        )
+        event.status = "dead_letter" if event.attempts >= event.max_attempts else "failed"
         event.updated_at = _now_iso()
+        try:
+            assert_no_tenant_lineage_conflict(db, task_id=event.task_id, inherited_tenant_id=event.tenant_id)
+        except TenantLineageConflict as exc:
+            event.last_error = str(exc)
+            continue
         _record_timeline(
             db,
             task_id=event.task_id,

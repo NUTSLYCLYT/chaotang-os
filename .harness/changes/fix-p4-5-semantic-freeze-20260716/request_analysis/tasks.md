@@ -49,7 +49,9 @@
   `list_tenant_lineage_quarantine()` 可审计清单。
 - 013 expand-only：无 default/backfill/index/FK；缺核心表、已有 NOT NULL 或默认值均阻断。
 - RED：字段与 20 个 writer 契约 2 failed，013 缺失 7 failed；GREEN：相关回归
-  106 passed，全部迁移测试 18 passed（其中 013 为 9 passed）。
+  110 passed，全部迁移测试 18 passed（其中 013 为 9 passed）。
+- 独立审查首轮 NO-GO 指出 route/final replay、review 三方校验与冲突失败时间线
+  四处缺口；均已追加 RED 用例并修复，待复审签发 GO。
 - 真实数据库从未作为测试目标；只在临时 SQLite 演练 upgrade/downgrade/fresh chain。
 
 ## 收口（IN REVIEW）

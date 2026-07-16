@@ -79,8 +79,15 @@ def record_timeline_event(
     if idempotency_key:
         existing = db.query(DecreeExecutionEvent).filter_by(task_id=task_id, idempotency_key=idempotency_key).first()
         if existing is not None:
-            if existing.tenant_id is not None and event_tenant_id is not None and existing.tenant_id != event_tenant_id:
-                raise ValueError("tenant lineage conflict for idempotent decree event replay")
+            from src.core_tenant_lineage import (
+                assert_known_tenant_lineage_consistent,
+            )
+
+            assert_known_tenant_lineage_consistent(
+                context=f"decree_event:{task_id}:{idempotency_key}",
+                existing_tenant_id=existing.tenant_id,
+                replay_tenant_id=event_tenant_id,
+            )
             immutable = {
                 "stage": stage,
                 "actor": actor,

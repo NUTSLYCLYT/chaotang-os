@@ -162,6 +162,7 @@ def test_worker_fails_closed_before_dispatch_when_known_lineage_conflicts(
     assert "tenant lineage conflict" in result["error"]
     assert db.get(OutboxEvent, event_id).attempts == 1
     assert db.query(DecreeExecutionEvent).filter_by(task_id=task.id, event_type="dispatch.receipt_only").count() == 0
+    assert db.query(DecreeExecutionEvent).filter_by(task_id=task.id, event_type="dispatch.failed").count() == 0
     db.close()
 
 
@@ -180,6 +181,130 @@ def test_timeline_idempotent_replay_rejects_two_known_tenant_values(
     record_timeline_event(db, tenant_id=7, **common)
     db.commit()
 
-    with pytest.raises(ValueError, match="tenant lineage conflict"):
+    with pytest.raises(RuntimeError, match="tenant lineage conflict"):
         record_timeline_event(db, tenant_id=8, **common)
+    db.close()
+
+
+def test_route_idempotent_replay_rejects_known_task_route_conflict(
+    isolated_session_local,
+):
+    db = isolated_session_local()
+    task = _create_task(db, task_id="task_route_replay_conflict", tenant_id=7)
+    service = ChancellorRoutingService()
+    decision = service.decide(
+        db,
+        task_id=task.id,
+        confirmed_edict_text=task.raw_question,
+        idempotency_key="route-replay-conflict",
+    )
+    db.flush()
+    route = db.get(ChancellorRouteDecision, decision.decision_id)
+    route.tenant_id = 8
+    db.commit()
+
+    with pytest.raises(RuntimeError, match="tenant lineage conflict"):
+        service.decide(
+            db,
+            task_id=task.id,
+            confirmed_edict_text=task.raw_question,
+            idempotency_key="route-replay-conflict",
+        )
+    db.close()
+
+
+def test_formal_memorial_replay_rejects_known_review_memorial_conflict(
+    isolated_session_local,
+):
+    db = isolated_session_local()
+    task = _create_task(db, task_id="task_formal_replay_conflict", tenant_id=7)
+    review = CourtReview(
+        id="review_formal_replay_conflict",
+        tenant_id=7,
+        task_id=task.id,
+        routing_plan_json="{}",
+        review_status="reviewing",
+        ministry_outputs_json="[]",
+        conflict_summary_json="[]",
+        memorial_json='{"summary":"证据充分"}',
+    )
+    db.add(review)
+    db.flush()
+    swarm_result = {
+        "swarm_run": {
+            "id": "run_formal_replay_conflict",
+            "task_id": task.id,
+            "review_id": review.id,
+            "source_label": "LIVE_SWARM",
+        },
+        "quality_result": {"id": "quality_formal_replay_conflict", "passed": True},
+    }
+    memorial = formalize_memorial(db, task_id=task.id, review_id=review.id, swarm_result=swarm_result)
+    db.commit()
+    memorial.tenant_id = 8
+    db.commit()
+
+    with pytest.raises(RuntimeError, match="tenant lineage conflict"):
+        formalize_memorial(db, task_id=task.id, review_id=review.id, swarm_result=swarm_result)
+    db.close()
+
+
+def test_worker_rejects_known_review_conflict_without_writing_failure_timeline(
+    isolated_session_local,
+):
+    db = isolated_session_local()
+    task = _create_task(db, task_id="task_review_conflict", tenant_id=7)
+    db.add(
+        CourtReview(
+            id="review_known_conflict",
+            tenant_id=8,
+            task_id=task.id,
+            routing_plan_json='{"route":{"mode":"direct"}}',
+            review_status="direct_completed",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json='{"title":"direct receipt"}',
+        )
+    )
+    event_id = enqueue_dispatch(
+        db,
+        task_id=task.id,
+        decision_id="decision_review_conflict",
+        event_type="route.direct",
+    )
+    db.commit()
+
+    result = process_event(db, event_id)
+
+    assert result["status"] == "failed"
+    assert "tenant lineage conflict" in result["error"]
+    assert db.query(DecreeExecutionEvent).filter_by(task_id=task.id, event_type="dispatch.failed").count() == 0
+    db.close()
+
+
+def test_stale_reaper_quarantines_known_conflict_without_failure_timeline(
+    isolated_session_local,
+):
+    from src.execution.outbox_worker import _reap_stale_processing_events
+
+    db = isolated_session_local()
+    task = _create_task(db, task_id="task_stale_tenant_conflict", tenant_id=7)
+    event_id = enqueue_dispatch(
+        db,
+        task_id=task.id,
+        decision_id="decision_stale_tenant_conflict",
+        event_type="route.direct",
+    )
+    db.commit()
+    event = db.get(OutboxEvent, event_id)
+    event.tenant_id = 8
+    event.status = "processing"
+    event.updated_at = "2000-01-01T00:00:00+00:00"
+    db.commit()
+
+    assert _reap_stale_processing_events(db) == 1
+    event = db.get(OutboxEvent, event_id)
+    assert event.status == "failed"
+    assert "tenant lineage conflict" in event.last_error
+    assert db.query(DecreeExecutionEvent).filter_by(task_id=task.id, event_type="dispatch.failed").count() == 0
     db.close()
