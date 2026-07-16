@@ -14,7 +14,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from sqlalchemy import inspect, text
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import URL, Engine
 from sqlalchemy.schema import MetaData
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -76,7 +76,22 @@ def expected_alembic_head() -> str:
     return heads[0]
 
 
+def sqlite_file_path(url: URL) -> Path | None:
+    """Return the physical SQLite file without opening or creating it."""
+    if url.get_backend_name() != "sqlite":
+        return None
+    database = url.database
+    if not database or database == ":memory:" or url.query.get("mode") == "memory":
+        return None
+    if database.startswith("file:"):
+        database = database.removeprefix("file:")
+    return Path(database).expanduser()
+
+
 def database_revisions(engine: Engine) -> tuple[str, ...]:
+    database_path = sqlite_file_path(engine.url)
+    if database_path is not None and not database_path.exists():
+        raise SchemaAuthorityError(f"primary SQLite database does not exist: {database_path}")
     inspector = inspect(engine)
     if "alembic_version" not in inspector.get_table_names():
         return ()
@@ -112,14 +127,14 @@ def assert_primary_identity_store_alignment(
             "the legacy identity adapter is SQLite-only; a non-SQLite primary "
             "database requires migrating src.tenant before service startup"
         )
-    primary_database = engine.url.database
-    if not primary_database or primary_database == ":memory:":
+    primary_path = sqlite_file_path(engine.url)
+    if primary_path is None:
         raise SchemaAuthorityError("strict mode requires a file-backed primary database")
     if identity_database is None:
         from src.runtime_paths import resolve_runtime_paths
 
         identity_database = resolve_runtime_paths().database
-    primary_path = Path(primary_database).resolve()
+    primary_path = primary_path.resolve()
     identity_path = Path(identity_database).resolve()
     if primary_path != identity_path:
         raise SchemaAuthorityError(

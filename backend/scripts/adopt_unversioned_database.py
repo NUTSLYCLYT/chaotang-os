@@ -21,7 +21,9 @@ from src.schema_adoption import (  # noqa: E402
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--db-url", required=True)
-    parser.add_argument("--apply", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--check", action="store_true", help="explicit read-only compatibility check")
+    mode.add_argument("--apply", action="store_true")
     parser.add_argument(
         "--backup",
         type=Path,
@@ -33,7 +35,11 @@ def main() -> int:
         default=_BACKEND_ROOT / "alembic.ini",
     )
     args = parser.parse_args()
-    report = inspect_unversioned_database(args.db_url)
+    try:
+        report = inspect_unversioned_database(args.db_url)
+    except AdoptionError as exc:
+        print(json.dumps({"error": str(exc), "mode": "apply" if args.apply else "check"}, ensure_ascii=False))
+        return 2
     print(
         json.dumps(
             {
