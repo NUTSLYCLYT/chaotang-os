@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .codex/hooks/check-harness.sh"
+            "command": "node .agents/hooks/check-harness.mjs"
           }
         ]
       }

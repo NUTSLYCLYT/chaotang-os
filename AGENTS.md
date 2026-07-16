@@ -6,6 +6,7 @@
 
 - 已确认边界：`ARCHITECTURE.md`
 - Agentic 工作流：`docs/agentic-engineering.md`
+- Codex/Claude Code 客户端兼容：`docs/tooling-compatibility.md`
 - 修改前端：继续读 `frontend/AGENTS.md`
 - 修改后端：继续读 `backend/AGENTS.md`
 
@@ -23,6 +24,7 @@
 
 - `node scripts/check_harness.mjs`
 - `node scripts/check_harness.mjs --self-test`
+- `node .agents/hooks/check-harness.mjs --self-test`
 
 前后端命令尚未定义。首次技术选型必须在同一变更中补充真实的 setup、lint、test、
 build/run 命令和对应 CI，禁止复制不存在的命令。

@@ -15,8 +15,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
       - name: Validate agentic baseline
         run: node scripts/check_harness.mjs
       - name: Test baseline checker
         run: node scripts/check_harness.mjs --self-test
+      - name: Test shared Stop hook protocol
+        run: node .agents/hooks/check-harness.mjs --self-test

@@ -13,5 +13,7 @@
 - 工作规则：`AGENTS.md`
 - 架构边界：`ARCHITECTURE.md`
 - Agentic 工作流：`docs/agentic-engineering.md`
+- Codex/Claude Code 兼容基线：`docs/tooling-compatibility.md`
 - Harness 验证：`node scripts/check_harness.mjs`
 - 检查器自测：`node scripts/check_harness.mjs --self-test`
+- Stop hook 协议自测：`node .agents/hooks/check-harness.mjs --self-test`

@@ -3,7 +3,9 @@
 这里只保存无法从代码直接看出、并且会影响后续工作的知识。
 
 - `agentic-engineering.md`：本项目的 agent 协作、验证闭环和能力引入原则。
+- `tooling-compatibility.md`：共享 harness 的客户端适配、运行环境和冒烟检查。
 - `decisions/`：已经作出的重要架构或流程选择，以及选择原因。
+- `failures/`：高风险、用户可见或可能复发问题的根因和检测方式。
 
 当前事实见根目录 `ARCHITECTURE.md`，经常需要的操作规则见各级 `AGENTS.md`。
 不要在这里复制代码结构、普通 Git 历史或容易过期的命令清单。
