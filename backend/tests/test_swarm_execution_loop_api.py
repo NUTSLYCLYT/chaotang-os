@@ -204,7 +204,11 @@ def test_swarm_run_api_persists_and_attaches_to_review(isolated_session_local):
     swarm_run_id = data["swarm_run"]["id"]
     assert data["brief"]["source_label"] == "FALLBACK"
     assert data["brief"]["missing_evidence"]
-    assert data["quality_result"]["passed"] is True
+    # P4c: a FALLBACK brief with unresolved evidence may still be persisted and attached for
+    # inspection, but it must never cross the quality gate as a real decision.
+    assert data["quality_result"]["passed"] is False
+    assert "fallback_cannot_enter_real_decision" in data["quality_result"]["blocking_reasons"]
+    assert "missing_evidence_requires_resolution" in data["quality_result"]["blocking_reasons"]
     assert "人工确认" in data["brief"]["recommended_next_action"]
 
     detail = client.get(f"/api/swarm-runs/{swarm_run_id}").json()["data"]
