@@ -40,8 +40,24 @@ description: 在 Codex 桌面任务内自动完成产品定义、Claude Code 模
 node .agents/skills/product-flow/scripts/run-claude-delivery.mjs --task <任务路径>
 ```
 
+用户明确授权 Claude Code 使用 `bypassPermissions` 时，改为运行：
+
+```text
+node .agents/skills/product-flow/scripts/run-claude-delivery.mjs --bypass-permissions --task <任务路径>
+```
+
+不得从普通 `$product-flow` 调用推断该权限；只有用户明确授权时才传入开关。runner 在 Claude
+退出后必须重新读取任务状态，只有 `Implemented` 返回成功；`Blocked` 或残留的 `In Progress`
+均返回非零，防止把 Claude 的正常进程退出误判为交付成功。
+
 保持当前 Codex 任务等待命令结束。Claude Code 必须按 `CLAUDE.md` 依次使用架构、模块交付和
 测试角色，写回 `Technical Plan`、`Implementation Report` 与状态。
+
+runner 默认使用 Claude Code 的 `stream-json` 事件流，并在当前 Codex 任务中持续展示主/子角色
+消息、工具调用、命令结果、文件操作、Hook 和最终统计；不得把长时间无输出误判为进程结束。
+完整 JSONL 写入系统临时目录 `chaotang-product-flow/`，runner 启动时输出实际路径。实时展示会
+截断过长单条内容并脱敏常见 API Key、Token、密码和 Bearer 凭据；需要完整诊断时读取本次打印
+的 JSONL 路径，不把运行日志、密钥或环境文件写进仓库。
 
 - 状态为 `Blocked`：读取阻塞内容并向用户提出最少问题，不继续重试。
 - 状态不是 `Implemented`：报告协议失败，不自行伪造完成状态。
@@ -63,5 +79,5 @@ node .agents/skills/product-flow/scripts/run-claude-delivery.mjs --task <任务�
 ## 脚本维护
 
 - 用 `node .agents/skills/product-flow/scripts/run-claude-delivery.mjs --self-test` 测试参数、路径和
-  状态解析。
+  状态解析、流式参数、事件格式化与脱敏。
 - 用 `--dry-run --task <Ready 任务>` 查看将发送给 Claude 的调用，不启动 Claude。
