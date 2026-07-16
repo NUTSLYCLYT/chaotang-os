@@ -224,7 +224,13 @@ core/courtos/ministries/{ministry-review-loop,yushitai-auditor,imperial-report-s
 验收：junjichu/上书房 页面状态全部来自后端读模型（grep 守门：生产代码不再
 import 上述引擎）；sourceLabel 不出现 MIXED 本地合成路径；浏览器冒烟
 （上书房下旨→军机处看状态→圣裁）通过。
-回滚：feature flag 切回旧渲染路径（保留一个版本周期后删）。
+回滚：（v2.3 修订，2026-07-16——原文"切回旧渲染路径"作废）emergency
+kill-switch：`NEXT_PUBLIC_COURTOS_CANONICAL_PROJECTION` 关闭时 fail-closed
+进入诚实等待态，**永不恢复已退役前端引擎**。理由：回滚路径若能复活旧引擎，
+引擎须保持生产可 import，架构守门与 P4c 退役即告作废；且事故时刻切回
+关键词引擎=给用户看伪造裁决，空白等待态（"暂无裁决"）优于假结论——
+"失败是一等状态/MOCK 不得冒充 LIVE"在回滚设计中的贯彻。实现见
+frontend/src/lib/courtos/canonical-projection-rollout.ts（P4 审查 v2 GO 认可）。
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ### P5 迁移权威归一（type: fix, name: alembic-single-authority）
