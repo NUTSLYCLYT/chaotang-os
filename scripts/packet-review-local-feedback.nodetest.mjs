@@ -276,6 +276,13 @@ function prepareHookRepository({hooksPath} = {}) {
   return repository;
 }
 
+function activeSnapshot(hooks) {
+  const assetDir = join(hooks, 'chaotang-packet-review-local-feedback-v1');
+  const bundle = readFileSync(join(assetDir, 'current'), 'utf8').trim();
+  assert.match(bundle, /^bundle-[0-9a-f]{64}$/);
+  return {assetDir, bundle, path: join(assetDir, 'bundles', bundle)};
+}
+
 test('status output admits the local feedback gate is bypassable and not enforced', () => {
   const result = spawnSync(process.execPath, [cli, '--status'], {encoding: 'utf8'});
   assert.equal(result.status, 0, result.stderr);
@@ -343,6 +350,28 @@ test('installer refuses to overwrite an existing non-dispatcher pre-push hook', 
   }
 });
 
+test('snapshot refresh switches one current pointer while retaining the prior immutable bundle', () => {
+  const repository = prepareHookRepository();
+  try {
+    const firstInstall = spawnSync(process.execPath, [installer], {cwd: repository, encoding: 'utf8'});
+    assert.equal(firstInstall.status, 0, firstInstall.stderr);
+    const hooks = git(repository, ['rev-parse', '--path-format=absolute', '--git-path', 'hooks']);
+    const before = activeSnapshot(hooks);
+    const beforeCli = readFileSync(join(before.path, 'packet-review-pre-push.mjs'), 'utf8');
+    const sourceCli = join(repository, 'scripts', 'packet-review-pre-push.mjs');
+    writeFileSync(sourceCli, `${readFileSync(sourceCli, 'utf8')}\n// refreshed bundle\n`);
+
+    const secondInstall = spawnSync(process.execPath, [installer], {cwd: repository, encoding: 'utf8'});
+    assert.equal(secondInstall.status, 0, secondInstall.stderr);
+    const after = activeSnapshot(hooks);
+    assert.notEqual(after.bundle, before.bundle);
+    assert.equal(readFileSync(join(before.path, 'packet-review-pre-push.mjs'), 'utf8'), beforeCli);
+    assert.match(readFileSync(join(after.path, 'packet-review-pre-push.mjs'), 'utf8'), /refreshed bundle/);
+  } finally {
+    rmSync(repository, {recursive: true, force: true});
+  }
+});
+
 test('uninstall refuses to delete an unmanaged same-name packet-review subhook', () => {
   const repository = prepareHookRepository();
   try {
@@ -388,7 +417,7 @@ function assertReinstallRefusesSnapshotSymlink(relativePath) {
     const install = spawnSync(process.execPath, [installer], {cwd: repository, encoding: 'utf8'});
     assert.equal(install.status, 0, install.stderr);
     const hooks = git(repository, ['rev-parse', '--path-format=absolute', '--git-path', 'hooks']);
-    const snapshotFile = join(hooks, 'chaotang-packet-review-local-feedback-v1', relativePath);
+    const snapshotFile = join(activeSnapshot(hooks).path, relativePath);
     const userOwned = join(repository, 'user-owned.txt');
     writeFileSync(userOwned, 'preserve me\n');
     rmSync(snapshotFile);
@@ -417,9 +446,9 @@ test('failed snapshot refresh preserves the complete previously active bundle', 
     const install = spawnSync(process.execPath, [installer], {cwd: repository, encoding: 'utf8'});
     assert.equal(install.status, 0, install.stderr);
     const hooks = git(repository, ['rev-parse', '--path-format=absolute', '--git-path', 'hooks']);
-    const snapshot = join(hooks, 'chaotang-packet-review-local-feedback-v1');
-    const snapshotCli = join(snapshot, 'packet-review-pre-push.mjs');
-    const snapshotCore = join(snapshot, 'lib', 'packet-review-local-feedback.mjs');
+    const snapshot = activeSnapshot(hooks);
+    const snapshotCli = join(snapshot.path, 'packet-review-pre-push.mjs');
+    const snapshotCore = join(snapshot.path, 'lib', 'packet-review-local-feedback.mjs');
     const beforeCli = readFileSync(snapshotCli, 'utf8');
     const beforeCore = readFileSync(snapshotCore, 'utf8');
 
@@ -430,6 +459,7 @@ test('failed snapshot refresh preserves the complete previously active bundle', 
 
     const reinstall = spawnSync(process.execPath, [installer], {cwd: repository, encoding: 'utf8'});
     assert.equal(reinstall.status, 1);
+    assert.equal(activeSnapshot(hooks).bundle, snapshot.bundle);
     assert.equal(readFileSync(snapshotCli, 'utf8'), beforeCli);
     assert.equal(readFileSync(snapshotCore, 'utf8'), beforeCore);
   } finally {

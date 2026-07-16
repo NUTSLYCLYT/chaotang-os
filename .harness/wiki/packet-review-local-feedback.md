@@ -31,11 +31,12 @@ node scripts/install-packet-review-hooks.mjs --uninstall
 ```
 
 The installer resolves hooks through `git rev-parse --git-path hooks`, supports linked worktrees and
-`core.hooksPath`, and copies a managed verifier snapshot into the shared hooks directory so an older
-sibling worktree does not need to contain the scripts. It replays pre-push stdin to every executable
-`pre-push.d` hook and refuses to overwrite or remove an unmanaged/symlinked dispatcher, packet-review
-subhook, or verifier snapshot. Reinstall validates the snapshot's exact internal layout and atomically
-activates a fully built and validated bundle, so a failed refresh leaves the previous bundle intact.
+`core.hooksPath`, and copies managed verifier bundles into the shared hooks directory so an older sibling
+worktree does not need to contain the scripts. Bundles are immutable and named by the SHA-256 of both
+JavaScript files. Reinstall builds and validates the complete new bundle first, retains prior bundles,
+then atomically replaces one `current` pointer; a failed or interrupted refresh therefore leaves the
+previous bundle executable. It replays pre-push stdin to every executable `pre-push.d` hook and refuses
+to overwrite or remove an unmanaged/symlinked dispatcher, packet-review subhook, pointer, or bundle.
 It never follows an existing snapshot symlink or rewrites a multiply linked managed file.
 
 ## Candidate shape

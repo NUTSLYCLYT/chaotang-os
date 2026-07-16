@@ -30,13 +30,16 @@ hooks，未配置或宣称外部 required check。
 | 独立复核 v6 | `PACKET_REVIEW_NO_GO` | E4 关闭；发现 target hardlink 误写与双文件刷新撕裂 |
 | RED 9 | 2/2 failed | hardlink 重装退出 0；core 复制失败后活动 CLI/core 版本不一致 |
 | GREEN 9 | 2/2 passed | 受管文件须单链接；完整 bundle 构建验证成功后才切换活动目录 |
+| v8 技术探测 | reviewer 工具策略中断、未形成正式裁决 | 发现双 rename 之间活动路径空窗与 SIGKILL 恢复缺口 |
+| RED 10 | `current` 路径 `ENOENT` | 旧实现没有可原子切换的稳定 bundle 指针 |
+| GREEN 10 | 26/26 | 内容寻址不可变 bundle；原子 current；旧 bundle 保留；失败刷新不变 |
 
 ## 最终验证
 
 | 命令 | 结果 |
 | --- | --- |
 | `node --check` 三个实现模块 | PASS |
-| `node --test scripts/packet-review-local-feedback.nodetest.mjs` | PASS：25/25，0 fail/skip |
+| `node --test scripts/packet-review-local-feedback.nodetest.mjs` | PASS：26/26，0 fail/skip |
 | `node scripts/packet-review-pre-push.mjs --status` | PASS：精确 bootstrap 策略、`LOCAL_FEEDBACK_ONLY`、`security_boundary=false`、`required_check_verified=false` |
 | `python3 -m json.tool` contract + manifest | PASS |
 | `node scripts/harness-doctor.mjs` | PASS：0 errors / 0 warnings |
@@ -46,7 +49,8 @@ hooks，未配置或宣称外部 required check。
 
 - 可阻断：历史/重复/非末行 GO、错 predecessor/head/digest、多个 Packet/change、review 夹带代码、
   merge 后改树、删除/新建/非 fast-forward ext 更新、分叉 activation、bootstrap 后夹带提交。
-- 安装边界：verifier 使用共享受管快照；精确校验内部布局，事务式切换完整 bundle；
+- 安装边界：verifier 使用共享的内容寻址不可变 bundle；精确校验内部布局与 digest，原子切换
+  `current` 普通文件并保留旧 bundle；
   unmanaged/symlinked hook 或快照在安装和卸载时均 fail closed。
 - 不能阻断：`git push --no-verify`、本地 hook/checker 篡改、其他机器/客户端直接推送，或使用
   非 `origin` remote alias 推向同名 ref（本门明确只匹配精确 `origin`）。
@@ -57,7 +61,13 @@ hooks，未配置或宣称外部 required check。
 
 - 未安装到真实 `.git/hooks`；仅在隔离临时仓库验证安装、卸载和执行。
 - 未配置外部签名、公钥信任锚、Gitee required check 或分支保护。
-- 修复提交尚待新一轮独立复核，v6 裁决仍为 `NO_GO`，不能提前合入。
+- 修复提交尚待新一轮独立复核；最后一个正式裁决 v6 仍为 `NO_GO`，不能提前合入。
+
+## 环境偏差与恢复
+
+- v8 技术复现第一次漏设子进程 cwd，误在共享主仓库执行两次受管 installer。
+- 随即执行受管 `--uninstall`，确认真实 hooks 下 `pre-push`、D6 subhook、D6 asset root 均为
+  `ABSENT`；既有 pre-commit/前端 hook 与 tracked 文件未改。
 
 ## Diff 与回滚复核
 
@@ -75,6 +85,7 @@ hooks，未配置或宣称外部 required check。
 | snapshot 内部不可导向用户文件 | CLI/core symlink 重装回归测试 | PASS |
 | 受管 hook 不可改写硬链接 peer | target hardlink 重装回归测试 | PASS |
 | snapshot 刷新不产生版本撕裂 | 第二份 source 失败时旧 bundle 字节不变 | PASS |
+| 安装刷新无活动路径空窗 | 内容寻址 bundle + 原子 current + 旧 bundle 保留 | PASS |
 | linked worktree 不依赖旧 checkout | 兄弟 worktree 端到端 dispatcher 测试 | PASS |
 | 诚实信任边界 | status、manifest、wiki | PASS |
 | 修复后独立 GO | 新一轮版本化复核 | PENDING |
