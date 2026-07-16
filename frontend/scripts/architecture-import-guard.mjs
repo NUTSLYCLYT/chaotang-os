@@ -11,7 +11,6 @@ const ENGINE_NAMES = [
 ];
 
 const ALLOWED_ENGINE_IMPORTS = new Map([
-  ['src/app/(dashboard)/junjichu/page.tsx', new Set(ENGINE_NAMES)],
   ['src/core/courtos/ministries/real-ministry-review.ts', new Set(['ministry-review-loop'])],
   [
     'src/core/courtos/runtime/live-memorial-bridge.ts',

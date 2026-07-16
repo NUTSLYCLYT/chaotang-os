@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -44,4 +45,18 @@ test('an allowlisted file cannot add a different decision engine', () => {
   );
   assert.equal(violations.length, 1);
   assert.match(violations[0], /unified-decision-loop/);
+});
+
+test('junjichu has no local decision markers after the P4a projection cutover', () => {
+  const source = readFileSync(new URL('../app/(dashboard)/junjichu/page.tsx', import.meta.url), 'utf8');
+  for (const marker of [
+    "status: 'local_decision'",
+    "source: 'MIXED'",
+    'runMinistryReview(',
+    'runYushitaiAudit(',
+    'synthesizeImperialReport(',
+    'runCourtUnifiedDecisionLoop(',
+  ]) {
+    assert.equal(source.includes(marker), false, `junjichu still contains local decision marker: ${marker}`);
+  }
 });
