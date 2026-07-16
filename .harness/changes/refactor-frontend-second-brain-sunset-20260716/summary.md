@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | refactor-frontend-second-brain-sunset-20260716 |
 | 类型 | refactor |
-| 状态 | P4a_P4b_P4c_VERIFIED / CLOSEOUT_PENDING |
+| 状态 | VERIFIED_COMPLETE / READY_FOR_REVIEW |
 | Owner | Project Agent |
 | 创建日期 | 20260716 |
 
@@ -39,3 +39,8 @@
   搬入 `dev/_attic/frontend-second-brain-2026-07-16/`，恢复须新 change 重审，复核日 2026-08-16。
 - rollout 收口：`NEXT_PUBLIC_COURTOS_CANONICAL_PROJECTION` 默认启用；显式关闭或未知值
   只进入无裁决/安全等待态，不恢复已退役引擎。RED 3 failed / 10 passed，GREEN 14 passed。
+- 收官：P4 定向前端 34 passed、后端蒸馏/质门 10 passed、更新后的持久化契约 1 passed；
+  三层 doctor 0/0，TypeScript 0，architecture import guard 通过。全量仅保留登记基线的
+  frontend 7 项与 backend 7 项 known-red；浏览器完成下旨、军机处 canonical 状态与补证裁决。
+- 数据安全：真实 `fengqun.db` 的 size/mtime/SHA-256 与开工基线完全一致。用户后续以
+  “收口提交上传”明确授权合并并 push `feature-chaotang-ext`；部署仍不在本 Packet 范围。

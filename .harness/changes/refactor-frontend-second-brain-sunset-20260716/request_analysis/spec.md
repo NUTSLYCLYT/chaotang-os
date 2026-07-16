@@ -55,7 +55,8 @@ missing evidence/next action/quality gate/圣裁。没有后端字段时显示�
 - 不新增前端 BFF、浏览器持久化事实源、writer、schema 或状态机。
 - 不后端化工部/御史纯前端脑、刑部 clause 扫描、锦衣卫雷达；仅诚实标降级。
 - 不处理 P5+、7 条已登记 backend known-red 或 P6 前端已登记失败。
-- 不改典仪、王座、release 分支，不 push/部署。
+- 不改典仪、王座、release 分支，不部署。开工时未授权 push；用户随后以“收口提交上传”
+  明确授权将本 Packet 合入并上传 `feature-chaotang-ext`，该授权不扩展为部署授权。
 
 ## 边界条件
 
@@ -88,6 +89,8 @@ missing evidence/next action/quality gate/圣裁。没有后端字段时显示�
 - 批准日期：2026-07-16
 - 批准范围：absorption P4a→P4b→P4c，同一 change/branch，完成后停审。
 - 明确未批准：P5+、平台路由改造、release/push/deploy、范围外 known-red 修复。
+- 后续授权：2026-07-16 用户“收口提交上传”，仅覆盖本 Packet 的提交、合入 ext 与 push；
+  P5+、release 分支和部署继续冻结。
 
 ## 验收标准
 

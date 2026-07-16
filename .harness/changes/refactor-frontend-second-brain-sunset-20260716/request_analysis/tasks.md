@@ -46,8 +46,9 @@
 - 前置条件：P4a/b/c 全部完成。
 - 输出：coding/test/code review、E2E/CI 证据与 review-ready marker。
 - 验证命令与证据：前后端全量、tsc、三层 doctor、browser journey、DB fingerprint、diff check。
-- 回滚边界：三步原子 commit 可独立回滚；不得 push/deploy。
+- 回滚边界：三步原子 commit 可独立回滚；用户已另行授权收口合并与 push，仍不得 deploy。
 - 完成定义：证据落盘，输出 `PACKET_P4_READY_FOR_CLAUDE_REVIEW`，立即停工待 Claude 审查。
 - rollout 附加门：显式关闭/未知值只降级为安全等待，不恢复本地引擎；RED 3/10，
   GREEN 14，原子提交 `bec1e84`。
-- 状态：IN_PROGRESS；进入全量、三层 doctor、browser journey、DB 指纹和最终差异审计。
+- 状态：VERIFIED_COMPLETE；全量基线、三层 doctor、browser journey、DB 指纹和最终差异
+  审计均已完成，待合入并上传 ext 后输出 review-ready marker。
