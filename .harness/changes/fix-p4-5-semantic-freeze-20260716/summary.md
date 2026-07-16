@@ -1,0 +1,20 @@
+# 变更摘要：fix-p4-5-semantic-freeze-20260716
+
+| 字段 | 值 |
+| --- | --- |
+| Change ID | fix-p4-5-semantic-freeze-20260716 |
+| 类型 | fix |
+| 状态 | IN_PROGRESS（P4.5a VERIFIED） |
+| Owner | Project Agent |
+| 创建日期 | 20260716 |
+
+## 范围
+
+- 主线：后端语义事实源与根级跨包验收；不改前端既有 status 枚举。
+- 文件：`backend/src/`、`backend/web/`、`backend/alembic/versions/012-013`、定向测试与本变更记录。
+- 验证：每个微步 RED→GREEN、临时 SQLite 迁移链、真实库只读指纹、backend/root doctor；a–f 全部完成后统一独立停审。
+
+## 当前进度
+
+- P4.5a：`EmperorDecision.kind` 三值语义、全部 6 个生产写入口和迁移 012 已实现并验证。
+- P4.5b–f：待按批准顺序执行；P5 在 P4.5 获得 GO 前不得开始。

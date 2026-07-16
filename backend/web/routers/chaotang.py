@@ -46,6 +46,7 @@ from src.decree_swarm_router import (
     select_model_tier,
     select_orchestration_tier,
 )
+from src.emperor_decision_kind import emperor_decision_kind
 from src.chaotang_launch_loop import (
     build_launch_loop_case,
     build_prior_context,
@@ -845,6 +846,7 @@ def memorial_review(
             id=make_id("decision", task.id, canonical_action, now),
             task_id=task.id,
             action=canonical_action,
+            kind=emperor_decision_kind(canonical_action),
             reason=body.comment,
             human_confirmed=True,
             confirmation_record_json=json.dumps(

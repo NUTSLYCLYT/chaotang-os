@@ -36,6 +36,7 @@ from src.db.models import (
     ShiguanArchive,
 )
 from src.decision_task_kernel import create_decision_task
+from src.emperor_decision_kind import emperor_decision_kind
 from src.execution.decree_dispatcher import dispatch_after_commit, enqueue_dispatch
 from src.finance_intel_loop_contract import build_finance_intel_session
 from src.hubu_financial_reporting import build_shangshufang_finance_reporting_loop
@@ -1163,6 +1164,7 @@ def shangshufang_confirm_edict(
                     id=make_id("decision", task.id, "confirm-direct", now),
                     task_id=task.id,
                     action="confirm_direct_task",
+                    kind=emperor_decision_kind("confirm_direct_task"),
                     reason="皇上确认简单任务单，由丞相判定直接承办",
                     human_confirmed=True,
                     confirmation_record_json=_json(
@@ -1241,6 +1243,7 @@ def shangshufang_confirm_edict(
                 id=make_id("decision", task.id, "confirm", now),
                 task_id=task.id,
                 action="confirm_edict",
+                kind=emperor_decision_kind("confirm_edict"),
                 reason="皇上确认发起军机处会审",
                 human_confirmed=True,
                 confirmation_record_json=_json(
@@ -1392,6 +1395,7 @@ def shangshufang_task_decision(
             id=make_id("decision", task_id, body.action, now),
             task_id=task_id,
             action=body.action,
+            kind=emperor_decision_kind(body.action),
             reason=body.reason,
             human_confirmed=body.human_confirmed,
             confirmation_record_json=_json({"user_id": _user_id(user), "at": now}),
@@ -2068,6 +2072,7 @@ def shangshufang_brief_decision_advance(
             id=make_id("decision", task.id, action, now),
             task_id=task.id,
             action=action,
+            kind=emperor_decision_kind(action),
             reason=body.reason,
             human_confirmed=bool(body.manualConfirmation),
             confirmation_record_json=_json(

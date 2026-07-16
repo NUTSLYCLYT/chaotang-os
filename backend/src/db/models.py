@@ -396,6 +396,7 @@ class EmperorDecision(Base):
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
     task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     action: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    kind: Mapped[str] = mapped_column(sa.Text, nullable=False)
     reason: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     human_confirmed: Mapped[bool] = mapped_column(
         sa.Boolean, nullable=False, default=False
@@ -404,6 +405,10 @@ class EmperorDecision(Base):
     created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
 
     __table_args__ = (
+        sa.CheckConstraint(
+            "kind IN ('edict_confirm', 'compat_dispatch', 'final_verdict')",
+            name="ck_emperor_decisions_kind",
+        ),
         sa.Index("ix_emperor_decisions_task_created", "task_id", "created_at"),
     )
 

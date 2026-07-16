@@ -106,6 +106,7 @@ def dispatch_compat_court_task(
     from src.compat_decision_adapter import add_compat_decision_task
     from src.db.engine import SessionLocal
     from src.db.models import CourtReview, DecisionTask, EmperorDecision
+    from src.emperor_decision_kind import emperor_decision_kind
     from src.execution import decree_dispatcher
     from src.shangshufang_loop import (
         direct_receipt_for,
@@ -190,6 +191,7 @@ def dispatch_compat_court_task(
                 id=make_id("decision", task_id, compat_entrypoint, now),
                 task_id=task_id,
                 action="compat_court_dispatch",
+                kind=emperor_decision_kind("compat_court_dispatch"),
                 reason=f"用户通过 {compat_entrypoint} 明确发起朝堂派单",
                 human_confirmed=True,
                 confirmation_record_json=_json(
