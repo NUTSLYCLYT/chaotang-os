@@ -18,9 +18,12 @@
 - 保留既有 status 枚举；上书房状态、朝堂 task detail 与 SSE snapshot 复用同一派生器。
 - RED：5 个契约/写入测试失败；读模型 6 个断言失败。GREEN：后端相关 82 passed，前端镜像 4 passed。
 
-## P4.5c — 质量门 import seam（PENDING）
+## P4.5c — 质量门 import seam（VERIFIED）
 
-- 只移动调用边界，不改变门禁逻辑；守门禁止生产者模块直接判门。
+- `src.swarm_quality_gate` 成为唯一门逻辑拥有者；`swarm_review` 与
+  `swarm_execution_loop` 保留同对象兼容 re-export。
+- 架构守门禁止生产者从 `swarm_review` 直接导入质量门，并禁止 review 模块继续定义门逻辑。
+- RED：2 failed；GREEN：seam/review/distillation 12 passed，execution API/perf 12 passed。
 
 ## P4.5d — CourtReview 写入基线（PENDING）
 

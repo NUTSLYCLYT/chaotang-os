@@ -83,15 +83,14 @@ def _perf_outcomes_judge_call():
     return _call
 
 
-# 审查簇五件套 + SOURCE_LABELS + _dedupe 已拆到 swarm_review(2026-07-14,行为零变更)。
-# 此处 re-export 保住外部调用方与 mock patch target 的导入路径,勿删。
+# 审查簇四件套已拆到 swarm_review，质量门由独立 import seam 持有。
+# 此处仍 re-export 同名对象，保住外部调用方与 mock patch target，勿删。
+from src.swarm_quality_gate import SOURCE_LABELS, quality_gate  # noqa: F401
 from src.swarm_review import (  # noqa: F401
-    SOURCE_LABELS,
     _dedupe,
     critic_report,
     detect_conflicts,
     evidence_audit,
-    quality_gate,
     synthesize_brief,
 )
 

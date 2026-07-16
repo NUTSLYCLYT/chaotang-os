@@ -1,15 +1,16 @@
 """蜂群回奏审查簇(2026-07-14 从 swarm_execution_loop 拆出,行为零变更)。
 
-近纯函数五件套:证据审计 → 御史批评 → 冲突检测 → 合成简报 → 质量门。
+近纯函数四件套:证据审计 → 御史批评 → 冲突检测 → 合成简报。
 只依赖部门 outputs 的 dict 形状与 SOURCE_LABELS 诚实标契约,不碰执行/路由/LLM。
-swarm_execution_loop 保留同名 re-export(外部调用方与 mock patch target 不动)。
+质量门由 swarm_quality_gate 独立 seam 持有；本模块保留兼容 re-export。
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-SOURCE_LABELS = {"LIVE", "LIVE_SWARM", "LIVE_ENGINE", "MIXED", "FALLBACK", "DEMO"}
+from src.swarm_quality_gate import SOURCE_LABELS, quality_gate  # noqa: F401
+
 # LIVE_ENGINE:真实部门专用引擎产出(确定性重算/真实flow,非通用LLM角色扮演),
 # 比 LIVE_SWARM(_live_department_position 的通用角色扮演)更可信,见 src/real_department_engines.py。
 
@@ -122,38 +123,4 @@ def synthesize_brief(
         "recommended_next_action": action,
         "questions_for_emperor": critique["emperor_questions"],
         "source_label": source_label,
-    }
-
-
-def quality_gate(brief: dict[str, Any]) -> dict[str, Any]:
-    blocking: list[str] = []
-    warnings: list[str] = []
-    label = brief.get("source_label")
-    if label not in SOURCE_LABELS:
-        blocking.append("source_label_required")
-    if label == "DEMO":
-        blocking.append("demo_cannot_enter_real_decision")
-    if label == "FALLBACK":
-        blocking.append(
-            "fallback_cannot_enter_real_decision"
-            if brief.get("missing_evidence")
-            else "no_fallback_final_certainty"
-        )
-    if brief.get("missing_evidence"):
-        blocking.append("missing_evidence_requires_resolution")
-    if not brief.get("evidence_chain") and not brief.get("missing_evidence"):
-        blocking.append("evidence_or_gap_required")
-    if any(
-        r.get("requires_human_confirmation") for r in brief.get("risk_register", [])
-    ):
-        warnings.append("high_risk_requires_human_confirmation")
-    if brief.get("conflict_summary"):
-        warnings.append("conflict_visible")
-    if not brief.get("recommended_next_action"):
-        blocking.append("one_primary_action_required")
-    return {
-        "passed": not blocking,
-        "blocking_reasons": blocking,
-        "warnings": warnings,
-        "revised_output": brief,
     }
