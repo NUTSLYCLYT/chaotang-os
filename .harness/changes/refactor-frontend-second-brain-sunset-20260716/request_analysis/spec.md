@@ -77,6 +77,8 @@ missing evidence/next action/quality gate/圣裁。没有后端字段时显示�
 - rollout flag 默认启用 canonical 完整投影；关闭时只降级为 canonical 状态/等待安全视图，
   不重新启用本地圣裁。一个版本周期内保留 test-only 引擎与原子提交，若必须恢复旧行为，
   只能显式回滚对应提交并重新进入审查，不能运行时静默切回不可信事实源。
+- rollout 环境变量为 `NEXT_PUBLIC_COURTOS_CANONICAL_PROJECTION`；缺省及
+  `1/true/on/canonical` 为启用，其他显式值一律 fail closed，不接受 `legacy` 回切。
 - P4a 若只能改平台路由补字段，立即 `BLOCKED` 请求用户裁决；不得绕过。
 - 真实数据库只读：验收前后复核 size/mtime/SHA；测试使用隔离临时库。
 

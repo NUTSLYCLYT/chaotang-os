@@ -11,7 +11,7 @@
 - 验证命令与证据：projector/empty/source/production import RED→GREEN，Junjichu 相邻、tsc。
 - 回滚边界：P4a 原子提交；rollout flag off 仅降级为安全等待视图。
 - 完成定义：军机处生产 import/call 清零；无后端事实时不合成结论。
-- 状态：VERIFIED；RED/GREEN、相邻、tsc、doctor 与 diff-check 已通过，待 P4a 原子提交。
+- 状态：VERIFIED；RED/GREEN、相邻、tsc、doctor 与 diff-check 已通过；原子提交 `2d30980`。
 
 ## 任务 2 — P4b 上书房纯投影
 
@@ -48,4 +48,6 @@
 - 验证命令与证据：前后端全量、tsc、三层 doctor、browser journey、DB fingerprint、diff check。
 - 回滚边界：三步原子 commit 可独立回滚；不得 push/deploy。
 - 完成定义：证据落盘，输出 `PACKET_P4_READY_FOR_CLAUDE_REVIEW`，立即停工待 Claude 审查。
+- rollout 附加门：显式关闭/未知值只降级为安全等待，不恢复本地引擎；RED 3/10，
+  GREEN 14，原子提交 `bec1e84`。
 - 状态：IN_PROGRESS；进入全量、三层 doctor、browser journey、DB 指纹和最终差异审计。

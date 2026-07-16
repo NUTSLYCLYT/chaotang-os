@@ -23,6 +23,8 @@
 - 基线：`feature-chaotang-ext@188fb3d`；worktree
   `~/Projects/.fullcourt-worktrees/p4-frontend-second-brain-sunset`；真实数据库 SHA-256
   `10dbcf48d3fb4c6a5297bd2f42b73c030d9db7a79c1e0e47734df5dac60859e2`，三层 doctor 0/0。
+- P4a 开工前施工图随 ext `6b68719` 落盘，确认已有等价字段、9 个纯派生缺口与
+  golden 蒸馏清单；根记录收口为 `59923f8`，已同步进任务分支。
 - P4a：RED 为 projector module 缺失（1 suite failed）及军机处四项受限 import
   （1 failed / 4 passed；扩展 marker 后 2 failed / 4 passed）；GREEN 为 projector 4、
   import/marker guard 6、军机处相邻合计 20、case orchestrator 3，tsc 0，frontend doctor 0/0。
@@ -35,3 +37,5 @@
   16 passed。侧脑诚实降级 RED 4 failed，GREEN 4，连同相邻共 21 passed；tsc/doctor 全绿。
 - P4c 保留策略：四引擎只标 deprecated、供 test/eval；三个无生产调用方的 writer/bridge
   搬入 `dev/_attic/frontend-second-brain-2026-07-16/`，恢复须新 change 重审，复核日 2026-08-16。
+- rollout 收口：`NEXT_PUBLIC_COURTOS_CANONICAL_PROJECTION` 默认启用；显式关闭或未知值
+  只进入无裁决/安全等待态，不恢复已退役引擎。RED 3 failed / 10 passed，GREEN 14 passed。
