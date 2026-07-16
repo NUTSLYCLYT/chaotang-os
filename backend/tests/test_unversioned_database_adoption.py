@@ -462,3 +462,44 @@ def test_cli_reports_an_invalid_url_without_traceback() -> None:
     assert '"mode": "check"' in completed.stdout
     assert "database URL" in completed.stdout
     assert "Traceback" not in completed.stderr
+
+
+def test_cli_reports_alembic_apply_failure_without_traceback(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    path = tmp_path / "legacy-cli-apply-error.db"
+    backup = tmp_path / "legacy-cli-apply-error.backup.db"
+    _unversioned_011_database(path, monkeypatch)
+    script = _BACKEND_ROOT / "scripts" / "adopt_unversioned_database.py"
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "--db-url",
+            f"sqlite:///{path}",
+            "--apply",
+            "--backup",
+            str(backup),
+            "--alembic-ini",
+            str(tmp_path / "missing.ini"),
+        ],
+        cwd=_BACKEND_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode == 2
+    assert '"mode": "apply"' in completed.stdout
+    assert "Alembic configuration" in completed.stdout
+    assert "Traceback" not in completed.stderr
+    assert not backup.exists()
+    conn = sqlite3.connect(path)
+    try:
+        assert "alembic_version" not in {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+    finally:
+        conn.close()

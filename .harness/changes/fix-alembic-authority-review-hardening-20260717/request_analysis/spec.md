@@ -64,8 +64,12 @@
 
 ## 风险与回滚边界
 
-所有 DDL 仅临时 SQLite。实现只收紧 adoption 并新增验证型 015；若误拒合法旧库，回滚本 remediation
-commit 即恢复上游行为，不回滚已经迁移的真实库。真实服务和 DB 不在本包状态变化范围。
+所有 DDL 仅临时 SQLite。实现只收紧 adoption 并新增验证型 015。若尚无数据库到达 015，
+可直接 revert remediation。若数据库已经到达 015，必须在仍包含 015 的代码下、经维护授权先执行
+`alembic downgrade 014_tenant_identity_tables`（015 downgrade 为 validation-only、无表 DDL），
+核验版本为 014 后才能回退代码；否则旧代码 head=014 会正确拒绝 current=015。若 adoption 在
+stamp/upgrade 后失败，使用强制生成的 backup 恢复，不能只回退代码。真实服务和 DB 不在本包
+实际状态变化范围，上述生产回滚只记录 runbook，未执行。
 
 ## 计划确认记录
 
@@ -77,7 +81,8 @@ commit 即恢复上游行为，不回滚已经迁移的真实库。真实服务�
 ## 验收标准
 
 - 上述缺口均有可解释 RED 与 GREEN。
-- 合法 010/011 adoption 到唯一 015 head；失败在 stamp 前且零文件/版本副作用。
+- 合法 010/011 adoption 到唯一 015 head；schema 不兼容失败在 backup/stamp 前且零版本副作用；
+  apply 阶段异常转为结构化错误并保留恢复指引。
 - 015 identity 形状 exact；生产 service effective strict。
 - 定向/相邻测试、Ruff/compile、doctor、diff check 通过。
 - 新 H 由独立 reviewer 签发 SHA-bound GO，之后才形成 no-ff candidate/push。

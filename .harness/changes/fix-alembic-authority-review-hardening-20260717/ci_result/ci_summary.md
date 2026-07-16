@@ -5,8 +5,9 @@
 | 命令 | 退出码 | 结果 | 证据覆盖范围 | 证据位置 / 时间 |
 | --- | ---: | --- | --- | --- |
 | 新增 RED 定向 pytest（实现前） | 1 | 13 failed, 12 passed | 证明新 head、missing-file、fingerprint、015、service 缺口确实存在 | 隔离 worktree，2026-07-17 |
-| authority/adoption/007-015/DDL guard 定向 pytest | 0 | 52 passed | 相邻迁移、strict、adoption、015 与 service 契约 | 隔离临时 SQLite，2026-07-17 |
-| 上游 P5 代表集 15 文件 | 0 | 110 passed, 6 skipped | auth、worker、poller、ledger、authority、adoption、migration | 隔离 worktree，2026-07-17 |
+| 独立审查 CLI apply 异常 RED | 1 | missing Alembic config 时 exit 1 + traceback | 证明 operator 异常边界缺口 | 隔离 011 临时 SQLite，2026-07-17 |
+| authority/adoption/007-015/DDL guard 定向 pytest | 0 | 53 passed | 相邻迁移、strict、adoption、015、CLI 与 service 契约 | 隔离临时 SQLite，2026-07-17 |
+| 上游 P5 代表集 15 文件 | 0 | 111 passed, 6 skipped | auth、worker、poller、ledger、authority、adoption、migration | 隔离 worktree，2026-07-17 |
 | `ruff check` 变更 Python 文件 | 0 | All checks passed | 静态错误、导入顺序 | 2026-07-17 |
 | `python3 -m compileall -q` 变更生产 Python | 0 | 通过 | 语法/字节码编译 | 2026-07-17 |
 | `python3 scripts/harness_doctor.py` | 0 | 0 errors / 0 warnings | 后端 harness | 2026-07-17 |
@@ -33,8 +34,8 @@ P5.1 自身验证完成。新增 015 作为 validation-only head，避免通过�
 - changed files：authority/adoption/CLI、验证型 015、两个 service 模板、迁移/契约测试、
   根 change record。
 - diff review：只收紧 preflight 和部署契约，不改 outbox、worker、业务终态或真实数据。
-- 回滚是否演练：015 validation-only downgrade 与失败保持 014 已由测试覆盖；整体回滚为
-  revert P5.1 commit，恢复 `346dc81` 行为，不对任何已迁移真实库做逆向操作。
+- 回滚是否演练：临时 SQLite 已验证 015→014 只移动 version marker 且身份行保持；生产 runbook
+  明确先在当前代码下降到 014、核验后再 revert。未获授权时不对真实库执行该流程。
 
 ## 完成定义映射
 
@@ -46,6 +47,7 @@ P5.1 自身验证完成。新增 015 作为 validation-only head，避免通过�
 | 已发布 014 的身份表重新过门 | 015 validation-only fresh/legacy/malformed tests | 完成 |
 | 接管失败在 backup/stamp/DDL 前 | malformed tasks/identity apply tests | 完成 |
 | operator 与生产部署契约 | CLI `--check`/JSON/no-traceback + 双 service strict tests | 完成 |
+| 015 发布后代码回滚顺序 | 临时 SQLite 015→014 行保持 + runbook | 完成 |
 | 根/后端护栏与相邻回归 | doctors、47/105 test sets、Ruff/compile | 完成 |
 
 ## 声明状态

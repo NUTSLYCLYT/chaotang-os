@@ -527,8 +527,6 @@ def adopt_unversioned_database(
     if backup_path is None:
         raise AdoptionError("backup_path is required before legacy database adoption")
 
-    backup_location, backup_digest = _backup_sqlite_database(db_url, backup_path)
-
     try:
         from alembic.config import Config
 
@@ -536,17 +534,46 @@ def adopt_unversioned_database(
     except ImportError as exc:  # pragma: no cover - operator environment failure
         raise AdoptionError("Alembic is required for legacy database adoption") from exc
 
-    config = Config(str(alembic_ini))
-    with _database_url_environment(db_url):
-        command.stamp(config, report.adopt_revision)
-        command.upgrade(config, "head")
-
-    engine = create_engine(db_url)
     try:
-        with engine.connect() as connection:
-            current = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    finally:
-        engine.dispose()
+        config = Config(str(alembic_ini))
+        if not config.get_main_option("script_location"):
+            raise AdoptionError(
+                f"invalid Alembic configuration (missing script_location): {alembic_ini}"
+            )
+    except AdoptionError:
+        raise
+    except Exception as exc:
+        raise AdoptionError(f"could not load Alembic configuration: {alembic_ini}") from exc
+
+    try:
+        backup_location, backup_digest = _backup_sqlite_database(db_url, backup_path)
+    except AdoptionError:
+        raise
+    except Exception as exc:
+        raise AdoptionError("legacy adoption failed before backup completed") from exc
+
+    try:
+        with _database_url_environment(db_url):
+            command.stamp(config, report.adopt_revision)
+            command.upgrade(config, "head")
+    except Exception as exc:
+        raise AdoptionError(
+            "Alembic adoption failed; backup remains at "
+            f"{backup_location}; target may be partially migrated"
+        ) from exc
+
+    try:
+        engine = create_engine(db_url)
+        try:
+            with engine.connect() as connection:
+                current = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+        finally:
+            engine.dispose()
+    except Exception as exc:
+        raise AdoptionError(
+            "adoption verification failed; backup remains at "
+            f"{backup_location}; target may be partially migrated"
+        ) from exc
     return AdoptionResult(
         adopted_revision=report.adopt_revision,
         current_revision=str(current),

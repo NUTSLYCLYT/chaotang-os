@@ -21,7 +21,8 @@
 - 涉及文件：authority/adoption/015、CLI/service、测试。
 - 状态 / 数据变化：仅临时 SQLite；真实服务/DB 零变化。
 - 验证命令与证据：RED→GREEN、合法 010/011 apply、重复/失败路径。
-- 回滚边界：回滚 P5.1 commit 恢复 `346dc81` 行为。
+- 回滚边界：无库到 015 时可回滚 P5.1；已有库到 015 时先在当前代码下授权 downgrade 到 014，
+  再回退代码；apply 中途失败则从 mandatory backup 恢复。
 - 完成定义：未知/畸形 schema 不可获得 head 版本。
 
 ## 任务 3：收口与 packet gate
@@ -33,5 +34,6 @@
 - 涉及文件：本 change record；GO 时仅新增 versioned report/approval。
 - 状态 / 数据变化：Git 本地；GO 前不推送。
 - 验证命令与证据：代表集、Ruff/compile、doctor、packet verifier。
-- 回滚边界：candidate 未推前删除本地 merge；推后 revert remediation merge。
+- 回滚边界：candidate 未推前删除本地 merge；推后按 015→014 version-marker downgrade、
+  再 revert remediation merge 的顺序执行。
 - 完成定义：独立 `PACKET_REVIEW_GO` 且 push verifier 接受精确 B→H→R→M。

@@ -47,6 +47,14 @@ def test_existing_identity_rows_survive_upgrade_and_safe_downgrade(tmp_path: Pat
         conn.close()
 
     alembic_command.upgrade(cfg, "head")
+    alembic_command.downgrade(cfg, "014_tenant_identity_tables")
+    conn = sqlite3.connect(path)
+    try:
+        assert conn.execute("SELECT id, slug FROM tenants").fetchone() == (7, "legacy")
+        assert conn.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "014_tenant_identity_tables"
+    finally:
+        conn.close()
+
     alembic_command.downgrade(cfg, "013_core_tenant_lineage")
     conn = sqlite3.connect(path)
     try:
