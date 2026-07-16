@@ -67,10 +67,15 @@ def formalize_memorial(
         raise FormalMemorialBlocked("candidate_review_not_found")
     from src.core_tenant_lineage import (
         assert_known_tenant_lineage_consistent,
-        assert_no_tenant_lineage_conflict,
+        tenant_id_for_task,
     )
 
-    assert_no_tenant_lineage_conflict(db, task_id=task_id, inherited_tenant_id=review.tenant_id)
+    task_tenant_id = tenant_id_for_task(db, task_id)
+    assert_known_tenant_lineage_consistent(
+        context=f"formal_memorial:{task_id}",
+        task_tenant_id=task_tenant_id,
+        review_tenant_id=review.tenant_id,
+    )
     try:
         memorial = json.loads(review.memorial_json or "null")
     except json.JSONDecodeError as exc:
@@ -89,6 +94,7 @@ def formalize_memorial(
     if existing is not None:
         assert_known_tenant_lineage_consistent(
             context=f"formal_memorial:{task_id}",
+            task_tenant_id=task_tenant_id,
             review_tenant_id=review.tenant_id,
             memorial_tenant_id=existing.tenant_id,
         )

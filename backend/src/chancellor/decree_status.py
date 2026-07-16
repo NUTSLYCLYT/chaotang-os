@@ -81,10 +81,12 @@ def record_timeline_event(
         if existing is not None:
             from src.core_tenant_lineage import (
                 assert_known_tenant_lineage_consistent,
+                tenant_id_for_task,
             )
 
             assert_known_tenant_lineage_consistent(
                 context=f"decree_event:{task_id}:{idempotency_key}",
+                task_tenant_id=tenant_id_for_task(db, task_id),
                 existing_tenant_id=existing.tenant_id,
                 replay_tenant_id=event_tenant_id,
             )

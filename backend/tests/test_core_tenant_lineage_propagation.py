@@ -166,8 +166,10 @@ def test_worker_fails_closed_before_dispatch_when_known_lineage_conflicts(
     db.close()
 
 
-def test_timeline_idempotent_replay_rejects_two_known_tenant_values(
+@pytest.mark.parametrize("existing_tenant_id", [7, None])
+def test_timeline_idempotent_replay_rejects_known_conflict_across_nullable_bridge(
     isolated_session_local,
+    existing_tenant_id,
 ):
     db = isolated_session_local()
     task = _create_task(db, task_id="task_timeline_conflict", tenant_id=7)
@@ -178,7 +180,7 @@ def test_timeline_idempotent_replay_rejects_two_known_tenant_values(
         "message": "开始执行。",
         "idempotency_key": "timeline-tenant-conflict",
     }
-    record_timeline_event(db, tenant_id=7, **common)
+    record_timeline_event(db, tenant_id=existing_tenant_id, **common)
     db.commit()
 
     with pytest.raises(RuntimeError, match="tenant lineage conflict"):
@@ -213,14 +215,16 @@ def test_route_idempotent_replay_rejects_known_task_route_conflict(
     db.close()
 
 
-def test_formal_memorial_replay_rejects_known_review_memorial_conflict(
+@pytest.mark.parametrize("review_tenant_id", [7, None])
+def test_formal_memorial_replay_rejects_known_conflict_across_nullable_bridge(
     isolated_session_local,
+    review_tenant_id,
 ):
     db = isolated_session_local()
     task = _create_task(db, task_id="task_formal_replay_conflict", tenant_id=7)
     review = CourtReview(
         id="review_formal_replay_conflict",
-        tenant_id=7,
+        tenant_id=review_tenant_id,
         task_id=task.id,
         routing_plan_json="{}",
         review_status="reviewing",
