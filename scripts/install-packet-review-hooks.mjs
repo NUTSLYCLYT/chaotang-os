@@ -178,10 +178,10 @@ async function installManagedAssetBundle({hooks, assetDir, existing, cli, core})
     cli,
     core,
   });
+  await assertManagedAssetDirectory(assetDir);
   if (current !== existing.current) {
     await atomicWriteFile(join(assetDir, 'current'), `${current}\n`, 0o600, hooks);
   }
-  await assertManagedAssetDirectory(assetDir);
 }
 
 async function readSourceFile(path, label) {

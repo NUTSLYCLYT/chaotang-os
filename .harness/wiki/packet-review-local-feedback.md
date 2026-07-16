@@ -34,8 +34,9 @@ The installer resolves hooks through `git rev-parse --git-path hooks`, supports 
 `core.hooksPath`, and copies managed verifier bundles into the shared hooks directory so an older sibling
 worktree does not need to contain the scripts. Bundles are immutable and named by the SHA-256 of both
 JavaScript files. Reinstall builds and validates the complete new bundle first, retains prior bundles,
-does not rewrite an already managed target subhook, then atomically replaces `current` as its final
-commit step; a failed or interrupted refresh therefore leaves one complete bundle executable. It
+does not rewrite an already managed target subhook, validates the full asset root, then atomically
+replaces `current` as its final fallible commit step; a failed or interrupted refresh therefore leaves
+one complete bundle executable. It
 replays pre-push stdin to every executable `pre-push.d` hook, requires `pre-push.d` itself to be a real
 directory, and refuses to overwrite or remove an unmanaged/symlinked dispatcher, packet-review subhook,
 pointer, or bundle. It never follows an existing snapshot symlink or rewrites a multiply linked managed

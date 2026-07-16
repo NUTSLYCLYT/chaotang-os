@@ -36,13 +36,16 @@ hooks，未配置或宣称外部 required check。
 | 独立复核 v9 | `PACKET_REVIEW_NO_GO` | SHA/DAG 无新阻塞；发现 `pre-push.d` symlink 越界写与失败后 current 已切换 |
 | RED 11 | 2/2 failed | symlinked 父目录写出 hooks；只读 target 目录使刷新非零但 current 已改变 |
 | GREEN 11 | 2/2 passed | 父目录须真实；已受管 target 不重写；`current` 是刷新最后提交步骤 |
+| 独立复核 v10 | `PACKET_REVIEW_NO_GO` | E7/E8 关闭；发现 current 写后仍有一次可失败全量校验 |
+| RED 12 | 结构顺序断言失败 | asset 全量校验位于 current 激活之后 |
+| GREEN 12 | 29/29 | 全量校验前置；current 写后无任何 `await` |
 
 ## 最终验证
 
 | 命令 | 结果 |
 | --- | --- |
 | `node --check` 三个实现模块 | PASS |
-| `node --test scripts/packet-review-local-feedback.nodetest.mjs` | PASS：28/28，0 fail/skip |
+| `node --test scripts/packet-review-local-feedback.nodetest.mjs` | PASS：29/29，0 fail/skip |
 | `node scripts/packet-review-pre-push.mjs --status` | PASS：精确 bootstrap 策略、`LOCAL_FEEDBACK_ONLY`、`security_boundary=false`、`required_check_verified=false` |
 | `python3 -m json.tool` contract + manifest | PASS |
 | `node scripts/harness-doctor.mjs` | PASS：0 errors / 0 warnings |
@@ -64,7 +67,7 @@ hooks，未配置或宣称外部 required check。
 
 - 未安装到真实 `.git/hooks`；仅在隔离临时仓库验证安装、卸载和执行。
 - 未配置外部签名、公钥信任锚、Gitee required check 或分支保护。
-- 修复提交尚待新一轮独立复核；最后一个正式裁决 v9 仍为 `NO_GO`，不能提前合入。
+- 修复提交尚待新一轮独立复核；最后一个正式裁决 v10 仍为 `NO_GO`，不能提前合入。
 
 ## 环境偏差与恢复
 
@@ -91,6 +94,7 @@ hooks，未配置或宣称外部 required check。
 | 安装刷新无活动路径空窗 | 内容寻址 bundle + 原子 current + 旧 bundle 保留 | PASS |
 | target 路径不越出 hooks | symlinked `pre-push.d` 退出 1 且用户目录无新文件 | PASS |
 | 非零刷新不先激活新版本 | target 稳定不重写，`current` 最后提交 | PASS |
+| current 后无可失败步骤 | 安装器结构顺序回归测试 | PASS |
 | linked worktree 不依赖旧 checkout | 兄弟 worktree 端到端 dispatcher 测试 | PASS |
 | 诚实信任边界 | status、manifest、wiki | PASS |
 | 修复后独立 GO | 新一轮版本化复核 | PENDING |

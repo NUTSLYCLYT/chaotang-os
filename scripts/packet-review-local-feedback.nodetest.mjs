@@ -260,6 +260,19 @@ const installer = fileURLToPath(new URL('./install-packet-review-hooks.mjs', imp
 const cli = fileURLToPath(new URL('./packet-review-pre-push.mjs', import.meta.url));
 const coreVerifier = fileURLToPath(new URL('./lib/packet-review-local-feedback.mjs', import.meta.url));
 
+test('current activation is the final fallible step in an existing snapshot refresh', () => {
+  const source = readFileSync(installer, 'utf8');
+  const start = source.indexOf('async function installManagedAssetBundle');
+  const end = source.indexOf('\nasync function readSourceFile', start);
+  const body = source.slice(start, end);
+  const validationIndex = body.lastIndexOf('await assertManagedAssetDirectory(assetDir)');
+  const activationIndex = body.indexOf("await atomicWriteFile(join(assetDir, 'current')");
+  assert.ok(validationIndex >= 0, 'existing snapshot refresh must validate the full asset directory');
+  assert.ok(activationIndex >= 0, 'existing snapshot refresh must atomically activate current');
+  assert.ok(validationIndex < activationIndex, 'full validation must precede current activation');
+  assert.doesNotMatch(body.slice(activationIndex + 1), /\bawait\b/);
+});
+
 function prepareHookRepository({hooksPath} = {}) {
   const repository = mkdtempSync(join(tmpdir(), 'packet-review-hook-'));
   git(repository, ['init', '-q']);
