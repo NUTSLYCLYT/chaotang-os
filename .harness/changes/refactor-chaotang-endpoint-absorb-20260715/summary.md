@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | refactor-chaotang-endpoint-absorb-20260715 |
 | 类型 | refactor |
-| 状态 | VERIFIED_COMPLETE（独立复审 GO；P3d 物理删除按证据门延期） |
+| 状态 | VERIFIED_COMPLETE（已本地合入 ext；P3d 物理删除按证据门延期） |
 | Owner | Project Agent |
 | 创建日期 | 20260715 |
 
@@ -32,6 +32,8 @@
   ING-04 / DEC-01（FCV1-009）继承项，不在 P3 扩张修复范围。
 - 独立增量复审已核验 `5a4c712`、重跑 gate/dispatch 12 tests 并给出
   `PACKET_REVIEW_GO`；审查证据随 `c94d4e3` 落入本分支。
+- 2026-07-16 已通过 merge `71ff159` 本地合入 `feature-chaotang-ext`；合并后 backend
+  2635 passed / 27 skipped / 7 known-red，frontend adapter 3 passed，三层 doctor 0/0。
 - 当前文件：P3a–P3e 后端投影/dispatch adapter/路由、P3b 前端 adapter、相邻测试及
   本 change 证据。
 - 验证：P3a repair RED 5 failed，GREEN 16 passed；P0-B/相邻最终 91 passed；最终后端
