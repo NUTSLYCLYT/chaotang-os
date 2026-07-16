@@ -259,6 +259,7 @@ class DecisionTask(Base):
     __tablename__ = "decision_tasks"
 
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    tenant_id: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
     user_id: Mapped[str] = mapped_column(sa.Text, nullable=False, default="anonymous")
     raw_question: Mapped[str] = mapped_column(sa.Text, nullable=False)
     refined_edict: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
@@ -334,6 +335,7 @@ class CourtReview(Base):
     __tablename__ = "court_reviews"
 
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    tenant_id: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
     task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     routing_plan_json: Mapped[str] = mapped_column(
         sa.Text, nullable=False, default="{}"
@@ -368,6 +370,7 @@ class FinalMemorial(Base):
     __tablename__ = "final_memorials"
 
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    tenant_id: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
     task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     review_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     swarm_run_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
@@ -394,8 +397,10 @@ class EmperorDecision(Base):
     __tablename__ = "emperor_decisions"
 
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    tenant_id: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
     task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     action: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    kind: Mapped[str] = mapped_column(sa.Text, nullable=False)
     reason: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     human_confirmed: Mapped[bool] = mapped_column(
         sa.Boolean, nullable=False, default=False
@@ -404,6 +409,10 @@ class EmperorDecision(Base):
     created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
 
     __table_args__ = (
+        sa.CheckConstraint(
+            "kind IN ('edict_confirm', 'compat_dispatch', 'final_verdict')",
+            name="ck_emperor_decisions_kind",
+        ),
         sa.Index("ix_emperor_decisions_task_created", "task_id", "created_at"),
     )
 
@@ -414,6 +423,7 @@ class ShiguanArchive(Base):
     __tablename__ = "shiguan_archives"
 
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    tenant_id: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
     task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     raw_question: Mapped[str] = mapped_column(sa.Text, nullable=False)
     refined_edict: Mapped[str] = mapped_column(sa.Text, nullable=False)
@@ -631,6 +641,7 @@ class ChancellorRouteDecision(Base):
     __tablename__ = "chancellor_route_decisions"
 
     decision_id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    tenant_id: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
     task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     idempotency_key: Mapped[str] = mapped_column(sa.Text, nullable=False)
     mode: Mapped[str] = mapped_column(sa.Text, nullable=False)
@@ -657,6 +668,7 @@ class OutboxEvent(Base):
     __tablename__ = "outbox_events"
 
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    tenant_id: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
     task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     decision_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     event_type: Mapped[str] = mapped_column(sa.Text, nullable=False)
@@ -681,6 +693,7 @@ class DecreeExecutionEvent(Base):
     __tablename__ = "decree_execution_events"
 
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    tenant_id: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
     task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     stage: Mapped[str] = mapped_column(sa.Text, nullable=False)
     actor: Mapped[str] = mapped_column(sa.Text, nullable=False)

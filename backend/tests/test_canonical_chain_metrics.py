@@ -37,7 +37,7 @@ def test_decree_event_write_increments_canonical_counter(isolated_session_local)
 
 
 def test_outbox_completion_increments_only_on_real_consumption(isolated_session_local):
-    from src.db.models import DecisionTask
+    from src.db.models import CourtReview, DecisionTask
     from src.execution.decree_dispatcher import enqueue_dispatch
     from src.execution.outbox_worker import process_event
 
@@ -49,6 +49,19 @@ def test_outbox_completion_increments_only_on_real_consumption(isolated_session_
             raw_question="metric",
             status="edict_recorded",
             source_label="LIVE",
+        )
+    )
+    db.add(
+        CourtReview(
+            id="metric-direct-review",
+            task_id="metric-outbox-task",
+            routing_plan_json='{"route":{"mode":"direct"}}',
+            review_status="direct_completed",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json='{"title":"direct receipt"}',
+            created_at="2026-07-16T00:00:00+00:00",
+            updated_at="2026-07-16T00:00:00+00:00",
         )
     )
     db.commit()

@@ -225,6 +225,19 @@ def test_swarm_run_api_persists_and_attaches_to_review(isolated_session_local):
     assert memorial["swarm_brief_for_junjichu"]["missing_evidence"]
     assert memorial["ministry_outputs"]
     assert all(item.get("swarm_id") for item in memorial["ministry_outputs"])
+    assert len(memorial["department_memorials"]) == len(memorial["ministry_outputs"])
+    assert all(
+        item["schema_version"] == "DepartmentOpinionV1"
+        for item in memorial["department_memorials"]
+    )
+    assert all(
+        item["signal"] in {"GREEN", "YELLOW", "RED", "GRAY"}
+        for item in memorial["department_memorials"]
+    )
+    assert all(
+        item["source_label"] in {"LIVE", "LIVE_SWARM", "MIXED", "FALLBACK", "DEMO"}
+        for item in memorial["department_memorials"]
+    )
     assert memorial["formatted_memorial"]["sections"]["分奏"]
     assert "【质门】" in memorial["formatted_memorial"]["text"]
     assert status["review"]["ministry_outputs"] == memorial["ministry_outputs"]

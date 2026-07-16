@@ -14,7 +14,12 @@ import re
 
 from fastapi import Cookie, Depends, Header, HTTPException, Request, status
 
-from src.tenant import DEFAULT_TENANT_SLUG, set_current_tenant, verify_token
+from src.tenant import (
+    DEFAULT_TENANT_SLUG,
+    resolve_tenant_slug_id,
+    set_current_tenant,
+    verify_token,
+)
 
 from web.schemas.auth import CurrentUser
 
@@ -54,11 +59,14 @@ def get_current_user(
     # 白名单 / 静态资源直接放行
     if _is_whitelisted(path):
         set_current_tenant(DEFAULT_TENANT_SLUG)
-        return CurrentUser(tenant_slug=DEFAULT_TENANT_SLUG)
+        return CurrentUser(tenant_slug=DEFAULT_TENANT_SLUG, tenant_id=None)
 
     if not AUTH_ENABLED:
         set_current_tenant(DEFAULT_TENANT_SLUG)
-        return CurrentUser(tenant_slug=DEFAULT_TENANT_SLUG)
+        return CurrentUser(
+            tenant_slug=DEFAULT_TENANT_SLUG,
+            tenant_id=resolve_tenant_slug_id(DEFAULT_TENANT_SLUG),
+        )
 
     token: str | None = None
     if authorization and authorization.startswith("Bearer "):
@@ -79,7 +87,8 @@ def get_current_user(
             detail="Token 无效或已过期",
         )
 
-    tenant_slug = payload.get("tenant_slug", DEFAULT_TENANT_SLUG)
+    raw_tenant_slug = payload.get("tenant_slug")
+    tenant_slug = raw_tenant_slug or DEFAULT_TENANT_SLUG
     set_current_tenant(tenant_slug)
 
     user = CurrentUser(
@@ -87,6 +96,7 @@ def get_current_user(
         username=payload.get("username"),
         role=payload.get("role"),
         tenant_slug=tenant_slug,
+        tenant_id=resolve_tenant_slug_id(raw_tenant_slug),
     )
     # 同时挂到 request.state，方便流式端点等读取
     request.state.user = user
@@ -114,13 +124,15 @@ def try_get_current_user(
     if not payload:
         return None
 
-    tenant_slug = payload.get("tenant_slug", DEFAULT_TENANT_SLUG)
+    raw_tenant_slug = payload.get("tenant_slug")
+    tenant_slug = raw_tenant_slug or DEFAULT_TENANT_SLUG
     set_current_tenant(tenant_slug)
     return CurrentUser(
         user_id=payload.get("user_id"),
         username=payload.get("username"),
         role=payload.get("role"),
         tenant_slug=tenant_slug,
+        tenant_id=resolve_tenant_slug_id(raw_tenant_slug),
     )
 
 

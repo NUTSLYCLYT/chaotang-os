@@ -41,12 +41,14 @@ def enqueue_dispatch(
 ) -> str:
     """在调用方的事务里加入一条 outbox 记录，不在这里 commit(由调用方统一提交，
     保证下旨记录和 outbox 事件同一事务)。返回新事件 id。"""
+    from src.core_tenant_lineage import tenant_id_for_task
     from src.db.models import OutboxEvent
 
     event_id = _make_event_id(task_id, event_type)
     db.add(
         OutboxEvent(
             id=event_id,
+            tenant_id=tenant_id_for_task(db, task_id),
             task_id=task_id,
             decision_id=decision_id,
             event_type=event_type,

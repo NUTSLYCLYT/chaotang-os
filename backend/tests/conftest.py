@@ -51,6 +51,7 @@ def _authenticated_api_user():
         username="ops",
         role="admin",
         tenant_slug="default",
+        tenant_id=1,
     )
     yield
     if original is None:

@@ -24,6 +24,10 @@ from typing import TYPE_CHECKING
 
 from src.chancellor.contracts import RouteDecisionV2, RouteParticipant
 from src.chaotang_department_router import route_department_task
+from src.core_tenant_lineage import (
+    assert_no_tenant_lineage_conflict,
+    tenant_id_for_task,
+)
 from src.shangshufang_loop import (
     DIRECT_AGENT_MAP,
     chancellor_decide_route,
@@ -73,9 +77,7 @@ def _strategy_for(mode: str, reason: str) -> str:
 def _participants_for(route: dict) -> list[RouteParticipant]:
     departments: list[str] = route.get("departments") or []
     if route["mode"] == "direct":
-        primary = route.get("targetDepartment") or (
-            departments[0] if departments else "丞相"
-        )
+        primary = route.get("targetDepartment") or (departments[0] if departments else "丞相")
         return [
             RouteParticipant(
                 department=primary,
@@ -114,9 +116,7 @@ def _apply_department_override(route: dict, departments: list[str]) -> dict:
         "mode": mode,
         "departments": constrained,
         "targetDepartment": constrained[0],
-        "targetAgent": (
-            DIRECT_AGENT_MAP.get(constrained[0]) if mode == "direct" else None
-        ),
+        "targetAgent": (DIRECT_AGENT_MAP.get(constrained[0]) if mode == "direct" else None),
         "swarmRequired": mode != "direct",
         "reason": f"{reason} {constraint_reason}".strip(),
     }
@@ -138,12 +138,9 @@ class ChancellorRoutingService:
     ) -> RouteDecisionV2:
         from src.db.models import ChancellorRouteDecision
 
-        existing = (
-            db.query(ChancellorRouteDecision)
-            .filter_by(task_id=task_id, idempotency_key=idempotency_key)
-            .first()
-        )
+        existing = db.query(ChancellorRouteDecision).filter_by(task_id=task_id, idempotency_key=idempotency_key).first()
         if existing is not None:
+            assert_no_tenant_lineage_conflict(db, task_id=task_id, inherited_tenant_id=existing.tenant_id)
             return RouteDecisionV2.model_validate_json(existing.decision_json)
 
         edict = draft_edict(confirmed_edict_text, source_label=source_label)
@@ -159,8 +156,7 @@ class ChancellorRoutingService:
             task_id=task_id,
             mode=mode,
             strategy=_strategy_for(route["mode"], route.get("reason", "")),
-            primary_department=route.get("targetDepartment")
-            or (route.get("departments") or ["丞相"])[0],
+            primary_department=route.get("targetDepartment") or (route.get("departments") or ["丞相"])[0],
             primary_agent=route.get("targetAgent"),
             participants=_participants_for(route),
             reason_summary=route.get("reason", ""),
@@ -173,17 +169,12 @@ class ChancellorRoutingService:
             policy_hits=[
                 flag
                 for flag in (route.get("riskFlags") or [])
-                if flag
-                in {"股权风险", "合同风险", "付款风险", "对外承诺风险", "需人工确认"}
+                if flag in {"股权风险", "合同风险", "付款风险", "对外承诺风险", "需人工确认"}
             ],
             human_confirmation_required=bool(route.get("humanSignoffRequired")),
             capability_snapshot_version=CAPABILITY_SNAPSHOT_VERSION,
             prompt_version=None,
-            source_label=(
-                source_label
-                if source_label in {"LIVE", "MIXED", "FALLBACK", "DEMO"}
-                else "FALLBACK"
-            ),
+            source_label=(source_label if source_label in {"LIVE", "MIXED", "FALLBACK", "DEMO"} else "FALLBACK"),
             created_at=_now_iso(),
             supersedes_decision_id=supersedes_decision_id,
         )
@@ -191,6 +182,7 @@ class ChancellorRoutingService:
         db.add(
             ChancellorRouteDecision(
                 decision_id=decision.decision_id,
+                tenant_id=tenant_id_for_task(db, task_id),
                 task_id=task_id,
                 idempotency_key=idempotency_key,
                 mode=decision.mode,

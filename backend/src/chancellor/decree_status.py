@@ -13,7 +13,7 @@ DecisionTask.status 本身重新定义到方案状态机词表上。
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from src.chancellor.contracts import (
     DecreeExecutionStatusV1,
@@ -24,6 +24,9 @@ from src.chancellor.contracts import (
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+
+
+_TENANT_FROM_TASK = object()
 
 
 def record_timeline_event(
@@ -38,6 +41,7 @@ def record_timeline_event(
     source_label: str = "FALLBACK",
     payload: dict[str, Any] | None = None,
     idempotency_key: str | None = None,
+    tenant_id: int | None | object = _TENANT_FROM_TASK,
 ) -> str:
     """写一行 DecreeExecutionEvent。调用方负责 commit——本函数只 add，
     保持跟其余下旨记录同一事务，不单独提交产生不一致窗口。
@@ -60,20 +64,32 @@ def record_timeline_event(
     from src.db.flow_store import ensure_decree_execution_event_ledger_columns
     from src.db.models import DecreeExecutionEvent
 
+    if tenant_id is _TENANT_FROM_TASK:
+        from src.core_tenant_lineage import tenant_id_for_task
+
+        event_tenant_id = tenant_id_for_task(db, task_id)
+    else:
+        event_tenant_id = cast(int | None, tenant_id)
+
     ensure_decree_execution_event_ledger_columns(db)
     if source_label not in {"LIVE", "MIXED", "FALLBACK", "DEMO"}:
         raise ValueError(f"unsupported event source_label: {source_label}")
-    payload_json = json.dumps(
-        payload or {}, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    )
+    payload_json = json.dumps(payload or {}, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
     if idempotency_key:
-        existing = (
-            db.query(DecreeExecutionEvent)
-            .filter_by(task_id=task_id, idempotency_key=idempotency_key)
-            .first()
-        )
+        existing = db.query(DecreeExecutionEvent).filter_by(task_id=task_id, idempotency_key=idempotency_key).first()
         if existing is not None:
+            from src.core_tenant_lineage import (
+                assert_known_tenant_lineage_consistent,
+                tenant_id_for_task,
+            )
+
+            assert_known_tenant_lineage_consistent(
+                context=f"decree_event:{task_id}:{idempotency_key}",
+                task_tenant_id=tenant_id_for_task(db, task_id),
+                existing_tenant_id=existing.tenant_id,
+                replay_tenant_id=event_tenant_id,
+            )
             immutable = {
                 "stage": stage,
                 "actor": actor,
@@ -85,9 +101,7 @@ def record_timeline_event(
             }
             bound = {key: getattr(existing, key) for key in immutable}
             if bound != immutable:
-                raise ValueError(
-                    "idempotency key already binds a different decree event payload"
-                )
+                raise ValueError("idempotency key already binds a different decree event payload")
             return existing.id
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -98,15 +112,12 @@ def record_timeline_event(
     # 所以同一事务内此前 db.add 过、尚未 flush 的同任务事件，MAX 查询默认看不到——
     # 这里显式 flush 一次，保证同一事务内连续多次调用也不会算出重复的 sequence。
     db.flush()
-    prev_max = (
-        db.query(sa.func.max(DecreeExecutionEvent.sequence))
-        .filter_by(task_id=task_id)
-        .scalar()
-    )
+    prev_max = db.query(sa.func.max(DecreeExecutionEvent.sequence)).filter_by(task_id=task_id).scalar()
     next_sequence = (prev_max or 0) + 1
     db.add(
         DecreeExecutionEvent(
             id=event_id,
+            tenant_id=event_tenant_id,
             task_id=task_id,
             stage=stage,
             actor=actor,
@@ -178,9 +189,7 @@ _OWNER_MAP: dict[str, str] = {
 }
 
 
-def build_decree_execution_status(
-    db: "Session", task_id: str
-) -> DecreeExecutionStatusV1 | None:
+def build_decree_execution_status(db: "Session", task_id: str) -> DecreeExecutionStatusV1 | None:
     """返回 None 表示 task 尚未下旨确认(没有 ChancellorRouteDecision)——
     这种情况下"执行状态"这个概念本身还不存在，不伪造一个占位路由快照。"""
     from src.db.models import ChancellorRouteDecision, DecisionTask
@@ -198,9 +207,7 @@ def build_decree_execution_status(
     if latest_decision_row is None:
         return None
 
-    route_decision = RouteDecisionV2.model_validate_json(
-        latest_decision_row.decision_json
-    )
+    route_decision = RouteDecisionV2.model_validate_json(latest_decision_row.decision_json)
 
     stage = _STAGE_MAP.get(task.status, task.status)
     departments = [
@@ -218,15 +225,27 @@ def build_decree_execution_status(
     blocked_reason = None
     if stage == "awaiting_evidence":
         gaps = route_decision.evidence_gaps
-        blocked_reason = (
-            f"证据不足：{'、'.join(gaps[:3])}" if gaps else "证据不足，需要补充材料"
-        )
+        blocked_reason = f"证据不足：{'、'.join(gaps[:3])}" if gaps else "证据不足，需要补充材料"
 
     timeline = _load_timeline(db, task_id)
     latest_message = timeline[-1].message if timeline else f"任务状态：{task.status}"
+    from src.execution_state import derive_execution_state_from_db
+
+    execution = derive_execution_state_from_db(
+        db,
+        task_id=task_id,
+        decision_id=latest_decision_row.decision_id,
+        mode=route_decision.mode,
+    )
+    if execution.quarantined and blocked_reason is None:
+        blocked_reason = execution.reason
 
     return DecreeExecutionStatusV1(
         task_id=task_id,
+        execution_state=execution.execution_state,
+        execution_quarantined=execution.quarantined,
+        execution_state_reason=execution.reason,
+        execution_attempt=execution.selected_attempt,
         current_stage=stage,
         current_owner=_OWNER_MAP.get(stage, "军机处"),
         latest_message=latest_message,
@@ -270,12 +289,7 @@ def _load_timeline(db: "Session", task_id: str) -> list[TimelineEvent]:
     ensure_decree_execution_event_ledger_columns(db)
     db.commit()
 
-    rows = (
-        db.query(DecreeExecutionEvent)
-        .filter_by(task_id=task_id)
-        .order_by(DecreeExecutionEvent.sequence)
-        .all()
-    )
+    rows = db.query(DecreeExecutionEvent).filter_by(task_id=task_id).order_by(DecreeExecutionEvent.sequence).all()
     return [
         TimelineEvent(
             event_id=row.id,

@@ -13,7 +13,7 @@ from src.execution.outbox_worker import process_event, process_pending_events
 
 
 def _seed_direct_task(db, task_id: str = "task_direct_1"):
-    from src.db.models import DecisionTask
+    from src.db.models import CourtReview, DecisionTask
 
     db.add(
         DecisionTask(
@@ -22,6 +22,19 @@ def _seed_direct_task(db, task_id: str = "task_direct_1"):
             raw_question="草拟一份内部通知",
             status="edict_recorded",
             source_label="LIVE",
+        )
+    )
+    db.add(
+        CourtReview(
+            id=f"review_{task_id}",
+            task_id=task_id,
+            routing_plan_json='{"route":{"mode":"direct"}}',
+            review_status="direct_completed",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json='{"title":"direct receipt"}',
+            created_at="2026-07-16T00:00:00+00:00",
+            updated_at="2026-07-16T00:00:00+00:00",
         )
     )
     db.commit()
@@ -103,6 +116,48 @@ def test_process_pending_events_skips_exhausted_failed_events(isolated_session_l
     # process_pending_events 只扫 pending/failed，dead_letter 不该被再次捞起。
     results = process_pending_events(db, limit=10)
     assert all(r.get("event_id") != event_id for r in results)
+    db.close()
+
+
+def test_stale_processing_reaper_records_attempt_scoped_failure(
+    isolated_session_local,
+):
+    import json
+
+    from src.db.models import DecreeExecutionEvent, OutboxEvent
+    from src.execution.outbox_worker import _reap_stale_processing_events
+
+    db = isolated_session_local()
+    _seed_direct_task(db, task_id="task_stale")
+    event_id = enqueue_dispatch(
+        db,
+        task_id="task_stale",
+        decision_id="decision_stale",
+        event_type="route.direct",
+    )
+    db.commit()
+    event = db.query(OutboxEvent).filter_by(id=event_id).one()
+    event.status = "processing"
+    event.updated_at = "2000-01-01T00:00:00+00:00"
+    db.commit()
+
+    assert _reap_stale_processing_events(db) == 1
+
+    event = db.query(OutboxEvent).filter_by(id=event_id).one()
+    terminal = (
+        db.query(DecreeExecutionEvent)
+        .filter_by(task_id="task_stale", event_type="dispatch.failed")
+        .one()
+    )
+    assert event.status == "failed"
+    assert event.attempts == 1
+    assert json.loads(terminal.payload_json) == {
+        "attempt": 1,
+        "error_type": "StaleProcessingTimeout",
+        "outbox_event_id": event_id,
+        "outbox_status": "failed",
+    }
+    assert terminal.idempotency_key == f"dispatch.failed:{event_id}:attempt:1"
     db.close()
 
 

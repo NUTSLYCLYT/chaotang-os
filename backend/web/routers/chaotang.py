@@ -46,6 +46,7 @@ from src.decree_swarm_router import (
     select_model_tier,
     select_orchestration_tier,
 )
+from src.emperor_decision_kind import emperor_decision_kind
 from src.chaotang_launch_loop import (
     build_launch_loop_case,
     build_prior_context,
@@ -294,6 +295,7 @@ def decree_dispatch(
                 ),
                 command=body.rawCommand,
                 compat_entrypoint="chaotang.decree_dispatch",
+                tenant_id=user.tenant_id,
                 constraints=constraints,
             )
         except UnsupportedCanonicalConstraints as exc:
@@ -357,6 +359,7 @@ def decree_dispatch(
             command=body.rawCommand,
             source_label="MIXED",
             compat_entrypoint="chaotang.decree_dispatch",
+            tenant_id=user.tenant_id,
             status="executing",
             draft_context={
                 "human_confirmed": True,
@@ -843,8 +846,10 @@ def memorial_review(
         now = now_iso()
         decision = EmperorDecision(
             id=make_id("decision", task.id, canonical_action, now),
+            tenant_id=task.tenant_id,
             task_id=task.id,
             action=canonical_action,
+            kind=emperor_decision_kind(canonical_action),
             reason=body.comment,
             human_confirmed=True,
             confirmation_record_json=json.dumps(

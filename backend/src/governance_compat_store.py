@@ -78,6 +78,7 @@ def save_bill(bill: dict[str, Any], *, actor: str) -> dict[str, Any]:
                 recommended_departments=[],
                 draft_edict=bill,
                 now=str(bill.get("createdAt") or bill.get("lastTransitionAt") or ""),
+                tenant_id=None,
             )
         row.user_id = actor
         row.raw_question = raw_question

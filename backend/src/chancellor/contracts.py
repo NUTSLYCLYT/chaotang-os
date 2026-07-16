@@ -21,6 +21,14 @@ ParticipantStatus = Literal["planned", "unavailable"]
 DepartmentAssignmentStatus = Literal[
     "planned", "accepted", "executing", "reported", "blocked", "skipped"
 ]
+ExecutionState = Literal[
+    "queued",
+    "running",
+    "receipt_only",
+    "completed",
+    "failed",
+    "inconsistent",
+]
 
 
 class RouteParticipant(BaseModel):
@@ -87,6 +95,10 @@ class DecreeExecutionStatusV1(BaseModel):
 
     schema_version: Literal["DecreeExecutionStatusV1"] = "DecreeExecutionStatusV1"
     task_id: str
+    execution_state: ExecutionState
+    execution_quarantined: bool
+    execution_state_reason: str
+    execution_attempt: int | None = None
     current_stage: str
     current_owner: str
     latest_message: str

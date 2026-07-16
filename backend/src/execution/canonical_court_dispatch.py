@@ -91,6 +91,7 @@ def dispatch_compat_court_task(
     user_id: str,
     command: str,
     compat_entrypoint: str,
+    tenant_id: int | None,
     constraints: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Persist one canonical routing decision and enqueue its durable execution.
@@ -106,6 +107,7 @@ def dispatch_compat_court_task(
     from src.compat_decision_adapter import add_compat_decision_task
     from src.db.engine import SessionLocal
     from src.db.models import CourtReview, DecisionTask, EmperorDecision
+    from src.emperor_decision_kind import emperor_decision_kind
     from src.execution import decree_dispatcher
     from src.shangshufang_loop import (
         direct_receipt_for,
@@ -136,6 +138,7 @@ def dispatch_compat_court_task(
             command=command,
             source_label="MIXED",
             compat_entrypoint=compat_entrypoint,
+            tenant_id=tenant_id,
             status="executing",
             draft_context=draft_context,
         )
@@ -175,6 +178,7 @@ def dispatch_compat_court_task(
         db.add(
             CourtReview(
                 id=review_id,
+                tenant_id=task.tenant_id,
                 task_id=task_id,
                 routing_plan_json=_json(routing_plan),
                 review_status=status,
@@ -188,8 +192,10 @@ def dispatch_compat_court_task(
         db.add(
             EmperorDecision(
                 id=make_id("decision", task_id, compat_entrypoint, now),
+                tenant_id=task.tenant_id,
                 task_id=task_id,
                 action="compat_court_dispatch",
+                kind=emperor_decision_kind("compat_court_dispatch"),
                 reason=f"用户通过 {compat_entrypoint} 明确发起朝堂派单",
                 human_confirmed=True,
                 confirmation_record_json=_json(
