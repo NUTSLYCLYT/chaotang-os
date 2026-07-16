@@ -59,3 +59,21 @@ E1 补齐（artifacts 落 change 目录）+ 工部/clause 降级 RED/GREEN 证�
   artifacts 下 `runtime.md`。
 - 本段仅交接补证，不修改上方独立复核的历史裁决。状态继续保持 `PACKET_REVIEW_NO_GO`，直到
   独立 reviewer 出具 v2 复核结论。
+
+## v2 独立复核（reviewer，2026-07-16 15:4x，命令自带戳）
+
+| 项 | 复核结果 | 判定 |
+| --- | --- | --- |
+| artifacts 实在性 | 3 截图+trace.zip(16MB)+fixtures+runtime.md 全部在盘；审查者目视 03 截图确认"五键裁决/补证已提交"真实渲染态 | PASS |
+| 证据诚实边界 | runtime.md 显式声明"fixture 驱动 UI 投影冒烟，非后端质量证明"；未 mock 端点 401 原样保留不生成正式投影——与 P1 冒烟同款诚实口径 | PASS |
+| 运行可复现 | 命令/端口/Next 16.2.6/Chromium 150/案号/时间齐备 | PASS |
+| 工部/刑部降级 | `p4-shadow-capabilities.nodetest.ts` 审查者重跑 4/4（Gongbu non-canonical advice；Xingbu SHADOW first-pass 禁称 low risk） | PASS |
+| doctor | 0 errors | PASS |
+
+E1 关闭。E1 曾阻塞的全部事项已闭环。
+
+## 裁决（v2，最终）
+
+PACKET_REVIEW_GO
+
+（D6 流程偏差记录在案不撤销；机器闸建议维持，待用户裁决。）
