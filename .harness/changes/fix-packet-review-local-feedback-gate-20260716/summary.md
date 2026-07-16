@@ -30,5 +30,5 @@ Packet ID: D6-L
 - 安装器把 verifier 快照复制到共享 hooks 目录，支持 linked worktree、`core.hooksPath`、stdin replay、
   幂等和定向卸载；不会覆盖或删除 unmanaged/symlinked hook 与快照。
 - 独立复核 v2 的三个阻塞与 v4 的 snapshot 内部 symlink 误写阻塞均已用回归测试复现并修复，
-  等待新一轮独立复核。
+  v6 的 target hardlink 误写与 bundle 撕裂阻塞也已修复，等待新一轮独立复核。
 - 安装保持显式 opt-in；本变更没有修改真实 `.git/hooks`，没有合并或推送。

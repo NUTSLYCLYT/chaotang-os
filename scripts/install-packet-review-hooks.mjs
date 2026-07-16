@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import {spawnSync} from 'node:child_process';
-import {chmod, copyFile, lstat, mkdir, readFile, readdir, rename, rm, writeFile} from 'node:fs/promises';
+import {randomUUID} from 'node:crypto';
+import {chmod, copyFile, lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {join} from 'node:path';
 
@@ -21,8 +22,8 @@ async function pathStat(path) {
 async function readManagedFile(path, marker, label) {
   const stat = await pathStat(path);
   if (!stat) return undefined;
-  if (!stat.isFile() || stat.isSymbolicLink()) {
-    throw new Error(`${label} is not a managed regular file`);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1) {
+    throw new Error(`${label} is not a singly linked managed regular file`);
   }
   const current = await readFile(path, 'utf8');
   if (!current.split(/\r?\n/).includes(marker)) {
@@ -73,11 +74,45 @@ async function assertManagedAssetDirectory(path) {
   return true;
 }
 
-async function atomicCopy(source, destination) {
-  const temporary = `${destination}.tmp-${process.pid}`;
-  await rm(temporary, {force: true});
+async function installManagedAssetBundle({hooks, assetDir, sourceCli, sourceVerifier}) {
+  const staging = await mkdtemp(join(hooks, `.${ASSET_DIR_NAME}.next-`));
+  let activated = false;
+  let backup;
   try {
-    await copyFile(source, temporary);
+    await mkdir(join(staging, 'lib'));
+    await copyFile(sourceCli, join(staging, 'packet-review-pre-push.mjs'));
+    await copyFile(sourceVerifier, join(staging, 'lib', 'packet-review-local-feedback.mjs'));
+    await writeFile(join(staging, '.managed'), ASSET_MARKER, {mode: 0o600});
+    await assertManagedAssetDirectory(staging);
+
+    if (await pathStat(assetDir)) {
+      backup = `${assetDir}.previous-${randomUUID()}`;
+      await rename(assetDir, backup);
+    }
+    try {
+      await rename(staging, assetDir);
+      activated = true;
+    } catch (error) {
+      if (backup) {
+        await rename(backup, assetDir);
+        backup = undefined;
+      }
+      throw error;
+    }
+    if (backup) {
+      await rm(backup, {recursive: true});
+      backup = undefined;
+    }
+  } finally {
+    if (!activated) await rm(staging, {recursive: true, force: true});
+  }
+}
+
+async function atomicWriteFile(destination, content, mode) {
+  const temporary = `${destination}.next-${randomUUID()}`;
+  try {
+    await writeFile(temporary, content, {mode});
+    await chmod(temporary, mode);
     await rename(temporary, destination);
   } finally {
     await rm(temporary, {force: true});
@@ -178,19 +213,15 @@ done
   await chmod(dispatcher, 0o755);
 }
 
-await mkdir(join(assetDir, 'lib'), {recursive: true});
-await atomicCopy(sourceCli, join(assetDir, 'packet-review-pre-push.mjs'));
-await atomicCopy(sourceVerifier, join(assetDir, 'lib', 'packet-review-local-feedback.mjs'));
-await writeFile(join(assetDir, '.managed'), ASSET_MARKER, {mode: 0o600});
+await installManagedAssetBundle({hooks, assetDir, sourceCli, sourceVerifier});
 
-await writeFile(target, `#!/bin/sh
+await atomicWriteFile(target, `#!/bin/sh
 ${TARGET_MARKER}
 # LOCAL_FEEDBACK_ONLY: bypassable with git push --no-verify; not a security boundary.
 set -e
 hook_root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 exec node "$hook_root/${ASSET_DIR_NAME}/packet-review-pre-push.mjs" "$@"
-`, {mode: 0o755});
-await chmod(target, 0o755);
+`, 0o755);
 
 console.log(`[packet-review-hooks] installed ${target}`);
 console.log('[packet-review-hooks] LOCAL_FEEDBACK_ONLY; external required check is not configured.');

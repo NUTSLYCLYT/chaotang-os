@@ -35,7 +35,8 @@ The installer resolves hooks through `git rev-parse --git-path hooks`, supports 
 sibling worktree does not need to contain the scripts. It replays pre-push stdin to every executable
 `pre-push.d` hook and refuses to overwrite or remove an unmanaged/symlinked dispatcher, packet-review
 subhook, or verifier snapshot. Reinstall validates the snapshot's exact internal layout and atomically
-replaces its two managed JavaScript files; it never follows an existing snapshot symlink.
+activates a fully built and validated bundle, so a failed refresh leaves the previous bundle intact.
+It never follows an existing snapshot symlink or rewrites a multiply linked managed file.
 
 ## Candidate shape
 

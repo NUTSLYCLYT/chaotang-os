@@ -6,6 +6,7 @@ import {
   chmodSync,
   cpSync,
   existsSync,
+  linkSync,
   lstatSync,
   mkdtempSync,
   mkdirSync,
@@ -359,6 +360,28 @@ test('uninstall refuses to delete an unmanaged same-name packet-review subhook',
   }
 });
 
+test('reinstall refuses a hard-linked packet-review subhook without overwriting its peer', () => {
+  const repository = prepareHookRepository();
+  try {
+    const install = spawnSync(process.execPath, [installer], {cwd: repository, encoding: 'utf8'});
+    assert.equal(install.status, 0, install.stderr);
+    const hooks = git(repository, ['rev-parse', '--path-format=absolute', '--git-path', 'hooks']);
+    const target = join(hooks, 'pre-push.d', 'chaotang-packet-review');
+    const userOwned = join(repository, 'user-owned.txt');
+    const before = `${readFileSync(target, 'utf8')}# USER SENTINEL\n`;
+    writeFileSync(userOwned, before);
+    rmSync(target);
+    linkSync(userOwned, target);
+
+    const reinstall = spawnSync(process.execPath, [installer], {cwd: repository, encoding: 'utf8'});
+    assert.equal(reinstall.status, 1);
+    assert.equal(readFileSync(userOwned, 'utf8'), before);
+    assert.equal(lstatSync(target).nlink, 2);
+  } finally {
+    rmSync(repository, {recursive: true, force: true});
+  }
+});
+
 function assertReinstallRefusesSnapshotSymlink(relativePath) {
   const repository = prepareHookRepository();
   try {
@@ -386,6 +409,32 @@ test('reinstall refuses a symlinked snapshot CLI without overwriting its target'
 
 test('reinstall refuses a symlinked snapshot core without overwriting its target', () => {
   assertReinstallRefusesSnapshotSymlink(join('lib', 'packet-review-local-feedback.mjs'));
+});
+
+test('failed snapshot refresh preserves the complete previously active bundle', () => {
+  const repository = prepareHookRepository();
+  try {
+    const install = spawnSync(process.execPath, [installer], {cwd: repository, encoding: 'utf8'});
+    assert.equal(install.status, 0, install.stderr);
+    const hooks = git(repository, ['rev-parse', '--path-format=absolute', '--git-path', 'hooks']);
+    const snapshot = join(hooks, 'chaotang-packet-review-local-feedback-v1');
+    const snapshotCli = join(snapshot, 'packet-review-pre-push.mjs');
+    const snapshotCore = join(snapshot, 'lib', 'packet-review-local-feedback.mjs');
+    const beforeCli = readFileSync(snapshotCli, 'utf8');
+    const beforeCore = readFileSync(snapshotCore, 'utf8');
+
+    writeFileSync(join(repository, 'scripts', 'packet-review-pre-push.mjs'), '# new CLI bytes\n');
+    const sourceCore = join(repository, 'scripts', 'lib', 'packet-review-local-feedback.mjs');
+    rmSync(sourceCore);
+    mkdirSync(sourceCore);
+
+    const reinstall = spawnSync(process.execPath, [installer], {cwd: repository, encoding: 'utf8'});
+    assert.equal(reinstall.status, 1);
+    assert.equal(readFileSync(snapshotCli, 'utf8'), beforeCli);
+    assert.equal(readFileSync(snapshotCore, 'utf8'), beforeCore);
+  } finally {
+    rmSync(repository, {recursive: true, force: true});
+  }
 });
 
 test('installed hook does not depend on the current linked worktree containing gate scripts', () => {
