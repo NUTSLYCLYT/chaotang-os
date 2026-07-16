@@ -1,0 +1,11 @@
+{
+  "success": true,
+  "data": {
+    "task_id": "task_p4_browser_smoke_001",
+    "loop_trace_id": "loop_p4_browser_smoke_001",
+    "status": "awaiting_evidence",
+    "decision_id": "decision_p4_browser_smoke_001",
+    "archive_record": null
+  },
+  "error": null
+}

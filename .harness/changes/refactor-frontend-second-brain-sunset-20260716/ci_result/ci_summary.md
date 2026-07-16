@@ -17,7 +17,7 @@ backend CourtReview/FinalMemorial。已满足 `PACKET_P4_READY_FOR_CLAUDE_REVIEW
 | frontend full | BASELINE：1040 pass / 7 fail / 1047 | 7 项均为 P6 已登记 known-red，无 P4 新失败 |
 | backend full | BASELINE：2638 pass / 27 skip / 8 initial fail | 第 8 项在 P4/基线单跑及 P4 整文件顺序均 PASS，不构成稳定 P4 回归 |
 | root/backend/frontend doctor | PASS：0/0 × 3 | 三层结构与 manifest 完整 |
-| browser smoke | PASS | canonical fixture：上书房下旨 → 军机处 `LIVE_SWARM` → 质门阻断/六部意见 → “补证已提交” |
+| browser smoke | PASS | fixture-driven 军机处 canonical 投影；截图、trace、fixture、运行命令与哈希均已提交至 `e2e_test/artifacts/` |
 | diff check | PASS | `git diff --check 188fb3d` 无输出 |
 | production DB fingerprint | PASS | size `2121728`、mtime `1783863664`、SHA-256 `10dbcf48…60859e2`，与开工一致 |
 
@@ -38,6 +38,14 @@ backend CourtReview/FinalMemorial。已满足 `PACKET_P4_READY_FOR_CLAUDE_REVIEW
   fallback 契约 `93138f3`。
 - `NEXT_PUBLIC_COURTOS_CANONICAL_PROJECTION=false` 或未知值只降级为安全等待，不恢复旧引擎。
 - 用户已授权提交、合入与 push ext；未授权部署，release 分支保持冻结。
+
+## 浏览器证据边界
+
+- canonical status GET 与 decision POST 在最终 trace 中均为 200；页面呈现 `LIVE_SWARM`、户部/工部意见、
+  缺证阻断、不可采纳和“补证已提交”。
+- 本烟测只证明 frontend 对 backend-shaped fixture 的投影和回写契约，不证明 backend 蜂群产出质量。
+- trace 保留未 mock 的 task list/detail/stream 401；这些响应没有填充 canonical projection。
+- 证据清单、命令、SHA-256 及 Gongbu/Xingbu SHADOW 4/4 见 `e2e_test/artifacts/runtime.md`。
 
 ## 声明状态
 
