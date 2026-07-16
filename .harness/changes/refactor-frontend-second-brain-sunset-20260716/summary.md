@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | refactor-frontend-second-brain-sunset-20260716 |
 | 类型 | refactor |
-| 状态 | P4a_VERIFIED / P4b_PENDING |
+| 状态 | P4a_P4b_VERIFIED / P4c_PENDING |
 | Owner | Project Agent |
 | 创建日期 | 20260716 |
 
@@ -26,3 +26,6 @@
 - P4a：RED 为 projector module 缺失（1 suite failed）及军机处四项受限 import
   （1 failed / 4 passed；扩展 marker 后 2 failed / 4 passed）；GREEN 为 projector 4、
   import/marker guard 6、军机处相邻合计 20、case orchestrator 3，tsc 0，frontend doctor 0/0。
+- P4b：RED 为 projector module 缺失、上书房四项受限 import、旧 MVP 反向断言各 1
+  failed；GREEN 为 projector 6、import guard 12、MVP 4、上书房相邻 30，tsc 0。
+  正式快照优先于候选；direct 回执、候选阻断与空态分别诚实展示；终态空读继续有限重试。

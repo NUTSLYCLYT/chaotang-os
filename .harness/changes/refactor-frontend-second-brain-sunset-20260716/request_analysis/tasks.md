@@ -24,7 +24,7 @@
 - 验证命令与证据：formal precedence/candidate/direct/retry/empty/trace RED→GREEN。
 - 回滚边界：P4b 原子提交；flag off 安全等待，不恢复本地圣裁。
 - 完成定义：上书房生产 import/call 清零，正式内容仅来自正式快照。
-- 状态：PENDING。
+- 状态：VERIFIED；RED/GREEN、相邻 30、MVP 4、tsc 与 diff-check 已通过。
 
 ## 任务 3 — P4c 蒸馏与退役
 

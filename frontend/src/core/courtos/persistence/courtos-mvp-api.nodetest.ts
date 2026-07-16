@@ -52,22 +52,21 @@ test('retired API-cluster schema tables are kept until a real migration removes 
   assert.match(schemaText, /decision_tasks_user_status_updated/);
 });
 
-test('confirmedEdictToView gates local chancellor synthesis until real memorial exists (2026-07-10 硬门)', async () => {
+test('Shangshufang production view projects canonical memorials without local synthesis', async () => {
   const pageText = await readFile(
     new URL('../../../features/shangshufang/ShangshufangPage.tsx', import.meta.url),
     'utf8',
   );
 
-  // 硬门本体：edict_recorded(军机处刚派单、真实回奏还没发生)必须在
-  // confirmedEdictToView 里被拦截，不走到本地合成链路。
-  const gateIndex = pageText.indexOf("confirm.status === 'edict_recorded'");
-  assert.notEqual(gateIndex, -1, '缺少 edict_recorded 硬门');
-  const synthesisIndex = pageText.indexOf('runCourtUnifiedDecisionLoop({', gateIndex);
-  assert.notEqual(synthesisIndex, -1, '找不到本地合成调用');
-  assert.ok(gateIndex < synthesisIndex, '硬门必须出现在本地合成调用之前');
-
-  // 真实回奏回报后要能重新渲染成完整视图，而不是永远卡在占位态。
+  for (const marker of [
+    'runMinistryReview(',
+    'runYushitaiAudit(',
+    'synthesizeImperialReport(',
+    'runCourtUnifiedDecisionLoop(',
+  ]) {
+    assert.equal(pageText.includes(marker), false, `production page still calls ${marker}`);
+  }
   assert.match(pageText, /function pollForRealVerdict/);
-  assert.match(pageText, /function taskStatusToConfirmLike/);
+  assert.match(pageText, /projectCanonicalMemorialView/);
   assert.match(pageText, /pollForRealVerdict\(draft\.task_id, setEdictOverride\)/);
 });

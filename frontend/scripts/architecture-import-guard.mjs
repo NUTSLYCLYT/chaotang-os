@@ -20,7 +20,6 @@ const ALLOWED_ENGINE_IMPORTS = new Map([
     'src/core/courtos/runtime/live-memorial-build.ts',
     new Set(['imperial-report-synthesizer']),
   ],
-  ['src/features/shangshufang/ShangshufangPage.tsx', new Set(ENGINE_NAMES)],
   ['src/lib/db/courtos-decision-store.ts', new Set(['unified-decision-loop'])],
 ]);
 
