@@ -147,7 +147,7 @@ def test_015_blocks_a_previously_stamped_users_table_without_tenant_foreign_key(
 
     alembic_command.stamp(cfg, "014_tenant_identity_tables")
 
-    with pytest.raises(Exception, match="users.tenant_id foreign key"):
+    with pytest.raises(Exception, match="users foreign keys mismatch"):
         alembic_command.upgrade(cfg, "head")
 
     conn = sqlite3.connect(path)

@@ -87,6 +87,27 @@ def _unique_shapes(inspector: sa.Inspector, table_name: str) -> set[tuple[str, .
     return {shape for shape in shapes if shape}
 
 
+def _foreign_key_shapes(
+    inspector: sa.Inspector,
+    table_name: str,
+) -> set[tuple[tuple[str, ...], str, tuple[str, ...], tuple[tuple[str, str], ...]]]:
+    return {
+        (
+            tuple(item.get("constrained_columns") or ()),
+            str(item.get("referred_table")),
+            tuple(item.get("referred_columns") or ()),
+            tuple(
+                sorted(
+                    (str(key), str(value).lower())
+                    for key, value in (item.get("options") or {}).items()
+                    if value is not None
+                )
+            ),
+        )
+        for item in inspector.get_foreign_keys(table_name)
+    }
+
+
 def _validate(inspector: sa.Inspector) -> None:
     existing = set(inspector.get_table_names())
     errors: list[str] = []
@@ -117,18 +138,21 @@ def _validate(inspector: sa.Inspector) -> None:
             errors.append(f"{table_name} primary key mismatch")
         if _unique_shapes(inspector, table_name) != spec["unique"]:
             errors.append(f"{table_name} unique constraints mismatch")
-
-    if "users" in existing:
-        foreign_keys = {
-            (
-                tuple(item.get("constrained_columns") or ()),
-                item.get("referred_table"),
-                tuple(item.get("referred_columns") or ()),
-            )
-            for item in inspector.get_foreign_keys("users")
+        foreign_keys = _foreign_key_shapes(inspector, table_name)
+        expected_foreign_keys = (
+            {(('tenant_id',), 'tenants', ('id',), ())}
+            if table_name == "users"
+            else set()
+        )
+        if foreign_keys != expected_foreign_keys:
+            errors.append(f"{table_name} foreign keys mismatch")
+        named_indexes = {
+            item["name"] for item in inspector.get_indexes(table_name) if item.get("name")
         }
-        if foreign_keys != {(('tenant_id',), 'tenants', ('id',))}:
-            errors.append("users.tenant_id foreign key mismatch")
+        if named_indexes:
+            errors.append(f"{table_name} unexpected named indexes: {', '.join(sorted(named_indexes))}")
+        if inspector.get_check_constraints(table_name):
+            errors.append(f"{table_name} unexpected check constraints")
 
     if errors:
         raise RuntimeError("incompatible tenant identity tables block migration 015: " + "; ".join(errors))

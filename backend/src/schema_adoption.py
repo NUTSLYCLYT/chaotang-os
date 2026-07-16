@@ -175,6 +175,56 @@ def _normalize_check_sql(value: object) -> str:
     return " ".join(str(value).strip().lower().split())
 
 
+def _normalized_fk_options(options: dict[str, object] | None) -> tuple[tuple[str, str], ...]:
+    return tuple(
+        sorted(
+            (str(key), str(value).lower())
+            for key, value in (options or {}).items()
+            if value is not None
+        )
+    )
+
+
+def _foreign_key_shapes(
+    inspector: sa.Inspector,
+    table_name: str,
+) -> set[tuple[tuple[str, ...], str, tuple[str, ...], tuple[tuple[str, str], ...]]]:
+    return {
+        (
+            tuple(item.get("constrained_columns") or ()),
+            str(item.get("referred_table")),
+            tuple(item.get("referred_columns") or ()),
+            _normalized_fk_options(item.get("options")),
+        )
+        for item in inspector.get_foreign_keys(table_name)
+    }
+
+
+def _expected_foreign_key_shapes(
+    table: sa.Table,
+) -> set[tuple[tuple[str, ...], str, tuple[str, ...], tuple[tuple[str, str], ...]]]:
+    shapes = set()
+    for constraint in table.foreign_key_constraints:
+        elements = tuple(constraint.elements)
+        shapes.add(
+            (
+                tuple(element.parent.name for element in elements),
+                elements[0].column.table.name,
+                tuple(element.column.name for element in elements),
+                _normalized_fk_options(
+                    {
+                        "ondelete": constraint.ondelete,
+                        "onupdate": constraint.onupdate,
+                        "deferrable": constraint.deferrable,
+                        "initially": constraint.initially,
+                        "match": constraint.match,
+                    }
+                ),
+            )
+        )
+    return shapes
+
+
 def _validate_table(
     inspector: sa.Inspector,
     table: sa.Table,
@@ -251,6 +301,15 @@ def _validate_table(
             f"expected {sorted(expected_checks, key=repr)}, "
             f"got {sorted(actual_checks, key=repr)}"
         )
+
+    actual_foreign_keys = _foreign_key_shapes(inspector, table_name)
+    expected_foreign_keys = _expected_foreign_key_shapes(table)
+    if actual_foreign_keys != expected_foreign_keys:
+        errors.append(
+            f"{table_name} foreign keys mismatch: "
+            f"expected {sorted(expected_foreign_keys, key=repr)}, "
+            f"got {sorted(actual_foreign_keys, key=repr)}"
+        )
     return errors
 
 
@@ -303,17 +362,21 @@ def _identity_mismatches(inspector: sa.Inspector, tables: set[str]) -> list[str]
             errors.append(f"{table_name} primary key mismatch")
         if _unique_shapes(inspector, table_name) != spec["unique"]:
             errors.append(f"{table_name} unique constraints mismatch")
-        if table_name == "users":
-            foreign_keys = {
-                (
-                    tuple(item.get("constrained_columns") or ()),
-                    item.get("referred_table"),
-                    tuple(item.get("referred_columns") or ()),
-                )
-                for item in inspector.get_foreign_keys(table_name)
-            }
-            if foreign_keys != {(('tenant_id',), 'tenants', ('id',))}:
-                errors.append("users.tenant_id foreign key mismatch")
+        foreign_keys = _foreign_key_shapes(inspector, table_name)
+        expected_foreign_keys = (
+            {(('tenant_id',), 'tenants', ('id',), ())}
+            if table_name == "users"
+            else set()
+        )
+        if foreign_keys != expected_foreign_keys:
+            errors.append(f"{table_name} foreign keys mismatch")
+        named_indexes = {
+            item["name"] for item in inspector.get_indexes(table_name) if item.get("name")
+        }
+        if named_indexes:
+            errors.append(f"{table_name} unexpected named indexes: {', '.join(sorted(named_indexes))}")
+        if inspector.get_check_constraints(table_name):
+            errors.append(f"{table_name} unexpected check constraints")
     return errors
 
 

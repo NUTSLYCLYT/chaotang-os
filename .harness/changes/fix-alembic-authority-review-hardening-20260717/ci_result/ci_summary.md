@@ -41,7 +41,7 @@ P5.1 自身验证完成。新增 015 作为 validation-only head，避免通过�
 | DoD | 证据 | 状态 |
 | --- | --- | --- |
 | 缺失 SQLite 路径零创建 | authority/adoption 普通路径 + file URI tests | 完成 |
-| 010/011 完整候选指纹 | column/PK/null/type/default/unique/named index/未知结构 tests | 完成 |
+| 010/011 完整候选指纹 | column/PK/null/type/default/unique/check/FK/named index/未知结构 tests | 完成 |
 | 010 不忽略已存在的畸形 011 表 | malformed archive candidate test | 完成 |
 | 已发布 014 的身份表重新过门 | 015 validation-only fresh/legacy/malformed tests | 完成 |
 | 接管失败在 backup/stamp/DDL 前 | malformed tasks/identity apply tests | 完成 |

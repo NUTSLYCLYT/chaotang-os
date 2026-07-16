@@ -57,7 +57,7 @@
 | 条件 | 预期行为 | 证据 / 验证 |
 | --- | --- | --- |
 | missing SQLite path / file URI | check/strict 拒绝且文件不存在 | pytest |
-| candidate 缺列、错 PK/type/null/unique/index 或未知列 | backup/stamp 前拒绝，`alembic_version` 不存在 | pytest |
+| candidate 缺列、错 PK/type/null/unique/check/FK/index 或未知结构 | backup/stamp 前拒绝，`alembic_version` 不存在 | pytest |
 | 合法 010 与 011 candidate | check 选最高兼容 revision，apply 到 head | pytest |
 | 已在 014 的 identity 同名畸形表 | 015 拒绝，版本保持 014，不做 DDL | pytest |
 | `.env` 声明非 strict | service `ExecStart` 仍强制 strict | 源码契约 pytest |
