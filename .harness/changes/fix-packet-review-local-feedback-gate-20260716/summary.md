@@ -31,6 +31,7 @@ Packet ID: D6-L
   幂等和定向卸载；不会覆盖或删除 unmanaged/symlinked hook 与快照。
 - 独立复核 v2 的三个阻塞与 v4 的 snapshot 内部 symlink 误写阻塞均已用回归测试复现并修复，
   v6 的 target hardlink 误写与 bundle 撕裂阻塞也已修复；v8 技术探测发现的目录切换空窗改由
-  “不可变内容寻址 bundle + 原子 current 指针”消除，等待新一轮独立复核。
+  “不可变内容寻址 bundle + 原子 current 指针”消除；v9 的 `pre-push.d` symlink 越界写与
+  target 后置重写问题也已回归修复，等待新一轮独立复核。
 - 安装保持显式 opt-in；复核中曾误执行真实 installer，已立即定向卸载并确认三个 D6 hook 路径
   均不存在。当前未安装、未合并、未推送。

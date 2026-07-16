@@ -2,7 +2,6 @@
 import {spawnSync} from 'node:child_process';
 import {createHash, randomUUID} from 'node:crypto';
 import {chmod, lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile} from 'node:fs/promises';
-import {existsSync} from 'node:fs';
 import {join} from 'node:path';
 
 const DISPATCHER_MARKER = '# chaotang-pre-push-dispatcher-v1';
@@ -18,6 +17,15 @@ async function pathStat(path) {
     if (error?.code === 'ENOENT') return undefined;
     throw error;
   }
+}
+
+async function assertRealDirectory(path, label) {
+  const stat = await pathStat(path);
+  if (!stat) return false;
+  if (!stat.isDirectory() || stat.isSymbolicLink()) {
+    throw new Error(`${label} is not a real directory`);
+  }
+  return true;
 }
 
 async function readManagedFile(path, marker, label) {
@@ -212,23 +220,26 @@ const sourceVerifier = join(root, 'scripts', 'lib', 'packet-review-local-feedbac
 
 if (process.argv.includes('--uninstall')) {
   try {
-    const managedTarget = await readManagedFile(target, TARGET_MARKER, 'packet-review subhook');
+    const hasDispatcherDir = await assertRealDirectory(dispatcherDir, 'pre-push.d');
+    const managedTarget = hasDispatcherDir
+      ? await readManagedFile(target, TARGET_MARKER, 'packet-review subhook')
+      : undefined;
     const managedAssets = await assertManagedAssetDirectory(assetDir);
     if (managedTarget) await rm(target, {force: true});
     if (managedAssets) await rm(assetDir, {recursive: true, force: true});
+    const remaining = hasDispatcherDir ? await readdir(dispatcherDir) : [];
+    if (remaining.length === 0 && await pathStat(dispatcher)) {
+      try {
+        if (await readManagedFile(dispatcher, DISPATCHER_MARKER, 'pre-push dispatcher')) {
+          await rm(dispatcher, {force: true});
+        }
+      } catch (error) {
+        console.error(`[packet-review-hooks] ${error.message}; dispatcher was preserved.`);
+      }
+    }
   } catch (error) {
     console.error(`[packet-review-hooks] ${error.message}; nothing was removed. STOP.`);
     process.exit(1);
-  }
-  const remaining = existsSync(dispatcherDir) ? await readdir(dispatcherDir) : [];
-  if (remaining.length === 0 && await pathStat(dispatcher)) {
-    try {
-      if (await readManagedFile(dispatcher, DISPATCHER_MARKER, 'pre-push dispatcher')) {
-        await rm(dispatcher, {force: true});
-      }
-    } catch (error) {
-      console.error(`[packet-review-hooks] ${error.message}; dispatcher was preserved.`);
-    }
   }
   console.log('[packet-review-hooks] managed local feedback subhook and snapshot removed; other hooks preserved.');
   process.exit(0);
@@ -244,7 +255,19 @@ try {
   process.exit(1);
 }
 
-await mkdir(dispatcherDir, {recursive: true});
+try {
+  if (!await assertRealDirectory(hooks, 'hooks directory')) {
+    await mkdir(hooks, {recursive: true});
+    await assertRealDirectory(hooks, 'hooks directory');
+  }
+  if (!await assertRealDirectory(dispatcherDir, 'pre-push.d')) {
+    await mkdir(dispatcherDir);
+    await assertRealDirectory(dispatcherDir, 'pre-push.d');
+  }
+} catch (error) {
+  console.error(`[packet-review-hooks] ${error.message}; it was not used. STOP.`);
+  process.exit(1);
+}
 const dispatcherStat = await pathStat(dispatcher);
 if (dispatcherStat) {
   let current;
@@ -259,9 +282,10 @@ if (dispatcherStat) {
     process.exit(1);
   }
 }
+let managedTarget;
 let managedAssets;
 try {
-  await readManagedFile(target, TARGET_MARKER, 'packet-review subhook');
+  managedTarget = await readManagedFile(target, TARGET_MARKER, 'packet-review subhook');
   managedAssets = await assertManagedAssetDirectory(assetDir);
 } catch (error) {
   console.error(`[packet-review-hooks] ${error.message}; it was not overwritten. STOP.`);
@@ -281,15 +305,7 @@ done
 `, 0o755, hooks);
 }
 
-await installManagedAssetBundle({
-  hooks,
-  assetDir,
-  existing: managedAssets,
-  cli: sourceCliBytes,
-  core: sourceVerifierBytes,
-});
-
-await atomicWriteFile(target, `#!/bin/sh
+const targetContent = `#!/bin/sh
 ${TARGET_MARKER}
 # LOCAL_FEEDBACK_ONLY: bypassable with git push --no-verify; not a security boundary.
 set -e
@@ -297,7 +313,16 @@ hook_root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 asset_root="$hook_root/${ASSET_DIR_NAME}"
 bundle=$(cat "$asset_root/current")
 exec node "$asset_root/bundles/$bundle/packet-review-pre-push.mjs" "$@"
-`, 0o755, hooks);
+`;
+if (!managedTarget) await atomicWriteFile(target, targetContent, 0o755, hooks);
+
+await installManagedAssetBundle({
+  hooks,
+  assetDir,
+  existing: managedAssets,
+  cli: sourceCliBytes,
+  core: sourceVerifierBytes,
+});
 
 console.log(`[packet-review-hooks] installed ${target}`);
 console.log('[packet-review-hooks] LOCAL_FEEDBACK_ONLY; external required check is not configured.');

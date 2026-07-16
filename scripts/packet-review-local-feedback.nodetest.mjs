@@ -350,6 +350,22 @@ test('installer refuses to overwrite an existing non-dispatcher pre-push hook', 
   }
 });
 
+test('installer refuses a symlinked pre-push.d parent without writing its target directory', () => {
+  const repository = prepareHookRepository();
+  try {
+    const hooks = git(repository, ['rev-parse', '--path-format=absolute', '--git-path', 'hooks']);
+    const userOwnedDir = join(repository, 'user-owned-hooks');
+    mkdirSync(userOwnedDir);
+    symlinkSync(userOwnedDir, join(hooks, 'pre-push.d'));
+
+    const install = spawnSync(process.execPath, [installer], {cwd: repository, encoding: 'utf8'});
+    assert.equal(install.status, 1);
+    assert.equal(existsSync(join(userOwnedDir, 'chaotang-packet-review')), false);
+  } finally {
+    rmSync(repository, {recursive: true, force: true});
+  }
+});
+
 test('snapshot refresh switches one current pointer while retaining the prior immutable bundle', () => {
   const repository = prepareHookRepository();
   try {
@@ -368,6 +384,31 @@ test('snapshot refresh switches one current pointer while retaining the prior im
     assert.equal(readFileSync(join(before.path, 'packet-review-pre-push.mjs'), 'utf8'), beforeCli);
     assert.match(readFileSync(join(after.path, 'packet-review-pre-push.mjs'), 'utf8'), /refreshed bundle/);
   } finally {
+    rmSync(repository, {recursive: true, force: true});
+  }
+});
+
+test('snapshot refresh does not rewrite an existing managed target subhook', () => {
+  const repository = prepareHookRepository();
+  let dispatcherDir;
+  try {
+    const firstInstall = spawnSync(process.execPath, [installer], {cwd: repository, encoding: 'utf8'});
+    assert.equal(firstInstall.status, 0, firstInstall.stderr);
+    const hooks = git(repository, ['rev-parse', '--path-format=absolute', '--git-path', 'hooks']);
+    dispatcherDir = join(hooks, 'pre-push.d');
+    const target = join(dispatcherDir, 'chaotang-packet-review');
+    const targetBefore = readFileSync(target, 'utf8');
+    const bundleBefore = activeSnapshot(hooks).bundle;
+    const sourceCli = join(repository, 'scripts', 'packet-review-pre-push.mjs');
+    writeFileSync(sourceCli, `${readFileSync(sourceCli, 'utf8')}\n// refreshed without target rewrite\n`);
+    chmodSync(dispatcherDir, 0o555);
+
+    const secondInstall = spawnSync(process.execPath, [installer], {cwd: repository, encoding: 'utf8'});
+    assert.equal(secondInstall.status, 0, secondInstall.stderr);
+    assert.notEqual(activeSnapshot(hooks).bundle, bundleBefore);
+    assert.equal(readFileSync(target, 'utf8'), targetBefore);
+  } finally {
+    if (dispatcherDir) chmodSync(dispatcherDir, 0o755);
     rmSync(repository, {recursive: true, force: true});
   }
 });
