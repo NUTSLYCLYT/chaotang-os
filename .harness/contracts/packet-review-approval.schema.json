@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chaotang.local/contracts/packet-review-approval.schema.json",
+  "title": "Packet review local feedback approval envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "review_version",
+    "packet_id",
+    "change_id",
+    "predecessor_integration_sha",
+    "reviewed_head_sha",
+    "report_path",
+    "report_sha256",
+    "verdict"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "status": {"const": "LOCAL_FEEDBACK_ONLY"},
+    "review_version": {"type": "integer", "minimum": 1},
+    "packet_id": {"type": "string", "pattern": "^P[0-9]+(?:\\.[0-9]+)?$"},
+    "change_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "predecessor_integration_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "reviewed_head_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "report_path": {
+      "type": "string",
+      "pattern": "^\\.harness/changes/[a-z0-9][a-z0-9-]*/packet_review/review-v[1-9][0-9]*\\.md$"
+    },
+    "report_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "verdict": {"const": "PACKET_REVIEW_GO"}
+  }
+}
