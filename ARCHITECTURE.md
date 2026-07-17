@@ -21,7 +21,10 @@ Next.js 服务端 → FastAPI。`backend/` 已新增最小、无外部服务依�
 离线测试，默认走 `openai` SDK 调用 DeepSeek 的 OpenAI 兼容端点，密钥仅来自
 `DEEPSEEK_API_KEY` 环境变量）；不迁移 `dev` 分支的完整多供应商模型层，不新增
 聊天 HTTP API，`build_minimal_graph()` 与 `GET /health` 契约不受影响；决策见
-`docs/decisions/0008-deepseek-langgraph-integration.md`。
+`docs/decisions/0008-deepseek-langgraph-integration.md`。DeepSeek 密钥解析进一步新增
+本地 dotenv 兜底能力：进程环境变量仍然优先，只有缺失/为空时才读取固定的私有路径
+`backend/.env.example`，且不写入全局 `os.environ`；决策见
+`docs/decisions/0009-deepseek-local-dotenv-fallback.md`。
 
 ## 所有权
 

@@ -67,6 +67,12 @@ def test_missing_api_key_fails_fast_before_graph_is_returned(monkeypatch):
     not later at ``.invoke()`` time. No ``chat_model`` is injected here, so
     this exercises the real config-loading + key-resolution path (using the
     real ``backend/config/providers.yaml``) with no network access.
+
+    The autouse ``isolate_deepseek_dotenv_fallback`` fixture in
+    ``conftest.py`` points the dotenv fallback's default path at a
+    guaranteed-nonexistent file for the duration of this test, so this
+    assertion holds regardless of whether the developer's real, private
+    ``backend/.env.example`` happens to contain a key.
     """
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
 

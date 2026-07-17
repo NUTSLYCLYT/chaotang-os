@@ -25,7 +25,9 @@ const REQUIRED_FILES = [
   "docs/decisions/0005-codex-desktop-product-flow-skill.md",
   "docs/decisions/0007-langgraph-runtime-foundation.md",
   "docs/decisions/0008-deepseek-langgraph-integration.md",
+  "docs/decisions/0009-deepseek-local-dotenv-fallback.md",
   "backend/config/providers.yaml",
+  "backend/.env.template",
   "docs/failures/2026-07-15-shared-harness-stop-hook-false-green.md",
   ".github/workflows/harness.yml",
   ".agents/hooks/check-harness.mjs",
@@ -467,6 +469,51 @@ export function validateHarness(root) {
           errors.push(`架构声称没有业务代码，但 ${side}/ 出现: ${unexpected.join(", ")}`);
         }
       }
+    }
+  }
+
+  const envTemplatePath = join(root, "backend", ".env.template");
+  if (existsSync(envTemplatePath)) {
+    const content = readFileSync(envTemplatePath, "utf8");
+    if (!/^DEEPSEEK_API_KEY=\s*$/m.test(content)) {
+      errors.push("backend/.env.template 必须包含空值的 DEEPSEEK_API_KEY=");
+    }
+    if (/sk-[A-Za-z0-9]{8,}/.test(content)) {
+      errors.push("backend/.env.template 疑似包含真实密钥特征，必须只保留空模板");
+    }
+  }
+
+  const backendPyprojectPath = join(root, "backend", "pyproject.toml");
+  if (existsSync(backendPyprojectPath)) {
+    const content = readFileSync(backendPyprojectPath, "utf8");
+    if (!content.includes("python-dotenv")) {
+      errors.push("backend/pyproject.toml 的 dependencies 必须声明 python-dotenv");
+    }
+  }
+
+  const deepseekCheckPath = join(root, "backend", "app", "langgraph_runtime", "deepseek_check.py");
+  if (existsSync(deepseekCheckPath)) {
+    const content = readFileSync(deepseekCheckPath, "utf8");
+    if (!content.includes("def main(")) {
+      errors.push("backend/app/langgraph_runtime/deepseek_check.py 必须定义 def main(");
+    }
+    if (!content.includes("--dotenv-path")) {
+      errors.push(
+        "backend/app/langgraph_runtime/deepseek_check.py 必须声明显式的 --dotenv-path 参数，禁止默认读取私有 dotenv 文件"
+      );
+    }
+    if (!content.includes("required=True")) {
+      errors.push(
+        "backend/app/langgraph_runtime/deepseek_check.py 的 --dotenv-path 必须是必填参数（required=True），防止静默回退读取私有文件"
+      );
+    }
+  }
+
+  const gitignorePath = join(root, ".gitignore");
+  if (existsSync(gitignorePath)) {
+    const content = readFileSync(gitignorePath, "utf8");
+    if (!content.includes("!backend/.env.template")) {
+      errors.push(".gitignore 必须包含否定规则: !backend/.env.template");
     }
   }
 

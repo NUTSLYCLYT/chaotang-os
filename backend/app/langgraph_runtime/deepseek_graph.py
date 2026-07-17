@@ -17,6 +17,7 @@ outbound request could be attempted from ``.invoke()``.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -48,7 +49,9 @@ class DeepSeekGraphInvocationError(Exception):
     """
 
 
-def build_deepseek_graph(chat_model: DeepSeekChatModel | None = None) -> CompiledStateGraph:
+def build_deepseek_graph(
+    chat_model: DeepSeekChatModel | None = None, dotenv_path: Path | None = None
+) -> CompiledStateGraph:
     """Build and compile a single-node graph that calls a DeepSeek chat model.
 
     Args:
@@ -61,6 +64,12 @@ def build_deepseek_graph(chat_model: DeepSeekChatModel | None = None) -> Compile
             any configuration or missing-key error is raised before this
             function returns (i.e. before ``.invoke()`` could ever be
             called).
+        dotenv_path: Optional override path to a dotenv file, forwarded
+            unchanged to :func:`build_deepseek_chat_model` and used only as
+            a fallback when the process environment variable is unset/empty.
+            Ignored when ``chat_model`` is supplied. Defaults to ``None``,
+            which preserves prior behavior exactly (falls back to the
+            module-level default private path).
 
     Returns:
         A compiled, callable graph object (``.invoke({"input_text": ...})``).
@@ -70,7 +79,7 @@ def build_deepseek_graph(chat_model: DeepSeekChatModel | None = None) -> Compile
         resolved_chat_model = chat_model
     else:
         config = load_deepseek_provider_config()
-        resolved_chat_model = build_deepseek_chat_model(config)
+        resolved_chat_model = build_deepseek_chat_model(config, dotenv_path)
 
     def _call_deepseek_model(state: DeepSeekGraphState) -> dict:
         messages = [{"role": "user", "content": state["input_text"]}]

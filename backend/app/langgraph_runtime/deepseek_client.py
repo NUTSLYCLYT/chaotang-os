@@ -16,13 +16,12 @@ constructs, returns, logs, or raises.
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 
 import openai
 
-from app.langgraph_runtime.deepseek_config import (
-    DeepSeekProviderConfig,
-    resolve_deepseek_api_key,
-)
+from app.langgraph_runtime.deepseek_config import DeepSeekProviderConfig
+from app.langgraph_runtime.deepseek_env import resolve_deepseek_api_key_with_dotenv_fallback
 
 _MODEL_NAME_PREFIX = "openai/"
 
@@ -72,17 +71,24 @@ def normalize_deepseek_model_name(model_name: str) -> str:
     return model_name[len(_MODEL_NAME_PREFIX) :]
 
 
-def build_deepseek_chat_model(config: DeepSeekProviderConfig) -> DeepSeekChatModel:
+def build_deepseek_chat_model(
+    config: DeepSeekProviderConfig, dotenv_path: Path | None = None
+) -> DeepSeekChatModel:
     """Build a callable DeepSeek chat model backed by the real ``openai`` SDK.
 
-    Resolves the API key from the environment (see
-    :func:`app.langgraph_runtime.deepseek_config.resolve_deepseek_api_key`)
+    Resolves the API key from the environment, falling back to a local
+    dotenv file when the environment variable is unset/empty (see
+    :func:`app.langgraph_runtime.deepseek_env.resolve_deepseek_api_key_with_dotenv_fallback`),
     and constructs a real ``openai.OpenAI`` client pointed at DeepSeek's
     OpenAI-compatible endpoint. The returned callable always uses
     ``config.default_model`` (normalized) as the model.
 
     Args:
         config: A validated :class:`DeepSeekProviderConfig`.
+        dotenv_path: Optional override path to a dotenv file used only as a
+            fallback when the process environment variable is unset/empty.
+            Defaults to ``backend/.env.example`` when omitted; primarily
+            useful for injecting a temporary path in offline tests.
 
     Returns:
         A callable accepting an OpenAI-style message list and returning the
@@ -90,9 +96,10 @@ def build_deepseek_chat_model(config: DeepSeekProviderConfig) -> DeepSeekChatMod
 
     Raises:
         DeepSeekApiKeyError: propagated from key resolution if the
-            configured environment variable is unset/empty.
+            configured environment variable is unset/empty and the dotenv
+            fallback also failed.
     """
-    api_key = resolve_deepseek_api_key(config)
+    api_key = resolve_deepseek_api_key_with_dotenv_fallback(config, dotenv_path)
     client = openai.OpenAI(base_url=config.base_url, api_key=api_key)
     model_name = normalize_deepseek_model_name(config.default_model)
 

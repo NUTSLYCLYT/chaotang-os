@@ -17,7 +17,7 @@ from app.langgraph_runtime.deepseek_client import (
     build_deepseek_chat_model,
     normalize_deepseek_model_name,
 )
-from app.langgraph_runtime.deepseek_config import DeepSeekProviderConfig
+from app.langgraph_runtime.deepseek_config import DeepSeekApiKeyError, DeepSeekProviderConfig
 
 _CONFIG = DeepSeekProviderConfig(
     base_url="https://api.deepseek.com/v1",
@@ -91,3 +91,40 @@ def test_build_deepseek_chat_model_wraps_underlying_exceptions(mock_openai_class
     # Sanity check the marker really was present in the underlying cause,
     # so the assertion above is testing something real.
     assert leaking_marker in str(exc_info.value.__cause__)
+
+
+@patch("app.langgraph_runtime.deepseek_client.openai.OpenAI")
+def test_build_deepseek_chat_model_falls_back_to_injected_dotenv_path(
+    mock_openai_class, monkeypatch, tmp_path
+):
+    """When the process env var is missing, an injected ``dotenv_path``
+    pointing at a temporary file containing the key must be used to
+    construct the real (mocked) ``openai.OpenAI`` client.
+    """
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    dotenv_path = tmp_path / ".env.example"
+    dotenv_path.write_text("DEEPSEEK_API_KEY=sk-from-dotenv-file\n", encoding="utf-8")
+    mock_client_instance = MagicMock()
+    mock_openai_class.return_value = mock_client_instance
+
+    build_deepseek_chat_model(_CONFIG, dotenv_path=dotenv_path)
+
+    mock_openai_class.assert_called_once_with(
+        base_url="https://api.deepseek.com/v1", api_key="sk-from-dotenv-file"
+    )
+
+
+@patch("app.langgraph_runtime.deepseek_client.openai.OpenAI")
+def test_build_deepseek_chat_model_raises_and_never_constructs_client_when_dotenv_path_missing(
+    mock_openai_class, monkeypatch, tmp_path
+):
+    """When the process env var is missing and the injected ``dotenv_path``
+    does not exist, resolution must fail before any client is constructed.
+    """
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    missing_dotenv_path = tmp_path / "does-not-exist" / ".env.example"
+
+    with pytest.raises(DeepSeekApiKeyError):
+        build_deepseek_chat_model(_CONFIG, dotenv_path=missing_dotenv_path)
+
+    mock_openai_class.assert_not_called()

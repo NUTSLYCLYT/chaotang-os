@@ -118,10 +118,49 @@ DeepSeek 模型的图工厂，决策见 `docs/decisions/0008-*.md`。这是与
 - 配置来源：`backend/config/providers.yaml`，顶层 `active` 必须为 `deepseek`，且只声明
   一个 `providers.deepseek` provider（`base_url`、`api_key_env`、`default_model`、`models`），不含真实
   密钥、不含 Ollama/Claude/MiniMax、不含模型分层或 fallback 字段。
-- 密钥：只从进程环境变量 `DEEPSEEK_API_KEY` 读取（见 `backend/.env.example`）；
-  配置文件本身只存变量名，不存密钥值。缺文件、缺字段、缺 provider、缺少或非法的 `active`、
-  `default_model` 不在 `models` 中、或 `DEEPSEEK_API_KEY` 缺失/为空，都会在
-  发起任何网络请求之前抛出不泄露密钥的明确错误。
+- 密钥解析顺序（见 `app/langgraph_runtime/deepseek_env.py`、决策见
+  `docs/decisions/0009-*.md`）：**进程环境变量 `DEEPSEEK_API_KEY` 优先**；只有进程变量
+  缺失或为空时，才读取本机私有的固定路径 `backend/.env.example`（与当前工作目录无关）
+  作为兜底。兜底读取只用 `dotenv_values()` 取内存 `dict`，取到的值按值传递给
+  `openai.OpenAI(...)`，**从不写入/污染全局 `os.environ`**。配置文件
+  `providers.yaml` 本身只存变量名，不存密钥值。缺文件、缺字段、缺 provider、缺少或非法的
+  `active`、`default_model` 不在 `models` 中、`DEEPSEEK_API_KEY` 在进程环境和
+  `backend/.env.example` 中都缺失/为空、或 `backend/.env.example` 不存在/无法解析，都会
+  在发起任何网络请求之前抛出不泄露密钥的明确错误（错误信息只引用变量名和文件路径）。
+- `backend/.env.template`（受 Git 跟踪的空模板，只含 `DEEPSEEK_API_KEY=`）与
+  `backend/.env.example`（本机私有、被 Git 忽略、可能包含真实密钥）的区别：前者是可提交
+  的起点，后者是每个开发者本机各自维护、绝不提交的真实配置。首次配置时复制模板并填入真实
+  key：
+
+  ```bash
+  # Windows
+  copy backend\.env.template backend\.env.example
+
+  # Ubuntu / CI
+  cp backend/.env.template backend/.env.example
+  ```
+
+  复制后编辑 `backend/.env.example`，把 `DEEPSEEK_API_KEY=` 填成真实、有效的密钥。
+- 零网络配置检查命令：验证 provider schema、Key 可解析（进程变量或指定的 dotenv 文件
+  兜底）、默认模型可规范化、以及真实 `openai.OpenAI` 客户端/图可构造，但绝不调用模型、
+  不访问网络；成功打印一句脱敏状态并返回 0，失败打印一句不含密钥的错误描述并返回非零。
+  `--dotenv-path` 是**必填**参数——这是刻意的安全门禁：缺少该参数时命令在读取任何 dotenv
+  文件之前就以退出码 `2` 拒绝执行（历史事故与设计动机见
+  `docs/failures/2026-07-17-product-flow-read-private-dotenv.md` 与
+  `docs/decisions/0009-*.md` 的"第二轮修订"小节）。自动化/CI 只应传临时路径；本机开发者
+  可以按自己的知情选择传入真实的 `backend/.env.example` 路径：
+
+  ```bash
+  # Windows
+  .venv\Scripts\python.exe -m app.langgraph_runtime.deepseek_check --dotenv-path <临时或私有 dotenv 路径>
+
+  # Ubuntu / CI
+  .venv/bin/python -m app.langgraph_runtime.deepseek_check --dotenv-path <临时或私有 dotenv 路径>
+  ```
+
+  该命令与下方"本地调用示例"不同：它只构造图（`build_deepseek_graph()`），不调用
+  `.invoke()`，因此不产生任何真实 API 用量；真正调用 `.invoke()`（如下方示例）仍会
+  产生真实 DeepSeek API 用量。
 - `build_deepseek_graph(chat_model=None)`：
   - 传入兼容的假聊天模型（签名：接收消息列表、返回字符串）时，图完全离线
     运行，不读取任何环境变量、不构造真实客户端，用于测试。
@@ -131,15 +170,17 @@ DeepSeek 模型的图工厂，决策见 `docs/decisions/0008-*.md`。这是与
   - 图节点捕获模型调用异常并包装后重新抛出（不吞掉、不写入状态）；每次
     `.invoke()` 独立处理，连续调用不共享可变状态。
 - 依赖：`openai`、`pyyaml` 已在 `backend/pyproject.toml` 主依赖中显式声明
-  （核实安装版本见 `docs/decisions/0008-*.md`），随 `## Setup` 的
+  （核实安装版本见 `docs/decisions/0008-*.md`）；`python-dotenv` 是本地 dotenv 兜底新增的
+  显式主依赖（版本范围与理由见 `docs/decisions/0009-*.md`），随 `## Setup` 的
   `pip install -e ".[dev]"` 一并安装。
 - 当前能力边界：仅提供图工厂和配置加载入口，不新增聊天 HTTP API 或
   provider 管理 API，不做流式输出、工具调用、human-in-the-loop、
   checkpointer 或数据库持久化。这些若要接入，需要新的产品任务和新的 ADR。
 
-本地调用示例（**会真实访问 DeepSeek API、产生真实 API 用量**；运行前需要在
-`backend/.env`（从 `backend/.env.example` 复制）中设置真实、有效的
-`DEEPSEEK_API_KEY`，且需要在已激活 `.venv` 的 `backend/` 目录下运行）：
+本地调用示例（**会真实访问 DeepSeek API、产生真实 API 用量**；运行前需要设置真实、有效的
+`DEEPSEEK_API_KEY`——可以是进程环境变量，也可以是复制 `backend/.env.template` 得到的
+`backend/.env.example` 中的值（见上文密钥解析顺序），且需要在已激活 `.venv` 的
+`backend/` 目录下运行）：
 
 ```python
 from app.langgraph_runtime import build_deepseek_graph
