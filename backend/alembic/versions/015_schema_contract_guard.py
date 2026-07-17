@@ -67,11 +67,50 @@ def _normalize_default(value: object) -> str | None:
     while normalized.startswith("(") and normalized.endswith(")"):
         normalized = normalized[1:-1].strip()
     if len(normalized) >= 2 and normalized[0] == normalized[-1] and normalized[0] in {"'", '"'}:
-        normalized = normalized[1:-1]
-    normalized = " ".join(normalized.lower().split())
+        return normalized[1:-1]
+    normalized = _normalize_sql_syntax(normalized)
     if normalized in {"datetime('now')", "now()"}:
         return "current_timestamp"
     return normalized
+
+
+def _normalize_sql_syntax(value: object) -> str:
+    """Normalize SQL syntax without changing quoted literal contents."""
+    source = str(value).strip()
+    normalized: list[str] = []
+    quote: str | None = None
+    pending_space = False
+    index = 0
+
+    while index < len(source):
+        char = source[index]
+        if quote is not None:
+            normalized.append(char)
+            if char == quote:
+                if index + 1 < len(source) and source[index + 1] == quote:
+                    normalized.append(source[index + 1])
+                    index += 2
+                    continue
+                quote = None
+            index += 1
+            continue
+
+        if char in {"'", '"'}:
+            if pending_space and normalized:
+                normalized.append(" ")
+            pending_space = False
+            quote = char
+            normalized.append(char)
+        elif char.isspace():
+            pending_space = True
+        else:
+            if pending_space and normalized:
+                normalized.append(" ")
+            pending_space = False
+            normalized.append(char.lower())
+        index += 1
+
+    return "".join(normalized)
 
 
 def _unique_shapes(inspector: sa.Inspector, table_name: str) -> set[tuple[str, ...]]:
