@@ -159,6 +159,17 @@ export interface HanlinSummary {
   topCandidateId: string | null;
 }
 
+export type HanlinSourceLabel = 'TRUTH_LEDGER' | 'FALLBACK';
+
+export interface HanlinTruthLedgerHealth {
+  total_entries: number;
+  deterministic_entries: number;
+  pass: number;
+  fail: number;
+  pass_rate: number;
+  authenticated_ratio: number;
+}
+
 export interface HanlinOverview {
   summary: HanlinSummary;
   topContribution: Contribution | null;
@@ -168,4 +179,6 @@ export interface HanlinOverview {
       })
     | null;
   topModule: ProductizedModule | null;
+  truthLedger: HanlinTruthLedgerHealth | null;
+  sourceLabel: HanlinSourceLabel;
 }
