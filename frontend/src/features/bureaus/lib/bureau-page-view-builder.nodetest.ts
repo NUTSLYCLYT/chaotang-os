@@ -32,7 +32,7 @@ test('bureau page view exposes user display, supply, evidence, risk, handoff and
     generatedAt: '2026-07-02T00:00:00.000Z',
   });
   assert.ok(view);
-  assert.equal(view.bureau.name, '国库司');
+  assert.equal(view.bureau.name, '出纳司');
   assert.equal(view.leftRail.length, 3);
   assert.equal(view.rightRail.length, 5);
   assert.equal(view.actions.length, 5);

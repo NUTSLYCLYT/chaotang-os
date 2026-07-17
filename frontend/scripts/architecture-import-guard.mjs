@@ -8,6 +8,9 @@ const ENGINE_NAMES = [
   'yushitai-auditor',
   'imperial-report-synthesizer',
   'unified-decision-loop',
+  'court-pipeline',
+  'three-chamber-engine',
+  'deliberation-console',
 ];
 
 const ALLOWED_ENGINE_IMPORTS = new Map();

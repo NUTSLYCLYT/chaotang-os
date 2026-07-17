@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  getV1LiubuStaticParams,
   CHAOTANG_V1_LIUBU,
   CHAOTANG_V1_PRIMARY_MODULES,
   CHAOTANG_V1_ZHUANSHU,
@@ -36,4 +37,10 @@ test('chaotang 1.0 secondary modules match the requested liubu and zhuanshu tree
   );
 
   assert.equal(CHAOTANG_V1_LIUBU.find((item) => item.name === '礼部')?.status, 'pending');
+  assert.equal(CHAOTANG_V1_LIUBU.find((item) => item.name === '礼部')?.href, null);
+  assert.equal(
+    getV1LiubuStaticParams().some((item) => item.code === 'libu_rites'),
+    false,
+    'pending 礼部不得进入静态路由参数',
+  );
 });

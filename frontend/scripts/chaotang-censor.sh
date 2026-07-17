@@ -80,9 +80,9 @@ GOV_OK=1
 gov_chk() { if [ -f "$1" ] && grep -q "$2" "$1" 2>/dev/null; then :; else red "治理红线回潮:$3"; GOV_OK=0; fi; }
 gov_chk "src/core/courtos/chancellor/mandate.ts" "validateMandate" "丞相拟旨三必填校验(validateMandate)缺失"
 gov_chk "src/core/courtos/chancellor/mandate.ts" "steelmanAgainst" "丞相拟旨自我反驳位(steelman)缺失"
-# 门下语义 2026-06-28 后住 court-pipeline(LLM驳议·fail-closed);旧确定性闸 menxia-gate.ts 已退役入 dev/_attic
-gov_chk "src/lib/orchestration/court-pipeline.ts" "保守判再议" "门下封驳fail-closed(失败绝不放行)缺失"
-gov_chk "src/lib/orchestration/court-pipeline.nodetest.ts" "禁带 score" "门下闸禁score/draft回归断言缺失"
+# P6 已把旧前端治理引擎归档；安全语义迁入后端 golden cases，永久防回流由架构导入门承接。
+gov_chk "scripts/architecture-import-guard.mjs" "court-pipeline" "P6 旧治理引擎防回流名单缺失"
+gov_chk "src/lib/governance-orphan-retirement.nodetest.ts" "governance-orphans-2026-07-17" "P6 孤儿归档与恢复断言缺失"
 # 部门蜂群派发守门(2026-07-06 会审 CRITICAL 修复):任何调 dispatchDeptToSwarm 的 route 必过守门,否则匿名烧钱+admin提权
 NAKED=$(grep -rl dispatchDeptToSwarm src/app --include=route.ts 2>/dev/null | while read -r f; do grep -q requireCourtSwarmAuth "$f" || echo "$f"; done)
 [ -n "$NAKED" ] && { red "蜂群派发 route 缺守门(匿名烧钱+admin提权):$NAKED"; GOV_OK=0; }

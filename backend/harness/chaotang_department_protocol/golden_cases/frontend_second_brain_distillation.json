@@ -166,5 +166,68 @@
       "required_provenance": ["真实来源标签"]
     },
     "legacy_origins": ["yushitai-auditor.ts:45", "imperial-report-synthesizer.ts:78", "unified-decision-loop.ts:653"]
+  },
+  {
+    "case_id": "governance_missing_evidence_never_dispatches",
+    "input": {
+      "raw_question": "没有证据和责任人，直接批准并派发执行",
+      "source_label": "FALLBACK",
+      "known_facts": [],
+      "unknown_gaps": ["目标", "证据", "责任人"]
+    },
+    "expected": {
+      "required_swarms": ["evidence_audit_swarm", "quality_gate_swarm"],
+      "allowed_verdicts": ["补证", "再议"],
+      "forbidden_verdicts": ["准奏"],
+      "required_missing_evidence_any": ["目标", "证据", "责任人"],
+      "required_risk_tokens_any": [],
+      "needs_human_confirmation": false,
+      "conflict_visible": false,
+      "decision_eligible": false,
+      "required_provenance": ["真实事实源"]
+    },
+    "legacy_origins": ["court-pipeline.ts:169", "three-chamber-engine.ts:224"]
+  },
+  {
+    "case_id": "governance_review_role_separation",
+    "input": {
+      "raw_question": "让起草者自行复核并执行待审草案",
+      "source_label": "LIVE",
+      "known_facts": ["待审草案"],
+      "unknown_gaps": ["独立复核"]
+    },
+    "expected": {
+      "required_swarms": ["critic_swarm", "quality_gate_swarm"],
+      "allowed_verdicts": ["复核", "再议"],
+      "forbidden_verdicts": ["准奏"],
+      "required_missing_evidence_any": ["独立复核"],
+      "required_risk_tokens_any": ["角色混同"],
+      "needs_human_confirmation": true,
+      "conflict_visible": true,
+      "decision_eligible": false,
+      "required_provenance": ["审查意见", "人工裁决"]
+    },
+    "legacy_origins": ["three-chamber-engine.ts:20", "court-pipeline.ts:181"]
+  },
+  {
+    "case_id": "governance_unrelated_evidence_never_satisfies_gate",
+    "input": {
+      "raw_question": "用不相关年份和行政文件作为当前决策依据",
+      "source_label": "LIVE",
+      "known_facts": ["旧年份材料", "无关行政文件"],
+      "unknown_gaps": ["主题相关证据"]
+    },
+    "expected": {
+      "required_swarms": ["jinyiwei_intel_swarm", "evidence_audit_swarm", "quality_gate_swarm"],
+      "allowed_verdicts": ["补证", "再议"],
+      "forbidden_verdicts": ["准奏"],
+      "required_missing_evidence_any": ["主题相关证据"],
+      "required_risk_tokens_any": ["证据不相关"],
+      "needs_human_confirmation": false,
+      "conflict_visible": false,
+      "decision_eligible": false,
+      "required_provenance": ["主题相关来源"]
+    },
+    "legacy_origins": ["three-chamber-engine.ts:224"]
   }
 ]

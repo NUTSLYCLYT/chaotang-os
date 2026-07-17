@@ -16,7 +16,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from src.compat_decision_adapter import persist_compat_decision_task
-from web.deps import get_current_user, try_get_current_user
+from web.deps import get_current_user
 from web.schemas.auth import CurrentUser
 from web.task_registry import mark_status, register_task
 
@@ -315,7 +315,7 @@ def prompt_suggest(body: PromptSuggestRequest) -> dict:
 def dispatch_intel_signal(
     signal_id: str,
     body: dict[str, Any] = Body(default_factory=dict),
-    user: CurrentUser | None = Depends(try_get_current_user),
+    user: CurrentUser = Depends(get_current_user),
 ) -> dict:
     targets = body.get("targetAgents") if isinstance(body, dict) else None
     task_id = f"intel-{signal_id}-{secrets.token_hex(4)}"
@@ -331,7 +331,7 @@ def dispatch_intel_signal(
         "done",
         finished_at=_now_iso(),
         run_index_required=False,
-        user_id=user.user_id if user else None,
+        user_id=user.user_id,
     )
     return {
         "success": True,
@@ -346,7 +346,10 @@ def dispatch_intel_signal(
 
 
 @router.post("/api/court/dept/swarm-dispatch")
-def dept_swarm_dispatch(body: dict[str, Any] = Body(default_factory=dict)) -> dict:
+def dept_swarm_dispatch(
+    body: dict[str, Any] = Body(default_factory=dict),
+    user: CurrentUser = Depends(get_current_user),
+) -> dict:
     dept_code = str(body.get("deptCode") or "").strip()
     question = str(body.get("question") or "").strip()
     task_id = f"dept-{dept_code or 'unknown'}-{secrets.token_hex(4)}"
@@ -357,7 +360,13 @@ def dept_swarm_dispatch(body: dict[str, Any] = Body(default_factory=dict)) -> di
         monitor=True,
         departments=[dept_code] if dept_code else [],
     )
-    mark_status(task_id, "done", finished_at=_now_iso(), run_index_required=False)
+    mark_status(
+        task_id,
+        "done",
+        finished_at=_now_iso(),
+        run_index_required=False,
+        user_id=user.user_id,
+    )
     return {
         "ok": False,
         "sourceLabel": "FALLBACK",
@@ -371,18 +380,31 @@ def dept_swarm_dispatch(body: dict[str, Any] = Body(default_factory=dict)) -> di
     }
 
 
-def _dept_true_chain_dispatch(prefix: str, task_input: str) -> dict:
+def _dept_true_chain_dispatch(prefix: str, task_input: str, user: CurrentUser) -> dict:
     """工部可行性研判 / 吏部招募共用的诚实兜底登记逻辑,同 dept_swarm_dispatch
     风格:登记任务、给可轮询的 sessionId,不假装已跑真实蜂群。"""
     task_id = f"{prefix}-{secrets.token_hex(4)}"
     register_task(task_id, task_input=task_input, config=f"{prefix}-compat", monitor=True)
-    mark_status(task_id, "done", finished_at=_now_iso(), run_index_required=False)
+    mark_status(
+        task_id,
+        "done",
+        finished_at=_now_iso(),
+        run_index_required=False,
+        user_id=user.user_id,
+    )
     return {"session_id": task_id, "sourceLabel": "FALLBACK"}
 
 
 @router.post("/api/court/dept/gong-bu/feasibility")
-def gongbu_feasibility(body: dict[str, Any] = Body(default_factory=dict)) -> dict:
-    return _dept_true_chain_dispatch("gongbu-feasibility", str(body.get("task_input") or "").strip())
+def gongbu_feasibility(
+    body: dict[str, Any] = Body(default_factory=dict),
+    user: CurrentUser = Depends(get_current_user),
+) -> dict:
+    return _dept_true_chain_dispatch(
+        "gongbu-feasibility",
+        str(body.get("task_input") or "").strip(),
+        user,
+    )
 
 
 @router.get("/api/court/dept/gong-bu/feasibility/result")
@@ -403,8 +425,15 @@ def gongbu_feasibility_result(sid: str = Query(...)) -> dict:
 
 
 @router.post("/api/court/dept/li-bu/recruit")
-def libu_recruit(body: dict[str, Any] = Body(default_factory=dict)) -> dict:
-    return _dept_true_chain_dispatch("libu-recruit", str(body.get("task_input") or "").strip())
+def libu_recruit(
+    body: dict[str, Any] = Body(default_factory=dict),
+    user: CurrentUser = Depends(get_current_user),
+) -> dict:
+    return _dept_true_chain_dispatch(
+        "libu-recruit",
+        str(body.get("task_input") or "").strip(),
+        user,
+    )
 
 
 @router.get("/api/court/dept/li-bu/recruit/result")

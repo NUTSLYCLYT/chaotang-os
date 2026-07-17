@@ -1,7 +1,11 @@
-from fastapi.testclient import TestClient
 from uuid import uuid4
 
+import pytest
+from fastapi.testclient import TestClient
+
+from src.db.models import DecisionTask
 from src.tenant import create_invite
+from web import deps
 from web.main import app
 from web.routers import court_compat, orchestration_compat
 from web.schemas.auth import CurrentUser
@@ -155,6 +159,53 @@ def test_dept_swarm_dispatch_contract_is_honest_fallback():
     assert body["ok"] is False
     assert body["sourceLabel"] == "FALLBACK"
     assert body["verified"] is False
+
+
+@pytest.mark.parametrize(
+    ("path", "payload"),
+    [
+        ("/api/court/intel/signals/signal-1/dispatch", {"targetAgents": ["hu_bu"]}),
+        ("/api/court/dept/swarm-dispatch", {"deptCode": "hu_bu", "question": "核算现金流"}),
+        ("/api/court/dept/gong-bu/feasibility", {"task_input": "评估交付可行性"}),
+        ("/api/court/dept/li-bu/recruit", {"task_input": "评估招聘需求"}),
+    ],
+)
+def test_compat_dispatch_posts_require_authentication(monkeypatch, path, payload):
+    monkeypatch.setattr(deps, "AUTH_ENABLED", True)
+    previous_override = app.dependency_overrides.pop(deps.get_current_user, None)
+
+    try:
+        response = TestClient(app).post(path, json=payload)
+    finally:
+        if previous_override is not None:
+            app.dependency_overrides[deps.get_current_user] = previous_override
+
+    assert response.status_code == 401
+
+
+def test_libu_recruit_compat_does_not_create_decision_task(
+    isolated_session_local,
+    monkeypatch,
+):
+    def forbidden_persist(*_args, **_kwargs):
+        raise AssertionError("recruit compatibility route must not persist DecisionTask")
+
+    monkeypatch.setattr(
+        orchestration_compat,
+        "persist_compat_decision_task",
+        forbidden_persist,
+    )
+    with isolated_session_local() as db:
+        before = db.query(DecisionTask).count()
+
+    response = TestClient(app).post(
+        "/api/court/dept/li-bu/recruit",
+        json={"task_input": "评估招聘需求"},
+    )
+
+    assert response.status_code == 200
+    with isolated_session_local() as db:
+        assert db.query(DecisionTask).count() == before
 
 
 def test_frontend_metric_ingest_accepts_fire_and_forget_event():

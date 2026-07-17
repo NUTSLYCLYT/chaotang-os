@@ -8,7 +8,7 @@
  * 与三省的边界:门下守入口(圣旨·执行前·准/驳/再议),御史守出口(奏折·执行后·本契约)。
  * 职责单向不重叠 —— 御史是出口闸,不是被尚书分派的部门。
  *
- * 位置:放在 governance 域(与 three-chamber-engine 同处),御史本属治理范畴、非全前端共享 SoT。
+ * 位置:放在 governance 域；御史本属治理范畴、非全前端共享 SoT。
  * 下游从 '@/features/governance/lib/gate' import。待 SoT 可解锁后可议是否升入 lib/contracts。
  * SHADOW_CLIENT_GUARD_ONLY：本文件是客户端 fail-secure 辅助断言，不得作为后端御史正式裁决；
  * 正式结论只认 backend CourtReview/FinalMemorial quality gate。

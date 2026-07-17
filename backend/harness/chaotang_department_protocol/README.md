@@ -24,13 +24,16 @@ python harness/chaotang_department_protocol/scripts/run_protocol.py
 - `harness/chaotang_department_protocol/artifacts/latest.md`
 - `harness/chaotang_department_protocol/artifacts/ledger.jsonl`
 
-默认会同时检查两类 golden cases：
+默认 `run_protocol.py` 会检查两类可执行 golden cases：
 
 - `golden_cases/department_outputs.json`：部门输出 payload 是否符合统一契约，并能进入御史总判。
 - `golden_cases/department_routes.json`：任务文本是否能正确派给六部、候选蜂群、丞相下一步和钦天监触发器。
-- `golden_cases/frontend_second_brain_distillation.json`：P4c 从退役前端引擎蒸馏的安全不变量。
-  只固定缺证、风险、人工确认、冲突可见、来源和决策资格，不复制旧前端完整中文句子或
-  关键词实现；schema 位于 `contracts/frontend_second_brain_distillation.schema.json`。
+
+`golden_cases/frontend_second_brain_distillation.json` 由 manifest 登记的
+`tests/test_frontend_second_brain_distillation.py` 消费：P4c/P6 从退役前端引擎蒸馏的 case
+会驱动后端 evidence audit、critic、conflict、synthesize 与 quality gate，验证缺证、角色混同
+和证据不相关场景 fail-closed。它不由 `run_protocol.py` 静默加载，也不复制旧前端完整中文
+句子或关键词实现；schema 位于 `contracts/frontend_second_brain_distillation.schema.json`。
 
 ## 统一输出契约
 
