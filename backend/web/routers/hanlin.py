@@ -11,9 +11,15 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, Depends
 
-router = APIRouter(prefix="/api/hanlin", tags=["hanlin"])
+from web.deps import require_admin
+
+router = APIRouter(
+    prefix="/api/hanlin",
+    tags=["hanlin"],
+    dependencies=[Depends(require_admin)],
+)
 
 
 def _now_iso() -> str:
@@ -44,7 +50,7 @@ def _truth_ledger_health() -> dict | None:
         from src.truth_ledger import health
 
         h = health()
-        return h if h.get("total_entries") else None
+        return h if h.get("deterministic_entries") else None
     except Exception:
         return None
 
