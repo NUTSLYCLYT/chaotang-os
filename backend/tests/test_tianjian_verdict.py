@@ -119,6 +119,15 @@ def test_forecast_endpoint_end_to_end(monkeypatch):
 
     monkeypatch.setattr("src.flow_engine.FlowEngine", _FakeFlowEngine)
     monkeypatch.setattr("src.polymarket_lookup.search_markets", lambda *a, **kw: [])
+    # This endpoint test proves the forecast transport/assembly path, not the
+    # contents of the shared on-disk knowledge store.  Use an empty isolated
+    # RAG so prior tests cannot add unrelated grounding items and change the
+    # expected six forecast fields.
+    class _EmptyRag:
+        def search(self, *args, **kwargs):
+            return []
+
+    monkeypatch.setattr("src.knowledge_rag.get_rag", lambda: _EmptyRag())
 
     r = client.post("/api/qintianjian/forecast", json={"task_input": _SAMPLE_TASK})
     assert r.status_code == 200
