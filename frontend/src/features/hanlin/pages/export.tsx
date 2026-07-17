@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { GlassPanel } from '@/components/ui/glass-panel';
 import { HanlinRoleBadge } from '@/features/hanlin/components/hanlin-role-badge';
 import { hanlinRoleHeaders, hasHanlinCapability, readHanlinRole } from '@/features/hanlin/lib/access';
-import { hanlinApi } from '@/features/hanlin/lib/api';
+import { fetchHanlin } from '@/features/hanlin/lib/api';
 import { PageBrief } from '@/features/shared/components/page-brief';
 import type { ExportOffering, ProductizedModule } from '@/features/hanlin/types';
 
@@ -20,7 +20,7 @@ export function HanlinExportWorkspace() {
   async function load() {
     setStatus('loading');
     try {
-      const response = await fetch(hanlinApi('/api/hanlin/export-offerings'));
+      const response = await fetchHanlin('/api/hanlin/export-offerings');
       if (!response.ok) {
         throw new Error('hanlin_export_fetch_failed');
       }
@@ -52,7 +52,7 @@ export function HanlinExportWorkspace() {
   async function updateOffering(item: ExportOffering, nextStatus: ExportOffering['salesStatus']) {
     setSubmittingId(item.id);
     setMessage('');
-    const response = await fetch(hanlinApi('/api/hanlin/export-offerings'), {
+    const response = await fetchHanlin('/api/hanlin/export-offerings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...hanlinRoleHeaders(role) },
       body: JSON.stringify({ id: item.id, salesStatus: nextStatus }),

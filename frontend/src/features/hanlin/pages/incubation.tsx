@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { GlassPanel } from '@/components/ui/glass-panel';
 import { HanlinRoleBadge } from '@/features/hanlin/components/hanlin-role-badge';
 import { hanlinRoleHeaders, hasHanlinCapability, readHanlinRole } from '@/features/hanlin/lib/access';
-import { hanlinApi } from '@/features/hanlin/lib/api';
+import { fetchHanlin } from '@/features/hanlin/lib/api';
 import { PageBrief } from '@/features/shared/components/page-brief';
 import type { ProductizedModule } from '@/features/hanlin/types';
 
@@ -19,7 +19,7 @@ export function HanlinIncubationWorkspace() {
   async function load() {
     setStatus('loading');
     try {
-      const response = await fetch(hanlinApi('/api/hanlin/incubation'));
+      const response = await fetchHanlin('/api/hanlin/incubation');
       if (!response.ok) {
         throw new Error('hanlin_incubation_fetch_failed');
       }
@@ -47,7 +47,7 @@ export function HanlinIncubationWorkspace() {
   async function advanceModule(item: ProductizedModule, nextStatus: ProductizedModule['status']) {
     setSubmittingId(item.id);
     setMessage('');
-    const response = await fetch(hanlinApi('/api/hanlin/incubation'), {
+    const response = await fetchHanlin('/api/hanlin/incubation', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...hanlinRoleHeaders(role) },
       body: JSON.stringify({ id: item.id, status: nextStatus }),

@@ -4,25 +4,21 @@
  * 替代手写 useEffect + fetch + setState 模式。
  * 所有钩子走 /api/hanlin/* 后端，后端再决定从 Turso 还是 filesystem 读。
  *
- * 注意：翰林院 API 路由是 /api/hanlin/* 而非 /api/v1/*，
- * 因此不走 swrFetcher（它会加 BASE_PATH/api/v1 前缀），
- * 改用 hanlinFetcher 直接 fetch 同源路径。
+ * 注意：翰林院 API 路由是 /api/hanlin/* 而非 /api/v1/*。
+ * hanlinFetcher 复用 backendFetch，把浏览器会话转换为后端认可的 Bearer，
+ * 避免透明 rewrite 只转发 courtos.access_token cookie 导致永久 401。
  */
 
 'use client';
 
 import useSWR from 'swr';
 
-import { hanlinApi } from '@/features/hanlin/lib/api';
+import { fetchHanlinJson } from '@/features/hanlin/lib/api';
+import { normalizeHanlinSourceLabel } from '@/features/hanlin/lib/read-model';
 
-/** 翰林院同源 API fetcher（不带 /api/v1 前缀） */
+/** 翰林院后端 fetcher（不带 /api/v1 前缀，带统一 Bearer/refresh 语义） */
 async function hanlinFetcher<T>(url: string): Promise<T> {
-  const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText);
-    throw new Error(`${res.status}: ${text}`);
-  }
-  return res.json() as Promise<T>;
+  return fetchHanlinJson<T>(url);
 }
 import type {
   AiReview,
@@ -49,7 +45,7 @@ interface OverviewPayload {
 
 export function useHanlinOverview() {
   const { data, error, isLoading, mutate } = useSWR<OverviewPayload, Error>(
-    hanlinApi('/api/hanlin/overview'),
+    '/api/hanlin/overview',
     hanlinFetcher<OverviewPayload>,
     { revalidateOnFocus: false },
   );
@@ -72,7 +68,7 @@ interface SummaryPayload {
 
 export function useHanlinSummary() {
   const { data, error, isLoading, mutate } = useSWR<SummaryPayload, Error>(
-    hanlinApi('/api/hanlin/summary'),
+    '/api/hanlin/summary',
     hanlinFetcher<SummaryPayload>,
     { revalidateOnFocus: false },
   );
@@ -95,7 +91,7 @@ interface ContributionsPayload {
 
 export function useHanlinContributions() {
   const { data, error, isLoading, mutate } = useSWR<ContributionsPayload, Error>(
-    hanlinApi('/api/hanlin/contributions'),
+    '/api/hanlin/contributions',
     hanlinFetcher<ContributionsPayload>,
     { revalidateOnFocus: false },
   );
@@ -118,7 +114,7 @@ interface ReviewsPayload {
 
 export function useHanlinReviews() {
   const { data, error, isLoading, mutate } = useSWR<ReviewsPayload, Error>(
-    hanlinApi('/api/hanlin/reviews'),
+    '/api/hanlin/reviews',
     hanlinFetcher<ReviewsPayload>,
     { revalidateOnFocus: false },
   );
@@ -140,7 +136,7 @@ interface RecommendationsPayload {
 
 export function useHanlinRecommendations() {
   const { data, error, isLoading, mutate } = useSWR<RecommendationsPayload, Error>(
-    hanlinApi('/api/hanlin/recommendations'),
+    '/api/hanlin/recommendations',
     hanlinFetcher<RecommendationsPayload>,
     { revalidateOnFocus: false },
   );
@@ -158,16 +154,18 @@ export function useHanlinRecommendations() {
 
 interface ExperimentsPayload {
   experiments: Experiment[];
+  source?: unknown;
 }
 
 export function useHanlinExperiments() {
   const { data, error, isLoading, mutate } = useSWR<ExperimentsPayload, Error>(
-    hanlinApi('/api/hanlin/experiments'),
+    '/api/hanlin/experiments',
     hanlinFetcher<ExperimentsPayload>,
     { revalidateOnFocus: false },
   );
   return {
     experiments: data?.experiments ?? [],
+    sourceLabel: normalizeHanlinSourceLabel(data?.source),
     isLoading,
     error,
     mutate,
@@ -185,7 +183,7 @@ interface AwardsPayload {
 
 export function useHanlinAwards() {
   const { data, error, isLoading, mutate } = useSWR<AwardsPayload, Error>(
-    hanlinApi('/api/hanlin/awards'),
+    '/api/hanlin/awards',
     hanlinFetcher<AwardsPayload>,
     { revalidateOnFocus: false },
   );
@@ -209,7 +207,7 @@ interface ScoutingPayload {
 
 export function useHanlinScouting() {
   const { data, error, isLoading, mutate } = useSWR<ScoutingPayload, Error>(
-    hanlinApi('/api/hanlin/scouting'),
+    '/api/hanlin/scouting',
     hanlinFetcher<ScoutingPayload>,
     { revalidateOnFocus: false },
   );
@@ -232,7 +230,7 @@ interface IncubationPayload {
 
 export function useHanlinIncubation() {
   const { data, error, isLoading, mutate } = useSWR<IncubationPayload, Error>(
-    hanlinApi('/api/hanlin/incubation'),
+    '/api/hanlin/incubation',
     hanlinFetcher<IncubationPayload>,
     { revalidateOnFocus: false },
   );
@@ -254,7 +252,7 @@ interface ExportOfferingsPayload {
 
 export function useHanlinExportOfferings() {
   const { data, error, isLoading, mutate } = useSWR<ExportOfferingsPayload, Error>(
-    hanlinApi('/api/hanlin/export-offerings'),
+    '/api/hanlin/export-offerings',
     hanlinFetcher<ExportOfferingsPayload>,
     { revalidateOnFocus: false },
   );
