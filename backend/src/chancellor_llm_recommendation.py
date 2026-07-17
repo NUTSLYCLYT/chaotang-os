@@ -11,7 +11,13 @@ LEVELS = {"D0": 0, "D1": 1, "D2": 2}
 
 def merge_decision_level(hard_gate: str, llm_level: str | None, user_level: str | None) -> str:
     candidates = [hard_gate, llm_level or "D0", user_level or "D0"]
-    return max(candidates, key=lambda level: LEVELS.get(level, 0))
+    for level in candidates:
+        if level not in LEVELS:
+            # LEVELS.get(level, 0) 曾经把不认识的等级静默当 D0(最低级)处理——
+            # 一旦 hard_gate 本身传错,"硬门永远拥有最终裁决权"这句承诺就悄悄失效,
+            # 而不是报错。确定性门必须要么给出正确答案,要么直接炸,不能猜。
+            raise ValueError(f"unrecognized decision level: {level!r}")
+    return max(candidates, key=lambda level: LEVELS[level])
 
 
 def recommend_route(

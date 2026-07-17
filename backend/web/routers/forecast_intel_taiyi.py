@@ -17,25 +17,39 @@ from fastapi import APIRouter, Query
 router = APIRouter(prefix="/api/court", tags=["forecast-intel-taiyi"])
 
 
+def _observe(endpoint: str, operation: str) -> None:
+    from src.migration_telemetry import record_legacy_endpoint_call
+
+    record_legacy_endpoint_call(
+        endpoint=f"forecast_intel_taiyi.{endpoint}",
+        caller_id="anonymous",
+        operation=operation,
+    )
+
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 @router.get("/intel")
 def court_intel(limit: int = Query(default=30), domain: str | None = Query(default=None)) -> dict:
+    _observe("intel", "read")
     return {"success": True, "data": [], "error": None}
 
 
 @router.get("/forecast")
 def court_forecast(limit: int = Query(default=10)) -> dict:
+    _observe("forecast", "read")
     return {"success": True, "data": [], "error": None}
 
 
 @router.get("/taiyi/dashboard")
 def taiyi_dashboard() -> dict:
+    _observe("taiyi.dashboard", "read")
     return {"success": False, "data": None, "error": "taiyi_dashboard_source_unavailable"}
 
 
 @router.get("/taiyi/news")
 def taiyi_news() -> dict:
+    _observe("taiyi.news", "read")
     return {"success": True, "data": [], "error": None}

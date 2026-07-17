@@ -1,3 +1,5 @@
+import pytest
+
 from src.chancellor_llm_recommendation import merge_decision_level, recommend_route
 
 
@@ -20,3 +22,10 @@ def test_invalid_provider_output_is_explicit_degradation():
 def test_hard_risk_gate_wins_over_llm_and_user():
     assert merge_decision_level("D2", "D0", "D0") == "D2"
     assert merge_decision_level("D0", "D1", "D0") == "D1"
+
+
+def test_unrecognized_level_raises_instead_of_silently_downgrading():
+    # 之前 LEVELS.get(level, 0) 会把拼错的 hard_gate 静默当 D0 处理，
+    # 违反"硬门永远拥有最终裁决权"——现在必须显式炸，不能悄悄放行。
+    with pytest.raises(ValueError):
+        merge_decision_level("d2", "D0", "D0")
