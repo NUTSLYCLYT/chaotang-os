@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { GlassPanel } from '@/components/ui/glass-panel';
 import { HanlinRoleBadge } from '@/features/hanlin/components/hanlin-role-badge';
 import { hanlinRoleHeaders, hasHanlinCapability, readHanlinRole } from '@/features/hanlin/lib/access';
-import { hanlinApi } from '@/features/hanlin/lib/api';
+import { fetchHanlin } from '@/features/hanlin/lib/api';
 import { PageBrief } from '@/features/shared/components/page-brief';
 import type { AiReview, Award, Contribution, Experiment, RewardPeriod } from '@/features/hanlin/types';
 
@@ -25,10 +25,10 @@ export function HanlinRankingsPage() {
     setStatus('loading');
     try {
       const [contributionRes, reviewRes, experimentRes, awardRes] = await Promise.all([
-        fetch(hanlinApi('/api/hanlin/contributions')),
-        fetch(hanlinApi('/api/hanlin/reviews')),
-        fetch(hanlinApi('/api/hanlin/experiments')),
-        fetch(hanlinApi('/api/hanlin/awards')),
+        fetchHanlin('/api/hanlin/contributions'),
+        fetchHanlin('/api/hanlin/reviews'),
+        fetchHanlin('/api/hanlin/experiments'),
+        fetchHanlin('/api/hanlin/awards'),
       ]);
       if (!contributionRes.ok || !reviewRes.ok || !experimentRes.ok || !awardRes.ok) {
         throw new Error('hanlin_rankings_fetch_failed');
@@ -123,7 +123,7 @@ export function HanlinRankingsPage() {
     if (!currentRewardPeriod) return;
     setIssuingId(args.contributionId);
     setMessage('');
-    const response = await fetch(hanlinApi('/api/hanlin/awards'), {
+    const response = await fetchHanlin('/api/hanlin/awards', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...hanlinRoleHeaders(role) },
       body: JSON.stringify({
@@ -146,7 +146,7 @@ export function HanlinRankingsPage() {
   async function markAwardPaid(award: Award) {
     setPayingId(award.id);
     setMessage('');
-    const response = await fetch(hanlinApi('/api/hanlin/awards'), {
+    const response = await fetchHanlin('/api/hanlin/awards', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', ...hanlinRoleHeaders(role) },
       body: JSON.stringify({
