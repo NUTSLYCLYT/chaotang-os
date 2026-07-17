@@ -15,10 +15,15 @@ from app.agents.chancellor.graph import (
     ChancellorGraphState,
     build_chancellor_graph,
 )
-from app.agents.chancellor.prompts import CHANCELLOR_IDENTITY, CHANCELLOR_SYSTEM_PROMPT
+from app.agents.chancellor.prompts import (
+    CHANCELLOR_FINALIZATION_SYSTEM_PROMPT,
+    CHANCELLOR_IDENTITY,
+    CHANCELLOR_SYSTEM_PROMPT,
+)
 
 __all__ = [
     "CHANCELLOR_IDENTITY",
+    "CHANCELLOR_FINALIZATION_SYSTEM_PROMPT",
     "CHANCELLOR_SYSTEM_PROMPT",
     "ChancellorGraphInvocationError",
     "ChancellorGraphState",

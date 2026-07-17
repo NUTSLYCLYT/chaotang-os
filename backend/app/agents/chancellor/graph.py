@@ -24,10 +24,10 @@ real ``openai``-backed client *before* returning the compiled graph -- so a
 missing/invalid configuration or API key fails fast at graph-build time,
 before any outbound request could be attempted from ``.invoke()``.
 
-Routing + single-department topology (this module, delivered by module 1)
----------------------------------------------------------------------------
-``START -> decide_route -> (conditional edge on route_type) -> {"single":
-handle_single_ministry} -> END``.
+Layered memorial topology
+-------------------------
+``START -> decide_route -> (single ministry | multi Grand Council) ->
+finalize_chancellor -> END``.
 
 ``decide_route`` asks the Chancellor model to classify the decree as
 ``"single"`` (exactly one ministry) or ``"multi"`` (at least two ministries,
@@ -38,17 +38,10 @@ department count for the chosen route type, empty ``rationale``) fails
 closed into the existing :class:`ChancellorGraphInvocationError` -- no new
 exception type is introduced for these validation failures.
 
-``handle_single_ministry`` is reached only when ``route_type == "single"``;
-it calls the single department chosen by the Chancellor via
+``handle_single_ministry`` calls the single department chosen by the Chancellor via
 ``app.agents.ministries.agent.invoke_ministry_agent`` (shared, stable
-signature -- module 2's 军机处 orchestration will call the very same
-function, once per department, from its own node) and writes that
-department's opinion into ``ministry_opinions``/``final_verdict``.
-
-Multi-department topology (this module's other branch, delivered by module 2)
--------------------------------------------------------------------------------
-``START -> decide_route -> (conditional edge on route_type) -> {"single":
-handle_single_ministry, "multi": run_junjichu_council} -> END``.
+signature) and preserves its ordered bureau opinions and independent
+ministry-level synthesis in ``ministry_opinions``.
 
 ``_route_condition`` returns ``state["route_type"]`` verbatim (i.e. either
 ``"single"`` or ``"multi"``); the ``"multi"`` branch is handled by the
@@ -58,25 +51,29 @@ handle_single_ministry, "multi": run_junjichu_council} -> END``.
 Python ``for`` loop (never concurrently, never via a LangGraph ``Send``/
 fan-out), invokes ``app.agents.ministries.agent.invoke_ministry_agent`` once
 per department in ``state["departments"]`` order, then invokes 军机处's own
-model turn for the final council verdict -- and merges the result into
-``processing_path`` (appending ``"军机处"`` followed by every consulted
-department, in order), ``ministry_opinions``, and ``final_verdict``. This
-node does not touch, and was not required to touch,
-``_decide_route``/``_handle_single_ministry``/the ``"single"`` edge to be
-added.
+model turn for the council verdict -- and merges all layered results into
+``processing_path``, ``ministry_opinions``, and ``council_verdict``.
+
+Both branches then enter ``finalize_chancellor``. It sees the original decree,
+routing rationale, every bureau/ministry layer and (for multi only) the council
+verdict, and enforces exact ``summary`` plus three unique recommendations.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
-from app.agents.chancellor.prompts import CHANCELLOR_SYSTEM_PROMPT
+from app.agents.chancellor.prompts import (
+    CHANCELLOR_FINALIZATION_SYSTEM_PROMPT,
+    CHANCELLOR_SYSTEM_PROMPT,
+)
 from app.agents.junjichu.agent import run_junjichu_council
-from app.agents.ministries.agent import MinistryAgentInvocationError, invoke_ministry_agent
+from app.agents.ministries.agent import MinistryOpinion, invoke_ministry_agent
 from app.agents.ministries.prompts import MINISTRIES
 from app.agents.structured_output import StructuredOutputError, parse_strict_json_object
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel, build_deepseek_chat_model
@@ -99,12 +96,13 @@ class ChancellorGraphState(TypedDict, total=False):
             through so far (e.g. ``["上书房", "丞相", "户部"]`` for a
             single-department decree). Started by ``decide_route`` as
             ``["上书房", "丞相"]`` and extended by the branch node(s).
-        ministry_opinions: Each consulted department's opinion, as
-            ``{"department": ..., "opinion": ...}`` dicts, in call order.
-        final_verdict: The final, non-empty conclusion for this decree (for
-            ``"single"`` routing, this is simply the one department's
-            opinion; for ``"multi"`` routing it will be 军机处's council
-            verdict, set by module 2's node).
+        ministry_opinions: Each consulted department's structured result,
+            containing ordered bureau opinions and a ministry-level synthesis.
+        council_verdict: ``None`` for single routing, otherwise the Grand
+            Council's non-empty review conclusion.
+        recommendations: Exactly three stripped, non-empty, unique Chancellor
+            recommendations.
+        final_verdict: The Chancellor finalizer's non-empty ``summary``.
 
     There is intentionally no ``error`` field: model-call and validation
     failures propagate as exceptions (``ChancellorGraphInvocationError``)
@@ -116,7 +114,9 @@ class ChancellorGraphState(TypedDict, total=False):
     route_type: str
     departments: list[str]
     processing_path: list[str]
-    ministry_opinions: list[dict[str, str]]
+    ministry_opinions: list[MinistryOpinion]
+    council_verdict: str | None
+    recommendations: list[str]
     final_verdict: str
 
 
@@ -141,7 +141,7 @@ class ChancellorGraphInvocationError(Exception):
 def build_chancellor_graph(
     chat_model: DeepSeekChatModel | None = None, dotenv_path: Path | None = None
 ) -> CompiledStateGraph:
-    """Build and compile the Chancellor (丞相) routing + single-ministry graph.
+    """Build and compile the layered Chancellor memorial graph.
 
     Args:
         chat_model: Optional fake/compatible chat model callable for offline
@@ -243,7 +243,7 @@ def build_chancellor_graph(
             "chancellor_rationale": rationale.strip(),
             "route_type": route_type,
             "departments": departments,
-            "processing_path": ["上书房", "丞相"],
+            "processing_path": ["上书房", "丞相（首次分流）"],
         }
 
     def _route_condition(state: ChancellorGraphState) -> str:
@@ -258,16 +258,25 @@ def build_chancellor_graph(
                 state["chancellor_rationale"],
                 resolved_chat_model,
             )
-        except MinistryAgentInvocationError as exc:
+        except Exception as exc:  # noqa: BLE001 - one sanitized graph error boundary
             raise ChancellorGraphInvocationError(
                 f"Chancellor graph node failed to obtain a {department} ministry "
                 "response; see __cause__ for the original exception."
             ) from exc
 
+        bureau_path = [
+            f"{department}·{bureau_opinion['bureau']}"
+            for bureau_opinion in opinion["bureau_opinions"]
+        ]
         return {
-            "processing_path": [*state["processing_path"], department],
-            "ministry_opinions": [{"department": department, "opinion": opinion}],
-            "final_verdict": opinion,
+            "processing_path": [
+                *state["processing_path"],
+                department,
+                *bureau_path,
+                f"{department}（部级补充）",
+            ],
+            "ministry_opinions": [opinion],
+            "council_verdict": None,
         }
 
     def _run_junjichu_council(state: ChancellorGraphState) -> dict:
@@ -285,16 +294,81 @@ def build_chancellor_graph(
                 "council review; see __cause__ for the original exception."
             ) from exc
 
+        layered_path: list[str] = [*state["processing_path"], "军机处（召集）"]
+        for ministry_opinion in ministry_opinions:
+            department = ministry_opinion["department"]
+            layered_path.append(department)
+            layered_path.extend(
+                f"{department}·{bureau_opinion['bureau']}"
+                for bureau_opinion in ministry_opinion["bureau_opinions"]
+            )
+            layered_path.append(f"{department}（部级补充）")
+        layered_path.append("军机处（会审）")
+
         return {
-            "processing_path": [*state["processing_path"], "军机处", *departments],
+            "processing_path": layered_path,
             "ministry_opinions": ministry_opinions,
-            "final_verdict": verdict,
+            "council_verdict": verdict,
+        }
+
+    def _finalize_chancellor(state: ChancellorGraphState) -> dict:
+        evidence = {
+            "decree_text": state["decree_text"],
+            "route_type": state["route_type"],
+            "rationale": state["chancellor_rationale"],
+            "ministry_opinions": state["ministry_opinions"],
+            "council_verdict": state.get("council_verdict"),
+        }
+        messages = [
+            {"role": "system", "content": CHANCELLOR_FINALIZATION_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": (
+                    "请依据以下完整回奏证据作最终汇总。不得遗漏任何司级意见、部级补充意见，"
+                    "也不得在多部门路径中遗漏军机处会审结论。\n"
+                    f"{json.dumps(evidence, ensure_ascii=False)}"
+                ),
+            },
+        ]
+        try:
+            raw_response = resolved_chat_model(messages)
+            if not isinstance(raw_response, str) or not raw_response.strip():
+                raise ValueError("The Chancellor finalizer returned no usable response.")
+            parsed = parse_strict_json_object(raw_response)
+            if set(parsed) != {"summary", "recommendations"}:
+                raise ValueError("The Chancellor finalizer response has an invalid schema.")
+            summary = parsed["summary"]
+            raw_recommendations = parsed["recommendations"]
+            if not isinstance(summary, str) or not summary.strip():
+                raise ValueError("The Chancellor finalizer summary is invalid.")
+            if (
+                not isinstance(raw_recommendations, list)
+                or len(raw_recommendations) != 3
+                or any(
+                    not isinstance(item, str) or not item.strip()
+                    for item in raw_recommendations
+                )
+            ):
+                raise ValueError("The Chancellor finalizer recommendations are invalid.")
+            recommendations = [item.strip() for item in raw_recommendations]
+            if len(set(recommendations)) != 3:
+                raise ValueError("The Chancellor finalizer recommendations must be unique.")
+        except Exception as exc:  # noqa: BLE001 - one sanitized graph error boundary
+            raise ChancellorGraphInvocationError(
+                "Chancellor graph finalization failed; see __cause__ for the original exception."
+            ) from exc
+
+        return {
+            "processing_path": [*state["processing_path"], "丞相（最终汇总）"],
+            "final_verdict": summary.strip(),
+            "recommendations": recommendations,
         }
 
     builder = StateGraph(ChancellorGraphState)
     builder.add_node("decide_route", _decide_route)
     builder.add_node("handle_single_ministry", _handle_single_ministry)
     builder.add_node("run_junjichu_council", _run_junjichu_council)
+    builder.add_node("finalize_chancellor", _finalize_chancellor)
     builder.add_edge(START, "decide_route")
     builder.add_conditional_edges(
         "decide_route",
@@ -304,6 +378,7 @@ def build_chancellor_graph(
             "multi": "run_junjichu_council",
         },
     )
-    builder.add_edge("handle_single_ministry", END)
-    builder.add_edge("run_junjichu_council", END)
+    builder.add_edge("handle_single_ministry", "finalize_chancellor")
+    builder.add_edge("run_junjichu_council", "finalize_chancellor")
+    builder.add_edge("finalize_chancellor", END)
     return builder.compile()

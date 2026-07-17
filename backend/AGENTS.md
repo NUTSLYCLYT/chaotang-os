@@ -16,11 +16,24 @@ pytest 测试，ruff 静态检查，pip + venv 管理依赖。选型理由、取
   （六部固定名录、单部门办理调用）处理；多部门旨意由 `app/agents/junjichu/`（军机处，
   按丞相给定顺序严格串行召集至少两个相关部门会审）处理；两者共用的图拓扑和状态形状
   （`ChancellorGraphState`）仍然只在 `app/agents/chancellor/graph.py` 一处定义。成功
-  响应体不再是单段 `memorial_text`，而是 `route_type`/`rationale`/`processing_path`/
-  `departments`/`ministry_opinions`/`final_verdict` 六个字段（`route_type` 与
+  响应体不再是单段 `memorial_text`，原有 `route_type`/`rationale`/`processing_path`/
+  `departments`/`ministry_opinions`/`final_verdict` 六个字段继续保留（`route_type` 与
   `ministry_opinions[].department` 均为 `str`，不是 `Literal`/`Enum`——六部范围与路由
   合法性只在图层的 `_decide_route` 节点做一次严格校验，响应模型不重复校验，避免把已经
-  处理过的业务失败变成未捕获 500）。已引入最小、无外部服务依赖的
+  处理过的业务失败变成未捕获 500）。六部内部已增加全部开放的 39 司数据驱动层（见 ADR
+  0013）：`app/agents/bureaus/` 以 `(department, bureau)` 复合身份注册不可变 profile，
+  礼部六司无 1.0 门禁。每个部先严格选择本部一个或多个司，按选择顺序同步调用同一个通用司级
+  Agent，再把全部有序司议交给一次独立模型调用形成部级补充；`invoke_ministry_agent(...)`
+  的参数不变，返回值升级为同时包含 `department`、`bureau_opinions` 和 `opinion` 的结构化
+  `MinistryOpinion`。single 依次执行“丞相首次分流 → 部内选司 → 逐司意见 → 部级补充 →
+  丞相最终汇总”；multi 则先由军机处召集，按丞相给定顺序串行完成各部司议和部议，军机处
+  再读取全部分层结果形成 `council_verdict`，最后交给丞相。两条路径共用严格 finalizer，
+  生成非空 `final_verdict` 和恰好三项非空、去空白后互不重复的 `recommendations`；成功响应
+  增量增加 `ministry_opinions[].bureau_opinions`、条件式 `council_verdict`（single 为
+  `null`，multi 为非空字符串）和 `recommendations`。`processing_path` 按实际调用顺序记录
+  司、部、军机处与最终丞相，不把未执行的现实动作写成已完成。该链路不并发、不持久化，最坏
+  single 为 11 次、全六部 multi 为 54 次同步模型调用，可能超过现有前端 120 秒超时；完整
+  决策及对 ADR 0013 局部兼容结论的覆盖见 ADR 0014。已引入最小、无外部服务依赖的
   LangGraph 运行时基础模块（`app/langgraph_runtime/`，决策见
   `docs/decisions/0007-langgraph-runtime-foundation.md`），仅提供一个可编译的
   确定性图工厂函数，不接入任何模型供应商、不做持久化/checkpointer、不新增任何
@@ -231,13 +244,19 @@ result = graph.invoke({"input_text": "hello", "response_text": ""})
 职责边界清晰、彼此独立的子包：`app/agents/**` 不涉及 HTTP，`app/api/**` 不实现 agent
 的图逻辑，只做请求/响应契约（Pydantic 模型 + 校验）、错误脱敏映射与路由注册。
 `app/main.py` 中 `GET /health` 的既有代码路径不受这两个子包影响。`app/agents/` 目前含
-三个业务子包：`app/agents/chancellor/`（丞相分流图，唯一定义 `ChancellorGraphState` 和
-拓扑的地方）、`app/agents/ministries/`（六部固定名录 `MINISTRIES`、单部门/军机处共用的
-`invoke_ministry_agent`）、`app/agents/junjichu/`（军机处多部门会审，严格串行、不并发调用
-六部）；三者的结构化 JSON 解析共用 `app/agents/structured_output.py` 里的唯一函数。具体
+四个业务子包：`app/agents/chancellor/`（丞相首次分流与最终汇总图，唯一定义
+`ChancellorGraphState` 和拓扑的地方）、`app/agents/ministries/`（六部固定名录
+`MINISTRIES`、single/军机处共用的 `invoke_ministry_agent`，负责严格选司、顺序调用司级
+Agent，并通过独立模型调用生成结构化部级补充）、
+`app/agents/bureaus/`（39 司不可变复合注册表与统一通用司级 Agent，礼部六司全部开放）、
+`app/agents/junjichu/`（军机处多部门会审，严格串行、不并发调用六部，并在各部完成分层
+意见后形成非空会审结论）；这些子包的结构化 JSON 解析共用
+`app/agents/structured_output.py` 里的唯一函数。具体
 接口、错误映射和验证证据见对应产品任务与其 Implementation Report（例如
 `docs/product/tasks/2026-07-17-shangshufang-chancellor-agent.md`、
-`docs/product/tasks/2026-07-17-decree-six-ministries-joint-review.md`）。
+`docs/product/tasks/2026-07-17-decree-six-ministries-joint-review.md`、
+`docs/product/tasks/2026-07-17-bureau-level-agents.md`、
+`docs/product/tasks/2026-07-17-memorial-three-recommendations.md`）。
 
 ## 后续变更要求
 

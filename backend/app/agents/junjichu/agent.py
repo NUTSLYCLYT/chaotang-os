@@ -9,7 +9,7 @@ not repeat that validation), it invokes
 ``app.agents.ministries.agent.invoke_ministry_agent`` once per department,
 **strictly serially, in a plain Python ``for`` loop, in ``departments``
 order** -- never concurrently, and never via a LangGraph ``Send``/fan-out --
-collecting each department's opinion in call order, and only once every
+collecting each department's layered bureau/ministry opinion in call order, and only once every
 department has answered does it invoke 军机处's own model turn (via
 :func:`invoke_junjichu_council`) to produce the final council verdict under
 the strict ``{"verdict": "<non-empty text>"}`` JSON contract.
@@ -35,23 +35,24 @@ preserved), exactly like it already does for the single-department branch.
 
 from __future__ import annotations
 
+import json
+
 from app.agents.junjichu.prompts import junjichu_system_prompt
-from app.agents.ministries.agent import invoke_ministry_agent
+from app.agents.ministries.agent import MinistryOpinion, invoke_ministry_agent
 from app.agents.structured_output import parse_strict_json_object
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel
 
 
-def _format_ministry_opinions(ministry_opinions: list[dict[str, str]]) -> str:
-    return "\n".join(
-        f"{item['department']}：{item['opinion']}" for item in ministry_opinions
-    )
+def _format_ministry_opinions(ministry_opinions: list[MinistryOpinion]) -> str:
+    """Serialize every bureau and ministry opinion without flattening layers."""
+    return json.dumps(ministry_opinions, ensure_ascii=False)
 
 
 def invoke_junjichu_council(
     decree_text: str,
     rationale: str,
     departments: list[str],
-    ministry_opinions: list[dict[str, str]],
+    ministry_opinions: list[MinistryOpinion],
     chat_model: DeepSeekChatModel,
 ) -> str:
     """Invoke 军机处's own council-verdict model turn and return the verdict.
@@ -62,8 +63,8 @@ def invoke_junjichu_council(
         departments: The ordered list of departments consulted (used to
             build 军机处's system prompt).
         ministry_opinions: Every consulted department's already-collected
-            opinion, as ``{"department": ..., "opinion": ...}`` dicts, in
-            call order.
+            structured result, including ordered ``bureau_opinions`` and its
+            independent ministry-level ``opinion``, in call order.
         chat_model: A ``DeepSeekChatModel``-compatible callable (real or
             fake/injected for offline tests).
 
@@ -86,7 +87,8 @@ def invoke_junjichu_council(
             "role": "user",
             "content": (
                 f"旨意：{decree_text}\n\n丞相判断说明：{rationale}\n\n"
-                f"各部门意见：\n{opinions_text}"
+                "各部门分层意见（按丞相选定部门顺序，JSON；每部包含按咨询顺序排列的"
+                f"司级意见及独立的部级补充意见）：\n{opinions_text}"
             ),
         },
     ]
@@ -96,6 +98,9 @@ def invoke_junjichu_council(
         raise ValueError("军机处 agent returned an empty model response.")
 
     parsed = parse_strict_json_object(raw_response)
+
+    if set(parsed) != {"verdict"}:
+        raise ValueError("军机处 agent response JSON has an invalid schema.")
 
     verdict = parsed.get("verdict")
     if not isinstance(verdict, str) or not verdict.strip():
@@ -110,7 +115,7 @@ def run_junjichu_council(
     rationale: str,
     departments: list[str],
     chat_model: DeepSeekChatModel,
-) -> tuple[list[dict[str, str]], str]:
+) -> tuple[list[MinistryOpinion], str]:
     """Run the full multi-department 军机处 council sequence.
 
     Strictly serial: calls ``invoke_ministry_agent`` once per entry of
@@ -131,8 +136,7 @@ def run_junjichu_council(
 
     Returns:
         A ``(ministry_opinions, verdict)`` tuple: ``ministry_opinions`` is
-        every consulted department's opinion, as
-        ``{"department": ..., "opinion": ...}`` dicts, in call order;
+        every consulted department's layered result in call order;
         ``verdict`` is 军机处's non-empty council verdict.
 
     Raises:
@@ -144,10 +148,10 @@ def run_junjichu_council(
             unwrapped, from :func:`invoke_junjichu_council` when 军机处's
             own call fails.
     """
-    ministry_opinions: list[dict[str, str]] = []
+    ministry_opinions: list[MinistryOpinion] = []
     for department in departments:
         opinion = invoke_ministry_agent(department, decree_text, rationale, chat_model)
-        ministry_opinions.append({"department": department, "opinion": opinion})
+        ministry_opinions.append(opinion)
 
     verdict = invoke_junjichu_council(
         decree_text, rationale, departments, ministry_opinions, chat_model

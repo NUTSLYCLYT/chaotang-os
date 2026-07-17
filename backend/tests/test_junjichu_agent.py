@@ -1,45 +1,83 @@
-"""Tests for ``app.agents.junjichu`` (prompts, council-verdict invocation,
-and the full serial multi-department council sequence).
-
-Fully offline: every test injects a fake ``chat_model`` callable and never
-touches environment variables, configuration files, or the network.
-"""
+"""Offline tests for layered Grand Council orchestration."""
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
+from app.agents.bureaus import bureau_profiles_for
 from app.agents.junjichu.agent import invoke_junjichu_council, run_junjichu_council
 from app.agents.junjichu.prompts import JUNJICHU_IDENTITY, junjichu_system_prompt
-from app.agents.ministries.agent import MinistryAgentInvocationError
+from app.agents.ministries.agent import MinistryAgentInvocationError, MinistryOpinion
 from app.agents.ministries.prompts import NO_IRREVERSIBLE_ACTION_CONSTRAINT
 from app.agents.structured_output import StructuredOutputError
 
 
-def test_junjichu_system_prompt_contains_identity_departments_and_shared_constraint():
+def _layered_opinion(
+    department: str, bureau_opinion: str = "司级意见", ministry_opinion: str = "部级补充"
+) -> MinistryOpinion:
+    return {
+        "department": department,
+        "bureau_opinions": [
+            {
+                "bureau": bureau_profiles_for(department)[0].bureau,
+                "opinion": bureau_opinion,
+            }
+        ],
+        "opinion": ministry_opinion,
+    }
+
+
+def _ministry_turns(department: str, bureau_opinion: str, ministry_opinion: str) -> list[str]:
+    bureau = bureau_profiles_for(department)[0].bureau
+    return [
+        json.dumps(
+            {"rationale": "交由本司办理", "bureaus": [bureau]}, ensure_ascii=False
+        ),
+        json.dumps({"opinion": bureau_opinion}, ensure_ascii=False),
+        json.dumps({"opinion": ministry_opinion}, ensure_ascii=False),
+    ]
+
+
+def _sequenced_chat_model(responses: list[str]):
+    index = {"value": 0}
+
+    def _chat_model(_messages: list[dict[str, str]]) -> str:
+        response = responses[index["value"]]
+        index["value"] += 1
+        return response
+
+    return _chat_model
+
+
+def test_junjichu_prompt_contains_identity_departments_layers_and_constraint():
     prompt = junjichu_system_prompt(["户部", "工部"])
     assert JUNJICHU_IDENTITY in prompt
     assert "户部" in prompt
     assert "工部" in prompt
+    assert "司级意见" in prompt
+    assert "部级补充意见" in prompt
+    assert "只能包含 verdict" in prompt
     assert NO_IRREVERSIBLE_ACTION_CONSTRAINT in prompt
 
 
-def test_invoke_junjichu_council_sends_expected_messages_and_returns_verdict():
+def test_invoke_junjichu_receives_every_layer_and_returns_stripped_verdict():
     captured_messages: list[dict[str, str]] = []
 
-    def _capturing_chat_model(messages: list[dict[str, str]]) -> str:
+    def _chat_model(messages: list[dict[str, str]]) -> str:
         captured_messages.extend(messages)
-        return '{"verdict": "军机处会审通过"}'
+        return '{"verdict": "  军机处会审通过  "}'
 
     verdict = invoke_junjichu_council(
         "拨款修渠并调兵护渠",
         "此事涉及户部与兵部，需军机处会审",
         ["户部", "兵部"],
         [
-            {"department": "户部", "opinion": "臣部核准拨款"},
-            {"department": "兵部", "opinion": "臣部同意调兵护渠"},
+            _layered_opinion("户部", "预算司核查", "户部同意拨款"),
+            _layered_opinion("兵部", "客户司核查", "兵部提出作战建议"),
         ],
-        _capturing_chat_model,
+        _chat_model,
     )
 
     assert verdict == "军机处会审通过"
@@ -47,255 +85,141 @@ def test_invoke_junjichu_council_sends_expected_messages_and_returns_verdict():
         "role": "system",
         "content": junjichu_system_prompt(["户部", "兵部"]),
     }
-    assert captured_messages[1]["role"] == "user"
-    assert "拨款修渠并调兵护渠" in captured_messages[1]["content"]
-    assert "此事涉及户部与兵部，需军机处会审" in captured_messages[1]["content"]
-    assert "户部：臣部核准拨款" in captured_messages[1]["content"]
-    assert "兵部：臣部同意调兵护渠" in captured_messages[1]["content"]
+    evidence = captured_messages[1]["content"]
+    assert "拨款修渠并调兵护渠" in evidence
+    assert "此事涉及户部与兵部" in evidence
+    assert "预算司核查" in evidence
+    assert "户部同意拨款" in evidence
+    assert "客户司核查" in evidence
+    assert "兵部提出作战建议" in evidence
+    assert evidence.index("预算司核查") < evidence.index("客户司核查")
 
 
-def test_invoke_junjichu_council_strips_whitespace_from_verdict():
+def test_invoke_junjichu_accepts_strict_json_inside_supported_code_fence():
     verdict = invoke_junjichu_council(
         "旨意",
-        "判断说明",
-        ["户部", "工部"],
-        [
-            {"department": "户部", "opinion": "意见一"},
-            {"department": "工部", "opinion": "意见二"},
-        ],
-        lambda _messages: '{"verdict": "  会审已通过  "}',
-    )
-    assert verdict == "会审已通过"
-
-
-def test_invoke_junjichu_council_unwraps_json_code_fence():
-    verdict = invoke_junjichu_council(
-        "旨意",
-        "判断说明",
+        "判断",
         ["刑部", "工部"],
-        [
-            {"department": "刑部", "opinion": "意见一"},
-            {"department": "工部", "opinion": "意见二"},
-        ],
-        lambda _messages: '```json\n{"verdict": "依律核准"}\n```',
+        [_layered_opinion("刑部"), _layered_opinion("工部")],
+        lambda _messages: '```json\n{"verdict":"依律核准"}\n```',
     )
     assert verdict == "依律核准"
 
 
-def test_invoke_junjichu_council_model_call_failure_propagates_unwrapped():
-    def _raising_chat_model(_messages: list[dict[str, str]]) -> str:
-        raise RuntimeError("simulated fake-model failure")
-
-    with pytest.raises(RuntimeError, match="simulated fake-model failure"):
+@pytest.mark.parametrize(
+    ("response", "error_type"),
+    [
+        ("", ValueError),
+        ("   ", ValueError),
+        ("not json", StructuredOutputError),
+        ('{"comment":"无关字段"}', ValueError),
+        ('{"verdict":123}', ValueError),
+        ('{"verdict":" "}', ValueError),
+        ('{"verdict":"结论","extra":true}', ValueError),
+    ],
+)
+def test_invoke_junjichu_rejects_invalid_or_non_exact_response(response, error_type):
+    with pytest.raises(error_type):
         invoke_junjichu_council(
             "旨意",
-            "判断说明",
+            "判断",
             ["户部", "工部"],
-            [
-                {"department": "户部", "opinion": "意见一"},
-                {"department": "工部", "opinion": "意见二"},
-            ],
-            _raising_chat_model,
+            [_layered_opinion("户部"), _layered_opinion("工部")],
+            lambda _messages: response,
         )
 
 
-@pytest.mark.parametrize("empty_response", ["", "   "])
-def test_invoke_junjichu_council_rejects_empty_model_response(empty_response):
-    with pytest.raises(ValueError):
-        invoke_junjichu_council(
-            "旨意",
-            "判断说明",
-            ["户部", "工部"],
-            [
-                {"department": "户部", "opinion": "意见一"},
-                {"department": "工部", "opinion": "意见二"},
-            ],
-            lambda _messages: empty_response,
-        )
+def test_invoke_junjichu_model_failure_propagates_to_graph_boundary():
+    marker = "sk-junjichu-raw-cause-86420"
 
-
-def test_invoke_junjichu_council_rejects_invalid_json():
-    with pytest.raises(StructuredOutputError):
-        invoke_junjichu_council(
-            "旨意",
-            "判断说明",
-            ["户部", "工部"],
-            [
-                {"department": "户部", "opinion": "意见一"},
-                {"department": "工部", "opinion": "意见二"},
-            ],
-            lambda _messages: "not json at all",
-        )
-
-
-def test_invoke_junjichu_council_rejects_response_missing_verdict_key():
-    with pytest.raises(ValueError):
-        invoke_junjichu_council(
-            "旨意",
-            "判断说明",
-            ["户部", "工部"],
-            [
-                {"department": "户部", "opinion": "意见一"},
-                {"department": "工部", "opinion": "意见二"},
-            ],
-            lambda _messages: '{"comment": "无关字段"}',
-        )
-
-
-def test_invoke_junjichu_council_rejects_non_string_verdict():
-    with pytest.raises(ValueError):
-        invoke_junjichu_council(
-            "旨意",
-            "判断说明",
-            ["户部", "工部"],
-            [
-                {"department": "户部", "opinion": "意见一"},
-                {"department": "工部", "opinion": "意见二"},
-            ],
-            lambda _messages: '{"verdict": 123}',
-        )
-
-
-@pytest.mark.parametrize("empty_verdict", ["", "   "])
-def test_invoke_junjichu_council_rejects_empty_verdict(empty_verdict):
     def _chat_model(_messages: list[dict[str, str]]) -> str:
-        return f'{{"verdict": "{empty_verdict}"}}'
-
-    with pytest.raises(ValueError):
-        invoke_junjichu_council(
-            "旨意",
-            "判断说明",
-            ["户部", "工部"],
-            [
-                {"department": "户部", "opinion": "意见一"},
-                {"department": "工部", "opinion": "意见二"},
-            ],
-            _chat_model,
-        )
-
-
-def test_invoke_junjichu_council_does_not_leak_secret_from_underlying_exception():
-    leaking_marker = "sk-junjichu-adversarial-should-not-leak-86420"
-
-    def _leaking_chat_model(_messages: list[dict[str, str]]) -> str:
-        raise RuntimeError(f"simulated SDK failure, key={leaking_marker}")
+        raise RuntimeError(f"simulated SDK failure key={marker}")
 
     with pytest.raises(RuntimeError) as exc_info:
         invoke_junjichu_council(
             "旨意",
-            "判断说明",
+            "判断",
             ["户部", "工部"],
-            [
-                {"department": "户部", "opinion": "意见一"},
-                {"department": "工部", "opinion": "意见二"},
-            ],
-            _leaking_chat_model,
+            [_layered_opinion("户部"), _layered_opinion("工部")],
+            _chat_model,
         )
-    # This is the raw, unwrapped exception -- the leak-prevention guarantee
-    # applies to ``ChancellorGraphInvocationError`` (constructed by the
-    # Chancellor graph's own node, tested in ``test_chancellor_graph.py``),
-    # not to this module's own propagate-unwrapped-by-design failures.
-    assert leaking_marker in str(exc_info.value)
+    assert marker in str(exc_info.value)
 
 
-def _sequenced_chat_model(responses: list[str]):
-    """Return a fake chat model that returns ``responses`` in call order."""
-
-    call_index = {"value": 0}
+def test_run_junjichu_calls_layered_ministries_serially_then_council():
+    departments = ["户部", "工部", "兵部"]
+    captured_messages: list[list[dict[str, str]]] = []
+    responses: list[str] = []
+    for department in departments:
+        responses.extend(_ministry_turns(department, f"{department}司见", f"{department}补充"))
+    responses.append('{"verdict":"军机处综合结论"}')
+    inner = _sequenced_chat_model(responses)
 
     def _chat_model(messages: list[dict[str, str]]) -> str:
-        index = call_index["value"]
-        call_index["value"] += 1
-        return responses[index]
+        captured_messages.append(messages)
+        return inner(messages)
 
-    return _chat_model
-
-
-def test_run_junjichu_council_invokes_departments_serially_in_order_then_council():
-    captured_messages: list[list[dict[str, str]]] = []
-
-    def _recording_chat_model(responses: list[str]):
-        inner = _sequenced_chat_model(responses)
-
-        def _chat_model(messages: list[dict[str, str]]) -> str:
-            captured_messages.append(messages)
-            return inner(messages)
-
-        return _chat_model
-
-    chat_model = _recording_chat_model(
-        [
-            '{"opinion": "户部意见"}',
-            '{"opinion": "工部意见"}',
-            '{"opinion": "兵部意见"}',
-            '{"verdict": "军机处综合结论"}',
-        ]
+    opinions, verdict = run_junjichu_council(
+        "旨意", "判断说明", departments, _chat_model
     )
 
-    ministry_opinions, verdict = run_junjichu_council(
-        "旨意", "判断说明", ["户部", "工部", "兵部"], chat_model
-    )
-
-    assert ministry_opinions == [
-        {"department": "户部", "opinion": "户部意见"},
-        {"department": "工部", "opinion": "工部意见"},
-        {"department": "兵部", "opinion": "兵部意见"},
+    assert opinions == [
+        _layered_opinion(department, f"{department}司见", f"{department}补充")
+        for department in departments
     ]
     assert verdict == "军机处综合结论"
-
-    # Exactly 4 calls: one per department, then the council call, strictly
-    # in that order -- proves serial invocation, not concurrent/fan-out.
-    assert len(captured_messages) == 4
-    department_order = ["户部", "工部", "兵部"]
-    for index, department in enumerate(department_order):
-        assert department in captured_messages[index][0]["content"]
-    # The final call is the council call, distinguishable by referencing
-    # every department's opinion in its user message.
-    final_user_content = captured_messages[3][1]["content"]
-    assert "户部意见" in final_user_content
-    assert "工部意见" in final_user_content
-    assert "兵部意见" in final_user_content
+    assert len(captured_messages) == 10
+    assert departments == [
+        next(item for item in departments if item in captured_messages[index * 3][0]["content"])
+        for index in range(3)
+    ]
+    council_evidence = captured_messages[-1][1]["content"]
+    for department in departments:
+        assert f"{department}司见" in council_evidence
+        assert f"{department}补充" in council_evidence
 
 
-def test_run_junjichu_council_stops_before_remaining_departments_and_council_on_failure():
-    call_count = {"value": 0}
+def test_run_junjichu_failure_short_circuits_remaining_ministries_and_council():
+    calls = {"value": 0}
 
-    def _chat_model(messages: list[dict[str, str]]) -> str:
-        call_count["value"] += 1
-        if call_count["value"] == 1:
-            return '{"opinion": "户部意见"}'
-        raise RuntimeError("simulated second department failure")
+    def _chat_model(_messages: list[dict[str, str]]) -> str:
+        calls["value"] += 1
+        if calls["value"] == 1:
+            return _ministry_turns("户部", "户司", "户部")[0]
+        if calls["value"] == 2:
+            return '{"opinion":"户司"}'
+        if calls["value"] == 3:
+            return '{"opinion":"户部"}'
+        raise RuntimeError("simulated second ministry failure")
 
     with pytest.raises(MinistryAgentInvocationError):
-        run_junjichu_council("旨意", "判断说明", ["户部", "工部", "兵部"], _chat_model)
-
-    # Only the first department's call was made before the failure -- the
-    # third department and the council call never happened.
-    assert call_count["value"] == 2
+        run_junjichu_council("旨意", "判断", ["户部", "工部", "兵部"], _chat_model)
+    assert calls["value"] == 4
 
 
-def test_run_junjichu_council_two_invocations_do_not_leak_state():
-    chat_model_one = _sequenced_chat_model(
-        ['{"opinion": "户部意见一"}', '{"opinion": "工部意见一"}', '{"verdict": "结论一"}']
+def test_run_junjichu_has_no_state_leak_across_invocations():
+    first = _sequenced_chat_model(
+        [
+            *_ministry_turns("户部", "户司一", "户部一"),
+            *_ministry_turns("工部", "工司一", "工部一"),
+            '{"verdict":"结论一"}',
+        ]
     )
-    chat_model_two = _sequenced_chat_model(
-        ['{"opinion": "刑部意见二"}', '{"opinion": "兵部意见二"}', '{"verdict": "结论二"}']
+    second = _sequenced_chat_model(
+        [
+            *_ministry_turns("刑部", "刑司二", "刑部二"),
+            *_ministry_turns("兵部", "兵司二", "兵部二"),
+            '{"verdict":"结论二"}',
+        ]
     )
-
     opinions_one, verdict_one = run_junjichu_council(
-        "旨意一", "判断一", ["户部", "工部"], chat_model_one
+        "旨意一", "判断一", ["户部", "工部"], first
     )
     opinions_two, verdict_two = run_junjichu_council(
-        "旨意二", "判断二", ["刑部", "兵部"], chat_model_two
+        "旨意二", "判断二", ["刑部", "兵部"], second
     )
-
-    assert opinions_one == [
-        {"department": "户部", "opinion": "户部意见一"},
-        {"department": "工部", "opinion": "工部意见一"},
-    ]
     assert verdict_one == "结论一"
-    assert opinions_two == [
-        {"department": "刑部", "opinion": "刑部意见二"},
-        {"department": "兵部", "opinion": "兵部意见二"},
-    ]
     assert verdict_two == "结论二"
+    assert [item["department"] for item in opinions_one] == ["户部", "工部"]
+    assert [item["department"] for item in opinions_two] == ["刑部", "兵部"]
+    assert opinions_one != opinions_two

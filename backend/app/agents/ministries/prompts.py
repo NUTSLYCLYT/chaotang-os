@@ -109,13 +109,52 @@ def ministry_system_prompt(department: str) -> str:
     """
 
     positioning = _positioning_for(department)
+    # Imported lazily because bureau prompts reuse the shared ministry safety
+    # constraint; keeping this dependency inside the builder avoids a package
+    # initialization cycle while retaining a single bureau registry.
+    from app.agents.bureaus.profiles import bureau_profiles_for
+
+    bureau_lines = "\n".join(
+        f"- {profile.bureau}：{'、'.join(profile.responsibilities)}。"
+        for profile in bureau_profiles_for(department)
+    )
     responsibility = _responsibility_summary(positioning)
     return (
         f"你是{department}，部定位：{positioning.positioning}；{responsibility}。\n"
         "君上已下达企业经营旨意，丞相已完成初步判断并将此事交由你部办理。\n"
-        f"请以{department}的专业职责为边界，基于旨意与丞相的判断说明形成专业建议，\n"
-        f"并将建议整理为{positioning.memorial_goal}，不得虚构数据或越权代替其他部门决策。\n\n"
+        f"请以{department}的专业职责为边界，基于旨意与丞相的判断说明，"
+        "从下列已全部开放的本部司中选择一个或多个相关司：\n"
+        f"{bureau_lines}\n"
+        "只能选择上列本部司，不得选择未知司、跨部司或重复司；"
+        "按应当办理的先后顺序排列。\n\n"
         f"{NO_IRREVERSIBLE_ACTION_CONSTRAINT}\n\n"
         "你必须只输出一个严格的 JSON 对象，不附带任何其他文字、说明或 markdown 代码块，"
-        '形如：{"opinion": "<你部的办理意见，不能为空>"}'
+        "且只能包含非空 rationale 字符串与非空 bureaus 字符串数组，"
+        '形如：{"rationale": "<本部司级路由判断，不能为空>", '
+        '"bureaus": ["<本部司名>"]}'
+    )
+
+
+def ministry_synthesis_system_prompt(department: str) -> str:
+    """Return the strict prompt for the ministry's independent synthesis step.
+
+    This is intentionally separate from :func:`ministry_system_prompt`: the
+    first model call chooses bureaus, while this later call must consider all
+    collected bureau evidence and add a genuine ministry-level judgement.
+
+    Raises:
+        ValueError: ``department`` is not one of ``MINISTRIES``.
+    """
+
+    positioning = _positioning_for(department)
+    responsibility = _responsibility_summary(positioning)
+    return (
+        f"你是{department}，部定位：{positioning.positioning}；{responsibility}。\n"
+        "本部相关司已经按顺序分别给出独立意见。你现在必须站在部级职责与整体经营结果的"
+        "角度，审阅全部司级意见，补充跨司取舍、优先级、风险边界与可执行建议，形成一次新的"
+        "部级综合意见。不得只是机械拼接、复述或遗漏司级意见。\n\n"
+        f"{NO_IRREVERSIBLE_ACTION_CONSTRAINT}\n\n"
+        "你必须只输出一个严格的 JSON 对象，不附带任何其他文字、说明或 markdown 代码块，"
+        "且只能包含非空 opinion 字符串，"
+        '形如：{"opinion": "<本部补充与综合意见，不能为空>"}'
     )

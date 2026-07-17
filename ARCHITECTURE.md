@@ -45,7 +45,24 @@ Next.js 服务端 → FastAPI。`backend/` 已新增最小、无外部服务依�
 最终结论 `final_verdict`；`/study` 页面同步展示这条完整流转链路，费用提示文案反映"一次
 下旨可能触发多次模型调用"；前端 `submitDecree()` 的超时常量从 45000ms 上调至
 120000ms（对应最坏情况 8 次串行 DeepSeek 调用）。决策见
-`docs/decisions/0012-decree-six-ministries-joint-review.md`。
+`docs/decisions/0012-decree-six-ministries-joint-review.md`。六部现已进一步增加数据驱动的
+司级 Agent 层：`backend/app/agents/bureaus/` 用不可变 profile 注册表按
+`(department, bureau)` 复合身份定义六部共 39 司，礼部六司与其余各司全部开放；每个部先
+严格选择本部一个或多个司，再按选择顺序同步调用统一的通用司级 Agent（见 ADR 0013）。在此
+基础上，部级会读取全部有序司级意见，通过一次独立模型调用形成补充和综合；
+`invoke_ministry_agent` 返回结构化 `MinistryOpinion`，同时保存 `bureau_opinions` 与部级
+`opinion`。single 路径把该部的分层结果直接交给丞相最终汇总；multi 路径按序完成各部司议和
+部议，再交军机处形成 `council_verdict`，最后交给丞相。两条路径共用严格输出非空
+`summary` 与恰好三个非空、互不重复 `recommendations` 的 finalizer；`final_verdict` 映射
+`summary`，`processing_path` 记录真实调用顺序并以最终丞相结束。
+
+`POST /api/v1/decrees/chancellor` 的路径、请求体及原字段保持不变，成功响应增量增加
+`ministry_opinions[].bureau_opinions`、条件式 `council_verdict`（single 为 `null`，multi 为
+非空字符串）和 `recommendations`；FastAPI、BFF 与 UI 同批严格校验和展示分层结果。模型、
+结构或响应构造失败继续通过脱敏异常链失败关闭并映射 502，既有错误分类和 `GET /health`
+不变。该同步设计不并发、不持久化，最坏 single 为 11 次、全六部 multi 为 54 次模型调用，
+可能超过现有 120 秒前端超时。ADR 0013 中扁平字符串返回和不扩成功字段的局部结论由
+`docs/decisions/0014-layered-memorial-three-recommendations.md` 覆盖。
 
 ## 所有权
 
@@ -55,8 +72,8 @@ Next.js 服务端 → FastAPI。`backend/` 已新增最小、无外部服务依�
 | `docs/product/tasks/` | Codex 与 Claude Code 的顺序交接契约和验收证据 | 运行态队列、自动编排服务 |
 | `.agents/skills/product-flow/` | Codex 桌面任务内的一键产品交付编排 | 定时/CI 常驻服务、Claude 自主编排入口 |
 | `.claude/agents/` | Claude Code 的架构、模块交付、测试专业角色 | 跨客户端通用角色、并行写入隔离 |
-| `frontend/` | 前端工程及其验证；已确定 Next.js + React + TypeScript + npm 最小骨架；已交付第一个业务页面 `/study`（上书房下旨）和服务端 Route Handler `src/app/api/decrees/chancellor/route.ts`，见 ADR 0010；已升级为展示六部/军机处完整流转结果（`routeType/rationale/processingPath/departments/ministryOpinions/finalVerdict`），见 ADR 0012 | 其它业务页面、状态管理、UI 组件库、鉴权 |
-| `backend/` | 后端运行/评测工程及其验证；已确定 Python + FastAPI + uvicorn 最小骨架；已确定最小 LangGraph 运行时基础（依赖版本范围、`app/langgraph_runtime/` 模块边界、`GraphState` 状态类型，见 ADR 0007）；已确定唯一的 DeepSeek provider 接入（`providers.yaml` 以 `active: deepseek` 固定激活项、配置加载校验、`build_deepseek_graph()` 图工厂、密钥仅来自 `DEEPSEEK_API_KEY`，见 ADR 0008）；已交付第一个业务 Agent 与 HTTP 契约：`app/agents/chancellor/`（丞相 Agent）+ `app/api/decrees.py`（`POST /api/v1/decrees/chancellor`），见 ADR 0010；已升级为六部/军机处分流会审闭环：`app/agents/ministries/`（六部办理）+ `app/agents/junjichu/`（军机处会审）+ 对应的 HTTP 契约新字段，见 ADR 0012 | 其它业务 agent/workflow 图结构、DeepSeek 之外的模型供应商接入、持久化/checkpointer 方案仍未确定 |
+| `frontend/` | 前端工程及其验证；已确定 Next.js + React + TypeScript + npm 最小骨架；已交付第一个业务页面 `/study`（上书房下旨）和服务端 Route Handler `src/app/api/decrees/chancellor/route.ts`，见 ADR 0010；已升级为展示司级意见、部级补充、multi 军机处结论、丞相总结和三项建议，并严格校验增量契约，见 ADR 0014 | 其它业务页面、状态管理、UI 组件库、鉴权 |
+| `backend/` | 后端运行/评测工程及其验证；已确定 Python + FastAPI + uvicorn 最小骨架；已确定最小 LangGraph 运行时基础（依赖版本范围、`app/langgraph_runtime/` 模块边界、`GraphState` 状态类型，见 ADR 0007）；已确定唯一的 DeepSeek provider 接入（`providers.yaml` 以 `active: deepseek` 固定激活项、配置加载校验、`build_deepseek_graph()` 图工厂、密钥仅来自 `DEEPSEEK_API_KEY`，见 ADR 0008）；已交付第一个业务 Agent 与 HTTP 契约：`app/agents/chancellor/`（丞相 Agent）+ `app/api/decrees.py`（`POST /api/v1/decrees/chancellor`），见 ADR 0010；已升级为六部/军机处分流会审闭环，见 ADR 0012；已增加 `app/agents/bureaus/` 数据驱动通用司级 Agent 与全部开放的 39 司复合注册表，见 ADR 0013；现已形成司议 → 部议 → multi 军机处会审 → 丞相总结与三项建议的分层回奏，并增量扩展成功契约，见 ADR 0014 | 其它业务 agent/workflow 图结构、DeepSeek 之外的模型供应商接入、持久化/checkpointer 方案仍未确定 |
 
 `AGENTS.md` 只提供经常需要的操作指引；本文件只记录已确认架构事实。重要选择在
 `docs/decisions/` 记录原因，不能把尚未决定的方案写成现状。
@@ -91,8 +108,14 @@ Next.js 服务端 → FastAPI。`backend/` 已新增最小、无外部服务依�
   `docs/decisions/0010-shangshufang-chancellor-agent.md`；该闭环已升级为丞相分流 +
   六部办理（`app/agents/ministries/`）+ 军机处多部门会审（`app/agents/junjichu/`），
   HTTP 响应契约相应扩展，仍然同步、无持久化、仅 `127.0.0.1` 本地 MVP，见
-  `docs/decisions/0012-decree-six-ministries-joint-review.md`；不得据此推断可以随意
-  新增其它业务工作流或派发/持久化能力。
+  `docs/decisions/0012-decree-six-ministries-joint-review.md`；六部内部已新增
+  `app/agents/bureaus/` 的 39 司数据驱动层，部级严格路由后按顺序同步调用相关司，礼部没有
+  1.0 门禁，见 `docs/decisions/0013-data-driven-bureau-agents.md`。分层回奏进一步要求每个
+  部独立补充司议，single 直接回丞相，multi 经军机处会审后回丞相，两路共用严格三建议的
+  finalizer；成功契约增量保存司议、军机处结论与建议，见
+  `docs/decisions/0014-layered-memorial-three-recommendations.md`。该链路仍不并发、不持久化，
+  最坏 single/multi 同步模型调用数为 11/54；不得据此推断可以随意新增其它业务工作流或
+  派发/持久化能力。
 
 ## 结构变化门禁
 

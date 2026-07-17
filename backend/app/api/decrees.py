@@ -32,13 +32,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from app.agents.chancellor import (
     CHANCELLOR_IDENTITY,
     ChancellorGraphInvocationError,
     build_chancellor_graph,
 )
+from app.agents.ministries import MINISTRIES
 from app.langgraph_runtime.deepseek_client import DeepSeekModelNameError
 from app.langgraph_runtime.deepseek_config import DeepSeekConfigError
 
@@ -65,6 +66,22 @@ class ChancellorDecreeRequest(BaseModel):
         return value.strip()
 
 
+class BureauOpinionResponse(BaseModel):
+    """One bureau opinion, preserved in the ministry's consultation order."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bureau: str
+    opinion: str
+
+    @field_validator("bureau", "opinion")
+    @classmethod
+    def _validate_non_empty_text(cls, value: str) -> str:
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("bureau opinion fields must be non-empty strings")
+        return value.strip()
+
+
 class MinistryOpinionResponse(BaseModel):
     """One consulted department's opinion, in call order.
 
@@ -75,8 +92,30 @@ class MinistryOpinionResponse(BaseModel):
     a (theoretically impossible) unexpected value into an uncaught 500.
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     department: str
+    bureau_opinions: list[BureauOpinionResponse]
     opinion: str
+
+    @field_validator("department", "opinion")
+    @classmethod
+    def _validate_non_empty_text(cls, value: str) -> str:
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("ministry opinion fields must be non-empty strings")
+        return value.strip()
+
+    @field_validator("bureau_opinions")
+    @classmethod
+    def _validate_bureau_opinions(
+        cls, value: list[BureauOpinionResponse]
+    ) -> list[BureauOpinionResponse]:
+        if not value:
+            raise ValueError("bureau_opinions must not be empty")
+        bureau_names = [entry.bureau for entry in value]
+        if len(bureau_names) != len(set(bureau_names)):
+            raise ValueError("bureau_opinions must not contain duplicate bureaus")
+        return value
 
 
 class ChancellorDecreeResponse(BaseModel):
@@ -100,7 +139,122 @@ class ChancellorDecreeResponse(BaseModel):
     processing_path: list[str]
     departments: list[str]
     ministry_opinions: list[MinistryOpinionResponse]
+    council_verdict: str | None
     final_verdict: str
+    recommendations: list[str]
+
+
+def _non_empty_string(value: object) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _build_response_from_graph_result(result: object) -> ChancellorDecreeResponse:
+    """Validate the complete graph result and construct the HTTP response.
+
+    This is one fail-closed boundary: malformed graph state never escapes as
+    an unhandled ``TypeError``/Pydantic validation error (500), and never
+    returns a partially valid memorial. Every failure is normalized to the
+    existing sanitized graph invocation error handled below as HTTP 502.
+    """
+
+    try:
+        if not isinstance(result, dict):
+            raise ValueError("graph result must be an object")
+        required_result_fields = {
+            "chancellor_rationale",
+            "route_type",
+            "processing_path",
+            "departments",
+            "ministry_opinions",
+            "council_verdict",
+            "final_verdict",
+            "recommendations",
+        }
+        if not required_result_fields.issubset(result):
+            raise ValueError("graph result is missing layered memorial fields")
+
+        rationale = result.get("chancellor_rationale")
+        route_type = result.get("route_type")
+        processing_path = result.get("processing_path")
+        departments = result.get("departments")
+        ministry_opinions = result.get("ministry_opinions")
+        council_verdict = result.get("council_verdict")
+        final_verdict = result.get("final_verdict")
+        recommendations = result.get("recommendations")
+
+        if route_type not in ("single", "multi"):
+            raise ValueError("route_type must be single or multi")
+        if not _non_empty_string(rationale) or not _non_empty_string(final_verdict):
+            raise ValueError("rationale and final_verdict must be non-empty strings")
+        if (
+            not isinstance(processing_path, list)
+            or not processing_path
+            or any(not _non_empty_string(step) for step in processing_path)
+        ):
+            raise ValueError("processing_path must be a non-empty string list")
+        if (
+            not isinstance(departments, list)
+            or not departments
+            or any(not _non_empty_string(department) for department in departments)
+            or len(departments) != len(set(departments))
+            or any(department not in MINISTRIES for department in departments)
+        ):
+            raise ValueError("departments must be a unique non-empty string list")
+        if route_type == "single" and len(departments) != 1:
+            raise ValueError("single routing must contain exactly one department")
+        if route_type == "multi" and len(departments) < 2:
+            raise ValueError("multi routing must contain at least two departments")
+        if not isinstance(ministry_opinions, list) or len(ministry_opinions) != len(
+            departments
+        ):
+            raise ValueError("ministry_opinions must correspond to departments")
+
+        parsed_ministry_opinions: list[MinistryOpinionResponse] = []
+        for department, opinion in zip(departments, ministry_opinions, strict=True):
+            if not isinstance(opinion, dict) or set(opinion) != {
+                "department",
+                "bureau_opinions",
+                "opinion",
+            }:
+                raise ValueError("ministry opinion has an invalid schema")
+            if opinion.get("department") != department:
+                raise ValueError("ministry opinion order must match departments")
+            parsed_ministry_opinions.append(MinistryOpinionResponse.model_validate(opinion))
+
+        if route_type == "single":
+            if council_verdict is not None:
+                raise ValueError("single routing must not have a council verdict")
+        elif not _non_empty_string(council_verdict):
+            raise ValueError("multi routing must have a council verdict")
+
+        if (
+            not isinstance(recommendations, list)
+            or len(recommendations) != 3
+            or any(not _non_empty_string(item) for item in recommendations)
+        ):
+            raise ValueError("recommendations must contain exactly three non-empty strings")
+        normalized_recommendations = [item.strip() for item in recommendations]
+        if len(set(normalized_recommendations)) != 3:
+            raise ValueError("recommendations must be unique after stripping")
+
+        return ChancellorDecreeResponse(
+            status="ok",
+            chancellor=CHANCELLOR_IDENTITY,
+            route_type=route_type,
+            rationale=rationale.strip(),
+            processing_path=[step.strip() for step in processing_path],
+            departments=[department.strip() for department in departments],
+            ministry_opinions=parsed_ministry_opinions,
+            council_verdict=(council_verdict.strip() if isinstance(council_verdict, str) else None),
+            final_verdict=final_verdict.strip(),
+            recommendations=normalized_recommendations,
+        )
+    except ChancellorGraphInvocationError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - normalize every malformed result to sanitized 502
+        raise ChancellorGraphInvocationError(
+            "Chancellor graph returned an invalid layered memorial result."
+        ) from exc
 
 
 def get_chancellor_graph():
@@ -137,50 +291,7 @@ def submit_decree(payload: ChancellorDecreeRequest) -> ChancellorDecreeResponse:
     """
     graph = get_chancellor_graph()
     result = graph.invoke({"decree_text": payload.decree_text})
-
-    final_verdict = result.get("final_verdict")
-    if not isinstance(final_verdict, str) or not final_verdict.strip():
-        raise ChancellorGraphInvocationError(
-            "Chancellor graph returned an empty final verdict."
-        )
-
-    rationale = result.get("chancellor_rationale")
-    route_type = result.get("route_type")
-    processing_path = result.get("processing_path")
-    departments = result.get("departments")
-    ministry_opinions = result.get("ministry_opinions")
-    if (
-        not isinstance(rationale, str)
-        or not rationale.strip()
-        or not isinstance(route_type, str)
-        or not route_type
-        or not isinstance(processing_path, list)
-        or not processing_path
-        or not isinstance(departments, list)
-        or not departments
-        or not isinstance(ministry_opinions, list)
-        or not ministry_opinions
-    ):
-        raise ChancellorGraphInvocationError(
-            "Chancellor graph returned an incomplete routing result."
-        )
-
-    return ChancellorDecreeResponse(
-        status="ok",
-        chancellor=CHANCELLOR_IDENTITY,
-        route_type=route_type,
-        rationale=rationale.strip(),
-        processing_path=processing_path,
-        departments=departments,
-        ministry_opinions=[
-            MinistryOpinionResponse(
-                department=opinion.get("department", ""),
-                opinion=opinion.get("opinion", ""),
-            )
-            for opinion in ministry_opinions
-        ],
-        final_verdict=final_verdict.strip(),
-    )
+    return _build_response_from_graph_result(result)
 
 
 def register_chancellor_exception_handlers(app: FastAPI) -> None:

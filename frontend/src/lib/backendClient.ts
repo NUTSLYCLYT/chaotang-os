@@ -82,9 +82,16 @@ function describeError(error: unknown): string {
   return String(error);
 }
 
-/** 一个被军机处/单部门咨询的部门及其办理意见，保序。 */
+/** 一个司级意见，按所属部的咨询顺序保留。 */
+export interface BureauOpinion {
+  bureau: string;
+  opinion: string;
+}
+
+/** 一个被军机处/单部门咨询的部门及其分层办理意见，保序。 */
 export interface MinistryOpinion {
   department: string;
+  bureauOpinions: BureauOpinion[];
   opinion: string;
 }
 
@@ -104,7 +111,9 @@ export interface SubmitDecreeData {
   processingPath: string[];
   departments: string[];
   ministryOpinions: MinistryOpinion[];
+  councilVerdict: string | null;
   finalVerdict: string;
+  recommendations: string[];
 }
 
 /**
@@ -130,10 +139,9 @@ export interface SubmitDecreeOptions {
  * `submitDecree` 专用超时常量：LLM 调用可能耗时较长，刻意独立于 `fetchHealth` 的
  * `DEFAULT_TIMEOUT_MS`（3000ms），不与其共用默认值。
  *
- * 一次下旨最坏情况会触发 8 次串行 DeepSeek 调用（1 次丞相路由 + 最多 6 次六部会审
- * + 1 次军机处汇总，均由后端图按确定顺序串行执行，不并发），而不是旧版单次丞相回
- * 奏；因此从 45000ms 上调至 120000ms，避免把"模型仍在处理"误判为网络错误。数值
- * 依据详见 `docs/decisions/0012-decree-six-ministries-joint-review.md`。
+ * 分层回奏最坏会触发 54 次串行 DeepSeek 调用（司级咨询、部级补充、军机处会审与
+ * 丞相最终汇总均不并发），可能仍超过既有 120 秒；本轮按产品约束只更新风险说明，
+ * 不改变超时。数值依据见分层回奏任务与 ADR 0014。
  */
 const DECREE_TIMEOUT_MS = 120000;
 
@@ -151,24 +159,68 @@ async function extractErrorMessage(response: Response, fallback: string): Promis
 }
 
 /** 校验并提取一份 `{department, opinion}` 数组；任一元素形状不符时返回 `null`。 */
-function parseMinistryOpinions(value: unknown): MinistryOpinion[] | null {
+function parseBureauOpinions(value: unknown): BureauOpinion[] | null {
+  if (!Array.isArray(value) || value.length === 0) {
+    return null;
+  }
+  const opinions: BureauOpinion[] = [];
+  const bureauNames = new Set<string>();
+  for (const entry of value) {
+    if (typeof entry !== "object" || entry === null) {
+      return null;
+    }
+    const record = entry as Record<string, unknown>;
+    if (
+      Object.keys(record).length !== 2 ||
+      !("bureau" in record) ||
+      !("opinion" in record) ||
+      typeof record.bureau !== "string" ||
+      record.bureau.trim().length === 0 ||
+      typeof record.opinion !== "string" ||
+      record.opinion.trim().length === 0
+    ) {
+      return null;
+    }
+    const bureau = record.bureau.trim();
+    if (bureauNames.has(bureau)) {
+      return null;
+    }
+    bureauNames.add(bureau);
+    opinions.push({ bureau, opinion: record.opinion.trim() });
+  }
+  return opinions;
+}
+
+function parseMinistryOpinions(value: unknown, departments: string[]): MinistryOpinion[] | null {
   if (!Array.isArray(value) || value.length === 0) {
     return null;
   }
   const opinions: MinistryOpinion[] = [];
-  for (const entry of value) {
+  if (value.length !== departments.length) {
+    return null;
+  }
+  for (const [index, entry] of value.entries()) {
     if (
       typeof entry !== "object" ||
       entry === null ||
+      Object.keys(entry).length !== 3 ||
       typeof (entry as Record<string, unknown>).department !== "string" ||
       ((entry as Record<string, unknown>).department as string).trim().length === 0 ||
+      ((entry as Record<string, unknown>).department as string).trim() !== departments[index] ||
       typeof (entry as Record<string, unknown>).opinion !== "string" ||
       ((entry as Record<string, unknown>).opinion as string).trim().length === 0
     ) {
       return null;
     }
+    const bureauOpinions = parseBureauOpinions(
+      (entry as Record<string, unknown>).bureau_opinions,
+    );
+    if (bureauOpinions === null) {
+      return null;
+    }
     opinions.push({
       department: ((entry as Record<string, unknown>).department as string).trim(),
+      bureauOpinions,
       opinion: ((entry as Record<string, unknown>).opinion as string).trim(),
     });
   }
@@ -202,7 +254,7 @@ function parseSubmitDecreeData(body: unknown): SubmitDecreeData | null {
   if (typeof record.chancellor !== "string" || record.chancellor.trim().length === 0) {
     return null;
   }
-  if (typeof record.route_type !== "string" || record.route_type.trim().length === 0) {
+  if (record.route_type !== "single" && record.route_type !== "multi") {
     return null;
   }
   if (typeof record.rationale !== "string" || record.rationale.trim().length === 0) {
@@ -213,14 +265,42 @@ function parseSubmitDecreeData(body: unknown): SubmitDecreeData | null {
     return null;
   }
   const departments = parseNonEmptyStringArray(record.departments);
-  if (departments === null) {
+  if (
+    departments === null ||
+    new Set(departments).size !== departments.length ||
+    (record.route_type === "single" && departments.length !== 1) ||
+    (record.route_type === "multi" && departments.length < 2)
+  ) {
     return null;
   }
-  const ministryOpinions = parseMinistryOpinions(record.ministry_opinions);
+  const ministryOpinions = parseMinistryOpinions(record.ministry_opinions, departments);
   if (ministryOpinions === null) {
     return null;
   }
+  let councilVerdict: string | null;
+  if (record.route_type === "single") {
+    if (record.council_verdict !== null) {
+      return null;
+    }
+    councilVerdict = null;
+  } else {
+    if (
+      typeof record.council_verdict !== "string" ||
+      record.council_verdict.trim().length === 0
+    ) {
+      return null;
+    }
+    councilVerdict = record.council_verdict.trim();
+  }
   if (typeof record.final_verdict !== "string" || record.final_verdict.trim().length === 0) {
+    return null;
+  }
+  const recommendations = parseNonEmptyStringArray(record.recommendations);
+  if (
+    recommendations === null ||
+    recommendations.length !== 3 ||
+    new Set(recommendations.map((item) => item.trim())).size !== 3
+  ) {
     return null;
   }
 
@@ -232,7 +312,9 @@ function parseSubmitDecreeData(body: unknown): SubmitDecreeData | null {
     processingPath,
     departments,
     ministryOpinions,
+    councilVerdict,
     finalVerdict: record.final_verdict.trim(),
+    recommendations: recommendations.map((item) => item.trim()),
   };
 }
 

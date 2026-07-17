@@ -84,8 +84,10 @@ test("POST：成功路径（single 路由）- 后端返回符合契约的响应�
     rationale: "此事职责明确，交由户部办理即可。",
     processing_path: ["上书房", "丞相", "户部"],
     departments: ["户部"],
-    ministry_opinions: [{ department: "户部", opinion: "臣部已核查国库存银。" }],
-    final_verdict: "臣部已核查国库存银。",
+    ministry_opinions: [{ department: "户部", bureau_opinions: [{ bureau: "预算司", opinion: "预算可控。" }], opinion: "户部补充：分期拨付。" }],
+    council_verdict: null,
+    final_verdict: "丞相汇总：预算可控，可分期拨付。",
+    recommendations: ["核定预算", "分期拨付", "设置审计节点"],
   });
   try {
     const response = await withBackendBaseUrl(stub.baseUrl, () =>
@@ -101,8 +103,10 @@ test("POST：成功路径（single 路由）- 后端返回符合契约的响应�
       rationale: "此事职责明确，交由户部办理即可。",
       processingPath: ["上书房", "丞相", "户部"],
       departments: ["户部"],
-      ministryOpinions: [{ department: "户部", opinion: "臣部已核查国库存银。" }],
-      finalVerdict: "臣部已核查国库存银。",
+      ministryOpinions: [{ department: "户部", bureauOpinions: [{ bureau: "预算司", opinion: "预算可控。" }], opinion: "户部补充：分期拨付。" }],
+      councilVerdict: null,
+      finalVerdict: "丞相汇总：预算可控，可分期拨付。",
+      recommendations: ["核定预算", "分期拨付", "设置审计节点"],
     });
   } finally {
     await stub.close();
@@ -118,10 +122,12 @@ test("POST：成功路径（multi 路由）- 后端返回符合契约的响应�
     processing_path: ["上书房", "丞相", "军机处", "户部", "工部"],
     departments: ["户部", "工部"],
     ministry_opinions: [
-      { department: "户部", opinion: "臣部已核查库银，可拨付部分钱粮。" },
-      { department: "工部", opinion: "臣部已勘察地形，可即刻兴工。" },
+      { department: "户部", bureau_opinions: [{ bureau: "预算司", opinion: "预算可控。" }], opinion: "户部补充：分期拨付。" },
+      { department: "工部", bureau_opinions: [{ bureau: "进度司", opinion: "可分段施工。" }], opinion: "工部补充：按里程碑验收。" },
     ],
-    final_verdict: "军机处会审：准予兴修水利，钱粮由户部拨付，工部督造。",
+    council_verdict: "军机处会审：分期拨付并按里程碑验收。",
+    final_verdict: "丞相汇总：准予分阶段兴修水利。",
+    recommendations: ["先完成勘察", "分期拨付预算", "按里程碑验收"],
   });
   try {
     const response = await withBackendBaseUrl(stub.baseUrl, () =>
@@ -134,14 +140,67 @@ test("POST：成功路径（multi 路由）- 后端返回符合契约的响应�
     assert.deepEqual(body.processingPath, ["上书房", "丞相", "军机处", "户部", "工部"]);
     assert.deepEqual(body.departments, ["户部", "工部"]);
     assert.deepEqual(body.ministryOpinions, [
-      { department: "户部", opinion: "臣部已核查库银，可拨付部分钱粮。" },
-      { department: "工部", opinion: "臣部已勘察地形，可即刻兴工。" },
+      { department: "户部", bureauOpinions: [{ bureau: "预算司", opinion: "预算可控。" }], opinion: "户部补充：分期拨付。" },
+      { department: "工部", bureauOpinions: [{ bureau: "进度司", opinion: "可分段施工。" }], opinion: "工部补充：按里程碑验收。" },
     ]);
-    assert.equal(body.finalVerdict, "军机处会审：准予兴修水利，钱粮由户部拨付，工部督造。");
+    assert.equal(body.councilVerdict, "军机处会审：分期拨付并按里程碑验收。");
+    assert.equal(body.finalVerdict, "丞相汇总：准予分阶段兴修水利。");
+    assert.deepEqual(body.recommendations, ["先完成勘察", "分期拨付预算", "按里程碑验收"]);
   } finally {
     await stub.close();
   }
 });
+
+for (const [name, backendBody] of [
+  [
+    "嵌套司级意见含额外字段",
+    {
+      status: "ok",
+      chancellor: "丞相",
+      route_type: "single",
+      rationale: "交由户部办理。",
+      processing_path: ["上书房", "丞相（首次分流）", "户部", "户部·预算司", "户部（部级补充）", "丞相（最终汇总）"],
+      departments: ["户部"],
+      ministry_opinions: [{ department: "户部", bureau_opinions: [{ bureau: "预算司", opinion: "预算可控。", extra: true }], opinion: "户部补充。" }],
+      council_verdict: null,
+      final_verdict: "丞相总结。",
+      recommendations: ["建议一", "建议二", "建议三"],
+    },
+  ],
+  [
+    "multi 缺少军机处会审结论",
+    {
+      status: "ok",
+      chancellor: "丞相",
+      route_type: "multi",
+      rationale: "需两部会办。",
+      processing_path: ["上书房", "丞相（首次分流）", "军机处（召集）", "户部", "工部", "军机处（会审）", "丞相（最终汇总）"],
+      departments: ["户部", "工部"],
+      ministry_opinions: [
+        { department: "户部", bureau_opinions: [{ bureau: "预算司", opinion: "预算意见。" }], opinion: "户部补充。" },
+        { department: "工部", bureau_opinions: [{ bureau: "进度司", opinion: "进度意见。" }], opinion: "工部补充。" },
+      ],
+      council_verdict: null,
+      final_verdict: "丞相总结。",
+      recommendations: ["建议一", "建议二", "建议三"],
+    },
+  ],
+] as const) {
+  test(`POST：后端 200 但${name}时拒绝成功并映射为 503 unknown`, async () => {
+    const stub = await startDecreeStub(200, backendBody);
+    try {
+      const response = await withBackendBaseUrl(stub.baseUrl, () =>
+        POST(makeRequest({ decreeText: "测试非法分层结果" })),
+      );
+      assert.equal(response.status, 503);
+      const body = (await response.json()) as Record<string, unknown>;
+      assert.equal(body.status, "error");
+      assert.equal(body.reason, "unknown");
+    } finally {
+      await stub.close();
+    }
+  });
+}
 
 test("POST：后端校验失败(422) - 映射为 422，且响应体不含后端 detail 原文", async () => {
   const stub = await startDecreeStub(422, {

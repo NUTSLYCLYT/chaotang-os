@@ -21,9 +21,15 @@ interface ChancellorRequestBody {
   decreeText?: unknown;
 }
 
-/** 一个被军机处/单部门咨询的部门及其办理意见，保序。 */
+interface ChancellorBureauOpinion {
+  bureau: string;
+  opinion: string;
+}
+
+/** 一个被军机处/单部门咨询的部门及其分层办理意见，保序。 */
 interface ChancellorMinistryOpinion {
   department: string;
+  bureauOpinions: ChancellorBureauOpinion[];
   opinion: string;
 }
 
@@ -40,7 +46,9 @@ interface ChancellorSuccessResponseBody {
   processingPath: string[];
   departments: string[];
   ministryOpinions: ChancellorMinistryOpinion[];
+  councilVerdict: string | null;
   finalVerdict: string;
+  recommendations: string[];
 }
 
 /** 与 `submitDecree` 的 `kind` 保持一致的稳定错误分类，供浏览器区分场景展示。 */
@@ -112,7 +120,9 @@ export async function POST(request: Request): Promise<Response> {
       processingPath: result.data.processingPath,
       departments: result.data.departments,
       ministryOpinions: result.data.ministryOpinions,
+      councilVerdict: result.data.councilVerdict,
       finalVerdict: result.data.finalVerdict,
+      recommendations: result.data.recommendations,
     };
     return jsonResponse(body, 200);
   }

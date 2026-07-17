@@ -17,11 +17,16 @@ TypeScript，npm 管理依赖，Node 内置 `node:test` 做单元测试。选型
   （`"use client"`），提供旨意输入框与“下旨”按钮，用户主动点击后才通过同源相对
   路径 `fetch('/api/decrees/chancellor')` 提交（不自动提交、不直接引用
   `BACKEND_BASE_URL`、不直接请求 FastAPI）。页面明确提示点击“下旨”会触发一次下旨
-  流程中的多次模型调用（丞相判断、六部或军机处会审）并产生相应的 DeepSeek 调用费用，
+  流程中的多次模型调用（丞相首次判断、司级意见、部级补充、multi 军机处会审及丞相最终
+  汇总）并产生相应的 DeepSeek 调用费用；最坏 single 为 11 次、全六部 multi 为 54 次同步
+  模型调用，现有 `submitDecree()` 120 秒超时可能不足。页面
   并展示处理中/成功/失败三种状态；成功状态展示丞相判断说明（`rationale`）、完整流转
-  路径（`processingPath.join(" → ")`）、各参与部门的办理意见列表（`ministryOpinions`）
-  和最终结论（`finalVerdict`）——这组结构化字段替代了早期版本的单段回奏文本，见
-  `docs/decisions/0012-decree-six-ministries-joint-review.md`。
+  路径（`processingPath.join(" → ")`）、各参与部门的分层意见列表（`ministryOpinions`：每部
+  先展示有序 `bureauOpinions`，再展示部级 `opinion`）、仅 multi 展示的军机处会审结论
+  （`councilVerdict`）、丞相总结（`finalVerdict`）和恰好三项建议（`recommendations`）。
+  这组结构化字段替代了早期版本的单段回奏文本；成功契约及分层 UI 见
+  `docs/decisions/0012-decree-six-ministries-joint-review.md` 与
+  `docs/decisions/0014-layered-memorial-three-recommendations.md`。
   `src/app/study/decreeStatus.ts` 是配套的纯函数模块（不依赖 React/DOM/网络），
   负责把一次下旨提交结果映射为页面可渲染的 UI 状态，供 `decreeStatus.test.ts`
   完全离线单测。

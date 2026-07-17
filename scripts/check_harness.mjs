@@ -29,6 +29,8 @@ const REQUIRED_FILES = [
   "docs/decisions/0010-shangshufang-chancellor-agent.md",
   "docs/decisions/0011-codex-fallback-for-claude-restrictions.md",
   "docs/decisions/0012-decree-six-ministries-joint-review.md",
+  "docs/decisions/0013-data-driven-bureau-agents.md",
+  "docs/decisions/0014-layered-memorial-three-recommendations.md",
   "backend/config/providers.yaml",
   "backend/.env.template",
   "docs/failures/2026-07-15-shared-harness-stop-hook-false-green.md",

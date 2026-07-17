@@ -6,6 +6,7 @@ import {
   SUBMITTING_UI_STATE,
   getDecreeFormAvailability,
   mapSubmitDecreeResultToUiState,
+  parseChancellorSuccessResponse,
   type DecreeErrorKind,
 } from "./decreeStatus.ts";
 
@@ -52,8 +53,10 @@ test("mapSubmitDecreeResultToUiState：single 路由成功结果映射为 succes
       rationale: "此事职责明确，交由吏部办理即可。",
       processingPath: ["上书房", "丞相", "吏部"],
       departments: ["吏部"],
-      ministryOpinions: [{ department: "吏部", opinion: "臣部已知晓，建议核查官员考绩。" }],
-      finalVerdict: "臣部已知晓，建议核查官员考绩。",
+      ministryOpinions: [{ department: "吏部", bureauOpinions: [{ bureau: "任免司", opinion: "核查考绩。" }], opinion: "吏部补充：复核职责匹配。" }],
+      councilVerdict: null,
+      finalVerdict: "丞相汇总：核查考绩并复核职责。",
+      recommendations: ["核查考绩", "复核职责", "限期整改"],
     },
   });
 
@@ -64,8 +67,10 @@ test("mapSubmitDecreeResultToUiState：single 路由成功结果映射为 succes
     rationale: "此事职责明确，交由吏部办理即可。",
     processingPath: ["上书房", "丞相", "吏部"],
     departments: ["吏部"],
-    ministryOpinions: [{ department: "吏部", opinion: "臣部已知晓，建议核查官员考绩。" }],
-    finalVerdict: "臣部已知晓，建议核查官员考绩。",
+    ministryOpinions: [{ department: "吏部", bureauOpinions: [{ bureau: "任免司", opinion: "核查考绩。" }], opinion: "吏部补充：复核职责匹配。" }],
+    councilVerdict: null,
+    finalVerdict: "丞相汇总：核查考绩并复核职责。",
+    recommendations: ["核查考绩", "复核职责", "限期整改"],
   });
 });
 
@@ -80,10 +85,12 @@ test("mapSubmitDecreeResultToUiState：multi 路由成功结果映射为 success
       processingPath: ["上书房", "丞相", "军机处", "户部", "工部"],
       departments: ["户部", "工部"],
       ministryOpinions: [
-        { department: "户部", opinion: "臣部已核查库银，可拨付部分钱粮。" },
-        { department: "工部", opinion: "臣部已勘察地形，可即刻兴工。" },
+        { department: "户部", bureauOpinions: [{ bureau: "预算司", opinion: "预算可控。" }], opinion: "户部补充：分期拨付。" },
+        { department: "工部", bureauOpinions: [{ bureau: "进度司", opinion: "可分段施工。" }], opinion: "工部补充：按里程碑验收。" },
       ],
-      finalVerdict: "军机处会审：准予兴修水利，钱粮由户部拨付，工部督造。",
+      councilVerdict: "军机处会审：分期拨付并按里程碑验收。",
+      finalVerdict: "丞相汇总：准予分阶段兴修水利。",
+      recommendations: ["先完成勘察", "分期拨付预算", "按里程碑验收"],
     },
   });
 
@@ -93,9 +100,77 @@ test("mapSubmitDecreeResultToUiState：multi 路由成功结果映射为 success
     assert.equal(state.departments.length, 2);
     assert.equal(state.ministryOpinions.length, 2);
     assert.equal(state.processingPath.includes("军机处"), true);
+    assert.ok(state.councilVerdict);
+    assert.equal(state.recommendations.length, 3);
     assert.ok(state.finalVerdict.length > 0);
   }
 });
+
+const VALID_PAGE_BODY = {
+  status: "ok",
+  chancellor: "丞相",
+  routeType: "single",
+  rationale: "交由户部办理。",
+  processingPath: ["上书房", "丞相（首次分流）", "户部", "户部（部级补充）", "丞相（最终汇总）"],
+  departments: ["户部"],
+  ministryOpinions: [{ department: "户部", bureauOpinions: [{ bureau: "预算司", opinion: "预算可控。" }], opinion: "户部补充：分期拨付。" }],
+  councilVerdict: null,
+  finalVerdict: "丞相汇总：分期拨付。",
+  recommendations: ["核定预算", "分期拨付", "设置审计节点"],
+};
+
+test("parseChancellorSuccessResponse：严格接受完整 single 分层响应", () => {
+  assert.deepEqual(parseChancellorSuccessResponse(VALID_PAGE_BODY), VALID_PAGE_BODY);
+});
+
+for (const [name, body] of [
+  ["single 含军机处结论", { ...VALID_PAGE_BODY, councilVerdict: "不应存在" }],
+  [
+    "multi 缺少军机处结论",
+    {
+      ...VALID_PAGE_BODY,
+      routeType: "multi",
+      departments: ["户部", "工部"],
+      ministryOpinions: [
+        VALID_PAGE_BODY.ministryOpinions[0],
+        { department: "工部", bureauOpinions: [{ bureau: "进度司", opinion: "按期推进。" }], opinion: "工部补充。" },
+      ],
+      councilVerdict: null,
+    },
+  ],
+  ["部与意见不对应", { ...VALID_PAGE_BODY, ministryOpinions: [{ ...VALID_PAGE_BODY.ministryOpinions[0], department: "工部" }] }],
+  ["司级意见为空", { ...VALID_PAGE_BODY, ministryOpinions: [{ ...VALID_PAGE_BODY.ministryOpinions[0], bureauOpinions: [] }] }],
+  ["部级意见含额外字段", { ...VALID_PAGE_BODY, ministryOpinions: [{ ...VALID_PAGE_BODY.ministryOpinions[0], extra: true }] }],
+  [
+    "司级意见含额外字段",
+    {
+      ...VALID_PAGE_BODY,
+      ministryOpinions: [{
+        ...VALID_PAGE_BODY.ministryOpinions[0],
+        bureauOpinions: [{ ...VALID_PAGE_BODY.ministryOpinions[0].bureauOpinions[0], extra: true }],
+      }],
+    },
+  ],
+  [
+    "司级意见为空白",
+    {
+      ...VALID_PAGE_BODY,
+      ministryOpinions: [{
+        ...VALID_PAGE_BODY.ministryOpinions[0],
+        bureauOpinions: [{ ...VALID_PAGE_BODY.ministryOpinions[0].bureauOpinions[0], opinion: "   " }],
+      }],
+    },
+  ],
+  ["建议不足三项", { ...VALID_PAGE_BODY, recommendations: ["一", "二"] }],
+  ["建议超过三项", { ...VALID_PAGE_BODY, recommendations: ["一", "二", "三", "四"] }],
+  ["建议含空白项", { ...VALID_PAGE_BODY, recommendations: ["一", "   ", "三"] }],
+  ["建议含非字符串项", { ...VALID_PAGE_BODY, recommendations: ["一", 2, "三"] }],
+  ["建议去空白后重复", { ...VALID_PAGE_BODY, recommendations: ["同一项", " 同一项 ", "第三项"] }],
+] as const) {
+  test(`parseChancellorSuccessResponse：拒绝${name}`, () => {
+    assert.equal(parseChancellorSuccessResponse(body), null);
+  });
+}
 
 const ERROR_KINDS: DecreeErrorKind[] = ["validation", "config", "model", "network", "unknown"];
 

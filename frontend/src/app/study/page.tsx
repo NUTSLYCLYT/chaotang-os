@@ -7,27 +7,10 @@ import {
   SUBMITTING_UI_STATE,
   getDecreeFormAvailability,
   mapSubmitDecreeResultToUiState,
+  parseChancellorSuccessResponse,
   type DecreeErrorKind,
   type DecreeUiState,
 } from "./decreeStatus";
-
-/** 一个被军机处/单部门咨询的部门及其办理意见，保序。 */
-interface ChancellorMinistryOpinion {
-  department: string;
-  opinion: string;
-}
-
-/** `route.ts` 成功响应体的形状（详见 `src/app/api/decrees/chancellor/route.ts`）。 */
-interface ChancellorSuccessResponseBody {
-  status: string;
-  chancellor: string;
-  routeType: string;
-  rationale: string;
-  processingPath: string[];
-  departments: string[];
-  ministryOpinions: ChancellorMinistryOpinion[];
-  finalVerdict: string;
-}
 
 /** `route.ts` 失败响应体的形状：脱敏、携带稳定 `reason` 分类。 */
 interface ChancellorErrorResponseBody {
@@ -76,37 +59,11 @@ async function callChancellorRoute(decreeText: string): Promise<DecreeUiState> {
   }
 
   if (response.ok) {
-    const success = body as Partial<ChancellorSuccessResponseBody>;
-    if (
-      typeof success.chancellor === "string" &&
-      typeof success.routeType === "string" &&
-      typeof success.rationale === "string" &&
-      Array.isArray(success.processingPath) &&
-      success.processingPath.every((step) => typeof step === "string") &&
-      Array.isArray(success.departments) &&
-      success.departments.every((department) => typeof department === "string") &&
-      Array.isArray(success.ministryOpinions) &&
-      success.ministryOpinions.every(
-        (entry) =>
-          typeof entry === "object" &&
-          entry !== null &&
-          typeof entry.department === "string" &&
-          typeof entry.opinion === "string",
-      ) &&
-      typeof success.finalVerdict === "string"
-    ) {
+    const success = parseChancellorSuccessResponse(body);
+    if (success !== null) {
       return mapSubmitDecreeResultToUiState({
         ok: true,
-        data: {
-          status: typeof success.status === "string" ? success.status : "ok",
-          chancellor: success.chancellor,
-          routeType: success.routeType,
-          rationale: success.rationale,
-          processingPath: success.processingPath,
-          departments: success.departments,
-          ministryOpinions: success.ministryOpinions,
-          finalVerdict: success.finalVerdict,
-        },
+        data: success,
       });
     }
     return mapSubmitDecreeResultToUiState({
@@ -147,8 +104,8 @@ export default function StudyPage() {
       <p>在此输入旨意，点击“下旨”后将由丞相 Agent 生成回奏。</p>
       <p data-testid="decree-fee-notice">
         <strong>
-          注意：点击“下旨”会触发一次下旨流程中的多次模型调用（丞相判断、六部或军机处会审），
-          产生相应的 DeepSeek API 调用费用，请确认旨意内容后再提交。
+          注意：点击“下旨”会按顺序触发司级咨询、部级补充、军机处会审（仅多部门）和丞相汇总，
+          最坏可能产生 54 次同步 DeepSeek API 调用并等待较久，请确认旨意内容后再提交。
         </strong>
       </p>
       <section>
@@ -179,7 +136,9 @@ export default function StudyPage() {
         <h2>丞相回奏</h2>
         {uiState.phase === "idle" && <p data-testid="decree-status">尚未提交旨意。</p>}
         {uiState.phase === "submitting" && (
-          <p data-testid="decree-status">丞相正在判断办理路径并召集相关部门，请稍候……</p>
+          <p data-testid="decree-status">
+            正在依次完成司级意见、部级补充及最终回奏，最多可能有 54 次同步调用，请耐心等候……
+          </p>
         )}
         {uiState.phase === "success" && (
           <div data-testid="decree-status" data-decree-ok="true">
@@ -189,15 +148,35 @@ export default function StudyPage() {
             <p data-testid="decree-processing-path">
               流转路径：{uiState.processingPath.join(" → ")}
             </p>
-            <h3>各部门意见</h3>
+            <h3>分层部门意见</h3>
             <ul data-testid="decree-ministry-opinions">
               {uiState.ministryOpinions.map((opinion) => (
                 <li key={opinion.department}>
-                  {opinion.department}：{opinion.opinion}
+                  <h4>{opinion.department}</h4>
+                  <p>司级意见</p>
+                  <ol data-testid={`decree-bureau-opinions-${opinion.department}`}>
+                    {opinion.bureauOpinions.map((bureauOpinion) => (
+                      <li key={bureauOpinion.bureau}>
+                        {bureauOpinion.bureau}：{bureauOpinion.opinion}
+                      </li>
+                    ))}
+                  </ol>
+                  <p>部级补充：{opinion.opinion}</p>
                 </li>
               ))}
             </ul>
-            <p data-testid="decree-final-verdict">最终结论：{uiState.finalVerdict}</p>
+            {uiState.routeType === "multi" && (
+              <p data-testid="decree-council-verdict">
+                军机处会审结论：{uiState.councilVerdict}
+              </p>
+            )}
+            <p data-testid="decree-final-verdict">丞相总结：{uiState.finalVerdict}</p>
+            <h3>丞相三项建议</h3>
+            <ol data-testid="decree-recommendations">
+              {uiState.recommendations.map((recommendation) => (
+                <li key={recommendation}>{recommendation}</li>
+              ))}
+            </ol>
           </div>
         )}
         {uiState.phase === "error" && (

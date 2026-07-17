@@ -336,10 +336,12 @@ const SINGLE_ROUTE_BODY = {
   chancellor: "丞相",
   route_type: "single",
   rationale: "此事职责明确，交由户部办理即可。",
-  processing_path: ["上书房", "丞相", "户部"],
+  processing_path: ["上书房", "丞相（首次分流）", "户部", "户部·预算司", "户部（部级补充）", "丞相（最终汇总）"],
   departments: ["户部"],
-  ministry_opinions: [{ department: "户部", opinion: "臣部已核查国库存银。" }],
-  final_verdict: "臣部已核查国库存银。",
+  ministry_opinions: [{ department: "户部", bureau_opinions: [{ bureau: "预算司", opinion: "预算可控。" }], opinion: "户部补充：分期拨付。" }],
+  council_verdict: null,
+  final_verdict: "丞相汇总：预算可控，可分期拨付。",
+  recommendations: ["核定预算", "分期拨付", "设置审计节点"],
 };
 
 const MULTI_ROUTE_BODY = {
@@ -347,13 +349,15 @@ const MULTI_ROUTE_BODY = {
   chancellor: "丞相",
   route_type: "multi",
   rationale: "此事涉及工程与钱粮，需户部、工部会同办理。",
-  processing_path: ["上书房", "丞相", "军机处", "户部", "工部"],
+  processing_path: ["上书房", "丞相（首次分流）", "军机处（召集）", "户部", "工部", "军机处（会审）", "丞相（最终汇总）"],
   departments: ["户部", "工部"],
   ministry_opinions: [
-    { department: "户部", opinion: "臣部已核查库银，可拨付部分钱粮。" },
-    { department: "工部", opinion: "臣部已勘察地形，可即刻兴工。" },
+    { department: "户部", bureau_opinions: [{ bureau: "预算司", opinion: "预算可控。" }], opinion: "户部补充：分期拨付。" },
+    { department: "工部", bureau_opinions: [{ bureau: "进度司", opinion: "可分段施工。" }], opinion: "工部补充：按里程碑验收。" },
   ],
-  final_verdict: "军机处会审：准予兴修水利，钱粮由户部拨付，工部督造。",
+  council_verdict: "军机处会审：分期拨付并按里程碑验收。",
+  final_verdict: "丞相汇总：准予分阶段兴修水利。",
+  recommendations: ["先完成勘察", "分期拨付预算", "按里程碑验收"],
 };
 
 test("submitDecree：成功路径（single 路由）- 后端返回符合契约的响应时映射为 ok: true", async () => {
@@ -375,10 +379,12 @@ test("submitDecree：成功路径（single 路由）- 后端返回符合契约�
         chancellor: "丞相",
         routeType: "single",
         rationale: "此事职责明确，交由户部办理即可。",
-        processingPath: ["上书房", "丞相", "户部"],
+        processingPath: SINGLE_ROUTE_BODY.processing_path,
         departments: ["户部"],
-        ministryOpinions: [{ department: "户部", opinion: "臣部已核查国库存银。" }],
-        finalVerdict: "臣部已核查国库存银。",
+        ministryOpinions: [{ department: "户部", bureauOpinions: [{ bureau: "预算司", opinion: "预算可控。" }], opinion: "户部补充：分期拨付。" }],
+        councilVerdict: null,
+        finalVerdict: "丞相汇总：预算可控，可分期拨付。",
+        recommendations: ["核定预算", "分期拨付", "设置审计节点"],
       });
     }
   } finally {
@@ -395,7 +401,9 @@ test("submitDecree：成功路径（multi 路由）- 军机处会审字段完整
       assert.equal(result.data.routeType, "multi");
       assert.deepEqual(result.data.departments, ["户部", "工部"]);
       assert.equal(result.data.ministryOpinions.length, 2);
-      assert.equal(result.data.processingPath.includes("军机处"), true);
+      assert.equal(result.data.processingPath.includes("军机处（会审）"), true);
+      assert.equal(result.data.councilVerdict, MULTI_ROUTE_BODY.council_verdict);
+      assert.equal(result.data.recommendations.length, 3);
       assert.ok(result.data.finalVerdict.length > 0);
     }
   } finally {
@@ -417,6 +425,77 @@ test("submitDecree：成功响应体缺少必需的新字段时回退为 kind: u
     await stub.close();
   }
 });
+
+const INVALID_LAYERED_BODIES: Array<[string, () => Record<string, unknown>]> = [
+  ["route_type 非 single/multi", () => ({ ...SINGLE_ROUTE_BODY, route_type: "other" })],
+  [
+    "部门与意见顺序不对应",
+    () => ({
+      ...SINGLE_ROUTE_BODY,
+      ministry_opinions: [{ ...SINGLE_ROUTE_BODY.ministry_opinions[0], department: "工部" }],
+    }),
+  ],
+  [
+    "司级意见为空",
+    () => ({
+      ...SINGLE_ROUTE_BODY,
+      ministry_opinions: [{ ...SINGLE_ROUTE_BODY.ministry_opinions[0], bureau_opinions: [] }],
+    }),
+  ],
+  [
+    "部门意见含额外字段",
+    () => ({
+      ...SINGLE_ROUTE_BODY,
+      ministry_opinions: [{ ...SINGLE_ROUTE_BODY.ministry_opinions[0], extra: true }],
+    }),
+  ],
+  [
+    "司级意见含额外字段",
+    () => ({
+      ...SINGLE_ROUTE_BODY,
+      ministry_opinions: [{
+        ...SINGLE_ROUTE_BODY.ministry_opinions[0],
+        bureau_opinions: [{ ...SINGLE_ROUTE_BODY.ministry_opinions[0].bureau_opinions[0], extra: true }],
+      }],
+    }),
+  ],
+  [
+    "司级 opinion 为空白",
+    () => ({
+      ...SINGLE_ROUTE_BODY,
+      ministry_opinions: [{
+        ...SINGLE_ROUTE_BODY.ministry_opinions[0],
+        bureau_opinions: [{ ...SINGLE_ROUTE_BODY.ministry_opinions[0].bureau_opinions[0], opinion: "   " }],
+      }],
+    }),
+  ],
+  ["single 含军机处结论", () => ({ ...SINGLE_ROUTE_BODY, council_verdict: "不应存在" })],
+  ["multi 缺少军机处结论", () => ({ ...MULTI_ROUTE_BODY, council_verdict: null })],
+  ["multi 军机处结论为空白", () => ({ ...MULTI_ROUTE_BODY, council_verdict: "   " })],
+  ["建议不足三项", () => ({ ...SINGLE_ROUTE_BODY, recommendations: ["一", "二"] })],
+  ["建议超过三项", () => ({ ...SINGLE_ROUTE_BODY, recommendations: ["一", "二", "三", "四"] })],
+  ["建议含空白项", () => ({ ...SINGLE_ROUTE_BODY, recommendations: ["一", "   ", "三"] })],
+  ["建议含非字符串项", () => ({ ...SINGLE_ROUTE_BODY, recommendations: ["一", 2, "三"] })],
+  [
+    "建议去空白后重复",
+    () => ({ ...SINGLE_ROUTE_BODY, recommendations: ["同一项", " 同一项 ", "第三项"] }),
+  ],
+];
+
+for (const [name, makeBody] of INVALID_LAYERED_BODIES) {
+  test(`submitDecree：${name}的成功响应被拒绝为 unknown`, async () => {
+    const stub = await startDecreeStub(200, makeBody());
+    try {
+      const result = await submitDecree("请核查国库存银", { baseUrl: stub.baseUrl });
+      assert.equal(result.ok, false);
+      if (!result.ok) {
+        assert.equal(result.kind, "unknown");
+      }
+    } finally {
+      await stub.close();
+    }
+  });
+}
 
 test("submitDecree：校验失败路径 - 422 映射为 kind: validation", async () => {
   const stub = await startDecreeStub(422, {
@@ -614,7 +693,7 @@ test("submitDecree：final_verdict 全是空白的成功响应被拒绝为 unkno
 test("submitDecree：ministry_opinions 中某一部门 opinion 为空白时被拒绝为 unknown", async () => {
   const stub = await startDecreeStub(200, {
     ...SINGLE_ROUTE_BODY,
-    ministry_opinions: [{ department: "户部", opinion: "   " }],
+    ministry_opinions: [{ department: "户部", bureau_opinions: [{ bureau: "预算司", opinion: "预算可控。" }], opinion: "   " }],
   });
   try {
     const result = await submitDecree("请核查国库存银", { baseUrl: stub.baseUrl });

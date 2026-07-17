@@ -18,10 +18,29 @@
 /** 与 `SubmitDecreeResult` 的 `kind` 保持一致的稳定错误分类。 */
 export type DecreeErrorKind = "validation" | "config" | "model" | "network" | "unknown";
 
-/** 一个被军机处/单部门咨询的部门及其办理意见，保序。 */
+export interface DecreeBureauOpinion {
+  bureau: string;
+  opinion: string;
+}
+
+/** 一个被军机处/单部门咨询的部门及其分层办理意见，保序。 */
 export interface DecreeMinistryOpinion {
   department: string;
+  bureauOpinions: DecreeBureauOpinion[];
   opinion: string;
+}
+
+export interface DecreeSuccessData {
+  status: string;
+  chancellor: string;
+  routeType: "single" | "multi";
+  rationale: string;
+  processingPath: string[];
+  departments: string[];
+  ministryOpinions: DecreeMinistryOpinion[];
+  councilVerdict: string | null;
+  finalVerdict: string;
+  recommendations: string[];
 }
 
 /**
@@ -34,16 +53,7 @@ export interface DecreeMinistryOpinion {
 export type DecreeSubmitOutcome =
   | {
       ok: true;
-      data: {
-        status: string;
-        chancellor: string;
-        routeType: string;
-        rationale: string;
-        processingPath: string[];
-        departments: string[];
-        ministryOpinions: DecreeMinistryOpinion[];
-        finalVerdict: string;
-      };
+      data: DecreeSuccessData;
     }
   | { ok: false; kind: DecreeErrorKind; error: string };
 
@@ -59,7 +69,9 @@ export type DecreeUiState =
       processingPath: string[];
       departments: string[];
       ministryOpinions: DecreeMinistryOpinion[];
+      councilVerdict: string | null;
       finalVerdict: string;
+      recommendations: string[];
     }
   | { phase: "error"; message: string };
 
@@ -85,6 +97,122 @@ export const IDLE_UI_STATE: DecreeUiState = { phase: "idle" };
 
 /** 用户点击「下旨」后、收到响应前的处理中状态。 */
 export const SUBMITTING_UI_STATE: DecreeUiState = { phase: "submitting" };
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function parseNonEmptyStrings(value: unknown): string[] | null {
+  if (!Array.isArray(value) || value.length === 0 || !value.every(isNonEmptyString)) {
+    return null;
+  }
+  return value.map((item) => item.trim());
+}
+
+/** 严格校验 Route Handler 的 camelCase 成功响应；非法结构返回 null。 */
+export function parseChancellorSuccessResponse(body: unknown): DecreeSuccessData | null {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    return null;
+  }
+  const record = body as Record<string, unknown>;
+  if (
+    record.status !== "ok" ||
+    !isNonEmptyString(record.chancellor) ||
+    (record.routeType !== "single" && record.routeType !== "multi") ||
+    !isNonEmptyString(record.rationale) ||
+    !isNonEmptyString(record.finalVerdict)
+  ) {
+    return null;
+  }
+  const processingPath = parseNonEmptyStrings(record.processingPath);
+  const departments = parseNonEmptyStrings(record.departments);
+  if (
+    processingPath === null ||
+    departments === null ||
+    new Set(departments).size !== departments.length ||
+    (record.routeType === "single" && departments.length !== 1) ||
+    (record.routeType === "multi" && departments.length < 2)
+  ) {
+    return null;
+  }
+  if (
+    !Array.isArray(record.ministryOpinions) ||
+    record.ministryOpinions.length !== departments.length
+  ) {
+    return null;
+  }
+  const ministryOpinions: DecreeMinistryOpinion[] = [];
+  for (const [index, rawMinistry] of record.ministryOpinions.entries()) {
+    if (typeof rawMinistry !== "object" || rawMinistry === null || Array.isArray(rawMinistry)) {
+      return null;
+    }
+    const ministry = rawMinistry as Record<string, unknown>;
+    if (
+      Object.keys(ministry).length !== 3 ||
+      ministry.department !== departments[index] ||
+      !isNonEmptyString(ministry.opinion) ||
+      !Array.isArray(ministry.bureauOpinions) ||
+      ministry.bureauOpinions.length === 0
+    ) {
+      return null;
+    }
+    const bureauOpinions: DecreeBureauOpinion[] = [];
+    const bureauNames = new Set<string>();
+    for (const rawBureau of ministry.bureauOpinions) {
+      if (typeof rawBureau !== "object" || rawBureau === null || Array.isArray(rawBureau)) {
+        return null;
+      }
+      const bureau = rawBureau as Record<string, unknown>;
+      if (
+        Object.keys(bureau).length !== 2 ||
+        !isNonEmptyString(bureau.bureau) ||
+        !isNonEmptyString(bureau.opinion) ||
+        bureauNames.has(bureau.bureau.trim())
+      ) {
+        return null;
+      }
+      bureauNames.add(bureau.bureau.trim());
+      bureauOpinions.push({ bureau: bureau.bureau.trim(), opinion: bureau.opinion.trim() });
+    }
+    ministryOpinions.push({
+      department: departments[index],
+      bureauOpinions,
+      opinion: ministry.opinion.trim(),
+    });
+  }
+  let councilVerdict: string | null;
+  if (record.routeType === "single") {
+    if (record.councilVerdict !== null) {
+      return null;
+    }
+    councilVerdict = null;
+  } else {
+    if (!isNonEmptyString(record.councilVerdict)) {
+      return null;
+    }
+    councilVerdict = record.councilVerdict.trim();
+  }
+  const recommendations = parseNonEmptyStrings(record.recommendations);
+  if (
+    recommendations === null ||
+    recommendations.length !== 3 ||
+    new Set(recommendations).size !== 3
+  ) {
+    return null;
+  }
+  return {
+    status: "ok",
+    chancellor: record.chancellor.trim(),
+    routeType: record.routeType,
+    rationale: record.rationale.trim(),
+    processingPath,
+    departments,
+    ministryOpinions,
+    councilVerdict,
+    finalVerdict: record.finalVerdict.trim(),
+    recommendations,
+  };
+}
 
 /**
  * 根据当前文本和提交流程状态计算表单控件是否可用。
@@ -116,7 +244,9 @@ export function mapSubmitDecreeResultToUiState(result: DecreeSubmitOutcome): Dec
       processingPath: result.data.processingPath,
       departments: result.data.departments,
       ministryOpinions: result.data.ministryOpinions,
+      councilVerdict: result.data.councilVerdict,
       finalVerdict: result.data.finalVerdict,
+      recommendations: result.data.recommendations,
     };
   }
   return { phase: "error", message: FRIENDLY_MESSAGE_BY_KIND[result.kind] };

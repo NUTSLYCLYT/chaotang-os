@@ -7,23 +7,51 @@ department-specific prompt builder, and the single-ministry invocation helper.
 
 from __future__ import annotations
 
-from app.agents.ministries.agent import MinistryAgentInvocationError, invoke_ministry_agent
 from app.agents.ministries.prompts import (
     MINISTRIES,
     MINISTRY_POSITIONINGS,
     NO_IRREVERSIBLE_ACTION_CONSTRAINT,
     MinistryPositioning,
     ministry_routing_guide,
+    ministry_synthesis_system_prompt,
     ministry_system_prompt,
 )
+
+
+def __getattr__(name: str):
+    """Load invocation helpers lazily to keep bureau prompt imports acyclic."""
+
+    if name in {
+        "BureauOpinion",
+        "MinistryAgentInvocationError",
+        "MinistryOpinion",
+        "invoke_ministry_agent",
+    }:
+        from app.agents.ministries.agent import (
+            BureauOpinion,
+            MinistryAgentInvocationError,
+            MinistryOpinion,
+            invoke_ministry_agent,
+        )
+
+        return {
+            "BureauOpinion": BureauOpinion,
+            "MinistryAgentInvocationError": MinistryAgentInvocationError,
+            "MinistryOpinion": MinistryOpinion,
+            "invoke_ministry_agent": invoke_ministry_agent,
+        }[name]
+    raise AttributeError(name)
 
 __all__ = [
     "MINISTRIES",
     "MINISTRY_POSITIONINGS",
     "NO_IRREVERSIBLE_ACTION_CONSTRAINT",
+    "BureauOpinion",
     "MinistryAgentInvocationError",
+    "MinistryOpinion",
     "MinistryPositioning",
     "invoke_ministry_agent",
     "ministry_routing_guide",
+    "ministry_synthesis_system_prompt",
     "ministry_system_prompt",
 ]
