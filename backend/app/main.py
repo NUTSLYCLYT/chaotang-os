@@ -12,6 +12,8 @@ from fastapi import FastAPI
 
 from app.api.decrees import register_chancellor_exception_handlers
 from app.api.decrees import router as decrees_router
+from app.api.shiguan import register_shiguan_exception_handlers
+from app.api.shiguan import router as shiguan_router
 from app.health import HealthResponse, get_service_version
 
 SERVICE_NAME = "chaotang-os-backend"
@@ -27,3 +29,6 @@ def health() -> HealthResponse:
 
 app.include_router(decrees_router)
 register_chancellor_exception_handlers(app)
+
+app.include_router(shiguan_router)
+register_shiguan_exception_handlers(app)

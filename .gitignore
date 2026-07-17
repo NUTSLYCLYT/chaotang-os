@@ -20,3 +20,10 @@ coverage/
 dist/
 build/
 backend/.env.example
+
+# 史馆 (Shiguan) local runtime sqlite database -- never committed, dev-machine only.
+backend/data/
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm

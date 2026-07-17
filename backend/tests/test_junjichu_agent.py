@@ -12,6 +12,7 @@ from app.agents.junjichu.prompts import JUNJICHU_IDENTITY, junjichu_system_promp
 from app.agents.ministries.agent import MinistryAgentInvocationError, MinistryOpinion
 from app.agents.ministries.prompts import NO_IRREVERSIBLE_ACTION_CONSTRAINT
 from app.agents.structured_output import StructuredOutputError
+from app.shiguan.recall import RecallContext, RecallMatch
 
 
 def _layered_opinion(
@@ -93,6 +94,45 @@ def test_invoke_junjichu_receives_every_layer_and_returns_stripped_verdict():
     assert "客户司核查" in evidence
     assert "兵部提出作战建议" in evidence
     assert evidence.index("预算司核查") < evidence.index("客户司核查")
+
+
+def test_invoke_junjichu_receives_read_only_recall_context(monkeypatch):
+    captured_messages: list[dict[str, str]] = []
+
+    monkeypatch.setattr(
+        "app.agents.junjichu.agent.safe_recall_context_for_department",
+        lambda department: RecallContext(
+            available=True,
+            entries=[
+                RecallMatch(
+                    archive_id=f"{department}-archive",
+                    match_reason="仅部门匹配",
+                    historical_conclusion=f"{department}历史结论",
+                    evidence_labels=["MIXED"],
+                    lessons_learned=f"{department}经验",
+                    pitfalls=f"{department}教训",
+                )
+            ],
+        ),
+    )
+
+    def _chat_model(messages: list[dict[str, str]]) -> str:
+        captured_messages.extend(messages)
+        return '{"verdict": "军机处会审通过"}'
+
+    invoke_junjichu_council(
+        "拨款修渠",
+        "需户部与工部会审",
+        ["户部", "工部"],
+        [_layered_opinion("户部"), _layered_opinion("工部")],
+        _chat_model,
+    )
+
+    evidence = captured_messages[1]["content"]
+    assert "史馆旧案上下文" in evidence
+    assert "户部-archive" in evidence
+    assert "工部-archive" in evidence
+    assert "MIXED" in evidence
 
 
 def test_invoke_junjichu_accepts_strict_json_inside_supported_code_fence():

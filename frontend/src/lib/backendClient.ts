@@ -389,3 +389,438 @@ export async function submitDecree(
     clearTimeout(timer);
   }
 }
+
+export type ArchiveType = "MEMORIAL" | "DECISION" | "TASK_RESULT" | "KNOWLEDGE" | "PUBLICITY";
+export type RealityLabel = "LIVE" | "MIXED" | "FALLBACK";
+export type ReviewStatusValue = "ACHIEVED" | "NOT_ACHIEVED" | "PARTIAL" | "OBSERVING";
+
+export interface ShiguanEvidence {
+  source: string;
+  realityLabel: RealityLabel;
+  note: string | null;
+}
+
+export interface ShiguanReviewStatus {
+  status: ReviewStatusValue;
+  reviewedAt: string;
+  note: string | null;
+}
+
+export interface ShiguanArchive {
+  id: string;
+  type: ArchiveType;
+  title: string;
+  content: string;
+  matterType: string;
+  department: string;
+  relatedArchiveIds: string[];
+  evidence: ShiguanEvidence[];
+  createdAt: string;
+  lessonsLearned: string | null;
+  pitfalls: string | null;
+  participatingDepartments: string[] | null;
+  decisionProcess: string | null;
+  decisionConclusion: string | null;
+  decisionTime: string | null;
+  responsibleOwner: string | null;
+  reviewStatus: ShiguanReviewStatus | null;
+}
+
+export interface ShiguanStatistics {
+  total: number;
+  achieved: number;
+  notAchieved: number;
+  partial: number;
+  observing: number;
+  pendingReview: number;
+  successRate: number | null;
+}
+
+export interface ShiguanRecallMatch {
+  archiveId: string;
+  matterType: string;
+  department: string;
+  title: string;
+  matchReason: string;
+  historicalConclusion: string | null;
+  evidenceLabels: RealityLabel[];
+  reviewStatus: ReviewStatusValue | null;
+  lessonsLearned: string | null;
+  pitfalls: string | null;
+}
+
+export type ShiguanResult<T> =
+  | { ok: true; data: T }
+  | {
+      ok: false;
+      kind: "validation" | "not_found" | "storage" | "network" | "unknown";
+      error: string;
+    };
+
+type ShiguanErrorKind = Exclude<ShiguanResult<unknown>, { ok: true }>["kind"];
+
+export interface ListShiguanArchivesOptions {
+  type?: ArchiveType;
+  matterType?: string;
+  department?: string;
+  limit?: number;
+  baseUrl?: string;
+  timeoutMs?: number;
+}
+
+export interface RecallShiguanArchivesOptions {
+  matterType?: string;
+  department?: string;
+  limit?: number;
+  baseUrl?: string;
+  timeoutMs?: number;
+}
+
+export interface UpdateShiguanReviewOptions {
+  baseUrl?: string;
+  timeoutMs?: number;
+}
+
+const SHIGUAN_TIMEOUT_MS = 10000;
+const ARCHIVE_TYPES = new Set<ArchiveType>([
+  "MEMORIAL",
+  "DECISION",
+  "TASK_RESULT",
+  "KNOWLEDGE",
+  "PUBLICITY",
+]);
+const REALITY_LABELS = new Set<RealityLabel>(["LIVE", "MIXED", "FALLBACK"]);
+const REVIEW_STATUSES = new Set<ReviewStatusValue>([
+  "ACHIEVED",
+  "NOT_ACHIEVED",
+  "PARTIAL",
+  "OBSERVING",
+]);
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function parseNullableString(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+function parseStringArray(value: unknown): string[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+  const strings = value.filter((item): item is string => typeof item === "string");
+  return strings.length === value.length ? strings : null;
+}
+
+function parseEvidence(value: unknown): ShiguanEvidence[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+  const evidence: ShiguanEvidence[] = [];
+  for (const item of value) {
+    const record = asRecord(item);
+    if (
+      record === null ||
+      typeof record.source !== "string" ||
+      !REALITY_LABELS.has(record.reality_label as RealityLabel)
+    ) {
+      return null;
+    }
+    evidence.push({
+      source: record.source,
+      realityLabel: record.reality_label as RealityLabel,
+      note: typeof record.note === "string" ? record.note : null,
+    });
+  }
+  return evidence;
+}
+
+function parseReviewStatus(value: unknown): ShiguanReviewStatus | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const record = asRecord(value);
+  if (
+    record === null ||
+    !REVIEW_STATUSES.has(record.status as ReviewStatusValue) ||
+    typeof record.reviewed_at !== "string"
+  ) {
+    return null;
+  }
+  return {
+    status: record.status as ReviewStatusValue,
+    reviewedAt: record.reviewed_at,
+    note: typeof record.note === "string" ? record.note : null,
+  };
+}
+
+function parseArchive(value: unknown): ShiguanArchive | null {
+  const record = asRecord(value);
+  if (
+    record === null ||
+    typeof record.id !== "string" ||
+    !ARCHIVE_TYPES.has(record.type as ArchiveType) ||
+    typeof record.title !== "string" ||
+    typeof record.content !== "string" ||
+    typeof record.matter_type !== "string" ||
+    typeof record.department !== "string" ||
+    typeof record.created_at !== "string"
+  ) {
+    return null;
+  }
+  const relatedArchiveIds = parseStringArray(record.related_archive_ids);
+  const evidence = parseEvidence(record.evidence);
+  const reviewStatus = parseReviewStatus(record.review_status);
+  if (relatedArchiveIds === null || evidence === null) {
+    return null;
+  }
+  const participatingDepartments =
+    record.participating_departments === null || record.participating_departments === undefined
+      ? null
+      : parseStringArray(record.participating_departments);
+  if (participatingDepartments === null && Array.isArray(record.participating_departments)) {
+    return null;
+  }
+  return {
+    id: record.id,
+    type: record.type as ArchiveType,
+    title: record.title,
+    content: record.content,
+    matterType: record.matter_type,
+    department: record.department,
+    relatedArchiveIds,
+    evidence,
+    createdAt: record.created_at,
+    lessonsLearned: parseNullableString(record.lessons_learned),
+    pitfalls: parseNullableString(record.pitfalls),
+    participatingDepartments,
+    decisionProcess: parseNullableString(record.decision_process),
+    decisionConclusion: parseNullableString(record.decision_conclusion),
+    decisionTime: parseNullableString(record.decision_time),
+    responsibleOwner: parseNullableString(record.responsible_owner),
+    reviewStatus,
+  };
+}
+
+function parseStatistics(value: unknown): ShiguanStatistics | null {
+  const record = asRecord(value);
+  if (
+    record === null ||
+    typeof record.total !== "number" ||
+    typeof record.achieved !== "number" ||
+    typeof record.not_achieved !== "number" ||
+    typeof record.partial !== "number" ||
+    typeof record.observing !== "number" ||
+    typeof record.pending_review !== "number" ||
+    (record.success_rate !== null && typeof record.success_rate !== "number")
+  ) {
+    return null;
+  }
+  return {
+    total: record.total,
+    achieved: record.achieved,
+    notAchieved: record.not_achieved,
+    partial: record.partial,
+    observing: record.observing,
+    pendingReview: record.pending_review,
+    successRate: record.success_rate,
+  };
+}
+
+function parseRecallMatch(value: unknown): ShiguanRecallMatch | null {
+  const record = asRecord(value);
+  if (
+    record === null ||
+    typeof record.archive_id !== "string" ||
+    typeof record.matter_type !== "string" ||
+    typeof record.department !== "string" ||
+    typeof record.title !== "string" ||
+    typeof record.match_reason !== "string"
+  ) {
+    return null;
+  }
+  const evidenceLabels = parseStringArray(record.evidence_labels);
+  if (
+    evidenceLabels === null ||
+    !evidenceLabels.every((label): label is RealityLabel =>
+      REALITY_LABELS.has(label as RealityLabel),
+    ) ||
+    (record.review_status !== null &&
+      record.review_status !== undefined &&
+      !REVIEW_STATUSES.has(record.review_status as ReviewStatusValue))
+  ) {
+    return null;
+  }
+  return {
+    archiveId: record.archive_id,
+    matterType: record.matter_type,
+    department: record.department,
+    title: record.title,
+    matchReason: record.match_reason,
+    historicalConclusion: parseNullableString(record.historical_conclusion),
+    evidenceLabels,
+    reviewStatus:
+      record.review_status === null || record.review_status === undefined
+        ? null
+        : (record.review_status as ReviewStatusValue),
+    lessonsLearned: parseNullableString(record.lessons_learned),
+    pitfalls: parseNullableString(record.pitfalls),
+  };
+}
+
+function mapShiguanErrorStatus(status: number): ShiguanErrorKind {
+  if (status === 404) {
+    return "not_found";
+  }
+  if (status === 422) {
+    return "validation";
+  }
+  if (status === 503) {
+    return "storage";
+  }
+  return "unknown";
+}
+
+async function parseShiguanResponse<T>(
+  response: Response,
+  parse: (body: unknown) => T | null,
+): Promise<ShiguanResult<T>> {
+  if (!response.ok) {
+    return {
+      ok: false,
+      kind: mapShiguanErrorStatus(response.status),
+      error: await extractErrorMessage(response, `史馆后端响应非预期状态码：${response.status}`),
+    };
+  }
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    return { ok: false, kind: "unknown", error: "史馆后端响应不是合法 JSON" };
+  }
+  const data = parse(body);
+  if (data === null) {
+    return { ok: false, kind: "unknown", error: "史馆后端成功响应体不符合预期契约" };
+  }
+  return { ok: true, data };
+}
+
+async function fetchShiguan<T>(
+  path: string,
+  init: RequestInit,
+  parse: (body: unknown) => T | null,
+  options: { baseUrl?: string; timeoutMs?: number } = {},
+): Promise<ShiguanResult<T>> {
+  const baseUrl = options.baseUrl ?? getBackendBaseUrl();
+  const timeoutMs = options.timeoutMs ?? SHIGUAN_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${baseUrl.replace(/\/+$/, "")}${path}`, {
+      ...init,
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    return await parseShiguanResponse(response, parse);
+  } catch (error) {
+    return { ok: false, kind: "network", error: describeError(error) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function listShiguanArchives(
+  options: ListShiguanArchivesOptions = {},
+): Promise<ShiguanResult<ShiguanArchive[]>> {
+  const params = new URLSearchParams();
+  if (options.type) {
+    params.set("type", options.type);
+  }
+  if (options.matterType?.trim()) {
+    params.set("matter_type", options.matterType.trim());
+  }
+  if (options.department?.trim()) {
+    params.set("department", options.department.trim());
+  }
+  if (options.limit !== undefined) {
+    params.set("limit", String(options.limit));
+  }
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return fetchShiguan(
+    `/api/v1/shiguan/archives${suffix}`,
+    { method: "GET" },
+    (body) => {
+      if (!Array.isArray(body)) {
+        return null;
+      }
+      const archives = body.map(parseArchive);
+      return archives.every((archive): archive is ShiguanArchive => archive !== null)
+        ? archives
+        : null;
+    },
+    options,
+  );
+}
+
+export async function getShiguanStatistics(
+  options: { baseUrl?: string; timeoutMs?: number } = {},
+): Promise<ShiguanResult<ShiguanStatistics>> {
+  return fetchShiguan(
+    "/api/v1/shiguan/statistics",
+    { method: "GET" },
+    parseStatistics,
+    options,
+  );
+}
+
+export async function recallShiguanArchives(
+  options: RecallShiguanArchivesOptions = {},
+): Promise<ShiguanResult<ShiguanRecallMatch[]>> {
+  return fetchShiguan(
+    "/api/v1/shiguan/recall",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        matter_type: options.matterType?.trim() || undefined,
+        department: options.department?.trim() || undefined,
+        limit: options.limit,
+      }),
+    },
+    (body) => {
+      if (!Array.isArray(body)) {
+        return null;
+      }
+      const matches = body.map(parseRecallMatch);
+      return matches.every((match): match is ShiguanRecallMatch => match !== null)
+        ? matches
+        : null;
+    },
+    options,
+  );
+}
+
+export async function updateShiguanReview(
+  archiveId: string,
+  status: ReviewStatusValue,
+  note: string,
+  options: UpdateShiguanReviewOptions = {},
+): Promise<ShiguanResult<ShiguanReviewStatus>> {
+  return fetchShiguan(
+    `/api/v1/shiguan/archives/${encodeURIComponent(archiveId)}/review`,
+    {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        status,
+        reviewed_at: new Date().toISOString(),
+        note: note.trim() || undefined,
+      }),
+    },
+    parseReviewStatus,
+    options,
+  );
+}

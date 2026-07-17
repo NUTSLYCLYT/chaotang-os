@@ -35,6 +35,7 @@ from app.agents.ministries.prompts import (
 )
 from app.agents.structured_output import StructuredOutputError, parse_strict_json_object
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel
+from app.shiguan.recall import RecallContext, safe_recall_context_for_department
 
 
 class MinistryAgentInvocationError(Exception):
@@ -66,6 +67,17 @@ class MinistryOpinion(TypedDict):
     department: str
     bureau_opinions: list[BureauOpinion]
     opinion: str
+
+
+def _format_recall_context(context: RecallContext) -> str:
+    if not context.available:
+        return "史馆旧案召回失败：不可把召回失败伪装成已有历史经验。"
+    if not context.entries:
+        return "史馆旧案召回：未命中旧案。"
+    return "史馆旧案召回：" + json.dumps(
+        [entry.model_dump() for entry in context.entries],
+        ensure_ascii=False,
+    )
 
 
 def invoke_ministry_agent(
@@ -100,11 +112,18 @@ def invoke_ministry_agent(
             bureau invocation failed.
     """
     system_prompt = ministry_system_prompt(department)
+    recall_context = safe_recall_context_for_department(department)
+    recall_context_text = _format_recall_context(recall_context)
+
     messages = [
         {"role": "system", "content": system_prompt},
         {
             "role": "user",
-            "content": f"旨意：{decree_text}\n\n丞相判断说明：{rationale}",
+            "content": (
+                f"旨意：{decree_text}\n\n"
+                f"丞相判断说明：{rationale}\n\n"
+                f"{recall_context_text}"
+            ),
         },
     ]
 
@@ -178,6 +197,7 @@ def invoke_ministry_agent(
             "content": (
                 f"原始旨意：{decree_text}\n\n"
                 f"丞相判断说明：{rationale}\n\n"
+                f"{recall_context_text}\n\n"
                 f"本部司级路由说明：{route_rationale.strip()}\n\n"
                 "全部司级意见（按本部路由顺序，JSON）："
                 f"{json.dumps(bureau_opinions, ensure_ascii=False)}"

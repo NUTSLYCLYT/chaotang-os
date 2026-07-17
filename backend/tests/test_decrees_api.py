@@ -161,9 +161,15 @@ def fake_provider(monkeypatch):
     return _install
 
 
-def test_submit_decree_single_route_returns_full_contract(fake_provider):
+def test_submit_decree_single_route_returns_full_contract(fake_provider, monkeypatch):
     graph = _FakeGraph(invoke_result=_SINGLE_ROUTE_RESULT)
     provider = fake_provider(_FakeProvider(graph=graph))
+    archived_calls: list[tuple[str, object]] = []
+    monkeypatch.setattr(
+        decrees_module,
+        "archive_chancellor_decree",
+        lambda decree_text, response: archived_calls.append((decree_text, response)),
+    )
 
     response = client.post(DECREE_URL, json={"decree_text": "整顿吏治"})
 
@@ -199,6 +205,7 @@ def test_submit_decree_single_route_returns_full_contract(fake_provider):
     assert len(body["recommendations"]) == 3
     assert provider.call_count == 1
     assert graph.invoke_calls == [{"decree_text": "整顿吏治"}]
+    assert archived_calls == [("整顿吏治", decrees_module.ChancellorDecreeResponse(**body))]
 
 
 def test_submit_decree_multi_route_returns_full_contract(fake_provider):

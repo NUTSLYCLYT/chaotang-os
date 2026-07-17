@@ -6,7 +6,14 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-import { fetchHealth, submitDecree } from "./backendClient.ts";
+import {
+  fetchHealth,
+  getShiguanStatistics,
+  listShiguanArchives,
+  recallShiguanArchives,
+  submitDecree,
+  updateShiguanReview,
+} from "./backendClient.ts";
 
 /**
  * 契约文件路径：`frontend/src/lib` -> `frontend/src` -> `frontend` -> 仓库根，
@@ -721,5 +728,193 @@ test("getBackendBaseUrl", async () => {
     } else {
       process.env.BACKEND_BASE_URL = original;
     }
+  }
+});
+
+const SHIGUAN_ARCHIVE_BODY = {
+  id: "archive-1",
+  type: "DECISION",
+  title: "整顿漕运",
+  content: "裁撤冗费并按月核验。",
+  matter_type: "漕运",
+  department: "户部",
+  related_archive_ids: [],
+  evidence: [{ source: "奏折原文", reality_label: "LIVE", note: "实盘" }],
+  created_at: "2026-07-17T00:00:00+00:00",
+  lessons_learned: "先核验账册再拨款。",
+  pitfalls: "不可把演示账册当真实账册。",
+  participating_departments: ["户部", "工部"],
+  decision_process: "户部核账，工部复核河工。",
+  decision_conclusion: "准行。",
+  decision_time: "2026-07-17T00:10:00+00:00",
+  responsible_owner: "户部尚书",
+  review_status: {
+    status: "PARTIAL",
+    reviewed_at: "2026-07-17T00:20:00+00:00",
+    note: "仍需观察河工进度。",
+  },
+};
+
+async function startShiguanStub(): Promise<{
+  baseUrl: string;
+  close: () => Promise<void>;
+  seenUrls: string[];
+}> {
+  const seenUrls: string[] = [];
+  const server: Server = createServer((req, res) => {
+    seenUrls.push(`${req.method} ${req.url}`);
+    if (req.method === "GET" && req.url?.startsWith("/api/v1/shiguan/archives")) {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify([SHIGUAN_ARCHIVE_BODY]));
+      return;
+    }
+    if (req.method === "GET" && req.url === "/api/v1/shiguan/statistics") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          total: 2,
+          achieved: 1,
+          not_achieved: 0,
+          partial: 1,
+          observing: 0,
+          pending_review: 0,
+          success_rate: 0.5,
+        }),
+      );
+      return;
+    }
+    if (req.method === "POST" && req.url === "/api/v1/shiguan/recall") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify([
+          {
+            archive_id: "archive-1",
+            matter_type: "漕运",
+            department: "户部",
+            title: "整顿漕运",
+            match_reason: "事项类型一致",
+            historical_conclusion: "准行。",
+            evidence_labels: ["LIVE"],
+            review_status: "PARTIAL",
+            lessons_learned: "先核验账册再拨款。",
+            pitfalls: "不可把演示账册当真实账册。",
+          },
+        ]),
+      );
+      return;
+    }
+    if (req.method === "PATCH" && req.url === "/api/v1/shiguan/archives/archive-1/review") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          status: "ACHIEVED",
+          reviewed_at: "2026-07-17T01:00:00+00:00",
+          note: "已达成。",
+        }),
+      );
+      return;
+    }
+    res.writeHead(404, { "content-type": "application/json" });
+    res.end(JSON.stringify({ status: "error", message: "not found" }));
+  });
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address() as AddressInfo;
+
+  return {
+    baseUrl: `http://127.0.0.1:${address.port}`,
+    seenUrls,
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      }),
+  };
+}
+
+test("史馆客户端：列表、统计、召回与复盘更新映射为前端 camelCase 契约", async () => {
+  const stub = await startShiguanStub();
+  try {
+    const archives = await listShiguanArchives({
+      baseUrl: stub.baseUrl,
+      type: "DECISION",
+      matterType: "漕运",
+      department: "户部",
+      limit: 10,
+    });
+    assert.equal(archives.ok, true);
+    if (archives.ok) {
+      assert.equal(archives.data[0].id, "archive-1");
+      assert.equal(archives.data[0].matterType, "漕运");
+      assert.equal(archives.data[0].evidence[0].realityLabel, "LIVE");
+      assert.equal(archives.data[0].reviewStatus?.status, "PARTIAL");
+      assert.deepEqual(archives.data[0].participatingDepartments, ["户部", "工部"]);
+    }
+
+    const statistics = await getShiguanStatistics({ baseUrl: stub.baseUrl });
+    assert.equal(statistics.ok, true);
+    if (statistics.ok) {
+      assert.equal(statistics.data.notAchieved, 0);
+      assert.equal(statistics.data.pendingReview, 0);
+      assert.equal(statistics.data.successRate, 0.5);
+    }
+
+    const recall = await recallShiguanArchives({
+      baseUrl: stub.baseUrl,
+      matterType: "漕运",
+      department: "户部",
+    });
+    assert.equal(recall.ok, true);
+    if (recall.ok) {
+      assert.equal(recall.data[0].archiveId, "archive-1");
+      assert.deepEqual(recall.data[0].evidenceLabels, ["LIVE"]);
+      assert.equal(recall.data[0].lessonsLearned, "先核验账册再拨款。");
+    }
+
+    const review = await updateShiguanReview("archive-1", "ACHIEVED", "已达成。", {
+      baseUrl: stub.baseUrl,
+    });
+    assert.equal(review.ok, true);
+    if (review.ok) {
+      assert.equal(review.data.status, "ACHIEVED");
+      assert.equal(review.data.note, "已达成。");
+    }
+
+    assert.ok(
+      stub.seenUrls.includes(
+        "GET /api/v1/shiguan/archives?type=DECISION&matter_type=%E6%BC%95%E8%BF%90&department=%E6%88%B7%E9%83%A8&limit=10",
+      ),
+    );
+  } finally {
+    await stub.close();
+  }
+});
+
+test("史馆客户端：后端校验失败时返回 validation，不抛异常", async () => {
+  const server: Server = createServer((_req, res) => {
+    res.writeHead(422, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({
+        status: "error",
+        reason: "validation_failed",
+        message: "至少提供 matter_type 或 department",
+      }),
+    );
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address() as AddressInfo;
+
+  try {
+    const result = await recallShiguanArchives({
+      baseUrl: `http://127.0.0.1:${address.port}`,
+    });
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.kind, "validation");
+      assert.equal(result.error, "至少提供 matter_type 或 department");
+    }
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
   }
 });

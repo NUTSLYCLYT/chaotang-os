@@ -26,6 +26,7 @@ from app.agents.ministries.prompts import (
     ministry_synthesis_system_prompt,
     ministry_system_prompt,
 )
+from app.shiguan.recall import RecallContext, RecallMatch
 
 EXPECTED_POSITIONINGS = (
     ("吏部", "组织招聘干部台", ("责任人", "组织能力", "绩效偏差", "干部风险"), "人事奏折"),
@@ -239,6 +240,45 @@ def test_invoke_ministry_agent_routes_to_one_bureau_and_returns_named_opinion():
     assert "本部司级路由说明：预算司先核定口径" in synthesis_content
     assert '"bureau": "预算司"' in synthesis_content
     assert '"opinion": "建议追溯预算口径"' in synthesis_content
+
+
+def test_invoke_ministry_agent_injects_read_only_recall_context(monkeypatch):
+    captured_messages: list[list[dict[str, str]]] = []
+
+    monkeypatch.setattr(
+        "app.agents.ministries.agent.safe_recall_context_for_department",
+        lambda department: RecallContext(
+            available=True,
+            entries=[
+                RecallMatch(
+                    archive_id="archive-1",
+                    match_reason="仅部门匹配",
+                    historical_conclusion="历史结论",
+                    evidence_labels=["LIVE"],
+                    lessons_learned="历史经验",
+                    pitfalls="踩坑教训",
+                )
+            ],
+        ),
+    )
+    chat_model = _sequenced_chat_model(
+        [
+            _route_response("预算司"),
+            '{"opinion": "预算意见"}',
+            '{"opinion": "户部综合意见"}',
+        ],
+        captured_messages,
+    )
+
+    invoke_ministry_agent("户部", "制定年度预算", "交户部办理", chat_model)
+
+    routing_content = captured_messages[0][1]["content"]
+    synthesis_content = captured_messages[2][1]["content"]
+    assert "史馆旧案召回" in routing_content
+    assert "archive-1" in routing_content
+    assert "LIVE" in routing_content
+    assert "历史经验" in synthesis_content
+    assert "踩坑教训" in synthesis_content
 
 
 def test_invoke_ministry_agent_invokes_multiple_bureaus_serially_in_route_order():

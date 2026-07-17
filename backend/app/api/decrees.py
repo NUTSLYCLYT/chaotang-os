@@ -42,6 +42,7 @@ from app.agents.chancellor import (
 from app.agents.ministries import MINISTRIES
 from app.langgraph_runtime.deepseek_client import DeepSeekModelNameError
 from app.langgraph_runtime.deepseek_config import DeepSeekConfigError
+from app.shiguan.archive_decree import archive_chancellor_decree
 
 _SANITIZED_MESSAGE = "丞相暂时无法处理旨意，请稍后再试"
 
@@ -291,7 +292,9 @@ def submit_decree(payload: ChancellorDecreeRequest) -> ChancellorDecreeResponse:
     """
     graph = get_chancellor_graph()
     result = graph.invoke({"decree_text": payload.decree_text})
-    return _build_response_from_graph_result(result)
+    response = _build_response_from_graph_result(result)
+    archive_chancellor_decree(payload.decree_text, response)
+    return response
 
 
 def register_chancellor_exception_handlers(app: FastAPI) -> None:

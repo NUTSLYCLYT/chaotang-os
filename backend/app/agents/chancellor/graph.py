@@ -78,6 +78,7 @@ from app.agents.ministries.prompts import MINISTRIES
 from app.agents.structured_output import StructuredOutputError, parse_strict_json_object
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel, build_deepseek_chat_model
 from app.langgraph_runtime.deepseek_config import load_deepseek_provider_config
+from app.shiguan.recall import safe_recall_context_for_department
 
 
 class ChancellorGraphState(TypedDict, total=False):
@@ -103,6 +104,9 @@ class ChancellorGraphState(TypedDict, total=False):
         recommendations: Exactly three stripped, non-empty, unique Chancellor
             recommendations.
         final_verdict: The Chancellor finalizer's non-empty ``summary``.
+        recall_contexts: Optional old-case recall context by department. It is
+            internal evidence for finalization, not part of the HTTP success
+            response contract.
 
     There is intentionally no ``error`` field: model-call and validation
     failures propagate as exceptions (``ChancellorGraphInvocationError``)
@@ -118,6 +122,7 @@ class ChancellorGraphState(TypedDict, total=False):
     council_verdict: str | None
     recommendations: list[str]
     final_verdict: str
+    recall_contexts: dict[str, object]
 
 
 class ChancellorGraphInvocationError(Exception):
@@ -268,6 +273,7 @@ def build_chancellor_graph(
             f"{department}·{bureau_opinion['bureau']}"
             for bureau_opinion in opinion["bureau_opinions"]
         ]
+        recall_context = safe_recall_context_for_department(department).model_dump()
         return {
             "processing_path": [
                 *state["processing_path"],
@@ -277,6 +283,7 @@ def build_chancellor_graph(
             ],
             "ministry_opinions": [opinion],
             "council_verdict": None,
+            "recall_contexts": {department: recall_context},
         }
 
     def _run_junjichu_council(state: ChancellorGraphState) -> dict:
@@ -309,6 +316,10 @@ def build_chancellor_graph(
             "processing_path": layered_path,
             "ministry_opinions": ministry_opinions,
             "council_verdict": verdict,
+            "recall_contexts": {
+                department: safe_recall_context_for_department(department).model_dump()
+                for department in departments
+            },
         }
 
     def _finalize_chancellor(state: ChancellorGraphState) -> dict:
@@ -318,6 +329,7 @@ def build_chancellor_graph(
             "rationale": state["chancellor_rationale"],
             "ministry_opinions": state["ministry_opinions"],
             "council_verdict": state.get("council_verdict"),
+            "recall_contexts": state.get("recall_contexts", {}),
         }
         messages = [
             {"role": "system", "content": CHANCELLOR_FINALIZATION_SYSTEM_PROMPT},

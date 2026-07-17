@@ -41,11 +41,20 @@ from app.agents.junjichu.prompts import junjichu_system_prompt
 from app.agents.ministries.agent import MinistryOpinion, invoke_ministry_agent
 from app.agents.structured_output import parse_strict_json_object
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel
+from app.shiguan.recall import safe_recall_context_for_department
 
 
 def _format_ministry_opinions(ministry_opinions: list[MinistryOpinion]) -> str:
     """Serialize every bureau and ministry opinion without flattening layers."""
     return json.dumps(ministry_opinions, ensure_ascii=False)
+
+
+def _format_recall_contexts(departments: list[str]) -> str:
+    contexts = {
+        department: safe_recall_context_for_department(department).model_dump()
+        for department in departments
+    }
+    return json.dumps(contexts, ensure_ascii=False)
 
 
 def invoke_junjichu_council(
@@ -81,12 +90,14 @@ def invoke_junjichu_council(
     """
     system_prompt = junjichu_system_prompt(departments)
     opinions_text = _format_ministry_opinions(ministry_opinions)
+    recall_contexts_text = _format_recall_contexts(departments)
     messages = [
         {"role": "system", "content": system_prompt},
         {
             "role": "user",
             "content": (
                 f"旨意：{decree_text}\n\n丞相判断说明：{rationale}\n\n"
+                f"史馆旧案上下文（按部门，召回失败与无旧案须区别处理）：\n{recall_contexts_text}\n\n"
                 "各部门分层意见（按丞相选定部门顺序，JSON；每部包含按咨询顺序排列的"
                 f"司级意见及独立的部级补充意见）：\n{opinions_text}"
             ),
