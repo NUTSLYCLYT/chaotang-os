@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "LOCAL_FEEDBACK_ONLY",
+  "review_version": 1,
+  "packet_id": "P5.3",
+  "change_id": "fix-packet-review-unresolved-verdict-gate-20260717",
+  "predecessor_integration_sha": "6c71ff3cb094bba679a96dc60cb8bd70ba4d32de",
+  "reviewed_head_sha": "03fb35c0bdf94ad2fdcdf81589e88e0b23d1f281",
+  "report_path": ".harness/changes/fix-packet-review-unresolved-verdict-gate-20260717/packet_review/review-v1.md",
+  "report_sha256": "bf3e138a99f43ce2a15c2765bcb82c0cf70083e524c7ca108d43bbc18ddd831c",
+  "verdict": "PACKET_REVIEW_GO"
+}
