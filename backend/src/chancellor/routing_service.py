@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from hashlib import sha1
 from typing import TYPE_CHECKING
@@ -33,6 +34,7 @@ from src.shangshufang_loop import (
     chancellor_decide_route,
     draft_edict,
 )
+from src.menxia_veto import review_route
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -147,6 +149,17 @@ class ChancellorRoutingService:
         route = chancellor_decide_route(edict)
         if department_override:
             route = _apply_department_override(route, department_override)
+        menxia = review_route(route, confirmed_edict_text)
+        if menxia["verdict"] == "封驳" and os.environ.get("CHAOTANG_MENXIA_VETO", "1") == "1":
+            route = {
+                **route,
+                "humanSignoffRequired": True,
+                "reason": (
+                    f"门下省封驳：{'；'.join(menxia['veto_reasons'])}。"
+                    "未获准奏前不得进入军机处派单。"
+                ),
+                "riskFlags": list(dict.fromkeys([*(route.get("riskFlags") or []), "门下省封驳"])),
+            }
         scoring_result = route_department_task(confirmed_edict_text)
         scoring = scoring_result.get("candidateDepartments", [])
 

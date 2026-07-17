@@ -23,7 +23,7 @@ c669c8a 吃掉多少、剩多少无对账文件，收官必卡，建议 P6 前�
 
 | 残留 | 位置 | 收官处置路径 |
 | --- | --- | --- |
-| NOT_RUN_SAFETY_BLOCKED（P0 登记） | 2 份 ci_summary | P2 回归包已带指纹跑全量→**可核销但无核销记录**——需一页正式解除文书引 af064fb 证据 |
+| NOT_RUN_SAFETY_BLOCKED（P0 登记） | 2 份 ci_summary | 证据候选已归集（not-run-safety-blocked-release-memo，非解除文书）；**是否解除由收官终审裁定**，存在 af064fb vs P5 隔离配置的命令口径缺口待终审确认 |
 | 后端 7 失败 | 台账 OPEN×7 | 3 个新立 change+P6/P7 步骤，均未动工 |
 | 前端 7 基线失败 | 台账 OPEN×7 | P6 子步骤 a/b |
 | lint MISSING+chancellor_chat deselect | P0 baseline | 前者待用户裁决；后者收官显式 deferred |
@@ -56,7 +56,7 @@ P4.5 各步（quarantine 回填 FCV1-002 等）。**收官需一页汇总表**�
 
 收官日会卡的四件事，现在开始准备：
 1. **P9 残段核销单**（并行会话承接对账）；
-2. **NOT_RUN_SAFETY_BLOCKED 正式解除文书**（证据已在，缺文书）；
+2. **NOT_RUN_SAFETY_BLOCKED 解除候选证据包**（证据已归集；解除与否留收官终审，存命令口径缺口）；
 3. **legacy 计数快照导出**（gate 后零调用读数落盘）；
 4. **deferred 汇总页**。
 LOC 正增长按归因表诚实呈报，不硬凑。

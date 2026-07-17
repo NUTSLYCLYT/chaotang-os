@@ -1,0 +1,58 @@
+"""门下省路由前置审议：只审路由决定，不执行部门任务。"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from src.department_identity import CANONICAL_MINISTRY_IDS, canonical_name, runtime_code_for, runtime_projection, specialist_routing_projection
+
+
+MAX_REVIEW_ROUNDS = 3
+
+
+def _route_has_scope_evidence(route: dict[str, Any], task_text: str) -> bool:
+    keywords = runtime_projection("routing_keywords")
+    specialist_keywords = specialist_routing_projection()
+    selected = route.get("departments") or []
+    selected_runtime = {
+        runtime_code_for(canonical_id)
+        for canonical_id in CANONICAL_MINISTRY_IDS
+        if canonical_name(canonical_id) in selected
+    } | set(selected)
+    if any(any(str(keyword).lower() in task_text.lower() for keyword in specialist_keywords.get(dept, [])) for dept in selected):
+        return True
+    return any(
+        any(str(keyword).lower() in task_text.lower() for keyword in keywords.get(code, []))
+        for code in selected_runtime
+    )
+
+
+def review_route(route: dict[str, Any], task_text: str, *, round_number: int = 1) -> dict[str, Any]:
+    """Return a structured 封驳/准奏 decision for a proposed route.
+
+    The third review round is a bounded fail-open compatibility rule inherited
+    from the department-agent design: it permits progress but preserves the
+    prior veto reasons for audit. No department execution occurs here.
+    """
+    departments = list(route.get("departments") or [])
+    scope_ok = _route_has_scope_evidence(route, task_text)
+    reasons: list[str] = []
+    if not departments:
+        reasons.append("路由没有任何候选部门")
+    if departments and not scope_ok:
+        reasons.append("不属于任何部门真实职责范围，不能顶着部门人设执行")
+    dimensions = {
+        "可行性": {"passed": bool(departments), "reason": "存在可执行候选部门" if departments else "缺少候选部门"},
+        "完整性": {"passed": bool(task_text.strip()), "reason": "已收到原始任务文本" if task_text.strip() else "任务文本为空"},
+        "风险": {"passed": not reasons, "reason": "未发现职责外派单" if not reasons else reasons[0]},
+        "资源": {"passed": bool(departments), "reason": "候选部门具备统一能力注册" if departments else "无可用资源"},
+    }
+    veto = bool(reasons) and round_number < MAX_REVIEW_ROUNDS
+    return {
+        "verdict": "封驳" if veto else "准奏",
+        "dimensions": dimensions,
+        "reroute_suggestion": "请丞相重新判断任务是否超出六部职责" if veto else None,
+        "round": round_number,
+        "max_rounds": MAX_REVIEW_ROUNDS,
+        "veto_reasons": reasons,
+    }

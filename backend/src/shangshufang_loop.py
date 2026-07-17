@@ -14,39 +14,38 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from hashlib import sha1
 
+from src.department_identity import CANONICAL_MINISTRY_IDS, canonical_name, runtime_code_for, runtime_projection, specialist_routing_projection
+
 SOURCE_LABELS = {"LIVE", "MIXED", "FALLBACK", "DEMO"}
 EXPECTED_MEMORIAL_FORMAT = ["圣裁", "分奏", "证据", "风险", "后令", "质门", "来源"]
 
-DEPARTMENT_RULES: dict[str, dict[str, object]] = {
-    "户部": {
-        "keywords": ["投入", "roi", "现金流", "报价", "成本", "回款", "预算", "收益", "财务", "资金", "付款", "价格"],
-        "focus": "投入、ROI、现金流、报价、成本、回款和预算",
-    },
-    "刑部": {
-        "keywords": ["合同", "股权", "合规", "法律", "责任", "承诺", "签字", "独家", "分红", "对赌", "退出"],
-        "focus": "合同、股权、合规、法律责任和对外承诺",
-    },
-    "礼部": {
-        "keywords": ["客户", "招商", "话术", "品牌", "公关", "材料", "表达", "发布", "触达"],
-        "focus": "客户表达、招商话术、品牌、公关和对外材料",
-    },
-    "工部": {
-        "keywords": ["交付", "技术", "方案", "bom", "施工", "周期", "供应链", "实施", "储能", "电池", "pack", "bms", "冷库"],
-        "focus": "交付、技术方案、BOM、施工周期、供应链和实施可行性",
-    },
-    "兵部": {
-        "keywords": ["竞争", "市场", "渠道", "谈判", "攻防", "份额", "压价", "清库存"],
-        "focus": "竞争、市场攻防、渠道和谈判策略",
-    },
-    "吏部": {
-        "keywords": ["组织", "人员", "职责", "绩效", "执行责任", "团队", "招聘", "岗位"],
-        "focus": "组织、人员、职责、绩效和执行责任",
-    },
-    "锦衣卫": {
-        "keywords": ["情报", "核实", "可信度", "信源", "谣言", "线报", "传闻", "查证"],
-        "focus": "情报真实性核查、信源可信度分级",
-    },
+_DEPARTMENT_FOCUS = {
+    "hubu": "投入、ROI、现金流、报价、成本、回款和预算",
+    "xingbu": "合同、股权、合规、法律责任和对外承诺",
+    "libu": "客户表达、招商话术、品牌、公关和对外材料",
+    "gongbu": "交付、技术方案、BOM、施工周期、供应链和实施可行性",
+    "bingbu": "竞争、市场攻防、渠道和谈判策略",
+    "libu_personnel": "组织、人员、职责、绩效和执行责任",
 }
+
+
+def _department_rules_from_canonical() -> dict[str, dict[str, object]]:
+    """Project canonical runtime keywords into the intake loop's Chinese names."""
+    keywords_by_runtime = runtime_projection("routing_keywords")
+    rules = {
+        canonical_name(canonical_id): {
+            "keywords": list(keywords_by_runtime[runtime_code_for(canonical_id)]),
+            "focus": _DEPARTMENT_FOCUS.get(
+                runtime_code_for(canonical_id), canonical_name(canonical_id)
+            ),
+        }
+        for canonical_id in CANONICAL_MINISTRY_IDS
+    }
+    rules.update({name: {"keywords": keywords, "focus": "情报真实性核查、信源可信度分级"} for name, keywords in specialist_routing_projection().items()})
+    return rules
+
+
+DEPARTMENT_RULES = _department_rules_from_canonical()
 
 RISK_RULES: dict[str, list[str]] = {
     "股权风险": ["股权", "分红", "合伙", "独家", "对赌", "退出机制"],
@@ -186,6 +185,10 @@ def infer_departments(question: str) -> list[str]:
         for dept, rule in DEPARTMENT_RULES.items()
         if _contains_any(question, list(rule["keywords"]))
     ]
+    # Explicit ministry addressing is stronger than topic keywords (e.g. "请礼部
+    # 整理客户纪要" must not drift to 兵部 merely because 客户 is a sales term).
+    explicit = [dept for dept in DEPARTMENT_RULES if dept in question]
+    departments = explicit + [dept for dept in departments if dept not in explicit]
     if _contains_any(question, ["储能", "冷库", "项目", "推进", "是否"]):
         departments.insert(0, "户部")
     if _contains_any(question, ["判断", "是否", "要不要", "能不能", "推进", "客户承诺", "正式"]):
