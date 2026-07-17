@@ -70,9 +70,15 @@ def _yushi_rejection_rate() -> dict:
     # 字段指 RAG 接地(御史走确定性规则引擎,不经 RAG),不代表判决是伪造;
     # 判决可信度由 deterministic_gated=True 的规则门保证,故此处不按
     # provenance 过滤,LIVE 标签的含义是"数字来自真实生产判决记录"。
+    try:
+        ledger_entries = truth_ledger._load()
+    except (OSError, ValueError):
+        # A partially-written/corrupt append-only ledger must not turn a read
+        # model into a 500 or tempt the UI to display a stale/fake percentage.
+        ledger_entries = []
     entries = [
         e
-        for e in truth_ledger._load()
+        for e in ledger_entries
         if e.get("swarm") == "yushi" and e.get("checker") == "court_doc_builder"
     ]
     start_at, end_at = _timestamp_bounds(entries)
