@@ -14,6 +14,8 @@ v1 唯一 LIVE 指标:御史封驳率,读 truth_ledger 里 swarm=="yushi" 的
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends
 
 from src import truth_ledger
@@ -38,6 +40,26 @@ def _no_data(key: str, label: str, reason: str, eta: str) -> dict:
     }
 
 
+def _timestamp_bounds(entries: list[dict]) -> tuple[str | None, str | None]:
+    parsed_timestamps: list[tuple[datetime, str]] = []
+    for entry in entries:
+        raw = entry.get("ts")
+        if not isinstance(raw, str) or not raw.strip():
+            continue
+        try:
+            parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if parsed.utcoffset() is None:
+            continue
+        parsed_timestamps.append((parsed, raw))
+    if not parsed_timestamps:
+        return None, None
+    start = min(parsed_timestamps, key=lambda item: item[0])[1]
+    end = max(parsed_timestamps, key=lambda item: item[0])[1]
+    return start, end
+
+
 def _yushi_rejection_rate() -> dict:
     # 事实源精确到唯一生产写入方:yushi_verdict.build_yushi_review →
     # court_doc_builder → truth_ledger.record(swarm="yushi",
@@ -48,18 +70,38 @@ def _yushi_rejection_rate() -> dict:
     # 字段指 RAG 接地(御史走确定性规则引擎,不经 RAG),不代表判决是伪造;
     # 判决可信度由 deterministic_gated=True 的规则门保证,故此处不按
     # provenance 过滤,LIVE 标签的含义是"数字来自真实生产判决记录"。
+    try:
+        ledger_entries = truth_ledger._load()
+    except (OSError, ValueError):
+        # A partially-written/corrupt append-only ledger must not turn a read
+        # model into a 500 or tempt the UI to display a stale/fake percentage.
+        ledger_entries = []
     entries = [
         e
-        for e in truth_ledger._load()
+        for e in ledger_entries
         if e.get("swarm") == "yushi" and e.get("checker") == "court_doc_builder"
     ]
+    start_at, end_at = _timestamp_bounds(entries)
+    fact_metadata = {
+        "data_source": "truth_ledger",
+        "window": {
+            "kind": "ALL_RECORDED",
+            "start_at": start_at,
+            "end_at": end_at,
+        },
+        "as_of": datetime.now(timezone.utc).isoformat(),
+        # 此读模型只认生产御史写入语义，不拼 fixture/mock；测试账本由测试隔离。
+        "includes_demo": False,
+    }
     if not entries:
-        return _no_data(
+        metric = _no_data(
             "yushi_rejection_rate",
             "御史封驳率",
             "尚无御史判决记录;台账为空时不显示 0% 假装零封驳",
             "已接入,等待首批真实判决",
         )
+        metric.update(fact_metadata)
+        return metric
     rejected = sum(1 for e in entries if e.get("verdict") in _REJECTION_VERDICTS)
     return {
         "key": "yushi_rejection_rate",
@@ -71,6 +113,7 @@ def _yushi_rejection_rate() -> dict:
         "eta_stage": None,
         "verdict_source": "deterministic_rules_gate",
         "basis": "truth_ledger swarm=yushi checker=court_doc_builder; red/black=封驳",
+        **fact_metadata,
     }
 
 
