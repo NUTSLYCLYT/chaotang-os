@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "LOCAL_FEEDBACK_ONLY",
+  "review_version": 1,
+  "packet_id": "P7",
+  "change_id": "docs-absorption-closeout-20260717",
+  "predecessor_integration_sha": "f5fa71459f61eb6c2041d30c485e321b1d4c7303",
+  "reviewed_head_sha": "78619d81ac8e57050caaad3a949a030daf05feff",
+  "report_path": ".harness/changes/docs-absorption-closeout-20260717/packet_review/review-v1.md",
+  "report_sha256": "a0efe44ddb57c3b3156627f5a073b5ce3151ca48236a8e26abdec2a46eeb7f17",
+  "verdict": "PACKET_REVIEW_GO"
+}
