@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "LOCAL_FEEDBACK_ONLY",
+  "review_version": 1,
+  "packet_id": "P6.3",
+  "change_id": "feat-department-anti-hallucination-clause-20260717",
+  "predecessor_integration_sha": "db5a6935155302c7c0b8e52e68c6e641dcf8293b",
+  "reviewed_head_sha": "102e266e0e41b24d8c3227225aa9341799b0bd4a",
+  "report_path": ".harness/changes/feat-department-anti-hallucination-clause-20260717/packet_review/review-v1.md",
+  "report_sha256": "8526f5076a082b378a3305738429d13f7b8f2e22f2b48079d0e2ed9cdd39ea3b",
+  "verdict": "PACKET_REVIEW_GO"
+}
