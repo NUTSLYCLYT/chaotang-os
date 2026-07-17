@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { GlassPanel } from '@/components/ui/glass-panel';
 import { HanlinRoleBadge } from '@/features/hanlin/components/hanlin-role-badge';
 import { hanlinRoleHeaders, hasHanlinCapability, readHanlinRole } from '@/features/hanlin/lib/access';
-import { hanlinApi } from '@/features/hanlin/lib/api';
+import { fetchHanlin } from '@/features/hanlin/lib/api';
 import { PageBrief } from '@/features/shared/components/page-brief';
 import type { ScoutedProject, UpgradeCandidate } from '@/features/hanlin/types';
 
@@ -22,7 +22,7 @@ export function HanlinScoutingDetailPage({ candidateId }: { candidateId: string 
     void (async () => {
       setStatus('loading');
       try {
-        const response = await fetch(hanlinApi(`/api/hanlin/scouting/${candidateId}`));
+        const response = await fetchHanlin(`/api/hanlin/scouting/${candidateId}`);
         if (response.status === 404) {
           setStatus('not_found');
           return;
@@ -44,7 +44,7 @@ export function HanlinScoutingDetailPage({ candidateId }: { candidateId: string 
     setSubmitting(true);
     setMessage('');
     try {
-      const response = await fetch(hanlinApi(`/api/hanlin/scouting/${candidateId}`), {
+      const response = await fetchHanlin(`/api/hanlin/scouting/${candidateId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...hanlinRoleHeaders(role) },
         body: JSON.stringify({ status: nextStatus }),

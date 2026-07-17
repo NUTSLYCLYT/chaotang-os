@@ -49,16 +49,25 @@ def test_guoli_overview_shape_and_honest_no_data(tmp_path, monkeypatch):
     # 台账为空时御史也必须诚实 NO_DATA,不许显示 0% 假装"零封驳"
     assert metrics["yushi_rejection_rate"]["status"] == "NO_DATA"
     assert metrics["yushi_rejection_rate"]["value"] is None
+    assert metrics["yushi_rejection_rate"]["sample_size"] == 0
+    assert metrics["yushi_rejection_rate"]["data_source"] == "truth_ledger"
+    assert metrics["yushi_rejection_rate"]["window"] == {
+        "kind": "ALL_RECORDED",
+        "start_at": None,
+        "end_at": None,
+    }
+    assert metrics["yushi_rejection_rate"]["includes_demo"] is False
+    assert metrics["yushi_rejection_rate"]["as_of"]
 
 
 def test_guoli_yushi_rejection_rate_live_from_truth_ledger(tmp_path, monkeypatch):
     """有真实御史判决时,封驳率 = red/black 判决数 / 御史判决总数,标 LIVE。"""
     ledger = tmp_path / "truth_ledger.jsonl"
     entries = [
-        {"swarm": "yushi", "checker": "court_doc_builder", "verdict": "green", "case_id": "y1"},
-        {"swarm": "yushi", "checker": "court_doc_builder", "verdict": "red", "case_id": "y2"},
-        {"swarm": "yushi", "checker": "court_doc_builder", "verdict": "black", "case_id": "y3"},
-        {"swarm": "yushi", "checker": "court_doc_builder", "verdict": "yellow", "case_id": "y4"},
+        {"swarm": "yushi", "checker": "court_doc_builder", "verdict": "green", "case_id": "y1", "ts": "2026-07-15T09:00:00+02:00"},
+        {"swarm": "yushi", "checker": "court_doc_builder", "verdict": "red", "case_id": "y2", "ts": "2026-07-15T08:00:00+00:00"},
+        {"swarm": "yushi", "checker": "court_doc_builder", "verdict": "black", "case_id": "y3", "ts": "2026-07-17T08:00:00+00:00"},
+        {"swarm": "yushi", "checker": "court_doc_builder", "verdict": "yellow", "case_id": "y4", "ts": "2026-07-17T09:00:00+00:00"},
         # 非御史判决必须被过滤,不许混进分母
         {"swarm": "pack_rd", "checker": "pack_rd_check", "verdict": "red", "case_id": "p1"},
         # swarm 是 yushi 但 checker 不是唯一生产写入方 → 语义未知,同样不许进分母
@@ -74,6 +83,14 @@ def test_guoli_yushi_rejection_rate_live_from_truth_ledger(tmp_path, monkeypatch
     assert yushi["status"] == "LIVE"
     assert yushi["value"] == 0.5  # 2 封驳(red+black) / 4 御史判决
     assert yushi["sample_size"] == 4
+    assert yushi["data_source"] == "truth_ledger"
+    assert yushi["window"] == {
+        "kind": "ALL_RECORDED",
+        "start_at": "2026-07-15T09:00:00+02:00",
+        "end_at": "2026-07-17T09:00:00+00:00",
+    }
+    assert yushi["includes_demo"] is False
+    assert yushi["as_of"]
 
 
 def test_guoli_yushi_rate_anchored_to_real_production_write_path(tmp_path, monkeypatch):
@@ -107,3 +124,22 @@ def test_guoli_yushi_rate_anchored_to_real_production_write_path(tmp_path, monke
     assert yushi["sample_size"] == 2
     assert yushi["value"] == 0.5  # 1 放行 + 1 封驳
     assert yushi["verdict_source"] == "deterministic_rules_gate"
+
+
+def test_guoli_overview_returns_no_data_when_truth_ledger_is_corrupt(tmp_path, monkeypatch):
+    ledger = tmp_path / "truth_ledger.jsonl"
+    ledger.write_text("{not-json}\n", encoding="utf-8")
+    monkeypatch.setattr(truth_ledger, "_ledger_path", lambda: ledger)
+
+    client = TestClient(app)
+    response = client.get("/api/guoli/overview")
+
+    assert response.status_code == 200
+    yushi = next(
+        metric
+        for metric in response.json()["data"]["metrics"]
+        if metric["key"] == "yushi_rejection_rate"
+    )
+    assert yushi["status"] == "NO_DATA"
+    assert yushi["value"] is None
+    assert yushi["sample_size"] == 0

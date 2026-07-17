@@ -90,3 +90,14 @@ def test_empty_ledger_stays_honest_fallback(tmp_path, monkeypatch):
     assert exp == {"experiments": [], "source": "FALLBACK"}
     ov = c.get("/api/hanlin/overview").json()["overview"]
     assert ov["sourceLabel"] == "FALLBACK" and ov["truthLedger"] is None
+
+
+def test_overview_requires_at_least_one_deterministic_entry(tmp_path, monkeypatch):
+    entry = _entry("n")
+    entry["deterministic"] = False
+    _seed_ledger(tmp_path, monkeypatch, [entry])
+
+    overview = TestClient(app).get("/api/hanlin/overview").json()["overview"]
+
+    assert overview["sourceLabel"] == "FALLBACK"
+    assert overview["truthLedger"] is None
