@@ -124,3 +124,22 @@ def test_guoli_yushi_rate_anchored_to_real_production_write_path(tmp_path, monke
     assert yushi["sample_size"] == 2
     assert yushi["value"] == 0.5  # 1 放行 + 1 封驳
     assert yushi["verdict_source"] == "deterministic_rules_gate"
+
+
+def test_guoli_overview_returns_no_data_when_truth_ledger_is_corrupt(tmp_path, monkeypatch):
+    ledger = tmp_path / "truth_ledger.jsonl"
+    ledger.write_text("{not-json}\n", encoding="utf-8")
+    monkeypatch.setattr(truth_ledger, "_ledger_path", lambda: ledger)
+
+    client = TestClient(app)
+    response = client.get("/api/guoli/overview")
+
+    assert response.status_code == 200
+    yushi = next(
+        metric
+        for metric in response.json()["data"]["metrics"]
+        if metric["key"] == "yushi_rejection_rate"
+    )
+    assert yushi["status"] == "NO_DATA"
+    assert yushi["value"] is None
+    assert yushi["sample_size"] == 0
