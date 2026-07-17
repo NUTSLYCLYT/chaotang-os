@@ -13,3 +13,9 @@
 根治理明确：`null`、代码搜索或部分观察不等于零调用；删除/断挂载必须在 replacement
 VERIFIED、所有已知调用方迁移且连续完整 14 天调用量为 0 后，通过后续独立变更完成。
 因此，本 Packet 不以“仍保留在 Git attic”规避入口 RETIRED 门。
+
+## 审查后续项
+
+`/api/court/dept/gong-bu/feasibility/result` 与 `/api/court/dept/li-bu/recruit/result` 是既有匿名
+GET，当前以短 sid 查询内存状态。P6 只收紧四个会登记状态的 POST，不在同包改变读取契约；
+后续安全变更需为 result GET 增加认证、任务归属校验和更高熵标识，并补兼容迁移证据。

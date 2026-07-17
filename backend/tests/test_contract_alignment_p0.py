@@ -183,7 +183,18 @@ def test_compat_dispatch_posts_require_authentication(monkeypatch, path, payload
     assert response.status_code == 401
 
 
-def test_libu_recruit_compat_does_not_create_decision_task(isolated_session_local):
+def test_libu_recruit_compat_does_not_create_decision_task(
+    isolated_session_local,
+    monkeypatch,
+):
+    def forbidden_persist(*_args, **_kwargs):
+        raise AssertionError("recruit compatibility route must not persist DecisionTask")
+
+    monkeypatch.setattr(
+        orchestration_compat,
+        "persist_compat_decision_task",
+        forbidden_persist,
+    )
     with isolated_session_local() as db:
         before = db.query(DecisionTask).count()
 

@@ -17,11 +17,13 @@
 | `cd backend && python3 -m pytest -q tests/test_contract_alignment_p0.py tests/test_frontend_second_brain_distillation.py` | 0 | 36 passed | 强认证、零 DecisionTask 写入、治理语义蒸馏 |
 | `cd backend && ruff check ...P6 Python files...` | 0 | PASS | Python lint/import 顺序 |
 | `cd backend && python3 -m pytest -q` | 1 | 2690 passed / 37 skipped / 7 failed | 后端全量；6 条在原始基线专项复现，第 7 条由全量测试生成 RAG 状态后多 3 个证据项 |
-| 干净 `d7f7436f` 基线专项复现 | 1 | 6 failed / 1 passed | 精确复现 closeout duplicate、lawyer RAG 4 条、persona roster；钦天监单独运行通过 |
+| 干净 B 与全新 clean H 专项复现 | 1 | 两者均 6 failed / 1 passed | 精确复现 closeout duplicate、lawyer RAG 4 条、persona roster；钦天监单独运行均通过 |
 | `cd backend && python3 scripts/commit_closeout_check.py` | 0 | 0 staged high-risk / 0 high-risk drift | 暂存边界（提交前将再次执行） |
 | `git diff --check` | 0 | PASS | 空白与冲突卫生 |
 | P6 新基线迁移逐文件对账 | 0 | 31 paths identical / 0 overlaps | 旧 `bbb1000` 工作树只读保留；内容迁到修复后的 `d7f7436f` |
 | restore manifest 基线/摘要回归 | 1→0 | 旧 `bbb1000` RED；`d7f7436f` + 5 SHA-256 GREEN | 可恢复清单绑定修复基线与 attic 精确字节 |
+| Claude backend 分片 review-v1 | 0 | INSUFFICIENT_EVIDENCE | 要求关闭第七条归因、golden 执行与 DB fixture 证明缺口 |
+| review-v1 回修专项 | 0 | 36 passed / Ruff PASS / doctor 0/0 | 三个 P6 case 驱动真实 gate；招聘直接禁止 persistence adapter |
 
 ## RED → GREEN 证据
 
@@ -29,6 +31,7 @@
 - 治理蒸馏 RED：三条 P6 case ID 缺失；补 golden 后该文件 5 passed。
 - 前端归档 RED：礼部状态错误、原路径仍存在、防回流名单缺失；归档闭环聚焦测试最终 36 passed。
 - 全量前端由基线 1040/7 变为 1041/0；额外暴露并修正一条被错误 active 状态遮蔽的礼部陈旧断言，并补清单摘要回归。
+- backend review-v1 指出的证据缺口已按 `packet_review/review-v1.md` 回修；最终全包 review 必须使用更高版本。
 
 ## 未验证与已知阻塞
 
@@ -37,6 +40,7 @@
 - 后端全量不全绿；6 条基线失败已复现，钦天监 1 条暴露全量测试产生持久 RAG 状态的隔离问题。本 Packet 未越界修复。
 - knip 仍有 719 个项目既有候选，本 Packet 只证明目标三文件已离开生产树和 reachability 输出。
 - 后端全量曾生成两个未跟踪 `backend/knowledge/docs/ima_archived/*.md`；验证后已删除，未纳入提交。
+- 工部/吏部两个 result GET 仍是匿名存量接口且 sid 熵有限；P6 不扩大范围，后续安全 Packet 应补读取鉴权与归属校验。
 
 ## Diff 与回滚复核
 
