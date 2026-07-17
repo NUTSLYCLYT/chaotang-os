@@ -16,6 +16,7 @@
 | 已确认事实 | 014 existing-table preflight 只校验列名 | `backend/alembic/versions/014_tenant_identity_tables.py` | 代码审查 + 临时 SQLite RED | 是 |
 | 已确认事实 | strict/adoption inspect 对缺失 SQLite 文件会先 connect，可能创建文件 | authority/adoption 入口 | 临时路径 RED | 是 |
 | 已确认事实 | 两个仓库 systemd 模板未锁 effective strict，`.env` 可覆盖 | backend/frontend service template | 源码契约 RED | 是 |
+| 已确认事实 | CHECK/default 规范化对整串 lower，误把仅字面量大小写不同的契约判等价 | `p5-1-check-normalization-blocker.md`；两条直接 RED | Claude review + 临时测试环境 | 是 |
 | 未知问题 | PostgreSQL DDL 行为 | 无隔离 PostgreSQL | 登记未验证 | 否；上游已显式阻断 production PostgreSQL |
 
 ## 数据流与调用链
@@ -44,6 +45,7 @@
 - 新增 015，对 014 创建或既有 identity 表做全形状复验。
 - systemd effective strict 与 operator CLI 契约。
 - 对应测试、文档证据与 packet review。
+- SQL 语法层规范化保护单/双引号内容，并校正 006/009 历史迁移的精确 `FALLBACK` 默认事实。
 
 ## 非目标
 
@@ -61,6 +63,7 @@
 | 合法 010 与 011 candidate | check 选最高兼容 revision，apply 到 head | pytest |
 | 已在 014 的 identity 同名畸形表 | 015 拒绝，版本保持 014，不做 DDL | pytest |
 | `.env` 声明非 strict | service `ExecStart` 仍强制 strict | 源码契约 pytest |
+| CHECK/default 仅字符串字面量大小写不同 | 判不等价，不能静默收养 | 两条直接 normalization 回归 |
 
 ## 风险与回滚边界
 
@@ -86,6 +89,7 @@ stamp/upgrade 后失败，使用强制生成的 backup 恢复，不能只回退�
 - 015 identity 形状 exact；生产 service effective strict。
 - 定向/相邻测试、Ruff/compile、doctor、diff check 通过。
 - 新 H 由独立 reviewer 签发 SHA-bound GO，之后才形成 no-ff candidate/push。
+- 失效的 review-v1 不得复用；NO_GO 回修后必须以新精确 H 发起 Claude 复审。
 
 ## 验证计划
 

@@ -16,6 +16,20 @@ _BACKEND_ROOT = Path(__file__).resolve().parent.parent
 _ALEMBIC_INI = _BACKEND_ROOT / "alembic.ini"
 
 
+def test_check_sql_normalization_preserves_string_literal_case() -> None:
+    from src.schema_adoption import _normalize_check_sql
+
+    assert _normalize_check_sql("status IN ('OPEN')") != _normalize_check_sql(
+        "status IN ('open')"
+    )
+
+
+def test_default_normalization_preserves_string_literal_case() -> None:
+    from src.schema_adoption import _normalize_default
+
+    assert _normalize_default("'OPEN'") != _normalize_default("'open'")
+
+
 def _config(path: Path, monkeypatch):
     monkeypatch.setenv("DB_URL", f"sqlite:///{path}")
     monkeypatch.chdir(_BACKEND_ROOT)
