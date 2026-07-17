@@ -6,7 +6,7 @@ import { PageBrief } from '@/features/shared/components/page-brief';
 import { AiReviewSummary } from '@/features/hanlin/components/ai-review-summary';
 import { HanlinRoleBadge } from '@/features/hanlin/components/hanlin-role-badge';
 import { hanlinRoleHeaders, hasHanlinCapability, readHanlinRole } from '@/features/hanlin/lib/access';
-import { hanlinApi } from '@/features/hanlin/lib/api';
+import { fetchHanlin } from '@/features/hanlin/lib/api';
 import type { AiReview, Contribution, Recommendation } from '@/features/hanlin/types';
 
 export function HanlinRecommendationsPage() {
@@ -23,9 +23,9 @@ export function HanlinRecommendationsPage() {
     setStatus('loading');
     try {
       const [contributionRes, reviewRes, recommendationRes] = await Promise.all([
-        fetch(hanlinApi('/api/hanlin/contributions')),
-        fetch(hanlinApi('/api/hanlin/reviews')),
-        fetch(hanlinApi('/api/hanlin/recommendations')),
+        fetchHanlin('/api/hanlin/contributions'),
+        fetchHanlin('/api/hanlin/reviews'),
+        fetchHanlin('/api/hanlin/recommendations'),
       ]);
       if (!contributionRes.ok || !reviewRes.ok || !recommendationRes.ok) {
         throw new Error('hanlin_recommendations_fetch_failed');
@@ -78,7 +78,7 @@ export function HanlinRecommendationsPage() {
       recommend_observe: '建议先进入观察池',
       reject: '当前不建议继续进入本期榜单',
     };
-    const response = await fetch(hanlinApi('/api/hanlin/recommendations'), {
+    const response = await fetchHanlin('/api/hanlin/recommendations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...hanlinRoleHeaders(role) },
       body: JSON.stringify({
