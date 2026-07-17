@@ -23,7 +23,15 @@
 - `decision["decision_level"]`/`decision["route_recommendation"]`（`chancellor_router.py`）
   算出来后没有任何下游消费者读取——纯死数据，未修，需要产品侧先定义这两个
   字段该驱动什么行为，不是单纯 bug fix 的范围。
-- **提交披露**：`20d50e6` 提交时本地分支已被并发会话推进（`0d2feb9` 系列 5
-  个 commit，主题是 legacy forecast router 遥测/隔离，与本变更无关），
-  `git commit` 在没有额外操作的情况下变成了 merge commit，提交信息只写了
-  本次修复内容，未披露实际带入的另一条并发工作。未重写历史，此处补充披露。
+- **提交披露（已核实证据，非归因猜测）**：`20d50e6` 的 parent 有两个
+  （`8f7aef2` + `0d2feb9`），`0d2feb9` 系列 5 个 commit 主题是 legacy forecast
+  router 遥测/隔离，与本变更无关。`git reflog` 显示 `20d50e6` 的动作类型是
+  `commit (merge)`——这只能证明：本会话执行 `git commit` 时 `MERGE_HEAD` 已经
+  存在（即之前有别的操作跑过 `git merge` 但没自动提交），本会话的 `git commit`
+  客观上把它一并收尾了。**reflog 不记录是谁/什么进程创建的 `MERGE_HEAD`**，
+  本会话没有主动执行过 `git merge`，但无法进一步确认具体源头，此处不做超出
+  证据的归因。旁证：`b87113e`（00:30:36，同样在本会话工作期间出现，但不是
+  本会话提交的）也是同样的 `commit (merge)` 动作类型，说明这不是一次性偶发，
+  而是这条分支上反复出现的模式，本会话只是两次都不巧撞上了收尾提交。
+  提交信息本身只写了修复内容，未披露实际带入的另一条工作，未重写历史，
+  此处补充披露。
