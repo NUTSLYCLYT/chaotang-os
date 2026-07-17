@@ -69,9 +69,9 @@ def test_roster_summary_shape(tmp_path):
 def test_real_roster_splits_into_two_benches():
     s = pr.roster_summary()  # 默认扫 skills/personas/
     assert s["total"] >= 15, "应扫到全部入役大神"
-    # 资料薄的裸名大神必在观点席
+    # 资料薄的裸名大神必在观点席；芒格资料已补厚，按字节阈值进入判官席。
     assert "karpathy" in s["advisors"]
-    assert "munger" in s["advisors"]
+    assert "munger-perspective" in s["judges"]
     # 资料厚的 -perspective 必在判官席
     assert any(name.endswith("-perspective") for name in s["judges"])
 
