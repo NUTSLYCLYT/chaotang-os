@@ -17,12 +17,13 @@
 - 目标：引号字面量原样比较，SQL 语法层继续规范化。
 - 前置条件：任务 1 RED。
 - 输入：runtime 已审的引号感知算法。
-- 输出：015 本地 `_normalize_sql_syntax` 与修正 `_normalize_default`。
-- 涉及文件：migration 015、同一测试文件。
+- 输出：新的 validation-only 016，采用 `_normalize_sql_syntax` 与修正
+  `_normalize_default`；015 保持历史内容。
+- 涉及文件：migration 016、head 断言与同一测试文件。
 - 状态 / 数据变化：无 DDL 变化。
-- 验证命令与证据：新 e2e GREEN、014/015 全文件、代表集、静态与 doctor。
+- 验证命令与证据：从 stamp 015 起步的新 e2e GREEN、007–016 代表集、静态与 doctor。
 - 回滚边界：revert 代码；不需要数据库 downgrade。
-- 完成定义：无新增 fail-open，既有合法形态全绿。
+- 完成定义：已 stamp 015 的漂移库被挡，合法库到 016，无新增 fail-open。
 
 ## 任务 3：独立审查与集成
 

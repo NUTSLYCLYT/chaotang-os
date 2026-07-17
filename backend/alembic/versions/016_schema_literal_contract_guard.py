@@ -1,12 +1,12 @@
-"""015 — verify the frozen tenant identity schema contract.
+"""016 — re-verify identity defaults with literal-safe normalization.
 
-Revision ID: 015_schema_contract_guard
-Revises: 014_tenant_identity_tables
+Revision ID: 016_schema_literal_contract_guard
+Revises: 015_schema_contract_guard
 Create Date: 2026-07-17
 
-This is intentionally a validation-only revision. Revision 014 was already
-published, so changing only its preflight would not protect databases that
-had already reached that revision.
+Revision 015 was already published with case-folding default normalization.
+This validation-only successor re-runs the frozen identity contract so databases
+already stamped at 015 cannot bypass the corrected literal comparison.
 """
 
 from __future__ import annotations
@@ -15,8 +15,8 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision = "015_schema_contract_guard"
-down_revision = "014_tenant_identity_tables"
+revision = "016_schema_literal_contract_guard"
+down_revision = "015_schema_contract_guard"
 branch_labels = None
 depends_on = None
 
@@ -67,11 +67,50 @@ def _normalize_default(value: object) -> str | None:
     while normalized.startswith("(") and normalized.endswith(")"):
         normalized = normalized[1:-1].strip()
     if len(normalized) >= 2 and normalized[0] == normalized[-1] and normalized[0] in {"'", '"'}:
-        normalized = normalized[1:-1]
-    normalized = " ".join(normalized.lower().split())
+        return normalized[1:-1]
+    normalized = _normalize_sql_syntax(normalized)
     if normalized in {"datetime('now')", "now()"}:
         return "current_timestamp"
     return normalized
+
+
+def _normalize_sql_syntax(value: object) -> str:
+    """Normalize SQL syntax without changing quoted literal contents."""
+    source = str(value).strip()
+    normalized: list[str] = []
+    quote: str | None = None
+    pending_space = False
+    index = 0
+
+    while index < len(source):
+        char = source[index]
+        if quote is not None:
+            normalized.append(char)
+            if char == quote:
+                if index + 1 < len(source) and source[index + 1] == quote:
+                    normalized.append(source[index + 1])
+                    index += 2
+                    continue
+                quote = None
+            index += 1
+            continue
+
+        if char in {"'", '"'}:
+            if pending_space and normalized:
+                normalized.append(" ")
+            pending_space = False
+            quote = char
+            normalized.append(char)
+        elif char.isspace():
+            pending_space = True
+        else:
+            if pending_space and normalized:
+                normalized.append(" ")
+            pending_space = False
+            normalized.append(char.lower())
+        index += 1
+
+    return "".join(normalized)
 
 
 def _unique_shapes(inspector: sa.Inspector, table_name: str) -> set[tuple[str, ...]]:
@@ -155,7 +194,7 @@ def _validate(inspector: sa.Inspector) -> None:
             errors.append(f"{table_name} unexpected check constraints")
 
     if errors:
-        raise RuntimeError("incompatible tenant identity tables block migration 015: " + "; ".join(errors))
+        raise RuntimeError("incompatible tenant identity tables block migration 016: " + "; ".join(errors))
 
 
 def upgrade() -> None:
