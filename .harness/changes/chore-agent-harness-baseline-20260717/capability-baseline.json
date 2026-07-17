@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "baseline_id": "agent-harness-baseline-20260717-v1",
+  "frozen_at": "2026-07-17",
+  "commit": "917fbb6bb99a33d0b8e833b34988d9b22953ab32",
+  "branch": "feature-chaotang-ext",
+  "working_tree": "dirty_out_of_scope_changes_present",
+  "canonical_sources": [
+    "backend/harness/chaotang_department_protocol/departments.yaml",
+    "backend/src/department_identity.py",
+    "backend/src/real_department_engines.py",
+    "backend/src/shangshufang_loop.py"
+  ],
+  "active_runtime_engines": {
+    "户部": "adapt_hubu",
+    "吏部": "adapt_libu_personnel",
+    "礼部": "adapt_lipu_pending",
+    "兵部": "adapt_bingbu",
+    "刑部": "adapt_xingbu",
+    "工部": "adapt_gongbu",
+    "锦衣卫": "adapt_jinyiwei",
+    "钦天监": "adapt_tianjian"
+  },
+  "golden_corpus": {
+    "seed_sources": [
+      "backend/tests/fixtures/chancellor_golden_cases.py",
+      "backend/harness/chaotang_department_protocol/golden_cases/department_routes.json",
+      "backend/harness/yushi_global_gate/golden_cases/global_gate_cases.json",
+      "backend/tests/test_real_department_engines.py",
+      "backend/tests/test_menxia_veto.py",
+      "backend/tests/test_chancellor_llm_recommendation.py"
+    ],
+    "minimum_target": 50,
+    "dimensions": ["D0/D1/D2", "six_ministries", "specialist", "evidence_missing", "out_of_scope", "refusal", "irreversible"]
+  },
+  "known_red_baseline": {
+    "backend_full_pytest": {"passed": 2703, "skipped": 37, "failed": 7},
+    "ledger_source": ".harness/changes/docs-full-court-v1-strategy-20260714/known-red-baseline-ledger.md",
+    "new_failures_allowed": 0
+  },
+  "verification_commands": [
+    "python3 -m pytest -q backend/tests -p no:randomly",
+    "python3 backend/scripts/harness_doctor.py",
+    "node scripts/harness-doctor.mjs",
+    "git diff --check"
+  ],
+  "re_freeze_when": [
+    "canonical taxonomy changes",
+    "new runtime engine registration",
+    "known-red count changes",
+    "golden corpus schema changes",
+    "branch changes before a dependent module starts"
+  ]
+}
