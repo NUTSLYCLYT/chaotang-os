@@ -47,18 +47,41 @@ function makeRepository(options = {}) {
     mkdirSync(join(repository, '.harness', 'changes', 'fix-second'), {recursive: true});
     writeFileSync(join(repository, '.harness', 'changes', 'fix-second', 'summary.md'), '# fix-second\n');
   }
+  if (options.unresolvedReview) {
+    const unresolvedDir = join(
+      repository,
+      '.harness',
+      'changes',
+      'fix-unresolved',
+      'packet_review',
+    );
+    mkdirSync(unresolvedDir, {recursive: true});
+    writeFileSync(
+      join(unresolvedDir, 'review-v1.md'),
+      options.unresolvedReport ?? '# Unresolved independent review\n\nPACKET_REVIEW_NO_GO\n',
+    );
+  }
+  if (options.priorNoGo) {
+    const priorReviewDir = join(repository, '.harness', 'changes', 'fix-test', 'packet_review');
+    mkdirSync(priorReviewDir, {recursive: true});
+    writeFileSync(
+      join(priorReviewDir, 'review-v9.md'),
+      '# Earlier independent review\n\nPACKET_REVIEW_NO_GO\n',
+    );
+  }
   const implementation = commit(repository, 'implement packet');
 
   const reviewDir = join(repository, '.harness', 'changes', 'fix-test', 'packet_review');
   mkdirSync(reviewDir, {recursive: true});
-  const reportPath = '.harness/changes/fix-test/packet_review/review-v1.md';
-  const approvalPath = '.harness/changes/fix-test/packet_review/approval-v1.json';
+  const reviewVersion = options.priorNoGo ? 10 : 1;
+  const reportPath = `.harness/changes/fix-test/packet_review/review-v${reviewVersion}.md`;
+  const approvalPath = `.harness/changes/fix-test/packet_review/approval-v${reviewVersion}.json`;
   const report = options.report ?? '# Independent review\n\nPACKET_REVIEW_GO\n';
   writeFileSync(join(repository, reportPath), report);
   const approval = {
     schema_version: 1,
     status: 'LOCAL_FEEDBACK_ONLY',
-    review_version: 1,
+    review_version: reviewVersion,
     packet_id: 'P5',
     change_id: 'fix-test',
     predecessor_integration_sha: options.predecessor ?? predecessor,
@@ -69,12 +92,13 @@ function makeRepository(options = {}) {
   };
   writeFileSync(join(repository, approvalPath), `${JSON.stringify(approval, null, 2)}\n`);
   if (options.secondApproval) {
-    const secondReportPath = '.harness/changes/fix-test/packet_review/review-v2.md';
-    const secondApprovalPath = '.harness/changes/fix-test/packet_review/approval-v2.json';
+    const secondReviewVersion = reviewVersion + 1;
+    const secondReportPath = `.harness/changes/fix-test/packet_review/review-v${secondReviewVersion}.md`;
+    const secondApprovalPath = `.harness/changes/fix-test/packet_review/approval-v${secondReviewVersion}.json`;
     writeFileSync(join(repository, secondReportPath), report);
     writeFileSync(join(repository, secondApprovalPath), `${JSON.stringify({
       ...approval,
-      review_version: 2,
+      review_version: secondReviewVersion,
       report_path: secondReportPath,
     }, null, 2)}\n`);
   }
@@ -117,6 +141,39 @@ test('accepts one SHA-bound review-only commit merged without tree changes', () 
       reviewCommit: fixture.review,
       candidate: fixture.candidate,
     });
+  } finally {
+    rmSync(fixture.repository, {recursive: true, force: true});
+  }
+});
+
+test('rejects a candidate tree containing another change with an unresolved NO_GO', () => {
+  const fixture = makeRepository({unresolvedReview: true});
+  try {
+    assert.throws(() => verify(fixture), /unresolved packet review.*fix-unresolved.*NO_GO/);
+  } finally {
+    rmSync(fixture.repository, {recursive: true, force: true});
+  }
+});
+
+test('rejects a candidate tree whose latest review has no terminal verdict', () => {
+  const fixture = makeRepository({
+    unresolvedReview: true,
+    unresolvedReport: '# Malformed independent review\n\nNo terminal verdict.\n',
+  });
+  try {
+    assert.throws(
+      () => verify(fixture),
+      /fix-unresolved.*review-v1\.md must contain one terminal verdict/,
+    );
+  } finally {
+    rmSync(fixture.repository, {recursive: true, force: true});
+  }
+});
+
+test('accepts a newer SHA-bound GO that resolves an earlier NO_GO for the same change', () => {
+  const fixture = makeRepository({priorNoGo: true});
+  try {
+    assert.equal(verify(fixture).status, 'LOCAL_FEEDBACK_ONLY');
   } finally {
     rmSync(fixture.repository, {recursive: true, force: true});
   }
