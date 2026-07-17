@@ -118,6 +118,21 @@ def test_adapt_gongbu_explosion_fire_is_p0_black():
     assert doc["risk_level"] == "P0"
 
 
+def test_adapt_gongbu_hazard_phrasings_not_silently_downgraded():
+    # 反 fail-open:精确词白名单会把未列举措辞静默降级为 P2。安全门必须 fail-safe——
+    # 储能范围内任何火/爆/炸/燃措辞都按 P0,而非只认几个精确词。
+    for text in (
+        "储能柜炸了，现场一片火海",
+        "储能电池包烧穿了还有明火",
+        "储能柜爆燃了",
+        "储能 BMS 高温报警，怀疑内部短路",
+    ):
+        doc = rde.adapt_gongbu(text)
+        assert doc is not None, text
+        assert doc["risk_level"] == "P0", f"{text} 被静默降级"
+        assert doc["light"] == "black", text
+
+
 def test_adapt_gongbu_requires_storage_or_bms_scope():
     assert rde.adapt_gongbu("帮我写一份普通市场推广方案") is None
 

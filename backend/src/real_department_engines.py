@@ -856,7 +856,21 @@ _GONGBU_SCOPE_KEYWORDS = (
     "设备告警",
     "售后故障",
 )
-_GONGBU_P0_KEYWORDS = ("热失控", "冒烟", "漏液", "燃烧", "爆炸", "起火", "着火")
+# 物理安全门必须 fail-safe:储能事故场景下,宁可过度升级(误报 P0)也不能静默放行
+# (漏报把真实火情/爆炸判成 P2,给现场人员错误的"隔离补遥测"而非"断电撤离消防")。
+# 因此用**字符级危险信号**而非精确词白名单——精确词白名单是 fail-open 设计,
+# 任何未列举的措辞(炸了/火海/明火/爆燃/烧穿)都会被静默降级。已在储能范围内,
+# 提到 火/爆/炸/燃/烟 或 飙/骤/失控/往上冲 等一律按 P0(误报方向安全)。
+# 已知残余局限:**无任何危险/恶化限定词的孤立数值**(如仅"温度90度")仍判 P2——
+# 文本层无法判定 90 度是紧急还是规格值。数值型严重度的正确防线是**真实遥测阈值门**
+# (在传感器数据管线上比大小),不是文本匹配;文本门只兜住有语义信号的紧急。见 deferred。
+_GONGBU_P0_HAZARD_SIGNALS = (
+    # 直接危险物象
+    "火", "爆", "炸", "燃", "烟", "焦", "糊味",
+    "热失控", "漏液", "鼓包", "胀气", "短路", "高温", "超温",
+    # 恶化/失控趋势语(数值型紧急:温度飙升/持续往上冲/超标)
+    "飙", "骤", "失控", "超标", "蔓延", "恶化", "往上冲",
+)
 _GONGBU_GAP_RULES = (
     ("设备编号", ("设备编号", "设备号", "BMS-")),
     ("绝对时间窗", ("2026-", "2025-", "2024-", "时间")),
@@ -875,7 +889,7 @@ def adapt_gongbu(task_text: str) -> dict | None:
     if not any(keyword.lower() in task_text.lower() for keyword in _GONGBU_SCOPE_KEYWORDS):
         return None
 
-    p0 = any(keyword in task_text for keyword in _GONGBU_P0_KEYWORDS)
+    p0 = any(signal in task_text for signal in _GONGBU_P0_HAZARD_SIGNALS)
     risk_level = "P0" if p0 else "P2"
     light = "black" if p0 else "yellow"
     missing = [
