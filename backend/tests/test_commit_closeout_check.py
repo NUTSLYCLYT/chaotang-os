@@ -1,4 +1,15 @@
+import subprocess
+
 from scripts import commit_closeout_check as closeout
+
+
+def _track_doc(monkeypatch, tmp_path, path: str) -> None:
+    doc = tmp_path / path
+    doc.parent.mkdir(parents=True)
+    doc.write_text("# fixture\n", encoding="utf-8")
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "add", "--", path], cwd=tmp_path, check=True)
+    monkeypatch.setattr(closeout, "ROOT", tmp_path)
 
 
 def test_commit_closeout_classifies_environment_drift():
@@ -35,14 +46,17 @@ def test_doc_topic_tokens_strips_chaotang_prefix_and_generic_words():
     assert closeout._doc_topic_tokens("docs/dept_design/qintianjian.md") == {"qintianjian"}
 
 
-def test_check_doc_duplicates_flags_overlapping_new_topic():
-    # docs/qintianjian.md 是本仓真实已跟踪文件；模拟新增一份主题重叠但文件名不同的文档
+def test_check_doc_duplicates_flags_overlapping_new_topic(monkeypatch, tmp_path):
+    _track_doc(monkeypatch, tmp_path, "docs/qintianjian.md")
+
     warnings = closeout.check_doc_duplicates(["docs/qintianjian_v2_draft.md"])
     assert warnings
     assert "qintianjian" in warnings[0]
 
 
-def test_check_doc_duplicates_ignores_already_tracked_files():
+def test_check_doc_duplicates_ignores_already_tracked_files(monkeypatch, tmp_path):
+    _track_doc(monkeypatch, tmp_path, "docs/qintianjian.md")
+
     assert closeout.check_doc_duplicates(["docs/qintianjian.md"]) == []
 
 

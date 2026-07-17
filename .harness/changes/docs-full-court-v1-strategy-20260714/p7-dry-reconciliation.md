@@ -1,5 +1,9 @@
 # P7 干对账预演（Grove 建议，2026-07-17 01:3x 执行，不构成收官宣布）
 
+> 历史快照：本页保留预演时点事实，不再代表当前状态。P6 合入后的正式 P7 对账见
+> `../docs-absorption-closeout-20260717/kpi-reconciliation.md`、`packet-status.md` 与
+> `deferred-register.md`；不得继续引用本页的 5/10 作为当前燃尽数。
+
 > 目的：按 DONE 五门现在跑一次干核，提前暴露收官日会卡的证据缺口。
 > 全部数字为审查者实测（命令戳口径）。
 

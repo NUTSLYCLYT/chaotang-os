@@ -4,6 +4,38 @@
 > 方法：三个并行只读侦查（后端主线/前端消费线/重复实现地图），证据 file:line 见各节。
 > 本文是 FULL_COURT_V1 Wave 0 的先行证据，不替代 Codex census。
 
+## P7 状态回填（2026-07-17）
+
+本表只更新 Wave 0 原审查对象的处置状态。`DONE` 表示已由后续 Packet 的机器证据闭环；
+`DEFERRED` 表示仍有明确 owner/Wave；`PARTIAL` 不得被解释为已完成。完整数值与未验证项见
+`../docs-absorption-closeout-20260717/kpi-reconciliation.md` 和 `deferred-register.md`。
+
+| 原审查对象 | P7 状态 | 证据 / 后续归属 |
+| --- | --- | --- |
+| chaotang daemon/store/flow-store legacy 链 | PARTIAL | P3 已清零默认 production writer 授权、默认关闭 daemon；10 个 rollback/test 写定义、legacy reads 和物理 daemon 仍在，且无连续流量归零窗口；Wave 5 前另立退役 change |
+| 前端五个本地二级裁决引擎 | DONE（生产可达性）/ DEFERRED（物理壳） | P4 production import graph=0，正式页面只投影 court read model；5 个 test/eval-only 定义待 2026-08-16/Wave 8 复核 |
+| 部级前端脑（工/御/刑/锦衣卫） | DEFERRED | P4 仅做 SHADOW/FALLBACK 与正式结论隔离；后端化归 Wave 3 |
+| 旧链前端调用（庄园/御座/军机处） | PARTIAL | 军机处 task/stream 已投 canonical；庄园去留需用户裁决，冻结王座与历史 GET 仍属显式边界；Wave 6 |
+| `court_state_store.py` JSON 状态 | DEFERRED | 未在 P0–P7 获得独立吸收证据；归 Wave 1/5 状态与恢复权威收敛 |
+| `governance_compat.py` 内存 dict | DONE | P2 `governance_compat_store.py` 复用 `DecisionTask`，重复 IMA compat route 已退役 |
+| `swarm_orchestrator.py` | DEFERRED（原“孤儿”判断被证伪） | P6 审计发现仍有 canonical/platform runtime 调用，禁止按死码删除；需先迁调用方和恢复契约 |
+| 前端 governance 三省孤儿簇 | DONE | P6 归档 `court-pipeline`、`three-chamber-engine`、`deliberation-console`，production import guard 永久覆盖 |
+| qintian mock router 二件 | DEFERRED | P6 capability-entry 删除门要求 14 天零调用；证据窗口未满足 |
+| `flow_opc.yaml.bak` | DONE_AS_NOT_PRESENT | P6 基线确认 tracked 文件不存在，不制造删除提交 |
+| `retired_standalone_swarms/*` | DONE（保持归档） | 按原裁决不恢复 production |
+| 部门 ID / AgentCode 多副本 | DONE | P1 后端 `departments.yaml` + 前端 `dept.ts` 双 SSOT，双端 grep/parity 守门 |
+| 迁移权威 | DONE | P5 Alembic strict-head + adoption；运行时 schema DDL 清零，后续 P5.1/P5.2 字面量守门已 GO |
+| Prompt 三体系 | DEFERRED | Wave 1–2，建立版本事实源与 adapter；当前不得宣称收敛 |
+| OpenAPI / TS 契约三角 | DEFERRED | Wave 1–2，live OpenAPI codegen + drift CI |
+| root/frontend 双份 runner | DEFERRED | 不属 P0–P7 实施范围；Wave 8 delivery hygiene |
+| `jiqun_ai` 平台、三层 harness | DONE（保持正交） | 未吸入 DecisionTask 主线，边界继续由 project/backend/frontend harness 守门 |
+| 国力断头板块 | DEFERRED / P8 NOT_STARTED | P8 薄纵切尚无 change、browser 或 Claude GO |
+| 翰林断头板块 | PARTIAL / P9 NOT_GO | P0 前 uplift 已挂载部分真读模型，但无 P9 顶层 change、残段核销和 Claude GO |
+| 庄园产品去留 | DEFERRED | 用户裁决后归 Wave 6 |
+
+P7 候选时 Packet 门为 7/10 GO+merged；P7 自身 GO+merge 后最多 8/10。P8/P9 与
+流量/LOC 硬门未闭环，因此 campaign 终态只能是 `PARTIAL`。
+
 ## 总裁决
 
 **不是"合并成一条"，是"一条已存在的 canonical 主线 + 吸收 + 退役 + 两块正交区"。**
