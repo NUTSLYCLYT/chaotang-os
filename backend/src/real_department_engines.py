@@ -74,6 +74,12 @@ def _log_engine_call(dept_name: str, *, elapsed_ms: float, outcome: str) -> None
         pass
 
 
+# 严重度/时效性必须实时的部门,永不吃 (部门+任务) 旧缓存:
+#  - 锦衣卫:实时情报/异动雷达,旧缓存=过期情报
+#  - 工部:储能物理安全分诊,旧缓存会返回逻辑修复前的 fail-open 低危判定,绕过 fail-safe
+_ENGINE_CACHE_EXCLUDED_DEPTS = ("锦衣卫", "工部")
+
+
 def _call_adapter_observed(
     dept_name: str, adapter: Callable[[str], dict | None], task_text: str
 ) -> dict | None:
@@ -85,7 +91,11 @@ def _call_adapter_observed(
     情报)。SWARM_ENGINE_CACHE=0 可关。缓存任何异常一律静默降级,绝不阻断真调用。"""
     cache_on = (
         os.environ.get("SWARM_ENGINE_CACHE", "1") == "1"
-        and dept_name != "锦衣卫"
+        # 缓存 key 只含(部门+任务)、无判定逻辑版本;引擎逻辑一改,旧条目仍按 task_text
+        # 命中,把**修复前的判定**继续返回。对物理安全分诊(工部储能 P0/P1/P2 严重度)
+        # 这会绕过 fail-safe——修复后同一任务仍返回旧的 fail-open 低危判定。故工部与
+        # 锦衣卫(实时情报)一样,严重度必须实时重算,永不吃旧缓存。
+        and dept_name not in _ENGINE_CACHE_EXCLUDED_DEPTS
         # pytest 下关缓存:测试常注入不同 adapter 行为(如"引擎失败")验证兜底,
         # 缓存按(部门+任务)命中会短路 adapter、破坏失败注入与测试隔离。
         and "PYTEST_CURRENT_TEST" not in os.environ
@@ -867,8 +877,8 @@ _GONGBU_SCOPE_KEYWORDS = (
 # 是否在派单前真正拦截,取决于审批队列是否消费该信号——需与 signoff/审批门对齐,
 # 单靠本引擎的文本不能保证下游执行(与门下省 veto 同类的"计算了但需下游执行"问题)。
 _GONGBU_P0_HAZARD_SIGNALS = (
-    # 直接危险物象
-    "火", "爆", "炸", "燃", "烟", "焦", "糊味",
+    # 直接危险物象(火情用字覆盖 火/燃/烧/焚:在烧/烧穿/焚毁/自燃/明火/起火)
+    "火", "爆", "炸", "燃", "烧", "焚", "烟", "焦", "糊味",
     "热失控", "漏液", "鼓包", "胀气", "短路", "高温", "超温",
     # 恶化/失控趋势语(数值型紧急:温度飙升/持续往上冲/超标)
     "飙", "骤", "失控", "超标", "蔓延", "恶化", "往上冲",

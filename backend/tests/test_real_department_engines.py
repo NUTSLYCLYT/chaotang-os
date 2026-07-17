@@ -126,11 +126,22 @@ def test_adapt_gongbu_hazard_phrasings_not_silently_downgraded():
         "储能电池包烧穿了还有明火",
         "储能柜爆燃了",
         "储能 BMS 高温报警，怀疑内部短路",
+        # 火情用字必须覆盖 烧/焚(在烧/烧穿/焚毁),否则明确火情被误判 P1
+        "整个储能舱在烧",
+        "储能电芯烧穿了",
+        "储能柜焚毁",
     ):
         doc = rde.adapt_gongbu(text)
         assert doc is not None, text
-        assert doc["risk_level"] == "P0", f"{text} 被静默降级"
+        assert doc["risk_level"] == "P0", f"{text} 被误判/静默降级"
         assert doc["light"] == "black", text
+
+
+def test_gongbu_engine_never_served_from_stale_cache():
+    # 反缓存绕过:缓存 key 只含(部门+任务)无逻辑版本,工部储能安全严重度必须实时重算,
+    # 否则逻辑修复后旧缓存仍返回修复前的 fail-open 低危判定。工部与锦衣卫一样排除缓存。
+    assert "工部" in rde._ENGINE_CACHE_EXCLUDED_DEPTS
+    assert "锦衣卫" in rde._ENGINE_CACHE_EXCLUDED_DEPTS
 
 
 def test_adapt_gongbu_unconfirmed_incident_escalates_not_silent_p2():
