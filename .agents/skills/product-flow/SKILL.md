@@ -1,12 +1,13 @@
 ---
 name: product-flow
-description: 在 Codex 桌面任务内自动完成产品定义、Claude Code 模块交付、测试、Codex 验收与有限返工。用户说“自动交付：需求内容”、“一键交付”或显式调用 $product-flow 时使用；适用于希望只输入一次需求、不手动切换 Codex 与 Claude Code 的仓库内产品任务。
+description: 在 Codex 桌面任务内自动完成产品定义、程序团队模块交付、测试、Codex 验收与有限返工；Claude Code 受限时自动切换到同名 Codex 专业角色。用户说“自动交付：需求内容”、“一键交付”或显式调用 $product-flow 时使用；适用于希望只输入一次需求、不手动切换客户端的仓库内产品任务。
 ---
 
 # 自动产品交付
 
-把当前 Codex 任务作为产品经理和总编排器；通过脚本调用 Claude Code 程序团队。保持顺序执行，
-不假设两个客户端能互相发送消息。
+把当前 Codex 任务作为产品经理和总编排器；优先通过脚本调用 Claude Code 程序团队，Claude
+因配额或速率限制无法继续时，由当前任务调用同名 Codex 专业角色接力。保持顺序执行，不假设
+两个客户端能互相发送消息。
 
 ## 授权语义
 
@@ -32,7 +33,7 @@ description: 在 Codex 桌面任务内自动完成产品定义、Claude Code 模
 4. 如有阻塞问题，保持 `Draft` 并询问用户。如无阻塞，记录“用户通过 product-flow 委托自动
    确认”，把状态改为 `Ready`。
 
-## 3. 调用 Claude Code
+## 3. 调用程序团队
 
 运行：
 
@@ -63,6 +64,31 @@ runner 默认使用 Claude Code 的 `stream-json` 事件流，并在当前 Codex
 - 状态不是 `Implemented`：报告协议失败，不自行伪造完成状态。
 - 命令失败：保留输出和工作区，运行只读诊断后报告；不要无限重启。
 
+### Claude 受限时由 Codex 接力
+
+runner 只把结构化事件中的明确拒绝视为受限：`rate_limit_event.status = rejected`、
+`error = rate_limit` 或错误结果的 HTTP 429。`allowed_warning`、普通实现失败、测试失败、权限拒绝、
+任务 `Blocked` 和未登录均不触发模型切换。受限且任务尚未 `Implemented` 时 runner 返回专用退出码
+`6`；这表示当前 Codex 任务应自动接力，不需要再次询问用户。
+
+接力时，当前 Codex 任务分阶段担任程序团队负责人，并显式使用 `.codex/agents/` 中继承当前
+Codex 会话模型的同名专业角色。该 skill 明确要求调用 Codex 原生 subagents；角色按以下顺序
+执行，不并行运行有写权限的角色：
+
+1. 保留 Claude 已产生的任务文件、diff 和日志；`Ready` 改为 `In Progress`，已有
+   `In Progress` 不重置。先调用 `solution-architect` 只读复核当前状态，负责人据此补全或修订
+   `Affected Modules` 的允许路径和 `Technical Plan`。
+2. 对尚未完成的每个业务模块顺序调用一次 `module-engineer`，每次只传一个模块、允许路径、相关
+   验收标准以及 Claude 已完成内容的摘要。专业角色不得修改产品任务文件。
+3. 所有模块完成后调用 `test-engineer` 独立补测试、运行验证并寻找假绿；负责人随后自审、填写
+   `Implementation Report` 并把状态改为 `Implemented`。
+4. 若 Codex 专业角色发现产品歧义或高风险冲突，负责人改为 `Blocked` 并停止；不得用模型切换
+   绕过产品停止条件。程序交付完成后，当前任务退出负责人阶段，再以产品经理身份执行验收。
+
+Claude 受限后的 Codex 接力属于同一次交付尝试，不额外消耗一次返工机会。若 Claude 在受限前
+已经完成部分模块，只交付剩余模块，但架构只读复核和最终测试角色仍必须执行，避免把不完整状态
+直接当成实现证据。不得因为接力而扩大允许路径、提交、推送、发布或创建外部资源。
+
 ## 4. 验收与有限返工
 
 1. 读取 diff、`Implementation Report` 和测试证据，运行 harness 及报告中可复现的相关验证。
@@ -79,5 +105,5 @@ runner 默认使用 Claude Code 的 `stream-json` 事件流，并在当前 Codex
 ## 脚本维护
 
 - 用 `node .agents/skills/product-flow/scripts/run-claude-delivery.mjs --self-test` 测试参数、路径和
-  状态解析、流式参数、事件格式化与脱敏。
+  状态解析、流式参数、事件格式化、脱敏、受限事件识别与 Codex 接力退出码。
 - 用 `--dry-run --task <Ready 任务>` 查看将发送给 Claude 的调用，不启动 Claude。

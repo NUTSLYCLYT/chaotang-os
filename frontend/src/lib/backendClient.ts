@@ -81,3 +81,136 @@ function describeError(error: unknown): string {
   }
   return String(error);
 }
+
+/** `POST /api/v1/decrees/chancellor` 成功响应体映射到前端后的形状。 */
+export interface SubmitDecreeData {
+  status: string;
+  chancellor: string;
+  memorialText: string;
+}
+
+/**
+ * `submitDecree` 的返回结果：成功携带映射后的响应体；失败携带一个稳定的错误分类
+ * `kind`（供调用方决定 HTTP 状态码/展示文案）和一段可读的错误描述。
+ */
+export type SubmitDecreeResult =
+  | { ok: true; data: SubmitDecreeData }
+  | {
+      ok: false;
+      kind: "validation" | "config" | "model" | "network" | "unknown";
+      error: string;
+    };
+
+export interface SubmitDecreeOptions {
+  /** 覆盖默认后端基础地址，主要用于测试。 */
+  baseUrl?: string;
+  /** 请求超时时间（毫秒），默认 `DECREE_TIMEOUT_MS`。 */
+  timeoutMs?: number;
+}
+
+/**
+ * `submitDecree` 专用超时常量：LLM 调用可能耗时较长，刻意独立于 `fetchHealth` 的
+ * `DEFAULT_TIMEOUT_MS`（3000ms），不与其共用默认值。
+ */
+const DECREE_TIMEOUT_MS = 45000;
+
+/** 从错误响应体中提取脱敏的 `message` 字段；解析失败或字段缺失时回退到 `fallback`。 */
+async function extractErrorMessage(response: Response, fallback: string): Promise<string> {
+  try {
+    const body = (await response.json()) as { message?: unknown };
+    if (typeof body?.message === "string" && body.message.length > 0) {
+      return body.message;
+    }
+  } catch {
+    // 响应体不是合法 JSON 或不含 message 字段时，使用 fallback。
+  }
+  return fallback;
+}
+
+/**
+ * 调用后端 `POST /api/v1/decrees/chancellor`，提交一句旨意并请求丞相 Agent 生成回奏。
+ *
+ * 与 `fetchHealth` 一致，永远不会抛出未捕获异常：网络错误、超时、校验失败（422）、
+ * 配置不可用（503）、模型调用失败（502）、其他非 2xx 或响应体不是合法 JSON，都会
+ * 返回一个带有稳定 `kind` 的 `{ ok: false, kind, error }` 结果，由调用方决定如何
+ * 映射 HTTP 状态码与展示文案。
+ */
+export async function submitDecree(
+  decreeText: string,
+  options: SubmitDecreeOptions = {},
+): Promise<SubmitDecreeResult> {
+  const baseUrl = options.baseUrl ?? getBackendBaseUrl();
+  const timeoutMs = options.timeoutMs ?? DECREE_TIMEOUT_MS;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/api/v1/decrees/chancellor`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ decree_text: decreeText }),
+      signal: controller.signal,
+      cache: "no-store",
+    });
+
+    if (response.status === 422) {
+      return {
+        ok: false,
+        kind: "validation",
+        error: await extractErrorMessage(response, "旨意校验失败"),
+      };
+    }
+    if (response.status === 503) {
+      return {
+        ok: false,
+        kind: "config",
+        error: await extractErrorMessage(response, "后端配置不可用"),
+      };
+    }
+    if (response.status === 502) {
+      return {
+        ok: false,
+        kind: "model",
+        error: await extractErrorMessage(response, "丞相模型调用失败"),
+      };
+    }
+
+    if (!response.ok) {
+      return { ok: false, kind: "unknown", error: `后端响应非预期状态码：${response.status}` };
+    }
+
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      return { ok: false, kind: "unknown", error: "后端响应不是合法 JSON" };
+    }
+
+    if (
+      typeof body === "object" &&
+      body !== null &&
+      (body as Record<string, unknown>).status === "ok" &&
+      typeof (body as Record<string, unknown>).chancellor === "string" &&
+      ((body as Record<string, unknown>).chancellor as string).trim().length > 0 &&
+      typeof (body as Record<string, unknown>).memorial_text === "string" &&
+      ((body as Record<string, unknown>).memorial_text as string).trim().length > 0
+    ) {
+      const typed = body as { status: string; chancellor: string; memorial_text: string };
+      return {
+        ok: true,
+        data: {
+          status: typed.status,
+          chancellor: typed.chancellor.trim(),
+          memorialText: typed.memorial_text.trim(),
+        },
+      };
+    }
+
+    return { ok: false, kind: "unknown", error: "后端成功响应体不符合预期契约" };
+  } catch (error) {
+    return { ok: false, kind: "network", error: describeError(error) };
+  } finally {
+    clearTimeout(timer);
+  }
+}

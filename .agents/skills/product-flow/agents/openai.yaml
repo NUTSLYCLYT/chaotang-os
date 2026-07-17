@@ -1,4 +1,4 @@
 interface:
   display_name: "自动产品交付"
-  short_description: "一键编排 Codex 产品管理、Claude 实现与自动验收"
-  default_prompt: "Use $product-flow to deliver this product request end to end through Codex and Claude Code."
+  short_description: "一键编排产品交付；Claude 受限时由 Codex 角色接力"
+  default_prompt: "Use $product-flow to deliver this product request end to end, falling back to the same Codex specialist roles when Claude Code is restricted."

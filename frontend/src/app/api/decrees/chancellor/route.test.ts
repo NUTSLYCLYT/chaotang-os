@@ -1,0 +1,211 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { createServer, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
+
+import { POST } from "./route.ts";
+
+/**
+ * 离线测试 `POST /api/decrees/chancellor` Route Handler：直接 `import { POST }`
+ * 并构造 `Request`/调用返回的 `Response`，不启动真实 Next.js 服务器、不产生任何
+ * 真实网络或 DeepSeek 调用。参考 `src/lib/backendClient.test.ts` 起本地 stub 服务
+ * 的方式，通过 `process.env.BACKEND_BASE_URL` 让 `submitDecree()`（Route Handler
+ * 内部调用）指向本地 stub。
+ */
+
+/** 启动一个只响应 `POST /api/v1/decrees/chancellor` 的本地 stub 服务。 */
+async function startDecreeStub(
+  status: number,
+  body: unknown,
+): Promise<{ baseUrl: string; close: () => Promise<void> }> {
+  const server: Server = createServer((req, res) => {
+    if (req.method === "POST" && req.url === "/api/v1/decrees/chancellor") {
+      const payload = typeof body === "string" ? body : JSON.stringify(body);
+      res.writeHead(status, { "content-type": "application/json" });
+      res.end(payload);
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address() as AddressInfo;
+
+  return {
+    baseUrl: `http://127.0.0.1:${address.port}`,
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      }),
+  };
+}
+
+/** 找一个当前空闲、但调用时保证没有服务监听的端口，用于模拟「后端不可达」。 */
+async function findUnusedPort(): Promise<number> {
+  const server = createServer();
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address() as AddressInfo;
+  const port = address.port;
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => (error ? reject(error) : resolve()));
+  });
+  return port;
+}
+
+/** 在 `run()` 期间把 `BACKEND_BASE_URL` 临时设置为 `baseUrl`，结束后恢复原值。 */
+async function withBackendBaseUrl<T>(baseUrl: string, run: () => Promise<T>): Promise<T> {
+  const original = process.env.BACKEND_BASE_URL;
+  process.env.BACKEND_BASE_URL = baseUrl;
+  try {
+    return await run();
+  } finally {
+    if (original === undefined) {
+      delete process.env.BACKEND_BASE_URL;
+    } else {
+      process.env.BACKEND_BASE_URL = original;
+    }
+  }
+}
+
+function makeRequest(body: unknown): Request {
+  return new Request("http://localhost/api/decrees/chancellor", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: typeof body === "string" ? body : JSON.stringify(body),
+  });
+}
+
+test("POST：成功路径 - 后端返回符合契约的响应时映射为 200", async () => {
+  const stub = await startDecreeStub(200, {
+    status: "ok",
+    chancellor: "丞相",
+    memorial_text: "臣已知晓陛下旨意，建议下一步核查国库存银。",
+  });
+  try {
+    const response = await withBackendBaseUrl(stub.baseUrl, () =>
+      POST(makeRequest({ decreeText: "请核查国库存银" })),
+    );
+
+    assert.equal(response.status, 200);
+    const body = (await response.json()) as Record<string, unknown>;
+    assert.deepEqual(body, {
+      status: "ok",
+      chancellor: "丞相",
+      memorialText: "臣已知晓陛下旨意，建议下一步核查国库存银。",
+    });
+  } finally {
+    await stub.close();
+  }
+});
+
+test("POST：后端校验失败(422) - 映射为 422，且响应体不含后端 detail 原文", async () => {
+  const stub = await startDecreeStub(422, {
+    detail: [{ msg: "旨意长度不合法", type: "value_error" }],
+  });
+  try {
+    const response = await withBackendBaseUrl(stub.baseUrl, () => POST(makeRequest({ decreeText: "" })));
+
+    assert.equal(response.status, 422);
+    const body = (await response.json()) as Record<string, unknown>;
+    assert.equal(body.status, "error");
+    assert.equal(body.reason, "validation");
+    assert.equal(typeof body.message, "string");
+    assert.ok((body.message as string).length > 0);
+    assert.equal(JSON.stringify(body).includes("value_error"), false);
+  } finally {
+    await stub.close();
+  }
+});
+
+test("POST：后端配置失败(503) - 映射为 503", async () => {
+  const stub = await startDecreeStub(503, {
+    status: "error",
+    reason: "config_unavailable",
+    message: "后端配置暂不可用，请稍后重试。",
+  });
+  try {
+    const response = await withBackendBaseUrl(stub.baseUrl, () =>
+      POST(makeRequest({ decreeText: "请核查国库存银" })),
+    );
+
+    assert.equal(response.status, 503);
+    const body = (await response.json()) as Record<string, unknown>;
+    assert.equal(body.status, "error");
+    assert.equal(body.reason, "config");
+  } finally {
+    await stub.close();
+  }
+});
+
+test("POST：模型调用失败(502) - 映射为 502", async () => {
+  const stub = await startDecreeStub(502, {
+    status: "error",
+    reason: "model_unavailable",
+    message: "丞相暂时无法给出回奏，请稍后重试。",
+  });
+  try {
+    const response = await withBackendBaseUrl(stub.baseUrl, () =>
+      POST(makeRequest({ decreeText: "请核查国库存银" })),
+    );
+
+    assert.equal(response.status, 502);
+    const body = (await response.json()) as Record<string, unknown>;
+    assert.equal(body.status, "error");
+    assert.equal(body.reason, "model");
+  } finally {
+    await stub.close();
+  }
+});
+
+test("POST：后端不可达 - 映射为 503（network），不抛出异常", async () => {
+  const unusedPort = await findUnusedPort();
+
+  let threw = false;
+  let response: Response | undefined;
+  try {
+    response = await withBackendBaseUrl(`http://127.0.0.1:${unusedPort}`, () =>
+      POST(makeRequest({ decreeText: "请核查国库存银" })),
+    );
+  } catch {
+    threw = true;
+  }
+
+  assert.equal(threw, false, "POST 不应抛出异常");
+  assert.ok(response);
+  assert.equal(response!.status, 503);
+  const body = (await response!.json()) as Record<string, unknown>;
+  assert.equal(body.status, "error");
+  assert.equal(body.reason, "network");
+});
+
+test("POST：请求体不是合法 JSON - 返回稳定 4xx，不 500，不调用后端", async () => {
+  const request = new Request("http://localhost/api/decrees/chancellor", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: "not-json{",
+  });
+
+  const response = await POST(request);
+
+  assert.equal(response.status, 400);
+  const body = (await response.json()) as Record<string, unknown>;
+  assert.equal(body.status, "error");
+  assert.equal(typeof body.message, "string");
+});
+
+test("POST：请求体缺少 decreeText 字段 - 返回稳定 4xx，不调用后端", async () => {
+  const response = await POST(makeRequest({ somethingElse: "旨意" }));
+
+  assert.equal(response.status, 400);
+  const body = (await response.json()) as Record<string, unknown>;
+  assert.equal(body.status, "error");
+});
+
+test("POST：请求体 decreeText 字段类型不是字符串 - 返回稳定 4xx，不调用后端", async () => {
+  const response = await POST(makeRequest({ decreeText: 12345 }));
+
+  assert.equal(response.status, 400);
+  const body = (await response.json()) as Record<string, unknown>;
+  assert.equal(body.status, "error");
+});

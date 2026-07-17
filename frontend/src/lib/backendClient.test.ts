@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-import { fetchHealth } from "./backendClient.ts";
+import { fetchHealth, submitDecree } from "./backendClient.ts";
 
 /**
  * 契约文件路径：`frontend/src/lib` -> `frontend/src` -> `frontend` -> 仓库根，
@@ -297,6 +297,226 @@ test("fetchHealth：失败路径 - 非 200 状态码时返回可判断的失败�
     await new Promise<void>((resolve, reject) => {
       server.close((error) => (error ? reject(error) : resolve()));
     });
+  }
+});
+
+/**
+ * 启动一个只响应 `POST /api/v1/decrees/chancellor` 的本地 stub 服务，返回固定的
+ * `status`/`body`；用于离线测试 `submitDecree` 的各条分支，不依赖真实网络/DeepSeek。
+ */
+async function startDecreeStub(
+  status: number,
+  body: unknown,
+): Promise<{ baseUrl: string; close: () => Promise<void> }> {
+  const server: Server = createServer((req, res) => {
+    if (req.method === "POST" && req.url === "/api/v1/decrees/chancellor") {
+      const payload = typeof body === "string" ? body : JSON.stringify(body);
+      res.writeHead(status, { "content-type": "application/json" });
+      res.end(payload);
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address() as AddressInfo;
+
+  return {
+    baseUrl: `http://127.0.0.1:${address.port}`,
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      }),
+  };
+}
+
+test("submitDecree：成功路径 - 后端返回符合契约的响应时映射为 ok: true", async () => {
+  const stub = await startDecreeStub(200, {
+    status: "ok",
+    chancellor: "丞相",
+    memorial_text: "臣已知晓陛下旨意，建议下一步核查国库存银。",
+  });
+  try {
+    let threw = false;
+    let result;
+    try {
+      result = await submitDecree("请核查国库存银", { baseUrl: stub.baseUrl });
+    } catch {
+      threw = true;
+    }
+    assert.equal(threw, false, "submitDecree 不应抛出异常");
+    assert.ok(result);
+    assert.equal(result!.ok, true);
+    if (result!.ok) {
+      assert.deepEqual(result!.data, {
+        status: "ok",
+        chancellor: "丞相",
+        memorialText: "臣已知晓陛下旨意，建议下一步核查国库存银。",
+      });
+    }
+  } finally {
+    await stub.close();
+  }
+});
+
+test("submitDecree：校验失败路径 - 422 映射为 kind: validation", async () => {
+  const stub = await startDecreeStub(422, {
+    detail: [{ msg: "旨意长度不合法" }],
+  });
+  try {
+    let threw = false;
+    let result;
+    try {
+      result = await submitDecree("", { baseUrl: stub.baseUrl });
+    } catch {
+      threw = true;
+    }
+    assert.equal(threw, false, "submitDecree 不应抛出异常");
+    assert.ok(result);
+    assert.equal(result!.ok, false);
+    if (!result!.ok) {
+      assert.equal(result!.kind, "validation");
+      assert.equal(typeof result!.error, "string");
+      assert.ok(result!.error.length > 0);
+    }
+  } finally {
+    await stub.close();
+  }
+});
+
+test("submitDecree：配置失败路径 - 503 映射为 kind: config", async () => {
+  const stub = await startDecreeStub(503, {
+    status: "error",
+    reason: "config_unavailable",
+    message: "后端配置暂不可用，请稍后重试。",
+  });
+  try {
+    let threw = false;
+    let result;
+    try {
+      result = await submitDecree("请核查国库存银", { baseUrl: stub.baseUrl });
+    } catch {
+      threw = true;
+    }
+    assert.equal(threw, false, "submitDecree 不应抛出异常");
+    assert.ok(result);
+    assert.equal(result!.ok, false);
+    if (!result!.ok) {
+      assert.equal(result!.kind, "config");
+      assert.equal(result!.error, "后端配置暂不可用，请稍后重试。");
+    }
+  } finally {
+    await stub.close();
+  }
+});
+
+test("submitDecree：模型失败路径 - 502 映射为 kind: model", async () => {
+  const stub = await startDecreeStub(502, {
+    status: "error",
+    reason: "model_unavailable",
+    message: "丞相暂时无法给出回奏，请稍后重试。",
+  });
+  try {
+    let threw = false;
+    let result;
+    try {
+      result = await submitDecree("请核查国库存银", { baseUrl: stub.baseUrl });
+    } catch {
+      threw = true;
+    }
+    assert.equal(threw, false, "submitDecree 不应抛出异常");
+    assert.ok(result);
+    assert.equal(result!.ok, false);
+    if (!result!.ok) {
+      assert.equal(result!.kind, "model");
+      assert.equal(result!.error, "丞相暂时无法给出回奏，请稍后重试。");
+    }
+  } finally {
+    await stub.close();
+  }
+});
+
+test("submitDecree：后端不可达路径 - 映射为 kind: network，且不抛出异常", async () => {
+  const unusedPort = await findUnusedPort();
+
+  let threw = false;
+  let result;
+  try {
+    result = await submitDecree("请核查国库存银", {
+      baseUrl: `http://127.0.0.1:${unusedPort}`,
+      timeoutMs: 1000,
+    });
+  } catch {
+    threw = true;
+  }
+
+  assert.equal(threw, false, "submitDecree 不应抛出异常");
+  assert.ok(result);
+  assert.equal(result!.ok, false);
+  if (!result!.ok) {
+    assert.equal(result!.kind, "network");
+    assert.equal(typeof result!.error, "string");
+    assert.ok(result!.error.length > 0);
+  }
+});
+
+test("submitDecree：非预期状态码路径 - 映射为 kind: unknown", async () => {
+  const stub = await startDecreeStub(500, { detail: "internal error" });
+  try {
+    let threw = false;
+    let result;
+    try {
+      result = await submitDecree("请核查国库存银", { baseUrl: stub.baseUrl });
+    } catch {
+      threw = true;
+    }
+    assert.equal(threw, false, "submitDecree 不应抛出异常");
+    assert.ok(result);
+    assert.equal(result!.ok, false);
+    if (!result!.ok) {
+      assert.equal(result!.kind, "unknown");
+    }
+  } finally {
+    await stub.close();
+  }
+});
+
+test("submitDecree：非法 JSON 响应体路径 - 映射为 kind: unknown", async () => {
+  const stub = await startDecreeStub(200, "not-json{");
+  try {
+    let threw = false;
+    let result;
+    try {
+      result = await submitDecree("请核查国库存银", { baseUrl: stub.baseUrl });
+    } catch {
+      threw = true;
+    }
+    assert.equal(threw, false, "submitDecree 不应抛出异常");
+    assert.ok(result);
+    assert.equal(result!.ok, false);
+    if (!result!.ok) {
+      assert.equal(result!.kind, "unknown");
+    }
+  } finally {
+    await stub.close();
+  }
+});
+
+test("submitDecree：空回奏成功响应被拒绝为 unknown", async () => {
+  const stub = await startDecreeStub(200, {
+    status: "ok",
+    chancellor: "丞相",
+    memorial_text: "   ",
+  });
+  try {
+    const result = await submitDecree("请核查国库存银", { baseUrl: stub.baseUrl });
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.kind, "unknown");
+    }
+  } finally {
+    await stub.close();
   }
 });
 

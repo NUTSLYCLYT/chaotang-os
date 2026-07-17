@@ -3,8 +3,10 @@
 ## 当前状态
 
 仓库处于重建阶段。`backend/` 已完成最小工程骨架的技术选型（Python + FastAPI +
-uvicorn + pip/venv，扁平 `app/` 包，仅暴露 `GET /health`，不含业务 API、数据库模型
-或 agent runtime；选型与验证证据见 `docs/decisions/0006-frontend-backend-foundation-stack.md`）。
+uvicorn + pip/venv，扁平 `app/` 包；选型与验证证据见
+`docs/decisions/0006-frontend-backend-foundation-stack.md`），并在保持 `GET /health`
+契约不变的前提下新增唯一的本地业务入口 `POST /api/v1/decrees/chancellor` 和专用丞相
+Agent；当前仍不含数据库模型、持久化任务编排、鉴权或生产部署能力。
 `frontend/` 已完成最小工程骨架的技术选型（Next.js App Router + React/react-dom +
 TypeScript，npm 管理依赖，扁平 `src/app/`、`src/lib/` 结构，`page.tsx` 只做后端
 健康检查展示，`backendClient.ts` 封装对后端的服务端调用；选型与验证证据见同一
@@ -24,7 +26,16 @@ Next.js 服务端 → FastAPI。`backend/` 已新增最小、无外部服务依�
 `docs/decisions/0008-deepseek-langgraph-integration.md`。DeepSeek 密钥解析进一步新增
 本地 dotenv 兜底能力：进程环境变量仍然优先，只有缺失/为空时才读取固定的私有路径
 `backend/.env.example`，且不写入全局 `os.environ`；决策见
-`docs/decisions/0009-deepseek-local-dotenv-fallback.md`。
+`docs/decisions/0009-deepseek-local-dotenv-fallback.md`。在此基础之上，仓库已交付第一个
+端到端业务闭环："上书房"下旨到"丞相"Agent：前端新增 `/study` 页面和服务端专用的
+`src/app/api/decrees/chancellor/route.ts`（Next.js Route Handler），`backendClient.ts`
+新增 `submitDecree()`；后端新增独立的业务子包 `backend/app/agents/chancellor/`
+（专用 LangGraph 丞相图，`build_chancellor_graph()`，只读复用 DeepSeek 配置加载和客户端
+构建，不调用 `build_deepseek_graph()`）和 `backend/app/api/decrees.py`
+（`POST /api/v1/decrees/chancellor`，唯一的业务 HTTP 端点，同步返回丞相回奏或脱敏
+503/502/4xx 错误）。`langgraph_runtime/graph.py`、`state.py`、`deepseek_graph.py` 与
+`GET /health` 契约零改动；本地 MVP 只支持 `127.0.0.1`，不支持鉴权/限流/公开部署；决策见
+`docs/decisions/0010-shangshufang-chancellor-agent.md`。
 
 ## 所有权
 
@@ -34,8 +45,8 @@ Next.js 服务端 → FastAPI。`backend/` 已新增最小、无外部服务依�
 | `docs/product/tasks/` | Codex 与 Claude Code 的顺序交接契约和验收证据 | 运行态队列、自动编排服务 |
 | `.agents/skills/product-flow/` | Codex 桌面任务内的一键产品交付编排 | 定时/CI 常驻服务、Claude 自主编排入口 |
 | `.claude/agents/` | Claude Code 的架构、模块交付、测试专业角色 | 跨客户端通用角色、并行写入隔离 |
-| `frontend/` | 前端工程及其验证；已确定 Next.js + React + TypeScript + npm 最小骨架 | 业务页面、状态管理、UI 组件库、鉴权 |
-| `backend/` | 后端运行/评测工程及其验证；已确定 Python + FastAPI + uvicorn 最小骨架；已确定最小 LangGraph 运行时基础（依赖版本范围、`app/langgraph_runtime/` 模块边界、`GraphState` 状态类型，见 ADR 0007）；已确定唯一的 DeepSeek provider 接入（`providers.yaml` 以 `active: deepseek` 固定激活项、配置加载校验、`build_deepseek_graph()` 图工厂、密钥仅来自 `DEEPSEEK_API_KEY`，见 ADR 0008） | 业务服务、存储和评测方式；具体业务 agent/workflow 图结构、DeepSeek 之外的模型供应商接入、持久化/checkpointer 方案仍未确定 |
+| `frontend/` | 前端工程及其验证；已确定 Next.js + React + TypeScript + npm 最小骨架；已交付第一个业务页面 `/study`（上书房下旨）和服务端 Route Handler `src/app/api/decrees/chancellor/route.ts`，见 ADR 0010 | 其它业务页面、状态管理、UI 组件库、鉴权 |
+| `backend/` | 后端运行/评测工程及其验证；已确定 Python + FastAPI + uvicorn 最小骨架；已确定最小 LangGraph 运行时基础（依赖版本范围、`app/langgraph_runtime/` 模块边界、`GraphState` 状态类型，见 ADR 0007）；已确定唯一的 DeepSeek provider 接入（`providers.yaml` 以 `active: deepseek` 固定激活项、配置加载校验、`build_deepseek_graph()` 图工厂、密钥仅来自 `DEEPSEEK_API_KEY`，见 ADR 0008）；已交付第一个业务 Agent 与 HTTP 契约：`app/agents/chancellor/`（丞相 Agent）+ `app/api/decrees.py`（`POST /api/v1/decrees/chancellor`），见 ADR 0010 | 其它业务 agent/workflow 图结构、DeepSeek 之外的模型供应商接入、持久化/checkpointer 方案仍未确定 |
 
 `AGENTS.md` 只提供经常需要的操作指引；本文件只记录已确认架构事实。重要选择在
 `docs/decisions/` 记录原因，不能把尚未决定的方案写成现状。
@@ -60,12 +71,15 @@ Next.js 服务端 → FastAPI。`backend/` 已新增最小、无外部服务依�
   及配套配置加载/客户端模块；配置要求 `active: deepseek`，见
   `docs/decisions/0008-deepseek-langgraph-integration.md`），
   这是本次范围内唯一确定的模型供应商接入；除 DeepSeek 外，当前仍明确排除：其它
-  模型供应商接入、聊天 HTTP API、provider 管理 API、具体业务工作流、工具调用、
+  模型供应商接入、通用聊天 HTTP API、provider 管理 API、工具调用、
   RAG、LangSmith 追踪、LangGraph Studio/CLI、持久化/checkpointer、数据库、
-  流式接口、human-in-the-loop、分布式执行、生产部署，以及任何新增的公开 HTTP
-  业务接口；`GET /health` 契约不变。完整清单与理由见
-  `docs/decisions/0007-langgraph-runtime-foundation.md` 与
-  `docs/decisions/0008-deepseek-langgraph-integration.md`。
+  流式接口、human-in-the-loop、分布式执行、生产部署；`GET /health` 契约不变。完整清单与
+  理由见 `docs/decisions/0007-langgraph-runtime-foundation.md` 与
+  `docs/decisions/0008-deepseek-langgraph-integration.md`。仓库已确定的唯一业务 HTTP
+  接口和业务 Agent 是 `POST /api/v1/decrees/chancellor` 与 `app/agents/chancellor/`
+  （上书房下旨到丞相，同步、无持久化、仅 `127.0.0.1` 本地 MVP），见
+  `docs/decisions/0010-shangshufang-chancellor-agent.md`；不得据此推断可以随意新增其它
+  业务工作流或派发/持久化能力。
 
 ## 结构变化门禁
 

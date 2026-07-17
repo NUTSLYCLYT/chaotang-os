@@ -29,8 +29,8 @@ agent 同时运行、自动互相调用、并行写入或 worktree 隔离。
 | --- | --- | --- | --- |
 | 持久规则 | `AGENTS.md` | 原生读取 `AGENTS.md` | `CLAUDE.md` 导入 `@AGENTS.md` |
 | 产品交接 | `docs/product/tasks/*.md` | 定义、置为 `Ready`、验收 | 实现、验证、报告 |
-| 专业交付角色 | ADR 0004 与任务契约 | 不适用 | `.claude/agents/*.md` |
-| 一键自动交付 | `.agents/skills/product-flow/` | 当前 Codex 任务编排与验收 | 由 runner 非交互调用 |
+| 专业交付角色 | ADR 0004、ADR 0011 与任务契约 | `.codex/agents/*.toml`（仅 Claude 受限接力） | `.claude/agents/*.md` |
+| 一键自动交付 | `.agents/skills/product-flow/` | 当前 Codex 任务编排、受限接力与验收 | 由 runner 非交互调用 |
 | 项目 skill | `.agents/skills/*` | 原生扫描 | `.claude/skills/*` 等内容入口 |
 | Stop 门禁 | `.agents/hooks/check-harness.mjs` | `.codex/hooks.json` | `.claude/settings.json` |
 | Harness 审计 | 同一份语义指令 | `.codex/agents/*.toml` | `.claude/agents/*.md` |
@@ -38,9 +38,10 @@ agent 同时运行、自动互相调用、并行写入或 worktree 隔离。
 两种客户端的容器格式可以不同,但职责、权限级别和验证结果必须等价。`harness-doctor` 在两端
 都保持只读。
 
-产品角色有意不对称。Codex 和 Claude Code 不需要保持同一角色配置，任务文件才是跨客户端
-事实源；Claude Code 的架构、模块交付和测试角色是项目级 subagents，由主会话顺序协调。
-详细状态流转和字段所有权见 `docs/product-collaboration.md`。
+正常路径的产品角色仍有意不对称，任务文件是跨客户端事实源；Claude Code 默认承担程序团队，
+只有 runner 明确检测到配额/速率限制时，当前 Codex 任务才用同名项目级 subagents 顺序接力。
+两端角色配置格式不同，但架构、逐模块交付、测试和负责人汇总的语义边界保持等价。详细状态
+流转和字段所有权见 `docs/product-collaboration.md`。
 
 ## 本地检查
 
@@ -55,7 +56,7 @@ node .agents/skills/product-flow/scripts/run-claude-delivery.mjs --self-test
 
 还需要进行客户端级人工冒烟检查:
 
-- Codex:确认项目级 hook、两个项目 skill 和 `harness-doctor` 可见。
+- Codex:确认项目级 hook、三个项目 skill、`harness-doctor` 及三个交付专业角色可见。
 - Claude Code:用 `/memory` 确认 `CLAUDE.md` 已导入 `AGENTS.md`,并确认两个 skill 与
   `harness-doctor` 可见；用 `/agents` 确认架构、模块交付和测试三个专业角色可见。
 - 在一个临时分支制造可恢复的 harness 失败,确认 Stop hook 首次要求继续、再次失败

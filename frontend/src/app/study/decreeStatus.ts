@@ -1,0 +1,85 @@
+/**
+ * `/study`（上书房）页面的下旨 UI 状态模型与映射函数。
+ *
+ * 纯函数模块：不依赖 React、DOM 或网络请求，可在 `decreeStatus.test.ts` 中完全离线
+ * 单测。本文件刻意不从 `src/lib/backendClient.ts` 导入任何运行时符号（哪怕只是
+ * 类型），以保持零依赖——`decreeStatus.test.ts` 通过 `node --test` 直接运行，不经过
+ * Next.js/TypeScript 打包，无法解析 `tsconfig.json` 的 `@/*` 路径别名（详见
+ * `frontend/AGENTS.md`「Test」章节的既有约束）。
+ *
+ * `DecreeSubmitOutcome` 在结构上与 `src/lib/backendClient.ts` 导出的
+ * `SubmitDecreeResult` 兼容（字段名/形状一致），调用方既可以直接把
+ * `SubmitDecreeResult` 值传入本模块的函数（结构类型兼容），也可以在
+ * `src/app/study/page.tsx` 里根据 Route Handler 的 HTTP 响应（`/api/decrees/chancellor`
+ * 已把 `SubmitDecreeResult` 映射为 JSON body + 状态码）重新构造出一个符合该结构的
+ * 字面量再传入。
+ */
+
+/** 与 `SubmitDecreeResult` 的 `kind` 保持一致的稳定错误分类。 */
+export type DecreeErrorKind = "validation" | "config" | "model" | "network" | "unknown";
+
+/** 与 `src/lib/backendClient.ts` 的 `SubmitDecreeResult` 结构兼容的下旨提交结果。 */
+export type DecreeSubmitOutcome =
+  | { ok: true; data: { status: string; chancellor: string; memorialText: string } }
+  | { ok: false; kind: DecreeErrorKind; error: string };
+
+/** `/study` 页面渲染下旨流程所需的全部 UI 状态。 */
+export type DecreeUiState =
+  | { phase: "idle" }
+  | { phase: "submitting" }
+  | { phase: "success"; chancellor: string; memorialText: string }
+  | { phase: "error"; message: string };
+
+/**
+ * 每种错误分类对应的、用户可读的中文固定文案。
+ *
+ * 刻意不透传 `DecreeSubmitOutcome` 里的 `error` 原文：一是该字段在校验失败场景下
+ * 本就是 `submitDecree` 提供的通用兜底文案（后端 422 响应体是 FastAPI 默认的
+ * `detail` 数组，不含 `message` 字段，细节见 `backend/app/api/decrees.py` 与相关
+ * 后端测试），二是固定文案能保证四种失败场景的措辞在 UI 上保持一致、友好、不泄露
+ * 任何内部实现细节。
+ */
+const FRIENDLY_MESSAGE_BY_KIND: Record<DecreeErrorKind, string> = {
+  validation: "旨意校验未通过：请确认内容非空且不超过 2000 字后重试。",
+  config: "朝堂后端配置暂不可用，请联系管理员检查后端配置后重试。",
+  model: "丞相暂时无法给出回奏（模型调用失败），请稍后重试。",
+  network: "无法连接朝堂后端，请确认后端服务已启动后重试。",
+  unknown: "发生未知错误，请稍后重试。",
+};
+
+/** 用户尚未点击「下旨」之前的初始状态。 */
+export const IDLE_UI_STATE: DecreeUiState = { phase: "idle" };
+
+/** 用户点击「下旨」后、收到响应前的处理中状态。 */
+export const SUBMITTING_UI_STATE: DecreeUiState = { phase: "submitting" };
+
+/**
+ * 根据当前文本和提交流程状态计算表单控件是否可用。
+ *
+ * 输入框是否可编辑只取决于是否正在提交，不能依赖当前文本是否可提交；否则空的
+ * 初始输入框会被永久禁用。按钮则同时受提交状态和去除首尾空白后的长度约束。
+ */
+export function getDecreeFormAvailability(
+  decreeText: string,
+  uiState: DecreeUiState,
+): { canEdit: boolean; canSubmit: boolean } {
+  const isSubmitting = uiState.phase === "submitting";
+  const normalizedLength = decreeText.trim().length;
+
+  return {
+    canEdit: !isSubmitting,
+    canSubmit: !isSubmitting && normalizedLength >= 1 && normalizedLength <= 2000,
+  };
+}
+
+/** 把一次下旨提交结果（成功或失败）映射为页面可直接渲染的 UI 状态。 */
+export function mapSubmitDecreeResultToUiState(result: DecreeSubmitOutcome): DecreeUiState {
+  if (result.ok) {
+    return {
+      phase: "success",
+      chancellor: result.data.chancellor,
+      memorialText: result.data.memorialText,
+    };
+  }
+  return { phase: "error", message: FRIENDLY_MESSAGE_BY_KIND[result.kind] };
+}

@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 const taskRoot = resolve(root, "docs/product/tasks");
+export const CODEX_FALLBACK_EXIT_CODE = 6;
 
 export function resolveTaskPath(task) {
   if (!task || isAbsolute(task) || task.includes("..")) return null;
@@ -24,11 +25,28 @@ export function taskStatus(content) {
   return lines.slice(index + 1).find((line) => line.trim())?.trim() ?? null;
 }
 
-export function deliveryExitCode(childCode, finalStatus) {
-  if (childCode !== 0) return childCode ?? 3;
+export function deliveryExitCode(childCode, finalStatus, claudeRestricted = false) {
+  if (claudeRestricted && finalStatus !== "Blocked" && !(childCode === 0 && finalStatus === "Implemented")) {
+    return CODEX_FALLBACK_EXIT_CODE;
+  }
+  if (childCode !== 0) return childCode === CODEX_FALLBACK_EXIT_CODE ? 3 : (childCode ?? 3);
   if (finalStatus === "Implemented") return 0;
   if (finalStatus === "Blocked") return 4;
   return 5;
+}
+
+export function claudeRestriction(event) {
+  if (event?.type === "rate_limit_event" && event.rate_limit_info?.status === "rejected") {
+    return {
+      kind: event.rate_limit_info?.rateLimitType ?? "rate_limit",
+      resetsAt: event.rate_limit_info?.resetsAt ?? null,
+    };
+  }
+  if (event?.error === "rate_limit") return { kind: "rate_limit", resetsAt: null };
+  if (event?.type === "result" && event.is_error === true && event.api_error_status === 429) {
+    return { kind: "rate_limit", resetsAt: null };
+  }
+  return null;
 }
 
 const LIVE_TEXT_LIMIT = 6_000;
@@ -122,6 +140,11 @@ export function createStreamFormatter() {
         `[Claude Hook] ${event.hook_name ?? event.hook_event ?? "未知"} ${event.outcome ?? "完成"}（exit=${event.exit_code ?? "未知"}）`,
       );
     }
+    if (event?.type === "rate_limit_event" && event.rate_limit_info?.status === "rejected") {
+      lines.push(
+        `[Claude 受限] ${event.rate_limit_info?.rateLimitType ?? "rate_limit"} 已拒绝本次调用；将由 Codex 角色流程接力`,
+      );
+    }
     if (event?.type === "result") {
       const durationSeconds = Number.isFinite(event.duration_ms)
         ? (event.duration_ms / 1_000).toFixed(1)
@@ -206,6 +229,25 @@ function runSelfTest() {
     ["Blocked 返回专用错误码", deliveryExitCode(0, "Blocked"), 4],
     ["In Progress 不得假绿", deliveryExitCode(0, "In Progress"), 5],
     ["透传 Claude 非零退出码", deliveryExitCode(7, "Implemented"), 7],
+    ["Claude 受限返回 Codex 接力码", deliveryExitCode(0, "In Progress", true), 6],
+    ["Claude 原生退出码不得伪装成 Codex 接力", deliveryExitCode(6, "In Progress"), 3],
+    ["任务 Blocked 时不得用 Codex 接力绕过", deliveryExitCode(0, "Blocked", true), 4],
+    ["任务已完成时不因迟到的受限事件回退", deliveryExitCode(0, "Implemented", true), 0],
+    [
+      "识别被拒绝的 Claude rate limit",
+      claudeRestriction({ type: "rate_limit_event", rate_limit_info: { status: "rejected", rateLimitType: "five_hour" } })?.kind,
+      "five_hour",
+    ],
+    [
+      "不把 Claude rate limit 警告误判为受限",
+      claudeRestriction({ type: "rate_limit_event", rate_limit_info: { status: "allowed_warning" } }),
+      null,
+    ],
+    [
+      "识别 Claude 429 结果",
+      claudeRestriction({ type: "result", is_error: true, api_error_status: 429 })?.kind,
+      "rate_limit",
+    ],
     ["默认使用实时 JSON 流", streamArgs.includes("stream-json"), true],
     ["转发 Claude 子角色文本", streamArgs.includes("--forward-subagent-text"), true],
     ["默认权限仍为 acceptEdits", streamArgs[streamArgs.indexOf("--permission-mode") + 1], "acceptEdits"],
@@ -307,6 +349,7 @@ async function main() {
 
   return await new Promise((done) => {
     let settled = false;
+    let restriction = null;
     const finish = (code) => {
       if (settled) return;
       settled = true;
@@ -321,7 +364,15 @@ async function main() {
     const lines = createInterface({ input: child.stdout });
     lines.on("line", (line) => {
       appendFileSync(logPath, `${line}\n`, "utf8");
-      for (const message of formatClaudeStreamLine(line, formatter)) {
+      let event = null;
+      try {
+        event = JSON.parse(line);
+      } catch {
+        // 非 JSON 输出仍交给现有 formatter 做脱敏展示。
+      }
+      restriction ??= claudeRestriction(event);
+      const messages = event ? formatter(event) : formatClaudeStreamLine(line, formatter);
+      for (const message of messages) {
         process.stdout.write(`${message}\n`);
       }
     });
@@ -336,8 +387,13 @@ async function main() {
     });
     child.on("close", (code) => {
       const finalStatus = taskStatus(readFileSync(absoluteTask, "utf8"));
-      const resultCode = deliveryExitCode(code, finalStatus);
-      if (code === 0 && resultCode !== 0) {
+      const resultCode = deliveryExitCode(code, finalStatus, restriction !== null);
+      if (resultCode === CODEX_FALLBACK_EXIT_CODE) {
+        process.stderr.write(
+          `product-flow: Claude Code 受限（${restriction.kind}），任务状态保留为 ${finalStatus ?? "缺失"}；请由当前 Codex 任务按同名专业角色顺序接力\n`,
+        );
+      }
+      if (code === 0 && resultCode !== 0 && resultCode !== CODEX_FALLBACK_EXIT_CODE) {
         process.stderr.write(
           `product-flow: Claude 已退出，但任务未完成，最终状态: ${finalStatus ?? "缺失"}\n`,
         );

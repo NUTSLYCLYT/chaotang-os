@@ -26,6 +26,8 @@ const REQUIRED_FILES = [
   "docs/decisions/0007-langgraph-runtime-foundation.md",
   "docs/decisions/0008-deepseek-langgraph-integration.md",
   "docs/decisions/0009-deepseek-local-dotenv-fallback.md",
+  "docs/decisions/0010-shangshufang-chancellor-agent.md",
+  "docs/decisions/0011-codex-fallback-for-claude-restrictions.md",
   "backend/config/providers.yaml",
   "backend/.env.template",
   "docs/failures/2026-07-15-shared-harness-stop-hook-false-green.md",
@@ -45,6 +47,9 @@ const REQUIRED_FILES = [
   ".claude/agents/test-engineer.md",
   ".codex/hooks.json",
   ".codex/agents/harness-doctor.toml",
+  ".codex/agents/solution-architect.toml",
+  ".codex/agents/module-engineer.toml",
+  ".codex/agents/test-engineer.toml",
 ];
 
 const LEGACY_META_HARNESS = [".harness", "frontend/.harness"];
@@ -99,6 +104,23 @@ const CLAUDE_DELIVERY_AGENTS = [
     name: "test-engineer",
     tools: ["Read", "Grep", "Glob", "Bash", "Edit", "Write"],
     permissionMode: "acceptEdits",
+    requiredText: ["Affected Modules", "Technical Plan", "允许路径", "不得修改产品任务文件", "不得调用其他角色"],
+  },
+];
+const CODEX_DELIVERY_AGENTS = [
+  {
+    name: "solution-architect",
+    sandboxMode: "read-only",
+    requiredText: ["Technical Plan", "不修改任何文件", "不要编辑任务文件"],
+  },
+  {
+    name: "module-engineer",
+    sandboxMode: null,
+    requiredText: ["允许路径", "frontend/", "backend/", "不得修改产品任务文件", "不得调用其他角色"],
+  },
+  {
+    name: "test-engineer",
+    sandboxMode: null,
     requiredText: ["Affected Modules", "Technical Plan", "允许路径", "不得修改产品任务文件", "不得调用其他角色"],
   },
 ];
@@ -209,15 +231,39 @@ export function claudeAgentErrors(path, content, expected) {
 
 export function parseTomlAgentBody(content) {
   const normalized = content.replace(/\r\n/g, "\n");
+  const nameMatch = normalized.match(/^name\s*=\s*"(.*)"$/m);
   const descMatch = normalized.match(/^description\s*=\s*"(.*)"$/m);
   const bodyMatch = normalized.match(/developer_instructions\s*=\s*"""([\s\S]*?)"""/);
-  if (!descMatch || !bodyMatch) return null;
+  if (!nameMatch || !descMatch || !bodyMatch) return null;
   const sandboxMatch = normalized.match(/^sandbox_mode\s*=\s*"(.*)"$/m);
   return {
+    name: nameMatch[1].trim(),
     description: descMatch[1].trim(),
     body: bodyMatch[1].trim(),
     sandboxMode: sandboxMatch?.[1].trim() ?? null,
   };
+}
+
+export function codexAgentErrors(path, content, expected) {
+  const errors = [];
+  const parsed = parseTomlAgentBody(content);
+  if (!parsed) return [`Codex 专业角色 ${path} 格式无法解析`];
+  if (parsed.name !== expected.name) {
+    errors.push(`Codex 专业角色 ${path} 的 name 必须是 ${expected.name}`);
+  }
+  if (parsed.sandboxMode !== expected.sandboxMode) {
+    const mode = expected.sandboxMode ?? "继承父会话（不得固定 sandbox_mode）";
+    errors.push(`Codex 专业角色 ${path} 的 sandbox_mode 必须是 ${mode}`);
+  }
+  if (/^model\s*=/m.test(content.replace(/\r\n/g, "\n"))) {
+    errors.push(`Codex 专业角色 ${path} 不得固定 model，必须继承当前 Codex 会话模型`);
+  }
+  for (const value of expected.requiredText) {
+    if (!parsed.body.includes(value)) {
+      errors.push(`Codex 专业角色 ${path} 缺少关键边界: ${value}`);
+    }
+  }
+  return errors;
 }
 
 export function hookCommands(content, event = "Stop") {
@@ -317,6 +363,9 @@ export function validateHarness(root) {
       "自动交付：",
       "run-claude-delivery.mjs --task",
       "总交付次数最多两次",
+      "Claude 受限时由 Codex 接力",
+      "专用退出码",
+      ".codex/agents/",
       "Accepted",
       "Blocked",
     ], errors);
@@ -340,6 +389,8 @@ export function validateHarness(root) {
       "\"--max-turns\", \"100\"",
       "--dry-run",
       "--self-test",
+      "claudeRestriction",
+      "CODEX_FALLBACK_EXIT_CODE",
     ], errors);
   }
 
@@ -374,6 +425,13 @@ export function validateHarness(root) {
     const absolutePath = join(root, relativePath);
     if (!existsSync(absolutePath)) continue;
     errors.push(...claudeAgentErrors(relativePath, readFileSync(absolutePath, "utf8"), expected));
+  }
+
+  for (const expected of CODEX_DELIVERY_AGENTS) {
+    const relativePath = `.codex/agents/${expected.name}.toml`;
+    const absolutePath = join(root, relativePath);
+    if (!existsSync(absolutePath)) continue;
+    errors.push(...codexAgentErrors(relativePath, readFileSync(absolutePath, "utf8"), expected));
   }
 
   const agentsPath = join(root, "AGENTS.md");
@@ -431,12 +489,20 @@ export function validateHarness(root) {
 
   const productGuidePath = join(root, "docs", "product-collaboration.md");
   if (existsSync(productGuidePath)) {
-    const missing = missingSections(readFileSync(productGuidePath, "utf8"), [
+    const productGuide = readFileSync(productGuidePath, "utf8");
+    const missing = missingSections(productGuide, [
       "Roles", "Task Contract", "Workflow", "Automation", "Conflict Rules", "Verification",
     ]);
     for (const section of missing) {
       errors.push(`docs/product-collaboration.md 缺少章节: ## ${section}`);
     }
+    requireText("docs/product-collaboration.md", productGuide, [
+      "rate_limit_event.status = rejected",
+      "Codex 接力码 `6`",
+      "solution-architect",
+      "module-engineer",
+      "test-engineer",
+    ], errors);
   }
 
   validateProductTasks(root, errors);
@@ -588,11 +654,34 @@ Pending
     ],
     ["拒绝缺 frontmatter 的 Markdown agent", parseMarkdownAgentBody("没有 frontmatter"), null],
     [
-      "解析 TOML agent 正文",
+      "拒绝缺 name 的 TOML agent",
       parseTomlAgentBody('description = "说明"\nsandbox_mode = "read-only"\ndeveloper_instructions = """\n正文内容\n"""\n'),
-      { description: "说明", body: "正文内容", sandboxMode: "read-only" },
+      null,
     ],
-    ["拒绝缺字段的 TOML agent", parseTomlAgentBody('description = "说明"\n'), null],
+    [
+      "解析 TOML agent 正文",
+      parseTomlAgentBody('name = "x"\ndescription = "说明"\nsandbox_mode = "read-only"\ndeveloper_instructions = """\n正文内容\n"""\n'),
+      { name: "x", description: "说明", body: "正文内容", sandboxMode: "read-only" },
+    ],
+    [
+      "接受合法 Codex 专业角色",
+      codexAgentErrors(
+        "x.toml",
+        'name = "x"\ndescription = "说明"\nsandbox_mode = "read-only"\ndeveloper_instructions = """\n边界说明\n"""\n',
+        { name: "x", sandboxMode: "read-only", requiredText: ["边界"] },
+      ),
+      [],
+    ],
+    [
+      "拒绝 Codex 专业角色固定模型",
+      codexAgentErrors(
+        "x.toml",
+        'name = "x"\ndescription = "说明"\nmodel = "fixed"\nsandbox_mode = "read-only"\ndeveloper_instructions = """\n边界说明\n"""\n',
+        { name: "x", sandboxMode: "read-only", requiredText: ["边界"] },
+      ),
+      ["Codex 专业角色 x.toml 不得固定 model，必须继承当前 Codex 会话模型"],
+    ],
+    ["拒绝缺字段的 TOML agent", parseTomlAgentBody('name = "x"\ndescription = "说明"\n'), null],
     [
       "解析 Stop command hook",
       hookCommands('{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"node check.mjs"}]}]}}'),
