@@ -133,6 +133,24 @@ def test_adapt_gongbu_hazard_phrasings_not_silently_downgraded():
         assert doc["light"] == "black", text
 
 
+def test_adapt_gongbu_unconfirmed_incident_escalates_not_silent_p2():
+    # 反 fail-open 的核心:储能事故范围内、既无危险信号也无 benign 确认词的输入
+    # (如孤立"温度90度")**绝不能静默判 P2**。fail-safe 默认升级为 P1/未确认+人工复核。
+    doc = rde.adapt_gongbu("储能柜温度90度，请安排售后故障处理")
+    assert doc is not None
+    assert doc["risk_level"] == "P1", "未确认储能事故被静默降为低危"
+    assert doc["light"] == "black"
+    assert doc["risk_level"] != "P2"
+
+
+def test_adapt_gongbu_positively_benign_is_p2():
+    # 只有正向 benign 证据才降 P2:确认常规售后不该被过度升级。
+    doc = rde.adapt_gongbu("储能柜例行巡检，设备一切正常，走个常规售后咨询")
+    assert doc is not None
+    assert doc["risk_level"] == "P2"
+    assert doc["light"] == "yellow"
+
+
 def test_adapt_gongbu_requires_storage_or_bms_scope():
     assert rde.adapt_gongbu("帮我写一份普通市场推广方案") is None
 

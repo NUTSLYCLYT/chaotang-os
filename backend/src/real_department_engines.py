@@ -861,15 +861,23 @@ _GONGBU_SCOPE_KEYWORDS = (
 # 因此用**字符级危险信号**而非精确词白名单——精确词白名单是 fail-open 设计,
 # 任何未列举的措辞(炸了/火海/明火/爆燃/烧穿)都会被静默降级。已在储能范围内,
 # 提到 火/爆/炸/燃/烟 或 飙/骤/失控/往上冲 等一律按 P0(误报方向安全)。
-# 已知残余局限:**无任何危险/恶化限定词的孤立数值**(如仅"温度90度")仍判 P2——
-# 文本层无法判定 90 度是紧急还是规格值。数值型严重度的正确防线是**真实遥测阈值门**
-# (在传感器数据管线上比大小),不是文本匹配;文本门只兜住有语义信号的紧急。见 deferred。
+# 无危险信号也**不默认低危**:见下方 adapt_gongbu 的三档 fail-safe——只有正向 benign
+# 确认词才降 P2,其余(如孤立"温度90度")落入 P1/未确认,强制人工安全复核。
+# 残余(已 deferred):P1 的"人工安全复核"目前只体现在 court_doc 的 safety/risk 文本,
+# 是否在派单前真正拦截,取决于审批队列是否消费该信号——需与 signoff/审批门对齐,
+# 单靠本引擎的文本不能保证下游执行(与门下省 veto 同类的"计算了但需下游执行"问题)。
 _GONGBU_P0_HAZARD_SIGNALS = (
     # 直接危险物象
     "火", "爆", "炸", "燃", "烟", "焦", "糊味",
     "热失控", "漏液", "鼓包", "胀气", "短路", "高温", "超温",
     # 恶化/失控趋势语(数值型紧急:温度飙升/持续往上冲/超标)
     "飙", "骤", "失控", "超标", "蔓延", "恶化", "往上冲",
+)
+# 正向 benign 确认词:只有文本**明确**表明是常规/无异常事项,才允许降到 P2。
+# 关键:P2 需要正向 benign 证据,而不是"没命中危险词"就默认低危——后者是 fail-open。
+_GONGBU_BENIGN_SIGNALS = (
+    "例行", "巡检", "咨询", "报价", "保养", "维护计划",
+    "一切正常", "无异常", "无故障", "常规", "培训", "验收合格",
 )
 _GONGBU_GAP_RULES = (
     ("设备编号", ("设备编号", "设备号", "BMS-")),
@@ -889,26 +897,41 @@ def adapt_gongbu(task_text: str) -> dict | None:
     if not any(keyword.lower() in task_text.lower() for keyword in _GONGBU_SCOPE_KEYWORDS):
         return None
 
-    p0 = any(signal in task_text for signal in _GONGBU_P0_HAZARD_SIGNALS)
-    risk_level = "P0" if p0 else "P2"
-    light = "black" if p0 else "yellow"
+    # fail-safe 三档,按**正向证据**判,不靠"没命中危险词"默认低危:
+    #  - 命中危险/恶化信号 → P0(确认紧急,断电撤离消防)
+    #  - 否则命中 benign 确认词 → P2(确认常规,可隔离补遥测)
+    #  - 两者都没有 → P1/未确认(储能事故范围内、严重度未知),**绝不静默降 P2**:
+    #    保守升级 + 强制人工安全复核,确认无火情/热失控后方可降级。
+    hazard = any(signal in task_text for signal in _GONGBU_P0_HAZARD_SIGNALS)
+    benign = (not hazard) and any(
+        signal in task_text for signal in _GONGBU_BENIGN_SIGNALS
+    )
+    if hazard:
+        risk_level, light = "P0", "black"
+        safety = "现场断电+撤离+消防待命；不得远程复位或直接下发维修指令"
+        headline_note = "命中强制安全阈值"
+    elif benign:
+        risk_level, light = "P2", "yellow"
+        safety = "先隔离设备并补齐遥测，再安排工程师复核"
+        headline_note = "确认常规售后，需补证后诊断"
+    else:
+        risk_level, light = "P1", "black"
+        safety = (
+            "严重度未确认；按潜在紧急保守处置，强制人工安全复核确认无火情/热失控后"
+            "方可降级；确认前不得径直下发维修或远程复位"
+        )
+        headline_note = "严重度未确认，保守升级+人工安全复核"
+    emergency = light == "black"  # P0 与 P1-未确认 都按高可见处置,不静默低危
     missing = [
         label
         for label, markers in _GONGBU_GAP_RULES
         if not any(marker.lower() in task_text.lower() for marker in markers)
     ]
-    safety = (
-        "现场断电+撤离+消防待命；不得远程复位或直接下发维修指令"
-        if p0
-        else "先隔离设备并补齐遥测，再安排工程师复核"
-    )
-    headline = (
-        f"{risk_level} 储能售后故障分诊：{'命中强制安全阈值' if p0 else '需补证后诊断'}"
-    )
+    headline = f"{risk_level} 储能售后故障分诊：{headline_note}"
     items = [
         {
             "stage": "故障分诊",
-            "level": "black" if p0 else "yellow",
+            "level": "black" if emergency else "yellow",
             "title": f"紧急度 {risk_level}；{safety}",
             "fix": "确认设备型号、编号、地点和绝对告警时间",
             "evidence_ref": "task://gongbu/triage",
@@ -936,7 +959,7 @@ def adapt_gongbu(task_text: str) -> dict | None:
         },
         {
             "stage": "处置工单",
-            "level": "black" if p0 else "yellow",
+            "level": "black" if emergency else "yellow",
             "title": "生成待审批工单草稿，不直接发送或下发维修",
             "fix": "列出 BOM、工时区间、人员配置和客户话术；冲突结论转人工",
             "evidence_ref": "task://gongbu/workorder-draft",
