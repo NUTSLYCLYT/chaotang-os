@@ -7,6 +7,8 @@ import { ThreeAxisOfficeRails } from '@/components/chaotang/department/ThreeAxis
 import { CHAOTANG_V1_LIUBU } from '@/config/chaotang-v1-modules';
 import DomainCard from '@/features/zhuangyuan/components/DomainCard';
 import { MINISTRIES, type Ministry } from '@/features/zhuangyuan/components/manorData';
+import { YushiRejectionRateCard } from '@/features/guoli/components/YushiRejectionRateCard';
+import { isGuoliThinSliceEnabled } from '@/features/guoli/lib/guoli-overview';
 import { assetUrl } from '@/lib/asset';
 import { backendFetch } from '@/lib/backend-api';
 import type { ManorMinistryMetricsMap } from '@/lib/contracts/manor';
@@ -84,6 +86,7 @@ export default function LiubuPage() {
     : null;
   const activeDeptCode = selectedKey ? (MINISTRY_TO_DEPT_CODE[selectedKey] ?? 'manors') : 'manors';
   const activeDeptLabel = selectedMinistry ? selectedMinistry.title.split('·')[0].trim() : '六部';
+  const showGuoliThinSlice = isGuoliThinSliceEnabled();
 
   useLayoutEffect(() => {
     const stage = stageRef.current;
@@ -105,7 +108,14 @@ export default function LiubuPage() {
   }, []);
 
   return (
-    <main className="h-full w-full overflow-hidden bg-[#04060e]">
+    <main className="relative h-full w-full overflow-hidden bg-[#04060e]">
+      {showGuoliThinSlice ? (
+        <div className="pointer-events-none absolute inset-x-4 top-4 z-40 flex justify-center md:inset-x-8 md:top-6">
+          <div className="pointer-events-auto w-full max-w-[980px]">
+            <YushiRejectionRateCard />
+          </div>
+        </div>
+      ) : null}
       <div className="relative h-full overflow-hidden">
         {selectedKey ? (
           <ThreeAxisOfficeRails

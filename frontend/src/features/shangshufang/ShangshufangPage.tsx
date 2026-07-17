@@ -48,6 +48,7 @@ import { SHANGSHUFANG_ASSETS } from './constants';
 import { assetUrl } from '@/lib/asset';
 import { getSession, getToken, refreshAccessToken } from '@/lib/auth';
 import { APP_BASE_PATH, withBasePath } from '@/lib/base-path';
+import { backendFetch } from '@/lib/backend-api';
 import {
   chaotang,
   type LaunchLoopCase,
@@ -3252,7 +3253,7 @@ export function ShangshufangPage() {
       });
 
       try {
-        const response = await fetch(withBasePath('/api/court/shangshufang/finance-intel-loop/complete'), {
+        const response = await backendFetch('/api/shangshufang/finance-intel-loop/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           cache: 'no-store',
