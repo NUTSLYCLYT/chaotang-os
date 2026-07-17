@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "LOCAL_FEEDBACK_ONLY",
+  "review_version": 1,
+  "packet_id": "P5.1",
+  "change_id": "fix-p5-1-literal-normalization-repair-20260717",
+  "predecessor_integration_sha": "bbb100004845331b314e5196e645125f25199a5f",
+  "reviewed_head_sha": "5851f13ce47839eae295556e5b0ecddb6eaa9aad",
+  "report_path": ".harness/changes/fix-p5-1-literal-normalization-repair-20260717/packet_review/review-v1.md",
+  "report_sha256": "d066d958b8c45adc18788c0efc29b90f275c057920998cbdac957345bbfff2d0",
+  "verdict": "PACKET_REVIEW_GO"
+}
