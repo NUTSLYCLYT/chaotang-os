@@ -12,7 +12,10 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-_PERSONA_DIR = Path(__file__).resolve().parent.parent / "skills" / "personas"
+# Personas are a repository-level shared evidence source, not backend-local
+# runtime code.  Resolve from ``backend/src`` back to the worktree root so the
+# legal corpus remains available in clean worktrees and installed checkouts.
+_PERSONA_DIR = Path(__file__).resolve().parent.parent.parent / "skills" / "personas"
 
 # 法律领域术语词典(命中这些才算"有法可依"的法律问题,非泛泛文本)
 _LEGAL_LEXICON = (

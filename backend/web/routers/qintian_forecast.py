@@ -16,12 +16,23 @@ from fastapi import APIRouter, Query
 router = APIRouter(prefix="/api/qintian", tags=["qintian-forecast"])
 
 
+def _observe(endpoint: str, operation: str) -> None:
+    from src.migration_telemetry import record_legacy_endpoint_call
+
+    record_legacy_endpoint_call(
+        endpoint=f"qintian_forecast.{endpoint}",
+        caller_id="anonymous",
+        operation=operation,
+    )
+
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 @router.get("/scenarios")
 def qintian_scenarios() -> dict:
+    _observe("scenarios", "read")
     return {
         "success": True,
         "data": [],
@@ -32,6 +43,7 @@ def qintian_scenarios() -> dict:
 
 @router.post("/scenarios/generate")
 def qintian_scenarios_generate() -> dict:
+    _observe("scenarios.generate", "write")
     return {
         "success": False,
         "sourceLabel": "FALLBACK",
@@ -42,6 +54,7 @@ def qintian_scenarios_generate() -> dict:
 
 @router.get("/learning-path")
 def qintian_learning_path(forecastId: str = Query(...)) -> dict:
+    _observe("learning-path", "read")
     return {
         "success": False,
         "data": None,

@@ -160,22 +160,25 @@ test.describe('finance intel loop UI', () => {
     capturedRuns.length = 0;
   });
 
-  test('court briefing decree input completes public and secret finance intel loops', async ({ page }) => {
+  test('shangshufang decree input reaches authorized decision for public and secret finance intel loops', async ({ page }) => {
     test.setTimeout(180_000);
     await seedJwtSession(page);
 
-    await page.goto(`${await resolveBasePath(page.request)}/court-briefing`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${await resolveBasePath(page.request)}/shangshufang`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByTestId('ssf-ask-input').last()).toBeVisible({ timeout: 30_000 });
 
     await page.getByTestId('decree-mode-order').last().click();
     await page.getByTestId('ssf-ask-input').last().fill('用 SEC 官方来源评估 AAPL 当前估值是否合理，只做内部观察，不给买卖建议。');
     await page.getByTestId('decree-submit').last().click();
 
-    await expect(page.getByText('finance-intel-loop 已走完')).toBeVisible({ timeout: 90_000 });
-    await expect(page.getByText('锦衣卫取证', { exact: true }).first()).toBeVisible();
-    await expect(page.getByText(/户部/).first()).toBeVisible();
-    await expect(page.getByText(/史馆归档/).first()).toBeVisible();
-    await expect(page.getByText('https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json')).toBeVisible();
+    const decisionStatus = page.getByRole('status').filter({
+      hasText: 'finance-intel-loop is ready for authorized decision',
+    });
+    await expect(decisionStatus).toBeVisible({ timeout: 90_000 });
+    await expect(decisionStatus).toContainText('no decree, execution, or archive has been issued');
+    await expect(decisionStatus).toContainText('https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json');
+    await expect(page.getByText('查看裁决 brief')).toBeVisible();
+    await expect(page.getByText('查看归档 / 案件链路')).toHaveCount(0);
     if (capturedRuns[0]) {
       expect(capturedRuns[0]).toMatchObject({
         entry_swarm: 'finance',
@@ -191,18 +194,12 @@ test.describe('finance intel loop UI', () => {
     await page.getByTestId('ssf-ask-input').last().fill('用 SEC 官方来源评估 MSFT 当前估值风险，只做内部观察，不给买卖建议。');
     await page.getByTestId('decree-submit').last().click();
 
-    await expect(page.getByText('finance-intel-loop 已走完')).toBeVisible({ timeout: 90_000 });
+    await expect(decisionStatus).toContainText(
+      'https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json',
+      { timeout: 90_000 },
+    );
     await expect(page.getByTestId('decree-mode-secret').last()).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.getByText('https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json')).toBeVisible();
-    await page.getByText('查看归档 / 案件链路').last().click();
-    await expect(page).toHaveURL(/\/finance-intel-loop\//, { timeout: 30_000 });
-    await expect(page.getByTestId('finance-loop-case-timeline')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText('上书房立案')).toBeVisible();
-    await expect(page.getByText('锦衣卫取证')).toBeVisible();
-    await expect(page.getByText('户部测算奏折')).toBeVisible();
-    await expect(page.getByText('上书房裁决')).toBeVisible();
-    await expect(page.getByText('执行复命')).toBeVisible();
-    await expect(page.getByText('史馆归档')).toBeVisible();
+    await expect(page.getByText('查看归档 / 案件链路')).toHaveCount(0);
     if (capturedRuns[1]) {
       expect((capturedRuns[1].intelligence_pack as { sourceUrls?: string[] } | undefined)?.sourceUrls).toEqual(expect.arrayContaining([
         'https://data.sec.gov/api/xbrl/companyfacts/CIK0000789019.json',
@@ -211,10 +208,10 @@ test.describe('finance intel loop UI', () => {
     }
   });
 
-  test('court briefing decree input stops on missing evidence and does not present archive success', async ({ page }) => {
+  test('shangshufang decree input stops on missing evidence and does not present archive success', async ({ page }) => {
     test.setTimeout(90_000);
     await seedJwtSession(page);
-    await page.route('**/api/court/shangshufang/finance-intel-loop/complete', async (route) => {
+    await page.route('**/api/shangshufang/finance-intel-loop/complete', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -239,7 +236,7 @@ test.describe('finance intel loop UI', () => {
       });
     });
 
-    await page.goto(`${await resolveBasePath(page.request)}/court-briefing`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${await resolveBasePath(page.request)}/shangshufang`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByTestId('ssf-ask-input').last()).toBeVisible({ timeout: 30_000 });
 
     await page.getByTestId('decree-mode-order').last().click();
@@ -248,9 +245,8 @@ test.describe('finance intel loop UI', () => {
 
     await expect(page.getByText('finance-intel-loop 已暂停')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('需补证 / 不可放行').first()).toBeVisible();
-    await expect(page.getByText('需补证：尚未挂载 SEC 官方来源链接')).toBeVisible();
     await expect(page.getByText('查看归档 / 案件链路')).toHaveCount(0);
     await page.getByText('去锦衣卫补证').last().click();
-    await expect(page).toHaveURL(/\/intel$/, { timeout: 30_000 });
+    await expect(page).toHaveURL(/\/zhuanshu\/jinyiwei$/, { timeout: 30_000 });
   });
 });

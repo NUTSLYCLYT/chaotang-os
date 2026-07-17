@@ -1,14 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Boxes, Crown, Telescope } from 'lucide-react';
 import { GlassPanel } from '@/components/ui/glass-panel';
-import { HanlinRoleBadge } from '@/features/hanlin/components/hanlin-role-badge';
 import { PageBrief } from '@/features/shared/components/page-brief';
 import { TaiziBrief } from '@/features/hanlin/components/taizi-brief';
-import { hanlinRoleHeaders, hasHanlinCapability, readHanlinRole } from '@/features/hanlin/lib/access';
-import { hanlinApi } from '@/features/hanlin/lib/api';
+import { deriveHanlinLedgerView } from '@/features/hanlin/lib/read-model';
 import {
   useHanlinOverview,
   useHanlinContributions,
@@ -17,70 +15,34 @@ import {
   useHanlinIncubation,
 } from '@/features/hanlin/hooks/use-hanlin-data';
 
-const exportPreview = [
-  {
-    name: '法律初诊摘要模板包',
-    type: 'Service Pack',
-    note: '适合对外打包成垂直模板服务。',
-  },
-  {
-    name: '知识同步增量工作流',
-    type: 'Workflow Pack',
-    note: '适合变成企业知识接入服务的标准件。',
-  },
-  {
-    name: '军机处回执表达组件',
-    type: 'UI / Workflow',
-    note: '适合沉淀为主系统标准交互资产。',
-  },
-] as const;
-
 export function HanlinHomePage() {
-  const role = readHanlinRole();
-  const canRefresh = hasHanlinCapability(role, 'scouting_refresh');
-  const canResetDemo = hasHanlinCapability(role, 'demo_reset');
-  const [resetting, setResetting] = useState(false);
-  const [message, setMessage] = useState<string>('');
-
   // useSWR 替代 useEffect + fetch + setState（数据从 Turso 或 filesystem 加载）
-  const { overview, summary, isLoading: overviewLoading, error: overviewError, mutate: mutateOverview } = useHanlinOverview();
-  const { contributions, isLoading: contribLoading, mutate: mutateContrib } = useHanlinContributions();
-  const { awards, isLoading: awardsLoading, mutate: mutateAwards } = useHanlinAwards();
-  const { projects, candidates, isLoading: scoutingLoading, mutate: mutateScouting } = useHanlinScouting();
-  const { modules, isLoading: incubationLoading, mutate: mutateIncubation } = useHanlinIncubation();
+  const { overview, summary, isLoading: overviewLoading, error: overviewError } = useHanlinOverview();
+  const { contributions, isLoading: contribLoading, error: contribError } = useHanlinContributions();
+  const { awards, isLoading: awardsLoading, error: awardsError } = useHanlinAwards();
+  const { projects, candidates, isLoading: scoutingLoading, error: scoutingError } = useHanlinScouting();
+  const { modules, isLoading: incubationLoading, error: incubationError } = useHanlinIncubation();
 
   const isLoading = overviewLoading || contribLoading || awardsLoading || scoutingLoading || incubationLoading;
-  const status: 'loading' | 'ready' | 'error' = isLoading ? 'loading' : overviewError ? 'error' : 'ready';
-
-  async function load() {
-    await Promise.all([mutateOverview(), mutateContrib(), mutateAwards(), mutateScouting(), mutateIncubation()]);
-  }
-
-  async function resetDemo() {
-    setResetting(true);
-    setMessage('');
-    const response = await fetch(hanlinApi('/api/hanlin/reset-demo'), {
-      method: 'POST',
-      headers: hanlinRoleHeaders(role),
-    });
-    if (response.ok) {
-      await load();
-      setMessage('翰林院演示院卷已恢复到标准初始状态。');
-    } else {
-      setMessage('演示院卷重置失败，请稍后重试。');
-    }
-    setResetting(false);
-  }
+  const hasDataError = Boolean(overviewError || contribError || awardsError || scoutingError || incubationError);
+  const status: 'loading' | 'ready' | 'error' = isLoading ? 'loading' : hasDataError ? 'error' : 'ready';
+  const trustedOverview = hasDataError ? null : overview;
+  const trustedContributions = hasDataError ? [] : contributions;
+  const trustedAwards = hasDataError ? [] : awards;
+  const trustedProjects = hasDataError ? [] : projects;
+  const trustedCandidates = hasDataError ? [] : candidates;
+  const trustedModules = hasDataError ? [] : modules;
+  const ledgerView = deriveHanlinLedgerView(trustedOverview);
 
   const stats = useMemo(
     () =>
-      summary ?? {
+      (hasDataError ? null : summary) ?? {
         currentAwardCycle: '未立榜期',
-        submittedContributions: contributions.length,
-        rankedContributions: awards.length,
-        activeCandidates: candidates.length,
-        incubatingModules: modules.filter((m) => m.status === 'standardizing' || m.status === 'packaged').length,
-        exportableModules: modules.filter((m) => m.status === 'sellable' || m.status === 'active').length,
+        submittedContributions: trustedContributions.length,
+        rankedContributions: trustedAwards.length,
+        activeCandidates: trustedCandidates.length,
+        incubatingModules: trustedModules.filter((m) => m.status === 'standardizing' || m.status === 'packaged').length,
+        exportableModules: trustedModules.filter((m) => m.status === 'sellable' || m.status === 'active').length,
         adoptedContributions: 0,
         queuedAwards: 0,
         paidAwards: 0,
@@ -89,13 +51,13 @@ export function HanlinHomePage() {
         topContributionId: null,
         topCandidateId: null,
       },
-    [awards.length, candidates.length, contributions.length, modules, summary],
+    [hasDataError, summary, trustedAwards.length, trustedCandidates.length, trustedContributions.length, trustedModules],
   );
 
   const displayStats =
-    status === 'loading'
+    status !== 'ready'
       ? {
-          currentAwardCycle: '整理中',
+          currentAwardCycle: status === 'loading' ? '整理中' : '不可用',
           submittedContributions: '—',
           activeCandidates: '—',
           exportableModules: '—',
@@ -109,16 +71,16 @@ export function HanlinHomePage() {
           incubatingModules: `${stats.incubatingModules}`,
         };
 
-  const topAward = awards[0];
+  const topAward = trustedAwards[0];
   const topContribution =
-    overview?.topContribution ??
-    contributions.find((item) => item.id === topAward?.contributionId) ??
-    contributions[0] ??
+    trustedOverview?.topContribution ??
+    trustedContributions.find((item) => item.id === topAward?.contributionId) ??
+    trustedContributions[0] ??
     null;
-  const topCandidate = overview?.topCandidate ?? candidates[0] ?? null;
+  const topCandidate = trustedOverview?.topCandidate ?? trustedCandidates[0] ?? null;
   const topProject =
-    overview?.topCandidate?.project ??
-    (topCandidate ? projects.find((item) => item.id === topCandidate.projectId) ?? null : null);
+    trustedOverview?.topCandidate?.project ??
+    (topCandidate ? trustedProjects.find((item) => item.id === topCandidate.projectId) ?? null : null);
 
   return (
     <div className="h-full overflow-y-auto">
@@ -140,34 +102,32 @@ export function HanlinHomePage() {
           secondaryAction={{ label: '查看升级候选', href: '/hanlin/scouting', tone: 'secondary' }}
         />
 
-        <HanlinRoleBadge
-          role={role}
-          note={canRefresh ? '当前席位可刷新搜策候选，并统筹翰林院动作。' : '当前席位可浏览翰林院结果，但不具备全部治理动作。'}
-        />
-
-        {canResetDemo ? (
-          <GlassPanel tone="elevated" padding="md">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-[12px] leading-6 text-[#D7CCA9]">
-                演示、QA 或路演前，可将翰林院数据恢复为标准初始状态，避免前序操作污染当前展示。
+        <GlassPanel tone="elevated" padding="md">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="section-eyebrow">Truth Ledger · 真值台账</div>
+              <h2 className="section-title text-[18px]">
+                {ledgerView.isAvailable ? '真实离线判定已接入' : '暂无真实离线判定'}
+              </h2>
+              <p className="mt-2 max-w-[760px] text-[12px] leading-6 text-[#AEB7D1]">
+                {ledgerView.isAvailable
+                  ? '数据直接来自后端 truth_ledger，只读展示确定性评测结果。'
+                  : '后端账本为空或不可用；当前保持 FALLBACK 空态，不启用本地演示数据。'}
               </p>
-              <button
-                type="button"
-                disabled={resetting}
-                onClick={() => void resetDemo()}
-                className="rounded-full border border-[#F0C66A]/24 bg-[#F0C66A]/10 px-3 py-1.5 text-[11px] text-[#F0C66A] transition hover:bg-[#F0C66A]/16 disabled:opacity-60"
-              >
-                {resetting ? '重置中...' : '重置演示院卷'}
-              </button>
             </div>
-          </GlassPanel>
-        ) : null}
-
-        {message ? (
-          <GlassPanel tone="elevated" padding="md">
-            <p className="text-[12px] text-[#D7CCA9]">{message}</p>
-          </GlassPanel>
-        ) : null}
+            <span className={`rounded-full border px-3 py-1 text-[11px] ${ledgerView.isAvailable ? 'border-[#7AD3A1]/25 bg-[#7AD3A1]/10 text-[#9BE7B9]' : 'border-[#F0C66A]/25 bg-[#F0C66A]/10 text-[#F6DFA2]'}`}>
+              {ledgerView.sourceLabel}
+            </span>
+          </div>
+          {ledgerView.isAvailable ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <LedgerStat label="账本条目" value={ledgerView.totalEntries} />
+              <LedgerStat label="确定性判定" value={ledgerView.deterministicEntries} />
+              <LedgerStat label="通过 / 未通过" value={`${ledgerView.passed ?? 0} / ${ledgerView.failed ?? 0}`} />
+              <LedgerStat label="判定通过率" value={formatRatio(ledgerView.passRate)} />
+            </div>
+          ) : null}
+        </GlassPanel>
 
         <TaiziBrief
           awardCycle={displayStats.currentAwardCycle}
@@ -179,7 +139,7 @@ export function HanlinHomePage() {
 
         {status === 'error' ? (
           <GlassPanel tone="elevated" padding="md">
-            <p className="text-[12px] text-[#F6DFA2]">翰林院首页数据暂时未取到，当前页会回退到已有本地状态后的空视图。</p>
+            <p className="text-[12px] text-[#F6DFA2]">翰林院首页数据暂时未取到，当前页保持 FALLBACK 空视图，不启用本地演示数据。</p>
           </GlassPanel>
         ) : null}
 
@@ -249,18 +209,22 @@ export function HanlinHomePage() {
               </Link>
             </div>
             <div className="space-y-3">
-              {exportPreview.map((item) => (
-                <div key={item.name} className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-4">
+              {trustedModules.length === 0 ? (
+                <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-4 text-[12px] text-[#AEB7D1]">
+                  当前没有来自后端读模型的修典模块；不使用本地示例填充。
+                </div>
+              ) : trustedModules.slice(0, 3).map((item) => (
+                <div key={item.id} className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="text-[12px] font-semibold text-[#F5E9C9]">{item.name}</div>
-                      <div className="mt-1 text-[11px] uppercase tracking-[0.18em] text-[#8F835F]">{item.type}</div>
+                      <div className="mt-1 text-[11px] uppercase tracking-[0.18em] text-[#8F835F]">{item.ownerName}</div>
                     </div>
                     <div className="rounded-full border border-[#F0C66A]/20 bg-[#F0C66A]/10 px-2.5 py-1 text-[11px] text-[#F0C66A]">
-                      待修典
+                      {moduleStatusLabel(item.status)}
                     </div>
                   </div>
-                  <p className="mt-2 text-[12px] leading-6 text-[#AEB7D1]">{item.note}</p>
+                  <p className="mt-2 text-[12px] leading-6 text-[#AEB7D1]">{item.notes}</p>
                 </div>
               ))}
             </div>
@@ -291,6 +255,34 @@ export function HanlinHomePage() {
           </GlassPanel>
         </div>
       </div>
+    </div>
+  );
+}
+
+function formatRatio(value: number | null): string {
+  return value === null ? '—' : `${Math.round(value * 100)}%`;
+}
+
+function moduleStatusLabel(status: string): string {
+  switch (status) {
+    case 'standardizing':
+      return '修典中';
+    case 'packaged':
+      return '已打包';
+    case 'sellable':
+      return '可售候选';
+    case 'active':
+      return '已上架';
+    default:
+      return '草稿';
+  }
+}
+
+function LedgerStat({ label, value }: { label: string; value: string | number | null }) {
+  return (
+    <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3">
+      <div className="text-[10px] uppercase tracking-[0.16em] text-[#8F835F]">{label}</div>
+      <div className="mt-2 text-[20px] font-semibold text-[#F5E9C9]">{value ?? '—'}</div>
     </div>
   );
 }
