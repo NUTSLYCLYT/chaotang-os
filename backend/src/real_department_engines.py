@@ -883,11 +883,19 @@ _GONGBU_P0_HAZARD_SIGNALS = (
     # 恶化/失控趋势语(数值型紧急:温度飙升/持续往上冲/超标)
     "飙", "骤", "失控", "超标", "蔓延", "恶化", "往上冲",
 )
-# 正向 benign 确认词:只有文本**明确**表明是常规/无异常事项,才允许降到 P2。
-# 关键:P2 需要正向 benign 证据,而不是"没命中危险词"就默认低危——后者是 fail-open。
+# benign 只认**正向无异常确认**短语,不认场景词。关键修正(反 fail-open 残洞):
+# 巡检/咨询/报价/常规 只是场景,不是"没问题"的确认——"巡检发现异常"不是常规。
+# 若把它们当 benign,真实异常会被这些子串静默降 P2。故 benign 必须是明确说"正常/
+# 无异常/合格"的短语,且这些短语自身不含 异常/故障 负向词(避开"发现异常"的歧义)。
 _GONGBU_BENIGN_SIGNALS = (
-    "例行", "巡检", "咨询", "报价", "保养", "维护计划",
-    "一切正常", "无异常", "无故障", "常规", "培训", "验收合格",
+    "一切正常", "均正常", "运行正常", "设备正常", "工况正常",
+    "无异常", "无故障", "未见异常", "验收合格", "测试通过", "复检合格",
+)
+# 明确问题信号:出现任一,即使同时有"正常"措辞也不降 P2(挡"正常但有报警"的自相矛盾),
+# 更挡"巡检发现偏高/报警"这类。这些是无歧义的问题词(不含 异常/故障 以避开负向歧义)。
+_GONGBU_ANOMALY_SIGNALS = (
+    "报警", "告警", "异响", "偏高", "偏低", "投诉", "隐患", "疑似",
+    "失效", "不良", "超差", "掉电", "跳闸", "异味", "发烫", "膨胀",
 )
 _GONGBU_GAP_RULES = (
     ("设备编号", ("设备编号", "设备号", "BMS-")),
@@ -913,8 +921,12 @@ def adapt_gongbu(task_text: str) -> dict | None:
     #  - 两者都没有 → P1/未确认(储能事故范围内、严重度未知),**绝不静默降 P2**:
     #    保守升级 + 强制人工安全复核,确认无火情/热失控后方可降级。
     hazard = any(signal in task_text for signal in _GONGBU_P0_HAZARD_SIGNALS)
-    benign = (not hazard) and any(
-        signal in task_text for signal in _GONGBU_BENIGN_SIGNALS
+    has_anomaly = any(signal in task_text for signal in _GONGBU_ANOMALY_SIGNALS)
+    # benign 需正向"正常"确认,且无任何问题信号——有异常迹象就不算常规,升级不降级
+    benign = (
+        (not hazard)
+        and (not has_anomaly)
+        and any(signal in task_text for signal in _GONGBU_BENIGN_SIGNALS)
     )
     if hazard:
         risk_level, light = "P0", "black"
