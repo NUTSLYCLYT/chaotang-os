@@ -176,11 +176,25 @@ def test_adapt_gongbu_unconfirmed_incident_escalates_not_silent_p2():
 
 
 def test_adapt_gongbu_positively_benign_is_p2():
-    # 只有正向 benign 证据才降 P2:确认常规售后不该被过度升级。
-    doc = rde.adapt_gongbu("储能柜例行巡检，设备一切正常，走个常规售后咨询")
+    # 只有正向"正常"确认才降 P2:确认常规售后不该被过度升级。
+    doc = rde.adapt_gongbu("储能柜例行巡检，设备一切正常，未见异常")
     assert doc is not None
     assert doc["risk_level"] == "P2"
     assert doc["light"] == "yellow"
+
+
+def test_adapt_gongbu_benign_context_word_does_not_downgrade_real_anomaly():
+    # 反 fail-open 残洞:场景词(巡检/咨询)不是"没问题"的确认。带真实异常迹象的巡检
+    # 绝不能被 benign 子串降 P2。以下都无 P0 危险字但有异常信号,必须升级为 P1,不 P2。
+    for text in (
+        "储能柜例行巡检时发现电压偏高并有报警",
+        "客户咨询:储能柜近期频繁跳闸掉电",
+        "储能柜巡检一切正常，但仪表持续报警",  # "正常"与"报警"矛盾 → 不降级
+    ):
+        doc = rde.adapt_gongbu(text)
+        assert doc is not None, text
+        assert doc["risk_level"] == "P1", f"{text} 被 benign 子串静默降级"
+        assert doc["risk_level"] != "P2", text
 
 
 def test_adapt_gongbu_requires_storage_or_bms_scope():
