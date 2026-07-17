@@ -35,6 +35,7 @@ from app.agents.ministries.agent import MinistryAgentInvocationError
 from app.agents.ministries.prompts import (
     MINISTRIES,
     NO_IRREVERSIBLE_ACTION_CONSTRAINT,
+    ministry_routing_guide,
     ministry_system_prompt,
 )
 from app.agents.structured_output import StructuredOutputError
@@ -80,6 +81,40 @@ def test_chancellor_system_prompt_lists_all_six_ministries_and_shared_constraint
     assert NO_IRREVERSIBLE_ACTION_CONSTRAINT in CHANCELLOR_SYSTEM_PROMPT
 
 
+def test_chancellor_system_prompt_uses_the_shared_enterprise_routing_guide():
+    guide = ministry_routing_guide()
+
+    assert guide in CHANCELLOR_SYSTEM_PROMPT
+    assert "同源企业职责" in CHANCELLOR_SYSTEM_PROMPT
+    assert "single" in CHANCELLOR_SYSTEM_PROMPT
+    assert "multi" in CHANCELLOR_SYSTEM_PROMPT
+    assert "军机处" in CHANCELLOR_SYSTEM_PROMPT
+    assert "严格的 JSON 对象" in CHANCELLOR_SYSTEM_PROMPT
+    assert '"route_type": "single 或 multi"' in CHANCELLOR_SYSTEM_PROMPT
+    assert "现实企业动作" in CHANCELLOR_SYSTEM_PROMPT
+
+
+@pytest.mark.parametrize(
+    "legacy_responsibility",
+    (
+        "官员选拔",
+        "户籍",
+        "田赋",
+        "典礼",
+        "科举",
+        "军队调度",
+        "边防军务",
+        "刑狱",
+        "工程营造",
+        "水利",
+    ),
+)
+def test_chancellor_prompt_does_not_retain_historical_routing_responsibilities(
+    legacy_responsibility,
+):
+    assert legacy_responsibility not in CHANCELLOR_SYSTEM_PROMPT
+
+
 def test_single_route_invokes_chosen_ministry_and_sets_processing_path_and_verdict():
     captured_messages: list[list[dict[str, str]]] = []
 
@@ -87,24 +122,29 @@ def test_single_route_invokes_chosen_ministry_and_sets_processing_path_and_verdi
         captured_messages.append(messages)
         if len(captured_messages) == 1:
             return _single_route_response("户部")
-        return '{"opinion": "臣部核准拨款"}'
+        return '{"opinion": "建议追溯预算口径并评估融资条件"}'
 
     graph = build_chancellor_graph(chat_model=_chat_model)
 
-    result = graph.invoke({"decree_text": "拨款修渠"})
+    result = graph.invoke({"decree_text": "评估年度预算与融资安排"})
 
     assert result["route_type"] == "single"
     assert result["departments"] == ["户部"]
     assert result["chancellor_rationale"] == "此事只涉及一部，交其办理"
     assert result["processing_path"] == ["上书房", "丞相", "户部"]
-    assert result["ministry_opinions"] == [{"department": "户部", "opinion": "臣部核准拨款"}]
-    assert result["final_verdict"] == "臣部核准拨款"
+    assert result["ministry_opinions"] == [
+        {"department": "户部", "opinion": "建议追溯预算口径并评估融资条件"}
+    ]
+    assert result["final_verdict"] == "建议追溯预算口径并评估融资条件"
     assert "军机处" not in result["processing_path"]
 
     # First call is the Chancellor's own routing turn; second is 户部's.
     assert captured_messages[0][0] == {"role": "system", "content": CHANCELLOR_SYSTEM_PROMPT}
-    assert captured_messages[0][1] == {"role": "user", "content": "拨款修渠"}
-    assert captured_messages[1][1]["content"].startswith("旨意：拨款修渠")
+    assert captured_messages[0][1] == {
+        "role": "user",
+        "content": "评估年度预算与融资安排",
+    }
+    assert captured_messages[1][1]["content"].startswith("旨意：评估年度预算与融资安排")
 
 
 def test_single_route_works_for_every_ministry():
@@ -352,7 +392,7 @@ def test_multi_route_full_pipeline_produces_ordered_opinions_and_council_verdict
     )
 
     graph = build_chancellor_graph(chat_model=chat_model)
-    result = graph.invoke({"decree_text": "拨款修渠并调兵护渠"})
+    result = graph.invoke({"decree_text": "评估报价与产品交付方案，并制定销售竞争策略"})
 
     assert result["route_type"] == "multi"
     assert result["departments"] == departments

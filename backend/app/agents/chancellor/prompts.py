@@ -4,25 +4,32 @@ Kept in a separate module from ``graph.py`` so the wording of the system
 prompt can be reviewed/edited independently of the graph wiring, and so
 tests can assert against it directly.
 
-The six-ministries roster and the shared irreversible-action constraint are
-imported (read-only) from ``app.agents.ministries.prompts`` -- the single
-source of truth for both -- so this prompt can never drift out of sync with
-the fixed department roster or omit the shared constraint language.
+The six-ministries roster, enterprise routing guide, and shared
+irreversible-action constraint are imported from
+``app.agents.ministries.prompts`` so routing semantics cannot drift from the
+department prompts.
 """
 
 from __future__ import annotations
 
-from app.agents.ministries.prompts import MINISTRIES, NO_IRREVERSIBLE_ACTION_CONSTRAINT
+from app.agents.ministries.prompts import (
+    MINISTRIES,
+    NO_IRREVERSIBLE_ACTION_CONSTRAINT,
+    ministry_routing_guide,
+)
 
 CHANCELLOR_IDENTITY = "丞相"
 
 _MINISTRIES_LIST = "、".join(MINISTRIES)
+_MINISTRY_ROUTING_GUIDE = ministry_routing_guide()
 
 CHANCELLOR_SYSTEM_PROMPT = (
     "你是朝堂之上的丞相。君上会向你下达旨意，你需要判断此事应当如何流转办理，\n"
     "而不是自己撰写办理意见或直接执行任何事项。\n\n"
     f"六部固定为：{_MINISTRIES_LIST}。你在 departments 中给出的每一个部门名称，\n"
     "必须完全等于上述六个名称之一，不能自创、简写或更改部门名称。\n\n"
+    "请严格按以下同源企业职责判断相关部门：\n"
+    f"{_MINISTRY_ROUTING_GUIDE}\n\n"
     "你必须判断此事属于以下哪一种路由类型：\n"
     '1. "single"（单部门）：此事只涉及一个部门即可办理。此时 departments 数组必须'
     "恰好包含 1 个部门。\n"
