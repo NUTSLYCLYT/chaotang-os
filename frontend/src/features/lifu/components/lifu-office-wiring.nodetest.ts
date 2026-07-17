@@ -7,11 +7,11 @@ const relationship = readFileSync(new URL('./relationship-ledger-tab.tsx', impor
 const traffic = readFileSync(new URL('./traffic-growth-tab.tsx', import.meta.url), 'utf8');
 const shell = readFileSync(new URL('../../departments/components/DepartmentPageViewShell.tsx', import.meta.url), 'utf8');
 
-test('礼部 canonical route 接入真工作台', () => {
+test('礼部工作台能力保留，但 canonical 入口在产品开放前保持 pending', () => {
   const rites = getV1LiubuByCanonicalCode('market');
   assert.deepEqual(
     rites && { code: rites.code, canonicalCode: rites.canonicalCode, href: rites.href, status: rites.status },
-    { code: 'libu_rites', canonicalCode: 'market', href: '/liubu/libu_rites', status: 'active' },
+    { code: 'libu_rites', canonicalCode: 'market', href: null, status: 'pending' },
   );
   assert.match(shell, /currentView\.department\.code === 'market'/);
   assert.match(shell, /<LifuOfficeDesk \/>/);

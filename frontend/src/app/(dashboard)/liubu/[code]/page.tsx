@@ -6,6 +6,7 @@ import {
   type SixDepartmentCode,
 } from '@/features/departments/lib/six-departments-content';
 import {
+  getV1LiubuByCanonicalCode,
   getV1LiubuStaticParams,
   V1_DEPARTMENT_ALIASES,
 } from '@/config/chaotang-v1-modules';
@@ -36,6 +37,11 @@ export default async function DepartmentSubpage({ params, searchParams }: Depart
     : isSixDepartmentCode(code) ? code : undefined;
 
   if (!canonical) {
+    notFound();
+  }
+
+  const department = getV1LiubuByCanonicalCode(canonical);
+  if (!department || department.status !== 'active') {
     notFound();
   }
 

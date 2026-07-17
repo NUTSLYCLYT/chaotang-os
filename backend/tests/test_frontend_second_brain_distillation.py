@@ -9,7 +9,6 @@ import jsonschema
 
 from src import swarm_review
 
-
 ROOT = Path(__file__).resolve().parents[1]
 HARNESS = ROOT / "harness" / "chaotang_department_protocol"
 SCHEMA = HARNESS / "contracts" / "frontend_second_brain_distillation.schema.json"
@@ -37,6 +36,9 @@ def test_distilled_cases_are_complete_unique_and_traceable():
                 "yushitai-auditor.ts",
                 "imperial-report-synthesizer.ts",
                 "unified-decision-loop.ts",
+                "court-pipeline.ts",
+                "three-chamber-engine.ts",
+                "deliberation-console.tsx",
             )
             for origin in case["legacy_origins"]
         )
@@ -114,3 +116,23 @@ def test_backend_review_primitives_preserve_missing_risk_and_conflict_visibility
     critique = swarm_review.critic_report([risky], risky_audit, "LIVE")
     assert critique["risk_escalations"]
     assert critique["emperor_questions"]
+
+
+def test_p6_governance_orphan_safety_invariants_are_distilled():
+    cases = {case["case_id"]: case for case in load_cases()}
+    expected_ids = {
+        "governance_missing_evidence_never_dispatches",
+        "governance_review_role_separation",
+        "governance_unrelated_evidence_never_satisfies_gate",
+    }
+    assert expected_ids <= cases.keys()
+
+    for case_id in expected_ids:
+        case = cases[case_id]
+        expected = case["expected"]
+        assert "准奏" in expected["forbidden_verdicts"], case_id
+        assert expected["decision_eligible"] is False, case_id
+        assert any(
+            origin.startswith(("court-pipeline.ts:", "three-chamber-engine.ts:", "deliberation-console.tsx:"))
+            for origin in case["legacy_origins"]
+        ), case_id

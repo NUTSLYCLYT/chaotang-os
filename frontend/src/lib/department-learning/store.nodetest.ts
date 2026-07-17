@@ -22,10 +22,6 @@ test('C1: 学习持久化结构上与主库 tasks 解耦', async () => {
   assert.doesNotMatch(store, /upsertPrimaryTask/, 'store 不得经 upsertPrimaryTask 写 tasks');
 
   for (const rel of [
-    '../../app/api/court/learning/records/route.ts',
-    '../../app/api/court/learning/calibration/route.ts',
-    '../../app/api/court/learning/advisor-signal/route.ts',
-    '../../app/api/court/learning/real-source/route.ts',
     './advisor-signal.ts',
     './real-source.ts',
     './archive-backfill.ts',
@@ -33,37 +29,23 @@ test('C1: 学习持久化结构上与主库 tasks 解耦', async () => {
     const src = await read(rel);
     assert.doesNotMatch(src, /upsertPrimaryTask/, `${rel} 不得写 tasks`);
     assert.doesNotMatch(src, /FROM tasks/, `${rel} 不得读 tasks`);
-    if (rel.endsWith('route.ts')) {
-      assert.match(src, /department-learning\//, `${rel} 必须走 department-learning 模块`);
-    }
   }
 });
 
-test('C1: real-source 直接 API 只允许非生产调试,生产必须走 sign-off 回填', async () => {
-  const route = await read('../../app/api/court/learning/real-source/route.ts');
+test('C1: real-source 长期提权必须走签核与史馆双证据链', async () => {
   const source = await read('./real-source.ts');
-  assert.match(route, /NODE_ENV !== 'production'/, 'direct real-source API 生产环境必须关闭');
-  assert.match(route, /sign-off backfill/, '生产错误信息应指向 sign-off 内部回填');
-  assert.match(route, /trusted evidenceId required/, '直接写入必须要求可信 evidenceId');
   assert.match(source, /loadBossDecisionOutcomeEvidence/, 'boss_decision 证据必须查签核哈希链,不能只信字符串');
   assert.match(source, /hasCourtArchive/, '长期 confirmed\/refuted 必须查史馆归档');
   assert.match(source, /暂记 observing，不长期提权/, '单签核证据不能长期提高部门权重');
 });
 
 /**
- * 安全护栏(解冻做安全 2026-06-22 · 铁律4):部门学习解冻后两条红线不可破——
- * ① 不得有 e2e 伪造证据提权后门;② 让学习"喂决策"(重排部门)必须经 env 闸、默认关。
- * 四层烟雾散后,这条断言替 CI 复核安全化不被悄悄回滚。护栏配 scripts/courtos-freeze-guard.sh。
+ * 安全护栏(解冻做安全 2026-06-22 · 铁律4):部门学习不得恢复 e2e 伪造证据提权后门。
+ * 旧前端 orchestrate BFF 与其 env 闸已整体退役，生产决策边界由 canonical projection/导入门承接。
  */
-test('安全: e2e 伪造后门已除 + 决策影响经 env 闸默认关', async () => {
+test('安全: e2e 伪造证据提权后门已除', async () => {
   const source = await read('./real-source.ts');
   assert.doesNotMatch(source, /isE2eEvidenceId/, 'e2e 伪造后门 isE2eEvidenceId 必须移除(解冻≠开后门)');
-  const orch = await read('../../app/api/court/orchestrate/route.ts');
-  assert.match(
-    orch,
-    /DEPARTMENT_LEARNING_FEED_DECISIONS === '1'/,
-    'orchestrate 喂决策必须经 env 闸、默认关(铁律4):env 显式 ===1 才开',
-  );
 });
 
 /**

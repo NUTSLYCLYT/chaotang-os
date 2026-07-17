@@ -1,0 +1,34 @@
+{
+  "packet_id": "P6",
+  "archived_at": "2026-07-17",
+  "baseline_commit": "d7f7436fb6a7f257df7b13a4bc703c866602b243",
+  "review_not_before": "2026-08-17",
+  "automatic_deletion": false,
+  "files": [
+    {
+      "original_path": "frontend/src/lib/orchestration/court-pipeline.ts",
+      "attic_path": "frontend/dev/_attic/governance-orphans-2026-07-17/src/lib/orchestration/court-pipeline.ts",
+      "sha256": "fcbee72c96157580a1b9e7449990ec94e715382355ebf49d9f937df4e0d3b49d"
+    },
+    {
+      "original_path": "frontend/src/lib/orchestration/court-pipeline.nodetest.ts",
+      "attic_path": "frontend/dev/_attic/governance-orphans-2026-07-17/src/lib/orchestration/court-pipeline.nodetest.ts",
+      "sha256": "403a4fc0ff9a84162b9e2e348cf337f4df40799a815146cd2ddbf41c42cc664a"
+    },
+    {
+      "original_path": "frontend/src/features/governance/lib/three-chamber-engine.ts",
+      "attic_path": "frontend/dev/_attic/governance-orphans-2026-07-17/src/features/governance/lib/three-chamber-engine.ts",
+      "sha256": "b2a93d265d3c2252b9fbd2b2b167bc9491900c211ee1d3deadb26749eb5bf0cd"
+    },
+    {
+      "original_path": "frontend/src/features/governance/lib/retrieve-relevance.nodetest.ts",
+      "attic_path": "frontend/dev/_attic/governance-orphans-2026-07-17/src/features/governance/lib/retrieve-relevance.nodetest.ts",
+      "sha256": "c9cb7fe988c66edbcea134408d037cea1ae3b771cbe9cd928790092b5ecbf96d"
+    },
+    {
+      "original_path": "frontend/src/features/governance/components/deliberation-console.tsx",
+      "attic_path": "frontend/dev/_attic/governance-orphans-2026-07-17/src/features/governance/components/deliberation-console.tsx",
+      "sha256": "989a8a7a51a4a6231e9ed07913e2b4062ee22b30cb578483816664a28e05d68d"
+    }
+  ]
+}

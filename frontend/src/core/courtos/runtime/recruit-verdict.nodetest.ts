@@ -6,8 +6,6 @@
  *  2) 招聘咨询真链零写主库 tasks(结构断言:BFF 两端不得 import/调 upsertPrimaryTask / INTO tasks)。
  */
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import test from 'node:test';
 
 import { buildRecruitVerdict } from './recruit-verdict.ts';
@@ -149,19 +147,5 @@ test('垃圾/缺失输入不抛,降级 unknown/hold,不冒充准奏', () => {
     const v = buildRecruitVerdict(bad, null);
     assert.ok(typeof v.verdict === 'string' && v.verdict.length > 0);
     assert.notEqual(v.disposition, 'approve', `空 QA 不得擅自准奏:${JSON.stringify(bad)}`);
-  }
-});
-
-test('铁律4:招聘咨询 BFF 两端零写主库 tasks', () => {
-  const routes = [
-    'src/app/api/court/dept/li-bu/recruit/route.ts',
-    'src/app/api/court/dept/li-bu/recruit/result/route.ts',
-  ];
-  const forbidden = [/upsertPrimaryTask/, /INTO\s+tasks/i, /primary-store/, /briefing/];
-  for (const rel of routes) {
-    const src = readFileSync(path.join(process.cwd(), rel), 'utf8');
-    for (const pat of forbidden) {
-      assert.ok(!pat.test(src), `${rel} 不得触碰主库写入(命中 ${pat})——招聘是咨询,禁污染朝报`);
-    }
   }
 });

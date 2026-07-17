@@ -38,6 +38,17 @@ test('a new local decision-engine import is rejected', () => {
   assert.match(violations[0], /ministry-review-loop/);
 });
 
+test('a retired P6 governance module cannot return to production imports', () => {
+  for (const engine of ['court-pipeline', 'three-chamber-engine', 'deliberation-console']) {
+    const violations = validateProductionImportText(
+      'src/features/example/governance-revival.ts',
+      `import { legacy } from '@/features/governance/${engine}.ts';\n`,
+    );
+    assert.equal(violations.length, 1, engine);
+    assert.match(violations[0], new RegExp(engine));
+  }
+});
+
 test('an allowlisted file cannot add a different decision engine', () => {
   const violations = validateProductionImportText(
     'src/core/courtos/runtime/live-memorial-build.ts',

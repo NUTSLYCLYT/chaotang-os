@@ -85,8 +85,8 @@ export const CHAOTANG_V1_LIUBU: readonly V1LiubuDef[] = [
   },
   {
     ...v1Identity('market'),
-    href: '/liubu/libu_rites',
-    status: 'active',
+    href: null,
+    status: 'pending',
     offices: [],
   },
   {
