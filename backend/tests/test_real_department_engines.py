@@ -105,6 +105,19 @@ def test_adapt_gongbu_storage_incident_returns_five_stage_court_doc():
     }
 
 
+def test_adapt_gongbu_explosion_fire_is_p0_black():
+    # 反安全假阴性回归：爆炸/起火与冒烟同属电池紧急事件，必须 P0/black，
+    # 强制"现场断电+撤离+消防待命"语气；绝不能被降级为 P2/yellow。物理安全后果。
+    doc = rde.adapt_gongbu(
+        "储能柜昨晚发生爆炸并起火，现场浓烟弥漫，需要立刻处理"
+    )
+
+    assert doc is not None
+    assert doc["dept"] == "gongbu"
+    assert doc["light"] == "black"
+    assert doc["risk_level"] == "P0"
+
+
 def test_adapt_gongbu_requires_storage_or_bms_scope():
     assert rde.adapt_gongbu("帮我写一份普通市场推广方案") is None
 
