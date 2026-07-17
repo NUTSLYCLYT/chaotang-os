@@ -24,6 +24,7 @@
 | restore manifest 基线/摘要回归 | 1→0 | 旧 `bbb1000` RED；`d7f7436f` + 5 SHA-256 GREEN | 可恢复清单绑定修复基线与 attic 精确字节 |
 | Claude backend 分片 review-v1 | 0 | INSUFFICIENT_EVIDENCE | 要求关闭第七条归因、golden 执行与 DB fixture 证明缺口 |
 | review-v1 回修专项 | 0 | 36 passed / Ruff PASS / doctor 0/0 | 三个 P6 case 驱动真实 gate；招聘直接禁止 persistence adapter |
+| Claude 分片复审 | 0 | BACKEND_GO / FRONTEND_GO / EVIDENCE_GO | backend 缺口关闭；frontend 与证据边界无 blocker；Fable 显式降级 |
 
 ## RED → GREEN 证据
 
