@@ -34,6 +34,19 @@ os.environ["FENGQUN_DB_PATH"] = str(
 )
 os.environ["FENGQUN_TEST_DB_GUARD"] = "1"
 
+# runtime_paths.resolve_runtime_paths() derives the runtime data dir
+# (var/data + subdirs) from FENGQUN_RUNTIME_ROOT (default BACKEND_ROOT/var).
+# FENGQUN_DB_PATH above isolates only the primary DB file; code paths that
+# write other runtime files (or open the DB via the data dir directly) would
+# still hit the REAL backend/var tree.  Bind the whole runtime root to a
+# process-unique temp dir so runtime isolation is fail-closed even for a bare
+# `pytest` (observed real-DB pollution 2026-07-17).  setdefault respects an
+# explicit override.
+_PYTEST_RUNTIME_ROOT = tempfile.TemporaryDirectory(
+    prefix="chaotang-pytest-runtime-"
+)
+os.environ.setdefault("FENGQUN_RUNTIME_ROOT", _PYTEST_RUNTIME_ROOT.name)
+
 # The production tenant connection is migration-only.  Tests that exercise the
 # legacy sqlite3 auth adapter receive an explicit test-owned identity schema.
 from tests.tenant_test_schema import initialize_tenant_test_schema  # noqa: E402

@@ -12,10 +12,20 @@ import pytest
 
 from src.minister_personas import (
     CONFLICT_AXES,
+    DEPARTMENT_ANTI_HALLUCINATION_CLAUSE,
     MINISTER_PERSONAS,
     conflict_axis_of,
     council_prompt,
 )
+
+
+def test_six_ministries_share_the_same_anti_hallucination_clause():
+    six = ["hu_bu", "li_bu", "li_bu_rites", "bing_bu", "xing_bu", "gong_bu"]
+    for code in six:
+        persona = MINISTER_PERSONAS[code]
+        assert DEPARTMENT_ANTI_HALLUCINATION_CLAUSE in persona
+        assert "超出本部门职责范围" in persona
+        assert "[missing]" in persona
 
 # 方略确立的 canonical council 人格集（六部 6 + 三辅 3 + 太医 1）
 CANONICAL_MINISTERS = {

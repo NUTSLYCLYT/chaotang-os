@@ -25,6 +25,7 @@ from typing import Any
 from src.chaotang_department_router import load_department_config, score_ministry
 from src.chaotang_department_payload import build_qintianjian_trigger
 from src.confidence_tag import classify
+from src.chancellor_llm_recommendation import merge_decision_level, recommend_route
 from src.decree_swarm_router import select_entry_swarm
 from src.shangshufang_loop import chancellor_decide_route, draft_edict
 
@@ -74,6 +75,10 @@ def decide(
         # draft_edict 对空密旨 raise;空命令退单蜂群直发,保持旧 decide("") 不炸的契约
         route = {"mode": "direct", "departments": [], "reason": "空密旨,退单蜂群直发"}
 
+    recommendation = recommend_route(command)
+    hard_level = "D2" if route.get("riskFlags") else ("D1" if route.get("mode") == "cluster" else "D0")
+    decision_level = merge_decision_level(hard_level, recommendation.get("d_level"), None)
+
     ministries = [
         _ministry_view_from_name(n, command, by_name)
         for n in (route.get("departments") or [])
@@ -101,6 +106,8 @@ def decide(
         }
 
     decision["qintianjian_trigger"] = build_qintianjian_trigger(command)
+    decision["route_recommendation"] = recommendation
+    decision["decision_level"] = decision_level
     return decision
 
 

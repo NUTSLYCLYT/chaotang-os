@@ -429,7 +429,11 @@ def route_department_task(task: str, config: dict[str, Any] | None = None) -> di
     for code, spec in ministries.items():
         score, hits = score_ministry(code, task)
         scored.append((score, code, hits, spec))
-    scored.sort(key=lambda item: (-item[0], item[1]))
+    # Keep canonical YAML order as the deterministic tie-breaker.  Alphabetical
+    # sorting made 礼部/吏部 outrank 户部 for mixed quote+copy requests despite
+    # the taxonomy declaring 户部 first and the golden route contract expecting
+    # that primary owner.
+    scored.sort(key=lambda item: -item[0])
     if scored and scored[0][0] > 0:
         selected = [item for item in scored if item[0] > 0][:3]
     else:

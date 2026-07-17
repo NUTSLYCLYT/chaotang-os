@@ -85,6 +85,36 @@ def test_adapt_bingbu_success(monkeypatch):
     assert doc["dept"] == "bingbu"
 
 
+def test_adapt_gongbu_storage_incident_returns_five_stage_court_doc():
+    doc = rde.adapt_gongbu(
+        "储能 BMS-A1 在 2026-05-19 14:05 出现冒烟告警，温度从 35℃ 升到 58℃，请做故障分诊、诊断并生成售后工单"
+    )
+
+    assert doc is not None
+    assert doc["dept"] == "gongbu"
+    assert doc["light"] == "black"
+    assert doc["risk_level"] == "P0"
+    assert doc["provenance"]["deterministic_gated"] is True
+    assert doc["unknown_gaps"]
+    assert {item["stage"] for item in doc["items"]} == {
+        "故障分诊",
+        "数据采集",
+        "BMS诊断",
+        "现场失效分析",
+        "处置工单",
+    }
+
+
+def test_adapt_gongbu_requires_storage_or_bms_scope():
+    assert rde.adapt_gongbu("帮我写一份普通市场推广方案") is None
+
+
+def test_gongbu_is_registered_for_swarm_and_minister_paths():
+    assert rde.REAL_ENGINE_ADAPTERS["工部"] is rde.adapt_gongbu
+    assert rde._SWARM_ID_DEPT["gongbu_delivery_swarm"] == "工部"
+    assert rde._MINISTER_CODE_DEPT["gong_bu"] == "工部"
+
+
 def test_adapt_bingbu_failure_returns_none(monkeypatch):
     import src.bingbu_battlecard as bb
 
@@ -463,8 +493,8 @@ def test_unregistered_swarm_returns_none():
 
 
 def test_unregistered_minister_code_returns_none():
-    # gong_bu(工部)有人设但无真实引擎(需presale+task双输入,未接),应返回 None
-    assert rde.get_raw_engine_fn_for_minister("gong_bu") is None
+    # 未登记的 minister code 仍应安全退回纯人设路径。
+    assert rde.get_raw_engine_fn_for_minister("not_a_real_department") is None
 
 
 def test_registered_minister_code_returns_adapter(monkeypatch, tmp_path):

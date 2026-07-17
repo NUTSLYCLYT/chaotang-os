@@ -844,6 +844,116 @@ def adapt_tianjian(task_text: str) -> dict | None:
     return doc
 
 
+_GONGBU_SCOPE_KEYWORDS = (
+    "储能",
+    "电池",
+    "BMS",
+    "PCS",
+    "PACK",
+    "热失控",
+    "冒烟",
+    "漏液",
+    "设备告警",
+    "售后故障",
+)
+_GONGBU_P0_KEYWORDS = ("热失控", "冒烟", "漏液", "燃烧")
+_GONGBU_GAP_RULES = (
+    ("设备编号", ("设备编号", "设备号", "BMS-")),
+    ("绝对时间窗", ("2026-", "2025-", "2024-", "时间")),
+    ("电压/电流/温度/SOC/告警码遥测", ("电压", "电流", "温度", "SOC", "告警码")),
+    ("现场照片或视频", ("照片", "视频", "截图")),
+    ("客户与项目地点", ("客户", "项目", "现场", "地点")),
+)
+
+
+def adapt_gongbu(task_text: str) -> dict | None:
+    """工部储能售后五阶段确定性引擎。
+
+    这是对储能售后蜂群设计的安全适配层，不调用外部工具、不创建工单，
+    只生成带显式缺口的 court_doc 草稿；真正的工单写入仍须经过审批队列。
+    """
+    if not any(keyword.lower() in task_text.lower() for keyword in _GONGBU_SCOPE_KEYWORDS):
+        return None
+
+    p0 = any(keyword in task_text for keyword in _GONGBU_P0_KEYWORDS)
+    risk_level = "P0" if p0 else "P2"
+    light = "black" if p0 else "yellow"
+    missing = [
+        label
+        for label, markers in _GONGBU_GAP_RULES
+        if not any(marker.lower() in task_text.lower() for marker in markers)
+    ]
+    safety = (
+        "现场断电+撤离+消防待命；不得远程复位或直接下发维修指令"
+        if p0
+        else "先隔离设备并补齐遥测，再安排工程师复核"
+    )
+    headline = (
+        f"{risk_level} 储能售后故障分诊：{'命中强制安全阈值' if p0 else '需补证后诊断'}"
+    )
+    items = [
+        {
+            "stage": "故障分诊",
+            "level": "black" if p0 else "yellow",
+            "title": f"紧急度 {risk_level}；{safety}",
+            "fix": "确认设备型号、编号、地点和绝对告警时间",
+            "evidence_ref": "task://gongbu/triage",
+        },
+        {
+            "stage": "数据采集",
+            "level": "yellow",
+            "title": "[missing] 数据采集员需读取电压/电流/温度/SOC/告警码及历史工单",
+            "fix": "调用 storage_platform 查询绝对时间窗；失败不得插值",
+            "evidence_ref": "task://gongbu/telemetry",
+        },
+        {
+            "stage": "BMS诊断",
+            "level": "yellow",
+            "title": "待计算单体压差、温升斜率、SOC 跳变并定位嫌疑单体",
+            "fix": "数据完整度低于 0.7 时明确标注无法单体级定位",
+            "evidence_ref": "task://gongbu/bms",
+        },
+        {
+            "stage": "现场失效分析",
+            "level": "yellow",
+            "title": "区分主因/诱因，并覆盖设计、工艺、操作、环境四类归因",
+            "fix": "与历史案例交叉验证；不可把猜测写成根因",
+            "evidence_ref": "task://gongbu/failure-analysis",
+        },
+        {
+            "stage": "处置工单",
+            "level": "black" if p0 else "yellow",
+            "title": "生成待审批工单草稿，不直接发送或下发维修",
+            "fix": "列出 BOM、工时区间、人员配置和客户话术；冲突结论转人工",
+            "evidence_ref": "task://gongbu/workorder-draft",
+        },
+    ]
+    return {
+        "doc_type": "brief",
+        "dept": "gongbu",
+        "case_id": f"GONG-{int(time.time() * 1000)}",
+        "light": light,
+        "headline": headline,
+        "shielded": "；".join(missing) if missing else "已覆盖关键输入",
+        "items": items,
+        "unknown_gaps": missing,
+        "risk_level": risk_level,
+        "adversarial": None,
+        "actions": ["isolate_equipment", "collect_telemetry", "draft_workorder"],
+        "provenance": {
+            "advisors": ["故障分诊员", "数据采集员", "BMS诊断师", "现场失效分析师", "处置工单生成器"],
+            "archive_id": None,
+            "gate": "deterministic_safety_threshold",
+            "rag_grounded": False,
+            "deterministic_gated": True,
+            "grounding": "task_input_only",
+        },
+        "source_label": "GONGBU_STORAGE_PIPELINE",
+        "signed": False,
+        "seal": {"stamp": "工部售后印", "color": "玄黄", "sealed_archive": None},
+    }
+
+
 # 部门中文名 → 原始 adapter(返回 court_doc 原始 dict 或 None)。
 # L3(丞相动态会审)直接消费这份，只需要 light/headline/items 拼文本。
 REAL_ENGINE_ADAPTERS: dict[str, Callable[[str], dict | None]] = {
@@ -854,6 +964,7 @@ REAL_ENGINE_ADAPTERS: dict[str, Callable[[str], dict | None]] = {
     canonical_name("libu_rites"): adapt_lipu,
     "钦天监": adapt_tianjian,
     canonical_name("libu"): adapt_libu_personnel,
+    canonical_name("gongbu"): adapt_gongbu,
 }
 
 # swarm_id(L4 上书房链路用) → 部门中文名。key 必须是 SWARM_DEFS(swarm_execution_loop)
@@ -865,6 +976,7 @@ _SWARM_ID_DEPT: dict[str, str] = {
     for swarm_id, name in swarm_to_name_projection().items()
     if name in REAL_ENGINE_ADAPTERS
 }
+_SWARM_ID_DEPT["gongbu_delivery_swarm"] = "工部"
 _SWARM_ID_DEPT["jinyiwei_intel_swarm"] = "锦衣卫"
 
 # minister persona code(L3 丞相会审用,见 src/minister_personas.py) → 部门中文名。
@@ -876,7 +988,7 @@ _MINISTER_CODE_DEPT: dict[str, str] = {
     if name in REAL_ENGINE_ADAPTERS
 }
 _MINISTER_CODE_DEPT.update(
-    {"jin_yi_wei": "锦衣卫", "qin_tian_jian": "钦天监"}
+    {"jin_yi_wei": "锦衣卫", "qin_tian_jian": "钦天监", "gong_bu": "工部"}
 )
 
 
