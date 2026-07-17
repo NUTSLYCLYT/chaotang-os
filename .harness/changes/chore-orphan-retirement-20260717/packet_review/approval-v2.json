@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "LOCAL_FEEDBACK_ONLY",
+  "review_version": 2,
+  "packet_id": "P6",
+  "change_id": "chore-orphan-retirement-20260717",
+  "predecessor_integration_sha": "d7f7436fb6a7f257df7b13a4bc703c866602b243",
+  "reviewed_head_sha": "7f2745e8eca3b54538e35a0cf18b00811951293d",
+  "report_path": ".harness/changes/chore-orphan-retirement-20260717/packet_review/review-v2.md",
+  "report_sha256": "d5737ebaddb04c8d71a1f4d2bc87b71c1e4f6623b52ad50f817fedc82f8cf788",
+  "verdict": "PACKET_REVIEW_GO"
+}
