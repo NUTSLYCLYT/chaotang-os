@@ -65,12 +65,42 @@ class ChancellorDecreeRequest(BaseModel):
         return value.strip()
 
 
+class MinistryOpinionResponse(BaseModel):
+    """One consulted department's opinion, in call order.
+
+    ``department`` is intentionally typed ``str`` (not ``Literal``/``Enum``):
+    the graph layer already validates it is one of the fixed six ministries
+    before this response model is ever constructed, so the response model
+    must not re-validate a value that is already known-safe and risk turning
+    a (theoretically impossible) unexpected value into an uncaught 500.
+    """
+
+    department: str
+    opinion: str
+
+
 class ChancellorDecreeResponse(BaseModel):
-    """Successful response body for ``POST /api/v1/decrees/chancellor``."""
+    """Successful response body for ``POST /api/v1/decrees/chancellor``.
+
+    Replaces the old single-paragraph ``memorial_text`` field with the full
+    routing/processing result produced by ``build_chancellor_graph()``:
+    the Chancellor's routing judgement (``rationale``), the route type
+    (``"single"`` or ``"multi"``), the ordered processing path, the
+    consulted departments, each department's opinion, and the final
+    verdict. ``route_type`` is intentionally typed ``str`` (not
+    ``Literal["single", "multi"]``) for the same reason as
+    ``MinistryOpinionResponse.department`` -- the graph layer is the single
+    place that enforces this contract.
+    """
 
     status: str
     chancellor: str
-    memorial_text: str
+    route_type: str
+    rationale: str
+    processing_path: list[str]
+    departments: list[str]
+    ministry_opinions: list[MinistryOpinionResponse]
+    final_verdict: str
 
 
 def get_chancellor_graph():
@@ -92,23 +122,64 @@ router = APIRouter()
 
 @router.post("/api/v1/decrees/chancellor", response_model=ChancellorDecreeResponse)
 def submit_decree(payload: ChancellorDecreeRequest) -> ChancellorDecreeResponse:
-    """Submit a decree (旨意) to the Chancellor agent and return its memorial.
+    """Submit a decree (旨意) to the Chancellor agent and return its full result.
 
     ``payload`` has already passed :class:`ChancellorDecreeRequest` validation
     by the time this function body runs -- ``get_chancellor_graph()`` below
     is therefore never reached for a malformed/invalid request.
+
+    A single ``graph.invoke(...)`` call covers both the ``"single"`` (one
+    ministry) and ``"multi"`` (军机处 multi-department council) routes; the
+    graph's own nodes/conditional edges decide which branch runs, so this
+    function never invokes the graph more than once and never re-implements
+    any routing/orchestration logic itself (see ``backend/AGENTS.md``: "api
+    不实现 agent 图逻辑").
     """
     graph = get_chancellor_graph()
-    result = graph.invoke({"decree_text": payload.decree_text, "memorial_text": ""})
-    memorial_text = result.get("memorial_text")
-    if not isinstance(memorial_text, str) or not memorial_text.strip():
+    result = graph.invoke({"decree_text": payload.decree_text})
+
+    final_verdict = result.get("final_verdict")
+    if not isinstance(final_verdict, str) or not final_verdict.strip():
         raise ChancellorGraphInvocationError(
-            "Chancellor graph returned an empty memorial response."
+            "Chancellor graph returned an empty final verdict."
         )
+
+    rationale = result.get("chancellor_rationale")
+    route_type = result.get("route_type")
+    processing_path = result.get("processing_path")
+    departments = result.get("departments")
+    ministry_opinions = result.get("ministry_opinions")
+    if (
+        not isinstance(rationale, str)
+        or not rationale.strip()
+        or not isinstance(route_type, str)
+        or not route_type
+        or not isinstance(processing_path, list)
+        or not processing_path
+        or not isinstance(departments, list)
+        or not departments
+        or not isinstance(ministry_opinions, list)
+        or not ministry_opinions
+    ):
+        raise ChancellorGraphInvocationError(
+            "Chancellor graph returned an incomplete routing result."
+        )
+
     return ChancellorDecreeResponse(
         status="ok",
         chancellor=CHANCELLOR_IDENTITY,
-        memorial_text=memorial_text.strip(),
+        route_type=route_type,
+        rationale=rationale.strip(),
+        processing_path=processing_path,
+        departments=departments,
+        ministry_opinions=[
+            MinistryOpinionResponse(
+                department=opinion.get("department", ""),
+                opinion=opinion.get("opinion", ""),
+            )
+            for opinion in ministry_opinions
+        ],
+        final_verdict=final_verdict.strip(),
     )
 
 

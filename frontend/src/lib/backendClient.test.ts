@@ -331,12 +331,33 @@ async function startDecreeStub(
   };
 }
 
-test("submitDecree：成功路径 - 后端返回符合契约的响应时映射为 ok: true", async () => {
-  const stub = await startDecreeStub(200, {
-    status: "ok",
-    chancellor: "丞相",
-    memorial_text: "臣已知晓陛下旨意，建议下一步核查国库存银。",
-  });
+const SINGLE_ROUTE_BODY = {
+  status: "ok",
+  chancellor: "丞相",
+  route_type: "single",
+  rationale: "此事职责明确，交由户部办理即可。",
+  processing_path: ["上书房", "丞相", "户部"],
+  departments: ["户部"],
+  ministry_opinions: [{ department: "户部", opinion: "臣部已核查国库存银。" }],
+  final_verdict: "臣部已核查国库存银。",
+};
+
+const MULTI_ROUTE_BODY = {
+  status: "ok",
+  chancellor: "丞相",
+  route_type: "multi",
+  rationale: "此事涉及工程与钱粮，需户部、工部会同办理。",
+  processing_path: ["上书房", "丞相", "军机处", "户部", "工部"],
+  departments: ["户部", "工部"],
+  ministry_opinions: [
+    { department: "户部", opinion: "臣部已核查库银，可拨付部分钱粮。" },
+    { department: "工部", opinion: "臣部已勘察地形，可即刻兴工。" },
+  ],
+  final_verdict: "军机处会审：准予兴修水利，钱粮由户部拨付，工部督造。",
+};
+
+test("submitDecree：成功路径（single 路由）- 后端返回符合契约的响应时映射为 ok: true", async () => {
+  const stub = await startDecreeStub(200, SINGLE_ROUTE_BODY);
   try {
     let threw = false;
     let result;
@@ -352,8 +373,45 @@ test("submitDecree：成功路径 - 后端返回符合契约的响应时映射�
       assert.deepEqual(result!.data, {
         status: "ok",
         chancellor: "丞相",
-        memorialText: "臣已知晓陛下旨意，建议下一步核查国库存银。",
+        routeType: "single",
+        rationale: "此事职责明确，交由户部办理即可。",
+        processingPath: ["上书房", "丞相", "户部"],
+        departments: ["户部"],
+        ministryOpinions: [{ department: "户部", opinion: "臣部已核查国库存银。" }],
+        finalVerdict: "臣部已核查国库存银。",
       });
+    }
+  } finally {
+    await stub.close();
+  }
+});
+
+test("submitDecree：成功路径（multi 路由）- 军机处会审字段完整映射为 ok: true", async () => {
+  const stub = await startDecreeStub(200, MULTI_ROUTE_BODY);
+  try {
+    const result = await submitDecree("兴修水利并征调粮草以工代赈", { baseUrl: stub.baseUrl });
+    assert.equal(result.ok, true);
+    if (result.ok) {
+      assert.equal(result.data.routeType, "multi");
+      assert.deepEqual(result.data.departments, ["户部", "工部"]);
+      assert.equal(result.data.ministryOpinions.length, 2);
+      assert.equal(result.data.processingPath.includes("军机处"), true);
+      assert.ok(result.data.finalVerdict.length > 0);
+    }
+  } finally {
+    await stub.close();
+  }
+});
+
+test("submitDecree：成功响应体缺少必需的新字段时回退为 kind: unknown", async () => {
+  const incompleteBody: Record<string, unknown> = { ...SINGLE_ROUTE_BODY };
+  delete incompleteBody.final_verdict;
+  const stub = await startDecreeStub(200, incompleteBody);
+  try {
+    const result = await submitDecree("请核查国库存银", { baseUrl: stub.baseUrl });
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.kind, "unknown");
     }
   } finally {
     await stub.close();
@@ -461,6 +519,43 @@ test("submitDecree：后端不可达路径 - 映射为 kind: network，且不抛
   }
 });
 
+test("submitDecree：请求耗时超过自定义 timeoutMs 时超时中止，映射为 kind: network", async () => {
+  /**
+   * `DECREE_TIMEOUT_MS` 默认值已上调至 120000ms（见模块内注释与新 ADR），本测试不
+   * 依赖该默认值、也不真实等待 120s：通过显式传入一个远小于服务端响应延迟的
+   * `timeoutMs`，覆盖默认值来验证超时（`AbortController`）分支本身仍然生效。
+   */
+  const server = createServer((req, res) => {
+    if (req.method === "POST" && req.url === "/api/v1/decrees/chancellor") {
+      setTimeout(() => {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify(SINGLE_ROUTE_BODY));
+      }, 500);
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address() as AddressInfo;
+
+  try {
+    const result = await submitDecree("请核查国库存银", {
+      baseUrl: `http://127.0.0.1:${address.port}`,
+      timeoutMs: 50,
+    });
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.kind, "network");
+      assert.equal(result.error, "请求超时");
+    }
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
 test("submitDecree：非预期状态码路径 - 映射为 kind: unknown", async () => {
   const stub = await startDecreeStub(500, { detail: "internal error" });
   try {
@@ -503,11 +598,23 @@ test("submitDecree：非法 JSON 响应体路径 - 映射为 kind: unknown", asy
   }
 });
 
-test("submitDecree：空回奏成功响应被拒绝为 unknown", async () => {
+test("submitDecree：final_verdict 全是空白的成功响应被拒绝为 unknown", async () => {
+  const stub = await startDecreeStub(200, { ...SINGLE_ROUTE_BODY, final_verdict: "   " });
+  try {
+    const result = await submitDecree("请核查国库存银", { baseUrl: stub.baseUrl });
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.kind, "unknown");
+    }
+  } finally {
+    await stub.close();
+  }
+});
+
+test("submitDecree：ministry_opinions 中某一部门 opinion 为空白时被拒绝为 unknown", async () => {
   const stub = await startDecreeStub(200, {
-    status: "ok",
-    chancellor: "丞相",
-    memorial_text: "   ",
+    ...SINGLE_ROUTE_BODY,
+    ministry_opinions: [{ department: "户部", opinion: "   " }],
   });
   try {
     const result = await submitDecree("请核查国库存银", { baseUrl: stub.baseUrl });

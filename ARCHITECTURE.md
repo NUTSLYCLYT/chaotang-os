@@ -35,7 +35,17 @@ Next.js 服务端 → FastAPI。`backend/` 已新增最小、无外部服务依�
 （`POST /api/v1/decrees/chancellor`，唯一的业务 HTTP 端点，同步返回丞相回奏或脱敏
 503/502/4xx 错误）。`langgraph_runtime/graph.py`、`state.py`、`deepseek_graph.py` 与
 `GET /health` 契约零改动；本地 MVP 只支持 `127.0.0.1`，不支持鉴权/限流/公开部署；决策见
-`docs/decisions/0010-shangshufang-chancellor-agent.md`。
+`docs/decisions/0010-shangshufang-chancellor-agent.md`。在此基础之上，丞相 Agent 已升级为
+完整的六部/军机处分流会审闭环：丞相判断旨意是 `single`（单部门）还是 `multi`（多部门）
+路由，单部门旨意进入吏、户、礼、兵、刑、工六部之一（`backend/app/agents/ministries/`）
+形成办理意见，多部门旨意进入军机处（`backend/app/agents/junjichu/`）并按丞相给定顺序
+串行召集至少两个相关部门会审后形成结论；`POST /api/v1/decrees/chancellor` 的成功响应体
+删除了旧的单段 `memorial_text`，改为返回 `route_type`、丞相判断说明 `rationale`、有序
+流转路径 `processing_path`、参与部门 `departments`、各部门意见 `ministry_opinions` 和
+最终结论 `final_verdict`；`/study` 页面同步展示这条完整流转链路，费用提示文案反映"一次
+下旨可能触发多次模型调用"；前端 `submitDecree()` 的超时常量从 45000ms 上调至
+120000ms（对应最坏情况 8 次串行 DeepSeek 调用）。决策见
+`docs/decisions/0012-decree-six-ministries-joint-review.md`。
 
 ## 所有权
 
@@ -45,8 +55,8 @@ Next.js 服务端 → FastAPI。`backend/` 已新增最小、无外部服务依�
 | `docs/product/tasks/` | Codex 与 Claude Code 的顺序交接契约和验收证据 | 运行态队列、自动编排服务 |
 | `.agents/skills/product-flow/` | Codex 桌面任务内的一键产品交付编排 | 定时/CI 常驻服务、Claude 自主编排入口 |
 | `.claude/agents/` | Claude Code 的架构、模块交付、测试专业角色 | 跨客户端通用角色、并行写入隔离 |
-| `frontend/` | 前端工程及其验证；已确定 Next.js + React + TypeScript + npm 最小骨架；已交付第一个业务页面 `/study`（上书房下旨）和服务端 Route Handler `src/app/api/decrees/chancellor/route.ts`，见 ADR 0010 | 其它业务页面、状态管理、UI 组件库、鉴权 |
-| `backend/` | 后端运行/评测工程及其验证；已确定 Python + FastAPI + uvicorn 最小骨架；已确定最小 LangGraph 运行时基础（依赖版本范围、`app/langgraph_runtime/` 模块边界、`GraphState` 状态类型，见 ADR 0007）；已确定唯一的 DeepSeek provider 接入（`providers.yaml` 以 `active: deepseek` 固定激活项、配置加载校验、`build_deepseek_graph()` 图工厂、密钥仅来自 `DEEPSEEK_API_KEY`，见 ADR 0008）；已交付第一个业务 Agent 与 HTTP 契约：`app/agents/chancellor/`（丞相 Agent）+ `app/api/decrees.py`（`POST /api/v1/decrees/chancellor`），见 ADR 0010 | 其它业务 agent/workflow 图结构、DeepSeek 之外的模型供应商接入、持久化/checkpointer 方案仍未确定 |
+| `frontend/` | 前端工程及其验证；已确定 Next.js + React + TypeScript + npm 最小骨架；已交付第一个业务页面 `/study`（上书房下旨）和服务端 Route Handler `src/app/api/decrees/chancellor/route.ts`，见 ADR 0010；已升级为展示六部/军机处完整流转结果（`routeType/rationale/processingPath/departments/ministryOpinions/finalVerdict`），见 ADR 0012 | 其它业务页面、状态管理、UI 组件库、鉴权 |
+| `backend/` | 后端运行/评测工程及其验证；已确定 Python + FastAPI + uvicorn 最小骨架；已确定最小 LangGraph 运行时基础（依赖版本范围、`app/langgraph_runtime/` 模块边界、`GraphState` 状态类型，见 ADR 0007）；已确定唯一的 DeepSeek provider 接入（`providers.yaml` 以 `active: deepseek` 固定激活项、配置加载校验、`build_deepseek_graph()` 图工厂、密钥仅来自 `DEEPSEEK_API_KEY`，见 ADR 0008）；已交付第一个业务 Agent 与 HTTP 契约：`app/agents/chancellor/`（丞相 Agent）+ `app/api/decrees.py`（`POST /api/v1/decrees/chancellor`），见 ADR 0010；已升级为六部/军机处分流会审闭环：`app/agents/ministries/`（六部办理）+ `app/agents/junjichu/`（军机处会审）+ 对应的 HTTP 契约新字段，见 ADR 0012 | 其它业务 agent/workflow 图结构、DeepSeek 之外的模型供应商接入、持久化/checkpointer 方案仍未确定 |
 
 `AGENTS.md` 只提供经常需要的操作指引；本文件只记录已确认架构事实。重要选择在
 `docs/decisions/` 记录原因，不能把尚未决定的方案写成现状。
@@ -78,8 +88,11 @@ Next.js 服务端 → FastAPI。`backend/` 已新增最小、无外部服务依�
   `docs/decisions/0008-deepseek-langgraph-integration.md`。仓库已确定的唯一业务 HTTP
   接口和业务 Agent 是 `POST /api/v1/decrees/chancellor` 与 `app/agents/chancellor/`
   （上书房下旨到丞相，同步、无持久化、仅 `127.0.0.1` 本地 MVP），见
-  `docs/decisions/0010-shangshufang-chancellor-agent.md`；不得据此推断可以随意新增其它
-  业务工作流或派发/持久化能力。
+  `docs/decisions/0010-shangshufang-chancellor-agent.md`；该闭环已升级为丞相分流 +
+  六部办理（`app/agents/ministries/`）+ 军机处多部门会审（`app/agents/junjichu/`），
+  HTTP 响应契约相应扩展，仍然同步、无持久化、仅 `127.0.0.1` 本地 MVP，见
+  `docs/decisions/0012-decree-six-ministries-joint-review.md`；不得据此推断可以随意
+  新增其它业务工作流或派发/持久化能力。
 
 ## 结构变化门禁
 

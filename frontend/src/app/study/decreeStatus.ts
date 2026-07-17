@@ -18,16 +18,49 @@
 /** 与 `SubmitDecreeResult` 的 `kind` 保持一致的稳定错误分类。 */
 export type DecreeErrorKind = "validation" | "config" | "model" | "network" | "unknown";
 
-/** 与 `src/lib/backendClient.ts` 的 `SubmitDecreeResult` 结构兼容的下旨提交结果。 */
+/** 一个被军机处/单部门咨询的部门及其办理意见，保序。 */
+export interface DecreeMinistryOpinion {
+  department: string;
+  opinion: string;
+}
+
+/**
+ * 与 `src/lib/backendClient.ts` 的 `SubmitDecreeResult` 结构兼容的下旨提交结果。
+ *
+ * `data` 形状对应新的结构化流转契约（`routeType/rationale/processingPath/
+ * departments/ministryOpinions/finalVerdict`），替代旧的单段 `memorialText`；
+ * 详见 `docs/decisions/0012-decree-six-ministries-joint-review.md`。
+ */
 export type DecreeSubmitOutcome =
-  | { ok: true; data: { status: string; chancellor: string; memorialText: string } }
+  | {
+      ok: true;
+      data: {
+        status: string;
+        chancellor: string;
+        routeType: string;
+        rationale: string;
+        processingPath: string[];
+        departments: string[];
+        ministryOpinions: DecreeMinistryOpinion[];
+        finalVerdict: string;
+      };
+    }
   | { ok: false; kind: DecreeErrorKind; error: string };
 
 /** `/study` 页面渲染下旨流程所需的全部 UI 状态。 */
 export type DecreeUiState =
   | { phase: "idle" }
   | { phase: "submitting" }
-  | { phase: "success"; chancellor: string; memorialText: string }
+  | {
+      phase: "success";
+      chancellor: string;
+      routeType: string;
+      rationale: string;
+      processingPath: string[];
+      departments: string[];
+      ministryOpinions: DecreeMinistryOpinion[];
+      finalVerdict: string;
+    }
   | { phase: "error"; message: string };
 
 /**
@@ -78,7 +111,12 @@ export function mapSubmitDecreeResultToUiState(result: DecreeSubmitOutcome): Dec
     return {
       phase: "success",
       chancellor: result.data.chancellor,
-      memorialText: result.data.memorialText,
+      routeType: result.data.routeType,
+      rationale: result.data.rationale,
+      processingPath: result.data.processingPath,
+      departments: result.data.departments,
+      ministryOpinions: result.data.ministryOpinions,
+      finalVerdict: result.data.finalVerdict,
     };
   }
   return { phase: "error", message: FRIENDLY_MESSAGE_BY_KIND[result.kind] };

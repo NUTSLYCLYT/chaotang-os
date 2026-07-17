@@ -76,11 +76,16 @@ function makeRequest(body: unknown): Request {
   });
 }
 
-test("POST：成功路径 - 后端返回符合契约的响应时映射为 200", async () => {
+test("POST：成功路径（single 路由）- 后端返回符合契约的响应时映射为 200，新字段全部透传", async () => {
   const stub = await startDecreeStub(200, {
     status: "ok",
     chancellor: "丞相",
-    memorial_text: "臣已知晓陛下旨意，建议下一步核查国库存银。",
+    route_type: "single",
+    rationale: "此事职责明确，交由户部办理即可。",
+    processing_path: ["上书房", "丞相", "户部"],
+    departments: ["户部"],
+    ministry_opinions: [{ department: "户部", opinion: "臣部已核查国库存银。" }],
+    final_verdict: "臣部已核查国库存银。",
   });
   try {
     const response = await withBackendBaseUrl(stub.baseUrl, () =>
@@ -92,8 +97,47 @@ test("POST：成功路径 - 后端返回符合契约的响应时映射为 200", 
     assert.deepEqual(body, {
       status: "ok",
       chancellor: "丞相",
-      memorialText: "臣已知晓陛下旨意，建议下一步核查国库存银。",
+      routeType: "single",
+      rationale: "此事职责明确，交由户部办理即可。",
+      processingPath: ["上书房", "丞相", "户部"],
+      departments: ["户部"],
+      ministryOpinions: [{ department: "户部", opinion: "臣部已核查国库存银。" }],
+      finalVerdict: "臣部已核查国库存银。",
     });
+  } finally {
+    await stub.close();
+  }
+});
+
+test("POST：成功路径（multi 路由）- 后端返回符合契约的响应时映射为 200，含军机处会审字段", async () => {
+  const stub = await startDecreeStub(200, {
+    status: "ok",
+    chancellor: "丞相",
+    route_type: "multi",
+    rationale: "此事涉及工程与钱粮，需户部、工部会同办理。",
+    processing_path: ["上书房", "丞相", "军机处", "户部", "工部"],
+    departments: ["户部", "工部"],
+    ministry_opinions: [
+      { department: "户部", opinion: "臣部已核查库银，可拨付部分钱粮。" },
+      { department: "工部", opinion: "臣部已勘察地形，可即刻兴工。" },
+    ],
+    final_verdict: "军机处会审：准予兴修水利，钱粮由户部拨付，工部督造。",
+  });
+  try {
+    const response = await withBackendBaseUrl(stub.baseUrl, () =>
+      POST(makeRequest({ decreeText: "兴修水利并征调粮草以工代赈" })),
+    );
+
+    assert.equal(response.status, 200);
+    const body = (await response.json()) as Record<string, unknown>;
+    assert.equal(body.routeType, "multi");
+    assert.deepEqual(body.processingPath, ["上书房", "丞相", "军机处", "户部", "工部"]);
+    assert.deepEqual(body.departments, ["户部", "工部"]);
+    assert.deepEqual(body.ministryOpinions, [
+      { department: "户部", opinion: "臣部已核查库银，可拨付部分钱粮。" },
+      { department: "工部", opinion: "臣部已勘察地形，可即刻兴工。" },
+    ]);
+    assert.equal(body.finalVerdict, "军机处会审：准予兴修水利，钱粮由户部拨付，工部督造。");
   } finally {
     await stub.close();
   }

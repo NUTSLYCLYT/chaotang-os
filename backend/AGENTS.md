@@ -10,7 +10,17 @@ pytest 测试，ruff 静态检查，pip + venv 管理依赖。选型理由、取
 - 当前保留 `GET /health` 业务无关入口，并新增唯一的本地业务接口
   `POST /api/v1/decrees/chancellor`，由 `app/api/decrees.py` 把旨意交给
   `app/agents/chancellor/` 的专用 LangGraph 丞相 Agent；该同步 MVP 仅支持
-  `127.0.0.1`，不具备鉴权、限流、持久化或公开部署能力（见 ADR 0010）。已引入最小、无外部服务依赖的
+  `127.0.0.1`，不具备鉴权、限流、持久化或公开部署能力（见 ADR 0010）。该端点已升级为
+  完整的丞相分流 + 六部办理 + 军机处会审闭环（见 ADR 0012）：丞相判断旨意是单部门
+  （`single`）还是多部门（`multi`）路由；单部门旨意由 `app/agents/ministries/`
+  （六部固定名录、单部门办理调用）处理；多部门旨意由 `app/agents/junjichu/`（军机处，
+  按丞相给定顺序严格串行召集至少两个相关部门会审）处理；两者共用的图拓扑和状态形状
+  （`ChancellorGraphState`）仍然只在 `app/agents/chancellor/graph.py` 一处定义。成功
+  响应体不再是单段 `memorial_text`，而是 `route_type`/`rationale`/`processing_path`/
+  `departments`/`ministry_opinions`/`final_verdict` 六个字段（`route_type` 与
+  `ministry_opinions[].department` 均为 `str`，不是 `Literal`/`Enum`——六部范围与路由
+  合法性只在图层的 `_decide_route` 节点做一次严格校验，响应模型不重复校验，避免把已经
+  处理过的业务失败变成未捕获 500）。已引入最小、无外部服务依赖的
   LangGraph 运行时基础模块（`app/langgraph_runtime/`，决策见
   `docs/decisions/0007-langgraph-runtime-foundation.md`），仅提供一个可编译的
   确定性图工厂函数，不接入任何模型供应商、不做持久化/checkpointer、不新增任何
@@ -220,9 +230,14 @@ result = graph.invoke({"input_text": "hello", "response_text": ""})
 `APIRouter`/`app.include_router(...)` 挂到 `app/main.py` 的既有 `app` 实例上）是两个
 职责边界清晰、彼此独立的子包：`app/agents/**` 不涉及 HTTP，`app/api/**` 不实现 agent
 的图逻辑，只做请求/响应契约（Pydantic 模型 + 校验）、错误脱敏映射与路由注册。
-`app/main.py` 中 `GET /health` 的既有代码路径不受这两个子包影响。具体接口、错误映射
-和验证证据见对应产品任务与其 Implementation Report（例如
-`docs/product/tasks/2026-07-17-shangshufang-chancellor-agent.md`）。
+`app/main.py` 中 `GET /health` 的既有代码路径不受这两个子包影响。`app/agents/` 目前含
+三个业务子包：`app/agents/chancellor/`（丞相分流图，唯一定义 `ChancellorGraphState` 和
+拓扑的地方）、`app/agents/ministries/`（六部固定名录 `MINISTRIES`、单部门/军机处共用的
+`invoke_ministry_agent`）、`app/agents/junjichu/`（军机处多部门会审，严格串行、不并发调用
+六部）；三者的结构化 JSON 解析共用 `app/agents/structured_output.py` 里的唯一函数。具体
+接口、错误映射和验证证据见对应产品任务与其 Implementation Report（例如
+`docs/product/tasks/2026-07-17-shangshufang-chancellor-agent.md`、
+`docs/product/tasks/2026-07-17-decree-six-ministries-joint-review.md`）。
 
 ## 后续变更要求
 

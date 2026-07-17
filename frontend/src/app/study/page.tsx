@@ -11,11 +11,22 @@ import {
   type DecreeUiState,
 } from "./decreeStatus";
 
+/** 一个被军机处/单部门咨询的部门及其办理意见，保序。 */
+interface ChancellorMinistryOpinion {
+  department: string;
+  opinion: string;
+}
+
 /** `route.ts` 成功响应体的形状（详见 `src/app/api/decrees/chancellor/route.ts`）。 */
 interface ChancellorSuccessResponseBody {
   status: string;
   chancellor: string;
-  memorialText: string;
+  routeType: string;
+  rationale: string;
+  processingPath: string[];
+  departments: string[];
+  ministryOpinions: ChancellorMinistryOpinion[];
+  finalVerdict: string;
 }
 
 /** `route.ts` 失败响应体的形状：脱敏、携带稳定 `reason` 分类。 */
@@ -66,13 +77,35 @@ async function callChancellorRoute(decreeText: string): Promise<DecreeUiState> {
 
   if (response.ok) {
     const success = body as Partial<ChancellorSuccessResponseBody>;
-    if (typeof success.chancellor === "string" && typeof success.memorialText === "string") {
+    if (
+      typeof success.chancellor === "string" &&
+      typeof success.routeType === "string" &&
+      typeof success.rationale === "string" &&
+      Array.isArray(success.processingPath) &&
+      success.processingPath.every((step) => typeof step === "string") &&
+      Array.isArray(success.departments) &&
+      success.departments.every((department) => typeof department === "string") &&
+      Array.isArray(success.ministryOpinions) &&
+      success.ministryOpinions.every(
+        (entry) =>
+          typeof entry === "object" &&
+          entry !== null &&
+          typeof entry.department === "string" &&
+          typeof entry.opinion === "string",
+      ) &&
+      typeof success.finalVerdict === "string"
+    ) {
       return mapSubmitDecreeResultToUiState({
         ok: true,
         data: {
           status: typeof success.status === "string" ? success.status : "ok",
           chancellor: success.chancellor,
-          memorialText: success.memorialText,
+          routeType: success.routeType,
+          rationale: success.rationale,
+          processingPath: success.processingPath,
+          departments: success.departments,
+          ministryOpinions: success.ministryOpinions,
+          finalVerdict: success.finalVerdict,
         },
       });
     }
@@ -114,7 +147,8 @@ export default function StudyPage() {
       <p>在此输入旨意，点击“下旨”后将由丞相 Agent 生成回奏。</p>
       <p data-testid="decree-fee-notice">
         <strong>
-          注意：点击“下旨”会触发一次真实的 DeepSeek API 调用，并产生相应的模型调用费用，请确认旨意内容后再提交。
+          注意：点击“下旨”会触发一次下旨流程中的多次模型调用（丞相判断、六部或军机处会审），
+          产生相应的 DeepSeek API 调用费用，请确认旨意内容后再提交。
         </strong>
       </p>
       <section>
@@ -145,12 +179,26 @@ export default function StudyPage() {
         <h2>丞相回奏</h2>
         {uiState.phase === "idle" && <p data-testid="decree-status">尚未提交旨意。</p>}
         {uiState.phase === "submitting" && (
-          <p data-testid="decree-status">丞相正在草拟回奏，请稍候……</p>
+          <p data-testid="decree-status">丞相正在判断办理路径并召集相关部门，请稍候……</p>
         )}
         {uiState.phase === "success" && (
-          <p data-testid="decree-status" data-decree-ok="true">
-            {uiState.chancellor}回奏：{uiState.memorialText}
-          </p>
+          <div data-testid="decree-status" data-decree-ok="true">
+            <p data-testid="decree-rationale">
+              {uiState.chancellor}判断：{uiState.rationale}
+            </p>
+            <p data-testid="decree-processing-path">
+              流转路径：{uiState.processingPath.join(" → ")}
+            </p>
+            <h3>各部门意见</h3>
+            <ul data-testid="decree-ministry-opinions">
+              {uiState.ministryOpinions.map((opinion) => (
+                <li key={opinion.department}>
+                  {opinion.department}：{opinion.opinion}
+                </li>
+              ))}
+            </ul>
+            <p data-testid="decree-final-verdict">最终结论：{uiState.finalVerdict}</p>
+          </div>
         )}
         {uiState.phase === "error" && (
           <p data-testid="decree-status" data-decree-ok="false">

@@ -5,7 +5,9 @@ This is a dedicated, business-specific graph independent of
 ``app.langgraph_runtime.graph``/``state.py``, and it does not call
 ``build_deepseek_graph()`` directly. It only reuses the read-only
 configuration/client helpers ``load_deepseek_provider_config`` and
-``build_deepseek_chat_model`` from ``app.langgraph_runtime``.
+``build_deepseek_chat_model`` from ``app.langgraph_runtime``. It also calls
+into ``app.agents.ministries`` (six-ministries roster + per-department
+invocation) for its single-department routing branch.
 """
 
 from app.agents.chancellor.graph import (

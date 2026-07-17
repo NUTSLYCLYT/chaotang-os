@@ -16,8 +16,12 @@ TypeScript，npm 管理依赖，Node 内置 `node:test` 做单元测试。选型
 - `src/app/study/page.tsx`（`/study`，“上书房”）是第一个业务页面：客户端组件
   （`"use client"`），提供旨意输入框与“下旨”按钮，用户主动点击后才通过同源相对
   路径 `fetch('/api/decrees/chancellor')` 提交（不自动提交、不直接引用
-  `BACKEND_BASE_URL`、不直接请求 FastAPI）。页面明确提示点击“下旨”会产生真实
-  DeepSeek 调用费用，并展示处理中/成功（丞相身份 + 回奏）/失败三种状态。
+  `BACKEND_BASE_URL`、不直接请求 FastAPI）。页面明确提示点击“下旨”会触发一次下旨
+  流程中的多次模型调用（丞相判断、六部或军机处会审）并产生相应的 DeepSeek 调用费用，
+  并展示处理中/成功/失败三种状态；成功状态展示丞相判断说明（`rationale`）、完整流转
+  路径（`processingPath.join(" → ")`）、各参与部门的办理意见列表（`ministryOpinions`）
+  和最终结论（`finalVerdict`）——这组结构化字段替代了早期版本的单段回奏文本，见
+  `docs/decisions/0012-decree-six-ministries-joint-review.md`。
   `src/app/study/decreeStatus.ts` 是配套的纯函数模块（不依赖 React/DOM/网络），
   负责把一次下旨提交结果映射为页面可渲染的 UI 状态，供 `decreeStatus.test.ts`
   完全离线单测。
@@ -75,14 +79,17 @@ npm test
 ```
 
 等效于 `node --test`（从 `frontend/` 目录递归发现 `**/*.test.ts` 等默认模式的
-测试文件，当前覆盖 `src/lib/backendClient.test.ts` 的成功路径、失败路径（后端
-不可达 / 非 200 状态码）以及 `getBackendBaseUrl` 的环境变量读取逻辑；
-`src/app/study/decreeStatus.test.ts` 覆盖 idle/submitting/success/各错误 `kind`
-的纯函数映射；`src/app/api/decrees/chancellor/route.test.ts` 起本地 HTTP stub
-并直接调用 `POST`，覆盖成功、后端校验失败(422)、配置失败(503)、模型失败(502)、
-后端不可达以及 Route Handler 自身收到畸形请求体的场景）。测试直接用相对路径 +
-显式 `.ts` 扩展名导入被测模块（例如 `./backendClient.ts`、`./route.ts`），因为
-Node 原生 ESM 解析不支持 `tsconfig.json` 里的 `@/*` 路径别名；`@/*` 别名只在
+测试文件，当前覆盖 `src/lib/backendClient.test.ts` 的成功路径（single/multi 路由完整
+字段、成功响应体缺少新契约字段时回退为 `kind: "unknown"`）、失败路径（后端不可达 /
+非 200 状态码 / 自定义短 `timeoutMs` 覆盖默认值验证真实超时中止分支）以及
+`getBackendBaseUrl` 的环境变量读取逻辑；`src/app/study/decreeStatus.test.ts` 覆盖
+idle/submitting/success（single/multi 两种路由的完整流转字段）/各错误 `kind` 的纯函数
+映射；`src/app/api/decrees/chancellor/route.test.ts` 起本地 HTTP stub 并直接调用
+`POST`，覆盖成功（single/multi 两种路由的新契约字段透传）、后端校验失败(422)、配置
+失败(503)、模型失败(502)、后端不可达以及 Route Handler 自身收到畸形请求体的场景）。
+测试直接用相对路径 + 显式 `.ts` 扩展名导入被测模块（例如 `./backendClient.ts`、
+`./route.ts`），因为 Node 原生 ESM 解析不支持 `tsconfig.json` 里的 `@/*` 路径别名；
+`@/*` 别名只在
 Next.js 应用代码（页面）中可用，Route Handler 对 `src/lib` 的导入也统一改用
 相对路径以保持可被 `node --test` 直接加载。
 
@@ -113,8 +120,9 @@ npm run start
 `200 OK`；页面会展示后端健康检查结果——若 `backend/` 服务同时运行且
 `BACKEND_BASE_URL` 指向它，会展示 `后端状态：ok（...）`；若后端不可达，会展示
 `后端不可用：<错误描述>`，均不导致页面报错或非 200。还应请求
-`http://localhost:3000/study`，确认返回 200 且包含“上书房”、下旨按钮和 DeepSeek
-费用提示；烟雾验证不得点击下旨，避免产生真实模型用量。验证完成后关闭该进程。
+`http://localhost:3000/study`，确认返回 200 且包含“上书房”、下旨按钮和反映“一次下旨
+可能触发多次模型调用”的 DeepSeek 费用提示；烟雾验证不得点击下旨，避免产生真实模型
+用量。验证完成后关闭该进程。
 
 ## 环境变量
 

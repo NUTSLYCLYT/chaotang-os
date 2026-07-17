@@ -82,11 +82,29 @@ function describeError(error: unknown): string {
   return String(error);
 }
 
-/** `POST /api/v1/decrees/chancellor` 成功响应体映射到前端后的形状。 */
+/** 一个被军机处/单部门咨询的部门及其办理意见，保序。 */
+export interface MinistryOpinion {
+  department: string;
+  opinion: string;
+}
+
+/**
+ * `POST /api/v1/decrees/chancellor` 成功响应体映射到前端后的形状。
+ *
+ * 对应后端 `route_type/rationale/processing_path/departments/ministry_opinions/
+ * final_verdict` 驼峰化后的字段：`routeType/rationale/processingPath/departments/
+ * ministryOpinions/finalVerdict`。旧的单段 `memorialText` 字段已被这组结构化字段
+ * 整体替代（见 `docs/decisions/0012-decree-six-ministries-joint-review.md`）。
+ */
 export interface SubmitDecreeData {
   status: string;
   chancellor: string;
-  memorialText: string;
+  routeType: string;
+  rationale: string;
+  processingPath: string[];
+  departments: string[];
+  ministryOpinions: MinistryOpinion[];
+  finalVerdict: string;
 }
 
 /**
@@ -111,8 +129,13 @@ export interface SubmitDecreeOptions {
 /**
  * `submitDecree` 专用超时常量：LLM 调用可能耗时较长，刻意独立于 `fetchHealth` 的
  * `DEFAULT_TIMEOUT_MS`（3000ms），不与其共用默认值。
+ *
+ * 一次下旨最坏情况会触发 8 次串行 DeepSeek 调用（1 次丞相路由 + 最多 6 次六部会审
+ * + 1 次军机处汇总，均由后端图按确定顺序串行执行，不并发），而不是旧版单次丞相回
+ * 奏；因此从 45000ms 上调至 120000ms，避免把"模型仍在处理"误判为网络错误。数值
+ * 依据详见 `docs/decisions/0012-decree-six-ministries-joint-review.md`。
  */
-const DECREE_TIMEOUT_MS = 45000;
+const DECREE_TIMEOUT_MS = 120000;
 
 /** 从错误响应体中提取脱敏的 `message` 字段；解析失败或字段缺失时回退到 `fallback`。 */
 async function extractErrorMessage(response: Response, fallback: string): Promise<string> {
@@ -125,6 +148,92 @@ async function extractErrorMessage(response: Response, fallback: string): Promis
     // 响应体不是合法 JSON 或不含 message 字段时，使用 fallback。
   }
   return fallback;
+}
+
+/** 校验并提取一份 `{department, opinion}` 数组；任一元素形状不符时返回 `null`。 */
+function parseMinistryOpinions(value: unknown): MinistryOpinion[] | null {
+  if (!Array.isArray(value) || value.length === 0) {
+    return null;
+  }
+  const opinions: MinistryOpinion[] = [];
+  for (const entry of value) {
+    if (
+      typeof entry !== "object" ||
+      entry === null ||
+      typeof (entry as Record<string, unknown>).department !== "string" ||
+      ((entry as Record<string, unknown>).department as string).trim().length === 0 ||
+      typeof (entry as Record<string, unknown>).opinion !== "string" ||
+      ((entry as Record<string, unknown>).opinion as string).trim().length === 0
+    ) {
+      return null;
+    }
+    opinions.push({
+      department: ((entry as Record<string, unknown>).department as string).trim(),
+      opinion: ((entry as Record<string, unknown>).opinion as string).trim(),
+    });
+  }
+  return opinions;
+}
+
+/** 校验并提取一份非空字符串数组；形状不符时返回 `null`。 */
+function parseNonEmptyStringArray(value: unknown): string[] | null {
+  if (!Array.isArray(value) || value.length === 0) {
+    return null;
+  }
+  if (!value.every((item) => typeof item === "string" && item.trim().length > 0)) {
+    return null;
+  }
+  return value as string[];
+}
+
+/**
+ * 校验并提取一份符合新契约的 `SubmitDecreeData`；任一必需字段缺失或形状不符（含旧的
+ * `memorial_text` 单段字形状）都回退到 `null`，由调用方映射为 `kind: "unknown"`。
+ */
+function parseSubmitDecreeData(body: unknown): SubmitDecreeData | null {
+  if (typeof body !== "object" || body === null) {
+    return null;
+  }
+  const record = body as Record<string, unknown>;
+
+  if (record.status !== "ok") {
+    return null;
+  }
+  if (typeof record.chancellor !== "string" || record.chancellor.trim().length === 0) {
+    return null;
+  }
+  if (typeof record.route_type !== "string" || record.route_type.trim().length === 0) {
+    return null;
+  }
+  if (typeof record.rationale !== "string" || record.rationale.trim().length === 0) {
+    return null;
+  }
+  const processingPath = parseNonEmptyStringArray(record.processing_path);
+  if (processingPath === null) {
+    return null;
+  }
+  const departments = parseNonEmptyStringArray(record.departments);
+  if (departments === null) {
+    return null;
+  }
+  const ministryOpinions = parseMinistryOpinions(record.ministry_opinions);
+  if (ministryOpinions === null) {
+    return null;
+  }
+  if (typeof record.final_verdict !== "string" || record.final_verdict.trim().length === 0) {
+    return null;
+  }
+
+  return {
+    status: record.status,
+    chancellor: record.chancellor.trim(),
+    routeType: record.route_type.trim(),
+    rationale: record.rationale.trim(),
+    processingPath,
+    departments,
+    ministryOpinions,
+    finalVerdict: record.final_verdict.trim(),
+  };
 }
 
 /**
@@ -187,27 +296,11 @@ export async function submitDecree(
       return { ok: false, kind: "unknown", error: "后端响应不是合法 JSON" };
     }
 
-    if (
-      typeof body === "object" &&
-      body !== null &&
-      (body as Record<string, unknown>).status === "ok" &&
-      typeof (body as Record<string, unknown>).chancellor === "string" &&
-      ((body as Record<string, unknown>).chancellor as string).trim().length > 0 &&
-      typeof (body as Record<string, unknown>).memorial_text === "string" &&
-      ((body as Record<string, unknown>).memorial_text as string).trim().length > 0
-    ) {
-      const typed = body as { status: string; chancellor: string; memorial_text: string };
-      return {
-        ok: true,
-        data: {
-          status: typed.status,
-          chancellor: typed.chancellor.trim(),
-          memorialText: typed.memorial_text.trim(),
-        },
-      };
+    const data = parseSubmitDecreeData(body);
+    if (data === null) {
+      return { ok: false, kind: "unknown", error: "后端成功响应体不符合预期契约" };
     }
-
-    return { ok: false, kind: "unknown", error: "后端成功响应体不符合预期契约" };
+    return { ok: true, data };
   } catch (error) {
     return { ok: false, kind: "network", error: describeError(error) };
   } finally {

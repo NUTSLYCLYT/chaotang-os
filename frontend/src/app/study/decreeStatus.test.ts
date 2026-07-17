@@ -42,21 +42,59 @@ test("getDecreeFormAvailability：提交处理中输入与提交均禁用", () =
   });
 });
 
-test("mapSubmitDecreeResultToUiState：成功结果映射为 success 状态，携带丞相身份与回奏", () => {
+test("mapSubmitDecreeResultToUiState：single 路由成功结果映射为 success 状态，携带完整流转字段", () => {
   const state = mapSubmitDecreeResultToUiState({
     ok: true,
     data: {
       status: "ok",
       chancellor: "丞相",
-      memorialText: "臣已知晓陛下旨意，建议下一步核查国库存银。",
+      routeType: "single",
+      rationale: "此事职责明确，交由吏部办理即可。",
+      processingPath: ["上书房", "丞相", "吏部"],
+      departments: ["吏部"],
+      ministryOpinions: [{ department: "吏部", opinion: "臣部已知晓，建议核查官员考绩。" }],
+      finalVerdict: "臣部已知晓，建议核查官员考绩。",
     },
   });
 
   assert.deepEqual(state, {
     phase: "success",
     chancellor: "丞相",
-    memorialText: "臣已知晓陛下旨意，建议下一步核查国库存银。",
+    routeType: "single",
+    rationale: "此事职责明确，交由吏部办理即可。",
+    processingPath: ["上书房", "丞相", "吏部"],
+    departments: ["吏部"],
+    ministryOpinions: [{ department: "吏部", opinion: "臣部已知晓，建议核查官员考绩。" }],
+    finalVerdict: "臣部已知晓，建议核查官员考绩。",
   });
+});
+
+test("mapSubmitDecreeResultToUiState：multi 路由成功结果映射为 success 状态，携带全部部门意见与会审结论", () => {
+  const state = mapSubmitDecreeResultToUiState({
+    ok: true,
+    data: {
+      status: "ok",
+      chancellor: "丞相",
+      routeType: "multi",
+      rationale: "此事涉及工程与钱粮，需户部、工部会同办理。",
+      processingPath: ["上书房", "丞相", "军机处", "户部", "工部"],
+      departments: ["户部", "工部"],
+      ministryOpinions: [
+        { department: "户部", opinion: "臣部已核查库银，可拨付部分钱粮。" },
+        { department: "工部", opinion: "臣部已勘察地形，可即刻兴工。" },
+      ],
+      finalVerdict: "军机处会审：准予兴修水利，钱粮由户部拨付，工部督造。",
+    },
+  });
+
+  assert.equal(state.phase, "success");
+  if (state.phase === "success") {
+    assert.equal(state.routeType, "multi");
+    assert.equal(state.departments.length, 2);
+    assert.equal(state.ministryOpinions.length, 2);
+    assert.equal(state.processingPath.includes("军机处"), true);
+    assert.ok(state.finalVerdict.length > 0);
+  }
 });
 
 const ERROR_KINDS: DecreeErrorKind[] = ["validation", "config", "model", "network", "unknown"];

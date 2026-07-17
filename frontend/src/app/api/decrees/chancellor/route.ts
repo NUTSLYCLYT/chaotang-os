@@ -21,11 +21,26 @@ interface ChancellorRequestBody {
   decreeText?: unknown;
 }
 
-/** 成功时返回给浏览器的响应体。 */
+/** 一个被军机处/单部门咨询的部门及其办理意见，保序。 */
+interface ChancellorMinistryOpinion {
+  department: string;
+  opinion: string;
+}
+
+/**
+ * 成功时返回给浏览器的响应体：原样透传 `submitDecree()` 映射出的新契约字段
+ * （见 `docs/decisions/0012-decree-six-ministries-joint-review.md`），不新增字段、
+ * 不做二次转换。
+ */
 interface ChancellorSuccessResponseBody {
   status: string;
   chancellor: string;
-  memorialText: string;
+  routeType: string;
+  rationale: string;
+  processingPath: string[];
+  departments: string[];
+  ministryOpinions: ChancellorMinistryOpinion[];
+  finalVerdict: string;
 }
 
 /** 与 `submitDecree` 的 `kind` 保持一致的稳定错误分类，供浏览器区分场景展示。 */
@@ -92,7 +107,12 @@ export async function POST(request: Request): Promise<Response> {
     const body: ChancellorSuccessResponseBody = {
       status: result.data.status,
       chancellor: result.data.chancellor,
-      memorialText: result.data.memorialText,
+      routeType: result.data.routeType,
+      rationale: result.data.rationale,
+      processingPath: result.data.processingPath,
+      departments: result.data.departments,
+      ministryOpinions: result.data.ministryOpinions,
+      finalVerdict: result.data.finalVerdict,
     };
     return jsonResponse(body, 200);
   }
