@@ -28,8 +28,13 @@
 
   客观可查证据（`git log`/`git reflog`，任何人可独立重跑核对）：
   - `20d50e6` 的 parent 有两个：`8f7aef2` 与 `0d2feb9`。
-  - `8f7aef2..0d2feb9` 是 5 个与本次修复无关的 commit，主题是 legacy forecast
-    router 遥测/隔离。
+  - `8f7aef2..0d2feb9` 是 5 个与本次修复无关的 commit，跨至少两个不同主题
+    （逐条列出，不做主题概括，避免以偏概全）：
+    `613553d fix: restore legal corpus and roster baseline`、
+    `853b9dd test: isolate forecast endpoint from shared rag state`、
+    `60653c7 docs: reconcile backend baseline verification`、
+    `e70fd91 feat: instrument legacy forecast router calls`、
+    `0d2feb9 docs: record legacy router telemetry gate`。
   - `git reflog` 记录 `20d50e6` 的动作类型为 `commit (merge)`，说明执行该次
     `git commit` 时 `MERGE_HEAD` 已经存在。reflog 不记录 `MERGE_HEAD` 由谁/
     哪个进程创建，无法从 git 本身确认源头。
