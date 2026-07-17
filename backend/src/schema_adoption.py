@@ -49,7 +49,7 @@ _EXPECTED_SERVER_DEFAULTS = {
     ("build_ledger_entries", "user_id"): "anonymous",
     ("decree_execution_events", "sequence"): "0",
     ("decree_execution_events", "event_type"): "timeline.note",
-    ("decree_execution_events", "source_label"): "fallback",
+    ("decree_execution_events", "source_label"): "FALLBACK",
     ("decree_execution_events", "payload_json"): "{}",
     ("decrees", "tenant_id"): "1",
     ("decrees", "raw_command"): "",
@@ -60,7 +60,7 @@ _EXPECTED_SERVER_DEFAULTS = {
     ("departments", "created_at"): "",
     ("final_memorials", "status"): "ready_for_decision",
     ("jinyiwei_evidence", "tenant_id"): "1",
-    ("jinyiwei_evidence", "source_label"): "fallback",
+    ("jinyiwei_evidence", "source_label"): "FALLBACK",
     ("jinyiwei_evidence", "sources_json"): "[]",
     ("jinyiwei_evidence", "dept_affinity_json"): "[]",
     ("jinyiwei_evidence", "created_at"): "",
@@ -133,11 +133,50 @@ def _normalize_default(value: object) -> str | None:
     while normalized.startswith("(") and normalized.endswith(")"):
         normalized = normalized[1:-1].strip()
     if len(normalized) >= 2 and normalized[0] == normalized[-1] and normalized[0] in {"'", '"'}:
-        normalized = normalized[1:-1]
-    normalized = " ".join(normalized.lower().split())
+        return normalized[1:-1]
+    normalized = _normalize_sql_syntax(normalized)
     if normalized in {"datetime('now')", "now()"}:
         return "current_timestamp"
     return normalized
+
+
+def _normalize_sql_syntax(value: object) -> str:
+    """Normalize SQL syntax without changing quoted literal contents."""
+    source = str(value).strip()
+    normalized: list[str] = []
+    quote: str | None = None
+    pending_space = False
+    index = 0
+
+    while index < len(source):
+        char = source[index]
+        if quote is not None:
+            normalized.append(char)
+            if char == quote:
+                if index + 1 < len(source) and source[index + 1] == quote:
+                    normalized.append(source[index + 1])
+                    index += 2
+                    continue
+                quote = None
+            index += 1
+            continue
+
+        if char in {"'", '"'}:
+            if pending_space and normalized:
+                normalized.append(" ")
+            pending_space = False
+            quote = char
+            normalized.append(char)
+        elif char.isspace():
+            pending_space = True
+        else:
+            if pending_space and normalized:
+                normalized.append(" ")
+            pending_space = False
+            normalized.append(char.lower())
+        index += 1
+
+    return "".join(normalized)
 
 
 def _type_matches(actual: sa.types.TypeEngine, expected: sa.types.TypeEngine) -> bool:
@@ -172,7 +211,7 @@ def _expected_unique_shapes(table: sa.Table) -> set[tuple[str, ...]]:
 
 
 def _normalize_check_sql(value: object) -> str:
-    return " ".join(str(value).strip().lower().split())
+    return _normalize_sql_syntax(value)
 
 
 def _normalized_fk_options(options: dict[str, object] | None) -> tuple[tuple[str, str], ...]:
