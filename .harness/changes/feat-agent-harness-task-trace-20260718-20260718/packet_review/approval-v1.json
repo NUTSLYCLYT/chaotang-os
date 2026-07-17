@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "LOCAL_FEEDBACK_ONLY",
+  "review_version": 1,
+  "packet_id": "P11",
+  "change_id": "feat-agent-harness-task-trace-20260718-20260718",
+  "predecessor_integration_sha": "fa7a1508795a7d1ecc02b71a7b9a074ab8bd856f",
+  "reviewed_head_sha": "1c6fc0a2f0932869663d4483909e7bc540e5c28f",
+  "report_path": ".harness/changes/feat-agent-harness-task-trace-20260718-20260718/packet_review/review-v1.md",
+  "report_sha256": "9d8e72466e6d93b5dc306420a0b652395f7e38b6cf28766dfe1554f258ff886b",
+  "verdict": "PACKET_REVIEW_GO"
+}
