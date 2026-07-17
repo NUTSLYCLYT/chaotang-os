@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "LOCAL_FEEDBACK_ONLY",
+  "review_version": 1,
+  "packet_id": "P6.1",
+  "change_id": "docs-department-agent-architecture-packet-spec-20260717",
+  "predecessor_integration_sha": "37542c3c2c9ef89f538ac6a25e8795da30ff3529",
+  "reviewed_head_sha": "d971ee40fe83baf775f98c7ff0640dc9b883576e",
+  "report_path": ".harness/changes/docs-department-agent-architecture-packet-spec-20260717/packet_review/review-v1.md",
+  "report_sha256": "8b09823f4f268c59441b10dfcf928addfd8287ffd2a0f7df46efd3f44f3287ae",
+  "verdict": "PACKET_REVIEW_GO"
+}
