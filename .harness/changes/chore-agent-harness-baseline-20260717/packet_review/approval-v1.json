@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "LOCAL_FEEDBACK_ONLY",
+  "review_version": 1,
+  "packet_id": "P10",
+  "change_id": "chore-agent-harness-baseline-20260717",
+  "predecessor_integration_sha": "000375fda9cc70470cb8ad60df9f8ce6ca22ea6e",
+  "reviewed_head_sha": "dd0c5d9a1a50e8d128c67b11cd9c5509b8567cee",
+  "report_path": ".harness/changes/chore-agent-harness-baseline-20260717/packet_review/review-v1.md",
+  "report_sha256": "33dc45f1d7cad924342eaa13ee00c813dd81b6a34dfed3b6fc4e9c6f8fff68f8",
+  "verdict": "PACKET_REVIEW_GO"
+}
