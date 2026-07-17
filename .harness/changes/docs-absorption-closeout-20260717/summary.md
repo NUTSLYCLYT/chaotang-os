@@ -10,6 +10,8 @@
 | Packet ID | P7 |
 | 基点 | `f5fa71459f61eb6c2041d30c485e321b1d4c7303` |
 
+Packet ID: P7
+
 ## 范围
 
 - 主线：absorption P7 阶段对账，不是 campaign 最终终审。
