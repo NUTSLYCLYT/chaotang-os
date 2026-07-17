@@ -127,6 +127,16 @@ def runtime_projection(field: str) -> dict[str, Any]:
     }
 
 
+def specialist_routing_projection() -> dict[str, list[str]]:
+    """Routing keywords for specialist offices outside the six-ministry set."""
+    specialists = _RAW.get("v1_taxonomy", {}).get("zhuanshu", [])
+    return {
+        str(item["name"]): list(item.get("routing_keywords") or [])
+        for item in specialists
+        if item.get("name") and item.get("routing_keywords")
+    }
+
+
 def swarm_to_name_projection() -> dict[str, str]:
     return {
         str(spec["l4_swarm_id"]): str(spec["name"])

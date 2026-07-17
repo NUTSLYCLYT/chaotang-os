@@ -24,6 +24,7 @@ v1_taxonomy:
     - id: jinyiwei
       name: 锦衣卫
       href: /zhuanshu/jinyiwei
+      routing_keywords: [情报, 核实, 可信度, 信源, 谣言, 线报, 传闻, 查证]
   liubu:
     hubu:
       name: 户部
@@ -31,7 +32,7 @@ v1_taxonomy:
       agent_code: hu_bu
       legacy_api_slugs: [finance]
       l4_swarm_id: hubu_finance_swarm
-      routing_keywords: [roi, 报价, 预算, 成本, 现金流, 毛利, 收益, 财务, 价格]
+      routing_keywords: [roi, 报价, 预算, 成本, 现金流, 毛利, 收益, 财务, 价格, 投入, 回款, 资金, 付款]
       persona:
         historicalPrototype: 桑弘羊
         modernPrototype: CFO / Bezos 式长期客户价值经营者
@@ -56,7 +57,7 @@ v1_taxonomy:
       agent_code: li_bu
       legacy_api_slugs: [hr]
       l4_swarm_id: libu_org_execution_swarm
-      routing_keywords: [人员, 权限, 责任, owner, 绩效, 任免, 角色, 负责人]
+      routing_keywords: [人员, 权限, 责任, owner, 绩效, 任免, 角色, 负责人, 组织, 执行责任, 团队, 招聘, 岗位]
       persona:
         historicalPrototype: 房玄龄
         modernPrototype: 组织设计负责人 / Deming 式质量系统经理
@@ -81,7 +82,7 @@ v1_taxonomy:
       agent_code: li_bu_rites
       legacy_api_slugs: [market]
       l4_swarm_id: libu_communication_swarm
-      routing_keywords: [话术, 内容, 品牌, 对外, 发布, 小红书, 客户群, 文案]
+      routing_keywords: [话术, 内容, 品牌, 对外, 发布, 小红书, 客户群, 文案, 招商, 公关, 材料, 表达, 触达]
       persona:
         historicalPrototype: 孔子
         modernPrototype: 张小龙式克制产品表达负责人
@@ -100,7 +101,7 @@ v1_taxonomy:
       agent_code: bing_bu
       legacy_api_slugs: [ops]
       l4_swarm_id: bingbu_strategy_swarm
-      routing_keywords: [销售, 售后, 客户, 跟进, 战情, 成交, 流失, 故障, 现场, 线索]
+      routing_keywords: [销售, 售后, 客户, 跟进, 战情, 成交, 流失, 故障, 现场, 线索, 竞争, 市场, 渠道, 谈判, 攻防, 份额, 压价, 清库存]
       persona:
         historicalPrototype: 孙武
         modernPrototype: 一线销售与客户成功作战室负责人
@@ -125,7 +126,7 @@ v1_taxonomy:
       agent_code: xing_bu
       legacy_api_slugs: [legal]
       l4_swarm_id: xingbu_legal_risk_swarm
-      routing_keywords: [合规, 法务, 合同, 安全, 风险, 事故, 红队, 隐私, 越权]
+      routing_keywords: [合规, 法务, 合同, 安全, 风险, 事故, 红队, 隐私, 越权, 股权, 法律, 责任, 承诺, 签字, 独家, 分红, 对赌, 退出]
       persona:
         historicalPrototype: 包拯
         modernPrototype: 安全/合规/事故复盘负责人
@@ -146,7 +147,7 @@ v1_taxonomy:
       runtime_code: gongbu
       agent_code: gong_bu
       legacy_api_slugs: [product]
-      routing_keywords: [开发, 代码, 测试, 实现, poc, 工程, 研发, pack, 依赖, 上线]
+      routing_keywords: [开发, 代码, 测试, 实现, poc, 工程, 研发, pack, 依赖, 上线, 交付, 技术, 方案, bom, 施工, 周期, 供应链, 实施, 储能, 电池, bms, 冷库]
       persona:
         historicalPrototype: 鲁班
         modernPrototype: 工程总架构师 / Karpathy 式极简工程负责人
