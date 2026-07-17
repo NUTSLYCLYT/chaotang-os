@@ -137,11 +137,32 @@ def test_adapt_gongbu_hazard_phrasings_not_silently_downgraded():
         assert doc["light"] == "black", text
 
 
-def test_gongbu_engine_never_served_from_stale_cache():
-    # 反缓存绕过:缓存 key 只含(部门+任务)无逻辑版本,工部储能安全严重度必须实时重算,
-    # 否则逻辑修复后旧缓存仍返回修复前的 fail-open 低危判定。工部与锦衣卫一样排除缓存。
-    assert "工部" in rde._ENGINE_CACHE_EXCLUDED_DEPTS
-    assert "锦衣卫" in rde._ENGINE_CACHE_EXCLUDED_DEPTS
+def test_gongbu_severity_bypasses_stale_engine_cache(monkeypatch):
+    # 真行为回归(非只查常量):开启缓存(去掉 pytest 关缓存 guard),给工部同一爆炸任务
+    # 预置一条**陈旧低危(P2)**缓存,断言工部引擎不吃它、实时重算为 P0。
+    # 对照:非排除部门(兵部)确实吃缓存,证明本测试里缓存真的生效——否则测试无意义。
+    # 若有人把工部从 _ENGINE_CACHE_EXCLUDED_DEPTS 去掉,本测试立刻红。
+    from src.direct_cache import DirectCache
+
+    monkeypatch.setenv("SWARM_ENGINE_CACHE", "1")
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+    stale = {"dept": "gongbu", "risk_level": "P2", "light": "yellow", "_stale_probe": True}
+
+    # 前提:缓存在本测试中确实生效(非排除部门命中陈旧值)
+    DirectCache().set("dept_engine::兵部::__cache_probe__", dict(stale), mode="dept_engine")
+    control = rde._call_adapter_observed(
+        "兵部", lambda _t: {"dept": "bingbu", "fresh": True}, "__cache_probe__"
+    )
+    assert control.get("_stale_probe"), "缓存未在测试中生效,前提不成立"
+
+    # 工部:预置陈旧低危缓存,爆炸任务必须实时重算 P0,绕不过 fail-safe
+    hazard = "储能柜发生爆炸并起火，需要立刻处理"
+    DirectCache().set(f"dept_engine::工部::{hazard}", dict(stale), mode="dept_engine")
+    fresh = rde._call_adapter_observed("工部", rde.adapt_gongbu, hazard)
+    assert not fresh.get("_stale_probe"), "工部严重度被旧缓存绕过"
+    assert fresh["risk_level"] == "P0"
+    assert fresh["light"] == "black"
 
 
 def test_adapt_gongbu_unconfirmed_incident_escalates_not_silent_p2():
