@@ -60,8 +60,10 @@ Rules:
 
 1. `H` descends from `B` and adds exactly one `.harness/changes/<change-id>/summary.md`.
 2. The summary contains exactly one machine line: `Packet ID: P5` (use the actual Packet ID).
-3. An independent NO_GO review may add a versioned Markdown report to the task branch, but it must not
-   issue a GO approval envelope.
+3. An independent NO_GO or INSUFFICIENT_EVIDENCE review must add a versioned Markdown report at
+   `.harness/changes/<change-id>/packet_review/review-vN.md`, but it must not issue a GO approval
+   envelope. After activation, out-of-band blocker prose is not a machine-readable substitute for this
+   report.
 4. The final GO commit `R` adds only:
    - `.harness/changes/<change-id>/packet_review/review-vN.md`
    - `.harness/changes/<change-id>/packet_review/approval-vN.json`
@@ -72,6 +74,15 @@ Rules:
 7. `M` must be a clean no-ff merge. Any conflict-resolution or post-review tree change requires a new
    implementation HEAD and another review.
 8. One push may introduce only one Packet approval and one root change.
+9. Before accepting the ext candidate, the verifier scans every standard versioned packet review in the
+   candidate tree. For each change ID it selects the greatest numeric `vN`; that report must contain one
+   terminal verdict as its final non-empty line, and the verdict must be `PACKET_REVIEW_GO`. A newer
+   NO_GO or INSUFFICIENT_EVIDENCE therefore blocks unrelated downstream packets until a still-newer GO
+   resolves it. The current candidate's GO approval remains subject to all SHA/digest/DAG checks above;
+   the ancestry scan is a terminal-status check, not a replacement approval check.
+
+This terminal scan only recognizes the standard `packet_review/review-vN.md` path. It is still local,
+bypassable feedback and cannot detect decisions that were never recorded in the standard path.
 
 Example envelope (replace every value; do not copy historical SHAs):
 

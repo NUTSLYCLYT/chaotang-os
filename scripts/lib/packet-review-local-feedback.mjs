@@ -52,6 +52,15 @@ function changedPaths(cwd, from, to, diffFilter = undefined) {
   return value.split('\0').filter(Boolean);
 }
 
+function treePaths(cwd, commit) {
+  const value = execFileSync(
+    'git',
+    ['ls-tree', '-r', '--name-only', '-z', commit],
+    {cwd, encoding: 'utf8'},
+  );
+  return value.split('\0').filter(Boolean);
+}
+
 function readObjectPath(cwd, commit, path) {
   try {
     return execFileSync('git', ['show', `${commit}:${path}`], {cwd, encoding: 'utf8'});
@@ -94,6 +103,44 @@ function assertTerminalVerdict(report) {
   const terminalLines = lines.filter(line => TERMINAL_VERDICTS.has(line));
   if (terminalLines.length !== 1 || terminalLines[0] !== 'PACKET_REVIEW_GO' || lines.at(-1) !== 'PACKET_REVIEW_GO') {
     throw new Error('review report must contain a single terminal PACKET_REVIEW_GO as its final non-empty line');
+  }
+}
+
+function latestTerminalVerdict(report, reportPath) {
+  const lines = report.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const terminalLines = lines.filter(line => TERMINAL_VERDICTS.has(line));
+  if (terminalLines.length !== 1 || lines.at(-1) !== terminalLines[0]) {
+    throw new Error(
+      `packet review ${reportPath} must contain one terminal verdict as its final non-empty line`,
+    );
+  }
+  return terminalLines[0];
+}
+
+function assertNoUnresolvedPacketReviews(cwd, candidate) {
+  const reviewPattern = /^\.harness\/changes\/([a-z0-9][a-z0-9-]*)\/packet_review\/review-v([1-9][0-9]*)\.md$/;
+  const latestByChange = new Map();
+
+  for (const path of treePaths(cwd, candidate)) {
+    const match = path.match(reviewPattern);
+    if (!match) continue;
+    const changeId = match[1];
+    const reviewVersion = BigInt(match[2]);
+    const current = latestByChange.get(changeId);
+    if (!current || reviewVersion > current.reviewVersion) {
+      latestByChange.set(changeId, {changeId, reviewVersion, reportPath: path});
+    }
+  }
+
+  for (const review of [...latestByChange.values()].sort((left, right) =>
+    left.changeId.localeCompare(right.changeId))) {
+    const report = readObjectPath(cwd, candidate, review.reportPath);
+    const verdict = latestTerminalVerdict(report, review.reportPath);
+    if (verdict !== 'PACKET_REVIEW_GO') {
+      throw new Error(
+        `unresolved packet review for ${review.changeId}: latest review-v${review.reviewVersion.toString()} is ${verdict}`,
+      );
+    }
   }
 }
 
@@ -205,6 +252,8 @@ export function verifyPacketReviewPush({
   if (packetLines.length !== 1 || packetLines[0] !== `Packet ID: ${approval.packet_id}`) {
     throw new Error('root change summary must contain one exact Packet ID matching the approval');
   }
+
+  assertNoUnresolvedPacketReviews(cwd, candidate);
 
   return {
     allowed: true,
