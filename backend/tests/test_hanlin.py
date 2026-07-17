@@ -11,6 +11,8 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from web.main import app
+from web.deps import get_current_user
+from web.schemas.auth import CurrentUser
 
 
 def test_hanlin_overview_and_summary_return_zeroed_honest_shape():
@@ -59,3 +61,34 @@ def test_hanlin_reset_demo_is_honest_noop():
     client = TestClient(app)
     response = client.get("/api/hanlin/reset-demo").json()
     assert response["sourceLabel"] == "FALLBACK"
+
+
+def test_hanlin_api_rejects_authenticated_non_admin():
+    original = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = lambda: CurrentUser(
+        user_id=2,
+        username="ordinary-user",
+        role="user",
+        tenant_slug="default",
+        tenant_id=1,
+    )
+    try:
+        client = TestClient(app)
+        assert client.get("/api/hanlin/overview").status_code == 403
+        assert client.post("/api/hanlin/reset-demo").status_code == 403
+    finally:
+        if original is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = original
+
+
+def test_hanlin_api_rejects_anonymous_request():
+    original = app.dependency_overrides.pop(get_current_user, None)
+    try:
+        client = TestClient(app)
+        assert client.get("/api/hanlin/overview").status_code == 401
+        assert client.post("/api/hanlin/reset-demo").status_code == 401
+    finally:
+        if original is not None:
+            app.dependency_overrides[get_current_user] = original

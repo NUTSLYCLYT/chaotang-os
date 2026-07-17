@@ -6,7 +6,7 @@ import { ArrowRight } from 'lucide-react';
 import { GlassPanel } from '@/components/ui/glass-panel';
 import { HanlinRoleBadge } from '@/features/hanlin/components/hanlin-role-badge';
 import { hanlinRoleHeaders, hasHanlinCapability, readHanlinRole } from '@/features/hanlin/lib/access';
-import { hanlinApi } from '@/features/hanlin/lib/api';
+import { fetchHanlin } from '@/features/hanlin/lib/api';
 import { PageBrief } from '@/features/shared/components/page-brief';
 import type { ScoutedProject, UpgradeCandidate } from '@/features/hanlin/types';
 
@@ -21,7 +21,7 @@ export function HanlinScoutingPage() {
 
   async function load() {
     try {
-      const response = await fetch(hanlinApi('/api/hanlin/scouting'));
+      const response = await fetchHanlin('/api/hanlin/scouting');
       if (!response.ok) {
         throw new Error('hanlin_scouting_fetch_failed');
       }
@@ -53,7 +53,7 @@ export function HanlinScoutingPage() {
   async function refreshFromGithub() {
     setIsRefreshing(true);
     setRefreshMessage('');
-    const response = await fetch(hanlinApi('/api/hanlin/scouting'), { method: 'POST', headers: hanlinRoleHeaders(role) });
+    const response = await fetchHanlin('/api/hanlin/scouting', { method: 'POST', headers: hanlinRoleHeaders(role) });
     const payload = (await response.json()) as {
       ok: boolean;
       error?: string;

@@ -6,7 +6,7 @@ import { PageBrief } from '@/features/shared/components/page-brief';
 import { GlassPanel } from '@/components/ui/glass-panel';
 import { HanlinRoleBadge } from '@/features/hanlin/components/hanlin-role-badge';
 import { hanlinRoleHeaders, hasHanlinCapability, readHanlinRole } from '@/features/hanlin/lib/access';
-import { hanlinApi } from '@/features/hanlin/lib/api';
+import { fetchHanlin } from '@/features/hanlin/lib/api';
 import type { Contribution } from '@/features/hanlin/types';
 
 type SubmitState =
@@ -31,7 +31,7 @@ export function HanlinContributePage() {
     event.preventDefault();
     setSubmitState({ status: 'submitting' });
     try {
-      const response = await fetch(hanlinApi('/api/hanlin/contributions'), {
+      const response = await fetchHanlin('/api/hanlin/contributions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...hanlinRoleHeaders(role) },
         body: JSON.stringify({
