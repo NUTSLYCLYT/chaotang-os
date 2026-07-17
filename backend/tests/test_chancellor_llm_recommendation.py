@@ -29,3 +29,17 @@ def test_unrecognized_level_raises_instead_of_silently_downgrading():
     # 违反"硬门永远拥有最终裁决权"——现在必须显式炸，不能悄悄放行。
     with pytest.raises(ValueError):
         merge_decision_level("d2", "D0", "D0")
+
+
+def test_empty_string_level_raises_instead_of_silently_defaulting():
+    # `llm_level or "D0"` 会把空字符串也当"没传"处理，悄悄降级成 D0——
+    # 空字符串是明确传了个无效值，不是真的"没提供"，必须跟乱码字符串一样炸。
+    with pytest.raises(ValueError):
+        merge_decision_level("D0", "", "D0")
+    with pytest.raises(ValueError):
+        merge_decision_level("D0", "D0", "")
+
+
+def test_none_level_still_defaults_to_d0():
+    # None 才是合法的"没提供"，走默认值，不该跟空字符串一样炸。
+    assert merge_decision_level("D0", None, None) == "D0"
