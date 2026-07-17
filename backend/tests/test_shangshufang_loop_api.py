@@ -3,6 +3,12 @@ from fastapi.testclient import TestClient
 from web.main import app
 
 
+def test_specialist_jinyiwei_keywords_remain_routable():
+    from src.shangshufang_loop import infer_departments
+
+    assert "锦衣卫" in infer_departments("这条情报的信源可信度存疑，需要查证是不是谣言")
+
+
 def _formalize_task_for_decision(session_local, task_id: str) -> str:
     """Seed the new quality/provenance boundary for legacy decision API tests."""
     from src.db.models import CourtReview

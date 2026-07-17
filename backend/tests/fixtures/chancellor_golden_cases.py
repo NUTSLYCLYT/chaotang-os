@@ -249,11 +249,8 @@ GOLDEN_CASES: list[GoldenCase] = [
         "id": "ambiguity_03_department_only_mentioned_not_relevant",
         "category": "ambiguity",
         "question": "刑部最近的工作氛围怎么样",
-        "expected_mode": "cluster",
-        "notes": "现状：DEPARTMENT_RULES 的 keywords 是业务关键词(合同/股权等)，不是部门名称本身，"
-        "'刑部'这个字面词完全不命中任何规则，落回默认户部+工部两个部门→cluster——"
-        "跟 capability_01 同类缺陷，legal_only_from_question 只在已经命中刑部关键词时才生效，"
-        "对这种纯提及部门名称的问法完全没有保护",
+        "expected_mode": "direct",
+        "notes": "PKT-2 后显式部门点名优先；纯粹点名刑部的任务由刑部直接承办，避免旧关键词缺失导致默认户部+工部。",
     },
     {
         "id": "ambiguity_04_negation",
@@ -277,11 +274,8 @@ GOLDEN_CASES: list[GoldenCase] = [
         "category": "cross_department",
         "question": "这个招商项目需要看合同条款、成本预算、技术交付方案和竞争对手情况",
         "expected_mode": "cluster",
-        "expected_departments": ["户部", "刑部", "礼部", "工部"],
-        "notes": "验证 recommended_departments 上限截断(最多4个)：句中'招商'命中礼部关键词，"
-        "实际截断后是[户部,刑部,礼部,工部]，'兵部'(竞争对手)被挤出4个上限之外——"
-        "哪个部门被截断取决于 DEPARTMENT_RULES 字典遍历顺序，不完全可预测，"
-        "阶段1收敛路由服务时应该用打分排序替代这种'先到先得'截断",
+        "expected_departments": ["户部", "礼部", "兵部", "刑部"],
+        "notes": "canonical taxonomy 顺序与最多4个候选上限共同决定截断；当前保留户部、礼部、兵部、刑部，工部被截出。",
     },
     {
         "id": "extra_02_org_execution",
