@@ -905,24 +905,25 @@ def adapt_gongbu(task_text: str) -> dict | None:
 
     # fail-safe **两档**,只认危险正向证据,不设 benign→P2 自动降级(那是 fail-open 残洞:
     # 任何未列举问题 + 一句"运行正常"就会被子串降 P2)。储能事故范围内:
-    #  - 命中危险/恶化信号 → P0/black(确认紧急,andon 黑灯:断电撤离消防)
-    #  - 其余一律 P1/yellow(严重度未确认,人工安全复核 + 只出草稿,确认前不得下发维修)。
-    # 黑灯只留给**确认紧急**——本 court_doc 只出待审批草稿,派单门在下游审批队列,
-    # 黑/黄不改"是否人工复核"只改可见紧急度;若把每个在范围任务都刷黑,黑灯失去信号
-    # (andon 人人拉=无人理)。故未确认走黄灯复核而非黑灯驳回,既不静默降 P2 也不过度告警。
+    #  - 命中危险/恶化信号 → P0/black(确认紧急,断电撤离消防)
+    #  - 其余一律 P1/black(严重度未确认,强制人工安全复核后再降级)。
+    # **两档都必须 black,不能降 yellow**:light 不是纯展示——automation_tier/signoff_gate
+    # 用它判自动化档,yellow=auto_proceed_logged(自动留痕继续,无人签),black/不可逆红=
+    # require_human_sign(必须人签)。储能事故一旦落 yellow 就被系统自动放行,绕过人签门。
+    # 故未确认电池事故必须 black 强制人签,宁可多要一次人工确认也不自动放行。
     hazard = any(signal in task_text for signal in _GONGBU_P0_HAZARD_SIGNALS)
     if hazard:
         risk_level, light = "P0", "black"
         safety = "现场断电+撤离+消防待命；不得远程复位或直接下发维修指令"
         headline_note = "命中强制安全阈值"
     else:
-        risk_level, light = "P1", "yellow"
+        risk_level, light = "P1", "black"
         safety = (
             "严重度未确认；按潜在紧急保守处置，强制人工安全复核确认无火情/热失控后"
             "方可降级；确认前不得径直下发维修或远程复位"
         )
-        headline_note = "严重度未确认，人工安全复核后再降级"
-    emergency = light == "black"  # 仅 P0 确认紧急走黑灯 andon;P1-未确认走黄灯复核
+        headline_note = "严重度未确认，保守升级+人工安全复核"
+    emergency = light == "black"  # P0 与 P1-未确认 都 black:强制人签,不被自动放行
     missing = [
         label
         for label, markers in _GONGBU_GAP_RULES

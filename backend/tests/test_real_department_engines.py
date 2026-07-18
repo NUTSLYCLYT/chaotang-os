@@ -167,12 +167,30 @@ def test_gongbu_severity_bypasses_stale_engine_cache(monkeypatch):
 
 def test_adapt_gongbu_unconfirmed_incident_escalates_not_silent_p2():
     # 反 fail-open 的核心:储能事故范围内、无危险信号的输入(如孤立"温度90度")
-    # **绝不能静默判 P2/确认常规**。fail-safe 升级为 P1/未确认+黄灯人工复核(非黑灯驳回)。
+    # **绝不能静默判 P2/确认常规**。fail-safe 升级为 P1/black 强制人工复核。
     doc = rde.adapt_gongbu("储能柜温度90度，请安排售后故障处理")
     assert doc is not None
     assert doc["risk_level"] == "P1", "未确认储能事故被静默降为低危"
-    assert doc["light"] == "yellow"  # 未确认走黄灯复核,黑灯只留给确认紧急
+    assert doc["light"] == "black"  # 必须 black 才落必须人签档,yellow 会被自动放行
     assert doc["risk_level"] != "P2"
+
+
+def test_adapt_gongbu_unconfirmed_incident_requires_human_signoff():
+    # 物理安全门(会捕捉 light→自动化档 的回归):未确认储能事故必须落"必须人签"档。
+    # light 非纯展示——automation_tier 用它判档:yellow=auto_proceed_logged(自动放行、
+    # 无人签),black/不可逆红=require_human_sign。故 P1 一旦被降 yellow,未确认电池事故
+    # 会被系统自动放行、绕过人签。此测直接钉 needs_signoff,与 light 具体实现解耦。
+    from src.signoff_gate import needs_signoff
+
+    for text in (
+        "储能柜例行巡检，设备一切正常",        # 连纯"正常"都要人签(benign 不可信)
+        "储能电池外壳变形，系统运行一切正常",   # 真问题 + "正常"措辞
+        "储能柜温度90度",                       # 孤立读数
+        "储能电池起火",                         # P0 危险
+    ):
+        doc = rde.adapt_gongbu(text)
+        assert doc is not None, text
+        assert needs_signoff(doc) is True, f"{text} 未落必须人签档,会被自动放行"
 
 
 def test_adapt_gongbu_never_auto_downgrades_to_p2():
@@ -186,7 +204,7 @@ def test_adapt_gongbu_never_auto_downgrades_to_p2():
         assert doc is not None, text
         assert doc["risk_level"] == "P1", f"{text} 未落到 P1"
         assert doc["risk_level"] != "P2", f"{text} 被静默降为 P2"
-        assert doc["light"] == "yellow"  # 未确认=黄灯复核,不黑灯驳回(反告警疲劳)
+        assert doc["light"] == "black"  # 必须 black 才强制人签,yellow 会被自动放行
 
 
 def test_adapt_gongbu_real_problem_with_benign_phrase_not_downgraded():
