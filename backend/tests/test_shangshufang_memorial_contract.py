@@ -171,16 +171,17 @@ def test_conflict_summary_departments_element_wrong_type_is_caught():
 
 def test_ministry_outputs_element_wrong_type_is_caught():
     # item.department/opinion 之类的字段访问对 null 元素直接崩
-    # (Cannot read properties of null)。
+    # (Cannot read properties of null)。元素本身应该是对象(递归 schema)，
+    # 不是对象时报"不是对象"，跟纯量元素类型错误的措辞分开，但都能被抓到。
     memorial = {**_VALID_MEMORIAL, "ministry_outputs": [None]}
     violations = find_memorial_contract_violations(memorial)
-    assert any("ministry_outputs[0]" in v and "元素类型错误" in v for v in violations)
+    assert any("ministry_outputs[0]" in v and "不是对象" in v for v in violations)
 
 
 def test_decision_options_element_wrong_type_is_caught():
     memorial = {**_VALID_MEMORIAL, "decision_options": ["not an object"]}
     violations = find_memorial_contract_violations(memorial)
-    assert any("decision_options[0]" in v and "元素类型错误" in v for v in violations)
+    assert any("decision_options[0]" in v and "不是对象" in v for v in violations)
 
 
 def test_valid_memorial_with_real_string_and_object_elements_has_no_violations():
@@ -195,3 +196,51 @@ def test_valid_memorial_with_real_string_and_object_elements_has_no_violations()
         "decision_options": [{"action": "archive", "label": "归档", "reason": "r", "enabled": True}],
     }
     assert find_memorial_contract_violations(memorial) == []
+
+
+# ── 2026-07-18 第九轮:对象数组元素只查"是不是 dict"不够,dict 内部的字段
+# 本身也可能缺失或类型错误——ministry_outputs[0] 是个 dict 没错,但缺
+# department 字段,前端渲染时用到的地方一样会拿到 undefined。
+
+
+def test_ministry_outputs_item_missing_nested_field_is_caught():
+    memorial = {
+        **_VALID_MEMORIAL,
+        "ministry_outputs": [{"department": "户部", "opinion": "o"}],  # 缺 focus/status/source_label
+    }
+    violations = find_memorial_contract_violations(memorial)
+    assert any("ministry_outputs[0].focus" in v and "缺必填字段" in v for v in violations)
+    assert any("ministry_outputs[0].status" in v and "缺必填字段" in v for v in violations)
+    assert any("ministry_outputs[0].source_label" in v and "缺必填字段" in v for v in violations)
+
+
+def test_ministry_outputs_item_nested_field_wrong_type_is_caught():
+    memorial = {
+        **_VALID_MEMORIAL,
+        "ministry_outputs": [
+            {"department": 123, "focus": "f", "opinion": "o", "status": "completed", "source_label": "FALLBACK"}
+        ],
+    }
+    violations = find_memorial_contract_violations(memorial)
+    assert any("ministry_outputs[0].department" in v and "类型错误" in v for v in violations)
+
+
+def test_decision_options_item_missing_nested_field_is_caught():
+    memorial = {
+        **_VALID_MEMORIAL,
+        "decision_options": [{"action": "archive", "label": "归档"}],  # 缺 reason/enabled
+    }
+    violations = find_memorial_contract_violations(memorial)
+    assert any("decision_options[0].reason" in v and "缺必填字段" in v for v in violations)
+    assert any("decision_options[0].enabled" in v and "缺必填字段" in v for v in violations)
+
+
+def test_decision_options_item_enabled_wrong_type_is_caught():
+    # enabled 给字符串 "true" 而不是布尔值——跟 quality_gate.passed 同款问题：
+    # 键在、类型不对，前端严格布尔判定会静默判错而不是崩溃。
+    memorial = {
+        **_VALID_MEMORIAL,
+        "decision_options": [{"action": "archive", "label": "归档", "reason": "r", "enabled": "true"}],
+    }
+    violations = find_memorial_contract_violations(memorial)
+    assert any("decision_options[0].enabled" in v and "类型错误" in v for v in violations)

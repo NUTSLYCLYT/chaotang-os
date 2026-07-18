@@ -5,49 +5,82 @@
 崩溃。Python 端没有编译期类型检查能拦住这类遗漏,这里补一个运行期契约校验,
 供 pytest 断言用,也供 backfill 脚本复用同一份判定逻辑,避免两边校验标准走漂。
 
-2026-07-18 实测教训(八轮里挨个撞出来的,不是设计时就想全的):
+2026-07-18 实测教训(九轮里挨个撞出来的,不是设计时就想全的——每次以为查完了,
+下一层就被指出来):
 - decision_options / evidence_gaps / next_best_action / source_label /
-  quality_gate.passed / conflict_summary[].departments 先后漏填。
-- 只查"字段在不在"不够:字段在、类型不对一样会崩或悄悄误判——
-  conflict_summary 给个字符串而不是数组,`item.departments.map()` 照样崩;
-  quality_gate.passed 给个 "false" 字符串而不是布尔值,前端
-  `typeof passed === 'boolean'` 判定失败会静默退化成"未知"而不是报错。
-- 只查"数组本身是数组"不够,数组元素类型不对一样会崩:evidence_gaps 是
-  list 但装了个数字,`unique()` 对每个元素调 `.trim()`,数字没有这个方法,
-  照样崩——这一版补上数组元素级别的类型检查。
+  quality_gate.passed / conflict_summary[].departments 先后漏填(字段层)。
+- 字段在、类型不对一样会崩或悄悄误判(容器类型层):conflict_summary 给个
+  字符串,`.flatMap()` 照样崩;quality_gate.passed 给个 "false" 字符串,
+  `typeof passed === 'boolean'` 判定失败会静默退化成"未知"。
+- 容器是 list 不代表元素类型也对(元素类型层):evidence_gaps 是 list 但
+  装了个数字,`unique()` 对每个元素调 `.trim()`,数字没有这个方法照样崩。
+- 对象数组元素只查"是不是 dict"不够(嵌套字段层):ministry_outputs 元素是
+  dict,但内部 department/opinion 这些字段本身也可能缺失或类型错，一样会
+  影响渲染。
+
+这一版改成递归 schema 校验,不再对每一层新维度单独写一段特判代码——嵌套多
+深都用同一套 _check_value/_check_schema 递归下去,不用再指望"这次真的想全
+了",下次真出现新的嵌套结构也是同一套代码覆盖,不用再加一层特判。
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Union
 
-# 字段名 → (期望容器类型, 期望元素类型或 None)。
-# 元素类型只在容器类型是 list 时有意义;dict/str/bool 字段留 None。
-MEMORIAL_REQUIRED_TOP_LEVEL_FIELDS: tuple[tuple[str, type, type | None], ...] = (
-    ("title", str, None),
-    ("verdict", str, None),
-    ("summary", str, None),
-    ("ministry_outputs", list, dict),
-    ("conflict_summary", list, dict),
-    ("evidence_gaps", list, str),
-    ("risk_flags", list, str),
-    ("decision_options", list, dict),
-    ("next_best_action", str, None),
+# Schema:字段名 → (期望类型, nested)。
+# nested 的含义随 expected_type 变化:
+#   expected_type 是 dict 时,nested 是子 Schema(校验这个对象内部字段)或 None(不深查)。
+#   expected_type 是 list 时,nested 是元素期望类型(str/bool 等原始类型)，
+#     或子 Schema(元素本身是对象,递归校验),或 None(不查元素)。
+#   expected_type 是 str/bool 等标量时,nested 恒为 None。
+FieldSpec = tuple[str, type, Union["Schema", type, None]]
+Schema = tuple[FieldSpec, ...]
+
+MINISTRY_OUTPUT_ITEM_FIELDS: Schema = (
+    ("department", str, None),
+    ("focus", str, None),
+    ("opinion", str, None),
+    ("status", str, None),
     ("source_label", str, None),
-    ("quality_gate", dict, None),
 )
 
-CONFLICT_SUMMARY_ENTRY_REQUIRED_FIELDS: tuple[tuple[str, type, type | None], ...] = (
+DECISION_OPTION_ITEM_FIELDS: Schema = (
+    ("action", str, None),
+    ("label", str, None),
+    ("reason", str, None),
+    ("enabled", bool, None),
+)
+
+CONFLICT_SUMMARY_ENTRY_FIELDS: Schema = (
     ("type", str, None),
     ("summary", str, None),
     ("departments", list, str),
     ("source_label", str, None),
 )
 
-QUALITY_GATE_REQUIRED_FIELDS: tuple[tuple[str, type, type | None], ...] = (
+QUALITY_GATE_FIELDS: Schema = (
     ("status", str, None),
     ("reasons", list, str),
     ("human_signoff_required", bool, None),
+    # passed 在 TS 里是 quality_gate.passed?: boolean(非必填),但
+    # explicitGate() 只读这个字段判定 overallSignal,不读 status 字符串——
+    # 缺了它前端会判成"未知"而不是真实的通过/阻断,功能上等同必填,这里按
+    # 必填处理。
+    ("passed", bool, None),
+)
+
+MEMORIAL_SCHEMA: Schema = (
+    ("title", str, None),
+    ("verdict", str, None),
+    ("summary", str, None),
+    ("ministry_outputs", list, MINISTRY_OUTPUT_ITEM_FIELDS),
+    ("conflict_summary", list, CONFLICT_SUMMARY_ENTRY_FIELDS),
+    ("evidence_gaps", list, str),
+    ("risk_flags", list, str),
+    ("decision_options", list, DECISION_OPTION_ITEM_FIELDS),
+    ("next_best_action", str, None),
+    ("source_label", str, None),
+    ("quality_gate", dict, QUALITY_GATE_FIELDS),
 )
 
 
@@ -59,19 +92,14 @@ def _matches_type(value: Any, expected_type: type) -> bool:
     return isinstance(value, expected_type)
 
 
-def _check_field(
-    container: dict[str, Any],
-    field: str,
+def _check_value(
+    value: Any,
     expected_type: type,
-    item_type: type | None,
+    nested: "Schema | type | None",
     *,
     where: str,
     violations: list[str],
 ) -> None:
-    if field not in container:
-        violations.append(f"{where} 缺必填字段: {field}")
-        return
-    value = container[field]
     if not _matches_type(value, expected_type):
         note = (
             "(前端用 typeof x === 'boolean' 严格判定,类型不对会被当成缺失,静默误判)"
@@ -79,45 +107,44 @@ def _check_field(
             else ""
         )
         violations.append(
-            f"{where}.{field} 类型错误: 期望 {expected_type.__name__},实际 {type(value).__name__}{note}"
+            f"{where} 类型错误: 期望 {expected_type.__name__},实际 {type(value).__name__}{note}"
         )
         return
-    if item_type is not None and expected_type is list:
+
+    if expected_type is list and nested is not None:
         for index, item in enumerate(value):
-            if not _matches_type(item, item_type):
-                violations.append(
-                    f"{where}.{field}[{index}] 元素类型错误: 期望 {item_type.__name__},"
-                    f"实际 {type(item).__name__}"
-                )
+            item_where = f"{where}[{index}]"
+            if isinstance(nested, type):
+                if not _matches_type(item, nested):
+                    violations.append(
+                        f"{item_where} 元素类型错误: 期望 {nested.__name__},实际 {type(item).__name__}"
+                    )
+            else:  # nested 是子 Schema,元素本身应该是对象
+                if not isinstance(item, dict):
+                    violations.append(f"{item_where} 不是对象: {type(item).__name__}")
+                else:
+                    _check_schema(item, nested, where=item_where, violations=violations)
+    elif expected_type is dict and nested is not None:
+        _check_schema(value, nested, where=where, violations=violations)  # type: ignore[arg-type]
+
+
+def _check_schema(
+    obj: dict[str, Any], schema: Schema, *, where: str, violations: list[str]
+) -> None:
+    for field, expected_type, nested in schema:
+        field_where = f"{where}.{field}"
+        if field not in obj:
+            # field_where(点号连接)而不是 where——跟下面类型错误分支的措辞
+            # 保持一致,方便按 "路径.字段名" 整串检索,不用记两种不同格式。
+            violations.append(f"{field_where} 缺必填字段")
+            continue
+        _check_value(obj[field], expected_type, nested, where=field_where, violations=violations)
 
 
 def find_memorial_contract_violations(memorial: Any) -> list[str]:
     """返回违反契约的描述列表;空列表代表合法,可以安全喂给前端。"""
-    violations: list[str] = []
-
     if not isinstance(memorial, dict):
         return [f"memorial 本身不是对象: {type(memorial).__name__}"]
-
-    for field, expected_type, item_type in MEMORIAL_REQUIRED_TOP_LEVEL_FIELDS:
-        _check_field(memorial, field, expected_type, item_type, where="memorial", violations=violations)
-
-    conflict_summary = memorial.get("conflict_summary")
-    if isinstance(conflict_summary, list):
-        for index, entry in enumerate(conflict_summary):
-            where = f"conflict_summary[{index}]"
-            if not isinstance(entry, dict):
-                violations.append(f"{where} 不是对象: {type(entry).__name__}")
-                continue
-            for field, expected_type, item_type in CONFLICT_SUMMARY_ENTRY_REQUIRED_FIELDS:
-                _check_field(entry, field, expected_type, item_type, where=where, violations=violations)
-
-    quality_gate = memorial.get("quality_gate")
-    if isinstance(quality_gate, dict):
-        for field, expected_type, item_type in QUALITY_GATE_REQUIRED_FIELDS:
-            _check_field(quality_gate, field, expected_type, item_type, where="quality_gate", violations=violations)
-        # passed 不在 TS 必填列表(quality_gate.passed?: boolean),但
-        # explicitGate() 只读这个字段判定 overallSignal,不读 status 字符串
-        # ——不显式给一个布尔值,前端会判成 'unknown' 而不是真实的通过/阻断。
-        _check_field(quality_gate, "passed", bool, None, where="quality_gate", violations=violations)
-
+    violations: list[str] = []
+    _check_schema(memorial, MEMORIAL_SCHEMA, where="memorial", violations=violations)
     return violations
