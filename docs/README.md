@@ -23,6 +23,8 @@ docs/
 ## plans/ 与 status/archive/
 
 - `plans/` 保存跨前后端、需要长期引用的实施蓝图；执行事实和验证证据仍归对应 `.harness/changes/`。
+- `plans/chaotang-os-product-definition-convergence-blueprint-2026-07-18.md` 是待业主批准的产品定型 Decision/RFC：产品本体为用户超级助手与动态多-Agent 朝堂，六部诸司是完整能力目录、每单稀疏激活，合同是首个收费专业包，世界杯是旗舰案例；无论批准前后，当前产品字段事实源均为 `product/PROJECT_PRODUCT.md`。
+- `plans/chaotang-os-super-task-delivery-blueprint-2026-07-18.md` 是该 Decision/RFC 的详细输入 A，保留超级任务、知识飞轮、外部组件与黄金任务设计，不再单独承担产品定型口径。
 - `status/archive/` 只保存带日期的审计快照。它们不得作为“当前分支、当前完成度、当前发布状态”的事实源。
 
 ## 归属规则
