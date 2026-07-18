@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "LOCAL_FEEDBACK_ONLY",
+  "review_version": 1,
+  "packet_id": "P15",
+  "change_id": "fix-m1-task-trace-hardening-p15-20260719",
+  "predecessor_integration_sha": "5d273c3fbe5e02e52b6ab3e8630f6d54a0c78a43",
+  "reviewed_head_sha": "33be947347f8a2ad25fbf69418bb9e9616bce099",
+  "report_path": ".harness/changes/fix-m1-task-trace-hardening-p15-20260719/packet_review/review-v1.md",
+  "report_sha256": "726ac8ac5ac5eed25a0fad6c4847b3705fa05af002f11fb2b27b771a4b4ad15b",
+  "verdict": "PACKET_REVIEW_GO"
+}
