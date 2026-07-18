@@ -144,6 +144,39 @@ test('candidate memorial is projected without inventing a formal decision', () =
   assert.deepEqual(result?.selectedDepartments, ['finance']);
 });
 
+test('menxia veto memorial resolves overallSignal/audit.passed to blocked, not unknown', () => {
+  // 2026-07-18 审计发现:后端封驳 memorial 只填了 quality_gate.status(字符串)，
+  // 没填 quality_gate.passed(布尔)——这个函数只认 passed，不认 status。漏填
+  // passed 会让 overallSignal 判成 'GRAY'(未知)而不是 'RED'(阻断)，junjichu
+  // 页面的 isBlocked 判断(读 audit.passed/review.overallSignal)永远不会
+  // 触发，LIVE 模式下会绕过"阻断"文案、落回默认的"完成/收尾"措辞——真正的
+  // 控制流是这条 REST 驱动的 ministryBrief 路径，不是 SSE streamStatus。
+  // 复刻后端封驳 memorial 的真实形状(ministry_outputs 为空、conflict_summary
+  // 只有一条 human_signoff 记录)，锁住 passed:false 时的读取结果。
+  const vetoed = memorial('vetoed', {
+    title: '门下省封驳纪要',
+    verdict: '已封驳',
+    ministry_outputs: [],
+    conflict_summary: [
+      { type: 'human_signoff', summary: '门下省封驳缘由', departments: [], source_label: 'FALLBACK' },
+    ],
+    decision_options: [],
+    quality_gate: {
+      passed: false,
+      status: 'blocked',
+      reasons: ['门下省封驳'],
+      blocking_issues: ['门下省封驳'],
+      human_signoff_required: true,
+    },
+  });
+  const result = projectCanonicalCourtStatus(status({ reviewMemorial: vetoed, formalMemorial: null }));
+
+  assert.equal(result?.gate.passed, false);
+  assert.equal(result?.audit.passed, false);
+  assert.equal(result?.review.overallSignal, 'RED');
+  assert.deepEqual(result?.audit.blockingIssues, ['门下省封驳']);
+});
+
 test('missing canonical fields remain unknown instead of becoming a local pass or no-risk claim', () => {
   const sparse = memorial('sparse', {
     verdict: '',

@@ -108,6 +108,8 @@ def test_dispatch_compat_court_task_veto_returns_full_receipt_and_honest_status(
             assert required_field in memorial, f"缺必填字段 {required_field}"
         assert memorial["decision_options"] == []
         assert memorial["title"] == "门下省封驳纪要"
+        assert memorial["quality_gate"]["passed"] is False
+        assert memorial["quality_gate"]["blocking_issues"]
 
 
 def test_dispatch_persistence_failure_blocks_execution(

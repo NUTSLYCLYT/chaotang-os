@@ -172,6 +172,11 @@ def test_confirm_edict_vetoed_route_returns_full_contract_and_honest_status(
     assert confirm_data["routing_plan"]["ministry_candidates"]
     assert confirm_data["memorial"]["verdict"] == "已封驳"
     assert confirm_data["memorial"]["quality_gate"]["human_signoff_required"] is True
+    # 2026-07-18 审计发现:前端 explicitGate() 只读 quality_gate.passed(布尔)，
+    # 不读 quality_gate.status(字符串)——漏填 passed 会让 junjichu 页面
+    # LIVE 模式下的 isBlocked 判断永远不触发，绕过封驳文案。
+    assert confirm_data["memorial"]["quality_gate"]["passed"] is False
+    assert confirm_data["memorial"]["quality_gate"]["blocking_issues"]
     assert confirm_data["review_id"]
     # 2026-07-18:memorial title 曾经硬编码"军机处会审回奏"——封驳发生在任何
     # 部门会审之前，那个 title 编造了一段没发生过的会审过程。

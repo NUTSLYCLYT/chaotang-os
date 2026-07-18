@@ -198,8 +198,16 @@ def dispatch_compat_court_task(
                 "next_best_action": "await_human_signoff",
                 "source_label": route_decision.source_label,
                 "quality_gate": {
+                    # 前端 explicitGate()(canonical-read-model.ts)只读
+                    # quality_gate.passed 这个严格布尔值来判定 overallSignal/
+                    # isBlocked,不读 status 这个字符串——只填 status 不填
+                    # passed，前端会判成 overallSignal='GRAY'(未知)而不是
+                    # 'RED'(阻断)，LIVE 模式渲染整段绕过封驳文案(2026-07-18
+                    # 审计发现)。
+                    "passed": False,
                     "status": "blocked",
                     "reasons": route_decision.risk_flags,
+                    "blocking_issues": route_decision.risk_flags,
                     "human_signoff_required": True,
                 },
             }

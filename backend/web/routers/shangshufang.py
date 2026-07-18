@@ -1126,8 +1126,18 @@ def shangshufang_confirm_edict(
                 "next_best_action": "await_human_signoff",
                 "source_label": route_decision.source_label,
                 "quality_gate": {
+                    # 前端 explicitGate()(canonical-read-model.ts)只读
+                    # quality_gate.passed 这个严格布尔值来判定 overallSignal/
+                    # isBlocked,不读 status 这个字符串——只填 status 不填
+                    # passed,前端会判成 overallSignal='GRAY'(未知)而不是
+                    # 'RED'(阻断),LIVE 模式渲染整段绕过封驳文案，落回默认的
+                    # "作战流完成/仍在收尾"(2026-07-18 审计发现:真实控制流
+                    # 是 ministryBrief 走 REST 轮询路径，不是 SSE streamStatus，
+                    # 之前只修了 SSE 那条，这条 REST 驱动的 LIVE 模式漏了)。
+                    "passed": False,
                     "status": "blocked",
                     "reasons": route_decision.risk_flags,
+                    "blocking_issues": route_decision.risk_flags,
                     "human_signoff_required": True,
                 },
             }
