@@ -47,6 +47,28 @@ test('maps canonical terminal snapshots to done or error without inventing succe
   );
 });
 
+test('menxia veto pending is reported as non-success, not fabricated as done', () => {
+  // 2026-07-18 实测复现:改这条前，status !== 'failed' 就一律当 done——
+  // menxia_veto_pending(被门下省拦住、需要人工确认，不是失败也不是成功)
+  // 会被这条兜底逻辑误报成任务成功完成。这里锁住：非明确成功状态一律不是
+  // done，且给出诚实的中文提示，不是通用的"任务执行失败"。
+  assert.deepEqual(
+    adaptCanonicalCourtStreamEvent({
+      type: 'canonical.snapshot',
+      taskId: 'task_vetoed',
+      status: 'menxia_veto_pending',
+      terminal: true,
+      runId: null,
+      error: null,
+    }),
+    {
+      type: 'error',
+      taskId: 'task_vetoed',
+      message: '门下省封驳，需人工确认后才能派单。',
+    },
+  );
+});
+
 test('keeps legacy queue events unchanged during the P3d compatibility window', () => {
   const legacy = { type: 'group.dispatch', groupId: 'finlaw', name: '财法组' };
   assert.equal(adaptCanonicalCourtStreamEvent(legacy), legacy);
