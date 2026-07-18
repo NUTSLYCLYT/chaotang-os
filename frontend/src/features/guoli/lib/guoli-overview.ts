@@ -154,6 +154,27 @@ export function formatYushiRejectionValue(metric: YushiRejectionMetric): string 
   return `${(metric.value * 100).toFixed(1)}%`;
 }
 
+export function formatCutoff(value: string): string {
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(value));
+}
+
+export function formatWindow(
+  kind: 'ALL_RECORDED' | 'ROLLING_7D',
+  startAt: string | null,
+  endAt: string | null,
+): string {
+  // 诚实标窗口:ROLLING_7D 的比率只覆盖近 7 天,绝不能显示成"全部记录"(误导为全时段)。
+  const label = kind === 'ROLLING_7D' ? '近 7 天' : '全部记录';
+  if (!startAt || !endAt) return `${label} · 尚无样本`;
+  return `${label} · ${formatCutoff(startAt)}—${formatCutoff(endAt)}`;
+}
+
 export function isGuoliThinSliceEnabled(
   raw = process.env.NEXT_PUBLIC_GUOLI_THIN_SLICE,
 ): boolean {
