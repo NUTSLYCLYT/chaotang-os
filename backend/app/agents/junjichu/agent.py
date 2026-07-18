@@ -36,12 +36,13 @@ preserved), exactly like it already does for the single-department branch.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 
 from app.agents.junjichu.prompts import junjichu_system_prompt
 from app.agents.ministries.agent import MinistryOpinion, invoke_ministry_agent
 from app.agents.structured_output import parse_strict_json_object
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel
-from app.shiguan.recall import safe_recall_context_for_department
+from app.shiguan.recall import RecallContext, safe_recall_context_for_department
 
 
 def _format_ministry_opinions(ministry_opinions: list[MinistryOpinion]) -> str:
@@ -49,9 +50,15 @@ def _format_ministry_opinions(ministry_opinions: list[MinistryOpinion]) -> str:
     return json.dumps(ministry_opinions, ensure_ascii=False)
 
 
-def _format_recall_contexts(departments: list[str]) -> str:
+def _format_recall_contexts(
+    departments: list[str], recall_contexts: Mapping[str, RecallContext] | None = None
+) -> str:
     contexts = {
-        department: safe_recall_context_for_department(department).model_dump()
+        department: (
+            recall_contexts[department]
+            if recall_contexts is not None
+            else safe_recall_context_for_department(department)
+        ).model_dump()
         for department in departments
     }
     return json.dumps(contexts, ensure_ascii=False)
@@ -63,6 +70,8 @@ def invoke_junjichu_council(
     departments: list[str],
     ministry_opinions: list[MinistryOpinion],
     chat_model: DeepSeekChatModel,
+    *,
+    recall_contexts: Mapping[str, RecallContext] | None = None,
 ) -> str:
     """Invoke 军机处's own council-verdict model turn and return the verdict.
 
@@ -90,7 +99,7 @@ def invoke_junjichu_council(
     """
     system_prompt = junjichu_system_prompt(departments)
     opinions_text = _format_ministry_opinions(ministry_opinions)
-    recall_contexts_text = _format_recall_contexts(departments)
+    recall_contexts_text = _format_recall_contexts(departments, recall_contexts)
     messages = [
         {"role": "system", "content": system_prompt},
         {
@@ -126,6 +135,8 @@ def run_junjichu_council(
     rationale: str,
     departments: list[str],
     chat_model: DeepSeekChatModel,
+    *,
+    recall_contexts: Mapping[str, RecallContext] | None = None,
 ) -> tuple[list[MinistryOpinion], str]:
     """Run the full multi-department 军机处 council sequence.
 
@@ -161,10 +172,21 @@ def run_junjichu_council(
     """
     ministry_opinions: list[MinistryOpinion] = []
     for department in departments:
-        opinion = invoke_ministry_agent(department, decree_text, rationale, chat_model)
+        opinion = invoke_ministry_agent(
+            department,
+            decree_text,
+            rationale,
+            chat_model,
+            recall_context=(recall_contexts[department] if recall_contexts else None),
+        )
         ministry_opinions.append(opinion)
 
     verdict = invoke_junjichu_council(
-        decree_text, rationale, departments, ministry_opinions, chat_model
+        decree_text,
+        rationale,
+        departments,
+        ministry_opinions,
+        chat_model,
+        recall_contexts=recall_contexts,
     )
     return ministry_opinions, verdict

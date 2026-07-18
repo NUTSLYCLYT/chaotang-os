@@ -31,17 +31,38 @@ from typing import Any
 
 from fastapi import APIRouter, FastAPI, Query
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.shiguan import storage
 from app.shiguan.errors import ArchiveNotFoundError, ArchiveValidationError, ShiguanStorageError
 from app.shiguan.models import Archive, ArchiveType, ReviewStatus, Statistics
-from app.shiguan.recall import RecallMatch, find_similar_archives
+from app.shiguan.recall import MAX_RECALL_LIMIT, RecallMatch, find_similar_archives
 
 _DEFAULT_LIST_LIMIT = 100
 _MAX_LIST_LIMIT = 500
 _DEFAULT_RECALL_LIMIT = 10
 
 router = APIRouter(prefix="/api/v1/shiguan")
+
+
+class ReviewStatusUpdateRequest(BaseModel):
+    """Strict wire contract; unknown fields are rejected instead of ignored."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: str
+    reviewed_at: str
+    note: str | None = None
+
+
+class RecallRequest(BaseModel):
+    """Strict recall request; response facts are owned by ``RecallMatch``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    matter_type: str | None = None
+    department: str | None = None
+    limit: int = Field(default=_DEFAULT_RECALL_LIMIT, ge=1, le=MAX_RECALL_LIMIT)
 
 
 @router.post("/archives", response_model=Archive, status_code=201)
@@ -87,7 +108,7 @@ def list_archives(
 
 
 @router.patch("/archives/{archive_id}/review", response_model=ReviewStatus)
-def update_review_status(archive_id: str, payload: dict[str, Any]) -> ReviewStatus:
+def update_review_status(archive_id: str, payload: ReviewStatusUpdateRequest) -> ReviewStatus:
     """Set (or replace) an archive's review/复盘 status.
 
     ``status``/``reviewed_at``/``note`` are read from ``payload`` and passed
@@ -98,9 +119,9 @@ def update_review_status(archive_id: str, payload: dict[str, Any]) -> ReviewStat
     """
     return storage.upsert_review_status(
         archive_id,
-        payload.get("status"),
-        payload.get("reviewed_at"),
-        payload.get("note"),
+        payload.status,
+        payload.reviewed_at,
+        payload.note,
     )
 
 
@@ -116,7 +137,7 @@ def get_statistics() -> Statistics:
 
 
 @router.post("/recall", response_model=list[RecallMatch])
-def recall(payload: dict[str, Any]) -> list[RecallMatch]:
+def recall(payload: RecallRequest) -> list[RecallMatch]:
     """Find similar historical archives by matter_type and/or department.
 
     At least one of ``matter_type``/``department`` must be provided;
@@ -125,9 +146,9 @@ def recall(payload: dict[str, Any]) -> list[RecallMatch]:
     ``app.shiguan.recall`` -- this endpoint only forwards the request body.
     """
     return find_similar_archives(
-        matter_type=payload.get("matter_type"),
-        department=payload.get("department"),
-        limit=payload.get("limit", _DEFAULT_RECALL_LIMIT),
+        matter_type=payload.matter_type,
+        department=payload.department,
+        limit=payload.limit,
     )
 
 

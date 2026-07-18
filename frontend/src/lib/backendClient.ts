@@ -77,9 +77,8 @@ function describeError(error: unknown): string {
     if (error.name === "AbortError") {
       return "请求超时";
     }
-    return error.message;
   }
-  return String(error);
+  return "无法连接后端，请稍后重试";
 }
 
 /** 一个司级意见，按所属部的咨询顺序保留。 */
@@ -438,13 +437,10 @@ export interface ShiguanStatistics {
 
 export interface ShiguanRecallMatch {
   archiveId: string;
-  matterType: string;
-  department: string;
-  title: string;
   matchReason: string;
-  historicalConclusion: string | null;
+  historicalConclusion: string;
   evidenceLabels: RealityLabel[];
-  reviewStatus: ReviewStatusValue | null;
+  reviewStatus: ShiguanReviewStatus | null;
   lessonsLearned: string | null;
   pitfalls: string | null;
 }
@@ -503,8 +499,21 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+function hasExactKeys(record: Record<string, unknown>, keys: readonly string[]): boolean {
+  const actual = Object.keys(record);
+  return actual.length === keys.length && keys.every((key) => key in record);
+}
+
 function parseNullableString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+function isNullableString(value: unknown): boolean {
+  return value === null || value === undefined || typeof value === "string";
+}
+
+function isIsoDateTime(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0 && !Number.isNaN(Date.parse(value));
 }
 
 function parseStringArray(value: unknown): string[] | null {
@@ -524,15 +533,18 @@ function parseEvidence(value: unknown): ShiguanEvidence[] | null {
     const record = asRecord(item);
     if (
       record === null ||
+      !hasExactKeys(record, ["source", "reality_label", "note"]) ||
       typeof record.source !== "string" ||
-      !REALITY_LABELS.has(record.reality_label as RealityLabel)
+      record.source.trim().length === 0 ||
+      !REALITY_LABELS.has(record.reality_label as RealityLabel) ||
+      !isNullableString(record.note)
     ) {
       return null;
     }
     evidence.push({
       source: record.source,
       realityLabel: record.reality_label as RealityLabel,
-      note: typeof record.note === "string" ? record.note : null,
+      note: parseNullableString(record.note),
     });
   }
   return evidence;
@@ -545,15 +557,17 @@ function parseReviewStatus(value: unknown): ShiguanReviewStatus | null {
   const record = asRecord(value);
   if (
     record === null ||
+    !hasExactKeys(record, ["status", "reviewed_at", "note"]) ||
     !REVIEW_STATUSES.has(record.status as ReviewStatusValue) ||
-    typeof record.reviewed_at !== "string"
+    !isIsoDateTime(record.reviewed_at) ||
+    !isNullableString(record.note)
   ) {
     return null;
   }
   return {
     status: record.status as ReviewStatusValue,
     reviewedAt: record.reviewed_at,
-    note: typeof record.note === "string" ? record.note : null,
+    note: parseNullableString(record.note),
   };
 }
 
@@ -561,20 +575,33 @@ function parseArchive(value: unknown): ShiguanArchive | null {
   const record = asRecord(value);
   if (
     record === null ||
+    !hasExactKeys(record, [
+      "type", "title", "content", "matter_type", "department", "related_archive_ids",
+      "evidence", "lessons_learned", "pitfalls", "participating_departments",
+      "decision_process", "decision_conclusion", "decision_time", "responsible_owner",
+      "id", "created_at", "review_status",
+    ]) ||
     typeof record.id !== "string" ||
     !ARCHIVE_TYPES.has(record.type as ArchiveType) ||
     typeof record.title !== "string" ||
     typeof record.content !== "string" ||
     typeof record.matter_type !== "string" ||
     typeof record.department !== "string" ||
-    typeof record.created_at !== "string"
+    !isIsoDateTime(record.created_at)
   ) {
     return null;
   }
   const relatedArchiveIds = parseStringArray(record.related_archive_ids);
   const evidence = parseEvidence(record.evidence);
   const reviewStatus = parseReviewStatus(record.review_status);
-  if (relatedArchiveIds === null || evidence === null) {
+  if (
+    relatedArchiveIds === null ||
+    evidence === null ||
+    !("review_status" in record) ||
+    (record.review_status !== null && reviewStatus === null) ||
+    !isNullableString(record.lessons_learned) ||
+    !isNullableString(record.pitfalls)
+  ) {
     return null;
   }
   const participatingDepartments =
@@ -582,6 +609,27 @@ function parseArchive(value: unknown): ShiguanArchive | null {
       ? null
       : parseStringArray(record.participating_departments);
   if (participatingDepartments === null && Array.isArray(record.participating_departments)) {
+    return null;
+  }
+  const decisionFieldsAreStrings =
+    participatingDepartments !== null &&
+    typeof record.decision_process === "string" &&
+    record.decision_process.trim().length > 0 &&
+    typeof record.decision_conclusion === "string" &&
+    record.decision_conclusion.trim().length > 0 &&
+    isIsoDateTime(record.decision_time) &&
+    typeof record.responsible_owner === "string" &&
+    record.responsible_owner.trim().length > 0;
+  const decisionFieldsAreEmpty =
+    record.participating_departments == null &&
+    record.decision_process == null &&
+    record.decision_conclusion == null &&
+    record.decision_time == null &&
+    record.responsible_owner == null;
+  if (
+    (record.type === "DECISION" && !decisionFieldsAreStrings) ||
+    (record.type !== "DECISION" && !decisionFieldsAreEmpty)
+  ) {
     return null;
   }
   return {
@@ -609,6 +657,10 @@ function parseStatistics(value: unknown): ShiguanStatistics | null {
   const record = asRecord(value);
   if (
     record === null ||
+    !hasExactKeys(record, [
+      "total", "achieved", "not_achieved", "partial", "observing", "pending_review",
+      "success_rate",
+    ]) ||
     typeof record.total !== "number" ||
     typeof record.achieved !== "number" ||
     typeof record.not_achieved !== "number" ||
@@ -634,38 +686,39 @@ function parseRecallMatch(value: unknown): ShiguanRecallMatch | null {
   const record = asRecord(value);
   if (
     record === null ||
+    !hasExactKeys(record, [
+      "archive_id", "match_reason", "historical_conclusion", "evidence_labels",
+      "review_status", "lessons_learned", "pitfalls",
+    ]) ||
     typeof record.archive_id !== "string" ||
-    typeof record.matter_type !== "string" ||
-    typeof record.department !== "string" ||
-    typeof record.title !== "string" ||
-    typeof record.match_reason !== "string"
+    record.archive_id.trim().length === 0 ||
+    typeof record.match_reason !== "string" ||
+    record.match_reason.trim().length === 0 ||
+    typeof record.historical_conclusion !== "string" ||
+    record.historical_conclusion.trim().length === 0 ||
+    !isNullableString(record.lessons_learned) ||
+    !isNullableString(record.pitfalls)
   ) {
     return null;
   }
   const evidenceLabels = parseStringArray(record.evidence_labels);
+  const reviewStatus = parseReviewStatus(record.review_status);
   if (
     evidenceLabels === null ||
     !evidenceLabels.every((label): label is RealityLabel =>
       REALITY_LABELS.has(label as RealityLabel),
     ) ||
-    (record.review_status !== null &&
-      record.review_status !== undefined &&
-      !REVIEW_STATUSES.has(record.review_status as ReviewStatusValue))
+    !("review_status" in record) ||
+    (record.review_status !== null && reviewStatus === null)
   ) {
     return null;
   }
   return {
     archiveId: record.archive_id,
-    matterType: record.matter_type,
-    department: record.department,
-    title: record.title,
     matchReason: record.match_reason,
-    historicalConclusion: parseNullableString(record.historical_conclusion),
+    historicalConclusion: record.historical_conclusion,
     evidenceLabels,
-    reviewStatus:
-      record.review_status === null || record.review_status === undefined
-        ? null
-        : (record.review_status as ReviewStatusValue),
+    reviewStatus,
     lessonsLearned: parseNullableString(record.lessons_learned),
     pitfalls: parseNullableString(record.pitfalls),
   };

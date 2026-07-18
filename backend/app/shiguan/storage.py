@@ -42,6 +42,50 @@ def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _insert_validated_archive(
+    conn: sqlite3.Connection, validated: ArchiveCreate
+) -> Archive:
+    """Insert one validated archive into the caller-owned transaction."""
+    validation.validate_related_archive_ids(conn, validated.related_archive_ids)
+    archive_id = uuid.uuid4().hex
+    created_at = _now_iso()
+    conn.execute(
+        f"INSERT INTO archives ({_ARCHIVE_COLUMNS}) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            archive_id,
+            validated.type,
+            validated.title,
+            validated.content,
+            validated.matter_type,
+            validated.department,
+            created_at,
+            validated.lessons_learned,
+            validated.pitfalls,
+            json.dumps(validated.participating_departments, ensure_ascii=False)
+            if validated.participating_departments is not None
+            else None,
+            validated.decision_process,
+            validated.decision_conclusion,
+            validated.decision_time,
+            validated.responsible_owner,
+        ),
+    )
+    for evidence in validated.evidence:
+        conn.execute(
+            "INSERT INTO archive_evidence (archive_id, source, reality_label, note) "
+            "VALUES (?, ?, ?, ?)",
+            (archive_id, evidence.source, evidence.reality_label, evidence.note),
+        )
+    for related_id in validated.related_archive_ids:
+        conn.execute(
+            "INSERT INTO archive_relations (archive_id, related_id) VALUES (?, ?)",
+            (archive_id, related_id),
+        )
+    row = conn.execute("SELECT * FROM archives WHERE id = ?", (archive_id,)).fetchone()
+    return _build_archive(conn, row)
+
+
 def _build_archive(conn: sqlite3.Connection, row: sqlite3.Row) -> Archive:
     archive_id = row["id"]
 
@@ -121,52 +165,46 @@ def create_archive(payload: dict | ArchiveCreate, *, db_path: Path | None = None
     conn = db.get_connection(db_path)
     try:
         validated = validation.validate_archive_create(payload_dict)
-        validation.validate_related_archive_ids(conn, validated.related_archive_ids)
-
-        archive_id = uuid.uuid4().hex
-        created_at = _now_iso()
-
         try:
-            conn.execute(
-                f"INSERT INTO archives ({_ARCHIVE_COLUMNS}) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    archive_id,
-                    validated.type,
-                    validated.title,
-                    validated.content,
-                    validated.matter_type,
-                    validated.department,
-                    created_at,
-                    validated.lessons_learned,
-                    validated.pitfalls,
-                    json.dumps(validated.participating_departments)
-                    if validated.participating_departments is not None
-                    else None,
-                    validated.decision_process,
-                    validated.decision_conclusion,
-                    validated.decision_time,
-                    validated.responsible_owner,
-                ),
-            )
-            for evidence in validated.evidence:
-                conn.execute(
-                    "INSERT INTO archive_evidence (archive_id, source, reality_label, note) "
-                    "VALUES (?, ?, ?, ?)",
-                    (archive_id, evidence.source, evidence.reality_label, evidence.note),
-                )
-            for related_id in validated.related_archive_ids:
-                conn.execute(
-                    "INSERT INTO archive_relations (archive_id, related_id) VALUES (?, ?)",
-                    (archive_id, related_id),
-                )
+            archive = _insert_validated_archive(conn, validated)
             conn.commit()
         except sqlite3.Error as exc:
             conn.rollback()
             raise ShiguanStorageError("史馆写入失败，请稍后再试") from exc
 
-        row = conn.execute("SELECT * FROM archives WHERE id = ?", (archive_id,)).fetchone()
-        return _build_archive(conn, row)
+        return archive
+    finally:
+        conn.close()
+
+
+def create_linked_archive_pair(
+    memorial_payload: dict,
+    decision_payload: dict,
+    *,
+    db_path: Path | None = None,
+) -> tuple[Archive, Archive]:
+    """Atomically create a MEMORIAL and its linked DECISION.
+
+    The relation is injected internally, so callers cannot observe a lone
+    memorial if decision validation or any SQLite statement fails.
+    """
+    conn = db.get_connection(db_path)
+    try:
+        try:
+            memorial_data = validation.validate_archive_create(dict(memorial_payload))
+            memorial = _insert_validated_archive(conn, memorial_data)
+            linked_decision = dict(decision_payload)
+            linked_decision["related_archive_ids"] = [memorial.id]
+            decision_data = validation.validate_archive_create(linked_decision)
+            decision = _insert_validated_archive(conn, decision_data)
+            conn.commit()
+            return memorial, decision
+        except (ArchiveValidationError, ArchiveNotFoundError):
+            conn.rollback()
+            raise
+        except sqlite3.Error as exc:
+            conn.rollback()
+            raise ShiguanStorageError("史馆写入失败，请稍后再试") from exc
     finally:
         conn.close()
 
@@ -187,7 +225,10 @@ def get_archive(archive_id: str, *, db_path: Path | None = None) -> Archive:
             raise ShiguanStorageError("史馆查询失败，请稍后再试") from exc
         if row is None:
             raise ArchiveNotFoundError(f"档案不存在: {archive_id}")
-        return _build_archive(conn, row)
+        try:
+            return _build_archive(conn, row)
+        except sqlite3.Error as exc:
+            raise ShiguanStorageError("史馆查询失败，请稍后再试") from exc
     finally:
         conn.close()
 
@@ -223,8 +264,12 @@ def list_archives(
         conditions.append("matter_type = ?")
         params.append(matter_type)
     if department is not None:
-        conditions.append("department = ?")
-        params.append(department)
+        conditions.append(
+            "(department = ? OR EXISTS ("
+            "SELECT 1 FROM json_each(archives.participating_departments) "
+            "WHERE json_each.value = ?))"
+        )
+        params.extend((department, department))
 
     where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
     query = f"SELECT * FROM archives {where_clause} ORDER BY created_at DESC, id ASC LIMIT ?"
@@ -236,7 +281,10 @@ def list_archives(
             rows = conn.execute(query, params).fetchall()
         except sqlite3.Error as exc:
             raise ShiguanStorageError("史馆查询失败，请稍后再试") from exc
-        return [_build_archive(conn, row) for row in rows]
+        try:
+            return [_build_archive(conn, row) for row in rows]
+        except sqlite3.Error as exc:
+            raise ShiguanStorageError("史馆查询失败，请稍后再试") from exc
     finally:
         conn.close()
 

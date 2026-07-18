@@ -1,5 +1,10 @@
 # chaotang-os 当前架构事实
 
+## 史馆边界
+
+史馆属于后端域，以 `app/shiguan` 的 Pydantic 模型和 SQLite 存储为事实源。
+丞相图只消费每部门一次召回生成的只读上下文；前端不推断复盘状态、匹配原因或归档成功。详见 `docs/decisions/0015-shiguan-archive-persistence.md`。
+
 ## 当前状态
 
 仓库处于重建阶段。`backend/` 已完成最小工程骨架的技术选型（Python + FastAPI +

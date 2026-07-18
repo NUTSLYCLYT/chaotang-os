@@ -9,9 +9,9 @@ export const ARCHIVE_TYPE_LABELS: Record<ArchiveType, string> = {
 };
 
 export const REALITY_LABELS: Record<RealityLabel, string> = {
-  LIVE: "真实",
-  MIXED: "混合",
-  FALLBACK: "兜底/演示",
+  LIVE: "实时链路来源",
+  MIXED: "实时与降级来源混合",
+  FALLBACK: "降级或演示来源",
 };
 
 export const REVIEW_STATUS_LABELS: Record<ReviewStatusValue, string> = {

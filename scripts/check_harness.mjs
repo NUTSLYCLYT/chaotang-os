@@ -31,6 +31,7 @@ const REQUIRED_FILES = [
   "docs/decisions/0012-decree-six-ministries-joint-review.md",
   "docs/decisions/0013-data-driven-bureau-agents.md",
   "docs/decisions/0014-layered-memorial-three-recommendations.md",
+  "docs/decisions/0015-shiguan-archive-persistence.md",
   "backend/config/providers.yaml",
   "backend/.env.template",
   "docs/failures/2026-07-15-shared-harness-stop-hook-false-green.md",

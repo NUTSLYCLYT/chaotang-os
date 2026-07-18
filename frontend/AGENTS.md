@@ -1,5 +1,9 @@
 # 前端 Agent 工作入口
 
+## 史馆边界
+
+前端仅消费后端史馆 API；`RecallMatch.review_status` 是对象或 `null`。前端不得根据丞相成功响应推断自动归档已成功，也不得重新定义召回响应形状。
+
 作用域：`frontend/`。已确定最小技术栈：Next.js（App Router）+ React/react-dom +
 TypeScript，npm 管理依赖，Node 内置 `node:test` 做单元测试。选型理由、取舍和验证
 证据见 `docs/decisions/0006-frontend-backend-foundation-stack.md`（`## 前端` 章节）。

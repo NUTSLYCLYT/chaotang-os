@@ -789,13 +789,14 @@ async function startShiguanStub(): Promise<{
         JSON.stringify([
           {
             archive_id: "archive-1",
-            matter_type: "漕运",
-            department: "户部",
-            title: "整顿漕运",
             match_reason: "事项类型一致",
             historical_conclusion: "准行。",
             evidence_labels: ["LIVE"],
-            review_status: "PARTIAL",
+            review_status: {
+              status: "PARTIAL",
+              reviewed_at: "2026-07-17T00:20:00+00:00",
+              note: "仍需观察河工进度。",
+            },
             lessons_learned: "先核验账册再拨款。",
             pitfalls: "不可把演示账册当真实账册。",
           },
@@ -867,6 +868,8 @@ test("史馆客户端：列表、统计、召回与复盘更新映射为前端 c
     if (recall.ok) {
       assert.equal(recall.data[0].archiveId, "archive-1");
       assert.deepEqual(recall.data[0].evidenceLabels, ["LIVE"]);
+      assert.equal(recall.data[0].historicalConclusion, "准行。");
+      assert.equal(recall.data[0].reviewStatus?.status, "PARTIAL");
       assert.equal(recall.data[0].lessonsLearned, "先核验账册再拨款。");
     }
 
@@ -917,4 +920,85 @@ test("史馆客户端：后端校验失败时返回 validation，不抛异常", 
       server.close((error) => (error ? reject(error) : resolve()));
     });
   }
+});
+
+async function withShiguanBody(
+  body: unknown,
+  path: string,
+  run: (baseUrl: string) => Promise<void>,
+): Promise<void> {
+  const server: Server = createServer((_req, res) => {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(typeof body === "string" ? body : JSON.stringify(body));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address() as AddressInfo;
+  try {
+    await run(`http://127.0.0.1:${address.port}${path}`);
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+}
+
+test("史馆客户端：召回接受真实后端字段并拒绝畸形对象型复盘", async () => {
+  const validRecall = {
+    archive_id: "archive-1",
+    match_reason: "事项类型+部门匹配",
+    historical_conclusion: "准行。",
+    evidence_labels: ["LIVE", "MIXED"],
+    review_status: {
+      status: "PARTIAL",
+      reviewed_at: "2026-07-17T00:20:00+00:00",
+      note: "仍需观察。",
+    },
+    lessons_learned: "先核账。",
+    pitfalls: null,
+  };
+  await withShiguanBody([validRecall], "", async (baseUrl) => {
+    const result = await recallShiguanArchives({ baseUrl });
+    assert.equal(result.ok, true);
+    if (result.ok) {
+      assert.equal(result.data[0].historicalConclusion, "准行。");
+      assert.equal(result.data[0].reviewStatus?.reviewedAt, "2026-07-17T00:20:00+00:00");
+    }
+  });
+  await withShiguanBody(
+    [{ ...validRecall, review_status: { status: "PARTIAL", reviewed_at: 123 } }],
+    "",
+    async (baseUrl) => {
+      const result = await recallShiguanArchives({ baseUrl });
+      assert.equal(result.ok, false);
+      if (!result.ok) assert.equal(result.kind, "unknown");
+    },
+  );
+});
+
+test("史馆客户端：畸形档案复盘和不完整 DECISION 留痕返回 unknown", async () => {
+  for (const body of [
+    [{ ...SHIGUAN_ARCHIVE_BODY, review_status: { status: "PARTIAL" } }],
+    [{ ...SHIGUAN_ARCHIVE_BODY, review_status: undefined }],
+    [{ ...SHIGUAN_ARCHIVE_BODY, decision_process: null }],
+  ]) {
+    await withShiguanBody(body, "", async (baseUrl) => {
+      const result = await listShiguanArchives({ baseUrl });
+      assert.equal(result.ok, false);
+      if (!result.ok) assert.equal(result.kind, "unknown");
+    });
+  }
+});
+
+test("史馆客户端：非 JSON 与网络错误使用稳定中文", async () => {
+  await withShiguanBody("not-json", "", async (baseUrl) => {
+    const result = await getShiguanStatistics({ baseUrl });
+    assert.deepEqual(result, {
+      ok: false,
+      kind: "unknown",
+      error: "史馆后端响应不是合法 JSON",
+    });
+  });
+  const result = await getShiguanStatistics({ baseUrl: "http://127.0.0.1:1", timeoutMs: 100 });
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.error, "无法连接后端，请稍后重试");
 });

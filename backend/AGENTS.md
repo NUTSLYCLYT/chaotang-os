@@ -1,5 +1,11 @@
 # 后端 Agent 工作入口
 
+## 史馆
+
+- `app/shiguan/models.py` 是档案、复盘状态和 `RecallMatch` 的契约事实源。
+- 丞相图每部门只召回一次；六部和军机处不得在已注入上下文时重查 SQLite。
+- 自动归档的 MEMORIAL + DECISION 必须使用同一事务；HTTP 成功契约不暴露归档结果。
+
 作用域：`backend/`。已确定最小技术栈：Python + FastAPI + uvicorn，扁平 `app/` 包，
 pytest 测试，ruff 静态检查，pip + venv 管理依赖。选型理由、取舍和验证证据见
 `docs/decisions/0006-frontend-backend-foundation-stack.md`（`## 后端` 章节）。

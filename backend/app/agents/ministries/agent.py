@@ -85,6 +85,8 @@ def invoke_ministry_agent(
     decree_text: str,
     rationale: str,
     chat_model: DeepSeekChatModel,
+    *,
+    recall_context: RecallContext | None = None,
 ) -> MinistryOpinion:
     """Consult selected bureaus serially, then produce a ministry synthesis.
 
@@ -112,7 +114,8 @@ def invoke_ministry_agent(
             bureau invocation failed.
     """
     system_prompt = ministry_system_prompt(department)
-    recall_context = safe_recall_context_for_department(department)
+    if recall_context is None:
+        recall_context = safe_recall_context_for_department(department)
     recall_context_text = _format_recall_context(recall_context)
 
     messages = [

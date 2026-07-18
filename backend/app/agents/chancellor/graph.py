@@ -78,7 +78,7 @@ from app.agents.ministries.prompts import MINISTRIES
 from app.agents.structured_output import StructuredOutputError, parse_strict_json_object
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel, build_deepseek_chat_model
 from app.langgraph_runtime.deepseek_config import load_deepseek_provider_config
-from app.shiguan.recall import safe_recall_context_for_department
+from app.shiguan.recall import RecallContext, safe_recall_context_for_department
 
 
 class ChancellorGraphState(TypedDict, total=False):
@@ -256,12 +256,14 @@ def build_chancellor_graph(
 
     def _handle_single_ministry(state: ChancellorGraphState) -> dict:
         department = state["departments"][0]
+        recall_context = safe_recall_context_for_department(department)
         try:
             opinion = invoke_ministry_agent(
                 department,
                 state["decree_text"],
                 state["chancellor_rationale"],
                 resolved_chat_model,
+                recall_context=recall_context,
             )
         except Exception as exc:  # noqa: BLE001 - one sanitized graph error boundary
             raise ChancellorGraphInvocationError(
@@ -273,7 +275,6 @@ def build_chancellor_graph(
             f"{department}·{bureau_opinion['bureau']}"
             for bureau_opinion in opinion["bureau_opinions"]
         ]
-        recall_context = safe_recall_context_for_department(department).model_dump()
         return {
             "processing_path": [
                 *state["processing_path"],
@@ -283,17 +284,22 @@ def build_chancellor_graph(
             ],
             "ministry_opinions": [opinion],
             "council_verdict": None,
-            "recall_contexts": {department: recall_context},
+            "recall_contexts": {department: recall_context.model_dump()},
         }
 
     def _run_junjichu_council(state: ChancellorGraphState) -> dict:
         departments = state["departments"]
+        recall_contexts: dict[str, RecallContext] = {
+            department: safe_recall_context_for_department(department)
+            for department in departments
+        }
         try:
             ministry_opinions, verdict = run_junjichu_council(
                 state["decree_text"],
                 state["chancellor_rationale"],
                 departments,
                 resolved_chat_model,
+                recall_contexts=recall_contexts,
             )
         except Exception as exc:  # noqa: BLE001 - intentionally wrap any model/validation error
             raise ChancellorGraphInvocationError(
@@ -317,8 +323,8 @@ def build_chancellor_graph(
             "ministry_opinions": ministry_opinions,
             "council_verdict": verdict,
             "recall_contexts": {
-                department: safe_recall_context_for_department(department).model_dump()
-                for department in departments
+                department: context.model_dump()
+                for department, context in recall_contexts.items()
             },
         }
 

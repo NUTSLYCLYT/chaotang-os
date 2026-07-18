@@ -385,11 +385,11 @@ class TestArchiveChancellorDecree:
         def _boom(*args, **kwargs):
             raise ShiguanStorageError("史馆写入失败，请稍后再试")
 
-        monkeypatch.setattr(archive_decree.storage, "create_archive", _boom)
+        monkeypatch.setattr(archive_decree.storage, "create_linked_archive_pair", _boom)
 
         # Must not raise.
         result = archive_decree.archive_chancellor_decree("请赈济灾民", self._fake_response())
-        assert result is None
+        assert result.archived is False
 
     def test_never_raises_on_malformed_response(self, tmp_path, monkeypatch):
         isolated_db_path = tmp_path / "decree-archive.sqlite3"
@@ -397,4 +397,5 @@ class TestArchiveChancellorDecree:
 
         # A response object missing every expected attribute.
         result = archive_decree.archive_chancellor_decree("请赈济灾民", object())
-        assert result is None
+        assert result.archived is False
+        assert storage.list_archives(db_path=isolated_db_path) == []

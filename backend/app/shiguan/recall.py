@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.shiguan import storage
 from app.shiguan.errors import ArchiveValidationError
@@ -28,6 +28,7 @@ from app.shiguan.models import Archive, ReviewStatus
 logger = logging.getLogger(__name__)
 
 _RECALL_FETCH_LIMIT = 500
+MAX_RECALL_LIMIT = 100
 _SUMMARY_LENGTH = 200
 
 _BOTH_MATCH_REASON = "事项类型+部门匹配"
@@ -45,7 +46,7 @@ class RecallMatch(BaseModel):
     archive_id: str
     match_reason: str
     historical_conclusion: str
-    evidence_labels: list[str] = []
+    evidence_labels: list[str] = Field(default_factory=list)
     review_status: ReviewStatus | None = None
     lessons_learned: str | None = None
     pitfalls: str | None = None
@@ -64,10 +65,10 @@ class RecallContext(BaseModel):
       as "no matches".
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     available: bool
-    entries: list[RecallMatch] = []
+    entries: tuple[RecallMatch, ...] = ()
     reason: str | None = None
 
 
@@ -123,8 +124,13 @@ def find_similar_archives(
 
     if not normalized_matter_type and not normalized_department:
         raise ArchiveValidationError("matter_type 或 department 至少需要提供一项")
-    if not isinstance(limit, int) or isinstance(limit, bool) or limit <= 0:
-        raise ArchiveValidationError("limit 必须为正整数")
+    if (
+        not isinstance(limit, int)
+        or isinstance(limit, bool)
+        or limit <= 0
+        or limit > MAX_RECALL_LIMIT
+    ):
+        raise ArchiveValidationError(f"limit 必须为 1 至 {MAX_RECALL_LIMIT} 的整数")
 
     seen_ids: set[str] = set()
     matches: list[RecallMatch] = []
@@ -168,7 +174,7 @@ def safe_recall_context_for_department(
         if not department or not department.strip():
             return RecallContext(available=False, reason=_UNAVAILABLE_REASON)
         matches = find_similar_archives(department=department.strip(), limit=limit, db_path=db_path)
-        return RecallContext(available=True, entries=matches)
+        return RecallContext(available=True, entries=tuple(matches))
     except Exception:  # noqa: BLE001 - fail-closed by design, must never raise
         logger.exception("史馆旧案召回不可用")
         return RecallContext(available=False, reason=_UNAVAILABLE_REASON)

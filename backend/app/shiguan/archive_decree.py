@@ -22,6 +22,7 @@ caught and logged (never re-raised).
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from app.shiguan import storage
@@ -31,6 +32,15 @@ logger = logging.getLogger(__name__)
 _TITLE_MAX_LENGTH = 80
 _DEFAULT_RESPONSIBLE_OWNER = "丞相"
 _DEFAULT_MATTER_TYPE = "综合事项"
+
+
+@dataclass(frozen=True)
+class ArchiveDecreeResult:
+    """Internal, assertion-friendly outcome; never exposed by the HTTP API."""
+
+    archived: bool
+    memorial_id: str | None = None
+    decision_id: str | None = None
 
 
 def _get_field(response: object, name: str, default: object = None) -> object:
@@ -46,7 +56,7 @@ def _truncate(text: str, max_length: int) -> str:
     return stripped[:max_length].rstrip() + "…"
 
 
-def archive_chancellor_decree(decree_text: str, response: object) -> None:
+def archive_chancellor_decree(decree_text: str, response: object) -> ArchiveDecreeResult:
     """Archive a completed chancellor decree as MEMORIAL + DECISION records.
 
     Writes a ``MEMORIAL`` archive holding the original ``decree_text``,
@@ -69,17 +79,25 @@ def archive_chancellor_decree(decree_text: str, response: object) -> None:
         council_verdict = _get_field(response, "council_verdict")
         final_verdict = _get_field(response, "final_verdict") or ""
 
-        matter_type = "、".join(departments) if departments else _DEFAULT_MATTER_TYPE
+        if (
+            not isinstance(decree_text, str)
+            or not decree_text.strip()
+            or not departments
+            or not isinstance(final_verdict, str)
+            or not final_verdict.strip()
+        ):
+            return ArchiveDecreeResult(archived=False)
+
+        matter_type = _DEFAULT_MATTER_TYPE
+        owning_department = departments[0] if departments else _DEFAULT_RESPONSIBLE_OWNER
 
         memorial_payload = {
             "type": "MEMORIAL",
             "title": _truncate(decree_text, _TITLE_MAX_LENGTH) or "旨意",
             "content": decree_text,
             "matter_type": matter_type,
-            "department": _DEFAULT_RESPONSIBLE_OWNER,
+            "department": owning_department,
         }
-        memorial = storage.create_archive(memorial_payload)
-
         process_parts = []
         if processing_path:
             process_parts.append(f"处理路径：{'->'.join(processing_path)}")
@@ -89,22 +107,28 @@ def archive_chancellor_decree(decree_text: str, response: object) -> None:
             process_parts.append(f"军机处会审结论：{council_verdict}")
         decision_process = "；".join(process_parts) if process_parts else "丞相直接裁决"
 
-        decision_conclusion = final_verdict or "（无最终裁决内容）"
+        decision_conclusion = final_verdict
 
         decision_payload = {
             "type": "DECISION",
             "title": _truncate(f"丞相决策：{decree_text}", _TITLE_MAX_LENGTH),
             "content": decision_conclusion,
             "matter_type": matter_type,
-            "department": matter_type,
-            "related_archive_ids": [memorial.id],
+            "department": owning_department,
             "participating_departments": departments or [_DEFAULT_RESPONSIBLE_OWNER],
             "decision_process": decision_process,
             "decision_conclusion": decision_conclusion,
             "decision_time": datetime.now(UTC).isoformat(),
             "responsible_owner": _DEFAULT_RESPONSIBLE_OWNER,
         }
-        storage.create_archive(decision_payload)
+        memorial, decision = storage.create_linked_archive_pair(
+            memorial_payload, decision_payload
+        )
+        return ArchiveDecreeResult(
+            archived=True,
+            memorial_id=memorial.id,
+            decision_id=decision.id,
+        )
     except Exception:  # noqa: BLE001 - archival must never break the decree endpoint
         logger.exception("丞相旨意自动归档失败")
-        return None
+        return ArchiveDecreeResult(archived=False)

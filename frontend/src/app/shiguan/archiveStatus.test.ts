@@ -11,7 +11,9 @@ import {
 
 test("史馆标签格式化：五类档案、真实度与复盘状态都有中文展示", () => {
   assert.equal(formatArchiveType("DECISION"), "决策");
-  assert.equal(formatRealityLabel("FALLBACK"), "兜底/演示");
+  assert.equal(formatRealityLabel("LIVE"), "实时链路来源");
+  assert.equal(formatRealityLabel("MIXED"), "实时与降级来源混合");
+  assert.equal(formatRealityLabel("FALLBACK"), "降级或演示来源");
   assert.equal(formatReviewStatus("PARTIAL"), "部分达成");
   assert.equal(formatReviewStatus(null), "待复盘");
 });
