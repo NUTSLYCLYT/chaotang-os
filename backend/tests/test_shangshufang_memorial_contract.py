@@ -71,3 +71,71 @@ def test_missing_quality_gate_required_string_field_is_caught():
     violations = find_memorial_contract_violations(memorial)
     assert any("quality_gate" in v and "status" in v for v in violations)
     assert any("quality_gate" in v and "reasons" in v for v in violations)
+
+
+# ── 2026-07-18 第七轮:光查"字段在不在"不够,字段在、类型不对一样会崩或
+# 静默误判。以下几条是上一版校验器会漏放行的假阴性,现在补上类型检查。
+
+
+def test_conflict_summary_wrong_type_is_caught_not_silently_passed():
+    # 上一版:isinstance(conflict_summary, list) 为 False 时直接跳过检查，
+    # 字符串会被判成"合法"。真实前端 memorial.conflict_summary.flatMap(...)
+    # 对字符串直接崩(没有 .flatMap 方法)。
+    memorial = {**_VALID_MEMORIAL, "conflict_summary": "not a list"}
+    violations = find_memorial_contract_violations(memorial)
+    assert any("conflict_summary" in v and "类型错误" in v for v in violations)
+
+
+def test_conflict_summary_entry_departments_wrong_type_is_caught():
+    # departments 给字符串而不是数组——上一版只查 "departments" in entry，
+    # 键在就算过，字符串照样让 unique(item.departments).map(...) 崩
+    # (字符串没有 .map 方法)。
+    memorial = {
+        **_VALID_MEMORIAL,
+        "conflict_summary": [
+            {"type": "human_signoff", "summary": "s", "departments": "not a list", "source_label": "FALLBACK"}
+        ],
+    }
+    violations = find_memorial_contract_violations(memorial)
+    assert any("conflict_summary[0]" in v and "departments" in v and "类型错误" in v for v in violations)
+
+
+def test_quality_gate_passed_wrong_type_is_caught_not_silently_passed():
+    # passed 给字符串 "false"(真值)而不是布尔值 False——上一版只查
+    # "passed" in quality_gate，键在就算过。前端 explicitGate() 用
+    # typeof passed === 'boolean' 严格判定，字符串会被当成"没给"，静默退化
+    # 成 overallSignal='unknown'，不报错但结果是错的——这正是"误判"而不是
+    # "崩溃"，比崩溃更难在测试里发现。
+    memorial = {
+        **_VALID_MEMORIAL,
+        "quality_gate": {**_VALID_MEMORIAL["quality_gate"], "passed": "false"},
+    }
+    violations = find_memorial_contract_violations(memorial)
+    assert any("passed" in v and "类型错误" in v for v in violations)
+
+
+def test_quality_gate_wrong_type_at_top_level_is_caught():
+    # quality_gate 本身不是对象——上一版顶层检查只查"键在不在"，不查类型，
+    # quality_gate: null 会被判成"字段存在"，然后 isinstance(quality_gate,
+    # dict) 为 False 时子字段检查全被跳过，整体判成合法。
+    memorial = {**_VALID_MEMORIAL, "quality_gate": None}
+    violations = find_memorial_contract_violations(memorial)
+    assert any("quality_gate" in v and "类型错误" in v for v in violations)
+
+
+def test_ministry_outputs_wrong_type_is_caught():
+    memorial = {**_VALID_MEMORIAL, "ministry_outputs": {}}
+    violations = find_memorial_contract_violations(memorial)
+    assert any("ministry_outputs" in v and "类型错误" in v for v in violations)
+
+
+def test_title_wrong_type_is_caught():
+    memorial = {**_VALID_MEMORIAL, "title": None}
+    violations = find_memorial_contract_violations(memorial)
+    assert any("title" in v and "类型错误" in v for v in violations)
+
+
+def test_memorial_itself_not_a_dict_is_caught():
+    assert find_memorial_contract_violations("not a dict") != []
+    assert find_memorial_contract_violations([]) != []
+    assert find_memorial_contract_violations(None) != []
