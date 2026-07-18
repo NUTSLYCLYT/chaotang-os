@@ -34,12 +34,20 @@ export function adaptCanonicalCourtStreamEvent(value: unknown): UnknownRecord | 
     if (status && SUCCESS_STATUSES.has(status)) {
       return { type: 'done', taskId, runId: text(event.runId) };
     }
+    // menxia_veto_pending 没出错——是门下省在任何部门会审之前就把任务拦下了，
+    // 等人工确认。归进 'error' 会显示"异常终止"，暗示系统故障，跟"任务被
+    // 正常的治理规则拦住"完全是两回事，同样是一种误报(2026-07-18)。
+    if (status === 'menxia_veto_pending') {
+      return {
+        type: 'blocked',
+        taskId,
+        message: text(event.error) ?? '门下省封驳，需人工确认后才能派单。',
+      };
+    }
     return {
       type: 'error',
       taskId,
-      message: text(event.error)
-        ?? (status === 'menxia_veto_pending' ? '门下省封驳，需人工确认后才能派单。' : null)
-        ?? '任务执行失败',
+      message: text(event.error) ?? '任务执行失败',
     };
   }
 

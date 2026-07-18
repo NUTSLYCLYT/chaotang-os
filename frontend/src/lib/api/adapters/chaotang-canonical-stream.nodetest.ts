@@ -47,11 +47,13 @@ test('maps canonical terminal snapshots to done or error without inventing succe
   );
 });
 
-test('menxia veto pending is reported as non-success, not fabricated as done', () => {
-  // 2026-07-18 实测复现:改这条前，status !== 'failed' 就一律当 done——
-  // menxia_veto_pending(被门下省拦住、需要人工确认，不是失败也不是成功)
-  // 会被这条兜底逻辑误报成任务成功完成。这里锁住：非明确成功状态一律不是
-  // done，且给出诚实的中文提示，不是通用的"任务执行失败"。
+test('menxia veto pending is its own blocked type, not fabricated as done or misreported as error', () => {
+  // 2026-07-18 实测复现两轮:① status !== 'failed' 就一律当 done——
+  // menxia_veto_pending 被误报成任务成功完成。② 改成"不是明确成功就是
+  // error"之后，menxia_veto_pending 又被归进 error——但门下省封驳没有出错，
+  // 是治理规则正常拦下待人工确认，跟系统故障是两回事，归进 error 在 UI 上
+  // 会显示"异常终止"，同样是误报。这里锁住：非明确成功状态不是 done；
+  // menxia_veto_pending 专属 'blocked' 类型，不是 'error'。
   assert.deepEqual(
     adaptCanonicalCourtStreamEvent({
       type: 'canonical.snapshot',
@@ -62,7 +64,7 @@ test('menxia veto pending is reported as non-success, not fabricated as done', (
       error: null,
     }),
     {
-      type: 'error',
+      type: 'blocked',
       taskId: 'task_vetoed',
       message: '门下省封驳，需人工确认后才能派单。',
     },
