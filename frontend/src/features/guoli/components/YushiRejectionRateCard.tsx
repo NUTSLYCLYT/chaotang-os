@@ -16,9 +16,15 @@ function formatCutoff(value: string): string {
   }).format(new Date(value));
 }
 
-function formatWindow(startAt: string | null, endAt: string | null): string {
-  if (!startAt || !endAt) return '全部记录 · 尚无样本';
-  return `全部记录 · ${formatCutoff(startAt)}—${formatCutoff(endAt)}`;
+function formatWindow(
+  kind: 'ALL_RECORDED' | 'ROLLING_7D',
+  startAt: string | null,
+  endAt: string | null,
+): string {
+  // 诚实标窗口:ROLLING_7D 的比率只覆盖近 7 天,绝不能显示成"全部记录"(误导为全时段)。
+  const label = kind === 'ROLLING_7D' ? '近 7 天' : '全部记录';
+  if (!startAt || !endAt) return `${label} · 尚无样本`;
+  return `${label} · ${formatCutoff(startAt)}—${formatCutoff(endAt)}`;
 }
 
 export function YushiRejectionRateCard() {
@@ -117,7 +123,7 @@ export function YushiRejectionRateCard() {
           <div className="col-span-1 lg:col-span-2">
             <dt className="text-[#8f846f]">时间窗口</dt>
             <dd className="mt-1 truncate font-medium text-[#e5d7bd]">
-              {formatWindow(data.window.startAt, data.window.endAt)}
+              {formatWindow(data.window.kind, data.window.startAt, data.window.endAt)}
             </dd>
           </div>
           <div>
