@@ -175,17 +175,37 @@ def test_adapt_gongbu_unconfirmed_incident_escalates_not_silent_p2():
     assert doc["risk_level"] != "P2"
 
 
-def test_adapt_gongbu_positively_benign_is_p2():
-    # 只有正向"正常"确认才降 P2:确认常规售后不该被过度升级。
-    doc = rde.adapt_gongbu("储能柜例行巡检，设备一切正常，未见异常")
-    assert doc is not None
-    assert doc["risk_level"] == "P2"
-    assert doc["light"] == "yellow"
+def test_adapt_gongbu_never_auto_downgrades_to_p2():
+    # 彻底封死 benign→P2 残洞:引擎只有 P0/P1 两档,任何储能任务(哪怕纯"一切正常")
+    # 都不得落到 P2。"没问题"无法靠关键词可靠判定,宁可 P1 人工复核也不静默降低危。
+    for text in (
+        "储能柜例行巡检，设备一切正常，未见异常",
+        "储能柜验收合格，测试通过，工况正常",
+    ):
+        doc = rde.adapt_gongbu(text)
+        assert doc is not None, text
+        assert doc["risk_level"] != "P2", f"{text} 被静默降为 P2"
+        assert doc["light"] == "black"
 
 
-def test_adapt_gongbu_benign_context_word_does_not_downgrade_real_anomaly():
-    # 反 fail-open 残洞:场景词(巡检/咨询)不是"没问题"的确认。带真实异常迹象的巡检
-    # 绝不能被 benign 子串降 P2。以下都无 P0 危险字但有异常信号,必须升级为 P1,不 P2。
+def test_adapt_gongbu_real_problem_with_benign_phrase_not_downgraded():
+    # Codex 揪出的安全缺陷回归:真实问题 + 一句"运行正常"绝不能被 benign 子串降 P2。
+    # 变形/进水 无 P0 危险字 → 至少 P1;漏气/破裂是热失控前兆 → P0。
+    cases = {
+        "储能电池外壳变形，系统运行一切正常": "P1",
+        "储能柜进水，其余设备运行正常": "P1",
+        "储能电池包漏气但设备运行一切正常": "P0",
+        "储能电池模组外壳破裂，工况显示正常": "P0",
+    }
+    for text, expect in cases.items():
+        doc = rde.adapt_gongbu(text)
+        assert doc is not None, text
+        assert doc["risk_level"] == expect, f"{text} 期望 {expect} 实为 {doc['risk_level']}"
+        assert doc["risk_level"] != "P2", text
+
+
+def test_adapt_gongbu_anomaly_context_escalates_not_downgraded():
+    # 带真实异常迹象的巡检必须升级 P1(非 P0 危险字),绝不被"正常"措辞降 P2。
     for text in (
         "储能柜例行巡检时发现电压偏高并有报警",
         "客户咨询:储能柜近期频繁跳闸掉电",
@@ -193,7 +213,7 @@ def test_adapt_gongbu_benign_context_word_does_not_downgrade_real_anomaly():
     ):
         doc = rde.adapt_gongbu(text)
         assert doc is not None, text
-        assert doc["risk_level"] == "P1", f"{text} 被 benign 子串静默降级"
+        assert doc["risk_level"] == "P1", f"{text} 期望 P1"
         assert doc["risk_level"] != "P2", text
 
 
