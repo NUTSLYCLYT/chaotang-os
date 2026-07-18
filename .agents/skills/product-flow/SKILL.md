@@ -17,10 +17,19 @@ description: 在 Codex 桌面任务内自动完成产品定义、程序团队模
 - 只在必须新增业务决定、验收条件无法定义、权限/支付/隐私/删除/迁移等高风险事项、不可逆
   外部副作用或用户改动可能被覆盖时暂停询问。不要为了普通实现细节打断用户。
 
+### Codex-only 冲突守卫
+
+若用户对当前任务明确要求 Codex-only 或“不要用 Claude Code”，不得启动 Claude CLI、
+`gstack-claude` 或 `run-claude-delivery.mjs` 的交付模式。直接由当前 Codex 任务按
+`solution-architect` → `module-engineer` → `test-engineer` 顺序完成同一任务契约、停止条件、
+最多两次交付和验收闭环；这不授权提交、推送、发布或部署。runner 的本地 `--self-test` 只有在
+不违背用户限制且验证本次规则确有需要时才可运行。
+
 ## 1. 预检
 
 1. 从仓库根目录读取 `AGENTS.md`、`docs/product-collaboration.md` 和任务模板。
-2. 运行 `claude auth status`、`node scripts/check_harness.mjs` 和 `git status --short`。
+2. 非 Codex-only 路径运行 `claude auth status`；所有路径运行 `node scripts/check_harness.mjs` 和
+   `git status --short`。
 3. Claude 未登录、harness 失败或已有改动与需求可能重叠时停止并报告。保留所有用户改动。
 4. 不自动提交、推送、发布或创建外部资源；除非用户另有明确授权。
 

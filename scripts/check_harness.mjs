@@ -15,6 +15,7 @@ const REQUIRED_FILES = [
   "backend/CLAUDE.md",
   "docs/README.md",
   "docs/agentic-engineering.md",
+  "docs/codex-engineering-workflow.md",
   "docs/product-collaboration.md",
   "docs/product/tasks/TEMPLATE.md",
   "docs/tooling-compatibility.md",
@@ -32,6 +33,7 @@ const REQUIRED_FILES = [
   "docs/decisions/0013-data-driven-bureau-agents.md",
   "docs/decisions/0014-layered-memorial-three-recommendations.md",
   "docs/decisions/0015-shiguan-archive-persistence.md",
+  "docs/decisions/0016-codex-engineering-workflow-profile.md",
   "backend/config/providers.yaml",
   "backend/.env.template",
   "docs/failures/2026-07-15-shared-harness-stop-hook-false-green.md",
@@ -42,6 +44,8 @@ const REQUIRED_FILES = [
   ".agents/skills/product-flow/SKILL.md",
   ".agents/skills/product-flow/agents/openai.yaml",
   ".agents/skills/product-flow/scripts/run-claude-delivery.mjs",
+  ".agents/skills/codex-engineering-workflow/SKILL.md",
+  ".agents/skills/codex-engineering-workflow/agents/openai.yaml",
   ".claude/skills/record-decision/SKILL.md",
   ".claude/skills/record-failure/SKILL.md",
   ".claude/settings.json",
@@ -318,6 +322,24 @@ function validateProductTasks(root, errors) {
   }
 }
 
+export function codexWorkflowPolicyErrors({
+  claudeCopyExists = false,
+  vendoredSkills = [],
+  ciDependsOnPersonalSkills = false,
+} = {}) {
+  const errors = [];
+  if (claudeCopyExists) {
+    errors.push("codex-engineering-workflow 是 Codex 专用 skill，不应复制到 .claude/skills");
+  }
+  for (const skill of vendoredSkills) {
+    errors.push(`不得把第三方 skill 复制进仓库: .agents/skills/${skill}`);
+  }
+  if (ciDependsOnPersonalSkills) {
+    errors.push("CI 不得安装或依赖个人环境中的 gstack/Superpowers skill");
+  }
+  return errors;
+}
+
 export function validateHarness(root) {
   const errors = [];
   for (const path of REQUIRED_FILES) requireFile(root, path, errors);
@@ -359,6 +381,45 @@ export function validateHarness(root) {
     errors.push("product-flow 是 Codex 专用 skill，不应复制到 .claude/skills/product-flow");
   }
 
+  const projectSkillsPath = join(root, ".agents", "skills");
+  const vendoredThirdPartySkills = existsSync(projectSkillsPath)
+    ? readdirSync(projectSkillsPath).filter((name) => (
+      name === "gstack" || name === "superpowers" || name.startsWith("gstack-")
+    ))
+    : [];
+  const workflowCiPath = join(root, ".github", "workflows", "harness.yml");
+  const workflowCi = existsSync(workflowCiPath) ? readFileSync(workflowCiPath, "utf8") : "";
+  const ciDependsOnPersonalSkills = /(?:install|setup).*(?:gstack|superpowers)|(?:gstack|superpowers).*(?:install|setup)/i
+    .test(workflowCi);
+  errors.push(...codexWorkflowPolicyErrors({
+    claudeCopyExists: existsSync(join(root, ".claude", "skills", "codex-engineering-workflow")),
+    vendoredSkills: vendoredThirdPartySkills,
+    ciDependsOnPersonalSkills,
+  }));
+
+  const codexWorkflowSkillPath = join(root, ".agents", "skills", "codex-engineering-workflow", "SKILL.md");
+  if (existsSync(codexWorkflowSkillPath)) {
+    requireText(
+      ".agents/skills/codex-engineering-workflow/SKILL.md",
+      readFileSync(codexWorkflowSkillPath, "utf8"),
+      [
+        "name: codex-engineering-workflow",
+        "brainstorming",
+        "systematic-debugging",
+        "verification-before-completion",
+        "gstack-qa-only",
+        "gstack-review",
+        "gstack-claude",
+        "run-claude-delivery.mjs",
+        "solution-architect",
+        "module-engineer",
+        "test-engineer",
+        "单独明确授权",
+      ],
+      errors,
+    );
+  }
+
   const productFlowSkillPath = join(root, ".agents", "skills", "product-flow", "SKILL.md");
   if (existsSync(productFlowSkillPath)) {
     requireText(".agents/skills/product-flow/SKILL.md", readFileSync(productFlowSkillPath, "utf8"), [
@@ -372,6 +433,8 @@ export function validateHarness(root) {
       ".codex/agents/",
       "Accepted",
       "Blocked",
+      "Codex-only 冲突守卫",
+      "不得启动 Claude CLI",
     ], errors);
   }
 
@@ -448,6 +511,7 @@ export function validateHarness(root) {
       "docs/agentic-engineering.md",
       "docs/product-collaboration.md",
       "docs/tooling-compatibility.md",
+      "docs/codex-engineering-workflow.md",
       "frontend/AGENTS.md",
       "backend/AGENTS.md",
       "node scripts/check_harness.mjs",
@@ -456,6 +520,9 @@ export function validateHarness(root) {
       "Codex 客户端中，默认担任产品经理",
       "Claude Code 主会话默认担任程序团队负责人",
       "$product-flow",
+      "$codex-engineering-workflow",
+      "gstack-claude",
+      "单独明确授权",
       "自动交付：",
       "node .agents/skills/product-flow/scripts/run-claude-delivery.mjs --self-test",
     ], errors);
@@ -486,7 +553,8 @@ export function validateHarness(root) {
   const guidePath = join(root, "docs", "agentic-engineering.md");
   if (existsSync(guidePath)) {
     const missing = missingSections(readFileSync(guidePath, "utf8"), [
-      "Baseline", "Workflow", "Feedback Loop", "Adoption Triggers", "Security", "References",
+      "Baseline", "Workflow", "Feedback Loop", "Adoption Triggers", "Security",
+      "Codex Engineering Workflow", "References",
     ]);
     for (const section of missing) errors.push(`docs/agentic-engineering.md 缺少章节: ## ${section}`);
   }
@@ -506,10 +574,36 @@ export function validateHarness(root) {
       "solution-architect",
       "module-engineer",
       "test-engineer",
+      "Codex-only",
+      "gstack-claude",
     ], errors);
   }
 
   validateProductTasks(root, errors);
+
+  const productTaskTemplatePath = join(root, "docs", "product", "tasks", "TEMPLATE.md");
+  if (existsSync(productTaskTemplatePath)) {
+    requireText("docs/product/tasks/TEMPLATE.md", readFileSync(productTaskTemplatePath, "utf8"), [
+      "技能计划",
+      "Codex-only",
+      "实际使用的 skill",
+      "验证命令与结果",
+      "未运行项与原因",
+    ], errors);
+  }
+
+  const codexWorkflowGuidePath = join(root, "docs", "codex-engineering-workflow.md");
+  if (existsSync(codexWorkflowGuidePath)) {
+    requireText("docs/codex-engineering-workflow.md", readFileSync(codexWorkflowGuidePath, "utf8"), [
+      "规则优先级",
+      "场景矩阵",
+      "Codex-only 模式",
+      "gstack-ship",
+      "gstack-land-and-deploy",
+      "CI",
+      "降级",
+    ], errors);
+  }
 
   validateMarkdownDirectory(root, "docs/decisions", [
     "Status", "Context", "Decision", "Consequences", "Verification",
@@ -701,6 +795,21 @@ Pending
       "拒绝 skill 内容漂移",
       sharedSkillErrors("x", { sourceExists: true, claudeExists: true, contentMatches: false }),
       [".claude/skills/x 与 .agents/skills/x 内容不一致"],
+    ],
+    ["接受合法 Codex 工程规范", codexWorkflowPolicyErrors(), []],
+    [
+      "拒绝复制 Codex 专用与第三方 skill 并拒绝 CI 依赖",
+      codexWorkflowPolicyErrors({
+        claudeCopyExists: true,
+        vendoredSkills: ["gstack", "superpowers"],
+        ciDependsOnPersonalSkills: true,
+      }),
+      [
+        "codex-engineering-workflow 是 Codex 专用 skill，不应复制到 .claude/skills",
+        "不得把第三方 skill 复制进仓库: .agents/skills/gstack",
+        "不得把第三方 skill 复制进仓库: .agents/skills/superpowers",
+        "CI 不得安装或依赖个人环境中的 gstack/Superpowers skill",
+      ],
     ],
     [
       "提取 Markdown 章节正文",

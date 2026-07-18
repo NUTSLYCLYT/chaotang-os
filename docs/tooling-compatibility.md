@@ -43,6 +43,17 @@ agent 同时运行、自动互相调用、并行写入或 worktree 隔离。
 两端角色配置格式不同，但架构、逐模块交付、测试和负责人汇总的语义边界保持等价。详细状态
 流转和字段所有权见 `docs/product-collaboration.md`。
 
+## Codex 工程工作流配置
+
+`.agents/skills/codex-engineering-workflow/` 是 Codex 专用的项目路由规则，不复制到
+`.claude/skills/`。它可以调用用户环境中已安装的 Superpowers 与 gstack skill，但仓库不复制
+第三方源码、CI 不安装或依赖个人 skill；不可用时按 `docs/codex-engineering-workflow.md` 的
+等价原生步骤降级。
+
+Codex-only 是任务级交付约束，不改变本仓库默认的双客户端兼容基线。该约束存在时不得启动
+Claude CLI、Claude runner 或 `gstack-claude`，改由 Codex 的 `solution-architect`、
+`module-engineer`、`test-engineer` 顺序交付并保留同一任务证据。
+
 ## 本地检查
 
 每次修改共享核心或客户端适配配置后,从仓库根目录运行:
@@ -56,7 +67,7 @@ node .agents/skills/product-flow/scripts/run-claude-delivery.mjs --self-test
 
 还需要进行客户端级人工冒烟检查:
 
-- Codex:确认项目级 hook、三个项目 skill、`harness-doctor` 及三个交付专业角色可见。
+- Codex:确认项目级 hook、项目 skill、`harness-doctor` 及三个交付专业角色可见。
 - Claude Code:用 `/memory` 确认 `CLAUDE.md` 已导入 `AGENTS.md`,并确认两个 skill 与
   `harness-doctor` 可见；用 `/agents` 确认架构、模块交付和测试三个专业角色可见。
 - 在一个临时分支制造可恢复的 harness 失败,确认 Stop hook 首次要求继续、再次失败

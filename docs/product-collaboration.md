@@ -72,6 +72,9 @@ runner 仅在结构化事件明确报告 `rate_limit_event.status = rejected`、
 ## Conflict Rules
 
 - 对话、模型记忆和口头转述与任务文件冲突时，以任务文件中最近一次经用户确认的内容为准。
+- 用户在当前任务明确要求 Codex-only 时，该任务约束高于 `$product-flow` 的 Claude 默认路径：
+  不得启动 Claude CLI、Claude runner 或 `gstack-claude`，由 Codex 同名专业角色按既定顺序交付。
+  该选择只作用于当前任务，不改变仓库的双客户端默认架构。
 - Claude Code 发现验收标准无法测试、互相冲突或需要新业务决定时必须阻塞，不能用技术选择
   偷换产品决定。
 - Codex 验收时默认只读代码和验证结果，不直接修复实现；若用户明确要求 Codex 实现，应先

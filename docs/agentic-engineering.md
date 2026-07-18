@@ -41,6 +41,16 @@ Agent 有责任指出矛盾、风险和信息缺口。人对最终结果负责�
 - 安装或更新第三方 skill 前必须完整审查来源；不得让一次 agent 运行同时无限制接触
   私密数据、不可信内容和外部写入能力。
 
+## Codex Engineering Workflow
+
+项目级 `$codex-engineering-workflow` 把 Superpowers 的需求澄清、计划、TDD、系统调试和完成前
+验证，与 gstack 的产品、设计、运行态 QA 和交付审查按场景组合。它不是固定全家桶：纯文档或
+小改直接自审和真实验证；未知故障先系统调试；运行中页面按授权选择只报告或修复型 QA。
+
+仓库规则、产品任务和安全门禁优先于第三方 skill。个人环境缺少第三方 skill 时使用等价原生
+步骤继续，不临时安装也不阻塞 CI。完整路由、Codex-only 限制和外部动作授权见
+`docs/codex-engineering-workflow.md`。
+
 ## References
 
 - `https://agentic-engineering.swmansion.com/becoming-productive/the-workflow/`

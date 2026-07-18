@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex 工程工作流"
+  short_description: "按风险选择最小的 Superpowers/gstack 流程并执行安全与验证门禁"
+  default_prompt: "Use $codex-engineering-workflow to route this task through the smallest safe Codex-only engineering workflow and produce fresh verification evidence."

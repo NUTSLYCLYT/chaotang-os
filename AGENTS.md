@@ -8,6 +8,7 @@
 
 - 已确认边界：`ARCHITECTURE.md`
 - Agentic 工作流：`docs/agentic-engineering.md`
+- Codex 工程规范：`$codex-engineering-workflow` 与 `docs/codex-engineering-workflow.md`
 - Codex/Claude Code 客户端兼容：`docs/tooling-compatibility.md`
 - 产品任务交接：`docs/product-collaboration.md`
 - 一键自动交付：`$product-flow` 或“自动交付：<需求>”
@@ -23,6 +24,10 @@
   复现问题的测试。
 - 只有可复用、难以从代码直接发现的经验才写回仓库；优先固化为测试、检查或工具。
 - 保留用户已有改动；不得提交密钥、真实环境文件、私人数据或运行态数据。
+- 已获授权的 Codex 实现、修复、QA 或审查使用 `$codex-engineering-workflow`，按场景只选当前
+  必需 skill；仓库规则、任务契约与安全边界始终高于第三方 skill。
+- 第三方 skill 不复制进仓库且不作为 CI 依赖。任务声明 Codex-only 时，禁止 `gstack-claude`、
+  Claude CLI 和 Claude runner；提交、推送、发布、部署仍需对具体动作单独明确授权。
 
 ## 产品协作角色
 
