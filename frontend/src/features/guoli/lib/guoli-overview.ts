@@ -8,6 +8,10 @@ const windowSchema = z.object({
   end_at: z.string().datetime({ offset: true }).nullable(),
 });
 
+// 与后端 _MIN_SAMPLE 一致:LIVE 必须是近 7 天窗口内足量样本。前端契约边界也 fail-closed,
+// 挡住任何来源(后端回归/旧缓存/坏响应/中间人)送来的"薄样本 LIVE"或"全时段标 LIVE"误导。
+const MIN_LIVE_SAMPLE = 20;
+
 const yushiMetricSchema = z
   .object({
     key: z.literal('yushi_rejection_rate'),
@@ -24,11 +28,22 @@ const yushiMetricSchema = z
     includes_demo: z.boolean(),
   })
   .superRefine((metric, context) => {
-    if (metric.status === 'LIVE' && (metric.value === null || metric.sample_size < 1)) {
-      context.addIssue({
-        code: 'custom',
-        message: 'LIVE requires a value and at least one sample',
-      });
+    if (metric.status === 'LIVE') {
+      // fail-closed:LIVE 必须带 value + 近窗足量样本(>=MIN_LIVE_SAMPLE)。挡薄样本 LIVE。
+      if (metric.value === null || metric.sample_size < MIN_LIVE_SAMPLE) {
+        context.addIssue({
+          code: 'custom',
+          message: `LIVE requires a value and >= ${MIN_LIVE_SAMPLE} windowed samples`,
+        });
+      }
+      // LIVE 的比率只用近 7 天窗口算 → window 必须 ROLLING_7D。若标 ALL_RECORDED,
+      // 说明是全时段比率却冒充 LIVE(误导 + 与后端诚实窗口化矛盾),拒之。
+      if (metric.window.kind !== 'ROLLING_7D') {
+        context.addIssue({
+          code: 'custom',
+          message: 'LIVE must report a ROLLING_7D window; an all-time rate cannot be labeled LIVE',
+        });
+      }
     }
     // 非 LIVE(NO_DATA/INSUFFICIENT_SAMPLE/STALE)一律不得带数值——绝不用比率
     // 冒充"当前健康",与后端诚实窗口化一致。

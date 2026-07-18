@@ -24,15 +24,15 @@ const liveEnvelope = {
         label: '御史封驳率',
         status: 'LIVE',
         value: 0.5,
-        sample_size: 4,
+        sample_size: 20,
         reason: null,
         data_source: 'truth_ledger',
         verdict_source: 'deterministic_rules_gate',
-        basis: 'truth_ledger swarm=yushi checker=court_doc_builder; red/black=封驳',
+        basis: 'truth_ledger swarm=yushi checker=court_doc_builder; 近7天窗口; red/black=封驳',
         window: {
-          kind: 'ALL_RECORDED',
-          start_at: '2026-07-15T08:00:00+00:00',
-          end_at: '2026-07-17T09:00:00+00:00',
+          kind: 'ROLLING_7D',
+          start_at: '2026-07-10T10:00:00+00:00',
+          end_at: '2026-07-17T10:00:00+00:00',
         },
         as_of: '2026-07-17T10:00:00+00:00',
         includes_demo: false,
@@ -54,10 +54,11 @@ test('selects only the Yushi metric and preserves backend fact metadata', () => 
   assert.equal(metric.key, 'yushi_rejection_rate');
   assert.equal(metric.status, 'LIVE');
   assert.equal(metric.value, 0.5);
-  assert.equal(metric.sampleSize, 4);
+  assert.equal(metric.sampleSize, 20);
   assert.equal(metric.dataSource, 'truth_ledger');
-  assert.equal(metric.window.startAt, '2026-07-15T08:00:00+00:00');
-  assert.equal(metric.window.endAt, '2026-07-17T09:00:00+00:00');
+  assert.equal(metric.window.kind, 'ROLLING_7D');
+  assert.equal(metric.window.startAt, '2026-07-10T10:00:00+00:00');
+  assert.equal(metric.window.endAt, '2026-07-17T10:00:00+00:00');
   assert.equal(metric.includesDemo, false);
   assert.equal(formatYushiRejectionValue(metric), '50.0%');
 });
@@ -119,5 +120,19 @@ test('non-LIVE status must not carry a numeric value (schema fails closed)', () 
   const yushi = envelope.data.metrics[1] as Record<string, unknown>;
   yushi.status = 'STALE';
   yushi.value = 0.5; // 违规：非 LIVE 带比率
+  assert.throws(() => parseYushiRejectionMetric(envelope));
+});
+
+test('rejects a thin-sample LIVE at the contract boundary (misleading-LIVE guard)', () => {
+  // 后端不会送 LIVE/n<20,但契约边界也要 fail-closed:任何来源送薄样本 LIVE 一律拒,
+  // 不让"12.5% LIVE n=1"这类误导上屏。
+  const envelope = structuredClone(liveEnvelope);
+  (envelope.data.metrics[1] as { sample_size: number }).sample_size = 5;
+  assert.throws(() => parseYushiRejectionMetric(envelope));
+});
+
+test('rejects an all-time-window LIVE (a windowed rate cannot be labeled all-time)', () => {
+  const envelope = structuredClone(liveEnvelope);
+  (envelope.data.metrics[1] as { window: { kind: string } }).window.kind = 'ALL_RECORDED';
   assert.throws(() => parseYushiRejectionMetric(envelope));
 });
