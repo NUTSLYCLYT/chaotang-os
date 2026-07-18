@@ -1,5 +1,7 @@
 # 变更摘要：feat-gongbu-storage-pipeline-engine-20260717
 
+Packet ID: P6.2
+
 | 字段 | 值 |
 | --- | --- |
 | Change ID | feat-gongbu-storage-pipeline-engine-20260717 |

@@ -1,5 +1,7 @@
 # 变更摘要：feat-department-anti-hallucination-clause-20260717
 
+Packet ID: P6.3
+
 | 字段 | 值 |
 | --- | --- |
 | Change ID | feat-department-anti-hallucination-clause-20260717 |

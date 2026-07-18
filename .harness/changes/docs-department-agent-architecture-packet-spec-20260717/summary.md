@@ -1,10 +1,15 @@
 # 变更摘要：docs-department-agent-architecture-packet-spec-20260717
 
+Packet ID: P6.1
+
+> `VERIFIED_COMPLETE` 只表示本 change 的文档产物已完成并获得本地复核；不代表相关运行时、
+> 外部 required check 或生产发布已经完成。
+
 | 字段 | 值 |
 | --- | --- |
 | Change ID | docs-department-agent-architecture-packet-spec-20260717 |
 | 类型 | docs |
-| 状态 | DRAFT（未批准，等待业主裁决队列位置） |
+| 状态 | VERIFIED_COMPLETE |
 | Owner | Claude Code（只读产出，不执行） |
 | 创建日期 | 20260717 |
 
@@ -22,4 +27,6 @@
 按 `execution-priority-ruling.md` 现行纪律，净新范围默认排在主线归并战役
 （P0–P9，当前卡在 P6/P7 红灯未清零）之后，进 `FULL_COURT_V2_BACKLOG.md`。
 本 change 只是把设计写清楚，**不代表已获准插队**——是否插队、插几个、何时插，
-由业主在 `packet-spec.md` 末尾"队列裁决"一节逐项勾选。
+由业主在 `packet-spec.md` 末尾“队列裁决”一节逐项勾选。PKT-1 已获业主批准并
+已由 Codex 实现（见 `feat-gongbu-storage-pipeline-engine-20260717`）；PKT-2~5
+后续也已实现并独立复审（见各自 change 目录）。
