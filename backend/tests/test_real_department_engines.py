@@ -166,26 +166,27 @@ def test_gongbu_severity_bypasses_stale_engine_cache(monkeypatch):
 
 
 def test_adapt_gongbu_unconfirmed_incident_escalates_not_silent_p2():
-    # 反 fail-open 的核心:储能事故范围内、既无危险信号也无 benign 确认词的输入
-    # (如孤立"温度90度")**绝不能静默判 P2**。fail-safe 默认升级为 P1/未确认+人工复核。
+    # 反 fail-open 的核心:储能事故范围内、无危险信号的输入(如孤立"温度90度")
+    # **绝不能静默判 P2/确认常规**。fail-safe 升级为 P1/未确认+黄灯人工复核(非黑灯驳回)。
     doc = rde.adapt_gongbu("储能柜温度90度，请安排售后故障处理")
     assert doc is not None
     assert doc["risk_level"] == "P1", "未确认储能事故被静默降为低危"
-    assert doc["light"] == "black"
+    assert doc["light"] == "yellow"  # 未确认走黄灯复核,黑灯只留给确认紧急
     assert doc["risk_level"] != "P2"
 
 
 def test_adapt_gongbu_never_auto_downgrades_to_p2():
     # 彻底封死 benign→P2 残洞:引擎只有 P0/P1 两档,任何储能任务(哪怕纯"一切正常")
-    # 都不得落到 P2。"没问题"无法靠关键词可靠判定,宁可 P1 人工复核也不静默降低危。
+    # 都不得落到 P2/确认常规。"没问题"无法靠关键词可靠判定,走 P1/黄灯人工复核。
     for text in (
         "储能柜例行巡检，设备一切正常，未见异常",
         "储能柜验收合格，测试通过，工况正常",
     ):
         doc = rde.adapt_gongbu(text)
         assert doc is not None, text
+        assert doc["risk_level"] == "P1", f"{text} 未落到 P1"
         assert doc["risk_level"] != "P2", f"{text} 被静默降为 P2"
-        assert doc["light"] == "black"
+        assert doc["light"] == "yellow"  # 未确认=黄灯复核,不黑灯驳回(反告警疲劳)
 
 
 def test_adapt_gongbu_real_problem_with_benign_phrase_not_downgraded():
