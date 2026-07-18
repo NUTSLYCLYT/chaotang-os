@@ -12,8 +12,8 @@ from typing import Final
 
 
 COURT_REVIEW_WRITER_BASELINE: Final[dict[tuple[str, str], int]] = {
-    ("src/execution/canonical_court_dispatch.py", "dispatch_compat_court_task"): 1,
-    ("web/routers/shangshufang.py", "shangshufang_confirm_edict"): 2,
+    ("src/execution/canonical_court_dispatch.py", "dispatch_compat_court_task"): 2,
+    ("web/routers/shangshufang.py", "shangshufang_confirm_edict"): 3,
     ("web/routers/shangshufang.py", "shangshufang_swarm_deepen"): 2,
     ("web/routers/shangshufang.py", "shangshufang_pack_swarm_loop"): 1,
     (

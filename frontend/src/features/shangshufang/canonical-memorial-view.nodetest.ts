@@ -126,6 +126,30 @@ test('awaiting evidence is an explicit blocked candidate, never a formal sacred 
   assert.match(body(result, '质门') ?? '', /阻断/);
 });
 
+test('menxia veto pending is its own honest kind, not a silent stuck-waiting view or a fabricated council review', () => {
+  // 2026-07-18 实测复现两轮问题:① 改这条前没有分支识别 menxia_veto_pending,
+  // view 落回 null,调用方(confirmedEdictToView)会退回"还在处理中"的占位
+  // 视图，但门下省封驳之后永远不会再有轮询/新事件，用户会一直卡在"处理中"
+  // 画面，误以为流程还活着/已经成功。② 第一次修复复用了 'candidate' kind，
+  // 但"候选会审"措辞暗示军机处已经召集部门产出初步意见——封驳恰恰是在任何
+  // 部门会审之前就被拦下，编造了一段没发生过的会审过程。这里锁住：view 非
+  // 空、不再轮询、且标题/来源都诚实说"封驳"而不是"候选会审"。
+  const result = projectCanonicalMemorialView('task-1', status({ taskStatus: 'menxia_veto_pending' }));
+
+  assert.equal(result.kind, 'vetoed');
+  assert.notEqual(result.view, null);
+  assert.equal(result.shouldRetry, false);
+  assert.match(result.view?.title ?? '', /封驳/);
+  assert.equal(result.view?.title?.includes('候选'), false);
+  assert.equal(result.view?.meta?.reporter, '门下省');
+  assert.equal(result.view?.seal, 'secret');
+  assert.match(body(result, '质门') ?? '', /阻断/);
+  // 2026-07-18 第三轮:conflict_summary 非空(合成 fixture 里也带一条)本来会
+  // 触发"部门冲突"行，但封驳发生在任何部门会审之前，压根没有部门可冲突——
+  // 这行必须不出现，不能靠"内容凑巧对"侥幸过关。
+  assert.equal(result.view?.rows.some((row) => row.label === '部门冲突'), false);
+});
+
 test('direct completed displays the backend receipt unchanged', () => {
   const result = projectCanonicalMemorialView('task-1', status({ taskStatus: 'direct_completed' }));
 
