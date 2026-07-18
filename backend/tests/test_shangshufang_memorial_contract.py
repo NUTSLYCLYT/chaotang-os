@@ -139,3 +139,59 @@ def test_memorial_itself_not_a_dict_is_caught():
     assert find_memorial_contract_violations("not a dict") != []
     assert find_memorial_contract_violations([]) != []
     assert find_memorial_contract_violations(None) != []
+
+
+# ── 2026-07-18 第八轮:容器本身类型对了(是个 list),不代表里面的元素类型
+# 也对——evidence_gaps 是 list 但装了个数字，unique() 对每个元素调
+# `.trim()`，数字没有这个方法，照样崩。上一版只查容器类型，元素类型是假阴性。
+
+
+def test_evidence_gaps_element_wrong_type_is_caught():
+    memorial = {**_VALID_MEMORIAL, "evidence_gaps": [123]}
+    violations = find_memorial_contract_violations(memorial)
+    assert any("evidence_gaps[0]" in v and "元素类型错误" in v for v in violations)
+
+
+def test_risk_flags_element_wrong_type_is_caught():
+    memorial = {**_VALID_MEMORIAL, "risk_flags": [None]}
+    violations = find_memorial_contract_violations(memorial)
+    assert any("risk_flags[0]" in v and "元素类型错误" in v for v in violations)
+
+
+def test_conflict_summary_departments_element_wrong_type_is_caught():
+    memorial = {
+        **_VALID_MEMORIAL,
+        "conflict_summary": [
+            {"type": "human_signoff", "summary": "s", "departments": [123], "source_label": "FALLBACK"}
+        ],
+    }
+    violations = find_memorial_contract_violations(memorial)
+    assert any("departments[0]" in v and "元素类型错误" in v for v in violations)
+
+
+def test_ministry_outputs_element_wrong_type_is_caught():
+    # item.department/opinion 之类的字段访问对 null 元素直接崩
+    # (Cannot read properties of null)。
+    memorial = {**_VALID_MEMORIAL, "ministry_outputs": [None]}
+    violations = find_memorial_contract_violations(memorial)
+    assert any("ministry_outputs[0]" in v and "元素类型错误" in v for v in violations)
+
+
+def test_decision_options_element_wrong_type_is_caught():
+    memorial = {**_VALID_MEMORIAL, "decision_options": ["not an object"]}
+    violations = find_memorial_contract_violations(memorial)
+    assert any("decision_options[0]" in v and "元素类型错误" in v for v in violations)
+
+
+def test_valid_memorial_with_real_string_and_object_elements_has_no_violations():
+    # 正向用例:元素类型检查不能把合法数据也误杀。
+    memorial = {
+        **_VALID_MEMORIAL,
+        "evidence_gaps": ["真实缺证"],
+        "risk_flags": ["真实风险"],
+        "ministry_outputs": [
+            {"department": "户部", "focus": "f", "opinion": "o", "status": "completed", "source_label": "FALLBACK"}
+        ],
+        "decision_options": [{"action": "archive", "label": "归档", "reason": "r", "enabled": True}],
+    }
+    assert find_memorial_contract_violations(memorial) == []
