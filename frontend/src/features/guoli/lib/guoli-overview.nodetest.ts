@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  formatWindow,
   formatYushiRejectionValue,
   isGuoliThinSliceEnabled,
   parseYushiRejectionMetric,
@@ -88,6 +89,21 @@ test('rejects an incomplete response instead of synthesizing source metadata loc
   delete (envelope.data.metrics[1] as { as_of?: string }).as_of;
 
   assert.throws(() => parseYushiRejectionMetric(envelope));
+});
+
+test('formatWindow labels ROLLING_7D honestly and never as all-recorded', () => {
+  // 直接回归 Codex 揪出的诚实缺陷:ROLLING_7D 的 LIVE 窗口必须显示"近 7 天",
+  // 绝不能标"全部记录"(那会误导用户以为比率覆盖全时段)。
+  const rolling = formatWindow('ROLLING_7D', WINDOW_START_ISO, NOW_ISO);
+  assert.ok(rolling.startsWith('近 7 天 · '), rolling);
+  assert.ok(!rolling.includes('全部记录'), rolling);
+
+  const allRecorded = formatWindow('ALL_RECORDED', WINDOW_START_ISO, NOW_ISO);
+  assert.ok(allRecorded.startsWith('全部记录 · '), allRecorded);
+
+  // 空边界:标签仍诚实,附"尚无样本"而非编造区间。
+  assert.equal(formatWindow('ROLLING_7D', null, null), '近 7 天 · 尚无样本');
+  assert.equal(formatWindow('ALL_RECORDED', null, null), '全部记录 · 尚无样本');
 });
 
 test('thin slice defaults on and can be rolled back with an explicit off value', () => {
