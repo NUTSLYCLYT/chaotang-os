@@ -1,0 +1,72 @@
+# CI 摘要：docs-product-r0-freeze-20260718
+
+## 验证上下文
+
+| 字段 | 值 |
+| --- | --- |
+| 日期 | 2026-07-18 |
+| 干净基线 | `feature-chaotang-ext@6ee6d8d542127174f4d899f940d4937b6fa2b70f` |
+| source-preservation commit | `22084d3bdefdf5a46ec3a9a7be1b159023154f83` |
+| 被隔离的本地主线 | `79b1eaa530ef60e776dfcbf79c5f52cf4f611830` |
+| 工作树 | `product-r0-freeze-20260718` |
+| 变更类型 | 文档与产品契约；无运行时代码 |
+
+## 命令
+
+| 命令 | 退出码 | 结果 | 证据覆盖范围 | 证据位置 / 时间 |
+| --- | ---: | --- | --- | --- |
+| `git diff --check` | 0 | PASS | 空白、冲突标记与 patch 结构 | 本地候选，2026-07-18 |
+| Node 只读 Markdown checker | 0 | PASS：9 个当前编辑文档围栏成对、相对链接存在 | Markdown 结构与本地链接 | 本地候选，2026-07-18 |
+| Node 六部 41 司计数 | 0 | PASS：`7+6+7+7+7+7=41` | `TARGET_DIRECTORY_V1` 数量契约 | `PROJECT_PRODUCT.md`，2026-07-18 |
+| Node REQ/假设/开放问题 ID 去重 | 0 | PASS：56 个唯一 ID | R0/R1 PRD 可追踪性 | R0/R1 PRD，2026-07-18 |
+| Node 路径 allowlist | 0 | PASS：相对基线 21 个路径全部允许 | 无 frontend/backend/scripts/规则越界 | 本地候选，2026-07-18 |
+| `sha256sum source_inputs/*.md` | 0 | PASS：A=`51374f5d…d5a5b3`；B=`715a8126…d0813` | 不可变审计输入 | `source_inputs/`，2026-07-18 |
+| `sha256sum chaotang-os-product-definition-convergence-blueprint-2026-07-18.md` | 0 | PASS：旧 `475f13ad…de2` → 冻结稿 `859937e3…11cf` | Decision Record 精确内容 | `docs/plans/`，2026-07-18 |
+| `node scripts/harness-doctor.mjs` | 0 | PASS：0 errors，0 warnings | 根/前端/后端护栏结构与边界 | 本地候选，2026-07-18 |
+| `git merge-base / rev-list / rev-list --merges` 组合核验 | 0 | PASS：线性源自 `6ee6d8d`；与 `79b1eaa` merge-base 仍为 `bf7d4cc`；无 merge commit | 不引入本地 78 个分叉提交 | 本地候选，2026-07-18 |
+| `git ls-remote origin` | 0 | PASS：目标分支仍为 `6ee6d8d`；安全分支为 `79b1eaa`；产品分支未预先存在 | 远端隔离与回滚锚点 | origin，2026-07-18 |
+| 独立产品冻结内容预审 | 不适用 | ALLOW（初审两个阻塞已修复并复核） | 权威唯一性、发布顺序、41 司、合同范围、世界杯、失败语义 | `product_freeze_precheck`，2026-07-18 |
+
+## 结果
+
+产品冻结文档验证通过：
+
+- 产品 SSOT 唯一定义“可信复杂任务超级助手”。
+- 第一 Offer 唯一冻结为合同决策 Paid Design Pilot。
+- 41 司是 `TARGET_DIRECTORY_V1`，目录与生产成熟度分离。
+- 世界杯是只读跨域 benchmark，不是 R1 Offer。
+- 发布顺序在 SSOT、PRD、guide、Decision Record 中统一为 `R0 → R1 → R2 → R3+`。
+- PDF/DOCX/JSON 是 R0 基础必需成果；track-changes/附加格式仍是开放问题。
+- direct ACK、worker 回执和部分结果不得派生 `DELIVERED`。
+- 旧 FULL_COURT 全量 L3 与旧 Step 0–12 仅保留历史审计，不再拥有当前范围或排期。
+
+## 未验证项
+
+- 未验证任何前后端业务行为、模型质量、浏览器体验、生产数据或部署；本 change 没有修改这些内容。
+- 三项已知信誉漏洞仍阻塞 R0/R1，必须由后续 TDD 工程 change 修复。
+- M0–M10 amendment、法律/数据 Owner、合同 taxonomy、文件阈值、人工复核与 provider 边界仍待下一阶段。
+- 未创建或合并 PR，未发布生产，未接收真实合同。
+
+## Diff 与回滚复核
+
+- changed files：相对 `6ee6d8d` 共 21 个允许路径；前置 commit 含 14 个产品定型输入/审计路径，本次新增 7 个冻结路径，并继续修订其中 3 个权威/索引文档。
+- diff review：独立预审先 BLOCK 两处（成果必需性矛盾、CI 模板），修复后内容复核 ALLOW；无内容阻塞。
+- 回滚是否演练：未实际 revert；全部为文档，可按第二个冻结 commit 或前置 source-preservation commit 分层 revert，不涉及数据库或外部系统。
+
+## 完成定义映射
+
+| DoD | 证据 | 状态 |
+| --- | --- | --- |
+| 唯一产品身份、Offer 与权威层 | SSOT、PRD、RFC/guide 状态与链接 | PASS |
+| R0/R1 可追踪产品契约 | 22 条 R0 REQ、5 条 R1 REQ、1 条 R2 REQ；状态/失败/验收/回滚 | PASS |
+| 41 司精确且不冒充上线 | 自动计数 41；成熟度与 `NO_DATA` 分离 | PASS |
+| 旧发布与执行权威已替代 | guide 顶部/`9/`11/`12；RFC `11.3 | PASS |
+| 历史输入不可变 | A/B SHA-256 精确匹配 | PASS |
+| 无范围外代码与历史污染 | 21 路径 allowlist、ancestry 与无 merge commit | PASS |
+| 根级护栏健康 | harness doctor 0/0 | PASS |
+| 独立内容 stop-gate | 修复后 `ALLOW` | PASS |
+
+## 声明状态
+
+- `VERIFIED_COMPLETE`：仅声明本次产品冻结文档和审计证据完成。
+- 不声明 PRD 已实现、R0/R1 已通过、R2 已上线或 41 司已生产可用。

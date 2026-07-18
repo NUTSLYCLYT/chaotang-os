@@ -17,14 +17,15 @@ docs/
 | 文件 | 内容 |
 | --- | --- |
 | `PROJECT_PRODUCT.md` | 产品定位、客户画像、商业模式、GTM、路线图和产品红线 |
-| `CHAOTANG_CONVERGENCE_GUIDE.md` | 唯一主线、任务分级、企业治理、部门能力、技术雷达和完整执行计划 |
+| `CHAOTANG_CONVERGENCE_GUIDE.md` | 唯一主线、任务分级、企业治理和部门能力的派生导航（非排期/状态源） |
+| `releases/product-r0-trusted-kernel/PRD.md` | R0 内部可信内核与 R1 合同 Paid Design Pilot 的需求、失败语义和发布门 |
 | `shiguan-three-column-redesign.md` | 史馆产品设计规格——功能定位、页面结构和内容格式 |
 
 ## plans/ 与 status/archive/
 
 - `plans/` 保存跨前后端、需要长期引用的实施蓝图；执行事实和验证证据仍归对应 `.harness/changes/`。
-- `plans/chaotang-os-product-definition-convergence-blueprint-2026-07-18.md` 是待业主批准的产品定型 Decision/RFC：产品本体为用户超级助手与动态多-Agent 朝堂，六部诸司是完整能力目录、每单稀疏激活，合同是首个收费专业包，世界杯是旗舰案例；无论批准前后，当前产品字段事实源均为 `product/PROJECT_PRODUCT.md`。
-- `plans/chaotang-os-super-task-delivery-blueprint-2026-07-18.md` 是该 Decision/RFC 的详细输入 A，保留超级任务、知识飞轮、外部组件与黄金任务设计，不再单独承担产品定型口径。
+- `plans/chaotang-os-product-definition-convergence-blueprint-2026-07-18.md` 是已接受的产品定型 Decision Record：保存“超级助手 + 动态朝堂 + 41 司目录 + 稀疏激活”的比较和理由；当前产品字段只由 `product/PROJECT_PRODUCT.md` 拥有。
+- `plans/chaotang-os-super-task-delivery-blueprint-2026-07-18.md` 是已被产品定义取代的参考输入 A，保留超级任务、知识飞轮、外部组件与黄金任务设计，不授权排期。
 - `status/archive/` 只保存带日期的审计快照。它们不得作为“当前分支、当前完成度、当前发布状态”的事实源。
 
 ## 归属规则

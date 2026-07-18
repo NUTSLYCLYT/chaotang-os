@@ -1,0 +1,36 @@
+# 变更摘要：docs-product-r0-freeze-20260718
+
+| 字段 | 值 |
+| --- | --- |
+| Change ID | docs-product-r0-freeze-20260718 |
+| 类型 | docs |
+| 状态 | VERIFIED_COMPLETE（docs-only） |
+| Owner | Project Agent |
+| 创建日期 | 2026-07-18 |
+| 基线 | 远端 `feature-chaotang-ext@6ee6d8d542127174f4d899f940d4937b6fa2b70f` |
+| 变更分支 | `docs/product-r0-freeze-20260718` |
+
+## 范围
+
+- 把 `docs/product/PROJECT_PRODUCT.md` 收敛成当前唯一产品 SSOT：可信复杂任务超级助手。
+- 冻结第一商业 Offer：中文、中国大陆法域、制造业/B2B 日常采购、销售、服务合同决策包。
+- 新增 R0/R1 release PRD，明确一旨一卡一包、需求 ID、失败语义、数据边界、验收、rollout/rollback。
+- 把六部 41 司定义为 `TARGET_DIRECTORY_V1`；登记、实现、Beta、生产分别治理。
+- 把世界杯定义为跨域只读 benchmark，不作为 R1 Offer。
+- 把旧 `FULL_COURT_V1 全量 L3 → 再定发布` 裁决替换为 `R0 内核 → R1 合同 Paid Pilot → R2 邀请制生产 → R3+ 证据化扩张`。
+- 把融合蓝图固化为 accepted decision record，把超级任务蓝图标为 reference input。
+
+## 不变范围
+
+- 不修改 `frontend/`、`backend/`、`scripts/` 或运行时代码。
+- 不修改 harness 规则、manifest、contracts、黄金样例或不可变 `source_inputs/`。
+- 不修改 M0–M10 工程计划；其 amendment 是下一份独立 change。
+- 不接收真实合同、不启用第三方组件、不创建 release 分支、不发布生产。
+
+## 验证
+
+- 文档路径 allowlist 与源快照 hash。
+- Git ancestry、无 merge commit、无本地 78 个分叉提交污染。
+- Markdown diff、围栏、相对链接与关键词冲突检查。
+- `node scripts/harness-doctor.mjs`。
+- 精确候选 HEAD 的独立 stop-gate review。

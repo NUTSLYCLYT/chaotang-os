@@ -1,12 +1,13 @@
 # 朝堂 OS 超级任务交付系统蓝图
 
-> 状态：用户已批准产出设计蓝图；本文是实施前的产品与架构规格，不代表代码已完成
+> 状态：`SUPERSEDED_AS_PRODUCT_DEFINITION / REFERENCE_INPUT_ONLY`；保留设计输入，不代表当前产品字段或代码完成
 > 日期：2026-07-18
 > 目标：让用户用一句话下旨，得到一套可验证、可下载、可继续执行的完整成果，而不是一堆互相重复的 Agent 文本
 > 适用主链：上书房 → 丞相 → 门下省 → 军机处 → 各部/专署/蜂群 → 御史 → 丞相回奏 → 皇上裁决 → 史馆
 > 扩展范围：OpenClaw、Hermes、Humen/Hume 边界，知识库、可信飞轮、Agent 预算与丞相/钦天监交互
 > 实施原则：先复用现有 canonical task、outbox、事件账本、正式奏折与史馆主链；首期不引入 LangGraph
-> 文档关系：本文是 [`朝堂 OS 产品定型融合蓝图`](chaotang-os-product-definition-convergence-blueprint-2026-07-18.md) 的详细输入 A；不再单独承担产品定型口径。当前产品字段事实源始终是 `docs/product/PROJECT_PRODUCT.md`
+> 文档关系：本文是[`已接受的产品定型融合蓝图`](chaotang-os-product-definition-convergence-blueprint-2026-07-18.md)的详细输入 A；当前产品字段只由 [`PROJECT_PRODUCT.md`](../product/PROJECT_PRODUCT.md) 拥有
+> 发布关系：R0/R1 当前范围与顺序只由 [`product-r0-trusted-kernel/PRD.md`](../product/releases/product-r0-trusted-kernel/PRD.md) 拥有
 > 路线关系：本文内部 P0–P5、E0–E5 仅保留为候选设计历史，不得据此排期或开工；唯一权威顺序是 `M0 → M1 → M2 → M5 → M6 → M3 → M4 → M7 → M8 → M9 → M10`，新增契约须先走该计划的正式 amendment
 
 ## 1. 一句话结论
