@@ -182,16 +182,15 @@ def test_confirm_edict_vetoed_route_returns_full_contract_and_honest_status(
     # 部门会审之前，那个 title 编造了一段没发生过的会审过程。
     assert confirm_data["memorial"]["title"] == "门下省封驳纪要"
     assert "军机处" not in confirm_data["memorial"]["title"]
-    # 2026-07-18 审计发现:ShangshufangReviewMemorial 的必填字段(前端
-    # buildView 无条件读取/.filter())漏填会在渲染时直接崩，不是可选的。
-    for required_field in (
-        "evidence_gaps",
-        "decision_options",
-        "next_best_action",
-        "source_label",
-    ):
-        assert required_field in confirm_data["memorial"], f"缺必填字段 {required_field}"
     assert confirm_data["memorial"]["decision_options"] == []
+    # 2026-07-18 审计发现:这个响应体挨个漏过 decision_options/evidence_gaps/
+    # next_best_action/source_label/quality_gate.passed/blocking_issues/
+    # conflict_summary[].departments 六轮——不再逐个手写断言(下次漏别的字段
+    # 还是测不出来),改用镜像前端契约的统一校验器，缺哪个字段都会显式报出来。
+    from src.shangshufang_memorial_contract import find_memorial_contract_violations
+
+    violations = find_memorial_contract_violations(confirm_data["memorial"])
+    assert not violations, f"memorial 违反前端必填契约: {violations}"
 
     status_response = client.get(f"/api/shangshufang/tasks/{task_id}/status")
     assert status_response.status_code == 200
