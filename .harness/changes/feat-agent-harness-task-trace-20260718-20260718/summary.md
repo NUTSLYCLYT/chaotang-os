@@ -1,5 +1,9 @@
 # 变更摘要：feat-agent-harness-task-trace-20260718-20260718
 
+Packet ID: P11
+
+> P11 = 世界级 Agent Harness 执行方案的 M1 模块（TaskEnvelope/TraceContext）。
+
 | 字段 | 值 |
 | --- | --- |
 | Change ID | feat-agent-harness-task-trace-20260718-20260718 |

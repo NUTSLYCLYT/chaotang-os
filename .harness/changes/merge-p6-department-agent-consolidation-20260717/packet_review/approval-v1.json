@@ -2,11 +2,11 @@
   "schema_version": 1,
   "status": "LOCAL_FEEDBACK_ONLY",
   "review_version": 1,
-  "packet_id": "P6.1",
+  "packet_id": "P6.4",
   "change_id": "merge-p6-department-agent-consolidation-20260717",
-  "predecessor_integration_sha": "37542c3c2c9ef89f538ac6a25e8795da30ff3529",
-  "reviewed_head_sha": "61a6fec218c555074f8f3bdad854d701fcb9e61d",
+  "predecessor_integration_sha": "6069a13fc685d6067fd2b215937e955fb6c3cf3a",
+  "reviewed_head_sha": "9daa3917d5972aa53d8ba5dee2fe5c27e28d8fc7",
   "report_path": ".harness/changes/merge-p6-department-agent-consolidation-20260717/packet_review/review-v1.md",
-  "report_sha256": "2e552c93752fabc9c6b13ffca90d6e278282396e4c0b4232178f8767873b1f73",
+  "report_sha256": "4f4fb727d16e461a4e1b118267ad369b36dda26f6f8cc8ad2f065cc882c7c759",
   "verdict": "PACKET_REVIEW_GO"
 }
