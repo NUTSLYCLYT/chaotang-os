@@ -7,6 +7,11 @@ import {
   parseYushiRejectionMetric,
 } from './guoli-overview';
 
+// LIVE 的 window 必须结束在 as_of 且 as_of 新鲜(契约 fail-closed 校验),故用相对时间戳
+// 构造有效 fixture,避免固定日期随真实时间流逝而失效。
+const NOW_ISO = new Date().toISOString();
+const WINDOW_START_ISO = new Date(Date.now() - 7 * 24 * 60 * 60_000).toISOString();
+
 const liveEnvelope = {
   success: true,
   error: null,
@@ -31,10 +36,10 @@ const liveEnvelope = {
         basis: 'truth_ledger swarm=yushi checker=court_doc_builder; 近7天窗口; red/black=封驳',
         window: {
           kind: 'ROLLING_7D',
-          start_at: '2026-07-10T10:00:00+00:00',
-          end_at: '2026-07-17T10:00:00+00:00',
+          start_at: WINDOW_START_ISO,
+          end_at: NOW_ISO,
         },
-        as_of: '2026-07-17T10:00:00+00:00',
+        as_of: NOW_ISO,
         includes_demo: false,
       },
       {
@@ -57,8 +62,8 @@ test('selects only the Yushi metric and preserves backend fact metadata', () => 
   assert.equal(metric.sampleSize, 20);
   assert.equal(metric.dataSource, 'truth_ledger');
   assert.equal(metric.window.kind, 'ROLLING_7D');
-  assert.equal(metric.window.startAt, '2026-07-10T10:00:00+00:00');
-  assert.equal(metric.window.endAt, '2026-07-17T10:00:00+00:00');
+  assert.equal(metric.window.startAt, WINDOW_START_ISO);
+  assert.equal(metric.window.endAt, NOW_ISO);
   assert.equal(metric.includesDemo, false);
   assert.equal(formatYushiRejectionValue(metric), '50.0%');
 });
@@ -150,5 +155,35 @@ test('rejects a LIVE whose ROLLING_7D window is not ~7 days (mislabeled span)', 
   const w = (envelope.data.metrics[1] as { window: { start_at: string; end_at: string } }).window;
   w.start_at = '2026-07-17T00:00:00+00:00'; // 仅 ~10 小时窗口冒充 ROLLING_7D
   w.end_at = '2026-07-17T10:00:00+00:00';
+  assert.throws(() => parseYushiRejectionMetric(envelope));
+});
+
+test('rejects a stale 7-day window whose end does not match as_of', () => {
+  // 一个 7 天跨度但结束在 7 天前的窗口(陈旧),as_of 仍是现在 → end 不贴 as_of,拒。
+  const envelope = structuredClone(liveEnvelope);
+  const w = (envelope.data.metrics[1] as { window: { start_at: string; end_at: string } }).window;
+  w.end_at = new Date(Date.now() - 7 * 24 * 60 * 60_000).toISOString();
+  w.start_at = new Date(Date.now() - 14 * 24 * 60 * 60_000).toISOString();
+  assert.throws(() => parseYushiRejectionMetric(envelope));
+});
+
+test('rejects a fully-stale LIVE whose as_of is too old (replay / stale cache)', () => {
+  // 整体陈旧但自洽:as_of 2 天前、窗口贴着它 → 新鲜度门拒(as_of >24h)。
+  const envelope = structuredClone(liveEnvelope);
+  const m = envelope.data.metrics[1] as { as_of: string; window: { start_at: string; end_at: string } };
+  const old = Date.now() - 2 * 24 * 60 * 60_000;
+  m.as_of = new Date(old).toISOString();
+  m.window.end_at = new Date(old).toISOString();
+  m.window.start_at = new Date(old - 7 * 24 * 60 * 60_000).toISOString();
+  assert.throws(() => parseYushiRejectionMetric(envelope));
+});
+
+test('rejects a future-dated LIVE', () => {
+  const envelope = structuredClone(liveEnvelope);
+  const m = envelope.data.metrics[1] as { as_of: string; window: { start_at: string; end_at: string } };
+  const future = Date.now() + 60 * 60_000; // 1h 未来
+  m.as_of = new Date(future).toISOString();
+  m.window.end_at = new Date(future).toISOString();
+  m.window.start_at = new Date(future - 7 * 24 * 60 * 60_000).toISOString();
   assert.throws(() => parseYushiRejectionMetric(envelope));
 });

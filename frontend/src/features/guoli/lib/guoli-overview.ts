@@ -50,15 +50,34 @@ const yushiMetricSchema = z
           message: 'LIVE ROLLING_7D window must have non-null start_at and end_at (no empty window)',
         });
       } else {
-        // 边界必须真是 ~7 天跨度,否则 ROLLING_7D 标签与实际窗口不符(仍是误导)。
-        const spanDays =
-          (new Date(metric.window.end_at).getTime() - new Date(metric.window.start_at).getTime()) /
-          86_400_000;
+        const startMs = new Date(metric.window.start_at).getTime();
+        const endMs = new Date(metric.window.end_at).getTime();
+        const asOfMs = new Date(metric.as_of).getTime();
+        const spanDays = (endMs - startMs) / 86_400_000;
+        const FIVE_MIN = 5 * 60_000;
+        // ① 跨度必须 ~7 天(挡 10 小时/全时段冒充 ROLLING_7D)
         if (!(spanDays >= 6.5 && spanDays <= 7.5)) {
           context.addIssue({
             code: 'custom',
             message: `LIVE ROLLING_7D window span must be ~7 days, got ${spanDays.toFixed(2)}`,
           });
+        } else if (Math.abs(endMs - asOfMs) > FIVE_MIN) {
+          // ② 滚动窗必须"结束在计算时刻(as_of)"。end 不贴 as_of = 一个陈旧/未来的孤立
+          //    7 日窗被贴了 LIVE(仅校验跨度会漏掉这类),拒之。
+          context.addIssue({
+            code: 'custom',
+            message: 'LIVE ROLLING_7D window must end at as_of; a stale/future 7-day window is not a current rolling window',
+          });
+        } else {
+          // ③ 新鲜度:as_of 必须接近当前时刻。太旧(>24h,陈旧缓存/重放)或在未来 →
+          //    不是"当前"健康指标,拒渲染为 LIVE。宽容 5min 未来偏移 + 24h 陈旧上限以容缓存/时钟偏移。
+          const ageMs = Date.now() - asOfMs;
+          if (ageMs > 24 * 60 * 60_000 || ageMs < -FIVE_MIN) {
+            context.addIssue({
+              code: 'custom',
+              message: 'LIVE as_of is stale (>24h old) or in the future; a rolling-7d LIVE must be freshly computed',
+            });
+          }
         }
       }
     }
