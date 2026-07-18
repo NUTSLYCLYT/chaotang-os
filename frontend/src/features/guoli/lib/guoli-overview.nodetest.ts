@@ -90,3 +90,34 @@ test('thin slice defaults on and can be rolled back with an explicit off value',
   assert.equal(isGuoliThinSliceEnabled('false'), false);
   assert.equal(isGuoliThinSliceEnabled('unexpected'), false);
 });
+
+test('accepts backend honesty statuses (INSUFFICIENT_SAMPLE/STALE) instead of rejecting the contract', () => {
+  for (const status of ['INSUFFICIENT_SAMPLE', 'STALE'] as const) {
+    const envelope = structuredClone(liveEnvelope);
+    const yushi = envelope.data.metrics[1] as Record<string, unknown>;
+    yushi.status = status;
+    yushi.value = null; // 非 LIVE 不带数值
+    yushi.sample_size = status === 'STALE' ? 0 : 3;
+    yushi.reason = '近 7 天御史判决不足，暂不判定';
+    const metric = parseYushiRejectionMetric(envelope);
+    assert.equal(metric.status, status);
+    assert.equal(formatYushiRejectionValue(metric), null); // 绝不显示假比率
+  }
+});
+
+test('accepts ROLLING_7D window on LIVE (metadata self-consistent with windowed value)', () => {
+  const envelope = structuredClone(liveEnvelope);
+  const yushi = envelope.data.metrics[1] as { window: { kind: string } };
+  yushi.window.kind = 'ROLLING_7D';
+  const metric = parseYushiRejectionMetric(envelope);
+  assert.equal(metric.status, 'LIVE');
+  assert.equal(metric.window.kind, 'ROLLING_7D');
+});
+
+test('non-LIVE status must not carry a numeric value (schema fails closed)', () => {
+  const envelope = structuredClone(liveEnvelope);
+  const yushi = envelope.data.metrics[1] as Record<string, unknown>;
+  yushi.status = 'STALE';
+  yushi.value = 0.5; // 违规：非 LIVE 带比率
+  assert.throws(() => parseYushiRejectionMetric(envelope));
+});

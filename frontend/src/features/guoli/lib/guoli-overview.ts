@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
 const windowSchema = z.object({
-  kind: z.literal('ALL_RECORDED'),
+  // ALL_RECORDED：NO_DATA/STALE/INSUFFICIENT_SAMPLE 描述全时段已记录历史边界；
+  // ROLLING_7D：LIVE 只用近 7 天窗口计算，metadata 与之自洽（不再误标全时段）。
+  kind: z.enum(['ALL_RECORDED', 'ROLLING_7D']),
   start_at: z.string().datetime({ offset: true }).nullable(),
   end_at: z.string().datetime({ offset: true }).nullable(),
 });
@@ -10,7 +12,7 @@ const yushiMetricSchema = z
   .object({
     key: z.literal('yushi_rejection_rate'),
     label: z.string().min(1),
-    status: z.enum(['LIVE', 'NO_DATA']),
+    status: z.enum(['LIVE', 'NO_DATA', 'INSUFFICIENT_SAMPLE', 'STALE']),
     value: z.number().min(0).max(1).nullable(),
     sample_size: z.number().int().min(0),
     reason: z.string().min(1).nullable().optional(),
@@ -28,10 +30,12 @@ const yushiMetricSchema = z
         message: 'LIVE requires a value and at least one sample',
       });
     }
-    if (metric.status === 'NO_DATA' && metric.value !== null) {
+    // 非 LIVE(NO_DATA/INSUFFICIENT_SAMPLE/STALE)一律不得带数值——绝不用比率
+    // 冒充"当前健康",与后端诚实窗口化一致。
+    if (metric.status !== 'LIVE' && metric.value !== null) {
       context.addIssue({
         code: 'custom',
-        message: 'NO_DATA must not contain a numeric value',
+        message: `${metric.status} must not contain a numeric value`,
       });
     }
   });
@@ -47,7 +51,7 @@ const guoliEnvelopeSchema = z.object({
 export interface YushiRejectionMetric {
   key: 'yushi_rejection_rate';
   label: string;
-  status: 'LIVE' | 'NO_DATA';
+  status: 'LIVE' | 'NO_DATA' | 'INSUFFICIENT_SAMPLE' | 'STALE';
   value: number | null;
   sampleSize: number;
   reason: string | null;
@@ -55,7 +59,7 @@ export interface YushiRejectionMetric {
   verdictSource: string | null;
   basis: string | null;
   window: {
-    kind: 'ALL_RECORDED';
+    kind: 'ALL_RECORDED' | 'ROLLING_7D';
     startAt: string | null;
     endAt: string | null;
   };

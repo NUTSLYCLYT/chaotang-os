@@ -14,7 +14,7 @@ v1 唯一 LIVE 指标:御史封驳率,读 truth_ledger 里 swarm=="yushi" 的
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
 
@@ -26,6 +26,36 @@ from web.schemas.auth import CurrentUser
 router = APIRouter(prefix="/api/guoli", tags=["guoli"])
 
 _REJECTION_VERDICTS = {"red", "black"}
+# LIVE 只在"近 7 天窗口内至少 20 条判决"时给出,比率只用窗口内样本——否则单条/陈旧样本
+# 会被当作当前健康指标误导(吸收自 task/p8-guoli-strip 的诚实窗口化)。
+_MIN_SAMPLE = 20
+_RECENCY_WINDOW = timedelta(days=7)
+
+
+def _parse_ts(value: object) -> datetime | None:
+    # 与 _timestamp_bounds 同口径:仅认带时区的 ISO ts(Z 归一为 +00:00)。
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.utcoffset() is not None else None
+
+
+def _not_live(status: str, reason: str, sample_size: int, fact_metadata: dict) -> dict:
+    # 有真实记录但不足以标 LIVE(样本不足/陈旧);value 恒 None,不产生误导比率。
+    metric = {
+        "key": "yushi_rejection_rate",
+        "label": "御史封驳率",
+        "status": status,
+        "value": None,
+        "sample_size": sample_size,
+        "reason": reason,
+        "eta_stage": None,
+    }
+    metric.update(fact_metadata)
+    return metric
 
 
 def _no_data(key: str, label: str, reason: str, eta: str) -> dict:
@@ -102,18 +132,55 @@ def _yushi_rejection_rate() -> dict:
         )
         metric.update(fact_metadata)
         return metric
-    rejected = sum(1 for e in entries if e.get("verdict") in _REJECTION_VERDICTS)
+    # 吸收 task/p8-guoli-strip 的诚实窗口化:LIVE 只在近 7 天窗口内 >=20 条判决时给出,
+    # 比率只用窗口内样本;否则单条/陈旧不标 LIVE。拒未来 ts(时钟偏移/脏数据)。
+    now = datetime.now(timezone.utc)
+    past = [
+        (e, ts)
+        for e in entries
+        if (ts := _parse_ts(e.get("ts"))) is not None and ts <= now
+    ]
+    recent = [e for e, ts in past if now - ts <= _RECENCY_WINDOW]
+    if len(recent) < _MIN_SAMPLE:
+        # 非 LIVE:如实用全时段 metadata(描述已记录历史真实边界,不误标)。
+        if len(past) >= _MIN_SAMPLE:
+            return _not_live(
+                "STALE",
+                f"数据陈旧:近 7 天御史判决仅 {len(recent)} 条(<{_MIN_SAMPLE}),"
+                f"有效历史 {len(past)} 条不作为当前健康指标",
+                len(recent),
+                fact_metadata,
+            )
+        return _not_live(
+            "INSUFFICIENT_SAMPLE",
+            f"样本不足:近 7 天御史判决 {len(recent)} 条(<{_MIN_SAMPLE}),不标 LIVE 也不显示误导比率",
+            len(recent),
+            fact_metadata,
+        )
+    rejected = sum(1 for e in recent if e.get("verdict") in _REJECTION_VERDICTS)
+    # LIVE:比率/sample_size 只用近 7 天窗口 → window metadata 必须同步为 rolling-7d,
+    # 不能沿用 ALL_RECORDED,否则"元数据说全时段、数值是7天窗"自相矛盾误标。
+    live_metadata = {
+        "data_source": "truth_ledger",
+        "window": {
+            "kind": "ROLLING_7D",
+            "start_at": (now - _RECENCY_WINDOW).isoformat(),
+            "end_at": now.isoformat(),
+        },
+        "as_of": now.isoformat(),
+        "includes_demo": False,
+    }
     return {
         "key": "yushi_rejection_rate",
         "label": "御史封驳率",
         "status": "LIVE",
-        "value": round(rejected / len(entries), 4),
-        "sample_size": len(entries),
+        "value": round(rejected / len(recent), 4),
+        "sample_size": len(recent),
         "reason": None,
         "eta_stage": None,
         "verdict_source": "deterministic_rules_gate",
-        "basis": "truth_ledger swarm=yushi checker=court_doc_builder; red/black=封驳",
-        **fact_metadata,
+        "basis": "truth_ledger swarm=yushi checker=court_doc_builder; 近7天窗口; red/black=封驳",
+        **live_metadata,
     }
 
 

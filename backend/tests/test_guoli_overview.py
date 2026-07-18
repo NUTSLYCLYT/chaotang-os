@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 
@@ -24,6 +25,22 @@ def _write_ledger(path, entries):
         "\n".join(json.dumps(e, ensure_ascii=False) for e in entries) + "\n",
         encoding="utf-8",
     )
+
+
+def _yushi_entries(n: int, *, rejected: int, age_days: float = 1.0):
+    """n 条御史判决:前 rejected 条 red(封驳),其余 green;ts 统一为 age_days 天前。
+    用相对时间避免时间脆性,驱动 min-sample / recency 窗口门。"""
+    ts = (datetime.now(timezone.utc) - timedelta(days=age_days)).isoformat()
+    return [
+        {
+            "swarm": "yushi",
+            "checker": "court_doc_builder",
+            "verdict": "red" if i < rejected else "green",
+            "case_id": f"y{i}",
+            "ts": ts,
+        }
+        for i in range(n)
+    ]
 
 
 def test_guoli_overview_shape_and_honest_no_data(tmp_path, monkeypatch):
@@ -60,18 +77,15 @@ def test_guoli_overview_shape_and_honest_no_data(tmp_path, monkeypatch):
     assert metrics["yushi_rejection_rate"]["as_of"]
 
 
-def test_guoli_yushi_rejection_rate_live_from_truth_ledger(tmp_path, monkeypatch):
-    """有真实御史判决时,封驳率 = red/black 判决数 / 御史判决总数,标 LIVE。"""
+def test_guoli_yushi_rejection_rate_live_when_enough_and_fresh(tmp_path, monkeypatch):
+    """近 7 天窗口内 >=20 条且新鲜时,封驳率 = red/black 数 / 窗口内数,标 LIVE。
+    window metadata 必须是 ROLLING_7D(与"只用近窗计算"自洽,不再 ALL_RECORDED 误标)。"""
     ledger = tmp_path / "truth_ledger.jsonl"
-    entries = [
-        {"swarm": "yushi", "checker": "court_doc_builder", "verdict": "green", "case_id": "y1", "ts": "2026-07-15T09:00:00+02:00"},
-        {"swarm": "yushi", "checker": "court_doc_builder", "verdict": "red", "case_id": "y2", "ts": "2026-07-15T08:00:00+00:00"},
-        {"swarm": "yushi", "checker": "court_doc_builder", "verdict": "black", "case_id": "y3", "ts": "2026-07-17T08:00:00+00:00"},
-        {"swarm": "yushi", "checker": "court_doc_builder", "verdict": "yellow", "case_id": "y4", "ts": "2026-07-17T09:00:00+00:00"},
-        # 非御史判决必须被过滤,不许混进分母
+    entries = _yushi_entries(20, rejected=5, age_days=1)
+    # 非御史判决 / 非唯一生产写入方必须被过滤
+    entries += [
         {"swarm": "pack_rd", "checker": "pack_rd_check", "verdict": "red", "case_id": "p1"},
-        # swarm 是 yushi 但 checker 不是唯一生产写入方 → 语义未知,同样不许进分母
-        {"swarm": "yushi", "checker": "some_future_path", "verdict": "red", "case_id": "y5"},
+        {"swarm": "yushi", "checker": "some_future_path", "verdict": "red", "case_id": "yx"},
     ]
     _write_ledger(ledger, entries)
     monkeypatch.setattr(truth_ledger, "_ledger_path", lambda: ledger)
@@ -81,14 +95,11 @@ def test_guoli_yushi_rejection_rate_live_from_truth_ledger(tmp_path, monkeypatch
     assert payload["success"] is True
     yushi = {m["key"]: m for m in payload["data"]["metrics"]}["yushi_rejection_rate"]
     assert yushi["status"] == "LIVE"
-    assert yushi["value"] == 0.5  # 2 封驳(red+black) / 4 御史判决
-    assert yushi["sample_size"] == 4
+    assert yushi["value"] == 0.25  # 5 封驳 / 20 近窗
+    assert yushi["sample_size"] == 20
     assert yushi["data_source"] == "truth_ledger"
-    assert yushi["window"] == {
-        "kind": "ALL_RECORDED",
-        "start_at": "2026-07-15T09:00:00+02:00",
-        "end_at": "2026-07-17T09:00:00+00:00",
-    }
+    assert yushi["window"]["kind"] == "ROLLING_7D"  # 不误标全时段
+    assert yushi["window"]["start_at"] and yushi["window"]["end_at"]
     assert yushi["includes_demo"] is False
     assert yushi["as_of"]
 
@@ -120,10 +131,60 @@ def test_guoli_yushi_rate_anchored_to_real_production_write_path(tmp_path, monke
     client = TestClient(app)
     payload = client.get("/api/guoli/overview").json()
     yushi = {m["key"]: m for m in payload["data"]["metrics"]}["yushi_rejection_rate"]
-    assert yushi["status"] == "LIVE"
+    # 真实写入路径产出 2 条可读条目(字段名/verdict 正确),但 2 < 20 → 诚实降级为
+    # INSUFFICIENT_SAMPLE,不把 2 条样本当 LIVE。仍锚定生产写入路径:字段/verdict
+    # 一漂移,sample_size 会变或被过滤,断言立刻红。
+    assert yushi["status"] == "INSUFFICIENT_SAMPLE"
     assert yushi["sample_size"] == 2
-    assert yushi["value"] == 0.5  # 1 放行 + 1 封驳
-    assert yushi["verdict_source"] == "deterministic_rules_gate"
+    assert yushi["value"] is None
+
+
+def test_guoli_yushi_stale_not_live(tmp_path, monkeypatch):
+    """样本足够但最新一条超过 7 天 → STALE,不作为当前健康指标标 LIVE。"""
+    ledger = tmp_path / "truth_ledger.jsonl"
+    _write_ledger(ledger, _yushi_entries(30, rejected=6, age_days=30))
+    monkeypatch.setattr(truth_ledger, "_ledger_path", lambda: ledger)
+    client = TestClient(app)
+    yushi = {m["key"]: m for m in client.get("/api/guoli/overview").json()["data"]["metrics"]}["yushi_rejection_rate"]
+    assert yushi["status"] == "STALE"
+    assert yushi["value"] is None
+    assert yushi["sample_size"] == 0  # 近 7 天窗口内 0 条
+
+
+def test_guoli_yushi_future_timestamps_neither_live_nor_stale(tmp_path, monkeypatch):
+    """未来时间戳既不算新鲜也不算历史 → INSUFFICIENT_SAMPLE,不被刷成 LIVE 也不误标 STALE。"""
+    ledger = tmp_path / "truth_ledger.jsonl"
+    _write_ledger(ledger, _yushi_entries(25, rejected=5, age_days=-1))  # 明天
+    monkeypatch.setattr(truth_ledger, "_ledger_path", lambda: ledger)
+    client = TestClient(app)
+    yushi = {m["key"]: m for m in client.get("/api/guoli/overview").json()["data"]["metrics"]}["yushi_rejection_rate"]
+    assert yushi["status"] == "INSUFFICIENT_SAMPLE"
+    assert yushi["value"] is None
+
+
+def test_guoli_yushi_live_rate_uses_only_windowed_samples(tmp_path, monkeypatch):
+    """反假绿:近窗 20 条(0.25)+ 另有 10 条较旧但有效 past(0.8)。LIVE 的 value
+    只由近窗算 = 0.25,绝不把陈旧 past 掺进比率(否则 13/30≈0.4333)。"""
+    now = datetime.now(timezone.utc)
+    fresh_ts = (now - timedelta(days=1)).isoformat()
+    old_ts = (now - timedelta(days=40)).isoformat()
+    entries = [
+        {"swarm": "yushi", "checker": "court_doc_builder",
+         "verdict": "red" if i < 5 else "green", "case_id": f"fresh{i}", "ts": fresh_ts}
+        for i in range(20)
+    ] + [
+        {"swarm": "yushi", "checker": "court_doc_builder",
+         "verdict": "red" if i < 8 else "green", "case_id": f"old{i}", "ts": old_ts}
+        for i in range(10)
+    ]
+    ledger = tmp_path / "truth_ledger.jsonl"
+    _write_ledger(ledger, entries)
+    monkeypatch.setattr(truth_ledger, "_ledger_path", lambda: ledger)
+    client = TestClient(app)
+    yushi = {m["key"]: m for m in client.get("/api/guoli/overview").json()["data"]["metrics"]}["yushi_rejection_rate"]
+    assert yushi["status"] == "LIVE"
+    assert yushi["sample_size"] == 20
+    assert yushi["value"] == 0.25
 
 
 def test_guoli_overview_returns_no_data_when_truth_ledger_is_corrupt(tmp_path, monkeypatch):
