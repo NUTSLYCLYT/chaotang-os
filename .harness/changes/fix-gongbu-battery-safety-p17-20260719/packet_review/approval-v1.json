@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "LOCAL_FEEDBACK_ONLY",
+  "review_version": 1,
+  "packet_id": "P17",
+  "change_id": "fix-gongbu-battery-safety-p17-20260719",
+  "predecessor_integration_sha": "9956a5a9a0a8ad5d8465c637dd8c7b81d08f50f8",
+  "reviewed_head_sha": "057ddd2051d9da97e4d5ce6ddc0454cad27df148",
+  "report_path": ".harness/changes/fix-gongbu-battery-safety-p17-20260719/packet_review/review-v1.md",
+  "report_sha256": "3f027953e3ba8bc68e5e2f86acb4e0f0f6d6d1298019e57739167fc188f7cffb",
+  "verdict": "PACKET_REVIEW_GO"
+}
