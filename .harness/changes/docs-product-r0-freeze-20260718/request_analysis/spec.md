@@ -51,6 +51,7 @@
 - `docs/product/CHAOTANG_CONVERGENCE_GUIDE.md`；
 - `docs/product/releases/product-r0-trusted-kernel/PRD.md`；
 - 两份 2026-07-18 产品蓝图的状态/权威/发布修订；
+- 四份仍引用旧 FULL_COURT 范围的历史计划顶部状态与失效指针：launch blueprint、full-court loop、V2 backlog、department-agent architecture；
 - 本 change 记录；
 - 已在前置 source-preservation commit 中导入的 14 个产品设计/审计文件。
 
@@ -97,6 +98,7 @@
 - `PROJECT_PRODUCT.md` 明确且唯一地定义产品、第一 Offer、41 司目录、世界杯 benchmark 和 R0→R1→R2→R3+。
 - R0/R1 PRD 有用户/JTBD、目标/非目标、REQ ID、状态/失败、成果、数据安全、指标、验收、rollout/rollback。
 - guide 的 FULL_COURT 全量 L3 裁决与旧 Step 执行权威被明确替代。
+- 仍自称 `IN PROGRESS`、`最终产品形态冻结` 或强制 V2 intake 的旧计划均有显式 `SUPERSEDED/HISTORICAL` 横幅。
 - RFC 为 accepted decision record；参考输入不再拥有产品定义或排期。
 - immutable source hash 不变；只改 allowlist 路径。
 - ancestry 线性且不含本地 78 个分叉提交。

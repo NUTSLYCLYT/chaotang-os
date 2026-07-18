@@ -1,11 +1,12 @@
 # 朝堂 OS 部门 Agent 架构设计（丞相/门下省/六部部长）
 
 > 文档状态：设计提案，非已批准执行计划（2026-07-17）
+> 权威状态：`REFERENCE_INPUT_ONLY`；41 司当前只由产品宪法定义为 `TARGET_DIRECTORY_V1`，本文不授权实现或排期
 > 产出方式：Claude Code 只读分析 + 代码级核实（非猜测，全文附文件路径引用）
-> 依赖：`docs/product/CHAOTANG_CONVERGENCE_GUIDE.md`（产品裁决权威）、
-> `.harness/changes/docs-full-court-v1-strategy-20260714/`（FULL_COURT_V1 战略权威）
+> 当前产品依赖：[`docs/product/PROJECT_PRODUCT.md`](../product/PROJECT_PRODUCT.md) 与 [`R0/R1 PRD`](../product/releases/product-r0-trusted-kernel/PRD.md)
+> 历史依赖：`.harness/changes/docs-full-court-v1-strategy-20260714/`（其 FULL_COURT 范围裁决已被替代，工程事实保留）
 > 关系：本文档不改变已批准的执行优先级（P0–P9 归并战役），是对**六部与丞相路由子系统**
-> 应该长成什么样的一份完整设计提案，供业主裁决是否、以何种优先级纳入 V2_BACKLOG 或正式 Packet。
+> 应该长成什么样的一份完整设计提案；任何采纳必须进入 Solution Pack PRD 或 M0–M10 amendment，不再进入已关闭的 V2_BACKLOG。
 > 现状数据来源：`.claude/skills/dept-capability-map/scripts/audit.py`（可重跑，非快照）
 
 ---

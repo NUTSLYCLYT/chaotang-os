@@ -19,6 +19,7 @@
 - 把世界杯定义为跨域只读 benchmark，不作为 R1 Offer。
 - 把旧 `FULL_COURT_V1 全量 L3 → 再定发布` 裁决替换为 `R0 内核 → R1 合同 Paid Pilot → R2 邀请制生产 → R3+ 证据化扩张`。
 - 把融合蓝图固化为 accepted decision record，把超级任务蓝图标为 reference input。
+- 把旧 launch blueprint、全朝廷闭环计划、V2 backlog 和部门 Agent 提案标为 historical/reference，清除仍可启动旧 FULL_COURT 范围的权威歧义。
 
 ## 不变范围
 

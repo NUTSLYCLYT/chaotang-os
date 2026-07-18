@@ -1,7 +1,9 @@
 # 朝堂 OS · 全朝廷闭环整体方案（2026-07-14 大神会审定稿）
 
-> 状态：用户已批准全部天才建议/推荐技能/技能洞察。
-> 本方案是 `plans/chaotang-os-launch-blueprint-2026-07-14.md`（首发冻结为刑部合同审查切片）的**目标架构层**，不改变首发范围；所有 P 阶段受下方"前置硬门"约束。
+> 状态：`SUPERSEDED_AS_PRODUCT_SCOPE_AND_EXECUTION_AUTHORITY / REFERENCE_INPUT_ONLY`
+> 历史状态：2026-07-14 用户曾批准本文的设计建议；不代表 P 阶段当前获准实施。
+> 当前权威：产品字段见 [`PROJECT_PRODUCT.md`](../product/PROJECT_PRODUCT.md)，R0/R1 见 [`release PRD`](../product/releases/product-r0-trusted-kernel/PRD.md)，工程须等待 M0–M10 amendment。
+> 阅读规则：保留全朝廷闭环、风险与测试思想；旧 launch blueprint、FULL_COURT 范围和本文 P 阶段均不再拥有当前范围或排期。
 
 ## 一、闭环总图
 
