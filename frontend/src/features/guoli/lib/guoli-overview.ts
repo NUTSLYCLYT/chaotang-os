@@ -43,6 +43,23 @@ const yushiMetricSchema = z
           code: 'custom',
           message: 'LIVE must report a ROLLING_7D window; an all-time rate cannot be labeled LIVE',
         });
+      } else if (metric.window.start_at === null || metric.window.end_at === null) {
+        // fail-closed:ROLLING_7D 但边界为空 = 空窗口,LIVE 不能宣称一个不存在的窗口。
+        context.addIssue({
+          code: 'custom',
+          message: 'LIVE ROLLING_7D window must have non-null start_at and end_at (no empty window)',
+        });
+      } else {
+        // 边界必须真是 ~7 天跨度,否则 ROLLING_7D 标签与实际窗口不符(仍是误导)。
+        const spanDays =
+          (new Date(metric.window.end_at).getTime() - new Date(metric.window.start_at).getTime()) /
+          86_400_000;
+        if (!(spanDays >= 6.5 && spanDays <= 7.5)) {
+          context.addIssue({
+            code: 'custom',
+            message: `LIVE ROLLING_7D window span must be ~7 days, got ${spanDays.toFixed(2)}`,
+          });
+        }
       }
     }
     // 非 LIVE(NO_DATA/INSUFFICIENT_SAMPLE/STALE)一律不得带数值——绝不用比率

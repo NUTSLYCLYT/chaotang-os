@@ -136,3 +136,19 @@ test('rejects an all-time-window LIVE (a windowed rate cannot be labeled all-tim
   (envelope.data.metrics[1] as { window: { kind: string } }).window.kind = 'ALL_RECORDED';
   assert.throws(() => parseYushiRejectionMetric(envelope));
 });
+
+test('rejects an empty ROLLING_7D window on LIVE (null bounds)', () => {
+  const envelope = structuredClone(liveEnvelope);
+  const w = (envelope.data.metrics[1] as { window: { start_at: string | null; end_at: string | null } }).window;
+  w.start_at = null;
+  w.end_at = null;
+  assert.throws(() => parseYushiRejectionMetric(envelope));
+});
+
+test('rejects a LIVE whose ROLLING_7D window is not ~7 days (mislabeled span)', () => {
+  const envelope = structuredClone(liveEnvelope);
+  const w = (envelope.data.metrics[1] as { window: { start_at: string; end_at: string } }).window;
+  w.start_at = '2026-07-17T00:00:00+00:00'; // 仅 ~10 小时窗口冒充 ROLLING_7D
+  w.end_at = '2026-07-17T10:00:00+00:00';
+  assert.throws(() => parseYushiRejectionMetric(envelope));
+});
