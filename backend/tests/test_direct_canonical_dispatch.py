@@ -155,6 +155,40 @@ def test_direct_court_mode_preserves_canonical_direct_short_circuit(
     assert triggered == [outbox.id]
 
 
+def test_direct_court_mode_veto_terminates_canonical_sse(
+    client, monkeypatch, isolated_session_local
+):
+    """门下省封驳的任务有 ChancellorRouteDecision(execution 非 None)但从没
+    派发过 outbox 事件——execution.terminal 永远读不到"已终止"。SSE 快照必须
+    显式判定这类任务为 terminal,否则轮询客户端会一直当成"还在跑"。"""
+    from src.execution import decree_dispatcher
+
+    _forbid_legacy_court_orchestrator(monkeypatch)
+    triggered: list[str] = []
+    monkeypatch.setattr(decree_dispatcher, "dispatch_after_commit", triggered.append)
+
+    response = client.post(
+        "/api/direct/execute",
+        json={"command": "我要去美国看世界杯决赛", "mode": "court"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["status"] == "menxia_veto_pending"
+    assert triggered == []  # 封驳不能排队执行任何东西
+
+    from src.chaotang_task_projection import read_stream_snapshot
+
+    snapshot = read_stream_snapshot(data["task_id"], "1")
+    assert snapshot is not None
+    assert snapshot["snapshot"]["terminal"] is True
+    # menxia_veto_pending 故意不映射进 _WIRE_STATUS(report_ready/failed 都
+    # 试过，两个都误导，见 chaotang_task_projection.py 里的注释)，落回裸内部
+    # 状态字符串——只锁住"terminal 必须为 True"这个已确认修好的行为，
+    # 不断言具体 wire status 值，避免下次又猜错还被测试锁死。
+    assert snapshot["snapshot"]["status"] == "menxia_veto_pending"
+
+
 def test_direct_court_mode_requires_auth_when_enabled(
     monkeypatch, isolated_session_local
 ):

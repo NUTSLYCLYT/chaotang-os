@@ -8,7 +8,7 @@ import { isCanonicalProjectionEnabled } from '@/lib/courtos/canonical-projection
 import type { EdictRow, EdictView } from './edict-content';
 
 export interface CanonicalMemorialViewResult {
-  kind: 'formal' | 'candidate' | 'direct' | 'waiting';
+  kind: 'formal' | 'candidate' | 'direct' | 'vetoed' | 'waiting';
   view: EdictView | null;
   shouldRetry: boolean;
 }
@@ -57,7 +57,7 @@ function buildView(input: {
   status: ShangshufangTaskStatusResponse;
   memorial: ShangshufangReviewMemorial;
   sourceLabel: ShangshufangSourceLabel;
-  kind: 'formal' | 'candidate' | 'direct';
+  kind: 'formal' | 'candidate' | 'direct' | 'vetoed';
 }): EdictView {
   const { taskId, status, memorial, sourceLabel, kind } = input;
   const review = status.review;
@@ -89,9 +89,15 @@ function buildView(input: {
   const rows: EdictRow[] = [
     { label: '所议', body: status.task.raw_question },
   ];
-  if (report) rows.push({ label: '军机处总回报', body: report });
+  if (report) rows.push({ label: kind === 'vetoed' ? '门下省封驳缘由' : '军机处总回报', body: report });
   if (departments.length) rows.push({ label: '各司汇报', body: departments.join('\n') });
-  if (conflicts.length) rows.push({ label: '部门冲突', body: conflicts.join('\n') });
+  // 'vetoed' 的 conflict_summary 只有一条 type: "human_signoff" 记录，内容
+  // 跟上面"门下省封驳缘由"那行完全重复(后端两处塞的是同一段 reason_summary)，
+  // 不是真的部门间分歧——封驳发生在任何部门会审之前，压根没有"部门"可冲突。
+  // 沿用"部门冲突"这个标签会跟标题/reporter 犯同一种编造错误，这里不重复渲染。
+  if (conflicts.length && kind !== 'vetoed') {
+    rows.push({ label: '部门冲突', body: conflicts.join('\n') });
+  }
   if (memorial.verdict || decisions.length) {
     rows.push({ label: kind === 'candidate' ? '候选建议' : '决策建议', body: unique([memorial.verdict, ...decisions]).join('\n') });
   }
@@ -115,22 +121,46 @@ function buildView(input: {
       .join('\n'),
   });
 
+  // 'vetoed'(门下省封驳)不能沿用 'candidate' 的"候选会审"措辞——那个词暗示
+  // 军机处已经召集部门、产出了初步意见，只是质门没过。封驳恰恰是在任何部门
+  // 会审之前就被拦下，ministry_outputs 永远是空的，说"候选会审"是编造了一段
+  // 没发生过的会审过程，违反运行事实(2026-07-18)。
   const title = kind === 'formal'
     ? '圣旨正文'
     : kind === 'direct'
       ? '简单任务回执'
-      : '候选会审 · 质门阻断';
+      : kind === 'vetoed'
+        ? '门下省封驳'
+        : '候选会审 · 质门阻断';
+  const subtitle = kind === 'formal'
+    ? '正式奏折 · 待皇上裁决'
+    : kind === 'direct'
+      ? '后端直接回执'
+      : kind === 'vetoed'
+        ? '未进入军机处会审 · 需人工确认'
+        : '候选结果 · 不构成正式圣裁';
   return {
     id: `shangshufang-canonical:${kind}:${taskId}:${status.formal_memorial?.id ?? review?.review_id ?? 'pending'}`,
     title,
-    subtitle: kind === 'formal' ? '正式奏折 · 待皇上裁决' : kind === 'direct' ? '后端直接回执' : '候选结果 · 不构成正式圣裁',
+    subtitle,
     question: status.task.raw_question,
     meta: {
-      reporter: '军机处',
+      // 封驳的意见来自门下省的路由前置审议，不是军机处会审出的结论——
+      // 沿用"军机处"当 reporter 同样是编造了一段没发生过的会审。
+      reporter: kind === 'vetoed' ? '门下省' : '军机处',
       priority: gate === 'blocked' ? 'urgent' : 'high',
       badges: [
         { label: sourceLabel, tone: sourceTone(sourceLabel) },
-        { label: kind === 'formal' ? '正式奏折' : kind === 'direct' ? '简单回执' : '候选/阻断', tone: kind === 'formal' ? 'green' : 'amber' },
+        {
+          label: kind === 'formal'
+            ? '正式奏折'
+            : kind === 'direct'
+              ? '简单回执'
+              : kind === 'vetoed'
+                ? '封驳/未会审'
+                : '候选/阻断',
+          tone: kind === 'formal' ? 'green' : 'amber',
+        },
       ],
     },
     rows,
@@ -173,6 +203,20 @@ export function projectCanonicalMemorialView(
     return {
       kind: 'candidate',
       view: buildView({ taskId, status, memorial: candidate, sourceLabel: candidate.source_label, kind: 'candidate' }),
+      shouldRetry: false,
+    };
+  }
+  // menxia_veto_pending 不识别时 view 会是 null，调用方(confirmedEdictToView)
+  // 会退回 awaitingRealMemorialView 那个"还在处理中"的占位视图，但门下省封驳
+  // 之后永远不会再有轮询/新事件，用户会一直卡在"处理中"画面上、误以为流程
+  // 还活着(2026-07-18 实测复现)。用独立的 'vetoed' kind，不是 'candidate'
+  // ——'candidate' 的"候选会审"措辞暗示军机处已经召集部门产出初步意见，而
+  // 封驳恰恰是在任何部门会审之前就被拦下(ministry_outputs 永远是空的)，
+  // 沿用 'candidate' 的措辞会编造一段没发生过的会审过程。
+  if (status.task.status === 'menxia_veto_pending' && candidate) {
+    return {
+      kind: 'vetoed',
+      view: buildView({ taskId, status, memorial: candidate, sourceLabel: candidate.source_label, kind: 'vetoed' }),
       shouldRetry: false,
     };
   }

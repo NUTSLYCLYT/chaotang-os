@@ -102,6 +102,13 @@ interface ErrorEvent {
   message?: string;
 }
 
+/** 门下省封驳等"没出错、但需要人工确认才能继续"的终态——不是 error(那会显示
+ * "异常终止"，暗示系统故障)，也不是 done(什么都没执行，谈不上完成)。 */
+interface BlockedEvent {
+  type: 'blocked';
+  message?: string;
+}
+
 interface CouncilSummonEvent {
   type: 'council.summon';
 }
@@ -123,6 +130,7 @@ type CourtStreamEvent =
   | MemorialDraftedEvent
   | DoneEvent
   | ErrorEvent
+  | BlockedEvent
   | CouncilSummonEvent
   | HeartbeatEvent;
 
@@ -190,7 +198,7 @@ interface StreamState {
   memorialId?: string;
   runId?: string;
   qualityScore?: number;
-  streamStatus: 'idle' | 'live' | 'done' | 'error';
+  streamStatus: 'idle' | 'live' | 'done' | 'error' | 'blocked';
   errorMessage?: string;
   sanshengStates: SanshengStates;
 }
@@ -587,6 +595,14 @@ export function BattleStream({ taskId, onSanshengChange, onMinistersChange, onRi
             };
           }
 
+          if (type === 'blocked') {
+            return {
+              ...prev,
+              streamStatus: 'blocked',
+              errorMessage: readStr(ev, 'message') ?? '需人工确认后才能继续。',
+            };
+          }
+
           return prev;
         });
       },
@@ -641,6 +657,9 @@ export function BattleStream({ taskId, onSanshengChange, onMinistersChange, onRi
           {streamStatus === 'error' && (
             <span className="h-2 w-2 rounded-full bg-[#F43F5E]" />
           )}
+          {streamStatus === 'blocked' && (
+            <span className="h-2 w-2 rounded-full bg-[#F0C66A]" />
+          )}
           {streamStatus === 'idle' && (
             <span className="h-2 w-2 animate-breathe rounded-full bg-[#F0C66A] opacity-40" />
           )}
@@ -661,6 +680,11 @@ export function BattleStream({ taskId, onSanshengChange, onMinistersChange, onRi
           {streamStatus === 'error' && (
             <span className="rounded-full border border-[#F43F5E]/25 bg-[#F43F5E]/10 px-2.5 py-0.5 text-[10px] font-medium text-[#F43F5E]">
               异常终止
+            </span>
+          )}
+          {streamStatus === 'blocked' && (
+            <span className="rounded-full border border-[#F0C66A]/25 bg-[#F0C66A]/10 px-2.5 py-0.5 text-[10px] font-medium text-[#F0C66A]">
+              需人工确认
             </span>
           )}
         </div>
@@ -793,6 +817,24 @@ export function BattleStream({ taskId, onSanshengChange, onMinistersChange, onRi
             <div className="flex items-center gap-2 text-[12px] text-[#F43F5E]">
               <span>⚠</span>
               <span>作战流异常：{errorMessage}</span>
+            </div>
+          </GlassPanel>
+        </motion.div>
+      )}
+
+      {/* Blocked banner — 门下省封驳等"没出错、等人工确认"的终态，不用红色
+          "异常"措辞，避免跟真实系统故障混为一谈 */}
+      {streamStatus === 'blocked' && errorMessage && (
+        <motion.div
+          key="blocked"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+        >
+          <GlassPanel variant="gold" tone="elevated" padding="sm">
+            <div className="flex items-center gap-2 text-[12px] text-[#F0C66A]">
+              <span>⏸</span>
+              <span>需人工确认：{errorMessage}</span>
             </div>
           </GlassPanel>
         </motion.div>
