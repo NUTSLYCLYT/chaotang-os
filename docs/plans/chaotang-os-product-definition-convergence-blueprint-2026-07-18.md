@@ -797,7 +797,7 @@ Agent/Flow/Worker = 某次任务的临时执行实例
 
 ### 7.1 本稿只冻结不变量
 
-详细知识 schema、迁移和 K0–K10 仍由 [`chaotang-os-knowledge-memory-flywheel-blueprint-2026-07-14.md`](chaotang-os-knowledge-memory-flywheel-blueprint-2026-07-14.md) 拥有。本稿不创建第二知识事实源，只冻结：
+旧 [`chaotang-os-knowledge-memory-flywheel-blueprint-2026-07-14.md`](chaotang-os-knowledge-memory-flywheel-blueprint-2026-07-14.md) 只保留为 K0–K10 历史设计输入，不再拥有当前 schema、迁移或排期。详细实现必须由 11.1 所述 M0–M10 owner 通过显式 amendment 分配 schema owner、迁移、测试和回滚；在 amendment 获批前不得施工。本稿不创建第二知识事实源，只冻结：
 
 - SQL 管文档身份、tenant/user/purpose、版本、授权、许可、保留和引用关系；
 - Object Store 保存不可变原始快照、附件、成果和 hash；

@@ -7,7 +7,7 @@
 | 状态 | VERIFIED_COMPLETE（docs-only） |
 | Owner | Project Agent |
 | 创建日期 | 2026-07-18 |
-| 基线 | 远端 `feature-chaotang-ext@6ee6d8d542127174f4d899f940d4937b6fa2b70f` |
+| 基线 | 远端 `feature-chaotang-ext@5d273c3fbe5e02e52b6ab3e8630f6d54a0c78a43`（审查期前进后已线性重基） |
 | 变更分支 | `docs/product-r0-freeze-20260718` |
 
 ## 范围
@@ -19,7 +19,7 @@
 - 把世界杯定义为跨域只读 benchmark，不作为 R1 Offer。
 - 把旧 `FULL_COURT_V1 全量 L3 → 再定发布` 裁决替换为 `R0 内核 → R1 合同 Paid Pilot → R2 邀请制生产 → R3+ 证据化扩张`。
 - 把融合蓝图固化为 accepted decision record，把超级任务蓝图标为 reference input。
-- 把旧 launch blueprint、全朝廷闭环计划、V2 backlog 和部门 Agent 提案标为 historical/reference，清除仍可启动旧 FULL_COURT 范围的权威歧义。
+- 把旧 launch、全朝廷闭环、V2 backlog、部门 Agent、唯一事实源、知识飞轮六份计划标为 historical/reference，截断旧 FULL_COURT 与 Step 0–12 执行权威链。
 
 ## 不变范围
 

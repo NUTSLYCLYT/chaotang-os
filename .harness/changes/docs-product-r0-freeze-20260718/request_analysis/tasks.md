@@ -5,11 +5,11 @@
 - 目标：从已审计设计 worktree 保存 14 个融合输入、蓝图和 change 证据。
 - 前置条件：源 diff 仅含允许的文档路径；输入 hash 已冻结。
 - 输入：design commit `b0e54672f5df55a19f69dbbc454172aca2328cfb`。
-- 输出：干净远端基线上的 source-preservation commit `22084d3`。
+- 输出：最新干净远端基线上的 source-preservation commit `33dac7b`。
 - 涉及文件：`docs/plans/*2026-07-18.md` 与对应根 change。
 - 状态 / 数据变化：文档新增；无运行数据。
-- 验证命令与证据：first parent 为 `6ee6d8d`；无冲突；A/B hash 保持。
-- 回滚边界：可 revert `22084d3`；不影响运行时。
+- 验证命令与证据：first parent 为 `5d273c3`；无冲突；A/B hash 保持。
+- 回滚边界：可 revert `33dac7b`；不影响运行时。
 - 完成定义：已完成。
 
 ## 任务 2：冻结产品 SSOT 与 R0/R1 PRD

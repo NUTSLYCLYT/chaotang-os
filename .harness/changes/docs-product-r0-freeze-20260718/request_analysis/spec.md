@@ -10,7 +10,8 @@
 
 | 分类 | 结论 | 证据路径 / 命令与时间 | 验证方式 / Owner | 是否阻塞 |
 | --- | --- | --- | --- | --- |
-| 已确认事实 | 远端目标头在本变更开始时为 `6ee6d8d542127174f4d899f940d4937b6fa2b70f` | `git ls-remote origin refs/heads/feature-chaotang-ext`，2026-07-18 | Project Agent 只读核验 | 否 |
+| 已确认事实 | 远端目标头在本变更开始时为 `6ee6d8d542127174f4d899f940d4937b6fa2b70f` | `git ls-remote origin refs/heads/feature-chaotang-ext`，2026-07-18 | Project Agent 只读核验；仅为历史起点 | 否 |
+| 已确认事实 | 精确候选审查期间目标头前进至 `5d273c3fbe5e02e52b6ab3e8630f6d54a0c78a43`；新增 3 个 P8/P9 前端残留收口提交，与本变更路径不重叠 | `git fetch`、`git merge-tree --write-tree` 与 `git rebase origin/feature-chaotang-ext`，2026-07-18 | Project Agent 核验零冲突后线性重基；必须对重基后 SHA 重跑门禁 | 否 |
 | 已确认事实 | 本地主工作树 `79b1eaa` 与远端分叉为本地 78 / 远端 3，不适合作为产品冻结基线 | `git rev-list --left-right --count 6ee6d8d...79b1eaa` 与 merge-base `bf7d4cc` | Project Agent 只读核验 | 是，已通过干净远端基线规避 |
 | 已确认事实 | 安全恢复分支精确保存本地主线 `79b1eaa` | `refs/heads/safety/pre-convergence-20260718-79b1eaa` | 远端引用核验 | 否 |
 | 已确认事实 | 融合 RFC 原提案 hash 为 `475f13ad4eb8a839068787dbab200c85e39ede9713f1477efc33ad0c656d1de2` | 原 design commit `b0e54672` 前验证 | SHA-256 | 否 |
@@ -51,7 +52,7 @@
 - `docs/product/CHAOTANG_CONVERGENCE_GUIDE.md`；
 - `docs/product/releases/product-r0-trusted-kernel/PRD.md`；
 - 两份 2026-07-18 产品蓝图的状态/权威/发布修订；
-- 四份仍引用旧 FULL_COURT 范围的历史计划顶部状态与失效指针：launch blueprint、full-court loop、V2 backlog、department-agent architecture；
+- 六份仍引用旧 FULL_COURT/Step 0–12 权威的历史计划顶部状态与失效指针：launch blueprint、full-court loop、V2 backlog、department-agent architecture、single-fact-source、knowledge-memory-flywheel；
 - 本 change 记录；
 - 已在前置 source-preservation commit 中导入的 14 个产品设计/审计文件。
 
@@ -83,8 +84,8 @@
 - 风险：合同切片被误解成永久产品边界。缓解：分开“产品本体、第一 Offer、目录、benchmark”。
 - 风险：41 司目录被当作已上线。缓解：统一成熟度枚举和“登记不等于生产”红线。
 - 风险：旧 Step 0–12 与 M0–M10 双排期。缓解：guide 明确旧映射只供历史解释，工程只由 M0–M10 + amendment 拥有。
-- 风险：产品分支混入本地大分叉。缓解：从远端 `6ee6d8d` 干净 worktree 起步，安全分支保留 `79b1eaa`。
-- 回滚：本变更全部是文档，可整提交 revert；不会回滚数据库、运行数据或外部系统。
+- 风险：产品分支混入本地大分叉。缓解：从远端干净 worktree 起步，并在目标前进后线性重基到 `5d273c3`；安全分支继续精确保留 `79b1eaa`。
+- 回滚：本变更全部是文档。保留前置输入包、只撤产品冻结时，从产品分支精确 HEAD 执行 `git revert --no-commit 33dac7b47be09c60f77642b74a4be1afe0e0c673..HEAD` 后提交；整包撤销时执行 `git revert --no-commit 5d273c3fbe5e02e52b6ab3e8630f6d54a0c78a43..HEAD` 后提交。不得 reset/force-push，不涉及数据库、运行数据或外部系统。
 
 ## 计划确认记录
 
@@ -98,7 +99,7 @@
 - `PROJECT_PRODUCT.md` 明确且唯一地定义产品、第一 Offer、41 司目录、世界杯 benchmark 和 R0→R1→R2→R3+。
 - R0/R1 PRD 有用户/JTBD、目标/非目标、REQ ID、状态/失败、成果、数据安全、指标、验收、rollout/rollback。
 - guide 的 FULL_COURT 全量 L3 裁决与旧 Step 执行权威被明确替代。
-- 仍自称 `IN PROGRESS`、`最终产品形态冻结` 或强制 V2 intake 的旧计划均有显式 `SUPERSEDED/HISTORICAL` 横幅。
+- 仍自称 `IN PROGRESS`、`REVIEWED_GO`、`最终产品形态冻结`、上位施工权威或强制 V2 intake 的旧计划均有显式 `SUPERSEDED/HISTORICAL` 横幅。
 - RFC 为 accepted decision record；参考输入不再拥有产品定义或排期。
 - immutable source hash 不变；只改 allowlist 路径。
 - ancestry 线性且不含本地 78 个分叉提交。

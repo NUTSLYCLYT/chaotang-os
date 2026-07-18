@@ -5,8 +5,8 @@
 | 字段 | 值 |
 | --- | --- |
 | 日期 | 2026-07-18 |
-| 干净基线 | `feature-chaotang-ext@6ee6d8d542127174f4d899f940d4937b6fa2b70f` |
-| source-preservation commit | `22084d3bdefdf5a46ec3a9a7be1b159023154f83` |
+| 干净基线 | `feature-chaotang-ext@5d273c3fbe5e02e52b6ab3e8630f6d54a0c78a43` |
+| source-preservation commit | `33dac7b47be09c60f77642b74a4be1afe0e0c673` |
 | 被隔离的本地主线 | `79b1eaa530ef60e776dfcbf79c5f52cf4f611830` |
 | 工作树 | `product-r0-freeze-20260718` |
 | 变更类型 | 文档与产品契约；无运行时代码 |
@@ -16,18 +16,21 @@
 | 命令 | 退出码 | 结果 | 证据覆盖范围 | 证据位置 / 时间 |
 | --- | ---: | --- | --- | --- |
 | `git diff --check` | 0 | PASS | 空白、冲突标记与 patch 结构 | 本地候选，2026-07-18 |
-| Node 只读 Markdown checker | 0 | PASS：14 个当前编辑文档围栏成对、相对链接存在 | Markdown 结构与本地链接 | 本地候选，2026-07-18 |
+| Node 只读 Markdown checker | 0 | PASS：最终差异中的 27 个 Markdown 文档围栏成对、相对链接存在 | Markdown 结构与本地链接 | 本地候选，2026-07-18 |
 | Node 六部 41 司计数 | 0 | PASS：`7+6+7+7+7+7=41` | `TARGET_DIRECTORY_V1` 数量契约 | `PROJECT_PRODUCT.md`，2026-07-18 |
-| Node REQ/假设/开放问题 ID 去重 | 0 | PASS：56 个唯一 ID | R0/R1 PRD 可追踪性 | R0/R1 PRD，2026-07-18 |
-| Node 路径 allowlist | 0 | PASS：相对基线 25 个路径全部允许 | 无 frontend/backend/scripts/规则越界 | 本地候选，2026-07-18 |
+| Node REQ/目标/假设/开放问题 ID 去重 | 0 | PASS：56 个定义行、56 个唯一 ID | R0/R1 PRD 可追踪性 | R0/R1 PRD，2026-07-18 |
+| Node 路径 allowlist | 0 | PASS：相对基线 27 个路径全部允许 | 无 frontend/backend/scripts/规则越界 | 本地候选，2026-07-18 |
 | `sha256sum source_inputs/*.md` | 0 | PASS：A=`51374f5d…d5a5b3`；B=`715a8126…d0813` | 不可变审计输入 | `source_inputs/`，2026-07-18 |
-| `sha256sum chaotang-os-product-definition-convergence-blueprint-2026-07-18.md` | 0 | PASS：旧 `475f13ad…de2` → 冻结稿 `859937e3…11cf` | Decision Record 精确内容 | `docs/plans/`，2026-07-18 |
+| `sha256sum chaotang-os-product-definition-convergence-blueprint-2026-07-18.md` | 0 | PASS：旧 `475f13ad…de2` → 冻结稿 `591f7673…ccfe` | Decision Record 精确内容 | `docs/plans/`，2026-07-18 |
 | `node scripts/harness-doctor.mjs` | 0 | PASS：0 errors，0 warnings | 根/前端/后端护栏结构与边界 | 本地候选，2026-07-18 |
-| `git merge-base / rev-list / rev-list --merges` 组合核验 | 0 | PASS：线性源自 `6ee6d8d`；与 `79b1eaa` merge-base 仍为 `bf7d4cc`；无 merge commit | 不引入本地 78 个分叉提交 | 本地候选，2026-07-18 |
-| `git ls-remote origin` | 0 | PASS：目标分支仍为 `6ee6d8d`；安全分支为 `79b1eaa`；产品分支未预先存在 | 远端隔离与回滚锚点 | origin，2026-07-18 |
+| `git merge-base / rev-list / rev-list --merges` 组合核验 | 0 | PASS：4 个产品提交线性源自 `5d273c3`；与 `79b1eaa` merge-base 仍为 `bf7d4cc`；无 merge commit | 不引入本地大分叉提交 | 本地候选，2026-07-18 |
+| `git ls-remote origin` | 0 | PASS：审查期发现目标由 `6ee6d8d` 前进至 `5d273c3`；安全分支仍为 `79b1eaa`；产品分支未预先存在 | 远端漂移、隔离与回滚锚点 | origin，2026-07-18 |
+| `git merge-tree --write-tree` + `git rebase origin/feature-chaotang-ext` | 0 | PASS：目标新增 3 个 P8/P9 前端收口提交与产品文档零冲突；候选已线性重基至 `5d273c3` | 合并可行性与最新目标基线 | 本地候选，2026-07-18 |
 | 独立产品冻结内容预审 | 不适用 | ALLOW（初审两个阻塞已修复并复核） | 权威唯一性、发布顺序、41 司、合同范围、世界杯、失败语义 | `product_freeze_precheck`，2026-07-18 |
 | 精确 HEAD stop-gate 首轮 | 不适用 | BLOCK：`b1ae7c0` 发现旧 launch blueprint 仍自称当前 FULL_COURT/最终产品权威；当前修订已补 historical/superseded 横幅，待最终精确复审 | 旧权威残留与祖先/快照 | `exact_head_stopgate`，2026-07-18 |
 | stale-authority 修复复核 | 不适用 | ALLOW：launch/full-court/backlog/department 与 plans 目录规则已完整关闭原 blocker | 当前未提交修订内容 | `exact_head_stopgate` follow-up，2026-07-18 |
+| 第二轮精确 HEAD stop-gate | 不适用 | BLOCK：`3bcaf95` 发现 single-fact-source/knowledge-flywheel 仍声明旧 Step 0–12 上位权威，且回滚未覆盖最终修复提交；当前修订改为 reference-only 与 commit-range 回滚 | 下游旧权威链与可执行回滚 | `final_exact_stopgate`，2026-07-18 |
+| 下游权威与回滚修复复核 | 不适用 | ALLOW：两份下游计划已降为 reference-only；旧基线候选的自覆盖回滚设计成立；重基后等价区间已改为 `33dac7b..HEAD` / `5d273c3..HEAD` | 旧基线内容复核；重基后仍须精确 HEAD 复审 | `final_exact_stopgate` follow-up，2026-07-18 |
 
 ## 结果
 
@@ -41,7 +44,7 @@
 - PDF/DOCX/JSON 是 R0 基础必需成果；track-changes/附加格式仍是开放问题。
 - direct ACK、worker 回执和部分结果不得派生 `DELIVERED`。
 - 旧 FULL_COURT 全量 L3 与旧 Step 0–12 仅保留历史审计，不再拥有当前范围或排期。
-- 旧 launch/full-court/backlog/department 计划已显式降为 historical/reference，`plans/` 目录本身不再暗示“已批准”。
+- 旧 launch/full-court/backlog/department/single-fact-source/knowledge-flywheel 计划已显式降为 historical/reference，`plans/` 目录本身不再暗示“已批准”。
 
 ## 未验证项
 
@@ -52,9 +55,9 @@
 
 ## Diff 与回滚复核
 
-- changed files：相对 `6ee6d8d` 共 25 个允许路径；前置 commit 含 14 个产品定型输入/审计路径，本次另涉及 11 个冻结/历史权威路径，并继续修订其中 3 个前置权威/索引文档。
-- diff review：内容预审先 BLOCK 两处并修复后 ALLOW；首轮精确 HEAD stop-gate 再 BLOCK 一处旧 launch 权威，本修订同时关闭其直接引用的 FULL_COURT 计划入口，修复内容复核 ALLOW；提交后另做精确 SHA 交付门。
-- 回滚是否演练：未实际 revert；全部为文档，可按第二个冻结 commit 或前置 source-preservation commit 分层 revert，不涉及数据库或外部系统。
+- changed files：相对 `5d273c3` 共 27 个允许路径；前置 commit 含 14 个产品定型输入/审计路径，本次另涉及 13 个冻结/历史权威路径，并继续修订其中 3 个前置权威/索引文档。
+- diff review：内容预审两处问题修复后 ALLOW；首轮精确 HEAD 的 launch 权威 blocker 修复复核 ALLOW；第二轮精确 HEAD 又发现下游 Step 0–12 权威链与回滚遗漏并已关闭；目标前进后候选已重基，必须再做一次重基后精确 SHA 交付门。
+- 回滚是否演练：旧基线最终候选已在临时 detached worktree 验证两种 revert 树精确匹配；重基后候选在推送前重跑。等价命令为 `git revert --no-commit 33dac7b47be09c60f77642b74a4be1afe0e0c673..HEAD`（保留输入包）或 `git revert --no-commit 5d273c3fbe5e02e52b6ab3e8630f6d54a0c78a43..HEAD`（整包）。
 
 ## 完成定义映射
 
@@ -63,9 +66,9 @@
 | 唯一产品身份、Offer 与权威层 | SSOT、PRD、RFC/guide 状态与链接 | PASS |
 | R0/R1 可追踪产品契约 | 22 条 R0 REQ、5 条 R1 REQ、1 条 R2 REQ；状态/失败/验收/回滚 | PASS |
 | 41 司精确且不冒充上线 | 自动计数 41；成熟度与 `NO_DATA` 分离 | PASS |
-| 旧发布与执行权威已替代 | guide 顶部/`9/`11/`12；RFC `11.3；四份历史计划的 supersession 横幅 | PASS |
+| 旧发布与执行权威已替代 | guide 顶部/`9/`11/`12；RFC `11.3；六份历史计划的 supersession 横幅 | PASS |
 | 历史输入不可变 | A/B SHA-256 精确匹配 | PASS |
-| 无范围外代码与历史污染 | 25 路径 allowlist、ancestry 与无 merge commit | PASS |
+| 无范围外代码与历史污染 | 27 路径 allowlist、ancestry 与无 merge commit | PASS |
 | 根级护栏健康 | harness doctor 0/0 | PASS |
 | 独立内容 stop-gate | 修复后 `ALLOW` | PASS |
 
