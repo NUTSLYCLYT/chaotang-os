@@ -105,6 +105,121 @@ def test_adapt_gongbu_storage_incident_returns_five_stage_court_doc():
     }
 
 
+def test_adapt_gongbu_explosion_fire_is_p0_black():
+    # 反安全假阴性回归：爆炸/起火与冒烟同属电池紧急事件，必须 P0/black，
+    # 强制“现场断电+撤离+消防待命”语气；绝不能被降级为 P2/yellow。
+    doc = rde.adapt_gongbu(
+        "储能柜昨晚发生爆炸并起火，现场浓烟弥漫，需要立刻处理"
+    )
+
+    assert doc is not None
+    assert doc["dept"] == "gongbu"
+    assert doc["light"] == "black"
+    assert doc["risk_level"] == "P0"
+
+
+def test_adapt_gongbu_hazard_phrasings_not_silently_downgraded():
+    # 反 fail-open：储能范围内危险措辞必须按 P0，不能依赖少量精确词白名单。
+    for text in (
+        "储能柜炸了，现场一片火海",
+        "储能电池包烧穿了还有明火",
+        "储能柜爆燃了",
+        "储能 BMS 高温报警，怀疑内部短路",
+        "整个储能舱在烧",
+        "储能电芯烧穿了",
+        "储能柜焚毁",
+    ):
+        doc = rde.adapt_gongbu(text)
+        assert doc is not None, text
+        assert doc["risk_level"] == "P0", f"{text} 被误判/静默降级"
+        assert doc["light"] == "black", text
+
+
+def test_gongbu_severity_bypasses_stale_engine_cache(monkeypatch):
+    # 真行为回归：证明缓存先真实生效，再证明工部不读取陈旧 P2 判定。
+    from src.direct_cache import DirectCache
+
+    monkeypatch.setenv("SWARM_ENGINE_CACHE", "1")
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+    stale = {"dept": "gongbu", "risk_level": "P2", "light": "yellow", "_stale_probe": True}
+
+    DirectCache().set("dept_engine::兵部::__cache_probe__", dict(stale), mode="dept_engine")
+    control = rde._call_adapter_observed(
+        "兵部", lambda _t: {"dept": "bingbu", "fresh": True}, "__cache_probe__"
+    )
+    assert control.get("_stale_probe"), "缓存未在测试中生效，前提不成立"
+
+    hazard = "储能柜发生爆炸并起火，需要立刻处理"
+    DirectCache().set(f"dept_engine::工部::{hazard}", dict(stale), mode="dept_engine")
+    fresh = rde._call_adapter_observed("工部", rde.adapt_gongbu, hazard)
+    assert not fresh.get("_stale_probe"), "工部严重度被旧缓存绕过"
+    assert fresh["risk_level"] == "P0"
+    assert fresh["light"] == "black"
+
+
+def test_adapt_gongbu_unconfirmed_incident_escalates_not_silent_p2():
+    doc = rde.adapt_gongbu("储能柜温度90度，请安排售后故障处理")
+    assert doc is not None
+    assert doc["risk_level"] == "P1", "未确认储能事故被静默降为低危"
+    assert doc["light"] == "black"
+    assert doc["risk_level"] != "P2"
+
+
+def test_adapt_gongbu_unconfirmed_incident_requires_human_signoff():
+    # 直接钉住下游使用的 signoff 语义，而不只检查展示字段。
+    from src.signoff_gate import needs_signoff
+
+    for text in (
+        "储能柜例行巡检，设备一切正常",
+        "储能电池外壳变形，系统运行一切正常",
+        "储能柜温度90度",
+        "储能电池起火",
+    ):
+        doc = rde.adapt_gongbu(text)
+        assert doc is not None, text
+        assert needs_signoff(doc) is True, f"{text} 未落必须人签档，会被自动放行"
+
+
+def test_adapt_gongbu_never_auto_downgrades_to_p2():
+    # “正常”关键词不能自动授权物理安全降级；所有储能任务至少进入 P1 人签。
+    for text in (
+        "储能柜例行巡检，设备一切正常，未见异常",
+        "储能柜验收合格，测试通过，工况正常",
+    ):
+        doc = rde.adapt_gongbu(text)
+        assert doc is not None, text
+        assert doc["risk_level"] == "P1", f"{text} 未落到 P1"
+        assert doc["risk_level"] != "P2", f"{text} 被静默降为 P2"
+        assert doc["light"] == "black"
+
+
+def test_adapt_gongbu_real_problem_with_benign_phrase_not_downgraded():
+    cases = {
+        "储能电池外壳变形，系统运行一切正常": "P1",
+        "储能柜进水，其余设备运行正常": "P1",
+        "储能电池包漏气但设备运行一切正常": "P0",
+        "储能电池模组外壳破裂，工况显示正常": "P0",
+    }
+    for text, expected in cases.items():
+        doc = rde.adapt_gongbu(text)
+        assert doc is not None, text
+        assert doc["risk_level"] == expected, f"{text} 期望 {expected} 实为 {doc['risk_level']}"
+        assert doc["risk_level"] != "P2", text
+
+
+def test_adapt_gongbu_anomaly_context_escalates_not_downgraded():
+    for text in (
+        "储能柜例行巡检时发现电压偏高并有报警",
+        "客户咨询：储能柜近期频繁跳闸掉电",
+        "储能柜巡检一切正常，但仪表持续报警",
+    ):
+        doc = rde.adapt_gongbu(text)
+        assert doc is not None, text
+        assert doc["risk_level"] == "P1", f"{text} 期望 P1"
+        assert doc["risk_level"] != "P2", text
+
+
 def test_adapt_gongbu_requires_storage_or_bms_scope():
     assert rde.adapt_gongbu("帮我写一份普通市场推广方案") is None
 

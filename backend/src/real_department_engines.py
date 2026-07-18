@@ -74,6 +74,11 @@ def _log_engine_call(dept_name: str, *, elapsed_ms: float, outcome: str) -> None
         pass
 
 
+# 严重度/时效性必须实时的部门，永不读取 (部门+任务) 旧缓存：
+# 锦衣卫需要实时情报；工部的储能物理安全分诊不能被旧 P2 判定绕过。
+_ENGINE_CACHE_EXCLUDED_DEPTS = ("锦衣卫", "工部")
+
+
 def _call_adapter_observed(
     dept_name: str, adapter: Callable[[str], dict | None], task_text: str
 ) -> dict | None:
@@ -81,11 +86,12 @@ def _call_adapter_observed(
     不用在两处各自重复计时逻辑。
 
     ② 真引擎缓存(2026-07-06):相同(部门+任务)命中直接返回,不重烧最贵的外呼
-    (兵部 flow / 户部报价 flow 等)。锦衣卫是实时情报/异动雷达,不缓存(避免返回过期
-    情报)。SWARM_ENGINE_CACHE=0 可关。缓存任何异常一律静默降级,绝不阻断真调用。"""
+    (兵部 flow / 户部报价 flow 等)。锦衣卫实时情报与工部物理安全严重度不缓存。
+    SWARM_ENGINE_CACHE=0 可关。缓存任何异常一律静默降级,绝不阻断真调用。"""
     cache_on = (
         os.environ.get("SWARM_ENGINE_CACHE", "1") == "1"
-        and dept_name != "锦衣卫"
+        # key 没有判定逻辑版本；工部若命中修复前的 P2，会绕过新 fail-safe。
+        and dept_name not in _ENGINE_CACHE_EXCLUDED_DEPTS
         # pytest 下关缓存:测试常注入不同 adapter 行为(如"引擎失败")验证兜底,
         # 缓存按(部门+任务)命中会短路 adapter、破坏失败注入与测试隔离。
         and "PYTEST_CURRENT_TEST" not in os.environ
@@ -856,7 +862,17 @@ _GONGBU_SCOPE_KEYWORDS = (
     "设备告警",
     "售后故障",
 )
-_GONGBU_P0_KEYWORDS = ("热失控", "冒烟", "漏液", "燃烧")
+# 物理安全门只允许两档：明确危险信号为 P0；其余储能事故为 P1 并强制人签。
+# 不设 benign→P2 自动降级，因为“正常”子串无法可靠授权物理安全降级。
+_GONGBU_P0_HAZARD_SIGNALS = (
+    # 火情与爆炸
+    "火", "爆", "炸", "燃", "烧", "焚", "烟", "焦", "糊味",
+    # 热失控及其前兆
+    "热失控", "漏液", "漏气", "排气", "喷阀", "鼓包", "胀气", "膨胀",
+    "破裂", "穿刺", "短路", "高温", "超温",
+    # 恶化或失控趋势
+    "飙", "骤", "失控", "超标", "蔓延", "恶化", "往上冲",
+)
 _GONGBU_GAP_RULES = (
     ("设备编号", ("设备编号", "设备号", "BMS-")),
     ("绝对时间窗", ("2026-", "2025-", "2024-", "时间")),
@@ -875,26 +891,29 @@ def adapt_gongbu(task_text: str) -> dict | None:
     if not any(keyword.lower() in task_text.lower() for keyword in _GONGBU_SCOPE_KEYWORDS):
         return None
 
-    p0 = any(keyword in task_text for keyword in _GONGBU_P0_KEYWORDS)
-    risk_level = "P0" if p0 else "P2"
-    light = "black" if p0 else "yellow"
+    # 两档都保持 black：signoff_gate 将 yellow 视为可自动继续，只有 black 才要求人签。
+    hazard = any(signal in task_text for signal in _GONGBU_P0_HAZARD_SIGNALS)
+    if hazard:
+        risk_level, light = "P0", "black"
+        safety = "现场断电+撤离+消防待命；不得远程复位或直接下发维修指令"
+        headline_note = "命中强制安全阈值"
+    else:
+        risk_level, light = "P1", "black"
+        safety = (
+            "严重度未确认；按潜在紧急保守处置，强制人工安全复核确认无火情/热失控后"
+            "方可降级；确认前不得径直下发维修或远程复位"
+        )
+        headline_note = "严重度未确认，保守升级+人工安全复核"
     missing = [
         label
         for label, markers in _GONGBU_GAP_RULES
         if not any(marker.lower() in task_text.lower() for marker in markers)
     ]
-    safety = (
-        "现场断电+撤离+消防待命；不得远程复位或直接下发维修指令"
-        if p0
-        else "先隔离设备并补齐遥测，再安排工程师复核"
-    )
-    headline = (
-        f"{risk_level} 储能售后故障分诊：{'命中强制安全阈值' if p0 else '需补证后诊断'}"
-    )
+    headline = f"{risk_level} 储能售后故障分诊：{headline_note}"
     items = [
         {
             "stage": "故障分诊",
-            "level": "black" if p0 else "yellow",
+            "level": "black",
             "title": f"紧急度 {risk_level}；{safety}",
             "fix": "确认设备型号、编号、地点和绝对告警时间",
             "evidence_ref": "task://gongbu/triage",
@@ -922,7 +941,7 @@ def adapt_gongbu(task_text: str) -> dict | None:
         },
         {
             "stage": "处置工单",
-            "level": "black" if p0 else "yellow",
+            "level": "black",
             "title": "生成待审批工单草稿，不直接发送或下发维修",
             "fix": "列出 BOM、工时区间、人员配置和客户话术；冲突结论转人工",
             "evidence_ref": "task://gongbu/workorder-draft",
