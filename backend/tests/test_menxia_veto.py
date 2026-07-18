@@ -1,4 +1,43 @@
+import pytest
+
 from src.menxia_veto import review_route
+from src.shangshufang_loop import chancellor_decide_route, draft_edict
+from tests.fixtures.chancellor_golden_cases import GOLDEN_CASES
+
+# 已知：以下黄金案例本身就是"确定性规则的已知缺陷"或真正的证据缺口，
+# menxia 门下省封驳它们是正确行为，不是误封驳——只锁住不该封驳的那些。
+# 见 tests/fixtures/chancellor_golden_cases.py 各案例 notes 字段。
+_EXPECTED_VETO_IDS = {
+    "gap_03_vague_cooperation",
+    "sec_01_stock_advice",
+    "capability_01_no_keyword_match",
+    "capability_02_ambiguous_general",
+    "ambiguity_01_explicit_cluster_word",
+    "ambiguity_04_negation",
+}
+
+
+@pytest.mark.parametrize("case", GOLDEN_CASES, ids=lambda c: c["id"])
+def test_menxia_veto_does_not_false_positive_golden_cases(case):
+    """门下省封驳不能错杀丞相已经用确定性规则批准的黄金案例。
+
+    2026-07-18 实测：_route_has_scope_evidence 曾对 9/33 黄金案例误封驳，
+    其中 3 条（simple_02/simple_03/ambiguity_03）是真正的假阳性——丞相已经
+    用"整理/草拟/初判类轻量任务"或"显式部门点名"确定性规则批准，门下省却
+    因为专业关键词表没覆盖而二次否决。此测试锁住这 3 条不再被错杀，同时
+    不改变另外 6 条已知缺陷案例本该被拦的行为。
+    """
+    edict = draft_edict(case["question"])
+    route = chancellor_decide_route(edict)
+    if not route.get("departments"):
+        pytest.skip("no candidate departments, out of menxia scope")
+    result = review_route(route, case["question"])
+    if case["id"] in _EXPECTED_VETO_IDS:
+        assert result["verdict"] == "封驳", f"{case['id']} 预期仍被封驳(已知缺陷/证据缺口)"
+    else:
+        assert result["verdict"] == "准奏", (
+            f"{case['id']} 被误封驳：{result['veto_reasons']}"
+        )
 
 
 def test_world_cup_route_is_rejected_before_department_dispatch():

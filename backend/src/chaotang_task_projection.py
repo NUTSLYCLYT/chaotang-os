@@ -14,6 +14,9 @@ _TERMINAL_TASK_STATUSES = frozenset(
         "archived",
         "rejected",
         "cancelled",
+        # 门下省封驳:没有更多事件会来，不加进来轮询/SSE 客户端会一直当作
+        # "还在跑"，实际上已经卡死等人工确认(2026-07-18)。
+        "menxia_veto_pending",
     }
 )
 
@@ -25,6 +28,18 @@ _WIRE_STATUS = {
     "awaiting_decision": "report_ready",
     "awaiting_evidence": "report_ready",
     "direct_completed": "report_ready",
+    # 故意不在这里给 menxia_veto_pending 配映射:试过 report_ready(暗示"有
+    # 正常结果，随便看"，误导)和 failed(暗示"系统坏了、不可操作"，
+    # 同样误导且方向相反)——查了 frontend/src/features/throne/lib/
+    # plain-language.ts 的完整 11 态白话映射，没有一个词准确描述"被拦住、
+    # 需要人工决定、不是系统故障"。frontend/src/types/task.ts 的 TaskStatus
+    # 是冻结的 Tier-1 类型(改动需通知 Command Center/Overview Page Agent)，
+    # 猜第三个值不会比前两次更准，只会继续错。不映射时 _WIRE_STATUS.get()
+    # 回退到裸内部状态字符串 "menxia_veto_pending"——前端会显示成未识别
+    # 状态(大概率是空白/兜底文案)，不好看，但至少不是一个自信的错误答案。
+    # 需要该类型 owner 决定新增专属态或换一条不经过 TaskStatus 的信号
+    # 通道(比如已经在 memorial.quality_gate.human_signoff_required 里的
+    # 那条真实信号)。
     "archived": "archived",
     "rejected": "failed",
     "cancelled": "failed",
@@ -300,8 +315,17 @@ def read_stream_snapshot(
             .all()
         )
         wire_status = _WIRE_STATUS.get(task.status, task.status)
+        # menxia_veto_pending 也有 ChancellorRouteDecision(execution 非 None)，
+        # 但从没派发过任何 outbox/执行事件，execution.terminal 是从执行事件推导
+        # 的，永远读不到"已终止"——SSE 客户端会以为还在跑，实际已经卡死等人工
+        # 确认。这个状态必须直接判定终止，不能让 execution.terminal 覆盖
+        # (2026-07-18 实测:不加这条，_TERMINAL_TASK_STATUSES 里加了
+        # menxia_veto_pending 也没用，因为 execution 非 None 时根本走不到那个
+        # 分支)。
         terminal = (
-            execution.terminal
+            True
+            if task.status == "menxia_veto_pending"
+            else execution.terminal
             if execution is not None
             else task.status in _TERMINAL_TASK_STATUSES
         )

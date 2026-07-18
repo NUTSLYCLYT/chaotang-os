@@ -146,6 +146,83 @@ def test_confirm_direct_task_creates_simple_receipt_without_swarm(
     assert status_data["review"]["review_status"] == "direct_completed"
 
 
+def test_confirm_edict_vetoed_route_returns_full_contract_and_honest_status(
+    isolated_session_local,
+):
+    """门下省封驳时,响应契约(route/routing_plan/memorial)必须齐全,
+    task.status 必须诚实反映"被拦住,等人工确认",不能是 executing/未变。"""
+    client = TestClient(app)
+    draft_response = client.post(
+        "/api/shangshufang/draft-edict",
+        json={"raw_question": "我要去美国看世界杯决赛"},
+    )
+    task_id = draft_response.json()["data"]["task_id"]
+
+    confirm_response = client.post(
+        "/api/shangshufang/confirm-edict",
+        json={"task_id": task_id, "confirmed": True},
+    )
+
+    assert confirm_response.status_code == 200
+    confirm_data = confirm_response.json()["data"]
+    assert confirm_data["status"] == "menxia_veto_pending"
+    # 前端(unified-loop.ts 等)无条件解引用 result.memorial.* / result.route.*，
+    # 这几个字段必须存在，不能只返回 route_decision。
+    assert confirm_data["route"]["mode"] in ("direct", "cluster")
+    assert confirm_data["routing_plan"]["ministry_candidates"]
+    assert confirm_data["memorial"]["verdict"] == "已封驳"
+    assert confirm_data["memorial"]["quality_gate"]["human_signoff_required"] is True
+    assert confirm_data["review_id"]
+    # 2026-07-18:memorial title 曾经硬编码"军机处会审回奏"——封驳发生在任何
+    # 部门会审之前，那个 title 编造了一段没发生过的会审过程。
+    assert confirm_data["memorial"]["title"] == "门下省封驳纪要"
+    assert "军机处" not in confirm_data["memorial"]["title"]
+    # 2026-07-18 审计发现:ShangshufangReviewMemorial 的必填字段(前端
+    # buildView 无条件读取/.filter())漏填会在渲染时直接崩，不是可选的。
+    for required_field in (
+        "evidence_gaps",
+        "decision_options",
+        "next_best_action",
+        "source_label",
+    ):
+        assert required_field in confirm_data["memorial"], f"缺必填字段 {required_field}"
+    assert confirm_data["memorial"]["decision_options"] == []
+
+    status_response = client.get(f"/api/shangshufang/tasks/{task_id}/status")
+    assert status_response.status_code == 200
+    status_data = status_response.json()["data"]
+    assert status_data["task"]["status"] == "menxia_veto_pending"
+    assert status_data["review"]["review_status"] == "menxia_veto_pending"
+
+
+def test_confirm_edict_retry_on_vetoed_task_is_idempotent(isolated_session_local):
+    """重复点击/网络重试确认同一个已封驳任务不能崩:CourtReview.id 由 task.id
+    确定性生成,menxia_veto_pending 不进 _TERMINAL_CONFIRMED_STATUSES 的话，
+    重试会绕开幂等短路、二次 INSERT 撞 court_reviews.id 唯一约束
+    (2026-07-18 实测复现:sqlite3.IntegrityError)。"""
+    client = TestClient(app)
+    draft_response = client.post(
+        "/api/shangshufang/draft-edict",
+        json={"raw_question": "我要去美国看世界杯决赛"},
+    )
+    task_id = draft_response.json()["data"]["task_id"]
+
+    first = client.post(
+        "/api/shangshufang/confirm-edict",
+        json={"task_id": task_id, "confirmed": True},
+    )
+    assert first.json()["success"] is True
+    assert first.json()["data"]["status"] == "menxia_veto_pending"
+
+    retry = client.post(
+        "/api/shangshufang/confirm-edict",
+        json={"task_id": task_id, "confirmed": True},
+    )
+    assert retry.json()["success"] is True, retry.json()
+    assert retry.json()["data"]["status"] == "menxia_veto_pending"
+    assert retry.json()["data"]["review_id"] == first.json()["data"]["review_id"]
+
+
 def test_confirm_edict_creates_review_status(isolated_session_local):
     # 刑部/户部真实引擎已由 tests/conftest.py 的 _no_network_real_department_engines
     # 自动patch成空结果,这里不需要重复mock,直接走安全默认值即可。

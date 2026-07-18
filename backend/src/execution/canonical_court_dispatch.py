@@ -157,6 +157,81 @@ def dispatch_compat_court_task(
             source_label=task.source_label,
             department_override=routing_departments or None,
         )
+        if "门下省封驳" in route_decision.risk_flags:
+            # 门下省封驳：不得进入军机处派单(menxia_veto.py docstring)。只认
+            # "门下省封驳"这个专属 riskFlag,不认宽泛的 human_confirmation_required
+            # ——那个 flag 还有别的合法触发源,拿来当封驳信号会连正常任务一起挡住。
+            #
+            # review_id/outbox_event_id 不能留 None:调用方(chaotang.py/direct.py)
+            # 把整个 receipt 存下来供前端轮询用,review_id=None 会让轮询链路断掉。
+            # 这里落一条真实 CourtReview(状态 menxia_veto_pending，诚实标"被拦住"，
+            # 不冒充派单已完成),outbox_event_id 保持 None——这是唯一诚实的值，
+            # 确实没有排队执行任何东西。routing_plan_for 是纯函数、不触发真实
+            # 派单，可以放心调用；memorial 手写占位，不借 direct_receipt_for/
+            # review_memorial_for(那两个会触发真实部门任务，正是封驳要拦住的东西)。
+            route = legacy_route_dict(route_decision)
+            edict = draft_edict(command, source_label=task.source_label)
+            if routing_departments:
+                edict = replace(edict, recommended_departments=routing_departments)
+            routing_plan = routing_plan_for(edict, route)
+            memorial = {
+                # 不是"军机处会审回奏"——封驳发生在任何部门会审之前，这份
+                # title 曾经暗示军机处已经召集部门产出结论，是编造(2026-07-18)。
+                "title": "门下省封驳纪要",
+                "verdict": "已封驳",
+                "summary": route_decision.reason_summary or "门下省封驳，需人工确认后才能派单。",
+                "ministry_outputs": [],
+                "conflict_summary": [
+                    {
+                        "type": "human_signoff",
+                        "summary": route_decision.reason_summary or "",
+                        "source_label": route_decision.source_label,
+                    }
+                ],
+                "evidence_gaps": [],
+                "risk_flags": route_decision.risk_flags,
+                # 空数组,不是省略:ShangshufangReviewMemorial.decision_options
+                # 是必填字段,前端 buildView 无条件 .filter() 它,漏了会在渲染
+                # 时直接崩(2026-07-18 审计发现)。不填假的"覆盖封驳"之类的
+                # 选项——那类动作现在没有真实后端处理器,放出会是骗人的按钮。
+                "decision_options": [],
+                "next_best_action": "await_human_signoff",
+                "source_label": route_decision.source_label,
+                "quality_gate": {
+                    "status": "blocked",
+                    "reasons": route_decision.risk_flags,
+                    "human_signoff_required": True,
+                },
+            }
+            now = now_iso()
+            review_id = make_id("review", task_id, "compat-menxia-veto")
+            task.status = "menxia_veto_pending"
+            task.updated_at = now
+            db.add(
+                CourtReview(
+                    id=review_id,
+                    tenant_id=task.tenant_id,
+                    task_id=task_id,
+                    routing_plan_json=_json(routing_plan),
+                    review_status="menxia_veto_pending",
+                    ministry_outputs_json=_json(memorial["ministry_outputs"]),
+                    conflict_summary_json=_json(memorial["conflict_summary"]),
+                    memorial_json=_json(memorial),
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+            db.commit()
+            return {
+                "task_id": task_id,
+                "status": task.status,
+                "review_id": review_id,
+                "route_decision_id": route_decision.decision_id,
+                "outbox_event_id": None,
+                "review_status_url": f"/api/shangshufang/tasks/{task_id}/status",
+                "source_label": route_decision.source_label,
+                "message": route_decision.reason_summary or "门下省封驳，需人工确认后才能派单。",
+            }
         route = legacy_route_dict(route_decision)
         edict = draft_edict(command, source_label=task.source_label)
         if routing_departments:

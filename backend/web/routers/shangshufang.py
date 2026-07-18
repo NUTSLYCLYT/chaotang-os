@@ -46,6 +46,7 @@ from src.shangshufang_loop import (
     draft_edict,
     draft_to_dict,
     evaluate_draft,
+    format_memorial_sections,
     home_payload,
     make_id,
     now_iso,
@@ -1034,6 +1035,9 @@ def shangshufang_confirm_edict(
             "reviewing",
             "awaiting_decision",
             "awaiting_evidence",
+            # menxia_veto_pending 也已经写过 CourtReview(id 由 task.id 确定性生成)，
+            # 不加进来的话重试会撞 court_reviews.id 唯一约束(2026-07-18 实测复现)。
+            "menxia_veto_pending",
         }
         if task.status in _TERMINAL_CONFIRMED_STATUSES:
             existing_review = _latest_review(db, task.id)
@@ -1078,6 +1082,88 @@ def shangshufang_confirm_edict(
             idempotency_key=idempotency_key,
             source_label=task.source_label,
         )
+        if "门下省封驳" in route_decision.risk_flags:
+            # 门下省封驳：只审路由，不执行部门任务(menxia_veto.py docstring)。
+            # 只认"门下省封驳"这个专属 riskFlag,不认宽泛的 human_confirmation_required
+            # ——那个 flag 还有别的合法触发源,拿来当封驳信号会连正常任务一起挡住。
+            #
+            # 响应契约:前端(unified-loop.ts 等)无条件解引用 result.memorial.*,
+            # 早期版本这里只返回 route_decision 会直接把前端打崩。routing_plan_for
+            # 是纯函数、不触发真实派单，可以放心调用；memorial 手写一份诚实的
+            # "已封驳、未会审"占位，不借真实会审的 direct_receipt_for/review_memorial_for
+            # (那两个会触发真实部门任务，正是封驳要拦住的东西)。
+            # 任务状态:之前留着 task.status 不变(多半是 draft/awaiting_emperor_confirm)，
+            # 用户明明已确认提交却显示"未确认"，不诚实；改成专属状态
+            # menxia_veto_pending，明确说"被拦住了，等人工确认"，不复用
+            # awaiting_decision(那个隐含"有会审结果可看")或 rejected(那个隐含
+            # "用户主动驳回")。
+            route = legacy_route_dict(route_decision)
+            routing_plan = routing_plan_for(
+                draft_edict(confirmed_edict_text, source_label=task.source_label), route
+            )
+            memorial = {
+                # 不是"军机处会审回奏"——封驳发生在任何部门会审之前，这份
+                # title 曾经暗示军机处已经召集部门产出结论，是编造(2026-07-18)。
+                "title": "门下省封驳纪要",
+                "verdict": "已封驳",
+                "summary": route_decision.reason_summary or "门下省封驳，需人工确认后才能派单。",
+                "ministry_outputs": [],
+                "conflict_summary": [
+                    {
+                        "type": "human_signoff",
+                        "summary": route_decision.reason_summary or "",
+                        "source_label": route_decision.source_label,
+                    }
+                ],
+                "evidence_gaps": [],
+                "risk_flags": route_decision.risk_flags,
+                "risk_register": [],
+                # 空数组,不是省略:ShangshufangReviewMemorial.decision_options
+                # 是必填字段,前端 buildView 无条件 .filter() 它,漏了会在渲染
+                # 时直接崩(2026-07-18 审计发现)。不填假的"覆盖封驳"之类的
+                # 选项——那类动作现在没有真实后端处理器,放出会是骗人的按钮。
+                "decision_options": [],
+                "next_best_action": "await_human_signoff",
+                "source_label": route_decision.source_label,
+                "quality_gate": {
+                    "status": "blocked",
+                    "reasons": route_decision.risk_flags,
+                    "human_signoff_required": True,
+                },
+            }
+            memorial["formatted_memorial"] = format_memorial_sections(memorial)
+            now = now_iso()
+            review_id = make_id("review", task.id, "menxia-veto")
+            task.status = "menxia_veto_pending"
+            task.updated_at = now
+            db.add(
+                CourtReview(
+                    id=review_id,
+                    tenant_id=task.tenant_id,
+                    task_id=task.id,
+                    routing_plan_json=_json(routing_plan),
+                    review_status="menxia_veto_pending",
+                    ministry_outputs_json=_json(memorial["ministry_outputs"]),
+                    conflict_summary_json=_json(memorial["conflict_summary"]),
+                    memorial_json=_json({**memorial, "draft_edict": draft_payload}),
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+            db.commit()
+            return ok(
+                {
+                    "task_id": task.id,
+                    "status": task.status,
+                    "message": route_decision.reason_summary or "门下省封驳，需人工确认后才能派单。",
+                    "review_id": review_id,
+                    "routing_plan": routing_plan,
+                    "memorial": memorial,
+                    "route": route,
+                    "route_decision": route_decision.model_dump(),
+                    "review_status_url": f"/api/shangshufang/tasks/{task.id}/status",
+                }
+            )
         route = legacy_route_dict(route_decision)
         edict_for_review = draft_edict(
             confirmed_edict_text, source_label=task.source_label
