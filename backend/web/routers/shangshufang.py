@@ -1112,6 +1112,13 @@ def shangshufang_confirm_edict(
                     {
                         "type": "human_signoff",
                         "summary": route_decision.reason_summary or "",
+                        # 必填字段,漏了会崩:canonical-read-model.ts 的
+                        # projectCanonicalCourtStatus 对每条 conflict_summary
+                        # 无条件 unique(item.departments).map(...),缺这个
+                        # key 时 item.departments 是 undefined,.map 直接炸
+                        # (2026-07-18 审计发现,真实 REST/LIVE 数据会崩,
+                        # 之前的回归测试手写了这个字段掩盖了这个缺口)。
+                        "departments": [],
                         "source_label": route_decision.source_label,
                     }
                 ],

@@ -185,6 +185,12 @@ def dispatch_compat_court_task(
                     {
                         "type": "human_signoff",
                         "summary": route_decision.reason_summary or "",
+                        # 必填字段,漏了会崩:canonical-read-model.ts 的
+                        # projectCanonicalCourtStatus 对每条 conflict_summary
+                        # 无条件 unique(item.departments).map(...),缺这个
+                        # key 时 item.departments 是 undefined,.map 直接炸
+                        # (2026-07-18 审计发现)。
+                        "departments": [],
                         "source_label": route_decision.source_label,
                     }
                 ],
