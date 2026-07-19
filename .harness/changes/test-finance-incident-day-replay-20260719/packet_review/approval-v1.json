@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "LOCAL_FEEDBACK_ONLY",
+  "review_version": 1,
+  "packet_id": "P24",
+  "change_id": "test-finance-incident-day-replay-20260719",
+  "predecessor_integration_sha": "9e4492973c4e8e6df7821c1becba8d0ccf54dada",
+  "reviewed_head_sha": "bbdebb8a02d8e4d466fb4ed12acdd4f167ef1ec3",
+  "report_path": ".harness/changes/test-finance-incident-day-replay-20260719/packet_review/review-v1.md",
+  "report_sha256": "5b0b18291a8fb78808346440d94d31fe6e1eb596849df4b1bf5466557b06cb09",
+  "verdict": "PACKET_REVIEW_GO"
+}
