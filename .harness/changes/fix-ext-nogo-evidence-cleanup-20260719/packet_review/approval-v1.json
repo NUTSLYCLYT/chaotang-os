@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "LOCAL_FEEDBACK_ONLY",
+  "review_version": 1,
+  "packet_id": "P19",
+  "change_id": "fix-ext-nogo-evidence-cleanup-20260719",
+  "predecessor_integration_sha": "af652e9d95aa4a951e7a63ba48a62b1a871cdd11",
+  "reviewed_head_sha": "8f64f54ab4c028dd451ea659a5b48fd326089a8c",
+  "report_path": ".harness/changes/fix-ext-nogo-evidence-cleanup-20260719/packet_review/review-v1.md",
+  "report_sha256": "1a9923acae3fb564e3c99c02c74f3b86338b56d212178f84d64cc0b1061aa7cf",
+  "verdict": "PACKET_REVIEW_GO"
+}
