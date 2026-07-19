@@ -198,7 +198,7 @@ R1 `ContractReviewPack` 只支持：
 
 ### 7.3 最小风险项与成果包
 
-每个风险项至少包含：合同版本、`riskLevel`、页码/条款号、原文 `evidence`、`explanation`、`missingEvidence`、`recommendedRevision`、`sourceLabel` 和 `engineTier`。
+每个风险项至少包含：合同版本、`riskLevel`、页码/条款号、原文 `evidence`、`explanation`、`missingEvidence`、`recommendedRevision`、`sourceLabel` 和 `engineTier`。合同 `riskLevel` 只使用 `critical / high / medium / low`；精确定义和统计口径由 R0/R1 PRD 第 8.0 节拥有，不得借用 release-severity P0/P1。
 
 完整成果包至少包含：
 
@@ -242,7 +242,7 @@ R1 `ContractReviewPack` 只支持：
 
 | 层级 | 产品目的 | 对外边界 | 退出门归属 |
 | --- | --- | --- | --- |
-| R0 `INTERNAL_TRUSTED_KERNEL` | 用合同纵切证明不伪证据、不伪完成、可恢复的可信内核 | 内部账号与合成、脱敏或明确授权测试材料 | R0/R1 PRD |
+| R0 `INTERNAL_TRUSTED_KERNEL` | 用合同纵切证明不伪证据、不伪完成、可恢复的可信内核 | 内部账号；仅限合成材料，或经合法性复核且不可重新识别的去标识测试材料；不得接收客户原件或可重新识别材料 | R0/R1 PRD |
 | R1 `PAID_DESIGN_PILOT` | 与最多 5 家命名客户验证合同价值和责任边界 | 有配额、有人审、可退出；不称 GA | R0/R1 PRD |
 | R2 `INVITATION_PRODUCTION` | 朝堂 OS 1.0 邀请制生产版，以合同包为首个稳定 Offer | 通过准入的邀请客户；不开放公众自助 | 后续 R2 release PRD |
 | R3+ `EVIDENCE_GATED_EXPANSION` | 逐个解冻第二 Offer、世界杯 Beta 与更多能力 | 每项能力独立证据门 | 各 Solution Pack PRD |
@@ -262,15 +262,17 @@ R0 内部可信内核
 
 R1 的配额、周期、价格和支持时限都是 `OFFER_HYPOTHESIS`，必须通过至少一份有边界、有人审、可退出的真实付费共创合同验证，不能提前写成成熟年费产品。
 
+R1 的 5/3/1/1 使用同一冻结 cohort：只计算不同的外部目标客户组织，同一实际购买组织只计一次，内部账号、关联测试账号、DEMO 和无真实任务的 Design Partner 不计。3 家复用、1 家付费和 1 条证言都必须来自最初 5 家，条件可由同一家客户同时满足。
+
 R1 至少验证：
 
-- 5 家目标客户完成试用；
-- 3 家在 30 天内主动复用同一闭环；
-- 1 家完成可核验付款；
-- 1 条获书面授权的客户证言；
+- 5 家目标客户各完成至少 1 个合格 Pilot 任务：成果达到 `DELIVERED`，且客户对精确奏折留下有效人工裁决；
+- 其中 3 家在首单 `DELIVERED` 后 30 个自然日内，由客户主动发起并完成第 2 个合格任务；内部代操作、自动重放、失败重试和同任务版本刷新不算复用；
+- 其中 1 家依据已签 Pilot 协议完成至少 1 笔已清算且未退款的外部付款；赠送额度、内部转账和未支付发票不计；
+- 其中 1 家就已完成的合格任务出具获客户书面授权、可公开使用且可核验的客户证言；私下反馈、内部 outcome 或未经授权的引语不计；
 - 质量、安全、人工复核、成本和退出门持续成立。
 
-5/3/1/1 是商业信号，不是 GA 充分条件。第二个收费专业包必须另有自己的支持矩阵、黄金集、专家 holdout、真实 pilot、成本证据和 stop-ship；不得继承合同包的质量证明。
+完成、复用、付款和证言的精确证据字段由 R0/R1 PRD 第 8.3.1 节拥有。5/3/1/1 是商业信号，不是 GA 充分条件。第二个收费专业包必须另有自己的支持矩阵、黄金集、专家 holdout、真实 pilot、成本证据和 stop-ship；不得继承合同包的质量证明。
 
 ## 11. 产品红线与 stop-ship
 
