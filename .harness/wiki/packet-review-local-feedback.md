@@ -80,9 +80,28 @@ Rules:
    NO_GO or INSUFFICIENT_EVIDENCE therefore blocks unrelated downstream packets until a still-newer GO
    resolves it. The current candidate's GO approval remains subject to all SHA/digest/DAG checks above;
    the ancestry scan is a terminal-status check, not a replacement approval check.
+10. Every other Markdown file anywhere under `.harness/changes/<change-id>/packet_review/` is a legacy
+    review and must declare exactly one machine line:
+    `Legacy-Review-Verdict: PACKET_REVIEW_GO|PACKET_REVIEW_NO_GO|INSUFFICIENT_EVIDENCE`.
+    A legacy GO must not declare resolution targets. A legacy NO_GO or INSUFFICIENT_EVIDENCE must declare
+    one or more `Legacy-Review-Resolved-By: <standard-review-path>` lines. Every target must exist, be the
+    greatest numeric `review-vN.md` for its change, and end in `PACKET_REVIEW_GO`. Missing metadata,
+    missing/duplicate targets, stale versions, or non-GO targets fail closed.
 
-This terminal scan only recognizes the standard `packet_review/review-vN.md` path. It is still local,
-bypassable feedback and cannot detect decisions that were never recorded in the standard path.
+The legacy metadata is the machine authority for historically non-standard filenames; the original prose
+remains immutable evidence and may still describe the earlier NO_GO. New reviews should always use
+`review-vN.md`; legacy metadata is a compatibility bridge, not a second preferred format. The gate is
+still local, bypassable feedback and cannot detect decisions kept outside `packet_review/`.
+Resolution metadata may be advanced when a target change receives a newer standard review; the historical
+prose and original verdict remain unchanged.
+
+Example resolved legacy header:
+
+```text
+Legacy-Review-Verdict: PACKET_REVIEW_NO_GO
+Legacy-Review-Resolved-By: .harness/changes/fix-one/packet_review/review-v2.md
+Legacy-Review-Resolved-By: .harness/changes/fix-two/packet_review/review-v1.md
+```
 
 Example envelope (replace every value; do not copy historical SHAs):
 

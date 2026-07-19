@@ -1,5 +1,9 @@
 # Codex 部门-agent 架构 独立复审（Opus 编排，2026-07-18）
 
+Legacy-Review-Verdict: PACKET_REVIEW_NO_GO
+Legacy-Review-Resolved-By: .harness/changes/fix-menxia-veto-enforcement-p16-20260719/packet_review/review-v2.md
+Legacy-Review-Resolved-By: .harness/changes/fix-gongbu-battery-safety-p17-20260719/packet_review/review-v1.md
+
 | 项 | 值 |
 | --- | --- |
 | 被审 | Codex 的 PKT-1~5 department-agent 架构（chancellor / 门下省 menxia veto / 阁员 personas / real engines），local ext `a1c918d`（相对远端基线 `37542c3c`） |

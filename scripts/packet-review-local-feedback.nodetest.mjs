@@ -15,7 +15,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
-import {join} from 'node:path';
+import {dirname, join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
 
@@ -23,6 +23,15 @@ import {parsePrePushUpdates, verifyPacketReviewPush} from './lib/packet-review-l
 
 const git = (cwd, args) => execFileSync('git', args, {cwd, encoding: 'utf8'}).trim();
 const sha256 = value => createHash('sha256').update(value).digest('hex');
+const legacyReview = ({verdict, resolvedBy = []} = {}) => [
+  '# Legacy independent review',
+  '',
+  ...(verdict ? [`Legacy-Review-Verdict: ${verdict}`] : []),
+  ...resolvedBy.map(path => `Legacy-Review-Resolved-By: ${path}`),
+  '',
+  `| 结论 | **${verdict === 'PACKET_REVIEW_GO' ? 'GO' : 'NO_GO'}** |`,
+  '',
+].join('\n');
 
 function commit(repository, message) {
   git(repository, ['add', '.']);
@@ -59,6 +68,16 @@ function makeRepository(options = {}) {
     writeFileSync(
       join(unresolvedDir, 'review-v1.md'),
       options.unresolvedReport ?? '# Unresolved independent review\n\nPACKET_REVIEW_NO_GO\n',
+    );
+  }
+  if (options.legacyReport) {
+    const legacyDir = join(repository, '.harness', 'changes', 'fix-legacy', 'packet_review');
+    mkdirSync(legacyDir, {recursive: true});
+    const legacyPath = join(legacyDir, options.legacyName ?? 'claude-code-review-1.md');
+    mkdirSync(dirname(legacyPath), {recursive: true});
+    writeFileSync(
+      legacyPath,
+      options.legacyReport,
     );
   }
   if (options.priorNoGo) {
@@ -174,6 +193,141 @@ test('accepts a newer SHA-bound GO that resolves an earlier NO_GO for the same c
   const fixture = makeRepository({priorNoGo: true});
   try {
     assert.equal(verify(fixture).status, 'LOCAL_FEEDBACK_ONLY');
+  } finally {
+    rmSync(fixture.repository, {recursive: true, force: true});
+  }
+});
+
+test('rejects a non-standard packet review without machine-readable legacy metadata', () => {
+  const fixture = makeRepository({legacyReport: legacyReview()});
+  try {
+    assert.throws(
+      () => verify(fixture),
+      /legacy packet review.*claude-code-review-1\.md.*one Legacy-Review-Verdict/,
+    );
+  } finally {
+    rmSync(fixture.repository, {recursive: true, force: true});
+  }
+});
+
+test('rejects a legacy NO_GO without an explicit resolution chain', () => {
+  const fixture = makeRepository({
+    legacyReport: legacyReview({verdict: 'PACKET_REVIEW_NO_GO'}),
+  });
+  try {
+    assert.throws(() => verify(fixture), /unresolved legacy packet review.*PACKET_REVIEW_NO_GO/);
+  } finally {
+    rmSync(fixture.repository, {recursive: true, force: true});
+  }
+});
+
+test('accepts a legacy NO_GO resolved by the latest standard GO review', () => {
+  const fixture = makeRepository({
+    legacyReport: legacyReview({
+      verdict: 'PACKET_REVIEW_NO_GO',
+      resolvedBy: ['.harness/changes/fix-test/packet_review/review-v1.md'],
+    }),
+  });
+  try {
+    assert.equal(verify(fixture).status, 'LOCAL_FEEDBACK_ONLY');
+  } finally {
+    rmSync(fixture.repository, {recursive: true, force: true});
+  }
+});
+
+test('rejects a legacy resolution that points to a missing standard review', () => {
+  const fixture = makeRepository({
+    legacyReport: legacyReview({
+      verdict: 'PACKET_REVIEW_NO_GO',
+      resolvedBy: ['.harness/changes/fix-missing/packet_review/review-v1.md'],
+    }),
+  });
+  try {
+    assert.throws(() => verify(fixture), /legacy resolution target is missing/);
+  } finally {
+    rmSync(fixture.repository, {recursive: true, force: true});
+  }
+});
+
+test('rejects a legacy resolution that points to an older review version', () => {
+  const fixture = makeRepository({
+    priorNoGo: true,
+    legacyReport: legacyReview({
+      verdict: 'PACKET_REVIEW_NO_GO',
+      resolvedBy: ['.harness/changes/fix-test/packet_review/review-v9.md'],
+    }),
+  });
+  try {
+    assert.throws(() => verify(fixture), /legacy resolution target is not the latest standard review/);
+  } finally {
+    rmSync(fixture.repository, {recursive: true, force: true});
+  }
+});
+
+test('accepts a non-standard legacy GO with explicit metadata and no resolution', () => {
+  const fixture = makeRepository({
+    legacyName: 'review-closure-claude.md',
+    legacyReport: legacyReview({verdict: 'PACKET_REVIEW_GO'}),
+  });
+  try {
+    assert.equal(verify(fixture).status, 'LOCAL_FEEDBACK_ONLY');
+  } finally {
+    rmSync(fixture.repository, {recursive: true, force: true});
+  }
+});
+
+test('rejects duplicate or invalid legacy verdict metadata', () => {
+  for (const report of [
+    legacyReview({verdict: 'PACKET_REVIEW_NO_GO'}).replace(
+      'Legacy-Review-Verdict: PACKET_REVIEW_NO_GO',
+      'Legacy-Review-Verdict: PACKET_REVIEW_NO_GO\nLegacy-Review-Verdict: PACKET_REVIEW_GO',
+    ),
+    legacyReview({verdict: 'GO'}),
+  ]) {
+    const fixture = makeRepository({legacyReport: report});
+    try {
+      assert.throws(() => verify(fixture), /legacy packet review.*(one Legacy-Review-Verdict|invalid legacy verdict)/);
+    } finally {
+      rmSync(fixture.repository, {recursive: true, force: true});
+    }
+  }
+});
+
+test('rejects empty or duplicate legacy resolution targets', () => {
+  const target = '.harness/changes/fix-test/packet_review/review-v1.md';
+  for (const resolvedBy of [[''], [target, target]]) {
+    const fixture = makeRepository({
+      legacyReport: legacyReview({verdict: 'PACKET_REVIEW_NO_GO', resolvedBy}),
+    });
+    try {
+      assert.throws(() => verify(fixture), /legacy packet review.*(empty|duplicate) resolution target/);
+    } finally {
+      rmSync(fixture.repository, {recursive: true, force: true});
+    }
+  }
+});
+
+test('rejects a legacy GO that declares a resolution target', () => {
+  const fixture = makeRepository({
+    legacyReport: legacyReview({
+      verdict: 'PACKET_REVIEW_GO',
+      resolvedBy: ['.harness/changes/fix-test/packet_review/review-v1.md'],
+    }),
+  });
+  try {
+    assert.throws(() => verify(fixture), /legacy GO review.*must not declare resolution targets/);
+  } finally {
+    rmSync(fixture.repository, {recursive: true, force: true});
+  }
+});
+
+test('rejects nested non-standard packet review Markdown without legacy metadata', () => {
+  const fixture = makeRepository({
+    legacyName: 'archive/opus-nogo.md',
+    legacyReport: legacyReview(),
+  });
+  try {
+    assert.throws(() => verify(fixture), /legacy packet review.*archive\/opus-nogo\.md/);
   } finally {
     rmSync(fixture.repository, {recursive: true, force: true});
   }

@@ -13,6 +13,8 @@ const TERMINAL_VERDICTS = new Set([
   'PACKET_REVIEW_NO_GO',
   'INSUFFICIENT_EVIDENCE',
 ]);
+const LEGACY_VERDICT_PREFIX = 'Legacy-Review-Verdict:';
+const LEGACY_RESOLUTION_PREFIX = 'Legacy-Review-Resolved-By:';
 
 function git(cwd, args) {
   return execFileSync('git', args, {cwd, encoding: 'utf8'}).trim();
@@ -117,29 +119,93 @@ function latestTerminalVerdict(report, reportPath) {
   return terminalLines[0];
 }
 
+function parseLegacyReviewMetadata(report, reportPath) {
+  const lines = report.split(/\r?\n/).map(line => line.trim());
+  const verdictLines = lines.filter(line => line.startsWith(LEGACY_VERDICT_PREFIX));
+  if (verdictLines.length !== 1) {
+    throw new Error(
+      `legacy packet review ${reportPath} must declare one ${LEGACY_VERDICT_PREFIX}`,
+    );
+  }
+  const verdict = verdictLines[0].slice(LEGACY_VERDICT_PREFIX.length).trim();
+  if (!TERMINAL_VERDICTS.has(verdict)) {
+    throw new Error(`legacy packet review ${reportPath} has an invalid legacy verdict`);
+  }
+  const resolutionPaths = lines
+    .filter(line => line.startsWith(LEGACY_RESOLUTION_PREFIX))
+    .map(line => line.slice(LEGACY_RESOLUTION_PREFIX.length).trim());
+  if (resolutionPaths.some(path => !path)) {
+    throw new Error(`legacy packet review ${reportPath} has an empty resolution target`);
+  }
+  if (new Set(resolutionPaths).size !== resolutionPaths.length) {
+    throw new Error(`legacy packet review ${reportPath} has duplicate resolution targets`);
+  }
+  if (verdict === 'PACKET_REVIEW_GO' && resolutionPaths.length > 0) {
+    throw new Error(`legacy GO review ${reportPath} must not declare resolution targets`);
+  }
+  if (verdict !== 'PACKET_REVIEW_GO' && resolutionPaths.length === 0) {
+    throw new Error(`unresolved legacy packet review ${reportPath}: ${verdict}`);
+  }
+  return {verdict, resolutionPaths};
+}
+
 function assertNoUnresolvedPacketReviews(cwd, candidate) {
   const reviewPattern = /^\.harness\/changes\/([a-z0-9][a-z0-9-]*)\/packet_review\/review-v([1-9][0-9]*)\.md$/;
+  const packetReviewMarkdownPattern = /^\.harness\/changes\/([a-z0-9][a-z0-9-]*)\/packet_review\/(.+\.md)$/;
   const latestByChange = new Map();
+  const standardByPath = new Map();
+  const legacyReviews = [];
 
   for (const path of treePaths(cwd, candidate)) {
     const match = path.match(reviewPattern);
-    if (!match) continue;
-    const changeId = match[1];
-    const reviewVersion = BigInt(match[2]);
-    const current = latestByChange.get(changeId);
-    if (!current || reviewVersion > current.reviewVersion) {
-      latestByChange.set(changeId, {changeId, reviewVersion, reportPath: path});
+    if (match) {
+      const changeId = match[1];
+      const reviewVersion = BigInt(match[2]);
+      const review = {changeId, reviewVersion, reportPath: path};
+      standardByPath.set(path, review);
+      const current = latestByChange.get(changeId);
+      if (!current || reviewVersion > current.reviewVersion) {
+        latestByChange.set(changeId, review);
+      }
+      continue;
     }
+    const packetReviewMatch = path.match(packetReviewMarkdownPattern);
+    if (packetReviewMatch) legacyReviews.push({changeId: packetReviewMatch[1], reportPath: path});
   }
 
+  const latestVerdicts = new Map();
   for (const review of [...latestByChange.values()].sort((left, right) =>
     left.changeId.localeCompare(right.changeId))) {
     const report = readObjectPath(cwd, candidate, review.reportPath);
     const verdict = latestTerminalVerdict(report, review.reportPath);
+    latestVerdicts.set(review.reportPath, verdict);
     if (verdict !== 'PACKET_REVIEW_GO') {
       throw new Error(
         `unresolved packet review for ${review.changeId}: latest review-v${review.reviewVersion.toString()} is ${verdict}`,
       );
+    }
+  }
+
+  for (const legacyReview of legacyReviews.sort((left, right) =>
+    left.reportPath.localeCompare(right.reportPath))) {
+    const report = readObjectPath(cwd, candidate, legacyReview.reportPath);
+    const metadata = parseLegacyReviewMetadata(report, legacyReview.reportPath);
+    for (const resolutionPath of metadata.resolutionPaths) {
+      const target = standardByPath.get(resolutionPath);
+      if (!target) {
+        throw new Error(
+          `legacy resolution target is missing or not a standard review: ${resolutionPath}`,
+        );
+      }
+      const latest = latestByChange.get(target.changeId);
+      if (!latest || latest.reportPath !== resolutionPath) {
+        throw new Error(
+          `legacy resolution target is not the latest standard review: ${resolutionPath}`,
+        );
+      }
+      if (latestVerdicts.get(resolutionPath) !== 'PACKET_REVIEW_GO') {
+        throw new Error(`legacy resolution target is not GO: ${resolutionPath}`);
+      }
     }
   }
 }
