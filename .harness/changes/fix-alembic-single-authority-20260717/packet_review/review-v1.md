@@ -41,7 +41,7 @@ schema/adoption/no-runtime-ddl 套件 9+1skip；主链回归 46 passed
 
 ## 裁决
 
-PACKET_REVIEW_GO
-
 燃尽更新：门 1 **6/10**（P0–P5）。后续：push 前按 D6 闸生成 approval
 envelope；P6 开工（守门语义迁移+死码退役——LOC 归因表等它）。
+
+PACKET_REVIEW_GO
