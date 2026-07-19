@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-product-r0-freeze-20260718 |
 | 类型 | docs |
-| 状态 | VERIFIED_COMPLETE（docs-only）/ PR_MERGE_PENDING / EXACT_SHA_DELIVERY_GATE_PENDING |
+| 状态 | VERIFIED_COMPLETE（docs-only）/ PR_MERGE_PENDING |
 | Owner | Project Agent |
 | 创建日期 | 2026-07-18 |
 | 基线 | 远端 `feature-chaotang-ext@5d273c3fbe5e02e52b6ab3e8630f6d54a0c78a43`（审查期前进后已线性重基） |
@@ -39,6 +39,6 @@
 
 ## 2026-07-19 PR 追补
 
-- PR !3 原 head `3c05aae...` 对最新目标可干净预合并，但精确内容终审发现 3 项权威残留并已做 5 文件窄修。
-- 窄修候选已通过 scope、Markdown/link、source hash、diff check、root doctor 和独立 follow-up `ALLOW`。
-- 新提交仍须绑定精确 SHA 终审并刷新 Gitee 服务端预合并；在此之前不得合入。
+- PR !3 原 head `3c05aae...` 对最新目标可干净预合并，但精确内容终审发现 3 项权威残留；修复正文与审计证据已进入 7 路径提交 `b2627be...`。
+- `b2627be...` 已通过 27 文件 scope/Markdown/link、source hash、diff check、root doctor 和合并态验证；其 exact review 只发现证据仍误写成“未提交候选”，未发现产品内容 blocker。
+- 当前证据提交只纠正上述审计时态。最终 PR head 的 SHA 级裁决必须记录在分支外的独立 review/Gitee 门中，不再写回分支制造自失效新 SHA；正式合入前仍须刷新服务端预合并。

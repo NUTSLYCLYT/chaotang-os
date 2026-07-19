@@ -13,7 +13,7 @@
 | 已确认事实 | 远端目标头在本变更开始时为 `6ee6d8d542127174f4d899f940d4937b6fa2b70f` | `git ls-remote origin refs/heads/feature-chaotang-ext`，2026-07-18 | Project Agent 只读核验；仅为历史起点 | 否 |
 | 已确认事实 | 精确候选审查期间目标头前进至 `5d273c3fbe5e02e52b6ab3e8630f6d54a0c78a43`；新增 3 个 P8/P9 前端残留收口提交，与本变更路径不重叠 | `git fetch`、`git merge-tree --write-tree` 与 `git rebase origin/feature-chaotang-ext`，2026-07-18 | Project Agent 核验零冲突后线性重基；必须对重基后 SHA 重跑门禁 | 否 |
 | 已确认事实 | 2026-07-19 最新 target 为 `05582e520300e32a5d84e2b38b3822903f75c954`；Gitee PR !3 头 `3c05aae...` 与 target 文件交集为 0，服务端预合并与合并态 root doctor 通过 | `refs/pull/3/MERGE@0ebe7812...`、临时 worktree、`node scripts/harness-doctor.mjs` | 只证明可合并，不替代内容终审或平台审批 | 否 |
-| 已确认事实 | PR !3 精确头终审发现产品冻结 DoD 混入未实现跨端条件，以及历史 P0–P9/C0–C2 仍带当前命令语气 | `pr3_exact_head_stopgate`，2026-07-19，精确 head `3c05aae...`；5 文件窄修 follow-up `ALLOW` | 原三项 blocker 已在本地关闭；仍须提交后重新绑定新 SHA 复审 | 新 SHA 终审前继续阻塞合并 |
+| 已确认事实 | PR !3 精确头终审发现产品冻结 DoD 混入未实现跨端条件，以及历史 P0–P9/C0–C2 仍带当前命令语气 | `pr3_exact_head_stopgate`：`3c05aae...` BLOCK；正文/证据修复提交 `b2627be...`；内容 follow-up `ALLOW` | 原三项 blocker 已关闭；`b2627be...` exact review 仅阻断过时的“未提交候选”证据，本证据提交予以纠正 | 最终 PR head 仍须分支外 exact SHA review 后才可合入 |
 | 已确认事实 | 本地主工作树 `79b1eaa` 与远端分叉为本地 78 / 远端 3，不适合作为产品冻结基线 | `git rev-list --left-right --count 6ee6d8d...79b1eaa` 与 merge-base `bf7d4cc` | Project Agent 只读核验 | 是，已通过干净远端基线规避 |
 | 已确认事实 | 安全恢复分支精确保存本地主线 `79b1eaa` | `refs/heads/safety/pre-convergence-20260718-79b1eaa` | 远端引用核验 | 否 |
 | 已确认事实 | 融合 RFC 原提案 hash 为 `475f13ad4eb8a839068787dbab200c85e39ede9713f1477efc33ad0c656d1de2` | 原 design commit `b0e54672` 前验证 | SHA-256 | 否 |

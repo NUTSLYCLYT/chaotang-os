@@ -47,4 +47,5 @@
 - 验证命令与证据：路径 allowlist、Markdown/link、冲突语句扫描、root doctor、最新 target 预合并与新精确 HEAD 独立 stop-gate。
 - 回滚边界：用普通 revert 撤销窄修复；禁止 force push 或改写已共享历史。
 - 完成定义：三项 blocker 在新精确 HEAD 全部关闭，最终 stop-gate `ALLOW`，PR 仍通过正式 Gitee 流程合入。
-- 状态：`CONTENT_COMPLETE / EXACT_SHA_DELIVERY_GATE_PENDING`。
+- 交付说明：最终 PR head 的 SHA 级 `ALLOW/BLOCK` 记录在独立 reviewer 输出或 Gitee 审批中，不写回同一分支，避免证据提交再次改变被审 SHA。
+- 状态：`CONTENT_COMPLETE / EXACT_SHA_REVIEW_EXTERNAL_GATE`。
