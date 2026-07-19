@@ -20,7 +20,10 @@ from datetime import datetime, timezone
 from typing import Any
 
 from src.perf_outcomes_guard import enrich_quality_result
-from src.real_department_engines import get_real_engine_fn_for_swarm
+from src.real_department_engines import (
+    get_real_engine_fn_for_swarm,
+    is_gongbu_safety_scope,
+)
 
 # 页面同步路径覆盖开关。2026-07-14 Codex 复审发现:原实现用 os.environ[...] = ...
 # 在 shangshufang.py 里 set/finally-restore,但 FastAPI 同步 route 跑在线程池,
@@ -154,6 +157,37 @@ def _enforce_xingbu_hard_stop(
     return out
 
 
+def _enforce_gongbu_safety_stop(
+    swarm_id: str, text: str, out: dict[str, Any]
+) -> dict[str, Any]:
+    """真实引擎缺失、失败或 LLM 漏标时，工部物理安全范围仍必须人工确认。"""
+    if swarm_id != "gongbu_delivery_swarm" or not is_gongbu_safety_scope(text):
+        return out
+    risks = [risk for risk in (out.get("risks") or []) if isinstance(risk, dict)]
+    court_items = [
+        item for item in (out.get("items") or []) if isinstance(item, dict)
+    ]
+    if (
+        out.get("light") == "black"
+        or any(item.get("level") == "black" for item in court_items)
+        or any(risk.get("requires_human_confirmation") for risk in risks)
+    ):
+        return out
+    return {
+        **out,
+        "position": "复核",
+        "risks": [
+            *risks,
+            {
+                "risk": "工部物理安全范围未获人工确认",
+                "severity": "高",
+                "reason": "真实安全引擎无有效结论时不得自动准奏或继续运行",
+                "requires_human_confirmation": True,
+            },
+        ],
+    }
+
+
 
 SWARM_DEFS: dict[str, dict[str, Any]] = {
     "hubu_finance_swarm": {
@@ -281,24 +315,42 @@ def normalize_source_label(label: str | None, *, has_real_trace: bool = False) -
     return label
 
 
+def _edict_context_text(
+    confirmed_edict: dict[str, Any],
+    review_plan: dict[str, Any] | None = None,
+) -> str:
+    """路由、真实引擎、规则与 hard-stop 共用的奏折事实投影。"""
+    embedded_review_plan = confirmed_edict.get("review_plan")
+    values: list[Any] = [
+        confirmed_edict.get("original_question"),
+        confirmed_edict.get("refined_edict"),
+        confirmed_edict.get("raw_command"),
+        confirmed_edict.get("decision_type"),
+        confirmed_edict.get("known_facts"),
+        confirmed_edict.get("unknown_gaps"),
+        confirmed_edict.get("risk_flags"),
+        embedded_review_plan,
+    ]
+    if review_plan is not None and review_plan != embedded_review_plan:
+        values.append(review_plan)
+    parts: list[str] = []
+    for value in values:
+        if value is None or value == "":
+            continue
+        if isinstance(value, (list, tuple, set)):
+            parts.extend(str(item) for item in value if item is not None and item != "")
+        else:
+            parts.append(str(value))
+    return "\n".join(parts)
+
+
 def route_swarms(
     confirmed_edict: dict[str, Any],
     review_plan: dict[str, Any] | None = None,
     *,
     mode: str = "standard",
 ) -> dict[str, Any]:
-    text = "\n".join(
-        str(x)
-        for x in [
-            confirmed_edict.get("original_question"),
-            confirmed_edict.get("refined_edict"),
-            confirmed_edict.get("decision_type"),
-            " ".join(confirmed_edict.get("risk_flags") or []),
-            " ".join(confirmed_edict.get("unknown_gaps") or []),
-            str(review_plan or {}),
-        ]
-        if x
-    )
+    text = _edict_context_text(confirmed_edict, review_plan)
     selected: list[dict[str, str]] = []
     for swarm_id, spec in SWARM_DEFS.items():
         hit = next((kw for kw in spec["keywords"] if kw in text), None)
@@ -311,6 +363,16 @@ def route_swarms(
             {"swarm_id": "xingbu_legal_risk_swarm", "reason": "默认审查风险红线"},
             {"swarm_id": "gongbu_delivery_swarm", "reason": "默认审查交付可行性"},
         ]
+
+    if is_gongbu_safety_scope(text) and not any(
+        item["swarm_id"] == "gongbu_delivery_swarm" for item in selected
+    ):
+        selected.append(
+            {
+                "swarm_id": "gongbu_delivery_swarm",
+                "reason": "工部物理安全范围强制参审",
+            }
+        )
 
     risk_flags = confirmed_edict.get("risk_flags") or []
     high_risk = (
@@ -444,6 +506,7 @@ def run_department_swarm(
     live: bool | None = None,
     call_fn=None,
     real_engine_fn=None,
+    review_plan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """部门蜂群立场。real_engine_fn 命中优先(真实部门专用引擎,如兵部/锦衣卫);
     否则 live=True 走真 LLM(军机处通电),失败兜底规则;默认按 env FENGQUN_LIVE_SWARM。
@@ -452,14 +515,15 @@ def run_department_swarm(
     """
     import os
 
-    text = f"{confirmed_edict.get('original_question', '')}\n{confirmed_edict.get('refined_edict', '')}\n{confirmed_edict.get('raw_command', '')}"
+    text = _edict_context_text(confirmed_edict, review_plan)
     if real_engine_fn is not None:
         try:
             real_out = real_engine_fn(text)
         except Exception:
             real_out = None
         if real_out is not None:
-            return _enforce_xingbu_hard_stop(swarm_id, text, real_out)
+            real_out = _enforce_xingbu_hard_stop(swarm_id, text, real_out)
+            return _enforce_gongbu_safety_stop(swarm_id, text, real_out)
     if live is None:
         override = _PAGE_SYNC_LIVE_OVERRIDE.get()
         live = (
@@ -467,9 +531,11 @@ def run_department_swarm(
             if override is not None
             else os.environ.get("FENGQUN_LIVE_SWARM", "").lower() in ("1", "true", "yes")
         )
-    rule = _rule_department_swarm(swarm_id, confirmed_edict, source_label)
+    rule = _rule_department_swarm(
+        swarm_id, confirmed_edict, source_label, review_plan=review_plan
+    )
     if not live and call_fn is None:
-        return rule
+        return _enforce_gongbu_safety_stop(swarm_id, text, rule)
     live_out = _live_department_position(
         swarm_id,
         {
@@ -480,13 +546,18 @@ def run_department_swarm(
         text,
         call_fn=call_fn,
     )
-    return live_out or rule  # 真 LLM 出立场,失败兜底规则(禁假 PASS)
+    out = live_out or rule  # 真 LLM 出立场,失败兜底规则(禁假 PASS)
+    return _enforce_gongbu_safety_stop(swarm_id, text, out)
 
 
 def _rule_department_swarm(
-    swarm_id: str, confirmed_edict: dict[str, Any], source_label: str
+    swarm_id: str,
+    confirmed_edict: dict[str, Any],
+    source_label: str,
+    *,
+    review_plan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    text = f"{confirmed_edict.get('original_question', '')}\n{confirmed_edict.get('refined_edict', '')}"
+    text = _edict_context_text(confirmed_edict, review_plan)
     known = confirmed_edict.get("known_facts") or []
     gaps = confirmed_edict.get("unknown_gaps") or []
     evidence_used = [_evidence(item, "USER_INPUT", item) for item in known[:4]]
@@ -646,7 +717,10 @@ _INTEL_GATHERING_SWARM = "jinyiwei_intel_swarm"
 
 
 def _run_one_department(
-    sid: str, edict: dict[str, Any], source_label: str
+    sid: str,
+    edict: dict[str, Any],
+    source_label: str,
+    review_plan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """跑单个部门蜂群(真实引擎优先,失败退兜底)。抽出来供串行/并行两条路径复用。
 
@@ -666,11 +740,20 @@ def _run_one_department(
         if skip_real
         else get_real_engine_fn_for_swarm(sid, swarm_role=SWARM_DEFS[sid]["role"])
     )
-    return run_department_swarm(sid, edict, source_label, real_engine_fn=real_fn)
+    return run_department_swarm(
+        sid,
+        edict,
+        source_label,
+        real_engine_fn=real_fn,
+        review_plan=review_plan,
+    )
 
 
 def _run_departments_cross_referenced(
-    department_ids: list[str], confirmed_edict: dict[str, Any], source_label: str
+    department_ids: list[str],
+    confirmed_edict: dict[str, Any],
+    source_label: str,
+    review_plan: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """锦衣卫(如被选中)先跑;若真实引擎给出可信情报,后续部门收到的
     confirmed_edict 会多一段"锦衣卫已核实情报"——只影响文本上下文,不改变
@@ -689,7 +772,10 @@ def _run_departments_cross_referenced(
     # 锦衣卫先串行跑,可信情报喂给后续部门
     if _INTEL_GATHERING_SWARM in department_ids:
         intel_out = _run_one_department(
-            _INTEL_GATHERING_SWARM, confirmed_edict, source_label
+            _INTEL_GATHERING_SWARM,
+            confirmed_edict,
+            source_label,
+            review_plan,
         )
         outputs_by_id[_INTEL_GATHERING_SWARM] = intel_out
         if intel_out.get("source_label") == "LIVE_ENGINE" and intel_out.get(
@@ -713,7 +799,7 @@ def _run_departments_cross_referenced(
         if max_workers <= 1:
             for sid in others:
                 outputs_by_id[sid] = _run_one_department(
-                    sid, edict_for_others, source_label
+                    sid, edict_for_others, source_label, review_plan
                 )
         else:
             with ThreadPoolExecutor(max_workers=max_workers) as pool:
@@ -726,6 +812,7 @@ def _run_departments_cross_referenced(
                         sid,
                         edict_for_others,
                         source_label,
+                        review_plan,
                     )
                     fut_to_sid[fut] = sid
                 for fut, sid in fut_to_sid.items():
@@ -735,7 +822,7 @@ def _run_departments_cross_referenced(
                         # 单部门异常不拖垮整轮:串行再跑一次兜底(run_department_swarm
                         # 自身已兜底规则模板,通常不抛;此处双保险)。
                         outputs_by_id[sid] = _run_one_department(
-                            sid, edict_for_others, source_label
+                            sid, edict_for_others, source_label, review_plan
                         )
 
     # 保持原有 department_ids 顺序输出,只是执行顺序并发——不改变下游看到的部门排列。
@@ -781,6 +868,12 @@ def run_swarm_execution_loop(params: dict[str, Any]) -> dict[str, Any]:
         department_ids = normalize_departments(department_override)
         if not department_ids:
             raise ValueError("department_ids 无有效部门(部门名/别名/swarm_id 均未命中)")
+        if is_gongbu_safety_scope(
+            _edict_context_text(confirmed_edict, review_plan)
+        ) and "gongbu_delivery_swarm" not in department_ids:
+            # department_ids 是调用方偏好，不是绕过物理安全门的授权。危险 scope
+            # 已由 route_swarms 判定后，显式覆盖仍必须保留工部执行与人签证据。
+            department_ids.append("gongbu_delivery_swarm")
         # 覆盖生效时不能整体重写 selected_swarms：route_swarms() 已经按文本算出的
         # 元蜂群(证据审计/质量闸/高风险时的红蓝对抗等)仍然会在下面无条件执行
         # (evidence_audit/critic_report/synthesize_brief/quality_gate)，如果这里把
@@ -815,7 +908,7 @@ def run_swarm_execution_loop(params: dict[str, Any]) -> dict[str, Any]:
             if item["swarm_id"] in SWARM_DEFS
         ]
     department_outputs = _run_departments_cross_referenced(
-        department_ids, confirmed_edict, source_label
+        department_ids, confirmed_edict, source_label, review_plan
     )
     audit = evidence_audit(department_outputs, source_label)
     critique = critic_report(department_outputs, audit, source_label)

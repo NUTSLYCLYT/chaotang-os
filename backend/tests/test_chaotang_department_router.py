@@ -115,3 +115,19 @@ def test_department_route_golden_cases():
         assert result["primeMinisterNextStep"]["owner"] == expected["primary_department"]
         assert result["qintianjianTrigger"]["signal"]
         assert result["yushiGateHint"]
+
+
+def test_component_safety_terms_keep_gongbu_in_mixed_department_route():
+    result = route_department_task("合同要求电芯析锂后仍继续运行")
+    candidate_codes = {item["code"] for item in result["candidateDepartments"]}
+
+    assert "xingbu" in candidate_codes
+    assert "gongbu" in candidate_codes
+
+
+def test_physical_hazard_terms_keep_gongbu_in_mixed_department_route():
+    result = route_department_task("合同要求控制柜爆燃后仍继续运行")
+    candidate_codes = {item["code"] for item in result["candidateDepartments"]}
+
+    assert "xingbu" in candidate_codes
+    assert "gongbu" in candidate_codes

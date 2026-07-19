@@ -1,6 +1,10 @@
 from fastapi.testclient import TestClient
 
-from src.swarm_execution_loop import route_swarms, run_swarm_execution_loop
+from src.swarm_execution_loop import (
+    route_swarms,
+    run_department_swarm,
+    run_swarm_execution_loop,
+)
 from web.main import app
 
 
@@ -28,6 +32,243 @@ def test_route_storage_project_selects_core_swarms():
     assert "synthesis_swarm" in selected
     assert "quality_gate_swarm" in selected
     assert plan["source_label"] == "MIXED"
+
+
+def test_route_component_hazard_to_gongbu_even_when_another_department_matches():
+    edict = {
+        "original_question": "合同要求模组端子松动打火后仍继续运行",
+        "refined_edict": "请审查合同责任与现场安全",
+        "decision_type": "事故处置",
+        "known_facts": ["模组端子正在打火"],
+        "unknown_gaps": [],
+        "risk_flags": ["合同风险"],
+        "source_label": "USER_INPUT",
+    }
+
+    selected = {
+        item["swarm_id"] for item in route_swarms(edict)["selected_swarms"]
+    }
+
+    assert "xingbu_legal_risk_swarm" in selected
+    assert "gongbu_delivery_swarm" in selected
+
+
+def test_route_business_metaphor_does_not_force_gongbu_safety_review():
+    edict = {
+        "original_question": "合同讨论现金流烧钱速度太快，成本失控",
+        "refined_edict": "请审查合同与财务风险",
+        "decision_type": "经营复盘",
+        "known_facts": [],
+        "unknown_gaps": [],
+        "risk_flags": ["合同风险"],
+        "source_label": "USER_INPUT",
+    }
+
+    selected = {
+        item["swarm_id"] for item in route_swarms(edict)["selected_swarms"]
+    }
+
+    assert "xingbu_legal_risk_swarm" in selected
+    assert "gongbu_delivery_swarm" not in selected
+
+
+def test_gongbu_fallback_requires_human_when_real_engine_returns_none():
+    edict = {
+        "original_question": "模组端子松动打火",
+        "refined_edict": "现场要求继续运行",
+        "known_facts": ["端子打火"],
+        "unknown_gaps": [],
+    }
+
+    result = run_department_swarm(
+        "gongbu_delivery_swarm",
+        edict,
+        "MIXED",
+        live=False,
+        real_engine_fn=lambda _text: None,
+    )
+
+    assert result["position"] == "复核"
+    assert any(
+        risk["requires_human_confirmation"] for risk in result["risks"]
+    )
+
+
+def test_known_fact_hazard_routes_and_hard_stops_gongbu():
+    edict = {
+        "original_question": "合同条款要求继续运行",
+        "refined_edict": "请审查合同责任",
+        "decision_type": "事故处置",
+        "known_facts": ["控制柜爆燃"],
+        "unknown_gaps": [],
+        "risk_flags": ["合同风险"],
+    }
+
+    selected = {
+        item["swarm_id"] for item in route_swarms(edict)["selected_swarms"]
+    }
+    assert "xingbu_legal_risk_swarm" in selected
+    assert "gongbu_delivery_swarm" in selected
+
+    result = run_department_swarm(
+        "gongbu_delivery_swarm",
+        edict,
+        "MIXED",
+        live=False,
+        real_engine_fn=lambda _text: None,
+    )
+    assert result["position"] == "复核"
+    assert any(
+        risk["requires_human_confirmation"] for risk in result["risks"]
+    )
+
+
+def test_unknown_gap_hazard_hard_stops_gongbu():
+    edict = {
+        "original_question": "评估下一步",
+        "refined_edict": "请审查交付证据",
+        "decision_type": "事故处置",
+        "known_facts": [],
+        "unknown_gaps": ["电芯析锂程度未知"],
+        "risk_flags": [],
+    }
+
+    result = run_department_swarm(
+        "gongbu_delivery_swarm",
+        edict,
+        "MIXED",
+        live=False,
+        real_engine_fn=lambda _text: None,
+    )
+    assert result["position"] == "复核"
+    assert any(
+        risk["requires_human_confirmation"] for risk in result["risks"]
+    )
+
+
+def test_review_plan_hazard_reaches_route_and_department_hard_stop(monkeypatch):
+    edict = {
+        "original_question": "这份合同要不要签",
+        "refined_edict": "评估合同风险",
+        "decision_type": "合同审查",
+        "known_facts": [],
+        "unknown_gaps": [],
+        "risk_flags": [],
+        "source_label": "USER_INPUT",
+    }
+    review_plan = {
+        "focus": ["现场控制柜爆燃后是否仍可继续运行需专项复核"]
+    }
+
+    selected = {
+        item["swarm_id"]
+        for item in route_swarms(edict, review_plan)["selected_swarms"]
+    }
+    assert "xingbu_legal_risk_swarm" in selected
+    assert "gongbu_delivery_swarm" in selected
+
+    monkeypatch.setenv("FENGQUN_PAGE_SYNC_SKIP_REAL_ENGINES", "1")
+    result = run_swarm_execution_loop(
+        {
+            "task_id": "task-p18-review-plan",
+            "review_id": "review-p18-review-plan",
+            "confirmed_edict": edict,
+            "review_plan": review_plan,
+            "department_ids": ["工部"],
+            "council": False,
+        }
+    )
+    output = next(
+        item["output"]
+        for item in result["task_runs"]
+        if item["swarm_id"] == "gongbu_delivery_swarm"
+    )
+    assert output["position"] == "复核"
+    assert any(
+        risk["requires_human_confirmation"] for risk in output["risks"]
+    )
+
+    embedded_edict = {**edict, "review_plan": review_plan}
+    embedded_result = run_swarm_execution_loop(
+        {
+            "task_id": "task-p18-embedded-review-plan",
+            "review_id": "review-p18-embedded-review-plan",
+            "confirmed_edict": embedded_edict,
+            "department_ids": ["工部"],
+            "council": False,
+        }
+    )
+    embedded_output = next(
+        item["output"]
+        for item in embedded_result["task_runs"]
+        if item["swarm_id"] == "gongbu_delivery_swarm"
+    )
+    assert embedded_output["position"] == "复核"
+    assert any(
+        risk["requires_human_confirmation"] for risk in embedded_output["risks"]
+    )
+
+
+def test_gongbu_hard_stop_preserves_existing_black_court_doc_shape():
+    from src.real_department_engines import adapt_gongbu
+    from src.signoff_gate import needs_signoff
+
+    edict = {
+        "original_question": "模组端子松动打火",
+        "refined_edict": "现场要求继续运行",
+        "known_facts": [],
+        "unknown_gaps": [],
+    }
+    result = run_department_swarm(
+        "gongbu_delivery_swarm",
+        edict,
+        "MIXED",
+        live=False,
+        real_engine_fn=adapt_gongbu,
+    )
+
+    assert result["light"] == "black"
+    assert needs_signoff(result) is True
+    assert "position" not in result
+    assert "risks" not in result
+
+
+def test_department_override_cannot_drop_gongbu_safety_review(monkeypatch):
+    monkeypatch.setenv("FENGQUN_PAGE_SYNC_SKIP_REAL_ENGINES", "1")
+    result = run_swarm_execution_loop(
+        {
+            "task_id": "task-p18-safe-override",
+            "review_id": "review-p18-safe-override",
+            "confirmed_edict": {
+                "original_question": "储能站 PACK 起火，是否继续运行",
+                "refined_edict": "请按指定部门快速评估",
+                "known_facts": [],
+                "unknown_gaps": [],
+                "risk_flags": [],
+                "source_label": "USER_INPUT",
+            },
+            "department_ids": ["锦衣卫", "户部"],
+            "council": False,
+        }
+    )
+
+    selected = {
+        item["swarm_id"]
+        for item in result["swarm_run"]["route_plan"]["selected_swarms"]
+    }
+    executed = {item["swarm_id"] for item in result["task_runs"]}
+    assert "gongbu_delivery_swarm" in selected
+    assert "gongbu_delivery_swarm" in executed
+
+    gongbu = next(
+        item["output"]
+        for item in result["task_runs"]
+        if item["swarm_id"] == "gongbu_delivery_swarm"
+    )
+    assert gongbu["position"] == "复核"
+    assert any(
+        risk["requires_human_confirmation"] for risk in gongbu["risks"]
+    )
 
 
 def test_high_risk_contract_requires_human_confirmation(monkeypatch):
@@ -382,21 +623,23 @@ def test_council_department_override_keeps_meta_swarms_in_audit_record():
 def test_council_department_override_reconciles_swarm_tasks():
     """swarm_tasks 是 selected_swarms 的姊妹字段(route_swarms() 里两者从同一个
     selected 列表算出)，覆盖生效时如果只改 selected_swarms、不改 swarm_tasks，
-    审计记录里的任务清单会停留在关键词路由算出的旧部门(_storage_edict() 命中的
-    是户部/工部/刑部)，而不是 department_ids 覆盖后真正执行的部门——两个字段自己
-    打架，也是"记录 ≠ 实际执行"的一种。"""
+    审计记录里的任务清单会停留在关键词路由算出的旧部门。覆盖后普通部门按调用方
+    收窄，但物理安全 scope 的工部是不可覆盖不变量；两者都必须同时反映到任务清单和
+    实际执行，否则仍是"记录 ≠ 实际执行"。"""
     result = run_swarm_execution_loop({
         "task_id": "t_override_tasks",
         "review_id": "r_override_tasks",
         "mode": "deep",
-        "confirmed_edict": _storage_edict(),  # 关键词会命中户部+工部+刑部，覆盖只留户部
+        "confirmed_edict": _storage_edict(),  # 普通覆盖留户部；储能安全不变量另保留工部
         "council": True,
         "department_ids": ["户部"],
     })
     route_plan = result["swarm_run"]["route_plan"]
     task_swarm_ids = {t["swarm_id"] for t in route_plan["swarm_tasks"]}
     selected_swarm_ids = {s["swarm_id"] for s in route_plan["selected_swarms"]}
+    executed_swarm_ids = {item["swarm_id"] for item in result["task_runs"]}
     assert task_swarm_ids == selected_swarm_ids
-    assert "gongbu_delivery_swarm" not in task_swarm_ids
+    assert "gongbu_delivery_swarm" in task_swarm_ids
+    assert "gongbu_delivery_swarm" in executed_swarm_ids
     assert "xingbu_legal_risk_swarm" not in task_swarm_ids
     assert "hubu_finance_swarm" in task_swarm_ids

@@ -236,8 +236,62 @@ def test_adapt_gongbu_anomaly_context_escalates_not_downgraded():
         assert doc["risk_level"] != "P2", text
 
 
+def test_adapt_gongbu_component_and_hazard_only_terms_are_fail_safe():
+    from src.signoff_gate import needs_signoff
+
+    cases = {
+        "模组端子松动打火": "P0",
+        "控制柜爆燃": "P0",
+        "电芯析锂": "P1",
+    }
+    for text, expected in cases.items():
+        doc = rde.adapt_gongbu(text)
+        assert doc is not None, f"{text} 绕过了工部物理安全引擎"
+        assert doc["risk_level"] == expected, text
+        assert doc["light"] == "black", text
+        assert needs_signoff(doc) is True, text
+
+
 def test_adapt_gongbu_requires_storage_or_bms_scope():
     assert rde.adapt_gongbu("帮我写一份普通市场推广方案") is None
+
+
+def test_adapt_gongbu_does_not_promote_business_language_to_physical_incident():
+    texts = (
+        "配置 Nginx 防火墙规则",
+        "我们要聚焦核心业务",
+        "现金流烧钱速度太快，成本失控",
+        "竞品价格飙升",
+        "用户留存骤降",
+        "策划一个爆款方案",
+        "准备高温促销",
+        "把单体架构拆分为微服务并重构模组化前端组件库",
+        "前端模组化后包体积膨胀",
+        "单体服务短路降级演练",
+        "模组化重构后内存膨胀",
+        "模组化组件电压不足的比喻",
+        "双十一爆款 package 促销方案",
+        "backpack 品牌联名活动",
+        "重构 package.json 脚本",
+        "采购 100 pcs 螺丝",
+        "排查 packet loss 丢包",
+    )
+
+    for text in texts:
+        assert rde.adapt_gongbu(text) is None, text
+
+
+def test_adapt_gongbu_hardware_acronyms_keep_token_scope_and_case_policy():
+    for text in (
+        "BMS告警",
+        "bms 告警，电压不稳，是否继续运行",
+        "PCS通讯中断",
+        "PACK鼓包",
+        "pack 温度异常",
+    ):
+        doc = rde.adapt_gongbu(text)
+        assert doc is not None, text
+        assert doc["light"] == "black", text
 
 
 def test_gongbu_is_registered_for_swarm_and_minister_paths():

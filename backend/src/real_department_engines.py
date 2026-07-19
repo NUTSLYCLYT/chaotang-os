@@ -857,14 +857,32 @@ def adapt_tianjian(task_text: str) -> dict | None:
 _GONGBU_SCOPE_KEYWORDS = (
     "储能",
     "电池",
-    "BMS",
-    "PCS",
-    "PACK",
+    "电芯",
+    "析锂",
+    "控制柜",
+    "配电柜",
+    "端子",
     "热失控",
     "冒烟",
     "漏液",
     "设备告警",
     "售后故障",
+)
+_GONGBU_CASE_INSENSITIVE_LATIN_SCOPE_TOKENS = ("BMS", "PACK")
+_GONGBU_CASE_SENSITIVE_LATIN_SCOPE_TOKENS = ("PCS",)
+_GONGBU_COMPONENT_SCOPE_PHRASES = (
+    "电池模组",
+    "模组端子",
+    "模组电芯",
+    "模组电压",
+    "模组电流",
+    "模组温度",
+    "模组绝缘",
+    "电池单体",
+    "单体电压",
+    "单体电流",
+    "单体温度",
+    "单体压差",
 )
 # 物理安全门 fail-safe(彻底版):储能事故范围内**只有两档**——
 #   P0 = 命中明确危险信号(火情/爆炸/热失控前兆/失控趋势)→ 断电撤离消防;
@@ -885,6 +903,48 @@ _GONGBU_P0_HAZARD_SIGNALS = (
     # 恶化/失控趋势(数值型:温度飙升/持续往上冲/超标)
     "飙", "骤", "失控", "超标", "蔓延", "恶化", "往上冲",
 )
+
+
+def has_gongbu_p0_hazard(task_text: str) -> bool:
+    """已确认物理范围内的危险分档；不得单独用它决定是否进入工部范围。"""
+    text_lower = task_text.lower()
+    return any(signal.lower() in text_lower for signal in _GONGBU_P0_HAZARD_SIGNALS)
+
+
+def is_gongbu_safety_scope(task_text: str) -> bool:
+    """工部物理安全范围：明确硬件词，或限定的连续物理组件短语。
+
+    “火/爆/飙/骤”等危险字符只用于已入域任务的 P0/P1 分档，不能独立拉起储能
+    引擎；`模组/单体` 也不能与全文任意物理词做笛卡尔共现，否则单体服务短路、
+    前端模组包体膨胀等软件任务仍会收到失实消防指令。
+    """
+    text_lower = task_text.lower()
+    if any(
+        keyword.lower() in text_lower for keyword in _GONGBU_SCOPE_KEYWORDS
+    ):
+        return True
+    if any(
+        re.search(
+            rf"(?<![A-Za-z0-9_]){re.escape(token)}(?![A-Za-z0-9_])",
+            task_text,
+            flags=re.IGNORECASE,
+        )
+        for token in _GONGBU_CASE_INSENSITIVE_LATIN_SCOPE_TOKENS
+    ):
+        return True
+    if any(
+        re.search(
+            rf"(?<![A-Za-z0-9_]){re.escape(token)}(?![A-Za-z0-9_])",
+            task_text,
+        )
+        for token in _GONGBU_CASE_SENSITIVE_LATIN_SCOPE_TOKENS
+    ):
+        return True
+    return any(
+        phrase.lower() in text_lower for phrase in _GONGBU_COMPONENT_SCOPE_PHRASES
+    )
+
+
 _GONGBU_GAP_RULES = (
     ("设备编号", ("设备编号", "设备号", "BMS-")),
     ("绝对时间窗", ("2026-", "2025-", "2024-", "时间")),
@@ -900,7 +960,7 @@ def adapt_gongbu(task_text: str) -> dict | None:
     这是对储能售后蜂群设计的安全适配层，不调用外部工具、不创建工单，
     只生成带显式缺口的 court_doc 草稿；真正的工单写入仍须经过审批队列。
     """
-    if not any(keyword.lower() in task_text.lower() for keyword in _GONGBU_SCOPE_KEYWORDS):
+    if not is_gongbu_safety_scope(task_text):
         return None
 
     # fail-safe **两档**,只认危险正向证据,不设 benign→P2 自动降级(那是 fail-open 残洞:
@@ -911,7 +971,7 @@ def adapt_gongbu(task_text: str) -> dict | None:
     # 用它判自动化档,yellow=auto_proceed_logged(自动留痕继续,无人签),black/不可逆红=
     # require_human_sign(必须人签)。储能事故一旦落 yellow 就被系统自动放行,绕过人签门。
     # 故未确认电池事故必须 black 强制人签,宁可多要一次人工确认也不自动放行。
-    hazard = any(signal in task_text for signal in _GONGBU_P0_HAZARD_SIGNALS)
+    hazard = has_gongbu_p0_hazard(task_text)
     if hazard:
         risk_level, light = "P0", "black"
         safety = "现场断电+撤离+消防待命；不得远程复位或直接下发维修指令"
