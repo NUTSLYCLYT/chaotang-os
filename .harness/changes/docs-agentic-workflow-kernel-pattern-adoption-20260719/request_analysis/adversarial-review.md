@@ -4,7 +4,7 @@
 
 ## 裁决
 
-`GO_FOR_CONTROLLED_DECISION_DOC_AT_e69f279 / NO_GO_FOR_RUNTIME / AMENDMENT_REQUIRES_SEPARATE_CHANGE`
+`GO_FOR_CONTROLLED_DECISION_DOC_AT_4b0deee / NO_GO_FOR_RUNTIME / AMENDMENT_REQUIRES_SEPARATE_CHANGE`
 
 ## 初审 MUST FIX 与处理
 
@@ -24,6 +24,7 @@
 | 合法 Provider 仍可能收到越权 payload | Decision §5.3 增加逐请求 payload-level egress envelope、最小化/DLP/digest 和精确 fallback 重新批准 |
 | kill switch 无法截住已领取 worker 与迟到 callback | Decision §5.4 增加单调 kill generation/fencing，并在 claim、凭证、pre-action、egress、commit、callback 和完成门复核 |
 | 删除会被 backup/restore/replay 复活或忽略 legal hold | Decision §5.2 增加传播状态、下游回执、tombstone/restore filter、备份淘汰、legal hold 和恢复负例 |
+| PR !4 权限副作用枚举未覆盖产品红线 | Decision §5.1 补齐 `PURCHASE/PAY/SIGN/SEND/PUBLISH/SHARE/DELETE`，规定 `DRAFT` 无现实副作用、复合动作必须拆分、未知或未映射分类一律拒绝 |
 
 ## 安全审查结论
 
@@ -50,19 +51,29 @@
 
 以上裁决来自 `ef9b597...` 基线，因产品/PRD digest 随 `e69f279...` 漂移而转为历史证据，不能自动继承。
 
-## 提交前目标漂移复审
+## 第二次目标漂移复审（历史基线 `e69f279...`）
 
 | 复审 | 裁决 | 核验重点 |
 | --- | --- | --- |
-| Authority / Blueprint | `ALLOW` | e69 产品/PRD 语义、唯一 M0–M10、六能力 M8/R3+、双层 baseline handoff |
-| Security | `ALLOW` | R0/R1 数据入口、PRD §8.2/OQ、动作风险 namespace、权限/egress/kill/记忆/许可证 |
-| Git / Evidence | `ALLOW` | e69 直属 ancestry、8 文件范围与哈希、临时/真实 index、dirty 主工作树隔离 |
+| Authority / Blueprint | `ALLOW_AT_e69f279 / STALE_AFTER_TARGET_DRIFT` | e69 产品/PRD 语义、唯一 M0–M10、六能力 M8/R3+、双层 baseline handoff |
+| Security | `ALLOW_AT_e69f279 / STALE_AFTER_TARGET_DRIFT` | R0/R1 数据入口、PRD §8.2/OQ、动作风险 namespace、权限/egress/kill/记忆/许可证 |
+| Git / Evidence | `ALLOW_AT_e69f279 / STALE_AFTER_TARGET_DRIFT` | e69 直属 ancestry、8 文件范围与哈希、临时/真实 index、dirty 主工作树隔离 |
 
-`ef9b597...` 的旧 GO 没有自动继承；以上裁决来自 `e69f279...` 基线的最新磁盘快照与重跑证据。
+`ef9b597...` 的旧 GO 没有自动继承；以上裁决来自 `e69f279...` 基线，目标推进到 `4b0deee...` 后同样转为历史证据。
+
+## PR !4 合入修复复审（当前基线 `4b0deee...`）
+
+| 复审 | 裁决 | 核验重点 |
+| --- | --- | --- |
+| Authority / Blueprint | `ALLOW_AT_4b0deee` | 当前目标 ancestry、产品/PRD/M0–M10 digest、唯一 M0–M10、8 文件 documents-only 差异与无路径冲突 |
+| Security | `ALLOW_AT_4b0deee` | 权限副作用分类覆盖产品红线；`DRAFT` 无现实副作用；复合与未知/未映射动作 fail closed；既有 egress/kill/记忆/许可证门不削弱 |
+| Git / Evidence | `ALLOW_AT_4b0deee` | PR 分支 merge rebind、远端 refs、root doctor、Markdown/链接、diff check、71 项代表性测试和正式 PR merge 要求 |
+
+用户 / Product Owner 于 2026-07-19 明确授权修复两项 MUST FIX、更新 PR !4 并正式合入。该授权只恢复 documents-only Decision 的合入门，不授权 benchmark、运行时、真实数据或外部接入。
 
 ## 保留阻塞
 
-产品合入 blocker 已解除：Gitee PR !3 以 `ef9b597...` 正式落到 `feature-chaotang-ext`，其第二父节点为审定来源头 `df632e4...`。目标随后增加产品一致性修复 `e69f279...`，本 Pattern 分支已再次无内容损失地重绑定；旧 `ef9b597...` review 已按协议失效。
+产品合入 blocker 已解除：Gitee PR !3 以 `ef9b597...` 正式落到 `feature-chaotang-ext`，其第二父节点为审定来源头 `df632e4...`。目标随后推进到 `e69f279...`，又累计推进到当前 `4b0deee...`；本 Pattern 分支已 merge rebind 到当前目标，旧 ef9/e69 review 均按协议历史化。
 
 当前仍保留：
 
@@ -70,5 +81,5 @@
 2. M0–M10 状态对账和 Owner 批准的正式 amendment 尚未在单独 change 执行。
 3. 六能力资料尚在另一个 dirty/diverged lineage，不能在本 change 中顺手吸收。
 
-这些阻塞均已通过文档状态和后续阻塞项显式保留。`e69f279...` 复审已恢复
+这些阻塞均已通过文档状态和后续阻塞项显式保留。`4b0deee...` 复审已恢复
 `ACCEPTED_PATTERN_PRINCIPLES`；该状态只接受模式原则，不授权 benchmark 执行或任何运行时。正式 amendment 只能从单独、干净、获批的 change 开始。

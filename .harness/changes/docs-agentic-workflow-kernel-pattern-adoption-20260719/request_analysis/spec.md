@@ -10,6 +10,8 @@
 
 提交前远端复核又发现目标分支新增直接子提交 `e69f2795a8a144a4e9a89ccc7b690c2ecbe10707`，只修订产品宪法、PRD、收敛指南和对应 change：收紧 R0 客户数据边界，统一合同风险口径，并冻结 R1 5/3/1/1 统计门。它与 Pattern 8 文件路径无交集，但改变产品/PRD digest，因此 `ef9b597...` 上的批准按本 Decision 协议转为历史证据。本分支第二次纯快进到 `e69f279...`，8 个工作文件 SHA-256 再次全部不变，随后重跑验证与独立 stop-gate。
 
+PR !4 合入审查时，远端目标已从 `e69f279...` 推进到 `4b0deee3335f874f98bd83b5b62e67452aed064b`，两侧提交计数为目标独有 85、PR 独有 1，目标累计变化 106 个文件。虽然目标变化与 Pattern 8 文件无路径交集，且产品宪法、R0/R1 PRD 与 M0–M10 权威计划摘要未改变，但目标 HEAD 漂移仍按 Decision §9/§10 使 e69 证据失效。本分支因此以 merge rebind 纳入 `4b0deee...`，同步修复评审发现的权限副作用分类缺口，并重新执行验证、复审和 Product Owner stop-gate。
+
 ## 当前实现与证据
 
 | 分类 | 结论 | 证据路径 / 命令与时间 | 验证方式 / Owner | 是否阻塞 |
@@ -23,6 +25,7 @@
 | 已确认事实 | Gitee PR !3 已按普通 merge 正式落到目标分支，审定产品头是其第二父节点 | `git ls-remote`、`git show ef9b597...`、`git merge-base --is-ancestor df632e4... ef9b597...` | 2026-07-19；目标、双亲、树、祖先关系均核验通过 | 否，产品合入门已解除 |
 | 已确认事实 | Pattern 工作树已从旧 stacked 头纯快进到 integration exact HEAD，8 个工作文件内容未变 | `git merge --ff-only origin/feature-chaotang-ext`；重绑定前后逐文件 `sha256sum` | 2026-07-19；`HEAD=ef9b597...`、`HASHES_UNCHANGED=yes` | 否，提交前仍须重跑本 change 验证 |
 | 已确认事实 | 目标分支新增产品一致性修复后，Pattern 工作树再次零冲突重绑定 | `git show e69f279...`、路径交集检查、`git merge --ff-only`、逐文件 `sha256sum` | 2026-07-19；`HEAD=e69f279...`、`HASHES_UNCHANGED=yes` | 否；产品 digest 漂移使旧 review 失效，必须复验 |
+| 已确认事实 | PR !4 审查时目标已推进到 `4b0deee...`，旧 e69 GO 已历史化，当前目标已成为 PR candidate 祖先 | 远端 refs、`git merge-base --is-ancestor`、路径交集和三份权威文档 digest | 2026-07-19；在干净独立 worktree merge rebind，按当前目标重跑验证 | 否；须以本轮新证据和 Owner 授权为准 |
 | 未知问题 | Tencent WorkBuddy 精确合同版本、数据地域与 subprocessor；开源项目精确 commit 与许可证处置 | 决策文档 §2/§5 | Product/Legal/Security | 是，阻塞真实数据和源码使用 |
 
 ## 数据流与调用链
@@ -69,13 +72,13 @@
 - 不修改六能力未跟踪蓝图；其后续 authority reconciliation 另案处理。
 - 不接 Claude Code/WorkBuddy runtime，不复制开源源码，不安装依赖。
 - 不接真实 Provider、MCP、Skill 市场、记忆服务或客户数据。
-- 不提交、推送、合并、切换服务或声明生产就绪。
+- 不直接 push 目标分支模拟 PR merge，不切换服务或声明生产就绪；本轮只按用户 / Product Owner 的明确授权更新 PR !4 并通过正式 PR 流程合入。
 
 ## 边界条件
 
 | 条件 | 预期行为 | 证据 / 验证 |
 | --- | --- | --- |
-| 产品 PR 已合入且 Pattern 分支已重绑定到当前目标 | 允许完成本 Decision 候选并进入独立 Git/PR stop-gate；不自动授权 commit/push/merge。正式 amendment 仍须单独 change、exact-HEAD handoff 与 Owner 批准 | `ef9b597...` 产品 merge 证据、`e69f279...` 当前基线与 Decision §9.1 |
+| 产品 PR 已合入且 Pattern 分支已重绑定到当前目标 | 允许完成本 Decision 候选并进入独立 Git/PR stop-gate；不自动授权 commit/push/merge。正式 amendment 仍须单独 change、exact-HEAD handoff 与 Owner 批准 | `ef9b597...` 产品 merge 证据、`4b0deee...` 当前基线与 Decision §9.1 |
 | 后续目标分支或产品摘要漂移 | 当前批准与预演标记 `STALE_BASELINE`，重新绑定并复审 | Decision §9.2、§10 |
 | WorkBuddy 身份含糊 | 两个对象分别登记；实现保持 BLOCKED | 来源矩阵 |
 | 外部工具自带 task/memory/consent store | 只返回 candidate/receipt，不获得 canonical 写权 | 双泳道、writer tripwire 规格 |
@@ -88,7 +91,7 @@
 ## 风险与回滚边界
 
 - 最大风险：把外部优秀工具复制成第二套产品操作系统。通过双泳道、唯一权威、candidate-only 和 writer tripwire 规避。
-- 基线风险已收敛：产品 PR 已落到 `ef9b597...`，后续产品一致性修复落到 `e69f279...`；本 branch 已两次重绑定且工作文件哈希均未变。后续目标或产品摘要再次漂移时仍必须按 Decision §9/§10 标记 `STALE_BASELINE` 并复审。
+- 基线风险已收敛：产品 PR 已落到 `ef9b597...`，产品一致性修复落到 `e69f279...`，PR !4 合入审查又将 Pattern 分支重绑定到当前目标 `4b0deee...`。e69 证据已历史化；后续目标或产品摘要再次漂移时仍必须按 Decision §9/§10 标记 `STALE_BASELINE` 并复审。
 - 隐私风险：外部 LLM/Skill/MCP/通知均可能成为 processor。R0 只允许合成材料，或经合法性复核且不可重新识别的去标识材料；客户原件和可重新识别材料即使获授权也保持 BLOCKED。R1+ 真实数据还必须等待 DPA/TOS、合法依据与用途、数据类别/最小化、地域、保留/删除、训练使用、subprocessor、fallback/退出和具名 Product/Data/Security Owner 冻结，并满足当前 `docs/product/releases/product-r0-trusted-kernel/PRD.md` §8.2、关闭其 §2.3 指定的 OQ-01–06、OQ-09、OQ-10。
 - 许可证风险：开源 `work-buddy` 只作参考；具名 Legal/License Owner 批准前发布 artifact 中相关代码/资产为零。
 - 文档回滚：删除新增 Decision、导航条目和本 change；不影响产品 PR或运行时。
@@ -100,13 +103,14 @@
 - 批准日期：2026-07-19
 - 批准范围：吸收 Claude Code 与 WorkBuddy 的优秀模式，补充蓝图；保持产品 SSOT、canonical 主链和唯一 M0–M10 路线。
 - 本次计划批准明确未包含：运行时代码、外部源码复制、真实数据、Provider/服务接入、commit、push、merge、cutover；后续 Git 动作须经独立 stop-gate 和用户授权。
+- PR !4 修复与合入授权：2026-07-19，用户 / Product Owner 明确授权修复两项 MUST FIX、更新远端 PR 分支并正式合入；该授权不扩展到运行时、真实数据、外部接入或直接 push 目标分支模拟合入。
 
 ## 验收标准
 
 1. 三个来源对象身份与处置分开，WorkBuddy 歧义不会进入实现。
 2. 开发控制面与产品运行时无隐式状态转换。
 3. 每个模式有用户价值、canonical 落点、阶段和负例，且无第二事实源。
-4. 权限、记忆、Provider/egress、kill switch、许可证和完成状态有 fail-closed 边界。
+4. 权限副作用分类覆盖产品红线并对未知/未映射动作 fail closed；记忆、Provider/egress、kill switch、许可证和完成状态同样有明确失败关闭边界。
 5. M0–M10 原顺序不变，M9/M10 不被扩权，六能力只作 M8/R3+ 输入。
 6. future amendment 的基线交接、逐 M 模块卡、并行条件、clean-lineage、变更与回滚字段完整，且不创建可直接执行的第二 DAG。
 7. 根 doctor、Markdown 结构/链接、diff check 与独立对抗评审无未处理 MUST FIX。
@@ -118,3 +122,4 @@
 - Markdown fence、merge marker、相对链接与关键权威语句检查。
 - `rg` 检查状态、双泳道、M0–M10 顺序、M9/M10、`NO_RUNTIME_ADOPTION` 与 stop-ship。
 - 独立架构/安全/权威对抗评审；所有 MUST FIX 必须修复或由状态明确阻断。
+- `python -m pytest -q tests/test_commercial_loop_harness.py tests/test_legal_redteam_harness.py tests/test_menxia_veto.py tests/test_direct_canonical_dispatch.py`。

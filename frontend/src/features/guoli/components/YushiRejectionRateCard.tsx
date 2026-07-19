@@ -4,22 +4,7 @@ import { Activity, Database, ShieldCheck } from 'lucide-react';
 import useSWR from 'swr';
 
 import { fetchYushiRejectionMetric } from '../api/guoli-client';
-import { formatYushiRejectionValue } from '../lib/guoli-overview';
-
-function formatCutoff(value: string): string {
-  return new Intl.DateTimeFormat('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(new Date(value));
-}
-
-function formatWindow(startAt: string | null, endAt: string | null): string {
-  if (!startAt || !endAt) return '全部记录 · 尚无样本';
-  return `全部记录 · ${formatCutoff(startAt)}—${formatCutoff(endAt)}`;
-}
+import { formatCutoff, formatWindow, formatYushiRejectionValue } from '../lib/guoli-overview';
 
 export function YushiRejectionRateCard() {
   const { data, error, isLoading } = useSWR(
@@ -117,7 +102,7 @@ export function YushiRejectionRateCard() {
           <div className="col-span-1 lg:col-span-2">
             <dt className="text-[#8f846f]">时间窗口</dt>
             <dd className="mt-1 truncate font-medium text-[#e5d7bd]">
-              {formatWindow(data.window.startAt, data.window.endAt)}
+              {formatWindow(data.window.kind, data.window.startAt, data.window.endAt)}
             </dd>
           </div>
           <div>

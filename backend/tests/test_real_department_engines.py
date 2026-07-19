@@ -107,7 +107,7 @@ def test_adapt_gongbu_storage_incident_returns_five_stage_court_doc():
 
 def test_adapt_gongbu_explosion_fire_is_p0_black():
     # 反安全假阴性回归：爆炸/起火与冒烟同属电池紧急事件，必须 P0/black，
-    # 强制“现场断电+撤离+消防待命”语气；绝不能被降级为 P2/yellow。
+    # 强制"现场断电+撤离+消防待命"语气；绝不能被降级为 P2/yellow。物理安全后果。
     doc = rde.adapt_gongbu(
         "储能柜昨晚发生爆炸并起火，现场浓烟弥漫，需要立刻处理"
     )
@@ -119,12 +119,14 @@ def test_adapt_gongbu_explosion_fire_is_p0_black():
 
 
 def test_adapt_gongbu_hazard_phrasings_not_silently_downgraded():
-    # 反 fail-open：储能范围内危险措辞必须按 P0，不能依赖少量精确词白名单。
+    # 反 fail-open:精确词白名单会把未列举措辞静默降级为 P2。安全门必须 fail-safe——
+    # 储能范围内任何火/爆/炸/燃措辞都按 P0,而非只认几个精确词。
     for text in (
         "储能柜炸了，现场一片火海",
         "储能电池包烧穿了还有明火",
         "储能柜爆燃了",
         "储能 BMS 高温报警，怀疑内部短路",
+        # 火情用字必须覆盖 烧/焚(在烧/烧穿/焚毁),否则明确火情被误判 P1
         "整个储能舱在烧",
         "储能电芯烧穿了",
         "储能柜焚毁",
@@ -136,7 +138,10 @@ def test_adapt_gongbu_hazard_phrasings_not_silently_downgraded():
 
 
 def test_gongbu_severity_bypasses_stale_engine_cache(monkeypatch):
-    # 真行为回归：证明缓存先真实生效，再证明工部不读取陈旧 P2 判定。
+    # 真行为回归(非只查常量):开启缓存(去掉 pytest 关缓存 guard),给工部同一爆炸任务
+    # 预置一条**陈旧低危(P2)**缓存,断言工部引擎不吃它、实时重算为 P0。
+    # 对照:非排除部门(兵部)确实吃缓存,证明本测试里缓存真的生效——否则测试无意义。
+    # 若有人把工部从 _ENGINE_CACHE_EXCLUDED_DEPTS 去掉,本测试立刻红。
     from src.direct_cache import DirectCache
 
     monkeypatch.setenv("SWARM_ENGINE_CACHE", "1")
@@ -144,12 +149,14 @@ def test_gongbu_severity_bypasses_stale_engine_cache(monkeypatch):
 
     stale = {"dept": "gongbu", "risk_level": "P2", "light": "yellow", "_stale_probe": True}
 
+    # 前提:缓存在本测试中确实生效(非排除部门命中陈旧值)
     DirectCache().set("dept_engine::兵部::__cache_probe__", dict(stale), mode="dept_engine")
     control = rde._call_adapter_observed(
         "兵部", lambda _t: {"dept": "bingbu", "fresh": True}, "__cache_probe__"
     )
-    assert control.get("_stale_probe"), "缓存未在测试中生效，前提不成立"
+    assert control.get("_stale_probe"), "缓存未在测试中生效,前提不成立"
 
+    # 工部:预置陈旧低危缓存,爆炸任务必须实时重算 P0,绕不过 fail-safe
     hazard = "储能柜发生爆炸并起火，需要立刻处理"
     DirectCache().set(f"dept_engine::工部::{hazard}", dict(stale), mode="dept_engine")
     fresh = rde._call_adapter_observed("工部", rde.adapt_gongbu, hazard)
@@ -159,30 +166,36 @@ def test_gongbu_severity_bypasses_stale_engine_cache(monkeypatch):
 
 
 def test_adapt_gongbu_unconfirmed_incident_escalates_not_silent_p2():
+    # 反 fail-open 的核心:储能事故范围内、无危险信号的输入(如孤立"温度90度")
+    # **绝不能静默判 P2/确认常规**。fail-safe 升级为 P1/black 强制人工复核。
     doc = rde.adapt_gongbu("储能柜温度90度，请安排售后故障处理")
     assert doc is not None
     assert doc["risk_level"] == "P1", "未确认储能事故被静默降为低危"
-    assert doc["light"] == "black"
+    assert doc["light"] == "black"  # 必须 black 才落必须人签档,yellow 会被自动放行
     assert doc["risk_level"] != "P2"
 
 
 def test_adapt_gongbu_unconfirmed_incident_requires_human_signoff():
-    # 直接钉住下游使用的 signoff 语义，而不只检查展示字段。
+    # 物理安全门(会捕捉 light→自动化档 的回归):未确认储能事故必须落"必须人签"档。
+    # light 非纯展示——automation_tier 用它判档:yellow=auto_proceed_logged(自动放行、
+    # 无人签),black/不可逆红=require_human_sign。故 P1 一旦被降 yellow,未确认电池事故
+    # 会被系统自动放行、绕过人签。此测直接钉 needs_signoff,与 light 具体实现解耦。
     from src.signoff_gate import needs_signoff
 
     for text in (
-        "储能柜例行巡检，设备一切正常",
-        "储能电池外壳变形，系统运行一切正常",
-        "储能柜温度90度",
-        "储能电池起火",
+        "储能柜例行巡检，设备一切正常",        # 连纯"正常"都要人签(benign 不可信)
+        "储能电池外壳变形，系统运行一切正常",   # 真问题 + "正常"措辞
+        "储能柜温度90度",                       # 孤立读数
+        "储能电池起火",                         # P0 危险
     ):
         doc = rde.adapt_gongbu(text)
         assert doc is not None, text
-        assert needs_signoff(doc) is True, f"{text} 未落必须人签档，会被自动放行"
+        assert needs_signoff(doc) is True, f"{text} 未落必须人签档,会被自动放行"
 
 
 def test_adapt_gongbu_never_auto_downgrades_to_p2():
-    # “正常”关键词不能自动授权物理安全降级；所有储能任务至少进入 P1 人签。
+    # 彻底封死 benign→P2 残洞:引擎只有 P0/P1 两档,任何储能任务(哪怕纯"一切正常")
+    # 都不得落到 P2/确认常规。"没问题"无法靠关键词可靠判定,走 P1/黄灯人工复核。
     for text in (
         "储能柜例行巡检，设备一切正常，未见异常",
         "储能柜验收合格，测试通过，工况正常",
@@ -191,28 +204,31 @@ def test_adapt_gongbu_never_auto_downgrades_to_p2():
         assert doc is not None, text
         assert doc["risk_level"] == "P1", f"{text} 未落到 P1"
         assert doc["risk_level"] != "P2", f"{text} 被静默降为 P2"
-        assert doc["light"] == "black"
+        assert doc["light"] == "black"  # 必须 black 才强制人签,yellow 会被自动放行
 
 
 def test_adapt_gongbu_real_problem_with_benign_phrase_not_downgraded():
+    # Codex 揪出的安全缺陷回归:真实问题 + 一句"运行正常"绝不能被 benign 子串降 P2。
+    # 变形/进水 无 P0 危险字 → 至少 P1;漏气/破裂是热失控前兆 → P0。
     cases = {
         "储能电池外壳变形，系统运行一切正常": "P1",
         "储能柜进水，其余设备运行正常": "P1",
         "储能电池包漏气但设备运行一切正常": "P0",
         "储能电池模组外壳破裂，工况显示正常": "P0",
     }
-    for text, expected in cases.items():
+    for text, expect in cases.items():
         doc = rde.adapt_gongbu(text)
         assert doc is not None, text
-        assert doc["risk_level"] == expected, f"{text} 期望 {expected} 实为 {doc['risk_level']}"
+        assert doc["risk_level"] == expect, f"{text} 期望 {expect} 实为 {doc['risk_level']}"
         assert doc["risk_level"] != "P2", text
 
 
 def test_adapt_gongbu_anomaly_context_escalates_not_downgraded():
+    # 带真实异常迹象的巡检必须升级 P1(非 P0 危险字),绝不被"正常"措辞降 P2。
     for text in (
         "储能柜例行巡检时发现电压偏高并有报警",
-        "客户咨询：储能柜近期频繁跳闸掉电",
-        "储能柜巡检一切正常，但仪表持续报警",
+        "客户咨询:储能柜近期频繁跳闸掉电",
+        "储能柜巡检一切正常，但仪表持续报警",  # "正常"与"报警"矛盾 → 不降级
     ):
         doc = rde.adapt_gongbu(text)
         assert doc is not None, text

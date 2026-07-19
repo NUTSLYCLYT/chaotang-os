@@ -4,7 +4,7 @@
 > 状态：`ACCEPTED_PATTERN_PRINCIPLES / BASELINE_REBOUND / WORKBUDDY_IDENTITY_PENDING / NO_RUNTIME_ADOPTION / IMPLEMENTATION_REQUIRES_M0_M10_AMENDMENT`
 > PR !3 审定来源头：`docs/product-r0-freeze-20260718@df632e4f7c95b7c53a5ad9cb2a725a1e404976fd`
 > 产品正式合并头：`ef9b597412f53c00fb717ea5b7a2a265fd599f0f`（双亲为 `05582e520300e32a5d84e2b38b3822903f75c954` 与 PR !3 审定来源头）
-> 当前集成基线：`origin/feature-chaotang-ext@e69f2795a8a144a4e9a89ccc7b690c2ecbe10707`（`ef9b597...` 的直接子提交；收敛 R0 数据边界、风险口径与 R1 商业门）
+> 当前集成基线：`origin/feature-chaotang-ext@4b0deee3335f874f98bd83b5b62e67452aed064b`（包含 `e69f279...` 及其后续 85 个目标分支提交；PR !4 已在干净 worktree 重绑定并重跑验证）
 > 根级 Change：`docs-agentic-workflow-kernel-pattern-adoption-20260719`
 > Owner：Product Owner；M0–M10 Engineering Owner=`TBD_BY_AMENDMENT`
 
@@ -124,7 +124,7 @@ capability_id, tool_or_provider_id,
 audience, parent_grant_id, delegation_chain_digest,
 object_or_resource_scope, target_id,
 action_id, attempt_id, purpose, data_categories,
-effect_class = READ | DRAFT | SEND | PAY | DELETE,
+effect_class = READ | DRAFT | PURCHASE | PAY | SIGN | SEND | PUBLISH | SHARE | DELETE,
 action_risk_class = AR0_ROUTINE | AR1_SENSITIVE | AR2_HIGH_IMPACT | AR3_RESTRICTED,
 reversibility, payload_digest,
 amount, currency,
@@ -141,7 +141,9 @@ idempotency_key, kill_generation
 - 子 Agent 的有效权限只能是父信封、能力卡和当前策略的集合交集，不得扩权。
 - prompt、Skill、网页、文档或外部 workflow 文本不能修改权限信封。
 - `approver_id`、`grantee_principal_id` 与实际 `executing_principal_id` 分开；执行主体、audience、父授权或委托链任一不匹配即拒绝。
-- `READ` 不能升级为 `SEND/PAY/DELETE`；现实副作用必须绑定精确计划版本、输入摘要、action/attempt、对象、目标、payload digest、金额、币种和短 TTL。
+- `READ` 只允许查询；`DRAFT` 只允许生成内部候选，不得送达、签署、公开、授予访问权、形成购买承诺、转移资金或删除对象。
+- 产品现实副作用逐项映射为 `PURCHASE / PAY / SIGN / SEND / PUBLISH / SHARE / DELETE`。一个动作包含多个副作用时必须拆成原子 action 和独立信封；无法精确映射、未知值或使用 `OTHER` 兜底时一律拒绝。
+- `READ/DRAFT` 不能升级为任何现实副作用；现实副作用必须绑定精确计划版本、输入摘要、action/attempt、对象、目标、payload digest 和短 TTL；`PURCHASE/PAY` 还必须绑定金额与币种。
 - `action_risk_class` 只属于授权/现实动作命名空间，由未来 M1/M6 policy owner 冻结；不得序列化成合同 `riskLevel`，也不得与 release-severity P0/P1 或运营告警级别混算。
 - 服务端在 pre-action 以原子 compare-and-set 消费授权；非读取副作用默认 `max_uses=1`。nonce、次数、版本、digest 或 idempotency 绑定不符即拒绝，旧计划批准和其他 worker 不得复用。
 - 撤销后停止新调用；queued/in-flight 状态进入查单或 `UNKNOWN/RECONCILING`，不得假称已取消。
@@ -189,7 +191,7 @@ callback/receipt 接收和完成门重新校验；旧 lease、预取凭证和旧
 
 任一项出现即 No-Go：
 
-1. 权限扩张、旧计划/跨 worker 批准重放、非原子授权消费或 prompt/Skill 绕过服务端 gate；
+1. 权限扩张、现实副作用未映射/错误归类、旧计划/跨 worker 批准重放、非原子授权消费或 prompt/Skill 绕过服务端 gate；
 2. 未登记 processor/地域/目的，或 outbound payload 未逐请求绑定授权与 digest 的数据外发；
 3. 外部 runtime 写入任务、批准、正式奏折、裁决、史馆或正式记忆；
 4. kill switch 后旧 generation 仍可 claim、取凭证、外发、commit 或推进 callback；
@@ -272,7 +274,7 @@ M0 → M1 → M2 → M5 → M6 → M3 → M4 → M7 → M8 → M9 → M10
 ### 8.3 必须通过的负例
 
 - 缺 tenant/purpose/approval、过期/撤销、跨租户、子 Agent 扩权，以及旧 plan、跨 worker、跨 attempt、跨 target/payload 的 approval replay 全部拒绝；一次性授权必须原子消费。
-- `READ` 尝试 `SEND`、prompt injection 请求扩权、未知 Provider/region/subprocessor、合法 Provider 接收未绑定对象或过量字段全部零出网；每次 payload digest 与 egress receipt 可核验。
+- `READ/DRAFT` 尝试 `PURCHASE/PAY/SIGN/SEND/PUBLISH/SHARE/DELETE`，复合副作用未拆分，未知/未映射 `effect_class`，prompt injection 请求扩权，未知 Provider/region/subprocessor，或合法 Provider 接收未绑定对象/过量字段时全部 fail closed；涉及外发的动作必须零出网，每次 payload digest 与 egress receipt 可核验。
 - 外部 complete、重复/乱序/迟到 callback、worker 重启或本地状态丢失不得推进/回退正式状态。
 - sidecar 崩溃恢复后成果只有一份；provider 故障只能 `PARTIAL/BLOCKED`。
 - kill switch 触发后旧 generation 在 claim/lease、凭证、pre-action、egress、commit、callback 和完成门全部失效；开关前请求的迟到结果只进 `UNKNOWN/RECONCILING`。
@@ -458,7 +460,7 @@ revert 或 forward-fix，不改写共享历史；已发生现实副作用只能�
 2. Claude Code 开发控制面与产品运行时分泳道。
 3. 两个 WorkBuddy 身份分开，未知版本和许可证未被假定放行。
 4. 每个采用模式都有处置、用户价值、canonical 落点、阶段和负例。
-5. 权限、记忆、Provider/egress、kill switch、GPL 与第二事实源边界明确。
+5. 权限分类覆盖产品现实副作用红线，复合与未知/未映射动作 fail closed；记忆、Provider/egress、kill switch、GPL 与第二事实源边界明确。
 6. WorkBuddy benchmark 不占用 M10，不接真实数据，不输出生产就绪。
 7. 不存在第二施工 DAG；future amendment 的基线交接、原子模块卡、并行、clean-lineage、变更和回滚协议完整。
 8. 根 doctor、Markdown 结构/链接、diff check 和独立对抗评审通过。

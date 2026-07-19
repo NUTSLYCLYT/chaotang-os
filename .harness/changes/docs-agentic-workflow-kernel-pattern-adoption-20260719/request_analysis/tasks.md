@@ -63,6 +63,19 @@
 - 验证命令与证据：目标 ancestry/tree、路径交集、产品/PRD 语义对账、两次 `sha256sum`、root doctor、Markdown/链接/不变量、临时 index diff check 与独立 stop-gate。
 - 回滚边界：撤销本 Decision 文档；不得回退产品一致性修复、改写共享历史或触碰 dirty 主工作树。
 - 完成定义：`HEAD=e69f279...`；产品边界与 Pattern 无冲突；8 文件 scope/哈希准确；最终机器验证和复审通过。
+- 状态：`COMPLETE_HISTORICAL / BASELINE_SUPERSEDED_BY_TASK_6`。
+
+## 任务 6：PR !4 合入前目标重绑定与权限分类修复
+
+- 目标：处理 PR !4 审查时发现的目标 HEAD 漂移和权限副作用分类缺口，恢复 exact-baseline 证据后再正式合入。
+- 前置条件：远端 PR head 为 `1e48337...`，当前目标为 `4b0deee...`；用户 / Product Owner 已明确授权修复、更新 PR 并合入。
+- 输入：`4b0deee...` 目标头、`1e48337...` PR 头、两项 MUST FIX（旧 `e69f279...` 证据失效；现实副作用枚举不完整）。
+- 输出：以 merge rebind 使 `4b0deee...` 成为 PR 分支祖先；Decision、spec、tasks、review、summary 与 CI 证据同步修复，PR 相对目标仍保持 8 个 documents-only 文件。
+- 涉及文件：Decision 与本 change 文档；目标分支已有前后端变更只通过 merge rebind 继承，不作为 PR !4 的新增差异。
+- 状态 / 数据变化：仅文档语义和审计证据变化；运行态、schema、客户数据和外部服务不变。
+- 验证命令与证据：远端 refs/ancestry/path 交集、产品/PRD/M0–M10 digest、root doctor、Markdown/本地链接、Decision/产品红线不变量、`git diff --check`、71 项代表性后端测试与独立 stop-gate。
+- 回滚边界：正式合入前回退 PR 修复提交；合入后用新的文档 revert/forward-fix PR，不直接改写共享目标历史。
+- 完成定义：`4b0deee...` 是 PR candidate 的祖先；旧 e69 GO 明确历史化；权限分类覆盖购买、付款、签约、发送、发布、分享、删除且未知类 fail closed；全部验证与复审通过。
 - 状态：`COMPLETE`。
 
 ## 后续阻塞（不属于本 change 的执行任务）

@@ -16,6 +16,11 @@ MAX_REVIEW_ROUNDS = 3
 # 判定安全的轻量任务错杀(黄金案例 simple_02/simple_03 就是这么被误封驳的)。
 _LIGHTWEIGHT_TASK_MARKER = "原问属于整理/草拟/初判类轻量任务"
 
+# 注意:override 写入 reason 的固定短语("兼容入口明确指定参审部门")**不是**范围
+# 证据——P16 review-v1 HIGH:把它当范围证据会让任何职责外请求(世界杯请求)附带
+# ministers=['hu_bu'] 就绕过封驳。客户端指定参审部门只能约束派给谁,不能证明
+# 任务属于六部职责;合法 override(如低温电池分析指定户部)靠任务文本自身的
+# 关键词范围证据通过,不靠 marker。
 def _route_has_scope_evidence(route: dict[str, Any], task_text: str) -> bool:
     reason = str(route.get("reason") or "")
     if _LIGHTWEIGHT_TASK_MARKER in reason:
