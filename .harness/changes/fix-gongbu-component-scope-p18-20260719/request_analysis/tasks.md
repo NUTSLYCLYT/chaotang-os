@@ -81,12 +81,23 @@
 - 回滚边界：department_ids 不得成为安全豁免授权。
 - 完成定义：selected_swarms/swarm_tasks/task_runs 均含工部且人签。
 
-## 任务 8：重新审查发布
+## 任务 8：Claude v7 MEDIUM 回修
+
+- 目标：恢复现场常见小写 BMS/PACK 的安全覆盖，同时保留 PCS 与英文子串防误报边界。
+- 前置条件：Claude v7 F1=MEDIUM，裁决 `INSUFFICIENT_EVIDENCE`。
+- 输入：`bms 告警，电压不稳`、`pack 温度异常` 与既有英文负例。
+- 输出：BMS/PACK 忽略大小写 token，PCS 大小写敏感 token。
+- 涉及文件：真实引擎、对应测试与 Harness 证据。
+- 验证命令与证据：1 RED；回修后 13 passed、104 focused、2825 全量。
+- 回滚边界：不得恢复小写 BMS/PACK fail-open，也不得让 100 pcs/package/backpack 入域。
+- 完成定义：大小写策略正负例与后端全量全部通过。
+
+## 任务 9：重新审查发布
 
 - 目标：固定 H18，经 Claude 与 D6 顺序发布。
 - 前置条件：任务 2 与三层 doctor 全绿。
 - 输入：10 文件候选范围。
-- 输出：H18-v7、review-only R18-v7、no-ff M18。
+- 输出：H18-v8、review-only R18-v8、no-ff M18。
 - 涉及文件：本 change 目录 + 6 个实现/测试路径。
 - 状态 / 数据变化：GO 后普通 push 更新 ext。
 - 验证命令与证据：Claude 报告、approval digest、D6 verifier。

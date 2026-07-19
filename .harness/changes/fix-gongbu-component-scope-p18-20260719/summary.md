@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | fix-gongbu-component-scope-p18-20260719 |
 | 类型 | fix |
-| 状态 | READY_FOR_CLAUDE_REVIEW_V7 |
+| 状态 | READY_FOR_CLAUDE_REVIEW_V8 |
 | Owner | Codex / Claude Code independent reviewer |
 | 创建日期 | 20260719 |
 
@@ -44,6 +44,11 @@ Packet ID: P18
   无条件补入工部，并同步进入 selected_swarms、swarm_tasks 与真实 task_runs。
 - v7 重放：不改变 P18 行为范围，只把 v6 净补丁重放到最新远端并保留远端工部
   fail-safe；净差仍为原定 10 个 P18 路径。
+- 第七轮审查：Claude v7 判 `INSUFFICIENT_EVIDENCE`，并给出 F1=MEDIUM：把
+  BMS/PCS/PACK 一律设为大小写敏感会漏掉现场常见的小写 `bms`/`pack`，相对基线
+  形成 fail-open；后端 doctor 因审查命令权限不足未能亲跑。
+- v8 回修：BMS/PACK 使用忽略大小写的 ASCII token 边界，PCS 继续大小写敏感以隔离
+  `100 pcs`；新增小写 BMS/PACK 正例，package/backpack/packet 等负例保持全绿。
 - 验证：历次安全边界 13 passed；最新五模块聚焦 104 passed；后端全量
   2825 passed / 37 skipped / 4 warnings / 0 failed。
 
@@ -55,4 +60,4 @@ Packet ID: P18
 - 已确认物理范围仍偏 fail-safe；领域外的单字危险字符不得生成储能消防内容。后续不得恢复
   “引擎无结论就自动准奏”，也不得用告警泛滥冒充安全。
 
-PACKET_P18_READY_FOR_CLAUDE_REVIEW_V7
+PACKET_P18_READY_FOR_CLAUDE_REVIEW_V8

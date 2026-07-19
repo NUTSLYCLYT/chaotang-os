@@ -24,7 +24,8 @@ P17 已保证“进入工部储能安全引擎的任务恒为 black”，但 Cla
 | Claude v4 HIGH | 内嵌 review_plan 被主循环空外参遮蔽，危险逃逸 hard-stop | Claude v4 NO_GO + P18-v5 RED | Claude/Codex 实跑 | 是，已回修 |
 | Claude v4 MEDIUM | 已 black 的 raw court_doc 被重复叠加 position/risks 混合契约 | Claude v4 NO_GO + P18-v5 RED | Claude/Codex 实跑 | 是，已回修 |
 | Claude v5 HIGH | department_ids override 删除强制工部，危险任务只跑锦衣卫/户部并自动继续 | Claude v5 NO_GO + P18-v6 RED | Claude/Codex 实跑 | 是，已回修 |
-| 设计取舍 | 中文范围词按子串；拉丁硬件缩写按区分大小写 ASCII token；组件只认有限连续短语 | 分类机制 + 正负例 | Claude v6 待复审 | 否 |
+| Claude v7 MEDIUM | BMS/PACK 全部大小写敏感会漏掉现场常见小写缩写，形成 fail-open | Claude v7 审查 + P18-v8 RED | Claude/Codex 实跑 | 是，已回修 |
+| 设计取舍 | 中文范围词按子串；BMS/PACK 忽略大小写但保留 ASCII token 边界；PCS 区分大小写；组件只认有限连续短语 | 分类机制 + 正负例 | Claude v8 待复审 | 否 |
 
 ## 数据流与调用链
 
@@ -41,7 +42,7 @@ route、real/rule/live/fallback 提供同一份奏折事实投影，包含 known
 | 契约 | 生产者 / 事实源 | 消费者 | 兼容性与验证 |
 | --- | --- | --- | --- |
 | 工部安全 scope | `real_department_engines.py` | direct/L4 route/fallback | 明确硬件词，或有限连续组件物理短语 |
-| 拉丁硬件缩写 | `real_department_engines.py` | 工部 scope | BMS/PCS/PACK 必须是大写独立 ASCII token；package/backpack/packet/lowercase pcs 不命中 |
+| 拉丁硬件缩写 | `real_department_engines.py` | 工部 scope | BMS/PACK 忽略大小写且必须是独立 ASCII token；PCS 必须大写；package/backpack/packet/100 pcs 不命中 |
 | 危险分档 | `real_department_engines.py` | `adapt_gongbu` | 仅在 scope 已成立后决定 P0/P1，不独立拉起引擎 |
 | 六部 routing keywords | canonical `departments.yaml` | `department_identity`/router | 电芯/析锂 + 控制柜/配电柜/端子；不使用裸模组/单体 |
 | 奏折事实文本 | `swarm_execution_loop._edict_context_text` | route/real/rule/live/hard-stop | 同时纳入 known_facts/unknown_gaps/risk_flags/review_plan |
@@ -80,7 +81,7 @@ route、real/rule/live/fallback 提供同一份奏折事实投影，包含 known
 | unknown_gaps=电芯析锂程度未知 | fallback 复核且人签 | v3 统一事实投影回归 |
 | review_plan=控制柜爆燃专项复核 | 主循环 route 含工部且部门输出复核+人签 | v4 生产路径回归 |
 | package/backpack/packet/100 pcs | direct 返回 None，不强制工部安全参审 | v5 ASCII token 负例 |
-| BMS/PCS/PACK 大写 token | 仍进入工部 black 安全范围 | v5 token 正例 |
+| BMS/PCS/PACK 大写 token + bms/pack 小写 token | 仍进入工部 black 安全范围 | v5/v8 token 正例 |
 | confirmed_edict.review_plan=控制柜爆燃 | 即使 params 无 plan，仍复核+人签 | v5 双来源事实投影回归 |
 | real_engine_fn 返回 black court_doc | 保持 court_doc 原形状，不重复添加 position/risks | v5 契约回归 |
 | 储能 PACK 起火 + override=锦衣卫/户部 | selected/tasks/真实执行均补工部，工部分奏复核+人签 | v6 override 回归 |

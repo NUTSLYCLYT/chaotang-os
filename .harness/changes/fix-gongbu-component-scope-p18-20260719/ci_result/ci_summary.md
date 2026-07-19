@@ -38,6 +38,14 @@
 | v7 `python3 -m pytest -q backend/tests -p no:randomly` | 0 | 2825 passed, 37 skipped, 4 warnings | 后端全量 | 同上，269.60s |
 | v7 D6 回归 | 0 | 42 passed | 历史审查治理与本地反馈门 | 同上，6.61s |
 | v7 三层 doctor | 0 | 0 errors, 0 warnings | 根/前端/后端护栏 | 同上 |
+| Claude v7 固定 SHA 复审 | 1（裁决） | INSUFFICIENT_EVIDENCE；另有 BMS/PACK 大小写 MEDIUM | 独立审查 | H18-v7=`f8abd78`；无 approval/commit |
+| v8 小写 BMS/PACK 回归（实现前） | 1 | 1 failed：`bms` 返回 None | 大小写 fail-open | replay worktree / 2026-07-19 |
+| v8 token 正负例（实现后） | 0 | 2 passed | 小写正例 + 英文负例 | 同上，3.69s |
+| v8 历次精确回归 | 0 | 13 passed | 七轮安全边界 | 同上，3.76s |
+| v8 五模块聚焦 | 0 | 104 passed | engine/L4/YAML/router | 同上，65.98s |
+| v8 `python3 -m pytest -q backend/tests -p no:randomly` | 0 | 2825 passed, 37 skipped, 4 warnings | 后端全量 | 同上，260.99s |
+| v8 D6 回归 | 0 | 42 passed | 历史审查治理与本地反馈门 | 同上，6.70s |
+| v8 三层 doctor | 0 | 0 errors, 0 warnings | 根/前端/后端护栏 | 同上 |
 | `git diff --check` | 0 | clean | 候选补丁格式 | 同上 |
 | `node scripts/harness-doctor.mjs` | 0 | 0 errors, 0 warnings | 根级护栏 | 同上 |
 | `python3 backend/scripts/harness_doctor.py` | 0 | 0 errors, 0 warnings | 后端护栏 | 同上 |
@@ -48,12 +56,12 @@
 v1 因 HIGH/GO 自相矛盾未进入 D6；v2/v3/v4/v5 独立复审均明确 NO_GO。v6 已把 override
 权限旁路转成 1 条 RED 并修复。v7 把同一净补丁重放到最新远端，历次安全回归共 13 条
 全绿。4 warnings 仍为 2 条 FastAPI duplicate operation ID、2 条 OpenClaw fallback
-行为警告。等待 v7 Claude/D6，不宣称发布完成。
+行为警告。Claude v7 的 MEDIUM 已按真实 RED 回修；等待 v8 Claude/D6，不宣称发布完成。
 
 ## 未验证项
 
 - 未验证生产部署；D6 属本地可绕过 feedback，不是外部 required check。
-- Claude v1/v2/v3/v4/v5 审查均不具发布资格；尚未执行 v7 固定 SHA 复审和 D6。
+- Claude v1/v2/v3/v4/v5/v7 审查均不具发布资格；尚未执行 v8 固定 SHA 复审和 D6。
 
 ## Diff 与回滚复核
 
@@ -92,8 +100,11 @@ v1 因 HIGH/GO 自相矛盾未进入 D6；v2/v3/v4/v5 独立复审均明确 NO_G
 | v6 三层 doctors | 0 errors, 0 warnings | PASS |
 | v7 最新基线重放 | 13 passed + 104 focused + 2825/37/4/0 | PASS |
 | v7 D6 回归与三层 doctors | 42 passed + 0 errors/0 warnings | PASS |
-| Claude v7 / D6 | 待执行 | PENDING |
+| Claude v7 | MEDIUM + 权限证据不足 | NO_GO（已回修） |
+| v8 blocker 回修 | 1 RED → 13 passed + 104 focused + 2825/37/4/0 | PASS |
+| v8 D6 回归与三层 doctors | 42 passed + 0 errors/0 warnings | PASS |
+| Claude v8 / D6 | 待执行 | PENDING |
 
 ## 声明状态
 
-- `VERIFIED_PARTIAL`：v7 实现、后端全量、D6 回归和 doctors 已验证；Claude/D6 发布尚未完成。
+- `VERIFIED_PARTIAL`：v8 实现、后端全量、D6 回归和 doctors 已验证；Claude/D6 发布尚未完成。

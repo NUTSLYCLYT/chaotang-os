@@ -281,8 +281,14 @@ def test_adapt_gongbu_does_not_promote_business_language_to_physical_incident():
         assert rde.adapt_gongbu(text) is None, text
 
 
-def test_adapt_gongbu_uppercase_hardware_acronyms_keep_token_scope():
-    for text in ("BMS告警", "PCS通讯中断", "PACK鼓包"):
+def test_adapt_gongbu_hardware_acronyms_keep_token_scope_and_case_policy():
+    for text in (
+        "BMS告警",
+        "bms 告警，电压不稳，是否继续运行",
+        "PCS通讯中断",
+        "PACK鼓包",
+        "pack 温度异常",
+    ):
         doc = rde.adapt_gongbu(text)
         assert doc is not None, text
         assert doc["light"] == "black", text
