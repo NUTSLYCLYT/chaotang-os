@@ -498,6 +498,7 @@ def run_department_swarm(
     live: bool | None = None,
     call_fn=None,
     real_engine_fn=None,
+    review_plan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """部门蜂群立场。real_engine_fn 命中优先(真实部门专用引擎,如兵部/锦衣卫);
     否则 live=True 走真 LLM(军机处通电),失败兜底规则;默认按 env FENGQUN_LIVE_SWARM。
@@ -506,7 +507,7 @@ def run_department_swarm(
     """
     import os
 
-    text = _edict_context_text(confirmed_edict)
+    text = _edict_context_text(confirmed_edict, review_plan)
     if real_engine_fn is not None:
         try:
             real_out = real_engine_fn(text)
@@ -522,7 +523,9 @@ def run_department_swarm(
             if override is not None
             else os.environ.get("FENGQUN_LIVE_SWARM", "").lower() in ("1", "true", "yes")
         )
-    rule = _rule_department_swarm(swarm_id, confirmed_edict, source_label)
+    rule = _rule_department_swarm(
+        swarm_id, confirmed_edict, source_label, review_plan=review_plan
+    )
     if not live and call_fn is None:
         return _enforce_gongbu_safety_stop(swarm_id, text, rule)
     live_out = _live_department_position(
@@ -540,9 +543,13 @@ def run_department_swarm(
 
 
 def _rule_department_swarm(
-    swarm_id: str, confirmed_edict: dict[str, Any], source_label: str
+    swarm_id: str,
+    confirmed_edict: dict[str, Any],
+    source_label: str,
+    *,
+    review_plan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    text = _edict_context_text(confirmed_edict)
+    text = _edict_context_text(confirmed_edict, review_plan)
     known = confirmed_edict.get("known_facts") or []
     gaps = confirmed_edict.get("unknown_gaps") or []
     evidence_used = [_evidence(item, "USER_INPUT", item) for item in known[:4]]
@@ -702,7 +709,10 @@ _INTEL_GATHERING_SWARM = "jinyiwei_intel_swarm"
 
 
 def _run_one_department(
-    sid: str, edict: dict[str, Any], source_label: str
+    sid: str,
+    edict: dict[str, Any],
+    source_label: str,
+    review_plan: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """跑单个部门蜂群(真实引擎优先,失败退兜底)。抽出来供串行/并行两条路径复用。
 
@@ -722,11 +732,20 @@ def _run_one_department(
         if skip_real
         else get_real_engine_fn_for_swarm(sid, swarm_role=SWARM_DEFS[sid]["role"])
     )
-    return run_department_swarm(sid, edict, source_label, real_engine_fn=real_fn)
+    return run_department_swarm(
+        sid,
+        edict,
+        source_label,
+        real_engine_fn=real_fn,
+        review_plan=review_plan,
+    )
 
 
 def _run_departments_cross_referenced(
-    department_ids: list[str], confirmed_edict: dict[str, Any], source_label: str
+    department_ids: list[str],
+    confirmed_edict: dict[str, Any],
+    source_label: str,
+    review_plan: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """锦衣卫(如被选中)先跑;若真实引擎给出可信情报,后续部门收到的
     confirmed_edict 会多一段"锦衣卫已核实情报"——只影响文本上下文,不改变
@@ -745,7 +764,10 @@ def _run_departments_cross_referenced(
     # 锦衣卫先串行跑,可信情报喂给后续部门
     if _INTEL_GATHERING_SWARM in department_ids:
         intel_out = _run_one_department(
-            _INTEL_GATHERING_SWARM, confirmed_edict, source_label
+            _INTEL_GATHERING_SWARM,
+            confirmed_edict,
+            source_label,
+            review_plan,
         )
         outputs_by_id[_INTEL_GATHERING_SWARM] = intel_out
         if intel_out.get("source_label") == "LIVE_ENGINE" and intel_out.get(
@@ -769,7 +791,7 @@ def _run_departments_cross_referenced(
         if max_workers <= 1:
             for sid in others:
                 outputs_by_id[sid] = _run_one_department(
-                    sid, edict_for_others, source_label
+                    sid, edict_for_others, source_label, review_plan
                 )
         else:
             with ThreadPoolExecutor(max_workers=max_workers) as pool:
@@ -782,6 +804,7 @@ def _run_departments_cross_referenced(
                         sid,
                         edict_for_others,
                         source_label,
+                        review_plan,
                     )
                     fut_to_sid[fut] = sid
                 for fut, sid in fut_to_sid.items():
@@ -791,7 +814,7 @@ def _run_departments_cross_referenced(
                         # 单部门异常不拖垮整轮:串行再跑一次兜底(run_department_swarm
                         # 自身已兜底规则模板,通常不抛;此处双保险)。
                         outputs_by_id[sid] = _run_one_department(
-                            sid, edict_for_others, source_label
+                            sid, edict_for_others, source_label, review_plan
                         )
 
     # 保持原有 department_ids 顺序输出,只是执行顺序并发——不改变下游看到的部门排列。
@@ -871,7 +894,7 @@ def run_swarm_execution_loop(params: dict[str, Any]) -> dict[str, Any]:
             if item["swarm_id"] in SWARM_DEFS
         ]
     department_outputs = _run_departments_cross_referenced(
-        department_ids, confirmed_edict, source_label
+        department_ids, confirmed_edict, source_label, review_plan
     )
     audit = evidence_audit(department_outputs, source_label)
     critique = critic_report(department_outputs, audit, source_label)

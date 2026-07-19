@@ -47,12 +47,23 @@
 - 回滚边界：不得恢复全文任意共现或分裂的 route/run 文本拼接。
 - 完成定义：v2 两项 blocker 均有行为回归并关闭。
 
-## 任务 5：重新审查发布
+## 任务 5：Claude v3 NO_GO 回修
+
+- 目标：让外部 review_plan 在 route 与实际部门执行使用同一事实文本。
+- 前置条件：Claude v3 F1=HIGH，裁决 `PACKET_REVIEW_NO_GO`。
+- 输入：危险事实只存在于 params.review_plan 的生产主循环用例。
+- 输出：显式 review_plan 参数及主循环串行/并行/重试透传。
+- 涉及文件：蜂群编排、蜂群 API 测试与 Harness 证据。
+- 验证命令与证据：1 RED；回修后 10 passed、102 focused、2795 全量。
+- 回滚边界：不得恢复 route 独享 review_plan 的分裂口径。
+- 完成定义：主循环输出复核+人签，不再准奏。
+
+## 任务 6：重新审查发布
 
 - 目标：固定 H18，经 Claude 与 D6 顺序发布。
 - 前置条件：任务 2 与三层 doctor 全绿。
 - 输入：10 文件候选范围。
-- 输出：H18-v3、review-only R18-v3、no-ff M18。
+- 输出：H18-v4、review-only R18-v4、no-ff M18。
 - 涉及文件：本 change 目录 + 6 个实现/测试路径。
 - 状态 / 数据变化：GO 后普通 push 更新 ext。
 - 验证命令与证据：Claude 报告、approval digest、D6 verifier。

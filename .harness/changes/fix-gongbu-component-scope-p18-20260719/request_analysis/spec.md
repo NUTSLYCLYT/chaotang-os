@@ -19,7 +19,8 @@ P17 已保证“进入工部储能安全引擎的任务恒为 black”，但 Cla
 | Claude v1 MEDIUM | `合同+控制柜爆燃` 的 canonical candidates 缺工部 | review-v1 本地隔离报告 + P18-v2 RED | Claude/Codex 实跑 | 是，已回修 |
 | Claude v2 HIGH | 全文任意共现令单体服务短路、模组包体膨胀伪造消防指令 | Claude v2 NO_GO + P18-v3 RED | Claude/Codex 实跑 | 是，已回修 |
 | Claude v2 MEDIUM | route/run 文本口径遗漏 known_facts 或 unknown_gaps，事故 fallback 可无人签 | Claude v2 NO_GO + P18-v3 RED | Claude/Codex 实跑 | 是，已回修 |
-| 设计取舍 | 危险信号只在已确认物理范围分档；歧义组件只认有限连续物理短语 | 共享分类函数 + 正负例 | Claude v3 待复审 | 否 |
+| Claude v3 HIGH | 外部 review_plan 仅进 route，不进执行，强制参审后仍可自动准奏 | Claude v3 NO_GO + P18-v4 RED | Claude/Codex 实跑 | 是，已回修 |
+| 设计取舍 | 危险信号只在已确认物理范围分档；歧义组件只认有限连续物理短语 | 共享分类函数 + 正负例 | Claude v4 待复审 | 否 |
 
 ## 数据流与调用链
 
@@ -27,8 +28,9 @@ P17 已保证“进入工部储能安全引擎的任务恒为 black”，但 Cla
 P0/P1 black；若无有效结论或跳过 real engine → `_enforce_gongbu_safety_stop` → 复核且风险项
 要求人工确认。`is_gongbu_safety_scope()` 是 direct、L4 route 与 fallback 的共享判定入口；
 它以明确硬件词为主，歧义的 `模组/单体` 只通过有限连续物理短语入域，危险字符只在入域后
-分档。`_edict_context_text()` 向 route、real/rule/live/fallback 提供同一份奏折事实投影，包含
-known facts 与 unknown gaps。canonical 六部词表继续由 `departments.yaml` 持有。
+分档。`review_plan` 由主循环显式传给每个部门，`_edict_context_text()` 向
+route、real/rule/live/fallback 提供同一份奏折事实投影，包含 known facts、unknown gaps 与
+外部 review plan。canonical 六部词表继续由 `departments.yaml` 持有。
 
 ## 接口、数据结构与事实源
 
@@ -38,6 +40,7 @@ known facts 与 unknown gaps。canonical 六部词表继续由 `departments.yaml
 | 危险分档 | `real_department_engines.py` | `adapt_gongbu` | 仅在 scope 已成立后决定 P0/P1，不独立拉起引擎 |
 | 六部 routing keywords | canonical `departments.yaml` | `department_identity`/router | 电芯/析锂 + 控制柜/配电柜/端子；不使用裸模组/单体 |
 | 奏折事实文本 | `swarm_execution_loop._edict_context_text` | route/real/rule/live/hard-stop | 同时纳入 known_facts/unknown_gaps/risk_flags/review_plan |
+| review plan 传播 | `run_swarm_execution_loop` | `_run_departments_cross_referenced` → `_run_one_department` → `run_department_swarm` | 串行/并行/重试均传同一对象；旧直调默认 None 兼容 |
 | fallback human confirmation | `swarm_execution_loop.py` | brief risk register/quality gate | real engine 空、规则或 live 输出均补 hard-stop |
 
 ## 范围
@@ -68,6 +71,7 @@ known facts 与 unknown gaps。canonical 六部词表继续由 `departments.yaml
 | 单体服务短路 / 前端模组包体膨胀 | direct 返回 None，不做全文任意共现 | v3 领域外负例 |
 | known_facts=控制柜爆燃 | 路由含工部；real None fallback 仍复核且人签 | v3 统一事实投影回归 |
 | unknown_gaps=电芯析锂程度未知 | fallback 复核且人签 | v3 统一事实投影回归 |
+| review_plan=控制柜爆燃专项复核 | 主循环 route 含工部且部门输出复核+人签 | v4 生产路径回归 |
 
 ## 风险与回滚边界
 
@@ -87,13 +91,15 @@ known facts 与 unknown gaps。canonical 六部词表继续由 `departments.yaml
 1. 四条旁路测试必须先在 P17 远端 RED，再在 P18 GREEN。
 2. Claude v1 的领域外假阳性与 canonical 不对称必须在 H18 RED、v2 GREEN。
 3. Claude v2 的全文共现假阳性与奏折事实口径旁路必须在 v2 RED、v3 GREEN。
-4. direct、L4 route、fallback、canonical route 四条路径形成闭环。
-5. 聚焦、后端全量、三层 doctor、diff check 全绿。
-6. Claude 固定 B/H 独立复审无 HIGH/MEDIUM 阻断后才允许 D6 no-ff 发布。
+4. Claude v3 的 review_plan route/run 旁路必须在 v3 RED、v4 GREEN。
+5. direct、L4 route、fallback、canonical route 四条路径形成闭环。
+6. 聚焦、后端全量、三层 doctor、diff check 全绿。
+7. Claude 固定 B/H 独立复审无 HIGH/MEDIUM 阻断后才允许 D6 no-ff 发布。
 
 ## 验证计划
 
-- 原 4 个精确 node ID + v2 3 个边界 node + v3 2 个事实投影 node，累计 9 个精确回归。
+- 原 4 个精确 node + v2 3 个边界 node + v3 2 个事实投影 node + v4 1 个 review-plan
+  生产路径 node，累计 10 个精确回归。
 - 五文件跨模块 focused pytest。
 - `python3 -m pytest -q backend/tests -p no:randomly`。
 - 三层 doctor、diff check、Claude、D6。

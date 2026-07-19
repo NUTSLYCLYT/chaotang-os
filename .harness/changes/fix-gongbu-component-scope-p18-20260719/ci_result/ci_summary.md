@@ -18,6 +18,11 @@
 | v3 历次精确回归（实现后） | 0 | 9 passed | 三轮安全边界 | 同上，3.77s |
 | v3 五文件跨模块聚焦 | 0 | 101 passed | engine/L4/YAML/router | 同上，65.04s |
 | v3 `python3 -m pytest -q backend/tests -p no:randomly` | 0 | 2794 passed, 37 skipped, 4 warnings | 后端全量 | 同上，268.94s |
+| Claude v3 固定 SHA 复审 | 1（裁决） | PACKET_REVIEW_NO_GO：review_plan route/run HIGH | 独立审查 | H18-v3=`2bb0319`；无 approval/commit |
+| v4 review_plan 生产路径（实现前） | 1 | 1 failed：准奏≠复核 | 主循环参数传播 | P18 worktree / 2026-07-19 |
+| v4 历次精确回归（实现后） | 0 | 10 passed | 四轮安全边界 | 同上，4.19s |
+| v4 五文件跨模块聚焦 | 0 | 102 passed | engine/L4/YAML/router | 同上，68.31s |
+| v4 `python3 -m pytest -q backend/tests -p no:randomly` | 0 | 2795 passed, 37 skipped, 4 warnings | 后端全量 | 同上，273.16s |
 | `git diff --check` | 0 | clean | 候选补丁格式 | 同上 |
 | `node scripts/harness-doctor.mjs` | 0 | 0 errors, 0 warnings | 根级护栏 | 同上 |
 | `python3 backend/scripts/harness_doctor.py` | 0 | 0 errors, 0 warnings | 后端护栏 | 同上 |
@@ -25,15 +30,15 @@
 
 ## 结果
 
-v1 因 HIGH/GO 自相矛盾未进入 D6；v2 独立复审明确 NO_GO，同样未进入 D6。v3 已把 v2 的
-HIGH/MEDIUM 转成 3 条 RED 并修复，历次安全回归共 9 条全绿。4 warnings 与 P17 基线一致：
-2 条 FastAPI duplicate operation ID、2 条 OpenClaw fallback 行为警告。v3 三层 doctor
-复跑均为 0 errors / 0 warnings；等待 v3 Claude/D6，不宣称发布完成。
+v1 因 HIGH/GO 自相矛盾未进入 D6；v2/v3 独立复审均明确 NO_GO，同样未进入 D6。v4 已把
+review_plan 旁路转成 1 条 RED 并修复，历次安全回归共 10 条全绿。4 warnings 与 P17 基线
+一致：2 条 FastAPI duplicate operation ID、2 条 OpenClaw fallback 行为警告。v4 三层
+doctor 复跑均为 0 errors / 0 warnings；等待 v4 Claude/D6，不宣称发布完成。
 
 ## 未验证项
 
 - 未验证生产部署；D6 属本地可绕过 feedback，不是外部 required check。
-- Claude v1/v2 审查均不具发布资格；尚未执行 v3 固定 SHA 复审和 D6。
+- Claude v1/v2/v3 审查均不具发布资格；尚未执行 v4 固定 SHA 复审和 D6。
 
 ## Diff 与回滚复核
 
@@ -55,8 +60,12 @@ HIGH/MEDIUM 转成 3 条 RED 并修复，历次安全回归共 9 条全绿。4 w
 | v3 blocker 回修 | 3 RED → 9 passed + 101 passed | PASS |
 | v3 后端无回归 | 2794/37/4/0 | PASS |
 | v3 三层 doctors | 0 errors, 0 warnings | PASS |
-| Claude v3 / D6 | 待执行 | PENDING |
+| Claude v3 | review_plan route/run HIGH | NO_GO（已回修） |
+| v4 blocker 回修 | 1 RED → 10 passed + 102 passed | PASS |
+| v4 后端无回归 | 2795/37/4/0 | PASS |
+| v4 三层 doctors | 0 errors, 0 warnings | PASS |
+| Claude v4 / D6 | 待执行 | PENDING |
 
 ## 声明状态
 
-- `VERIFIED_PARTIAL`：v3 实现和后端全量已验证，v3 doctors/Claude/D6 尚未完成。
+- `VERIFIED_PARTIAL`：v4 实现和后端全量已验证，v4 doctors/Claude/D6 尚未完成。

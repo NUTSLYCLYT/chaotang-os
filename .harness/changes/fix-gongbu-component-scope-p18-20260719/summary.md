@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | fix-gongbu-component-scope-p18-20260719 |
 | 类型 | fix |
-| 状态 | READY_FOR_CLAUDE_REVIEW_V3 |
+| 状态 | READY_FOR_CLAUDE_REVIEW_V4 |
 | Owner | Codex / Claude Code independent reviewer |
 | 创建日期 | 20260719 |
 
@@ -28,15 +28,19 @@ Packet ID: P18
 - v3 回修：删除全文任意共现，改用 `模组端子/单体电压` 等有限连续物理短语；新增统一
   `_edict_context_text()`，让路由、真实引擎、规则与 hard-stop 共同读取原问题、精炼旨意、
   原始命令、决策类型、已知事实、未知缺口、风险旗标和审查计划。
-- 验证：v3 两类阻断共 3 条 RED；回修后历次安全边界 9 passed；跨模块 101 passed；
-  后端全量 2794 passed / 37 skipped / 4 warnings / 0 failed。
+- 第三轮审查：Claude v3 判 `PACKET_REVIEW_NO_GO`，F1=HIGH 证明外部 `review_plan` 仅进入
+  route，未沿主循环传给部门执行，仍可“强制参审后自动准奏”；另记 CI 声明陈旧 LOW。
+- v4 回修：`review_plan` 成为 `run_department_swarm` 的显式可选输入，由主循环沿锦衣卫先行、
+  串行、并行与异常重试路径原样传递，并同时供 real/rule/live/hard-stop 消费。
+- 验证：v4 生产路径回归 1 RED→GREEN；历次安全边界 10 passed；跨模块 102 passed；
+  后端全量 2795 passed / 37 skipped / 4 warnings / 0 failed。
 
 ## 边界
 
 - 不把旧本地分支合入，不改前端、数据库、provider 或 P17 审查证据。
-- Claude v1 的矛盾 GO 与 Claude v2 的 NO_GO 均仅保留在隔离本地历史，不进入候选 lineage，
-  也不作为 approval。
+- Claude v1 的矛盾 GO 与 Claude v2/v3 的 NO_GO 均仅保留在隔离本地历史，不进入候选
+  lineage，也不作为 approval。
 - 已确认物理范围仍偏 fail-safe；领域外的单字危险字符不得生成储能消防内容。后续不得恢复
   “引擎无结论就自动准奏”，也不得用告警泛滥冒充安全。
 
-PACKET_P18_READY_FOR_CLAUDE_REVIEW_V3
+PACKET_P18_READY_FOR_CLAUDE_REVIEW_V4

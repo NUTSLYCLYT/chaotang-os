@@ -146,6 +146,49 @@ def test_unknown_gap_hazard_hard_stops_gongbu():
     )
 
 
+def test_review_plan_hazard_reaches_route_and_department_hard_stop(monkeypatch):
+    edict = {
+        "original_question": "这份合同要不要签",
+        "refined_edict": "评估合同风险",
+        "decision_type": "合同审查",
+        "known_facts": [],
+        "unknown_gaps": [],
+        "risk_flags": [],
+        "source_label": "USER_INPUT",
+    }
+    review_plan = {
+        "focus": ["现场控制柜爆燃后是否仍可继续运行需专项复核"]
+    }
+
+    selected = {
+        item["swarm_id"]
+        for item in route_swarms(edict, review_plan)["selected_swarms"]
+    }
+    assert "xingbu_legal_risk_swarm" in selected
+    assert "gongbu_delivery_swarm" in selected
+
+    monkeypatch.setenv("FENGQUN_PAGE_SYNC_SKIP_REAL_ENGINES", "1")
+    result = run_swarm_execution_loop(
+        {
+            "task_id": "task-p18-review-plan",
+            "review_id": "review-p18-review-plan",
+            "confirmed_edict": edict,
+            "review_plan": review_plan,
+            "department_ids": ["工部"],
+            "council": False,
+        }
+    )
+    output = next(
+        item["output"]
+        for item in result["task_runs"]
+        if item["swarm_id"] == "gongbu_delivery_swarm"
+    )
+    assert output["position"] == "复核"
+    assert any(
+        risk["requires_human_confirmation"] for risk in output["risks"]
+    )
+
+
 def test_high_risk_contract_requires_human_confirmation(monkeypatch):
     import src.xingbu_verdict as xv
 
