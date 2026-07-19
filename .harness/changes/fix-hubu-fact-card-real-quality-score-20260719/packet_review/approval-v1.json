@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "LOCAL_FEEDBACK_ONLY",
+  "review_version": 1,
+  "packet_id": "P23",
+  "change_id": "fix-hubu-fact-card-real-quality-score-20260719",
+  "predecessor_integration_sha": "0ee467db058c36e8fe00d9b560453537b644bd93",
+  "reviewed_head_sha": "36893eb8b3a10c427e00a425c7defabfa8e29a15",
+  "report_path": ".harness/changes/fix-hubu-fact-card-real-quality-score-20260719/packet_review/review-v1.md",
+  "report_sha256": "c20d0a9034451668110a244367abbaf82d1704691edf33728397ccbdafd77775",
+  "verdict": "PACKET_REVIEW_GO"
+}
