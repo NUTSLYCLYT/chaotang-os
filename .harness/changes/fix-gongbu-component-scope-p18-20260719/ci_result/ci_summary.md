@@ -20,9 +20,9 @@
 | v3 `python3 -m pytest -q backend/tests -p no:randomly` | 0 | 2794 passed, 37 skipped, 4 warnings | 后端全量 | 同上，268.94s |
 | Claude v3 固定 SHA 复审 | 1（裁决） | PACKET_REVIEW_NO_GO：review_plan route/run HIGH | 独立审查 | H18-v3=`2bb0319`；无 approval/commit |
 | v4 review_plan 生产路径（实现前） | 1 | 1 failed：准奏≠复核 | 主循环参数传播 | P18 worktree / 2026-07-19 |
-| v4 历次精确回归（最终基线） | 0 | 10 passed | 四轮安全边界 | rebased worktree，5.13s |
-| v4 五文件跨模块聚焦（最终基线） | 0 | 102 passed | engine/L4/YAML/router | 同上，67.31s |
-| v4 `python3 -m pytest -q backend/tests -p no:randomly`（最终基线） | 0 | 2795 passed, 37 skipped, 4 warnings | 后端全量 | 同上，281.06s |
+| v4 历次精确回归（最新 `e69f279` 基线） | 0 | 10 passed | 四轮安全边界 | latest worktree，4.93s |
+| v4 五文件跨模块聚焦（运行时相同的前一 docs-only 基线） | 0 | 102 passed | engine/L4/YAML/router | rebased worktree，67.31s |
+| v4 `python3 -m pytest -q backend/tests -p no:randomly`（运行时相同的前一 docs-only 基线） | 0 | 2795 passed, 37 skipped, 4 warnings | 后端全量 | 同上，281.06s |
 | `git diff --check` | 0 | clean | 候选补丁格式 | 同上 |
 | `node scripts/harness-doctor.mjs` | 0 | 0 errors, 0 warnings | 根级护栏 | 同上 |
 | `python3 backend/scripts/harness_doctor.py` | 0 | 0 errors, 0 warnings | 后端护栏 | 同上 |
@@ -44,8 +44,8 @@ doctor 复跑均为 0 errors / 0 warnings；等待 v4 Claude/D6，不宣称发�
 
 - changed files：6 个实现/配置/测试文件 + 4 个根 Harness 文件。
 - diff review：无前端、数据库、provider、旧分支 ancestry。
-- 最终候选已从旧 P17 基线无冲突移植到最新远端 `ef9b597`；该远端在 P17 后仅新增
-  product-r0 docs-only 包，`B18..H18-v4` 仍恰 10 个 P18 路径。
+- 最终候选已从旧 P17 基线无冲突移植到最新远端 `e69f279`；该远端在 P17 后仅新增
+  product-r0 docs-only 包及其一致性修复，`B18..H18-v4` 仍恰 10 个 P18 路径。
 - 回滚是否演练：未演练；安全旁路修复不得无审查回滚。
 
 ## 完成定义映射

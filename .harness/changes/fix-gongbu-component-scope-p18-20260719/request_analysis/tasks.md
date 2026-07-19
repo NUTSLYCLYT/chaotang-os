@@ -4,7 +4,7 @@
 
 - 目标：分别复现 direct、L4 route、fallback、canonical route 旁路。
 - 前置条件：原始 RED 基线为 P17 `05582e5`；最终发布基线 B18 更新为
-  `ef9b597412f53c00fb717ea5b7a2a265fd599f0f`，新增远端内容仅 docs-only 且旧基线为其祖先。
+  `e69f2795a8a144a4e9a89ccc7b690c2ecbe10707`，新增远端内容仅 docs-only 且旧基线为其祖先。
 - 输入：Claude OUT-1 与独立调用链审计。
 - 输出：4 failed。
 - 涉及文件：3 个测试文件。
