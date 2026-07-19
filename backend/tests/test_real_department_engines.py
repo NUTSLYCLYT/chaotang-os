@@ -266,6 +266,10 @@ def test_adapt_gongbu_does_not_promote_business_language_to_physical_incident():
         "策划一个爆款方案",
         "准备高温促销",
         "把单体架构拆分为微服务并重构模组化前端组件库",
+        "前端模组化后包体积膨胀",
+        "单体服务短路降级演练",
+        "模组化重构后内存膨胀",
+        "模组化组件电压不足的比喻",
     )
 
     for text in texts:

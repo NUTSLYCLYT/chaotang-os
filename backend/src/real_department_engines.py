@@ -871,28 +871,19 @@ _GONGBU_SCOPE_KEYWORDS = (
     "设备告警",
     "售后故障",
 )
-_GONGBU_AMBIGUOUS_COMPONENT_KEYWORDS = ("模组", "单体")
-_GONGBU_COMPONENT_PHYSICAL_CONTEXT = (
-    "端子",
-    "电芯",
-    "电压",
-    "电流",
-    "温度",
-    "绝缘",
-    "析锂",
-    "短路",
-    "漏液",
-    "冒烟",
-    "起火",
-    "打火",
-    "爆燃",
-    "爆炸",
-    "松动",
-    "鼓包",
-    "膨胀",
-    "BMS",
-    "PCS",
-    "PACK",
+_GONGBU_COMPONENT_SCOPE_PHRASES = (
+    "电池模组",
+    "模组端子",
+    "模组电芯",
+    "模组电压",
+    "模组电流",
+    "模组温度",
+    "模组绝缘",
+    "电池单体",
+    "单体电压",
+    "单体电流",
+    "单体温度",
+    "单体压差",
 )
 # 物理安全门 fail-safe(彻底版):储能事故范围内**只有两档**——
 #   P0 = 命中明确危险信号(火情/爆炸/热失控前兆/失控趋势)→ 断电撤离消防;
@@ -922,25 +913,20 @@ def has_gongbu_p0_hazard(task_text: str) -> bool:
 
 
 def is_gongbu_safety_scope(task_text: str) -> bool:
-    """工部物理安全范围：明确硬件词，或歧义组件词与物理上下文共现。
+    """工部物理安全范围：明确硬件词，或限定的连续物理组件短语。
 
     “火/爆/飙/骤”等危险字符只用于已入域任务的 P0/P1 分档，不能独立拉起储能
-    引擎；否则防火墙、聚焦业务、烧钱失控等普通任务会收到失实消防指令。
+    引擎；`模组/单体` 也不能与全文任意物理词做笛卡尔共现，否则单体服务短路、
+    前端模组包体膨胀等软件任务仍会收到失实消防指令。
     """
     text_lower = task_text.lower()
     if any(
         keyword.lower() in text_lower for keyword in _GONGBU_SCOPE_KEYWORDS
     ):
         return True
-    has_ambiguous_component = any(
-        keyword.lower() in text_lower
-        for keyword in _GONGBU_AMBIGUOUS_COMPONENT_KEYWORDS
+    return any(
+        phrase.lower() in text_lower for phrase in _GONGBU_COMPONENT_SCOPE_PHRASES
     )
-    has_physical_context = any(
-        keyword.lower() in text_lower
-        for keyword in _GONGBU_COMPONENT_PHYSICAL_CONTEXT
-    )
-    return has_ambiguous_component and has_physical_context
 
 
 _GONGBU_GAP_RULES = (

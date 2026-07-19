@@ -94,6 +94,58 @@ def test_gongbu_fallback_requires_human_when_real_engine_returns_none():
     )
 
 
+def test_known_fact_hazard_routes_and_hard_stops_gongbu():
+    edict = {
+        "original_question": "合同条款要求继续运行",
+        "refined_edict": "请审查合同责任",
+        "decision_type": "事故处置",
+        "known_facts": ["控制柜爆燃"],
+        "unknown_gaps": [],
+        "risk_flags": ["合同风险"],
+    }
+
+    selected = {
+        item["swarm_id"] for item in route_swarms(edict)["selected_swarms"]
+    }
+    assert "xingbu_legal_risk_swarm" in selected
+    assert "gongbu_delivery_swarm" in selected
+
+    result = run_department_swarm(
+        "gongbu_delivery_swarm",
+        edict,
+        "MIXED",
+        live=False,
+        real_engine_fn=lambda _text: None,
+    )
+    assert result["position"] == "复核"
+    assert any(
+        risk["requires_human_confirmation"] for risk in result["risks"]
+    )
+
+
+def test_unknown_gap_hazard_hard_stops_gongbu():
+    edict = {
+        "original_question": "评估下一步",
+        "refined_edict": "请审查交付证据",
+        "decision_type": "事故处置",
+        "known_facts": [],
+        "unknown_gaps": ["电芯析锂程度未知"],
+        "risk_flags": [],
+    }
+
+    result = run_department_swarm(
+        "gongbu_delivery_swarm",
+        edict,
+        "MIXED",
+        live=False,
+        real_engine_fn=lambda _text: None,
+    )
+    assert result["position"] == "复核"
+    assert any(
+        risk["requires_human_confirmation"] for risk in result["risks"]
+    )
+
+
 def test_high_risk_contract_requires_human_confirmation(monkeypatch):
     import src.xingbu_verdict as xv
 

@@ -308,24 +308,41 @@ def normalize_source_label(label: str | None, *, has_real_trace: bool = False) -
     return label
 
 
+def _edict_context_text(
+    confirmed_edict: dict[str, Any],
+    review_plan: dict[str, Any] | None = None,
+) -> str:
+    """路由、真实引擎、规则与 hard-stop 共用的奏折事实投影。"""
+    values: list[Any] = [
+        confirmed_edict.get("original_question"),
+        confirmed_edict.get("refined_edict"),
+        confirmed_edict.get("raw_command"),
+        confirmed_edict.get("decision_type"),
+        confirmed_edict.get("known_facts"),
+        confirmed_edict.get("unknown_gaps"),
+        confirmed_edict.get("risk_flags"),
+        review_plan
+        if review_plan is not None
+        else confirmed_edict.get("review_plan"),
+    ]
+    parts: list[str] = []
+    for value in values:
+        if value is None or value == "":
+            continue
+        if isinstance(value, (list, tuple, set)):
+            parts.extend(str(item) for item in value if item is not None and item != "")
+        else:
+            parts.append(str(value))
+    return "\n".join(parts)
+
+
 def route_swarms(
     confirmed_edict: dict[str, Any],
     review_plan: dict[str, Any] | None = None,
     *,
     mode: str = "standard",
 ) -> dict[str, Any]:
-    text = "\n".join(
-        str(x)
-        for x in [
-            confirmed_edict.get("original_question"),
-            confirmed_edict.get("refined_edict"),
-            confirmed_edict.get("decision_type"),
-            " ".join(confirmed_edict.get("risk_flags") or []),
-            " ".join(confirmed_edict.get("unknown_gaps") or []),
-            str(review_plan or {}),
-        ]
-        if x
-    )
+    text = _edict_context_text(confirmed_edict, review_plan)
     selected: list[dict[str, str]] = []
     for swarm_id, spec in SWARM_DEFS.items():
         hit = next((kw for kw in spec["keywords"] if kw in text), None)
@@ -489,7 +506,7 @@ def run_department_swarm(
     """
     import os
 
-    text = f"{confirmed_edict.get('original_question', '')}\n{confirmed_edict.get('refined_edict', '')}\n{confirmed_edict.get('raw_command', '')}"
+    text = _edict_context_text(confirmed_edict)
     if real_engine_fn is not None:
         try:
             real_out = real_engine_fn(text)
@@ -525,7 +542,7 @@ def run_department_swarm(
 def _rule_department_swarm(
     swarm_id: str, confirmed_edict: dict[str, Any], source_label: str
 ) -> dict[str, Any]:
-    text = f"{confirmed_edict.get('original_question', '')}\n{confirmed_edict.get('refined_edict', '')}"
+    text = _edict_context_text(confirmed_edict)
     known = confirmed_edict.get("known_facts") or []
     gaps = confirmed_edict.get("unknown_gaps") or []
     evidence_used = [_evidence(item, "USER_INPUT", item) for item in known[:4]]
