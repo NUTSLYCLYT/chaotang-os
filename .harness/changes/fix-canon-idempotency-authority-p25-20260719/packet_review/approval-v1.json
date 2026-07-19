@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "LOCAL_FEEDBACK_ONLY",
+  "review_version": 1,
+  "packet_id": "P25",
+  "change_id": "fix-canon-idempotency-authority-p25-20260719",
+  "predecessor_integration_sha": "023f198077a0fb6928f554ed1be81b1afb819f40",
+  "reviewed_head_sha": "70386d38a3b3693540959a0812bd1df26b1bf59f",
+  "report_path": ".harness/changes/fix-canon-idempotency-authority-p25-20260719/packet_review/review-v1.md",
+  "report_sha256": "f30808f680076b8cdf978a855a2ec288214d9738aecc893734402b30fbe7d3dd",
+  "verdict": "PACKET_REVIEW_GO"
+}

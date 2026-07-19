@@ -4,43 +4,25 @@
 | --- | --- |
 | Change ID | docs-canon-idempotency-01-spec-20260719 |
 | 类型 | docs |
-| 状态 | READY_FOR_CLAUDE_REVIEW_V2 / ARCHIVED_SPEC_EVIDENCE / NOT_ACTIVE_PRODUCT_SSOT / RUNTIME_NOT_AUTHORIZED |
-| Owner | Chaotang OS Project Owner / Backend Request Idempotency (future runtime) |
+| 当前状态 | P21_REVIEW_GO / AUTHORITY_INTERPRETATION_SUPERSEDED_BY_P25 / CURRENT_ENGINEERING_SPEC / RUNTIME_NOT_AUTHORIZED |
+| Owner | Chaotang OS Project Owner / Backend Request Idempotency（未来 runtime） |
 | 创建日期 | 20260719 |
 
 Packet ID: P21
 
-## 范围
+## 当前范围
 
-- 主线：根项目护栏中的历史治理规格证据；不恢复已退役的 canonical readiness 产品文档，
-  不进入 backend runtime。
-- 文件：本 change 目录内保留 atomic spec、current-mechanism census、治理进度、rollback
-  与架构/隐私双审历史，共 14 个 Markdown；不修改当前产品文档。
-- 验证：独立 current-state census、架构/隐私对抗复审、focused 现有事实回归、root/backend doctor、`git diff --check`。
+- `atomic-spec.md` 是 CANON-IDEMPOTENCY-01 的 current engineering authority；它不属于产品 SSOT，也不证明 runtime 已实现。
+- census、领域复审、P21 原 packet review 和 CI 均保留为审计证据。
+- P25 只纠正 P21 的 authority 解释与错误历史叙述，不恢复 `docs/plans/canon-readiness/`、六能力父 blueprint 或 packet catalog。
 
-## 单一状态变化
+## 审计历史
 
-`未集成的本地规格草案 -> 可审计的历史规格证据`。
+- P21 最初以 `ARCHIVED_SPEC_EVIDENCE` 状态合入；其精确 B/H/R/M 和 review/approval 保留在 Git 历史中，不能改写成曾批准 current authority。
+- P25 以新的 B/H/R/M 审批链把 `ARCHIVED_SPEC_EVIDENCE -> CURRENT_ENGINEERING_SPEC`，并显式 supersede P21 的 authority interpretation。
+- P19 只删除冻结 allowlist 内六个旧 change 目录，没有批准或执行 ABS/PRIV/CANON 文档删除。`7daf36ba42b5266a338b128abf055e164657ac9a` 是未集成兄弟线，不是被 P19 删除的中央历史。
+- 当前 `docs/README.md` 把技术实施方案、API 审计和接口对接计划归对应 harness/changes；因此 current engineering spec 留在本 change，不另建产品 SSOT。
 
-这不把 CANON 重新设为当前产品 SSOT，也不是 `ABSENT -> TENANT_SCOPE_FAIL_CLOSED` 的
-runtime 实现；后者仍为 `NOT_IMPLEMENTED / NOT_AUTHORIZED`。
+## Runtime 边界
 
-## 基线与隔离
-
-- 原始本地 checkpoint：`d41c28ea72ad23b5f33c98c53f1c7a0d5400a34e`。
-- 发布基线：`origin/feature-chaotang-ext@475763a2d24308ca793b44914c8d4f38be651a05`。
-- 业主已明确裁定：保留本 change 的新规格与双审证据，不恢复远端已删除的
-  `docs/plans/canon-readiness/`、parent blueprint 或 packet catalog。
-- 原规格从已退役产品目录迁入本 change 的 `atomic-spec.md`；原三份 SSOT 修改被丢弃。
-- 静态 migration head：`016_schema_literal_contract_guard`；本文不创建或保留未来 revision 编号。
-- Claude v1 固定 SHA 复审判 `PACKET_REVIEW_NO_GO`：规范性范围残留“更新退役 SSOT”
-  构成 MEDIUM；另有三项 LOW。v2 已删除该授权歧义，并修正历史 review 路径、
-  `SPEC_READY` 限定和历史评分表列名。
-
-## 禁止事项
-
-- 不改 Python/TypeScript、schema、migration、数据库、provider、feature flag、KMS 或真实数据。
-- 不迁移/清理既有 plaintext key、payload、JSONL、文件 store。
-- 不把 spec、现有测试通过、cache hit、unique constraint 或 outbox claim写成 canonical runtime 已完成。
-
-PACKET_P21_READY_FOR_CLAUDE_REVIEW_V2
+目标 runtime 状态仍为 `ABSENT / NOT_IMPLEMENTED / NOT_AUTHORIZED`。P21/P25 均不修改 Python/TypeScript、schema、migration、数据库、KMS、provider、真实数据或既有 plaintext key/payload。

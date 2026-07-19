@@ -1,5 +1,10 @@
 # 任务：docs-canon-idempotency-01-spec-20260719
 
+> P25 纠偏：以下任务记录保留 P21 当时的执行历史；其中“远端已退役”“业主保留策略”
+> 和 archive-only authority 解释已被 P25 以 Git 证据 supersede。当前执行计划以
+> `.harness/changes/fix-canon-idempotency-authority-p25-20260719/request_analysis/tasks.md`
+> 为准，P21 原 packet review 不作改写。
+
 ## 任务 1：隔离与基线
 
 - 目标：在独立 docs-only branch/change 上冻结 HEAD、remote、migration head 与授权边界。
