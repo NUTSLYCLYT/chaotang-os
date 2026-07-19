@@ -90,3 +90,43 @@ def test_user_supplied_urls_keep_request_label():
     assert session["source_label"] == "LIVE"
     assert loop["evidenceVerified"] is False
     assert loop["qualityGate"]["checks"]["official_sources_verified"] is False
+
+
+def test_fact_card_flows_into_memorial_and_scores_are_derived():
+    facts = [
+        {"metric": "revenue", "tag": "Revenues", "value": 1200, "unit": "USD",
+         "fiscalYear": 2025, "periodEnd": "2025-12-31", "form": "10-K", "entity": "DEMO CORP"},
+    ]
+    session = build_finance_intel_session(
+        session_id="s-facts",
+        task_input="NVDA SEC 风险",
+        body=_body(),
+        evidence_fetcher=lambda t: {
+            "sourceUrls": ["https://data.sec.gov/api/xbrl/companyfacts/CIK0001045810.json"],
+            "verified": True,
+            "cik": "0001045810",
+            "facts": facts,
+        },
+    )
+    loop = session["finance_intel_loop"]
+    assert loop["memorial"]["factCard"] == facts
+    runs = {run["swarm_id"]: run for run in session["swarm_runs"]}
+    # 锦衣卫: present+verified 双检查全过 → 1.0
+    assert runs["jinyiwei"]["quality_score"] == 1.0
+    # 户部: 分数 = qualityGate checks 通过率,非编造常量
+    gate_checks = loop["qualityGate"]["checks"]
+    expected = round(sum(1 for v in gate_checks.values() if v is True) / len(gate_checks), 2)
+    assert runs["finance"]["quality_score"] == expected
+
+
+def test_template_path_scores_honestly_degrade():
+    session = build_finance_intel_session(
+        session_id="s-tpl-score",
+        task_input="AAPL SEC 风险",
+        body=_body(ticker="AAPL"),
+        evidence_fetcher=None,
+    )
+    runs = {run["swarm_id"]: run for run in session["swarm_runs"]}
+    # 模板 URL: present=True, verified=False → 0.5,不再冒充 0.9
+    assert runs["jinyiwei"]["quality_score"] == 0.5
+    assert session["finance_intel_loop"]["memorial"]["factCard"] == []

@@ -76,4 +76,55 @@ def test_gather_sec_evidence_unknown_ticker_returns_empty(tmp_path, monkeypatch)
     cache.write_text('{"AAPL": "0000320193"}', encoding="utf-8")
     monkeypatch.setattr(sec_edgar.httpx, "get", _boom)
     got = sec_edgar.gather_sec_evidence("ZZZZZ", cache)
-    assert got == {"sourceUrls": [], "verified": False, "cik": None}
+    assert got == {"sourceUrls": [], "verified": False, "cik": None, "facts": []}
+
+
+_COMPANYFACTS_FIXTURE = {
+    "entityName": "DEMO CORP",
+    "facts": {
+        "us-gaap": {
+            "Revenues": {
+                "units": {
+                    "USD": [
+                        {"form": "10-K", "fp": "FY", "fy": 2024, "end": "2024-12-31", "val": 1000},
+                        {"form": "10-K", "fp": "FY", "fy": 2025, "end": "2025-12-31", "val": 1200},
+                        {"form": "10-Q", "fp": "Q1", "fy": 2026, "end": "2026-03-31", "val": 400},
+                    ]
+                }
+            },
+            "NetIncomeLoss": {
+                "units": {
+                    "USD": [
+                        {"form": "10-K", "fp": "FY", "fy": 2025, "end": "2025-12-31", "val": 150},
+                    ]
+                }
+            },
+        }
+    },
+}
+
+
+def test_extract_key_facts_latest_annual_only():
+    facts = sec_edgar.extract_key_facts(_COMPANYFACTS_FIXTURE)
+    by_metric = {fact["metric"]: fact for fact in facts}
+    assert by_metric["revenue"]["value"] == 1200  # 最新 10-K,不吃 10-Q
+    assert by_metric["revenue"]["fiscalYear"] == 2025
+    assert by_metric["net_income"]["value"] == 150
+    assert by_metric["revenue"]["entity"] == "DEMO CORP"
+    # 解析不出的指标诚实缺席,不编造
+    assert "total_assets" not in by_metric
+
+
+def test_extract_key_facts_empty_input_returns_empty():
+    assert sec_edgar.extract_key_facts({}) == []
+
+
+def test_gather_sec_evidence_returns_facts_on_200(tmp_path, monkeypatch):
+    cache = tmp_path / "company_tickers.json"
+    cache.write_text('{"AAPL": "0000320193"}', encoding="utf-8")
+    monkeypatch.setattr(
+        sec_edgar.httpx, "get", lambda *a, **k: _Resp(200, _COMPANYFACTS_FIXTURE)
+    )
+    got = sec_edgar.gather_sec_evidence("AAPL", cache)
+    assert got["verified"] is True
+    assert {fact["metric"] for fact in got["facts"]} == {"revenue", "net_income"}
