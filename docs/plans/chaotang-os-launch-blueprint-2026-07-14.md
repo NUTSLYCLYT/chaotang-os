@@ -1,6 +1,14 @@
 # 朝堂 OS 从当前态到公开上线：执行蓝图
 
-> 状态：IN PROGRESS — 当前只执行 S1，不代表已上线
+> 状态：`SUPERSEDED_AS_PRODUCT_AND_RELEASE_AUTHORITY / HISTORICAL_EXECUTION_INPUT`
+>
+> 替代日期：2026-07-18
+>
+> 当前产品事实源：[`PROJECT_PRODUCT.md`](../product/PROJECT_PRODUCT.md)；R0/R1 范围与发布门：[`product-r0-trusted-kernel/PRD.md`](../product/releases/product-r0-trusted-kernel/PRD.md)
+>
+> 阅读规则：本文只保留 2026-07-14 的实施现场、风险和历史步骤，不再拥有产品身份、FULL_COURT 范围、当前排期或 release 状态；仍有价值的工程要求必须由 M0–M10 amendment 显式吸收
+>
+> 历史状态（2026-07-14）：`IN PROGRESS — 当时只执行 S1，不代表已上线`
 >
 > 计划日期：2026-07-14
 >
@@ -9,7 +17,7 @@
 > S1 合入提交：`feature-chaotang-ext` / `93a4483`；本轮文档开始前 ext HEAD 为 `22dc4e2`，工作区仍保留待审主线变更
 > 依赖路线图：`.harness/changes/docs-2026-launch-development-roadmap-20260712/roadmap.md`
 >
-> **2026-07-14 范围裁决**：开发范围调整为 FULL_COURT_V1——全部有效能力先接入统一事实链并内测跑通（至少 L3，核心 L4），非首发能力可开发但默认 INTERNAL/SHADOW/EXPERIMENTAL，不进入生产。本蓝图中"首发只做刑部切片、第二条付费切片才可解冻"等表述自此只约束**发布/收费范围**，不再约束**开发范围**。权威表述见 `docs/product/CHAOTANG_CONVERGENCE_GUIDE.md` 顶部"2026-07-14 开发策略裁决"；留痕 `.harness/changes/docs-full-court-v1-strategy-20260714/`。
+> **2026-07-14 历史范围裁决（已替代）**：当时曾将开发范围调整为 FULL_COURT_V1，并要求全部有效能力至少达到 L3、核心达到 L4。2026-07-18 产品冻结已经撤销这项当前范围权威；现在 41 司只作为 `TARGET_DIRECTORY_V1` 治理，发布按 R0 内核 → R1 合同 Paid Pilot → R2 邀请制生产 → R3+ 证据化扩张。历史留痕仍在 `.harness/changes/docs-full-court-v1-strategy-20260714/`，当前裁决见 [`CHAOTANG_CONVERGENCE_GUIDE.md`](../product/CHAOTANG_CONVERGENCE_GUIDE.md) 顶部。
 
 ## 0. 先给结论
 
@@ -67,9 +75,9 @@
 
 升级只能逐级进行。任一级出现跨租户泄露、伪 LIVE、不可恢复数据损坏或高风险无引用，立即降级并冻结发布。
 
-### 1.4 最终产品形态冻结
+### 1.4 2026-07-14 历史产品形态（已替代）
 
-最终产品不是“六部聊天集合”或面向工程师的 Agent 编排器，而是 **证据优先、人工裁决的老板决策工作台**。首发时客户购买的具体产品是“刑部合同审查决策工作台”，底层朝堂组织与蜂群只负责让结果可靠、可解释、可恢复。
+本文当时曾把 **证据优先、人工裁决的老板决策工作台**称为最终产品形态。该“最终产品”表述已经被 2026-07-18 产品宪法替代：当前产品本体是可信复杂任务超级助手，合同决策包只是第一 Offer；下方合同链继续作为历史纵切设计输入，不再定义整个产品。
 
 客户可见主线固定为：
 

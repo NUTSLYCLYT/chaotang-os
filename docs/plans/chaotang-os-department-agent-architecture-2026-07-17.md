@@ -1,11 +1,12 @@
 # 朝堂 OS 部门 Agent 架构设计（丞相/门下省/六部部长）
 
 > 文档状态：设计提案，非已批准执行计划（2026-07-17）
+> 权威状态：`REFERENCE_INPUT_ONLY`；41 司当前只由产品宪法定义为 `TARGET_DIRECTORY_V1`，本文不授权实现或排期
 > 产出方式：Claude Code 只读分析 + 代码级核实（非猜测，全文附文件路径引用）
-> 依赖：`docs/product/CHAOTANG_CONVERGENCE_GUIDE.md`（产品裁决权威）、
-> `.harness/changes/docs-full-court-v1-strategy-20260714/`（FULL_COURT_V1 战略权威）
-> 关系：本文档不改变已批准的执行优先级（P0–P9 归并战役），是对**六部与丞相路由子系统**
-> 应该长成什么样的一份完整设计提案，供业主裁决是否、以何种优先级纳入 V2_BACKLOG 或正式 Packet。
+> 当前产品依赖：[`docs/product/PROJECT_PRODUCT.md`](../product/PROJECT_PRODUCT.md) 与 [`R0/R1 PRD`](../product/releases/product-r0-trusted-kernel/PRD.md)
+> 历史依赖：`.harness/changes/docs-full-court-v1-strategy-20260714/`（其 FULL_COURT 范围裁决已被替代，工程事实保留）
+> 历史关系：本文档成稿时曾以 P0–P9 归并战役为背景；该顺序现已失去执行权。本文只保留**六部与丞相路由子系统**
+> 的设计与现场观察；任何采纳必须重新进入 Solution Pack PRD 或 M0–M10 amendment，不得沿用旧优先级，也不再进入已关闭的 V2_BACKLOG。
 > 现状数据来源：`.claude/skills/dept-capability-map/scripts/audit.py`（可重跑，非快照）
 
 ---
@@ -189,24 +190,28 @@ PKT-2 步骤5 不能简单"以 `departments.yaml` 为准替换 `DEPARTMENT_RULES
 
 三态混合：
 
-- **真实生产依赖，且是已裁定的架构决定，不是待清理的遗留债**：`route_department_task` 被 `chancellor/routing_service.py` 调用，喂给 `POST /api/shangshufang/confirm-edict`（真实生产端点），提供 `complexity_score` 元数据字段。`routing_service.py` 模块 docstring 原文明确记录："阶段1收敛完成(2026-07-14)：chancellor_router.decide()...已同样委托 chancellor_decide_route 判 mode+部门集，只保留部名→蜂群适配层。两套规则引擎并存的历史到此为止"——即 2026-07-14 已经做过一轮路由收敛，`route_department_task` 的 `complexity_score` 计算是那次收敛**保留下来的、有意为之的设计**，不是没人注意到的遗留耦合。
+- **真实生产依赖，且在 2026-07-17 快照中属于有意保留的实现**：`route_department_task` 被 `chancellor/routing_service.py` 调用，喂给 `POST /api/shangshufang/confirm-edict`（真实生产端点），提供 `complexity_score` 元数据字段。`routing_service.py` 模块 docstring 原文明确记录："阶段1收敛完成(2026-07-14)：chancellor_router.decide()...已同样委托 chancellor_decide_route 判 mode+部门集，只保留部名→蜂群适配层。两套规则引擎并存的历史到此为止"。这证明当时不是无人注意的遗留耦合，但不赋予 2026-07-14 裁决持续执行权；是否继续保留必须由 future M0–M10 amendment 基于最新 exact HEAD 重新裁定。
 - **展示类死角**：`/api/chaotang/department-system` 等端点注册了但全前端零调用；`/chaotang-ui/*` 系列 `include_in_schema=False` 且 `swarm-execute` 注释明写"未调用真实模型"。
 - **纯死代码**：`build_dashboard_summary`/`build_routing_playbook`/`build_persona_prototypes`/`build_live_war_report`/`build_advisor_review_panel`/`build_memory_replay`/`build_forecast_sandbox` 七个函数全仓零调用。
 
-PKT-2 步骤4 更正结论：七个死函数和展示类死角可以单独先清，这部分不变。但 **`route_department_task`/`complexity_score` 这条路径不应被当成"待migrate掉以便未来整体deprecated"的技术债**——那是 2026-07-14 已经拍板的架构决定，PKT-2 若要推翻它需要业主重新裁决，不能在收口关键词表的过程中顺手当成清理对象处理。PKT-2 步骤1的影响面排查结论应更新为："`chaotang_department_router.py` 不整体退役；只清七个死函数和展示类端点；`route_department_task`/`complexity_score` 路径保留，除非业主明确推翻2026-07-14的收敛裁定"。
+历史 PKT-2 步骤4 的更正结论是：七个死函数和展示类死角可独立清理，但不能在关键词收敛中顺手删除仍有真实调用方的
+`route_department_task`/`complexity_score`。这只是影响面证据，不是当前保留命令；future M0–M10 amendment 必须结合
+最新调用图、契约测试、owner 和回滚重新决定保留、迁移或退役，旧 PKT-2 与 2026-07-14 裁决均无否决权。
 
-### 6.4 新发现：PKT-6 候选（未批准，供后续队列裁决表补录）
+### 6.4 历史发现：PKT-6 候选（未批准、无当前队列权）
 
-**锦衣卫真实引擎（马景博 Sourcing 流水线迁移）**——把六步情报流水线抽象为 `adapt_jinyiwei` 的扩展分支或独立函数，替换前端 `lead-radar`/`tender-radar`/`competitive-edge` 三个 mock 组件背后的实际能力来源。价值级别与 PKT-1 相当（现成设计、无需从零构思），但依赖关系待评估（是否需要先过 Layer 0 收口）。本文档不擅自把它塞进第4节优先级排序，留待业主在下一轮队列裁决时连同 PKT-2~5 一起考虑是否插队。
+**锦衣卫真实引擎（马景博 Sourcing 流水线迁移）**——把六步情报流水线抽象为 `adapt_jinyiwei` 的扩展分支或独立函数，替换前端 `lead-radar`/`tender-radar`/`competitive-edge` 三个 mock 组件背后的实际能力来源。价值级别与 PKT-1 相当（现成设计、无需从零构思），但依赖关系待评估（是否需要先过 Layer 0 收口）。这条历史候选不得插队或直接开工；若仍有价值，只能作为 future M0–M10 amendment 的待评估输入。
 
 ---
 
 ## 7. 治理状态（明确，不含糊）
 
-本文档是设计提案，不是已批准的执行计划。FULL_COURT_V1 功能宇宙已冻结（截至2026-07-14已有能力），当前主线归并战役（P0–P9）单线作战，P6/P7 未清零。本设计涉及的所有代码改动均为净新范围，落地前需要：
+本文档是历史设计提案，不是已批准的执行计划。下列 FULL_COURT_V1、P0–P9、P6/P7 与 V2 backlog 只记录 2026-07-17 当时的治理快照，均不再拥有当前产品范围、排期或施工入口。当前产品与实施权威只来自文件顶部指向的产品宪法、R0/R1 PRD，以及经批准的 M0–M10 amendment。
+
+本设计中的任何代码改动落地前需要：
 
 1. 业主裁决是否/以何优先级采纳；
-2. 若采纳，正式进入 `docs/plans/FULL_COURT_V2_BACKLOG.md` 排期，或由业主批准单独 Packet 提前插队；
-3. 执行仍遵循既定纪律：Codex 唯一写入者，Claude Code 只读审查，一个 Packet 一个 change 一个分支。
+2. 若采纳，由 M0–M10 owner 在显式 amendment 中分配 milestone、schema owner、迁移、失败测试和回滚；不得写回已关闭的 `FULL_COURT_V2_BACKLOG.md`；
+3. 执行遵循当前仓库 `AGENTS.md` 与 change 记录要求；历史上的“Codex 唯一写入者 / Claude Code 只读审查”不构成现行工具或角色授权。
 
 本文档由 Claude Code 撰写，不构成对上述纪律的绕过。

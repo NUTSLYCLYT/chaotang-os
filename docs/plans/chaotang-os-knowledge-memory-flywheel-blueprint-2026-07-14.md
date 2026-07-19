@@ -1,10 +1,10 @@
 # 朝堂 OS · 史馆、翰林院、知识内核与可信飞轮 10 分建设蓝图
 
 > 日期：2026-07-14
-> 状态：K0A_K0B_K0C1_K0C2_K0C3_IMPLEMENTED_LOCAL / EXTERNAL_EVIDENCE_REQUIRED / K0C_IN_PROGRESS
-> 本文件只做调查、契约和施工排序，不代表运行时已实施或生产 READY。
-> 上位施工权威：`chaotang-os-single-fact-source-convergence-blueprint-2026-07-14.md` 的 C0–C10。
-> 上线约束：首发仍冻结为刑部合同审查决策工作台，不因知识工程扩大客户导航。
+> 状态：`REFERENCE_INPUT_ONLY / EXECUTION_AUTHORITY_SUPERSEDED`
+> 历史状态：2026-07-14 记录为 `K0A_K0B_K0C1_K0C2_K0C3_IMPLEMENTED_LOCAL / EXTERNAL_EVIDENCE_REQUIRED / K0C_IN_PROGRESS`；这些是带日期的历史证据，不是当前排期或 release 状态
+> 当前实施入口：M0–M10 获批 amendment；[`唯一事实源蓝图`](chaotang-os-single-fact-source-convergence-blueprint-2026-07-14.md)的 C0–C10 已降为参考输入
+> 当前产品约束：[`PROJECT_PRODUCT.md`](../product/PROJECT_PRODUCT.md) 与 [`R0/R1 PRD`](../product/releases/product-r0-trusted-kernel/PRD.md)；知识工程不得扩大 R0/R1 客户承诺
 
 ## 0. 结论
 
