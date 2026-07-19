@@ -53,6 +53,25 @@ def test_route_component_hazard_to_gongbu_even_when_another_department_matches()
     assert "gongbu_delivery_swarm" in selected
 
 
+def test_route_business_metaphor_does_not_force_gongbu_safety_review():
+    edict = {
+        "original_question": "合同讨论现金流烧钱速度太快，成本失控",
+        "refined_edict": "请审查合同与财务风险",
+        "decision_type": "经营复盘",
+        "known_facts": [],
+        "unknown_gaps": [],
+        "risk_flags": ["合同风险"],
+        "source_label": "USER_INPUT",
+    }
+
+    selected = {
+        item["swarm_id"] for item in route_swarms(edict)["selected_swarms"]
+    }
+
+    assert "xingbu_legal_risk_swarm" in selected
+    assert "gongbu_delivery_swarm" not in selected
+
+
 def test_gongbu_fallback_requires_human_when_real_engine_returns_none():
     edict = {
         "original_question": "模组端子松动打火",

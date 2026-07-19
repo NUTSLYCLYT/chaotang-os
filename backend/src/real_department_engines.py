@@ -858,17 +858,41 @@ _GONGBU_SCOPE_KEYWORDS = (
     "储能",
     "电池",
     "电芯",
-    "模组",
-    "单体",
     "析锂",
     "BMS",
     "PCS",
     "PACK",
+    "控制柜",
+    "配电柜",
+    "端子",
     "热失控",
     "冒烟",
     "漏液",
     "设备告警",
     "售后故障",
+)
+_GONGBU_AMBIGUOUS_COMPONENT_KEYWORDS = ("模组", "单体")
+_GONGBU_COMPONENT_PHYSICAL_CONTEXT = (
+    "端子",
+    "电芯",
+    "电压",
+    "电流",
+    "温度",
+    "绝缘",
+    "析锂",
+    "短路",
+    "漏液",
+    "冒烟",
+    "起火",
+    "打火",
+    "爆燃",
+    "爆炸",
+    "松动",
+    "鼓包",
+    "膨胀",
+    "BMS",
+    "PCS",
+    "PACK",
 )
 # 物理安全门 fail-safe(彻底版):储能事故范围内**只有两档**——
 #   P0 = 命中明确危险信号(火情/爆炸/热失控前兆/失控趋势)→ 断电撤离消防;
@@ -892,21 +916,31 @@ _GONGBU_P0_HAZARD_SIGNALS = (
 
 
 def has_gongbu_p0_hazard(task_text: str) -> bool:
-    """物理危险信号的单一判定入口，供 direct engine 与 fallback 共用。"""
+    """已确认物理范围内的危险分档；不得单独用它决定是否进入工部范围。"""
     text_lower = task_text.lower()
     return any(signal.lower() in text_lower for signal in _GONGBU_P0_HAZARD_SIGNALS)
 
 
 def is_gongbu_safety_scope(task_text: str) -> bool:
-    """工部物理安全范围：领域词或危险信号任一命中即 fail-safe 接管。
+    """工部物理安全范围：明确硬件词，或歧义组件词与物理上下文共现。
 
-    危险信号本身必须能拉起安全门；否则“控制柜爆燃”这类没有写“储能/电池”的
-    事故会在 scope 检查前返回 None，再落入无需人签的通用交付兜底。
+    “火/爆/飙/骤”等危险字符只用于已入域任务的 P0/P1 分档，不能独立拉起储能
+    引擎；否则防火墙、聚焦业务、烧钱失控等普通任务会收到失实消防指令。
     """
     text_lower = task_text.lower()
-    return any(
+    if any(
         keyword.lower() in text_lower for keyword in _GONGBU_SCOPE_KEYWORDS
-    ) or has_gongbu_p0_hazard(task_text)
+    ):
+        return True
+    has_ambiguous_component = any(
+        keyword.lower() in text_lower
+        for keyword in _GONGBU_AMBIGUOUS_COMPONENT_KEYWORDS
+    )
+    has_physical_context = any(
+        keyword.lower() in text_lower
+        for keyword in _GONGBU_COMPONENT_PHYSICAL_CONTEXT
+    )
+    return has_ambiguous_component and has_physical_context
 
 
 _GONGBU_GAP_RULES = (

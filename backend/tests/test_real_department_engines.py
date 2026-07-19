@@ -256,6 +256,22 @@ def test_adapt_gongbu_requires_storage_or_bms_scope():
     assert rde.adapt_gongbu("帮我写一份普通市场推广方案") is None
 
 
+def test_adapt_gongbu_does_not_promote_business_language_to_physical_incident():
+    texts = (
+        "配置 Nginx 防火墙规则",
+        "我们要聚焦核心业务",
+        "现金流烧钱速度太快，成本失控",
+        "竞品价格飙升",
+        "用户留存骤降",
+        "策划一个爆款方案",
+        "准备高温促销",
+        "把单体架构拆分为微服务并重构模组化前端组件库",
+    )
+
+    for text in texts:
+        assert rde.adapt_gongbu(text) is None, text
+
+
 def test_gongbu_is_registered_for_swarm_and_minister_paths():
     assert rde.REAL_ENGINE_ADAPTERS["工部"] is rde.adapt_gongbu
     assert rde._SWARM_ID_DEPT["gongbu_delivery_swarm"] == "工部"
