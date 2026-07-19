@@ -1,5 +1,9 @@
 # CI 摘要：docs-canon-idempotency-01-spec-20260719
 
+> P25 纠偏：本文件以下内容是 P21 当时的 CI/审批阶段记录，不是当前 authority 状态源。
+> 其中“远端已退役”和 archive-only 解释已由 P25 supersede；原始 P21 review/approval 与
+> 命令结果仍按历史原样保留。当前验证以 P25 `ci_result/ci_summary.md` 为准。
+
 ## 命令
 
 | 命令 | 退出码 | 结果 | 证据覆盖范围 | 证据位置 / 时间 |

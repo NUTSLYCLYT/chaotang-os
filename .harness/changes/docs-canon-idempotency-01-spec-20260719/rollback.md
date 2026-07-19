@@ -2,9 +2,10 @@
 
 ## 本轮可逆边界
 
-本 change 只新增根 change 内 Markdown。回滚时删除本 change 目录即可；不得借回滚恢复
-已退役的 CANON index、parent blueprint 或 Packet catalog。没有 runtime、schema、migration
-或数据库需要回滚。
+本 change 只包含根 change 内 Markdown。P25 已把 `atomic-spec.md` 设为 current engineering
+authority，因此未来不得无替代地删除本目录；回滚必须由后续 change 指定等价或更严格的
+替代 authority。P21/P25 都没有恢复 `docs/plans`，也没有 runtime、schema、migration 或
+数据库需要回滚。
 
 ## 不允许误写的未来回滚
 

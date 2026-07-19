@@ -1,12 +1,13 @@
 # CANON-IDEMPOTENCY-01 — Tenant/Scope Request Replay Ledger
 
-状态：`ARCHIVED_SPEC_EVIDENCE / HISTORICAL_DUAL_REVIEW_GO / NOT_ACTIVE_PRODUCT_SSOT / ABSENT_CURRENT / NOT_IMPLEMENTED / NOT_AUTHORIZED`
+状态：`CURRENT_ENGINEERING_SPEC / SPEC_READY / DUAL_DOMAIN_REVIEW_GO / RUNTIME_ABSENT / NOT_IMPLEMENTED / NOT_AUTHORIZED`
 
-> 集成说明：远端已退役原 CANON readiness 产品文档。本文件由 P21 保留为历史治理规格
-> 证据，不重新建立产品事实源；若未来恢复该方向，必须重新批准、重做现状 census 并另立
-> 当前 SSOT 与 runtime change。
+> P25 纠偏说明：P19 没有批准或执行 CANON/ABS/PRIV 文档退役；相关文档只存在于从未
+> 集成的 `7daf` 兄弟线。按当前 `docs/README.md` 的归属规则，本文件是现行工程原子规格，
+> 不是产品 SSOT。任何 runtime 实现仍须另立 change、重做 census 并重新批准。
 
-目标单一变化：request replay authority `ABSENT -> TENANT_SCOPE_FAIL_CLOSED`。
+本规格状态变化：`ARCHIVED_SPEC_EVIDENCE -> CURRENT_ENGINEERING_SPEC`。未来 runtime 目标仍是
+request replay authority `ABSENT -> TENANT_SCOPE_FAIL_CLOSED`；P21/P25 都不执行该 runtime 变化。
 
 未来 owner：Backend Request Idempotency。业务 aggregate、Task/Court lifecycle、outbox、tool/provider receipt 仍归各自 owner；本 ledger 不是第二业务事实源。
 
@@ -177,7 +178,7 @@ git diff --check
 ## Exit / rollback / STOP
 
 - Exit：`TENANT_SCOPE_FAIL_CLOSED` 只在 census 内所有 request-replay ingress 已逐 surface 迁移或明确分类为 non-request-replay，且旧 authority reader/writer zero-call tripwire 全绿后授予。`01B` 只能写 `CONTRACT_SCHEMA_VERIFIED / NO_RUNTIME`，`01C` 只能写 `FIRST_SURFACE_FAIL_CLOSED`；两者都不能代表全仓完成。外部 provider/tool exactly-once 不计入本 Packet Exit，另由 CANON-RECEIPT-01/01E 验收。
-- Rollback：文档 Packet 删除本 change 证据即可。未来 schema 一旦产生 accepted claim，不允许 downgrade 丢失 replay history 或恢复 raw-key store；运行回滚只能关闭新 ingress 写入/adapter 并 fail closed，保留 ledger/readers，采用 forward-fix。迁移前 rehearsal 必须证明不会双写两个 replay authority。
+- Rollback：P25 的文档纠偏只能由后续获批 change 取代；作为唯一 current engineering authority，本规格不得无替代删除，任何回滚或迁移都必须指定等价或更严格的 successor authority。未来 schema 一旦产生 accepted claim，不允许 downgrade 丢失 replay history 或恢复 raw-key store；运行回滚只能关闭新 ingress 写入/adapter 并 fail closed，保留 ledger/readers，采用 forward-fix。迁移前 rehearsal 必须证明不会双写两个 replay authority。
 - STOP：HEAD/remote、migration head、scope registry owner、writer census、KMS/retention policy或 Unit of Work 边界改变；需要读取/迁移真实 key/payload；无法把 target write 放入同一事务；需要 external exactly-once；同一验收连续三次失败。出现任一条件时更新 spec 并重新批准。
 
 执行权限：`NOT_AUTHORIZED`。

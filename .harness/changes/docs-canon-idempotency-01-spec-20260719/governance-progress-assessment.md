@@ -1,45 +1,23 @@
-# CANON-IDEMPOTENCY-01 历史规格快照（非当前产品分数）
+# CANON-IDEMPOTENCY-01 综合治理进度评估
 
 日期：2026-07-19
 
-## 结论
+## 当前结论
 
-下述 **26/100** 是原本地 reviewed worktree 的历史估算，不是当前远端产品分数。它曾把
-第 9 份原子规格计入 canonical 清晰度，并冻结至少 12 套局部机制与未来 authority 的
-边界；最新远端已退役该 CANON 计划，因此 P21 不把这 1 分写回现行产品 KPI。
+P25 把 P21 的 archive-only 工程规格纠正为 current engineering authority。这个纠偏可以让 **P25 文档治理闭环** 达到 100/100，但不会让 **Idempotency runtime** 或 **六能力综合交付** 变成 100/100。
 
-P21 只保留本表作为历史推理证据。当前中央状态必须由未来重新批准的现行 SSOT 重新
-测量，禁止引用本表宣称“9/16”或“26/100”已经落地。
+中央分支没有吸收 `7daf` 的全局 100 分 rubric、CANON index 与六能力父 blueprint，因此当前不能诚实复算“全项目 26/100”或“9/16”。下方只报告当前中央可直接验证的评分轴。
 
-## 可复算分数
-
-| 维度 | 历史草案估算 | 当时变化 | 当时未得分主因 |
-| --- | ---: | ---: | --- |
-| 计划治理 | 10/10 | 0 | 已有原子 Packet、owner、依赖、回滚与 change evidence |
-| Canonical 清晰度 | 11/15 | +1 | Idempotency spec ready；其余 7 份 CANON spec 与全部 runtime owner 收敛仍待完成 |
-| 安全/许可/隐私 | 5/15 | 0 | 只有 fail-closed contract；0/6 具名真实数据/source/processor 批准 |
-| 实现 | 0/25 | 0 | 没有 service/model/migration/adapter/KMS/runtime 接线 |
-| 验证 | 0/20 | 0 | focused facts regression/文档 review 不等于 CANON runtime、逐能力 evaluator/shadow/L1-L3 |
-| Cutover | 0/15 | 0 | selector/canary/回切与 6/6 cutover 均不存在 |
-| **总计** | **26/100** | **+1** | 目标仍是 100/100 |
-
-## 硬指标
-
-| 指标 | 历史草案估算值 |
-| --- | ---: |
-| 六项 semantic mapping | 6/6 |
-| CANON readiness 原子规格 | 历史草案 9/16；当前产品未计入 |
-| CANON inventory-only verified | 1/16（COURT-01A） |
-| CANON runtime implemented | 0/16 |
-| 真实数据批准 | 0/6 |
-| durable candidate runtime | 0/6 |
-| L3 正式链 | 0/6 |
-| cutover | 0/6 |
+| 评分轴 | P25 合入后 | 证据 | 边界 |
+| --- | ---: | --- | --- |
+| P25 authority 纠偏闭环 | 100/100 | Git adjudication、单一 current spec、CI、rollback、B→H→R→M/D6 | 只覆盖文档治理 |
+| Idempotency runtime 交付 | 0/100 | 当前代码/schema 无 shared ledger | service/schema/KMS/adapters/data/L3/cutover 未做 |
+| 六能力全局综合治理 | 不宣称分数 | 当前中央无获批统一 rubric/index | 独立 authority-reconciliation Packet 后再评分 |
 
 ## 我们在做什么、执行得怎样
 
-我们正在为“能力并购的唯一正式主链”补可信事务底座。不是把所有 `idempotency_key` 改成同一个名字，而是先把 cache、identity unique、mutable dedup、worker claim、request replay 五类语义拆开，再规定唯一 authority 如何绑定 tenant/scope/payload、如何与目标写共享事务、以及哪里必须交给 receipt/provider token。
+我们正在先定义“什么才算同一个请求被原子接受”，再允许业务接线。核心不是统一变量名，而是把 cache、identity unique、mutable dedup、worker claim 与 request replay 分开，冻结 tenant/scope/payload 绑定、同一 Unit of Work，以及 external Receipt 的责任边界。
 
-执行质量在治理正确性上保持 **A-**，产品交付仍为 **D**。优点是识别并写明 routing 假幂等、launch-loop/Court 单机局限、outbox external exactly-once 缺口和 keyed digest/rotation 风险；缺口是本轮按批准边界完全没有触碰 runtime，因此它只减少未来错误实现概率，不直接产生用户可见能力。
+P25 的治理执行质量为 **A**：它保留 P21 的审批历史、不伪造 retroactive approval，用新 Packet 纠正错误前提，并遵守技术规格归 harness/change 与一包一变更规则。产品/runtime 交付仍为 **未开始**；用户不会因这次文档纠偏直接获得新运行能力。
 
-到 100/100 仍需：补完其余 7 份 CANON 规格；实现并验证全部 16 个 CANON 节点；完成 6 个领域 contract/evaluator/adapter；取得 6/6 数据授权；提供 6/6 同 tenant/task/trace 的 L3；完成 6/6 selector/canary/rollback/cutover。文档、mock、旧测试或 count-only inventory 都不能抵扣这些分数。
+下一阶段仍须另立 01A census/refreeze、01B contract/schema、01C 单一 adapter、01D-n 逐 surface 迁移和 CANON-RECEIPT-01/01E。文档、mock、旧测试或 inventory 不能抵扣 runtime 分数。
