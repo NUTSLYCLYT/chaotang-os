@@ -594,9 +594,10 @@ pnpm exec tsc --noEmit
 - **改序**：只有文件所有权无冲突、输入契约已冻结时允许并行/改序。
 - **放弃**：保留 change、失败证据、数据迁移状态和回滚说明；不得删除审计记录。
 
-## 12. 立即执行顺序
+## 12. 历史建议顺序（已失效，不可直接执行）
 
-当前最优顺序不是继续扩 Agent，而是：
+以下是 2026-07-14 当时的建议顺序，仅用于解释 C0–C2 的依赖思路；它不是当前最优、排期或开工命令。
+任何复用必须先由获批 M0–M10 amendment 在最新 exact HEAD 上重新判断状态、owner、schema、测试与回滚：
 
 1. C0：停止 ext 并发写，固定 exact SHA，关闭 8 个 UNKNOWN；
 2. C1A：tenant/actor expand、可靠回填、quarantine 与 PostgreSQL 演练；
@@ -606,4 +607,5 @@ pnpm exec tsc --noEmit
 6. C2：事件账本与 durable planning/execution outbox；
 7. 然后才进入蜂群 adapter；专业 profile 只做刑部。
 
-这六步完成前，不新增部门、不扩导航、不做新大屏、不把 compat registry 的 done 当业务完成。
+上述历史约束不再自行阻断或授权当前工作；仍有效的“不得把 compat registry 的 done 当业务完成”等安全原则，
+必须由当前产品宪法、PRD、M0–M10 amendment 和对应机器门重新承接。

@@ -4,12 +4,14 @@
 
 | 字段 | 值 |
 | --- | --- |
-| 日期 | 2026-07-18 |
+| 日期 | 2026-07-18；PR 追补验证 2026-07-19 |
 | 干净基线 | `feature-chaotang-ext@5d273c3fbe5e02e52b6ab3e8630f6d54a0c78a43` |
 | source-preservation commit | `33dac7b47be09c60f77642b74a4be1afe0e0c673` |
 | 被隔离的本地主线 | `79b1eaa530ef60e776dfcbf79c5f52cf4f611830` |
 | 工作树 | `product-r0-freeze-20260718` |
 | 变更类型 | 文档与产品契约；无运行时代码 |
+| 2026-07-19 目标快照 | `feature-chaotang-ext@05582e520300e32a5d84e2b38b3822903f75c954`（移动即重验） |
+| PR !3 修复前 head | `3c05aae1c9abef51d114a6e7c3e71a685833bd87` |
 
 ## 命令
 
@@ -31,6 +33,12 @@
 | stale-authority 修复复核 | 不适用 | ALLOW：launch/full-court/backlog/department 与 plans 目录规则已完整关闭原 blocker | 当前未提交修订内容 | `exact_head_stopgate` follow-up，2026-07-18 |
 | 第二轮精确 HEAD stop-gate | 不适用 | BLOCK：`3bcaf95` 发现 single-fact-source/knowledge-flywheel 仍声明旧 Step 0–12 上位权威，且回滚未覆盖最终修复提交；当前修订改为 reference-only 与 commit-range 回滚 | 下游旧权威链与可执行回滚 | `final_exact_stopgate`，2026-07-18 |
 | 下游权威与回滚修复复核 | 不适用 | ALLOW：两份下游计划已降为 reference-only；旧基线候选的自覆盖回滚设计成立；重基后等价区间已改为 `33dac7b..HEAD` / `5d273c3..HEAD` | 旧基线内容复核；重基后仍须精确 HEAD 复审 | `final_exact_stopgate` follow-up，2026-07-18 |
+| Gitee PR !3 服务端预合并 | 0 | PASS：`refs/pull/3/MERGE@0ebe7812...` 双亲精确为 `05582e5... + 3c05aae...`；PR/target 文件交集 0 | 修复前 PR 的内容级可合并性；不证明平台审批/检查 | Gitee refs + 临时 worktree，2026-07-19 |
+| 修复前 PR 精确 HEAD stop-gate | 不适用 | BLOCK：产品冻结 DoD 混入未实现跨端条件；department P0–P9/旧裁决与 single-fact C0–C2 仍带当前执行权 | 产品状态与旧执行权威 | `pr3_exact_head_stopgate`，`3c05aae...`，2026-07-19 |
+| 5 文件窄修：`git diff --check` + scope/Markdown/link checker | 0 | PASS：仅 3 份被阻断文档 + 本 change spec/tasks；无非文档路径 | 修复范围、结构、相对链接、冲突标记 | 本地未提交候选，2026-07-19 |
+| `sha256sum source_inputs/{A,B}.md` | 0 | PASS：A=`51374f5d…d5a5b3`；B=`715a8126…d0813` | 不可变输入未被追补污染 | 本地未提交候选，2026-07-19 |
+| `node scripts/harness-doctor.mjs` | 0 | PASS：0 errors，0 warnings | 追补后的根/前端/后端护栏 | 本地未提交候选，2026-07-19 |
+| 5 文件权威残留修复 follow-up | 不适用 | ALLOW：三项 blocker 全部关闭，未引入新 SSOT、状态或执行权威矛盾 | 修复内容；提交后仍须 exact SHA review | `pr3_exact_head_stopgate` follow-up，2026-07-19 |
 
 ## 结果
 
@@ -51,12 +59,14 @@
 - 未验证任何前后端业务行为、模型质量、浏览器体验、生产数据或部署；本 change 没有修改这些内容。
 - 三项已知信誉漏洞仍阻塞 R0/R1，必须由后续 TDD 工程 change 修复。
 - M0–M10 amendment、法律/数据 Owner、合同 taxonomy、文件阈值、人工复核与 provider 边界仍待下一阶段。
-- 未创建或合并 PR，未发布生产，未接收真实合同。
+- PR !3 已创建但尚未正式合入；Gitee 页面会话未登录（403），平台 checks/review/branch policy 尚未由本地证据证明。
+- 5 文件窄修尚待普通追加提交、新 exact SHA stop-gate 和服务端预合并刷新。
+- 未发布生产，未接收真实合同。
 
 ## Diff 与回滚复核
 
 - changed files：相对 `5d273c3` 共 27 个允许路径；前置 commit 含 14 个产品定型输入/审计路径，本次另涉及 13 个冻结/历史权威路径，并继续修订其中 3 个前置权威/索引文档。
-- diff review：内容预审两处问题修复后 ALLOW；首轮精确 HEAD 的 launch 权威 blocker 修复复核 ALLOW；第二轮精确 HEAD 又发现下游 Step 0–12 权威链与回滚遗漏并已关闭；目标前进后候选已重基，必须再做一次重基后精确 SHA 交付门。
+- diff review：2026-07-18 两轮旧权威 blocker 已关闭；2026-07-19 对 PR head `3c05aae...` 又发现 3 项残留，5 文件窄修 follow-up 已 ALLOW；普通追加提交后仍须绑定新精确 SHA 交付门。
 - 回滚是否演练：旧基线最终候选已在临时 detached worktree 验证两种 revert 树精确匹配；重基后候选在推送前重跑。等价命令为 `git revert --no-commit 33dac7b47be09c60f77642b74a4be1afe0e0c673..HEAD`（保留输入包）或 `git revert --no-commit 5d273c3fbe5e02e52b6ab3e8630f6d54a0c78a43..HEAD`（整包）。
 
 ## 完成定义映射
@@ -70,9 +80,9 @@
 | 历史输入不可变 | A/B SHA-256 精确匹配 | PASS |
 | 无范围外代码与历史污染 | 27 路径 allowlist、ancestry 与无 merge commit | PASS |
 | 根级护栏健康 | harness doctor 0/0 | PASS |
-| 独立内容 stop-gate | 修复后 `ALLOW` | PASS |
+| 独立内容 stop-gate | 5 文件修复 follow-up `ALLOW`；提交后新 SHA 待终审 | `CONTENT_PASS / EXACT_SHA_PENDING` |
 
 ## 声明状态
 
-- `VERIFIED_COMPLETE`：仅声明本次产品冻结文档、旧权威退役与审计证据完成；提交后精确 SHA stop-gate 仍是推送前交付门。
+- `VERIFIED_COMPLETE`：仅声明本次产品冻结文档与 5 文件权威修复内容已验证；提交后精确 SHA stop-gate 仍是推送前交付门。
 - 不声明 PRD 已实现、R0/R1 已通过、R2 已上线或 41 司已生产可用。

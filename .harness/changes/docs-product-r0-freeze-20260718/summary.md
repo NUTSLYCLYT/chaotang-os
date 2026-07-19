@@ -4,11 +4,12 @@
 | --- | --- |
 | Change ID | docs-product-r0-freeze-20260718 |
 | 类型 | docs |
-| 状态 | VERIFIED_COMPLETE（docs-only） |
+| 状态 | VERIFIED_COMPLETE（docs-only）/ PR_MERGE_PENDING / EXACT_SHA_DELIVERY_GATE_PENDING |
 | Owner | Project Agent |
 | 创建日期 | 2026-07-18 |
 | 基线 | 远端 `feature-chaotang-ext@5d273c3fbe5e02e52b6ab3e8630f6d54a0c78a43`（审查期前进后已线性重基） |
 | 变更分支 | `docs/product-r0-freeze-20260718` |
+| 当前目标快照 | `feature-chaotang-ext@05582e520300e32a5d84e2b38b3822903f75c954`（2026-07-19；移动即重验） |
 
 ## 范围
 
@@ -35,3 +36,9 @@
 - Markdown diff、围栏、相对链接与关键词冲突检查。
 - `node scripts/harness-doctor.mjs`。
 - 精确候选 HEAD 的独立 stop-gate review。
+
+## 2026-07-19 PR 追补
+
+- PR !3 原 head `3c05aae...` 对最新目标可干净预合并，但精确内容终审发现 3 项权威残留并已做 5 文件窄修。
+- 窄修候选已通过 scope、Markdown/link、source hash、diff check、root doctor 和独立 follow-up `ALLOW`。
+- 新提交仍须绑定精确 SHA 终审并刷新 Gitee 服务端预合并；在此之前不得合入。

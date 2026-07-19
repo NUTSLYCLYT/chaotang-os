@@ -447,7 +447,6 @@ OQ-01 至 OQ-06、OQ-09、OQ-10 未冻结前，不得接收真实合同或声称
 - `PROJECT_PRODUCT.md` 不再存在相反的当前产品字段；
 - 融合蓝图成为只读的 accepted decision record；
 - 每条 REQ 都有唯一 ID、阶段、用户结果和失败语义；
-- 对外宣传、销售协议、UI、API 和导出使用同一支持范围与五种裁决；
 - 未验证能力继续标 `DIRECTORY_ONLY / SANDBOX / INTERNAL`；缺失的评测或运行证据单独标 `NO_DATA`。
 
 实现开工还额外要求：
@@ -456,3 +455,6 @@ OQ-01 至 OQ-06、OQ-09、OQ-10 未冻结前，不得接收真实合同或声称
 - amendment 映射 REQ、canonical owner、schema、迁移、反例测试和回滚；
 - 当前 integration HEAD 干净、可追溯且通过独立 stop-gate；
 - 不把本 PRD 的“产品冻结”误报为“工程完成”或“生产就绪”。
+
+R0 实现与退出门还额外要求：对外宣传、销售协议、UI、API 和导出使用同一支持范围与五种裁决；该要求由
+`R0-REQ-012` 的实现、跨端契约测试和 release 证据证明，不属于本 documents-only 产品冻结的完成证据。
