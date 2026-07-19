@@ -622,7 +622,21 @@ def test_polish_im_and_edict_return_endpoints(isolated_session_local):
     assert returned.json()["success"] is True
 
 
-def test_finance_intel_status_and_budget_endpoints(isolated_session_local):
+def test_finance_intel_status_and_budget_endpoints(isolated_session_local, monkeypatch):
+    import web.routers.shangshufang as shangshufang_router
+
+    monkeypatch.setattr(
+        shangshufang_router,
+        "gather_sec_evidence",
+        lambda ticker: {
+            "sourceUrls": [
+                "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json",
+                "https://data.sec.gov/submissions/CIK0000320193.json",
+            ],
+            "verified": True,
+            "cik": "0000320193",
+        },
+    )
     client = TestClient(app)
 
     finance = client.post(
