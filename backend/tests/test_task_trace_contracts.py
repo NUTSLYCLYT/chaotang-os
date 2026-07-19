@@ -130,6 +130,8 @@ def test_from_legacy_rejects_unsupported_trace_value_type():
 
 
 def test_from_legacy_rejects_unrelated_basemodel_as_trace():
+    """归一化只认 TraceContext 自身，不接受任意 BaseModel 子类混进来当 trace。"""
+
     class NotATrace(BaseModel):
         foo: str = "bar"
 
@@ -141,5 +143,8 @@ def test_from_legacy_rejects_unrelated_basemodel_as_trace():
 
 @pytest.mark.parametrize("bad_value", [None, "not-a-dict", 123, ["task_id", "intent"]])
 def test_from_legacy_rejects_non_mapping_top_level_value(bad_value):
+    """value 本身不是 Mapping 时，改成显式 TypeError，不让内置 dict() 抛出含义
+    不明的 TypeError/ValueError（例如 dict(None) 报 'NoneType' object is not
+    iterable，dict('x') 报 dictionary update sequence 相关的内部实现细节）。"""
     with pytest.raises(TypeError):
         TaskEnvelope.from_legacy(bad_value)

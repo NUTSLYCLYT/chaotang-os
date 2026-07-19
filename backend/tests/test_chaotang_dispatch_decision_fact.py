@@ -100,21 +100,18 @@ def test_dispatch_compat_court_task_veto_returns_full_receipt_and_honest_status(
         review = db.get(CourtReview, receipt["review_id"])
         assert review is not None
         memorial = json.loads(review.memorial_json)
-        # 2026-07-18 审计发现:ShangshufangReviewMemorial 的必填字段(前端
-        # buildView 无条件读取/.filter())漏填会在渲染时直接崩，不是可选的。
-        # 这条路径(canonical_court_dispatch.py)之前漏了 4 个，比
-        # shangshufang.py 那条还多。
-        for required_field in (
-            "evidence_gaps",
-            "decision_options",
-            "next_best_action",
-            "source_label",
-        ):
-            assert required_field in memorial, f"缺必填字段 {required_field}"
         assert memorial["decision_options"] == []
         assert memorial["title"] == "门下省封驳纪要"
         assert memorial["quality_gate"]["passed"] is False
         assert memorial["quality_gate"]["blocking_issues"]
+        # 2026-07-18 审计发现:这条路径(canonical_court_dispatch.py)的
+        # memorial 挨个漏过 decision_options/evidence_gaps/next_best_action/
+        # source_label/quality_gate.passed/conflict_summary[].departments——
+        # 改用镜像前端契约的统一校验器，不再逐个手写断言。
+        from src.shangshufang_memorial_contract import find_memorial_contract_violations
+
+        violations = find_memorial_contract_violations(memorial)
+        assert not violations, f"memorial 违反前端必填契约: {violations}"
 
 
 def test_client_department_override_cannot_bypass_menxia_veto(

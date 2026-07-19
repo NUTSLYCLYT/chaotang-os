@@ -972,6 +972,10 @@ function FinalMemorialPanel({
   const hasMemorial = Boolean(memorial?.memorialId || ministryBrief);
   const mode = resolvePanelMode(hasTask, hasMemorial, ministryBrief?.report.sourceLabel);
   const isError = memorial?.streamStatus === 'error';
+  // 门下省封驳等"需人工确认"终态——跟真的技术故障(isError)分开判断，
+  // 不能落进默认的"作战流进行中"文案(2026-07-18 审计发现:BattleStream
+  // 已经会发 'blocked'，但这个父面板当时只认 'error'，没接住)。
+  const isMenxiaBlocked = memorial?.streamStatus === 'blocked';
   const sourceLabel = ministryBrief?.report.sourceLabel;
   const sourceColor = sourceLabel ? commandCenterSourceTone(sourceLabel) : '#8F9BB2';
   const isBlocked = Boolean(ministryBrief && (ministryBrief.audit.passed === false || ministryBrief.review.overallSignal === 'RED'));
@@ -987,10 +991,18 @@ function FinalMemorialPanel({
   // PENDING / DEMO / 进行中：诚实标作战流尚未生成奏折，但保留呈报按钮位置
   if (mode !== 'LIVE') {
     return (
-      <CommandPanel title="最终奏折" style={panelStyle} badge={panelModeBadge(isError ? 'PENDING' : mode)}>
+      <CommandPanel title="最终奏折" style={panelStyle} badge={panelModeBadge(isError || isMenxiaBlocked ? 'PENDING' : mode)}>
         <div style={{ paddingBottom: 10 }}>
           <PendingHint
-            text={mode === 'DEMO' ? '当前没有真案。立案后，最终奏折会根据后端作战流生成，并开放呈报皇上。' : isError ? '作战流异常终止，未生成奏折。可回上书房重立真案。' : '作战流进行中 · 奏折待生成。完成会审与蜂群执行后，奏折将自动起草。'}
+            text={
+              mode === 'DEMO'
+                ? '当前没有真案。立案后，最终奏折会根据后端作战流生成，并开放呈报皇上。'
+                : isError
+                  ? '作战流异常终止，未生成奏折。可回上书房重立真案。'
+                  : isMenxiaBlocked
+                    ? '门下省封驳，需人工确认后才能进入会审。未生成奏折。'
+                    : '作战流进行中 · 奏折待生成。完成会审与蜂群执行后，奏折将自动起草。'
+            }
           />
         </div>
         <div

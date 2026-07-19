@@ -74,8 +74,9 @@ def _log_engine_call(dept_name: str, *, elapsed_ms: float, outcome: str) -> None
         pass
 
 
-# 严重度/时效性必须实时的部门，永不读取 (部门+任务) 旧缓存：
-# 锦衣卫需要实时情报；工部的储能物理安全分诊不能被旧 P2 判定绕过。
+# 严重度/时效性必须实时的部门,永不吃 (部门+任务) 旧缓存:
+#  - 锦衣卫:实时情报/异动雷达,旧缓存=过期情报
+#  - 工部:储能物理安全分诊,旧缓存会返回逻辑修复前的 fail-open 低危判定,绕过 fail-safe
 _ENGINE_CACHE_EXCLUDED_DEPTS = ("锦衣卫", "工部")
 
 
@@ -90,7 +91,10 @@ def _call_adapter_observed(
     SWARM_ENGINE_CACHE=0 可关。缓存任何异常一律静默降级,绝不阻断真调用。"""
     cache_on = (
         os.environ.get("SWARM_ENGINE_CACHE", "1") == "1"
-        # key 没有判定逻辑版本；工部若命中修复前的 P2，会绕过新 fail-safe。
+        # 缓存 key 只含(部门+任务)、无判定逻辑版本;引擎逻辑一改,旧条目仍按 task_text
+        # 命中,把**修复前的判定**继续返回。对物理安全分诊(工部储能 P0/P1/P2 严重度)
+        # 这会绕过 fail-safe——修复后同一任务仍返回旧的 fail-open 低危判定。故工部与
+        # 锦衣卫(实时情报)一样,严重度必须实时重算,永不吃旧缓存。
         and dept_name not in _ENGINE_CACHE_EXCLUDED_DEPTS
         # pytest 下关缓存:测试常注入不同 adapter 行为(如"引擎失败")验证兜底,
         # 缓存按(部门+任务)命中会短路 adapter、破坏失败注入与测试隔离。
@@ -862,15 +866,23 @@ _GONGBU_SCOPE_KEYWORDS = (
     "设备告警",
     "售后故障",
 )
-# 物理安全门只允许两档：明确危险信号为 P0；其余储能事故为 P1 并强制人签。
-# 不设 benign→P2 自动降级，因为“正常”子串无法可靠授权物理安全降级。
+# 物理安全门 fail-safe(彻底版):储能事故范围内**只有两档**——
+#   P0 = 命中明确危险信号(火情/爆炸/热失控前兆/失控趋势)→ 断电撤离消防;
+#   P1 = 其余一律保守升级 + 强制人工安全复核。
+# **不设 benign→P2 的 auto 降级路径**。原因:"没问题/常规"无法靠关键词白名单可靠判定——
+# 任何未列举的真实问题(变形/漏气/进水/破裂…)只要同句带一句"运行正常",就会被 benign
+# 子串静默降成 P2/隔离补遥测,把真事故当常规。宁可多报 P1(人工复核,成本低),
+# 也绝不让一个电池事故被静默判低危。危险信号用字符级覆盖,含 thermal-runaway 前兆
+# (喷阀/漏气/排气/鼓胀/破裂/穿刺)。
+# 残余(已 deferred):P1 的"人工安全复核"目前只体现在 court_doc 的 safety/risk 文本,
+# 是否在派单前真正拦截,取决于审批队列是否消费该信号——需与 signoff/审批门对齐。
 _GONGBU_P0_HAZARD_SIGNALS = (
-    # 火情与爆炸
+    # 火情(火/燃/烧/焚:起火/明火/自燃/烧穿/焚毁)+ 爆炸
     "火", "爆", "炸", "燃", "烧", "焚", "烟", "焦", "糊味",
-    # 热失控及其前兆
+    # 热失控 + 前兆:漏液/漏气/排气/喷阀(泄压排气)、鼓包/胀气/膨胀、破裂/穿刺、短路、高温/超温
     "热失控", "漏液", "漏气", "排气", "喷阀", "鼓包", "胀气", "膨胀",
     "破裂", "穿刺", "短路", "高温", "超温",
-    # 恶化或失控趋势
+    # 恶化/失控趋势(数值型:温度飙升/持续往上冲/超标)
     "飙", "骤", "失控", "超标", "蔓延", "恶化", "往上冲",
 )
 _GONGBU_GAP_RULES = (
@@ -891,7 +903,14 @@ def adapt_gongbu(task_text: str) -> dict | None:
     if not any(keyword.lower() in task_text.lower() for keyword in _GONGBU_SCOPE_KEYWORDS):
         return None
 
-    # 两档都保持 black：signoff_gate 将 yellow 视为可自动继续，只有 black 才要求人签。
+    # fail-safe **两档**,只认危险正向证据,不设 benign→P2 自动降级(那是 fail-open 残洞:
+    # 任何未列举问题 + 一句"运行正常"就会被子串降 P2)。储能事故范围内:
+    #  - 命中危险/恶化信号 → P0/black(确认紧急,断电撤离消防)
+    #  - 其余一律 P1/black(严重度未确认,强制人工安全复核后再降级)。
+    # **两档都必须 black,不能降 yellow**:light 不是纯展示——automation_tier/signoff_gate
+    # 用它判自动化档,yellow=auto_proceed_logged(自动留痕继续,无人签),black/不可逆红=
+    # require_human_sign(必须人签)。储能事故一旦落 yellow 就被系统自动放行,绕过人签门。
+    # 故未确认电池事故必须 black 强制人签,宁可多要一次人工确认也不自动放行。
     hazard = any(signal in task_text for signal in _GONGBU_P0_HAZARD_SIGNALS)
     if hazard:
         risk_level, light = "P0", "black"
@@ -904,6 +923,7 @@ def adapt_gongbu(task_text: str) -> dict | None:
             "方可降级；确认前不得径直下发维修或远程复位"
         )
         headline_note = "严重度未确认，保守升级+人工安全复核"
+    emergency = light == "black"  # P0 与 P1-未确认 都 black:强制人签,不被自动放行
     missing = [
         label
         for label, markers in _GONGBU_GAP_RULES
@@ -913,7 +933,7 @@ def adapt_gongbu(task_text: str) -> dict | None:
     items = [
         {
             "stage": "故障分诊",
-            "level": "black",
+            "level": "black" if emergency else "yellow",
             "title": f"紧急度 {risk_level}；{safety}",
             "fix": "确认设备型号、编号、地点和绝对告警时间",
             "evidence_ref": "task://gongbu/triage",
@@ -941,7 +961,7 @@ def adapt_gongbu(task_text: str) -> dict | None:
         },
         {
             "stage": "处置工单",
-            "level": "black",
+            "level": "black" if emergency else "yellow",
             "title": "生成待审批工单草稿，不直接发送或下发维修",
             "fix": "列出 BOM、工时区间、人员配置和客户话术；冲突结论转人工",
             "evidence_ref": "task://gongbu/workorder-draft",

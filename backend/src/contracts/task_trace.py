@@ -51,7 +51,14 @@ class TaskEnvelope(BaseModel):
         实际却被悄悄换掉。`trace` 缺 trace_id 而顶层有值时，补进去。`trace`
         可以是 dict 形式，也可以是调用方已经构造好的 `TraceContext` 实例——
         两种形式都要走同一套冲突检测。归一化只认 `Mapping` 和 `TraceContext`
-        这两种确切形状，其余一律 `TypeError`。
+        这两种确切形状，其余一律 `TypeError`：
+        - 顶层 `value` 本身不是 `Mapping`（比如 None、字符串、list）时不再让
+          `dict(value)` 抛出 Python 内置的、含义不明的 TypeError/ValueError，
+          改成同一套显式报错。
+        - `trace` 不再接受任意 `BaseModel` 子类（之前 `isinstance(trace, BaseModel)`
+          过宽，传一个跟 trace 无关的模型也会被当成 trace 数据源，只是最终在
+          `model_validate` 那一步才因为字段对不上而报错，报错信息跟"这是个
+          无关类型"没有关系）——收窄成只认 `TraceContext` 自身。
         """
         if not isinstance(value, Mapping):
             raise TypeError(f"unsupported legacy value type: {type(value)!r}")

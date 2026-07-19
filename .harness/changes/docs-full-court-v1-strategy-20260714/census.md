@@ -10,7 +10,7 @@
 
 ### 1.1 结论
 
-本次冻结出 **74 项 FULL_COURT_V1 capability**。仓库不是“没有功能”，而是功能实现远多于 canonical 集成成熟度：已有 DecisionTask、版本化路由、outbox、事件账本、候选/正式奏折、人工裁决和归档的真实数据库骨架，也有六部、锦衣卫、御史、钦天监、史馆、Provider、MCP 与发布控制面的局部实现；但尚不存在一条在租户、来源、失败恢复、常驻 worker、唯一状态机、删除和生产发布信任上都闭合的全朝廷链。
+本次冻结出 **76 项 FULL_COURT_V1 capability**。仓库不是“没有功能”，而是功能实现远多于 canonical 集成成熟度：已有 DecisionTask、版本化路由、outbox、事件账本、候选/正式奏折、人工裁决和归档的真实数据库骨架，也有六部、锦衣卫、御史、钦天监、史馆、Provider、MCP 与发布控制面的局部实现；但尚不存在一条在租户、来源、失败恢复、常驻 worker、唯一状态机、删除和生产发布信任上都闭合的全朝廷链。
 
 当前最重要的事实不是页面数、router 数或测试文件数，而是以下阻塞：
 
@@ -28,8 +28,8 @@
 
 | 指标 | 数量 | 解释 |
 | --- | ---: | --- |
-| 功能总数 | 74 | 本报告 capability registry 的审计单元 |
-| L0 / L1 / L2 / L3 / L4 / L5 / L6 | 2 / 13 / 33 / 22 / 4 / 0 / 0 | 没有能力可据当前证据标 L5/L6 |
+| 功能总数 | 76 | 本报告 capability registry 的审计单元（CEN-01/04 补登 MANOR-01、EXT-04） |
+| L0 / L1 / L2 / L3 / L4 / L5 / L6 | 2 / 14 / 34 / 22 / 4 / 0 / 0 | 含 CEN 补登 EXT-04(L1 断链)、MANOR-01(L2)；合计 76，与功能总数一致；没有能力可据当前证据标 L5/L6 |
 | 有真实局部实现 | 58 | 含真实代码/DB/API/确定性 gate；不代表闭环 |
 | 完整真实且无关键 Mock/外部阻塞 | 18 | 仍不等于生产可用 |
 | 明确依赖 Mock/Fallback/DEMO 或伪成功 | 28 | 包括 production 可达降级、空端点和外部效果 TODO |
@@ -39,6 +39,15 @@
 | 无用户 UI 或只有隐式入口 | 23 | 例如国力、删除、租户成员管理、外部集成 |
 | 无 canonical 后端 owner | 10 | 例如完整 DepartmentMemorial、删除、企微真实 connector |
 | 安全/生产硬阻塞 | 14 | 租户、来源洗白、外部效果、删除、CI/attestation 等 |
+
+> 注：上表"功能总数"与 L 级分布已更新至 76（含 CEN 补登 MANOR-01、EXT-04）。其余分析性计数
+> （有真实实现、Mock/Fallback、重复实现、未接入主链、四象限测试、无 UI、无 owner、安全阻塞）
+> 为 census 原作者对 pre-CEN **74 项基线**的逐项主观评估，**未针对本次 2 项补登重新逐项计数**
+> （避免与原作者判断口径混算）。两项属性显式记录如下，读者可据此校正：
+> - **MANOR-01**：L2 / 有真实前后端实现 / 未接入主链 / 有 UI（zhuangyuan）/ 重复（legacy manor vs 六部主链）/ owner 待定。
+> - **EXT-04**：L1 断链 / 挂载 `/api/approval/pending` 恒 500 / 未接入主链 / 无 UI / 与 EXT-02 语义重叠 / owner 缺失 / 安全硬阻塞。
+>
+> 需精确 76 项分布，须重跑全表逐项评估（本次 CEN 修正范围只补完整性，不重估全表口径）。
 
 仓库规模旁证：17 个 App Router 页面、76 个后端 router 文件、约 350 个 API decorator、293 个后端测试文件、279 个前端 node/integration/E2E 测试文件、36 个 flow YAML / 195 steps、71 个 runtime prompt 目录、Alembic `001`–`010`（含 `004b`）。这些数字只证明资产存在，不证明功能跑通。
 
@@ -93,9 +102,11 @@
 | QINTIAN-02 | 预测结算与命中率；校准模型可信度 | 无完整 UI | JSONL trigger 可核销，未形成统一 metric | 局部 tests | L1 / 局部 / 是 | outcome/KPI 重复 | 否 / 是 / 中；到期调度、settlement owner、分层准确率缺；W3/8 |  |
 | QINTIAN-03 | What-if/批注；在不写事实时比较情景 | forecast components；qintian/chat compat | chat/what-if local state | 纯函数 tests；FALLBACK | L2 / 局部 / 是 | 前端模拟与后端 fallback | 否 / 是 / 低；无 DecisionTask 升级关联；W2/6 |  |
 | GUOLI-01 | 国力仪表盘；展示经营能力与风险 | 前端无页面/导航；`guoli.py` | `/api/guoli/overview`、NO_DATA/LIVE | backend test | L1 / 后端局部 / 是 | 计划挂大殿但未接 | 否 / 否 / 低；无 UI/浏览器证据；W2/6 |  |
+| MANOR-01 | 庄园经营视图；六部宫苑经营态势入口 | `frontend/src/features/zhuangyuan/`；`manor.py`、`manor_and_task_events.py` | manor/ministry-metrics APIs、manor+task events | 有真实前后端实现；走 legacy chaotang manor 链；生产被 middleware redirect | L2 / 局部 / 是 | legacy manor 链 vs 六部主链；owner 待定 | 否 / 否 / 中；去留待用户裁决（absorption P3c 处置 manor 派发链）；W2 | **待用户裁决（frozen-pending）** |
 | EXT-01 | MCP 工具路由与人工草稿；安全接外部系统 | 无统一用户入口；tool_router/drafts | ToolDef/磁盘 drafts；tools/drafts APIs | tool router tests；MIXED | L2 / 局部 / 是 | 同名 tool 后注册覆盖；owner=namespaced ToolRegistry | 否 / **是** / **高**；草稿无 tenant/user，execute 只改状态；W1/7 |  |
 | EXT-02 | 邮件草稿/通知；生成可审批沟通 | 无 UI；email MCP/slot_filling SMTP | prepare/send | 无真实 integration；伪 `sent` | L1 / 否 / **是** | mock/crm/email/SMTP 四套；owner=EmailConnector+external-effect outbox | 否 / 是 / **高**；授权、PII、退订、重试/幂等缺；W7 |  |
 | EXT-03 | 企业微信/微信触达；受控客户沟通 | 无 UI；wechat_server.py | add/send handlers | 无测试；默认 mock | L0 / 否 / **是** | owner 候选=WeComConnector | 否 / 否 / **高**；wecom TODO，`TOOL_HANDLERS` 未定义；W7 |  |
+| EXT-04 | 审批通知/Webhook 出站；待办通知与事件驱动推送 | **挂载但断链**：`approval.py` `/api/approval/pending`（`main.py:290` include_router）import `src.approval_manager` — **该模块全仓缺失 → 路由恒 HTTP 500**；`event_bus.py` 内部 pub/sub 真实（swarm_orchestrator 用）；`feature_flags.approval_notifications` off；无 outbound webhook sender | `GET /api/approval/pending`（恒 500） | 断链实现（非零实现）；邮件通知见 EXT-02；outbound webhook 未落地 | L1（断链）/ 否 / 否 | 与 EXT-02（邮件通知）语义重叠；owner 缺失 | 否 / 否 / **高**；**挂载路由恒 500 是真缺陷**（待修或退役）；outbound webhook 未落地；W7 | **断链实现（mounted /pending 恒 500）** |
 | PROV-01 | Provider 配置与调用；选择可用模型 | 无直接 UI；provider.py/providers.yaml/ModelAdapter | provider/model call/run log | provider tests；LIVE/FALLBACK | L3 / 是 / 是 | `/api/models` 与 service router 另有硬编码 | 部分 / 是 / 中；统一 trace/timeout/credential policy；W1–2 |  |
 | PROV-02 | Prompt 组合与版本；可回放角色行为 | prompt UI 局部；runtime_prompts/prompt_module/composer | 71 目录、154 keys、可写 prompt API | validator/composer tests | L2 / 局部 / 是 | runtime、代码 registry、prompt_module 三层 | 部分 / 是 / 中；版本事实源与审批/回滚缺；W1–2 |  |
 | PROV-03 | 模型路由与 tier；按风险/成本选择模型 | UI engineTier 局部；model_tier/service router/flow defaults | model/tier policy | tier tests；fallback | L2 / 局部 / 是 | FLOW_MAP/关键词/active provider 多权威 | 部分 / 是 / 中；route decision 与实际调用映射不透明；W1–2 |  |
@@ -217,7 +228,7 @@ W8 质量评估与产品收敛
 
 ### Wave 1：统一底座
 
-- 冻结 74 项 capability ID、canonical owner、别名和唯一状态/命令词表。
+- 冻结 76 项 capability ID、canonical owner、别名和唯一状态/命令词表。
 - 将 tenant/actor/ownership 加入 DecisionTask 全链对象；统一 SQLAlchemy/Alembic migration authority。
 - 修复 provenance：每个节点/证据输出持久化来源，formalization 以组合证据而不是 intake label 判定。
 - 合并三条执行路径；建立常驻 worker、启动补捞、backoff、DLQ、fencing 和 checkpoint。
@@ -263,23 +274,30 @@ W8 质量评估与产品收敛
 
 ## 7. Proposed FULL_COURT_V1 frozen universe
 
-本轮冻结的功能宇宙就是 registry 的 74 项：
+本轮冻结的功能宇宙就是 registry 的 76 项：
 
 - 身份与入口：`AUTH-01..04`、`ING-01..05`。
 - 执行主链：`EXEC-01..06`、`MEM-01..03`、`DEC-01..03`。
-- 六部与专署：`DEPT-01..08`、`INTEL-01..03`、`YUSHI-01..03`、`HANLIN-01..02`、`QINTIAN-01..03`、`GUOLI-01`。
+- 六部与专署：`DEPT-01..08`、`INTEL-01..03`、`YUSHI-01..03`、`HANLIN-01..02`、`QINTIAN-01..03`、`GUOLI-01`、`MANOR-01`。
 - 史馆与学习：`ARCH-01..04`。
-- Provider/工具/外部集成：`PROV-01..04`、`EXT-01..03`。
+- Provider/工具/外部集成：`PROV-01..04`、`EXT-01..04`。
 - 用户体验：`UI-01..07`。
 - 数据、观测、交付与安全：`DATA-01..04`、`OBS-01..03`、`DELIV-01..04`、`SEC-01..04`。
 
 这些能力都应保留为有效产品/平台能力，但重复实现不得保留多个 canonical writer。此后新增想法进入 `docs/plans/FULL_COURT_V2_BACKLOG.md`，不得静默扩充本表。
 
+### 7.1 显式排除（冻结边界，不静默缺席）
+
+以下能力有真实代码但**显式排除**出 V1 决策主链冻结宇宙——登记排除本身是冻结名单完整性的一部分，防止后续无主 diff 或重复立项：
+
+- **御座/王座**（`backend/web/routers/throne.py`、`frontend/src/features/throne/`）：冻结礼仪边界 + legacy `chaotang_store` 双读方，P3a 已列 `DEFERRED_REQUIRES_USER_DECISION`。排除出主链冻结宇宙；双读收编按 deferred 单独处置，不并入 V1。
+- **jiqun_ai 工作流平台族**（`runs`/`flows`/`chat`/`ab_tests`/`votes`/`analytics`/`repairs`/`optimize`/`compare` 等路由）：判定为**正交平台能力**，不并入决策主链、单独治理。既不逐项入册也不当作"未盘点缺口"重复立项，也不反向塞进主链。
+
 ## 8. First ten Task Packets
 
 | Task ID | Goal | Dependencies | In scope | Out of scope | Acceptance criteria | Verification | Risk |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| FCV1-001 | 冻结 capability/ID/状态/source 契约 | 本 census 审查通过 | 74 IDs、部门 alias、command/status/source enums、owner | 实现功能 | 机器可读 schema 与前后端 fixture 一致，无第二词表 | schema tests、OpenAPI/TS contract diff | 中：冻结错误会放大迁移成本 |
+| FCV1-001 | 冻结 capability/ID/状态/source 契约 | 本 census 审查通过 | 76 IDs、部门 alias、command/status/source enums、owner | 实现功能 | 机器可读 schema 与前后端 fixture 一致，无第二词表 | schema tests、OpenAPI/TS contract diff | 中：冻结错误会放大迁移成本 |
 | FCV1-002 | 统一 tenant/actor/ownership | 001；数据回填 ADR | 主链所有表、scoped repo、跨租户拒绝 | UI 重构 | A/B tenant 跨读写/枚举全拒绝；孤儿 quarantine；后台线程传 tenant | migration + auth matrix + production-path tripwire | 极高：回填和授权错误 |
 | FCV1-003 | Alembic 成为唯一迁移权威 | 002 schema 设计 | metadata、revision parity、停 runtime DDL/create_all 生产路径 | 删除历史 DB | 空库/快照升级、expand-contract、forward-fix 可复现 | revision chain、schema diff、snapshot drill | 高：兼容窗口 |
 | FCV1-004 | 修复 provenance/sourceLabel | 001 | per-node/evidence provenance、组合规则、formal gate | 提升模型质量 | fallback 不能洗白；真实输出不被 intake label 误杀；API/UI 一致 | 正反/混合/缺证/降级 contract tests | 极高：伪 LIVE |
@@ -289,6 +307,20 @@ W8 质量评估与产品收敛
 | FCV1-008 | 统一御史 GateDecision | 004、007 | 合并两 gate、shadow metrics、abstain/conflict、formal gate | 立即全量 enforce | 主链只调用一个 gate；理由机器可读；前端只读；fallback/缺证 fail closed | golden/adversarial/replay + UI contract | 高：误放/误拦 |
 | FCV1-009 | 收口奏折、裁决、史馆 | 005、007、008 | candidate service、FinalMemorial、decision kind/idempotency、archive/outcome | 搜索平台重写 | 一任务一正式奏折；并发裁决确定；归档 tenant/FK/unique；历史追加式 | concurrency/permission/archive integrity tests | 极高：正式事实重复 |
 | FCV1-010 | 数据/外部效果安全基线 | 002–004 | direct cache tenant key、draft ownership、Email/WeCom 禁伪成功、删除 contract、PII redaction | 真正外部发送/canary | 无跨租户草稿/缓存；TODO 不返回 sent；删除 inventory 覆盖主库/索引/缓存/备份 | security tests、delete dry-run、log scan | 极高：客户数据与外部承诺 |
+
+### 8.1 与 absorption P0–P9 的对账（CEN-05）
+
+absorption 战役 P0–P9（见 `codex-absorption-plan.md`）是**第一执行梯队**，已开跑，与本节
+FCV1-001..010 范围重叠。按单写者铁律对账，避免双写同一改动面：
+
+- FCV1-001 / 007（契约冻结、部门 registry / DepartmentMemorial）→ 由 **P1**（部门 ID SSOT）承接。
+- FCV1-003（Alembic 唯一迁移权威）→ 由 **P5** 承接。
+- FCV1-004 / 008（provenance/sourceLabel、御史 gate）→ 与 **P4** 相交，由 P 系列承接。
+- 其余（FCV1-002 tenant/actor、006 常驻 worker、007 Memorial 持久化、010 外部效果安全）
+  在 P 系列之后按 FCV1 顺序执行。
+
+**铁律**：被 P 系列覆盖的部分不再由 FCV1 并行开工；FCV1-00x 是 P 系列收尾后的第二梯队索引，
+不是并行执行序列。
 
 ## 9. Evidence and limitations
 

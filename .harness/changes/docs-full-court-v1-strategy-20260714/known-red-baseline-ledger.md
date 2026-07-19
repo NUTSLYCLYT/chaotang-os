@@ -38,6 +38,16 @@
 
 ## 其他登记
 
+## 2026-07-17 后续核销（P6 独立修复 worktree）
+
+- 后端全量 pytest 已在持久 PTY 会话完成：**2697 passed / 37 skipped / 4 warnings**（223.24s）。
+- 原残留 #2–#5：律师 RAG 路径修复后，`tests/test_lawyer_rag.py` 4 项通过；提交 `613553d`。
+- 原残留 #6：芒格资料已达到判官席字节阈值，测试断言更新为当前事实；同提交 `613553d`。
+- 原残留 #7：钦天监端点测试隔离共享 RAG，避免历史磁盘状态追加 3 条无关证据；提交 `853b9dd`。
+- 组合回归：相关 42 项通过；未跟踪的 IMA archived 文件为测试产物，已核查并移除。
+- 两个 mock router（`qintian_forecast.py`、`forecast_intel_taiyi.py`）仍保持原位：replacement、调用方迁移和连续 14 天零调用证据尚未完成，不能标记 RETIRED。
+- 已补齐两组 router 的 `legacy_endpoint_calls_total` 调用计数，测试覆盖 7 个入口；提交 `e70fd91`。计数窗口从该提交后的部署/运行开始，14 天门仍待自然观察。
+
 ## 2026-07-18 后端红灯核销（Packet P13 候选）
 
 - 基于远端前驱 `bf7d4cc` 的隔离 worktree 全量实跑：**2723 passed / 37 skipped / 4 warnings / 0 failed**（234.35s）。
@@ -45,5 +55,7 @@
 - 本包将 roster 断言对齐当前 `munger-perspective` 判官席事实，并让钦天监端点契约测试显式隔离共享磁盘 RAG。
 - P8/P9 总体验收仍为 `VERIFIED_PARTIAL`；本次只核销后端已知红灯，不构成 campaign DONE 或 legacy router RETIRED。
 
+> 合并注（2026-07-19 ext 债务合并）：上两节分别来自本地线（P6 修复）与远端线
+> （P13 候选）对同一批红灯的核销记录，合并时按时间序并集保留。
 - lint script：前端 package.json 无 lint——P0 记 MISSING；是否补由用户裁决（不属 absorption 范围）。
 - `test_chancellor_chat_streams_single_agent_reply`：依赖真实 LLM 字面量断言，代表套件长期 deselect——P7 收官时显式 deferred 或改造。
