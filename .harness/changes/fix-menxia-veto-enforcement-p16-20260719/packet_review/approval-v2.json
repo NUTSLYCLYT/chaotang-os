@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "LOCAL_FEEDBACK_ONLY",
+  "review_version": 2,
+  "packet_id": "P16",
+  "change_id": "fix-menxia-veto-enforcement-p16-20260719",
+  "predecessor_integration_sha": "e38b31f901256a565e6b7900dd7f88b28c100dd6",
+  "reviewed_head_sha": "885b3ab16e5fe15be77843cef9aa16b042e42178",
+  "report_path": ".harness/changes/fix-menxia-veto-enforcement-p16-20260719/packet_review/review-v2.md",
+  "report_sha256": "c4fe6ed666babcfb4269bb7d50a1ffd2362cee04e89da76ea79d845e1b8dbe86",
+  "verdict": "PACKET_REVIEW_GO"
+}

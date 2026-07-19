@@ -87,8 +87,8 @@ def _call_adapter_observed(
     不用在两处各自重复计时逻辑。
 
     ② 真引擎缓存(2026-07-06):相同(部门+任务)命中直接返回,不重烧最贵的外呼
-    (兵部 flow / 户部报价 flow 等)。锦衣卫是实时情报/异动雷达,不缓存(避免返回过期
-    情报)。SWARM_ENGINE_CACHE=0 可关。缓存任何异常一律静默降级,绝不阻断真调用。"""
+    (兵部 flow / 户部报价 flow 等)。锦衣卫实时情报与工部物理安全严重度不缓存。
+    SWARM_ENGINE_CACHE=0 可关。缓存任何异常一律静默降级,绝不阻断真调用。"""
     cache_on = (
         os.environ.get("SWARM_ENGINE_CACHE", "1") == "1"
         # 缓存 key 只含(部门+任务)、无判定逻辑版本;引擎逻辑一改,旧条目仍按 task_text

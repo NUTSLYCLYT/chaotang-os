@@ -1,9 +1,11 @@
 # 朝堂 OS · 唯一事实源融合与全朝廷闭环施工蓝图
 
 > 日期：2026-07-14
-> 状态：REVIEWED_GO；仅规划，不代表运行时已实施或发布 READY
-> 上位产品约束：首发仍冻结为“刑部合同审查决策工作台”，不因全朝廷架构扩大首发范围
-> 依据：[`CHAOTANG_CONVERGENCE_GUIDE.md`](../docs/product/CHAOTANG_CONVERGENCE_GUIDE.md)、[`chore-evidence-driven-shangshufang-workflow-20260714/blueprint.md`](../.harness/changes/chore-evidence-driven-shangshufang-workflow-20260714/blueprint.md)、[`entry-inventory.md`](../.harness/changes/chore-shangshufang-step0-contract-baseline-20260714/entry-inventory.md)、[`adr.md`](../.harness/changes/chore-shangshufang-step0-contract-baseline-20260714/adr.md)
+> 状态：`SUPERSEDED_AS_EXECUTION_SEQUENCE / REFERENCE_INPUT_ONLY`
+> 历史状态：2026-07-14 曾为 `REVIEWED_GO` 规划；不代表当前获准实施或发布 READY
+> 当前产品约束：[`PROJECT_PRODUCT.md`](../product/PROJECT_PRODUCT.md)定义可信复杂任务超级助手，[`R0/R1 PRD`](../product/releases/product-r0-trusted-kernel/PRD.md)定义合同第一 Offer
+> 当前实施入口：M0–M10 计划获批 amendment；本文 C0–C10 与旧 Step 0–12 只保留事实源收敛参考，不拥有排期
+> 历史依据：[`CHAOTANG_CONVERGENCE_GUIDE.md`](../product/CHAOTANG_CONVERGENCE_GUIDE.md)、[`旧 Step 0–12 blueprint`](../../.harness/changes/chore-evidence-driven-shangshufang-workflow-20260714/blueprint.md)、[`entry-inventory.md`](../../.harness/changes/chore-shangshufang-step0-contract-baseline-20260714/entry-inventory.md)、[`adr.md`](../../.harness/changes/chore-shangshufang-step0-contract-baseline-20260714/adr.md)
 
 ## 0. 结论：能融合，但只能按“一个内核、多个适配器”融合
 
@@ -20,7 +22,7 @@
 - 军机处、大殿、国力仪表盘、史馆页面都是读模型，不拥有主线终态；
 - 旧 `/api/chaotang`、compat registry、frontend local DB 先做只读适配，再停止写入，最后退役。
 
-一句话产品形态：**一个老板决策工作台，背后是一条可恢复、可审计的朝廷流水线，而不是多个 Agent 应用互相抄状态。**
+历史稿曾用“老板决策工作台”概括产品。当前产品身份已由产品宪法替换为“可信复杂任务超级助手”；本文继续有效的仅是“一条可恢复、可审计的 canonical 流水线，多个 Agent 不得互抄状态”这一工程约束。
 
 ## 1. 大神会审
 
@@ -52,7 +54,7 @@
 
 ## 3. 目标架构
 
-本文件不是第二份施工权威。权威步骤仍是 `.harness/changes/chore-evidence-driven-shangshufang-workflow-20260714/blueprint.md` 的 Step 0–12；本文只解释“多事实源如何融合”，并把 C 子步骤映射到该权威顺序。若两者发生冲突，以权威 Step 0–12 的依赖、观察期和冻结边界为准。
+本文件不是当前施工权威。下方 C 子步骤与旧 `.harness/changes/chore-evidence-driven-shangshufang-workflow-20260714/blueprint.md` 的 Step 0–12 映射只用于理解和复用历史证据；Step 0–12 不再拥有当前顺序。任何采纳必须由 M0–M10 Owner 在显式 amendment 中分配 milestone、owner、schema、迁移、测试与回滚。
 
 ```text
                          ┌──────── D0 咨询（无业务副作用）
@@ -592,9 +594,10 @@ pnpm exec tsc --noEmit
 - **改序**：只有文件所有权无冲突、输入契约已冻结时允许并行/改序。
 - **放弃**：保留 change、失败证据、数据迁移状态和回滚说明；不得删除审计记录。
 
-## 12. 立即执行顺序
+## 12. 历史建议顺序（已失效，不可直接执行）
 
-当前最优顺序不是继续扩 Agent，而是：
+以下是 2026-07-14 当时的建议顺序，仅用于解释 C0–C2 的依赖思路；它不是当前最优、排期或开工命令。
+任何复用必须先由获批 M0–M10 amendment 在最新 exact HEAD 上重新判断状态、owner、schema、测试与回滚：
 
 1. C0：停止 ext 并发写，固定 exact SHA，关闭 8 个 UNKNOWN；
 2. C1A：tenant/actor expand、可靠回填、quarantine 与 PostgreSQL 演练；
@@ -604,4 +607,5 @@ pnpm exec tsc --noEmit
 6. C2：事件账本与 durable planning/execution outbox；
 7. 然后才进入蜂群 adapter；专业 profile 只做刑部。
 
-这六步完成前，不新增部门、不扩导航、不做新大屏、不把 compat registry 的 done 当业务完成。
+上述历史约束不再自行阻断或授权当前工作；仍有效的“不得把 compat registry 的 done 当业务完成”等安全原则，
+必须由当前产品宪法、PRD、M0–M10 amendment 和对应机器门重新承接。

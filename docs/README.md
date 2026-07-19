@@ -7,7 +7,7 @@
 ```text
 docs/
   product/         产品描述——定位、模块定义、GTM、路线图、产品设计规格
-  plans/           经批准的跨线实施蓝图与阶段计划
+  plans/           跨线蓝图、决策记录与历史计划；是否有效以文件顶部状态为准
   status/archive/  带日期的历史状态快照（非当前事实源）
   README.md        本文件（入口与归属规则）
 ```
@@ -17,12 +17,15 @@ docs/
 | 文件 | 内容 |
 | --- | --- |
 | `PROJECT_PRODUCT.md` | 产品定位、客户画像、商业模式、GTM、路线图和产品红线 |
-| `CHAOTANG_CONVERGENCE_GUIDE.md` | 唯一主线、任务分级、企业治理、部门能力、技术雷达和完整执行计划 |
+| `CHAOTANG_CONVERGENCE_GUIDE.md` | 唯一主线、任务分级、企业治理和部门能力的派生导航（非排期/状态源） |
+| `releases/product-r0-trusted-kernel/PRD.md` | R0 内部可信内核与 R1 合同 Paid Design Pilot 的需求、失败语义和发布门 |
 | `shiguan-three-column-redesign.md` | 史馆产品设计规格——功能定位、页面结构和内容格式 |
 
 ## plans/ 与 status/archive/
 
-- `plans/` 保存跨前后端、需要长期引用的实施蓝图；执行事实和验证证据仍归对应 `.harness/changes/`。
+- `plans/` 保存跨前后端、需要长期引用的蓝图、决策记录与历史计划；目录归属不等于已批准或当前有效，必须先读每个文件顶部状态。执行事实和验证证据仍归对应 `.harness/changes/`。
+- `plans/chaotang-os-product-definition-convergence-blueprint-2026-07-18.md` 是已接受的产品定型 Decision Record：保存“超级助手 + 动态朝堂 + 41 司目录 + 稀疏激活”的比较和理由；当前产品字段只由 `product/PROJECT_PRODUCT.md` 拥有。
+- `plans/chaotang-os-super-task-delivery-blueprint-2026-07-18.md` 是已被产品定义取代的参考输入 A，保留超级任务、知识飞轮、外部组件与黄金任务设计，不授权排期。
 - `status/archive/` 只保存带日期的审计快照。它们不得作为“当前分支、当前完成度、当前发布状态”的事实源。
 
 ## 归属规则
@@ -30,7 +33,7 @@ docs/
 - **放 `product/`**：产品定位、用户问题定义、产品模块设计规格——不依赖具体技术实现的内容。
 - **放 `frontend/docs/`**：只描述前端实现、页面体验、视觉系统、浏览器验证或前端部署的文档。
 - **放 `backend/docs/`**：只描述后端运行服务、flow、agent、provider、API 实现、数据源或后端评测的文档。
-- **放 `plans/`**：跨线且已经确认的实施蓝图；不得重新创建根级 `plans/`。
+- **放 `plans/`**：跨线蓝图和决策记录；用文件状态区分 `PROPOSED / ACCEPTED / SUPERSEDED / HISTORICAL`，不得仅因位于本目录就宣称获批；不得重新创建根级 `plans/`。
 - **放 `status/archive/`**：一次性项目盘点和历史快照；文件名必须带日期并标注非当前事实源。
 - 技术实施方案、API 审计、接口对接计划等技术文档不在本目录维护，由对应工程线的 harness 或 changes 记录管理。
 - 新增文档时先判断归属，不要把整体项目叙述写进前端或后端局部 docs。

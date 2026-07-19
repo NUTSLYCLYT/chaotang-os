@@ -147,9 +147,14 @@ class ChancellorRoutingService:
 
         edict = draft_edict(confirmed_edict_text, source_label=source_label)
         route = chancellor_decide_route(edict)
+        # 门下省必须依据丞相从任务文本推导出的原始路由判断“是否属于六部职责”。
+        # department_override 只是兼容入口已经校验过的执行约束（最终派给谁），
+        # 不能反过来充当职责范围证据；否则客户端传 ministers=['hu_bu'] 就能让
+        # 世界杯行程从封驳变准奏。合法的“分析低温电池市场”在原始路由已命中
+        # 兵部/工部，因此仍会准奏，再由 override 收窄实际参与部门。
+        menxia = review_route(route, confirmed_edict_text)
         if department_override:
             route = _apply_department_override(route, department_override)
-        menxia = review_route(route, confirmed_edict_text)
         if menxia["verdict"] == "封驳" and os.environ.get("CHAOTANG_MENXIA_VETO", "1") == "1":
             route = {
                 **route,

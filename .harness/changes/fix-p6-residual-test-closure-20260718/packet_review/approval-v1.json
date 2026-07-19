@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "LOCAL_FEEDBACK_ONLY",
+  "review_version": 1,
+  "packet_id": "P13",
+  "change_id": "fix-p6-residual-test-closure-20260718",
+  "predecessor_integration_sha": "bf7d4cccc3ca5e3ea80865801e032352357a58db",
+  "reviewed_head_sha": "f4db98c6cf7fbffa37084081fb824d1a99c4fbce",
+  "report_path": ".harness/changes/fix-p6-residual-test-closure-20260718/packet_review/review-v1.md",
+  "report_sha256": "cfab49ff180b765e6b0b12ccb6904c1e4d11a7157bdab37c6740761aa53322ae",
+  "verdict": "PACKET_REVIEW_GO"
+}

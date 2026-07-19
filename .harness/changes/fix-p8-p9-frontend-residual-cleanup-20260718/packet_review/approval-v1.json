@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "LOCAL_FEEDBACK_ONLY",
+  "review_version": 1,
+  "packet_id": "P14",
+  "change_id": "fix-p8-p9-frontend-residual-cleanup-20260718",
+  "predecessor_integration_sha": "6ee6d8d542127174f4d899f940d4937b6fa2b70f",
+  "reviewed_head_sha": "5f3491b3a55c50dc71e43f00dc1dcee85430ac81",
+  "report_path": ".harness/changes/fix-p8-p9-frontend-residual-cleanup-20260718/packet_review/review-v1.md",
+  "report_sha256": "0ec8de3ad536bf17629ef84a3c1aaf4da107c7c48ee850beb0ab348dcd5c4a3b",
+  "verdict": "PACKET_REVIEW_GO"
+}

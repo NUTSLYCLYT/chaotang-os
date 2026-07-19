@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from src.db.models import DecisionTask, DecreeExecutionEvent, OutboxEvent
+from src.db.models import (
+    DecisionTask,
+    DecreeExecutionEvent,
+    EmperorDecision,
+    OutboxEvent,
+)
 from web.main import app
 
 
@@ -107,6 +112,41 @@ def test_dispatch_compat_court_task_veto_returns_full_receipt_and_honest_status(
 
         violations = find_memorial_contract_violations(memorial)
         assert not violations, f"memorial 违反前端必填契约: {violations}"
+
+
+def test_client_department_override_cannot_bypass_menxia_veto(
+    isolated_session_local, monkeypatch
+):
+    """兼容入口的 ministers/groups 是执行约束，不是职责范围授权。
+
+    即使客户端显式传入 hu_bu，职责外请求仍必须在 EmperorDecision、timeline、
+    outbox 和 dispatch trigger 之前终止；合法低温电池 override 由本文件首测锁住。
+    """
+    from src.execution import decree_dispatcher
+
+    monkeypatch.setenv("FENGQUN_LEGACY_CHAOTANG_DAEMON", "0")
+    triggered: list[str] = []
+    monkeypatch.setattr(decree_dispatcher, "dispatch_after_commit", triggered.append)
+    body = {
+        **_BODY,
+        "rawCommand": "我要去美国看世界杯决赛",
+        "intent": "安排世界杯决赛行程",
+    }
+
+    response = TestClient(app).post("/api/chaotang/decree/dispatch", json=body)
+
+    assert response.status_code == 200
+    assert response.json()["success"] is True
+    data = response.json()["data"]
+    assert data["status"] == "menxia_veto_pending"
+    assert triggered == []
+    with isolated_session_local() as db:
+        task = db.get(DecisionTask, data["taskId"])
+        assert task is not None
+        assert task.status == "menxia_veto_pending"
+        assert db.query(OutboxEvent).filter_by(task_id=task.id).count() == 0
+        assert db.query(EmperorDecision).filter_by(task_id=task.id).count() == 0
+        assert db.query(DecreeExecutionEvent).filter_by(task_id=task.id).count() == 0
 
 
 def test_dispatch_persistence_failure_blocks_execution(

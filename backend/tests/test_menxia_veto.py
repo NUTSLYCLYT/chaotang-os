@@ -50,6 +50,25 @@ def test_world_cup_route_is_rejected_before_department_dispatch():
     assert result["dimensions"]["风险"]["passed"] is False
 
 
+def test_explicit_department_override_is_not_scope_evidence():
+    """客户端指定参审部门只能约束派给谁，不能证明任务属于六部职责。
+
+    P16 review-v1 HIGH:旧实现把 override 写入的 reason marker 直接当作范围
+    证据，导致世界杯请求只要附带 ministers=['hu_bu'] 就从封驳变成准奏。
+    """
+    result = review_route(
+        {
+            "departments": ["hu_bu"],
+            "mode": "direct",
+            "reason": "兼容入口明确指定参审部门：hu_bu。",
+        },
+        "我要去美国看世界杯决赛",
+    )
+
+    assert result["verdict"] == "封驳"
+    assert "不属于任何部门真实职责范围" in result["veto_reasons"][0]
+
+
 def test_contract_route_is_approved():
     result = review_route(
         {"departments": ["刑部"], "mode": "direct"},
