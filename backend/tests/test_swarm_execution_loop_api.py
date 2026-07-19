@@ -233,6 +233,44 @@ def test_gongbu_hard_stop_preserves_existing_black_court_doc_shape():
     assert "risks" not in result
 
 
+def test_department_override_cannot_drop_gongbu_safety_review(monkeypatch):
+    monkeypatch.setenv("FENGQUN_PAGE_SYNC_SKIP_REAL_ENGINES", "1")
+    result = run_swarm_execution_loop(
+        {
+            "task_id": "task-p18-safe-override",
+            "review_id": "review-p18-safe-override",
+            "confirmed_edict": {
+                "original_question": "储能站 PACK 起火，是否继续运行",
+                "refined_edict": "请按指定部门快速评估",
+                "known_facts": [],
+                "unknown_gaps": [],
+                "risk_flags": [],
+                "source_label": "USER_INPUT",
+            },
+            "department_ids": ["锦衣卫", "户部"],
+            "council": False,
+        }
+    )
+
+    selected = {
+        item["swarm_id"]
+        for item in result["swarm_run"]["route_plan"]["selected_swarms"]
+    }
+    executed = {item["swarm_id"] for item in result["task_runs"]}
+    assert "gongbu_delivery_swarm" in selected
+    assert "gongbu_delivery_swarm" in executed
+
+    gongbu = next(
+        item["output"]
+        for item in result["task_runs"]
+        if item["swarm_id"] == "gongbu_delivery_swarm"
+    )
+    assert gongbu["position"] == "复核"
+    assert any(
+        risk["requires_human_confirmation"] for risk in gongbu["risks"]
+    )
+
+
 def test_high_risk_contract_requires_human_confirmation(monkeypatch):
     import src.xingbu_verdict as xv
 
@@ -585,21 +623,23 @@ def test_council_department_override_keeps_meta_swarms_in_audit_record():
 def test_council_department_override_reconciles_swarm_tasks():
     """swarm_tasks 是 selected_swarms 的姊妹字段(route_swarms() 里两者从同一个
     selected 列表算出)，覆盖生效时如果只改 selected_swarms、不改 swarm_tasks，
-    审计记录里的任务清单会停留在关键词路由算出的旧部门(_storage_edict() 命中的
-    是户部/工部/刑部)，而不是 department_ids 覆盖后真正执行的部门——两个字段自己
-    打架，也是"记录 ≠ 实际执行"的一种。"""
+    审计记录里的任务清单会停留在关键词路由算出的旧部门。覆盖后普通部门按调用方
+    收窄，但物理安全 scope 的工部是不可覆盖不变量；两者都必须同时反映到任务清单和
+    实际执行，否则仍是"记录 ≠ 实际执行"。"""
     result = run_swarm_execution_loop({
         "task_id": "t_override_tasks",
         "review_id": "r_override_tasks",
         "mode": "deep",
-        "confirmed_edict": _storage_edict(),  # 关键词会命中户部+工部+刑部，覆盖只留户部
+        "confirmed_edict": _storage_edict(),  # 普通覆盖留户部；储能安全不变量另保留工部
         "council": True,
         "department_ids": ["户部"],
     })
     route_plan = result["swarm_run"]["route_plan"]
     task_swarm_ids = {t["swarm_id"] for t in route_plan["swarm_tasks"]}
     selected_swarm_ids = {s["swarm_id"] for s in route_plan["selected_swarms"]}
+    executed_swarm_ids = {item["swarm_id"] for item in result["task_runs"]}
     assert task_swarm_ids == selected_swarm_ids
-    assert "gongbu_delivery_swarm" not in task_swarm_ids
+    assert "gongbu_delivery_swarm" in task_swarm_ids
+    assert "gongbu_delivery_swarm" in executed_swarm_ids
     assert "xingbu_legal_risk_swarm" not in task_swarm_ids
     assert "hubu_finance_swarm" in task_swarm_ids

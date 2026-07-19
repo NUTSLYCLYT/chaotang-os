@@ -868,6 +868,12 @@ def run_swarm_execution_loop(params: dict[str, Any]) -> dict[str, Any]:
         department_ids = normalize_departments(department_override)
         if not department_ids:
             raise ValueError("department_ids 无有效部门(部门名/别名/swarm_id 均未命中)")
+        if is_gongbu_safety_scope(
+            _edict_context_text(confirmed_edict, review_plan)
+        ) and "gongbu_delivery_swarm" not in department_ids:
+            # department_ids 是调用方偏好，不是绕过物理安全门的授权。危险 scope
+            # 已由 route_swarms 判定后，显式覆盖仍必须保留工部执行与人签证据。
+            department_ids.append("gongbu_delivery_swarm")
         # 覆盖生效时不能整体重写 selected_swarms：route_swarms() 已经按文本算出的
         # 元蜂群(证据审计/质量闸/高风险时的红蓝对抗等)仍然会在下面无条件执行
         # (evidence_audit/critic_report/synthesize_brief/quality_gate)，如果这里把

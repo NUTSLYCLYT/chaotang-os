@@ -23,7 +23,8 @@ P17 已保证“进入工部储能安全引擎的任务恒为 black”，但 Cla
 | Claude v4 HIGH | PACK/PCS 无边界子串令 package/backpack/100 pcs 领域外伪报 | Claude v4 NO_GO + P18-v5 RED | Claude/Codex 实跑 | 是，已回修 |
 | Claude v4 HIGH | 内嵌 review_plan 被主循环空外参遮蔽，危险逃逸 hard-stop | Claude v4 NO_GO + P18-v5 RED | Claude/Codex 实跑 | 是，已回修 |
 | Claude v4 MEDIUM | 已 black 的 raw court_doc 被重复叠加 position/risks 混合契约 | Claude v4 NO_GO + P18-v5 RED | Claude/Codex 实跑 | 是，已回修 |
-| 设计取舍 | 中文范围词按子串；拉丁硬件缩写按区分大小写 ASCII token；组件只认有限连续短语 | 分类机制 + 正负例 | Claude v5 待复审 | 否 |
+| Claude v5 HIGH | department_ids override 删除强制工部，危险任务只跑锦衣卫/户部并自动继续 | Claude v5 NO_GO + P18-v6 RED | Claude/Codex 实跑 | 是，已回修 |
+| 设计取舍 | 中文范围词按子串；拉丁硬件缩写按区分大小写 ASCII token；组件只认有限连续短语 | 分类机制 + 正负例 | Claude v6 待复审 | 否 |
 
 ## 数据流与调用链
 
@@ -46,6 +47,7 @@ route、real/rule/live/fallback 提供同一份奏折事实投影，包含 known
 | 奏折事实文本 | `swarm_execution_loop._edict_context_text` | route/real/rule/live/hard-stop | 同时纳入 known_facts/unknown_gaps/risk_flags/review_plan |
 | review plan 传播 | `run_swarm_execution_loop` | `_run_departments_cross_referenced` → `_run_one_department` → `run_department_swarm` | 串行/并行/重试均传同一对象；旧直调默认 None 兼容 |
 | 已有 signoff 识别 | `_enforce_gongbu_safety_stop` | raw court_doc / ministry contract | light/items black 或 risks 人签任一成立即保持原形状 |
+| 部门覆盖授权 | `run_swarm_execution_loop` | department_ids override | 普通部门可收窄；物理安全 scope 的工部不可被调用方覆盖删除 |
 | fallback human confirmation | `swarm_execution_loop.py` | brief risk register/quality gate | real engine 空、规则或 live 输出均补 hard-stop |
 
 ## 范围
@@ -81,6 +83,7 @@ route、real/rule/live/fallback 提供同一份奏折事实投影，包含 known
 | BMS/PCS/PACK 大写 token | 仍进入工部 black 安全范围 | v5 token 正例 |
 | confirmed_edict.review_plan=控制柜爆燃 | 即使 params 无 plan，仍复核+人签 | v5 双来源事实投影回归 |
 | real_engine_fn 返回 black court_doc | 保持 court_doc 原形状，不重复添加 position/risks | v5 契约回归 |
+| 储能 PACK 起火 + override=锦衣卫/户部 | selected/tasks/真实执行均补工部，工部分奏复核+人签 | v6 override 回归 |
 
 ## 风险与回滚边界
 
@@ -102,14 +105,15 @@ route、real/rule/live/fallback 提供同一份奏折事实投影，包含 known
 3. Claude v2 的全文共现假阳性与奏折事实口径旁路必须在 v2 RED、v3 GREEN。
 4. Claude v3 的 review_plan route/run 旁路必须在 v3 RED、v4 GREEN。
 5. Claude v4 的拉丁子串、内嵌 plan 与 raw court_doc 形状问题必须在 v4 RED、v5 GREEN。
-6. direct、L4 route、fallback、canonical route 四条路径形成闭环。
-7. 聚焦、后端全量、三层 doctor、diff check 全绿。
-8. Claude 固定 B/H 独立复审无 HIGH/MEDIUM 阻断后才允许 D6 no-ff 发布。
+6. Claude v5 的 department override 权限旁路必须在 v5 RED、v6 GREEN。
+7. direct、L4 route、fallback、canonical route 四条路径形成闭环。
+8. 聚焦、后端全量、三层 doctor、diff check 全绿。
+9. Claude 固定 B/H 独立复审无 HIGH/MEDIUM 阻断后才允许 D6 no-ff 发布。
 
 ## 验证计划
 
 - 原 4 个精确 node + v2 3 个边界 node + v3 2 个事实投影 node + v4 1 个 review-plan
-  生产路径 node + v5 2 个 token/契约 node，累计 12 个精确回归。
+  生产路径 node + v5 2 个 token/契约 node + v6 1 个 override node，累计 13 个精确回归。
 - 五文件跨模块 focused pytest。
 - `python3 -m pytest -q backend/tests -p no:randomly`。
 - 三层 doctor、diff check、Claude、D6。

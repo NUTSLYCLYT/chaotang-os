@@ -70,12 +70,23 @@
 - 回滚边界：不得恢复无边界拉丁 `in`、plan 二选一遮蔽或重复契约叠加。
 - 完成定义：v4 三项 findings 均有行为回归并关闭。
 
-## 任务 7：重新审查发布
+## 任务 7：Claude v5 NO_GO 回修
+
+- 目标：禁止调用方用 department_ids 覆盖删除物理安全工部。
+- 前置条件：Claude v5 F1=HIGH，裁决 `PACKET_REVIEW_NO_GO`。
+- 输入：储能 PACK 起火 + 默认串行部门锦衣卫/户部。
+- 输出：override 后工部不可覆盖不变量，记录与执行同步。
+- 涉及文件：蜂群编排、蜂群 API 测试与 Harness 证据。
+- 验证命令与证据：1 RED；回修后 13 passed、105 focused、2798 全量。
+- 回滚边界：department_ids 不得成为安全豁免授权。
+- 完成定义：selected_swarms/swarm_tasks/task_runs 均含工部且人签。
+
+## 任务 8：重新审查发布
 
 - 目标：固定 H18，经 Claude 与 D6 顺序发布。
 - 前置条件：任务 2 与三层 doctor 全绿。
 - 输入：10 文件候选范围。
-- 输出：H18-v5、review-only R18-v5、no-ff M18。
+- 输出：H18-v6、review-only R18-v6、no-ff M18。
 - 涉及文件：本 change 目录 + 6 个实现/测试路径。
 - 状态 / 数据变化：GO 后普通 push 更新 ext。
 - 验证命令与证据：Claude 报告、approval digest、D6 verifier。
