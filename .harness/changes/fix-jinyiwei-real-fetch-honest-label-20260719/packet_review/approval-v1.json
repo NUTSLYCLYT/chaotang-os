@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "LOCAL_FEEDBACK_ONLY",
+  "review_version": 1,
+  "packet_id": "P22",
+  "change_id": "fix-jinyiwei-real-fetch-honest-label-20260719",
+  "predecessor_integration_sha": "f6a73f3cc0679f8318806ca60a61e02e0abceff6",
+  "reviewed_head_sha": "9a6199754ac9003d6e46250d70f7520cb389ed56",
+  "report_path": ".harness/changes/fix-jinyiwei-real-fetch-honest-label-20260719/packet_review/review-v1.md",
+  "report_sha256": "6cdd54364d4d4be905857fdbad1be41daaf678517e74c8eda653e3c4ac071809",
+  "verdict": "PACKET_REVIEW_GO"
+}
