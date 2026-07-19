@@ -14,7 +14,8 @@ Packet ID: P18
 
 - 主线：关闭 P17 Claude 记录的工部 scope 旁路，确保物理组件/危险任务在 direct、蜂群路由、
   六部路由和 fallback 四条路径都不能无人签继续。
-- 基线：`05582e520300e32a5d84e2b38b3822903f75c954`（P17 已发布远端）。
+- 最终基线：`ef9b597412f53c00fb717ea5b7a2a265fd599f0f`（包含 P17 与随后已发布的
+  product-r0 docs-only 包）；P18 四个修复提交已无冲突移植到该最新远端。
 - 实现：共享 `is_gongbu_safety_scope()`；物理硬件词进入 canonical YAML；工部 fallback
   在真实引擎无结论时强制 `复核 + requires_human_confirmation=true`。
 - 首轮审查：H18=`c67f6d8` 的 Claude v1 报告虽写 GO，但同时列出 F1=HIGH：单字危险
