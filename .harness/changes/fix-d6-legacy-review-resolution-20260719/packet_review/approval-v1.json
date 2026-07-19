@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "LOCAL_FEEDBACK_ONLY",
+  "review_version": 1,
+  "packet_id": "P20",
+  "change_id": "fix-d6-legacy-review-resolution-20260719",
+  "predecessor_integration_sha": "08d296aa11926391addada44ab5366d0f1dfc056",
+  "reviewed_head_sha": "caaa4eb79ae176eff08090544e1edd55bc8cefb3",
+  "report_path": ".harness/changes/fix-d6-legacy-review-resolution-20260719/packet_review/review-v1.md",
+  "report_sha256": "1babcc3d9799b1ec3a279671914c9909b2fda50ac730926f60869ff5f7f3cb64",
+  "verdict": "PACKET_REVIEW_GO"
+}
