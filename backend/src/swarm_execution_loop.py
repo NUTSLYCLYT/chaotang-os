@@ -164,7 +164,14 @@ def _enforce_gongbu_safety_stop(
     if swarm_id != "gongbu_delivery_swarm" or not is_gongbu_safety_scope(text):
         return out
     risks = [risk for risk in (out.get("risks") or []) if isinstance(risk, dict)]
-    if any(risk.get("requires_human_confirmation") for risk in risks):
+    court_items = [
+        item for item in (out.get("items") or []) if isinstance(item, dict)
+    ]
+    if (
+        out.get("light") == "black"
+        or any(item.get("level") == "black" for item in court_items)
+        or any(risk.get("requires_human_confirmation") for risk in risks)
+    ):
         return out
     return {
         **out,
@@ -313,6 +320,7 @@ def _edict_context_text(
     review_plan: dict[str, Any] | None = None,
 ) -> str:
     """路由、真实引擎、规则与 hard-stop 共用的奏折事实投影。"""
+    embedded_review_plan = confirmed_edict.get("review_plan")
     values: list[Any] = [
         confirmed_edict.get("original_question"),
         confirmed_edict.get("refined_edict"),
@@ -321,10 +329,10 @@ def _edict_context_text(
         confirmed_edict.get("known_facts"),
         confirmed_edict.get("unknown_gaps"),
         confirmed_edict.get("risk_flags"),
-        review_plan
-        if review_plan is not None
-        else confirmed_edict.get("review_plan"),
+        embedded_review_plan,
     ]
+    if review_plan is not None and review_plan != embedded_review_plan:
+        values.append(review_plan)
     parts: list[str] = []
     for value in values:
         if value is None or value == "":

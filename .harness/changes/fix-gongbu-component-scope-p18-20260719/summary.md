@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | fix-gongbu-component-scope-p18-20260719 |
 | 类型 | fix |
-| 状态 | READY_FOR_CLAUDE_REVIEW_V4 |
+| 状态 | READY_FOR_CLAUDE_REVIEW_V5 |
 | Owner | Codex / Claude Code independent reviewer |
 | 创建日期 | 20260719 |
 
@@ -33,15 +33,20 @@ Packet ID: P18
   route，未沿主循环传给部门执行，仍可“强制参审后自动准奏”；另记 CI 声明陈旧 LOW。
 - v4 回修：`review_plan` 成为 `run_department_swarm` 的显式可选输入，由主循环沿锦衣卫先行、
   串行、并行与异常重试路径原样传递，并同时供 real/rule/live/hard-stop 消费。
-- 验证：v4 生产路径回归 1 RED→GREEN；历次安全边界 10 passed；跨模块 102 passed；
-  后端全量 2795 passed / 37 skipped / 4 warnings / 0 failed。
+- 第四轮审查：Claude v4 判 `PACKET_REVIEW_NO_GO`：F1/F2=HIGH，分别实证 `PACK/PCS`
+  无 token 边界造成 package/backpack/小写 pcs 伪报，以及内嵌 review_plan 被空外参遮蔽；
+  F3=MEDIUM 指出已 black 的 court_doc 被重复叠加混合契约。
+- v5 回修：中文范围词继续子串匹配；BMS/PCS/PACK 改为区分大小写的 ASCII token 边界；
+  `_edict_context_text()` 同时吸收内嵌与外部 review plan；hard-stop 原生识别 black court_doc。
+- 验证：v5 三项阻断 3 RED→GREEN；历次安全边界 12 passed；跨模块 104 passed；
+  后端全量 2797 passed / 37 skipped / 4 warnings / 0 failed。
 
 ## 边界
 
 - 不把旧本地分支合入，不改前端、数据库、provider 或 P17 审查证据。
-- Claude v1 的矛盾 GO 与 Claude v2/v3 的 NO_GO 均仅保留在隔离本地历史，不进入候选
+- Claude v1 的矛盾 GO 与 Claude v2/v3/v4 的 NO_GO 均仅保留在隔离本地历史，不进入候选
   lineage，也不作为 approval。
 - 已确认物理范围仍偏 fail-safe；领域外的单字危险字符不得生成储能消防内容。后续不得恢复
   “引擎无结论就自动准奏”，也不得用告警泛滥冒充安全。
 
-PACKET_P18_READY_FOR_CLAUDE_REVIEW_V4
+PACKET_P18_READY_FOR_CLAUDE_REVIEW_V5

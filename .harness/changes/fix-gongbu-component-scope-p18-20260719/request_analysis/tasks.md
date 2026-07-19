@@ -59,12 +59,23 @@
 - 回滚边界：不得恢复 route 独享 review_plan 的分裂口径。
 - 完成定义：主循环输出复核+人签，不再准奏。
 
-## 任务 6：重新审查发布
+## 任务 6：Claude v4 NO_GO 回修
+
+- 目标：关闭拉丁缩写子串伪报、内嵌 review-plan 遮蔽和 raw court_doc 重复叠加。
+- 前置条件：Claude v4 F1/F2=HIGH、F3=MEDIUM，裁决 `PACKET_REVIEW_NO_GO`。
+- 输入：package/backpack/packet/100 pcs 负例，大写缩写正例，内嵌 plan 与 black doc。
+- 输出：ASCII token 匹配、双来源 plan 投影、原生 black 识别。
+- 涉及文件：真实引擎、蜂群编排、2 个测试文件与 Harness 证据。
+- 验证命令与证据：3 RED；回修后 12 passed、104 focused、2797 全量。
+- 回滚边界：不得恢复无边界拉丁 `in`、plan 二选一遮蔽或重复契约叠加。
+- 完成定义：v4 三项 findings 均有行为回归并关闭。
+
+## 任务 7：重新审查发布
 
 - 目标：固定 H18，经 Claude 与 D6 顺序发布。
 - 前置条件：任务 2 与三层 doctor 全绿。
 - 输入：10 文件候选范围。
-- 输出：H18-v4、review-only R18-v4、no-ff M18。
+- 输出：H18-v5、review-only R18-v5、no-ff M18。
 - 涉及文件：本 change 目录 + 6 个实现/测试路径。
 - 状态 / 数据变化：GO 后普通 push 更新 ext。
 - 验证命令与证据：Claude 报告、approval digest、D6 verifier。

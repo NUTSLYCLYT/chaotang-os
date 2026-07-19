@@ -270,10 +270,22 @@ def test_adapt_gongbu_does_not_promote_business_language_to_physical_incident():
         "单体服务短路降级演练",
         "模组化重构后内存膨胀",
         "模组化组件电压不足的比喻",
+        "双十一爆款 package 促销方案",
+        "backpack 品牌联名活动",
+        "重构 package.json 脚本",
+        "采购 100 pcs 螺丝",
+        "排查 packet loss 丢包",
     )
 
     for text in texts:
         assert rde.adapt_gongbu(text) is None, text
+
+
+def test_adapt_gongbu_uppercase_hardware_acronyms_keep_token_scope():
+    for text in ("BMS告警", "PCS通讯中断", "PACK鼓包"):
+        doc = rde.adapt_gongbu(text)
+        assert doc is not None, text
+        assert doc["light"] == "black", text
 
 
 def test_gongbu_is_registered_for_swarm_and_minister_paths():

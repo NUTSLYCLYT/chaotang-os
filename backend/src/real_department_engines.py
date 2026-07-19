@@ -859,9 +859,6 @@ _GONGBU_SCOPE_KEYWORDS = (
     "电池",
     "电芯",
     "析锂",
-    "BMS",
-    "PCS",
-    "PACK",
     "控制柜",
     "配电柜",
     "端子",
@@ -871,6 +868,7 @@ _GONGBU_SCOPE_KEYWORDS = (
     "设备告警",
     "售后故障",
 )
+_GONGBU_LATIN_SCOPE_TOKENS = ("BMS", "PCS", "PACK")
 _GONGBU_COMPONENT_SCOPE_PHRASES = (
     "电池模组",
     "模组端子",
@@ -922,6 +920,14 @@ def is_gongbu_safety_scope(task_text: str) -> bool:
     text_lower = task_text.lower()
     if any(
         keyword.lower() in text_lower for keyword in _GONGBU_SCOPE_KEYWORDS
+    ):
+        return True
+    if any(
+        re.search(
+            rf"(?<![A-Za-z0-9_]){re.escape(token)}(?![A-Za-z0-9_])",
+            task_text,
+        )
+        for token in _GONGBU_LATIN_SCOPE_TOKENS
     ):
         return True
     return any(

@@ -188,6 +188,50 @@ def test_review_plan_hazard_reaches_route_and_department_hard_stop(monkeypatch):
         risk["requires_human_confirmation"] for risk in output["risks"]
     )
 
+    embedded_edict = {**edict, "review_plan": review_plan}
+    embedded_result = run_swarm_execution_loop(
+        {
+            "task_id": "task-p18-embedded-review-plan",
+            "review_id": "review-p18-embedded-review-plan",
+            "confirmed_edict": embedded_edict,
+            "department_ids": ["工部"],
+            "council": False,
+        }
+    )
+    embedded_output = next(
+        item["output"]
+        for item in embedded_result["task_runs"]
+        if item["swarm_id"] == "gongbu_delivery_swarm"
+    )
+    assert embedded_output["position"] == "复核"
+    assert any(
+        risk["requires_human_confirmation"] for risk in embedded_output["risks"]
+    )
+
+
+def test_gongbu_hard_stop_preserves_existing_black_court_doc_shape():
+    from src.real_department_engines import adapt_gongbu
+    from src.signoff_gate import needs_signoff
+
+    edict = {
+        "original_question": "模组端子松动打火",
+        "refined_edict": "现场要求继续运行",
+        "known_facts": [],
+        "unknown_gaps": [],
+    }
+    result = run_department_swarm(
+        "gongbu_delivery_swarm",
+        edict,
+        "MIXED",
+        live=False,
+        real_engine_fn=adapt_gongbu,
+    )
+
+    assert result["light"] == "black"
+    assert needs_signoff(result) is True
+    assert "position" not in result
+    assert "risks" not in result
+
 
 def test_high_risk_contract_requires_human_confirmation(monkeypatch):
     import src.xingbu_verdict as xv

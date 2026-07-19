@@ -20,7 +20,10 @@ P17 已保证“进入工部储能安全引擎的任务恒为 black”，但 Cla
 | Claude v2 HIGH | 全文任意共现令单体服务短路、模组包体膨胀伪造消防指令 | Claude v2 NO_GO + P18-v3 RED | Claude/Codex 实跑 | 是，已回修 |
 | Claude v2 MEDIUM | route/run 文本口径遗漏 known_facts 或 unknown_gaps，事故 fallback 可无人签 | Claude v2 NO_GO + P18-v3 RED | Claude/Codex 实跑 | 是，已回修 |
 | Claude v3 HIGH | 外部 review_plan 仅进 route，不进执行，强制参审后仍可自动准奏 | Claude v3 NO_GO + P18-v4 RED | Claude/Codex 实跑 | 是，已回修 |
-| 设计取舍 | 危险信号只在已确认物理范围分档；歧义组件只认有限连续物理短语 | 共享分类函数 + 正负例 | Claude v4 待复审 | 否 |
+| Claude v4 HIGH | PACK/PCS 无边界子串令 package/backpack/100 pcs 领域外伪报 | Claude v4 NO_GO + P18-v5 RED | Claude/Codex 实跑 | 是，已回修 |
+| Claude v4 HIGH | 内嵌 review_plan 被主循环空外参遮蔽，危险逃逸 hard-stop | Claude v4 NO_GO + P18-v5 RED | Claude/Codex 实跑 | 是，已回修 |
+| Claude v4 MEDIUM | 已 black 的 raw court_doc 被重复叠加 position/risks 混合契约 | Claude v4 NO_GO + P18-v5 RED | Claude/Codex 实跑 | 是，已回修 |
+| 设计取舍 | 中文范围词按子串；拉丁硬件缩写按区分大小写 ASCII token；组件只认有限连续短语 | 分类机制 + 正负例 | Claude v5 待复审 | 否 |
 
 ## 数据流与调用链
 
@@ -37,10 +40,12 @@ route、real/rule/live/fallback 提供同一份奏折事实投影，包含 known
 | 契约 | 生产者 / 事实源 | 消费者 | 兼容性与验证 |
 | --- | --- | --- | --- |
 | 工部安全 scope | `real_department_engines.py` | direct/L4 route/fallback | 明确硬件词，或有限连续组件物理短语 |
+| 拉丁硬件缩写 | `real_department_engines.py` | 工部 scope | BMS/PCS/PACK 必须是大写独立 ASCII token；package/backpack/packet/lowercase pcs 不命中 |
 | 危险分档 | `real_department_engines.py` | `adapt_gongbu` | 仅在 scope 已成立后决定 P0/P1，不独立拉起引擎 |
 | 六部 routing keywords | canonical `departments.yaml` | `department_identity`/router | 电芯/析锂 + 控制柜/配电柜/端子；不使用裸模组/单体 |
 | 奏折事实文本 | `swarm_execution_loop._edict_context_text` | route/real/rule/live/hard-stop | 同时纳入 known_facts/unknown_gaps/risk_flags/review_plan |
 | review plan 传播 | `run_swarm_execution_loop` | `_run_departments_cross_referenced` → `_run_one_department` → `run_department_swarm` | 串行/并行/重试均传同一对象；旧直调默认 None 兼容 |
+| 已有 signoff 识别 | `_enforce_gongbu_safety_stop` | raw court_doc / ministry contract | light/items black 或 risks 人签任一成立即保持原形状 |
 | fallback human confirmation | `swarm_execution_loop.py` | brief risk register/quality gate | real engine 空、规则或 live 输出均补 hard-stop |
 
 ## 范围
@@ -72,6 +77,10 @@ route、real/rule/live/fallback 提供同一份奏折事实投影，包含 known
 | known_facts=控制柜爆燃 | 路由含工部；real None fallback 仍复核且人签 | v3 统一事实投影回归 |
 | unknown_gaps=电芯析锂程度未知 | fallback 复核且人签 | v3 统一事实投影回归 |
 | review_plan=控制柜爆燃专项复核 | 主循环 route 含工部且部门输出复核+人签 | v4 生产路径回归 |
+| package/backpack/packet/100 pcs | direct 返回 None，不强制工部安全参审 | v5 ASCII token 负例 |
+| BMS/PCS/PACK 大写 token | 仍进入工部 black 安全范围 | v5 token 正例 |
+| confirmed_edict.review_plan=控制柜爆燃 | 即使 params 无 plan，仍复核+人签 | v5 双来源事实投影回归 |
+| real_engine_fn 返回 black court_doc | 保持 court_doc 原形状，不重复添加 position/risks | v5 契约回归 |
 
 ## 风险与回滚边界
 
@@ -92,14 +101,15 @@ route、real/rule/live/fallback 提供同一份奏折事实投影，包含 known
 2. Claude v1 的领域外假阳性与 canonical 不对称必须在 H18 RED、v2 GREEN。
 3. Claude v2 的全文共现假阳性与奏折事实口径旁路必须在 v2 RED、v3 GREEN。
 4. Claude v3 的 review_plan route/run 旁路必须在 v3 RED、v4 GREEN。
-5. direct、L4 route、fallback、canonical route 四条路径形成闭环。
-6. 聚焦、后端全量、三层 doctor、diff check 全绿。
-7. Claude 固定 B/H 独立复审无 HIGH/MEDIUM 阻断后才允许 D6 no-ff 发布。
+5. Claude v4 的拉丁子串、内嵌 plan 与 raw court_doc 形状问题必须在 v4 RED、v5 GREEN。
+6. direct、L4 route、fallback、canonical route 四条路径形成闭环。
+7. 聚焦、后端全量、三层 doctor、diff check 全绿。
+8. Claude 固定 B/H 独立复审无 HIGH/MEDIUM 阻断后才允许 D6 no-ff 发布。
 
 ## 验证计划
 
 - 原 4 个精确 node + v2 3 个边界 node + v3 2 个事实投影 node + v4 1 个 review-plan
-  生产路径 node，累计 10 个精确回归。
+  生产路径 node + v5 2 个 token/契约 node，累计 12 个精确回归。
 - 五文件跨模块 focused pytest。
 - `python3 -m pytest -q backend/tests -p no:randomly`。
 - 三层 doctor、diff check、Claude、D6。
