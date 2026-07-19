@@ -236,6 +236,22 @@ def test_adapt_gongbu_anomaly_context_escalates_not_downgraded():
         assert doc["risk_level"] != "P2", text
 
 
+def test_adapt_gongbu_component_and_hazard_only_terms_are_fail_safe():
+    from src.signoff_gate import needs_signoff
+
+    cases = {
+        "模组端子松动打火": "P0",
+        "控制柜爆燃": "P0",
+        "电芯析锂": "P1",
+    }
+    for text, expected in cases.items():
+        doc = rde.adapt_gongbu(text)
+        assert doc is not None, f"{text} 绕过了工部物理安全引擎"
+        assert doc["risk_level"] == expected, text
+        assert doc["light"] == "black", text
+        assert needs_signoff(doc) is True, text
+
+
 def test_adapt_gongbu_requires_storage_or_bms_scope():
     assert rde.adapt_gongbu("帮我写一份普通市场推广方案") is None
 

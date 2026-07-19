@@ -1,6 +1,10 @@
 from fastapi.testclient import TestClient
 
-from src.swarm_execution_loop import route_swarms, run_swarm_execution_loop
+from src.swarm_execution_loop import (
+    route_swarms,
+    run_department_swarm,
+    run_swarm_execution_loop,
+)
 from web.main import app
 
 
@@ -28,6 +32,47 @@ def test_route_storage_project_selects_core_swarms():
     assert "synthesis_swarm" in selected
     assert "quality_gate_swarm" in selected
     assert plan["source_label"] == "MIXED"
+
+
+def test_route_component_hazard_to_gongbu_even_when_another_department_matches():
+    edict = {
+        "original_question": "合同要求模组端子松动打火后仍继续运行",
+        "refined_edict": "请审查合同责任与现场安全",
+        "decision_type": "事故处置",
+        "known_facts": ["模组端子正在打火"],
+        "unknown_gaps": [],
+        "risk_flags": ["合同风险"],
+        "source_label": "USER_INPUT",
+    }
+
+    selected = {
+        item["swarm_id"] for item in route_swarms(edict)["selected_swarms"]
+    }
+
+    assert "xingbu_legal_risk_swarm" in selected
+    assert "gongbu_delivery_swarm" in selected
+
+
+def test_gongbu_fallback_requires_human_when_real_engine_returns_none():
+    edict = {
+        "original_question": "模组端子松动打火",
+        "refined_edict": "现场要求继续运行",
+        "known_facts": ["端子打火"],
+        "unknown_gaps": [],
+    }
+
+    result = run_department_swarm(
+        "gongbu_delivery_swarm",
+        edict,
+        "MIXED",
+        live=False,
+        real_engine_fn=lambda _text: None,
+    )
+
+    assert result["position"] == "复核"
+    assert any(
+        risk["requires_human_confirmation"] for risk in result["risks"]
+    )
 
 
 def test_high_risk_contract_requires_human_confirmation(monkeypatch):

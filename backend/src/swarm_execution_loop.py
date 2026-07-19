@@ -20,7 +20,10 @@ from datetime import datetime, timezone
 from typing import Any
 
 from src.perf_outcomes_guard import enrich_quality_result
-from src.real_department_engines import get_real_engine_fn_for_swarm
+from src.real_department_engines import (
+    get_real_engine_fn_for_swarm,
+    is_gongbu_safety_scope,
+)
 
 # 页面同步路径覆盖开关。2026-07-14 Codex 复审发现:原实现用 os.environ[...] = ...
 # 在 shangshufang.py 里 set/finally-restore,但 FastAPI 同步 route 跑在线程池,
@@ -152,6 +155,30 @@ def _enforce_xingbu_hard_stop(
         ],
     }
     return out
+
+
+def _enforce_gongbu_safety_stop(
+    swarm_id: str, text: str, out: dict[str, Any]
+) -> dict[str, Any]:
+    """真实引擎缺失、失败或 LLM 漏标时，工部物理安全范围仍必须人工确认。"""
+    if swarm_id != "gongbu_delivery_swarm" or not is_gongbu_safety_scope(text):
+        return out
+    risks = [risk for risk in (out.get("risks") or []) if isinstance(risk, dict)]
+    if any(risk.get("requires_human_confirmation") for risk in risks):
+        return out
+    return {
+        **out,
+        "position": "复核",
+        "risks": [
+            *risks,
+            {
+                "risk": "工部物理安全范围未获人工确认",
+                "severity": "高",
+                "reason": "真实安全引擎无有效结论时不得自动准奏或继续运行",
+                "requires_human_confirmation": True,
+            },
+        ],
+    }
 
 
 
@@ -312,6 +339,16 @@ def route_swarms(
             {"swarm_id": "gongbu_delivery_swarm", "reason": "默认审查交付可行性"},
         ]
 
+    if is_gongbu_safety_scope(text) and not any(
+        item["swarm_id"] == "gongbu_delivery_swarm" for item in selected
+    ):
+        selected.append(
+            {
+                "swarm_id": "gongbu_delivery_swarm",
+                "reason": "工部物理安全范围强制参审",
+            }
+        )
+
     risk_flags = confirmed_edict.get("risk_flags") or []
     high_risk = (
         _has(text, ["合同", "股权", "付款", "承诺", "正式报价", "保证收益", "预付款"])
@@ -459,7 +496,8 @@ def run_department_swarm(
         except Exception:
             real_out = None
         if real_out is not None:
-            return _enforce_xingbu_hard_stop(swarm_id, text, real_out)
+            real_out = _enforce_xingbu_hard_stop(swarm_id, text, real_out)
+            return _enforce_gongbu_safety_stop(swarm_id, text, real_out)
     if live is None:
         override = _PAGE_SYNC_LIVE_OVERRIDE.get()
         live = (
@@ -469,7 +507,7 @@ def run_department_swarm(
         )
     rule = _rule_department_swarm(swarm_id, confirmed_edict, source_label)
     if not live and call_fn is None:
-        return rule
+        return _enforce_gongbu_safety_stop(swarm_id, text, rule)
     live_out = _live_department_position(
         swarm_id,
         {
@@ -480,7 +518,8 @@ def run_department_swarm(
         text,
         call_fn=call_fn,
     )
-    return live_out or rule  # 真 LLM 出立场,失败兜底规则(禁假 PASS)
+    out = live_out or rule  # 真 LLM 出立场,失败兜底规则(禁假 PASS)
+    return _enforce_gongbu_safety_stop(swarm_id, text, out)
 
 
 def _rule_department_swarm(

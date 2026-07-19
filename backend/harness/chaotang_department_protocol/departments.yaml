@@ -147,7 +147,7 @@ v1_taxonomy:
       runtime_code: gongbu
       agent_code: gong_bu
       legacy_api_slugs: [product]
-      routing_keywords: [开发, 代码, 测试, 实现, poc, 工程, 研发, pack, 依赖, 上线, 交付, 技术, 方案, bom, 施工, 周期, 供应链, 实施, 储能, 电池, bms, 冷库]
+      routing_keywords: [开发, 代码, 测试, 实现, poc, 工程, 研发, pack, 依赖, 上线, 交付, 技术, 方案, bom, 施工, 周期, 供应链, 实施, 储能, 电池, 电芯, 模组, 单体, 析锂, bms, 冷库]
       persona:
         historicalPrototype: 鲁班
         modernPrototype: 工程总架构师 / Karpathy 式极简工程负责人
