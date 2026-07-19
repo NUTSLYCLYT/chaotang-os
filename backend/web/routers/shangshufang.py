@@ -39,6 +39,7 @@ from src.decision_task_kernel import create_decision_task
 from src.emperor_decision_kind import emperor_decision_kind
 from src.execution.decree_dispatcher import dispatch_after_commit, enqueue_dispatch
 from src.finance_intel_loop_contract import build_finance_intel_session
+from src.sec_edgar import gather_sec_evidence
 from src.hubu_financial_reporting import build_shangshufang_finance_reporting_loop
 from src.shangshufang_loop import (
     chancellor_decide_route,
@@ -1995,21 +1996,27 @@ def shangshufang_finance_intel_loop_complete(
             },
         )
         session = build_finance_intel_session(
-            session_id=session_id, task_input=question, body=request
+            session_id=session_id,
+            task_input=question,
+            body=request,
+            evidence_fetcher=gather_sec_evidence,
         )
         _write_swarm_session(session_id, session)
         loop = session.get("finance_intel_loop") or {}
         generated_urls = [str(url) for url in loop.get("sourceUrls") or []]
+        evidence_verified = bool(loop.get("evidenceVerified")) or bool(source_urls)
+        session_label = session.get("source_label") or "FALLBACK"
         evidence_complete = (
             bool(generated_urls)
+            and evidence_verified
             and (loop.get("qualityGate") or {})
             .get("checks", {})
             .get("missing_evidence_clear") is not False
         )
         edict = draft_edict(
             question,
-            evidence_summary={"live": bool(generated_urls)},
-            source_label="LIVE" if generated_urls else "FALLBACK",
+            evidence_summary={"live": evidence_verified},
+            source_label=session_label,
         )
         edict_payload = draft_to_dict(edict)
         review_id = make_id("brief", task_id, "finance-intel")
@@ -2046,7 +2053,7 @@ def shangshufang_finance_intel_loop_complete(
             status=(
                 "awaiting_decision" if evidence_complete else "awaiting_evidence"
             ),
-            source_label="LIVE" if generated_urls else "FALLBACK",
+            source_label=session_label,
             risk_flags=["需人工确认", "投资建议边界"],
             known_facts=[f"ticker={body.ticker.upper()}", *generated_urls],
             unknown_gaps=[] if evidence_complete else ["SEC 官方来源链接"],
@@ -2063,7 +2070,7 @@ def shangshufang_finance_intel_loop_complete(
                 routing_plan_json=_json(
                     {
                         "ministry_candidates": ["锦衣卫", "户部", "上书房"],
-                        "source_label": "LIVE" if generated_urls else "FALLBACK",
+                        "source_label": session_label,
                     }
                 ),
                 review_status=(
@@ -2075,7 +2082,7 @@ def shangshufang_finance_intel_loop_complete(
                     {
                         "decisionBrief": brief,
                         "finance_intel_loop": loop,
-                        "source_label": "LIVE_SWARM",
+                        "source_label": session_label,
                     }
                 ),
                 created_at=now,
@@ -2110,7 +2117,7 @@ def shangshufang_finance_intel_loop_complete(
                 "sourceUrls": generated_urls,
                 "timeline": [
                     _timeline_item("issue", "上书房立案"),
-                    _timeline_item("intel", "锦衣卫取证", bool(generated_urls)),
+                    _timeline_item("intel", "锦衣卫取证", evidence_verified),
                     _timeline_item("hubu", "户部测算奏折", evidence_complete),
                     _timeline_item("decision", "上书房裁决", awaiting_decision),
                     _timeline_item("return", "回上书房复命", False),

@@ -232,6 +232,7 @@ def build_finance_intel_session(
     session_id: str,
     task_input: str,
     body: Any,
+    evidence_fetcher: Any = None,
 ) -> dict[str, Any]:
     started_at = now_iso()
     completed_at = started_at
@@ -239,15 +240,33 @@ def build_finance_intel_session(
     intelligence_pack = getattr(body, "intelligence_pack", {}) or {}
     ticker = str(intelligence_pack.get("ticker") or evidence_bound_run.get("ticker") or _ticker_from_text(task_input) or "").upper()
     source_urls = _source_urls(intelligence_pack, evidence_bound_run)
+    user_supplied_urls = bool(source_urls)
+    evidence_verified = False
     if not source_urls and not (getattr(body, "missing_evidence", None) or evidence_bound_run.get("missing_evidence")):
-        source_urls = _sec_source_urls(ticker)
+        if evidence_fetcher is not None and ticker:
+            fetched = evidence_fetcher(ticker) or {}
+            source_urls = [str(url) for url in fetched.get("sourceUrls") or []]
+            evidence_verified = bool(fetched.get("verified"))
+        if not source_urls:
+            source_urls = _sec_source_urls(ticker)
     missing_evidence = getattr(body, "missing_evidence", None) or evidence_bound_run.get("missing_evidence") or []
     forbidden_outputs = getattr(body, "forbidden_outputs", None) or evidence_bound_run.get("forbidden_outputs") or []
     has_source_urls = bool(source_urls)
     evidence_complete = has_source_urls and not missing_evidence
     finance_metrics = compute_finance_metrics(intelligence_pack, evidence_bound_run)
     courtos_task_id = getattr(body, "courtos_task_id", None)
-    source_label = getattr(body, "source_label", None) or evidence_bound_run.get("source_label") or "LIVE"
+    # 诚实标：真实 GET 到官方来源 → LIVE；用户自带证据 → 沿用请求标；
+    # 模板拼接未验证 / 无来源 → FALLBACK。不再冒充 LIVE_SWARM(真蜂群会审)。
+    if evidence_verified:
+        source_label = "LIVE"
+    elif user_supplied_urls:
+        source_label = (
+            getattr(body, "source_label", None)
+            or evidence_bound_run.get("source_label")
+            or "LIVE"
+        )
+    else:
+        source_label = "FALLBACK"
     edict_mode = _edict_mode(body, evidence_bound_run)
     visibility = "secret" if edict_mode == "secret" else "public"
     memorial = {
@@ -301,6 +320,7 @@ def build_finance_intel_session(
         "status": "pass" if evidence_complete else "fail",
         "checks": {
             "source_urls_present": has_source_urls,
+            "official_sources_verified": evidence_verified,
             "missing_evidence_clear": not bool(missing_evidence),
             "non_advice_disclaimer": True,
             "execution_disabled": True,
@@ -311,6 +331,7 @@ def build_finance_intel_session(
         "department": "jin_yi_wei",
         "stage": "jinyiwei_evidence",
         "ticker": ticker,
+        "verified": evidence_verified,
         "sourceUrls": source_urls,
         "missingEvidence": list(missing_evidence),
         "evidenceRefs": list(getattr(body, "evidence_refs", None) or evidence_bound_run.get("evidence_refs") or []),
@@ -468,7 +489,7 @@ def build_finance_intel_session(
             "swarmBundles": getattr(body, "courtos_swarm_bundles", None) or [],
             "edictMode": edict_mode,
         },
-        "source_label": "LIVE_SWARM",
+        "source_label": source_label,
         "session_type": "finance_intel_loop",
         "status": "completed" if evidence_complete else "blocked_needs_evidence",
         "start_time": started_at,
@@ -480,6 +501,7 @@ def build_finance_intel_session(
         "events": events,
         "finance_intel_loop": {
             "ticker": ticker,
+            "evidenceVerified": evidence_verified,
             "edictMode": edict_mode,
             "visibility": visibility,
             "chain": chain,
