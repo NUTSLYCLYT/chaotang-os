@@ -1,5 +1,8 @@
 # Architecture / Unit-of-Work adversarial review v1
 
+> 历史审查记录：只绑定原本地草案，不是 P21 当前集成批准；最终状态以
+> `packet_review/review-v1.md` 为准。
+
 日期：2026-07-19
 
 Reviewer：independent read-only architecture census agent

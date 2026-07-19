@@ -44,4 +44,4 @@
 - 输入：checkpoint `d41c28e`、远端 `475763a`、业主保留策略。
 - 输出：仅本 change 14 个 Markdown，Packet P21。
 - 完成定义：三份退役 SSOT 零恢复；固定 SHA Claude GO；D6 no-ff 顺序发布。
-- 状态：`IN_PROGRESS`。
+- 状态：`REPLAYED / VALIDATED / CLAUDE_REVIEW_PENDING`。
