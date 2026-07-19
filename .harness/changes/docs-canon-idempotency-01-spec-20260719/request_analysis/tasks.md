@@ -27,8 +27,10 @@
 ## 任务 4：独立对抗复审
 
 - 目标：分别检查架构/UoW 假绿与 privacy/key-rotation/hash-oracle。
-- 输出：`request_analysis/review/architecture-review.md`、`privacy-security-review.md`。
-- 完成定义：MUST_FIX 关闭后才能写 `SPEC_READY / REVIEW_GO`。
+- 输出：`request_analysis/review/architecture-review-v1..v3.md`、
+  `privacy-security-review-v1..v3.md` 六份历史记录。
+- 完成定义：历史 MUST_FIX 关闭只证明原草案双审完成，不授予当前产品
+  `SPEC_READY / REVIEW_GO`；P21 集成必须另走 `packet_review/review-v1.md`。
 - 状态：`COMPLETE / V1_NO_GO / V2_NO_GO / V3_DUAL_GO`。
 
 ## 任务 5：验证与诚实收口

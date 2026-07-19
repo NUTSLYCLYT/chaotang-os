@@ -15,6 +15,7 @@
 | 当前 D6 回归 | 0 | `42 passed, 0 failed` | 历史审查治理与本地反馈门 | P21 worktree / 2026-07-19 |
 | migration revision 图静态解析 | 0 | head=`016_schema_literal_contract_guard` | 不执行 migration、不预占未来编号 | P21 worktree / 2026-07-19 |
 | 14 路径 + 退役 SSOT 零恢复 | 0 | PASS | 仅本 change Markdown | P21 worktree / 2026-07-19 |
+| Claude v1 固定 SHA 复审 | 1（裁决） | `PACKET_REVIEW_NO_GO`：1 MEDIUM + 3 LOW | H21-v1=`f096e48` | detached review worktree / 2026-07-19 |
 
 ## 结果
 
@@ -23,8 +24,8 @@ CANON-IDEMPOTENCY-01 原本地 atomic spec 完成并获双复审 `GO`。P21 保�
 这些历史验证只支持“该草案曾完成双审”，不建立当前产品 `SPEC_READY`；更不支持
 `IMPLEMENTED` 或 `TENANT_SCOPE_FAIL_CLOSED`。
 
-P21 已在 `475763a` 基线上复跑 facts、三层 doctor、D6 与路径一致性；当前只等待固定
-SHA Claude 审查和 D6 发布，不宣称中央集成已经完成。
+P21 已在 `475763a` 基线上复跑 facts、三层 doctor、D6 与路径一致性。Claude v1 的
+退役 SSOT 范围矛盾已回修；当前等待 v2 固定 SHA 审查和 D6 发布，不宣称中央集成完成。
 
 ## 未验证项
 
@@ -52,10 +53,11 @@ SHA Claude 审查和 D6 发布，不宣称中央集成已经完成。
 | 当前 facts regression | 131 passed / 3 skipped | PASS |
 | 当前三层 doctor + D6 | 0/0 + 42 passed | PASS |
 | 已退役 index/blueprint/catalog 零恢复 | 14 路径一致性 | PASS |
+| Claude v1 MEDIUM 回修 | scope/paths/status/history wording | PASS / V2_REVIEW_PENDING |
 | runtime/schema/data 不越权 | status/diff + reviewer permission checks | PASS |
 | 历史治理估算留证 | `governance-progress-assessment.md` | HISTORICAL_ONLY |
 
 ## 声明状态
 
-- `VERIFIED_PARTIAL`：历史草案与双审已留证，当前基线复验完成；Claude/D6 发布未完成。
+- `VERIFIED_PARTIAL`：历史草案与双审已留证，当前基线复验及 v1 回修完成；Claude v2/D6 发布未完成。
 - Runtime：`ABSENT / NOT_IMPLEMENTED / NOT_AUTHORIZED`。

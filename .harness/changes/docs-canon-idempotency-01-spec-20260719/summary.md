@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-canon-idempotency-01-spec-20260719 |
 | 类型 | docs |
-| 状态 | READY_FOR_CLAUDE_REVIEW / ARCHIVED_SPEC_EVIDENCE / NOT_ACTIVE_PRODUCT_SSOT / RUNTIME_NOT_AUTHORIZED |
+| 状态 | READY_FOR_CLAUDE_REVIEW_V2 / ARCHIVED_SPEC_EVIDENCE / NOT_ACTIVE_PRODUCT_SSOT / RUNTIME_NOT_AUTHORIZED |
 | Owner | Chaotang OS Project Owner / Backend Request Idempotency (future runtime) |
 | 创建日期 | 20260719 |
 
@@ -33,6 +33,9 @@ runtime 实现；后者仍为 `NOT_IMPLEMENTED / NOT_AUTHORIZED`。
   `docs/plans/canon-readiness/`、parent blueprint 或 packet catalog。
 - 原规格从已退役产品目录迁入本 change 的 `atomic-spec.md`；原三份 SSOT 修改被丢弃。
 - 静态 migration head：`016_schema_literal_contract_guard`；本文不创建或保留未来 revision 编号。
+- Claude v1 固定 SHA 复审判 `PACKET_REVIEW_NO_GO`：规范性范围残留“更新退役 SSOT”
+  构成 MEDIUM；另有三项 LOW。v2 已删除该授权歧义，并修正历史 review 路径、
+  `SPEC_READY` 限定和历史评分表列名。
 
 ## 禁止事项
 
@@ -40,4 +43,4 @@ runtime 实现；后者仍为 `NOT_IMPLEMENTED / NOT_AUTHORIZED`。
 - 不迁移/清理既有 plaintext key、payload、JSONL、文件 store。
 - 不把 spec、现有测试通过、cache hit、unique constraint 或 outbox claim写成 canonical runtime 已完成。
 
-PACKET_P21_READY_FOR_CLAUDE_REVIEW
+PACKET_P21_READY_FOR_CLAUDE_REVIEW_V2

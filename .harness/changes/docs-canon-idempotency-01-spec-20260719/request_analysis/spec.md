@@ -45,8 +45,9 @@ auth ingress
 ## 范围
 
 - 冻结 current facts、唯一职责、逻辑字段、state、key/digest/rotation、同 UoW claim、replay/retention、负例、候选路径、实现拆包、验证、rollback 与 STOP。
-- 更新 canonical readiness 与 parent plan 的规格状态。
-- 记录诚实综合治理分数。
+- 不更新或恢复已退役的 canonical readiness、parent plan 与 packet catalog；若未来重建，
+  必须重新批准并另立当前产品 SSOT。
+- 仅保留历史治理估算，并明确禁止作为当前产品分数使用。
 
 ## 非目标
 
