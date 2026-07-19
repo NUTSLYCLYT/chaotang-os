@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "status": "LOCAL_FEEDBACK_ONLY",
+  "review_version": 1,
+  "packet_id": "P21",
+  "change_id": "docs-canon-idempotency-01-spec-20260719",
+  "predecessor_integration_sha": "475763a2d24308ca793b44914c8d4f38be651a05",
+  "reviewed_head_sha": "9c6bd037da82cf2681e1a45f8bd26015e37bcc7f",
+  "report_path": ".harness/changes/docs-canon-idempotency-01-spec-20260719/packet_review/review-v1.md",
+  "report_sha256": "007d2422982694c3a2bdbb764b9df5d36a04fe6eb3fc0cdba00abef3bfb20c5a",
+  "verdict": "PACKET_REVIEW_GO"
+}
