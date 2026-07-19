@@ -1,5 +1,7 @@
 # P4.5 语义冻结微包：Claude 通道闭合复核（次序倒置流程第二例）
 
+Legacy-Review-Verdict: PACKET_REVIEW_GO
+
 | 项 | 值 |
 | --- | --- |
 | reviewed 链 | `d454d1e..4348a71`（a–f 六步+两轮 tenant 自修+对抗 GO+merge） |
