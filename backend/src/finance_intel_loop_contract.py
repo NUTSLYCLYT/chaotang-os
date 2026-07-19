@@ -216,6 +216,18 @@ def _run(
     }
 
 
+def _qa_score(qa_result: dict[str, Any]) -> float:
+    """quality_score 从质量检查真实推导:有 checks 按通过率,无 checks 按 pass 布尔。
+
+    取代旧的编造常量(0.9/0.92/0.88/0.86)——分数必须可追溯到检查项。
+    """
+    checks = qa_result.get("checks") or {}
+    if checks:
+        passed = sum(1 for value in checks.values() if value is True)
+        return round(passed / len(checks), 2)
+    return 1.0 if qa_result.get("pass") else 0.0
+
+
 def _event(session_id: str, topic: str, source: str, payload: dict[str, Any], timestamp: str) -> dict[str, Any]:
     return {
         "topic": topic,
@@ -242,11 +254,13 @@ def build_finance_intel_session(
     source_urls = _source_urls(intelligence_pack, evidence_bound_run)
     user_supplied_urls = bool(source_urls)
     evidence_verified = False
+    evidence_facts: list[dict[str, Any]] = []
     if not source_urls and not (getattr(body, "missing_evidence", None) or evidence_bound_run.get("missing_evidence")):
         if evidence_fetcher is not None and ticker:
             fetched = evidence_fetcher(ticker) or {}
             source_urls = [str(url) for url in fetched.get("sourceUrls") or []]
             evidence_verified = bool(fetched.get("verified"))
+            evidence_facts = list(fetched.get("facts") or [])
         if not source_urls:
             source_urls = _sec_source_urls(ticker)
     missing_evidence = getattr(body, "missing_evidence", None) or evidence_bound_run.get("missing_evidence") or []
@@ -288,6 +302,8 @@ def build_finance_intel_session(
         "sourceUrls": source_urls,
         "missingEvidence": list(missing_evidence),
         "forbiddenOutputs": list(forbidden_outputs),
+        # 事实卡:只放 EDGAR 10-K 官方申报数字,解析不出即空列表,不推算不编造。
+        "factCard": evidence_facts,
         "metrics": finance_metrics,
         "formulaTrace": [
             {
@@ -377,7 +393,7 @@ def build_finance_intel_session(
             task_input=task_input,
             status="completed",
             triggered_by="manual",
-            quality_score=0.9,
+            quality_score=_qa_score({"pass": True}),
             qa_result={"qa_result": "pass", "pass": True, "status": "pass"},
             final_output={
                 "stage": "shangshufang_case",
@@ -395,12 +411,17 @@ def build_finance_intel_session(
             task_input=task_input,
             status="completed" if has_source_urls else "failed",
             triggered_by=f"evt_{session_id}_shangshufang",
-            quality_score=0.9 if has_source_urls else 0.25,
+            quality_score=_qa_score(
+                {"checks": {"official_sec_sources_present": has_source_urls, "official_sources_verified": evidence_verified}}
+            ),
             qa_result={
                 "qa_result": "pass" if has_source_urls else "fail",
                 "pass": has_source_urls,
                 "status": "pass" if has_source_urls else "fail",
-                "checks": {"official_sec_sources_present": has_source_urls},
+                "checks": {
+                    "official_sec_sources_present": has_source_urls,
+                    "official_sources_verified": evidence_verified,
+                },
             },
             final_output=jinyiwei_output,
             started_at=started_at,
@@ -412,7 +433,7 @@ def build_finance_intel_session(
             task_input=task_input,
             status="completed" if evidence_complete else "failed",
             triggered_by=f"evt_{session_id}_jinyiwei",
-            quality_score=0.92 if evidence_complete else 0.35,
+            quality_score=_qa_score(quality_gate),
             qa_result=quality_gate,
             final_output={
                 "stage": "hubu_memorial",
@@ -434,7 +455,7 @@ def build_finance_intel_session(
                     task_input=task_input,
                     status="completed",
                     triggered_by=f"evt_{session_id}_finance",
-                    quality_score=0.88,
+                    quality_score=_qa_score({"pass": True}),
                     qa_result={"qa_result": "pass", "pass": True, "status": "pass"},
                     final_output=adjudication,
                     started_at=started_at,
@@ -446,7 +467,7 @@ def build_finance_intel_session(
                     task_input=task_input,
                     status="completed",
                     triggered_by=f"evt_{session_id}_adjudication",
-                    quality_score=0.86,
+                    quality_score=_qa_score({"pass": True}),
                     qa_result={"qa_result": "pass", "pass": True, "status": "pass"},
                     final_output=execution_report,
                     started_at=started_at,
@@ -458,7 +479,7 @@ def build_finance_intel_session(
                     task_input=task_input,
                     status="completed",
                     triggered_by=f"evt_{session_id}_execution",
-                    quality_score=0.86,
+                    quality_score=_qa_score({"pass": True}),
                     qa_result={"qa_result": "pass", "pass": True, "status": "pass"},
                     final_output=archive,
                     started_at=started_at,

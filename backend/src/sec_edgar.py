@@ -94,19 +94,71 @@ def companyfacts_urls(cik: str) -> list[str]:
     ]
 
 
+# 户部事实卡取数的 us-gaap 标签优先链：每行一个指标,列表内先命中先用。
+_FACT_TAGS: list[tuple[str, list[str]]] = [
+    ("revenue", ["Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax"]),
+    ("net_income", ["NetIncomeLoss"]),
+    ("total_assets", ["Assets"]),
+    ("total_liabilities", ["Liabilities"]),
+    ("cash", ["CashAndCashEquivalentsAtCarryingValue"]),
+]
+
+
+def extract_key_facts(companyfacts: dict[str, Any]) -> list[dict[str, Any]]:
+    """companyfacts JSON → 最新 10-K 年度核心事实列表。
+
+    只取官方申报数字,不做任何推算;解析不出的指标直接缺席（诚实缺数）。
+    """
+    facts: list[dict[str, Any]] = []
+    gaap = (companyfacts.get("facts") or {}).get("us-gaap") or {}
+    entity = companyfacts.get("entityName")
+    for metric, tags in _FACT_TAGS:
+        for tag in tags:
+            units = (gaap.get(tag) or {}).get("units") or {}
+            annual = [
+                item
+                for item in units.get("USD") or []
+                if item.get("form") == "10-K" and item.get("fp") == "FY" and item.get("val") is not None
+            ]
+            if not annual:
+                continue
+            latest = max(annual, key=lambda item: str(item.get("end") or ""))
+            facts.append(
+                {
+                    "metric": metric,
+                    "tag": tag,
+                    "value": latest["val"],
+                    "unit": "USD",
+                    "fiscalYear": latest.get("fy"),
+                    "periodEnd": latest.get("end"),
+                    "form": "10-K",
+                    "entity": entity,
+                }
+            )
+            break
+    return facts
+
+
 def gather_sec_evidence(ticker: str, cache_path: Path | None = None) -> dict[str, Any]:
-    """ticker → {sourceUrls, verified, cik}。
+    """ticker → {sourceUrls, verified, cik, facts}。
 
     verified=True 仅当 companyfacts 真实 GET 到 200；其余一律 False。
-    找不到 CIK → sourceUrls 空（诚实缺证，不拼假 URL）。
+    找不到 CIK → sourceUrls 空（诚实缺证，不拼假 URL）。facts 只在 200 且
+    解析成功时非空——解析失败不影响 verified,但绝不编造数字。
     """
     cik = resolve_cik(ticker, cache_path)
     if not cik:
-        return {"sourceUrls": [], "verified": False, "cik": None}
+        return {"sourceUrls": [], "verified": False, "cik": None, "facts": []}
     urls = companyfacts_urls(cik)
+    facts: list[dict[str, Any]] = []
     try:
         resp = httpx.get(urls[0], headers={"User-Agent": _UA}, timeout=_TIMEOUT_SECONDS)
         verified = resp.status_code == 200
+        if verified:
+            try:
+                facts = extract_key_facts(resp.json())
+            except Exception:
+                facts = []
     except Exception:
         verified = False
-    return {"sourceUrls": urls, "verified": verified, "cik": cik}
+    return {"sourceUrls": urls, "verified": verified, "cik": cik, "facts": facts}
