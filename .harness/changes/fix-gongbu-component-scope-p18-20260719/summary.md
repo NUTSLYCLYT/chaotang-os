@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | fix-gongbu-component-scope-p18-20260719 |
 | 类型 | fix |
-| 状态 | READY_FOR_CLAUDE_REVIEW_V6 |
+| 状态 | READY_FOR_CLAUDE_REVIEW_V7 |
 | Owner | Codex / Claude Code independent reviewer |
 | 创建日期 | 20260719 |
 
@@ -14,8 +14,8 @@ Packet ID: P18
 
 - 主线：关闭 P17 Claude 记录的工部 scope 旁路，确保物理组件/危险任务在 direct、蜂群路由、
   六部路由和 fallback 四条路径都不能无人签继续。
-- 最终基线：`e69f2795a8a144a4e9a89ccc7b690c2ecbe10707`（包含 P17、product-r0
-  docs-only 包及其文档一致性修复）；P18 修复已无冲突移植到该最新远端。
+- 最终基线：`cfc2e88db875139ddb8745ecd1e65033c46f4f6b`（包含 P17、P19 证据清理、
+  P20 D6 历史审查治理及期间已发布变更）；P18 已逐提交重放，两个重叠文件经三方融合。
 - 实现：共享 `is_gongbu_safety_scope()`；物理硬件词进入 canonical YAML；工部 fallback
   在真实引擎无结论时强制 `复核 + requires_human_confirmation=true`。
 - 首轮审查：H18=`c67f6d8` 的 Claude v1 报告虽写 GO，但同时列出 F1=HIGH：单字危险
@@ -42,8 +42,10 @@ Packet ID: P18
   覆盖会重建部门清单，删除路由强制追加的工部；串行入口默认指定部门，生产可达。
 - v6 回修：`department_ids` 仅是调用偏好，不是安全豁免。物理安全 scope 在 override 后
   无条件补入工部，并同步进入 selected_swarms、swarm_tasks 与真实 task_runs。
-- 验证：v6 override 旁路 1 RED→GREEN；历次安全边界 13 passed；跨模块 105 passed；
-  后端全量 2798 passed / 37 skipped / 4 warnings / 0 failed。
+- v7 重放：不改变 P18 行为范围，只把 v6 净补丁重放到最新远端并保留远端工部
+  fail-safe；净差仍为原定 10 个 P18 路径。
+- 验证：历次安全边界 13 passed；最新五模块聚焦 104 passed；后端全量
+  2825 passed / 37 skipped / 4 warnings / 0 failed。
 
 ## 边界
 
@@ -53,4 +55,4 @@ Packet ID: P18
 - 已确认物理范围仍偏 fail-safe；领域外的单字危险字符不得生成储能消防内容。后续不得恢复
   “引擎无结论就自动准奏”，也不得用告警泛滥冒充安全。
 
-PACKET_P18_READY_FOR_CLAUDE_REVIEW_V6
+PACKET_P18_READY_FOR_CLAUDE_REVIEW_V7

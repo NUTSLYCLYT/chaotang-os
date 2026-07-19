@@ -4,7 +4,7 @@
 
 - 目标：分别复现 direct、L4 route、fallback、canonical route 旁路。
 - 前置条件：原始 RED 基线为 P17 `05582e5`；最终发布基线 B18 更新为
-  `e69f2795a8a144a4e9a89ccc7b690c2ecbe10707`，新增远端内容仅 docs-only 且旧基线为其祖先。
+  `cfc2e88db875139ddb8745ecd1e65033c46f4f6b`，P18 净补丁已重放且旧基线为其祖先。
 - 输入：Claude OUT-1 与独立调用链审计。
 - 输出：4 failed。
 - 涉及文件：3 个测试文件。
@@ -86,7 +86,7 @@
 - 目标：固定 H18，经 Claude 与 D6 顺序发布。
 - 前置条件：任务 2 与三层 doctor 全绿。
 - 输入：10 文件候选范围。
-- 输出：H18-v6、review-only R18-v6、no-ff M18。
+- 输出：H18-v7、review-only R18-v7、no-ff M18。
 - 涉及文件：本 change 目录 + 6 个实现/测试路径。
 - 状态 / 数据变化：GO 后普通 push 更新 ext。
 - 验证命令与证据：Claude 报告、approval digest、D6 verifier。

@@ -33,6 +33,11 @@
 | v6 历次精确回归（实现后） | 0 | 13 passed | 六轮安全边界 | 同上，4.46s |
 | v6 五文件跨模块聚焦 | 0 | 105 passed | engine/L4/YAML/router | 同上，65.55s |
 | v6 `python3 -m pytest -q backend/tests -p no:randomly` | 0 | 2798 passed, 37 skipped, 4 warnings | 后端全量 | 同上，276.45s |
+| v7 最新基线历次精确回归 | 0 | 13 passed | 六轮安全边界重放 | replay worktree，4.55s |
+| v7 最新基线五模块聚焦 | 0 | 104 passed | engine/L4/YAML/router | 同上，83.51s |
+| v7 `python3 -m pytest -q backend/tests -p no:randomly` | 0 | 2825 passed, 37 skipped, 4 warnings | 后端全量 | 同上，269.60s |
+| v7 D6 回归 | 0 | 42 passed | 历史审查治理与本地反馈门 | 同上，6.61s |
+| v7 三层 doctor | 0 | 0 errors, 0 warnings | 根/前端/后端护栏 | 同上 |
 | `git diff --check` | 0 | clean | 候选补丁格式 | 同上 |
 | `node scripts/harness-doctor.mjs` | 0 | 0 errors, 0 warnings | 根级护栏 | 同上 |
 | `python3 backend/scripts/harness_doctor.py` | 0 | 0 errors, 0 warnings | 后端护栏 | 同上 |
@@ -41,21 +46,22 @@
 ## 结果
 
 v1 因 HIGH/GO 自相矛盾未进入 D6；v2/v3/v4/v5 独立复审均明确 NO_GO。v6 已把 override
-权限旁路转成 1 条 RED 并修复，历次安全回归共 13 条全绿。4 warnings 与 P17 基线一致：
-2 条 FastAPI duplicate operation ID、2 条 OpenClaw fallback 行为警告。v6 三层 doctor
-复跑均为 0 errors / 0 warnings；等待 v6 Claude/D6，不宣称发布完成。
+权限旁路转成 1 条 RED 并修复。v7 把同一净补丁重放到最新远端，历次安全回归共 13 条
+全绿。4 warnings 仍为 2 条 FastAPI duplicate operation ID、2 条 OpenClaw fallback
+行为警告。等待 v7 Claude/D6，不宣称发布完成。
 
 ## 未验证项
 
 - 未验证生产部署；D6 属本地可绕过 feedback，不是外部 required check。
-- Claude v1/v2/v3/v4/v5 审查均不具发布资格；尚未执行 v6 固定 SHA 复审和 D6。
+- Claude v1/v2/v3/v4/v5 审查均不具发布资格；尚未执行 v7 固定 SHA 复审和 D6。
 
 ## Diff 与回滚复核
 
 - changed files：6 个实现/配置/测试文件 + 4 个根 Harness 文件。
 - diff review：无前端、数据库、provider、旧分支 ancestry。
-- 最终候选已从旧 P17 基线无冲突移植到最新远端 `e69f279`；该远端在 P17 后仅新增
-  product-r0 docs-only 包及其一致性修复，`B18..H18-v4` 仍恰 10 个 P18 路径。
+- 最终候选逐提交重放到最新远端 `cfc2e88`；`real_department_engines.py` 与对应测试
+  的重叠经三方融合，保留远端 fail-safe 与 P18 组件范围语义。`B18..H18-v7` 仍恰
+  10 个 P18 路径，无旧分支 ancestry、旧审查文件或其他 packet 夹带。
 - 回滚是否演练：未演练；安全旁路修复不得无审查回滚。
 
 ## 完成定义映射
@@ -84,8 +90,10 @@ v1 因 HIGH/GO 自相矛盾未进入 D6；v2/v3/v4/v5 独立复审均明确 NO_G
 | v6 blocker 回修 | 1 RED → 13 passed + 105 passed | PASS |
 | v6 后端无回归 | 2798/37/4/0 | PASS |
 | v6 三层 doctors | 0 errors, 0 warnings | PASS |
-| Claude v6 / D6 | 待执行 | PENDING |
+| v7 最新基线重放 | 13 passed + 104 focused + 2825/37/4/0 | PASS |
+| v7 D6 回归与三层 doctors | 42 passed + 0 errors/0 warnings | PASS |
+| Claude v7 / D6 | 待执行 | PENDING |
 
 ## 声明状态
 
-- `VERIFIED_PARTIAL`：v6 实现和后端全量已验证，v6 doctors/Claude/D6 尚未完成。
+- `VERIFIED_PARTIAL`：v7 实现、后端全量、D6 回归和 doctors 已验证；Claude/D6 发布尚未完成。
