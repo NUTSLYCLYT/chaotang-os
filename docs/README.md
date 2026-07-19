@@ -26,6 +26,7 @@ docs/
 - `plans/` 保存跨前后端、需要长期引用的蓝图、决策记录与历史计划；目录归属不等于已批准或当前有效，必须先读每个文件顶部状态。执行事实和验证证据仍归对应 `.harness/changes/`。
 - `plans/chaotang-os-product-definition-convergence-blueprint-2026-07-18.md` 是已接受的产品定型 Decision Record：保存“超级助手 + 动态朝堂 + 41 司目录 + 稀疏激活”的比较和理由；当前产品字段只由 `product/PROJECT_PRODUCT.md` 拥有。
 - `plans/chaotang-os-super-task-delivery-blueprint-2026-07-18.md` 是已被产品定义取代的参考输入 A，保留超级任务、知识飞轮、外部组件与黄金任务设计，不授权排期。
+- `plans/chaotang-os-agentic-workflow-kernel-pattern-adoption-2026-07-19.md` 是 Claude Code、Tencent WorkBuddy 与开源 `work-buddy` 的受控模式采用 Decision；只提供 M0–M10 amendment 的设计输入，不授权外部 runtime、真实数据或第二施工路线。
 - `status/archive/` 只保存带日期的审计快照。它们不得作为“当前分支、当前完成度、当前发布状态”的事实源。
 
 ## 归属规则
