@@ -32,6 +32,6 @@
 
 ## 任务 5：未来逐包施工
 
-- 顺序：W01 → W02 → (W03, W04) → W05 → W06 → W07 → W08 → W09。
+- 顺序：W01 → W02 → W03 → W04 → W05 → W06 → W07 → W08 → W09；不开放并行实现 Packet。
 - 每包：独立 change、独立分支、RED/GREEN、exact-H review、hosted PR、merge 后复验。
 - 状态：NOT_AUTHORIZED。

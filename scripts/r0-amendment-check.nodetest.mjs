@@ -47,9 +47,12 @@ test('R0 amendment validator requires fail-closed approval controls', async () =
     'git diff --binary <B>..<H> | sha256sum',
     'decision != GO',
     'OQ-02',
+    'OQ-01',
     'OQ-03',
     'OQ-09',
     'OQ-10',
+    '1 → 2 → 4 → 5 → 3',
+    '明确未批准 W02–W09 runtime',
   ]) {
     const mutated = source.replaceAll(requiredControl, 'REMOVED_CONTROL');
     assert.ok(
@@ -88,6 +91,13 @@ test('R0 amendment validator cross-checks packet ownership and legacy milestone 
   assert.ok(
     validateR0AmendmentMarkdown(missingM10).some((error) => error.includes('milestone M10')),
   );
+
+  const accidentalW08Owner = source.replace('| 消费 001–022 |', '| 001–022 消费 |');
+  assert.ok(
+    validateR0AmendmentMarkdown(accidentalW08Owner).some((error) =>
+      error.includes('non-owner packet W08'),
+    ),
+  );
 });
 
 test('R0 amendment CLI binds output to canonical bytes and never authorizes runtime', async () => {
@@ -95,6 +105,7 @@ test('R0 amendment CLI binds output to canonical bytes and never authorizes runt
   const output = JSON.parse(stdout);
   const sourceBytes = await readFile(amendmentPath);
   assert.equal(output.sourceDigest, createHash('sha256').update(sourceBytes).digest('hex'));
+  assert.equal(output.expectedSourceDigest, output.sourceDigest);
   assert.equal(output.canAuthorizeRuntime, false);
   assert.equal(output.decision, 'VALID_PROPOSED_AMENDMENT');
 
@@ -114,13 +125,38 @@ test('R0 amendment CLI returns distinct fail-closed results for invalid and unre
     );
     await mkdir(join(fixtureScripts, 'lib'), { recursive: true });
     await mkdir(fixtureChange, { recursive: true });
+    await mkdir(join(fixtureRoot, '.harness/manifest'), { recursive: true });
     await copyFile(cliPath, join(fixtureScripts, 'r0-amendment-check.mjs'));
     await copyFile(
       join(root, 'scripts/lib/r0-amendment-check.mjs'),
       join(fixtureScripts, 'lib/r0-amendment-check.mjs'),
     );
+    await copyFile(
+      join(root, '.harness/manifest/project-harness.json'),
+      join(fixtureRoot, '.harness/manifest/project-harness.json'),
+    );
 
     const fixtureAmendment = join(fixtureChange, 'amendment.md');
+    await copyFile(amendmentPath, fixtureAmendment);
+    const fixtureManifestPath = join(fixtureRoot, '.harness/manifest/project-harness.json');
+    const fixtureManifest = JSON.parse(await readFile(fixtureManifestPath, 'utf8'));
+    fixtureManifest.amendmentGovernance.candidateSourceDigest = '0'.repeat(64);
+    await writeFile(fixtureManifestPath, `${JSON.stringify(fixtureManifest, null, 2)}\n`);
+    await assert.rejects(
+      execFileAsync(process.execPath, [join(fixtureScripts, 'r0-amendment-check.mjs')], {
+        cwd: fixtureRoot,
+      }),
+      (error) => {
+        const output = JSON.parse(error.stdout);
+        return (
+          error.code === 1 &&
+          output.errors.includes(
+            'amendment sourceDigest differs from manifest candidateSourceDigest',
+          )
+        );
+      },
+    );
+
     await writeFile(fixtureAmendment, 'invalid amendment\n');
     await assert.rejects(
       execFileAsync(process.execPath, [join(fixtureScripts, 'r0-amendment-check.mjs')], {

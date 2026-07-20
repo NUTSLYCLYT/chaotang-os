@@ -12,6 +12,7 @@ const amendmentPath = resolve(
   root,
   '.harness/changes/docs-r0-trusted-kernel-amendment-20260720/amendment.md',
 );
+const projectManifestPath = resolve(root, '.harness/manifest/project-harness.json');
 
 async function main() {
   if (arguments_.length !== 0) {
@@ -20,13 +21,23 @@ async function main() {
   }
 
   try {
-    const sourceBytes = await readFile(amendmentPath);
+    const [sourceBytes, projectManifestBytes] = await Promise.all([
+      readFile(amendmentPath),
+      readFile(projectManifestPath),
+    ]);
     const source = sourceBytes.toString('utf8');
+    const sourceDigest = createHash('sha256').update(sourceBytes).digest('hex');
+    const projectManifest = JSON.parse(projectManifestBytes.toString('utf8'));
+    const expectedSourceDigest = projectManifest.amendmentGovernance?.candidateSourceDigest;
     const errors = validateR0AmendmentMarkdown(source);
+    if (sourceDigest !== expectedSourceDigest) {
+      errors.push('amendment sourceDigest differs from manifest candidateSourceDigest');
+    }
     const output = {
       schemaVersion: 'r0-amendment-check.v1',
       amendmentPath,
-      sourceDigest: createHash('sha256').update(sourceBytes).digest('hex'),
+      sourceDigest,
+      expectedSourceDigest: expectedSourceDigest ?? null,
       decision: errors.length === 0 ? 'VALID_PROPOSED_AMENDMENT' : 'STOP',
       requirements: errors.length === 0 ? '22/22_UNIQUE' : 'INVALID',
       exitGates: errors.length === 0 ? '9/9_OWNED' : 'INVALID',
@@ -43,6 +54,7 @@ async function main() {
           schemaVersion: 'r0-amendment-check.v1',
           amendmentPath,
           sourceDigest: null,
+          expectedSourceDigest: null,
           decision: 'STOP',
           requirements: 'UNKNOWN',
           exitGates: 'UNKNOWN',

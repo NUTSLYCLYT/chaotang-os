@@ -102,21 +102,16 @@ R0 不以 Agent、页面、部门、分支或文档数量衡量完成，只以�
 W00 G0 托管合入
   → W01 amendment 批准 + execution-authority v2
     → W02 共享合同契约
-      ├→ W03 安全摄取与租户隔离
-      └→ W04 幂等、single-writer、真实完成与恢复
-            ↓
-          W05 合同证据与 ContractReviewPack
-            ↓
-          W06 ArtifactManifest 与真实交付
-            ↓
-          W07 一旨一卡一包真实前端
-            ↓
-          W08 黄金集、真实 E2E、无陪同测试
-            ↓
-          W09 不可变发布与运行身份
+      → W03 安全摄取与租户隔离
+        → W04 幂等、single-writer、真实完成与恢复
+          → W05 合同证据与 ContractReviewPack
+            → W06 ArtifactManifest 与真实交付
+              → W07 一旨一卡一包真实前端
+                → W08 黄金集、真实 E2E、无陪同测试
+                  → W09 不可变发布与运行身份
 ```
 
-W03 与 W04 只有在不共享迁移、canonical writer 或状态事实源时才可并行。W08 的 fixture/scorer 骨架可在 W02 后开始，但不得在运行链未完成时制造 PASS。
+本修正案不开放并行实现 Packet：W03 必须先于 W04；W08 的 fixture/scorer 设计只能在其正式 Packet 内开始。若未来要并行，必须先修改 v2 schema、WIP 上限与本修正案并重新取得 exact-digest 批准，不得口头放宽。
 
 PRD open question 不是笼统的 W01 前置，而是按最晚时点阻断对应 Packet：
 
@@ -243,7 +238,7 @@ REQ 映射证明能力归属；下表从 PRD §8.1 反向证明“由谁量、�
 
 ### R0-W04：canonical 完成与恢复
 
-- 前置：W02 已 `MERGED_AND_VERIFIED`；与 W03 并行时不得共享迁移、writer 或状态事实源。
+- 前置：W03 已 `MERGED_AND_VERIFIED`；不得与 W03 并行，不得共享未迁移完成的 writer 或状态事实源。
 - 产物：`CANON-IDEMPOTENCY-01` runtime、CourtReview single writer、服务端 `DELIVERED` 公式、取消 fencing、局部重试、UNKNOWN 查单、全链 identity，以及每任务确定性的 wall-clock/token/tool-call/retry 硬上限。
 - 首个 RED：`direct_completed`/worker ACK/部分文本/部分附件不得显示完成；任一硬上限超出时必须进入明确终态或人工接管，不得继续执行、静默重试或显示完成。
 - 历史 source-only：只复用 `wip/canon-court-01a-red` scanner 思想，不整支合并。
@@ -315,7 +310,7 @@ R0 前冻结：41 司全量、每日朝会、皇帝单屏、evolve、六项外�
 2. 本文件在该 SHA 之上完成 rebase/re-pin；唯一绑定命令为 `git diff --binary <B>..<H> | sha256sum`，不得加入 `--full-index` 或改变 diff 规范化参数。
 3. Product Owner 明确回复：Amendment ID、digest、effective base、批准 W01、明确未批准 W02–W09 runtime。
 4. Authority、Security、Git/Evidence 三路 Claude Code 审查绑定同一 amendment H/tree/diff。
-5. `node scripts/r0-amendment-check.mjs`、其 Node 测试、root doctor 与文档链接全绿；checker 只读 canonical amendment 路径，输出的 `sourceDigest` 必须等于该文件精确字节的 SHA-256，并与同一 H 的审查证据一起记录。
+5. `node scripts/r0-amendment-check.mjs`、其 Node 测试、root doctor 与文档链接全绿；checker 只读 canonical amendment 路径，输出的 `sourceDigest` 必须等于 root manifest 的 `candidateSourceDigest` 和该文件精确字节 SHA-256，并与同一 H 的审查证据一起记录；不匹配立即 STOP。
 
 条件按 1 → 2 → 4 → 5 → 3 顺序执行；三路 review 必须发生在 rebase/re-pin 后，Product Owner 最后批准同一 exact H/tree/diff/digest。OQ-01 必须由本修正案关闭；OQ-02/03/09/10 按 §5 的 Packet 前置逐项关闭，不能被 W01 批准提前豁免。
 
@@ -338,6 +333,6 @@ W01 合入 v2 后，Product Owner 再按 v2 激活的 `activeWorkPackage` 逐包
 9. Claude Code 只读复审；Codex 是唯一写入者。
 10. 任一 HIGH/MEDIUM 未关闭、required check 不可验证或 exact HEAD 漂移，STOP。
 
-执行顺序：W00 → W01 → W02 → (W03, W04) → W05 → W06 → W07 → W08 → W09。
+执行顺序：W00 → W01 → W02 → W03 → W04 → W05 → W06 → W07 → W08 → W09。
 完成声明：只能使用 PACKET_VERIFIED、R0_INTERNAL_GO 或 NO_GO；不得称 R1、R2、GA、生产上线。
 ```

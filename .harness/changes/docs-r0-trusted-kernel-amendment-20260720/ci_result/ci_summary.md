@@ -5,7 +5,7 @@
 | 命令 | 退出码 | 结果 | 证据覆盖范围 | 时间 |
 | --- | ---: | --- | --- | --- |
 | `node scripts/r0-amendment-check.nodetest.mjs`（沙箱外只读；子进程 CLI 测试） | 0 | 7/7 PASS | 真实 amendment、缺失/重复 REQ/gate/M、语义反转、跨表 Owner、source digest、CLI 0/1/64/66 | 2026-07-20 |
-| `node scripts/r0-amendment-check.mjs` | 0 | `22/22_UNIQUE`、`9/9_OWNED`、`11/11_DISPOSED`、`sourceDigest=aa1878681b1dc6b37aa2229b7da74e42d7a6d72e3221276b7176f0ab9ad28325`、`canAuthorizeRuntime=false` | canonical amendment 精确字节 digest、REQ/Gate/M、批准与 STOP 控制 | 2026-07-20 |
+| `node scripts/r0-amendment-check.mjs` | 0 | `22/22_UNIQUE`、`9/9_OWNED`、`11/11_DISPOSED`、`sourceDigest=expectedSourceDigest=9f0d7a5267e9bcfd64a73d4862b3a56eef4aae2d591dae3ad7850f7742daca9a`、`canAuthorizeRuntime=false` | canonical amendment 精确字节与 manifest candidate digest 比较、REQ/Gate/M、批准与 STOP 控制 | 2026-07-20 |
 | `node scripts/execution-authority.mjs --authorize` | 2 | `STOP / AMENDMENT_APPROVAL_REQUIRED` | 草案未越权激活施工 | 2026-07-20 |
 | `node scripts/harness-doctor.mjs` | 0 | 0 errors / 0 warnings | 根、前端、后端三层 harness | 2026-07-20 |
 | `git diff --check` | 0 | PASS | 文档格式 | 2026-07-20 |
@@ -36,7 +36,7 @@
 | 22/22 唯一映射 | committed validator、`amendment.md` §6 | PASS |
 | 9/9 退出门唯一度量 | committed validator、`amendment.md` §7 | PASS |
 | 11/11 旧 M 唯一处置 | committed validator、`amendment.md` §5.1 | PASS |
-| checker digest/路径/CLI fail closed | CLI 正反例与 manifest/doctor 登记 | PASS |
+| checker digest 比较/路径/CLI fail closed | CLI 正反例与 manifest/doctor 登记 | PASS |
 | W00–W09 依赖/RED/退出/回滚 | `amendment.md` §5/§8 | PASS |
 | 第一 golden slice 与页面边界 | `amendment.md` §1/§3 | PASS |
 | 非目标与历史 source-only | `amendment.md` §9 | PASS |

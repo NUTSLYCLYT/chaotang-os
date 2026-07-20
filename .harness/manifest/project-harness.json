@@ -78,6 +78,8 @@
     "document": ".harness/changes/docs-r0-trusted-kernel-amendment-20260720/amendment.md",
     "checker": "scripts/r0-amendment-check.mjs",
     "test": "scripts/r0-amendment-check.nodetest.mjs",
+    "candidateSourceDigest": "9f0d7a5267e9bcfd64a73d4862b3a56eef4aae2d591dae3ad7850f7742daca9a",
+    "approvedSourceDigest": null,
     "canAuthorizeRuntime": false,
     "verification": [
       "node --test scripts/r0-amendment-check.nodetest.mjs",

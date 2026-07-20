@@ -174,9 +174,16 @@ if (manifest) {
     if (amendment.canAuthorizeRuntime !== false) {
       error('amendment governance checker must never authorize runtime');
     }
+    if (!/^[0-9a-f]{64}$/.test(amendment.candidateSourceDigest ?? '')) {
+      error('amendment governance candidateSourceDigest must be a sha256 hex digest');
+    }
+    if (amendment.approvedSourceDigest !== null) {
+      error('proposed amendment must not carry an approvedSourceDigest');
+    }
     for (const command of [
       'node --test scripts/r0-amendment-check.nodetest.mjs',
       'node scripts/r0-amendment-check.mjs',
+      'node scripts/harness-doctor.mjs',
     ]) {
       if (!(amendment.verification ?? []).includes(command)) {
         error(`amendment governance missing verification command: ${command}`);
