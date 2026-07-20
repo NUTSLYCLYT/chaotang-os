@@ -10,4 +10,3 @@
 - Unresolved MEDIUM: none
 
 The review confirmed the single contract journey, tenant/provider boundary, OQ-06 W03 gate, G07 unauthorized-provider-egress zero tolerance, W06 `DELIVERED → UNDER_REVIEW` rollback, G09 independent hosted enforcement, serial Packet order, and the explicit statement that local checker consistency never replaces external content review and exact-digest approval.
-

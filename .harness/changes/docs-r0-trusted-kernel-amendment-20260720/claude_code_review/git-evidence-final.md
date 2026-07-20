@@ -12,4 +12,3 @@
 The reviewer independently reproduced B/H/tree/diff/source identities, confirmed B is an ancestor of H and equals both local and remote G0 task-branch tips, and reran checker 7/7, root doctor 0/0, diff check, and execution-authority STOP. CLI exit paths 0/1/64/65/66 are exercised by real copied-process fixtures. The amendment branch is intentionally unpushed at the reviewed H; `origin/feature-chaotang-ext` remains the future post-G0 re-pin base.
 
 Low, outside this change: local `feature-chaotang-ext` differs from its remote; use the new remote exact SHA after G0 hosted merge rather than the local branch when re-pinning.
-

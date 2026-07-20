@@ -10,4 +10,3 @@
 - Unresolved MEDIUM: none
 
 Authority v1 remains `STOP / AMENDMENT_APPROVAL_REQUIRED`; the checker always emits `canAuthorizeRuntime=false`. The prior manifest document-path finding is closed in both doctor and CLI with a negative test. The only action is to decide the fate of pre-existing unrelated untracked reports/image before a future merge; they are outside this candidate and do not affect any reviewed identity.
-
