@@ -122,25 +122,45 @@ PRD open question 不是笼统的 W01 前置，而是按最晚时点阻断对应
 
 | Open question | 必须在何时冻结 | 未冻结时 |
 | --- | --- | --- |
-| OQ-01：R0/R1/R2 与 M0–M10 唯一映射 | 本修正案批准前 | 本修正案不得批准；本文件 §5/§6 负责关闭 |
+| OQ-01：R0/R1/R2 与 M0–M10 唯一映射 | 本修正案批准前 | 本修正案不得批准；本文件 §5.1/§6 负责关闭 |
 | OQ-02：文件/OCR 阈值 | W03 RED 前 | W03 保持 `BLOCKED_INPUT` |
 | OQ-03：支持/拒答 taxonomy | W02 契约冻结前；W08 golden freeze 前复核 | W02/W08 保持 `BLOCKED_INPUT` |
 | OQ-09：基础/附加成果格式 | W06 schema 前 | W06 保持 `BLOCKED_INPUT` |
 | OQ-10：120 份数据来源/标注预算 | W08 从 R0 30+ 扩展到 R1 数据前 | 不阻断合成 R0；阻断 R1 数据扩展 |
 | OQ-04～OQ-06 | 任何真实客户材料或 R1 前 | R1/真实数据保持 STOP |
 
-| 顺序 | ID | 目标 | 主责 REQ | 旧 M 映射 | 退出价值 |
+| 顺序 | ID | 目标 | 主责 REQ | 历史输入说明（非所有权） | 退出价值 |
 | ---: | --- | --- | --- | --- | --- |
-| 0 | R0-W00 | G0 hosted PR、required review、合后重验 | 治理前置 | G0 | 只有一条施工权威 |
-| 1 | R0-W01 | 批准本修正案并建立 packet-scoped v2 authority | 追踪全部 REQ，不实现业务 | M0 | 每次只放行一个包 |
-| 2 | R0-W02 | 合同、Mission、裁决、状态的共享 v1 契约 | 003–007、012、017 | M0/M1/M2 | 前后端说同一种语言 |
-| 3 | R0-W03 | 安全文件摄取、OCR、tenant/object/purpose 权限 | 001、002、019 | M1/M2 | 客户材料不泄露、不静默漏读 |
-| 4 | R0-W04 | idempotency、single writer、完成公式、恢复与全链 ID | 008、013、014、018、020、022 | M1/M6/M7；不宣称实现 M3/M4 | 不重复、不伪完成、可恢复 |
-| 5 | R0-W05 | 原文证据、五种裁决、最小刑部合同能力 | 009–011 | M5/M6；M8 仅最小合同能力 | 结果可复核、该拒答就拒答 |
-| 6 | R0-W06 | PDF/DOCX/JSON、ArtifactManifest、下载与 PARTIAL | 015、016 | M7 | 从分析文本变成可验证成果 |
-| 7 | R0-W07 | `/shangshufang` 一旨一卡一包真实闭环 | 021 | M7 前端消费者 | 普通用户能独立使用 |
-| 8 | R0-W08 | 30+ goldens、scorer、10/10 real E2E、5 人测试 | 消费 001–022 | M0/M5/M6/M9 | 证明质量而非演示质量 |
-| 9 | R0-W09 | immutable build、runtime identity、N-1 回滚 | release gate | M9 | 可判定的 R0 Go/No-Go |
+| 0 | R0-W00 | G0 hosted PR、required review、合后重验 | 治理前置 | inactive authority guard | 只有一条施工权威 |
+| 1 | R0-W01 | 批准本修正案并建立 packet-scoped v2 authority | 追踪全部 REQ，不实现业务 | 事实源与执行权威 | 每次只放行一个包 |
+| 2 | R0-W02 | 合同、Mission、裁决、状态的共享 v1 契约 | 003–007、012、017 | task/capability 契约输入 | 前后端说同一种语言 |
+| 3 | R0-W03 | 安全文件摄取、OCR、tenant/object/purpose 权限 | 001、002、019 | tenant/provider 安全输入 | 客户材料不泄露、不静默漏读 |
+| 4 | R0-W04 | idempotency、single writer、完成公式、恢复与全链 ID | 008、013、014、018、020、022 | trace/gate/receipt 输入；不含通用 adaptive/lazy-load | 不重复、不伪完成、可恢复 |
+| 5 | R0-W05 | 原文证据、五种裁决、最小刑部合同能力 | 009–011 | evidence/conflict gate 输入 | 结果可复核、该拒答就拒答 |
+| 6 | R0-W06 | PDF/DOCX/JSON、ArtifactManifest、下载与 PARTIAL | 015、016 | outcome/artifact 输入 | 从分析文本变成可验证成果 |
+| 7 | R0-W07 | `/shangshufang` 一旨一卡一包真实闭环 | 021 | 前端消费者 | 普通用户能独立使用 |
+| 8 | R0-W08 | 30+ goldens、scorer、10/10 real E2E、5 人测试 | 消费 001–022 | golden/KPI 证据生产者 | 证明质量而非演示质量 |
+| 9 | R0-W09 | immutable build、runtime identity、N-1 回滚 | release gate | release/observability 消费者 | 可判定的 R0 Go/No-Go |
+
+### 5.1 R0/R1/R2 与旧 M0–M10 的唯一权威处置
+
+旧 M0–M10 从本修正案批准后不再作为可直接领取的并行执行包；每个旧 M 只允许下面一个处置。R0 使用 W00–W09 为唯一施工图；R1 只在 R0 内核上增加 Paid Pilot 的数据、人工复核、运营和收费门；R2 只在 R1 退出门后增加邀请制发布门。R1/R2 均需新 amendment，不能重新激活旧 M 名称开工。
+
+| 旧里程碑 | 唯一处置 | 发布归属 | 边界 |
+| --- | --- | --- | --- |
+| M0 | R0-W01 | R0 | 事实源、amendment 与执行权威；黄金/质量由 W08 独立度量，不再保留第二个 M0 owner |
+| M1 | R0-W04 | R0 | task/trace/idempotency 的 canonical runtime；输入 schema 由 W02 提供 |
+| M2 | R0-W02 | R0 | 只做合同 slice 最小 Capability/Support/Mission 契约 |
+| M3 | FROZEN_POST_R0 | R2+ 条件项 | 通用 adaptive/shadow routing 冻结；若重启必须新 amendment 和真实瓶颈证据 |
+| M4 | FROZEN_POST_R0 | R2+ 条件项 | 通用 lazy-load/budget 平台冻结；R0 仅由 W04 提供确定性硬上限 |
+| M5 | R0-W05 | R0 | 合同原文证据与缺证语义 |
+| M6 | R0-W05 | R0 | 门下/御史确定性证据与冲突门；与 M5 合并为一个合同内容包 |
+| M7 | R0-W06 | R0 | ArtifactManifest、交付附件和回执；W07 只消费 read model |
+| M8 | FROZEN_POST_R0 | R2+ 条件项 | 41 司/六部宽度冻结；W05 最小刑部合同能力不构成 M8 完成 |
+| M9 | R0-W09 | R0 | 只做 R0 release identity/Go-No-Go；W08 生产质量证据 |
+| M10 | CONDITIONAL_POST_R0 | R2 后条件 PoC | M0–M9 所代表的已批准能力出现可测瓶颈前不启动；不进入主链 |
+
+因此 OQ-01 的唯一答案是：`R0=W00–W09`；`R1/R2=消费 R0 内核并分别等待新 amendment`；旧 M 只能按上表吸收或冻结，不能与 W 图并存。这个关闭不授权 R1/R2，也不把冻结项视为完成。
 
 ## 6. 22 条 R0 REQ 唯一映射
 
@@ -176,10 +196,10 @@ REQ 映射证明能力归属；下表从 PRD §8.1 反向证明“由谁量、�
 | Gate | 唯一度量包 | 冻结门槛 | 必须先出现的 RED | 退出证据 |
 | --- | --- | --- | --- | --- |
 | G01 | W08 | 30+ 合成/不可重新识别黄金合同，采购/销售/服务覆盖 | 数量/合同族/合法性任一不足仍 PASS | versioned dataset manifest、双人标注与仲裁 |
-| G02 | W08 | 10/10 real-backend 浏览器主流程可终止 | mock 或任一旅程无终态仍 PASS | browser traces、API/DB lineage、console/404=0 |
+| G02 | W08 | 10/10 real-backend 浏览器主流程可终止且同 lineage 归档可回读 | mock、任一旅程无终态或跳过 archive readback 仍 PASS | browser traces、API/DB lineage、ArchiveReceipt/readback、console/404=0 |
 | G03 | W08 | 5 名非开发目标用户中至少 4 名无帮助完成 | 开发人员代操作仍计成功 | 受控 usability protocol 与逐人结果 |
-| G04 | W08 | 首个有用风险时间中位数 ≤ 3 分钟 | 无计时/分母为零仍 PASS | server timestamps、样本明细、median 复算 |
-| G05 | W08 | critical/high 原文引用覆盖率 100%，缺证显式标记率 100% | 无锚点或 missingEvidence 漏标仍 PASS | scorer 明细与原文定位抽检 |
+| G04 | W08 | G02 同一 10 条旅程中，上传确认到首条有原文锚点 critical/high 风险可见的时间中位数 ≤ 3 分钟 | 少于 10 条、无计时、无有用风险或分母为零仍 PASS | server timestamps、10 条样本明细、未产出按 FAIL 计、median 复算 |
+| G05 | W08 | critical/high 原文引用覆盖率 100%，对冻结 golden 真值的缺证显式标记率 100% | 无锚点、golden 未标 expectedMissingEvidence 或漏标仍 PASS | scorer 明细、expectedMissingEvidence 标注与原文定位抽检 |
 | G06 | W08 | critical recall 100%，high recall ≥90%，critical/high precision ≥80% | 分母为零/holdout 未冻仍 PASS | versioned scorer、冻结 holdout、匹配审计 |
 | G07 | W08 | 伪条款、伪来源、错完成、未授权动作、跨租户泄露均为 0 | 任一零容忍事件被平均分掩盖 | adversarial suite 与 incident ledger |
 | G08 | W08 | 断线、取消、冲突、过期、附件失败、UNKNOWN 均不显示完成 | 任一失败被投影为 completed | fault-injection traces 与刷新/重连 E2E |
@@ -215,8 +235,8 @@ REQ 映射证明能力归属；下表从 PRD §8.1 反向证明“由谁量、�
 ### R0-W03：安全摄取与租户隔离
 
 - 前置：W02 已 `MERGED_AND_VERIFIED`；OQ-02 已冻结。
-- RED：跨租户/用户、对象替换、purpose 缺失、伪 MIME、恶意文件、低 OCR、内部运营默认读取正文必须全部失败。
-- 产物：对象级 secure ingest、MIME/加密/损坏/宏/病毒/zip bomb/注入检查、OCR 状态、immutable input version/digest、purpose authz、短时下载票据；内部运营和平台人员默认不可读取合同正文。
+- RED：跨租户/用户、对象替换、purpose 缺失、伪 MIME、恶意文件、低 OCR、内部运营默认读取正文、未在 allowlist/provider policy 内的模型出站必须全部失败。
+- 产物：对象级 secure ingest、MIME/加密/损坏/宏/病毒/zip bomb/注入检查、OCR 状态、immutable input version/digest、purpose authz、短时下载票据；内部运营和平台人员默认不可读取合同正文；模型 provider 必须 allowlist、绑定区域/retention/no-training/subprocessor 声明并逐次记录 tenant/task/input digest/provider/model/policy version，未知或降级 provider 禁止获得正文。
 - 首刀只支持合成采购 DOCX；随后在同一 schema 扩搜索 PDF、扫描 PDF/OCR。
 - 禁止：合同正文进入全局 IMA/shared RAG、localStorage、日志、trace 或截图。
 - 回滚：feature flag 关闭摄取；保持 fail closed，绝不回退到 IMA。
@@ -224,8 +244,8 @@ REQ 映射证明能力归属；下表从 PRD §8.1 反向证明“由谁量、�
 ### R0-W04：canonical 完成与恢复
 
 - 前置：W02 已 `MERGED_AND_VERIFIED`；与 W03 并行时不得共享迁移、writer 或状态事实源。
-- 产物：`CANON-IDEMPOTENCY-01` runtime、CourtReview single writer、服务端 `DELIVERED` 公式、取消 fencing、局部重试、UNKNOWN 查单、全链 identity。
-- 首个 RED：`direct_completed`/worker ACK/部分文本/部分附件不得显示完成。
+- 产物：`CANON-IDEMPOTENCY-01` runtime、CourtReview single writer、服务端 `DELIVERED` 公式、取消 fencing、局部重试、UNKNOWN 查单、全链 identity，以及每任务确定性的 wall-clock/token/tool-call/retry 硬上限。
+- 首个 RED：`direct_completed`/worker ACK/部分文本/部分附件不得显示完成；任一硬上限超出时必须进入明确终态或人工接管，不得继续执行、静默重试或显示完成。
 - 历史 source-only：只复用 `wip/canon-court-01a-red` scanner 思想，不整支合并。
 - 回滚：所有新写入记录 `delivery_formula_version`；关闭新 writer/投影后，新公式期间写入的行继续按原版本派生或进入 `UNDER_REVIEW` 隔离，禁止用旧公式重新解释为完成；兼容读保留，禁止恢复伪完成写入。
 
@@ -240,7 +260,7 @@ REQ 映射证明能力归属；下表从 PRD §8.1 反向证明“由谁量、�
 
 ### R0-W06：成果附件与交付
 
-- 前置：W05 已 `MERGED_AND_VERIFIED`；OQ-09 已冻结。
+- 前置：W05 已 `MERGED_AND_VERIFIED`；OQ-09 已冻结；W06 引入的新 `delivery_formula_version` 必须由 Canonical Runtime Owner 会签，并在 W06 exact HEAD 重新运行 W04/REQ-022 全部反例。
 - RED：必需附件失败却 READY、hash 不一致、过期/越权下载、附件重试复制奏折必须失败。
 - 产物：PDF、DOCX、JSON、`ArtifactManifestV1`、hash/version/authz/expiry、独立附件状态和局部重试。
 - 公式：必需附件全部 READY 且授权用户可取回前不得 `DELIVERED`。
@@ -253,16 +273,16 @@ REQ 映射证明能力归属；下表从 PRD §8.1 反向证明“由谁量、�
 - 在现有 `/shangshufang` 内新增 feature-flagged contract slice，不大重构 5k 行页面。
 - 一卡仅三个动作：确认办理、修改计划、取消。
 - 裁决必须绑定 `task_id + final_memorial_id + content_hash + version`；由服务端 `allowed_actions` 决定按钮。
-- 只有真实 `ArchiveReceipt` 才显示已归档；文案明确裁决不授权签约、付款或发送。
+- 只有真实 `ArchiveReceipt` 才显示已归档；同一 lineage 必须可从任务内或 `/shiguan` 只读下钻重新打开，G02 不得把 readback 当可选；文案明确裁决不授权签约、付款或发送。
 - 回滚：关闭 contract slice，回到只读入口；不得恢复 mock success。
 
 ### R0-W08：质量与用户验证
 
 - 前置：W02 后可建立 fixture/scorer 骨架；正式判门必须等待 W03–W07 `MERGED_AND_VERIFIED`。
 - RED：任一门分母为零、数据集/模型版本漂移、零容忍事件非零或 mock 冒充 real E2E 必须 `NO_DATA/FAIL`。
-- 30+ 合成/不可重新识别合同，覆盖采购/销售/服务；双人标注，分歧第三人裁决；模板族隔离 holdout。
+- 30+ 合成/不可重新识别合同，覆盖采购/销售/服务；双人标注，分歧第三人裁决；模板族隔离 holdout；标注 schema 必须包含 expected risk、原文锚点与 `expectedMissingEvidence` 真值。
 - scorer 分母为零、标签未裁决或版本不匹配时必须 `NO_DATA`。
-- 门：首个有用风险时间中位数 ≤3 分钟；critical recall 100%，high recall ≥90%，critical/high precision ≥80%，原文引用覆盖 100%，缺证显式标记率 100%，伪条款/伪来源/错完成/越权/跨租户均为 0。
+- 门：G02 同一 10 条 real-backend 旅程的首个有用风险时间中位数 ≤3 分钟；critical recall 100%，high recall ≥90%，critical/high precision ≥80%，原文引用覆盖 100%，对 golden 真值的缺证显式标记率 100%，伪条款/伪来源/错完成/越权/跨租户/未授权 provider 出站均为 0。
 - 浏览器：10/10 real backend 旅程可终止；mock 只作开发反馈。
 - 用户：5 名未参与开发的目标用户中至少 4 名无工程师帮助完成。
 
@@ -295,7 +315,7 @@ R0 前冻结：41 司全量、每日朝会、皇帝单屏、evolve、六项外�
 2. 本文件在该 SHA 之上完成 rebase/re-pin；唯一绑定命令为 `git diff --binary <B>..<H> | sha256sum`，不得加入 `--full-index` 或改变 diff 规范化参数。
 3. Product Owner 明确回复：Amendment ID、digest、effective base、批准 W01、明确未批准 W02–W09 runtime。
 4. Authority、Security、Git/Evidence 三路 Claude Code 审查绑定同一 amendment H/tree/diff。
-5. `node scripts/r0-amendment-check.mjs`、其 Node 测试、root doctor 与文档链接全绿。
+5. `node scripts/r0-amendment-check.mjs`、其 Node 测试、root doctor 与文档链接全绿；checker 只读 canonical amendment 路径，输出的 `sourceDigest` 必须等于该文件精确字节的 SHA-256，并与同一 H 的审查证据一起记录。
 
 条件按 1 → 2 → 4 → 5 → 3 顺序执行；三路 review 必须发生在 rebase/re-pin 后，Product Owner 最后批准同一 exact H/tree/diff/digest。OQ-01 必须由本修正案关闭；OQ-02/03/09/10 按 §5 的 Packet 前置逐项关闭，不能被 W01 批准提前豁免。
 

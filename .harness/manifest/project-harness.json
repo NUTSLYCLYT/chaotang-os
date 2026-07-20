@@ -73,6 +73,18 @@
       "node scripts/harness-doctor.mjs"
     ]
   },
+  "amendmentGovernance": {
+    "status": "PROPOSED_NOT_AUTHORITY",
+    "document": ".harness/changes/docs-r0-trusted-kernel-amendment-20260720/amendment.md",
+    "checker": "scripts/r0-amendment-check.mjs",
+    "test": "scripts/r0-amendment-check.nodetest.mjs",
+    "canAuthorizeRuntime": false,
+    "verification": [
+      "node --test scripts/r0-amendment-check.nodetest.mjs",
+      "node scripts/r0-amendment-check.mjs",
+      "node scripts/harness-doctor.mjs"
+    ]
+  },
   "capabilityEntryGovernance": {
     "status": "OBSERVE",
     "documentation": ".harness/wiki/capability-entry-governance.md",

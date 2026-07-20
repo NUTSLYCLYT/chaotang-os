@@ -39,6 +39,7 @@ SecureContractObject
 | --- | --- | --- | --- |
 | Mission/Support/Decision/Status V1 | 后端 Pydantic/OpenAPI | 前端、worker、export | additive version + cross-language fixtures |
 | SecureContractObject | 对象存储元数据 + 后端 authz | intake/OCR/analysis/download | immutable digest；旧 IMA 不兼容 |
+| ProviderEgressPolicy | Security/Data policy + provider registry | analysis gateway、audit、release gate | allowlist、region、retention/no-training/subprocessor；未知即拒绝 |
 | Idempotency/lineage/completion | canonical runtime/DB | API、worker、projection | single writer、状态迁移、故障注入 |
 | Evidence/Risk/ReviewPack | 合同 review service + gates | FinalMemorial、UI、export | 原文锚点和五裁决一致性 |
 | ArtifactManifest | artifact service | delivery、download、archive | hash/version/authz/expiry |
@@ -48,7 +49,9 @@ SecureContractObject
 
 - 编制 amendment，完成 22/22 唯一 REQ 映射。
 - 提交 amendment validator 与负例测试，验证 22/22 REQ、9/9 退出门及 fail-closed 批准控制。
+- 将 checker 登记到 root manifest、doctor 与验证矩阵；删除/改道 checker 时 root doctor 失败。
 - 冻结 W00–W09、依赖、Owner 角色、RED、迁移、验证、回滚和 WIP 限制。
+- 关闭 OQ-01：旧 M0–M10 各有唯一吸收/冻结处置，R1/R2 只能等待新 amendment，不能与 W 图并行领取。
 - 冻结第一条合成采购 DOCX golden slice 和 `/shangshufang` 页面边界。
 - 设计 approval/effective-base/digest 与 execution-authority v2 的交接协议。
 
@@ -66,7 +69,8 @@ SecureContractObject
 | G0 未合入 | amendment 保持 PROPOSED，effectiveBase=PENDING | summary/amendment |
 | 用户笼统同意 | 只记录方向，不替代未来 exact digest/base 批准 | approval protocol |
 | 历史分支有独有资产 | 只作 source-only，按新基线重制 RED/GREEN | amendment §8 |
-| 任一 REQ 或退出门缺失/重复/错 Owner | committed validator 与人工审查失败 | 22 条 REQ + 9 条退出门映射表 |
+| 任一 REQ、退出门或旧 M 处置缺失/重复/错 Owner | committed validator 与人工审查失败 | 22 条 REQ + 9 条退出门 + 11 条旧 M 处置映射表 |
+| checker 输入被改道或结果移用于另一文本 | CLI 拒绝参数；输出 canonical 文件精确字节 `sourceDigest` | CLI 正反例测试 |
 | W02–W09 同时被激活 | v2 必须 STOP | W01 RED 设计 |
 | required check 不可验证 | 只能 PASS_LOCAL / NOT_ENFORCED | W00/W09 |
 
@@ -85,8 +89,9 @@ SecureContractObject
 
 ## 验收标准
 
-- 22/22 R0 REQ 各有且只有一个实现包。
+- 22/22 R0 REQ 各有且只有一个实现包，且 §5 主责表与 §6 明细表一致。
 - G01–G09 各有且只有一个度量包，覆盖首个有用风险中位数、缺证显式标记率与 release identity。
+- M0–M10 各有且只有一个吸收或冻结处置；M10 不遗漏，R1/R2 不获得隐式授权。
 - W00–W09 各有前置、价值、RED、退出证据和回滚。
 - 第一条 golden slice、页面/API 边界、明确不做和历史 source-only 规则无歧义。
 - G0 未合入和 Owner 未批准时不出现 ACTIVE/ENFORCED/R0 COMPLETE 声明。
@@ -95,7 +100,7 @@ SecureContractObject
 ## 验证计划
 
 1. `node --test scripts/r0-amendment-check.nodetest.mjs`，覆盖真实文档与缺失/重复/控制移除负例。
-2. `node scripts/r0-amendment-check.mjs`，要求 `22/22_UNIQUE`、`9/9_OWNED`、`canAuthorizeRuntime=false`。
+2. `node scripts/r0-amendment-check.mjs`，要求 `22/22_UNIQUE`、`9/9_OWNED`、`11/11_DISPOSED`、精确 `sourceDigest`、`canAuthorizeRuntime=false`。
 3. `node scripts/execution-authority.mjs --authorize` 仍返回 STOP。
 4. `node scripts/harness-doctor.mjs`。
 5. `git diff --check` 与精确 scope review。

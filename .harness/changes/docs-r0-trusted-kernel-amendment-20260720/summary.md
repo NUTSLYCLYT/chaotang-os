@@ -17,8 +17,8 @@
 ## 范围
 
 - 主线：stacked on `task/r0-execution-authority-20260720@bf99f609`；只作提前起草，不能先于 G0 合入。
-- 文件：本 change 四件套、`amendment.md`、独立 amendment validator/Node 测试与后续只读审查证据。
-- 目的：将 22 条 R0 REQ 唯一映射到 W00–W09、canonical owner、RED、迁移、验证和回滚。
+- 文件：本 change 四件套、`amendment.md`、独立 amendment validator/Node 测试、root manifest/doctor/验证矩阵登记与后续只读审查证据。
+- 目的：将 22 条 R0 REQ、9 条退出门和旧 M0–M10 唯一处置映射到 W00–W09、canonical owner、RED、迁移、验证和回滚。
 - 验证：committed validator 的 22/22 REQ + 9/9 退出门检查、root doctor、authority STOP、diff review、Claude Code Authority/Security/Git-Evidence。
 
 ## 核心裁决

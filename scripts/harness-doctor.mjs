@@ -51,6 +51,9 @@ const required = [
   'scripts/execution-authority.mjs',
   'scripts/execution-authority.nodetest.mjs',
   'scripts/lib/execution-authority.mjs',
+  'scripts/r0-amendment-check.mjs',
+  'scripts/r0-amendment-check.nodetest.mjs',
+  'scripts/lib/r0-amendment-check.mjs',
   '.harness/agents/project-owner.md',
   '.harness/rules/project-boundaries.md',
   '.harness/rules/project-workflow.md',
@@ -158,6 +161,29 @@ if (manifest) {
     }
   } else {
     error('manifest missing executionAuthority');
+  }
+
+  if (manifest.amendmentGovernance) {
+    const amendment = manifest.amendmentGovernance;
+    for (const key of ['document', 'checker', 'test']) {
+      checkExists(amendment[key], `manifest amendment governance ${key}`);
+    }
+    if (amendment.status !== 'PROPOSED_NOT_AUTHORITY') {
+      error(`amendment governance has invalid status: ${amendment.status}`);
+    }
+    if (amendment.canAuthorizeRuntime !== false) {
+      error('amendment governance checker must never authorize runtime');
+    }
+    for (const command of [
+      'node --test scripts/r0-amendment-check.nodetest.mjs',
+      'node scripts/r0-amendment-check.mjs',
+    ]) {
+      if (!(amendment.verification ?? []).includes(command)) {
+        error(`amendment governance missing verification command: ${command}`);
+      }
+    }
+  } else {
+    error('manifest missing amendmentGovernance');
   }
 
   if (manifest.capabilityEntryGovernance) {

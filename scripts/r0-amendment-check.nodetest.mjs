@@ -1,12 +1,18 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import { validateR0AmendmentMarkdown } from './lib/r0-amendment-check.mjs';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
+const execFileAsync = promisify(execFile);
+const cliPath = join(root, 'scripts/r0-amendment-check.mjs');
 const amendmentPath = join(
   root,
   '.harness/changes/docs-r0-trusted-kernel-amendment-20260720/amendment.md',
@@ -50,5 +56,93 @@ test('R0 amendment validator requires fail-closed approval controls', async () =
       validateR0AmendmentMarkdown(mutated).some((error) => error.includes(requiredControl)),
       `expected missing control error for ${requiredControl}`,
     );
+  }
+
+  const invertedDecision = source.replace(
+    '`decision != GO`、字段缺失或包不一致立即 STOP',
+    '`decision != GO`、字段缺失或包不一致可继续',
+  );
+  assert.ok(
+    validateR0AmendmentMarkdown(invertedDecision).some((error) =>
+      error.includes('decision != GO'),
+    ),
+  );
+
+  const weakenedOq = source.replace('W03 RED 前 | W03 保持', 'W03 GREEN 后 | W03 保持');
+  assert.ok(validateR0AmendmentMarkdown(weakenedOq).some((error) => error.includes('OQ-02')));
+});
+
+test('R0 amendment validator cross-checks packet ownership and legacy milestone disposition', async () => {
+  const source = await readFile(amendmentPath, 'utf8');
+  const conflictingOwner = source.replace(
+    '| 2 | R0-W02 | 合同、Mission、裁决、状态的共享 v1 契约 | 003–007、012、017 |',
+    '| 2 | R0-W02 | 合同、Mission、裁决、状态的共享 v1 契约 | 003–007、012、017、019 |',
+  );
+  assert.ok(
+    validateR0AmendmentMarkdown(conflictingOwner).some((error) =>
+      error.includes('packet ownership'),
+    ),
+  );
+
+  const missingM10 = source.replace(/^\| M10 \|.*\n/m, '');
+  assert.ok(
+    validateR0AmendmentMarkdown(missingM10).some((error) => error.includes('milestone M10')),
+  );
+});
+
+test('R0 amendment CLI binds output to canonical bytes and never authorizes runtime', async () => {
+  const { stdout } = await execFileAsync(process.execPath, [cliPath], { cwd: root });
+  const output = JSON.parse(stdout);
+  const sourceBytes = await readFile(amendmentPath);
+  assert.equal(output.sourceDigest, createHash('sha256').update(sourceBytes).digest('hex'));
+  assert.equal(output.canAuthorizeRuntime, false);
+  assert.equal(output.decision, 'VALID_PROPOSED_AMENDMENT');
+
+  await assert.rejects(
+    execFileAsync(process.execPath, [cliPath, amendmentPath], { cwd: root }),
+    (error) => error.code === 64 && error.stderr.includes('canonical amendment path'),
+  );
+});
+
+test('R0 amendment CLI returns distinct fail-closed results for invalid and unreadable input', async () => {
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'r0-amendment-check-'));
+  try {
+    const fixtureScripts = join(fixtureRoot, 'scripts');
+    const fixtureChange = join(
+      fixtureRoot,
+      '.harness/changes/docs-r0-trusted-kernel-amendment-20260720',
+    );
+    await mkdir(join(fixtureScripts, 'lib'), { recursive: true });
+    await mkdir(fixtureChange, { recursive: true });
+    await copyFile(cliPath, join(fixtureScripts, 'r0-amendment-check.mjs'));
+    await copyFile(
+      join(root, 'scripts/lib/r0-amendment-check.mjs'),
+      join(fixtureScripts, 'lib/r0-amendment-check.mjs'),
+    );
+
+    const fixtureAmendment = join(fixtureChange, 'amendment.md');
+    await writeFile(fixtureAmendment, 'invalid amendment\n');
+    await assert.rejects(
+      execFileAsync(process.execPath, [join(fixtureScripts, 'r0-amendment-check.mjs')], {
+        cwd: fixtureRoot,
+      }),
+      (error) => {
+        const output = JSON.parse(error.stdout);
+        return error.code === 1 && output.decision === 'STOP' && output.canAuthorizeRuntime === false;
+      },
+    );
+
+    await rm(fixtureAmendment);
+    await assert.rejects(
+      execFileAsync(process.execPath, [join(fixtureScripts, 'r0-amendment-check.mjs')], {
+        cwd: fixtureRoot,
+      }),
+      (error) => {
+        const output = JSON.parse(error.stdout);
+        return error.code === 66 && output.decision === 'STOP' && output.canAuthorizeRuntime === false;
+      },
+    );
+  } finally {
+    await rm(fixtureRoot, { recursive: true, force: true });
   }
 });

@@ -35,15 +35,56 @@ const EXPECTED_EXIT_GATE_PACKAGES = Object.freeze({
   G09: 'W09',
 });
 
+const EXPECTED_MILESTONE_DISPOSITIONS = Object.freeze({
+  M0: 'R0-W01',
+  M1: 'R0-W04',
+  M2: 'R0-W02',
+  M3: 'FROZEN_POST_R0',
+  M4: 'FROZEN_POST_R0',
+  M5: 'R0-W05',
+  M6: 'R0-W05',
+  M7: 'R0-W06',
+  M8: 'FROZEN_POST_R0',
+  M9: 'R0-W09',
+  M10: 'CONDITIONAL_POST_R0',
+});
+
 const REQUIRED_CONTROLS = Object.freeze([
-  'git diff --binary <B>..<H> | sha256sum',
-  'decision != GO',
-  'OQ-02',
-  'OQ-03',
-  'OQ-09',
-  'OQ-10',
-  'PENDING_G0_HOSTED_MERGE',
-  'NOT_GRANTED_BY_THIS_DRAFT',
+  {
+    label: 'git diff --binary <B>..<H> | sha256sum',
+    pattern:
+      /唯一绑定命令为 `git diff --binary <B>\.\.<H> \| sha256sum`，不得加入 `--full-index`/,
+  },
+  {
+    label: 'decision != GO',
+    pattern: /`decision != GO`、字段缺失或包不一致立即 STOP/,
+  },
+  {
+    label: 'OQ-02',
+    pattern: /^\| OQ-02：文件\/OCR 阈值 \| W03 RED 前 \| W03 保持 `BLOCKED_INPUT` \|$/m,
+  },
+  {
+    label: 'OQ-03',
+    pattern:
+      /^\| OQ-03：支持\/拒答 taxonomy \| W02 契约冻结前；W08 golden freeze 前复核 \| W02\/W08 保持 `BLOCKED_INPUT` \|$/m,
+  },
+  {
+    label: 'OQ-09',
+    pattern: /^\| OQ-09：基础\/附加成果格式 \| W06 schema 前 \| W06 保持 `BLOCKED_INPUT` \|$/m,
+  },
+  {
+    label: 'OQ-10',
+    pattern:
+      /^\| OQ-10：120 份数据来源\/标注预算 \| W08 从 R0 30\+ 扩展到 R1 数据前 \| 不阻断合成 R0；阻断 R1 数据扩展 \|$/m,
+  },
+  {
+    label: 'PENDING_G0_HOSTED_MERGE',
+    pattern: /^> 状态：`PROPOSED \/ PENDING_G0_HOSTED_MERGE \/ PENDING_OWNER_APPROVAL`$/m,
+  },
+  {
+    label: 'NOT_GRANTED_BY_THIS_DRAFT',
+    pattern: /^> 执行授权：`NOT_GRANTED_BY_THIS_DRAFT`$/m,
+  },
 ]);
 
 function collectRows(source, pattern) {
@@ -77,6 +118,42 @@ function validateExactRows(rows, expected, label) {
   return errors;
 }
 
+function markdownCells(line) {
+  return line
+    .slice(1, -1)
+    .split('|')
+    .map((cell) => cell.trim());
+}
+
+function expandRequirementCell(cell) {
+  const requirements = [];
+  for (const match of cell.matchAll(/(\d{3})(?:[–-](\d{3}))?/g)) {
+    const start = Number(match[1]);
+    const end = Number(match[2] ?? match[1]);
+    for (let value = start; value <= end; value += 1) {
+      requirements.push(String(value).padStart(3, '0'));
+    }
+  }
+  return requirements;
+}
+
+function collectPacketRequirementOwnership(source) {
+  const rows = new Map();
+  for (const line of source.split('\n')) {
+    if (!/^\| \d+ \| R0-W\d{2} \|/.test(line)) continue;
+    const cells = markdownCells(line);
+    const workPackage = cells[1]?.replace('R0-', '');
+    const primaryRequirements = cells[3] ?? '';
+    if (!/^\d{3}/.test(primaryRequirements)) continue;
+    for (const requirement of expandRequirementCell(primaryRequirements)) {
+      const packages = rows.get(requirement) ?? [];
+      packages.push(workPackage);
+      rows.set(requirement, packages);
+    }
+  }
+  return rows;
+}
+
 export function validateR0AmendmentMarkdown(source) {
   if (typeof source !== 'string') {
     return ['amendment source must be a string'];
@@ -84,9 +161,24 @@ export function validateR0AmendmentMarkdown(source) {
 
   const requirementRows = collectRows(source, /^\| (\d{3}) \| (W\d{2}) \|/gm);
   const exitGateRows = collectRows(source, /^\| (G\d{2}) \| (W\d{2}) \|/gm);
+  const milestoneRows = collectRows(
+    source,
+    /^\| (M(?:10|[0-9])) \| (R0-W\d{2}|FROZEN_POST_R0|CONDITIONAL_POST_R0) \|/gm,
+  );
+  const packetRequirementRows = collectPacketRequirementOwnership(source);
   const errors = [
     ...validateExactRows(requirementRows, EXPECTED_REQUIREMENT_PACKAGES, 'REQ'),
     ...validateExactRows(exitGateRows, EXPECTED_EXIT_GATE_PACKAGES, 'exit gate'),
+    ...validateExactRows(
+      milestoneRows,
+      EXPECTED_MILESTONE_DISPOSITIONS,
+      'milestone',
+    ),
+    ...validateExactRows(
+      packetRequirementRows,
+      EXPECTED_REQUIREMENT_PACKAGES,
+      'packet ownership REQ',
+    ),
   ];
 
   for (let index = 0; index <= 9; index += 1) {
@@ -98,8 +190,8 @@ export function validateR0AmendmentMarkdown(source) {
   }
 
   for (const control of REQUIRED_CONTROLS) {
-    if (!source.includes(control)) {
-      errors.push(`missing required approval control: ${control}`);
+    if (!control.pattern.test(source)) {
+      errors.push(`missing required approval control: ${control.label}`);
     }
   }
 
@@ -109,5 +201,6 @@ export function validateR0AmendmentMarkdown(source) {
 export const R0_AMENDMENT_EXPECTATIONS = Object.freeze({
   requirements: EXPECTED_REQUIREMENT_PACKAGES,
   exitGates: EXPECTED_EXIT_GATE_PACKAGES,
-  controls: REQUIRED_CONTROLS,
+  milestones: EXPECTED_MILESTONE_DISPOSITIONS,
+  controls: REQUIRED_CONTROLS.map(({ label }) => label),
 });
