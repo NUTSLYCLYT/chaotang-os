@@ -522,8 +522,8 @@ export function validateExecutionAuthority(loaded) {
   ];
 }
 
-export function executionAuthorityCommandResult(loaded, mode) {
-  if (!['--status', '--check', '--authorize'].includes(mode)) {
+export function executionAuthorityCommandResult(loaded, mode = '--authorize', extraArguments = []) {
+  if (!['--status', '--check', '--authorize'].includes(mode) || extraArguments.length > 0) {
     return {
       exitCode: 64,
       output: {

@@ -15,6 +15,7 @@ activation.effectiveHead = null
 - `node scripts/execution-authority.mjs --status`：显示当前决定；v1 输出 `STOP`，命令本身成功读取时退出 0。
 - `node scripts/execution-authority.mjs --check`：只证明 inactive guard 的结构、摘要和清单有效；它**不授予施工权**，因此即使退出 0 也不能接产品实现任务。
 - `node scripts/execution-authority.mjs --authorize`：唯一开工查询；v1 必须输出 `STOP` 并退出 2。
+- 不带参数时按 `--authorize` 处理；传入多个模式或其他多余参数时退出 64，避免把状态查询误当成开工授权。
 
 调用方不得用 `--check && 开工`，也不得只检查命令是否退出 0；产品实现只能消费 `--authorize` 的结构化决定。
 

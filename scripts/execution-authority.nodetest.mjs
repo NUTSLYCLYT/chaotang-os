@@ -261,6 +261,17 @@ test('project manifest and policy consumers expose a fail-closed authority gate'
 
 test('CLI validates the manifest but denies canonical execution while v1 is inactive', () => {
   const loaded = { manifest: inactiveManifest(), errors: [] };
+
+  const defaultCommand = executionAuthorityCommandResult(loaded);
+  assert.equal(defaultCommand.exitCode, 2);
+  assert.equal(defaultCommand.output.decision, 'STOP');
+  assert.equal(defaultCommand.output.reason, 'AMENDMENT_APPROVAL_REQUIRED');
+
+  const ambiguousCommand = executionAuthorityCommandResult(loaded, '--check', ['--authorize']);
+  assert.equal(ambiguousCommand.exitCode, 64);
+  assert.equal(ambiguousCommand.output.decision, 'STOP');
+  assert.equal(ambiguousCommand.output.reason, 'UNSUPPORTED_COMMAND');
+
   const checked = executionAuthorityCommandResult(loaded, '--check');
   assert.equal(checked.exitCode, 0);
   assert.equal(checked.output.decision, 'VALID_INACTIVE_GUARD');
