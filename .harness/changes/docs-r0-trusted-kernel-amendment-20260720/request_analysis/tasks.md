@@ -21,7 +21,7 @@
 - 目标：证明修正案完整、无越权、可被 Codex 逐包执行。
 - TDD：先证明 validator module 缺失时测试 RED；审查后再次以失败测试证明 CLI 未绑定 digest、可改道输入、语义反转与跨表漂移问题，再实现 GREEN。
 - 验证：22/22 REQ、9/9 退出门、11/11 旧 M 处置、跨表 Owner、CLI 0/1/64/66、fail-closed 控制、root doctor、authority STOP、diff check、三路 exact-H 只读 review。
-- 状态：IN_PROGRESS_EXACT_H_REVIEW_PENDING。
+- 状态：DONE；exact-H 三路 review 无未关闭 HIGH/MEDIUM，证据见 `claude_code_review/`。
 
 ## 任务 4：G0 合入后的重钉与批准
 
