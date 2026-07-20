@@ -7,7 +7,7 @@
 | --- | --- |
 | Change ID | docs-r0-w01-amendment-repin-20260721-20260721 |
 | 类型 | docs |
-| 状态 | REPINNED_READY_FOR_EXACT_REVIEW |
+| 状态 | REPINNED_READY_FOR_EXACT_REREVIEW |
 | Owner | lyt（Accountable）/ Codex（Execution） |
 | 创建日期 | 20260721 |
 

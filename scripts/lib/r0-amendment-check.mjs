@@ -67,6 +67,7 @@ const EXPECTED_OWNER_LABELS = Object.freeze({
   release: 'Release Owner',
   security: 'Security Owner',
 });
+const OWNER_PLACEHOLDERS = new Set(['UNASSIGNED', 'TBD', 'PENDING', 'N/A', '-']);
 
 const REQUIRED_CONTROLS = Object.freeze([
   {
@@ -134,6 +135,11 @@ const REQUIRED_CONTROLS = Object.freeze([
     label: '专业安全、法律与发布负责人重新指定门',
     pattern:
       /这些指派仅覆盖 R0 内部合成数据阶段，真实客户数据、W08 和 W09 前必须重新指定专业安全、法律与发布负责人。/,
+  },
+  {
+    label: '专业负责人门尚未运行时强制',
+    pattern:
+      /当前仅把重新指定记录为后续阶段的批准前置，状态为 `DECLARATIVE_PRECONDITION_NOT_RUNTIME_ENFORCED`；必须由 execution-authority v2 在进入对应阶段前实现可执行阻断。/,
   },
   {
     label: 'Execution Owner Codex',
@@ -258,8 +264,8 @@ function validateNamedOwners(source, expectedOwnerAssignments) {
       continue;
     }
     const actualOwner = matches[0][1].trim();
-    if (actualOwner === '' || actualOwner === 'UNASSIGNED') {
-      errors.push(`${label} must not be UNASSIGNED`);
+    if (actualOwner === '' || OWNER_PLACEHOLDERS.has(actualOwner.toUpperCase())) {
+      errors.push(`${label} must be a named owner, not a placeholder`);
       continue;
     }
     const expectedOwner = expectedOwnerAssignments?.[key];

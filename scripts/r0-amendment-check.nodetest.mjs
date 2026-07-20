@@ -8,6 +8,7 @@ import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
+import { validateAmendmentGovernanceRegistration } from './lib/amendment-governance.mjs';
 import { validateR0AmendmentMarkdown } from './lib/r0-amendment-check.mjs';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -52,6 +53,14 @@ test('R0 amendment re-pin binds the merged G0 base and every named owner', async
     ),
   );
 
+  const invalidHexBase = source.replace(effectiveBase.sha, 'g'.repeat(40));
+  assert.ok(
+    validateR0AmendmentMarkdown(invalidHexBase, {
+      effectiveBase,
+      ownerAssignments,
+    }).some((error) => error.includes('effective base')),
+  );
+
   const unassignedSecurity = source.replace(
     '| Security & Data Owner | `lyt` |',
     '| Security & Data Owner | `UNASSIGNED` |',
@@ -62,6 +71,100 @@ test('R0 amendment re-pin binds the merged G0 base and every named owner', async
       ownerAssignments,
     }).some((error) => error.includes('Security & Data Owner')),
   );
+
+  const pendingSecurity = source.replace(
+    '| Security & Data Owner | `lyt` |',
+    '| Security & Data Owner | `PENDING` |',
+  );
+  assert.ok(
+    validateR0AmendmentMarkdown(pendingSecurity, { effectiveBase }).some((error) =>
+      error.includes('Security & Data Owner'),
+    ),
+  );
+
+  const mismatchedSecurity = source.replace(
+    '| Security & Data Owner | `lyt` |',
+    '| Security & Data Owner | `different-owner` |',
+  );
+  assert.ok(
+    validateR0AmendmentMarkdown(mismatchedSecurity, {
+      effectiveBase,
+      ownerAssignments,
+    }).some((error) => error.includes('must be lyt')),
+  );
+
+  const duplicatedSecurity = source.replace(
+    '| Security & Data Owner | `lyt` |',
+    '| Security & Data Owner | `lyt` |\n| Security & Data Owner | `lyt` |',
+  );
+  assert.ok(
+    validateR0AmendmentMarkdown(duplicatedSecurity, {
+      effectiveBase,
+      ownerAssignments,
+    }).some((error) => error.includes('exactly one named owner')),
+  );
+});
+
+test('root governance registration rejects every re-pin trust-boundary mutation', async () => {
+  const projectManifest = JSON.parse(
+    await readFile(join(root, '.harness/manifest/project-harness.json'), 'utf8'),
+  );
+  const governance = projectManifest.amendmentGovernance;
+  assert.deepEqual(validateAmendmentGovernanceRegistration(governance), []);
+  assert.ok(
+    validateAmendmentGovernanceRegistration(null).some((error) =>
+      error.includes('must be an object'),
+    ),
+  );
+
+  const mutations = [
+    ['invalid status', { ...governance, status: 'APPROVED' }],
+    ['never authorize runtime', { ...governance, canAuthorizeRuntime: true }],
+    ['canonical R0 amendment path', { ...governance, document: 'other.md' }],
+    ['sha256 hex digest', { ...governance, candidateSourceDigest: 'invalid' }],
+    [
+      'effective base',
+      {
+        ...governance,
+        effectiveBase: { ...governance.effectiveBase, sha: '0'.repeat(40) },
+      },
+    ],
+    [
+      'named R0 owners',
+      {
+        ...governance,
+        ownerAssignments: { ...governance.ownerAssignments, security: 'other' },
+      },
+    ],
+    ['executionOwner', { ...governance, executionOwner: 'other' }],
+    ['independentReviewer', { ...governance, independentReviewer: 'other' }],
+    [
+      'customer data, W08, and W09',
+      { ...governance, professionalReassignmentRequiredBefore: ['R0-W08'] },
+    ],
+    [
+      'professional security, legal, and release owners',
+      { ...governance, professionalRolesRequired: ['security'] },
+    ],
+    [
+      'declarative until execution-authority v2',
+      { ...governance, professionalReassignmentGateStatus: 'ENFORCED' },
+    ],
+    ['approvalEvidence', { ...governance, approvalEvidence: { approved: true } }],
+    [
+      'approvedSourceDigest',
+      { ...governance, approvedSourceDigest: '0'.repeat(64) },
+    ],
+    ['missing verification command', { ...governance, verification: [] }],
+  ];
+  for (const [expectedError, mutation] of mutations) {
+    assert.ok(
+      validateAmendmentGovernanceRegistration(mutation).some((error) =>
+        error.includes(expectedError),
+      ),
+      `expected governance error containing: ${expectedError}`,
+    );
+  }
 });
 
 test('R0 amendment validator rejects missing or duplicate requirement ownership', async () => {
@@ -239,6 +342,23 @@ test('R0 amendment CLI returns distinct fail-closed results for invalid and unre
       },
     );
     fixtureManifest.amendmentGovernance.effectiveBase = savedEffectiveBase;
+
+    const savedOwnerAssignments = fixtureManifest.amendmentGovernance.ownerAssignments;
+    delete fixtureManifest.amendmentGovernance.ownerAssignments;
+    await writeFile(fixtureManifestPath, `${JSON.stringify(fixtureManifest, null, 2)}\n`);
+    await assert.rejects(
+      execFileAsync(process.execPath, [join(fixtureScripts, 'r0-amendment-check.mjs')], {
+        cwd: fixtureRoot,
+      }),
+      (error) => {
+        const output = JSON.parse(error.stdout);
+        return (
+          error.code === 1 &&
+          output.errors.includes('manifest amendment ownerAssignments are missing or invalid')
+        );
+      },
+    );
+    fixtureManifest.amendmentGovernance.ownerAssignments = savedOwnerAssignments;
 
     await writeFile(fixtureManifestPath, '{ invalid json\n');
     await assert.rejects(

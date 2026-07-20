@@ -10,27 +10,12 @@ import {
   resolveExecutionAuthority,
   validateExecutionAuthority,
 } from './lib/execution-authority.mjs';
+import { validateAmendmentGovernanceRegistration } from './lib/amendment-governance.mjs';
 import { validateRepositoryStructure } from './lib/repository-structure.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 const H = join(root, '.harness');
-
-const EXPECTED_R0_EFFECTIVE_BASE = Object.freeze({
-  ref: 'origin/feature-chaotang-ext',
-  sha: 'ccc2d74a2e439830e9c6ae7adcefb5ee8c05c150',
-});
-const EXPECTED_R0_OWNER_ASSIGNMENTS = Object.freeze({
-  product: 'lyt',
-  program: 'lyt',
-  backendApiContract: 'lyt',
-  canonicalRuntime: 'lyt',
-  securityData: 'lyt',
-  frontend: 'lyt',
-  qaLegalEvaluation: 'lyt',
-  release: 'lyt',
-  security: 'lyt',
-});
 
 let errors = 0;
 let warnings = 0;
@@ -70,6 +55,7 @@ const required = [
   'scripts/r0-amendment-check.mjs',
   'scripts/r0-amendment-check.nodetest.mjs',
   'scripts/lib/r0-amendment-check.mjs',
+  'scripts/lib/amendment-governance.mjs',
   '.harness/agents/project-owner.md',
   '.harness/rules/project-boundaries.md',
   '.harness/rules/project-workflow.md',
@@ -184,62 +170,8 @@ if (manifest) {
     for (const key of ['document', 'checker', 'test']) {
       checkExists(amendment[key], `manifest amendment governance ${key}`);
     }
-    if (amendment.status !== 'PROPOSED_NOT_AUTHORITY') {
-      error(`amendment governance has invalid status: ${amendment.status}`);
-    }
-    if (amendment.canAuthorizeRuntime !== false) {
-      error('amendment governance checker must never authorize runtime');
-    }
-    if (
-      amendment.document !==
-      '.harness/changes/docs-r0-trusted-kernel-amendment-20260720/amendment.md'
-    ) {
-      error('amendment governance document must remain the canonical R0 amendment path');
-    }
-    if (!/^[0-9a-f]{64}$/.test(amendment.candidateSourceDigest ?? '')) {
-      error('amendment governance candidateSourceDigest must be a sha256 hex digest');
-    }
-    if (JSON.stringify(amendment.effectiveBase) !== JSON.stringify(EXPECTED_R0_EFFECTIVE_BASE)) {
-      error('amendment governance effectiveBase differs from the re-pinned EXT base');
-    }
-    if (
-      JSON.stringify(amendment.ownerAssignments) !==
-      JSON.stringify(EXPECTED_R0_OWNER_ASSIGNMENTS)
-    ) {
-      error('amendment governance ownerAssignments differ from the named R0 owners');
-    }
-    if (amendment.executionOwner !== 'Codex') {
-      error('amendment governance executionOwner must be Codex');
-    }
-    if (amendment.independentReviewer !== 'Claude Code') {
-      error('amendment governance independentReviewer must be Claude Code');
-    }
-    if (
-      JSON.stringify(amendment.professionalReassignmentRequiredBefore) !==
-      JSON.stringify(['REAL_CUSTOMER_DATA', 'R0-W08', 'R0-W09'])
-    ) {
-      error('amendment governance must reassign professionals before customer data, W08, and W09');
-    }
-    if (
-      JSON.stringify(amendment.professionalRolesRequired) !==
-      JSON.stringify(['security', 'legal', 'release'])
-    ) {
-      error('amendment governance must require professional security, legal, and release owners');
-    }
-    if (amendment.approvalEvidence !== null) {
-      error('proposed amendment must not carry approvalEvidence');
-    }
-    if (amendment.approvedSourceDigest !== null) {
-      error('proposed amendment must not carry an approvedSourceDigest');
-    }
-    for (const command of [
-      'node --test scripts/r0-amendment-check.nodetest.mjs',
-      'node scripts/r0-amendment-check.mjs',
-      'node scripts/harness-doctor.mjs',
-    ]) {
-      if (!(amendment.verification ?? []).includes(command)) {
-        error(`amendment governance missing verification command: ${command}`);
-      }
+    for (const message of validateAmendmentGovernanceRegistration(amendment)) {
+      error(message);
     }
   } else {
     error('manifest missing amendmentGovernance');

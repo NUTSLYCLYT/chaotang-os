@@ -87,6 +87,8 @@ R0 不以 Agent、页面、部门、分支或文档数量衡量完成，只以�
 
 本轮具名 Owner 已由 Product Owner 明确指定；这些指派仅覆盖 R0 内部合成数据阶段，真实客户数据、W08 和 W09 前必须重新指定专业安全、法律与发布负责人。
 
+当前仅把重新指定记录为后续阶段的批准前置，状态为 `DECLARATIVE_PRECONDITION_NOT_RUNTIME_ENFORCED`；必须由 execution-authority v2 在进入对应阶段前实现可执行阻断。
+
 ### 4.1 本轮具名 Owner
 
 | 角色 | 具名 Owner |

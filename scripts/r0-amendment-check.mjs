@@ -26,6 +26,7 @@ const requiredOwnerAssignmentKeys = Object.freeze([
   'release',
   'security',
 ]);
+const ownerPlaceholders = new Set(['UNASSIGNED', 'TBD', 'PENDING', 'N/A', '-']);
 
 function hasValidEffectiveBase(effectiveBase) {
   return (
@@ -43,7 +44,7 @@ function hasValidOwnerAssignments(ownerAssignments) {
       (key) =>
         typeof ownerAssignments[key] === 'string' &&
         ownerAssignments[key].trim() !== '' &&
-        ownerAssignments[key] !== 'UNASSIGNED',
+        !ownerPlaceholders.has(ownerAssignments[key].trim().toUpperCase()),
     )
   );
 }

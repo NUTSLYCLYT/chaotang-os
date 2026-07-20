@@ -101,8 +101,9 @@
       "R0-W09"
     ],
     "professionalRolesRequired": ["security", "legal", "release"],
+    "professionalReassignmentGateStatus": "DECLARATIVE_PRECONDITION_NOT_RUNTIME_ENFORCED",
     "approvalEvidence": null,
-    "candidateSourceDigest": "214528634a12f25a0daeda4e6c830011d472b6c2fed924670629918da96a3078",
+    "candidateSourceDigest": "2ba59cbe4d4032d8f372d1dd757e03edb78038b38de6d657380f357100a83e38",
     "approvedSourceDigest": null,
     "canAuthorizeRuntime": false,
     "verification": [
