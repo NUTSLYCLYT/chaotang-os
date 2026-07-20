@@ -27,6 +27,13 @@
 5. **验证**：按风险选择类型检查、单元/契约/集成测试、真实浏览器、后端日志和数据库证据。后端 dry-run 不证明浏览器体验，前端 mock 不证明后端运行质量。
 6. **复核**：检查 diff、失败路径、权限边界、幂等/重试和未验证项；验证失败不得把状态写成完成。
 
+## 执行权威闸
+
+- 调查、计划、change 记录、用户确认与 packet review 都不单独授予产品实施权。
+- 进入 M0–M10 或其他产品 runtime 实施前必须运行 `node scripts/execution-authority.mjs --authorize`；返回 `STOP` 时只能编制 amendment，不得领取旧 P/PKT/S 队列。
+- `execution-authority.v1` 不存在 ACTIVE 路径；任何非空 amendment、approval evidence 或 effective HEAD 都是无效输入并必须失效关闭。
+- 另行明确批准的治理、事故与证据修复只能在批准的精确范围内执行，且不得冒充 M0–M10 完成。
+
 补充规则：
 
 - 契约先行：后端 OpenAPI/Pydantic 是跨语言 API 的默认事实源；前端类型与校验器应由其生成或通过契约测试验证，禁止维护互相漂移的“共享源码”。

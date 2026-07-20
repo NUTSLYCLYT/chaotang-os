@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chaotang.local/contracts/execution-authority.v1.schema.json",
+  "title": "Chaotang OS inactive execution authority guard",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "authorityId",
+    "status",
+    "productAuthorities",
+    "governedDocuments",
+    "canonicalPlan",
+    "referencePlans",
+    "activation"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "execution-authority.v1" },
+    "authorityId": { "const": "r0-execution-authority-20260720-v1" },
+    "status": { "const": "AMENDMENT_REQUIRED" },
+    "productAuthorities": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "$ref": "#/$defs/pinnedDocument" }
+    },
+    "governedDocuments": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": { "$ref": "#/$defs/pinnedDocument" }
+    },
+    "canonicalPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "state", "sequence"],
+      "properties": {
+        "path": {
+          "const": "docs/plans/chaotang-os-world-class-agent-harness-execution-plan-2026-07-17.md"
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "state": { "const": "INACTIVE" },
+        "sequence": {
+          "const": ["M0", "M1", "M2", "M5", "M6", "M3", "M4", "M7", "M8", "M9", "M10"]
+        }
+      }
+    },
+    "referencePlans": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256", "authority", "executionSemantics"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^docs/plans/[A-Za-z0-9][A-Za-z0-9._-]*\\.md$"
+          },
+          "sha256": { "$ref": "#/$defs/sha256" },
+          "authority": { "const": "NOT_EXECUTION_AUTHORITY" },
+          "executionSemantics": { "const": "NONE" }
+        }
+      }
+    },
+    "activation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["activeAmendment", "approvalEvidence", "effectiveHead"],
+      "properties": {
+        "activeAmendment": { "type": "null" },
+        "approvalEvidence": { "type": "null" },
+        "effectiveHead": { "type": "null" }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "pinnedDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "role", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "role": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

@@ -1,5 +1,8 @@
 # 变更摘要：{{CHANGE_ID}}
 
+> 执行授权：`NOT_GRANTED_BY_CHANGE_RECORD`
+> 本目录只记录需求与证据；产品实施必须绑定获批 amendment 和 exact-HEAD 执行权威。
+
 | 字段 | 值 |
 | --- | --- |
 | Change ID | {{CHANGE_ID}} |

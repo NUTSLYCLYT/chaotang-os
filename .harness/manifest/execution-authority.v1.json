@@ -1,0 +1,130 @@
+{
+  "schemaVersion": "execution-authority.v1",
+  "authorityId": "r0-execution-authority-20260720-v1",
+  "status": "AMENDMENT_REQUIRED",
+  "productAuthorities": [
+    {
+      "path": "docs/product/PROJECT_PRODUCT.md",
+      "role": "PRODUCT_CONSTITUTION",
+      "sha256": "sha256:d3f8b963c872796fd783f073ee1f5c9ab268bad0727983822d3d2aad06efe137"
+    },
+    {
+      "path": "docs/product/releases/product-r0-trusted-kernel/PRD.md",
+      "role": "R0_R1_RELEASE_PRD",
+      "sha256": "sha256:98be3636b291b8a104e7ca8ab0be9675859dfc2050f58797747727dbc6035375"
+    }
+  ],
+  "governedDocuments": [
+    {
+      "path": "AGENTS.md",
+      "role": "ROOT_AGENT_ENTRY",
+      "sha256": "sha256:a60affa4b282e844947263464b24263c3a94e3a4685b52dbb03a93db5a6c801b"
+    },
+    {
+      "path": ".harness/agents/project-owner.md",
+      "role": "PROJECT_OWNER_POLICY",
+      "sha256": "sha256:edde7f0b2d60eef0eb818c9ffd9b29740e9f678706bd88667aece8d385f9b714"
+    },
+    {
+      "path": ".harness/rules/project-workflow.md",
+      "role": "PROJECT_WORKFLOW_POLICY",
+      "sha256": "sha256:a0d8981858a5e5f7e9e583f5137790344c3ffe529861dd0482377222c4e91856"
+    },
+    {
+      "path": ".harness/templates/change-template/summary.md",
+      "role": "CHANGE_RECORD_TEMPLATE",
+      "sha256": "sha256:a5f5cd51a55187652dad3f84e441e90f926ba1fb372412d2845dd1a5f8b9b363"
+    }
+  ],
+  "canonicalPlan": {
+    "path": "docs/plans/chaotang-os-world-class-agent-harness-execution-plan-2026-07-17.md",
+    "sha256": "sha256:9320c17b75fe8f612956cf55d17082a9079cc149990f1004457a3649a4cdd27f",
+    "state": "INACTIVE",
+    "sequence": ["M0", "M1", "M2", "M5", "M6", "M3", "M4", "M7", "M8", "M9", "M10"]
+  },
+  "referencePlans": [
+    {
+      "path": "docs/plans/FULL_COURT_V2_BACKLOG.md",
+      "sha256": "sha256:add52600d1d8c47e62132f6b8f2bf76ffa6ff5d60aeef6a3b8aeee44052ec8b5",
+      "authority": "NOT_EXECUTION_AUTHORITY",
+      "executionSemantics": "NONE"
+    },
+    {
+      "path": "docs/plans/chaotang-ext-court-loop-activation-2026-07-19.md",
+      "sha256": "sha256:7edff99fc8e749d373b9469b3d2191f611c85a84e64f62025f1a265ebf800bd1",
+      "authority": "NOT_EXECUTION_AUTHORITY",
+      "executionSemantics": "NONE"
+    },
+    {
+      "path": "docs/plans/chaotang-os-agentic-workflow-kernel-pattern-adoption-2026-07-19.md",
+      "sha256": "sha256:f089d7d192c44ca025eaab2ba0f36cce997f571373b60f1aa97286a4cdfae4a3",
+      "authority": "NOT_EXECUTION_AUTHORITY",
+      "executionSemantics": "NONE"
+    },
+    {
+      "path": "docs/plans/chaotang-os-department-agent-architecture-2026-07-17.md",
+      "sha256": "sha256:47bfbbba2cd39a99efbc4cd427d939dac659674f517e230c022d1abfe0a4c2fd",
+      "authority": "NOT_EXECUTION_AUTHORITY",
+      "executionSemantics": "NONE"
+    },
+    {
+      "path": "docs/plans/chaotang-os-full-court-loop-plan-2026-07-14.md",
+      "sha256": "sha256:0ebd1aa4db823481dfa115c6737df1e57811dc310c5e517113987a9ffd5aa3ec",
+      "authority": "NOT_EXECUTION_AUTHORITY",
+      "executionSemantics": "NONE"
+    },
+    {
+      "path": "docs/plans/chaotang-os-knowledge-memory-flywheel-blueprint-2026-07-14.md",
+      "sha256": "sha256:1bddfeb86de4863b8993420c1c33a0e236eb4a113399b71e6f584ddfacef740d",
+      "authority": "NOT_EXECUTION_AUTHORITY",
+      "executionSemantics": "NONE"
+    },
+    {
+      "path": "docs/plans/chaotang-os-launch-blueprint-2026-07-14.md",
+      "sha256": "sha256:3f801e2fb8747c37329435e31a68b649aa86db1ebcf9f10cbd171c718ef9af4e",
+      "authority": "NOT_EXECUTION_AUTHORITY",
+      "executionSemantics": "NONE"
+    },
+    {
+      "path": "docs/plans/chaotang-os-life-agent-service-quality-architecture-2026-07-18.md",
+      "sha256": "sha256:032ac5ba71985f2f2b2817f2ce28916d6bed5e6227d78ffa1e239027bc8adc3d",
+      "authority": "NOT_EXECUTION_AUTHORITY",
+      "executionSemantics": "NONE"
+    },
+    {
+      "path": "docs/plans/chaotang-os-personal-product-strategy-2026-07-18.md",
+      "sha256": "sha256:0811b7df80b13678a6a92c48113bea4d8bbb79159ebd31c0542ca9874b9f4db3",
+      "authority": "NOT_EXECUTION_AUTHORITY",
+      "executionSemantics": "NONE"
+    },
+    {
+      "path": "docs/plans/chaotang-os-product-definition-convergence-blueprint-2026-07-18.md",
+      "sha256": "sha256:dd0f748c8d4154069344b61e7a033b8e66713a302ac9590e0018e3682d5536fb",
+      "authority": "NOT_EXECUTION_AUTHORITY",
+      "executionSemantics": "NONE"
+    },
+    {
+      "path": "docs/plans/chaotang-os-self-bootstrap-shengcaitai-plan-2026-07-18.md",
+      "sha256": "sha256:3034a8b1c0de1bf2dffea3671a4593156f6fbf9b68be6faf283f445c0805a836",
+      "authority": "NOT_EXECUTION_AUTHORITY",
+      "executionSemantics": "NONE"
+    },
+    {
+      "path": "docs/plans/chaotang-os-single-fact-source-convergence-blueprint-2026-07-14.md",
+      "sha256": "sha256:e15161f4a15e3c6cdbbd2d8a35656fd4b9997a5019119a8f51230c36bee21db0",
+      "authority": "NOT_EXECUTION_AUTHORITY",
+      "executionSemantics": "NONE"
+    },
+    {
+      "path": "docs/plans/chaotang-os-super-task-delivery-blueprint-2026-07-18.md",
+      "sha256": "sha256:648b3000cbecb2b70c0d76d88ae4657a5cb7afe3dafd2a3925e5d8c7a209c61c",
+      "authority": "NOT_EXECUTION_AUTHORITY",
+      "executionSemantics": "NONE"
+    }
+  ],
+  "activation": {
+    "activeAmendment": null,
+    "approvalEvidence": null,
+    "effectiveHead": null
+  }
+}

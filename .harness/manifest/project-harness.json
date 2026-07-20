@@ -59,6 +59,20 @@
     "entrypoints": ["docs/README.md", "docs/product/PROJECT_PRODUCT.md"],
     "productDir": "docs/product"
   },
+  "executionAuthority": {
+    "status": "AMENDMENT_REQUIRED",
+    "manifest": ".harness/manifest/execution-authority.v1.json",
+    "schema": ".harness/contracts/execution-authority.schema.json",
+    "resolver": "scripts/lib/execution-authority.mjs",
+    "command": "scripts/execution-authority.mjs",
+    "test": "scripts/execution-authority.nodetest.mjs",
+    "documentation": ".harness/wiki/execution-authority.md",
+    "verification": [
+      "node --test scripts/execution-authority.nodetest.mjs",
+      "node scripts/execution-authority.mjs --check",
+      "node scripts/harness-doctor.mjs"
+    ]
+  },
   "capabilityEntryGovernance": {
     "status": "OBSERVE",
     "documentation": ".harness/wiki/capability-entry-governance.md",
