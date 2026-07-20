@@ -17,10 +17,51 @@ const amendmentPath = join(
   root,
   '.harness/changes/docs-r0-trusted-kernel-amendment-20260720/amendment.md',
 );
+const effectiveBase = Object.freeze({
+  ref: 'origin/feature-chaotang-ext',
+  sha: 'ccc2d74a2e439830e9c6ae7adcefb5ee8c05c150',
+});
+const ownerAssignments = Object.freeze({
+  product: 'lyt',
+  program: 'lyt',
+  backendApiContract: 'lyt',
+  canonicalRuntime: 'lyt',
+  securityData: 'lyt',
+  frontend: 'lyt',
+  qaLegalEvaluation: 'lyt',
+  release: 'lyt',
+  security: 'lyt',
+});
 
 test('R0 amendment maps all requirements and exit gates to one owner', async () => {
   const source = await readFile(amendmentPath, 'utf8');
   assert.deepEqual(validateR0AmendmentMarkdown(source), []);
+});
+
+test('R0 amendment re-pin binds the merged G0 base and every named owner', async () => {
+  const source = await readFile(amendmentPath, 'utf8');
+  assert.deepEqual(
+    validateR0AmendmentMarkdown(source, { effectiveBase, ownerAssignments }),
+    [],
+  );
+
+  const missingBase = source.replace(effectiveBase.sha, 'PENDING');
+  assert.ok(
+    validateR0AmendmentMarkdown(missingBase, { effectiveBase, ownerAssignments }).some((error) =>
+      error.includes('effective base'),
+    ),
+  );
+
+  const unassignedSecurity = source.replace(
+    '| Security & Data Owner | `lyt` |',
+    '| Security & Data Owner | `UNASSIGNED` |',
+  );
+  assert.ok(
+    validateR0AmendmentMarkdown(unassignedSecurity, {
+      effectiveBase,
+      ownerAssignments,
+    }).some((error) => error.includes('Security & Data Owner')),
+  );
 });
 
 test('R0 amendment validator rejects missing or duplicate requirement ownership', async () => {
@@ -108,7 +149,9 @@ test('R0 amendment CLI binds output to canonical bytes and never authorizes runt
   assert.equal(output.sourceDigest, createHash('sha256').update(sourceBytes).digest('hex'));
   assert.equal(output.expectedSourceDigest, output.sourceDigest);
   assert.equal(output.canAuthorizeRuntime, false);
-  assert.equal(output.decision, 'VALID_PROPOSED_AMENDMENT');
+  assert.equal(output.decision, 'VALID_REPINNED_AMENDMENT');
+  assert.deepEqual(output.effectiveBase, effectiveBase);
+  assert.deepEqual(output.ownerAssignments, ownerAssignments);
 
   await assert.rejects(
     execFileAsync(process.execPath, [cliPath, amendmentPath], { cwd: root }),
@@ -176,6 +219,26 @@ test('R0 amendment CLI returns distinct fail-closed results for invalid and unre
         );
       },
     );
+
+    fixtureManifest.amendmentGovernance.candidateSourceDigest = createHash('sha256')
+      .update(await readFile(fixtureAmendment))
+      .digest('hex');
+    const savedEffectiveBase = fixtureManifest.amendmentGovernance.effectiveBase;
+    delete fixtureManifest.amendmentGovernance.effectiveBase;
+    await writeFile(fixtureManifestPath, `${JSON.stringify(fixtureManifest, null, 2)}\n`);
+    await assert.rejects(
+      execFileAsync(process.execPath, [join(fixtureScripts, 'r0-amendment-check.mjs')], {
+        cwd: fixtureRoot,
+      }),
+      (error) => {
+        const output = JSON.parse(error.stdout);
+        return (
+          error.code === 1 &&
+          output.errors.includes('manifest amendment effectiveBase is missing or invalid')
+        );
+      },
+    );
+    fixtureManifest.amendmentGovernance.effectiveBase = savedEffectiveBase;
 
     await writeFile(fixtureManifestPath, '{ invalid json\n');
     await assert.rejects(

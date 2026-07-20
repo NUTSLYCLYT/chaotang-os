@@ -78,7 +78,31 @@
     "document": ".harness/changes/docs-r0-trusted-kernel-amendment-20260720/amendment.md",
     "checker": "scripts/r0-amendment-check.mjs",
     "test": "scripts/r0-amendment-check.nodetest.mjs",
-    "candidateSourceDigest": "20115262c8282fb9fd40f29707f30108895577880d53d4dda4f8ee27b5a1b104",
+    "effectiveBase": {
+      "ref": "origin/feature-chaotang-ext",
+      "sha": "ccc2d74a2e439830e9c6ae7adcefb5ee8c05c150"
+    },
+    "ownerAssignments": {
+      "product": "lyt",
+      "program": "lyt",
+      "backendApiContract": "lyt",
+      "canonicalRuntime": "lyt",
+      "securityData": "lyt",
+      "frontend": "lyt",
+      "qaLegalEvaluation": "lyt",
+      "release": "lyt",
+      "security": "lyt"
+    },
+    "executionOwner": "Codex",
+    "independentReviewer": "Claude Code",
+    "professionalReassignmentRequiredBefore": [
+      "REAL_CUSTOMER_DATA",
+      "R0-W08",
+      "R0-W09"
+    ],
+    "professionalRolesRequired": ["security", "legal", "release"],
+    "approvalEvidence": null,
+    "candidateSourceDigest": "214528634a12f25a0daeda4e6c830011d472b6c2fed924670629918da96a3078",
     "approvedSourceDigest": null,
     "canAuthorizeRuntime": false,
     "verification": [
