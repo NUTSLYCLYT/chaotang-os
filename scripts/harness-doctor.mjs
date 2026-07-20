@@ -174,6 +174,12 @@ if (manifest) {
     if (amendment.canAuthorizeRuntime !== false) {
       error('amendment governance checker must never authorize runtime');
     }
+    if (
+      amendment.document !==
+      '.harness/changes/docs-r0-trusted-kernel-amendment-20260720/amendment.md'
+    ) {
+      error('amendment governance document must remain the canonical R0 amendment path');
+    }
     if (!/^[0-9a-f]{64}$/.test(amendment.candidateSourceDigest ?? '')) {
       error('amendment governance candidateSourceDigest must be a sha256 hex digest');
     }

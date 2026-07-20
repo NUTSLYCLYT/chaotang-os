@@ -141,6 +141,25 @@ test('R0 amendment CLI returns distinct fail-closed results for invalid and unre
     await copyFile(amendmentPath, fixtureAmendment);
     const fixtureManifestPath = join(fixtureRoot, '.harness/manifest/project-harness.json');
     const fixtureManifest = JSON.parse(await readFile(fixtureManifestPath, 'utf8'));
+    fixtureManifest.amendmentGovernance.document = 'other-amendment.md';
+    await writeFile(fixtureManifestPath, `${JSON.stringify(fixtureManifest, null, 2)}\n`);
+    await assert.rejects(
+      execFileAsync(process.execPath, [join(fixtureScripts, 'r0-amendment-check.mjs')], {
+        cwd: fixtureRoot,
+      }),
+      (error) => {
+        const output = JSON.parse(error.stdout);
+        return (
+          error.code === 1 &&
+          output.errors.includes(
+            'manifest amendment document differs from canonical amendment path',
+          )
+        );
+      },
+    );
+
+    fixtureManifest.amendmentGovernance.document =
+      '.harness/changes/docs-r0-trusted-kernel-amendment-20260720/amendment.md';
     fixtureManifest.amendmentGovernance.candidateSourceDigest = '0'.repeat(64);
     await writeFile(fixtureManifestPath, `${JSON.stringify(fixtureManifest, null, 2)}\n`);
     await assert.rejects(

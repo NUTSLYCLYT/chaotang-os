@@ -12,6 +12,8 @@ const amendmentPath = resolve(
   root,
   '.harness/changes/docs-r0-trusted-kernel-amendment-20260720/amendment.md',
 );
+const amendmentRelativePath =
+  '.harness/changes/docs-r0-trusted-kernel-amendment-20260720/amendment.md';
 const projectManifestPath = resolve(root, '.harness/manifest/project-harness.json');
 
 function printFailure(errorCode) {
@@ -65,6 +67,9 @@ async function main() {
   const sourceDigest = createHash('sha256').update(sourceBytes).digest('hex');
   const expectedSourceDigest = projectManifest.amendmentGovernance?.candidateSourceDigest;
   const errors = validateR0AmendmentMarkdown(source);
+  if (projectManifest.amendmentGovernance?.document !== amendmentRelativePath) {
+    errors.push('manifest amendment document differs from canonical amendment path');
+  }
   if (sourceDigest !== expectedSourceDigest) {
     errors.push('amendment sourceDigest differs from manifest candidateSourceDigest');
   }
