@@ -2,13 +2,14 @@
 
 ## 审查对象
 
-`fix-r0-execution-authority-20260720`。实现候选 SHA、tree 与 binary diff digest 在提交后填写。审查必须绑定同一 exact HEAD，且只能只读。
+`fix-r0-execution-authority-20260720`。最终实现 H=`35f083b001231f12d515e185add6d4128dd931b8`，tree=`c1a6136113327bf15abe570dada97696a1220cd0`，B..H binary diff SHA-256=`89029b93f1345c0658e1bb909f510c85a13da319649a35617343c2c4eaef0b2b`。审查绑定同一 exact HEAD，且只能只读。
 
 ## 三路审查
 
 1. Authority：v1 是否永远 inactive；change/Packet/用户确认/Markdown 是否仍可能自行授予施工权；R0 PRD 与根入口是否受保护。
 2. Security：strict JSON、unknown/duplicate key、摘要、path traversal、ancestor symlink、计划 inventory 和同仓 checker 边界是否 fail closed。
 3. Git/Evidence：B/H/parent/tree/name-status/binary diff、范围、测试结果与回滚是否可复现；是否混入用户文件或历史 WIP。
+4. Command Execution：在允许 Node 的独立只读 Claude Code 会话中复跑 9 项测试、CLI 退出码与根 doctor，消除实现方自证。
 
 ## 必审文件
 

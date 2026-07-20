@@ -1,5 +1,7 @@
 # Claude Code Authority 审查 v1
 
+> 历史报告：绑定中间提交 `62e0c317`，已由本目录的 `*-final.md` exact-HEAD 报告取代，不得作为最终 H 的合入证据。
+
 - 审查模型：Claude Code Opus
 - 审查方式：独立只读会话，未修改仓库
 - B：`4ed5a0379e87c6ea65ed9a3ad89dca962aa785fe`
