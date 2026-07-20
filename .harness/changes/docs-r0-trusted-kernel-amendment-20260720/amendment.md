@@ -213,7 +213,7 @@ REQ 映射证明能力归属；下表从 PRD §8.1 反向证明“由谁量、�
 ### R0-W01：修正案与 v2 执行权威
 
 - 前置：W00 已合入，记录新 EXT exact SHA。
-- 产物：本修正案 exact digest、具名 Owner、批准证据、execution-authority v2 schema/manifest/resolver/tests。
+- 产物：本修正案 exact digest、具名 Owner、批准证据、execution-authority v2 schema/manifest/resolver/tests；同一 change 原子更新 `amendmentGovernance` 状态/approved digest 与 root doctor 允许的状态机，并以负例阻断无批准证据的状态跃迁。
 - v2 最小语义：一个 amendment、一个 `activeWorkPackage`、一个 effective base、一个 approval evidence；未知字段、SHA 漂移、依赖未完成或 review 非 GO 均 STOP。
 - RED：批准摘要/基线/包 ID 任一不匹配；同时激活两个包；试图从旧 P/PKT/S 领取任务。
 - 回滚：撤销 v2 activation 后恢复 STOP，不回退到无 guard。
@@ -273,7 +273,7 @@ REQ 映射证明能力归属；下表从 PRD §8.1 反向证明“由谁量、�
 
 ### R0-W08：质量与用户验证
 
-- 前置：W02 后可建立 fixture/scorer 骨架；正式判门必须等待 W03–W07 `MERGED_AND_VERIFIED`。
+- 前置：W07 已 `MERGED_AND_VERIFIED`；W08 正式 Packet 激活前不得提前实现 fixture/scorer 骨架。
 - RED：任一门分母为零、数据集/模型版本漂移、零容忍事件非零或 mock 冒充 real E2E 必须 `NO_DATA/FAIL`。
 - 30+ 合成/不可重新识别合同，覆盖采购/销售/服务；双人标注，分歧第三人裁决；模板族隔离 holdout；标注 schema 必须包含 expected risk、原文锚点与 `expectedMissingEvidence` 真值。
 - scorer 分母为零、标签未裁决或版本不匹配时必须 `NO_DATA`。

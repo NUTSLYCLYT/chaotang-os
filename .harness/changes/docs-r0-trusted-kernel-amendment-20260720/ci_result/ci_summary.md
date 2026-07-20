@@ -4,8 +4,8 @@
 
 | 命令 | 退出码 | 结果 | 证据覆盖范围 | 时间 |
 | --- | ---: | --- | --- | --- |
-| `node scripts/r0-amendment-check.nodetest.mjs`（沙箱外只读；子进程 CLI 测试） | 0 | 7/7 PASS | 真实 amendment、缺失/重复 REQ/gate/M、语义反转、跨表 Owner、source digest、CLI 0/1/64/66 | 2026-07-20 |
-| `node scripts/r0-amendment-check.mjs` | 0 | `22/22_UNIQUE`、`9/9_OWNED`、`11/11_DISPOSED`、`sourceDigest=expectedSourceDigest=9f0d7a5267e9bcfd64a73d4862b3a56eef4aae2d591dae3ad7850f7742daca9a`、`canAuthorizeRuntime=false` | canonical amendment 精确字节与 manifest candidate digest 比较、REQ/Gate/M、批准与 STOP 控制 | 2026-07-20 |
+| `node --test scripts/r0-amendment-check.nodetest.mjs`（沙箱外只读；子进程 CLI 测试） | 0 | 7/7 PASS | 真实 amendment、缺失/重复 REQ/gate/M、语义反转、跨表 Owner、source digest、CLI 0/1/64/66 | 2026-07-20 |
+| `node scripts/r0-amendment-check.mjs` | 0 | `22/22_UNIQUE`、`9/9_OWNED`、`11/11_DISPOSED`、`sourceDigest=expectedSourceDigest=81150e60d064bff8314b43ce82e2413240b026f954b19f4be59b8ff0d4c494a7`、`canAuthorizeRuntime=false` | canonical amendment 精确字节与 manifest candidate digest 比较、REQ/Gate/M、批准与 STOP 控制 | 2026-07-20 |
 | `node scripts/execution-authority.mjs --authorize` | 2 | `STOP / AMENDMENT_APPROVAL_REQUIRED` | 草案未越权激活施工 | 2026-07-20 |
 | `node scripts/harness-doctor.mjs` | 0 | 0 errors / 0 warnings | 根、前端、后端三层 harness | 2026-07-20 |
 | `git diff --check` | 0 | PASS | 文档格式 | 2026-07-20 |
