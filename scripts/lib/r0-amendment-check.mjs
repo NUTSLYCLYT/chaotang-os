@@ -90,6 +90,11 @@ const REQUIRED_CONTROLS = Object.freeze([
       /^\| OQ-10：120 份数据来源\/标注预算 \| W08 从 R0 30\+ 扩展到 R1 数据前 \| 不阻断合成 R0；阻断 R1 数据扩展 \|$/m,
   },
   {
+    label: 'OQ-06',
+    pattern:
+      /^\| OQ-06：Provider\/区域\/训练\/subprocessor\/退出边界 \| W03 RED 前冻结 R0 合成数据最小 policy；真实数据前补齐 DPA\/TOS 全量边界 \| W03 或真实数据阶段分别保持 `BLOCKED_INPUT` \|$/m,
+  },
+  {
     label: 'PENDING_G0_HOSTED_MERGE',
     pattern: /^> 状态：`PROPOSED \/ PENDING_G0_HOSTED_MERGE \/ PENDING_OWNER_APPROVAL`$/m,
   },

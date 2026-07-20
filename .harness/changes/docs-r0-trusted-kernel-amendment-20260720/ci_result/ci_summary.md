@@ -4,15 +4,15 @@
 
 | 命令 | 退出码 | 结果 | 证据覆盖范围 | 时间 |
 | --- | ---: | --- | --- | --- |
-| `node --test scripts/r0-amendment-check.nodetest.mjs`（沙箱外只读；子进程 CLI 测试） | 0 | 7/7 PASS | 真实 amendment、缺失/重复 REQ/gate/M、语义反转、跨表 Owner、source digest、CLI 0/1/64/66 | 2026-07-20 |
-| `node scripts/r0-amendment-check.mjs` | 0 | `22/22_UNIQUE`、`9/9_OWNED`、`11/11_DISPOSED`、`sourceDigest=expectedSourceDigest=81150e60d064bff8314b43ce82e2413240b026f954b19f4be59b8ff0d4c494a7`、`canAuthorizeRuntime=false` | canonical amendment 精确字节与 manifest candidate digest 比较、REQ/Gate/M、批准与 STOP 控制 | 2026-07-20 |
+| `node --test scripts/r0-amendment-check.nodetest.mjs`（沙箱外只读；子进程 CLI 测试） | 0 | 7/7 PASS | 真实 amendment、缺失/重复 REQ/gate/M、语义反转、跨表 Owner、source digest、CLI 0/1/64/65/66 | 2026-07-20 |
+| `node scripts/r0-amendment-check.mjs` | 0 | `22/22_UNIQUE`、`9/9_OWNED`、`11/11_DISPOSED`、`sourceDigest=expectedSourceDigest=20115262c8282fb9fd40f29707f30108895577880d53d4dda4f8ee27b5a1b104`、`canAuthorizeRuntime=false` | canonical amendment 精确字节与 manifest candidate digest 比较、REQ/Gate/M、批准与 STOP 控制 | 2026-07-20 |
 | `node scripts/execution-authority.mjs --authorize` | 2 | `STOP / AMENDMENT_APPROVAL_REQUIRED` | 草案未越权激活施工 | 2026-07-20 |
 | `node scripts/harness-doctor.mjs` | 0 | 0 errors / 0 warnings | 根、前端、后端三层 harness | 2026-07-20 |
 | `git diff --check` | 0 | PASS | 文档格式 | 2026-07-20 |
 
 ## 结果
 
-修正案草案已机器验证：22 条 R0 REQ、9 条退出门与 11 条旧 M 处置无缺失、重复或错 Owner，§5/§6 跨表一致；checker 绑定 canonical 文件精确字节且不能授权 runtime。v1 authority 仍 fail closed。第一、第二候选的 Claude Code 审查发现需关闭项；修订后 exact-H 仍待冻结和复审。
+修正案草案已机器验证：22 条 R0 REQ、9 条退出门与 11 条旧 M 处置无缺失、重复或错 Owner，§5/§6 跨表一致；checker 比较 canonical 文件精确字节与 manifest candidate digest 且不能授权 runtime。该本地一致性检查不替代三路内容审查、hosted required checks、非提交者签认或 Owner exact-digest 批准。v1 authority 仍 fail closed；最终 exact-H 仍待冻结和复审。
 
 ## 未验证项
 

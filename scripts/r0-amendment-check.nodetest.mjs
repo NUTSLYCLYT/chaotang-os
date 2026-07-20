@@ -51,6 +51,7 @@ test('R0 amendment validator requires fail-closed approval controls', async () =
     'OQ-03',
     'OQ-09',
     'OQ-10',
+    'OQ-06',
     '1 → 2 → 4 → 5 → 3',
     '明确未批准 W02–W09 runtime',
   ]) {
@@ -157,6 +158,22 @@ test('R0 amendment CLI returns distinct fail-closed results for invalid and unre
       },
     );
 
+    await writeFile(fixtureManifestPath, '{ invalid json\n');
+    await assert.rejects(
+      execFileAsync(process.execPath, [join(fixtureScripts, 'r0-amendment-check.mjs')], {
+        cwd: fixtureRoot,
+      }),
+      (error) => {
+        const output = JSON.parse(error.stdout);
+        return (
+          error.code === 65 &&
+          output.errors.includes('PROJECT_HARNESS_MANIFEST_INVALID') &&
+          output.canAuthorizeRuntime === false
+        );
+      },
+    );
+    await writeFile(fixtureManifestPath, `${JSON.stringify(fixtureManifest, null, 2)}\n`);
+
     await writeFile(fixtureAmendment, 'invalid amendment\n');
     await assert.rejects(
       execFileAsync(process.execPath, [join(fixtureScripts, 'r0-amendment-check.mjs')], {
@@ -175,7 +192,12 @@ test('R0 amendment CLI returns distinct fail-closed results for invalid and unre
       }),
       (error) => {
         const output = JSON.parse(error.stdout);
-        return error.code === 66 && output.decision === 'STOP' && output.canAuthorizeRuntime === false;
+        return (
+          error.code === 66 &&
+          output.decision === 'STOP' &&
+          output.errors.includes('AMENDMENT_OR_MANIFEST_READ_FAILED') &&
+          output.canAuthorizeRuntime === false
+        );
       },
     );
   } finally {

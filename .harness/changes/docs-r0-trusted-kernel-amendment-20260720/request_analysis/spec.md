@@ -39,7 +39,7 @@ SecureContractObject
 | --- | --- | --- | --- |
 | Mission/Support/Decision/Status V1 | 后端 Pydantic/OpenAPI | 前端、worker、export | additive version + cross-language fixtures |
 | SecureContractObject | 对象存储元数据 + 后端 authz | intake/OCR/analysis/download | immutable digest；旧 IMA 不兼容 |
-| ProviderEgressPolicy | Security/Data policy + provider registry | analysis gateway、audit、release gate | allowlist、region、retention/no-training/subprocessor；未知即拒绝 |
+| ProviderEgressPolicy | Security/Data policy + provider registry；OQ-06 | analysis gateway、audit、release gate | W03 前冻结合成数据最小 allowlist/region/retention/no-training/subprocessor/退出边界；未知即拒绝 |
 | Idempotency/lineage/completion | canonical runtime/DB | API、worker、projection | single writer、状态迁移、故障注入 |
 | Evidence/Risk/ReviewPack | 合同 review service + gates | FinalMemorial、UI、export | 原文锚点和五裁决一致性 |
 | ArtifactManifest | artifact service | delivery、download、archive | hash/version/authz/expiry |
