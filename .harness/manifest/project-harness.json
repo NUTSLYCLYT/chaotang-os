@@ -66,6 +66,7 @@
     "resolver": "scripts/lib/execution-authority.mjs",
     "command": "scripts/execution-authority.mjs",
     "test": "scripts/execution-authority.nodetest.mjs",
+    "documentation": ".harness/wiki/execution-authority.md",
     "verification": [
       "node --test scripts/execution-authority.nodetest.mjs",
       "node scripts/execution-authority.mjs --check",

@@ -56,6 +56,7 @@ const required = [
   '.harness/rules/project-workflow.md',
   '.harness/wiki/architecture.md',
   '.harness/wiki/harness-inventory.md',
+  '.harness/wiki/execution-authority.md',
   '.harness/wiki/courtos-brain-extraction.md',
   '.harness/wiki/capability-entry-governance.md',
   '.harness/wiki/verification-matrix.md',
@@ -137,7 +138,7 @@ if (manifest) {
     ) {
       error('manifest executionAuthority registration differs from the fixed inactive guard');
     }
-    for (const key of ['manifest', 'schema', 'resolver', 'command', 'test']) {
+    for (const key of ['manifest', 'schema', 'resolver', 'command', 'test', 'documentation']) {
       checkExists(
         EXPECTED_EXECUTION_AUTHORITY_REGISTRATION[key],
         `manifest execution authority ${key}`,

@@ -7,7 +7,8 @@
 | `node --test scripts/execution-authority.nodetest.mjs`（RED 1） | 1 | 缺 `scripts/lib/execution-authority.mjs` | 主线缺少 resolver | 2026-07-20 本会话 |
 | 同命令（RED 2） | 1 | 缺受管文档语义 validator export | 根入口/R0 PRD 旁路 | 2026-07-20 本会话 |
 | 同命令（RED 3） | 1 | 缺 symlink path reader export | 权威输入路径旁路 | 2026-07-20 本会话 |
-| `node scripts/execution-authority.nodetest.mjs` | 0 | 9/9 GREEN | resolver/schema/inventory/consumer/CLI/损坏 manifest/路径负例 | 2026-07-20 本会话 |
+| `node --test scripts/execution-authority.nodetest.mjs` | 0 | 注册测试文件 PASS | resolver/schema/inventory/consumer/CLI/损坏 manifest/路径负例 | 2026-07-20 本会话 |
+| `node scripts/execution-authority.nodetest.mjs` | 0 | 9/9 明细 GREEN | 同上；用于展开 Node 子测试明细 | 2026-07-20 本会话 |
 | `node scripts/execution-authority.mjs --check` | 0 | `VALID_INACTIVE_GUARD` | 当前真实 manifest | 2026-07-20 本会话 |
 | `node scripts/execution-authority.mjs --authorize` | 2 | 预期 `STOP` | 施工 fail closed | 2026-07-20 本会话 |
 | `node scripts/harness-doctor.mjs` | 0 | 0 errors / 0 warnings | 根 harness 与委托 doctor | 2026-07-20 本会话 |

@@ -77,7 +77,7 @@ test('v1 authority is an inactive fail-closed guard and cannot self-authorize', 
     authorityId: 'r0-execution-authority-20260720-v1',
     decision: 'STOP',
     canExecuteCanonicalPlan: false,
-    reason: 'APPROVED_AMENDMENT_REQUIRED',
+    reason: 'AMENDMENT_APPROVAL_REQUIRED',
     canonicalPlan: manifest.canonicalPlan.path,
   });
 
@@ -240,6 +240,7 @@ test('project manifest and policy consumers expose a fail-closed authority gate'
     resolver: 'scripts/lib/execution-authority.mjs',
     command: 'scripts/execution-authority.mjs',
     test: 'scripts/execution-authority.nodetest.mjs',
+    documentation: '.harness/wiki/execution-authority.md',
     verification: [
       'node --test scripts/execution-authority.nodetest.mjs',
       'node scripts/execution-authority.mjs --check',
@@ -268,5 +269,5 @@ test('CLI validates the manifest but denies canonical execution while v1 is inac
   const authorize = executionAuthorityCommandResult(loaded, '--authorize');
   assert.equal(authorize.exitCode, 2);
   assert.equal(authorize.output.decision, 'STOP');
-  assert.equal(authorize.output.reason, 'APPROVED_AMENDMENT_REQUIRED');
+  assert.equal(authorize.output.reason, 'AMENDMENT_APPROVAL_REQUIRED');
 });

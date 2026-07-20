@@ -27,6 +27,7 @@ export const EXPECTED_EXECUTION_AUTHORITY_REGISTRATION = Object.freeze({
   resolver: 'scripts/lib/execution-authority.mjs',
   command: 'scripts/execution-authority.mjs',
   test: 'scripts/execution-authority.nodetest.mjs',
+  documentation: '.harness/wiki/execution-authority.md',
   verification: Object.freeze([
     'node --test scripts/execution-authority.nodetest.mjs',
     'node scripts/execution-authority.mjs --check',
@@ -390,7 +391,7 @@ export function resolveExecutionAuthority(manifest) {
     authorityId: manifest.authorityId,
     decision: 'STOP',
     canExecuteCanonicalPlan: false,
-    reason: 'APPROVED_AMENDMENT_REQUIRED',
+    reason: 'AMENDMENT_APPROVAL_REQUIRED',
     canonicalPlan: manifest.canonicalPlan.path,
   };
 }

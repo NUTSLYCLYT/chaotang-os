@@ -8,6 +8,7 @@
 - `.harness/manifest/execution-authority.v1.json`：M0–M10 的失效关闭、未激活执行权威清单。
 - `.harness/contracts/execution-authority.schema.json`：只允许 `AMENDMENT_REQUIRED / INACTIVE` 的 v1 契约。
 - `scripts/execution-authority.mjs` 与 `scripts/lib/execution-authority.mjs`：唯一执行权威命令和 resolver；产品实现前使用 `--authorize`。
+- `.harness/wiki/execution-authority.md`：命令语义、受控摘要重钉流程和 amendment 交接边界。
 
 ## 前端工程 Harness
 
