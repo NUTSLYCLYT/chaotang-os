@@ -28,6 +28,13 @@
 | 后端评测/运行 harness | `backend/harness/` | `cd backend && python scripts/harness_doctor.py`，以及对应 README 中的命令与 pytest |
 | 跨线架构 | 根 `.harness/`、`docs/` | `node scripts/harness-doctor.mjs` |
 
+## 执行权威门
+
+- 从 `docs/plans/`、`.harness/changes/`、历史 P/PKT/S 队列或 M0–M10 路线领取产品实现任务前，必须运行 `node scripts/execution-authority.mjs --authorize`。
+- `execution-authority.v1` 是只读、失效关闭的前置护栏：它只能返回 `STOP` 和 `canExecuteCanonicalPlan: false`，直到新的 schema 与获批 amendment 在后续独立变更中绑定 exact HEAD 和审批证据。
+- 调查、计划、change 记录、Packet ID、用户方向确认和 `PACKET_REVIEW_GO` 只记录需求或评审事实，不能单独授予产品施工权。
+- 用户另行明确批准的治理、事故与证据修复可以在批准范围内施工，但不得冒充 M0–M10 产品实现或 R0 完成。
+
 ## 完成标准
 
 一个全项目 harness 变更完成，必须满足：

@@ -4,6 +4,12 @@ import { readdir, readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import {
+  EXPECTED_EXECUTION_AUTHORITY_REGISTRATION,
+  loadExecutionAuthority,
+  resolveExecutionAuthority,
+  validateExecutionAuthority,
+} from './lib/execution-authority.mjs';
 import { validateRepositoryStructure } from './lib/repository-structure.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -42,6 +48,9 @@ const required = [
   'README.md',
   'scripts/harness-doctor.mjs',
   'scripts/new-change.mjs',
+  'scripts/execution-authority.mjs',
+  'scripts/execution-authority.nodetest.mjs',
+  'scripts/lib/execution-authority.mjs',
   '.harness/agents/project-owner.md',
   '.harness/rules/project-boundaries.md',
   '.harness/rules/project-workflow.md',
@@ -51,6 +60,8 @@ const required = [
   '.harness/wiki/capability-entry-governance.md',
   '.harness/wiki/verification-matrix.md',
   '.harness/manifest/project-harness.json',
+  '.harness/manifest/execution-authority.v1.json',
+  '.harness/contracts/execution-authority.schema.json',
   '.harness/manifest/capability-entry-inventory.json',
   '.harness/contracts/capability-entry.schema.json',
   '.harness/contracts/capability-entry-event.schema.json',
@@ -118,6 +129,35 @@ if (manifest) {
   for (const rel of manifest.frontend?.entrypoints ?? []) checkExists(rel, `manifest frontend entrypoint: ${rel}`);
   for (const rel of manifest.backend?.entrypoints ?? []) checkExists(rel, `manifest backend entrypoint: ${rel}`);
   for (const rel of manifest.docs?.entrypoints ?? []) checkExists(rel, `manifest docs entrypoint: ${rel}`);
+
+  if (manifest.executionAuthority) {
+    if (
+      JSON.stringify(manifest.executionAuthority) !==
+      JSON.stringify(EXPECTED_EXECUTION_AUTHORITY_REGISTRATION)
+    ) {
+      error('manifest executionAuthority registration differs from the fixed inactive guard');
+    }
+    for (const key of ['manifest', 'schema', 'resolver', 'command', 'test']) {
+      checkExists(
+        EXPECTED_EXECUTION_AUTHORITY_REGISTRATION[key],
+        `manifest execution authority ${key}`,
+      );
+    }
+    const loadedAuthority = await loadExecutionAuthority(root);
+    const authorityErrors = validateExecutionAuthority(loadedAuthority);
+    if (authorityErrors.length > 0) {
+      for (const message of authorityErrors) error(`execution authority: ${message}`);
+    } else {
+      const decision = resolveExecutionAuthority(loadedAuthority.manifest);
+      if (decision.canExecuteCanonicalPlan !== false || decision.decision !== 'STOP') {
+        error('execution-authority.v1 must remain an inactive STOP guard');
+      } else {
+        ok('execution authority inventories one inactive M0-M10 route and fails closed');
+      }
+    }
+  } else {
+    error('manifest missing executionAuthority');
+  }
 
   if (manifest.capabilityEntryGovernance) {
     const governance = manifest.capabilityEntryGovernance;

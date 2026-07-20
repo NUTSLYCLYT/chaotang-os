@@ -5,6 +5,9 @@
 - `.harness/`：全项目 owner、规则、wiki、manifest、模板与变更记录。
 - `scripts/harness-doctor.mjs`：根级健康检查。
 - `scripts/new-change.mjs`：根级变更骨架生成器。
+- `.harness/manifest/execution-authority.v1.json`：M0–M10 的失效关闭、未激活执行权威清单。
+- `.harness/contracts/execution-authority.schema.json`：只允许 `AMENDMENT_REQUIRED / INACTIVE` 的 v1 契约。
+- `scripts/execution-authority.mjs` 与 `scripts/lib/execution-authority.mjs`：唯一执行权威命令和 resolver；产品实现前使用 `--authorize`。
 
 ## 前端工程 Harness
 
