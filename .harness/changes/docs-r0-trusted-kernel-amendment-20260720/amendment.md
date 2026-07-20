@@ -35,17 +35,17 @@ R0 不以 Agent、页面、部门、分支或文档数量衡量完成，只以�
 
 | 事实 | 当前状态 | 影响 |
 | --- | --- | --- |
-| G0 inactive authority | 本地 exact-HEAD 已验证并推送；Gitee PR/required check/merge 未完成 | 仍为 `NOT_ENFORCED` |
+| G0 inactive authority | `origin/task/r0-execution-authority-20260720@bf99f6091a6a535ae4ef1e6d8534029c866f3419` 已推送；Gitee PR/required check/merge 未完成 | 仍为 `NOT_ENFORCED` |
 | v1 `--authorize` | 固定 `STOP / AMENDMENT_APPROVAL_REQUIRED` | 只能编制修正案，不能做 runtime |
 | 产品 SSOT / R0 PRD | 已冻结；22 条 R0 REQ 完整 | 产品范围明确 |
 | Direct 完成语义 | `direct_completed` 仍会被投影为 completed/report-ready | stop-ship：伪完成 |
 | 幂等 runtime | 规格存在，运行实现缺失 | 重复任务/重试风险 |
 | 合同摄取 | DOCX/PDF/OCR 安全流水线不存在；现有 IMA 是全局路径 | stop-ship：敏感数据和跨租户风险 |
 | 合同核心协议 | `MissionContract`、`ContractReviewPack`、`ArtifactManifest` 仅存在于文档 | 无法形成正式产品闭环 |
-| 前端 core | 只读审计复跑 53/70，17 失败 | 不得宣称前端 release-ready |
-| evaluator / flows | 4/4 evaluator 失败；flow validation 3 errors | 不得宣称质量闭环 |
+| 前端 core | `cd frontend && pnpm test:core`：70 个测试文件中 53 通过、17 失败，exit 1 | 不得宣称前端 release-ready |
+| evaluator / flows | `cd frontend && pnpm eval:court`：12 个文件 3 通过/9 失败；`cd backend && python3 scripts/validate_flows.py`：3 errors；均 exit 1 | 不得宣称质量闭环 |
 | golden contracts | 30+ 集合与版本化 scorer 不存在 | 质量状态必须 `NO_DATA` |
-| prod doctor | STOP，2/5 通过 | 不得部署或宣传上线 |
+| prod doctor | `cd frontend && pnpm prod:doctor`：STOP，http-health/true-chain 通过，其余 3 项失败，exit 2 | 不得部署或宣传上线 |
 
 以上结果是 2026-07-20 的只读调查证据，不是未来 Packet 的可继承 PASS。每个 Packet 必须在自己的 exact HEAD 重新取证。
 
@@ -118,13 +118,24 @@ W00 G0 托管合入
 
 W03 与 W04 只有在不共享迁移、canonical writer 或状态事实源时才可并行。W08 的 fixture/scorer 骨架可在 W02 后开始，但不得在运行链未完成时制造 PASS。
 
+PRD open question 不是笼统的 W01 前置，而是按最晚时点阻断对应 Packet：
+
+| Open question | 必须在何时冻结 | 未冻结时 |
+| --- | --- | --- |
+| OQ-01：R0/R1/R2 与 M0–M10 唯一映射 | 本修正案批准前 | 本修正案不得批准；本文件 §5/§6 负责关闭 |
+| OQ-02：文件/OCR 阈值 | W03 RED 前 | W03 保持 `BLOCKED_INPUT` |
+| OQ-03：支持/拒答 taxonomy | W02 契约冻结前；W08 golden freeze 前复核 | W02/W08 保持 `BLOCKED_INPUT` |
+| OQ-09：基础/附加成果格式 | W06 schema 前 | W06 保持 `BLOCKED_INPUT` |
+| OQ-10：120 份数据来源/标注预算 | W08 从 R0 30+ 扩展到 R1 数据前 | 不阻断合成 R0；阻断 R1 数据扩展 |
+| OQ-04～OQ-06 | 任何真实客户材料或 R1 前 | R1/真实数据保持 STOP |
+
 | 顺序 | ID | 目标 | 主责 REQ | 旧 M 映射 | 退出价值 |
 | ---: | --- | --- | --- | --- | --- |
 | 0 | R0-W00 | G0 hosted PR、required review、合后重验 | 治理前置 | G0 | 只有一条施工权威 |
 | 1 | R0-W01 | 批准本修正案并建立 packet-scoped v2 authority | 追踪全部 REQ，不实现业务 | M0 | 每次只放行一个包 |
 | 2 | R0-W02 | 合同、Mission、裁决、状态的共享 v1 契约 | 003–007、012、017 | M0/M1/M2 | 前后端说同一种语言 |
 | 3 | R0-W03 | 安全文件摄取、OCR、tenant/object/purpose 权限 | 001、002、019 | M1/M2 | 客户材料不泄露、不静默漏读 |
-| 4 | R0-W04 | idempotency、single writer、完成公式、恢复与全链 ID | 008、013、014、018、020、022 | M1/M3/M4/M6/M7 | 不重复、不伪完成、可恢复 |
+| 4 | R0-W04 | idempotency、single writer、完成公式、恢复与全链 ID | 008、013、014、018、020、022 | M1/M6/M7；不宣称实现 M3/M4 | 不重复、不伪完成、可恢复 |
 | 5 | R0-W05 | 原文证据、五种裁决、最小刑部合同能力 | 009–011 | M5/M6；M8 仅最小合同能力 | 结果可复核、该拒答就拒答 |
 | 6 | R0-W06 | PDF/DOCX/JSON、ArtifactManifest、下载与 PARTIAL | 015、016 | M7 | 从分析文本变成可验证成果 |
 | 7 | R0-W07 | `/shangshufang` 一旨一卡一包真实闭环 | 021 | M7 前端消费者 | 普通用户能独立使用 |
@@ -150,19 +161,36 @@ W03 与 W04 只有在不共享迁移、canonical writer 或状态事实源时才
 | 013 | W04 | Menxia Gate | 最大轮次后仍自动准奏 | fail-closed 状态转移测试 |
 | 014 | W04 | FinalMemorial Writer | 多份/被替代/未过门奏折可裁决 | unique+lineage+quality DB 断言 |
 | 015 | W06 | Artifact Service | 任一必需格式/Manifest 缺失却交付 | 三格式可打开、hash 可复算 |
-| 016 | W06 | Delivery Formula | 附件失败仍 `DELIVERED` | PARTIAL、局部重试、不重跑分析 |
+| 016 | W06 | Artifact Readiness Input | 附件失败仍被报告为 READY | PARTIAL、局部重试、不重跑分析；向 W04 完成公式提供只读输入 |
 | 017 | W02 | Status Contract | 一个状态字段承载多个正交语义 | schema 与投影负例 |
 | 018 | W04 | Execution Runtime | 超时/断线/取消/查单无终态 | 故障注入与恢复证据 |
 | 019 | W03 | Authorization | tenant/user/object/purpose 任一缺失仍放行 | 越权矩阵、短时下载、审计 |
 | 020 | W04 | Trace Identity | 任一链路丢 request/task/tenant/release/model | 全链 trace 断言 |
 | 021 | W07 | Frontend Read Model | 浏览器自行推导 LIVE/完成 | real backend E2E、刷新同态 |
-| 022 | W04 | Delivery Formula | ACK/direct/部分文本被标交付 | accepted/queued/running/delivered 反例 |
+| 022 | W04 | Server Delivery Formula | ACK/direct/部分文本被标交付 | accepted/queued/running/delivered 反例 |
 
-## 7. Packet 施工卡
+## 7. R0 退出门反向映射
+
+REQ 映射证明能力归属；下表从 PRD §8.1 反向证明“由谁量、用什么证据决定 Go”。W09 只能消费这些门，不得自行把缺失指标解释为通过。
+
+| Gate | 唯一度量包 | 冻结门槛 | 必须先出现的 RED | 退出证据 |
+| --- | --- | --- | --- | --- |
+| G01 | W08 | 30+ 合成/不可重新识别黄金合同，采购/销售/服务覆盖 | 数量/合同族/合法性任一不足仍 PASS | versioned dataset manifest、双人标注与仲裁 |
+| G02 | W08 | 10/10 real-backend 浏览器主流程可终止 | mock 或任一旅程无终态仍 PASS | browser traces、API/DB lineage、console/404=0 |
+| G03 | W08 | 5 名非开发目标用户中至少 4 名无帮助完成 | 开发人员代操作仍计成功 | 受控 usability protocol 与逐人结果 |
+| G04 | W08 | 首个有用风险时间中位数 ≤ 3 分钟 | 无计时/分母为零仍 PASS | server timestamps、样本明细、median 复算 |
+| G05 | W08 | critical/high 原文引用覆盖率 100%，缺证显式标记率 100% | 无锚点或 missingEvidence 漏标仍 PASS | scorer 明细与原文定位抽检 |
+| G06 | W08 | critical recall 100%，high recall ≥90%，critical/high precision ≥80% | 分母为零/holdout 未冻仍 PASS | versioned scorer、冻结 holdout、匹配审计 |
+| G07 | W08 | 伪条款、伪来源、错完成、未授权动作、跨租户泄露均为 0 | 任一零容忍事件被平均分掩盖 | adversarial suite 与 incident ledger |
+| G08 | W08 | 断线、取消、冲突、过期、附件失败、UNKNOWN 均不显示完成 | 任一失败被投影为 completed | fault-injection traces 与刷新/重连 E2E |
+| G09 | W09 | exact integration HEAD、required checks、独立 review、回滚说明齐全 | 任一身份/证据缺失仍 Go | release evidence、hosted checks、N-1 演练 |
+
+## 8. Packet 施工卡
 
 ### R0-W00：G0 托管合入
 
 - 前置：`origin/task/r0-execution-authority-20260720@bf99f609`。
+- 授权来源：用户已明确批准本次 G0 治理实施；不来自本修正案，也不授权产品 runtime。
 - 完成：目标分支必须是 `feature-chaotang-ext`；hosted required check 和非提交者复核可验证；合入后重跑 authority 与三层 doctor。
 - 阻断：平台门未配置时状态只能 `PASS_LOCAL / NOT_ENFORCED`。
 - 回滚：整包 guard-preserving revert；不得通过删除 guard 恢复施工。
@@ -177,6 +205,8 @@ W03 与 W04 只有在不共享迁移、canonical writer 或状态事实源时才
 
 ### R0-W02：共享合同契约
 
+- 前置：W01 已 `MERGED_AND_VERIFIED`；OQ-03 已冻结；OQ-09 至少确认 PDF/DOCX/JSON 是 R0 基础成果。
+- RED：unknown enum、缺法域/角色、旧确认版本、状态语义重载、未激活能力获权必须失败。
 - 产物：`MissionContractV1`、`ContractSupportDecisionV1`、`ContractDecisionV1`、正交状态与 lineage 契约；后端 Pydantic/OpenAPI 为事实源，前端生成或契约验证。
 - 范围：采购/销售/服务、中国大陆、中文、我方角色、五种裁决；未知/超范围 fail closed。
 - 迁移：先 versioned additive schema + 兼容读；新合同路径禁止写旧无版本结构。
@@ -184,20 +214,25 @@ W03 与 W04 只有在不共享迁移、canonical writer 或状态事实源时才
 
 ### R0-W03：安全摄取与租户隔离
 
-- 产物：对象级 secure ingest、MIME/加密/损坏/宏/病毒/zip bomb/注入检查、OCR 状态、immutable input version/digest、purpose authz、短时下载票据、删除传播。
+- 前置：W02 已 `MERGED_AND_VERIFIED`；OQ-02 已冻结。
+- RED：跨租户/用户、对象替换、purpose 缺失、伪 MIME、恶意文件、低 OCR、内部运营默认读取正文必须全部失败。
+- 产物：对象级 secure ingest、MIME/加密/损坏/宏/病毒/zip bomb/注入检查、OCR 状态、immutable input version/digest、purpose authz、短时下载票据；内部运营和平台人员默认不可读取合同正文。
 - 首刀只支持合成采购 DOCX；随后在同一 schema 扩搜索 PDF、扫描 PDF/OCR。
 - 禁止：合同正文进入全局 IMA/shared RAG、localStorage、日志、trace 或截图。
 - 回滚：feature flag 关闭摄取；保持 fail closed，绝不回退到 IMA。
 
 ### R0-W04：canonical 完成与恢复
 
+- 前置：W02 已 `MERGED_AND_VERIFIED`；与 W03 并行时不得共享迁移、writer 或状态事实源。
 - 产物：`CANON-IDEMPOTENCY-01` runtime、CourtReview single writer、服务端 `DELIVERED` 公式、取消 fencing、局部重试、UNKNOWN 查单、全链 identity。
 - 首个 RED：`direct_completed`/worker ACK/部分文本/部分附件不得显示完成。
 - 历史 source-only：只复用 `wip/canon-court-01a-red` scanner 思想，不整支合并。
-- 回滚：关闭新 writer/状态投影；兼容读保留；禁止恢复伪完成写入。
+- 回滚：所有新写入记录 `delivery_formula_version`；关闭新 writer/投影后，新公式期间写入的行继续按原版本派生或进入 `UNDER_REVIEW` 隔离，禁止用旧公式重新解释为完成；兼容读保留，禁止恢复伪完成写入。
 
 ### R0-W05：证据与合同成果内容
 
+- 前置：W03/W04 已 `MERGED_AND_VERIFIED`。
+- RED：非空 URL/文本/模型自述晋升、无页码原文、冲突/过期不显示、超范围未升级律师必须失败。
 - 产物：`EvidencePacketV1`、`ContractRiskItemV1`、`ContractReviewPackV1`、最小刑部合同能力接线。
 - 每项风险：file version、page/clause、raw excerpt、riskLevel、explanation、missingEvidence、recommendedRevision、sourceLabel、engineTier。
 - 未激活能力：正文、附件、token、工具权限均为零。
@@ -205,12 +240,16 @@ W03 与 W04 只有在不共享迁移、canonical writer 或状态事实源时才
 
 ### R0-W06：成果附件与交付
 
+- 前置：W05 已 `MERGED_AND_VERIFIED`；OQ-09 已冻结。
+- RED：必需附件失败却 READY、hash 不一致、过期/越权下载、附件重试复制奏折必须失败。
 - 产物：PDF、DOCX、JSON、`ArtifactManifestV1`、hash/version/authz/expiry、独立附件状态和局部重试。
 - 公式：必需附件全部 READY 且授权用户可取回前不得 `DELIVERED`。
 - 回滚：保留 `FinalMemorial`；停止新产物生成；已有问题产物标 `UNAVAILABLE/UNDER_REVIEW`。
 
 ### R0-W07：一旨一卡一包前端
 
+- 前置：W06 已 `MERGED_AND_VERIFIED`；只消费服务端 read model。
+- RED：浏览器本地推导 LIVE/完成、旧奏折裁决、无 ArchiveReceipt 显示归档必须失败。
 - 在现有 `/shangshufang` 内新增 feature-flagged contract slice，不大重构 5k 行页面。
 - 一卡仅三个动作：确认办理、修改计划、取消。
 - 裁决必须绑定 `task_id + final_memorial_id + content_hash + version`；由服务端 `allowed_actions` 决定按钮。
@@ -219,21 +258,25 @@ W03 与 W04 只有在不共享迁移、canonical writer 或状态事实源时才
 
 ### R0-W08：质量与用户验证
 
+- 前置：W02 后可建立 fixture/scorer 骨架；正式判门必须等待 W03–W07 `MERGED_AND_VERIFIED`。
+- RED：任一门分母为零、数据集/模型版本漂移、零容忍事件非零或 mock 冒充 real E2E 必须 `NO_DATA/FAIL`。
 - 30+ 合成/不可重新识别合同，覆盖采购/销售/服务；双人标注，分歧第三人裁决；模板族隔离 holdout。
 - scorer 分母为零、标签未裁决或版本不匹配时必须 `NO_DATA`。
-- 门：critical recall 100%，high recall ≥90%，critical/high precision ≥80%，原文引用覆盖 100%，伪条款/伪来源/错完成/越权/跨租户均为 0。
+- 门：首个有用风险时间中位数 ≤3 分钟；critical recall 100%，high recall ≥90%，critical/high precision ≥80%，原文引用覆盖 100%，缺证显式标记率 100%，伪条款/伪来源/错完成/越权/跨租户均为 0。
 - 浏览器：10/10 real backend 旅程可终止；mock 只作开发反馈。
 - 用户：5 名未参与开发的目标用户中至少 4 名无工程师帮助完成。
 
 ### R0-W09：发布身份与 Go/No-Go
 
+- 前置：W08 的 G01–G08 全部由可复算证据 PASS；任一 `NO_DATA` 都阻断。
+- RED：foreign port、缺 build/digest、JWT/runtime identity、schema mismatch、N-1 恢复失败或 G01–G08 任一未通过必须 STOP。
 - 产物：immutable build、release SHA/digest/schema/runtime identity、required checks、独立 review、N-1 回滚演练、prod doctor 全绿。
 - Go 仅代表 R0 内部可信内核；不接真实可重新识别客户合同，不进入公众自助。
-- 任一 release P0/P1、foreign port、JWT identity、schema/digest 或回滚证据不一致即 No-Go。
+- 任一 release P0/P1、foreign port、JWT identity、schema/digest、回滚证据或“首个有用风险中位数 ≤3 分钟”等 G01–G08 不一致即 No-Go。
 
-## 8. 明确冻结与 source-only
+## 9. 明确冻结与 source-only
 
-R0 前冻结：41 司全量、每日朝会、皇帝单屏、evolve、六项外部能力全收编、部门大重构、resource census、世界杯/金融第二 Offer、公众自助、支付、LangGraph 主链接入、真实客户材料。
+R0 前冻结：41 司全量、每日朝会、皇帝单屏、evolve、六项外部能力全收编、部门大重构、resource census、世界杯/金融第二 Offer、公众自助、支付、LangGraph 主链接入、真实客户材料、M3 通用 adaptive/shadow routing、M4 通用 Agent lazy-load/budget 平台。R0 只实现 W02 的最小能力授权和 W04 的确定性时间/token/工具/重试硬上限，不宣称完成 M3/M4。
 
 只允许选择性重包：
 
@@ -244,25 +287,27 @@ R0 前冻结：41 司全量、每日朝会、皇帝单屏、evolve、六项外�
 
 禁止整支 merge/cherry-pick；所有代码必须在最新 EXT 上以新的 RED 和新证据重制。
 
-## 9. 批准与生效协议
+## 10. 批准与生效协议
 
 本修正案只有同时满足以下条件才可从 `PROPOSED` 变为 `APPROVED_FOR_W01`：
 
 1. G0 已由 hosted PR 合入 `feature-chaotang-ext`，并记录新的 exact integration SHA。
-2. 本文件在该 SHA 之上完成 rebase/re-pin，计算 exact SHA-256。
+2. 本文件在该 SHA 之上完成 rebase/re-pin；唯一绑定命令为 `git diff --binary <B>..<H> | sha256sum`，不得加入 `--full-index` 或改变 diff 规范化参数。
 3. Product Owner 明确回复：Amendment ID、digest、effective base、批准 W01、明确未批准 W02–W09 runtime。
 4. Authority、Security、Git/Evidence 三路 Claude Code 审查绑定同一 amendment H/tree/diff。
-5. root doctor、文档链接、22/22 映射 validator 全绿。
+5. `node scripts/r0-amendment-check.mjs`、其 Node 测试、root doctor 与文档链接全绿。
+
+条件按 1 → 2 → 4 → 5 → 3 顺序执行；三路 review 必须发生在 rebase/re-pin 后，Product Owner 最后批准同一 exact H/tree/diff/digest。OQ-01 必须由本修正案关闭；OQ-02/03/09/10 按 §5 的 Packet 前置逐项关闭，不能被 W01 批准提前豁免。
 
 W01 合入 v2 后，Product Owner 再按 v2 激活的 `activeWorkPackage` 逐包放行。任何笼统的“全部同意”“继续”“立刻做”只表达方向，不替代对未来 exact digest/base 的批准证据。
 
-## 10. 给 Codex 的执行指令
+## 11. 给 Codex 的执行指令
 
 ```text
 目标：按 R0-TRUSTED-KERNEL-AMENDMENT-01 交付 R0 内部可信合同内核。
 
 硬约束：
-1. 每次先运行 execution-authority --authorize；只领取输出中的 activeWorkPackage。
+1. 每次先运行 execution-authority --authorize；只有 `decision === GO` 且 activeWorkPackage 与计划领取包完全一致才可继续；`decision != GO`、字段缺失或包不一致立即 STOP。
 2. 只从最新受保护 origin/feature-chaotang-ext exact SHA 开分支。
 3. 一次只做一个 Packet；先 RED，再最小 GREEN，再专项/回归/doctor。
 4. 后端 Pydantic/OpenAPI 是跨端契约事实源；前端不得新增 BFF 或第二状态机。
