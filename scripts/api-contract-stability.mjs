@@ -5,7 +5,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
 const ROOT = process.cwd();
-const DATE = '2026-07-09';
+const DATE = '2026-07-21';
 const OUT_OPENAPI = path.join(ROOT, 'docs', `api-contract-openapi-${DATE}.json`);
 const OUT_ROUTE_SNAPSHOT = path.join(ROOT, 'docs', `api-contract-route-snapshot-${DATE}.json`);
 const OUT_TYPES = path.join(ROOT, 'frontend', 'src', 'lib', 'contracts', `backend-openapi-${DATE}.d.ts`);
@@ -38,14 +38,20 @@ function exportOpenApi() {
     'from web.main import app',
     'print(json.dumps(app.openapi(), ensure_ascii=False, sort_keys=True))',
   ].join('\n');
-  const result = spawnSync('python', ['-c', code], {
+  const spawnOptions = {
     cwd: path.join(ROOT, 'backend'),
     encoding: 'utf8',
     maxBuffer: 128 * 1024 * 1024,
     env: { ...process.env, FENGQUN_ENABLE_DOCS: 'true', PYTHONIOENCODING: 'utf-8' },
-  });
+  };
+  // 'python' isn't guaranteed on PATH (e.g. Ubuntu/WSL ship only 'python3'); try both so this
+  // script works across the project's documented Windows + Ubuntu environments.
+  let result = spawnSync('python3', ['-c', code], spawnOptions);
+  if (result.error && result.error.code === 'ENOENT') {
+    result = spawnSync('python', ['-c', code], spawnOptions);
+  }
   if (result.status !== 0) {
-    throw new Error(`OpenAPI export failed:\n${result.stderr || result.stdout}`);
+    throw new Error(`OpenAPI export failed:\n${result.stderr || result.stdout || result.error}`);
   }
   return JSON.parse(result.stdout);
 }
@@ -91,7 +97,7 @@ function buildRouteSnapshot(openapi) {
   }
   routes.sort((left, right) => left.key.localeCompare(right.key));
   return {
-    generatedAt: new Date().toISOString(),
+    generatedAt: DATE,
     routeCount: routes.length,
     routes,
   };
@@ -258,7 +264,7 @@ async function main() {
   const routeSnapshot = buildRouteSnapshot(openapi);
   const diff = compareSnapshots(previous, routeSnapshot);
   const report = {
-    generatedAt: new Date().toISOString(),
+    generatedAt: DATE,
     status: diff.breaking.length ? 'fail' : 'pass',
     routeCount: routeSnapshot.routeCount,
     artifacts: {

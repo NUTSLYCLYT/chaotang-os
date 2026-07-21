@@ -9,6 +9,7 @@ import test from 'node:test';
 
 import {
   EXECUTION_AUTHORITY_V2_PATH,
+  EXPECTED_R0_WORK_PACKAGE_SEQUENCE,
   EXECUTION_AUTHORITY_V2_SCHEMA_PATH,
   EXPECTED_EXECUTION_AUTHORITY_V2_REGISTRATION,
   executionAuthorityV2CommandResult,
@@ -38,7 +39,7 @@ function validManifest() {
     },
     effectiveBase: {
       ref: 'origin/feature-chaotang-ext',
-      sha: 'ccc2d74a2e439830e9c6ae7adcefb5ee8c05c150',
+      sha: '5e432ea45796738902fcd74948a34918e781bda7',
     },
     approvalEvidence: {
       ownerApprovalPath:
@@ -108,13 +109,13 @@ test('well-formed but mismatched approvedSourceDigest stops on digest drift', ()
   );
 });
 
-test('effective base mismatch stops the resolver', () => {
-  const governance = {
-    ...validGovernance(),
+test('effective base mismatch stops the resolver when it drifts from the approved candidate', () => {
+  const manifest = {
+    ...validManifest(),
     effectiveBase: { ref: 'origin/feature-chaotang-ext', sha: 'b'.repeat(40) },
   };
   assert.equal(
-    resolveExecutionAuthorityV2(validManifest(), governance, { workPackage: 'R0-W01' }).reason,
+    resolveExecutionAuthorityV2(manifest, validGovernance(), { workPackage: 'R0-W01' }).reason,
     'EFFECTIVE_BASE_MISMATCH',
   );
 });
@@ -170,6 +171,7 @@ test('W01 itself is blocked if W00 is not yet MERGED_AND_VERIFIED', () => {
       { id: 'R0-W01', status: 'NOT_STARTED' },
     ],
     activeWorkPackage: 'R0-W00',
+    approvalEvidence: { ...validManifest().approvalEvidence, approvedScope: ['R0-W00'] },
   };
   assert.equal(
     resolveExecutionAuthorityV2(manifest, validGovernance(), { workPackage: 'R0-W01' }).reason,
@@ -192,6 +194,7 @@ test('professional reassignment gate fails closed for W08/W09 and real customer 
       { id: 'R0-W07', status: 'MERGED_AND_VERIFIED' },
       { id: 'R0-W08', status: 'ACTIVE' },
     ],
+    approvalEvidence: { ...validManifest().approvalEvidence, approvedScope: ['R0-W08'] },
   };
   assert.equal(
     resolveExecutionAuthorityV2(manifest, validGovernance(), { workPackage: 'R0-W08' }).reason,
@@ -218,7 +221,7 @@ test('review verdict other than GO stops the resolver', () => {
   assert.ok(errors.some((message) => message.includes('reviewVerdict must be GO')));
 });
 
-test('approvedScope beyond R0-W01 is rejected structurally', () => {
+test('approvedScope with more than one work package is rejected structurally', () => {
   const manifest = {
     ...validManifest(),
     approvalEvidence: {
@@ -228,7 +231,7 @@ test('approvedScope beyond R0-W01 is rejected structurally', () => {
   };
   assert.ok(
     validateExecutionAuthorityV2Manifest(manifest).some((message) =>
-      message.includes('approvedScope must be exactly'),
+      message.includes('approvedScope must contain exactly one work package id'),
     ),
   );
 });
@@ -323,20 +326,31 @@ test('CLI rejects an unsupported flag with exit 64', async () => {
   );
 });
 
-test('CLI subprocess against the real repo authorizes exactly R0-W01', async () => {
+test('CLI subprocess against the real repo authorizes exactly the current active work package', async () => {
+  const loaded = await loadExecutionAuthorityV2(root);
+  assert.deepEqual(loaded.errors, []);
+  const currentActive = loaded.manifest.activeWorkPackage;
+  assert.ok(currentActive, 'real repo manifest must have a non-null activeWorkPackage for this test to be meaningful');
+
   const { stdout } = await execFileAsync(
     process.execPath,
-    [cliPath, '--authorize', '--work-package', 'R0-W01'],
+    [cliPath, '--authorize', '--work-package', currentActive],
     { cwd: root },
   );
   const output = JSON.parse(stdout);
   assert.equal(output.decision, 'GO');
-  assert.equal(output.activeWorkPackage, 'R0-W01');
+  assert.equal(output.activeWorkPackage, currentActive);
 });
 
-test('CLI subprocess against the real repo blocks R0-W02', async () => {
+test('CLI subprocess against the real repo blocks the next work package in sequence', async () => {
+  const loaded = await loadExecutionAuthorityV2(root);
+  assert.deepEqual(loaded.errors, []);
+  const currentIndex = EXPECTED_R0_WORK_PACKAGE_SEQUENCE.indexOf(loaded.manifest.activeWorkPackage);
+  assert.ok(currentIndex >= 0 && currentIndex < EXPECTED_R0_WORK_PACKAGE_SEQUENCE.length - 1);
+  const nextPackage = EXPECTED_R0_WORK_PACKAGE_SEQUENCE[currentIndex + 1];
+
   await assert.rejects(
-    execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', 'R0-W02'], {
+    execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', nextPackage], {
       cwd: root,
     }),
     (error) => {

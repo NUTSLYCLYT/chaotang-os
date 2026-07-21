@@ -1,0 +1,25 @@
+{
+  "description": "R0 golden slice — synthetic PRC manufacturing/B2B procurement contract, 我方=买方",
+  "jurisdiction": "CN_MAINLAND",
+  "language": "zh-CN",
+  "contract_type": "procurement",
+  "our_role": "buyer",
+  "expected_verdict": "REVISE_BEFORE_PROCEED",
+  "mission_contract_id": "mission-golden-r0-w02-001",
+  "task_id": "task-golden-r0-w02-001",
+  "goal": {
+    "user_intent": "复核这份采购合同能否推进签约",
+    "biggest_concern": "付款条款与验收标准是否对我方不利",
+    "risk_tolerance": "低"
+  },
+  "constraints": ["预算不超过合同金额上限", "交付周期不晚于约定日期"],
+  "prohibited_actions": ["不得代用户签字", "不得承诺任何未在合同中出现的条款"],
+  "assumptions": ["输入文件完整"],
+  "budget_limit_minor": 100000,
+  "deadline_at": "2026-12-31T00:00:00+00:00",
+  "read_scope": ["contract:source:v1"],
+  "plan_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "desired_outcome": {
+    "required_artifacts": ["PDF", "DOCX", "JSON"]
+  }
+}
