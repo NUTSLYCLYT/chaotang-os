@@ -97,7 +97,7 @@ function buildRouteSnapshot(openapi) {
   }
   routes.sort((left, right) => left.key.localeCompare(right.key));
   return {
-    generatedAt: new Date().toISOString(),
+    generatedAt: DATE,
     routeCount: routes.length,
     routes,
   };
@@ -264,7 +264,7 @@ async function main() {
   const routeSnapshot = buildRouteSnapshot(openapi);
   const diff = compareSnapshots(previous, routeSnapshot);
   const report = {
-    generatedAt: new Date().toISOString(),
+    generatedAt: DATE,
     status: diff.breaking.length ? 'fail' : 'pass',
     routeCount: routeSnapshot.routeCount,
     artifacts: {

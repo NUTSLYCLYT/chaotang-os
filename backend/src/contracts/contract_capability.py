@@ -19,7 +19,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from src.contracts.mission_contract import MissionContractV1
 
 # W02 只需要证明"契约本身能往返"，不需要真实能力目录——真实目录留给 W03（安全摄取）/W05（证据）。
-HARD_REQUIRED_CAPABILITIES_R0: frozenset[str] = frozenset({"docx_ingest"})
+HARD_REQUIRED_CAPABILITIES_R0: frozenset[str] = frozenset(
+    {"pdf_generate", "docx_ingest", "json_generate"}
+)
 
 
 class CapabilityGrantV1(BaseModel):
@@ -44,14 +46,23 @@ class CapabilityGrantV1(BaseModel):
 
 
 def activate_capabilities(
-    mission: MissionContractV1,  # noqa: ARG001 — 签名保留 mission 供未来 W03/W05 扩展判定依据
+    mission: MissionContractV1,
     candidate_ids: list[str],
     hard_required_ids: frozenset[str] = HARD_REQUIRED_CAPABILITIES_R0,
 ) -> list[CapabilityGrantV1]:
     """纯函数：只对 candidate ∩ hard_required 的交集给 ACTIVATED，其余全零权限。"""
     grants: list[CapabilityGrantV1] = []
+    artifact_capabilities = {
+        "PDF": "pdf_generate",
+        "DOCX": "docx_ingest",
+        "JSON": "json_generate",
+    }
+    mission_required = {
+        artifact_capabilities[artifact]
+        for artifact in mission.desired_outcome.required_artifacts
+    }
     for capability_id in candidate_ids:
-        required = capability_id in hard_required_ids
+        required = capability_id in hard_required_ids and capability_id in mission_required
         if required:
             grants.append(
                 CapabilityGrantV1(

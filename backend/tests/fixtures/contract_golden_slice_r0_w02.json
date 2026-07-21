@@ -14,6 +14,11 @@
   },
   "constraints": ["预算不超过合同金额上限", "交付周期不晚于约定日期"],
   "prohibited_actions": ["不得代用户签字", "不得承诺任何未在合同中出现的条款"],
+  "assumptions": ["输入文件完整"],
+  "budget_limit_minor": 100000,
+  "deadline_at": "2026-12-31T00:00:00+00:00",
+  "read_scope": ["contract:source:v1"],
+  "plan_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "desired_outcome": {
     "required_artifacts": ["PDF", "DOCX", "JSON"]
   }

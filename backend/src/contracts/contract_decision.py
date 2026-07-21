@@ -6,6 +6,7 @@ RED case："第六种裁决或'可签'文案出现"必须失败——五种裁�
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -21,15 +22,16 @@ class ContractDecisionV1(BaseModel):
     schema_version: Literal["ContractDecisionV1"] = "ContractDecisionV1"
     mission_contract_id: str = Field(min_length=1)
     final_memorial_id: str = Field(min_length=1)
-    content_hash: str = Field(min_length=64, max_length=64)
+    content_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     verdict: ContractVerdict
     verdict_narrative: str = Field(min_length=1, max_length=200)
-    decided_at: str = Field(min_length=1)
+    decided_at: datetime
 
     @field_validator("verdict_narrative")
     @classmethod
     def _no_sign_off_language(cls, value: str) -> str:
+        normalized = value.casefold()
         for phrase in _BANNED_SIGN_OFF_PHRASES:
-            if phrase in value:
+            if phrase.casefold() in normalized:
                 raise ValueError(f"verdict_narrative 不得包含签署暗示文案: {phrase!r}")
         return value

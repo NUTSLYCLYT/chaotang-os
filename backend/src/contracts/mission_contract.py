@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -61,6 +62,11 @@ class MissionContractV1(BaseModel):
     constraints: list[str]
     prohibited_actions: list[str]
     desired_outcome: MissionOutcome
+    assumptions: list[str]
+    budget_limit_minor: int = Field(ge=0)
+    deadline_at: datetime
+    read_scope: list[str] = Field(min_length=1)
+    plan_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     content_digest: str = Field(min_length=64, max_length=64)
     created_at: str = Field(min_length=1)
 
@@ -72,6 +78,7 @@ def compute_mission_content_digest(mission: MissionContractV1) -> str:
     这些字段变化不代表任务内容真的变了，混进摘要会让"内容没变但 digest 变了"这种假冲突出现。
     """
     payload: dict[str, Any] = {
+        "task_id": mission.task_id,
         "jurisdiction": mission.jurisdiction,
         "language": mission.language,
         "contract_type": mission.contract_type,
@@ -80,6 +87,11 @@ def compute_mission_content_digest(mission: MissionContractV1) -> str:
         "constraints": mission.constraints,
         "prohibited_actions": mission.prohibited_actions,
         "desired_outcome": mission.desired_outcome.model_dump(),
+        "assumptions": mission.assumptions,
+        "budget_limit_minor": mission.budget_limit_minor,
+        "deadline_at": mission.deadline_at.isoformat(),
+        "read_scope": mission.read_scope,
+        "plan_digest": mission.plan_digest,
     }
     canonical = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()

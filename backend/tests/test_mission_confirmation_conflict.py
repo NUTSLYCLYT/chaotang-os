@@ -59,6 +59,11 @@ def test_router_returns_http_409_on_conflict() -> None:
         "constraints": [],
         "prohibited_actions": [],
         "desired_outcome": {"required_artifacts": ["PDF"]},
+        "assumptions": ["test input is complete"],
+        "budget_limit_minor": 100000,
+        "deadline_at": "2026-12-31T00:00:00+00:00",
+        "read_scope": ["contract:source:v1"],
+        "plan_digest": "a" * 64,
         "content_digest": "0" * 64,
         "created_at": "2026-07-21T00:00:00+00:00",
     }

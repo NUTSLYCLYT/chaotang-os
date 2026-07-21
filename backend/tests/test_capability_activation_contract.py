@@ -32,6 +32,11 @@ def _mission() -> MissionContractV1:
         constraints=_FIXTURE["constraints"],
         prohibited_actions=_FIXTURE["prohibited_actions"],
         desired_outcome=MissionOutcome(**_FIXTURE["desired_outcome"]),
+        assumptions=_FIXTURE["assumptions"],
+        budget_limit_minor=_FIXTURE["budget_limit_minor"],
+        deadline_at=_FIXTURE["deadline_at"],
+        read_scope=_FIXTURE["read_scope"],
+        plan_digest=_FIXTURE["plan_digest"],
         content_digest="0" * 64,
         created_at="2026-07-21T00:00:00+00:00",
     )

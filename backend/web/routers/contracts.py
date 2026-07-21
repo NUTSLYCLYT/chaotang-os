@@ -35,8 +35,8 @@ from web.schemas.contracts import CapabilityActivationRequest, MissionConfirmReq
 router = APIRouter(prefix="/api/contracts", tags=["contracts"])
 
 # W02 schema-proving stub，不是真实单一事实源；W04 提供真正的持久化 single-writer 存储。
-_MISSION_DRAFT_STORE: dict[str, MissionContractV1] = {}
-_MISSION_LINEAGE_STORE: dict[str, ContractLineageStatusV1] = {}
+_MISSION_DRAFT_STORE: dict[tuple[str, str], MissionContractV1] = {}
+_MISSION_LINEAGE_STORE: dict[tuple[str, str], ContractLineageStatusV1] = {}
 
 
 def _now_iso() -> str:
@@ -61,19 +61,24 @@ def evaluate_contract_support(
 @router.post("/mission/draft", response_model=MissionContractV1)
 def draft_mission_contract(
     body: MissionContractV1,
-    _: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(get_current_user),
 ) -> MissionContractV1:
     """服务端重算 content_digest（不信任客户端传入的摘要），落草稿桩存储。"""
     recomputed = body.model_copy(update={"content_digest": compute_mission_content_digest(body)})
-    _MISSION_DRAFT_STORE[recomputed.mission_contract_id] = recomputed
-    _MISSION_LINEAGE_STORE[recomputed.mission_contract_id] = ContractLineageStatusV1(
+    support = evaluate_support(
+        ContractIntakeV1(jurisdiction=body.jurisdiction, language=body.language, contract_type=body.contract_type, our_role=body.our_role),
+        mission_contract_id=body.mission_contract_id, revision=body.revision, evaluated_at=_now_iso(), capability_active=True,
+    )
+    key = (user.tenant_slug, recomputed.mission_contract_id)
+    _MISSION_DRAFT_STORE[key] = recomputed
+    _MISSION_LINEAGE_STORE[key] = ContractLineageStatusV1(
         lineage_id=f"lineage-{recomputed.mission_contract_id}",
         mission_contract_id=recomputed.mission_contract_id,
         revision=recomputed.revision,
         supersedes_revision=None,
         content_digest=recomputed.content_digest,
         mission_status="AWAITING_CONFIRMATION",
-        support_status="SUPPORTED",
+        support_status=support.support_status,
         capability_activation_status="NOT_ACTIVATED",
         decision_status="NOT_DECIDED",
     )
@@ -87,10 +92,11 @@ def draft_mission_contract(
 def confirm_mission_contract(
     mission_contract_id: str,
     body: MissionConfirmRequest,
-    _: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(get_current_user),
 ) -> ContractLineageStatusV1:
     """revision+digest 必须与已落草稿的值同时匹配，否则 409（REQ-005）。"""
-    stored = _MISSION_DRAFT_STORE.get(mission_contract_id)
+    key = (user.tenant_slug, mission_contract_id)
+    stored = _MISSION_DRAFT_STORE.get(key)
     if stored is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="mission_contract_id 不存在")
     try:
@@ -112,22 +118,26 @@ def confirm_mission_contract(
             },
         ) from exc
 
-    lineage = _MISSION_LINEAGE_STORE[mission_contract_id].model_copy(
+    lineage = _MISSION_LINEAGE_STORE[key].model_copy(
         update={"mission_status": "CONFIRMED"}
     )
-    _MISSION_LINEAGE_STORE[mission_contract_id] = lineage
+    _MISSION_LINEAGE_STORE[key] = lineage
     return lineage
 
 
 @router.post("/capability/activate", response_model=list[CapabilityGrantV1])
 def activate_contract_capabilities(
     body: CapabilityActivationRequest,
-    _: CurrentUser = Depends(get_current_user),
+    user: CurrentUser = Depends(get_current_user),
 ) -> list[CapabilityGrantV1]:
     """只对 candidate ∩ hard_required 的交集给 ACTIVATED，其余全零权限（REQ-006/007）。"""
-    stored = _MISSION_DRAFT_STORE.get(body.mission_contract_id)
+    key = (user.tenant_slug, body.mission_contract_id)
+    stored = _MISSION_DRAFT_STORE.get(key)
     if stored is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="mission_contract_id 不存在")
+    lineage = _MISSION_LINEAGE_STORE[key]
+    if lineage.mission_status != "CONFIRMED" or lineage.support_status != "SUPPORTED":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="mission must be confirmed and supported")
     return activate_capabilities(
         stored, body.candidate_capability_ids, HARD_REQUIRED_CAPABILITIES_R0
     )
