@@ -28,7 +28,7 @@
 - 前置：G0 hosted PR 合入 `feature-chaotang-ext`。
 - 目标：rebase 到新 EXT exact SHA，重算 amendment digest，填写具名 Owner，获得用户对 W01 的 exact 批准。
 - 明确限制：本任务完成前不得实现 v2 或产品 runtime。
-- 状态：BLOCKED_EXTERNAL_G0_MERGE。
+- 状态：IN_PROGRESS；G0 已合入，已重钉 `origin/feature-chaotang-ext@ccc2d74a2e439830e9c6ae7adcefb5ee8c05c150` 并记录 `lyt` 暂代 Owner；等待 exact-H 独立复审、托管门禁和 Product Owner 对最终 H/tree/diff/amendment digest 的精确批准。
 
 ## 任务 5：未来逐包施工
 

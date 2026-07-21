@@ -78,7 +78,32 @@
     "document": ".harness/changes/docs-r0-trusted-kernel-amendment-20260720/amendment.md",
     "checker": "scripts/r0-amendment-check.mjs",
     "test": "scripts/r0-amendment-check.nodetest.mjs",
-    "candidateSourceDigest": "20115262c8282fb9fd40f29707f30108895577880d53d4dda4f8ee27b5a1b104",
+    "effectiveBase": {
+      "ref": "origin/feature-chaotang-ext",
+      "sha": "ccc2d74a2e439830e9c6ae7adcefb5ee8c05c150"
+    },
+    "ownerAssignments": {
+      "product": "lyt",
+      "program": "lyt",
+      "backendApiContract": "lyt",
+      "canonicalRuntime": "lyt",
+      "securityData": "lyt",
+      "frontend": "lyt",
+      "qaLegalEvaluation": "lyt",
+      "release": "lyt",
+      "security": "lyt"
+    },
+    "executionOwner": "Codex",
+    "independentReviewer": "Claude Code",
+    "professionalReassignmentRequiredBefore": [
+      "REAL_CUSTOMER_DATA",
+      "R0-W08",
+      "R0-W09"
+    ],
+    "professionalRolesRequired": ["security", "legal", "release"],
+    "professionalReassignmentGateStatus": "DECLARATIVE_PRECONDITION_NOT_RUNTIME_ENFORCED",
+    "approvalEvidence": null,
+    "candidateSourceDigest": "2ba59cbe4d4032d8f372d1dd757e03edb78038b38de6d657380f357100a83e38",
     "approvedSourceDigest": null,
     "canAuthorizeRuntime": false,
     "verification": [

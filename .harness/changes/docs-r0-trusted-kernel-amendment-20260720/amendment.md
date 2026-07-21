@@ -1,11 +1,11 @@
 # R0 可信合同内核实施修正案
 
 > Amendment ID：`R0-TRUSTED-KERNEL-AMENDMENT-01`
-> 状态：`PROPOSED / PENDING_G0_HOSTED_MERGE / PENDING_OWNER_APPROVAL`
+> 状态：`PROPOSED / G0_MERGED / REPINNED / PENDING_OWNER_EXACT_APPROVAL`
 > 产品范围：`R0_INTERNAL_TRUSTED_KERNEL`
 > 数据边界：仅合成数据，或经合法性复核且不可重新识别的去标识材料
-> 当前草案基线：stacked on G0 evidence commit `bf99f6091a6a535ae4ef1e6d8534029c866f3419`
-> 生效基线：`PENDING`；必须在 G0 合入后绑定新的 `origin/feature-chaotang-ext@<exact-sha>`
+> G0 合并提交：`9d642ec8e0eb5be40916e56ce1da9cb6e12cf6b5`（Gitee Pull Request !5）
+> 当前集成基线：`origin/feature-chaotang-ext@ccc2d74a2e439830e9c6ae7adcefb5ee8c05c150`
 > 执行授权：`NOT_GRANTED_BY_THIS_DRAFT`
 
 本修正案把产品宪法、R0/R1 PRD 与旧 M0–M10 宽平台计划收敛为一条合同纵切价值流。它在获得产品 Owner 对 exact amendment digest、exact integration base 和批准范围的明确确认，并由后续 execution-authority v2 绑定前，不授权修改产品 runtime。
@@ -35,7 +35,7 @@ R0 不以 Agent、页面、部门、分支或文档数量衡量完成，只以�
 
 | 事实 | 当前状态 | 影响 |
 | --- | --- | --- |
-| G0 inactive authority | `origin/task/r0-execution-authority-20260720@bf99f6091a6a535ae4ef1e6d8534029c866f3419` 已推送；Gitee PR/required check/merge 未完成 | 仍为 `NOT_ENFORCED` |
+| G0 inactive authority | Gitee Pull Request !5 已合入，merge commit `9d642ec8e0eb5be40916e56ce1da9cb6e12cf6b5`；当前 EXT 已前进到 `ccc2d74a2e439830e9c6ae7adcefb5ee8c05c150` | v1 仍为 `NOT_ENFORCED`，只允许 W01 治理重钉 |
 | v1 `--authorize` | 固定 `STOP / AMENDMENT_APPROVAL_REQUIRED` | 只能编制修正案，不能做 runtime |
 | 产品 SSOT / R0 PRD | 已冻结；22 条 R0 REQ 完整 | 产品范围明确 |
 | Direct 完成语义 | `direct_completed` 仍会被投影为 completed/report-ready | stop-ship：伪完成 |
@@ -85,7 +85,25 @@ R0 不以 Agent、页面、部门、分支或文档数量衡量完成，只以�
 | release identity 与回滚 | Release Owner + Security Owner |
 | 独立复审 | Claude Code，只读、非写入者 |
 
-具名人选必须在批准证据中填写；批准前，除用户为 Product Owner、Codex 为 amendment 起草者外，其余角色均为 `UNASSIGNED`，不得用角色名假装人员已经到位。
+本轮具名 Owner 已由 Product Owner 明确指定；这些指派仅覆盖 R0 内部合成数据阶段，真实客户数据、W08 和 W09 前必须重新指定专业安全、法律与发布负责人。
+
+当前仅把重新指定记录为后续阶段的批准前置，状态为 `DECLARATIVE_PRECONDITION_NOT_RUNTIME_ENFORCED`；必须由 execution-authority v2 在进入对应阶段前实现可执行阻断。
+
+### 4.1 本轮具名 Owner
+
+| 角色 | 具名 Owner |
+| --- | --- |
+| Product Owner | `lyt` |
+| Program Owner | `lyt` |
+| Backend API Contract Owner | `lyt` |
+| Canonical Runtime Owner | `lyt` |
+| Security & Data Owner | `lyt` |
+| Frontend Owner | `lyt` |
+| QA & Legal Evaluation Owner | `lyt` |
+| Release Owner | `lyt` |
+| Security Owner | `lyt` |
+| Execution Owner | `Codex` |
+| Independent Reviewer | `Claude Code` |
 
 执行纪律：
 
