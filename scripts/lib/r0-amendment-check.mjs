@@ -56,6 +56,19 @@ const EXPECTED_NON_OWNER_PACKET_CELLS = Object.freeze({
   W09: 'release gate',
 });
 
+const EXPECTED_OWNER_LABELS = Object.freeze({
+  product: 'Product Owner',
+  program: 'Program Owner',
+  backendApiContract: 'Backend API Contract Owner',
+  canonicalRuntime: 'Canonical Runtime Owner',
+  securityData: 'Security & Data Owner',
+  frontend: 'Frontend Owner',
+  qaLegalEvaluation: 'QA & Legal Evaluation Owner',
+  release: 'Release Owner',
+  security: 'Security Owner',
+});
+const OWNER_PLACEHOLDERS = new Set(['UNASSIGNED', 'TBD', 'PENDING', 'N/A', '-']);
+
 const REQUIRED_CONTROLS = Object.freeze([
   {
     label: 'git diff --binary <B>..<H> | sha256sum',
@@ -95,8 +108,9 @@ const REQUIRED_CONTROLS = Object.freeze([
       /^\| OQ-06：Provider\/区域\/训练\/subprocessor\/退出边界 \| W03 RED 前冻结 R0 合成数据最小 policy；真实数据前补齐 DPA\/TOS 全量边界 \| W03 或真实数据阶段分别保持 `BLOCKED_INPUT` \|$/m,
   },
   {
-    label: 'PENDING_G0_HOSTED_MERGE',
-    pattern: /^> 状态：`PROPOSED \/ PENDING_G0_HOSTED_MERGE \/ PENDING_OWNER_APPROVAL`$/m,
+    label: 'G0_MERGED_REPINNED',
+    pattern:
+      /^> 状态：`PROPOSED \/ G0_MERGED \/ REPINNED \/ PENDING_OWNER_EXACT_APPROVAL`$/m,
   },
   {
     label: 'NOT_GRANTED_BY_THIS_DRAFT',
@@ -116,6 +130,24 @@ const REQUIRED_CONTROLS = Object.freeze([
     label: '明确未批准 W02–W09 runtime',
     pattern:
       /Product Owner 明确回复：Amendment ID、digest、effective base、批准 W01、明确未批准 W02–W09 runtime。/,
+  },
+  {
+    label: '专业安全、法律与发布负责人重新指定门',
+    pattern:
+      /这些指派仅覆盖 R0 内部合成数据阶段，真实客户数据、W08 和 W09 前必须重新指定专业安全、法律与发布负责人。/,
+  },
+  {
+    label: '专业负责人门尚未运行时强制',
+    pattern:
+      /当前仅把重新指定记录为后续阶段的批准前置，状态为 `DECLARATIVE_PRECONDITION_NOT_RUNTIME_ENFORCED`；必须由 execution-authority v2 在进入对应阶段前实现可执行阻断。/,
+  },
+  {
+    label: 'Execution Owner Codex',
+    pattern: /^\| Execution Owner \| `Codex` \|$/m,
+  },
+  {
+    label: 'Independent Reviewer Claude Code',
+    pattern: /^\| Independent Reviewer \| `Claude Code` \|$/m,
   },
 ]);
 
@@ -198,7 +230,56 @@ function collectPacketRequirementOwnership(source) {
   return { rows, errors };
 }
 
-export function validateR0AmendmentMarkdown(source) {
+function validateEffectiveBase(source, expectedEffectiveBase) {
+  const matches = [
+    ...source.matchAll(/^> 当前集成基线：`([^@`\s]+)@([0-9a-f]{40})`$/gm),
+  ];
+  if (matches.length !== 1) {
+    return [`effective base must appear exactly once, got ${matches.length}`];
+  }
+
+  const [, ref, sha] = matches[0];
+  if (
+    expectedEffectiveBase &&
+    (ref !== expectedEffectiveBase.ref || sha !== expectedEffectiveBase.sha)
+  ) {
+    return [
+      `effective base must be ${expectedEffectiveBase.ref}@${expectedEffectiveBase.sha}, got ${ref}@${sha}`,
+    ];
+  }
+  return [];
+}
+
+function validateNamedOwners(source, expectedOwnerAssignments) {
+  const errors = [];
+  for (const [key, label] of Object.entries(EXPECTED_OWNER_LABELS)) {
+    const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const matches = [
+      ...source.matchAll(
+        new RegExp('^\\| ' + escapedLabel + ' \\| `([^`]+)` \\|$', 'gm'),
+      ),
+    ];
+    if (matches.length !== 1) {
+      errors.push(`${label} must have exactly one named owner, got ${matches.length}`);
+      continue;
+    }
+    const actualOwner = matches[0][1].trim();
+    if (actualOwner === '' || OWNER_PLACEHOLDERS.has(actualOwner.toUpperCase())) {
+      errors.push(`${label} must be a named owner, not a placeholder`);
+      continue;
+    }
+    const expectedOwner = expectedOwnerAssignments?.[key];
+    if (expectedOwner !== undefined && actualOwner !== expectedOwner) {
+      errors.push(`${label} must be ${expectedOwner}, got ${actualOwner}`);
+    }
+  }
+  return errors;
+}
+
+export function validateR0AmendmentMarkdown(
+  source,
+  { effectiveBase, ownerAssignments } = {},
+) {
   if (typeof source !== 'string') {
     return ['amendment source must be a string'];
   }
@@ -224,6 +305,8 @@ export function validateR0AmendmentMarkdown(source) {
       'packet ownership REQ',
     ),
     ...packetRequirementOwnership.errors,
+    ...validateEffectiveBase(source, effectiveBase),
+    ...validateNamedOwners(source, ownerAssignments),
   ];
 
   for (let index = 0; index <= 9; index += 1) {
@@ -247,5 +330,6 @@ export const R0_AMENDMENT_EXPECTATIONS = Object.freeze({
   requirements: EXPECTED_REQUIREMENT_PACKAGES,
   exitGates: EXPECTED_EXIT_GATE_PACKAGES,
   milestones: EXPECTED_MILESTONE_DISPOSITIONS,
+  ownerLabels: EXPECTED_OWNER_LABELS,
   controls: REQUIRED_CONTROLS.map(({ label }) => label),
 });
