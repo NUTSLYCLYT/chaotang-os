@@ -2,12 +2,12 @@
 
 | Field | Value |
 | --- | --- |
-| Generated at | 2026-07-21T09:57:11.444Z |
+| Generated at | 2026-07-21 |
 | Status | pass |
-| Diff mode | baseline_created |
+| Diff mode | diff_checked |
 | Route count | 352 |
 | Breaking changes | 0 |
-| Warnings | 1 |
+| Warnings | 0 |
 
 ## Artifacts
 
@@ -21,9 +21,7 @@ None.
 
 ## Warnings
 
-| Type | Key |
-| --- | --- |
-| warning | No previous route snapshot was found; current snapshot is the baseline for future diffs. |
+None.
 
 ## CI Policy
 

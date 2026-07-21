@@ -601,17 +601,22 @@ export type MissionConfirmRequest = {
 };
 
 export type MissionContractV1 = {
+  "assumptions": string[];
+  "budget_limit_minor": number;
   "constraints": string[];
   "content_digest": string;
   "contract_type": "procurement" | "sales" | "service" | "UNSUPPORTED_OR_UNKNOWN";
   "created_at": string;
+  "deadline_at": string;
   "desired_outcome": MissionOutcome;
   "goal": MissionGoal;
   "jurisdiction": "CN_MAINLAND" | "UNSUPPORTED_OR_UNKNOWN";
   "language": "zh-CN" | "UNSUPPORTED_OR_UNKNOWN";
   "mission_contract_id": string;
   "our_role": "buyer" | "seller" | "service_provider" | "other_party" | "UNSUPPORTED_OR_UNKNOWN";
+  "plan_digest": string;
   "prohibited_actions": string[];
+  "read_scope": string[];
   "revision": number;
   "schema_version"?: "MissionContractV1";
   "task_id": string;
