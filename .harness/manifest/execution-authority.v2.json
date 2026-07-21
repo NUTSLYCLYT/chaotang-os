@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "execution-authority.v2",
+  "authorityId": "r0-execution-authority-20260721-v2",
+  "amendment": {
+    "id": "R0-TRUSTED-KERNEL-AMENDMENT-01",
+    "path": ".harness/changes/docs-r0-trusted-kernel-amendment-20260720/amendment.md",
+    "approvedSourceDigest": "2ba59cbe4d4032d8f372d1dd757e03edb78038b38de6d657380f357100a83e38"
+  },
+  "effectiveBase": {
+    "ref": "origin/feature-chaotang-ext",
+    "sha": "ccc2d74a2e439830e9c6ae7adcefb5ee8c05c150"
+  },
+  "approvalEvidence": {
+    "ownerApprovalPath": ".harness/changes/docs-r0-w01-amendment-repin-20260721-20260721/owner_approval/exact-h-approval.md",
+    "ownerApprovalSha256": "7016c61934dd81f62b7fb69667214c77b16c78674a091529f149385cf790606b",
+    "reviewPath": ".harness/changes/docs-r0-w01-amendment-repin-20260721-20260721/claude_code_review/exact-h-final.md",
+    "reviewSha256": "ecca3dcafef5fad5ce609acbfaeb75d18719e95690ff8ee9343e0906b24c606e",
+    "reviewVerdict": "GO",
+    "approver": "lyt",
+    "candidateH": "5e432ea45796738902fcd74948a34918e781bda7",
+    "tree": "50f0b0c852fccdd6a3119cbffd180ea65ed78df6",
+    "approvedScope": ["R0-W01"]
+  },
+  "activeWorkPackage": "R0-W01",
+  "workPackageLedger": [
+    { "id": "R0-W00", "status": "MERGED_AND_VERIFIED" },
+    { "id": "R0-W01", "status": "ACTIVE" }
+  ],
+  "professionalReassignment": {
+    "requiredBefore": ["REAL_CUSTOMER_DATA", "R0-W08", "R0-W09"],
+    "rolesRequired": ["security", "legal", "release"],
+    "assignments": {
+      "security": "lyt",
+      "legal": "lyt",
+      "release": "lyt"
+    },
+    "defaultOwner": "lyt"
+  }
+}

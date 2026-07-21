@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chaotang.local/contracts/execution-authority.v2.schema.json",
+  "title": "Chaotang OS R0-W01 scoped execution authority",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "authorityId",
+    "amendment",
+    "effectiveBase",
+    "approvalEvidence",
+    "activeWorkPackage",
+    "workPackageLedger",
+    "professionalReassignment"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "execution-authority.v2" },
+    "authorityId": { "const": "r0-execution-authority-20260721-v2" },
+    "amendment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "approvedSourceDigest"],
+      "properties": {
+        "id": { "const": "R0-TRUSTED-KERNEL-AMENDMENT-01" },
+        "path": {
+          "const": ".harness/changes/docs-r0-trusted-kernel-amendment-20260720/amendment.md"
+        },
+        "approvedSourceDigest": { "$ref": "#/$defs/hex64" }
+      }
+    },
+    "effectiveBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "sha"],
+      "properties": {
+        "ref": { "type": "string", "pattern": "^origin/[A-Za-z0-9][A-Za-z0-9._/-]*$" },
+        "sha": { "$ref": "#/$defs/hex40" }
+      }
+    },
+    "approvalEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ownerApprovalPath",
+        "ownerApprovalSha256",
+        "reviewPath",
+        "reviewSha256",
+        "reviewVerdict",
+        "approver",
+        "candidateH",
+        "tree",
+        "approvedScope"
+      ],
+      "properties": {
+        "ownerApprovalPath": {
+          "type": "string",
+          "pattern": "^\\.harness/changes/[a-z0-9][a-z0-9-]*/owner_approval/exact-h-approval\\.md$"
+        },
+        "ownerApprovalSha256": { "$ref": "#/$defs/hex64" },
+        "reviewPath": {
+          "type": "string",
+          "pattern": "^\\.harness/changes/[a-z0-9][a-z0-9-]*/claude_code_review/exact-h-final\\.md$"
+        },
+        "reviewSha256": { "$ref": "#/$defs/hex64" },
+        "reviewVerdict": { "const": "GO" },
+        "approver": { "type": "string", "minLength": 1 },
+        "candidateH": { "$ref": "#/$defs/hex40" },
+        "tree": { "$ref": "#/$defs/hex40" },
+        "approvedScope": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^R0-W0[0-9]$" }
+        }
+      }
+    },
+    "activeWorkPackage": {
+      "oneOf": [{ "const": null }, { "type": "string", "pattern": "^R0-W0[0-9]$" }]
+    },
+    "workPackageLedger": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^R0-W0[0-9]$" },
+          "status": {
+            "enum": [
+              "NOT_STARTED",
+              "ACTIVE",
+              "MERGED_AND_VERIFIED",
+              "BLOCKED_DEPENDENCY",
+              "ROLLED_BACK"
+            ]
+          }
+        }
+      }
+    },
+    "professionalReassignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requiredBefore", "rolesRequired", "assignments", "defaultOwner"],
+      "properties": {
+        "requiredBefore": {
+          "const": ["REAL_CUSTOMER_DATA", "R0-W08", "R0-W09"]
+        },
+        "rolesRequired": {
+          "const": ["security", "legal", "release"]
+        },
+        "assignments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["security", "legal", "release"],
+          "properties": {
+            "security": { "type": "string", "minLength": 1 },
+            "legal": { "type": "string", "minLength": 1 },
+            "release": { "type": "string", "minLength": 1 }
+          }
+        },
+        "defaultOwner": { "const": "lyt" }
+      }
+    }
+  },
+  "$defs": {
+    "hex64": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "hex40": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+  }
+}

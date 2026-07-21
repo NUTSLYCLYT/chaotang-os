@@ -10,7 +10,16 @@ import {
   resolveExecutionAuthority,
   validateExecutionAuthority,
 } from './lib/execution-authority.mjs';
-import { validateAmendmentGovernanceRegistration } from './lib/amendment-governance.mjs';
+import {
+  EXPECTED_EXECUTION_AUTHORITY_V2_REGISTRATION,
+  loadExecutionAuthorityV2,
+  resolveExecutionAuthorityV2,
+  validateExecutionAuthorityV2,
+} from './lib/execution-authority-v2.mjs';
+import {
+  validateAmendmentGovernanceRegistration,
+  verifyAmendmentApprovalEvidenceFiles,
+} from './lib/amendment-governance.mjs';
 import { validateRepositoryStructure } from './lib/repository-structure.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -52,6 +61,12 @@ const required = [
   'scripts/execution-authority.mjs',
   'scripts/execution-authority.nodetest.mjs',
   'scripts/lib/execution-authority.mjs',
+  'scripts/execution-authority-v2.mjs',
+  'scripts/execution-authority-v2.nodetest.mjs',
+  'scripts/lib/execution-authority-v2.mjs',
+  '.harness/manifest/execution-authority.v2.json',
+  '.harness/contracts/execution-authority-v2.schema.json',
+  '.harness/wiki/execution-authority-v2.md',
   'scripts/r0-amendment-check.mjs',
   'scripts/r0-amendment-check.nodetest.mjs',
   'scripts/lib/r0-amendment-check.mjs',
@@ -165,12 +180,51 @@ if (manifest) {
     error('manifest missing executionAuthority');
   }
 
+  if (manifest.executionAuthorityV2) {
+    if (
+      JSON.stringify(manifest.executionAuthorityV2) !==
+      JSON.stringify(EXPECTED_EXECUTION_AUTHORITY_V2_REGISTRATION)
+    ) {
+      error('manifest executionAuthorityV2 registration differs from the fixed W01 registration');
+    }
+    for (const key of ['manifest', 'schema', 'resolver', 'command', 'test', 'documentation']) {
+      checkExists(
+        EXPECTED_EXECUTION_AUTHORITY_V2_REGISTRATION[key],
+        `manifest execution authority v2 ${key}`,
+      );
+    }
+    const loadedV2 = await loadExecutionAuthorityV2(root);
+    const v2Errors = validateExecutionAuthorityV2(loadedV2);
+    if (v2Errors.length > 0) {
+      for (const message of v2Errors) error(`execution authority v2: ${message}`);
+    } else {
+      const decisionW01 = resolveExecutionAuthorityV2(loadedV2.manifest, loadedV2.amendmentGovernance, {
+        workPackage: 'R0-W01',
+      });
+      const decisionW02 = resolveExecutionAuthorityV2(loadedV2.manifest, loadedV2.amendmentGovernance, {
+        workPackage: 'R0-W02',
+      });
+      if (decisionW01.decision !== 'GO') {
+        error('execution-authority.v2 must currently authorize exactly R0-W01');
+      } else if (decisionW02.decision !== 'STOP' || decisionW02.reason !== 'BLOCKED_DEPENDENCY') {
+        error('execution-authority.v2 must still block R0-W02 until W01 is MERGED_AND_VERIFIED');
+      } else {
+        ok('execution authority v2 authorizes exactly R0-W01 and blocks all successor packets');
+      }
+    }
+  } else {
+    error('manifest missing executionAuthorityV2');
+  }
+
   if (manifest.amendmentGovernance) {
     const amendment = manifest.amendmentGovernance;
     for (const key of ['document', 'checker', 'test']) {
       checkExists(amendment[key], `manifest amendment governance ${key}`);
     }
     for (const message of validateAmendmentGovernanceRegistration(amendment)) {
+      error(message);
+    }
+    for (const message of await verifyAmendmentApprovalEvidenceFiles(root, amendment)) {
       error(message);
     }
   } else {

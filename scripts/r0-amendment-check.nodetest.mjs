@@ -105,36 +105,59 @@ test('R0 amendment re-pin binds the merged G0 base and every named owner', async
   );
 });
 
-test('root governance registration rejects every re-pin trust-boundary mutation', async () => {
-  const projectManifest = JSON.parse(
-    await readFile(join(root, '.harness/manifest/project-harness.json'), 'utf8'),
-  );
-  const governance = projectManifest.amendmentGovernance;
+function proposedGovernanceFixture() {
+  return {
+    status: 'PROPOSED_NOT_AUTHORITY',
+    document: '.harness/changes/docs-r0-trusted-kernel-amendment-20260720/amendment.md',
+    checker: 'scripts/r0-amendment-check.mjs',
+    test: 'scripts/r0-amendment-check.nodetest.mjs',
+    effectiveBase: { ref: 'origin/feature-chaotang-ext', sha: 'ccc2d74a2e439830e9c6ae7adcefb5ee8c05c150' },
+    ownerAssignments: {
+      product: 'lyt',
+      program: 'lyt',
+      backendApiContract: 'lyt',
+      canonicalRuntime: 'lyt',
+      securityData: 'lyt',
+      frontend: 'lyt',
+      qaLegalEvaluation: 'lyt',
+      release: 'lyt',
+      security: 'lyt',
+    },
+    executionOwner: 'Codex',
+    independentReviewer: 'Claude Code',
+    professionalReassignmentRequiredBefore: ['REAL_CUSTOMER_DATA', 'R0-W08', 'R0-W09'],
+    professionalRolesRequired: ['security', 'legal', 'release'],
+    professionalReassignmentGateStatus: 'DECLARATIVE_PRECONDITION_NOT_RUNTIME_ENFORCED',
+    approvalEvidence: null,
+    candidateSourceDigest: '2ba59cbe4d4032d8f372d1dd757e03edb78038b38de6d657380f357100a83e38',
+    approvedSourceDigest: null,
+    canAuthorizeRuntime: false,
+    verification: [
+      'node --test scripts/r0-amendment-check.nodetest.mjs',
+      'node scripts/r0-amendment-check.mjs',
+      'node scripts/harness-doctor.mjs',
+    ],
+  };
+}
+
+test('PROPOSED_NOT_AUTHORITY governance branch stays a regression-safe standalone fixture', () => {
+  const governance = proposedGovernanceFixture();
   assert.deepEqual(validateAmendmentGovernanceRegistration(governance), []);
   assert.ok(
-    validateAmendmentGovernanceRegistration(null).some((error) =>
-      error.includes('must be an object'),
-    ),
+    validateAmendmentGovernanceRegistration(null).some((error) => error.includes('must be an object')),
   );
 
   const mutations = [
-    ['invalid status', { ...governance, status: 'APPROVED' }],
     ['never authorize runtime', { ...governance, canAuthorizeRuntime: true }],
     ['canonical R0 amendment path', { ...governance, document: 'other.md' }],
     ['sha256 hex digest', { ...governance, candidateSourceDigest: 'invalid' }],
     [
       'effective base',
-      {
-        ...governance,
-        effectiveBase: { ...governance.effectiveBase, sha: '0'.repeat(40) },
-      },
+      { ...governance, effectiveBase: { ...governance.effectiveBase, sha: '0'.repeat(40) } },
     ],
     [
       'named R0 owners',
-      {
-        ...governance,
-        ownerAssignments: { ...governance.ownerAssignments, security: 'other' },
-      },
+      { ...governance, ownerAssignments: { ...governance.ownerAssignments, security: 'other' } },
     ],
     ['executionOwner', { ...governance, executionOwner: 'other' }],
     ['independentReviewer', { ...governance, independentReviewer: 'other' }],
@@ -147,21 +170,65 @@ test('root governance registration rejects every re-pin trust-boundary mutation'
       { ...governance, professionalRolesRequired: ['security'] },
     ],
     [
-      'declarative until execution-authority v2',
+      'professional reassignment gate must be',
       { ...governance, professionalReassignmentGateStatus: 'ENFORCED' },
     ],
     ['approvalEvidence', { ...governance, approvalEvidence: { approved: true } }],
+    ['approvedSourceDigest', { ...governance, approvedSourceDigest: '0'.repeat(64) }],
+    ['missing verification command', { ...governance, verification: [] }],
+  ];
+  for (const [expectedError, mutation] of mutations) {
+    assert.ok(
+      validateAmendmentGovernanceRegistration(mutation).some((error) => error.includes(expectedError)),
+      `expected governance error containing: ${expectedError}`,
+    );
+  }
+});
+
+test('APPROVED_FOR_W01 governance branch validates the live manifest and rejects every trust-boundary mutation', async () => {
+  const projectManifest = JSON.parse(
+    await readFile(join(root, '.harness/manifest/project-harness.json'), 'utf8'),
+  );
+  const governance = projectManifest.amendmentGovernance;
+  assert.equal(governance.status, 'APPROVED_FOR_W01');
+  assert.deepEqual(validateAmendmentGovernanceRegistration(governance), []);
+
+  const mutations = [
+    ['invalid status', { ...governance, status: 'APPROVED_FOR_W02' }],
+    ['never authorize runtime', { ...governance, canAuthorizeRuntime: true }],
+    ['canonical R0 amendment path', { ...governance, document: 'other.md' }],
     [
-      'approvedSourceDigest',
+      'approved amendment must carry a sha256 approvedSourceDigest',
+      { ...governance, approvedSourceDigest: null },
+    ],
+    [
+      'approvedSourceDigest must equal candidateSourceDigest',
       { ...governance, approvedSourceDigest: '0'.repeat(64) },
+    ],
+    [
+      'professional reassignment gate must be',
+      { ...governance, professionalReassignmentGateStatus: 'DECLARATIVE_PRECONDITION_NOT_RUNTIME_ENFORCED' },
+    ],
+    [
+      'approvalEvidence has missing or unsupported fields',
+      { ...governance, approvalEvidence: null },
+    ],
+    [
+      'approvedScope must be exactly',
+      {
+        ...governance,
+        approvalEvidence: { ...governance.approvalEvidence, approvedScope: ['R0-W01', 'R0-W02'] },
+      },
+    ],
+    [
+      'reviewVerdict must be GO',
+      { ...governance, approvalEvidence: { ...governance.approvalEvidence, reviewVerdict: 'STOP' } },
     ],
     ['missing verification command', { ...governance, verification: [] }],
   ];
   for (const [expectedError, mutation] of mutations) {
     assert.ok(
-      validateAmendmentGovernanceRegistration(mutation).some((error) =>
-        error.includes(expectedError),
-      ),
+      validateAmendmentGovernanceRegistration(mutation).some((error) => error.includes(expectedError)),
       `expected governance error containing: ${expectedError}`,
     );
   }
