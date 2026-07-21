@@ -12,6 +12,7 @@ import {
 } from './lib/execution-authority.mjs';
 import {
   EXPECTED_EXECUTION_AUTHORITY_V2_REGISTRATION,
+  EXPECTED_R0_WORK_PACKAGE_SEQUENCE,
   loadExecutionAuthorityV2,
   resolveExecutionAuthorityV2,
   validateExecutionAuthorityV2,
@@ -198,18 +199,26 @@ if (manifest) {
     if (v2Errors.length > 0) {
       for (const message of v2Errors) error(`execution authority v2: ${message}`);
     } else {
-      const decisionW01 = resolveExecutionAuthorityV2(loadedV2.manifest, loadedV2.amendmentGovernance, {
-        workPackage: 'R0-W01',
+      const activePackage = loadedV2.manifest.activeWorkPackage;
+      const activeIndex = EXPECTED_R0_WORK_PACKAGE_SEQUENCE.indexOf(activePackage);
+      const decisionActive = resolveExecutionAuthorityV2(loadedV2.manifest, loadedV2.amendmentGovernance, {
+        workPackage: activePackage,
       });
-      const decisionW02 = resolveExecutionAuthorityV2(loadedV2.manifest, loadedV2.amendmentGovernance, {
-        workPackage: 'R0-W02',
-      });
-      if (decisionW01.decision !== 'GO') {
-        error('execution-authority.v2 must currently authorize exactly R0-W01');
-      } else if (decisionW02.decision !== 'STOP' || decisionW02.reason !== 'BLOCKED_DEPENDENCY') {
-        error('execution-authority.v2 must still block R0-W02 until W01 is MERGED_AND_VERIFIED');
+      const nextPackage =
+        activeIndex >= 0 && activeIndex < EXPECTED_R0_WORK_PACKAGE_SEQUENCE.length - 1
+          ? EXPECTED_R0_WORK_PACKAGE_SEQUENCE[activeIndex + 1]
+          : null;
+      const decisionNext = nextPackage
+        ? resolveExecutionAuthorityV2(loadedV2.manifest, loadedV2.amendmentGovernance, {
+            workPackage: nextPackage,
+          })
+        : null;
+      if (decisionActive.decision !== 'GO') {
+        error(`execution-authority.v2 must currently authorize exactly ${activePackage}`);
+      } else if (decisionNext && decisionNext.decision !== 'STOP') {
+        error(`execution-authority.v2 must still block ${nextPackage} until ${activePackage} is MERGED_AND_VERIFIED`);
       } else {
-        ok('execution authority v2 authorizes exactly R0-W01 and blocks all successor packets');
+        ok(`execution authority v2 authorizes exactly ${activePackage} and blocks all successor packets`);
       }
     }
   } else {

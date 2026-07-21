@@ -232,7 +232,7 @@ export function validateExecutionAuthorityV2Schema(schema) {
     errors.push('v2 schemaVersion must be fixed to execution-authority.v2');
   }
   if (schema?.properties?.authorityId?.const !== AUTHORITY_ID) {
-    errors.push('v2 authorityId must be fixed to the R0-W01 authority identity');
+    errors.push('v2 authorityId must be fixed to the fixed R0 execution authority identity');
   }
   const amendment = schema?.properties?.amendment;
   if (
@@ -337,10 +337,14 @@ export function validateExecutionAuthorityV2Manifest(manifest) {
     }
     if (
       !Array.isArray(evidence.approvedScope) ||
-      !evidence.approvedScope.every((id) => WORK_PACKAGE_PATTERN.test(id)) ||
-      !sameArray(evidence.approvedScope, ['R0-W01'])
+      evidence.approvedScope.length !== 1 ||
+      !WORK_PACKAGE_PATTERN.test(evidence.approvedScope[0] ?? '') ||
+      (manifest.activeWorkPackage !== null &&
+        evidence.approvedScope[0] !== manifest.activeWorkPackage)
     ) {
-      errors.push('v2 approvalEvidence.approvedScope must be exactly ["R0-W01"]');
+      errors.push(
+        'v2 approvalEvidence.approvedScope must contain exactly one work package id, matching activeWorkPackage when set',
+      );
     }
   }
 
@@ -442,7 +446,13 @@ export function resolveExecutionAuthorityV2(manifest, amendmentGovernance, optio
     };
   }
 
-  if (manifest.effectiveBase.sha !== governance.effectiveBase?.sha) {
+  // effectiveBase is the branch-from point for whichever work package is currently ACTIVE,
+  // and legitimately advances every time a new packet starts (each packet branches from the
+  // latest protected ext SHA, not from the amendment's original G0 approval point). It must
+  // therefore be checked for self-consistency against THIS manifest's own approved candidate,
+  // never against amendmentGovernance.effectiveBase, which is a permanently frozen historical
+  // anchor for when the amendment itself was approved and never changes after that.
+  if (manifest.effectiveBase.sha !== manifest.approvalEvidence.candidateH) {
     return {
       schemaVersion: 'execution-authority.v2',
       decision: 'STOP',
