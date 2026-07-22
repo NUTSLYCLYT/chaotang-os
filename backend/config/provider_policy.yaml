@@ -1,0 +1,57 @@
+# R0-W03 OQ-06 provider 合规声明——R0 合成数据最小 policy。
+#
+# 已获 Product Owner 批准的上线状态：全部字段 UNKNOWN/None/false，fail-closed 空白态。
+# 见 .harness/changes/docs-r0-w03-secure-ingest-approval-20260722-20260722/owner_approval/
+# exact-h-approval.md。真实 region/retention/no_training/subprocessors_declared 值需要
+# Product/Security 对每个实际使用的 provider 单独签署——不得由工程随手填入"看起来合理"的值。
+#
+# 字段任一为 UNKNOWN/None/false，或 approved_for_synthetic_data 不为 true，
+# src/secure_ingest/provider_policy.py::assert_provider_allowed_for_body_access
+# 一律拒绝该 provider 获取合同正文。
+
+providers:
+  ollama_local:
+    region: UNKNOWN
+    retention: UNKNOWN
+    no_training: null
+    subprocessors_declared: null
+    policy_version: UNSET
+    approved_for_synthetic_data: false
+    approved_by: ""
+    approved_at: ""
+  claude:
+    region: UNKNOWN
+    retention: UNKNOWN
+    no_training: null
+    subprocessors_declared: null
+    policy_version: UNSET
+    approved_for_synthetic_data: false
+    approved_by: ""
+    approved_at: ""
+  deepseek:
+    region: UNKNOWN
+    retention: UNKNOWN
+    no_training: null
+    subprocessors_declared: null
+    policy_version: UNSET
+    approved_for_synthetic_data: false
+    approved_by: ""
+    approved_at: ""
+  minimax:
+    region: UNKNOWN
+    retention: UNKNOWN
+    no_training: null
+    subprocessors_declared: null
+    policy_version: UNSET
+    approved_for_synthetic_data: false
+    approved_by: ""
+    approved_at: ""
+  deepseek_minimax:
+    region: UNKNOWN
+    retention: UNKNOWN
+    no_training: null
+    subprocessors_declared: null
+    policy_version: UNSET
+    approved_for_synthetic_data: false
+    approved_by: ""
+    approved_at: ""

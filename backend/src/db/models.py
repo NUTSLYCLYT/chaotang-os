@@ -781,3 +781,82 @@ class BuildLedgerAuditEvent(Base):
         sa.Index("ix_build_ledger_audit_task", "task_id"),
         sa.Index("ix_build_ledger_audit_tenant_user", "tenant_id", "user_id"),
     )
+
+
+class SecureIngestArtifact(Base):
+    """R0-W03 安全摄取产物(2026-07-22)。插入即不可变 —— 对象替换永远是新建一行,不是
+    改写已有行的 digest_sha256/storage_path/file_size_bytes(immutable input version)。
+    tenant_id 沿用本文件既有惯例(int,逻辑 FK,默认值只是 schema 层安全网,应用代码必须
+    通过 src.tenant.resolve_current_tenant_id() 解析真实值,同 BuildLedgerEntry 的先例)。"""
+
+    __tablename__ = "secure_ingest_artifacts"
+
+    id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
+    user_id: Mapped[str] = mapped_column(sa.Text, nullable=False, default="anonymous")
+    mission_contract_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    original_filename: Mapped[str] = mapped_column(sa.Text, nullable=False, default="")
+    declared_content_type: Mapped[str] = mapped_column(sa.Text, nullable=False, default="")
+    detected_format: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    file_size_bytes: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    page_count: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
+    digest_sha256: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    status: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    reject_reason: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    ocr_status: Mapped[str] = mapped_column(sa.Text, nullable=False, default="NOT_APPLICABLE")
+    macro_detected: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=False)
+    zip_bomb_suspected: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, default=False)
+    injection_flag_categories_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="[]")
+    storage_path: Mapped[str] = mapped_column(sa.Text, nullable=False, default="")
+    created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
+
+    __table_args__ = (
+        sa.Index("ix_secure_ingest_artifacts_tenant_mission", "tenant_id", "mission_contract_id"),
+        sa.Index("ix_secure_ingest_artifacts_tenant_status", "tenant_id", "status"),
+    )
+
+
+class SecureIngestDownloadTicket(Base):
+    """短时下载票据。只存 token 的 sha256,明文永不落库。兑换单次有效,兑换时调用方
+    必须重新校验 artifact 当前 digest 是否与发放时一致(对象替换防线)。"""
+
+    __tablename__ = "secure_ingest_download_tickets"
+
+    id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    token_hash: Mapped[str] = mapped_column(sa.Text, nullable=False, unique=True)
+    tenant_id: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
+    user_id: Mapped[str] = mapped_column(sa.Text, nullable=False, default="anonymous")
+    artifact_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    purpose: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    issued_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
+    expires_at: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    redeemed_at: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+
+    __table_args__ = (
+        sa.Index("ix_secure_ingest_tickets_tenant_artifact", "tenant_id", "artifact_id"),
+    )
+
+
+class SecureIngestAuditEvent(Base):
+    """摄取/授权/provider 出站事件的审计流水。独立新表而非复用 BuildLedgerAuditEvent ——
+    事件形状不同(摄取事件没有 from_status/to_status 转换),硬塞共用表比新建一张表更难维护。"""
+
+    __tablename__ = "secure_ingest_audit_events"
+
+    id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
+    user_id: Mapped[str] = mapped_column(sa.Text, nullable=False, default="anonymous")
+    event_type: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    task_id: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    artifact_id: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    input_digest: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    provider_id: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    model_id: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    policy_version: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    purpose: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
+
+    __table_args__ = (
+        sa.Index("ix_secure_ingest_audit_tenant_event", "tenant_id", "event_type"),
+        sa.Index("ix_secure_ingest_audit_artifact", "artifact_id"),
+    )

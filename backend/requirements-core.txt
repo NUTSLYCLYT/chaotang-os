@@ -7,3 +7,4 @@ sqlalchemy>=2.0
 alembic>=1.13
 pypdf>=5.0  # scripts/real_sample_regression.py + xingbu_verdict 真实合同PDF文本抽取,原先漏声明
 httpx>=0.27.0  # src/openclaw_client.py + src/polymarket_lookup.py 真实HTTP调用,同款漏声明补上
+python-docx>=1.2.0  # src/secure_ingest 安全相关文本抽取,原先只通过markitdown[docx]间接装,不该依赖可选extra

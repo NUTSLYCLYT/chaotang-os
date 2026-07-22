@@ -171,6 +171,7 @@ from web.routers import qintianjian as qintianjian_router  # noqa: E402
 from web.routers import quotation as quotation_router  # noqa: E402
 from web.routers import compare as compare_router  # noqa: E402
 from web.routers import contracts as contracts_router  # noqa: E402
+from web.routers import secure_ingest as secure_ingest_router  # noqa: E402
 from web.routers import critic as critic_router  # noqa: E402
 from web.routers import drafts as drafts_router  # noqa: E402
 from web.routers import exports as exports_router  # noqa: E402
@@ -318,6 +319,7 @@ app.include_router(direct_router.router)
 app.include_router(orchestration_compat_router.router)
 app.include_router(governance_compat_router.router)
 app.include_router(contracts_router.router)
+app.include_router(secure_ingest_router.router)
 
 
 # ── 前端首页 ───────────────────────────────────────────
