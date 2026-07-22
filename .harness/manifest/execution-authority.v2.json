@@ -8,24 +8,25 @@
   },
   "effectiveBase": {
     "ref": "origin/feature-chaotang-ext",
-    "sha": "656a4fe31ca17e131e523f9f141490108158be44"
+    "sha": "b5106ba7a59876f7502565a6e84ffc055eedbb76"
   },
   "approvalEvidence": {
-    "ownerApprovalPath": ".harness/changes/docs-r0-w02-shared-contract-approval-20260721-20260721/owner_approval/exact-h-approval.md",
-    "ownerApprovalSha256": "851b1919b4e73d22355e89b8f4f5919f01c20e6abd540f1abe2d3d0e8e6e070a",
+    "ownerApprovalPath": ".harness/changes/docs-r0-w03-secure-ingest-approval-20260722-20260722/owner_approval/exact-h-approval.md",
+    "ownerApprovalSha256": "f7b2ad77b2bd2ac8ea53507d2ecbdd34a7897a6361e8dc09d1cc990e01e11329",
     "reviewPath": ".harness/changes/docs-r0-w01-amendment-repin-20260721-20260721/claude_code_review/exact-h-final.md",
     "reviewSha256": "ecca3dcafef5fad5ce609acbfaeb75d18719e95690ff8ee9343e0906b24c606e",
     "reviewVerdict": "GO",
     "approver": "lyt",
-    "candidateH": "656a4fe31ca17e131e523f9f141490108158be44",
-    "tree": "8ceb590da5f97999818aadd64216bf3855035cc6",
-    "approvedScope": ["R0-W02"]
+    "candidateH": "b5106ba7a59876f7502565a6e84ffc055eedbb76",
+    "tree": "252a8c3630fc3227fcd927b5b0797bf177eecc18",
+    "approvedScope": ["R0-W03"]
   },
-  "activeWorkPackage": null,
+  "activeWorkPackage": "R0-W03",
   "workPackageLedger": [
     { "id": "R0-W00", "status": "MERGED_AND_VERIFIED" },
     { "id": "R0-W01", "status": "MERGED_AND_VERIFIED" },
-    { "id": "R0-W02", "status": "MERGED_AND_VERIFIED" }
+    { "id": "R0-W02", "status": "MERGED_AND_VERIFIED" },
+    { "id": "R0-W03", "status": "ACTIVE" }
   ],
   "professionalReassignment": {
     "requiredBefore": ["REAL_CUSTOMER_DATA", "R0-W08", "R0-W09"],
