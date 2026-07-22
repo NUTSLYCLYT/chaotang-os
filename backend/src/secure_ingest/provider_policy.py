@@ -58,8 +58,8 @@ def assert_provider_allowed_for_body_access(provider_id: str, model_id: str) -> 
     if (
         policy.region == "UNKNOWN"
         or policy.retention == "UNKNOWN"
-        or policy.no_training is None
-        or policy.subprocessors_declared is None
+        or not policy.no_training
+        or not policy.subprocessors_declared
         or not policy.approved_for_synthetic_data
     ):
         raise UnknownOrUnapprovedProvider(

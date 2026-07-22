@@ -4,7 +4,7 @@
 
 | 命令 | 退出码 | 结果 | 证据覆盖范围 | 证据位置 / 时间 |
 | --- | ---: | --- | --- | --- |
-| `python3 -m pytest tests/test_secure_ingest_format_matrix.py tests/test_secure_ingest_attack_fixtures.py tests/test_secure_ingest_authz_matrix.py tests/test_migration_017_secure_ingest_tables.py -q` | 0 | 35 passed, 1 skipped | 3 个 REQ（001/002/019）全量 RED/正例；skip 项是迁移测试，因沙盒环境本身未装 alembic 包 | 2026-07-22 |
+| `python3 -m pytest tests/test_secure_ingest_format_matrix.py tests/test_secure_ingest_attack_fixtures.py tests/test_secure_ingest_authz_matrix.py tests/test_migration_017_secure_ingest_tables.py -q` | 0 | 39 passed, 1 skipped（含独立审查后补的 4 项回归） | 3 个 REQ（001/002/019）全量 RED/正例；skip 项是迁移测试，因沙盒环境本身未装 alembic 包 | 2026-07-22 |
 | `python3 -m pytest tests/test_mission_contract_v1.py tests/test_contract_support_contract.py tests/test_mission_confirmation_conflict.py tests/test_capability_activation_contract.py tests/test_contract_decision_v1.py tests/test_contract_lineage_status_v1.py tests/test_contracts_router_openapi.py -q` | 0 | 49 passed | W02 契约层回归 | 同上 |
 | `python3 -m pytest tests/test_rag_tenant_isolation.py -q` | 0 | 5 passed | 既有租户隔离回归 | 同上 |
 | `python3 -m pytest tests/test_production_has_no_test_identity_routes.py -q` | 0 | 8 passed | `main.py` 与并行任务共享改动，确认路由清单零回归 | 同上 |
@@ -18,6 +18,20 @@
 票据重放（单次使用，第二次 409）、admin 零破玻璃例外（purpose/tenant 全对仍默认拒绝）。
 W02 契约层与既有租户隔离测试零回归；`main.py` 与并行任务 `fix-ui-runtime-incident-20260722`
 共享改动已用 `git add -p` 精确分离，测试身份路由清单确认零回归。
+
+## 独立审查发现与修复
+
+独立（非实现者）code-reviewer agent 审查后返回 WARNING（1 HIGH + 1 MEDIUM），修复后追加
+4 项回归测试：
+
+| 严重度 | 问题 | 修复 | 回归测试 |
+| --- | --- | --- | --- |
+| HIGH | `provider_policy.py` fail-closed 检查只判 `no_training is None`/`subprocessors_declared is None`，字段显式为 `False`（声明"会用于训练"/"未声明子处理方"）能绕过拒绝，与文档自称的"UNKNOWN/None/False 一律拒绝"矛盾 | 改判定为 `not policy.no_training`/`not policy.subprocessors_declared`，None 和 False 一并拒绝 | `test_explicit_false_no_training_denied_not_just_none`、`test_explicit_false_subprocessors_declared_denied_not_just_none`、`test_all_fields_genuinely_true_and_declared_is_allowed`（正例对照） |
+| HIGH | `issue_ticket` 未检查 artifact `status`，对 `REJECTED`（从未落盘）的产物也能发票据，兑换时 `FileNotFoundError` 穿透成未处理 500，打破本文件其余路径统一走受控 4xx 的模式 | `issue_ticket` 增加 `row.status != "ACCEPTED"` 检查（409）；`redeem_ticket` 改用持久化的 `storage_path` 而非重算路径，且显式捕获 `FileNotFoundError` 转 404 | `test_ticket_issuance_denied_for_rejected_artifact_not_500` |
+
+MEDIUM（`redeem_ticket` 用当下请求者 `tenant_slug` 重算路径而非读持久化的 `storage_path`
+列，二者理论一致但是脆弱设计）已在同一次修复中一并解决（新增
+`storage.py::read_artifact_bytes_at_path`）。
 
 ## 未验证项
 
@@ -46,5 +60,5 @@ W02 契约层与既有租户隔离测试零回归；`main.py` 与并行任务 `f
 
 ## 声明状态
 
-- `VERIFIED_COMPLETE`（本地实现+验证范围内）；独立审查与 hosted PR/merge 是明确的下一步，
-  不在本次范围。
+- `VERIFIED_COMPLETE`（本地实现+验证+独立审查发现已修复，范围内）；hosted PR/merge 是明确的
+  下一步，不在本次范围。

@@ -8,7 +8,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from src.secure_ingest.provider_policy import UnknownOrUnapprovedProvider, assert_provider_allowed_for_body_access
+from src.secure_ingest.provider_policy import (
+    ProviderPolicyV1,
+    UnknownOrUnapprovedProvider,
+    assert_provider_allowed_for_body_access,
+)
 from src.secure_ingest.purpose_authz import authorize_body_access
 from web.schemas.auth import CurrentUser
 
@@ -81,6 +85,55 @@ def test_provider_present_but_undeclared_fields_denied() -> None:
 def test_unknown_provider_id_denied() -> None:
     with pytest.raises(UnknownOrUnapprovedProvider):
         assert_provider_allowed_for_body_access("some-unlisted-provider", "x")
+
+
+def test_explicit_false_no_training_denied_not_just_none(monkeypatch) -> None:
+    """回归:no_training 显式为 False(声明"会用于训练")必须拒绝,不能只挡 None。"""
+    import src.secure_ingest.provider_policy as provider_policy_module
+
+    policy = ProviderPolicyV1(
+        provider_id="bad-provider",
+        region="CN",
+        retention="ZERO_RETENTION",
+        no_training=False,
+        subprocessors_declared=True,
+        approved_for_synthetic_data=True,
+    )
+    monkeypatch.setattr(provider_policy_module, "load_provider_policies", lambda: {"bad-provider": policy})
+    with pytest.raises(UnknownOrUnapprovedProvider):
+        assert_provider_allowed_for_body_access("bad-provider", "x")
+
+
+def test_explicit_false_subprocessors_declared_denied_not_just_none(monkeypatch) -> None:
+    import src.secure_ingest.provider_policy as provider_policy_module
+
+    policy = ProviderPolicyV1(
+        provider_id="bad-provider-2",
+        region="CN",
+        retention="ZERO_RETENTION",
+        no_training=True,
+        subprocessors_declared=False,
+        approved_for_synthetic_data=True,
+    )
+    monkeypatch.setattr(provider_policy_module, "load_provider_policies", lambda: {"bad-provider-2": policy})
+    with pytest.raises(UnknownOrUnapprovedProvider):
+        assert_provider_allowed_for_body_access("bad-provider-2", "x")
+
+
+def test_all_fields_genuinely_true_and_declared_is_allowed(monkeypatch) -> None:
+    """正例对照:真正全部声明齐全且 True 时应放行,防止把拒绝逻辑改过头变成永远拒绝。"""
+    import src.secure_ingest.provider_policy as provider_policy_module
+
+    policy = ProviderPolicyV1(
+        provider_id="good-provider",
+        region="CN",
+        retention="ZERO_RETENTION",
+        no_training=True,
+        subprocessors_declared=True,
+        approved_for_synthetic_data=True,
+    )
+    monkeypatch.setattr(provider_policy_module, "load_provider_policies", lambda: {"good-provider": policy})
+    assert assert_provider_allowed_for_body_access("good-provider", "x") is policy
 
 
 # ── 路由层：TestClient 集成(隔离 DB) ─────────────────────────────────────
@@ -196,6 +249,33 @@ def test_ticket_single_use_replay_denied(isolated_session_local, tmp_path, monke
             f"/api/secure-ingest/download/{ticket['ticket_id']}", params={"token": ticket["token"]}
         )
         assert second.status_code == 409
+    finally:
+        _restore_identity(original)
+
+
+def test_ticket_issuance_denied_for_rejected_artifact_not_500(
+    isolated_session_local, tmp_path, monkeypatch
+):
+    """回归:REJECTED 的 artifact(从未落盘)申请票据必须是受控 409,不能穿透成未处理异常。"""
+    import src.secure_ingest.storage as storage_module
+    from tests.fixtures.secure_ingest_fixtures import plain_text_bytes
+
+    monkeypatch.setattr(storage_module, "SECURE_INGEST_ROOT", tmp_path / "secure_ingest")
+
+    original = _with_identity(_as_user(1, tenant_id=1))
+    try:
+        upload = client.post(
+            "/api/secure-ingest/upload",
+            data={"mission_contract_id": "mission-authz-rejected", "purpose": "contract_review"},
+            files={"file": ("fake.docx", plain_text_bytes(), "application/octet-stream")},
+        )
+        assert upload.json()["status"] == "REJECTED"
+        artifact_id = upload.json()["artifact_id"]
+
+        resp = client.post(
+            f"/api/secure-ingest/{artifact_id}/ticket", params={"purpose": "contract_review"}
+        )
+        assert resp.status_code == 409
     finally:
         _restore_identity(original)
 

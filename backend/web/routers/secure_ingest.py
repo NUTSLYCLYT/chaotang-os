@@ -21,7 +21,7 @@ from src.secure_ingest.mime_sniff import detect_format
 from src.secure_ingest.ooxml_structure import inspect_ooxml_structure
 from src.secure_ingest.purpose_authz import authorize_body_access
 from src.secure_ingest.schema import IngestArtifactV1
-from src.secure_ingest.storage import read_artifact_bytes, write_artifact_bytes
+from src.secure_ingest.storage import read_artifact_bytes_at_path, write_artifact_bytes
 from src.secure_ingest.text_scan import scan_for_injection
 from src.tenant import DEFAULT_TENANT_SLUG, resolve_tenant_slug_id
 from web.deps import get_current_user
@@ -235,6 +235,8 @@ def issue_ticket(
         )
         if row is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
+        if row.status != "ACCEPTED":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="artifact not accepted, no body to ticket")
 
         authz = authorize_body_access(
             user_id=user.user_id,
@@ -323,7 +325,14 @@ def redeem_ticket(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="artifact missing")
 
         # 对象替换防线:兑换时重新读盘算摘要,跟发放时记录的摘要比对,而不是只信当初的检查。
-        raw_bytes = read_artifact_bytes(user.tenant_slug or DEFAULT_TENANT_SLUG, artifact.id)
+        # 读取用持久化的 storage_path(row 已按 tenant_id 过滤),不重算下载者当下的 tenant_slug——
+        # 避免两者不一致时把"文件不存在"错误当成未处理异常穿透成 500。
+        if not artifact.storage_path:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="artifact has no stored body")
+        try:
+            raw_bytes = read_artifact_bytes_at_path(artifact.storage_path)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="stored body missing") from exc
         if compute_sha256(raw_bytes) != artifact.digest_sha256:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="digest mismatch, object may have been replaced")
 
