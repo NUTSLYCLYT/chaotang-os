@@ -21,12 +21,12 @@
     "tree": "252a8c3630fc3227fcd927b5b0797bf177eecc18",
     "approvedScope": ["R0-W03"]
   },
-  "activeWorkPackage": "R0-W03",
+  "activeWorkPackage": null,
   "workPackageLedger": [
     { "id": "R0-W00", "status": "MERGED_AND_VERIFIED" },
     { "id": "R0-W01", "status": "MERGED_AND_VERIFIED" },
     { "id": "R0-W02", "status": "MERGED_AND_VERIFIED" },
-    { "id": "R0-W03", "status": "ACTIVE" }
+    { "id": "R0-W03", "status": "MERGED_AND_VERIFIED" }
   ],
   "professionalReassignment": {
     "requiredBefore": ["REAL_CUSTOMER_DATA", "R0-W08", "R0-W09"],
