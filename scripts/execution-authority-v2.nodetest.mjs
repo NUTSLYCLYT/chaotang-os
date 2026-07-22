@@ -259,6 +259,26 @@ test('rollback state (no active package) resolves to STOP with a guard present, 
   );
 });
 
+test('a merged-and-verified packet can enter quiescent closeout without auto-activating its successor', () => {
+  // "packet completed" must never imply "next packet approved" — closeout and next-packet
+  // approval are two separate, separately-evidenced governance events (amendment §10).
+  const manifest = {
+    ...validManifest(),
+    activeWorkPackage: null,
+    workPackageLedger: [
+      { id: 'R0-W00', status: 'MERGED_AND_VERIFIED' },
+      { id: 'R0-W01', status: 'MERGED_AND_VERIFIED' },
+    ],
+  };
+  assert.deepEqual(validateExecutionAuthorityV2Manifest(manifest), []);
+  for (const workPackage of ['R0-W01', 'R0-W02']) {
+    assert.equal(
+      resolveExecutionAuthorityV2(manifest, validGovernance(), { workPackage }).reason,
+      'NO_ACTIVE_WORK_PACKAGE',
+    );
+  }
+});
+
 test('missing manifest file produces loader errors, never a silently skipped guard', async () => {
   const temporaryRoot = await mkdtemp(join(tmpdir(), 'chaotang-v2-missing-'));
   try {
@@ -326,11 +346,29 @@ test('CLI rejects an unsupported flag with exit 64', async () => {
   );
 });
 
-test('CLI subprocess against the real repo authorizes exactly the current active work package', async () => {
+test('CLI subprocess against the real repo matches its own activeWorkPackage state (active or quiescent)', async () => {
   const loaded = await loadExecutionAuthorityV2(root);
   assert.deepEqual(loaded.errors, []);
   const currentActive = loaded.manifest.activeWorkPackage;
-  assert.ok(currentActive, 'real repo manifest must have a non-null activeWorkPackage for this test to be meaningful');
+
+  if (currentActive === null) {
+    // Quiescent closeout state: "packet completed" must never auto-imply "next packet approved" —
+    // re-requesting the most recently merged packet must also stay NO_ACTIVE_WORK_PACKAGE.
+    const lastMerged = [...loaded.manifest.workPackageLedger]
+      .reverse()
+      .find((entry) => entry.status === 'MERGED_AND_VERIFIED');
+    assert.ok(lastMerged, 'quiescent real repo manifest must have at least one MERGED_AND_VERIFIED entry');
+    await assert.rejects(
+      execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', lastMerged.id], {
+        cwd: root,
+      }),
+      (error) => {
+        const output = JSON.parse(error.stdout);
+        return error.code === 2 && output.decision === 'STOP' && output.reason === 'NO_ACTIVE_WORK_PACKAGE';
+      },
+    );
+    return;
+  }
 
   const { stdout } = await execFileAsync(
     process.execPath,
@@ -342,10 +380,31 @@ test('CLI subprocess against the real repo authorizes exactly the current active
   assert.equal(output.activeWorkPackage, currentActive);
 });
 
-test('CLI subprocess against the real repo blocks the next work package in sequence', async () => {
+test('CLI subprocess against the real repo blocks whatever comes after the current state', async () => {
   const loaded = await loadExecutionAuthorityV2(root);
   assert.deepEqual(loaded.errors, []);
-  const currentIndex = EXPECTED_R0_WORK_PACKAGE_SEQUENCE.indexOf(loaded.manifest.activeWorkPackage);
+  const currentActive = loaded.manifest.activeWorkPackage;
+
+  if (currentActive === null) {
+    // No packet approved yet — every not-yet-merged packet must stay NO_ACTIVE_WORK_PACKAGE,
+    // not BLOCKED_DEPENDENCY (that reason is reserved for "approved but predecessor unfinished").
+    const firstUnmerged = EXPECTED_R0_WORK_PACKAGE_SEQUENCE.find(
+      (id) => !loaded.manifest.workPackageLedger.some((entry) => entry.id === id && entry.status === 'MERGED_AND_VERIFIED'),
+    );
+    assert.ok(firstUnmerged, 'expected at least one not-yet-merged packet in the frozen sequence');
+    await assert.rejects(
+      execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', firstUnmerged], {
+        cwd: root,
+      }),
+      (error) => {
+        const output = JSON.parse(error.stdout);
+        return error.code === 2 && output.decision === 'STOP' && output.reason === 'NO_ACTIVE_WORK_PACKAGE';
+      },
+    );
+    return;
+  }
+
+  const currentIndex = EXPECTED_R0_WORK_PACKAGE_SEQUENCE.indexOf(currentActive);
   assert.ok(currentIndex >= 0 && currentIndex < EXPECTED_R0_WORK_PACKAGE_SEQUENCE.length - 1);
   const nextPackage = EXPECTED_R0_WORK_PACKAGE_SEQUENCE[currentIndex + 1];
 

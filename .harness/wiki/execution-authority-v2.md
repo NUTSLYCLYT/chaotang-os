@@ -34,7 +34,7 @@ schema/manifest/resolver/CLI/tests，专门回答一个更窄的问题：
 | `MULTIPLE_ACTIVE_WORK_PACKAGES` | ledger 里同时有两个以上 `ACTIVE` 条目（结构性拒绝，属于致命错误分支） |
 | `BLOCKED_DEPENDENCY` | 请求的包，其前驱包在 ledger 里还没到 `MERGED_AND_VERIFIED` |
 | `WORK_PACKAGE_MISMATCH` | 请求的包前驱已满足，但它不是当前 `activeWorkPackage` |
-| `NO_ACTIVE_WORK_PACKAGE` | 回滚态：`activeWorkPackage` 为 null，ledger 无 `ACTIVE` 条目 |
+| `NO_ACTIVE_WORK_PACKAGE` | 回滚态或**静默收口态**：`activeWorkPackage` 为 null，ledger 无 `ACTIVE` 条目 |
 | `PROFESSIONAL_REASSIGNMENT_REQUIRED` | 请求 W08/W09 或标记 `--real-customer-data`，但 security/legal/release 三角色仍是默认 owner |
 | `APPROVED_WORK_PACKAGE` | 全部条件通过，`decision:'GO'` |
 
@@ -47,6 +47,12 @@ schema/manifest/resolver/CLI/tests，专门回答一个更窄的问题：
 
 依赖顺序是固定常量 `EXPECTED_R0_WORK_PACKAGE_SEQUENCE`（`R0-W00` 到 `R0-W09`），不在 manifest
 里重复声明。
+
+**"包完成"不自动推导"下一包获批"**：某个包合入并复验为 `MERGED_AND_VERIFIED` 后，`activeWorkPackage`
+必须先落回 `null`（静默收口态），不能在同一次变更里顺带把下一个包标成 `ACTIVE`。收口和下一包
+激活是两个独立的、各自需要具名批准证据的治理事件（amendment §10："任何笼统的'继续'不能替代对
+未来 exact digest/base 的批准证据"这条纪律，同样适用于"包与包之间的推进"，不只是"进入修正案"
+这一次）。静默收口态下，重新请求刚收口的包、或请求任何后续包，一律 `NO_ACTIVE_WORK_PACKAGE`。
 
 ## 专业负责人重新指定门（运行时强制）
 

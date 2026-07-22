@@ -200,25 +200,48 @@ if (manifest) {
       for (const message of v2Errors) error(`execution authority v2: ${message}`);
     } else {
       const activePackage = loadedV2.manifest.activeWorkPackage;
-      const activeIndex = EXPECTED_R0_WORK_PACKAGE_SEQUENCE.indexOf(activePackage);
-      const decisionActive = resolveExecutionAuthorityV2(loadedV2.manifest, loadedV2.amendmentGovernance, {
-        workPackage: activePackage,
-      });
-      const nextPackage =
-        activeIndex >= 0 && activeIndex < EXPECTED_R0_WORK_PACKAGE_SEQUENCE.length - 1
-          ? EXPECTED_R0_WORK_PACKAGE_SEQUENCE[activeIndex + 1]
-          : null;
-      const decisionNext = nextPackage
-        ? resolveExecutionAuthorityV2(loadedV2.manifest, loadedV2.amendmentGovernance, {
-            workPackage: nextPackage,
-          })
-        : null;
-      if (decisionActive.decision !== 'GO') {
-        error(`execution-authority.v2 must currently authorize exactly ${activePackage}`);
-      } else if (decisionNext && decisionNext.decision !== 'STOP') {
-        error(`execution-authority.v2 must still block ${nextPackage} until ${activePackage} is MERGED_AND_VERIFIED`);
+      if (activePackage === null) {
+        // Quiescent closeout state: the most recently completed packet is MERGED_AND_VERIFIED
+        // but no successor has been separately approved yet ("packet完成" 不自动推导"下一包获批",
+        // per the amendment's own approval-cannot-be-implied discipline). Every request — including
+        // re-requesting the just-closed packet — must resolve to NO_ACTIVE_WORK_PACKAGE.
+        const lastMerged = [...loadedV2.manifest.workPackageLedger]
+          .reverse()
+          .find((entry) => entry.status === 'MERGED_AND_VERIFIED');
+        const probePackages = [lastMerged?.id, 'R0-W00'].filter(Boolean);
+        const badDecision = probePackages
+          .map((workPackage) =>
+            resolveExecutionAuthorityV2(loadedV2.manifest, loadedV2.amendmentGovernance, {
+              workPackage,
+            }),
+          )
+          .find((decision) => decision.reason !== 'NO_ACTIVE_WORK_PACKAGE');
+        if (badDecision) {
+          error('execution-authority.v2 quiescent state must resolve every request to NO_ACTIVE_WORK_PACKAGE');
+        } else {
+          ok(`execution authority v2 is quiescent after ${lastMerged?.id ?? 'R0-W00'}; no packet is auto-activated`);
+        }
       } else {
-        ok(`execution authority v2 authorizes exactly ${activePackage} and blocks all successor packets`);
+        const activeIndex = EXPECTED_R0_WORK_PACKAGE_SEQUENCE.indexOf(activePackage);
+        const decisionActive = resolveExecutionAuthorityV2(loadedV2.manifest, loadedV2.amendmentGovernance, {
+          workPackage: activePackage,
+        });
+        const nextPackage =
+          activeIndex >= 0 && activeIndex < EXPECTED_R0_WORK_PACKAGE_SEQUENCE.length - 1
+            ? EXPECTED_R0_WORK_PACKAGE_SEQUENCE[activeIndex + 1]
+            : null;
+        const decisionNext = nextPackage
+          ? resolveExecutionAuthorityV2(loadedV2.manifest, loadedV2.amendmentGovernance, {
+              workPackage: nextPackage,
+            })
+          : null;
+        if (decisionActive.decision !== 'GO') {
+          error(`execution-authority.v2 must currently authorize exactly ${activePackage}`);
+        } else if (decisionNext && decisionNext.decision !== 'STOP') {
+          error(`execution-authority.v2 must still block ${nextPackage} until ${activePackage} is MERGED_AND_VERIFIED`);
+        } else {
+          ok(`execution authority v2 authorizes exactly ${activePackage} and blocks all successor packets`);
+        }
       }
     }
   } else {
