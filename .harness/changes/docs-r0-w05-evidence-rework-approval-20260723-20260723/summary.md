@@ -7,7 +7,7 @@
 | --- | --- |
 | Change ID | docs-r0-w05-evidence-rework-approval-20260723-20260723 |
 | 类型 | docs |
-| 状态 | EXACT_OWNER_APPROVED_AUTHORITY_GO_PENDING_REVIEW |
+| 状态 | EXACT_OWNER_APPROVED_AUTHORITY_STOP_REVIEW_EVIDENCE_PENDING |
 | Owner | Product Owner / Canonical Runtime Owner |
 | 创建日期 | 20260723 |
 
@@ -15,8 +15,8 @@
 
 - 主线：以 `origin/feature-chaotang-ext@67bcc78ec5f80d3d1600c676812ddb4cec958eb3` 为唯一 effective base，提议单独激活 `R0-W05`。
 - 产品纵切：合同证据契约 + 补证绑定 + generation-bound 局部重算 + 重审 + 新正式奏折替代旧版本 + 对精确新版本裁决。
-- 文件：本 change 记录 exact approval 与 execution-authority v2 原子激活；产品实现必须另建 implementation change。
-- 验证：运行 root doctor、authority/amendment tests，并证明 W05=GO、W04/W06=STOP；不得据此宣称 W05 产品验收。
+- 文件：本 change 记录 exact approval，并提议在 W05 专属 review evidence 完成后原子激活 execution-authority v2；产品实现必须另建 implementation change。
+- 验证：当前证明 authority fail closed；最终激活候选须运行 root doctor、authority/amendment tests，并证明 W05=GO、W04/W06=STOP；不得据此宣称 W05 产品验收。
 
 ## 明确边界
 

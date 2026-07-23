@@ -36,10 +36,10 @@ Product Owner exact approval 与 approval digest 已完成。首次 authority �
 | --- | --- | --- |
 | W04 已合并且 base 精确 | Git commit/tree | PASS |
 | W05 未越权启动 | authority STOP | PASS |
-| 单 Packet 范围与排除项完整 | spec/tasks | PENDING_REVIEW |
+| 单 Packet 范围与排除项完整 | Spec 复审 PASS；Standards 允许生成专属 review evidence | PASS_TO_REVIEW_EVIDENCE |
 | exact approval | `owner_approval/exact-h-approval.md` | PASS |
 | W05 GO，W04/W06 STOP | 首次机器结果已被 Standards 证据审查否决 | MUST_FIX_IN_PROGRESS |
 
 ## 声明状态
 
-- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / AUTHORITY_GO_PENDING_REVIEW`
+- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / AUTHORITY_STOP_REVIEW_EVIDENCE_PENDING`
