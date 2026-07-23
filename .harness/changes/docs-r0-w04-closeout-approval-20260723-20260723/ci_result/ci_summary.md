@@ -14,11 +14,10 @@
 
 ## 结果
 
-机器验证全部符合预期。首次独立双轴审查中 Spec 轴通过；Standards 轴发现缺少根级 change record 与命名 closeout approval，当前记录用于修复该规范缺口。Owner exact approval 与修复后的双轴复审尚未完成。
+机器验证全部符合预期。首次独立双轴审查中 Spec 轴通过；Standards 轴发现缺少根级 change record 与命名 closeout approval。根级记录已补，Project Owner 已于 2026-07-23 明确批准 exact closeout identity；修复后的双轴复审尚未完成。
 
 ## 未验证项
 
-- Project Owner 对 exact closeout identity 的明确批准。
 - 补齐 change record 后的独立双轴复审。
 - 远端 CI、合并与生产验证（均不在本地候选阶段执行）。
 
@@ -34,7 +33,7 @@
 | --- | --- | --- |
 | W04 关账且 W05 不激活 | W04/W05 authorize 均 STOP | PASS |
 | harness 与 authority 结构有效 | 27/27、10/10、doctor 0/0 | PASS |
-| exact Owner approval | approval proposal | PENDING |
+| exact Owner approval | `owner_approval/exact-h-closeout-approval.md` | PASS |
 | 双轴无 MUST FIX | 首轮 Standards 仍有 1 项 | PENDING_REVIEW |
 
 ## 声明状态

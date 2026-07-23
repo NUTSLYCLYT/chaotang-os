@@ -10,7 +10,7 @@
 | --- | --- | --- | --- | --- |
 | 已确认事实 | W04 实现已存在于受保护主线；关账候选仅修改账本两处状态 | `origin/feature-chaotang-ext@2bcd5633`；`fbea3761`；2026-07-23 | Git identity、diff 与 authority 检查 / Project Agent | 否 |
 | 推测 | 无；不以“准备开始 W05”推导 W05 已获批准 | 不适用 | 明确排除推断授权 | 否 |
-| 未知问题 | Project Owner 尚未对该 exact closeout identity 作命名确认 | `owner_approval/exact-h-closeout-approval.md` | 等待 Owner 明确批准 | 是 |
+| 已确认事实 | Project Owner 已对该 exact closeout identity 作命名确认 | `owner_approval/exact-h-closeout-approval.md`；2026-07-23 | 用户原文确认 / Project Owner | 否 |
 
 ## 数据流与调用链
 
@@ -51,9 +51,9 @@
 
 ## 计划确认记录
 
-- 批准人：待 Project Owner 明确确认
-- 批准日期：待确认
-- 批准范围：提案仅为 `fbea3761` 所表达的 W04 关账状态转换
+- 批准人：Project Owner（lyt）
+- 批准日期：2026-07-23
+- 批准范围：仅为 `fbea3761` 所表达的 W04 关账状态转换
 - 明确未批准：W05–W09 激活、客户数据、运行时实现、推送、合并、发布、生产切换
 
 ## 验收标准
