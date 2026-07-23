@@ -8,6 +8,9 @@ export function EdictScrollShell({ children }: { children: ReactNode }) {
       <span className={`${styles.roller} ${styles.rollerLeft}`} aria-hidden />
       <span className={`${styles.roller} ${styles.rollerRight}`} aria-hidden />
       <div className={styles.paper}>
+        <span className={styles.sealRing} aria-hidden />
+        <span className={styles.innerRailLeft} aria-hidden />
+        <span className={styles.innerRailRight} aria-hidden />
         <span className={styles.brocadeTop} aria-hidden />
         <span className={styles.brocadeBottom} aria-hidden />
         <span className={styles.seal} aria-hidden>奉天承运</span>

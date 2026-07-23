@@ -44,13 +44,13 @@ Ready
 
 ## Implementation Report
 
-- 改动摘要：此前的三栏工作台迁移不满足用户验收；将按修订设计改为只迁移公共头部、实体卷轴和背景图。
-- 自审：修订实施前，原实现不作为验收依据。
-- 验证：修订实施前，原验证不作为修订结果依据。
-- 实际使用的 skill：`brainstorming`、`writing-plans`、`executing-plans`、`test-driven-development`、`systematic-debugging`、`verification-before-completion`。
-- 验证命令与结果：定向 TDD 测试 3/3 通过；`npm run lint` 通过；`npm run typecheck` 通过；`npm test` 107/107 通过；`npm run build` 通过；`node scripts/check_harness.mjs` 通过（53 个基线文件）；`git diff --check` 通过；静态契约扫描确认 BFF 路由和 4 个关键测试选择器仍在，且无 legacy import。
-- 未运行项与原因：未提交旨意，避免真实模型调用；未操作现有 3000 服务，改用 3001 完成构建产物烟雾验证后关闭。
-- 剩余风险：未登录环境只能验证保护重定向，未对真实会话下的视觉布局做浏览器截图；下旨结果结构由现有单元和 Route Handler 测试覆盖。
+- 改动摘要：迁入 `dev` 的 `bg-shangshufang-full.webp` 原始背景资产；以 `ChaotangTopNav` 的纯视觉结构重建公共 Header（完整导航节奏、团龙徽记、74px/88px 槽位）；以 `EdictStage` 的纯视觉结构实现外置金木轴、玉端帽、纸面纹理、云纹、钤印与动效。现有输入、下旨与回奏置入卷轴。
+- 自审：仅 `/study` 和 `/shiguan` 是可用链接；其他 dev 导航为 `aria-disabled` 静态视觉项，未新增路由或业务行为。未引入旧认证、API、SWR、Tailwind、lucide、三栏、Dock 或侧栏。前一版无用状态模型已移除。
+- 验证：多 Agent 视觉、契约与最终复核均通过；最终复核没有未解决的 Critical 或 Important 问题。
+- 实际使用的 skill：`brainstorming`、`writing-plans`、`executing-plans`、`subagent-driven-development`、`test-driven-development`、`systematic-debugging`、`requesting-code-review`、`verification-before-completion`。
+- 验证命令与结果：`npm run lint` 通过；`npm run typecheck` 通过；`npm test` 107/107 通过；`npm run build` 通过；`node scripts/check_harness.mjs` 通过（53 个基线文件）；`git diff --check` 通过。卷轴与 Header 的定向 TDD 测试均经过 RED/GREEN。
+- 未运行项与原因：未提交旨意，避免真实模型调用；最终独立端口入口烟雾启动受本机已有服务/端口环境影响，未将其视作页面缺陷；此前构建产物的未登录 `/study` 已验证为 307 重定向至 `/login?next=%2Fstudy`。
+- 剩余风险：没有真实会话可用于浏览器截图，受保护路由下的最终视觉仍需在登录后人工确认；所有样式与构建验证均已完成。
 
 ## Acceptance Review
 

@@ -15,3 +15,10 @@ test("StudyClient keeps decree controls inside the Shangshufang workspace", asyn
   assert.match(source, /data-testid="decree-status"/);
   assert.match(source, /fetch\("\/api\/decrees\/chancellor"/);
 });
+
+test("Study background uses the dev Shangshufang scene asset", async () => {
+  const styles = await readFile(new URL("./study.module.css", import.meta.url), "utf8");
+
+  assert.match(styles, /url\("\/shangshufang\/bg-shangshufang-scene\.webp"\)/);
+  assert.doesNotMatch(styles, /bg-shangshufang-full\.webp/);
+});
