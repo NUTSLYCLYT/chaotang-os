@@ -78,11 +78,27 @@ def test_contract_route_is_approved():
     assert result["reroute_suggestion"] is None
 
 
-def test_third_round_is_bounded_and_allows_progress():
-    result = review_route(
-        {"departments": ["户部", "工部"], "mode": "cluster"},
-        "我要去美国看世界杯决赛",
-        round_number=3,
-    )
-    assert result["verdict"] == "准奏"
-    assert result["veto_reasons"]
+def test_repeated_review_never_auto_approves_while_veto_reasons_remain():
+    """R0-REQ-013：门下仍有否决理由时持续阻断，不因达到最大轮次自动准奏。
+
+    2026-07-23 修复前：round_number 达到 3 时无条件转"准奏"，即使 veto_reasons
+    仍非空——这是死代码路径(唯一调用方从不传 round_number)但方向是错的，且被
+    这条测试锁成了预期行为。现在不存在"轮次"概念，重复审议同一个有效路由，
+    结论必须每次都是封驳。"""
+    route = {"departments": ["户部", "工部"], "mode": "cluster"}
+    task_text = "我要去美国看世界杯决赛"
+    for _ in range(5):
+        result = review_route(route, task_text)
+        assert result["verdict"] == "封驳"
+        assert result["veto_reasons"]
+
+
+def test_menxia_veto_source_has_no_round_based_fail_open() -> None:
+    """源码回归哨兵：防止未来有人悄悄重新引入"轮次到了就放行"的逃逸口子。"""
+    import inspect
+
+    import src.menxia_veto as menxia_veto_module
+
+    src = inspect.getsource(menxia_veto_module)
+    assert "MAX_REVIEW_ROUNDS" not in src
+    assert "round_number" not in src

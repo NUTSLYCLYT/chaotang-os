@@ -101,6 +101,7 @@ class DecisionRequest(BaseModel):
         "request_evidence",
         "recheck",
         "followup",
+        "cancel",
     ]
     reason: str = ""
     human_confirmed: bool = True
@@ -500,6 +501,15 @@ def _archive_task(
     }
 
 
+# R0-REQ-018：取消围栏用"终态幂等检查"而不是 lease/generation 基础设施——
+# 黄金路径是单租户同步 /shangshufang 流程，没有真实并发 worker 竞争场景；
+# 已经处于其中任一终态的任务不再接受 cancel（防止重复/迟到的取消请求重开或
+# 破坏已经落定的结果）。
+_TASK_DECISION_TERMINAL_STATUSES = frozenset(
+    {"archived", "rejected", "task_cancelled", "execution_failed"}
+)
+
+
 def apply_task_decision(
     db,
     *,
@@ -561,10 +571,26 @@ def apply_task_decision(
             review.review_status = "reviewing"
             review.updated_at = now
     elif action == "reject":
+        from src.db.models import FinalMemorial
+
         task.status = "rejected"
         if review is not None:
             review.review_status = "rejected"
             review.updated_at = now
+        # R0-REQ-014：拒绝必须关闭 FinalMemorial 的裁决闸门，否则同一任务再发一次
+        # adopt 会重新通过 formal.status == "ready_for_decision" 检查，把已经被
+        # 拒绝的奏折正式归档——"唯一、未被替代"里"未被替代"缺的就是这一环。
+        formal = db.query(FinalMemorial).filter_by(task_id=task.id).first()
+        if formal is not None and formal.status == "ready_for_decision":
+            formal.status = "rejected"
+    elif action == "cancel":
+        # R0-REQ-018：终态幂等检查——任务已经处于任一终态(含已经取消过)时，
+        # cancel 不重开、不覆盖，安全无副作用地跳过状态转移。
+        if task.status not in _TASK_DECISION_TERMINAL_STATUSES:
+            task.status = "task_cancelled"
+            if review is not None:
+                review.review_status = "task_cancelled"
+                review.updated_at = now
     else:
         task.status = "awaiting_decision"
     task.updated_at = now
@@ -590,6 +616,7 @@ def record_task_decision_event(
         "followup": "decision.evidence_requested",
         "recheck": "decision.recheck_requested",
         "reject": "decision.rejected",
+        "cancel": "decision.cancelled",
     }
     formal = db.query(FinalMemorial).filter_by(task_id=task.id).first()
     actual_source = formal.source_label if formal is not None else task.source_label
@@ -1216,7 +1243,8 @@ def shangshufang_confirm_edict(
             record_timeline_event(
                 db,
                 task_id=task.id,
-                stage="completed",
+                # R0-REQ-022：direct 回执零质量门，事件自身的 stage 也不得写 "completed"。
+                stage="receipt_only",
                 actor="chancellor",
                 message=f"丞相判定为简单任务单，已交由{route.get('targetDepartment', '承办方')}直接承办。",
                 event_type="memorial.direct_completed",

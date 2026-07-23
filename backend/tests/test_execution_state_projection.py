@@ -58,6 +58,7 @@ def test_frozen_decree_event_vocabulary_matches_production_writers():
 
     assert actual == {
         "decision.adopted",
+        "decision.cancelled",
         "decision.evidence_requested",
         "decision.recorded",
         "decision.recheck_requested",
