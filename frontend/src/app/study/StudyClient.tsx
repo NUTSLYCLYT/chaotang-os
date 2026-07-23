@@ -97,7 +97,6 @@ export function StudyClient() {
   const [decreeText, setDecreeText] = useState("");
   const [uiState, setUiState] = useState<DecreeUiState>(IDLE_UI_STATE);
 
-  const isSubmitting = uiState.phase === "submitting";
   const { canEdit, canSubmit } = getDecreeFormAvailability(decreeText, uiState);
 
   async function handleSubmitDecree() {
@@ -113,7 +112,8 @@ export function StudyClient() {
     <main className={styles.page}>
       <ChaotangHeader currentLabel="上书房" />
       <div className={styles.background}>
-        <EdictScrollShell>
+        <div className={styles.edictArea}>
+          <EdictScrollShell>
           <div className={styles.scrollHeading}>
             <p>奉天承运 · 上书房</p>
             <h1 id="study-title">圣旨</h1>
@@ -126,30 +126,6 @@ export function StudyClient() {
               最坏可能产生 54 次同步 DeepSeek API 调用并等待较久，请确认旨意内容后再提交。
             </strong>
           </p>
-          <section className={styles.composer} aria-label="旨意拟定">
-            <label htmlFor="decree-text">旨意</label>
-            <textarea
-              className={styles.textarea}
-              id="decree-text"
-              data-testid="decree-textarea"
-              value={decreeText}
-              onChange={(event) => setDecreeText(event.target.value)}
-              rows={6}
-              cols={60}
-              maxLength={2000}
-              disabled={!canEdit}
-              placeholder="请输入 1-2000 字的旨意内容……"
-            />
-            <button
-              className={styles.button}
-              type="button"
-              data-testid="submit-decree-button"
-              onClick={handleSubmitDecree}
-              disabled={!canSubmit}
-            >
-              {isSubmitting ? "处理中……" : "下旨"}
-            </button>
-          </section>
           <section className={styles.response} aria-labelledby="response-title">
             <h2 id="response-title">丞相回奏</h2>
             {uiState.phase === "idle" && <p data-testid="decree-status" aria-live="polite">尚未提交旨意。</p>}
@@ -203,7 +179,43 @@ export function StudyClient() {
               </p>
             )}
           </section>
-        </EdictScrollShell>
+          </EdictScrollShell>
+        </div>
+        <section className={styles.decreeDock} aria-label="御前下旨">
+          <div className={styles.dockShell}>
+            <div className={styles.composerRow}>
+              <textarea
+                className={styles.decreeInput}
+                id="decree-text"
+                data-testid="decree-textarea"
+                value={decreeText}
+                onChange={(event) => setDecreeText(event.target.value)}
+                rows={1}
+                cols={60}
+                maxLength={2000}
+                disabled={!canEdit}
+                placeholder="直接说您的裁决：准、驳回、补证或让谁先办。"
+              />
+              <button
+                className={styles.decreeSubmit}
+                type="button"
+                data-testid="submit-decree-button"
+                onClick={handleSubmitDecree}
+                disabled={!canSubmit}
+              >
+                <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 3h12" />
+                  <path d="M6 8h12" />
+                  <path d="M8 3v18" />
+                  <path d="M16 3v18" />
+                  <path d="M8 12h8" />
+                  <path d="M5 21h14" />
+                </svg>
+                下旨
+              </button>
+            </div>
+          </div>
+        </section>
       </div>
     </main>
   );
