@@ -282,6 +282,20 @@ def test_status_shows_delivered_only_after_final_memorial_gate(isolated_session_
     assert execution_status["current_stage"] == "delivered"
     assert execution_status["current_owner"] == "已完结"
 
+    # 独立审查发现(2026-07-23)：record_task_decision_event 写 decision.adopted
+    # 时间线事件时曾经独立硬编码 "completed"，跟 _STAGE_MAP 已经改用的
+    # "delivered" 不一致——收口成同一套词表，这里直接校验落盘的原始事件行。
+    from src.db.models import DecreeExecutionEvent
+
+    db = isolated_session_local()
+    decision_event = (
+        db.query(DecreeExecutionEvent)
+        .filter_by(task_id=task_id, event_type="decision.adopted")
+        .one()
+    )
+    assert decision_event.stage == "delivered"
+    db.close()
+
 
 def test_reject_supersedes_formal_memorial_and_blocks_later_adopt(isolated_session_local):
     """R0-REQ-014：唯一、未被替代且质量门通过的 FinalMemorial 才可供人裁决。

@@ -116,6 +116,29 @@ def test_cancel_rejected_on_already_archived_task(isolated_session_local):
     db.close()
 
 
+def test_cancel_rejected_on_already_draft_cancelled_task(isolated_session_local):
+    """独立审查发现(2026-07-23)：cancel 围栏词表曾经跟 outbox_worker.py 的
+    execution_failed 推进词表各写各的，且漏了 draft_cancelled——已收口成共用
+    TASK_TERMINAL_STATUSES。一个已经在草拟阶段被取消的任务不该被 cancel 重新
+    盖成 task_cancelled（虽然两者显示的 stage 一样，但覆盖本身违反终态幂等
+    的设计意图，且会产生一条多余的 decision.cancelled 审计事件）。"""
+    db = isolated_session_local()
+    task_id = "task_cancel_after_draft_cancelled"
+    _seed_task(db, task_id=task_id, status="draft_cancelled")
+    db.close()
+
+    client = TestClient(app)
+    resp = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={"action": "cancel", "reason": "太迟了", "human_confirmed": True},
+    )
+    assert resp.json()["success"] is True
+
+    db = isolated_session_local()
+    assert db.query(DecisionTask).filter_by(id=task_id).one().status == "draft_cancelled"
+    db.close()
+
+
 def test_cancel_action_is_recorded_with_final_verdict_kind(isolated_session_local):
     from src.db.models import EmperorDecision
 

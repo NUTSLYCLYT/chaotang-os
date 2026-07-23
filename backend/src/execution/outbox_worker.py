@@ -30,7 +30,11 @@ def _make_id(prefix: str, *parts: object) -> str:
     return f"{prefix}_{sha1(seed.encode('utf-8')).hexdigest()[:12]}"
 
 
-_TASK_TERMINAL_STATUSES = frozenset(
+# R0-REQ-018：DecisionTask 终态词表的唯一事实源。独立审查发现(2026-07-23)：
+# web/routers/shangshufang.py 曾经自己重复定义一份几乎相同的终态集合用于
+# cancel 围栏，两份定义各自维护、已经不同步(那份漏了 draft_cancelled)——收口
+# 成这一处，跨模块统一 import，不再各写各的。
+TASK_TERMINAL_STATUSES = frozenset(
     {"execution_failed", "archived", "rejected", "task_cancelled", "draft_cancelled"}
 )
 
@@ -44,7 +48,7 @@ def _promote_task_to_execution_failed(db: "Session", task_id: str) -> None:
     from src.db.models import DecisionTask
 
     task = db.query(DecisionTask).filter_by(id=task_id).first()
-    if task is not None and task.status not in _TASK_TERMINAL_STATUSES:
+    if task is not None and task.status not in TASK_TERMINAL_STATUSES:
         task.status = "execution_failed"
         task.updated_at = _now_iso()
 

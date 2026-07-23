@@ -501,15 +501,6 @@ def _archive_task(
     }
 
 
-# R0-REQ-018：取消围栏用"终态幂等检查"而不是 lease/generation 基础设施——
-# 黄金路径是单租户同步 /shangshufang 流程，没有真实并发 worker 竞争场景；
-# 已经处于其中任一终态的任务不再接受 cancel（防止重复/迟到的取消请求重开或
-# 破坏已经落定的结果）。
-_TASK_DECISION_TERMINAL_STATUSES = frozenset(
-    {"archived", "rejected", "task_cancelled", "execution_failed"}
-)
-
-
 def apply_task_decision(
     db,
     *,
@@ -584,9 +575,14 @@ def apply_task_decision(
         if formal is not None and formal.status == "ready_for_decision":
             formal.status = "rejected"
     elif action == "cancel":
-        # R0-REQ-018：终态幂等检查——任务已经处于任一终态(含已经取消过)时，
-        # cancel 不重开、不覆盖，安全无副作用地跳过状态转移。
-        if task.status not in _TASK_DECISION_TERMINAL_STATUSES:
+        # R0-REQ-018：终态幂等检查用"lease/generation 基础设施"以外的最小手段——
+        # 黄金路径是单租户同步 /shangshufang 流程，没有真实并发 worker 竞争场景；
+        # 已经处于其中任一终态的任务不再接受 cancel（防止重复/迟到的取消请求
+        # 重开或破坏已经落定的结果）。词表跟 outbox_worker.py 的
+        # execution_failed 推进共用同一份 TASK_TERMINAL_STATUSES，不再各写各的。
+        from src.execution.outbox_worker import TASK_TERMINAL_STATUSES
+
+        if task.status not in TASK_TERMINAL_STATUSES:
             task.status = "task_cancelled"
             if review is not None:
                 review.review_status = "task_cancelled"
@@ -626,7 +622,10 @@ def record_task_decision_event(
     record_timeline_event(
         db,
         task_id=task.id,
-        stage="completed" if task.status == "archived" else task.status,
+        # R0-REQ-022：跟 decree_status._STAGE_MAP 用同一套词表——"archived" 是
+        # 唯一需要先过 REQ-014 质量门才能到达的状态，映射成 "delivered"，不再
+        # 用 "completed" 这个已经从 _STAGE_MAP 里退役的字面量。
+        stage="delivered" if task.status == "archived" else task.status,
         actor="emperor",
         message=f"皇上已人工裁决：{decision.action}。",
         event_type=event_types.get(decision.action, "decision.recorded"),
