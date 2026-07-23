@@ -46,6 +46,8 @@
 | honest locator/risk（修复前） | 1 | 伪 page_number=总页数、risk=high | 候选事实诚实性 | 本地 / 2026-07-24 |
 | Slice 4C 聚焦 worker/fencing | 0 | 2 passed | 局部重算与旧代围栏 | 本地 / 2026-07-24 |
 | W05 contracts + final/loop/outbox 扩大回归 | 0 | 72 passed / 1 skipped | worker、poller、状态投影、候选契约 | 本地 / 2026-07-24 |
+| canonical re-review（修复前） | 1 | task/review 错误停在 reviewing | 质量门状态闭环 | 本地 / 2026-07-24 |
+| canonical re-review 聚焦回归 | 0 | 2 passed | fail-closed quality/provenance 重审与 generation fencing | 本地 / 2026-07-24 |
 
 ## 结果
 
@@ -81,4 +83,4 @@ CourtReview，并以 superseded 状态围栏旧 generation。
 
 ## 声明状态
 
-- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_4C_GREEN`
+- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_4D_GREEN`

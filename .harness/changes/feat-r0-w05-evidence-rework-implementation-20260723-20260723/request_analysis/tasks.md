@@ -102,3 +102,12 @@
   假页码/high 风险 RED/GREEN；扩大回归 72 passed / 1 skipped。
 - 回滚边界：撤销 evidence.rework worker 分支；generation 与 candidate payload 保留审计。
 - 完成定义：digest 复验、局部刷新、保守候选、旧代 fencing 和既有 outbox 回归全绿。
+
+## 任务 4D：canonical 质量与来源重审
+
+- 目标：重算候选必须重新经过既有证据来源链和合同质量门，不能停在模糊的 reviewing 状态。
+- 输入：current generation 的已验证 EvidencePacket、accepted artifact 和 ContractReviewPackV1。
+- 输出：质量门 `PASSED/FAILED`、明确 gate reasons，以及对应 task/review 状态。
+- 验证：先证明 `NEED_LEGAL_REVIEW` 候选错误停在 reviewing，再修复为
+  `quality_gate_status=FAILED`、task/review=`awaiting_evidence`。
+- 完成定义：来源继续绑定 packet/receipt/artifact digest；范围或定位缺口 fail closed。

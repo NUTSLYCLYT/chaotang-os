@@ -542,10 +542,13 @@ def test_evidence_rework_recomputes_only_declared_contract_section(
     status = TestClient(app).get(
         f"/api/shangshufang/tasks/{task_id}/status"
     ).json()["data"]
+    assert status["task"]["status"] == "awaiting_evidence"
+    assert status["review"]["review_status"] == "awaiting_evidence"
     memorial = status["review"]["memorial"]
     assert memorial["financial_review"] == {"status": "keep-me"}
     assert memorial["contract_review"]["schema_version"] == "ContractReviewPackV1"
     assert memorial["contract_review"]["candidate_status"] == "CANDIDATE"
+    assert memorial["contract_review"]["quality_gate_status"] == "FAILED"
     risk = memorial["contract_review"]["risk_items"][0]
     assert risk["risk_level"] == "medium"
     assert risk["page_number"] is None

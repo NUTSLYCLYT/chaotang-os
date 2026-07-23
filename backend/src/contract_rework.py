@@ -30,6 +30,24 @@ def _extract_docx_text(raw_bytes: bytes) -> str:
     )
 
 
+def _candidate_gate_reasons(
+    pack: ContractReviewPackV1,
+    packets: list[EvidencePacketV1],
+) -> list[str]:
+    reasons: list[str] = []
+    if any(
+        packet.evidence_status != "GROUNDED"
+        or not packet.verification_receipt_id
+        for packet in packets
+    ):
+        reasons.append("provenance_gate_failed")
+    if pack.verdict == "NEED_LEGAL_REVIEW":
+        reasons.append("contract_scope_requires_legal_review")
+    if any(item.missing_evidence for item in pack.risk_items):
+        reasons.append("contract_evidence_locator_missing")
+    return reasons
+
+
 def recompute_contract_review(
     db: "Session",
     event: "OutboxEvent",
@@ -132,6 +150,10 @@ def recompute_contract_review(
         engine_tiers=["deterministic"],
         quality_gate_status="PENDING",
     )
+    gate_reasons = _candidate_gate_reasons(pack, packets)
+    pack = pack.model_copy(
+        update={"quality_gate_status": "FAILED" if gate_reasons else "PASSED"}
+    )
     memorial = json.loads(review.memorial_json or "{}")
     memorial["contract_review"] = pack.model_dump()
     review.memorial_json = json.dumps(
@@ -140,9 +162,10 @@ def recompute_contract_review(
         sort_keys=True,
         separators=(",", ":"),
     )
-    review.review_status = "reviewing"
-    task.status = "reviewing"
-    payload["status"] = "candidate_ready"
+    review.review_status = "awaiting_evidence" if gate_reasons else "awaiting_decision"
+    task.status = "awaiting_evidence" if gate_reasons else "awaiting_decision"
+    payload["status"] = "quality_blocked" if gate_reasons else "candidate_ready"
+    payload["gate_reasons"] = gate_reasons
     payload["contract_review_pack_id"] = pack_id
     payload["court_review_id"] = review.id
     event.payload_json = json.dumps(
@@ -157,4 +180,6 @@ def recompute_contract_review(
         "affected_sections": affected_sections,
         "contract_review_pack_id": pack_id,
         "court_review_id": review.id,
+        "quality_gate_status": pack.quality_gate_status,
+        "gate_reasons": gate_reasons,
     }
