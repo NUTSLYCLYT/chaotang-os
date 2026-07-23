@@ -8,26 +8,27 @@
   },
   "effectiveBase": {
     "ref": "origin/feature-chaotang-ext",
-    "sha": "eefd4133dd9d1c21c3299c0093524a1fb8befd18"
+    "sha": "67bcc78ec5f80d3d1600c676812ddb4cec958eb3"
   },
   "approvalEvidence": {
-    "ownerApprovalPath": ".harness/changes/docs-r0-w04-canonical-completion-approval-20260722-20260722/owner_approval/exact-h-approval.md",
-    "ownerApprovalSha256": "3cb40a574914537bd2eb61a8b90735fbc2cf9069b16ad367cb4f109880738ad9",
+    "ownerApprovalPath": ".harness/changes/docs-r0-w05-evidence-rework-approval-20260723-20260723/owner_approval/exact-h-approval.md",
+    "ownerApprovalSha256": "8654e6f06fce7a220d6f94675d76d8969dec480f73ebfca4a3a63da3f6f27769",
     "reviewPath": ".harness/changes/docs-r0-w01-amendment-repin-20260721-20260721/claude_code_review/exact-h-final.md",
     "reviewSha256": "ecca3dcafef5fad5ce609acbfaeb75d18719e95690ff8ee9343e0906b24c606e",
     "reviewVerdict": "GO",
     "approver": "lyt",
-    "candidateH": "eefd4133dd9d1c21c3299c0093524a1fb8befd18",
-    "tree": "f2427cb901cebd2c829976b08968374358d54ecb",
-    "approvedScope": ["R0-W04"]
+    "candidateH": "67bcc78ec5f80d3d1600c676812ddb4cec958eb3",
+    "tree": "e7efd61be8b8d9e725d859489124400f606fea69",
+    "approvedScope": ["R0-W05"]
   },
-  "activeWorkPackage": null,
+  "activeWorkPackage": "R0-W05",
   "workPackageLedger": [
     { "id": "R0-W00", "status": "MERGED_AND_VERIFIED" },
     { "id": "R0-W01", "status": "MERGED_AND_VERIFIED" },
     { "id": "R0-W02", "status": "MERGED_AND_VERIFIED" },
     { "id": "R0-W03", "status": "MERGED_AND_VERIFIED" },
-    { "id": "R0-W04", "status": "MERGED_AND_VERIFIED" }
+    { "id": "R0-W04", "status": "MERGED_AND_VERIFIED" },
+    { "id": "R0-W05", "status": "ACTIVE" }
   ],
   "professionalReassignment": {
     "requiredBefore": ["REAL_CUSTOMER_DATA", "R0-W08", "R0-W09"],

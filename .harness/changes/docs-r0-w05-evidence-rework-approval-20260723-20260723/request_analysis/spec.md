@@ -21,7 +21,8 @@ W04 已通过 Gitee PR #15 合并并关账，受保护主线 `67bcc78e` 处于
 | 已确认事实 | 当前补证裁决只推进 task/review 为 `awaiting_evidence`；`FinalMemorial` 仍按 task 唯一且 immutable conflict 拒绝新内容 | `backend/web/routers/shangshufang.py::apply_task_decision`；`backend/src/formal_memorial.py`；`backend/src/db/models.py` | 源码调查 | 否 |
 | 已确认事实 | PRD 明确要求补证/新版本后刷新受影响部分、旧裁决失效或被替代、对精确新奏折裁决 | `docs/product/releases/product-r0-trusted-kernel/PRD.md` §3.4 | 文档事实源 | 否 |
 | 推测 | W04 已有 generation-bound execution state 可作为重奏身份基础，但具体复用点须由 W05 首个 RED 冻结 | `backend/src/execution_state.py` 与 outbox runtime | 实施前 TDD 调查 | 否 |
-| 未知问题 | exact Owner approval、最终 migration 形状和受影响 section 选择算法 | 不适用 | W05 proposal/review 与首个 RED 冻结 | 是 |
+| 已确认事实 | Product Owner 已批准 exact base/tree 与单 Packet 范围 | `owner_approval/exact-h-approval.md`；2026-07-23 | 用户原文确认 | 否 |
+| 未知问题 | 最终 migration 形状和受影响 section 选择算法 | 不适用 | W05 首个 RED 与实现调查冻结 | 否；不得超出获批行为 |
 
 ## 数据流与调用链
 
@@ -93,9 +94,9 @@ single writer 和质量/来源门。回滚只关闭 W05 合同分析/重奏 flag
 
 ## 计划确认记录
 
-- 批准人：待 Product Owner（拟 `lyt`）exact approval
-- 批准日期：待确认
-- 批准范围：提案仅为 `R0-W05` 上述单 Packet；effective base `67bcc78e`
+- 批准人：Product Owner（`lyt`）
+- 批准日期：2026-07-23
+- 批准范围：仅为 `R0-W05` 上述单 Packet；effective base `67bcc78e`
 - 明确未批准：W06–W09、前端 UI、真实客户数据、LangGraph、推送/合并、发布、生产切换
 
 ## 验收标准
@@ -109,7 +110,7 @@ single writer 和质量/来源门。回滚只关闭 W05 合同分析/重奏 flag
 
 ## 验证计划
 
-proposal 阶段运行 root doctor、authority v2 结构与 W05 STOP。获 exact approval 后更新 manifest，
+批准激活阶段运行 root doctor、authority v2 结构与机器决策。更新 manifest 后，
 运行 authority 27 项测试、amendment 10 项测试、doctor，并证明 W05=GO、W04/W06=STOP。
 实施阶段严格采用 TDD：先 RED、再最小 GREEN、再重构；最终运行聚焦后端回归和一个真实公共 API
 端到端纵切。候选 checkpoint 一次；最终候选身份和未来生产切换各运行一次完整 verification-loop。
