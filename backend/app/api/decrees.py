@@ -40,6 +40,7 @@ from app.agents.chancellor import (
     build_chancellor_graph,
 )
 from app.agents.ministries import MINISTRIES
+from app.api.auth import CurrentUser
 from app.langgraph_runtime.deepseek_client import DeepSeekModelNameError
 from app.langgraph_runtime.deepseek_config import DeepSeekConfigError
 from app.shiguan.archive_decree import archive_chancellor_decree
@@ -276,7 +277,9 @@ router = APIRouter()
 
 
 @router.post("/api/v1/decrees/chancellor", response_model=ChancellorDecreeResponse)
-def submit_decree(payload: ChancellorDecreeRequest) -> ChancellorDecreeResponse:
+def submit_decree(
+    payload: ChancellorDecreeRequest, current_user: CurrentUser
+) -> ChancellorDecreeResponse:
     """Submit a decree (旨意) to the Chancellor agent and return its full result.
 
     ``payload`` has already passed :class:`ChancellorDecreeRequest` validation
@@ -293,7 +296,9 @@ def submit_decree(payload: ChancellorDecreeRequest) -> ChancellorDecreeResponse:
     graph = get_chancellor_graph()
     result = graph.invoke({"decree_text": payload.decree_text})
     response = _build_response_from_graph_result(result)
-    archive_chancellor_decree(payload.decree_text, response)
+    archive_chancellor_decree(
+        payload.decree_text, response, owner_user_id=current_user.id
+    )
     return response
 
 

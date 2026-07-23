@@ -2,6 +2,7 @@ import {
   type ArchiveType,
   listShiguanArchives,
 } from "../../../../lib/backendClient.ts";
+import { readSessionId } from "../../../../lib/session.ts";
 
 const ARCHIVE_TYPES = new Set<ArchiveType>([
   "MEMORIAL",
@@ -17,6 +18,7 @@ const FRIENDLY_MESSAGE_BY_KIND = {
   storage: "史馆暂时不可用，请稍后重试。",
   network: "无法连接朝堂后端，请稍后重试。",
   unknown: "史馆服务暂时不可用，请稍后重试。",
+  unauthenticated: "authentication required",
 } as const;
 
 function jsonResponse(body: unknown, status: number): Response {
@@ -27,6 +29,9 @@ function jsonResponse(body: unknown, status: number): Response {
 }
 
 function errorStatus(kind: keyof typeof FRIENDLY_MESSAGE_BY_KIND): number {
+  if (kind === "unauthenticated") {
+    return 401;
+  }
   if (kind === "validation") {
     return 422;
   }
@@ -37,6 +42,8 @@ function errorStatus(kind: keyof typeof FRIENDLY_MESSAGE_BY_KIND): number {
 }
 
 export async function GET(request: Request): Promise<Response> {
+  const sessionId = readSessionId(request);
+  if (!sessionId) return jsonResponse({ status: "error", reason: "unauthenticated", message: "authentication required" }, 401);
   const url = new URL(request.url);
   const type = url.searchParams.get("type");
   const limit = url.searchParams.get("limit");
@@ -53,6 +60,7 @@ export async function GET(request: Request): Promise<Response> {
     matterType: url.searchParams.get("matterType") ?? undefined,
     department: url.searchParams.get("department") ?? undefined,
     limit: limit === null ? undefined : Number(limit),
+    sessionId,
   });
 
   if (result.ok) {

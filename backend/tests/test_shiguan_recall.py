@@ -13,14 +13,27 @@ fixture (fresh ``tmp_path`` sqlite file per test).
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
+from app.auth import configure_auth_db, create_session, create_user
 from app.main import app
 
 client = TestClient(app)
 
 ARCHIVES_URL = "/api/v1/shiguan/archives"
 RECALL_URL = "/api/v1/shiguan/recall"
+
+
+@pytest.fixture(autouse=True)
+def _authenticate_client(isolate_shiguan_default_db_path, tmp_path):
+    del isolate_shiguan_default_db_path
+    configure_auth_db(tmp_path / "auth.sqlite3")
+    user = create_user("recall-user", "recall@example.com", "six-or-more")
+    client.headers["Authorization"] = f"Bearer {create_session(user.id)}"
+    yield
+    client.headers.pop("Authorization", None)
+    configure_auth_db(None)
 
 
 def _memorial_payload(**overrides) -> dict:

@@ -56,7 +56,9 @@ def _truncate(text: str, max_length: int) -> str:
     return stripped[:max_length].rstrip() + "…"
 
 
-def archive_chancellor_decree(decree_text: str, response: object) -> ArchiveDecreeResult:
+def archive_chancellor_decree(
+    decree_text: str, response: object, *, owner_user_id: str
+) -> ArchiveDecreeResult:
     """Archive a completed chancellor decree as MEMORIAL + DECISION records.
 
     Writes a ``MEMORIAL`` archive holding the original ``decree_text``,
@@ -122,7 +124,7 @@ def archive_chancellor_decree(decree_text: str, response: object) -> ArchiveDecr
             "responsible_owner": _DEFAULT_RESPONSIBLE_OWNER,
         }
         memorial, decision = storage.create_linked_archive_pair(
-            memorial_payload, decision_payload
+            memorial_payload, decision_payload, owner_user_id=owner_user_id
         )
         return ArchiveDecreeResult(
             archived=True,

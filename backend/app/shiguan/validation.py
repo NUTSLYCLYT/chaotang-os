@@ -49,9 +49,9 @@ def validate_archive_create(payload: dict) -> ArchiveCreate:
 
 
 def validate_related_archive_ids(
-    conn: sqlite3.Connection, related_archive_ids: list[str]
+    conn: sqlite3.Connection, related_archive_ids: list[str], *, owner_user_id: str
 ) -> None:
-    """Confirm every id in ``related_archive_ids`` already exists in ``conn``.
+    """Confirm every related archive exists and belongs to the same owner.
 
     Raises:
         ArchiveValidationError: At least one referenced archive id does not
@@ -59,7 +59,10 @@ def validate_related_archive_ids(
     """
 
     for related_id in related_archive_ids:
-        row = conn.execute("SELECT 1 FROM archives WHERE id = ?", (related_id,)).fetchone()
+        row = conn.execute(
+            "SELECT 1 FROM archives WHERE id = ? AND owner_user_id = ?",
+            (related_id, owner_user_id),
+        ).fetchone()
         if row is None:
             raise ArchiveValidationError(f"related_archive_ids 引用了不存在的档案: {related_id}")
 

@@ -42,9 +42,11 @@ def test_linked_pair_rolls_back_as_a_unit(tmp_path):
     }
 
     with pytest.raises(ArchiveValidationError):
-        storage.create_linked_archive_pair(memorial, invalid_decision, db_path=path)
+        storage.create_linked_archive_pair(
+            memorial, invalid_decision, owner_user_id="owner-a", db_path=path
+        )
 
-    assert storage.list_archives(db_path=path) == []
+    assert storage.list_archives(owner_user_id="owner-a", db_path=path) == []
 
 
 def test_archival_result_is_assertable_and_single_department_is_recallable(
@@ -53,11 +55,15 @@ def test_archival_result_is_assertable_and_single_department_is_recallable(
     path = tmp_path / "decree.sqlite3"
     monkeypatch.setattr(db, "_DEFAULT_DB_PATH", path)
 
-    result = archive_decree.archive_chancellor_decree("请核定年度预算", _response())
+    result = archive_decree.archive_chancellor_decree(
+        "请核定年度预算", _response(), owner_user_id="owner-a"
+    )
 
     assert result.archived is True
     assert result.memorial_id and result.decision_id
-    recalled = storage.list_archives(department="户部", db_path=path)
+    recalled = storage.list_archives(
+        department="户部", owner_user_id="owner-a", db_path=path
+    )
     assert {item.type for item in recalled} == {"MEMORIAL", "DECISION"}
     decision = next(item for item in recalled if item.type == "DECISION")
     assert decision.department == "户部"
@@ -65,12 +71,27 @@ def test_archival_result_is_assertable_and_single_department_is_recallable(
     assert decision.participating_departments == ["户部"]
 
 
+def test_chancellor_archival_binds_both_records_to_the_authenticated_owner(tmp_path, monkeypatch):
+    path = tmp_path / "owner-scoped-decree.sqlite3"
+    monkeypatch.setattr(db, "_DEFAULT_DB_PATH", path)
+
+    result = archive_decree.archive_chancellor_decree(
+        "请核定年度预算", _response(), owner_user_id="owner-a"
+    )
+
+    assert result.archived is True
+    assert len(storage.list_archives(owner_user_id="owner-a", db_path=path)) == 2
+    assert storage.list_archives(owner_user_id="owner-b", db_path=path) == []
+
+
 def test_archival_failure_is_degraded_without_partial_success(monkeypatch):
     def _fail(*_args, **_kwargs):
         raise ShiguanStorageError("史馆写入失败，请稍后再试")
 
     monkeypatch.setattr(storage, "create_linked_archive_pair", _fail)
-    result = archive_decree.archive_chancellor_decree("请核定年度预算", _response())
+    result = archive_decree.archive_chancellor_decree(
+        "请核定年度预算", _response(), owner_user_id="owner-a"
+    )
     assert result.archived is False
     assert result.memorial_id is None
     assert result.decision_id is None

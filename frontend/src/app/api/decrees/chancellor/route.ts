@@ -1,4 +1,5 @@
 import { submitDecree } from "../../../../lib/backendClient.ts";
+import { readSessionId } from "../../../../lib/session.ts";
 
 /**
  * `POST /api/decrees/chancellor` —— Next.js 服务端边界。
@@ -52,7 +53,7 @@ interface ChancellorSuccessResponseBody {
 }
 
 /** 与 `submitDecree` 的 `kind` 保持一致的稳定错误分类，供浏览器区分场景展示。 */
-type ChancellorErrorReason = "validation" | "config" | "model" | "network" | "unknown";
+type ChancellorErrorReason = "validation" | "config" | "model" | "network" | "unauthenticated" | "unknown";
 
 /** 失败时返回给浏览器的脱敏响应体：不包含 key、路径、traceback 或异常原文。 */
 interface ChancellorErrorResponseBody {
@@ -66,6 +67,7 @@ const HTTP_STATUS_BY_KIND: Record<ChancellorErrorReason, number> = {
   validation: 422,
   config: 503,
   model: 502,
+  unauthenticated: 401,
   // 后端不可达 / 未识别的响应形状：统一映射为「服务暂时不可用」，不额外区分。
   network: 503,
   unknown: 503,
@@ -76,6 +78,7 @@ const FRIENDLY_MESSAGE_BY_KIND: Record<ChancellorErrorReason, string> = {
   validation: "旨意校验未通过：请确认内容非空且不超过 2000 字后重试。",
   config: "朝堂后端配置暂不可用，请稍后重试或联系管理员。",
   model: "丞相暂时无法给出回奏，请稍后重试。",
+  unauthenticated: "authentication required",
   network: "无法连接朝堂后端，请稍后重试。",
   unknown: "服务暂时不可用，请稍后重试。",
 };
@@ -93,6 +96,10 @@ function malformedRequestResponse(message: string): Response {
 }
 
 export async function POST(request: Request): Promise<Response> {
+  const sessionId = readSessionId(request);
+  if (!sessionId) {
+    return jsonResponse({ status: "error", reason: "unauthenticated", message: "authentication required" }, 401);
+  }
   let payload: unknown;
   try {
     payload = await request.json();
@@ -109,7 +116,7 @@ export async function POST(request: Request): Promise<Response> {
     return malformedRequestResponse("请求体缺少字符串类型的 decreeText 字段。");
   }
 
-  const result = await submitDecree(decreeText);
+  const result = await submitDecree(decreeText, { sessionId });
 
   if (result.ok) {
     const body: ChancellorSuccessResponseBody = {

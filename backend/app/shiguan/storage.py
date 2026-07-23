@@ -34,7 +34,7 @@ from app.shiguan.models import (
 _ARCHIVE_COLUMNS = (
     "id, type, title, content, matter_type, department, created_at, "
     "lessons_learned, pitfalls, participating_departments, "
-    "decision_process, decision_conclusion, decision_time, responsible_owner"
+    "decision_process, decision_conclusion, decision_time, responsible_owner, owner_user_id"
 )
 
 
@@ -43,15 +43,17 @@ def _now_iso() -> str:
 
 
 def _insert_validated_archive(
-    conn: sqlite3.Connection, validated: ArchiveCreate
+    conn: sqlite3.Connection, validated: ArchiveCreate, owner_user_id: str
 ) -> Archive:
     """Insert one validated archive into the caller-owned transaction."""
-    validation.validate_related_archive_ids(conn, validated.related_archive_ids)
+    validation.validate_related_archive_ids(
+        conn, validated.related_archive_ids, owner_user_id=owner_user_id
+    )
     archive_id = uuid.uuid4().hex
     created_at = _now_iso()
     conn.execute(
         f"INSERT INTO archives ({_ARCHIVE_COLUMNS}) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             archive_id,
             validated.type,
@@ -69,6 +71,7 @@ def _insert_validated_archive(
             validated.decision_conclusion,
             validated.decision_time,
             validated.responsible_owner,
+            owner_user_id,
         ),
     )
     for evidence in validated.evidence:
@@ -83,10 +86,12 @@ def _insert_validated_archive(
             (archive_id, related_id),
         )
     row = conn.execute("SELECT * FROM archives WHERE id = ?", (archive_id,)).fetchone()
-    return _build_archive(conn, row)
+    return _build_archive(conn, row, owner_user_id)
 
 
-def _build_archive(conn: sqlite3.Connection, row: sqlite3.Row) -> Archive:
+def _build_archive(
+    conn: sqlite3.Connection, row: sqlite3.Row, owner_user_id: str
+) -> Archive:
     archive_id = row["id"]
 
     evidence_rows = conn.execute(
@@ -100,8 +105,11 @@ def _build_archive(conn: sqlite3.Connection, row: sqlite3.Row) -> Archive:
     ]
 
     related_rows = conn.execute(
-        "SELECT related_id FROM archive_relations WHERE archive_id = ? ORDER BY seq ASC",
-        (archive_id,),
+        "SELECT relation.related_id FROM archive_relations AS relation "
+        "JOIN archives AS related ON related.id = relation.related_id "
+        "WHERE relation.archive_id = ? AND related.owner_user_id = ? "
+        "ORDER BY relation.seq ASC",
+        (archive_id, owner_user_id),
     ).fetchall()
     related_archive_ids = [r["related_id"] for r in related_rows]
 
@@ -146,7 +154,9 @@ def _build_archive(conn: sqlite3.Connection, row: sqlite3.Row) -> Archive:
     )
 
 
-def create_archive(payload: dict | ArchiveCreate, *, db_path: Path | None = None) -> Archive:
+def create_archive(
+    payload: dict | ArchiveCreate, *, owner_user_id: str, db_path: Path | None = None
+) -> Archive:
     """Validate and persist a new archive, returning the full stored record.
 
     ``id`` is always server-generated (UUID4 hex) and inserted with a plain
@@ -166,7 +176,7 @@ def create_archive(payload: dict | ArchiveCreate, *, db_path: Path | None = None
     try:
         validated = validation.validate_archive_create(payload_dict)
         try:
-            archive = _insert_validated_archive(conn, validated)
+            archive = _insert_validated_archive(conn, validated, owner_user_id)
             conn.commit()
         except sqlite3.Error as exc:
             conn.rollback()
@@ -181,6 +191,7 @@ def create_linked_archive_pair(
     memorial_payload: dict,
     decision_payload: dict,
     *,
+    owner_user_id: str,
     db_path: Path | None = None,
 ) -> tuple[Archive, Archive]:
     """Atomically create a MEMORIAL and its linked DECISION.
@@ -192,11 +203,11 @@ def create_linked_archive_pair(
     try:
         try:
             memorial_data = validation.validate_archive_create(dict(memorial_payload))
-            memorial = _insert_validated_archive(conn, memorial_data)
+            memorial = _insert_validated_archive(conn, memorial_data, owner_user_id)
             linked_decision = dict(decision_payload)
             linked_decision["related_archive_ids"] = [memorial.id]
             decision_data = validation.validate_archive_create(linked_decision)
-            decision = _insert_validated_archive(conn, decision_data)
+            decision = _insert_validated_archive(conn, decision_data, owner_user_id)
             conn.commit()
             return memorial, decision
         except (ArchiveValidationError, ArchiveNotFoundError):
@@ -209,7 +220,9 @@ def create_linked_archive_pair(
         conn.close()
 
 
-def get_archive(archive_id: str, *, db_path: Path | None = None) -> Archive:
+def get_archive(
+    archive_id: str, *, owner_user_id: str, db_path: Path | None = None
+) -> Archive:
     """Fetch a single archive by id.
 
     Raises:
@@ -220,13 +233,16 @@ def get_archive(archive_id: str, *, db_path: Path | None = None) -> Archive:
     conn = db.get_connection(db_path)
     try:
         try:
-            row = conn.execute("SELECT * FROM archives WHERE id = ?", (archive_id,)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM archives WHERE id = ? AND owner_user_id = ?",
+                (archive_id, owner_user_id),
+            ).fetchone()
         except sqlite3.Error as exc:
             raise ShiguanStorageError("史馆查询失败，请稍后再试") from exc
         if row is None:
             raise ArchiveNotFoundError(f"档案不存在: {archive_id}")
         try:
-            return _build_archive(conn, row)
+            return _build_archive(conn, row, owner_user_id)
         except sqlite3.Error as exc:
             raise ShiguanStorageError("史馆查询失败，请稍后再试") from exc
     finally:
@@ -239,6 +255,7 @@ def list_archives(
     department: str | None = None,
     limit: int = 100,
     *,
+    owner_user_id: str,
     db_path: Path | None = None,
 ) -> list[Archive]:
     """List archives, optionally filtered, with a deterministic ordering.
@@ -255,8 +272,8 @@ def list_archives(
     if not isinstance(limit, int) or isinstance(limit, bool) or limit <= 0:
         raise ArchiveValidationError("limit 必须为正整数")
 
-    conditions: list[str] = []
-    params: list[object] = []
+    conditions: list[str] = ["owner_user_id = ?"]
+    params: list[object] = [owner_user_id]
     if type is not None:
         conditions.append("type = ?")
         params.append(type)
@@ -282,7 +299,7 @@ def list_archives(
         except sqlite3.Error as exc:
             raise ShiguanStorageError("史馆查询失败，请稍后再试") from exc
         try:
-            return [_build_archive(conn, row) for row in rows]
+            return [_build_archive(conn, row, owner_user_id) for row in rows]
         except sqlite3.Error as exc:
             raise ShiguanStorageError("史馆查询失败，请稍后再试") from exc
     finally:
@@ -295,6 +312,7 @@ def upsert_review_status(
     reviewed_at: str,
     note: str | None = None,
     *,
+    owner_user_id: str,
     db_path: Path | None = None,
 ) -> ReviewStatus:
     """Set (or replace) an archive's review/复盘 status.
@@ -312,7 +330,10 @@ def upsert_review_status(
     conn = db.get_connection(db_path)
     try:
         try:
-            exists = conn.execute("SELECT 1 FROM archives WHERE id = ?", (archive_id,)).fetchone()
+            exists = conn.execute(
+                "SELECT 1 FROM archives WHERE id = ? AND owner_user_id = ?",
+                (archive_id, owner_user_id),
+            ).fetchone()
         except sqlite3.Error as exc:
             raise ShiguanStorageError("史馆查询失败，请稍后再试") from exc
         if exists is None:
@@ -344,7 +365,7 @@ def upsert_review_status(
         conn.close()
 
 
-def get_statistics(*, db_path: Path | None = None) -> Statistics:
+def get_statistics(*, owner_user_id: str, db_path: Path | None = None) -> Statistics:
     """Compute archive counters and the achievement success rate.
 
     ``success_rate`` is ``achieved / (achieved + not_achieved + partial)``;
@@ -359,12 +380,20 @@ def get_statistics(*, db_path: Path | None = None) -> Statistics:
     conn = db.get_connection(db_path)
     try:
         try:
-            total = conn.execute("SELECT COUNT(*) FROM archives").fetchone()[0]
+            total = conn.execute(
+                "SELECT COUNT(*) FROM archives WHERE owner_user_id = ?", (owner_user_id,)
+            ).fetchone()[0]
             status_rows = conn.execute(
-                "SELECT status, COUNT(*) AS n FROM archive_review_status GROUP BY status"
+                "SELECT review.status, COUNT(*) AS n FROM archive_review_status AS review "
+                "JOIN archives ON archives.id = review.archive_id "
+                "WHERE archives.owner_user_id = ? GROUP BY review.status",
+                (owner_user_id,),
             ).fetchall()
             reviewed_total = conn.execute(
-                "SELECT COUNT(*) FROM archive_review_status"
+                "SELECT COUNT(*) FROM archive_review_status AS review "
+                "JOIN archives ON archives.id = review.archive_id "
+                "WHERE archives.owner_user_id = ?",
+                (owner_user_id,),
             ).fetchone()[0]
         except sqlite3.Error as exc:
             raise ShiguanStorageError("史馆统计查询失败，请稍后再试") from exc

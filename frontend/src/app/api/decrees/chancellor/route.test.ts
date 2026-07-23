@@ -17,8 +17,10 @@ import { POST } from "./route.ts";
 async function startDecreeStub(
   status: number,
   body: unknown,
-): Promise<{ baseUrl: string; close: () => Promise<void> }> {
+): Promise<{ baseUrl: string; authorization: () => string | undefined; close: () => Promise<void> }> {
+  let lastAuthorization: string | undefined;
   const server: Server = createServer((req, res) => {
+    lastAuthorization = req.headers.authorization;
     if (req.method === "POST" && req.url === "/api/v1/decrees/chancellor") {
       const payload = typeof body === "string" ? body : JSON.stringify(body);
       res.writeHead(status, { "content-type": "application/json" });
@@ -34,6 +36,7 @@ async function startDecreeStub(
 
   return {
     baseUrl: `http://127.0.0.1:${address.port}`,
+    authorization: () => lastAuthorization,
     close: () =>
       new Promise<void>((resolve, reject) => {
         server.close((error) => (error ? reject(error) : resolve()));
@@ -71,10 +74,25 @@ async function withBackendBaseUrl<T>(baseUrl: string, run: () => Promise<T>): Pr
 function makeRequest(body: unknown): Request {
   return new Request("http://localhost/api/decrees/chancellor", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    // Route handlers receive the browser cookie; only they may forward it to FastAPI.
+    headers: { "content-type": "application/json", cookie: "courtos_session=test-session" },
     body: typeof body === "string" ? body : JSON.stringify(body),
   });
 }
+
+test("POST: protected BFF rejects a caller without a session cookie", async () => {
+  const response = await POST(new Request("http://localhost/api/decrees/chancellor", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ decreeText: "test" }),
+  }));
+  assert.equal(response.status, 401);
+  assert.deepEqual(await response.json(), {
+    status: "error",
+    reason: "unauthenticated",
+    message: "authentication required",
+  });
+});
 
 test("POST：成功路径（single 路由）- 后端返回符合契约的响应时映射为 200，新字段全部透传", async () => {
   const stub = await startDecreeStub(200, {
@@ -95,6 +113,7 @@ test("POST：成功路径（single 路由）- 后端返回符合契约的响应�
     );
 
     assert.equal(response.status, 200);
+    assert.equal(stub.authorization(), "Bearer test-session");
     const body = (await response.json()) as Record<string, unknown>;
     assert.deepEqual(body, {
       status: "ok",
@@ -285,7 +304,7 @@ test("POST：后端不可达 - 映射为 503（network），不抛出异常", as
 test("POST：请求体不是合法 JSON - 返回稳定 4xx，不 500，不调用后端", async () => {
   const request = new Request("http://localhost/api/decrees/chancellor", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", cookie: "courtos_session=test-session" },
     body: "not-json{",
   });
 

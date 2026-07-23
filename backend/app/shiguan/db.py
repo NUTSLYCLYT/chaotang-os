@@ -46,7 +46,8 @@ CREATE TABLE IF NOT EXISTS archives (
     decision_process TEXT,
     decision_conclusion TEXT,
     decision_time TEXT,
-    responsible_owner TEXT
+    responsible_owner TEXT,
+    owner_user_id TEXT
 );
 
 CREATE TABLE IF NOT EXISTS archive_evidence (
@@ -74,6 +75,27 @@ CREATE TABLE IF NOT EXISTS archive_review_status (
     note TEXT,
     FOREIGN KEY (archive_id) REFERENCES archives(id)
 );
+
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS auth_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    revoked_at TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_active_user
+ON auth_sessions (id, user_id, expires_at)
+WHERE revoked_at IS NULL;
 """
 
 
@@ -104,6 +126,11 @@ def get_connection(path: Path | None = None) -> sqlite3.Connection:
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
         connection.executescript(_SCHEMA_STATEMENTS)
+        archive_columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(archives)")
+        }
+        if "owner_user_id" not in archive_columns:
+            connection.execute("ALTER TABLE archives ADD COLUMN owner_user_id TEXT")
         connection.commit()
     except (OSError, sqlite3.Error) as exc:
         raise ShiguanStorageError("史馆存储暂时不可用，请稍后再试") from exc

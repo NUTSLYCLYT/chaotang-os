@@ -33,6 +33,7 @@ from fastapi import APIRouter, FastAPI, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.api.auth import CurrentUser
 from app.shiguan import storage
 from app.shiguan.errors import ArchiveNotFoundError, ArchiveValidationError, ShiguanStorageError
 from app.shiguan.models import Archive, ArchiveType, ReviewStatus, Statistics
@@ -66,7 +67,7 @@ class RecallRequest(BaseModel):
 
 
 @router.post("/archives", response_model=Archive, status_code=201)
-def create_archive(payload: dict[str, Any]) -> Archive:
+def create_archive(payload: dict[str, Any], current_user: CurrentUser) -> Archive:
     """Create a new archive of any of the five 史馆 types.
 
     ``payload`` is passed straight to ``storage.create_archive``, which owns
@@ -75,17 +76,18 @@ def create_archive(payload: dict[str, Any]) -> Archive:
     ``id``). Any failure surfaces as ``ArchiveValidationError`` (422) or
     ``ShiguanStorageError`` (503) via the handlers registered below.
     """
-    return storage.create_archive(payload)
+    return storage.create_archive(payload, owner_user_id=current_user.id)
 
 
 @router.get("/archives/{archive_id}", response_model=Archive)
-def get_archive(archive_id: str) -> Archive:
+def get_archive(archive_id: str, current_user: CurrentUser) -> Archive:
     """Fetch a single archive by id. 404s via ``ArchiveNotFoundError``."""
-    return storage.get_archive(archive_id)
+    return storage.get_archive(archive_id, owner_user_id=current_user.id)
 
 
 @router.get("/archives", response_model=list[Archive])
 def list_archives(
+    current_user: CurrentUser,
     type: ArchiveType | None = None,
     matter_type: str | None = None,
     department: str | None = None,
@@ -104,11 +106,14 @@ def list_archives(
         matter_type=matter_type,
         department=department,
         limit=limit,
+        owner_user_id=current_user.id,
     )
 
 
 @router.patch("/archives/{archive_id}/review", response_model=ReviewStatus)
-def update_review_status(archive_id: str, payload: ReviewStatusUpdateRequest) -> ReviewStatus:
+def update_review_status(
+    archive_id: str, payload: ReviewStatusUpdateRequest, current_user: CurrentUser
+) -> ReviewStatus:
     """Set (or replace) an archive's review/复盘 status.
 
     ``status``/``reviewed_at``/``note`` are read from ``payload`` and passed
@@ -122,22 +127,23 @@ def update_review_status(archive_id: str, payload: ReviewStatusUpdateRequest) ->
         payload.status,
         payload.reviewed_at,
         payload.note,
+        owner_user_id=current_user.id,
     )
 
 
 @router.get("/statistics", response_model=Statistics)
-def get_statistics() -> Statistics:
+def get_statistics(current_user: CurrentUser) -> Statistics:
     """Report archive counters and the achievement success rate.
 
     ``success_rate`` is ``None`` (never a fabricated ``0``) whenever its
     denominator (``achieved + not_achieved + partial``) is zero -- see
     ``storage.get_statistics`` for the exact computation.
     """
-    return storage.get_statistics()
+    return storage.get_statistics(owner_user_id=current_user.id)
 
 
 @router.post("/recall", response_model=list[RecallMatch])
-def recall(payload: RecallRequest) -> list[RecallMatch]:
+def recall(payload: RecallRequest, current_user: CurrentUser) -> list[RecallMatch]:
     """Find similar historical archives by matter_type and/or department.
 
     At least one of ``matter_type``/``department`` must be provided;
@@ -149,6 +155,7 @@ def recall(payload: RecallRequest) -> list[RecallMatch]:
         matter_type=payload.matter_type,
         department=payload.department,
         limit=payload.limit,
+        owner_user_id=current_user.id,
     )
 
 

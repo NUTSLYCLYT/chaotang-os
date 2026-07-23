@@ -78,12 +78,18 @@ class TestValidateArchiveCreate:
 class TestValidateRelatedArchiveIds:
     def test_all_ids_exist_passes(self, tmp_path):
         db_path = tmp_path / "related.sqlite3"
-        first = storage.create_archive(_valid_memorial_payload(), db_path=db_path)
-        second = storage.create_archive(_valid_memorial_payload(), db_path=db_path)
+        first = storage.create_archive(
+            _valid_memorial_payload(), owner_user_id="owner-a", db_path=db_path
+        )
+        second = storage.create_archive(
+            _valid_memorial_payload(), owner_user_id="owner-a", db_path=db_path
+        )
 
         conn = db.get_connection(db_path)
         try:
-            validation.validate_related_archive_ids(conn, [first.id, second.id])
+            validation.validate_related_archive_ids(
+                conn, [first.id, second.id], owner_user_id="owner-a"
+            )
         finally:
             conn.close()
 
@@ -91,7 +97,7 @@ class TestValidateRelatedArchiveIds:
         db_path = tmp_path / "related-empty.sqlite3"
         conn = db.get_connection(db_path)
         try:
-            validation.validate_related_archive_ids(conn, [])
+            validation.validate_related_archive_ids(conn, [], owner_user_id="owner-a")
         finally:
             conn.close()
 
@@ -100,10 +106,27 @@ class TestValidateRelatedArchiveIds:
         conn = db.get_connection(db_path)
         try:
             with pytest.raises(ArchiveValidationError) as excinfo:
-                validation.validate_related_archive_ids(conn, ["does-not-exist"])
+                validation.validate_related_archive_ids(
+                    conn, ["does-not-exist"], owner_user_id="owner-a"
+                )
         finally:
             conn.close()
         assert "does-not-exist" in str(excinfo.value)
+
+    def test_another_owners_related_id_is_rejected(self, tmp_path):
+        db_path = tmp_path / "related-other-owner.sqlite3"
+        owner_a_archive = storage.create_archive(
+            _valid_memorial_payload(), owner_user_id="owner-a", db_path=db_path
+        )
+
+        conn = db.get_connection(db_path)
+        try:
+            with pytest.raises(ArchiveValidationError):
+                validation.validate_related_archive_ids(
+                    conn, [owner_a_archive.id], owner_user_id="owner-b"
+                )
+        finally:
+            conn.close()
 
 
 class TestValidateReviewStatusUpdate:

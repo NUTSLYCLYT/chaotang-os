@@ -81,6 +81,122 @@ function describeError(error: unknown): string {
   return "无法连接后端，请稍后重试";
 }
 
+/** Public account fields that may cross the BFF boundary. */
+export interface PublicUser {
+  id: string;
+  username: string;
+  email: string;
+}
+
+export type BackendAuthResult =
+  | { ok: true; status: number; user: PublicUser; sessionId?: string }
+  | {
+      ok: false;
+      kind: "validation" | "conflict" | "unauthenticated" | "network" | "unknown";
+    };
+
+export interface RegisterOptions {
+  baseUrl?: string;
+  timeoutMs?: number;
+}
+
+export interface LoginOptions {
+  baseUrl?: string;
+  timeoutMs?: number;
+}
+
+export interface AuthenticatedRequestOptions {
+  baseUrl?: string;
+  timeoutMs?: number;
+  /** Opaque session forwarded only by Next.js server code. */
+  sessionId?: string;
+}
+
+function parsePublicUser(value: unknown): PublicUser | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  if (
+    typeof record.id !== "string" ||
+    typeof record.username !== "string" ||
+    typeof record.email !== "string"
+  ) {
+    return null;
+  }
+  return { id: record.id, username: record.username, email: record.email };
+}
+
+function authFailure(status: number): BackendAuthResult {
+  if (status === 401) return { ok: false, kind: "unauthenticated" };
+  if (status === 409) return { ok: false, kind: "conflict" };
+  if (status === 422) return { ok: false, kind: "validation" };
+  return { ok: false, kind: "unknown" };
+}
+
+async function requestAuth(
+  path: string,
+  init: RequestInit,
+  options: AuthenticatedRequestOptions = {},
+  expectsSession = false,
+): Promise<BackendAuthResult> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${(options.baseUrl ?? getBackendBaseUrl()).replace(/\/+$/, "")}${path}`, {
+      ...init,
+      headers: {
+        ...init.headers,
+        ...(options.sessionId ? { authorization: `Bearer ${options.sessionId}` } : {}),
+      },
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    if (!response.ok) return authFailure(response.status);
+    if (response.status === 204) return { ok: true, status: response.status, user: { id: "", username: "", email: "" } };
+    const body = await response.json() as unknown;
+    const record = typeof body === "object" && body !== null ? body as Record<string, unknown> : null;
+    const user = parsePublicUser(expectsSession ? record?.user : body);
+    const sessionId = expectsSession && typeof record?.session_id === "string" ? record.session_id : undefined;
+    if (user === null || (expectsSession && !sessionId)) return { ok: false, kind: "unknown" };
+    return { ok: true, status: response.status, user, sessionId };
+  } catch {
+    return { ok: false, kind: "network" };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export function registerUser(
+  payload: { username: string; email: string; password: string },
+  options: RegisterOptions = {},
+): Promise<BackendAuthResult> {
+  return requestAuth(
+    "/api/v1/auth/register",
+    { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) },
+    options,
+    true,
+  );
+}
+
+export function loginUser(
+  payload: { identifier: string; password: string },
+  options: LoginOptions = {},
+): Promise<BackendAuthResult> {
+  return requestAuth(
+    "/api/v1/auth/login",
+    { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) },
+    options,
+    true,
+  );
+}
+
+export function getCurrentUser(options: AuthenticatedRequestOptions): Promise<BackendAuthResult> {
+  return requestAuth("/api/v1/auth/me", { method: "GET" }, options);
+}
+
+export async function logoutUser(options: AuthenticatedRequestOptions): Promise<BackendAuthResult> {
+  return requestAuth("/api/v1/auth/logout", { method: "POST" }, options);
+}
+
 /** 一个司级意见，按所属部的咨询顺序保留。 */
 export interface BureauOpinion {
   bureau: string;
@@ -123,7 +239,7 @@ export type SubmitDecreeResult =
   | { ok: true; data: SubmitDecreeData }
   | {
       ok: false;
-      kind: "validation" | "config" | "model" | "network" | "unknown";
+      kind: "validation" | "config" | "model" | "network" | "unauthenticated" | "unknown";
       error: string;
     };
 
@@ -132,6 +248,8 @@ export interface SubmitDecreeOptions {
   baseUrl?: string;
   /** 请求超时时间（毫秒），默认 `DECREE_TIMEOUT_MS`。 */
   timeoutMs?: number;
+  /** Opaque session forwarded only by Next.js server code. */
+  sessionId?: string;
 }
 
 /**
@@ -338,7 +456,10 @@ export async function submitDecree(
   try {
     const response = await fetch(`${baseUrl.replace(/\/+$/, "")}/api/v1/decrees/chancellor`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        ...(options.sessionId ? { authorization: `Bearer ${options.sessionId}` } : {}),
+      },
       body: JSON.stringify({ decree_text: decreeText }),
       signal: controller.signal,
       cache: "no-store",
@@ -364,6 +485,9 @@ export async function submitDecree(
         kind: "model",
         error: await extractErrorMessage(response, "丞相模型调用失败"),
       };
+    }
+    if (response.status === 401) {
+      return { ok: false, kind: "unauthenticated", error: "authentication required" };
     }
 
     if (!response.ok) {
@@ -449,7 +573,7 @@ export type ShiguanResult<T> =
   | { ok: true; data: T }
   | {
       ok: false;
-      kind: "validation" | "not_found" | "storage" | "network" | "unknown";
+      kind: "validation" | "not_found" | "storage" | "network" | "unauthenticated" | "unknown";
       error: string;
     };
 
@@ -462,6 +586,7 @@ export interface ListShiguanArchivesOptions {
   limit?: number;
   baseUrl?: string;
   timeoutMs?: number;
+  sessionId?: string;
 }
 
 export interface RecallShiguanArchivesOptions {
@@ -470,11 +595,13 @@ export interface RecallShiguanArchivesOptions {
   limit?: number;
   baseUrl?: string;
   timeoutMs?: number;
+  sessionId?: string;
 }
 
 export interface UpdateShiguanReviewOptions {
   baseUrl?: string;
   timeoutMs?: number;
+  sessionId?: string;
 }
 
 const SHIGUAN_TIMEOUT_MS = 10000;
@@ -725,6 +852,9 @@ function parseRecallMatch(value: unknown): ShiguanRecallMatch | null {
 }
 
 function mapShiguanErrorStatus(status: number): ShiguanErrorKind {
+  if (status === 401) {
+    return "unauthenticated";
+  }
   if (status === 404) {
     return "not_found";
   }
@@ -765,7 +895,7 @@ async function fetchShiguan<T>(
   path: string,
   init: RequestInit,
   parse: (body: unknown) => T | null,
-  options: { baseUrl?: string; timeoutMs?: number } = {},
+  options: { baseUrl?: string; timeoutMs?: number; sessionId?: string } = {},
 ): Promise<ShiguanResult<T>> {
   const baseUrl = options.baseUrl ?? getBackendBaseUrl();
   const timeoutMs = options.timeoutMs ?? SHIGUAN_TIMEOUT_MS;
@@ -774,6 +904,10 @@ async function fetchShiguan<T>(
   try {
     const response = await fetch(`${baseUrl.replace(/\/+$/, "")}${path}`, {
       ...init,
+      headers: {
+        ...init.headers,
+        ...(options.sessionId ? { authorization: `Bearer ${options.sessionId}` } : {}),
+      },
       signal: controller.signal,
       cache: "no-store",
     });
@@ -819,7 +953,7 @@ export async function listShiguanArchives(
 }
 
 export async function getShiguanStatistics(
-  options: { baseUrl?: string; timeoutMs?: number } = {},
+  options: { baseUrl?: string; timeoutMs?: number; sessionId?: string } = {},
 ): Promise<ShiguanResult<ShiguanStatistics>> {
   return fetchShiguan(
     "/api/v1/shiguan/statistics",

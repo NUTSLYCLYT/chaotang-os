@@ -48,6 +48,12 @@ pytest 测试，ruff 静态检查，pip + venv 管理依赖。选型理由、取
 - 不引入 `app/` 之外的多包结构、alembic、cli.py、多环境 docker-compose 或 `src/`
   布局，除非有新的 ADR 明确变更。
 
+## 账户、会话与所有者
+
+FastAPI 是账户、可撤销会话和数据 owner 过滤的唯一权威。公开路由只包括 `GET /health` 及注册/登录；上书和史馆的每个受保护路由必须声明 `CurrentUser`（即 `require_current_user`）。客户端不得提供 owner ID；存储层必须从已认证用户传入 owner ID，无归属的旧 SQLite 数据保留但对所有用户不可见。
+
+认证路由发放随机不透明会话 ID，由 BFF 通过 `Authorization: Bearer` 转发。退出必须废止服务端会话；已废止或过期的会话必须返回 401。本地双账号验证应注入假丧相图响应，不得发起真实模型请求。见 `docs/decisions/0019-authenticated-user-isolation.md`。
+
 ## 环境要求
 
 - Python `>=3.11`（`pyproject.toml` 中 `requires-python` 为准）。

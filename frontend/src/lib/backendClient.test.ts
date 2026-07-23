@@ -9,6 +9,7 @@ import path from "node:path";
 import {
   fetchHealth,
   getShiguanStatistics,
+  loginUser,
   listShiguanArchives,
   recallShiguanArchives,
   submitDecree,
@@ -1001,4 +1002,26 @@ test("史馆客户端：非 JSON 与网络错误使用稳定中文", async () =>
   const result = await getShiguanStatistics({ baseUrl: "http://127.0.0.1:1", timeoutMs: 100 });
   assert.equal(result.ok, false);
   if (!result.ok) assert.equal(result.error, "无法连接后端，请稍后重试");
+});
+
+test("authenticated backend calls send Bearer sessions and preserve a backend 401", async () => {
+  let authorization: string | undefined;
+  const server = createServer((req, res) => {
+    authorization = req.headers.authorization;
+    res.writeHead(401, { "content-type": "application/json" });
+    res.end(JSON.stringify({ message: "invalid credentials" }));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address() as AddressInfo;
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  try {
+    const decree = await submitDecree("authenticated decree", { baseUrl, sessionId: "test-session" });
+    assert.equal(authorization, "Bearer test-session");
+    assert.deepEqual(decree, { ok: false, kind: "unauthenticated", error: "authentication required" });
+
+    const login = await loginUser({ identifier: "court", password: "six-or-more" }, { baseUrl });
+    assert.deepEqual(login, { ok: false, kind: "unauthenticated" });
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
 });
