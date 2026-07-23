@@ -360,6 +360,47 @@ def test_request_evidence_invalidates_old_memorial_before_later_adopt(
     db = isolated_session_local()
     task_id = "task_request_evidence_then_adopt"
     review_id = _seed_candidate(db, task_id=task_id)
+    formal = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id, review_id=review_id, source_label="LIVE_SWARM"
+        ),
+    )
+    content_hash = formal.content_hash
+    db.commit()
+    db.close()
+
+    client = TestClient(app)
+    evidence_requested = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "request_evidence",
+            "reason": "补充第 4 页付款条件原文",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": content_hash,
+        },
+    )
+    assert evidence_requested.json()["success"] is True
+
+    blocked_adopt = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={"action": "adopt", "reason": "沿用旧稿", "human_confirmed": True},
+    )
+    assert blocked_adopt.json()["success"] is False
+    assert "正式奏折" in blocked_adopt.json()["error"]
+
+
+def test_request_evidence_requires_current_memorial_content_hash(
+    isolated_session_local,
+):
+    """补证必须明确绑定用户正在查看的正式奏折版本。"""
+    from src.formal_memorial import formalize_memorial
+
+    db = isolated_session_local()
+    task_id = "task_request_evidence_missing_hash"
+    review_id = _seed_candidate(db, task_id=task_id)
     formalize_memorial(
         db,
         task_id=task_id,
@@ -371,8 +412,7 @@ def test_request_evidence_invalidates_old_memorial_before_later_adopt(
     db.commit()
     db.close()
 
-    client = TestClient(app)
-    evidence_requested = client.post(
+    response = TestClient(app).post(
         f"/api/shangshufang/tasks/{task_id}/decision",
         json={
             "action": "request_evidence",
@@ -380,14 +420,50 @@ def test_request_evidence_invalidates_old_memorial_before_later_adopt(
             "human_confirmed": True,
         },
     )
-    assert evidence_requested.json()["success"] is True
 
-    blocked_adopt = client.post(
-        f"/api/shangshufang/tasks/{task_id}/decision",
-        json={"action": "adopt", "reason": "沿用旧稿", "human_confirmed": True},
+    assert response.json()["success"] is False
+    assert "content hash" in response.json()["error"]
+
+
+def test_request_evidence_rejects_stale_memorial_content_hash(
+    isolated_session_local,
+):
+    """旧页面提交的补证不能作用到已经变化的正式奏折。"""
+    from src.formal_memorial import formalize_memorial
+
+    db = isolated_session_local()
+    task_id = "task_request_evidence_stale_hash"
+    review_id = _seed_candidate(db, task_id=task_id)
+    formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id, review_id=review_id, source_label="LIVE_SWARM"
+        ),
     )
-    assert blocked_adopt.json()["success"] is False
-    assert "正式奏折" in blocked_adopt.json()["error"]
+    db.commit()
+    db.close()
+
+    response = TestClient(app).post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "request_evidence",
+            "reason": "补充第 4 页付款条件原文",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": "0" * 64,
+        },
+    )
+
+    assert response.json()["success"] is False
+    assert "已变化" in response.json()["error"]
+
+    status = TestClient(app).get(f"/api/shangshufang/tasks/{task_id}/status")
+    assert status.json()["data"]["task"]["status"] == "awaiting_decision"
+    assert (
+        status.json()["data"]["formal_memorial"]["status"]
+        == "ready_for_decision"
+    )
 
 
 @pytest.mark.parametrize(

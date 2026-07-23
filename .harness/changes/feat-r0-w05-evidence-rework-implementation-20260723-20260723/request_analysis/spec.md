@@ -29,7 +29,11 @@ W05 获得 exact Owner approval、专属 review evidence 和机器 GO。当前
 
 ## 范围
 
-只实现补证动作立即关闭旧正式奏折的裁决资格，并增加公共 API 回归测试。
+已实现：
+
+- 补证动作立即关闭旧正式奏折的裁决资格；
+- 当前存在正式奏折时，补证必须携带 `expected_final_memorial_content_hash`；
+- 请求 hash 与 current 不一致时，在任何裁决/状态写入前 fail closed。
 
 ## 非目标
 
@@ -39,7 +43,9 @@ W05 获得 exact Owner approval、专属 review evidence 和机器 GO。当前
 
 | 条件 | 预期行为 | 证据 / 验证 |
 | --- | --- | --- |
-| 当前奏折存在且 ready | 补证后转为 awaiting evidence，不可 adopt | 新 RED/GREEN |
+| 当前奏折存在且 ready，hash 匹配 | 补证后转为 awaiting evidence，不可 adopt | 新 RED/GREEN |
+| 当前奏折存在，hash 缺失 | fail closed，不写裁决或状态 | slice 2 RED/GREEN |
+| 当前奏折存在，hash stale/伪造 | fail closed，task/formal 状态不变 | slice 2 RED/GREEN |
 | 没有正式奏折 | 保持既有 task/review awaiting evidence 行为 | 既有参数化回归 |
 | 已拒绝/归档奏折 | 补证不把它重新打开 | 只转换 ready 状态 |
 

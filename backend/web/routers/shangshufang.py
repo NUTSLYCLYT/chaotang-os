@@ -107,6 +107,7 @@ class DecisionRequest(BaseModel):
     human_confirmed: bool = True
     human_confirmation_note: str | None = None
     followup_question: str | None = None
+    expected_final_memorial_content_hash: str | None = None
 
 
 class FinanceReportingLoopRequest(BaseModel):
@@ -1526,6 +1527,19 @@ def shangshufang_task_decision(
             return fail("task_id 不存在")
         if task.user_id != _user_id(user):
             return fail("无权裁决该任务")
+        if body.action in {"request_evidence", "followup"}:
+            formal = db.query(FinalMemorial).filter_by(task_id=task_id).first()
+            if (
+                formal is not None
+                and not body.expected_final_memorial_content_hash
+            ):
+                return fail("补证必须绑定当前正式奏折 content hash")
+            if (
+                formal is not None
+                and body.expected_final_memorial_content_hash
+                != formal.content_hash
+            ):
+                return fail("正式奏折已变化，请刷新后重新提交补证")
         now = now_iso()
         decision = EmperorDecision(
             id=make_id("decision", task_id, body.action, now),
