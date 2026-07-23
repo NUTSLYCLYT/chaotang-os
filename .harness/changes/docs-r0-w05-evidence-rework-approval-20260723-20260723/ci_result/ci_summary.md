@@ -16,7 +16,7 @@
 
 ## 结果
 
-Product Owner exact approval、approval digest 与 authority manifest 原子翻转已完成。W05 是唯一 GO，W04/W06 均 STOP；独立双轴治理复审尚待完成。没有修改产品实现。
+Product Owner exact approval 与 approval digest 已完成。首次 authority 翻转的机器测试虽通过，但独立 Standards 审查发现它错误复用了明确不授权 W05 的 W01 review evidence；因此当前候选已恢复 `activeWorkPackage:null`、W05=`NOT_STARTED`，等待绑定 W05 候选的独立 review evidence 后再原子激活。没有修改产品实现。
 
 ## 未验证项
 
@@ -38,7 +38,7 @@ Product Owner exact approval、approval digest 与 authority manifest 原子翻�
 | W05 未越权启动 | authority STOP | PASS |
 | 单 Packet 范围与排除项完整 | spec/tasks | PENDING_REVIEW |
 | exact approval | `owner_approval/exact-h-approval.md` | PASS |
-| W05 GO，W04/W06 STOP | manifest + CLI | PASS |
+| W05 GO，W04/W06 STOP | 首次机器结果已被 Standards 证据审查否决 | MUST_FIX_IN_PROGRESS |
 
 ## 声明状态
 

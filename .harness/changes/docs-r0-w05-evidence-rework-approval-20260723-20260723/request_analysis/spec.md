@@ -76,6 +76,7 @@ W04 已通过 Gitee PR #15 合并并关账，受保护主线 `67bcc78e` 处于
 | 非空 URL/文本/模型自述 | 保持 `UNVERIFIED`，不能晋升可信证据 | W05 amendment RED 010 |
 | critical/high 风险缺 file version/page/clause/raw excerpt | provenance/quality gate 失败，不生成 current 正式奏折 | W05 amendment RED 009 |
 | 证据缺失、冲突、过期 | API 中显式显示，不静默补真 | W05 amendment RED 011 |
+| 法域、语言、合同类型、交易角色或法律问题超出获批最小范围 | 只能返回 `NEED_LEGAL_REVIEW`，不得由通用模型强答或生成放行结论 | W05 amendment RED / R0-REQ-012 |
 | 用户对旧 content hash 补证或裁决 | 409/fail closed；不改变 current lineage | stale-object RED |
 | 重复提交同一补证 | 复用同一 evidence request/generation，不重复生成奏折 | idempotency RED |
 | 旧 generation 迟到完成 | 保留审计但不能覆盖 current review/final | generation fencing RED |
@@ -105,6 +106,8 @@ single writer 和质量/来源门。回滚只关闭 W05 合同分析/重奏 flag
 - authority v2 只激活 `R0-W05`，W04 保持 `MERGED_AND_VERIFIED`，W06 仍被阻断。
 - implementation 必须先提交公共 API/真实数据库 seam 的失败测试，再做最小实现。
 - 三个 v1 契约、证据门、generation fencing、append-only FinalMemorial lineage 和 stale-hash 裁决全部有 RED/GREEN。
+- 超出获批法域/语言/合同类型/交易角色的输入稳定返回 `NEED_LEGAL_REVIEW`，并有通用模型强答反例。
+- 本 Packet 只交付后端 canonical evidence status/API 契约；R0-REQ-011 的 UI 与 export 一致性分别留给 W07/W06，不宣称本包单独完成跨端要求。
 - 既有 canonical completion/single-writer/tenant lineage 回归全绿。
 - Standards/Spec 独立双轴审查 0 MUST；合并和生产仍需另行授权。
 

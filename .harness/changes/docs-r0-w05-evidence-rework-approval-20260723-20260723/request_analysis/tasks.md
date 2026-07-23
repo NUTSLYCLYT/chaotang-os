@@ -17,7 +17,7 @@
 - 目标：先证明当前系统不能完成 evidence-bound rework lineage。
 - 前置条件：任务 0 GO。
 - 输入：W05 amendment、R0 PRD §3.4、本 spec 边界表。
-- 输出：失败测试覆盖证据晋升、原文锚点、stale hash、重复补证、跨租户和旧 generation 迟到。
+- 输出：失败测试覆盖证据晋升、原文锚点、超范围必须升级法律复核、stale hash、重复补证、跨租户和旧 generation 迟到。
 - 涉及文件：后端 tests 与未来 implementation change；文件清单由实施前调查固定。
 - 状态 / 数据变化：只增加测试，先不改实现。
 - 验证命令与证据：逐条记录预期 RED 及失败原因；不能用 import/fixture 错误冒充行为 RED。
