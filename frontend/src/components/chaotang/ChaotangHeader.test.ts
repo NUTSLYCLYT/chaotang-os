@@ -10,16 +10,15 @@ test("ChaotangHeader provides semantic navigation without client-side side effec
   assert.match(source, /data-three-axis-topnav/);
   assert.match(source, /上值朝 · AI 智能办公/);
   assert.match(source, /朝堂 OS/);
-  assert.match(source, /aria-current=\{item\.current \? "page" : undefined\}/);
-  assert.match(source, /href: "\/study"/);
-  assert.match(source, /href: "\/shiguan"/);
+  assert.match(source, /aria-current=\{active \? "page" : undefined\}/);
+  for (const href of ["/dadian", "/study", "/junjichu", "/liubu", "/zhuanshu", "/shiguan"]) {
+    assert.match(source, new RegExp(`href: "${href}"`));
+  }
   for (const label of ["大殿", "上书房", "军机处", "六部", "专署", "史馆"]) {
     assert.match(source, new RegExp(label));
   }
-  assert.match(source, /aria-disabled="true"/);
-  assert.match(source, /styles\.navDisabled/);
   assert.match(source, /item\.label\.length >= 3 \? styles\.navWide : undefined/);
-  assert.doesNotMatch(source, /href="\/(dadian|junjichu|liubu|zhuanshu)"/);
+  assert.match(source, /currentPath === item\.href/);
   assert.doesNotMatch(source, /fetch\(|localStorage|sessionStorage|useEffect|useState/);
   assert.match(css, /@media \(max-width: 1023px\)/);
   assert.match(css, /\.nav a\[aria-current="page"\]::after/);

@@ -37,3 +37,26 @@ test("requireUser returns only the public user after server-side validation", as
 
   assert.deepEqual(user, { id: "user-1", username: "court", email: "court@example.com" });
 });
+
+test("requireUser accepts every first-batch protected court route", async () => {
+  const protectedPaths = [
+    "/dadian",
+    "/junjichu",
+    "/command-center",
+    "/liubu",
+    "/liubu/hubu",
+    "/liubu/hubu/duzhi",
+    "/zhuanshu",
+    "/zhuanshu/jinyiwei",
+    "/zhuanshu/jinyiwei/signal-001",
+  ] as const;
+
+  for (const nextPath of protectedPaths) {
+    const user = await requireUser(nextPath, {
+      getSessionId: async () => "opaque-session",
+      getCurrentUser: async () => ({ ok: true, status: 200, user: { id: "user-1", username: "court", email: "court@example.com" } }),
+      redirect: (location) => { throw new Error(location); },
+    });
+    assert.equal(user.username, "court");
+  }
+});

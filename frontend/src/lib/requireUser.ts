@@ -4,7 +4,17 @@ import { redirect } from "next/navigation.js";
 import { getCurrentUser, type BackendAuthResult, type PublicUser } from "./backendClient.ts";
 import { SESSION_COOKIE_NAME } from "./session.ts";
 
-type ProtectedPath = "/study" | "/shiguan";
+type ProtectedPath =
+  | "/study"
+  | "/shiguan"
+  | "/dadian"
+  | "/junjichu"
+  | "/command-center"
+  | "/liubu"
+  | `/liubu/${string}`
+  | "/zhuanshu"
+  | "/zhuanshu/jinyiwei"
+  | `/zhuanshu/jinyiwei/${string}`;
 
 interface RequireUserDependencies {
   getSessionId: () => Promise<string | null>;

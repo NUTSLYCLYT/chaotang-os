@@ -4,20 +4,19 @@ import styles from "./ChaotangHeader.module.css";
 
 type VisualNavItem = {
   label: string;
-  href?: "/study" | "/shiguan";
-  current?: boolean;
+  href: "/dadian" | "/study" | "/junjichu" | "/liubu" | "/zhuanshu" | "/shiguan";
 };
 
 const VISUAL_NAV_ITEMS: readonly VisualNavItem[] = [
-  { label: "大殿" },
-  { label: "上书房", href: "/study", current: true },
-  { label: "军机处" },
-  { label: "六部" },
-  { label: "专署" },
+  { label: "大殿", href: "/dadian" },
+  { label: "上书房", href: "/study" },
+  { label: "军机处", href: "/junjichu" },
+  { label: "六部", href: "/liubu" },
+  { label: "专署", href: "/zhuanshu" },
   { label: "史馆", href: "/shiguan" },
 ] as const;
 
-export function ChaotangHeader({ currentLabel }: { currentLabel: string }) {
+export function ChaotangHeader({ currentLabel, currentPath = "/study" }: { currentLabel: string; currentPath?: string }) {
   return (
     <header className={styles.header} data-three-axis-topnav aria-label="朝堂主导航">
       <Link className={styles.brand} href="/study" aria-label="返回上书房">
@@ -53,14 +52,11 @@ export function ChaotangHeader({ currentLabel }: { currentLabel: string }) {
       <nav className={styles.nav} aria-label="部门导航">
         {VISUAL_NAV_ITEMS.map((item) => {
           const navWidthClass = item.label.length >= 3 ? styles.navWide : undefined;
-          return item.href ? (
-            <Link key={item.label} href={item.href} className={navWidthClass} aria-current={item.current ? "page" : undefined}>
+          const active = currentPath === item.href || currentPath.startsWith(`${item.href}/`);
+          return (
+            <Link key={item.label} href={item.href} className={navWidthClass} aria-current={active ? "page" : undefined}>
               {item.label}
             </Link>
-          ) : (
-            <span className={`${styles.navDisabled} ${navWidthClass ?? ""}`} aria-disabled="true" key={item.label}>
-              {item.label}
-            </span>
           );
         })}
       </nav>

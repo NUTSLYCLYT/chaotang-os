@@ -2,6 +2,8 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
+import { ChaotangHeader } from "../../components/chaotang/ChaotangHeader";
+import { EdictScrollShell } from "../../components/chaotang/EdictScrollShell";
 import type {
   ArchiveType,
   ReviewStatusValue,
@@ -19,6 +21,7 @@ import {
   formatSuccessRate,
   REVIEW_STATUS_LABELS,
 } from "./archiveStatus.ts";
+import styles from "./shiguan.module.css";
 
 const ARCHIVE_TYPES: ArchiveType[] = [
   "MEMORIAL",
@@ -126,28 +129,28 @@ function ArchiveCard({
   }
 
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <article className={styles.archiveCard}>
+      <div className={styles.archiveCardHead}>
         <div>
-          <p className="text-sm text-slate-500">
+          <p className={styles.archiveMeta}>
             {formatArchiveType(archive.type)} · {archive.department} · {archive.matterType}
           </p>
-          <h2 className="mt-1 text-xl font-semibold text-slate-950">{archive.title}</h2>
+          <h2>{archive.title}</h2>
         </div>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">
+        <span className={styles.statusBadge}>
           {formatReviewStatus(archive.reviewStatus?.status ?? null)}
         </span>
       </div>
 
-      <p className="mt-3 whitespace-pre-wrap text-slate-700">{archive.content}</p>
+      <p className={styles.archiveContent}>{archive.content}</p>
 
-      <dl className="mt-4 grid gap-3 text-sm text-slate-600 md:grid-cols-2">
+      <dl className={styles.archiveDetails}>
         <div>
-          <dt className="font-medium text-slate-900">归档时间</dt>
+          <dt>归档时间</dt>
           <dd>{displayDate(archive.createdAt)}</dd>
         </div>
         <div>
-          <dt className="font-medium text-slate-900">证据来源形态</dt>
+          <dt>证据来源形态</dt>
           <dd>
             {archive.evidence.length === 0
               ? "未附证据"
@@ -158,49 +161,49 @@ function ArchiveCard({
         </div>
         {archive.type === "DECISION" && archive.participatingDepartments && (
           <div>
-            <dt className="font-medium text-slate-900">参与部门</dt>
+            <dt>参与部门</dt>
             <dd>{archive.participatingDepartments.join("、")}</dd>
           </div>
         )}
         {archive.type === "DECISION" && archive.decisionProcess && (
           <div>
-            <dt className="font-medium text-slate-900">决策过程</dt>
+            <dt>决策过程</dt>
             <dd>{archive.decisionProcess}</dd>
           </div>
         )}
         {archive.type === "DECISION" && archive.decisionConclusion && (
           <div>
-            <dt className="font-medium text-slate-900">决策结论</dt>
+            <dt>决策结论</dt>
             <dd>{archive.decisionConclusion}</dd>
           </div>
         )}
         {archive.type === "DECISION" && archive.decisionTime && (
           <div>
-            <dt className="font-medium text-slate-900">决策时间</dt>
+            <dt>决策时间</dt>
             <dd>{displayDate(archive.decisionTime)}</dd>
           </div>
         )}
         {archive.type === "DECISION" && archive.responsibleOwner && (
           <div>
-            <dt className="font-medium text-slate-900">责任主体</dt>
+            <dt>责任主体</dt>
             <dd>{archive.responsibleOwner}</dd>
           </div>
         )}
         {archive.lessonsLearned && (
           <div>
-            <dt className="font-medium text-slate-900">历史经验</dt>
+            <dt>历史经验</dt>
             <dd>{archive.lessonsLearned}</dd>
           </div>
         )}
         {archive.pitfalls && (
           <div>
-            <dt className="font-medium text-slate-900">踩坑教训</dt>
+            <dt>踩坑教训</dt>
             <dd>{archive.pitfalls}</dd>
           </div>
         )}
         {archive.reviewStatus && (
           <div>
-            <dt className="font-medium text-slate-900">复盘留痕</dt>
+            <dt>复盘留痕</dt>
             <dd>
               {formatReviewStatus(archive.reviewStatus.status)} · {displayDate(archive.reviewStatus.reviewedAt)}
               {archive.reviewStatus.note ? ` · ${archive.reviewStatus.note}` : ""}
@@ -209,11 +212,11 @@ function ArchiveCard({
         )}
       </dl>
 
-      <form className="mt-4 flex flex-wrap items-end gap-3 border-t pt-4" onSubmit={submitReview}>
-        <label className="grid gap-1 text-sm">
+      <form className={styles.reviewForm} onSubmit={submitReview}>
+        <label>
           结果复盘
           <select
-            className="rounded-lg border border-slate-300 px-3 py-2"
+            className={styles.control}
             value={status}
             onChange={(event) => setStatus(event.target.value as ReviewStatusValue)}
           >
@@ -224,17 +227,17 @@ function ArchiveCard({
             ))}
           </select>
         </label>
-        <label className="min-w-64 flex-1 grid gap-1 text-sm">
+        <label className={styles.reviewNote}>
           备注
           <input
-            className="rounded-lg border border-slate-300 px-3 py-2"
+            className={styles.control}
             value={note}
             onChange={(event) => setNote(event.target.value)}
             placeholder="记录复盘依据或后续观察点"
           />
         </label>
         <button
-          className="rounded-lg bg-slate-950 px-4 py-2 text-white disabled:opacity-50"
+          className={styles.actionButton}
           disabled={saving}
           type="submit"
         >
@@ -242,7 +245,7 @@ function ArchiveCard({
         </button>
         {message && (
           <p
-            className="basis-full text-sm text-slate-600"
+            className={styles.formMessage}
             role={message.error ? "alert" : "status"}
           >
             {message.text}
@@ -268,6 +271,7 @@ export function ShiguanClient() {
   const [recallMessage, setRecallMessage] = useState("可按事项类型或所属部门召回旧案。");
   const [recallError, setRecallError] = useState(false);
   const [recallLoading, setRecallLoading] = useState(false);
+  const [selectedArchiveId, setSelectedArchiveId] = useState<string | null>(null);
 
   const query = useMemo(
     () => buildArchiveFilterQuery({ type, matterType, department, limit: 100 }),
@@ -367,141 +371,139 @@ export function ShiguanClient() {
     void loadArchives();
   }
 
+  const selectedArchive = archives.find((archive) => archive.id === selectedArchiveId) ?? archives[0] ?? null;
+
   return (
-    <main className="min-h-screen bg-slate-50 px-6 py-10 text-slate-950">
-      <div className="mx-auto max-w-6xl space-y-8">
-        <header>
-          <p className="text-sm font-medium text-slate-500">Hall of Records</p>
-          <h1 className="mt-2 text-4xl font-bold tracking-tight">史馆</h1>
-          <p className="mt-3 max-w-3xl text-slate-600">
+    <main className={styles.page}>
+      <ChaotangHeader currentLabel="太史馆" currentPath="/shiguan" />
+      <div className={styles.workspace}>
+        <div className={styles.inner}>
+          <header className={styles.identity}>
+            <p>Shiguan Memory Router</p>
+            <h1>太史馆</h1>
+            <span>归档、复盘、旧案召回与可信留痕</span>
+          </header>
+          <section className={styles.threeColumn}>
+            <aside className={styles.archiveColumn}>
+              <section className={styles.panel}>
+                <p className={styles.panelEyebrow}>Archive Index</p>
+                <h2>案卷索引</h2>
+                <div className={styles.metrics}>
+                  {[
+                    ["档案", statistics?.total ?? "—"],
+                    ["成功率", formatSuccessRate(statistics?.successRate ?? null)],
+                    ["待复盘", statistics?.pendingReview ?? "—"],
+                    ["达成", statistics?.achieved ?? "—"],
+                    ["未达成", statistics?.notAchieved ?? "—"],
+                    ["部分达成", statistics?.partial ?? "—"],
+                    ["持续观察", statistics?.observing ?? "—"],
+                  ].map(([label, value]) => (
+                    <div key={label}><span>{label}</span><strong>{value}</strong></div>
+                  ))}
+                </div>
+                <form className={styles.filterForm} onSubmit={submitFilter}>
+                  <label>
+                    档案类型
+                    <select className={styles.control} value={type} onChange={(event) => setType(event.target.value)}>
+                      <option value="">全部</option>
+                      {ARCHIVE_TYPES.map((item) => <option key={item} value={item}>{ARCHIVE_TYPE_LABELS[item]}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    事项类型
+                    <input className={styles.control} value={matterType} onChange={(event) => setMatterType(event.target.value)} placeholder="如：漕运、财政" />
+                  </label>
+                  <label>
+                    所属部门
+                    <input className={styles.control} value={department} onChange={(event) => setDepartment(event.target.value)} placeholder="如：户部" />
+                  </label>
+                  <button className={styles.actionButton} disabled={archiveLoading} type="submit">{archiveLoading ? "筛选中…" : "筛选档案"}</button>
+                  <p className={styles.formMessage} role={archiveError ? "alert" : "status"}>{archiveMessage}</p>
+                </form>
+                <div className={styles.archiveIndex} aria-label="当前档案">
+                  {archives.map((archive) => (
+                    <button key={archive.id} className={archive.id === selectedArchive?.id ? styles.archiveIndexActive : styles.archiveIndexItem} type="button" onClick={() => setSelectedArchiveId(archive.id)}>
+                      <strong>{archive.title}</strong>
+                      <span>{formatArchiveType(archive.type)} · {archive.department}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </aside>
+            <section className={styles.scrollColumn}>
+              <EdictScrollShell>
+                <div className={styles.scrollHeading}>
+                  <p>太史令 · 史馆中卷</p>
+                  <h2>史馆案卷</h2>
+                  <span>事实、证据与复盘留痕</span>
+                </div>
+                {selectedArchive ? <ArchiveCard key={selectedArchive.id} archive={selectedArchive} onReviewed={onReviewed} /> : (
+                  <div className={styles.emptyState}><h3>暂无真实档案</h3><p>当前没有符合条件的真实归档。新的圣裁、会审结果或执行产物完成后，会进入史馆形成可检索案卷。</p></div>
+                )}
+              </EdictScrollShell>
+            </section>
+            <aside className={styles.reviewColumn}>
+              <section className={styles.panel}>
+                <p className={styles.panelEyebrow}>Review &amp; Recall</p>
+                <h2>旧案召回</h2>
+                <p className={styles.panelLead}>
             统一归档奏折、决策、任务结果、知识条目和宣传材料；保留证据真实度、决策留痕、结果复盘与旧案召回，避免把演示内容误当真实事实。
-          </p>
-        </header>
-
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            ["档案总数", statistics?.total ?? "—"],
-            ["成功率", formatSuccessRate(statistics?.successRate ?? null)],
-            ["待复盘", statistics?.pendingReview ?? "—"],
-            ["达成", statistics?.achieved ?? "—"],
-            ["未达成", statistics?.notAchieved ?? "—"],
-            ["部分达成", statistics?.partial ?? "—"],
-            ["持续观察", statistics?.observing ?? "—"],
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-2xl bg-white p-4 shadow-sm">
-              <p className="text-sm text-slate-500">{label}</p>
-              <p className="mt-2 text-2xl font-semibold">{value}</p>
-            </div>
-          ))}
-        </section>
-
-        <section className="rounded-2xl bg-white p-5 shadow-sm">
-          <form className="grid gap-4 md:grid-cols-5" onSubmit={submitFilter}>
-            <label className="grid gap-1 text-sm">
-              档案类型
-              <select
-                className="rounded-lg border border-slate-300 px-3 py-2"
-                value={type}
-                onChange={(event) => setType(event.target.value)}
-              >
-                <option value="">全部</option>
-                {ARCHIVE_TYPES.map((item) => (
-                  <option key={item} value={item}>
-                    {ARCHIVE_TYPE_LABELS[item]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1 text-sm">
-              事项类型
-              <input
-                className="rounded-lg border border-slate-300 px-3 py-2"
-                value={matterType}
-                onChange={(event) => setMatterType(event.target.value)}
-                placeholder="如：漕运、财政"
-              />
-            </label>
-            <label className="grid gap-1 text-sm">
-              所属部门
-              <input
-                className="rounded-lg border border-slate-300 px-3 py-2"
-                value={department}
-                onChange={(event) => setDepartment(event.target.value)}
-                placeholder="如：户部"
-              />
-            </label>
-            <button className="self-end rounded-lg bg-slate-950 px-4 py-2 text-white disabled:opacity-50" disabled={archiveLoading} type="submit">
-              {archiveLoading ? "筛选中…" : "筛选档案"}
-            </button>
-            <p className="self-end text-sm text-slate-600" role={archiveError ? "alert" : "status"}>{archiveMessage}</p>
-          </form>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-          <div className="space-y-4">
-            {archives.map((archive) => (
-              <ArchiveCard key={archive.id} archive={archive} onReviewed={onReviewed} />
-            ))}
-          </div>
-
-          <aside className="h-fit rounded-2xl bg-white p-5 shadow-sm">
-            <h2 className="text-xl font-semibold">旧案召回</h2>
-            <p className="mt-2 text-sm text-slate-600">
-              按事项类型或所属部门寻找相似案例，把历史经验和踩坑教训反馈给后续决策。
-            </p>
-            <form className="mt-4 grid gap-3" onSubmit={submitRecall}>
-              <label className="grid gap-1 text-sm" htmlFor="recall-matter-type">
+                </p>
+                <form className={styles.recallForm} onSubmit={submitRecall}>
+                  <label htmlFor="recall-matter-type">
                 事项类型
                 <input
                   id="recall-matter-type"
-                  className="rounded-lg border border-slate-300 px-3 py-2"
+                  className={styles.control}
                   value={recallMatterType}
                   onChange={(event) => setRecallMatterType(event.target.value)}
                   placeholder="如：漕运"
                 />
               </label>
-              <label className="grid gap-1 text-sm" htmlFor="recall-department">
+                  <label htmlFor="recall-department">
                 所属部门
                 <input
                   id="recall-department"
-                  className="rounded-lg border border-slate-300 px-3 py-2"
+                  className={styles.control}
                   value={recallDepartment}
                   onChange={(event) => setRecallDepartment(event.target.value)}
                   placeholder="如：户部"
                 />
               </label>
-              <button className="rounded-lg bg-slate-950 px-4 py-2 text-white disabled:opacity-50" disabled={recallLoading} type="submit">
+                  <button className={styles.actionButton} disabled={recallLoading} type="submit">
                 {recallLoading ? "召回中…" : "召回旧案"}
               </button>
-            </form>
-            <p className="mt-3 text-sm text-slate-600" role={recallError ? "alert" : "status"}>{recallMessage}</p>
-            <div className="mt-4 space-y-3">
+                </form>
+                <p className={styles.formMessage} role={recallError ? "alert" : "status"}>{recallMessage}</p>
+                <div className={styles.recallResults}>
               {matches.map((match) => (
-                <article key={match.archiveId} className="rounded-xl border border-slate-200 p-3">
-                  <h3 className="font-semibold">旧案 {match.archiveId}</h3>
-                  <p className="mt-1 text-sm text-slate-700">{match.matchReason}</p>
-                  <p className="mt-2 text-sm text-slate-800">历史结论：{match.historicalConclusion}</p>
-                  <p className="mt-2 text-xs text-slate-500">
+                  <article key={match.archiveId} className={styles.matchCard}>
+                  <h3>旧案 {match.archiveId}</h3>
+                  <p>{match.matchReason}</p>
+                  <p>历史结论：{match.historicalConclusion}</p>
+                  <p>
                     证据：{match.evidenceLabels.map(formatRealityLabel).join("、") || "未附证据"}；
                     复盘：{formatReviewStatus(match.reviewStatus?.status ?? null)}
                   </p>
                   {match.reviewStatus && (
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p>
                       复盘时间：{displayDate(match.reviewStatus.reviewedAt)}
                       {match.reviewStatus.note ? `；备注：${match.reviewStatus.note}` : ""}
                     </p>
                   )}
                   {match.lessonsLearned && (
-                    <p className="mt-2 text-sm text-emerald-700">经验：{match.lessonsLearned}</p>
+                    <p className={styles.lesson}>经验：{match.lessonsLearned}</p>
                   )}
                   {match.pitfalls && (
-                    <p className="mt-1 text-sm text-amber-700">教训：{match.pitfalls}</p>
+                    <p className={styles.pitfall}>教训：{match.pitfalls}</p>
                   )}
                 </article>
               ))}
-            </div>
-          </aside>
-        </section>
+                </div>
+              </section>
+            </aside>
+          </section>
+        </div>
       </div>
     </main>
   );
