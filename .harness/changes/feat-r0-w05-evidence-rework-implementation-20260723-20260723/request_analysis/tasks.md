@@ -23,3 +23,15 @@
 - 验证命令与证据：missing RED→GREEN、stale RED→GREEN，相关回归 5 passed。
 - 回滚边界：撤销请求字段与前置校验；无 migration。
 - 完成定义：正确 hash 保持纵切 1 行为，missing/stale hash 均失败且 stale 状态不变。
+
+## 任务 3A：EvidencePacketV1 可信晋升门
+
+- 目标：把“内容存在”与“证据可信”分开建模。
+- 前置条件：W05 authority GO；沿用既有 Pydantic contract 规范。
+- 输入：版本化输入、prior memorial、generation、source/content identity、verification receipt。
+- 输出：`EvidencePacketV1`。
+- 涉及文件：`backend/src/contracts/evidence_packet.py`、`backend/tests/test_evidence_packet_v1.py`。
+- 状态 / 数据变化：纯契约，无数据库写入。
+- 验证命令与证据：自述来源 3 个 RED；无收据上传 RED；最终 5 passed。
+- 回滚边界：删除独立 contract/test；无 migration。
+- 完成定义：自述来源不能 GROUNDED，所有 GROUNDED 有 receipt，验证工具正例通过。

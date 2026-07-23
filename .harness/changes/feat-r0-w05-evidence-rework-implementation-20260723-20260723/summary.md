@@ -7,12 +7,12 @@
 | --- | --- |
 | Change ID | feat-r0-w05-evidence-rework-implementation-20260723-20260723 |
 | 类型 | feat |
-| 状态 | IN_PROGRESS_SLICE_2_GREEN |
+| 状态 | IN_PROGRESS_SLICE_3A_GREEN |
 | Owner | Backend / Canonical Runtime |
 | 创建日期 | 20260723 |
 
 ## 范围
 
-- 主线：R0-W05 evidence-bound rework，纵切 1–2。
-- 文件：公共裁决 API 的 canonical 状态转移、精确 content hash 门及对应真实数据库测试。
-- 验证：纵切 1 关闭旧奏折裁决资格；纵切 2 先后证明 missing/stale hash 被错误接受，再最小 GREEN。
+- 主线：R0-W05 evidence-bound rework，纵切 1–3A。
+- 文件：公共裁决 API、精确 content hash 门、`EvidencePacketV1` 及测试。
+- 验证：纵切 3A 先证明自述来源和无收据上传会错误晋升，再增加最小证据晋升门。
