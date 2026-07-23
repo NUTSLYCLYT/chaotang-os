@@ -37,10 +37,14 @@ from src.db.models import (
 )
 from src.decision_task_kernel import create_decision_task
 from src.emperor_decision_kind import emperor_decision_kind
-from src.execution.decree_dispatcher import dispatch_after_commit, enqueue_dispatch
+from src.execution.decree_dispatcher import (
+    dispatch_after_commit,
+    enqueue_dispatch,
+    enqueue_evidence_rework_generation,
+)
 from src.finance_intel_loop_contract import build_finance_intel_session
-from src.sec_edgar import gather_sec_evidence
 from src.hubu_financial_reporting import build_shangshufang_finance_reporting_loop
+from src.sec_edgar import gather_sec_evidence
 from src.shangshufang_loop import (
     chancellor_decide_route,
     direct_receipt_for,
@@ -1540,6 +1544,43 @@ def shangshufang_task_decision(
                 != formal.content_hash
             ):
                 return fail("正式奏折已变化，请刷新后重新提交补证")
+            if formal is not None:
+                from src.db.models import OutboxEvent
+
+                identity_payload = {
+                    "task_id": task_id,
+                    "prior_final_memorial_content_hash": formal.content_hash,
+                    "reason": body.reason,
+                    "followup_question": body.followup_question,
+                }
+                import hashlib
+
+                request_key = "evidence-rework:" + hashlib.sha256(
+                    json.dumps(
+                        identity_payload,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ).encode("utf-8")
+                ).hexdigest()
+                existing_generation = (
+                    db.query(OutboxEvent)
+                    .filter_by(task_id=task_id, idempotency_key=request_key)
+                    .first()
+                )
+                if existing_generation is not None:
+                    return ok(
+                        {
+                            "task_id": task_id,
+                            "sourceLabel": "LIVE",
+                            "status": task.status,
+                            "decision_id": existing_generation.decision_id,
+                            "archive_record": None,
+                            "rework_generation": _loads(
+                                existing_generation.payload_json, {}
+                            ),
+                        }
+                    )
         now = now_iso()
         decision = EmperorDecision(
             id=make_id("decision", task_id, body.action, now),
@@ -1553,6 +1594,21 @@ def shangshufang_task_decision(
             created_at=now,
         )
         db.add(decision)
+        rework_generation = None
+        if (
+            body.action in {"request_evidence", "followup"}
+            and body.expected_final_memorial_content_hash
+        ):
+            rework_generation, _ = enqueue_evidence_rework_generation(
+                db,
+                task_id=task_id,
+                decision_id=decision.id,
+                prior_final_memorial_content_hash=(
+                    body.expected_final_memorial_content_hash or ""
+                ),
+                reason=body.reason,
+                followup_question=body.followup_question,
+            )
         review = (
             db.query(CourtReview)
             .filter_by(task_id=task_id)
@@ -1607,6 +1663,7 @@ def shangshufang_task_decision(
                 "status": task.status,
                 "decision_id": decision.id,
                 "archive_record": archive_record,
+                "rework_generation": rework_generation,
             }
         )
     except Exception as exc:  # noqa: BLE001

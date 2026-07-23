@@ -26,15 +26,23 @@
 | pack 外 evidence 引用（绑定门前） | 1 | DID NOT RAISE | review pack 证据归属门 | 本地 / 2026-07-24 |
 | 三个 W05 v1 contract 聚焦回归 | 0 | 18 passed | 契约正反例 | 本地 / 2026-07-24 |
 | W02/W05 contracts + final/loop API 扩大回归 | 0 | 86 passed / 1 skipped | 契约兼容与 canonical 行为 | 本地 / 2026-07-24 |
+| repeated evidence request（generation 实现前） | 1 | 重试触发 CourtLoopRun UNIQUE conflict | 补证 generation 幂等缺口 | 本地 / 2026-07-24 |
+| repeated evidence request（最小实现后） | 0 | 1 passed | 同一请求复用 generation 2 | 本地 / 2026-07-24 |
+| Alembic 019（migration 实现前） | 1 | head 仍为 018、缺 generation identity | 真实 SQLite migration RED | 本地 / 2026-07-24 |
+| Alembic 018/019 相邻回归 | 0 | 4 passed | 旧行保留、唯一性、018/019 downgrade | 本地 / 2026-07-24 |
+| final/loop/execution/outbox 扩大回归（兼容修复前） | 1 | 3 failed | 无 prior memorial 的补证兼容缺口 | 本地 / 2026-07-24 |
+| final/loop/execution/outbox 扩大回归（修复后） | 0 | 51 passed / 1 skipped | canonical 状态、worker、fencing、poller | 本地 / 2026-07-24 |
+| `ruff check`（Slice 4A 目标文件） | 0 | All checks passed | Python 静态规范 | 本地 / 2026-07-24 |
 
 ## 结果
 
-纵切 1–3C 已完成 RED→GREEN：补证关闭旧奏折裁决资格、绑定精确 current content hash，并建立
-三个 W05 v1 契约的最小可信晋升、原文锚定和 canonical 候选门。
+纵切 1–4A 已完成 RED→GREEN：补证关闭旧奏折裁决资格、绑定精确 current content hash，
+建立三个 W05 v1 契约门，并让同一补证要求以 canonical outbox generation 幂等落盘。
 
 ## 未验证项
 
-- EvidencePacket 持久化、generation、重审、append-only 新奏折版本、精确 hash 裁决。
+- EvidencePacket 内容绑定、generation worker 消费/fencing、局部重算、重审、
+  append-only 新奏折版本、精确 hash 裁决。
 - 全量 W05 回归、独立代码审查、推送/合并/发布。
 
 ## Diff 与回滚复核
@@ -53,8 +61,9 @@
 | 自述来源/无收据不得 GROUNDED | 4 个行为 RED 与 5 passed | PASS |
 | 风险结论锚定原文或明确声明缺证 | 4 个行为 RED 与 5 passed | PASS |
 | candidate 不绕过 critical/范围/evidence 门 | 6 个行为 RED 与 8 passed | PASS |
+| 补证 generation 幂等且 migration 保留旧事实 | API/migration RED 与扩大回归 | PASS |
 | W05 全包完成 | 后续纵切 | PENDING |
 
 ## 声明状态
 
-- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_3C_GREEN`
+- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_4A_GREEN`

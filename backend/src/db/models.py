@@ -675,6 +675,8 @@ class OutboxEvent(Base):
     task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     decision_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     event_type: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    generation: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     status: Mapped[str] = mapped_column(sa.Text, nullable=False, default="pending")
     attempts: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
     max_attempts: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=3)
@@ -686,6 +688,12 @@ class OutboxEvent(Base):
     __table_args__ = (
         sa.Index("ix_outbox_events_status_created", "status", "created_at"),
         sa.Index("ix_outbox_events_task", "task_id"),
+        sa.UniqueConstraint(
+            "task_id", "generation", name="uq_outbox_events_task_generation"
+        ),
+        sa.UniqueConstraint(
+            "task_id", "idempotency_key", name="uq_outbox_events_task_idempotency"
+        ),
     )
 
 

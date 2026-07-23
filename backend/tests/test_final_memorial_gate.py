@@ -466,6 +466,54 @@ def test_request_evidence_rejects_stale_memorial_content_hash(
     )
 
 
+def test_repeated_evidence_request_reuses_one_rework_generation(
+    isolated_session_local,
+):
+    """网络重试不得为同一份补证要求创建两条 generation。"""
+    from src.formal_memorial import formalize_memorial
+
+    db = isolated_session_local()
+    task_id = "task_request_evidence_generation_idempotent"
+    review_id = _seed_candidate(db, task_id=task_id)
+    formal = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id, review_id=review_id, source_label="LIVE_SWARM"
+        ),
+    )
+    content_hash = formal.content_hash
+    db.commit()
+    db.close()
+
+    client = TestClient(app)
+    request_body = {
+        "action": "request_evidence",
+        "reason": "补充第 4 页付款条件原文",
+        "human_confirmed": True,
+        "expected_final_memorial_content_hash": content_hash,
+    }
+    first = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json=request_body,
+    ).json()
+    retry = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json=request_body,
+    ).json()
+
+    assert first["success"] is True, first
+    assert retry["success"] is True, retry
+    assert first["data"]["rework_generation"] == retry["data"]["rework_generation"]
+    assert first["data"]["rework_generation"]["generation"] == 2
+    assert first["data"]["rework_generation"]["status"] == "awaiting_evidence"
+    assert (
+        first["data"]["rework_generation"]["prior_final_memorial_content_hash"]
+        == content_hash
+    )
+
+
 @pytest.mark.parametrize(
     ("swarm_source", "expected_status", "expected_event", "formal_count"),
     [

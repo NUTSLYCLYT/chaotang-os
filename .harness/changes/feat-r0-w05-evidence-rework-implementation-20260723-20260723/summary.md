@@ -7,13 +7,14 @@
 | --- | --- |
 | Change ID | feat-r0-w05-evidence-rework-implementation-20260723-20260723 |
 | 类型 | feat |
-| 状态 | IN_PROGRESS_SLICE_3C_GREEN |
+| 状态 | IN_PROGRESS_SLICE_4A_GREEN |
 | Owner | Backend / Canonical Runtime |
 | 创建日期 | 20260723 |
 
 ## 范围
 
-- 主线：R0-W05 evidence-bound rework，纵切 1–3C。
-- 文件：公共裁决 API、精确 content hash 门、三个 W05 v1 契约及测试。
-- 验证：纵切 3C 先证明 critical 风险、超范围结论和游离 evidence 引用会被候选包接受，
-  再增加最小 canonical 候选门。
+- 主线：R0-W05 evidence-bound rework，纵切 1–4A。
+- 文件：公共裁决 API、精确 content hash 门、三个 W05 v1 契约、canonical outbox
+  generation identity、Alembic 019 及测试。
+- 验证：纵切 4A 先证明同一补证网络重试会撞重复写入，再把 exact prior memorial +
+  补证要求绑定为一个可复用的 rework generation。

@@ -14,12 +14,15 @@ outbox 表本身才是可靠性的来源(事件落库了，即使这次触发失
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import threading
 from datetime import datetime, timezone
-from hashlib import sha1
+from hashlib import sha1, sha256
 from typing import TYPE_CHECKING
+
+from sqlalchemy import func
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -68,6 +71,80 @@ def enqueue_dispatch(
         )
     )
     return event_id
+
+
+def enqueue_evidence_rework_generation(
+    db: "Session",
+    *,
+    task_id: str,
+    decision_id: str,
+    prior_final_memorial_content_hash: str,
+    reason: str,
+    followup_question: str | None,
+) -> tuple[dict[str, object], bool]:
+    """Create or reuse the generation bound to one exact evidence request."""
+    from src.core_tenant_lineage import tenant_id_for_task
+    from src.db.models import OutboxEvent
+
+    identity_payload = {
+        "task_id": task_id,
+        "prior_final_memorial_content_hash": prior_final_memorial_content_hash,
+        "reason": reason,
+        "followup_question": followup_question,
+    }
+    canonical = json.dumps(
+        identity_payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    idempotency_key = f"evidence-rework:{sha256(canonical.encode('utf-8')).hexdigest()}"
+    existing = (
+        db.query(OutboxEvent)
+        .filter_by(task_id=task_id, idempotency_key=idempotency_key)
+        .first()
+    )
+    if existing is not None:
+        return json.loads(existing.payload_json), False
+
+    latest_generation = (
+        db.query(func.max(OutboxEvent.generation))
+        .filter_by(task_id=task_id)
+        .scalar()
+    )
+    generation = max(latest_generation or 1, 1) + 1
+    generation_id = f"outbox_rework_{sha256(idempotency_key.encode('utf-8')).hexdigest()[:16]}"
+    payload: dict[str, object] = {
+        "schema_version": "EvidenceReworkGenerationV1",
+        "generation_id": generation_id,
+        "generation": generation,
+        "status": "awaiting_evidence",
+        "prior_final_memorial_content_hash": prior_final_memorial_content_hash,
+    }
+    now = _now_iso()
+    db.add(
+        OutboxEvent(
+            id=generation_id,
+            tenant_id=tenant_id_for_task(db, task_id),
+            task_id=task_id,
+            decision_id=decision_id,
+            event_type="evidence.rework",
+            generation=generation,
+            idempotency_key=idempotency_key,
+            status="awaiting_evidence",
+            attempts=0,
+            max_attempts=3,
+            payload_json=json.dumps(
+                payload,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    return payload, True
 
 
 def dispatch_after_commit(event_id: str) -> None:

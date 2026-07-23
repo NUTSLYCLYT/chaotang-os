@@ -43,10 +43,15 @@ W05 获得 exact Owner approval、专属 review evidence 和机器 GO。当前
   只能形成 `CANDIDATE`，不建立第二 review 或正式结果事实源。
 - 未解决 critical 风险不得输出 `PROCEED_TO_HUMAN_APPROVAL`；任一支持维度超范围只能
   `NEED_LEGAL_REVIEW`；风险项不得引用 pack 外的 evidence packet。
+- 复用 canonical `OutboxEvent` 作为 rework generation 事实源；新增 nullable
+  `generation`/`idempotency_key`，旧 outbox 行不补造身份。
+- 同一 task、exact prior FinalMemorial hash、reason 和 followup question 形成同一个
+  幂等 fingerprint；网络重试复用 generation，不重复写裁决/loop。
+- 没有 prior FinalMemorial 的既有补证状态流不创建虚假 generation。
 
 ## 非目标
 
-不实现 EvidencePacket 持久化、新 generation、重算、migration、
+不实现 EvidencePacket 内容持久化、generation worker 消费、重算、
 新奏折版本或前端。
 
 ## 边界条件
@@ -66,6 +71,9 @@ W05 获得 exact Owner approval、专属 review evidence 和机器 GO。当前
 | 任一法域/语言/合同类型/交易角色超范围却输出普通裁决 | ValidationError | slice 3C RED/GREEN |
 | 超范围且输出 NEED_LEGAL_REVIEW | 接受 candidate | slice 3C GREEN |
 | 风险项引用 pack 外的 evidence packet | ValidationError | slice 3C RED/GREEN |
+| 同一补证要求重复提交 | 返回同一个 generation 2，不重复写入 | slice 4A RED/GREEN |
+| 旧 outbox 库升级到 019 | 保留旧行，新增列为 NULL，重复 generation/key 由 DB 拒绝 | slice 4A migration RED/GREEN |
+| 尚无 prior FinalMemorial 时要求补证 | 保持既有 awaiting_evidence，不伪造 generation | slice 4A 扩大回归 |
 | 没有正式奏折 | 保持既有 task/review awaiting evidence 行为 | 既有参数化回归 |
 | 已拒绝/归档奏折 | 补证不把它重新打开 | 只转换 ready 状态 |
 

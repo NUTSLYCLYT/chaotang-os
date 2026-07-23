@@ -59,3 +59,18 @@
 - 验证命令与证据：critical 放行 RED；4 个超范围普通裁决 RED；游离 evidence 引用 RED；最终 8 passed。
 - 回滚边界：删除独立 contract/test；无 migration。
 - 完成定义：critical 不放行、超范围只法务升级、风险项证据归属闭合、合法正例通过。
+
+## 任务 4A：补证 generation 身份与幂等
+
+- 目标：同一 exact prior memorial 上的同一补证要求只创建一个可追溯 generation。
+- 前置条件：任务 1–3C GREEN；W04 canonical outbox/generation fencing 可复用。
+- 输入：task、prior FinalMemorial content hash、reason、followup question。
+- 输出：`EvidenceReworkGenerationV1` 响应投影和 canonical OutboxEvent 行。
+- 涉及文件：`backend/src/db/models.py`、`backend/src/execution/decree_dispatcher.py`、
+  `backend/web/routers/shangshufang.py`、Alembic 019 与相邻测试。
+- 状态 / 数据变化：既有 outbox 新增 nullable generation/idempotency 字段；
+  rework 行以 `awaiting_evidence` 保存，不被 pending worker 提前消费。
+- 验证命令与证据：重复提交 RED 为 CourtLoopRun 唯一冲突；最小 GREEN 复用 generation；
+  migration 保留旧行且数据库拒绝重复 generation/key。
+- 回滚边界：降级 019 删除两个约束/列；旧 outbox 事实不删除。
+- 完成定义：公共 API 重试幂等、旧库安全升级、相邻 execution/outbox/loop 回归全绿。
