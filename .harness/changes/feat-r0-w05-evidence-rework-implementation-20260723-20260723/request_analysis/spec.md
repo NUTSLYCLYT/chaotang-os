@@ -50,14 +50,21 @@ W05 获得 exact Owner approval、专属 review evidence 和机器 GO。当前
 - 没有 prior FinalMemorial 的既有补证状态流不创建虚假 generation。
 - 只有同 tenant、同 task、状态为 `ACCEPTED` 的 W03 `SecureIngestArtifact` 才能绑定等待中的
   rework generation；绑定形成 `EvidencePacketV1`，保存在同一 outbox generation payload。
-- packet 绑定 artifact id/digest、exact prior memorial hash、generation 和可验证 secure-ingest
-  receipt；generation 只推进到 `evidence_bound`，本纵切不提前启动 worker。
+- Slice 4B 先让 packet 绑定 artifact id/digest、exact prior memorial hash、generation 和可验证
+  secure-ingest receipt，并停在 `evidence_bound` 证明边界；Slice 4C 再显式接通 worker。
 - 同一 artifact 的绑定重试返回同一 packet，不追加副本；不同/无权/未验收 artifact fail closed。
+- generation 不可变保存 evidence request 与 `affected_sections=["contract_review"]`；
+  不让 worker 根据丢失的上下文猜测重算范围。
+- 绑定完成后 canonical outbox 状态进入 `pending`，由既有 poller/worker 消费 `evidence.rework`。
+- worker 重新校验 artifact 字节 digest，安全抽取 DOCX 文本，只替换现有 CourtReview 的
+  `contract_review` section；其他 section 原样保留，task/review 回到 `reviewing`。
+- canonical 任务尚未持久化冻结支持维度，因此候选必须 `NEED_LEGAL_REVIEW`；DOCX 总页数不得
+  冒充原文位置，风险项以 medium + 显式 missing evidence 诚实记录定位缺口。
+- 旧 generation 迟到时不读证据、不改 review，outbox 状态为 `superseded` 并保留审计。
 
 ## 非目标
 
-不实现 generation worker 消费、重算、
-新奏折版本或前端。
+不实现质量门最终放行、新奏折版本或前端。
 
 ## 边界条件
 
@@ -81,7 +88,11 @@ W05 获得 exact Owner approval、专属 review evidence 和机器 GO。当前
 | 尚无 prior FinalMemorial 时要求补证 | 保持既有 awaiting_evidence，不伪造 generation | slice 4A 扩大回归 |
 | accepted secure-ingest artifact 绑定等待 generation | 返回 GROUNDED EvidencePacket，generation=evidence_bound | slice 4B RED/GREEN |
 | 同一 artifact 重复绑定 | 返回同一 packet，不追加副本 | slice 4B RED/GREEN |
-| generation evidence_bound | 不进入 pending，不被 worker 提前消费 | slice 4B 状态契约 |
+| Slice 4B generation evidence_bound | 当时不进入 pending，不被 worker 提前消费 | slice 4B 历史状态契约 |
+| generation payload 缺补证要求/受影响 section | worker 不得猜；generation 必须保存 exact request | slice 4C RED/GREEN |
+| current evidence.rework pending | 只替换 contract_review，其他 section 不变 | slice 4C RED/GREEN |
+| DOCX 只有总页数无可靠定位 | 不伪造页码；medium + missing evidence + NEED_LEGAL_REVIEW | slice 4C RED/GREEN |
+| generation 2 迟到且 generation 3 已存在 | generation 2=superseded，current review 不变 | slice 4C RED/GREEN |
 | 没有正式奏折 | 保持既有 task/review awaiting evidence 行为 | 既有参数化回归 |
 | 已拒绝/归档奏折 | 补证不把它重新打开 | 只转换 ready 状态 |
 

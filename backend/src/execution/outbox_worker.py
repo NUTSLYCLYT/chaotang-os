@@ -358,7 +358,7 @@ def process_event(db: "Session", event_id: str) -> dict[str, Any]:
     probe = db.query(OutboxEvent).filter_by(id=event_id).first()
     if probe is None:
         return {"status": "not_found", "event_id": event_id}
-    if probe.status in {"completed", "dead_letter"}:
+    if probe.status in {"completed", "dead_letter", "superseded"}:
         return {"status": probe.status, "event_id": event_id, "skipped": True}
     if probe.status == "processing":
         return {"status": "processing", "event_id": event_id, "skipped": True}
@@ -389,17 +389,25 @@ def process_event(db: "Session", event_id: str) -> dict[str, Any]:
                 attempt=attempt,
                 tenant_id=event.tenant_id,
             )
+        elif event.event_type == "evidence.rework":
+            from src.contract_rework import recompute_contract_review
+
+            result = recompute_contract_review(db, event)
         else:
             raise ValueError(f"未知 event_type: {event.event_type}")
 
-        event.status = "completed"
+        event.status = (
+            "superseded"
+            if isinstance(result, dict) and result.get("fenced") is True
+            else "completed"
+        )
         event.last_error = None
         event.updated_at = _now_iso()
         db.commit()
         from src.migration_telemetry import record_canonical_chain_event
 
         record_canonical_chain_event("outbox_consumed", caller_id="outbox_worker.process_event")
-        return {"status": "completed", "event_id": event_id, "result": result}
+        return {"status": event.status, "event_id": event_id, "result": result}
     except Exception as exc:  # noqa: BLE001
         db.rollback()
         from src.core_tenant_lineage import TenantLineageConflict

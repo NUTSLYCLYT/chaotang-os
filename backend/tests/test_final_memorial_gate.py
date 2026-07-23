@@ -512,6 +512,13 @@ def test_repeated_evidence_request_reuses_one_rework_generation(
         first["data"]["rework_generation"]["prior_final_memorial_content_hash"]
         == content_hash
     )
+    assert first["data"]["rework_generation"]["evidence_request"] == {
+        "reason": "补充第 4 页付款条件原文",
+        "followup_question": None,
+    }
+    assert first["data"]["rework_generation"]["affected_sections"] == [
+        "contract_review"
+    ]
 
 
 def test_accepted_upload_binds_to_waiting_rework_generation(
@@ -582,7 +589,7 @@ def test_accepted_upload_binds_to_waiting_rework_generation(
     assert packet["generation"] == 2
     assert packet["evidence_status"] == "GROUNDED"
     assert packet["verification_receipt_id"]
-    assert payload["data"]["rework_generation"]["status"] == "evidence_bound"
+    assert payload["data"]["rework_generation"]["status"] == "pending"
 
     retry = client.post(
         (

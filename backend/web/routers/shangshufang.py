@@ -1713,6 +1713,7 @@ def bind_rework_generation_evidence(
         if generation is None or generation.status not in {
             "awaiting_evidence",
             "evidence_bound",
+            "pending",
         }:
             return fail("补证 generation 不存在或不再等待证据")
 
@@ -1730,7 +1731,7 @@ def bind_rework_generation_evidence(
             return fail("附件不存在、未通过安全摄取或不属于当前任务")
 
         generation_payload = _loads(generation.payload_json, {})
-        if generation.status == "evidence_bound":
+        if generation.status in {"evidence_bound", "pending"}:
             packets = generation_payload.get("evidence_packets", [])
             existing_packet = next(
                 (
@@ -1773,9 +1774,9 @@ def bind_rework_generation_evidence(
                 f"secure-ingest:{artifact.id}:{artifact.digest_sha256}"
             ),
         )
-        generation_payload["status"] = "evidence_bound"
+        generation_payload["status"] = "pending"
         generation_payload["evidence_packets"] = [packet.model_dump()]
-        generation.status = "evidence_bound"
+        generation.status = "pending"
         generation.payload_json = _json(generation_payload)
         generation.updated_at = now_iso()
         db.commit()

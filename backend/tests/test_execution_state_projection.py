@@ -67,6 +67,7 @@ def test_frozen_decree_event_vocabulary_matches_production_writers():
         "dispatch.queued",
         "dispatch.receipt_only",
         "dispatch.started",
+        "evidence.rework",
         "memorial.blocked",
         "memorial.direct_completed",
         "memorial.formalized",

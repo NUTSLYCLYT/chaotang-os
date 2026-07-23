@@ -120,6 +120,11 @@ def enqueue_evidence_rework_generation(
         "generation": generation,
         "status": "awaiting_evidence",
         "prior_final_memorial_content_hash": prior_final_memorial_content_hash,
+        "evidence_request": {
+            "reason": reason,
+            "followup_question": followup_question,
+        },
+        "affected_sections": ["contract_review"],
     }
     now = _now_iso()
     db.add(

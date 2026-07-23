@@ -39,17 +39,23 @@
 | same artifact bind retry（最小实现后） | 0 | 1 passed | 同一 packet/无副本 | 本地 / 2026-07-24 |
 | W03/W05 secure-ingest + final/loop 扩大回归 | 0 | 77 passed / 1 skipped | 摄取安全、证据契约、公共 API | 本地 / 2026-07-24 |
 | Slice 4B Ruff + backend/root doctors | 0 | lint pass；doctor 0/0 | 静态规范与三层边界 | 本地 / 2026-07-24 |
+| generation request/affected section（payload 修复前） | 1 | KeyError evidence_request | worker 输入事实缺口 | 本地 / 2026-07-24 |
+| evidence.rework worker（实现前） | 1 | 未知 event_type | generation 消费缺口 | 本地 / 2026-07-24 |
+| stale generation fencing（superseded 状态前） | 1 | 旧代被记为 completed | 迟到旧代审计语义 | 本地 / 2026-07-24 |
+| bind → outbox pending（worker 接通前） | 1 | 仍为 evidence_bound | 真实 poller 接管缺口 | 本地 / 2026-07-24 |
+| honest locator/risk（修复前） | 1 | 伪 page_number=总页数、risk=high | 候选事实诚实性 | 本地 / 2026-07-24 |
+| Slice 4C 聚焦 worker/fencing | 0 | 2 passed | 局部重算与旧代围栏 | 本地 / 2026-07-24 |
+| W05 contracts + final/loop/outbox 扩大回归 | 0 | 72 passed / 1 skipped | worker、poller、状态投影、候选契约 | 本地 / 2026-07-24 |
 
 ## 结果
 
-纵切 1–4B 已完成 RED→GREEN：补证关闭旧奏折裁决资格、绑定精确 current content hash，
-建立三个 W05 v1 契约门，让补证 generation 幂等落盘，并把 W03 accepted artifact
-绑定为 generation-bound EvidencePacket。
+纵切 1–4C 已完成 RED→GREEN：补证关闭旧奏折裁决资格、绑定精确 current content hash，
+建立三个 W05 v1 契约门，让 accepted evidence 经 canonical outbox generation 局部重算现有
+CourtReview，并以 superseded 状态围栏旧 generation。
 
 ## 未验证项
 
-- generation worker 消费/fencing、局部重算、重审、
-  append-only 新奏折版本、精确 hash 裁决。
+- canonical 质量/来源门重审、append-only 新奏折版本、精确 hash 裁决。
 - 全量 W05 回归、独立代码审查、推送/合并/发布。
 
 ## Diff 与回滚复核
@@ -70,8 +76,9 @@
 | candidate 不绕过 critical/范围/evidence 门 | 6 个行为 RED 与 8 passed | PASS |
 | 补证 generation 幂等且 migration 保留旧事实 | API/migration RED 与扩大回归 | PASS |
 | W03 accepted artifact 形成可信 generation-bound packet | bind/retry RED 与 77 passed / 1 skipped | PASS |
+| current generation 局部重算且 old generation fenced | worker/fencing RED 与 72 passed / 1 skipped | PASS |
 | W05 全包完成 | 后续纵切 | PENDING |
 
 ## 声明状态
 
-- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_4B_GREEN`
+- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_4C_GREEN`

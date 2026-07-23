@@ -87,3 +87,18 @@
   W03/W05 公共 API 与安全摄取扩大回归 77 passed / 1 skipped。
 - 回滚边界：撤销 bind endpoint 和 payload 状态转换；SecureIngestArtifact 与原 generation 保留。
 - 完成定义：accepted 同任务附件形成 GROUNDED packet；重试幂等；generation 仍不被提前执行。
+
+## 任务 4C：局部重算 worker 与 generation fencing
+
+- 目标：让 evidence-bound generation 走现有 worker，只刷新声明的合同 section，并阻止迟到旧代覆盖。
+- 前置条件：任务 4B GREEN；generation payload 包含 request、affected section 和 EvidencePacket。
+- 输入：canonical `OutboxEvent(event_type=evidence.rework)`。
+- 输出：现有 CourtReview 内的 `ContractReviewPackV1` candidate；旧代为 `superseded`。
+- 涉及文件：`backend/src/contract_rework.py`、`backend/src/execution/outbox_worker.py`、
+  dispatcher/router 和相邻 worker/API tests。
+- 状态 / 数据变化：current review/task → reviewing；current outbox → completed；
+  stale outbox → superseded；不创建第二 review/final。
+- 验证命令与证据：未知 event type RED；局部 section GREEN；stale status RED/GREEN；
+  假页码/high 风险 RED/GREEN；扩大回归 72 passed / 1 skipped。
+- 回滚边界：撤销 evidence.rework worker 分支；generation 与 candidate payload 保留审计。
+- 完成定义：digest 复验、局部刷新、保守候选、旧代 fencing 和既有 outbox 回归全绿。
