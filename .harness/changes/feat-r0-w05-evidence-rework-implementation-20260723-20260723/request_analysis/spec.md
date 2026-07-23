@@ -39,10 +39,14 @@ W05 获得 exact Owner approval、专属 review evidence 和机器 GO。当前
 - `ContractRiskItemV1` 绑定 evidence packet、风险级别、来源标签与 engine tier。
 - critical/high 风险必须绑定 file version、page/clause locator 和 raw excerpt；
   medium/low 缺完整原文锚点时必须显式声明 `missing_evidence`。
+- `ContractReviewPackV1` 绑定现有 tenant/task/MissionContract/CourtReview 和 evidence packet；
+  只能形成 `CANDIDATE`，不建立第二 review 或正式结果事实源。
+- 未解决 critical 风险不得输出 `PROCEED_TO_HUMAN_APPROVAL`；任一支持维度超范围只能
+  `NEED_LEGAL_REVIEW`；风险项不得引用 pack 外的 evidence packet。
 
 ## 非目标
 
-不实现 EvidencePacket 持久化、ContractReviewPack、新 generation、重算、migration、
+不实现 EvidencePacket 持久化、新 generation、重算、migration、
 新奏折版本或前端。
 
 ## 边界条件
@@ -58,6 +62,10 @@ W05 获得 exact Owner approval、专属 review evidence 和机器 GO。当前
 | critical/high 缺 file version、locator 或 raw excerpt | ValidationError | slice 3B RED/GREEN |
 | medium/low 缺完整锚点且未声明缺证 | ValidationError | slice 3B RED/GREEN |
 | medium/low 缺完整锚点但明确声明缺证 | 接受风险项但不伪造原文定位 | slice 3B GREEN |
+| 未解决 critical 风险却输出 PROCEED_TO_HUMAN_APPROVAL | ValidationError | slice 3C RED/GREEN |
+| 任一法域/语言/合同类型/交易角色超范围却输出普通裁决 | ValidationError | slice 3C RED/GREEN |
+| 超范围且输出 NEED_LEGAL_REVIEW | 接受 candidate | slice 3C GREEN |
+| 风险项引用 pack 外的 evidence packet | ValidationError | slice 3C RED/GREEN |
 | 没有正式奏折 | 保持既有 task/review awaiting evidence 行为 | 既有参数化回归 |
 | 已拒绝/归档奏折 | 补证不把它重新打开 | 只转换 ready 状态 |
 

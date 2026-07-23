@@ -20,15 +20,21 @@
 | `python3 -m pytest -q backend/tests/test_contract_risk_item_v1.py backend/tests/test_evidence_packet_v1.py` | 0 | 10 passed | 两个 W05 v1 契约聚焦回归 | 本地 / 2026-07-24 |
 | W02/W05 contracts + final/loop API 扩大回归 | 0 | 57 passed / 1 skipped | 契约兼容与 canonical 行为 | 本地 / 2026-07-24 |
 | `node scripts/harness-doctor.mjs` | 0 | 0 errors / 0 warnings | 三层边界及委派后端 harness | 本地 / 2026-07-24 |
+| critical risk + PROCEED（validator 前） | 1 | DID NOT RAISE | 安全关键放行门 | 本地 / 2026-07-24 |
+| unsupported jurisdiction + 普通裁决（validator 前） | 1 | DID NOT RAISE | 超范围法务升级门 | 本地 / 2026-07-24 |
+| 其余 3 个超范围维度（通用 scope 门前） | 1 | 3 failed：均 DID NOT RAISE | 语言/合同类型/交易角色升级门 | 本地 / 2026-07-24 |
+| pack 外 evidence 引用（绑定门前） | 1 | DID NOT RAISE | review pack 证据归属门 | 本地 / 2026-07-24 |
+| 三个 W05 v1 contract 聚焦回归 | 0 | 18 passed | 契约正反例 | 本地 / 2026-07-24 |
+| W02/W05 contracts + final/loop API 扩大回归 | 0 | 86 passed / 1 skipped | 契约兼容与 canonical 行为 | 本地 / 2026-07-24 |
 
 ## 结果
 
-纵切 1–3B 已完成 RED→GREEN：补证关闭旧奏折裁决资格、绑定精确 current content hash，并建立
-EvidencePacketV1 的最小可信晋升门与 ContractRiskItemV1 原文锚定门。
+纵切 1–3C 已完成 RED→GREEN：补证关闭旧奏折裁决资格、绑定精确 current content hash，并建立
+三个 W05 v1 契约的最小可信晋升、原文锚定和 canonical 候选门。
 
 ## 未验证项
 
-- ContractReviewPackV1、EvidencePacket 持久化、generation、重审、append-only 新奏折版本、精确 hash 裁决。
+- EvidencePacket 持久化、generation、重审、append-only 新奏折版本、精确 hash 裁决。
 - 全量 W05 回归、独立代码审查、推送/合并/发布。
 
 ## Diff 与回滚复核
@@ -46,8 +52,9 @@ EvidencePacketV1 的最小可信晋升门与 ContractRiskItemV1 原文锚定门�
 | missing/stale hash fail closed | 两次行为 RED 与 5 passed | PASS |
 | 自述来源/无收据不得 GROUNDED | 4 个行为 RED 与 5 passed | PASS |
 | 风险结论锚定原文或明确声明缺证 | 4 个行为 RED 与 5 passed | PASS |
+| candidate 不绕过 critical/范围/evidence 门 | 6 个行为 RED 与 8 passed | PASS |
 | W05 全包完成 | 后续纵切 | PENDING |
 
 ## 声明状态
 
-- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_3B_GREEN`
+- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_3C_GREEN`

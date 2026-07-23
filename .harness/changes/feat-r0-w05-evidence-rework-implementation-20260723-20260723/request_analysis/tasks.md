@@ -47,3 +47,15 @@
 - 验证命令与证据：高风险锚点 3 个 RED；较低风险未声明缺证 RED；最终 5 passed。
 - 回滚边界：删除独立 contract/test；无 migration。
 - 完成定义：critical/high 具备完整原文锚点；medium/low 缺锚点时明确列出缺证。
+
+## 任务 3C：ContractReviewPackV1 canonical 候选门
+
+- 目标：在现有 CourtReview 下形成证据绑定、范围保守的合同审查候选，不创建第二事实源。
+- 前置条件：任务 3A/3B GREEN；沿用 W02 冻结的支持维度和五裁决 taxonomy。
+- 输入：tenant/task/MissionContract/CourtReview、EvidencePacket identity、风险项、范围与候选裁决。
+- 输出：`ContractReviewPackV1`，固定为 `CANDIDATE`。
+- 涉及文件：`backend/src/contracts/contract_review_pack.py`、`backend/tests/test_contract_review_pack_v1.py`。
+- 状态 / 数据变化：纯契约，无数据库写入。
+- 验证命令与证据：critical 放行 RED；4 个超范围普通裁决 RED；游离 evidence 引用 RED；最终 8 passed。
+- 回滚边界：删除独立 contract/test；无 migration。
+- 完成定义：critical 不放行、超范围只法务升级、风险项证据归属闭合、合法正例通过。
