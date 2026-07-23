@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -34,6 +35,7 @@ const REQUIRED_FILES = [
   "docs/decisions/0014-layered-memorial-three-recommendations.md",
   "docs/decisions/0015-shiguan-archive-persistence.md",
   "docs/decisions/0016-codex-engineering-workflow-profile.md",
+  "docs/decisions/0020-decree-evidence-flow-governance-baseline.md",
   "backend/config/providers.yaml",
   "backend/.env.template",
   "docs/failures/2026-07-15-shared-harness-stop-hook-false-green.md",
@@ -57,6 +59,22 @@ const REQUIRED_FILES = [
   ".codex/agents/harness-doctor.toml",
   ".codex/agents/solution-architect.toml",
   ".codex/agents/module-engineer.toml",
+  ".codex/agents/test-engineer.toml",
+];
+
+const DECREE_FLOW_BASELINE = "docs/decisions/0020-decree-evidence-flow-governance-baseline.md";
+const DECREE_FLOW_BASELINE_SHA256 = "62cb865f1c1a8d50298aa171fdca6ae956ff89c00208c00f37272299152c46a0";
+const DECREE_FLOW_POLICY_ENTRIES = [
+  "AGENTS.md",
+  "CLAUDE.md",
+  "docs/product/tasks/TEMPLATE.md",
+  ".claude/agents/harness-doctor.md",
+  ".claude/agents/module-engineer.md",
+  ".claude/agents/solution-architect.md",
+  ".claude/agents/test-engineer.md",
+  ".codex/agents/harness-doctor.toml",
+  ".codex/agents/module-engineer.toml",
+  ".codex/agents/solution-architect.toml",
   ".codex/agents/test-engineer.toml",
 ];
 
@@ -196,6 +214,31 @@ function requireText(path, content, values, errors) {
   for (const value of values) {
     if (!content.includes(value)) errors.push(`${path} 缺少关键内容: ${value}`);
   }
+}
+
+export function decreeFlowBaselineErrors({
+  baselineExists = false,
+  baselineContent = "",
+  policyEntries = {},
+  expectedHash = DECREE_FLOW_BASELINE_SHA256,
+} = {}) {
+  const errors = [];
+  if (!baselineExists) {
+    errors.push(`缺少不可变业务流基线: ${DECREE_FLOW_BASELINE}`);
+    return errors;
+  }
+
+  const actualHash = createHash("sha256").update(baselineContent).digest("hex");
+  if (actualHash !== expectedHash) {
+    errors.push(`不可变业务流基线已被改写: ${DECREE_FLOW_BASELINE}`);
+  }
+
+  for (const path of DECREE_FLOW_POLICY_ENTRIES) {
+    if (!policyEntries[path]?.includes(DECREE_FLOW_BASELINE)) {
+      errors.push(`AI 入口缺少业务流基线引用: ${path}`);
+    }
+  }
+  return errors;
 }
 
 export function parseMarkdownAgentBody(content) {
@@ -343,6 +386,19 @@ export function codexWorkflowPolicyErrors({
 export function validateHarness(root) {
   const errors = [];
   for (const path of REQUIRED_FILES) requireFile(root, path, errors);
+
+  const baselinePath = join(root, DECREE_FLOW_BASELINE);
+  const policyEntries = Object.fromEntries(
+    DECREE_FLOW_POLICY_ENTRIES.map((path) => {
+      const absolute = join(root, path);
+      return [path, existsSync(absolute) ? readFileSync(absolute, "utf8") : ""];
+    }),
+  );
+  errors.push(...decreeFlowBaselineErrors({
+    baselineExists: existsSync(baselinePath),
+    baselineContent: existsSync(baselinePath) ? readFileSync(baselinePath, "utf8") : "",
+    policyEntries,
+  }));
 
   for (const path of LEGACY_META_HARNESS) {
     if (existsSync(join(root, path))) errors.push(`旧 meta-harness 不应继续存在: ${path}`);
@@ -724,6 +780,29 @@ Pending
     ["接受完整章节", missingSections("## Workflow\n\n内容\n\n## Security\n", ["Workflow", "Security"]), []],
     ["拒绝缺失章节", missingSections("## Workflow\n", ["Workflow", "Security"]), ["Security"]],
     ["拒绝低级标题", missingSections("### Security\n", ["Security"]), ["Security"]],
+    [
+      "接受完整业务流基线与 AI 入口覆盖",
+      decreeFlowBaselineErrors({
+        baselineExists: true,
+        baselineContent: "authoritative-flow",
+        expectedHash: createHash("sha256").update("authoritative-flow").digest("hex"),
+        policyEntries: Object.fromEntries(DECREE_FLOW_POLICY_ENTRIES.map((path) => [path, DECREE_FLOW_BASELINE])),
+      }),
+      [],
+    ],
+    [
+      "拒绝被改写的业务流基线与遗漏 AI 入口",
+      decreeFlowBaselineErrors({
+        baselineExists: true,
+        baselineContent: "changed-flow",
+        expectedHash: createHash("sha256").update("authoritative-flow").digest("hex"),
+        policyEntries: {},
+      }),
+      [
+        `不可变业务流基线已被改写: ${DECREE_FLOW_BASELINE}`,
+        ...DECREE_FLOW_POLICY_ENTRIES.map((path) => `AI 入口缺少业务流基线引用: ${path}`),
+      ],
+    ],
     [
       "解析 Markdown agent 正文",
       parseMarkdownAgentBody("---\nname: x\ndescription: 说明\ntools: Read, Bash\npermissionMode: plan\n---\n正文内容\n"),

@@ -1,5 +1,7 @@
 @AGENTS.md
 
+所有工作开始前必须阅读并遵循 `docs/decisions/0020-decree-evidence-flow-governance-baseline.md`；未经当前用户明确授权，不得修改或绕过该业务流基线。
+
 # Claude Code 程序团队负责人入口
 
 请遵循同目录 `AGENTS.md` 的共享规则和门禁。Claude Code 主会话在本仓库中默认担任程序
