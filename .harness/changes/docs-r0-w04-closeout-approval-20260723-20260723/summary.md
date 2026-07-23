@@ -7,7 +7,7 @@
 | --- | --- |
 | Change ID | docs-r0-w04-closeout-approval-20260723-20260723 |
 | 类型 | docs |
-| 状态 | EXACT_OWNER_APPROVED_PENDING_FINAL_REVIEW |
+| 状态 | EXACT_OWNER_APPROVED_LOCAL_REVIEW_PASS |
 | Owner | Project Owner |
 | 创建日期 | 20260723 |
 

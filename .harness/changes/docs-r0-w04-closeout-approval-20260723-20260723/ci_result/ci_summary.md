@@ -14,17 +14,16 @@
 
 ## 结果
 
-机器验证全部符合预期。首次独立双轴审查中 Spec 轴通过；Standards 轴发现缺少根级 change record 与命名 closeout approval。根级记录已补，Project Owner 已于 2026-07-23 明确批准 exact closeout identity；修复后的双轴复审尚未完成。
+机器验证全部符合预期。首次独立双轴审查中 Spec 轴通过；Standards 轴发现缺少根级 change record 与命名 closeout approval。根级记录与批准已补；随后双轴复审发现事实源路径错误和旧 pending 文案，修复提交 `d85a768f` 完成后再次复审，Standards 与 Spec 均为 `PASS / 0 MUST / 0 WARN`。
 
 ## 未验证项
 
-- 补齐 change record 后的独立双轴复审。
 - 远端 CI、合并与生产验证（均不在本地候选阶段执行）。
 
 ## Diff 与回滚复核
 
 - changed files：账本 1 个文件的两项状态转换，加本根级 change record。
-- diff review：首次 Spec PASS；首次 Standards 有 1 个 MUST FIX，正由本记录修复。
+- diff review：最终 Standards PASS（0 MUST/0 WARN）；最终 Spec PASS（0 MUST/0 WARN）。
 - 回滚是否演练：未对远端执行变更；本地候选可废弃，因此不需要运行时回滚演练。
 
 ## 完成定义映射
@@ -34,8 +33,8 @@
 | W04 关账且 W05 不激活 | W04/W05 authorize 均 STOP | PASS |
 | harness 与 authority 结构有效 | 27/27、10/10、doctor 0/0 | PASS |
 | exact Owner approval | `owner_approval/exact-h-closeout-approval.md` | PASS |
-| 双轴无 MUST FIX | 首轮 Standards 仍有 1 项 | PENDING_REVIEW |
+| 双轴无 MUST FIX | 最终 Standards/Spec 均 PASS | PASS |
 
 ## 声明状态
 
-- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL`
+- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_COMPLETE`（仅指本地 W04 关账候选；不代表已推送、合并或生产验证）
