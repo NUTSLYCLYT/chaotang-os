@@ -5,32 +5,73 @@
     "tools": [
       {
         "name": "data_search",
+        "description": "股票/基金/板块搜索(名称、代码、拼音)。不确定 code 时第一步先调本工具。type=sector/index 时为清单名称子串匹配，请用简短关键词(如「算力」「CPO」)，勿传长句多词。",
         "inputSchema": {
           "type": "object",
           "properties": {
+            "jpkr_market": {
+              "description": "日韩市场代码(如jp/kr)，非空时走日韩搜索",
+              "type": "string"
+            },
+            "limit": {
+              "default": 10,
+              "description": "返回最大条数",
+              "type": "integer"
+            },
             "query": {
+              "description": "搜索关键词，必填；sector/index 模式为板块/指数名称子串",
+              "type": "string"
+            },
+            "type": {
+              "description": "类型: stock/etf/bond/sector/index/futures/forex（默认 stock）",
               "type": "string"
             }
           },
           "required": [
             "query"
-          ],
-          "additionalProperties": false
+          ]
         }
       },
       {
         "name": "data_quote",
+        "description": "股票行情快照(最新价、涨跌幅等)。code 或 codes 至少填一个；不确定 code 时先 data_search",
         "inputSchema": {
           "type": "object",
           "properties": {
             "code": {
+              "description": "股票代码，如 sh600519(茅台)；与 codes 二选一",
               "type": "string"
+            },
+            "codes": {
+              "description": "多只代码逗号分隔，如 sh600519,sz000001,hk00700",
+              "type": "string"
+            },
+            "date": {
+              "description": "可选历史日期 YYYY-MM-DD",
+              "type": "string"
+            }
+          }
+        }
+      },
+      {
+        "name": "data_minute",
+        "description": "分时数据",
+        "inputSchema": {
+          "properties": {
+            "code": {
+              "description": "股票代码，格式: sh600519/sz000001/hk00700，也兼容600519.SH等后缀格式，必填",
+              "type": "string"
+            },
+            "days": {
+              "default": 1,
+              "description": "天数",
+              "type": "integer"
             }
           },
           "required": [
             "code"
           ],
-          "additionalProperties": false
+          "type": "object"
         }
       }
     ]

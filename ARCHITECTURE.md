@@ -28,10 +28,18 @@ PENDING/CONFIRMED 状态最终一致。真实外部网络由 `JINYIWEI_EXTERNAL_
 公网地址和响应预算限制。Jinyiwei SQLite 当前为 schema v4；采用证据以不可变有序批次关联
 史馆回奏，旧版本不覆盖。schema v4 另保存不含正文或秘密的逐 MCP 调用审计。MCP 限流是
 进程内按 server/tool 隔离的原子滑动窗口；调用结果缓存 TTL 取管理员配置与事实 freshness
-的最小值，且史馆解析始终先于整包缓存。首个 MCP 配置是默认禁用的腾讯自选股候选，只批准
-`data_search`/`data_quote`；它使用部署侧共享专用服务账号，配置文件不保存密钥。通达信明确
-不接入。完整决策见
-`docs/decisions/0018-central-jinyiwei-evidence-service.md`。
+的最小值，且史馆解析始终先于整包缓存。首个 MCP 配置是经管理员显式启用的腾讯自选股来源，只批准
+`data_search`/`data_minute`/`data_quote`；其中分钟行情优先，日期快照作为保守回退。它使用部署侧共享专用服务账号，配置文件不保存密钥。服务账号
+首次授权采用管理员 OAuth 中心：首期由本机 CLI 启动 Authorization Code + PKCE 浏览器
+流程，Windows 本机只有显式选择 `--credential-source local` 时才读取当前用户范围 DPAPI
+密文；生产环境继续优先使用 Secret Manager 注入的 `env://` 凭据，且不得回退读取本机
+DPAPI 文件。授权成功只建立凭据可用性，不自动启用服务或工具；真实调用仍要求外部网络
+开关以及已登记 `westock` server 和 `data_search`/`data_minute`/`data_quote` 工具分别显式启用；这些
+登记项已于 2026-07-23 经管理员确认和真实只读 smoke 验收后启用。仓库不
+读取、解密、复制、代理或复用 WorkBuddy 私有凭据，也不在缺少管理员鉴权时暴露远程授权
+API。通达信明确不接入。完整决策见
+`docs/decisions/0018-central-jinyiwei-evidence-service.md` 和
+`docs/decisions/0019-admin-oauth-for-mcp-service-accounts.md`。
 
 来源接入必须先通过审查才能加入默认注册表：代码注册项需固定发布者、免费合法且无需订阅、付费 API、
 登录、私钥、付费墙或验证码的公开访问依据、实际地域/市场覆盖、事实类别、时效语义、质量上限、
@@ -39,8 +47,11 @@ PENDING/CONFIRMED 状态最终一致。真实外部网络由 `JINYIWEI_EXTERNAL_
 非 HTTPS、类别越界或未通过固定解析器校验的来源必须在注册期失败关闭；未审查来源不得注册，也不得
 以通用网页搜索替代。全球覆盖仅表示多个已审查来源的实际覆盖组合，不表示任何单一来源天然全球覆盖。
 来源接入和安全回归必须离线执行，使用假客户端与 synthetic fixture，不设置公网开关、不使用
-密钥或真实外网数据。真实 MCP smoke 不是常规验收：只有另行获得授权、管理员启用登记配置并
-注入部署侧凭据后，才能通过脱敏只读 CLI 运行。
+密钥或真实外网数据。真实 MCP smoke 不是常规验收：只有另行获得授权、管理员启用登记配置、
+显式打开外部网络门禁并选择有效的部署 `env` 或本机 `local` 凭据来源后，才能通过脱敏只读
+CLI 运行；CLI 只允许 `tools/list`、`data_search`、`data_minute` 和 `data_quote`，不得调用任何写工具。
+工具结果的严格文本 JSON 提升、按已验证证券代码选择记录、管理员来源属性、日期精度和分钟序列语义
+见 ADR 0020；核心 Python 仍不得增加 provider 条件分支。
 
 ## 当前状态
 

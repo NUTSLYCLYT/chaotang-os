@@ -369,6 +369,7 @@ class PinnedHTTPSClient:
         *,
         headers: Mapping[str, str] | None = None,
         json_body: bytes | None = None,
+        form_body: bytes | None = None,
         allowed_ports: Collection[int] = (),
         total_timeout: float = DEFAULT_TOTAL_TIMEOUT,
         connect_timeout: float = DEFAULT_CONNECT_TIMEOUT,
@@ -378,16 +379,25 @@ class PinnedHTTPSClient:
         private_network_cidrs: Collection[str] = (),
         allow_sensitive_headers: bool = False,
     ) -> PinnedHTTPSResponse:
-        """Issue a GET or JSON POST under one absolute bounded deadline."""
+        """Issue a GET or explicit-body POST under one absolute bounded deadline."""
 
         if self._environ.get(EXTERNAL_NETWORK_FLAG) not in EXTERNAL_NETWORK_TRUTHY_VALUES:
             raise NetworkAccessDisabledError("External network access is disabled")
         if method not in {"GET", "POST"}:
             raise UnsafeNetworkRequestError("Unsupported HTTPS method rejected")
-        if method == "POST" and not isinstance(json_body, bytes):
-            raise UnsafeNetworkRequestError("POST requires an explicit JSON body")
-        if method == "GET" and json_body is not None:
+        bodies = [item for item in (json_body, form_body) if item is not None]
+        if method == "POST" and len(bodies) != 1:
+            raise UnsafeNetworkRequestError(
+                "POST requires exactly one explicit JSON or form body"
+            )
+        if method == "GET" and bodies:
             raise UnsafeNetworkRequestError("GET must not include a request body")
+        request_body = bodies[0] if bodies else None
+        content_type = (
+            "application/x-www-form-urlencoded"
+            if form_body is not None
+            else "application/json"
+        )
         self._validate_budgets(total_timeout, connect_timeout, read_timeout, max_bytes)
         approved_private_networks = _parse_private_networks(private_network_cidrs)
 
@@ -401,11 +411,12 @@ class PinnedHTTPSClient:
                 raise UnsafeNetworkRequestError("Redirect loop rejected")
             visited.add(target.url)
 
-            status, response_headers, body = self._request_once(
+            status, response_headers, response_body = self._request_once(
                 target,
                 headers or {},
                 method=method,
-                body=json_body,
+                body=request_body,
+                content_type=content_type,
                 started_at=started_at,
                 total_timeout=total_timeout,
                 connect_timeout=connect_timeout,
@@ -419,7 +430,7 @@ class PinnedHTTPSClient:
                     final_url=target.url,
                     status=status,
                     headers=MappingProxyType(response_headers),
-                    body=body,
+                    body=response_body,
                 )
 
             if redirect_count >= MAX_REDIRECTS:
@@ -444,7 +455,7 @@ class PinnedHTTPSClient:
             current_url = redirect_target.url
             if status in {301, 302, 303}:
                 method = "GET"
-                json_body = None
+                request_body = None
             redirect_count += 1
 
     @staticmethod
@@ -511,6 +522,7 @@ class PinnedHTTPSClient:
         *,
         method: str,
         body: bytes | None,
+        content_type: str,
         started_at: float,
         total_timeout: float,
         connect_timeout: float,
@@ -559,6 +571,7 @@ class PinnedHTTPSClient:
                     caller_headers,
                     method=method,
                     body=body,
+                    content_type=content_type,
                     allow_sensitive_headers=allow_sensitive_headers,
                 )
             )
@@ -756,6 +769,7 @@ def _build_request(
     *,
     method: str = "GET",
     body: bytes | None = None,
+    content_type: str = "application/json",
     allow_sensitive_headers: bool = False,
 ) -> bytes:
     output = [
@@ -778,7 +792,7 @@ def _build_request(
         assert body is not None
         output.extend(
             [
-                "Content-Type: application/json",
+                f"Content-Type: {content_type}",
                 f"Content-Length: {len(body)}",
             ]
         )
@@ -807,8 +821,6 @@ def _read_bounded_body(
     before_read: Callable[[], None],
 ) -> bytes:
     media_type = headers.get("content-type", "").split(";", 1)[0].strip().casefold()
-    if media_type not in _ALLOWED_MEDIA_TYPES:
-        raise NetworkRequestError("External response media type is not allowed")
     encoding = headers.get("content-encoding", "").strip().casefold()
     if encoding not in {"", "identity"}:
         raise NetworkRequestError("External response encoding is not allowed")
@@ -832,7 +844,10 @@ def _read_bounded_body(
         if size > max_bytes:
             raise NetworkRequestError("External response exceeded the body limit")
         chunks.append(chunk)
-    return b"".join(chunks)
+    body = b"".join(chunks)
+    if media_type not in _ALLOWED_MEDIA_TYPES and not (not media_type and not body):
+        raise NetworkRequestError("External response media type is not allowed")
+    return body
 
 
 def _safe_close(resource: _Closable | None) -> None:

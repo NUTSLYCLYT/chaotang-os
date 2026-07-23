@@ -25,13 +25,18 @@
 - MCP 只从 `config/jinyiwei_mcp.yaml` 加载管理员登记项，固定 endpoint、传输、事实范围、
   工具 schema、映射和审批指纹；发现结果漂移即失败关闭。只允许 `READ_ONLY` 查询工具，
   配置和 Python 代码不得保存密钥、动态增加 URL 或加入 provider 条件分支。腾讯自选股候选
-  默认 disabled，只批准 `data_search`/`data_quote`，凭据由部署侧
+  已由管理员在 2026-07-23 显式启用且只批准 `data_search`/`data_minute`/`data_quote`，凭据由部署侧
   `WESTOCK_MCP_CREDENTIAL` 注入共享专用服务账号；通达信/TDX 不接入。
 - MCP 管理员限流按单进程内 `(server_id, tool_name)` 隔离并在线程锁内原子预占，失败调用
   同样计数；多进程不共享额度。具体工具调用结果的缓存 TTL 取服务配置与事实 freshness 的
   最小值，键绑定审批版本、确定性映射和严格参数哈希且不得含凭据；过期不命中，不能替代每次
   优先执行的史馆解析。Jinyiwei schema v4 只持久化逐调用的 server/tool、审批版本、耗时、
   参数哈希、响应字节数/哈希、映射结果与稳定错误，不保存请求/响应正文或秘密。
+- MCP 服务账号首次 OAuth 只能由管理员通过受控 CLI 发起 Authorization Code + PKCE；
+  loopback 回调只监听 `127.0.0.1`。Windows 本机凭据使用当前用户范围 DPAPI 加密并写入
+  `data/credentials/`，部署仍优先使用 Secret Manager 注入的 `env://` 凭据。授权成功不得
+  自动启用服务或工具，不得读取或复用 WorkBuddy 私有凭据；管理员身份与 CSRF 基础设施完成
+  前不得新增远程授权 API。完整决策见 ADR 0019。
 - 只有 `app/agents/bureaus/` 的司级意见节点可以发起调查并最多恢复一次。同一旨意最多三次
   调查/恢复、30 秒外部工作和六次抽取；部级路由/综合、军机处、丞相路由/最终汇总只传递
   会话并消费司级意见，从不调用锦衣卫。真实非缓存调查首次成功后，流转路径只在对应首个司
@@ -175,23 +180,46 @@ try {
 或业务提示词。公开
 页面验收同样只能使用 Wikimedia 提供器发现的 URL，并必须经过 robots 与相同的安全传输。
 
-MCP 真实 smoke 还必须由管理员把登记的 server/tool 显式设为 enabled，并配置合法共享专用
-服务账号；没有单独授权时不得运行。只读 CLI 仅接受已登记 server ID 和
-`data_search`/`data_quote`，并只输出服务、工具、证券代码、行情时间、状态和响应字节数：
+首次本机 OAuth 和真实 MCP smoke 都是外部动作：必须先通过全部离线门禁，再获得当前任务的
+单独授权，并由管理员在场。不得在常规测试、CI 或无人值守任务中设置外部网络开关。管理员
+本机授权使用以下固定命令；CLI 只接受 Registry 中的 server ID，不接受 URL、Token 或账号
+参数，`status` 只读取当前用户的本机 DPAPI 状态：
 
 ```powershell
+cd backend
 $env:JINYIWEI_EXTERNAL_NETWORK_ENABLED = "true"
 try {
-  .venv\Scripts\python.exe -m app.jinyiwei.mcp.smoke --server westock --tool data_quote --query 比亚迪
+  .venv\Scripts\python.exe -m app.jinyiwei.mcp.oauth authorize --server westock
+  .venv\Scripts\python.exe -m app.jinyiwei.mcp.oauth status --server westock
 } finally {
   Remove-Item Env:JINYIWEI_EXTERNAL_NETWORK_ENABLED -ErrorAction SilentlyContinue
-  Remove-Item Env:WESTOCK_MCP_CREDENTIAL -ErrorAction SilentlyContinue
 }
 ```
 
-该 CLI 不得输出价格、响应正文、token、请求头、账号信息或完整 MCP 响应，也不得调用
-portfolio、alert、paper trade 或任何写工具。默认仓库配置保持 disabled，因此未完成配置启用、
-网络显式开关和凭据三道门时必须拒绝。
+真实 smoke 还必须由管理员先把登记的 `westock` server 以及要调用的 `data_search`、
+`data_minute` 或 `data_quote` tool 分别显式设为 enabled；OAuth 成功不会替管理员完成启用。使用刚才授权的
+Windows 本机凭据时，必须显式选择 `local`，不得依赖隐式回退：
+
+```powershell
+cd backend
+$env:JINYIWEI_EXTERNAL_NETWORK_ENABLED = "true"
+try {
+  .venv\Scripts\python.exe -m app.jinyiwei.mcp.smoke --server westock --tool data_quote --query 比亚迪 --credential-source local
+  .venv\Scripts\python.exe -m app.jinyiwei.mcp.smoke --server westock --tool data_minute --query 比亚迪 --credential-source local
+} finally {
+  Remove-Item Env:JINYIWEI_EXTERNAL_NETWORK_ENABLED -ErrorAction SilentlyContinue
+}
+```
+
+smoke 只允许 `tools/list`、`data_search`、`data_minute` 和 `data_quote`。CLI 不得输出价格、响应正文、token、
+请求头、账号信息或完整 MCP 响应，也不得调用 portfolio、alert、paper trade 或任何写工具。
+当前仓库配置是管理员显式批准后的 enabled 状态；网络显式开关和有效凭据任一门禁未完成时
+仍必须拒绝。授权本身不得改变配置启用状态。
+
+生产环境不使用上述本机 DPAPI 流程。Secret Manager 把 OAuth JSON 注入
+`WESTOCK_MCP_CREDENTIAL`，Registry 的 `env://WESTOCK_MCP_CREDENTIAL` 路径和 smoke 默认的
+`--credential-source env` 保持生产优先级；生产不得回退读取 `backend/data/credentials/`。
+本机和生产都不得读取、解密、复制、代理或复用 WorkBuddy 的私有凭据。
 
 ## LangGraph 运行时基础
 

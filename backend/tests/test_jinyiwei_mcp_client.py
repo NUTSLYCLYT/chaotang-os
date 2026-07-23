@@ -6,6 +6,8 @@ import copy
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
@@ -19,8 +21,13 @@ from app.jinyiwei.mcp.contracts import (
     ToolEffect,
 )
 from app.jinyiwei.mcp.credentials import SensitiveHeaders
-from app.jinyiwei.mcp.registry import McpRegistry, approval_fingerprint
-from app.jinyiwei.models import DataScope, FactCategory
+from app.jinyiwei.mcp.mapping import DeterministicMcpMapper
+from app.jinyiwei.mcp.registry import (
+    McpRegistry,
+    approval_fingerprint,
+    load_default_registry,
+)
+from app.jinyiwei.models import DataScope, FactCategory, RequiredFact
 from app.jinyiwei.network import PinnedHTTPSResponse
 
 TOOL = {
@@ -197,6 +204,231 @@ def test_call_requires_prior_matching_discovery_and_valid_arguments() -> None:
         "name": "data_quote",
         "arguments": {"code": "SZ002594"},
     }
+
+
+def test_call_exposes_single_text_json_object_as_structured_content() -> None:
+    transport = FakeTransport(
+        discovery_responses()
+        + [
+            rpc(
+                3,
+                {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": '{"ok":true,"data":{"code":"SZ002594"}}',
+                        }
+                    ]
+                },
+            )
+        ]
+    )
+    client = client_for(transport)
+    client.discover(server())
+
+    result = client.call(server(), approval(), {"code": "SZ002594"})
+
+    assert result.payload["structuredContent"]["data"]["code"] == "SZ002594"
+    assert result.payload["content"][0]["text"] == (
+        '{"ok":true,"data":{"code":"SZ002594"}}'
+    )
+
+
+@pytest.mark.parametrize(
+    "text",
+    (
+        "ordinary text",
+        "[]",
+        '{"value":1,"value":2}',
+        '{"value":NaN}',
+        '{"value":9223372036854775808}',
+    ),
+)
+def test_call_does_not_promote_non_strict_text_json_objects(text: str) -> None:
+    transport = FakeTransport(
+        discovery_responses()
+        + [rpc(3, {"content": [{"type": "text", "text": text}]})]
+    )
+    client = client_for(transport)
+    client.discover(server())
+
+    result = client.call(server(), approval(), {"code": "SZ002594"})
+
+    assert "structuredContent" not in result.payload
+
+
+def test_call_preserves_server_structured_content() -> None:
+    transport = FakeTransport(
+        discovery_responses()
+        + [
+            rpc(
+                3,
+                {
+                    "content": [{"type": "text", "text": '{"source":"text"}'}],
+                    "structuredContent": {"source": "server"},
+                },
+            )
+        ]
+    )
+    client = client_for(transport)
+    client.discover(server())
+
+    result = client.call(server(), approval(), {"code": "SZ002594"})
+
+    assert result.payload["structuredContent"]["source"] == "server"
+
+
+def test_text_only_westock_results_normalize_then_map_end_to_end() -> None:
+    fixtures = Path(__file__).parent / "fixtures" / "mcp"
+    tools = json.loads(
+        (fixtures / "westock_tools_list.json").read_text(encoding="utf-8")
+    )["result"]["tools"]
+    search = json.loads(
+        (fixtures / "westock_search_byd.json").read_text(encoding="utf-8")
+    )["result"]
+    quote = json.loads(
+        (fixtures / "westock_quote_byd.json").read_text(encoding="utf-8")
+    )["result"]
+    transport = FakeTransport(
+        discovery_responses(tools=tools)
+        + [
+            rpc(3, {"content": search["content"]}),
+            rpc(4, {"content": quote["content"]}),
+        ]
+    )
+    registry = load_default_registry()
+    westock = registry.server("westock")
+    search_approval = registry.approval("westock", "data_search")
+    quote_approval = registry.approval("westock", "data_quote")
+    client = McpClient(
+        transport=transport,
+        credentials=FakeCredentials(),
+        registry=registry,
+    )
+    mapper = DeterministicMcpMapper()
+    fact = RequiredFact(
+        key="quote",
+        description="比亚迪当前行情",
+        category=FactCategory.MARKET_QUOTE,
+        data_scope=DataScope.EXTERNAL_PUBLIC,
+        subject="比亚迪",
+        jurisdiction="CN",
+        expected_unit="CNY",
+        expected_shape="number",
+    )
+
+    client.discover(westock)
+    search_result = client.call(
+        westock,
+        search_approval,
+        mapper.resolution_arguments_for(quote_approval, fact),
+    )
+    resolved = mapper.resolve_subject(quote_approval, fact, search_result)
+    quote_result = client.call(
+        westock,
+        quote_approval,
+        mapper.arguments_for(
+            quote_approval,
+            fact,
+            resolved_subject=resolved.subject,
+        ),
+    )
+    document = mapper.map(
+        quote_approval,
+        fact,
+        quote_result,
+        datetime(2026, 7, 23, 2, 0, tzinfo=UTC),
+        resolved_subject=resolved.subject,
+        approved_unit=resolved.unit,
+    )
+
+    assert resolved.subject == "sz002594"
+    assert document.metadata["instrument_id"] == "sz002594"
+    assert document.metadata["as_of_precision"] == "date"
+    assert document.as_of == "2026-07-22T16:00:00Z"
+
+
+def test_text_only_minute_result_normalizes_to_market_minute_end_to_end() -> None:
+    fixtures = Path(__file__).parent / "fixtures" / "mcp"
+    tools = json.loads(
+        (fixtures / "westock_tools_list.json").read_text(encoding="utf-8")
+    )["result"]["tools"]
+    search = json.loads(
+        (fixtures / "westock_search_byd.json").read_text(encoding="utf-8")
+    )["result"]
+    minute = json.loads(
+        (fixtures / "westock_minute_byd.json").read_text(encoding="utf-8")
+    )["result"]
+    transport = FakeTransport(
+        discovery_responses(tools=tools)
+        + [
+            rpc(3, {"content": search["content"]}),
+            rpc(4, {"content": minute["content"]}),
+        ]
+    )
+    registry = load_default_registry()
+    westock = registry.server("westock")
+    search_approval = registry.approval("westock", "data_search")
+    minute_approval = registry.approval("westock", "data_minute")
+    client = McpClient(
+        transport=transport,
+        credentials=FakeCredentials(),
+        registry=registry,
+    )
+    mapper = DeterministicMcpMapper()
+    fact = RequiredFact(
+        key="quote",
+        description="比亚迪当前行情",
+        category=FactCategory.MARKET_QUOTE,
+        data_scope=DataScope.EXTERNAL_PUBLIC,
+        subject="比亚迪",
+        jurisdiction="CN",
+        expected_unit="CNY",
+        expected_shape="number",
+    )
+
+    client.discover(westock)
+    search_result = client.call(
+        westock,
+        search_approval,
+        mapper.resolution_arguments_for(minute_approval, fact),
+    )
+    resolved = mapper.resolve_subject(minute_approval, fact, search_result)
+    minute_result = client.call(
+        westock,
+        minute_approval,
+        mapper.arguments_for(
+            minute_approval,
+            fact,
+            resolved_subject=resolved.subject,
+        ),
+    )
+    document = mapper.map(
+        minute_approval,
+        fact,
+        minute_result,
+        datetime(2026, 7, 23, 2, 0, 30, tzinfo=UTC),
+        resolved_subject=resolved.subject,
+        approved_unit=resolved.unit,
+    )
+
+    assert document.metadata["value"] == 321.5
+    assert document.metadata["as_of_precision"] == "minute"
+    assert document.as_of == "2026-07-23T02:00:00Z"
+
+
+def test_call_does_not_promote_excessively_nested_text_json() -> None:
+    nested = '{"value":' * 65 + "null" + "}" * 65
+    transport = FakeTransport(
+        discovery_responses()
+        + [rpc(3, {"content": [{"type": "text", "text": nested}]})]
+    )
+    client = client_for(transport)
+    client.discover(server())
+
+    result = client.call(server(), approval(), {"code": "SZ002594"})
+
+    assert "structuredContent" not in result.payload
 
 
 def test_call_rejects_a_server_disabled_after_discovery() -> None:

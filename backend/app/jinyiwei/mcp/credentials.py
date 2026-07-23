@@ -14,8 +14,13 @@ from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from types import MappingProxyType
 from typing import Any, Protocol
+from urllib.parse import urlencode
 
 from app.jinyiwei.mcp.contracts import McpAccessPolicy, McpServerConfig
+from app.jinyiwei.mcp.oauth.metadata import parse_oauth_json_response
+from app.jinyiwei.mcp.oauth.models import OAuthCredential, OAuthError
+from app.jinyiwei.mcp.oauth.policy import OAuthEndpointPolicy
+from app.jinyiwei.mcp.oauth.store import CredentialStoreError
 from app.jinyiwei.network import PinnedHTTPSClient, PinnedHTTPSResponse
 
 
@@ -87,7 +92,45 @@ class CredentialProvider(Protocol):
     def headers_for(self, server: McpServerConfig) -> SensitiveHeaders: ...
 
 
+class OAuthCredentialStoreProtocol(Protocol):
+    def load(self, server_id: str) -> OAuthCredential: ...
+
+    def save(self, server_id: str, credential: OAuthCredential) -> None: ...
+
+
 OAuthRefresh = Callable[[str, dict[str, str]], Mapping[str, object]]
+OAuthPersist = Callable[[McpServerConfig, Mapping[str, object]], None]
+
+_REFRESH_REQUIRED_FIELDS = frozenset({"token_type", "access_token", "expires_in"})
+
+
+def _validated_refresh_response(
+    payload: object,
+    *,
+    minimum_expires_in: float,
+) -> Mapping[str, object]:
+    if (
+        not isinstance(payload, Mapping)
+        or any(not isinstance(key, str) for key in payload)
+        or not _REFRESH_REQUIRED_FIELDS <= set(payload)
+    ):
+        raise McpCredentialError("credential_refresh_failed")
+    access_token = payload["access_token"]
+    expires_in = payload["expires_in"]
+    refresh_token = payload.get("refresh_token")
+    if (
+        payload["token_type"] != "Bearer"
+        or not isinstance(access_token, str)
+        or not access_token
+        or isinstance(expires_in, bool)
+        or not isinstance(expires_in, int | float)
+        or not math.isfinite(expires_in)
+        or expires_in <= minimum_expires_in
+        or refresh_token is not None
+        and (not isinstance(refresh_token, str) or not refresh_token)
+    ):
+        raise McpCredentialError("credential_refresh_failed")
+    return payload
 
 
 class _OAuthTransport(Protocol):
@@ -97,7 +140,7 @@ class _OAuthTransport(Protocol):
         url: str,
         *,
         headers: Mapping[str, str],
-        json_body: bytes,
+        form_body: bytes,
         **options: object,
     ) -> PinnedHTTPSResponse: ...
 
@@ -123,12 +166,12 @@ class PinnedOAuthRefresh:
 
     def __call__(self, endpoint: str, payload: dict[str, str]) -> Mapping[str, object]:
         try:
-            body = json.dumps(payload, allow_nan=False, separators=(",", ":")).encode("utf-8")
+            body = urlencode(payload).encode("ascii")
             response = self._transport.request(
                 "POST",
                 endpoint,
                 headers=SensitiveHeaders({"accept": "application/json"}),
-                json_body=body,
+                form_body=body,
                 total_timeout=self._timeout,
                 connect_timeout=min(3.0, self._timeout),
                 read_timeout=min(5.0, self._timeout),
@@ -143,10 +186,11 @@ class PinnedOAuthRefresh:
             )
             if media_type != "application/json":
                 raise McpCredentialError("credential_refresh_failed")
-            result = json.loads(response.body.decode("utf-8"))
-            if not isinstance(result, dict):
-                raise McpCredentialError("credential_refresh_failed")
-            return result
+            result = parse_oauth_json_response(
+                response,
+                failure="credential_refresh_failed",
+            )
+            return _validated_refresh_response(result, minimum_expires_in=0.0)
         except McpCredentialError:
             raise
         except Exception:
@@ -172,6 +216,7 @@ class EnvCredentialProvider:
         environ: Mapping[str, str] | None = None,
         approved_token_endpoints: Mapping[str, str] = {},
         oauth_refresh: OAuthRefresh | None = None,
+        oauth_persist: OAuthPersist | None = None,
         now: Callable[[], float] = time.time,
         refresh_skew_seconds: float = 30.0,
         monotonic: Callable[[], float] = time.monotonic,
@@ -181,6 +226,7 @@ class EnvCredentialProvider:
         self._environ = _SensitiveValues(os.environ if environ is None else environ)
         self._approved_endpoints = dict(approved_token_endpoints)
         self._oauth_refresh = oauth_refresh or PinnedOAuthRefresh()
+        self._oauth_persist = oauth_persist
         self._now = now
         if not math.isfinite(refresh_skew_seconds) or refresh_skew_seconds < 0:
             raise ValueError("refresh_skew_seconds must be finite and non-negative")
@@ -307,13 +353,16 @@ class EnvCredentialProvider:
             return SensitiveHeaders({"authorization": f"Bearer {shared.access_value}"})
 
         try:
-            refreshed = self._oauth_refresh(
-                endpoint,
-                {
-                    "grant_type": "refresh_token",
-                    "refresh_token": current_refresh,
-                    "client_id": client_id,
-                },
+            refreshed = _validated_refresh_response(
+                self._oauth_refresh(
+                    endpoint,
+                    {
+                        "grant_type": "refresh_token",
+                        "refresh_token": current_refresh,
+                        "client_id": client_id,
+                    },
+                ),
+                minimum_expires_in=self._refresh_skew,
             )
         except Exception:
             failure = McpCredentialError("credential_refresh_failed")
@@ -325,30 +374,112 @@ class EnvCredentialProvider:
         new_access = refreshed.get("access_token")
         expires_in = refreshed.get("expires_in")
         rotated_refresh = refreshed.get("refresh_token", current_refresh)
-        if (
-            not isinstance(new_access, str)
-            or not new_access
-            or isinstance(expires_in, bool)
-            or not isinstance(expires_in, (int, float))
-            or not math.isfinite(expires_in)
-            or expires_in <= self._refresh_skew
-            or not isinstance(rotated_refresh, str)
-            or not rotated_refresh
-        ):
+        assert isinstance(new_access, str)
+        assert isinstance(expires_in, int | float)
+        assert isinstance(rotated_refresh, str)
+        refreshed_expires_at = self._now() + float(expires_in)
+        persisted_payload = {
+            "access_token": new_access,
+            "expires_at": refreshed_expires_at,
+            "refresh_token": rotated_refresh,
+            "client_id": client_id,
+            "token_endpoint": endpoint,
+        }
+        try:
+            if self._oauth_persist is not None:
+                self._oauth_persist(server, persisted_payload)
+        except Exception:
             failure = McpCredentialError("credential_refresh_failed")
             with self._state_lock:
                 self._refresh_failures[identity] = self._monotonic() + 1.0
                 flight.set_exception(failure)
                 self._refresh_flights.pop(identity, None)
-            raise McpCredentialError("credential_refresh_failed")
-        cached = _CachedOAuth(
-            new_access,
-            self._now() + float(expires_in),
-            rotated_refresh,
-        )
+            raise McpCredentialError("credential_refresh_failed") from None
+        cached = _CachedOAuth(new_access, refreshed_expires_at, rotated_refresh)
         with self._state_lock:
             self._oauth_cache[identity] = cached
             self._refresh_failures.pop(identity, None)
             flight.set_result(cached)
             self._refresh_flights.pop(identity, None)
         return SensitiveHeaders({"authorization": f"Bearer {cached.access_value}"})
+
+
+class StoredOAuthCredentialProvider:
+    """Resolve administrator OAuth credentials from one encrypted local store."""
+
+    def __init__(
+        self,
+        *,
+        store: OAuthCredentialStoreProtocol,
+        approved_endpoints: Mapping[str, str],
+        oauth_refresh: OAuthRefresh | None = None,
+        now: Callable[[], float] = time.time,
+        refresh_skew_seconds: float = 30.0,
+        monotonic: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._store = store
+        self._configured_endpoints = dict(approved_endpoints)
+        self._environment: dict[str, str] = {}
+        self._loaded_servers: set[str] = set()
+        self._stored_endpoints: dict[str, str] = {}
+        self._load_lock = threading.Lock()
+        self._provider = EnvCredentialProvider(
+            environ=self._environment,
+            approved_token_endpoints=approved_endpoints,
+            oauth_refresh=oauth_refresh,
+            oauth_persist=self._persist,
+            now=now,
+            refresh_skew_seconds=refresh_skew_seconds,
+            monotonic=monotonic,
+        )
+
+    def __repr__(self) -> str:
+        return "StoredOAuthCredentialProvider(<redacted>)"
+
+    def headers_for(self, server: McpServerConfig) -> SensitiveHeaders:
+        if server.access_policy is not McpAccessPolicy.ANONYMOUS_PUBLIC:
+            reference = server.credential_ref
+            if reference is None or not reference.startswith("env://"):
+                raise McpCredentialError("credential_unavailable")
+            variable = reference.removeprefix("env://")
+            with self._load_lock:
+                if server.server_id not in self._loaded_servers:
+                    try:
+                        credential = self._store.load(server.server_id)
+                    except CredentialStoreError:
+                        raise McpCredentialError("credential_unavailable") from None
+                    except Exception:
+                        raise McpCredentialError("credential_unavailable") from None
+                    endpoint = credential.token_endpoint
+                    self._validate_endpoint(server, endpoint)
+                    self._environment[variable] = json.dumps(
+                        credential.to_payload(),
+                        ensure_ascii=False,
+                        allow_nan=False,
+                        separators=(",", ":"),
+                        sort_keys=True,
+                    )
+                    self._stored_endpoints[server.server_id] = endpoint
+                    self._loaded_servers.add(server.server_id)
+                else:
+                    endpoint = self._stored_endpoints[server.server_id]
+                    self._validate_endpoint(server, endpoint)
+        return self._provider.headers_for(server)
+
+    def _validate_endpoint(self, server: McpServerConfig, endpoint: str) -> None:
+        try:
+            approved = OAuthEndpointPolicy(
+                server.oauth_allowed_origins
+            ).validate_remote(endpoint)
+        except OAuthError:
+            raise McpCredentialError("credential_endpoint_unapproved") from None
+        configured = self._configured_endpoints.get(server.server_id)
+        if configured is not None and configured != approved:
+            raise McpCredentialError("credential_endpoint_unapproved")
+        self._provider._approved_endpoints[server.server_id] = approved
+
+    def _persist(
+        self, server: McpServerConfig, payload: Mapping[str, object]
+    ) -> None:
+        credential = OAuthCredential.from_payload(dict(payload))
+        self._store.save(server.server_id, credential)

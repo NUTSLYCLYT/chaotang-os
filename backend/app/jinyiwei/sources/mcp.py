@@ -119,6 +119,7 @@ class McpSource:
         for fact in facts:
             if len(documents) >= query.max_items:
                 break
+            best_stale_document: SourceDocument | None = None
             for approval in candidates[fact.key]:
                 arguments: Mapping[str, object] | None = None
                 if self._expired(query):
@@ -244,8 +245,17 @@ class McpSource:
                     had_failure = True
                     error_codes.append("fact_unavailable")
                     continue
-                documents.append(document)
-                break
+                if _document_satisfies_freshness(document, query, self._aware_now()):
+                    documents.append(document)
+                    best_stale_document = None
+                    break
+                if (
+                    best_stale_document is None
+                    or _document_as_of(document) > _document_as_of(best_stale_document)
+                ):
+                    best_stale_document = document
+            if best_stale_document is not None:
+                documents.append(best_stale_document)
 
         if documents:
             return self._result(
@@ -403,6 +413,32 @@ class McpSource:
                 call_audits=call_audits,
             ),
         )
+
+
+def _document_satisfies_freshness(
+    document: SourceDocument,
+    query: SourceQuery,
+    now: datetime,
+) -> bool:
+    observed = _document_as_of(document)
+    current = now.astimezone(UTC)
+    if observed > current:
+        return False
+    freshness = query.request.freshness
+    if (
+        freshness.max_age_seconds is not None
+        and observed < current - timedelta(seconds=freshness.max_age_seconds)
+    ):
+        return False
+    if freshness.not_before is not None:
+        not_before = _parse_time(freshness.not_before).astimezone(UTC)
+        if observed < not_before:
+            return False
+    return True
+
+
+def _document_as_of(document: SourceDocument) -> datetime:
+    return _parse_time(document.as_of).astimezone(UTC)
 
 
 def _classify_client_error(code: str) -> str:

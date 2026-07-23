@@ -109,6 +109,374 @@ def test_mapper_extracts_only_approved_paths() -> None:
     assert "ignore previous instructions" not in document.text.casefold()
 
 
+def test_resolver_can_derive_market_and_type_from_approved_subject_prefixes() -> None:
+    tool = _tool(
+        entity_resolution={
+            "tool_name": "data_search",
+            "argument_paths": {"query": "subject"},
+            "candidates_path": "structuredContent.data",
+            "candidate_subject_path": "code",
+            "candidate_name_path": "name",
+            "candidate_type_path": "type",
+            "required_types_by_market": {"CN": ["GP-A"], "HK": ["GP"]},
+            "target_argument": "code",
+            "subject_pattern": r"(?:s[hz][0-9]{6}|hk[0-9]{5})",
+            "subject_max_length": 8,
+            "markets_by_jurisdiction": {"CN": "CN", "HK": "HK"},
+            "units_by_market": {"CN": "CNY", "HK": "HKD"},
+            "jurisdiction_subject_patterns": {
+                "CN": r"(?:sh|sz)[0-9]{6}",
+                "HK": r"hk[0-9]{5}",
+            },
+        }
+    )
+    result = McpToolResult(
+        "westock",
+        "data_search",
+        {
+            "structuredContent": {
+                "ok": True,
+                "data": [
+                    {"code": "sz002594", "name": "\u6bd4\u4e9a\u8fea", "type": "GP-A"},
+                    {"code": "hk01211", "name": "\u6bd4\u4e9a\u8fea\u80a1\u4efd", "type": "GP"},
+                ],
+            }
+        },
+    )
+    fact = _fact(subject="\u6bd4\u4e9a\u8fea", jurisdiction="CN")
+
+    resolved = DeterministicMcpMapper().resolve_subject(tool, fact, result)
+
+    assert resolved.subject == "sz002594"
+    assert resolved.unit == "CNY"
+
+
+def test_mapper_selects_subject_record_and_uses_approved_provenance_literals() -> None:
+    tool = _tool(
+        value_path="price",
+        as_of_path="time",
+        publisher_path=None,
+        publisher_literal="Tencent WeStock",
+        source_url_path=None,
+        source_url_literal="https://stockbuddy.qq.com/cgi/cgi-bin/openai/mcp/mcp",
+        unit_path=None,
+        unit_from_resolved_market=True,
+        subject_path="code",
+        metadata_paths={"instrument_id": "code"},
+        record_by_subject_path="structuredContent.data",
+        as_of_date_utc_offset="+08:00",
+        publisher_allowlist=("Tencent WeStock",),
+        unit_allowlist=("CNY", "HKD"),
+        source_url_origins=("https://stockbuddy.qq.com",),
+        source_url_path_pattern=r"/cgi/cgi-bin/openai/mcp/mcp",
+    )
+    result = McpToolResult(
+        "westock",
+        "data_quote",
+        {
+            "structuredContent": {
+                "ok": True,
+                "data": {
+                    "sz002594": {
+                        "price": 321.5,
+                        "time": "2026-07-22",
+                        "code": "sz002594",
+                    }
+                },
+            }
+        },
+    )
+
+    document = DeterministicMcpMapper().map(
+        tool,
+        _fact(),
+        result,
+        NOW,
+        resolved_subject="sz002594",
+        approved_unit="CNY",
+    )
+
+    assert document.metadata["value"] == 321.5
+    assert document.metadata["unit"] == "CNY"
+    assert document.publisher == "Tencent WeStock"
+    assert document.source_url == (
+        "https://stockbuddy.qq.com/cgi/cgi-bin/openai/mcp/mcp"
+    )
+    assert document.as_of == "2026-07-21T16:00:00Z"
+    assert document.metadata["source_as_of_date"] == "2026-07-22"
+    assert document.metadata["as_of_precision"] == "date"
+
+
+def test_mapper_uses_latest_delimited_record_market_minute() -> None:
+    tool = _tool(
+        value_path=None,
+        as_of_path=None,
+        publisher_path=None,
+        publisher_literal="Tencent WeStock",
+        source_url_path=None,
+        source_url_literal="https://stockbuddy.qq.com/cgi/cgi-bin/openai/mcp/mcp",
+        unit_path=None,
+        unit_from_resolved_market=True,
+        subject_path=None,
+        subject_from_record_key=True,
+        metadata_paths={},
+        record_by_subject_path="structuredContent.data",
+        value_exclusive_min=0,
+        delimited_series={
+            "rows_path": "data.data",
+            "date_path": "data.date",
+            "selection": "LAST",
+            "time_order": "STRICT_ASCENDING",
+            "delimiter": "ASCII_SPACE",
+            "exact_token_count": 4,
+            "time_token_index": 0,
+            "value_token_index": 1,
+            "date_format": "BASIC_ISO_DATE",
+            "time_format": "HHMM_24H",
+            "value_format": "FINITE_DECIMAL",
+            "utc_offset": "+08:00",
+        },
+    )
+    result = McpToolResult(
+        "westock",
+        "data_quote",
+        {
+            "structuredContent": {
+                "ok": True,
+                "data": {
+                    "sz002594": {
+                        "data": {
+                            "data": [
+                                "0930 320.10 10 320.10",
+                                "1459 321.50 20 320.80",
+                            ],
+                            "date": "20260722",
+                        }
+                    }
+                },
+            }
+        },
+    )
+
+    document = DeterministicMcpMapper().map(
+        tool,
+        _fact(),
+        result,
+        NOW,
+        resolved_subject="sz002594",
+        approved_unit="CNY",
+    )
+
+    assert document.metadata["value"] == 321.5
+    assert document.as_of == "2026-07-22T06:59:00Z"
+    assert document.metadata["as_of_precision"] == "minute"
+    assert document.metadata["source_as_of_date"] == "20260722"
+    assert document.metadata["source_as_of_time"] == "1459"
+    assert document.metadata["resolved_subject"] == "sz002594"
+
+
+@pytest.mark.parametrize(
+    "records",
+    (
+        [],
+        ["1459 321.50 20"],
+        ["2460 321.50 20 320.80"],
+        ["1459 NaN 20 320.80"],
+        ["1459 Infinity 20 320.80"],
+        ["1459 3.215e2 20 320.80"],
+        ["1459 -1 20 320.80"],
+        ["1459 321.50 20 320.80", 7],
+        ["1459 321.50 20 320.80", "1459 321.60 30 321.00"],
+        ["1500 321.50 20 320.80", "1459 321.60 30 321.00"],
+        ["1459  321.50 20 320.80"],
+        ["1459\t321.50 20 320.80"],
+        [" 1459 321.50 20 320.80"],
+        ["1459 321.50 20 320.80 "],
+        ["1502 321.50 20 320.80"],
+        {},
+        "1459 321.50 20 320.80",
+    ),
+)
+def test_latest_delimited_record_fails_closed_on_invalid_data(records: object) -> None:
+    tool = _tool(
+        value_path=None,
+        as_of_path=None,
+        publisher_path=None,
+        publisher_literal="Tencent WeStock",
+        source_url_path=None,
+        source_url_literal="https://stockbuddy.qq.com/cgi/cgi-bin/openai/mcp/mcp",
+        unit_path=None,
+        unit_from_resolved_market=True,
+        subject_path=None,
+        subject_from_record_key=True,
+        record_by_subject_path="structuredContent.data",
+        value_exclusive_min=0,
+        delimited_series={
+            "rows_path": "data.data",
+            "date_path": "data.date",
+            "selection": "LAST",
+            "time_order": "STRICT_ASCENDING",
+            "delimiter": "ASCII_SPACE",
+            "exact_token_count": 4,
+            "time_token_index": 0,
+            "value_token_index": 1,
+            "date_format": "BASIC_ISO_DATE",
+            "time_format": "HHMM_24H",
+            "value_format": "FINITE_DECIMAL",
+            "utc_offset": "+08:00",
+        },
+    )
+    result = McpToolResult(
+        "westock",
+        "data_quote",
+        {
+            "structuredContent": {
+                "ok": True,
+                "data": {
+                    "sz002594": {
+                        "data": {"data": records, "date": "20260722"}
+                    }
+                },
+            }
+        },
+    )
+
+    with pytest.raises(McpMappingError):
+        DeterministicMcpMapper().map(
+            tool,
+            _fact(),
+            result,
+            NOW,
+            resolved_subject="sz002594",
+            approved_unit="CNY",
+        )
+
+
+@pytest.mark.parametrize("source_date", ("20260230", "20261301", "2026-07-22"))
+def test_latest_delimited_record_rejects_invalid_basic_iso_date(
+    source_date: str,
+) -> None:
+    tool = _tool(
+        value_path=None,
+        as_of_path=None,
+        publisher_path=None,
+        publisher_literal="Tencent WeStock",
+        source_url_path=None,
+        source_url_literal="https://stockbuddy.qq.com/cgi/cgi-bin/openai/mcp/mcp",
+        unit_path=None,
+        unit_from_resolved_market=True,
+        subject_path=None,
+        subject_from_record_key=True,
+        record_by_subject_path="structuredContent.data",
+        value_exclusive_min=0,
+        delimited_series={
+            "rows_path": "data.data",
+            "date_path": "data.date",
+            "selection": "LAST",
+            "time_order": "STRICT_ASCENDING",
+            "delimiter": "ASCII_SPACE",
+            "exact_token_count": 4,
+            "time_token_index": 0,
+            "value_token_index": 1,
+            "date_format": "BASIC_ISO_DATE",
+            "time_format": "HHMM_24H",
+            "value_format": "FINITE_DECIMAL",
+            "utc_offset": "+08:00",
+        },
+    )
+    result = McpToolResult(
+        "westock",
+        "data_quote",
+        {
+            "structuredContent": {
+                "ok": True,
+                "data": {
+                    "sz002594": {
+                        "data": {
+                            "data": ["1459 321.50 20 320.80"],
+                            "date": source_date,
+                        }
+                    }
+                },
+            }
+        },
+    )
+
+    with pytest.raises(McpMappingError, match="invalid_mapped_date"):
+        DeterministicMcpMapper().map(
+            tool,
+            _fact(),
+            result,
+            NOW,
+            resolved_subject="sz002594",
+            approved_unit="CNY",
+        )
+
+
+def test_mapping_rejects_path_and_delimited_value_sources_together() -> None:
+    with pytest.raises(ValueError, match="mapping_value_source_must_be_unique"):
+        _tool(
+            delimited_series={
+                "rows_path": "data.data",
+                "date_path": "data.date",
+                "selection": "LAST",
+                "time_order": "STRICT_ASCENDING",
+                "delimiter": "ASCII_SPACE",
+                "exact_token_count": 4,
+                "time_token_index": 0,
+                "value_token_index": 1,
+                "date_format": "BASIC_ISO_DATE",
+                "time_format": "HHMM_24H",
+                "value_format": "FINITE_DECIMAL",
+                "utc_offset": "+08:00",
+            }
+        )
+
+
+def test_mapping_rejects_duplicate_delimited_token_indices() -> None:
+    with pytest.raises(ValueError, match="invalid_delimited_series_indices"):
+        _tool(
+            value_path=None,
+            as_of_path=None,
+            delimited_series={
+                "rows_path": "data.data",
+                "date_path": "data.date",
+                "selection": "LAST",
+                "time_order": "STRICT_ASCENDING",
+                "delimiter": "ASCII_SPACE",
+                "exact_token_count": 4,
+                "time_token_index": 1,
+                "value_token_index": 1,
+                "date_format": "BASIC_ISO_DATE",
+                "time_format": "HHMM_24H",
+                "value_format": "FINITE_DECIMAL",
+                "utc_offset": "+08:00",
+            },
+        )
+
+
+def test_mapping_rejects_out_of_range_delimited_token_index() -> None:
+    with pytest.raises(ValueError, match="invalid_delimited_series_indices"):
+        _tool(
+            value_path=None,
+            as_of_path=None,
+            delimited_series={
+                "rows_path": "data.data",
+                "date_path": "data.date",
+                "selection": "LAST",
+                "time_order": "STRICT_ASCENDING",
+                "delimiter": "ASCII_SPACE",
+                "exact_token_count": 4,
+                "time_token_index": 0,
+                "value_token_index": 4,
+                "date_format": "BASIC_ISO_DATE",
+                "time_format": "HHMM_24H",
+                "value_format": "FINITE_DECIMAL",
+                "utc_offset": "+08:00",
+            },
+        )
+
+
 def test_mapper_recursively_cleans_mcp_strings_without_mutating_raw_result() -> None:
     result = _result()
     payload = result.to_dict()["payload"]

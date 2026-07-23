@@ -6,8 +6,8 @@ servers:
     source_kind: PROFESSIONAL_DATA
     access_policy: SERVICE_AUTHENTICATED_FREE
     credential_ref: env://WESTOCK_MCP_CREDENTIAL
-    enabled: false
-    approval_version: 2026-07-23.fixture-1
+    enabled: true
+    approval_version: 2026-07-23.real-2
     timeout_seconds: 10
     max_response_bytes: 1000000
     rate_limit_per_minute: 30
@@ -15,11 +15,13 @@ servers:
     cache_ttl_seconds: 30
     private_network_approved: false
     private_network_cidrs: []
+    oauth_allowed_origins:
+      - https://stockbuddy.qq.com
 
 tools:
   - server_id: westock
     tool_name: data_search
-    enabled: false
+    enabled: true
     resolver_only: true
     effect: READ_ONLY
     fact_categories:
@@ -29,23 +31,34 @@ tools:
     jurisdictions:
       - CN
       - HK
-    approval_version: 2026-07-23.fixture-1
+    approval_version: 2026-07-23.real-2
     approved_discovered_tool:
       name: data_search
+      description: 股票/基金/板块搜索(名称、代码、拼音)。不确定 code 时第一步先调本工具。type=sector/index 时为清单名称子串匹配，请用简短关键词(如「算力」「CPO」)，勿传长句多词。
       inputSchema:
         type: object
         properties:
+          jpkr_market:
+            description: 日韩市场代码(如jp/kr)，非空时走日韩搜索
+            type: string
+          limit:
+            default: 10
+            description: 返回最大条数
+            type: integer
           query:
+            description: 搜索关键词，必填；sector/index 模式为板块/指数名称子串
+            type: string
+          type:
+            description: "类型: stock/etf/bond/sector/index/futures/forex（默认 stock）"
             type: string
         required:
           - query
-        additionalProperties: false
-    approved_fingerprint: dde7494eab23ae15cd7d41f1581eb254bd01bcb3b781a3316a9a72ee312f37c4
+    approved_fingerprint: 90eb63a90bfa56461c4cd5034fc75bb00df4f845122aba072da46a29b7fa8e9e
     priority: 10
 
   - server_id: westock
-    tool_name: data_quote
-    enabled: false
+    tool_name: data_minute
+    enabled: true
     effect: READ_ONLY
     fact_categories:
       - MARKET_QUOTE
@@ -54,28 +67,31 @@ tools:
     jurisdictions:
       - CN
       - HK
-    approval_version: 2026-07-23.fixture-1
+    approval_version: 2026-07-23.real-2
     approved_discovered_tool:
-      name: data_quote
+      name: data_minute
+      description: 分时数据
       inputSchema:
-        type: object
         properties:
           code:
+            description: "股票代码，格式: sh600519/sz000001/hk00700，也兼容600519.SH等后缀格式，必填"
             type: string
+          days:
+            default: 1
+            description: 天数
+            type: integer
         required:
           - code
-        additionalProperties: false
+        type: object
     mapping:
       argument_paths: {}
-      value_path: structuredContent.quote.price
-      as_of_path: structuredContent.quote.as_of
-      publisher_path: structuredContent.publisher
-      source_url_path: structuredContent.source_url
-      unit_path: structuredContent.quote.currency
-      subject_path: structuredContent.quote.instrument_id
-      metadata_paths:
-        instrument_id: structuredContent.quote.instrument_id
-        currency: structuredContent.quote.currency
+      success_path: structuredContent.ok
+      publisher_literal: 腾讯自选股
+      source_url_literal: https://stockbuddy.qq.com/cgi/cgi-bin/openai/mcp/mcp
+      unit_from_resolved_market: true
+      subject_from_record_key: true
+      record_by_subject_path: structuredContent.data
+      metadata_paths: {}
       quality_ceiling: PRIMARY
       value_exclusive_min: 0
       publisher_allowlist:
@@ -84,21 +100,37 @@ tools:
         - CNY
         - HKD
       source_url_origins:
-        - https://stockapp.finance.qq.com
-      source_url_path_pattern: /stock/(?:sz[0-9]{6}|hk[0-9]{5})
+        - https://stockbuddy.qq.com
+      source_url_path_pattern: /cgi/cgi-bin/openai/mcp/mcp
+      delimited_series:
+        rows_path: data.data
+        selection: LAST
+        time_order: STRICT_ASCENDING
+        delimiter: ASCII_SPACE
+        exact_token_count: 4
+        time_token_index: 0
+        time_format: HHMM_24H
+        date_path: data.date
+        date_format: BASIC_ISO_DATE
+        utc_offset: "+08:00"
+        value_token_index: 1
+        value_format: FINITE_DECIMAL
       entity_resolution:
         tool_name: data_search
         argument_paths:
           query: subject
-        candidates_path: structuredContent.matches
-        candidate_subject_path: instrument_id
+        success_path: structuredContent.ok
+        candidates_path: structuredContent.data
+        candidate_subject_path: code
         candidate_name_path: name
-        candidate_type_path: security_type
-        candidate_jurisdiction_path: jurisdiction
-        candidate_market_path: market
-        required_type: EQUITY
+        candidate_type_path: type
+        required_types_by_market:
+          CN:
+            - GP-A
+          HK:
+            - GP
         target_argument: code
-        subject_pattern: (?:sz[0-9]{6}|hk[0-9]{5})
+        subject_pattern: (?:s[hz][0-9]{6}|hk[0-9]{5})
         subject_max_length: 8
         markets_by_jurisdiction:
           CN: CN
@@ -106,5 +138,88 @@ tools:
         units_by_market:
           CN: CNY
           HK: HKD
-    approved_fingerprint: f8ca50f8d3eafa34f75f617ef2e45bb1684e064a5d7f9c8b31602762f00d2c58
+        jurisdiction_subject_patterns:
+          CN: (?:sh|sz)[0-9]{6}
+          HK: hk[0-9]{5}
+    approved_fingerprint: c7b20659f6378780e6cb2563db4a8f6d41eaab9fa36806d5c187c51ef9db48a4
+    priority: 15
+
+  - server_id: westock
+    tool_name: data_quote
+    enabled: true
+    effect: READ_ONLY
+    fact_categories:
+      - MARKET_QUOTE
+    data_scopes:
+      - EXTERNAL_PUBLIC
+    jurisdictions:
+      - CN
+      - HK
+    approval_version: 2026-07-23.real-2
+    approved_discovered_tool:
+      name: data_quote
+      description: 股票行情快照(最新价、涨跌幅等)。code 或 codes 至少填一个；不确定 code 时先 data_search
+      inputSchema:
+        type: object
+        properties:
+          code:
+            description: 股票代码，如 sh600519(茅台)；与 codes 二选一
+            type: string
+          codes:
+            description: 多只代码逗号分隔，如 sh600519,sz000001,hk00700
+            type: string
+          date:
+            description: 可选历史日期 YYYY-MM-DD
+            type: string
+    mapping:
+      argument_paths: {}
+      success_path: structuredContent.ok
+      value_path: price
+      as_of_path: time
+      as_of_date_utc_offset: "+08:00"
+      publisher_literal: 腾讯自选股
+      source_url_literal: https://stockbuddy.qq.com/cgi/cgi-bin/openai/mcp/mcp
+      unit_from_resolved_market: true
+      subject_path: code
+      record_by_subject_path: structuredContent.data
+      metadata_paths:
+        instrument_id: code
+        market_type: market_type
+      quality_ceiling: PRIMARY
+      value_exclusive_min: 0
+      publisher_allowlist:
+        - 腾讯自选股
+      unit_allowlist:
+        - CNY
+        - HKD
+      source_url_origins:
+        - https://stockbuddy.qq.com
+      source_url_path_pattern: /cgi/cgi-bin/openai/mcp/mcp
+      entity_resolution:
+        tool_name: data_search
+        argument_paths:
+          query: subject
+        success_path: structuredContent.ok
+        candidates_path: structuredContent.data
+        candidate_subject_path: code
+        candidate_name_path: name
+        candidate_type_path: type
+        required_types_by_market:
+          CN:
+            - GP-A
+          HK:
+            - GP
+        target_argument: code
+        subject_pattern: (?:s[hz][0-9]{6}|hk[0-9]{5})
+        subject_max_length: 8
+        markets_by_jurisdiction:
+          CN: CN
+          HK: HK
+        units_by_market:
+          CN: CNY
+          HK: HKD
+        jurisdiction_subject_patterns:
+          CN: (?:sh|sz)[0-9]{6}
+          HK: hk[0-9]{5}
+    approved_fingerprint: b9636ff26bccd2ef55da40dcbf9b47eb5814478fedb3205b05379160ef4e14e2
     priority: 20

@@ -124,6 +124,36 @@ def _config_fixture() -> dict[str, object]:
     }
 
 
+def test_oauth_origins_are_fixed_https_origins() -> None:
+    payload = _config_fixture()
+    payload["servers"][0]["oauth_allowed_origins"] = ["https://stockbuddy.qq.com"]
+    payload["tools"] = []
+
+    registry = McpRegistry.from_mapping(payload)
+
+    assert registry.servers[0].oauth_allowed_origins == (
+        "https://stockbuddy.qq.com",
+    )
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "http://stockbuddy.qq.com",
+        "https://stockbuddy.qq.com/path",
+        "https://user@stockbuddy.qq.com",
+        "https://stockbuddy.qq.com?next=x",
+        "https://127.0.0.1",
+    ],
+)
+def test_invalid_oauth_origin_fails_closed(origin: str) -> None:
+    payload = _config_fixture()
+    payload["servers"][0]["oauth_allowed_origins"] = [origin]
+
+    with pytest.raises(McpRegistryError, match="invalid_servers_config"):
+        McpRegistry.from_mapping(payload)
+
+
 def test_registry_returns_only_enabled_approved_read_tools() -> None:
     registry = McpRegistry.from_mapping(_config_fixture())
 
@@ -438,7 +468,7 @@ def test_repository_loader_rejects_duplicate_yaml_keys_at_every_depth(
         load_default_registry()
 
 
-def test_repository_config_is_secret_free_disabled_and_read_only() -> None:
+def test_repository_config_is_secret_free_explicitly_enabled_and_read_only() -> None:
     config_path = Path(__file__).parents[1] / "config" / "jinyiwei_mcp.yaml"
     raw = config_path.read_text(encoding="utf-8")
     payload = yaml.safe_load(raw)
@@ -446,8 +476,8 @@ def test_repository_config_is_secret_free_disabled_and_read_only() -> None:
     registry = McpRegistry.from_mapping(payload)
 
     assert [server.server_id for server in registry.servers] == ["westock"]
-    assert all(server.enabled is False for server in registry.servers)
-    assert all(tool.enabled is False for tool in registry.approvals)
+    assert all(server.enabled is True for server in registry.servers)
+    assert all(tool.enabled is True for tool in registry.approvals)
     assert all(tool.effect.value == "READ_ONLY" for tool in registry.approvals)
     assert "env://WESTOCK_MCP_CREDENTIAL" in raw
     assert "tongdaxin" not in raw.lower()
@@ -457,4 +487,7 @@ def test_repository_config_is_secret_free_disabled_and_read_only() -> None:
         for forbidden in ("bearer ", "access_token", "refresh_token", "password:")
     )
 
-    assert load_default_registry().tools_for((_quote_fact(),)) == ()
+    assert [
+        approval.tool_name
+        for approval in load_default_registry().tools_for((_quote_fact(),))
+    ] == ["data_minute", "data_quote"]

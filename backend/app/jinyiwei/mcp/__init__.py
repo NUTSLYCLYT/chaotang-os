@@ -15,8 +15,10 @@ from .credentials import (
     CredentialProvider,
     EnvCredentialProvider,
     McpCredentialError,
+    OAuthCredentialStoreProtocol,
     PinnedOAuthRefresh,
     SensitiveHeaders,
+    StoredOAuthCredentialProvider,
 )
 from .mapping import DeterministicMcpMapper, McpMappingError
 from .registry import (
@@ -33,6 +35,7 @@ __all__ = [
     "McpClientError",
     "McpMappingError",
     "McpCredentialError",
+    "OAuthCredentialStoreProtocol",
     "PinnedOAuthRefresh",
     "McpRegistry",
     "McpRegistryError",
@@ -47,6 +50,7 @@ __all__ = [
     "CredentialProvider",
     "EnvCredentialProvider",
     "SensitiveHeaders",
+    "StoredOAuthCredentialProvider",
     "approval_fingerprint",
     "load_default_registry",
 ]

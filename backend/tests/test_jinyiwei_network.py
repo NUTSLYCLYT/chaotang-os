@@ -396,6 +396,22 @@ def test_rejects_disallowed_or_missing_mime(content_type: str) -> None:
         Harness(responses=[response]).client().fetch("https://example.com/")
 
 
+def test_accepts_empty_response_without_content_type() -> None:
+    response = FakeResponse(headers={"Content-Length": "0"}, chunks=())
+
+    result = Harness(responses=[response]).client().fetch("https://example.com/")
+
+    assert result.body == b""
+    assert "content-type" not in result.headers
+
+
+def test_rejects_nonempty_response_without_content_type() -> None:
+    response = FakeResponse(headers={"Content-Length": "2"}, chunks=(b"ok",))
+
+    with pytest.raises(NetworkRequestError, match="media type"):
+        Harness(responses=[response]).client().fetch("https://example.com/")
+
+
 def test_accepts_allowed_mime_parameters_and_returns_immutable_normalized_headers() -> None:
     response = FakeResponse(headers={"Content-Type": "Application/JSON; charset=utf-8"})
     result = Harness(responses=[response]).client().fetch("https://example.com/")
@@ -619,6 +635,58 @@ def test_post_json_uses_same_pinned_transport_and_bounded_response() -> None:
     assert sent.endswith(b'\r\n\r\n{"jsonrpc":"2.0"}')
     assert "opaque" not in repr(result)
     assert "{}" not in repr(result)
+
+
+def test_form_post_uses_exact_media_type_and_body() -> None:
+    harness = Harness(
+        responses=[FakeResponse(headers={"Content-Type": "application/json"}, chunks=(b"{}",))]
+    )
+
+    harness.client().request(
+        "POST",
+        "https://example.com/oauth/token",
+        form_body=b"grant_type=authorization_code&code=abc",
+    )
+
+    sent = harness.sockets[0].sent
+    assert b"Content-Type: application/x-www-form-urlencoded\r\n" in sent
+    assert sent.endswith(b"grant_type=authorization_code&code=abc")
+
+
+@pytest.mark.parametrize("status", [307, 308])
+def test_form_post_preserves_body_and_media_type_across_redirect(status: int) -> None:
+    request_body = b"grant_type=authorization_code&code=abc"
+    harness = Harness(
+        responses=[
+            FakeResponse(status, {"Location": "/oauth/token/final"}),
+            FakeResponse(headers={"Content-Type": "application/json"}, chunks=(b"{}",)),
+        ],
+        peers=[PUBLIC_V4, PUBLIC_V4],
+    )
+
+    result = harness.client().request(
+        "POST",
+        "https://example.com/oauth/token",
+        form_body=request_body,
+    )
+
+    assert result.body == b"{}"
+    for sent in (harness.sockets[0].sent, harness.sockets[1].sent):
+        assert b"Content-Type: application/x-www-form-urlencoded\r\n" in sent
+        assert sent.endswith(request_body)
+    assert harness.sockets[1].sent.startswith(
+        b"POST /oauth/token/final HTTP/1.1\r\n"
+    )
+
+
+def test_post_rejects_both_json_and_form_bodies() -> None:
+    with pytest.raises(UnsafeNetworkRequestError):
+        Harness().client().request(
+            "POST",
+            "https://example.com/",
+            json_body=b"{}",
+            form_body=b"a=b",
+        )
 
 
 def test_request_rejects_unsupported_methods_and_post_without_json() -> None:

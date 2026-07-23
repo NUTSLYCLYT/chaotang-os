@@ -224,7 +224,7 @@ class McpClient:
         return McpToolResult(
             server_id=server.server_id,
             tool_name=approval.tool_name,
-            payload=_freeze_mapping(result),
+            payload=_normalize_tool_result(result),
         )
 
     @staticmethod
@@ -451,6 +451,40 @@ def _thaw_json(value: Any) -> Any:
     if isinstance(value, tuple):
         return [_thaw_json(item) for item in value]
     return value
+
+
+def _normalize_tool_result(result: Mapping[str, Any]) -> Mapping[str, Any]:
+    if "structuredContent" in result:
+        return result
+    content = result.get("content")
+    if (
+        not isinstance(content, list)
+        or len(content) != 1
+        or not isinstance(content[0], Mapping)
+        or content[0].get("type") != "text"
+        or not isinstance(content[0].get("text"), str)
+    ):
+        return result
+    try:
+        parsed = _strict_json_loads(content[0]["text"])
+    except (json.JSONDecodeError, RecursionError, ValueError):
+        return result
+    if not isinstance(parsed, Mapping) or not _json_depth_within_limit(parsed):
+        return result
+    return {**result, "structuredContent": parsed}
+
+
+def _json_depth_within_limit(value: object, *, maximum: int = 64) -> bool:
+    pending: list[tuple[object, int]] = [(value, 1)]
+    while pending:
+        current, depth = pending.pop()
+        if depth > maximum:
+            return False
+        if isinstance(current, Mapping):
+            pending.extend((item, depth + 1) for item in current.values())
+        elif isinstance(current, list | tuple):
+            pending.extend((item, depth + 1) for item in current)
+    return True
 
 
 def _strict_json_loads(value: str) -> object:

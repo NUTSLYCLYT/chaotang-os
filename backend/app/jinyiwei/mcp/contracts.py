@@ -143,6 +143,30 @@ class McpAccessPolicy(StrEnum):
     INTERNAL_SERVICE_AUTHENTICATED = "INTERNAL_SERVICE_AUTHENTICATED"
 
 
+class DelimitedSeriesSelection(StrEnum):
+    LAST = "LAST"
+
+
+class DelimitedSeriesTimeOrder(StrEnum):
+    STRICT_ASCENDING = "STRICT_ASCENDING"
+
+
+class DelimitedSeriesDelimiter(StrEnum):
+    ASCII_SPACE = "ASCII_SPACE"
+
+
+class DelimitedSeriesDateFormat(StrEnum):
+    BASIC_ISO_DATE = "BASIC_ISO_DATE"
+
+
+class DelimitedSeriesTimeFormat(StrEnum):
+    HHMM_24H = "HHMM_24H"
+
+
+class DelimitedSeriesValueFormat(StrEnum):
+    FINITE_DECIMAL = "FINITE_DECIMAL"
+
+
 class McpServerConfig(_FrozenModel):
     server_id: StrictStr
     display_name: StrictStr
@@ -160,6 +184,7 @@ class McpServerConfig(_FrozenModel):
     cache_ttl_seconds: StrictInt = Field(ge=0, le=86_400)
     private_network_approved: StrictBool = False
     private_network_cidrs: tuple[StrictStr, ...] = ()
+    oauth_allowed_origins: tuple[StrictStr, ...] = ()
 
     @field_validator("server_id")
     @classmethod
@@ -228,6 +253,26 @@ class McpServerConfig(_FrozenModel):
                 raise ValueError("invalid_private_network_cidr")
         return values
 
+    @field_validator("oauth_allowed_origins")
+    @classmethod
+    def _valid_oauth_origins(cls, values: tuple[str, ...]) -> tuple[str, ...]:
+        if len(values) != len(set(values)):
+            raise ValueError("duplicate_oauth_origin")
+        for value in values:
+            parsed = urlsplit(value)
+            if (
+                parsed.scheme != "https"
+                or not parsed.hostname
+                or parsed.username is not None
+                or parsed.password is not None
+                or parsed.path not in {"", "/"}
+                or parsed.query
+                or parsed.fragment
+                or _is_ip_literal(parsed.hostname)
+            ):
+                raise ValueError("invalid_oauth_origin")
+        return values
+
     @model_validator(mode="after")
     def _validate_security_boundary(self) -> McpServerConfig:
         if self.access_policy is McpAccessPolicy.ANONYMOUS_PUBLIC:
@@ -272,6 +317,14 @@ class McpServerConfig(_FrozenModel):
         if not payload["private_network_cidrs"]:
             payload.pop("private_network_cidrs")
         return payload
+
+
+def _is_ip_literal(value: str) -> bool:
+    try:
+        ipaddress.ip_address(value)
+    except ValueError:
+        return False
+    return True
 
 
 class DiscoveredTool(_FrozenModel):
@@ -457,16 +510,23 @@ class McpEntityResolver(_FrozenModel):
 
     tool_name: StrictStr
     argument_paths: Mapping[StrictStr, StrictStr]
+    success_path: StrictStr | None = None
     candidates_path: StrictStr
     candidate_subject_path: StrictStr
     candidate_name_path: StrictStr
     candidate_type_path: StrictStr
-    candidate_jurisdiction_path: StrictStr
-    candidate_market_path: StrictStr
-    required_type: StrictStr
+    candidate_jurisdiction_path: StrictStr | None = None
+    candidate_market_path: StrictStr | None = None
+    required_type: StrictStr | None = None
+    required_types_by_market: Mapping[StrictStr, tuple[StrictStr, ...]] = Field(
+        default_factory=dict
+    )
     target_argument: StrictStr
     markets_by_jurisdiction: Mapping[StrictStr, StrictStr]
     units_by_market: Mapping[StrictStr, StrictStr]
+    jurisdiction_subject_patterns: Mapping[StrictStr, StrictStr] = Field(
+        default_factory=dict
+    )
     subject_pattern: StrictStr
     subject_max_length: StrictInt = Field(ge=1, le=256)
 
@@ -479,6 +539,7 @@ class McpEntityResolver(_FrozenModel):
 
     @field_validator(
         "candidates_path",
+        "success_path",
         "candidate_subject_path",
         "candidate_name_path",
         "candidate_type_path",
@@ -486,12 +547,18 @@ class McpEntityResolver(_FrozenModel):
         "candidate_market_path",
     )
     @classmethod
-    def _valid_result_path(cls, value: str) -> str:
+    def _valid_result_path(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         return _validate_field_path(value)
 
     @field_validator("required_type", "target_argument")
     @classmethod
-    def _nonblank_literal(cls, value: str, info: ValidationInfo) -> str:
+    def _nonblank_literal(
+        cls, value: str | None, info: ValidationInfo
+    ) -> str | None:
+        if value is None:
+            return None
         normalized = _nonblank(value, info.field_name)
         if info.field_name == "target_argument" and not _IDENTIFIER.fullmatch(normalized):
             raise ValueError("invalid_target_argument")
@@ -546,15 +613,115 @@ class McpEntityResolver(_FrozenModel):
             raise ValueError("units_by_market_must_not_be_empty")
         return FrozenJsonObject(normalized)
 
+    @field_validator("jurisdiction_subject_patterns")
+    @classmethod
+    def _valid_jurisdiction_subject_patterns(
+        cls, value: Mapping[str, str]
+    ) -> Mapping[str, str]:
+        normalized: dict[str, str] = {}
+        for jurisdiction, pattern in value.items():
+            code = jurisdiction.upper()
+            if not re.fullmatch(r"[A-Z]{2}", code) or not pattern or len(pattern) > 256:
+                raise ValueError("invalid_resolution_jurisdiction_pattern")
+            try:
+                re.compile(pattern)
+            except re.error:
+                raise ValueError("invalid_resolution_jurisdiction_pattern") from None
+            if code in normalized:
+                raise ValueError("duplicate_resolution_jurisdiction_pattern")
+            normalized[code] = pattern
+        return FrozenJsonObject(normalized)
+
+    @field_validator("required_types_by_market")
+    @classmethod
+    def _valid_required_types(
+        cls, value: Mapping[str, tuple[str, ...]]
+    ) -> Mapping[str, tuple[str, ...]]:
+        normalized: dict[str, tuple[str, ...]] = {}
+        for market, values in value.items():
+            market_name = _nonblank(market, "market")
+            types = tuple(_nonblank(item, "required_type") for item in values)
+            if not types or len(types) != len(set(types)):
+                raise ValueError("invalid_required_types_by_market")
+            normalized[market_name] = types
+        return FrozenJsonObject(normalized)
+
     @model_validator(mode="after")
     def _every_market_has_exactly_one_unit(self) -> McpEntityResolver:
         if set(self.units_by_market) != set(self.markets_by_jurisdiction.values()):
             raise ValueError("resolution_market_unit_mismatch")
+        explicit_market_fields = (
+            self.candidate_jurisdiction_path is not None
+            and self.candidate_market_path is not None
+        )
+        if (self.candidate_jurisdiction_path is None) != (
+            self.candidate_market_path is None
+        ):
+            raise ValueError("resolution_market_paths_must_match")
+        derived_market = bool(self.jurisdiction_subject_patterns)
+        if explicit_market_fields == derived_market:
+            raise ValueError("resolution_market_source_must_be_unique")
+        markets = set(self.units_by_market)
+        if derived_market and set(self.jurisdiction_subject_patterns) != set(
+            self.markets_by_jurisdiction
+        ):
+            raise ValueError("resolution_jurisdiction_pattern_mismatch")
+        configured_types = bool(self.required_types_by_market)
+        if (self.required_type is not None) == configured_types:
+            raise ValueError("resolution_required_type_source_must_be_unique")
+        if configured_types and set(self.required_types_by_market) != markets:
+            raise ValueError("resolution_required_type_market_mismatch")
         return self
 
-    @field_serializer("argument_paths", "markets_by_jurisdiction", "units_by_market")
-    def _serialize_mappings(self, value: Mapping[str, str]) -> dict[str, str]:
-        return dict(value)
+    @field_serializer(
+        "argument_paths",
+        "markets_by_jurisdiction",
+        "units_by_market",
+        "jurisdiction_subject_patterns",
+        "required_types_by_market",
+    )
+    def _serialize_mappings(self, value: Mapping[str, Any]) -> dict[str, Any]:
+        return {
+            key: list(item) if isinstance(item, tuple) else item
+            for key, item in value.items()
+        }
+
+
+class McpDelimitedSeriesMapping(_FrozenModel):
+    """Fixed parsing contract for an ordered series of delimited text rows."""
+
+    rows_path: StrictStr
+    selection: DelimitedSeriesSelection
+    time_order: DelimitedSeriesTimeOrder
+    delimiter: DelimitedSeriesDelimiter
+    exact_token_count: StrictInt = Field(ge=2, le=64)
+    time_token_index: StrictInt = Field(ge=0, le=63)
+    time_format: DelimitedSeriesTimeFormat
+    date_path: StrictStr
+    date_format: DelimitedSeriesDateFormat
+    utc_offset: StrictStr
+    value_token_index: StrictInt = Field(ge=0, le=63)
+    value_format: DelimitedSeriesValueFormat
+
+    @field_validator("rows_path", "date_path")
+    @classmethod
+    def _valid_paths(cls, value: str) -> str:
+        return _validate_field_path(value)
+
+    @field_validator("utc_offset")
+    @classmethod
+    def _valid_utc_offset(cls, value: str) -> str:
+        return _validate_utc_offset(value)
+
+    @model_validator(mode="after")
+    def _valid_indices(self) -> McpDelimitedSeriesMapping:
+        if (
+            self.time_token_index >= self.exact_token_count
+            or self.value_token_index >= self.exact_token_count
+            or self.time_token_index == self.value_token_index
+        ):
+            raise ValueError("invalid_delimited_series_indices")
+        return self
 
 
 class McpToolMapping(_FrozenModel):
@@ -566,16 +733,24 @@ class McpToolMapping(_FrozenModel):
     """
 
     argument_paths: Mapping[StrictStr, StrictStr]
-    value_path: StrictStr
-    as_of_path: StrictStr
-    publisher_path: StrictStr
-    source_url_path: StrictStr
+    success_path: StrictStr | None = None
+    value_path: StrictStr | None = None
+    as_of_path: StrictStr | None = None
+    publisher_path: StrictStr | None = None
+    publisher_literal: StrictStr | None = None
+    source_url_path: StrictStr | None = None
+    source_url_literal: StrictStr | None = None
     quality_ceiling: EvidenceQuality
     unit_path: StrictStr | None = None
+    unit_from_resolved_market: StrictBool = False
     published_at_path: StrictStr | None = None
-    subject_path: StrictStr
+    subject_path: StrictStr | None = None
+    subject_from_record_key: StrictBool = False
     metadata_paths: Mapping[StrictStr, StrictStr] = Field(default_factory=dict)
     entity_resolution: McpEntityResolver | None = None
+    record_by_subject_path: StrictStr | None = None
+    as_of_date_utc_offset: StrictStr | None = None
+    delimited_series: McpDelimitedSeriesMapping | None = None
     value_exclusive_min: StrictFloat | StrictInt | None = None
     publisher_allowlist: tuple[StrictStr, ...] = ()
     unit_allowlist: tuple[StrictStr, ...] = ()
@@ -584,12 +759,14 @@ class McpToolMapping(_FrozenModel):
 
     @field_validator(
         "value_path",
+        "success_path",
         "as_of_path",
         "publisher_path",
         "source_url_path",
         "unit_path",
         "published_at_path",
         "subject_path",
+        "record_by_subject_path",
     )
     @classmethod
     def _valid_field_path(cls, value: str | None) -> str | None:
@@ -619,6 +796,36 @@ class McpToolMapping(_FrozenModel):
         if value is not None and not math.isfinite(value):
             raise ValueError("invalid_value_exclusive_min")
         return value
+
+    @field_validator("publisher_literal")
+    @classmethod
+    def _valid_publisher_literal(cls, value: str | None) -> str | None:
+        return None if value is None else _nonblank(value, "publisher_literal")
+
+    @field_validator("source_url_literal")
+    @classmethod
+    def _valid_source_url_literal(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        parsed = urlsplit(value)
+        if (
+            parsed.scheme != "https"
+            or not parsed.netloc
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.query
+            or parsed.fragment
+            or any(character.isspace() for character in value)
+        ):
+            raise ValueError("invalid_source_url_literal")
+        return value
+
+    @field_validator("as_of_date_utc_offset")
+    @classmethod
+    def _valid_as_of_date_utc_offset(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _validate_utc_offset(value)
 
     @field_validator("publisher_allowlist", "unit_allowlist")
     @classmethod
@@ -665,6 +872,26 @@ class McpToolMapping(_FrozenModel):
             raise ValueError("invalid_source_url_path_pattern") from None
         return value
 
+    @model_validator(mode="after")
+    def _validate_mapping_sources(self) -> McpToolMapping:
+        if (self.publisher_path is None) == (self.publisher_literal is None):
+            raise ValueError("publisher_source_must_be_unique")
+        if (self.source_url_path is None) == (self.source_url_literal is None):
+            raise ValueError("source_url_source_must_be_unique")
+        if self.unit_path is not None and self.unit_from_resolved_market:
+            raise ValueError("unit_source_must_be_unique")
+        path_mapping = self.value_path is not None and self.as_of_path is not None
+        partial_path_mapping = (self.value_path is None) != (self.as_of_path is None)
+        if partial_path_mapping or path_mapping == (self.delimited_series is not None):
+            raise ValueError("mapping_value_source_must_be_unique")
+        if self.as_of_date_utc_offset is not None and not path_mapping:
+            raise ValueError("as_of_date_utc_offset_requires_path")
+        if (self.subject_path is not None) == self.subject_from_record_key:
+            raise ValueError("subject_source_must_be_unique")
+        if self.subject_from_record_key and self.record_by_subject_path is None:
+            raise ValueError("subject_record_key_requires_record_mapping")
+        return self
+
 
 def _validate_field_path(value: str) -> str:
     if not isinstance(value, str) or not value or value != value.strip():
@@ -677,6 +904,16 @@ def _validate_field_path(value: str) -> str:
         for token in tokens
     ):
         raise ValueError("invalid_mapping_path")
+    return value
+
+
+def _validate_utc_offset(value: str) -> str:
+    match = re.fullmatch(r"([+-])([0-9]{2}):([0-9]{2})", value)
+    if match is None:
+        raise ValueError("invalid_utc_offset")
+    hours, minutes = int(match.group(2)), int(match.group(3))
+    if hours > 14 or minutes > 59 or (hours == 14 and minutes != 0):
+        raise ValueError("invalid_utc_offset")
     return value
 
 

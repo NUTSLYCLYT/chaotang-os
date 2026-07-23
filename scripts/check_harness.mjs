@@ -36,6 +36,9 @@ const REQUIRED_FILES = [
   "docs/decisions/0016-codex-engineering-workflow-profile.md",
   "docs/decisions/0017-shiguan-memorial-reply-contract.md",
   "docs/decisions/0018-central-jinyiwei-evidence-service.md",
+  "docs/decisions/0019-admin-oauth-for-mcp-service-accounts.md",
+  "docs/decisions/0020-configured-mcp-result-normalization.md",
+  "docs/decisions/0021-minute-market-data-through-configured-mcp-series.md",
   "backend/config/providers.yaml",
   "backend/.env.template",
   "docs/failures/2026-07-15-shared-harness-stop-hook-false-green.md",
@@ -635,6 +638,45 @@ export function validateHarness(root) {
           errors.push(`架构声称没有业务代码，但 ${side}/ 出现: ${unexpected.join(", ")}`);
         }
       }
+    }
+    requireText("ARCHITECTURE.md", content, [
+      "--credential-source local",
+      "Secret Manager",
+      "env://",
+      "WorkBuddy",
+      "data_search",
+      "data_quote",
+    ], errors);
+  }
+
+  const oauthOperationalDocs = [
+    "backend/AGENTS.md",
+    "docs/decisions/0019-admin-oauth-for-mcp-service-accounts.md",
+    "docs/superpowers/specs/2026-07-23-jinyiwei-westock-oauth-authorization-design.md",
+  ];
+  const oauthAuthorizeCommand =
+    ".venv\\Scripts\\python.exe -m app.jinyiwei.mcp.oauth authorize --server westock";
+  const oauthStatusCommand =
+    ".venv\\Scripts\\python.exe -m app.jinyiwei.mcp.oauth status --server westock";
+  const oauthSmokeCommand =
+    ".venv\\Scripts\\python.exe -m app.jinyiwei.mcp.smoke --server westock --tool data_quote --query 比亚迪 --credential-source local";
+  for (const relativePath of oauthOperationalDocs) {
+    const absolutePath = join(root, ...relativePath.split("/"));
+    if (!existsSync(absolutePath)) continue;
+    const content = readFileSync(absolutePath, "utf8");
+    requireText(relativePath, content, [
+      "JINYIWEI_EXTERNAL_NETWORK_ENABLED",
+      oauthAuthorizeCommand,
+      oauthStatusCommand,
+      oauthSmokeCommand,
+      "data_search",
+      "data_quote",
+      "WorkBuddy",
+      "Secret Manager",
+      "env://",
+    ], errors);
+    if (/--query\s+(?!比亚迪(?:\s|$))\S+/u.test(content)) {
+      errors.push(`${relativePath} 的 OAuth smoke 查询必须是 比亚迪`);
     }
   }
 

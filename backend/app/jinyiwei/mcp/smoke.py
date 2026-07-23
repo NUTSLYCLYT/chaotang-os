@@ -6,14 +6,20 @@ import argparse
 import json
 import os
 import sys
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Protocol, TextIO
 
 from app.jinyiwei.mcp.client import McpClient, McpToolResult
 from app.jinyiwei.mcp.contracts import ToolEffect
-from app.jinyiwei.mcp.credentials import EnvCredentialProvider
+from app.jinyiwei.mcp.credentials import (
+    EnvCredentialProvider,
+    OAuthCredentialStoreProtocol,
+    StoredOAuthCredentialProvider,
+)
 from app.jinyiwei.mcp.mapping import DeterministicMcpMapper
+from app.jinyiwei.mcp.oauth.store import OAuthCredentialStore
 from app.jinyiwei.mcp.registry import McpRegistry, McpRegistryError, load_default_registry
 from app.jinyiwei.models import DataScope, FactCategory, RequiredFact
 from app.jinyiwei.network import (
@@ -21,7 +27,7 @@ from app.jinyiwei.network import (
     EXTERNAL_NETWORK_TRUTHY_VALUES,
 )
 
-_ALLOWED_TOOLS = frozenset({"data_search", "data_quote"})
+_ALLOWED_TOOLS = frozenset({"data_search", "data_quote", "data_minute"})
 
 
 class _InvalidArguments(ValueError):
@@ -59,6 +65,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--tool", required=True)
     parser.add_argument("--query", required=True)
     parser.add_argument("--jurisdiction", choices=("CN", "HK"), default="CN")
+    parser.add_argument(
+        "--credential-source",
+        choices=("env", "local"),
+        default="env",
+    )
     return parser
 
 
@@ -129,10 +140,12 @@ def run_smoke(
     registry: McpRegistry | None = None,
     client: _SmokeClient | None = None,
     credential_provider: _CredentialProvider | None = None,
+    credential_store: OAuthCredentialStoreProtocol | None = None,
     network_enabled: bool | None = None,
     environ: Mapping[str, str] | None = None,
     stdout: TextIO | None = None,
     stderr: TextIO | None = None,
+    now: Callable[[], datetime] | None = None,
 ) -> int:
     """Run one bounded probe and expose only fixed, non-sensitive metadata."""
 
@@ -151,11 +164,6 @@ def run_smoke(
     server_id = args.server
     tool_name = args.tool
     process_environ = os.environ if environ is None else environ
-    enabled = (
-        _network_enabled(process_environ)
-        if network_enabled is None
-        else network_enabled
-    )
     try:
         selected_registry = load_default_registry() if registry is None else registry
         server = selected_registry.server(server_id)
@@ -165,14 +173,6 @@ def run_smoke(
     safe_server_id = server_id if server is not None else "invalid"
     safe_tool_name = tool_name if tool_name in _ALLOWED_TOOLS else "invalid"
 
-    if not enabled:
-        _emit(
-            errors,
-            server=safe_server_id,
-            tool=safe_tool_name,
-            status="external_network_disabled",
-        )
-        return 2
     if tool_name not in _ALLOWED_TOOLS:
         _emit(
             errors,
@@ -202,7 +202,7 @@ def run_smoke(
         _emit(errors, server=server_id, tool=tool_name, status="tool_disabled")
         return 2
     resolver = None
-    if tool_name == "data_quote":
+    if tool_name != "data_search":
         resolution = approval.mapping.entity_resolution if approval.mapping else None
         if resolution is None or resolution.tool_name != "data_search":
             _emit(
@@ -229,11 +229,32 @@ def run_smoke(
             )
             return 2
 
-    credentials = (
-        EnvCredentialProvider(environ=process_environ)
-        if credential_provider is None
-        else credential_provider
+    enabled = (
+        _network_enabled(process_environ)
+        if network_enabled is None
+        else network_enabled
     )
+    if not enabled:
+        _emit(
+            errors,
+            server=safe_server_id,
+            tool=safe_tool_name,
+            status="external_network_disabled",
+        )
+        return 2
+
+    if credential_provider is not None:
+        credentials = credential_provider
+    elif args.credential_source == "env":
+        credentials = EnvCredentialProvider(environ=process_environ)
+    else:
+        selected_store = credential_store or OAuthCredentialStore(
+            Path(__file__).resolve().parents[3] / "data" / "credentials"
+        )
+        credentials = StoredOAuthCredentialProvider(
+            store=selected_store,
+            approved_endpoints={},
+        )
     try:
         credentials.headers_for(server)
     except Exception:
@@ -292,7 +313,7 @@ def run_smoke(
             approval,
             fact,
             result,
-            datetime.now(UTC),
+            datetime.now(UTC) if now is None else now(),
             resolved_subject=resolved.subject,
             approved_unit=resolved.unit,
         )

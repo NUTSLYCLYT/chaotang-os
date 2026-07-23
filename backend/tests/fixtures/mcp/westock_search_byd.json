@@ -5,24 +5,21 @@
     "content": [
       {
         "type": "text",
-        "text": "Sanitized fixture: two public equity instruments matched."
+        "text": "{\"ok\":true,\"data\":[{\"code\":\"sz002594\",\"name\":\"比亚迪\",\"type\":\"GP-A\"},{\"code\":\"hk01211\",\"name\":\"比亚迪股份\",\"type\":\"GP\"}]}"
       }
     ],
     "structuredContent": {
-      "matches": [
+      "ok": true,
+      "data": [
         {
+          "code": "sz002594",
           "name": "比亚迪",
-          "security_type": "EQUITY",
-          "jurisdiction": "CN",
-          "market": "CN",
-          "instrument_id": "sz002594"
+          "type": "GP-A"
         },
         {
-          "name": "比亚迪",
-          "security_type": "EQUITY",
-          "jurisdiction": "HK",
-          "market": "HK",
-          "instrument_id": "hk01211"
+          "code": "hk01211",
+          "name": "比亚迪股份",
+          "type": "GP"
         }
       ]
     }

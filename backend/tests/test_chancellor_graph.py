@@ -671,7 +671,7 @@ def test_graph_returns_ordered_union_selected_by_real_bureau_adapter():
     assert "锦衣卫（调查）" not in result["processing_path"]
 
 
-def test_real_graph_byd_gap_runs_jinyiwei_and_resumes_with_cited_quote(
+def test_real_graph_byd_gap_runs_jinyiwei_and_resolves_fresh_minute_quote(
     tmp_path: Path,
 ) -> None:
     backend = Path(__file__).parents[1]
@@ -699,11 +699,11 @@ def test_real_graph_byd_gap_runs_jinyiwei_and_resumes_with_cited_quote(
         def call(self, server, approval, arguments):
             normalized = dict(arguments)
             self.calls.append((approval.tool_name, normalized))
-            name = (
-                "westock_search_byd.json"
-                if approval.tool_name == "data_search"
-                else "westock_quote_byd.json"
-            )
+            name = {
+                "data_search": "westock_search_byd.json",
+                "data_quote": "westock_quote_byd.json",
+                "data_minute": "westock_minute_byd.json",
+            }[approval.tool_name]
             return McpToolResult(
                 server.server_id,
                 approval.tool_name,
@@ -790,15 +790,15 @@ def test_real_graph_byd_gap_runs_jinyiwei_and_resumes_with_cited_quote(
             )
         if index == 3:
             evidence_id = session.snapshot().available_evidence_ids[0]
-            emitted_statuses.append("READY:CITED")
+            opinion = "比亚迪股票当前价格已有分钟级行情证据"
             return json.dumps(
                 {
                     "status": "READY",
                     "result": {
-                        "opinion": "比亚迪当前价格为321.5元",
+                        "opinion": opinion,
                         "factual_claims": [
                             {
-                                "claim": "比亚迪当前价格为321.5元",
+                                "claim": opinion,
                                 "basis": "CITED",
                                 "evidence_ids": [evidence_id],
                                 "fact_key": "current_quote",
@@ -813,8 +813,11 @@ def test_real_graph_byd_gap_runs_jinyiwei_and_resumes_with_cited_quote(
                 ensure_ascii=False,
             )
         if index == 4:
-            return json.dumps({"opinion": "户部依据已核行情答复"}, ensure_ascii=False)
-        return _final_response("丞相汇总已核验的比亚迪行情")
+            return json.dumps(
+                {"opinion": "户部采纳分钟级行情证据"},
+                ensure_ascii=False,
+            )
+        return _final_response("丞相确认已取得满足时效要求的比亚迪行情")
 
     result = build_chancellor_graph(
         chat_model=model,
@@ -822,16 +825,17 @@ def test_real_graph_byd_gap_runs_jinyiwei_and_resumes_with_cited_quote(
     ).invoke({"decree_text": "看看比亚迪股票价格"})
 
     snapshot = session.snapshot()
-    assert emitted_statuses == ["NEEDS_DATA", "READY:CITED"]
+    assert emitted_statuses == ["NEEDS_DATA"]
     assert client.calls == [
         ("data_search", {"query": "比亚迪"}),
-        ("data_quote", {"code": "sz002594"}),
+        ("data_minute", {"code": "sz002594"}),
     ]
     assert snapshot.investigation_count == 1
     assert snapshot.packs[0].status.value == "RESOLVED"
-    assert snapshot.packs[0].evidence_by_fact["current_quote"][0].source_type is SourceType.MCP
+    assert len(snapshot.packs[0].evidence_by_fact["current_quote"]) == 1
+    assert len(snapshot.available_evidence_ids) == 1
     assert result["adopted_evidence_ids"] == snapshot.available_evidence_ids
     assert result["processing_path"].count("锦衣卫（调查）") == 1
-    resumed_prompt = "\n".join(message["content"] for message in captured[3])
-    assert "BEGIN_UNTRUSTED_EVIDENCE_PACK" in resumed_prompt
-    assert "END_UNTRUSTED_EVIDENCE_PACK" in resumed_prompt
+    synthesis_prompt = "\n".join(message["content"] for message in captured[3])
+    assert "evidence_unavailable" not in synthesis_prompt
+    assert snapshot.available_evidence_ids[0] in synthesis_prompt

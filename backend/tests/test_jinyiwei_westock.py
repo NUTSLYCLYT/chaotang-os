@@ -38,6 +38,16 @@ def _json_fixture(name: str) -> dict[str, object]:
     return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
 
 
+def _quote_fixture_for(
+    code: str, *, name: str, market_type: str
+) -> dict[str, object]:
+    quote = _json_fixture("westock_quote_byd.json")["result"]
+    record = quote["structuredContent"]["data"]["sz002594"]
+    record.update(code=code, symbol=code, name=name, market_type=market_type)
+    quote["structuredContent"]["data"] = {code: record}
+    return quote
+
+
 def _enabled_registry() -> McpRegistry:
     payload = yaml.safe_load(
         (BACKEND / "config" / "jinyiwei_mcp.yaml").read_text(encoding="utf-8")
@@ -48,7 +58,29 @@ def _enabled_registry() -> McpRegistry:
     return McpRegistry.from_mapping(payload)
 
 
-def _request(*, jurisdiction: str | None = "CN") -> DataGapRequest:
+def _quote_only_registry() -> McpRegistry:
+    payload = yaml.safe_load(
+        (BACKEND / "config" / "jinyiwei_mcp.yaml").read_text(encoding="utf-8")
+    )
+    payload["tools"] = [
+        tool for tool in payload["tools"] if tool["tool_name"] != "data_minute"
+    ]
+    return McpRegistry.from_mapping(payload)
+
+
+def _minute_fixture_for(code: str) -> dict[str, object]:
+    minute = _json_fixture("westock_minute_byd.json")["result"]
+    record = minute["structuredContent"]["data"].pop("sz002594")
+    minute["structuredContent"]["data"][code] = record
+    return minute
+
+
+def _request(
+    *,
+    jurisdiction: str | None = "CN",
+    subject: str = "比亚迪",
+    max_age_seconds: int = 60,
+) -> DataGapRequest:
     return DataGapRequest(
         request_id="req-byd",
         requesting_agent="户部度支司",
@@ -59,14 +91,14 @@ def _request(*, jurisdiction: str | None = "CN") -> DataGapRequest:
                 description="比亚迪股票当前价格",
                 category=FactCategory.MARKET_QUOTE,
                 data_scope=DataScope.EXTERNAL_PUBLIC,
-                subject="比亚迪",
+                subject=subject,
                 jurisdiction=jurisdiction,
                 expected_unit="CNY" if jurisdiction == "CN" else None,
                 expected_shape="number",
             ),
         ),
         decision_context="回答用户查询",
-        freshness=FreshnessRequirement(max_age_seconds=60),
+        freshness=FreshnessRequirement(max_age_seconds=max_age_seconds),
         timeout_seconds=10,
         source_scope=(SourceType.SHIGUAN, SourceType.MCP),
     )
@@ -79,6 +111,7 @@ class _FixtureClient:
         *,
         search_payload: dict[str, object] | None = None,
         quote_payload: dict[str, object] | None = None,
+        minute_payload: dict[str, object] | None = None,
         failure: str | None = None,
     ) -> None:
         self.registry = registry
@@ -87,6 +120,9 @@ class _FixtureClient:
         )["result"]
         self.quote_payload = quote_payload or _json_fixture(
             "westock_quote_byd.json"
+        )["result"]
+        self.minute_payload = minute_payload or _json_fixture(
+            "westock_minute_byd.json"
         )["result"]
         self.failure = failure
         self.calls: list[tuple[str, dict[str, object]]] = []
@@ -101,20 +137,22 @@ class _FixtureClient:
             raise McpClientError(self.failure)
         normalized = dict(arguments)
         self.calls.append((approval.tool_name, normalized))
-        payload = (
-            self.search_payload
-            if approval.tool_name == "data_search"
-            else self.quote_payload
-        )
+        payload = {
+            "data_search": self.search_payload,
+            "data_quote": self.quote_payload,
+            "data_minute": self.minute_payload,
+        }[approval.tool_name]
         return McpToolResult(server.server_id, approval.tool_name, payload)
 
 
 def _fetch(
     *,
     jurisdiction: str | None = "CN",
+    subject: str = "比亚迪",
+    max_age_seconds: int = 60,
     client: _FixtureClient | None = None,
 ):
-    registry = _enabled_registry()
+    registry = client.registry if client is not None else _enabled_registry()
     selected_client = client or _FixtureClient(registry)
     source = McpSource(
         registry=registry,
@@ -122,7 +160,11 @@ def _fetch(
         mapper=DeterministicMcpMapper(),
         now=lambda: NOW,
     )
-    request = _request(jurisdiction=jurisdiction)
+    request = _request(
+        jurisdiction=jurisdiction,
+        subject=subject,
+        max_age_seconds=max_age_seconds,
+    )
     query = SourceQuery(
         request=request,
         unresolved_fact_keys=("current_quote",),
@@ -132,24 +174,33 @@ def _fetch(
     return request, selected_client, source.fetch(query)
 
 
-def test_repository_westock_config_is_disabled_and_approves_only_query_tools() -> None:
+def test_repository_westock_config_enables_only_approved_query_tools() -> None:
     payload = yaml.safe_load(
         (BACKEND / "config" / "jinyiwei_mcp.yaml").read_text(encoding="utf-8")
     )
 
-    assert payload["servers"][0]["enabled"] is False
+    assert payload["servers"][0]["enabled"] is True
     assert payload["servers"][0]["endpoint_url"] == (
         "https://stockbuddy.qq.com/cgi/cgi-bin/openai/mcp/mcp"
     )
-    assert all(tool["enabled"] is False for tool in payload["tools"])
+    assert all(tool["enabled"] is True for tool in payload["tools"])
     assert {tool["tool_name"] for tool in payload["tools"]} == {
         "data_search",
         "data_quote",
+        "data_minute",
     }
     serialized = json.dumps(payload, ensure_ascii=False).casefold()
     assert all(
         marker not in serialized
-        for marker in ("token", "cookie", "account_id", "user_id", "通达信")
+        for marker in (
+            "access_token",
+            "refresh_token",
+            "bearer ",
+            "cookie",
+            "account_id",
+            "user_id",
+            "通达信",
+        )
     )
 
 
@@ -158,7 +209,7 @@ def test_byd_quote_uses_search_then_quote_and_returns_cited_evidence() -> None:
 
     assert client.calls == [
         ("data_search", {"query": "比亚迪"}),
-        ("data_quote", {"code": "sz002594"}),
+        ("data_minute", {"code": "sz002594"}),
     ]
     assert result.attempt.status is SourceAttemptStatus.SUCCEEDED
     items = StructuredEvidenceExtractor(model=lambda _prompt: pytest.fail()).extract(
@@ -175,12 +226,17 @@ def test_byd_quote_uses_search_then_quote_and_returns_cited_evidence() -> None:
     assert item.unit == "CNY"
     assert item.source_type is SourceType.MCP
     assert item.publisher == "腾讯自选股"
-    assert item.access_metadata["instrument_id"] == "sz002594"
+    assert item.access_metadata["resolved_subject"] == "sz002594"
     assert item.as_of == "2026-07-23T02:00:00Z"
+    assert item.access_metadata["as_of_precision"] == "minute"
 
 
 def test_byd_without_jurisdiction_does_not_default_to_a_or_h_share() -> None:
-    _request_value, client, result = _fetch(jurisdiction=None)
+    registry = _enabled_registry()
+    search = _json_fixture("westock_search_byd.json")["result"]
+    search["structuredContent"]["data"][1]["name"] = "比亚迪"
+    client = _FixtureClient(registry, search_payload=search)
+    _request_value, client, result = _fetch(jurisdiction=None, client=client)
 
     assert client.calls == [("data_search", {"query": "比亚迪"})]
     assert result.documents == ()
@@ -206,13 +262,11 @@ def test_untrusted_instrument_identifier_never_reaches_quote(
 ) -> None:
     registry = _enabled_registry()
     search = _json_fixture("westock_search_byd.json")["result"]
-    search["structuredContent"]["matches"] = [
+    search["structuredContent"]["data"] = [
         {
             "name": "比亚迪",
-            "security_type": "EQUITY",
-            "jurisdiction": "CN",
-            "market": "CN",
-            "instrument_id": instrument_id,
+            "type": "GP-A",
+            "code": instrument_id,
         }
     ]
     client = _FixtureClient(registry, search_payload=search)
@@ -227,9 +281,9 @@ def test_untrusted_instrument_identifier_never_reaches_quote(
 def test_duplicate_matching_instrument_rows_are_conflicted() -> None:
     registry = _enabled_registry()
     search = _json_fixture("westock_search_byd.json")["result"]
-    search["structuredContent"]["matches"] = [
-        search["structuredContent"]["matches"][0],
-        search["structuredContent"]["matches"][0],
+    search["structuredContent"]["data"] = [
+        search["structuredContent"]["data"][0],
+        search["structuredContent"]["data"][0],
     ]
     client = _FixtureClient(registry, search_payload=search)
 
@@ -242,7 +296,7 @@ def test_duplicate_matching_instrument_rows_are_conflicted() -> None:
 def test_nfkc_equivalent_name_is_matched_before_market_disambiguation() -> None:
     registry = _enabled_registry()
     search = _json_fixture("westock_search_byd.json")["result"]
-    search["structuredContent"]["matches"][0]["name"] = "ＢＹＤ"
+    search["structuredContent"]["data"][0]["name"] = "ＢＹＤ"
     request = _request().model_copy(
         update={
             "required_facts": (
@@ -269,58 +323,57 @@ def test_nfkc_equivalent_name_is_matched_before_market_disambiguation() -> None:
 
     assert [name for name, _arguments in client.calls] == [
         "data_search",
-        "data_quote",
+        "data_minute",
     ]
     assert result.attempt.status is SourceAttemptStatus.SUCCEEDED
 
 
 def test_h_share_identifier_is_valid_when_hk_market_is_explicit() -> None:
     registry = _enabled_registry()
-    quote = _json_fixture("westock_quote_byd.json")["result"]
-    quote["structuredContent"]["quote"].update(
-        instrument_id="hk01211",
-        currency="HKD",
+    quote = _quote_fixture_for("hk01211", name="比亚迪股份", market_type="31")
+    client = _FixtureClient(
+        registry,
+        quote_payload=quote,
+        minute_payload=_minute_fixture_for("hk01211"),
     )
-    quote["structuredContent"]["source_url"] = (
-        "https://stockapp.finance.qq.com/stock/hk01211"
-    )
-    client = _FixtureClient(registry, quote_payload=quote)
 
-    _request_value, _client, result = _fetch(jurisdiction="HK", client=client)
+    _request_value, _client, result = _fetch(
+        jurisdiction="HK",
+        subject="比亚迪股份",
+        client=client,
+    )
 
     assert client.calls == [
-        ("data_search", {"query": "比亚迪"}),
-        ("data_quote", {"code": "hk01211"}),
+        ("data_search", {"query": "比亚迪股份"}),
+        ("data_minute", {"code": "hk01211"}),
     ]
     assert result.attempt.status is SourceAttemptStatus.SUCCEEDED
-    assert result.documents[0].metadata["currency"] == "HKD"
+    assert result.documents[0].metadata["unit"] == "HKD"
 
 
 @pytest.mark.parametrize(
-    ("jurisdiction", "instrument_id", "currency"),
+    ("jurisdiction", "subject", "instrument_id", "expected_unit"),
     (
-        ("HK", "hk01211", "CNY"),
-        ("CN", "sz002594", "HKD"),
+        ("HK", "比亚迪股份", "hk01211", "HKD"),
+        ("CN", "比亚迪", "sz002594", "CNY"),
     ),
 )
-def test_market_approved_currency_is_required_without_fact_unit_hint(
+def test_market_approved_unit_is_used_without_remote_unit_or_fact_hint(
     jurisdiction: str,
+    subject: str,
     instrument_id: str,
-    currency: str,
+    expected_unit: str,
 ) -> None:
     registry = _enabled_registry()
-    quote = _json_fixture("westock_quote_byd.json")["result"]
-    quote["structuredContent"]["quote"].update(
-        instrument_id=instrument_id,
-        currency=currency,
+    quote = _quote_fixture_for(
+        instrument_id,
+        name=subject,
+        market_type="31" if jurisdiction == "HK" else "51",
     )
-    quote["structuredContent"]["source_url"] = (
-        f"https://stockapp.finance.qq.com/stock/{instrument_id}"
-    )
-    request = _request(jurisdiction=jurisdiction).model_copy(
+    request = _request(jurisdiction=jurisdiction, subject=subject).model_copy(
         update={
             "required_facts": (
-                _request(jurisdiction=jurisdiction)
+                _request(jurisdiction=jurisdiction, subject=subject)
                 .required_facts[0]
                 .model_copy(update={"expected_unit": None}),
             )
@@ -343,8 +396,8 @@ def test_market_approved_currency_is_required_without_fact_unit_hint(
         )
     )
 
-    assert result.documents == ()
-    assert result.attempt.error == "mcp_mapping_failed"
+    assert result.attempt.status is SourceAttemptStatus.SUCCEEDED
+    assert result.documents[0].metadata["unit"] == expected_unit
 
 
 @pytest.mark.parametrize(
@@ -352,9 +405,9 @@ def test_market_approved_currency_is_required_without_fact_unit_hint(
     (
         ("name", "比亚\u202e迪"),
         ("name", "比亚\u200b迪"),
-        ("security_type", "EQU\u2066ITY"),
-        ("market", "C\u0000N"),
-        ("jurisdiction", "C\u0085N"),
+        ("type", "GP\u2066-A"),
+        ("code", "sz\u0000002594"),
+        ("code", "sz\u0085002594"),
     ),
 )
 def test_raw_candidate_controls_are_rejected_before_normalization(
@@ -363,9 +416,9 @@ def test_raw_candidate_controls_are_rejected_before_normalization(
 ) -> None:
     registry = _enabled_registry()
     search = _json_fixture("westock_search_byd.json")["result"]
-    search["structuredContent"]["matches"] = [
+    search["structuredContent"]["data"] = [
         {
-            **search["structuredContent"]["matches"][0],
+            **search["structuredContent"]["data"][0],
             field: value,
         }
     ]
@@ -381,31 +434,24 @@ def test_raw_candidate_controls_are_rejected_before_normalization(
 @pytest.mark.parametrize(
     "mutate",
     (
-        lambda payload: payload["structuredContent"]["quote"].update(price=0),
-        lambda payload: payload["structuredContent"]["quote"].update(price=-1),
-        lambda payload: payload["structuredContent"].update(publisher="Attacker"),
-        lambda payload: payload["structuredContent"].update(
-            source_url="https://evil.example/phish"
+        lambda payload: payload["structuredContent"]["data"]["sz002594"].update(
+            price=0
         ),
-        lambda payload: payload["structuredContent"].update(
-            source_url=(
-                "https://stockapp.finance.qq.com/stock/sz002594?redirect=evil"
-            )
+        lambda payload: payload["structuredContent"]["data"]["sz002594"].update(
+            price=-1
         ),
-        lambda payload: payload["structuredContent"].update(
-            source_url="https://user@stockapp.finance.qq.com/stock/sz002594"
+        lambda payload: payload["structuredContent"].update(ok=False),
+        lambda payload: payload["structuredContent"]["data"]["sz002594"].update(
+            code="hk01211"
         ),
-        lambda payload: payload["structuredContent"].update(
-            source_url="https://stockapp.finance.qq.com/phish/sz002594"
-        ),
-        lambda payload: payload["structuredContent"]["quote"].update(currency="USD"),
-        lambda payload: payload["structuredContent"]["quote"].update(
-            as_of="2026-07-23T02:01:00Z"
+        lambda payload: payload["structuredContent"].update(data={}),
+        lambda payload: payload["structuredContent"]["data"]["sz002594"].pop(
+            "price"
         ),
     ),
 )
 def test_quote_value_and_provenance_are_approval_bound(mutate) -> None:
-    registry = _enabled_registry()
+    registry = _quote_only_registry()
     quote = _json_fixture("westock_quote_byd.json")["result"]
     mutate(quote)
     client = _FixtureClient(registry, quote_payload=quote)
@@ -414,6 +460,27 @@ def test_quote_value_and_provenance_are_approval_bound(mutate) -> None:
 
     assert result.documents == ()
     assert result.attempt.error == "mcp_mapping_failed"
+
+
+def test_remote_extra_provenance_cannot_override_approved_literals() -> None:
+    registry = _enabled_registry()
+    quote = _json_fixture("westock_quote_byd.json")["result"]
+    quote["structuredContent"].update(
+        publisher="Attacker",
+        source_url="https://evil.example/phish",
+        currency="USD",
+    )
+
+    _request_value, _client, result = _fetch(
+        client=_FixtureClient(registry, quote_payload=quote)
+    )
+
+    assert result.attempt.status is SourceAttemptStatus.SUCCEEDED
+    assert result.documents[0].publisher == "腾讯自选股"
+    assert result.documents[0].source_url == (
+        "https://stockbuddy.qq.com/cgi/cgi-bin/openai/mcp/mcp"
+    )
+    assert result.documents[0].metadata["unit"] == "CNY"
 
 
 @pytest.mark.parametrize(
@@ -434,24 +501,60 @@ def test_westock_failure_is_fail_closed(failure: str) -> None:
     )
 
 
-def test_stale_westock_quote_is_not_returned_as_current_evidence() -> None:
-    registry = _enabled_registry()
+def test_date_precision_preserves_source_day_instead_of_retrieval_time() -> None:
+    registry = _quote_only_registry()
     stale = _json_fixture("westock_quote_byd.json")["result"]
-    stale["structuredContent"]["quote"]["as_of"] = "2026-07-23T01:00:00Z"
-    request, _client, result = _fetch(
+    stale["structuredContent"]["data"]["sz002594"]["time"] = "2026-07-22"
+    _request_value, _client, result = _fetch(
         client=_FixtureClient(registry, quote_payload=stale)
     )
 
-    items = StructuredEvidenceExtractor(model=lambda _prompt: pytest.fail()).extract(
-        SourceQuery(
-            request=request,
-            unresolved_fact_keys=("current_quote",),
-            max_items=3,
-            deadline_at="2026-07-23T02:00:40Z",
-        ),
-        result.documents,
+    assert result.attempt.status is SourceAttemptStatus.SUCCEEDED
+    assert result.documents[0].as_of == "2026-07-21T16:00:00Z"
+    assert result.documents[0].metadata["as_of_precision"] == "date"
+
+
+def test_stale_minute_continues_to_fresh_date_quote_fallback() -> None:
+    registry = _enabled_registry()
+    stale_minute = _json_fixture("westock_minute_byd.json")["result"]
+    stale_minute["structuredContent"]["data"]["sz002594"]["data"]["date"] = (
+        "20260722"
     )
-    assert items[0].as_of == "2026-07-23T01:00:00Z"
+    client = _FixtureClient(registry, minute_payload=stale_minute)
+
+    _request_value, _client, result = _fetch(
+        client=client,
+        max_age_seconds=43_200,
+    )
+
+    assert [name for name, _arguments in client.calls] == [
+        "data_search",
+        "data_minute",
+        "data_quote",
+    ]
+    assert result.documents[0].source_name == "mcp:westock:data_quote"
+    assert result.documents[0].metadata["as_of_precision"] == "date"
+
+
+def test_malformed_minute_continues_to_date_quote_fallback() -> None:
+    registry = _enabled_registry()
+    malformed_minute = _json_fixture("westock_minute_byd.json")["result"]
+    malformed_minute["structuredContent"]["data"]["sz002594"]["data"]["data"] = [
+        "1000 not-a-price 20 320.80"
+    ]
+    client = _FixtureClient(registry, minute_payload=malformed_minute)
+
+    _request_value, _client, result = _fetch(
+        client=client,
+        max_age_seconds=43_200,
+    )
+
+    assert [name for name, _arguments in client.calls] == [
+        "data_search",
+        "data_minute",
+        "data_quote",
+    ]
+    assert result.documents[0].source_name == "mcp:westock:data_quote"
 
 
 class _NoDataSource:
@@ -556,7 +659,7 @@ def _coordinator_pack(
     )
 
 
-def test_archive_miss_reaches_westock_and_resolves_current_quote(
+def test_archive_miss_reaches_fresh_westock_minute_quote(
     tmp_path: Path,
 ) -> None:
     registry = _enabled_registry()
@@ -566,10 +669,14 @@ def test_archive_miss_reaches_westock_and_resolves_current_quote(
 
     assert pack.resolved_facts == ("current_quote",)
     assert pack.unresolved_facts == ()
-    assert pack.evidence_by_fact["current_quote"][0].publisher == "腾讯自选股"
+    assert (
+        pack.evidence_by_fact["current_quote"][0].source_type
+        is SourceType.MCP
+    )
+    assert "fact_stale:current_quote" not in pack.do_not_infer
     assert [name for name, _arguments in client.calls] == [
         "data_search",
-        "data_quote",
+        "data_minute",
     ]
 
 
@@ -588,7 +695,7 @@ def test_fresh_archive_short_circuits_westock(tmp_path: Path) -> None:
     assert client.calls == []
 
 
-def test_stale_archive_is_background_and_westock_refreshes_quote(
+def test_stale_archive_is_replaced_by_fresh_minute_quote(
     tmp_path: Path,
 ) -> None:
     registry = _enabled_registry()
@@ -601,21 +708,26 @@ def test_stale_archive_is_background_and_westock_refreshes_quote(
     )
 
     assert pack.resolved_facts == ("current_quote",)
-    assert pack.evidence_by_fact["current_quote"][0].source_type is SourceType.MCP
+    assert pack.unresolved_facts == ()
+    assert (
+        pack.evidence_by_fact["current_quote"][0].source_type
+        is SourceType.MCP
+    )
     assert (
         pack.historical_evidence_by_fact["current_quote"][0].source_type
         is SourceType.SHIGUAN
     )
     assert [name for name, _arguments in client.calls] == [
         "data_search",
-        "data_quote",
+        "data_minute",
     ]
+    assert "fact_stale:current_quote" not in pack.do_not_infer
 
 
 def test_stale_westock_quote_remains_unresolved(tmp_path: Path) -> None:
-    registry = _enabled_registry()
+    registry = _quote_only_registry()
     stale = _json_fixture("westock_quote_byd.json")["result"]
-    stale["structuredContent"]["quote"]["as_of"] = "2026-07-23T01:00:00Z"
+    stale["structuredContent"]["data"]["sz002594"]["time"] = "2026-07-22"
     client = _FixtureClient(registry, quote_payload=stale)
 
     pack = _coordinator_pack(tmp_path, client)
@@ -634,12 +746,14 @@ def test_sanitized_protocol_fixtures_have_no_identity_or_secret_material() -> No
         tools,
         _json_fixture("westock_search_byd.json"),
         _json_fixture("westock_quote_byd.json"),
+        _json_fixture("westock_minute_byd.json"),
     )
 
     assert initialize["result"]["protocolVersion"] == "2025-03-26"
     assert [item["name"] for item in tools["result"]["tools"]] == [
         "data_search",
         "data_quote",
+        "data_minute",
     ]
     serialized = json.dumps(samples, ensure_ascii=False).casefold()
     assert all(
@@ -658,6 +772,11 @@ def test_sanitized_protocol_fixtures_have_no_identity_or_secret_material() -> No
     assert "synthetic, sanitized JSON-RPC contract samples" in normalized_provenance
     assert "not verbatim Tencent WeStock responses" in normalized_provenance
     assert "connector-westock-mcp/SKILL.md" in normalized_provenance
-    assert "deferred to Task 9" in normalized_provenance
+    assert "bounded authenticated read-only structure observation" in (
+        normalized_provenance
+    )
+    assert "raw authenticated responses were not saved or committed" in (
+        normalized_provenance
+    )
     assert "2026-07-23" in provenance
     assert "data_search" in provenance and "data_quote" in provenance
