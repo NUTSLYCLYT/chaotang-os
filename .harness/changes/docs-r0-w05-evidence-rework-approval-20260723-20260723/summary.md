@@ -7,7 +7,7 @@
 | --- | --- |
 | Change ID | docs-r0-w05-evidence-rework-approval-20260723-20260723 |
 | 类型 | docs |
-| 状态 | EXACT_OWNER_APPROVED_AUTHORITY_STOP_REVIEW_EVIDENCE_PENDING |
+| 状态 | EXACT_OWNER_APPROVED_AUTHORITY_GO_REVIEW_PASS_LOCAL |
 | Owner | Product Owner / Canonical Runtime Owner |
 | 创建日期 | 20260723 |
 
