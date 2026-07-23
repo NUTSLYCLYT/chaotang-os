@@ -14,7 +14,7 @@
 ## 范围
 
 - 主线：以 `origin/feature-chaotang-ext@2bcd56336f0c36f9b187f5b4c759900044a569ad` 为受保护主线事实，只关闭已经合入并评审的 `R0-W04`。
-- 文件：`.harness/r0-trusted-kernel-work-packages.json` 的 `activeWorkPackage` 与 `R0-W04.status`，以及本变更记录。
+- 文件：`.harness/manifest/execution-authority.v2.json` 的 `activeWorkPackage` 与 `R0-W04.status`，以及本变更记录。
 - 验证：authority v2 单元测试与结构检查、amendment 检查、harness doctor、W04/W05 授权拒绝检查、独立 Standards/Spec 双轴审查。
 
 ## 明确边界

@@ -6,7 +6,7 @@
 - 前置条件：已获取 `origin/feature-chaotang-ext`。
 - 输入：受保护主线 `2bcd5633`、关账提交 `fbea3761`。
 - 输出：commit/tree identity 与两行状态 diff。
-- 涉及文件：`.harness/r0-trusted-kernel-work-packages.json`。
+- 涉及文件：`.harness/manifest/execution-authority.v2.json`。
 - 状态 / 数据变化：仅由后续获批的关账候选表达；本任务本身只记录证据。
 - 验证命令与证据：`git rev-parse <commit>^{tree}`、`git diff --stat`、`git diff`。
 - 回滚边界：不改远端；废弃本地候选即可。
@@ -19,7 +19,7 @@
 - 输入：`owner_approval/exact-h-closeout-approval.md`。
 - 输出：Owner 的明确确认及确认日期。
 - 涉及文件：本变更记录的 `owner_approval/`。
-- 状态 / 数据变化：批准前保持 pending，不推送、不合并。
+- 状态 / 数据变化：Owner 已于 2026-07-23 明确批准；该批准仍不包含推送或合并。
 - 验证命令与证据：Owner 对 exact identity 与批准语句的明确回复。
 - 回滚边界：Owner 不批准则候选不进入主线。
 - 完成定义：批准人、时间、identity、批准范围、排除范围齐全。

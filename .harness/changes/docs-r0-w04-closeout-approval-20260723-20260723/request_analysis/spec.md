@@ -20,8 +20,8 @@
 
 | 契约 | 生产者 / 事实源 | 消费者 | 兼容性与验证 |
 | --- | --- | --- | --- |
-| 工作包执行状态 | `.harness/r0-trusted-kernel-work-packages.json` | execution-authority-v2、项目 Agent | JSON 结构检查、27 项 authority 测试 |
-| W04 关账批准 | 本变更的 `owner_approval/exact-h-closeout-approval.md` | Project Owner、审查者 | 必须由 Owner 明确确认；当前为 pending |
+| 工作包执行状态 | `.harness/manifest/execution-authority.v2.json` | execution-authority-v2、项目 Agent | JSON 结构检查、27 项 authority 测试 |
+| W04 关账批准 | 本变更的 `owner_approval/exact-h-closeout-approval.md` | Project Owner、审查者 | Owner 已于 2026-07-23 明确确认 |
 
 ## 范围
 
@@ -40,7 +40,7 @@
 
 | 条件 | 预期行为 | 证据 / 验证 |
 | --- | --- | --- |
-| Owner 尚未明确批准 exact closeout identity | 保持候选在本地，不推送、不合并 | approval 文件状态为 `PENDING_EXACT_OWNER_APPROVAL` |
+| Owner 未批准或撤回 exact closeout identity | 保持候选在本地，不推送、不合并 | 当前 approval 文件为 `APPROVED_EXACT_CLOSEOUT`；若状态改变则重新阻断 |
 | 关账后请求 W04 | `STOP / NO_ACTIVE_WORK_PACKAGE` | `execution-authority-v2 --authorize --work-package R0-W04` |
 | 关账后请求 W05 | `STOP / NO_ACTIVE_WORK_PACKAGE` | `execution-authority-v2 --authorize --work-package R0-W05` |
 | 未来批准 W05 | 必须由独立 amendment 激活，不可由本记录继承 | 本记录的非目标和 approval 排除项 |

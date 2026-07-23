@@ -17,7 +17,7 @@
 
 ## Approved scope
 
-- 批准把 `.harness/r0-trusted-kernel-work-packages.json` 的 `activeWorkPackage` 从 `R0-W04` 改为 `null`。
+- 批准把 `.harness/manifest/execution-authority.v2.json` 的 `activeWorkPackage` 从 `R0-W04` 改为 `null`。
 - 批准把同一账本中的 `R0-W04.status` 从 `ACTIVE` 改为 `MERGED_AND_VERIFIED`。
 - 批准项目进入没有 active work package 的静止态，以便后续另行评审和批准 W05。
 
