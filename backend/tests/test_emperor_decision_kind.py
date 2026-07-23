@@ -25,6 +25,7 @@ def test_action_vocabulary_maps_to_three_frozen_kinds_and_rejects_unknowns():
         "request_evidence": "final_verdict",
         "recheck": "final_verdict",
         "followup": "final_verdict",
+        "cancel": "final_verdict",
     }
     assert {action: emperor_decision_kind(action) for action in expected} == expected
     with pytest.raises(ValueError, match="unknown EmperorDecision action"):

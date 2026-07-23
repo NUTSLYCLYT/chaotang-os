@@ -33,7 +33,7 @@
       "request_schema": "DecisionRequest",
       "required": ["action"],
       "properties": ["action", "followup_question", "human_confirmation_note", "human_confirmed", "reason"],
-      "action_enum": ["adopt", "approve", "archive", "followup", "recheck", "reject", "request_evidence"],
+      "action_enum": ["adopt", "approve", "archive", "cancel", "followup", "recheck", "reject", "request_evidence"],
       "typed_response": false
     }
   ],

@@ -7,9 +7,6 @@ from typing import Any
 from src.department_identity import CANONICAL_MINISTRY_IDS, canonical_name, runtime_code_for, runtime_projection, specialist_routing_projection
 
 
-MAX_REVIEW_ROUNDS = 3
-
-
 # chancellor_decide_route 自己判定"整理/草拟/初判类轻量任务"时写进 reason 的
 # 固定短语(shangshufang_loop.py:709)。这类任务是丞相自己的确定性分类,不是
 # 关键词碰撞,门下省没必要用比丞相更严的关键词表二次否决——那只会把丞相已经
@@ -46,12 +43,14 @@ def _route_has_scope_evidence(route: dict[str, Any], task_text: str) -> bool:
     )
 
 
-def review_route(route: dict[str, Any], task_text: str, *, round_number: int = 1) -> dict[str, Any]:
+def review_route(route: dict[str, Any], task_text: str) -> dict[str, Any]:
     """Return a structured 封驳/准奏 decision for a proposed route.
 
-    The third review round is a bounded fail-open compatibility rule inherited
-    from the department-agent design: it permits progress but preserves the
-    prior veto reasons for audit. No department execution occurs here.
+    R0-REQ-013: as long as any veto reason applies, the route stays 封驳 —
+    there is no round count or max-rounds fail-open exception. A vetoed route
+    already surfaces humanSignoffRequired via routing_service.py; that is the
+    only sanctioned way past a persistent veto. No department execution
+    occurs here.
     """
     departments = list(route.get("departments") or [])
     scope_ok = _route_has_scope_evidence(route, task_text)
@@ -66,12 +65,10 @@ def review_route(route: dict[str, Any], task_text: str, *, round_number: int = 1
         "风险": {"passed": not reasons, "reason": "未发现职责外派单" if not reasons else reasons[0]},
         "资源": {"passed": bool(departments), "reason": "候选部门具备统一能力注册" if departments else "无可用资源"},
     }
-    veto = bool(reasons) and round_number < MAX_REVIEW_ROUNDS
+    veto = bool(reasons)
     return {
         "verdict": "封驳" if veto else "准奏",
         "dimensions": dimensions,
         "reroute_suggestion": "请丞相重新判断任务是否超出六部职责" if veto else None,
-        "round": round_number,
-        "max_rounds": MAX_REVIEW_ROUNDS,
         "veto_reasons": reasons,
     }

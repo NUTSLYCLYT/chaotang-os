@@ -261,6 +261,9 @@ class DecisionTask(Base):
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
     tenant_id: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
     user_id: Mapped[str] = mapped_column(sa.Text, nullable=False, default="anonymous")
+    # R0-REQ-020：任务创建时生成一次、全生命周期不变，供 DecreeExecutionEvent
+    # 的 _REQUEST_ID_FROM_TASK 哨兵自动带出，贯穿全链身份。旧行允许为 NULL。
+    request_id: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     raw_question: Mapped[str] = mapped_column(sa.Text, nullable=False)
     refined_edict: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     decision_type: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
@@ -707,6 +710,13 @@ class DecreeExecutionEvent(Base):
     )
     payload_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="{}")
     idempotency_key: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    # R0-REQ-020：全链身份贯穿。request_id 默认从 DecisionTask.request_id 带出
+    # (record_timeline_event 里的 _REQUEST_ID_FROM_TASK 哨兵)；release_id 是
+    # 部署级常量；model_version 只在真的发生模型调用时才有值。均允许 NULL——
+    # "没调用模型"和"调用了但不知道是谁"是两码事，不用假值填充。
+    request_id: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    release_id: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    model_version: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     occurred_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
     # task_id 内单调递增的排序序号(2026-07-12 补，见方案阶段4)：occurred_at 只精确到秒，
     # 同一秒内触发的多个事件排序会退化成不确定的插入顺序/主键顺序，sequence 是唯一

@@ -11,7 +11,7 @@ from sqlalchemy import create_engine, text
 def test_expected_head_is_derived_from_the_version_graph() -> None:
     from src.schema_authority import expected_alembic_head
 
-    assert expected_alembic_head() == "016_schema_literal_contract_guard"
+    assert expected_alembic_head() == "018_canonical_completion_identity_fields"
 
 
 def test_strict_mode_rejects_an_unversioned_database_without_writing(tmp_path: Path) -> None:
@@ -59,7 +59,7 @@ def test_strict_mode_rejects_a_database_behind_head(tmp_path: Path) -> None:
 
     with pytest.raises(
         SchemaAuthorityError,
-        match="current=013_core_tenant_lineage.*head=016_schema_literal_contract_guard",
+        match="current=013_core_tenant_lineage.*head=018_canonical_completion_identity_fields",
     ):
         assert_database_at_head(engine)
     engine.dispose()
@@ -72,11 +72,11 @@ def test_strict_mode_accepts_exactly_one_current_head(tmp_path: Path) -> None:
     engine = create_engine(f"sqlite:///{path}")
     with engine.begin() as connection:
         connection.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)"))
-        connection.execute(text("INSERT INTO alembic_version(version_num) VALUES ('016_schema_literal_contract_guard')"))
+        connection.execute(text("INSERT INTO alembic_version(version_num) VALUES ('018_canonical_completion_identity_fields')"))
 
     identity = assert_database_at_head(engine)
-    assert identity.current == "016_schema_literal_contract_guard"
-    assert identity.head == "016_schema_literal_contract_guard"
+    assert identity.current == "018_canonical_completion_identity_fields"
+    assert identity.head == "018_canonical_completion_identity_fields"
     assert identity.ready is True
     engine.dispose()
 

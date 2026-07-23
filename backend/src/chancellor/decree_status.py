@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 
 
 _TENANT_FROM_TASK = object()
+_REQUEST_ID_FROM_TASK = object()
 
 
 def record_timeline_event(
@@ -42,6 +43,9 @@ def record_timeline_event(
     payload: dict[str, Any] | None = None,
     idempotency_key: str | None = None,
     tenant_id: int | None | object = _TENANT_FROM_TASK,
+    request_id: str | None | object = _REQUEST_ID_FROM_TASK,
+    release_id: str | None = None,
+    model_version: str | None = None,
 ) -> str:
     """写一行 DecreeExecutionEvent。调用方负责 commit——本函数只 add，
     保持跟其余下旨记录同一事务，不单独提交产生不一致窗口。
@@ -69,6 +73,18 @@ def record_timeline_event(
         event_tenant_id = tenant_id_for_task(db, task_id)
     else:
         event_tenant_id = cast(int | None, tenant_id)
+
+    if request_id is _REQUEST_ID_FROM_TASK:
+        # R0-REQ-020：调用方不用逐个改传参，request_id 自动从 DecisionTask 带出。
+        from src.db.models import DecisionTask
+
+        event_request_id = db.query(DecisionTask.request_id).filter_by(id=task_id).scalar()
+    else:
+        event_request_id = cast("str | None", request_id)
+    if release_id is None:
+        import os
+
+        release_id = os.environ.get("CHAOTANG_RELEASE_ID", "unknown")
 
     if source_label not in {"LIVE", "MIXED", "FALLBACK", "DEMO"}:
         raise ValueError(f"unsupported event source_label: {source_label}")
@@ -125,6 +141,9 @@ def record_timeline_event(
             source_label=source_label,
             payload_json=payload_json,
             idempotency_key=idempotency_key,
+            request_id=event_request_id,
+            release_id=release_id,
+            model_version=model_version,
             occurred_at=now,
             sequence=next_sequence,
         )
@@ -149,17 +168,25 @@ def decide_post_review_status(quality_result: dict) -> str:
     return "awaiting_decision" if quality_result["passed"] else "awaiting_evidence"
 
 
+# R0-REQ-022：direct 接单回执、worker ACK 或部分结果只能表示已受理/办理中；
+# DELIVERED 只能由服务端完成公式派生。"direct_completed" 是 direct_receipt_for()
+# 生成的回执状态，零质量门，不得映射成 "completed"（execution_state.py 早已把
+# 同一路径正确判成 "receipt_only"，这里复用同一字面量，两层用词一致）。
+# "archived" 是唯一需要先过 REQ-014 那道 FinalMemorial 质量/来源门才能到达的
+# 状态，才是真正"已交付"，映射成 "delivered"（新字面量，跟 "receipt_only" 区分开）。
 _STAGE_MAP: dict[str, str] = {
     "draft": "drafting",
     "awaiting_emperor_confirm": "awaiting_emperor_confirm",
     "draft_cancelled": "cancelled",
-    "direct_completed": "completed",
+    "direct_completed": "receipt_only",
     "edict_recorded": "executing",
     "reviewing": "department_reporting",
     "awaiting_decision": "awaiting_emperor_decision",
     "awaiting_evidence": "awaiting_evidence",
     "rejected": "rejected",
-    "archived": "completed",
+    "archived": "delivered",
+    "task_cancelled": "cancelled",
+    "execution_failed": "execution_failed",
 }
 
 _NEXT_STAGE_MAP: dict[str, str | None] = {
@@ -167,11 +194,13 @@ _NEXT_STAGE_MAP: dict[str, str | None] = {
     "awaiting_emperor_confirm": "chancellor_routing",
     "executing": "department_reporting",
     "department_reporting": "awaiting_emperor_decision",
-    "awaiting_emperor_decision": "completed",
+    "awaiting_emperor_decision": "delivered",
     "awaiting_evidence": "department_reporting",
-    "completed": None,
+    "receipt_only": None,
+    "delivered": None,
     "rejected": None,
     "cancelled": None,
+    "execution_failed": None,
 }
 
 _OWNER_MAP: dict[str, str] = {
@@ -181,9 +210,11 @@ _OWNER_MAP: dict[str, str] = {
     "department_reporting": "军机处",
     "awaiting_emperor_decision": "皇上",
     "awaiting_evidence": "皇上",
-    "completed": "已完结",
+    "receipt_only": "承办方",
+    "delivered": "已完结",
     "rejected": "已驳回",
     "cancelled": "已取消",
+    "execution_failed": "人工",
 }
 
 
@@ -224,6 +255,24 @@ def build_decree_execution_status(db: "Session", task_id: str) -> DecreeExecutio
     if stage == "awaiting_evidence":
         gaps = route_decision.evidence_gaps
         blocked_reason = f"证据不足：{'、'.join(gaps[:3])}" if gaps else "证据不足，需要补充材料"
+    elif stage == "execution_failed":
+        # R0-REQ-018：硬重试上限打满后必须给出明确终态和人工接管理由，不得停留
+        # 在 "executing" 假装还在跑，也不得静默重试。last_error 来自把 task 推
+        # 进 execution_failed 的那个 OutboxEvent(outbox_worker.py::apply_failure_state)。
+        from src.db.models import OutboxEvent
+
+        dead_letter_event = (
+            db.query(OutboxEvent)
+            .filter_by(task_id=task_id, status="dead_letter")
+            .order_by(OutboxEvent.created_at.desc())
+            .first()
+        )
+        detail = dead_letter_event.last_error if dead_letter_event else None
+        blocked_reason = (
+            f"执行失败，已达最大重试次数，需人工介入：{detail}"
+            if detail
+            else "执行失败，已达最大重试次数，需人工介入"
+        )
 
     timeline = _load_timeline(db, task_id)
     latest_message = timeline[-1].message if timeline else f"任务状态：{task.status}"
@@ -240,6 +289,7 @@ def build_decree_execution_status(db: "Session", task_id: str) -> DecreeExecutio
 
     return DecreeExecutionStatusV1(
         task_id=task_id,
+        request_id=task.request_id,
         execution_state=execution.execution_state,
         execution_quarantined=execution.quarantined,
         execution_state_reason=execution.reason,
@@ -263,7 +313,7 @@ def _department_status_for(stage: str, index: int) -> str:
     "部分已汇报"。这里改成按 stage 统一给同一个 status，不编造实际不存在的
     逐部门进度粒度。index 参数保留只是为了不改调用签名，当前未使用。"""
     del index
-    if stage in {"completed", "awaiting_emperor_decision"}:
+    if stage in {"delivered", "awaiting_emperor_decision"}:
         return "reported"
     if stage in {"executing", "department_reporting"}:
         return "executing"
@@ -288,6 +338,8 @@ def _load_timeline(db: "Session", task_id: str) -> list[TimelineEvent]:
             trace_id=row.trace_id,
             source_label=row.source_label,
             payload=json.loads(row.payload_json or "{}"),
+            release_id=row.release_id,
+            model_version=row.model_version,
         )
         for row in rows
     ]

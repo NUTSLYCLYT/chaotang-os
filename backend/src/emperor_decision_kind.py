@@ -18,6 +18,7 @@ _KIND_BY_ACTION = {
     "request_evidence": "final_verdict",
     "recheck": "final_verdict",
     "followup": "final_verdict",
+    "cancel": "final_verdict",
 }
 
 

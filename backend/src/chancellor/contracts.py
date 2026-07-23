@@ -88,6 +88,9 @@ class TimelineEvent(BaseModel):
     trace_id: str | None = None
     source_label: SourceLabel = "FALLBACK"
     payload: dict[str, Any] = Field(default_factory=dict)
+    # R0-REQ-020：全链身份贯穿。可选、有默认值，纯新增字段，不影响既有断言。
+    release_id: str | None = None
+    model_version: str | None = None
 
 
 class DecreeExecutionStatusV1(BaseModel):
@@ -95,6 +98,8 @@ class DecreeExecutionStatusV1(BaseModel):
 
     schema_version: Literal["DecreeExecutionStatusV1"] = "DecreeExecutionStatusV1"
     task_id: str
+    # R0-REQ-020：任务创建时生成一次、全生命周期不变的请求身份，贯穿全链。
+    request_id: str | None = None
     execution_state: ExecutionState
     execution_quarantined: bool
     execution_state_reason: str

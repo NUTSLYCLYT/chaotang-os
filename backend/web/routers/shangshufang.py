@@ -101,6 +101,7 @@ class DecisionRequest(BaseModel):
         "request_evidence",
         "recheck",
         "followup",
+        "cancel",
     ]
     reason: str = ""
     human_confirmed: bool = True
@@ -561,10 +562,31 @@ def apply_task_decision(
             review.review_status = "reviewing"
             review.updated_at = now
     elif action == "reject":
+        from src.db.models import FinalMemorial
+
         task.status = "rejected"
         if review is not None:
             review.review_status = "rejected"
             review.updated_at = now
+        # R0-REQ-014：拒绝必须关闭 FinalMemorial 的裁决闸门，否则同一任务再发一次
+        # adopt 会重新通过 formal.status == "ready_for_decision" 检查，把已经被
+        # 拒绝的奏折正式归档——"唯一、未被替代"里"未被替代"缺的就是这一环。
+        formal = db.query(FinalMemorial).filter_by(task_id=task.id).first()
+        if formal is not None and formal.status == "ready_for_decision":
+            formal.status = "rejected"
+    elif action == "cancel":
+        # R0-REQ-018：终态幂等检查用"lease/generation 基础设施"以外的最小手段——
+        # 黄金路径是单租户同步 /shangshufang 流程，没有真实并发 worker 竞争场景；
+        # 已经处于其中任一终态的任务不再接受 cancel（防止重复/迟到的取消请求
+        # 重开或破坏已经落定的结果）。词表跟 outbox_worker.py 的
+        # execution_failed 推进共用同一份 TASK_TERMINAL_STATUSES，不再各写各的。
+        from src.execution.outbox_worker import TASK_TERMINAL_STATUSES
+
+        if task.status not in TASK_TERMINAL_STATUSES:
+            task.status = "task_cancelled"
+            if review is not None:
+                review.review_status = "task_cancelled"
+                review.updated_at = now
     else:
         task.status = "awaiting_decision"
     task.updated_at = now
@@ -590,6 +612,7 @@ def record_task_decision_event(
         "followup": "decision.evidence_requested",
         "recheck": "decision.recheck_requested",
         "reject": "decision.rejected",
+        "cancel": "decision.cancelled",
     }
     formal = db.query(FinalMemorial).filter_by(task_id=task.id).first()
     actual_source = formal.source_label if formal is not None else task.source_label
@@ -599,7 +622,10 @@ def record_task_decision_event(
     record_timeline_event(
         db,
         task_id=task.id,
-        stage="completed" if task.status == "archived" else task.status,
+        # R0-REQ-022：跟 decree_status._STAGE_MAP 用同一套词表——"archived" 是
+        # 唯一需要先过 REQ-014 质量门才能到达的状态，映射成 "delivered"，不再
+        # 用 "completed" 这个已经从 _STAGE_MAP 里退役的字面量。
+        stage="delivered" if task.status == "archived" else task.status,
         actor="emperor",
         message=f"皇上已人工裁决：{decision.action}。",
         event_type=event_types.get(decision.action, "decision.recorded"),
@@ -1216,7 +1242,8 @@ def shangshufang_confirm_edict(
             record_timeline_event(
                 db,
                 task_id=task.id,
-                stage="completed",
+                # R0-REQ-022：direct 回执零质量门，事件自身的 stage 也不得写 "completed"。
+                stage="receipt_only",
                 actor="chancellor",
                 message=f"丞相判定为简单任务单，已交由{route.get('targetDepartment', '承办方')}直接承办。",
                 event_type="memorial.direct_completed",

@@ -325,7 +325,8 @@ def dispatch_compat_court_task(
         record_timeline_event(
             db,
             task_id=task_id,
-            stage="completed" if is_direct else "executing",
+            # R0-REQ-022：direct 回执零质量门，不得在 dispatch 时就写 "completed"。
+            stage="receipt_only" if is_direct else "executing",
             actor="chancellor",
             message="兼容入口派单已进入可靠 outbox。",
             event_type="dispatch.queued",

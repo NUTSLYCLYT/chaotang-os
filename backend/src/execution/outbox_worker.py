@@ -30,6 +30,29 @@ def _make_id(prefix: str, *parts: object) -> str:
     return f"{prefix}_{sha1(seed.encode('utf-8')).hexdigest()[:12]}"
 
 
+# R0-REQ-018：DecisionTask 终态词表的唯一事实源。独立审查发现(2026-07-23)：
+# web/routers/shangshufang.py 曾经自己重复定义一份几乎相同的终态集合用于
+# cancel 围栏，两份定义各自维护、已经不同步(那份漏了 draft_cancelled)——收口
+# 成这一处，跨模块统一 import，不再各写各的。
+TASK_TERMINAL_STATUSES = frozenset(
+    {"execution_failed", "archived", "rejected", "task_cancelled", "draft_cancelled"}
+)
+
+
+def _promote_task_to_execution_failed(db: "Session", task_id: str) -> None:
+    """R0-REQ-018：硬重试上限打满(dead_letter)必须让人类可见层进入明确终态，
+    不得停留在 "executing" 假装还在跑，也不得静默重试。此前只写
+    OutboxEvent.status，DecisionTask.status 永远不知道重试已经打满。已经处于
+    其他终态(比如已经 archived/reject/cancel 过)的任务不倒退回
+    execution_failed——终态之间不互相覆盖。"""
+    from src.db.models import DecisionTask
+
+    task = db.query(DecisionTask).filter_by(id=task_id).first()
+    if task is not None and task.status not in TASK_TERMINAL_STATUSES:
+        task.status = "execution_failed"
+        task.updated_at = _now_iso()
+
+
 def _task_source_label(db: "Session", task_id: str) -> str:
     from src.db.models import DecisionTask
 
@@ -426,6 +449,8 @@ def process_event(db: "Session", event_id: str) -> dict[str, Any]:
                 if event is None:
                     return {"status": "not_found", "event_id": event_id, "error": str(exc)}
                 apply_failure_state(event, timeline_error=timeline_exc)
+        if event.status == "dead_letter":
+            _promote_task_to_execution_failed(db, event.task_id)
         db.commit()
         return {"status": event.status, "event_id": event_id, "error": str(exc)}
 
@@ -468,6 +493,8 @@ def _reap_stale_processing_events(db: "Session") -> int:
         event.last_error = "重置：processing 状态超过 15 分钟未完成，视为卡死"
         event.status = "dead_letter" if event.attempts >= event.max_attempts else "failed"
         event.updated_at = _now_iso()
+        if event.status == "dead_letter":
+            _promote_task_to_execution_failed(db, event.task_id)
         try:
             assert_no_tenant_lineage_conflict(db, task_id=event.task_id, inherited_tenant_id=event.tenant_id)
         except TenantLineageConflict as exc:

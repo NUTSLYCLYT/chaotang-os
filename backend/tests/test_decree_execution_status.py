@@ -22,7 +22,14 @@ def test_status_returns_none_execution_status_before_confirm(isolated_session_lo
     assert data["execution_status"] is None
 
 
-def test_status_shows_completed_owner_for_direct_task(isolated_session_local):
+def test_status_shows_receipt_only_owner_for_direct_task(isolated_session_local):
+    """R0-REQ-022：direct 接单回执只能表示已受理/办理中，不得显示为完成。
+
+    2026-07-23 修复前：_STAGE_MAP 把 "direct_completed" 映射成 "completed"，
+    跟真正走完质量门的 "archived" 用同一个字面量，人类可见层撒谎说回执=完成。
+    execution_state（下面这条断言本来就是对的）早就正确判成 "receipt_only"——
+    这条测试原来锁的是 current_stage/current_owner 两层跟 execution_state
+    不一致的错误状态，现在两层用词一致。"""
     from web.main import app
 
     client = TestClient(app)
@@ -39,8 +46,8 @@ def test_status_shows_completed_owner_for_direct_task(isolated_session_local):
     status = response.json()["data"]["execution_status"]
 
     assert status is not None
-    assert status["current_stage"] == "completed"
-    assert status["current_owner"] == "已完结"
+    assert status["current_stage"] == "receipt_only"
+    assert status["current_owner"] == "承办方"
     assert status["execution_state"] == "receipt_only"
     assert status["execution_quarantined"] is False
     assert status["route_decision"]["mode"] == "direct"
@@ -120,7 +127,7 @@ def test_department_status_for_reflects_stage_not_fabricated_per_department_prog
 
     for index in (0, 1, 2):
         assert _department_status_for("awaiting_emperor_decision", index) == "reported"
-        assert _department_status_for("completed", index) == "reported"
+        assert _department_status_for("delivered", index) == "reported"
         assert _department_status_for("department_reporting", index) == "executing"
         assert _department_status_for("executing", index) == "executing"
         assert _department_status_for("awaiting_emperor_confirm", index) == "planned"
