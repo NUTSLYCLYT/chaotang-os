@@ -114,6 +114,10 @@ class DecisionRequest(BaseModel):
     expected_final_memorial_content_hash: str | None = None
 
 
+class EvidenceBindRequest(BaseModel):
+    artifact_id: str = Field(..., min_length=1)
+
+
 class FinanceReportingLoopRequest(BaseModel):
     command: str = Field(..., min_length=5, max_length=4000)
     mode: Literal["order", "secret"] = "order"
@@ -1664,6 +1668,122 @@ def shangshufang_task_decision(
                 "decision_id": decision.id,
                 "archive_record": archive_record,
                 "rework_generation": rework_generation,
+            }
+        )
+    except Exception as exc:  # noqa: BLE001
+        db.rollback()
+        return fail(str(exc))
+    finally:
+        db.close()
+
+
+@router.post(
+    "/tasks/{task_id}/rework-generations/{generation_id}/evidence"
+)
+def bind_rework_generation_evidence(
+    task_id: str,
+    generation_id: str,
+    body: EvidenceBindRequest,
+    user: CurrentUser = Depends(get_current_user),
+) -> dict:
+    """Bind one accepted immutable upload to the waiting canonical generation."""
+    import hashlib
+
+    from src.contracts.evidence_packet import EvidencePacketV1
+    from src.db.engine import SessionLocal
+    from src.db.models import OutboxEvent, SecureIngestArtifact
+
+    db = SessionLocal()
+    try:
+        task = db.query(DecisionTask).filter_by(id=task_id).first()
+        if task is None:
+            return fail("task_id 不存在")
+        if task.user_id != _user_id(user):
+            return fail("无权绑定该任务的补证")
+
+        generation = (
+            db.query(OutboxEvent)
+            .filter_by(
+                id=generation_id,
+                task_id=task_id,
+                event_type="evidence.rework",
+            )
+            .first()
+        )
+        if generation is None or generation.status not in {
+            "awaiting_evidence",
+            "evidence_bound",
+        }:
+            return fail("补证 generation 不存在或不再等待证据")
+
+        artifact = (
+            db.query(SecureIngestArtifact)
+            .filter_by(
+                id=body.artifact_id,
+                tenant_id=user.tenant_id,
+                mission_contract_id=task_id,
+                status="ACCEPTED",
+            )
+            .first()
+        )
+        if artifact is None:
+            return fail("附件不存在、未通过安全摄取或不属于当前任务")
+
+        generation_payload = _loads(generation.payload_json, {})
+        if generation.status == "evidence_bound":
+            packets = generation_payload.get("evidence_packets", [])
+            existing_packet = next(
+                (
+                    packet
+                    for packet in packets
+                    if packet.get("input_version_id") == artifact.id
+                ),
+                None,
+            )
+            if existing_packet is None:
+                return fail("补证 generation 已绑定其他证据")
+            return ok(
+                {
+                    "task_id": task_id,
+                    "evidence_packet": existing_packet,
+                    "rework_generation": generation_payload,
+                }
+            )
+
+        packet_id = "evidence_" + hashlib.sha256(
+            f"{task_id}|{generation_id}|{artifact.id}|{artifact.digest_sha256}".encode(
+                "utf-8"
+            )
+        ).hexdigest()[:16]
+        packet = EvidencePacketV1(
+            evidence_packet_id=packet_id,
+            tenant_id=str(artifact.tenant_id),
+            task_id=task_id,
+            input_version_id=artifact.id,
+            input_digest=artifact.digest_sha256,
+            prior_final_memorial_content_hash=generation_payload[
+                "prior_final_memorial_content_hash"
+            ],
+            generation=generation.generation,
+            evidence_status="GROUNDED",
+            source_kind="USER_UPLOAD",
+            source_ref=artifact.id,
+            content_hash=artifact.digest_sha256,
+            verification_receipt_id=(
+                f"secure-ingest:{artifact.id}:{artifact.digest_sha256}"
+            ),
+        )
+        generation_payload["status"] = "evidence_bound"
+        generation_payload["evidence_packets"] = [packet.model_dump()]
+        generation.status = "evidence_bound"
+        generation.payload_json = _json(generation_payload)
+        generation.updated_at = now_iso()
+        db.commit()
+        return ok(
+            {
+                "task_id": task_id,
+                "evidence_packet": packet.model_dump(),
+                "rework_generation": generation_payload,
             }
         )
     except Exception as exc:  # noqa: BLE001

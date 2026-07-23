@@ -74,3 +74,16 @@
   migration 保留旧行且数据库拒绝重复 generation/key。
 - 回滚边界：降级 019 删除两个约束/列；旧 outbox 事实不删除。
 - 完成定义：公共 API 重试幂等、旧库安全升级、相邻 execution/outbox/loop 回归全绿。
+
+## 任务 4B：Verified EvidencePacket 绑定
+
+- 目标：把 W03 已验收不可变输入绑定到等待中的 W05 generation，不信任文件名或客户端自述。
+- 前置条件：任务 4A GREEN；SecureIngestArtifact 已 `ACCEPTED`。
+- 输入：task、generation id、artifact id。
+- 输出：generation-bound `EvidencePacketV1` 和 `evidence_bound` 状态。
+- 涉及文件：`backend/web/routers/shangshufang.py`、`backend/tests/test_final_memorial_gate.py`。
+- 状态 / 数据变化：更新 canonical outbox generation payload/status；不创建新表，不启动 worker。
+- 验证命令与证据：bind endpoint 404 RED；最小 GREEN；重复绑定 RED/GREEN；
+  W03/W05 公共 API 与安全摄取扩大回归 77 passed / 1 skipped。
+- 回滚边界：撤销 bind endpoint 和 payload 状态转换；SecureIngestArtifact 与原 generation 保留。
+- 完成定义：accepted 同任务附件形成 GROUNDED packet；重试幂等；generation 仍不被提前执行。

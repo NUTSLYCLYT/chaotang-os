@@ -48,10 +48,15 @@ W05 获得 exact Owner approval、专属 review evidence 和机器 GO。当前
 - 同一 task、exact prior FinalMemorial hash、reason 和 followup question 形成同一个
   幂等 fingerprint；网络重试复用 generation，不重复写裁决/loop。
 - 没有 prior FinalMemorial 的既有补证状态流不创建虚假 generation。
+- 只有同 tenant、同 task、状态为 `ACCEPTED` 的 W03 `SecureIngestArtifact` 才能绑定等待中的
+  rework generation；绑定形成 `EvidencePacketV1`，保存在同一 outbox generation payload。
+- packet 绑定 artifact id/digest、exact prior memorial hash、generation 和可验证 secure-ingest
+  receipt；generation 只推进到 `evidence_bound`，本纵切不提前启动 worker。
+- 同一 artifact 的绑定重试返回同一 packet，不追加副本；不同/无权/未验收 artifact fail closed。
 
 ## 非目标
 
-不实现 EvidencePacket 内容持久化、generation worker 消费、重算、
+不实现 generation worker 消费、重算、
 新奏折版本或前端。
 
 ## 边界条件
@@ -74,6 +79,9 @@ W05 获得 exact Owner approval、专属 review evidence 和机器 GO。当前
 | 同一补证要求重复提交 | 返回同一个 generation 2，不重复写入 | slice 4A RED/GREEN |
 | 旧 outbox 库升级到 019 | 保留旧行，新增列为 NULL，重复 generation/key 由 DB 拒绝 | slice 4A migration RED/GREEN |
 | 尚无 prior FinalMemorial 时要求补证 | 保持既有 awaiting_evidence，不伪造 generation | slice 4A 扩大回归 |
+| accepted secure-ingest artifact 绑定等待 generation | 返回 GROUNDED EvidencePacket，generation=evidence_bound | slice 4B RED/GREEN |
+| 同一 artifact 重复绑定 | 返回同一 packet，不追加副本 | slice 4B RED/GREEN |
+| generation evidence_bound | 不进入 pending，不被 worker 提前消费 | slice 4B 状态契约 |
 | 没有正式奏折 | 保持既有 task/review awaiting evidence 行为 | 既有参数化回归 |
 | 已拒绝/归档奏折 | 补证不把它重新打开 | 只转换 ready 状态 |
 

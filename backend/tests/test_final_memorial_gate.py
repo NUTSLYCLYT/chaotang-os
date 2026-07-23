@@ -514,6 +514,89 @@ def test_repeated_evidence_request_reuses_one_rework_generation(
     )
 
 
+def test_accepted_upload_binds_to_waiting_rework_generation(
+    isolated_session_local,
+):
+    """安全摄取通过的附件才能形成 generation-bound EvidencePacket。"""
+    from src.formal_memorial import formalize_memorial
+    from tests.fixtures.secure_ingest_fixtures import golden_docx_bytes
+
+    db = isolated_session_local()
+    task_id = "task_bind_accepted_evidence"
+    review_id = _seed_candidate(db, task_id=task_id)
+    formal = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id, review_id=review_id, source_label="LIVE_SWARM"
+        ),
+    )
+    content_hash = formal.content_hash
+    db.commit()
+    db.close()
+
+    client = TestClient(app)
+    requested = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "request_evidence",
+            "reason": "补充第 4 页付款条件原文",
+            "expected_final_memorial_content_hash": content_hash,
+        },
+    ).json()
+    generation = requested["data"]["rework_generation"]
+    uploaded = client.post(
+        "/api/secure-ingest/upload",
+        data={
+            "mission_contract_id": task_id,
+            "purpose": "evidence_rework",
+        },
+        files={
+            "file": (
+                "付款条件补证.docx",
+                golden_docx_bytes("付款应在验收完成后七日内支付。"),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+    ).json()
+    assert uploaded["status"] == "ACCEPTED", uploaded
+
+    bound = client.post(
+        (
+            f"/api/shangshufang/tasks/{task_id}/rework-generations/"
+            f"{generation['generation_id']}/evidence"
+        ),
+        json={"artifact_id": uploaded["artifact_id"]},
+    )
+
+    assert bound.status_code == 200
+    payload = bound.json()
+    assert payload["success"] is True, payload
+    packet = payload["data"]["evidence_packet"]
+    assert packet["schema_version"] == "EvidencePacketV1"
+    assert packet["task_id"] == task_id
+    assert packet["input_version_id"] == uploaded["artifact_id"]
+    assert packet["input_digest"] == uploaded["digest_sha256"]
+    assert packet["prior_final_memorial_content_hash"] == content_hash
+    assert packet["generation"] == 2
+    assert packet["evidence_status"] == "GROUNDED"
+    assert packet["verification_receipt_id"]
+    assert payload["data"]["rework_generation"]["status"] == "evidence_bound"
+
+    retry = client.post(
+        (
+            f"/api/shangshufang/tasks/{task_id}/rework-generations/"
+            f"{generation['generation_id']}/evidence"
+        ),
+        json={"artifact_id": uploaded["artifact_id"]},
+    ).json()
+
+    assert retry["success"] is True, retry
+    assert retry["data"]["evidence_packet"] == packet
+    assert retry["data"]["rework_generation"]["evidence_packets"] == [packet]
+
+
 @pytest.mark.parametrize(
     ("swarm_source", "expected_status", "expected_event", "formal_count"),
     [

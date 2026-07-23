@@ -33,15 +33,22 @@
 | final/loop/execution/outbox 扩大回归（兼容修复前） | 1 | 3 failed | 无 prior memorial 的补证兼容缺口 | 本地 / 2026-07-24 |
 | final/loop/execution/outbox 扩大回归（修复后） | 0 | 51 passed / 1 skipped | canonical 状态、worker、fencing、poller | 本地 / 2026-07-24 |
 | `ruff check`（Slice 4A 目标文件） | 0 | All checks passed | Python 静态规范 | 本地 / 2026-07-24 |
+| accepted artifact bind（endpoint 实现前） | 1 | HTTP 404 | W03→W05 证据绑定缺口 | 本地 / 2026-07-24 |
+| accepted artifact bind（最小实现后） | 0 | 1 passed | EvidencePacket exact identity | 本地 / 2026-07-24 |
+| same artifact bind retry（幂等实现前） | 1 | generation 不再等待证据 | packet 绑定重试缺口 | 本地 / 2026-07-24 |
+| same artifact bind retry（最小实现后） | 0 | 1 passed | 同一 packet/无副本 | 本地 / 2026-07-24 |
+| W03/W05 secure-ingest + final/loop 扩大回归 | 0 | 77 passed / 1 skipped | 摄取安全、证据契约、公共 API | 本地 / 2026-07-24 |
+| Slice 4B Ruff + backend/root doctors | 0 | lint pass；doctor 0/0 | 静态规范与三层边界 | 本地 / 2026-07-24 |
 
 ## 结果
 
-纵切 1–4A 已完成 RED→GREEN：补证关闭旧奏折裁决资格、绑定精确 current content hash，
-建立三个 W05 v1 契约门，并让同一补证要求以 canonical outbox generation 幂等落盘。
+纵切 1–4B 已完成 RED→GREEN：补证关闭旧奏折裁决资格、绑定精确 current content hash，
+建立三个 W05 v1 契约门，让补证 generation 幂等落盘，并把 W03 accepted artifact
+绑定为 generation-bound EvidencePacket。
 
 ## 未验证项
 
-- EvidencePacket 内容绑定、generation worker 消费/fencing、局部重算、重审、
+- generation worker 消费/fencing、局部重算、重审、
   append-only 新奏折版本、精确 hash 裁决。
 - 全量 W05 回归、独立代码审查、推送/合并/发布。
 
@@ -62,8 +69,9 @@
 | 风险结论锚定原文或明确声明缺证 | 4 个行为 RED 与 5 passed | PASS |
 | candidate 不绕过 critical/范围/evidence 门 | 6 个行为 RED 与 8 passed | PASS |
 | 补证 generation 幂等且 migration 保留旧事实 | API/migration RED 与扩大回归 | PASS |
+| W03 accepted artifact 形成可信 generation-bound packet | bind/retry RED 与 77 passed / 1 skipped | PASS |
 | W05 全包完成 | 后续纵切 | PENDING |
 
 ## 声明状态
 
-- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_4A_GREEN`
+- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_4B_GREEN`
