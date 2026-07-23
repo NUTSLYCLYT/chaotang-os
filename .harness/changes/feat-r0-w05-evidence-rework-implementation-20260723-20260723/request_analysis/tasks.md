@@ -35,3 +35,15 @@
 - 验证命令与证据：自述来源 3 个 RED；无收据上传 RED；最终 5 passed。
 - 回滚边界：删除独立 contract/test；无 migration。
 - 完成定义：自述来源不能 GROUNDED，所有 GROUNDED 有 receipt，验证工具正例通过。
+
+## 任务 3B：ContractRiskItemV1 原文锚定门
+
+- 目标：高风险结论必须可定位到原文；较低风险缺锚点时不得掩盖证据缺口。
+- 前置条件：任务 3A GREEN；沿用既有 Pydantic contract 规范。
+- 输入：evidence packet identity、file version、page/clause、raw excerpt、risk level、missing evidence。
+- 输出：`ContractRiskItemV1`。
+- 涉及文件：`backend/src/contracts/contract_risk_item.py`、`backend/tests/test_contract_risk_item_v1.py`。
+- 状态 / 数据变化：纯契约，无数据库写入。
+- 验证命令与证据：高风险锚点 3 个 RED；较低风险未声明缺证 RED；最终 5 passed。
+- 回滚边界：删除独立 contract/test；无 migration。
+- 完成定义：critical/high 具备完整原文锚点；medium/low 缺锚点时明确列出缺证。

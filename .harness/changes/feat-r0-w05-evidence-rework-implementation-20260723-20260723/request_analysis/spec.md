@@ -36,10 +36,13 @@ W05 获得 exact Owner approval、专属 review evidence 和机器 GO。当前
 - 请求 hash 与 current 不一致时，在任何裁决/状态写入前 fail closed。
 - `EvidencePacketV1` 绑定 tenant/task/input version/digest、prior memorial hash、generation、source/content hash。
 - `MANUAL_TEXT`、`URL`、`MODEL_ASSERTION` 不得自升 `GROUNDED`；任何 `GROUNDED` 必须绑定 verification receipt。
+- `ContractRiskItemV1` 绑定 evidence packet、风险级别、来源标签与 engine tier。
+- critical/high 风险必须绑定 file version、page/clause locator 和 raw excerpt；
+  medium/low 缺完整原文锚点时必须显式声明 `missing_evidence`。
 
 ## 非目标
 
-不实现 EvidencePacket 持久化、ContractRiskItem/ContractReviewPack、新 generation、重算、migration、
+不实现 EvidencePacket 持久化、ContractReviewPack、新 generation、重算、migration、
 新奏折版本或前端。
 
 ## 边界条件
@@ -52,6 +55,9 @@ W05 获得 exact Owner approval、专属 review evidence 和机器 GO。当前
 | 非空手工文本、URL、模型自述声称 GROUNDED | ValidationError | slice 3A RED/GREEN |
 | 用户上传无 verification receipt 声称 GROUNDED | ValidationError | slice 3A RED/GREEN |
 | VERIFIED_TOOL 有 receipt | 接受 GROUNDED packet | slice 3A GREEN |
+| critical/high 缺 file version、locator 或 raw excerpt | ValidationError | slice 3B RED/GREEN |
+| medium/low 缺完整锚点且未声明缺证 | ValidationError | slice 3B RED/GREEN |
+| medium/low 缺完整锚点但明确声明缺证 | 接受风险项但不伪造原文定位 | slice 3B GREEN |
 | 没有正式奏折 | 保持既有 task/review awaiting evidence 行为 | 既有参数化回归 |
 | 已拒绝/归档奏折 | 补证不把它重新打开 | 只转换 ready 状态 |
 

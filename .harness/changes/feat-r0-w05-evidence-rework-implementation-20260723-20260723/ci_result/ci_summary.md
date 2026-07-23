@@ -15,15 +15,20 @@
 | uploaded object without receipt（receipt 门前） | 1 | DID NOT RAISE | GROUNDED 必须有验证收据 | 本地 / 2026-07-24 |
 | `pytest tests/test_evidence_packet_v1.py` | 0 | 5 passed | EvidencePacketV1 晋升门正反例 | 本地 / 2026-07-24 |
 | W02/W05 contracts + final/loop API 回归 | 0 | 55 passed / 1 skipped | 契约兼容与 canonical 行为 | 本地 / 2026-07-24 |
+| high risk anchor 参数化测试（validator 前） | 1 | 3 failed：均 DID NOT RAISE | critical/high 原文锚点门 | 本地 / 2026-07-24 |
+| medium risk 缺锚点且无 missing evidence（实现前） | 1 | DID NOT RAISE | 较低风险缺证诚实门 | 本地 / 2026-07-24 |
+| `python3 -m pytest -q backend/tests/test_contract_risk_item_v1.py backend/tests/test_evidence_packet_v1.py` | 0 | 10 passed | 两个 W05 v1 契约聚焦回归 | 本地 / 2026-07-24 |
+| W02/W05 contracts + final/loop API 扩大回归 | 0 | 57 passed / 1 skipped | 契约兼容与 canonical 行为 | 本地 / 2026-07-24 |
+| `node scripts/harness-doctor.mjs` | 0 | 0 errors / 0 warnings | 三层边界及委派后端 harness | 本地 / 2026-07-24 |
 
 ## 结果
 
-纵切 1–3A 已完成 RED→GREEN：补证关闭旧奏折裁决资格、绑定精确 current content hash，并建立
-EvidencePacketV1 的最小可信晋升门。
+纵切 1–3B 已完成 RED→GREEN：补证关闭旧奏折裁决资格、绑定精确 current content hash，并建立
+EvidencePacketV1 的最小可信晋升门与 ContractRiskItemV1 原文锚定门。
 
 ## 未验证项
 
-- EvidencePacketV1、generation、重审、append-only 新奏折版本、精确 hash 裁决。
+- ContractReviewPackV1、EvidencePacket 持久化、generation、重审、append-only 新奏折版本、精确 hash 裁决。
 - 全量 W05 回归、独立代码审查、推送/合并/发布。
 
 ## Diff 与回滚复核
@@ -40,8 +45,9 @@ EvidencePacketV1 的最小可信晋升门。
 | 最小 GREEN | 3 passed | PASS |
 | missing/stale hash fail closed | 两次行为 RED 与 5 passed | PASS |
 | 自述来源/无收据不得 GROUNDED | 4 个行为 RED 与 5 passed | PASS |
+| 风险结论锚定原文或明确声明缺证 | 4 个行为 RED 与 5 passed | PASS |
 | W05 全包完成 | 后续纵切 | PENDING |
 
 ## 声明状态
 
-- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_3A_GREEN`
+- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_3B_GREEN`
