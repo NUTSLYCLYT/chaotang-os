@@ -7,13 +7,13 @@
 | --- | --- |
 | Change ID | feat-r0-w05-evidence-rework-implementation-20260723-20260723 |
 | 类型 | feat |
-| 状态 | IN_PROGRESS_SLICE_4D_GREEN |
+| 状态 | IN_PROGRESS_SLICE_4E_GREEN |
 | Owner | Backend / Canonical Runtime |
 | 创建日期 | 20260723 |
 
 ## 范围
 
-- 主线：R0-W05 evidence-bound rework，纵切 1–4D。
+- 主线：R0-W05 evidence-bound rework，纵切 1–4E。
 - 文件：公共裁决 API、精确 content hash 门、三个 W05 v1 契约、canonical outbox
   generation identity、Alembic 019 及测试。
 - 验证：纵切 4C 先证明 worker 不认识 `evidence.rework`、旧 generation 会被记成普通完成，

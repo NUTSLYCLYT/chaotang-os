@@ -34,7 +34,7 @@ def formalize_memorial(
     review_id: str,
     swarm_result: dict[str, Any],
 ) -> "FinalMemorial":
-    """Create or idempotently replay the sole formal memorial for a task."""
+    """Create or idempotently replay the current formal memorial version."""
     from src.db.models import CourtReview, FinalMemorial
 
     run = swarm_result.get("swarm_run") or {}
@@ -76,7 +76,13 @@ def formalize_memorial(
         raise FormalMemorialBlocked("swarm_run_id_missing")
     quality_result_id = str(quality.get("id") or f"quality:{swarm_run_id}")
 
-    existing = db.query(FinalMemorial).filter_by(task_id=task_id).first()
+    existing = (
+        db.query(FinalMemorial)
+        .filter_by(task_id=task_id, is_current=True)
+        .first()
+    )
+    next_version = 1
+    supersedes_id = None
     if existing is not None:
         assert_known_tenant_lineage_consistent(
             context=f"formal_memorial:{task_id}",
@@ -98,11 +104,18 @@ def formalize_memorial(
             source_label,
             content_hash,
         )
-        if immutable != candidate:
+        if immutable == candidate:
+            return existing
+        if existing.status != "awaiting_evidence":
             raise FormalMemorialBlocked("formal_memorial_conflict")
-        return existing
+        next_version = existing.version + 1
+        supersedes_id = existing.id
+        existing.status = "superseded"
+        existing.is_current = False
 
-    memorial_id = f"formal_{sha256(task_id.encode('utf-8')).hexdigest()[:16]}"
+    memorial_id = "formal_" + sha256(
+        f"{task_id}|{next_version}|{content_hash}".encode("utf-8")
+    ).hexdigest()[:16]
     row = FinalMemorial(
         id=memorial_id,
         tenant_id=review.tenant_id,
@@ -114,6 +127,9 @@ def formalize_memorial(
         source_label=source_label,
         memorial_json=memorial_json,
         content_hash=content_hash,
+        version=next_version,
+        supersedes_id=supersedes_id,
+        is_current=True,
     )
     db.add(row)
     from src.migration_telemetry import record_canonical_chain_event_after_commit

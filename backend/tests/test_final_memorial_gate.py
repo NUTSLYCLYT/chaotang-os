@@ -116,6 +116,78 @@ def test_live_quality_passed_candidate_is_formalized_once(isolated_session_local
     db.close()
 
 
+def test_passed_rework_appends_v2_and_preserves_v1_content(
+    isolated_session_local,
+):
+    from src.db.models import CourtReview, FinalMemorial
+    from src.formal_memorial import formalize_memorial
+
+    db = isolated_session_local()
+    task_id = "task_formal_rework_v2"
+    review_id = _seed_candidate(db, task_id=task_id)
+    first_result = _swarm_result(
+        task_id=task_id,
+        review_id=review_id,
+        source_label="LIVE_SWARM",
+    )
+    first = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=first_result,
+    )
+    db.commit()
+    first_json = first.memorial_json
+    first_hash = first.content_hash
+    first.status = "awaiting_evidence"
+    review = db.query(CourtReview).filter_by(id=review_id).one()
+    review.memorial_json = json.dumps(
+        {
+            "title": "合同会审正式奏折 v2",
+            "summary": "补证后重新会审通过。",
+            "recommendation": "adopt_with_conditions",
+        },
+        ensure_ascii=False,
+    )
+    second_result = _swarm_result(
+        task_id=task_id,
+        review_id=review_id,
+        source_label="LIVE_SWARM",
+    )
+    second_result["swarm_run"]["id"] = f"run_{task_id}_v2"
+    second_result["quality_result"]["id"] = f"quality_{task_id}_v2"
+
+    second = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=second_result,
+    )
+    db.commit()
+
+    versions = (
+        db.query(FinalMemorial)
+        .filter_by(task_id=task_id)
+        .order_by(FinalMemorial.version)
+        .all()
+    )
+    assert [row.version for row in versions] == [1, 2]
+    assert versions[0].memorial_json == first_json
+    assert versions[0].content_hash == first_hash
+    assert versions[0].status == "superseded"
+    assert versions[0].is_current is False
+    assert second.supersedes_id == versions[0].id
+    assert second.is_current is True
+    assert second.content_hash != first_hash
+    status = TestClient(app).get(
+        f"/api/shangshufang/tasks/{task_id}/status"
+    ).json()["data"]
+    assert status["formal_memorial"]["id"] == second.id
+    assert status["formal_memorial"]["version"] == 2
+    assert status["formal_memorial"]["supersedes_id"] == versions[0].id
+    db.close()
+
+
 @pytest.mark.parametrize(
     ("source_label", "passed", "reason"),
     [

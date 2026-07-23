@@ -48,6 +48,11 @@
 | W05 contracts + final/loop/outbox 扩大回归 | 0 | 72 passed / 1 skipped | worker、poller、状态投影、候选契约 | 本地 / 2026-07-24 |
 | canonical re-review（修复前） | 1 | task/review 错误停在 reviewing | 质量门状态闭环 | 本地 / 2026-07-24 |
 | canonical re-review 聚焦回归 | 0 | 2 passed | fail-closed quality/provenance 重审与 generation fencing | 本地 / 2026-07-24 |
+| FinalMemorial migration（020 实现前） | 1 | head 仍为 019 | 版本谱系 schema 缺口 | 本地 / 2026-07-24 |
+| FinalMemorial v2 service（实现前） | 1 | formal_memorial_conflict | append-only service 缺口 | 本地 / 2026-07-24 |
+| current memorial API（修复前） | 1 | 返回 v1 id | current 读取缺口 | 本地 / 2026-07-24 |
+| FinalMemorial version 聚焦回归 | 0 | 3 passed | migration、service、current API | 本地 / 2026-07-24 |
+| FinalMemorial/W05 扩大回归 | 0 | 84 passed / 1 skipped | 正式奏折、归档适配、metrics、019/020 migrations | 本地 / 2026-07-24 |
 
 ## 结果
 
@@ -83,4 +88,4 @@ CourtReview，并以 superseded 状态围栏旧 generation。
 
 ## 声明状态
 
-- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_4D_GREEN`
+- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_4E_GREEN`

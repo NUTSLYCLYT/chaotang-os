@@ -55,7 +55,7 @@ def test_upgrade_adds_generation_identity_without_losing_existing_outbox(
     finally:
         conn.close()
 
-    alembic_command.upgrade(cfg, "head")
+    alembic_command.upgrade(cfg, "019_outbox_rework_generation")
 
     conn = sqlite3.connect(path)
     try:

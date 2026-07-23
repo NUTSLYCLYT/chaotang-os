@@ -111,3 +111,13 @@
 - 验证：先证明 `NEED_LEGAL_REVIEW` 候选错误停在 reviewing，再修复为
   `quality_gate_status=FAILED`、task/review=`awaiting_evidence`。
 - 完成定义：来源继续绑定 packet/receipt/artifact digest；范围或定位缺口 fail closed。
+
+## 任务 4E：append-only FinalMemorial 版本谱系
+
+- 目标：通过重审的新正式奏折追加为 v2，不覆盖 v1，且读取端只暴露唯一 current。
+- 输入：质量/来源门通过的新 candidate 与已失效的 current v1。
+- 输出：同一 canonical `final_memorials` 表内 `(task_id, version)` 唯一、
+  `supersedes_id` 谱系及每任务唯一 current。
+- 验证：migration RED、service conflict RED、状态 API 误读 v1 RED，随后分别 GREEN。
+- 回滚边界：不删除历史版本；已产生 v2 的数据库不得降级回 task_id 单行约束。
+- 完成定义：v1 正文/hash 不变且 superseded；v2 current；API 返回 v2 identity。

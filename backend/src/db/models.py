@@ -384,10 +384,26 @@ class FinalMemorial(Base):
     source_label: Mapped[str] = mapped_column(sa.Text, nullable=False)
     memorial_json: Mapped[str] = mapped_column(sa.Text, nullable=False)
     content_hash: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    version: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
+    supersedes_id: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    is_current: Mapped[bool] = mapped_column(
+        sa.Boolean, nullable=False, default=True
+    )
     created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
 
     __table_args__ = (
-        sa.UniqueConstraint("task_id", name="uq_final_memorials_task_id"),
+        sa.UniqueConstraint(
+            "task_id",
+            "version",
+            name="uq_final_memorials_task_version",
+        ),
+        sa.Index(
+            "uq_final_memorials_current_task",
+            "task_id",
+            unique=True,
+            sqlite_where=sa.text("is_current = 1"),
+            postgresql_where=sa.text("is_current = true"),
+        ),
         sa.Index("ix_final_memorials_review", "review_id"),
         sa.Index("ix_final_memorials_swarm_run", "swarm_run_id"),
         sa.Index("ix_final_memorials_status_created", "status", "created_at"),

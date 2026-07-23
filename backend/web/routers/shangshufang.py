@@ -366,7 +366,10 @@ def _final_memorials_by_task(db, task_ids: list[str]) -> dict[str, FinalMemorial
     return {
         row.task_id: row
         for row in db.query(FinalMemorial)
-        .filter(FinalMemorial.task_id.in_(task_ids))
+        .filter(
+            FinalMemorial.task_id.in_(task_ids),
+            FinalMemorial.is_current.is_(True),
+        )
         .all()
     }
 
@@ -543,7 +546,9 @@ def apply_task_decision(
 
         if not human_confirmed:
             raise ValueError("正式奏折必须经过皇上人工确认后才能裁决归档")
-        formal = db.query(FinalMemorial).filter_by(task_id=task.id).first()
+        formal = db.query(FinalMemorial).filter_by(
+            task_id=task.id, is_current=True
+        ).first()
         if formal is None or formal.status != "ready_for_decision":
             raise ValueError("正式奏折尚未通过质量与来源门，禁止裁决归档")
         final_memorial = _loads(formal.memorial_json, None)
@@ -567,7 +572,9 @@ def apply_task_decision(
         if review is not None:
             review.review_status = "awaiting_evidence"
             review.updated_at = now
-        formal = db.query(FinalMemorial).filter_by(task_id=task.id).first()
+        formal = db.query(FinalMemorial).filter_by(
+            task_id=task.id, is_current=True
+        ).first()
         if formal is not None and formal.status == "ready_for_decision":
             formal.status = "awaiting_evidence"
     elif action == "recheck":
@@ -585,7 +592,9 @@ def apply_task_decision(
         # R0-REQ-014：拒绝必须关闭 FinalMemorial 的裁决闸门，否则同一任务再发一次
         # adopt 会重新通过 formal.status == "ready_for_decision" 检查，把已经被
         # 拒绝的奏折正式归档——"唯一、未被替代"里"未被替代"缺的就是这一环。
-        formal = db.query(FinalMemorial).filter_by(task_id=task.id).first()
+        formal = db.query(FinalMemorial).filter_by(
+            task_id=task.id, is_current=True
+        ).first()
         if formal is not None and formal.status == "ready_for_decision":
             formal.status = "rejected"
     elif action == "cancel":
@@ -628,7 +637,9 @@ def record_task_decision_event(
         "reject": "decision.rejected",
         "cancel": "decision.cancelled",
     }
-    formal = db.query(FinalMemorial).filter_by(task_id=task.id).first()
+    formal = db.query(FinalMemorial).filter_by(
+        task_id=task.id, is_current=True
+    ).first()
     actual_source = formal.source_label if formal is not None else task.source_label
     event_source = (
         "LIVE" if actual_source in {"LIVE_ENGINE", "LIVE_SWARM"} else actual_source
@@ -688,6 +699,9 @@ def _formal_memorial_payload(formal) -> dict[str, Any] | None:
         "runtime_source_label": formal.source_label,
         "memorial": _loads(formal.memorial_json, {}),
         "content_hash": formal.content_hash,
+        "version": formal.version,
+        "supersedes_id": formal.supersedes_id,
+        "is_current": formal.is_current,
         "created_at": formal.created_at,
     }
 
@@ -1501,7 +1515,9 @@ def shangshufang_task_status(
             .first()
         )
         from src.db.models import FinalMemorial
-        formal_memorial = db.query(FinalMemorial).filter_by(task_id=task_id).first()
+        formal_memorial = db.query(FinalMemorial).filter_by(
+            task_id=task_id, is_current=True
+        ).first()
         execution_status = build_decree_execution_status(db, task_id)
         return ok(
             {
@@ -1536,7 +1552,9 @@ def shangshufang_task_decision(
         if task.user_id != _user_id(user):
             return fail("无权裁决该任务")
         if body.action in {"request_evidence", "followup"}:
-            formal = db.query(FinalMemorial).filter_by(task_id=task_id).first()
+            formal = db.query(FinalMemorial).filter_by(
+                task_id=task_id, is_current=True
+            ).first()
             if (
                 formal is not None
                 and not body.expected_final_memorial_content_hash
