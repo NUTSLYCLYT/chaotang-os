@@ -187,6 +187,71 @@ def test_passed_rework_appends_v2_and_preserves_v1_content(
     assert status["formal_memorial"]["supersedes_id"] == versions[0].id
     db.close()
 
+    stale_adopt = TestClient(app).post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "adopt",
+            "reason": "旧页面批准",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": first_hash,
+        },
+    ).json()
+    assert stale_adopt["success"] is False
+    assert "已变化" in stale_adopt["error"]
+
+    db = isolated_session_local()
+    current = (
+        db.query(FinalMemorial)
+        .filter_by(task_id=task_id, is_current=True)
+        .one()
+    )
+    assert current.id == second.id
+    assert current.status == "ready_for_decision"
+    db.close()
+
+
+def test_adjudication_requires_current_memorial_content_hash(
+    isolated_session_local,
+):
+    from src.db.models import FinalMemorial
+    from src.formal_memorial import formalize_memorial
+
+    db = isolated_session_local()
+    task_id = "task_adjudication_missing_hash"
+    review_id = _seed_candidate(db, task_id=task_id)
+    formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id,
+            review_id=review_id,
+            source_label="LIVE_SWARM",
+        ),
+    )
+    db.commit()
+    db.close()
+
+    response = TestClient(app).post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "adopt",
+            "reason": "未绑定当前版本",
+            "human_confirmed": True,
+        },
+    ).json()
+
+    assert response["success"] is False
+    assert "content hash" in response["error"]
+    db = isolated_session_local()
+    current = (
+        db.query(FinalMemorial)
+        .filter_by(task_id=task_id, is_current=True)
+        .one()
+    )
+    assert current.status == "ready_for_decision"
+    db.close()
+
 
 @pytest.mark.parametrize(
     ("source_label", "passed", "reason"),
@@ -242,7 +307,7 @@ def test_adopt_fails_closed_without_formal_memorial_and_archives_formal_snapshot
 
     db = isolated_session_local()
     assert db.query(EmperorDecision).filter_by(task_id=task_id).count() == 0
-    formalize_memorial(
+    formal = formalize_memorial(
         db,
         task_id=task_id,
         review_id=review_id,
@@ -252,12 +317,18 @@ def test_adopt_fails_closed_without_formal_memorial_and_archives_formal_snapshot
             source_label="LIVE_SWARM",
         ),
     )
+    content_hash = formal.content_hash
     db.commit()
     db.close()
 
     unconfirmed = client.post(
         f"/api/shangshufang/tasks/{task_id}/decision",
-        json={"action": "adopt", "reason": "尚未签字", "human_confirmed": False},
+        json={
+            "action": "adopt",
+            "reason": "尚未签字",
+            "human_confirmed": False,
+            "expected_final_memorial_content_hash": content_hash,
+        },
     )
     assert unconfirmed.json()["success"] is False
     assert "人工确认" in unconfirmed.json()["error"]
@@ -267,7 +338,12 @@ def test_adopt_fails_closed_without_formal_memorial_and_archives_formal_snapshot
 
     adopted = client.post(
         f"/api/shangshufang/tasks/{task_id}/decision",
-        json={"action": "adopt", "reason": "证据充分，同意", "human_confirmed": True},
+        json={
+            "action": "adopt",
+            "reason": "证据充分，同意",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": content_hash,
+        },
     )
     assert adopted.json()["success"] is True
     assert adopted.json()["data"]["status"] == "archived"
@@ -276,6 +352,10 @@ def test_adopt_fails_closed_without_formal_memorial_and_archives_formal_snapshot
     archive = db.query(ShiguanArchive).filter_by(task_id=task_id).one()
     assert archive.source_label == "LIVE_SWARM"
     assert json.loads(archive.final_memorial_json)["recommendation"] == "adopt_with_conditions"
+    decision = db.query(EmperorDecision).filter_by(task_id=task_id).one()
+    assert json.loads(decision.confirmation_record_json)[
+        "final_memorial_content_hash"
+    ] == content_hash
     decision_event = (
         db.query(DecreeExecutionEvent)
         .filter_by(task_id=task_id, event_type="decision.adopted")
@@ -330,7 +410,7 @@ def test_status_shows_delivered_only_after_final_memorial_gate(isolated_session_
             decision_json=decision.model_dump_json(),
         )
     )
-    formalize_memorial(
+    formal = formalize_memorial(
         db,
         task_id=task_id,
         review_id=review_id,
@@ -338,13 +418,19 @@ def test_status_shows_delivered_only_after_final_memorial_gate(isolated_session_
             task_id=task_id, review_id=review_id, source_label="LIVE_SWARM"
         ),
     )
+    content_hash = formal.content_hash
     db.commit()
     db.close()
 
     client = TestClient(app)
     adopted = client.post(
         f"/api/shangshufang/tasks/{task_id}/decision",
-        json={"action": "adopt", "reason": "证据充分，同意", "human_confirmed": True},
+        json={
+            "action": "adopt",
+            "reason": "证据充分，同意",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": content_hash,
+        },
     )
     assert adopted.json()["success"] is True
 
@@ -383,7 +469,7 @@ def test_reject_supersedes_formal_memorial_and_blocks_later_adopt(isolated_sessi
     db = isolated_session_local()
     task_id = "task_reject_then_adopt"
     review_id = _seed_candidate(db, task_id=task_id)
-    formalize_memorial(
+    formal = formalize_memorial(
         db,
         task_id=task_id,
         review_id=review_id,
@@ -391,13 +477,19 @@ def test_reject_supersedes_formal_memorial_and_blocks_later_adopt(isolated_sessi
             task_id=task_id, review_id=review_id, source_label="LIVE_SWARM"
         ),
     )
+    content_hash = formal.content_hash
     db.commit()
     db.close()
 
     client = TestClient(app)
     rejected = client.post(
         f"/api/shangshufang/tasks/{task_id}/decision",
-        json={"action": "reject", "reason": "证据不足", "human_confirmed": True},
+        json={
+            "action": "reject",
+            "reason": "证据不足",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": content_hash,
+        },
     )
     assert rejected.json()["success"] is True
 
@@ -408,7 +500,12 @@ def test_reject_supersedes_formal_memorial_and_blocks_later_adopt(isolated_sessi
 
     blocked_adopt = client.post(
         f"/api/shangshufang/tasks/{task_id}/decision",
-        json={"action": "adopt", "reason": "改判", "human_confirmed": True},
+        json={
+            "action": "adopt",
+            "reason": "改判",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": content_hash,
+        },
     )
     assert blocked_adopt.json()["success"] is False
     assert "正式奏折" in blocked_adopt.json()["error"]

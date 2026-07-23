@@ -121,3 +121,12 @@
 - 验证：migration RED、service conflict RED、状态 API 误读 v1 RED，随后分别 GREEN。
 - 回滚边界：不删除历史版本；已产生 v2 的数据库不得降级回 task_id 单行约束。
 - 完成定义：v1 正文/hash 不变且 superseded；v2 current；API 返回 v2 identity。
+
+## 任务 4F：精确 current content hash 裁决门
+
+- 目标：所有正式裁决入口必须绑定用户所见 current FinalMemorial 的精确 content hash。
+- 输入：task/brief 裁决动作与 expected current hash。
+- 输出：缺 hash 或 stale hash fail closed；成功裁决将 hash 写入 EmperorDecision 审计。
+- 验证：v1 hash 裁 v2 RED、缺 hash adopt RED、审计缺 hash RED、brief 兼容入口绕过 RED；
+  主入口和兼容入口分别 GREEN。
+- 完成定义：旧页面不能误裁新稿；两个公共入口没有旁路；成功裁决身份可追溯。

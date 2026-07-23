@@ -267,6 +267,7 @@ class BriefDecisionAdvanceRequest(BaseModel):
     reason: str = ""
     executionType: str | None = None
     manualConfirmation: bool = False
+    expectedFinalMemorialContentHash: str | None = None
 
 
 def _json(value: Any) -> str:
@@ -1551,6 +1552,22 @@ def shangshufang_task_decision(
             return fail("task_id 不存在")
         if task.user_id != _user_id(user):
             return fail("无权裁决该任务")
+        if body.action in {"adopt", "approve", "archive", "reject"}:
+            current_formal = db.query(FinalMemorial).filter_by(
+                task_id=task_id,
+                is_current=True,
+            ).first()
+            if (
+                current_formal is not None
+                and not body.expected_final_memorial_content_hash
+            ):
+                return fail("裁决必须绑定当前正式奏折 content hash")
+            if (
+                current_formal is not None
+                and body.expected_final_memorial_content_hash
+                != current_formal.content_hash
+            ):
+                return fail("正式奏折已变化，请刷新后重新提交裁决")
         if body.action in {"request_evidence", "followup"}:
             formal = db.query(FinalMemorial).filter_by(
                 task_id=task_id, is_current=True
@@ -1612,7 +1629,15 @@ def shangshufang_task_decision(
             kind=emperor_decision_kind(body.action),
             reason=body.reason,
             human_confirmed=body.human_confirmed,
-            confirmation_record_json=_json({"user_id": _user_id(user), "at": now}),
+            confirmation_record_json=_json(
+                {
+                    "user_id": _user_id(user),
+                    "at": now,
+                    "final_memorial_content_hash": (
+                        body.expected_final_memorial_content_hash
+                    ),
+                }
+            ),
             created_at=now,
         )
         db.add(decision)
@@ -2426,6 +2451,19 @@ def shangshufang_brief_decision_advance(
             "reject": "reject",
         }
         action = mapping.get(body.decision, "request_evidence")
+        if action in {"adopt", "reject", "request_evidence"}:
+            current_formal = db.query(FinalMemorial).filter_by(
+                task_id=task.id,
+                is_current=True,
+            ).first()
+            if current_formal is not None and not body.expectedFinalMemorialContentHash:
+                return fail("裁决必须绑定当前正式奏折 content hash")
+            if (
+                current_formal is not None
+                and body.expectedFinalMemorialContentHash
+                != current_formal.content_hash
+            ):
+                return fail("正式奏折已变化，请刷新后重新提交裁决")
         now = now_iso()
         decision = EmperorDecision(
             id=make_id("decision", task.id, action, now),
@@ -2441,6 +2479,9 @@ def shangshufang_brief_decision_advance(
                     "brief_id": brief_id,
                     "at": now,
                     "execution_type": body.executionType,
+                    "final_memorial_content_hash": (
+                        body.expectedFinalMemorialContentHash
+                    ),
                 }
             ),
             created_at=now,

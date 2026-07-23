@@ -53,6 +53,12 @@
 | current memorial API（修复前） | 1 | 返回 v1 id | current 读取缺口 | 本地 / 2026-07-24 |
 | FinalMemorial version 聚焦回归 | 0 | 3 passed | migration、service、current API | 本地 / 2026-07-24 |
 | FinalMemorial/W05 扩大回归 | 0 | 84 passed / 1 skipped | 正式奏折、归档适配、metrics、019/020 migrations | 本地 / 2026-07-24 |
+| stale v1 hash 裁 v2（修复前） | 1 | adopt 成功 | 乐观并发门缺口 | 本地 / 2026-07-24 |
+| 裁决缺 current hash（修复前） | 1 | adopt 成功 | 必填身份缺口 | 本地 / 2026-07-24 |
+| EmperorDecision hash 审计（修复前） | 1 | KeyError | 持久化绑定缺口 | 本地 / 2026-07-24 |
+| brief 兼容入口 hash 门（修复前） | 1 | issue_decree 成功 | 旁路缺口 | 本地 / 2026-07-24 |
+| 精确 hash 裁决聚焦回归 | 0 | 5 passed | task/brief 入口、别名和状态一致性 | 本地 / 2026-07-24 |
+| W05 产品行为扩大回归 | 0 | 125 passed / 1 skipped | final、worker、poller、契约、状态投影、019/020 migration | 本地 / 2026-07-24 |
 
 ## 结果
 
@@ -88,4 +94,4 @@ CourtReview，并以 superseded 状态围栏旧 generation。
 
 ## 声明状态
 
-- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_4E_GREEN`
+- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_4F_GREEN`
