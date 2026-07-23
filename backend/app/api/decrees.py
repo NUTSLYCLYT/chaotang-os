@@ -293,7 +293,7 @@ def submit_decree(payload: ChancellorDecreeRequest) -> ChancellorDecreeResponse:
     graph = get_chancellor_graph()
     result = graph.invoke({"decree_text": payload.decree_text})
     response = _build_response_from_graph_result(result)
-    archive_chancellor_decree(payload.decree_text, response)
+    archive_chancellor_decree(payload.decree_text, response, result)
     return response
 
 

@@ -62,6 +62,7 @@ verdict, and enforces exact ``summary`` plus three unique recommendations.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 from typing import TypedDict
 
@@ -71,6 +72,12 @@ from langgraph.graph.state import CompiledStateGraph
 from app.agents.chancellor.prompts import (
     CHANCELLOR_FINALIZATION_SYSTEM_PROMPT,
     CHANCELLOR_SYSTEM_PROMPT,
+)
+from app.agents.evidence_protocol import (
+    AgentEvidenceSession,
+    AgentEvidenceSnapshot,
+    build_default_evidence_session,
+    bureau_node_id,
 )
 from app.agents.junjichu.agent import run_junjichu_council
 from app.agents.ministries.agent import MinistryOpinion, invoke_ministry_agent
@@ -123,6 +130,9 @@ class ChancellorGraphState(TypedDict, total=False):
     recommendations: list[str]
     final_verdict: str
     recall_contexts: dict[str, object]
+    evidence_session: AgentEvidenceSession
+    evidence_snapshot: AgentEvidenceSnapshot
+    adopted_evidence_ids: tuple[str, ...]
 
 
 class ChancellorGraphInvocationError(Exception):
@@ -144,7 +154,10 @@ class ChancellorGraphInvocationError(Exception):
 
 
 def build_chancellor_graph(
-    chat_model: DeepSeekChatModel | None = None, dotenv_path: Path | None = None
+    chat_model: DeepSeekChatModel | None = None,
+    dotenv_path: Path | None = None,
+    *,
+    evidence_session_factory: Callable[[], AgentEvidenceSession] | None = None,
 ) -> CompiledStateGraph:
     """Build and compile the layered Chancellor memorial graph.
 
@@ -182,6 +195,17 @@ def build_chancellor_graph(
         resolved_chat_model = build_deepseek_chat_model(config, dotenv_path)
 
     def _decide_route(state: ChancellorGraphState) -> dict:
+        try:
+            evidence_session = (
+                evidence_session_factory()
+                if evidence_session_factory is not None
+                else build_default_evidence_session(resolved_chat_model)
+            )
+        except Exception as exc:  # noqa: BLE001 - sanitized graph boundary
+            raise ChancellorGraphInvocationError(
+                "Chancellor graph failed to initialize its evidence session; "
+                "see __cause__ for the original exception."
+            ) from exc
         messages = [
             {"role": "system", "content": CHANCELLOR_SYSTEM_PROMPT},
             {"role": "user", "content": state["decree_text"]},
@@ -248,6 +272,7 @@ def build_chancellor_graph(
             "chancellor_rationale": rationale.strip(),
             "route_type": route_type,
             "departments": departments,
+            "evidence_session": evidence_session,
             "processing_path": ["上书房", "丞相（首次分流）"],
         }
 
@@ -264,6 +289,7 @@ def build_chancellor_graph(
                 state["chancellor_rationale"],
                 resolved_chat_model,
                 recall_context=recall_context,
+                evidence_session=state["evidence_session"],
             )
         except Exception as exc:  # noqa: BLE001 - one sanitized graph error boundary
             raise ChancellorGraphInvocationError(
@@ -271,10 +297,20 @@ def build_chancellor_graph(
                 "response; see __cause__ for the original exception."
             ) from exc
 
-        bureau_path = [
-            f"{department}·{bureau_opinion['bureau']}"
-            for bureau_opinion in opinion["bureau_opinions"]
-        ]
+        snapshot = state["evidence_session"].snapshot()
+        first_investigating_bureau = (
+            snapshot.investigating_bureau_node_ids[0]
+            if snapshot.investigating_bureau_node_ids
+            else None
+        )
+        bureau_path: list[str] = []
+        for bureau_opinion in opinion["bureau_opinions"]:
+            bureau_path.append(f"{department}·{bureau_opinion['bureau']}")
+            if (
+                first_investigating_bureau
+                == bureau_node_id(department, bureau_opinion["bureau"])
+            ):
+                bureau_path.append("锦衣卫（调查）")
         return {
             "processing_path": [
                 *state["processing_path"],
@@ -285,6 +321,8 @@ def build_chancellor_graph(
             "ministry_opinions": [opinion],
             "council_verdict": None,
             "recall_contexts": {department: recall_context.model_dump()},
+            "evidence_snapshot": snapshot,
+            "adopted_evidence_ids": snapshot.adopted_evidence_ids,
         }
 
     def _run_junjichu_council(state: ChancellorGraphState) -> dict:
@@ -300,6 +338,7 @@ def build_chancellor_graph(
                 departments,
                 resolved_chat_model,
                 recall_contexts=recall_contexts,
+                evidence_session=state["evidence_session"],
             )
         except Exception as exc:  # noqa: BLE001 - intentionally wrap any model/validation error
             raise ChancellorGraphInvocationError(
@@ -307,14 +346,26 @@ def build_chancellor_graph(
                 "council review; see __cause__ for the original exception."
             ) from exc
 
+        snapshot = state["evidence_session"].snapshot()
+        first_investigating_bureau = (
+            snapshot.investigating_bureau_node_ids[0]
+            if snapshot.investigating_bureau_node_ids
+            else None
+        )
+        investigation_marked = False
         layered_path: list[str] = [*state["processing_path"], "军机处（召集）"]
         for ministry_opinion in ministry_opinions:
             department = ministry_opinion["department"]
             layered_path.append(department)
-            layered_path.extend(
-                f"{department}·{bureau_opinion['bureau']}"
-                for bureau_opinion in ministry_opinion["bureau_opinions"]
-            )
+            for bureau_opinion in ministry_opinion["bureau_opinions"]:
+                layered_path.append(f"{department}·{bureau_opinion['bureau']}")
+                if (
+                    not investigation_marked
+                    and first_investigating_bureau
+                    == bureau_node_id(department, bureau_opinion["bureau"])
+                ):
+                    layered_path.append("锦衣卫（调查）")
+                    investigation_marked = True
             layered_path.append(f"{department}（部级补充）")
         layered_path.append("军机处（会审）")
 
@@ -326,6 +377,8 @@ def build_chancellor_graph(
                 department: context.model_dump()
                 for department, context in recall_contexts.items()
             },
+            "evidence_snapshot": snapshot,
+            "adopted_evidence_ids": snapshot.adopted_evidence_ids,
         }
 
     def _finalize_chancellor(state: ChancellorGraphState) -> dict:

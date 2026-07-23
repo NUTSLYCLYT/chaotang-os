@@ -2,10 +2,7 @@ import type { ArchiveType, RealityLabel, ReviewStatusValue } from "../../lib/bac
 
 export const ARCHIVE_TYPE_LABELS: Record<ArchiveType, string> = {
   MEMORIAL: "奏折",
-  DECISION: "决策",
-  TASK_RESULT: "任务结果",
-  KNOWLEDGE: "知识条目",
-  PUBLICITY: "宣传材料",
+  REPLY: "回奏",
 };
 
 export const REALITY_LABELS: Record<RealityLabel, string> = {

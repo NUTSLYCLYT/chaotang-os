@@ -1,0 +1,110 @@
+servers:
+  - server_id: westock
+    display_name: 腾讯自选股
+    endpoint_url: https://stockbuddy.qq.com/cgi/cgi-bin/openai/mcp/mcp
+    transport: STREAMABLE_HTTP
+    source_kind: PROFESSIONAL_DATA
+    access_policy: SERVICE_AUTHENTICATED_FREE
+    credential_ref: env://WESTOCK_MCP_CREDENTIAL
+    enabled: false
+    approval_version: 2026-07-23.fixture-1
+    timeout_seconds: 10
+    max_response_bytes: 1000000
+    rate_limit_per_minute: 30
+    allow_redirects: false
+    cache_ttl_seconds: 30
+    private_network_approved: false
+    private_network_cidrs: []
+
+tools:
+  - server_id: westock
+    tool_name: data_search
+    enabled: false
+    resolver_only: true
+    effect: READ_ONLY
+    fact_categories:
+      - ENTITY_REFERENCE
+    data_scopes:
+      - EXTERNAL_PUBLIC
+    jurisdictions:
+      - CN
+      - HK
+    approval_version: 2026-07-23.fixture-1
+    approved_discovered_tool:
+      name: data_search
+      inputSchema:
+        type: object
+        properties:
+          query:
+            type: string
+        required:
+          - query
+        additionalProperties: false
+    approved_fingerprint: dde7494eab23ae15cd7d41f1581eb254bd01bcb3b781a3316a9a72ee312f37c4
+    priority: 10
+
+  - server_id: westock
+    tool_name: data_quote
+    enabled: false
+    effect: READ_ONLY
+    fact_categories:
+      - MARKET_QUOTE
+    data_scopes:
+      - EXTERNAL_PUBLIC
+    jurisdictions:
+      - CN
+      - HK
+    approval_version: 2026-07-23.fixture-1
+    approved_discovered_tool:
+      name: data_quote
+      inputSchema:
+        type: object
+        properties:
+          code:
+            type: string
+        required:
+          - code
+        additionalProperties: false
+    mapping:
+      argument_paths: {}
+      value_path: structuredContent.quote.price
+      as_of_path: structuredContent.quote.as_of
+      publisher_path: structuredContent.publisher
+      source_url_path: structuredContent.source_url
+      unit_path: structuredContent.quote.currency
+      subject_path: structuredContent.quote.instrument_id
+      metadata_paths:
+        instrument_id: structuredContent.quote.instrument_id
+        currency: structuredContent.quote.currency
+      quality_ceiling: PRIMARY
+      value_exclusive_min: 0
+      publisher_allowlist:
+        - 腾讯自选股
+      unit_allowlist:
+        - CNY
+        - HKD
+      source_url_origins:
+        - https://stockapp.finance.qq.com
+      source_url_path_pattern: /stock/(?:sz[0-9]{6}|hk[0-9]{5})
+      entity_resolution:
+        tool_name: data_search
+        argument_paths:
+          query: subject
+        candidates_path: structuredContent.matches
+        candidate_subject_path: instrument_id
+        candidate_name_path: name
+        candidate_type_path: security_type
+        candidate_jurisdiction_path: jurisdiction
+        candidate_market_path: market
+        required_type: EQUITY
+        target_argument: code
+        subject_pattern: (?:sz[0-9]{6}|hk[0-9]{5})
+        subject_max_length: 8
+        markets_by_jurisdiction:
+          CN: CN
+          HK: HK
+        units_by_market:
+          CN: CNY
+          HK: HKD
+    approved_fingerprint: f8ca50f8d3eafa34f75f617ef2e45bb1684e064a5d7f9c8b31602762f00d2c58
+    priority: 20

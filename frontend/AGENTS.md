@@ -2,7 +2,23 @@
 
 ## 史馆边界
 
-前端仅消费后端史馆 API；`RecallMatch.review_status` 是对象或 `null`。前端不得根据丞相成功响应推断自动归档已成功，也不得重新定义召回响应形状。
+前端仅消费后端史馆 API；公开档案类型只允许 `MEMORIAL`（奏折）与 `REPLY`（回奏），筛选
+只显示“全部 / 奏折 / 回奏”。回奏按后端契约展示来源、参与部门、办理过程、结论、时间和
+责任主体；旧类型和字段不完整的回奏必须作为契约错误处理，不得在前端偷偷改名或补全。
+`RecallMatch.review_status` 是对象或 `null`。前端不得根据丞相成功响应推断自动归档已成功，
+也不得重新定义召回响应形状。完整边界见
+`docs/decisions/0017-shiguan-memorial-reply-contract.md`。
+
+## 锦衣卫调查台
+
+- `src/app/jinyiwei/page.tsx`（`/jinyiwei`）是只读证据审计台，展示调查汇总、分页案卷、
+  事实槽位、来源尝试、证据出处/质量/置信度/立场、冲突、不得推断项、缓存状态和关联回奏。
+  状态不能只靠颜色表达；页面必须保留加载、空、错误、无证据和 360px 窄屏状态。
+- 浏览器只调用同源的三个 GET-only BFF：`/api/jinyiwei/summary`、
+  `/api/jinyiwei/investigations` 与 `/api/jinyiwei/investigations/[id]`。BFF 在服务端调用
+  `src/lib/backendClient.ts`，严格校验查询、ID 和完整后端响应，并只返回固定、脱敏的错误。
+- 页面不得提供任意 URL、发起/重试调查、编辑或删除控件，也不得直接访问 FastAPI 或读取
+  `BACKEND_BASE_URL`。锦衣卫后端同样不提供变更端点；完整边界见 ADR 0018。
 
 作用域：`frontend/`。已确定最小技术栈：Next.js（App Router）+ React/react-dom +
 TypeScript，npm 管理依赖，Node 内置 `node:test` 做单元测试。选型理由、取舍和验证
@@ -46,7 +62,8 @@ TypeScript，npm 管理依赖，Node 内置 `node:test` 做单元测试。选型
   只在 Next.js 自身构建时生效）。
 - 不引入 Playwright、Cypress 等浏览器自动化框架；行为验证以 `node:test` 直接跑
   `backendClient` 的成功/失败路径为主，涉及页面渲染时通过 `next build` + 一次性
-  entry 烟雾验证（启动 `next start` 请求 `/` 与 `/study` 确认 200，然后关闭进程）覆盖。
+  entry 烟雾验证（启动 `next start` 请求 `/`、`/study` 与 `/jinyiwei` 确认 200，然后
+  关闭进程）覆盖。
 
 ## 环境要求
 
@@ -93,14 +110,27 @@ npm test
 非 200 状态码 / 自定义短 `timeoutMs` 覆盖默认值验证真实超时中止分支）以及
 `getBackendBaseUrl` 的环境变量读取逻辑；`src/app/study/decreeStatus.test.ts` 覆盖
 idle/submitting/success（single/multi 两种路由的完整流转字段）/各错误 `kind` 的纯函数
-映射；`src/app/api/decrees/chancellor/route.test.ts` 起本地 HTTP stub 并直接调用
-`POST`，覆盖成功（single/multi 两种路由的新契约字段透传）、后端校验失败(422)、配置
+映射；`src/app/api/decrees/chancellor/route.test.ts` 直接调用
+`POST` 并注入内存后端调用，覆盖成功（single/multi 两种路由的新契约字段透传）、后端校验失败(422)、配置
 失败(503)、模型失败(502)、后端不可达以及 Route Handler 自身收到畸形请求体的场景）。
 测试直接用相对路径 + 显式 `.ts` 扩展名导入被测模块（例如 `./backendClient.ts`、
 `./route.ts`），因为 Node 原生 ESM 解析不支持 `tsconfig.json` 里的 `@/*` 路径别名；
 `@/*` 别名只在
 Next.js 应用代码（页面）中可用，Route Handler 对 `src/lib` 的导入也统一改用
 相对路径以保持可被 `node --test` 直接加载。
+纯响应解析/契约拒绝测试不得依赖本地 HTTP 调度或真实超时竞争；健康检查、`submitDecree()`、
+史馆客户端和锦衣卫只读客户端均提供 `fetchImpl`、`scheduleTimeout` 与 `cancelTimeout`
+测试注入点，这类用例使用内存 `Response` 和确定性调度器。URL、查询与 ID 编码通过注入
+`fetchImpl` 观察实际请求验证；AbortController 超时通过注入调度回调和请求
+`AbortSignal` 验证。`frontend/src/**/*.test.ts` 不启动本地 HTTP server，防止 Windows
+loopback 偶发超时把纯契约错误错误映射成 `network`。
+
+锦衣卫相关测试另覆盖只读客户端的递归 JSON 与严格嵌套契约、分页和 ID 编码、证据组一致性、
+史馆回奏证据引用兼容，三个 GET-only BFF 的查询拒绝/脱敏，以及调查状态、置信度、分页和
+陈旧响应抑制的纯函数；源码守卫要求页面没有变更请求或编辑控件。跨端 fixture 来自最终
+backend schema v4 `model_dump(mode=json)`，同时绑定 `DataScope`、`SourceType.MCP`、
+当前/历史证据、访问溯源、逐调用 `call_audits` 以及史馆不可变证据引用；锦衣卫与史馆页面
+源码守卫确认对应字段被解析并展示。
 
 ## Build
 
@@ -131,7 +161,8 @@ npm run start
 `后端不可用：<错误描述>`，均不导致页面报错或非 200。还应请求
 `http://localhost:3000/study`，确认返回 200 且包含“上书房”、下旨按钮和反映“一次下旨
 可能触发多次模型调用”的 DeepSeek 费用提示；烟雾验证不得点击下旨，避免产生真实模型
-用量。验证完成后关闭该进程。
+用量。还应请求 `http://localhost:3000/jinyiwei`，确认返回 200 且显示只读调查台；只允许
+浏览汇总、案卷和详情，不得触发采集或变更。验证完成后关闭该进程。
 
 ## 环境变量
 

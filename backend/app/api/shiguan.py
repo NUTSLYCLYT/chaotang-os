@@ -67,10 +67,10 @@ class RecallRequest(BaseModel):
 
 @router.post("/archives", response_model=Archive, status_code=201)
 def create_archive(payload: dict[str, Any]) -> Archive:
-    """Create a new archive of any of the five 史馆 types.
+    """Create a new MEMORIAL or REPLY archive.
 
     ``payload`` is passed straight to ``storage.create_archive``, which owns
-    every validation rule (required fields, DECISION-only fields, evidence
+    every validation rule (required fields, REPLY-only fields, evidence
     labels, existing ``related_archive_ids``, rejecting a client-supplied
     ``id``). Any failure surfaces as ``ArchiveValidationError`` (422) or
     ``ShiguanStorageError`` (503) via the handlers registered below.

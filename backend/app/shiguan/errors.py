@@ -34,3 +34,7 @@ class ShiguanStorageError(ShiguanError):
     never includes the underlying exception's ``str()`` or a filesystem
     path, so a local disk layout or driver error string can never leak.
     """
+
+
+class ShiguanWriteNotCommittedError(ShiguanStorageError):
+    """A Shiguan write was transactionally proven not to have committed."""

@@ -31,7 +31,7 @@ from app.shiguan.errors import ShiguanStorageError
 # backend/app/shiguan/db.py -> parents[2] == backend/
 _DEFAULT_DB_PATH = Path(__file__).resolve().parents[2] / "data" / "shiguan.sqlite3"
 
-_SCHEMA_STATEMENTS = """
+_V2_SCHEMA_STATEMENTS = """
 CREATE TABLE IF NOT EXISTS archives (
     id TEXT PRIMARY KEY,
     type TEXT NOT NULL,
@@ -42,11 +42,13 @@ CREATE TABLE IF NOT EXISTS archives (
     created_at TEXT NOT NULL,
     lessons_learned TEXT,
     pitfalls TEXT,
+    source_kind TEXT,
+    source_text TEXT,
     participating_departments TEXT,
-    decision_process TEXT,
-    decision_conclusion TEXT,
-    decision_time TEXT,
-    responsible_owner TEXT
+    reply_process TEXT,
+    reply_conclusion TEXT,
+    reply_time TEXT,
+    respondent TEXT
 );
 
 CREATE TABLE IF NOT EXISTS archive_evidence (
@@ -74,7 +76,31 @@ CREATE TABLE IF NOT EXISTS archive_review_status (
     note TEXT,
     FOREIGN KEY (archive_id) REFERENCES archives(id)
 );
+PRAGMA user_version = 2;
 """
+
+_EVIDENCE_REFERENCES_SCHEMA = """
+CREATE TABLE archive_evidence_references (
+    archive_id TEXT NOT NULL,
+    ordinal INTEGER NOT NULL,
+    evidence_id TEXT NOT NULL,
+    pack_id TEXT NOT NULL,
+    investigation_id TEXT NOT NULL,
+    snapshot_json TEXT NOT NULL,
+    snapshot_hash TEXT NOT NULL,
+    PRIMARY KEY (archive_id, ordinal),
+    UNIQUE (archive_id, evidence_id),
+    FOREIGN KEY (archive_id) REFERENCES archives(id)
+)
+"""
+
+_SCHEMA_STATEMENTS = (
+    _V2_SCHEMA_STATEMENTS.replace("PRAGMA user_version = 2;", "")
+    + _EVIDENCE_REFERENCES_SCHEMA
+    + ";\nPRAGMA user_version = 3;\n"
+)
+
+_LEGACY_MIGRATION_ERROR = "史馆旧库无法迁移；请核对已确认档案对后重试"
 
 
 def get_connection(path: Path | None = None) -> sqlite3.Connection:
@@ -103,8 +129,165 @@ def get_connection(path: Path | None = None) -> sqlite3.Connection:
         connection = sqlite3.connect(target)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
-        connection.executescript(_SCHEMA_STATEMENTS)
-        connection.commit()
+        has_schema = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'archives'"
+        ).fetchone()
+        version = connection.execute("PRAGMA user_version").fetchone()[0]
+        if has_schema and version != 3:
+            connection.close()
+            raise ShiguanStorageError("史馆旧库需要显式迁移后才能使用")
+        if not has_schema:
+            connection.executescript(_SCHEMA_STATEMENTS)
+            connection.commit()
     except (OSError, sqlite3.Error) as exc:
         raise ShiguanStorageError("史馆存储暂时不可用，请稍后再试") from exc
     return connection
+
+
+def _validate_v3_table(connection: sqlite3.Connection) -> None:
+    columns = {
+        row[1]
+        for row in connection.execute(
+            "PRAGMA table_info(archive_evidence_references)"
+        ).fetchall()
+    }
+    expected = {
+        "archive_id",
+        "ordinal",
+        "evidence_id",
+        "pack_id",
+        "investigation_id",
+        "snapshot_json",
+        "snapshot_hash",
+    }
+    if columns != expected:
+        raise ValueError("invalid archive evidence reference schema")
+
+
+def migrate_v2_to_v3(path: Path) -> None:
+    """Atomically add immutable evidence-reference snapshots to a v2 database."""
+
+    connection: sqlite3.Connection | None = None
+    try:
+        connection = sqlite3.connect(path)
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("BEGIN IMMEDIATE")
+        version = connection.execute("PRAGMA user_version").fetchone()[0]
+        has_schema = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='archives'"
+        ).fetchone()
+        if version != 2 or has_schema is None:
+            raise ValueError("not a schema-v2 database")
+        connection.execute(_EVIDENCE_REFERENCES_SCHEMA)
+        _validate_v3_table(connection)
+        connection.execute("PRAGMA user_version = 3")
+        connection.commit()
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        if connection is not None:
+            connection.rollback()
+        raise ShiguanStorageError("史馆 v2 到 v3 无法迁移") from exc
+    finally:
+        if connection is not None:
+            connection.close()
+
+
+def migrate_v1_to_v2(path: Path, *, confirmed_pairs: dict[str, str]) -> None:
+    """Explicitly migrate confirmed generated MEMORIAL+DECISION pairs.
+
+    No relationship is inferred. Every legacy DECISION must appear in
+    ``confirmed_pairs`` and its mapped MEMORIAL must be its sole relation,
+    be unshared, and exist as a MEMORIAL. Any mismatch rolls back the whole
+    migration.
+    """
+
+    connection: sqlite3.Connection | None = None
+    try:
+        connection = sqlite3.connect(path)
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("BEGIN IMMEDIATE")
+
+        version = connection.execute("PRAGMA user_version").fetchone()[0]
+        has_schema = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'archives'"
+        ).fetchone()
+        if not has_schema or version not in (0, 1):
+            raise ValueError("not a supported v1 database")
+
+        type_rows = connection.execute("SELECT DISTINCT type FROM archives").fetchall()
+        archive_types = {row["type"] for row in type_rows}
+        if not archive_types <= {"MEMORIAL", "DECISION"}:
+            raise ValueError("unsupported legacy archive type")
+
+        decision_ids = {
+            row["id"]
+            for row in connection.execute(
+                "SELECT id FROM archives WHERE type = 'DECISION'"
+            ).fetchall()
+        }
+        if set(confirmed_pairs) != decision_ids:
+            raise ValueError("every decision requires explicit confirmation")
+        if len(set(confirmed_pairs.values())) != len(confirmed_pairs):
+            raise ValueError("a memorial cannot be shared")
+
+        source_text_by_decision: dict[str, str] = {}
+        for decision_id, memorial_id in confirmed_pairs.items():
+            relation_rows = connection.execute(
+                "SELECT related_id FROM archive_relations WHERE archive_id = ?",
+                (decision_id,),
+            ).fetchall()
+            if [row["related_id"] for row in relation_rows] != [memorial_id]:
+                raise ValueError("confirmed pair does not match its sole relation")
+            memorial = connection.execute(
+                "SELECT type, content FROM archives WHERE id = ?", (memorial_id,)
+            ).fetchone()
+            if memorial is None or memorial["type"] != "MEMORIAL":
+                raise ValueError("confirmed source is not a memorial")
+            reference_count = connection.execute(
+                "SELECT COUNT(*) FROM archive_relations WHERE related_id = ?",
+                (memorial_id,),
+            ).fetchone()[0]
+            outgoing_count = connection.execute(
+                "SELECT COUNT(*) FROM archive_relations WHERE archive_id = ?",
+                (memorial_id,),
+            ).fetchone()[0]
+            if reference_count != 1 or outgoing_count != 0:
+                raise ValueError("confirmed memorial has ambiguous relations")
+            source_text_by_decision[decision_id] = memorial["content"]
+
+        connection.execute("ALTER TABLE archives ADD COLUMN source_kind TEXT")
+        connection.execute("ALTER TABLE archives ADD COLUMN source_text TEXT")
+        connection.execute("ALTER TABLE archives RENAME COLUMN decision_process TO reply_process")
+        connection.execute(
+            "ALTER TABLE archives RENAME COLUMN decision_conclusion TO reply_conclusion"
+        )
+        connection.execute("ALTER TABLE archives RENAME COLUMN decision_time TO reply_time")
+        connection.execute("ALTER TABLE archives RENAME COLUMN responsible_owner TO respondent")
+
+        for decision_id, memorial_id in confirmed_pairs.items():
+            connection.execute(
+                "UPDATE archives SET type = 'REPLY', source_kind = 'DECREE', source_text = ? "
+                "WHERE id = ?",
+                (source_text_by_decision[decision_id], decision_id),
+            )
+            connection.execute(
+                "DELETE FROM archive_evidence WHERE archive_id = ?", (memorial_id,)
+            )
+            connection.execute(
+                "DELETE FROM archive_review_status WHERE archive_id = ?", (memorial_id,)
+            )
+            connection.execute(
+                "DELETE FROM archive_relations WHERE archive_id = ? OR related_id = ?",
+                (memorial_id, memorial_id),
+            )
+            connection.execute("DELETE FROM archives WHERE id = ?", (memorial_id,))
+
+        connection.execute("PRAGMA user_version = 2")
+        connection.commit()
+    except (OSError, sqlite3.Error, ValueError) as exc:
+        if connection is not None:
+            connection.rollback()
+        raise ShiguanStorageError(_LEGACY_MIGRATION_ERROR) from exc
+    finally:
+        if connection is not None:
+            connection.close()

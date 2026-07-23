@@ -92,7 +92,10 @@ function malformedRequestResponse(message: string): Response {
   return jsonResponse(body, 400);
 }
 
-export async function POST(request: Request): Promise<Response> {
+export function createPostHandler(
+  submit: typeof submitDecree = submitDecree,
+): (request: Request) => Promise<Response> {
+  return async function handlePost(request: Request): Promise<Response> {
   let payload: unknown;
   try {
     payload = await request.json();
@@ -109,7 +112,7 @@ export async function POST(request: Request): Promise<Response> {
     return malformedRequestResponse("请求体缺少字符串类型的 decreeText 字段。");
   }
 
-  const result = await submitDecree(decreeText);
+  const result = await submit(decreeText);
 
   if (result.ok) {
     const body: ChancellorSuccessResponseBody = {
@@ -132,5 +135,8 @@ export async function POST(request: Request): Promise<Response> {
     reason: result.kind,
     message: FRIENDLY_MESSAGE_BY_KIND[result.kind],
   };
-  return jsonResponse(body, HTTP_STATUS_BY_KIND[result.kind]);
+    return jsonResponse(body, HTTP_STATUS_BY_KIND[result.kind]);
+  };
 }
+
+export const POST = createPostHandler();

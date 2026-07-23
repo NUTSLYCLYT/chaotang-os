@@ -1,0 +1,22 @@
+{
+  "jsonrpc": "2.0",
+  "id": 4,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Sanitized fixture: public delayed quote snapshot."
+      }
+    ],
+    "structuredContent": {
+      "quote": {
+        "instrument_id": "sz002594",
+        "price": 321.5,
+        "currency": "CNY",
+        "as_of": "2026-07-23T02:00:00Z"
+      },
+      "publisher": "腾讯自选股",
+      "source_url": "https://stockapp.finance.qq.com/stock/sz002594"
+    }
+  }
+}

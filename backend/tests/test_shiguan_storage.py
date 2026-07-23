@@ -1,5 +1,5 @@
 """Tests for ``app.shiguan.storage`` (CRUD, review status, statistics) and
-``app.shiguan.archive_decree`` (automatic MEMORIAL+DECISION archival).
+``app.shiguan.archive_decree`` (automatic REPLY archival).
 
 ``archive_decree.py``'s tests live here (rather than in a dedicated file)
 because ``backend/tests/test_shiguan_archive_decree.py`` is out of this
@@ -34,18 +34,20 @@ def _memorial_payload(**overrides) -> dict:
     return payload
 
 
-def _decision_payload(**overrides) -> dict:
+def _reply_payload(**overrides) -> dict:
     payload = {
-        "type": "DECISION",
-        "title": "决策标题",
-        "content": "决策内容",
+        "type": "REPLY",
+        "title": "回奏标题",
+        "content": "回奏内容",
         "matter_type": "赈灾",
         "department": "军机处",
+        "source_kind": "DECREE",
+        "source_text": "请赈济灾民",
         "participating_departments": ["吏部", "户部"],
-        "decision_process": "军机处会审后丞相汇总",
-        "decision_conclusion": "批准所奏",
-        "decision_time": "2026-07-17T10:00:00+00:00",
-        "responsible_owner": "丞相",
+        "reply_process": "军机处会审后丞相汇总",
+        "reply_conclusion": "批准所奏",
+        "reply_time": "2026-07-17T10:00:00+00:00",
+        "respondent": "丞相",
     }
     payload.update(overrides)
     return payload
@@ -84,20 +86,57 @@ class TestCreateAndGetArchive:
         assert fetched.lessons_learned == "按流程复核证据来源"
         assert fetched.pitfalls == "不要把宣传材料当作 LIVE 证据"
 
-    def test_create_decision_archive_with_related_memorial(self, tmp_path):
+    def test_create_decree_reply_without_relation(self, tmp_path):
+        db_path = tmp_path / "shiguan.sqlite3"
+        reply = storage.create_archive(_reply_payload(), db_path=db_path)
+
+        assert reply.related_archive_ids == []
+        assert reply.participating_departments == ["吏部", "户部"]
+        assert reply.reply_conclusion == "批准所奏"
+        assert reply.source_text == "请赈济灾民"
+
+    def test_create_memorial_reply_requires_exact_matching_memorial(self, tmp_path):
         db_path = tmp_path / "shiguan.sqlite3"
         memorial = storage.create_archive(_memorial_payload(), db_path=db_path)
-        decision = storage.create_archive(
-            _decision_payload(related_archive_ids=[memorial.id]), db_path=db_path
+        reply = storage.create_archive(
+            _reply_payload(
+                source_kind="MEMORIAL",
+                source_text=memorial.content,
+                related_archive_ids=[memorial.id],
+            ),
+            db_path=db_path,
         )
+        assert reply.related_archive_ids == [memorial.id]
 
-        assert decision.related_archive_ids == [memorial.id]
-        assert decision.participating_departments == ["吏部", "户部"]
-        assert decision.decision_conclusion == "批准所奏"
+    @pytest.mark.parametrize(
+        "overrides",
+        [
+            {"source_kind": "DECREE", "related_archive_ids": ["placeholder"]},
+            {"source_kind": "MEMORIAL", "related_archive_ids": []},
+        ],
+    )
+    def test_reply_relation_shape_is_enforced(self, tmp_path, overrides):
+        db_path = tmp_path / "shiguan.sqlite3"
+        memorial = storage.create_archive(_memorial_payload(), db_path=db_path)
+        overrides = {
+            key: ([memorial.id] if value == ["placeholder"] else value)
+            for key, value in overrides.items()
+        }
+        with pytest.raises(ArchiveValidationError):
+            storage.create_archive(_reply_payload(**overrides), db_path=db_path)
 
-        # The memorial itself is untouched by the decision's relation.
-        refetched_memorial = storage.get_archive(memorial.id, db_path=db_path)
-        assert refetched_memorial.related_archive_ids == []
+    def test_memorial_reply_source_text_must_equal_related_memorial_content(self, tmp_path):
+        db_path = tmp_path / "shiguan.sqlite3"
+        memorial = storage.create_archive(_memorial_payload(), db_path=db_path)
+        with pytest.raises(ArchiveValidationError):
+            storage.create_archive(
+                _reply_payload(
+                    source_kind="MEMORIAL",
+                    source_text="被篡改的来源",
+                    related_archive_ids=[memorial.id],
+                ),
+                db_path=db_path,
+            )
 
     def test_create_rejects_nonexistent_related_archive_id(self, tmp_path):
         db_path = tmp_path / "shiguan.sqlite3"
@@ -169,24 +208,20 @@ class TestListArchives:
         storage.create_archive(
             _memorial_payload(matter_type="边防", department="兵部"), db_path=db_path
         )
-        memorial_for_decision = storage.create_archive(
-            _memorial_payload(matter_type="赈灾", department="户部"), db_path=db_path
-        )
         storage.create_archive(
-            _decision_payload(
+            _reply_payload(
                 matter_type="赈灾",
                 department="军机处",
-                related_archive_ids=[memorial_for_decision.id],
             ),
             db_path=db_path,
         )
 
-        by_type = storage.list_archives(type="DECISION", db_path=db_path)
+        by_type = storage.list_archives(type="REPLY", db_path=db_path)
         assert len(by_type) == 1
-        assert by_type[0].type == "DECISION"
+        assert by_type[0].type == "REPLY"
 
         by_matter_type = storage.list_archives(matter_type="赈灾", db_path=db_path)
-        assert len(by_matter_type) == 3
+        assert len(by_matter_type) == 2
 
         by_department = storage.list_archives(department="兵部", db_path=db_path)
         assert len(by_department) == 1
@@ -342,24 +377,24 @@ class TestArchiveChancellorDecree:
         defaults.update(overrides)
         return types.SimpleNamespace(**defaults)
 
-    def test_successful_archival_writes_linked_memorial_and_decision(self, tmp_path, monkeypatch):
+    def test_successful_archival_writes_single_decree_reply(self, tmp_path, monkeypatch):
         isolated_db_path = tmp_path / "decree-archive.sqlite3"
         monkeypatch.setattr(db, "_DEFAULT_DB_PATH", isolated_db_path)
 
         archive_decree.archive_chancellor_decree("请赈济灾民", self._fake_response())
 
         memorials = storage.list_archives(type="MEMORIAL", db_path=isolated_db_path)
-        decisions = storage.list_archives(type="DECISION", db_path=isolated_db_path)
-        assert len(memorials) == 1
-        assert len(decisions) == 1
+        replies = storage.list_archives(type="REPLY", db_path=isolated_db_path)
+        assert memorials == []
+        assert len(replies) == 1
 
-        memorial = memorials[0]
-        decision = decisions[0]
-        assert memorial.content == "请赈济灾民"
-        assert decision.related_archive_ids == [memorial.id]
-        assert decision.participating_departments == ["吏部", "户部"]
-        assert decision.decision_conclusion == "丞相最终裁决：批准所奏"
-        assert decision.responsible_owner == "丞相"
+        reply = replies[0]
+        assert reply.source_kind == "DECREE"
+        assert reply.source_text == "请赈济灾民"
+        assert reply.related_archive_ids == []
+        assert reply.participating_departments == ["吏部", "户部"]
+        assert reply.reply_conclusion == "丞相最终裁决：批准所奏"
+        assert reply.respondent == "丞相"
 
     def test_accepts_dict_shaped_response(self, tmp_path, monkeypatch):
         isolated_db_path = tmp_path / "decree-archive.sqlite3"
@@ -374,9 +409,9 @@ class TestArchiveChancellorDecree:
         }
         archive_decree.archive_chancellor_decree("请调兵防边", response)
 
-        decisions = storage.list_archives(type="DECISION", db_path=isolated_db_path)
-        assert len(decisions) == 1
-        assert decisions[0].participating_departments == ["兵部"]
+        replies = storage.list_archives(type="REPLY", db_path=isolated_db_path)
+        assert len(replies) == 1
+        assert replies[0].participating_departments == ["兵部"]
 
     def test_never_raises_when_storage_fails(self, tmp_path, monkeypatch):
         isolated_db_path = tmp_path / "decree-archive.sqlite3"
@@ -385,7 +420,7 @@ class TestArchiveChancellorDecree:
         def _boom(*args, **kwargs):
             raise ShiguanStorageError("史馆写入失败，请稍后再试")
 
-        monkeypatch.setattr(archive_decree.storage, "create_linked_archive_pair", _boom)
+        monkeypatch.setattr(archive_decree.storage, "create_reply_with_evidence", _boom)
 
         # Must not raise.
         result = archive_decree.archive_chancellor_decree("请赈济灾民", self._fake_response())

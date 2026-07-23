@@ -1,13 +1,11 @@
-"""Regression tests for decree archival atomicity and recall semantics."""
+"""Regression tests for decree archival and recall semantics."""
 
 from types import SimpleNamespace
-
-import pytest
 
 from app.agents.bureaus import bureau_profiles_for
 from app.agents.chancellor.graph import build_chancellor_graph
 from app.shiguan import archive_decree, db, storage
-from app.shiguan.errors import ArchiveValidationError, ShiguanStorageError
+from app.shiguan.errors import ShiguanStorageError
 from app.shiguan.recall import RecallContext
 
 
@@ -23,30 +21,6 @@ def _response(**overrides):
     return SimpleNamespace(**values)
 
 
-def test_linked_pair_rolls_back_as_a_unit(tmp_path):
-    path = tmp_path / "atomic.sqlite3"
-    memorial = {
-        "type": "MEMORIAL",
-        "title": "奏折",
-        "content": "内容",
-        "matter_type": "综合事项",
-        "department": "户部",
-    }
-    invalid_decision = {
-        "type": "DECISION",
-        "title": "决策",
-        "content": "结论",
-        "matter_type": "综合事项",
-        "department": "户部",
-        # Deliberately omit all required DECISION-only fields.
-    }
-
-    with pytest.raises(ArchiveValidationError):
-        storage.create_linked_archive_pair(memorial, invalid_decision, db_path=path)
-
-    assert storage.list_archives(db_path=path) == []
-
-
 def test_archival_result_is_assertable_and_single_department_is_recallable(
     tmp_path, monkeypatch
 ):
@@ -56,24 +30,30 @@ def test_archival_result_is_assertable_and_single_department_is_recallable(
     result = archive_decree.archive_chancellor_decree("请核定年度预算", _response())
 
     assert result.archived is True
-    assert result.memorial_id and result.decision_id
+    assert result.reply_id
     recalled = storage.list_archives(department="户部", db_path=path)
-    assert {item.type for item in recalled} == {"MEMORIAL", "DECISION"}
-    decision = next(item for item in recalled if item.type == "DECISION")
-    assert decision.department == "户部"
-    assert decision.matter_type == "综合事项"
-    assert decision.participating_departments == ["户部"]
+    assert len(recalled) == 1
+    reply = recalled[0]
+    assert reply.id == result.reply_id
+    assert reply.type == "REPLY"
+    assert reply.department == "户部"
+    assert reply.matter_type == "综合事项"
+    assert reply.source_kind == "DECREE"
+    assert reply.source_text == "请核定年度预算"
+    assert reply.related_archive_ids == []
+    assert reply.participating_departments == ["户部"]
+    assert reply.reply_conclusion == "准奏"
+    assert reply.respondent == "丞相"
 
 
 def test_archival_failure_is_degraded_without_partial_success(monkeypatch):
     def _fail(*_args, **_kwargs):
         raise ShiguanStorageError("史馆写入失败，请稍后再试")
 
-    monkeypatch.setattr(storage, "create_linked_archive_pair", _fail)
+    monkeypatch.setattr(storage, "create_reply_with_evidence", _fail)
     result = archive_decree.archive_chancellor_decree("请核定年度预算", _response())
     assert result.archived is False
-    assert result.memorial_id is None
-    assert result.decision_id is None
+    assert result.reply_id is not None
 
 
 def test_graph_fetches_one_context_and_reuses_unavailable_degradation(monkeypatch):
@@ -91,7 +71,8 @@ def test_graph_fetches_one_context_and_reuses_unavailable_degradation(monkeypatc
         [
             '{"route_type":"single","rationale":"交户部","departments":["户部"]}',
             f'{{"rationale":"交本司","bureaus":["{bureau}"]}}',
-            '{"opinion":"司级意见"}',
+            '{"status":"READY","result":{"opinion":"建议司级办理",'
+            '"factual_claims":[]},"adopted_evidence_ids":[],"fact_basis":"NOT_REQUIRED"}',
             '{"opinion":"部级意见"}',
             '{"summary":"丞相总结","recommendations":["甲","乙","丙"]}',
         ]

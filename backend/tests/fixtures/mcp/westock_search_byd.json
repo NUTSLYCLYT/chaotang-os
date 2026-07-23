@@ -1,0 +1,30 @@
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Sanitized fixture: two public equity instruments matched."
+      }
+    ],
+    "structuredContent": {
+      "matches": [
+        {
+          "name": "比亚迪",
+          "security_type": "EQUITY",
+          "jurisdiction": "CN",
+          "market": "CN",
+          "instrument_id": "sz002594"
+        },
+        {
+          "name": "比亚迪",
+          "security_type": "EQUITY",
+          "jurisdiction": "HK",
+          "market": "HK",
+          "instrument_id": "hk01211"
+        }
+      ]
+    }
+  }
+}

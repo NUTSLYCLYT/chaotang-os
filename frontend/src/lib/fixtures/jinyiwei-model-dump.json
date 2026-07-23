@@ -1,0 +1,159 @@
+{
+  "_provenance": "Generated from final schema-v4 backend InvestigationDetail and ArchiveEvidenceSnapshot model_dump(mode=json)",
+  "investigation_detail": {
+    "pack_id": "pack-model-dump",
+    "investigation_id": "inv-model-dump",
+    "status": "RESOLVED",
+    "request": {
+      "requesting_agent": "bureau:hubu",
+      "question": "What is the latest BYD price?",
+      "required_facts": [
+        {
+          "key": "quote",
+          "description": "Latest trade price",
+          "category": "MARKET_QUOTE",
+          "data_scope": "EXTERNAL_PUBLIC",
+          "subject": "BYD",
+          "jurisdiction": "CN",
+          "expected_unit": "CNY",
+          "expected_shape": "number"
+        }
+      ],
+      "decision_context": "Prepare bureau opinion",
+      "freshness": {
+        "max_age_seconds": 300,
+        "not_before": null
+      },
+      "existing_evidence_ids": [],
+      "request_id": "req-model-dump",
+      "timeout_seconds": 30,
+      "source_scope": ["MCP", "PUBLIC_API"]
+    },
+    "investigation_plan": {
+      "fact_keys": ["quote"],
+      "source_scope": ["MCP", "PUBLIC_API"]
+    },
+    "evidence_by_fact": {
+      "quote": [
+        {
+          "evidence_id": "ev-mcp-current",
+          "fact_key": "quote",
+          "value": {"currency": "CNY", "price": 100},
+          "unit": "CNY",
+          "as_of": "2026-07-22T10:00:00+00:00",
+          "published_at": "2026-07-22T10:00:00+00:00",
+          "retrieved_at": "2026-07-22T10:01:00+00:00",
+          "source_url": "https://example.test/quote",
+          "publisher": "Approved Market MCP",
+          "source_type": "MCP",
+          "coverage": ["CN", "SZ"],
+          "license_note": "Approved read-only quotation source.",
+          "quality": "AUTHORITATIVE",
+          "stance": "SUPPORTS",
+          "excerpt": "BYD last trade was 100 CNY.",
+          "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "confidence": 0.9,
+          "access_url": "https://example.test/mcp/quote/002594",
+          "access_metadata": {
+            "approval_version": "2026-07-22",
+            "mapping": {"price_path": "data.price"},
+            "mapping_version": "quote-v1",
+            "mcp_server_id": "market-data",
+            "mcp_tool_name": "data_quote",
+            "response_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          }
+        }
+      ]
+    },
+    "historical_evidence_by_fact": {
+      "quote": [
+        {
+          "evidence_id": "ev-api-historical",
+          "fact_key": "quote",
+          "value": {"currency": "CNY", "price": 100},
+          "unit": "CNY",
+          "as_of": "2026-07-21T10:00:00+00:00",
+          "published_at": "2026-07-21T10:00:00+00:00",
+          "retrieved_at": "2026-07-21T10:01:00+00:00",
+          "source_url": "https://example.test/history/quote",
+          "publisher": "Example Exchange",
+          "source_type": "PUBLIC_API",
+          "coverage": ["CN", "SZ"],
+          "license_note": "Approved read-only quotation source.",
+          "quality": "AUTHORITATIVE",
+          "stance": "SUPPORTS",
+          "excerpt": "BYD last trade was 100 CNY.",
+          "content_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "confidence": 0.9,
+          "access_url": null,
+          "access_metadata": null
+        }
+      ]
+    },
+    "resolved_facts": ["quote"],
+    "unresolved_facts": [],
+    "conflicts": [],
+    "source_attempts": [
+      {
+        "source_type": "MCP",
+        "source_name": "Approved Market MCP",
+        "status": "SUCCEEDED",
+        "started_at": "2026-07-22T10:00:00+00:00",
+        "completed_at": "2026-07-22T10:01:00+00:00",
+        "error": null,
+        "facts_attempted": ["quote"],
+        "call_audits": [
+          {
+            "server_id": "market-data",
+            "tool_name": "data_quote",
+            "approval_version": "2026-07-22",
+            "duration_ms": 125,
+            "arguments_hash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "response_bytes": 512,
+            "response_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "mapping_outcome": "mapped",
+            "cache_hit": false,
+            "error": null
+          }
+        ]
+      }
+    ],
+    "investigation_started_at": "2026-07-22T10:00:00+00:00",
+    "investigation_completed_at": "2026-07-22T10:01:00+00:00",
+    "cache": {"hit": false, "cache_key": null, "cached_at": null, "expires_at": null},
+    "do_not_infer": [],
+    "adoptions": []
+  },
+  "archive_evidence_snapshot": {
+    "evidence_id": "ev-mcp-current",
+    "fact_key": "quote",
+    "category": "MARKET_QUOTE",
+    "data_scope": "EXTERNAL_PUBLIC",
+    "subject": "BYD",
+    "jurisdiction": "CN",
+    "value": {"currency": "CNY", "price": 100},
+    "unit": "CNY",
+    "as_of": "2026-07-22T10:00:00+00:00",
+    "published_at": "2026-07-22T10:00:00+00:00",
+    "retrieved_at": "2026-07-22T10:01:00+00:00",
+    "source_url": "https://example.test/quote",
+    "publisher": "Approved Market MCP",
+    "source_type": "MCP",
+    "coverage": ["CN", "SZ"],
+    "license_note": "Approved read-only quotation source.",
+    "quality": "AUTHORITATIVE",
+    "stance": "SUPPORTS",
+    "excerpt": "BYD last trade was 100 CNY.",
+    "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "confidence": 0.9,
+    "access_url": "https://example.test/mcp/quote/002594",
+    "access_metadata": {
+      "approval_version": "2026-07-22",
+      "mapping": {"price_path": "data.price"},
+      "mapping_version": "quote-v1",
+      "mcp_server_id": "market-data",
+      "mcp_tool_name": "data_quote",
+      "response_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  }
+}

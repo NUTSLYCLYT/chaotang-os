@@ -60,16 +60,15 @@ class TestValidateArchiveCreate:
         assert "site-packages" not in message
         assert ".py" not in message
 
-    def test_incomplete_decision_payload_raises_archive_validation_error(self):
+    def test_incomplete_reply_payload_raises_archive_validation_error(self):
         payload = {
-            "type": "DECISION",
-            "title": "决策",
+            "type": "REPLY",
+            "title": "回奏",
             "content": "内容",
             "matter_type": "赈灾",
             "department": "军机处",
             "participating_departments": ["吏部"],
-            # decision_process, decision_conclusion, decision_time,
-            # responsible_owner all missing.
+            # source and reply-only fields are incomplete.
         }
         with pytest.raises(ArchiveValidationError):
             validation.validate_archive_create(payload)

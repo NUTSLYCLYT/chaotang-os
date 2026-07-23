@@ -38,6 +38,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 
+from app.agents.evidence_protocol import AgentEvidenceSession
 from app.agents.junjichu.prompts import junjichu_system_prompt
 from app.agents.ministries.agent import MinistryOpinion, invoke_ministry_agent
 from app.agents.structured_output import parse_strict_json_object
@@ -137,6 +138,7 @@ def run_junjichu_council(
     chat_model: DeepSeekChatModel,
     *,
     recall_contexts: Mapping[str, RecallContext] | None = None,
+    evidence_session: AgentEvidenceSession | None = None,
 ) -> tuple[list[MinistryOpinion], str]:
     """Run the full multi-department 军机处 council sequence.
 
@@ -172,12 +174,19 @@ def run_junjichu_council(
     """
     ministry_opinions: list[MinistryOpinion] = []
     for department in departments:
+        ministry_kwargs = {
+            "recall_context": (
+                recall_contexts[department] if recall_contexts else None
+            )
+        }
+        if evidence_session is not None:
+            ministry_kwargs["evidence_session"] = evidence_session
         opinion = invoke_ministry_agent(
             department,
             decree_text,
             rationale,
             chat_model,
-            recall_context=(recall_contexts[department] if recall_contexts else None),
+            **ministry_kwargs,
         )
         ministry_opinions.append(opinion)
 

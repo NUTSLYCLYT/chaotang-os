@@ -64,6 +64,27 @@ def validate_related_archive_ids(
             raise ArchiveValidationError(f"related_archive_ids 引用了不存在的档案: {related_id}")
 
 
+def validate_reply_source(conn: sqlite3.Connection, archive: ArchiveCreate) -> None:
+    """Validate REPLY source semantics that require stored archive data."""
+
+    if archive.type != "REPLY":
+        return
+    if archive.source_kind == "DECREE":
+        if archive.related_archive_ids:
+            raise ArchiveValidationError("DECREE 来源的回奏不得关联档案")
+        return
+    if len(archive.related_archive_ids) != 1:
+        raise ArchiveValidationError("MEMORIAL 来源的回奏必须且只能关联一条奏折")
+    row = conn.execute(
+        "SELECT type, content FROM archives WHERE id = ?",
+        (archive.related_archive_ids[0],),
+    ).fetchone()
+    if row is None or row["type"] != "MEMORIAL":
+        raise ArchiveValidationError("MEMORIAL 来源的回奏必须关联真实奏折")
+    if archive.source_text != row["content"]:
+        raise ArchiveValidationError("回奏来源正文必须与关联奏折正文一致")
+
+
 def validate_review_status_update(payload: dict) -> ReviewStatus:
     """Validate a raw review-status upsert payload.
 

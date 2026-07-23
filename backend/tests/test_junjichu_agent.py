@@ -263,3 +263,43 @@ def test_run_junjichu_has_no_state_leak_across_invocations():
     assert [item["department"] for item in opinions_one] == ["户部", "工部"]
     assert [item["department"] for item in opinions_two] == ["刑部", "兵部"]
     assert opinions_one != opinions_two
+
+
+def test_junjichu_only_passes_evidence_session_to_ministries(monkeypatch):
+    session = object()
+    ministry_sessions: list[object] = []
+    council_messages: list[list[dict[str, str]]] = []
+    departments = ["户部", "工部"]
+
+    def fake_ministry(
+        department,
+        _decree,
+        _rationale,
+        _model,
+        *,
+        recall_context=None,
+        evidence_session=None,
+    ):
+        assert recall_context is None
+        ministry_sessions.append(evidence_session)
+        return _layered_opinion(department)
+
+    monkeypatch.setattr("app.agents.junjichu.agent.invoke_ministry_agent", fake_ministry)
+
+    def council_model(messages: list[dict[str, str]]) -> str:
+        council_messages.append(messages)
+        return '{"verdict":"council verdict"}'
+
+    opinions, verdict = run_junjichu_council(
+        "decree",
+        "route",
+        departments,
+        council_model,
+        evidence_session=session,
+    )
+
+    assert [item["department"] for item in opinions] == departments
+    assert verdict == "council verdict"
+    assert ministry_sessions == [session, session]
+    assert len(council_messages) == 1
+    assert "NEEDS_DATA" not in council_messages[0][0]["content"]

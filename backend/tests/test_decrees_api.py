@@ -164,11 +164,13 @@ def fake_provider(monkeypatch):
 def test_submit_decree_single_route_returns_full_contract(fake_provider, monkeypatch):
     graph = _FakeGraph(invoke_result=_SINGLE_ROUTE_RESULT)
     provider = fake_provider(_FakeProvider(graph=graph))
-    archived_calls: list[tuple[str, object]] = []
+    archived_calls: list[tuple[str, object, object]] = []
     monkeypatch.setattr(
         decrees_module,
         "archive_chancellor_decree",
-        lambda decree_text, response: archived_calls.append((decree_text, response)),
+        lambda decree_text, response, internal_result: archived_calls.append(
+            (decree_text, response, internal_result)
+        ),
     )
 
     response = client.post(DECREE_URL, json={"decree_text": "整顿吏治"})
@@ -205,7 +207,13 @@ def test_submit_decree_single_route_returns_full_contract(fake_provider, monkeyp
     assert len(body["recommendations"]) == 3
     assert provider.call_count == 1
     assert graph.invoke_calls == [{"decree_text": "整顿吏治"}]
-    assert archived_calls == [("整顿吏治", decrees_module.ChancellorDecreeResponse(**body))]
+    assert archived_calls == [
+        (
+            "整顿吏治",
+            decrees_module.ChancellorDecreeResponse(**body),
+            _SINGLE_ROUTE_RESULT,
+        )
+    ]
 
 
 def test_submit_decree_multi_route_returns_full_contract(fake_provider):
@@ -242,7 +250,8 @@ def test_real_graph_single_route_keeps_api_contract_and_exposes_named_bureau_opi
             '{"route_type": "single", "rationale": "交由礼部办理", '
             '"departments": ["礼部"]}',
             '{"rationale": "交由品牌司办理", "bureaus": ["品牌司"]}',
-            '{"opinion": "统一品牌表达与视觉资产"}',
+            '{"status":"READY","result":{"opinion":"建议统一品牌表达与视觉资产",'
+            '"factual_claims":[]},"adopted_evidence_ids":[],"fact_basis":"NOT_REQUIRED"}',
             '{"opinion": "礼部补充：对外口径须统一并完成发布门禁。"}',
             '{"summary": "丞相汇总：统一品牌表达并设置发布门禁。", '
             '"recommendations": ["统一对外口径", "校验视觉资产", "设置发布门禁"]}',
@@ -260,7 +269,9 @@ def test_real_graph_single_route_keeps_api_contract_and_exposes_named_bureau_opi
     assert body["ministry_opinions"] == [
         {
             "department": "礼部",
-            "bureau_opinions": [{"bureau": "品牌司", "opinion": "统一品牌表达与视觉资产"}],
+            "bureau_opinions": [
+                {"bureau": "品牌司", "opinion": "建议统一品牌表达与视觉资产"}
+            ],
             "opinion": "礼部补充：对外口径须统一并完成发布门禁。",
         }
     ]

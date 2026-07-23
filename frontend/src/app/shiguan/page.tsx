@@ -20,13 +20,7 @@ import {
   REVIEW_STATUS_LABELS,
 } from "./archiveStatus.ts";
 
-const ARCHIVE_TYPES: ArchiveType[] = [
-  "MEMORIAL",
-  "DECISION",
-  "TASK_RESULT",
-  "KNOWLEDGE",
-  "PUBLICITY",
-];
+const ARCHIVE_TYPES: ArchiveType[] = ["MEMORIAL", "REPLY"];
 const REVIEW_STATUSES: ReviewStatusValue[] = [
   "ACHIEVED",
   "NOT_ACHIEVED",
@@ -152,34 +146,46 @@ function ArchiveCard({
                   .join("；")}
           </dd>
         </div>
-        {archive.type === "DECISION" && archive.participatingDepartments && (
+        {archive.type === "REPLY" && archive.sourceKind && (
+          <div>
+            <dt className="font-medium text-slate-900">来源</dt>
+            <dd>{archive.sourceKind === "DECREE" ? "旨意" : "奏折"}</dd>
+          </div>
+        )}
+        {archive.type === "REPLY" && archive.sourceText && (
+          <div>
+            <dt className="font-medium text-slate-900">来源原文</dt>
+            <dd className="whitespace-pre-wrap">{archive.sourceText}</dd>
+          </div>
+        )}
+        {archive.type === "REPLY" && archive.participatingDepartments && (
           <div>
             <dt className="font-medium text-slate-900">参与部门</dt>
             <dd>{archive.participatingDepartments.join("、")}</dd>
           </div>
         )}
-        {archive.type === "DECISION" && archive.decisionProcess && (
+        {archive.type === "REPLY" && archive.replyProcess && (
           <div>
-            <dt className="font-medium text-slate-900">决策过程</dt>
-            <dd>{archive.decisionProcess}</dd>
+            <dt className="font-medium text-slate-900">办理过程</dt>
+            <dd>{archive.replyProcess}</dd>
           </div>
         )}
-        {archive.type === "DECISION" && archive.decisionConclusion && (
+        {archive.type === "REPLY" && archive.replyConclusion && (
           <div>
-            <dt className="font-medium text-slate-900">决策结论</dt>
-            <dd>{archive.decisionConclusion}</dd>
+            <dt className="font-medium text-slate-900">回奏结论</dt>
+            <dd>{archive.replyConclusion}</dd>
           </div>
         )}
-        {archive.type === "DECISION" && archive.decisionTime && (
+        {archive.type === "REPLY" && archive.replyTime && (
           <div>
-            <dt className="font-medium text-slate-900">决策时间</dt>
-            <dd>{displayDate(archive.decisionTime)}</dd>
+            <dt className="font-medium text-slate-900">回奏时间</dt>
+            <dd>{displayDate(archive.replyTime)}</dd>
           </div>
         )}
-        {archive.type === "DECISION" && archive.responsibleOwner && (
+        {archive.type === "REPLY" && archive.respondent && (
           <div>
-            <dt className="font-medium text-slate-900">责任主体</dt>
-            <dd>{archive.responsibleOwner}</dd>
+            <dt className="font-medium text-slate-900">回奏主体</dt>
+            <dd>{archive.respondent}</dd>
           </div>
         )}
         {archive.lessonsLearned && (
@@ -204,6 +210,43 @@ function ArchiveCard({
           </div>
         )}
       </dl>
+
+      {archive.evidenceReferences.length > 0 && (
+        <section className="mt-4 border-t pt-4">
+          <h3 className="font-semibold text-slate-950">采用证据快照</h3>
+          <ul className="mt-2 grid gap-3">
+            {archive.evidenceReferences.map((reference) => {
+              const snapshot = reference.snapshot;
+              return (
+                <li key={`${reference.packId}-${reference.ordinal}`} className="rounded-lg bg-slate-50 p-3 text-sm">
+                  <p className="font-medium text-slate-900">
+                    {snapshot.factKey} · {snapshot.category} · {snapshot.dataScope}
+                  </p>
+                  <p className="text-slate-700">
+                    {snapshot.subject}{snapshot.jurisdiction ? ` · ${snapshot.jurisdiction}` : ""}
+                    {" · "}{snapshot.sourceType === "MCP" ? "批准的只读 MCP" : snapshot.sourceType}
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-slate-700">{snapshot.excerpt}</p>
+                  <p className="mt-1">
+                    <a href={snapshot.sourceUrl} target="_blank" rel="noreferrer">查看证据出处</a>
+                    {snapshot.accessUrl && (
+                      <> · <a href={snapshot.accessUrl} target="_blank" rel="noreferrer">查看访问溯源</a></>
+                    )}
+                  </p>
+                  {snapshot.accessMetadata && (
+                    <details className="mt-1">
+                      <summary>访问元数据</summary>
+                      <pre className="overflow-auto whitespace-pre-wrap">
+                        {JSON.stringify(snapshot.accessMetadata, null, 2)}
+                      </pre>
+                    </details>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       <form className="mt-4 flex flex-wrap items-end gap-3 border-t pt-4" onSubmit={submitReview}>
         <label className="grid gap-1 text-sm">
@@ -370,7 +413,7 @@ export default function ShiguanPage() {
           <p className="text-sm font-medium text-slate-500">Hall of Records</p>
           <h1 className="mt-2 text-4xl font-bold tracking-tight">史馆</h1>
           <p className="mt-3 max-w-3xl text-slate-600">
-            统一归档奏折、决策、任务结果、知识条目和宣传材料；保留证据真实度、决策留痕、结果复盘与旧案召回，避免把演示内容误当真实事实。
+            统一归档奏折与回奏；保留来源原文、办理过程、证据真实度、结果复盘与旧案召回，避免把演示内容误当真实事实。
           </p>
         </header>
 

@@ -2,16 +2,54 @@
 
 ## 史馆边界
 
-史馆属于后端域，以 `app/shiguan` 的 Pydantic 模型和 SQLite 存储为事实源。
-丞相图只消费每部门一次召回生成的只读上下文；前端不推断复盘状态、匹配原因或归档成功。详见 `docs/decisions/0015-shiguan-archive-persistence.md`。
+史馆属于后端域，以 `app/shiguan` 的 Pydantic 模型和 SQLite 存储为事实源。公开业务档案只
+包含 `MEMORIAL`（奏折）与 `REPLY`（回奏）：真实上奏产生奏折，办理旨意或奏折产生回奏；
+经验、教训、证据和复盘仍是档案属性，不是独立档案类型。旨意来源的回奏保存原文快照且不
+制造假奏折，奏折来源的回奏必须且只能关联一条真实奏折。丞相图只消费每部门一次召回生成的
+只读上下文；前端不推断复盘状态、匹配原因或归档成功。持久化基础见 ADR 0015，双文种契约
+及显式确认、失败关闭的 v1 → v2 迁移边界见
+`docs/decisions/0017-shiguan-memorial-reply-contract.md`。
+
+## 锦衣卫证据边界
+
+锦衣卫是独立的后端证据域（`backend/app/jinyiwei/`），使用
+`backend/data/jinyiwei.sqlite3` 保存调查、冻结证据包、来源尝试、缓存和采用关系；不得与
+史馆 `backend/data/shiguan.sqlite3` 共用路径。来源顺序固定为“史馆 → 管理员批准的只读 MCP →
+代码登记的公开 API → Wikimedia 公开页面”：史馆满足时效和覆盖要求时不联网，外部来源只补
+仍未解决的事实槽位。MCP 是外部业务系统、专业数据与公共信息服务的通用只读接入层，只允许
+配置中已登记并通过发现 schema 指纹复核的工具；默认公开 API 只有 Wikidata，页面发现能力
+明确限定为 `WIKIMEDIA_ONLY`，不是通用互联网搜索。
+
+只有司级意见节点能发起调查，同一司最多调查并恢复一次；部级综合、军机处、丞相路由及最终
+汇总从不调用锦衣卫。最终 `REPLY` 只归档恢复后司级响应显式选择的证据 ID 有序并集，证据
+快照写入史馆 schema v3；未采用材料留在锦衣卫库，跨库采用关系以可对账的
+PENDING/CONFIRMED 状态最终一致。真实外部网络由 `JINYIWEI_EXTERNAL_NETWORK_ENABLED`
+控制且默认关闭，所有访问必须经过固定解析 IP、TLS 主机名/对端校验、逐跳重定向复核、HTTPS
+公网地址和响应预算限制。Jinyiwei SQLite 当前为 schema v4；采用证据以不可变有序批次关联
+史馆回奏，旧版本不覆盖。schema v4 另保存不含正文或秘密的逐 MCP 调用审计。MCP 限流是
+进程内按 server/tool 隔离的原子滑动窗口；调用结果缓存 TTL 取管理员配置与事实 freshness
+的最小值，且史馆解析始终先于整包缓存。首个 MCP 配置是默认禁用的腾讯自选股候选，只批准
+`data_search`/`data_quote`；它使用部署侧共享专用服务账号，配置文件不保存密钥。通达信明确
+不接入。完整决策见
+`docs/decisions/0018-central-jinyiwei-evidence-service.md`。
+
+来源接入必须先通过审查才能加入默认注册表：代码注册项需固定发布者、免费合法且无需订阅、付费 API、
+登录、私钥、付费墙或验证码的公开访问依据、实际地域/市场覆盖、事实类别、时效语义、质量上限、
+许可证与再分发限制，以及固定 HTTPS origin、允许参数和确定性解析器。缺项、需凭据、任意 URL、
+非 HTTPS、类别越界或未通过固定解析器校验的来源必须在注册期失败关闭；未审查来源不得注册，也不得
+以通用网页搜索替代。全球覆盖仅表示多个已审查来源的实际覆盖组合，不表示任何单一来源天然全球覆盖。
+来源接入和安全回归必须离线执行，使用假客户端与 synthetic fixture，不设置公网开关、不使用
+密钥或真实外网数据。真实 MCP smoke 不是常规验收：只有另行获得授权、管理员启用登记配置并
+注入部署侧凭据后，才能通过脱敏只读 CLI 运行。
 
 ## 当前状态
 
 仓库处于重建阶段。`backend/` 已完成最小工程骨架的技术选型（Python + FastAPI +
 uvicorn + pip/venv，扁平 `app/` 包；选型与验证证据见
 `docs/decisions/0006-frontend-backend-foundation-stack.md`），并在保持 `GET /health`
-契约不变的前提下新增唯一的本地业务入口 `POST /api/v1/decrees/chancellor` 和专用丞相
-Agent；当前仍不含数据库模型、持久化任务编排、鉴权或生产部署能力。
+契约不变的前提下新增本地下旨入口 `POST /api/v1/decrees/chancellor` 和专用丞相 Agent，
+并新增锦衣卫三个只读调查入口。当前持久化仅包含彼此隔离的史馆档案 SQLite 与锦衣卫证据
+SQLite；仍不含通用数据库模型、持久化任务编排、鉴权或生产部署能力。
 `frontend/` 已完成最小工程骨架的技术选型（Next.js App Router + React/react-dom +
 TypeScript，npm 管理依赖，扁平 `src/app/`、`src/lib/` 结构，`page.tsx` 只做后端
 健康检查展示，`backendClient.ts` 封装对后端的服务端调用；选型与验证证据见同一
@@ -37,7 +75,7 @@ Next.js 服务端 → FastAPI。`backend/` 已新增最小、无外部服务依�
 新增 `submitDecree()`；后端新增独立的业务子包 `backend/app/agents/chancellor/`
 （专用 LangGraph 丞相图，`build_chancellor_graph()`，只读复用 DeepSeek 配置加载和客户端
 构建，不调用 `build_deepseek_graph()`）和 `backend/app/api/decrees.py`
-（`POST /api/v1/decrees/chancellor`，唯一的业务 HTTP 端点，同步返回丞相回奏或脱敏
+（`POST /api/v1/decrees/chancellor`，同步返回丞相回奏或脱敏
 503/502/4xx 错误）。`langgraph_runtime/graph.py`、`state.py`、`deepseek_graph.py` 与
 `GET /health` 契约零改动；本地 MVP 只支持 `127.0.0.1`，不支持鉴权/限流/公开部署；决策见
 `docs/decisions/0010-shangshufang-chancellor-agent.md`。在此基础之上，丞相 Agent 已升级为
@@ -65,8 +103,9 @@ Next.js 服务端 → FastAPI。`backend/` 已新增最小、无外部服务依�
 `ministry_opinions[].bureau_opinions`、条件式 `council_verdict`（single 为 `null`，multi 为
 非空字符串）和 `recommendations`；FastAPI、BFF 与 UI 同批严格校验和展示分层结果。模型、
 结构或响应构造失败继续通过脱敏异常链失败关闭并映射 502，既有错误分类和 `GET /health`
-不变。该同步设计不并发、不持久化，最坏 single 为 11 次、全六部 multi 为 54 次模型调用，
-可能超过现有 120 秒前端超时。ADR 0013 中扁平字符串返回和不扩成功字段的局部结论由
+不变。模型编排不并发且不使用 LangGraph checkpointer，最坏 single 为 11 次、全六部
+multi 为 54 次基础模型调用；司级缺数可按 ADR 0018 追加最多一次调查与恢复，整体可能超过
+现有 120 秒前端超时。ADR 0013 中扁平字符串返回和不扩成功字段的局部结论由
 `docs/decisions/0014-layered-memorial-three-recommendations.md` 覆盖。
 
 ## 所有权
@@ -77,8 +116,8 @@ Next.js 服务端 → FastAPI。`backend/` 已新增最小、无外部服务依�
 | `docs/product/tasks/` | Codex 与 Claude Code 的顺序交接契约和验收证据 | 运行态队列、自动编排服务 |
 | `.agents/skills/product-flow/` | Codex 桌面任务内的一键产品交付编排 | 定时/CI 常驻服务、Claude 自主编排入口 |
 | `.claude/agents/` | Claude Code 的架构、模块交付、测试专业角色 | 跨客户端通用角色、并行写入隔离 |
-| `frontend/` | 前端工程及其验证；已确定 Next.js + React + TypeScript + npm 最小骨架；已交付第一个业务页面 `/study`（上书房下旨）和服务端 Route Handler `src/app/api/decrees/chancellor/route.ts`，见 ADR 0010；已升级为展示司级意见、部级补充、multi 军机处结论、丞相总结和三项建议，并严格校验增量契约，见 ADR 0014 | 其它业务页面、状态管理、UI 组件库、鉴权 |
-| `backend/` | 后端运行/评测工程及其验证；已确定 Python + FastAPI + uvicorn 最小骨架；已确定最小 LangGraph 运行时基础（依赖版本范围、`app/langgraph_runtime/` 模块边界、`GraphState` 状态类型，见 ADR 0007）；已确定唯一的 DeepSeek provider 接入（`providers.yaml` 以 `active: deepseek` 固定激活项、配置加载校验、`build_deepseek_graph()` 图工厂、密钥仅来自 `DEEPSEEK_API_KEY`，见 ADR 0008）；已交付第一个业务 Agent 与 HTTP 契约：`app/agents/chancellor/`（丞相 Agent）+ `app/api/decrees.py`（`POST /api/v1/decrees/chancellor`），见 ADR 0010；已升级为六部/军机处分流会审闭环，见 ADR 0012；已增加 `app/agents/bureaus/` 数据驱动通用司级 Agent 与全部开放的 39 司复合注册表，见 ADR 0013；现已形成司议 → 部议 → multi 军机处会审 → 丞相总结与三项建议的分层回奏，并增量扩展成功契约，见 ADR 0014 | 其它业务 agent/workflow 图结构、DeepSeek 之外的模型供应商接入、持久化/checkpointer 方案仍未确定 |
+| `frontend/` | 前端工程及其验证；已确定 Next.js + React + TypeScript + npm 最小骨架；`/study` 承载上书房下旨与分层会审结果；`/jinyiwei` 通过三个 GET-only BFF 展示只读调查汇总、列表和详情，后端地址不进入浏览器，见 ADR 0018 | 其它业务页面、状态管理、UI 组件库、鉴权、任意 URL 或调查变更 UI |
+| `backend/` | 后端运行/评测工程及其验证；已确定 Python + FastAPI + uvicorn 最小骨架、DeepSeek provider 与分层会审 Agent；史馆和锦衣卫分别以独立 SQLite 保存档案及证据调查。锦衣卫只接入司级节点，提供安全的史馆/登记公网来源编排、回奏采用证据快照和三个只读 GET API，见 ADR 0018 | 其它业务 agent/workflow、DeepSeek 之外的模型供应商、LangGraph checkpointer、通用数据库/任务编排、公开部署 |
 
 `AGENTS.md` 只提供经常需要的操作指引；本文件只记录已确认架构事实。重要选择在
 `docs/decisions/` 记录原因，不能把尚未决定的方案写成现状。
@@ -104,23 +143,26 @@ Next.js 服务端 → FastAPI。`backend/` 已新增最小、无外部服务依�
   `docs/decisions/0008-deepseek-langgraph-integration.md`），
   这是本次范围内唯一确定的模型供应商接入；除 DeepSeek 外，当前仍明确排除：其它
   模型供应商接入、通用聊天 HTTP API、provider 管理 API、工具调用、
-  RAG、LangSmith 追踪、LangGraph Studio/CLI、持久化/checkpointer、数据库、
+  RAG、LangSmith 追踪、LangGraph Studio/CLI、LangGraph 持久化/checkpointer、通用数据库、
   流式接口、human-in-the-loop、分布式执行、生产部署；`GET /health` 契约不变。完整清单与
   理由见 `docs/decisions/0007-langgraph-runtime-foundation.md` 与
-  `docs/decisions/0008-deepseek-langgraph-integration.md`。仓库已确定的唯一业务 HTTP
-  接口和业务 Agent 是 `POST /api/v1/decrees/chancellor` 与 `app/agents/chancellor/`
-  （上书房下旨到丞相，同步、无持久化、仅 `127.0.0.1` 本地 MVP），见
+  `docs/decisions/0008-deepseek-langgraph-integration.md`。仓库已确定的写业务 HTTP
+  接口和业务 Agent 主入口是 `POST /api/v1/decrees/chancellor` 与 `app/agents/chancellor/`
+  （上书房下旨到丞相，同步、无 LangGraph checkpointer、仅 `127.0.0.1` 本地 MVP；成功后
+  由史馆以单条 `REPLY` 原子归档），见
   `docs/decisions/0010-shangshufang-chancellor-agent.md`；该闭环已升级为丞相分流 +
   六部办理（`app/agents/ministries/`）+ 军机处多部门会审（`app/agents/junjichu/`），
-  HTTP 响应契约相应扩展，仍然同步、无持久化、仅 `127.0.0.1` 本地 MVP，见
+  HTTP 响应契约相应扩展，仍然同步、无 LangGraph checkpointer、仅 `127.0.0.1` 本地 MVP，见
   `docs/decisions/0012-decree-six-ministries-joint-review.md`；六部内部已新增
   `app/agents/bureaus/` 的 39 司数据驱动层，部级严格路由后按顺序同步调用相关司，礼部没有
   1.0 门禁，见 `docs/decisions/0013-data-driven-bureau-agents.md`。分层回奏进一步要求每个
   部独立补充司议，single 直接回丞相，multi 经军机处会审后回丞相，两路共用严格三建议的
   finalizer；成功契约增量保存司议、军机处结论与建议，见
-  `docs/decisions/0014-layered-memorial-three-recommendations.md`。该链路仍不并发、不持久化，
-  最坏 single/multi 同步模型调用数为 11/54；不得据此推断可以随意新增其它业务工作流或
-  派发/持久化能力。
+  `docs/decisions/0014-layered-memorial-three-recommendations.md`。模型编排仍不并发且不使用
+  LangGraph checkpointer，最坏 single/multi 基础同步模型调用数为 11/54；司级节点可按
+  ADR 0018 在缺数时追加最多一次调查与恢复。锦衣卫另提供三个 GET-only 审计 API 和
+  `/jinyiwei` 只读页面，不得据此推断可以随意新增其它业务工作流、任意 URL、变更接口或
+  通用派发/持久化能力。
 
 ## 结构变化门禁
 

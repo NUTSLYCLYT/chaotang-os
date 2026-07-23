@@ -3,13 +3,7 @@ import {
   listShiguanArchives,
 } from "../../../../lib/backendClient.ts";
 
-const ARCHIVE_TYPES = new Set<ArchiveType>([
-  "MEMORIAL",
-  "DECISION",
-  "TASK_RESULT",
-  "KNOWLEDGE",
-  "PUBLICITY",
-]);
+const ARCHIVE_TYPES = new Set<ArchiveType>(["MEMORIAL", "REPLY"]);
 
 const FRIENDLY_MESSAGE_BY_KIND = {
   validation: "史馆筛选条件未通过校验，请调整后重试。",

@@ -35,18 +35,20 @@ def _memorial_payload(**overrides) -> dict:
     return payload
 
 
-def _decision_payload(**overrides) -> dict:
+def _reply_payload(**overrides) -> dict:
     payload = {
-        "type": "DECISION",
-        "title": "决策标题",
-        "content": "决策内容",
+        "type": "REPLY",
+        "title": "回奏标题",
+        "content": "回奏内容",
         "matter_type": "赈灾",
         "department": "军机处",
+        "source_kind": "DECREE",
+        "source_text": "请赈济灾民",
         "participating_departments": ["吏部", "户部"],
-        "decision_process": "军机处会审后丞相汇总",
-        "decision_conclusion": "批准所奏",
-        "decision_time": "2026-07-17T10:00:00+00:00",
-        "responsible_owner": "丞相",
+        "reply_process": "军机处会审后丞相汇总",
+        "reply_conclusion": "批准所奏",
+        "reply_time": "2026-07-17T10:00:00+00:00",
+        "respondent": "丞相",
     }
     payload.update(overrides)
     return payload
@@ -193,11 +195,11 @@ class TestRecallResultFields:
         assert match["lessons_learned"] == "按流程复核证据来源"
         assert match["pitfalls"] == "不要把宣传材料当作 LIVE 证据"
 
-    def test_decision_archive_uses_decision_conclusion_as_historical_conclusion(self):
-        decision = _create(_decision_payload(matter_type="赈灾", department="军机处"))
+    def test_reply_archive_uses_reply_conclusion_as_historical_conclusion(self):
+        reply = _create(_reply_payload(matter_type="赈灾", department="军机处"))
 
         response = client.post(RECALL_URL, json={"matter_type": "赈灾"})
-        match = next(m for m in response.json() if m["archive_id"] == decision["id"])
+        match = next(m for m in response.json() if m["archive_id"] == reply["id"])
         assert match["historical_conclusion"] == "批准所奏"
 
     def test_archive_without_review_status_has_null_review_status(self):

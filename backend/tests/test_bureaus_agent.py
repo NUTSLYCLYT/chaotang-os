@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections import Counter
 from dataclasses import FrozenInstanceError, fields
 
@@ -16,6 +17,7 @@ from app.agents.bureaus import (
     bureau_system_prompt,
     invoke_bureau_agent,
 )
+from app.agents.evidence_protocol import AgentEvidenceSession, bureau_node_id
 from app.agents.ministries import NO_IRREVERSIBLE_ACTION_CONSTRAINT
 
 EXPECTED_BUREAUS = {
@@ -251,3 +253,87 @@ def test_invalid_responses_fail_closed_with_sanitized_preserved_cause(response):
         invoke_bureau_agent("工部", "质量司", "旨意", "判断", lambda _messages: response)
     assert exc_info.value.__cause__ is not None
     assert "secret-output-marker" not in str(exc_info.value)
+
+
+def test_session_enabled_bureau_alone_receives_evidence_protocol_prompt():
+    class Coordinator:
+        def investigate(self, *_args, **_kwargs):
+            raise AssertionError("legacy-ready bureau must not investigate")
+
+    captured: list[list[dict[str, str]]] = []
+
+    def fake_model(messages: list[dict[str, str]]) -> str:
+        captured.append(messages)
+        return (
+            '{"status":"READY","result":{"opinion":"建议继续办理","factual_claims":[]},'
+            '"adopted_evidence_ids":[],"fact_basis":"NOT_REQUIRED"}'
+        )
+
+    session = AgentEvidenceSession(coordinator=Coordinator())
+    profile = BUREAU_PROFILES[0]
+
+    result = invoke_bureau_agent(
+        profile.department,
+        profile.bureau,
+        "decree",
+        "route",
+        fake_model,
+        evidence_session=session,
+    )
+
+    assert result == "建议继续办理"
+    assert len(captured) == 1
+    assert "NEEDS_DATA" in captured[0][0]["content"]
+    assert "READY" in captured[0][0]["content"]
+    assert "fact_basis" in captured[0][0]["content"]
+    assert bureau_node_id(profile.department, profile.bureau) in captured[0][0]["content"]
+    assert "required_facts" in captured[0][0]["content"]
+    assert session.snapshot().used is False
+
+
+def test_evidence_fallback_says_data_is_insufficient_without_factual_conclusion():
+    class UnavailableCoordinator:
+        def investigate(self, *_args, **_kwargs):
+            raise AssertionError("unexpected coordinator call")
+
+    class ExhaustedSession(AgentEvidenceSession):
+        def claim_investigation(self, _node_id):
+            return False
+
+    profile = BUREAU_PROFILES[0]
+    session = ExhaustedSession(coordinator=UnavailableCoordinator())
+    node_id = bureau_node_id(profile.department, profile.bureau)
+    response = {
+        "status": "NEEDS_DATA",
+        "data_gap": {
+            "requesting_agent": node_id,
+            "question": "需要最新公开价格",
+            "required_facts": [
+                {
+                    "key": "quote",
+                    "description": "最新价格",
+                    "category": "MARKET_QUOTE",
+                    "data_scope": "EXTERNAL_PUBLIC",
+                    "subject": "BYD",
+                    "jurisdiction": "CN",
+                    "expected_unit": "CNY",
+                    "expected_shape": "number",
+                }
+            ],
+            "decision_context": "价格影响结论",
+            "freshness": {"max_age_seconds": 300},
+            "existing_evidence_ids": [],
+        },
+    }
+
+    result = invoke_bureau_agent(
+        profile.department,
+        profile.bureau,
+        "decree",
+        "route",
+        lambda _messages: json.dumps(response),
+        evidence_session=session,
+    )
+
+    assert "数据不足" in result
+    assert "无法形成事实结论" in result

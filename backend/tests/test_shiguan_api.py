@@ -41,18 +41,20 @@ def _memorial_payload(**overrides) -> dict:
     return payload
 
 
-def _decision_payload(**overrides) -> dict:
+def _reply_payload(**overrides) -> dict:
     payload = {
-        "type": "DECISION",
-        "title": "决策标题",
-        "content": "决策内容",
+        "type": "REPLY",
+        "title": "回奏标题",
+        "content": "回奏内容",
         "matter_type": "赈灾",
         "department": "军机处",
+        "source_kind": "DECREE",
+        "source_text": "请赈济灾民",
         "participating_departments": ["吏部", "户部"],
-        "decision_process": "军机处会审后丞相汇总",
-        "decision_conclusion": "批准所奏",
-        "decision_time": "2026-07-17T10:00:00+00:00",
-        "responsible_owner": "丞相",
+        "reply_process": "军机处会审后丞相汇总",
+        "reply_conclusion": "批准所奏",
+        "reply_time": "2026-07-17T10:00:00+00:00",
+        "respondent": "丞相",
     }
     payload.update(overrides)
     return payload
@@ -69,12 +71,20 @@ class TestCreateArchive:
         assert body["created_at"]
         assert body["review_status"] is None
 
-    def test_create_decision_archive_returns_decision_fields(self):
-        response = client.post(ARCHIVES_URL, json=_decision_payload())
+    def test_create_reply_archive_returns_reply_fields(self):
+        response = client.post(ARCHIVES_URL, json=_reply_payload())
         assert response.status_code == 201
         body = response.json()
         assert body["participating_departments"] == ["吏部", "户部"]
-        assert body["decision_conclusion"] == "批准所奏"
+        assert body["reply_conclusion"] == "批准所奏"
+        assert body["source_kind"] == "DECREE"
+
+    def test_create_rejects_removed_archive_type(self):
+        response = client.post(
+            ARCHIVES_URL,
+            json={**_memorial_payload(), "type": "DECISION"},
+        )
+        assert response.status_code == 422
 
     def test_create_rejects_empty_title_with_422(self):
         response = client.post(ARCHIVES_URL, json=_memorial_payload(title="   "))
@@ -144,24 +154,20 @@ class TestListArchives:
     def test_filters_by_type_matter_type_and_department(self):
         client.post(ARCHIVES_URL, json=_memorial_payload(matter_type="赈灾", department="户部"))
         client.post(ARCHIVES_URL, json=_memorial_payload(matter_type="边防", department="兵部"))
-        memorial = client.post(
-            ARCHIVES_URL, json=_memorial_payload(matter_type="赈灾", department="户部")
-        ).json()
         client.post(
             ARCHIVES_URL,
-            json=_decision_payload(
+            json=_reply_payload(
                 matter_type="赈灾",
                 department="军机处",
-                related_archive_ids=[memorial["id"]],
             ),
         )
 
-        by_type = client.get(ARCHIVES_URL, params={"type": "DECISION"}).json()
+        by_type = client.get(ARCHIVES_URL, params={"type": "REPLY"}).json()
         assert len(by_type) == 1
-        assert by_type[0]["type"] == "DECISION"
+        assert by_type[0]["type"] == "REPLY"
 
         by_matter_type = client.get(ARCHIVES_URL, params={"matter_type": "赈灾"}).json()
-        assert len(by_matter_type) == 3
+        assert len(by_matter_type) == 2
 
         by_department = client.get(ARCHIVES_URL, params={"department": "兵部"}).json()
         assert len(by_department) == 1

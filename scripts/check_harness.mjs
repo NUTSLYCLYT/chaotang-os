@@ -34,6 +34,8 @@ const REQUIRED_FILES = [
   "docs/decisions/0014-layered-memorial-three-recommendations.md",
   "docs/decisions/0015-shiguan-archive-persistence.md",
   "docs/decisions/0016-codex-engineering-workflow-profile.md",
+  "docs/decisions/0017-shiguan-memorial-reply-contract.md",
+  "docs/decisions/0018-central-jinyiwei-evidence-service.md",
   "backend/config/providers.yaml",
   "backend/.env.template",
   "docs/failures/2026-07-15-shared-harness-stop-hook-false-green.md",

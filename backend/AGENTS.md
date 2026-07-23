@@ -4,7 +4,47 @@
 
 - `app/shiguan/models.py` 是档案、复盘状态和 `RecallMatch` 的契约事实源。
 - 丞相图每部门只召回一次；六部和军机处不得在已注入上下文时重查 SQLite。
-- 自动归档的 MEMORIAL + DECISION 必须使用同一事务；HTTP 成功契约不暴露归档结果。
+- 业务档案只允许 `MEMORIAL`（奏折）与 `REPLY`（回奏）；经验、教训、证据和复盘是属性。
+- 下旨只原子写入一条 `REPLY`，旨意原文进入 `source_text`，不得制造假 `MEMORIAL`；HTTP
+  成功契约不暴露归档结果。
+- `REPLY` 必须声明 `source_kind`。`DECREE` 来源不得关联档案；`MEMORIAL` 来源必须且只能
+  关联一条真实奏折，且来源快照与奏折正文一致。
+- v1 → v2 迁移只接受显式 `confirmed_pairs`；未确认、关系歧义或不支持的旧类型必须整体
+  回滚。当前运行库的两对记录已由用户于 2026-07-20 确认，执行迁移前必须备份数据库。
+- 完整契约与 ADR 0015 的保留/取代关系见
+  `docs/decisions/0017-shiguan-memorial-reply-contract.md`。
+
+## 锦衣卫证据服务
+
+- `app/jinyiwei/` 是独立证据域，默认数据库为 `data/jinyiwei.sqlite3`，不得与史馆
+  `data/shiguan.sqlite3` 共用路径；测试必须传入临时路径，不得读写运行库。
+- 调查来源严格按“史馆 → 管理员批准的只读 MCP → 登记公开 API → Wikimedia 公开页面”
+  执行；默认公开 API 只有 Wikidata entity search，页面发现只覆盖 `WIKIMEDIA_ONLY`，
+  不接受用户或模型提供的任意 URL。史馆已满足时效和覆盖要求时不得联网，后续来源只补未解决
+  事实槽位。
+- MCP 只从 `config/jinyiwei_mcp.yaml` 加载管理员登记项，固定 endpoint、传输、事实范围、
+  工具 schema、映射和审批指纹；发现结果漂移即失败关闭。只允许 `READ_ONLY` 查询工具，
+  配置和 Python 代码不得保存密钥、动态增加 URL 或加入 provider 条件分支。腾讯自选股候选
+  默认 disabled，只批准 `data_search`/`data_quote`，凭据由部署侧
+  `WESTOCK_MCP_CREDENTIAL` 注入共享专用服务账号；通达信/TDX 不接入。
+- MCP 管理员限流按单进程内 `(server_id, tool_name)` 隔离并在线程锁内原子预占，失败调用
+  同样计数；多进程不共享额度。具体工具调用结果的缓存 TTL 取服务配置与事实 freshness 的
+  最小值，键绑定审批版本、确定性映射和严格参数哈希且不得含凭据；过期不命中，不能替代每次
+  优先执行的史馆解析。Jinyiwei schema v4 只持久化逐调用的 server/tool、审批版本、耗时、
+  参数哈希、响应字节数/哈希、映射结果与稳定错误，不保存请求/响应正文或秘密。
+- 只有 `app/agents/bureaus/` 的司级意见节点可以发起调查并最多恢复一次。同一旨意最多三次
+  调查/恢复、30 秒外部工作和六次抽取；部级路由/综合、军机处、丞相路由/最终汇总只传递
+  会话并消费司级意见，从不调用锦衣卫。真实非缓存调查首次成功后，流转路径只在对应首个司
+  之后增加一次“锦衣卫（调查）”；缓存命中和失败不算实际调查。
+- 最终 `REPLY` 只保存恢复后司级响应显式选择的证据 ID 有序并集。史馆保存不可变引用快照，
+  锦衣卫保存未采用材料及 PENDING/CONFIRMED 采用状态；跨库确认失败不得撤销回奏，可按
+  `reply_id` 对账。
+- 公网开关 `JINYIWEI_EXTERNAL_NETWORK_ENABLED` 默认关闭，只接受 `1`、`true`、`yes`、
+  `on`。所有外部访问必须经过 `PinnedHTTPSClient` 的 HTTPS、公网 DNS 全量校验、固定 IP
+  连接、TLS 主机名/对端校验、逐跳重定向复核、敏感头剥离和超时/体积/MIME 上限。
+- 只读 API 只有 `GET /api/v1/jinyiwei/summary`、`GET /api/v1/jinyiwei/investigations`
+  和 `GET /api/v1/jinyiwei/investigations/{investigation_id}`；不得新增网络触发、任意 URL、
+  修改或删除入口。完整边界见 ADR 0018。
 
 作用域：`backend/`。已确定最小技术栈：Python + FastAPI + uvicorn，扁平 `app/` 包，
 pytest 测试，ruff 静态检查，pip + venv 管理依赖。选型理由、取舍和验证证据见
@@ -13,10 +53,10 @@ pytest 测试，ruff 静态检查，pip + venv 管理依赖。选型理由、取
 ## 边界
 
 - 这里只放后端运行/评测工程及其验证，不实现前端内部功能。
-- 当前保留 `GET /health` 业务无关入口，并新增唯一的本地业务接口
+- 当前保留 `GET /health` 业务无关入口，并提供本地下旨写入口
   `POST /api/v1/decrees/chancellor`，由 `app/api/decrees.py` 把旨意交给
   `app/agents/chancellor/` 的专用 LangGraph 丞相 Agent；该同步 MVP 仅支持
-  `127.0.0.1`，不具备鉴权、限流、持久化或公开部署能力（见 ADR 0010）。该端点已升级为
+  `127.0.0.1`，不具备鉴权、限流或公开部署能力（见 ADR 0010）。该端点已升级为
   完整的丞相分流 + 六部办理 + 军机处会审闭环（见 ADR 0012）：丞相判断旨意是单部门
   （`single`）还是多部门（`multi`）路由；单部门旨意由 `app/agents/ministries/`
   （六部固定名录、单部门办理调用）处理；多部门旨意由 `app/agents/junjichu/`（军机处，
@@ -37,16 +77,26 @@ pytest 测试，ruff 静态检查，pip + venv 管理依赖。选型理由、取
   生成非空 `final_verdict` 和恰好三项非空、去空白后互不重复的 `recommendations`；成功响应
   增量增加 `ministry_opinions[].bureau_opinions`、条件式 `council_verdict`（single 为
   `null`，multi 为非空字符串）和 `recommendations`。`processing_path` 按实际调用顺序记录
-  司、部、军机处与最终丞相，不把未执行的现实动作写成已完成。该链路不并发、不持久化，最坏
-  single 为 11 次、全六部 multi 为 54 次同步模型调用，可能超过现有前端 120 秒超时；完整
+  司、部、军机处与最终丞相，不把未执行的现实动作写成已完成。模型编排不并发且不使用
+  LangGraph checkpointer，最坏 single 为 11 次、全六部 multi 为 54 次基础同步模型调用；
+  司级缺数可按 ADR 0018 追加最多一次调查与恢复，整体可能超过现有前端 120 秒超时；完整
   决策及对 ADR 0013 局部兼容结论的覆盖见 ADR 0014。已引入最小、无外部服务依赖的
   LangGraph 运行时基础模块（`app/langgraph_runtime/`，决策见
   `docs/decisions/0007-langgraph-runtime-foundation.md`），仅提供一个可编译的
   确定性图工厂函数，不接入任何模型供应商、不做持久化/checkpointer、不新增任何
-  HTTP 业务接口。除上述丞相端点外，后端仍不承载其它业务 API、鉴权、数据库模型或任务
-  编排——这些超出当前范围，新增前先确认是否有对应产品任务。
+  HTTP 业务接口。后端另承载 ADR 0018 定义的锦衣卫独立证据数据库和三个只读 GET API；
+  除此之外仍不承载鉴权、通用数据库模型或任务编排，新增前先确认是否有对应产品任务。
 - 不引入 `app/` 之外的多包结构、alembic、cli.py、多环境 docker-compose 或 `src/`
   布局，除非有新的 ADR 明确变更。
+
+- 新增来源必须先通过接入审查才能加入 `build_default_public_api_registry()`：注册项必须声明发布者、
+  免费合法且无需订阅、付费 API、登录、私钥、付费墙或验证码的公开访问依据、实际地域/市场覆盖、
+  事实类别、时效语义、质量上限、许可证说明、再分发限制、固定 HTTPS origin、允许参数与确定性
+  解析器。未审查、字段不全、需凭据、任意 URL、非 HTTPS、类别为空或未通过固定解析器校验时必须
+  注册失败并保持不可用；不得用通用网页搜索规避审查，单一来源也不得声称未经核实的全球覆盖。
+- 来源接入、路由、解析及网络安全测试必须离线，使用临时 SQLite、假客户端、fixture、假 DNS/套接字；
+  不设置 `JINYIWEI_EXTERNAL_NETWORK_ENABLED`，不使用密钥、真实公网或真实下旨，也不得把 fixture
+  当作真实外网证据。离线验证失败不得以公网冒烟替代。
 
 ## 环境要求
 
@@ -101,6 +151,47 @@ python -m venv .venv
 启动后可用 `curl http://127.0.0.1:8000/health`（或等效工具）确认返回
 `200 OK`、`application/json`、`{"status": "ok", "service": "chaotang-os-backend",
 "version": "<pyproject.toml 中的 version>"}`。本次范围不包含 eval 命令。
+
+## 锦衣卫离线验证与公网冒烟
+
+常规 lint/test 必须保持离线，测试通过依赖注入使用临时 SQLite、假 DNS/套接字和本地
+fixture，不应设置 `JINYIWEI_EXTERNAL_NETWORK_ENABLED`。运行服务时未设置该变量即为
+失败关闭；锦衣卫本地运行数据写入 `backend/data/jinyiwei.sqlite3`，该文件不得提交。
+
+只有在任务明确授权无副作用公网验收且离线安全测试已通过后，才允许从 `backend/` 运行以下
+Windows PowerShell 冒烟。它只经安全传输读取登记来源使用的 Wikidata 无登录 JSON API，
+只输出状态、最终 URL 与响应字节数，不触发下旨、模型或数据库写入，并在结束后清除开关：
+
+```powershell
+$env:JINYIWEI_EXTERNAL_NETWORK_ENABLED = "true"
+try {
+  .venv\Scripts\python.exe -c 'from app.jinyiwei.network import PinnedHTTPSClient; r=PinnedHTTPSClient().fetch("https://www.wikidata.org/w/api.php?action=wbsearchentities&search=Beijing&language=en&format=json&limit=1", max_bytes=262144); print({"status": r.status, "final_url": r.final_url, "bytes": len(r.body)})'
+} finally {
+  Remove-Item Env:JINYIWEI_EXTERNAL_NETWORK_ENABLED -ErrorAction SilentlyContinue
+}
+```
+
+不得把 stub 或 synthetic fixture 结果记作真实公网冒烟；日志不得包含响应正文、请求头、密钥
+或业务提示词。公开
+页面验收同样只能使用 Wikimedia 提供器发现的 URL，并必须经过 robots 与相同的安全传输。
+
+MCP 真实 smoke 还必须由管理员把登记的 server/tool 显式设为 enabled，并配置合法共享专用
+服务账号；没有单独授权时不得运行。只读 CLI 仅接受已登记 server ID 和
+`data_search`/`data_quote`，并只输出服务、工具、证券代码、行情时间、状态和响应字节数：
+
+```powershell
+$env:JINYIWEI_EXTERNAL_NETWORK_ENABLED = "true"
+try {
+  .venv\Scripts\python.exe -m app.jinyiwei.mcp.smoke --server westock --tool data_quote --query 比亚迪
+} finally {
+  Remove-Item Env:JINYIWEI_EXTERNAL_NETWORK_ENABLED -ErrorAction SilentlyContinue
+  Remove-Item Env:WESTOCK_MCP_CREDENTIAL -ErrorAction SilentlyContinue
+}
+```
+
+该 CLI 不得输出价格、响应正文、token、请求头、账号信息或完整 MCP 响应，也不得调用
+portfolio、alert、paper trade 或任何写工具。默认仓库配置保持 disabled，因此未完成配置启用、
+网络显式开关和凭据三道门时必须拒绝。
 
 ## LangGraph 运行时基础
 

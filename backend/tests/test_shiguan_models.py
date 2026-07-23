@@ -1,4 +1,4 @@
-"""Unit tests for ``app.shiguan.models`` -- the five-archive-type contract.
+"""Unit tests for ``app.shiguan.models`` -- the two-document-type contract.
 
 These tests exercise the Pydantic layer directly (``pydantic.ValidationError``
 is the expected failure mode here), independent of storage/sqlite.
@@ -15,13 +15,15 @@ from pydantic import ValidationError
 from app.shiguan.models import Archive, ArchiveCreate, Evidence, ReviewStatus
 
 
-def _minimal_decision_fields() -> dict:
+def _minimal_reply_fields() -> dict:
     return {
+        "source_kind": "DECREE",
+        "source_text": "请赈济灾民",
         "participating_departments": ["吏部", "户部"],
-        "decision_process": "军机处会审后丞相汇总",
-        "decision_conclusion": "批准所奏",
-        "decision_time": "2026-07-17T10:00:00+00:00",
-        "responsible_owner": "丞相",
+        "reply_process": "军机处会审后丞相汇总",
+        "reply_conclusion": "批准所奏",
+        "reply_time": "2026-07-17T10:00:00+00:00",
+        "respondent": "丞相",
     }
 
 
@@ -110,7 +112,7 @@ class TestArchiveCreateBaseFields:
 
     def test_optional_lessons_and_pitfalls_normalized(self):
         archive = ArchiveCreate(
-            type="KNOWLEDGE",
+            type="MEMORIAL",
             title="t",
             content="c",
             matter_type="m",
@@ -122,36 +124,38 @@ class TestArchiveCreateBaseFields:
         assert archive.pitfalls is None
 
 
-class TestDecisionOnlyFields:
-    def test_decision_with_all_required_fields_succeeds(self):
+class TestReplyOnlyFields:
+    def test_reply_with_all_required_fields_succeeds(self):
         archive = ArchiveCreate(
-            type="DECISION",
-            title="决策",
+            type="REPLY",
+            title="回奏",
             content="内容",
             matter_type="赈灾",
             department="军机处",
-            **_minimal_decision_fields(),
+            **_minimal_reply_fields(),
         )
         assert archive.participating_departments == ["吏部", "户部"]
-        assert archive.decision_process == "军机处会审后丞相汇总"
-        assert archive.responsible_owner == "丞相"
+        assert archive.reply_process == "军机处会审后丞相汇总"
+        assert archive.respondent == "丞相"
 
     @pytest.mark.parametrize(
         "missing_field",
         [
             "participating_departments",
-            "decision_process",
-            "decision_conclusion",
-            "decision_time",
-            "responsible_owner",
+            "source_kind",
+            "source_text",
+            "reply_process",
+            "reply_conclusion",
+            "reply_time",
+            "respondent",
         ],
     )
-    def test_decision_missing_required_field_rejected(self, missing_field):
-        fields = _minimal_decision_fields()
+    def test_reply_missing_required_field_rejected(self, missing_field):
+        fields = _minimal_reply_fields()
         fields[missing_field] = None
         with pytest.raises(ValidationError):
             ArchiveCreate(
-                type="DECISION",
+                type="REPLY",
                 title="决策",
                 content="内容",
                 matter_type="赈灾",
@@ -160,11 +164,11 @@ class TestDecisionOnlyFields:
             )
 
     def test_decision_empty_participating_departments_rejected(self):
-        fields = _minimal_decision_fields()
+        fields = _minimal_reply_fields()
         fields["participating_departments"] = []
         with pytest.raises(ValidationError):
             ArchiveCreate(
-                type="DECISION",
+                type="REPLY",
                 title="决策",
                 content="内容",
                 matter_type="赈灾",
@@ -173,11 +177,11 @@ class TestDecisionOnlyFields:
             )
 
     def test_decision_duplicate_participating_departments_rejected(self):
-        fields = _minimal_decision_fields()
+        fields = _minimal_reply_fields()
         fields["participating_departments"] = ["吏部", "吏部"]
         with pytest.raises(ValidationError):
             ArchiveCreate(
-                type="DECISION",
+                type="REPLY",
                 title="决策",
                 content="内容",
                 matter_type="赈灾",
@@ -186,11 +190,11 @@ class TestDecisionOnlyFields:
             )
 
     def test_decision_blank_participating_department_rejected(self):
-        fields = _minimal_decision_fields()
+        fields = _minimal_reply_fields()
         fields["participating_departments"] = ["吏部", "   "]
         with pytest.raises(ValidationError):
             ArchiveCreate(
-                type="DECISION",
+                type="REPLY",
                 title="决策",
                 content="内容",
                 matter_type="赈灾",
@@ -198,12 +202,12 @@ class TestDecisionOnlyFields:
                 **fields,
             )
 
-    def test_decision_time_must_be_parseable(self):
-        fields = _minimal_decision_fields()
-        fields["decision_time"] = "not-a-real-timestamp"
+    def test_reply_time_must_be_parseable(self):
+        fields = _minimal_reply_fields()
+        fields["reply_time"] = "not-a-real-timestamp"
         with pytest.raises(ValidationError):
             ArchiveCreate(
-                type="DECISION",
+                type="REPLY",
                 title="决策",
                 content="内容",
                 matter_type="赈灾",
@@ -212,10 +216,10 @@ class TestDecisionOnlyFields:
             )
 
     def test_participating_departments_stripped(self):
-        fields = _minimal_decision_fields()
+        fields = _minimal_reply_fields()
         fields["participating_departments"] = ["  吏部  ", " 户部"]
         archive = ArchiveCreate(
-            type="DECISION",
+            type="REPLY",
             title="决策",
             content="内容",
             matter_type="赈灾",
@@ -225,32 +229,55 @@ class TestDecisionOnlyFields:
         assert archive.participating_departments == ["吏部", "户部"]
 
     @pytest.mark.parametrize(
-        "archive_type", ["MEMORIAL", "TASK_RESULT", "KNOWLEDGE", "PUBLICITY"]
+        "field_name",
+        [
+            "source_kind",
+            "source_text",
+            "participating_departments",
+            "reply_process",
+            "reply_conclusion",
+            "reply_time",
+            "respondent",
+        ],
     )
-    def test_non_decision_types_reject_decision_only_fields(self, archive_type):
+    def test_memorial_rejects_reply_only_fields(self, field_name):
+        values = {
+            "source_kind": "DECREE",
+            "source_text": "旨意",
+            "participating_departments": ["户部"],
+            "reply_process": "办理",
+            "reply_conclusion": "准奏",
+            "reply_time": "2026-07-17T10:00:00+00:00",
+            "respondent": "丞相",
+        }
         with pytest.raises(ValidationError):
             ArchiveCreate(
-                type=archive_type,
+                type="MEMORIAL",
                 title="t",
                 content="c",
                 matter_type="m",
                 department="d",
-                responsible_owner="丞相",
+                **{field_name: values[field_name]},
             )
 
-    @pytest.mark.parametrize(
-        "archive_type", ["MEMORIAL", "TASK_RESULT", "KNOWLEDGE", "PUBLICITY"]
-    )
-    def test_non_decision_types_without_decision_fields_succeed(self, archive_type):
+    def test_memorial_without_reply_fields_succeeds(self):
         archive = ArchiveCreate(
-            type=archive_type,
+            type="MEMORIAL",
             title="t",
             content="c",
             matter_type="m",
             department="d",
         )
         assert archive.participating_departments is None
-        assert archive.decision_time is None
+        assert archive.reply_time is None
+
+    @pytest.mark.parametrize("source_kind", ["DECREE", "MEMORIAL"])
+    def test_reply_accepts_supported_source_kinds(self, source_kind):
+        archive = ArchiveCreate(
+            type="REPLY", title="回奏", content="内容", matter_type="事项", department="丞相府",
+            **_minimal_reply_fields() | {"source_kind": source_kind},
+        )
+        assert archive.source_kind == source_kind
 
 
 class TestEvidence:
@@ -278,7 +305,7 @@ class TestEvidence:
 
     def test_evidence_list_on_archive_persists_structure(self):
         archive = ArchiveCreate(
-            type="PUBLICITY",
+            type="MEMORIAL",
             title="t",
             content="c",
             matter_type="m",

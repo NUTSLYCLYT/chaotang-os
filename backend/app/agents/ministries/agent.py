@@ -29,6 +29,7 @@ from app.agents.bureaus import (
     bureau_profiles_for,
     invoke_bureau_agent,
 )
+from app.agents.evidence_protocol import AgentEvidenceSession
 from app.agents.ministries.prompts import (
     ministry_synthesis_system_prompt,
     ministry_system_prompt,
@@ -87,6 +88,7 @@ def invoke_ministry_agent(
     chat_model: DeepSeekChatModel,
     *,
     recall_context: RecallContext | None = None,
+    evidence_session: AgentEvidenceSession | None = None,
 ) -> MinistryOpinion:
     """Consult selected bureaus serially, then produce a ministry synthesis.
 
@@ -177,13 +179,23 @@ def invoke_ministry_agent(
     bureau_opinions: list[BureauOpinion] = []
     for bureau in selected_bureaus:
         try:
-            opinion = invoke_bureau_agent(
-                department,
-                bureau,
-                decree_text,
-                route_rationale.strip(),
-                chat_model,
-            )
+            if evidence_session is None:
+                opinion = invoke_bureau_agent(
+                    department,
+                    bureau,
+                    decree_text,
+                    route_rationale.strip(),
+                    chat_model,
+                )
+            else:
+                opinion = invoke_bureau_agent(
+                    department,
+                    bureau,
+                    decree_text,
+                    route_rationale.strip(),
+                    chat_model,
+                    evidence_session=evidence_session,
+                )
         except BureauAgentInvocationError as exc:
             raise MinistryAgentInvocationError(
                 f"{department} agent failed while consulting a selected bureau."

@@ -532,3 +532,46 @@ def test_invoke_ministry_agent_does_not_leak_secret_from_underlying_exception():
 
     assert leaking_marker in str(exc_info.value.__cause__)
     assert leaking_marker not in str(exc_info.value)
+
+
+def test_ministry_only_passes_evidence_session_to_selected_bureau(monkeypatch):
+    session = object()
+    bureau_sessions: list[object] = []
+    upper_messages: list[list[dict[str, str]]] = []
+
+    def fake_bureau(
+        _department,
+        _bureau,
+        _decree,
+        _rationale,
+        _model,
+        *,
+        evidence_session=None,
+    ):
+        bureau_sessions.append(evidence_session)
+        return "bureau opinion"
+
+    monkeypatch.setattr("app.agents.ministries.agent.invoke_bureau_agent", fake_bureau)
+    profile = BUREAU_PROFILES[0]
+    model = _sequenced_chat_model(
+        [
+            _route_response(profile.bureau),
+            '{"opinion":"ministry synthesis"}',
+        ],
+        upper_messages,
+    )
+
+    result = invoke_ministry_agent(
+        profile.department,
+        "decree",
+        "chancellor route",
+        model,
+        evidence_session=session,
+    )
+
+    assert result["bureau_opinions"] == [
+        {"bureau": profile.bureau, "opinion": "bureau opinion"}
+    ]
+    assert bureau_sessions == [session]
+    assert len(upper_messages) == 2
+    assert all("NEEDS_DATA" not in message[0]["content"] for message in upper_messages)
