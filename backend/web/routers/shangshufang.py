@@ -552,10 +552,15 @@ def apply_task_decision(
             review.review_status = "archived"
             review.updated_at = now
     elif action in {"request_evidence", "followup"}:
+        from src.db.models import FinalMemorial
+
         task.status = "awaiting_evidence"
         if review is not None:
             review.review_status = "awaiting_evidence"
             review.updated_at = now
+        formal = db.query(FinalMemorial).filter_by(task_id=task.id).first()
+        if formal is not None and formal.status == "ready_for_decision":
+            formal.status = "awaiting_evidence"
     elif action == "recheck":
         task.status = "reviewing"
         if review is not None:

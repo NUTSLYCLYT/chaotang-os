@@ -346,6 +346,50 @@ def test_reject_supersedes_formal_memorial_and_blocks_later_adopt(isolated_sessi
     db.close()
 
 
+def test_request_evidence_invalidates_old_memorial_before_later_adopt(
+    isolated_session_local,
+):
+    """补证令必须先关闭旧奏折的裁决资格，再等待新 generation。
+
+    这是 W05 evidence-bound rework 的第一条公共 API seam：用户对当前正式奏折
+    要求补证后，旧内容不能仍保持可准奏状态。后续新证据、新 generation 和新
+    FinalMemorial 尚未形成之前，再次 adopt 必须 fail closed。
+    """
+    from src.formal_memorial import formalize_memorial
+
+    db = isolated_session_local()
+    task_id = "task_request_evidence_then_adopt"
+    review_id = _seed_candidate(db, task_id=task_id)
+    formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id, review_id=review_id, source_label="LIVE_SWARM"
+        ),
+    )
+    db.commit()
+    db.close()
+
+    client = TestClient(app)
+    evidence_requested = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "request_evidence",
+            "reason": "补充第 4 页付款条件原文",
+            "human_confirmed": True,
+        },
+    )
+    assert evidence_requested.json()["success"] is True
+
+    blocked_adopt = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={"action": "adopt", "reason": "沿用旧稿", "human_confirmed": True},
+    )
+    assert blocked_adopt.json()["success"] is False
+    assert "正式奏折" in blocked_adopt.json()["error"]
+
+
 @pytest.mark.parametrize(
     ("swarm_source", "expected_status", "expected_event", "formal_count"),
     [
