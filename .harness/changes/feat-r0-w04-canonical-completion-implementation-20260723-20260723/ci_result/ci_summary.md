@@ -4,8 +4,8 @@
 
 | 命令 | 退出码 | 结果 | 证据覆盖范围 | 证据位置 / 时间 |
 | --- | ---: | --- | --- | --- |
-| `python3 -m pytest tests/test_menxia_veto.py tests/test_final_memorial_gate.py tests/test_decree_execution_status.py tests/test_execution_failed_status.py tests/test_task_cancellation.py tests/test_identity_fields_thread_through_chain.py tests/test_canonical_completion_no_parallel_table.py tests/test_decree_stage_never_fakes_completion.py tests/test_migration_018_canonical_completion_identity_fields.py -v` | 0 | 65 passed, 2 skipped | 6 个 REQ 全量 RED/正例 | 2026-07-23 |
-| `python3 -m pytest tests/ -q --ignore=tests/test_migration_018_canonical_completion_identity_fields.py` | 0 | 2964 passed, 38 skipped | 全量回归（含黄金测试重写、冻结基线同步） | 同上 |
+| `python3 -m pytest tests/test_menxia_veto.py tests/test_final_memorial_gate.py tests/test_decree_execution_status.py tests/test_execution_failed_status.py tests/test_task_cancellation.py tests/test_identity_fields_thread_through_chain.py tests/test_canonical_completion_no_parallel_table.py tests/test_decree_stage_never_fakes_completion.py tests/test_migration_018_canonical_completion_identity_fields.py -v` | 0 | 67 passed, 2 skipped（含独立审查后补的 2 项回归） | 6 个 REQ 全量 RED/正例 | 2026-07-23 |
+| `python3 -m pytest tests/ -q --ignore=tests/test_migration_018_canonical_completion_identity_fields.py` | 0 | 2965 passed, 38 skipped | 全量回归（含黄金测试重写、冻结基线同步） | 同上 |
 | `python3 scripts/harness_doctor.py` | 0 | 0 errors / 0 warnings | backend harness | 同上 |
 | `node scripts/harness-doctor.mjs` | 0 | 0 errors / 0 warnings | 根 harness | 同上 |
 
@@ -19,6 +19,15 @@
 的 OpenAPI action_enum）；发现 1 个真实但与本次改动无关的预先存在问题（`make_id` 秒级精度
 无 nonce，同一秒内两次相同 action 会撞 `emperor_decisions.id`/`court_loop_runs.id` 主键）——
 已记录、未顺手修，测试改为在函数层面直接验证幂等属性以绕开这条无关的既有故障路径。
+
+## 独立审查发现与修复
+
+独立（非实现者）code-reviewer agent 审查后返回 GO（0 HIGH + 2 MEDIUM），修复后追加 2 项回归：
+
+| 严重度 | 问题 | 修复 | 回归测试 |
+| --- | --- | --- | --- |
+| MEDIUM | cancel 围栏词表（`shangshufang.py`）与 execution_failed 推进词表（`outbox_worker.py`）各写各的且已不同步，前者漏 `draft_cancelled` | 收口成单一 `TASK_TERMINAL_STATUSES` 公共常量，两处统一 import | `test_cancel_rejected_on_already_draft_cancelled_task` |
+| MEDIUM | `record_task_decision_event` 独立硬编码 `stage="completed"`，跟 `_STAGE_MAP` 已改用的 `"delivered"` 不一致 | 改为 `stage="delivered" if task.status == "archived" else task.status` | `test_status_shows_delivered_only_after_final_memorial_gate` 追加对 `decision.adopted` 事件 `.stage` 的断言 |
 
 ## 未验证项
 
@@ -49,12 +58,12 @@
 
 | DoD | 证据 | 状态 |
 | --- | --- | --- |
-| 6 个 REQ 各自 RED case 有测试覆盖 | 65 passed | 已满足 |
+| 6 个 REQ 各自 RED case 有测试覆盖 | 67 passed | 已满足 |
 | backend/root doctor 0 错误 | 命令表 | 已满足 |
-| 既有测试套件零回归（含必要的黄金断言重写） | 2964 passed | 已满足 |
-| 独立审查 + hosted PR | 无 | 未满足，留待后续 |
+| 既有测试套件零回归（含必要的黄金断言重写） | 2965 passed | 已满足 |
+| 独立审查 + hosted PR | `claude_code_review/exact-h-final.md`，GO | 已满足审查，PR/merge 留待后续 |
 
 ## 声明状态
 
-- `VERIFIED_COMPLETE`（本地实现+验证范围内）；独立审查与 hosted PR/merge 是明确的下一步，
-  不在本次范围。
+- `VERIFIED_COMPLETE`（本地实现+验证+独立审查发现已修复，范围内）；hosted PR/merge 是明确的
+  下一步，不在本次范围。
