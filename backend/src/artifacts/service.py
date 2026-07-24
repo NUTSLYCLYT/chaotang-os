@@ -25,6 +25,15 @@ def persist_manifest(
 
     validated_manifest = ArtifactManifestV1.model_validate(manifest_json)
     manifest_json = validated_manifest.model_dump(mode="json")
+    if (
+        validated_manifest.task_id != task_id
+        or validated_manifest.final_memorial_id != final_memorial_id
+        or validated_manifest.final_memorial_version != final_memorial_version
+        or validated_manifest.delivery_formula_version != delivery_formula_version
+    ):
+        raise ValueError("manifest lineage identity does not match persistence arguments")
+    if content_hash is None or not __import__("re").fullmatch(r"[0-9a-f]{64}", content_hash):
+        raise ValueError("manifest content_hash must be a SHA-256 digest")
     existing = (
         db.query(ArtifactManifest)
         .filter_by(
@@ -70,7 +79,7 @@ def persist_manifest(
         )
         if winner is None:
             raise
-        if winner.content_hash != content_hash or winner.manifest_json != json.dumps(manifest_json or {}, sort_keys=True):
+        if winner.content_hash != content_hash or winner.manifest_json != json.dumps(manifest_json, sort_keys=True):
             raise ValueError("artifact manifest lineage hash cannot change")
         return winner
     return row
@@ -84,4 +93,7 @@ def get_manifest_for_tenant(db, *, manifest_id: str, tenant_id: int):
         raise LookupError("manifest not found")
     if row.tenant_id != tenant_id:
         raise PermissionError("manifest tenant mismatch")
-    return ArtifactManifestV1.model_validate_json(row.manifest_json)
+    manifest = ArtifactManifestV1.model_validate_json(row.manifest_json)
+    if manifest.task_id != row.task_id or manifest.final_memorial_id != row.final_memorial_id or manifest.final_memorial_version != row.final_memorial_version or manifest.delivery_formula_version != row.delivery_formula_version:
+        raise ValueError("persisted manifest lineage mismatch")
+    return manifest

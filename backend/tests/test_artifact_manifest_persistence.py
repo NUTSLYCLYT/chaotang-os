@@ -22,7 +22,7 @@ def test_manifest_persistence_is_idempotent_for_memorial_lineage(isolated_sessio
         "artifacts": [{"artifact_id": "a1", "kind": "JSON", "mime_type": "application/json", "byte_size": 1, "content_hash": "a" * 64, "lineage_hash": "b" * 64, "status": "READY"}],
         "overall_status": "READY",
     }
-    payload = {"task_id": "task-manifest-1", "final_memorial_id": "memorial-1", "final_memorial_version": 2, "delivery_formula_version": "w06-v1", "manifest_json": manifest, "overall_status": "READY"}
+    payload = {"tenant_id": 1, "task_id": "task-manifest-1", "final_memorial_id": "memorial-1", "final_memorial_version": 2, "delivery_formula_version": "w06-v1", "content_hash": "c"*64, "manifest_json": manifest, "overall_status": "READY"}
     first = persist_manifest(db, **payload)
     second = persist_manifest(db, **payload)
     assert first.id == second.id
@@ -90,8 +90,8 @@ def test_unique_conflict_branch_reloads_existing_winner() -> None:
         def flush(self): raise IntegrityError("insert", {}, Exception("unique"))
         def rollback(self): pass
         def query(self, _model): return Query()
-    winner = type("Winner", (), {"content_hash": None, "manifest_json": __import__("json").dumps(manifest, sort_keys=True), "task_id": "task-race"})()
-    result = persist_manifest(FakeDB(), task_id="task-race", final_memorial_id="memorial-race", final_memorial_version=1, delivery_formula_version="w06-v1", manifest_json=manifest, overall_status="READY")
+    winner = type("Winner", (), {"content_hash": "c"*64, "manifest_json": __import__("json").dumps(manifest, sort_keys=True), "task_id": "task-race"})()
+    result = persist_manifest(FakeDB(), task_id="task-race", final_memorial_id="memorial-race", final_memorial_version=1, delivery_formula_version="w06-v1", content_hash="c"*64, manifest_json=manifest, overall_status="READY")
     assert result is winner
 
 
@@ -113,7 +113,7 @@ def test_two_independent_sessions_replay_same_manifest(tmp_path) -> None:
     def write_once():
         db = factory()
         try:
-            row = persist_manifest(db, task_id="task-two-session", final_memorial_id="memorial-two-session", final_memorial_version=1, delivery_formula_version="w06-v1", manifest_json=manifest, overall_status="READY")
+            row = persist_manifest(db, task_id="task-two-session", final_memorial_id="memorial-two-session", final_memorial_version=1, delivery_formula_version="w06-v1", content_hash="c"*64, manifest_json=manifest, overall_status="READY")
             db.commit()
             return row.id
         finally:
