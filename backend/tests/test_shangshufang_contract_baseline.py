@@ -71,7 +71,11 @@ def test_baseline_records_current_source_and_response_contract_gaps():
     source_contract = _baseline()["source_contract"]
 
     assert source_contract["engine_tier"]["status"] == "missing_from_formal_api"
-    assert len(source_contract["known_gaps"]) == 6
+    assert len(source_contract["known_gaps"]) == 7
+    assert any(
+        "frontend decision callsites omit the exact FinalMemorial content hash" in gap
+        for gap in source_contract["known_gaps"]
+    )
     assert {
         "DEMO",
         "FALLBACK",

@@ -1,6 +1,7 @@
 {
   "schema_version": "shangshufang.contract-baseline.v1",
   "captured_from_commit": "aa600fe",
+  "amended_for": "R0-W05 Slice 4L additive exact-hash contract",
   "authority": "backend FastAPI OpenAPI plus deterministic API behavior tests",
   "endpoints": [
     {
@@ -32,7 +33,7 @@
       "method": "post",
       "request_schema": "DecisionRequest",
       "required": ["action"],
-      "properties": ["action", "followup_question", "human_confirmation_note", "human_confirmed", "reason"],
+      "properties": ["action", "expected_final_memorial_content_hash", "followup_question", "human_confirmation_note", "human_confirmed", "reason"],
       "action_enum": ["adopt", "approve", "archive", "cancel", "followup", "recheck", "reject", "request_evidence"],
       "typed_response": false
     }
@@ -52,7 +53,8 @@
       "formal frontend and chancellor contracts omit source labels used by the swarm runtime/design standard",
       "legacy LIVE_ENGINE couples engine identity into sourceLabel and must split during the S4 contract migration",
       "the four formal success responses have no Pydantic response_model",
-      "unknown task and runtime failures use a success-shaped HTTP 200 envelope"
+      "non-W05 unknown task and runtime failures still use a success-shaped HTTP 200 envelope",
+      "current frontend decision callsites omit the exact FinalMemorial content hash; backend W05 is intentionally fail-closed until a separately approved frontend packet supplies it"
     ],
     "wire_aliases": {
       "cluster": "legacy draft route alias; target RouteDecisionV2 mode is council",

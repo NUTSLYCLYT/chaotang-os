@@ -20,10 +20,13 @@ def _config(path: Path, monkeypatch):
     return alembic_config.Config(str(_ALEMBIC_INI))
 
 
-def test_fresh_chain_creates_identity_columns_at_head(tmp_path: Path, monkeypatch) -> None:
+def test_fresh_chain_creates_identity_columns_at_revision_018(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
     path = tmp_path / "fresh.db"
     cfg = _config(path, monkeypatch)
-    alembic_command.upgrade(cfg, "head")
+    alembic_command.upgrade(cfg, "018_canonical_completion_identity_fields")
     conn = sqlite3.connect(path)
     try:
         assert (
@@ -41,7 +44,7 @@ def test_fresh_chain_creates_identity_columns_at_head(tmp_path: Path, monkeypatc
 def test_downgrade_drops_identity_columns(tmp_path: Path, monkeypatch) -> None:
     path = tmp_path / "downgrade.db"
     cfg = _config(path, monkeypatch)
-    alembic_command.upgrade(cfg, "head")
+    alembic_command.upgrade(cfg, "018_canonical_completion_identity_fields")
     alembic_command.downgrade(cfg, "017_secure_ingest_tables")
     conn = sqlite3.connect(path)
     try:

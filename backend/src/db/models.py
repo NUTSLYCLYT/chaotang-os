@@ -279,6 +279,9 @@ class DecisionTask(Base):
     recommended_departments_json: Mapped[str] = mapped_column(
         sa.Text, nullable=False, default="[]"
     )
+    # R0-W05：由已有 ContractIntakeV1 明确输入并在 canonical task 上冻结。
+    # 不能从自然语言或模型输出猜测；旧任务保持 NULL 并 fail closed。
+    contract_scope_json: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     draft_edict_json: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
     updated_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
@@ -366,8 +369,8 @@ class FinalMemorial(Base):
 
     CourtReview.memorial_json remains the mutable candidate assembled from swarm
     reports.  A row enters this table only after both the deterministic quality gate
-    and the source-provenance gate pass.  task_id uniqueness prevents parallel swarm
-    paths from each publishing their own "official" answer.
+    and the source-provenance gate pass.  The (task_id, version) lineage is append-only,
+    while a partial unique index permits exactly one current version per task.
     """
 
     __tablename__ = "final_memorials"
@@ -384,10 +387,26 @@ class FinalMemorial(Base):
     source_label: Mapped[str] = mapped_column(sa.Text, nullable=False)
     memorial_json: Mapped[str] = mapped_column(sa.Text, nullable=False)
     content_hash: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    version: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
+    supersedes_id: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    is_current: Mapped[bool] = mapped_column(
+        sa.Boolean, nullable=False, default=True
+    )
     created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
 
     __table_args__ = (
-        sa.UniqueConstraint("task_id", name="uq_final_memorials_task_id"),
+        sa.UniqueConstraint(
+            "task_id",
+            "version",
+            name="uq_final_memorials_task_version",
+        ),
+        sa.Index(
+            "uq_final_memorials_current_task",
+            "task_id",
+            unique=True,
+            sqlite_where=sa.text("is_current = 1"),
+            postgresql_where=sa.text("is_current = true"),
+        ),
         sa.Index("ix_final_memorials_review", "review_id"),
         sa.Index("ix_final_memorials_swarm_run", "swarm_run_id"),
         sa.Index("ix_final_memorials_status_created", "status", "created_at"),
@@ -431,6 +450,13 @@ class ShiguanArchive(Base):
     raw_question: Mapped[str] = mapped_column(sa.Text, nullable=False)
     refined_edict: Mapped[str] = mapped_column(sa.Text, nullable=False)
     final_memorial_json: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    final_memorial_id: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    final_memorial_version: Mapped[int | None] = mapped_column(
+        sa.Integer, nullable=True
+    )
+    final_memorial_content_hash: Mapped[str | None] = mapped_column(
+        sa.Text, nullable=True
+    )
     emperor_decision_json: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     evidence_chain_json: Mapped[str] = mapped_column(
         sa.Text, nullable=False, default="[]"
@@ -675,6 +701,8 @@ class OutboxEvent(Base):
     task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     decision_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     event_type: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    generation: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     status: Mapped[str] = mapped_column(sa.Text, nullable=False, default="pending")
     attempts: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
     max_attempts: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=3)
@@ -686,6 +714,12 @@ class OutboxEvent(Base):
     __table_args__ = (
         sa.Index("ix_outbox_events_status_created", "status", "created_at"),
         sa.Index("ix_outbox_events_task", "task_id"),
+        sa.UniqueConstraint(
+            "task_id", "generation", name="uq_outbox_events_task_generation"
+        ),
+        sa.UniqueConstraint(
+            "task_id", "idempotency_key", name="uq_outbox_events_task_idempotency"
+        ),
     )
 
 

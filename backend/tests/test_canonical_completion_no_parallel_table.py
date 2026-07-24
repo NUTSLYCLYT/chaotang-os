@@ -28,13 +28,19 @@ def test_no_parallel_completion_authority_table_class_exists() -> None:
     assert offenders == [], f"发现疑似第二完成事实源表: {offenders}"
 
 
-def test_final_memorial_remains_the_sole_task_unique_completion_table() -> None:
+def test_final_memorial_remains_the_sole_versioned_completion_table() -> None:
     from src.db.models import FinalMemorial
 
-    unique_task_id_constraints = [
+    version_constraints = [
         constraint
         for constraint in FinalMemorial.__table__.constraints
         if constraint.__class__.__name__ == "UniqueConstraint"
-        and {col.name for col in constraint.columns} == {"task_id"}
+        and {col.name for col in constraint.columns} == {"task_id", "version"}
     ]
-    assert len(unique_task_id_constraints) == 1
+    current_indexes = [
+        index
+        for index in FinalMemorial.__table__.indexes
+        if index.name == "uq_final_memorials_current_task" and index.unique
+    ]
+    assert len(version_constraints) == 1
+    assert len(current_indexes) == 1

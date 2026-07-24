@@ -32,6 +32,15 @@ def test_frozen_decree_event_vocabulary_matches_production_writers():
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
+                function_name = (
+                    node.func.id
+                    if isinstance(node.func, ast.Name)
+                    else node.func.attr
+                    if isinstance(node.func, ast.Attribute)
+                    else None
+                )
+                if function_name == "build_audit_event":
+                    continue
                 for keyword in node.keywords:
                     if keyword.arg != "event_type":
                         continue
@@ -67,6 +76,7 @@ def test_frozen_decree_event_vocabulary_matches_production_writers():
         "dispatch.queued",
         "dispatch.receipt_only",
         "dispatch.started",
+        "evidence.rework",
         "memorial.blocked",
         "memorial.direct_completed",
         "memorial.formalized",

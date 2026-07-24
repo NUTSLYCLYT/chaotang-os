@@ -23,7 +23,7 @@ def _formalize_task_for_decision(session_local, task_id: str) -> str:
     )
     assert review is not None
     review_id = review.id
-    formalize_memorial(
+    formal = formalize_memorial(
         db,
         task_id=task_id,
         review_id=review_id,
@@ -41,9 +41,10 @@ def _formalize_task_for_decision(session_local, task_id: str) -> str:
             },
         },
     )
+    content_hash = formal.content_hash
     db.commit()
     db.close()
-    return review_id
+    return content_hash
 
 
 def test_chancellor_chat_streams_single_agent_reply(isolated_session_local):
@@ -331,7 +332,7 @@ def test_archive_decision_writes_shiguan_record(isolated_session_local):
     client.post(
         "/api/shangshufang/confirm-edict", json={"task_id": task_id, "confirmed": True}
     )
-    _formalize_task_for_decision(isolated_session_local, task_id)
+    content_hash = _formalize_task_for_decision(isolated_session_local, task_id)
 
     decision_response = client.post(
         f"/api/shangshufang/tasks/{task_id}/decision",
@@ -339,6 +340,7 @@ def test_archive_decision_writes_shiguan_record(isolated_session_local):
             "action": "archive",
             "reason": "先归档当前会审结果",
             "human_confirmed": True,
+            "expected_final_memorial_content_hash": content_hash,
         },
     )
 
@@ -369,8 +371,11 @@ def test_frontend_decision_actions_are_accepted(isolated_session_local):
             "/api/shangshufang/confirm-edict",
             json={"task_id": task_id, "confirmed": True},
         )
+        content_hash = None
         if action == "adopt":
-            _formalize_task_for_decision(isolated_session_local, task_id)
+            content_hash = _formalize_task_for_decision(
+                isolated_session_local, task_id
+            )
 
         decision_response = client.post(
             f"/api/shangshufang/tasks/{task_id}/decision",
@@ -378,6 +383,7 @@ def test_frontend_decision_actions_are_accepted(isolated_session_local):
                 "action": action,
                 "reason": f"test {action}",
                 "human_confirmed": True,
+                "expected_final_memorial_content_hash": content_hash,
             },
         )
 
@@ -412,10 +418,17 @@ def test_archive_preserves_original_decision_action_alias(isolated_session_local
             "/api/shangshufang/confirm-edict",
             json={"task_id": task_id, "confirmed": True},
         )
-        _formalize_task_for_decision(isolated_session_local, task_id)
+        content_hash = _formalize_task_for_decision(
+            isolated_session_local, task_id
+        )
         resp = client.post(
             f"/api/shangshufang/tasks/{task_id}/decision",
-            json={"action": action, "reason": "test", "human_confirmed": True},
+            json={
+                "action": action,
+                "reason": "test",
+                "human_confirmed": True,
+                "expected_final_memorial_content_hash": content_hash,
+            },
         )
         assert resp.status_code == 200
         assert resp.json()["data"]["status"] == "archived"
@@ -460,11 +473,19 @@ def test_task_decision_and_brief_decision_advance_agree(isolated_session_local):
             "/api/shangshufang/confirm-edict",
             json={"task_id": task_id_a, "confirmed": True},
         )
+        content_hash_a = None
         if task_action == "adopt":
-            _formalize_task_for_decision(isolated_session_local, task_id_a)
+            content_hash_a = _formalize_task_for_decision(
+                isolated_session_local, task_id_a
+            )
         resp_a = client.post(
             f"/api/shangshufang/tasks/{task_id_a}/decision",
-            json={"action": task_action, "reason": "test", "human_confirmed": True},
+            json={
+                "action": task_action,
+                "reason": "test",
+                "human_confirmed": True,
+                "expected_final_memorial_content_hash": content_hash_a,
+            },
         )
         assert resp_a.status_code == 200
         status_a = resp_a.json()["data"]["status"]
@@ -479,8 +500,11 @@ def test_task_decision_and_brief_decision_advance_agree(isolated_session_local):
             "/api/shangshufang/confirm-edict",
             json={"task_id": task_id_b, "confirmed": True},
         )
+        content_hash_b = None
         if task_action == "adopt":
-            _formalize_task_for_decision(isolated_session_local, task_id_b)
+            content_hash_b = _formalize_task_for_decision(
+                isolated_session_local, task_id_b
+            )
         status_response = client.get(f"/api/shangshufang/tasks/{task_id_b}/status")
         brief_id = status_response.json()["data"]["review"]["review_id"]
         resp_b = client.post(
@@ -489,6 +513,7 @@ def test_task_decision_and_brief_decision_advance_agree(isolated_session_local):
                 "decision": brief_decision,
                 "reason": "test",
                 "manualConfirmation": True,
+                "expectedFinalMemorialContentHash": content_hash_b,
             },
         )
         assert resp_b.status_code == 200
@@ -506,6 +531,38 @@ def test_task_decision_and_brief_decision_advance_agree(isolated_session_local):
             f"两个入口对等价动作({task_action} vs {brief_decision})产生了不同状态: "
             f"{status_a} vs {status_b}"
         )
+
+
+def test_brief_adjudication_cannot_bypass_current_memorial_hash(
+    isolated_session_local,
+):
+    client = TestClient(app)
+    draft = client.post(
+        "/api/shangshufang/draft-edict",
+        json={"raw_question": "判断兼容入口是否可以绕过版本裁决门"},
+    ).json()["data"]
+    task_id = draft["task_id"]
+    client.post(
+        "/api/shangshufang/confirm-edict",
+        json={"task_id": task_id, "confirmed": True},
+    )
+    _formalize_task_for_decision(isolated_session_local, task_id)
+    status = client.get(
+        f"/api/shangshufang/tasks/{task_id}/status"
+    ).json()["data"]
+    brief_id = status["review"]["review_id"]
+
+    response = client.post(
+        f"/api/shangshufang/briefs/{brief_id}/decision/advance",
+        json={
+            "decision": "issue_decree",
+            "reason": "缺少精确版本",
+            "manualConfirmation": True,
+        },
+    ).json()
+
+    assert response["success"] is False
+    assert "content hash" in response["error"]
 
 
 def test_home_reads_pending_confirm_decision_and_evidence(isolated_session_local):

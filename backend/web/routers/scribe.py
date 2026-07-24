@@ -121,7 +121,12 @@ def _canonical_outcomes() -> list[dict[str, Any]]:
             latest_archive_by_task.setdefault(archive.task_id, archive)
 
         formals = (
-            db.query(FinalMemorial).filter(FinalMemorial.task_id.in_(task_ids)).all()
+            db.query(FinalMemorial)
+            .filter(
+                FinalMemorial.task_id.in_(task_ids),
+                FinalMemorial.is_current.is_(True),
+            )
+            .all()
             if task_ids
             else []
         )

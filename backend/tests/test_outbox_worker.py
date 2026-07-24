@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
+
 from src.execution.decree_dispatcher import enqueue_dispatch
 from src.execution.outbox_worker import process_event, process_pending_events
 
@@ -406,4 +408,714 @@ def test_council_event_passes_recommended_departments_to_swarm_loop(isolated_ses
     assert result["status"] == "completed"
     call_params = mock_run.call_args.args[0]
     assert call_params["department_ids"] == ["户部", "刑部"]
+    db.close()
+
+
+@pytest.mark.parametrize("capability_active", [True, False])
+def test_evidence_rework_recomputes_only_declared_contract_section(
+    isolated_session_local,
+    tmp_path,
+    monkeypatch,
+    capability_active,
+):
+    import hashlib
+    import json
+
+    from fastapi.testclient import TestClient
+
+    from src.db.models import (
+        CourtReview,
+        DecisionTask,
+        OutboxEvent,
+        SecureIngestArtifact,
+    )
+    from tests.fixtures.secure_ingest_fixtures import golden_docx_bytes
+    from web.main import app
+
+    db = isolated_session_local()
+    task_id = "task_evidence_rework_worker"
+    artifact_id = "artifact-evidence-rework-worker"
+    artifact_bytes = golden_docx_bytes("付款应在验收完成后七日内支付。")
+    artifact_path = tmp_path / "payment-evidence.docx"
+    artifact_path.write_bytes(artifact_bytes)
+    digest = hashlib.sha256(artifact_bytes).hexdigest()
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查采购合同付款条款",
+            status="awaiting_evidence",
+            source_label="LIVE",
+        )
+    )
+    db.add(
+        CourtReview(
+            id="review-evidence-rework-worker",
+            tenant_id=1,
+            task_id=task_id,
+            routing_plan_json='{"route":{"mode":"cluster"}}',
+            review_status="awaiting_evidence",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json=json.dumps(
+                {
+                    "contract_review": {"status": "old"},
+                    "financial_review": {"status": "keep-me"},
+                }
+            ),
+            created_at="2026-07-24T00:00:00+00:00",
+            updated_at="2026-07-24T00:00:00+00:00",
+        )
+    )
+    db.add(
+        SecureIngestArtifact(
+            id=artifact_id,
+            tenant_id=1,
+            user_id="1",
+            mission_contract_id=task_id,
+            original_filename="付款条件补证.docx",
+            declared_content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            detected_format="DOCX_OOXML",
+            file_size_bytes=len(artifact_bytes),
+            page_count=1,
+            digest_sha256=digest,
+            status="ACCEPTED",
+            ocr_status="NOT_APPLICABLE",
+            macro_detected=False,
+            zip_bomb_suspected=False,
+            injection_flag_categories_json="[]",
+            storage_path=str(artifact_path),
+            created_at="2026-07-24T00:00:00+00:00",
+        )
+    )
+    generation_id = "outbox-rework-generation-2"
+    db.add(
+        OutboxEvent(
+            id=generation_id,
+            tenant_id=1,
+            task_id=task_id,
+            decision_id="decision-evidence-rework-worker",
+            event_type="evidence.rework",
+            generation=2,
+            idempotency_key="evidence-rework:worker-test",
+            status="pending",
+            attempts=0,
+            max_attempts=3,
+            payload_json=json.dumps(
+                {
+                    "schema_version": "EvidenceReworkGenerationV1",
+                    "generation_id": generation_id,
+                    "generation": 2,
+                    "status": "evidence_bound",
+                    "prior_final_memorial_content_hash": "a" * 64,
+                    "evidence_request": {
+                        "reason": "补充第 4 页付款条件原文",
+                        "followup_question": None,
+                    },
+                    "affected_sections": ["contract_review"],
+                    "evidence_packets": [
+                        {
+                            "schema_version": "EvidencePacketV1",
+                            "evidence_packet_id": "evidence-worker-test",
+                            "tenant_id": "1",
+                            "task_id": task_id,
+                            "input_version_id": artifact_id,
+                            "input_digest": digest,
+                            "prior_final_memorial_content_hash": "a" * 64,
+                            "generation": 2,
+                            "evidence_status": "GROUNDED",
+                            "source_kind": "USER_UPLOAD",
+                            "source_ref": artifact_id,
+                            "content_hash": digest,
+                            "verification_receipt_id": f"secure-ingest:{artifact_id}:{digest}",
+                        }
+                    ],
+                }
+            ),
+            created_at="2026-07-24T00:00:00+00:00",
+            updated_at="2026-07-24T00:00:00+00:00",
+        )
+    )
+    db.commit()
+
+    monkeypatch.setenv(
+        "FENGQUN_W05_CONTRACT_REWORK",
+        "1" if capability_active else "0",
+    )
+    if not capability_active:
+        monkeypatch.setattr(
+            "src.contract_rework.read_artifact_bytes_at_path",
+            lambda _path: pytest.fail("disabled W05 worker must not read evidence"),
+        )
+    result = process_event(db, generation_id)
+    db.close()
+
+    if not capability_active:
+        assert result["status"] == "superseded", result
+        assert result["result"]["fenced"] is True
+        assert result["result"]["reason"] == "capability_disabled"
+        status = TestClient(app).get(
+            f"/api/shangshufang/tasks/{task_id}/status"
+        ).json()["data"]
+        assert status["task"]["status"] == "awaiting_evidence"
+        assert status["review"]["memorial"]["contract_review"] == {
+            "status": "old"
+        }
+        return
+
+    assert result["status"] == "completed", result
+    assert result["result"]["affected_sections"] == ["contract_review"]
+    status = TestClient(app).get(
+        f"/api/shangshufang/tasks/{task_id}/status"
+    ).json()["data"]
+    assert status["task"]["status"] == "awaiting_evidence"
+    assert status["review"]["review_status"] == "awaiting_evidence"
+    memorial = status["review"]["memorial"]
+    assert memorial["financial_review"] == {"status": "keep-me"}
+    assert memorial["contract_review"]["schema_version"] == "ContractReviewPackV1"
+    assert memorial["contract_review"]["candidate_status"] == "CANDIDATE"
+    assert memorial["contract_review"]["quality_gate_status"] == "FAILED"
+    risk = memorial["contract_review"]["risk_items"][0]
+    assert risk["risk_level"] == "medium"
+    assert risk["page_number"] is None
+    assert risk["clause_ref"] is None
+    assert risk["missing_evidence"] == ["DOCX 文本抽取未提供可靠页码/条款定位"]
+
+
+def test_late_old_rework_generation_cannot_replace_current_review(
+    isolated_session_local,
+):
+    import json
+
+    from fastapi.testclient import TestClient
+
+    from src.db.models import CourtReview, DecisionTask, OutboxEvent
+    from web.main import app
+
+    db = isolated_session_local()
+    task_id = "task_old_rework_generation_fenced"
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查采购合同",
+            status="awaiting_evidence",
+            source_label="LIVE",
+        )
+    )
+    db.add(
+        CourtReview(
+            id="review-old-rework-generation-fenced",
+            tenant_id=1,
+            task_id=task_id,
+            routing_plan_json="{}",
+            review_status="awaiting_evidence",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json='{"contract_review":{"status":"current-unchanged"}}',
+            created_at="2026-07-24T00:00:00+00:00",
+            updated_at="2026-07-24T00:00:00+00:00",
+        )
+    )
+    base_payload = {
+        "schema_version": "EvidenceReworkGenerationV1",
+        "status": "evidence_bound",
+        "prior_final_memorial_content_hash": "a" * 64,
+        "evidence_request": {"reason": "补证", "followup_question": None},
+        "affected_sections": ["contract_review"],
+        "evidence_packets": [],
+    }
+    for generation in (2, 3):
+        generation_id = f"outbox-rework-fenced-{generation}"
+        db.add(
+            OutboxEvent(
+                id=generation_id,
+                tenant_id=1,
+                task_id=task_id,
+                decision_id=f"decision-rework-fenced-{generation}",
+                event_type="evidence.rework",
+                generation=generation,
+                idempotency_key=f"evidence-rework:fenced-{generation}",
+                status="pending" if generation == 2 else "awaiting_evidence",
+                attempts=0,
+                max_attempts=3,
+                payload_json=json.dumps(
+                    {
+                        **base_payload,
+                        "generation_id": generation_id,
+                        "generation": generation,
+                    }
+                ),
+                created_at=f"2026-07-24T00:00:0{generation}+00:00",
+                updated_at=f"2026-07-24T00:00:0{generation}+00:00",
+            )
+        )
+    db.commit()
+
+    result = process_event(db, "outbox-rework-fenced-2")
+    db.close()
+
+    assert result["status"] == "superseded", result
+    assert result["result"]["fenced"] is True
+    assert result["result"]["current_generation"] == 3
+    status = TestClient(app).get(
+        f"/api/shangshufang/tasks/{task_id}/status"
+    ).json()["data"]
+    assert status["task"]["status"] == "awaiting_evidence"
+    assert status["review"]["review_status"] == "awaiting_evidence"
+    assert status["review"]["memorial"]["contract_review"] == {
+        "status": "current-unchanged"
+    }
+
+
+@pytest.mark.parametrize(
+    "interruption",
+    [None, "new_generation", "capability_disabled"],
+)
+def test_supported_contract_rework_public_chain_appends_current_v2(
+    isolated_session_local,
+    monkeypatch,
+    interruption,
+    w05_contract_user,
+):
+    """补证必须经公共 API 和真实 worker 形成可裁决 v2，不能靠测试直调 formalize。"""
+    import json
+
+    from fastapi.testclient import TestClient
+
+    from src.db.models import (
+        CourtReview,
+        DecisionTask,
+        FinalMemorial,
+        OutboxEvent,
+        SwarmQualityResult,
+        SwarmRun,
+    )
+    from src.formal_memorial import formalize_memorial
+    from tests.fixtures.secure_ingest_fixtures import golden_docx_bytes
+    from web.main import app
+
+    db = isolated_session_local()
+    task_id = "task_supported_contract_rework_public_chain"
+    review_id = "review-supported-contract-rework-public-chain"
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查中国大陆中文采购合同付款条款",
+                status="awaiting_decision",
+                source_label="LIVE",
+                contract_scope_json=json.dumps({
+                    "schema_version": "ContractIntakeV1",
+                    "jurisdiction": "CN_MAINLAND",
+                    "language": "zh-CN",
+                    "contract_type": "procurement",
+                    "our_role": "buyer",
+                }),
+        )
+    )
+    db.add(
+        CourtReview(
+            id=review_id,
+            tenant_id=1,
+            task_id=task_id,
+            routing_plan_json='{"route":{"mode":"cluster"}}',
+            review_status="awaiting_decision",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json=json.dumps(
+                {
+                    "title": "合同会审正式奏折 v1",
+                    "summary": "现有付款条款需要补充原文。",
+                    "recommendation": "request_evidence",
+                },
+                ensure_ascii=False,
+            ),
+            created_at="2026-07-24T00:00:00+00:00",
+            updated_at="2026-07-24T00:00:00+00:00",
+        )
+    )
+    db.flush()
+    first = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result={
+            "swarm_run": {
+                "id": "run-supported-contract-rework-v1",
+                "task_id": task_id,
+                "review_id": review_id,
+                "source_label": "LIVE_SWARM",
+            },
+            "quality_result": {
+                "id": "quality-supported-contract-rework-v1",
+                "passed": True,
+                "blocking_reasons": [],
+                "warnings": [],
+            },
+        },
+    )
+    first_hash = first.content_hash
+    db.commit()
+    db.close()
+
+    client = TestClient(app)
+    requested = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "request_evidence",
+            "reason": "补充付款条件原文",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": first_hash,
+        },
+    ).json()
+    assert requested["success"] is True, requested
+    generation = requested["data"]["rework_generation"]
+
+    uploaded = client.post(
+        "/api/secure-ingest/upload",
+        data={
+            "mission_contract_id": task_id,
+            "purpose": "evidence_rework",
+        },
+        files={
+            "file": (
+                "付款条件补证.docx",
+                golden_docx_bytes("付款应在验收完成后七日内支付。"),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+    ).json()
+    assert uploaded["status"] == "ACCEPTED", uploaded
+
+    bound = client.post(
+        (
+            f"/api/shangshufang/tasks/{task_id}/rework-generations/"
+            f"{generation['generation_id']}/evidence"
+        ),
+        json={
+            "artifact_id": uploaded["artifact_id"],
+            "contract_scope": {
+                "jurisdiction": "CN_MAINLAND",
+                "language": "zh-CN",
+                "contract_type": "procurement",
+                "our_role": "buyer",
+            },
+        },
+    ).json()
+    assert bound["success"] is True, bound
+
+    worker_db = isolated_session_local()
+    if interruption is not None:
+        import src.contract_rework as contract_rework
+
+        extract_docx_text = contract_rework._extract_docx_text
+
+        def _interrupt_after_initial_fence(raw_bytes):
+            text = extract_docx_text(raw_bytes)
+            if interruption == "capability_disabled":
+                monkeypatch.setenv("FENGQUN_W05_CONTRACT_REWORK", "0")
+                return text
+            newer_id = "outbox-rework-generation-3-mid-processing"
+            worker_db.add(
+                OutboxEvent(
+                    id=newer_id,
+                    tenant_id=1,
+                    task_id=task_id,
+                    decision_id="decision-rework-generation-3-mid-processing",
+                    event_type="evidence.rework",
+                    generation=3,
+                    idempotency_key="evidence-rework:mid-processing-generation-3",
+                    status="awaiting_evidence",
+                    attempts=0,
+                    max_attempts=3,
+                    payload_json=json.dumps(
+                        {
+                            "schema_version": "EvidenceReworkGenerationV1",
+                            "generation_id": newer_id,
+                            "generation": 3,
+                            "status": "awaiting_evidence",
+                            "prior_final_memorial_content_hash": first_hash,
+                            "evidence_request": {
+                                "reason": "处理途中追加的新补证",
+                                "followup_question": None,
+                            },
+                            "affected_sections": ["contract_review"],
+                        }
+                    ),
+                    created_at="2026-07-24T00:00:03+00:00",
+                    updated_at="2026-07-24T00:00:03+00:00",
+                )
+            )
+            worker_db.flush()
+            return text
+
+        monkeypatch.setattr(
+            contract_rework,
+            "_extract_docx_text",
+            _interrupt_after_initial_fence,
+        )
+    worker_result = process_event(worker_db, generation["generation_id"])
+    worker_db.close()
+
+    if interruption is not None:
+        assert worker_result["status"] == "superseded", worker_result
+        assert worker_result["result"]["fenced"] is True
+        if interruption == "new_generation":
+            assert worker_result["result"]["current_generation"] == 3
+        else:
+            assert worker_result["result"]["reason"] == "capability_disabled"
+        db = isolated_session_local()
+        versions = db.query(FinalMemorial).filter_by(task_id=task_id).all()
+        assert [(row.version, row.is_current) for row in versions] == [(1, True)]
+        assert db.query(SwarmRun).filter_by(task_id=task_id).count() == 0
+        review = db.query(CourtReview).filter_by(id=review_id).one()
+        assert "contract_review" not in json.loads(review.memorial_json)
+        db.close()
+        return
+
+    assert worker_result["status"] == "completed", worker_result
+    assert worker_result["result"]["quality_gate_status"] == "PASSED"
+    assert worker_result["result"]["final_memorial_version"] == 2
+
+    db = isolated_session_local()
+    versions = (
+        db.query(FinalMemorial)
+        .filter_by(task_id=task_id)
+        .order_by(FinalMemorial.version)
+        .all()
+    )
+    assert [row.version for row in versions] == [1, 2]
+    assert versions[0].content_hash == first_hash
+    assert versions[0].status == "superseded"
+    assert versions[0].is_current is False
+    assert versions[1].status == "ready_for_decision"
+    assert versions[1].is_current is True
+    assert versions[1].supersedes_id == versions[0].id
+    assert db.query(SwarmRun).filter_by(id=versions[1].swarm_run_id).one()
+    assert (
+        db.query(SwarmQualityResult)
+        .filter_by(id=versions[1].quality_result_id, passed=True)
+        .one()
+    )
+    db.close()
+
+
+@pytest.mark.parametrize("already_bound", [False, True])
+def test_evidence_bind_cannot_replace_frozen_contract_scope(
+    isolated_session_local,
+    tmp_path,
+    w05_contract_user,
+    already_bound,
+):
+    import hashlib
+    import json
+
+    from fastapi.testclient import TestClient
+
+    from src.db.models import DecisionTask, OutboxEvent, SecureIngestArtifact
+    from web.main import app
+
+    db = isolated_session_local()
+    task_id = "task_frozen_contract_scope"
+    generation_id = "outbox-frozen-contract-scope"
+    artifact_id = "artifact-frozen-contract-scope"
+    artifact_path = tmp_path / "scope.docx"
+    artifact_path.write_bytes(b"scope")
+    digest = hashlib.sha256(b"scope").hexdigest()
+    frozen_scope = {
+        "schema_version": "ContractIntakeV1",
+        "jurisdiction": "CN_MAINLAND",
+        "language": "zh-CN",
+        "contract_type": "procurement",
+        "our_role": "buyer",
+    }
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查采购合同",
+            status="awaiting_evidence",
+            source_label="LIVE",
+            contract_scope_json=json.dumps(frozen_scope),
+        )
+    )
+    generation_payload = {
+        "schema_version": "EvidenceReworkGenerationV1",
+        "generation_id": generation_id,
+        "generation": 2,
+        "status": "pending" if already_bound else "awaiting_evidence",
+        "prior_final_memorial_content_hash": "a" * 64,
+        "evidence_request": {
+            "reason": "补证",
+            "followup_question": None,
+        },
+        "affected_sections": ["contract_review"],
+        "evidence_packets": (
+            [
+                {
+                    "schema_version": "EvidencePacketV1",
+                    "evidence_packet_id": "evidence-frozen-contract-scope",
+                    "tenant_id": 1,
+                    "task_id": task_id,
+                    "input_version_id": artifact_id,
+                    "input_digest": digest,
+                    "prior_final_memorial_content_hash": "a" * 64,
+                    "generation": 2,
+                    "evidence_status": "GROUNDED",
+                    "source_kind": "USER_UPLOAD",
+                    "source_ref": artifact_id,
+                    "content_hash": digest,
+                    "verification_receipt_id": "receipt-frozen-contract-scope",
+                }
+            ]
+            if already_bound
+            else []
+        ),
+    }
+    db.add(
+        OutboxEvent(
+            id=generation_id,
+            tenant_id=1,
+            task_id=task_id,
+            decision_id="decision-frozen-contract-scope",
+            event_type="evidence.rework",
+            generation=2,
+            idempotency_key="evidence-rework:frozen-contract-scope",
+            status="pending" if already_bound else "awaiting_evidence",
+            attempts=0,
+            max_attempts=3,
+            payload_json=json.dumps(generation_payload),
+            created_at="2026-07-24T00:00:00+00:00",
+            updated_at="2026-07-24T00:00:00+00:00",
+        )
+    )
+    db.add(
+        SecureIngestArtifact(
+            id=artifact_id,
+            tenant_id=1,
+            user_id="1",
+            mission_contract_id=task_id,
+            original_filename="scope.docx",
+            declared_content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            detected_format="DOCX_OOXML",
+            file_size_bytes=5,
+            page_count=1,
+            digest_sha256=digest,
+            status="ACCEPTED",
+            ocr_status="NOT_APPLICABLE",
+            macro_detected=False,
+            zip_bomb_suspected=False,
+            injection_flag_categories_json="[]",
+            storage_path=str(artifact_path),
+            created_at="2026-07-24T00:00:00+00:00",
+        )
+    )
+    db.commit()
+    db.close()
+
+    response = TestClient(app).post(
+        (
+            f"/api/shangshufang/tasks/{task_id}/rework-generations/"
+            f"{generation_id}/evidence"
+        ),
+        json={
+            "artifact_id": artifact_id,
+            "contract_scope": {
+                "jurisdiction": "CN_MAINLAND",
+                "language": "zh-CN",
+                "contract_type": "sales",
+                "our_role": "seller",
+            },
+        },
+    )
+
+    assert response.status_code == 409
+    payload = response.json()
+    assert payload["success"] is False
+    assert "范围已经冻结" in payload["error"]
+    db = isolated_session_local()
+    task = db.query(DecisionTask).filter_by(id=task_id).one()
+    generation = db.query(OutboxEvent).filter_by(id=generation_id).one()
+    assert json.loads(task.contract_scope_json) == frozen_scope
+    assert generation.status == ("pending" if already_bound else "awaiting_evidence")
+    assert json.loads(generation.payload_json) == generation_payload
+    db.close()
+
+
+def test_evidence_binding_claim_prevents_later_payload_overwrite(
+    isolated_session_local,
+):
+    import json
+
+    import web.routers.shangshufang as shangshufang_router
+    from src.db.models import DecisionTask, OutboxEvent
+
+    db = isolated_session_local()
+    task_id = "task_atomic_evidence_binding"
+    generation_id = "outbox-atomic-evidence-binding"
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查合同",
+            status="awaiting_evidence",
+            source_label="LIVE",
+        )
+    )
+    db.add(
+        OutboxEvent(
+            id=generation_id,
+            tenant_id=1,
+            task_id=task_id,
+            decision_id="decision-atomic-evidence-binding",
+            event_type="evidence.rework",
+            generation=2,
+            idempotency_key="evidence-rework:atomic-evidence-binding",
+            status="awaiting_evidence",
+            attempts=0,
+            max_attempts=3,
+            payload_json='{"status":"awaiting_evidence","evidence_packets":[]}',
+            created_at="2026-07-24T00:00:00+00:00",
+            updated_at="2026-07-24T00:00:00+00:00",
+        )
+    )
+    db.commit()
+
+    claim = getattr(shangshufang_router, "_claim_evidence_binding", None)
+    assert callable(claim), "补证绑定缺少数据库原子 claim"
+    first_payload = {
+        "status": "pending",
+        "evidence_packets": [{"input_version_id": "artifact-first"}],
+    }
+    competing_payload = {
+        "status": "pending",
+        "evidence_packets": [{"input_version_id": "artifact-competing"}],
+    }
+    first = claim(
+        db,
+        task_id=task_id,
+        generation_id=generation_id,
+        payload_json=json.dumps(first_payload),
+        updated_at="2026-07-24T00:01:00+00:00",
+    )
+    competing = claim(
+        db,
+        task_id=task_id,
+        generation_id=generation_id,
+        payload_json=json.dumps(competing_payload),
+        updated_at="2026-07-24T00:01:01+00:00",
+    )
+    db.commit()
+
+    assert first is True
+    assert competing is False
+    stored = db.query(OutboxEvent).filter_by(id=generation_id).one()
+    assert stored.status == "evidence_bound"
+    assert json.loads(stored.payload_json) == first_payload
     db.close()

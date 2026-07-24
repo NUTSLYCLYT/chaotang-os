@@ -15,7 +15,7 @@ import os
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from src.chancellor.contracts import RouteDecisionV2
@@ -25,6 +25,9 @@ from src.chancellor.decree_status import (
     record_timeline_event,
 )
 from src.chancellor.routing_service import chancellor_routing_service, legacy_route_dict
+from src.contracts.evidence_packet import EvidencePacketV1
+from src.contracts.evidence_rework_generation import EvidenceReworkGenerationV1
+from src.contracts.mission_contract import ContractIntakeV1
 from src.db.models import (
     AgentSkillRun,
     ChancellorRouteDecision,
@@ -37,10 +40,15 @@ from src.db.models import (
 )
 from src.decision_task_kernel import create_decision_task
 from src.emperor_decision_kind import emperor_decision_kind
-from src.execution.decree_dispatcher import dispatch_after_commit, enqueue_dispatch
+from src.execution.decree_dispatcher import (
+    dispatch_after_commit,
+    enqueue_dispatch,
+    enqueue_evidence_rework_generation,
+    evidence_rework_idempotency_key,
+)
 from src.finance_intel_loop_contract import build_finance_intel_session
-from src.sec_edgar import gather_sec_evidence
 from src.hubu_financial_reporting import build_shangshufang_finance_reporting_loop
+from src.sec_edgar import gather_sec_evidence
 from src.shangshufang_loop import (
     chancellor_decide_route,
     direct_receipt_for,
@@ -107,6 +115,27 @@ class DecisionRequest(BaseModel):
     human_confirmed: bool = True
     human_confirmation_note: str | None = None
     followup_question: str | None = None
+    expected_final_memorial_content_hash: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+    )
+
+
+class EvidenceBindRequest(BaseModel):
+    artifact_id: str = Field(..., min_length=1)
+    contract_scope: ContractIntakeV1 | None = None
+
+
+class EvidenceBindData(BaseModel):
+    task_id: str
+    evidence_packet: EvidencePacketV1
+    rework_generation: EvidenceReworkGenerationV1
+
+
+class EvidenceBindResponse(BaseModel):
+    success: bool
+    data: EvidenceBindData | None = None
+    error: str | None = None
 
 
 class FinanceReportingLoopRequest(BaseModel):
@@ -258,6 +287,10 @@ class BriefDecisionAdvanceRequest(BaseModel):
     reason: str = ""
     executionType: str | None = None
     manualConfirmation: bool = False
+    expectedFinalMemorialContentHash: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+    )
 
 
 def _json(value: Any) -> str:
@@ -271,6 +304,10 @@ def _loads(raw: str | None, default: Any) -> Any:
         return json.loads(raw)
     except json.JSONDecodeError:
         return default
+
+
+def _http_fail(status_code: int, message: str) -> JSONResponse:
+    return JSONResponse(status_code=status_code, content=fail(message))
 
 
 def _user_id(user: CurrentUser) -> str:
@@ -357,7 +394,10 @@ def _final_memorials_by_task(db, task_ids: list[str]) -> dict[str, FinalMemorial
     return {
         row.task_id: row
         for row in db.query(FinalMemorial)
-        .filter(FinalMemorial.task_id.in_(task_ids))
+        .filter(
+            FinalMemorial.task_id.in_(task_ids),
+            FinalMemorial.is_current.is_(True),
+        )
         .all()
     }
 
@@ -474,6 +514,9 @@ def _archive_task(
     action: str,
     reason: str,
     final_memorial: dict[str, Any] | None,
+    final_memorial_id: str | None,
+    final_memorial_version: int | None,
+    final_memorial_content_hash: str | None,
     source_label: str,
     now: str,
 ) -> dict[str, Any]:
@@ -485,6 +528,9 @@ def _archive_task(
         raw_question=task.raw_question,
         refined_edict=task.refined_edict or "",
         final_memorial_json=_json(final_memorial),
+        final_memorial_id=final_memorial_id,
+        final_memorial_version=final_memorial_version,
+        final_memorial_content_hash=final_memorial_content_hash,
         emperor_decision_json=_json({"action": action, "reason": reason}),
         evidence_chain_json=_json(_loads(task.known_facts_json, [])),
         source_label=source_label,
@@ -510,6 +556,7 @@ def apply_task_decision(
     reason: str | None,
     human_confirmed: bool,
     now: str,
+    claimed_formal: "FinalMemorial | None" = None,
 ) -> dict[str, Any] | None:
     """收口 adopt/request_evidence/recheck/reject 四类裁决动作的状态转移。
 
@@ -534,8 +581,13 @@ def apply_task_decision(
 
         if not human_confirmed:
             raise ValueError("正式奏折必须经过皇上人工确认后才能裁决归档")
-        formal = db.query(FinalMemorial).filter_by(task_id=task.id).first()
-        if formal is None or formal.status != "ready_for_decision":
+        formal = claimed_formal or db.query(FinalMemorial).filter_by(
+            task_id=task.id, is_current=True
+        ).first()
+        expected_status = (
+            "archived" if claimed_formal is not None else "ready_for_decision"
+        )
+        if formal is None or formal.status != expected_status:
             raise ValueError("正式奏折尚未通过质量与来源门，禁止裁决归档")
         final_memorial = _loads(formal.memorial_json, None)
         archive_record = _archive_task(
@@ -544,6 +596,9 @@ def apply_task_decision(
             action=action,
             reason=reason or "",
             final_memorial=final_memorial,
+            final_memorial_id=formal.id,
+            final_memorial_version=formal.version,
+            final_memorial_content_hash=formal.content_hash,
             source_label=formal.source_label,
             now=now,
         )
@@ -552,10 +607,17 @@ def apply_task_decision(
             review.review_status = "archived"
             review.updated_at = now
     elif action in {"request_evidence", "followup"}:
+        from src.db.models import FinalMemorial
+
         task.status = "awaiting_evidence"
         if review is not None:
             review.review_status = "awaiting_evidence"
             review.updated_at = now
+        formal = claimed_formal or db.query(FinalMemorial).filter_by(
+            task_id=task.id, is_current=True
+        ).first()
+        if formal is not None and formal.status == "ready_for_decision":
+            formal.status = "awaiting_evidence"
     elif action == "recheck":
         task.status = "reviewing"
         if review is not None:
@@ -571,7 +633,9 @@ def apply_task_decision(
         # R0-REQ-014：拒绝必须关闭 FinalMemorial 的裁决闸门，否则同一任务再发一次
         # adopt 会重新通过 formal.status == "ready_for_decision" 检查，把已经被
         # 拒绝的奏折正式归档——"唯一、未被替代"里"未被替代"缺的就是这一环。
-        formal = db.query(FinalMemorial).filter_by(task_id=task.id).first()
+        formal = claimed_formal or db.query(FinalMemorial).filter_by(
+            task_id=task.id, is_current=True
+        ).first()
         if formal is not None and formal.status == "ready_for_decision":
             formal.status = "rejected"
     elif action == "cancel":
@@ -614,7 +678,9 @@ def record_task_decision_event(
         "reject": "decision.rejected",
         "cancel": "decision.cancelled",
     }
-    formal = db.query(FinalMemorial).filter_by(task_id=task.id).first()
+    formal = db.query(FinalMemorial).filter_by(
+        task_id=task.id, is_current=True
+    ).first()
     actual_source = formal.source_label if formal is not None else task.source_label
     event_source = (
         "LIVE" if actual_source in {"LIVE_ENGINE", "LIVE_SWARM"} else actual_source
@@ -643,6 +709,258 @@ def record_task_decision_event(
         },
         idempotency_key=f"decision:{decision.id}",
     )
+
+
+def _claim_current_memorial(
+    db,
+    *,
+    task_id: str,
+    expected_content_hash: str,
+    target_status: str,
+) -> bool:
+    """Atomically claim the exact adjudicable memorial version."""
+    from sqlalchemy import update
+
+    result = db.execute(
+        update(FinalMemorial)
+        .where(
+            FinalMemorial.task_id == task_id,
+            FinalMemorial.is_current.is_(True),
+            FinalMemorial.content_hash == expected_content_hash,
+            FinalMemorial.status == "ready_for_decision",
+        )
+        .values(status=target_status)
+        .execution_options(synchronize_session=False)
+    )
+    return result.rowcount == 1
+
+
+def _claim_evidence_binding(
+    db,
+    *,
+    task_id: str,
+    generation_id: str,
+    payload_json: str,
+    updated_at: str,
+) -> bool:
+    """Atomically bind the first accepted evidence payload to a generation."""
+    from sqlalchemy import update
+
+    from src.db.models import OutboxEvent
+
+    result = db.execute(
+        update(OutboxEvent)
+        .where(
+            OutboxEvent.id == generation_id,
+            OutboxEvent.task_id == task_id,
+            OutboxEvent.event_type == "evidence.rework",
+            OutboxEvent.status == "awaiting_evidence",
+        )
+        .values(
+            status="evidence_bound",
+            payload_json=payload_json,
+            updated_at=updated_at,
+        )
+        .execution_options(synchronize_session=False)
+    )
+    return result.rowcount == 1
+
+
+def _existing_evidence_rework_generation(
+    db,
+    *,
+    task_id: str,
+    prior_final_memorial_content_hash: str,
+    reason: str,
+    followup_question: str | None,
+):
+    from src.db.models import OutboxEvent
+
+    request_key = evidence_rework_idempotency_key(
+        task_id=task_id,
+        prior_final_memorial_content_hash=prior_final_memorial_content_hash,
+        reason=reason,
+        followup_question=followup_question,
+    )
+    return (
+        db.query(OutboxEvent)
+        .filter_by(task_id=task_id, idempotency_key=request_key)
+        .first()
+    )
+
+
+def _replayed_evidence_rework_result(existing) -> dict[str, Any]:
+    """Interpret replay state from the durable row, never from stale payload."""
+    if existing.status in {"failed", "dead_letter"}:
+        detail = f": {existing.last_error}" if existing.last_error else ""
+        raise ValueError(f"补证 generation {existing.status}{detail}")
+    payload = EvidenceReworkGenerationV1.model_validate_json(
+        existing.payload_json or "{}"
+    ).to_payload()
+    payload["status"] = existing.status
+    if existing.last_error:
+        payload["last_error"] = existing.last_error
+    return {
+        "decision": None,
+        "decision_id": existing.decision_id,
+        "archive_record": None,
+        "rework_generation": payload,
+        "replayed": True,
+        "now": existing.updated_at,
+    }
+
+
+def _evidence_bind_response_generation(
+    payload: dict[str, Any],
+) -> dict[str, object]:
+    """Expose the 4B bind boundary while the durable outbox stays pending."""
+    generation = EvidenceReworkGenerationV1.model_validate(payload)
+    return EvidenceReworkGenerationV1.model_validate(
+        {
+            **generation.to_payload(),
+            "status": "evidence_bound",
+        }
+    ).to_payload()
+
+
+def _execute_final_memorial_decision(
+    db,
+    *,
+    task: DecisionTask,
+    review: CourtReview | None,
+    action: str,
+    reason: str,
+    human_confirmed: bool,
+    expected_content_hash: str | None,
+    actor_user_id: str,
+    followup_question: str | None = None,
+    confirmation_extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Single task/brief adjudication writer with exact-hash CAS and rework parity."""
+    evidence_actions = {"request_evidence", "followup"}
+    if action in evidence_actions:
+        from src.execution.decree_dispatcher import lock_evidence_rework_task
+        from src.w05_feature import require_w05_contract_rework
+
+        require_w05_contract_rework()
+        lock_evidence_rework_task(db, task.id)
+    formal_actions = {"adopt", "approve", "archive", "reject", *evidence_actions}
+    target_status = {
+        "adopt": "archived",
+        "approve": "archived",
+        "archive": "archived",
+        "reject": "rejected",
+        "request_evidence": "awaiting_evidence",
+        "followup": "awaiting_evidence",
+    }.get(action)
+    current_formal = (
+        db.query(FinalMemorial)
+        .filter_by(task_id=task.id, is_current=True)
+        .first()
+    )
+    if current_formal is not None and action in formal_actions:
+        if not expected_content_hash:
+            label = "补证" if action in evidence_actions else "裁决"
+            raise ValueError(f"{label}必须绑定当前正式奏折 content hash")
+        if expected_content_hash != current_formal.content_hash:
+            raise ValueError("正式奏折已变化，请刷新后重新提交裁决")
+    elif expected_content_hash and action in formal_actions:
+        raise ValueError("当前不存在与该 content hash 匹配的正式奏折")
+
+    if action in evidence_actions and current_formal is not None:
+        existing = _existing_evidence_rework_generation(
+            db,
+            task_id=task.id,
+            prior_final_memorial_content_hash=current_formal.content_hash,
+            reason=reason,
+            followup_question=followup_question,
+        )
+        if existing is not None:
+            return _replayed_evidence_rework_result(existing)
+
+    claimed_formal = None
+    if current_formal is not None and target_status is not None:
+        if current_formal.status == "ready_for_decision":
+            if not _claim_current_memorial(
+                db,
+                task_id=task.id,
+                expected_content_hash=expected_content_hash or "",
+                target_status=target_status,
+            ):
+                if action in evidence_actions and current_formal is not None:
+                    winner = _existing_evidence_rework_generation(
+                        db,
+                        task_id=task.id,
+                        prior_final_memorial_content_hash=current_formal.content_hash,
+                        reason=reason,
+                        followup_question=followup_question,
+                    )
+                    if winner is not None:
+                        return _replayed_evidence_rework_result(winner)
+                raise ValueError("正式奏折已被其他裁决占用，请刷新后重试")
+            current_formal.status = target_status
+            claimed_formal = current_formal
+        elif (
+            action in evidence_actions
+            and current_formal.status == "awaiting_evidence"
+        ):
+            claimed_formal = current_formal
+        else:
+            raise ValueError("正式奏折尚未通过质量与来源门，禁止当前裁决")
+
+    now = now_iso()
+    confirmation = {
+        "user_id": actor_user_id,
+        "at": now,
+        "final_memorial_content_hash": expected_content_hash,
+        **(confirmation_extra or {}),
+    }
+    decision = EmperorDecision(
+        id=make_id("decision", task.id, action, now),
+        tenant_id=task.tenant_id,
+        task_id=task.id,
+        action=action,
+        kind=emperor_decision_kind(action),
+        reason=reason,
+        human_confirmed=human_confirmed,
+        confirmation_record_json=_json(confirmation),
+        created_at=now,
+    )
+    db.add(decision)
+    rework_generation = None
+    if action in evidence_actions and current_formal is not None:
+        rework_generation, _ = enqueue_evidence_rework_generation(
+            db,
+            task_id=task.id,
+            decision_id=decision.id,
+            prior_final_memorial_content_hash=current_formal.content_hash,
+            reason=reason,
+            followup_question=followup_question,
+        )
+    archive_record = apply_task_decision(
+        db,
+        task=task,
+        review=review,
+        action=action,
+        reason=reason,
+        human_confirmed=human_confirmed,
+        now=now,
+        claimed_formal=claimed_formal,
+    )
+    record_task_decision_event(
+        db,
+        task=task,
+        decision=decision,
+        archive_record=archive_record,
+    )
+    return {
+        "decision": decision,
+        "decision_id": decision.id,
+        "archive_record": archive_record,
+        "rework_generation": rework_generation,
+        "replayed": False,
+        "now": now,
+    }
 
 
 def _review_payload(review: CourtReview | None) -> dict[str, Any] | None:
@@ -674,6 +992,9 @@ def _formal_memorial_payload(formal) -> dict[str, Any] | None:
         "runtime_source_label": formal.source_label,
         "memorial": _loads(formal.memorial_json, {}),
         "content_hash": formal.content_hash,
+        "version": formal.version,
+        "supersedes_id": formal.supersedes_id,
+        "is_current": formal.is_current,
         "created_at": formal.created_at,
     }
 
@@ -1487,7 +1808,9 @@ def shangshufang_task_status(
             .first()
         )
         from src.db.models import FinalMemorial
-        formal_memorial = db.query(FinalMemorial).filter_by(task_id=task_id).first()
+        formal_memorial = db.query(FinalMemorial).filter_by(
+            task_id=task_id, is_current=True
+        ).first()
         execution_status = build_decree_execution_status(db, task_id)
         return ok(
             {
@@ -1506,7 +1829,13 @@ def shangshufang_task_status(
         db.close()
 
 
-@router.post("/tasks/{task_id}/decision")
+@router.post(
+    "/tasks/{task_id}/decision",
+    responses={
+        404: {"description": "Task not found or not owned by requester"},
+        409: {"description": "Stale or conflicting FinalMemorial decision"},
+    },
+)
 def shangshufang_task_decision(
     task_id: str,
     body: DecisionRequest,
@@ -1518,47 +1847,41 @@ def shangshufang_task_decision(
     try:
         task = db.query(DecisionTask).filter_by(id=task_id).first()
         if task is None:
-            return fail("task_id 不存在")
+            return _http_fail(404, "task_id 不存在")
         if task.user_id != _user_id(user):
-            return fail("无权裁决该任务")
-        now = now_iso()
-        decision = EmperorDecision(
-            id=make_id("decision", task_id, body.action, now),
-            tenant_id=task.tenant_id,
-            task_id=task_id,
-            action=body.action,
-            kind=emperor_decision_kind(body.action),
-            reason=body.reason,
-            human_confirmed=body.human_confirmed,
-            confirmation_record_json=_json({"user_id": _user_id(user), "at": now}),
-            created_at=now,
-        )
-        db.add(decision)
+            return _http_fail(404, "无权裁决该任务")
         review = (
             db.query(CourtReview)
             .filter_by(task_id=task_id)
             .order_by(CourtReview.created_at.desc())
             .first()
         )
-        # 直接传原始 body.action(可能是 "approve"/"archive" 这类别名)，不在
-        # 这里预先归一化——apply_task_decision 内部自己认得所有别名，同时
-        # 会把这个原始字面量原样传给 _archive_task，史馆归档记录里保留的是
-        # 陛下当时具体点的哪个动作，不是归一化后的 "adopt"。
-        archive_record = apply_task_decision(
+        outcome = _execute_final_memorial_decision(
             db,
             task=task,
             review=review,
             action=body.action,
             reason=body.reason,
             human_confirmed=body.human_confirmed,
-            now=now,
+            expected_content_hash=body.expected_final_memorial_content_hash,
+            actor_user_id=_user_id(user),
+            followup_question=body.followup_question,
         )
-        record_task_decision_event(
-            db,
-            task=task,
-            decision=decision,
-            archive_record=archive_record,
-        )
+        if outcome["replayed"]:
+            return ok(
+                {
+                    "task_id": task_id,
+                    "sourceLabel": "LIVE",
+                    "status": task.status,
+                    "decision_id": outcome["decision_id"],
+                    "archive_record": None,
+                    "rework_generation": outcome["rework_generation"],
+                }
+            )
+        decision = outcome["decision"]
+        archive_record = outcome["archive_record"]
+        rework_generation = outcome["rework_generation"]
+        now = outcome["now"]
         db.add(
             CourtLoopRun(
                 id=make_id("loop", task.id, "decision", body.action, now),
@@ -1588,11 +1911,259 @@ def shangshufang_task_decision(
                 "status": task.status,
                 "decision_id": decision.id,
                 "archive_record": archive_record,
+                "rework_generation": rework_generation,
             }
         )
+    except ValueError as exc:
+        db.rollback()
+        return _http_fail(409, str(exc))
     except Exception as exc:  # noqa: BLE001
         db.rollback()
-        return fail(str(exc))
+        return _http_fail(500, str(exc))
+    finally:
+        db.close()
+
+
+@router.post(
+    "/tasks/{task_id}/rework-generations/{generation_id}/evidence",
+    response_model=EvidenceBindResponse,
+    responses={
+        403: {"description": "Contract body access denied"},
+        404: {"description": "Task, generation, or artifact not found"},
+        409: {"description": "Capability, generation, or frozen-scope conflict"},
+    },
+)
+def bind_rework_generation_evidence(
+    task_id: str,
+    generation_id: str,
+    body: EvidenceBindRequest,
+    user: CurrentUser = Depends(get_current_user),
+) -> dict:
+    """Bind one accepted immutable upload to the waiting canonical generation."""
+    import hashlib
+
+    from src.db.engine import SessionLocal
+    from src.db.models import (
+        OutboxEvent,
+        SecureIngestArtifact,
+        SecureIngestAuditEvent,
+    )
+    from src.secure_ingest.audit import build_audit_event
+    from src.secure_ingest.purpose_authz import authorize_body_access
+    from src.w05_feature import require_w05_contract_rework
+
+    db = SessionLocal()
+    try:
+        require_w05_contract_rework()
+        task = db.query(DecisionTask).filter_by(id=task_id).first()
+        if task is None:
+            return _http_fail(404, "task_id 不存在")
+        if task.user_id != _user_id(user):
+            return _http_fail(404, "无权绑定该任务的补证")
+
+        generation = (
+            db.query(OutboxEvent)
+            .filter_by(
+                id=generation_id,
+                task_id=task_id,
+                event_type="evidence.rework",
+            )
+            .first()
+        )
+        if generation is None:
+            return _http_fail(404, "补证 generation 不存在")
+        if generation.status not in {
+            "awaiting_evidence",
+            "evidence_bound",
+            "pending",
+        }:
+            return _http_fail(409, "补证 generation 不再等待证据")
+
+        artifact = (
+            db.query(SecureIngestArtifact)
+            .filter_by(
+                id=body.artifact_id,
+                tenant_id=user.tenant_id,
+                user_id=_user_id(user),
+                mission_contract_id=task_id,
+                status="ACCEPTED",
+            )
+            .first()
+        )
+        if artifact is None:
+            return _http_fail(404, "附件不存在、未通过安全摄取或不属于当前任务")
+
+        body_access = authorize_body_access(
+            user_id=user.user_id,
+            role=user.role,
+            requester_tenant_id=user.tenant_id,
+            artifact_tenant_id=artifact.tenant_id,
+            purpose="contract_review",
+        )
+        if not body_access.allowed:
+            return _http_fail(
+                403,
+                f"附件正文访问未授权: {body_access.deny_reason}",
+            )
+
+        generation_contract = EvidenceReworkGenerationV1.model_validate_json(
+            generation.payload_json or "{}"
+        )
+        generation_payload = generation_contract.to_payload()
+        supplied_scope = (
+            body.contract_scope.model_dump() if body.contract_scope is not None else None
+        )
+        frozen_scope = _loads(task.contract_scope_json, None)
+        if frozen_scope is None and supplied_scope is not None:
+            return _http_fail(
+                409,
+                "合同支持范围必须在 canonical DecisionTask 创建时冻结，不能在补证时初始化",
+            )
+        effective_frozen_scope = generation_payload.get("contract_scope") or frozen_scope
+        if (
+            effective_frozen_scope is not None
+            and supplied_scope is not None
+            and effective_frozen_scope != supplied_scope
+        ):
+            return _http_fail(409, "合同支持范围已经冻结，不能在补证时替换")
+
+        if generation.status in {"evidence_bound", "pending"}:
+            packets = generation_payload.get("evidence_packets", [])
+            existing_packet = next(
+                (
+                    packet
+                    for packet in packets
+                    if packet.get("input_version_id") == artifact.id
+                ),
+                None,
+            )
+            if existing_packet is None:
+                return _http_fail(409, "补证 generation 已绑定其他证据")
+            if effective_frozen_scope is None and supplied_scope is not None:
+                return _http_fail(
+                    409,
+                    "补证 generation 已绑定，不能在重试时追加合同支持范围",
+                )
+            return ok(
+                {
+                    "task_id": task_id,
+                    "evidence_packet": existing_packet,
+                    "rework_generation": _evidence_bind_response_generation(
+                        generation_payload
+                    ),
+                }
+            )
+
+        packet_id = "evidence_" + hashlib.sha256(
+            f"{task_id}|{generation_id}|{artifact.id}|{artifact.digest_sha256}".encode(
+                "utf-8"
+            )
+        ).hexdigest()[:16]
+        receipt_id = "audit_" + hashlib.sha256(
+            f"{task_id}|{generation_id}|{artifact.id}|contract_review".encode(
+                "utf-8"
+            )
+        ).hexdigest()[:24]
+        db.add(
+            SecureIngestAuditEvent(
+                id=receipt_id,
+                created_at=now_iso(),
+                **build_audit_event(
+                    tenant_id=artifact.tenant_id,
+                    user_id=_user_id(user),
+                    event_type="evidence_bound",
+                    task_id=task_id,
+                    artifact_id=artifact.id,
+                    input_digest=artifact.digest_sha256,
+                    purpose="contract_review",
+                ),
+            )
+        )
+        packet = EvidencePacketV1(
+            evidence_packet_id=packet_id,
+            tenant_id=str(artifact.tenant_id),
+            task_id=task_id,
+            input_version_id=artifact.id,
+            input_digest=artifact.digest_sha256,
+            prior_final_memorial_content_hash=generation_payload[
+                "prior_final_memorial_content_hash"
+            ],
+            generation=generation.generation,
+            evidence_status="GROUNDED",
+            source_kind="USER_UPLOAD",
+            source_ref=artifact.id,
+            content_hash=artifact.digest_sha256,
+            verification_receipt_id=receipt_id,
+        )
+        if frozen_scope is None and supplied_scope is not None:
+            frozen_scope = supplied_scope
+            task.contract_scope_json = _json(frozen_scope)
+        if frozen_scope is not None:
+            generation_payload["contract_scope"] = frozen_scope
+        generation_contract = EvidenceReworkGenerationV1.model_validate(
+            {
+                **generation_payload,
+                "status": "evidence_bound",
+                "evidence_packets": [packet.model_dump(mode="json")],
+            }
+        )
+        generation_payload = generation_contract.to_payload()
+        updated_at = now_iso()
+        if not _claim_evidence_binding(
+            db,
+            task_id=task_id,
+            generation_id=generation_id,
+            payload_json=_json(generation_payload),
+            updated_at=updated_at,
+        ):
+            db.rollback()
+            winner = (
+                db.query(OutboxEvent)
+                .filter_by(
+                    id=generation_id,
+                    task_id=task_id,
+                    event_type="evidence.rework",
+                )
+                .first()
+            )
+            winner_payload = EvidenceReworkGenerationV1.model_validate_json(
+                winner.payload_json if winner is not None else "{}"
+            ).to_payload()
+            existing_packet = next(
+                (
+                    item
+                    for item in winner_payload.get("evidence_packets", [])
+                    if item.get("input_version_id") == artifact.id
+                ),
+                None,
+            )
+            if existing_packet is None:
+                return _http_fail(409, "补证 generation 已绑定其他证据")
+            return ok(
+                {
+                    "task_id": task_id,
+                    "evidence_packet": existing_packet,
+                    "rework_generation": _evidence_bind_response_generation(
+                        winner_payload
+                    ),
+                }
+            )
+        db.commit()
+        return ok(
+            {
+                "task_id": task_id,
+                "evidence_packet": packet.model_dump(),
+                "rework_generation": _evidence_bind_response_generation(
+                    generation_payload
+                ),
+            }
+        )
+    except ValueError as exc:
+        db.rollback()
+        return _http_fail(409, str(exc))
+    except Exception as exc:  # noqa: BLE001
+        db.rollback()
+        return _http_fail(500, str(exc))
     finally:
         db.close()
 
@@ -2186,7 +2757,13 @@ def shangshufang_brief_decision(
     return shangshufang_brief_decision_advance(brief_id, body, user)
 
 
-@router.post("/briefs/{brief_id}/decision/advance")
+@router.post(
+    "/briefs/{brief_id}/decision/advance",
+    responses={
+        404: {"description": "Brief or task not found or not owned by requester"},
+        409: {"description": "Stale or conflicting FinalMemorial decision"},
+    },
+)
 def shangshufang_brief_decision_advance(
     brief_id: str,
     body: BriefDecisionAdvanceRequest,
@@ -2198,12 +2775,12 @@ def shangshufang_brief_decision_advance(
     try:
         review = db.query(CourtReview).filter_by(id=brief_id).first()
         if review is None:
-            return fail("brief_id 不存在")
+            return _http_fail(404, "brief_id 不存在")
         task = db.query(DecisionTask).filter_by(id=review.task_id).first()
         if task is None:
-            return fail("task_id 不存在")
+            return _http_fail(404, "task_id 不存在")
         if task.user_id != _user_id(user):
-            return fail("无权裁决该任务")
+            return _http_fail(404, "无权裁决该任务")
         mapping = {
             "issue_decree": "adopt",
             "request_more_evidence": "request_evidence",
@@ -2211,56 +2788,38 @@ def shangshufang_brief_decision_advance(
             "reject": "reject",
         }
         action = mapping.get(body.decision, "request_evidence")
-        now = now_iso()
-        decision = EmperorDecision(
-            id=make_id("decision", task.id, action, now),
-            tenant_id=task.tenant_id,
-            task_id=task.id,
-            action=action,
-            kind=emperor_decision_kind(action),
-            reason=body.reason,
-            human_confirmed=bool(body.manualConfirmation),
-            confirmation_record_json=_json(
-                {
-                    "user_id": _user_id(user),
-                    "brief_id": brief_id,
-                    "at": now,
-                    "execution_type": body.executionType,
-                }
-            ),
-            created_at=now,
-        )
-        db.add(decision)
-        # action 恒为 mapping 里四个 canonical 值之一(默认 "request_evidence")，
-        # 跟 apply_task_decision 认的词表一致，不需要再映射。
-        archive_record = apply_task_decision(
+        outcome = _execute_final_memorial_decision(
             db,
             task=task,
             review=review,
             action=action,
             reason=body.reason,
             human_confirmed=bool(body.manualConfirmation),
-            now=now,
+            expected_content_hash=body.expectedFinalMemorialContentHash,
+            actor_user_id=_user_id(user),
+            confirmation_extra={
+                "brief_id": brief_id,
+                "execution_type": body.executionType,
+            },
         )
-        record_task_decision_event(
-            db,
-            task=task,
-            decision=decision,
-            archive_record=archive_record,
-        )
-        db.commit()
+        if not outcome["replayed"]:
+            db.commit()
         return ok(
             {
                 "task_id": task.id,
                 "sourceLabel": "LIVE",
                 "status": task.status,
-                "decision_id": decision.id,
-                "archive_record": archive_record,
+                "decision_id": outcome["decision_id"],
+                "archive_record": outcome["archive_record"],
+                "rework_generation": outcome["rework_generation"],
             }
         )
+    except ValueError as exc:
+        db.rollback()
+        return _http_fail(409, str(exc))
     except Exception as exc:  # noqa: BLE001
         db.rollback()
-        return fail(str(exc))
+        return _http_fail(500, str(exc))
     finally:
         db.close()
 

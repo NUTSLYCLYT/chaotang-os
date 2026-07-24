@@ -23,6 +23,9 @@ os.environ.setdefault("FENGQUN_JWT_SECRET", "test-only-" + "x" * 40)
 # autouse monkeypatch cannot replace later.
 os.environ["DB_URL"] = "sqlite:///:memory:"
 os.environ["FENGQUN_SCHEMA_MODE"] = "test"
+# Production defaults W05 off. Tests that exercise the authorized W05 packet
+# opt in explicitly before application modules are imported.
+os.environ.setdefault("FENGQUN_W05_CONTRACT_REWORK", "1")
 # src.tenant uses a separate legacy sqlite3 connection rather than the
 # SQLAlchemy engine above.  Bind it to a process-unique temporary file before
 # any test module can import src.tenant, and enable the connection-time guard.
@@ -70,6 +73,27 @@ def _authenticated_api_user():
         user_id=1,
         username="ops",
         role="admin",
+        tenant_slug="default",
+        tenant_id=1,
+    )
+    yield
+    if original is None:
+        app.dependency_overrides.pop(deps.get_current_user, None)
+    else:
+        app.dependency_overrides[deps.get_current_user] = original
+
+
+@pytest.fixture()
+def w05_contract_user(_authenticated_api_user):
+    """W05 body access uses an ordinary owner; admin is deliberately denied."""
+    app = importlib.import_module("web.main").app
+    deps = importlib.import_module("web.deps")
+    auth_schema = importlib.import_module("web.schemas.auth")
+    original = app.dependency_overrides.get(deps.get_current_user)
+    app.dependency_overrides[deps.get_current_user] = lambda: auth_schema.CurrentUser(
+        user_id=1,
+        username="contract-owner",
+        role="user",
         tenant_slug="default",
         tenant_id=1,
     )

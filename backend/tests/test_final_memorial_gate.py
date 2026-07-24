@@ -116,6 +116,165 @@ def test_live_quality_passed_candidate_is_formalized_once(isolated_session_local
     db.close()
 
 
+def test_passed_rework_appends_v2_and_preserves_v1_content(
+    isolated_session_local,
+):
+    from src.db.models import CourtReview, FinalMemorial
+    from src.formal_memorial import formalize_memorial
+
+    db = isolated_session_local()
+    task_id = "task_formal_rework_v2"
+    review_id = _seed_candidate(db, task_id=task_id)
+    first_result = _swarm_result(
+        task_id=task_id,
+        review_id=review_id,
+        source_label="LIVE_SWARM",
+    )
+    first = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=first_result,
+    )
+    db.commit()
+    first_json = first.memorial_json
+    first_hash = first.content_hash
+    first.status = "awaiting_evidence"
+    review = db.query(CourtReview).filter_by(id=review_id).one()
+    review.memorial_json = json.dumps(
+        {
+            "title": "合同会审正式奏折 v2",
+            "summary": "补证后重新会审通过。",
+            "recommendation": "adopt_with_conditions",
+        },
+        ensure_ascii=False,
+    )
+    second_result = _swarm_result(
+        task_id=task_id,
+        review_id=review_id,
+        source_label="LIVE_SWARM",
+    )
+    second_result["swarm_run"]["id"] = f"run_{task_id}_v2"
+    second_result["quality_result"]["id"] = f"quality_{task_id}_v2"
+
+    second = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=second_result,
+    )
+    db.commit()
+
+    versions = (
+        db.query(FinalMemorial)
+        .filter_by(task_id=task_id)
+        .order_by(FinalMemorial.version)
+        .all()
+    )
+    assert [row.version for row in versions] == [1, 2]
+    assert versions[0].memorial_json == first_json
+    assert versions[0].content_hash == first_hash
+    assert versions[0].status == "superseded"
+    assert versions[0].is_current is False
+    assert second.supersedes_id == versions[0].id
+    assert second.is_current is True
+    assert second.content_hash != first_hash
+    status = TestClient(app).get(
+        f"/api/shangshufang/tasks/{task_id}/status"
+    ).json()["data"]
+    assert status["formal_memorial"]["id"] == second.id
+    assert status["formal_memorial"]["version"] == 2
+    assert status["formal_memorial"]["supersedes_id"] == versions[0].id
+    db.close()
+
+    stale_adopt = TestClient(app).post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "adopt",
+            "reason": "旧页面批准",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": first_hash,
+        },
+    ).json()
+    assert stale_adopt["success"] is False
+    assert "已变化" in stale_adopt["error"]
+
+    db = isolated_session_local()
+    current = (
+        db.query(FinalMemorial)
+        .filter_by(task_id=task_id, is_current=True)
+        .one()
+    )
+    assert current.id == second.id
+    assert current.status == "ready_for_decision"
+    current_id = current.id
+    current_hash = current.content_hash
+    db.close()
+
+    adopted = TestClient(app).post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "adopt",
+            "reason": "按补证后的当前版本准奏",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": current_hash,
+        },
+    ).json()
+    assert adopted["success"] is True, adopted
+
+    from src.db.models import ShiguanArchive
+
+    db = isolated_session_local()
+    archive = db.query(ShiguanArchive).filter_by(task_id=task_id).one()
+    assert archive.final_memorial_id == current_id
+    assert archive.final_memorial_version == 2
+    assert archive.final_memorial_content_hash == current_hash
+    db.close()
+
+
+def test_adjudication_requires_current_memorial_content_hash(
+    isolated_session_local,
+):
+    from src.db.models import FinalMemorial
+    from src.formal_memorial import formalize_memorial
+
+    db = isolated_session_local()
+    task_id = "task_adjudication_missing_hash"
+    review_id = _seed_candidate(db, task_id=task_id)
+    formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id,
+            review_id=review_id,
+            source_label="LIVE_SWARM",
+        ),
+    )
+    db.commit()
+    db.close()
+
+    response = TestClient(app).post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "adopt",
+            "reason": "未绑定当前版本",
+            "human_confirmed": True,
+        },
+    ).json()
+
+    assert response["success"] is False
+    assert "content hash" in response["error"]
+    db = isolated_session_local()
+    current = (
+        db.query(FinalMemorial)
+        .filter_by(task_id=task_id, is_current=True)
+        .one()
+    )
+    assert current.status == "ready_for_decision"
+    db.close()
+
+
 @pytest.mark.parametrize(
     ("source_label", "passed", "reason"),
     [
@@ -170,7 +329,7 @@ def test_adopt_fails_closed_without_formal_memorial_and_archives_formal_snapshot
 
     db = isolated_session_local()
     assert db.query(EmperorDecision).filter_by(task_id=task_id).count() == 0
-    formalize_memorial(
+    formal = formalize_memorial(
         db,
         task_id=task_id,
         review_id=review_id,
@@ -180,12 +339,18 @@ def test_adopt_fails_closed_without_formal_memorial_and_archives_formal_snapshot
             source_label="LIVE_SWARM",
         ),
     )
+    content_hash = formal.content_hash
     db.commit()
     db.close()
 
     unconfirmed = client.post(
         f"/api/shangshufang/tasks/{task_id}/decision",
-        json={"action": "adopt", "reason": "尚未签字", "human_confirmed": False},
+        json={
+            "action": "adopt",
+            "reason": "尚未签字",
+            "human_confirmed": False,
+            "expected_final_memorial_content_hash": content_hash,
+        },
     )
     assert unconfirmed.json()["success"] is False
     assert "人工确认" in unconfirmed.json()["error"]
@@ -195,7 +360,12 @@ def test_adopt_fails_closed_without_formal_memorial_and_archives_formal_snapshot
 
     adopted = client.post(
         f"/api/shangshufang/tasks/{task_id}/decision",
-        json={"action": "adopt", "reason": "证据充分，同意", "human_confirmed": True},
+        json={
+            "action": "adopt",
+            "reason": "证据充分，同意",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": content_hash,
+        },
     )
     assert adopted.json()["success"] is True
     assert adopted.json()["data"]["status"] == "archived"
@@ -204,6 +374,10 @@ def test_adopt_fails_closed_without_formal_memorial_and_archives_formal_snapshot
     archive = db.query(ShiguanArchive).filter_by(task_id=task_id).one()
     assert archive.source_label == "LIVE_SWARM"
     assert json.loads(archive.final_memorial_json)["recommendation"] == "adopt_with_conditions"
+    decision = db.query(EmperorDecision).filter_by(task_id=task_id).one()
+    assert json.loads(decision.confirmation_record_json)[
+        "final_memorial_content_hash"
+    ] == content_hash
     decision_event = (
         db.query(DecreeExecutionEvent)
         .filter_by(task_id=task_id, event_type="decision.adopted")
@@ -258,7 +432,7 @@ def test_status_shows_delivered_only_after_final_memorial_gate(isolated_session_
             decision_json=decision.model_dump_json(),
         )
     )
-    formalize_memorial(
+    formal = formalize_memorial(
         db,
         task_id=task_id,
         review_id=review_id,
@@ -266,13 +440,19 @@ def test_status_shows_delivered_only_after_final_memorial_gate(isolated_session_
             task_id=task_id, review_id=review_id, source_label="LIVE_SWARM"
         ),
     )
+    content_hash = formal.content_hash
     db.commit()
     db.close()
 
     client = TestClient(app)
     adopted = client.post(
         f"/api/shangshufang/tasks/{task_id}/decision",
-        json={"action": "adopt", "reason": "证据充分，同意", "human_confirmed": True},
+        json={
+            "action": "adopt",
+            "reason": "证据充分，同意",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": content_hash,
+        },
     )
     assert adopted.json()["success"] is True
 
@@ -311,6 +491,107 @@ def test_reject_supersedes_formal_memorial_and_blocks_later_adopt(isolated_sessi
     db = isolated_session_local()
     task_id = "task_reject_then_adopt"
     review_id = _seed_candidate(db, task_id=task_id)
+    formal = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id, review_id=review_id, source_label="LIVE_SWARM"
+        ),
+    )
+    content_hash = formal.content_hash
+    db.commit()
+    db.close()
+
+    client = TestClient(app)
+    rejected = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "reject",
+            "reason": "证据不足",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": content_hash,
+        },
+    )
+    assert rejected.json()["success"] is True
+
+    db = isolated_session_local()
+    formal = db.query(FinalMemorial).filter_by(task_id=task_id).one()
+    assert formal.status == "rejected"
+    db.close()
+
+    blocked_adopt = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "adopt",
+            "reason": "改判",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": content_hash,
+        },
+    )
+    assert blocked_adopt.json()["success"] is False
+    assert "正式奏折" in blocked_adopt.json()["error"]
+
+    db = isolated_session_local()
+    assert db.query(FinalMemorial).filter_by(task_id=task_id).one().status == "rejected"
+    db.close()
+
+
+def test_request_evidence_invalidates_old_memorial_before_later_adopt(
+    isolated_session_local,
+):
+    """补证令必须先关闭旧奏折的裁决资格，再等待新 generation。
+
+    这是 W05 evidence-bound rework 的第一条公共 API seam：用户对当前正式奏折
+    要求补证后，旧内容不能仍保持可准奏状态。后续新证据、新 generation 和新
+    FinalMemorial 尚未形成之前，再次 adopt 必须 fail closed。
+    """
+    from src.formal_memorial import formalize_memorial
+
+    db = isolated_session_local()
+    task_id = "task_request_evidence_then_adopt"
+    review_id = _seed_candidate(db, task_id=task_id)
+    formal = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id, review_id=review_id, source_label="LIVE_SWARM"
+        ),
+    )
+    content_hash = formal.content_hash
+    db.commit()
+    db.close()
+
+    client = TestClient(app)
+    evidence_requested = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "request_evidence",
+            "reason": "补充第 4 页付款条件原文",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": content_hash,
+        },
+    )
+    assert evidence_requested.json()["success"] is True
+
+    blocked_adopt = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={"action": "adopt", "reason": "沿用旧稿", "human_confirmed": True},
+    )
+    assert blocked_adopt.json()["success"] is False
+    assert "正式奏折" in blocked_adopt.json()["error"]
+
+
+def test_request_evidence_requires_current_memorial_content_hash(
+    isolated_session_local,
+):
+    """补证必须明确绑定用户正在查看的正式奏折版本。"""
+    from src.formal_memorial import formalize_memorial
+
+    db = isolated_session_local()
+    task_id = "task_request_evidence_missing_hash"
+    review_id = _seed_candidate(db, task_id=task_id)
     formalize_memorial(
         db,
         task_id=task_id,
@@ -322,27 +603,677 @@ def test_reject_supersedes_formal_memorial_and_blocks_later_adopt(isolated_sessi
     db.commit()
     db.close()
 
-    client = TestClient(app)
-    rejected = client.post(
+    response = TestClient(app).post(
         f"/api/shangshufang/tasks/{task_id}/decision",
-        json={"action": "reject", "reason": "证据不足", "human_confirmed": True},
+        json={
+            "action": "request_evidence",
+            "reason": "补充第 4 页付款条件原文",
+            "human_confirmed": True,
+        },
     )
-    assert rejected.json()["success"] is True
+
+    assert response.status_code == 409
+    assert response.json()["success"] is False
+    assert "content hash" in response.json()["error"]
+
+
+def test_request_evidence_rejects_stale_memorial_content_hash(
+    isolated_session_local,
+):
+    """旧页面提交的补证不能作用到已经变化的正式奏折。"""
+    from src.formal_memorial import formalize_memorial
 
     db = isolated_session_local()
-    formal = db.query(FinalMemorial).filter_by(task_id=task_id).one()
-    assert formal.status == "rejected"
+    task_id = "task_request_evidence_stale_hash"
+    review_id = _seed_candidate(db, task_id=task_id)
+    formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id, review_id=review_id, source_label="LIVE_SWARM"
+        ),
+    )
+    db.commit()
     db.close()
 
-    blocked_adopt = client.post(
+    response = TestClient(app).post(
         f"/api/shangshufang/tasks/{task_id}/decision",
-        json={"action": "adopt", "reason": "改判", "human_confirmed": True},
+        json={
+            "action": "request_evidence",
+            "reason": "补充第 4 页付款条件原文",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": "0" * 64,
+        },
     )
-    assert blocked_adopt.json()["success"] is False
-    assert "正式奏折" in blocked_adopt.json()["error"]
+
+    assert response.status_code == 409
+    assert response.json()["success"] is False
+    assert "已变化" in response.json()["error"]
+
+    status = TestClient(app).get(f"/api/shangshufang/tasks/{task_id}/status")
+    assert status.json()["data"]["task"]["status"] == "awaiting_decision"
+    assert (
+        status.json()["data"]["formal_memorial"]["status"]
+        == "ready_for_decision"
+    )
+
+
+@pytest.mark.parametrize(
+    ("path", "body"),
+    [
+        (
+            "/api/shangshufang/tasks/invalid-hash/decision",
+            {
+                "action": "request_evidence",
+                "expected_final_memorial_content_hash": "A" * 64,
+            },
+        ),
+        (
+            "/api/shangshufang/briefs/invalid-hash/decision/advance",
+            {
+                "decision": "request_more_evidence",
+                "expectedFinalMemorialContentHash": "short",
+            },
+        ),
+    ],
+)
+def test_decision_exact_hash_fields_reject_non_canonical_sha256(
+    path,
+    body,
+    isolated_session_local,
+):
+    response = TestClient(app).post(path, json=body)
+
+    assert response.status_code == 422
+
+
+def test_w05_contract_rework_defaults_off_without_creating_generation(
+    isolated_session_local,
+    monkeypatch,
+):
+    """未明确启用 W05 时，补证请求不得改变奏折或创建 generation。"""
+    from src.db.models import EmperorDecision, FinalMemorial, OutboxEvent
+    from src.formal_memorial import formalize_memorial
+
+    monkeypatch.delenv("FENGQUN_W05_CONTRACT_REWORK", raising=False)
+    db = isolated_session_local()
+    task_id = "task_w05_feature_disabled_request"
+    review_id = _seed_candidate(db, task_id=task_id)
+    formal = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id,
+            review_id=review_id,
+            source_label="LIVE_SWARM",
+        ),
+    )
+    content_hash = formal.content_hash
+    db.commit()
+    db.close()
+
+    response = TestClient(app).post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "request_evidence",
+            "reason": "补充付款条件原文",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": content_hash,
+        },
+    ).json()
+
+    assert response["success"] is False, response
+    assert "W05" in response["error"]
+    db = isolated_session_local()
+    assert db.query(OutboxEvent).filter_by(task_id=task_id).count() == 0
+    assert db.query(EmperorDecision).filter_by(task_id=task_id).count() == 0
+    current = db.query(FinalMemorial).filter_by(task_id=task_id).one()
+    assert current.status == "ready_for_decision"
+    assert current.is_current is True
+    db.close()
+
+
+def test_repeated_evidence_request_reuses_one_rework_generation(
+    isolated_session_local,
+):
+    """网络重试不得为同一份补证要求创建两条 generation。"""
+    from src.formal_memorial import formalize_memorial
 
     db = isolated_session_local()
-    assert db.query(FinalMemorial).filter_by(task_id=task_id).one().status == "rejected"
+    task_id = "task_request_evidence_generation_idempotent"
+    review_id = _seed_candidate(db, task_id=task_id)
+    formal = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id, review_id=review_id, source_label="LIVE_SWARM"
+        ),
+    )
+    content_hash = formal.content_hash
+    db.commit()
+    db.close()
+
+    client = TestClient(app)
+    request_body = {
+        "action": "request_evidence",
+        "reason": "补充第 4 页付款条件原文",
+        "human_confirmed": True,
+        "expected_final_memorial_content_hash": content_hash,
+    }
+    first = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json=request_body,
+    ).json()
+    retry = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json=request_body,
+    ).json()
+
+    assert first["success"] is True, first
+    assert retry["success"] is True, retry
+    assert first["data"]["rework_generation"] == retry["data"]["rework_generation"]
+    assert first["data"]["rework_generation"]["generation"] == 2
+    assert first["data"]["rework_generation"]["status"] == "awaiting_evidence"
+    assert (
+        first["data"]["rework_generation"]["prior_final_memorial_content_hash"]
+        == content_hash
+    )
+    assert first["data"]["rework_generation"]["evidence_request"] == {
+        "reason": "补充第 4 页付款条件原文",
+        "followup_question": None,
+    }
+    assert first["data"]["rework_generation"]["affected_sections"] == [
+        "contract_review"
+    ]
+
+
+def test_competing_identical_request_replays_winning_generation_after_cas_loss(
+    isolated_session_local,
+    monkeypatch,
+):
+    """两个请求都读到 ready 时，CAS loser 必须重载 winner，不能制造用户错误。"""
+    import web.routers.shangshufang as shangshufang_router
+    from src.db.models import FinalMemorial, OutboxEvent
+    from src.execution.decree_dispatcher import evidence_rework_idempotency_key
+    from src.formal_memorial import formalize_memorial
+
+    db = isolated_session_local()
+    task_id = "task_competing_identical_evidence_request"
+    review_id = _seed_candidate(db, task_id=task_id)
+    formal = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id,
+            review_id=review_id,
+            source_label="LIVE_SWARM",
+        ),
+    )
+    content_hash = formal.content_hash
+    db.commit()
+    db.close()
+
+    reason = "补充第 4 页付款条件原文"
+    generation_id = "outbox_competing_request_winner"
+    request_key = evidence_rework_idempotency_key(
+        task_id=task_id,
+        prior_final_memorial_content_hash=content_hash,
+        reason=reason,
+        followup_question=None,
+    )
+
+    def _publish_winner_then_lose_claim(
+        race_db,
+        *,
+        task_id,
+        expected_content_hash,
+        target_status,
+    ):
+        current = (
+            race_db.query(FinalMemorial)
+            .filter_by(
+                task_id=task_id,
+                content_hash=expected_content_hash,
+                is_current=True,
+            )
+            .one()
+        )
+        current.status = target_status
+        payload = {
+            "schema_version": "EvidenceReworkGenerationV1",
+            "generation_id": generation_id,
+            "generation": 2,
+            "status": "awaiting_evidence",
+            "prior_final_memorial_content_hash": content_hash,
+            "evidence_request": {
+                "reason": reason,
+                "followup_question": None,
+            },
+            "affected_sections": ["contract_review"],
+        }
+        race_db.add(
+            OutboxEvent(
+                id=generation_id,
+                tenant_id=1,
+                task_id=task_id,
+                decision_id="decision_competing_request_winner",
+                event_type="evidence.rework",
+                generation=2,
+                idempotency_key=request_key,
+                status="awaiting_evidence",
+                attempts=0,
+                max_attempts=3,
+                payload_json=json.dumps(payload),
+                created_at="2026-07-24T00:00:02+00:00",
+                updated_at="2026-07-24T00:00:02+00:00",
+            )
+        )
+        race_db.flush()
+        # The competing request committed its winner before this request learns
+        # that its CAS lost.
+        race_db.commit()
+        return False
+
+    monkeypatch.setattr(
+        shangshufang_router,
+        "_claim_current_memorial",
+        _publish_winner_then_lose_claim,
+    )
+    response = TestClient(app).post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "request_evidence",
+            "reason": reason,
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": content_hash,
+        },
+    ).json()
+
+    assert response["success"] is True, response
+    assert response["data"]["rework_generation"]["generation_id"] == generation_id
+    db = isolated_session_local()
+    assert db.query(OutboxEvent).filter_by(task_id=task_id).count() == 1
+    db.close()
+
+
+@pytest.mark.parametrize("failed_status", ["failed", "dead_letter"])
+def test_failed_generation_replay_reports_authoritative_failure(
+    isolated_session_local,
+    failed_status,
+):
+    """失败 generation 的旧 pending payload 不能伪装成成功重放。"""
+    from src.db.models import EmperorDecision, OutboxEvent
+    from src.formal_memorial import formalize_memorial
+
+    db = isolated_session_local()
+    task_id = f"task_generation_replay_{failed_status}"
+    review_id = _seed_candidate(db, task_id=task_id)
+    formal = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id,
+            review_id=review_id,
+            source_label="LIVE_SWARM",
+        ),
+    )
+    content_hash = formal.content_hash
+    db.commit()
+    db.close()
+
+    body = {
+        "action": "request_evidence",
+        "reason": "补充付款条件原文",
+        "human_confirmed": True,
+        "expected_final_memorial_content_hash": content_hash,
+    }
+    client = TestClient(app)
+    first = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json=body,
+    ).json()
+    assert first["success"] is True, first
+
+    generation_id = first["data"]["rework_generation"]["generation_id"]
+    db = isolated_session_local()
+    generation = db.query(OutboxEvent).filter_by(id=generation_id).one()
+    generation.status = failed_status
+    generation.last_error = "document parser failed"
+    generation.attempts = 3 if failed_status == "dead_letter" else 1
+    db.commit()
+    decision_count = db.query(EmperorDecision).filter_by(task_id=task_id).count()
+    db.close()
+
+    replay = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json=body,
+    ).json()
+
+    assert replay["success"] is False, replay
+    assert failed_status in replay["error"]
+    assert "document parser failed" in replay["error"]
+    db = isolated_session_local()
+    assert db.query(OutboxEvent).filter_by(task_id=task_id).count() == 1
+    assert (
+        db.query(EmperorDecision).filter_by(task_id=task_id).count()
+        == decision_count
+    )
+    db.close()
+
+
+def test_brief_evidence_request_uses_same_idempotent_rework_generation(
+    isolated_session_local,
+):
+    """兼容 brief 入口不能只改状态，必须复用 task 入口的 generation 事实。"""
+    from src.formal_memorial import formalize_memorial
+
+    db = isolated_session_local()
+    task_id = "task_brief_request_evidence_generation"
+    review_id = _seed_candidate(db, task_id=task_id)
+    formal = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id,
+            review_id=review_id,
+            source_label="LIVE_SWARM",
+        ),
+    )
+    content_hash = formal.content_hash
+    db.commit()
+    db.close()
+
+    client = TestClient(app)
+    body = {
+        "decision": "request_more_evidence",
+        "reason": "补充付款条款原文",
+        "manualConfirmation": True,
+        "expectedFinalMemorialContentHash": content_hash,
+    }
+    first = client.post(
+        f"/api/shangshufang/briefs/{review_id}/decision/advance",
+        json=body,
+    ).json()
+    retry = client.post(
+        f"/api/shangshufang/briefs/{review_id}/decision/advance",
+        json=body,
+    ).json()
+
+    assert first["success"] is True, first
+    assert retry["success"] is True, retry
+    assert first["data"]["rework_generation"] == retry["data"]["rework_generation"]
+    assert first["data"]["rework_generation"]["generation"] == 2
+    assert (
+        first["data"]["rework_generation"]["prior_final_memorial_content_hash"]
+        == content_hash
+    )
+
+
+def test_current_memorial_claim_is_atomic_for_competing_decisions(
+    isolated_session_local,
+):
+    """同一 current hash 的两个裁决只能有一个原子状态转换成功。"""
+    import web.routers.shangshufang as shangshufang_router
+    from src.db.models import FinalMemorial
+    from src.formal_memorial import formalize_memorial
+
+    db = isolated_session_local()
+    task_id = "task_atomic_current_memorial_claim"
+    review_id = _seed_candidate(db, task_id=task_id)
+    formal = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id,
+            review_id=review_id,
+            source_label="LIVE_SWARM",
+        ),
+    )
+    content_hash = formal.content_hash
+    db.commit()
+
+    claim = getattr(shangshufang_router, "_claim_current_memorial", None)
+    assert callable(claim), "裁决入口缺少数据库原子 current-memorial claim"
+    first = claim(
+        db,
+        task_id=task_id,
+        expected_content_hash=content_hash,
+        target_status="awaiting_evidence",
+    )
+    competing = claim(
+        db,
+        task_id=task_id,
+        expected_content_hash=content_hash,
+        target_status="rejected",
+    )
+    db.commit()
+
+    assert first is True
+    assert competing is False
+    stored = db.query(FinalMemorial).filter_by(task_id=task_id).one()
+    assert stored.status == "awaiting_evidence"
+    db.close()
+
+
+@pytest.mark.parametrize("capability_active", [True, False])
+def test_accepted_upload_binds_to_waiting_rework_generation(
+    isolated_session_local,
+    monkeypatch,
+    capability_active,
+    w05_contract_user,
+):
+    """安全摄取通过的附件才能形成 generation-bound EvidencePacket。"""
+    from src.db.models import OutboxEvent
+    from src.formal_memorial import formalize_memorial
+    from tests.fixtures.secure_ingest_fixtures import golden_docx_bytes
+
+    monkeypatch.setenv("FENGQUN_W05_CONTRACT_REWORK", "1")
+    db = isolated_session_local()
+    task_id = "task_bind_accepted_evidence"
+    review_id = _seed_candidate(db, task_id=task_id)
+    formal = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id, review_id=review_id, source_label="LIVE_SWARM"
+        ),
+    )
+    content_hash = formal.content_hash
+    db.commit()
+    db.close()
+
+    client = TestClient(app)
+    requested = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "request_evidence",
+            "reason": "补充第 4 页付款条件原文",
+            "expected_final_memorial_content_hash": content_hash,
+        },
+    ).json()
+    generation = requested["data"]["rework_generation"]
+    uploaded = client.post(
+        "/api/secure-ingest/upload",
+        data={
+            "mission_contract_id": task_id,
+            "purpose": "evidence_rework",
+        },
+        files={
+            "file": (
+                "付款条件补证.docx",
+                golden_docx_bytes("付款应在验收完成后七日内支付。"),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+    ).json()
+    assert uploaded["status"] == "ACCEPTED", uploaded
+
+    if not capability_active:
+        monkeypatch.setenv("FENGQUN_W05_CONTRACT_REWORK", "0")
+    bound = client.post(
+        (
+            f"/api/shangshufang/tasks/{task_id}/rework-generations/"
+            f"{generation['generation_id']}/evidence"
+        ),
+        json={"artifact_id": uploaded["artifact_id"]},
+    )
+
+    assert bound.status_code == (200 if capability_active else 409)
+    payload = bound.json()
+    if not capability_active:
+        assert payload["success"] is False, payload
+        assert "W05" in payload["error"]
+        db = isolated_session_local()
+        stored = db.query(OutboxEvent).filter_by(id=generation["generation_id"]).one()
+        assert stored.status == "awaiting_evidence"
+        assert "evidence_packets" not in json.loads(stored.payload_json)
+        db.close()
+        return
+
+    assert payload["success"] is True, payload
+    packet = payload["data"]["evidence_packet"]
+    assert packet["schema_version"] == "EvidencePacketV1"
+    assert packet["task_id"] == task_id
+    assert packet["input_version_id"] == uploaded["artifact_id"]
+    assert packet["input_digest"] == uploaded["digest_sha256"]
+    assert packet["prior_final_memorial_content_hash"] == content_hash
+    assert packet["generation"] == 2
+    assert packet["evidence_status"] == "GROUNDED"
+    assert packet["verification_receipt_id"]
+    assert payload["data"]["rework_generation"]["status"] == "evidence_bound"
+
+    db = isolated_session_local()
+    stored_generation = (
+        db.query(OutboxEvent).filter_by(id=generation["generation_id"]).one()
+    )
+    assert stored_generation.status == "evidence_bound"
+    db.close()
+
+    db = isolated_session_local()
+    from src.db.models import SecureIngestAuditEvent
+
+    receipt = (
+        db.query(SecureIngestAuditEvent)
+        .filter_by(id=packet["verification_receipt_id"])
+        .one()
+    )
+    assert receipt.event_type == "evidence_bound"
+    assert receipt.purpose == "contract_review"
+    assert receipt.user_id == "1"
+    db.close()
+
+    retry = client.post(
+        (
+            f"/api/shangshufang/tasks/{task_id}/rework-generations/"
+            f"{generation['generation_id']}/evidence"
+        ),
+        json={"artifact_id": uploaded["artifact_id"]},
+    ).json()
+
+    assert retry["success"] is True, retry
+    assert retry["data"]["evidence_packet"] == packet
+    assert retry["data"]["rework_generation"]["evidence_packets"] == [packet]
+
+
+@pytest.mark.parametrize("denial", ["cross_user", "internal_ops"])
+def test_evidence_binding_enforces_owner_and_body_access_policy(
+    isolated_session_local,
+    w05_contract_user,
+    denial,
+):
+    """任务归属不能替代附件归属和 W03 正文 purpose/role 授权。"""
+    from src.db.models import OutboxEvent, SecureIngestArtifact
+    from src.formal_memorial import formalize_memorial
+    from tests.fixtures.secure_ingest_fixtures import golden_docx_bytes
+    from web import deps
+    from web.schemas.auth import CurrentUser
+
+    db = isolated_session_local()
+    task_id = f"task_bind_authz_{denial}"
+    review_id = _seed_candidate(db, task_id=task_id)
+    formal = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id,
+            review_id=review_id,
+            source_label="LIVE_SWARM",
+        ),
+    )
+    content_hash = formal.content_hash
+    db.commit()
+    db.close()
+
+    client = TestClient(app)
+    requested = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "request_evidence",
+            "reason": "补充付款条件原文",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": content_hash,
+        },
+    ).json()
+    generation = requested["data"]["rework_generation"]
+    uploaded = client.post(
+        "/api/secure-ingest/upload",
+        data={
+            "mission_contract_id": task_id,
+            "purpose": "evidence_rework",
+        },
+        files={
+            "file": (
+                "付款条件补证.docx",
+                golden_docx_bytes("付款应在验收完成后七日内支付。"),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+    ).json()
+    assert uploaded["status"] == "ACCEPTED", uploaded
+
+    if denial == "cross_user":
+        db = isolated_session_local()
+        artifact = (
+            db.query(SecureIngestArtifact)
+            .filter_by(id=uploaded["artifact_id"])
+            .one()
+        )
+        artifact.user_id = "2"
+        db.commit()
+        db.close()
+    else:
+        app.dependency_overrides[deps.get_current_user] = lambda: CurrentUser(
+            user_id=1,
+            username="ops",
+            role="admin",
+            tenant_slug="default",
+            tenant_id=1,
+        )
+
+    response = client.post(
+        (
+            f"/api/shangshufang/tasks/{task_id}/rework-generations/"
+            f"{generation['generation_id']}/evidence"
+        ),
+        json={"artifact_id": uploaded["artifact_id"]},
+    )
+
+    assert response.status_code == (404 if denial == "cross_user" else 403)
+    payload = response.json()
+    assert payload["success"] is False, payload
+    db = isolated_session_local()
+    stored = db.query(OutboxEvent).filter_by(id=generation["generation_id"]).one()
+    assert stored.status == "awaiting_evidence"
+    assert "evidence_packets" not in json.loads(stored.payload_json)
     db.close()
 
 

@@ -1,0 +1,329 @@
+"""R0-W05 evidence-bound contract section recomputation."""
+
+from __future__ import annotations
+
+import hashlib
+import io
+import json
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Any
+
+import docx
+from sqlalchemy import func
+
+from src.contracts.contract_review_pack import ContractReviewPackV1
+from src.contracts.contract_risk_item import ContractRiskItemV1
+from src.contracts.contract_support import evaluate_support
+from src.contracts.evidence_packet import EvidencePacketV1
+from src.contracts.evidence_rework_generation import EvidenceReworkGenerationV1
+from src.contracts.mission_contract import ContractIntakeV1
+from src.secure_ingest.storage import read_artifact_bytes_at_path
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
+    from src.db.models import OutboxEvent
+
+
+def _extract_docx_text(raw_bytes: bytes) -> str:
+    document = docx.Document(io.BytesIO(raw_bytes))
+    return "\n".join(
+        paragraph.text.strip()
+        for paragraph in document.paragraphs
+        if paragraph.text.strip()
+    )
+
+
+def _candidate_gate_reasons(
+    pack: ContractReviewPackV1,
+    packets: list[EvidencePacketV1],
+) -> list[str]:
+    reasons: list[str] = []
+    if any(
+        packet.evidence_status != "GROUNDED"
+        or not packet.verification_receipt_id
+        for packet in packets
+    ):
+        reasons.append("provenance_gate_failed")
+    if pack.verdict == "NEED_LEGAL_REVIEW":
+        reasons.append("contract_scope_requires_legal_review")
+    return reasons
+
+
+def recompute_contract_review(
+    db: "Session",
+    event: "OutboxEvent",
+) -> dict[str, Any]:
+    """Recompute only the declared contract section for the current generation."""
+    from src.db.models import CourtReview, DecisionTask, OutboxEvent, SecureIngestArtifact
+    from src.w05_feature import w05_contract_rework_active
+
+    generation = EvidenceReworkGenerationV1.model_validate_json(
+        event.payload_json or "{}"
+    )
+    affected_sections = generation.affected_sections
+    if not w05_contract_rework_active():
+        return {
+            "fenced": True,
+            "reason": "capability_disabled",
+            "generation": event.generation,
+            "affected_sections": affected_sections,
+        }
+    if affected_sections != ["contract_review"]:
+        raise ValueError("W05 只允许重算 contract_review section")
+
+    current_generation = (
+        db.query(func.max(OutboxEvent.generation))
+        .filter_by(task_id=event.task_id)
+        .scalar()
+    )
+    if event.generation != current_generation:
+        return {
+            "fenced": True,
+            "generation": event.generation,
+            "current_generation": current_generation,
+            "affected_sections": affected_sections,
+        }
+
+    packets = generation.evidence_packets or []
+    if not packets:
+        raise ValueError("rework generation 缺少 EvidencePacket")
+
+    task = db.query(DecisionTask).filter_by(id=event.task_id).one()
+    review = (
+        db.query(CourtReview)
+        .filter_by(task_id=event.task_id)
+        .order_by(CourtReview.created_at.desc())
+        .first()
+    )
+    if review is None:
+        raise ValueError("rework generation 缺少 canonical CourtReview")
+
+    risk_items: list[ContractRiskItemV1] = []
+    for packet in packets:
+        artifact = (
+            db.query(SecureIngestArtifact)
+            .filter_by(
+                id=packet.input_version_id,
+                tenant_id=event.tenant_id,
+                mission_contract_id=event.task_id,
+                status="ACCEPTED",
+            )
+            .one()
+        )
+        raw_bytes = read_artifact_bytes_at_path(artifact.storage_path)
+        actual_digest = hashlib.sha256(raw_bytes).hexdigest()
+        if actual_digest != packet.input_digest or actual_digest != artifact.digest_sha256:
+            raise ValueError("绑定证据内容摘要已变化")
+        excerpt = _extract_docx_text(raw_bytes)[:2000]
+        if not excerpt:
+            raise ValueError("绑定证据没有可核验文本")
+        risk_items.append(
+            ContractRiskItemV1(
+                risk_item_id=(
+                    "risk_"
+                    + hashlib.sha256(
+                        f"{event.id}|{packet.evidence_packet_id}".encode("utf-8")
+                    ).hexdigest()[:16]
+                ),
+                evidence_packet_id=packet.evidence_packet_id,
+                file_version_id=packet.input_version_id,
+                page_number=None,
+                clause_ref=None,
+                raw_excerpt=excerpt,
+                risk_level="medium",
+                explanation="新增证据涉及合同付款、验收或责任条件，需由 canonical 会审复核。",
+                missing_evidence=["DOCX 文本抽取未提供可靠页码/条款定位"],
+                recommended_revision="核对触发条件、期限、异议机制和责任边界后再推进。",
+                source_label="TASK_EVIDENCE",
+                engine_tier="deterministic",
+            )
+        )
+
+    scope = generation.contract_scope or ContractIntakeV1()
+    support = evaluate_support(
+        scope,
+        mission_contract_id=event.task_id,
+        revision=event.generation,
+        evaluated_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        capability_active=w05_contract_rework_active(),
+    )
+    supported = support.support_status == "SUPPORTED"
+    pack_id = "review_pack_" + hashlib.sha256(event.id.encode("utf-8")).hexdigest()[:16]
+    pack = ContractReviewPackV1(
+        review_pack_id=pack_id,
+        tenant_id=str(event.tenant_id),
+        task_id=event.task_id,
+        mission_contract_id=event.task_id,
+        court_review_id=review.id,
+        evidence_packet_ids=[packet.evidence_packet_id for packet in packets],
+        jurisdiction=scope.jurisdiction or "UNSUPPORTED_OR_UNKNOWN",
+        language=scope.language or "UNSUPPORTED_OR_UNKNOWN",
+        contract_type=scope.contract_type or "UNSUPPORTED_OR_UNKNOWN",
+        our_role=scope.our_role or "UNSUPPORTED_OR_UNKNOWN",
+        risk_items=risk_items,
+        verdict="REVISE_BEFORE_PROCEED" if supported else "NEED_LEGAL_REVIEW",
+        decision_summary=(
+            "补证已绑定当前 generation；合同付款、验收和责任条件仍须人工裁决。"
+            if supported
+            else "canonical 任务缺少受支持的合同范围，新增证据仅形成候选并升级人工法务复核。"
+        ),
+        affected_sections=affected_sections,
+        source_labels=["TASK_EVIDENCE"],
+        engine_tiers=["deterministic"],
+        quality_gate_status="PENDING",
+    )
+    gate_reasons = _candidate_gate_reasons(pack, packets)
+    pack = pack.model_copy(
+        update={"quality_gate_status": "FAILED" if gate_reasons else "PASSED"}
+    )
+
+    # Parsing evidence is intentionally outside the task lock. Publication is
+    # not: generation allocation and canonical writes share this lock so a
+    # newer request cannot be interleaved between this fence and the writes.
+    from src.execution.decree_dispatcher import lock_evidence_rework_task
+
+    lock_evidence_rework_task(db, event.task_id)
+    if not w05_contract_rework_active():
+        return {
+            "fenced": True,
+            "reason": "capability_disabled",
+            "generation": event.generation,
+            "affected_sections": affected_sections,
+        }
+    current_generation = (
+        db.query(func.max(OutboxEvent.generation))
+        .filter_by(task_id=event.task_id)
+        .scalar()
+    )
+    if event.generation != current_generation:
+        return {
+            "fenced": True,
+            "generation": event.generation,
+            "current_generation": current_generation,
+            "affected_sections": affected_sections,
+        }
+
+    memorial = json.loads(review.memorial_json or "{}")
+    memorial["contract_review"] = pack.model_dump()
+    review.memorial_json = json.dumps(
+        memorial,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    review.review_status = "awaiting_evidence" if gate_reasons else "awaiting_decision"
+    task.status = "awaiting_evidence" if gate_reasons else "awaiting_decision"
+    generation = EvidenceReworkGenerationV1.model_validate(
+        {
+            **generation.to_payload(),
+            "status": "quality_blocked" if gate_reasons else "candidate_ready",
+            "gate_reasons": gate_reasons,
+            "contract_review_pack_id": pack_id,
+            "court_review_id": review.id,
+        }
+    )
+    event.payload_json = json.dumps(
+        generation.to_payload(),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    result = {
+        "fenced": False,
+        "generation": event.generation,
+        "affected_sections": affected_sections,
+        "contract_review_pack_id": pack_id,
+        "court_review_id": review.id,
+        "quality_gate_status": pack.quality_gate_status,
+        "gate_reasons": gate_reasons,
+    }
+    if gate_reasons:
+        return result
+
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    run_id = "run_rework_" + hashlib.sha256(event.id.encode("utf-8")).hexdigest()[:16]
+    task_run_id = "task_run_" + hashlib.sha256(
+        f"{event.id}|contract_review".encode("utf-8")
+    ).hexdigest()[:16]
+    quality_id = "quality_rework_" + hashlib.sha256(
+        event.id.encode("utf-8")
+    ).hexdigest()[:16]
+    warnings = [
+        missing
+        for item in pack.risk_items
+        for missing in item.missing_evidence
+    ]
+    swarm_result = {
+        "swarm_run": {
+            "id": run_id,
+            "task_id": event.task_id,
+            "review_id": review.id,
+            "mode": "evidence_rework",
+            "status": "completed",
+            "source_label": "MIXED",
+            "route_plan": {
+                "generation": event.generation,
+                "affected_sections": affected_sections,
+                "contract_review_pack_id": pack_id,
+            },
+            "trace_id": event.id,
+            "started_at": now,
+            "finished_at": now,
+            "error": None,
+        },
+        "task_runs": [
+            {
+                "id": task_run_id,
+                "swarm_id": "xingbu-contract-review",
+                "role": "刑部合同重审",
+                "status": "completed",
+                "input": {
+                    "generation": event.generation,
+                    "evidence_packet_ids": pack.evidence_packet_ids,
+                },
+                "output": pack.model_dump(),
+                "source_label": "MIXED",
+                "confidence": "中",
+                "started_at": now,
+                "finished_at": now,
+                "error": None,
+            }
+        ],
+        "evidence_links": [
+            {
+                "id": "evidence_link_"
+                + hashlib.sha256(
+                    f"{event.id}|{packet.evidence_packet_id}".encode("utf-8")
+                ).hexdigest()[:16],
+                "swarm_task_run_id": task_run_id,
+                "claim": "合同补证已绑定并纳入当前 generation 重审。",
+                "evidence_source_type": "secure_ingest_artifact",
+                "evidence_ref": packet.input_version_id,
+                "confidence": "中",
+            }
+            for packet in packets
+        ],
+        "quality_result": {
+            "id": quality_id,
+            "passed": True,
+            "blocking_reasons": [],
+            "warnings": warnings,
+            "revised_output": pack.model_dump(),
+            "created_at": now,
+        },
+    }
+    from src.formal_memorial import formalize_memorial
+    from src.swarm_persistence import persist_swarm_execution_result
+
+    persist_swarm_execution_result(db, swarm_result)
+    formal = formalize_memorial(
+        db,
+        task_id=event.task_id,
+        review_id=review.id,
+        swarm_result=swarm_result,
+    )
+    result["final_memorial_id"] = formal.id
+    result["final_memorial_version"] = formal.version
+    result["final_memorial_content_hash"] = formal.content_hash
+    return result

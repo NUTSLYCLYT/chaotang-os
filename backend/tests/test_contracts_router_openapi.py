@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import json
+
 
 def test_five_new_contract_schemas_appear_in_openapi_components() -> None:
     from web.main import app
@@ -33,3 +35,44 @@ def test_five_new_contract_paths_appear_in_openapi() -> None:
         "/api/contracts/decision",
     ]:
         assert expected in paths
+
+
+def test_w05_evidence_bind_response_is_typed_in_openapi() -> None:
+    from web.main import app
+
+    document = app.openapi()
+    operation = document["paths"][
+        "/api/shangshufang/tasks/{task_id}/rework-generations/{generation_id}/evidence"
+    ]["post"]
+    response_schema = operation["responses"]["200"]["content"][
+        "application/json"
+    ]["schema"]
+
+    assert "EvidenceBindResponse" in response_schema["$ref"]
+    serialized_components = json.dumps(
+        document["components"]["schemas"],
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+    assert "EvidencePacketV1" in serialized_components
+
+
+def test_w05_openapi_declares_runtime_error_statuses() -> None:
+    from web.main import app
+
+    paths = app.openapi()["paths"]
+    expected = {
+        "/api/shangshufang/tasks/{task_id}/decision": {"200", "404", "409", "422"},
+        "/api/shangshufang/briefs/{brief_id}/decision/advance": {
+            "200",
+            "404",
+            "409",
+            "422",
+        },
+        (
+            "/api/shangshufang/tasks/{task_id}/rework-generations/"
+            "{generation_id}/evidence"
+        ): {"200", "403", "404", "409", "422"},
+    }
+    for path, statuses in expected.items():
+        assert statuses <= set(paths[path]["post"]["responses"])
