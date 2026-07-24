@@ -30,3 +30,4 @@ def downgrade() -> None:
             batch.drop_constraint("uq_artifact_manifest_lineage", type_="unique")
         if "tenant_id" in {c["name"] for c in inspector.get_columns("artifact_manifests")}:
             batch.drop_column("tenant_id")
+        batch.create_unique_constraint("uq_artifact_manifest_lineage", ["task_id", "final_memorial_id", "final_memorial_version"])
