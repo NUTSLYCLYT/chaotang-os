@@ -58,8 +58,10 @@ W05 获得 exact Owner approval、专属 review evidence 和机器 GO。当前
 - 绑定完成后 canonical outbox 状态进入 `pending`，由既有 poller/worker 消费 `evidence.rework`。
 - worker 重新校验 artifact 字节 digest，安全抽取 DOCX 文本，只替换现有 CourtReview 的
   `contract_review` section；其他 section 原样保留，task/review 回到 `reviewing`。
-- canonical 任务尚未持久化冻结支持维度，因此候选必须 `NEED_LEGAL_REVIEW`；DOCX 总页数不得
-  冒充原文位置，风险项以 medium + 显式 missing evidence 诚实记录定位缺口。
+- canonical `DecisionTask` 持久化由既有 `ContractIntakeV1` 投影得到的冻结合同范围；支持范围
+  可在现有质量、证据与 provenance 门禁通过后形成候选并追加 `FinalMemorial` v2。缺失或不支持
+  的维度仍必须 `NEED_LEGAL_REVIEW`，不得绕过人工裁决；DOCX 总页数不得冒充原文位置，风险项
+  以 medium + 显式 missing evidence 诚实记录定位缺口。
 - 旧 generation 迟到时不读证据、不改 review，outbox 状态为 `superseded` 并保留审计。
 
 ## 非目标
