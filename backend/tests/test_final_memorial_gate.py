@@ -759,6 +759,182 @@ def test_repeated_evidence_request_reuses_one_rework_generation(
     ]
 
 
+def test_competing_identical_request_replays_winning_generation_after_cas_loss(
+    isolated_session_local,
+    monkeypatch,
+):
+    """两个请求都读到 ready 时，CAS loser 必须重载 winner，不能制造用户错误。"""
+    import web.routers.shangshufang as shangshufang_router
+    from src.db.models import FinalMemorial, OutboxEvent
+    from src.execution.decree_dispatcher import evidence_rework_idempotency_key
+    from src.formal_memorial import formalize_memorial
+
+    db = isolated_session_local()
+    task_id = "task_competing_identical_evidence_request"
+    review_id = _seed_candidate(db, task_id=task_id)
+    formal = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id,
+            review_id=review_id,
+            source_label="LIVE_SWARM",
+        ),
+    )
+    content_hash = formal.content_hash
+    db.commit()
+    db.close()
+
+    reason = "补充第 4 页付款条件原文"
+    generation_id = "outbox_competing_request_winner"
+    request_key = evidence_rework_idempotency_key(
+        task_id=task_id,
+        prior_final_memorial_content_hash=content_hash,
+        reason=reason,
+        followup_question=None,
+    )
+
+    def _publish_winner_then_lose_claim(
+        race_db,
+        *,
+        task_id,
+        expected_content_hash,
+        target_status,
+    ):
+        current = (
+            race_db.query(FinalMemorial)
+            .filter_by(
+                task_id=task_id,
+                content_hash=expected_content_hash,
+                is_current=True,
+            )
+            .one()
+        )
+        current.status = target_status
+        payload = {
+            "schema_version": "EvidenceReworkGenerationV1",
+            "generation_id": generation_id,
+            "generation": 2,
+            "status": "awaiting_evidence",
+            "prior_final_memorial_content_hash": content_hash,
+            "evidence_request": {
+                "reason": reason,
+                "followup_question": None,
+            },
+            "affected_sections": ["contract_review"],
+        }
+        race_db.add(
+            OutboxEvent(
+                id=generation_id,
+                tenant_id=1,
+                task_id=task_id,
+                decision_id="decision_competing_request_winner",
+                event_type="evidence.rework",
+                generation=2,
+                idempotency_key=request_key,
+                status="awaiting_evidence",
+                attempts=0,
+                max_attempts=3,
+                payload_json=json.dumps(payload),
+                created_at="2026-07-24T00:00:02+00:00",
+                updated_at="2026-07-24T00:00:02+00:00",
+            )
+        )
+        race_db.flush()
+        # The competing request committed its winner before this request learns
+        # that its CAS lost.
+        race_db.commit()
+        return False
+
+    monkeypatch.setattr(
+        shangshufang_router,
+        "_claim_current_memorial",
+        _publish_winner_then_lose_claim,
+    )
+    response = TestClient(app).post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "request_evidence",
+            "reason": reason,
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": content_hash,
+        },
+    ).json()
+
+    assert response["success"] is True, response
+    assert response["data"]["rework_generation"]["generation_id"] == generation_id
+    db = isolated_session_local()
+    assert db.query(OutboxEvent).filter_by(task_id=task_id).count() == 1
+    db.close()
+
+
+@pytest.mark.parametrize("failed_status", ["failed", "dead_letter"])
+def test_failed_generation_replay_reports_authoritative_failure(
+    isolated_session_local,
+    failed_status,
+):
+    """失败 generation 的旧 pending payload 不能伪装成成功重放。"""
+    from src.db.models import EmperorDecision, OutboxEvent
+    from src.formal_memorial import formalize_memorial
+
+    db = isolated_session_local()
+    task_id = f"task_generation_replay_{failed_status}"
+    review_id = _seed_candidate(db, task_id=task_id)
+    formal = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id,
+            review_id=review_id,
+            source_label="LIVE_SWARM",
+        ),
+    )
+    content_hash = formal.content_hash
+    db.commit()
+    db.close()
+
+    body = {
+        "action": "request_evidence",
+        "reason": "补充付款条件原文",
+        "human_confirmed": True,
+        "expected_final_memorial_content_hash": content_hash,
+    }
+    client = TestClient(app)
+    first = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json=body,
+    ).json()
+    assert first["success"] is True, first
+
+    generation_id = first["data"]["rework_generation"]["generation_id"]
+    db = isolated_session_local()
+    generation = db.query(OutboxEvent).filter_by(id=generation_id).one()
+    generation.status = failed_status
+    generation.last_error = "document parser failed"
+    generation.attempts = 3 if failed_status == "dead_letter" else 1
+    db.commit()
+    decision_count = db.query(EmperorDecision).filter_by(task_id=task_id).count()
+    db.close()
+
+    replay = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json=body,
+    ).json()
+
+    assert replay["success"] is False, replay
+    assert failed_status in replay["error"]
+    assert "document parser failed" in replay["error"]
+    db = isolated_session_local()
+    assert db.query(OutboxEvent).filter_by(task_id=task_id).count() == 1
+    assert (
+        db.query(EmperorDecision).filter_by(task_id=task_id).count()
+        == decision_count
+    )
+    db.close()
+
+
 def test_brief_evidence_request_uses_same_idempotent_rework_generation(
     isolated_session_local,
 ):

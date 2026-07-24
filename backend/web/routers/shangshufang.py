@@ -765,6 +765,25 @@ def _existing_evidence_rework_generation(
     )
 
 
+def _replayed_evidence_rework_result(existing) -> dict[str, Any]:
+    """Interpret replay state from the durable row, never from stale payload."""
+    if existing.status in {"failed", "dead_letter"}:
+        detail = f": {existing.last_error}" if existing.last_error else ""
+        raise ValueError(f"补证 generation {existing.status}{detail}")
+    payload = _loads(existing.payload_json, {})
+    payload["status"] = existing.status
+    if existing.last_error:
+        payload["last_error"] = existing.last_error
+    return {
+        "decision": None,
+        "decision_id": existing.decision_id,
+        "archive_record": None,
+        "rework_generation": payload,
+        "replayed": True,
+        "now": existing.updated_at,
+    }
+
+
 def _execute_final_memorial_decision(
     db,
     *,
@@ -781,9 +800,11 @@ def _execute_final_memorial_decision(
     """Single task/brief adjudication writer with exact-hash CAS and rework parity."""
     evidence_actions = {"request_evidence", "followup"}
     if action in evidence_actions:
+        from src.execution.decree_dispatcher import lock_evidence_rework_task
         from src.w05_feature import require_w05_contract_rework
 
         require_w05_contract_rework()
+        lock_evidence_rework_task(db, task.id)
     formal_actions = {"adopt", "approve", "archive", "reject", *evidence_actions}
     target_status = {
         "adopt": "archived",
@@ -816,14 +837,7 @@ def _execute_final_memorial_decision(
             followup_question=followup_question,
         )
         if existing is not None:
-            return {
-                "decision": None,
-                "decision_id": existing.decision_id,
-                "archive_record": None,
-                "rework_generation": _loads(existing.payload_json, {}),
-                "replayed": True,
-                "now": existing.updated_at,
-            }
+            return _replayed_evidence_rework_result(existing)
 
     claimed_formal = None
     if current_formal is not None and target_status is not None:
@@ -834,6 +848,16 @@ def _execute_final_memorial_decision(
                 expected_content_hash=expected_content_hash or "",
                 target_status=target_status,
             ):
+                if action in evidence_actions and current_formal is not None:
+                    winner = _existing_evidence_rework_generation(
+                        db,
+                        task_id=task.id,
+                        prior_final_memorial_content_hash=current_formal.content_hash,
+                        reason=reason,
+                        followup_question=followup_question,
+                    )
+                    if winner is not None:
+                        return _replayed_evidence_rework_result(winner)
                 raise ValueError("正式奏折已被其他裁决占用，请刷新后重试")
             current_formal.status = target_status
             claimed_formal = current_formal
