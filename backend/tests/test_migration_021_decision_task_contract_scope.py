@@ -47,7 +47,7 @@ def test_upgrade_adds_nullable_contract_scope_to_existing_decision_tasks(
     finally:
         conn.close()
 
-    alembic_command.upgrade(cfg, "head")
+    alembic_command.upgrade(cfg, "021_decision_task_contract_scope")
 
     conn = sqlite3.connect(path)
     try:

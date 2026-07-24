@@ -66,6 +66,9 @@
 | brief 补证 generation parity（实现前） | 1 | RED：重试写入重复 EmperorDecision，且响应无 generation | brief/task 两入口单一补证事实 | 本地 / 2026-07-24 |
 | current memorial CAS（实现前） | 1 | RED：缺少数据库条件 claim | 防止 adopt/reject/request_evidence 并发双成功 | 本地 / 2026-07-24 |
 | Slice 4H 裁决兼容回归 + Ruff | 0 | 75 passed / 1 skipped；All checks passed | task/brief 共用裁决 writer、generation 幂等、原子 current hash claim、旧别名/取消兼容 | 本地 / 2026-07-24 |
+| v2 史馆精确身份（实现前） | 1 | RED：ShiguanArchive 缺 final memorial id/version/hash | 归档不能只存无版本正文 | 本地 / 2026-07-24 |
+| 022 archive identity migration（实现前） | 1 | RED：head 仍为 021，缺三列 | 保留旧归档并允许新归档绑定精确版本 | 本地 / 2026-07-24 |
+| Slice 4I 归档/迁移回归 + Ruff | 0 | 77 passed / 1 skipped；All checks passed | v2 准奏身份、旧史馆数据、020–022 迁移链、归档读取兼容 | 本地 / 2026-07-24 |
 
 ## 结果
 
@@ -77,7 +80,7 @@ SwarmRun/SwarmQualityResult，并追加 current FinalMemorial v2。
 
 ## 未验证项
 
-- 史馆精确版本身份、证据绑定 CAS、020 安全降级。
+- 证据绑定 CAS、020 安全降级。
 - 全量 W05 回归、独立代码审查；推送/合并/发布未获批准。
 
 ## Diff 与回滚复核
@@ -103,4 +106,4 @@ SwarmRun/SwarmQualityResult，并追加 current FinalMemorial v2。
 
 ## 声明状态
 
-- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_4H_GREEN`
+- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_4I_GREEN`

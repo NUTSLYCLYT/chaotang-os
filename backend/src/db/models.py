@@ -450,6 +450,13 @@ class ShiguanArchive(Base):
     raw_question: Mapped[str] = mapped_column(sa.Text, nullable=False)
     refined_edict: Mapped[str] = mapped_column(sa.Text, nullable=False)
     final_memorial_json: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    final_memorial_id: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    final_memorial_version: Mapped[int | None] = mapped_column(
+        sa.Integer, nullable=True
+    )
+    final_memorial_content_hash: Mapped[str | None] = mapped_column(
+        sa.Text, nullable=True
+    )
     emperor_decision_json: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     evidence_chain_json: Mapped[str] = mapped_column(
         sa.Text, nullable=False, default="[]"

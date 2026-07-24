@@ -207,6 +207,28 @@ def test_passed_rework_appends_v2_and_preserves_v1_content(
     )
     assert current.id == second.id
     assert current.status == "ready_for_decision"
+    current_id = current.id
+    current_hash = current.content_hash
+    db.close()
+
+    adopted = TestClient(app).post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "adopt",
+            "reason": "按补证后的当前版本准奏",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": current_hash,
+        },
+    ).json()
+    assert adopted["success"] is True, adopted
+
+    from src.db.models import ShiguanArchive
+
+    db = isolated_session_local()
+    archive = db.query(ShiguanArchive).filter_by(task_id=task_id).one()
+    assert archive.final_memorial_id == current_id
+    assert archive.final_memorial_version == 2
+    assert archive.final_memorial_content_hash == current_hash
     db.close()
 
 
