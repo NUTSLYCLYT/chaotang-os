@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 
 from src.db.models import ArtifactManifest
 
@@ -15,6 +16,8 @@ def persist_manifest(
     final_memorial_version: int,
     delivery_formula_version: str,
     content_hash: str | None = None,
+    manifest_json: dict | None = None,
+    overall_status: str = "PARTIAL",
 ) -> ArtifactManifest:
     existing = (
         db.query(ArtifactManifest)
@@ -26,7 +29,7 @@ def persist_manifest(
         .one_or_none()
     )
     if existing is not None:
-        if existing.content_hash != content_hash:
+        if existing.content_hash != content_hash or existing.manifest_json != json.dumps(manifest_json or {}, sort_keys=True):
             raise ValueError("artifact manifest lineage hash cannot change")
         return existing
     manifest_id = "manifest_" + hashlib.sha256(
@@ -39,6 +42,8 @@ def persist_manifest(
         final_memorial_version=final_memorial_version,
         delivery_formula_version=delivery_formula_version,
         content_hash=content_hash,
+        manifest_json=json.dumps(manifest_json or {}, sort_keys=True),
+        overall_status=overall_status,
     )
     db.add(row)
     db.flush()

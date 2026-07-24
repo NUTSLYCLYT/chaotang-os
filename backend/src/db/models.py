@@ -424,6 +424,8 @@ class ArtifactManifest(Base):
     final_memorial_version: Mapped[int] = mapped_column(sa.Integer, nullable=False)
     delivery_formula_version: Mapped[str] = mapped_column(sa.Text, nullable=False)
     content_hash: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    manifest_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="{}")
+    overall_status: Mapped[str] = mapped_column(sa.Text, nullable=False, default="PARTIAL")
     created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
 
     __table_args__ = (

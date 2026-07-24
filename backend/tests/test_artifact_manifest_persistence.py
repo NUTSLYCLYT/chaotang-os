@@ -18,6 +18,8 @@ def test_manifest_persistence_is_idempotent_for_memorial_lineage(isolated_sessio
     first = persist_manifest(db, **payload)
     second = persist_manifest(db, **payload)
     assert first.id == second.id
+    assert first.overall_status == "PARTIAL"
+    assert first.manifest_json == "{}"
     db.close()
 
 
