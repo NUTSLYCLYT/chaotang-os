@@ -71,6 +71,8 @@
 | Slice 4I 归档/迁移回归 + Ruff | 0 | 77 passed / 1 skipped；All checks passed | v2 准奏身份、旧史馆数据、020–022 迁移链、归档读取兼容 | 本地 / 2026-07-24 |
 | evidence binding CAS（实现前） | 1 | RED：缺少数据库原子 claim | 两个附件候选可先查后写互相覆盖 | 本地 / 2026-07-24 |
 | Slice 4J 绑定/摄取回归 + Ruff | 0 | 73 passed / 1 skipped；All checks passed | 第一 payload 胜出、竞争 payload 失败、同附件幂等、scope/tenant/摄取门 | 本地 / 2026-07-24 |
+| 020 version-history downgrade（实现前） | 1 | RED：SQLite 在重建旧 task unique 时才抛 IntegrityError | 拒绝过晚，不能证明 DDL 前数据保持 | 本地 / 2026-07-24 |
+| Slice 4K 迁移链 + Ruff | 0 | 15 passed；All checks passed | v2 明确拒降且数据完整、单 v1 可降、019–022/schema authority | 本地 / 2026-07-24 |
 
 ## 结果
 
@@ -82,8 +84,7 @@ SwarmRun/SwarmQualityResult，并追加 current FinalMemorial v2。
 
 ## 未验证项
 
-- 020 安全降级。
-- 全量 W05 回归、独立代码审查；推送/合并/发布未获批准。
+- 全量 W05 回归、独立代码审查与最终候选验证；推送/合并/发布未获批准。
 
 ## Diff 与回滚复核
 
@@ -108,4 +109,4 @@ SwarmRun/SwarmQualityResult，并追加 current FinalMemorial v2。
 
 ## 声明状态
 
-- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_4J_GREEN`
+- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_4K_GREEN`

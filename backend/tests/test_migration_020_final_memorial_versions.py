@@ -117,3 +117,123 @@ def test_upgrade_preserves_v1_and_enforces_one_current_version(
             )
     finally:
         conn.close()
+
+
+def test_downgrade_refuses_version_history_before_any_schema_change(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    path = tmp_path / "downgrade-refuses-v2.db"
+    cfg = _config(path, monkeypatch)
+    alembic_command.upgrade(cfg, "020_final_memorial_versions")
+
+    conn = sqlite3.connect(path)
+    try:
+        insert_sql = """
+            INSERT INTO final_memorials (
+                id, tenant_id, task_id, review_id, swarm_run_id,
+                quality_result_id, status, source_label, memorial_json,
+                content_hash, created_at, version, supersedes_id, is_current
+            ) VALUES (?, 1, 'task-versioned', ?, ?, ?, ?, 'LIVE_SWARM',
+                      '{}', ?, '2026-07-24T00:00:00+00:00', ?, ?, ?)
+        """
+        conn.execute(
+            insert_sql,
+            (
+                "formal-v1",
+                "review-v1",
+                "run-v1",
+                "quality-v1",
+                "superseded",
+                "hash-v1",
+                1,
+                None,
+                0,
+            ),
+        )
+        conn.execute(
+            insert_sql,
+            (
+                "formal-v2",
+                "review-v2",
+                "run-v2",
+                "quality-v2",
+                "ready_for_decision",
+                "hash-v2",
+                2,
+                "formal-v1",
+                1,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    with pytest.raises(
+        RuntimeError,
+        match="refusing downgrade.*FinalMemorial version history",
+    ):
+        alembic_command.downgrade(cfg, "019_outbox_rework_generation")
+
+    conn = sqlite3.connect(path)
+    try:
+        assert conn.execute("SELECT version_num FROM alembic_version").fetchone() == (
+            "020_final_memorial_versions",
+        )
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(final_memorials)")}
+        assert {"version", "supersedes_id", "is_current"} <= columns
+        assert conn.execute(
+            """
+            SELECT id, version, supersedes_id, is_current
+            FROM final_memorials
+            ORDER BY version
+            """
+        ).fetchall() == [
+            ("formal-v1", 1, None, 0),
+            ("formal-v2", 2, "formal-v1", 1),
+        ]
+    finally:
+        conn.close()
+
+
+def test_downgrade_allows_single_v1_and_preserves_legacy_row(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    path = tmp_path / "downgrade-single-v1.db"
+    cfg = _config(path, monkeypatch)
+    alembic_command.upgrade(cfg, "020_final_memorial_versions")
+
+    conn = sqlite3.connect(path)
+    try:
+        conn.execute(
+            """
+            INSERT INTO final_memorials (
+                id, tenant_id, task_id, review_id, swarm_run_id,
+                quality_result_id, status, source_label, memorial_json,
+                content_hash, created_at, version, supersedes_id, is_current
+            ) VALUES (
+                'formal-v1', 1, 'task-v1', 'review-v1', 'run-v1',
+                'quality-v1', 'ready_for_decision', 'LIVE_SWARM', '{}',
+                'hash-v1', '2026-07-24T00:00:00+00:00', 1, NULL, 1
+            )
+            """
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    alembic_command.downgrade(cfg, "019_outbox_rework_generation")
+
+    conn = sqlite3.connect(path)
+    try:
+        assert conn.execute("SELECT version_num FROM alembic_version").fetchone() == (
+            "019_outbox_rework_generation",
+        )
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(final_memorials)")}
+        assert not {"version", "supersedes_id", "is_current"} & columns
+        assert conn.execute(
+            "SELECT id, task_id, content_hash FROM final_memorials"
+        ).fetchall() == [("formal-v1", "task-v1", "hash-v1")]
+    finally:
+        conn.close()
