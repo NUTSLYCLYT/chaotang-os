@@ -20,10 +20,10 @@ def upgrade() -> None:
 def downgrade() -> None:
     if "artifact_manifests" not in sa.inspect(op.get_bind()).get_table_names():
         return
+    inspector = sa.inspect(op.get_bind())
+    unique_names = {c["name"] for c in inspector.get_unique_constraints("artifact_manifests")}
     with op.batch_alter_table("artifact_manifests") as batch:
-        try:
+        if "uq_artifact_manifest_lineage" in unique_names:
             batch.drop_constraint("uq_artifact_manifest_lineage", type_="unique")
-        except Exception:
-            pass
-        if "tenant_id" in {c["name"] for c in sa.inspect(op.get_bind()).get_columns("artifact_manifests")}:
+        if "tenant_id" in {c["name"] for c in inspector.get_columns("artifact_manifests")}:
             batch.drop_column("tenant_id")
