@@ -465,8 +465,8 @@ def test_chaotang_task_persist_patch(isolated_session_local):
 
 
 def test_chaotang_memorial_review(isolated_session_local, monkeypatch):
-    from src.db.models import Task
     import web.routers.chaotang as chaotang
+    from src.db.models import Task
 
     _seed_other_users_task(isolated_session_local, "p0b_memorial_review")
     with isolated_session_local() as db:
