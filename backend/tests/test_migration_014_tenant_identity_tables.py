@@ -28,7 +28,10 @@ def test_fresh_chain_creates_identity_tables_at_head(tmp_path: Path, monkeypatch
     try:
         tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         assert {"tenants", "users", "invites"} <= tables
-        assert conn.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "016_schema_literal_contract_guard"
+        assert (
+            conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+            == "022_shiguan_memorial_identity"
+        )
     finally:
         conn.close()
 

@@ -32,11 +32,11 @@ EXPECTED_WRITER_COUNTS = Counter(
     {
         "DecisionTask": 1,
         "ChancellorRouteDecision": 1,
-        "OutboxEvent": 1,
+        "OutboxEvent": 2,
         "DecreeExecutionEvent": 1,
         "CourtReview": 10,
         "FinalMemorial": 1,
-        "EmperorDecision": 6,
+        "EmperorDecision": 4,
         "ShiguanArchive": 1,
     }
 )

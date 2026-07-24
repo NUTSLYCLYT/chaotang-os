@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 
-
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -49,7 +48,7 @@ def test_every_production_emperor_decision_writer_sets_kind_explicitly():
                         )
                     )
 
-    assert len(writer_calls) == 6, writer_calls
+    assert len(writer_calls) == 4, writer_calls
     missing = [
         (str(path), line)
         for path, line, keywords in writer_calls
