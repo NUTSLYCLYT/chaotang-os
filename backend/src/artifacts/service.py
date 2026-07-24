@@ -12,6 +12,7 @@ from src.db.models import ArtifactManifest
 def persist_manifest(
     db,
     *,
+    tenant_id: int = 1,
     task_id: str,
     final_memorial_id: str,
     final_memorial_version: int,
@@ -28,6 +29,7 @@ def persist_manifest(
         db.query(ArtifactManifest)
         .filter_by(
             task_id=task_id,
+            tenant_id=tenant_id,
             final_memorial_id=final_memorial_id,
             final_memorial_version=final_memorial_version,
         )
@@ -43,6 +45,7 @@ def persist_manifest(
     row = ArtifactManifest(
         id=manifest_id,
         task_id=task_id,
+        tenant_id=tenant_id,
         final_memorial_id=final_memorial_id,
         final_memorial_version=final_memorial_version,
         delivery_formula_version=delivery_formula_version,
@@ -58,7 +61,8 @@ def persist_manifest(
         winner = (
             db.query(ArtifactManifest)
             .filter_by(
-                task_id=task_id,
+            task_id=task_id,
+            tenant_id=tenant_id,
                 final_memorial_id=final_memorial_id,
                 final_memorial_version=final_memorial_version,
             )

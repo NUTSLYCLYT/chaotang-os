@@ -39,7 +39,7 @@ class Decree(Base):
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
     decree_id: Mapped[str] = mapped_column(sa.Text, unique=True, nullable=False)
-    tenant_id: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
+    tenant_id: Mapped[int] = mapped_column(sa.Integer, nullable=False)
     # 逻辑 FK → users.id;nullable 因 FENGQUN_AUTH=false 时无鉴权用户
     user_id: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
     raw_command: Mapped[str] = mapped_column(sa.Text, nullable=False, default="")
