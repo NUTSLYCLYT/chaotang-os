@@ -7,7 +7,7 @@
 | --- | --- |
 | Change ID | fix-r0-w05-postmerge-remediation-20260724 |
 | 类型 | fix |
-| 状态 | GREEN_VERIFIED_AWAITING_EXACT_CANDIDATE_REVIEW |
+| 状态 | EXACT_H1_REVIEWED_0_MUST_AWAITING_OWNER_DECISION |
 | Owner | Backend / Canonical Runtime |
 | 创建日期 | 20260724 |
 
@@ -31,9 +31,24 @@
   Packet 回修。
 - canonical task/generation scope、唯一 durable→domain 投影、确定性 evidence
   status 与 worker fail-closed promotion gate 已贯通。
+- 本地实现候选 H1 已冻结并完成独立双轴审查：
+  `0f2a3e4abd99aef345ac2858daa799c5aadc9dc6`，Standards 与 Spec
+  均为 `0 MUST`。
 - W05 仍是唯一 `ACTIVE` work package；本记录不把 W05 ledger 改为
   `MERGED_AND_VERIFIED`，W06 仍为 `STOP/BLOCKED_DEPENDENCY`。
-- 当前尚未生成本地 exact candidate；没有 push、merge、PR、release 或生产切换。
+- 没有 push、merge、PR、release 或生产切换；H1 只等待 Product Owner/总控
+  对候选身份作下一步裁决。
+
+## 本地候选身份
+
+| Identity | Value |
+| --- | --- |
+| Base | `3cb508e06464de78facae09b93c132eb16023f94` |
+| Implementation H1 | `0f2a3e4abd99aef345ac2858daa799c5aadc9dc6` |
+| H1 tree | `eec70c552b578cfe6918c80903f0d73e55e18b80` |
+| Base→H1 binary diff SHA-256 | `d82c89ea5e89e1bc4f25da615642fe4e3a0d2d44bfdec08453067eccfefafca2` |
+| Review result | Standards `0 MUST`；Spec `0 MUST` |
+| Remote state | local only；未 push、未 merge |
 
 ## 授权
 

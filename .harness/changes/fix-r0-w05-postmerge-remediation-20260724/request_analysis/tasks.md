@@ -71,5 +71,7 @@ WIP 永远为 1；下一个任务只能在前一个任务有命令证据后开�
 - 验证命令与证据：changed tests、canonical 回归、Ruff、authority、doctors、diff check。
 - 回滚边界：`git revert <candidate>`（未来获批后）；本轮不执行 destructive reset。
 - 完成定义：验证全绿、review 0 MUST、exact SHA 交 Product Owner/总控。
-- 状态：进行中；聚焦、相关回归、首次非排除全量、authority/amendment/doctor
-  已通过。待最终锁语义复审、最终全量复验、本地 H1 与 exact-SHA 双轴审查。
+- 状态：完成；本地实现候选
+  `0f2a3e4abd99aef345ac2858daa799c5aadc9dc6` 已冻结。聚焦、相关回归、
+  非排除全量、authority/amendment/doctor 均已通过；detached exact-SHA
+  Standards 与 Spec 双轴均为 `0 MUST`。候选保持 local only，W06 继续 STOP。

@@ -28,6 +28,10 @@
   H0；这两项已由
   `.harness/changes/fix-r0-w05-postmerge-remediation-20260724/` 接管。本表以下 H0
   身份仅作历史 provenance，不再代表当前 review candidate。
+- 当前 post-merge 实现候选为
+  `0f2a3e4abd99aef345ac2858daa799c5aadc9dc6`；该 H1 的 Standards/Spec
+  exact 审查均为 `0 MUST`。它仍是未推送、未合并的 remediation 候选，不改变
+  W05/W06 execution authority。
 
 ## B..H 历史只读复审交接（已被 post-merge remediation 取代）
 

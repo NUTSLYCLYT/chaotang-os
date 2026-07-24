@@ -19,6 +19,8 @@
 | root/backend harness doctors | 0 | 均 `0 errors / 0 warnings` | 三层边界、change 与 backend harness | 本地 / 2026-07-24 |
 | pre-freeze Standards/Spec 复审 | 0 | 两轴均 `0 MUST` | concurrency/security 与验收/范围 | 本地 / 2026-07-24 |
 | backend commit closeout check | 0 | `31 staged candidates / 0 staged high-risk / 0 uncommitted high-risk drift`；1 条非阻断御史提示 | 候选 allowlist 与生成物卫生 | 本地 / 2026-07-24 |
+| H1 exact Standards review | 0 | `GO / 0 MUST`；聚焦 `41 passed`；Ruff/diff-check clean | 正确性、安全、边界、锁与 smell | detached clean worktree / 2026-07-24 |
+| H1 exact Spec review | 0 | `PASS / 0 MUST`；独立复跑 `84 passed` | 八项 MUST、范围与 RED/GREEN 声明 | detached clean worktree / 2026-07-24 |
 
 ## 结果
 
@@ -31,16 +33,29 @@ worker 只允许单调降级，并在 PostgreSQL artifact 表 SHARE publication 
 
 ## 未验证项
 
-- 本地 H1 尚未冻结；exact candidate 独立 Standards/Spec 双轴审查待 H1 后执行。
 - PostgreSQL 真实方言演练不属于本 Packet MUST：019–022 migration 及新增
   `secure_ingest_artifacts` SHARE lock 的权限、lock wait、吞吐仍是 release 风险。
+- CAS loser 与 publication fence 主要由 SQLite/seam/SQL 顺序断言覆盖；真实
+  PostgreSQL 双连接冲突演练仍是 release 风险。
 - 3 个全量排除项属于 exact base 已复现的既有顺序污染；本 Packet 不扩域修复。
+
+## Exact candidate
+
+| Identity | Value |
+| --- | --- |
+| Base | `3cb508e06464de78facae09b93c132eb16023f94` |
+| Implementation H1 | `0f2a3e4abd99aef345ac2858daa799c5aadc9dc6` |
+| H1 tree | `eec70c552b578cfe6918c80903f0d73e55e18b80` |
+| Base→H1 binary diff SHA-256 | `d82c89ea5e89e1bc4f25da615642fe4e3a0d2d44bfdec08453067eccfefafca2` |
+| Commit count | 1 |
+| Review worktrees | detached、H1 exact、review 前后均 clean |
 
 ## Diff 与回滚复核
 
 - changed files：31 个文件，仅 W05 contracts/runtime/API/tests、历史/本次 W05 change evidence；
   无 frontend、migration、manifest、W06 或 secure-ingest upload writer diff。
-- diff review：pre-freeze Standards/Spec 均 0 MUST；exact-SHA review 待 H1。
+- diff review：pre-freeze Standards/Spec 均 0 MUST；H1 exact-SHA Standards/Spec
+  也均为 0 MUST。
 - 回滚是否演练：本 Packet 无 migration；未来获批后用 `git revert <candidate>`
   整体回滚，本轮不执行破坏性回滚。
 
@@ -52,8 +67,8 @@ worker 只允许单调降级，并在 PostgreSQL artifact 表 SHARE publication 
 | 六项 MUST 有 RED→GREEN | 33-failure 首轮 + 7-failure 补充 + publication RED；84 passed GREEN | PASS |
 | 相关回归与 doctor 全绿 | 185 related；3053 full；Ruff/authority/amendment/doctors | PASS_WITH_3_BASELINE_EXCLUSIONS |
 | exact/status 历史证据纠偏 | 原 W05 记录标明 merge 事实与 H0 已被 remediation 取代 | PASS |
-| exact SHA 双轴 0 MUST | 待冻结本地 H1 后执行 | PENDING |
+| exact SHA 双轴 0 MUST | H1 Standards `GO/0 MUST`；Spec `PASS/0 MUST` | PASS |
 
 ## 声明状态
 
-- `GREEN_VERIFIED / AWAITING_LOCAL_EXACT_CANDIDATE`
+- `EXACT_H1_REVIEWED_0_MUST / LOCAL_ONLY / AWAITING_OWNER_DECISION`

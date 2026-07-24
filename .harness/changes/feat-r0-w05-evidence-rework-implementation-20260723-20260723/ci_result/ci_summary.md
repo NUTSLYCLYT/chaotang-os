@@ -5,6 +5,9 @@
 > `1f1800c7` 与“等待独立复审”不再是当前候选身份。post-merge MUST、当前
 > RED/GREEN、验证和 exact review 只以
 > `.harness/changes/fix-r0-w05-postmerge-remediation-20260724/` 为准。
+> 当前 remediation H1 为
+> `0f2a3e4abd99aef345ac2858daa799c5aadc9dc6`，其 Standards/Spec
+> exact 审查均为 `0 MUST`；H1 尚未 push 或 merge。
 
 ## 命令
 
@@ -147,7 +150,7 @@ SwarmRun/SwarmQualityResult，并追加 current FinalMemorial v2。独立预审�
 | current generation 局部重算且 old generation fenced | worker/fencing RED 与 72 passed / 1 skipped | PASS |
 | W05 审查修复实现 | 4G.1–4M 聚焦回归 | PASS |
 | W05 历史 review-ready 候选 | exact-HEAD 定向/全量/authority/doctor/Ruff | MERGED_AT_3CB508E / EVIDENCE_SUPERSEDED |
-| W05 post-merge 独立复审 | remediation exact-SHA read-only review | TRACKED_IN_POSTMERGE_REMEDIATION |
+| W05 post-merge 独立复审 | H1 exact-SHA Standards/Spec 均 `0 MUST` | REVIEWED_LOCAL_CANDIDATE / TRACKED_IN_POSTMERGE_REMEDIATION |
 
 ## 声明状态
 
