@@ -39,7 +39,7 @@ class Decree(Base):
 
     id: Mapped[int] = mapped_column(sa.Integer, primary_key=True, autoincrement=True)
     decree_id: Mapped[str] = mapped_column(sa.Text, unique=True, nullable=False)
-    tenant_id: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
+    tenant_id: Mapped[int] = mapped_column(sa.Integer, nullable=False)
     # 逻辑 FK → users.id;nullable 因 FENGQUN_AUTH=false 时无鉴权用户
     user_id: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
     raw_command: Mapped[str] = mapped_column(sa.Text, nullable=False, default="")
@@ -68,7 +68,7 @@ class Task(Base):
     task_id: Mapped[str] = mapped_column(sa.Text, unique=True, nullable=False)
     # 逻辑 FK → decrees.decree_id
     decree_id: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
-    tenant_id: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
+    tenant_id: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
     # 内部运行态:running | done | error
     status: Mapped[str] = mapped_column(sa.Text, nullable=False, default="running")
     # 前端展示态:running | report_ready | failed | archived
@@ -203,7 +203,7 @@ class ArchiveOutcomeEvent(Base):
     __tablename__ = "archive_outcome_events"
 
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    tenant_id: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
     archive_id: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     event_type: Mapped[str] = mapped_column(
@@ -410,6 +410,30 @@ class FinalMemorial(Base):
         sa.Index("ix_final_memorials_review", "review_id"),
         sa.Index("ix_final_memorials_swarm_run", "swarm_run_id"),
         sa.Index("ix_final_memorials_status_created", "status", "created_at"),
+    )
+
+
+class ArtifactManifest(Base):
+    """Canonical delivery manifest bound to one immutable FinalMemorial version."""
+
+    __tablename__ = "artifact_manifests"
+
+    id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    tenant_id: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
+    task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    final_memorial_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    final_memorial_version: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    delivery_formula_version: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    content_hash: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    manifest_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="{}")
+    overall_status: Mapped[str] = mapped_column(sa.Text, nullable=False, default="PARTIAL")
+    created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
+
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "tenant_id", "task_id", "final_memorial_id", "final_memorial_version",
+            name="uq_artifact_manifest_lineage",
+        ),
     )
 
 
