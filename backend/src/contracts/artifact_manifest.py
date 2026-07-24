@@ -36,6 +36,7 @@ class ArtifactManifestItemV1(BaseModel):
 class ArtifactManifestV1(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    schema_version: Literal["ArtifactManifestV1"] = "ArtifactManifestV1"
     manifest_id: str = Field(min_length=1)
     task_id: str = Field(min_length=1)
     final_memorial_id: str = Field(min_length=1)

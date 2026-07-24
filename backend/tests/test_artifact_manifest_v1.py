@@ -65,6 +65,32 @@ def test_partial_requires_ready_and_unavailable_mix() -> None:
             )
         )
 
+    valid = ArtifactManifestV1(
+        **_base(
+            overall_status="PARTIAL",
+            artifacts=[
+                _base()["artifacts"][0],
+                {**_base()["artifacts"][0], "artifact_id": "artifact-pdf-1", "kind": "PDF", "mime_type": "application/pdf", "status": "UNAVAILABLE"},
+            ],
+        )
+    )
+    assert valid.overall_status == "PARTIAL"
+
+
+def test_partial_rejects_all_under_review() -> None:
+    from src.contracts.artifact_manifest import ArtifactManifestV1
+
+    with pytest.raises(ValueError):
+        ArtifactManifestV1(
+            **_base(
+                overall_status="PARTIAL",
+                artifacts=[
+                    {**_base()["artifacts"][0], "status": "UNDER_REVIEW"},
+                    {**_base()["artifacts"][0], "artifact_id": "artifact-pdf-1", "kind": "PDF", "mime_type": "application/pdf", "status": "UNDER_REVIEW"},
+                ],
+            )
+        )
+
 
 def test_under_review_requires_at_least_one_non_ready_artifact() -> None:
     from src.contracts.artifact_manifest import ArtifactManifestV1
