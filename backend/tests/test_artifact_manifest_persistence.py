@@ -66,3 +66,27 @@ def test_manifest_payload_is_required_and_canonical(isolated_session_local) -> N
             overall_status="PARTIAL",
         )
     db.close()
+
+
+def test_unique_conflict_branch_reloads_existing_winner() -> None:
+    from sqlalchemy.exc import IntegrityError
+    from src.artifacts.service import persist_manifest
+
+    manifest = {
+        "schema_version": "ArtifactManifestV1", "manifest_id": "m-race",
+        "task_id": "task-race", "final_memorial_id": "memorial-race",
+        "final_memorial_version": 1, "delivery_formula_version": "w06-v1",
+        "artifacts": [{"artifact_id": "a1", "kind": "JSON", "mime_type": "application/json", "byte_size": 1, "content_hash": "a"*64, "lineage_hash": "b"*64, "status": "READY"}],
+        "overall_status": "READY",
+    }
+    class Query:
+        def filter_by(self, **_kwargs): return self
+        def one_or_none(self): return winner
+    class FakeDB:
+        def add(self, _row): pass
+        def flush(self): raise IntegrityError("insert", {}, Exception("unique"))
+        def rollback(self): pass
+        def query(self, _model): return Query()
+    winner = type("Winner", (), {"content_hash": None, "manifest_json": __import__("json").dumps(manifest, sort_keys=True), "task_id": "task-race"})()
+    result = persist_manifest(FakeDB(), task_id="task-race", final_memorial_id="memorial-race", final_memorial_version=1, delivery_formula_version="w06-v1", manifest_json=manifest, overall_status="READY")
+    assert result is winner
