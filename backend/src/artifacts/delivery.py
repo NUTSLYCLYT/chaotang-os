@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
+import zipfile
 from dataclasses import dataclass
 from typing import Any
 
@@ -61,11 +63,18 @@ def _render(kind: str, payload: dict[str, Any]) -> tuple[bytes, str]:
         document = Document()
         document.add_heading(title, level=1)
         document.add_paragraph(summary)
-        import io
-
         stream = io.BytesIO()
         document.save(stream)
-        return stream.getvalue(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        source = zipfile.ZipFile(io.BytesIO(stream.getvalue()))
+        normalized = io.BytesIO()
+        with zipfile.ZipFile(normalized, "w", compression=zipfile.ZIP_DEFLATED) as target:
+            for name in sorted(source.namelist()):
+                info = source.getinfo(name)
+                entry = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+                entry.compress_type = zipfile.ZIP_DEFLATED
+                entry.external_attr = info.external_attr
+                target.writestr(entry, source.read(name))
+        return normalized.getvalue(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     if kind == "PDF":
         return _pdf_bytes(f"{title}: {summary}"), "application/pdf"
     raise ValueError(f"unsupported artifact kind: {kind}")
@@ -77,7 +86,8 @@ def render_artifacts(*, task_id: str, final_memorial_id: str, final_memorial_ver
     for kind in required_kinds:
         artifact_id = f"artifact-{task_id}-{final_memorial_version}-{kind.lower()}"
         if kind in disabled:
-            artifacts.append(DeliveryArtifact(artifact_id, kind, "application/octet-stream", b"", "UNAVAILABLE", "0" * 64, 0))
+            empty = b""
+            artifacts.append(DeliveryArtifact(artifact_id, kind, "application/octet-stream", empty, "UNAVAILABLE", hashlib.sha256(empty).hexdigest(), 0))
             continue
         content, mime = _render(kind, payload)
         digest = hashlib.sha256(content).hexdigest()
