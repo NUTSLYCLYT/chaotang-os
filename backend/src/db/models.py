@@ -203,7 +203,7 @@ class ArchiveOutcomeEvent(Base):
     __tablename__ = "archive_outcome_events"
 
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    tenant_id: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
     archive_id: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     event_type: Mapped[str] = mapped_column(
@@ -419,6 +419,7 @@ class ArtifactManifest(Base):
     __tablename__ = "artifact_manifests"
 
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
     task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     final_memorial_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     final_memorial_version: Mapped[int] = mapped_column(sa.Integer, nullable=False)

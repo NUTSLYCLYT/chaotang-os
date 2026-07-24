@@ -70,3 +70,14 @@ def persist_manifest(
             raise ValueError("artifact manifest lineage hash cannot change")
         return winner
     return row
+
+
+def get_manifest_for_tenant(db, *, manifest_id: str, tenant_id: int):
+    from src.contracts.artifact_manifest import ArtifactManifestV1
+
+    row = db.query(ArtifactManifest).filter_by(id=manifest_id).one_or_none()
+    if row is None:
+        raise LookupError("manifest not found")
+    if row.tenant_id != tenant_id:
+        raise PermissionError("manifest tenant mismatch")
+    return ArtifactManifestV1.model_validate_json(row.manifest_json)
