@@ -54,20 +54,24 @@ def upgrade() -> None:
                 ["task_id", "version"],
             )
 
-    op.create_index(
-        _CURRENT_UNIQUE,
-        "final_memorials",
-        ["task_id"],
-        unique=True,
-        sqlite_where=sa.text("is_current = 1"),
-        postgresql_where=sa.text("is_current = true"),
-    )
+    index_names = {index["name"] for index in inspector.get_indexes("final_memorials")}
+    if _CURRENT_UNIQUE not in index_names:
+        op.create_index(
+            _CURRENT_UNIQUE,
+            "final_memorials",
+            ["task_id"],
+            unique=True,
+            sqlite_where=sa.text("is_current = 1"),
+            postgresql_where=sa.text("is_current = true"),
+        )
 
 
 def downgrade() -> None:
     bind = op.get_bind()
     refuse_w05_downgrade_if_facts_exist(bind)
-    op.drop_index(_CURRENT_UNIQUE, table_name="final_memorials")
+    inspector = sa.inspect(bind)
+    if _CURRENT_UNIQUE in {index["name"] for index in inspector.get_indexes("final_memorials")}:
+        op.drop_index(_CURRENT_UNIQUE, table_name="final_memorials")
     with op.batch_alter_table("final_memorials") as batch:
         batch.drop_constraint(_VERSION_UNIQUE, type_="unique")
         batch.create_unique_constraint(_OLD_TASK_UNIQUE, ["task_id"])
