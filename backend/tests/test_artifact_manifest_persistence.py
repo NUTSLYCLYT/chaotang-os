@@ -36,6 +36,7 @@ def test_manifest_hash_cannot_change_for_same_lineage(isolated_session_local) ->
     db = isolated_session_local()
     persist_manifest(
         db,
+        tenant_id=1,
         task_id="task-manifest-2",
         final_memorial_id="memorial-2",
         final_memorial_version=1,
@@ -45,6 +46,7 @@ def test_manifest_hash_cannot_change_for_same_lineage(isolated_session_local) ->
     with pytest.raises(ValueError):
         persist_manifest(
             db,
+            tenant_id=1,
             task_id="task-manifest-2",
             final_memorial_id="memorial-2",
             final_memorial_version=1,
@@ -61,6 +63,7 @@ def test_manifest_payload_is_required_and_canonical(isolated_session_local) -> N
     with pytest.raises((TypeError, ValueError)):
         persist_manifest(
             db,
+            tenant_id=1,
             task_id="task-empty",
             final_memorial_id="memorial-empty",
             final_memorial_version=1,
@@ -91,7 +94,7 @@ def test_unique_conflict_branch_reloads_existing_winner() -> None:
         def rollback(self): pass
         def query(self, _model): return Query()
     winner = type("Winner", (), {"content_hash": "c"*64, "manifest_json": __import__("json").dumps(manifest, sort_keys=True), "task_id": "task-race"})()
-    result = persist_manifest(FakeDB(), task_id="task-race", final_memorial_id="memorial-race", final_memorial_version=1, delivery_formula_version="w06-v1", content_hash="c"*64, manifest_json=manifest, overall_status="READY")
+    result = persist_manifest(FakeDB(), tenant_id=1, task_id="task-race", final_memorial_id="memorial-race", final_memorial_version=1, delivery_formula_version="w06-v1", content_hash="c"*64, manifest_json=manifest, overall_status="READY")
     assert result is winner
 
 
@@ -113,7 +116,7 @@ def test_two_independent_sessions_replay_same_manifest(tmp_path) -> None:
     def write_once():
         db = factory()
         try:
-            row = persist_manifest(db, task_id="task-two-session", final_memorial_id="memorial-two-session", final_memorial_version=1, delivery_formula_version="w06-v1", content_hash="c"*64, manifest_json=manifest, overall_status="READY")
+            row = persist_manifest(db, tenant_id=1, task_id="task-two-session", final_memorial_id="memorial-two-session", final_memorial_version=1, delivery_formula_version="w06-v1", content_hash="c"*64, manifest_json=manifest, overall_status="READY")
             db.commit()
             return row.id
         finally:

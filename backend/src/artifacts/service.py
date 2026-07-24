@@ -12,7 +12,7 @@ from src.db.models import ArtifactManifest
 def persist_manifest(
     db,
     *,
-    tenant_id: int = 1,
+    tenant_id: int,
     task_id: str,
     final_memorial_id: str,
     final_memorial_version: int,
