@@ -15,6 +15,7 @@ from src.contracts.contract_review_pack import ContractReviewPackV1
 from src.contracts.contract_risk_item import ContractRiskItemV1
 from src.contracts.contract_support import evaluate_support
 from src.contracts.evidence_packet import EvidencePacketV1
+from src.contracts.evidence_rework_generation import EvidenceReworkGenerationV1
 from src.contracts.mission_contract import ContractIntakeV1
 from src.secure_ingest.storage import read_artifact_bytes_at_path
 
@@ -57,8 +58,10 @@ def recompute_contract_review(
     from src.db.models import CourtReview, DecisionTask, OutboxEvent, SecureIngestArtifact
     from src.w05_feature import w05_contract_rework_active
 
-    payload = json.loads(event.payload_json or "{}")
-    affected_sections = payload.get("affected_sections")
+    generation = EvidenceReworkGenerationV1.model_validate_json(
+        event.payload_json or "{}"
+    )
+    affected_sections = generation.affected_sections
     if not w05_contract_rework_active():
         return {
             "fenced": True,
@@ -82,9 +85,7 @@ def recompute_contract_review(
             "affected_sections": affected_sections,
         }
 
-    packets = [
-        EvidencePacketV1(**item) for item in payload.get("evidence_packets", [])
-    ]
+    packets = generation.evidence_packets or []
     if not packets:
         raise ValueError("rework generation 缺少 EvidencePacket")
 
@@ -139,12 +140,7 @@ def recompute_contract_review(
             )
         )
 
-    raw_scope = payload.get("contract_scope")
-    scope = (
-        ContractIntakeV1(**raw_scope)
-        if isinstance(raw_scope, dict)
-        else ContractIntakeV1()
-    )
+    scope = generation.contract_scope or ContractIntakeV1()
     support = evaluate_support(
         scope,
         mission_contract_id=event.task_id,
@@ -218,12 +214,17 @@ def recompute_contract_review(
     )
     review.review_status = "awaiting_evidence" if gate_reasons else "awaiting_decision"
     task.status = "awaiting_evidence" if gate_reasons else "awaiting_decision"
-    payload["status"] = "quality_blocked" if gate_reasons else "candidate_ready"
-    payload["gate_reasons"] = gate_reasons
-    payload["contract_review_pack_id"] = pack_id
-    payload["court_review_id"] = review.id
+    generation = EvidenceReworkGenerationV1.model_validate(
+        {
+            **generation.to_payload(),
+            "status": "quality_blocked" if gate_reasons else "candidate_ready",
+            "gate_reasons": gate_reasons,
+            "contract_review_pack_id": pack_id,
+            "court_review_id": review.id,
+        }
+    )
     event.payload_json = json.dumps(
-        payload,
+        generation.to_payload(),
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),

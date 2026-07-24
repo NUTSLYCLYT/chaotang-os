@@ -369,8 +369,8 @@ class FinalMemorial(Base):
 
     CourtReview.memorial_json remains the mutable candidate assembled from swarm
     reports.  A row enters this table only after both the deterministic quality gate
-    and the source-provenance gate pass.  task_id uniqueness prevents parallel swarm
-    paths from each publishing their own "official" answer.
+    and the source-provenance gate pass.  The (task_id, version) lineage is append-only,
+    while a partial unique index permits exactly one current version per task.
     """
 
     __tablename__ = "final_memorials"

@@ -83,6 +83,7 @@ def enqueue_evidence_rework_generation(
     followup_question: str | None,
 ) -> tuple[dict[str, object], bool]:
     """Create or reuse the generation bound to one exact evidence request."""
+    from src.contracts.evidence_rework_generation import EvidenceReworkGenerationV1
     from src.core_tenant_lineage import tenant_id_for_task
     from src.db.models import OutboxEvent
     from src.w05_feature import require_w05_contract_rework
@@ -110,18 +111,17 @@ def enqueue_evidence_rework_generation(
     )
     generation = max(latest_generation or 1, 1) + 1
     generation_id = f"outbox_rework_{sha256(idempotency_key.encode('utf-8')).hexdigest()[:16]}"
-    payload: dict[str, object] = {
-        "schema_version": "EvidenceReworkGenerationV1",
-        "generation_id": generation_id,
-        "generation": generation,
-        "status": "awaiting_evidence",
-        "prior_final_memorial_content_hash": prior_final_memorial_content_hash,
-        "evidence_request": {
+    payload = EvidenceReworkGenerationV1(
+        generation_id=generation_id,
+        generation=generation,
+        status="awaiting_evidence",
+        prior_final_memorial_content_hash=prior_final_memorial_content_hash,
+        evidence_request={
             "reason": reason,
             "followup_question": followup_question,
         },
-        "affected_sections": ["contract_review"],
-    }
+        affected_sections=["contract_review"],
+    ).to_payload()
     now = _now_iso()
     db.add(
         OutboxEvent(

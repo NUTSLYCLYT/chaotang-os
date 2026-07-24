@@ -7,14 +7,17 @@
 | --- | --- |
 | Change ID | feat-r0-w05-evidence-rework-implementation-20260723-20260723 |
 | 类型 | feat |
-| 状态 | IN_PROGRESS_SLICE_4F_GREEN |
+| 状态 | IN_PROGRESS_REVIEW_REMEDIATION_4M_GREEN |
 | Owner | Backend / Canonical Runtime |
 | 创建日期 | 20260723 |
 
 ## 范围
 
-- 主线：R0-W05 evidence-bound rework，纵切 1–4F。
-- 文件：公共裁决 API、精确 content hash 门、三个 W05 v1 契约、canonical outbox
-  generation identity、Alembic 019 及测试。
-- 验证：纵切 4C 先证明 worker 不认识 `evidence.rework`、旧 generation 会被记成普通完成，
-  再实现仅重算 `contract_review` 的候选写入与 `superseded` fencing。
+- 主线：R0-W05 evidence-bound rework，纵切 1–4M。
+- 文件：公共裁决 API、精确 content hash 门、W05 v1 契约、canonical outbox generation、
+  ContractIntakeV1 冻结投影、FinalMemorial/史馆精确身份、Alembic 019–022 及测试。
+- 修复：独立预审问题拆成 4G.1–4M；覆盖 generation/publish fence、生产默认关闭的能力门、
+  可线性化重放、证据绑定授权/receipt/CAS、链式降级预检、legacy writer 收口和 typed
+  `EvidenceReworkGenerationV1`。
+- 当前证据：4M RED 为契约模块不存在；GREEN 为 54 passed / 1 skipped，目标 Ruff 通过。
+  全量候选验证和修复后独立双轴复审仍待执行。

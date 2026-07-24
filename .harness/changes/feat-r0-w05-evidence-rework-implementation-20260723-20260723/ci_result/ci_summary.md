@@ -77,14 +77,25 @@
 | exact base→candidate Python Ruff | 0 | All checks passed | W05 全部 Python 变更；019 import order 机械收口 | 本地 / 2026-07-24 |
 | backend/root harness doctors | 0 | 均 0 errors / 0 warnings | 后端运行护栏与根级三层边界 | 本地 / 2026-07-24 |
 | authority v2 tests + W05 authorize | 0 | 27 passed；`GO / APPROVED_WORK_PACKAGE` | manifest 结构、审批摘要与单包执行权 | 本地 / 2026-07-24 |
+| 独立双轴 + gstack 预审 | 0 | 发现 generation race、能力门、绑定授权/原子性、降级链、精确 API 身份和契约类型化问题 | fixed base→`79547ea7` 的修复输入 | 本地 / 2026-07-24 |
+| Slice 4G.1 generation fence | 0 | 聚焦回归通过 | allocation/publish 共用 task lock，发布前重检 generation | 本地 / 2026-07-24 |
+| Slice 4G.2 capability gate | 0 | 聚焦回归通过 | 生产默认关闭；request/enqueue/bind/worker/publish 五处 fail closed | 本地 / 2026-07-24 |
+| Slice 4H.1 linearizable replay | 0 | 聚焦回归通过 | task lock、CAS winner reload、durable failed/dead-letter 语义 | 本地 / 2026-07-24 |
+| Slice 4J.1 binding security | 0 | 聚焦回归通过 | owner/tenant/purpose、真实 receipt、scope 顺序、typed bind response | 本地 / 2026-07-24 |
+| Slice 4K.1 downgrade preflight | 0 | 12 passed | 019–022 链式降级在任何 DDL 前统一拒绝有损状态 | 本地 / 2026-07-24 |
+| Slice 4L exact API identity | 0 | 109 passed / 1 skipped | 精确 hash schema、真实 HTTP 状态、legacy writer 收口 | 本地 / 2026-07-24 |
+| `test_evidence_rework_generation_v1.py`（4M 实现前） | 2 | RED：`EvidenceReworkGenerationV1` 模块不存在 | raw generation dict 缺少公共契约 | 本地 / 2026-07-24 |
+| 4M contract + final/worker 聚焦回归 | 0 | 54 passed / 1 skipped | typed generation、固定 section/hash、append-only FinalMemorial 身份说明 | 本地 / 2026-07-24 |
+| 4M 目标文件 Ruff | 0 | All checks passed | 新契约及集成文件静态规范；legacy router 使用既有显式 ignore | 本地 / 2026-07-24 |
 
 ## 结果
 
-纵切 1–4G 已完成 RED→GREEN：补证关闭旧奏折裁决资格、绑定精确 current content hash，
+纵切 1–4M 已完成 RED→GREEN：补证关闭旧奏折裁决资格、绑定精确 current content hash，
 建立三个 W05 v1 契约门，让 accepted evidence 经 canonical outbox generation 局部重算现有
 CourtReview，并以 superseded 状态围栏旧 generation。支持范围由已有 `ContractIntakeV1`
 显式输入后冻结在 canonical `DecisionTask`；通过质量与来源门的真实 worker 路径会持久化
-SwarmRun/SwarmQualityResult，并追加 current FinalMemorial v2。
+SwarmRun/SwarmQualityResult，并追加 current FinalMemorial v2。独立预审发现的问题已按
+4G.1–4M 分片修复；`EvidenceReworkGenerationV1` 现在是 generation payload 的类型事实源。
 
 ## 未验证项
 
@@ -92,9 +103,10 @@ SwarmRun/SwarmQualityResult，并追加 current FinalMemorial v2。
 
 ## Diff 与回滚复核
 
-- changed files：2 个产品/测试文件 + 本 change record。
-- diff review：待 W05 完整实现后独立双轴审查。
-- 回滚是否演练：无 migration；单一逻辑分支可直接 revert。
+- changed files：以 fixed base `67bcc78e` 到最终候选 SHA 的 exact diff 为准；包含 W05
+  contracts/service/API/tests、019–022 migrations 与本 change record。
+- diff review：预审已完成；修复后独立双轴复审与 gstack review 待最终候选执行。
+- 回滚是否演练：升级/安全降级测试已覆盖；含版本事实时 downgrade 会在 DDL 前明确拒绝。
 
 ## 完成定义映射
 
@@ -109,8 +121,9 @@ SwarmRun/SwarmQualityResult，并追加 current FinalMemorial v2。
 | 补证 generation 幂等且 migration 保留旧事实 | API/migration RED 与扩大回归 | PASS |
 | W03 accepted artifact 形成可信 generation-bound packet | bind/retry RED 与 77 passed / 1 skipped | PASS |
 | current generation 局部重算且 old generation fenced | worker/fencing RED 与 72 passed / 1 skipped | PASS |
-| W05 全包完成 | 后续纵切 | PENDING |
+| W05 审查修复实现 | 4G.1–4M 聚焦回归 | PASS |
+| W05 最终候选 | 全量回归 + 修复后独立复审 + verification-loop | PENDING |
 
 ## 声明状态
 
-- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / PRE_REVIEW_GREEN`
+- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / REMEDIATION_GREEN`

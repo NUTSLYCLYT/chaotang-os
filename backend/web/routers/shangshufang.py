@@ -26,6 +26,7 @@ from src.chancellor.decree_status import (
 )
 from src.chancellor.routing_service import chancellor_routing_service, legacy_route_dict
 from src.contracts.evidence_packet import EvidencePacketV1
+from src.contracts.evidence_rework_generation import EvidenceReworkGenerationV1
 from src.contracts.mission_contract import ContractIntakeV1
 from src.db.models import (
     AgentSkillRun,
@@ -128,7 +129,7 @@ class EvidenceBindRequest(BaseModel):
 class EvidenceBindData(BaseModel):
     task_id: str
     evidence_packet: EvidencePacketV1
-    rework_generation: dict[str, Any]
+    rework_generation: EvidenceReworkGenerationV1
 
 
 class EvidenceBindResponse(BaseModel):
@@ -793,7 +794,9 @@ def _replayed_evidence_rework_result(existing) -> dict[str, Any]:
     if existing.status in {"failed", "dead_letter"}:
         detail = f": {existing.last_error}" if existing.last_error else ""
         raise ValueError(f"补证 generation {existing.status}{detail}")
-    payload = _loads(existing.payload_json, {})
+    payload = EvidenceReworkGenerationV1.model_validate_json(
+        existing.payload_json or "{}"
+    ).to_payload()
     payload["status"] = existing.status
     if existing.last_error:
         payload["last_error"] = existing.last_error
@@ -1990,14 +1993,15 @@ def bind_rework_generation_evidence(
                 f"附件正文访问未授权: {body_access.deny_reason}",
             )
 
-        generation_payload = _loads(generation.payload_json, {})
+        generation_contract = EvidenceReworkGenerationV1.model_validate_json(
+            generation.payload_json or "{}"
+        )
+        generation_payload = generation_contract.to_payload()
         supplied_scope = (
             body.contract_scope.model_dump() if body.contract_scope is not None else None
         )
         frozen_scope = _loads(task.contract_scope_json, None)
-        effective_frozen_scope = (
-            generation_payload.get("contract_scope") or frozen_scope
-        )
+        effective_frozen_scope = generation_payload.get("contract_scope") or frozen_scope
         if (
             effective_frozen_scope is not None
             and supplied_scope is not None
@@ -2076,8 +2080,14 @@ def bind_rework_generation_evidence(
             task.contract_scope_json = _json(frozen_scope)
         if frozen_scope is not None:
             generation_payload["contract_scope"] = frozen_scope
-        generation_payload["status"] = "pending"
-        generation_payload["evidence_packets"] = [packet.model_dump()]
+        generation_contract = EvidenceReworkGenerationV1.model_validate(
+            {
+                **generation_payload,
+                "status": "pending",
+                "evidence_packets": [packet.model_dump(mode="json")],
+            }
+        )
+        generation_payload = generation_contract.to_payload()
         updated_at = now_iso()
         if not _claim_evidence_binding(
             db,
@@ -2096,10 +2106,9 @@ def bind_rework_generation_evidence(
                 )
                 .first()
             )
-            winner_payload = _loads(
-                winner.payload_json if winner is not None else None,
-                {},
-            )
+            winner_payload = EvidenceReworkGenerationV1.model_validate_json(
+                winner.payload_json if winner is not None else "{}"
+            ).to_payload()
             existing_packet = next(
                 (
                     item
