@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from sqlalchemy.exc import IntegrityError
 
 from src.db.models import ArtifactManifest
 
@@ -19,6 +20,10 @@ def persist_manifest(
     manifest_json: dict | None = None,
     overall_status: str = "PARTIAL",
 ) -> ArtifactManifest:
+    if manifest_json:
+        from src.contracts.artifact_manifest import ArtifactManifestV1
+
+        ArtifactManifestV1.model_validate(manifest_json)
     existing = (
         db.query(ArtifactManifest)
         .filter_by(
@@ -46,5 +51,22 @@ def persist_manifest(
         overall_status=overall_status,
     )
     db.add(row)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        winner = (
+            db.query(ArtifactManifest)
+            .filter_by(
+                task_id=task_id,
+                final_memorial_id=final_memorial_id,
+                final_memorial_version=final_memorial_version,
+            )
+            .one_or_none()
+        )
+        if winner is None:
+            raise
+        if winner.content_hash != content_hash or winner.manifest_json != json.dumps(manifest_json or {}, sort_keys=True):
+            raise ValueError("artifact manifest lineage hash cannot change")
+        return winner
     return row

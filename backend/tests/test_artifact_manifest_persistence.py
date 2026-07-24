@@ -45,3 +45,4 @@ def test_manifest_hash_cannot_change_for_same_lineage(isolated_session_local) ->
             content_hash="b" * 64,
         )
     db.close()
+
