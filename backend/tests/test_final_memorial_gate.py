@@ -1148,7 +1148,14 @@ def test_accepted_upload_binds_to_waiting_rework_generation(
     assert packet["generation"] == 2
     assert packet["evidence_status"] == "GROUNDED"
     assert packet["verification_receipt_id"]
-    assert payload["data"]["rework_generation"]["status"] == "pending"
+    assert payload["data"]["rework_generation"]["status"] == "evidence_bound"
+
+    db = isolated_session_local()
+    stored_generation = (
+        db.query(OutboxEvent).filter_by(id=generation["generation_id"]).one()
+    )
+    assert stored_generation.status == "pending"
+    db.close()
 
     db = isolated_session_local()
     from src.db.models import SecureIngestAuditEvent

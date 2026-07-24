@@ -810,6 +810,19 @@ def _replayed_evidence_rework_result(existing) -> dict[str, Any]:
     }
 
 
+def _evidence_bind_response_generation(
+    payload: dict[str, Any],
+) -> dict[str, object]:
+    """Expose the 4B bind boundary while the durable outbox stays pending."""
+    generation = EvidenceReworkGenerationV1.model_validate(payload)
+    return EvidenceReworkGenerationV1.model_validate(
+        {
+            **generation.to_payload(),
+            "status": "evidence_bound",
+        }
+    ).to_payload()
+
+
 def _execute_final_memorial_decision(
     db,
     *,
@@ -2030,7 +2043,9 @@ def bind_rework_generation_evidence(
                 {
                     "task_id": task_id,
                     "evidence_packet": existing_packet,
-                    "rework_generation": generation_payload,
+                    "rework_generation": _evidence_bind_response_generation(
+                        generation_payload
+                    ),
                 }
             )
 
@@ -2123,7 +2138,9 @@ def bind_rework_generation_evidence(
                 {
                     "task_id": task_id,
                     "evidence_packet": existing_packet,
-                    "rework_generation": winner_payload,
+                    "rework_generation": _evidence_bind_response_generation(
+                        winner_payload
+                    ),
                 }
             )
         db.commit()
@@ -2131,7 +2148,9 @@ def bind_rework_generation_evidence(
             {
                 "task_id": task_id,
                 "evidence_packet": packet.model_dump(),
-                "rework_generation": generation_payload,
+                "rework_generation": _evidence_bind_response_generation(
+                    generation_payload
+                ),
             }
         )
     except ValueError as exc:
