@@ -279,6 +279,9 @@ class DecisionTask(Base):
     recommended_departments_json: Mapped[str] = mapped_column(
         sa.Text, nullable=False, default="[]"
     )
+    # R0-W05：由已有 ContractIntakeV1 明确输入并在 canonical task 上冻结。
+    # 不能从自然语言或模型输出猜测；旧任务保持 NULL 并 fail closed。
+    contract_scope_json: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     draft_edict_json: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
     updated_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)

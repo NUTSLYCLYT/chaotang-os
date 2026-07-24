@@ -641,3 +641,275 @@ def test_late_old_rework_generation_cannot_replace_current_review(
     assert status["review"]["memorial"]["contract_review"] == {
         "status": "current-unchanged"
     }
+
+
+def test_supported_contract_rework_public_chain_appends_current_v2(
+    isolated_session_local,
+):
+    """补证必须经公共 API 和真实 worker 形成可裁决 v2，不能靠测试直调 formalize。"""
+    import json
+
+    from fastapi.testclient import TestClient
+
+    from src.db.models import (
+        CourtReview,
+        DecisionTask,
+        FinalMemorial,
+        SwarmQualityResult,
+        SwarmRun,
+    )
+    from src.formal_memorial import formalize_memorial
+    from tests.fixtures.secure_ingest_fixtures import golden_docx_bytes
+    from web.main import app
+
+    db = isolated_session_local()
+    task_id = "task_supported_contract_rework_public_chain"
+    review_id = "review-supported-contract-rework-public-chain"
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查中国大陆中文采购合同付款条款",
+            status="awaiting_decision",
+            source_label="LIVE",
+        )
+    )
+    db.add(
+        CourtReview(
+            id=review_id,
+            tenant_id=1,
+            task_id=task_id,
+            routing_plan_json='{"route":{"mode":"cluster"}}',
+            review_status="awaiting_decision",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json=json.dumps(
+                {
+                    "title": "合同会审正式奏折 v1",
+                    "summary": "现有付款条款需要补充原文。",
+                    "recommendation": "request_evidence",
+                },
+                ensure_ascii=False,
+            ),
+            created_at="2026-07-24T00:00:00+00:00",
+            updated_at="2026-07-24T00:00:00+00:00",
+        )
+    )
+    db.flush()
+    first = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result={
+            "swarm_run": {
+                "id": "run-supported-contract-rework-v1",
+                "task_id": task_id,
+                "review_id": review_id,
+                "source_label": "LIVE_SWARM",
+            },
+            "quality_result": {
+                "id": "quality-supported-contract-rework-v1",
+                "passed": True,
+                "blocking_reasons": [],
+                "warnings": [],
+            },
+        },
+    )
+    first_hash = first.content_hash
+    db.commit()
+    db.close()
+
+    client = TestClient(app)
+    requested = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "request_evidence",
+            "reason": "补充付款条件原文",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": first_hash,
+        },
+    ).json()
+    assert requested["success"] is True, requested
+    generation = requested["data"]["rework_generation"]
+
+    uploaded = client.post(
+        "/api/secure-ingest/upload",
+        data={
+            "mission_contract_id": task_id,
+            "purpose": "evidence_rework",
+        },
+        files={
+            "file": (
+                "付款条件补证.docx",
+                golden_docx_bytes("付款应在验收完成后七日内支付。"),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+    ).json()
+    assert uploaded["status"] == "ACCEPTED", uploaded
+
+    bound = client.post(
+        (
+            f"/api/shangshufang/tasks/{task_id}/rework-generations/"
+            f"{generation['generation_id']}/evidence"
+        ),
+        json={
+            "artifact_id": uploaded["artifact_id"],
+            "contract_scope": {
+                "jurisdiction": "CN_MAINLAND",
+                "language": "zh-CN",
+                "contract_type": "procurement",
+                "our_role": "buyer",
+            },
+        },
+    ).json()
+    assert bound["success"] is True, bound
+
+    worker_db = isolated_session_local()
+    worker_result = process_event(worker_db, generation["generation_id"])
+    worker_db.close()
+    assert worker_result["status"] == "completed", worker_result
+    assert worker_result["result"]["quality_gate_status"] == "PASSED"
+    assert worker_result["result"]["final_memorial_version"] == 2
+
+    db = isolated_session_local()
+    versions = (
+        db.query(FinalMemorial)
+        .filter_by(task_id=task_id)
+        .order_by(FinalMemorial.version)
+        .all()
+    )
+    assert [row.version for row in versions] == [1, 2]
+    assert versions[0].content_hash == first_hash
+    assert versions[0].status == "superseded"
+    assert versions[0].is_current is False
+    assert versions[1].status == "ready_for_decision"
+    assert versions[1].is_current is True
+    assert versions[1].supersedes_id == versions[0].id
+    assert db.query(SwarmRun).filter_by(id=versions[1].swarm_run_id).one()
+    assert (
+        db.query(SwarmQualityResult)
+        .filter_by(id=versions[1].quality_result_id, passed=True)
+        .one()
+    )
+    db.close()
+
+
+def test_evidence_bind_cannot_replace_frozen_contract_scope(
+    isolated_session_local,
+    tmp_path,
+):
+    import hashlib
+    import json
+
+    from fastapi.testclient import TestClient
+
+    from src.db.models import DecisionTask, OutboxEvent, SecureIngestArtifact
+    from web.main import app
+
+    db = isolated_session_local()
+    task_id = "task_frozen_contract_scope"
+    generation_id = "outbox-frozen-contract-scope"
+    artifact_id = "artifact-frozen-contract-scope"
+    artifact_path = tmp_path / "scope.docx"
+    artifact_path.write_bytes(b"scope")
+    digest = hashlib.sha256(b"scope").hexdigest()
+    frozen_scope = {
+        "schema_version": "ContractIntakeV1",
+        "jurisdiction": "CN_MAINLAND",
+        "language": "zh-CN",
+        "contract_type": "procurement",
+        "our_role": "buyer",
+    }
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查采购合同",
+            status="awaiting_evidence",
+            source_label="LIVE",
+            contract_scope_json=json.dumps(frozen_scope),
+        )
+    )
+    db.add(
+        OutboxEvent(
+            id=generation_id,
+            tenant_id=1,
+            task_id=task_id,
+            decision_id="decision-frozen-contract-scope",
+            event_type="evidence.rework",
+            generation=2,
+            idempotency_key="evidence-rework:frozen-contract-scope",
+            status="awaiting_evidence",
+            attempts=0,
+            max_attempts=3,
+            payload_json=json.dumps(
+                {
+                    "schema_version": "EvidenceReworkGenerationV1",
+                    "generation_id": generation_id,
+                    "generation": 2,
+                    "status": "awaiting_evidence",
+                    "prior_final_memorial_content_hash": "a" * 64,
+                    "evidence_request": {
+                        "reason": "补证",
+                        "followup_question": None,
+                    },
+                    "affected_sections": ["contract_review"],
+                    "evidence_packets": [],
+                }
+            ),
+            created_at="2026-07-24T00:00:00+00:00",
+            updated_at="2026-07-24T00:00:00+00:00",
+        )
+    )
+    db.add(
+        SecureIngestArtifact(
+            id=artifact_id,
+            tenant_id=1,
+            user_id="1",
+            mission_contract_id=task_id,
+            original_filename="scope.docx",
+            declared_content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            detected_format="DOCX_OOXML",
+            file_size_bytes=5,
+            page_count=1,
+            digest_sha256=digest,
+            status="ACCEPTED",
+            ocr_status="NOT_APPLICABLE",
+            macro_detected=False,
+            zip_bomb_suspected=False,
+            injection_flag_categories_json="[]",
+            storage_path=str(artifact_path),
+            created_at="2026-07-24T00:00:00+00:00",
+        )
+    )
+    db.commit()
+    db.close()
+
+    response = TestClient(app).post(
+        (
+            f"/api/shangshufang/tasks/{task_id}/rework-generations/"
+            f"{generation_id}/evidence"
+        ),
+        json={
+            "artifact_id": artifact_id,
+            "contract_scope": {
+                "jurisdiction": "CN_MAINLAND",
+                "language": "zh-CN",
+                "contract_type": "sales",
+                "our_role": "seller",
+            },
+        },
+    ).json()
+
+    assert response["success"] is False
+    assert "范围已经冻结" in response["error"]
+    db = isolated_session_local()
+    task = db.query(DecisionTask).filter_by(id=task_id).one()
+    generation = db.query(OutboxEvent).filter_by(id=generation_id).one()
+    assert json.loads(task.contract_scope_json) == frozen_scope
+    assert generation.status == "awaiting_evidence"
+    assert json.loads(generation.payload_json)["evidence_packets"] == []
+    db.close()

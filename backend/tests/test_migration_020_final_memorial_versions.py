@@ -52,7 +52,7 @@ def test_upgrade_preserves_v1_and_enforces_one_current_version(
     conn = sqlite3.connect(path)
     try:
         assert conn.execute("SELECT version_num FROM alembic_version").fetchone()[0] == (
-            "020_final_memorial_versions"
+            "021_decision_task_contract_scope"
         )
         columns = {row[1] for row in conn.execute("PRAGMA table_info(final_memorials)")}
         assert {"version", "supersedes_id", "is_current"} <= columns

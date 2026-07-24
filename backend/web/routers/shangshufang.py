@@ -25,6 +25,7 @@ from src.chancellor.decree_status import (
     record_timeline_event,
 )
 from src.chancellor.routing_service import chancellor_routing_service, legacy_route_dict
+from src.contracts.mission_contract import ContractIntakeV1
 from src.db.models import (
     AgentSkillRun,
     ChancellorRouteDecision,
@@ -116,6 +117,7 @@ class DecisionRequest(BaseModel):
 
 class EvidenceBindRequest(BaseModel):
     artifact_id: str = Field(..., min_length=1)
+    contract_scope: ContractIntakeV1 | None = None
 
 
 class FinanceReportingLoopRequest(BaseModel):
@@ -1817,6 +1819,21 @@ def bind_rework_generation_evidence(
                 f"secure-ingest:{artifact.id}:{artifact.digest_sha256}"
             ),
         )
+        supplied_scope = (
+            body.contract_scope.model_dump() if body.contract_scope is not None else None
+        )
+        frozen_scope = _loads(task.contract_scope_json, None)
+        if (
+            frozen_scope is not None
+            and supplied_scope is not None
+            and frozen_scope != supplied_scope
+        ):
+            return fail("合同支持范围已经冻结，不能在补证时替换")
+        if frozen_scope is None and supplied_scope is not None:
+            frozen_scope = supplied_scope
+            task.contract_scope_json = _json(frozen_scope)
+        if frozen_scope is not None:
+            generation_payload["contract_scope"] = frozen_scope
         generation_payload["status"] = "pending"
         generation_payload["evidence_packets"] = [packet.model_dump()]
         generation.status = "pending"

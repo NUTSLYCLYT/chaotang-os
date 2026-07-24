@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 import docx
@@ -12,7 +13,9 @@ from sqlalchemy import func
 
 from src.contracts.contract_review_pack import ContractReviewPackV1
 from src.contracts.contract_risk_item import ContractRiskItemV1
+from src.contracts.contract_support import evaluate_support
 from src.contracts.evidence_packet import EvidencePacketV1
+from src.contracts.mission_contract import ContractIntakeV1
 from src.secure_ingest.storage import read_artifact_bytes_at_path
 
 if TYPE_CHECKING:
@@ -43,8 +46,6 @@ def _candidate_gate_reasons(
         reasons.append("provenance_gate_failed")
     if pack.verdict == "NEED_LEGAL_REVIEW":
         reasons.append("contract_scope_requires_legal_review")
-    if any(item.missing_evidence for item in pack.risk_items):
-        reasons.append("contract_evidence_locator_missing")
     return reasons
 
 
@@ -130,6 +131,20 @@ def recompute_contract_review(
             )
         )
 
+    raw_scope = payload.get("contract_scope")
+    scope = (
+        ContractIntakeV1(**raw_scope)
+        if isinstance(raw_scope, dict)
+        else ContractIntakeV1()
+    )
+    support = evaluate_support(
+        scope,
+        mission_contract_id=event.task_id,
+        revision=event.generation,
+        evaluated_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        capability_active=True,
+    )
+    supported = support.support_status == "SUPPORTED"
     pack_id = "review_pack_" + hashlib.sha256(event.id.encode("utf-8")).hexdigest()[:16]
     pack = ContractReviewPackV1(
         review_pack_id=pack_id,
@@ -138,13 +153,17 @@ def recompute_contract_review(
         mission_contract_id=event.task_id,
         court_review_id=review.id,
         evidence_packet_ids=[packet.evidence_packet_id for packet in packets],
-        jurisdiction="UNSUPPORTED_OR_UNKNOWN",
-        language="UNSUPPORTED_OR_UNKNOWN",
-        contract_type="UNSUPPORTED_OR_UNKNOWN",
-        our_role="UNSUPPORTED_OR_UNKNOWN",
+        jurisdiction=scope.jurisdiction or "UNSUPPORTED_OR_UNKNOWN",
+        language=scope.language or "UNSUPPORTED_OR_UNKNOWN",
+        contract_type=scope.contract_type or "UNSUPPORTED_OR_UNKNOWN",
+        our_role=scope.our_role or "UNSUPPORTED_OR_UNKNOWN",
         risk_items=risk_items,
-        verdict="NEED_LEGAL_REVIEW",
-        decision_summary="canonical 任务尚未冻结合同支持维度，新增证据仅形成候选并升级人工法务复核。",
+        verdict="REVISE_BEFORE_PROCEED" if supported else "NEED_LEGAL_REVIEW",
+        decision_summary=(
+            "补证已绑定当前 generation；合同付款、验收和责任条件仍须人工裁决。"
+            if supported
+            else "canonical 任务缺少受支持的合同范围，新增证据仅形成候选并升级人工法务复核。"
+        ),
         affected_sections=affected_sections,
         source_labels=["TASK_EVIDENCE"],
         engine_tiers=["deterministic"],
@@ -174,7 +193,7 @@ def recompute_contract_review(
         sort_keys=True,
         separators=(",", ":"),
     )
-    return {
+    result = {
         "fenced": False,
         "generation": event.generation,
         "affected_sections": affected_sections,
@@ -183,3 +202,92 @@ def recompute_contract_review(
         "quality_gate_status": pack.quality_gate_status,
         "gate_reasons": gate_reasons,
     }
+    if gate_reasons:
+        return result
+
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    run_id = "run_rework_" + hashlib.sha256(event.id.encode("utf-8")).hexdigest()[:16]
+    task_run_id = "task_run_" + hashlib.sha256(
+        f"{event.id}|contract_review".encode("utf-8")
+    ).hexdigest()[:16]
+    quality_id = "quality_rework_" + hashlib.sha256(
+        event.id.encode("utf-8")
+    ).hexdigest()[:16]
+    warnings = [
+        missing
+        for item in pack.risk_items
+        for missing in item.missing_evidence
+    ]
+    swarm_result = {
+        "swarm_run": {
+            "id": run_id,
+            "task_id": event.task_id,
+            "review_id": review.id,
+            "mode": "evidence_rework",
+            "status": "completed",
+            "source_label": "MIXED",
+            "route_plan": {
+                "generation": event.generation,
+                "affected_sections": affected_sections,
+                "contract_review_pack_id": pack_id,
+            },
+            "trace_id": event.id,
+            "started_at": now,
+            "finished_at": now,
+            "error": None,
+        },
+        "task_runs": [
+            {
+                "id": task_run_id,
+                "swarm_id": "xingbu-contract-review",
+                "role": "刑部合同重审",
+                "status": "completed",
+                "input": {
+                    "generation": event.generation,
+                    "evidence_packet_ids": pack.evidence_packet_ids,
+                },
+                "output": pack.model_dump(),
+                "source_label": "MIXED",
+                "confidence": "中",
+                "started_at": now,
+                "finished_at": now,
+                "error": None,
+            }
+        ],
+        "evidence_links": [
+            {
+                "id": "evidence_link_"
+                + hashlib.sha256(
+                    f"{event.id}|{packet.evidence_packet_id}".encode("utf-8")
+                ).hexdigest()[:16],
+                "swarm_task_run_id": task_run_id,
+                "claim": "合同补证已绑定并纳入当前 generation 重审。",
+                "evidence_source_type": "secure_ingest_artifact",
+                "evidence_ref": packet.input_version_id,
+                "confidence": "中",
+            }
+            for packet in packets
+        ],
+        "quality_result": {
+            "id": quality_id,
+            "passed": True,
+            "blocking_reasons": [],
+            "warnings": warnings,
+            "revised_output": pack.model_dump(),
+            "created_at": now,
+        },
+    }
+    from src.formal_memorial import formalize_memorial
+    from src.swarm_persistence import persist_swarm_execution_result
+
+    persist_swarm_execution_result(db, swarm_result)
+    formal = formalize_memorial(
+        db,
+        task_id=event.task_id,
+        review_id=review.id,
+        swarm_result=swarm_result,
+    )
+    result["final_memorial_id"] = formal.id
+    result["final_memorial_version"] = formal.version
+    result["final_memorial_content_hash"] = formal.content_hash
+    return result

@@ -59,17 +59,23 @@
 | brief 兼容入口 hash 门（修复前） | 1 | issue_decree 成功 | 旁路缺口 | 本地 / 2026-07-24 |
 | 精确 hash 裁决聚焦回归 | 0 | 5 passed | task/brief 入口、别名和状态一致性 | 本地 / 2026-07-24 |
 | W05 产品行为扩大回归 | 0 | 125 passed / 1 skipped | final、worker、poller、契约、状态投影、019/020 migration | 本地 / 2026-07-24 |
+| 4G 真实公共补证链（实现前） | 1 | RED：worker quality gate=`FAILED`，没有 v2 | 证明旧测试直调 formalize 掩盖真实链缺口 | 本地 / 2026-07-24 |
+| 021 DecisionTask 合同范围 migration（实现前） | 1 | RED：head 仍为 020，缺 `contract_scope_json` | canonical 范围投影 schema | 本地 / 2026-07-24 |
+| 冻结合同范围替换（实现前） | 1 | RED：不同 scope 被接受 | 防止补证阶段重写已冻结范围 | 本地 / 2026-07-24 |
+| Slice 4G 聚焦回归 + Ruff | 0 | 61 passed / 1 skipped；All checks passed | 公共 API→worker→canonical run/quality→FinalMemorial v2、迁移图和 fail-closed 回归 | 本地 / 2026-07-24 |
 
 ## 结果
 
-纵切 1–4C 已完成 RED→GREEN：补证关闭旧奏折裁决资格、绑定精确 current content hash，
+纵切 1–4G 已完成 RED→GREEN：补证关闭旧奏折裁决资格、绑定精确 current content hash，
 建立三个 W05 v1 契约门，让 accepted evidence 经 canonical outbox generation 局部重算现有
-CourtReview，并以 superseded 状态围栏旧 generation。
+CourtReview，并以 superseded 状态围栏旧 generation。支持范围由已有 `ContractIntakeV1`
+显式输入后冻结在 canonical `DecisionTask`；通过质量与来源门的真实 worker 路径会持久化
+SwarmRun/SwarmQualityResult，并追加 current FinalMemorial v2。
 
 ## 未验证项
 
-- canonical 质量/来源门重审、append-only 新奏折版本、精确 hash 裁决。
-- 全量 W05 回归、独立代码审查、推送/合并/发布。
+- task/brief 裁决入口统一与原子 CAS、史馆精确版本身份、证据绑定 CAS、020 安全降级。
+- 全量 W05 回归、独立代码审查；推送/合并/发布未获批准。
 
 ## Diff 与回滚复核
 
@@ -94,4 +100,4 @@ CourtReview，并以 superseded 状态围栏旧 generation。
 
 ## 声明状态
 
-- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_4F_GREEN`
+- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_4G_GREEN`
