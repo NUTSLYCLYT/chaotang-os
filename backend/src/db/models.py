@@ -413,6 +413,27 @@ class FinalMemorial(Base):
     )
 
 
+class ArtifactManifest(Base):
+    """Canonical delivery manifest bound to one immutable FinalMemorial version."""
+
+    __tablename__ = "artifact_manifests"
+
+    id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    final_memorial_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    final_memorial_version: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    delivery_formula_version: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    content_hash: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
+
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "task_id", "final_memorial_id", "final_memorial_version",
+            name="uq_artifact_manifest_lineage",
+        ),
+    )
+
+
 class EmperorDecision(Base):
     """皇上裁决记录。"""
 
