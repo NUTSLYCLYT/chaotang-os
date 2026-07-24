@@ -40,5 +40,7 @@ WIP 永远为 1；任务按 RED→GREEN→review 串行执行。
 - 验证命令与证据：authority/amendment/doctors/diff/clean。
 - 回滚边界：未来获批后 `git revert <candidate>`；本轮不执行。
 - 完成定义：exact review 0 MUST。
-- 状态：进行中；authority/amendment/doctors/diff/allowlist 已通过，待本地
-  exact candidate 与独立 review。
+- 状态：完成；closeout H1
+  `09520c15fb02654da0b3b28a2729c211dd0f014e` 已冻结；authority/amendment/
+  doctors/diff/allowlist 通过，Standards 与 Spec exact review 均为 `0 MUST`。
+  候选保持 local only，未 push、未 merge。

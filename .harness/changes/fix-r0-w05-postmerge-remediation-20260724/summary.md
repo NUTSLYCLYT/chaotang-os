@@ -51,7 +51,8 @@
 | H1 tree | `eec70c552b578cfe6918c80903f0d73e55e18b80` |
 | Base→H1 binary diff SHA-256 | `d82c89ea5e89e1bc4f25da615642fe4e3a0d2d44bfdec08453067eccfefafca2` |
 | Review result | Standards `0 MUST`；Spec `0 MUST` |
-| Remote state | merged by PR #17 at `ad77c16d1820c0c1420845c2b7a3d8cb9e52894e` |
+| H1 state at exact review | local implementation candidate |
+| H3 merge state | `a8f7816120b24bcbf12a40e2b971222583f25371` merged by PR #17 at `ad77c16d1820c0c1420845c2b7a3d8cb9e52894e` |
 | Merge tree | `354e427354adfc234b89deeaac2ee937048b9ca2`（等于 H3 tree） |
 
 ## 授权

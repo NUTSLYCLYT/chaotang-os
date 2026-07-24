@@ -7,7 +7,7 @@
 | --- | --- |
 | Change ID | fix-r0-w05-postmerge-closeout-20260724 |
 | 类型 | fix |
-| 状态 | GREEN_VERIFIED_AWAITING_EXACT_REVIEW |
+| 状态 | EXACT_H1_REVIEWED_0_MUST_AWAITING_OWNER_DECISION |
 | Owner | Project Owner / Execution Authority |
 | 创建日期 | 20260724 |
 
@@ -38,6 +38,17 @@
 | Post-merge core | `84 passed`；Ruff、diff、root/backend doctor 通过 |
 
 PR #17 的 merge tree 与已审查候选完全相同；本 Packet 不重新解释或改写产品实现。
+
+## Closeout 候选身份
+
+| Identity | Value |
+| --- | --- |
+| Closeout base | `ad77c16d1820c0c1420845c2b7a3d8cb9e52894e` |
+| Closeout H1 | `09520c15fb02654da0b3b28a2729c211dd0f014e` |
+| H1 tree | `93a481fb8aaddf132d10b470e33376c391118b2f` |
+| Base→H1 binary diff SHA-256 | `b01e57a90ea6ab6ff2f2e415e6e301c7c3c88cc25d6794dd6d353b7156e86aa6` |
+| Exact review | Standards `READY / 0 MUST`；Spec `PASS / 0 MUST` |
+| Remote state | local only；未 push、未 merge |
 
 ## 授权
 
