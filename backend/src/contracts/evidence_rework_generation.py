@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from src.contracts.evidence_packet import EvidencePacketV1
+from src.contracts.evidence_packet import EvidencePacketV1, EvidenceStatus
 from src.contracts.mission_contract import ContractIntakeV1
 
 
@@ -42,9 +42,37 @@ class EvidenceReworkGenerationV1(BaseModel):
     )
     contract_scope: ContractIntakeV1 | None = None
     evidence_packets: list[EvidencePacketV1] | None = None
+    evidence_status: EvidenceStatus = "NONE"
     gate_reasons: list[str] | None = None
     contract_review_pack_id: str | None = Field(default=None, min_length=1)
     court_review_id: str | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def _project_evidence_status(self) -> "EvidenceReworkGenerationV1":
+        packets = self.evidence_packets or []
+        packet_statuses = {packet.evidence_status for packet in packets}
+        if not packet_statuses:
+            projected: EvidenceStatus = "NONE"
+        elif "STALE" in packet_statuses:
+            projected = "STALE"
+        elif "CONFLICTED" in packet_statuses:
+            projected = "CONFLICTED"
+        elif packet_statuses == {"GROUNDED"}:
+            projected = "GROUNDED"
+        elif len(packet_statuses) == 1:
+            projected = next(iter(packet_statuses))
+        else:
+            projected = "PARTIAL"
+
+        if (
+            "evidence_status" in self.model_fields_set
+            and self.evidence_status != projected
+        ):
+            raise ValueError(
+                "generation evidence_status 必须由 evidence_packets 唯一投影"
+            )
+        self.evidence_status = projected
+        return self
 
     def to_payload(self) -> dict[str, object]:
         """Serialize sparse state while retaining the request's explicit null."""

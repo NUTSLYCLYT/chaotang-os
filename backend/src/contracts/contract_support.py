@@ -1,6 +1,6 @@
 """ContractSupportDecisionV1 — R0-W02 REQ-003（支持/拒答 taxonomy 的运行时判定）。
 
-RED case："缺法域/语言/类型/角色仍输出放行"必须失败——`evaluate_support()` 对四维度逐一独立
+RED case："缺法域/语言/类型/角色/法律问题仍输出放行"必须失败——`evaluate_support()` 对五维度逐一独立
 检查，缺失或超范围一律走 DECLINED，绝不静默放行；累计所有命中的拒答原因（不是只报第一个）。
 """
 
@@ -41,7 +41,7 @@ def evaluate_support(
     evaluated_at: str,
     capability_active: bool,
 ) -> ContractSupportDecisionV1:
-    """纯函数：四维度独立检查，累计所有命中的拒答原因。"""
+    """纯函数：五维度独立检查，累计所有命中的拒答原因。"""
     reasons: list[DeclineReason] = []
 
     if intake.jurisdiction is None:
@@ -64,6 +64,11 @@ def evaluate_support(
     elif intake.our_role == UNSUPPORTED_SENTINEL:
         # our_role 目前没有独立 DeclineReason 值，用 UNKNOWN_SCOPE 兜底记录。
         reasons.append("UNKNOWN_SCOPE")
+
+    if intake.legal_question is None:
+        reasons.append("MISSING_LEGAL_QUESTION")
+    elif intake.legal_question == UNSUPPORTED_SENTINEL:
+        reasons.append("UNSUPPORTED_LEGAL_QUESTION")
 
     if not reasons and not capability_active:
         reasons.append("CAPABILITY_NOT_ACTIVATED")

@@ -1,7 +1,7 @@
 {
   "schema_version": "shangshufang.contract-baseline.v1",
   "captured_from_commit": "aa600fe",
-  "amended_for": "R0-W05 Slice 4L additive exact-hash contract",
+  "amended_for": "R0-W05 post-merge scope ingress and typed decision response",
   "authority": "backend FastAPI OpenAPI plus deterministic API behavior tests",
   "endpoints": [
     {
@@ -9,7 +9,7 @@
       "method": "post",
       "request_schema": "DraftEdictRequest",
       "required": ["raw_question"],
-      "properties": ["archive_matches", "attachments", "evidence_summary", "raw_question"],
+      "properties": ["archive_matches", "attachments", "contract_scope", "evidence_summary", "raw_question"],
       "typed_response": false
     },
     {
@@ -35,7 +35,7 @@
       "required": ["action"],
       "properties": ["action", "expected_final_memorial_content_hash", "followup_question", "human_confirmation_note", "human_confirmed", "reason"],
       "action_enum": ["adopt", "approve", "archive", "cancel", "followup", "recheck", "reject", "request_evidence"],
-      "typed_response": false
+      "typed_response": true
     }
   ],
   "source_contract": {
@@ -52,7 +52,7 @@
       "decision top-level sourceLabel is hard-coded to LIVE",
       "formal frontend and chancellor contracts omit source labels used by the swarm runtime/design standard",
       "legacy LIVE_ENGINE couples engine identity into sourceLabel and must split during the S4 contract migration",
-      "the four formal success responses have no Pydantic response_model",
+      "three formal success responses still have no Pydantic response_model; task decision is now typed",
       "non-W05 unknown task and runtime failures still use a success-shaped HTTP 200 envelope",
       "current frontend decision callsites omit the exact FinalMemorial content hash; backend W05 is intentionally fail-closed until a separately approved frontend packet supplies it"
     ],

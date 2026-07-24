@@ -29,6 +29,7 @@ def _mission(**overrides: object) -> MissionContractV1:
         language=_FIXTURE["language"],
         contract_type=_FIXTURE["contract_type"],
         our_role=_FIXTURE["our_role"],
+        legal_question=_FIXTURE["legal_question"],
         goal=MissionGoal(**_FIXTURE["goal"]),
         constraints=_FIXTURE["constraints"],
         prohibited_actions=_FIXTURE["prohibited_actions"],
@@ -67,6 +68,7 @@ def test_missing_key_rejected_not_silently_defaulted(field: str) -> None:
         language=_FIXTURE["language"],
         contract_type=_FIXTURE["contract_type"],
         our_role=_FIXTURE["our_role"],
+        legal_question=_FIXTURE["legal_question"],
         goal=MissionGoal(**_FIXTURE["goal"]),
         constraints=_FIXTURE["constraints"],
         prohibited_actions=_FIXTURE["prohibited_actions"],
@@ -94,3 +96,12 @@ def test_compute_content_digest_changes_when_goal_changes() -> None:
     mission_a = _mission()
     mission_b = _mission(goal=MissionGoal(user_intent="换一个意图", biggest_concern="换一个担心"))
     assert compute_mission_content_digest(mission_a) != compute_mission_content_digest(mission_b)
+
+
+def test_compute_content_digest_binds_legal_question_scope() -> None:
+    supported = _mission(legal_question="contract_risk_screening")
+    unsupported = _mission(legal_question="UNSUPPORTED_OR_UNKNOWN")
+
+    assert compute_mission_content_digest(supported) != compute_mission_content_digest(
+        unsupported
+    )

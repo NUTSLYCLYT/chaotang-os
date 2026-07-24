@@ -9,14 +9,15 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 import docx
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 from src.contracts.contract_review_pack import ContractReviewPackV1
 from src.contracts.contract_risk_item import ContractRiskItemV1
 from src.contracts.contract_support import evaluate_support
-from src.contracts.evidence_packet import EvidencePacketV1
+from src.contracts.evidence_packet import EvidencePacketV1, EvidenceStatus
 from src.contracts.evidence_rework_generation import EvidenceReworkGenerationV1
 from src.contracts.mission_contract import ContractIntakeV1
+from src.secure_ingest.evidence import classify_evidence_artifact
 from src.secure_ingest.storage import read_artifact_bytes_at_path
 
 if TYPE_CHECKING:
@@ -48,6 +49,38 @@ def _candidate_gate_reasons(
     if pack.verdict == "NEED_LEGAL_REVIEW":
         reasons.append("contract_scope_requires_legal_review")
     return reasons
+
+
+def _fail_closed_evidence_status(
+    previous: EvidenceStatus,
+    classified: EvidenceStatus,
+) -> EvidenceStatus:
+    """Never auto-promote blocked evidence, but allow a later STALE downgrade."""
+    if previous == "GROUNDED":
+        return classified
+    if classified == "STALE":
+        return "STALE"
+    return previous
+
+
+def _lock_evidence_version_publication(db: "Session") -> None:
+    """Prevent accepted artifact phantoms during the final provenance check.
+
+    SQLite's preceding DecisionTask UPDATE already holds the database write
+    lock. PostgreSQL needs an explicit table lock because row locks do not
+    block inserts of new sibling versions.
+    """
+    dialect = db.get_bind().dialect.name
+    if dialect == "sqlite":
+        return
+    if dialect == "postgresql":
+        db.execute(
+            text("LOCK TABLE secure_ingest_artifacts IN SHARE MODE")
+        )
+        return
+    raise RuntimeError(
+        f"evidence rework publication unsupported for dialect {dialect!r}"
+    )
 
 
 def recompute_contract_review(
@@ -100,21 +133,52 @@ def recompute_contract_review(
         raise ValueError("rework generation 缺少 canonical CourtReview")
 
     risk_items: list[ContractRiskItemV1] = []
+    revalidated_packets: list[EvidencePacketV1] = []
+    artifacts_by_id: dict[str, SecureIngestArtifact] = {}
     for packet in packets:
         artifact = (
             db.query(SecureIngestArtifact)
             .filter_by(
                 id=packet.input_version_id,
                 tenant_id=event.tenant_id,
+                user_id=task.user_id,
                 mission_contract_id=event.task_id,
                 status="ACCEPTED",
             )
             .one()
         )
-        raw_bytes = read_artifact_bytes_at_path(artifact.storage_path)
-        actual_digest = hashlib.sha256(raw_bytes).hexdigest()
-        if actual_digest != packet.input_digest or actual_digest != artifact.digest_sha256:
-            raise ValueError("绑定证据内容摘要已变化")
+        artifacts_by_id[artifact.id] = artifact
+        classified_status = classify_evidence_artifact(db, artifact)
+        raw_bytes: bytes | None = None
+        if (
+            packet.evidence_status == "GROUNDED"
+            and classified_status == "GROUNDED"
+        ):
+            try:
+                raw_bytes = read_artifact_bytes_at_path(artifact.storage_path)
+            except OSError:
+                classified_status = "STALE"
+            else:
+                actual_digest = hashlib.sha256(raw_bytes).hexdigest()
+                if (
+                    actual_digest != packet.input_digest
+                    or actual_digest != artifact.digest_sha256
+                ):
+                    classified_status = "STALE"
+        # A worker may downgrade newly stale/conflicted evidence, but it cannot
+        # silently promote an already blocked packet without a human resolution.
+        revalidated_status = _fail_closed_evidence_status(
+            packet.evidence_status,
+            classified_status,
+        )
+        packet = packet.model_copy(update={"evidence_status": revalidated_status})
+        revalidated_packets.append(packet)
+        if packet.evidence_status != "GROUNDED":
+            continue
+        if raw_bytes is None:
+            raise RuntimeError(
+                "evidence rework invariant: grounded evidence bytes unavailable"
+            )
         excerpt = _extract_docx_text(raw_bytes)[:2000]
         if not excerpt:
             raise ValueError("绑定证据没有可核验文本")
@@ -140,6 +204,14 @@ def recompute_contract_review(
             )
         )
 
+    generation_payload = generation.to_payload()
+    generation_payload.pop("evidence_status", None)
+    generation_payload["evidence_packets"] = [
+        packet.model_dump(mode="json") for packet in revalidated_packets
+    ]
+    generation = EvidenceReworkGenerationV1.model_validate(generation_payload)
+    packets = generation.evidence_packets or []
+
     scope = generation.contract_scope or ContractIntakeV1()
     support = evaluate_support(
         scope,
@@ -161,6 +233,7 @@ def recompute_contract_review(
         language=scope.language or "UNSUPPORTED_OR_UNKNOWN",
         contract_type=scope.contract_type or "UNSUPPORTED_OR_UNKNOWN",
         our_role=scope.our_role or "UNSUPPORTED_OR_UNKNOWN",
+        legal_question=scope.legal_question or "UNSUPPORTED_OR_UNKNOWN",
         risk_items=risk_items,
         verdict="REVISE_BEFORE_PROCEED" if supported else "NEED_LEGAL_REVIEW",
         decision_summary=(
@@ -173,11 +246,6 @@ def recompute_contract_review(
         engine_tiers=["deterministic"],
         quality_gate_status="PENDING",
     )
-    gate_reasons = _candidate_gate_reasons(pack, packets)
-    pack = pack.model_copy(
-        update={"quality_gate_status": "FAILED" if gate_reasons else "PASSED"}
-    )
-
     # Parsing evidence is intentionally outside the task lock. Publication is
     # not: generation allocation and canonical writes share this lock so a
     # newer request cannot be interleaved between this fence and the writes.
@@ -203,6 +271,46 @@ def recompute_contract_review(
             "current_generation": current_generation,
             "affected_sections": affected_sections,
         }
+
+    _lock_evidence_version_publication(db)
+    # Final fail-closed recheck under the artifact-version publication fence.
+    # A concurrent immutable sibling can only make a packet less trustworthy;
+    # it can never promote it.
+    publication_packets: list[EvidencePacketV1] = []
+    for packet in packets:
+        artifact = artifacts_by_id[packet.input_version_id]
+        publication_status = _fail_closed_evidence_status(
+            packet.evidence_status,
+            classify_evidence_artifact(db, artifact),
+        )
+        publication_packets.append(
+            packet.model_copy(update={"evidence_status": publication_status})
+        )
+    generation_payload = generation.to_payload()
+    generation_payload.pop("evidence_status", None)
+    generation_payload["evidence_packets"] = [
+        packet.model_dump(mode="json") for packet in publication_packets
+    ]
+    generation = EvidenceReworkGenerationV1.model_validate(generation_payload)
+    packets = generation.evidence_packets or []
+    grounded_packet_ids = {
+        packet.evidence_packet_id
+        for packet in packets
+        if packet.evidence_status == "GROUNDED"
+    }
+    pack = pack.model_copy(
+        update={
+            "risk_items": [
+                item
+                for item in pack.risk_items
+                if item.evidence_packet_id in grounded_packet_ids
+            ]
+        }
+    )
+    gate_reasons = _candidate_gate_reasons(pack, packets)
+    pack = pack.model_copy(
+        update={"quality_gate_status": "FAILED" if gate_reasons else "PASSED"}
+    )
 
     memorial = json.loads(review.memorial_json or "{}")
     memorial["contract_review"] = pack.model_dump()

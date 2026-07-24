@@ -1154,7 +1154,7 @@ def test_accepted_upload_binds_to_waiting_rework_generation(
     stored_generation = (
         db.query(OutboxEvent).filter_by(id=generation["generation_id"]).one()
     )
-    assert stored_generation.status == "evidence_bound"
+    assert stored_generation.status == "pending"
     db.close()
 
     db = isolated_session_local()

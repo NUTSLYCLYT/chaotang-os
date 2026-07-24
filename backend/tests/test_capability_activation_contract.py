@@ -28,6 +28,7 @@ def _mission() -> MissionContractV1:
         language=_FIXTURE["language"],
         contract_type=_FIXTURE["contract_type"],
         our_role=_FIXTURE["our_role"],
+        legal_question=_FIXTURE["legal_question"],
         goal=MissionGoal(**_FIXTURE["goal"]),
         constraints=_FIXTURE["constraints"],
         prohibited_actions=_FIXTURE["prohibited_actions"],

@@ -57,6 +57,21 @@ def test_w05_evidence_bind_response_is_typed_in_openapi() -> None:
     assert "EvidencePacketV1" in serialized_components
 
 
+def test_w05_decision_replay_responses_are_typed_in_openapi() -> None:
+    from web.main import app
+
+    document = app.openapi()
+    for path in [
+        "/api/shangshufang/tasks/{task_id}/decision",
+        "/api/shangshufang/briefs/{brief_id}/decision",
+        "/api/shangshufang/briefs/{brief_id}/decision/advance",
+    ]:
+        response_schema = document["paths"][path]["post"]["responses"]["200"][
+            "content"
+        ]["application/json"]["schema"]
+        assert "TaskDecisionResponse" in response_schema["$ref"]
+
+
 def test_w05_openapi_declares_runtime_error_statuses() -> None:
     from web.main import app
 

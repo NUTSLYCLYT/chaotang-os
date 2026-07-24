@@ -11,6 +11,7 @@ from src.contract_taxonomy import (
     ContractType,
     ContractVerdict,
     Jurisdiction,
+    LegalQuestion,
     OurRole,
 )
 from src.contracts.contract_risk_item import ContractRiskItemV1
@@ -30,6 +31,7 @@ class ContractReviewPackV1(BaseModel):
     language: ContractLanguage
     contract_type: ContractType
     our_role: OurRole
+    legal_question: LegalQuestion
     risk_items: list[ContractRiskItemV1]
     verdict: ContractVerdict
     decision_summary: str = Field(min_length=1, max_length=4000)
@@ -52,6 +54,7 @@ class ContractReviewPackV1(BaseModel):
             self.language,
             self.contract_type,
             self.our_role,
+            self.legal_question,
         )
         if (
             "UNSUPPORTED_OR_UNKNOWN" in scope_dimensions

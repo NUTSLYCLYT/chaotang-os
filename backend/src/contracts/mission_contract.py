@@ -16,7 +16,13 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.contract_taxonomy import ContractLanguage, ContractType, Jurisdiction, OurRole
+from src.contract_taxonomy import (
+    ContractLanguage,
+    ContractType,
+    Jurisdiction,
+    LegalQuestion,
+    OurRole,
+)
 
 
 class MissionGoal(BaseModel):
@@ -43,10 +49,11 @@ class ContractIntakeV1(BaseModel):
     language: ContractLanguage | None = None
     contract_type: ContractType | None = None
     our_role: OurRole | None = None
+    legal_question: LegalQuestion | None = None
 
 
 class MissionContractV1(BaseModel):
-    """确认后的精确任务版本——四维度必须齐全（SUPPORTED 之后才能构造）。"""
+    """确认后的精确任务版本——五维度必须齐全（SUPPORTED 之后才能构造）。"""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -58,6 +65,7 @@ class MissionContractV1(BaseModel):
     language: ContractLanguage
     contract_type: ContractType
     our_role: OurRole
+    legal_question: LegalQuestion
     goal: MissionGoal
     constraints: list[str]
     prohibited_actions: list[str]
@@ -83,6 +91,7 @@ def compute_mission_content_digest(mission: MissionContractV1) -> str:
         "language": mission.language,
         "contract_type": mission.contract_type,
         "our_role": mission.our_role,
+        "legal_question": mission.legal_question,
         "goal": mission.goal.model_dump(),
         "constraints": mission.constraints,
         "prohibited_actions": mission.prohibited_actions,

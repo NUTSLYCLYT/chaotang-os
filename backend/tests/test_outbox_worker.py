@@ -688,6 +688,7 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
     from src.db.models import (
         CourtReview,
         DecisionTask,
+        EmperorDecision,
         FinalMemorial,
         OutboxEvent,
         SwarmQualityResult,
@@ -714,6 +715,7 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
                     "language": "zh-CN",
                     "contract_type": "procurement",
                     "our_role": "buyer",
+                    "legal_question": "contract_risk_screening",
                 }),
         )
     )
@@ -803,6 +805,7 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
                 "language": "zh-CN",
                 "contract_type": "procurement",
                 "our_role": "buyer",
+                "legal_question": "contract_risk_screening",
             },
         },
     ).json()
@@ -903,6 +906,23 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
     )
     db.close()
 
+    replay = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "request_evidence",
+            "reason": "补充付款条件原文",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": first_hash,
+        },
+    )
+    assert replay.status_code == 200, replay.json()
+    replay_generation = replay.json()["data"]["rework_generation"]
+    assert replay_generation["generation_id"] == generation["generation_id"]
+    assert replay_generation["status"] == "candidate_ready"
+    db = isolated_session_local()
+    assert db.query(EmperorDecision).filter_by(task_id=task_id).count() == 1
+    db.close()
+
 
 @pytest.mark.parametrize("already_bound", [False, True])
 def test_evidence_bind_cannot_replace_frozen_contract_scope(
@@ -955,6 +975,7 @@ def test_evidence_bind_cannot_replace_frozen_contract_scope(
             "followup_question": None,
         },
         "affected_sections": ["contract_review"],
+        "contract_scope": frozen_scope,
         "evidence_packets": (
             [
                 {
@@ -1116,6 +1137,6 @@ def test_evidence_binding_claim_prevents_later_payload_overwrite(
     assert first is True
     assert competing is False
     stored = db.query(OutboxEvent).filter_by(id=generation_id).one()
-    assert stored.status == "evidence_bound"
+    assert stored.status == "pending"
     assert json.loads(stored.payload_json) == first_payload
     db.close()

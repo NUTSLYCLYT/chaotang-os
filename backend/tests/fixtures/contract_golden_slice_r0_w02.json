@@ -4,6 +4,7 @@
   "language": "zh-CN",
   "contract_type": "procurement",
   "our_role": "buyer",
+  "legal_question": "contract_risk_screening",
   "expected_verdict": "REVISE_BEFORE_PROCEED",
   "mission_contract_id": "mission-golden-r0-w02-001",
   "task_id": "task-golden-r0-w02-001",

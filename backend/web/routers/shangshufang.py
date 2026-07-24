@@ -16,7 +16,7 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from src.chancellor.contracts import RouteDecisionV2
 from src.chancellor.decree_status import (
@@ -40,6 +40,7 @@ from src.db.models import (
 )
 from src.decision_task_kernel import create_decision_task
 from src.emperor_decision_kind import emperor_decision_kind
+from src.evidence_rework_projection import project_evidence_rework_generation
 from src.execution.decree_dispatcher import (
     dispatch_after_commit,
     enqueue_dispatch,
@@ -87,6 +88,7 @@ class DraftEdictRequest(BaseModel):
     attachments: list[dict[str, Any]] = []
     evidence_summary: dict[str, Any] | None = None
     archive_matches: list[dict[str, Any]] = []
+    contract_scope: ContractIntakeV1 | None = None
 
 
 class ConfirmEdictRequest(BaseModel):
@@ -135,6 +137,21 @@ class EvidenceBindData(BaseModel):
 class EvidenceBindResponse(BaseModel):
     success: bool
     data: EvidenceBindData | None = None
+    error: str | None = None
+
+
+class TaskDecisionData(BaseModel):
+    task_id: str
+    sourceLabel: str
+    status: str
+    decision_id: str | None = None
+    archive_record: dict[str, Any] | None = None
+    rework_generation: EvidenceReworkGenerationV1 | None = None
+
+
+class TaskDecisionResponse(BaseModel):
+    success: bool
+    data: TaskDecisionData | None = None
     error: str | None = None
 
 
@@ -357,6 +374,7 @@ def _task_to_payload(
         "known_facts": _loads(row.known_facts_json, []),
         "unknown_gaps": _loads(row.unknown_gaps_json, []),
         "recommended_departments": _loads(row.recommended_departments_json, []),
+        "contract_scope": _loads(row.contract_scope_json, None),
         "created_at": row.created_at,
         "updated_at": row.updated_at,
         "latest_memorial": latest_memorial,
@@ -757,7 +775,7 @@ def _claim_evidence_binding(
             OutboxEvent.status == "awaiting_evidence",
         )
         .values(
-            status="evidence_bound",
+            status="pending",
             payload_json=payload_json,
             updated_at=updated_at,
         )
@@ -789,17 +807,23 @@ def _existing_evidence_rework_generation(
     )
 
 
+def _canonical_contract_scope(
+    value: ContractIntakeV1 | dict[str, Any] | str | None,
+) -> dict[str, Any] | None:
+    """Normalize one scope snapshot before comparing immutable boundaries."""
+    if value is None:
+        return None
+    scope = (
+        ContractIntakeV1.model_validate_json(value)
+        if isinstance(value, str)
+        else ContractIntakeV1.model_validate(value)
+    )
+    return scope.model_dump(mode="json", exclude_none=True)
+
+
 def _replayed_evidence_rework_result(existing) -> dict[str, Any]:
-    """Interpret replay state from the durable row, never from stale payload."""
-    if existing.status in {"failed", "dead_letter"}:
-        detail = f": {existing.last_error}" if existing.last_error else ""
-        raise ValueError(f"补证 generation {existing.status}{detail}")
-    payload = EvidenceReworkGenerationV1.model_validate_json(
-        existing.payload_json or "{}"
-    ).to_payload()
-    payload["status"] = existing.status
-    if existing.last_error:
-        payload["last_error"] = existing.last_error
+    """Interpret replay state through the shared durable-to-domain projection."""
+    payload = project_evidence_rework_generation(existing).to_payload()
     return {
         "decision": None,
         "decision_id": existing.decision_id,
@@ -808,19 +832,6 @@ def _replayed_evidence_rework_result(existing) -> dict[str, Any]:
         "replayed": True,
         "now": existing.updated_at,
     }
-
-
-def _evidence_bind_response_generation(
-    payload: dict[str, Any],
-) -> dict[str, object]:
-    """Expose the 4B bind boundary while the durable outbox stays pending."""
-    generation = EvidenceReworkGenerationV1.model_validate(payload)
-    return EvidenceReworkGenerationV1.model_validate(
-        {
-            **generation.to_payload(),
-            "status": "evidence_bound",
-        }
-    ).to_payload()
 
 
 def _execute_final_memorial_decision(
@@ -844,6 +855,16 @@ def _execute_final_memorial_decision(
 
         require_w05_contract_rework()
         lock_evidence_rework_task(db, task.id)
+        if expected_content_hash:
+            existing = _existing_evidence_rework_generation(
+                db,
+                task_id=task.id,
+                prior_final_memorial_content_hash=expected_content_hash,
+                reason=reason,
+                followup_question=followup_question,
+            )
+            if existing is not None:
+                return _replayed_evidence_rework_result(existing)
     formal_actions = {"adopt", "approve", "archive", "reject", *evidence_actions}
     target_status = {
         "adopt": "archived",
@@ -1288,6 +1309,7 @@ def shangshufang_draft_edict(
             draft_edict=edict_payload,
             now=now,
             tenant_id=user.tenant_id,
+            contract_scope=body.contract_scope,
         )
         db.add(
             CourtLoopRun(
@@ -1831,6 +1853,7 @@ def shangshufang_task_status(
 
 @router.post(
     "/tasks/{task_id}/decision",
+    response_model=TaskDecisionResponse,
     responses={
         404: {"description": "Task not found or not owned by requester"},
         409: {"description": "Stale or conflicting FinalMemorial decision"},
@@ -1949,6 +1972,7 @@ def bind_rework_generation_evidence(
         SecureIngestAuditEvent,
     )
     from src.secure_ingest.audit import build_audit_event
+    from src.secure_ingest.evidence import classify_evidence_artifact
     from src.secure_ingest.purpose_authz import authorize_body_access
     from src.w05_feature import require_w05_contract_rework
 
@@ -1972,13 +1996,6 @@ def bind_rework_generation_evidence(
         )
         if generation is None:
             return _http_fail(404, "补证 generation 不存在")
-        if generation.status not in {
-            "awaiting_evidence",
-            "evidence_bound",
-            "pending",
-        }:
-            return _http_fail(409, "补证 generation 不再等待证据")
-
         artifact = (
             db.query(SecureIngestArtifact)
             .filter_by(
@@ -2006,29 +2023,60 @@ def bind_rework_generation_evidence(
                 f"附件正文访问未授权: {body_access.deny_reason}",
             )
 
-        generation_contract = EvidenceReworkGenerationV1.model_validate_json(
-            generation.payload_json or "{}"
-        )
+        generation_contract = project_evidence_rework_generation(generation)
         generation_payload = generation_contract.to_payload()
-        supplied_scope = (
-            body.contract_scope.model_dump() if body.contract_scope is not None else None
-        )
-        frozen_scope = _loads(task.contract_scope_json, None)
-        if frozen_scope is None and supplied_scope is not None:
+        try:
+            task_scope = _canonical_contract_scope(task.contract_scope_json)
+            generation_scope = _canonical_contract_scope(
+                generation_contract.contract_scope
+            )
+            supplied_scope = _canonical_contract_scope(body.contract_scope)
+        except ValidationError as exc:
+            raise RuntimeError(
+                "evidence rework invariant: scope snapshot is invalid"
+            ) from exc
+        if task_scope != generation_scope:
+            raise RuntimeError(
+                "evidence rework invariant: task/generation scope snapshot drift"
+            )
+        if generation_scope is None and supplied_scope is not None:
             return _http_fail(
                 409,
                 "合同支持范围必须在 canonical DecisionTask 创建时冻结，不能在补证时初始化",
             )
-        effective_frozen_scope = generation_payload.get("contract_scope") or frozen_scope
         if (
-            effective_frozen_scope is not None
+            generation_scope is not None
             and supplied_scope is not None
-            and effective_frozen_scope != supplied_scope
+            and generation_scope != supplied_scope
         ):
             return _http_fail(409, "合同支持范围已经冻结，不能在补证时替换")
 
-        if generation.status in {"evidence_bound", "pending"}:
-            packets = generation_payload.get("evidence_packets", [])
+        packets = generation_payload.get("evidence_packets", [])
+        existing_packet = next(
+            (
+                packet
+                for packet in packets
+                if packet.get("input_version_id") == artifact.id
+            ),
+            None,
+        )
+        if generation.status != "awaiting_evidence":
+            if existing_packet is None:
+                return _http_fail(409, "补证 generation 已绑定其他证据")
+            if generation_scope is None and supplied_scope is not None:
+                return _http_fail(
+                    409,
+                    "补证 generation 已绑定，不能在重试时追加合同支持范围",
+                )
+            return ok(
+                {
+                    "task_id": task_id,
+                    "evidence_packet": existing_packet,
+                    "rework_generation": generation_contract.to_payload(),
+                }
+            )
+
+        if packets:
             existing_packet = next(
                 (
                     packet
@@ -2039,19 +2087,8 @@ def bind_rework_generation_evidence(
             )
             if existing_packet is None:
                 return _http_fail(409, "补证 generation 已绑定其他证据")
-            if effective_frozen_scope is None and supplied_scope is not None:
-                return _http_fail(
-                    409,
-                    "补证 generation 已绑定，不能在重试时追加合同支持范围",
-                )
-            return ok(
-                {
-                    "task_id": task_id,
-                    "evidence_packet": existing_packet,
-                    "rework_generation": _evidence_bind_response_generation(
-                        generation_payload
-                    ),
-                }
+            raise RuntimeError(
+                "evidence rework invariant: awaiting generation already has evidence"
             )
 
         packet_id = "evidence_" + hashlib.sha256(
@@ -2064,21 +2101,20 @@ def bind_rework_generation_evidence(
                 "utf-8"
             )
         ).hexdigest()[:24]
-        db.add(
-            SecureIngestAuditEvent(
-                id=receipt_id,
-                created_at=now_iso(),
-                **build_audit_event(
-                    tenant_id=artifact.tenant_id,
-                    user_id=_user_id(user),
-                    event_type="evidence_bound",
-                    task_id=task_id,
-                    artifact_id=artifact.id,
-                    input_digest=artifact.digest_sha256,
-                    purpose="contract_review",
-                ),
-            )
+        audit_event = SecureIngestAuditEvent(
+            id=receipt_id,
+            created_at=now_iso(),
+            **build_audit_event(
+                tenant_id=artifact.tenant_id,
+                user_id=_user_id(user),
+                event_type="evidence_bound",
+                task_id=task_id,
+                artifact_id=artifact.id,
+                input_digest=artifact.digest_sha256,
+                purpose="contract_review",
+            ),
         )
+        evidence_status = classify_evidence_artifact(db, artifact)
         packet = EvidencePacketV1(
             evidence_packet_id=packet_id,
             tenant_id=str(artifact.tenant_id),
@@ -2089,22 +2125,18 @@ def bind_rework_generation_evidence(
                 "prior_final_memorial_content_hash"
             ],
             generation=generation.generation,
-            evidence_status="GROUNDED",
+            evidence_status=evidence_status,
             source_kind="USER_UPLOAD",
             source_ref=artifact.id,
             content_hash=artifact.digest_sha256,
             verification_receipt_id=receipt_id,
         )
-        if frozen_scope is None and supplied_scope is not None:
-            frozen_scope = supplied_scope
-            task.contract_scope_json = _json(frozen_scope)
-        if frozen_scope is not None:
-            generation_payload["contract_scope"] = frozen_scope
         generation_contract = EvidenceReworkGenerationV1.model_validate(
             {
                 **generation_payload,
                 "status": "evidence_bound",
                 "evidence_packets": [packet.model_dump(mode="json")],
+                "evidence_status": evidence_status,
             }
         )
         generation_payload = generation_contract.to_payload()
@@ -2126,9 +2158,12 @@ def bind_rework_generation_evidence(
                 )
                 .first()
             )
-            winner_payload = EvidenceReworkGenerationV1.model_validate_json(
-                winner.payload_json if winner is not None else "{}"
-            ).to_payload()
+            if winner is None:
+                raise RuntimeError(
+                    "evidence rework invariant: binding CAS lost without winner"
+                )
+            winner_generation = project_evidence_rework_generation(winner)
+            winner_payload = winner_generation.to_payload()
             existing_packet = next(
                 (
                     item
@@ -2143,19 +2178,16 @@ def bind_rework_generation_evidence(
                 {
                     "task_id": task_id,
                     "evidence_packet": existing_packet,
-                    "rework_generation": _evidence_bind_response_generation(
-                        winner_payload
-                    ),
+                    "rework_generation": winner_generation.to_payload(),
                 }
             )
+        db.add(audit_event)
         db.commit()
         return ok(
             {
                 "task_id": task_id,
                 "evidence_packet": packet.model_dump(),
-                "rework_generation": _evidence_bind_response_generation(
-                    generation_payload
-                ),
+                "rework_generation": generation_payload,
             }
         )
     except ValueError as exc:
@@ -2748,7 +2780,10 @@ def shangshufang_finance_intel_loop_case(
         db.close()
 
 
-@router.post("/briefs/{brief_id}/decision")
+@router.post(
+    "/briefs/{brief_id}/decision",
+    response_model=TaskDecisionResponse,
+)
 def shangshufang_brief_decision(
     brief_id: str,
     body: BriefDecisionAdvanceRequest,
@@ -2759,6 +2794,7 @@ def shangshufang_brief_decision(
 
 @router.post(
     "/briefs/{brief_id}/decision/advance",
+    response_model=TaskDecisionResponse,
     responses={
         404: {"description": "Brief or task not found or not owned by requester"},
         409: {"description": "Stale or conflicting FinalMemorial decision"},
