@@ -69,6 +69,8 @@
 | v2 史馆精确身份（实现前） | 1 | RED：ShiguanArchive 缺 final memorial id/version/hash | 归档不能只存无版本正文 | 本地 / 2026-07-24 |
 | 022 archive identity migration（实现前） | 1 | RED：head 仍为 021，缺三列 | 保留旧归档并允许新归档绑定精确版本 | 本地 / 2026-07-24 |
 | Slice 4I 归档/迁移回归 + Ruff | 0 | 77 passed / 1 skipped；All checks passed | v2 准奏身份、旧史馆数据、020–022 迁移链、归档读取兼容 | 本地 / 2026-07-24 |
+| evidence binding CAS（实现前） | 1 | RED：缺少数据库原子 claim | 两个附件候选可先查后写互相覆盖 | 本地 / 2026-07-24 |
+| Slice 4J 绑定/摄取回归 + Ruff | 0 | 73 passed / 1 skipped；All checks passed | 第一 payload 胜出、竞争 payload 失败、同附件幂等、scope/tenant/摄取门 | 本地 / 2026-07-24 |
 
 ## 结果
 
@@ -80,7 +82,7 @@ SwarmRun/SwarmQualityResult，并追加 current FinalMemorial v2。
 
 ## 未验证项
 
-- 证据绑定 CAS、020 安全降级。
+- 020 安全降级。
 - 全量 W05 回归、独立代码审查；推送/合并/发布未获批准。
 
 ## Diff 与回滚复核
@@ -106,4 +108,4 @@ SwarmRun/SwarmQualityResult，并追加 current FinalMemorial v2。
 
 ## 声明状态
 
-- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_4I_GREEN`
+- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_4J_GREEN`

@@ -711,6 +711,37 @@ def _claim_current_memorial(
     return result.rowcount == 1
 
 
+def _claim_evidence_binding(
+    db,
+    *,
+    task_id: str,
+    generation_id: str,
+    payload_json: str,
+    updated_at: str,
+) -> bool:
+    """Atomically bind the first accepted evidence payload to a generation."""
+    from sqlalchemy import update
+
+    from src.db.models import OutboxEvent
+
+    result = db.execute(
+        update(OutboxEvent)
+        .where(
+            OutboxEvent.id == generation_id,
+            OutboxEvent.task_id == task_id,
+            OutboxEvent.event_type == "evidence.rework",
+            OutboxEvent.status == "awaiting_evidence",
+        )
+        .values(
+            status="pending",
+            payload_json=payload_json,
+            updated_at=updated_at,
+        )
+        .execution_options(synchronize_session=False)
+    )
+    return result.rowcount == 1
+
+
 def _existing_evidence_rework_generation(
     db,
     *,
@@ -1931,9 +1962,45 @@ def bind_rework_generation_evidence(
             generation_payload["contract_scope"] = frozen_scope
         generation_payload["status"] = "pending"
         generation_payload["evidence_packets"] = [packet.model_dump()]
-        generation.status = "pending"
-        generation.payload_json = _json(generation_payload)
-        generation.updated_at = now_iso()
+        updated_at = now_iso()
+        if not _claim_evidence_binding(
+            db,
+            task_id=task_id,
+            generation_id=generation_id,
+            payload_json=_json(generation_payload),
+            updated_at=updated_at,
+        ):
+            db.rollback()
+            winner = (
+                db.query(OutboxEvent)
+                .filter_by(
+                    id=generation_id,
+                    task_id=task_id,
+                    event_type="evidence.rework",
+                )
+                .first()
+            )
+            winner_payload = _loads(
+                winner.payload_json if winner is not None else None,
+                {},
+            )
+            existing_packet = next(
+                (
+                    item
+                    for item in winner_payload.get("evidence_packets", [])
+                    if item.get("input_version_id") == artifact.id
+                ),
+                None,
+            )
+            if existing_packet is None:
+                return fail("补证 generation 已绑定其他证据")
+            return ok(
+                {
+                    "task_id": task_id,
+                    "evidence_packet": existing_packet,
+                    "rework_generation": winner_payload,
+                }
+            )
         db.commit()
         return ok(
             {

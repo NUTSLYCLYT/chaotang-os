@@ -913,3 +913,77 @@ def test_evidence_bind_cannot_replace_frozen_contract_scope(
     assert generation.status == "awaiting_evidence"
     assert json.loads(generation.payload_json)["evidence_packets"] == []
     db.close()
+
+
+def test_evidence_binding_claim_prevents_later_payload_overwrite(
+    isolated_session_local,
+):
+    import json
+
+    import web.routers.shangshufang as shangshufang_router
+    from src.db.models import DecisionTask, OutboxEvent
+
+    db = isolated_session_local()
+    task_id = "task_atomic_evidence_binding"
+    generation_id = "outbox-atomic-evidence-binding"
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查合同",
+            status="awaiting_evidence",
+            source_label="LIVE",
+        )
+    )
+    db.add(
+        OutboxEvent(
+            id=generation_id,
+            tenant_id=1,
+            task_id=task_id,
+            decision_id="decision-atomic-evidence-binding",
+            event_type="evidence.rework",
+            generation=2,
+            idempotency_key="evidence-rework:atomic-evidence-binding",
+            status="awaiting_evidence",
+            attempts=0,
+            max_attempts=3,
+            payload_json='{"status":"awaiting_evidence","evidence_packets":[]}',
+            created_at="2026-07-24T00:00:00+00:00",
+            updated_at="2026-07-24T00:00:00+00:00",
+        )
+    )
+    db.commit()
+
+    claim = getattr(shangshufang_router, "_claim_evidence_binding", None)
+    assert callable(claim), "补证绑定缺少数据库原子 claim"
+    first_payload = {
+        "status": "pending",
+        "evidence_packets": [{"input_version_id": "artifact-first"}],
+    }
+    competing_payload = {
+        "status": "pending",
+        "evidence_packets": [{"input_version_id": "artifact-competing"}],
+    }
+    first = claim(
+        db,
+        task_id=task_id,
+        generation_id=generation_id,
+        payload_json=json.dumps(first_payload),
+        updated_at="2026-07-24T00:01:00+00:00",
+    )
+    competing = claim(
+        db,
+        task_id=task_id,
+        generation_id=generation_id,
+        payload_json=json.dumps(competing_payload),
+        updated_at="2026-07-24T00:01:01+00:00",
+    )
+    db.commit()
+
+    assert first is True
+    assert competing is False
+    stored = db.query(OutboxEvent).filter_by(id=generation_id).one()
+    assert stored.status == "pending"
+    assert json.loads(stored.payload_json) == first_payload
+    db.close()
