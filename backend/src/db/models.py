@@ -68,7 +68,7 @@ class Task(Base):
     task_id: Mapped[str] = mapped_column(sa.Text, unique=True, nullable=False)
     # 逻辑 FK → decrees.decree_id
     decree_id: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
-    tenant_id: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
+    tenant_id: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
     # 内部运行态:running | done | error
     status: Mapped[str] = mapped_column(sa.Text, nullable=False, default="running")
     # 前端展示态:running | report_ready | failed | archived
@@ -419,7 +419,7 @@ class ArtifactManifest(Base):
     __tablename__ = "artifact_manifests"
 
     id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=1)
+    tenant_id: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
     task_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     final_memorial_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     final_memorial_version: Mapped[int] = mapped_column(sa.Integer, nullable=False)
@@ -431,7 +431,7 @@ class ArtifactManifest(Base):
 
     __table_args__ = (
         sa.UniqueConstraint(
-            "task_id", "final_memorial_id", "final_memorial_version",
+            "tenant_id", "task_id", "final_memorial_id", "final_memorial_version",
             name="uq_artifact_manifest_lineage",
         ),
     )

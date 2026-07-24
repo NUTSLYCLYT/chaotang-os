@@ -17,6 +17,7 @@ def upgrade() -> None:
         op.create_table(
             "artifact_manifests",
             sa.Column("id", sa.Text(), nullable=False),
+            sa.Column("tenant_id", sa.Integer(), nullable=True),
             sa.Column("task_id", sa.Text(), nullable=False),
             sa.Column("final_memorial_id", sa.Text(), nullable=False),
             sa.Column("final_memorial_version", sa.Integer(), nullable=False),
@@ -26,7 +27,7 @@ def upgrade() -> None:
             sa.Column("overall_status", sa.Text(), nullable=False, server_default="PARTIAL"),
             sa.Column("created_at", sa.Text(), nullable=False),
             sa.PrimaryKeyConstraint("id"),
-            sa.UniqueConstraint("task_id", "final_memorial_id", "final_memorial_version", name="uq_artifact_manifest_lineage"),
+            sa.UniqueConstraint("tenant_id", "task_id", "final_memorial_id", "final_memorial_version", name="uq_artifact_manifest_lineage"),
         )
 
 
