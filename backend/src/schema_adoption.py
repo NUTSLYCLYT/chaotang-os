@@ -18,14 +18,32 @@ _ADOPT_CANDIDATES = (
     ("010_final_memorial_quality_gate", frozenset({"archive_outcome_events"})),
 )
 _LATER_COLUMNS = {
-    "decision_tasks": {"tenant_id"},
+    "decision_tasks": {"tenant_id", "request_id", "contract_scope_json"},
     "chancellor_route_decisions": {"tenant_id"},
-    "outbox_events": {"tenant_id"},
-    "decree_execution_events": {"tenant_id"},
+    "outbox_events": {"tenant_id", "generation", "idempotency_key"},
+    "decree_execution_events": {
+        "tenant_id",
+        "request_id",
+        "release_id",
+        "model_version",
+    },
     "court_reviews": {"tenant_id"},
-    "final_memorials": {"tenant_id"},
+    "final_memorials": {"tenant_id", "version", "supersedes_id", "is_current"},
     "emperor_decisions": {"tenant_id", "kind"},
-    "shiguan_archives": {"tenant_id"},
+    "shiguan_archives": {
+        "tenant_id",
+        "final_memorial_id",
+        "final_memorial_version",
+        "final_memorial_content_hash",
+    },
+}
+_LATER_TABLES = {
+    "secure_ingest_artifacts",
+    "secure_ingest_audit_events",
+    "secure_ingest_download_tickets",
+}
+_LATER_INDEXES = {
+    "final_memorials": {"uq_final_memorials_current_task"},
 }
 _KNOWN_DECISION_ACTIONS = {
     "confirm_direct_task",
@@ -299,6 +317,10 @@ def _validate_table(
 
     actual_unique = _unique_shapes(inspector, table_name)
     expected_unique = _expected_unique_shapes(table)
+    if table_name == "final_memorials" and "version" not in actual_columns:
+        expected_unique = {("task_id",)}
+    if table_name == "outbox_events" and "generation" not in actual_columns:
+        expected_unique = set()
     if actual_unique != expected_unique:
         errors.append(
             f"{table_name} unique constraints mismatch: expected {sorted(expected_unique)}, "
@@ -314,6 +336,7 @@ def _validate_table(
         index.name: (tuple(column.name for column in index.columns), bool(index.unique))
         for index in table.indexes
         if index.name
+        and index.name not in _LATER_INDEXES.get(table_name, set())
     }
     if actual_indexes != expected_indexes:
         for name in sorted(set(actual_indexes) | set(expected_indexes)):
@@ -494,7 +517,10 @@ def inspect_unversioned_database(db_url: str) -> AdoptionReport:
             mismatches = list(shared_mismatches)
             for table_name, table in sorted(metadata_tables.items()):
                 if table_name not in tables:
-                    if table_name not in excluded_tables:
+                    if (
+                        table_name not in excluded_tables
+                        and table_name not in _LATER_TABLES
+                    ):
                         mismatches.append(f"missing table: {table_name}")
                     continue
                 mismatches.extend(_validate_table(inspector, table))
