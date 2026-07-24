@@ -10,6 +10,7 @@ from __future__ import annotations
 import sqlalchemy as sa
 
 from alembic import op
+from src.w05_downgrade_guard import refuse_w05_downgrade_if_facts_exist
 
 revision = "022_shiguan_memorial_identity"
 down_revision = "021_decision_task_contract_scope"
@@ -33,6 +34,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    refuse_w05_downgrade_if_facts_exist(op.get_bind())
     op.drop_column("shiguan_archives", "final_memorial_content_hash")
     op.drop_column("shiguan_archives", "final_memorial_version")
     op.drop_column("shiguan_archives", "final_memorial_id")

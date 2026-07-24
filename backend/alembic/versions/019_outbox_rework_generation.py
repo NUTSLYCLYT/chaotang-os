@@ -13,6 +13,7 @@ from __future__ import annotations
 import sqlalchemy as sa
 
 from alembic import op
+from src.w05_downgrade_guard import refuse_w05_downgrade_if_facts_exist
 
 revision = "019_outbox_rework_generation"
 down_revision = "018_canonical_completion_identity_fields"
@@ -58,6 +59,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     bind = op.get_bind()
+    refuse_w05_downgrade_if_facts_exist(bind)
     inspector = sa.inspect(bind)
     unique_names = {
         constraint["name"]

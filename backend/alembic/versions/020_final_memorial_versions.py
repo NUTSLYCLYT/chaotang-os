@@ -10,6 +10,7 @@ from __future__ import annotations
 import sqlalchemy as sa
 
 from alembic import op
+from src.w05_downgrade_guard import refuse_w05_downgrade_if_facts_exist
 
 revision = "020_final_memorial_versions"
 down_revision = "019_outbox_rework_generation"
@@ -65,32 +66,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     bind = op.get_bind()
-    version_history = bind.execute(
-        sa.text(
-            """
-            SELECT 1
-            FROM final_memorials
-            WHERE version <> 1 OR supersedes_id IS NOT NULL
-            LIMIT 1
-            """
-        )
-    ).first()
-    duplicate_task = bind.execute(
-        sa.text(
-            """
-            SELECT 1
-            FROM final_memorials
-            GROUP BY task_id
-            HAVING COUNT(*) > 1
-            LIMIT 1
-            """
-        )
-    ).first()
-    if version_history is not None or duplicate_task is not None:
-        raise RuntimeError(
-            "refusing downgrade: FinalMemorial version history cannot be "
-            "represented by the 019 task-unique schema"
-        )
+    refuse_w05_downgrade_if_facts_exist(bind)
     op.drop_index(_CURRENT_UNIQUE, table_name="final_memorials")
     with op.batch_alter_table("final_memorials") as batch:
         batch.drop_constraint(_VERSION_UNIQUE, type_="unique")

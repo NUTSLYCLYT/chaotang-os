@@ -10,6 +10,7 @@ from __future__ import annotations
 import sqlalchemy as sa
 
 from alembic import op
+from src.w05_downgrade_guard import refuse_w05_downgrade_if_facts_exist
 
 revision = "021_decision_task_contract_scope"
 down_revision = "020_final_memorial_versions"
@@ -30,4 +31,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    refuse_w05_downgrade_if_facts_exist(op.get_bind())
     op.drop_column("decision_tasks", "contract_scope_json")
