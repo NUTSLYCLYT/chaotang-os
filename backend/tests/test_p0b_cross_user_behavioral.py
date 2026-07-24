@@ -180,6 +180,7 @@ _PROBES = {
     "shangshufang:shangshufang_finance_intel_loop_case": "test_shangshufang_finance_intel_case",
     "shangshufang:shangshufang_brief_decision_advance": "test_shangshufang_brief_decision_advance",
     "shangshufang:shangshufang_edict_return": "test_shangshufang_edict_return",
+    "shangshufang:bind_rework_generation_evidence": "test_bind_rework_generation_evidence",
     "swarm_runs:create_swarm_run": "test_swarm_runs_create",
     "swarm_runs:create_serial_loop": "test_swarm_runs_create_serial_loop",
     # form-agnostic 检测新抓出的两个列表泄露端点(窄正则漏掉的):
@@ -373,6 +374,22 @@ def test_shangshufang_edict_return(isolated_session_local):
         json={"taskId": "p0b_return", "command": "x"},
     ).json()
     _assert_denied(body, "edict return")
+
+
+def test_bind_rework_generation_evidence(isolated_session_local):
+    _seed_other_users_task(
+        isolated_session_local,
+        "p0b_bind_rework_evidence",
+        status="awaiting_evidence",
+    )
+    body = client.post(
+        (
+            "/api/shangshufang/tasks/p0b_bind_rework_evidence/"
+            "rework-generations/attacker-generation/evidence"
+        ),
+        json={"artifact_id": "attacker-artifact"},
+    ).json()
+    _assert_denied(body, "bind rework generation evidence")
 
 
 def test_swarm_runs_create(isolated_session_local):

@@ -1036,6 +1036,7 @@ def test_accepted_upload_binds_to_waiting_rework_generation(
     isolated_session_local,
     monkeypatch,
     capability_active,
+    w05_contract_user,
 ):
     """安全摄取通过的附件才能形成 generation-bound EvidencePacket。"""
     from src.db.models import OutboxEvent
@@ -1118,6 +1119,19 @@ def test_accepted_upload_binds_to_waiting_rework_generation(
     assert packet["verification_receipt_id"]
     assert payload["data"]["rework_generation"]["status"] == "pending"
 
+    db = isolated_session_local()
+    from src.db.models import SecureIngestAuditEvent
+
+    receipt = (
+        db.query(SecureIngestAuditEvent)
+        .filter_by(id=packet["verification_receipt_id"])
+        .one()
+    )
+    assert receipt.event_type == "evidence_bound"
+    assert receipt.purpose == "contract_review"
+    assert receipt.user_id == "1"
+    db.close()
+
     retry = client.post(
         (
             f"/api/shangshufang/tasks/{task_id}/rework-generations/"
@@ -1129,6 +1143,98 @@ def test_accepted_upload_binds_to_waiting_rework_generation(
     assert retry["success"] is True, retry
     assert retry["data"]["evidence_packet"] == packet
     assert retry["data"]["rework_generation"]["evidence_packets"] == [packet]
+
+
+@pytest.mark.parametrize("denial", ["cross_user", "internal_ops"])
+def test_evidence_binding_enforces_owner_and_body_access_policy(
+    isolated_session_local,
+    w05_contract_user,
+    denial,
+):
+    """任务归属不能替代附件归属和 W03 正文 purpose/role 授权。"""
+    from src.db.models import OutboxEvent, SecureIngestArtifact
+    from src.formal_memorial import formalize_memorial
+    from tests.fixtures.secure_ingest_fixtures import golden_docx_bytes
+    from web import deps
+    from web.schemas.auth import CurrentUser
+
+    db = isolated_session_local()
+    task_id = f"task_bind_authz_{denial}"
+    review_id = _seed_candidate(db, task_id=task_id)
+    formal = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id,
+            review_id=review_id,
+            source_label="LIVE_SWARM",
+        ),
+    )
+    content_hash = formal.content_hash
+    db.commit()
+    db.close()
+
+    client = TestClient(app)
+    requested = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "request_evidence",
+            "reason": "补充付款条件原文",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": content_hash,
+        },
+    ).json()
+    generation = requested["data"]["rework_generation"]
+    uploaded = client.post(
+        "/api/secure-ingest/upload",
+        data={
+            "mission_contract_id": task_id,
+            "purpose": "evidence_rework",
+        },
+        files={
+            "file": (
+                "付款条件补证.docx",
+                golden_docx_bytes("付款应在验收完成后七日内支付。"),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+    ).json()
+    assert uploaded["status"] == "ACCEPTED", uploaded
+
+    if denial == "cross_user":
+        db = isolated_session_local()
+        artifact = (
+            db.query(SecureIngestArtifact)
+            .filter_by(id=uploaded["artifact_id"])
+            .one()
+        )
+        artifact.user_id = "2"
+        db.commit()
+        db.close()
+    else:
+        app.dependency_overrides[deps.get_current_user] = lambda: CurrentUser(
+            user_id=1,
+            username="ops",
+            role="admin",
+            tenant_slug="default",
+            tenant_id=1,
+        )
+
+    response = client.post(
+        (
+            f"/api/shangshufang/tasks/{task_id}/rework-generations/"
+            f"{generation['generation_id']}/evidence"
+        ),
+        json={"artifact_id": uploaded["artifact_id"]},
+    ).json()
+
+    assert response["success"] is False, response
+    db = isolated_session_local()
+    stored = db.query(OutboxEvent).filter_by(id=generation["generation_id"]).one()
+    assert stored.status == "awaiting_evidence"
+    assert "evidence_packets" not in json.loads(stored.payload_json)
+    db.close()
 
 
 @pytest.mark.parametrize(

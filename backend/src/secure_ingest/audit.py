@@ -11,6 +11,7 @@ AuditEventType = Literal[
     "upload",
     "ticket_issued",
     "ticket_redeemed",
+    "evidence_bound",
     "provider_call_allowed",
     "provider_call_denied",
 ]

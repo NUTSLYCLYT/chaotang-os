@@ -678,6 +678,7 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
     isolated_session_local,
     monkeypatch,
     interruption,
+    w05_contract_user,
 ):
     """补证必须经公共 API 和真实 worker 形成可裁决 v2，不能靠测试直调 formalize。"""
     import json
@@ -896,9 +897,12 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
     db.close()
 
 
+@pytest.mark.parametrize("already_bound", [False, True])
 def test_evidence_bind_cannot_replace_frozen_contract_scope(
     isolated_session_local,
     tmp_path,
+    w05_contract_user,
+    already_bound,
 ):
     import hashlib
     import json
@@ -933,6 +937,39 @@ def test_evidence_bind_cannot_replace_frozen_contract_scope(
             contract_scope_json=json.dumps(frozen_scope),
         )
     )
+    generation_payload = {
+        "schema_version": "EvidenceReworkGenerationV1",
+        "generation_id": generation_id,
+        "generation": 2,
+        "status": "pending" if already_bound else "awaiting_evidence",
+        "prior_final_memorial_content_hash": "a" * 64,
+        "evidence_request": {
+            "reason": "补证",
+            "followup_question": None,
+        },
+        "affected_sections": ["contract_review"],
+        "evidence_packets": (
+            [
+                {
+                    "schema_version": "EvidencePacketV1",
+                    "evidence_packet_id": "evidence-frozen-contract-scope",
+                    "tenant_id": 1,
+                    "task_id": task_id,
+                    "input_version_id": artifact_id,
+                    "input_digest": digest,
+                    "prior_final_memorial_content_hash": "a" * 64,
+                    "generation": 2,
+                    "evidence_status": "GROUNDED",
+                    "source_kind": "USER_UPLOAD",
+                    "source_ref": artifact_id,
+                    "content_hash": digest,
+                    "verification_receipt_id": "receipt-frozen-contract-scope",
+                }
+            ]
+            if already_bound
+            else []
+        ),
+    }
     db.add(
         OutboxEvent(
             id=generation_id,
@@ -942,24 +979,10 @@ def test_evidence_bind_cannot_replace_frozen_contract_scope(
             event_type="evidence.rework",
             generation=2,
             idempotency_key="evidence-rework:frozen-contract-scope",
-            status="awaiting_evidence",
+            status="pending" if already_bound else "awaiting_evidence",
             attempts=0,
             max_attempts=3,
-            payload_json=json.dumps(
-                {
-                    "schema_version": "EvidenceReworkGenerationV1",
-                    "generation_id": generation_id,
-                    "generation": 2,
-                    "status": "awaiting_evidence",
-                    "prior_final_memorial_content_hash": "a" * 64,
-                    "evidence_request": {
-                        "reason": "补证",
-                        "followup_question": None,
-                    },
-                    "affected_sections": ["contract_review"],
-                    "evidence_packets": [],
-                }
-            ),
+            payload_json=json.dumps(generation_payload),
             created_at="2026-07-24T00:00:00+00:00",
             updated_at="2026-07-24T00:00:00+00:00",
         )
@@ -1010,8 +1033,8 @@ def test_evidence_bind_cannot_replace_frozen_contract_scope(
     task = db.query(DecisionTask).filter_by(id=task_id).one()
     generation = db.query(OutboxEvent).filter_by(id=generation_id).one()
     assert json.loads(task.contract_scope_json) == frozen_scope
-    assert generation.status == "awaiting_evidence"
-    assert json.loads(generation.payload_json)["evidence_packets"] == []
+    assert generation.status == ("pending" if already_bound else "awaiting_evidence")
+    assert json.loads(generation.payload_json) == generation_payload
     db.close()
 
 

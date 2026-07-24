@@ -92,7 +92,7 @@ def _count_query_entries(src: str) -> int:
 _BASELINE = {
     "court_compat.py": 1,
     "jinyiwei.py": 1,
-    "shangshufang.py": 10,
+    "shangshufang.py": 11,
     "swarm_runs.py": 1,
 }
 

@@ -25,6 +25,7 @@ from src.chancellor.decree_status import (
     record_timeline_event,
 )
 from src.chancellor.routing_service import chancellor_routing_service, legacy_route_dict
+from src.contracts.evidence_packet import EvidencePacketV1
 from src.contracts.mission_contract import ContractIntakeV1
 from src.db.models import (
     AgentSkillRun,
@@ -119,6 +120,18 @@ class DecisionRequest(BaseModel):
 class EvidenceBindRequest(BaseModel):
     artifact_id: str = Field(..., min_length=1)
     contract_scope: ContractIntakeV1 | None = None
+
+
+class EvidenceBindData(BaseModel):
+    task_id: str
+    evidence_packet: EvidencePacketV1
+    rework_generation: dict[str, Any]
+
+
+class EvidenceBindResponse(BaseModel):
+    success: bool
+    data: EvidenceBindData | None = None
+    error: str | None = None
 
 
 class FinanceReportingLoopRequest(BaseModel):
@@ -1877,7 +1890,8 @@ def shangshufang_task_decision(
 
 
 @router.post(
-    "/tasks/{task_id}/rework-generations/{generation_id}/evidence"
+    "/tasks/{task_id}/rework-generations/{generation_id}/evidence",
+    response_model=EvidenceBindResponse,
 )
 def bind_rework_generation_evidence(
     task_id: str,
@@ -1888,9 +1902,14 @@ def bind_rework_generation_evidence(
     """Bind one accepted immutable upload to the waiting canonical generation."""
     import hashlib
 
-    from src.contracts.evidence_packet import EvidencePacketV1
     from src.db.engine import SessionLocal
-    from src.db.models import OutboxEvent, SecureIngestArtifact
+    from src.db.models import (
+        OutboxEvent,
+        SecureIngestArtifact,
+        SecureIngestAuditEvent,
+    )
+    from src.secure_ingest.audit import build_audit_event
+    from src.secure_ingest.purpose_authz import authorize_body_access
     from src.w05_feature import require_w05_contract_rework
 
     db = SessionLocal()
@@ -1923,6 +1942,7 @@ def bind_rework_generation_evidence(
             .filter_by(
                 id=body.artifact_id,
                 tenant_id=user.tenant_id,
+                user_id=_user_id(user),
                 mission_contract_id=task_id,
                 status="ACCEPTED",
             )
@@ -1931,7 +1951,31 @@ def bind_rework_generation_evidence(
         if artifact is None:
             return fail("附件不存在、未通过安全摄取或不属于当前任务")
 
+        body_access = authorize_body_access(
+            user_id=user.user_id,
+            role=user.role,
+            requester_tenant_id=user.tenant_id,
+            artifact_tenant_id=artifact.tenant_id,
+            purpose="contract_review",
+        )
+        if not body_access.allowed:
+            return fail(f"附件正文访问未授权: {body_access.deny_reason}")
+
         generation_payload = _loads(generation.payload_json, {})
+        supplied_scope = (
+            body.contract_scope.model_dump() if body.contract_scope is not None else None
+        )
+        frozen_scope = _loads(task.contract_scope_json, None)
+        effective_frozen_scope = (
+            generation_payload.get("contract_scope") or frozen_scope
+        )
+        if (
+            effective_frozen_scope is not None
+            and supplied_scope is not None
+            and effective_frozen_scope != supplied_scope
+        ):
+            return fail("合同支持范围已经冻结，不能在补证时替换")
+
         if generation.status in {"evidence_bound", "pending"}:
             packets = generation_payload.get("evidence_packets", [])
             existing_packet = next(
@@ -1944,6 +1988,8 @@ def bind_rework_generation_evidence(
             )
             if existing_packet is None:
                 return fail("补证 generation 已绑定其他证据")
+            if effective_frozen_scope is None and supplied_scope is not None:
+                return fail("补证 generation 已绑定，不能在重试时追加合同支持范围")
             return ok(
                 {
                     "task_id": task_id,
@@ -1957,6 +2003,26 @@ def bind_rework_generation_evidence(
                 "utf-8"
             )
         ).hexdigest()[:16]
+        receipt_id = "audit_" + hashlib.sha256(
+            f"{task_id}|{generation_id}|{artifact.id}|contract_review".encode(
+                "utf-8"
+            )
+        ).hexdigest()[:24]
+        db.add(
+            SecureIngestAuditEvent(
+                id=receipt_id,
+                created_at=now_iso(),
+                **build_audit_event(
+                    tenant_id=artifact.tenant_id,
+                    user_id=_user_id(user),
+                    event_type="evidence_bound",
+                    task_id=task_id,
+                    artifact_id=artifact.id,
+                    input_digest=artifact.digest_sha256,
+                    purpose="contract_review",
+                ),
+            )
+        )
         packet = EvidencePacketV1(
             evidence_packet_id=packet_id,
             tenant_id=str(artifact.tenant_id),
@@ -1971,20 +2037,8 @@ def bind_rework_generation_evidence(
             source_kind="USER_UPLOAD",
             source_ref=artifact.id,
             content_hash=artifact.digest_sha256,
-            verification_receipt_id=(
-                f"secure-ingest:{artifact.id}:{artifact.digest_sha256}"
-            ),
+            verification_receipt_id=receipt_id,
         )
-        supplied_scope = (
-            body.contract_scope.model_dump() if body.contract_scope is not None else None
-        )
-        frozen_scope = _loads(task.contract_scope_json, None)
-        if (
-            frozen_scope is not None
-            and supplied_scope is not None
-            and frozen_scope != supplied_scope
-        ):
-            return fail("合同支持范围已经冻结，不能在补证时替换")
         if frozen_scope is None and supplied_scope is not None:
             frozen_scope = supplied_scope
             task.contract_scope_json = _json(frozen_scope)

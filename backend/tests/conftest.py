@@ -83,6 +83,27 @@ def _authenticated_api_user():
         app.dependency_overrides[deps.get_current_user] = original
 
 
+@pytest.fixture()
+def w05_contract_user(_authenticated_api_user):
+    """W05 body access uses an ordinary owner; admin is deliberately denied."""
+    app = importlib.import_module("web.main").app
+    deps = importlib.import_module("web.deps")
+    auth_schema = importlib.import_module("web.schemas.auth")
+    original = app.dependency_overrides.get(deps.get_current_user)
+    app.dependency_overrides[deps.get_current_user] = lambda: auth_schema.CurrentUser(
+        user_id=1,
+        username="contract-owner",
+        role="user",
+        tenant_slug="default",
+        tenant_id=1,
+    )
+    yield
+    if original is None:
+        app.dependency_overrides.pop(deps.get_current_user, None)
+    else:
+        app.dependency_overrides[deps.get_current_user] = original
+
+
 @pytest.fixture(autouse=True)
 def _block_default_session_local(monkeypatch):
     """Fail closed unless a test explicitly installs an isolated Session factory."""
