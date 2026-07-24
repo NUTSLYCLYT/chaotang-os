@@ -11,6 +11,7 @@ legacy rows honestly; W05 rework rows always set both values.
 from __future__ import annotations
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision = "019_outbox_rework_generation"

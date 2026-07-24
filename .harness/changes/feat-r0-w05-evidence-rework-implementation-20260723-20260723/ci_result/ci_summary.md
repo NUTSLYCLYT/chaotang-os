@@ -73,6 +73,10 @@
 | Slice 4J 绑定/摄取回归 + Ruff | 0 | 73 passed / 1 skipped；All checks passed | 第一 payload 胜出、竞争 payload 失败、同附件幂等、scope/tenant/摄取门 | 本地 / 2026-07-24 |
 | 020 version-history downgrade（实现前） | 1 | RED：SQLite 在重建旧 task unique 时才抛 IntegrityError | 拒绝过晚，不能证明 DDL 前数据保持 | 本地 / 2026-07-24 |
 | Slice 4K 迁移链 + Ruff | 0 | 15 passed；All checks passed | v2 明确拒降且数据完整、单 v1 可降、019–022/schema authority | 本地 / 2026-07-24 |
+| W05 修复后整包回归 | 0 | 165 passed / 1 skipped | 契约、真实补证链、裁决、归档、secure-ingest、019–022、状态/取消 | 本地 / 2026-07-24 |
+| exact base→candidate Python Ruff | 0 | All checks passed | W05 全部 Python 变更；019 import order 机械收口 | 本地 / 2026-07-24 |
+| backend/root harness doctors | 0 | 均 0 errors / 0 warnings | 后端运行护栏与根级三层边界 | 本地 / 2026-07-24 |
+| authority v2 tests + W05 authorize | 0 | 27 passed；`GO / APPROVED_WORK_PACKAGE` | manifest 结构、审批摘要与单包执行权 | 本地 / 2026-07-24 |
 
 ## 结果
 
@@ -109,4 +113,4 @@ SwarmRun/SwarmQualityResult，并追加 current FinalMemorial v2。
 
 ## 声明状态
 
-- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_4K_GREEN`
+- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / PRE_REVIEW_GREEN`
