@@ -543,7 +543,7 @@ def _reap_stale_processing_events(db: "Session") -> int:
 
 
 def process_pending_events(db: "Session", *, limit: int = 10) -> list[dict[str, Any]]:
-    """批处理入口：先捞回卡死的 processing 事件，再扫描 pending/failed(未达
+    """批处理入口：先捞回卡死的 processing 事件，再扫描 pending/evidence_bound/failed(未达
     max_attempts)事件逐个处理。
 
     供运维重试或未来定时调度调用；不是本次实现的自动触发路径(那条走

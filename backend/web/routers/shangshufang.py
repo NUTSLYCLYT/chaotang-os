@@ -2103,7 +2103,7 @@ def bind_rework_generation_evidence(
         generation_contract = EvidenceReworkGenerationV1.model_validate(
             {
                 **generation_payload,
-                "status": "pending",
+                "status": "evidence_bound",
                 "evidence_packets": [packet.model_dump(mode="json")],
             }
         )
