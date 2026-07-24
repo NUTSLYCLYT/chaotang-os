@@ -37,6 +37,7 @@ def _pack(**overrides: object) -> ContractReviewPackV1:
         "language": "zh-CN",
         "contract_type": "procurement",
         "our_role": "buyer",
+        "legal_question": "contract_risk_screening",
         "risk_items": [],
         "verdict": "REVISE_BEFORE_PROCEED",
         "decision_summary": "付款和责任条款需修改后再推进。",
@@ -65,7 +66,10 @@ def test_unsupported_jurisdiction_can_only_need_legal_review() -> None:
         )
 
 
-@pytest.mark.parametrize("field", ["language", "contract_type", "our_role"])
+@pytest.mark.parametrize(
+    "field",
+    ["language", "contract_type", "our_role", "legal_question"],
+)
 def test_other_unsupported_scope_dimensions_can_only_need_legal_review(field: str) -> None:
     with pytest.raises(ValidationError):
         _pack(

@@ -1,5 +1,14 @@
 # CI 摘要：feat-r0-w05-evidence-rework-implementation-20260723-20260723
 
+> 历史证据更正：本记录描述的是已进入
+> `3cb508e06464de78facae09b93c132eb16023f94` 的 pre-merge 实施候选；其中
+> `1f1800c7` 与“等待独立复审”不再是当前候选身份。post-merge MUST、当前
+> RED/GREEN、验证和 exact review 只以
+> `.harness/changes/fix-r0-w05-postmerge-remediation-20260724/` 为准。
+> 当前 remediation H1 为
+> `0f2a3e4abd99aef345ac2858daa799c5aadc9dc6`，其 Standards/Spec
+> exact 审查均为 `0 MUST`；H1 尚未 push 或 merge。
+
 ## 命令
 
 | 命令 | 退出码 | 结果 | 证据覆盖范围 | 证据位置 / 时间 |
@@ -140,9 +149,9 @@ SwarmRun/SwarmQualityResult，并追加 current FinalMemorial v2。独立预审�
 | W03 accepted artifact 形成可信 generation-bound packet | bind/retry RED 与 77 passed / 1 skipped | PASS |
 | current generation 局部重算且 old generation fenced | worker/fencing RED 与 72 passed / 1 skipped | PASS |
 | W05 审查修复实现 | 4G.1–4M 聚焦回归 | PASS |
-| W05 review-ready 候选 | exact-HEAD 定向/全量/authority/doctor/Ruff | PASS_WITH_3_BASELINE_EXCLUSIONS |
-| W05 独立复审 | Claude Code/gstack read-only review | PENDING |
+| W05 历史 review-ready 候选 | exact-HEAD 定向/全量/authority/doctor/Ruff | MERGED_AT_3CB508E / EVIDENCE_SUPERSEDED |
+| W05 post-merge 独立复审 | H1 exact-SHA Standards/Spec 均 `0 MUST` | REVIEWED_LOCAL_CANDIDATE / TRACKED_IN_POSTMERGE_REMEDIATION |
 
 ## 声明状态
 
-- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / REVIEW_CANDIDATE_EVIDENCE_COMPLETE`
+- `HISTORICAL_MERGED / POSTMERGE_REMEDIATION_OPEN`

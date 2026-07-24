@@ -55,6 +55,7 @@ def test_router_returns_http_409_on_conflict() -> None:
         "language": "zh-CN",
         "contract_type": "procurement",
         "our_role": "buyer",
+        "legal_question": "contract_risk_screening",
         "goal": {"user_intent": "test", "biggest_concern": "test"},
         "constraints": [],
         "prohibited_actions": [],

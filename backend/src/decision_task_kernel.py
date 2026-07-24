@@ -8,11 +8,14 @@ from __future__ import annotations
 
 import json
 from hashlib import sha1
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
 
 from src.db.models import DecisionTask
+
+if TYPE_CHECKING:
+    from src.contracts.mission_contract import ContractIntakeV1
 
 
 def _json(value: Any) -> str:
@@ -41,6 +44,7 @@ def create_decision_task(
     draft_edict: dict[str, Any] | None,
     now: str,
     tenant_id: int | None,
+    contract_scope: ContractIntakeV1 | None = None,
 ) -> DecisionTask:
     """构造并登记一条正式 DecisionTask；事务提交仍由调用方统一控制。"""
     if not task_id.strip():
@@ -67,6 +71,11 @@ def create_decision_task(
         unknown_gaps_json=_json(unknown_gaps),
         recommended_departments_json=_json(recommended_departments),
         draft_edict_json=_json(draft_edict) if draft_edict is not None else None,
+        contract_scope_json=(
+            _json(contract_scope.model_dump(mode="json"))
+            if contract_scope is not None
+            else None
+        ),
         created_at=now,
         updated_at=now,
     )

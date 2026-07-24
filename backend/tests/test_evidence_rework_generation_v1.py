@@ -25,7 +25,11 @@ def _valid_generation() -> dict[str, object]:
 def test_evidence_rework_generation_v1_accepts_exact_minimal_contract() -> None:
     generation = EvidenceReworkGenerationV1.model_validate(_valid_generation())
 
-    assert generation.to_payload() == _valid_generation()
+    assert generation.evidence_status == "NONE"
+    assert generation.to_payload() == {
+        **_valid_generation(),
+        "evidence_status": "NONE",
+    }
 
 
 @pytest.mark.parametrize(
@@ -49,6 +53,13 @@ def test_evidence_rework_generation_v1_rejects_identity_or_scope_drift(
 
 def test_evidence_rework_generation_v1_rejects_unknown_fields() -> None:
     payload = {**_valid_generation(), "second_fact_source": True}
+
+    with pytest.raises(ValidationError):
+        EvidenceReworkGenerationV1.model_validate(payload)
+
+
+def test_evidence_rework_generation_rejects_evidence_status_drift() -> None:
+    payload = {**_valid_generation(), "evidence_status": "GROUNDED"}
 
     with pytest.raises(ValidationError):
         EvidenceReworkGenerationV1.model_validate(payload)

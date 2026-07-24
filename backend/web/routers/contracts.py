@@ -48,7 +48,7 @@ def evaluate_contract_support(
     body: ContractIntakeV1,
     _: CurrentUser = Depends(get_current_user),
 ) -> ContractSupportDecisionV1:
-    """四维度支持/拒答评估——缺失或超范围一律 DECLINED，绝不静默放行（REQ-003）。"""
+    """五维度支持/拒答评估——缺失或超范围一律 DECLINED，绝不静默放行（REQ-003）。"""
     return evaluate_support(
         body,
         mission_contract_id="pending",
@@ -66,8 +66,17 @@ def draft_mission_contract(
     """服务端重算 content_digest（不信任客户端传入的摘要），落草稿桩存储。"""
     recomputed = body.model_copy(update={"content_digest": compute_mission_content_digest(body)})
     support = evaluate_support(
-        ContractIntakeV1(jurisdiction=body.jurisdiction, language=body.language, contract_type=body.contract_type, our_role=body.our_role),
-        mission_contract_id=body.mission_contract_id, revision=body.revision, evaluated_at=_now_iso(), capability_active=True,
+        ContractIntakeV1(
+            jurisdiction=body.jurisdiction,
+            language=body.language,
+            contract_type=body.contract_type,
+            our_role=body.our_role,
+            legal_question=body.legal_question,
+        ),
+        mission_contract_id=body.mission_contract_id,
+        revision=body.revision,
+        evaluated_at=_now_iso(),
+        capability_active=True,
     )
     key = (user.tenant_slug, recomputed.mission_contract_id)
     _MISSION_DRAFT_STORE[key] = recomputed

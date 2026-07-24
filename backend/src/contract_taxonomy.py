@@ -20,6 +20,7 @@ Jurisdiction = Literal["CN_MAINLAND", "UNSUPPORTED_OR_UNKNOWN"]
 ContractLanguage = Literal["zh-CN", "UNSUPPORTED_OR_UNKNOWN"]
 ContractType = Literal["procurement", "sales", "service", "UNSUPPORTED_OR_UNKNOWN"]
 OurRole = Literal["buyer", "seller", "service_provider", "other_party", "UNSUPPORTED_OR_UNKNOWN"]
+LegalQuestion = Literal["contract_risk_screening", "UNSUPPORTED_OR_UNKNOWN"]
 ContractVerdict = Literal[
     "NEED_INFO",
     "REVISE_BEFORE_PROCEED",
@@ -35,9 +36,11 @@ DeclineReason = Literal[
     "MISSING_LANGUAGE",
     "MISSING_CONTRACT_TYPE",
     "MISSING_ROLE",
+    "MISSING_LEGAL_QUESTION",
     "UNSUPPORTED_JURISDICTION",
     "UNSUPPORTED_LANGUAGE",
     "UNSUPPORTED_CONTRACT_TYPE",
+    "UNSUPPORTED_LEGAL_QUESTION",
     "CAPABILITY_NOT_ACTIVATED",
     "UNKNOWN_SCOPE",
 ]

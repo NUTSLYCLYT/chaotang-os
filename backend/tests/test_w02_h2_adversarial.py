@@ -26,6 +26,7 @@ def _mission(*, task_id: str = "task-a", required_artifacts: list[str] | None = 
         language="zh-CN",
         contract_type="procurement",
         our_role="buyer",
+        legal_question="contract_risk_screening",
         goal=MissionGoal(user_intent="buy", biggest_concern="risk"),
         constraints=[],
         prohibited_actions=[],
@@ -64,6 +65,7 @@ def test_unsupported_mission_cannot_be_drafted_as_supported() -> None:
 
 def test_tenant_cannot_confirm_another_tenants_mission() -> None:
     from fastapi import HTTPException
+
     from web.routers import contracts
     from web.schemas.auth import CurrentUser
     from web.schemas.contracts import MissionConfirmRequest

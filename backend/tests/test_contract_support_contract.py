@@ -13,6 +13,7 @@ _GOLDEN = dict(
     language="zh-CN",
     contract_type="procurement",
     our_role="buyer",
+    legal_question="contract_risk_screening",
 )
 
 
@@ -43,6 +44,7 @@ def test_golden_slice_is_supported() -> None:
         ("language", "MISSING_LANGUAGE"),
         ("contract_type", "MISSING_CONTRACT_TYPE"),
         ("our_role", "MISSING_ROLE"),
+        ("legal_question", "MISSING_LEGAL_QUESTION"),
     ],
 )
 def test_missing_dimension_declines_not_silently_passes(field: str, expected_reason: str) -> None:
@@ -57,6 +59,7 @@ def test_missing_dimension_declines_not_silently_passes(field: str, expected_rea
         ("jurisdiction", "UNSUPPORTED_JURISDICTION"),
         ("language", "UNSUPPORTED_LANGUAGE"),
         ("contract_type", "UNSUPPORTED_CONTRACT_TYPE"),
+        ("legal_question", "UNSUPPORTED_LEGAL_QUESTION"),
     ],
 )
 def test_sentinel_value_declines_gracefully(field: str, expected_reason: str) -> None:
@@ -74,6 +77,9 @@ def test_role_sentinel_declines_via_unknown_scope() -> None:
 def test_raw_unrecognized_string_rejected_at_construction() -> None:
     with pytest.raises(ValidationError):
         _intake(jurisdiction="US")
+
+    with pytest.raises(ValidationError):
+        _intake(legal_question="draft_litigation_strategy")
 
 
 def test_capability_not_activated_declines_even_when_scope_supported() -> None:
