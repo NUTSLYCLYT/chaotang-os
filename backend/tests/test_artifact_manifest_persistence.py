@@ -49,3 +49,20 @@ def test_manifest_hash_cannot_change_for_same_lineage(isolated_session_local) ->
             content_hash="b" * 64, manifest_json={"schema_version":"ArtifactManifestV1","manifest_id":"m2","task_id":"task-manifest-2","final_memorial_id":"memorial-2","final_memorial_version":1,"delivery_formula_version":"w06-v1","artifacts":[{"artifact_id":"a1","kind":"JSON","mime_type":"application/json","byte_size":1,"content_hash":"a"*64,"lineage_hash":"b"*64,"status":"READY"}],"overall_status":"READY"}, overall_status="READY",
         )
     db.close()
+
+
+def test_manifest_payload_is_required_and_canonical(isolated_session_local) -> None:
+    from src.artifacts.service import persist_manifest
+
+    db = isolated_session_local()
+    with pytest.raises((TypeError, ValueError)):
+        persist_manifest(
+            db,
+            task_id="task-empty",
+            final_memorial_id="memorial-empty",
+            final_memorial_version=1,
+            delivery_formula_version="w06-v1",
+            manifest_json={},
+            overall_status="PARTIAL",
+        )
+    db.close()
