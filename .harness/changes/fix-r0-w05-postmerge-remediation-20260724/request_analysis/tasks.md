@@ -74,4 +74,6 @@ WIP 永远为 1；下一个任务只能在前一个任务有命令证据后开�
 - 状态：完成；本地实现候选
   `0f2a3e4abd99aef345ac2858daa799c5aadc9dc6` 已冻结。聚焦、相关回归、
   非排除全量、authority/amendment/doctor 均已通过；detached exact-SHA
-  Standards 与 Spec 双轴均为 `0 MUST`。候选保持 local only，W06 继续 STOP。
+  Standards 与 Spec 双轴均为 `0 MUST`。在本任务完成时候选保持 local only；
+  后续另行获批并由 PR #17 合入 `ad77c16d`。当前 ledger closeout 由
+  `fix-r0-w05-postmerge-closeout-20260724` 跟踪，W06 继续 STOP。

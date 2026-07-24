@@ -21,6 +21,8 @@
 | backend commit closeout check | 0 | `31 staged candidates / 0 staged high-risk / 0 uncommitted high-risk drift`；1 条非阻断御史提示 | 候选 allowlist 与生成物卫生 | 本地 / 2026-07-24 |
 | H1 exact Standards review | 0 | `GO / 0 MUST`；聚焦 `41 passed`；Ruff/diff-check clean | 正确性、安全、边界、锁与 smell | detached clean worktree / 2026-07-24 |
 | H1 exact Spec review | 0 | `PASS / 0 MUST`；独立复跑 `84 passed` | 六项批准 MUST、补充验收、范围与 RED/GREEN 声明 | detached clean worktree / 2026-07-24 |
+| PR #17 merge identity | 0 | merge `ad77c16d`；parents=`3cb508e`+`a8f78161`；tree=`354e4273` | 合并事实与候选 tree 等同性 | post-merge / 2026-07-24 |
+| merge commit 六文件复验 | 0 | `84 passed, 2 warnings`；Ruff/diff/doctors pass | 合并后产品行为未漂移 | detached merge worktree / 2026-07-24 |
 
 ## 结果
 
@@ -30,6 +32,11 @@ durable outbox 状态只经一个纯投影 Interface 进入领域响应；真实
 旧 request hash 可重放原 generation。证据分类限制 tenant/user/task/name 边界，
 worker 只允许单调降级，并在 PostgreSQL artifact 表 SHARE publication fence 下做
 最终重验。
+
+后续事实：remediation 源分支经 PR #17 合入 `feature-chaotang-ext`，merge commit
+`ad77c16d1820c0c1420845c2b7a3d8cb9e52894e` 的 tree 与已审查 H3 tree
+相同。W05 ledger 的静默 closeout 由独立 change
+`fix-r0-w05-postmerge-closeout-20260724` 处理。
 
 ## 未验证项
 
@@ -49,8 +56,9 @@ worker 只允许单调降级，并在 PostgreSQL artifact 表 SHARE publication 
 | Implementation H1 | `0f2a3e4abd99aef345ac2858daa799c5aadc9dc6` |
 | H1 tree | `eec70c552b578cfe6918c80903f0d73e55e18b80` |
 | Base→H1 binary diff SHA-256 | `d82c89ea5e89e1bc4f25da615642fe4e3a0d2d44bfdec08453067eccfefafca2` |
-| Commit count | 1 |
+| Commit count | 1（H1 implementation；H2/H3 仅证据） |
 | Review worktrees | detached、H1 exact、review 前后均 clean |
+| Merge | PR #17 → `ad77c16d1820c0c1420845c2b7a3d8cb9e52894e` |
 
 ## Diff 与回滚复核
 
@@ -73,4 +81,4 @@ worker 只允许单调降级，并在 PostgreSQL artifact 表 SHARE publication 
 
 ## 声明状态
 
-- `EXACT_H1_REVIEWED_0_MUST / LOCAL_ONLY / AWAITING_OWNER_DECISION`
+- `MERGED_AT_PR17 / TREE_IDENTITY_VERIFIED / POSTMERGE_CLOSEOUT_TRACKED`

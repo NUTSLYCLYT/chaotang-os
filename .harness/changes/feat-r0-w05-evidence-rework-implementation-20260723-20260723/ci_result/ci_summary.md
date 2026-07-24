@@ -7,7 +7,9 @@
 > `.harness/changes/fix-r0-w05-postmerge-remediation-20260724/` 为准。
 > 当前 remediation H1 为
 > `0f2a3e4abd99aef345ac2858daa799c5aadc9dc6`，其 Standards/Spec
-> exact 审查均为 `0 MUST`；H1 尚未 push 或 merge。
+> exact 审查均为 `0 MUST`。该“尚未 push/merge”只描述 H1 冻结时点；后续
+> H3 `a8f78161` 已由 PR #17 合入 merge `ad77c16d`，当前状态与 ledger
+> closeout 以 `fix-r0-w05-postmerge-closeout-20260724` 为准。
 
 ## 命令
 
@@ -150,8 +152,8 @@ SwarmRun/SwarmQualityResult，并追加 current FinalMemorial v2。独立预审�
 | current generation 局部重算且 old generation fenced | worker/fencing RED 与 72 passed / 1 skipped | PASS |
 | W05 审查修复实现 | 4G.1–4M 聚焦回归 | PASS |
 | W05 历史 review-ready 候选 | exact-HEAD 定向/全量/authority/doctor/Ruff | MERGED_AT_3CB508E / EVIDENCE_SUPERSEDED |
-| W05 post-merge 独立复审 | H1 exact-SHA Standards/Spec 均 `0 MUST` | REVIEWED_LOCAL_CANDIDATE / TRACKED_IN_POSTMERGE_REMEDIATION |
+| W05 post-merge 独立复审 | H1 exact-SHA 双轴 `0 MUST`；H3 经 PR #17 合入 `ad77c16d` | MERGED / TRACKED_IN_POSTMERGE_CLOSEOUT |
 
 ## 声明状态
 
-- `HISTORICAL_MERGED / POSTMERGE_REMEDIATION_OPEN`
+- `HISTORICAL_MERGED / POSTMERGE_REMEDIATED / CLOSEOUT_TRACKED`

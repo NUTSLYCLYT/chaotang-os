@@ -9,7 +9,6 @@ import test from 'node:test';
 
 import {
   EXECUTION_AUTHORITY_V2_PATH,
-  EXPECTED_R0_WORK_PACKAGE_SEQUENCE,
   EXECUTION_AUTHORITY_V2_SCHEMA_PATH,
   EXPECTED_EXECUTION_AUTHORITY_V2_REGISTRATION,
   executionAuthorityV2CommandResult,
@@ -346,75 +345,50 @@ test('CLI rejects an unsupported flag with exit 64', async () => {
   );
 });
 
-test('CLI subprocess against the real repo matches its own activeWorkPackage state (active or quiescent)', async () => {
+test('CLI subprocess against the real repo records W05 merged and enters quiescent closeout', async () => {
   const loaded = await loadExecutionAuthorityV2(root);
   assert.deepEqual(loaded.errors, []);
-  const currentActive = loaded.manifest.activeWorkPackage;
-
-  if (currentActive === null) {
-    // Quiescent closeout state: "packet completed" must never auto-imply "next packet approved" —
-    // re-requesting the most recently merged packet must also stay NO_ACTIVE_WORK_PACKAGE.
-    const lastMerged = [...loaded.manifest.workPackageLedger]
-      .reverse()
-      .find((entry) => entry.status === 'MERGED_AND_VERIFIED');
-    assert.ok(lastMerged, 'quiescent real repo manifest must have at least one MERGED_AND_VERIFIED entry');
-    await assert.rejects(
-      execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', lastMerged.id], {
-        cwd: root,
-      }),
-      (error) => {
-        const output = JSON.parse(error.stdout);
-        return error.code === 2 && output.decision === 'STOP' && output.reason === 'NO_ACTIVE_WORK_PACKAGE';
-      },
-    );
-    return;
-  }
-
-  const { stdout } = await execFileAsync(
-    process.execPath,
-    [cliPath, '--authorize', '--work-package', currentActive],
-    { cwd: root },
-  );
-  const output = JSON.parse(stdout);
-  assert.equal(output.decision, 'GO');
-  assert.equal(output.activeWorkPackage, currentActive);
-});
-
-test('CLI subprocess against the real repo blocks whatever comes after the current state', async () => {
-  const loaded = await loadExecutionAuthorityV2(root);
-  assert.deepEqual(loaded.errors, []);
-  const currentActive = loaded.manifest.activeWorkPackage;
-
-  if (currentActive === null) {
-    // No packet approved yet — every not-yet-merged packet must stay NO_ACTIVE_WORK_PACKAGE,
-    // not BLOCKED_DEPENDENCY (that reason is reserved for "approved but predecessor unfinished").
-    const firstUnmerged = EXPECTED_R0_WORK_PACKAGE_SEQUENCE.find(
-      (id) => !loaded.manifest.workPackageLedger.some((entry) => entry.id === id && entry.status === 'MERGED_AND_VERIFIED'),
-    );
-    assert.ok(firstUnmerged, 'expected at least one not-yet-merged packet in the frozen sequence');
-    await assert.rejects(
-      execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', firstUnmerged], {
-        cwd: root,
-      }),
-      (error) => {
-        const output = JSON.parse(error.stdout);
-        return error.code === 2 && output.decision === 'STOP' && output.reason === 'NO_ACTIVE_WORK_PACKAGE';
-      },
-    );
-    return;
-  }
-
-  const currentIndex = EXPECTED_R0_WORK_PACKAGE_SEQUENCE.indexOf(currentActive);
-  assert.ok(currentIndex >= 0 && currentIndex < EXPECTED_R0_WORK_PACKAGE_SEQUENCE.length - 1);
-  const nextPackage = EXPECTED_R0_WORK_PACKAGE_SEQUENCE[currentIndex + 1];
-
+  assert.equal(loaded.manifest.activeWorkPackage, null);
+  assert.deepEqual(loaded.manifest.workPackageLedger.at(-1), {
+    id: 'R0-W05',
+    status: 'MERGED_AND_VERIFIED',
+  });
   await assert.rejects(
-    execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', nextPackage], {
+    execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', 'R0-W05'], {
       cwd: root,
     }),
     (error) => {
       const output = JSON.parse(error.stdout);
-      return error.code === 2 && output.decision === 'STOP' && output.reason === 'BLOCKED_DEPENDENCY';
+      return (
+        error.code === 2 &&
+        output.decision === 'STOP' &&
+        output.reason === 'NO_ACTIVE_WORK_PACKAGE'
+      );
+    },
+  );
+});
+
+test('CLI subprocess against the real repo keeps W06 stopped after W05 closeout', async () => {
+  const loaded = await loadExecutionAuthorityV2(root);
+  assert.deepEqual(loaded.errors, []);
+  assert.equal(loaded.manifest.activeWorkPackage, null);
+  assert.equal(
+    loaded.manifest.workPackageLedger.some(
+      (entry) => entry.id === 'R0-W06' && entry.status === 'ACTIVE',
+    ),
+    false,
+  );
+  await assert.rejects(
+    execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', 'R0-W06'], {
+      cwd: root,
+    }),
+    (error) => {
+      const output = JSON.parse(error.stdout);
+      return (
+        error.code === 2 &&
+        output.decision === 'STOP' &&
+        output.reason === 'NO_ACTIVE_WORK_PACKAGE'
+      );
     },
   );
 });

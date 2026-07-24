@@ -7,7 +7,7 @@
 | --- | --- |
 | Change ID | fix-r0-w05-postmerge-remediation-20260724 |
 | 类型 | fix |
-| 状态 | EXACT_H1_REVIEWED_0_MUST_AWAITING_OWNER_DECISION |
+| 状态 | MERGED_AT_PR17 / POSTMERGE_CLOSEOUT_TRACKED |
 | Owner | Backend / Canonical Runtime |
 | 创建日期 | 20260724 |
 
@@ -34,10 +34,13 @@
 - 本地实现候选 H1 已冻结并完成独立双轴审查：
   `0f2a3e4abd99aef345ac2858daa799c5aadc9dc6`，Standards 与 Spec
   均为 `0 MUST`。
-- W05 仍是唯一 `ACTIVE` work package；本记录不把 W05 ledger 改为
-  `MERGED_AND_VERIFIED`，W06 仍为 `STOP/BLOCKED_DEPENDENCY`。
-- 没有 push、merge、PR、release 或生产切换；H1 只等待 Product Owner/总控
-  对候选身份作下一步裁决。
+- 候选冻结与 exact review 时，W05 仍是唯一 `ACTIVE` work package，且本
+  remediation Packet 没有修改 ledger；这是当时的审查前提。
+- 后续经 Product Owner 选择，源分支被推送并通过 Gitee PR #17 合入
+  `feature-chaotang-ext`。merge `ad77c16d` 的 tree 与候选 H3 完全相同。
+- 合并后的证据纠偏与 W05 静默关闭由
+  `.harness/changes/fix-r0-w05-postmerge-closeout-20260724/` 接管；W06 不随
+  W05 完成而自动激活。
 
 ## 本地候选身份
 
@@ -48,7 +51,9 @@
 | H1 tree | `eec70c552b578cfe6918c80903f0d73e55e18b80` |
 | Base→H1 binary diff SHA-256 | `d82c89ea5e89e1bc4f25da615642fe4e3a0d2d44bfdec08453067eccfefafca2` |
 | Review result | Standards `0 MUST`；Spec `0 MUST` |
-| Remote state | local only；未 push、未 merge |
+| H1 state at exact review | local implementation candidate |
+| H3 merge state | `a8f7816120b24bcbf12a40e2b971222583f25371` merged by PR #17 at `ad77c16d1820c0c1420845c2b7a3d8cb9e52894e` |
+| Merge tree | `354e427354adfc234b89deeaac2ee937048b9ca2`（等于 H3 tree） |
 
 ## 授权
 
@@ -59,4 +64,6 @@ Product Owner 于 2026-07-24 明确批准：
 > 独立审查 MUST，严格 RED→GREEN→review，不启动 W06，不推送、不合并，
 > 候选 exact SHA 另行送审。
 
-机器复核：`R0-W05=GO`；`R0-W06=STOP/BLOCKED_DEPENDENCY`。
+上述授权与机器复核描述的是 remediation 施工/冻结时点。后续 push/PR/merge 与
+post-merge closeout 均由 Product Owner 另行明确批准；当前 closeout 候选预期
+W05/W06 都为 `STOP/NO_ACTIVE_WORK_PACKAGE`。
