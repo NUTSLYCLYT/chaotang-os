@@ -20,7 +20,7 @@
 | pre-freeze Standards/Spec 复审 | 0 | 两轴均 `0 MUST` | concurrency/security 与验收/范围 | 本地 / 2026-07-24 |
 | backend commit closeout check | 0 | `31 staged candidates / 0 staged high-risk / 0 uncommitted high-risk drift`；1 条非阻断御史提示 | 候选 allowlist 与生成物卫生 | 本地 / 2026-07-24 |
 | H1 exact Standards review | 0 | `GO / 0 MUST`；聚焦 `41 passed`；Ruff/diff-check clean | 正确性、安全、边界、锁与 smell | detached clean worktree / 2026-07-24 |
-| H1 exact Spec review | 0 | `PASS / 0 MUST`；独立复跑 `84 passed` | 八项 MUST、范围与 RED/GREEN 声明 | detached clean worktree / 2026-07-24 |
+| H1 exact Spec review | 0 | `PASS / 0 MUST`；独立复跑 `84 passed` | 六项批准 MUST、补充验收、范围与 RED/GREEN 声明 | detached clean worktree / 2026-07-24 |
 
 ## 结果
 
@@ -37,6 +37,8 @@ worker 只允许单调降级，并在 PostgreSQL artifact 表 SHARE publication 
   `secure_ingest_artifacts` SHARE lock 的权限、lock wait、吞吐仍是 release 风险。
 - CAS loser 与 publication fence 主要由 SQLite/seam/SQL 顺序断言覆盖；真实
   PostgreSQL 双连接冲突演练仍是 release 风险。
+- Standards 记录 `contract_rework.py:207/289` 有重复投影构造；这是非阻塞
+  maintainability WARN，按最小 Packet 原则留待后续获批重构。
 - 3 个全量排除项属于 exact base 已复现的既有顺序污染；本 Packet 不扩域修复。
 
 ## Exact candidate
