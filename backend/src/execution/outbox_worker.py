@@ -340,7 +340,7 @@ def _claim_event(db: "Session", event_id: str) -> "OutboxEvent | None":
         update(OutboxEvent)
         .where(
             OutboxEvent.id == event_id,
-            OutboxEvent.status.in_(["pending", "failed"]),
+            OutboxEvent.status.in_(["pending", "failed", "evidence_bound"]),
         )
         .values(status="processing", updated_at=now)
     )
@@ -555,7 +555,7 @@ def process_pending_events(db: "Session", *, limit: int = 10) -> list[dict[str, 
 
     candidates = (
         db.query(OutboxEvent)
-        .filter(OutboxEvent.status.in_(["pending", "failed"]))
+        .filter(OutboxEvent.status.in_(["pending", "failed", "evidence_bound"]))
         .order_by(OutboxEvent.created_at)
         .limit(limit)
         .all()

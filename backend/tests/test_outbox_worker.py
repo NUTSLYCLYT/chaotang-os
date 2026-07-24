@@ -706,8 +706,15 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
             tenant_id=1,
             user_id="1",
             raw_question="审查中国大陆中文采购合同付款条款",
-            status="awaiting_decision",
-            source_label="LIVE",
+                status="awaiting_decision",
+                source_label="LIVE",
+                contract_scope_json=json.dumps({
+                    "schema_version": "ContractIntakeV1",
+                    "jurisdiction": "CN_MAINLAND",
+                    "language": "zh-CN",
+                    "contract_type": "procurement",
+                    "our_role": "buyer",
+                }),
         )
     )
     db.add(
@@ -1109,6 +1116,6 @@ def test_evidence_binding_claim_prevents_later_payload_overwrite(
     assert first is True
     assert competing is False
     stored = db.query(OutboxEvent).filter_by(id=generation_id).one()
-    assert stored.status == "pending"
+    assert stored.status == "evidence_bound"
     assert json.loads(stored.payload_json) == first_payload
     db.close()

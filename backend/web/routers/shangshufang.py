@@ -757,7 +757,7 @@ def _claim_evidence_binding(
             OutboxEvent.status == "awaiting_evidence",
         )
         .values(
-            status="pending",
+            status="evidence_bound",
             payload_json=payload_json,
             updated_at=updated_at,
         )
@@ -2014,6 +2014,11 @@ def bind_rework_generation_evidence(
             body.contract_scope.model_dump() if body.contract_scope is not None else None
         )
         frozen_scope = _loads(task.contract_scope_json, None)
+        if frozen_scope is None and supplied_scope is not None:
+            return _http_fail(
+                409,
+                "合同支持范围必须在 canonical DecisionTask 创建时冻结，不能在补证时初始化",
+            )
         effective_frozen_scope = generation_payload.get("contract_scope") or frozen_scope
         if (
             effective_frozen_scope is not None
