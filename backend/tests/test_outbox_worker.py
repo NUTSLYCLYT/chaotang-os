@@ -411,9 +411,12 @@ def test_council_event_passes_recommended_departments_to_swarm_loop(isolated_ses
     db.close()
 
 
+@pytest.mark.parametrize("capability_active", [True, False])
 def test_evidence_rework_recomputes_only_declared_contract_section(
     isolated_session_local,
     tmp_path,
+    monkeypatch,
+    capability_active,
 ):
     import hashlib
     import json
@@ -536,8 +539,30 @@ def test_evidence_rework_recomputes_only_declared_contract_section(
     )
     db.commit()
 
+    monkeypatch.setenv(
+        "FENGQUN_W05_CONTRACT_REWORK",
+        "1" if capability_active else "0",
+    )
+    if not capability_active:
+        monkeypatch.setattr(
+            "src.contract_rework.read_artifact_bytes_at_path",
+            lambda _path: pytest.fail("disabled W05 worker must not read evidence"),
+        )
     result = process_event(db, generation_id)
     db.close()
+
+    if not capability_active:
+        assert result["status"] == "superseded", result
+        assert result["result"]["fenced"] is True
+        assert result["result"]["reason"] == "capability_disabled"
+        status = TestClient(app).get(
+            f"/api/shangshufang/tasks/{task_id}/status"
+        ).json()["data"]
+        assert status["task"]["status"] == "awaiting_evidence"
+        assert status["review"]["memorial"]["contract_review"] == {
+            "status": "old"
+        }
+        return
 
     assert result["status"] == "completed", result
     assert result["result"]["affected_sections"] == ["contract_review"]
@@ -645,11 +670,14 @@ def test_late_old_rework_generation_cannot_replace_current_review(
     }
 
 
-@pytest.mark.parametrize("superseded_during_processing", [False, True])
+@pytest.mark.parametrize(
+    "interruption",
+    [None, "new_generation", "capability_disabled"],
+)
 def test_supported_contract_rework_public_chain_appends_current_v2(
     isolated_session_local,
     monkeypatch,
-    superseded_during_processing,
+    interruption,
 ):
     """补证必须经公共 API 和真实 worker 形成可裁决 v2，不能靠测试直调 formalize。"""
     import json
@@ -773,13 +801,16 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
     assert bound["success"] is True, bound
 
     worker_db = isolated_session_local()
-    if superseded_during_processing:
+    if interruption is not None:
         import src.contract_rework as contract_rework
 
         extract_docx_text = contract_rework._extract_docx_text
 
-        def _insert_new_generation_after_initial_fence(raw_bytes):
+        def _interrupt_after_initial_fence(raw_bytes):
             text = extract_docx_text(raw_bytes)
+            if interruption == "capability_disabled":
+                monkeypatch.setenv("FENGQUN_W05_CONTRACT_REWORK", "0")
+                return text
             newer_id = "outbox-rework-generation-3-mid-processing"
             worker_db.add(
                 OutboxEvent(
@@ -817,15 +848,18 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
         monkeypatch.setattr(
             contract_rework,
             "_extract_docx_text",
-            _insert_new_generation_after_initial_fence,
+            _interrupt_after_initial_fence,
         )
     worker_result = process_event(worker_db, generation["generation_id"])
     worker_db.close()
 
-    if superseded_during_processing:
+    if interruption is not None:
         assert worker_result["status"] == "superseded", worker_result
         assert worker_result["result"]["fenced"] is True
-        assert worker_result["result"]["current_generation"] == 3
+        if interruption == "new_generation":
+            assert worker_result["result"]["current_generation"] == 3
+        else:
+            assert worker_result["result"]["reason"] == "capability_disabled"
         db = isolated_session_local()
         versions = db.query(FinalMemorial).filter_by(task_id=task_id).all()
         assert [(row.version, row.is_current) for row in versions] == [(1, True)]

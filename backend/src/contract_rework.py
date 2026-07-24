@@ -55,9 +55,17 @@ def recompute_contract_review(
 ) -> dict[str, Any]:
     """Recompute only the declared contract section for the current generation."""
     from src.db.models import CourtReview, DecisionTask, OutboxEvent, SecureIngestArtifact
+    from src.w05_feature import w05_contract_rework_active
 
     payload = json.loads(event.payload_json or "{}")
     affected_sections = payload.get("affected_sections")
+    if not w05_contract_rework_active():
+        return {
+            "fenced": True,
+            "reason": "capability_disabled",
+            "generation": event.generation,
+            "affected_sections": affected_sections,
+        }
     if affected_sections != ["contract_review"]:
         raise ValueError("W05 只允许重算 contract_review section")
 
@@ -142,7 +150,7 @@ def recompute_contract_review(
         mission_contract_id=event.task_id,
         revision=event.generation,
         evaluated_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        capability_active=True,
+        capability_active=w05_contract_rework_active(),
     )
     supported = support.support_status == "SUPPORTED"
     pack_id = "review_pack_" + hashlib.sha256(event.id.encode("utf-8")).hexdigest()[:16]
@@ -180,6 +188,13 @@ def recompute_contract_review(
     from src.execution.decree_dispatcher import lock_evidence_rework_task
 
     lock_evidence_rework_task(db, event.task_id)
+    if not w05_contract_rework_active():
+        return {
+            "fenced": True,
+            "reason": "capability_disabled",
+            "generation": event.generation,
+            "affected_sections": affected_sections,
+        }
     current_generation = (
         db.query(func.max(OutboxEvent.generation))
         .filter_by(task_id=event.task_id)

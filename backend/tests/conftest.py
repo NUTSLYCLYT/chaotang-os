@@ -23,6 +23,9 @@ os.environ.setdefault("FENGQUN_JWT_SECRET", "test-only-" + "x" * 40)
 # autouse monkeypatch cannot replace later.
 os.environ["DB_URL"] = "sqlite:///:memory:"
 os.environ["FENGQUN_SCHEMA_MODE"] = "test"
+# Production defaults W05 off. Tests that exercise the authorized W05 packet
+# opt in explicitly before application modules are imported.
+os.environ.setdefault("FENGQUN_W05_CONTRACT_REWORK", "1")
 # src.tenant uses a separate legacy sqlite3 connection rather than the
 # SQLAlchemy engine above.  Bind it to a process-unique temporary file before
 # any test module can import src.tenant, and enable the connection-time guard.

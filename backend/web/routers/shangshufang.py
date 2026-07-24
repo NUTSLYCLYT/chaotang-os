@@ -780,6 +780,10 @@ def _execute_final_memorial_decision(
 ) -> dict[str, Any]:
     """Single task/brief adjudication writer with exact-hash CAS and rework parity."""
     evidence_actions = {"request_evidence", "followup"}
+    if action in evidence_actions:
+        from src.w05_feature import require_w05_contract_rework
+
+        require_w05_contract_rework()
     formal_actions = {"adopt", "approve", "archive", "reject", *evidence_actions}
     target_status = {
         "adopt": "archived",
@@ -1863,9 +1867,11 @@ def bind_rework_generation_evidence(
     from src.contracts.evidence_packet import EvidencePacketV1
     from src.db.engine import SessionLocal
     from src.db.models import OutboxEvent, SecureIngestArtifact
+    from src.w05_feature import require_w05_contract_rework
 
     db = SessionLocal()
     try:
+        require_w05_contract_rework()
         task = db.query(DecisionTask).filter_by(id=task_id).first()
         if task is None:
             return fail("task_id 不存在")

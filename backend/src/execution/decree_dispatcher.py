@@ -85,7 +85,9 @@ def enqueue_evidence_rework_generation(
     """Create or reuse the generation bound to one exact evidence request."""
     from src.core_tenant_lineage import tenant_id_for_task
     from src.db.models import OutboxEvent
+    from src.w05_feature import require_w05_contract_rework
 
+    require_w05_contract_rework()
     lock_evidence_rework_task(db, task_id)
     idempotency_key = evidence_rework_idempotency_key(
         task_id=task_id,

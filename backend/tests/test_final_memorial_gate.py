@@ -657,6 +657,53 @@ def test_request_evidence_rejects_stale_memorial_content_hash(
     )
 
 
+def test_w05_contract_rework_defaults_off_without_creating_generation(
+    isolated_session_local,
+    monkeypatch,
+):
+    """未明确启用 W05 时，补证请求不得改变奏折或创建 generation。"""
+    from src.db.models import EmperorDecision, FinalMemorial, OutboxEvent
+    from src.formal_memorial import formalize_memorial
+
+    monkeypatch.delenv("FENGQUN_W05_CONTRACT_REWORK", raising=False)
+    db = isolated_session_local()
+    task_id = "task_w05_feature_disabled_request"
+    review_id = _seed_candidate(db, task_id=task_id)
+    formal = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id,
+            review_id=review_id,
+            source_label="LIVE_SWARM",
+        ),
+    )
+    content_hash = formal.content_hash
+    db.commit()
+    db.close()
+
+    response = TestClient(app).post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "request_evidence",
+            "reason": "补充付款条件原文",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": content_hash,
+        },
+    ).json()
+
+    assert response["success"] is False, response
+    assert "W05" in response["error"]
+    db = isolated_session_local()
+    assert db.query(OutboxEvent).filter_by(task_id=task_id).count() == 0
+    assert db.query(EmperorDecision).filter_by(task_id=task_id).count() == 0
+    current = db.query(FinalMemorial).filter_by(task_id=task_id).one()
+    assert current.status == "ready_for_decision"
+    assert current.is_current is True
+    db.close()
+
+
 def test_repeated_evidence_request_reuses_one_rework_generation(
     isolated_session_local,
 ):
@@ -808,13 +855,18 @@ def test_current_memorial_claim_is_atomic_for_competing_decisions(
     db.close()
 
 
+@pytest.mark.parametrize("capability_active", [True, False])
 def test_accepted_upload_binds_to_waiting_rework_generation(
     isolated_session_local,
+    monkeypatch,
+    capability_active,
 ):
     """安全摄取通过的附件才能形成 generation-bound EvidencePacket。"""
+    from src.db.models import OutboxEvent
     from src.formal_memorial import formalize_memorial
     from tests.fixtures.secure_ingest_fixtures import golden_docx_bytes
 
+    monkeypatch.setenv("FENGQUN_W05_CONTRACT_REWORK", "1")
     db = isolated_session_local()
     task_id = "task_bind_accepted_evidence"
     review_id = _seed_candidate(db, task_id=task_id)
@@ -856,6 +908,8 @@ def test_accepted_upload_binds_to_waiting_rework_generation(
     ).json()
     assert uploaded["status"] == "ACCEPTED", uploaded
 
+    if not capability_active:
+        monkeypatch.setenv("FENGQUN_W05_CONTRACT_REWORK", "0")
     bound = client.post(
         (
             f"/api/shangshufang/tasks/{task_id}/rework-generations/"
@@ -866,6 +920,16 @@ def test_accepted_upload_binds_to_waiting_rework_generation(
 
     assert bound.status_code == 200
     payload = bound.json()
+    if not capability_active:
+        assert payload["success"] is False, payload
+        assert "W05" in payload["error"]
+        db = isolated_session_local()
+        stored = db.query(OutboxEvent).filter_by(id=generation["generation_id"]).one()
+        assert stored.status == "awaiting_evidence"
+        assert "evidence_packets" not in json.loads(stored.payload_json)
+        db.close()
+        return
+
     assert payload["success"] is True, payload
     packet = payload["data"]["evidence_packet"]
     assert packet["schema_version"] == "EvidencePacketV1"
