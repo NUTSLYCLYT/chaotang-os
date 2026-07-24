@@ -15,7 +15,7 @@ import os
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from src.chancellor.contracts import RouteDecisionV2
@@ -114,7 +114,10 @@ class DecisionRequest(BaseModel):
     human_confirmed: bool = True
     human_confirmation_note: str | None = None
     followup_question: str | None = None
-    expected_final_memorial_content_hash: str | None = None
+    expected_final_memorial_content_hash: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+    )
 
 
 class EvidenceBindRequest(BaseModel):
@@ -283,7 +286,10 @@ class BriefDecisionAdvanceRequest(BaseModel):
     reason: str = ""
     executionType: str | None = None
     manualConfirmation: bool = False
-    expectedFinalMemorialContentHash: str | None = None
+    expectedFinalMemorialContentHash: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+    )
 
 
 def _json(value: Any) -> str:
@@ -297,6 +303,10 @@ def _loads(raw: str | None, default: Any) -> Any:
         return json.loads(raw)
     except json.JSONDecodeError:
         return default
+
+
+def _http_fail(status_code: int, message: str) -> JSONResponse:
+    return JSONResponse(status_code=status_code, content=fail(message))
 
 
 def _user_id(user: CurrentUser) -> str:
@@ -1803,7 +1813,13 @@ def shangshufang_task_status(
         db.close()
 
 
-@router.post("/tasks/{task_id}/decision")
+@router.post(
+    "/tasks/{task_id}/decision",
+    responses={
+        404: {"description": "Task not found or not owned by requester"},
+        409: {"description": "Stale or conflicting FinalMemorial decision"},
+    },
+)
 def shangshufang_task_decision(
     task_id: str,
     body: DecisionRequest,
@@ -1815,9 +1831,9 @@ def shangshufang_task_decision(
     try:
         task = db.query(DecisionTask).filter_by(id=task_id).first()
         if task is None:
-            return fail("task_id 不存在")
+            return _http_fail(404, "task_id 不存在")
         if task.user_id != _user_id(user):
-            return fail("无权裁决该任务")
+            return _http_fail(404, "无权裁决该任务")
         review = (
             db.query(CourtReview)
             .filter_by(task_id=task_id)
@@ -1882,9 +1898,12 @@ def shangshufang_task_decision(
                 "rework_generation": rework_generation,
             }
         )
+    except ValueError as exc:
+        db.rollback()
+        return _http_fail(409, str(exc))
     except Exception as exc:  # noqa: BLE001
         db.rollback()
-        return fail(str(exc))
+        return _http_fail(500, str(exc))
     finally:
         db.close()
 
@@ -1892,6 +1911,11 @@ def shangshufang_task_decision(
 @router.post(
     "/tasks/{task_id}/rework-generations/{generation_id}/evidence",
     response_model=EvidenceBindResponse,
+    responses={
+        403: {"description": "Contract body access denied"},
+        404: {"description": "Task, generation, or artifact not found"},
+        409: {"description": "Capability, generation, or frozen-scope conflict"},
+    },
 )
 def bind_rework_generation_evidence(
     task_id: str,
@@ -1917,9 +1941,9 @@ def bind_rework_generation_evidence(
         require_w05_contract_rework()
         task = db.query(DecisionTask).filter_by(id=task_id).first()
         if task is None:
-            return fail("task_id 不存在")
+            return _http_fail(404, "task_id 不存在")
         if task.user_id != _user_id(user):
-            return fail("无权绑定该任务的补证")
+            return _http_fail(404, "无权绑定该任务的补证")
 
         generation = (
             db.query(OutboxEvent)
@@ -1930,12 +1954,14 @@ def bind_rework_generation_evidence(
             )
             .first()
         )
-        if generation is None or generation.status not in {
+        if generation is None:
+            return _http_fail(404, "补证 generation 不存在")
+        if generation.status not in {
             "awaiting_evidence",
             "evidence_bound",
             "pending",
         }:
-            return fail("补证 generation 不存在或不再等待证据")
+            return _http_fail(409, "补证 generation 不再等待证据")
 
         artifact = (
             db.query(SecureIngestArtifact)
@@ -1949,7 +1975,7 @@ def bind_rework_generation_evidence(
             .first()
         )
         if artifact is None:
-            return fail("附件不存在、未通过安全摄取或不属于当前任务")
+            return _http_fail(404, "附件不存在、未通过安全摄取或不属于当前任务")
 
         body_access = authorize_body_access(
             user_id=user.user_id,
@@ -1959,7 +1985,10 @@ def bind_rework_generation_evidence(
             purpose="contract_review",
         )
         if not body_access.allowed:
-            return fail(f"附件正文访问未授权: {body_access.deny_reason}")
+            return _http_fail(
+                403,
+                f"附件正文访问未授权: {body_access.deny_reason}",
+            )
 
         generation_payload = _loads(generation.payload_json, {})
         supplied_scope = (
@@ -1974,7 +2003,7 @@ def bind_rework_generation_evidence(
             and supplied_scope is not None
             and effective_frozen_scope != supplied_scope
         ):
-            return fail("合同支持范围已经冻结，不能在补证时替换")
+            return _http_fail(409, "合同支持范围已经冻结，不能在补证时替换")
 
         if generation.status in {"evidence_bound", "pending"}:
             packets = generation_payload.get("evidence_packets", [])
@@ -1987,9 +2016,12 @@ def bind_rework_generation_evidence(
                 None,
             )
             if existing_packet is None:
-                return fail("补证 generation 已绑定其他证据")
+                return _http_fail(409, "补证 generation 已绑定其他证据")
             if effective_frozen_scope is None and supplied_scope is not None:
-                return fail("补证 generation 已绑定，不能在重试时追加合同支持范围")
+                return _http_fail(
+                    409,
+                    "补证 generation 已绑定，不能在重试时追加合同支持范围",
+                )
             return ok(
                 {
                     "task_id": task_id,
@@ -2077,7 +2109,7 @@ def bind_rework_generation_evidence(
                 None,
             )
             if existing_packet is None:
-                return fail("补证 generation 已绑定其他证据")
+                return _http_fail(409, "补证 generation 已绑定其他证据")
             return ok(
                 {
                     "task_id": task_id,
@@ -2093,9 +2125,12 @@ def bind_rework_generation_evidence(
                 "rework_generation": generation_payload,
             }
         )
+    except ValueError as exc:
+        db.rollback()
+        return _http_fail(409, str(exc))
     except Exception as exc:  # noqa: BLE001
         db.rollback()
-        return fail(str(exc))
+        return _http_fail(500, str(exc))
     finally:
         db.close()
 
@@ -2689,7 +2724,13 @@ def shangshufang_brief_decision(
     return shangshufang_brief_decision_advance(brief_id, body, user)
 
 
-@router.post("/briefs/{brief_id}/decision/advance")
+@router.post(
+    "/briefs/{brief_id}/decision/advance",
+    responses={
+        404: {"description": "Brief or task not found or not owned by requester"},
+        409: {"description": "Stale or conflicting FinalMemorial decision"},
+    },
+)
 def shangshufang_brief_decision_advance(
     brief_id: str,
     body: BriefDecisionAdvanceRequest,
@@ -2701,12 +2742,12 @@ def shangshufang_brief_decision_advance(
     try:
         review = db.query(CourtReview).filter_by(id=brief_id).first()
         if review is None:
-            return fail("brief_id 不存在")
+            return _http_fail(404, "brief_id 不存在")
         task = db.query(DecisionTask).filter_by(id=review.task_id).first()
         if task is None:
-            return fail("task_id 不存在")
+            return _http_fail(404, "task_id 不存在")
         if task.user_id != _user_id(user):
-            return fail("无权裁决该任务")
+            return _http_fail(404, "无权裁决该任务")
         mapping = {
             "issue_decree": "adopt",
             "request_more_evidence": "request_evidence",
@@ -2740,9 +2781,12 @@ def shangshufang_brief_decision_advance(
                 "rework_generation": outcome["rework_generation"],
             }
         )
+    except ValueError as exc:
+        db.rollback()
+        return _http_fail(409, str(exc))
     except Exception as exc:  # noqa: BLE001
         db.rollback()
-        return fail(str(exc))
+        return _http_fail(500, str(exc))
     finally:
         db.close()
 

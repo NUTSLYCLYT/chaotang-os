@@ -1025,10 +1025,12 @@ def test_evidence_bind_cannot_replace_frozen_contract_scope(
                 "our_role": "seller",
             },
         },
-    ).json()
+    )
 
-    assert response["success"] is False
-    assert "范围已经冻结" in response["error"]
+    assert response.status_code == 409
+    payload = response.json()
+    assert payload["success"] is False
+    assert "范围已经冻结" in payload["error"]
     db = isolated_session_local()
     task = db.query(DecisionTask).filter_by(id=task_id).one()
     generation = db.query(OutboxEvent).filter_by(id=generation_id).one()

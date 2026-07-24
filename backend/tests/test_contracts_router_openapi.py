@@ -55,3 +55,24 @@ def test_w05_evidence_bind_response_is_typed_in_openapi() -> None:
         sort_keys=True,
     )
     assert "EvidencePacketV1" in serialized_components
+
+
+def test_w05_openapi_declares_runtime_error_statuses() -> None:
+    from web.main import app
+
+    paths = app.openapi()["paths"]
+    expected = {
+        "/api/shangshufang/tasks/{task_id}/decision": {"200", "404", "409", "422"},
+        "/api/shangshufang/briefs/{brief_id}/decision/advance": {
+            "200",
+            "404",
+            "409",
+            "422",
+        },
+        (
+            "/api/shangshufang/tasks/{task_id}/rework-generations/"
+            "{generation_id}/evidence"
+        ): {"200", "403", "404", "409", "422"},
+    }
+    for path, statuses in expected.items():
+        assert statuses <= set(paths[path]["post"]["responses"])

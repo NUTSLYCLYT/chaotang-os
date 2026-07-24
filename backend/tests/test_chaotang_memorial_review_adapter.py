@@ -218,7 +218,57 @@ def test_approve_archives_through_formal_decision(
     with isolated_session_local() as db:
         task = db.get(DecisionTask, "review_approve_task")
         formal = db.query(FinalMemorial).filter_by(task_id=task.id).one()
+        decision = db.query(EmperorDecision).filter_by(task_id=task.id).one()
         event = db.query(DecreeExecutionEvent).filter_by(task_id=task.id).one()
         assert task.status == "archived"
         assert formal.status == "archived"
+        assert (
+            json.loads(decision.confirmation_record_json)[
+                "final_memorial_content_hash"
+            ]
+            == formal.content_hash
+        )
         assert event.event_type == "decision.adopted"
+
+
+def test_legacy_review_rejects_run_that_is_not_current_memorial_identity(
+    isolated_session_local,
+    monkeypatch,
+    tmp_path,
+):
+    import src.chaotang_store as store
+    import web.routers.chaotang as chaotang
+
+    monkeypatch.setattr(store, "_DATA_ROOT", tmp_path)
+    monkeypatch.setattr(chaotang, "load_run", lambda run_id: _Run())
+    monkeypatch.setattr(store, "feedback_to_knowledge", lambda **kwargs: None)
+    _seed_mapping(
+        isolated_session_local,
+        task_id="review_stale_legacy_run_task",
+        run_id="run_stale_legacy",
+        final_ready=True,
+    )
+    with isolated_session_local() as db:
+        formal = (
+            db.query(FinalMemorial)
+            .filter_by(task_id="review_stale_legacy_run_task")
+            .one()
+        )
+        formal.swarm_run_id = "run_current_formal"
+        db.commit()
+
+    response = TestClient(app).post(
+        "/api/chaotang/memorials/run_stale_legacy/review",
+        json={"action": "approve", "comment": "不应裁决旧 run"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["success"] is False
+    assert "当前正式奏折" in response.json()["error"]
+    with isolated_session_local() as db:
+        assert (
+            db.query(EmperorDecision)
+            .filter_by(task_id="review_stale_legacy_run_task")
+            .count()
+            == 0
+        )

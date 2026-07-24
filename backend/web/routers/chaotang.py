@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from web.deps import get_current_user
@@ -46,7 +46,6 @@ from src.decree_swarm_router import (
     select_model_tier,
     select_orchestration_tier,
 )
-from src.emperor_decision_kind import emperor_decision_kind
 from src.chaotang_launch_loop import (
     build_launch_loop_case,
     build_prior_context,
@@ -816,12 +815,11 @@ def memorial_review(
         return fail(f"奏折 {run_id} 不存在")
 
     from src.db.engine import SessionLocal
-    from src.db.models import CourtLoopRun, CourtReview, EmperorDecision
-    from src.shangshufang_loop import make_id, now_iso
+    from src.db.models import CourtLoopRun, CourtReview, FinalMemorial
+    from src.shangshufang_loop import make_id
     from web.routers.shangshufang import (
         LOOP_ID,
-        apply_task_decision,
-        record_task_decision_event,
+        _execute_final_memorial_decision,
     )
 
     action_map = {
@@ -843,69 +841,67 @@ def memorial_review(
             return fail(access_error or "无权裁决该任务")
 
         canonical_action = action_map[body.action]
-        now = now_iso()
-        decision = EmperorDecision(
-            id=make_id("decision", task.id, canonical_action, now),
-            tenant_id=task.tenant_id,
-            task_id=task.id,
-            action=canonical_action,
-            kind=emperor_decision_kind(canonical_action),
-            reason=body.comment,
-            human_confirmed=True,
-            confirmation_record_json=json.dumps(
-                {"user_id": owner_id, "at": now, "legacy_memorial_id": run_id},
-                ensure_ascii=False,
-            ),
-            created_at=now,
+        current_formal = (
+            db.query(FinalMemorial)
+            .filter_by(task_id=task.id, is_current=True)
+            .first()
         )
-        db.add(decision)
+        if current_formal is not None and current_formal.swarm_run_id != run_id:
+            return JSONResponse(
+                status_code=409,
+                content=fail("该 run 不是当前正式奏折身份，请刷新后再裁决"),
+            )
         court_review = (
             db.query(CourtReview)
             .filter_by(task_id=task.id)
             .order_by(CourtReview.created_at.desc())
             .first()
         )
-        archive_record = apply_task_decision(
+        outcome = _execute_final_memorial_decision(
             db,
             task=task,
             review=court_review,
             action=canonical_action,
             reason=body.comment,
             human_confirmed=True,
-            now=now,
-        )
-        record_task_decision_event(
-            db,
-            task=task,
-            decision=decision,
-            archive_record=archive_record,
+            expected_content_hash=(
+                current_formal.content_hash if current_formal is not None else None
+            ),
+            actor_user_id=owner_id,
+            confirmation_extra={"legacy_memorial_id": run_id},
         )
         rec = chaotang_store.build_review_record(
             run_id, action=body.action, comment=body.comment, reviewer=reviewer
         )
-        db.add(
-            CourtLoopRun(
-                id=make_id("loop", task.id, "legacy-review", canonical_action, now),
-                task_id=task.id,
-                loop_id=LOOP_ID,
-                status=task.status,
-                input_json=json.dumps(
-                    {"run_id": run_id, **body.model_dump()}, ensure_ascii=False
-                ),
-                output_json=json.dumps(
-                    {"decision_id": decision.id, "task_status": task.status},
-                    ensure_ascii=False,
-                ),
-                trace_id=decision.id,
-                created_at=now,
-                updated_at=now,
+        if not outcome["replayed"]:
+            now = outcome["now"]
+            db.add(
+                CourtLoopRun(
+                    id=make_id("loop", task.id, "legacy-review", canonical_action, now),
+                    task_id=task.id,
+                    loop_id=LOOP_ID,
+                    status=task.status,
+                    input_json=json.dumps(
+                        {"run_id": run_id, **body.model_dump()}, ensure_ascii=False
+                    ),
+                    output_json=json.dumps(
+                        {
+                            "decision_id": outcome["decision_id"],
+                            "task_status": task.status,
+                        },
+                        ensure_ascii=False,
+                    ),
+                    trace_id=outcome["decision_id"],
+                    created_at=now,
+                    updated_at=now,
+                )
             )
-        )
         task_status = task.status
-        db.commit()
+        if not outcome["replayed"]:
+            db.commit()
     except (KeyError, ValueError) as exc:
         db.rollback()
-        return fail(str(exc))
+        return JSONResponse(status_code=409, content=fail(str(exc)))
     except Exception as exc:
         db.rollback()
         return fail(f"memorial_review_failed: {exc}")

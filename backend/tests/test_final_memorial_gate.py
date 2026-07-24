@@ -612,6 +612,7 @@ def test_request_evidence_requires_current_memorial_content_hash(
         },
     )
 
+    assert response.status_code == 409
     assert response.json()["success"] is False
     assert "content hash" in response.json()["error"]
 
@@ -646,6 +647,7 @@ def test_request_evidence_rejects_stale_memorial_content_hash(
         },
     )
 
+    assert response.status_code == 409
     assert response.json()["success"] is False
     assert "已变化" in response.json()["error"]
 
@@ -655,6 +657,35 @@ def test_request_evidence_rejects_stale_memorial_content_hash(
         status.json()["data"]["formal_memorial"]["status"]
         == "ready_for_decision"
     )
+
+
+@pytest.mark.parametrize(
+    ("path", "body"),
+    [
+        (
+            "/api/shangshufang/tasks/invalid-hash/decision",
+            {
+                "action": "request_evidence",
+                "expected_final_memorial_content_hash": "A" * 64,
+            },
+        ),
+        (
+            "/api/shangshufang/briefs/invalid-hash/decision/advance",
+            {
+                "decision": "request_more_evidence",
+                "expectedFinalMemorialContentHash": "short",
+            },
+        ),
+    ],
+)
+def test_decision_exact_hash_fields_reject_non_canonical_sha256(
+    path,
+    body,
+    isolated_session_local,
+):
+    response = TestClient(app).post(path, json=body)
+
+    assert response.status_code == 422
 
 
 def test_w05_contract_rework_defaults_off_without_creating_generation(
@@ -1095,7 +1126,7 @@ def test_accepted_upload_binds_to_waiting_rework_generation(
         json={"artifact_id": uploaded["artifact_id"]},
     )
 
-    assert bound.status_code == 200
+    assert bound.status_code == (200 if capability_active else 409)
     payload = bound.json()
     if not capability_active:
         assert payload["success"] is False, payload
@@ -1227,9 +1258,11 @@ def test_evidence_binding_enforces_owner_and_body_access_policy(
             f"{generation['generation_id']}/evidence"
         ),
         json={"artifact_id": uploaded["artifact_id"]},
-    ).json()
+    )
 
-    assert response["success"] is False, response
+    assert response.status_code == (404 if denial == "cross_user" else 403)
+    payload = response.json()
+    assert payload["success"] is False, payload
     db = isolated_session_local()
     stored = db.query(OutboxEvent).filter_by(id=generation["generation_id"]).one()
     assert stored.status == "awaiting_evidence"
