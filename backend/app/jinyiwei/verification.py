@@ -5,10 +5,11 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from types import MappingProxyType
 from urllib.parse import urlsplit
 
+from app.jinyiwei.freshness import is_evidence_fresh
 from app.jinyiwei.models import (
     DataGapRequest,
     EvidenceConflict,
@@ -177,20 +178,14 @@ def _parse_time(value: str) -> datetime:
 def _is_fresh(
     item: EvidenceItem, request: DataGapRequest, now: datetime
 ) -> bool:
-    as_of = _parse_time(item.as_of)
-    if as_of > now:
-        return False
-    freshness = request.freshness
-    if (
-        freshness.max_age_seconds is not None
-        and as_of < now - timedelta(seconds=freshness.max_age_seconds)
-    ):
-        return False
-    if freshness.not_before is not None and as_of < _parse_time(
-        freshness.not_before
-    ):
-        return False
-    return True
+    return is_evidence_fresh(
+        as_of=item.as_of,
+        retrieved_at=item.retrieved_at,
+        request=request,
+        fact_key=item.fact_key,
+        source_type=item.source_type,
+        now=now,
+    )
 
 
 def _canonical_value(item: EvidenceItem) -> str:

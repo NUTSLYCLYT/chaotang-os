@@ -30,6 +30,7 @@ def _detail_with_public_source_metadata() -> InvestigationDetail:
                         "jurisdiction": "CN",
                         "expected_unit": "CNY",
                         "expected_shape": "number",
+                        "market_metric": "LAST_PRICE",
                     }
                 ],
                 "decision_context": "Prepare bureau opinion",

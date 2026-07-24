@@ -117,6 +117,7 @@ def _jinyiwei_request() -> DataGapRequest:
                     "jurisdiction": "CN",
                     "expected_unit": "CNY",
                     "expected_shape": "number",
+                    "market_metric": "LAST_PRICE",
                 }
             ],
             "decision_context": "Investment briefing",

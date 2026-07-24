@@ -32,11 +32,18 @@
   最小值，键绑定审批版本、确定性映射和严格参数哈希且不得含凭据；过期不命中，不能替代每次
   优先执行的史馆解析。Jinyiwei schema v4 只持久化逐调用的 server/tool、审批版本、耗时、
   参数哈希、响应字节数/哈希、映射结果与稳定错误，不保存请求/响应正文或秘密。
+- 大陆 A 股规范身份使用 provider-neutral `InstrumentRef`，首阶段只覆盖 SSE、SZSE、BSE
+  A 股。provider symbol 只允许由 MCP mapping/adapter 产生；禁止公司名称到代码的生产字面量
+  映射，名称歧义必须失败关闭。身份缓存寿命独立于 quote freshness；短名到尚未验证的法定
+  全称可做一次 original-only 安全复核。腾讯只批准已证明的 SSE/SZSE patterns，BSE 在另一
+  provider 能力真实证明和登记前返回 `provider_capability_missing`。完整决策见 ADR 0024。
 - MCP 服务账号首次 OAuth 只能由管理员通过受控 CLI 发起 Authorization Code + PKCE；
   loopback 回调只监听 `127.0.0.1`。Windows 本机凭据使用当前用户范围 DPAPI 加密并写入
-  `data/credentials/`，部署仍优先使用 Secret Manager 注入的 `env://` 凭据。授权成功不得
-  自动启用服务或工具，不得读取或复用 WorkBuddy 私有凭据；管理员身份与 CSRF 基础设施完成
-  前不得新增远程授权 API。完整决策见 ADR 0019。
+  `data/credentials/`；业务运行时仅在精确设置 `JINYIWEI_MCP_CREDENTIAL_SOURCE=local`
+  时读取它。未设置时默认 `env`，部署通过 Secret Manager 注入 `env://` 凭据且不得回退
+  本机文件。授权成功不得自动开启独立的公网门禁或启用服务/工具，不得读取或复用 WorkBuddy
+  私有凭据；管理员身份与 CSRF 基础设施完成前不得新增远程授权 API。完整决策见 ADR 0019
+  和 ADR 0022。
 - 只有 `app/agents/bureaus/` 的司级意见节点可以发起调查并最多恢复一次。同一旨意最多三次
   调查/恢复、30 秒外部工作和六次抽取；部级路由/综合、军机处、丞相路由/最终汇总只传递
   会话并消费司级意见，从不调用锦衣卫。真实非缓存调查首次成功后，流转路径只在对应首个司
@@ -44,9 +51,24 @@
 - 最终 `REPLY` 只保存恢复后司级响应显式选择的证据 ID 有序并集。史馆保存不可变引用快照，
   锦衣卫保存未采用材料及 PENDING/CONFIRMED 采用状态；跨库确认失败不得撤销回奏，可按
   `reply_id` 对账。
+- 模型继续负责通用丞相和部内路由。只有同时包含证券市场词与报价查询词的明确行情旨意，
+  才在既有严格路由校验后规范化为 `single + 户部`，并在户部有效司列表中把投资司置于首位
+  且去重；策略必须保持无供应商依赖，非行情路由与顺序不变。司级模型第一次无证据
+  `READY` 仅因 `unsupported_factual_dependency` 被拒绝时，只允许追加一次不含原响应、
+  异常或证据正文的静态纠正并要求 `NEEDS_DATA`；其它失败和再次不合规保持失败关闭。完整
+  决策见 ADR 0023。
+- 系统拥有的事实字段不得由模型提供；证据支持的保底答复必须只使用已冻结、已解析且当前
+  有效的证据。
 - 公网开关 `JINYIWEI_EXTERNAL_NETWORK_ENABLED` 默认关闭，只接受 `1`、`true`、`yes`、
   `on`。所有外部访问必须经过 `PinnedHTTPSClient` 的 HTTPS、公网 DNS 全量校验、固定 IP
   连接、TLS 主机名/对端校验、逐跳重定向复核、敏感头剥离和超时/体积/MIME 上限。
+- freshness 必须统一经过共享策略：普通事实和史馆证据按 `as_of` 严格判断；只有
+  `MARKET_QUOTE` 且来源类型为 `MCP` 或 `PUBLIC_API` 时，才可用新鲜的 `retrieved_at`
+  表示“刚查询的最新可得行情”，同时保留真实市场 `as_of`，并拒绝未来时间、
+  `not_before` 违规和超过 14 天的观测。不得把最近收盘价表述为实时成交价。
+- 凭据和网络门禁只允许暴露 `credential_unavailable`、`credential_source_invalid`、
+  `external_network_disabled` 等稳定安全错误码；未知客户端或上游错误必须收敛为
+  `fact_unavailable`，不得携带凭据、请求头、端点细节或响应正文。
 - 只读 API 只有 `GET /api/v1/jinyiwei/summary`、`GET /api/v1/jinyiwei/investigations`
   和 `GET /api/v1/jinyiwei/investigations/{investigation_id}`；不得新增网络触发、任意 URL、
   修改或删除入口。完整边界见 ADR 0018。
@@ -83,7 +105,7 @@ pytest 测试，ruff 静态检查，pip + venv 管理依赖。选型理由、取
   增量增加 `ministry_opinions[].bureau_opinions`、条件式 `council_verdict`（single 为
   `null`，multi 为非空字符串）和 `recommendations`。`processing_path` 按实际调用顺序记录
   司、部、军机处与最终丞相，不把未执行的现实动作写成已完成。模型编排不并发且不使用
-  LangGraph checkpointer，最坏 single 为 11 次、全六部 multi 为 54 次基础同步模型调用；
+  LangGraph checkpointer，最坏 single 为 12 次、全六部 multi 为 54 次基础同步模型调用；
   司级缺数可按 ADR 0018 追加最多一次调查与恢复，整体可能超过现有前端 120 秒超时；完整
   决策及对 ADR 0013 局部兼容结论的覆盖见 ADR 0014。已引入最小、无外部服务依赖的
   LangGraph 运行时基础模块（`app/langgraph_runtime/`，决策见
@@ -215,6 +237,16 @@ smoke 只允许 `tools/list`、`data_search`、`data_minute` 和 `data_quote`。
 请求头、账号信息或完整 MCP 响应，也不得调用 portfolio、alert、paper trade 或任何写工具。
 当前仓库配置是管理员显式批准后的 enabled 状态；网络显式开关和有效凭据任一门禁未完成时
 仍必须拒绝。授权本身不得改变配置启用状态。
+
+要让本机 `/study` 业务运行时复用管理员已授权的 DPAPI 凭据，启动后端时必须同时显式设置
+凭据来源和独立公网门禁：
+
+```powershell
+cd backend
+$env:JINYIWEI_EXTERNAL_NETWORK_ENABLED = "true"
+$env:JINYIWEI_MCP_CREDENTIAL_SOURCE = "local"
+.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
 
 生产环境不使用上述本机 DPAPI 流程。Secret Manager 把 OAuth JSON 注入
 `WESTOCK_MCP_CREDENTIAL`，Registry 的 `env://WESTOCK_MCP_CREDENTIAL` 路径和 smoke 默认的

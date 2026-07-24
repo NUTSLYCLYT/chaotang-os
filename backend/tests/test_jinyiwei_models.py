@@ -9,6 +9,68 @@ from app.jinyiwei import models
 
 
 class TestRequiredFactClassification:
+    def test_market_quote_requires_market_metric(self) -> None:
+        with pytest.raises(ValidationError, match="market_metric"):
+            models.RequiredFact(
+                key="price",
+                description="Latest price",
+                category=models.FactCategory.MARKET_QUOTE,
+                data_scope=models.DataScope.EXTERNAL_PUBLIC,
+                subject="BYD",
+            )
+
+    def test_non_market_fact_rejects_market_metric(self) -> None:
+        with pytest.raises(ValidationError, match="market_metric"):
+            models.RequiredFact(
+                key="profile",
+                description="Company profile",
+                category=models.FactCategory.ENTITY_REFERENCE,
+                data_scope=models.DataScope.EXTERNAL_PUBLIC,
+                subject="BYD",
+                market_metric=models.MarketMetric.LAST_PRICE,
+            )
+
+    def test_market_metric_changes_request_fingerprint(self) -> None:
+        base = {
+            "request_id": "req-market",
+            "requesting_agent": "hubu",
+            "question": "What market data is current?",
+            "decision_context": "Compare quote semantics",
+            "freshness": {"max_age_seconds": 300},
+            "timeout_seconds": 30,
+            "source_scope": ("MCP",),
+        }
+        last_price = models.DataGapRequest(
+            **base,
+            required_facts=(
+                models.RequiredFact(
+                    key="market_data",
+                    description="Latest share price",
+                    category="MARKET_QUOTE",
+                    data_scope="EXTERNAL_PUBLIC",
+                    subject="BYD",
+                    jurisdiction="CN",
+                    market_metric=models.MarketMetric.LAST_PRICE,
+                ),
+            ),
+        )
+        intraday = models.DataGapRequest(
+            **base,
+            required_facts=(
+                models.RequiredFact(
+                    key="market_data",
+                    description="Latest share price",
+                    category="MARKET_QUOTE",
+                    data_scope="EXTERNAL_PUBLIC",
+                    subject="BYD",
+                    jurisdiction="CN",
+                    market_metric=models.MarketMetric.INTRADAY_SERIES,
+                ),
+            ),
+        )
+
+        assert last_price.request_fingerprint != intraday.request_fingerprint
+
     def test_required_fact_requires_category_and_subject(self) -> None:
         with pytest.raises(ValidationError):
             models.RequiredFact(
@@ -17,6 +79,7 @@ class TestRequiredFactClassification:
                 category="MARKET_QUOTE",
                 data_scope="EXTERNAL_PUBLIC",
                 subject="   ",
+                market_metric="LAST_PRICE",
             )
 
     def test_required_fact_requires_explicit_data_scope(self) -> None:
@@ -27,6 +90,7 @@ class TestRequiredFactClassification:
             data_scope="EXTERNAL_PUBLIC",
             subject="比亚迪",
             jurisdiction="CN",
+            market_metric="LAST_PRICE",
         )
 
         assert fact.data_scope is models.DataScope.EXTERNAL_PUBLIC
@@ -37,6 +101,7 @@ class TestRequiredFactClassification:
                 category="MARKET_QUOTE",
                 subject="比亚迪",
                 jurisdiction="CN",
+                market_metric="LAST_PRICE",
             )
 
     def test_required_fact_accepts_global_market_quote(self) -> None:
@@ -47,6 +112,7 @@ class TestRequiredFactClassification:
             data_scope="EXTERNAL_PUBLIC",
             subject="BYD",
             jurisdiction=None,
+            market_metric="LAST_PRICE",
         )
 
         assert fact.category is models.FactCategory.MARKET_QUOTE
@@ -63,6 +129,7 @@ class TestRequiredFactClassification:
                 data_scope="EXTERNAL_PUBLIC",
                 subject="BYD",
                 jurisdiction=jurisdiction,
+                market_metric="LAST_PRICE",
             )
 
 
@@ -180,6 +247,7 @@ class TestApprovedSchemas:
             "jurisdiction",
             "expected_unit",
             "expected_shape",
+            "market_metric",
         }
 
     def test_freshness_is_bounded_data_and_requires_one_constraint(self) -> None:
@@ -276,6 +344,16 @@ class TestBoundsEnumsAndStrictness:
             "INTERNAL_BUSINESS",
             "EXTERNAL_PUBLIC",
             "HYBRID",
+        ]
+        assert [value.value for value in models.MarketMetric] == [
+            "LAST_PRICE",
+            "VOLUME",
+            "CHANGE_PERCENT",
+            "INTRADAY_SERIES",
+            "PE_RATIO",
+            "PB_RATIO",
+            "MARKET_CAP",
+            "PRICE_TREND_30D",
         ]
         assert [value.value for value in models.EvidenceQuality] == [
             "PRIMARY",

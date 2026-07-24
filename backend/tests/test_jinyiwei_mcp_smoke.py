@@ -20,7 +20,8 @@ from app.jinyiwei.mcp.registry import (
     approval_fingerprint,
     load_default_registry,
 )
-from app.jinyiwei.mcp.smoke import run_smoke
+from app.jinyiwei.mcp.smoke import _quote_fact, run_smoke
+from app.jinyiwei.models import MarketMetric
 
 
 def _enabled_registry() -> McpRegistry:
@@ -446,6 +447,59 @@ def test_minute_smoke_uses_search_then_minute_and_emits_market_time() -> None:
     }
     assert emitted["response_bytes"] > 0
     assert credentials.calls == ["westock"]
+
+
+@pytest.mark.parametrize(
+    ("tool_name", "expected_metric"),
+    (
+        ("data_quote", MarketMetric.LAST_PRICE),
+        ("data_minute", MarketMetric.INTRADAY_SERIES),
+    ),
+)
+def test_smoke_fact_uses_tool_specific_market_metric(
+    tool_name: str,
+    expected_metric: MarketMetric,
+) -> None:
+    fact = _quote_fact("BYD", "CN", tool_name)
+
+    assert fact.market_metric is expected_metric
+
+
+def test_smoke_rejects_metric_mismatch_before_credentials_or_client_calls() -> None:
+    baseline = _enabled_registry()
+    payload = {
+        "servers": [server.model_dump(mode="json") for server in baseline.servers],
+        "tools": [
+            approval.model_dump(mode="json")
+            for approval in baseline.approvals
+        ],
+    }
+    minute = next(
+        tool for tool in payload["tools"] if tool["tool_name"] == "data_minute"
+    )
+    minute["market_metrics"] = ["LAST_PRICE"]
+    registry = McpRegistry.from_mapping(payload)
+    client = _FixtureClient()
+    credentials = _CredentialProvider()
+
+    status, stdout, stderr, _client, _credentials = _invoke(
+        "--server",
+        "westock",
+        "--tool",
+        "data_minute",
+        "--query",
+        "BYD",
+        registry=registry,
+        client=client,
+        credential_provider=credentials,
+    )
+
+    assert status == 2
+    assert stdout == ""
+    assert json.loads(stderr)["status"] == "tool_not_allowed"
+    assert credentials.calls == []
+    assert client.discoveries == []
+    assert client.calls == []
 
 
 def test_remote_failure_is_redacted_from_stderr() -> None:

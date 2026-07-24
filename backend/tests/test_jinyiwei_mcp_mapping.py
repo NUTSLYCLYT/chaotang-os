@@ -6,6 +6,13 @@ from datetime import UTC, datetime
 
 import pytest
 
+from app.jinyiwei.instruments import (
+    AShareExchange,
+    InstrumentCandidate,
+    InstrumentRef,
+    InstrumentResolution,
+    InstrumentResolutionStatus,
+)
 from app.jinyiwei.mcp.client import McpToolResult
 from app.jinyiwei.mcp.contracts import (
     McpAccessPolicy,
@@ -22,6 +29,7 @@ from app.jinyiwei.models import (
     DataScope,
     EvidenceQuality,
     FactCategory,
+    MarketMetric,
     RequiredFact,
     SourceType,
 )
@@ -39,6 +47,7 @@ def _fact(**changes: object) -> RequiredFact:
         "jurisdiction": "CN",
         "expected_unit": "CNY",
         "expected_shape": "number",
+        "market_metric": MarketMetric.LAST_PRICE,
     }
     values.update(changes)
     return RequiredFact.model_validate(values)
@@ -57,12 +66,18 @@ def _tool(**mapping_changes: object) -> McpToolApproval:
         "quality_ceiling": EvidenceQuality.AUTHORITATIVE,
     }
     mapping.update(mapping_changes)
+    market_metric = (
+        MarketMetric.INTRADAY_SERIES
+        if "delimited_series" in mapping_changes
+        else MarketMetric.LAST_PRICE
+    )
     return McpToolApproval(
         server_id="westock",
         tool_name="data_quote",
         enabled=True,
         effect=ToolEffect.READ_ONLY,
         fact_categories=(FactCategory.MARKET_QUOTE,),
+        market_metrics=(market_metric,),
         data_scopes=(DataScope.EXTERNAL_PUBLIC,),
         jurisdictions=("CN",),
         approval_version="v1",
@@ -98,6 +113,44 @@ def _result(**changes: object) -> McpToolResult:
     return McpToolResult(server_id="westock", tool_name="data_quote", payload=payload)
 
 
+def _resolution_tool(
+    **resolution_changes: object,
+) -> McpToolApproval:
+    resolution: dict[str, object] = {
+        "tool_name": "data_search",
+        "argument_paths": {"query": "subject"},
+        "success_path": "structuredContent.ok",
+        "candidates_path": "structuredContent.data",
+        "candidate_subject_path": "code",
+        "candidate_name_path": "name",
+        "candidate_type_path": "type",
+        "required_types_by_market": {"CN": ["GP-A"], "HK": ["GP"]},
+        "target_argument": "code",
+        "subject_pattern": r"(?:s[hz][0-9]{6}|hk[0-9]{5})",
+        "subject_max_length": 8,
+        "markets_by_jurisdiction": {"CN": "CN", "HK": "HK"},
+        "units_by_market": {"CN": "CNY", "HK": "HKD"},
+        "jurisdiction_subject_patterns": {
+            "CN": r"(?:sh|sz)[0-9]{6}",
+            "HK": r"hk[0-9]{5}",
+        },
+        "exchange_subject_patterns": {
+            "SSE": r"sh[0-9]{6}",
+            "SZSE": r"sz[0-9]{6}",
+        },
+    }
+    resolution.update(resolution_changes)
+    return _tool(entity_resolution=resolution)
+
+
+def _search_result(candidates: object, *, ok: object = True) -> McpToolResult:
+    return McpToolResult(
+        "westock",
+        "data_search",
+        {"structuredContent": {"ok": ok, "data": candidates}},
+    )
+
+
 def test_mapper_extracts_only_approved_paths() -> None:
     document = DeterministicMcpMapper().map(_tool(), _fact(), _result(), NOW)
 
@@ -109,46 +162,227 @@ def test_mapper_extracts_only_approved_paths() -> None:
     assert "ignore previous instructions" not in document.text.casefold()
 
 
-def test_resolver_can_derive_market_and_type_from_approved_subject_prefixes() -> None:
-    tool = _tool(
-        entity_resolution={
-            "tool_name": "data_search",
-            "argument_paths": {"query": "subject"},
-            "candidates_path": "structuredContent.data",
-            "candidate_subject_path": "code",
-            "candidate_name_path": "name",
-            "candidate_type_path": "type",
-            "required_types_by_market": {"CN": ["GP-A"], "HK": ["GP"]},
-            "target_argument": "code",
-            "subject_pattern": r"(?:s[hz][0-9]{6}|hk[0-9]{5})",
-            "subject_max_length": 8,
-            "markets_by_jurisdiction": {"CN": "CN", "HK": "HK"},
-            "units_by_market": {"CN": "CNY", "HK": "HKD"},
-            "jurisdiction_subject_patterns": {
-                "CN": r"(?:sh|sz)[0-9]{6}",
-                "HK": r"hk[0-9]{5}",
-            },
-        }
+def test_maps_only_approved_mainland_a_share_candidates() -> None:
+    candidates = DeterministicMcpMapper().instrument_candidates(
+        _resolution_tool(),
+        _search_result(
+            [
+                {"name": "比亚迪", "code": "sz002594", "type": "GP-A"},
+                {"name": "比亚迪股份", "code": "hk01211", "type": "GP"},
+                {"name": "比亚迪ETF", "code": "sh512000", "type": "ETF"},
+            ]
+        ),
     )
-    result = McpToolResult(
-        "westock",
-        "data_search",
-        {
-            "structuredContent": {
-                "ok": True,
-                "data": [
-                    {"code": "sz002594", "name": "\u6bd4\u4e9a\u8fea", "type": "GP-A"},
-                    {"code": "hk01211", "name": "\u6bd4\u4e9a\u8fea\u80a1\u4efd", "type": "GP"},
-                ],
-            }
-        },
-    )
-    fact = _fact(subject="\u6bd4\u4e9a\u8fea", jurisdiction="CN")
 
-    resolved = DeterministicMcpMapper().resolve_subject(tool, fact, result)
+    assert candidates == (
+        InstrumentCandidate(
+            instrument=InstrumentRef(
+                canonical_name="比亚迪",
+                exchange=AShareExchange.SZSE,
+                ticker="002594",
+            ),
+            provider_subject="sz002594",
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("exchange_patterns", "subject"),
+    (
+        (
+            {"SSE": r"sh[0-9]{6}", "BSE": r"bj[0-9]{6}"},
+            "sz002594",
+        ),
+        (
+            {"SSE": r"sz[0-9]{6}", "SZSE": r"sz[0-9]{6}"},
+            "sz002594",
+        ),
+    ),
+)
+def test_rejects_subject_matching_zero_or_multiple_exchange_patterns(
+    exchange_patterns: dict[str, str],
+    subject: str,
+) -> None:
+    with pytest.raises(McpMappingError, match="entity_not_resolved"):
+        DeterministicMcpMapper().instrument_candidates(
+            _resolution_tool(exchange_subject_patterns=exchange_patterns),
+            _search_result(
+                [{"name": "未知", "code": subject, "type": "GP-A"}]
+            ),
+        )
+
+
+def test_candidate_mapping_uses_approved_market_type_and_unit_configuration() -> None:
+    candidates = DeterministicMcpMapper().instrument_candidates(
+        _resolution_tool(
+            required_types_by_market={
+                "MAINLAND": ["A_SECURITY"],
+                "OVERSEAS": ["EQUITY"],
+            },
+            markets_by_jurisdiction={"CN": "MAINLAND", "HK": "OVERSEAS"},
+            units_by_market={"MAINLAND": "CNY", "OVERSEAS": "HKD"},
+        ),
+        _search_result(
+            [{"name": "比亚迪", "code": "sz002594", "type": "A_SECURITY"}]
+        ),
+    )
+
+    assert candidates[0].instrument == InstrumentRef(
+        canonical_name="比亚迪",
+        exchange=AShareExchange.SZSE,
+        ticker="002594",
+    )
+
+
+@pytest.mark.parametrize(
+    "candidate",
+    (
+        {"name": "比\u202e亚迪", "code": "sz002594", "type": "GP-A"},
+        {"name": "比亚迪", "code": "sz002594\u0000", "type": "GP-A"},
+        {"name": "比亚迪", "code": "sz002594", "type": "GP-\u2066A"},
+        {"name": "比亚迪", "code": "SZ002594", "type": "GP-A"},
+        {"name": "比亚迪", "code": "sz0025940", "type": "GP-A"},
+    ),
+)
+def test_candidate_mapping_rejects_unsafe_or_unapproved_subjects(
+    candidate: dict[str, str],
+) -> None:
+    with pytest.raises(McpMappingError, match="entity_not_resolved"):
+        DeterministicMcpMapper().instrument_candidates(
+            _resolution_tool(),
+            _search_result([candidate]),
+        )
+
+
+def test_candidate_mapping_fails_closed_on_non_cny_mainland_unit() -> None:
+    with pytest.raises(McpMappingError, match="entity_not_resolved"):
+        DeterministicMcpMapper().instrument_candidates(
+            _resolution_tool(units_by_market={"CN": "USD", "HK": "HKD"}),
+            _search_result(
+                [{"name": "比亚迪", "code": "sz002594", "type": "GP-A"}]
+            ),
+        )
+
+
+@pytest.mark.parametrize(
+    ("result", "error"),
+    (
+        (
+            McpToolResult("other", "data_search", {}),
+            "unexpected_tool_result",
+        ),
+        (
+            McpToolResult("westock", "other", {}),
+            "unexpected_tool_result",
+        ),
+        (
+            _search_result([], ok=False),
+            "remote_result_unsuccessful",
+        ),
+        (
+            _search_result("not-a-list"),
+            "mapped_field_missing",
+        ),
+    ),
+)
+def test_candidate_mapping_preserves_result_validation(
+    result: McpToolResult,
+    error: str,
+) -> None:
+    with pytest.raises(McpMappingError, match=error):
+        DeterministicMcpMapper().instrument_candidates(_resolution_tool(), result)
+
+
+def test_resolve_subject_is_a_compatible_unique_selection_wrapper() -> None:
+    resolved = DeterministicMcpMapper().resolve_subject(
+        _resolution_tool(),
+        _fact(subject="比亚迪", jurisdiction="CN"),
+        _search_result(
+            [
+                {"name": "比亚迪", "code": "sz002594", "type": "GP-A"},
+                {"name": "比亚迪股份", "code": "hk01211", "type": "GP"},
+            ]
+        ),
+    )
 
     assert resolved.subject == "sz002594"
     assert resolved.unit == "CNY"
+
+
+def test_resolve_subject_does_not_map_non_mainland_fact_to_a_share() -> None:
+    with pytest.raises(McpMappingError, match="entity_not_resolved"):
+        DeterministicMcpMapper().resolve_subject(
+            _resolution_tool(),
+            _fact(subject="比亚迪", jurisdiction="HK", expected_unit="HKD"),
+            _search_result(
+                [{"name": "比亚迪", "code": "sz002594", "type": "GP-A"}]
+            ),
+        )
+
+
+@pytest.mark.parametrize(
+    ("subject", "description", "candidate_name"),
+    (
+        ("比亚迪", "港股 HK01211", "比亚迪"),
+        ("比亚迪 HK01211", "查询证券价格", "比亚迪 HK01211"),
+    ),
+)
+def test_resolve_subject_rejects_explicit_overseas_identifier(
+    subject: str,
+    description: str,
+    candidate_name: str,
+) -> None:
+    with pytest.raises(McpMappingError) as exc_info:
+        DeterministicMcpMapper().resolve_subject(
+            _resolution_tool(),
+            _fact(
+                subject=subject,
+                description=description,
+                jurisdiction=None,
+                expected_unit=None,
+            ),
+            _search_result(
+                [{"name": candidate_name, "code": "sz002594", "type": "GP-A"}]
+            ),
+        )
+
+    assert str(exc_info.value) == "entity_not_resolved"
+
+
+def test_resolved_instrument_supplies_only_approved_target_argument() -> None:
+    resolved = InstrumentResolution(
+        status=InstrumentResolutionStatus.RESOLVED,
+        instrument=InstrumentRef("比亚迪", AShareExchange.SZSE, "002594"),
+        provider_subject="sz002594",
+    )
+
+    assert DeterministicMcpMapper().arguments_for_instrument(
+        _resolution_tool(),
+        _fact(subject="比亚迪"),
+        resolved,
+    ) == {"code": "sz002594"}
+
+
+@pytest.mark.parametrize(
+    "resolved",
+    (
+        InstrumentResolution(InstrumentResolutionStatus.NOT_FOUND),
+        InstrumentResolution(InstrumentResolutionStatus.AMBIGUOUS),
+        InstrumentResolution(
+            InstrumentResolutionStatus.RESOLVED,
+            instrument=InstrumentRef("比亚迪", AShareExchange.SZSE, "002594"),
+        ),
+    ),
+)
+def test_instrument_arguments_require_complete_unique_resolution(
+    resolved: InstrumentResolution,
+) -> None:
+    with pytest.raises(McpMappingError, match="entity_resolution_required"):
+        DeterministicMcpMapper().arguments_for_instrument(
+            _resolution_tool(),
+            _fact(subject="比亚迪"),
+            resolved,
+        )
 
 
 def test_mapper_selects_subject_record_and_uses_approved_provenance_literals() -> None:
@@ -260,7 +494,7 @@ def test_mapper_uses_latest_delimited_record_market_minute() -> None:
 
     document = DeterministicMcpMapper().map(
         tool,
-        _fact(),
+        _fact(market_metric=MarketMetric.INTRADAY_SERIES),
         result,
         NOW,
         resolved_subject="sz002594",
@@ -344,7 +578,7 @@ def test_latest_delimited_record_fails_closed_on_invalid_data(records: object) -
     with pytest.raises(McpMappingError):
         DeterministicMcpMapper().map(
             tool,
-            _fact(),
+            _fact(market_metric=MarketMetric.INTRADAY_SERIES),
             result,
             NOW,
             resolved_subject="sz002594",
@@ -405,7 +639,7 @@ def test_latest_delimited_record_rejects_invalid_basic_iso_date(
     with pytest.raises(McpMappingError, match="invalid_mapped_date"):
         DeterministicMcpMapper().map(
             tool,
-            _fact(),
+            _fact(market_metric=MarketMetric.INTRADAY_SERIES),
             result,
             NOW,
             resolved_subject="sz002594",

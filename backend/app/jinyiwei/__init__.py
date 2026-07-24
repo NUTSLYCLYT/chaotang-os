@@ -10,6 +10,18 @@ from app.jinyiwei.errors import (
     JinyiweiError,
     SourceUnavailableError,
 )
+from app.jinyiwei.instruments import (
+    AShareExchange,
+    InstrumentCandidate,
+    InstrumentHint,
+    InstrumentRef,
+    InstrumentResolution,
+    InstrumentResolutionStatus,
+    extract_instrument_hints,
+    has_out_of_scope_market_hint,
+    instrument_name_queries,
+    resolve_a_share,
+)
 from app.jinyiwei.models import (
     CacheMetadata,
     DataGapDraft,
@@ -44,6 +56,7 @@ from app.jinyiwei.verification import (
 )
 
 __all__ = [
+    "AShareExchange",
     "CacheMetadata",
     "DataGapDraft",
     "DataGapRequest",
@@ -61,6 +74,11 @@ __all__ = [
     "InvestigationPlan",
     "InvestigationCoordinator",
     "InvestigationUnavailableError",
+    "InstrumentCandidate",
+    "InstrumentHint",
+    "InstrumentRef",
+    "InstrumentResolution",
+    "InstrumentResolutionStatus",
     "McpCallAudit",
     "JinyiweiError",
     "RequiredFact",
@@ -69,6 +87,10 @@ __all__ = [
     "SourceType",
     "SourceUnavailableError",
     "VerificationResult",
+    "extract_instrument_hints",
+    "has_out_of_scope_market_hint",
+    "instrument_name_queries",
+    "resolve_a_share",
     "verify_evidence",
     "AdoptionStatus",
     "EvidenceAdoptionRead",

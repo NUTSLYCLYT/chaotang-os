@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -13,6 +16,9 @@ from app.agents.evidence_protocol import (
     bureau_node_id,
     invoke_bureau_with_evidence,
 )
+from app.agents.evidence_rendering import render_mainland_last_price
+from app.agents.market_fact_plan import compile_mainland_last_price_plan
+from app.jinyiwei.mcp.runtime import LOCAL_CREDENTIAL_SOURCE_ENV
 from app.jinyiwei.models import (
     CacheMetadata,
     DataGapRequest,
@@ -24,6 +30,7 @@ from app.jinyiwei.models import (
     EvidenceStance,
     FactCategory,
     InvestigationPlan,
+    MarketMetric,
     SourceType,
 )
 
@@ -62,6 +69,72 @@ def _gap(node_id: str, *, existing: list[str] | None = None) -> str:
         },
         ensure_ascii=False,
     )
+
+
+def _quote_gap(node_id: str) -> str:
+    return json.dumps(
+        {
+            "status": "NEEDS_DATA",
+            "data_gap": {
+                "requesting_agent": node_id,
+                "question": "比亚迪当前成交价是多少？",
+                "required_facts": [
+                    {
+                        "key": "byd_current_quote",
+                        "category": "MARKET_QUOTE",
+                        "data_scope": "EXTERNAL_PUBLIC",
+                        "subject": "BYD",
+                        "jurisdiction": "CN",
+                        "description": "比亚迪当前成交价",
+                        "expected_unit": "CNY",
+                        "expected_shape": "number",
+                        "market_metric": "LAST_PRICE",
+                    }
+                ],
+                "decision_context": "用于评估当前市场价格",
+                "freshness": {"max_age_seconds": 300},
+                "existing_evidence_ids": [],
+            },
+        },
+        ensure_ascii=False,
+    )
+
+
+def _market_gap(node_id: str, facts: list[dict[str, object]]) -> str:
+    return json.dumps(
+        {
+            "status": "NEEDS_DATA",
+            "data_gap": {
+                "requesting_agent": node_id,
+                "question": "比亚迪行情如何？",
+                "required_facts": facts,
+                "decision_context": "用于评估当前市场价格",
+                "freshness": {"max_age_seconds": 300},
+                "existing_evidence_ids": [],
+            },
+        },
+        ensure_ascii=False,
+    )
+
+
+def _market_fact(
+    key: str,
+    metric: str,
+    *,
+    jurisdiction: str | None = "CN",
+    subject: str = "BYD",
+) -> dict[str, object]:
+    return {
+        "key": key,
+        "category": "MARKET_QUOTE",
+        "data_scope": "EXTERNAL_PUBLIC",
+        "subject": subject,
+        "jurisdiction": jurisdiction,
+        "description": key,
+        "expected_unit": "CNY",
+        "expected_shape": "number",
+        "market_metric": metric,
+    }
 
 
 def _ready(
@@ -202,6 +275,7 @@ def _invoke(
         department="户部",
         bureau="预算司",
         matter_type="MEMORIAL",
+        decree_text="旨意摘要",
         messages=[{"role": "user", "content": "旨意摘要"}],
         chat_model=model,
         legacy_parser=_legacy_parser,
@@ -281,6 +355,7 @@ def test_ready_cannot_hide_external_fact_dependency_with_empty_claims() -> None:
             department="户部",
             bureau="预算司",
             matter_type="MEMORIAL",
+            decree_text="看看比亚迪股票价格",
             messages=[{"role": "user", "content": "旨意：看看比亚迪股票价格"}],
             chat_model=lambda _messages: _ready("比亚迪现价为 300 元"),
             legacy_parser=_legacy_parser,
@@ -289,12 +364,235 @@ def test_ready_cannot_hide_external_fact_dependency_with_empty_claims() -> None:
         )
 
 
+def test_unsupported_dependency_correction_can_request_data_once() -> None:
+    coordinator = Coordinator()
+    session = AgentEvidenceSession(coordinator=coordinator)
+    node = bureau_node_id("户部", "预算司")
+    rejected_ready_body = _ready("比亚迪现价为 300 元")
+    responses = iter(
+        (
+            rejected_ready_body,
+            _quote_gap(node),
+            _ready(
+                "有证据的行情意见",
+                adopted_evidence_ids=["e-1"],
+                fact_key="byd_current_quote",
+                category="MARKET_QUOTE",
+                subject="BYD",
+            ),
+        )
+    )
+    model_calls: list[list[dict[str, str]]] = []
+
+    def model(messages: list[dict[str, str]]) -> str:
+        model_calls.append(messages)
+        return next(responses)
+
+    result = invoke_bureau_with_evidence(
+        node_id=node,
+        department="户部",
+        bureau="预算司",
+        matter_type="MEMORIAL",
+        decree_text="查看比亚迪股票价格",
+        messages=[{"role": "user", "content": "旨意：查看比亚迪股票价格"}],
+        chat_model=model,
+        legacy_parser=_legacy_parser,
+        fallback=lambda reason: {"opinion": reason},
+        session=session,
+    )
+
+    assert result == {"opinion": "有证据的行情意见"}
+    assert len(model_calls) == 3
+    assert "NEEDS_DATA" in model_calls[1][-1]["content"]
+    assert rejected_ready_body not in model_calls[1][-1]["content"]
+    assert (
+        coordinator.calls[0][0].required_facts[0].category
+        is FactCategory.MARKET_QUOTE
+    )
+
+
+def test_unsupported_dependency_correction_rejects_corrected_ready() -> None:
+    responses = iter((_ready("比亚迪现价为 300 元"), _ready("建议继续观察")))
+    model_calls: list[list[dict[str, str]]] = []
+
+    def model(messages: list[dict[str, str]]) -> str:
+        model_calls.append(messages)
+        return next(responses)
+
+    with pytest.raises(EvidenceProtocolError, match="unsupported_factual_dependency"):
+        _invoke(AgentEvidenceSession(coordinator=Coordinator()), model)
+    assert len(model_calls) == 2
+
+
+def test_unsupported_dependency_correction_is_once_per_session() -> None:
+    session = AgentEvidenceSession(coordinator=Coordinator())
+    calls_by_bureau: dict[str, int] = {}
+
+    def invoke(department: str, bureau: str) -> None:
+        node = bureau_node_id(department, bureau)
+
+        def model(_messages: list[dict[str, str]]) -> str:
+            calls_by_bureau[bureau] = calls_by_bureau.get(bureau, 0) + 1
+            return _ready("比亚迪现价为 300 元")
+
+        with pytest.raises(
+            EvidenceProtocolError, match="unsupported_factual_dependency"
+        ):
+            invoke_bureau_with_evidence(
+                node_id=node,
+                department=department,
+                bureau=bureau,
+                matter_type="MEMORIAL",
+                decree_text="查看比亚迪股票价格",
+                messages=[{"role": "user", "content": "旨意：查看比亚迪股票价格"}],
+                chat_model=model,
+                legacy_parser=_legacy_parser,
+                fallback=lambda reason: {"opinion": reason},
+                session=session,
+            )
+
+    invoke("户部", "预算司")
+    invoke("户部", "投资司")
+
+    assert calls_by_bureau == {"预算司": 2, "投资司": 1}
+
+
+def test_protocol_correction_claim_is_atomic() -> None:
+    session = AgentEvidenceSession(coordinator=Coordinator())
+
+    with ThreadPoolExecutor(max_workers=16) as executor:
+        claims = list(executor.map(lambda _index: session.claim_protocol_correction(), range(64)))
+
+    assert claims.count(True) == 1
+    assert claims.count(False) == 63
+
+
+def test_unsupported_dependency_correction_skips_model_unavailable() -> None:
+    model_calls = 0
+
+    def model(_messages: list[dict[str, str]]) -> str:
+        nonlocal model_calls
+        model_calls += 1
+        raise RuntimeError("provider failure")
+
+    with pytest.raises(EvidenceProtocolError, match="model_unavailable"):
+        _invoke(AgentEvidenceSession(coordinator=Coordinator()), model)
+    assert model_calls == 1
+
+
+def test_unsupported_dependency_correction_skips_response_invalid() -> None:
+    model_calls = 0
+
+    def model(_messages: list[dict[str, str]]) -> str:
+        nonlocal model_calls
+        model_calls += 1
+        return "not json"
+
+    with pytest.raises(EvidenceProtocolError, match="response_invalid"):
+        _invoke(AgentEvidenceSession(coordinator=Coordinator()), model)
+    assert model_calls == 1
+
+
+def test_unsupported_dependency_correction_skips_adoption_invalid() -> None:
+    model_calls = 0
+
+    def model(_messages: list[dict[str, str]]) -> str:
+        nonlocal model_calls
+        model_calls += 1
+        return _ready(
+            "有证据的意见",
+            adopted_evidence_ids=["not-frozen"],
+        )
+
+    with pytest.raises(EvidenceProtocolError, match="adoption_invalid"):
+        _invoke(AgentEvidenceSession(coordinator=Coordinator()), model)
+    assert model_calls == 1
+
+
+def test_unsupported_dependency_correction_skips_evidence_binding_invalid() -> None:
+    node = bureau_node_id("户部", "预算司")
+    request = DataGapRequest.model_validate(
+        json.loads(_gap(node))["data_gap"]
+        | {
+            "request_id": "preloaded-request",
+            "timeout_seconds": 30,
+            "source_scope": ["SHIGUAN"],
+        }
+    )
+    session = AgentEvidenceSession(coordinator=Coordinator())
+    session.freeze_pack(_pack(request))
+    model_calls = 0
+
+    def model(_messages: list[dict[str, str]]) -> str:
+        nonlocal model_calls
+        model_calls += 1
+        return _ready(
+            "比亚迪现价为 300 元",
+            adopted_evidence_ids=["e-1"],
+            fact_key="byd_current_quote",
+            category="MARKET_QUOTE",
+            subject="BYD",
+        )
+
+    with pytest.raises(EvidenceProtocolError, match="evidence_binding_invalid"):
+        _invoke(session, model)
+    assert model_calls == 1
+
+
+def test_unsupported_dependency_correction_keeps_second_gap_fallback() -> None:
+    node = bureau_node_id("户部", "预算司")
+    responses = iter(
+        (
+            _ready("比亚迪现价为 300 元"),
+            _quote_gap(node),
+            _quote_gap(node),
+        )
+    )
+    model_calls = 0
+
+    def model(_messages: list[dict[str, str]]) -> str:
+        nonlocal model_calls
+        model_calls += 1
+        return next(responses)
+
+    result = _invoke(AgentEvidenceSession(coordinator=Coordinator()), model)
+
+    assert result == {"opinion": "证据受限：second_data_gap"}
+    assert model_calls == 3
+
+
+def test_unsupported_dependency_correction_message_is_static_and_sanitized() -> None:
+    rejected_ready_body = _ready(
+        "比亚迪现价为 300 元；DeepSeek；sk-secret-marker"
+    )
+    responses = iter((rejected_ready_body, _ready("建议继续观察")))
+    model_calls: list[list[dict[str, str]]] = []
+
+    def model(messages: list[dict[str, str]]) -> str:
+        model_calls.append(messages)
+        return next(responses)
+
+    with pytest.raises(EvidenceProtocolError, match="unsupported_factual_dependency"):
+        _invoke(AgentEvidenceSession(coordinator=Coordinator()), model)
+
+    correction = model_calls[1][-1]["content"]
+    assert rejected_ready_body not in correction
+    assert "BEGIN_UNTRUSTED_EVIDENCE_PACK" not in correction
+    assert "unsupported_factual_dependency" not in correction
+    assert "sk-secret-marker" not in correction
+    assert "DeepSeek" not in correction
+    assert '"market_metric":"LAST_PRICE"' in correction
+    assert "PRICE_TREND_30D" in correction
+    assert "all other categories require JSON null" in correction
+
+
 def test_normative_ready_is_not_misclassified_as_external_dependency() -> None:
     result = invoke_bureau_with_evidence(
         node_id=bureau_node_id("户部", "预算司"),
         department="户部",
         bureau="预算司",
         matter_type="MEMORIAL",
+        decree_text="完善内部审批制度",
         messages=[{"role": "user", "content": "旨意：完善内部审批制度"}],
         chat_model=lambda _messages: _ready("建议在当前阶段先建立三级审核流程"),
         legacy_parser=_legacy_parser,
@@ -340,6 +638,87 @@ def test_ready_rejects_objective_opinion_not_covered_by_declared_claim() -> None
         )
 
 
+def test_ready_allows_nonassertive_citation_attribution_before_bound_claim() -> None:
+    node = bureau_node_id("户部", "投资司")
+    price_claim = "比亚迪A股最新收盘价为91.89元人民币"
+    responses = iter(
+        (
+            _quote_gap(node),
+            _ready(
+                f"根据腾讯自选股提供的MCP数据，{price_claim}",
+                adopted_evidence_ids=["e-1"],
+                factual_claims=[
+                    {
+                        "claim": price_claim,
+                        "basis": "CITED",
+                        "evidence_ids": ["e-1"],
+                        "fact_key": "byd_current_quote",
+                        "category": "MARKET_QUOTE",
+                        "subject": "BYD",
+                    }
+                ],
+            ),
+        )
+    )
+
+    result = invoke_bureau_with_evidence(
+        node_id=node,
+        department="户部",
+        bureau="投资司",
+        matter_type="MEMORIAL",
+        decree_text="查看比亚迪股票价格",
+        messages=[{"role": "user", "content": "旨意：查看比亚迪股票价格"}],
+        chat_model=lambda _messages: next(responses),
+        legacy_parser=_legacy_parser,
+        fallback=lambda reason: {"opinion": reason},
+        session=AgentEvidenceSession(coordinator=Coordinator()),
+    )
+
+    assert result == {
+        "opinion": f"根据腾讯自选股提供的MCP数据，{price_claim}"
+    }
+
+
+def test_ready_rejects_attribution_clause_that_asserts_an_extra_fact() -> None:
+    node = bureau_node_id("户部", "投资司")
+    price_claim = "比亚迪A股最新收盘价为91.89元人民币"
+    responses = iter(
+        (
+            _quote_gap(node),
+            _ready(
+                f"根据腾讯数据表明公司已经停牌，{price_claim}",
+                adopted_evidence_ids=["e-1"],
+                factual_claims=[
+                    {
+                        "claim": price_claim,
+                        "basis": "CITED",
+                        "evidence_ids": ["e-1"],
+                        "fact_key": "byd_current_quote",
+                        "category": "MARKET_QUOTE",
+                        "subject": "BYD",
+                    }
+                ],
+            ),
+        )
+    )
+
+    with pytest.raises(
+        EvidenceProtocolError, match="unsupported_factual_dependency"
+    ):
+        invoke_bureau_with_evidence(
+            node_id=node,
+            department="户部",
+            bureau="投资司",
+            matter_type="MEMORIAL",
+            decree_text="查看比亚迪股票价格",
+            messages=[{"role": "user", "content": "旨意：查看比亚迪股票价格"}],
+            chat_model=lambda _messages: next(responses),
+            legacy_parser=_legacy_parser,
+            fallback=lambda reason: {"opinion": reason},
+            session=AgentEvidenceSession(coordinator=Coordinator()),
+        )
+
+
 def test_ready_rejects_unrelated_citation_with_same_value_and_state() -> None:
     node = bureau_node_id("户部", "预算司")
     responses = iter(
@@ -376,6 +755,7 @@ def test_user_provided_claim_must_be_traceable_to_original_prompt() -> None:
             department="户部",
             bureau="预算司",
             matter_type="MEMORIAL",
+            decree_text="分析比亚迪",
             messages=[{"role": "user", "content": "旨意：分析比亚迪"}],
             chat_model=lambda _messages: _ready(
                 "比亚迪营收为 300 亿元",
@@ -433,6 +813,7 @@ def test_ready_rejects_any_unclaimed_observation(prompt: str, opinion: str) -> N
             department="户部",
             bureau="预算司",
             matter_type="MEMORIAL",
+            decree_text=prompt,
             messages=[{"role": "user", "content": f"旨意：{prompt}"}],
             chat_model=lambda _messages: _ready(opinion),
             legacy_parser=_legacy_parser,
@@ -466,6 +847,7 @@ def test_user_provided_question_is_not_a_grounded_fact() -> None:
             department="户部",
             bureau="预算司",
             matter_type="MEMORIAL",
+            decree_text="比亚迪营收为300亿元吗？",
             messages=[{"role": "user", "content": "旨意：比亚迪营收为300亿元吗？"}],
             chat_model=lambda _messages: _ready(
                 "比亚迪营收为300亿元", factual_claims=[claim]
@@ -480,6 +862,7 @@ def test_user_provided_question_is_not_a_grounded_fact() -> None:
         department="户部",
         bureau="预算司",
         matter_type="MEMORIAL",
+        decree_text="已知比亚迪营收为300亿元，请分析风险。",
         messages=[
             {
                 "role": "user",
@@ -520,6 +903,7 @@ def test_user_provided_request_overrides_fact_marker(prompt: str) -> None:
             department="户部",
             bureau="预算司",
             matter_type="MEMORIAL",
+            decree_text=prompt,
             messages=[{"role": "user", "content": prompt}],
             chat_model=lambda _messages: _ready(
                 "比亚迪营收为300亿元", factual_claims=[claim]
@@ -548,6 +932,7 @@ def test_normative_prefix_cannot_hide_observation(opinion: str) -> None:
             department="户部",
             bureau="预算司",
             matter_type="MEMORIAL",
+            decree_text="分析比亚迪",
             messages=[{"role": "user", "content": "旨意：分析比亚迪"}],
             chat_model=lambda _messages: _ready(opinion),
             legacy_parser=_legacy_parser,
@@ -762,6 +1147,7 @@ def test_bureau_requests_current_market_quote_then_cites_frozen_evidence() -> No
                         "description": "比亚迪当前成交价",
                         "expected_unit": "CNY",
                         "expected_shape": "number",
+                        "market_metric": "LAST_PRICE",
                     }
                 ],
                 "decision_context": "用于评估当前市场价格",
@@ -792,6 +1178,501 @@ def test_bureau_requests_current_market_quote_then_cites_frozen_evidence() -> No
     assert request.required_facts[0].subject == "BYD"
     assert request.required_facts[0].jurisdiction == "CN"
     assert request.freshness.max_age_seconds == 300
+
+
+def test_price_only_decree_constrains_draft_to_one_mainland_last_price() -> None:
+    coordinator = Coordinator(status=EvidencePackStatus.UNAVAILABLE)
+    session = AgentEvidenceSession(coordinator=coordinator)
+    node = bureau_node_id("户部", "投资司")
+    gap = _market_gap(
+        node,
+        [
+            _market_fact("BYD_STOCK_PRICE", "LAST_PRICE"),
+            _market_fact("BYD_HK_PRICE", "LAST_PRICE", jurisdiction="HK"),
+            _market_fact("BYD_PE", "PE_RATIO"),
+            _market_fact("BYD_PB", "PB_RATIO"),
+            _market_fact("BYD_MARKET_CAP", "MARKET_CAP"),
+        ],
+    )
+
+    invoke_bureau_with_evidence(
+        node_id=node,
+        department="户部",
+        bureau="投资司",
+        matter_type="MEMORIAL",
+        decree_text="帮我看看比亚迪的股票价格",
+        messages=[{"role": "user", "content": "旨意：帮我看看比亚迪的股票价格"}],
+        chat_model=lambda _messages: gap,
+        legacy_parser=_legacy_parser,
+        fallback=lambda reason: {"opinion": reason},
+        session=session,
+    )
+
+    request = coordinator.calls[0][0]
+    assert [(fact.key, fact.market_metric) for fact in request.required_facts] == [
+        ("BYD_STOCK_PRICE", MarketMetric.LAST_PRICE)
+    ]
+
+
+def test_natural_price_decree_discards_model_generated_optional_metrics() -> None:
+    coordinator = Coordinator(status=EvidencePackStatus.UNAVAILABLE)
+    session = AgentEvidenceSession(coordinator=coordinator)
+    node = bureau_node_id("户部", "投资司")
+    gap = _market_gap(
+        node,
+        [
+            _market_fact("BYD_STOCK_PRICE", "LAST_PRICE"),
+            _market_fact("BYD_PE", "PE_RATIO"),
+            _market_fact("BYD_PB", "PB_RATIO"),
+            _market_fact("BYD_MARKET_CAP", "MARKET_CAP"),
+        ],
+    )
+
+    invoke_bureau_with_evidence(
+        node_id=node,
+        department="户部",
+        bureau="投资司",
+        matter_type="MEMORIAL",
+        decree_text="比亚迪股票多少钱",
+        messages=[{"role": "user", "content": "旨意：比亚迪股票多少钱"}],
+        chat_model=lambda _messages: gap,
+        legacy_parser=_legacy_parser,
+        fallback=lambda reason: {"opinion": reason},
+        session=session,
+    )
+
+    request = coordinator.calls[0][0]
+    assert [(fact.key, fact.market_metric) for fact in request.required_facts] == [
+        ("BYD_STOCK_PRICE", MarketMetric.LAST_PRICE)
+    ]
+
+
+def test_price_and_volume_decree_keeps_both_explicit_metrics() -> None:
+    coordinator = Coordinator()
+    session = AgentEvidenceSession(coordinator=coordinator)
+    node = bureau_node_id("户部", "投资司")
+    gap = _market_gap(
+        node,
+        [
+            _market_fact("BYD_STOCK_PRICE", "LAST_PRICE"),
+            _market_fact("BYD_VOLUME", "VOLUME"),
+            _market_fact("BYD_PE", "PE_RATIO"),
+        ],
+    )
+    responses = iter((gap, _ready("建议等待")))
+
+    invoke_bureau_with_evidence(
+        node_id=node,
+        department="户部",
+        bureau="投资司",
+        matter_type="MEMORIAL",
+        decree_text="查一下比亚迪股价和成交量",
+        messages=[{"role": "user", "content": "旨意：查一下比亚迪股价和成交量"}],
+        chat_model=lambda _messages: next(responses),
+        legacy_parser=_legacy_parser,
+        fallback=lambda reason: {"opinion": reason},
+        session=session,
+    )
+
+    assert [
+        (fact.key, fact.market_metric)
+        for fact in coordinator.calls[0][0].required_facts
+    ] == [
+        ("BYD_STOCK_PRICE", MarketMetric.LAST_PRICE),
+        ("BYD_VOLUME", MarketMetric.VOLUME),
+    ]
+
+
+def test_market_scope_uses_only_explicit_original_decree_text() -> None:
+    coordinator = Coordinator(status=EvidencePackStatus.UNAVAILABLE)
+    session = AgentEvidenceSession(coordinator=coordinator)
+    node = bureau_node_id("户部", "投资司")
+    gap = _market_gap(
+        node,
+        [
+            _market_fact("BYD_PRICE", "LAST_PRICE"),
+            _market_fact("BYD_PE", "PE_RATIO"),
+            _market_fact("BYD_PB", "PB_RATIO"),
+            _market_fact("BYD_CAP", "MARKET_CAP"),
+        ],
+    )
+
+    invoke_bureau_with_evidence(
+        node_id=node,
+        department="户部",
+        bureau="投资司",
+        matter_type="MEMORIAL",
+        decree_text="查看比亚迪股票价格",
+        messages=[
+            {"role": "system", "content": "历史材料提到 PE ratio 和 market cap"},
+            {
+                "role": "user",
+                "content": (
+                    "旨意：查看比亚迪股票价格\n\n"
+                    "部级路由判断：同时分析 PE、PB 和 market cap"
+                ),
+            },
+            {"role": "user", "content": "纠正提示：补充 PB ratio"},
+        ],
+        chat_model=lambda _messages: gap,
+        legacy_parser=_legacy_parser,
+        fallback=lambda reason: {"opinion": reason},
+        session=session,
+    )
+
+    assert [
+        (fact.key, fact.market_metric)
+        for fact in coordinator.calls[0][0].required_facts
+    ] == [("BYD_PRICE", MarketMetric.LAST_PRICE)]
+
+
+def test_price_only_decree_fails_closed_for_ambiguous_mainland_facts() -> None:
+    node = bureau_node_id("户部", "投资司")
+    gap = _market_gap(
+        node,
+        [
+            _market_fact("BYD_PRICE_ONE", "LAST_PRICE"),
+            _market_fact("BYD_PRICE_TWO", "LAST_PRICE", jurisdiction=None),
+        ],
+    )
+
+    with pytest.raises(EvidenceProtocolError, match="data_gap_invalid"):
+        invoke_bureau_with_evidence(
+            node_id=node,
+            department="户部",
+            bureau="投资司",
+            matter_type="MEMORIAL",
+            decree_text="查看比亚迪股票价格",
+            messages=[{"role": "user", "content": "旨意：查看比亚迪股票价格"}],
+            chat_model=lambda _messages: gap,
+            legacy_parser=_legacy_parser,
+            fallback=lambda reason: {"opinion": reason},
+            session=AgentEvidenceSession(coordinator=Coordinator()),
+        )
+
+
+def test_price_gap_with_non_iso_jurisdictions_gets_one_static_correction() -> None:
+    coordinator = Coordinator()
+    session = AgentEvidenceSession(coordinator=coordinator)
+    node = bureau_node_id("户部", "投资司")
+    invalid_gap = _market_gap(
+        node,
+        [
+            _market_fact(
+                "BYD_CN_PRICE",
+                "LAST_PRICE",
+                jurisdiction="中国",
+                subject="比亚迪",
+            ),
+            _market_fact(
+                "BYD_HK_PRICE",
+                "LAST_PRICE",
+                jurisdiction="香港",
+                subject="比亚迪",
+            ),
+        ],
+    )
+    responses = iter(
+        (
+            invalid_gap,
+            _quote_gap(node),
+            _ready(
+                "有证据的行情意见",
+                adopted_evidence_ids=["e-1"],
+                fact_key="byd_current_quote",
+                category="MARKET_QUOTE",
+                subject="BYD",
+            ),
+        )
+    )
+    model_calls: list[list[dict[str, str]]] = []
+
+    def model(messages: list[dict[str, str]]) -> str:
+        model_calls.append(messages)
+        return next(responses)
+
+    result = invoke_bureau_with_evidence(
+        node_id=node,
+        department="户部",
+        bureau="投资司",
+        matter_type="MEMORIAL",
+        decree_text="查看比亚迪股票价格",
+        messages=[{"role": "user", "content": "旨意：查看比亚迪股票价格"}],
+        chat_model=model,
+        legacy_parser=_legacy_parser,
+        fallback=lambda reason: {"opinion": reason},
+        session=session,
+    )
+
+    assert result == {"opinion": "有证据的行情意见"}
+    assert len(model_calls) == 3
+    assert len(coordinator.calls) == 1
+    assert coordinator.calls[0][0].required_facts[0].jurisdiction == "CN"
+    correction = model_calls[1][-1]["content"]
+    assert invalid_gap not in correction
+    assert '"jurisdiction":"CN"' in correction
+    assert "exactly one mainland LAST_PRICE fact" in correction
+
+
+def test_price_gap_with_model_added_hk_scope_gets_one_static_correction() -> None:
+    coordinator = Coordinator()
+    session = AgentEvidenceSession(coordinator=coordinator)
+    node = bureau_node_id("户部", "投资司")
+    invalid_payload = json.loads(
+        _market_gap(
+            node,
+            [
+                _market_fact(
+                    "BYD_PRICE",
+                    "LAST_PRICE",
+                    subject="比亚迪",
+                )
+            ],
+        )
+    )
+    invalid_payload["data_gap"]["question"] = (
+        "比亚迪（002594.SZ / 1211.HK）最新股票价格是多少？"
+    )
+    invalid_payload["data_gap"]["required_facts"][0]["description"] = (
+        "比亚迪 A 股或 H 股最新交易价格"
+    )
+    invalid_gap = json.dumps(invalid_payload, ensure_ascii=False)
+    responses = iter(
+        (
+            invalid_gap,
+            _quote_gap(node),
+            _ready(
+                "有证据的行情意见",
+                adopted_evidence_ids=["e-1"],
+                fact_key="byd_current_quote",
+                category="MARKET_QUOTE",
+                subject="BYD",
+            ),
+        )
+    )
+    model_calls: list[list[dict[str, str]]] = []
+
+    def model(messages: list[dict[str, str]]) -> str:
+        model_calls.append(messages)
+        return next(responses)
+
+    result = invoke_bureau_with_evidence(
+        node_id=node,
+        department="户部",
+        bureau="投资司",
+        matter_type="MEMORIAL",
+        decree_text="查看比亚迪股票价格",
+        messages=[{"role": "user", "content": "旨意：查看比亚迪股票价格"}],
+        chat_model=model,
+        legacy_parser=_legacy_parser,
+        fallback=lambda reason: {"opinion": reason},
+        session=session,
+    )
+
+    assert result == {"opinion": "有证据的行情意见"}
+    assert len(model_calls) == 3
+    assert coordinator.calls[0][0].question == "比亚迪当前成交价是多少？"
+    correction = model_calls[1][-1]["content"]
+    assert invalid_gap not in correction
+    assert "Do not mention Hong Kong" in correction
+
+
+def test_price_gap_with_noncanonical_unit_and_shape_gets_one_correction() -> None:
+    coordinator = Coordinator()
+    session = AgentEvidenceSession(coordinator=coordinator)
+    node = bureau_node_id("户部", "投资司")
+    invalid_fact = _market_fact(
+        "BYD_PRICE",
+        "LAST_PRICE",
+        subject="比亚迪",
+    )
+    invalid_fact["expected_unit"] = "人民币元"
+    invalid_fact["expected_shape"] = "scalar"
+    responses = iter(
+        (
+            _market_gap(node, [invalid_fact]),
+            _quote_gap(node),
+            _ready(
+                "有证据的行情意见",
+                adopted_evidence_ids=["e-1"],
+                fact_key="byd_current_quote",
+                category="MARKET_QUOTE",
+                subject="BYD",
+            ),
+        )
+    )
+
+    result = invoke_bureau_with_evidence(
+        node_id=node,
+        department="户部",
+        bureau="投资司",
+        matter_type="MEMORIAL",
+        decree_text="查看比亚迪股票价格",
+        messages=[{"role": "user", "content": "旨意：查看比亚迪股票价格"}],
+        chat_model=lambda _messages: next(responses),
+        legacy_parser=_legacy_parser,
+        fallback=lambda reason: {"opinion": reason},
+        session=session,
+    )
+
+    assert result == {"opinion": "有证据的行情意见"}
+    fact = coordinator.calls[0][0].required_facts[0]
+    assert fact.expected_unit == "CNY"
+    assert fact.expected_shape == "number"
+
+
+def test_explicit_hk_decree_does_not_get_mainland_gap_correction() -> None:
+    node = bureau_node_id("户部", "投资司")
+    model_calls = 0
+
+    def model(_messages: list[dict[str, str]]) -> str:
+        nonlocal model_calls
+        model_calls += 1
+        return _market_gap(
+            node,
+            [
+                _market_fact(
+                    "BYD_HK_PRICE",
+                    "LAST_PRICE",
+                    jurisdiction="HK",
+                    subject="比亚迪 1211.HK",
+                )
+            ],
+        )
+
+    with pytest.raises(EvidenceProtocolError, match="data_gap_invalid"):
+        invoke_bureau_with_evidence(
+            node_id=node,
+            department="户部",
+            bureau="投资司",
+            matter_type="MEMORIAL",
+            decree_text="查询港股价格",
+            messages=[{"role": "user", "content": "旨意：查询港股价格"}],
+            chat_model=model,
+            legacy_parser=_legacy_parser,
+            fallback=lambda reason: {"opinion": reason},
+            session=AgentEvidenceSession(coordinator=Coordinator()),
+        )
+
+    assert model_calls == 1
+
+
+def test_explicit_market_decree_fails_closed_without_allowed_fact() -> None:
+    node = bureau_node_id("户部", "投资司")
+    gap = _market_gap(node, [_market_fact("BYD_PE", "PE_RATIO")])
+
+    with pytest.raises(EvidenceProtocolError, match="data_gap_invalid"):
+        invoke_bureau_with_evidence(
+            node_id=node,
+            department="户部",
+            bureau="投资司",
+            matter_type="MEMORIAL",
+            decree_text="查看比亚迪股票价格",
+            messages=[{"role": "user", "content": "旨意：查看比亚迪股票价格"}],
+            chat_model=lambda _messages: gap,
+            legacy_parser=_legacy_parser,
+            fallback=lambda reason: {"opinion": reason},
+            session=AgentEvidenceSession(coordinator=Coordinator()),
+        )
+
+
+def test_market_scope_runs_after_market_fact_schema_validation() -> None:
+    node = bureau_node_id("户部", "投资司")
+    malformed = _market_fact("BYD_PRICE", "LAST_PRICE")
+    malformed.pop("market_metric")
+
+    with pytest.raises(EvidenceProtocolError, match="data_gap_invalid"):
+        invoke_bureau_with_evidence(
+            node_id=node,
+            department="户部",
+            bureau="投资司",
+            matter_type="MEMORIAL",
+            decree_text="查看比亚迪股票价格",
+            messages=[{"role": "user", "content": "旨意：查看比亚迪股票价格"}],
+            chat_model=lambda _messages: _market_gap(node, [malformed]),
+            legacy_parser=_legacy_parser,
+            fallback=lambda reason: {"opinion": reason},
+            session=AgentEvidenceSession(coordinator=Coordinator()),
+        )
+
+
+def test_partial_market_evidence_remains_usable_on_resume() -> None:
+    class PartialCoordinator:
+        def __init__(self) -> None:
+            self.calls: list[DataGapRequest] = []
+
+        def investigate(
+            self,
+            request: DataGapRequest,
+            *,
+            department: str,
+            matter_type: str,
+            extraction_budget: object,
+        ) -> EvidencePack:
+            del department, matter_type, extraction_budget
+            self.calls.append(request)
+            price_key, volume_key = (fact.key for fact in request.required_facts)
+            return EvidencePack(
+                pack_id="partial-pack",
+                investigation_id="partial-investigation",
+                status=EvidencePackStatus.PARTIAL,
+                request=request,
+                investigation_plan=InvestigationPlan(
+                    fact_keys=(price_key, volume_key),
+                    source_scope=request.source_scope,
+                ),
+                evidence_by_fact={
+                    price_key: (_evidence(fact_key=price_key),),
+                    volume_key: (),
+                },
+                historical_evidence_by_fact={price_key: (), volume_key: ()},
+                resolved_facts=(price_key,),
+                unresolved_facts=(volume_key,),
+                conflicts=(),
+                source_attempts=(),
+                investigation_started_at="2026-07-20T11:45:00Z",
+                investigation_completed_at="2026-07-20T11:45:01Z",
+                cache=CacheMetadata(hit=False),
+                do_not_infer=(volume_key,),
+            )
+
+    coordinator = PartialCoordinator()
+    session = AgentEvidenceSession(coordinator=coordinator)
+    node = bureau_node_id("户部", "投资司")
+    responses = iter(
+        (
+            _market_gap(
+                node,
+                [
+                    _market_fact("BYD_PRICE", "LAST_PRICE"),
+                    _market_fact("BYD_VOLUME", "VOLUME"),
+                ],
+            ),
+            _ready(
+                "比亚迪股价证据可用",
+                adopted_evidence_ids=["e-1"],
+                fact_key="BYD_PRICE",
+                category="MARKET_QUOTE",
+                subject="BYD",
+            ),
+        )
+    )
+
+    result = invoke_bureau_with_evidence(
+        node_id=node,
+        department="户部",
+        bureau="投资司",
+        matter_type="MEMORIAL",
+        decree_text="查询比亚迪股票价格和成交量",
+        messages=[{"role": "user", "content": "旨意：查询比亚迪股票价格和成交量"}],
+        chat_model=lambda _messages: next(responses),
+        legacy_parser=_legacy_parser,
+        fallback=lambda reason: {"opinion": f"证据受限：{reason}"},
+        session=session,
+    )
+
+    assert result == {"opinion": "比亚迪股价证据可用"}
+    assert coordinator.calls
 
 
 def test_policy_only_ready_response_declares_not_required_fact_basis() -> None:
@@ -949,10 +1830,11 @@ def test_per_bureau_once_and_decree_three_investigation_cap() -> None:
         responses = iter((_gap(node), _ready("建议继续办理")))
         result = invoke_bureau_with_evidence(
             node_id=node,
-            department=department,
-            bureau=bureau,
-            matter_type="MEMORIAL",
-            messages=[],
+                department=department,
+                bureau=bureau,
+                matter_type="MEMORIAL",
+                decree_text="旨意摘要",
+                messages=[],
             chat_model=lambda _messages, values=responses: next(values),
             legacy_parser=_legacy_parser,
             fallback=lambda reason: {"opinion": reason},
@@ -965,6 +1847,7 @@ def test_per_bureau_once_and_decree_three_investigation_cap() -> None:
         department="工部",
         bureau="现场司",
         matter_type="MEMORIAL",
+        decree_text="旨意摘要",
         messages=[],
         chat_model=lambda _messages: _gap(fourth),
         legacy_parser=_legacy_parser,
@@ -1059,18 +1942,26 @@ def test_default_evidence_session_does_not_touch_environment_when_mcp_disabled(
     monkeypatch, tmp_path: Path
 ) -> None:
     class NoAccessEnvironment(dict[str, str]):
+        def __init__(self) -> None:
+            super().__init__()
+            self.read_keys: list[str] = []
+
         def __iter__(self):
             raise AssertionError("environment iterated")
 
         def items(self):
             raise AssertionError("environment iterated")
 
-        def get(self, _key: str, _default=None):
-            raise AssertionError("environment key read")
+        def get(self, key: str, default=None):
+            if key != LOCAL_CREDENTIAL_SOURCE_ENV:
+                raise AssertionError(f"unexpected environment key read: {key}")
+            self.read_keys.append(key)
+            return default
 
+    environment = NoAccessEnvironment()
     monkeypatch.setattr(
-        "app.jinyiwei.mcp.credentials.os.environ",
-        NoAccessEnvironment(),
+        "app.jinyiwei.mcp.runtime.os",
+        SimpleNamespace(environ=environment),
     )
 
     session = build_default_evidence_session(
@@ -1079,6 +1970,7 @@ def test_default_evidence_session_does_not_touch_environment_when_mcp_disabled(
     )
 
     assert session.snapshot().used is False
+    assert environment.read_keys == [LOCAL_CREDENTIAL_SOURCE_ENV]
 
 
 def test_malformed_ready_and_adoption_outside_frozen_pack_are_typed() -> None:
@@ -1094,3 +1986,434 @@ def test_malformed_ready_and_adoption_outside_frozen_pack_are_typed() -> None:
     )
     with pytest.raises(EvidenceProtocolError, match="adoption_invalid"):
         _invoke(AgentEvidenceSession(coordinator=Coordinator()), lambda _messages: next(responses))
+
+
+class QuoteCoordinator:
+    def __init__(
+        self,
+        *,
+        status: EvidencePackStatus = EvidencePackStatus.RESOLVED,
+    ) -> None:
+        self.status = status
+        self.requests: list[DataGapRequest] = []
+
+    def investigate(
+        self,
+        request: DataGapRequest,
+        *,
+        department: str,
+        matter_type: str,
+        extraction_budget: object,
+    ) -> EvidencePack:
+        del department, matter_type, extraction_budget
+        self.requests.append(request)
+        fact_key = request.required_facts[0].key
+        item = EvidenceItem(
+            evidence_id="quote-evidence",
+            fact_key=fact_key,
+            value=88.5,
+            unit="CNY",
+            as_of="2026-07-24T10:00:00+08:00",
+            retrieved_at="2026-07-24T10:00:02+08:00",
+            source_url="https://provider.example.test/quote",
+            publisher="行情提供方",
+            source_type=SourceType.MCP,
+            quality=EvidenceQuality.AUTHORITATIVE,
+            stance=EvidenceStance.SUPPORTS,
+            excerpt="任意公司最新价 88.5 CNY",
+            content_hash=hashlib.sha256(b"quote-evidence").hexdigest(),
+            confidence=0.9,
+        )
+        resolved = (
+            (fact_key,)
+            if self.status is EvidencePackStatus.RESOLVED
+            else ()
+        )
+        unresolved = () if resolved else (fact_key,)
+        return EvidencePack(
+            pack_id="quote-pack",
+            investigation_id="quote-investigation",
+            status=self.status,
+            request=request,
+            investigation_plan=InvestigationPlan(
+                fact_keys=(fact_key,),
+                source_scope=request.source_scope,
+            ),
+            evidence_by_fact={fact_key: (item,) if resolved else ()},
+            historical_evidence_by_fact={fact_key: ()},
+            resolved_facts=resolved,
+            unresolved_facts=unresolved,
+            conflicts=(),
+            source_attempts=(),
+            investigation_started_at="2026-07-24T10:00:00+08:00",
+            investigation_completed_at="2026-07-24T10:00:03+08:00",
+            cache=CacheMetadata(hit=False),
+            do_not_infer=unresolved,
+        )
+
+
+def _canonical_plan():
+    return compile_mainland_last_price_plan(
+        decree_text="帮我看看任意公司的股票价格",
+        node_id=bureau_node_id("户部", "投资司"),
+    )
+
+
+def _valid_quote_ready() -> str:
+    return _ready(
+        "模型引用意见",
+        adopted_evidence_ids=["quote-evidence"],
+        fact_key="market_quote:last_price",
+        category="MARKET_QUOTE",
+        subject="任意公司",
+    )
+
+
+def _invoke_precompiled(
+    session: AgentEvidenceSession,
+    model: object,
+    *,
+    renderer=render_mainland_last_price,
+    legacy_parser=_legacy_parser,
+) -> dict[str, str]:
+    return invoke_bureau_with_evidence(
+        node_id=bureau_node_id("户部", "投资司"),
+        department="户部",
+        bureau="投资司",
+        matter_type="MEMORIAL",
+        decree_text="帮我看看任意公司的股票价格",
+        messages=[{"role": "user", "content": "帮我看看任意公司的股票价格"}],
+        chat_model=model,
+        legacy_parser=legacy_parser,
+        fallback=lambda reason: {"opinion": f"证据受限：{reason}"},
+        session=session,
+        fact_plan=_canonical_plan(),
+        evidence_renderer=renderer,
+    )
+
+
+def test_precompiled_plan_skips_model_generated_data_gap() -> None:
+    coordinator = QuoteCoordinator()
+    session = AgentEvidenceSession(coordinator=coordinator)
+    calls: list[list[dict[str, str]]] = []
+
+    def model(messages: list[dict[str, str]]) -> str:
+        calls.append(messages)
+        return _valid_quote_ready()
+
+    result = _invoke_precompiled(session, model)
+
+    assert len(calls) == 1
+    assert coordinator.requests[0].required_facts == _canonical_plan().draft.required_facts
+    assert coordinator.requests[0].source_scope == (
+        SourceType.SHIGUAN,
+        SourceType.MCP,
+    )
+    assert "88.5 CNY" in result["opinion"]
+    assert "模型引用意见" not in result["opinion"]
+    assert session.snapshot().degradation_reasons == (
+        "model_synthesis_degraded:bureau:户部:投资司",
+    )
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        RuntimeError("private model failure"),
+        "not json",
+        _ready(
+            "无效引用",
+            adopted_evidence_ids=["unknown-evidence"],
+            fact_key="market_quote:last_price",
+            category="MARKET_QUOTE",
+            subject="任意公司",
+        ),
+        _quote_gap(bureau_node_id("户部", "投资司")),
+    ],
+)
+def test_precompiled_expression_failure_uses_verified_renderer_once(response: object) -> None:
+    coordinator = QuoteCoordinator()
+    session = AgentEvidenceSession(coordinator=coordinator)
+    calls = 0
+
+    def model(_messages: list[dict[str, str]]) -> str:
+        nonlocal calls
+        calls += 1
+        if isinstance(response, Exception):
+            raise response
+        assert isinstance(response, str)
+        return response
+
+    result = _invoke_precompiled(session, model)
+
+    expected = (
+        "任意公司最新可得价格为 88.5 CNY"
+        "（行情时间：2026-07-24T10:00:00+08:00；来源：行情提供方）。\n"
+        "该数值是来源在所示时间的最新可得行情，不等同于此刻实时成交价，"
+        "也不构成投资建议。"
+    )
+    assert result == {"opinion": expected}
+    assert calls == 1
+    assert len(coordinator.requests) == 1
+    snapshot = session.snapshot()
+    assert snapshot.investigation_count == 1
+    assert snapshot.bureau_selections == (
+        (bureau_node_id("户部", "投资司"), ("quote-evidence",)),
+    )
+    assert snapshot.degradation_reasons == (
+        f"model_synthesis_degraded:{bureau_node_id('户部', '投资司')}",
+    )
+
+
+def test_precompiled_valid_but_altered_price_uses_authoritative_renderer() -> None:
+    coordinator = QuoteCoordinator()
+    session = AgentEvidenceSession(coordinator=coordinator)
+    altered = _ready(
+        "任意公司最新可得价格为 999 CNY",
+        adopted_evidence_ids=["quote-evidence"],
+        fact_key="market_quote:last_price",
+        category="MARKET_QUOTE",
+        subject="任意公司",
+    )
+
+    result = _invoke_precompiled(session, lambda _messages: altered)
+
+    assert result == {
+        "opinion": (
+            "任意公司最新可得价格为 88.5 CNY"
+            "（行情时间：2026-07-24T10:00:00+08:00；来源：行情提供方）。\n"
+            "该数值是来源在所示时间的最新可得行情，不等同于此刻实时成交价，"
+            "也不构成投资建议。"
+        )
+    }
+    snapshot = session.snapshot()
+    assert snapshot.investigation_count == 1
+    assert snapshot.adopted_evidence_ids == ("quote-evidence",)
+    assert snapshot.degradation_reasons == (
+        "model_synthesis_degraded:bureau:户部:投资司",
+    )
+
+
+def test_precompiled_investigation_failure_never_runs_renderer() -> None:
+    coordinator = QuoteCoordinator(status=EvidencePackStatus.UNAVAILABLE)
+    session = AgentEvidenceSession(coordinator=coordinator)
+    renderer_calls = 0
+
+    def renderer(_pack: EvidencePack):
+        nonlocal renderer_calls
+        renderer_calls += 1
+        raise AssertionError("renderer must not run")
+
+    result = _invoke_precompiled(
+        session,
+        lambda _messages: pytest.fail("model must not run"),
+        renderer=renderer,
+    )
+
+    assert result == {"opinion": "证据受限：evidence_unavailable"}
+    assert renderer_calls == 0
+    assert len(coordinator.requests) == 1
+
+
+def test_precompiled_partial_pack_fails_before_expression_or_adoption() -> None:
+    coordinator = QuoteCoordinator(status=EvidencePackStatus.PARTIAL)
+    session = AgentEvidenceSession(coordinator=coordinator)
+    model_calls = 0
+    renderer_calls = 0
+
+    def model(_messages: list[dict[str, str]]) -> str:
+        nonlocal model_calls
+        model_calls += 1
+        return _valid_quote_ready()
+
+    def renderer(_pack: EvidencePack):
+        nonlocal renderer_calls
+        renderer_calls += 1
+        return render_mainland_last_price(_pack)
+
+    result = _invoke_precompiled(session, model, renderer=renderer)
+
+    assert result == {"opinion": "证据受限：evidence_unavailable"}
+    assert model_calls == 0
+    assert renderer_calls == 0
+    assert len(coordinator.requests) == 1
+    snapshot = session.snapshot()
+    assert snapshot.bureau_selections == ()
+    assert snapshot.adopted_evidence_ids == ()
+    assert snapshot.degradation_reasons == ()
+
+
+@pytest.mark.parametrize(
+    "source_scope",
+    [
+        (SourceType.MCP, SourceType.SHIGUAN),
+        (SourceType.MCP,),
+        (SourceType.SHIGUAN, SourceType.MCP, SourceType.PUBLIC_API),
+    ],
+)
+def test_precompiled_plan_requires_exact_locked_source_scope(
+    source_scope: tuple[SourceType, ...],
+) -> None:
+    coordinator = QuoteCoordinator()
+    session = AgentEvidenceSession(coordinator=coordinator)
+    model_calls = 0
+
+    def model(_messages: list[dict[str, str]]) -> str:
+        nonlocal model_calls
+        model_calls += 1
+        return _valid_quote_ready()
+
+    with pytest.raises(EvidenceProtocolError, match="^data_plan_invalid$"):
+        invoke_bureau_with_evidence(
+            node_id=bureau_node_id("户部", "投资司"),
+            department="户部",
+            bureau="投资司",
+            matter_type="MEMORIAL",
+            decree_text="帮我看看任意公司的股票价格",
+            messages=[{"role": "user", "content": "帮我看看任意公司的股票价格"}],
+            chat_model=model,
+            legacy_parser=_legacy_parser,
+            fallback=lambda reason: {"opinion": f"证据受限：{reason}"},
+            session=session,
+            fact_plan=replace(_canonical_plan(), source_scope=source_scope),
+            evidence_renderer=render_mainland_last_price,
+        )
+
+    assert model_calls == 0
+    assert coordinator.requests == []
+
+
+def test_degradation_reason_is_recorded_once_in_invocation_order() -> None:
+    session = AgentEvidenceSession(coordinator=QuoteCoordinator())
+    first = bureau_node_id("户部", "投资司")
+    second = bureau_node_id("户部", "预算司")
+
+    session.record_degradation(first)
+    session.record_degradation(first)
+    session.record_degradation(second)
+
+    assert session.snapshot().degradation_reasons == (
+        f"model_synthesis_degraded:{first}",
+        f"model_synthesis_degraded:{second}",
+    )
+
+
+def test_renderer_records_selection_before_returning_through_legacy_parser() -> None:
+    session = AgentEvidenceSession(coordinator=QuoteCoordinator())
+    node_id = bureau_node_id("户部", "投资司")
+
+    def parser(value: object) -> dict[str, str]:
+        snapshot = session.snapshot()
+        assert snapshot.bureau_selections == ((node_id, ("quote-evidence",)),)
+        assert snapshot.degradation_reasons == (
+            f"model_synthesis_degraded:{node_id}",
+        )
+        return _legacy_parser(value)
+
+    assert _invoke_precompiled(session, lambda _messages: "not json", legacy_parser=parser)
+
+
+def test_has_adopted_fact_requires_selected_current_resolved_canonical_binding() -> None:
+    session = AgentEvidenceSession(coordinator=QuoteCoordinator())
+    _invoke_precompiled(session, lambda _messages: _valid_quote_ready())
+    node_id = bureau_node_id("户部", "投资司")
+
+    assert session.has_adopted_fact(
+        node_id=node_id,
+        fact_key="market_quote:last_price",
+        category=FactCategory.MARKET_QUOTE,
+        market_metric=MarketMetric.LAST_PRICE,
+        jurisdiction="CN",
+        expected_unit="CNY",
+        expected_shape="number",
+        evidence_renderer=render_mainland_last_price,
+    )
+    assert not session.has_adopted_fact(
+        node_id=bureau_node_id("户部", "预算司"),
+        fact_key="market_quote:last_price",
+        category=FactCategory.MARKET_QUOTE,
+        market_metric=MarketMetric.LAST_PRICE,
+        jurisdiction="CN",
+        expected_unit="CNY",
+        expected_shape="number",
+        evidence_renderer=render_mainland_last_price,
+    )
+
+
+def test_has_adopted_fact_rejects_unrelated_prefilled_adoption() -> None:
+    session = AgentEvidenceSession(coordinator=QuoteCoordinator())
+    session.record_selection(
+        bureau_node_id("户部", "投资司"),
+        ("unrelated-evidence",),
+    )
+
+    assert session.snapshot().adopted_evidence_ids == ("unrelated-evidence",)
+    assert not session.has_adopted_fact(
+        node_id=bureau_node_id("户部", "投资司"),
+        fact_key="market_quote:last_price",
+        category=FactCategory.MARKET_QUOTE,
+        market_metric=MarketMetric.LAST_PRICE,
+        jurisdiction="CN",
+        expected_unit="CNY",
+        expected_shape="number",
+        evidence_renderer=render_mainland_last_price,
+    )
+
+
+@pytest.mark.parametrize(
+    "item_update",
+    (
+        {"retrieved_at": "2026-07-24T08:00:00+08:00"},
+        {"stance": EvidenceStance.CONTRADICTS},
+        {"quality": EvidenceQuality.UNVERIFIED},
+        {"source_type": SourceType.PUBLIC_API},
+    ),
+)
+def test_has_adopted_fact_rejects_selected_ineligible_item_when_pack_resolved(
+    item_update,
+) -> None:
+    plan = _canonical_plan()
+    request = DataGapRequest(
+        **plan.draft.model_dump(mode="python"),
+        request_id="selected-ineligible",
+        timeout_seconds=30,
+        source_scope=plan.source_scope,
+    )
+    pack = QuoteCoordinator().investigate(
+        request,
+        department="户部",
+        matter_type="MEMORIAL",
+        extraction_budget=object(),
+    )
+    eligible = pack.evidence_by_fact["market_quote:last_price"][0]
+    ineligible = eligible.model_copy(
+        update={
+            "evidence_id": "selected-ineligible",
+            **item_update,
+        }
+    )
+    forged = pack.model_copy(
+        update={
+            "evidence_by_fact": {
+                "market_quote:last_price": (eligible, ineligible)
+            }
+        }
+    )
+    session = AgentEvidenceSession(coordinator=QuoteCoordinator())
+    session.freeze_pack(forged)
+    session.record_selection(
+        bureau_node_id("户部", "投资司"),
+        ("selected-ineligible",),
+    )
+
+    assert render_mainland_last_price(forged).evidence_ids == ("quote-evidence",)
+    assert not session.has_adopted_fact(
+        node_id=bureau_node_id("户部", "投资司"),
+        fact_key="market_quote:last_price",
+        category=FactCategory.MARKET_QUOTE,
+        market_metric=MarketMetric.LAST_PRICE,
+        jurisdiction="CN",
+        expected_unit="CNY",
+        expected_shape="number",
+        evidence_renderer=render_mainland_last_price,
+    )

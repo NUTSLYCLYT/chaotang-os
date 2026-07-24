@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Literal, Protocol, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeVar
 
 from pydantic import (
     BaseModel,
@@ -25,12 +25,15 @@ from pydantic import (
 )
 
 from app.agents.bureaus.profiles import bureau_profile_for
+from app.agents.fact_plans import FactPlanDisposition, FactPlanResult
+from app.agents.market_intent import requested_market_metrics
 from app.jinyiwei.coordinator import InvestigationCoordinator
 from app.jinyiwei.extractor import StructuredEvidenceExtractor
+from app.jinyiwei.instruments import has_out_of_scope_market_hint
 from app.jinyiwei.mcp.client import McpClient
-from app.jinyiwei.mcp.credentials import EnvCredentialProvider
 from app.jinyiwei.mcp.mapping import DeterministicMcpMapper
 from app.jinyiwei.mcp.registry import load_default_registry as load_default_mcp_registry
+from app.jinyiwei.mcp.runtime import build_runtime_credential_provider
 from app.jinyiwei.models import (
     DataGapDraft,
     DataGapRequest,
@@ -38,6 +41,8 @@ from app.jinyiwei.models import (
     EvidencePack,
     EvidencePackStatus,
     FactCategory,
+    MarketMetric,
+    RequiredFact,
     SourceType,
 )
 from app.jinyiwei.network import PinnedHTTPSClient
@@ -46,6 +51,9 @@ from app.jinyiwei.sources.mcp import McpSource
 from app.jinyiwei.sources.public_api import PublicApiSource
 from app.jinyiwei.sources.public_web import PublicWebSource
 from app.jinyiwei.sources.shiguan import ShiguanSource
+
+if TYPE_CHECKING:
+    from app.agents.evidence_rendering import EvidenceBackedOpinion
 
 T = TypeVar("T")
 Message = dict[str, str]
@@ -108,6 +116,17 @@ _QUESTION_OR_REQUEST_PATTERN = re.compile(
     r"(?:[?？]|是否|吗|呢|多少|什么|请|帮我|看看|查询|查找|检索|获取|告诉我)"
 )
 _PROMPT_CLAUSE_SPLIT_PATTERN = re.compile(r"[。；;，,\n]+")
+_CITATION_ATTRIBUTION_PATTERN = re.compile(
+    r"^(?:(?:根据|依据|据).{1,80}(?:数据|证据|资料|档案|报告|记录|来源)"
+    r"|(?:according to|based on).{1,80}(?:data|evidence|records?|reports?|source))$",
+    re.IGNORECASE,
+)
+MARKET_METRIC_PROMPT_CONTRACT = (
+    "Allowed market_metric values are LAST_PRICE, VOLUME, CHANGE_PERCENT, "
+    "INTRADAY_SERIES, PE_RATIO, PB_RATIO, MARKET_CAP, and PRICE_TREND_30D, "
+    "or JSON null. MARKET_QUOTE requires one of the eight strings; "
+    "all other categories require JSON null."
+)
 
 
 class EvidenceProtocolError(Exception):
@@ -231,6 +250,7 @@ class AgentEvidenceSnapshot:
     extractor_count: int
     used: bool
     investigating_bureau_node_ids: tuple[str, ...] = ()
+    degradation_reasons: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -259,6 +279,7 @@ class AgentEvidenceSession:
         self._id_factory = id_factory
         self._deadline = monotonic() + _DEADLINE_SECONDS
         self._lock = threading.Lock()
+        self._protocol_correction_claimed = False
         self._investigations = 0
         self._extractions = 0
         self._resumed_bureaus: set[str] = set()
@@ -271,6 +292,8 @@ class AgentEvidenceSession:
         self._adopted_set: set[str] = set()
         self._investigating_bureaus: list[str] = []
         self._investigating_bureau_set: set[str] = set()
+        self._degradation_reasons: list[str] = []
+        self._degradation_reason_set: set[str] = set()
 
     def remaining_seconds(self) -> float:
         return max(0.0, self._deadline - self._monotonic())
@@ -285,6 +308,15 @@ class AgentEvidenceSession:
                 return False
             self._investigations += 1
             self._resumed_bureaus.add(node_id)
+            return True
+
+    def claim_protocol_correction(self) -> bool:
+        """Claim the decree's only unsupported-dependency correction call."""
+
+        with self._lock:
+            if self._protocol_correction_claimed:
+                return False
+            self._protocol_correction_claimed = True
             return True
 
     def record_investigation_result(self, node_id: str, pack: EvidencePack) -> None:
@@ -382,6 +414,84 @@ class AgentEvidenceSession:
                     self._adopted_set.add(evidence_id)
                     self._adopted.append(evidence_id)
 
+    def has_adopted_fact(
+        self,
+        *,
+        node_id: str,
+        fact_key: str,
+        category: FactCategory,
+        market_metric: MarketMetric | None,
+        jurisdiction: str | None,
+        expected_unit: str | None,
+        expected_shape: str | None,
+        evidence_renderer: Callable[[EvidencePack], EvidenceBackedOpinion],
+    ) -> bool:
+        """Check one node-selected, adopted, current resolved fact binding."""
+
+        with self._lock:
+            selected_sequences = tuple(
+                evidence_ids
+                for selected_node_id, evidence_ids in self._selections
+                if selected_node_id == node_id
+            )
+            selected_ids = {
+                evidence_id
+                for evidence_ids in selected_sequences
+                for evidence_id in evidence_ids
+                if evidence_id in self._adopted_set
+            }
+            if not selected_ids:
+                return False
+            for pack in self._packs:
+                if (
+                    pack.status is not EvidencePackStatus.RESOLVED
+                    or fact_key not in pack.resolved_facts
+                    or fact_key in pack.unresolved_facts
+                    or pack.conflicts
+                ):
+                    continue
+                fact = next(
+                    (
+                        candidate
+                        for candidate in pack.request.required_facts
+                        if candidate.key == fact_key
+                    ),
+                    None,
+                )
+                if (
+                    fact is None
+                    or fact.category is not category
+                    or fact.market_metric is not market_metric
+                    or fact.jurisdiction != jurisdiction
+                    or fact.expected_unit != expected_unit
+                    or fact.expected_shape != expected_shape
+                ):
+                    continue
+                try:
+                    authoritative_ids = tuple(
+                        evidence_renderer(pack).evidence_ids
+                    )
+                except Exception:  # noqa: BLE001 - validator is fail-closed
+                    continue
+                if (
+                    authoritative_ids
+                    and selected_ids == set(authoritative_ids)
+                    and all(
+                        evidence_id in self._adopted_set
+                        for evidence_id in authoritative_ids
+                    )
+                    and authoritative_ids in selected_sequences
+                ):
+                    return True
+            return False
+
+    def record_degradation(self, node_id: str) -> None:
+        reason = f"model_synthesis_degraded:{node_id}"
+        with self._lock:
+            if reason not in self._degradation_reason_set:
+                self._degradation_reason_set.add(reason)
+                self._degradation_reasons.append(reason)
+
     def snapshot(self) -> AgentEvidenceSnapshot:
         with self._lock:
             return AgentEvidenceSnapshot(
@@ -393,6 +503,7 @@ class AgentEvidenceSession:
                 extractor_count=self._extractions,
                 used=bool(self._investigating_bureaus),
                 investigating_bureau_node_ids=tuple(self._investigating_bureaus),
+                degradation_reasons=tuple(self._degradation_reasons),
             )
 
 
@@ -412,11 +523,14 @@ def invoke_bureau_with_evidence(
     department: str,
     bureau: str,
     matter_type: str,
+    decree_text: str,
     messages: Sequence[Mapping[str, str]],
     chat_model: Callable[[list[Message]], str],
     legacy_parser: Callable[[object], T],
     fallback: Callable[[str], T],
     session: AgentEvidenceSession,
+    fact_plan: FactPlanResult | None = None,
+    evidence_renderer: Callable[[EvidencePack], EvidenceBackedOpinion] | None = None,
 ) -> T:
     """Invoke one registered bureau, optionally resuming it exactly once."""
 
@@ -428,31 +542,156 @@ def invoke_bureau_with_evidence(
         raise EvidenceProtocolError("bureau_identity_invalid")
 
     original_messages = _copy_messages(messages)
+    if fact_plan is not None:
+        draft = _validated_precompiled_draft(fact_plan, node_id, session)
+        pack, failure_reason = _investigate_draft(
+            draft=draft,
+            source_scope=fact_plan.source_scope,
+            node_id=node_id,
+            department=department,
+            matter_type=matter_type,
+            session=session,
+        )
+        if failure_reason is not None:
+            return _fallback(fallback, failure_reason)
+        if pack is None:  # pragma: no cover - constrained by helper contract
+            raise EvidenceProtocolError("evidence_unavailable")
+        if not _precompiled_pack_is_usable(pack):
+            return _fallback(fallback, "evidence_unavailable")
+        return _express_precompiled_evidence(
+            pack=pack,
+            node_id=node_id,
+            decree_text=decree_text,
+            original_messages=original_messages,
+            chat_model=chat_model,
+            legacy_parser=legacy_parser,
+            session=session,
+            evidence_renderer=evidence_renderer,
+        )
+
     first = _call_and_parse(chat_model, original_messages)
-    ready = _parse_ready(first, legacy_parser, session, node_id, original_messages)
+    try:
+        ready = _parse_ready(first, legacy_parser, session, node_id, original_messages)
+    except EvidenceProtocolError as exc:
+        if str(exc) != "unsupported_factual_dependency":
+            raise
+        if not session.claim_protocol_correction():
+            raise
+        corrected = _call_and_parse(
+            chat_model,
+            [*original_messages, _unsupported_dependency_correction(node_id)],
+        )
+        if not _is_needs_data(corrected):
+            raise EvidenceProtocolError("unsupported_factual_dependency") from None
+        first = corrected
+        ready = None
     if ready is not None:
         return ready
 
-    draft = _parse_gap(first, node_id, session)
+    try:
+        draft = _parse_gap(first, node_id, session, decree_text)
+    except EvidenceProtocolError as exc:
+        if (
+            str(exc) != "data_gap_invalid"
+            or requested_market_metrics(decree_text) != (MarketMetric.LAST_PRICE,)
+            or has_out_of_scope_market_hint(decree_text)
+            or not session.claim_protocol_correction()
+        ):
+            raise
+        corrected = _call_and_parse(
+            chat_model,
+            [*original_messages, _invalid_price_gap_correction(node_id)],
+        )
+        if not _is_needs_data(corrected):
+            raise EvidenceProtocolError("data_gap_invalid") from None
+        try:
+            draft = _parse_gap(corrected, node_id, session, decree_text)
+        except EvidenceProtocolError as corrected_exc:
+            raise EvidenceProtocolError("data_gap_invalid") from corrected_exc
+    pack, failure_reason = _investigate_draft(
+        draft=draft,
+        source_scope=_SOURCE_SCOPE,
+        node_id=node_id,
+        department=department,
+        matter_type=matter_type,
+        session=session,
+    )
+    if failure_reason is not None:
+        return _fallback(fallback, failure_reason)
+    if pack is None:  # pragma: no cover - constrained by helper contract
+        raise EvidenceProtocolError("evidence_unavailable")
+
+    resumed_messages = original_messages + [_evidence_message(pack)]
+    second = _call_and_parse(chat_model, resumed_messages)
+    if _is_needs_data(second):
+        _parse_gap(second, node_id, session, decree_text)
+        return _fallback(fallback, "second_data_gap")
+    ready = _parse_ready(second, legacy_parser, session, node_id, original_messages)
+    if ready is None:  # defensive: exact envelopes are exhausted above
+        raise EvidenceProtocolError("response_invalid")
+    return ready
+
+
+def _validated_precompiled_draft(
+    fact_plan: FactPlanResult,
+    node_id: str,
+    session: AgentEvidenceSession,
+) -> DataGapDraft:
+    try:
+        draft = fact_plan.draft
+        if (
+            fact_plan.disposition is not FactPlanDisposition.PLANNED
+            or draft is None
+            or fact_plan.source_scope
+            != (SourceType.SHIGUAN, SourceType.MCP)
+            or draft.requesting_agent != node_id
+            or not session.knows_all(draft.existing_evidence_ids)
+        ):
+            raise ValueError
+        _validate_gap_bounds(draft)
+        return draft
+    except (TypeError, ValueError, ValidationError) as exc:
+        raise EvidenceProtocolError("data_plan_invalid") from exc
+
+
+def _precompiled_pack_is_usable(pack: EvidencePack) -> bool:
+    requested = {fact.key for fact in pack.request.required_facts}
+    return (
+        pack.status is EvidencePackStatus.RESOLVED
+        and set(pack.resolved_facts) == requested
+        and not pack.unresolved_facts
+        and not pack.conflicts
+    )
+
+
+def _investigate_draft(
+    *,
+    draft: DataGapDraft,
+    source_scope: tuple[SourceType, ...],
+    node_id: str,
+    department: str,
+    matter_type: str,
+    session: AgentEvidenceSession,
+) -> tuple[EvidencePack | None, str | None]:
     remaining = session.remaining_seconds()
     if remaining < 1:
-        return _fallback(fallback, "deadline_exhausted")
+        return None, "deadline_exhausted"
     if not session.claim_investigation(node_id):
         reason = (
             "deadline_exhausted"
             if session.remaining_seconds() <= 0
             else "investigation_budget_exhausted"
         )
-        return _fallback(fallback, reason)
+        return None, reason
     remaining_after_claim = session.remaining_seconds()
     if remaining_after_claim < 1:
-        return _fallback(fallback, "deadline_exhausted")
+        return None, "deadline_exhausted"
     timeout_seconds = min(30, math.floor(remaining_after_claim))
     request = DataGapRequest(
         **draft.model_dump(mode="python"),
         request_id=session.next_request_id(),
         timeout_seconds=timeout_seconds,
-        source_scope=_SOURCE_SCOPE,
+        source_scope=source_scope,
     )
     try:
         pack = session.coordinator.investigate(
@@ -462,21 +701,72 @@ def invoke_bureau_with_evidence(
             extraction_budget=session,
         )
     except Exception:  # noqa: BLE001 - coordinator boundary is sanitized
-        return _fallback(fallback, "evidence_unavailable")
+        return None, "evidence_unavailable"
     session.record_investigation_result(node_id, pack)
     session.freeze_pack(pack)
     if pack.status in {EvidencePackStatus.UNAVAILABLE, EvidencePackStatus.BLOCKED}:
-        return _fallback(fallback, "evidence_unavailable")
+        return pack, "evidence_unavailable"
+    return pack, None
 
-    resumed_messages = original_messages + [_evidence_message(pack)]
-    second = _call_and_parse(chat_model, resumed_messages)
-    if _is_needs_data(second):
-        _parse_gap(second, node_id, session)
-        return _fallback(fallback, "second_data_gap")
-    ready = _parse_ready(second, legacy_parser, session, node_id, original_messages)
-    if ready is None:  # defensive: exact envelopes are exhausted above
-        raise EvidenceProtocolError("response_invalid")
-    return ready
+
+def _express_precompiled_evidence(
+    *,
+    pack: EvidencePack,
+    node_id: str,
+    decree_text: str,
+    original_messages: list[Message],
+    chat_model: Callable[[list[Message]], str],
+    legacy_parser: Callable[[object], T],
+    session: AgentEvidenceSession,
+    evidence_renderer: Callable[[EvidencePack], EvidenceBackedOpinion] | None,
+) -> T:
+    rendered = evidence_renderer(pack) if evidence_renderer is not None else None
+    rendered_result: T | None = None
+    evidence_ids: tuple[str, ...] = ()
+    if rendered is not None:
+        try:
+            evidence_ids = tuple(rendered.evidence_ids)
+            opinion = rendered.opinion
+        except (AttributeError, TypeError) as exc:
+            raise EvidenceProtocolError("response_invalid") from exc
+        if not session.knows_all(evidence_ids):
+            raise EvidenceProtocolError("adoption_invalid")
+    try:
+        response = _call_and_parse(
+            chat_model,
+            [*original_messages, _evidence_message(pack)],
+        )
+        if _is_needs_data(response):
+            _parse_gap(response, node_id, session, decree_text)
+            raise EvidenceProtocolError("second_data_gap")
+        ready = _parse_ready(
+            response,
+            legacy_parser,
+            session,
+            node_id,
+            original_messages,
+            record_selection=rendered is None,
+        )
+        if ready is None:
+            raise EvidenceProtocolError("response_invalid")
+        if rendered is None:
+            return ready
+        if (
+            response["result"]["opinion"] == opinion
+            and tuple(response["adopted_evidence_ids"]) == evidence_ids
+        ):
+            session.record_selection(node_id, evidence_ids)
+            return ready
+    except EvidenceProtocolError:
+        if rendered is None:
+            raise
+    session.record_degradation(node_id)
+    session.record_selection(node_id, evidence_ids)
+    try:
+        rendered_result = legacy_parser({"opinion": opinion})
+    except Exception as exc:
+        raise EvidenceProtocolError("response_invalid") from exc
+    return rendered_result
 
 
 def build_default_evidence_session(
@@ -491,7 +781,7 @@ def build_default_evidence_session(
     mcp_registry = load_default_mcp_registry()
     mcp_client = McpClient(
         transport=client,
-        credentials=EnvCredentialProvider(),
+        credentials=build_runtime_credential_provider(),
         registry=mcp_registry,
     )
 
@@ -563,6 +853,8 @@ def _parse_ready(
     session: AgentEvidenceSession,
     node_id: str,
     messages: Sequence[Mapping[str, str]],
+    *,
+    record_selection: bool = True,
 ) -> T | None:
     if "status" not in payload:
         raise EvidenceProtocolError("uncited_fact_dependency")
@@ -601,7 +893,8 @@ def _parse_ready(
         result = legacy_parser({"opinion": envelope.result.opinion})
     except Exception as exc:
         raise EvidenceProtocolError("response_invalid") from exc
-    session.record_selection(node_id, tuple(adopted))
+    if record_selection:
+        session.record_selection(node_id, tuple(adopted))
     return result
 
 
@@ -648,6 +941,7 @@ def _has_unsupported_factual_dependency(
         _compact_text(clause) not in supported_claim_texts
         for clause in opinion_clauses
         if not _is_normative_proposal(clause)
+        and not _is_nonassertive_citation_attribution(clause)
     ):
         return True
     return any(
@@ -688,6 +982,18 @@ def _is_normative_proposal(clause: str) -> bool:
     return True
 
 
+def _is_nonassertive_citation_attribution(clause: str) -> bool:
+    return (
+        _CITATION_ATTRIBUTION_PATTERN.fullmatch(clause.strip()) is not None
+        and _EPISTEMIC_PATTERN.search(clause) is None
+        and _OBSERVATION_ASSERTION_PATTERN.search(clause) is None
+        and not (
+            _OBJECTIVE_FACT_TERM_PATTERN.search(clause)
+            and _OBSERVED_VALUE_OR_TIME_PATTERN.search(clause)
+        )
+    )
+
+
 def _user_claim_is_grounded(claim: str, prompt: str) -> bool:
     compact_claim = _compact_text(claim)
     matching_clauses = tuple(
@@ -706,7 +1012,10 @@ def _is_needs_data(payload: dict[str, Any]) -> bool:
 
 
 def _parse_gap(
-    payload: dict[str, Any], node_id: str, session: AgentEvidenceSession
+    payload: dict[str, Any],
+    node_id: str,
+    session: AgentEvidenceSession,
+    decree_text: str,
 ) -> DataGapDraft:
     if set(payload) != {"status", "data_gap"} or payload.get("status") != "NEEDS_DATA":
         raise EvidenceProtocolError("response_invalid")
@@ -717,9 +1026,58 @@ def _parse_gap(
             raise ValueError
         if not session.knows_all(draft.existing_evidence_ids):
             raise ValueError
-        return draft
+        if requested_market_metrics(decree_text) == (
+            MarketMetric.LAST_PRICE,
+        ) and has_out_of_scope_market_hint(
+            draft.question,
+            draft.decision_context,
+            *(
+                text
+                for fact in draft.required_facts
+                for text in (fact.subject, fact.description)
+            ),
+        ):
+            raise ValueError
+        constrained_facts = _constrain_market_facts(
+            decree_text, draft.required_facts
+        )
+        if constrained_facts == draft.required_facts:
+            return draft
+        return draft.model_copy(update={"required_facts": constrained_facts})
     except (TypeError, ValueError, ValidationError) as exc:
         raise EvidenceProtocolError("data_gap_invalid") from exc
+
+
+def _constrain_market_facts(
+    decree_text: str,
+    facts: tuple[RequiredFact, ...],
+) -> tuple[RequiredFact, ...]:
+    requested = requested_market_metrics(decree_text)
+    if not requested:
+        return facts
+    allowed = set(requested)
+    selected = tuple(
+        fact
+        for fact in facts
+        if fact.category is FactCategory.MARKET_QUOTE
+        and fact.market_metric in allowed
+    )
+    if not selected:
+        raise EvidenceProtocolError("data_gap_invalid")
+    if requested == (MarketMetric.LAST_PRICE,):
+        mainland_prices = tuple(
+            fact for fact in selected if fact.jurisdiction in {None, "CN"}
+        )
+        if len(mainland_prices) != 1:
+            raise EvidenceProtocolError("data_gap_invalid")
+        price_fact = mainland_prices[0]
+        if (
+            price_fact.expected_unit not in {None, "CNY"}
+            or price_fact.expected_shape not in {None, "number"}
+        ):
+            raise EvidenceProtocolError("data_gap_invalid")
+        return mainland_prices
+    return selected
 
 
 def _validate_gap_bounds(draft: DataGapDraft) -> None:
@@ -761,6 +1119,55 @@ def _evidence_message(pack: EvidencePack) -> Message:
     }
 
 
+def _unsupported_dependency_correction(node_id: str) -> Message:
+    return {
+        "role": "user",
+        "content": (
+            "Return only one strict JSON object. READY is forbidden. "
+            "Return exactly "
+            '{"status":"NEEDS_DATA","data_gap":{"requesting_agent":'
+            f'"{node_id}","question":"<question>","required_facts":['
+            '{"key":"<key>","description":"<description>",'
+            '"category":"<MARKET_QUOTE|REGULATORY_FILING|NEWS_EVENT|'
+            'PUBLIC_STATISTIC|ENTITY_REFERENCE>",'
+            '"data_scope":"<INTERNAL_BUSINESS|EXTERNAL_PUBLIC|HYBRID>",'
+            '"subject":"<entity or topic>","jurisdiction":null,'
+            '"expected_unit":null,"expected_shape":null,'
+            '"market_metric":"LAST_PRICE"}],'
+            '"decision_context":"<context>",'
+            '"freshness":{"max_age_seconds":3600},'
+            '"existing_evidence_ids":[]}}. '
+            f"{MARKET_METRIC_PROMPT_CONTRACT} "
+            "Do not include any other text."
+        ),
+    }
+
+
+def _invalid_price_gap_correction(node_id: str) -> Message:
+    return {
+        "role": "user",
+        "content": (
+            "Return only one strict JSON object. READY is forbidden. "
+            "The decree asks only for a mainland China stock price. Return exactly "
+            "one mainland LAST_PRICE fact, use the ISO 3166-1 alpha-2 jurisdiction "
+            'code "CN", and do not add Hong Kong or overseas facts. Return exactly '
+            '{"status":"NEEDS_DATA","data_gap":{"requesting_agent":'
+            f'"{node_id}","question":"<question>","required_facts":['
+            '{"key":"<key>","description":"<description>",'
+            '"category":"MARKET_QUOTE","data_scope":"EXTERNAL_PUBLIC",'
+            '"subject":"<mainland listed company or A-share ticker>",'
+            '"jurisdiction":"CN","expected_unit":"CNY",'
+            '"expected_shape":"number","market_metric":"LAST_PRICE"}],'
+            '"decision_context":"<context>",'
+            '"freshness":{"max_age_seconds":300},'
+            '"existing_evidence_ids":[]}}. '
+            "Do not mention Hong Kong, overseas markets, or non-mainland tickers "
+            "in any field. "
+            "Do not include any other text."
+        ),
+    }
+
+
 def _serialization_fallback(value: object) -> object:
     if isinstance(value, Mapping):
         return dict(value)
@@ -783,6 +1190,7 @@ __all__ = [
     "EvidenceProtocolError",
     "ClaimBasis",
     "FactualClaim",
+    "MARKET_METRIC_PROMPT_CONTRACT",
     "build_default_evidence_session",
     "bureau_node_id",
     "invoke_bureau_with_evidence",

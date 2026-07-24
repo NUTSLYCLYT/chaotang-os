@@ -19,6 +19,7 @@ from app.jinyiwei.models import (
     EvidencePackStatus,
     EvidenceQuality,
     EvidenceStance,
+    FactCategory,
     FreshnessRequirement,
     RequiredFact,
     SourceAttempt,
@@ -85,6 +86,29 @@ def _stock_snapshot_model(prompt: str, *, fact_key: str = "current_stock") -> st
     )
 
 
+def _market_snapshot_model(prompt: str) -> str:
+    payload = json.loads(prompt.split("INPUT_JSON:\n", 1)[1])
+    document = payload["documents"][0]
+    fact = payload["facts"][0]
+    return json.dumps(
+        {
+            "evidence": [
+                {
+                    "fact_key": fact["key"],
+                    "document_id": document["document_id"],
+                    "source_url": document["source_url"],
+                    "value": 111.25,
+                    "unit": "CNY",
+                    "as_of": document["as_of"],
+                    "stance": "SUPPORTS",
+                    "excerpt": "比亚迪最新可得价格为 111.25 元。",
+                }
+            ]
+        },
+        ensure_ascii=False,
+    )
+
+
 def _request(
     *,
     request_id: str = "req-coordinate",
@@ -115,6 +139,32 @@ def _request(
         freshness=FreshnessRequirement(max_age_seconds=max_age_seconds),
         timeout_seconds=timeout_seconds,
         source_scope=source_scope,
+    )
+
+
+def _market_request(
+    *,
+    source_type: SourceType,
+    max_age_seconds: int = 300,
+) -> DataGapRequest:
+    return DataGapRequest(
+        request_id="market-request",
+        requesting_agent="hubu",
+        question="latest BYD price",
+        required_facts=(
+            RequiredFact(
+                key="byd_stock_price",
+                description="BYD stock price",
+                category=FactCategory.MARKET_QUOTE,
+                data_scope="EXTERNAL_PUBLIC",
+                subject="sz002594",
+                market_metric="LAST_PRICE",
+            ),
+        ),
+        decision_context="investment",
+        freshness=FreshnessRequirement(max_age_seconds=max_age_seconds),
+        timeout_seconds=30,
+        source_scope=(source_type,),
     )
 
 
@@ -297,6 +347,119 @@ def _coordinator(
     )
 
 
+def _investigate_with_price_document_and_no_optional_document(
+    tmp_path: Path,
+):
+    request = DataGapRequest(
+        request_id="req-byd-last-price",
+        requesting_agent="投资司",
+        question="帮我看看比亚迪的股票价格",
+        required_facts=(
+            RequiredFact(
+                key="BYD_LAST_PRICE",
+                description="比亚迪最新可得 A 股价格",
+                category=FactCategory.MARKET_QUOTE,
+                data_scope="EXTERNAL_PUBLIC",
+                subject="比亚迪",
+                market_metric="LAST_PRICE",
+            ),
+        ),
+        decision_context="判断最新可得价格",
+        freshness=FreshnessRequirement(max_age_seconds=3600),
+        timeout_seconds=30,
+        source_scope=(SourceType.MCP,),
+    )
+    return _coordinator(
+        tmp_path,
+        shiguan=FakeSource(SourceType.SHIGUAN, documents=False),
+        mcp=FakeSource(SourceType.MCP),
+        public_api=FakeSource(SourceType.PUBLIC_API, documents=False),
+        public_web=FakeSource(SourceType.PUBLIC_WEB, documents=False),
+        extractor=FakeExtractor(
+            {
+                SourceType.MCP: (
+                    _item(
+                        "byd-price",
+                        "BYD_LAST_PRICE",
+                        111.25,
+                        SourceType.MCP,
+                        publisher="westock",
+                    ),
+                )
+            }
+        ),
+    ).investigate(request, department="户部", matter_type="DECREE")
+
+
+def _investigate_with_failed_source(tmp_path: Path, error: str):
+    request = DataGapRequest(
+        request_id=f"req-failed-{error}",
+        requesting_agent="投资司",
+        question="帮我看看比亚迪的股票价格",
+        required_facts=(
+            RequiredFact(
+                key="BYD_LAST_PRICE",
+                description="比亚迪最新可得 A 股价格",
+                category=FactCategory.MARKET_QUOTE,
+                data_scope="EXTERNAL_PUBLIC",
+                subject="比亚迪",
+                market_metric="LAST_PRICE",
+            ),
+        ),
+        decision_context="判断最新可得价格",
+        freshness=FreshnessRequirement(max_age_seconds=3600),
+        timeout_seconds=30,
+        source_scope=(SourceType.MCP,),
+    )
+    return _coordinator(
+        tmp_path,
+        shiguan=FakeSource(SourceType.SHIGUAN, documents=False),
+        mcp=FakeSource(
+            SourceType.MCP,
+            status=SourceAttemptStatus.FAILED,
+            documents=False,
+            error=error,
+        ),
+        public_api=FakeSource(SourceType.PUBLIC_API, documents=False),
+        public_web=FakeSource(SourceType.PUBLIC_WEB, documents=False),
+        extractor=FakeExtractor({}),
+    ).investigate(request, department="户部", matter_type="DECREE")
+
+
+def test_price_evidence_resolves_when_nonrequired_metric_is_absent(
+    tmp_path: Path,
+) -> None:
+    pack = _investigate_with_price_document_and_no_optional_document(tmp_path)
+
+    assert pack.status is EvidencePackStatus.RESOLVED
+    assert pack.resolved_facts == ("BYD_LAST_PRICE",)
+
+
+@pytest.mark.parametrize(
+    ("source_error", "expected_status"),
+    [
+        ("instrument_not_found", EvidencePackStatus.UNAVAILABLE),
+        ("instrument_ambiguous", EvidencePackStatus.UNAVAILABLE),
+        ("provider_capability_missing", EvidencePackStatus.UNAVAILABLE),
+        ("source_unavailable", EvidencePackStatus.UNAVAILABLE),
+        ("market_out_of_scope", EvidencePackStatus.UNAVAILABLE),
+    ],
+)
+def test_identity_failures_are_safe_and_do_not_create_evidence(
+    tmp_path: Path,
+    source_error: str,
+    expected_status: EvidencePackStatus,
+) -> None:
+    pack = _investigate_with_failed_source(tmp_path, source_error)
+
+    assert pack.status is expected_status
+    assert pack.evidence_by_fact["BYD_LAST_PRICE"] == ()
+    assert pack.source_attempts[0].error == source_error
+    serialized_attempt = json.dumps(pack.source_attempts[0].model_dump(), default=str)
+    assert "credential" not in serialized_attempt.casefold()
+    assert "result_payload" not in serialized_attempt.casefold()
+
+
 def test_fixed_order_shiguan_short_circuits_network_and_persists(tmp_path: Path) -> None:
     shiguan = FakeSource(SourceType.SHIGUAN)
     api = FakeSource(SourceType.PUBLIC_API)
@@ -408,6 +571,91 @@ def test_real_shiguan_primary_snapshot_short_circuits_external_sources(
     assert pack.resolved_facts == ("current_stock",)
     assert api.queries == []
     assert web.queries == []
+
+
+@pytest.mark.parametrize(
+    "requested_subject",
+    ("比亚迪", "比亚迪股份有限公司", "002594.SZ"),
+)
+def test_canonical_market_identity_in_shiguan_short_circuits_mcp(
+    tmp_path: Path,
+    requested_subject: str,
+) -> None:
+    archive = _archive_with_adopted_snapshot(
+        "byd-market",
+        evidence_id="archived-byd-price",
+        fact_key="ARCHIVED_BYD_PRICE",
+        value=111.25,
+        as_of="2026-07-20T11:30:00Z",
+        source_url="https://market.example.test/byd",
+        publisher="历史行情系统",
+        source_type="MCP",
+        access_metadata={
+            "a_share_identity": {
+                "canonical_name": "比亚迪股份有限公司",
+                "exchange": "SZSE",
+                "ticker": "002594",
+                "instrument_type": "A_SHARE",
+                "currency": "CNY",
+            },
+            "market_metric": "LAST_PRICE",
+        },
+        category="MARKET_QUOTE",
+        data_scope="EXTERNAL_PUBLIC",
+        subject="比亚迪",
+        jurisdiction="CN",
+        unit="CNY",
+        excerpt="比亚迪最新可得价格为 111.25 元。",
+    )
+    mcp = FakeSource(SourceType.MCP)
+    coordinator = InvestigationCoordinator(
+        shiguan=ShiguanSource(
+            recall=lambda **_: RecallContext(
+                available=True,
+                entries=(_match("byd-market", "比亚迪历史行情"),),
+            ),
+            load_archive=lambda _archive_id: archive,
+            now=lambda: NOW,
+        ),
+        mcp=mcp,
+        public_api=FakeSource(SourceType.PUBLIC_API),
+        public_web=FakeSource(SourceType.PUBLIC_WEB),
+        extractor=StructuredEvidenceExtractor(model=_market_snapshot_model),
+        clock=Clock(),
+        id_factory=_ids(),
+        db_path=tmp_path / "jinyiwei.sqlite3",
+    )
+    request = DataGapRequest(
+        request_id=f"req-shiguan-{requested_subject}",
+        requesting_agent="投资司",
+        question=f"查询 {requested_subject} 最新价格",
+        required_facts=(
+            RequiredFact(
+                key="BYD_LAST_PRICE",
+                description="比亚迪最新可得价格",
+                category=FactCategory.MARKET_QUOTE,
+                data_scope="EXTERNAL_PUBLIC",
+                subject=requested_subject,
+                jurisdiction="CN",
+                expected_unit="CNY",
+                market_metric="LAST_PRICE",
+            ),
+        ),
+        decision_context="查询行情",
+        freshness=FreshnessRequirement(max_age_seconds=3600),
+        timeout_seconds=30,
+        source_scope=(SourceType.SHIGUAN, SourceType.MCP),
+    )
+
+    pack = coordinator.investigate(
+        request,
+        department="户部",
+        matter_type="DECREE",
+    )
+
+    assert pack.status is EvidencePackStatus.RESOLVED
+    assert pack.resolved_facts == ("BYD_LAST_PRICE",)
+    assert mcp.queries == []
 
 
 def test_real_shiguan_fact_lock_rejects_model_remap_to_other_slot(
@@ -889,6 +1137,71 @@ def test_expired_market_quote_is_unresolved_and_not_inferable(tmp_path: Path) ->
         item.evidence_id for item in pack.historical_evidence_by_fact["quote"]
     ) == ("quote",)
     assert pack.do_not_infer == ("fact_stale:quote",)
+    assert pack.source_attempts[0].error == "stale_evidence_only"
+
+
+def test_coordinator_adopts_freshly_retrieved_latest_mcp_market_close(
+    tmp_path: Path,
+) -> None:
+    close = _item(
+        "byd-close",
+        "byd_stock_price",
+        320,
+        SourceType.MCP,
+    ).model_copy(
+        update={
+            "as_of": "2026-07-20T07:00:00Z",
+            "retrieved_at": "2026-07-20T11:59:00Z",
+        }
+    )
+    pack = _coordinator(
+        tmp_path,
+        shiguan=FakeSource(SourceType.SHIGUAN, documents=False),
+        public_api=FakeSource(SourceType.PUBLIC_API, documents=False),
+        public_web=FakeSource(SourceType.PUBLIC_WEB, documents=False),
+        mcp=FakeSource(SourceType.MCP),
+        extractor=FakeExtractor({SourceType.MCP: (close,)}),
+    ).investigate(
+        _market_request(source_type=SourceType.MCP),
+        department="hubu",
+        matter_type="MEMORIAL",
+    )
+
+    assert pack.status is EvidencePackStatus.RESOLVED
+    assert pack.evidence_by_fact["byd_stock_price"] == (close,)
+    assert close.as_of == "2026-07-20T07:00:00Z"
+
+
+def test_coordinator_rejects_market_close_from_old_retrieval(
+    tmp_path: Path,
+) -> None:
+    old_retrieval = _item(
+        "byd-old-retrieval",
+        "byd_stock_price",
+        320,
+        SourceType.MCP,
+    ).model_copy(
+        update={
+            "as_of": "2026-07-20T07:00:00Z",
+            "retrieved_at": "2026-07-20T11:40:00Z",
+        }
+    )
+    pack = _coordinator(
+        tmp_path,
+        shiguan=FakeSource(SourceType.SHIGUAN, documents=False),
+        public_api=FakeSource(SourceType.PUBLIC_API, documents=False),
+        public_web=FakeSource(SourceType.PUBLIC_WEB, documents=False),
+        mcp=FakeSource(SourceType.MCP),
+        extractor=FakeExtractor({SourceType.MCP: (old_retrieval,)}),
+    ).investigate(
+        _market_request(source_type=SourceType.MCP),
+        department="hubu",
+        matter_type="MEMORIAL",
+    )
+
+    assert pack.status is EvidencePackStatus.UNAVAILABLE
+    assert pack.evidence_by_fact["byd_stock_price"] == ()
+    assert pack.do_not_infer == ("fact_stale:byd_stock_price",)
 
 
 def test_stale_archive_is_history_and_only_its_fact_reaches_external_source(
@@ -952,6 +1265,34 @@ def test_stale_external_evidence_is_rejected_not_preserved_as_history(
     assert pack.evidence_by_fact["population"] == ()
     assert pack.historical_evidence_by_fact["population"] == ()
     assert pack.do_not_infer == ("fact_stale:population",)
+    assert pack.source_attempts[0].error == "stale_evidence_only"
+
+
+def test_stale_reason_is_attributed_only_to_source_that_produced_it(
+    tmp_path: Path,
+) -> None:
+    stale_external = _item(
+        "old-public", "population", 9, SourceType.PUBLIC_API
+    ).model_copy(update={"as_of": "2026-07-20T10:00:00Z"})
+    pack = _coordinator(
+        tmp_path,
+        shiguan=FakeSource(SourceType.SHIGUAN, documents=False),
+        public_api=FakeSource(SourceType.PUBLIC_API),
+        public_web=FakeSource(SourceType.PUBLIC_WEB, documents=False),
+        extractor=FakeExtractor({SourceType.PUBLIC_API: (stale_external,)}),
+    ).investigate(
+        _request(
+            facts=("population",),
+            source_scope=(SourceType.PUBLIC_API, SourceType.PUBLIC_WEB),
+        ),
+        department="hubu",
+        matter_type="REPLY",
+    )
+
+    assert [attempt.error for attempt in pack.source_attempts] == [
+        "stale_evidence_only",
+        None,
+    ]
 
 
 def test_category_mismatch_preserves_empty_source_attribution_and_unavailability(

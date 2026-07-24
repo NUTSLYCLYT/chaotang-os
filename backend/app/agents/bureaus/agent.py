@@ -17,6 +17,8 @@ class BureauAgentInvocationError(Exception):
 
 
 def _evidence_protocol_prompt(node_id: str) -> str:
+    from app.agents.evidence_protocol import MARKET_METRIC_PROMPT_CONTRACT
+
     return f"""
 This is an evidence-session response. Return only one strict JSON envelope.
 If no externally verifiable fact is necessary, return exactly
@@ -34,8 +36,9 @@ When any necessary public fact is missing, return exactly
 "category":"<MARKET_QUOTE|REGULATORY_FILING|NEWS_EVENT|PUBLIC_STATISTIC|ENTITY_REFERENCE>",
 "data_scope":"<INTERNAL_BUSINESS|EXTERNAL_PUBLIC|HYBRID>",
 "subject":"<entity or topic>","jurisdiction":null,"expected_unit":null,
-"expected_shape":null}}],"decision_context":"<context>",
+"expected_shape":null,"market_metric":"LAST_PRICE"}}],"decision_context":"<context>",
 "freshness":{{"max_age_seconds":3600}},"existing_evidence_ids":[]}}}}.
+{MARKET_METRIC_PROMPT_CONTRACT}
 Do not return a bare opinion. Declare every factual claim used in the final opinion.
 Each declaration must use NORMATIVE, USER_PROVIDED, ARCHIVED, or CITED; only
 ARCHIVED and CITED declarations may name evidence IDs, and every named ID must be
@@ -81,18 +84,45 @@ def invoke_bureau_agent(
             bureau_node_id,
             invoke_bureau_with_evidence,
         )
+        from app.agents.evidence_rendering import render_mainland_last_price
+        from app.agents.fact_plans import FactPlanDisposition
+        from app.agents.market_fact_plan import (
+            compile_mainland_last_price_plan,
+            extract_mainland_market_entity,
+        )
 
         node_id = bureau_node_id(department, bureau)
         messages[0] = {
             "role": "system",
             "content": f"{system_prompt}\n\n{_evidence_protocol_prompt(node_id)}",
         }
+        evidence_kwargs: dict[str, object] = {}
+        if (department, bureau) == ("户部", "投资司"):
+            fact_plan = compile_mainland_last_price_plan(
+                decree_text=decree_text,
+                node_id=node_id,
+                entity_extractor=lambda text: extract_mainland_market_entity(
+                    text,
+                    chat_model,
+                ),
+            )
+            if fact_plan.disposition is FactPlanDisposition.REJECTED:
+                cause = ValueError(fact_plan.reason or "data_plan_invalid")
+                raise BureauAgentInvocationError(
+                    "Bureau deterministic fact plan was rejected."
+                ) from cause
+            if fact_plan.disposition is FactPlanDisposition.PLANNED:
+                evidence_kwargs = {
+                    "fact_plan": fact_plan,
+                    "evidence_renderer": render_mainland_last_price,
+                }
         try:
             return invoke_bureau_with_evidence(
                 node_id=node_id,
                 department=department,
                 bureau=bureau,
                 matter_type="MEMORIAL",
+                decree_text=decree_text,
                 messages=messages,
                 chat_model=chat_model,
                 legacy_parser=_parse_opinion,
@@ -101,6 +131,7 @@ def invoke_bureau_agent(
                     "待取得可验证数据后再行复核。"
                 ),
                 session=evidence_session,
+                **evidence_kwargs,
             )
         except EvidenceProtocolError as exc:
             raise BureauAgentInvocationError("Bureau evidence protocol failed.") from exc

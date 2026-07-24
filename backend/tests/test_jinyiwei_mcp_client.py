@@ -20,7 +20,7 @@ from app.jinyiwei.mcp.contracts import (
     McpTransport,
     ToolEffect,
 )
-from app.jinyiwei.mcp.credentials import SensitiveHeaders
+from app.jinyiwei.mcp.credentials import McpCredentialError, SensitiveHeaders
 from app.jinyiwei.mcp.mapping import DeterministicMcpMapper
 from app.jinyiwei.mcp.registry import (
     McpRegistry,
@@ -28,7 +28,7 @@ from app.jinyiwei.mcp.registry import (
     load_default_registry,
 )
 from app.jinyiwei.models import DataScope, FactCategory, RequiredFact
-from app.jinyiwei.network import PinnedHTTPSResponse
+from app.jinyiwei.network import NetworkAccessDisabledError, PinnedHTTPSResponse
 
 TOOL = {
     "name": "data_quote",
@@ -69,6 +69,7 @@ def approval() -> McpToolApproval:
         enabled=True,
         effect=ToolEffect.READ_ONLY,
         fact_categories=(FactCategory.MARKET_QUOTE,),
+        market_metrics=("LAST_PRICE",),
         data_scopes=(DataScope.EXTERNAL_PUBLIC,),
         jurisdictions=("CN",),
         approval_version="v1",
@@ -95,10 +96,19 @@ class FakeCredentials:
         return SensitiveHeaders({"authorization": "Bearer secret-token"})
 
 
+class FailingCredentialProvider:
+    def __init__(self, code: str) -> None:
+        self.code = code
+
+    def headers_for(self, _server: McpServerConfig) -> SensitiveHeaders:
+        raise McpCredentialError(self.code)
+
+
 class FakeTransport:
     def __init__(self, responses: list[PinnedHTTPSResponse]) -> None:
         self.responses = responses
         self.requests: list[RecordedRequest] = []
+        self.options: list[dict[str, object]] = []
 
     def request(
         self,
@@ -107,10 +117,11 @@ class FakeTransport:
         *,
         headers: Mapping[str, str],
         json_body: bytes,
-        **_options: object,
+        **options: object,
     ) -> PinnedHTTPSResponse:
         sensitive = headers if isinstance(headers, SensitiveHeaders) else SensitiveHeaders(headers)
         self.requests.append(RecordedRequest(method, url, sensitive, json_body))
+        self.options.append(options)
         return self.responses.pop(0)
 
 
@@ -119,12 +130,14 @@ def client_for(
     *,
     credentials: object | None = None,
     approvals: tuple[McpToolApproval, ...] | None = None,
+    monotonic_clock=None,
 ) -> McpClient:
     registry = McpRegistry((server(),), approvals if approvals is not None else (approval(),))
     return McpClient(
         transport=transport,
         credentials=credentials or FakeCredentials(),
         registry=registry,
+        monotonic_clock=monotonic_clock,
     )
 
 
@@ -166,6 +179,180 @@ def discovery_responses(*, tools: list[object] | None = None) -> list[PinnedHTTP
         ),
         rpc(2, {"tools": tools if tools is not None else [TOOL]}),
     ]
+
+
+def test_discovery_and_call_apply_explicit_effective_timeout() -> None:
+    transport = FakeTransport(
+        [
+            *discovery_responses(),
+            rpc(3, {"content": [], "structuredContent": {"ok": True}}),
+        ]
+    )
+    client = client_for(transport)
+
+    client.discover(server(), timeout_seconds=2.5)
+    client.call(
+        server(),
+        approval(),
+        {"code": "sz002594"},
+        timeout_seconds=1.25,
+    )
+
+    discovery_timeouts = [
+        options["total_timeout"] for options in transport.options[:3]
+    ]
+    assert all(0 < timeout <= 2.5 for timeout in discovery_timeouts)
+    assert discovery_timeouts == sorted(discovery_timeouts, reverse=True)
+    assert transport.options[3]["total_timeout"] == 1.25
+    assert all(
+        options["connect_timeout"] <= options["total_timeout"]
+        and options["read_timeout"] <= options["total_timeout"]
+        for options in transport.options
+    )
+
+
+def test_discovery_recomputes_one_absolute_monotonic_deadline() -> None:
+    ticks = iter((100.0, 100.0, 101.0, 103.0))
+    transport = FakeTransport(discovery_responses())
+    client = client_for(transport, monotonic_clock=lambda: next(ticks))
+
+    client.discover(server(), timeout_seconds=5.0)
+
+    assert [options["total_timeout"] for options in transport.options] == [
+        5.0,
+        4.0,
+        2.0,
+    ]
+
+
+def test_discovery_deadline_exhaustion_prevents_next_transport() -> None:
+    ticks = iter((100.0, 100.0, 106.0))
+    transport = FakeTransport(discovery_responses())
+    client = client_for(transport, monotonic_clock=lambda: next(ticks))
+
+    with pytest.raises(McpClientError, match="^transport_timeout$"):
+        client.discover(server(), timeout_seconds=5.0)
+
+    assert len(transport.requests) == 1
+
+
+@pytest.mark.parametrize(
+    "code",
+    ("credential_unavailable", "credential_source_invalid"),
+)
+def test_discovery_wraps_credential_failure_as_stable_client_error(code: str) -> None:
+    client = client_for(
+        FakeTransport([]),
+        credentials=FailingCredentialProvider(code),
+    )
+
+    with pytest.raises(McpClientError, match=f"^{code}$"):
+        client.discover(server())
+
+
+def test_discovery_sanitizes_unapproved_credential_failure_reason() -> None:
+    client = client_for(
+        FakeTransport([]),
+        credentials=FailingCredentialProvider("Bearer secret-token"),
+    )
+
+    with pytest.raises(McpClientError, match="^fact_unavailable$") as exc:
+        client.discover(server())
+
+    assert "secret-token" not in str(exc.value)
+    assert exc.value.__cause__ is None
+    assert exc.value.__context__ is None
+
+
+def test_discovery_sanitizes_unexpected_credential_provider_failure() -> None:
+    class UnexpectedCredentialFailure:
+        def headers_for(self, _server: McpServerConfig) -> SensitiveHeaders:
+            raise RuntimeError("credential provider contains secret-token")
+
+    client = client_for(
+        FakeTransport([]),
+        credentials=UnexpectedCredentialFailure(),
+    )
+
+    with pytest.raises(McpClientError, match="^fact_unavailable$") as exc:
+        client.discover(server())
+
+    assert "secret-token" not in str(exc.value)
+    assert exc.value.__cause__ is None
+    assert exc.value.__context__ is None
+
+
+def test_discovery_preserves_external_network_disabled() -> None:
+    class DisabledNetworkTransport(FakeTransport):
+        def request(
+            self,
+            method: str,
+            url: str,
+            *,
+            headers: Mapping[str, str],
+            json_body: bytes,
+            **options: object,
+        ) -> PinnedHTTPSResponse:
+            del method, url, headers, json_body, options
+            raise NetworkAccessDisabledError("network flag contains secret-token")
+
+    client = client_for(DisabledNetworkTransport([]))
+
+    with pytest.raises(McpClientError, match="^external_network_disabled$") as exc:
+        client.discover(server())
+
+    assert "secret-token" not in str(exc.value)
+    assert exc.value.__cause__ is None
+    assert exc.value.__context__ is None
+
+
+def test_discovery_sanitizes_unexpected_transport_failure() -> None:
+    class UnexpectedTransportFailure(FakeTransport):
+        def request(
+            self,
+            method: str,
+            url: str,
+            *,
+            headers: Mapping[str, str],
+            json_body: bytes,
+            **options: object,
+        ) -> PinnedHTTPSResponse:
+            del method, url, headers, json_body, options
+            raise RuntimeError("transport contains secret-token")
+
+    client = client_for(UnexpectedTransportFailure([]))
+
+    with pytest.raises(McpClientError, match="^transport_failed$") as exc:
+        client.discover(server())
+
+    assert "secret-token" not in str(exc.value)
+    assert exc.value.__cause__ is None
+    assert exc.value.__context__ is None
+
+
+def test_discovery_sanitizes_unknown_transport_client_error() -> None:
+    class UnknownClientErrorTransport(FakeTransport):
+        def request(
+            self,
+            method: str,
+            url: str,
+            *,
+            headers: Mapping[str, str],
+            json_body: bytes,
+            **options: object,
+        ) -> PinnedHTTPSResponse:
+            del method, url, headers, json_body, options
+            raise McpClientError("transport contains secret-token")
+
+    client = client_for(UnknownClientErrorTransport([]))
+
+    with pytest.raises(McpClientError, match="^fact_unavailable$") as exc:
+        client.discover(server())
+
+    assert "secret-token" not in str(exc.value)
+    assert "secret-token" not in repr(exc.value)
+    assert exc.value.__cause__ is None
+    assert exc.value.__context__ is None
 
 
 def test_discover_initializes_then_lists_tools_with_redacted_session_and_token() -> None:
@@ -315,6 +502,7 @@ def test_text_only_westock_results_normalize_then_map_end_to_end() -> None:
         jurisdiction="CN",
         expected_unit="CNY",
         expected_shape="number",
+        market_metric="LAST_PRICE",
     )
 
     client.discover(westock)
@@ -385,6 +573,7 @@ def test_text_only_minute_result_normalizes_to_market_minute_end_to_end() -> Non
         jurisdiction="CN",
         expected_unit="CNY",
         expected_shape="number",
+        market_metric="LAST_PRICE",
     )
 
     client.discover(westock)

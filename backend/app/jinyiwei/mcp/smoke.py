@@ -21,7 +21,7 @@ from app.jinyiwei.mcp.credentials import (
 from app.jinyiwei.mcp.mapping import DeterministicMcpMapper
 from app.jinyiwei.mcp.oauth.store import OAuthCredentialStore
 from app.jinyiwei.mcp.registry import McpRegistry, McpRegistryError, load_default_registry
-from app.jinyiwei.models import DataScope, FactCategory, RequiredFact
+from app.jinyiwei.models import DataScope, FactCategory, MarketMetric, RequiredFact
 from app.jinyiwei.network import (
     EXTERNAL_NETWORK_FLAG,
     EXTERNAL_NETWORK_TRUTHY_VALUES,
@@ -121,7 +121,15 @@ def _emit(
     )
 
 
-def _quote_fact(query: str, jurisdiction: str) -> RequiredFact:
+def _quote_fact(
+    query: str,
+    jurisdiction: str,
+    tool_name: str,
+) -> RequiredFact:
+    metric = {
+        "data_quote": MarketMetric.LAST_PRICE,
+        "data_minute": MarketMetric.INTRADAY_SERIES,
+    }[tool_name]
     return RequiredFact(
         key="smoke_market_quote",
         description="显式只读 MCP 行情冒烟",
@@ -131,6 +139,7 @@ def _quote_fact(query: str, jurisdiction: str) -> RequiredFact:
         jurisdiction=jurisdiction,
         expected_unit="CNY" if jurisdiction == "CN" else "HKD",
         expected_shape="number",
+        market_metric=metric,
     )
 
 
@@ -201,6 +210,17 @@ def run_smoke(
     if not approval.enabled:
         _emit(errors, server=server_id, tool=tool_name, status="tool_disabled")
         return 2
+    fact = None
+    if tool_name != "data_search":
+        fact = _quote_fact(args.query, args.jurisdiction, tool_name)
+        if not approval.matches_fact(fact):
+            _emit(
+                errors,
+                server=server_id,
+                tool=tool_name,
+                status="tool_not_allowed",
+            )
+            return 2
     resolver = None
     if tool_name != "data_search":
         resolution = approval.mapping.entity_resolution if approval.mapping else None
@@ -292,7 +312,7 @@ def run_smoke(
             )
             return 0
 
-        fact = _quote_fact(args.query, args.jurisdiction)
+        assert fact is not None
         assert resolver is not None
         search_result = selected_client.call(
             server,

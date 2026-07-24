@@ -28,10 +28,12 @@ from pydantic import (
     model_validator,
 )
 
+from app.jinyiwei.instruments import AShareExchange
 from app.jinyiwei.models import (
     DataScope,
     EvidenceQuality,
     FactCategory,
+    MarketMetric,
     RequiredFact,
 )
 
@@ -527,6 +529,7 @@ class McpEntityResolver(_FrozenModel):
     jurisdiction_subject_patterns: Mapping[StrictStr, StrictStr] = Field(
         default_factory=dict
     )
+    exchange_subject_patterns: Mapping[AShareExchange, StrictStr]
     subject_pattern: StrictStr
     subject_max_length: StrictInt = Field(ge=1, le=256)
 
@@ -632,6 +635,39 @@ class McpEntityResolver(_FrozenModel):
             normalized[code] = pattern
         return FrozenJsonObject(normalized)
 
+    @field_validator("exchange_subject_patterns", mode="before")
+    @classmethod
+    def _valid_exchange_subject_patterns(
+        cls, value: Any
+    ) -> Mapping[AShareExchange, str]:
+        if not isinstance(value, Mapping):
+            raise ValueError("invalid_exchange_subject_patterns")
+        normalized: dict[AShareExchange, str] = {}
+        for exchange, pattern in value.items():
+            try:
+                exchange_id = AShareExchange(str(exchange).upper())
+            except ValueError:
+                raise ValueError("invalid_exchange_subject_patterns") from None
+            if exchange_id in normalized:
+                raise ValueError("duplicate_exchange_subject_pattern")
+            if not isinstance(pattern, str) or not pattern or len(pattern) > 256:
+                raise ValueError("invalid_exchange_subject_patterns")
+            try:
+                re.compile(pattern)
+            except re.error:
+                raise ValueError("invalid_exchange_subject_patterns") from None
+            normalized[exchange_id] = pattern
+        if not normalized:
+            raise ValueError("exchange_subject_patterns_must_not_be_empty")
+        return normalized
+
+    @field_validator("exchange_subject_patterns")
+    @classmethod
+    def _freeze_exchange_subject_patterns(
+        cls, value: Mapping[AShareExchange, str]
+    ) -> Mapping[AShareExchange, str]:
+        return FrozenJsonObject(value)
+
     @field_validator("required_types_by_market")
     @classmethod
     def _valid_required_types(
@@ -678,11 +714,14 @@ class McpEntityResolver(_FrozenModel):
         "markets_by_jurisdiction",
         "units_by_market",
         "jurisdiction_subject_patterns",
+        "exchange_subject_patterns",
         "required_types_by_market",
     )
     def _serialize_mappings(self, value: Mapping[str, Any]) -> dict[str, Any]:
         return {
-            key: list(item) if isinstance(item, tuple) else item
+            key.value if isinstance(key, StrEnum) else key: (
+                list(item) if isinstance(item, tuple) else item
+            )
             for key, item in value.items()
         }
 
@@ -930,6 +969,7 @@ class McpToolApproval(_FrozenModel):
     enabled: StrictBool = False
     effect: ToolEffect
     fact_categories: tuple[FactCategory, ...] = Field(min_length=1)
+    market_metrics: tuple[MarketMetric, ...] = ()
     data_scopes: tuple[DataScope, ...] = Field(min_length=1)
     jurisdictions: tuple[StrictStr, ...] = Field(min_length=1)
     approval_version: StrictStr
@@ -967,7 +1007,7 @@ class McpToolApproval(_FrozenModel):
             raise ValueError("invalid_approval_version")
         return value
 
-    @field_validator("fact_categories", "data_scopes")
+    @field_validator("fact_categories", "market_metrics", "data_scopes")
     @classmethod
     def _unique_capabilities(cls, value: tuple[Any, ...], info: ValidationInfo) -> tuple[Any, ...]:
         if len(value) != len(set(value)):
@@ -1007,6 +1047,11 @@ class McpToolApproval(_FrozenModel):
     def _tool_identity_matches_discovery(self) -> McpToolApproval:
         if self.approved_discovered_tool.get("name") != self.tool_name:
             raise ValueError("approved_tool_name_mismatch")
+        if FactCategory.MARKET_QUOTE in self.fact_categories:
+            if not self.market_metrics:
+                raise ValueError("market_quote_requires_market_metrics")
+        elif self.market_metrics:
+            raise ValueError("market_metrics_require_market_quote")
         return self
 
     def matches_fact(self, fact: RequiredFact) -> bool:
@@ -1026,6 +1071,10 @@ class McpToolApproval(_FrozenModel):
         return (
             not self.resolver_only
             and fact.category in self.fact_categories
+            and (
+                fact.category is not FactCategory.MARKET_QUOTE
+                or fact.market_metric in self.market_metrics
+            )
             and fact.data_scope in self.data_scopes
             and jurisdiction_matches
         )

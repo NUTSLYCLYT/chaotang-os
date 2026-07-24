@@ -64,6 +64,17 @@ class FactCategory(StrEnum):
     ENTITY_REFERENCE = "ENTITY_REFERENCE"
 
 
+class MarketMetric(StrEnum):
+    LAST_PRICE = "LAST_PRICE"
+    VOLUME = "VOLUME"
+    CHANGE_PERCENT = "CHANGE_PERCENT"
+    INTRADAY_SERIES = "INTRADAY_SERIES"
+    PE_RATIO = "PE_RATIO"
+    PB_RATIO = "PB_RATIO"
+    MARKET_CAP = "MARKET_CAP"
+    PRICE_TREND_30D = "PRICE_TREND_30D"
+
+
 class DataScope(StrEnum):
     INTERNAL_BUSINESS = "INTERNAL_BUSINESS"
     EXTERNAL_PUBLIC = "EXTERNAL_PUBLIC"
@@ -180,6 +191,7 @@ class RequiredFact(_FrozenContract):
     jurisdiction: StrictStr | None = None
     expected_unit: StrictStr | None = None
     expected_shape: StrictStr | None = None
+    market_metric: MarketMetric | None = None
 
     @field_validator("key", "description", "subject")
     @classmethod
@@ -202,6 +214,15 @@ class RequiredFact(_FrozenContract):
         cls, value: str | None, info: ValidationInfo
     ) -> str | None:
         return None if value is None else _normalize_text(value, info.field_name)
+
+    @model_validator(mode="after")
+    def _metric_matches_category(self) -> RequiredFact:
+        if self.category is FactCategory.MARKET_QUOTE:
+            if self.market_metric is None:
+                raise ValueError("MARKET_QUOTE requires market_metric")
+        elif self.market_metric is not None:
+            raise ValueError("market_metric is only valid for MARKET_QUOTE")
+        return self
 
 
 class FreshnessRequirement(_FrozenContract):
@@ -275,6 +296,7 @@ class DataGapRequest(DataGapDraft):
                     "jurisdiction": fact.jurisdiction,
                     "expected_unit": fact.expected_unit,
                     "expected_shape": fact.expected_shape,
+                    "market_metric": fact.market_metric,
                 }
                 for fact in self.required_facts
             ),

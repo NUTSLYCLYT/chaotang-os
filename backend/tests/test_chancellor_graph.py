@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -29,14 +30,29 @@ from app.agents.ministries.prompts import (
     MINISTRIES,
     NO_IRREVERSIBLE_ACTION_CONSTRAINT,
     ministry_routing_guide,
+    ministry_synthesis_system_prompt,
     ministry_system_prompt,
 )
 from app.jinyiwei.coordinator import InvestigationCoordinator
 from app.jinyiwei.extractor import StructuredEvidenceExtractor
+from app.jinyiwei.freshness import is_evidence_fresh
 from app.jinyiwei.mcp.client import McpToolResult
 from app.jinyiwei.mcp.mapping import DeterministicMcpMapper
 from app.jinyiwei.mcp.registry import McpRegistry
-from app.jinyiwei.models import SourceAttempt, SourceAttemptStatus, SourceType
+from app.jinyiwei.models import (
+    CacheMetadata,
+    DataGapRequest,
+    EvidenceItem,
+    EvidencePack,
+    EvidencePackStatus,
+    EvidenceQuality,
+    EvidenceStance,
+    FactCategory,
+    InvestigationPlan,
+    SourceAttempt,
+    SourceAttemptStatus,
+    SourceType,
+)
 from app.jinyiwei.sources.base import SourceQuery, SourceResult
 from app.jinyiwei.sources.mcp import McpSource
 from app.langgraph_runtime.deepseek_config import DeepSeekApiKeyError
@@ -135,6 +151,369 @@ def test_chancellor_prompts_cover_routing_finalization_and_shared_constraint():
     assert "恰好三项" in CHANCELLOR_FINALIZATION_SYSTEM_PROMPT
     assert "summary" in CHANCELLOR_FINALIZATION_SYSTEM_PROMPT
     assert "recommendations" in CHANCELLOR_FINALIZATION_SYSTEM_PROMPT
+
+
+def test_market_quote_decree_overrides_valid_but_wrong_model_route(
+    monkeypatch,
+) -> None:
+    def fake_ministry(
+        department,
+        _decree,
+        _rationale,
+        _model,
+        *,
+        recall_context=None,
+        evidence_session=None,
+    ):
+        assert department == "户部"
+        assert recall_context is not None
+        assert evidence_session is not None
+        return _expected_ministry("户部", "行情司议", "户部行情意见")
+
+    monkeypatch.setattr(
+        "app.agents.chancellor.graph.invoke_ministry_agent", fake_ministry
+    )
+    def model(messages):
+        if messages[0]["content"] == CHANCELLOR_SYSTEM_PROMPT:
+            raise AssertionError("supported market route must bypass Chancellor routing")
+        return _final_response("行情回奏")
+
+    result = build_chancellor_graph(
+        chat_model=model
+    ).invoke({"decree_text": "帮我看看比亚迪的股票价格"})
+
+    assert result["route_type"] == "single"
+    assert result["departments"] == ["户部"]
+    assert "军机处（召集）" not in result["processing_path"]
+
+
+def _quote_ready_response() -> str:
+    opinion = "比亚迪最新可得价格为 300 CNY。"
+    return json.dumps(
+        {
+            "status": "READY",
+            "result": {
+                "opinion": opinion,
+                "factual_claims": [
+                    {
+                        "claim": opinion,
+                        "basis": "CITED",
+                        "evidence_ids": ["evidence-market-graph"],
+                        "fact_key": "market_quote:last_price",
+                        "category": "MARKET_QUOTE",
+                        "subject": "比亚迪",
+                    }
+                ],
+            },
+            "adopted_evidence_ids": ["evidence-market-graph"],
+            "fact_basis": "CITED",
+        },
+        ensure_ascii=False,
+    )
+
+
+def _authoritative_graph_quote() -> str:
+    return (
+        "比亚迪最新可得价格为 300 CNY"
+        "（行情时间：2026-07-23T07:00:00Z；来源：管理员批准的行情来源）。\n"
+        "该数值是来源在所示时间的最新可得行情，不等同于此刻实时成交价，"
+        "也不构成投资建议。"
+    )
+
+
+@pytest.mark.parametrize("failed_stage", ["bureau", "ministry", "finalizer"])
+def test_supported_market_graph_degrades_each_model_layer_with_adopted_evidence(
+    failed_stage,
+) -> None:
+    class FakeCoordinator:
+        def __init__(self) -> None:
+            self.requests: list[DataGapRequest] = []
+
+        def investigate(self, request, **_kwargs):
+            self.requests.append(request)
+            return _resolved_market_pack(request)
+
+    coordinator = FakeCoordinator()
+    session = AgentEvidenceSession(coordinator=coordinator)
+    authoritative = _authoritative_graph_quote()
+    invalid_payloads = {
+        "bureau": "{malformed-json",
+        "ministry": '{"opinion":42}',
+        "finalizer": json.dumps(
+            {
+                "final_verdict": "比亚迪最新可得价格为 300 CNY。",
+                "recommendations": "not-a-list",
+            },
+            ensure_ascii=False,
+        ),
+    }
+
+    def model(messages):
+        system = messages[0]["content"]
+        if system == CHANCELLOR_SYSTEM_PROMPT:
+            raise AssertionError("supported market route must bypass Chancellor routing")
+        if system == ministry_system_prompt("户部"):
+            raise AssertionError("supported market route must bypass ministry routing")
+        if system == CHANCELLOR_FINALIZATION_SYSTEM_PROMPT:
+            if failed_stage == "finalizer":
+                return invalid_payloads[failed_stage]
+            return json.dumps(
+                {
+                    "summary": authoritative,
+                    "recommendations": [
+                        "请核对行情时间与交易时段后再使用该价格。",
+                        "请结合自身风险承受能力独立判断。",
+                        "本回奏仅提供行情信息，不构成投资建议。",
+                    ],
+                },
+                ensure_ascii=False,
+            )
+        if system == ministry_synthesis_system_prompt("户部"):
+            if failed_stage == "ministry":
+                return invalid_payloads[failed_stage]
+            return json.dumps({"opinion": authoritative}, ensure_ascii=False)
+        if failed_stage == "bureau":
+            return invalid_payloads[failed_stage]
+        return _quote_ready_response()
+
+    result = build_chancellor_graph(
+        chat_model=model,
+        evidence_session_factory=lambda: session,
+    ).invoke({"decree_text": "帮我看看比亚迪的股票价格"})
+
+    snapshot = result["evidence_snapshot"]
+    assert result["processing_path"] == [
+        "上书房",
+        "丞相（首次分流）",
+        "户部",
+        "户部·投资司",
+        "锦衣卫（调查）",
+        "户部（部级补充）",
+        "丞相（最终汇总）",
+    ]
+    assert result["adopted_evidence_ids"] == ("evidence-market-graph",)
+    assert snapshot.adopted_evidence_ids == ("evidence-market-graph",)
+    assert snapshot.investigation_count == 1
+    assert len(coordinator.requests) == 1
+    assert result["processing_path"].count("锦衣卫（调查）") == 1
+    assert "300" in result["final_verdict"]
+    assert "CNY" in result["final_verdict"]
+    assert len(result["recommendations"]) == 3
+    assert len(set(result["recommendations"])) == 3
+    expected_degradations = {
+        "bureau": ("model_synthesis_degraded:bureau:户部:投资司",),
+        "ministry": (
+            "model_synthesis_degraded:bureau:户部:投资司",
+            "model_synthesis_degraded:ministry:户部",
+        ),
+        "finalizer": (
+            "model_synthesis_degraded:bureau:户部:投资司",
+            "model_synthesis_degraded:chancellor:finalize",
+        ),
+    }[failed_stage]
+    assert snapshot.degradation_reasons == expected_degradations
+    if failed_stage == "finalizer":
+        assert result["recommendations"] == [
+            "请核对行情时间与交易时段后再使用该价格。",
+            "请结合自身风险承受能力独立判断。",
+            "本回奏仅提供行情信息，不构成投资建议。",
+        ]
+
+
+def test_supported_market_graph_unavailable_investigation_never_becomes_price_success():
+    class UnavailableCoordinator:
+        def investigate(self, request, **_kwargs):
+            pack = _resolved_market_pack(request)
+            return pack.model_copy(
+                update={
+                    "status": EvidencePackStatus.UNAVAILABLE,
+                    "evidence_by_fact": {request.required_facts[0].key: ()},
+                    "resolved_facts": (),
+                    "unresolved_facts": (request.required_facts[0].key,),
+                }
+            )
+
+    session = AgentEvidenceSession(coordinator=UnavailableCoordinator())
+
+    def model(messages):
+        system = messages[0]["content"]
+        if system in {CHANCELLOR_SYSTEM_PROMPT, ministry_system_prompt("户部")}:
+            raise AssertionError("supported market routes must remain static")
+        if system == ministry_synthesis_system_prompt("户部"):
+            return '{"opinion":"伪造价格 300 CNY"}'
+        return _final_response("伪造价格 300 CNY")
+
+    with pytest.raises(ChancellorGraphInvocationError):
+        build_chancellor_graph(
+            chat_model=model,
+            evidence_session_factory=lambda: session,
+        ).invoke({"decree_text": "帮我看看比亚迪的股票价格"})
+
+    assert session.snapshot().adopted_evidence_ids == ()
+
+
+def test_supported_market_graph_extracts_ambiguous_entity_before_one_investigation():
+    events: list[str] = []
+
+    class FakeCoordinator:
+        def __init__(self) -> None:
+            self.requests: list[DataGapRequest] = []
+
+        def investigate(self, request, **_kwargs):
+            events.append("investigation")
+            self.requests.append(request)
+            return _resolved_market_pack(request)
+
+    coordinator = FakeCoordinator()
+    session = AgentEvidenceSession(coordinator=coordinator)
+    entity_calls = 0
+
+    def model(messages):
+        nonlocal entity_calls
+        system = messages[0]["content"]
+        if system in {CHANCELLOR_SYSTEM_PROMPT, ministry_system_prompt("户部")}:
+            raise AssertionError("supported market routes must remain static")
+        if "entity_type" in system:
+            entity_calls += 1
+            events.append("entity")
+            if entity_calls == 1:
+                return "invalid-private-output"
+            assert "invalid-private-output" not in str(messages)
+            return '{"entity_type":"name","value":"比亚迪"}'
+        if system == ministry_synthesis_system_prompt("户部"):
+            return '{"opinion":"比亚迪最新可得价格为 300 CNY。"}'
+        if system == CHANCELLOR_FINALIZATION_SYSTEM_PROMPT:
+            return _final_response("比亚迪最新可得价格为 300 CNY。")
+        events.append("expression")
+        raise RuntimeError("exercise deterministic renderer")
+
+    result = build_chancellor_graph(
+        chat_model=model,
+        evidence_session_factory=lambda: session,
+    ).invoke({"decree_text": "关于比亚迪这只证券，现价是多少"})
+
+    assert entity_calls == 2
+    assert len(coordinator.requests) == 1
+    assert events == ["entity", "entity", "investigation", "expression"]
+    assert result["adopted_evidence_ids"] == ("evidence-market-graph",)
+
+
+def test_finalizer_fallback_rejects_unrelated_prefilled_adoption(monkeypatch):
+    session = AgentEvidenceSession(
+        coordinator=lambda *_args, **_kwargs: pytest.fail("investigation must not run")
+    )
+    session.record_selection(
+        bureau_node_id("户部", "投资司"),
+        ("unrelated-evidence",),
+    )
+
+    monkeypatch.setattr(
+        "app.agents.chancellor.graph.invoke_ministry_agent",
+        lambda *_args, **_kwargs: {
+            "department": "户部",
+            "bureau_opinions": [
+                {"bureau": "投资司", "opinion": "伪造价格 300 CNY"}
+            ],
+            "opinion": "伪造价格 300 CNY",
+        },
+    )
+
+    def model(messages):
+        if messages[0]["content"] == CHANCELLOR_FINALIZATION_SYSTEM_PROMPT:
+            raise RuntimeError("finalizer unavailable")
+        raise AssertionError("supported route must bypass other model calls")
+
+    with pytest.raises(ChancellorGraphInvocationError):
+        build_chancellor_graph(
+            chat_model=model,
+            evidence_session_factory=lambda: session,
+        ).invoke({"decree_text": "帮我看看比亚迪的股票价格"})
+
+
+def test_canonical_finalizer_rejects_valid_but_altered_source_and_recommendations():
+    class FakeCoordinator:
+        def investigate(self, request, **_kwargs):
+            return _resolved_market_pack(request)
+
+    session = AgentEvidenceSession(coordinator=FakeCoordinator())
+    authoritative = _authoritative_graph_quote()
+
+    def model(messages):
+        system = messages[0]["content"]
+        if system in {CHANCELLOR_SYSTEM_PROMPT, ministry_system_prompt("户部")}:
+            raise AssertionError("supported market routes must remain static")
+        if system == ministry_synthesis_system_prompt("户部"):
+            return json.dumps({"opinion": authoritative}, ensure_ascii=False)
+        if system == CHANCELLOR_FINALIZATION_SYSTEM_PROMPT:
+            return json.dumps(
+                {
+                    "summary": (
+                        "比亚迪最新可得价格为 999 CNY"
+                        "（行情时间：2099-01-01；来源：伪造来源）。"
+                    ),
+                    "recommendations": ["立即买入", "保证收益", "无需核验"],
+                },
+                ensure_ascii=False,
+            )
+        return _quote_ready_response()
+
+    result = build_chancellor_graph(
+        chat_model=model,
+        evidence_session_factory=lambda: session,
+    ).invoke({"decree_text": "帮我看看比亚迪的股票价格"})
+
+    assert result["final_verdict"] == authoritative
+    assert result["recommendations"] == [
+        "请核对行情时间与交易时段后再使用该价格。",
+        "请结合自身风险承受能力独立判断。",
+        "本回奏仅提供行情信息，不构成投资建议。",
+    ]
+    assert result["evidence_snapshot"].investigation_count == 1
+    assert "model_synthesis_degraded:chancellor:finalize" in (
+        result["evidence_snapshot"].degradation_reasons
+    )
+
+
+def test_non_market_route_remains_multi_and_keeps_selected_departments(
+    monkeypatch,
+) -> None:
+    departments = ["吏部", "工部"]
+    opinions = [
+        _expected_ministry(department, f"{department}司议", f"{department}意见")
+        for department in departments
+    ]
+
+    def fake_council(
+        _decree,
+        _rationale,
+        selected_departments,
+        _model,
+        *,
+        recall_contexts=None,
+        evidence_session=None,
+    ):
+        assert selected_departments == departments
+        assert recall_contexts is not None
+        assert evidence_session is not None
+        return opinions, "军机处会审意见"
+
+    monkeypatch.setattr(
+        "app.agents.chancellor.graph.run_junjichu_council", fake_council
+    )
+    responses = iter(
+        [
+            _multi_route_response(departments),
+            _final_response("非行情回奏"),
+        ]
+    )
+
+    result = build_chancellor_graph(
+        chat_model=lambda _messages: next(responses)
+    ).invoke({"decree_text": "请协调官员任用与河道修缮"})
+
+    assert result["route_type"] == "multi"
+    assert result["departments"] == departments
+    assert "军机处（召集）" in result["processing_path"]
 
 
 def test_single_route_runs_ministry_then_common_finalizer_without_junjichu():
@@ -671,7 +1050,123 @@ def test_graph_returns_ordered_union_selected_by_real_bureau_adapter():
     assert "锦衣卫（调查）" not in result["processing_path"]
 
 
-def test_real_graph_byd_gap_runs_jinyiwei_and_resolves_fresh_minute_quote(
+def _resolved_market_pack(request: DataGapRequest) -> EvidencePack:
+    fact_key = request.required_facts[0].key
+    evidence = EvidenceItem(
+        evidence_id="evidence-market-graph",
+        fact_key=fact_key,
+        value=300,
+        unit="CNY",
+        as_of="2026-07-23T07:00:00Z",
+        retrieved_at="2026-07-24T03:00:00Z",
+        source_url="https://market.example/quote",
+        publisher="管理员批准的行情来源",
+        source_type=SourceType.MCP,
+        quality=EvidenceQuality.PRIMARY,
+        stance=EvidenceStance.SUPPORTS,
+        excerpt="最近市场观测价格为 300 CNY",
+        content_hash=hashlib.sha256(b"market-graph-evidence").hexdigest(),
+        confidence=0.95,
+    )
+    assert is_evidence_fresh(
+        as_of=evidence.as_of,
+        retrieved_at=evidence.retrieved_at,
+        request=request,
+        fact_key=fact_key,
+        source_type=evidence.source_type,
+        now=datetime(2026, 7, 24, 3, 0, tzinfo=UTC),
+    )
+    return EvidencePack(
+        pack_id="pack-market-graph",
+        investigation_id="investigation-market-graph",
+        status=EvidencePackStatus.RESOLVED,
+        request=request,
+        investigation_plan=InvestigationPlan(
+            fact_keys=(fact_key,),
+            source_scope=request.source_scope,
+        ),
+        evidence_by_fact={fact_key: (evidence,)},
+        historical_evidence_by_fact={fact_key: ()},
+        resolved_facts=(fact_key,),
+        unresolved_facts=(),
+        conflicts=(),
+        source_attempts=(),
+        investigation_started_at="2026-07-24T02:59:59Z",
+        investigation_completed_at="2026-07-24T03:00:00Z",
+        cache=CacheMetadata(hit=False),
+        do_not_infer=(),
+    )
+
+
+def test_market_quote_graph_uses_precompiled_plan_and_adopts_latest_available_evidence():
+    class FakeCoordinator:
+        def __init__(self) -> None:
+            self.requests: list[DataGapRequest] = []
+
+        def investigate(
+            self,
+            request: DataGapRequest,
+            *,
+            department: str,
+            matter_type: str,
+            extraction_budget: object,
+        ):
+            assert department == "户部"
+            assert matter_type == "MEMORIAL"
+            assert extraction_budget is session
+            self.requests.append(request)
+            return _resolved_market_pack(request)
+
+    coordinator = FakeCoordinator()
+    session = AgentEvidenceSession(
+        coordinator=coordinator,
+        id_factory=lambda: "request-market-graph",
+    )
+    calls: list[list[dict[str, str]]] = []
+
+    def model(messages: list[dict[str, str]]) -> str:
+        calls.append(messages)
+        system = messages[0]["content"]
+        if system == CHANCELLOR_SYSTEM_PROMPT:
+            raise AssertionError("supported market route must be static")
+        if system == ministry_system_prompt("户部"):
+            raise AssertionError("supported ministry route must be static")
+        if system == ministry_synthesis_system_prompt("户部"):
+            return json.dumps({"opinion": "户部采纳行情证据"}, ensure_ascii=False)
+        if system == CHANCELLOR_FINALIZATION_SYSTEM_PROMPT:
+            return _final_response("丞相确认行情证据")
+        return _quote_ready_response()
+
+    result = build_chancellor_graph(
+        chat_model=model,
+        evidence_session_factory=lambda: session,
+    ).invoke({"decree_text": "帮我看看比亚迪的股票价格"})
+
+    assert len(coordinator.requests) == 1
+    assert coordinator.requests[0].required_facts[0].category is FactCategory.MARKET_QUOTE
+    assert result["route_type"] == "single"
+    assert result["departments"] == ["户部"]
+    assert result["processing_path"] == [
+        "上书房",
+        "丞相（首次分流）",
+        "户部",
+        "户部·投资司",
+        "锦衣卫（调查）",
+        "户部（部级补充）",
+        "丞相（最终汇总）",
+    ]
+    assert result["evidence_snapshot"].adopted_evidence_ids
+    evidence = result["evidence_snapshot"].packs[0].evidence_by_fact[
+        "market_quote:last_price"
+    ][0]
+    assert evidence.source_type is SourceType.MCP
+    assert evidence.as_of < evidence.retrieved_at
+    assert len(calls) == 3
+    assert "NEEDS_DATA" not in calls[0][-1]["content"]
+    assert "evidence-market-graph" in calls[0][-1]["content"]
+
+
+def test_real_graph_byd_price_gap_runs_jinyiwei_and_resolves_fresh_quote(
     tmp_path: Path,
 ) -> None:
     backend = Path(__file__).parents[1]
@@ -745,79 +1240,21 @@ def test_real_graph_byd_gap_runs_jinyiwei_and_resolves_fresh_minute_quote(
         db_path=tmp_path / "jinyiwei.sqlite3",
     )
     session = AgentEvidenceSession(coordinator=coordinator)
-    department = "户部"
-    bureau = bureau_profiles_for(department)[0].bureau
-    node_id = bureau_node_id(department, bureau)
     captured: list[list[dict[str, str]]] = []
-    emitted_statuses: list[str] = []
-    call_index = 0
 
     def model(messages: list[dict[str, str]]) -> str:
-        nonlocal call_index
         captured.append(messages)
-        index = call_index
-        call_index += 1
-        if index == 0:
-            return _single_route_response(department)
-        if index == 1:
-            return _bureau_route_response(department)
-        if index == 2:
-            emitted_statuses.append("NEEDS_DATA")
+        system = messages[0]["content"]
+        if system in {CHANCELLOR_SYSTEM_PROMPT, ministry_system_prompt("户部")}:
+            raise AssertionError("supported market routes must be static")
+        if system == ministry_synthesis_system_prompt("户部"):
             return json.dumps(
-                {
-                    "status": "NEEDS_DATA",
-                    "data_gap": {
-                        "requesting_agent": node_id,
-                        "question": "看看比亚迪股票价格",
-                        "required_facts": [
-                            {
-                                "key": "current_quote",
-                                "description": "比亚迪股票当前价格",
-                                "category": "MARKET_QUOTE",
-                                "data_scope": "EXTERNAL_PUBLIC",
-                                "subject": "比亚迪",
-                                "jurisdiction": "CN",
-                                "expected_unit": "CNY",
-                                "expected_shape": "number",
-                            }
-                        ],
-                        "decision_context": "回答用户当前行情查询",
-                        "freshness": {"max_age_seconds": 60},
-                        "existing_evidence_ids": [],
-                    },
-                },
+                {"opinion": "户部采纳行情证据"},
                 ensure_ascii=False,
             )
-        if index == 3:
-            evidence_id = session.snapshot().available_evidence_ids[0]
-            opinion = "比亚迪股票当前价格已有分钟级行情证据"
-            return json.dumps(
-                {
-                    "status": "READY",
-                    "result": {
-                        "opinion": opinion,
-                        "factual_claims": [
-                            {
-                                "claim": opinion,
-                                "basis": "CITED",
-                                "evidence_ids": [evidence_id],
-                                "fact_key": "current_quote",
-                                "category": "MARKET_QUOTE",
-                                "subject": "比亚迪",
-                            }
-                        ],
-                    },
-                    "adopted_evidence_ids": [evidence_id],
-                    "fact_basis": "CITED",
-                },
-                ensure_ascii=False,
-            )
-        if index == 4:
-            return json.dumps(
-                {"opinion": "户部采纳分钟级行情证据"},
-                ensure_ascii=False,
-            )
-        return _final_response("丞相确认已取得满足时效要求的比亚迪行情")
+        if system == CHANCELLOR_FINALIZATION_SYSTEM_PROMPT:
+            return _final_response("丞相确认已取得满足时效要求的比亚迪行情")
+        raise RuntimeError("exercise deterministic evidence renderer")
 
     result = build_chancellor_graph(
         chat_model=model,
@@ -825,17 +1262,17 @@ def test_real_graph_byd_gap_runs_jinyiwei_and_resolves_fresh_minute_quote(
     ).invoke({"decree_text": "看看比亚迪股票价格"})
 
     snapshot = session.snapshot()
-    assert emitted_statuses == ["NEEDS_DATA"]
     assert client.calls == [
         ("data_search", {"query": "比亚迪"}),
-        ("data_minute", {"code": "sz002594"}),
+        ("data_quote", {"code": "sz002594"}),
     ]
     assert snapshot.investigation_count == 1
     assert snapshot.packs[0].status.value == "RESOLVED"
-    assert len(snapshot.packs[0].evidence_by_fact["current_quote"]) == 1
+    assert len(snapshot.packs[0].evidence_by_fact["market_quote:last_price"]) == 1
     assert len(snapshot.available_evidence_ids) == 1
     assert result["adopted_evidence_ids"] == snapshot.available_evidence_ids
     assert result["processing_path"].count("锦衣卫（调查）") == 1
-    synthesis_prompt = "\n".join(message["content"] for message in captured[3])
+    synthesis_prompt = "\n".join(message["content"] for message in captured[1])
     assert "evidence_unavailable" not in synthesis_prompt
-    assert snapshot.available_evidence_ids[0] in synthesis_prompt
+    assert "321.5" in synthesis_prompt
+    assert "CNY" in synthesis_prompt

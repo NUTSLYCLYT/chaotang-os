@@ -59,13 +59,14 @@ def _evidence(
     publisher: str = "publisher-a",
     source_url: str = "internal://archive/item-a",
     as_of: str = "2026-07-20T11:30:00Z",
+    retrieved_at: str = "2026-07-20T11:45:00Z",
 ) -> EvidenceItem:
     return EvidenceItem(
         evidence_id=evidence_id,
         fact_key=fact_key,
         value=value,
         as_of=as_of,
-        retrieved_at="2026-07-20T11:45:00Z",
+        retrieved_at=retrieved_at,
         source_url=source_url,
         publisher=publisher,
         source_type=source_type,
@@ -146,6 +147,44 @@ def test_stale_items_fail_both_freshness_constraints() -> None:
     assert result.evidence_by_fact["population"] == (
         too_old_for_age,
         too_old_for_floor,
+    )
+
+
+def test_freshly_retrieved_external_market_close_resolves_without_changing_as_of() -> None:
+    request = DataGapRequest(
+        request_id="market-verify",
+        requesting_agent="hubu",
+        question="latest BYD price",
+        required_facts=(
+            RequiredFact(
+                key="byd_stock_price",
+                description="BYD stock price",
+                category="MARKET_QUOTE",
+                data_scope="EXTERNAL_PUBLIC",
+                subject="sz002594",
+                market_metric="LAST_PRICE",
+            ),
+        ),
+        decision_context="investment",
+        freshness=FreshnessRequirement(max_age_seconds=300),
+        timeout_seconds=30,
+        source_scope=(SourceType.PUBLIC_API,),
+    )
+    close = _evidence(
+        "byd-close",
+        "byd_stock_price",
+        320,
+        source_type=SourceType.PUBLIC_API,
+        source_url="https://market.example/byd",
+        as_of="2026-07-20T07:00:00Z",
+        retrieved_at="2026-07-20T11:59:00Z",
+    )
+
+    result = verify_evidence(request, (close,), now=NOW)
+
+    assert result.resolved_facts == ("byd_stock_price",)
+    assert result.evidence_by_fact["byd_stock_price"][0].as_of == (
+        "2026-07-20T07:00:00Z"
     )
 
 

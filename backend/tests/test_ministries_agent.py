@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import FrozenInstanceError
+from types import SimpleNamespace
 
 import pytest
 
@@ -240,6 +241,200 @@ def test_invoke_ministry_agent_routes_to_one_bureau_and_returns_named_opinion():
     assert "本部司级路由说明：预算司先核定口径" in synthesis_content
     assert '"bureau": "预算司"' in synthesis_content
     assert '"opinion": "建议追溯预算口径"' in synthesis_content
+
+
+def test_household_market_decree_statically_routes_only_to_investment_bureau(
+    monkeypatch,
+):
+    invoked_bureaus: list[str] = []
+    captured_messages: list[list[dict[str, str]]] = []
+
+    def fake_bureau(
+        _department,
+        bureau,
+        _decree,
+        _rationale,
+        _model,
+    ):
+        invoked_bureaus.append(bureau)
+        return f"{bureau}意见"
+
+    monkeypatch.setattr("app.agents.ministries.agent.invoke_bureau_agent", fake_bureau)
+
+    def model(messages):
+        captured_messages.append(messages)
+        if messages[0]["content"] == ministry_system_prompt("户部"):
+            raise AssertionError("supported market route must bypass ministry routing")
+        return '{"opinion": "户部综合意见"}'
+
+    opinion = invoke_ministry_agent(
+        "户部",
+        "查询比亚迪股票价格",
+        "交户部办理",
+        model,
+        recall_context=RecallContext(available=True, entries=[]),
+    )
+
+    assert invoked_bureaus == ["投资司"]
+    assert [item["bureau"] for item in opinion["bureau_opinions"]] == ["投资司"]
+    assert len(captured_messages) == 1
+
+
+class _AdoptedEvidenceSession:
+    def __init__(self, adopted: tuple[str, ...], *, canonical: bool = True) -> None:
+        self.adopted = adopted
+        self.canonical = canonical
+        self.degradations: list[str] = []
+
+    def snapshot(self):
+        return SimpleNamespace(adopted_evidence_ids=self.adopted)
+
+    def record_degradation(self, node_id: str) -> None:
+        self.degradations.append(node_id)
+
+    def has_adopted_fact(self, **_kwargs) -> bool:
+        return self.canonical
+
+
+def test_household_market_ministry_synthesis_falls_back_only_with_adopted_evidence(
+    monkeypatch,
+) -> None:
+    session = _AdoptedEvidenceSession(("quote-evidence",))
+    monkeypatch.setattr(
+        "app.agents.ministries.agent.invoke_bureau_agent",
+        lambda *_args, **_kwargs: "比亚迪最新可得价格为 300 CNY。",
+    )
+
+    opinion = invoke_ministry_agent(
+        "户部",
+        "查询比亚迪股票价格",
+        "交户部办理",
+        lambda _messages: (_ for _ in ()).throw(RuntimeError("private synthesis output")),
+        recall_context=RecallContext(available=True, entries=[]),
+        evidence_session=session,
+    )
+
+    assert opinion == {
+        "department": "户部",
+        "bureau_opinions": [
+            {"bureau": "投资司", "opinion": "比亚迪最新可得价格为 300 CNY。"}
+        ],
+        "opinion": "比亚迪最新可得价格为 300 CNY。",
+    }
+    assert session.degradations == ["ministry:户部"]
+
+
+def test_household_market_ministry_rejects_valid_but_altered_time_and_source(
+    monkeypatch,
+) -> None:
+    authoritative = (
+        "比亚迪最新可得价格为 300 CNY"
+        "（行情时间：2026-07-24T03:00:00Z；来源：批准来源）。\n"
+        "该数值是来源在所示时间的最新可得行情，不等同于此刻实时成交价，"
+        "也不构成投资建议。"
+    )
+    session = _AdoptedEvidenceSession(("quote-evidence",))
+    monkeypatch.setattr(
+        "app.agents.ministries.agent.invoke_bureau_agent",
+        lambda *_args, **_kwargs: authoritative,
+    )
+
+    opinion = invoke_ministry_agent(
+        "户部",
+        "查询比亚迪股票价格",
+        "交户部办理",
+        lambda _messages: (
+            '{"opinion":"比亚迪最新可得价格为 300 CNY'
+            '（行情时间：2099-01-01；来源：伪造来源）。"}'
+        ),
+        recall_context=RecallContext(available=True, entries=[]),
+        evidence_session=session,
+    )
+
+    assert opinion["opinion"] == authoritative
+    assert session.degradations == ["ministry:户部"]
+
+
+def test_household_market_ministry_synthesis_failure_without_adoption_fails_closed(
+    monkeypatch,
+) -> None:
+    session = _AdoptedEvidenceSession(())
+    monkeypatch.setattr(
+        "app.agents.ministries.agent.invoke_bureau_agent",
+        lambda *_args, **_kwargs: "数据不足，无法形成事实结论。",
+    )
+
+    with pytest.raises(MinistryAgentInvocationError):
+        invoke_ministry_agent(
+            "户部",
+            "查询比亚迪股票价格",
+            "交户部办理",
+            lambda _messages: (_ for _ in ()).throw(RuntimeError("synthesis failed")),
+            recall_context=RecallContext(available=True, entries=[]),
+            evidence_session=session,
+        )
+
+    assert session.degradations == []
+
+
+def test_household_market_ministry_rejects_unrelated_prefilled_adoption(
+    monkeypatch,
+) -> None:
+    session = _AdoptedEvidenceSession(("unrelated-evidence",), canonical=False)
+    model_calls = 0
+    monkeypatch.setattr(
+        "app.agents.ministries.agent.invoke_bureau_agent",
+        lambda *_args, **_kwargs: "伪造价格 300 CNY",
+    )
+
+    def model(_messages):
+        nonlocal model_calls
+        model_calls += 1
+        raise RuntimeError("must fail before synthesis")
+
+    with pytest.raises(MinistryAgentInvocationError):
+        invoke_ministry_agent(
+            "户部",
+            "查询比亚迪股票价格",
+            "交户部办理",
+            model,
+            recall_context=RecallContext(available=True, entries=[]),
+            evidence_session=session,
+        )
+
+    assert model_calls == 0
+    assert session.degradations == []
+
+
+def test_household_non_market_bureau_order_remains_unchanged(monkeypatch):
+    invoked_bureaus: list[str] = []
+
+    def fake_bureau(
+        _department,
+        bureau,
+        _decree,
+        _rationale,
+        _model,
+    ):
+        invoked_bureaus.append(bureau)
+        return f"{bureau}意见"
+
+    monkeypatch.setattr("app.agents.ministries.agent.invoke_bureau_agent", fake_bureau)
+    opinion = invoke_ministry_agent(
+        "户部",
+        "制定年度预算",
+        "交户部办理",
+        _sequenced_chat_model(
+            [
+                _route_response("预算司"),
+                '{"opinion": "户部综合意见"}',
+            ]
+        ),
+        recall_context=RecallContext(available=True, entries=[]),
+    )
+
+    assert invoked_bureaus == ["预算司"]
+    assert [item["bureau"] for item in opinion["bureau_opinions"]] == ["预算司"]
 
 
 def test_invoke_ministry_agent_injects_read_only_recall_context(monkeypatch):

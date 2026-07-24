@@ -80,6 +80,7 @@ def _request(
     jurisdiction: str | None = "CN",
     subject: str = "比亚迪",
     max_age_seconds: int = 60,
+    market_metric: str = "INTRADAY_SERIES",
 ) -> DataGapRequest:
     return DataGapRequest(
         request_id="req-byd",
@@ -95,6 +96,7 @@ def _request(
                 jurisdiction=jurisdiction,
                 expected_unit="CNY" if jurisdiction == "CN" else None,
                 expected_shape="number",
+                market_metric=market_metric,
             ),
         ),
         decision_context="回答用户查询",
@@ -150,6 +152,7 @@ def _fetch(
     jurisdiction: str | None = "CN",
     subject: str = "比亚迪",
     max_age_seconds: int = 60,
+    market_metric: str = "INTRADAY_SERIES",
     client: _FixtureClient | None = None,
 ):
     registry = client.registry if client is not None else _enabled_registry()
@@ -164,6 +167,7 @@ def _fetch(
         jurisdiction=jurisdiction,
         subject=subject,
         max_age_seconds=max_age_seconds,
+        market_metric=market_metric,
     )
     query = SourceQuery(
         request=request,
@@ -227,21 +231,31 @@ def test_byd_quote_uses_search_then_quote_and_returns_cited_evidence() -> None:
     assert item.source_type is SourceType.MCP
     assert item.publisher == "腾讯自选股"
     assert item.access_metadata["resolved_subject"] == "sz002594"
+    assert item.access_metadata["a_share_identity"] == {
+        "canonical_name": "比亚迪",
+        "exchange": "SZSE",
+        "ticker": "002594",
+        "instrument_type": "A_SHARE",
+        "currency": "CNY",
+    }
+    assert item.access_metadata["market_metric"] == "INTRADAY_SERIES"
     assert item.as_of == "2026-07-23T02:00:00Z"
     assert item.access_metadata["as_of_precision"] == "minute"
 
 
-def test_byd_without_jurisdiction_does_not_default_to_a_or_h_share() -> None:
+def test_byd_without_jurisdiction_defaults_to_mainland_a_share() -> None:
     registry = _enabled_registry()
     search = _json_fixture("westock_search_byd.json")["result"]
     search["structuredContent"]["data"][1]["name"] = "比亚迪"
     client = _FixtureClient(registry, search_payload=search)
     _request_value, client, result = _fetch(jurisdiction=None, client=client)
 
-    assert client.calls == [("data_search", {"query": "比亚迪"})]
-    assert result.documents == ()
-    assert result.attempt.status is SourceAttemptStatus.FAILED
-    assert result.attempt.error == "fact_conflicted"
+    assert client.calls == [
+        ("data_search", {"query": "比亚迪"}),
+        ("data_minute", {"code": "sz002594"}),
+    ]
+    assert result.attempt.status is SourceAttemptStatus.SUCCEEDED
+    assert result.documents[0].metadata["unit"] == "CNY"
 
 
 @pytest.mark.parametrize(
@@ -271,14 +285,17 @@ def test_untrusted_instrument_identifier_never_reaches_quote(
     ]
     client = _FixtureClient(registry, search_payload=search)
 
-    _request_value, _client, result = _fetch(client=client)
+    _request_value, _client, result = _fetch(
+        client=client,
+        market_metric="LAST_PRICE",
+    )
 
     assert [name for name, _arguments in client.calls] == ["data_search"]
     assert result.documents == ()
-    assert result.attempt.error == "mcp_mapping_failed"
+    assert result.attempt.error == "instrument_not_found"
 
 
-def test_duplicate_matching_instrument_rows_are_conflicted() -> None:
+def test_duplicate_rows_for_same_instrument_are_deduplicated() -> None:
     registry = _enabled_registry()
     search = _json_fixture("westock_search_byd.json")["result"]
     search["structuredContent"]["data"] = [
@@ -289,8 +306,27 @@ def test_duplicate_matching_instrument_rows_are_conflicted() -> None:
 
     _request_value, _client, result = _fetch(client=client)
 
+    assert [name for name, _arguments in client.calls] == [
+        "data_search",
+        "data_minute",
+    ]
+    assert result.attempt.status is SourceAttemptStatus.SUCCEEDED
+
+
+def test_distinct_matching_instruments_are_ambiguous() -> None:
+    registry = _enabled_registry()
+    search = _json_fixture("westock_search_byd.json")["result"]
+    first = search["structuredContent"]["data"][0]
+    search["structuredContent"]["data"] = [
+        first,
+        {**first, "code": "sh600001"},
+    ]
+    client = _FixtureClient(registry, search_payload=search)
+
+    _request_value, _client, result = _fetch(client=client)
+
     assert [name for name, _arguments in client.calls] == ["data_search"]
-    assert result.attempt.error == "fact_conflicted"
+    assert result.attempt.error == "instrument_ambiguous"
 
 
 def test_nfkc_equivalent_name_is_matched_before_market_disambiguation() -> None:
@@ -328,7 +364,7 @@ def test_nfkc_equivalent_name_is_matched_before_market_disambiguation() -> None:
     assert result.attempt.status is SourceAttemptStatus.SUCCEEDED
 
 
-def test_h_share_identifier_is_valid_when_hk_market_is_explicit() -> None:
+def test_explicit_h_share_identifier_is_out_of_scope_without_calls() -> None:
     registry = _enabled_registry()
     quote = _quote_fixture_for("hk01211", name="比亚迪股份", market_type="31")
     client = _FixtureClient(
@@ -339,22 +375,19 @@ def test_h_share_identifier_is_valid_when_hk_market_is_explicit() -> None:
 
     _request_value, _client, result = _fetch(
         jurisdiction="HK",
-        subject="比亚迪股份",
+        subject="01211.HK",
         client=client,
     )
 
-    assert client.calls == [
-        ("data_search", {"query": "比亚迪股份"}),
-        ("data_minute", {"code": "hk01211"}),
-    ]
-    assert result.attempt.status is SourceAttemptStatus.SUCCEEDED
-    assert result.documents[0].metadata["unit"] == "HKD"
+    assert client.calls == []
+    assert result.attempt.status is SourceAttemptStatus.FAILED
+    assert result.attempt.error == "market_out_of_scope"
 
 
 @pytest.mark.parametrize(
     ("jurisdiction", "subject", "instrument_id", "expected_unit"),
     (
-        ("HK", "比亚迪股份", "hk01211", "HKD"),
+        ("HK", "01211.HK", "hk01211", None),
         ("CN", "比亚迪", "sz002594", "CNY"),
     ),
 )
@@ -362,7 +395,7 @@ def test_market_approved_unit_is_used_without_remote_unit_or_fact_hint(
     jurisdiction: str,
     subject: str,
     instrument_id: str,
-    expected_unit: str,
+    expected_unit: str | None,
 ) -> None:
     registry = _enabled_registry()
     quote = _quote_fixture_for(
@@ -370,10 +403,18 @@ def test_market_approved_unit_is_used_without_remote_unit_or_fact_hint(
         name=subject,
         market_type="31" if jurisdiction == "HK" else "51",
     )
-    request = _request(jurisdiction=jurisdiction, subject=subject).model_copy(
+    request = _request(
+        jurisdiction=jurisdiction,
+        subject=subject,
+        market_metric="LAST_PRICE",
+    ).model_copy(
         update={
             "required_facts": (
-                _request(jurisdiction=jurisdiction, subject=subject)
+                _request(
+                    jurisdiction=jurisdiction,
+                    subject=subject,
+                    market_metric="LAST_PRICE",
+                )
                 .required_facts[0]
                 .model_copy(update={"expected_unit": None}),
             )
@@ -396,8 +437,13 @@ def test_market_approved_unit_is_used_without_remote_unit_or_fact_hint(
         )
     )
 
-    assert result.attempt.status is SourceAttemptStatus.SUCCEEDED
-    assert result.documents[0].metadata["unit"] == expected_unit
+    if jurisdiction == "HK":
+        assert client.calls == []
+        assert result.attempt.status is SourceAttemptStatus.FAILED
+        assert result.attempt.error == "market_out_of_scope"
+    else:
+        assert result.attempt.status is SourceAttemptStatus.SUCCEEDED
+        assert result.documents[0].metadata["unit"] == expected_unit
 
 
 @pytest.mark.parametrize(
@@ -424,11 +470,14 @@ def test_raw_candidate_controls_are_rejected_before_normalization(
     ]
     client = _FixtureClient(registry, search_payload=search)
 
-    _request_value, _client, result = _fetch(client=client)
+    _request_value, _client, result = _fetch(
+        client=client,
+        market_metric="LAST_PRICE",
+    )
 
     assert [name for name, _arguments in client.calls] == ["data_search"]
     assert result.documents == ()
-    assert result.attempt.error == "mcp_mapping_failed"
+    assert result.attempt.error == "instrument_not_found"
 
 
 @pytest.mark.parametrize(
@@ -456,10 +505,13 @@ def test_quote_value_and_provenance_are_approval_bound(mutate) -> None:
     mutate(quote)
     client = _FixtureClient(registry, quote_payload=quote)
 
-    _request_value, _client, result = _fetch(client=client)
+    _request_value, _client, result = _fetch(
+        client=client,
+        market_metric="LAST_PRICE",
+    )
 
     assert result.documents == ()
-    assert result.attempt.error == "mcp_mapping_failed"
+    assert result.attempt.error == "quote_unavailable"
 
 
 def test_remote_extra_provenance_cannot_override_approved_literals() -> None:
@@ -472,7 +524,8 @@ def test_remote_extra_provenance_cannot_override_approved_literals() -> None:
     )
 
     _request_value, _client, result = _fetch(
-        client=_FixtureClient(registry, quote_payload=quote)
+        client=_FixtureClient(registry, quote_payload=quote),
+        market_metric="LAST_PRICE",
     )
 
     assert result.attempt.status is SourceAttemptStatus.SUCCEEDED
@@ -506,7 +559,8 @@ def test_date_precision_preserves_source_day_instead_of_retrieval_time() -> None
     stale = _json_fixture("westock_quote_byd.json")["result"]
     stale["structuredContent"]["data"]["sz002594"]["time"] = "2026-07-22"
     _request_value, _client, result = _fetch(
-        client=_FixtureClient(registry, quote_payload=stale)
+        client=_FixtureClient(registry, quote_payload=stale),
+        market_metric="LAST_PRICE",
     )
 
     assert result.attempt.status is SourceAttemptStatus.SUCCEEDED
@@ -514,7 +568,7 @@ def test_date_precision_preserves_source_day_instead_of_retrieval_time() -> None
     assert result.documents[0].metadata["as_of_precision"] == "date"
 
 
-def test_stale_minute_continues_to_fresh_date_quote_fallback() -> None:
+def test_freshly_retrieved_prior_minute_is_latest_available_without_fallback() -> None:
     registry = _enabled_registry()
     stale_minute = _json_fixture("westock_minute_byd.json")["result"]
     stale_minute["structuredContent"]["data"]["sz002594"]["data"]["date"] = (
@@ -530,13 +584,12 @@ def test_stale_minute_continues_to_fresh_date_quote_fallback() -> None:
     assert [name for name, _arguments in client.calls] == [
         "data_search",
         "data_minute",
-        "data_quote",
     ]
-    assert result.documents[0].source_name == "mcp:westock:data_quote"
-    assert result.documents[0].metadata["as_of_precision"] == "date"
+    assert result.documents[0].source_name == "mcp:westock:data_minute"
+    assert result.documents[0].as_of == "2026-07-22T02:00:00Z"
 
 
-def test_malformed_minute_continues_to_date_quote_fallback() -> None:
+def test_malformed_minute_does_not_fallback_to_last_price_tool() -> None:
     registry = _enabled_registry()
     malformed_minute = _json_fixture("westock_minute_byd.json")["result"]
     malformed_minute["structuredContent"]["data"]["sz002594"]["data"]["data"] = [
@@ -552,9 +605,9 @@ def test_malformed_minute_continues_to_date_quote_fallback() -> None:
     assert [name for name, _arguments in client.calls] == [
         "data_search",
         "data_minute",
-        "data_quote",
     ]
-    assert result.documents[0].source_name == "mcp:westock:data_quote"
+    assert result.documents == ()
+    assert result.attempt.error == "quote_unavailable"
 
 
 class _NoDataSource:
@@ -636,6 +689,7 @@ def _coordinator_pack(
     client: _FixtureClient,
     *,
     shiguan=None,
+    market_metric: str = "INTRADAY_SERIES",
 ):
     registry = client.registry
     mcp = McpSource(
@@ -655,7 +709,9 @@ def _coordinator_pack(
         db_path=tmp_path / "jinyiwei.sqlite3",
     )
     return coordinator.investigate(
-        _request(), department="户部", matter_type="股票查询"
+        _request(market_metric=market_metric),
+        department="户部",
+        matter_type="股票查询",
     )
 
 
@@ -724,18 +780,22 @@ def test_stale_archive_is_replaced_by_fresh_minute_quote(
     assert "fact_stale:current_quote" not in pack.do_not_infer
 
 
-def test_stale_westock_quote_remains_unresolved(tmp_path: Path) -> None:
+def test_freshly_retrieved_prior_westock_quote_resolves_as_latest_available(
+    tmp_path: Path,
+) -> None:
     registry = _quote_only_registry()
     stale = _json_fixture("westock_quote_byd.json")["result"]
     stale["structuredContent"]["data"]["sz002594"]["time"] = "2026-07-22"
     client = _FixtureClient(registry, quote_payload=stale)
 
-    pack = _coordinator_pack(tmp_path, client)
+    pack = _coordinator_pack(tmp_path, client, market_metric="LAST_PRICE")
 
-    assert pack.resolved_facts == ()
-    assert pack.unresolved_facts == ("current_quote",)
-    assert pack.evidence_by_fact["current_quote"] == ()
-    assert "fact_stale:current_quote" in pack.do_not_infer
+    assert pack.resolved_facts == ("current_quote",)
+    assert pack.unresolved_facts == ()
+    assert pack.evidence_by_fact["current_quote"][0].as_of == (
+        "2026-07-21T16:00:00Z"
+    )
+    assert "fact_stale:current_quote" not in pack.do_not_infer
 
 
 def test_sanitized_protocol_fixtures_have_no_identity_or_secret_material() -> None:

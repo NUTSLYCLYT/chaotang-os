@@ -62,6 +62,17 @@ class StructuredEvidenceExtractor:
             if not all(document.source_type is SourceType.MCP for document in bounded):
                 raise EvidenceExtractionError("extractor_input_invalid")
             return _extract_deterministic_mcp(query, bounded, requested)
+        locked_shiguan = all(
+            document.source_type is SourceType.SHIGUAN
+            and document.adopted_evidence is not None
+            for document in bounded
+        )
+        locked_fact_keys = {document.locked_fact_key for document in bounded}
+        if locked_shiguan and (
+            locked_fact_keys == set(query.unresolved_fact_keys)
+            or len(query.unresolved_fact_keys) == 1
+        ):
+            return _extract_deterministic_shiguan(query, bounded, requested)
         indexed = {_document_id(document): document for document in bounded}
         if len(indexed) != len(bounded):
             raise EvidenceExtractionError("extractor_input_invalid")
@@ -140,35 +151,23 @@ class StructuredEvidenceExtractor:
                 value = _normalize_json(candidate["value"])
                 adopted = document.adopted_evidence
                 if adopted is not None:
-                    locked_fact = requested.get(document.locked_fact_key or "")
-                    if (
-                        fact_key != document.locked_fact_key
-                        or locked_fact is None
-                        or locked_fact.category is not document.locked_fact_category
-                        or locked_fact.subject != document.locked_subject
-                        or value != adopted.model_dump(mode="json")["value"]
-                        or unit != adopted.unit
-                        or as_of != adopted.as_of
-                        or stance is not adopted.stance
-                        or literal_excerpt != adopted.excerpt
-                    ):
-                        raise ValueError("adopted evidence fact or content mismatch")
+                    reused = _reuse_adopted_evidence(
+                        document=document,
+                        requested=requested,
+                        allowed_fact_keys=allowed_fact_keys,
+                        fact_key=fact_key,
+                        value=value,
+                        unit=unit,
+                        as_of=as_of,
+                        stance=stance,
+                        excerpt=literal_excerpt,
+                    )
                 duplicate_key = (fact_key, document_id, literal_excerpt)
                 if duplicate_key in seen:
                     raise ValueError("duplicate evidence")
                 seen.add(duplicate_key)
                 if adopted is not None:
-                    accepted.append(
-                        EvidenceItem.model_validate(
-                            {
-                                **adopted.model_dump(mode="python"),
-                                "source_type": SourceType.SHIGUAN,
-                                "retrieved_at": document.retrieved_at,
-                                "access_url": document.source_url,
-                                "access_metadata": dict(document.metadata),
-                            }
-                        )
-                    )
+                    accepted.append(reused)
                 else:
                     content_hash = hashlib.sha256(literal_excerpt.encode()).hexdigest()
                     evidence_id = _evidence_id(
@@ -202,6 +201,79 @@ class StructuredEvidenceExtractor:
         except Exception as exc:
             raise EvidenceExtractionError("extractor_output_invalid") from exc
         return tuple(accepted)
+
+
+def _extract_deterministic_shiguan(
+    query: SourceQuery,
+    documents: tuple[SourceDocument, ...],
+    requested: Mapping[str, RequiredFact],
+) -> tuple[EvidenceItem, ...]:
+    accepted: list[EvidenceItem] = []
+    seen_evidence_ids: set[str] = set()
+    allowed = set(query.unresolved_fact_keys)
+    try:
+        for document in documents:
+            adopted = document.adopted_evidence
+            if adopted is None or adopted.evidence_id in seen_evidence_ids:
+                raise ValueError("invalid adopted evidence")
+            accepted.append(
+                _reuse_adopted_evidence(
+                    document=document,
+                    requested=requested,
+                    allowed_fact_keys=allowed,
+                    fact_key=adopted.fact_key,
+                    value=adopted.model_dump(mode="json")["value"],
+                    unit=adopted.unit,
+                    as_of=adopted.as_of,
+                    stance=adopted.stance,
+                    excerpt=adopted.excerpt,
+                )
+            )
+            seen_evidence_ids.add(adopted.evidence_id)
+        if len(accepted) > query.max_items:
+            raise ValueError("too many adopted evidence items")
+    except Exception as exc:
+        raise EvidenceExtractionError("extractor_output_invalid") from exc
+    return tuple(accepted)
+
+
+def _reuse_adopted_evidence(
+    *,
+    document: SourceDocument,
+    requested: Mapping[str, RequiredFact],
+    allowed_fact_keys: set[str],
+    fact_key: str,
+    value: Any,
+    unit: str | None,
+    as_of: str,
+    stance: EvidenceStance,
+    excerpt: str,
+) -> EvidenceItem:
+    adopted = document.adopted_evidence
+    locked_fact = requested.get(document.locked_fact_key or "")
+    if (
+        adopted is None
+        or fact_key not in allowed_fact_keys
+        or fact_key != document.locked_fact_key
+        or locked_fact is None
+        or locked_fact.category is not document.locked_fact_category
+        or locked_fact.subject != document.locked_subject
+        or value != adopted.model_dump(mode="json")["value"]
+        or unit != adopted.unit
+        or as_of != adopted.as_of
+        or stance is not adopted.stance
+        or excerpt != adopted.excerpt
+    ):
+        raise ValueError("adopted evidence fact or content mismatch")
+    return EvidenceItem.model_validate(
+        {
+            **adopted.model_dump(mode="python"),
+            "source_type": SourceType.SHIGUAN,
+            "retrieved_at": document.retrieved_at,
+            "access_url": document.source_url,
+            "access_metadata": dict(document.metadata),
+        }
+    )
 
 
 def _extract_deterministic_mcp(

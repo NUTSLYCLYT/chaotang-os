@@ -13,8 +13,22 @@ from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlsplit
 
+from app.jinyiwei.instruments import (
+    InstrumentCandidate,
+    InstrumentRef,
+    InstrumentResolution,
+    InstrumentResolutionStatus,
+    extract_instrument_hints,
+    has_out_of_scope_market_hint,
+    instrument_name_queries,
+    resolve_a_share,
+)
 from app.jinyiwei.mcp.client import McpToolResult
-from app.jinyiwei.mcp.contracts import McpDelimitedSeriesMapping, McpToolApproval
+from app.jinyiwei.mcp.contracts import (
+    McpDelimitedSeriesMapping,
+    McpEntityResolver,
+    McpToolApproval,
+)
 from app.jinyiwei.models import RequiredFact, SourceType
 from app.jinyiwei.sources.base import SourceDocument
 
@@ -72,6 +86,24 @@ class DeterministicMcpMapper:
             arguments[resolution.target_argument] = resolved_subject
         return arguments
 
+    def arguments_for_instrument(
+        self,
+        tool: McpToolApproval,
+        fact: RequiredFact,
+        resolved: InstrumentResolution,
+    ) -> dict[str, object]:
+        if (
+            resolved.status is not InstrumentResolutionStatus.RESOLVED
+            or resolved.instrument is None
+            or resolved.provider_subject is None
+        ):
+            raise McpMappingError("entity_resolution_required")
+        return self.arguments_for(
+            tool,
+            fact,
+            resolved_subject=resolved.provider_subject,
+        )
+
     def resolution_arguments_for(
         self, tool: McpToolApproval, fact: RequiredFact
     ) -> dict[str, object]:
@@ -84,12 +116,11 @@ class DeterministicMcpMapper:
             for name, path in mapping.entity_resolution.argument_paths.items()
         }
 
-    def resolve_subject(
+    def _validated_resolution_result(
         self,
         tool: McpToolApproval,
-        fact: RequiredFact,
         result: McpToolResult,
-    ) -> ResolvedEntity:
+    ) -> McpEntityResolver:
         mapping = tool.mapping
         resolution = None if mapping is None else mapping.entity_resolution
         if resolution is None:
@@ -104,104 +135,154 @@ class DeterministicMcpMapper:
             and _extract(result.payload, resolution.success_path) is not True
         ):
             raise McpMappingError("remote_result_unsuccessful")
-        candidates = _extract(result.payload, resolution.candidates_path)
-        if isinstance(candidates, str | bytes | bytearray) or not isinstance(
-            candidates, Sequence
+        return resolution
+
+    def instrument_candidates(
+        self,
+        tool: McpToolApproval,
+        result: McpToolResult,
+    ) -> tuple[InstrumentCandidate, ...]:
+        resolution = self._validated_resolution_result(tool, result)
+        raw_candidates = _extract(result.payload, resolution.candidates_path)
+        if isinstance(raw_candidates, str | bytes | bytearray) or not isinstance(
+            raw_candidates, Sequence
         ):
             raise McpMappingError("mapped_field_missing")
-        expected_market = (
+
+        mainland_market = resolution.markets_by_jurisdiction.get("CN")
+        approved_unit = (
             None
-            if fact.jurisdiction is None
-            else resolution.markets_by_jurisdiction.get(fact.jurisdiction)
+            if mainland_market is None
+            else resolution.units_by_market.get(mainland_market)
         )
-        matches: list[ResolvedEntity] = []
-        for candidate in candidates:
+        allowed_types = (
+            (resolution.required_type,)
+            if resolution.required_type is not None
+            else (
+                ()
+                if mainland_market is None
+                else resolution.required_types_by_market.get(mainland_market, ())
+            )
+        )
+        mapped: list[InstrumentCandidate] = []
+        for raw in raw_candidates:
             try:
-                name = _string(_extract(candidate, resolution.candidate_name_path))
+                name = _string(_extract(raw, resolution.candidate_name_path))
+                provider_subject = _string(
+                    _extract(raw, resolution.candidate_subject_path)
+                )
                 security_type = _string(
-                    _extract(candidate, resolution.candidate_type_path)
+                    _extract(raw, resolution.candidate_type_path)
                 )
-                subject = _string(
-                    _extract(candidate, resolution.candidate_subject_path)
-                )
-            except McpMappingError:
-                continue
-            if resolution.candidate_jurisdiction_path is not None:
-                assert resolution.candidate_market_path is not None
-                try:
+                if resolution.candidate_jurisdiction_path is not None:
+                    assert resolution.candidate_market_path is not None
                     jurisdiction = _string(
-                        _extract(
-                            candidate,
-                            resolution.candidate_jurisdiction_path,
-                        )
+                        _extract(raw, resolution.candidate_jurisdiction_path)
                     ).upper()
                     market = _string(
-                        _extract(candidate, resolution.candidate_market_path)
+                        _extract(raw, resolution.candidate_market_path)
                     )
-                except McpMappingError:
-                    continue
-            else:
-                inferred = [
-                    jurisdiction
-                    for jurisdiction, pattern in (
-                        resolution.jurisdiction_subject_patterns.items()
+                else:
+                    inferred = tuple(
+                        jurisdiction
+                        for jurisdiction, pattern in (
+                            resolution.jurisdiction_subject_patterns.items()
+                        )
+                        if re.fullmatch(pattern, provider_subject) is not None
                     )
-                    if re.fullmatch(pattern, subject) is not None
-                ]
-                if len(inferred) != 1:
-                    continue
-                jurisdiction = inferred[0]
-                market = resolution.markets_by_jurisdiction[jurisdiction]
+                    if len(inferred) != 1:
+                        continue
+                    jurisdiction = inferred[0]
+                    market = resolution.markets_by_jurisdiction[jurisdiction]
+            except McpMappingError:
+                continue
             if any(
                 _contains_unsafe_raw_control(value)
                 for value in (
                     name,
+                    provider_subject,
                     security_type,
                     jurisdiction,
                     market,
-                    subject,
                 )
             ):
                 continue
             if (
-                len(subject) > resolution.subject_max_length
-                or any(_is_disallowed_character(character) for character in subject)
-                or re.fullmatch(resolution.subject_pattern, subject) is None
+                len(provider_subject) > resolution.subject_max_length
+                or any(
+                    _is_disallowed_character(character)
+                    for character in provider_subject
+                )
+                or re.fullmatch(resolution.subject_pattern, provider_subject) is None
             ):
                 continue
-            allowed_market = resolution.markets_by_jurisdiction.get(jurisdiction)
-            approved_unit = (
-                None
-                if allowed_market is None
-                else resolution.units_by_market.get(allowed_market)
-            )
-            allowed_types = (
-                (resolution.required_type,)
-                if resolution.required_type is not None
-                else resolution.required_types_by_market.get(market, ())
+            exchanges = tuple(
+                exchange
+                for exchange, pattern in (
+                    resolution.exchange_subject_patterns.items()
+                )
+                if re.fullmatch(pattern, provider_subject) is not None
             )
             if (
-                _normalized_identity(name) == _normalized_identity(fact.subject)
-                and any(
-                    security_type.casefold() == item.casefold()
-                    for item in allowed_types
-                )
-                and allowed_market == market
-                and (
-                    fact.jurisdiction is None
-                    or (
-                        jurisdiction == fact.jurisdiction
-                        and expected_market == market
-                    )
+                len(exchanges) != 1
+                or jurisdiction != "CN"
+                or market != mainland_market
+                or approved_unit != "CNY"
+                or not any(
+                    security_type.casefold() == value.casefold()
+                    for value in allowed_types
                 )
             ):
-                assert approved_unit is not None
-                matches.append(ResolvedEntity(subject=subject, unit=approved_unit))
-        if len(matches) > 1:
-            raise McpMappingError("fact_conflicted")
-        if not matches:
+                continue
+            ticker = re.search(r"([0-9]{6})$", provider_subject)
+            if ticker is None:
+                continue
+            try:
+                instrument = InstrumentRef(
+                    canonical_name=_clean_text(name),
+                    exchange=exchanges[0],
+                    ticker=ticker.group(1),
+                )
+            except (McpMappingError, ValueError):
+                continue
+            mapped.append(
+                InstrumentCandidate(
+                    instrument=instrument,
+                    provider_subject=provider_subject,
+                )
+            )
+        if not mapped:
             raise McpMappingError("entity_not_resolved")
-        return matches[0]
+        return tuple(mapped)
+
+    def resolve_subject(
+        self,
+        tool: McpToolApproval,
+        fact: RequiredFact,
+        result: McpToolResult,
+    ) -> ResolvedEntity:
+        if has_out_of_scope_market_hint(fact.subject, fact.description):
+            raise McpMappingError("entity_not_resolved")
+        candidates = self.instrument_candidates(tool, result)
+        if fact.jurisdiction not in {None, "CN"}:
+            raise McpMappingError("entity_not_resolved")
+        resolved = resolve_a_share(
+            candidates,
+            hints=extract_instrument_hints(fact.subject, fact.description),
+            accepted_names=instrument_name_queries(fact.subject),
+        )
+        if resolved.status is InstrumentResolutionStatus.AMBIGUOUS:
+            raise McpMappingError("fact_conflicted")
+        if (
+            resolved.status is not InstrumentResolutionStatus.RESOLVED
+            or resolved.instrument is None
+            or resolved.provider_subject is None
+        ):
+            raise McpMappingError("entity_not_resolved")
+        return ResolvedEntity(
+            subject=resolved.provider_subject,
+            unit=resolved.instrument.currency,
+        )
 
     def map(
         self,
@@ -543,10 +624,6 @@ def _https_url(
     if path_pattern is not None and re.fullmatch(path_pattern, parsed.path) is None:
         raise McpMappingError("mapped_source_path_mismatch")
     return text
-
-
-def _normalized_identity(value: str) -> str:
-    return unicodedata.normalize("NFKC", _clean_text(value)).casefold()
 
 
 def _contains_unsafe_raw_control(value: str) -> bool:

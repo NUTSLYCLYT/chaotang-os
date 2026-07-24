@@ -79,13 +79,25 @@ from app.agents.evidence_protocol import (
     build_default_evidence_session,
     bureau_node_id,
 )
+from app.agents.evidence_rendering import render_mainland_last_price
 from app.agents.junjichu.agent import run_junjichu_council
+from app.agents.market_intent import (
+    is_mainland_last_price_intent,
+    normalize_market_quote_route,
+)
 from app.agents.ministries.agent import MinistryOpinion, invoke_ministry_agent
 from app.agents.ministries.prompts import MINISTRIES
 from app.agents.structured_output import StructuredOutputError, parse_strict_json_object
+from app.jinyiwei.models import FactCategory, MarketMetric
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel, build_deepseek_chat_model
 from app.langgraph_runtime.deepseek_config import load_deepseek_provider_config
 from app.shiguan.recall import RecallContext, safe_recall_context_for_department
+
+_CANONICAL_MARKET_RECOMMENDATIONS = [
+    "请核对行情时间与交易时段后再使用该价格。",
+    "请结合自身风险承受能力独立判断。",
+    "本回奏仅提供行情信息，不构成投资建议。",
+]
 
 
 class ChancellorGraphState(TypedDict, total=False):
@@ -153,6 +165,19 @@ class ChancellorGraphInvocationError(Exception):
     """
 
 
+def _has_canonical_last_price_evidence(session: AgentEvidenceSession) -> bool:
+    return session.has_adopted_fact(
+        node_id="bureau:户部:投资司",
+        fact_key="market_quote:last_price",
+        category=FactCategory.MARKET_QUOTE,
+        market_metric=MarketMetric.LAST_PRICE,
+        jurisdiction="CN",
+        expected_unit="CNY",
+        expected_shape="number",
+        evidence_renderer=render_mainland_last_price,
+    )
+
+
 def build_chancellor_graph(
     chat_model: DeepSeekChatModel | None = None,
     dotenv_path: Path | None = None,
@@ -206,6 +231,14 @@ def build_chancellor_graph(
                 "Chancellor graph failed to initialize its evidence session; "
                 "see __cause__ for the original exception."
             ) from exc
+        if is_mainland_last_price_intent(state["decree_text"]):
+            return {
+                "chancellor_rationale": "明确的中国大陆证券最新价查询，由户部办理。",
+                "route_type": "single",
+                "departments": ["户部"],
+                "evidence_session": evidence_session,
+                "processing_path": ["上书房", "丞相（首次分流）"],
+            }
         messages = [
             {"role": "system", "content": CHANCELLOR_SYSTEM_PROMPT},
             {"role": "user", "content": state["decree_text"]},
@@ -268,8 +301,16 @@ def build_chancellor_graph(
                 "for 'multi' routing."
             )
 
+        route_type, rationale, normalized_departments = normalize_market_quote_route(
+            decree_text=state["decree_text"],
+            route_type=route_type,
+            rationale=rationale.strip(),
+            departments=departments,
+        )
+        departments = list(normalized_departments)
+
         return {
-            "chancellor_rationale": rationale.strip(),
+            "chancellor_rationale": rationale,
             "route_type": route_type,
             "departments": departments,
             "evidence_session": evidence_session,
@@ -424,10 +465,59 @@ def build_chancellor_graph(
             recommendations = [item.strip() for item in raw_recommendations]
             if len(set(recommendations)) != 3:
                 raise ValueError("The Chancellor finalizer recommendations must be unique.")
+            can_use_canonical = (
+                state["route_type"] == "single"
+                and state["departments"] == ["户部"]
+                and is_mainland_last_price_intent(state["decree_text"])
+                and bool(state["evidence_session"].snapshot().adopted_evidence_ids)
+                and _has_canonical_last_price_evidence(state["evidence_session"])
+                and len(state["ministry_opinions"]) == 1
+            )
+            if can_use_canonical:
+                authoritative_summary = state["ministry_opinions"][0]["opinion"]
+                if (
+                    summary.strip() != authoritative_summary
+                    or recommendations != _CANONICAL_MARKET_RECOMMENDATIONS
+                ):
+                    state["evidence_session"].record_degradation(
+                        "chancellor:finalize"
+                    )
+                    snapshot = state["evidence_session"].snapshot()
+                    return {
+                        "processing_path": [
+                            *state["processing_path"],
+                            "丞相（最终汇总）",
+                        ],
+                        "final_verdict": authoritative_summary,
+                        "recommendations": list(
+                            _CANONICAL_MARKET_RECOMMENDATIONS
+                        ),
+                        "evidence_snapshot": snapshot,
+                        "adopted_evidence_ids": snapshot.adopted_evidence_ids,
+                    }
         except Exception as exc:  # noqa: BLE001 - one sanitized graph error boundary
-            raise ChancellorGraphInvocationError(
-                "Chancellor graph finalization failed; see __cause__ for the original exception."
-            ) from exc
+            can_degrade = (
+                state["route_type"] == "single"
+                and state["departments"] == ["户部"]
+                and is_mainland_last_price_intent(state["decree_text"])
+                and bool(state["evidence_session"].snapshot().adopted_evidence_ids)
+                and _has_canonical_last_price_evidence(state["evidence_session"])
+                and len(state["ministry_opinions"]) == 1
+            )
+            if not can_degrade:
+                raise ChancellorGraphInvocationError(
+                    "Chancellor graph finalization failed; "
+                    "see __cause__ for the original exception."
+                ) from exc
+            state["evidence_session"].record_degradation("chancellor:finalize")
+            snapshot = state["evidence_session"].snapshot()
+            return {
+                "processing_path": [*state["processing_path"], "丞相（最终汇总）"],
+                "final_verdict": state["ministry_opinions"][0]["opinion"],
+                "recommendations": list(_CANONICAL_MARKET_RECOMMENDATIONS),
+                "evidence_snapshot": snapshot,
+                "adopted_evidence_ids": snapshot.adopted_evidence_ids,
+            }
 
         return {
             "processing_path": [*state["processing_path"], "丞相（最终汇总）"],

@@ -23,17 +23,21 @@
 只有司级意见节点能发起调查，同一司最多调查并恢复一次；部级综合、军机处、丞相路由及最终
 汇总从不调用锦衣卫。最终 `REPLY` 只归档恢复后司级响应显式选择的证据 ID 有序并集，证据
 快照写入史馆 schema v3；未采用材料留在锦衣卫库，跨库采用关系以可对账的
-PENDING/CONFIRMED 状态最终一致。真实外部网络由 `JINYIWEI_EXTERNAL_NETWORK_ENABLED`
-控制且默认关闭，所有访问必须经过固定解析 IP、TLS 主机名/对端校验、逐跳重定向复核、HTTPS
+PENDING/CONFIRMED 状态最终一致。系统拥有的事实字段不得由模型提供；证据支持的保底答复
+必须只使用已冻结、已解析且当前有效的证据。真实外部网络由
+`JINYIWEI_EXTERNAL_NETWORK_ENABLED` 控制且默认关闭，所有访问必须经过固定解析 IP、TLS
+主机名/对端校验、逐跳重定向复核、HTTPS
 公网地址和响应预算限制。Jinyiwei SQLite 当前为 schema v4；采用证据以不可变有序批次关联
 史馆回奏，旧版本不覆盖。schema v4 另保存不含正文或秘密的逐 MCP 调用审计。MCP 限流是
 进程内按 server/tool 隔离的原子滑动窗口；调用结果缓存 TTL 取管理员配置与事实 freshness
 的最小值，且史馆解析始终先于整包缓存。首个 MCP 配置是经管理员显式启用的腾讯自选股来源，只批准
 `data_search`/`data_minute`/`data_quote`；其中分钟行情优先，日期快照作为保守回退。它使用部署侧共享专用服务账号，配置文件不保存密钥。服务账号
 首次授权采用管理员 OAuth 中心：首期由本机 CLI 启动 Authorization Code + PKCE 浏览器
-流程，Windows 本机只有显式选择 `--credential-source local` 时才读取当前用户范围 DPAPI
-密文；生产环境继续优先使用 Secret Manager 注入的 `env://` 凭据，且不得回退读取本机
-DPAPI 文件。授权成功只建立凭据可用性，不自动启用服务或工具；真实调用仍要求外部网络
+流程，Windows 本机 CLI 只有显式选择 `--credential-source local` 时才读取当前用户范围
+DPAPI 密文；业务运行时还必须显式设置 `JINYIWEI_MCP_CREDENTIAL_SOURCE=local` 才能使用
+该凭据。运行时未设置凭据来源时默认 `env`；生产环境继续使用 Secret Manager 注入的
+`env://` 凭据，且不得回退读取本机 DPAPI 文件。授权成功只建立凭据可用性，不自动启用服务
+或工具；真实调用仍要求独立的外部网络
 开关以及已登记 `westock` server 和 `data_search`/`data_minute`/`data_quote` 工具分别显式启用；这些
 登记项已于 2026-07-23 经管理员确认和真实只读 smoke 验收后启用。仓库不
 读取、解密、复制、代理或复用 WorkBuddy 私有凭据，也不在缺少管理员鉴权时暴露远程授权
@@ -51,7 +55,19 @@ API。通达信明确不接入。完整决策见
 显式打开外部网络门禁并选择有效的部署 `env` 或本机 `local` 凭据来源后，才能通过脱敏只读
 CLI 运行；CLI 只允许 `tools/list`、`data_search`、`data_minute` 和 `data_quote`，不得调用任何写工具。
 工具结果的严格文本 JSON 提升、按已验证证券代码选择记录、管理员来源属性、日期精度和分钟序列语义
-见 ADR 0020；核心 Python 仍不得增加 provider 条件分支。
+见 ADR 0020；核心 Python 仍不得增加 provider 条件分支。时效判断区分查询时间
+`retrieved_at` 与真实市场观测时间 `as_of`：只有 `MARKET_QUOTE` 且来源为 `MCP` 或
+`PUBLIC_API` 时，刚执行的查询可采用仍在 14 天硬上限内的最新可得行情，并继续如实保留
+`as_of`；史馆行情、其它事实和 `not_before` 仍严格按观测时间判断。运行时只向运维暴露
+`credential_unavailable`、`credential_source_invalid`、`external_network_disabled`
+等稳定安全错误码，未知上游错误收敛为 `fact_unavailable`。完整决策见 ADR 0022。
+
+大陆 A 股身份统一由 provider-neutral `InstrumentRef` 表达，首阶段市场范围为
+SSE、SZSE、BSE A 股；provider symbol 只存在于 MCP 配置映射与 adapter 结果中，生产代码
+不得保存公司名称到证券代码的字面量表。名称歧义失败关闭；身份缓存寿命独立于行情
+freshness，短名到尚未验证的法定全称允许一次 original-only 安全复核。腾讯自选股当前只
+批准真实证明过的 SSE、SZSE patterns，BSE 在单独证明 provider 能力前返回
+`provider_capability_missing`。所有 MCP 工具继续只读，完整边界见 ADR 0024。
 
 ## 当前状态
 
@@ -108,13 +124,18 @@ Next.js 服务端 → FastAPI。`backend/` 已新增最小、无外部服务依�
 `opinion`。single 路径把该部的分层结果直接交给丞相最终汇总；multi 路径按序完成各部司议和
 部议，再交军机处形成 `council_verdict`，最后交给丞相。两条路径共用严格输出非空
 `summary` 与恰好三个非空、互不重复 `recommendations` 的 finalizer；`final_verdict` 映射
-`summary`，`processing_path` 记录真实调用顺序并以最终丞相结束。
+`summary`，`processing_path` 记录真实调用顺序并以最终丞相结束。模型继续负责通用路由；
+只有同时包含证券市场词与报价查询词的明确行情旨意，才在既有严格校验之后规范化为
+`single + 户部`，并在户部有效司列表中把投资司置于首位且去重。该窄范围策略不绑定行情
+提供方，非行情旨意保持既有路由与顺序。司级模型第一次无证据返回 `READY` 且仅因
+`unsupported_factual_dependency` 被拒绝时，协议只追加一次不含原响应或证据正文的静态
+纠正，要求返回既有 `NEEDS_DATA` schema；其它错误和再次不合规均继续失败关闭（ADR 0023）。
 
 `POST /api/v1/decrees/chancellor` 的路径、请求体及原字段保持不变，成功响应增量增加
 `ministry_opinions[].bureau_opinions`、条件式 `council_verdict`（single 为 `null`，multi 为
 非空字符串）和 `recommendations`；FastAPI、BFF 与 UI 同批严格校验和展示分层结果。模型、
 结构或响应构造失败继续通过脱敏异常链失败关闭并映射 502，既有错误分类和 `GET /health`
-不变。模型编排不并发且不使用 LangGraph checkpointer，最坏 single 为 11 次、全六部
+不变。模型编排不并发且不使用 LangGraph checkpointer，最坏 single 为 12 次、全六部
 multi 为 54 次基础模型调用；司级缺数可按 ADR 0018 追加最多一次调查与恢复，整体可能超过
 现有 120 秒前端超时。ADR 0013 中扁平字符串返回和不扩成功字段的局部结论由
 `docs/decisions/0014-layered-memorial-three-recommendations.md` 覆盖。
@@ -170,8 +191,9 @@ multi 为 54 次基础模型调用；司级缺数可按 ADR 0018 追加最多一
   部独立补充司议，single 直接回丞相，multi 经军机处会审后回丞相，两路共用严格三建议的
   finalizer；成功契约增量保存司议、军机处结论与建议，见
   `docs/decisions/0014-layered-memorial-three-recommendations.md`。模型编排仍不并发且不使用
-  LangGraph checkpointer，最坏 single/multi 基础同步模型调用数为 11/54；司级节点可按
-  ADR 0018 在缺数时追加最多一次调查与恢复。锦衣卫另提供三个 GET-only 审计 API 和
+  LangGraph checkpointer；明确行情旨意经窄范围、无供应商依赖的护栏规范化到户部并优先
+  投资司，首次无证据 `READY` 仅可静态纠正一次，最坏 single/multi 基础同步模型调用数为
+  12/54（ADR 0023）；司级节点可按 ADR 0018 在缺数时追加最多一次调查与恢复。锦衣卫另提供三个 GET-only 审计 API 和
   `/jinyiwei` 只读页面，不得据此推断可以随意新增其它业务工作流、任意 URL、变更接口或
   通用派发/持久化能力。
 

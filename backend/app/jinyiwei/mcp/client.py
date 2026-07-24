@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import json
 import math
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from time import monotonic
 from types import MappingProxyType
 from typing import Any, Protocol
 from urllib.parse import urlsplit
@@ -19,13 +20,75 @@ from app.jinyiwei.mcp.contracts import (
     McpToolApproval,
     ToolEffect,
 )
-from app.jinyiwei.mcp.credentials import CredentialProvider, SensitiveHeaders
+from app.jinyiwei.mcp.credentials import (
+    CredentialProvider,
+    McpCredentialError,
+    SensitiveHeaders,
+)
 from app.jinyiwei.mcp.registry import McpRegistry, McpRegistryError, approval_fingerprint
-from app.jinyiwei.network import PinnedHTTPSClient, PinnedHTTPSResponse
+from app.jinyiwei.network import (
+    NetworkAccessDisabledError,
+    PinnedHTTPSClient,
+    PinnedHTTPSResponse,
+)
 
 
 class McpClientError(ValueError):
     """Stable MCP failure that never includes remote or credential content."""
+
+
+_CREDENTIAL_OPERATIONAL_ERROR_CODES = frozenset(
+    {"credential_unavailable", "credential_source_invalid"}
+)
+_SAFE_CLIENT_ERROR_CODES = frozenset(
+    {
+        "approval_not_registered",
+        "credential_source_invalid",
+        "credential_unavailable",
+        "discovery_required",
+        "external_network_disabled",
+        "fact_unavailable",
+        "invalid_initialize_response",
+        "invalid_notification_response",
+        "invalid_request_payload",
+        "invalid_response_media_type",
+        "invalid_rpc_response",
+        "invalid_session_identifier",
+        "invalid_sse_response",
+        "invalid_tool_arguments",
+        "invalid_tools_response",
+        "partial_tools_response",
+        "remote_protocol_failed",
+        "remote_rpc_error",
+        "server_disabled",
+        "server_not_registered",
+        "session_identifier_changed",
+        "source_auth_expired",
+        "source_authorization_failed",
+        "source_rate_limited",
+        "source_schema_changed",
+        "tool_call_failed",
+        "tool_not_approved",
+        "transport_failed",
+        "transport_timeout",
+    }
+)
+
+
+def _effective_timeout(
+    server: McpServerConfig,
+    requested: float | None,
+) -> float:
+    if requested is None:
+        return float(server.timeout_seconds)
+    if (
+        isinstance(requested, bool)
+        or not isinstance(requested, int | float)
+        or not math.isfinite(requested)
+        or requested <= 0
+    ):
+        raise McpClientError("transport_timeout")
+    return min(float(server.timeout_seconds), float(requested))
 
 
 class McpTransport(Protocol):
@@ -92,16 +155,23 @@ class McpClient:
         transport: McpTransport | None = None,
         credentials: CredentialProvider,
         registry: McpRegistry,
+        monotonic_clock: Callable[[], float] | None = None,
     ) -> None:
         self._transport = transport or PinnedHTTPSClient()
         self._credentials = credentials
         self._registry = registry
+        self._monotonic = monotonic_clock or monotonic
         self._sessions: dict[str, _Session] = {}
 
     def __repr__(self) -> str:
         return f"McpClient(active_servers={tuple(sorted(self._sessions))!r})"
 
-    def discover(self, server: McpServerConfig) -> tuple[DiscoveredTool, ...]:
+    def discover(
+        self,
+        server: McpServerConfig,
+        *,
+        timeout_seconds: float | None = None,
+    ) -> tuple[DiscoveredTool, ...]:
         if not server.enabled:
             raise McpClientError("server_disabled")
         try:
@@ -110,6 +180,9 @@ class McpClient:
             raise McpClientError("server_not_registered") from None
         if registered_server != server or not registered_server.enabled:
             raise McpClientError("server_not_registered")
+        discovery_deadline = self._monotonic() + _effective_timeout(
+            server, timeout_seconds
+        )
         session = _Session(identifier=None, next_request_id=1, tools={})
         initialize_id = self._take_id(session)
         initialize = self._post_rpc(
@@ -126,6 +199,9 @@ class McpClient:
                 },
             },
             expected_id=initialize_id,
+            timeout_seconds=self._remaining_discovery_timeout(
+                server, discovery_deadline
+            ),
         )
         if not _valid_initialize_result(initialize):
             raise McpClientError("invalid_initialize_response")
@@ -138,6 +214,9 @@ class McpClient:
                 "method": "notifications/initialized",
                 "params": {},
             },
+            timeout_seconds=self._remaining_discovery_timeout(
+                server, discovery_deadline
+            ),
         )
         list_id = self._take_id(session)
         listed = self._post_rpc(
@@ -145,6 +224,9 @@ class McpClient:
             session,
             {"jsonrpc": "2.0", "id": list_id, "method": "tools/list", "params": {}},
             expected_id=list_id,
+            timeout_seconds=self._remaining_discovery_timeout(
+                server, discovery_deadline
+            ),
         )
         if not isinstance(listed, Mapping) or set(listed) - {"tools", "nextCursor"}:
             raise McpClientError("invalid_tools_response")
@@ -172,6 +254,8 @@ class McpClient:
         server: McpServerConfig,
         approval: McpToolApproval,
         arguments: Mapping[str, Any],
+        *,
+        timeout_seconds: float | None = None,
     ) -> McpToolResult:
         session = self._sessions.get(server.server_id)
         if session is None:
@@ -218,6 +302,7 @@ class McpClient:
                 "params": {"name": approval.tool_name, "arguments": dict(arguments)},
             },
             expected_id=request_id,
+            timeout_seconds=timeout_seconds,
         )
         if not isinstance(result, Mapping) or result.get("isError") is True:
             raise McpClientError("tool_call_failed")
@@ -233,10 +318,30 @@ class McpClient:
         session.next_request_id += 1
         return identifier
 
+    def _remaining_discovery_timeout(
+        self,
+        server: McpServerConfig,
+        deadline: float,
+    ) -> float:
+        remaining = deadline - self._monotonic()
+        if remaining <= 0:
+            raise McpClientError("transport_timeout")
+        return min(float(server.timeout_seconds), remaining)
+
     def _post_notification(
-        self, server: McpServerConfig, session: _Session, payload: Mapping[str, Any]
+        self,
+        server: McpServerConfig,
+        session: _Session,
+        payload: Mapping[str, Any],
+        *,
+        timeout_seconds: float | None = None,
     ) -> None:
-        response = self._post(server, session, payload)
+        response = self._post(
+            server,
+            session,
+            payload,
+            timeout_seconds=timeout_seconds,
+        )
         if response.status == 401:
             raise McpClientError(_authorization_error(server))
         if response.status == 429:
@@ -255,8 +360,14 @@ class McpClient:
         payload: Mapping[str, Any],
         *,
         expected_id: int,
+        timeout_seconds: float | None = None,
     ) -> Any:
-        response = self._post(server, session, payload)
+        response = self._post(
+            server,
+            session,
+            payload,
+            timeout_seconds=timeout_seconds,
+        )
         if response.status == 401:
             raise McpClientError(_authorization_error(server))
         if response.status == 429:
@@ -290,8 +401,23 @@ class McpClient:
         server: McpServerConfig,
         session: _Session,
         payload: Mapping[str, Any],
+        *,
+        timeout_seconds: float | None = None,
     ) -> PinnedHTTPSResponse:
-        base_headers = dict(self._credentials.headers_for(server))
+        credential_error: str | None = None
+        try:
+            base_headers = dict(self._credentials.headers_for(server))
+        except McpCredentialError as exc:
+            code = str(exc)
+            credential_error = (
+                code
+                if code in _CREDENTIAL_OPERATIONAL_ERROR_CODES
+                else "fact_unavailable"
+            )
+        except Exception:
+            credential_error = "fact_unavailable"
+        if credential_error is not None:
+            raise McpClientError(credential_error)
         base_headers.update(
             {
                 "accept": "application/json, text/event-stream",
@@ -312,6 +438,9 @@ class McpClient:
             raise McpClientError("invalid_request_payload") from None
         parsed_endpoint = urlsplit(server.endpoint_url)
         allowed_ports = () if parsed_endpoint.port in {None, 443} else (parsed_endpoint.port,)
+        response: PinnedHTTPSResponse | None = None
+        transport_error: str | None = None
+        effective_timeout = _effective_timeout(server, timeout_seconds)
         try:
             response = self._transport.request(
                 "POST",
@@ -319,9 +448,9 @@ class McpClient:
                 headers=headers,
                 json_body=body,
                 allowed_ports=allowed_ports,
-                total_timeout=float(server.timeout_seconds),
-                connect_timeout=min(3.0, float(server.timeout_seconds)),
-                read_timeout=min(5.0, float(server.timeout_seconds)),
+                total_timeout=effective_timeout,
+                connect_timeout=min(3.0, effective_timeout),
+                read_timeout=min(5.0, effective_timeout),
                 max_bytes=server.max_response_bytes,
                 redirect_validator=(
                     _same_origin_redirect if server.allow_redirects else _reject_redirect
@@ -329,12 +458,21 @@ class McpClient:
                 private_network_cidrs=server.private_network_cidrs,
                 allow_sensitive_headers=True,
             )
-        except McpClientError:
-            raise
+        except McpClientError as exc:
+            code = str(exc)
+            transport_error = (
+                code if code in _SAFE_CLIENT_ERROR_CODES else "fact_unavailable"
+            )
+        except NetworkAccessDisabledError:
+            transport_error = "external_network_disabled"
         except TimeoutError:
-            raise McpClientError("transport_timeout") from None
+            transport_error = "transport_timeout"
         except Exception:
-            raise McpClientError("transport_failed") from None
+            transport_error = "transport_failed"
+        if transport_error is not None:
+            raise McpClientError(transport_error)
+        if response is None:
+            raise McpClientError("transport_failed")
         received_session = response.headers.get("mcp-session-id")
         if received_session is not None:
             if not _valid_session_id(received_session):

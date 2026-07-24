@@ -18,6 +18,8 @@ from app.agents.bureaus import (
     invoke_bureau_agent,
 )
 from app.agents.evidence_protocol import AgentEvidenceSession, bureau_node_id
+from app.agents.evidence_rendering import render_mainland_last_price
+from app.agents.fact_plans import FactPlanDisposition, FactPlanResult
 from app.agents.ministries import NO_IRREVERSIBLE_ACTION_CONSTRAINT
 
 EXPECTED_BUREAUS = {
@@ -42,7 +44,16 @@ EXPECTED_RESPONSIBILITIES = {
     ("户部", "融资司"): ("资金缺口", "融资方案", "资金成本", "还款压力", "融资红线"),
     ("户部", "审计司"): ("异常报销", "重复付款", "缺证费用", "流程绕行稽核"),
     ("户部", "会计司"): ("收入", "成本", "费用", "科目", "项目归集", "税务", "月结"),
-    ("户部", "投资司"): ("投资评审", "收益测算", "风险分析", "退出路径"),
+    ("户部", "投资司"): (
+        "投资评审",
+        "收益测算",
+        "风险分析",
+        "退出路径",
+        "证券行情",
+        "股票价格",
+        "市场数据",
+        "估值观察",
+    ),
     ("礼部", "品牌司"): ("品牌表达", "视觉资产", "语气一致性", "品牌风险"),
     ("礼部", "公关司"): ("舆情监测", "事实核查", "回应口径", "危机升级"),
     ("礼部", "客户沟通司"): ("客户话术", "沟通目标", "禁用话术", "承诺边界"),
@@ -118,6 +129,15 @@ def test_every_declared_responsibility_is_non_empty_and_present_in_its_prompt():
         for responsibility in profile.responsibilities:
             assert responsibility
             assert responsibility in prompt
+
+
+def test_investment_bureau_declares_market_quote_capability() -> None:
+    profile = next(
+        item for item in bureau_profiles_for("户部") if item.bureau == "投资司"
+    )
+
+    assert "证券行情" in profile.responsibilities
+    assert "股票价格" in profile.responsibilities
 
 
 def test_all_six_rites_bureaus_are_open_and_use_the_same_prompt_mechanism():
@@ -288,6 +308,19 @@ def test_session_enabled_bureau_alone_receives_evidence_protocol_prompt():
     assert "fact_basis" in captured[0][0]["content"]
     assert bureau_node_id(profile.department, profile.bureau) in captured[0][0]["content"]
     assert "required_facts" in captured[0][0]["content"]
+    for market_metric in (
+        "LAST_PRICE",
+        "VOLUME",
+        "CHANGE_PERCENT",
+        "INTRADAY_SERIES",
+        "PE_RATIO",
+        "PB_RATIO",
+        "MARKET_CAP",
+        "PRICE_TREND_30D",
+    ):
+        assert market_metric in captured[0][0]["content"]
+    assert '"market_metric":"LAST_PRICE"' in captured[0][0]["content"]
+    assert "all other categories require JSON null" in captured[0][0]["content"]
     assert session.snapshot().used is False
 
 
@@ -318,6 +351,7 @@ def test_evidence_fallback_says_data_is_insufficient_without_factual_conclusion(
                     "jurisdiction": "CN",
                     "expected_unit": "CNY",
                     "expected_shape": "number",
+                    "market_metric": "LAST_PRICE",
                 }
             ],
             "decision_context": "价格影响结论",
@@ -337,3 +371,70 @@ def test_evidence_fallback_says_data_is_insufficient_without_factual_conclusion(
 
     assert "数据不足" in result
     assert "无法形成事实结论" in result
+
+
+def test_investment_bureau_attaches_only_planned_mainland_last_price_plan(
+    monkeypatch,
+) -> None:
+    session = object()
+    captured: dict[str, object] = {}
+    planned = FactPlanResult(FactPlanDisposition.PLANNED)
+
+    def fake_compile(*, decree_text, node_id, entity_extractor):
+        assert decree_text == "帮我看看比亚迪的股票价格"
+        assert node_id == bureau_node_id("户部", "投资司")
+        assert callable(entity_extractor)
+        return planned
+
+    def fake_invoke(**kwargs):
+        captured.update(kwargs)
+        return "已形成行情意见"
+
+    monkeypatch.setattr(
+        "app.agents.market_fact_plan.compile_mainland_last_price_plan",
+        fake_compile,
+    )
+    monkeypatch.setattr(
+        "app.agents.evidence_protocol.invoke_bureau_with_evidence",
+        fake_invoke,
+    )
+
+    result = invoke_bureau_agent(
+        "户部",
+        "投资司",
+        "帮我看看比亚迪的股票价格",
+        "明确的中国大陆证券最新价查询，由投资司办理。",
+        lambda _messages: pytest.fail("model is owned by the evidence adapter"),
+        evidence_session=session,
+    )
+
+    assert result == "已形成行情意见"
+    assert captured["fact_plan"] is planned
+    assert captured["evidence_renderer"] is render_mainland_last_price
+
+
+def test_investment_bureau_rejected_plan_fails_with_only_stable_reason(
+    monkeypatch,
+) -> None:
+    marker = "private-compiler-detail"
+
+    monkeypatch.setattr(
+        "app.agents.market_fact_plan.compile_mainland_last_price_plan",
+        lambda **_kwargs: FactPlanResult(
+            FactPlanDisposition.REJECTED,
+            reason="entity_ambiguous",
+        ),
+    )
+
+    with pytest.raises(BureauAgentInvocationError) as exc_info:
+        invoke_bureau_agent(
+            "户部",
+            "投资司",
+            "帮我看看该股票价格",
+            "交投资司办理",
+            lambda _messages: pytest.fail(marker),
+            evidence_session=object(),
+        )
+
+    assert str(exc_info.value.__cause__) == "entity_ambiguous"
+    assert marker not in str(exc_info.value)

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
+import unicodedata
 from collections import deque
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -11,23 +13,86 @@ from datetime import UTC, datetime, timedelta
 from threading import Lock
 from typing import Protocol
 
+from app.jinyiwei.freshness import is_evidence_fresh
+from app.jinyiwei.instruments import (
+    AShareExchange,
+    InstrumentHint,
+    InstrumentResolution,
+    InstrumentResolutionStatus,
+    extract_instrument_hints,
+    has_out_of_scope_market_hint,
+    instrument_name_queries,
+    instrument_ref_metadata,
+    resolve_a_share,
+)
 from app.jinyiwei.mcp.client import McpClientError, McpToolResult
-from app.jinyiwei.mcp.contracts import McpServerConfig, McpToolApproval
+from app.jinyiwei.mcp.contracts import (
+    McpServerConfig,
+    McpToolApproval,
+    ToolEffect,
+)
 from app.jinyiwei.mcp.mapping import DeterministicMcpMapper, McpMappingError
 from app.jinyiwei.mcp.registry import McpRegistry
-from app.jinyiwei.models import McpCallAudit, SourceAttempt, SourceAttemptStatus, SourceType
+from app.jinyiwei.models import (
+    FactCategory,
+    McpCallAudit,
+    RequiredFact,
+    SourceAttempt,
+    SourceAttemptStatus,
+    SourceType,
+)
 from app.jinyiwei.sources.base import SourceDocument, SourceQuery, SourceResult
 
 
 class _McpClient(Protocol):
-    def discover(self, server: McpServerConfig) -> tuple[object, ...]: ...
+    def discover(
+        self,
+        server: McpServerConfig,
+        *,
+        timeout_seconds: float | None = None,
+    ) -> tuple[object, ...]: ...
 
     def call(
         self,
         server: McpServerConfig,
         approval: McpToolApproval,
         arguments: Mapping[str, object],
+        *,
+        timeout_seconds: float | None = None,
     ) -> McpToolResult: ...
+
+
+def _accepts_timeout(method: object) -> bool:
+    """Keep legacy in-process adapters usable while enforcing budgets in HTTP."""
+    parameters = inspect.signature(method).parameters.values()
+    return any(parameter.name == "timeout_seconds" for parameter in parameters)
+
+
+def _discover_with_timeout(
+    client: _McpClient,
+    server: McpServerConfig,
+    timeout_seconds: float,
+) -> tuple[object, ...]:
+    if _accepts_timeout(client.discover):
+        return client.discover(server, timeout_seconds=timeout_seconds)
+    return client.discover(server)
+
+
+def _call_with_timeout(
+    client: _McpClient,
+    server: McpServerConfig,
+    approval: McpToolApproval,
+    arguments: Mapping[str, object],
+    timeout_seconds: float,
+) -> McpToolResult:
+    if _accepts_timeout(client.call):
+        return client.call(
+            server,
+            approval,
+            arguments,
+            timeout_seconds=timeout_seconds,
+        )
+    return client.call(server, approval, arguments)
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,7 +103,14 @@ class _CachedCall:
     response_hash: str
 
 
+class _DeadlineExceeded(Exception):
+    pass
+
+
 _CLIENT_ERROR_CODES = {
+    "credential_unavailable": "credential_unavailable",
+    "credential_source_invalid": "credential_source_invalid",
+    "external_network_disabled": "external_network_disabled",
     "source_authorization_failed": "auth_required",
     "source_auth_expired": "auth_expired",
     "source_rate_limited": "source_rate_limited",
@@ -100,6 +172,50 @@ class McpSource:
             )
         requested = {fact.key: fact for fact in query.request.required_facts}
         facts = tuple(requested[key] for key in query.unresolved_fact_keys)
+        instrument_inputs: dict[
+            str,
+            tuple[tuple[InstrumentHint, ...], tuple[str, ...]],
+        ] = {}
+        for fact in facts:
+            try:
+                hints, names = _instrument_inputs(query, fact)
+            except McpMappingError as exc:
+                return self._result(
+                    (),
+                    SourceAttemptStatus.FAILED,
+                    started,
+                    (fact.key,),
+                    str(exc),
+                )
+            instrument_inputs[fact.key] = (hints, names)
+            if (
+                fact.category is FactCategory.MARKET_QUOTE
+                and any(
+                    hint.exchange is AShareExchange.BSE for hint in hints
+                )
+                and not any(
+                    approval.enabled
+                    and approval.effect is ToolEffect.READ_ONLY
+                    and self._registry.server(
+                        approval.server_id
+                    ).enabled
+                    and approval.matches_fact(fact)
+                    and FactCategory.MARKET_QUOTE
+                    in approval.fact_categories
+                    and _approval_supports_exchange(
+                        approval,
+                        AShareExchange.BSE,
+                    )
+                    for approval in self._registry.approvals
+                )
+            ):
+                return self._result(
+                    (),
+                    SourceAttemptStatus.FAILED,
+                    started,
+                    (fact.key,),
+                    "provider_capability_missing",
+                )
         candidates = {
             fact.key: self._registry.tools_for((fact,)) for fact in facts
         }
@@ -116,11 +232,52 @@ class McpSource:
         had_conflict = False
         error_codes: list[str] = []
         call_audits: list[McpCallAudit] = []
+        fresh_document_count = 0
+        stale_document_count = 0
+        resolution_cache: dict[
+            tuple[
+                tuple[str, str],
+                tuple[str, ...],
+                tuple[InstrumentHint, ...],
+            ],
+            InstrumentResolution,
+        ] = {}
+        resolution_lookup: dict[
+            tuple[tuple[str, str], str],
+            InstrumentResolution,
+        ] = {}
         for fact in facts:
             if len(documents) >= query.max_items:
                 break
+            fact_candidates = candidates[fact.key]
+            hints, names = instrument_inputs[fact.key]
+            if (
+                fact.category is FactCategory.MARKET_QUOTE
+                and any(
+                    hint.exchange is AShareExchange.BSE for hint in hints
+                )
+            ):
+                fact_candidates = tuple(
+                    approval
+                    for approval in fact_candidates
+                    if _approval_supports_exchange(
+                        approval,
+                        AShareExchange.BSE,
+                    )
+                )
+                if not fact_candidates:
+                    if fact.key not in attempted:
+                        attempted.append(fact.key)
+                    return self._result(
+                        (),
+                        SourceAttemptStatus.FAILED,
+                        started,
+                        tuple(attempted),
+                        "provider_capability_missing",
+                        tuple(call_audits),
+                    )
             best_stale_document: SourceDocument | None = None
-            for approval in candidates[fact.key]:
+            for approval in fact_candidates:
                 arguments: Mapping[str, object] | None = None
                 if self._expired(query):
                     return self._result(
@@ -134,10 +291,8 @@ class McpSource:
                 if fact.key not in attempted:
                     attempted.append(fact.key)
                 try:
-                    if server.server_id not in discovered_servers:
-                        self._client.discover(server)
-                        discovered_servers.add(server.server_id)
                     resolved_subject = None
+                    resolved_instrument = None
                     approved_unit = None
                     mapping = approval.mapping
                     resolution = (
@@ -147,34 +302,139 @@ class McpSource:
                         resolver = self._registry.approval(
                             approval.server_id, resolution.tool_name
                         )
-                        resolution_arguments = (
-                            self._mapper.resolution_arguments_for(approval, fact)
+                        namespace = (
+                            server.server_id,
+                            _resolution_contract_hash(approval),
                         )
-                        resolution_result, resolution_audit = self._call_tool(
-                            server,
-                            resolver,
-                            resolution_arguments,
-                            fact_freshness_seconds=query.request.freshness.max_age_seconds,
+                        cache_key = (namespace, names, hints)
+                        resolved = _lookup_resolution(
+                            resolution_lookup,
+                            namespace=namespace,
+                            hints=hints,
+                            names=names,
                         )
-                        call_audits.append(resolution_audit)
-                        resolved_entity = self._mapper.resolve_subject(
-                            approval, fact, resolution_result
+                        alias_expected = (
+                            None
+                            if hints or resolved is not None
+                            else _lookup_alias_resolution(
+                                resolution_lookup,
+                                namespace=namespace,
+                                names=names,
+                            )
                         )
-                        call_audits[-1] = call_audits[-1].model_copy(
-                            update={"mapping_outcome": "resolved"}
+                        if (
+                            alias_expected is not None
+                            and alias_expected.status
+                            is InstrumentResolutionStatus.AMBIGUOUS
+                        ):
+                            resolved = alias_expected
+                        if resolved is None:
+                            resolved = resolution_cache.get(cache_key)
+                        if resolved is None:
+                            if server.server_id not in discovered_servers:
+                                _discover_with_timeout(
+                                    self._client,
+                                    server,
+                                    self._remaining_timeout(
+                                        query,
+                                        server,
+                                    ),
+                                )
+                                discovered_servers.add(server.server_id)
+                            resolved = self._resolve_instrument(
+                                query=query,
+                                fact=fact,
+                                server=server,
+                                approval=approval,
+                                resolver=resolver,
+                                call_audits=call_audits,
+                                hints=hints,
+                                names=names,
+                                original_name_only=(
+                                    alias_expected is not None
+                                ),
+                            )
+                            if (
+                                alias_expected is not None
+                                and resolved.status
+                                is InstrumentResolutionStatus.RESOLVED
+                                and not _same_resolution(
+                                    alias_expected,
+                                    resolved,
+                                )
+                            ):
+                                resolved = InstrumentResolution(
+                                    InstrumentResolutionStatus.AMBIGUOUS
+                                )
+                                if (
+                                    call_audits
+                                    and call_audits[-1].tool_name
+                                    == resolver.tool_name
+                                ):
+                                    call_audits[-1] = call_audits[
+                                        -1
+                                    ].model_copy(
+                                        update={
+                                            "mapping_outcome": (
+                                                "mapping_failed"
+                                            ),
+                                            "error": (
+                                                "instrument_ambiguous"
+                                            ),
+                                        }
+                                    )
+                            resolution_cache[cache_key] = resolved
+                            if (
+                                resolved.status
+                                is InstrumentResolutionStatus.RESOLVED
+                            ):
+                                _remember_resolution(
+                                    resolution_lookup,
+                                    namespace=namespace,
+                                    hints=hints,
+                                    names=names,
+                                    resolved=resolved,
+                                )
+                        if (
+                            resolved.status
+                            is InstrumentResolutionStatus.AMBIGUOUS
+                        ):
+                            raise McpMappingError("instrument_ambiguous")
+                        if (
+                            resolved.status
+                            is InstrumentResolutionStatus.NOT_FOUND
+                        ):
+                            raise McpMappingError("instrument_not_found")
+                        assert resolved.instrument is not None
+                        assert resolved.provider_subject is not None
+                        resolved_subject = resolved.provider_subject
+                        resolved_instrument = resolved.instrument
+                        approved_unit = resolved.instrument.currency
+                        arguments = self._mapper.arguments_for_instrument(
+                            approval,
+                            fact,
+                            resolved,
                         )
-                        resolved_subject = resolved_entity.subject
-                        approved_unit = resolved_entity.unit
-                    arguments = self._mapper.arguments_for(
-                        approval,
-                        fact,
-                        resolved_subject=resolved_subject,
-                    )
+                    else:
+                        if server.server_id not in discovered_servers:
+                            _discover_with_timeout(
+                                self._client,
+                                server,
+                                self._remaining_timeout(
+                                    query,
+                                    server,
+                                ),
+                            )
+                            discovered_servers.add(server.server_id)
+                        arguments = self._mapper.arguments_for(approval, fact)
+                    if self._expired(query):
+                        raise _DeadlineExceeded
                     result, call_audit = self._call_tool(
                         server,
                         approval,
                         arguments,
                         fact_freshness_seconds=query.request.freshness.max_age_seconds,
+                        timeout_seconds=self._remaining_timeout(query, server),
                     )
                     call_audits.append(call_audit)
                     if self._expired(query):
@@ -184,6 +444,7 @@ class McpSource:
                             started,
                             tuple(attempted),
                             "deadline_exceeded",
+                            tuple(call_audits),
                         )
                     document = self._mapper.map(
                         approval,
@@ -193,23 +454,85 @@ class McpSource:
                         resolved_subject=resolved_subject,
                         approved_unit=approved_unit,
                     )
+                    if resolved_instrument is not None:
+                        document = document.model_copy(
+                            update={
+                                "metadata": {
+                                    **dict(document.metadata),
+                                    "a_share_identity": instrument_ref_metadata(
+                                        resolved_instrument
+                                    ),
+                                    "market_metric": (
+                                        None
+                                        if fact.market_metric is None
+                                        else fact.market_metric.value
+                                    ),
+                                }
+                            }
+                        )
                     call_audits[-1] = call_audits[-1].model_copy(
                         update={"mapping_outcome": "mapped"}
+                    )
+                except _DeadlineExceeded:
+                    return self._result(
+                        (),
+                        SourceAttemptStatus.BLOCKED,
+                        started,
+                        tuple(attempted),
+                        "deadline_exceeded",
+                        tuple(call_audits),
                     )
                 except McpMappingError as exc:
                     had_failure = True
                     had_mapping_failure = True
-                    had_conflict = had_conflict or str(exc) == "fact_conflicted"
+                    mapping_error = str(exc)
+                    safe_mapping_error = (
+                        "quote_unavailable"
+                        if (
+                            resolved_subject is not None
+                            and fact.category is FactCategory.MARKET_QUOTE
+                        )
+                        else mapping_error
+                    )
+                    had_conflict = had_conflict or mapping_error == "fact_conflicted"
+                    if safe_mapping_error in {
+                        "instrument_ambiguous",
+                        "instrument_not_found",
+                        "market_out_of_scope",
+                        "provider_capability_missing",
+                        "quote_unavailable",
+                    }:
+                        error_codes.append(safe_mapping_error)
                     if call_audits and call_audits[-1].mapping_outcome == "received":
                         call_audits[-1] = call_audits[-1].model_copy(
                             update={
                                 "mapping_outcome": "mapping_failed",
                                 "error": (
                                     "fact_conflicted"
-                                    if str(exc) == "fact_conflicted"
+                                    if mapping_error == "fact_conflicted"
+                                    else safe_mapping_error
+                                    if safe_mapping_error in {
+                                        "instrument_ambiguous",
+                                        "instrument_not_found",
+                                        "market_out_of_scope",
+                                        "provider_capability_missing",
+                                        "quote_unavailable",
+                                    }
                                     else "mcp_mapping_failed"
                                 ),
                             }
+                        )
+                    if mapping_error in {
+                        "instrument_ambiguous",
+                        "market_out_of_scope",
+                    }:
+                        return self._result(
+                            (),
+                            SourceAttemptStatus.FAILED,
+                            started,
+                            tuple(attempted),
+                            mapping_error,
+                            tuple(call_audits),
                         )
                     continue
                 except McpClientError as exc:
@@ -245,8 +568,16 @@ class McpSource:
                     had_failure = True
                     error_codes.append("fact_unavailable")
                     continue
-                if _document_satisfies_freshness(document, query, self._aware_now()):
+                if is_evidence_fresh(
+                    as_of=document.as_of,
+                    retrieved_at=document.retrieved_at,
+                    request=query.request,
+                    fact_key=fact.key,
+                    source_type=document.source_type,
+                    now=self._aware_now(),
+                ):
                     documents.append(document)
+                    fresh_document_count += 1
                     best_stale_document = None
                     break
                 if (
@@ -256,6 +587,7 @@ class McpSource:
                     best_stale_document = document
             if best_stale_document is not None:
                 documents.append(best_stale_document)
+                stale_document_count += 1
 
         if documents:
             return self._result(
@@ -263,7 +595,11 @@ class McpSource:
                 SourceAttemptStatus.SUCCEEDED,
                 started,
                 tuple(attempted),
-                None,
+                (
+                    "stale_evidence_only"
+                    if stale_document_count and not fresh_document_count
+                    else None
+                ),
                 tuple(call_audits),
             )
         return self._result(
@@ -271,19 +607,74 @@ class McpSource:
             SourceAttemptStatus.FAILED if had_failure else SourceAttemptStatus.SKIPPED,
             started,
             tuple(attempted),
-            (
-                error_codes[-1]
-                if error_codes
-                else "fact_conflicted"
-                if had_conflict
-                else "mcp_mapping_failed"
-                if had_mapping_failure
-                else "mcp_unavailable"
-                if had_failure
-                else "mcp_not_configured"
+            _preferred_error(
+                error_codes,
+                had_conflict=had_conflict,
+                had_mapping_failure=had_mapping_failure,
+                had_failure=had_failure,
             ),
             tuple(call_audits),
         )
+
+    def _resolve_instrument(
+        self,
+        *,
+        query: SourceQuery,
+        fact: RequiredFact,
+        server: McpServerConfig,
+        approval: McpToolApproval,
+        resolver: McpToolApproval,
+        call_audits: list[McpCallAudit],
+        hints: tuple[InstrumentHint, ...],
+        names: tuple[str, ...],
+        original_name_only: bool,
+    ) -> InstrumentResolution:
+        searches = (
+            (names[0],)
+            if original_name_only
+            else tuple(
+                dict.fromkeys(
+                    [
+                        (
+                            f"{hint.ticker}.{_exchange_suffix(hint.exchange)}"
+                            if hint.exchange is not None
+                            else hint.ticker
+                        )
+                        for hint in hints
+                    ]
+                    + list(names)
+                )
+            )
+        )
+        for search in searches:
+            if self._expired(query):
+                raise _DeadlineExceeded
+            result, audit = self._call_tool(
+                server,
+                resolver,
+                {"query": search},
+                fact_freshness_seconds=query.request.freshness.max_age_seconds,
+                timeout_seconds=self._remaining_timeout(query, server),
+            )
+            call_audits.append(audit)
+            try:
+                candidates = self._mapper.instrument_candidates(approval, result)
+            except McpMappingError as exc:
+                if str(exc) == "entity_not_resolved":
+                    continue
+                raise
+            resolved = resolve_a_share(
+                candidates,
+                hints=hints,
+                accepted_names=names,
+            )
+            if resolved.status is not InstrumentResolutionStatus.NOT_FOUND:
+                if resolved.status is InstrumentResolutionStatus.RESOLVED:
+                    call_audits[-1] = call_audits[-1].model_copy(
+                        update={"mapping_outcome": "resolved"}
+                    )
+                return resolved
+        return InstrumentResolution(InstrumentResolutionStatus.NOT_FOUND)
 
     def _call_tool(
         self,
@@ -292,6 +683,7 @@ class McpSource:
         arguments: Mapping[str, object],
         *,
         fact_freshness_seconds: int | None,
+        timeout_seconds: float,
     ) -> tuple[McpToolResult, McpCallAudit]:
         arguments_hash, cache_key = _call_identity(server, approval, arguments)
         now = self._aware_now()
@@ -323,7 +715,13 @@ class McpSource:
 
         started = now
         try:
-            result = self._client.call(server, approval, arguments)
+            result = _call_with_timeout(
+                self._client,
+                server,
+                approval,
+                arguments,
+                timeout_seconds,
+            )
         except McpClientError as exc:
             completed = self._aware_now()
             error_code = _classify_client_error(str(exc))
@@ -391,6 +789,18 @@ class McpSource:
     def _expired(self, query: SourceQuery) -> bool:
         return self._now() >= _parse_time(query.deadline_at)
 
+    def _remaining_timeout(
+        self,
+        query: SourceQuery,
+        server: McpServerConfig,
+    ) -> float:
+        remaining = (
+            _parse_time(query.deadline_at) - self._aware_now()
+        ).total_seconds()
+        if remaining <= 0:
+            raise _DeadlineExceeded
+        return min(float(server.timeout_seconds), remaining)
+
     def _result(
         self,
         documents: tuple[SourceDocument, ...],
@@ -415,30 +825,253 @@ class McpSource:
         )
 
 
-def _document_satisfies_freshness(
-    document: SourceDocument,
-    query: SourceQuery,
-    now: datetime,
-) -> bool:
-    observed = _document_as_of(document)
-    current = now.astimezone(UTC)
-    if observed > current:
-        return False
-    freshness = query.request.freshness
-    if (
-        freshness.max_age_seconds is not None
-        and observed < current - timedelta(seconds=freshness.max_age_seconds)
-    ):
-        return False
-    if freshness.not_before is not None:
-        not_before = _parse_time(freshness.not_before).astimezone(UTC)
-        if observed < not_before:
-            return False
-    return True
-
-
 def _document_as_of(document: SourceDocument) -> datetime:
     return _parse_time(document.as_of).astimezone(UTC)
+
+
+def _instrument_inputs(
+    query: SourceQuery,
+    fact: RequiredFact,
+) -> tuple[tuple[InstrumentHint, ...], tuple[str, ...]]:
+    names = instrument_name_queries(fact.subject)
+    if fact.category is not FactCategory.MARKET_QUOTE:
+        return (), names
+    if fact.jurisdiction is not None and fact.jurisdiction != "CN":
+        raise McpMappingError("market_out_of_scope")
+    local_texts = (fact.subject, fact.description)
+    if has_out_of_scope_market_hint(*local_texts):
+        raise McpMappingError("market_out_of_scope")
+    if has_out_of_scope_market_hint(query.request.question):
+        raise McpMappingError("market_out_of_scope")
+    local_hints = extract_instrument_hints(*local_texts)
+    if local_hints:
+        return _one_logical_instrument(local_hints), names
+    return (
+        _one_logical_instrument(
+            extract_instrument_hints(query.request.question)
+        ),
+        names,
+    )
+
+
+def _one_logical_instrument(
+    hints: tuple[InstrumentHint, ...],
+) -> tuple[InstrumentHint, ...]:
+    if not hints:
+        return ()
+    tickers = {hint.ticker for hint in hints}
+    exchanges = {
+        hint.exchange for hint in hints if hint.exchange is not None
+    }
+    if len(tickers) != 1 or len(exchanges) > 1:
+        raise McpMappingError("instrument_ambiguous")
+    ticker = next(iter(tickers))
+    exchange = next(iter(exchanges)) if exchanges else None
+    return (InstrumentHint(exchange=exchange, ticker=ticker),)
+
+
+def _approval_supports_exchange(
+    approval: McpToolApproval,
+    exchange: AShareExchange,
+) -> bool:
+    mapping = approval.mapping
+    resolution = None if mapping is None else mapping.entity_resolution
+    return (
+        resolution is not None
+        and exchange in resolution.exchange_subject_patterns
+    )
+
+
+def _resolution_contract_hash(approval: McpToolApproval) -> str:
+    mapping = approval.mapping
+    resolution = None if mapping is None else mapping.entity_resolution
+    if resolution is None:
+        raise McpMappingError("entity_resolution_not_approved")
+    return hashlib.sha256(
+        _canonical_json(resolution.model_dump(mode="json"))
+    ).hexdigest()
+
+
+def _lookup_resolution(
+    cache: dict[
+        tuple[tuple[str, str], str],
+        InstrumentResolution,
+    ],
+    *,
+    namespace: tuple[str, str],
+    hints: tuple[InstrumentHint, ...],
+    names: tuple[str, ...],
+) -> InstrumentResolution | None:
+    tokens = (
+        _hint_tokens(hints, lookup=True)
+        if hints
+        else (_name_token(names[0]),)
+    )
+    matches = tuple(
+        cache[(namespace, token)]
+        for token in tokens
+        if (namespace, token) in cache
+    )
+    if not matches:
+        return None
+    first = matches[0]
+    if (
+        first.status is InstrumentResolutionStatus.AMBIGUOUS
+        or any(not _same_resolution(first, item) for item in matches[1:])
+    ):
+        return InstrumentResolution(InstrumentResolutionStatus.AMBIGUOUS)
+    return first
+
+
+def _lookup_alias_resolution(
+    cache: dict[
+        tuple[tuple[str, str], str],
+        InstrumentResolution,
+    ],
+    *,
+    namespace: tuple[str, str],
+    names: tuple[str, ...],
+) -> InstrumentResolution | None:
+    if len(names) < 2:
+        return None
+    matches = tuple(
+        cache[(namespace, _name_token(name))]
+        for name in names[1:]
+        if (namespace, _name_token(name)) in cache
+    )
+    if not matches:
+        return None
+    first = matches[0]
+    if (
+        first.status is InstrumentResolutionStatus.AMBIGUOUS
+        or any(not _same_resolution(first, item) for item in matches[1:])
+    ):
+        return InstrumentResolution(InstrumentResolutionStatus.AMBIGUOUS)
+    return first
+
+
+def _remember_resolution(
+    cache: dict[
+        tuple[tuple[str, str], str],
+        InstrumentResolution,
+    ],
+    *,
+    namespace: tuple[str, str],
+    hints: tuple[InstrumentHint, ...],
+    names: tuple[str, ...],
+    resolved: InstrumentResolution,
+) -> None:
+    assert resolved.instrument is not None
+    tokens = set(_hint_tokens(hints, lookup=False))
+    tokens.update(_name_token(name) for name in names)
+    tokens.add(_name_token(resolved.instrument.canonical_name))
+    final_hint = InstrumentHint(
+        exchange=resolved.instrument.exchange,
+        ticker=resolved.instrument.ticker,
+    )
+    tokens.update(_hint_tokens((final_hint,), lookup=False))
+    for token in tokens:
+        key = (namespace, token)
+        existing = cache.get(key)
+        if existing is None or _same_resolution(existing, resolved):
+            cache[key] = resolved
+        else:
+            cache[key] = InstrumentResolution(
+                InstrumentResolutionStatus.AMBIGUOUS
+            )
+
+
+def _hint_tokens(
+    hints: tuple[InstrumentHint, ...],
+    *,
+    lookup: bool,
+) -> tuple[str, ...]:
+    tokens: list[str] = []
+    for hint in hints:
+        if hint.exchange is None:
+            tokens.append(f"ticker:{hint.ticker}")
+        else:
+            tokens.append(
+                f"instrument:{hint.exchange.value}:{hint.ticker}"
+            )
+            if not lookup:
+                tokens.append(f"ticker:{hint.ticker}")
+    return tuple(dict.fromkeys(tokens))
+
+
+def _name_token(value: str) -> str:
+    normalized = " ".join(
+        unicodedata.normalize("NFKC", value).split()
+    ).casefold()
+    return f"name:{normalized}"
+
+
+def _same_resolution(
+    left: InstrumentResolution,
+    right: InstrumentResolution,
+) -> bool:
+    if (
+        left.status is not InstrumentResolutionStatus.RESOLVED
+        or right.status is not InstrumentResolutionStatus.RESOLVED
+        or left.instrument is None
+        or right.instrument is None
+    ):
+        return left == right
+    return (
+        left.instrument.exchange,
+        left.instrument.ticker,
+        left.provider_subject,
+    ) == (
+        right.instrument.exchange,
+        right.instrument.ticker,
+        right.provider_subject,
+    )
+
+
+def _preferred_error(
+    error_codes: list[str],
+    *,
+    had_conflict: bool,
+    had_mapping_failure: bool,
+    had_failure: bool,
+) -> str:
+    priorities = (
+        "instrument_not_found",
+        "provider_capability_missing",
+        "quote_unavailable",
+        "fact_conflicted",
+        "mcp_mapping_failed",
+        "credential_unavailable",
+        "credential_source_invalid",
+        "external_network_disabled",
+        "auth_required",
+        "auth_expired",
+        "source_rate_limited",
+        "timeout",
+        "schema_changed",
+        "response_invalid",
+        "fact_unavailable",
+    )
+    available = set(error_codes)
+    if had_conflict:
+        available.add("fact_conflicted")
+    if had_mapping_failure:
+        available.add("mcp_mapping_failed")
+    if had_failure:
+        available.add("mcp_unavailable")
+    available.add("mcp_not_configured")
+    return next(
+        code for code in (*priorities, "mcp_unavailable", "mcp_not_configured")
+        if code in available
+    )
+
+
+def _exchange_suffix(exchange: AShareExchange) -> str:
+    return {
+        AShareExchange.SSE: "SH",
+        AShareExchange.SZSE: "SZ",
+        AShareExchange.BSE: "BJ",
+    }[exchange]
 
 
 def _classify_client_error(code: str) -> str:

@@ -30,11 +30,17 @@ from app.agents.bureaus import (
     invoke_bureau_agent,
 )
 from app.agents.evidence_protocol import AgentEvidenceSession
+from app.agents.evidence_rendering import render_mainland_last_price
+from app.agents.market_intent import (
+    is_mainland_last_price_intent,
+    prioritize_market_quote_bureaus,
+)
 from app.agents.ministries.prompts import (
     ministry_synthesis_system_prompt,
     ministry_system_prompt,
 )
 from app.agents.structured_output import StructuredOutputError, parse_strict_json_object
+from app.jinyiwei.models import FactCategory, MarketMetric
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel
 from app.shiguan.recall import RecallContext, safe_recall_context_for_department
 
@@ -68,6 +74,19 @@ class MinistryOpinion(TypedDict):
     department: str
     bureau_opinions: list[BureauOpinion]
     opinion: str
+
+
+def _has_canonical_last_price_evidence(session: AgentEvidenceSession) -> bool:
+    return session.has_adopted_fact(
+        node_id="bureau:户部:投资司",
+        fact_key="market_quote:last_price",
+        category=FactCategory.MARKET_QUOTE,
+        market_metric=MarketMetric.LAST_PRICE,
+        jurisdiction="CN",
+        expected_unit="CNY",
+        expected_shape="number",
+        evidence_renderer=render_mainland_last_price,
+    )
 
 
 def _format_recall_context(context: RecallContext) -> str:
@@ -120,61 +139,75 @@ def invoke_ministry_agent(
         recall_context = safe_recall_context_for_department(department)
     recall_context_text = _format_recall_context(recall_context)
 
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {
-            "role": "user",
-            "content": (
-                f"旨意：{decree_text}\n\n"
-                f"丞相判断说明：{rationale}\n\n"
-                f"{recall_context_text}"
-            ),
-        },
-    ]
+    if department == "户部" and is_mainland_last_price_intent(decree_text):
+        route_rationale = "明确的中国大陆证券最新价查询，由投资司办理。"
+        selected_bureaus = ["投资司"]
+    else:
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": (
+                    f"旨意：{decree_text}\n\n"
+                    f"丞相判断说明：{rationale}\n\n"
+                    f"{recall_context_text}"
+                ),
+            },
+        ]
 
-    try:
-        raw_response = chat_model(messages)
-    except Exception as exc:  # noqa: BLE001 - intentionally wrap any model error
-        raise MinistryAgentInvocationError(
-            f"{department} agent failed to obtain a model response; "
-            "see __cause__ for the original exception."
-        ) from exc
+        try:
+            raw_response = chat_model(messages)
+        except Exception as exc:  # noqa: BLE001 - intentionally wrap any model error
+            raise MinistryAgentInvocationError(
+                f"{department} agent failed to obtain a model response; "
+                "see __cause__ for the original exception."
+            ) from exc
 
-    if not isinstance(raw_response, str) or not raw_response.strip():
-        raise MinistryAgentInvocationError(f"{department} agent returned an empty model response.")
+        if not isinstance(raw_response, str) or not raw_response.strip():
+            raise MinistryAgentInvocationError(
+                f"{department} agent returned an empty model response."
+            )
 
-    try:
-        parsed = parse_strict_json_object(raw_response)
-    except StructuredOutputError as exc:
-        raise MinistryAgentInvocationError(
-            f"{department} agent response failed strict JSON parsing."
-        ) from exc
+        try:
+            parsed = parse_strict_json_object(raw_response)
+        except StructuredOutputError as exc:
+            raise MinistryAgentInvocationError(
+                f"{department} agent response failed strict JSON parsing."
+            ) from exc
 
-    if set(parsed) != {"rationale", "bureaus"}:
-        cause = ValueError("The ministry routing response has an invalid schema.")
-        raise MinistryAgentInvocationError(
-            f"{department} agent response failed bureau-routing validation."
-        ) from cause
+        if set(parsed) != {"rationale", "bureaus"}:
+            cause = ValueError("The ministry routing response has an invalid schema.")
+            raise MinistryAgentInvocationError(
+                f"{department} agent response failed bureau-routing validation."
+            ) from cause
 
-    route_rationale = parsed["rationale"]
-    selected_bureaus = parsed["bureaus"]
-    allowed_bureaus = {profile.bureau for profile in bureau_profiles_for(department)}
-    if not isinstance(route_rationale, str) or not route_rationale.strip():
-        cause = ValueError("The ministry routing rationale is not a non-empty string.")
-        raise MinistryAgentInvocationError(
-            f"{department} agent response failed bureau-routing validation."
-        ) from cause
-    if (
-        not isinstance(selected_bureaus, list)
-        or not selected_bureaus
-        or any(not isinstance(bureau, str) for bureau in selected_bureaus)
-        or len(selected_bureaus) != len(set(selected_bureaus))
-        or any(bureau not in allowed_bureaus for bureau in selected_bureaus)
-    ):
-        cause = ValueError("The ministry bureau selection is invalid.")
-        raise MinistryAgentInvocationError(
-            f"{department} agent response failed bureau-routing validation."
-        ) from cause
+        route_rationale = parsed["rationale"]
+        selected_bureaus = parsed["bureaus"]
+        allowed_bureaus = {profile.bureau for profile in bureau_profiles_for(department)}
+        if not isinstance(route_rationale, str) or not route_rationale.strip():
+            cause = ValueError("The ministry routing rationale is not a non-empty string.")
+            raise MinistryAgentInvocationError(
+                f"{department} agent response failed bureau-routing validation."
+            ) from cause
+        if (
+            not isinstance(selected_bureaus, list)
+            or not selected_bureaus
+            or any(not isinstance(bureau, str) for bureau in selected_bureaus)
+            or len(selected_bureaus) != len(set(selected_bureaus))
+            or any(bureau not in allowed_bureaus for bureau in selected_bureaus)
+        ):
+            cause = ValueError("The ministry bureau selection is invalid.")
+            raise MinistryAgentInvocationError(
+                f"{department} agent response failed bureau-routing validation."
+            ) from cause
+
+        selected_bureaus = list(
+            prioritize_market_quote_bureaus(
+                department=department,
+                decree_text=decree_text,
+                bureaus=selected_bureaus,
+            )
+        )
 
     bureau_opinions: list[BureauOpinion] = []
     for bureau in selected_bureaus:
@@ -202,6 +235,19 @@ def invoke_ministry_agent(
             ) from exc
         bureau_opinions.append({"bureau": bureau, "opinion": opinion})
 
+    if (
+        department == "户部"
+        and is_mainland_last_price_intent(decree_text)
+        and evidence_session is not None
+        and (
+            not evidence_session.snapshot().adopted_evidence_ids
+            or not _has_canonical_last_price_evidence(evidence_session)
+        )
+    ):
+        raise MinistryAgentInvocationError(
+            "户部 market synthesis requires adopted evidence."
+        )
+
     synthesis_messages = [
         {
             "role": "system",
@@ -220,40 +266,66 @@ def invoke_ministry_agent(
         },
     ]
     try:
-        synthesis_response = chat_model(synthesis_messages)
-    except Exception as exc:  # noqa: BLE001 - intentionally wrap any model error
-        raise MinistryAgentInvocationError(
-            f"{department} agent failed to obtain a ministry synthesis; "
-            "see __cause__ for the original exception."
-        ) from exc
+        try:
+            synthesis_response = chat_model(synthesis_messages)
+        except Exception as exc:  # noqa: BLE001 - model boundary
+            raise MinistryAgentInvocationError(
+                f"{department} agent failed to obtain a ministry synthesis; "
+                "see __cause__ for the original exception."
+            ) from exc
 
-    if not isinstance(synthesis_response, str) or not synthesis_response.strip():
-        cause = ValueError("The ministry synthesis returned no usable text.")
-        raise MinistryAgentInvocationError(
-            f"{department} agent ministry synthesis validation failed."
-        ) from cause
+        if not isinstance(synthesis_response, str) or not synthesis_response.strip():
+            cause = ValueError("The ministry synthesis returned no usable text.")
+            raise MinistryAgentInvocationError(
+                f"{department} agent ministry synthesis validation failed."
+            ) from cause
 
-    try:
-        synthesis = parse_strict_json_object(synthesis_response)
-    except StructuredOutputError as exc:
-        raise MinistryAgentInvocationError(
-            f"{department} agent ministry synthesis failed strict JSON parsing."
-        ) from exc
+        try:
+            synthesis = parse_strict_json_object(synthesis_response)
+        except StructuredOutputError as exc:
+            raise MinistryAgentInvocationError(
+                f"{department} agent ministry synthesis failed strict JSON parsing."
+            ) from exc
 
-    if set(synthesis) != {"opinion"}:
-        cause = ValueError("The ministry synthesis response has an invalid schema.")
-        raise MinistryAgentInvocationError(
-            f"{department} agent ministry synthesis validation failed."
-        ) from cause
-    ministry_opinion = synthesis["opinion"]
-    if not isinstance(ministry_opinion, str) or not ministry_opinion.strip():
-        cause = ValueError("The ministry opinion is not a non-empty string.")
-        raise MinistryAgentInvocationError(
-            f"{department} agent ministry synthesis validation failed."
-        ) from cause
+        if set(synthesis) != {"opinion"}:
+            cause = ValueError("The ministry synthesis response has an invalid schema.")
+            raise MinistryAgentInvocationError(
+                f"{department} agent ministry synthesis validation failed."
+            ) from cause
+        ministry_opinion = synthesis["opinion"]
+        if not isinstance(ministry_opinion, str) or not ministry_opinion.strip():
+            cause = ValueError("The ministry opinion is not a non-empty string.")
+            raise MinistryAgentInvocationError(
+                f"{department} agent ministry synthesis validation failed."
+            ) from cause
+        ministry_opinion = ministry_opinion.strip()
+        if (
+            department == "户部"
+            and is_mainland_last_price_intent(decree_text)
+            and evidence_session is not None
+        ):
+            authoritative_opinion = "\n".join(
+                item["opinion"] for item in bureau_opinions
+            )
+            if ministry_opinion != authoritative_opinion:
+                ministry_opinion = authoritative_opinion
+                evidence_session.record_degradation("ministry:户部")
+    except MinistryAgentInvocationError:
+        can_degrade = (
+            department == "户部"
+            and is_mainland_last_price_intent(decree_text)
+            and evidence_session is not None
+            and bool(evidence_session.snapshot().adopted_evidence_ids)
+            and _has_canonical_last_price_evidence(evidence_session)
+            and bool(bureau_opinions)
+        )
+        if not can_degrade:
+            raise
+        ministry_opinion = "\n".join(item["opinion"] for item in bureau_opinions)
+        evidence_session.record_degradation("ministry:户部")
 
     return {
         "department": department,
         "bureau_opinions": bureau_opinions,
-        "opinion": ministry_opinion.strip(),
+        "opinion": ministry_opinion,
     }

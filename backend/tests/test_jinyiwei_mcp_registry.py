@@ -11,6 +11,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
+from app.jinyiwei.instruments import AShareExchange
 from app.jinyiwei.mcp import (
     DiscoveredTool,
     McpRegistry,
@@ -20,10 +21,12 @@ from app.jinyiwei.mcp import (
     approval_fingerprint,
     load_default_registry,
 )
-from app.jinyiwei.models import DataScope, FactCategory, RequiredFact
+from app.jinyiwei.mcp.contracts import McpEntityResolver
+from app.jinyiwei.models import DataScope, FactCategory, MarketMetric, RequiredFact
 
 
 def _quote_fact(
+    market_metric: MarketMetric = MarketMetric.LAST_PRICE,
     *,
     data_scope: DataScope = DataScope.EXTERNAL_PUBLIC,
     jurisdiction: str | None = "CN",
@@ -37,6 +40,7 @@ def _quote_fact(
         jurisdiction=jurisdiction,
         expected_unit="CNY",
         expected_shape="quote",
+        market_metric=market_metric,
     )
 
 
@@ -86,6 +90,7 @@ def _tool_payload(
         "enabled": True,
         "effect": "READ_ONLY",
         "fact_categories": ["MARKET_QUOTE"],
+        "market_metrics": ["LAST_PRICE"],
         "data_scopes": ["EXTERNAL_PUBLIC"],
         "jurisdictions": ["CN"],
         "approval_version": "2026-07-22.1",
@@ -160,6 +165,116 @@ def test_registry_returns_only_enabled_approved_read_tools() -> None:
     tools = registry.tools_for((_quote_fact(),))
 
     assert [tool.tool_name for tool in tools] == ["data_quote"]
+
+
+def test_quote_tool_matches_last_price_but_not_intraday() -> None:
+    registry = load_default_registry()
+
+    assert [
+        tool.tool_name
+        for tool in registry.tools_for((_quote_fact(MarketMetric.LAST_PRICE),))
+    ] == ["data_quote"]
+    assert [
+        tool.tool_name
+        for tool in registry.tools_for((_quote_fact(MarketMetric.INTRADAY_SERIES),))
+    ] == ["data_minute"]
+
+
+def test_tencent_resolver_does_not_claim_bse() -> None:
+    registry = load_default_registry()
+
+    quote = registry.approval("westock", "data_quote")
+    assert quote.mapping is not None
+    assert quote.mapping.entity_resolution is not None
+    patterns = quote.mapping.entity_resolution.exchange_subject_patterns
+
+    assert set(patterns) == {AShareExchange.SSE, AShareExchange.SZSE}
+
+
+def test_tencent_quote_and_minute_approvals_claim_mainland_only() -> None:
+    registry = load_default_registry()
+
+    for tool_name in ("data_quote", "data_minute"):
+        approval = registry.approval("westock", tool_name)
+        assert approval.jurisdictions == ("CN",)
+        assert approval.mapping is not None
+        assert approval.mapping.entity_resolution is not None
+        resolution = approval.mapping.entity_resolution
+        assert set(resolution.markets_by_jurisdiction) == {"CN"}
+        assert set(resolution.units_by_market) == {"CN"}
+        assert set(resolution.jurisdiction_subject_patterns) == {"CN"}
+
+
+def test_market_quote_approval_requires_market_metrics() -> None:
+    server = McpServerConfig.model_validate(_server_payload())
+    payload = _tool_payload(server)
+    payload.pop("market_metrics")
+
+    with pytest.raises(ValidationError, match="market_quote_requires_market_metrics"):
+        McpToolApproval.model_validate(payload)
+
+
+def test_non_market_approval_rejects_market_metrics() -> None:
+    server = McpServerConfig.model_validate(_server_payload())
+
+    with pytest.raises(ValidationError, match="market_metrics_require_market_quote"):
+        McpToolApproval.model_validate(
+            _tool_payload(server, fact_categories=["ENTITY_REFERENCE"])
+        )
+
+
+def test_market_metrics_must_be_unique() -> None:
+    server = McpServerConfig.model_validate(_server_payload())
+
+    with pytest.raises(ValidationError, match="duplicate_market_metrics"):
+        McpToolApproval.model_validate(
+            _tool_payload(server, market_metrics=["LAST_PRICE", "LAST_PRICE"])
+        )
+
+
+def test_exchange_subject_patterns_are_valid_nonempty_and_serializable() -> None:
+    default_registry = load_default_registry()
+    quote = default_registry.approval("westock", "data_quote")
+    assert quote.mapping is not None
+    assert quote.mapping.entity_resolution is not None
+    payload = quote.mapping.entity_resolution.model_dump(mode="json")
+    payload["exchange_subject_patterns"] = {
+        "SSE": r"sh[0-9]{6}",
+        "SZSE": r"sz[0-9]{6}",
+    }
+
+    resolver = McpEntityResolver.model_validate(payload)
+
+    assert resolver.exchange_subject_patterns == {
+        AShareExchange.SSE: r"sh[0-9]{6}",
+        AShareExchange.SZSE: r"sz[0-9]{6}",
+    }
+    assert resolver.model_dump(mode="json")["exchange_subject_patterns"] == {
+        "SSE": r"sh[0-9]{6}",
+        "SZSE": r"sz[0-9]{6}",
+    }
+    with pytest.raises(TypeError):
+        resolver.exchange_subject_patterns[AShareExchange.SSE] = r"sh.*"
+
+    for invalid in ({}, {"SSE": "["}, {"NOT_AN_EXCHANGE": r"sh[0-9]{6}"}):
+        payload["exchange_subject_patterns"] = invalid
+        with pytest.raises(ValidationError, match="exchange_subject_patterns"):
+            McpEntityResolver.model_validate(payload)
+
+
+def test_exchange_subject_patterns_reject_duplicate_normalized_keys() -> None:
+    registry = load_default_registry()
+    quote = registry.approval("westock", "data_quote")
+    assert quote.mapping is not None
+    assert quote.mapping.entity_resolution is not None
+    payload = quote.mapping.entity_resolution.model_dump(mode="json")
+    payload["exchange_subject_patterns"] = {
+        "sse": r"sh[0-9]{6}",
+        "SSE": r"sh[0-9]{6}",
+    }
+
+    with pytest.raises(ValidationError, match="duplicate_exchange_subject_pattern"):
+        McpEntityResolver.model_validate(payload)
 
 
 def test_registry_matches_fact_category_scope_and_jurisdiction() -> None:
@@ -490,4 +605,4 @@ def test_repository_config_is_secret_free_explicitly_enabled_and_read_only() -> 
     assert [
         approval.tool_name
         for approval in load_default_registry().tools_for((_quote_fact(),))
-    ] == ["data_minute", "data_quote"]
+    ] == ["data_quote"]

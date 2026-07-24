@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from app.jinyiwei.instruments import (
+    instrument_ref_from_metadata,
+    matches_a_share_identity,
+)
 from app.jinyiwei.models import (
     EvidenceItem,
     EvidenceQuality,
@@ -17,7 +21,7 @@ from app.jinyiwei.models import (
     SourceType,
 )
 from app.jinyiwei.sources.base import SourceDocument, SourceQuery, SourceResult
-from app.shiguan.models import Archive
+from app.shiguan.models import Archive, ArchiveEvidenceSnapshot
 from app.shiguan.recall import RecallContext, RecallMatch, find_similar_archives
 from app.shiguan.storage import get_archive
 
@@ -111,13 +115,11 @@ def _adopted_snapshot_documents(
     documents: list[SourceDocument] = []
     for reference in archive.evidence_references:
         snapshot = reference.snapshot
-        fact = fact_slots.get(snapshot.fact_key)
+        fact = _matching_fact(snapshot, fact_slots)
         if (
             fact is None
             or snapshot.category != fact.category
             or snapshot.data_scope != fact.data_scope
-            or snapshot.subject != fact.subject
-            or snapshot.jurisdiction != fact.jurisdiction
         ):
             continue
         adopted = EvidenceItem.model_validate(
@@ -126,11 +128,15 @@ def _adopted_snapshot_documents(
                 exclude={"category", "data_scope", "subject", "jurisdiction"},
             )
         )
+        original_fact_key = adopted.fact_key
+        if adopted.fact_key != fact.key:
+            adopted = adopted.model_copy(update={"fact_key": fact.key})
         identifier = hashlib.sha256(reference.evidence_id.encode()).hexdigest()[:20]
         metadata = _metadata(match, archive)
         metadata.update(
             {
                 "adopted_evidence_id": reference.evidence_id,
+                "original_fact_key": original_fact_key,
                 "original_source_type": snapshot.source_type,
                 "original_source_url": snapshot.source_url,
                 "original_publisher": snapshot.publisher,
@@ -161,6 +167,48 @@ def _adopted_snapshot_documents(
             )
         )
     return tuple(documents)
+
+
+def _matching_fact(
+    snapshot: ArchiveEvidenceSnapshot,
+    fact_slots: dict[str, RequiredFact],
+) -> RequiredFact | None:
+    exact = fact_slots.get(snapshot.fact_key)
+    if (
+        exact is not None
+        and snapshot.category == exact.category
+        and snapshot.data_scope == exact.data_scope
+        and snapshot.subject == exact.subject
+        and snapshot.jurisdiction == exact.jurisdiction
+    ):
+        return exact
+    if snapshot.category != "MARKET_QUOTE":
+        return None
+    metadata = snapshot.access_metadata
+    if not isinstance(metadata, Mapping):
+        return None
+    instrument = instrument_ref_from_metadata(
+        metadata.get("a_share_identity")
+    )
+    metric = metadata.get("market_metric")
+    if instrument is None or not isinstance(metric, str):
+        return None
+    matches = tuple(
+        fact
+        for fact in fact_slots.values()
+        if fact.category.value == snapshot.category
+        and fact.data_scope.value == snapshot.data_scope
+        and fact.jurisdiction in {None, "CN"}
+        and snapshot.jurisdiction in {None, "CN"}
+        and fact.market_metric is not None
+        and fact.market_metric.value == metric
+        and matches_a_share_identity(
+            instrument,
+            fact.subject,
+            fact.description,
+        )
+    )
+    return matches[0] if len(matches) == 1 else None
 
 
 def _adopted_identity(item: EvidenceItem) -> str:

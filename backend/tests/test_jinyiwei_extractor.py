@@ -11,6 +11,7 @@ from app.jinyiwei.models import (
     EvidenceItem,
     EvidenceQuality,
     EvidenceStance,
+    FactCategory,
     FreshnessRequirement,
     RequiredFact,
     SourceType,
@@ -317,7 +318,7 @@ def test_adopted_snapshot_cannot_be_remapped_to_another_unresolved_fact() -> Non
         adopted_evidence=adopted,
         metadata={"archive_id": "archive-1"},
     )
-    query = _query().model_copy(update={"unresolved_fact_keys": ("population", "area")})
+    query = _query().model_copy(update={"unresolved_fact_keys": ("area",)})
 
     def model(prompt: str) -> str:
         document_id = json.loads(prompt.split("INPUT_JSON:\n", 1)[1])["documents"][0][
@@ -327,6 +328,105 @@ def test_adopted_snapshot_cannot_be_remapped_to_another_unresolved_fact() -> Non
 
     with pytest.raises(EvidenceExtractionError, match="extractor_output_invalid"):
         StructuredEvidenceExtractor(model=model).extract(query, (document,))
+
+
+def test_complete_locked_shiguan_snapshot_is_reused_without_model() -> None:
+    adopted = EvidenceItem(
+        evidence_id="locked-quote",
+        fact_key="population",
+        value=100,
+        unit="人",
+        as_of="2026-07-20T11:30:00Z",
+        retrieved_at="2026-07-20T11:35:00Z",
+        source_url="https://authority.example.test/population",
+        publisher="人口主管机关",
+        source_type=SourceType.PUBLIC_WEB,
+        quality=EvidenceQuality.PRIMARY,
+        stance=EvidenceStance.SUPPORTS,
+        excerpt="常住人口为 100 人。",
+        content_hash=hashlib.sha256("常住人口为 100 人。".encode()).hexdigest(),
+        confidence=0.95,
+    )
+    document = SourceDocument(
+        source_type=SourceType.SHIGUAN,
+        source_name="shiguan",
+        source_url="internal://shiguan/evidence/locked-quote",
+        publisher="史馆",
+        title="采用证据",
+        retrieved_at="2026-07-20T12:00:00Z",
+        as_of=adopted.as_of,
+        text=adopted.excerpt,
+        quality_ceiling=adopted.quality,
+        locked_fact_key="population",
+        locked_fact_category=FactCategory.PUBLIC_STATISTIC,
+        locked_subject="北京市",
+        adopted_evidence=adopted,
+        metadata={"archive_id": "archive-locked"},
+    )
+    model_calls = 0
+
+    def model(_prompt: str) -> str:
+        nonlocal model_calls
+        model_calls += 1
+        raise AssertionError("model must not run")
+
+    evidence = StructuredEvidenceExtractor(model=model).extract(_query(), (document,))
+
+    assert model_calls == 0
+    assert len(evidence) == 1
+    assert evidence[0].evidence_id == adopted.evidence_id
+    assert evidence[0].fact_key == adopted.fact_key
+    assert evidence[0].source_type is SourceType.SHIGUAN
+    assert evidence[0].access_url == document.source_url
+    assert evidence[0].access_metadata == document.metadata
+
+
+def test_complete_locked_shiguan_identity_mismatch_fails_without_rebinding() -> None:
+    adopted = EvidenceItem(
+        evidence_id="locked-area",
+        fact_key="area",
+        value=100,
+        unit="平方公里",
+        as_of="2026-07-20T11:30:00Z",
+        retrieved_at="2026-07-20T11:35:00Z",
+        source_url="https://authority.example.test/area",
+        publisher="地理主管机关",
+        source_type=SourceType.PUBLIC_WEB,
+        quality=EvidenceQuality.PRIMARY,
+        stance=EvidenceStance.SUPPORTS,
+        excerpt="面积为 100 平方公里。",
+        content_hash=hashlib.sha256("面积为 100 平方公里。".encode()).hexdigest(),
+        confidence=0.95,
+    )
+    document = SourceDocument(
+        source_type=SourceType.SHIGUAN,
+        source_name="shiguan",
+        source_url="internal://shiguan/evidence/locked-area",
+        publisher="史馆",
+        title="采用证据",
+        retrieved_at="2026-07-20T12:00:00Z",
+        as_of=adopted.as_of,
+        text=adopted.excerpt,
+        quality_ceiling=adopted.quality,
+        locked_fact_key="area",
+        locked_fact_category=FactCategory.PUBLIC_STATISTIC,
+        locked_subject="北京市",
+        adopted_evidence=adopted,
+    )
+    original = document.model_dump(mode="python")
+    model_calls = 0
+
+    def model(_prompt: str) -> str:
+        nonlocal model_calls
+        model_calls += 1
+        raise AssertionError("model must not run")
+
+    with pytest.raises(EvidenceExtractionError, match="extractor_output_invalid"):
+        StructuredEvidenceExtractor(model=model).extract(_query(), (document,))
+
+    assert model_calls == 0
+    assert document.model_dump(mode="python") == original
+    assert document.adopted_evidence is adopted
 
 
 def test_extractor_rejects_non_finite_json_and_duplicate_document_urls() -> None:

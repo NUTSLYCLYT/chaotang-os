@@ -62,11 +62,12 @@ tools:
     effect: READ_ONLY
     fact_categories:
       - MARKET_QUOTE
+    market_metrics:
+      - INTRADAY_SERIES
     data_scopes:
       - EXTERNAL_PUBLIC
     jurisdictions:
       - CN
-      - HK
     approval_version: 2026-07-23.real-2
     approved_discovered_tool:
       name: data_minute
@@ -98,7 +99,6 @@ tools:
         - 腾讯自选股
       unit_allowlist:
         - CNY
-        - HKD
       source_url_origins:
         - https://stockbuddy.qq.com
       source_url_path_pattern: /cgi/cgi-bin/openai/mcp/mcp
@@ -127,21 +127,19 @@ tools:
         required_types_by_market:
           CN:
             - GP-A
-          HK:
-            - GP
         target_argument: code
-        subject_pattern: (?:s[hz][0-9]{6}|hk[0-9]{5})
+        subject_pattern: (?:sh|sz)[0-9]{6}
         subject_max_length: 8
         markets_by_jurisdiction:
           CN: CN
-          HK: HK
         units_by_market:
           CN: CNY
-          HK: HKD
         jurisdiction_subject_patterns:
           CN: (?:sh|sz)[0-9]{6}
-          HK: hk[0-9]{5}
-    approved_fingerprint: c7b20659f6378780e6cb2563db4a8f6d41eaab9fa36806d5c187c51ef9db48a4
+        exchange_subject_patterns:
+          SSE: sh[0-9]{6}
+          SZSE: sz[0-9]{6}
+    approved_fingerprint: e067a2da8a86e642b367e2a2fc87f5e746df6eb6b2f20bb949613e8acc015ecf
     priority: 15
 
   - server_id: westock
@@ -150,11 +148,12 @@ tools:
     effect: READ_ONLY
     fact_categories:
       - MARKET_QUOTE
+    market_metrics:
+      - LAST_PRICE
     data_scopes:
       - EXTERNAL_PUBLIC
     jurisdictions:
       - CN
-      - HK
     approval_version: 2026-07-23.real-2
     approved_discovered_tool:
       name: data_quote
@@ -191,7 +190,6 @@ tools:
         - 腾讯自选股
       unit_allowlist:
         - CNY
-        - HKD
       source_url_origins:
         - https://stockbuddy.qq.com
       source_url_path_pattern: /cgi/cgi-bin/openai/mcp/mcp
@@ -207,19 +205,17 @@ tools:
         required_types_by_market:
           CN:
             - GP-A
-          HK:
-            - GP
         target_argument: code
-        subject_pattern: (?:s[hz][0-9]{6}|hk[0-9]{5})
+        subject_pattern: (?:sh|sz)[0-9]{6}
         subject_max_length: 8
         markets_by_jurisdiction:
           CN: CN
-          HK: HK
         units_by_market:
           CN: CNY
-          HK: HKD
         jurisdiction_subject_patterns:
           CN: (?:sh|sz)[0-9]{6}
-          HK: hk[0-9]{5}
-    approved_fingerprint: b9636ff26bccd2ef55da40dcbf9b47eb5814478fedb3205b05379160ef4e14e2
+        exchange_subject_patterns:
+          SSE: sh[0-9]{6}
+          SZSE: sz[0-9]{6}
+    approved_fingerprint: 76faa8fc8aa84b1764e4fc4b655bea792114cebf476699d01d3abd4178cd1630
     priority: 20

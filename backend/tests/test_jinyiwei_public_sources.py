@@ -176,6 +176,9 @@ def _fact(
         data_scope="EXTERNAL_PUBLIC",
         subject=f"{key} subject",
         jurisdiction=jurisdiction,
+        market_metric=(
+            "LAST_PRICE" if category is FactCategory.MARKET_QUOTE else None
+        ),
     )
 
 
@@ -729,6 +732,11 @@ def test_wikimedia_does_not_claim_non_reference_categories(
                     data_scope="EXTERNAL_PUBLIC",
                     subject="subject",
                     jurisdiction="CN",
+                    market_metric=(
+                        "LAST_PRICE"
+                        if category is FactCategory.MARKET_QUOTE
+                        else None
+                    ),
                 ),
             )
         }

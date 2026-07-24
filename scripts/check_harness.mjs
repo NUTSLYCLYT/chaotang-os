@@ -39,6 +39,19 @@ const REQUIRED_FILES = [
   "docs/decisions/0019-admin-oauth-for-mcp-service-accounts.md",
   "docs/decisions/0020-configured-mcp-result-normalization.md",
   "docs/decisions/0021-minute-market-data-through-configured-mcp-series.md",
+  "docs/decisions/0022-explicit-local-mcp-runtime-and-market-freshness.md",
+  "docs/decisions/0023-market-decree-routing-and-bounded-protocol-correction.md",
+  "docs/decisions/0024-mainland-a-share-identity-and-provider-adapters.md",
+  "docs/decisions/0025-deterministic-evidence-orchestration.md",
+  "docs/superpowers/specs/2026-07-24-mainland-a-share-resolution-and-quote-design.md",
+  "docs/superpowers/plans/2026-07-24-mainland-a-share-resolution-and-quote.md",
+  "docs/superpowers/specs/2026-07-24-deterministic-evidence-orchestration-design.md",
+  "docs/superpowers/plans/2026-07-24-deterministic-evidence-orchestration.md",
+  "docs/product/tasks/2026-07-24-deterministic-evidence-orchestration.md",
+  "backend/app/agents/market_intent.py",
+  "backend/app/jinyiwei/freshness.py",
+  "backend/app/jinyiwei/instruments.py",
+  "backend/app/jinyiwei/mcp/runtime.py",
   "backend/config/providers.yaml",
   "backend/.env.template",
   "docs/failures/2026-07-15-shared-harness-stop-hook-false-green.md",
@@ -63,6 +76,18 @@ const REQUIRED_FILES = [
   ".codex/agents/solution-architect.toml",
   ".codex/agents/module-engineer.toml",
   ".codex/agents/test-engineer.toml",
+];
+const DETERMINISTIC_EVIDENCE_REQUIRED_FILES = [
+  "docs/superpowers/specs/2026-07-24-deterministic-evidence-orchestration-design.md",
+  "docs/superpowers/plans/2026-07-24-deterministic-evidence-orchestration.md",
+  "docs/product/tasks/2026-07-24-deterministic-evidence-orchestration.md",
+  "docs/decisions/0025-deterministic-evidence-orchestration.md",
+];
+const STATIC_POLICY_GUARDS = [
+  {
+    name: "deterministic-evidence",
+    validate: deterministicEvidenceRepositoryErrors,
+  },
 ];
 
 const LEGACY_META_HARNESS = [".harness", "frontend/.harness"];
@@ -345,9 +370,396 @@ export function codexWorkflowPolicyErrors({
   return errors;
 }
 
+export function mainlandSharePolicyErrors({
+  productionFiles = {},
+  westockConfig = "",
+} = {}) {
+  const errors = [];
+  const quotedCompanyToProviderCode =
+    /["'][^"'\r\n]*\p{Script=Han}[^"'\r\n]*["']\s*:\s*["']?(?:sh|sz|bj)\d{6}["']?/iu;
+  const yamlCompanyToProviderCode =
+    /(?:^|[{,])\s*[\p{Script=Han}][\p{Script=Han}A-Za-z0-9·（）()]{1,63}\s*:\s*["']?(?:sh|sz|bj)\d{6}["']?/imu;
+  for (const [path, content] of Object.entries(productionFiles)) {
+    if (
+      quotedCompanyToProviderCode.test(content)
+      || yamlCompanyToProviderCode.test(content)
+    ) {
+      errors.push(`生产代码不得包含公司名称到 provider code 的字面量映射: ${path}`);
+    }
+  }
+  if (westockClaimsBsePattern(westockConfig)) {
+    errors.push("腾讯自选股配置不得在真实审批前声明 BSE exchange pattern");
+  }
+  return errors;
+}
+
+function maskPythonLexicalNoise(content) {
+  const masked = content.split("");
+  const hide = (index) => {
+    if (content[index] !== "\r" && content[index] !== "\n") masked[index] = " ";
+  };
+  let index = 0;
+  while (index < content.length) {
+    const character = content[index];
+    if (character === "#") {
+      while (index < content.length && content[index] !== "\n") {
+        hide(index);
+        index += 1;
+      }
+      continue;
+    }
+    if (character !== "'" && character !== '"') {
+      index += 1;
+      continue;
+    }
+
+    const quote = character;
+    const triple = content.slice(index, index + 3) === quote.repeat(3);
+    const delimiterLength = triple ? 3 : 1;
+    for (let offset = 0; offset < delimiterLength; offset += 1) hide(index + offset);
+    index += delimiterLength;
+    while (index < content.length) {
+      if (content[index] === "\\") {
+        hide(index);
+        index += 1;
+        if (index < content.length) {
+          hide(index);
+          index += 1;
+        }
+        continue;
+      }
+      if (content.slice(index, index + delimiterLength) === quote.repeat(delimiterLength)) {
+        for (let offset = 0; offset < delimiterLength; offset += 1) hide(index + offset);
+        index += delimiterLength;
+        break;
+      }
+      hide(index);
+      index += 1;
+    }
+  }
+  return masked.join("");
+}
+
+function pythonCallBodies(content, functionName) {
+  const bodies = [];
+  const masked = maskPythonLexicalNoise(content);
+  const pattern = new RegExp(`\\b${functionName}\\s*\\(`, "gu");
+  for (const match of masked.matchAll(pattern)) {
+    const start = match.index + match[0].length;
+    let depth = 1;
+    for (let index = start; index < masked.length; index += 1) {
+      const character = masked[index];
+      if (character === "(") {
+        depth += 1;
+      } else if (character === ")") {
+        depth -= 1;
+        if (depth === 0) {
+          bodies.push(content.slice(start, index));
+          break;
+        }
+      }
+    }
+  }
+  return bodies;
+}
+
+function pythonFunctionBody(content, functionName) {
+  const masked = maskPythonLexicalNoise(content);
+  const escapedName = functionName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const definition = new RegExp(`^(?<indent>[\\t ]*)def\\s+${escapedName}\\b`, "gmu")
+    .exec(masked);
+  if (definition === null || definition.groups.indent.length !== 0) return null;
+
+  let nesting = 0;
+  let colon = -1;
+  for (
+    let index = definition.index + definition[0].length;
+    index < masked.length;
+    index += 1
+  ) {
+    const character = masked[index];
+    if ("([{".includes(character)) nesting += 1;
+    if (")]}".includes(character)) nesting -= 1;
+    if (character === ":" && nesting === 0) {
+      colon = index;
+      break;
+    }
+    if (character === "\n" && nesting === 0) return null;
+  }
+  if (colon === -1) return null;
+
+  const newline = masked.indexOf("\n", colon);
+  if (newline === -1) return content.slice(colon + 1);
+  const bodyStart = newline + 1;
+  let lineStart = bodyStart;
+  while (lineStart < masked.length) {
+    const lineEnd = masked.indexOf("\n", lineStart);
+    const end = lineEnd === -1 ? masked.length : lineEnd;
+    const line = masked.slice(lineStart, end);
+    if (line.trim() && !/^[\t ]/u.test(line)) {
+      return content.slice(bodyStart, lineStart);
+    }
+    if (lineEnd === -1) break;
+    lineStart = lineEnd + 1;
+  }
+  return content.slice(bodyStart);
+}
+
+function pythonTopLevelStatementRecords(functionBody) {
+  const masked = maskPythonLexicalNoise(functionBody);
+  const lines = [];
+  let start = 0;
+  while (start < masked.length) {
+    const newline = masked.indexOf("\n", start);
+    const end = newline === -1 ? masked.length : newline + 1;
+    const text = masked.slice(start, end);
+    const indentation = text.match(/^[\t ]*/u)[0];
+    lines.push({
+      start,
+      end,
+      text,
+      indentation: indentation.replace(/\t/gu, "        ").length,
+    });
+    start = end;
+  }
+  const executable = lines.filter(({ text }) => text.trim());
+  if (!executable.length) return [];
+  const baseIndent = Math.min(...executable.map(({ indentation }) => indentation));
+  const records = [];
+
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    const line = lines[lineIndex];
+    if (!line.text.trim() || line.indentation !== baseIndent) continue;
+    const statementStart = line.start;
+    let statementEnd = line.end;
+    let nesting = 0;
+    let continued = false;
+    let endLineIndex = lineIndex;
+    do {
+      const logicalLine = lines[endLineIndex].text;
+      for (const character of logicalLine) {
+        if ("([{".includes(character)) nesting += 1;
+        if (")]}".includes(character)) nesting -= 1;
+      }
+      continued = logicalLine.trimEnd().endsWith("\\");
+      statementEnd = lines[endLineIndex].end;
+      if ((nesting > 0 || continued) && endLineIndex + 1 < lines.length) {
+        endLineIndex += 1;
+      } else {
+        break;
+      }
+    } while (endLineIndex < lines.length);
+
+    let suiteEnd = statementEnd;
+    for (let suiteLine = endLineIndex + 1; suiteLine < lines.length; suiteLine += 1) {
+      const candidate = lines[suiteLine];
+      if (candidate.text.trim() && candidate.indentation <= baseIndent) break;
+      suiteEnd = candidate.end;
+    }
+    const code = masked.slice(statementStart, statementEnd);
+    records.push({
+      code,
+      suite: masked.slice(statementEnd, suiteEnd),
+    });
+    lineIndex = endLineIndex;
+    if (/^\s*(?:return|raise)\b/u.test(code)) break;
+  }
+  return records;
+}
+
+export function deterministicEvidencePolicyErrors({
+  factPlans = "",
+  marketPlan = "",
+  renderer = "",
+  adr = "",
+  genericAgentFiles = {},
+} = {}) {
+  const errors = [];
+  if (
+    !/class\s+FactPlanDisposition\s*\(\s*StrEnum\s*\)\s*:/u.test(factPlans)
+    || !/^\s+NOT_APPLICABLE\s*=\s*["']NOT_APPLICABLE["']\s*$/mu.test(factPlans)
+    || !/^\s+PLANNED\s*=\s*["']PLANNED["']\s*$/mu.test(factPlans)
+    || !/^\s+REJECTED\s*=\s*["']REJECTED["']\s*$/mu.test(factPlans)
+  ) {
+    errors.push("事实计划必须定义完整的 FactPlanDisposition StrEnum");
+  }
+
+  const canonicalFact = pythonCallBodies(marketPlan, "RequiredFact").some((body) => (
+    /\bkey\s*=\s*["']market_quote:last_price["']/u.test(body)
+    && /\bcategory\s*=\s*FactCategory\.MARKET_QUOTE\b/u.test(body)
+    && /\bdata_scope\s*=\s*DataScope\.EXTERNAL_PUBLIC\b/u.test(body)
+    && /\bjurisdiction\s*=\s*["']CN["']/u.test(body)
+    && /\bexpected_unit\s*=\s*["']CNY["']/u.test(body)
+    && /\bexpected_shape\s*=\s*["']number["']/u.test(body)
+    && /\bmarket_metric\s*=\s*MarketMetric\.LAST_PRICE\b/u.test(body)
+  ));
+  if (!canonicalFact) {
+    errors.push("大陆最新价计划必须在同一 RequiredFact 中固定 CN/CNY/number/LAST_PRICE");
+  }
+
+  const rendererBody = pythonFunctionBody(renderer, "render_mainland_last_price");
+  const rendererStatements = pythonTopLevelStatementRecords(rendererBody ?? "");
+  const rendererHasResolvedGate = rendererStatements.some(({ code, suite }) => (
+    /^\s*if\s*\(/u.test(code)
+    && /\bpack\.status\s+is\s+not\s+EvidencePackStatus\.RESOLVED\b/u.test(code)
+    && /\bpack\.resolved_facts\s*!=\s*\(\s*fact\.key\s*,\s*\)/u.test(code)
+    && /\bpack\.unresolved_facts\b/u.test(code)
+    && /\bpack\.conflicts\b/u.test(code)
+    && /^\s*raise\s+EvidenceProtocolError\s*\(/u.test(suite)
+  ));
+  const rendererHasCurrentGate = rendererStatements.some(({ code }) => (
+    /^\s*candidates\s*=\s*tuple\s*\(/u.test(code)
+    && pythonCallBodies(code, "is_evidence_fresh").some((body) => (
+      /\bas_of\s*=\s*item\.as_of\b/u.test(body)
+      && /\bretrieved_at\s*=\s*item\.retrieved_at\b/u.test(body)
+      && /\brequest\s*=\s*pack\.request\b/u.test(body)
+      && /\bnow\s*=\s*_parse_timestamp\s*\(\s*pack\.investigation_completed_at\s*\)/u.test(body)
+    ))
+  ));
+  if (!rendererHasResolvedGate || !rendererHasCurrentGate) {
+    errors.push("行情 renderer 必须只消费已解析且按调查完成时间仍当前有效的证据");
+  }
+
+  errors.push(...mainlandSharePolicyErrors({
+    productionFiles: genericAgentFiles,
+    westockConfig: "",
+  }));
+
+  for (const section of ["Status", "Context", "Decision", "Consequences", "Verification"]) {
+    if (missingSections(adr, [section]).length) {
+      errors.push(`ADR 0025 缺少章节: ## ${section}`);
+    }
+  }
+  if (!/^Accepted — 2026-07-24$/mu.test(sectionBody(adr, "Status") ?? "")) {
+    errors.push("ADR 0025 状态必须是 Accepted — 2026-07-24");
+  }
+  return errors;
+}
+
+function deterministicEvidenceRepositoryErrors(root) {
+  const read = (relativePath) => {
+    const absolutePath = join(root, ...relativePath.split("/"));
+    return existsSync(absolutePath) ? readFileSync(absolutePath, "utf8") : "";
+  };
+  const genericAgentPaths = [
+    "backend/app/agents/fact_plans.py",
+    "backend/app/agents/market_fact_plan.py",
+    "backend/app/agents/evidence_rendering.py",
+  ];
+  return deterministicEvidencePolicyErrors({
+    factPlans: read("backend/app/agents/fact_plans.py"),
+    marketPlan: read("backend/app/agents/market_fact_plan.py"),
+    renderer: read("backend/app/agents/evidence_rendering.py"),
+    adr: read("docs/decisions/0025-deterministic-evidence-orchestration.md"),
+    genericAgentFiles: Object.fromEntries(
+      genericAgentPaths.map((path) => [path, read(path)]),
+    ),
+  });
+}
+
+function westockClaimsBsePattern(content) {
+  const lines = content.split(/\r?\n/u);
+  let section = "";
+  let block = [];
+  const toolBlocks = [];
+  const flush = () => {
+    if (block.length) toolBlocks.push(block);
+    block = [];
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const indentation = line.length - line.trimStart().length;
+    if (indentation === 0 && /^[A-Za-z_][A-Za-z0-9_]*\s*:/u.test(trimmed)) {
+      flush();
+      section = trimmed.split(":", 1)[0];
+      continue;
+    }
+    if (section !== "tools") continue;
+    if (indentation === 2 && trimmed.startsWith("- ")) {
+      flush();
+    }
+    if (trimmed) block.push({ indentation, trimmed });
+  }
+  flush();
+
+  return toolBlocks.some((toolBlock) => {
+    const serverLine = toolBlock.find(({ trimmed }) =>
+      /^(?:-\s*)?server_id\s*:/u.test(trimmed)
+    );
+    const serverId = serverLine
+      ? serverLine.trimmed.split(":", 2)[1].trim().replace(/^["']|["']$/gu, "")
+      : "";
+    if (serverId !== "westock") return false;
+
+    let entityResolutionIndent = null;
+    let exchangePatternsIndent = null;
+    for (const { indentation, trimmed } of toolBlock) {
+      if (
+        exchangePatternsIndent !== null
+        && indentation <= exchangePatternsIndent
+      ) {
+        exchangePatternsIndent = null;
+      }
+      if (
+        entityResolutionIndent !== null
+        && indentation <= entityResolutionIndent
+      ) {
+        entityResolutionIndent = null;
+        exchangePatternsIndent = null;
+      }
+      if (/^entity_resolution\s*:/u.test(trimmed)) {
+        entityResolutionIndent = indentation;
+        continue;
+      }
+      if (
+        entityResolutionIndent !== null
+        && indentation > entityResolutionIndent
+        && /^exchange_subject_patterns\s*:/u.test(trimmed)
+      ) {
+        exchangePatternsIndent = indentation;
+        continue;
+      }
+      if (
+        exchangePatternsIndent !== null
+        && indentation > exchangePatternsIndent
+        && /^(?:"BSE"|'BSE'|BSE)\s*:/u.test(trimmed)
+      ) {
+        return true;
+      }
+    }
+    return false;
+  });
+}
+
+function productionPythonAndYamlFiles(root) {
+  const files = {};
+  const visit = (relativeDirectory) => {
+    const absoluteDirectory = join(root, ...relativeDirectory.split("/"));
+    if (!existsSync(absoluteDirectory)) return;
+    for (const entry of readdirSync(absoluteDirectory, { withFileTypes: true })) {
+      const relativePath = `${relativeDirectory}/${entry.name}`;
+      if (entry.isDirectory()) {
+        visit(relativePath);
+      } else if (/\.(?:py|ya?ml)$/iu.test(entry.name)) {
+        files[relativePath] = readFileSync(
+          join(root, ...relativePath.split("/")),
+          "utf8",
+        );
+      }
+    }
+  };
+  visit("backend/app");
+  visit("backend/config");
+  return files;
+}
+
 export function validateHarness(root) {
   const errors = [];
   for (const path of REQUIRED_FILES) requireFile(root, path, errors);
+  for (const guard of STATIC_POLICY_GUARDS) {
+    errors.push(...guard.validate(root));
+  }
 
   for (const path of LEGACY_META_HARNESS) {
     if (existsSync(join(root, path))) errors.push(`旧 meta-harness 不应继续存在: ${path}`);
@@ -649,6 +1061,32 @@ export function validateHarness(root) {
     ], errors);
   }
 
+  const instrumentPath = join(root, "backend", "app", "jinyiwei", "instruments.py");
+  if (existsSync(instrumentPath)) {
+    requireText(
+      "backend/app/jinyiwei/instruments.py",
+      readFileSync(instrumentPath, "utf8"),
+      ["class InstrumentRef", "SSE", "SZSE", "BSE"],
+      errors,
+    );
+  }
+  const jinyiweiModelsPath = join(root, "backend", "app", "jinyiwei", "models.py");
+  if (existsSync(jinyiweiModelsPath)) {
+    requireText(
+      "backend/app/jinyiwei/models.py",
+      readFileSync(jinyiweiModelsPath, "utf8"),
+      ["class MarketMetric"],
+      errors,
+    );
+  }
+  const westockConfigPath = join(root, "backend", "config", "jinyiwei_mcp.yaml");
+  errors.push(...mainlandSharePolicyErrors({
+    productionFiles: productionPythonAndYamlFiles(root),
+    westockConfig: existsSync(westockConfigPath)
+      ? readFileSync(westockConfigPath, "utf8")
+      : "",
+  }));
+
   const oauthOperationalDocs = [
     "backend/AGENTS.md",
     "docs/decisions/0019-admin-oauth-for-mcp-service-accounts.md",
@@ -764,7 +1202,302 @@ Ready
 
 Pending
 `;
+  const validDeterministicAdr = `# 0025 — 确定性证据编排
+
+## Status
+
+Accepted — 2026-07-24
+
+## Context
+
+模型契约漂移。
+
+## Decision
+
+系统拥有事实计划。
+
+## Consequences
+
+减少模型调用。
+
+## Verification
+
+运行离线门禁。
+`;
+  const validFactPlans = `
+from enum import StrEnum
+class FactPlanDisposition(StrEnum):
+    NOT_APPLICABLE = "NOT_APPLICABLE"
+    PLANNED = "PLANNED"
+    REJECTED = "REJECTED"
+`;
+  const validMarketPlan = `
+fact = RequiredFact(
+    key="market_quote:last_price",
+    category=FactCategory.MARKET_QUOTE,
+    data_scope=DataScope.EXTERNAL_PUBLIC,
+    jurisdiction="CN",
+    expected_unit="CNY",
+    expected_shape="number",
+    market_metric=MarketMetric.LAST_PRICE,
+)
+`;
+  const validRenderer = `
+def render_mainland_last_price(pack):
+    if (
+        pack.status is not EvidencePackStatus.RESOLVED
+        or pack.resolved_facts != (fact.key,)
+        or pack.unresolved_facts
+        or pack.conflicts
+    ):
+        raise EvidenceProtocolError("quote_unavailable")
+    candidates = tuple(
+        item
+        for item in items
+        if is_evidence_fresh(
+            as_of=item.as_of,
+            retrieved_at=item.retrieved_at,
+            request=pack.request,
+            now=_parse_timestamp(pack.investigation_completed_at),
+        )
+    )
+`;
+  const validDeterministicPolicy = {
+    factPlans: validFactPlans,
+    marketPlan: validMarketPlan,
+    renderer: validRenderer,
+    adr: validDeterministicAdr,
+    genericAgentFiles: {
+      "backend/app/agents/market_fact_plan.py": validMarketPlan,
+    },
+  };
   const tests = [
+    [
+      "登记确定性证据交付文件",
+      DETERMINISTIC_EVIDENCE_REQUIRED_FILES
+        .filter((path) => !REQUIRED_FILES.includes(path))
+        .map((path) => `缺少 REQUIRED_FILES 登记: ${path}`),
+      [],
+    ],
+    [
+      "启用确定性证据静态守卫",
+      STATIC_POLICY_GUARDS.some((guard) => guard.name === "deterministic-evidence")
+        ? []
+        : ["缺少静态守卫登记: deterministic-evidence"],
+      [],
+    ],
+    [
+      "接受规范确定性证据契约",
+      deterministicEvidencePolicyErrors(validDeterministicPolicy),
+      [],
+    ],
+    [
+      "拒绝伪装在注释中的规范事实",
+      deterministicEvidencePolicyErrors({
+        ...validDeterministicPolicy,
+        marketPlan: `# RequiredFact(
+# key="market_quote:last_price", jurisdiction="CN",
+# expected_unit="CNY", expected_shape="number",
+# category=FactCategory.MARKET_QUOTE,
+# data_scope=DataScope.EXTERNAL_PUBLIC,
+# market_metric=MarketMetric.LAST_PRICE,
+# )`,
+      }),
+      ["大陆最新价计划必须在同一 RequiredFact 中固定 CN/CNY/number/LAST_PRICE"],
+    ],
+    [
+      "拒绝伪装在普通字符串中的规范事实",
+      deterministicEvidencePolicyErrors({
+        ...validDeterministicPolicy,
+        marketPlan: `decoy = 'RequiredFact(key="market_quote:last_price", category=FactCategory.MARKET_QUOTE, data_scope=DataScope.EXTERNAL_PUBLIC, jurisdiction="CN", expected_unit="CNY", expected_shape="number", market_metric=MarketMetric.LAST_PRICE)'`,
+      }),
+      ["大陆最新价计划必须在同一 RequiredFact 中固定 CN/CNY/number/LAST_PRICE"],
+    ],
+    [
+      "拒绝伪装在三引号 docstring 中的规范事实",
+      deterministicEvidencePolicyErrors({
+        ...validDeterministicPolicy,
+        marketPlan: `def decoy():
+    """RequiredFact(
+        key='market_quote:last_price',
+        category=FactCategory.MARKET_QUOTE,
+        data_scope=DataScope.EXTERNAL_PUBLIC,
+        jurisdiction='CN',
+        expected_unit='CNY',
+        expected_shape='number',
+        market_metric=MarketMetric.LAST_PRICE,
+    )"""`,
+      }),
+      ["大陆最新价计划必须在同一 RequiredFact 中固定 CN/CNY/number/LAST_PRICE"],
+    ],
+    [
+      "拒绝未解析或非当前证据 renderer",
+      deterministicEvidencePolicyErrors({
+        ...validDeterministicPolicy,
+        renderer: "return EvidenceBackedOpinion(opinion='unchecked', evidence_ids=())",
+      }),
+      ["行情 renderer 必须只消费已解析且按调查完成时间仍当前有效的证据"],
+    ],
+    [
+      "拒绝把 renderer 门禁藏在无关函数",
+      deterministicEvidencePolicyErrors({
+        ...validDeterministicPolicy,
+        renderer: `${validRenderer.replace(
+          "def render_mainland_last_price(pack):",
+          "def unrelated(pack):",
+        )}
+def render_mainland_last_price(pack):
+    return EvidenceBackedOpinion(opinion="unchecked", evidence_ids=())
+`,
+      }),
+      ["行情 renderer 必须只消费已解析且按调查完成时间仍当前有效的证据"],
+    ],
+    [
+      "拒绝把 renderer 门禁藏在静态死分支",
+      deterministicEvidencePolicyErrors({
+        ...validDeterministicPolicy,
+        renderer: `def render_mainland_last_price(pack):
+    if False:
+        if (
+            pack.status is not EvidencePackStatus.RESOLVED
+            or pack.resolved_facts != (fact.key,)
+            or pack.unresolved_facts
+            or pack.conflicts
+        ):
+            raise EvidenceProtocolError("quote_unavailable")
+        candidates = tuple(
+            item
+            for item in items
+            if is_evidence_fresh(
+                as_of=item.as_of,
+                retrieved_at=item.retrieved_at,
+                request=pack.request,
+                now=_parse_timestamp(pack.investigation_completed_at),
+            )
+        )
+    return EvidenceBackedOpinion(opinion="unchecked", evidence_ids=())
+`,
+      }),
+      ["行情 renderer 必须只消费已解析且按调查完成时间仍当前有效的证据"],
+    ],
+    [
+      "拒绝新通用 Agent 的公司代码映射",
+      deterministicEvidencePolicyErrors({
+        ...validDeterministicPolicy,
+        genericAgentFiles: {
+          "backend/app/agents/market_fact_plan.py": '"比亚迪": "sz002594"',
+        },
+      }),
+      ["生产代码不得包含公司名称到 provider code 的字面量映射: backend/app/agents/market_fact_plan.py"],
+    ],
+    [
+      "拒绝 ADR 0025 缺少必需章节",
+      deterministicEvidencePolicyErrors({
+        ...validDeterministicPolicy,
+        adr: validDeterministicAdr.replace("## Verification", "## Checks"),
+      }),
+      ["ADR 0025 缺少章节: ## Verification"],
+    ],
+    [
+      "接受 provider-neutral 的 A 股配置",
+      mainlandSharePolicyErrors({
+        productionFiles: {
+          "backend/app/jinyiwei/instruments.py": "class InstrumentRef: pass\n",
+        },
+        westockConfig: "exchange_subject_patterns:\n  SSE: sh[0-9]{6}\n  SZSE: sz[0-9]{6}\n",
+      }),
+      [],
+    ],
+    [
+      "拒绝公司名称到 provider code 的硬编码映射",
+      mainlandSharePolicyErrors({
+        productionFiles: {
+          "backend/app/jinyiwei/instruments.py": '"比亚迪": "sz002594",\n',
+        },
+        westockConfig: "",
+      }),
+      ["生产代码不得包含公司名称到 provider code 的字面量映射: backend/app/jinyiwei/instruments.py"],
+    ],
+    [
+      "拒绝 Python 内联和同一行多个公司代码映射",
+      mainlandSharePolicyErrors({
+        productionFiles: {
+          "backend/app/jinyiwei/instruments.py":
+            'COMPANIES = {"茅台": "sh600519", "比亚迪": "sz002594"}\n',
+        },
+        westockConfig: "",
+      }),
+      ["生产代码不得包含公司名称到 provider code 的字面量映射: backend/app/jinyiwei/instruments.py"],
+    ],
+    [
+      "拒绝 YAML inline 公司代码映射但接受普通 provider 字段",
+      mainlandSharePolicyErrors({
+        productionFiles: {
+          "backend/config/example.yaml":
+            'companies: {比亚迪: sz002594}\nrecord: {"code": "sh600519"}\n',
+        },
+        westockConfig: "",
+      }),
+      ["生产代码不得包含公司名称到 provider code 的字面量映射: backend/config/example.yaml"],
+    ],
+    [
+      "拒绝 westock 未经证明宣称 BSE",
+      mainlandSharePolicyErrors({
+        productionFiles: {},
+        westockConfig: [
+          "tools:",
+          "  - server_id: westock",
+          "    mapping:",
+          "      entity_resolution:",
+          "        exchange_subject_patterns:",
+          "          BSE: bj[0-9]{6}",
+        ].join("\n"),
+      }),
+      ["腾讯自选股配置不得在真实审批前声明 BSE exchange pattern"],
+    ],
+    [
+      "拒绝 westock exchange patterns 的 quoted BSE key",
+      mainlandSharePolicyErrors({
+        productionFiles: {},
+        westockConfig: [
+          "tools:",
+          "  - server_id: westock",
+          "    mapping:",
+          "      entity_resolution:",
+          "        exchange_subject_patterns:",
+          '          "BSE": bj[0-9]{6}',
+        ].join("\n"),
+      }),
+      ["腾讯自选股配置不得在真实审批前声明 BSE exchange pattern"],
+    ],
+    [
+      "接受其他 provider 已证明的 BSE pattern",
+      mainlandSharePolicyErrors({
+        productionFiles: {},
+        westockConfig: [
+          "tools:",
+          "  - server_id: proven-bse-provider",
+          "    mapping:",
+          "      entity_resolution:",
+          "        exchange_subject_patterns:",
+          "          BSE: bj[0-9]{6}",
+        ].join("\n"),
+      }),
+      [],
+    ],
+    [
+      "接受 westock 非 entity-resolution 层级的同名元数据",
+      mainlandSharePolicyErrors({
+        productionFiles: {},
+        westockConfig: [
+          "tools:",
+          "  - server_id: westock",
+          "    metadata:",
+          "      BSE: descriptive-only",
+        ].join("\n"),
+      }),
+      [],
+    ],
     ["接受完整章节", missingSections("## Workflow\n\n内容\n\n## Security\n", ["Workflow", "Security"]), []],
     ["拒绝缺失章节", missingSections("## Workflow\n", ["Workflow", "Security"]), ["Security"]],
     ["拒绝低级标题", missingSections("### Security\n", ["Security"]), ["Security"]],

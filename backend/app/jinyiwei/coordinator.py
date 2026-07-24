@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Protocol
 
 from app.jinyiwei.errors import JinyiweiError
+from app.jinyiwei.freshness import is_evidence_fresh
 from app.jinyiwei.models import (
     CacheMetadata,
     DataGapRequest,
@@ -48,9 +49,14 @@ _PERSISTED_SOURCE_ERROR_CODES = frozenset(
         "auth_required",
         "fact_conflicted",
         "fact_unavailable",
+        "instrument_ambiguous",
+        "instrument_not_found",
+        "market_out_of_scope",
         "mcp_mapping_failed",
         "mcp_not_configured",
         "mcp_unavailable",
+        "provider_capability_missing",
+        "quote_unavailable",
         "public_api_not_configured",
         "public_api_unavailable",
         "public_web_unavailable",
@@ -62,6 +68,7 @@ _PERSISTED_SOURCE_ERROR_CODES = frozenset(
         "source_out_of_scope",
         "source_unavailable",
         "source_rate_limited",
+        "stale_evidence_only",
         "timeout",
         "wikimedia_search_unavailable",
     }
@@ -137,6 +144,7 @@ class InvestigationCoordinator:
         historical: list[EvidenceItem] = []
         historical_by_id: dict[str, EvidenceItem] = {}
         stale_facts: set[str] = set()
+        stale_facts_by_attempt: dict[int, set[str]] = {}
         verification = verify_evidence(request, accepted, now=started)
         cache_checked = False
 
@@ -328,6 +336,7 @@ class InvestigationCoordinator:
                     )
                 )
             else:
+                attempt_stale_facts: set[str] = set()
                 if source_type is SourceType.SHIGUAN:
                     archive_resolution = resolve_archive_evidence(
                         request,
@@ -337,6 +346,7 @@ class InvestigationCoordinator:
                     current_candidates = archive_resolution.current
                     for candidate in archive_resolution.historical:
                         stale_facts.add(candidate.fact_key)
+                        attempt_stale_facts.add(candidate.fact_key)
                         if candidate.evidence_id not in historical_by_id:
                             historical_by_id[candidate.evidence_id] = candidate
                             historical.append(candidate)
@@ -344,20 +354,31 @@ class InvestigationCoordinator:
                     current_candidates = tuple(
                         candidate
                         for candidate in batch_by_id.values()
-                        if _is_fresh_as_of(
-                            candidate.as_of, request, after_extraction
+                        if is_evidence_fresh(
+                            as_of=candidate.as_of,
+                            retrieved_at=candidate.retrieved_at,
+                            request=request,
+                            fact_key=candidate.fact_key,
+                            source_type=candidate.source_type,
+                            now=after_extraction,
                         )
                     )
-                    stale_facts.update(
+                    attempt_stale_facts.update(
                         candidate.fact_key
                         for candidate in batch_by_id.values()
                         if candidate not in current_candidates
                     )
+                    stale_facts.update(attempt_stale_facts)
                 for candidate in current_candidates:
                     if candidate.evidence_id not in accepted_by_id:
                         accepted_by_id[candidate.evidence_id] = candidate
                         accepted.append(candidate)
+                attempt_index = len(attempts)
                 attempts.append(attempt)
+                if attempt_stale_facts:
+                    stale_facts_by_attempt[attempt_index] = (
+                        attempt_stale_facts
+                    )
             verification = verify_evidence(request, accepted, now=after_extraction)
             if (
                 source_type is SourceType.SHIGUAN
@@ -371,6 +392,22 @@ class InvestigationCoordinator:
 
         completed = _utc(self._clock())
         verification = verify_evidence(request, accepted, now=completed)
+        only_stale_facts = stale_facts.intersection(
+            verification.unresolved_facts
+        )
+        if only_stale_facts:
+            attempts = [
+                attempt.model_copy(update={"error": "stale_evidence_only"})
+                if (
+                    attempt.status is SourceAttemptStatus.SUCCEEDED
+                    and attempt.error is None
+                    and only_stale_facts.intersection(
+                        stale_facts_by_attempt.get(index, set())
+                    )
+                )
+                else attempt
+                for index, attempt in enumerate(attempts)
+            ]
         status = _final_status(
             verification,
             accepted,
@@ -549,31 +586,6 @@ def _group_by_requested_fact(
         fact.key: tuple(item for item in evidence if item.fact_key == fact.key)
         for fact in request.required_facts
     }
-
-
-def _is_fresh_as_of(
-    as_of: str, request: DataGapRequest, now: datetime
-) -> bool:
-    value = datetime.fromisoformat(as_of.replace("Z", "+00:00"))
-    if value.utcoffset() is None:
-        return False
-    current = _utc(now)
-    observed = value.astimezone(UTC)
-    if observed > current:
-        return False
-    freshness = request.freshness
-    if (
-        freshness.max_age_seconds is not None
-        and observed < current - timedelta(seconds=freshness.max_age_seconds)
-    ):
-        return False
-    if freshness.not_before is not None:
-        not_before = datetime.fromisoformat(
-            freshness.not_before.replace("Z", "+00:00")
-        )
-        if observed < not_before.astimezone(UTC):
-            return False
-    return True
 
 
 def _stable_limitations(
