@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import pytest
+from concurrent.futures import ThreadPoolExecutor
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 
 def test_manifest_persistence_is_idempotent_for_memorial_lineage(isolated_session_local) -> None:
@@ -90,3 +93,35 @@ def test_unique_conflict_branch_reloads_existing_winner() -> None:
     winner = type("Winner", (), {"content_hash": None, "manifest_json": __import__("json").dumps(manifest, sort_keys=True), "task_id": "task-race"})()
     result = persist_manifest(FakeDB(), task_id="task-race", final_memorial_id="memorial-race", final_memorial_version=1, delivery_formula_version="w06-v1", manifest_json=manifest, overall_status="READY")
     assert result is winner
+
+
+def test_two_independent_sessions_replay_same_manifest(tmp_path) -> None:
+    from src.artifacts.service import persist_manifest
+    from src.db.models import ArtifactManifest, Base
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'manifest-race.db'}", connect_args={"timeout": 30})
+    Base.metadata.create_all(engine, tables=[ArtifactManifest.__table__])
+    factory = sessionmaker(bind=engine)
+    manifest = {
+        "schema_version": "ArtifactManifestV1", "manifest_id": "m-two-session",
+        "task_id": "task-two-session", "final_memorial_id": "memorial-two-session",
+        "final_memorial_version": 1, "delivery_formula_version": "w06-v1",
+        "artifacts": [{"artifact_id": "a1", "kind": "JSON", "mime_type": "application/json", "byte_size": 1, "content_hash": "a"*64, "lineage_hash": "b"*64, "status": "READY"}],
+        "overall_status": "READY",
+    }
+
+    def write_once():
+        db = factory()
+        try:
+            row = persist_manifest(db, task_id="task-two-session", final_memorial_id="memorial-two-session", final_memorial_version=1, delivery_formula_version="w06-v1", manifest_json=manifest, overall_status="READY")
+            db.commit()
+            return row.id
+        finally:
+            db.close()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        ids = list(pool.map(lambda _n: write_once(), range(2)))
+    assert ids[0] == ids[1]
+    db = factory()
+    assert db.query(ArtifactManifest).count() == 1
+    db.close()
