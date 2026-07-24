@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
+
 from src.execution.decree_dispatcher import enqueue_dispatch
 from src.execution.outbox_worker import process_event, process_pending_events
 
@@ -643,8 +645,11 @@ def test_late_old_rework_generation_cannot_replace_current_review(
     }
 
 
+@pytest.mark.parametrize("superseded_during_processing", [False, True])
 def test_supported_contract_rework_public_chain_appends_current_v2(
     isolated_session_local,
+    monkeypatch,
+    superseded_during_processing,
 ):
     """补证必须经公共 API 和真实 worker 形成可裁决 v2，不能靠测试直调 formalize。"""
     import json
@@ -655,6 +660,7 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
         CourtReview,
         DecisionTask,
         FinalMemorial,
+        OutboxEvent,
         SwarmQualityResult,
         SwarmRun,
     )
@@ -767,8 +773,68 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
     assert bound["success"] is True, bound
 
     worker_db = isolated_session_local()
+    if superseded_during_processing:
+        import src.contract_rework as contract_rework
+
+        extract_docx_text = contract_rework._extract_docx_text
+
+        def _insert_new_generation_after_initial_fence(raw_bytes):
+            text = extract_docx_text(raw_bytes)
+            newer_id = "outbox-rework-generation-3-mid-processing"
+            worker_db.add(
+                OutboxEvent(
+                    id=newer_id,
+                    tenant_id=1,
+                    task_id=task_id,
+                    decision_id="decision-rework-generation-3-mid-processing",
+                    event_type="evidence.rework",
+                    generation=3,
+                    idempotency_key="evidence-rework:mid-processing-generation-3",
+                    status="awaiting_evidence",
+                    attempts=0,
+                    max_attempts=3,
+                    payload_json=json.dumps(
+                        {
+                            "schema_version": "EvidenceReworkGenerationV1",
+                            "generation_id": newer_id,
+                            "generation": 3,
+                            "status": "awaiting_evidence",
+                            "prior_final_memorial_content_hash": first_hash,
+                            "evidence_request": {
+                                "reason": "处理途中追加的新补证",
+                                "followup_question": None,
+                            },
+                            "affected_sections": ["contract_review"],
+                        }
+                    ),
+                    created_at="2026-07-24T00:00:03+00:00",
+                    updated_at="2026-07-24T00:00:03+00:00",
+                )
+            )
+            worker_db.flush()
+            return text
+
+        monkeypatch.setattr(
+            contract_rework,
+            "_extract_docx_text",
+            _insert_new_generation_after_initial_fence,
+        )
     worker_result = process_event(worker_db, generation["generation_id"])
     worker_db.close()
+
+    if superseded_during_processing:
+        assert worker_result["status"] == "superseded", worker_result
+        assert worker_result["result"]["fenced"] is True
+        assert worker_result["result"]["current_generation"] == 3
+        db = isolated_session_local()
+        versions = db.query(FinalMemorial).filter_by(task_id=task_id).all()
+        assert [(row.version, row.is_current) for row in versions] == [(1, True)]
+        assert db.query(SwarmRun).filter_by(task_id=task_id).count() == 0
+        review = db.query(CourtReview).filter_by(id=review_id).one()
+        assert "contract_review" not in json.loads(review.memorial_json)
+        db.close()
+        return
+
     assert worker_result["status"] == "completed", worker_result
     assert worker_result["result"]["quality_gate_status"] == "PASSED"
     assert worker_result["result"]["final_memorial_version"] == 2

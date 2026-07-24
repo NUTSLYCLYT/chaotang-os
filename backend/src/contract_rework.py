@@ -173,6 +173,26 @@ def recompute_contract_review(
     pack = pack.model_copy(
         update={"quality_gate_status": "FAILED" if gate_reasons else "PASSED"}
     )
+
+    # Parsing evidence is intentionally outside the task lock. Publication is
+    # not: generation allocation and canonical writes share this lock so a
+    # newer request cannot be interleaved between this fence and the writes.
+    from src.execution.decree_dispatcher import lock_evidence_rework_task
+
+    lock_evidence_rework_task(db, event.task_id)
+    current_generation = (
+        db.query(func.max(OutboxEvent.generation))
+        .filter_by(task_id=event.task_id)
+        .scalar()
+    )
+    if event.generation != current_generation:
+        return {
+            "fenced": True,
+            "generation": event.generation,
+            "current_generation": current_generation,
+            "affected_sections": affected_sections,
+        }
+
     memorial = json.loads(review.memorial_json or "{}")
     memorial["contract_review"] = pack.model_dump()
     review.memorial_json = json.dumps(

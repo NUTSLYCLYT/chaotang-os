@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from hashlib import sha1, sha256
 from typing import TYPE_CHECKING
 
-from sqlalchemy import func
+from sqlalchemy import func, update
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -86,6 +86,7 @@ def enqueue_evidence_rework_generation(
     from src.core_tenant_lineage import tenant_id_for_task
     from src.db.models import OutboxEvent
 
+    lock_evidence_rework_task(db, task_id)
     idempotency_key = evidence_rework_idempotency_key(
         task_id=task_id,
         prior_final_memorial_content_hash=prior_final_memorial_content_hash,
@@ -143,6 +144,25 @@ def enqueue_evidence_rework_generation(
         )
     )
     return payload, True
+
+
+def lock_evidence_rework_task(db: "Session", task_id: str) -> None:
+    """Serialize W05 generation allocation and canonical publication per task.
+
+    A no-op UPDATE is portable across the supported databases: PostgreSQL holds
+    the row lock until transaction end, while SQLite acquires its write lock.
+    All W05 generation creators and publishers must take this lock before they
+    decide which generation is current.
+    """
+    from src.db.models import DecisionTask
+
+    result = db.execute(
+        update(DecisionTask)
+        .where(DecisionTask.id == task_id)
+        .values(id=DecisionTask.id)
+    )
+    if result.rowcount != 1:
+        raise ValueError("rework generation 缺少 canonical DecisionTask")
 
 
 def evidence_rework_idempotency_key(
