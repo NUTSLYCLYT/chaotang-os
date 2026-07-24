@@ -690,6 +690,102 @@ def test_repeated_evidence_request_reuses_one_rework_generation(
     ]
 
 
+def test_brief_evidence_request_uses_same_idempotent_rework_generation(
+    isolated_session_local,
+):
+    """兼容 brief 入口不能只改状态，必须复用 task 入口的 generation 事实。"""
+    from src.formal_memorial import formalize_memorial
+
+    db = isolated_session_local()
+    task_id = "task_brief_request_evidence_generation"
+    review_id = _seed_candidate(db, task_id=task_id)
+    formal = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id,
+            review_id=review_id,
+            source_label="LIVE_SWARM",
+        ),
+    )
+    content_hash = formal.content_hash
+    db.commit()
+    db.close()
+
+    client = TestClient(app)
+    body = {
+        "decision": "request_more_evidence",
+        "reason": "补充付款条款原文",
+        "manualConfirmation": True,
+        "expectedFinalMemorialContentHash": content_hash,
+    }
+    first = client.post(
+        f"/api/shangshufang/briefs/{review_id}/decision/advance",
+        json=body,
+    ).json()
+    retry = client.post(
+        f"/api/shangshufang/briefs/{review_id}/decision/advance",
+        json=body,
+    ).json()
+
+    assert first["success"] is True, first
+    assert retry["success"] is True, retry
+    assert first["data"]["rework_generation"] == retry["data"]["rework_generation"]
+    assert first["data"]["rework_generation"]["generation"] == 2
+    assert (
+        first["data"]["rework_generation"]["prior_final_memorial_content_hash"]
+        == content_hash
+    )
+
+
+def test_current_memorial_claim_is_atomic_for_competing_decisions(
+    isolated_session_local,
+):
+    """同一 current hash 的两个裁决只能有一个原子状态转换成功。"""
+    import web.routers.shangshufang as shangshufang_router
+    from src.db.models import FinalMemorial
+    from src.formal_memorial import formalize_memorial
+
+    db = isolated_session_local()
+    task_id = "task_atomic_current_memorial_claim"
+    review_id = _seed_candidate(db, task_id=task_id)
+    formal = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result=_swarm_result(
+            task_id=task_id,
+            review_id=review_id,
+            source_label="LIVE_SWARM",
+        ),
+    )
+    content_hash = formal.content_hash
+    db.commit()
+
+    claim = getattr(shangshufang_router, "_claim_current_memorial", None)
+    assert callable(claim), "裁决入口缺少数据库原子 current-memorial claim"
+    first = claim(
+        db,
+        task_id=task_id,
+        expected_content_hash=content_hash,
+        target_status="awaiting_evidence",
+    )
+    competing = claim(
+        db,
+        task_id=task_id,
+        expected_content_hash=content_hash,
+        target_status="rejected",
+    )
+    db.commit()
+
+    assert first is True
+    assert competing is False
+    stored = db.query(FinalMemorial).filter_by(task_id=task_id).one()
+    assert stored.status == "awaiting_evidence"
+    db.close()
+
+
 def test_accepted_upload_binds_to_waiting_rework_generation(
     isolated_session_local,
 ):

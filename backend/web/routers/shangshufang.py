@@ -42,6 +42,7 @@ from src.execution.decree_dispatcher import (
     dispatch_after_commit,
     enqueue_dispatch,
     enqueue_evidence_rework_generation,
+    evidence_rework_idempotency_key,
 )
 from src.finance_intel_loop_contract import build_finance_intel_session
 from src.hubu_financial_reporting import build_shangshufang_finance_reporting_loop
@@ -525,6 +526,7 @@ def apply_task_decision(
     reason: str | None,
     human_confirmed: bool,
     now: str,
+    claimed_formal: "FinalMemorial | None" = None,
 ) -> dict[str, Any] | None:
     """收口 adopt/request_evidence/recheck/reject 四类裁决动作的状态转移。
 
@@ -549,10 +551,13 @@ def apply_task_decision(
 
         if not human_confirmed:
             raise ValueError("正式奏折必须经过皇上人工确认后才能裁决归档")
-        formal = db.query(FinalMemorial).filter_by(
+        formal = claimed_formal or db.query(FinalMemorial).filter_by(
             task_id=task.id, is_current=True
         ).first()
-        if formal is None or formal.status != "ready_for_decision":
+        expected_status = (
+            "archived" if claimed_formal is not None else "ready_for_decision"
+        )
+        if formal is None or formal.status != expected_status:
             raise ValueError("正式奏折尚未通过质量与来源门，禁止裁决归档")
         final_memorial = _loads(formal.memorial_json, None)
         archive_record = _archive_task(
@@ -575,7 +580,7 @@ def apply_task_decision(
         if review is not None:
             review.review_status = "awaiting_evidence"
             review.updated_at = now
-        formal = db.query(FinalMemorial).filter_by(
+        formal = claimed_formal or db.query(FinalMemorial).filter_by(
             task_id=task.id, is_current=True
         ).first()
         if formal is not None and formal.status == "ready_for_decision":
@@ -595,7 +600,7 @@ def apply_task_decision(
         # R0-REQ-014：拒绝必须关闭 FinalMemorial 的裁决闸门，否则同一任务再发一次
         # adopt 会重新通过 formal.status == "ready_for_decision" 检查，把已经被
         # 拒绝的奏折正式归档——"唯一、未被替代"里"未被替代"缺的就是这一环。
-        formal = db.query(FinalMemorial).filter_by(
+        formal = claimed_formal or db.query(FinalMemorial).filter_by(
             task_id=task.id, is_current=True
         ).first()
         if formal is not None and formal.status == "ready_for_decision":
@@ -671,6 +676,184 @@ def record_task_decision_event(
         },
         idempotency_key=f"decision:{decision.id}",
     )
+
+
+def _claim_current_memorial(
+    db,
+    *,
+    task_id: str,
+    expected_content_hash: str,
+    target_status: str,
+) -> bool:
+    """Atomically claim the exact adjudicable memorial version."""
+    from sqlalchemy import update
+
+    result = db.execute(
+        update(FinalMemorial)
+        .where(
+            FinalMemorial.task_id == task_id,
+            FinalMemorial.is_current.is_(True),
+            FinalMemorial.content_hash == expected_content_hash,
+            FinalMemorial.status == "ready_for_decision",
+        )
+        .values(status=target_status)
+        .execution_options(synchronize_session=False)
+    )
+    return result.rowcount == 1
+
+
+def _existing_evidence_rework_generation(
+    db,
+    *,
+    task_id: str,
+    prior_final_memorial_content_hash: str,
+    reason: str,
+    followup_question: str | None,
+):
+    from src.db.models import OutboxEvent
+
+    request_key = evidence_rework_idempotency_key(
+        task_id=task_id,
+        prior_final_memorial_content_hash=prior_final_memorial_content_hash,
+        reason=reason,
+        followup_question=followup_question,
+    )
+    return (
+        db.query(OutboxEvent)
+        .filter_by(task_id=task_id, idempotency_key=request_key)
+        .first()
+    )
+
+
+def _execute_final_memorial_decision(
+    db,
+    *,
+    task: DecisionTask,
+    review: CourtReview | None,
+    action: str,
+    reason: str,
+    human_confirmed: bool,
+    expected_content_hash: str | None,
+    actor_user_id: str,
+    followup_question: str | None = None,
+    confirmation_extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Single task/brief adjudication writer with exact-hash CAS and rework parity."""
+    evidence_actions = {"request_evidence", "followup"}
+    formal_actions = {"adopt", "approve", "archive", "reject", *evidence_actions}
+    target_status = {
+        "adopt": "archived",
+        "approve": "archived",
+        "archive": "archived",
+        "reject": "rejected",
+        "request_evidence": "awaiting_evidence",
+        "followup": "awaiting_evidence",
+    }.get(action)
+    current_formal = (
+        db.query(FinalMemorial)
+        .filter_by(task_id=task.id, is_current=True)
+        .first()
+    )
+    if current_formal is not None and action in formal_actions:
+        if not expected_content_hash:
+            label = "补证" if action in evidence_actions else "裁决"
+            raise ValueError(f"{label}必须绑定当前正式奏折 content hash")
+        if expected_content_hash != current_formal.content_hash:
+            raise ValueError("正式奏折已变化，请刷新后重新提交裁决")
+    elif expected_content_hash and action in formal_actions:
+        raise ValueError("当前不存在与该 content hash 匹配的正式奏折")
+
+    if action in evidence_actions and current_formal is not None:
+        existing = _existing_evidence_rework_generation(
+            db,
+            task_id=task.id,
+            prior_final_memorial_content_hash=current_formal.content_hash,
+            reason=reason,
+            followup_question=followup_question,
+        )
+        if existing is not None:
+            return {
+                "decision": None,
+                "decision_id": existing.decision_id,
+                "archive_record": None,
+                "rework_generation": _loads(existing.payload_json, {}),
+                "replayed": True,
+                "now": existing.updated_at,
+            }
+
+    claimed_formal = None
+    if current_formal is not None and target_status is not None:
+        if current_formal.status == "ready_for_decision":
+            if not _claim_current_memorial(
+                db,
+                task_id=task.id,
+                expected_content_hash=expected_content_hash or "",
+                target_status=target_status,
+            ):
+                raise ValueError("正式奏折已被其他裁决占用，请刷新后重试")
+            current_formal.status = target_status
+            claimed_formal = current_formal
+        elif (
+            action in evidence_actions
+            and current_formal.status == "awaiting_evidence"
+        ):
+            claimed_formal = current_formal
+        else:
+            raise ValueError("正式奏折尚未通过质量与来源门，禁止当前裁决")
+
+    now = now_iso()
+    confirmation = {
+        "user_id": actor_user_id,
+        "at": now,
+        "final_memorial_content_hash": expected_content_hash,
+        **(confirmation_extra or {}),
+    }
+    decision = EmperorDecision(
+        id=make_id("decision", task.id, action, now),
+        tenant_id=task.tenant_id,
+        task_id=task.id,
+        action=action,
+        kind=emperor_decision_kind(action),
+        reason=reason,
+        human_confirmed=human_confirmed,
+        confirmation_record_json=_json(confirmation),
+        created_at=now,
+    )
+    db.add(decision)
+    rework_generation = None
+    if action in evidence_actions and current_formal is not None:
+        rework_generation, _ = enqueue_evidence_rework_generation(
+            db,
+            task_id=task.id,
+            decision_id=decision.id,
+            prior_final_memorial_content_hash=current_formal.content_hash,
+            reason=reason,
+            followup_question=followup_question,
+        )
+    archive_record = apply_task_decision(
+        db,
+        task=task,
+        review=review,
+        action=action,
+        reason=reason,
+        human_confirmed=human_confirmed,
+        now=now,
+        claimed_formal=claimed_formal,
+    )
+    record_task_decision_event(
+        db,
+        task=task,
+        decision=decision,
+        archive_record=archive_record,
+    )
+    return {
+        "decision": decision,
+        "decision_id": decision.id,
+        "archive_record": archive_record,
+        "rework_generation": rework_generation,
+        "replayed": False,
+        "now": now,
+    }
 
 
 def _review_payload(review: CourtReview | None) -> dict[str, Any] | None:
@@ -1554,135 +1737,38 @@ def shangshufang_task_decision(
             return fail("task_id 不存在")
         if task.user_id != _user_id(user):
             return fail("无权裁决该任务")
-        if body.action in {"adopt", "approve", "archive", "reject"}:
-            current_formal = db.query(FinalMemorial).filter_by(
-                task_id=task_id,
-                is_current=True,
-            ).first()
-            if (
-                current_formal is not None
-                and not body.expected_final_memorial_content_hash
-            ):
-                return fail("裁决必须绑定当前正式奏折 content hash")
-            if (
-                current_formal is not None
-                and body.expected_final_memorial_content_hash
-                != current_formal.content_hash
-            ):
-                return fail("正式奏折已变化，请刷新后重新提交裁决")
-        if body.action in {"request_evidence", "followup"}:
-            formal = db.query(FinalMemorial).filter_by(
-                task_id=task_id, is_current=True
-            ).first()
-            if (
-                formal is not None
-                and not body.expected_final_memorial_content_hash
-            ):
-                return fail("补证必须绑定当前正式奏折 content hash")
-            if (
-                formal is not None
-                and body.expected_final_memorial_content_hash
-                != formal.content_hash
-            ):
-                return fail("正式奏折已变化，请刷新后重新提交补证")
-            if formal is not None:
-                from src.db.models import OutboxEvent
-
-                identity_payload = {
-                    "task_id": task_id,
-                    "prior_final_memorial_content_hash": formal.content_hash,
-                    "reason": body.reason,
-                    "followup_question": body.followup_question,
-                }
-                import hashlib
-
-                request_key = "evidence-rework:" + hashlib.sha256(
-                    json.dumps(
-                        identity_payload,
-                        ensure_ascii=False,
-                        sort_keys=True,
-                        separators=(",", ":"),
-                    ).encode("utf-8")
-                ).hexdigest()
-                existing_generation = (
-                    db.query(OutboxEvent)
-                    .filter_by(task_id=task_id, idempotency_key=request_key)
-                    .first()
-                )
-                if existing_generation is not None:
-                    return ok(
-                        {
-                            "task_id": task_id,
-                            "sourceLabel": "LIVE",
-                            "status": task.status,
-                            "decision_id": existing_generation.decision_id,
-                            "archive_record": None,
-                            "rework_generation": _loads(
-                                existing_generation.payload_json, {}
-                            ),
-                        }
-                    )
-        now = now_iso()
-        decision = EmperorDecision(
-            id=make_id("decision", task_id, body.action, now),
-            tenant_id=task.tenant_id,
-            task_id=task_id,
-            action=body.action,
-            kind=emperor_decision_kind(body.action),
-            reason=body.reason,
-            human_confirmed=body.human_confirmed,
-            confirmation_record_json=_json(
-                {
-                    "user_id": _user_id(user),
-                    "at": now,
-                    "final_memorial_content_hash": (
-                        body.expected_final_memorial_content_hash
-                    ),
-                }
-            ),
-            created_at=now,
-        )
-        db.add(decision)
-        rework_generation = None
-        if (
-            body.action in {"request_evidence", "followup"}
-            and body.expected_final_memorial_content_hash
-        ):
-            rework_generation, _ = enqueue_evidence_rework_generation(
-                db,
-                task_id=task_id,
-                decision_id=decision.id,
-                prior_final_memorial_content_hash=(
-                    body.expected_final_memorial_content_hash or ""
-                ),
-                reason=body.reason,
-                followup_question=body.followup_question,
-            )
         review = (
             db.query(CourtReview)
             .filter_by(task_id=task_id)
             .order_by(CourtReview.created_at.desc())
             .first()
         )
-        # 直接传原始 body.action(可能是 "approve"/"archive" 这类别名)，不在
-        # 这里预先归一化——apply_task_decision 内部自己认得所有别名，同时
-        # 会把这个原始字面量原样传给 _archive_task，史馆归档记录里保留的是
-        # 陛下当时具体点的哪个动作，不是归一化后的 "adopt"。
-        archive_record = apply_task_decision(
+        outcome = _execute_final_memorial_decision(
             db,
             task=task,
             review=review,
             action=body.action,
             reason=body.reason,
             human_confirmed=body.human_confirmed,
-            now=now,
+            expected_content_hash=body.expected_final_memorial_content_hash,
+            actor_user_id=_user_id(user),
+            followup_question=body.followup_question,
         )
-        record_task_decision_event(
-            db,
-            task=task,
-            decision=decision,
-            archive_record=archive_record,
-        )
+        if outcome["replayed"]:
+            return ok(
+                {
+                    "task_id": task_id,
+                    "sourceLabel": "LIVE",
+                    "status": task.status,
+                    "decision_id": outcome["decision_id"],
+                    "archive_record": None,
+                    "rework_generation": outcome["rework_generation"],
+                }
+            )
+        decision = outcome["decision"]
+        archive_record = outcome["archive_record"]
+        rework_generation = outcome["rework_generation"]
+        now = outcome["now"]
         db.add(
             CourtLoopRun(
                 id=make_id("loop", task.id, "decision", body.action, now),
@@ -2468,67 +2554,30 @@ def shangshufang_brief_decision_advance(
             "reject": "reject",
         }
         action = mapping.get(body.decision, "request_evidence")
-        if action in {"adopt", "reject", "request_evidence"}:
-            current_formal = db.query(FinalMemorial).filter_by(
-                task_id=task.id,
-                is_current=True,
-            ).first()
-            if current_formal is not None and not body.expectedFinalMemorialContentHash:
-                return fail("裁决必须绑定当前正式奏折 content hash")
-            if (
-                current_formal is not None
-                and body.expectedFinalMemorialContentHash
-                != current_formal.content_hash
-            ):
-                return fail("正式奏折已变化，请刷新后重新提交裁决")
-        now = now_iso()
-        decision = EmperorDecision(
-            id=make_id("decision", task.id, action, now),
-            tenant_id=task.tenant_id,
-            task_id=task.id,
-            action=action,
-            kind=emperor_decision_kind(action),
-            reason=body.reason,
-            human_confirmed=bool(body.manualConfirmation),
-            confirmation_record_json=_json(
-                {
-                    "user_id": _user_id(user),
-                    "brief_id": brief_id,
-                    "at": now,
-                    "execution_type": body.executionType,
-                    "final_memorial_content_hash": (
-                        body.expectedFinalMemorialContentHash
-                    ),
-                }
-            ),
-            created_at=now,
-        )
-        db.add(decision)
-        # action 恒为 mapping 里四个 canonical 值之一(默认 "request_evidence")，
-        # 跟 apply_task_decision 认的词表一致，不需要再映射。
-        archive_record = apply_task_decision(
+        outcome = _execute_final_memorial_decision(
             db,
             task=task,
             review=review,
             action=action,
             reason=body.reason,
             human_confirmed=bool(body.manualConfirmation),
-            now=now,
+            expected_content_hash=body.expectedFinalMemorialContentHash,
+            actor_user_id=_user_id(user),
+            confirmation_extra={
+                "brief_id": brief_id,
+                "execution_type": body.executionType,
+            },
         )
-        record_task_decision_event(
-            db,
-            task=task,
-            decision=decision,
-            archive_record=archive_record,
-        )
-        db.commit()
+        if not outcome["replayed"]:
+            db.commit()
         return ok(
             {
                 "task_id": task.id,
                 "sourceLabel": "LIVE",
                 "status": task.status,
-                "decision_id": decision.id,
-                "archive_record": archive_record,
+                "decision_id": outcome["decision_id"],
+                "archive_record": outcome["archive_record"],
+                "rework_generation": outcome["rework_generation"],
             }
         )
     except Exception as exc:  # noqa: BLE001

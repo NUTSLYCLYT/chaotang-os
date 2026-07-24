@@ -86,19 +86,12 @@ def enqueue_evidence_rework_generation(
     from src.core_tenant_lineage import tenant_id_for_task
     from src.db.models import OutboxEvent
 
-    identity_payload = {
-        "task_id": task_id,
-        "prior_final_memorial_content_hash": prior_final_memorial_content_hash,
-        "reason": reason,
-        "followup_question": followup_question,
-    }
-    canonical = json.dumps(
-        identity_payload,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
+    idempotency_key = evidence_rework_idempotency_key(
+        task_id=task_id,
+        prior_final_memorial_content_hash=prior_final_memorial_content_hash,
+        reason=reason,
+        followup_question=followup_question,
     )
-    idempotency_key = f"evidence-rework:{sha256(canonical.encode('utf-8')).hexdigest()}"
     existing = (
         db.query(OutboxEvent)
         .filter_by(task_id=task_id, idempotency_key=idempotency_key)
@@ -150,6 +143,29 @@ def enqueue_evidence_rework_generation(
         )
     )
     return payload, True
+
+
+def evidence_rework_idempotency_key(
+    *,
+    task_id: str,
+    prior_final_memorial_content_hash: str,
+    reason: str,
+    followup_question: str | None,
+) -> str:
+    """Return the one canonical identity for a human evidence request."""
+    identity_payload = {
+        "task_id": task_id,
+        "prior_final_memorial_content_hash": prior_final_memorial_content_hash,
+        "reason": reason,
+        "followup_question": followup_question,
+    }
+    canonical = json.dumps(
+        identity_payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return f"evidence-rework:{sha256(canonical.encode('utf-8')).hexdigest()}"
 
 
 def dispatch_after_commit(event_id: str) -> None:

@@ -63,6 +63,9 @@
 | 021 DecisionTask 合同范围 migration（实现前） | 1 | RED：head 仍为 020，缺 `contract_scope_json` | canonical 范围投影 schema | 本地 / 2026-07-24 |
 | 冻结合同范围替换（实现前） | 1 | RED：不同 scope 被接受 | 防止补证阶段重写已冻结范围 | 本地 / 2026-07-24 |
 | Slice 4G 聚焦回归 + Ruff | 0 | 61 passed / 1 skipped；All checks passed | 公共 API→worker→canonical run/quality→FinalMemorial v2、迁移图和 fail-closed 回归 | 本地 / 2026-07-24 |
+| brief 补证 generation parity（实现前） | 1 | RED：重试写入重复 EmperorDecision，且响应无 generation | brief/task 两入口单一补证事实 | 本地 / 2026-07-24 |
+| current memorial CAS（实现前） | 1 | RED：缺少数据库条件 claim | 防止 adopt/reject/request_evidence 并发双成功 | 本地 / 2026-07-24 |
+| Slice 4H 裁决兼容回归 + Ruff | 0 | 75 passed / 1 skipped；All checks passed | task/brief 共用裁决 writer、generation 幂等、原子 current hash claim、旧别名/取消兼容 | 本地 / 2026-07-24 |
 
 ## 结果
 
@@ -74,7 +77,7 @@ SwarmRun/SwarmQualityResult，并追加 current FinalMemorial v2。
 
 ## 未验证项
 
-- task/brief 裁决入口统一与原子 CAS、史馆精确版本身份、证据绑定 CAS、020 安全降级。
+- 史馆精确版本身份、证据绑定 CAS、020 安全降级。
 - 全量 W05 回归、独立代码审查；推送/合并/发布未获批准。
 
 ## Diff 与回滚复核
@@ -100,4 +103,4 @@ SwarmRun/SwarmQualityResult，并追加 current FinalMemorial v2。
 
 ## 声明状态
 
-- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_4G_GREEN`
+- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / SLICE_4H_GREEN`
