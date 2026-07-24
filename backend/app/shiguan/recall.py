@@ -81,8 +81,8 @@ def _summarize(content: str) -> str:
 
 def _to_recall_match(archive: Archive, reason: str) -> RecallMatch:
     conclusion = (
-        archive.decision_conclusion
-        if archive.type == "DECISION" and archive.decision_conclusion
+        archive.reply_conclusion
+        if archive.type == "REPLY" and archive.reply_conclusion
         else _summarize(archive.content)
     )
     return RecallMatch(

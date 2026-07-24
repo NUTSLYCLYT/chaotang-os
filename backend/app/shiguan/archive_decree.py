@@ -1,23 +1,4 @@
-"""Automatic 史馆 archival for a completed chancellor (丞相) decree.
-
-This module builds two linked archives -- a ``MEMORIAL`` (the original
-decree text) and a ``DECISION`` (the chancellor's routing/processing
-result) -- and writes them via ``app.shiguan.storage.create_archive``.
-
-It is deliberately decoupled from ``app.api.decrees.ChancellorDecreeResponse``
-(that module is outside this task's allowed paths): ``response`` is read
-via duck-typing (attribute access, falling back to dict-style access) so it
-accepts either a real ``ChancellorDecreeResponse`` instance or a plain
-``dict``/test double exposing the same field names (``departments``,
-``processing_path``, ``rationale``, ``council_verdict``, ``final_verdict``).
-
-``archive_chancellor_decree`` must never raise: a later module wires this
-into the hot path of ``POST /api/v1/decrees/chancellor`` *after* a
-successful response has already been computed, and an archival failure
-must never turn a successful decree response into an error, nor must it be
-reported as a successful archival when it did not happen. All failures are
-caught and logged (never re-raised).
-"""
+"""Non-blocking single-reply archival for a completed chancellor decree."""
 
 from __future__ import annotations
 
@@ -30,8 +11,8 @@ from app.shiguan import storage
 logger = logging.getLogger(__name__)
 
 _TITLE_MAX_LENGTH = 80
-_DEFAULT_RESPONSIBLE_OWNER = "丞相"
-_DEFAULT_MATTER_TYPE = "综合事项"
+_DEFAULT_RESPONDENT = "\u4e1e\u76f8"
+_DEFAULT_MATTER_TYPE = "\u7efc\u5408\u4e8b\u9879"
 
 
 @dataclass(frozen=True)
@@ -39,8 +20,7 @@ class ArchiveDecreeResult:
     """Internal, assertion-friendly outcome; never exposed by the HTTP API."""
 
     archived: bool
-    memorial_id: str | None = None
-    decision_id: str | None = None
+    reply_id: str | None = None
 
 
 def _get_field(response: object, name: str, default: object = None) -> object:
@@ -53,22 +33,13 @@ def _truncate(text: str, max_length: int) -> str:
     stripped = text.strip()
     if len(stripped) <= max_length:
         return stripped
-    return stripped[:max_length].rstrip() + "…"
+    return stripped[:max_length].rstrip() + "\u2026"
 
 
 def archive_chancellor_decree(
     decree_text: str, response: object, *, owner_user_id: str
 ) -> ArchiveDecreeResult:
-    """Archive a completed chancellor decree as MEMORIAL + DECISION records.
-
-    Writes a ``MEMORIAL`` archive holding the original ``decree_text``,
-    then a ``DECISION`` archive (linked to the memorial via
-    ``related_archive_ids``) capturing ``response``'s routing/processing
-    result. ``responsible_owner`` defaults to ``"丞相"``.
-
-    This function never raises -- every exception (malformed ``response``,
-    validation failure, storage I/O failure) is caught and logged.
-    """
+    """Archive a completed decree as exactly one ``REPLY`` and never raise."""
 
     try:
         departments = [
@@ -90,47 +61,30 @@ def archive_chancellor_decree(
         ):
             return ArchiveDecreeResult(archived=False)
 
-        matter_type = _DEFAULT_MATTER_TYPE
-        owning_department = departments[0] if departments else _DEFAULT_RESPONSIBLE_OWNER
-
-        memorial_payload = {
-            "type": "MEMORIAL",
-            "title": _truncate(decree_text, _TITLE_MAX_LENGTH) or "旨意",
-            "content": decree_text,
-            "matter_type": matter_type,
-            "department": owning_department,
-        }
         process_parts = []
         if processing_path:
-            process_parts.append(f"处理路径：{'->'.join(processing_path)}")
+            process_parts.append(f"\u5904\u7406\u8def\u5f84\uff1a{' -> '.join(processing_path)}")
         if rationale:
-            process_parts.append(f"丞相分流理由：{rationale}")
+            process_parts.append(f"\u4e1e\u76f8\u5206\u6d41\u7406\u7531\uff1a{rationale}")
         if council_verdict:
-            process_parts.append(f"军机处会审结论：{council_verdict}")
-        decision_process = "；".join(process_parts) if process_parts else "丞相直接裁决"
+            process_parts.append(f"\u519b\u673a\u5904\u4f1a\u5ba1\u7ed3\u8bba\uff1a{council_verdict}")
 
-        decision_conclusion = final_verdict
-
-        decision_payload = {
-            "type": "DECISION",
-            "title": _truncate(f"丞相决策：{decree_text}", _TITLE_MAX_LENGTH),
-            "content": decision_conclusion,
-            "matter_type": matter_type,
-            "department": owning_department,
-            "participating_departments": departments or [_DEFAULT_RESPONSIBLE_OWNER],
-            "decision_process": decision_process,
-            "decision_conclusion": decision_conclusion,
-            "decision_time": datetime.now(UTC).isoformat(),
-            "responsible_owner": _DEFAULT_RESPONSIBLE_OWNER,
+        reply_payload = {
+            "type": "REPLY",
+            "title": _truncate(f"\u4e1e\u76f8\u56de\u594f\uff1a{decree_text}", _TITLE_MAX_LENGTH),
+            "content": final_verdict,
+            "matter_type": _DEFAULT_MATTER_TYPE,
+            "department": departments[0],
+            "source_kind": "DECREE",
+            "source_text": decree_text,
+            "participating_departments": departments,
+            "reply_process": "\uff1b".join(process_parts),
+            "reply_conclusion": final_verdict,
+            "reply_time": datetime.now(UTC).isoformat(),
+            "respondent": _DEFAULT_RESPONDENT,
         }
-        memorial, decision = storage.create_linked_archive_pair(
-            memorial_payload, decision_payload, owner_user_id=owner_user_id
-        )
-        return ArchiveDecreeResult(
-            archived=True,
-            memorial_id=memorial.id,
-            decision_id=decision.id,
-        )
+        reply = storage.create_archive(reply_payload, owner_user_id=owner_user_id)
+        return ArchiveDecreeResult(archived=True, reply_id=reply.id)
     except Exception:  # noqa: BLE001 - archival must never break the decree endpoint
-        logger.exception("丞相旨意自动归档失败")
+        logger.exception("\u4e1e\u76f8\u65e8\u610f\u81ea\u52a8\u5f52\u6863\u5931\u8d25")
         return ArchiveDecreeResult(archived=False)

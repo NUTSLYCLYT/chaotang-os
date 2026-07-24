@@ -513,7 +513,8 @@ export async function submitDecree(
   }
 }
 
-export type ArchiveType = "MEMORIAL" | "DECISION" | "TASK_RESULT" | "KNOWLEDGE" | "PUBLICITY";
+export type ArchiveType = "MEMORIAL" | "REPLY";
+export type ReplySourceKind = "DECREE" | "MEMORIAL";
 export type RealityLabel = "LIVE" | "MIXED" | "FALLBACK";
 export type ReviewStatusValue = "ACHIEVED" | "NOT_ACHIEVED" | "PARTIAL" | "OBSERVING";
 
@@ -541,11 +542,13 @@ export interface ShiguanArchive {
   createdAt: string;
   lessonsLearned: string | null;
   pitfalls: string | null;
+  sourceKind: ReplySourceKind | null;
+  sourceText: string | null;
   participatingDepartments: string[] | null;
-  decisionProcess: string | null;
-  decisionConclusion: string | null;
-  decisionTime: string | null;
-  responsibleOwner: string | null;
+  replyProcess: string | null;
+  replyConclusion: string | null;
+  replyTime: string | null;
+  respondent: string | null;
   reviewStatus: ShiguanReviewStatus | null;
 }
 
@@ -557,6 +560,29 @@ export interface ShiguanStatistics {
   observing: number;
   pendingReview: number;
   successRate: number | null;
+}
+
+export interface DadianDepartmentCount {
+  department: string;
+  count: number;
+}
+
+export interface DadianRecentReply {
+  id: string;
+  title: string;
+  participatingDepartments: string[];
+  replyConclusion: string;
+  replyTime: string;
+  createdAt: string;
+  respondent: string;
+}
+
+export interface DadianOverview {
+  replyCount: number;
+  departmentCounts: DadianDepartmentCount[];
+  recentReplies: DadianRecentReply[];
+  pendingReviewCount: number;
+  todayFocus: string;
 }
 
 export interface ShiguanRecallMatch {
@@ -607,11 +633,9 @@ export interface UpdateShiguanReviewOptions {
 const SHIGUAN_TIMEOUT_MS = 10000;
 const ARCHIVE_TYPES = new Set<ArchiveType>([
   "MEMORIAL",
-  "DECISION",
-  "TASK_RESULT",
-  "KNOWLEDGE",
-  "PUBLICITY",
+  "REPLY",
 ]);
+const REPLY_SOURCE_KINDS = new Set<ReplySourceKind>(["DECREE", "MEMORIAL"]);
 const REALITY_LABELS = new Set<RealityLabel>(["LIVE", "MIXED", "FALLBACK"]);
 const REVIEW_STATUSES = new Set<ReviewStatusValue>([
   "ACHIEVED",
@@ -705,15 +729,20 @@ function parseArchive(value: unknown): ShiguanArchive | null {
     !hasExactKeys(record, [
       "type", "title", "content", "matter_type", "department", "related_archive_ids",
       "evidence", "lessons_learned", "pitfalls", "participating_departments",
-      "decision_process", "decision_conclusion", "decision_time", "responsible_owner",
+      "source_kind", "source_text", "reply_process", "reply_conclusion", "reply_time", "respondent",
       "id", "created_at", "review_status",
     ]) ||
     typeof record.id !== "string" ||
+    record.id.trim().length === 0 ||
     !ARCHIVE_TYPES.has(record.type as ArchiveType) ||
     typeof record.title !== "string" ||
+    record.title.trim().length === 0 ||
     typeof record.content !== "string" ||
+    record.content.trim().length === 0 ||
     typeof record.matter_type !== "string" ||
+    record.matter_type.trim().length === 0 ||
     typeof record.department !== "string" ||
+    record.department.trim().length === 0 ||
     !isIsoDateTime(record.created_at)
   ) {
     return null;
@@ -723,6 +752,7 @@ function parseArchive(value: unknown): ShiguanArchive | null {
   const reviewStatus = parseReviewStatus(record.review_status);
   if (
     relatedArchiveIds === null ||
+    relatedArchiveIds.some((archiveId) => archiveId.trim().length === 0) ||
     evidence === null ||
     !("review_status" in record) ||
     (record.review_status !== null && reviewStatus === null) ||
@@ -738,24 +768,35 @@ function parseArchive(value: unknown): ShiguanArchive | null {
   if (participatingDepartments === null && Array.isArray(record.participating_departments)) {
     return null;
   }
-  const decisionFieldsAreStrings =
+  const replyFieldsAreStrings =
     participatingDepartments !== null &&
-    typeof record.decision_process === "string" &&
-    record.decision_process.trim().length > 0 &&
-    typeof record.decision_conclusion === "string" &&
-    record.decision_conclusion.trim().length > 0 &&
-    isIsoDateTime(record.decision_time) &&
-    typeof record.responsible_owner === "string" &&
-    record.responsible_owner.trim().length > 0;
-  const decisionFieldsAreEmpty =
+    participatingDepartments.length > 0 &&
+    participatingDepartments.every((department) => department.trim().length > 0) &&
+    new Set(participatingDepartments.map((department) => department.trim())).size ===
+      participatingDepartments.length &&
+    REPLY_SOURCE_KINDS.has(record.source_kind as ReplySourceKind) &&
+    typeof record.source_text === "string" &&
+    record.source_text.trim().length > 0 &&
+    typeof record.reply_process === "string" &&
+    record.reply_process.trim().length > 0 &&
+    typeof record.reply_conclusion === "string" &&
+    record.reply_conclusion.trim().length > 0 &&
+    isIsoDateTime(record.reply_time) &&
+    typeof record.respondent === "string" &&
+    record.respondent.trim().length > 0 &&
+    ((record.source_kind === "DECREE" && relatedArchiveIds.length === 0) ||
+      (record.source_kind === "MEMORIAL" && relatedArchiveIds.length === 1));
+  const replyFieldsAreEmpty =
+    record.source_kind == null &&
+    record.source_text == null &&
     record.participating_departments == null &&
-    record.decision_process == null &&
-    record.decision_conclusion == null &&
-    record.decision_time == null &&
-    record.responsible_owner == null;
+    record.reply_process == null &&
+    record.reply_conclusion == null &&
+    record.reply_time == null &&
+    record.respondent == null;
   if (
-    (record.type === "DECISION" && !decisionFieldsAreStrings) ||
-    (record.type !== "DECISION" && !decisionFieldsAreEmpty)
+    (record.type === "REPLY" && !replyFieldsAreStrings) ||
+    (record.type !== "REPLY" && !replyFieldsAreEmpty)
   ) {
     return null;
   }
@@ -771,11 +812,13 @@ function parseArchive(value: unknown): ShiguanArchive | null {
     createdAt: record.created_at,
     lessonsLearned: parseNullableString(record.lessons_learned),
     pitfalls: parseNullableString(record.pitfalls),
+    sourceKind: record.source_kind as ReplySourceKind | null,
+    sourceText: parseNullableString(record.source_text),
     participatingDepartments,
-    decisionProcess: parseNullableString(record.decision_process),
-    decisionConclusion: parseNullableString(record.decision_conclusion),
-    decisionTime: parseNullableString(record.decision_time),
-    responsibleOwner: parseNullableString(record.responsible_owner),
+    replyProcess: parseNullableString(record.reply_process),
+    replyConclusion: parseNullableString(record.reply_conclusion),
+    replyTime: parseNullableString(record.reply_time),
+    respondent: parseNullableString(record.respondent),
     reviewStatus,
   };
 }
@@ -807,6 +850,43 @@ function parseStatistics(value: unknown): ShiguanStatistics | null {
     pendingReview: record.pending_review,
     successRate: record.success_rate,
   };
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+function parseDadianOverview(value: unknown): DadianOverview | null {
+  const record = asRecord(value);
+  if (
+    record === null ||
+    !hasExactKeys(record, ["reply_count", "department_counts", "recent_replies", "pending_review_count", "today_focus"]) ||
+    !isNonNegativeInteger(record.reply_count) ||
+    !isNonNegativeInteger(record.pending_review_count) ||
+    typeof record.today_focus !== "string" || record.today_focus.trim().length === 0 ||
+    !Array.isArray(record.department_counts) || !Array.isArray(record.recent_replies)
+  ) return null;
+  const departmentCounts: DadianDepartmentCount[] = [];
+  for (const item of record.department_counts) {
+    const department = asRecord(item);
+    if (department === null || !hasExactKeys(department, ["department", "count"]) ||
+      typeof department.department !== "string" || department.department.trim().length === 0 ||
+      !isNonNegativeInteger(department.count)) return null;
+    departmentCounts.push({ department: department.department, count: department.count });
+  }
+  const recentReplies: DadianRecentReply[] = [];
+  for (const item of record.recent_replies) {
+    const reply = asRecord(item);
+    if (reply === null || !hasExactKeys(reply, ["id", "title", "participating_departments", "reply_conclusion", "reply_time", "created_at", "respondent"]) ||
+      typeof reply.id !== "string" || !reply.id.trim() || typeof reply.title !== "string" || !reply.title.trim() ||
+      typeof reply.reply_conclusion !== "string" || !reply.reply_conclusion.trim() ||
+      typeof reply.respondent !== "string" || !reply.respondent.trim() ||
+      !isIsoDateTime(reply.reply_time) || !isIsoDateTime(reply.created_at)) return null;
+    const participatingDepartments = parseStringArray(reply.participating_departments);
+    if (participatingDepartments === null || participatingDepartments.length === 0 || participatingDepartments.some((department) => !department.trim())) return null;
+    recentReplies.push({ id: reply.id, title: reply.title, participatingDepartments, replyConclusion: reply.reply_conclusion, replyTime: reply.reply_time, createdAt: reply.created_at, respondent: reply.respondent });
+  }
+  return { replyCount: record.reply_count, departmentCounts, recentReplies, pendingReviewCount: record.pending_review_count, todayFocus: record.today_focus };
 }
 
 function parseRecallMatch(value: unknown): ShiguanRecallMatch | null {
@@ -959,6 +1039,20 @@ export async function getShiguanStatistics(
     "/api/v1/shiguan/statistics",
     { method: "GET" },
     parseStatistics,
+    options,
+  );
+}
+
+export async function getDadianOverview(
+  options: { department?: string; baseUrl?: string; timeoutMs?: number; sessionId?: string } = {},
+): Promise<ShiguanResult<DadianOverview>> {
+  const params = new URLSearchParams();
+  if (options.department?.trim()) params.set("department", options.department.trim());
+  const suffix = params.size ? `?${params.toString()}` : "";
+  return fetchShiguan(
+    `/api/v1/shiguan/dadian-overview${suffix}`,
+    { method: "GET" },
+    parseDadianOverview,
     options,
   );
 }

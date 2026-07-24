@@ -6,10 +6,7 @@ import { readSessionId } from "../../../../lib/session.ts";
 
 const ARCHIVE_TYPES = new Set<ArchiveType>([
   "MEMORIAL",
-  "DECISION",
-  "TASK_RESULT",
-  "KNOWLEDGE",
-  "PUBLICITY",
+  "REPLY",
 ]);
 
 const FRIENDLY_MESSAGE_BY_KIND = {

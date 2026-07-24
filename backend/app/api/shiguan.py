@@ -36,7 +36,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.api.auth import CurrentUser
 from app.shiguan import storage
 from app.shiguan.errors import ArchiveNotFoundError, ArchiveValidationError, ShiguanStorageError
-from app.shiguan.models import Archive, ArchiveType, ReviewStatus, Statistics
+from app.shiguan.models import Archive, ArchiveType, DadianOverview, ReviewStatus, Statistics
 from app.shiguan.recall import MAX_RECALL_LIMIT, RecallMatch, find_similar_archives
 
 _DEFAULT_LIST_LIMIT = 100
@@ -68,10 +68,10 @@ class RecallRequest(BaseModel):
 
 @router.post("/archives", response_model=Archive, status_code=201)
 def create_archive(payload: dict[str, Any], current_user: CurrentUser) -> Archive:
-    """Create a new archive of any of the five 史馆 types.
+    """Create a new MEMORIAL or REPLY archive.
 
     ``payload`` is passed straight to ``storage.create_archive``, which owns
-    every validation rule (required fields, DECISION-only fields, evidence
+    every validation rule (required fields, REPLY-only fields, evidence
     labels, existing ``related_archive_ids``, rejecting a client-supplied
     ``id``). Any failure surfaces as ``ArchiveValidationError`` (422) or
     ``ShiguanStorageError`` (503) via the handlers registered below.
@@ -140,6 +140,17 @@ def get_statistics(current_user: CurrentUser) -> Statistics:
     ``storage.get_statistics`` for the exact computation.
     """
     return storage.get_statistics(owner_user_id=current_user.id)
+
+
+@router.get("/dadian-overview", response_model=DadianOverview)
+def get_dadian_overview(
+    current_user: CurrentUser, department: str | None = None
+) -> DadianOverview:
+    """Return a read-only, authenticated REPLY overview for 大殿."""
+    return storage.get_dadian_overview(
+        owner_user_id=current_user.id,
+        department=department.strip() if department and department.strip() else None,
+    )
 
 
 @router.post("/recall", response_model=list[RecallMatch])

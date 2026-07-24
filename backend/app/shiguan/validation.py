@@ -1,7 +1,7 @@
 """Strict, storage-facing validation for 史馆 archive payloads.
 
 ``app.shiguan.models`` already encodes structural contracts (types,
-required fields, enum membership, cross-field DECISION requirements) as
+required fields, enum membership, cross-field REPLY requirements) as
 Pydantic validators. This module is the single place that:
 
 - Translates any ``pydantic.ValidationError`` raised while constructing an
@@ -38,7 +38,7 @@ def validate_archive_create(payload: dict) -> ArchiveCreate:
     Raises:
         ArchiveValidationError: ``payload`` fails structural validation
             (unknown type, empty required text, illegal evidence label,
-            incomplete/duplicate DECISION-only fields, unparseable time,
+            incomplete/duplicate REPLY-only fields, unparseable time,
             an attempt to set ``id``/``created_at``, etc.).
     """
 

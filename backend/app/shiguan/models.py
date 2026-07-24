@@ -1,15 +1,14 @@
 """Unified archive contracts for the 史馆 (Shiguan / Hall of Records) domain.
 
-Five archive types share one base contract (``ArchiveCreate`` /
-``Archive``): ``MEMORIAL`` (奏折), ``DECISION`` (决策), ``TASK_RESULT``
-(任务结果), ``KNOWLEDGE`` (知识条目) and ``PUBLICITY`` (宣传材料).
-``DECISION`` archives additionally require a fixed set of decision-only
-fields (participating departments, process, conclusion, time, responsible
-owner); the other four types must not carry them.
+Only two archive types share one base contract (``ArchiveCreate`` /
+``Archive``): ``MEMORIAL`` (奏折) and ``REPLY`` (回奏). ``REPLY`` archives
+additionally require their source, participating departments, process,
+conclusion, time, and respondent. ``MEMORIAL`` archives must not carry
+those reply-only fields.
 
 This module only defines data contracts (Pydantic models). It performs
 *structural* validation only (types, non-empty text, enum membership,
-cross-field consistency for the ``DECISION`` type). It does not touch the
+cross-field consistency for the ``REPLY`` type). It does not touch the
 database -- storage-facing checks that need a live connection (e.g.
 confirming ``related_archive_ids`` reference archives that actually exist)
 live in ``app.shiguan.validation``.
@@ -22,16 +21,19 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-ArchiveType = Literal["MEMORIAL", "DECISION", "TASK_RESULT", "KNOWLEDGE", "PUBLICITY"]
+ArchiveType = Literal["MEMORIAL", "REPLY"]
+ReplySourceKind = Literal["DECREE", "MEMORIAL"]
 RealityLabel = Literal["LIVE", "MIXED", "FALLBACK"]
 ReviewStatusValue = Literal["ACHIEVED", "NOT_ACHIEVED", "PARTIAL", "OBSERVING"]
 
-_DECISION_ONLY_FIELDS = (
+_REPLY_ONLY_FIELDS = (
+    "source_kind",
+    "source_text",
     "participating_departments",
-    "decision_process",
-    "decision_conclusion",
-    "decision_time",
-    "responsible_owner",
+    "reply_process",
+    "reply_conclusion",
+    "reply_time",
+    "respondent",
 )
 
 
@@ -126,13 +128,15 @@ class ArchiveCreate(BaseModel):
     lessons_learned: str | None = None
     pitfalls: str | None = None
 
-    # DECISION-only fields. Required when type == "DECISION"; must not be
-    # provided (non-None) for any other type. See `_validate_decision_fields`.
+    # REPLY-only fields. Required when type == "REPLY"; must not be
+    # provided (non-None) for ``MEMORIAL``. See `_validate_reply_fields`.
+    source_kind: ReplySourceKind | None = None
+    source_text: str | None = None
     participating_departments: list[str] | None = None
-    decision_process: str | None = None
-    decision_conclusion: str | None = None
-    decision_time: str | None = None
-    responsible_owner: str | None = None
+    reply_process: str | None = None
+    reply_conclusion: str | None = None
+    reply_time: str | None = None
+    respondent: str | None = None
 
     @field_validator("title", "content", "matter_type", "department")
     @classmethod
@@ -157,32 +161,32 @@ class ArchiveCreate(BaseModel):
         stripped = value.strip()
         return stripped or None
 
-    @field_validator("decision_process", "decision_conclusion", "responsible_owner")
+    @field_validator("source_text", "reply_process", "reply_conclusion", "respondent")
     @classmethod
-    def _validate_optional_decision_text(cls, value: str | None) -> str | None:
+    def _validate_optional_reply_text(cls, value: str | None) -> str | None:
         if value is None:
             return None
         if not value.strip():
             raise ValueError("字段不能为空白字符串")
         return value.strip()
 
-    @field_validator("decision_time")
+    @field_validator("reply_time")
     @classmethod
-    def _validate_decision_time(cls, value: str | None) -> str | None:
+    def _validate_reply_time(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        return _validate_iso8601_string(value, "decision_time")
+        return _validate_iso8601_string(value, "reply_time")
 
     @model_validator(mode="after")
-    def _validate_decision_fields(self) -> ArchiveCreate:
-        if self.type == "DECISION":
+    def _validate_reply_fields(self) -> ArchiveCreate:
+        if self.type == "REPLY":
             missing = [
                 field_name
-                for field_name in _DECISION_ONLY_FIELDS
+                for field_name in _REPLY_ONLY_FIELDS
                 if getattr(self, field_name) is None
             ]
             if missing:
-                raise ValueError(f"DECISION 档案缺少必填字段: {', '.join(missing)}")
+                raise ValueError(f"REPLY 档案缺少必填字段: {', '.join(missing)}")
 
             departments = self.participating_departments or []
             stripped_departments = [department.strip() for department in departments]
@@ -191,14 +195,19 @@ class ArchiveCreate(BaseModel):
             if len(stripped_departments) != len(set(stripped_departments)):
                 raise ValueError("participating_departments 不能包含重复部门")
             self.participating_departments = stripped_departments
+
+            if self.source_kind == "DECREE" and self.related_archive_ids:
+                raise ValueError("DECREE 回奏不得关联档案")
+            if self.source_kind == "MEMORIAL" and len(self.related_archive_ids) != 1:
+                raise ValueError("MEMORIAL 回奏必须关联且仅关联一条档案")
         else:
             provided = [
                 field_name
-                for field_name in _DECISION_ONLY_FIELDS
+                for field_name in _REPLY_ONLY_FIELDS
                 if getattr(self, field_name) is not None
             ]
             if provided:
-                raise ValueError(f"非 DECISION 档案不应携带决策专属字段: {', '.join(provided)}")
+                raise ValueError(f"MEMORIAL 档案不应携带回奏专属字段: {', '.join(provided)}")
         return self
 
 
@@ -234,3 +243,32 @@ class Statistics(BaseModel):
     observing: int
     pending_review: int
     success_rate: float | None
+
+
+class DepartmentCount(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    department: str
+    count: int = Field(ge=0)
+
+
+class RecentReply(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    title: str
+    participating_departments: list[str]
+    reply_conclusion: str
+    reply_time: str
+    created_at: str
+    respondent: str
+
+
+class DadianOverview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reply_count: int = Field(ge=0)
+    department_counts: list[DepartmentCount]
+    recent_replies: list[RecentReply]
+    pending_review_count: int = Field(ge=0)
+    today_focus: str

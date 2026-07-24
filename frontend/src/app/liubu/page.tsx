@@ -1,8 +1,9 @@
-import { CourtPlaceholderPage } from "../../components/chaotang/CourtPlaceholderPage";
 import { CourtShell } from "../../components/chaotang/CourtShell";
+import { MinistryOverview } from "../../features/department-demo/DepartmentDemoViews";
+import { DEPARTMENT_DEMOS } from "../../features/department-demo/departmentDemoData";
 import { requireUser } from "../../lib/requireUser";
 
 export default async function LiubuPage() {
   await requireUser("/liubu");
-  return <CourtShell currentLabel="六部" currentPath="/liubu"><CourtPlaceholderPage variant="liubu" title="六部" description="六部政务分域入口。" /></CourtShell>;
+  return <CourtShell currentLabel="六部" currentPath="/liubu"><MinistryOverview departments={DEPARTMENT_DEMOS} /></CourtShell>;
 }

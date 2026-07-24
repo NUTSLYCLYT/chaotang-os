@@ -42,11 +42,13 @@ CREATE TABLE IF NOT EXISTS archives (
     created_at TEXT NOT NULL,
     lessons_learned TEXT,
     pitfalls TEXT,
+    source_kind TEXT,
+    source_text TEXT,
     participating_departments TEXT,
-    decision_process TEXT,
-    decision_conclusion TEXT,
-    decision_time TEXT,
-    responsible_owner TEXT,
+    reply_process TEXT,
+    reply_conclusion TEXT,
+    reply_time TEXT,
+    respondent TEXT,
     owner_user_id TEXT
 );
 
@@ -98,6 +100,27 @@ ON auth_sessions (id, user_id, expires_at)
 WHERE revoked_at IS NULL;
 """
 
+_CURRENT_ARCHIVE_COLUMNS = {
+    "source_kind": "TEXT",
+    "source_text": "TEXT",
+    "reply_process": "TEXT",
+    "reply_conclusion": "TEXT",
+    "reply_time": "TEXT",
+    "respondent": "TEXT",
+    "owner_user_id": "TEXT",
+}
+
+
+def _add_missing_archive_columns(connection: sqlite3.Connection) -> None:
+    """Extend pre-existing archive tables without rewriting their records."""
+
+    existing_columns = {
+        row[1] for row in connection.execute("PRAGMA table_info(archives)")
+    }
+    for name, column_type in _CURRENT_ARCHIVE_COLUMNS.items():
+        if name not in existing_columns:
+            connection.execute(f"ALTER TABLE archives ADD COLUMN {name} {column_type}")
+
 
 def get_connection(path: Path | None = None) -> sqlite3.Connection:
     """Open a new short-lived sqlite3 connection, ensuring schema exists.
@@ -125,12 +148,14 @@ def get_connection(path: Path | None = None) -> sqlite3.Connection:
         connection = sqlite3.connect(target)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
+        existing_archives = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'archives'"
+        ).fetchone()
         connection.executescript(_SCHEMA_STATEMENTS)
-        archive_columns = {
-            row["name"] for row in connection.execute("PRAGMA table_info(archives)")
-        }
-        if "owner_user_id" not in archive_columns:
-            connection.execute("ALTER TABLE archives ADD COLUMN owner_user_id TEXT")
+        if existing_archives is not None:
+            _add_missing_archive_columns(connection)
+        if existing_archives is None:
+            connection.execute("PRAGMA user_version = 2")
         connection.commit()
     except (OSError, sqlite3.Error) as exc:
         raise ShiguanStorageError("史馆存储暂时不可用，请稍后再试") from exc

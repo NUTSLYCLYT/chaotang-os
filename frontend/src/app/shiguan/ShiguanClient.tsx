@@ -25,10 +25,7 @@ import styles from "./shiguan.module.css";
 
 const ARCHIVE_TYPES: ArchiveType[] = [
   "MEMORIAL",
-  "DECISION",
-  "TASK_RESULT",
-  "KNOWLEDGE",
-  "PUBLICITY",
+  "REPLY",
 ];
 const REVIEW_STATUSES: ReviewStatusValue[] = [
   "ACHIEVED",
@@ -159,34 +156,40 @@ function ArchiveCard({
                   .join("；")}
           </dd>
         </div>
-        {archive.type === "DECISION" && archive.participatingDepartments && (
+        {archive.type === "REPLY" && archive.sourceKind && archive.sourceText && (
+          <div>
+            <dt>回奏来源</dt>
+            <dd>{archive.sourceKind}：{archive.sourceText}</dd>
+          </div>
+        )}
+        {archive.type === "REPLY" && archive.participatingDepartments && (
           <div>
             <dt>参与部门</dt>
             <dd>{archive.participatingDepartments.join("、")}</dd>
           </div>
         )}
-        {archive.type === "DECISION" && archive.decisionProcess && (
+        {archive.type === "REPLY" && archive.replyProcess && (
           <div>
-            <dt>决策过程</dt>
-            <dd>{archive.decisionProcess}</dd>
+            <dt>回奏过程</dt>
+            <dd>{archive.replyProcess}</dd>
           </div>
         )}
-        {archive.type === "DECISION" && archive.decisionConclusion && (
+        {archive.type === "REPLY" && archive.replyConclusion && (
           <div>
-            <dt>决策结论</dt>
-            <dd>{archive.decisionConclusion}</dd>
+            <dt>回奏结论</dt>
+            <dd>{archive.replyConclusion}</dd>
           </div>
         )}
-        {archive.type === "DECISION" && archive.decisionTime && (
+        {archive.type === "REPLY" && archive.replyTime && (
           <div>
-            <dt>决策时间</dt>
-            <dd>{displayDate(archive.decisionTime)}</dd>
+            <dt>回奏时间</dt>
+            <dd>{displayDate(archive.replyTime)}</dd>
           </div>
         )}
-        {archive.type === "DECISION" && archive.responsibleOwner && (
+        {archive.type === "REPLY" && archive.respondent && (
           <div>
-            <dt>责任主体</dt>
-            <dd>{archive.responsibleOwner}</dd>
+            <dt>答复者</dt>
+            <dd>{archive.respondent}</dd>
           </div>
         )}
         {archive.lessonsLearned && (
@@ -438,7 +441,7 @@ export function ShiguanClient() {
                   <span>事实、证据与复盘留痕</span>
                 </div>
                 {selectedArchive ? <ArchiveCard key={selectedArchive.id} archive={selectedArchive} onReviewed={onReviewed} /> : (
-                  <div className={styles.emptyState}><h3>暂无真实档案</h3><p>当前没有符合条件的真实归档。新的圣裁、会审结果或执行产物完成后，会进入史馆形成可检索案卷。</p></div>
+                  <div className={styles.emptyState}><h3>暂无真实档案</h3><p>当前没有符合条件的真实归档。真实奏折与办理回奏归档后，会进入史馆形成可检索案卷。</p></div>
                 )}
               </EdictScrollShell>
             </section>
@@ -447,7 +450,7 @@ export function ShiguanClient() {
                 <p className={styles.panelEyebrow}>Review &amp; Recall</p>
                 <h2>旧案召回</h2>
                 <p className={styles.panelLead}>
-            统一归档奏折、决策、任务结果、知识条目和宣传材料；保留证据真实度、决策留痕、结果复盘与旧案召回，避免把演示内容误当真实事实。
+            史馆仅归档真实奏折与办理回奏；保留证据真实度、结果复盘与旧案召回，避免把演示内容误当真实事实。
                 </p>
                 <form className={styles.recallForm} onSubmit={submitRecall}>
                   <label htmlFor="recall-matter-type">
