@@ -71,3 +71,6 @@
 - 验证命令与证据：backend/root doctor、聚焦回归、真实 API seam、合后 authority。
 - 回滚边界：flag 停止新分析；不自动启动 W06。
 - 完成定义：合后复验通过，且明确“测试通过不等于已发布”。
+- 状态：PR #17 已合入 `ad77c16d`，merge tree 与已审查候选一致；独立
+  `fix-r0-w05-postmerge-closeout-20260724` 正在执行 ledger 静默收口，
+  W06 未激活。

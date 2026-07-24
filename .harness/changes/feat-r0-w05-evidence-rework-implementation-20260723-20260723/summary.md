@@ -7,7 +7,7 @@
 | --- | --- |
 | Change ID | feat-r0-w05-evidence-rework-implementation-20260723-20260723 |
 | 类型 | feat |
-| 状态 | MERGED_WITH_POSTMERGE_REMEDIATION_OPEN |
+| 状态 | MERGED_AND_POSTMERGE_REMEDIATED / CLOSEOUT_TRACKED |
 | Owner | Backend / Canonical Runtime |
 | 创建日期 | 20260723 |
 
@@ -30,8 +30,9 @@
   身份仅作历史 provenance，不再代表当前 review candidate。
 - 当前 post-merge 实现候选为
   `0f2a3e4abd99aef345ac2858daa799c5aadc9dc6`；该 H1 的 Standards/Spec
-  exact 审查均为 `0 MUST`。它仍是未推送、未合并的 remediation 候选，不改变
-  W05/W06 execution authority。
+  exact 审查均为 `0 MUST`。后续证据提交形成 H3 `a8f78161`，并由 PR #17
+  合入 `ad77c16d`；merge tree 与 H3 tree 相同。W05/W06 当前 authority
+  closeout 事实只以 `fix-r0-w05-postmerge-closeout-20260724` 为准。
 
 ## B..H 历史只读复审交接（已被 post-merge remediation 取代）
 
@@ -57,7 +58,7 @@ ShiguanArchive 精确身份、019–022 upgrade/downgrade 和 legacy adoption。
 | --- | ---: | --- |
 | `.harness/changes/docs-r0-w05-evidence-rework-approval-20260723-20260723/**` | 6 | W05 专属批准、规格与既有独立审查证据 |
 | `.harness/changes/feat-r0-w05-evidence-rework-implementation-20260723-20260723/**` | 4 | W05 实施规格、任务、CI 与状态事实 |
-| `.harness/manifest/execution-authority.v2.json` | 1 | W05 唯一 ACTIVE execution authority |
+| `.harness/manifest/execution-authority.v2.json` | 1 | W05 曾为唯一 ACTIVE；合并后 closeout 由独立 change 跟踪 |
 | `backend/alembic/versions/019_*`–`022_*` | 4 | generation、memorial 版本、冻结范围与史馆身份 |
 | `backend/src/contracts/{contract_review_pack,contract_risk_item,evidence_packet,evidence_rework_generation}.py` | 4 | W05 v1 公共契约 |
 | `backend/src/{contract_rework,formal_memorial,schema_adoption,w05_downgrade_guard,w05_feature}.py` | 5 | 局部重算、追加版本、旧库升级、安全拒降与能力门 |
