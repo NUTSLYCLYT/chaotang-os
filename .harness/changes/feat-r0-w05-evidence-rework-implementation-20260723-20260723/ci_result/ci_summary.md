@@ -87,6 +87,19 @@
 | `test_evidence_rework_generation_v1.py`（4M 实现前） | 2 | RED：`EvidenceReworkGenerationV1` 模块不存在 | raw generation dict 缺少公共契约 | 本地 / 2026-07-24 |
 | 4M contract + final/worker 聚焦回归 | 0 | 54 passed / 1 skipped | typed generation、固定 section/hash、append-only FinalMemorial 身份说明 | 本地 / 2026-07-24 |
 | 4M 目标文件 Ruff | 0 | All checks passed | 新契约及集成文件静态规范；legacy router 使用既有显式 ignore | 本地 / 2026-07-24 |
+| 完整 backend 首轮复验 | 1 | 3046 passed / 32 skipped / 15 failed | 暴露 4N 冻结基线、4O legacy adoption 和 3 个 fixed-base 基线问题 | 本地 / 2026-07-24 |
+| Slice 4N canonical baselines | 0 | 28 passed | writer 数量、decree event 扫描边界和 migration head 022 | 本地 / 2026-07-24 |
+| Slice 4O legacy adoption + W05 migrations | 0 | 32 passed | 010/011 历史 schema 验证后安全升级到 022 | 本地 / 2026-07-24 |
+| Slice 4P P0-B ownership probe | 0 | 19 passed；Ruff pass | W05 新增测试 import order 机械收口 | 本地 / 2026-07-24 |
+| exact implementation `1f1800c7` W05 定向包 | 0 | 164 passed / 1 skipped | contracts、secure ingest、binding、worker、并发/幂等、FinalMemorial、019–022 | 本地 / 2026-07-24 |
+| exact implementation `1f1800c7` backend 全量（明确排除 3 项） | 0 | 3058 passed / 32 skipped / 3 deselected | 当前 HEAD 的仓库级非排除回归 | 本地 / 2026-07-24 |
+| 3 个 fixed-base 排除项单独复现 | expected 1 | 3 failed | RAG mock 仍指向旧 constructor；FastAPI route 项无 `.path` | 本地 / 2026-07-24 |
+| 排除项路径 fixed base→implementation diff | 0 | `BASELINE_EXCLUSION_PATHS_UNCHANGED` | `case_archive.py`、`knowledge_rag.py` 及两个失败测试均非 W05 diff | 本地 / 2026-07-24 |
+| authority v2 exact implementation 复验 | 0 | 27 passed；check valid；W05 `GO` | 当前执行包唯一授权 | 本地 / 2026-07-24 |
+| backend/root harness doctors | 0 | 均 0 errors / 0 warnings | 后端与三层项目边界 | 本地 / 2026-07-24 |
+| Alembic graph | 0 | 单 head `022_shiguan_memorial_identity` | 018→019→020→021→022 连续链 | 本地 / 2026-07-24 |
+| fixed base→implementation Python Ruff | 0 | All checks passed | 明确忽略 legacy `E402,E731,I001,F601,B009,F541`；W05 新增 import 已单独修正 | 本地 / 2026-07-24 |
+| fixed base→implementation `git diff --check` | 0 | clean | 60 files / 32 commits / binary diff SHA-256 `b357feec…fa22` | 本地 / 2026-07-24 |
 
 ## 结果
 
@@ -99,7 +112,12 @@ SwarmRun/SwarmQualityResult，并追加 current FinalMemorial v2。独立预审�
 
 ## 未验证项
 
-- 全量 W05 回归、独立代码审查与最终候选验证；推送/合并/发布未获批准。
+- 独立 Claude Code/gstack 修复后复审尚未运行；本窗口按 Owner 停止线只交付
+  `REVIEW_READY` 候选，不自行审查或合并。
+- 完整 backend 零排除仍有 3 个 fixed-base 既有测试失败；相关产品/测试路径不在 W05 diff，
+  未获批准在本包顺便修复。
+- 前端仍未传精确 FinalMemorial hash；前端、W06–W09、LangGraph、真实客户数据、推送、
+  合并、发布和生产切换均未获批准。
 
 ## Diff 与回滚复核
 
@@ -122,8 +140,9 @@ SwarmRun/SwarmQualityResult，并追加 current FinalMemorial v2。独立预审�
 | W03 accepted artifact 形成可信 generation-bound packet | bind/retry RED 与 77 passed / 1 skipped | PASS |
 | current generation 局部重算且 old generation fenced | worker/fencing RED 与 72 passed / 1 skipped | PASS |
 | W05 审查修复实现 | 4G.1–4M 聚焦回归 | PASS |
-| W05 最终候选 | 全量回归 + 修复后独立复审 + verification-loop | PENDING |
+| W05 review-ready 候选 | exact-HEAD 定向/全量/authority/doctor/Ruff | PASS_WITH_3_BASELINE_EXCLUSIONS |
+| W05 独立复审 | Claude Code/gstack read-only review | PENDING |
 
 ## 声明状态
 
-- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / REMEDIATION_GREEN`
+- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL / REVIEW_CANDIDATE_EVIDENCE_COMPLETE`
