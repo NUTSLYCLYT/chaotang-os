@@ -221,7 +221,7 @@ def store_artifact_bytes(
                         dst_dir_fd=tenant_fd,
                         follow_symlinks=False,
                     )
-                except FileExistsError:
+                except FileExistsError as exc:
                     if _read_existing(tenant_fd, final_path.name, content):
                         return _stored_artifact(
                             tenant_fd,
@@ -232,7 +232,7 @@ def store_artifact_bytes(
                         )
                     raise DeliveryIntegrityError(
                         "stored artifact disappeared before verification"
-                    )
+                    ) from exc
                 except OSError as exc:
                     raise DeliveryIntegrityError("stored artifact could not be linked") from exc
 
