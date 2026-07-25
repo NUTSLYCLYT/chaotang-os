@@ -16,18 +16,57 @@ def _temporary_files(root: Path) -> list[Path]:
     return list(root.rglob("*.tmp"))
 
 
-def test_store_rejects_artifact_path_that_escapes_root(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("artifact_id", "expected_exception"),
+    [
+        ("../outside", ValueError),
+        ("", ValueError),
+        ("nested\\artifact", ValueError),
+        (None, TypeError),
+    ],
+)
+def test_store_rejects_invalid_artifact_identifier(
+    tmp_path: Path, artifact_id: object, expected_exception: type[Exception]
+) -> None:
     root = tmp_path / "storage"
+    before = set(tmp_path.iterdir())
 
-    with pytest.raises(ValueError, match="escape"):
+    with pytest.raises(expected_exception):
         store_artifact_bytes(
             root,
             tenant_id=7,
-            artifact_id="../outside",
+            artifact_id=artifact_id,
             content=b"contents",
         )
 
-    assert not (tmp_path / "outside").exists()
+    assert set(tmp_path.iterdir()) == before
+
+
+@pytest.mark.parametrize(
+    ("tenant_id", "expected_exception"),
+    [
+        ("../outside", TypeError),
+        ("1", TypeError),
+        (0, ValueError),
+        (-1, ValueError),
+        (True, TypeError),
+    ],
+)
+def test_store_rejects_invalid_tenant_before_creating_storage(
+    tmp_path: Path, tenant_id: object, expected_exception: type[Exception]
+) -> None:
+    root = tmp_path / "storage"
+    before = set(tmp_path.iterdir())
+
+    with pytest.raises(expected_exception):
+        store_artifact_bytes(
+            root,
+            tenant_id=tenant_id,
+            artifact_id="artifact",
+            content=b"contents",
+        )
+
+    assert set(tmp_path.iterdir()) == before
 
 
 def test_store_rejects_tenant_directory_swapped_to_external_symlink(

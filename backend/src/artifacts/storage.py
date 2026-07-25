@@ -32,9 +32,13 @@ def _file_open_flags() -> int:
 
 
 def _artifact_filename(artifact_id: str) -> str:
+    if type(artifact_id) is not str:
+        raise TypeError("artifact_id must be a non-empty string")
     candidate = Path(artifact_id)
     if (
         artifact_id in {"", ".", ".."}
+        or "/" in artifact_id
+        or "\\" in artifact_id
         or candidate.is_absolute()
         or candidate.name != artifact_id
     ):
@@ -42,9 +46,17 @@ def _artifact_filename(artifact_id: str) -> str:
     return artifact_id
 
 
+def _tenant_name(tenant_id: int) -> str:
+    if type(tenant_id) is not int:
+        raise TypeError("tenant_id must be an int")
+    if tenant_id <= 0:
+        raise ValueError("tenant_id must be positive")
+    return str(tenant_id)
+
+
 def _artifact_path(root: Path, *, tenant_id: int, artifact_id: str) -> Path:
     """Build an identifier path without opening or resolving it."""
-    return root / str(tenant_id) / _artifact_filename(artifact_id)
+    return root / _tenant_name(tenant_id) / _artifact_filename(artifact_id)
 
 
 def _open_root(root: Path, *, create: bool) -> int:
@@ -159,10 +171,10 @@ def store_artifact_bytes(
     content: bytes,
 ) -> StoredArtifact:
     """Persist bytes once and fail closed if the artifact identity conflicts."""
+    tenant_name = _tenant_name(tenant_id)
     content_hash = hashlib.sha256(content).hexdigest()
     byte_size = len(content)
     final_path = _artifact_path(root, tenant_id=tenant_id, artifact_id=artifact_id)
-    tenant_name = str(tenant_id)
     root_fd = _open_root(root, create=True)
     try:
         tenant_fd = _open_tenant(root_fd, tenant_name, create=True)
