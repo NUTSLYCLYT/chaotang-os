@@ -336,12 +336,23 @@ def test_partial_packet_resumes_only_pdf_without_rewriting_prior_revision(
         .filter_by(manifest_id=resumed.manifest.manifest_id)
         .all()
     }
+    assert set(revision_two_items) == {"PDF"}
     assert revision_two_items["PDF"].retry_count == 1
-    assert revision_two_items["DOCX"].retry_count == 0
-    assert revision_two_items["JSON"].retry_count == 0
+    assert db.query(ArtifactDeliveryItem).count() == 4
     for kind in ("DOCX", "JSON"):
         old_bytes, old_mtime, old_path = stored_snapshots[kind]
-        assert revision_two_items[kind].storage_path == old_path
+        prior_row = revision_one_items[kind]
+        reused_item = resumed.manifest.artifact(kind)
+        assert reused_item.artifact_id == prior_row.id
+        assert reused_item.content_hash == prior_row.content_hash
+        assert (
+            db.query(ArtifactDeliveryItem)
+            .filter_by(id=reused_item.artifact_id)
+            .one()
+            .manifest_id
+            == partial.manifest.manifest_id
+        )
+        assert prior_row.storage_path == old_path
         assert Path(old_path).read_bytes() == old_bytes
         assert Path(old_path).stat().st_mtime_ns == old_mtime
     db.close()
@@ -620,6 +631,182 @@ def test_delivery_rejects_tampered_internal_source_payload(
     db.close()
 
 
+def test_create_replay_rejects_manifest_bytes_that_do_not_match_seal(
+    isolated_session_local,
+    tmp_path: Path,
+) -> None:
+    from src.artifacts.delivery import render_one_artifact
+    from src.artifacts.service import (
+        DeliveryIntegrityError,
+        deliver_artifact_packet,
+    )
+    from src.db.models import ArtifactManifest
+
+    def fail_pdf(**kwargs):
+        if kwargs["kind"] == "PDF":
+            raise RuntimeError("PDF unavailable")
+        return render_one_artifact(**kwargs)
+
+    db = isolated_session_local()
+    task_id = "task-replay-seal"
+    memorial_id = "memorial-replay-seal"
+    payload = contract_review_pack(task_id=task_id)
+    seed_delivery_source(
+        db,
+        tenant_id=7,
+        task_id=task_id,
+        final_memorial_id=memorial_id,
+        final_memorial_version=1,
+        payload=payload,
+    )
+    arguments = {
+        "storage_root": tmp_path / "artifact-storage",
+        "tenant_id": 7,
+        "task_id": task_id,
+        "final_memorial_id": memorial_id,
+        "final_memorial_version": 1,
+        "payload": payload,
+        "delivery_formula_version": "w06-v1",
+        "idempotency_key": "replay-seal-key",
+        "expires_at": datetime(2099, 7, 26, tzinfo=timezone.utc),
+        "renderer": fail_pdf,
+    }
+    packet = deliver_artifact_packet(db, **arguments)
+    row = db.query(ArtifactManifest).filter_by(
+        id=packet.manifest.manifest_id
+    ).one()
+    sealed_hash = row.content_hash
+    forged = json.loads(row.manifest_json)
+    forged["artifacts"][0]["incomplete_reason"] = "forged-unsealed-reason"
+    row.manifest_json = json.dumps(
+        forged,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    db.commit()
+    assert row.content_hash == sealed_hash
+
+    with pytest.raises(DeliveryIntegrityError, match="seal"):
+        deliver_artifact_packet(db, **arguments)
+    db.close()
+
+
+@pytest.mark.parametrize("operation", ["create_replay", "resume"])
+def test_replay_and_resume_reject_stored_paths_outside_trusted_root(
+    isolated_session_local,
+    tmp_path: Path,
+    operation: str,
+) -> None:
+    from src.artifacts.delivery import render_one_artifact
+    from src.artifacts.service import (
+        DeliveryIntegrityError,
+        deliver_artifact_packet,
+        resume_artifact_packet,
+    )
+    from src.db.models import ArtifactDeliveryItem
+
+    def fail_pdf(**kwargs):
+        if operation == "resume" and kwargs["kind"] == "PDF":
+            raise RuntimeError("PDF unavailable")
+        return render_one_artifact(**kwargs)
+
+    db = isolated_session_local()
+    storage_root = tmp_path / "trusted-storage"
+    task_id = f"task-root-guard-{operation}"
+    memorial_id = f"memorial-root-guard-{operation}"
+    payload = contract_review_pack(task_id=task_id)
+    seed_delivery_source(
+        db,
+        tenant_id=7,
+        task_id=task_id,
+        final_memorial_id=memorial_id,
+        final_memorial_version=1,
+        payload=payload,
+    )
+    arguments = {
+        "storage_root": storage_root,
+        "tenant_id": 7,
+        "task_id": task_id,
+        "final_memorial_id": memorial_id,
+        "final_memorial_version": 1,
+        "payload": payload,
+        "delivery_formula_version": "w06-v1",
+        "idempotency_key": f"root-guard-{operation}-create",
+        "expires_at": datetime(2099, 7, 26, tzinfo=timezone.utc),
+        "renderer": fail_pdf,
+    }
+    packet = deliver_artifact_packet(db, **arguments)
+    docx_row = db.query(ArtifactDeliveryItem).filter_by(
+        id=packet.manifest.artifact("DOCX").artifact_id
+    ).one()
+    outside_path = tmp_path / "outside-storage" / "7" / docx_row.id
+    outside_path.parent.mkdir(parents=True)
+    Path(docx_row.storage_path).replace(outside_path)
+    docx_row.storage_path = str(outside_path)
+    db.commit()
+
+    with pytest.raises(DeliveryIntegrityError, match="storage identity"):
+        if operation == "create_replay":
+            deliver_artifact_packet(db, **arguments)
+        else:
+            resume_artifact_packet(
+                db,
+                storage_root=storage_root,
+                tenant_id=7,
+                manifest_id=packet.manifest.manifest_id,
+                resume_token=packet.resume_token,
+                idempotency_key="root-guard-resume-key",
+            )
+    db.close()
+
+
+def test_canonical_identity_hashes_bind_tenant_and_origin_revision() -> None:
+    import inspect
+
+    from src.artifacts.service import _lineage_hash, _manifest_id
+
+    assert set(inspect.signature(_manifest_id).parameters) == {
+        "tenant_id",
+        "task_id",
+        "final_memorial_id",
+        "final_memorial_version",
+        "delivery_formula_version",
+        "delivery_revision",
+    }
+    assert "delivery_revision" in inspect.signature(_lineage_hash).parameters
+    assert "tenant_id" in inspect.signature(_lineage_hash).parameters
+    manifest_arguments = {
+        "tenant_id": 7,
+        "task_id": "task-canonical-identity",
+        "final_memorial_id": "memorial-canonical-identity",
+        "final_memorial_version": 3,
+        "delivery_formula_version": "w06-v1",
+    }
+    revision_one = _manifest_id(**manifest_arguments, delivery_revision=1)
+    revision_two = _manifest_id(**manifest_arguments, delivery_revision=2)
+    assert revision_one != revision_two
+    assert revision_one == _manifest_id(
+        **manifest_arguments,
+        delivery_revision=1,
+    )
+
+    lineage_arguments = {
+        **manifest_arguments,
+        "delivery_revision": 1,
+        "payload_hash": "a" * 64,
+        "kind": "PDF",
+        "content_hash": "b" * 64,
+    }
+    lineage = _lineage_hash(**lineage_arguments)
+    assert lineage != _lineage_hash(
+        **{**lineage_arguments, "tenant_id": 8}
+    )
+    assert lineage != _lineage_hash(
+        **{**lineage_arguments, "delivery_revision": 2}
+    )
+
+
 @pytest.mark.parametrize("offset", [timedelta(0), timedelta(seconds=-1)])
 def test_deliver_rejects_non_future_expiry_before_render_or_storage(
     isolated_session_local,
@@ -677,6 +864,7 @@ def test_deliver_rejects_non_future_expiry_before_render_or_storage(
         ("state", "UNAVAILABLE"),
         ("content_hash", "0" * 64),
         ("byte_size", 1),
+        ("incomplete_reason", "forged-row-reason"),
     ],
 )
 def test_resume_rejects_tampered_prior_item_projection(
@@ -878,7 +1066,7 @@ def test_resume_replay_is_idempotent(
 
     assert replayed.manifest.manifest_id == first.manifest.manifest_id
     assert db.query(ArtifactManifest).count() == 2
-    assert db.query(ArtifactDeliveryItem).count() == 6
+    assert db.query(ArtifactDeliveryItem).count() == 4
     assert (
         db.query(ArtifactDeliveryAuditEvent).filter_by(outcome="SUCCESS").count()
         == success_events
@@ -1035,7 +1223,7 @@ def test_concurrent_resume_converges_without_duplicate_revision_or_items(
         )
         assert manifest_ids == [revision_two.id, revision_two.id]
         assert db.query(ArtifactManifest).count() == 2
-        assert db.query(ArtifactDeliveryItem).count() == 6
+        assert db.query(ArtifactDeliveryItem).count() == 4
         assert (
             db.query(ArtifactDeliveryAuditEvent)
             .filter_by(manifest_id=revision_two.id, outcome="SUCCESS")

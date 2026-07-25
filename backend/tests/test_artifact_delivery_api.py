@@ -262,6 +262,7 @@ def test_delivery_http_contract_create_read_download_and_resume(artifact_api) ->
     )
     assert partial_read.status_code == 200
     partial_items = partial_read.json()["artifacts"]
+    partial_by_kind = {item["kind"]: item for item in partial_items}
     assert "download_url" not in next(
         item for item in partial_items if item["kind"] == "PDF"
     )
@@ -288,6 +289,36 @@ def test_delivery_http_contract_create_read_download_and_resume(artifact_api) ->
         item["download_url"]
         for item in resumed_json["manifest"]["artifacts"]
     )
+    resumed_by_kind = {
+        item["kind"]: item
+        for item in resumed_json["manifest"]["artifacts"]
+    }
+    from src.db.models import ArtifactDeliveryItem
+
+    identity_db = session_factory()
+    try:
+        for kind in ("DOCX", "JSON"):
+            assert (
+                resumed_by_kind[kind]["artifact_id"]
+                == partial_by_kind[kind]["artifact_id"]
+            )
+            assert (
+                resumed_by_kind[kind]["content_hash"]
+                == partial_by_kind[kind]["content_hash"]
+            )
+            assert (
+                resumed_by_kind[kind]["download_url"]
+                == partial_by_kind[kind]["download_url"]
+            )
+            assert (
+                identity_db.query(ArtifactDeliveryItem)
+                .filter_by(id=resumed_by_kind[kind]["artifact_id"])
+                .count()
+                == 1
+            )
+            assert client.get(resumed_by_kind[kind]["download_url"]).status_code == 200
+    finally:
+        identity_db.close()
 
 
 def test_cross_tenant_and_unknown_delivery_resources_are_404(artifact_api) -> None:
@@ -708,6 +739,60 @@ def test_coordinated_manifest_item_and_file_forgery_is_rejected(
         failure_count,
         success_count,
     ) == (409, 409, 1, 0)
+
+
+def test_manifest_read_rejects_mutable_incomplete_reason_mismatch(
+    artifact_api,
+) -> None:
+    from src.artifacts.delivery import render_one_artifact
+    from src.artifacts.service import deliver_artifact_packet
+    from src.db.models import ArtifactDeliveryItem
+
+    client, session_factory, storage_root = artifact_api
+    task_id = "task-api-reason-mismatch"
+    memorial_id = "memorial-api-reason-mismatch"
+    payload = _contract_review_pack(task_id=task_id)
+
+    def fail_pdf(**kwargs):
+        if kwargs["kind"] == "PDF":
+            raise RuntimeError("expected PDF failure")
+        return render_one_artifact(**kwargs)
+
+    db = session_factory()
+    try:
+        seed_delivery_source(
+            db,
+            tenant_id=7,
+            task_id=task_id,
+            final_memorial_id=memorial_id,
+            final_memorial_version=1,
+            payload=payload,
+        )
+        packet = deliver_artifact_packet(
+            db,
+            storage_root=storage_root,
+            tenant_id=7,
+            task_id=task_id,
+            final_memorial_id=memorial_id,
+            final_memorial_version=1,
+            payload=payload,
+            delivery_formula_version="w06-v1",
+            idempotency_key="api-reason-mismatch-key",
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            renderer=fail_pdf,
+        )
+        item = db.query(ArtifactDeliveryItem).filter_by(
+            id=packet.manifest.artifact("PDF").artifact_id
+        ).one()
+        item.incomplete_reason = "forged-row-reason"
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.get(
+        f"/api/artifacts/manifests/{packet.manifest.manifest_id}"
+    )
+    assert response.status_code == 409
 
 
 @pytest.mark.parametrize("corruption", ["malformed_json", "schema_invalid"])

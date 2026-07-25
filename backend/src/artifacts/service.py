@@ -95,6 +95,7 @@ _MIME_TYPES = {
 
 @dataclass(frozen=True)
 class _DeliveryDraft:
+    artifact_id: str
     kind: str
     mime_type: str
     status: str
@@ -220,21 +221,62 @@ def _resolve_delivery_source(
     return source_pack.model_dump(mode="json")
 
 
-def _manifest_id(*, tenant_id: int, idempotency_key_hash: str) -> str:
-    identity = _sha256_text(f"{tenant_id}|{idempotency_key_hash}")[:24]
-    return f"manifest_{identity}"
-
-
-def _artifact_id(*, manifest_id: str, kind: str) -> str:
-    return f"{manifest_id}_{kind.lower()}"
-
-
-def _lineage_hash(
+def _manifest_id(
     *,
+    tenant_id: int,
     task_id: str,
     final_memorial_id: str,
     final_memorial_version: int,
     delivery_formula_version: str,
+    delivery_revision: int,
+) -> str:
+    identity = _sha256_text(
+        json.dumps(
+            {
+                "delivery_formula_version": delivery_formula_version,
+                "delivery_revision": delivery_revision,
+                "final_memorial_id": final_memorial_id,
+                "final_memorial_version": final_memorial_version,
+                "task_id": task_id,
+                "tenant_id": tenant_id,
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+    )[:24]
+    return f"manifest_{identity}"
+
+
+def _artifact_id(
+    *,
+    origin_manifest_id: str,
+    kind: str,
+    lineage_hash: str,
+    content_hash: str,
+) -> str:
+    identity = _sha256_text(
+        json.dumps(
+            {
+                "content_hash": content_hash,
+                "kind": kind,
+                "lineage_hash": lineage_hash,
+                "origin_manifest_id": origin_manifest_id,
+            },
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+    )[:24]
+    return f"artifact_{identity}"
+
+
+def _lineage_hash(
+    *,
+    tenant_id: int,
+    task_id: str,
+    final_memorial_id: str,
+    final_memorial_version: int,
+    delivery_formula_version: str,
+    delivery_revision: int,
     payload_hash: str,
     kind: str,
     content_hash: str,
@@ -243,16 +285,53 @@ def _lineage_hash(
         {
             "content_hash": content_hash,
             "delivery_formula_version": delivery_formula_version,
+            "delivery_revision": delivery_revision,
             "final_memorial_id": final_memorial_id,
             "final_memorial_version": final_memorial_version,
             "kind": kind,
             "payload_hash": payload_hash,
             "task_id": task_id,
+            "tenant_id": tenant_id,
         },
         separators=(",", ":"),
         sort_keys=True,
     )
     return _sha256_text(identity)
+
+
+def _draft_artifact_identity(
+    *,
+    tenant_id: int,
+    manifest_id: str,
+    task_id: str,
+    final_memorial_id: str,
+    final_memorial_version: int,
+    delivery_formula_version: str,
+    delivery_revision: int,
+    payload_hash: str,
+    kind: str,
+    content_hash: str,
+) -> tuple[str, str]:
+    lineage_hash = _lineage_hash(
+        tenant_id=tenant_id,
+        task_id=task_id,
+        final_memorial_id=final_memorial_id,
+        final_memorial_version=final_memorial_version,
+        delivery_formula_version=delivery_formula_version,
+        delivery_revision=delivery_revision,
+        payload_hash=payload_hash,
+        kind=kind,
+        content_hash=content_hash,
+    )
+    return (
+        _artifact_id(
+            origin_manifest_id=manifest_id,
+            kind=kind,
+            lineage_hash=lineage_hash,
+            content_hash=content_hash,
+        ),
+        lineage_hash,
+    )
 
 
 def _utc_iso(value: datetime) -> str:
@@ -277,6 +356,7 @@ def _attempt_artifact(
     final_memorial_id: str,
     final_memorial_version: int,
     delivery_formula_version: str,
+    delivery_revision: int,
     payload: dict[str, Any],
     payload_hash: str,
     kind: str,
@@ -301,22 +381,27 @@ def _attempt_artifact(
         ):
             raise ValueError("renderer returned inconsistent artifact metadata")
     except Exception:
+        artifact_id, lineage_hash = _draft_artifact_identity(
+            tenant_id=tenant_id,
+            manifest_id=manifest_id,
+            task_id=task_id,
+            final_memorial_id=final_memorial_id,
+            final_memorial_version=final_memorial_version,
+            delivery_formula_version=delivery_formula_version,
+            delivery_revision=delivery_revision,
+            payload_hash=payload_hash,
+            kind=kind,
+            content_hash=_EMPTY_CONTENT_HASH,
+        )
         return _DeliveryDraft(
+            artifact_id=artifact_id,
             kind=kind,
             mime_type=_MIME_TYPES[kind],
             status="UNAVAILABLE",
             storage_path=None,
             content_hash=_EMPTY_CONTENT_HASH,
             byte_size=0,
-            lineage_hash=_lineage_hash(
-                task_id=task_id,
-                final_memorial_id=final_memorial_id,
-                final_memorial_version=final_memorial_version,
-                delivery_formula_version=delivery_formula_version,
-                payload_hash=payload_hash,
-                kind=kind,
-                content_hash=_EMPTY_CONTENT_HASH,
-            ),
+            lineage_hash=lineage_hash,
             incomplete_reason="renderer_failed",
             retry_count=retry_count,
             audit_events=(
@@ -332,11 +417,23 @@ def _attempt_artifact(
             ),
         )
 
+    artifact_id, lineage_hash = _draft_artifact_identity(
+        tenant_id=tenant_id,
+        manifest_id=manifest_id,
+        task_id=task_id,
+        final_memorial_id=final_memorial_id,
+        final_memorial_version=final_memorial_version,
+        delivery_formula_version=delivery_formula_version,
+        delivery_revision=delivery_revision,
+        payload_hash=payload_hash,
+        kind=kind,
+        content_hash=rendered.content_hash,
+    )
     try:
         stored = store_artifact_bytes(
             storage_root,
             tenant_id=tenant_id,
-            artifact_id=_artifact_id(manifest_id=manifest_id, kind=kind),
+            artifact_id=artifact_id,
             content=rendered.content,
         )
         read_verified_artifact(
@@ -345,22 +442,27 @@ def _attempt_artifact(
             expected_size=stored.byte_size,
         )
     except Exception:
+        failed_artifact_id, failed_lineage_hash = _draft_artifact_identity(
+            tenant_id=tenant_id,
+            manifest_id=manifest_id,
+            task_id=task_id,
+            final_memorial_id=final_memorial_id,
+            final_memorial_version=final_memorial_version,
+            delivery_formula_version=delivery_formula_version,
+            delivery_revision=delivery_revision,
+            payload_hash=payload_hash,
+            kind=kind,
+            content_hash=_EMPTY_CONTENT_HASH,
+        )
         return _DeliveryDraft(
+            artifact_id=failed_artifact_id,
             kind=kind,
             mime_type=rendered.mime_type,
             status="UNAVAILABLE",
             storage_path=None,
             content_hash=_EMPTY_CONTENT_HASH,
             byte_size=0,
-            lineage_hash=_lineage_hash(
-                task_id=task_id,
-                final_memorial_id=final_memorial_id,
-                final_memorial_version=final_memorial_version,
-                delivery_formula_version=delivery_formula_version,
-                payload_hash=payload_hash,
-                kind=kind,
-                content_hash=_EMPTY_CONTENT_HASH,
-            ),
+            lineage_hash=failed_lineage_hash,
             incomplete_reason="storage_failed",
             retry_count=retry_count,
             audit_events=(
@@ -382,21 +484,14 @@ def _attempt_artifact(
         )
 
     return _DeliveryDraft(
+        artifact_id=artifact_id,
         kind=kind,
         mime_type=rendered.mime_type,
         status="STORED",
         storage_path=str(stored.path),
         content_hash=stored.content_hash,
         byte_size=stored.byte_size,
-        lineage_hash=_lineage_hash(
-            task_id=task_id,
-            final_memorial_id=final_memorial_id,
-            final_memorial_version=final_memorial_version,
-            delivery_formula_version=delivery_formula_version,
-            payload_hash=payload_hash,
-            kind=kind,
-            content_hash=stored.content_hash,
-        ),
+        lineage_hash=lineage_hash,
         incomplete_reason=None,
         retry_count=retry_count,
         audit_events=(
@@ -422,6 +517,45 @@ def _find_idempotency_winner(
     )
 
 
+def _verify_persisted_manifest(
+    row: ArtifactManifest,
+) -> ArtifactManifestV1:
+    from src.contracts.artifact_manifest import (
+        ArtifactManifestV1,
+        canonical_manifest_hash,
+    )
+
+    try:
+        manifest = ArtifactManifestV1.model_validate_json(row.manifest_json)
+    except (TypeError, ValueError) as exc:
+        raise DeliveryIntegrityError(
+            "persisted manifest contract is invalid"
+        ) from exc
+
+    sealed_hash = canonical_manifest_hash(manifest)
+    if (
+        not isinstance(row.content_hash, str)
+        or not hmac.compare_digest(sealed_hash, row.content_hash)
+    ):
+        raise DeliveryIntegrityError("persisted manifest hash does not match seal")
+    if (
+        manifest.manifest_id != row.id
+        or manifest.tenant_id != row.tenant_id
+        or manifest.task_id != row.task_id
+        or manifest.final_memorial_id != row.final_memorial_id
+        or manifest.final_memorial_version != row.final_memorial_version
+        or manifest.delivery_formula_version != row.delivery_formula_version
+        or manifest.delivery_revision != row.delivery_revision
+        or manifest.idempotency_key_hash != row.idempotency_key_hash
+        or manifest.payload_hash != row.payload_hash
+        or manifest.overall_status != row.overall_status
+    ):
+        raise DeliveryIntegrityError(
+            "persisted manifest sealed fields do not match row"
+        )
+    return manifest
+
+
 def _assert_replay_request(
     row: ArtifactManifest,
     *,
@@ -433,10 +567,8 @@ def _assert_replay_request(
     payload_hash: str,
     source_payload_json: str,
     expires_at: datetime,
-) -> None:
-    from src.contracts.artifact_manifest import ArtifactManifestV1
-
-    manifest = ArtifactManifestV1.model_validate_json(row.manifest_json)
+) -> ArtifactManifestV1:
+    manifest = _verify_persisted_manifest(row)
     persisted_payload = _validate_source_payload_json(
         row.source_payload_json,
         expected_hash=manifest.payload_hash,
@@ -454,42 +586,38 @@ def _assert_replay_request(
         raise DeliveryConflict(
             "delivery idempotency key was reused with a different request"
         )
+    return manifest
 
 
 def _replay_packet(
     db,
     *,
+    storage_root: Path,
     row: ArtifactManifest,
+    manifest: ArtifactManifestV1 | None = None,
 ) -> DeliveryPacket:
     from src.artifacts.storage import read_verified_artifact
-    from src.contracts.artifact_manifest import ArtifactManifestV1
 
-    manifest = ArtifactManifestV1.model_validate_json(row.manifest_json)
+    manifest = manifest or _verify_persisted_manifest(row)
     _validate_source_payload_json(
         row.source_payload_json,
         expected_hash=manifest.payload_hash,
     )
-    item_rows = (
-        db.query(ArtifactDeliveryItem)
-        .filter_by(tenant_id=row.tenant_id, manifest_id=row.id)
-        .all()
+    item_rows = _delivery_item_rows(
+        db,
+        manifest=manifest,
     )
-    by_kind = {item.kind: item for item in item_rows}
-    if set(by_kind) != set(_DELIVERY_KINDS) or len(item_rows) != len(_DELIVERY_KINDS):
-        raise DeliveryIntegrityError("idempotent delivery items are incomplete")
     for manifest_item in manifest.artifacts:
-        item_row = by_kind[manifest_item.kind]
-        _assert_item_projection(
-            item_row,
-            manifest_item=manifest_item,
-            tenant_id=manifest.tenant_id,
-            manifest_id=manifest.manifest_id,
-        )
+        item_row = item_rows[manifest_item.kind]
         if manifest_item.status == "STORED":
-            if item_row.storage_path is None:
-                raise DeliveryIntegrityError("stored delivery item has no path")
+            stored_path = _delivery_storage_path(
+                storage_root=storage_root,
+                tenant_id=manifest.tenant_id,
+                artifact_id=item_row.id,
+                storage_path=item_row.storage_path,
+            )
             read_verified_artifact(
-                Path(item_row.storage_path),
+                stored_path,
                 expected_hash=item_row.content_hash,
                 expected_size=item_row.byte_size,
             )
@@ -503,26 +631,91 @@ def _assert_item_projection(
     *,
     manifest_item,
     tenant_id: int,
-    manifest_id: str,
 ) -> None:
     if (
         item_row.id != manifest_item.artifact_id
         or item_row.tenant_id != tenant_id
-        or item_row.manifest_id != manifest_id
         or item_row.kind != manifest_item.kind
         or item_row.mime_type != manifest_item.mime_type
         or item_row.state != manifest_item.status
         or item_row.content_hash != manifest_item.content_hash
         or item_row.byte_size != manifest_item.byte_size
+        or item_row.incomplete_reason != manifest_item.incomplete_reason
     ):
         raise DeliveryIntegrityError(
             "delivery item projection does not match immutable manifest"
         )
 
 
+def _assert_item_origin(
+    db,
+    *,
+    item_row: ArtifactDeliveryItem,
+    manifest_item,
+    tenant_id: int,
+) -> None:
+    origin_row = (
+        db.query(ArtifactManifest)
+        .filter_by(id=item_row.manifest_id, tenant_id=tenant_id)
+        .one_or_none()
+    )
+    if origin_row is None:
+        raise DeliveryIntegrityError("delivery artifact origin manifest is missing")
+    origin_manifest = _verify_persisted_manifest(origin_row)
+    try:
+        origin_item = origin_manifest.artifact(manifest_item.kind)
+    except ValueError as exc:
+        raise DeliveryIntegrityError(
+            "delivery artifact origin membership is invalid"
+        ) from exc
+    if origin_item != manifest_item:
+        raise DeliveryIntegrityError(
+            "delivery artifact does not match its sealed origin"
+        )
+
+
+def _delivery_item_rows(
+    db,
+    *,
+    manifest: ArtifactManifestV1,
+) -> dict[str, ArtifactDeliveryItem]:
+    artifact_ids = [item.artifact_id for item in manifest.artifacts]
+    if len(set(artifact_ids)) != len(_DELIVERY_KINDS):
+        raise DeliveryIntegrityError("delivery manifest artifact ids are not unique")
+    rows = (
+        db.query(ArtifactDeliveryItem)
+        .filter(
+            ArtifactDeliveryItem.tenant_id == manifest.tenant_id,
+            ArtifactDeliveryItem.id.in_(artifact_ids),
+        )
+        .all()
+    )
+    by_id = {row.id: row for row in rows}
+    if set(by_id) != set(artifact_ids) or len(rows) != len(_DELIVERY_KINDS):
+        raise DeliveryIntegrityError("delivery manifest items are incomplete")
+
+    by_kind: dict[str, ArtifactDeliveryItem] = {}
+    for manifest_item in manifest.artifacts:
+        row = by_id[manifest_item.artifact_id]
+        _assert_item_projection(
+            row,
+            manifest_item=manifest_item,
+            tenant_id=manifest.tenant_id,
+        )
+        _assert_item_origin(
+            db,
+            item_row=row,
+            manifest_item=manifest_item,
+            tenant_id=manifest.tenant_id,
+        )
+        by_kind[manifest_item.kind] = row
+    return by_kind
+
+
 def _persist_delivery_packet(
     db,
     *,
+    storage_root: Path,
     tenant_id: int,
     manifest_id: str,
     task_id: str,
@@ -554,7 +747,7 @@ def _persist_delivery_packet(
     )
     manifest_items = [
         ArtifactManifestItemV1(
-            artifact_id=_artifact_id(manifest_id=manifest_id, kind=draft.kind),
+            artifact_id=draft.artifact_id,
             kind=draft.kind,
             mime_type=draft.mime_type,
             byte_size=draft.byte_size,
@@ -590,17 +783,41 @@ def _persist_delivery_packet(
     )
     if manifest_row.id != manifest.manifest_id:
         raise DeliveryConflict("delivery idempotency winner identity mismatch")
-    existing_items = (
+    artifact_ids = [item.artifact_id for item in manifest.artifacts]
+    existing_rows = (
         db.query(ArtifactDeliveryItem)
-        .filter_by(tenant_id=tenant_id, manifest_id=manifest.manifest_id)
-        .count()
+        .filter(
+            ArtifactDeliveryItem.tenant_id == tenant_id,
+            ArtifactDeliveryItem.id.in_(artifact_ids),
+        )
+        .all()
     )
-    if existing_items:
-        return _replay_packet(db, row=manifest_row)
+    existing_by_id = {row.id: row for row in existing_rows}
+    if set(existing_by_id) == set(artifact_ids):
+        return _replay_packet(
+            db,
+            storage_root=storage_root,
+            row=manifest_row,
+            manifest=manifest,
+        )
 
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     expiry_text = _utc_iso(expires_at)
     for draft, manifest_item in zip(drafts, manifest.artifacts, strict=True):
+        existing = existing_by_id.get(manifest_item.artifact_id)
+        if existing is not None:
+            _assert_item_projection(
+                existing,
+                manifest_item=manifest_item,
+                tenant_id=tenant_id,
+            )
+            _assert_item_origin(
+                db,
+                item_row=existing,
+                manifest_item=manifest_item,
+                tenant_id=tenant_id,
+            )
+            continue
         db.add(
             ArtifactDeliveryItem(
                 id=manifest_item.artifact_id,
@@ -687,7 +904,7 @@ def _deliver_artifact_packet(
         idempotency_key_hash=idempotency_key_hash,
     )
     if winner is not None:
-        _assert_replay_request(
+        manifest = _assert_replay_request(
             winner,
             task_id=task_id,
             final_memorial_id=final_memorial_id,
@@ -698,10 +915,19 @@ def _deliver_artifact_packet(
             source_payload_json=source_payload_json,
             expires_at=expires_at,
         )
-        return _replay_packet(db, row=winner)
+        return _replay_packet(
+            db,
+            storage_root=storage_root,
+            row=winner,
+            manifest=manifest,
+        )
     manifest_id = _manifest_id(
         tenant_id=tenant_id,
-        idempotency_key_hash=idempotency_key_hash,
+        task_id=task_id,
+        final_memorial_id=final_memorial_id,
+        final_memorial_version=final_memorial_version,
+        delivery_formula_version=delivery_formula_version,
+        delivery_revision=1,
     )
     drafts = [
         _attempt_artifact(
@@ -712,6 +938,7 @@ def _deliver_artifact_packet(
             final_memorial_id=final_memorial_id,
             final_memorial_version=final_memorial_version,
             delivery_formula_version=delivery_formula_version,
+            delivery_revision=1,
             payload=payload,
             payload_hash=payload_hash,
             kind=kind,
@@ -727,6 +954,7 @@ def _deliver_artifact_packet(
     )
     return _persist_delivery_packet(
         db,
+        storage_root=storage_root,
         tenant_id=tenant_id,
         manifest_id=manifest_id,
         task_id=task_id,
@@ -785,44 +1013,43 @@ def _resume_artifact_packet(
     )
     source_payload_json = _canonical_source_payload_json(payload)
 
-    rows = (
-        db.query(ArtifactDeliveryItem)
-        .filter_by(tenant_id=tenant_id, manifest_id=manifest_id)
-        .all()
+    prior_rows = _delivery_item_rows(
+        db,
+        manifest=prior_manifest,
     )
-    prior_rows = {row.kind: row for row in rows}
-    if set(prior_rows) != set(_DELIVERY_KINDS):
-        raise DeliveryIntegrityError("delivery manifest items are incomplete")
-    for kind in _DELIVERY_KINDS:
-        _assert_item_projection(
-            prior_rows[kind],
-            manifest_item=prior_manifest.artifact(kind),
-            tenant_id=tenant_id,
-            manifest_id=manifest_id,
-        )
 
     idempotency_key_hash = _sha256_text(idempotency_key)
+    next_revision = prior_manifest.delivery_revision + 1
     winner = _find_idempotency_winner(
         db,
         tenant_id=tenant_id,
         idempotency_key_hash=idempotency_key_hash,
     )
     if winner is not None:
-        _assert_replay_request(
+        manifest = _assert_replay_request(
             winner,
             task_id=prior_manifest.task_id,
             final_memorial_id=prior_manifest.final_memorial_id,
             final_memorial_version=prior_manifest.final_memorial_version,
             delivery_formula_version=prior_manifest.delivery_formula_version,
-            delivery_revision=prior_manifest.delivery_revision + 1,
+            delivery_revision=next_revision,
             payload_hash=prior_manifest.payload_hash,
             source_payload_json=source_payload_json,
             expires_at=prior_manifest.resume_token_expires_at,
         )
-        return _replay_packet(db, row=winner)
+        return _replay_packet(
+            db,
+            storage_root=storage_root,
+            row=winner,
+            manifest=manifest,
+        )
     next_manifest_id = _manifest_id(
         tenant_id=tenant_id,
-        idempotency_key_hash=idempotency_key_hash,
+        task_id=prior_manifest.task_id,
+        final_memorial_id=prior_manifest.final_memorial_id,
+        final_memorial_version=prior_manifest.final_memorial_version,
+        delivery_formula_version=prior_manifest.delivery_formula_version,
+        delivery_revision=next_revision,
     )
     drafts: list[_DeliveryDraft] = []
     for kind in _DELIVERY_KINDS:
@@ -838,6 +1065,7 @@ def _resume_artifact_packet(
                     final_memorial_id=prior_manifest.final_memorial_id,
                     final_memorial_version=prior_manifest.final_memorial_version,
                     delivery_formula_version=prior_manifest.delivery_formula_version,
+                    delivery_revision=next_revision,
                     payload=payload,
                     payload_hash=prior_manifest.payload_hash,
                     kind=kind,
@@ -848,13 +1076,20 @@ def _resume_artifact_packet(
             continue
         if prior_row.state != "STORED" or prior_row.storage_path is None:
             raise DeliveryIntegrityError("delivery item state is not resumable")
+        stored_path = _delivery_storage_path(
+            storage_root=storage_root,
+            tenant_id=tenant_id,
+            artifact_id=prior_row.id,
+            storage_path=prior_row.storage_path,
+        )
         read_verified_artifact(
-            Path(prior_row.storage_path),
+            stored_path,
             expected_hash=prior_row.content_hash,
             expected_size=prior_row.byte_size,
         )
         drafts.append(
             _DeliveryDraft(
+                artifact_id=prior_item.artifact_id,
                 kind=kind,
                 mime_type=prior_row.mime_type,
                 status="STORED",
@@ -878,13 +1113,14 @@ def _resume_artifact_packet(
     )
     return _persist_delivery_packet(
         db,
+        storage_root=storage_root,
         tenant_id=tenant_id,
         manifest_id=next_manifest_id,
         task_id=prior_manifest.task_id,
         final_memorial_id=prior_manifest.final_memorial_id,
         final_memorial_version=prior_manifest.final_memorial_version,
         delivery_formula_version=prior_manifest.delivery_formula_version,
-        delivery_revision=prior_manifest.delivery_revision + 1,
+        delivery_revision=next_revision,
         idempotency_key_hash=idempotency_key_hash,
         payload_hash=prior_manifest.payload_hash,
         source_payload_json=source_payload_json,
@@ -978,6 +1214,7 @@ def _assert_idempotent_replay(
     manifest_json: str,
     source_payload_json: str | None,
 ) -> None:
+    _verify_persisted_manifest(row)
     if (
         row.payload_hash != manifest.payload_hash
         or row.manifest_json != manifest_json
@@ -1125,7 +1362,7 @@ def persist_delivery_manifest(
     return row
 
 
-def append_delivery_audit_event(
+def _append_delivery_audit_row(
     db,
     *,
     tenant_id: int,
@@ -1135,24 +1372,6 @@ def append_delivery_audit_event(
     outcome: str,
     detail: dict,
 ) -> ArtifactDeliveryAuditEvent:
-    """Append tenant-authorized delivery evidence without mutating prior events."""
-    manifest = (
-        db.query(ArtifactManifest).filter_by(id=manifest_id).one_or_none()
-    )
-    if manifest is None:
-        raise DeliveryNotFound("delivery manifest not found")
-    if manifest.tenant_id != tenant_id:
-        raise DeliveryForbidden("delivery manifest tenant mismatch")
-
-    if artifact_id is not None:
-        artifact = (
-            db.query(ArtifactDeliveryItem).filter_by(id=artifact_id).one_or_none()
-        )
-        if artifact is None:
-            raise DeliveryNotFound("delivery artifact not found")
-        if artifact.tenant_id != tenant_id or artifact.manifest_id != manifest_id:
-            raise DeliveryForbidden("delivery artifact tenant or manifest mismatch")
-
     row = ArtifactDeliveryAuditEvent(
         id="delivery_audit_" + uuid.uuid4().hex,
         tenant_id=tenant_id,
@@ -1171,6 +1390,67 @@ def append_delivery_audit_event(
     db.add(row)
     db.flush()
     return row
+
+
+def append_delivery_audit_event(
+    db,
+    *,
+    tenant_id: int,
+    manifest_id: str,
+    artifact_id: str | None,
+    event_type: str,
+    outcome: str,
+    detail: dict,
+) -> ArtifactDeliveryAuditEvent:
+    """Append tenant-authorized delivery evidence without mutating prior events."""
+    manifest_row = (
+        db.query(ArtifactManifest).filter_by(id=manifest_id).one_or_none()
+    )
+    if manifest_row is None:
+        raise DeliveryNotFound("delivery manifest not found")
+    if manifest_row.tenant_id != tenant_id:
+        raise DeliveryForbidden("delivery manifest tenant mismatch")
+    manifest = _verify_persisted_manifest(manifest_row)
+
+    if artifact_id is not None:
+        artifact = (
+            db.query(ArtifactDeliveryItem).filter_by(id=artifact_id).one_or_none()
+        )
+        if artifact is None:
+            raise DeliveryNotFound("delivery artifact not found")
+        if artifact.tenant_id != tenant_id:
+            raise DeliveryForbidden("delivery artifact tenant mismatch")
+        manifest_item = next(
+            (
+                item
+                for item in manifest.artifacts
+                if item.artifact_id == artifact_id
+            ),
+            None,
+        )
+        if manifest_item is None:
+            raise DeliveryForbidden("delivery artifact manifest mismatch")
+        _assert_item_projection(
+            artifact,
+            manifest_item=manifest_item,
+            tenant_id=tenant_id,
+        )
+        _assert_item_origin(
+            db,
+            item_row=artifact,
+            manifest_item=manifest_item,
+            tenant_id=tenant_id,
+        )
+
+    return _append_delivery_audit_row(
+        db,
+        tenant_id=tenant_id,
+        manifest_id=manifest_id,
+        artifact_id=artifact_id,
+        event_type=event_type,
+        outcome=outcome,
+        detail=detail,
+    )
 
 
 def persist_manifest(
@@ -1254,45 +1534,12 @@ def persist_manifest(
 
 
 def get_manifest_for_tenant(db, *, manifest_id: str, tenant_id: int):
-    from src.contracts.artifact_manifest import (
-        ArtifactManifestV1,
-        canonical_manifest_hash,
-    )
-
     row = db.query(ArtifactManifest).filter_by(id=manifest_id).one_or_none()
     if row is None:
         raise DeliveryNotFound("manifest not found")
     if row.tenant_id != tenant_id:
         raise DeliveryForbidden("manifest tenant mismatch")
-    try:
-        manifest = ArtifactManifestV1.model_validate_json(row.manifest_json)
-    except (TypeError, ValueError) as exc:
-        raise DeliveryIntegrityError(
-            "persisted manifest contract is invalid"
-        ) from exc
-
-    sealed_hash = canonical_manifest_hash(manifest)
-    if (
-        not isinstance(row.content_hash, str)
-        or not hmac.compare_digest(sealed_hash, row.content_hash)
-    ):
-        raise DeliveryIntegrityError("persisted manifest hash does not match seal")
-    if (
-        manifest.manifest_id != row.id
-        or manifest.tenant_id != row.tenant_id
-        or manifest.task_id != row.task_id
-        or manifest.final_memorial_id != row.final_memorial_id
-        or manifest.final_memorial_version != row.final_memorial_version
-        or manifest.delivery_formula_version != row.delivery_formula_version
-        or manifest.delivery_revision != row.delivery_revision
-        or manifest.idempotency_key_hash != row.idempotency_key_hash
-        or manifest.payload_hash != row.payload_hash
-        or manifest.overall_status != row.overall_status
-    ):
-        raise DeliveryIntegrityError(
-            "persisted manifest sealed fields do not match row"
-        )
-    return manifest
+    return _verify_persisted_manifest(row)
 
 
 def _parse_delivery_expiry(value: str | None) -> datetime | None:
@@ -1313,12 +1560,14 @@ def _delivery_storage_path(
     *,
     storage_root: Path,
     tenant_id: int,
+    artifact_id: str,
     storage_path: str | None,
 ) -> Path:
     if storage_path is None:
         raise DeliveryIntegrityError("stored delivery artifact has no path")
     path = Path(storage_path)
-    if path.parent != storage_root / str(tenant_id):
+    expected_path = storage_root / str(tenant_id) / artifact_id
+    if path != expected_path:
         raise DeliveryIntegrityError(
             "delivery artifact path does not match storage identity"
         )
@@ -1340,25 +1589,15 @@ def get_delivery_manifest_for_tenant(
         manifest_id=manifest_id,
         tenant_id=tenant_id,
     )
-    rows = (
-        db.query(ArtifactDeliveryItem)
-        .filter_by(manifest_id=manifest_id)
-        .all()
+    by_kind = _delivery_item_rows(
+        db,
+        manifest=manifest,
     )
-    by_kind = {row.kind: row for row in rows}
-    if len(rows) != len(_DELIVERY_KINDS) or set(by_kind) != set(_DELIVERY_KINDS):
-        raise DeliveryIntegrityError("delivery manifest items are incomplete")
 
     now = datetime.now(timezone.utc)
     items: list[DeliveryItemAccess] = []
     for manifest_item in manifest.artifacts:
         row = by_kind[manifest_item.kind]
-        _assert_item_projection(
-            row,
-            manifest_item=manifest_item,
-            tenant_id=tenant_id,
-            manifest_id=manifest_id,
-        )
         expires_at = _parse_delivery_expiry(row.expires_at)
         if expires_at != manifest_item.expires_at:
             raise DeliveryIntegrityError(
@@ -1374,6 +1613,7 @@ def get_delivery_manifest_for_tenant(
                 stored_path = _delivery_storage_path(
                     storage_root=storage_root,
                     tenant_id=tenant_id,
+                    artifact_id=row.id,
                     storage_path=row.storage_path,
                 )
                 read_verified_artifact(
@@ -1450,6 +1690,7 @@ def read_verified_delivery_artifact(
         stored_path = _delivery_storage_path(
             storage_root=storage_root,
             tenant_id=tenant_id,
+            artifact_id=item.id,
             storage_path=item.storage_path,
         )
         content = read_verified_artifact(
@@ -1499,15 +1740,44 @@ def _commit_download_audit(
     reason: str,
 ) -> None:
     try:
-        append_delivery_audit_event(
-            db,
-            tenant_id=tenant_id,
-            manifest_id=manifest_id,
-            artifact_id=artifact_id,
-            event_type="artifact.download",
-            outcome=outcome,
-            detail={"reason": reason},
-        )
+        if outcome == "FAILURE":
+            item = (
+                db.query(ArtifactDeliveryItem)
+                .filter_by(
+                    id=artifact_id,
+                    tenant_id=tenant_id,
+                    manifest_id=manifest_id,
+                )
+                .one_or_none()
+            )
+            manifest = (
+                db.query(ArtifactManifest)
+                .filter_by(id=manifest_id, tenant_id=tenant_id)
+                .one_or_none()
+            )
+            if item is None or manifest is None:
+                raise DeliveryIntegrityError(
+                    "failed download audit identity is invalid"
+                )
+            _append_delivery_audit_row(
+                db,
+                tenant_id=tenant_id,
+                manifest_id=manifest_id,
+                artifact_id=artifact_id,
+                event_type="artifact.download",
+                outcome=outcome,
+                detail={"reason": reason},
+            )
+        else:
+            append_delivery_audit_event(
+                db,
+                tenant_id=tenant_id,
+                manifest_id=manifest_id,
+                artifact_id=artifact_id,
+                event_type="artifact.download",
+                outcome=outcome,
+                detail={"reason": reason},
+            )
         db.commit()
     except Exception as exc:
         db.rollback()
