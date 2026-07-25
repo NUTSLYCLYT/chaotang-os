@@ -47,6 +47,7 @@ def upgrade() -> None:
         sa.Column("content_hash", sa.Text(), nullable=False),
         sa.Column("byte_size", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("incomplete_reason", sa.Text(), nullable=True),
+        sa.Column("last_failure", sa.Text(), nullable=True),
         sa.Column("retry_count", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("resume_token_hash", sa.Text(), nullable=True),
         sa.Column("expires_at", sa.Text(), nullable=True),

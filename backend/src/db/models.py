@@ -476,6 +476,7 @@ class ArtifactDeliveryItem(Base):
     content_hash: Mapped[str] = mapped_column(sa.Text, nullable=False)
     byte_size: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
     incomplete_reason: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    last_failure: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     retry_count: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
     resume_token_hash: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     expires_at: Mapped[str | None] = mapped_column(sa.Text, nullable=True)

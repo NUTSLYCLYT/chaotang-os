@@ -119,6 +119,10 @@ def test_upgrade_creates_delivery_state_schema(tmp_path: Path, monkeypatch) -> N
         manifest_columns = {
             column["name"] for column in inspector.get_columns("artifact_manifests")
         }
+        item_columns = {
+            column["name"]
+            for column in inspector.get_columns("artifact_delivery_items")
+        }
         with engine.connect() as connection:
             head = connection.execute(
                 text("SELECT version_num FROM alembic_version")
@@ -136,6 +140,7 @@ def test_upgrade_creates_delivery_state_schema(tmp_path: Path, monkeypatch) -> N
         assert "source_payload_json" not in ArtifactManifestV1.model_fields
         assert "artifact_delivery_items" in table_names
         assert "artifact_delivery_audit_events" in table_names
+        assert "last_failure" in item_columns
         assert (
             "tenant_id",
             "idempotency_key_hash",

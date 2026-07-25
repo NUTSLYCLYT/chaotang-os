@@ -187,7 +187,7 @@ def test_partial_packet_resumes_only_pdf_without_rewriting_prior_revision(
 ) -> None:
     from src.artifacts.delivery import render_one_artifact
     from src.artifacts.service import (
-        DeliveryForbidden,
+        DeliveryConflict,
         deliver_artifact_packet,
     )
     from src.db.models import (
@@ -299,7 +299,7 @@ def test_partial_packet_resumes_only_pdf_without_rewriting_prior_revision(
 
     from src.artifacts.service import resume_artifact_packet
 
-    with pytest.raises(DeliveryForbidden):
+    with pytest.raises(DeliveryConflict):
         resume_artifact_packet(
             db,
             storage_root=storage_root,
@@ -366,7 +366,7 @@ def test_resume_rejects_expired_token(
     from src.artifacts import service
     from src.artifacts.delivery import render_one_artifact
     from src.artifacts.service import (
-        DeliveryExpired,
+        DeliveryConflict,
         deliver_artifact_packet,
         resume_artifact_packet,
     )
@@ -406,7 +406,7 @@ def test_resume_rejects_expired_token(
             return datetime(2100, 1, 1, tzinfo=timezone.utc)
 
     monkeypatch.setattr(service, "datetime", ExpiredClock)
-    with pytest.raises(DeliveryExpired):
+    with pytest.raises(DeliveryConflict):
         resume_artifact_packet(
             db,
             storage_root=tmp_path / "artifact-storage",

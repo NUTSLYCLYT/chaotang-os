@@ -37,7 +37,7 @@ class CreateDeliveryRequest(BaseModel):
     contract_review_pack: ContractReviewPackV1
     delivery_formula_version: str = Field(min_length=1)
     idempotency_key: str = Field(min_length=1)
-    expiry_seconds: int = Field(gt=0)
+    expiry_seconds: int = Field(gt=0, le=86400)
 
     @model_validator(mode="after")
     def review_pack_matches_task(self) -> "CreateDeliveryRequest":

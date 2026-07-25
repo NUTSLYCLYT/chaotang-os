@@ -353,6 +353,137 @@ def test_cross_tenant_and_unknown_delivery_resources_are_404(artifact_api) -> No
     assert client.get("/api/artifacts/unknown/download").status_code == 404
 
 
+@pytest.mark.parametrize("token_case", ["wrong", "expired"])
+def test_invalid_and_expired_resume_tokens_are_409(
+    artifact_api,
+    token_case: str,
+) -> None:
+    from src.artifacts.delivery import render_one_artifact
+    from src.artifacts.service import deliver_artifact_packet
+    from src.contracts.artifact_manifest import (
+        ArtifactManifestV1,
+        canonical_manifest_hash,
+    )
+    from src.db.models import ArtifactManifest
+
+    client, session_factory, storage_root = artifact_api
+    db = session_factory()
+
+    def fail_pdf(**kwargs):
+        if kwargs["kind"] == "PDF":
+            raise RuntimeError("expected resume status failure")
+        return render_one_artifact(**kwargs)
+
+    try:
+        task_id = f"task-api-resume-{token_case}"
+        memorial_id = f"memorial-api-resume-{token_case}"
+        payload = _contract_review_pack(task_id=task_id)
+        seed_delivery_source(
+            db,
+            tenant_id=7,
+            task_id=task_id,
+            final_memorial_id=memorial_id,
+            final_memorial_version=1,
+            payload=payload,
+        )
+        packet = deliver_artifact_packet(
+            db,
+            storage_root=storage_root,
+            tenant_id=7,
+            task_id=task_id,
+            final_memorial_id=memorial_id,
+            final_memorial_version=1,
+            payload=payload,
+            delivery_formula_version="w06-v1",
+            idempotency_key=f"resume-{token_case}-create",
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            renderer=fail_pdf,
+        )
+        if token_case == "expired":
+            row = db.query(ArtifactManifest).filter_by(
+                id=packet.manifest.manifest_id
+            ).one()
+            sealed = json.loads(row.manifest_json)
+            sealed["resume_token_expires_at"] = (
+                datetime.now(timezone.utc) - timedelta(seconds=1)
+            ).isoformat()
+            validated = ArtifactManifestV1.model_validate(sealed)
+            row.manifest_json = json.dumps(
+                validated.model_dump(mode="json", exclude_none=True),
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            row.content_hash = canonical_manifest_hash(validated)
+            db.commit()
+    finally:
+        db.close()
+
+    response = client.post(
+        f"/api/artifacts/manifests/{packet.manifest.manifest_id}/resume",
+        json={
+            "resume_token": (
+                "wrong-resume-token"
+                if token_case == "wrong"
+                else packet.resume_token
+            ),
+            "idempotency_key": f"resume-{token_case}-retry",
+        },
+    )
+
+    assert response.status_code == 409
+
+
+@pytest.mark.parametrize("target_case", ["cross_tenant", "unknown"])
+def test_unauthorized_and_unknown_downloads_append_generic_requester_audit(
+    artifact_api,
+    target_case: str,
+) -> None:
+    from src.db.models import ArtifactDeliveryAuditEvent
+
+    client, session_factory, _ = artifact_api
+    manifest = _create_ready_delivery(
+        client,
+        session_factory,
+        suffix=f"generic-audit-{target_case}",
+    )
+    owner_artifact_id = manifest["artifacts"][0]["artifact_id"]
+    attempted_id = (
+        owner_artifact_id
+        if target_case == "cross_tenant"
+        else "unknown-artifact-attempt"
+    )
+    _set_api_user(tenant_id=99, tenant_slug="tenant-99")
+
+    response = client.get(f"/api/artifacts/{attempted_id}/download")
+
+    assert response.status_code == 404
+    db = session_factory()
+    try:
+        events = (
+            db.query(ArtifactDeliveryAuditEvent)
+            .filter_by(
+                tenant_id=99,
+                event_type="artifact.download",
+                outcome="FAILURE",
+            )
+            .all()
+        )
+        assert len(events) == 1
+        event = events[0]
+        assert event.artifact_id is None
+        assert json.loads(event.detail_json) == {
+            "reason": "not_found_or_forbidden"
+        }
+        evidence = "|".join(
+            (event.manifest_id, event.artifact_id or "", event.detail_json)
+        )
+        assert attempted_id not in evidence
+        assert manifest["manifest_id"] not in evidence
+    finally:
+        db.close()
+
+
 def test_missing_tenant_is_403(artifact_api) -> None:
     client, _, _ = artifact_api
     _set_api_user(tenant_id=None)
@@ -372,7 +503,11 @@ def test_expired_artifact_has_no_url_and_download_is_410(artifact_api) -> None:
         ArtifactManifestV1,
         canonical_manifest_hash,
     )
-    from src.db.models import ArtifactDeliveryItem, ArtifactManifest
+    from src.db.models import (
+        ArtifactDeliveryAuditEvent,
+        ArtifactDeliveryItem,
+        ArtifactManifest,
+    )
 
     client, session_factory, _ = artifact_api
     manifest = _create_ready_delivery(client, session_factory, suffix="expired")
@@ -400,6 +535,8 @@ def test_expired_artifact_has_no_url_and_download_is_410(artifact_api) -> None:
         ):
             item_row.expires_at = expired_at.isoformat()
         db.commit()
+        sealed_manifest_json = row.manifest_json
+        sealed_manifest_hash = row.content_hash
     finally:
         db.close()
 
@@ -413,6 +550,60 @@ def test_expired_artifact_has_no_url_and_download_is_410(artifact_api) -> None:
     artifact_id = manifest["artifacts"][0]["artifact_id"]
     expired_download = client.get(f"/api/artifacts/{artifact_id}/download")
     assert expired_download.status_code == 410
+
+    state_db = session_factory()
+    try:
+        item_row = state_db.query(ArtifactDeliveryItem).filter_by(
+            id=artifact_id
+        ).one()
+        manifest_row = state_db.query(ArtifactManifest).filter_by(
+            id=manifest["manifest_id"]
+        ).one()
+        events = (
+            state_db.query(ArtifactDeliveryAuditEvent)
+            .filter_by(
+                artifact_id=artifact_id,
+                event_type="artifact.download",
+                outcome="FAILURE",
+            )
+            .all()
+        )
+        assert item_row.state == "EXPIRED"
+        assert item_row.last_failure == "expired"
+        assert manifest_row.manifest_json == sealed_manifest_json
+        assert manifest_row.content_hash == sealed_manifest_hash
+        assert len(events) == 1
+        assert json.loads(events[0].detail_json) == {"reason": "expired"}
+    finally:
+        state_db.close()
+
+    expired_read = client.get(
+        f"/api/artifacts/manifests/{manifest['manifest_id']}"
+    )
+    assert expired_read.status_code == 200
+    projected = next(
+        item
+        for item in expired_read.json()["artifacts"]
+        if item["artifact_id"] == artifact_id
+    )
+    assert projected["status"] == "EXPIRED"
+    assert "download_url" not in projected
+
+    assert client.get(f"/api/artifacts/{artifact_id}/download").status_code == 410
+    audit_db = session_factory()
+    try:
+        assert (
+            audit_db.query(ArtifactDeliveryAuditEvent)
+            .filter_by(
+                artifact_id=artifact_id,
+                event_type="artifact.download",
+                outcome="FAILURE",
+            )
+            .count()
+            == 2
+        )
+    finally:
+        audit_db.close()
 
 
 def test_corrupt_download_is_409_and_failure_audit_is_durable(
@@ -540,6 +731,23 @@ def test_delivery_request_validation_and_conflict_mapping(artifact_api) -> None:
     conflicting = dict(body)
     conflicting["delivery_formula_version"] = "w06-v2"
     assert client.post("/api/artifacts/deliveries", json=conflicting).status_code == 409
+
+
+@pytest.mark.parametrize("expiry_seconds", [0, 86401, 10**100])
+def test_delivery_expiry_seconds_outside_one_day_is_422(
+    artifact_api,
+    expiry_seconds: int,
+) -> None:
+    client, _, _ = artifact_api
+    body = _create_request(
+        task_id=f"task-api-expiry-bound-{expiry_seconds}",
+        idempotency_key=f"expiry-bound-{expiry_seconds}",
+    )
+    body["expiry_seconds"] = expiry_seconds
+
+    response = client.post("/api/artifacts/deliveries", json=body)
+
+    assert response.status_code == 422
 
 
 @pytest.mark.parametrize(

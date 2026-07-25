@@ -91,6 +91,7 @@ _MIME_TYPES = {
     "DOCX": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "JSON": "application/json",
 }
+_UNRESOLVED_DOWNLOAD_MANIFEST_ID = "unresolved-download"
 
 
 @dataclass(frozen=True)
@@ -632,12 +633,15 @@ def _assert_item_projection(
     manifest_item,
     tenant_id: int,
 ) -> None:
+    state_matches_seal = item_row.state == manifest_item.status or (
+        item_row.state == "EXPIRED" and manifest_item.status == "STORED"
+    )
     if (
         item_row.id != manifest_item.artifact_id
         or item_row.tenant_id != tenant_id
         or item_row.kind != manifest_item.kind
         or item_row.mime_type != manifest_item.mime_type
-        or item_row.state != manifest_item.status
+        or not state_matches_seal
         or item_row.content_hash != manifest_item.content_hash
         or item_row.byte_size != manifest_item.byte_size
         or item_row.incomplete_reason != manifest_item.incomplete_reason
@@ -830,6 +834,7 @@ def _persist_delivery_packet(
                 content_hash=manifest_item.content_hash,
                 byte_size=manifest_item.byte_size,
                 incomplete_reason=draft.incomplete_reason,
+                last_failure=draft.incomplete_reason,
                 retry_count=draft.retry_count,
                 resume_token_hash=(
                     resume_token_hash if draft.status == "UNAVAILABLE" else None
@@ -997,9 +1002,9 @@ def _resume_artifact_packet(
         raise DeliveryConflict("delivery manifest is not resumable")
     supplied_hash = _sha256_text(resume_token)
     if not hmac.compare_digest(supplied_hash, prior_manifest.resume_token_hash):
-        raise DeliveryForbidden("delivery resume token mismatch")
+        raise DeliveryConflict("delivery resume token mismatch")
     if prior_manifest.resume_token_expires_at <= datetime.now(timezone.utc):
-        raise DeliveryExpired("delivery resume token expired")
+        raise DeliveryConflict("delivery resume token expired")
     prior_manifest_row = (
         db.query(ArtifactManifest)
         .filter_by(id=manifest_id, tenant_id=tenant_id)
@@ -1658,8 +1663,10 @@ def read_verified_delivery_artifact(
         .one_or_none()
     )
     if item is None:
+        _commit_unresolved_download_audit(db, tenant_id=tenant_id)
         raise DeliveryNotFound("delivery artifact not found")
     if item.tenant_id != tenant_id:
+        _commit_unresolved_download_audit(db, tenant_id=tenant_id)
         raise DeliveryForbidden("delivery artifact tenant mismatch")
 
     try:
@@ -1681,11 +1688,14 @@ def read_verified_delivery_artifact(
             raise DeliveryIntegrityError(
                 "delivery artifact is not a member of its manifest"
             )
+        if selected.status == "EXPIRED":
+            raise DeliveryExpired("delivery artifact has expired")
         if selected.status != "STORED":
             raise DeliveryConflict("delivery artifact is not stored")
         if selected.expires_at is None:
             raise DeliveryIntegrityError("delivery artifact expiry is missing")
         if selected.expires_at <= datetime.now(timezone.utc):
+            item.state = "EXPIRED"
             raise DeliveryExpired("delivery artifact has expired")
         stored_path = _delivery_storage_path(
             storage_root=storage_root,
@@ -1699,19 +1709,22 @@ def read_verified_delivery_artifact(
             expected_size=selected.byte_size,
         )
     except (DeliveryConflict, DeliveryExpired, DeliveryIntegrityError) as exc:
+        reason = (
+            "expired"
+            if isinstance(exc, DeliveryExpired)
+            else "conflict"
+            if isinstance(exc, DeliveryConflict)
+            else "integrity_error"
+        )
+        item.last_failure = reason
+        item.updated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
         _commit_download_audit(
             db,
             tenant_id=tenant_id,
             manifest_id=item.manifest_id,
             artifact_id=artifact_id,
             outcome="FAILURE",
-            reason=(
-                "expired"
-                if isinstance(exc, DeliveryExpired)
-                else "conflict"
-                if isinstance(exc, DeliveryConflict)
-                else "integrity_error"
-            ),
+            reason=reason,
         )
         raise
 
@@ -1728,6 +1741,25 @@ def read_verified_delivery_artifact(
         reason="verified",
     )
     return verified
+
+
+def _commit_unresolved_download_audit(db, *, tenant_id: int) -> None:
+    try:
+        _append_delivery_audit_row(
+            db,
+            tenant_id=tenant_id,
+            manifest_id=_UNRESOLVED_DOWNLOAD_MANIFEST_ID,
+            artifact_id=None,
+            event_type="artifact.download",
+            outcome="FAILURE",
+            detail={"reason": "not_found_or_forbidden"},
+        )
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise DeliveryIntegrityError(
+            "artifact download audit could not be committed"
+        ) from exc
 
 
 def _commit_download_audit(
