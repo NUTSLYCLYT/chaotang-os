@@ -17,6 +17,7 @@ def upgrade() -> None:
         batch.add_column(sa.Column("delivery_revision", sa.Integer(), nullable=True))
         batch.add_column(sa.Column("idempotency_key_hash", sa.Text(), nullable=True))
         batch.add_column(sa.Column("payload_hash", sa.Text(), nullable=True))
+        batch.add_column(sa.Column("source_payload_json", sa.Text(), nullable=True))
         batch.drop_constraint("uq_artifact_manifest_lineage", type_="unique")
         batch.create_unique_constraint(
             "uq_artifact_manifest_lineage",
@@ -90,6 +91,21 @@ def upgrade() -> None:
 
 def _preflight_downgrade() -> None:
     bind = op.get_bind()
+    source_payload_count = bind.execute(
+        sa.text(
+            """
+            SELECT COUNT(*)
+            FROM artifact_manifests
+            WHERE source_payload_json IS NOT NULL
+            """
+        )
+    ).scalar_one()
+    if source_payload_count:
+        raise RuntimeError(
+            "refusing downgrade 025 to 024: internal source payload facts "
+            f"would be deleted (artifact_manifests={source_payload_count})"
+        )
+
     duplicate_lineage = bind.execute(
         sa.text(
             """
@@ -150,6 +166,7 @@ def downgrade() -> None:
             type_="unique",
         )
         batch.drop_constraint("uq_artifact_manifest_lineage", type_="unique")
+        batch.drop_column("source_payload_json")
         batch.drop_column("payload_hash")
         batch.drop_column("idempotency_key_hash")
         batch.drop_column("delivery_revision")

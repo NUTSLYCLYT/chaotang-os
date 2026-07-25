@@ -6,7 +6,7 @@ import hashlib
 import json
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import Barrier
 
@@ -255,7 +255,9 @@ def test_partial_packet_resumes_only_pdf_without_rewriting_prior_revision(
 def test_resume_rejects_expired_token(
     isolated_session_local,
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from src.artifacts import service
     from src.artifacts.delivery import render_one_artifact
     from src.artifacts.service import (
         DeliveryExpired,
@@ -279,10 +281,16 @@ def test_resume_rejects_expired_token(
         payload={"title": "过期交付"},
         delivery_formula_version="w06-v1",
         idempotency_key="expired-create-key",
-        expires_at=datetime(2000, 1, 1, tzinfo=timezone.utc),
+        expires_at=datetime(2099, 1, 1, tzinfo=timezone.utc),
         renderer=fail_pdf,
     )
 
+    class ExpiredClock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2100, 1, 1, tzinfo=timezone.utc)
+
+    monkeypatch.setattr(service, "datetime", ExpiredClock)
     with pytest.raises(DeliveryExpired):
         resume_artifact_packet(
             db,
@@ -296,16 +304,20 @@ def test_resume_rejects_expired_token(
 
 
 def test_delivery_with_all_formats_failed_records_audit_and_raises(
-    isolated_session_local,
     tmp_path: Path,
 ) -> None:
     from src.artifacts.service import DeliveryError, deliver_artifact_packet
-    from src.db.models import ArtifactDeliveryAuditEvent, ArtifactManifest
+    from src.db.models import (
+        ArtifactDeliveryAuditEvent,
+        ArtifactDeliveryItem,
+        ArtifactManifest,
+    )
 
     def fail_every_kind(**kwargs):
         raise RuntimeError(f"failure at {tmp_path}/private/{kwargs['kind']}")
 
-    db = isolated_session_local()
+    factory, engine = _file_session_factory(tmp_path / "all-failed.db")
+    db = factory()
     with pytest.raises(DeliveryError):
         deliver_artifact_packet(
             db,
@@ -320,15 +332,276 @@ def test_delivery_with_all_formats_failed_records_audit_and_raises(
             expires_at=datetime(2099, 7, 26, tzinfo=timezone.utc),
             renderer=fail_every_kind,
         )
+    db.close()
 
-    assert db.query(ArtifactManifest).filter_by(overall_status="PARTIAL").count() == 0
-    failed = (
-        db.query(ArtifactDeliveryAuditEvent)
-        .filter_by(event_type="delivery.failed", outcome="FAILURE")
+    observed = factory()
+    try:
+        failed_manifest = observed.query(ArtifactManifest).one()
+        assert failed_manifest.overall_status == "UNDER_REVIEW"
+        assert failed_manifest.source_payload_json == '{"title":"全部失败"}'
+        failed_items = observed.query(ArtifactDeliveryItem).all()
+        assert len(failed_items) == 3
+        assert {item.state for item in failed_items} == {"UNAVAILABLE"}
+        assert {item.incomplete_reason for item in failed_items} == {
+            "renderer_failed"
+        }
+        failed = (
+            observed.query(ArtifactDeliveryAuditEvent)
+            .filter_by(event_type="delivery.failed", outcome="FAILURE")
+            .one()
+        )
+        assert str(tmp_path) not in failed.detail_json
+        assert len(failed.detail_json) <= 200
+    finally:
+        observed.close()
+        engine.dispose()
+
+
+def test_json_unavailable_resumes_from_internal_source_payload_only(
+    isolated_session_local,
+    tmp_path: Path,
+) -> None:
+    from src.artifacts.delivery import render_one_artifact
+    from src.artifacts.service import (
+        deliver_artifact_packet,
+        resume_artifact_packet,
+    )
+    from src.db.models import ArtifactManifest
+
+    payload = {
+        "title": "内部恢复源",
+        "summary": "JSON 输出不可作为恢复输入",
+        "nested": {"b": 2, "a": 1},
+    }
+
+    def fail_json(**kwargs):
+        if kwargs["kind"] == "JSON":
+            raise RuntimeError("JSON renderer unavailable")
+        return render_one_artifact(**kwargs)
+
+    db = isolated_session_local()
+    partial = deliver_artifact_packet(
+        db,
+        storage_root=tmp_path / "artifact-storage",
+        tenant_id=7,
+        task_id="task-json-partial",
+        final_memorial_id="memorial-json-partial",
+        final_memorial_version=1,
+        payload=payload,
+        delivery_formula_version="w06-v1",
+        idempotency_key="json-partial-key",
+        expires_at=datetime(2099, 7, 26, tzinfo=timezone.utc),
+        renderer=fail_json,
+    )
+
+    source_payload_json = json.dumps(
+        payload,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    partial_manifest_id = partial.manifest.manifest_id
+    resume_token = partial.resume_token
+    db.close()
+
+    db = isolated_session_local()
+    row = db.query(ArtifactManifest).filter_by(id=partial_manifest_id).one()
+    assert row.source_payload_json == source_payload_json
+    assert hashlib.sha256(source_payload_json.encode()).hexdigest() == row.payload_hash
+    assert "source_payload_json" not in partial.manifest.model_dump()
+
+    attempted_kinds: list[str] = []
+
+    def track_real_renderer(**kwargs):
+        attempted_kinds.append(kwargs["kind"])
+        return render_one_artifact(**kwargs)
+
+    resumed = resume_artifact_packet(
+        db,
+        storage_root=tmp_path / "artifact-storage",
+        tenant_id=7,
+        manifest_id=partial_manifest_id,
+        resume_token=resume_token,
+        idempotency_key="json-resume-key",
+        renderer=track_real_renderer,
+    )
+
+    assert resumed.manifest.overall_status == "READY"
+    assert attempted_kinds == ["JSON"]
+    db.close()
+
+
+@pytest.mark.parametrize("operation", ["create_replay", "resume"])
+def test_delivery_rejects_tampered_internal_source_payload(
+    isolated_session_local,
+    tmp_path: Path,
+    operation: str,
+) -> None:
+    from src.artifacts.delivery import render_one_artifact
+    from src.artifacts.service import (
+        DeliveryIntegrityError,
+        deliver_artifact_packet,
+        resume_artifact_packet,
+    )
+    from src.db.models import ArtifactManifest
+
+    def fail_pdf(**kwargs):
+        if kwargs["kind"] == "PDF":
+            raise RuntimeError("PDF unavailable")
+        return render_one_artifact(**kwargs)
+
+    db = isolated_session_local()
+    storage_root = tmp_path / "artifact-storage"
+    arguments = {
+        "storage_root": storage_root,
+        "tenant_id": 7,
+        "task_id": f"task-source-tamper-{operation}",
+        "final_memorial_id": f"memorial-source-tamper-{operation}",
+        "final_memorial_version": 1,
+        "payload": {"title": "可信恢复源"},
+        "delivery_formula_version": "w06-v1",
+        "idempotency_key": f"source-create-{operation}",
+        "expires_at": datetime(2099, 7, 26, tzinfo=timezone.utc),
+        "renderer": fail_pdf,
+    }
+    partial = deliver_artifact_packet(db, **arguments)
+    row = db.query(ArtifactManifest).filter_by(id=partial.manifest.manifest_id).one()
+    row.source_payload_json = '{"title":"tampered"}'
+    db.commit()
+
+    with pytest.raises(DeliveryIntegrityError):
+        if operation == "create_replay":
+            deliver_artifact_packet(db, **arguments)
+        else:
+            resume_artifact_packet(
+                db,
+                storage_root=storage_root,
+                tenant_id=7,
+                manifest_id=partial.manifest.manifest_id,
+                resume_token=partial.resume_token,
+                idempotency_key="source-resume-tampered",
+            )
+    db.close()
+
+
+@pytest.mark.parametrize("offset", [timedelta(0), timedelta(seconds=-1)])
+def test_deliver_rejects_non_future_expiry_before_render_or_storage(
+    isolated_session_local,
+    tmp_path: Path,
+    offset: timedelta,
+) -> None:
+    from src.artifacts.delivery import render_one_artifact
+    from src.artifacts.service import DeliveryExpired, deliver_artifact_packet
+    from src.db.models import ArtifactManifest
+
+    attempts: list[str] = []
+
+    def track_real_renderer(**kwargs):
+        attempts.append(kwargs["kind"])
+        return render_one_artifact(**kwargs)
+
+    db = isolated_session_local()
+    storage_root = tmp_path / "artifact-storage"
+    with pytest.raises(DeliveryExpired):
+        deliver_artifact_packet(
+            db,
+            storage_root=storage_root,
+            tenant_id=7,
+            task_id="task-expiry-preflight",
+            final_memorial_id="memorial-expiry-preflight",
+            final_memorial_version=1,
+            payload={"title": "过期请求"},
+            delivery_formula_version="w06-v1",
+            idempotency_key=f"expiry-preflight-{offset.total_seconds()}",
+            expires_at=datetime.now(timezone.utc) + offset,
+            renderer=track_real_renderer,
+        )
+
+    assert attempts == []
+    assert not storage_root.exists()
+    assert db.query(ArtifactManifest).count() == 0
+    db.close()
+
+
+@pytest.mark.parametrize(
+    ("field", "tampered_value"),
+    [
+        ("id", "tampered-artifact-id"),
+        ("kind", "TXT"),
+        ("mime_type", "application/json"),
+        ("state", "UNAVAILABLE"),
+        ("content_hash", "0" * 64),
+        ("byte_size", 1),
+    ],
+)
+def test_resume_rejects_tampered_prior_item_projection(
+    isolated_session_local,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    tampered_value,
+) -> None:
+    from src.artifacts import storage
+    from src.artifacts.delivery import render_one_artifact
+    from src.artifacts.service import (
+        DeliveryIntegrityError,
+        deliver_artifact_packet,
+        resume_artifact_packet,
+    )
+    from src.db.models import ArtifactDeliveryItem
+
+    def fail_pdf(**kwargs):
+        if kwargs["kind"] == "PDF":
+            raise RuntimeError("PDF unavailable")
+        return render_one_artifact(**kwargs)
+
+    db = isolated_session_local()
+    storage_root = tmp_path / "artifact-storage"
+    partial = deliver_artifact_packet(
+        db,
+        storage_root=storage_root,
+        tenant_id=7,
+        task_id=f"task-tamper-{field}",
+        final_memorial_id=f"memorial-tamper-{field}",
+        final_memorial_version=1,
+        payload={"title": "投影防篡改"},
+        delivery_formula_version="w06-v1",
+        idempotency_key=f"tamper-create-{field}",
+        expires_at=datetime(2099, 7, 26, tzinfo=timezone.utc),
+        renderer=fail_pdf,
+    )
+    docx_row = (
+        db.query(ArtifactDeliveryItem)
+        .filter_by(manifest_id=partial.manifest.manifest_id, kind="DOCX")
         .one()
     )
-    assert str(tmp_path) not in failed.detail_json
-    assert len(failed.detail_json) <= 200
+    target_path = Path(docx_row.storage_path)
+    setattr(docx_row, field, tampered_value)
+    db.commit()
+
+    if field in {"content_hash", "byte_size"}:
+        real_verified_read = storage.read_verified_artifact
+
+        def accept_target_row(path, *, expected_hash, expected_size):
+            if Path(path) == target_path:
+                return target_path.read_bytes()
+            return real_verified_read(
+                path,
+                expected_hash=expected_hash,
+                expected_size=expected_size,
+            )
+
+        monkeypatch.setattr(storage, "read_verified_artifact", accept_target_row)
+
+    with pytest.raises(DeliveryIntegrityError):
+        resume_artifact_packet(
+            db,
+            storage_root=storage_root,
+            tenant_id=7,
+            manifest_id=partial.manifest.manifest_id,
+            resume_token=partial.resume_token,
+            idempotency_key=f"tamper-resume-{field}",
+        )
     db.close()
 
 
@@ -475,7 +748,6 @@ def test_concurrent_create_converges_without_duplicate_items_or_success_audits(
                 idempotency_key="create-race-key",
                 expires_at=datetime(2099, 7, 26, tzinfo=timezone.utc),
             )
-            db.commit()
             return packet.manifest.manifest_id
         finally:
             db.close()
@@ -550,7 +822,6 @@ def test_concurrent_resume_converges_without_duplicate_revision_or_items(
                 resume_token=partial.resume_token,
                 idempotency_key="resume-race-key",
             )
-            db.commit()
             return packet.manifest.manifest_id
         finally:
             db.close()

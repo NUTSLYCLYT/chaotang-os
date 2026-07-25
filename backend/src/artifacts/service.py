@@ -87,14 +87,36 @@ def _sha256_text(value: str) -> str:
     return _sha256_bytes(value.encode("utf-8"))
 
 
-def _payload_hash(payload: dict[str, Any]) -> str:
-    canonical = json.dumps(
+def _canonical_source_payload_json(payload: dict[str, Any]) -> str:
+    return json.dumps(
         payload,
+        allow_nan=False,
         ensure_ascii=False,
         separators=(",", ":"),
         sort_keys=True,
     )
-    return _sha256_text(canonical)
+
+
+def _validate_source_payload_json(
+    source_payload_json: str | None,
+    *,
+    expected_hash: str,
+) -> dict[str, Any]:
+    if source_payload_json is None:
+        raise DeliveryIntegrityError("delivery source payload is missing")
+    try:
+        payload = json.loads(source_payload_json)
+    except json.JSONDecodeError as exc:
+        raise DeliveryIntegrityError("delivery source payload is invalid") from exc
+    if (
+        not isinstance(payload, dict)
+        or _canonical_source_payload_json(payload) != source_payload_json
+        or _sha256_text(source_payload_json) != expected_hash
+    ):
+        raise DeliveryIntegrityError(
+            "delivery source payload does not match payload hash"
+        )
+    return payload
 
 
 def _manifest_id(*, tenant_id: int, idempotency_key_hash: str) -> str:
@@ -136,6 +158,13 @@ def _utc_iso(value: datetime) -> str:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("expires_at must be timezone-aware")
     return value.astimezone(timezone.utc).isoformat()
+
+
+def _require_future_expiry(value: datetime) -> datetime:
+    expiry = datetime.fromisoformat(_utc_iso(value))
+    if expiry <= datetime.now(timezone.utc):
+        raise DeliveryExpired("delivery expiry must be in the future")
+    return expiry
 
 
 def _attempt_artifact(
@@ -301,11 +330,16 @@ def _assert_replay_request(
     delivery_formula_version: str,
     delivery_revision: int,
     payload_hash: str,
+    source_payload_json: str,
     expires_at: datetime,
 ) -> None:
     from src.contracts.artifact_manifest import ArtifactManifestV1
 
     manifest = ArtifactManifestV1.model_validate_json(row.manifest_json)
+    persisted_payload = _validate_source_payload_json(
+        row.source_payload_json,
+        expected_hash=manifest.payload_hash,
+    )
     if (
         row.task_id != task_id
         or row.final_memorial_id != final_memorial_id
@@ -313,6 +347,7 @@ def _assert_replay_request(
         or row.delivery_formula_version != delivery_formula_version
         or row.delivery_revision != delivery_revision
         or row.payload_hash != payload_hash
+        or _canonical_source_payload_json(persisted_payload) != source_payload_json
         or manifest.artifacts[0].expires_at != expires_at.astimezone(timezone.utc)
     ):
         raise DeliveryConflict(
@@ -329,6 +364,10 @@ def _replay_packet(
     from src.contracts.artifact_manifest import ArtifactManifestV1
 
     manifest = ArtifactManifestV1.model_validate_json(row.manifest_json)
+    _validate_source_payload_json(
+        row.source_payload_json,
+        expected_hash=manifest.payload_hash,
+    )
     item_rows = (
         db.query(ArtifactDeliveryItem)
         .filter_by(tenant_id=row.tenant_id, manifest_id=row.id)
@@ -339,16 +378,12 @@ def _replay_packet(
         raise DeliveryIntegrityError("idempotent delivery items are incomplete")
     for manifest_item in manifest.artifacts:
         item_row = by_kind[manifest_item.kind]
-        if (
-            item_row.id != manifest_item.artifact_id
-            or item_row.state != manifest_item.status
-            or item_row.mime_type != manifest_item.mime_type
-            or item_row.content_hash != manifest_item.content_hash
-            or item_row.byte_size != manifest_item.byte_size
-        ):
-            raise DeliveryIntegrityError(
-                "idempotent delivery item does not match manifest"
-            )
+        _assert_item_projection(
+            item_row,
+            manifest_item=manifest_item,
+            tenant_id=manifest.tenant_id,
+            manifest_id=manifest.manifest_id,
+        )
         if manifest_item.status == "STORED":
             if item_row.storage_path is None:
                 raise DeliveryIntegrityError("stored delivery item has no path")
@@ -360,6 +395,28 @@ def _replay_packet(
     if manifest.overall_status == "UNDER_REVIEW":
         raise DeliveryError("artifact delivery failed")
     return DeliveryPacket(manifest=manifest, resume_token=None)
+
+
+def _assert_item_projection(
+    item_row: ArtifactDeliveryItem,
+    *,
+    manifest_item,
+    tenant_id: int,
+    manifest_id: str,
+) -> None:
+    if (
+        item_row.id != manifest_item.artifact_id
+        or item_row.tenant_id != tenant_id
+        or item_row.manifest_id != manifest_id
+        or item_row.kind != manifest_item.kind
+        or item_row.mime_type != manifest_item.mime_type
+        or item_row.state != manifest_item.status
+        or item_row.content_hash != manifest_item.content_hash
+        or item_row.byte_size != manifest_item.byte_size
+    ):
+        raise DeliveryIntegrityError(
+            "delivery item projection does not match immutable manifest"
+        )
 
 
 def _persist_delivery_packet(
@@ -374,6 +431,7 @@ def _persist_delivery_packet(
     delivery_revision: int,
     idempotency_key_hash: str,
     payload_hash: str,
+    source_payload_json: str,
     expires_at: datetime,
     drafts: list[_DeliveryDraft],
     resume_token: str | None,
@@ -424,7 +482,11 @@ def _persist_delivery_packet(
             expires_at if overall_status == "PARTIAL" else None
         ),
     )
-    manifest_row = persist_delivery_manifest(db, manifest=manifest)
+    manifest_row = persist_delivery_manifest(
+        db,
+        manifest=manifest,
+        source_payload_json=source_payload_json,
+    )
     if manifest_row.id != manifest.manifest_id:
         raise DeliveryConflict("delivery idempotency winner identity mismatch")
     existing_items = (
@@ -486,11 +548,12 @@ def _persist_delivery_packet(
     )
     db.flush()
     if overall_status == "UNDER_REVIEW":
+        db.commit()
         raise DeliveryError("artifact delivery failed")
     return DeliveryPacket(manifest=manifest, resume_token=resume_token)
 
 
-def deliver_artifact_packet(
+def _deliver_artifact_packet(
     db,
     *,
     storage_root: Path,
@@ -505,8 +568,10 @@ def deliver_artifact_packet(
     renderer: ArtifactRenderer = render_one_artifact,
 ) -> DeliveryPacket:
     """Render, verify, and seal one canonical three-format delivery packet."""
+    expires_at = _require_future_expiry(expires_at)
     idempotency_key_hash = _sha256_text(idempotency_key)
-    payload_hash = _payload_hash(payload)
+    source_payload_json = _canonical_source_payload_json(payload)
+    payload_hash = _sha256_text(source_payload_json)
     winner = _find_idempotency_winner(
         db,
         tenant_id=tenant_id,
@@ -521,6 +586,7 @@ def deliver_artifact_packet(
             delivery_formula_version=delivery_formula_version,
             delivery_revision=1,
             payload_hash=payload_hash,
+            source_payload_json=source_payload_json,
             expires_at=expires_at,
         )
         return _replay_packet(db, row=winner)
@@ -561,37 +627,14 @@ def deliver_artifact_packet(
         delivery_revision=1,
         idempotency_key_hash=idempotency_key_hash,
         payload_hash=payload_hash,
+        source_payload_json=source_payload_json,
         expires_at=expires_at,
         drafts=drafts,
         resume_token=resume_token,
     )
 
 
-def _resume_payload(
-    *,
-    prior_manifest: ArtifactManifestV1,
-    prior_rows: dict[str, ArtifactDeliveryItem],
-) -> dict[str, Any]:
-    from src.artifacts.storage import read_verified_artifact
-
-    json_row = prior_rows["JSON"]
-    if json_row.state != "STORED" or json_row.storage_path is None:
-        raise DeliveryIntegrityError("stored JSON artifact is required for resume")
-    content = read_verified_artifact(
-        Path(json_row.storage_path),
-        expected_hash=json_row.content_hash,
-        expected_size=json_row.byte_size,
-    )
-    try:
-        payload = json.loads(content.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise DeliveryIntegrityError("stored JSON artifact is invalid") from exc
-    if not isinstance(payload, dict) or _payload_hash(payload) != prior_manifest.payload_hash:
-        raise DeliveryIntegrityError("stored JSON artifact payload does not match manifest")
-    return payload
-
-
-def resume_artifact_packet(
+def _resume_artifact_packet(
     db,
     *,
     storage_root: Path,
@@ -620,6 +663,18 @@ def resume_artifact_packet(
         raise DeliveryForbidden("delivery resume token mismatch")
     if prior_manifest.resume_token_expires_at <= datetime.now(timezone.utc):
         raise DeliveryExpired("delivery resume token expired")
+    prior_manifest_row = (
+        db.query(ArtifactManifest)
+        .filter_by(id=manifest_id, tenant_id=tenant_id)
+        .one_or_none()
+    )
+    if prior_manifest_row is None:
+        raise DeliveryNotFound("delivery manifest not found")
+    payload = _validate_source_payload_json(
+        prior_manifest_row.source_payload_json,
+        expected_hash=prior_manifest.payload_hash,
+    )
+    source_payload_json = _canonical_source_payload_json(payload)
 
     rows = (
         db.query(ArtifactDeliveryItem)
@@ -629,6 +684,13 @@ def resume_artifact_packet(
     prior_rows = {row.kind: row for row in rows}
     if set(prior_rows) != set(_DELIVERY_KINDS):
         raise DeliveryIntegrityError("delivery manifest items are incomplete")
+    for kind in _DELIVERY_KINDS:
+        _assert_item_projection(
+            prior_rows[kind],
+            manifest_item=prior_manifest.artifact(kind),
+            tenant_id=tenant_id,
+            manifest_id=manifest_id,
+        )
 
     idempotency_key_hash = _sha256_text(idempotency_key)
     winner = _find_idempotency_winner(
@@ -645,13 +707,10 @@ def resume_artifact_packet(
             delivery_formula_version=prior_manifest.delivery_formula_version,
             delivery_revision=prior_manifest.delivery_revision + 1,
             payload_hash=prior_manifest.payload_hash,
+            source_payload_json=source_payload_json,
             expires_at=prior_manifest.resume_token_expires_at,
         )
         return _replay_packet(db, row=winner)
-    payload = _resume_payload(
-        prior_manifest=prior_manifest,
-        prior_rows=prior_rows,
-    )
     next_manifest_id = _manifest_id(
         tenant_id=tenant_id,
         idempotency_key_hash=idempotency_key_hash,
@@ -719,10 +778,79 @@ def resume_artifact_packet(
         delivery_revision=prior_manifest.delivery_revision + 1,
         idempotency_key_hash=idempotency_key_hash,
         payload_hash=prior_manifest.payload_hash,
+        source_payload_json=source_payload_json,
         expires_at=prior_manifest.resume_token_expires_at,
         drafts=drafts,
         resume_token=next_resume_token,
     )
+
+
+def deliver_artifact_packet(
+    db,
+    *,
+    storage_root: Path,
+    tenant_id: int,
+    task_id: str,
+    final_memorial_id: str,
+    final_memorial_version: int,
+    payload: dict[str, Any],
+    delivery_formula_version: str,
+    idempotency_key: str,
+    expires_at: datetime,
+    renderer: ArtifactRenderer = render_one_artifact,
+) -> DeliveryPacket:
+    """Execute and commit one complete create-delivery command transaction."""
+    try:
+        packet = _deliver_artifact_packet(
+            db,
+            storage_root=storage_root,
+            tenant_id=tenant_id,
+            task_id=task_id,
+            final_memorial_id=final_memorial_id,
+            final_memorial_version=final_memorial_version,
+            payload=payload,
+            delivery_formula_version=delivery_formula_version,
+            idempotency_key=idempotency_key,
+            expires_at=expires_at,
+            renderer=renderer,
+        )
+        db.commit()
+        return packet
+    except DeliveryError:
+        raise
+    except Exception:
+        db.rollback()
+        raise
+
+
+def resume_artifact_packet(
+    db,
+    *,
+    storage_root: Path,
+    tenant_id: int,
+    manifest_id: str,
+    resume_token: str,
+    idempotency_key: str,
+    renderer: ArtifactRenderer = render_one_artifact,
+) -> DeliveryPacket:
+    """Execute and commit one complete resume-delivery command transaction."""
+    try:
+        packet = _resume_artifact_packet(
+            db,
+            storage_root=storage_root,
+            tenant_id=tenant_id,
+            manifest_id=manifest_id,
+            resume_token=resume_token,
+            idempotency_key=idempotency_key,
+            renderer=renderer,
+        )
+        db.commit()
+        return packet
+    except DeliveryError:
+        raise
+    except Exception:
+        db.rollback()
+        raise
 
 
 def _canonical_manifest_json(manifest: ArtifactManifestV1) -> str:
@@ -739,8 +867,16 @@ def _assert_idempotent_replay(
     *,
     manifest: ArtifactManifestV1,
     manifest_json: str,
+    source_payload_json: str | None,
 ) -> None:
-    if row.payload_hash != manifest.payload_hash or row.manifest_json != manifest_json:
+    if (
+        row.payload_hash != manifest.payload_hash
+        or row.manifest_json != manifest_json
+        or (
+            source_payload_json is not None
+            and row.source_payload_json != source_payload_json
+        )
+    ):
         raise DeliveryConflict(
             "delivery idempotency key was reused with a different payload"
         )
@@ -750,6 +886,7 @@ def persist_delivery_manifest(
     db,
     *,
     manifest: ArtifactManifestV1 | dict,
+    source_payload_json: str | None = None,
 ) -> ArtifactManifest:
     """Persist one immutable delivery revision and converge identical retries."""
     from src.contracts.artifact_manifest import (
@@ -758,6 +895,11 @@ def persist_delivery_manifest(
     )
 
     validated = ArtifactManifestV1.model_validate(manifest)
+    if source_payload_json is not None:
+        _validate_source_payload_json(
+            source_payload_json,
+            expected_hash=validated.payload_hash,
+        )
     manifest_json = _canonical_manifest_json(validated)
     idempotent = (
         db.query(ArtifactManifest)
@@ -772,6 +914,7 @@ def persist_delivery_manifest(
             idempotent,
             manifest=validated,
             manifest_json=manifest_json,
+            source_payload_json=source_payload_json,
         )
         return idempotent
 
@@ -799,6 +942,7 @@ def persist_delivery_manifest(
                 occupied_revision,
                 manifest=validated,
                 manifest_json=manifest_json,
+                source_payload_json=source_payload_json,
             )
             return occupied_revision
         raise DeliveryConflict("delivery revision is already sealed")
@@ -823,6 +967,7 @@ def persist_delivery_manifest(
                 winner,
                 manifest=validated,
                 manifest_json=manifest_json,
+                source_payload_json=source_payload_json,
             )
             return winner
         raise DeliveryConflict(
@@ -839,6 +984,7 @@ def persist_delivery_manifest(
         delivery_revision=validated.delivery_revision,
         idempotency_key_hash=validated.idempotency_key_hash,
         payload_hash=validated.payload_hash,
+        source_payload_json=source_payload_json,
         content_hash=canonical_manifest_hash(validated),
         manifest_json=manifest_json,
         overall_status=validated.overall_status,
@@ -864,6 +1010,7 @@ def persist_delivery_manifest(
             winner,
             manifest=validated,
             manifest_json=manifest_json,
+            source_payload_json=source_payload_json,
         )
         return winner
     return row

@@ -437,6 +437,7 @@ class ArtifactManifest(Base):
     delivery_revision: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
     idempotency_key_hash: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     payload_hash: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    source_payload_json: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     content_hash: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     manifest_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="{}")
     overall_status: Mapped[str] = mapped_column(sa.Text, nullable=False, default="PARTIAL")

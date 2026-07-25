@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -128,7 +129,11 @@ def test_upgrade_creates_delivery_state_schema(tmp_path: Path, monkeypatch) -> N
             "delivery_revision",
             "idempotency_key_hash",
             "payload_hash",
+            "source_payload_json",
         }.issubset(manifest_columns)
+        from src.contracts.artifact_manifest import ArtifactManifestV1
+
+        assert "source_payload_json" not in ArtifactManifestV1.model_fields
         assert "artifact_delivery_items" in table_names
         assert "artifact_delivery_audit_events" in table_names
         assert (
@@ -325,11 +330,12 @@ def test_upgrade_downgrade_reupgrade_preserves_legacy_manifest(
         assert connection.execute(
             text(
                 """
-                SELECT delivery_revision, idempotency_key_hash, payload_hash
+                SELECT delivery_revision, idempotency_key_hash, payload_hash,
+                       source_payload_json
                 FROM artifact_manifests WHERE id = 'legacy-manifest'
                 """
             )
-        ).one() == (None, None, None)
+        ).one() == (None, None, None, None)
     engine.dispose()
 
     alembic_command.downgrade(cfg, "024_artifact_manifest_tenant")
@@ -360,9 +366,60 @@ def test_upgrade_downgrade_reupgrade_preserves_legacy_manifest(
             "delivery_revision",
             "idempotency_key_hash",
             "payload_hash",
+            "source_payload_json",
         } <= {
             column["name"]
             for column in inspector.get_columns("artifact_manifests")
         }
     finally:
         engine.dispose()
+
+
+def test_downgrade_refuses_internal_source_payload_before_ddl(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    path = tmp_path / "source-payload-fact.db"
+    cfg = _config(path, monkeypatch)
+    alembic_command.upgrade(cfg, _REVISION)
+    source_payload_json = '{"title":"durable source"}'
+
+    engine = create_engine(f"sqlite:///{path}")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO artifact_manifests (
+                    id, tenant_id, task_id, final_memorial_id,
+                    final_memorial_version, delivery_formula_version,
+                    delivery_revision, idempotency_key_hash, payload_hash,
+                    source_payload_json, content_hash, manifest_json,
+                    overall_status, created_at
+                ) VALUES (
+                    'manifest-source', 1, 'task-source', 'memorial-source',
+                    1, 'w06-v1', 1, :idempotency_key_hash, :payload_hash,
+                    :source_payload_json, :content_hash, :manifest_json,
+                    'READY', '2026-07-25T00:00:00+00:00'
+                )
+                """
+            ),
+            {
+                "idempotency_key_hash": "a" * 64,
+                "payload_hash": hashlib.sha256(source_payload_json.encode()).hexdigest(),
+                "source_payload_json": source_payload_json,
+                "content_hash": "b" * 64,
+                "manifest_json": '{"delivery_revision":1}',
+            },
+        )
+    engine.dispose()
+
+    before = _database_snapshot(path)
+    error = _attempt_downgrade(cfg)
+    after = _database_snapshot(path)
+
+    _assert_preflight_refusal_preserved_database(
+        before=before,
+        after=after,
+        error=error,
+        message="source payload",
+    )
