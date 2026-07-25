@@ -37,6 +37,13 @@ Packet records cross-line scope and verification only.
 
 - Manifest ID hashes tenant, task, memorial id/version, delivery formula, and
   delivery revision.
+- Create request identity also binds the persisted relative
+  `requested_expiry_seconds`. Identical key/payload/relative-TTL retries return
+  the original sealed packet; changing the relative TTL under the same key is
+  conflict.
+- The HTTP route passes relative TTL to the command. Only the no-winner create
+  path generates a candidate absolute expiry; sequential and concurrent
+  retries return the verified winner's original absolute expiry.
 - Artifact lineage binds tenant and origin revision.
 - Resume retains each valid stored artifact's ID, path, hash, lineage, and
   origin row; a later manifest references that identity without copying it.
@@ -58,11 +65,15 @@ Packet records cross-line scope and verification only.
 - API output excludes storage paths, source payload JSON, raw resume token
   hashes, and idempotency hashes. Reused artifact download URLs remain
   unambiguous because artifact identity is stable.
+- Persisted manifest/source JSON containing `NaN`, `Infinity`, or another
+  non-finite constant fails read and download with 409. Download records
+  exactly one durable failure audit rather than leaking a 500.
 
 ### Persistence And Durability
 
-- Alembic revision 025 owns manifest identity fields plus item/audit tables and
-  mutable `last_failure`.
+- Alembic revision 025 owns manifest identity fields, including nullable legacy
+  adoption of `requested_expiry_seconds`, plus item/audit tables and mutable
+  `last_failure`.
 - Downgrade refuses before DDL when item/audit facts exist, duplicate revisions
   cannot fit revision 024, or any revision-025 identity/payload field is
   non-null.
@@ -70,6 +81,9 @@ Packet records cross-line scope and verification only.
   and the tenant directory after final publication and temporary cleanup.
 - Existing valid bytes are reused only after hash and size verification;
   mismatched bytes fail closed.
+- Manifest/source canonical serialization rejects non-finite numbers with
+  `allow_nan=False`; parse/canonicalization errors normalize to
+  `DeliveryIntegrityError`.
 
 ## Actual File Scope
 
@@ -95,7 +109,7 @@ Packet records cross-line scope and verification only.
 - Independent re-review is required before integration acceptance.
 
 Implementer verification satisfies the executable criteria: W06R
-`135 passed`, isolated migration `9 passed`, scoped Ruff and compileall pass,
+`147 passed`, isolated migration `10 passed`, scoped Ruff and compileall pass,
 both doctors are clean, authority v1 is `VALID_INACTIVE_GUARD`, authority v2
 is `GO / APPROVED_WORK_PACKAGE`, and closeout/diff pass. Independent re-review
 remains pending.
@@ -109,8 +123,8 @@ remains pending.
 
 ## Rollback
 
-Revert Task 8 commits `9261f852`, `23ddf988`, `c5947c00`, and `fd38d017` in
-that order, followed by Packet synchronization commit `25a979b1` and its final
-evidence update. The complete pre-integration candidate boundary remains
-baseline `64d7f935..HEAD`. No production database or storage rollback is
-authorized or required.
+Revert Task 8 commits `fbf3f222`, `3bbbaa5b`, `9261f852`, `23ddf988`,
+`c5947c00`, and `fd38d017` in that order, followed by the Packet evidence
+updates and synchronization commit `25a979b1`. The complete pre-integration
+candidate boundary remains baseline `64d7f935..HEAD`. No production database
+or storage rollback is authorized or required.

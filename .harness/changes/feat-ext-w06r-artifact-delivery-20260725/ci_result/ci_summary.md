@@ -13,7 +13,7 @@ requirements and quality reviews or claim independent GO.
 | Task 7 reviewed candidate | `61aa193c5b4b44d2f076a92762f382481e13021b` |
 | Task 7 requirements verdict | `REQUIREMENTS NO-GO`, 6 findings |
 | Task 7 quality verdict | `QUALITY: NO-GO`, 7 findings |
-| Task 8 verification candidate | `25a979b1` |
+| Task 8 verification code candidate | `fbf3f222` |
 | Candidate inventory | 23 tracked files |
 | Runtime boundary | `NOT_DEPLOYED` |
 
@@ -25,6 +25,8 @@ requirements and quality reviews or claim independent GO.
 | B: identity/seal/root | service/API/root-guard RED recorded separately | affected `73 passed` | `c5947c00` |
 | C: status/audit/expiry | `10 failed, 1 passed in 5.75s` | targeted `11 passed`; affected `84 passed` | `23ddf988` |
 | D: migration/fsync | `6 failed in 13.20s` | targeted `6 passed`; migration/storage `28 passed`; related `78 passed` | `9261f852` |
+| Round2 E: relative expiry identity | `5 failed in 11.86s` | targeted `5 passed`; expanded `91 passed` | `3bbbaa5b` |
+| Round2 F: strict JSON integrity | `6 failed, 2 passed in 3.11s` | targeted `8 passed`; expanded `108 passed` | `fbf3f222` |
 
 The full command output and finding-to-test-to-fix mapping are recorded in
 `.superpowers/sdd/2026-07-25-ext-w06r-artifact-delivery/task-8-report.md`.
@@ -47,6 +49,8 @@ That SDD path is intentionally ignored by Git and is not reviewer evidence.
 | Quality MEDIUM-2: path outside root | Create replay and resume root-guard tests |
 | Quality MEDIUM-3: missing directory fsync | Directory syscall and fault-injection tests |
 | Quality LOW-1: unbounded expiry | 0/86401/oversized HTTP 422 tests |
+| Quality rereview MEDIUM: regenerated absolute expiry breaks idempotency | Sequential and eight-way HTTP replay, changed-relative-TTL conflict, persisted TTL, migration/guard tests |
+| Quality rereview LOW: non-finite persisted JSON leaks success/500 | Manifest/source `NaN`/`Infinity` read/download 409 matrix, durable single-failure audit, strict canonical persistence matrix |
 
 ## Candidate Inventory
 
@@ -85,8 +89,8 @@ harness packages, while artifact delivery is backend runtime behavior.
 
 | Check | Actual result |
 | --- | --- |
-| Complete W06R suite | `135 passed in 29.19s`, no skips |
-| Isolated migration suite | `9 passed in 20.52s` |
+| Complete W06R suite | `147 passed in 71.75s`, no skips |
+| Isolated migration suite | `10 passed in 53.37s` |
 | W06R scoped Ruff | `All checks passed!` |
 | Full backend compileall | PASS |
 | Backend harness doctor | `0 errors, 0 warning(s)` |
@@ -101,6 +105,7 @@ Commands:
 ```bash
 cd backend
 /tmp/ext-w06r-task3-venv/bin/python -m pytest -q \
+  --basetemp=/tmp/ext-w06r-task8-round2-final-suite-fbf3f222 \
   tests/test_schema_authority.py \
   tests/test_artifact_manifest_v1.py \
   tests/test_artifact_delivery_migration.py \
@@ -112,7 +117,7 @@ cd backend
   tests/test_artifact_delivery_api.py
 
 /tmp/ext-w06r-task3-venv/bin/python -m pytest -q \
-  --basetemp=/tmp/ext-w06r-task8-final-migration \
+  --basetemp=/tmp/ext-w06r-task8-round2-final-migration-fbf3f222 \
   tests/test_artifact_delivery_migration.py
 
 /tmp/ext-w06r-task3-venv/bin/ruff check \
@@ -153,7 +158,7 @@ git diff --check 64d7f935..HEAD
 
 ## Rollback
 
-Revert Task 8 commits `9261f852`, `23ddf988`, `c5947c00`, and `fd38d017` in
-that order, followed by Packet synchronization commit `25a979b1` and its final
-evidence update. No production database or storage rollback is part of this
-candidate.
+Revert Task 8 commits `fbf3f222`, `3bbbaa5b`, `9261f852`, `23ddf988`,
+`c5947c00`, and `fd38d017` in that order, followed by the Packet evidence
+updates and synchronization commit `25a979b1`. No production database or
+storage rollback is part of this candidate.

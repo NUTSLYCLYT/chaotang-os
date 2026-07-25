@@ -55,6 +55,30 @@
 - [x] Verify 28 migration/storage tests and 78 related delivery tests.
 - [x] Commit `9261f852`.
 
+### Fix Round 2: Relative Expiry Identity
+
+- [x] Observe five focused RED failures: sequential HTTP retry 409, eight-way
+  HTTP 409 responses, old direct-service signature, and missing migration
+  column/guard.
+- [x] Persist and downgrade-guard `requested_expiry_seconds`.
+- [x] Pass relative TTL from HTTP to the create command and replay the original
+  absolute expiry for request-equivalent winners.
+- [x] Prove changed relative TTL conflicts and eight concurrent requests all
+  succeed with one manifest and no duplicate delivery facts.
+- [x] Verify focused `5 passed` and expanded `91 passed`.
+- [x] Commit `3bbbaa5b`.
+
+### Fix Round 2: Strict JSON Integrity
+
+- [x] Observe `6 failed, 2 passed` across persisted manifest/source
+  `NaN`/`Infinity` and low-level canonicalization.
+- [x] Reject non-finite constants during parse and canonical serialization.
+- [x] Normalize parse/canonical failures to `DeliveryIntegrityError`.
+- [x] Verify read/download 409 and one durable failed download audit for all
+  four corruption combinations.
+- [x] Verify focused `8 passed` and expanded `108 passed`.
+- [x] Commit `fbf3f222`.
+
 ### Packet And Closeout
 
 - [x] Replace the stale schema-test-only Packet scope with the actual 23-file
@@ -66,7 +90,7 @@
 - [ ] Request independent requirements and quality re-review. Implementer
   evidence cannot mark those reviews GO.
 
-Final implementer evidence: W06R `135 passed`, isolated migration `9 passed`,
+Final implementer evidence: W06R `147 passed`, isolated migration `10 passed`,
 scoped Ruff and compileall PASS, both doctors clean, v1
 `VALID_INACTIVE_GUARD`, v2 `GO / APPROVED_WORK_PACKAGE`, and strict
 closeout/baseline diff PASS. Status:
@@ -76,10 +100,12 @@ closeout/baseline diff PASS. Status:
 
 Task 8 implementation commits, newest first:
 
-1. `9261f852`
-2. `23ddf988`
-3. `c5947c00`
-4. `fd38d017`
+1. `fbf3f222`
+2. `3bbbaa5b`
+3. `9261f852`
+4. `23ddf988`
+5. `c5947c00`
+6. `fd38d017`
 
 Revert Packet synchronization/evidence commits after those if remediation is
 removed; the synchronization checkpoint is `25a979b1`. Do not downgrade or

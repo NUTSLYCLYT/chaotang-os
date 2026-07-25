@@ -9,7 +9,7 @@
 | Date | `2026-07-25` |
 | Authority | `R0-W06`: `GO / APPROVED_WORK_PACKAGE` |
 | Baseline | `64d7f9358dc8a43d886889629e1b745f491593ef` |
-| Verification candidate | `25a979b1` |
+| Verification code candidate | `fbf3f222` |
 
 ## Outcome
 
@@ -21,8 +21,9 @@ state, append-only audit evidence, revision-025 persistence, API routes, and
 focused tests.
 
 Task 8 remediates all 13 findings recorded by the Task 7 requirements and
-quality reviews. The reviews remain read-only evidence; this implementer record
-does not claim independent re-review acceptance.
+quality reviews, plus the one Medium and one Low finding from the quality
+rereview. The reviews remain read-only evidence; this implementer record does
+not claim independent re-review acceptance.
 
 ## Actual Scope
 
@@ -59,6 +60,8 @@ introduced.
 | B | Canonical/reused identity, sealed reads, reason binding, root guard | `c5947c00` |
 | C | Resume 409, generic auth audit, `last_failure`/`EXPIRED`, expiry bound | `23ddf988` |
 | D | All-identity downgrade preflight and directory fsync | `9261f852` |
+| Round2 E | Persisted relative-expiry idempotency and eight-way HTTP convergence | `3bbbaa5b` |
+| Round2 F | Strict non-finite JSON rejection and audited integrity failure | `fbf3f222` |
 | Packet | Correct type, scope, facts, acceptance, rollback, and status | `25a979b1` |
 
 ## Production Boundary
@@ -74,8 +77,8 @@ All Task 8 databases and storage roots are pytest-owned or under `/tmp`.
 
 | Check | Result |
 | --- | --- |
-| Complete nine-file W06R suite | `135 passed in 29.19s`, no skips |
-| Isolated migration suite | `9 passed in 20.52s` |
+| Complete nine-file W06R suite | `147 passed in 71.75s`, no skips |
+| Isolated migration suite | `10 passed in 53.37s` |
 | W06R scoped Ruff / backend compileall | PASS / PASS |
 | Backend/root doctors | `0 errors, 0 warning(s)` / `0 errors, 0 warning(s)` |
 | Authority v1 / v2 | `VALID_INACTIVE_GUARD` / `GO / APPROVED_WORK_PACKAGE` |
@@ -89,12 +92,14 @@ self-approve those reviews.
 
 Task 8 code remediation is exactly:
 
-1. `9261f852`
-2. `23ddf988`
-3. `c5947c00`
-4. `fd38d017`
+1. `fbf3f222`
+2. `3bbbaa5b`
+3. `9261f852`
+4. `23ddf988`
+5. `c5947c00`
+6. `fd38d017`
 
 Revert those commits in that order only if Task 8 remediation itself must be
-removed, then revert Packet synchronization commit `25a979b1` and its final
-evidence update. No production database downgrade or storage deletion is part
-of rollback because none was deployed or migrated persistently.
+removed, then revert the Packet evidence updates and synchronization commit
+`25a979b1`. No production database downgrade or storage deletion is part of
+rollback because none was deployed or migrated persistently.
