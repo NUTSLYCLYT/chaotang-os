@@ -77,16 +77,18 @@ git diff --check
 - Test: `scripts/execution-authority-v2.nodetest.mjs`
 
 **Interfaces:**
-- Consumes: Task 1 exact candidate and independent review bound to W06 scope, candidate commit, tree, and proposed activation bytes.
+- Consumes: Task 1 exact candidate and independent review bound to W06 scope, candidate commit,
+  tree, and an exact non-authorizing activation intent.
 - Produces: a single ACTIVE `R0-W06` ledger entry and a W06-only GO decision.
 
-- [ ] Add positive owner approval with a machine-readable JSON evidence block that binds decision `APPROVED`, work package `R0-W06`, effective base `8feae838f09ad5202b21332d4280b989ab776bd7`, tree `9d63f98041e5e13174dbba4c0b9d27eef1471bf9`, approved scope, approver, and exclusions.
-- [ ] Extend the v2 loader to parse the JSON evidence blocks with the strict JSON parser and fail closed unless owner and review evidence match the manifest scope, candidate, tree, approver, verdict, and owner-approval digest.
-- [ ] Add RED/GREEN tests proving an old-package review, a negative owner decision, a mismatched candidate/tree, or mismatched owner digest can never produce GO.
-- [ ] Prepare the exact activation diff and review request while leaving the tracked v2 manifest quiescent.
+- [ ] Add positive owner approval with a machine-readable JSON evidence block that binds decision `APPROVED`, work package `R0-W06`, effective base `8feae838f09ad5202b21332d4280b989ab776bd7`, tree `9d63f98041e5e13174dbba4c0b9d27eef1471bf9`, approved scope, approver, exclusions, and the exact activation-intent digest.
+- [ ] Extend the v2 loader to parse the JSON evidence blocks with the strict JSON parser and fail closed unless owner and review evidence match the manifest scope, candidate, tree, approver, verdict, owner-approval digest, and amendment-governance independent reviewer; owner and reviewer must differ.
+- [ ] Make the loader read, hash, strict-parse, and semantically validate the activation-intent artifact against the active manifest before GO.
+- [ ] Add RED/GREEN tests proving an old-package review, a negative owner decision, owner self-review, a mismatched candidate/tree, mismatched owner digest, nonexistent or digest-mismatched intent, or review verdict mismatch can never produce GO.
+- [ ] Prepare the exact non-authorizing activation intent and review request while leaving the tracked v2 manifest quiescent. The intent must contain no review-digest placeholder and must not claim to be final manifest bytes.
 - [ ] Have a read-only reviewer verify the candidate base/tree, owner evidence, proposed v2 manifest, changed paths, root semantics, and absence of business code.
 - [ ] Reject any review that references W01–W05 scope, a different candidate, a different tree, or production readiness.
-- [ ] Store the W06-specific review with its exact candidate, tree, diff digest, commands, combined `GO` or `NO_GO`, and a machine-readable JSON evidence block bound to the owner-approval digest.
+- [ ] Store the W06-specific review with its exact candidate, tree, diff digest, commands, combined `GO` or `NO_GO`, and a machine-readable JSON evidence block bound to the owner-approval and activation-intent digests.
 - [ ] On `NO_GO`, leave v2 quiescent and stop the program.
 - [ ] On `GO`, atomically update v2 evidence digests, `effectiveBase`, `candidateH`, `tree`, `approvedScope`, `activeWorkPackage`, and the W06 ledger entry.
 - [ ] Atomically change the change summary from `REVIEW_READY / NOT_ACTIVE` to `AUTHORIZED / ACTIVE`.
@@ -102,6 +104,7 @@ git diff --check
 ```
 
 - [ ] Confirm v1 remains `STOP / AMENDMENT_APPROVAL_REQUIRED`, v2 returns `GO / APPROVED_WORK_PACKAGE` only for R0-W06, and no successor package is authorized.
+- [ ] Have the independent reviewer re-check the exact activated manifest and tracked review bytes; any mismatch rolls v2 back to quiescent.
 - [ ] Stop at `CODEX_ACCEPTANCE_READY`; do not merge or push.
 
 ### Task 3: Asset Capture and Packet Ledger
