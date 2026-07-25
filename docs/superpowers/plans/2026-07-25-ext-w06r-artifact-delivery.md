@@ -120,6 +120,8 @@ git commit -m "test(w06r): align schema authority baseline"
 **Files:**
 - Modify: `backend/tests/test_artifact_manifest_v1.py`
 - Modify: `backend/src/contracts/artifact_manifest.py`
+- Modify: `backend/tests/test_artifact_manifest_persistence.py`
+- Modify: `backend/tests/test_artifact_manifest_access.py`
 
 **Interfaces:**
 - Consumes: exact artifact kinds `PDF`, `DOCX`, and `JSON`.
@@ -250,16 +252,23 @@ Run:
 cd backend
 python3 -m pytest -q \
   tests/test_artifact_manifest_v1.py \
-  tests/test_artifact_delivery_render.py
+  tests/test_artifact_delivery_render.py \
+  tests/test_artifact_manifest_persistence.py \
+  tests/test_artifact_manifest_access.py
 ```
 
-Expected: PASS.
+Expected: PASS. The persistence/access fixtures use the new complete sealed
+shape. They do not create a permissive compatibility path for missing tenant,
+revision, or hash identity. This is valid because W06R remains `NOT_DEPLOYED`
+and no persistent database migration has been performed.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add backend/src/contracts/artifact_manifest.py \
-  backend/tests/test_artifact_manifest_v1.py
+  backend/tests/test_artifact_manifest_v1.py \
+  backend/tests/test_artifact_manifest_persistence.py \
+  backend/tests/test_artifact_manifest_access.py
 git commit -m "feat(w06r): seal artifact manifest contract"
 ```
 
