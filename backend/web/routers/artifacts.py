@@ -164,10 +164,12 @@ def _command_response(
     db,
     *,
     packet: DeliveryPacket,
+    storage_root: Path,
     tenant_id: int,
 ) -> DeliveryCommandResponse:
     access = get_delivery_manifest_for_tenant(
         db,
+        storage_root=storage_root,
         manifest_id=packet.manifest.manifest_id,
         tenant_id=tenant_id,
     )
@@ -214,7 +216,12 @@ def create_delivery(
                 expires_at=datetime.now(timezone.utc)
                 + timedelta(seconds=body.expiry_seconds),
             )
-            return _command_response(db, packet=packet, tenant_id=tenant_id)
+            return _command_response(
+                db,
+                packet=packet,
+                storage_root=storage_root,
+                tenant_id=tenant_id,
+            )
         except (
             DeliveryNotFound,
             DeliveryForbidden,
@@ -236,6 +243,7 @@ def read_manifest(
     manifest_id: str,
     user: CurrentUser = Depends(get_current_user),
     session_factory: SessionFactory = Depends(get_artifact_session_factory),
+    storage_root: Path = Depends(get_artifact_storage_root),
 ):
     tenant_id = _tenant_id(user)
     db = session_factory()
@@ -244,6 +252,7 @@ def read_manifest(
             return _public_manifest(
                 get_delivery_manifest_for_tenant(
                     db,
+                    storage_root=storage_root,
                     manifest_id=manifest_id,
                     tenant_id=tenant_id,
                 )
@@ -317,7 +326,12 @@ def resume_delivery(
                 resume_token=body.resume_token,
                 idempotency_key=body.idempotency_key,
             )
-            return _command_response(db, packet=packet, tenant_id=tenant_id)
+            return _command_response(
+                db,
+                packet=packet,
+                storage_root=storage_root,
+                tenant_id=tenant_id,
+            )
         except (
             DeliveryNotFound,
             DeliveryForbidden,

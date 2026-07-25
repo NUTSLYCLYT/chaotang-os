@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -93,6 +94,34 @@ def _create_ready_delivery(client: TestClient, *, suffix: str) -> dict:
     return response.json()["manifest"]
 
 
+def _download_audit_counts(session_factory, *, artifact_id: str) -> tuple[int, int]:
+    from src.db.models import ArtifactDeliveryAuditEvent
+
+    db = session_factory()
+    try:
+        failure_count = (
+            db.query(ArtifactDeliveryAuditEvent)
+            .filter_by(
+                artifact_id=artifact_id,
+                event_type="artifact.download",
+                outcome="FAILURE",
+            )
+            .count()
+        )
+        success_count = (
+            db.query(ArtifactDeliveryAuditEvent)
+            .filter_by(
+                artifact_id=artifact_id,
+                event_type="artifact.download",
+                outcome="SUCCESS",
+            )
+            .count()
+        )
+        return failure_count, success_count
+    finally:
+        db.close()
+
+
 @pytest.fixture()
 def artifact_api(isolated_session_local, tmp_path: Path):
     from web import deps
@@ -131,7 +160,11 @@ def artifact_api(isolated_session_local, tmp_path: Path):
         app.dependency_overrides[storage_root_dependency] = lambda: storage_root
 
     try:
-        yield TestClient(app), isolated_session_local, storage_root
+        yield (
+            TestClient(app, raise_server_exceptions=False),
+            isolated_session_local,
+            storage_root,
+        )
     finally:
         app.dependency_overrides.clear()
         app.dependency_overrides.update(originals)
@@ -281,6 +314,10 @@ def test_missing_tenant_is_403(artifact_api) -> None:
 
 
 def test_expired_artifact_has_no_url_and_download_is_410(artifact_api) -> None:
+    from src.contracts.artifact_manifest import (
+        ArtifactManifestV1,
+        canonical_manifest_hash,
+    )
     from src.db.models import ArtifactDeliveryItem, ArtifactManifest
 
     client, session_factory, _ = artifact_api
@@ -300,6 +337,9 @@ def test_expired_artifact_has_no_url_and_download_is_410(artifact_api) -> None:
             ensure_ascii=False,
             separators=(",", ":"),
             sort_keys=True,
+        )
+        row.content_hash = canonical_manifest_hash(
+            ArtifactManifestV1.model_validate(sealed)
         )
         for item_row in db.query(ArtifactDeliveryItem).filter_by(
             manifest_id=manifest["manifest_id"]
@@ -516,3 +556,148 @@ def test_create_and_resume_each_own_and_close_their_session(artifact_api) -> Non
     )
     assert resumed.status_code == 200
     assert lifecycle == {"created": 2, "closed": 2}
+
+
+def test_coordinated_manifest_item_and_file_forgery_is_rejected(
+    artifact_api,
+) -> None:
+    from src.db.models import ArtifactDeliveryItem, ArtifactManifest
+
+    client, session_factory, _ = artifact_api
+    manifest = _create_ready_delivery(client, suffix="sealed-hash-forgery")
+    artifact_id = next(
+        item["artifact_id"]
+        for item in manifest["artifacts"]
+        if item["kind"] == "PDF"
+    )
+    forged_content = b"forged artifact bytes"
+    forged_hash = hashlib.sha256(forged_content).hexdigest()
+
+    db = session_factory()
+    try:
+        manifest_row = db.query(ArtifactManifest).filter_by(
+            id=manifest["manifest_id"]
+        ).one()
+        sealed_hash = manifest_row.content_hash
+        sealed = json.loads(manifest_row.manifest_json)
+        sealed_item = next(
+            item for item in sealed["artifacts"] if item["artifact_id"] == artifact_id
+        )
+        sealed_item["mime_type"] = "text/plain"
+        sealed_item["content_hash"] = forged_hash
+        sealed_item["byte_size"] = len(forged_content)
+        manifest_row.manifest_json = json.dumps(
+            sealed,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+
+        item_row = db.query(ArtifactDeliveryItem).filter_by(id=artifact_id).one()
+        item_row.mime_type = "text/plain"
+        item_row.content_hash = forged_hash
+        item_row.byte_size = len(forged_content)
+        Path(item_row.storage_path).write_bytes(forged_content)
+        db.commit()
+        assert manifest_row.content_hash == sealed_hash
+    finally:
+        db.close()
+
+    read = client.get(f"/api/artifacts/manifests/{manifest['manifest_id']}")
+    download = client.get(f"/api/artifacts/{artifact_id}/download")
+    failure_count, success_count = _download_audit_counts(
+        session_factory,
+        artifact_id=artifact_id,
+    )
+
+    assert (
+        read.status_code,
+        download.status_code,
+        failure_count,
+        success_count,
+    ) == (409, 409, 1, 0)
+
+
+@pytest.mark.parametrize("corruption", ["malformed_json", "schema_invalid"])
+def test_invalid_persisted_manifest_is_409_and_download_audits_once(
+    artifact_api,
+    corruption: str,
+) -> None:
+    from src.db.models import ArtifactManifest
+
+    client, session_factory, _ = artifact_api
+    manifest = _create_ready_delivery(client, suffix=f"persisted-{corruption}")
+    artifact_id = manifest["artifacts"][0]["artifact_id"]
+
+    db = session_factory()
+    try:
+        row = db.query(ArtifactManifest).filter_by(
+            id=manifest["manifest_id"]
+        ).one()
+        if corruption == "malformed_json":
+            row.manifest_json = "{not-json"
+        else:
+            invalid = json.loads(row.manifest_json)
+            invalid["schema_version"] = "ArtifactManifestV0"
+            row.manifest_json = json.dumps(
+                invalid,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+        db.commit()
+    finally:
+        db.close()
+
+    read = client.get(f"/api/artifacts/manifests/{manifest['manifest_id']}")
+    download = client.get(f"/api/artifacts/{artifact_id}/download")
+    failure_count, success_count = _download_audit_counts(
+        session_factory,
+        artifact_id=artifact_id,
+    )
+
+    assert (
+        read.status_code,
+        download.status_code,
+        failure_count,
+        success_count,
+    ) == (409, 409, 1, 0)
+
+
+@pytest.mark.parametrize("corruption", ["missing", "corrupt"])
+def test_unverified_stored_file_is_not_advertised(
+    artifact_api,
+    corruption: str,
+) -> None:
+    from src.db.models import ArtifactDeliveryItem
+
+    client, session_factory, _ = artifact_api
+    manifest = _create_ready_delivery(client, suffix=f"stored-{corruption}")
+    artifact_id = manifest["artifacts"][0]["artifact_id"]
+
+    db = session_factory()
+    try:
+        row = db.query(ArtifactDeliveryItem).filter_by(id=artifact_id).one()
+        path = Path(row.storage_path)
+        if corruption == "missing":
+            path.unlink()
+        else:
+            path.write_bytes(b"corrupted")
+    finally:
+        db.close()
+
+    read = client.get(f"/api/artifacts/manifests/{manifest['manifest_id']}")
+    download = client.get(f"/api/artifacts/{artifact_id}/download")
+    failure_count, success_count = _download_audit_counts(
+        session_factory,
+        artifact_id=artifact_id,
+    )
+    public_item = next(
+        item
+        for item in read.json()["artifacts"]
+        if item["artifact_id"] == artifact_id
+    )
+
+    assert read.status_code == 200
+    assert "download_url" not in public_item
+    assert (download.status_code, failure_count, success_count) == (409, 1, 0)

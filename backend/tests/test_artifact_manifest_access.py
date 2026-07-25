@@ -7,11 +7,11 @@ import json
 import pytest
 
 
-def _sealed_manifest_json(*, tenant_id: int) -> str:
+def _sealed_manifest_json(*, manifest_id: str, tenant_id: int) -> str:
     return json.dumps(
         {
             "schema_version": "ArtifactManifestV1",
-            "manifest_id": "manifest-1",
+            "manifest_id": manifest_id,
             "tenant_id": tenant_id,
             "task_id": "task-1",
             "final_memorial_id": "memorial-1",
@@ -55,24 +55,46 @@ def _sealed_manifest_json(*, tenant_id: int) -> str:
     )
 
 
+def _manifest_row(
+    *,
+    manifest_id: str,
+    tenant_id: int,
+    embedded_tenant_id: int | None = None,
+):
+    from src.contracts.artifact_manifest import (
+        ArtifactManifestV1,
+        canonical_manifest_hash,
+    )
+    from src.db.models import ArtifactManifest
+
+    manifest_json = _sealed_manifest_json(
+        manifest_id=manifest_id,
+        tenant_id=embedded_tenant_id or tenant_id,
+    )
+    manifest = ArtifactManifestV1.model_validate_json(manifest_json)
+    return ArtifactManifest(
+        id=manifest_id,
+        tenant_id=tenant_id,
+        task_id=manifest.task_id,
+        final_memorial_id=manifest.final_memorial_id,
+        final_memorial_version=manifest.final_memorial_version,
+        delivery_formula_version=manifest.delivery_formula_version,
+        delivery_revision=manifest.delivery_revision,
+        idempotency_key_hash=manifest.idempotency_key_hash,
+        payload_hash=manifest.payload_hash,
+        content_hash=canonical_manifest_hash(manifest),
+        manifest_json=manifest_json,
+        overall_status=manifest.overall_status,
+    )
+
+
 def test_manifest_read_requires_same_tenant_and_returns_canonical_v1(isolated_session_local) -> None:
     from src.artifacts.service import get_manifest_for_tenant
     from src.db.models import ArtifactManifest, Base
 
     db = isolated_session_local()
     Base.metadata.create_all(db.bind, tables=[ArtifactManifest.__table__])
-    db.add(
-        ArtifactManifest(
-            id="manifest-1",
-            tenant_id=7,
-            task_id="task-1",
-            final_memorial_id="memorial-1",
-            final_memorial_version=1,
-            delivery_formula_version="w06-v1",
-            manifest_json=_sealed_manifest_json(tenant_id=7),
-            overall_status="READY",
-        )
-    )
+    db.add(_manifest_row(manifest_id="manifest-1", tenant_id=7))
     db.commit()
     manifest = get_manifest_for_tenant(db, manifest_id="manifest-1", tenant_id=7)
     assert manifest.schema_version == "ArtifactManifestV1"
@@ -87,21 +109,16 @@ def test_manifest_read_rejects_embedded_tenant_mismatch(isolated_session_local) 
     db = isolated_session_local()
     Base.metadata.create_all(db.bind, tables=[ArtifactManifest.__table__])
     db.add(
-        ArtifactManifest(
-            id="manifest-embedded-tenant-mismatch",
+        _manifest_row(
+            manifest_id="manifest-embedded-tenant-mismatch",
             tenant_id=7,
-            task_id="task-1",
-            final_memorial_id="memorial-1",
-            final_memorial_version=1,
-            delivery_formula_version="w06-v1",
-            manifest_json=_sealed_manifest_json(tenant_id=2),
-            overall_status="READY",
+            embedded_tenant_id=2,
         )
     )
     db.commit()
     from src.artifacts.service import DeliveryIntegrityError
 
-    with pytest.raises(DeliveryIntegrityError, match="tenant"):
+    with pytest.raises(DeliveryIntegrityError, match="sealed"):
         get_manifest_for_tenant(
             db,
             manifest_id="manifest-embedded-tenant-mismatch",
@@ -116,18 +133,7 @@ def test_manifest_read_rejects_cross_tenant_access(isolated_session_local) -> No
 
     db = isolated_session_local()
     Base.metadata.create_all(db.bind, tables=[ArtifactManifest.__table__])
-    db.add(
-        ArtifactManifest(
-            id="manifest-1",
-            tenant_id=7,
-            task_id="task-1",
-            final_memorial_id="memorial-1",
-            final_memorial_version=1,
-            delivery_formula_version="w06-v1",
-            manifest_json=_sealed_manifest_json(tenant_id=7),
-            overall_status="READY",
-        )
-    )
+    db.add(_manifest_row(manifest_id="manifest-1", tenant_id=7))
     db.commit()
     with pytest.raises(PermissionError):
         get_manifest_for_tenant(db, manifest_id="manifest-1", tenant_id=99)
@@ -205,3 +211,70 @@ def test_download_membership_failure_audit_survives_session_close(
         assert len(events) == 1
     finally:
         audit_db.close()
+
+
+def test_manifest_read_rejects_canonical_hash_mismatch(
+    isolated_session_local,
+) -> None:
+    from src.artifacts.service import DeliveryIntegrityError, get_manifest_for_tenant
+    from src.db.models import ArtifactManifest
+
+    db = isolated_session_local()
+    row = _manifest_row(manifest_id="manifest-hash-mismatch", tenant_id=7)
+    sealed_hash = row.content_hash
+    db.add(row)
+    db.commit()
+
+    persisted = db.query(ArtifactManifest).filter_by(id=row.id).one()
+    forged = json.loads(persisted.manifest_json)
+    forged["artifacts"][0]["mime_type"] = "text/plain"
+    persisted.manifest_json = json.dumps(
+        forged,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    db.commit()
+    assert persisted.content_hash == sealed_hash
+
+    with pytest.raises(DeliveryIntegrityError, match="hash"):
+        get_manifest_for_tenant(
+            db,
+            manifest_id=persisted.id,
+            tenant_id=7,
+        )
+    db.close()
+
+
+@pytest.mark.parametrize(
+    ("field", "forged_value"),
+    [
+        ("delivery_revision", 2),
+        ("idempotency_key_hash", "e" * 64),
+        ("payload_hash", "f" * 64),
+        ("overall_status", "PARTIAL"),
+    ],
+)
+def test_manifest_read_rejects_sealed_row_field_mismatch(
+    isolated_session_local,
+    field: str,
+    forged_value,
+) -> None:
+    from src.artifacts.service import DeliveryIntegrityError, get_manifest_for_tenant
+
+    db = isolated_session_local()
+    row = _manifest_row(
+        manifest_id=f"manifest-row-{field}",
+        tenant_id=7,
+    )
+    setattr(row, field, forged_value)
+    db.add(row)
+    db.commit()
+
+    with pytest.raises(DeliveryIntegrityError, match="sealed"):
+        get_manifest_for_tenant(
+            db,
+            manifest_id=row.id,
+            tenant_id=7,
+        )
+    db.close()
