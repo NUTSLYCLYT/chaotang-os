@@ -32,6 +32,12 @@ Packet records cross-line scope and verification only.
 - Its validated `contract_review` must exactly equal the supplied
   `ContractReviewPackV1`.
 - JSON, DOCX, and Unicode PDF each contain the complete validated pack.
+- Artifact kind and MIME are canonical pairs: PDF is `application/pdf`, DOCX
+  is
+  `application/vnd.openxmlformats-officedocument.wordprocessingml.document`,
+  and JSON is `application/json`.
+- A renderer returning the wrong MIME for a kind fails that format as
+  `renderer_failed`; it cannot seal that item as STORED or the packet as READY.
 
 ### Identity And Sealing
 
@@ -63,6 +69,9 @@ Packet records cross-line scope and verification only.
   sealed manifest.
 - Unknown and cross-tenant download attempts return 404 and append one generic
   failure event under the requester tenant without owner identity disclosure.
+- A tenant-owned artifact whose manifest relation resolves as unknown or
+  cross-tenant follows the same 404 and generic-audit contract. The event
+  contains no artifact id, manifest id, or owner tenant.
 - `expiry_seconds` accepts only `1..86400`; out-of-range input returns 422.
 - API output excludes storage paths, source payload JSON, raw resume token
   hashes, idempotency hashes, and requested relative TTL. Reused artifact
@@ -100,7 +109,8 @@ Packet records cross-line scope and verification only.
 - Approved documents:
   `docs/superpowers/specs/2026-07-25-ext-w06r-artifact-delivery-design.md` and
   `docs/superpowers/plans/2026-07-25-ext-w06r-artifact-delivery.md`, including
-  the sealed-TTL/required-source supplement approved in `221a98f5`.
+  the sealed-TTL/required-source supplement approved in `221a98f5` and the
+  Round 4 kind/MIME and orphan-audit closure.
 - Coordination: this Packet's four files.
 
 ## Acceptance Criteria
@@ -115,7 +125,7 @@ Packet records cross-line scope and verification only.
 - Independent re-review is required before integration acceptance.
 
 Implementer verification satisfies the executable criteria: W06R
-`154 passed`, isolated migration `10 passed`, scoped Ruff and compileall pass,
+`159 passed`, isolated migration `10 passed`, scoped Ruff and compileall pass,
 both doctors are clean, authority v1 is `VALID_INACTIVE_GUARD`, authority v2
 is `GO / APPROVED_WORK_PACKAGE`, and closeout/diff pass. Independent re-review
 remains pending.
@@ -129,9 +139,9 @@ remains pending.
 
 ## Rollback
 
-Revert Task 8 commits `70422b9f`, `32f17cb7`, `fbf3f222`, `3bbbaa5b`,
-`9261f852`, `23ddf988`, `c5947c00`, and `fd38d017` in that order, followed by
-the Packet evidence updates `9b475d72`, the current synchronization commit, and
-initial Packet commit `25a979b1`. The complete pre-integration candidate
-boundary remains baseline `64d7f935..HEAD`. No production database or storage
-rollback is authorized or required.
+Revert Task 8 commits `00cc5954`, `70422b9f`, `32f17cb7`, `fbf3f222`,
+`3bbbaa5b`, `9261f852`, `23ddf988`, `c5947c00`, and `fd38d017` in that order,
+followed by the Packet evidence updates `9b475d72`, the current synchronization
+commit, and initial Packet commit `25a979b1`. The complete pre-integration
+candidate boundary remains baseline `64d7f935..HEAD`. No production database
+or storage rollback is authorized or required.
