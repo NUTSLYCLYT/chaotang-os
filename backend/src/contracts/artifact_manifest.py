@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -38,6 +38,15 @@ class ArtifactManifestItemV1(BaseModel):
             raise ValueError("hash must be a lowercase SHA-256 digest")
         return value
 
+    @field_validator("expires_at")
+    @classmethod
+    def normalize_expiry_to_utc(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("datetime must be timezone-aware")
+        return value.astimezone(timezone.utc)
+
     @model_validator(mode="after")
     def validate_unavailable_reason(self) -> "ArtifactManifestItemV1":
         if self.status == "UNAVAILABLE" and not self.incomplete_reason:
@@ -50,7 +59,7 @@ class ArtifactManifestV1(BaseModel):
 
     schema_version: Literal["ArtifactManifestV1"] = "ArtifactManifestV1"
     manifest_id: str = Field(min_length=1)
-    tenant_id: int
+    tenant_id: int = Field(gt=0)
     task_id: str = Field(min_length=1)
     final_memorial_id: str = Field(min_length=1)
     final_memorial_version: int = Field(ge=1)
@@ -70,6 +79,15 @@ class ArtifactManifestV1(BaseModel):
             raise ValueError("hash must be a lowercase SHA-256 digest")
         return value
 
+    @field_validator("resume_token_expires_at")
+    @classmethod
+    def normalize_resume_expiry_to_utc(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("datetime must be timezone-aware")
+        return value.astimezone(timezone.utc)
+
     @model_validator(mode="after")
     def validate_sealed_manifest(self) -> "ArtifactManifestV1":
         kinds = [item.kind for item in self.artifacts]
@@ -82,10 +100,11 @@ class ArtifactManifestV1(BaseModel):
                 raise ValueError("READY manifest requires every artifact STORED")
             if self.resume_token_hash is not None or self.resume_token_expires_at is not None:
                 raise ValueError("READY manifest cannot include resume metadata")
-        elif self.overall_status == "PARTIAL" and not (
-            "STORED" in statuses and "UNAVAILABLE" in statuses
-        ):
-            raise ValueError("PARTIAL manifest requires STORED and UNAVAILABLE artifacts")
+        elif self.overall_status == "PARTIAL":
+            if "STORED" not in statuses or "UNAVAILABLE" not in statuses:
+                raise ValueError("PARTIAL manifest requires STORED and UNAVAILABLE artifacts")
+            if self.resume_token_hash is None or self.resume_token_expires_at is None:
+                raise ValueError("PARTIAL manifest requires complete resume metadata")
         return self
 
     def artifact(self, kind: ArtifactKind) -> ArtifactManifestItemV1:

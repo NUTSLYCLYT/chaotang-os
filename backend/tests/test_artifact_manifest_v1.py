@@ -111,6 +111,103 @@ def test_partial_manifest_exposes_only_hashed_resume_identity() -> None:
     assert canonical_manifest_hash(partial) == canonical_manifest_hash(partial.model_copy())
 
 
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"resume_token_hash": None},
+        {"resume_token_expires_at": None},
+    ],
+)
+def test_partial_requires_complete_resume_metadata(overrides) -> None:
+    from src.contracts.artifact_manifest import ArtifactManifestV1
+
+    artifacts = _base()["artifacts"]
+    artifacts[0] = {
+        **artifacts[0],
+        "status": "UNAVAILABLE",
+        "incomplete_reason": "renderer_failed",
+    }
+    payload = _base(
+        artifacts=artifacts,
+        overall_status="PARTIAL",
+        resume_token_hash="5" * 64,
+        resume_token_expires_at=datetime(2026, 7, 25, 1, tzinfo=timezone.utc),
+    )
+    payload.update(overrides)
+    with pytest.raises(ValueError):
+        ArtifactManifestV1(**payload)
+
+
+def test_manifest_rejects_naive_artifact_expiry() -> None:
+    from src.contracts.artifact_manifest import ArtifactManifestV1
+
+    artifacts = _base()["artifacts"]
+    artifacts[0] = {**artifacts[0], "expires_at": datetime(2026, 7, 25, 1)}
+    with pytest.raises(ValueError):
+        ArtifactManifestV1(**_base(artifacts=artifacts))
+
+
+def test_partial_rejects_naive_resume_expiry() -> None:
+    from src.contracts.artifact_manifest import ArtifactManifestV1
+
+    artifacts = _base()["artifacts"]
+    artifacts[0] = {
+        **artifacts[0],
+        "status": "UNAVAILABLE",
+        "incomplete_reason": "renderer_failed",
+    }
+    with pytest.raises(ValueError):
+        ArtifactManifestV1(
+            **_base(
+                artifacts=artifacts,
+                overall_status="PARTIAL",
+                resume_token_hash="5" * 64,
+                resume_token_expires_at=datetime(2026, 7, 25, 1),
+            )
+        )
+
+
+def test_canonical_hash_normalizes_equivalent_aware_datetimes_to_utc() -> None:
+    from src.contracts.artifact_manifest import (
+        ArtifactManifestV1,
+        canonical_manifest_hash,
+    )
+
+    def partial_at(instant: datetime) -> ArtifactManifestV1:
+        artifacts = _base()["artifacts"]
+        artifacts[0] = {
+            **artifacts[0],
+            "status": "UNAVAILABLE",
+            "incomplete_reason": "renderer_failed",
+        }
+        artifacts[1] = {**artifacts[1], "expires_at": instant}
+        return ArtifactManifestV1(
+            **_base(
+                artifacts=artifacts,
+                overall_status="PARTIAL",
+                resume_token_hash="5" * 64,
+                resume_token_expires_at=instant,
+            )
+        )
+
+    utc_manifest = partial_at(datetime(2026, 7, 25, 1, tzinfo=timezone.utc))
+    offset_manifest = partial_at(
+        datetime(2026, 7, 25, 9, tzinfo=timezone(timedelta(hours=8)))
+    )
+
+    assert utc_manifest.resume_token_expires_at.tzinfo == timezone.utc
+    assert offset_manifest.resume_token_expires_at.tzinfo == timezone.utc
+    assert canonical_manifest_hash(utc_manifest) == canonical_manifest_hash(offset_manifest)
+
+
+@pytest.mark.parametrize("tenant_id", [0, -1])
+def test_manifest_requires_a_positive_tenant_id(tenant_id: int) -> None:
+    from src.contracts.artifact_manifest import ArtifactManifestV1
+
+    with pytest.raises(ValueError):
+        ArtifactManifestV1(**_base(tenant_id=tenant_id))
+
+
 def test_partial_requires_stored_and_unavailable_items() -> None:
     from src.contracts.artifact_manifest import ArtifactManifestV1
 
