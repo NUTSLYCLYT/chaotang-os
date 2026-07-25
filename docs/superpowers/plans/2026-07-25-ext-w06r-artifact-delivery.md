@@ -540,6 +540,9 @@ git commit -m "feat(w06r): store artifacts atomically"
 - Modify: `backend/src/artifacts/delivery.py`
 - Modify: `backend/src/artifacts/service.py`
 - Modify: `backend/tests/test_artifact_delivery_render.py`
+- Modify: `backend/src/db/models.py`
+- Modify: `backend/alembic/versions/025_artifact_delivery_state.py`
+- Modify: `backend/tests/test_artifact_delivery_migration.py`
 
 **Interfaces:**
 - Consumes: manifest contract, persistence, and storage interfaces.
@@ -615,12 +618,27 @@ Inject a renderer that raises only for PDF. Assert:
 - revision 2 does not rewrite DOCX/JSON files;
 - wrong or expired token fails;
 - retry count increments only for PDF.
+- when JSON alone is unavailable, resume still retries JSON from the canonical
+  internal `source_payload_json`; it never depends on a delivery artifact as
+  its render source.
 
 - [ ] **Step 5: Implement PARTIAL/resume and verify GREEN**
 
 All-three failure raises a delivery error after audit recording and does not
-return a PARTIAL manifest. Resume reads prior item rows, validates token hash
-with `hmac.compare_digest`, and renders only unavailable kinds.
+return a PARTIAL manifest. Its failed attempt, three item failures, and audit
+event must be visible from a new database session after the error is raised.
+Resume reads prior item rows, validates token hash with
+`hmac.compare_digest`, verifies each reusable row against the immutable prior
+manifest item, and renders only unavailable kinds.
+
+Add `ArtifactManifest.source_payload_json` as an internal database column in
+revision 025. Persist canonical compact/sorted JSON and verify its SHA-256
+against `payload_hash` before create replay or resume. Migration tests assert
+the column exists and remains absent from `ArtifactManifestV1`.
+
+Reject `expires_at <= now_utc` before invoking any renderer or storage helper.
+Delivery command services own commit for successful READY/PARTIAL results and
+terminal all-format failure evidence.
 
 - [ ] **Step 6: Write idempotent replay/concurrency RED**
 
@@ -646,6 +664,9 @@ Expected: PASS.
 ```bash
 git add backend/src/artifacts/delivery.py \
   backend/src/artifacts/service.py \
+  backend/src/db/models.py \
+  backend/alembic/versions/025_artifact_delivery_state.py \
+  backend/tests/test_artifact_delivery_migration.py \
   backend/tests/test_artifact_delivery_render.py \
   backend/tests/test_artifact_delivery_service.py
 git commit -m "feat(w06r): orchestrate artifact delivery"

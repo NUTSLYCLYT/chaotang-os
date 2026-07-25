@@ -69,6 +69,13 @@ It binds:
 An existing lineage may be replayed only when its canonical manifest bytes and
 idempotency identity match. A conflicting replay fails closed.
 
+The database row also stores `source_payload_json`, the canonical internal
+`ContractReviewPack` render source. It is verified against `payload_hash`, is
+never included in the public manifest or API response, and remains available
+even when the JSON delivery artifact is the failed format. Delivery artifacts
+are outputs; none of them is the source of truth required to resume another
+output.
+
 ### Mutable Delivery Item
 
 A new internal `ArtifactDeliveryItem` row owns operational state for each
@@ -133,6 +140,9 @@ Resume attempts only the unavailable kinds. A successful resume creates the
 next `delivery_revision` for the same memorial lineage; it never mutates the
 previous sealed manifest payload. Items already verified as stored are
 referenced by identity in the new revision without rewriting their bytes.
+Before reuse, every mutable delivery-item row must exactly match the prior
+immutable manifest item for id, kind, MIME type, status projection, content
+hash, and byte size.
 
 ## Identity and Duplicate Prevention
 
@@ -223,7 +233,11 @@ state, and returns the existing or newly sealed delivery result.
 - Stored-byte hash or size mismatch: 409 and audit failure.
 - Renderer or storage failure: item becomes `UNAVAILABLE`; the packet is
   `PARTIAL` only when at least one other item is valid.
+- A create request whose expiry is not strictly in the future is rejected
+  before rendering or storage begins.
 - Failure of all three formats: request fails; it does not claim `PARTIAL`.
+  The failed manifest attempt, item failures, and audit event are committed
+  before the domain error crosses the service boundary.
 
 No error path may claim delivery from in-memory generation alone.
 
@@ -235,6 +249,8 @@ A new Alembic revision extends the current head
 - manifest idempotency and sealed identity fields required by the immutable
   packet contract;
 - a delivery revision participating in manifest lineage uniqueness;
+- canonical internal `source_payload_json`, verified by `payload_hash` and
+  excluded from public responses;
 - `artifact_delivery_items`;
 - tenant/manifest/artifact uniqueness and lookup indexes.
 
@@ -256,6 +272,11 @@ apply it to any persistent database.
 
 Every production behavior requires a test that was observed failing for the
 intended reason before the implementation change.
+
+Delivery command services own their database transaction through commit for
+both success and terminal all-format failure. They must not return a packet or
+raise the terminal delivery error while their durable state exists only in an
+uncommitted caller transaction. Read-only helpers do not commit.
 
 ## Verification
 
