@@ -19,6 +19,7 @@
 - Runtime bytes stay under an ignored or test-owned `var/` root.
 - One file has one active writer at a time.
 - No push, production deployment, persistent database migration, or listener 3050 takeover.
+- Delivery expiry input is exactly `1..86400` seconds.
 - Every production behavior requires a failing test observed for the intended reason first.
 
 ## File Map
@@ -854,3 +855,66 @@ git commit -m "docs(w06r): record artifact delivery acceptance"
 
 Stop for explicit approval before integrating the accepted Packet into local
 `feature-chaotang-ext`.
+
+---
+
+### Task 8: Final Review Remediation
+
+**Files:**
+- Modify: `backend/src/artifacts/delivery.py`
+- Modify: `backend/src/artifacts/service.py`
+- Modify: `backend/src/artifacts/storage.py`
+- Modify: `backend/src/db/models.py`
+- Modify: `backend/alembic/versions/025_artifact_delivery_state.py`
+- Modify: `backend/web/routers/artifacts.py`
+- Modify: W06R artifact, migration, service, access, and API tests
+- Modify: `.harness/changes/feat-ext-w06r-artifact-delivery-20260725/`
+
+**Interfaces:**
+- Consumes: the Task 7 requirements and quality review reports.
+- Produces: a candidate with every load-bearing finding closed.
+
+- [ ] **Step 1: Write RED tests for product content and source lineage**
+
+Prove PDF/DOCX contain unique decision-summary and risk markers from the
+complete `ContractReviewPackV1`. Prove create rejects missing, cross-tenant,
+non-current, non-ready, hash-corrupt, and supplied-pack-mismatched
+`FinalMemorial` rows before rendering.
+
+- [ ] **Step 2: Write RED tests for canonical identity and replay**
+
+Prove manifest ids change by canonical delivery revision rather than caller
+key; reused stored artifacts retain artifact id/path/hash; artifact lineage
+binds tenant and origin delivery revision; direct command replay rejects a
+tampered manifest seal and mutable incomplete-reason mismatch.
+
+- [ ] **Step 3: Write RED tests for API/status/audit closure**
+
+Prove wrong/expired resume tokens return 409; cross-tenant and unknown download
+failures create one requester-tenant failure audit; expiry transitions mutable
+state to EXPIRED with `last_failure`; expiry seconds outside `1..86400` return
+422.
+
+- [ ] **Step 4: Write RED tests for migration and storage durability**
+
+Prove downgrade refuses before DDL for any non-null revision-025 identity
+field. Prove replay/resume reject storage paths outside the trusted root. Prove
+tenant-directory creation and artifact publication fsync directory file
+descriptors.
+
+- [ ] **Step 5: Implement minimum GREEN**
+
+Use the approved design additions verbatim. All persisted manifest reads share
+one sealed verifier. Existing artifact rows are referenced rather than copied
+when resume reuses a stored item.
+
+- [ ] **Step 6: Synchronize the root Packet**
+
+The Packet type, scope, fact sources, acceptance criteria, rollback, and status
+must describe the actual migration/runtime/storage/API change. Preserve
+`NOT_DEPLOYED`, no push, no persistent migration, and no listener takeover.
+
+- [ ] **Step 7: Run the complete verification and both independent reviews**
+
+Run the Task 7 command set plus new regression tests. Both requirements and
+quality verdicts must be GO before Codex acceptance.

@@ -14,6 +14,11 @@ Deliver one auditable `ContractReviewPack` as exactly three artifacts:
 PDF, DOCX, and JSON. A delivery is complete only when every artifact is
 generated, durably stored, authorized, downloadable, and auditable.
 
+All three formats carry the complete canonical pack. JSON is canonical
+machine-readable JSON; DOCX renders every top-level field and every risk item;
+PDF renders the same content with a Unicode-capable CJK representation. A
+title-only or summary-only PDF/DOCX is not an artifact delivery.
+
 ```text
 DELIVERED =
 generated
@@ -179,6 +184,20 @@ converge on the same revision.
 Artifact ids and manifest ids are deterministic hashes of canonical lineage
 inputs. Client-provided ids are not trusted.
 
+The manifest id is derived from tenant, task, FinalMemorial id/version,
+delivery formula, and delivery revision. An artifact id is derived from its
+origin manifest lineage, kind, lineage hash, and content hash. A later manifest
+revision reuses an already verified artifact by its existing artifact id and
+storage identity; it does not create a new mutable row or rename the stored
+object for that reused artifact.
+
+Before create, the command resolves the exact current
+`FinalMemorial(id, version, task_id, tenant_id)` in `ready_for_decision` state,
+verifies its canonical `memorial_json` hash, extracts and validates its
+`contract_review`, and requires it to equal the supplied
+`ContractReviewPackV1`. Unknown and cross-tenant lineage fails as not found;
+stale, rejected, or content-mismatched lineage fails closed.
+
 ## API Contract
 
 ### Create Delivery
@@ -215,6 +234,10 @@ Before returning bytes, the route verifies tenant, stored state, expiry,
 content hash, byte size, and manifest membership. Failure is fail-closed and
 audited.
 
+Unknown and authorization-denied download attempts are also audited under the
+requesting tenant without exposing whether another tenant owns the attempted
+identifier.
+
 ### Resume Partial Delivery
 
 `POST /api/artifacts/manifests/{manifest_id}/resume`
@@ -222,6 +245,9 @@ audited.
 Requires the opaque resume token and a new request idempotency key. It retries
 only unavailable kinds, preserves verified stored objects, increments retry
 state, and returns the existing or newly sealed delivery result.
+
+Invalid or expired resume tokens both return conflict (`409`); artifact
+download expiry remains gone (`410`).
 
 ## Error Handling
 
@@ -235,6 +261,8 @@ state, and returns the existing or newly sealed delivery result.
   `PARTIAL` only when at least one other item is valid.
 - A create request whose expiry is not strictly in the future is rejected
   before rendering or storage begins.
+- `expiry_seconds` is limited to `1..86400` (24 hours); out-of-range client
+  input is validation error `422`.
 - Failure of all three formats: request fails; it does not claim `PARTIAL`.
   The failed manifest attempt, item failures, and audit event are committed
   before the domain error crosses the service boundary.
@@ -251,6 +279,7 @@ A new Alembic revision extends the current head
 - a delivery revision participating in manifest lineage uniqueness;
 - canonical internal `source_payload_json`, verified by `payload_hash` and
   excluded from public responses;
+- mutable delivery `last_failure` state;
 - `artifact_delivery_items`;
 - tenant/manifest/artifact uniqueness and lookup indexes.
 
@@ -277,6 +306,17 @@ Delivery command services own their database transaction through commit for
 both success and terminal all-format failure. They must not return a packet or
 raise the terminal delivery error while their durable state exists only in an
 uncommitted caller transaction. Read-only helpers do not commit.
+
+Every persisted-manifest read path, including direct idempotent replay, uses
+one verifier that parses the public contract, recomputes the canonical manifest
+hash, and binds all sealed fields to the database row. Mutable delivery rows
+must match sealed item identity, state projection, MIME, hash, size, and
+incomplete reason before projection or reuse.
+
+Expiry moves the mutable item row to `EXPIRED` and records `last_failure`; it
+does not rewrite the sealed public manifest. Storage publication fsyncs the
+artifact file and the containing directory. Downgrade refuses before DDL when
+any revision-025-only identity, payload, item, or audit fact would be lost.
 
 ## Verification
 
