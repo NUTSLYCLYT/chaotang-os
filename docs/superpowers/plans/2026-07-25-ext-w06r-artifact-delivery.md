@@ -322,6 +322,14 @@ Expected: FAIL because revision 025 and tables do not exist.
 Add:
 
 ```python
+InternalDeliveryState = Literal[
+    "PENDING",
+    "GENERATED",
+    "STORED",
+    "UNAVAILABLE",
+    "EXPIRED",
+]
+
 class ArtifactDeliveryItem(Base):
     __tablename__ = "artifact_delivery_items"
     id: Mapped[str]
@@ -354,7 +362,11 @@ class ArtifactDeliveryAuditEvent(Base):
 
 Extend `ArtifactManifest` with delivery revision, idempotency key hash, and
 payload hash. Legacy rows remain readable; all new service writes require the
-new fields.
+new fields. `ArtifactManifestItemV1.status` is the sealed public projection
+(`PENDING`, `STORED`, or `UNAVAILABLE`); `ArtifactDeliveryItem.state` is the
+internal mutable operational state. These are projections of one delivery
+record, not independent completion authorities. Only the manifest validation
+and `DELIVERED` formula determine packet completion.
 
 - [ ] **Step 4: Write persistence/idempotency RED**
 
@@ -646,6 +658,8 @@ POST /api/artifacts/manifests/{id}/resume      -> 200
 
 Request input contains task, memorial identity, ContractReviewPack payload,
 formula version, idempotency key, and expiry seconds.
+Create/read/resume responses include download URLs only for currently stored,
+unexpired items; they never include storage paths or secret hashes.
 
 - [ ] **Step 2: Run API RED**
 
