@@ -10,7 +10,7 @@
 
 ## Status
 
-`QA_REVIEWED / CODEX_ACCEPTANCE_PENDING`
+`VERIFIED_COMPLETE / ACCEPTED_NOT_INTEGRATED`
 
 This change freezes selected Asset Pool identities for later packetization. It
 does not integrate any asset, authorize a product change, delete a source, or
@@ -91,7 +91,30 @@ Window 6 independently reviewed candidate
 `4214c0f5f6a173dd732a8ad3d72b69521c59b162` and returned `QA GO` with zero
 blocking findings. All four findings above are closed.
 
-Codex acceptance remains pending. This review does not integrate the Packet.
+The QA review did not integrate the Packet.
+
+## Codex Acceptance
+
+Window 0/Codex independently accepted candidate
+`b38c48098c5fdb37e62acd13b1c4ba71514d3e39`, tree
+`9fd3f61f3c6bb8020838c6a1b0999ab2a76d9a27`.
+
+Fresh acceptance evidence confirms:
+
+- The cumulative change from `c0a2c7ec` contains only the five declared
+  governance files.
+- `git diff --check` passes.
+- v1 `--check` returns `VALID_INACTIVE_GUARD` and remains non-authorizing.
+- v2 authorization for `R0-W06` returns
+  `GO / APPROVED_WORK_PACKAGE`.
+- `node scripts/harness-doctor.mjs` returns 0 errors and 0 warnings.
+- The candidate worktree is clean.
+- Local `feature-chaotang-ext` remains at `c0a2c7ec`; remote
+  `origin/feature-chaotang-ext` remains at `8feae838`.
+
+Acceptance does not perform integration. Integration approval remains pending.
+The production boundary remains `NOT_DEPLOYED`: no push, database migration,
+or listener takeover was performed.
 
 ## Residual Risk
 

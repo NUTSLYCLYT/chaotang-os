@@ -2,7 +2,7 @@
 
 ## Status
 
-`QA_REVIEWED / CODEX_ACCEPTANCE_PENDING`
+`VERIFIED_COMPLETE / ACCEPTED_NOT_INTEGRATED`
 
 - [x] Confirm local accepted EXT baseline and remote EXT position.
 - [x] Refresh worktree, ref, tracked-change, and untracked-file counts.
@@ -27,6 +27,9 @@
   zero blockers, and all four findings closed.
 - [x] Record source-drift residual risk: every receiving Packet must recompute
   asset identity/hashes or record reviewed byte differences.
-- [ ] Obtain Codex acceptance.
+- [x] Obtain Window 0/Codex independent acceptance of candidate `b38c4809`;
+  cumulative scope remains five governance files and all fresh gates pass.
 - [ ] Obtain explicit approval before any integration into local
   `feature-chaotang-ext`.
+- [x] Preserve release boundary: `NOT_DEPLOYED`, no push, no migration, and no
+  listener takeover.

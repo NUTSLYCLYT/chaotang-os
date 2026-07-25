@@ -8,7 +8,7 @@ Documentation-only evidence capture in
 
 ## Evidence Status
 
-`QA_REVIEWED / CODEX_ACCEPTANCE_PENDING`
+`VERIFIED_COMPLETE / ACCEPTED_NOT_INTEGRATED`
 
 ## Independent QA Review
 
@@ -26,7 +26,29 @@ closed:
 4. One-file/one-writer and protected hunk-level integration are explicit for
    `ShangshufangPage.tsx` and `prod-doctor.mjs`.
 
-Codex acceptance remains pending. No integration is claimed.
+Window 0/Codex acceptance is recorded below. No integration is claimed.
+
+## Codex Acceptance
+
+Accepted candidate:
+`b38c48098c5fdb37e62acd13b1c4ba71514d3e39`
+
+Accepted tree:
+`9fd3f61f3c6bb8020838c6a1b0999ab2a76d9a27`
+
+| Fresh check | Result |
+| --- | --- |
+| Cumulative scope from `c0a2c7ec` | PASS, only five governance files |
+| `git diff --check c0a2c7ec..b38c4809` | PASS |
+| `node scripts/execution-authority.mjs --check` | `VALID_INACTIVE_GUARD`; non-authorizing |
+| `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W06` | `GO / APPROVED_WORK_PACKAGE` |
+| `node scripts/harness-doctor.mjs` | PASS, 0 errors and 0 warnings |
+| Candidate worktree | CLEAN |
+| Local `feature-chaotang-ext` | `c0a2c7ec2ac38ba522db3f9945bec722bd47c886` |
+| `origin/feature-chaotang-ext` | `8feae838f09ad5202b21332d4280b989ab776bd7` |
+
+Acceptance status is `ACCEPTED_NOT_INTEGRATED`. Explicit integration approval
+remains pending.
 
 ## Independent Verification
 
@@ -64,7 +86,7 @@ are claimed because no business code is changed.
   `8feae838f09ad5202b21332d4280b989ab776bd7`
 - Changed files: 5
 - Independent Window 6 review: `QA GO`, zero blockers
-- Codex acceptance: pending
+- Codex acceptance: complete for candidate `b38c4809`
 - Integration into local `feature-chaotang-ext`: not performed
 
 ## Residual Risk
