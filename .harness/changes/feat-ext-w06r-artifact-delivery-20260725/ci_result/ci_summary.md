@@ -184,3 +184,113 @@ entry is missing.
   Session because the command commits the complete supplied transaction.
 - Independent requirements and quality review remain pending. This evidence
   does not claim QA, Codex, integration, or deployment acceptance.
+
+## Task 7 Evidence Refresh After 8a703168
+
+| Field | Recorded value |
+| --- | --- |
+| Packet status | `IMPLEMENTER_VERIFIED / INDEPENDENT_REVIEW_PENDING` |
+| Pre-evidence candidate HEAD | `8a703168e4427b05e1e0a2bf1b0f18f539608021` |
+| Pre-evidence candidate tree | `51a8b208160e12525866a4a7895b55fed29c057c` |
+| Lint-fix commit | `8a703168e4427b05e1e0a2bf1b0f18f539608021` `fix(w06r): chain artifact storage integrity error` |
+| Focused suite | `105 passed, 0 skipped in 21.66s` |
+| Isolated migration suite | `6 passed in 18.19s` |
+| W06R scoped Ruff | PASS |
+| Full backend Ruff | FAIL: `843` pre-existing findings outside W06R scope |
+| Full backend compileall | PASS |
+| Backend/root doctor | `0 errors, 0 warning(s)` / `0 errors, 0 warning(s)` |
+| Scoped W06 authority | `GO / APPROVED_WORK_PACKAGE` |
+| Diff/strict closeout | PASS / PASS |
+
+The preceding Task 7 section remains the first-run history: it recorded the
+original `B904` failure at `backend/src/artifacts/storage.py:233`. Commit
+`8a703168` adds explicit exception chaining at that site. The refreshed W06R
+Ruff command below passes; the independent-review concern is therefore no
+longer an unaddressed W06R lint error.
+
+### Refreshed Commands And Results
+
+```bash
+cd backend
+/tmp/ext-w06r-task3-venv/bin/python -m pytest -q \
+  tests/test_schema_authority.py \
+  tests/test_artifact_manifest_v1.py \
+  tests/test_artifact_delivery_migration.py \
+  tests/test_artifact_storage.py \
+  tests/test_artifact_delivery_render.py \
+  tests/test_artifact_manifest_persistence.py \
+  tests/test_artifact_delivery_service.py \
+  tests/test_artifact_manifest_access.py \
+  tests/test_artifact_delivery_api.py
+```
+
+Result: `105 passed in 21.66s`; `0 skipped`. Alembic was available in the
+temporary virtual environment, so the migration module's `pytest.importorskip`
+guard did not activate.
+
+```bash
+cd backend
+/tmp/ext-w06r-task3-venv/bin/python -m pytest -vv \
+  --basetemp=/tmp/ext-w06r-task7-migration-8a703168 \
+  tests/test_artifact_delivery_migration.py
+```
+
+Result: `6 passed in 18.19s`. The only legacy loop database was
+`/tmp/ext-w06r-task7-migration-8a703168/test_upgrade_downgrade_reupgra0/artifact-delivery-loop.db`:
+
+```text
+upgrade 024_artifact_manifest_tenant -> 025_artifact_delivery_state
+downgrade 025_artifact_delivery_state -> 024_artifact_manifest_tenant
+re-upgrade 024_artifact_manifest_tenant -> 025_artifact_delivery_state
+final alembic_version: 025_artifact_delivery_state
+```
+
+```bash
+cd backend
+/tmp/ext-w06r-task3-venv/bin/ruff check \
+  src/contracts/artifact_manifest.py src/artifacts/storage.py \
+  src/artifacts/delivery.py src/artifacts/service.py src/db/models.py \
+  web/routers/artifacts.py alembic/versions/025_artifact_delivery_state.py \
+  tests/test_schema_authority.py tests/test_artifact_manifest_v1.py \
+  tests/test_artifact_delivery_migration.py tests/test_artifact_storage.py \
+  tests/test_artifact_delivery_render.py \
+  tests/test_artifact_manifest_persistence.py \
+  tests/test_artifact_delivery_service.py \
+  tests/test_artifact_manifest_access.py tests/test_artifact_delivery_api.py
+/tmp/ext-w06r-task3-venv/bin/python -m compileall -q .
+/tmp/ext-w06r-task3-venv/bin/python scripts/harness_doctor.py
+/tmp/ext-w06r-task3-venv/bin/python scripts/commit_closeout_check.py --strict
+
+cd ..
+node scripts/harness-doctor.mjs
+node scripts/execution-authority-v2.mjs --authorize --work-package R0-W06
+git diff --check 64d7f935..HEAD
+```
+
+Result: all listed W06R Ruff files passed; full backend compileall passed;
+both doctors reported `0 errors, 0 warning(s)`; strict closeout and diff passed;
+authority returned `GO / APPROVED_WORK_PACKAGE`.
+
+The requested full lint command was also run:
+
+```bash
+cd backend
+/tmp/ext-w06r-task3-venv/bin/ruff check .
+```
+
+Result: `843` failures, beginning in historical `alembic/env.py`, old Alembic
+revisions, `cli.py`, and unrelated routers/schemas. The W06R files named above
+were separately clean after `8a703168`; this repository-wide baseline remains
+open and is not a pass claim.
+
+### Boundary Confirmation
+
+- `NOT_DEPLOYED`; `NO_PUSH`; `NO_PERSISTENT_DB_MIGRATION`;
+  `NO_LISTENER_TAKEOVER`.
+- All migration paths and database files were pytest-owned or under `/tmp`;
+  none used `backend/var`, the main worktree, or a persistent database.
+- The two parked production blockers remain: `source_payload_json` retention,
+  encryption, and access policy; and command-owned Session/transaction
+  ownership for delivery callers.
+- Independent requirements and quality review remain pending. This refresh
+  does not claim QA, Codex, integration, or deployment acceptance.
