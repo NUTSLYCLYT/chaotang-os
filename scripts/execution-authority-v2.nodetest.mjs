@@ -398,6 +398,7 @@ test('root authorization procedure reserves product execution decisions for scop
     'AGENTS.md',
     '.harness/agents/project-owner.md',
     '.harness/rules/project-workflow.md',
+    '.harness/wiki/harness-inventory.md',
   ]) {
     const source = await readFile(join(root, path), 'utf8');
     assert.match(source, /node scripts\/execution-authority\.mjs --check/, path);
@@ -406,6 +407,8 @@ test('root authorization procedure reserves product execution decisions for scop
       /node scripts\/execution-authority-v2\.mjs --authorize --work-package <R0-Wxx>/,
       path,
     );
+    assert.match(source, /V1_CHECK_INTEGRITY_ONLY_NON_AUTHORIZING/, path);
+    assert.match(source, /V2_SCOPED_AUTHORIZE_SOLE_PRODUCT_DECISION/, path);
     assert.doesNotMatch(source, /node scripts\/execution-authority\.mjs --authorize/, path);
   }
 });

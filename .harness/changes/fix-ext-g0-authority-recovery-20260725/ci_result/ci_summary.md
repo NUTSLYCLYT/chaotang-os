@@ -6,7 +6,7 @@
 
 | Command | Exit | Result |
 | --- | ---: | --- |
-| `node --test scripts/execution-authority.nodetest.mjs` | 0 | `9/9` passing |
+| `node --test scripts/execution-authority.nodetest.mjs` | 0 | `10/10` passing; includes semantic-marker, inventory-drift, and Task 1 scope-path regressions |
 | `node --test scripts/execution-authority-v2.nodetest.mjs` | 0 | `28/28` passing |
 | `node scripts/execution-authority.mjs --check` | 0 | `VALID_INACTIVE_GUARD / AMENDMENT_APPROVAL_REQUIRED` |
 | `node scripts/execution-authority.mjs --authorize` | 2 | `STOP / AMENDMENT_APPROVAL_REQUIRED` (expected deny) |
@@ -14,9 +14,10 @@
 | `node scripts/harness-doctor.mjs` | 0 | `0 errors, 0 warnings` |
 | `git diff --check` | 0 | clean |
 
-The final focused commit remains review-ready only: v2 has `activeWorkPackage=null`, no W06
-`ACTIVE` ledger entry, and no W06 `GO`. No deployment, remote update, database migration, or
-listener `3050` operation occurred.
+The committed Task 1 candidate series begins with `34110e2f`, then plan correction `8c891ffd`,
+and this focused H1-M3 follow-up. It remains review-ready only: v2 has
+`activeWorkPackage=null`, no W06 `ACTIVE` ledger entry, and no W06 `GO`. No deployment, remote
+update, database migration, or listener `3050` operation occurred.
 
 ## Review handoff
 

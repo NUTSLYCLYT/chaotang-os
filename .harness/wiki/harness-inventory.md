@@ -7,7 +7,8 @@
 - `scripts/new-change.mjs`：根级变更骨架生成器。
 - `.harness/manifest/execution-authority.v1.json`：M0–M10 的失效关闭、未激活执行权威清单。
 - `.harness/contracts/execution-authority.schema.json`：只允许 `AMENDMENT_REQUIRED / INACTIVE` 的 v1 契约。
-- `scripts/execution-authority.mjs` 与 `scripts/lib/execution-authority.mjs`：唯一执行权威命令和 resolver；产品实现前使用 `--authorize`。
+- `scripts/execution-authority.mjs` 与 `scripts/lib/execution-authority.mjs`：`V1_CHECK_INTEGRITY_ONLY_NON_AUTHORIZING`；`node scripts/execution-authority.mjs --check` 只验证失效关闭护栏完整性，不构成产品施工决定，v1 `--authorize` 永远 `STOP`。
+- `scripts/execution-authority-v2.mjs` 与 `scripts/lib/execution-authority-v2.mjs`：`V2_SCOPED_AUTHORIZE_SOLE_PRODUCT_DECISION`；只有 `node scripts/execution-authority-v2.mjs --authorize --work-package <R0-Wxx>` 的 `GO / APPROVED_WORK_PACKAGE` 才是范围化产品施工决定。
 - `.harness/wiki/execution-authority.md`：命令语义、受控摘要重钉流程和 amendment 交接边界。
 
 ## 前端工程 Harness

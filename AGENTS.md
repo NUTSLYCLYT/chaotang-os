@@ -16,7 +16,7 @@
 2. 阅读 `.harness/rules/project-boundaries.md`。
 3. 查看 `.harness/wiki/architecture.md` 与 `.harness/wiki/harness-inventory.md`。
 4. 进入具体工作线：前端读 `frontend/AGENTS.md`，后端读 `backend/AGENTS.md`。
-5. 领取产品实现任务前先运行 `node scripts/execution-authority.mjs --check`，它只验证 v1 失效关闭护栏完整性，**不授予施工权**；再运行 `node scripts/execution-authority-v2.mjs --authorize --work-package <R0-Wxx>`，这是唯一的范围化产品施工决定。v2 返回 `STOP` 时不得领取产品实现任务；只能编制获批 amendment，或执行用户另行明确批准的治理/事故/证据修复。
+5. 领取产品实现任务前先运行 `node scripts/execution-authority.mjs --check`，它只验证 v1 失效关闭护栏完整性，**不授予施工权**；`V1_CHECK_INTEGRITY_ONLY_NON_AUTHORIZING`。再运行 `node scripts/execution-authority-v2.mjs --authorize --work-package <R0-Wxx>`，这是唯一的范围化产品施工决定；`V2_SCOPED_AUTHORIZE_SOLE_PRODUCT_DECISION`。v2 返回 `STOP` 时不得领取产品实现任务；只能编制获批 amendment，或执行用户另行明确批准的治理/事故/证据修复。
 6. 跨前后端或项目级实质变更，需要在 `.harness/changes/` 下创建或更新根级变更记录。
 7. 新建根级护栏变更时使用 `node scripts/new-change.mjs <type> <short-name>`。
 8. 修改护栏架构前后运行 `node scripts/harness-doctor.mjs`。

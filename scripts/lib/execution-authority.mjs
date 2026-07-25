@@ -55,6 +55,8 @@ const REQUIRED_DOCUMENT_CONTENT = new Map([
       '.harness/agents/project-owner.md',
       'node scripts/execution-authority.mjs --check',
       'node scripts/execution-authority-v2.mjs --authorize --work-package <R0-Wxx>',
+      'V1_CHECK_INTEGRITY_ONLY_NON_AUTHORIZING',
+      'V2_SCOPED_AUTHORIZE_SOLE_PRODUCT_DECISION',
     ],
   ],
   [
@@ -73,6 +75,8 @@ const REQUIRED_DOCUMENT_CONTENT = new Map([
     [
       'node scripts/execution-authority.mjs --check',
       'node scripts/execution-authority-v2.mjs --authorize --work-package <R0-Wxx>',
+      'V1_CHECK_INTEGRITY_ONLY_NON_AUTHORIZING',
+      'V2_SCOPED_AUTHORIZE_SOLE_PRODUCT_DECISION',
       '不能单独授予产品施工权',
     ],
   ],
@@ -81,6 +85,8 @@ const REQUIRED_DOCUMENT_CONTENT = new Map([
     [
       'node scripts/execution-authority.mjs --check',
       'node scripts/execution-authority-v2.mjs --authorize --work-package <R0-Wxx>',
+      'V1_CHECK_INTEGRITY_ONLY_NON_AUTHORIZING',
+      'V2_SCOPED_AUTHORIZE_SOLE_PRODUCT_DECISION',
       '不单独授予产品实施权',
     ],
   ],

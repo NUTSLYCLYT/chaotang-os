@@ -30,8 +30,8 @@
 ## 执行权威闸
 
 - 调查、计划、change 记录、用户确认与 packet review 都不单独授予产品实施权。
-- 进入 M0–M10 或其他产品 runtime 实施前，必须先运行 `node scripts/execution-authority.mjs --check` 验证 v1 失效关闭护栏完整性；该检查退出 0 仍不授予产品施工权。
-- 随后必须运行 `node scripts/execution-authority-v2.mjs --authorize --work-package <R0-Wxx>`；它是唯一的范围化产品施工决定。只有 `GO / APPROVED_WORK_PACKAGE` 才能进入所请求的 work package，`STOP` 时只能编制 amendment，不得领取旧 P/PKT/S 队列。
+- 进入 M0–M10 或其他产品 runtime 实施前，必须先运行 `node scripts/execution-authority.mjs --check` 验证 v1 失效关闭护栏完整性；`V1_CHECK_INTEGRITY_ONLY_NON_AUTHORIZING`：该检查退出 0 仍不授予产品施工权。
+- 随后必须运行 `node scripts/execution-authority-v2.mjs --authorize --work-package <R0-Wxx>`；`V2_SCOPED_AUTHORIZE_SOLE_PRODUCT_DECISION`：它是唯一的范围化产品施工决定。只有 `GO / APPROVED_WORK_PACKAGE` 才能进入所请求的 work package，`STOP` 时只能编制 amendment，不得领取旧 P/PKT/S 队列。
 - `execution-authority.v1 --authorize` 不存在 GO 路径，持续返回 `STOP / AMENDMENT_APPROVAL_REQUIRED`；任何非空 v1 amendment、approval evidence 或 effective HEAD 都是无效输入并必须失效关闭。
 - 另行明确批准的治理、事故与证据修复只能在批准的精确范围内执行，且不得冒充 M0–M10 完成。
 

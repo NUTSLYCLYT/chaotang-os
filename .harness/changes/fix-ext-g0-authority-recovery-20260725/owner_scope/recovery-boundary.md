@@ -14,9 +14,11 @@
 ## Boundary statement
 
 This file records the owner and exact EXT recovery boundary for review of the EXT-G0 governance
-candidate. It is not an exact-H approval for W06, does not bind a candidate commit/tree as approved
-execution, and cannot change the v2 decision. W01–W05 approvals and reviews are historical evidence
-only; they do not approve W06.
+candidate. It is a scope/non-approval record, not an exact-H approval for W06, does not bind a
+candidate commit/tree as approved execution, and cannot change the v2 decision. W01-W05 approvals
+and reviews are historical evidence only; they do not approve W06.
 
-Task 2 requires an independent W06-specific review bound to the exact candidate, tree, scope, and
-proposed activation bytes before it may create any `GO / APPROVED_WORK_PACKAGE` result.
+This record is deliberately outside every `owner_approval/` path. Task 2 requires a new positive
+W06-specific owner approval at its canonical `owner_approval/exact-h-approval.md` path, bound to
+the exact candidate, tree, scope, exclusions, and proposed activation bytes before it may create
+any `GO / APPROVED_WORK_PACKAGE` result.
