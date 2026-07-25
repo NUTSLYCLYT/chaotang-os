@@ -25,6 +25,7 @@ def _sealed_manifest_json(*, manifest_id: str, tenant_id: int) -> str:
             "delivery_revision": 1,
             "idempotency_key_hash": "c" * 64,
             "payload_hash": "d" * 64,
+            "requested_expiry_seconds": 3600,
             "artifacts": [
                 {
                     "artifact_id": "artifact-pdf",
@@ -87,6 +88,7 @@ def _manifest_row(
         delivery_revision=manifest.delivery_revision,
         idempotency_key_hash=manifest.idempotency_key_hash,
         payload_hash=manifest.payload_hash,
+        requested_expiry_seconds=manifest.requested_expiry_seconds,
         content_hash=canonical_manifest_hash(manifest),
         manifest_json=manifest_json,
         overall_status=manifest.overall_status,

@@ -1012,6 +1012,56 @@ def test_create_replay_is_idempotent_and_changed_request_conflicts(
     db.close()
 
 
+@pytest.mark.parametrize("retry_expiry_seconds", [3600, 3601])
+def test_create_replay_rejects_tampered_requested_expiry_seal(
+    isolated_session_local,
+    tmp_path: Path,
+    retry_expiry_seconds: int,
+) -> None:
+    from src.artifacts.service import (
+        DeliveryIntegrityError,
+        deliver_artifact_packet,
+    )
+    from src.db.models import ArtifactManifest
+
+    db = isolated_session_local()
+    payload = contract_review_pack(task_id="task-tampered-expiry")
+    seed_delivery_source(
+        db,
+        tenant_id=7,
+        task_id="task-tampered-expiry",
+        final_memorial_id="memorial-tampered-expiry",
+        final_memorial_version=1,
+        payload=payload,
+    )
+    arguments = {
+        "storage_root": tmp_path / "artifact-storage",
+        "tenant_id": 7,
+        "task_id": "task-tampered-expiry",
+        "final_memorial_id": "memorial-tampered-expiry",
+        "final_memorial_version": 1,
+        "payload": payload,
+        "delivery_formula_version": "w06-v1",
+        "idempotency_key": "tampered-expiry-key",
+        "requested_expiry_seconds": retry_expiry_seconds,
+    }
+    deliver_artifact_packet(
+        db,
+        **{**arguments, "requested_expiry_seconds": 3600},
+    )
+    row = db.query(ArtifactManifest).one()
+    sealed_manifest_json = row.manifest_json
+    row.requested_expiry_seconds = 3601
+    db.commit()
+
+    with pytest.raises(DeliveryIntegrityError):
+        deliver_artifact_packet(db, **arguments)
+
+    row = db.query(ArtifactManifest).one()
+    assert row.manifest_json == sealed_manifest_json
+    db.close()
+
+
 def test_resume_replay_is_idempotent(
     isolated_session_local,
     tmp_path: Path,

@@ -79,6 +79,7 @@ class ArtifactManifestV1(BaseModel):
     delivery_revision: int = Field(ge=1)
     idempotency_key_hash: str
     payload_hash: str
+    requested_expiry_seconds: int = Field(gt=0, le=86400)
     artifacts: list[ArtifactManifestItemV1]
     overall_status: ManifestStatus
     resume_token_hash: str | None = None

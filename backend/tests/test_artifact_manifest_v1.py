@@ -18,6 +18,7 @@ def _base(**overrides):
         "delivery_revision": 1,
         "idempotency_key_hash": "c" * 64,
         "payload_hash": "d" * 64,
+        "requested_expiry_seconds": 3600,
         "artifacts": [
             {
                 "artifact_id": "artifact-pdf",
@@ -73,6 +74,26 @@ def test_ready_manifest_seals_exact_pdf_docx_json_membership() -> None:
     for artifacts in (duplicate, missing, extra):
         with pytest.raises(ValueError):
             ArtifactManifestV1(**_base(artifacts=artifacts))
+
+
+def test_requested_expiry_seconds_is_required_sealed_identity() -> None:
+    from src.contracts.artifact_manifest import (
+        ArtifactManifestV1,
+        canonical_manifest_hash,
+    )
+
+    manifest = ArtifactManifestV1(**_base())
+    changed_expiry = manifest.model_copy(
+        update={"requested_expiry_seconds": 3601}
+    )
+
+    assert canonical_manifest_hash(manifest) != canonical_manifest_hash(
+        changed_expiry
+    )
+    missing_expiry = _base()
+    missing_expiry.pop("requested_expiry_seconds")
+    with pytest.raises(ValueError):
+        ArtifactManifestV1(**missing_expiry)
 
 
 def test_ready_requires_every_artifact_to_be_stored() -> None:

@@ -42,6 +42,7 @@ def _assert_public_json(value: dict) -> None:
         "storage_path",
         "resume_token_hash",
         "idempotency_key_hash",
+        "requested_expiry_seconds",
     }
 
     def visit(node):
@@ -809,6 +810,62 @@ def test_http_create_retry_replays_original_packet_and_relative_expiry_is_identi
     try:
         row = db.query(ArtifactManifest).one()
         assert row.requested_expiry_seconds == body["expiry_seconds"]
+    finally:
+        db.close()
+
+
+def test_tampered_requested_expiry_fails_every_http_integrity_boundary(
+    artifact_api,
+) -> None:
+    from src.db.models import ArtifactManifest
+
+    client, session_factory, _ = artifact_api
+    body = _create_request(
+        task_id="task-api-tampered-expiry",
+        idempotency_key="api-tampered-expiry-key",
+    )
+    _seed_delivery_request(session_factory, body)
+    created = client.post("/api/artifacts/deliveries", json=body)
+    assert created.status_code == 201
+    _assert_public_json(created.json())
+    public_manifest = created.json()["manifest"]
+    manifest_id = public_manifest["manifest_id"]
+    artifact_id = public_manifest["artifacts"][0]["artifact_id"]
+
+    db = session_factory()
+    try:
+        row = db.query(ArtifactManifest).one()
+        sealed_manifest_json = row.manifest_json
+        sealed_content_hash = row.content_hash
+        row.requested_expiry_seconds = body["expiry_seconds"] + 1
+        db.commit()
+    finally:
+        db.close()
+
+    read = client.get(f"/api/artifacts/manifests/{manifest_id}")
+    download = client.get(f"/api/artifacts/{artifact_id}/download")
+    authentic_retry = client.post("/api/artifacts/deliveries", json=body)
+    forged_retry = client.post(
+        "/api/artifacts/deliveries",
+        json={**body, "expiry_seconds": body["expiry_seconds"] + 1},
+    )
+
+    assert [
+        read.status_code,
+        download.status_code,
+        authentic_retry.status_code,
+        forged_retry.status_code,
+    ] == [409, 409, 409, 409]
+    assert _download_audit_counts(
+        session_factory,
+        artifact_id=artifact_id,
+    ) == (1, 0)
+
+    db = session_factory()
+    try:
+        row = db.query(ArtifactManifest).one()
+        assert row.manifest_json == sealed_manifest_json
+        assert row.content_hash == sealed_content_hash
     finally:
         db.close()
 

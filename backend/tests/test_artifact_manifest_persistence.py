@@ -21,6 +21,7 @@ def _sealed_manifest(
     delivery_revision: int = 1,
     idempotency_key_hash: str = "c" * 64,
     payload_hash: str = "d" * 64,
+    requested_expiry_seconds: int = 3600,
 ) -> dict:
     return {
         "schema_version": "ArtifactManifestV1",
@@ -33,6 +34,7 @@ def _sealed_manifest(
         "delivery_revision": delivery_revision,
         "idempotency_key_hash": idempotency_key_hash,
         "payload_hash": payload_hash,
+        "requested_expiry_seconds": requested_expiry_seconds,
         "artifacts": [
             {
                 "artifact_id": "artifact-pdf",

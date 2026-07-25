@@ -576,6 +576,8 @@ def _verify_persisted_manifest(
         or manifest.delivery_revision != row.delivery_revision
         or manifest.idempotency_key_hash != row.idempotency_key_hash
         or manifest.payload_hash != row.payload_hash
+        or manifest.requested_expiry_seconds
+        != row.requested_expiry_seconds
         or manifest.overall_status != row.overall_status
     ):
         raise DeliveryIntegrityError(
@@ -771,7 +773,7 @@ def _persist_delivery_packet(
     payload_hash: str,
     source_payload_json: str,
     expires_at: datetime,
-    requested_expiry_seconds: int | None,
+    requested_expiry_seconds: int,
     drafts: list[_DeliveryDraft],
     resume_token: str | None,
 ) -> DeliveryPacket:
@@ -814,6 +816,7 @@ def _persist_delivery_packet(
         delivery_revision=delivery_revision,
         idempotency_key_hash=idempotency_key_hash,
         payload_hash=payload_hash,
+        requested_expiry_seconds=requested_expiry_seconds,
         artifacts=manifest_items,
         overall_status=overall_status,
         resume_token_hash=resume_token_hash,
@@ -1186,7 +1189,7 @@ def _resume_artifact_packet(
         payload_hash=prior_manifest.payload_hash,
         source_payload_json=source_payload_json,
         expires_at=prior_manifest.resume_token_expires_at,
-        requested_expiry_seconds=None,
+        requested_expiry_seconds=prior_manifest.requested_expiry_seconds,
         drafts=drafts,
         resume_token=next_resume_token,
     )
@@ -1345,6 +1348,10 @@ def persist_delivery_manifest(
         requested_expiry_seconds = _require_requested_expiry_seconds(
             requested_expiry_seconds
         )
+        if requested_expiry_seconds != validated.requested_expiry_seconds:
+            raise DeliveryConflict(
+                "requested expiry does not match sealed manifest"
+            )
     if source_payload_json is not None:
         _validate_source_payload_json(
             source_payload_json,
@@ -1444,7 +1451,7 @@ def persist_delivery_manifest(
         idempotency_key_hash=validated.idempotency_key_hash,
         payload_hash=validated.payload_hash,
         source_payload_json=source_payload_json,
-        requested_expiry_seconds=requested_expiry_seconds,
+        requested_expiry_seconds=validated.requested_expiry_seconds,
         content_hash=manifest_hash,
         manifest_json=manifest_json,
         overall_status=validated.overall_status,
@@ -1621,6 +1628,7 @@ def persist_manifest(
         delivery_revision=validated_manifest.delivery_revision,
         idempotency_key_hash=validated_manifest.idempotency_key_hash,
         payload_hash=validated_manifest.payload_hash,
+        requested_expiry_seconds=validated_manifest.requested_expiry_seconds,
         content_hash=content_hash,
         manifest_json=json.dumps(manifest_json, sort_keys=True),
         overall_status=overall_status,
