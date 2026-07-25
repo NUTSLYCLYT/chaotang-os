@@ -2,7 +2,7 @@
 
 ## Candidate state
 
-`REVIEW_READY / NOT_ACTIVE / NOT_DEPLOYED`
+`REVIEW_REQUEST_READY / NOT_ACTIVE / NOT_DEPLOYED`
 
 | Command | Exit | Result |
 | --- | ---: | --- |
@@ -18,6 +18,17 @@ The committed Task 1 candidate series begins with `34110e2f`, then plan correcti
 and this focused H1-M3 follow-up. It remains review-ready only: v2 has
 `activeWorkPackage=null`, no W06 `ACTIVE` ledger entry, and no W06 `GO`. No deployment, remote
 update, database migration, or listener `3050` operation occurred.
+
+## Task 2A preparation evidence
+
+| Command | Exit | Result |
+| --- | ---: | --- |
+| `node --test scripts/execution-authority-v2.nodetest.mjs` | 0 | `36/36` passing, including strict evidence parser and six negative W06 semantic cases |
+
+The tracked v2 manifest is intentionally unchanged. The new owner approval and activation proposal
+are review inputs only; `claude_code_review/exact-h-final.md` has not been created. Final Task 2
+activation is prohibited until a read-only reviewer produces that exact evidence and an authorized
+operator atomically updates the tracked manifest.
 
 ## Review handoff
 

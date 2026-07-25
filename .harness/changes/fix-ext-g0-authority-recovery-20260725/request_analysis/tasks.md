@@ -17,3 +17,13 @@
   may perform independent review and consider atomic W06 activation.
 - [x] Resolve Task 1 H1-M3 without creating W06 approval: move the non-approval record to
   `owner_scope/`, add enforced root/inventory semantic markers, and retain v2 quiescence.
+- [x] Record Product Owner's W06-only recovery approval with strict JSON evidence bound to exact
+  base `8feae838f09ad5202b21332d4280b989ab776bd7`, tree
+  `9d63f98041e5e13174dbba4c0b9d27eef1471bf9`, and the documented exclusions.
+- [x] Add a digest-bound proposed activation artifact and read-only independent-review request;
+  leave `execution-authority.v2.json` untouched and do not create `exact-h-final.md`.
+- [x] Add fail-closed strict JSON parsing and semantic binding tests for old-package review reuse,
+  negative owner decision, candidate/tree mismatch, owner digest mismatch, and review verdict
+  mismatch.
+- [x] Stop at `REVIEW_REQUEST_READY / NOT_ACTIVE / NOT_DEPLOYED`; no W06 product implementation,
+  activation, merge, push, deployment, migration, or listener operation occurred.

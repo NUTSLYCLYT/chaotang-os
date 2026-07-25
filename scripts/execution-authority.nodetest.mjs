@@ -283,13 +283,16 @@ test('project manifest and policy consumers expose a fail-closed authority gate'
   assert.match(template, /NOT_GRANTED_BY_CHANGE_RECORD/);
 });
 
-test('Task 1 keeps its non-approval scope record outside the owner approval namespace', async () => {
+test('Task 1 keeps its non-approval scope record separate from Task 2A W06 approval evidence', async () => {
   const changeRoot = join(root, '.harness/changes/fix-ext-g0-authority-recovery-20260725');
   const entries = await readdir(changeRoot, { withFileTypes: true });
   assert.ok(entries.some((entry) => entry.isDirectory() && entry.name === 'owner_scope'));
-  assert.equal(entries.some((entry) => entry.isDirectory() && entry.name === 'owner_approval'), false);
+  assert.ok(entries.some((entry) => entry.isDirectory() && entry.name === 'owner_approval'));
   const boundary = await readFile(join(changeRoot, 'owner_scope/recovery-boundary.md'), 'utf8');
   assert.match(boundary, /Product authorization \| Not granted/);
+  const approval = await readFile(join(changeRoot, 'owner_approval/exact-h-approval.md'), 'utf8');
+  assert.match(approval, /Product Owner Exact-H Approval: R0-W06 Recovery/);
+  assert.match(approval, /"workPackage": "R0-W06"/);
 });
 
 test('CLI validates the manifest but denies canonical execution while v1 is inactive', () => {

@@ -13,10 +13,12 @@ import {
   EXPECTED_EXECUTION_AUTHORITY_V2_REGISTRATION,
   executionAuthorityV2CommandResult,
   loadExecutionAuthorityV2,
+  parseExecutionAuthorityV2Evidence,
   parseJsonObjectWithUniqueKeys,
   readPinnedAuthorityFile,
   resolveExecutionAuthorityV2,
   sha256Hex,
+  validateExecutionAuthorityV2Evidence,
   validateExecutionAuthorityV2,
   validateExecutionAuthorityV2Manifest,
   validateExecutionAuthorityV2Schema,
@@ -78,6 +80,198 @@ function validGovernance() {
       sha: 'ccc2d74a2e439830e9c6ae7adcefb5ee8c05c150',
     },
   };
+}
+
+function w06ActivationManifest() {
+  const manifest = validManifest();
+  return {
+    ...manifest,
+    effectiveBase: {
+      ref: 'origin/feature-chaotang-ext',
+      sha: '8feae838f09ad5202b21332d4280b989ab776bd7',
+    },
+    approvalEvidence: {
+      ownerApprovalPath:
+        '.harness/changes/fix-ext-g0-authority-recovery-20260725/owner_approval/exact-h-approval.md',
+      ownerApprovalSha256: 'a'.repeat(64),
+      reviewPath:
+        '.harness/changes/fix-ext-g0-authority-recovery-20260725/claude_code_review/exact-h-final.md',
+      reviewSha256: 'b'.repeat(64),
+      reviewVerdict: 'GO',
+      approver: 'lyt',
+      candidateH: '8feae838f09ad5202b21332d4280b989ab776bd7',
+      tree: '9d63f98041e5e13174dbba4c0b9d27eef1471bf9',
+      approvedScope: ['R0-W06'],
+    },
+    activeWorkPackage: 'R0-W06',
+    workPackageLedger: [
+      { id: 'R0-W00', status: 'MERGED_AND_VERIFIED' },
+      { id: 'R0-W01', status: 'MERGED_AND_VERIFIED' },
+      { id: 'R0-W02', status: 'MERGED_AND_VERIFIED' },
+      { id: 'R0-W03', status: 'MERGED_AND_VERIFIED' },
+      { id: 'R0-W04', status: 'MERGED_AND_VERIFIED' },
+      { id: 'R0-W05', status: 'MERGED_AND_VERIFIED' },
+      { id: 'R0-W06', status: 'ACTIVE' },
+    ],
+  };
+}
+
+function evidenceDocument(value) {
+  return [
+    '# Evidence',
+    '',
+    '<!-- execution-authority-v2-evidence:start -->',
+    '```json',
+    JSON.stringify(value, null, 2),
+    '```',
+    '<!-- execution-authority-v2-evidence:end -->',
+    '',
+  ].join('\n');
+}
+
+function w06EvidenceDocuments() {
+  const manifest = w06ActivationManifest();
+  const owner = {
+    evidenceVersion: 'execution-authority-v2-evidence.v1',
+    kind: 'owner-approval',
+    decision: 'APPROVED',
+    approver: 'lyt',
+    workPackage: 'R0-W06',
+    effectiveBase: manifest.effectiveBase,
+    candidateH: manifest.approvalEvidence.candidateH,
+    tree: manifest.approvalEvidence.tree,
+    approvedScope: ['R0-W06'],
+    exclusions: [
+      'NO_DEPLOYMENT',
+      'NO_REAL_CUSTOMER_DATA',
+      'NO_DB_MIGRATION',
+      'NO_LISTENER_3050_TAKEOVER',
+      'NO_R0_W07_TO_R0_W09',
+      'NO_AUTOMATIC_MERGE',
+      'NO_PRODUCTION_CLAIM',
+    ],
+    proposedActivationPath:
+      '.harness/changes/fix-ext-g0-authority-recovery-20260725/proposed_activation/r0-w06-activation.json',
+    proposedActivationSha256: 'c'.repeat(64),
+  };
+  const review = {
+    evidenceVersion: 'execution-authority-v2-evidence.v1',
+    kind: 'independent-review',
+    verdict: 'GO',
+    reviewer: 'Claude Code',
+    workPackage: 'R0-W06',
+    effectiveBase: manifest.effectiveBase,
+    candidateH: manifest.approvalEvidence.candidateH,
+    tree: manifest.approvalEvidence.tree,
+    approvedScope: ['R0-W06'],
+    ownerApprovalPath: manifest.approvalEvidence.ownerApprovalPath,
+    ownerApprovalSha256: manifest.approvalEvidence.ownerApprovalSha256,
+    proposedActivationPath: owner.proposedActivationPath,
+    proposedActivationSha256: owner.proposedActivationSha256,
+    diffSha256: 'd'.repeat(64),
+    changedPaths: [
+      '.harness/changes/fix-ext-g0-authority-recovery-20260725/',
+      'scripts/lib/execution-authority-v2.mjs',
+      'scripts/execution-authority-v2.nodetest.mjs',
+    ],
+    commands: ['node --test scripts/execution-authority-v2.nodetest.mjs'],
+    productionReady: false,
+  };
+  return { manifest, owner, review };
+}
+
+test('matching W06 machine-readable owner and review evidence permits the exact active package', () => {
+  const { manifest, owner, review } = w06EvidenceDocuments();
+  const parsedOwner = parseExecutionAuthorityV2Evidence(evidenceDocument(owner), 'owner approval');
+  const parsedReview = parseExecutionAuthorityV2Evidence(evidenceDocument(review), 'independent review');
+  assert.deepEqual(validateExecutionAuthorityV2Evidence(manifest, parsedOwner, parsedReview), []);
+  const loaded = {
+    manifest,
+    amendmentGovernance: validGovernance(),
+    errors: validateExecutionAuthorityV2Evidence(manifest, parsedOwner, parsedReview),
+  };
+  assert.equal(
+    executionAuthorityV2CommandResult(loaded, '--authorize', [], { workPackage: 'R0-W06' }).exitCode,
+    0,
+  );
+});
+
+for (const {
+  name,
+  mutate,
+  expectedError,
+} of [
+  {
+    name: 'old-package review reuse',
+    mutate: ({ review }) => {
+      review.workPackage = 'R0-W05';
+      review.approvedScope = ['R0-W05'];
+    },
+    expectedError: 'review workPackage must match activeWorkPackage',
+  },
+  {
+    name: 'negative owner decision',
+    mutate: ({ owner }) => {
+      owner.decision = 'DECLINED';
+    },
+    expectedError: 'owner decision must be APPROVED',
+  },
+  {
+    name: 'candidate and tree mismatch',
+    mutate: ({ review }) => {
+      review.candidateH = '1'.repeat(40);
+      review.tree = '2'.repeat(40);
+    },
+    expectedError: 'review candidateH must match manifest approvalEvidence.candidateH',
+  },
+  {
+    name: 'owner digest mismatch',
+    mutate: ({ review }) => {
+      review.ownerApprovalSha256 = 'e'.repeat(64);
+    },
+    expectedError: 'review ownerApprovalSha256 must match manifest approvalEvidence.ownerApprovalSha256',
+  },
+  {
+    name: 'review verdict mismatch',
+    mutate: ({ review }) => {
+      review.verdict = 'NO_GO';
+    },
+    expectedError: 'review verdict must match manifest approvalEvidence.reviewVerdict',
+  },
+  {
+    name: 'non-string review changed path',
+    mutate: ({ review }) => {
+      review.changedPaths = [42];
+    },
+    expectedError: 'review changedPaths must be a non-empty list of safe repository paths',
+  },
+]) {
+  test(`${name} evidence fails closed and cannot produce GO`, () => {
+    const fixture = w06EvidenceDocuments();
+    mutate(fixture);
+    const parsedOwner = parseExecutionAuthorityV2Evidence(
+      evidenceDocument(fixture.owner),
+      'owner approval',
+    );
+    const parsedReview = parseExecutionAuthorityV2Evidence(
+      evidenceDocument(fixture.review),
+      'independent review',
+    );
+    const errors = validateExecutionAuthorityV2Evidence(
+      fixture.manifest,
+      parsedOwner,
+      parsedReview,
+    );
+    assert.ok(errors.some((error) => error.includes(expectedError)), errors.join('\n'));
+    const result = executionAuthorityV2CommandResult(
+      { manifest: fixture.manifest, amendmentGovernance: validGovernance(), errors },
+      '--authorize',
+      [],
+      { workPackage: 'R0-W06' },
+    );
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.output.reason, 'INVALID_EXECUTION_AUTHORITY');
+  });
 }
 
 test('valid W01 manifest resolves to GO for exactly the active work package', () => {
@@ -443,4 +637,32 @@ test('real repo v2 manifest evidence digests match on-disk bytes', async () => {
   assert.equal(sha256Hex(reviewBytes), loaded.manifest.approvalEvidence.reviewSha256);
   const amendmentBytes = await readFile(join(root, loaded.manifest.amendment.path), 'utf8');
   assert.equal(sha256Hex(amendmentBytes), loaded.manifest.amendment.approvedSourceDigest);
+});
+
+test('W06 review request owner approval is strictly machine-readable and binds the activation proposal', async () => {
+  const ownerApprovalPath = join(
+    root,
+    '.harness/changes/fix-ext-g0-authority-recovery-20260725/owner_approval/exact-h-approval.md',
+  );
+  const ownerApproval = await readFile(ownerApprovalPath, 'utf8');
+  const evidence = parseExecutionAuthorityV2Evidence(ownerApproval, ownerApprovalPath);
+  const proposalPath = join(
+    root,
+    '.harness/changes/fix-ext-g0-authority-recovery-20260725/proposed_activation/r0-w06-activation.json',
+  );
+  const proposalBytes = await readFile(proposalPath, 'utf8');
+  const proposal = parseJsonObjectWithUniqueKeys(proposalBytes, proposalPath);
+
+  assert.equal(evidence.decision, 'APPROVED');
+  assert.equal(evidence.workPackage, 'R0-W06');
+  assert.equal(evidence.candidateH, '8feae838f09ad5202b21332d4280b989ab776bd7');
+  assert.equal(evidence.tree, '9d63f98041e5e13174dbba4c0b9d27eef1471bf9');
+  assert.equal(evidence.proposedActivationSha256, sha256Hex(proposalBytes));
+  assert.deepEqual(proposal.activation.effectiveBase, evidence.effectiveBase);
+  assert.deepEqual(proposal.activation.approvalEvidence.approvedScope, ['R0-W06']);
+  assert.equal(proposal.activation.activeWorkPackage, 'R0-W06');
+  assert.deepEqual(proposal.activation.workPackageLedger.at(-1), {
+    id: 'R0-W06',
+    status: 'ACTIVE',
+  });
 });

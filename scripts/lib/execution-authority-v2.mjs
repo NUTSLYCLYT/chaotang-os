@@ -50,6 +50,16 @@ const LEDGER_STATUSES = new Set([
 const EXPECTED_REQUIRED_BEFORE = Object.freeze(['REAL_CUSTOMER_DATA', 'R0-W08', 'R0-W09']);
 const EXPECTED_ROLES_REQUIRED = Object.freeze(['security', 'legal', 'release']);
 const PROFESSIONAL_GATE_TRIGGER_PACKAGES = new Set(['R0-W08', 'R0-W09']);
+const EVIDENCE_VERSION = 'execution-authority-v2-evidence.v1';
+const REQUIRED_W06_EXCLUSIONS = Object.freeze([
+  'NO_DEPLOYMENT',
+  'NO_REAL_CUSTOMER_DATA',
+  'NO_DB_MIGRATION',
+  'NO_LISTENER_3050_TAKEOVER',
+  'NO_R0_W07_TO_R0_W09',
+  'NO_AUTOMATIC_MERGE',
+  'NO_PRODUCTION_CLAIM',
+]);
 
 function sameArray(left, right) {
   return (
@@ -176,6 +186,172 @@ export function parseJsonObjectWithUniqueKeys(source, label = 'JSON document') {
 
 export function sha256Hex(text) {
   return createHash('sha256').update(text, 'utf8').digest('hex');
+}
+
+export function parseExecutionAuthorityV2Evidence(source, label = 'authority evidence') {
+  if (typeof source !== 'string') throw new TypeError(`${label}: source must be text`);
+  const matches = [
+    ...source.matchAll(
+      /<!-- execution-authority-v2-evidence:start -->\r?\n```json\r?\n([\s\S]*?)\r?\n```\r?\n<!-- execution-authority-v2-evidence:end -->/gu,
+    ),
+  ];
+  if (matches.length !== 1) {
+    throw new SyntaxError(`${label}: require exactly one marked JSON evidence block`);
+  }
+  return parseJsonObjectWithUniqueKeys(matches[0][1], `${label} JSON evidence`);
+}
+
+function evidenceHasExactKeys(evidence, expected, label, errors) {
+  if (!exactKeys(evidence, expected)) {
+    errors.push(`${label} has missing or unsupported fields`);
+    return false;
+  }
+  return true;
+}
+
+function evidenceMatchesManifestIdentity(evidence, manifest, label, errors) {
+  const approval = manifest.approvalEvidence;
+  if (evidence.workPackage !== manifest.activeWorkPackage) {
+    errors.push(`${label} workPackage must match activeWorkPackage`);
+  }
+  if (!sameArray(evidence.approvedScope, approval.approvedScope)) {
+    errors.push(`${label} approvedScope must match manifest approvalEvidence.approvedScope`);
+  }
+  if (evidence.candidateH !== approval.candidateH) {
+    errors.push(`${label} candidateH must match manifest approvalEvidence.candidateH`);
+  }
+  if (evidence.tree !== approval.tree) {
+    errors.push(`${label} tree must match manifest approvalEvidence.tree`);
+  }
+  if (
+    !exactKeys(evidence.effectiveBase, ['ref', 'sha']) ||
+    evidence.effectiveBase.ref !== manifest.effectiveBase.ref ||
+    evidence.effectiveBase.sha !== manifest.effectiveBase.sha
+  ) {
+    errors.push(`${label} effectiveBase must match manifest effectiveBase`);
+  }
+}
+
+export function validateExecutionAuthorityV2Evidence(manifest, ownerEvidence, reviewEvidence) {
+  const errors = [];
+  const manifestErrors = validateExecutionAuthorityV2Manifest(manifest);
+  if (manifestErrors.length > 0) return manifestErrors;
+  if (manifest.activeWorkPackage === null) return errors;
+
+  const ownerValid = evidenceHasExactKeys(
+    ownerEvidence,
+    [
+      'evidenceVersion',
+      'kind',
+      'decision',
+      'approver',
+      'workPackage',
+      'effectiveBase',
+      'candidateH',
+      'tree',
+      'approvedScope',
+      'exclusions',
+      'proposedActivationPath',
+      'proposedActivationSha256',
+    ],
+    'owner evidence',
+    errors,
+  );
+  const reviewValid = evidenceHasExactKeys(
+    reviewEvidence,
+    [
+      'evidenceVersion',
+      'kind',
+      'verdict',
+      'reviewer',
+      'workPackage',
+      'effectiveBase',
+      'candidateH',
+      'tree',
+      'approvedScope',
+      'ownerApprovalPath',
+      'ownerApprovalSha256',
+      'proposedActivationPath',
+      'proposedActivationSha256',
+      'diffSha256',
+      'changedPaths',
+      'commands',
+      'productionReady',
+    ],
+    'review evidence',
+    errors,
+  );
+  if (!ownerValid || !reviewValid) return errors;
+
+  if (ownerEvidence.evidenceVersion !== EVIDENCE_VERSION) {
+    errors.push('owner evidenceVersion is unsupported');
+  }
+  if (ownerEvidence.kind !== 'owner-approval') errors.push('owner kind must be owner-approval');
+  if (ownerEvidence.decision !== 'APPROVED') errors.push('owner decision must be APPROVED');
+  if (ownerEvidence.approver !== manifest.approvalEvidence.approver) {
+    errors.push('owner approver must match manifest approvalEvidence.approver');
+  }
+  evidenceMatchesManifestIdentity(ownerEvidence, manifest, 'owner', errors);
+  if (!sameArray(ownerEvidence.exclusions, REQUIRED_W06_EXCLUSIONS)) {
+    errors.push('owner exclusions must match the frozen W06 exclusion list');
+  }
+  if (!safeRepositoryPath(ownerEvidence.proposedActivationPath)) {
+    errors.push('owner proposedActivationPath must be a safe repository path');
+  }
+  if (!HEX64_PATTERN.test(ownerEvidence.proposedActivationSha256 ?? '')) {
+    errors.push('owner proposedActivationSha256 must be a sha256 hex digest');
+  }
+
+  if (reviewEvidence.evidenceVersion !== EVIDENCE_VERSION) {
+    errors.push('review evidenceVersion is unsupported');
+  }
+  if (reviewEvidence.kind !== 'independent-review') {
+    errors.push('review kind must be independent-review');
+  }
+  if (reviewEvidence.verdict !== manifest.approvalEvidence.reviewVerdict) {
+    errors.push('review verdict must match manifest approvalEvidence.reviewVerdict');
+  }
+  if (reviewEvidence.verdict !== 'GO') errors.push('review verdict must be GO');
+  if (typeof reviewEvidence.reviewer !== 'string' || reviewEvidence.reviewer.length === 0) {
+    errors.push('reviewer must be a non-empty string');
+  }
+  evidenceMatchesManifestIdentity(reviewEvidence, manifest, 'review', errors);
+  if (reviewEvidence.ownerApprovalPath !== manifest.approvalEvidence.ownerApprovalPath) {
+    errors.push('review ownerApprovalPath must match manifest approvalEvidence.ownerApprovalPath');
+  }
+  if (reviewEvidence.ownerApprovalSha256 !== manifest.approvalEvidence.ownerApprovalSha256) {
+    errors.push('review ownerApprovalSha256 must match manifest approvalEvidence.ownerApprovalSha256');
+  }
+  if (reviewEvidence.proposedActivationPath !== ownerEvidence.proposedActivationPath) {
+    errors.push('review proposedActivationPath must match owner proposedActivationPath');
+  }
+  if (reviewEvidence.proposedActivationSha256 !== ownerEvidence.proposedActivationSha256) {
+    errors.push('review proposedActivationSha256 must match owner proposedActivationSha256');
+  }
+  if (!HEX64_PATTERN.test(reviewEvidence.diffSha256 ?? '')) {
+    errors.push('review diffSha256 must be a sha256 hex digest');
+  }
+  if (
+    !Array.isArray(reviewEvidence.changedPaths) ||
+    reviewEvidence.changedPaths.length === 0 ||
+    reviewEvidence.changedPaths.some(
+      (path) => typeof path !== 'string' || !safeRepositoryPath(path.replace(/\/$/u, '')),
+    )
+  ) {
+    errors.push('review changedPaths must be a non-empty list of safe repository paths');
+  }
+  if (
+    !Array.isArray(reviewEvidence.commands) ||
+    reviewEvidence.commands.length === 0 ||
+    reviewEvidence.commands.some((command) => typeof command !== 'string' || command.length === 0)
+  ) {
+    errors.push('review commands must be a non-empty list of command strings');
+  }
+  if (reviewEvidence.productionReady !== false) {
+    errors.push('review productionReady must be false');
+  }
+
+  return [...new Set(errors)];
 }
 
 export async function readPinnedAuthorityFile(root, path, errors) {
@@ -613,6 +789,40 @@ export async function loadExecutionAuthorityV2(root) {
   if (reviewSource !== null) {
     if (sha256Hex(reviewSource) !== manifest.approvalEvidence.reviewSha256) {
       errors.push('approvalEvidence.reviewPath: digest mismatch');
+    }
+  }
+
+  if (manifest.activeWorkPackage !== null) {
+    let ownerEvidence = null;
+    let reviewEvidence = null;
+    if (ownerApprovalSource !== null) {
+      try {
+        ownerEvidence = parseExecutionAuthorityV2Evidence(
+          ownerApprovalSource,
+          manifest.approvalEvidence.ownerApprovalPath,
+        );
+      } catch (cause) {
+        errors.push(cause.message);
+      }
+    }
+    if (reviewSource !== null) {
+      try {
+        reviewEvidence = parseExecutionAuthorityV2Evidence(
+          reviewSource,
+          manifest.approvalEvidence.reviewPath,
+        );
+      } catch (cause) {
+        errors.push(cause.message);
+      }
+    }
+    if (ownerEvidence === null) {
+      errors.push('active execution authority requires parseable owner JSON evidence');
+    }
+    if (reviewEvidence === null) {
+      errors.push('active execution authority requires parseable independent review JSON evidence');
+    }
+    if (ownerEvidence !== null && reviewEvidence !== null) {
+      errors.push(...validateExecutionAuthorityV2Evidence(manifest, ownerEvidence, reviewEvidence));
     }
   }
 
