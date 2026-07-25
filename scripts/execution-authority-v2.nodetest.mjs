@@ -73,6 +73,7 @@ function validManifest() {
 function validGovernance() {
   return {
     status: 'APPROVED_FOR_W01',
+    independentReviewer: 'Claude Code',
     approvedSourceDigest: '2ba59cbe4d4032d8f372d1dd757e03edb78038b38de6d657380f357100a83e38',
     candidateSourceDigest: '2ba59cbe4d4032d8f372d1dd757e03edb78038b38de6d657380f357100a83e38',
     effectiveBase: {
@@ -150,9 +151,26 @@ function w06EvidenceDocuments() {
       'NO_AUTOMATIC_MERGE',
       'NO_PRODUCTION_CLAIM',
     ],
-    proposedActivationPath:
-      '.harness/changes/fix-ext-g0-authority-recovery-20260725/proposed_activation/r0-w06-activation.json',
-    proposedActivationSha256: 'c'.repeat(64),
+    activationIntentPath:
+      '.harness/changes/fix-ext-g0-authority-recovery-20260725/activation_intent/r0-w06-activation-intent.json',
+    activationIntentSha256: 'c'.repeat(64),
+  };
+  const activationIntent = {
+    schemaVersion: 'execution-authority.v2.activation-intent.v1',
+    kind: 'activation-intent',
+    trackedManifestPath: '.harness/manifest/execution-authority.v2.json',
+    effectiveBase: manifest.effectiveBase,
+    approvalEvidence: {
+      ownerApprovalPath: manifest.approvalEvidence.ownerApprovalPath,
+      reviewPath: manifest.approvalEvidence.reviewPath,
+      reviewVerdict: manifest.approvalEvidence.reviewVerdict,
+      approver: manifest.approvalEvidence.approver,
+      candidateH: manifest.approvalEvidence.candidateH,
+      tree: manifest.approvalEvidence.tree,
+      approvedScope: manifest.approvalEvidence.approvedScope,
+    },
+    activeWorkPackage: manifest.activeWorkPackage,
+    workPackageLedger: manifest.workPackageLedger,
   };
   const review = {
     evidenceVersion: 'execution-authority-v2-evidence.v1',
@@ -166,35 +184,200 @@ function w06EvidenceDocuments() {
     approvedScope: ['R0-W06'],
     ownerApprovalPath: manifest.approvalEvidence.ownerApprovalPath,
     ownerApprovalSha256: manifest.approvalEvidence.ownerApprovalSha256,
-    proposedActivationPath: owner.proposedActivationPath,
-    proposedActivationSha256: owner.proposedActivationSha256,
+    activationIntentPath: owner.activationIntentPath,
+    activationIntentSha256: owner.activationIntentSha256,
     diffSha256: 'd'.repeat(64),
     changedPaths: [
-      '.harness/changes/fix-ext-g0-authority-recovery-20260725/',
+      '.harness/changes/fix-ext-g0-authority-recovery-20260725/claude_code_review/exact-h-final.md',
+      '.harness/manifest/execution-authority.v2.json',
       'scripts/lib/execution-authority-v2.mjs',
       'scripts/execution-authority-v2.nodetest.mjs',
     ],
-    commands: ['node --test scripts/execution-authority-v2.nodetest.mjs'],
+    commands: [
+      'node --test scripts/execution-authority.nodetest.mjs',
+      'node --test scripts/execution-authority-v2.nodetest.mjs',
+      'node scripts/execution-authority.mjs --authorize',
+      'node scripts/execution-authority-v2.mjs --authorize --work-package R0-W06',
+      'node scripts/harness-doctor.mjs',
+      'git diff --check',
+    ],
     productionReady: false,
   };
-  return { manifest, owner, review };
+  return { manifest, owner, activationIntent, review };
 }
 
-test('matching W06 machine-readable owner and review evidence permits the exact active package', () => {
+async function writeRepositoryFile(temporaryRoot, path, source) {
+  await mkdir(join(temporaryRoot, dirname(path)), { recursive: true });
+  await writeFile(join(temporaryRoot, path), source, 'utf8');
+}
+
+async function createActiveAuthorityFixture({
+  mutateIntent,
+  mutateOwner,
+  mutateReview,
+  writeIntent = true,
+  activationIntentDigest,
+} = {}) {
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'chaotang-v2-active-'));
+  const fixture = w06EvidenceDocuments();
+  const owner = structuredClone(fixture.owner);
+  const review = structuredClone(fixture.review);
+  const intent = structuredClone(fixture.activationIntent);
+  mutateIntent?.(intent);
+  const intentSource = `${JSON.stringify(intent, null, 2)}\n`;
+  owner.activationIntentSha256 = activationIntentDigest ?? sha256Hex(intentSource);
+  mutateOwner?.(owner);
+  const ownerSource = evidenceDocument(owner);
+  review.ownerApprovalSha256 = sha256Hex(ownerSource);
+  review.activationIntentPath = owner.activationIntentPath;
+  review.activationIntentSha256 = owner.activationIntentSha256;
+  mutateReview?.(review);
+  const reviewSource = evidenceDocument(review);
+  const manifest = structuredClone(fixture.manifest);
+  manifest.approvalEvidence.ownerApprovalSha256 = sha256Hex(ownerSource);
+  manifest.approvalEvidence.reviewSha256 = sha256Hex(reviewSource);
+
+  await writeRepositoryFile(
+    temporaryRoot,
+    EXECUTION_AUTHORITY_V2_PATH,
+    `${JSON.stringify(manifest, null, 2)}\n`,
+  );
+  await writeRepositoryFile(
+    temporaryRoot,
+    EXECUTION_AUTHORITY_V2_SCHEMA_PATH,
+    await readFile(join(root, EXECUTION_AUTHORITY_V2_SCHEMA_PATH), 'utf8'),
+  );
+  await writeRepositoryFile(
+    temporaryRoot,
+    '.harness/manifest/project-harness.json',
+    `${JSON.stringify({ amendmentGovernance: validGovernance() }, null, 2)}\n`,
+  );
+  await writeRepositoryFile(temporaryRoot, manifest.approvalEvidence.ownerApprovalPath, ownerSource);
+  await writeRepositoryFile(temporaryRoot, manifest.approvalEvidence.reviewPath, reviewSource);
+  if (writeIntent) {
+    await writeRepositoryFile(temporaryRoot, fixture.owner.activationIntentPath, intentSource);
+  }
+  return { temporaryRoot, manifest };
+}
+
+test('matching W06 machine-readable owner and independent review evidence permits the exact active package', () => {
   const { manifest, owner, review } = w06EvidenceDocuments();
   const parsedOwner = parseExecutionAuthorityV2Evidence(evidenceDocument(owner), 'owner approval');
   const parsedReview = parseExecutionAuthorityV2Evidence(evidenceDocument(review), 'independent review');
-  assert.deepEqual(validateExecutionAuthorityV2Evidence(manifest, parsedOwner, parsedReview), []);
+  assert.deepEqual(
+    validateExecutionAuthorityV2Evidence(manifest, validGovernance(), parsedOwner, parsedReview),
+    [],
+  );
   const loaded = {
     manifest,
     amendmentGovernance: validGovernance(),
-    errors: validateExecutionAuthorityV2Evidence(manifest, parsedOwner, parsedReview),
+    errors: validateExecutionAuthorityV2Evidence(
+      manifest,
+      validGovernance(),
+      parsedOwner,
+      parsedReview,
+    ),
   };
   assert.equal(
     executionAuthorityV2CommandResult(loaded, '--authorize', [], { workPackage: 'R0-W06' }).exitCode,
     0,
   );
 });
+
+test('active temporary root authorizes only after loading the exact independent review and activation intent', async () => {
+  const { temporaryRoot } = await createActiveAuthorityFixture();
+  try {
+    const loaded = await loadExecutionAuthorityV2(temporaryRoot);
+    assert.deepEqual(loaded.errors, []);
+    const result = executionAuthorityV2CommandResult(loaded, '--authorize', [], {
+      workPackage: 'R0-W06',
+    });
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.output.reason, 'APPROVED_WORK_PACKAGE');
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+for (const {
+  name,
+  options,
+  expectedError,
+} of [
+  {
+    name: 'owner self-review',
+    options: { mutateReview: (review) => { review.reviewer = 'lyt'; } },
+    expectedError: 'reviewer must differ from manifest approvalEvidence.approver',
+  },
+  {
+    name: 'nonexistent activation intent',
+    options: {
+      mutateOwner: (owner) => {
+        owner.activationIntentPath = '.harness/changes/missing/activation-intent.json';
+      },
+      writeIntent: false,
+    },
+    expectedError: 'missing path component',
+  },
+  {
+    name: 'fabricated activation intent digest',
+    options: { activationIntentDigest: 'f'.repeat(64) },
+    expectedError: 'activationIntentPath: digest mismatch',
+  },
+  {
+    name: 'mismatched activation intent identity',
+    options: {
+      mutateIntent: (intent) => {
+        intent.approvalEvidence.tree = '1'.repeat(40);
+      },
+    },
+    expectedError: 'activation intent tree must match manifest approvalEvidence.tree',
+  },
+  {
+    name: 'mismatched activation intent evidence path',
+    options: {
+      mutateIntent: (intent) => {
+        intent.approvalEvidence.reviewPath = '.harness/changes/other/claude_code_review/exact-h-final.md';
+      },
+    },
+    expectedError: 'activation intent reviewPath must match manifest approvalEvidence.reviewPath',
+  },
+  {
+    name: 'unknown activation intent key',
+    options: { mutateIntent: (intent) => { intent.unknown = true; } },
+    expectedError: 'activation intent has missing or unsupported fields',
+  },
+  {
+    name: 'arbitrary review metadata',
+    options: {
+      mutateReview: (review) => {
+        review.changedPaths = ['README.md'];
+        review.commands = ['false'];
+      },
+    },
+    expectedError: 'review changedPaths must stay within the authority review allowlist',
+  },
+  {
+    name: 'incomplete review verification commands',
+    options: { mutateReview: (review) => { review.commands = ['false']; } },
+    expectedError: 'review commands must exactly match the required authority verification commands',
+  },
+]) {
+  test(`active temporary root fails closed for ${name}`, async () => {
+    const { temporaryRoot } = await createActiveAuthorityFixture(options);
+    try {
+      const loaded = await loadExecutionAuthorityV2(temporaryRoot);
+      assert.ok(loaded.errors.some((error) => error.includes(expectedError)), loaded.errors.join('\n'));
+      const result = executionAuthorityV2CommandResult(loaded, '--authorize', [], {
+        workPackage: 'R0-W06',
+      });
+      assert.equal(result.exitCode, 1);
+      assert.equal(result.output.reason, 'INVALID_EXECUTION_AUTHORITY');
+    } finally {
+      await rm(temporaryRoot, { recursive: true, force: true });
+    }
+  });
+}
 
 for (const {
   name,
@@ -232,6 +415,13 @@ for (const {
     expectedError: 'review ownerApprovalSha256 must match manifest approvalEvidence.ownerApprovalSha256',
   },
   {
+    name: 'owner self-review',
+    mutate: ({ review }) => {
+      review.reviewer = 'lyt';
+    },
+    expectedError: 'reviewer must match amendmentGovernance.independentReviewer',
+  },
+  {
     name: 'review verdict mismatch',
     mutate: ({ review }) => {
       review.verdict = 'NO_GO';
@@ -259,6 +449,7 @@ for (const {
     );
     const errors = validateExecutionAuthorityV2Evidence(
       fixture.manifest,
+      validGovernance(),
       parsedOwner,
       parsedReview,
     );
@@ -639,29 +830,30 @@ test('real repo v2 manifest evidence digests match on-disk bytes', async () => {
   assert.equal(sha256Hex(amendmentBytes), loaded.manifest.amendment.approvedSourceDigest);
 });
 
-test('W06 review request owner approval is strictly machine-readable and binds the activation proposal', async () => {
+test('W06 review request owner approval is strictly machine-readable and binds the activation intent', async () => {
   const ownerApprovalPath = join(
     root,
     '.harness/changes/fix-ext-g0-authority-recovery-20260725/owner_approval/exact-h-approval.md',
   );
   const ownerApproval = await readFile(ownerApprovalPath, 'utf8');
   const evidence = parseExecutionAuthorityV2Evidence(ownerApproval, ownerApprovalPath);
-  const proposalPath = join(
+  const activationIntentPath = join(
     root,
-    '.harness/changes/fix-ext-g0-authority-recovery-20260725/proposed_activation/r0-w06-activation.json',
+    '.harness/changes/fix-ext-g0-authority-recovery-20260725/activation_intent/r0-w06-activation-intent.json',
   );
-  const proposalBytes = await readFile(proposalPath, 'utf8');
-  const proposal = parseJsonObjectWithUniqueKeys(proposalBytes, proposalPath);
+  const activationIntentBytes = await readFile(activationIntentPath, 'utf8');
+  const activationIntent = parseJsonObjectWithUniqueKeys(activationIntentBytes, activationIntentPath);
 
   assert.equal(evidence.decision, 'APPROVED');
   assert.equal(evidence.workPackage, 'R0-W06');
   assert.equal(evidence.candidateH, '8feae838f09ad5202b21332d4280b989ab776bd7');
   assert.equal(evidence.tree, '9d63f98041e5e13174dbba4c0b9d27eef1471bf9');
-  assert.equal(evidence.proposedActivationSha256, sha256Hex(proposalBytes));
-  assert.deepEqual(proposal.activation.effectiveBase, evidence.effectiveBase);
-  assert.deepEqual(proposal.activation.approvalEvidence.approvedScope, ['R0-W06']);
-  assert.equal(proposal.activation.activeWorkPackage, 'R0-W06');
-  assert.deepEqual(proposal.activation.workPackageLedger.at(-1), {
+  assert.equal(evidence.activationIntentSha256, sha256Hex(activationIntentBytes));
+  assert.equal(activationIntent.kind, 'activation-intent');
+  assert.deepEqual(activationIntent.effectiveBase, evidence.effectiveBase);
+  assert.deepEqual(activationIntent.approvalEvidence.approvedScope, ['R0-W06']);
+  assert.equal(activationIntent.activeWorkPackage, 'R0-W06');
+  assert.deepEqual(activationIntent.workPackageLedger.at(-1), {
     id: 'R0-W06',
     status: 'ACTIVE',
   });

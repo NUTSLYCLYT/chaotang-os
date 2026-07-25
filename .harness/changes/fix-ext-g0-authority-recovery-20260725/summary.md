@@ -51,11 +51,15 @@ authorize deployment.
 - Positive W06-only owner approval: `owner_approval/exact-h-approval.md`, with one strict JSON
   evidence block bound to `8feae838f09ad5202b21332d4280b989ab776bd7`, tree
   `9d63f98041e5e13174dbba4c0b9d27eef1471bf9`, the W06-only scope, exclusions, and the activation
-  proposal digest.
-- Exact proposed activation: `proposed_activation/r0-w06-activation.json`. It records the only
-  permitted W06 ledger transition, but is not the tracked v2 manifest and cannot authorize work.
+  intent digest.
+- Exact non-authorizing activation intent:
+  `activation_intent/r0-w06-activation-intent.json`. Its strict closed JSON shape records the only
+  permitted W06 ledger transition and evidence paths, but it is neither tracked v2 manifest bytes
+  nor an authorization.
 - Read-only handoff: `claude_code_review/review-request.md`. `exact-h-final.md` intentionally does
   not exist; the independent reviewer alone must create it after checking the exact evidence.
-- The v2 loader now requires uniquely marked, duplicate-key-free JSON evidence and exact semantic
-  agreement between owner/review evidence and an active manifest. Current W05 closeout remains
-  quiescent and therefore preserves `STOP / NO_ACTIVE_WORK_PACKAGE` for W06.
+- The v2 loader now requires uniquely marked, duplicate-key-free JSON evidence, a pinned activation
+  intent whose actual SHA-256 and semantics match an active manifest, and an independent reviewer
+  exactly equal to amendment governance's `Claude Code` assignment and different from the owner.
+  Current W05 closeout remains quiescent and therefore preserves `STOP / NO_ACTIVE_WORK_PACKAGE`
+  for W06.

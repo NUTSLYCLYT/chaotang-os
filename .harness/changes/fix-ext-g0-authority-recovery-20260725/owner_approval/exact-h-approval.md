@@ -5,7 +5,7 @@ Status: `APPROVED_FOR_R0_W06_REVIEWED_ACTIVATION_ONLY`.
 The Product Owner explicitly directed execution of the EXT recovery program under its documented
 gates. This approval records only the R0-W06 recovery entry point below. It does not itself change
 the tracked v2 manifest or authorize implementation until an independent read-only review is stored
-and the proposed activation is atomically applied.
+and the activation intent is independently reviewed and atomically applied.
 
 ## Approved scope
 
@@ -48,8 +48,8 @@ and the proposed activation is atomically applied.
     "NO_AUTOMATIC_MERGE",
     "NO_PRODUCTION_CLAIM"
   ],
-  "proposedActivationPath": ".harness/changes/fix-ext-g0-authority-recovery-20260725/proposed_activation/r0-w06-activation.json",
-  "proposedActivationSha256": "fc01e544bc2a65fbf3d484966cd46bf79d8384ad5b6d313ae8cd431e113dd925"
+  "activationIntentPath": ".harness/changes/fix-ext-g0-authority-recovery-20260725/activation_intent/r0-w06-activation-intent.json",
+  "activationIntentSha256": "f8b09ca694ba049420ae3f7572515563e9d5410a0c78819e989b6b31711dd614"
 }
 ```
 <!-- execution-authority-v2-evidence:end -->

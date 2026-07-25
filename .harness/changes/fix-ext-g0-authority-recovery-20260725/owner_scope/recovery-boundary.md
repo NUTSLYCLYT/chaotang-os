@@ -20,5 +20,5 @@ and reviews are historical evidence only; they do not approve W06.
 
 This record is deliberately outside every `owner_approval/` path. Task 2 requires a new positive
 W06-specific owner approval at its canonical `owner_approval/exact-h-approval.md` path, bound to
-the exact candidate, tree, scope, exclusions, and proposed activation bytes before it may create
-any `GO / APPROVED_WORK_PACKAGE` result.
+the exact candidate, tree, scope, exclusions, and non-authorizing activation intent before it may
+create any `GO / APPROVED_WORK_PACKAGE` result.
