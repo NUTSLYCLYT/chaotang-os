@@ -918,3 +918,13 @@ must describe the actual migration/runtime/storage/API change. Preserve
 
 Run the Task 7 command set plus new regression tests. Both requirements and
 quality verdicts must be GO before Codex acceptance.
+
+- [ ] **Step 8: Close idempotent HTTP expiry and strict-JSON findings**
+
+Persist `requested_expiry_seconds` in revision 025. The create command computes
+absolute expiry once for the winning write; same key/payload/relative expiry
+replays the existing packet, while same key with changed relative expiry
+conflicts. Add sequential and eight-way HTTP concurrency tests.
+
+Reject non-finite JSON during canonicalization and normalize persisted
+`NaN`/`Infinity` corruption to audited `DeliveryIntegrityError` / HTTP 409.

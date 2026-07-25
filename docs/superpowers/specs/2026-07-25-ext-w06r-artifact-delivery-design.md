@@ -159,6 +159,7 @@ tenant_id
 + final_memorial_id
 + final_memorial_version
 + delivery_formula_version
++ requested_expiry_seconds
 + caller_idempotency_key
 ```
 
@@ -180,6 +181,12 @@ tenant_id
 The initial request creates revision 1. Each accepted resume creates exactly
 one next revision. Concurrent resume attempts with the same idempotency key
 converge on the same revision.
+
+HTTP create passes the validated relative `requested_expiry_seconds` into the
+command. The command computes an absolute expiry only for the winning first
+write and persists the relative value. A retry with the same key, canonical
+payload, and relative expiry returns the original packet; changing the relative
+expiry under the same key is conflict.
 
 Artifact ids and manifest ids are deterministic hashes of canonical lineage
 inputs. Client-provided ids are not trusted.
@@ -312,6 +319,11 @@ one verifier that parses the public contract, recomputes the canonical manifest
 hash, and binds all sealed fields to the database row. Mutable delivery rows
 must match sealed item identity, state projection, MIME, hash, size, and
 incomplete reason before projection or reuse.
+
+Canonical JSON rejects non-finite numeric values. JSON parse/canonicalization
+errors, including `NaN` and `Infinity`, are normalized to
+`DeliveryIntegrityError` and the HTTP integrity contract rather than escaping
+as 500.
 
 Expiry moves the mutable item row to `EXPIRED` and records `last_failure`; it
 does not rewrite the sealed public manifest. Storage publication fsyncs the
