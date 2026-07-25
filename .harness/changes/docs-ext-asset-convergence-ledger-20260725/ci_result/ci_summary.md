@@ -8,12 +8,14 @@ Documentation-only evidence capture in
 
 ## Evidence Status
 
-`IMPLEMENTER_REMEDIATED / REVIEW_PENDING`
+`QA_REVIEWED / CODEX_ACCEPTANCE_PENDING`
 
-## QA Remediation
+## Independent QA Review
 
-QA returned `NO-GO` on commit `25b0b807`. This follow-up addresses all four
-reported items:
+Window 6 reviewed candidate
+`4214c0f5f6a173dd732a8ad3d72b69521c59b162` and returned `QA GO` with zero
+blocking findings. The four findings from the earlier `25b0b807` `NO-GO` are
+closed:
 
 1. Browser Route Repair has one implementation owner, Window 5, and one target,
    `EXT-P2`; `EXT-Q1` is only the later independent QA gate.
@@ -24,7 +26,19 @@ reported items:
 4. One-file/one-writer and protected hunk-level integration are explicit for
    `ShangshufangPage.tsx` and `prod-doctor.mjs`.
 
-This section records implementer remediation only. It does not claim QA PASS.
+Codex acceptance remains pending. No integration is claimed.
+
+## Independent Verification
+
+| Check | Result |
+| --- | --- |
+| Candidate scope | PASS, only the five declared governance files |
+| QA metadata update scope | PASS, only `summary.md`, `tasks.md`, and `ci_summary.md` |
+| `node scripts/harness-doctor.mjs` | PASS, 0 errors and 0 warnings |
+| `git diff --check c0a2c7ec..25b0b807` | PASS; five governance files |
+| `git diff --check 25b0b807..4214c0f5` | PASS; five governance files |
+| Candidate worktree | CLEAN at review |
+| Runtime boundary | `NOT_DEPLOYED` |
 
 ## Verification
 
@@ -49,8 +63,15 @@ are claimed because no business code is changed.
 - Remote EXT:
   `8feae838f09ad5202b21332d4280b989ab776bd7`
 - Changed files: 5
-- Independent Window 6 re-review: pending after QA `NO-GO`
+- Independent Window 6 review: `QA GO`, zero blockers
+- Codex acceptance: pending
 - Integration into local `feature-chaotang-ext`: not performed
+
+## Residual Risk
+
+Source assets may drift after the recorded snapshot. A receiving Packet must
+recompute the asset identity and hashes or record exact byte differences for
+review before acceptance.
 
 ## Production Boundary
 

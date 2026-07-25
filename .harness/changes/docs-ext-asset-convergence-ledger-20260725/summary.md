@@ -10,7 +10,7 @@
 
 ## Status
 
-`IMPLEMENTER_REMEDIATED / REVIEW_PENDING`
+`QA_REVIEWED / CODEX_ACCEPTANCE_PENDING`
 
 This change freezes selected Asset Pool identities for later packetization. It
 does not integrate any asset, authorize a product change, delete a source, or
@@ -76,7 +76,7 @@ Window 6 owns no implementation asset. It provides the later independent
 read-only `EXT-Q1` QA gate for Browser Route Repair and Court Writer AST
 Scanner.
 
-## QA Remediation
+## QA Review
 
 QA returned `NO-GO` on `25b0b807`. The implementer has remediated all four
 reported items:
@@ -87,8 +87,17 @@ reported items:
    counts.
 4. The one-file/one-writer rule and protected hunk-level files are explicit.
 
-This is an implementer remediation statement, not a QA approval. Independent
-review remains pending.
+Window 6 independently reviewed candidate
+`4214c0f5f6a173dd732a8ad3d72b69521c59b162` and returned `QA GO` with zero
+blocking findings. All four findings above are closed.
+
+Codex acceptance remains pending. This review does not integrate the Packet.
+
+## Residual Risk
+
+Asset Pool sources can drift after this snapshot. Before a target Packet
+receives any asset, it must recompute the recorded identity and hashes or
+record the exact byte differences and obtain review of those differences.
 
 ## Preservation Hold
 

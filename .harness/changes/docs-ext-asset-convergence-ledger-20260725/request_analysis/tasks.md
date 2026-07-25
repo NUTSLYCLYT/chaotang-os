@@ -2,7 +2,7 @@
 
 ## Status
 
-`IMPLEMENTER_REMEDIATED / REVIEW_PENDING`
+`QA_REVIEWED / CODEX_ACCEPTANCE_PENDING`
 
 - [x] Confirm local accepted EXT baseline and remote EXT position.
 - [x] Refresh worktree, ref, tracked-change, and untracked-file counts.
@@ -23,7 +23,10 @@
   Window 5; retain Window 6 as read-only verifier.
 - [x] Remediate QA `NO-GO`: add K2/R1 group dirty counts and R3 clean counts.
 - [x] Remediate QA `NO-GO`: add one-file/one-writer and protected hunk rules.
-- [ ] Obtain independent Window 6 review.
+- [x] Obtain Window 6 independent review of candidate `4214c0f5`: `QA GO`,
+  zero blockers, and all four findings closed.
+- [x] Record source-drift residual risk: every receiving Packet must recompute
+  asset identity/hashes or record reviewed byte differences.
 - [ ] Obtain Codex acceptance.
 - [ ] Obtain explicit approval before any integration into local
   `feature-chaotang-ext`.
