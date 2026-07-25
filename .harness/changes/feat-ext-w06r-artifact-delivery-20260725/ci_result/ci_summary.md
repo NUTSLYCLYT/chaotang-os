@@ -14,7 +14,7 @@ requirements and quality reviews or claim independent GO.
 | Task 7 requirements verdict | `REQUIREMENTS NO-GO`, 6 findings |
 | Task 7 quality verdict | `QUALITY: NO-GO`, 7 findings |
 | Round 3 design supplement | `221a98f5` |
-| Task 8 verification code candidate | `70422b9f` |
+| Task 8 verification code candidate | `00cc59544f6f3a42951f783cedef4ff26afe52a0` |
 | Candidate inventory | 23 tracked files |
 | Runtime boundary | `NOT_DEPLOYED` |
 
@@ -30,6 +30,7 @@ requirements and quality reviews or claim independent GO.
 | Round2 F: strict JSON integrity | `6 failed, 2 passed in 3.11s` | targeted `8 passed`; expanded `108 passed` | `fbf3f222` |
 | Round3 G: sealed relative TTL | `4 failed in 4.43s` | targeted `4 passed`; expanded `112 passed` | `32f17cb7` |
 | Round3 H: required source integrity | `1 failed, 2 passed in 3.16s` | targeted `3 passed`; expanded `115 passed` | `70422b9f` |
+| Round4 I/J: MIME and orphan audit | `5 failed` across three MIME cases, renderer, and API audit | targeted `6 passed`; complete `159 passed` | `00cc5954` |
 
 The full command output and finding-to-test-to-fix mapping are recorded in
 `.superpowers/sdd/2026-07-25-ext-w06r-artifact-delivery/task-8-report.md`.
@@ -94,7 +95,7 @@ harness packages, while artifact delivery is backend runtime behavior.
 
 | Check | Actual result |
 | --- | --- |
-| Complete W06R suite | `154 passed in 41.75s`, no skips |
+| Complete W06R suite | `159 passed in 37.93s`, no skips |
 | Isolated migration suite | `10 passed in 24.74s` |
 | W06R scoped Ruff | `All checks passed!` |
 | Full backend compileall | PASS |
@@ -163,7 +164,7 @@ git diff --check 64d7f935..HEAD
 
 ## Rollback
 
-Revert Task 8 commits `70422b9f`, `32f17cb7`, `fbf3f222`, `3bbbaa5b`,
+Revert Task 8 commits `00cc5954`, `70422b9f`, `32f17cb7`, `fbf3f222`, `3bbbaa5b`,
 `9261f852`, `23ddf988`, `c5947c00`, and `fd38d017` in that order, followed by
 the current Packet synchronization, prior evidence commit `9b475d72`, and
 initial Packet commit `25a979b1`. No production database or storage rollback

@@ -937,3 +937,15 @@ projection. Every W06R manifest read/replay/download requires non-null canonical
 `source_payload_json` whose SHA-256 equals sealed `payload_hash`. Database
 tampering of either field returns integrity conflict; failed downloads append
 one durable failure audit.
+
+- [ ] **Step 10: Close full-diff MIME and orphan-audit findings**
+
+Require the canonical PDF/DOCX/JSON MIME mapping in
+`ArtifactManifestItemV1`. Treat renderer kind/MIME mismatch as a per-format
+render failure so it cannot be sealed as STORED or READY.
+
+When a tenant-owned artifact row resolves to an unknown or unauthorized
+manifest, preserve the indistinguishable 404 response and append exactly one
+generic requester-tenant failed-download audit without artifact, manifest, or
+owner identifiers. Record the observed RED failures and rerun the complete
+W06R suite before independent rereview.

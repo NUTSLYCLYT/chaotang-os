@@ -6,11 +6,11 @@
 | Type | `feat` |
 | Status | `IMPLEMENTER_VERIFIED / INDEPENDENT_REREVIEW_PENDING` |
 | Owner | `EXT-W06R Task 8` |
-| Date | `2026-07-25` |
+| Date | `2026-07-26` |
 | Authority | `R0-W06`: `GO / APPROVED_WORK_PACKAGE` |
 | Baseline | `64d7f9358dc8a43d886889629e1b745f491593ef` |
 | Round 3 design supplement | `221a98f5` |
-| Verification code candidate | `70422b9f` |
+| Verification code candidate | `00cc59544f6f3a42951f783cedef4ff26afe52a0` |
 
 ## Outcome
 
@@ -23,9 +23,12 @@ focused tests.
 
 Task 8 remediates all 13 findings recorded by the original Task 7 requirements
 and quality reviews, the first quality-rereview Medium/Low pair, and the final
-scoped rereview Medium/Low pair against candidate `9b475d72`. The reviews
-remain read-only evidence; this implementer record does not claim independent
-re-review acceptance.
+scoped rereview Medium/Low pair against candidate `9b475d72`. Candidate
+`55a09539` then received requirements and quality GO, but a fresh full-diff
+review found two additional Medium gaps: orphaned-manifest download audit and
+canonical kind/MIME enforcement. Candidate `00cc5954` closes both through
+observed RED and complete-suite GREEN. The reviews remain read-only evidence;
+this implementer record does not claim final independent rereview acceptance.
 
 ## Actual Scope
 
@@ -66,6 +69,8 @@ introduced.
 | Round2 F | Strict non-finite JSON rejection and audited integrity failure | `fbf3f222` |
 | Round3 G | Seal relative expiry, bind row/seal, reject row-only TTL tampering | `32f17cb7` |
 | Round3 H | Require canonical source and sealed payload-hash match on every boundary | `70422b9f` |
+| Round4 I | Canonical kind/MIME contract and renderer enforcement | `00cc5954` |
+| Round4 J | Generic audit for orphaned/unauthorized manifest download resolution | `00cc5954` |
 | Packet checkpoints | Correct type, scope, facts, acceptance, rollback, and status | `25a979b1`, `9b475d72`, and this update |
 
 ## Production Boundary
@@ -81,29 +86,29 @@ All Task 8 databases and storage roots are pytest-owned or under `/tmp`.
 
 | Check | Result |
 | --- | --- |
-| Complete nine-file W06R suite | `154 passed in 41.75s`, no skips |
+| Complete nine-file W06R suite | `159 passed in 37.93s`, no skips |
 | Isolated migration suite | `10 passed in 24.74s` |
 | W06R scoped Ruff / backend compileall | PASS / PASS |
 | Backend/root doctors | `0 errors, 0 warning(s)` / `0 errors, 0 warning(s)` |
 | Authority v1 / v2 | `VALID_INACTIVE_GUARD` / `GO / APPROVED_WORK_PACKAGE` |
 | Strict closeout / baseline diff | PASS / PASS |
 
-Implementation verification is complete. Independent requirements and quality
-re-review must assess this remediated candidate; this Packet does not
-self-approve those reviews.
+Implementation verification is complete. A fresh full-diff review must assess
+candidate `00cc5954`; this Packet does not self-approve that review.
 
 ## Rollback
 
 Task 8 code remediation is exactly:
 
-1. `70422b9f`
-2. `32f17cb7`
-3. `fbf3f222`
-4. `3bbbaa5b`
-5. `9261f852`
-6. `23ddf988`
-7. `c5947c00`
-8. `fd38d017`
+1. `00cc5954`
+2. `70422b9f`
+3. `32f17cb7`
+4. `fbf3f222`
+5. `3bbbaa5b`
+6. `9261f852`
+7. `23ddf988`
+8. `c5947c00`
+9. `fd38d017`
 
 Revert those commits in that order only if Task 8 remediation itself must be
 removed, then revert the Packet evidence updates and synchronization commit

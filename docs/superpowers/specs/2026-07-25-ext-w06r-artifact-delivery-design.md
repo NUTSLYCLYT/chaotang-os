@@ -253,6 +253,11 @@ Unknown and authorization-denied download attempts are also audited under the
 requesting tenant without exposing whether another tenant owns the attempted
 identifier.
 
+If a tenant-owned delivery item points to an unknown or unauthorized manifest,
+download still returns the indistinguishable not-found response and appends
+the same requester-tenant generic failure audit. The audit must not contain
+the attempted artifact id, manifest id, or any owner identity.
+
 ### Resume Partial Delivery
 
 `POST /api/artifacts/manifests/{manifest_id}/resume`
@@ -274,6 +279,11 @@ download expiry remains gone (`410`).
 - Stored-byte hash or size mismatch: 409 and audit failure.
 - Renderer or storage failure: item becomes `UNAVAILABLE`; the packet is
   `PARTIAL` only when at least one other item is valid.
+- Artifact kind and MIME are one canonical pair at both renderer and manifest
+  boundaries: PDF is `application/pdf`, DOCX is
+  `application/vnd.openxmlformats-officedocument.wordprocessingml.document`,
+  and JSON is `application/json`. A renderer returning any other MIME fails
+  that format and cannot produce a READY packet.
 - A create request whose expiry is not strictly in the future is rejected
   before rendering or storage begins.
 - `expiry_seconds` is limited to `1..86400` (24 hours); out-of-range client

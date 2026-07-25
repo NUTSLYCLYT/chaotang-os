@@ -117,7 +117,21 @@
 - [ ] Request independent requirements and quality re-review. Implementer
   evidence cannot mark those reviews GO.
 
-Final implementer evidence: W06R `154 passed`, isolated migration `10 passed`,
+### Fix Round 4: Full-Diff MIME And Orphan Audit
+
+- [x] Preserve the fresh full-diff review verdict: `SPEC NO-GO / QUALITY
+  NO-GO`, two Medium findings.
+- [x] Observe four manifest/API RED failures and one renderer-boundary RED
+  failure.
+- [x] Require canonical PDF/DOCX/JSON MIME mapping in the immutable contract.
+- [x] Treat renderer MIME mismatch as `renderer_failed` rather than STORED.
+- [x] Append one identifier-free requester-tenant failure audit when an
+  artifact resolves to an unknown or unauthorized manifest.
+- [x] Verify focused `6 passed` and complete W06R `159 passed`.
+- [x] Commit `00cc5954`.
+- [ ] Receive fresh full-diff SPEC and QUALITY GO for the remediated candidate.
+
+Final implementer evidence: W06R `159 passed`, isolated migration `10 passed`,
 scoped Ruff and compileall PASS, both doctors clean, v1
 `VALID_INACTIVE_GUARD`, v2 `GO / APPROVED_WORK_PACKAGE`, and strict
 closeout/baseline diff PASS. Status:
@@ -127,14 +141,15 @@ closeout/baseline diff PASS. Status:
 
 Task 8 implementation commits, newest first:
 
-1. `70422b9f`
-2. `32f17cb7`
-3. `fbf3f222`
-4. `3bbbaa5b`
-5. `9261f852`
-6. `23ddf988`
-7. `c5947c00`
-8. `fd38d017`
+1. `00cc5954`
+2. `70422b9f`
+3. `32f17cb7`
+4. `fbf3f222`
+5. `3bbbaa5b`
+6. `9261f852`
+7. `23ddf988`
+8. `c5947c00`
+9. `fd38d017`
 
 Revert Packet synchronization/evidence commits after those if remediation is
 removed; prior checkpoints are `9b475d72` and `25a979b1`. Do not downgrade or
