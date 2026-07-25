@@ -4,12 +4,12 @@
 | --- | --- |
 | Change ID | feat-ext-w06r-artifact-delivery-20260725 |
 | Type | `feat` |
-| Status | `IMPLEMENTER_REMEDIATED / FINAL_VERIFICATION_PENDING` |
+| Status | `IMPLEMENTER_VERIFIED / INDEPENDENT_REREVIEW_PENDING` |
 | Owner | `EXT-W06R Task 8` |
 | Date | `2026-07-25` |
 | Authority | `R0-W06`: `GO / APPROVED_WORK_PACKAGE` |
 | Baseline | `64d7f9358dc8a43d886889629e1b745f491593ef` |
-| Remediation HEAD | `9261f852` before Packet synchronization |
+| Verification candidate | `25a979b1` |
 
 ## Outcome
 
@@ -59,7 +59,7 @@ introduced.
 | B | Canonical/reused identity, sealed reads, reason binding, root guard | `c5947c00` |
 | C | Resume 409, generic auth audit, `last_failure`/`EXPIRED`, expiry bound | `23ddf988` |
 | D | All-identity downgrade preflight and directory fsync | `9261f852` |
-| Packet | Correct type, scope, facts, acceptance, rollback, and status | This synchronization change |
+| Packet | Correct type, scope, facts, acceptance, rollback, and status | `25a979b1` |
 
 ## Production Boundary
 
@@ -72,11 +72,18 @@ All Task 8 databases and storage roots are pytest-owned or under `/tmp`.
 
 ## Acceptance
 
-Implementation acceptance requires the complete nine-file W06R suite, isolated
-migration suite, scoped Ruff, compileall, backend/root doctors, v1 and v2
-authority checks, strict closeout, and baseline diff check to pass. Independent
-requirements and quality re-review must then assess this remediated candidate;
-this Packet does not self-approve those reviews.
+| Check | Result |
+| --- | --- |
+| Complete nine-file W06R suite | `135 passed in 29.19s`, no skips |
+| Isolated migration suite | `9 passed in 20.52s` |
+| W06R scoped Ruff / backend compileall | PASS / PASS |
+| Backend/root doctors | `0 errors, 0 warning(s)` / `0 errors, 0 warning(s)` |
+| Authority v1 / v2 | `VALID_INACTIVE_GUARD` / `GO / APPROVED_WORK_PACKAGE` |
+| Strict closeout / baseline diff | PASS / PASS |
+
+Implementation verification is complete. Independent requirements and quality
+re-review must assess this remediated candidate; this Packet does not
+self-approve those reviews.
 
 ## Rollback
 
@@ -88,6 +95,6 @@ Task 8 code remediation is exactly:
 4. `fd38d017`
 
 Revert those commits in that order only if Task 8 remediation itself must be
-removed, then revert the Packet synchronization/evidence commits. No production
-database downgrade or storage deletion is part of rollback because none was
-deployed or migrated persistently.
+removed, then revert Packet synchronization commit `25a979b1` and its final
+evidence update. No production database downgrade or storage deletion is part
+of rollback because none was deployed or migrated persistently.

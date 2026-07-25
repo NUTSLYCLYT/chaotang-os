@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`IMPLEMENTER_REMEDIATED / FINAL_VERIFICATION_PENDING`
+`IMPLEMENTER_VERIFIED / INDEPENDENT_REREVIEW_PENDING`
 
 This is implementer evidence. It does not replace the read-only Task 7
 requirements and quality reviews or claim independent GO.
@@ -13,7 +13,7 @@ requirements and quality reviews or claim independent GO.
 | Task 7 reviewed candidate | `61aa193c5b4b44d2f076a92762f382481e13021b` |
 | Task 7 requirements verdict | `REQUIREMENTS NO-GO`, 6 findings |
 | Task 7 quality verdict | `QUALITY: NO-GO`, 7 findings |
-| Task 8 pre-Packet HEAD | `9261f852` |
+| Task 8 verification candidate | `25a979b1` |
 | Candidate inventory | 23 tracked files |
 | Runtime boundary | `NOT_DEPLOYED` |
 
@@ -83,8 +83,20 @@ harness packages, while artifact delivery is backend runtime behavior.
 
 ## Final Verification Matrix
 
-The following evidence must be rerun after this Packet synchronization and
-recorded before changing status to implementer verified:
+| Check | Actual result |
+| --- | --- |
+| Complete W06R suite | `135 passed in 29.19s`, no skips |
+| Isolated migration suite | `9 passed in 20.52s` |
+| W06R scoped Ruff | `All checks passed!` |
+| Full backend compileall | PASS |
+| Backend harness doctor | `0 errors, 0 warning(s)` |
+| Root harness doctor | `0 errors, 0 warning(s)` |
+| Authority v1 | `VALID_INACTIVE_GUARD` |
+| Authority v2, `R0-W06` | `GO / APPROVED_WORK_PACKAGE` |
+| Strict closeout | PASS, zero staged/unstaged high-risk drift |
+| `git diff --check 64d7f935..HEAD` | PASS |
+
+Commands:
 
 ```bash
 cd backend
@@ -136,11 +148,12 @@ git diff --check 64d7f935..HEAD
   an approved retention, encryption, and access policy.
 - Delivery command callers must continue to supply a command-owned Session
   because the command owns commit of the supplied transaction.
-- Independent requirements and quality re-review remains required before
+- Independent requirements and quality re-review remain required before
   integration acceptance.
 
 ## Rollback
 
 Revert Task 8 commits `9261f852`, `23ddf988`, `c5947c00`, and `fd38d017` in
-that order, followed by Packet synchronization/evidence commits. No production
-database or storage rollback is part of this candidate.
+that order, followed by Packet synchronization commit `25a979b1` and its final
+evidence update. No production database or storage rollback is part of this
+candidate.

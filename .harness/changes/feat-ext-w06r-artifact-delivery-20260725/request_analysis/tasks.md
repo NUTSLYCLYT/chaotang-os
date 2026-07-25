@@ -61,10 +61,16 @@
   runtime/migration/storage/API/test/design/plan scope.
 - [x] Preserve `NOT_DEPLOYED`, `NO_PUSH`, `NO_PERSISTENT_DB_MIGRATION`, and
   `NO_LISTENER_TAKEOVER`.
-- [ ] Run and record the final complete suite, isolated migration suite, Ruff,
+- [x] Run and record the final complete suite, isolated migration suite, Ruff,
   compileall, doctors, authority checks, strict closeout, and baseline diff.
 - [ ] Request independent requirements and quality re-review. Implementer
   evidence cannot mark those reviews GO.
+
+Final implementer evidence: W06R `135 passed`, isolated migration `9 passed`,
+scoped Ruff and compileall PASS, both doctors clean, v1
+`VALID_INACTIVE_GUARD`, v2 `GO / APPROVED_WORK_PACKAGE`, and strict
+closeout/baseline diff PASS. Status:
+`IMPLEMENTER_VERIFIED / INDEPENDENT_REREVIEW_PENDING`.
 
 ## Rollback Boundary
 
@@ -76,5 +82,6 @@ Task 8 implementation commits, newest first:
 4. `fd38d017`
 
 Revert Packet synchronization/evidence commits after those if remediation is
-removed. Do not downgrade or modify a persistent database and do not delete
-production storage; no such deployment occurred.
+removed; the synchronization checkpoint is `25a979b1`. Do not downgrade or
+modify a persistent database and do not delete production storage; no such
+deployment occurred.

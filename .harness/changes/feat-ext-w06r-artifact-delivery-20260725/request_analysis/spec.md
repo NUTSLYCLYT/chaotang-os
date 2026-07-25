@@ -94,6 +94,12 @@ Packet records cross-line scope and verification only.
 - Strict closeout and `git diff --check 64d7f935..HEAD` pass.
 - Independent re-review is required before integration acceptance.
 
+Implementer verification satisfies the executable criteria: W06R
+`135 passed`, isolated migration `9 passed`, scoped Ruff and compileall pass,
+both doctors are clean, authority v1 is `VALID_INACTIVE_GUARD`, authority v2
+is `GO / APPROVED_WORK_PACKAGE`, and closeout/diff pass. Independent re-review
+remains pending.
+
 ## Non-Goals And Boundary
 
 - No push, deployment, listener takeover, or persistent migration.
@@ -104,6 +110,7 @@ Packet records cross-line scope and verification only.
 ## Rollback
 
 Revert Task 8 commits `9261f852`, `23ddf988`, `c5947c00`, and `fd38d017` in
-that order, followed by Packet synchronization/evidence commits. The complete
-pre-integration candidate boundary remains baseline `64d7f935..HEAD`. No
-production database or storage rollback is authorized or required.
+that order, followed by Packet synchronization commit `25a979b1` and its final
+evidence update. The complete pre-integration candidate boundary remains
+baseline `64d7f935..HEAD`. No production database or storage rollback is
+authorized or required.
