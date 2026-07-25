@@ -17,6 +17,9 @@ def _sealed_manifest(
     task_id: str,
     final_memorial_id: str,
     final_memorial_version: int,
+    delivery_revision: int = 1,
+    idempotency_key_hash: str = "c" * 64,
+    payload_hash: str = "d" * 64,
 ) -> dict:
     return {
         "schema_version": "ArtifactManifestV1",
@@ -26,9 +29,9 @@ def _sealed_manifest(
         "final_memorial_id": final_memorial_id,
         "final_memorial_version": final_memorial_version,
         "delivery_formula_version": "w06-v1",
-        "delivery_revision": 1,
-        "idempotency_key_hash": "c" * 64,
-        "payload_hash": "d" * 64,
+        "delivery_revision": delivery_revision,
+        "idempotency_key_hash": idempotency_key_hash,
+        "payload_hash": payload_hash,
         "artifacts": [
             {
                 "artifact_id": "artifact-pdf",
@@ -180,6 +183,7 @@ def test_manifest_payload_is_required_and_canonical(isolated_session_local) -> N
 
 def test_unique_conflict_branch_reloads_existing_winner() -> None:
     from sqlalchemy.exc import IntegrityError
+
     from src.artifacts.service import persist_manifest
 
     manifest = _sealed_manifest(
@@ -274,4 +278,199 @@ def test_two_independent_sessions_replay_same_manifest(tmp_path) -> None:
     assert ids[0] == ids[1]
     db = factory()
     assert db.query(ArtifactManifest).count() == 1
+    db.close()
+
+
+def test_delivery_manifest_replay_returns_one_canonical_row(
+    isolated_session_local,
+) -> None:
+    from src.artifacts.service import persist_delivery_manifest
+    from src.contracts.artifact_manifest import (
+        ArtifactManifestV1,
+        canonical_manifest_hash,
+    )
+    from src.db.models import ArtifactManifest
+
+    db = isolated_session_local()
+    manifest = ArtifactManifestV1.model_validate(
+        _sealed_manifest(
+            tenant_id=1,
+            manifest_id="manifest-idempotent",
+            task_id="task-idempotent",
+            final_memorial_id="memorial-idempotent",
+            final_memorial_version=3,
+        )
+    )
+
+    first = persist_delivery_manifest(db, manifest=manifest)
+    second = persist_delivery_manifest(db, manifest=manifest)
+
+    assert first.id == second.id == "manifest-idempotent"
+    assert first.content_hash == canonical_manifest_hash(manifest)
+    assert first.delivery_revision == 1
+    assert first.idempotency_key_hash == "c" * 64
+    assert first.payload_hash == "d" * 64
+    assert db.query(ArtifactManifest).count() == 1
+    db.close()
+
+
+def test_delivery_manifest_rejects_same_key_with_changed_payload(
+    isolated_session_local,
+) -> None:
+    from src.artifacts.service import DeliveryConflict, persist_delivery_manifest
+    from src.contracts.artifact_manifest import ArtifactManifestV1
+
+    db = isolated_session_local()
+    first = ArtifactManifestV1.model_validate(
+        _sealed_manifest(
+            tenant_id=1,
+            manifest_id="manifest-conflict",
+            task_id="task-conflict",
+            final_memorial_id="memorial-conflict",
+            final_memorial_version=1,
+        )
+    )
+    changed = ArtifactManifestV1.model_validate(
+        _sealed_manifest(
+            tenant_id=1,
+            manifest_id="manifest-conflict",
+            task_id="task-conflict",
+            final_memorial_id="memorial-conflict",
+            final_memorial_version=1,
+            payload_hash="e" * 64,
+        )
+    )
+
+    persist_delivery_manifest(db, manifest=first)
+    with pytest.raises(DeliveryConflict, match="idempotency"):
+        persist_delivery_manifest(db, manifest=changed)
+    db.close()
+
+
+def test_concurrent_delivery_manifest_replay_converges(tmp_path) -> None:
+    from src.artifacts.service import persist_delivery_manifest
+    from src.contracts.artifact_manifest import ArtifactManifestV1
+    from src.db.models import ArtifactManifest, Base
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'delivery-manifest-race.db'}",
+        connect_args={"timeout": 30},
+    )
+    Base.metadata.create_all(engine, tables=[ArtifactManifest.__table__])
+    factory = sessionmaker(bind=engine)
+    manifest = ArtifactManifestV1.model_validate(
+        _sealed_manifest(
+            tenant_id=1,
+            manifest_id="manifest-delivery-race",
+            task_id="task-delivery-race",
+            final_memorial_id="memorial-delivery-race",
+            final_memorial_version=1,
+        )
+    )
+
+    def write_once() -> str:
+        db = factory()
+        try:
+            row = persist_delivery_manifest(db, manifest=manifest)
+            db.commit()
+            return row.id
+        finally:
+            db.close()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        ids = list(pool.map(lambda _n: write_once(), range(2)))
+
+    assert ids == ["manifest-delivery-race", "manifest-delivery-race"]
+    db = factory()
+    assert db.query(ArtifactManifest).count() == 1
+    db.close()
+    engine.dispose()
+
+
+def test_delivery_revisions_are_strictly_monotonic_for_one_lineage(
+    isolated_session_local,
+) -> None:
+    from src.artifacts.service import DeliveryConflict, persist_delivery_manifest
+    from src.contracts.artifact_manifest import ArtifactManifestV1
+
+    db = isolated_session_local()
+
+    def manifest(revision: int):
+        return ArtifactManifestV1.model_validate(
+            _sealed_manifest(
+                tenant_id=1,
+                manifest_id=f"manifest-revision-{revision}",
+                task_id="task-revision",
+                final_memorial_id="memorial-revision",
+                final_memorial_version=2,
+                delivery_revision=revision,
+                idempotency_key_hash=str(revision) * 64,
+            )
+        )
+
+    first = persist_delivery_manifest(db, manifest=manifest(1))
+    second = persist_delivery_manifest(db, manifest=manifest(2))
+
+    assert (first.delivery_revision, second.delivery_revision) == (1, 2)
+    with pytest.raises(DeliveryConflict, match="revision"):
+        persist_delivery_manifest(db, manifest=manifest(4))
+    db.close()
+
+
+def test_delivery_audit_events_are_append_only_and_tenant_scoped(
+    isolated_session_local,
+) -> None:
+    from src.artifacts.service import (
+        DeliveryForbidden,
+        append_delivery_audit_event,
+        persist_delivery_manifest,
+    )
+    from src.contracts.artifact_manifest import ArtifactManifestV1
+    from src.db.models import ArtifactDeliveryAuditEvent
+
+    db = isolated_session_local()
+    manifest = ArtifactManifestV1.model_validate(
+        _sealed_manifest(
+            tenant_id=1,
+            manifest_id="manifest-audit",
+            task_id="task-audit",
+            final_memorial_id="memorial-audit",
+            final_memorial_version=1,
+        )
+    )
+    persist_delivery_manifest(db, manifest=manifest)
+
+    first = append_delivery_audit_event(
+        db,
+        tenant_id=1,
+        manifest_id=manifest.manifest_id,
+        artifact_id=None,
+        event_type="delivery.persisted",
+        outcome="SUCCESS",
+        detail={"attempt": 1},
+    )
+    second = append_delivery_audit_event(
+        db,
+        tenant_id=1,
+        manifest_id=manifest.manifest_id,
+        artifact_id=None,
+        event_type="delivery.replayed",
+        outcome="SUCCESS",
+        detail={"attempt": 2},
+    )
+
+    assert first.id != second.id
+    assert json.loads(first.detail_json) == {"attempt": 1}
+    assert db.query(ArtifactDeliveryAuditEvent).count() == 2
+    with pytest.raises(DeliveryForbidden):
+        append_delivery_audit_event(
+            db,
+            tenant_id=2,
+            manifest_id=manifest.manifest_id,
+            artifact_id=None,
+            event_type="delivery.read",
+            outcome="SUCCESS",
+            detail={},
+        )
+    assert db.query(ArtifactDeliveryAuditEvent).count() == 2
     db.close()
