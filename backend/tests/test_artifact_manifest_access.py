@@ -99,7 +99,9 @@ def test_manifest_read_rejects_embedded_tenant_mismatch(isolated_session_local) 
         )
     )
     db.commit()
-    with pytest.raises(ValueError, match="tenant"):
+    from src.artifacts.service import DeliveryIntegrityError
+
+    with pytest.raises(DeliveryIntegrityError, match="tenant"):
         get_manifest_for_tenant(
             db,
             manifest_id="manifest-embedded-tenant-mismatch",
@@ -130,3 +132,76 @@ def test_manifest_read_rejects_cross_tenant_access(isolated_session_local) -> No
     with pytest.raises(PermissionError):
         get_manifest_for_tenant(db, manifest_id="manifest-1", tenant_id=99)
     db.close()
+
+
+def test_download_membership_failure_audit_survives_session_close(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    from datetime import datetime, timedelta, timezone
+    from pathlib import Path
+
+    from src.artifacts.service import (
+        DeliveryIntegrityError,
+        deliver_artifact_packet,
+        read_verified_delivery_artifact,
+    )
+    from src.db.models import ArtifactDeliveryAuditEvent, ArtifactManifest
+
+    storage_root = Path(tmp_path) / "artifact-storage"
+    seed_db = isolated_session_local()
+    try:
+        packet = deliver_artifact_packet(
+            seed_db,
+            storage_root=storage_root,
+            tenant_id=7,
+            task_id="task-membership-audit",
+            final_memorial_id="memorial-membership-audit",
+            final_memorial_version=1,
+            payload={"title": "membership", "summary": "audit"},
+            delivery_formula_version="w06-v1",
+            idempotency_key="membership-audit-key",
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        )
+        artifact_id = packet.manifest.artifact("PDF").artifact_id
+        row = seed_db.query(ArtifactManifest).filter_by(
+            id=packet.manifest.manifest_id
+        ).one()
+        sealed = json.loads(row.manifest_json)
+        sealed["artifacts"][0]["artifact_id"] = "manifest-member-tampered"
+        row.manifest_json = json.dumps(
+            sealed,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        seed_db.commit()
+    finally:
+        seed_db.close()
+
+    download_db = isolated_session_local()
+    try:
+        with pytest.raises(DeliveryIntegrityError, match="manifest"):
+            read_verified_delivery_artifact(
+                download_db,
+                storage_root=storage_root,
+                artifact_id=artifact_id,
+                tenant_id=7,
+            )
+    finally:
+        download_db.close()
+
+    audit_db = isolated_session_local()
+    try:
+        events = (
+            audit_db.query(ArtifactDeliveryAuditEvent)
+            .filter_by(
+                artifact_id=artifact_id,
+                event_type="artifact.download",
+                outcome="FAILURE",
+            )
+            .all()
+        )
+        assert len(events) == 1
+    finally:
+        audit_db.close()

@@ -56,6 +56,32 @@ class DeliveryPacket:
     resume_token: str | None
 
 
+@dataclass(frozen=True)
+class DeliveryItemAccess:
+    artifact_id: str
+    kind: str
+    mime_type: str
+    byte_size: int
+    content_hash: str
+    lineage_hash: str
+    status: str
+    incomplete_reason: str | None
+    expires_at: datetime | None
+    downloadable: bool
+
+
+@dataclass(frozen=True)
+class DeliveryManifestAccess:
+    manifest: ArtifactManifestV1
+    items: tuple[DeliveryItemAccess, ...]
+
+
+@dataclass(frozen=True)
+class VerifiedDeliveryArtifact:
+    content: bytes
+    mime_type: str
+
+
 _DELIVERY_KINDS = ("PDF", "DOCX", "JSON")
 _EMPTY_CONTENT_HASH = hashlib.sha256(b"").hexdigest()
 _MIME_TYPES = {
@@ -1149,9 +1175,9 @@ def get_manifest_for_tenant(db, *, manifest_id: str, tenant_id: int):
 
     row = db.query(ArtifactManifest).filter_by(id=manifest_id).one_or_none()
     if row is None:
-        raise LookupError("manifest not found")
+        raise DeliveryNotFound("manifest not found")
     if row.tenant_id != tenant_id:
-        raise PermissionError("manifest tenant mismatch")
+        raise DeliveryForbidden("manifest tenant mismatch")
     manifest = ArtifactManifestV1.model_validate_json(row.manifest_json)
     if (
         manifest.tenant_id != row.tenant_id
@@ -1160,5 +1186,192 @@ def get_manifest_for_tenant(db, *, manifest_id: str, tenant_id: int):
         or manifest.final_memorial_version != row.final_memorial_version
         or manifest.delivery_formula_version != row.delivery_formula_version
     ):
-        raise ValueError("persisted manifest tenant or lineage mismatch")
+        raise DeliveryIntegrityError("persisted manifest tenant or lineage mismatch")
     return manifest
+
+
+def _parse_delivery_expiry(value: str | None) -> datetime | None:
+    if value is None:
+        return None
+    try:
+        expires_at = datetime.fromisoformat(value)
+    except (TypeError, ValueError) as exc:
+        raise DeliveryIntegrityError(
+            "delivery item expiry is invalid"
+        ) from exc
+    if expires_at.tzinfo is None or expires_at.utcoffset() is None:
+        raise DeliveryIntegrityError("delivery item expiry must be timezone-aware")
+    return expires_at.astimezone(timezone.utc)
+
+
+def get_delivery_manifest_for_tenant(
+    db,
+    *,
+    manifest_id: str,
+    tenant_id: int,
+) -> DeliveryManifestAccess:
+    """Return a public-safe delivery projection for one authorized tenant."""
+    manifest = get_manifest_for_tenant(
+        db,
+        manifest_id=manifest_id,
+        tenant_id=tenant_id,
+    )
+    rows = (
+        db.query(ArtifactDeliveryItem)
+        .filter_by(manifest_id=manifest_id)
+        .all()
+    )
+    by_kind = {row.kind: row for row in rows}
+    if len(rows) != len(_DELIVERY_KINDS) or set(by_kind) != set(_DELIVERY_KINDS):
+        raise DeliveryIntegrityError("delivery manifest items are incomplete")
+
+    now = datetime.now(timezone.utc)
+    items: list[DeliveryItemAccess] = []
+    for manifest_item in manifest.artifacts:
+        row = by_kind[manifest_item.kind]
+        _assert_item_projection(
+            row,
+            manifest_item=manifest_item,
+            tenant_id=tenant_id,
+            manifest_id=manifest_id,
+        )
+        expires_at = _parse_delivery_expiry(row.expires_at)
+        if expires_at != manifest_item.expires_at:
+            raise DeliveryIntegrityError(
+                "delivery item expiry does not match immutable manifest"
+            )
+        items.append(
+            DeliveryItemAccess(
+                artifact_id=row.id,
+                kind=row.kind,
+                mime_type=row.mime_type,
+                byte_size=row.byte_size,
+                content_hash=row.content_hash,
+                lineage_hash=manifest_item.lineage_hash,
+                status=row.state,
+                incomplete_reason=row.incomplete_reason,
+                expires_at=expires_at,
+                downloadable=(
+                    row.state == "STORED"
+                    and expires_at is not None
+                    and expires_at > now
+                ),
+            )
+        )
+    return DeliveryManifestAccess(manifest=manifest, items=tuple(items))
+
+
+def read_verified_delivery_artifact(
+    db,
+    *,
+    storage_root: Path,
+    artifact_id: str,
+    tenant_id: int,
+) -> VerifiedDeliveryArtifact:
+    """Read one authorized artifact and durably audit the verified outcome."""
+    from src.artifacts.storage import read_verified_artifact
+
+    item = (
+        db.query(ArtifactDeliveryItem)
+        .filter_by(id=artifact_id)
+        .one_or_none()
+    )
+    if item is None:
+        raise DeliveryNotFound("delivery artifact not found")
+    if item.tenant_id != tenant_id:
+        raise DeliveryForbidden("delivery artifact tenant mismatch")
+
+    try:
+        access = get_delivery_manifest_for_tenant(
+            db,
+            manifest_id=item.manifest_id,
+            tenant_id=tenant_id,
+        )
+        selected = next(
+            (
+                candidate
+                for candidate in access.items
+                if candidate.artifact_id == artifact_id
+            ),
+            None,
+        )
+        if selected is None:
+            raise DeliveryIntegrityError(
+                "delivery artifact is not a member of its manifest"
+            )
+        if selected.status != "STORED":
+            raise DeliveryConflict("delivery artifact is not stored")
+        if selected.expires_at is None:
+            raise DeliveryIntegrityError("delivery artifact expiry is missing")
+        if selected.expires_at <= datetime.now(timezone.utc):
+            raise DeliveryExpired("delivery artifact has expired")
+        if item.storage_path is None:
+            raise DeliveryIntegrityError("stored delivery artifact has no path")
+
+        expected_path = storage_root / str(tenant_id) / artifact_id
+        if Path(item.storage_path) != expected_path:
+            raise DeliveryIntegrityError(
+                "delivery artifact path does not match storage identity"
+            )
+        content = read_verified_artifact(
+            expected_path,
+            expected_hash=selected.content_hash,
+            expected_size=selected.byte_size,
+        )
+    except (DeliveryConflict, DeliveryExpired, DeliveryIntegrityError) as exc:
+        _commit_download_audit(
+            db,
+            tenant_id=tenant_id,
+            manifest_id=item.manifest_id,
+            artifact_id=artifact_id,
+            outcome="FAILURE",
+            reason=(
+                "expired"
+                if isinstance(exc, DeliveryExpired)
+                else "conflict"
+                if isinstance(exc, DeliveryConflict)
+                else "integrity_error"
+            ),
+        )
+        raise
+
+    verified = VerifiedDeliveryArtifact(
+        content=content,
+        mime_type=selected.mime_type,
+    )
+    _commit_download_audit(
+        db,
+        tenant_id=tenant_id,
+        manifest_id=item.manifest_id,
+        artifact_id=artifact_id,
+        outcome="SUCCESS",
+        reason="verified",
+    )
+    return verified
+
+
+def _commit_download_audit(
+    db,
+    *,
+    tenant_id: int,
+    manifest_id: str,
+    artifact_id: str,
+    outcome: str,
+    reason: str,
+) -> None:
+    try:
+        append_delivery_audit_event(
+            db,
+            tenant_id=tenant_id,
+            manifest_id=manifest_id,
+            artifact_id=artifact_id,
+            event_type="artifact.download",
+            outcome=outcome,
+            detail={"reason": reason},
+        )
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise DeliveryIntegrityError(
+            "artifact download audit could not be committed"
+        ) from exc
