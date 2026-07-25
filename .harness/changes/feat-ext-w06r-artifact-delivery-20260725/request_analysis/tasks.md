@@ -1,58 +1,80 @@
 # Tasks: feat-ext-w06r-artifact-delivery-20260725
 
-## Task 1: Freeze W06R Packet And Restore Schema Authority Baseline
+## Candidate History
 
-- Authority: `R0-W06` is authorized only when v2 reports `GO / APPROVED_WORK_PACKAGE`.
-- Input: Alembic graph head `024_artifact_manifest_tenant` and the existing P26 schema-test hunk.
-- Output: the corrected W06 focused baseline and root Packet evidence.
-- File boundary: `backend/tests/test_schema_authority.py` plus these four root change-record files only.
-- Required correction: use `024_artifact_manifest_tenant` in the three expected-head assertions and disposable `alembic_version` row; do not expand the hunk.
-- Verification: focused five-file pytest suite, W06 authority, root harness doctor, and `git diff --check`.
-- Production boundary: disposable test SQLite data only; `NOT_DEPLOYED`; `NO_LISTENER_TAKEOVER`; no persistent DB migration, push, or deployment.
-- Rollback: revert the four schema-test literals changed from `022_shiguan_memorial_identity` to `024_artifact_manifest_tenant`, then remove this Packet's four files; do not perform any production database operation.
-- Done: initial `3 failed, 19 passed` baseline is recorded, corrected suite is `22 passed`, and all governance checks pass.
+- [x] Align W06 schema authority with Alembic head 024.
+- [x] Approve artifact-delivery design and implementation plan.
+- [x] Add revision 025 manifest identity, item state, and audit persistence.
+- [x] Implement canonical manifest contract, rendering, storage, service, and
+  create/read/download/resume API routes.
+- [x] Add W06R schema, contract, migration, storage, render, persistence,
+  service, access, and API coverage.
+- [x] Record Task 7 implementer evidence.
+- [x] Receive Task 7 requirements review (`6` findings) and quality review
+  (`7` findings). Those reports remain read-only.
 
-## Task 7: Close Verification Evidence
+## Task 8 Final Remediation
 
-- Status: `IMPLEMENTER_VERIFIED / INDEPENDENT_REVIEW_PENDING`. This is an
-  implementer evidence record only; it is not QA, Codex, integration, or
-  deployment acceptance.
-- Refreshed pre-evidence candidate: HEAD
-  `8a703168e4427b05e1e0a2bf1b0f18f539608021`; tree
-  `51a8b208160e12525866a4a7895b55fed29c057c`; baseline
-  `64d7f9358dc8a43d886889629e1b745f491593ef`.
-- Focused suite refresh: all nine W06R files completed with
-  `105 passed, 0 skipped in 21.66s`.
-  No test was skipped in the supplied temporary virtual environment; Alembic
-  was available, so the migration module's `pytest.importorskip` guard did
-  not activate.
-- Disposable migration refresh: all six migration tests passed in `18.19s`
-  with pytest `--basetemp=/tmp/ext-w06r-task7-migration-8a703168`. The legacy loop
-  used only
-  `/tmp/ext-w06r-task7-migration-8a703168/test_upgrade_downgrade_reupgra0/artifact-delivery-loop.db`:
-  `024_artifact_manifest_tenant -> 025_artifact_delivery_state ->
-  024_artifact_manifest_tenant -> 025_artifact_delivery_state`. Its retained
-  final `alembic_version` was `025_artifact_delivery_state`.
-- Governance and closeout refresh: backend doctor and root doctor each reported
-  `0 errors, 0 warning(s)`; `R0-W06` authority returned
-  `GO / APPROVED_WORK_PACKAGE`; full backend compileall and
-  `git diff --check 64d7f935..HEAD` passed; strict closeout found zero staged
-  or unstaged high-risk files.
-- Ruff history: the first evidence run found one `B904` error at
-  `backend/src/artifacts/storage.py:233` (a `DeliveryIntegrityError` raised
-  in an `except OSError` branch without `from`). Commit
-  `8a703168e4427b05e1e0a2bf1b0f18f539608021` corrected that error; the full
-  W06R Ruff scope now passes. Full `backend` Ruff remains red with `843`
-  pre-existing findings outside the W06R scope and is recorded as a repository
-  baseline concern, not waived or attributed to this fix.
-- Inventory decision: `backend/harness/manifest.json` was inspected and
-  already inventories harness packages, not this artifact-delivery runtime
-  feature. No inventory entry was missing and the manifest was not modified.
-- Production boundary: `NOT_DEPLOYED`; `NO_PUSH`;
-  `NO_PERSISTENT_DB_MIGRATION`; `NO_LISTENER_TAKEOVER`. All migration databases
-  and storage roots were disposable `/tmp` or pytest-owned paths.
-- Parked production blockers remain open: source payload retention/encryption
-  and access policy; and the requirement that delivery command callers own the
-  supplied Session/transaction.
-- Independent requirements and quality review remain pending. The candidate
-  must not be integrated into `feature-chaotang-ext` without explicit approval.
+### Group A: Content And Source
+
+- [x] Observe 13 targeted RED failures.
+- [x] Render the complete pack in JSON, DOCX, and Unicode PDF.
+- [x] Authorize and validate exact current `FinalMemorial` source before
+  rendering.
+- [x] Verify targeted and affected suites.
+- [x] Commit `fd38d017`.
+
+### Group B: Identity And Sealed Recovery
+
+- [x] Observe canonical/reuse/seal/reason RED failures.
+- [x] Derive canonical manifest/artifact/lineage identity.
+- [x] Reuse the origin item row and stable download identity.
+- [x] Route persisted reads through one seal verifier.
+- [x] Bind mutable reason to the sealed value.
+- [x] Apply exact trusted-root path checks before stored-object reuse.
+- [x] Verify 73 affected tests and scoped Ruff.
+- [x] Commit `c5947c00`.
+
+### Group C: Status, Audit, And Expiry
+
+- [x] Observe `10 failed, 1 passed` targeted RED.
+- [x] Map wrong/expired resume tokens to 409.
+- [x] Append one generic requester-tenant audit for unknown/denied download.
+- [x] Add `last_failure` and persist/project `EXPIRED` without seal mutation.
+- [x] Limit `expiry_seconds` to `1..86400`.
+- [x] Verify 84 affected tests and scoped Ruff.
+- [x] Commit `23ddf988`.
+
+### Group D: Migration And Durability
+
+- [x] Observe 6 targeted RED failures.
+- [x] Refuse downgrade for each revision-025-only identity/payload field before
+  DDL.
+- [x] Fsync root after tenant creation and tenant after publication/cleanup.
+- [x] Fail closed on directory fsync errors.
+- [x] Verify 28 migration/storage tests and 78 related delivery tests.
+- [x] Commit `9261f852`.
+
+### Packet And Closeout
+
+- [x] Replace the stale schema-test-only Packet scope with the actual 23-file
+  runtime/migration/storage/API/test/design/plan scope.
+- [x] Preserve `NOT_DEPLOYED`, `NO_PUSH`, `NO_PERSISTENT_DB_MIGRATION`, and
+  `NO_LISTENER_TAKEOVER`.
+- [ ] Run and record the final complete suite, isolated migration suite, Ruff,
+  compileall, doctors, authority checks, strict closeout, and baseline diff.
+- [ ] Request independent requirements and quality re-review. Implementer
+  evidence cannot mark those reviews GO.
+
+## Rollback Boundary
+
+Task 8 implementation commits, newest first:
+
+1. `9261f852`
+2. `23ddf988`
+3. `c5947c00`
+4. `fd38d017`
+
+Revert Packet synchronization/evidence commits after those if remediation is
+removed. Do not downgrade or modify a persistent database and do not delete
+production storage; no such deployment occurred.

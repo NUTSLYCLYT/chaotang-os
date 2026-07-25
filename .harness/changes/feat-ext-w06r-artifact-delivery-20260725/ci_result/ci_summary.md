@@ -1,54 +1,90 @@
 # CI Summary: feat-ext-w06r-artifact-delivery-20260725
 
-## Observed Failing Baseline
+## Current Status
+
+`IMPLEMENTER_REMEDIATED / FINAL_VERIFICATION_PENDING`
+
+This is implementer evidence. It does not replace the read-only Task 7
+requirements and quality reviews or claim independent GO.
+
+| Field | Value |
+| --- | --- |
+| Baseline | `64d7f9358dc8a43d886889629e1b745f491593ef` |
+| Task 7 reviewed candidate | `61aa193c5b4b44d2f076a92762f382481e13021b` |
+| Task 7 requirements verdict | `REQUIREMENTS NO-GO`, 6 findings |
+| Task 7 quality verdict | `QUALITY: NO-GO`, 7 findings |
+| Task 8 pre-Packet HEAD | `9261f852` |
+| Candidate inventory | 23 tracked files |
+| Runtime boundary | `NOT_DEPLOYED` |
+
+## Task 8 RED To GREEN
+
+| Group | RED | GREEN | Commit |
+| --- | --- | --- | --- |
+| A: content/source | `13 failed in 3.49s` | targeted `13 passed`; affected `56 passed` | `fd38d017` |
+| B: identity/seal/root | service/API/root-guard RED recorded separately | affected `73 passed` | `c5947c00` |
+| C: status/audit/expiry | `10 failed, 1 passed in 5.75s` | targeted `11 passed`; affected `84 passed` | `23ddf988` |
+| D: migration/fsync | `6 failed in 13.20s` | targeted `6 passed`; migration/storage `28 passed`; related `78 passed` | `9261f852` |
+
+The full command output and finding-to-test-to-fix mapping are recorded in
+`.superpowers/sdd/2026-07-25-ext-w06r-artifact-delivery/task-8-report.md`.
+That SDD path is intentionally ignored by Git and is not reviewer evidence.
+
+## Finding Closure
+
+| Review finding | Task 8 evidence |
+| --- | --- |
+| Requirements HIGH-1: incomplete PDF/DOCX | Complete deterministic three-format renderer tests |
+| Requirements HIGH-2: canonical/reused identity | Canonical hash and stable origin-row/download tests |
+| Requirements MEDIUM-3: resume statuses | Service exception and same-tenant HTTP 409 tests |
+| Requirements MEDIUM-4: unaudited auth failures | Generic requester-tenant audit tests |
+| Requirements MEDIUM-5: incomplete mutable state | `last_failure`, `EXPIRED`, immutable seal, repeated 410 tests |
+| Requirements MEDIUM-6: contradictory root Packet | These synchronized Packet documents |
+| Quality HIGH-1: unverified memorial source | Missing/cross-tenant/stale/state/hash/pack mismatch tests |
+| Quality HIGH-2: direct replay bypasses seal | Unified verifier and tampered replay tests |
+| Quality HIGH-3: destructive identity downgrade | Four-field preflight snapshot tests |
+| Quality MEDIUM-1: mutable reason override | Sealed reason projection corruption tests |
+| Quality MEDIUM-2: path outside root | Create replay and resume root-guard tests |
+| Quality MEDIUM-3: missing directory fsync | Directory syscall and fault-injection tests |
+| Quality LOW-1: unbounded expiry | 0/86401/oversized HTTP 422 tests |
+
+## Candidate Inventory
+
+The baseline comparison contains these 23 tracked files:
 
 ```text
-python3 -m pytest -q tests/test_artifact_manifest_v1.py \
-  tests/test_artifact_manifest_persistence.py \
-  tests/test_artifact_manifest_access.py \
-  tests/test_artifact_delivery_render.py \
-  tests/test_schema_authority.py
-
-Observed before correction: 3 failed, 19 passed.
-All failures expected 022_shiguan_memorial_identity while the graph returned
-024_artifact_manifest_tenant.
+.harness/changes/feat-ext-w06r-artifact-delivery-20260725/ci_result/ci_summary.md
+.harness/changes/feat-ext-w06r-artifact-delivery-20260725/request_analysis/spec.md
+.harness/changes/feat-ext-w06r-artifact-delivery-20260725/request_analysis/tasks.md
+.harness/changes/feat-ext-w06r-artifact-delivery-20260725/summary.md
+backend/alembic/versions/025_artifact_delivery_state.py
+backend/src/artifacts/delivery.py
+backend/src/artifacts/service.py
+backend/src/artifacts/storage.py
+backend/src/contracts/artifact_manifest.py
+backend/src/db/models.py
+backend/tests/artifact_delivery_support.py
+backend/tests/test_artifact_delivery_api.py
+backend/tests/test_artifact_delivery_migration.py
+backend/tests/test_artifact_delivery_render.py
+backend/tests/test_artifact_delivery_service.py
+backend/tests/test_artifact_manifest_access.py
+backend/tests/test_artifact_manifest_persistence.py
+backend/tests/test_artifact_manifest_v1.py
+backend/tests/test_artifact_storage.py
+backend/tests/test_schema_authority.py
+backend/web/routers/artifacts.py
+docs/superpowers/plans/2026-07-25-ext-w06r-artifact-delivery.md
+docs/superpowers/specs/2026-07-25-ext-w06r-artifact-delivery-design.md
 ```
 
-## Corrected Verification
+`backend/harness/manifest.json` remains unchanged because it inventories
+harness packages, while artifact delivery is backend runtime behavior.
 
-| Command | Expected Result | Actual Result |
-| --- | --- | --- |
-| Focused W06 pytest suite | `22 passed` | `22 passed` |
-| `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W06` | W06 `GO` | `GO / APPROVED_WORK_PACKAGE` |
-| `node scripts/harness-doctor.mjs` | `0 errors / 0 warnings` | `0 errors / 0 warnings` |
-| `git diff --check` | clean | clean |
+## Final Verification Matrix
 
-## Boundary Confirmation
-
-- Only the existing three assertion expectations and disposable SQLite row changed in the schema-authority test.
-- `NOT_DEPLOYED`; `NO_LISTENER_TAKEOVER`. No Alembic migration, runtime implementation, persistent database, push, deployment, or production migration was performed.
-
-## Rollback Boundary
-
-- Revert the four schema-test literals changed from `022_shiguan_memorial_identity` to `024_artifact_manifest_tenant`, then remove this Packet's four files.
-- No production database operation is part of rollback.
-
-## Task 7 Verification Evidence
-
-| Field | Recorded value |
-| --- | --- |
-| Packet status | `IMPLEMENTER_VERIFIED / INDEPENDENT_REVIEW_PENDING` |
-| Pre-evidence candidate HEAD | `4d3612261dea194b8525190cab022bbc12918213` |
-| Pre-evidence candidate tree | `6c38d956d22c4583c4800d7a5ecd3c7b8fa0c535` |
-| Comparison baseline | `64d7f9358dc8a43d886889629e1b745f491593ef` |
-| Focused suite | `105 passed, 0 skipped in 21.55s` |
-| Isolated migration suite | `6 passed in 15.98s` |
-| Backend/root doctor | `0 errors, 0 warning(s)` / `0 errors, 0 warning(s)` |
-| Scoped W06 authority | `GO / APPROVED_WORK_PACKAGE` |
-| Compile/diff/closeout | PASS / PASS / PASS |
-| Ruff | FAIL: one `B904` at `backend/src/artifacts/storage.py:233` |
-
-### Commands And Results
+The following evidence must be rerun after this Packet synchronization and
+recorded before changing status to implementer verified:
 
 ```bash
 cd backend
@@ -62,235 +98,49 @@ cd backend
   tests/test_artifact_delivery_service.py \
   tests/test_artifact_manifest_access.py \
   tests/test_artifact_delivery_api.py
-```
 
-Result: `105 passed in 21.55s`; no skips occurred. The suite's only skip
-mechanism is `pytest.importorskip` for Alembic in the migration module. Alembic
-was installed in `/tmp/ext-w06r-task3-venv`, so it did not activate. There is
-therefore no skipped test to accept or reject in this run.
-
-```bash
-cd backend
-/tmp/ext-w06r-task3-venv/bin/python -m pytest -vv \
-  --basetemp=/tmp/ext-w06r-task7-migration-4d361226 \
-  tests/test_artifact_delivery_migration.py
-```
-
-Result: `6 passed in 15.98s`. The reversible legacy loop was isolated at
-`/tmp/ext-w06r-task7-migration-4d361226/test_upgrade_downgrade_reupgra0/artifact-delivery-loop.db`:
-
-```text
-upgrade 024_artifact_manifest_tenant -> 025_artifact_delivery_state
-downgrade 025_artifact_delivery_state -> 024_artifact_manifest_tenant
-re-upgrade 024_artifact_manifest_tenant -> 025_artifact_delivery_state
-final alembic_version: 025_artifact_delivery_state
-```
-
-The isolated tests also prove downgrade preflight refusal for duplicate legacy
-lineage, persisted delivery-item/audit facts, and persisted source payload
-before DDL. No path under `backend/var`, the main worktree, or a persistent
-database was used.
-
-```bash
-cd backend
-/tmp/ext-w06r-task3-venv/bin/python scripts/harness_doctor.py
-/tmp/ext-w06r-task3-venv/bin/python -m compileall -q \
-  src/contracts/artifact_manifest.py src/artifacts/storage.py \
-  src/artifacts/delivery.py src/artifacts/service.py src/db/models.py \
-  web/routers/artifacts.py alembic/versions/025_artifact_delivery_state.py
-/tmp/ext-w06r-task3-venv/bin/python scripts/commit_closeout_check.py --strict
-
-cd ..
-node scripts/harness-doctor.mjs
-node scripts/execution-authority-v2.mjs --authorize --work-package R0-W06
-git diff --check 64d7f935..HEAD
-```
-
-Result: both doctors reported `0 errors, 0 warning(s)`; compileall, closeout,
-and diff checks passed; authority returned `GO / APPROVED_WORK_PACKAGE`.
-
-```bash
-cd backend
-/tmp/ext-w06r-task3-venv/bin/ruff check \
-  src/contracts/artifact_manifest.py src/artifacts/storage.py \
-  src/artifacts/delivery.py src/artifacts/service.py src/db/models.py \
-  web/routers/artifacts.py alembic/versions/025_artifact_delivery_state.py \
-  tests/test_schema_authority.py tests/test_artifact_manifest_v1.py \
-  tests/test_artifact_delivery_migration.py tests/test_artifact_storage.py \
-  tests/test_artifact_delivery_render.py \
-  tests/test_artifact_manifest_persistence.py \
-  tests/test_artifact_delivery_service.py \
-  tests/test_artifact_manifest_access.py tests/test_artifact_delivery_api.py
-```
-
-Result: one failure, `B904` at `src/artifacts/storage.py:233`, requiring the
-raised `DeliveryIntegrityError` in an `except OSError` branch to use explicit
-exception chaining. This evidence-only task leaves source unchanged; the
-failure is an independent-review concern, not a waived check.
-
-### Requirement And Quality Coverage
-
-| Area | Evidence |
-| --- | --- |
-| Exact PDF/DOCX/JSON membership and immutable public manifest | `test_artifact_manifest_v1.py`, `test_artifact_delivery_render.py` |
-| Sealed identity, revisions, idempotency, duplicate suppression, and durable audit state | `test_artifact_manifest_persistence.py`, `test_artifact_delivery_service.py`, `test_artifact_delivery_migration.py` |
-| Atomic single-writer storage, reuse, path safety, and corrupt-byte rejection | `test_artifact_storage.py`, `test_artifact_delivery_service.py` |
-| PARTIAL, retry, resume, expiry, replay, and recovery of durable source input | `test_artifact_delivery_service.py`, `test_artifact_delivery_api.py` |
-| Tenant authorization, manifest membership, public secret/path exclusion, verified download, and download audit durability | `test_artifact_manifest_access.py`, `test_artifact_delivery_api.py` |
-| Transaction rollback/reload and competing-session behavior | `test_artifact_manifest_persistence.py`, `test_artifact_delivery_service.py` |
-| Timing-safe resume-token and sealed-hash comparisons | service implementation uses `hmac.compare_digest`; exercised by service/access tests |
-| Migration reversibility and destructive-downgrade protection | `test_artifact_delivery_migration.py` |
-
-### Candidate Inventory
-
-`git diff --name-status 64d7f935..4d361226` recorded these 21 candidate files:
-
-```text
-A  .harness/changes/feat-ext-w06r-artifact-delivery-20260725/ci_result/ci_summary.md
-A  .harness/changes/feat-ext-w06r-artifact-delivery-20260725/request_analysis/spec.md
-A  .harness/changes/feat-ext-w06r-artifact-delivery-20260725/request_analysis/tasks.md
-A  .harness/changes/feat-ext-w06r-artifact-delivery-20260725/summary.md
-A  backend/alembic/versions/025_artifact_delivery_state.py
-M  backend/src/artifacts/delivery.py
-M  backend/src/artifacts/service.py
-A  backend/src/artifacts/storage.py
-M  backend/src/contracts/artifact_manifest.py
-M  backend/src/db/models.py
-A  backend/tests/test_artifact_delivery_api.py
-A  backend/tests/test_artifact_delivery_migration.py
-A  backend/tests/test_artifact_delivery_service.py
-M  backend/tests/test_artifact_manifest_access.py
-M  backend/tests/test_artifact_manifest_persistence.py
-M  backend/tests/test_artifact_manifest_v1.py
-A  backend/tests/test_artifact_storage.py
-M  backend/tests/test_schema_authority.py
-M  backend/web/routers/artifacts.py
-A  docs/superpowers/plans/2026-07-25-ext-w06r-artifact-delivery.md
-A  docs/superpowers/specs/2026-07-25-ext-w06r-artifact-delivery-design.md
-```
-
-`backend/harness/manifest.json` was inspected but not changed: artifact
-delivery is a runtime feature, not a separate harness package, so no inventory
-entry is missing.
-
-### Boundary And Parked Risks
-
-- `NOT_DEPLOYED`; `NO_PUSH`; `NO_PERSISTENT_DB_MIGRATION`;
-  `NO_LISTENER_TAKEOVER`.
-- All migration databases and artifact roots were pytest-owned or under `/tmp`.
-- Production blocker: define retention, encryption, and access policy for
-  internal `source_payload_json` before deployment.
-- Production blocker: delivery-command callers must supply a command-owned
-  Session because the command commits the complete supplied transaction.
-- Independent requirements and quality review remain pending. This evidence
-  does not claim QA, Codex, integration, or deployment acceptance.
-
-## Task 7 Evidence Refresh After 8a703168
-
-| Field | Recorded value |
-| --- | --- |
-| Packet status | `IMPLEMENTER_VERIFIED / INDEPENDENT_REVIEW_PENDING` |
-| Pre-evidence candidate HEAD | `8a703168e4427b05e1e0a2bf1b0f18f539608021` |
-| Pre-evidence candidate tree | `51a8b208160e12525866a4a7895b55fed29c057c` |
-| Lint-fix commit | `8a703168e4427b05e1e0a2bf1b0f18f539608021` `fix(w06r): chain artifact storage integrity error` |
-| Focused suite | `105 passed, 0 skipped in 21.66s` |
-| Isolated migration suite | `6 passed in 18.19s` |
-| W06R scoped Ruff | PASS |
-| Full backend Ruff | FAIL: `843` pre-existing findings outside W06R scope |
-| Full backend compileall | PASS |
-| Backend/root doctor | `0 errors, 0 warning(s)` / `0 errors, 0 warning(s)` |
-| Scoped W06 authority | `GO / APPROVED_WORK_PACKAGE` |
-| Diff/strict closeout | PASS / PASS |
-
-The preceding Task 7 section remains the first-run history: it recorded the
-original `B904` failure at `backend/src/artifacts/storage.py:233`. Commit
-`8a703168` adds explicit exception chaining at that site. The refreshed W06R
-Ruff command below passes; the independent-review concern is therefore no
-longer an unaddressed W06R lint error.
-
-### Refreshed Commands And Results
-
-```bash
-cd backend
 /tmp/ext-w06r-task3-venv/bin/python -m pytest -q \
-  tests/test_schema_authority.py \
-  tests/test_artifact_manifest_v1.py \
-  tests/test_artifact_delivery_migration.py \
-  tests/test_artifact_storage.py \
-  tests/test_artifact_delivery_render.py \
-  tests/test_artifact_manifest_persistence.py \
-  tests/test_artifact_delivery_service.py \
-  tests/test_artifact_manifest_access.py \
-  tests/test_artifact_delivery_api.py
-```
-
-Result: `105 passed in 21.66s`; `0 skipped`. Alembic was available in the
-temporary virtual environment, so the migration module's `pytest.importorskip`
-guard did not activate.
-
-```bash
-cd backend
-/tmp/ext-w06r-task3-venv/bin/python -m pytest -vv \
-  --basetemp=/tmp/ext-w06r-task7-migration-8a703168 \
+  --basetemp=/tmp/ext-w06r-task8-final-migration \
   tests/test_artifact_delivery_migration.py
-```
 
-Result: `6 passed in 18.19s`. The only legacy loop database was
-`/tmp/ext-w06r-task7-migration-8a703168/test_upgrade_downgrade_reupgra0/artifact-delivery-loop.db`:
-
-```text
-upgrade 024_artifact_manifest_tenant -> 025_artifact_delivery_state
-downgrade 025_artifact_delivery_state -> 024_artifact_manifest_tenant
-re-upgrade 024_artifact_manifest_tenant -> 025_artifact_delivery_state
-final alembic_version: 025_artifact_delivery_state
-```
-
-```bash
-cd backend
 /tmp/ext-w06r-task3-venv/bin/ruff check \
   src/contracts/artifact_manifest.py src/artifacts/storage.py \
   src/artifacts/delivery.py src/artifacts/service.py src/db/models.py \
   web/routers/artifacts.py alembic/versions/025_artifact_delivery_state.py \
-  tests/test_schema_authority.py tests/test_artifact_manifest_v1.py \
+  tests/artifact_delivery_support.py tests/test_schema_authority.py \
+  tests/test_artifact_manifest_v1.py \
   tests/test_artifact_delivery_migration.py tests/test_artifact_storage.py \
   tests/test_artifact_delivery_render.py \
   tests/test_artifact_manifest_persistence.py \
   tests/test_artifact_delivery_service.py \
   tests/test_artifact_manifest_access.py tests/test_artifact_delivery_api.py
+
 /tmp/ext-w06r-task3-venv/bin/python -m compileall -q .
 /tmp/ext-w06r-task3-venv/bin/python scripts/harness_doctor.py
 /tmp/ext-w06r-task3-venv/bin/python scripts/commit_closeout_check.py --strict
 
 cd ..
 node scripts/harness-doctor.mjs
+node scripts/execution-authority.mjs --check
 node scripts/execution-authority-v2.mjs --authorize --work-package R0-W06
 git diff --check 64d7f935..HEAD
 ```
 
-Result: all listed W06R Ruff files passed; full backend compileall passed;
-both doctors reported `0 errors, 0 warning(s)`; strict closeout and diff passed;
-authority returned `GO / APPROVED_WORK_PACKAGE`.
-
-The requested full lint command was also run:
-
-```bash
-cd backend
-/tmp/ext-w06r-task3-venv/bin/ruff check .
-```
-
-Result: `843` failures, beginning in historical `alembic/env.py`, old Alembic
-revisions, `cli.py`, and unrelated routers/schemas. The W06R files named above
-were separately clean after `8a703168`; this repository-wide baseline remains
-open and is not a pass claim.
-
-### Boundary Confirmation
+## Production Boundary And Concerns
 
 - `NOT_DEPLOYED`; `NO_PUSH`; `NO_PERSISTENT_DB_MIGRATION`;
   `NO_LISTENER_TAKEOVER`.
-- All migration paths and database files were pytest-owned or under `/tmp`;
-  none used `backend/var`, the main worktree, or a persistent database.
-- The two parked production blockers remain: `source_payload_json` retention,
-  encryption, and access policy; and command-owned Session/transaction
-  ownership for delivery callers.
-- Independent requirements and quality review remain pending. This refresh
-  does not claim QA, Codex, integration, or deployment acceptance.
+- All migration files, databases, and storage roots used for verification are
+  pytest-owned or under `/tmp`.
+- Before production deployment, internal `source_payload_json` still requires
+  an approved retention, encryption, and access policy.
+- Delivery command callers must continue to supply a command-owned Session
+  because the command owns commit of the supplied transaction.
+- Independent requirements and quality re-review remains required before
+  integration acceptance.
+
+## Rollback
+
+Revert Task 8 commits `9261f852`, `23ddf988`, `c5947c00`, and `fd38d017` in
+that order, followed by Packet synchronization/evidence commits. No production
+database or storage rollback is part of this candidate.
