@@ -6,7 +6,7 @@ import hashlib
 import json
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from threading import Barrier
 
@@ -53,7 +53,7 @@ def test_deliver_packet_stores_exact_three_formats(
         payload=payload,
         delivery_formula_version="w06-v1",
         idempotency_key="ready-key",
-        expires_at=datetime(2026, 7, 26, tzinfo=timezone.utc),
+        requested_expiry_seconds=3600,
     )
 
     assert packet.resume_token is None
@@ -172,7 +172,7 @@ def test_create_rejects_untrusted_final_memorial_before_rendering(
             payload=supplied_payload,
             delivery_formula_version="w06-v1",
             idempotency_key=f"source-{source_case}-key",
-            expires_at=datetime(2099, 7, 26, tzinfo=timezone.utc),
+            requested_expiry_seconds=3600,
             renderer=track_renderer,
         )
 
@@ -225,7 +225,7 @@ def test_partial_packet_resumes_only_pdf_without_rewriting_prior_revision(
         payload=payload,
         delivery_formula_version="w06-v1",
         idempotency_key=raw_idempotency_key,
-        expires_at=datetime(2099, 7, 26, tzinfo=timezone.utc),
+        requested_expiry_seconds=3600,
         renderer=fail_pdf,
     )
 
@@ -396,7 +396,7 @@ def test_resume_rejects_expired_token(
         payload=payload,
         delivery_formula_version="w06-v1",
         idempotency_key="expired-create-key",
-        expires_at=datetime(2099, 1, 1, tzinfo=timezone.utc),
+        requested_expiry_seconds=3600,
         renderer=fail_pdf,
     )
 
@@ -453,7 +453,7 @@ def test_delivery_with_all_formats_failed_records_audit_and_raises(
             payload=payload,
             delivery_formula_version="w06-v1",
             idempotency_key="all-failed-key",
-            expires_at=datetime(2099, 7, 26, tzinfo=timezone.utc),
+            requested_expiry_seconds=3600,
             renderer=fail_every_kind,
         )
     db.close()
@@ -526,7 +526,7 @@ def test_json_unavailable_resumes_from_internal_source_payload_only(
         payload=payload,
         delivery_formula_version="w06-v1",
         idempotency_key="json-partial-key",
-        expires_at=datetime(2099, 7, 26, tzinfo=timezone.utc),
+        requested_expiry_seconds=3600,
         renderer=fail_json,
     )
 
@@ -608,7 +608,7 @@ def test_delivery_rejects_tampered_internal_source_payload(
         "payload": payload,
         "delivery_formula_version": "w06-v1",
         "idempotency_key": f"source-create-{operation}",
-        "expires_at": datetime(2099, 7, 26, tzinfo=timezone.utc),
+        "requested_expiry_seconds": 3600,
         "renderer": fail_pdf,
     }
     partial = deliver_artifact_packet(db, **arguments)
@@ -668,7 +668,7 @@ def test_create_replay_rejects_manifest_bytes_that_do_not_match_seal(
         "payload": payload,
         "delivery_formula_version": "w06-v1",
         "idempotency_key": "replay-seal-key",
-        "expires_at": datetime(2099, 7, 26, tzinfo=timezone.utc),
+        "requested_expiry_seconds": 3600,
         "renderer": fail_pdf,
     }
     packet = deliver_artifact_packet(db, **arguments)
@@ -733,7 +733,7 @@ def test_replay_and_resume_reject_stored_paths_outside_trusted_root(
         "payload": payload,
         "delivery_formula_version": "w06-v1",
         "idempotency_key": f"root-guard-{operation}-create",
-        "expires_at": datetime(2099, 7, 26, tzinfo=timezone.utc),
+        "requested_expiry_seconds": 3600,
         "renderer": fail_pdf,
     }
     packet = deliver_artifact_packet(db, **arguments)
@@ -807,14 +807,14 @@ def test_canonical_identity_hashes_bind_tenant_and_origin_revision() -> None:
     )
 
 
-@pytest.mark.parametrize("offset", [timedelta(0), timedelta(seconds=-1)])
-def test_deliver_rejects_non_future_expiry_before_render_or_storage(
+@pytest.mark.parametrize("requested_expiry_seconds", [0, -1, 86401])
+def test_deliver_rejects_invalid_relative_expiry_before_render_or_storage(
     isolated_session_local,
     tmp_path: Path,
-    offset: timedelta,
+    requested_expiry_seconds: int,
 ) -> None:
     from src.artifacts.delivery import render_one_artifact
-    from src.artifacts.service import DeliveryExpired, deliver_artifact_packet
+    from src.artifacts.service import deliver_artifact_packet
     from src.db.models import ArtifactManifest
 
     attempts: list[str] = []
@@ -834,7 +834,7 @@ def test_deliver_rejects_non_future_expiry_before_render_or_storage(
         final_memorial_version=1,
         payload=payload,
     )
-    with pytest.raises(DeliveryExpired):
+    with pytest.raises(ValueError, match="requested_expiry_seconds"):
         deliver_artifact_packet(
             db,
             storage_root=storage_root,
@@ -844,8 +844,8 @@ def test_deliver_rejects_non_future_expiry_before_render_or_storage(
             final_memorial_version=1,
             payload=payload,
             delivery_formula_version="w06-v1",
-            idempotency_key=f"expiry-preflight-{offset.total_seconds()}",
-            expires_at=datetime.now(timezone.utc) + offset,
+            idempotency_key=f"expiry-preflight-{requested_expiry_seconds}",
+            requested_expiry_seconds=requested_expiry_seconds,
             renderer=track_real_renderer,
         )
 
@@ -911,7 +911,7 @@ def test_resume_rejects_tampered_prior_item_projection(
         payload=payload,
         delivery_formula_version="w06-v1",
         idempotency_key=f"tamper-create-{field}",
-        expires_at=datetime(2099, 7, 26, tzinfo=timezone.utc),
+        requested_expiry_seconds=3600,
         renderer=fail_pdf,
     )
     docx_row = (
@@ -949,7 +949,7 @@ def test_resume_rejects_tampered_prior_item_projection(
     db.close()
 
 
-def test_create_replay_is_idempotent_and_changed_payload_conflicts(
+def test_create_replay_is_idempotent_and_changed_request_conflicts(
     isolated_session_local,
     tmp_path: Path,
 ) -> None:
@@ -979,7 +979,7 @@ def test_create_replay_is_idempotent_and_changed_payload_conflicts(
         "payload": payload,
         "delivery_formula_version": "w06-v1",
         "idempotency_key": "create-replay-key",
-        "expires_at": datetime(2099, 7, 26, tzinfo=timezone.utc),
+        "requested_expiry_seconds": 3600,
     }
 
     first = deliver_artifact_packet(db, **arguments)
@@ -988,6 +988,7 @@ def test_create_replay_is_idempotent_and_changed_payload_conflicts(
     assert replayed.manifest.manifest_id == first.manifest.manifest_id
     assert db.query(ArtifactManifest).count() == 1
     assert db.query(ArtifactDeliveryItem).count() == 3
+    assert db.query(ArtifactManifest).one().requested_expiry_seconds == 3600
     assert (
         db.query(ArtifactDeliveryAuditEvent).filter_by(outcome="SUCCESS").count()
         == 7
@@ -1000,6 +1001,11 @@ def test_create_replay_is_idempotent_and_changed_payload_conflicts(
         deliver_artifact_packet(
             db,
             **{**arguments, "payload": changed_payload},
+        )
+    with pytest.raises(DeliveryConflict):
+        deliver_artifact_packet(
+            db,
+            **{**arguments, "requested_expiry_seconds": 3601},
         )
     assert db.query(ArtifactManifest).count() == 1
     assert db.query(ArtifactDeliveryItem).count() == 3
@@ -1047,7 +1053,7 @@ def test_resume_replay_is_idempotent(
         payload=payload,
         delivery_formula_version="w06-v1",
         idempotency_key="partial-replay-key",
-        expires_at=datetime(2099, 7, 26, tzinfo=timezone.utc),
+        requested_expiry_seconds=3600,
         renderer=fail_pdf,
     )
     arguments = {
@@ -1124,7 +1130,7 @@ def test_concurrent_create_converges_without_duplicate_items_or_success_audits(
                 payload=payload,
                 delivery_formula_version="w06-v1",
                 idempotency_key="create-race-key",
-                expires_at=datetime(2099, 7, 26, tzinfo=timezone.utc),
+                requested_expiry_seconds=3600,
             )
             return packet.manifest.manifest_id
         finally:
@@ -1190,7 +1196,7 @@ def test_concurrent_resume_converges_without_duplicate_revision_or_items(
         payload=payload,
         delivery_formula_version="w06-v1",
         idempotency_key="resume-race-create-key",
-        expires_at=datetime(2099, 7, 26, tzinfo=timezone.utc),
+        requested_expiry_seconds=3600,
         renderer=fail_pdf,
     )
     setup_db.commit()

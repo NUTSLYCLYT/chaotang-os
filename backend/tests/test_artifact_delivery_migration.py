@@ -133,6 +133,7 @@ def test_upgrade_creates_delivery_state_schema(tmp_path: Path, monkeypatch) -> N
             "idempotency_key_hash",
             "payload_hash",
             "source_payload_json",
+            "requested_expiry_seconds",
         }.issubset(manifest_columns)
         from src.contracts.artifact_manifest import ArtifactManifestV1
 
@@ -335,11 +336,11 @@ def test_upgrade_downgrade_reupgrade_preserves_legacy_manifest(
             text(
                 """
                 SELECT delivery_revision, idempotency_key_hash, payload_hash,
-                       source_payload_json
+                       source_payload_json, requested_expiry_seconds
                 FROM artifact_manifests WHERE id = 'legacy-manifest'
                 """
             )
-        ).one() == (None, None, None, None)
+        ).one() == (None, None, None, None, None)
     engine.dispose()
 
     alembic_command.downgrade(cfg, "024_artifact_manifest_tenant")
@@ -371,6 +372,7 @@ def test_upgrade_downgrade_reupgrade_preserves_legacy_manifest(
             "idempotency_key_hash",
             "payload_hash",
             "source_payload_json",
+            "requested_expiry_seconds",
         } <= {
             column["name"]
             for column in inspector.get_columns("artifact_manifests")
@@ -386,6 +388,7 @@ def test_upgrade_downgrade_reupgrade_preserves_legacy_manifest(
         "idempotency_key_hash",
         "payload_hash",
         "source_payload_json",
+        "requested_expiry_seconds",
     ],
 )
 def test_downgrade_refuses_revision_025_identity_before_ddl(
@@ -406,13 +409,15 @@ def test_downgrade_refuses_revision_025_identity_before_ddl(
                     id, tenant_id, task_id, final_memorial_id,
                     final_memorial_version, delivery_formula_version,
                     delivery_revision, idempotency_key_hash, payload_hash,
-                    source_payload_json, content_hash, manifest_json,
+                    source_payload_json, requested_expiry_seconds,
+                    content_hash, manifest_json,
                     overall_status, created_at
                 ) VALUES (
                     'manifest-source', 1, 'task-source', 'memorial-source',
                     1, 'w06-v1', :delivery_revision,
                     :idempotency_key_hash, :payload_hash,
-                    :source_payload_json, :content_hash, :manifest_json,
+                    :source_payload_json, :requested_expiry_seconds,
+                    :content_hash, :manifest_json,
                     'READY', '2026-07-25T00:00:00+00:00'
                 )
                 """
@@ -433,6 +438,9 @@ def test_downgrade_refuses_revision_025_identity_before_ddl(
                     '{"title":"durable source"}'
                     if identity_field == "source_payload_json"
                     else None
+                ),
+                "requested_expiry_seconds": (
+                    3600 if identity_field == "requested_expiry_seconds" else None
                 ),
                 "content_hash": "b" * 64,
                 "manifest_json": "{}",

@@ -18,6 +18,9 @@ def upgrade() -> None:
         batch.add_column(sa.Column("idempotency_key_hash", sa.Text(), nullable=True))
         batch.add_column(sa.Column("payload_hash", sa.Text(), nullable=True))
         batch.add_column(sa.Column("source_payload_json", sa.Text(), nullable=True))
+        batch.add_column(
+            sa.Column("requested_expiry_seconds", sa.Integer(), nullable=True)
+        )
         batch.drop_constraint("uq_artifact_manifest_lineage", type_="unique")
         batch.create_unique_constraint(
             "uq_artifact_manifest_lineage",
@@ -148,6 +151,7 @@ def _preflight_downgrade() -> None:
                OR idempotency_key_hash IS NOT NULL
                OR payload_hash IS NOT NULL
                OR source_payload_json IS NOT NULL
+               OR requested_expiry_seconds IS NOT NULL
             """
         )
     ).scalar_one()
@@ -170,6 +174,7 @@ def downgrade() -> None:
             type_="unique",
         )
         batch.drop_constraint("uq_artifact_manifest_lineage", type_="unique")
+        batch.drop_column("requested_expiry_seconds")
         batch.drop_column("source_payload_json")
         batch.drop_column("payload_hash")
         batch.drop_column("idempotency_key_hash")

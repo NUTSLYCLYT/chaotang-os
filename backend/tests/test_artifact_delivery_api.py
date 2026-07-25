@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from threading import Barrier
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from tests.artifact_delivery_support import (
     contract_review_pack,
@@ -179,6 +183,50 @@ def artifact_api(isolated_session_local, tmp_path: Path):
         app.dependency_overrides.update(originals)
 
 
+@pytest.fixture()
+def concurrent_artifact_api(tmp_path: Path):
+    from src.db.models import Base
+    from web import deps
+    from web.main import app
+    from web.routers import artifacts as artifacts_router
+    from web.schemas.auth import CurrentUser
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'artifact-api-concurrency.db'}",
+        connect_args={"check_same_thread": False, "timeout": 30},
+    )
+    Base.metadata.create_all(engine)
+    session_factory = sessionmaker(
+        bind=engine,
+        autocommit=False,
+        autoflush=False,
+    )
+    storage_root = tmp_path / "artifact-concurrency-storage"
+    originals = dict(app.dependency_overrides)
+    app.dependency_overrides[deps.get_current_user] = lambda: CurrentUser(
+        user_id=7,
+        username="artifact-owner",
+        role="user",
+        tenant_slug="tenant-7",
+        tenant_id=7,
+    )
+    app.dependency_overrides[
+        artifacts_router.get_artifact_session_factory
+    ] = lambda: session_factory
+    app.dependency_overrides[
+        artifacts_router.get_artifact_storage_root
+    ] = lambda: storage_root
+    client = TestClient(app, raise_server_exceptions=False)
+
+    try:
+        yield client, session_factory
+    finally:
+        client.close()
+        app.dependency_overrides.clear()
+        app.dependency_overrides.update(originals)
+        engine.dispose()
+
+
 def test_delivery_http_contract_create_read_download_and_resume(artifact_api) -> None:
     from src.artifacts.delivery import render_one_artifact
     from src.artifacts.service import deliver_artifact_packet
@@ -251,7 +299,7 @@ def test_delivery_http_contract_create_read_download_and_resume(artifact_api) ->
             payload=partial_payload,
             delivery_formula_version="w06-v1",
             idempotency_key="partial-seed-secret",
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            requested_expiry_seconds=3600,
             renderer=fail_pdf,
         )
     finally:
@@ -396,7 +444,7 @@ def test_invalid_and_expired_resume_tokens_are_409(
             payload=payload,
             delivery_formula_version="w06-v1",
             idempotency_key=f"resume-{token_case}-create",
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            requested_expiry_seconds=3600,
             renderer=fail_pdf,
         )
         if token_case == "expired":
@@ -733,6 +781,84 @@ def test_delivery_request_validation_and_conflict_mapping(artifact_api) -> None:
     assert client.post("/api/artifacts/deliveries", json=conflicting).status_code == 409
 
 
+def test_http_create_retry_replays_original_packet_and_relative_expiry_is_identity(
+    artifact_api,
+) -> None:
+    from src.db.models import ArtifactManifest
+
+    client, session_factory, _ = artifact_api
+    body = _create_request(
+        task_id="task-api-idempotent-expiry",
+        idempotency_key="api-idempotent-expiry-key",
+    )
+    _seed_delivery_request(session_factory, body)
+
+    first = client.post("/api/artifacts/deliveries", json=body)
+    replay = client.post("/api/artifacts/deliveries", json=body)
+    changed_expiry = client.post(
+        "/api/artifacts/deliveries",
+        json={**body, "expiry_seconds": body["expiry_seconds"] + 1},
+    )
+
+    assert first.status_code == 201
+    assert replay.status_code in {200, 201}
+    assert replay.json() == first.json()
+    assert changed_expiry.status_code == 409
+
+    db = session_factory()
+    try:
+        row = db.query(ArtifactManifest).one()
+        assert row.requested_expiry_seconds == body["expiry_seconds"]
+    finally:
+        db.close()
+
+
+def test_eight_concurrent_http_create_retries_converge_on_one_manifest(
+    concurrent_artifact_api,
+) -> None:
+    from src.db.models import (
+        ArtifactDeliveryAuditEvent,
+        ArtifactDeliveryItem,
+        ArtifactManifest,
+    )
+
+    client, session_factory = concurrent_artifact_api
+    body = _create_request(
+        task_id="task-api-eight-way-retry",
+        idempotency_key="api-eight-way-retry-key",
+    )
+    _seed_delivery_request(session_factory, body)
+    start = Barrier(8)
+
+    def create_once() -> tuple[int, dict]:
+        start.wait()
+        response = client.post("/api/artifacts/deliveries", json=body)
+        return response.status_code, response.json()
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        responses = list(pool.map(lambda _index: create_once(), range(8)))
+
+    statuses = [status_code for status_code, _payload in responses]
+    payloads = [payload for _status_code, payload in responses]
+    assert set(statuses) <= {200, 201}
+    assert len({payload["manifest"]["manifest_id"] for payload in payloads}) == 1
+    assert all(payload["manifest"] == payloads[0]["manifest"] for payload in payloads)
+
+    db = session_factory()
+    try:
+        row = db.query(ArtifactManifest).one()
+        assert row.requested_expiry_seconds == body["expiry_seconds"]
+        assert db.query(ArtifactDeliveryItem).count() == 3
+        assert (
+            db.query(ArtifactDeliveryAuditEvent)
+            .filter_by(outcome="SUCCESS")
+            .count()
+            == 7
+        )
+    finally:
+        db.close()
+
+
 @pytest.mark.parametrize("expiry_seconds", [0, 86401, 10**100])
 def test_delivery_expiry_seconds_outside_one_day_is_422(
     artifact_api,
@@ -868,7 +994,7 @@ def test_create_and_resume_each_own_and_close_their_session(artifact_api) -> Non
             payload=partial_payload,
             delivery_formula_version="w06-v1",
             idempotency_key="session-resume-seed-secret",
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            requested_expiry_seconds=3600,
             renderer=fail_pdf,
         )
     finally:
@@ -986,7 +1112,7 @@ def test_manifest_read_rejects_mutable_incomplete_reason_mismatch(
             payload=payload,
             delivery_formula_version="w06-v1",
             idempotency_key="api-reason-mismatch-key",
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            requested_expiry_seconds=3600,
             renderer=fail_pdf,
         )
         item = db.query(ArtifactDeliveryItem).filter_by(

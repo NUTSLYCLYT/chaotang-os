@@ -8,7 +8,7 @@ import json
 import secrets
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -341,11 +341,10 @@ def _utc_iso(value: datetime) -> str:
     return value.astimezone(timezone.utc).isoformat()
 
 
-def _require_future_expiry(value: datetime) -> datetime:
-    expiry = datetime.fromisoformat(_utc_iso(value))
-    if expiry <= datetime.now(timezone.utc):
-        raise DeliveryExpired("delivery expiry must be in the future")
-    return expiry
+def _require_requested_expiry_seconds(value: int) -> int:
+    if type(value) is not int or not 1 <= value <= 86400:
+        raise ValueError("requested_expiry_seconds must be between 1 and 86400")
+    return value
 
 
 def _attempt_artifact(
@@ -567,12 +566,20 @@ def _assert_replay_request(
     delivery_revision: int,
     payload_hash: str,
     source_payload_json: str,
-    expires_at: datetime,
+    requested_expiry_seconds: int | None = None,
+    expires_at: datetime | None = None,
 ) -> ArtifactManifestV1:
     manifest = _verify_persisted_manifest(row)
     persisted_payload = _validate_source_payload_json(
         row.source_payload_json,
         expected_hash=manifest.payload_hash,
+    )
+    expiry_mismatch = (
+        row.requested_expiry_seconds != requested_expiry_seconds
+        if requested_expiry_seconds is not None
+        else expires_at is None
+        or manifest.artifacts[0].expires_at
+        != expires_at.astimezone(timezone.utc)
     )
     if (
         row.task_id != task_id
@@ -582,7 +589,7 @@ def _assert_replay_request(
         or row.delivery_revision != delivery_revision
         or row.payload_hash != payload_hash
         or _canonical_source_payload_json(persisted_payload) != source_payload_json
-        or manifest.artifacts[0].expires_at != expires_at.astimezone(timezone.utc)
+        or expiry_mismatch
     ):
         raise DeliveryConflict(
             "delivery idempotency key was reused with a different request"
@@ -731,6 +738,7 @@ def _persist_delivery_packet(
     payload_hash: str,
     source_payload_json: str,
     expires_at: datetime,
+    requested_expiry_seconds: int | None,
     drafts: list[_DeliveryDraft],
     resume_token: str | None,
 ) -> DeliveryPacket:
@@ -784,9 +792,18 @@ def _persist_delivery_packet(
         db,
         manifest=manifest,
         source_payload_json=source_payload_json,
+        requested_expiry_seconds=requested_expiry_seconds,
     )
     if manifest_row.id != manifest.manifest_id:
         raise DeliveryConflict("delivery idempotency winner identity mismatch")
+    persisted_manifest = _verify_persisted_manifest(manifest_row)
+    if manifest_row.manifest_json != _canonical_manifest_json(manifest):
+        return _replay_packet(
+            db,
+            storage_root=storage_root,
+            row=manifest_row,
+            manifest=persisted_manifest,
+        )
     artifact_ids = [item.artifact_id for item in manifest.artifacts]
     existing_rows = (
         db.query(ArtifactDeliveryItem)
@@ -887,11 +904,13 @@ def _deliver_artifact_packet(
     payload: dict[str, Any],
     delivery_formula_version: str,
     idempotency_key: str,
-    expires_at: datetime,
+    requested_expiry_seconds: int,
     renderer: ArtifactRenderer = render_one_artifact,
 ) -> DeliveryPacket:
     """Render, verify, and seal one canonical three-format delivery packet."""
-    expires_at = _require_future_expiry(expires_at)
+    requested_expiry_seconds = _require_requested_expiry_seconds(
+        requested_expiry_seconds
+    )
     payload = _resolve_delivery_source(
         db,
         tenant_id=tenant_id,
@@ -918,7 +937,7 @@ def _deliver_artifact_packet(
             delivery_revision=1,
             payload_hash=payload_hash,
             source_payload_json=source_payload_json,
-            expires_at=expires_at,
+            requested_expiry_seconds=requested_expiry_seconds,
         )
         return _replay_packet(
             db,
@@ -926,6 +945,9 @@ def _deliver_artifact_packet(
             row=winner,
             manifest=manifest,
         )
+    expires_at = datetime.now(timezone.utc) + timedelta(
+        seconds=requested_expiry_seconds
+    )
     manifest_id = _manifest_id(
         tenant_id=tenant_id,
         task_id=task_id,
@@ -971,6 +993,7 @@ def _deliver_artifact_packet(
         payload_hash=payload_hash,
         source_payload_json=source_payload_json,
         expires_at=expires_at,
+        requested_expiry_seconds=requested_expiry_seconds,
         drafts=drafts,
         resume_token=resume_token,
     )
@@ -1130,6 +1153,7 @@ def _resume_artifact_packet(
         payload_hash=prior_manifest.payload_hash,
         source_payload_json=source_payload_json,
         expires_at=prior_manifest.resume_token_expires_at,
+        requested_expiry_seconds=None,
         drafts=drafts,
         resume_token=next_resume_token,
     )
@@ -1146,7 +1170,7 @@ def deliver_artifact_packet(
     payload: dict[str, Any],
     delivery_formula_version: str,
     idempotency_key: str,
-    expires_at: datetime,
+    requested_expiry_seconds: int,
     renderer: ArtifactRenderer = render_one_artifact,
 ) -> DeliveryPacket:
     """Execute and commit one complete create-delivery command transaction."""
@@ -1161,7 +1185,7 @@ def deliver_artifact_packet(
             payload=payload,
             delivery_formula_version=delivery_formula_version,
             idempotency_key=idempotency_key,
-            expires_at=expires_at,
+            requested_expiry_seconds=requested_expiry_seconds,
             renderer=renderer,
         )
         db.commit()
@@ -1218,8 +1242,32 @@ def _assert_idempotent_replay(
     manifest: ArtifactManifestV1,
     manifest_json: str,
     source_payload_json: str | None,
+    requested_expiry_seconds: int | None,
 ) -> None:
-    _verify_persisted_manifest(row)
+    persisted = _verify_persisted_manifest(row)
+    if requested_expiry_seconds is not None:
+        persisted_payload = _validate_source_payload_json(
+            row.source_payload_json,
+            expected_hash=persisted.payload_hash,
+        )
+        if (
+            row.id != manifest.manifest_id
+            or row.task_id != manifest.task_id
+            or row.final_memorial_id != manifest.final_memorial_id
+            or row.final_memorial_version != manifest.final_memorial_version
+            or row.delivery_formula_version != manifest.delivery_formula_version
+            or row.delivery_revision != manifest.delivery_revision
+            or row.idempotency_key_hash != manifest.idempotency_key_hash
+            or row.payload_hash != manifest.payload_hash
+            or row.requested_expiry_seconds != requested_expiry_seconds
+            or source_payload_json is None
+            or _canonical_source_payload_json(persisted_payload)
+            != source_payload_json
+        ):
+            raise DeliveryConflict(
+                "delivery idempotency key was reused with a different request"
+            )
+        return
     if (
         row.payload_hash != manifest.payload_hash
         or row.manifest_json != manifest_json
@@ -1238,6 +1286,7 @@ def persist_delivery_manifest(
     *,
     manifest: ArtifactManifestV1 | dict,
     source_payload_json: str | None = None,
+    requested_expiry_seconds: int | None = None,
 ) -> ArtifactManifest:
     """Persist one immutable delivery revision and converge identical retries."""
     from src.contracts.artifact_manifest import (
@@ -1246,6 +1295,10 @@ def persist_delivery_manifest(
     )
 
     validated = ArtifactManifestV1.model_validate(manifest)
+    if requested_expiry_seconds is not None:
+        requested_expiry_seconds = _require_requested_expiry_seconds(
+            requested_expiry_seconds
+        )
     if source_payload_json is not None:
         _validate_source_payload_json(
             source_payload_json,
@@ -1266,6 +1319,7 @@ def persist_delivery_manifest(
             manifest=validated,
             manifest_json=manifest_json,
             source_payload_json=source_payload_json,
+            requested_expiry_seconds=requested_expiry_seconds,
         )
         return idempotent
 
@@ -1294,6 +1348,7 @@ def persist_delivery_manifest(
                 manifest=validated,
                 manifest_json=manifest_json,
                 source_payload_json=source_payload_json,
+                requested_expiry_seconds=requested_expiry_seconds,
             )
             return occupied_revision
         raise DeliveryConflict("delivery revision is already sealed")
@@ -1319,6 +1374,7 @@ def persist_delivery_manifest(
                 manifest=validated,
                 manifest_json=manifest_json,
                 source_payload_json=source_payload_json,
+                requested_expiry_seconds=requested_expiry_seconds,
             )
             return winner
         raise DeliveryConflict(
@@ -1336,6 +1392,7 @@ def persist_delivery_manifest(
         idempotency_key_hash=validated.idempotency_key_hash,
         payload_hash=validated.payload_hash,
         source_payload_json=source_payload_json,
+        requested_expiry_seconds=requested_expiry_seconds,
         content_hash=canonical_manifest_hash(validated),
         manifest_json=manifest_json,
         overall_status=validated.overall_status,
@@ -1362,6 +1419,7 @@ def persist_delivery_manifest(
             manifest=validated,
             manifest_json=manifest_json,
             source_payload_json=source_payload_json,
+            requested_expiry_seconds=requested_expiry_seconds,
         )
         return winner
     return row

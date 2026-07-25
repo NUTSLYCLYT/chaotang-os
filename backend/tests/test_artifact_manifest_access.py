@@ -149,7 +149,6 @@ def test_download_membership_failure_audit_survives_session_close(
     isolated_session_local,
     tmp_path,
 ) -> None:
-    from datetime import datetime, timedelta, timezone
     from pathlib import Path
 
     from src.artifacts.service import (
@@ -181,7 +180,7 @@ def test_download_membership_failure_audit_survives_session_close(
             payload=payload,
             delivery_formula_version="w06-v1",
             idempotency_key="membership-audit-key",
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            requested_expiry_seconds=3600,
         )
         artifact_id = packet.manifest.artifact("PDF").artifact_id
         row = seed_db.query(ArtifactManifest).filter_by(

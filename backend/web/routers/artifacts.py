@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
@@ -213,8 +213,7 @@ def create_delivery(
                 payload=body.contract_review_pack.model_dump(mode="json"),
                 delivery_formula_version=body.delivery_formula_version,
                 idempotency_key=body.idempotency_key,
-                expires_at=datetime.now(timezone.utc)
-                + timedelta(seconds=body.expiry_seconds),
+                requested_expiry_seconds=body.expiry_seconds,
             )
             return _command_response(
                 db,
