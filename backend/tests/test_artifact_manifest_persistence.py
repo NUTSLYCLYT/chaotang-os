@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
 
@@ -344,6 +345,54 @@ def test_delivery_manifest_rejects_same_key_with_changed_payload(
     persist_delivery_manifest(db, manifest=first)
     with pytest.raises(DeliveryConflict, match="idempotency"):
         persist_delivery_manifest(db, manifest=changed)
+    db.close()
+
+
+@pytest.mark.parametrize("json_target", ["manifest", "source"])
+@pytest.mark.parametrize("non_finite", [float("nan"), float("inf")])
+def test_delivery_manifest_persistence_rejects_non_finite_canonical_json(
+    isolated_session_local,
+    json_target: str,
+    non_finite: float,
+) -> None:
+    from src.artifacts.service import (
+        DeliveryIntegrityError,
+        persist_delivery_manifest,
+    )
+    from src.contracts.artifact_manifest import ArtifactManifestV1
+    from src.db.models import ArtifactManifest
+
+    db = isolated_session_local()
+    manifest = ArtifactManifestV1.model_validate(
+        _sealed_manifest(
+            tenant_id=1,
+            manifest_id=f"manifest-non-finite-{json_target}",
+            task_id=f"task-non-finite-{json_target}",
+            final_memorial_id=f"memorial-non-finite-{json_target}",
+            final_memorial_version=1,
+        )
+    )
+    source_payload_json = None
+    if json_target == "manifest":
+        manifest.artifacts[0].byte_size = non_finite
+    else:
+        source_payload_json = json.dumps(
+            {"non_finite": non_finite},
+            allow_nan=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        manifest.payload_hash = hashlib.sha256(
+            source_payload_json.encode("utf-8")
+        ).hexdigest()
+
+    with pytest.raises(DeliveryIntegrityError):
+        persist_delivery_manifest(
+            db,
+            manifest=manifest,
+            source_payload_json=source_payload_json,
+        )
+    assert db.query(ArtifactManifest).count() == 0
     db.close()
 
 

@@ -1179,6 +1179,67 @@ def test_invalid_persisted_manifest_is_409_and_download_audits_once(
     ) == (409, 409, 1, 0)
 
 
+@pytest.mark.parametrize("json_field", ["manifest_json", "source_payload_json"])
+@pytest.mark.parametrize(
+    ("constant_name", "non_finite"),
+    [("nan", float("nan")), ("infinity", float("inf"))],
+)
+def test_non_finite_persisted_json_is_409_and_download_audits_once(
+    artifact_api,
+    json_field: str,
+    constant_name: str,
+    non_finite: float,
+) -> None:
+    from src.db.models import ArtifactManifest
+
+    client, session_factory, _ = artifact_api
+    manifest = _create_ready_delivery(
+        client,
+        session_factory,
+        suffix=f"non-finite-{json_field}-{constant_name}",
+    )
+    artifact_id = manifest["artifacts"][0]["artifact_id"]
+
+    db = session_factory()
+    try:
+        row = db.query(ArtifactManifest).filter_by(
+            id=manifest["manifest_id"]
+        ).one()
+        corrupted = json.loads(getattr(row, json_field))
+        if json_field == "manifest_json":
+            corrupted["artifacts"][0]["byte_size"] = non_finite
+        else:
+            corrupted["non_finite_corruption"] = non_finite
+        setattr(
+            row,
+            json_field,
+            json.dumps(
+                corrupted,
+                allow_nan=True,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    read = client.get(f"/api/artifacts/manifests/{manifest['manifest_id']}")
+    download = client.get(f"/api/artifacts/{artifact_id}/download")
+    failure_count, success_count = _download_audit_counts(
+        session_factory,
+        artifact_id=artifact_id,
+    )
+
+    assert (
+        read.status_code,
+        download.status_code,
+        failure_count,
+        success_count,
+    ) == (409, 409, 1, 0)
+
+
 @pytest.mark.parametrize("corruption", ["missing", "corrupt"])
 def test_unverified_stored_file_is_not_advertised(
     artifact_api,

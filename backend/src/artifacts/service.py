@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import math
 import secrets
 import uuid
 from dataclasses import dataclass
@@ -117,14 +118,34 @@ def _sha256_text(value: str) -> str:
     return _sha256_bytes(value.encode("utf-8"))
 
 
+def _reject_non_finite_json_constant(value: str) -> None:
+    raise ValueError(f"non-finite JSON constant is forbidden: {value}")
+
+
+def _require_finite_json_numbers(value: Any) -> None:
+    if isinstance(value, float) and not math.isfinite(value):
+        raise DeliveryIntegrityError("non-finite numbers are not canonical JSON")
+    if isinstance(value, dict):
+        for child in value.values():
+            _require_finite_json_numbers(child)
+    elif isinstance(value, (list, tuple)):
+        for child in value:
+            _require_finite_json_numbers(child)
+
+
 def _canonical_source_payload_json(payload: dict[str, Any]) -> str:
-    return json.dumps(
-        payload,
-        allow_nan=False,
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    )
+    try:
+        return json.dumps(
+            payload,
+            allow_nan=False,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+    except (TypeError, ValueError) as exc:
+        raise DeliveryIntegrityError(
+            "delivery source payload is not canonical JSON"
+        ) from exc
 
 
 def _validate_source_payload_json(
@@ -135,8 +156,11 @@ def _validate_source_payload_json(
     if source_payload_json is None:
         raise DeliveryIntegrityError("delivery source payload is missing")
     try:
-        payload = json.loads(source_payload_json)
-    except json.JSONDecodeError as exc:
+        payload = json.loads(
+            source_payload_json,
+            parse_constant=_reject_non_finite_json_constant,
+        )
+    except (TypeError, ValueError) as exc:
         raise DeliveryIntegrityError("delivery source payload is invalid") from exc
     if (
         not isinstance(payload, dict)
@@ -526,13 +550,17 @@ def _verify_persisted_manifest(
     )
 
     try:
-        manifest = ArtifactManifestV1.model_validate_json(row.manifest_json)
+        manifest_payload = json.loads(
+            row.manifest_json,
+            parse_constant=_reject_non_finite_json_constant,
+        )
+        manifest = ArtifactManifestV1.model_validate(manifest_payload)
+        sealed_hash = canonical_manifest_hash(manifest)
     except (TypeError, ValueError) as exc:
         raise DeliveryIntegrityError(
             "persisted manifest contract is invalid"
         ) from exc
 
-    sealed_hash = canonical_manifest_hash(manifest)
     if (
         not isinstance(row.content_hash, str)
         or not hmac.compare_digest(sealed_hash, row.content_hash)
@@ -552,6 +580,11 @@ def _verify_persisted_manifest(
     ):
         raise DeliveryIntegrityError(
             "persisted manifest sealed fields do not match row"
+        )
+    if row.source_payload_json is not None:
+        _validate_source_payload_json(
+            row.source_payload_json,
+            expected_hash=manifest.payload_hash,
         )
     return manifest
 
@@ -1228,12 +1261,25 @@ def resume_artifact_packet(
 
 
 def _canonical_manifest_json(manifest: ArtifactManifestV1) -> str:
-    return json.dumps(
-        manifest.model_dump(mode="json", exclude_none=True),
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    )
+    try:
+        _require_finite_json_numbers(
+            manifest.model_dump(
+                mode="python",
+                exclude_none=True,
+                warnings=False,
+            )
+        )
+        return json.dumps(
+            manifest.model_dump(mode="json", exclude_none=True),
+            allow_nan=False,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+    except (TypeError, ValueError) as exc:
+        raise DeliveryIntegrityError(
+            "artifact manifest is not canonical JSON"
+        ) from exc
 
 
 def _assert_idempotent_replay(
@@ -1305,6 +1351,12 @@ def persist_delivery_manifest(
             expected_hash=validated.payload_hash,
         )
     manifest_json = _canonical_manifest_json(validated)
+    try:
+        manifest_hash = canonical_manifest_hash(validated)
+    except (TypeError, ValueError) as exc:
+        raise DeliveryIntegrityError(
+            "artifact manifest is not canonical JSON"
+        ) from exc
     idempotent = (
         db.query(ArtifactManifest)
         .filter_by(
@@ -1393,7 +1445,7 @@ def persist_delivery_manifest(
         payload_hash=validated.payload_hash,
         source_payload_json=source_payload_json,
         requested_expiry_seconds=requested_expiry_seconds,
-        content_hash=canonical_manifest_hash(validated),
+        content_hash=manifest_hash,
         manifest_json=manifest_json,
         overall_status=validated.overall_status,
     )

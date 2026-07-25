@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -16,6 +17,17 @@ _REQUIRED_ARTIFACT_KINDS = {"PDF", "DOCX", "JSON"}
 ArtifactKind = Literal["PDF", "DOCX", "JSON"]
 ArtifactItemStatus = Literal["PENDING", "STORED", "UNAVAILABLE"]
 ManifestStatus = Literal["READY", "PARTIAL", "UNDER_REVIEW"]
+
+
+def _require_finite_json_numbers(value: Any) -> None:
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ValueError("non-finite numbers are not canonical JSON")
+    if isinstance(value, dict):
+        for child in value.values():
+            _require_finite_json_numbers(child)
+    elif isinstance(value, (list, tuple)):
+        for child in value:
+            _require_finite_json_numbers(child)
 
 
 class ArtifactManifestItemV1(BaseModel):
@@ -115,8 +127,16 @@ class ArtifactManifestV1(BaseModel):
 
 
 def canonical_manifest_hash(manifest: ArtifactManifestV1) -> str:
+    _require_finite_json_numbers(
+        manifest.model_dump(
+            mode="python",
+            exclude_none=True,
+            warnings=False,
+        )
+    )
     canonical_json = json.dumps(
         manifest.model_dump(mode="json", exclude_none=True),
+        allow_nan=False,
         ensure_ascii=False,
         separators=(",", ":"),
         sort_keys=True,
