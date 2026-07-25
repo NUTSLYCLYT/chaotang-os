@@ -8,7 +8,23 @@ Documentation-only evidence capture in
 
 ## Evidence Status
 
-`IMPLEMENTER_VERIFIED / INDEPENDENT_REVIEW_PENDING`
+`IMPLEMENTER_REMEDIATED / REVIEW_PENDING`
+
+## QA Remediation
+
+QA returned `NO-GO` on commit `25b0b807`. This follow-up addresses all four
+reported items:
+
+1. Browser Route Repair has one implementation owner, Window 5, and one target,
+   `EXT-P2`; `EXT-Q1` is only the later independent QA gate.
+2. Court Writer AST Scanner implementation is owned by Window 5; Window 6 is
+   read-only.
+3. K2 and R1 record group dirty/untracked counts; R3 records a clean source
+   with tracked=0 and untracked=0.
+4. One-file/one-writer and protected hunk-level integration are explicit for
+   `ShangshufangPage.tsx` and `prod-doctor.mjs`.
+
+This section records implementer remediation only. It does not claim QA PASS.
 
 ## Verification
 
@@ -33,7 +49,7 @@ are claimed because no business code is changed.
 - Remote EXT:
   `8feae838f09ad5202b21332d4280b989ab776bd7`
 - Changed files: 5
-- Independent Window 6 review: pending
+- Independent Window 6 re-review: pending after QA `NO-GO`
 - Integration into local `feature-chaotang-ext`: not performed
 
 ## Production Boundary

@@ -29,6 +29,19 @@ All files are under
 - Reclassifying source presence as completed functionality
 - Activating a Packet from this documentation alone
 
+## Write Ownership
+
+- One file may have exactly one active writer at a time.
+- Window 6 is read-only and cannot own implementation.
+- `frontend/src/features/shangshufang/ShangshufangPage.tsx` is owned by
+  Window 5 Product Closure while its Packet is active.
+- `frontend/scripts/prod-doctor.mjs` is owned by Window 4 Release Identity
+  while its Packet is active.
+- Both protected files require hunk-level extraction and integration; neither
+  may be replaced wholesale from an Asset Pool source.
+- A file ownership conflict is fail-closed: all writers stop until Window 0
+  records a single owner.
+
 ## Evidence Model
 
 Each retained asset group records:
@@ -78,6 +91,8 @@ A target Packet may receive an asset only when:
 - Relevant unit, contract, harness, and browser checks pass.
 - Window 6 performs an independent read-only review.
 - Codex records acceptance before hunk-level integration.
+- The Packet honors one-file/one-writer ownership, including the protected
+  `ShangshufangPage.tsx` and `prod-doctor.mjs` hunk boundaries.
 - Integration does not claim push, deployment, migration, or production
   listener ownership.
 

@@ -10,7 +10,7 @@
 
 ## Status
 
-`CAPTURED / REVIEW_PENDING`
+`IMPLEMENTER_REMEDIATED / REVIEW_PENDING`
 
 This change freezes selected Asset Pool identities for later packetization. It
 does not integrate any asset, authorize a product change, delete a source, or
@@ -37,6 +37,10 @@ Source existence is not acceptance. A retained capability must be rebuilt or
 extracted into its named isolated Packet, tested, independently reviewed, and
 accepted before hunk-level integration.
 
+One file has one active writer at a time. `ShangshufangPage.tsx` and
+`prod-doctor.mjs` are specially protected and may be integrated only by
+reviewed hunks under their assigned Packet owner.
+
 ## Snapshot
 
 The read-only census was refreshed at `2026-07-25T05:34:43Z`
@@ -62,11 +66,29 @@ point-in-time census, not a cleanup authorization.
 | Main UI runtime incident | KEEP | `EXT-I1` | Window 5 Product Closure |
 | Main human confirmation and reports | REBUILD | `EXT-P2` | Window 5 Product Closure |
 | Task8 exact memorial binding | KEEP | `EXT-P1` | Window 5 Product Closure |
-| Browser route repair | REBUILD | `EXT-P2` then `EXT-Q1` | Window 5 and Window 6 |
+| Browser route repair | REBUILD | `EXT-P2` | Window 5 Product Closure |
 | P26 schema authority | KEEP | `EXT-W06R` | Window 2 W06 Backend |
 | Anti-hallucination evidence gate | REBUILD | `EXT-P1` | Window 5 Product Closure |
-| Court writer AST scanner | REBUILD | `EXT-Q1` | Window 6 QA Auditor |
+| Court writer AST scanner | REBUILD | `EXT-Q1` | Window 5 Product Closure |
 | Old P6, superseded W06/P16-P19, generated evidence | ARCHIVE | `GOVERNANCE_ARCHIVE` | Window 0 Governance |
+
+Window 6 owns no implementation asset. It provides the later independent
+read-only `EXT-Q1` QA gate for Browser Route Repair and Court Writer AST
+Scanner.
+
+## QA Remediation
+
+QA returned `NO-GO` on `25b0b807`. The implementer has remediated all four
+reported items:
+
+1. Browser Route Repair now has one owner and one target Packet.
+2. Court Writer AST Scanner implementation ownership moved out of Window 6.
+3. K2, R1, and R3 now state group-level source status and retained-untracked
+   counts.
+4. The one-file/one-writer rule and protected hunk-level files are explicit.
+
+This is an implementer remediation statement, not a QA approval. Independent
+review remains pending.
 
 ## Preservation Hold
 

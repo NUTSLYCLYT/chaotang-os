@@ -129,6 +129,8 @@ migration, and listener `3050` takeover remain out of scope.
 | --- | --- |
 | Source worktree | `/home/ubuntu/Projects/chaotang-os` |
 | HEAD / tree | `c6f2d64252acf578478405637dba9ac44be161ae` / `49de978e42b4862d842c81803a2af0c6197c5163` |
+| Group dirty status | 12 tracked modified files; 9 retained untracked files |
+| Retained untracked state | PRESENT, 9 files, each hashed below |
 | Group tracked binary diff SHA-256 | `cfd3924329b8382e86642dbb076f4e435cf3b770c1a5965d1797b9784fd2311a` |
 | Disposition | KEEP, split transport/auth/runtime evidence by hunk |
 | Owner | Window 5 Product Closure |
@@ -252,6 +254,8 @@ cherry-pick set.
 | --- | --- |
 | Source worktree | `/home/ubuntu/Projects/chaotang-os` |
 | HEAD / tree | `c6f2d64252acf578478405637dba9ac44be161ae` / `49de978e42b4862d842c81803a2af0c6197c5163` |
+| Group dirty status | 10 tracked modified files; 11 retained untracked files |
+| Retained untracked state | PRESENT, 11 files, each hashed below |
 | Group tracked binary diff SHA-256 | `d01359e258108db164e6b290873c52e48c7444488905247c00bfe503be6a0704` |
 | Disposition | REBUILD against typed read model |
 | Owner | Window 5 Product Closure |
@@ -305,8 +309,9 @@ hunk-level integration file.
 | Dirty binary diff SHA-256 | `b798903819825c6de28af60eef0d6cdc6149304ae86ee1ab70b16bbb4e928195` |
 | Untracked retained files | None |
 | Disposition | REBUILD selectors and routes on accepted UI |
-| Owner | Window 5 Product Closure; Window 6 verifies |
-| Target Packet | `EXT-P2`, then `EXT-Q1` |
+| Owner | Window 5 Product Closure |
+| Target Packet | `EXT-P2` |
+| Independent QA gate | Window 6 read-only verification under later `EXT-Q1` |
 
 Dirty paths:
 
@@ -317,7 +322,8 @@ frontend/e2e/shangshufang-verdict-bar.spec.ts
 
 Receiving conditions: selectors must reflect the accepted canonical UI, tests
 must exercise a real backend, and route changes must not create a new product
-page.
+page. `EXT-Q1` is not a second implementation target; it is the subsequent
+independent QA verification gate.
 
 ### R3: Anti-Hallucination Evidence Gate
 
@@ -329,6 +335,8 @@ page.
 | Tree | `4a9abc226c71bd7f267737fb3e6605fdd1a8de29` |
 | Merge base with accepted EXT | `f5f7fcef1f45b3b7d271fef2b13eed193ab9ef84` |
 | Range binary diff SHA-256 | `f7036f7808f033dcee35dbdad2f997ba3f823015d82d93545434777cf742bff5` |
+| Source status | CLEAN: tracked changes = 0; untracked files = 0 |
+| Retained untracked state | NONE, 0 files |
 | Dirty diff SHA-256 | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
 | Disposition | REBUILD tests and contract; no source absorption |
 | Owner | Window 5 Product Closure |
@@ -351,13 +359,14 @@ claims without importing historical persistence or swarm wiring wholesale.
 | Range binary diff SHA-256 | `d3f6c80f441a2ca490f712065059bb72ff56a489f1736ef3fd71ed99b28e6eeb` |
 | Dirty status | Not applicable |
 | Disposition | REBUILD scanner only |
-| Owner | Window 6 QA Auditor |
+| Implementation owner | Window 5 Product Closure |
 | Target Packet | `EXT-Q1` |
+| Independent reviewer | Window 6 QA Auditor, read-only |
 
 Candidate idea: AST-based writer inventory and lineage contract checks.
-Receiving conditions: implement a new read-only scanner against current EXT,
-prove no false authority source, and keep historical inventory documents out
-of the runtime.
+Window 5 implements a new read-only scanner against current EXT. Window 6 only
+reviews its output and evidence. Receiving conditions: prove no false authority
+source and keep historical inventory documents out of the runtime.
 
 ## ARCHIVE
 
@@ -435,3 +444,14 @@ No source listed above may be merged, cherry-picked in bulk, copied wholesale,
 deleted, pruned, or advertised as integrated. The only valid flow is:
 
 `Asset -> Packet -> isolated EXT worktree -> test -> independent QA review -> Codex acceptance -> hunk-level EXT integration`
+
+One file has one active writer at a time. Window 0 resolves ownership conflicts
+before work resumes. In particular:
+
+- Window 5 is the sole active writer for
+  `frontend/src/features/shangshufang/ShangshufangPage.tsx`.
+- Window 4 is the sole active writer for `frontend/scripts/prod-doctor.mjs`.
+- Both files require hunk-level integration and must never be overwritten from
+  an Asset Pool worktree.
+- Window 6 remains read-only and may reject evidence but may not implement a
+  correction.
