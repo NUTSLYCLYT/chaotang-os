@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | feat-ext-w06r-artifact-delivery-20260725 |
 | Type | test |
-| Status | VERIFIED_COMPLETE |
+| Status | BASELINE_VERIFIED / IMPLEMENTATION_PENDING |
 | Owner | EXT-W06R Task 1 |
 | Date | 2026-07-25 |
 | Authority | `R0-W06`: `GO / APPROVED_WORK_PACKAGE` |
@@ -18,9 +18,14 @@
 
 - Alembic graph is the schema-head fact source; `backend/tests/test_schema_authority.py` consumes it through `expected_alembic_head()`.
 - This Packet owns only the focused test baseline and root coordination record. It does not modify migrations, runtime schema-authority code, artifact-delivery production behavior, providers, or deployment configuration.
-- Tests use disposable SQLite databases. No persistent database migration, production database operation, push, or deployment is permitted.
+- Tests use disposable SQLite databases. `NOT_DEPLOYED`; `NO_LISTENER_TAKEOVER`. No persistent database migration, production database operation, push, or deployment is permitted.
 
 ## Verification
 
 - Focused W06 suite: `22 passed` after correction.
 - Governance: W06 authority `GO`, root harness doctor `0 errors / 0 warnings`, and `git diff --check` clean.
+
+## Rollback
+
+- Revert the four schema-test literals changed from `022_shiguan_memorial_identity` to `024_artifact_manifest_tenant`, then remove this Packet's four files.
+- Do not perform any production database operation during rollback.

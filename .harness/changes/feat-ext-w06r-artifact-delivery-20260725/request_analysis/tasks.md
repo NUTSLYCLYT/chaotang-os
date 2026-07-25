@@ -8,5 +8,6 @@
 - File boundary: `backend/tests/test_schema_authority.py` plus these four root change-record files only.
 - Required correction: use `024_artifact_manifest_tenant` in the three expected-head assertions and disposable `alembic_version` row; do not expand the hunk.
 - Verification: focused five-file pytest suite, W06 authority, root harness doctor, and `git diff --check`.
-- Production boundary: disposable test SQLite data only; no persistent DB migration, push, or deployment.
+- Production boundary: disposable test SQLite data only; `NOT_DEPLOYED`; `NO_LISTENER_TAKEOVER`; no persistent DB migration, push, or deployment.
+- Rollback: revert the four schema-test literals changed from `022_shiguan_memorial_identity` to `024_artifact_manifest_tenant`, then remove this Packet's four files; do not perform any production database operation.
 - Done: initial `3 failed, 19 passed` baseline is recorded, corrected suite is `22 passed`, and all governance checks pass.

@@ -22,6 +22,12 @@ The Alembic graph head is `024_artifact_manifest_tenant`, while three W06 schema
 - Do not import any other P26 diff.
 - Do not modify Alembic migrations, runtime code, API contracts, artifact storage, providers, deployment configuration, or persistent databases.
 - Do not push, deploy, or migrate a persistent database. The test row is created only in a disposable SQLite database.
+- The Packet is `BASELINE_VERIFIED / IMPLEMENTATION_PENDING`, `NOT_DEPLOYED`, and `NO_LISTENER_TAKEOVER`.
+
+## Rollback
+
+- Revert the four schema-test literals changed from `022_shiguan_memorial_identity` to `024_artifact_manifest_tenant`, then remove this Packet's four files.
+- Do not perform any production database operation during rollback.
 
 ## Acceptance Criteria
 

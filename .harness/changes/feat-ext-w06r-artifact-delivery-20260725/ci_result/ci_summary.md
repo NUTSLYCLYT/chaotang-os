@@ -26,4 +26,9 @@ All failures expected 022_shiguan_memorial_identity while the graph returned
 ## Boundary Confirmation
 
 - Only the existing three assertion expectations and disposable SQLite row changed in the schema-authority test.
-- No Alembic migration, runtime implementation, persistent database, push, deployment, or production migration was performed.
+- `NOT_DEPLOYED`; `NO_LISTENER_TAKEOVER`. No Alembic migration, runtime implementation, persistent database, push, deployment, or production migration was performed.
+
+## Rollback Boundary
+
+- Revert the four schema-test literals changed from `022_shiguan_memorial_identity` to `024_artifact_manifest_tenant`, then remove this Packet's four files.
+- No production database operation is part of rollback.
