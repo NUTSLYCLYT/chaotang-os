@@ -2,10 +2,11 @@
 
 ## Current Status
 
-`IMPLEMENTER_VERIFIED / INDEPENDENT_REREVIEW_PENDING`
+`VERIFIED_COMPLETE / ACCEPTED_NOT_INTEGRATED`
 
-This is implementer evidence. It does not replace the read-only Task 7
-requirements and quality reviews or claim independent GO.
+Implementation evidence and independent verdicts are both complete. This
+status authorizes only a separately approved controlled local integration; it
+does not claim push, deployment, or production migration.
 
 | Field | Value |
 | --- | --- |
@@ -15,6 +16,9 @@ requirements and quality reviews or claim independent GO.
 | Task 7 quality verdict | `QUALITY: NO-GO`, 7 findings |
 | Round 3 design supplement | `221a98f5` |
 | Task 8 verification code candidate | `00cc59544f6f3a42951f783cedef4ff26afe52a0` |
+| Requirements rereview | `GO` at `c5a4fb46`, 0 findings |
+| Quality rereview | `GO` at `cf8f6faf`, 0 findings |
+| Full-diff rereview | `SPEC GO / QUALITY GO` at `cf8f6faf`, 0 findings |
 | Candidate inventory | 23 tracked files |
 | Runtime boundary | `NOT_DEPLOYED` |
 
@@ -111,7 +115,7 @@ Commands:
 ```bash
 cd backend
 /tmp/ext-w06r-task3-venv/bin/python -m pytest -q \
-  --basetemp=/tmp/ext-w06r-task8-round3-final-suite-70422b9f \
+  --basetemp=/tmp/ext-w06r-round4-suite-green \
   tests/test_schema_authority.py \
   tests/test_artifact_manifest_v1.py \
   tests/test_artifact_delivery_migration.py \
@@ -123,7 +127,7 @@ cd backend
   tests/test_artifact_delivery_api.py
 
 /tmp/ext-w06r-task3-venv/bin/python -m pytest -q \
-  --basetemp=/tmp/ext-w06r-task8-round3-final-migration-70422b9f \
+  --basetemp=/tmp/ext-w06r-codex-final-migration-55a09539 \
   tests/test_artifact_delivery_migration.py
 
 /tmp/ext-w06r-task3-venv/bin/ruff check \
@@ -159,8 +163,7 @@ git diff --check 64d7f935..HEAD
   an approved retention, encryption, and access policy.
 - Delivery command callers must continue to supply a command-owned Session
   because the command owns commit of the supplied transaction.
-- Independent requirements and quality re-review remain required before
-  integration acceptance.
+- Controlled local integration remains a separate explicit approval step.
 
 ## Rollback
 

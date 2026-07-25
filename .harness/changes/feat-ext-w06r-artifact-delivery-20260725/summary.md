@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | feat-ext-w06r-artifact-delivery-20260725 |
 | Type | `feat` |
-| Status | `IMPLEMENTER_VERIFIED / INDEPENDENT_REREVIEW_PENDING` |
+| Status | `VERIFIED_COMPLETE / ACCEPTED_NOT_INTEGRATED` |
 | Owner | `EXT-W06R Task 8` |
 | Date | `2026-07-26` |
 | Authority | `R0-W06`: `GO / APPROVED_WORK_PACKAGE` |
@@ -27,8 +27,9 @@ scoped rereview Medium/Low pair against candidate `9b475d72`. Candidate
 `55a09539` then received requirements and quality GO, but a fresh full-diff
 review found two additional Medium gaps: orphaned-manifest download audit and
 canonical kind/MIME enforcement. Candidate `00cc5954` closes both through
-observed RED and complete-suite GREEN. The reviews remain read-only evidence;
-this implementer record does not claim final independent rereview acceptance.
+observed RED and complete-suite GREEN. Final independent review records
+requirements GO, quality GO, and full-diff SPEC/QUALITY GO with zero remaining
+findings.
 
 ## Actual Scope
 
@@ -92,9 +93,12 @@ All Task 8 databases and storage roots are pytest-owned or under `/tmp`.
 | Backend/root doctors | `0 errors, 0 warning(s)` / `0 errors, 0 warning(s)` |
 | Authority v1 / v2 | `VALID_INACTIVE_GUARD` / `GO / APPROVED_WORK_PACKAGE` |
 | Strict closeout / baseline diff | PASS / PASS |
+| Requirements rereview | `GO`, candidate `c5a4fb46`, 0 findings |
+| Quality rereview | `GO`, candidate `cf8f6faf`, 0 findings |
+| Full-diff rereview | `SPEC GO / QUALITY GO`, candidate `cf8f6faf`, 0 findings |
 
-Implementation verification is complete. A fresh full-diff review must assess
-candidate `00cc5954`; this Packet does not self-approve that review.
+The Packet is accepted for controlled local integration only. It is not yet
+integrated into `feature-chaotang-ext`.
 
 ## Rollback
 

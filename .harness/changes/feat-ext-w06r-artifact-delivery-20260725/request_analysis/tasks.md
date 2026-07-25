@@ -114,8 +114,8 @@
   `NO_LISTENER_TAKEOVER`.
 - [x] Run and record the final complete suite, isolated migration suite, Ruff,
   compileall, doctors, authority checks, strict closeout, and baseline diff.
-- [ ] Request independent requirements and quality re-review. Implementer
-  evidence cannot mark those reviews GO.
+- [x] Receive independent requirements and quality GO. Implementer evidence
+  did not self-issue those verdicts.
 
 ### Fix Round 4: Full-Diff MIME And Orphan Audit
 
@@ -129,13 +129,15 @@
   artifact resolves to an unknown or unauthorized manifest.
 - [x] Verify focused `6 passed` and complete W06R `159 passed`.
 - [x] Commit `00cc5954`.
-- [ ] Receive fresh full-diff SPEC and QUALITY GO for the remediated candidate.
+- [x] Receive fresh full-diff `SPEC GO / QUALITY GO`, zero findings, for the
+  remediated candidate.
 
 Final implementer evidence: W06R `159 passed`, isolated migration `10 passed`,
 scoped Ruff and compileall PASS, both doctors clean, v1
 `VALID_INACTIVE_GUARD`, v2 `GO / APPROVED_WORK_PACKAGE`, and strict
-closeout/baseline diff PASS. Status:
-`IMPLEMENTER_VERIFIED / INDEPENDENT_REREVIEW_PENDING`.
+closeout/baseline diff PASS. Independent requirements, quality, and full-diff
+reviews are GO with zero remaining findings. Status:
+`VERIFIED_COMPLETE / ACCEPTED_NOT_INTEGRATED`.
 
 ## Rollback Boundary
 

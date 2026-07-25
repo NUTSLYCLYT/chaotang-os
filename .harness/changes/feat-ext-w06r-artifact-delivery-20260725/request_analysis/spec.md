@@ -122,13 +122,16 @@ Packet records cross-line scope and verification only.
 - v1 authority remains a valid inactive guard and v2 returns
   `GO / APPROVED_WORK_PACKAGE` for `R0-W06`.
 - Strict closeout and `git diff --check 64d7f935..HEAD` pass.
-- Independent re-review is required before integration acceptance.
+- Independent requirements, quality, and full-diff rereviews must be GO before
+  integration acceptance.
 
 Implementer verification satisfies the executable criteria: W06R
 `159 passed`, isolated migration `10 passed`, scoped Ruff and compileall pass,
 both doctors are clean, authority v1 is `VALID_INACTIVE_GUARD`, authority v2
-is `GO / APPROVED_WORK_PACKAGE`, and closeout/diff pass. Independent re-review
-remains pending.
+is `GO / APPROVED_WORK_PACKAGE`, and closeout/diff pass. Independent rereviews
+record requirements GO, quality GO, and full-diff SPEC/QUALITY GO with zero
+remaining findings. Status is
+`VERIFIED_COMPLETE / ACCEPTED_NOT_INTEGRATED`.
 
 ## Non-Goals And Boundary
 
