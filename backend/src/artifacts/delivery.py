@@ -7,7 +7,7 @@ import io
 import json
 import zipfile
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from docx import Document
 
@@ -30,6 +30,9 @@ class DeliveryResult:
     final_memorial_version: int
     artifacts: tuple[DeliveryArtifact, ...]
     overall_status: str
+
+
+ArtifactRenderer = Callable[..., DeliveryArtifact]
 
 
 def _pdf_bytes(text: str) -> bytes:
@@ -80,6 +83,27 @@ def _render(kind: str, payload: dict[str, Any]) -> tuple[bytes, str]:
     raise ValueError(f"unsupported artifact kind: {kind}")
 
 
+def render_one_artifact(
+    *,
+    task_id: str,
+    final_memorial_id: str,
+    final_memorial_version: int,
+    payload: dict[str, Any],
+    kind: str,
+) -> DeliveryArtifact:
+    content, mime = _render(kind, payload)
+    digest = hashlib.sha256(content).hexdigest()
+    return DeliveryArtifact(
+        artifact_id=f"artifact-{task_id}-{final_memorial_version}-{kind.lower()}",
+        kind=kind,
+        mime_type=mime,
+        content=content,
+        status="READY",
+        content_hash=digest,
+        byte_size=len(content),
+    )
+
+
 def render_artifacts(*, task_id: str, final_memorial_id: str, final_memorial_version: int, payload: dict[str, Any], required_kinds: list[str], disabled_kinds: set[str] | None = None) -> DeliveryResult:
     disabled = disabled_kinds or set()
     artifacts: list[DeliveryArtifact] = []
@@ -89,9 +113,15 @@ def render_artifacts(*, task_id: str, final_memorial_id: str, final_memorial_ver
             empty = b""
             artifacts.append(DeliveryArtifact(artifact_id, kind, "application/octet-stream", empty, "UNAVAILABLE", hashlib.sha256(empty).hexdigest(), 0))
             continue
-        content, mime = _render(kind, payload)
-        digest = hashlib.sha256(content).hexdigest()
-        artifacts.append(DeliveryArtifact(artifact_id, kind, mime, content, "READY", digest, len(content)))
+        artifacts.append(
+            render_one_artifact(
+                task_id=task_id,
+                final_memorial_id=final_memorial_id,
+                final_memorial_version=final_memorial_version,
+                payload=payload,
+                kind=kind,
+            )
+        )
     statuses = {artifact.status for artifact in artifacts}
     overall = "READY" if statuses == {"READY"} else "PARTIAL"
     return DeliveryResult(task_id, final_memorial_id, final_memorial_version, tuple(artifacts), overall)
