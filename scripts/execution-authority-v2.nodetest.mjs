@@ -393,6 +393,23 @@ test('CLI subprocess against the real repo keeps W06 stopped after W05 closeout'
   );
 });
 
+test('root authorization procedure reserves product execution decisions for scoped v2 authorization', async () => {
+  for (const path of [
+    'AGENTS.md',
+    '.harness/agents/project-owner.md',
+    '.harness/rules/project-workflow.md',
+  ]) {
+    const source = await readFile(join(root, path), 'utf8');
+    assert.match(source, /node scripts\/execution-authority\.mjs --check/, path);
+    assert.match(
+      source,
+      /node scripts\/execution-authority-v2\.mjs --authorize --work-package <R0-Wxx>/,
+      path,
+    );
+    assert.doesNotMatch(source, /node scripts\/execution-authority\.mjs --authorize/, path);
+  }
+});
+
 test('project manifest registers the v2 authority consumer exactly', async () => {
   const projectManifest = JSON.parse(
     await readFile(join(root, '.harness/manifest/project-harness.json'), 'utf8'),

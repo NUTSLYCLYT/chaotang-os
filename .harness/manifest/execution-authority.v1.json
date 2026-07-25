@@ -18,17 +18,17 @@
     {
       "path": "AGENTS.md",
       "role": "ROOT_AGENT_ENTRY",
-      "sha256": "sha256:a60affa4b282e844947263464b24263c3a94e3a4685b52dbb03a93db5a6c801b"
+      "sha256": "sha256:3c3182442cb60633a4830c6ea2e3090bfc03cf4a648e19cc35ca5e71286f29f1"
     },
     {
       "path": ".harness/agents/project-owner.md",
       "role": "PROJECT_OWNER_POLICY",
-      "sha256": "sha256:edde7f0b2d60eef0eb818c9ffd9b29740e9f678706bd88667aece8d385f9b714"
+      "sha256": "sha256:32036a16a533fd9a0806b55757b1b2797e90f75e71d19bd9c8a70e553b08d662"
     },
     {
       "path": ".harness/rules/project-workflow.md",
       "role": "PROJECT_WORKFLOW_POLICY",
-      "sha256": "sha256:a0d8981858a5e5f7e9e583f5137790344c3ffe529861dd0482377222c4e91856"
+      "sha256": "sha256:a80e063664b203a88a4ff22777d9a891f3f93c6bbeade75726bad75dabf16506"
     },
     {
       "path": ".harness/templates/change-template/summary.md",

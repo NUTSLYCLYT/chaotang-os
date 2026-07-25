@@ -64,8 +64,12 @@ schema/manifest/resolver/CLI/tests，专门回答一个更窄的问题：
 
 ## v1 与 v2 共存说明
 
-在 `AGENTS.md`/`.harness/agents/project-owner.md`/`.harness/rules/project-workflow.md`（v1 的
-`governedDocuments`）被一次独立的受控摘要重钉变更改成同时点名 v2 之前，两套命令并存不矛盾：
-v1 回答"最底层的失效关闭护栏结构是否完好"（永远 STOP），v2 回答"这个具体 work package 现在是否
-被授权"（可以是真 GO）。W01 自身的授权不依赖 v2 存在——它来自已经落盘的 Product Owner exact-H
-批准 + 三路独立 Claude Code 审查证据，v2 只是把"接下来怎么继续往前走"这件事管起来。
+`AGENTS.md`、`.harness/agents/project-owner.md` 与 `.harness/rules/project-workflow.md` 是 v1
+`governedDocuments`，并在独立受控摘要重钉中明确了两步程序：先用 v1 `--check` 验证最底层失效关闭
+护栏完整性，再用 v2 `--authorize --work-package <R0-Wxx>` 作唯一的范围化产品施工决定。v1 永远 STOP，
+v2 才回答“这个具体 work package 现在是否被授权”。
+
+当前 EXT-G0 候选处于 `REVIEW_READY / NOT_ACTIVE`：`activeWorkPackage=null`，W06 没有 ledger 条目，
+所以 `R0-W06` 必须返回 `STOP / NO_ACTIVE_WORK_PACKAGE`。W01–W05 的任何历史 approval 或 review 都不
+构成 W06 授权；只有后续独立审查绑定 exact candidate、tree、scope 与 activation bytes 后，才可能原子激活
+W06。

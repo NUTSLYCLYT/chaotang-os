@@ -106,7 +106,7 @@ test('governed entry and product documents cannot remove amendment semantics', (
   assert.deepEqual(
     validateGovernedDocumentContent(
       'AGENTS.md',
-      'read .harness/agents/project-owner.md\nrun node scripts/execution-authority.mjs --authorize\n',
+      'read .harness/agents/project-owner.md\nrun node scripts/execution-authority.mjs --check\nrun node scripts/execution-authority-v2.mjs --authorize --work-package <R0-Wxx>\n',
     ),
     [],
   );
@@ -254,8 +254,19 @@ test('project manifest and policy consumers expose a fail-closed authority gate'
     join(root, '.harness/templates/change-template/summary.md'),
     'utf8',
   );
-  assert.match(owner, /node scripts\/execution-authority\.mjs --authorize/);
-  assert.match(workflow, /node scripts\/execution-authority\.mjs --authorize/);
+  for (const [path, source] of [
+    ['AGENTS.md', await readFile(join(root, 'AGENTS.md'), 'utf8')],
+    ['.harness/agents/project-owner.md', owner],
+    ['.harness/rules/project-workflow.md', workflow],
+  ]) {
+    assert.match(source, /node scripts\/execution-authority\.mjs --check/, path);
+    assert.match(
+      source,
+      /node scripts\/execution-authority-v2\.mjs --authorize --work-package <R0-Wxx>/,
+      path,
+    );
+    assert.doesNotMatch(source, /node scripts\/execution-authority\.mjs --authorize/, path);
+  }
   assert.match(template, /NOT_GRANTED_BY_CHANGE_RECORD/);
 });
 
