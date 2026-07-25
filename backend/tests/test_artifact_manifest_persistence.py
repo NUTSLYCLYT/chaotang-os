@@ -97,6 +97,32 @@ def test_manifest_persistence_is_idempotent_for_memorial_lineage(isolated_sessio
     db.close()
 
 
+def test_manifest_persistence_rejects_embedded_tenant_mismatch(isolated_session_local) -> None:
+    from src.artifacts.service import persist_manifest
+
+    db = isolated_session_local()
+    manifest = _sealed_manifest(
+        tenant_id=2,
+        manifest_id="manifest-wrong-tenant",
+        task_id="task-wrong-tenant",
+        final_memorial_id="memorial-wrong-tenant",
+        final_memorial_version=1,
+    )
+    with pytest.raises(ValueError, match="tenant"):
+        persist_manifest(
+            db,
+            tenant_id=1,
+            task_id="task-wrong-tenant",
+            final_memorial_id="memorial-wrong-tenant",
+            final_memorial_version=1,
+            delivery_formula_version="w06-v1",
+            content_hash="c" * 64,
+            manifest_json=manifest,
+            overall_status="READY",
+        )
+    db.close()
+
+
 def test_manifest_hash_cannot_change_for_same_lineage(isolated_session_local) -> None:
     from src.artifacts.service import persist_manifest
 

@@ -80,6 +80,34 @@ def test_manifest_read_requires_same_tenant_and_returns_canonical_v1(isolated_se
     db.close()
 
 
+def test_manifest_read_rejects_embedded_tenant_mismatch(isolated_session_local) -> None:
+    from src.artifacts.service import get_manifest_for_tenant
+    from src.db.models import ArtifactManifest, Base
+
+    db = isolated_session_local()
+    Base.metadata.create_all(db.bind, tables=[ArtifactManifest.__table__])
+    db.add(
+        ArtifactManifest(
+            id="manifest-embedded-tenant-mismatch",
+            tenant_id=7,
+            task_id="task-1",
+            final_memorial_id="memorial-1",
+            final_memorial_version=1,
+            delivery_formula_version="w06-v1",
+            manifest_json=_sealed_manifest_json(tenant_id=2),
+            overall_status="READY",
+        )
+    )
+    db.commit()
+    with pytest.raises(ValueError, match="tenant"):
+        get_manifest_for_tenant(
+            db,
+            manifest_id="manifest-embedded-tenant-mismatch",
+            tenant_id=7,
+        )
+    db.close()
+
+
 def test_manifest_read_rejects_cross_tenant_access(isolated_session_local) -> None:
     from src.artifacts.service import get_manifest_for_tenant
     from src.db.models import ArtifactManifest, Base
