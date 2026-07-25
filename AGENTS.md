@@ -4,6 +4,22 @@
 `ARCHITECTURE.md` 与 `docs/decisions/0006-frontend-backend-foundation-stack.md`），
 仍不承载正式业务代码或业务 API。
 
+## 强制 Skill Preflight
+
+- 每个用户回合都必须在任何回复、文件检查或工具调用前完整读取
+  `using-superpowers/SKILL.md`，根据当前用户意图重新匹配并完整读取适用 skill；不得沿用
+  上一回合的 skill 判断。
+- 在第一次工具调用前，通过 commentary 明确声明“使用 `<skill>`，用于 `<目的>`”。
+- 确定性映射：
+  - Bug、异常和诊断：`systematic-debugging`。
+  - 用户可见故障、假绿、错误记忆和复盘：`record-failure`。
+  - 功能或行为修改：`brainstorming`、`test-driven-development`。
+  - 提交或宣称完成：`verification-before-completion`。
+  - worktree 操作：`using-git-worktrees`。
+  - 本仓库实质工程任务：`codex-engineering-workflow`。
+- 任何 Git 写操作前必须输出并核对绝对工作区路径、当前分支、HEAD 和 `git status`；不得从
+  上一回合或相邻 worktree 推断目标。
+
 ## 导航
 
 - 已确认边界：`ARCHITECTURE.md`

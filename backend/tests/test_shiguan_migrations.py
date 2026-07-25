@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import subprocess
+import sys
 
 import pytest
 
 from app.jinyiwei import db as jinyiwei_db
 from app.jinyiwei.models import DataGapRequest
-from app.shiguan import db, storage
+from app.shiguan import db, maintenance, storage
 from app.shiguan.errors import ArchiveNotFoundError, ShiguanStorageError
 
 V1_SCHEMA = """
@@ -420,3 +422,85 @@ def test_invalid_or_incomplete_confirmation_rolls_back_entire_migration(
         db.migrate_v1_to_v2(path, confirmed_pairs=confirmed_pairs)
 
     assert _snapshot(path) == before
+
+
+def _make_v2(path):
+    connection = db.get_connection(path)
+    connection.close()
+    connection = sqlite3.connect(path)
+    connection.execute("DROP TABLE archive_evidence_references")
+    connection.execute("PRAGMA user_version = 2")
+    connection.commit()
+    connection.close()
+
+
+def test_runtime_preflight_reports_healthy_v2_as_not_ready(tmp_path):
+    path = tmp_path / "shiguan.sqlite3"
+    _make_v2(path)
+
+    report = maintenance.inspect_runtime_database(path)
+
+    assert report.exists is True
+    assert report.version == 2
+    assert report.integrity_ok is True
+    assert report.required_tables_ok is False
+    assert report.ready is False
+
+
+def test_runtime_migration_backs_up_v2_and_reads_archives(tmp_path):
+    path = tmp_path / "shiguan.sqlite3"
+    _make_v2(path)
+
+    report = maintenance.migrate_runtime_v2_to_v3(path)
+
+    backup = path.with_name("shiguan.sqlite3.v2-backup")
+    assert report.ready is True
+    assert report.migrated is True
+    assert report.backup_path == str(backup)
+    assert backup.exists()
+    assert storage.list_archives(db_path=path) == []
+
+
+def test_runtime_migration_refuses_to_overwrite_existing_backup(tmp_path):
+    path = tmp_path / "shiguan.sqlite3"
+    _make_v2(path)
+    path.with_name("shiguan.sqlite3.v2-backup").write_bytes(b"backup")
+
+    with pytest.raises(ShiguanStorageError, match="备份已存在"):
+        maintenance.migrate_runtime_v2_to_v3(path)
+
+    assert maintenance.inspect_runtime_database(path).version == 2
+
+
+def test_maintenance_check_emits_desensitized_json(tmp_path):
+    path = tmp_path / "shiguan.sqlite3"
+    db.get_connection(path).close()
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "app.shiguan.maintenance",
+            "--check",
+            "--database",
+            str(path),
+        ],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    payload = json.loads(result.stdout)
+    assert result.returncode == 0
+    assert payload["ready"] is True
+    assert set(payload) == {
+        "archive_count",
+        "backup_path",
+        "database_path",
+        "exists",
+        "integrity_ok",
+        "migrated",
+        "ready",
+        "required_tables_ok",
+        "version",
+    }
