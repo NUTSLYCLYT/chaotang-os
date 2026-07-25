@@ -66,8 +66,10 @@ git diff --check
 ### Task 2: W06-Specific Independent Review and Atomic Activation
 
 **Files:**
-- Create: `.harness/changes/fix-ext-g0-authority-recovery-20260725/claude_code_review/exact-h-final.md`
 - Create: `.harness/changes/fix-ext-g0-authority-recovery-20260725/owner_approval/exact-h-approval.md`
+- Create: `.harness/changes/fix-ext-g0-authority-recovery-20260725/claude_code_review/review-request.md`
+- Create: `.harness/changes/fix-ext-g0-authority-recovery-20260725/claude_code_review/exact-h-final.md`
+- Modify: `scripts/lib/execution-authority-v2.mjs`
 - Modify: `.harness/manifest/execution-authority.v2.json`
 - Modify: `.harness/changes/fix-ext-g0-authority-recovery-20260725/summary.md`
 - Modify: `.harness/changes/fix-ext-g0-authority-recovery-20260725/request_analysis/tasks.md`
@@ -78,9 +80,13 @@ git diff --check
 - Consumes: Task 1 exact candidate and independent review bound to W06 scope, candidate commit, tree, and proposed activation bytes.
 - Produces: a single ACTIVE `R0-W06` ledger entry and a W06-only GO decision.
 
+- [ ] Add positive owner approval with a machine-readable JSON evidence block that binds decision `APPROVED`, work package `R0-W06`, effective base `8feae838f09ad5202b21332d4280b989ab776bd7`, tree `9d63f98041e5e13174dbba4c0b9d27eef1471bf9`, approved scope, approver, and exclusions.
+- [ ] Extend the v2 loader to parse the JSON evidence blocks with the strict JSON parser and fail closed unless owner and review evidence match the manifest scope, candidate, tree, approver, verdict, and owner-approval digest.
+- [ ] Add RED/GREEN tests proving an old-package review, a negative owner decision, a mismatched candidate/tree, or mismatched owner digest can never produce GO.
+- [ ] Prepare the exact activation diff and review request while leaving the tracked v2 manifest quiescent.
 - [ ] Have a read-only reviewer verify the candidate base/tree, owner evidence, proposed v2 manifest, changed paths, root semantics, and absence of business code.
 - [ ] Reject any review that references W01–W05 scope, a different candidate, a different tree, or production readiness.
-- [ ] Store the W06-specific review with its exact candidate, tree, diff digest, commands, and combined `GO` or `NO_GO`.
+- [ ] Store the W06-specific review with its exact candidate, tree, diff digest, commands, combined `GO` or `NO_GO`, and a machine-readable JSON evidence block bound to the owner-approval digest.
 - [ ] On `NO_GO`, leave v2 quiescent and stop the program.
 - [ ] On `GO`, atomically update v2 evidence digests, `effectiveBase`, `candidateH`, `tree`, `approvedScope`, `activeWorkPackage`, and the W06 ledger entry.
 - [ ] Atomically change the change summary from `REVIEW_READY / NOT_ACTIVE` to `AUTHORIZED / ACTIVE`.
