@@ -67,6 +67,7 @@ It binds:
 - delivery formula version;
 - a monotonically increasing delivery revision;
 - one idempotency key;
+- the validated relative `requested_expiry_seconds`;
 - exactly one PDF, one DOCX, and one JSON item;
 - artifact id, kind, MIME type, byte size, content hash, and lineage hash;
 - manifest content hash and overall state at the time the manifest is sealed.
@@ -80,6 +81,13 @@ never included in the public manifest or API response, and remains available
 even when the JSON delivery artifact is the failed format. Delivery artifacts
 are outputs; none of them is the source of truth required to resume another
 output.
+
+`requested_expiry_seconds` participates in the sealed manifest bytes even
+though the public HTTP projection omits it. The unified verifier binds the
+sealed value to the row value. It also requires non-null canonical
+`source_payload_json` for every W06R-created delivery and recomputes
+`payload_hash` on every read/replay/download boundary; missing or corrupt
+source payload is an integrity failure.
 
 ### Mutable Delivery Item
 

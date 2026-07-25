@@ -928,3 +928,12 @@ conflicts. Add sequential and eight-way HTTP concurrency tests.
 
 Reject non-finite JSON during canonicalization and normalize persisted
 `NaN`/`Infinity` corruption to audited `DeliveryIntegrityError` / HTTP 409.
+
+- [ ] **Step 9: Seal relative expiry and required source payload**
+
+Add `requested_expiry_seconds` to sealed `ArtifactManifestV1`, bind it to the
+database row in the unified verifier, and keep it out of the public HTTP
+projection. Every W06R manifest read/replay/download requires non-null canonical
+`source_payload_json` whose SHA-256 equals sealed `payload_hash`. Database
+tampering of either field returns integrity conflict; failed downloads append
+one durable failure audit.
