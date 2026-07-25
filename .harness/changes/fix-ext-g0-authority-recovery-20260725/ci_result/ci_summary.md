@@ -1,23 +1,27 @@
 # CI Summary: EXT-G0 Authority Recovery Candidate
 
-## Candidate state
+## Authority state
 
-`REVIEW_REQUEST_READY / NOT_ACTIVE / NOT_DEPLOYED`
+`AUTHORIZED / ACTIVE / NOT_DEPLOYED`
 
 | Command | Exit | Result |
 | --- | ---: | --- |
 | `node --test scripts/execution-authority.nodetest.mjs` | 0 | `10/10` passing; includes semantic-marker, inventory-drift, and Task 1 scope-path regressions |
-| `node --test scripts/execution-authority-v2.nodetest.mjs` | 0 | `28/28` passing |
+| `node --test scripts/execution-authority-v2.nodetest.mjs` | 0 | `52/52` passing, including active-W06 and negative successor/evidence-tampering cases |
 | `node scripts/execution-authority.mjs --check` | 0 | `VALID_INACTIVE_GUARD / AMENDMENT_APPROVAL_REQUIRED` |
 | `node scripts/execution-authority.mjs --authorize` | 2 | `STOP / AMENDMENT_APPROVAL_REQUIRED` (expected deny) |
-| `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W06` | 2 | `STOP / NO_ACTIVE_WORK_PACKAGE` (expected deny) |
+| `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W06` | 0 | `GO / APPROVED_WORK_PACKAGE` |
+| `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W05` | 2 | `STOP / WORK_PACKAGE_MISMATCH` |
+| `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W07` | 2 | `STOP / BLOCKED_DEPENDENCY` |
+| `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W09` | 2 | `STOP / BLOCKED_DEPENDENCY` |
 | `node scripts/harness-doctor.mjs` | 0 | `0 errors, 0 warnings` |
 | `git diff --check` | 0 | clean |
 
 The committed Task 1 candidate series begins with `34110e2f`, then plan correction `8c891ffd`,
-and this focused H1-M3 follow-up. It remains review-ready only: v2 has
-`activeWorkPackage=null`, no W06 `ACTIVE` ledger entry, and no W06 `GO`. No deployment, remote
-update, database migration, or listener `3050` operation occurred.
+and this focused H1-M3 follow-up. The accepted final review now authorizes only R0-W06: v2 has
+`activeWorkPackage=R0-W06` and exactly one W06 `ACTIVE` ledger entry. This is not evidence of W06
+implementation completion, deployment, remote update, database migration, or listener `3050`
+operation.
 
 ## Task 2A preparation evidence
 
@@ -26,10 +30,10 @@ update, database migration, or listener `3050` operation occurred.
 | `node --test scripts/execution-authority-v2.nodetest.mjs` | 0 | `52/52` passing, including temporary-root activation-intent, reviewer-identity, exact review-package digest/path/header/path-set, allowlist, and required-command cases |
 | `sha256sum review_inputs/review-7df6e4e1..e8be2ca9.diff` | 0 | `0fdf3da62b977d6935b65c68e5509ee6b52eb98d7ee80a142341625bd4d3f885` |
 
-The tracked v2 manifest is intentionally unchanged. The owner approval, activation intent, and
-exact QA-reviewed package are review inputs only; `claude_code_review/exact-h-final.md` has not
-been created. Final Task 2 activation is prohibited until a read-only reviewer produces that exact
-evidence and an authorized operator atomically updates the tracked manifest.
+The tracked v2 manifest is atomically updated with the exact owner approval and final-review
+digests. The owner approval, activation intent, exact QA-reviewed package, and copied final review
+remain authority evidence only; authorization does not claim W06 implementation completion,
+deployment, merge, push, production readiness, migration, or listener takeover.
 
 ## Review handoff
 

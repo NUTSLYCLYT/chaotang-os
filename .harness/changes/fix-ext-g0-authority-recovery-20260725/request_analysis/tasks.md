@@ -33,5 +33,10 @@
 - [x] Add temporary-root fail-closed coverage for partial/extra changed paths, fabricated or
   missing package bytes, unsafe/duplicate diff headers, and false verification-command metadata;
   permit only the two QA-identified reviewed governance paths in addition to existing Task 2 paths.
-- [x] Stop at `REVIEW_REQUEST_READY / NOT_ACTIVE / NOT_DEPLOYED`; no W06 product implementation,
-  activation, merge, push, deployment, migration, or listener operation occurred.
+- [x] Copy the accepted final independent-review bytes without modification, verify its bound owner,
+  activation-intent, and review-package identities, and atomically authorize only `R0-W06` in the
+  tracked v2 manifest.
+- [x] Update real-repo authority expectations: W06 returns `GO / APPROVED_WORK_PACKAGE`; W05, W07,
+  and W09 remain stopped. No W06 product implementation, merge, push, deployment, migration, or
+  listener operation occurred.
+- [x] Stop at `FINAL_ACTIVATION_REVIEW_READY / AUTHORIZED / ACTIVE / NOT_DEPLOYED`.

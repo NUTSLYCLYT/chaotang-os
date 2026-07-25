@@ -799,52 +799,35 @@ test('CLI rejects an unsupported flag with exit 64', async () => {
   );
 });
 
-test('CLI subprocess against the real repo records W05 merged and enters quiescent closeout', async () => {
+test('CLI subprocess against the real repo authorizes the exact active W06 package', async () => {
   const loaded = await loadExecutionAuthorityV2(root);
   assert.deepEqual(loaded.errors, []);
-  assert.equal(loaded.manifest.activeWorkPackage, null);
+  assert.equal(loaded.manifest.activeWorkPackage, 'R0-W06');
   assert.deepEqual(loaded.manifest.workPackageLedger.at(-1), {
-    id: 'R0-W05',
-    status: 'MERGED_AND_VERIFIED',
+    id: 'R0-W06',
+    status: 'ACTIVE',
   });
-  await assert.rejects(
-    execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', 'R0-W05'], {
-      cwd: root,
-    }),
-    (error) => {
-      const output = JSON.parse(error.stdout);
-      return (
-        error.code === 2 &&
-        output.decision === 'STOP' &&
-        output.reason === 'NO_ACTIVE_WORK_PACKAGE'
-      );
-    },
+  const { stdout } = await execFileAsync(
+    process.execPath,
+    [cliPath, '--authorize', '--work-package', 'R0-W06'],
+    { cwd: root },
   );
+  const output = JSON.parse(stdout);
+  assert.equal(output.decision, 'GO');
+  assert.equal(output.reason, 'APPROVED_WORK_PACKAGE');
 });
 
-test('CLI subprocess against the real repo keeps W06 stopped after W05 closeout', async () => {
+test('CLI subprocess against the real repo keeps predecessor and successor packages stopped', async () => {
   const loaded = await loadExecutionAuthorityV2(root);
   assert.deepEqual(loaded.errors, []);
-  assert.equal(loaded.manifest.activeWorkPackage, null);
-  assert.equal(
-    loaded.manifest.workPackageLedger.some(
-      (entry) => entry.id === 'R0-W06' && entry.status === 'ACTIVE',
-    ),
-    false,
-  );
-  await assert.rejects(
-    execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', 'R0-W06'], {
-      cwd: root,
-    }),
-    (error) => {
-      const output = JSON.parse(error.stdout);
-      return (
-        error.code === 2 &&
-        output.decision === 'STOP' &&
-        output.reason === 'NO_ACTIVE_WORK_PACKAGE'
-      );
-    },
-  );
+  for (const workPackage of ['R0-W05', 'R0-W07', 'R0-W09']) {
+    await assert.rejects(
+      execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', workPackage], {
+        cwd: root,
+      }),
+      (error) => JSON.parse(error.stdout).decision === 'STOP',
+    );
+  }
 });
 
 test('root authorization procedure reserves product execution decisions for scoped v2 authorization', async () => {

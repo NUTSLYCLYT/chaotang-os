@@ -8,27 +8,28 @@
   },
   "effectiveBase": {
     "ref": "origin/feature-chaotang-ext",
-    "sha": "67bcc78ec5f80d3d1600c676812ddb4cec958eb3"
+    "sha": "8feae838f09ad5202b21332d4280b989ab776bd7"
   },
   "approvalEvidence": {
-    "ownerApprovalPath": ".harness/changes/docs-r0-w05-evidence-rework-approval-20260723-20260723/owner_approval/exact-h-approval.md",
-    "ownerApprovalSha256": "8654e6f06fce7a220d6f94675d76d8969dec480f73ebfca4a3a63da3f6f27769",
-    "reviewPath": ".harness/changes/docs-r0-w05-evidence-rework-approval-20260723-20260723/claude_code_review/exact-h-final.md",
-    "reviewSha256": "3a23bf7edc9bda57f446b5da450ad4a4159209f5a2ca439952496b9d98fb5f42",
+    "ownerApprovalPath": ".harness/changes/fix-ext-g0-authority-recovery-20260725/owner_approval/exact-h-approval.md",
+    "ownerApprovalSha256": "4598a0fa9c12a19e9cc5e9bc34f075af552d5d93765a969f6f9d764772c1b7c2",
+    "reviewPath": ".harness/changes/fix-ext-g0-authority-recovery-20260725/claude_code_review/exact-h-final.md",
+    "reviewSha256": "7453e1642d2150d13ee69eb38f49450d1fc69b0b2dbb8dce65b557230941dd62",
     "reviewVerdict": "GO",
     "approver": "lyt",
-    "candidateH": "67bcc78ec5f80d3d1600c676812ddb4cec958eb3",
-    "tree": "e7efd61be8b8d9e725d859489124400f606fea69",
-    "approvedScope": ["R0-W05"]
+    "candidateH": "8feae838f09ad5202b21332d4280b989ab776bd7",
+    "tree": "9d63f98041e5e13174dbba4c0b9d27eef1471bf9",
+    "approvedScope": ["R0-W06"]
   },
-  "activeWorkPackage": null,
+  "activeWorkPackage": "R0-W06",
   "workPackageLedger": [
     { "id": "R0-W00", "status": "MERGED_AND_VERIFIED" },
     { "id": "R0-W01", "status": "MERGED_AND_VERIFIED" },
     { "id": "R0-W02", "status": "MERGED_AND_VERIFIED" },
     { "id": "R0-W03", "status": "MERGED_AND_VERIFIED" },
     { "id": "R0-W04", "status": "MERGED_AND_VERIFIED" },
-    { "id": "R0-W05", "status": "MERGED_AND_VERIFIED" }
+    { "id": "R0-W05", "status": "MERGED_AND_VERIFIED" },
+    { "id": "R0-W06", "status": "ACTIVE" }
   ],
   "professionalReassignment": {
     "requiredBefore": ["REAL_CUSTOMER_DATA", "R0-W08", "R0-W09"],
