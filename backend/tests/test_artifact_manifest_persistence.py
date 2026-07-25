@@ -10,6 +10,16 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+_SOURCE_PAYLOAD_JSON = json.dumps(
+    {"fixture": "artifact-manifest-persistence"},
+    ensure_ascii=False,
+    separators=(",", ":"),
+    sort_keys=True,
+)
+_SOURCE_PAYLOAD_HASH = hashlib.sha256(
+    _SOURCE_PAYLOAD_JSON.encode("utf-8")
+).hexdigest()
+
 
 def _sealed_manifest(
     *,
@@ -20,7 +30,7 @@ def _sealed_manifest(
     final_memorial_version: int,
     delivery_revision: int = 1,
     idempotency_key_hash: str = "c" * 64,
-    payload_hash: str = "d" * 64,
+    payload_hash: str = _SOURCE_PAYLOAD_HASH,
     requested_expiry_seconds: int = 3600,
 ) -> dict:
     return {
@@ -305,14 +315,22 @@ def test_delivery_manifest_replay_returns_one_canonical_row(
         )
     )
 
-    first = persist_delivery_manifest(db, manifest=manifest)
-    second = persist_delivery_manifest(db, manifest=manifest)
+    first = persist_delivery_manifest(
+        db,
+        manifest=manifest,
+        source_payload_json=_SOURCE_PAYLOAD_JSON,
+    )
+    second = persist_delivery_manifest(
+        db,
+        manifest=manifest,
+        source_payload_json=_SOURCE_PAYLOAD_JSON,
+    )
 
     assert first.id == second.id == "manifest-idempotent"
     assert first.content_hash == canonical_manifest_hash(manifest)
     assert first.delivery_revision == 1
     assert first.idempotency_key_hash == "c" * 64
-    assert first.payload_hash == "d" * 64
+    assert first.payload_hash == _SOURCE_PAYLOAD_HASH
     assert db.query(ArtifactManifest).count() == 1
     db.close()
 
@@ -333,6 +351,12 @@ def test_delivery_manifest_rejects_same_key_with_changed_payload(
             final_memorial_version=1,
         )
     )
+    changed_source_payload_json = json.dumps(
+        {"fixture": "artifact-manifest-persistence-changed"},
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
     changed = ArtifactManifestV1.model_validate(
         _sealed_manifest(
             tenant_id=1,
@@ -340,13 +364,23 @@ def test_delivery_manifest_rejects_same_key_with_changed_payload(
             task_id="task-conflict",
             final_memorial_id="memorial-conflict",
             final_memorial_version=1,
-            payload_hash="e" * 64,
+            payload_hash=hashlib.sha256(
+                changed_source_payload_json.encode("utf-8")
+            ).hexdigest(),
         )
     )
 
-    persist_delivery_manifest(db, manifest=first)
+    persist_delivery_manifest(
+        db,
+        manifest=first,
+        source_payload_json=_SOURCE_PAYLOAD_JSON,
+    )
     with pytest.raises(DeliveryConflict, match="idempotency"):
-        persist_delivery_manifest(db, manifest=changed)
+        persist_delivery_manifest(
+            db,
+            manifest=changed,
+            source_payload_json=changed_source_payload_json,
+        )
     db.close()
 
 
@@ -374,7 +408,7 @@ def test_delivery_manifest_persistence_rejects_non_finite_canonical_json(
             final_memorial_version=1,
         )
     )
-    source_payload_json = None
+    source_payload_json = _SOURCE_PAYLOAD_JSON
     if json_target == "manifest":
         manifest.artifacts[0].byte_size = non_finite
     else:
@@ -422,7 +456,11 @@ def test_concurrent_delivery_manifest_replay_converges(tmp_path) -> None:
     def write_once() -> str:
         db = factory()
         try:
-            row = persist_delivery_manifest(db, manifest=manifest)
+            row = persist_delivery_manifest(
+                db,
+                manifest=manifest,
+                source_payload_json=_SOURCE_PAYLOAD_JSON,
+            )
             db.commit()
             return row.id
         finally:
@@ -459,12 +497,24 @@ def test_delivery_revisions_are_strictly_monotonic_for_one_lineage(
             )
         )
 
-    first = persist_delivery_manifest(db, manifest=manifest(1))
-    second = persist_delivery_manifest(db, manifest=manifest(2))
+    first = persist_delivery_manifest(
+        db,
+        manifest=manifest(1),
+        source_payload_json=_SOURCE_PAYLOAD_JSON,
+    )
+    second = persist_delivery_manifest(
+        db,
+        manifest=manifest(2),
+        source_payload_json=_SOURCE_PAYLOAD_JSON,
+    )
 
     assert (first.delivery_revision, second.delivery_revision) == (1, 2)
     with pytest.raises(DeliveryConflict, match="revision"):
-        persist_delivery_manifest(db, manifest=manifest(4))
+        persist_delivery_manifest(
+            db,
+            manifest=manifest(4),
+            source_payload_json=_SOURCE_PAYLOAD_JSON,
+        )
     db.close()
 
 
@@ -489,7 +539,11 @@ def test_delivery_audit_events_are_append_only_and_tenant_scoped(
             final_memorial_version=1,
         )
     )
-    persist_delivery_manifest(db, manifest=manifest)
+    persist_delivery_manifest(
+        db,
+        manifest=manifest,
+        source_payload_json=_SOURCE_PAYLOAD_JSON,
+    )
 
     first = append_delivery_audit_event(
         db,

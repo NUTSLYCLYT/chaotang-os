@@ -583,11 +583,10 @@ def _verify_persisted_manifest(
         raise DeliveryIntegrityError(
             "persisted manifest sealed fields do not match row"
         )
-    if row.source_payload_json is not None:
-        _validate_source_payload_json(
-            row.source_payload_json,
-            expected_hash=manifest.payload_hash,
-        )
+    _validate_source_payload_json(
+        row.source_payload_json,
+        expected_hash=manifest.payload_hash,
+    )
     return manifest
 
 
@@ -1352,11 +1351,10 @@ def persist_delivery_manifest(
             raise DeliveryConflict(
                 "requested expiry does not match sealed manifest"
             )
-    if source_payload_json is not None:
-        _validate_source_payload_json(
-            source_payload_json,
-            expected_hash=validated.payload_hash,
-        )
+    _validate_source_payload_json(
+        source_payload_json,
+        expected_hash=validated.payload_hash,
+    )
     manifest_json = _canonical_manifest_json(validated)
     try:
         manifest_hash = canonical_manifest_hash(validated)

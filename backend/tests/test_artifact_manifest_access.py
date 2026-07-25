@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 
 import pytest
@@ -10,6 +11,16 @@ from tests.artifact_delivery_support import (
     contract_review_pack,
     seed_delivery_source,
 )
+
+_SOURCE_PAYLOAD_JSON = json.dumps(
+    {"fixture": "artifact-manifest-access"},
+    ensure_ascii=False,
+    separators=(",", ":"),
+    sort_keys=True,
+)
+_SOURCE_PAYLOAD_HASH = hashlib.sha256(
+    _SOURCE_PAYLOAD_JSON.encode("utf-8")
+).hexdigest()
 
 
 def _sealed_manifest_json(*, manifest_id: str, tenant_id: int) -> str:
@@ -24,7 +35,7 @@ def _sealed_manifest_json(*, manifest_id: str, tenant_id: int) -> str:
             "delivery_formula_version": "w06-v1",
             "delivery_revision": 1,
             "idempotency_key_hash": "c" * 64,
-            "payload_hash": "d" * 64,
+            "payload_hash": _SOURCE_PAYLOAD_HASH,
             "requested_expiry_seconds": 3600,
             "artifacts": [
                 {
@@ -88,6 +99,7 @@ def _manifest_row(
         delivery_revision=manifest.delivery_revision,
         idempotency_key_hash=manifest.idempotency_key_hash,
         payload_hash=manifest.payload_hash,
+        source_payload_json=_SOURCE_PAYLOAD_JSON,
         requested_expiry_seconds=manifest.requested_expiry_seconds,
         content_hash=canonical_manifest_hash(manifest),
         manifest_json=manifest_json,

@@ -1297,6 +1297,70 @@ def test_non_finite_persisted_json_is_409_and_download_audits_once(
     ) == (409, 409, 1, 0)
 
 
+@pytest.mark.parametrize(
+    "source_corruption",
+    ["null", "invalid_json", "hash_mismatch"],
+)
+def test_corrupt_persisted_source_fails_all_http_integrity_boundaries(
+    artifact_api,
+    source_corruption: str,
+) -> None:
+    from src.db.models import ArtifactManifest
+
+    client, session_factory, _ = artifact_api
+    body = _create_request(
+        task_id=f"task-api-source-{source_corruption}",
+        idempotency_key=f"api-source-{source_corruption}-key",
+    )
+    _seed_delivery_request(session_factory, body)
+    created = client.post("/api/artifacts/deliveries", json=body)
+    assert created.status_code == 201
+    _assert_public_json(created.json())
+    manifest = created.json()["manifest"]
+    artifact_id = manifest["artifacts"][0]["artifact_id"]
+
+    db = session_factory()
+    try:
+        row = db.query(ArtifactManifest).filter_by(
+            id=manifest["manifest_id"]
+        ).one()
+        if source_corruption == "null":
+            row.source_payload_json = None
+        elif source_corruption == "invalid_json":
+            row.source_payload_json = "{not-json"
+        else:
+            corrupted = json.loads(row.source_payload_json)
+            corrupted["decision_summary"] = "tampered source payload"
+            row.source_payload_json = json.dumps(
+                corrupted,
+                allow_nan=False,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+        db.commit()
+    finally:
+        db.close()
+
+    read = client.get(
+        f"/api/artifacts/manifests/{manifest['manifest_id']}"
+    )
+    download = client.get(f"/api/artifacts/{artifact_id}/download")
+    replay = client.post("/api/artifacts/deliveries", json=body)
+    failure_count, success_count = _download_audit_counts(
+        session_factory,
+        artifact_id=artifact_id,
+    )
+
+    assert (
+        read.status_code,
+        download.status_code,
+        replay.status_code,
+        failure_count,
+        success_count,
+    ) == (409, 409, 409, 1, 0)
+
+
 @pytest.mark.parametrize("corruption", ["missing", "corrupt"])
 def test_unverified_stored_file_is_not_advertised(
     artifact_api,
