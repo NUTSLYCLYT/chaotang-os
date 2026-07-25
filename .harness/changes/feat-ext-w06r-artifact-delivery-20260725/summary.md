@@ -9,7 +9,8 @@
 | Date | `2026-07-25` |
 | Authority | `R0-W06`: `GO / APPROVED_WORK_PACKAGE` |
 | Baseline | `64d7f9358dc8a43d886889629e1b745f491593ef` |
-| Verification code candidate | `fbf3f222` |
+| Round 3 design supplement | `221a98f5` |
+| Verification code candidate | `70422b9f` |
 
 ## Outcome
 
@@ -20,10 +21,11 @@ durable storage, resumable partial delivery, authorized downloads, expiry
 state, append-only audit evidence, revision-025 persistence, API routes, and
 focused tests.
 
-Task 8 remediates all 13 findings recorded by the Task 7 requirements and
-quality reviews, plus the one Medium and one Low finding from the quality
-rereview. The reviews remain read-only evidence; this implementer record does
-not claim independent re-review acceptance.
+Task 8 remediates all 13 findings recorded by the original Task 7 requirements
+and quality reviews, the first quality-rereview Medium/Low pair, and the final
+scoped rereview Medium/Low pair against candidate `9b475d72`. The reviews
+remain read-only evidence; this implementer record does not claim independent
+re-review acceptance.
 
 ## Actual Scope
 
@@ -45,7 +47,7 @@ introduced.
 | Fact | Authoritative source |
 | --- | --- |
 | Delivery source | Current tenant/task/id/version `FinalMemorial` in `ready_for_decision`, canonical memorial hash, and validated `contract_review` |
-| Public packet | Sealed `ArtifactManifestV1` and its canonical hash |
+| Public packet | Sealed `ArtifactManifestV1`, including private relative TTL identity, and its canonical hash |
 | Mutable operation state | `artifact_delivery_items`, including `retry_count`, `last_failure`, and `EXPIRED` |
 | Download evidence | Append-only `artifact_delivery_audit_events` |
 | Stored bytes | Verified tenant-scoped artifact path, SHA-256, and byte size |
@@ -62,7 +64,9 @@ introduced.
 | D | All-identity downgrade preflight and directory fsync | `9261f852` |
 | Round2 E | Persisted relative-expiry idempotency and eight-way HTTP convergence | `3bbbaa5b` |
 | Round2 F | Strict non-finite JSON rejection and audited integrity failure | `fbf3f222` |
-| Packet | Correct type, scope, facts, acceptance, rollback, and status | `25a979b1` |
+| Round3 G | Seal relative expiry, bind row/seal, reject row-only TTL tampering | `32f17cb7` |
+| Round3 H | Require canonical source and sealed payload-hash match on every boundary | `70422b9f` |
+| Packet checkpoints | Correct type, scope, facts, acceptance, rollback, and status | `25a979b1`, `9b475d72`, and this update |
 
 ## Production Boundary
 
@@ -77,8 +81,8 @@ All Task 8 databases and storage roots are pytest-owned or under `/tmp`.
 
 | Check | Result |
 | --- | --- |
-| Complete nine-file W06R suite | `147 passed in 71.75s`, no skips |
-| Isolated migration suite | `10 passed in 53.37s` |
+| Complete nine-file W06R suite | `154 passed in 41.75s`, no skips |
+| Isolated migration suite | `10 passed in 24.74s` |
 | W06R scoped Ruff / backend compileall | PASS / PASS |
 | Backend/root doctors | `0 errors, 0 warning(s)` / `0 errors, 0 warning(s)` |
 | Authority v1 / v2 | `VALID_INACTIVE_GUARD` / `GO / APPROVED_WORK_PACKAGE` |
@@ -92,14 +96,17 @@ self-approve those reviews.
 
 Task 8 code remediation is exactly:
 
-1. `fbf3f222`
-2. `3bbbaa5b`
-3. `9261f852`
-4. `23ddf988`
-5. `c5947c00`
-6. `fd38d017`
+1. `70422b9f`
+2. `32f17cb7`
+3. `fbf3f222`
+4. `3bbbaa5b`
+5. `9261f852`
+6. `23ddf988`
+7. `c5947c00`
+8. `fd38d017`
 
 Revert those commits in that order only if Task 8 remediation itself must be
 removed, then revert the Packet evidence updates and synchronization commit
-`25a979b1`. No production database downgrade or storage deletion is part of
-rollback because none was deployed or migrated persistently.
+`9b475d72` and initial Packet commit `25a979b1`. No production database
+downgrade or storage deletion is part of rollback because none was deployed or
+migrated persistently.

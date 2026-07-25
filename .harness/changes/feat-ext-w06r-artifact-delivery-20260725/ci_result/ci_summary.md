@@ -13,7 +13,8 @@ requirements and quality reviews or claim independent GO.
 | Task 7 reviewed candidate | `61aa193c5b4b44d2f076a92762f382481e13021b` |
 | Task 7 requirements verdict | `REQUIREMENTS NO-GO`, 6 findings |
 | Task 7 quality verdict | `QUALITY: NO-GO`, 7 findings |
-| Task 8 verification code candidate | `fbf3f222` |
+| Round 3 design supplement | `221a98f5` |
+| Task 8 verification code candidate | `70422b9f` |
 | Candidate inventory | 23 tracked files |
 | Runtime boundary | `NOT_DEPLOYED` |
 
@@ -27,6 +28,8 @@ requirements and quality reviews or claim independent GO.
 | D: migration/fsync | `6 failed in 13.20s` | targeted `6 passed`; migration/storage `28 passed`; related `78 passed` | `9261f852` |
 | Round2 E: relative expiry identity | `5 failed in 11.86s` | targeted `5 passed`; expanded `91 passed` | `3bbbaa5b` |
 | Round2 F: strict JSON integrity | `6 failed, 2 passed in 3.11s` | targeted `8 passed`; expanded `108 passed` | `fbf3f222` |
+| Round3 G: sealed relative TTL | `4 failed in 4.43s` | targeted `4 passed`; expanded `112 passed` | `32f17cb7` |
+| Round3 H: required source integrity | `1 failed, 2 passed in 3.16s` | targeted `3 passed`; expanded `115 passed` | `70422b9f` |
 
 The full command output and finding-to-test-to-fix mapping are recorded in
 `.superpowers/sdd/2026-07-25-ext-w06r-artifact-delivery/task-8-report.md`.
@@ -51,6 +54,8 @@ That SDD path is intentionally ignored by Git and is not reviewer evidence.
 | Quality LOW-1: unbounded expiry | 0/86401/oversized HTTP 422 tests |
 | Quality rereview MEDIUM: regenerated absolute expiry breaks idempotency | Sequential and eight-way HTTP replay, changed-relative-TTL conflict, persisted TTL, migration/guard tests |
 | Quality rereview LOW: non-finite persisted JSON leaks success/500 | Manifest/source `NaN`/`Infinity` read/download 409 matrix, durable single-failure audit, strict canonical persistence matrix |
+| Final scoped rereview MEDIUM: mutable TTL row redefines replay identity | TTL in sealed manifest bytes, unified row/seal binding, GET/download/authentic and forged replay 409 tests |
+| Final scoped rereview LOW: NULL source bypasses verifier | NULL/malformed/hash-mismatch GET/download/replay 409 matrix and exactly-one durable FAILURE audit |
 
 ## Candidate Inventory
 
@@ -89,8 +94,8 @@ harness packages, while artifact delivery is backend runtime behavior.
 
 | Check | Actual result |
 | --- | --- |
-| Complete W06R suite | `147 passed in 71.75s`, no skips |
-| Isolated migration suite | `10 passed in 53.37s` |
+| Complete W06R suite | `154 passed in 41.75s`, no skips |
+| Isolated migration suite | `10 passed in 24.74s` |
 | W06R scoped Ruff | `All checks passed!` |
 | Full backend compileall | PASS |
 | Backend harness doctor | `0 errors, 0 warning(s)` |
@@ -105,7 +110,7 @@ Commands:
 ```bash
 cd backend
 /tmp/ext-w06r-task3-venv/bin/python -m pytest -q \
-  --basetemp=/tmp/ext-w06r-task8-round2-final-suite-fbf3f222 \
+  --basetemp=/tmp/ext-w06r-task8-round3-final-suite-70422b9f \
   tests/test_schema_authority.py \
   tests/test_artifact_manifest_v1.py \
   tests/test_artifact_delivery_migration.py \
@@ -117,7 +122,7 @@ cd backend
   tests/test_artifact_delivery_api.py
 
 /tmp/ext-w06r-task3-venv/bin/python -m pytest -q \
-  --basetemp=/tmp/ext-w06r-task8-round2-final-migration-fbf3f222 \
+  --basetemp=/tmp/ext-w06r-task8-round3-final-migration-70422b9f \
   tests/test_artifact_delivery_migration.py
 
 /tmp/ext-w06r-task3-venv/bin/ruff check \
@@ -158,7 +163,8 @@ git diff --check 64d7f935..HEAD
 
 ## Rollback
 
-Revert Task 8 commits `fbf3f222`, `3bbbaa5b`, `9261f852`, `23ddf988`,
-`c5947c00`, and `fd38d017` in that order, followed by the Packet evidence
-updates and synchronization commit `25a979b1`. No production database or
-storage rollback is part of this candidate.
+Revert Task 8 commits `70422b9f`, `32f17cb7`, `fbf3f222`, `3bbbaa5b`,
+`9261f852`, `23ddf988`, `c5947c00`, and `fd38d017` in that order, followed by
+the current Packet synchronization, prior evidence commit `9b475d72`, and
+initial Packet commit `25a979b1`. No production database or storage rollback
+is part of this candidate.

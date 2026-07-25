@@ -12,6 +12,8 @@
 - [x] Record Task 7 implementer evidence.
 - [x] Receive Task 7 requirements review (`6` findings) and quality review
   (`7` findings). Those reports remain read-only.
+- [x] Receive and preserve the final scoped rereview (`1` Medium, `1` Low)
+  and approved round 3 design supplement `221a98f5`.
 
 ## Task 8 Final Remediation
 
@@ -79,6 +81,31 @@
 - [x] Verify focused `8 passed` and expanded `108 passed`.
 - [x] Commit `fbf3f222`.
 
+### Fix Round 3: Sealed Relative TTL
+
+- [x] Observe `4 failed` across the manifest contract, direct service replay,
+  and real HTTP GET/download/authentic-retry/forged-retry boundaries.
+- [x] Add required `requested_expiry_seconds` to sealed
+  `ArtifactManifestV1` bytes and every fixture.
+- [x] Persist the row value from the seal, bind row/seal in the unified
+  verifier, and carry the original relative TTL into resume revisions.
+- [x] Keep relative TTL absent from the public HTTP projection.
+- [x] Verify focused `4 passed` and expanded `112 passed`.
+- [x] Commit `32f17cb7`.
+
+### Fix Round 3: Required Source Integrity
+
+- [x] Observe `1 failed, 2 passed`; the `NULL` source case returned
+  `200 / 200 / 409` and recorded download SUCCESS.
+- [x] Require non-null canonical strict `source_payload_json` whose SHA-256
+  matches sealed `payload_hash` in persistence and the unified verifier.
+- [x] Prove NULL, malformed JSON, and canonical hash mismatch all return
+  GET/download/replay `409`.
+- [x] Prove every failed download appends exactly one durable FAILURE and no
+  SUCCESS.
+- [x] Verify focused `3 passed` and expanded `115 passed`.
+- [x] Commit `70422b9f`.
+
 ### Packet And Closeout
 
 - [x] Replace the stale schema-test-only Packet scope with the actual 23-file
@@ -90,7 +117,7 @@
 - [ ] Request independent requirements and quality re-review. Implementer
   evidence cannot mark those reviews GO.
 
-Final implementer evidence: W06R `147 passed`, isolated migration `10 passed`,
+Final implementer evidence: W06R `154 passed`, isolated migration `10 passed`,
 scoped Ruff and compileall PASS, both doctors clean, v1
 `VALID_INACTIVE_GUARD`, v2 `GO / APPROVED_WORK_PACKAGE`, and strict
 closeout/baseline diff PASS. Status:
@@ -100,14 +127,16 @@ closeout/baseline diff PASS. Status:
 
 Task 8 implementation commits, newest first:
 
-1. `fbf3f222`
-2. `3bbbaa5b`
-3. `9261f852`
-4. `23ddf988`
-5. `c5947c00`
-6. `fd38d017`
+1. `70422b9f`
+2. `32f17cb7`
+3. `fbf3f222`
+4. `3bbbaa5b`
+5. `9261f852`
+6. `23ddf988`
+7. `c5947c00`
+8. `fd38d017`
 
 Revert Packet synchronization/evidence commits after those if remediation is
-removed; the synchronization checkpoint is `25a979b1`. Do not downgrade or
+removed; prior checkpoints are `9b475d72` and `25a979b1`. Do not downgrade or
 modify a persistent database and do not delete production storage; no such
 deployment occurred.

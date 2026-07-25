@@ -37,10 +37,10 @@ Packet records cross-line scope and verification only.
 
 - Manifest ID hashes tenant, task, memorial id/version, delivery formula, and
   delivery revision.
-- Create request identity also binds the persisted relative
-  `requested_expiry_seconds`. Identical key/payload/relative-TTL retries return
-  the original sealed packet; changing the relative TTL under the same key is
-  conflict.
+- Create request identity binds `requested_expiry_seconds` in both the sealed
+  manifest bytes and the database row. Identical key/payload/relative-TTL
+  retries return the original sealed packet; changing the relative TTL under
+  the same key is conflict.
 - The HTTP route passes relative TTL to the command. Only the no-winner create
   path generates a candidate absolute expiry; sequential and concurrent
   retries return the verified winner's original absolute expiry.
@@ -48,7 +48,9 @@ Packet records cross-line scope and verification only.
 - Resume retains each valid stored artifact's ID, path, hash, lineage, and
   origin row; a later manifest references that identity without copying it.
 - One verifier parses every persisted manifest read, recomputes the canonical
-  hash, binds sealed row fields, and validates mutable item projection.
+  hash, binds sealed row fields including relative TTL, requires non-null
+  canonical source bytes whose SHA-256 matches sealed `payload_hash`, and
+  validates mutable item projection.
 - Replay and resume read only the exact
   `storage_root/<tenant>/<artifact_id>` path.
 
@@ -63,11 +65,14 @@ Packet records cross-line scope and verification only.
   failure event under the requester tenant without owner identity disclosure.
 - `expiry_seconds` accepts only `1..86400`; out-of-range input returns 422.
 - API output excludes storage paths, source payload JSON, raw resume token
-  hashes, and idempotency hashes. Reused artifact download URLs remain
-  unambiguous because artifact identity is stable.
+  hashes, idempotency hashes, and requested relative TTL. Reused artifact
+  download URLs remain unambiguous because artifact identity is stable.
 - Persisted manifest/source JSON containing `NaN`, `Infinity`, or another
   non-finite constant fails read and download with 409. Download records
   exactly one durable failure audit rather than leaking a 500.
+- A W06R row whose source payload is `NULL`, malformed, noncanonical, or
+  hash-mismatched fails GET, download, replay, and resume as integrity conflict.
+  A failed download appends exactly one durable FAILURE and no SUCCESS.
 
 ### Persistence And Durability
 
@@ -94,7 +99,8 @@ Packet records cross-line scope and verification only.
   `backend/tests/artifact_delivery_support.py`.
 - Approved documents:
   `docs/superpowers/specs/2026-07-25-ext-w06r-artifact-delivery-design.md` and
-  `docs/superpowers/plans/2026-07-25-ext-w06r-artifact-delivery.md`.
+  `docs/superpowers/plans/2026-07-25-ext-w06r-artifact-delivery.md`, including
+  the sealed-TTL/required-source supplement approved in `221a98f5`.
 - Coordination: this Packet's four files.
 
 ## Acceptance Criteria
@@ -109,7 +115,7 @@ Packet records cross-line scope and verification only.
 - Independent re-review is required before integration acceptance.
 
 Implementer verification satisfies the executable criteria: W06R
-`147 passed`, isolated migration `10 passed`, scoped Ruff and compileall pass,
+`154 passed`, isolated migration `10 passed`, scoped Ruff and compileall pass,
 both doctors are clean, authority v1 is `VALID_INACTIVE_GUARD`, authority v2
 is `GO / APPROVED_WORK_PACKAGE`, and closeout/diff pass. Independent re-review
 remains pending.
@@ -123,8 +129,9 @@ remains pending.
 
 ## Rollback
 
-Revert Task 8 commits `fbf3f222`, `3bbbaa5b`, `9261f852`, `23ddf988`,
-`c5947c00`, and `fd38d017` in that order, followed by the Packet evidence
-updates and synchronization commit `25a979b1`. The complete pre-integration
-candidate boundary remains baseline `64d7f935..HEAD`. No production database
-or storage rollback is authorized or required.
+Revert Task 8 commits `70422b9f`, `32f17cb7`, `fbf3f222`, `3bbbaa5b`,
+`9261f852`, `23ddf988`, `c5947c00`, and `fd38d017` in that order, followed by
+the Packet evidence updates `9b475d72`, the current synchronization commit, and
+initial Packet commit `25a979b1`. The complete pre-integration candidate
+boundary remains baseline `64d7f935..HEAD`. No production database or storage
+rollback is authorized or required.
