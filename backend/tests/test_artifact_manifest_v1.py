@@ -76,6 +76,28 @@ def test_ready_manifest_seals_exact_pdf_docx_json_membership() -> None:
             ArtifactManifestV1(**_base(artifacts=artifacts))
 
 
+@pytest.mark.parametrize(
+    ("kind", "wrong_mime_type"),
+    [
+        ("PDF", "text/plain"),
+        ("DOCX", "application/pdf"),
+        ("JSON", "application/octet-stream"),
+    ],
+)
+def test_manifest_requires_canonical_mime_type_for_artifact_kind(
+    kind: str,
+    wrong_mime_type: str,
+) -> None:
+    from src.contracts.artifact_manifest import ArtifactManifestV1
+
+    artifacts = _base()["artifacts"]
+    target = next(item for item in artifacts if item["kind"] == kind)
+    target["mime_type"] = wrong_mime_type
+
+    with pytest.raises(ValueError, match="mime_type"):
+        ArtifactManifestV1(**_base(artifacts=artifacts))
+
+
 def test_requested_expiry_seconds_is_required_sealed_identity() -> None:
     from src.contracts.artifact_manifest import (
         ArtifactManifestV1,

@@ -107,6 +107,52 @@ def test_deliver_packet_stores_exact_three_formats(
     db.close()
 
 
+def test_renderer_with_wrong_mime_type_is_not_sealed_as_stored(
+    isolated_session_local,
+    tmp_path: Path,
+) -> None:
+    from dataclasses import replace
+
+    from src.artifacts.delivery import render_one_artifact
+    from src.artifacts.service import deliver_artifact_packet
+
+    db = isolated_session_local()
+    payload = contract_review_pack(task_id="task-wrong-renderer-mime")
+    seed_delivery_source(
+        db,
+        tenant_id=7,
+        task_id="task-wrong-renderer-mime",
+        final_memorial_id="memorial-wrong-renderer-mime",
+        final_memorial_version=1,
+        payload=payload,
+    )
+
+    def wrong_pdf_mime(**kwargs):
+        rendered = render_one_artifact(**kwargs)
+        if rendered.kind == "PDF":
+            return replace(rendered, mime_type="text/plain")
+        return rendered
+
+    packet = deliver_artifact_packet(
+        db,
+        storage_root=tmp_path / "artifact-storage",
+        tenant_id=7,
+        task_id="task-wrong-renderer-mime",
+        final_memorial_id="memorial-wrong-renderer-mime",
+        final_memorial_version=1,
+        payload=payload,
+        delivery_formula_version="w06-v1",
+        idempotency_key="wrong-renderer-mime",
+        requested_expiry_seconds=3600,
+        renderer=wrong_pdf_mime,
+    )
+
+    assert packet.manifest.overall_status == "PARTIAL"
+    assert packet.manifest.artifact("PDF").status == "UNAVAILABLE"
+    assert packet.manifest.artifact("PDF").incomplete_reason == "renderer_failed"
+    db.close()
+
+
 @pytest.mark.parametrize(
     ("source_case", "expected_exception_name"),
     [

@@ -17,6 +17,7 @@ import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 
 from src.artifacts.delivery import ArtifactRenderer, render_one_artifact
+from src.contracts.artifact_manifest import ARTIFACT_MIME_TYPES
 from src.db.models import (
     ArtifactDeliveryAuditEvent,
     ArtifactDeliveryItem,
@@ -87,11 +88,7 @@ class VerifiedDeliveryArtifact:
 
 _DELIVERY_KINDS = ("PDF", "DOCX", "JSON")
 _EMPTY_CONTENT_HASH = hashlib.sha256(b"").hexdigest()
-_MIME_TYPES = {
-    "PDF": "application/pdf",
-    "DOCX": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "JSON": "application/json",
-}
+_MIME_TYPES = ARTIFACT_MIME_TYPES
 _UNRESOLVED_DOWNLOAD_MANIFEST_ID = "unresolved-download"
 
 
@@ -399,6 +396,8 @@ def _attempt_artifact(
         )
         if rendered.kind != kind:
             raise ValueError("renderer returned the wrong artifact kind")
+        if rendered.mime_type != _MIME_TYPES[kind]:
+            raise ValueError("renderer returned the wrong artifact MIME type")
         if (
             rendered.byte_size != len(rendered.content)
             or rendered.content_hash != _sha256_bytes(rendered.content)
@@ -1824,6 +1823,9 @@ def read_verified_delivery_artifact(
             expected_hash=selected.content_hash,
             expected_size=selected.byte_size,
         )
+    except (DeliveryNotFound, DeliveryForbidden):
+        _commit_unresolved_download_audit(db, tenant_id=tenant_id)
+        raise
     except (DeliveryConflict, DeliveryExpired, DeliveryIntegrityError) as exc:
         reason = (
             "expired"

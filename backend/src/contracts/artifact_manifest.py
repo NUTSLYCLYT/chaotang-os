@@ -17,6 +17,11 @@ _REQUIRED_ARTIFACT_KINDS = {"PDF", "DOCX", "JSON"}
 ArtifactKind = Literal["PDF", "DOCX", "JSON"]
 ArtifactItemStatus = Literal["PENDING", "STORED", "UNAVAILABLE"]
 ManifestStatus = Literal["READY", "PARTIAL", "UNDER_REVIEW"]
+ARTIFACT_MIME_TYPES = {
+    "PDF": "application/pdf",
+    "DOCX": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "JSON": "application/json",
+}
 
 
 def _require_finite_json_numbers(value: Any) -> None:
@@ -61,6 +66,8 @@ class ArtifactManifestItemV1(BaseModel):
 
     @model_validator(mode="after")
     def validate_unavailable_reason(self) -> "ArtifactManifestItemV1":
+        if self.mime_type != ARTIFACT_MIME_TYPES[self.kind]:
+            raise ValueError("mime_type must match artifact kind")
         if self.status == "UNAVAILABLE" and not self.incomplete_reason:
             raise ValueError("UNAVAILABLE artifact requires incomplete_reason")
         return self

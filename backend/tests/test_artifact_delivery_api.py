@@ -533,6 +533,57 @@ def test_unauthorized_and_unknown_downloads_append_generic_requester_audit(
         db.close()
 
 
+def test_orphaned_artifact_download_appends_generic_failure_audit(
+    artifact_api,
+) -> None:
+    from src.db.models import ArtifactDeliveryAuditEvent, ArtifactDeliveryItem
+
+    client, session_factory, _ = artifact_api
+    manifest = _create_ready_delivery(
+        client,
+        session_factory,
+        suffix="orphaned-manifest-audit",
+    )
+    artifact_id = manifest["artifacts"][0]["artifact_id"]
+
+    db = session_factory()
+    try:
+        item = db.query(ArtifactDeliveryItem).filter_by(id=artifact_id).one()
+        item.manifest_id = "missing-manifest"
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.get(f"/api/artifacts/{artifact_id}/download")
+
+    assert response.status_code == 404
+    db = session_factory()
+    try:
+        events = (
+            db.query(ArtifactDeliveryAuditEvent)
+            .filter_by(
+                tenant_id=7,
+                event_type="artifact.download",
+                outcome="FAILURE",
+            )
+            .all()
+        )
+        assert len(events) == 1
+        event = events[0]
+        assert event.artifact_id is None
+        assert json.loads(event.detail_json) == {
+            "reason": "not_found_or_forbidden"
+        }
+        evidence = "|".join(
+            (event.manifest_id, event.artifact_id or "", event.detail_json)
+        )
+        assert artifact_id not in evidence
+        assert manifest["manifest_id"] not in evidence
+        assert "missing-manifest" not in evidence
+    finally:
+        db.close()
+
+
 def test_missing_tenant_is_403(artifact_api) -> None:
     client, _, _ = artifact_api
     _set_api_user(tenant_id=None)

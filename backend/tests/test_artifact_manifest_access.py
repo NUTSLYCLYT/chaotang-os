@@ -254,7 +254,7 @@ def test_manifest_read_rejects_canonical_hash_mismatch(
 
     persisted = db.query(ArtifactManifest).filter_by(id=row.id).one()
     forged = json.loads(persisted.manifest_json)
-    forged["artifacts"][0]["mime_type"] = "text/plain"
+    forged["task_id"] = "forged-task"
     persisted.manifest_json = json.dumps(
         forged,
         ensure_ascii=False,
