@@ -88,7 +88,59 @@ def upgrade() -> None:
     )
 
 
+def _preflight_downgrade() -> None:
+    bind = op.get_bind()
+    duplicate_lineage = bind.execute(
+        sa.text(
+            """
+            SELECT
+                tenant_id,
+                task_id,
+                final_memorial_id,
+                final_memorial_version,
+                COUNT(*) AS revision_count
+            FROM artifact_manifests
+            WHERE tenant_id IS NOT NULL
+            GROUP BY
+                tenant_id,
+                task_id,
+                final_memorial_id,
+                final_memorial_version
+            HAVING COUNT(*) > 1
+            LIMIT 1
+            """
+        )
+    ).mappings().first()
+    if duplicate_lineage is not None:
+        raise RuntimeError(
+            "refusing downgrade 025 to 024: multiple delivery revisions "
+            "cannot fit the revision 024 lineage constraint"
+        )
+
+    fact_counts = {
+        table_name: bind.execute(
+            sa.text(f"SELECT COUNT(*) FROM {table_name}")
+        ).scalar_one()
+        for table_name in (
+            "artifact_delivery_items",
+            "artifact_delivery_audit_events",
+        )
+    }
+    populated_tables = [
+        f"{table_name}={row_count}"
+        for table_name, row_count in fact_counts.items()
+        if row_count
+    ]
+    if populated_tables:
+        raise RuntimeError(
+            "refusing downgrade 025 to 024: persisted delivery facts would "
+            f"be deleted ({', '.join(populated_tables)})"
+        )
+
+
 def downgrade() -> None:
+    _preflight_downgrade()
+
     op.drop_table("artifact_delivery_audit_events")
     op.drop_table("artifact_delivery_items")
 
