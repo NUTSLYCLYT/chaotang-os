@@ -27,13 +27,14 @@
 - Create: `.harness/changes/fix-ext-g0-authority-recovery-20260725/summary.md`
 - Create: `.harness/changes/fix-ext-g0-authority-recovery-20260725/request_analysis/spec.md`
 - Create: `.harness/changes/fix-ext-g0-authority-recovery-20260725/request_analysis/tasks.md`
-- Create: `.harness/changes/fix-ext-g0-authority-recovery-20260725/owner_approval/exact-h-approval.md`
+- Create: `.harness/changes/fix-ext-g0-authority-recovery-20260725/owner_scope/recovery-boundary.md`
 - Create: `.harness/changes/fix-ext-g0-authority-recovery-20260725/ci_result/ci_summary.md`
 - Modify: `AGENTS.md`
 - Modify: `.harness/agents/project-owner.md`
 - Modify: `.harness/rules/project-workflow.md`
 - Modify: `.harness/wiki/execution-authority.md`
 - Modify: `.harness/wiki/execution-authority-v2.md`
+- Modify: `.harness/wiki/harness-inventory.md`
 - Modify: `.harness/manifest/execution-authority.v1.json`
 - Test: `scripts/execution-authority.nodetest.mjs`
 - Test: `scripts/execution-authority-v2.nodetest.mjs`
@@ -43,6 +44,7 @@
 - Produces: one documented root authorization procedure in which v1 `--check` verifies guard integrity and v2 `--authorize --work-package` is the only product execution decision.
 
 - [ ] Record the exact recovery base, explicit W06 recovery scope, exclusions, owner, rollback, and `NOT_DEPLOYED` boundary in the new change record.
+- [ ] Keep the Task 1 scope/non-approval record outside every `owner_approval/` path so v2 can never consume it as positive approval evidence.
 - [ ] Update the three governed root entry documents so none instructs workers to treat v1 `--authorize` as the product authorization decision.
 - [ ] Keep every v1 activation field null and repin only the three governed-document SHA-256 values changed by this task.
 - [ ] Keep v2 quiescent in the candidate: `activeWorkPackage = null`; do not create a premature GO.
@@ -65,6 +67,7 @@ git diff --check
 
 **Files:**
 - Create: `.harness/changes/fix-ext-g0-authority-recovery-20260725/claude_code_review/exact-h-final.md`
+- Create: `.harness/changes/fix-ext-g0-authority-recovery-20260725/owner_approval/exact-h-approval.md`
 - Modify: `.harness/manifest/execution-authority.v2.json`
 - Modify: `.harness/changes/fix-ext-g0-authority-recovery-20260725/summary.md`
 - Modify: `.harness/changes/fix-ext-g0-authority-recovery-20260725/request_analysis/tasks.md`
