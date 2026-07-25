@@ -23,12 +23,13 @@ update, database migration, or listener `3050` operation occurred.
 
 | Command | Exit | Result |
 | --- | ---: | --- |
-| `node --test scripts/execution-authority-v2.nodetest.mjs` | 0 | `46/46` passing, including temporary-root activation-intent, reviewer-identity, allowed-path, and required-command cases |
+| `node --test scripts/execution-authority-v2.nodetest.mjs` | 0 | `52/52` passing, including temporary-root activation-intent, reviewer-identity, exact review-package digest/path/header/path-set, allowlist, and required-command cases |
+| `sha256sum review_inputs/review-7df6e4e1..e8be2ca9.diff` | 0 | `0fdf3da62b977d6935b65c68e5509ee6b52eb98d7ee80a142341625bd4d3f885` |
 
-The tracked v2 manifest is intentionally unchanged. The new owner approval and activation intent
-are review inputs only; `claude_code_review/exact-h-final.md` has not been created. Final Task 2
-activation is prohibited until a read-only reviewer produces that exact evidence and an authorized
-operator atomically updates the tracked manifest.
+The tracked v2 manifest is intentionally unchanged. The owner approval, activation intent, and
+exact QA-reviewed package are review inputs only; `claude_code_review/exact-h-final.md` has not
+been created. Final Task 2 activation is prohibited until a read-only reviewer produces that exact
+evidence and an authorized operator atomically updates the tracked manifest.
 
 ## Review handoff
 

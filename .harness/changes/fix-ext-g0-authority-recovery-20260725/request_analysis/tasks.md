@@ -27,5 +27,11 @@
   tests for old-package review reuse, negative owner decision, owner self-review, candidate/tree
   mismatch, owner digest mismatch, nonexistent/fabricated/mismatched intent, arbitrary review
   metadata, and review verdict mismatch.
+- [x] Preserve QA's exact reviewed cumulative package under `review_inputs/`, bind its actual
+  SHA-256 and safe path into review evidence and the activation intent, and require active loading
+  to parse every diff header and match the complete changed-path set exactly.
+- [x] Add temporary-root fail-closed coverage for partial/extra changed paths, fabricated or
+  missing package bytes, unsafe/duplicate diff headers, and false verification-command metadata;
+  permit only the two QA-identified reviewed governance paths in addition to existing Task 2 paths.
 - [x] Stop at `REVIEW_REQUEST_READY / NOT_ACTIVE / NOT_DEPLOYED`; no W06 product implementation,
   activation, merge, push, deployment, migration, or listener operation occurred.

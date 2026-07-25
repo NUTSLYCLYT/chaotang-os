@@ -63,15 +63,19 @@ const REQUIRED_W06_EXCLUSIONS = Object.freeze([
   'NO_PRODUCTION_CLAIM',
 ]);
 const RECOVERY_CHANGE_ROOT = '.harness/changes/fix-ext-g0-authority-recovery-20260725';
+const REVIEW_PACKAGE_PATH =
+  `${RECOVERY_CHANGE_ROOT}/review_inputs/review-7df6e4e1..e8be2ca9.diff`;
 const ALLOWED_REVIEW_CHANGED_PATHS = new Set([
   '.harness/manifest/execution-authority.v2.json',
   `${RECOVERY_CHANGE_ROOT}/ci_result/ci_summary.md`,
   `${RECOVERY_CHANGE_ROOT}/claude_code_review/exact-h-final.md`,
   `${RECOVERY_CHANGE_ROOT}/claude_code_review/review-request.md`,
   `${RECOVERY_CHANGE_ROOT}/owner_approval/exact-h-approval.md`,
+  `${RECOVERY_CHANGE_ROOT}/owner_scope/recovery-boundary.md`,
   `${RECOVERY_CHANGE_ROOT}/activation_intent/r0-w06-activation-intent.json`,
   `${RECOVERY_CHANGE_ROOT}/request_analysis/tasks.md`,
   `${RECOVERY_CHANGE_ROOT}/summary.md`,
+  'docs/superpowers/plans/2026-07-25-ext-recovery-program.md',
   'scripts/execution-authority-v2.nodetest.mjs',
   'scripts/execution-authority.nodetest.mjs',
   'scripts/lib/execution-authority-v2.mjs',
@@ -225,6 +229,31 @@ export function parseExecutionAuthorityV2Evidence(source, label = 'authority evi
   return parseJsonObjectWithUniqueKeys(matches[0][1], `${label} JSON evidence`);
 }
 
+export function parseExecutionAuthorityV2ReviewPackage(source, label = 'review package') {
+  if (typeof source !== 'string') throw new TypeError(`${label}: source must be text`);
+  const paths = [];
+  const seen = new Set();
+  for (const line of source.split(/\r?\n/u)) {
+    if (!line.startsWith('diff --git ')) continue;
+    const header = /^diff --git a\/([^\t ]+) b\/([^\t ]+)$/u.exec(line);
+    if (header === null) throw new SyntaxError(`${label}: invalid diff --git header`);
+    const [, leftPath, rightPath] = header;
+    if (leftPath !== rightPath) {
+      throw new SyntaxError(`${label}: diff header paths must match`);
+    }
+    if (!safeRepositoryPath(leftPath)) {
+      throw new SyntaxError(`${label}: unsafe diff path: ${leftPath}`);
+    }
+    if (seen.has(leftPath)) {
+      throw new SyntaxError(`${label}: duplicate diff path: ${leftPath}`);
+    }
+    seen.add(leftPath);
+    paths.push(leftPath);
+  }
+  if (paths.length === 0) throw new SyntaxError(`${label}: must contain at least one diff --git header`);
+  return paths.sort();
+}
+
 function evidenceHasExactKeys(evidence, expected, label, errors) {
   if (!exactKeys(evidence, expected)) {
     errors.push(`${label} has missing or unsupported fields`);
@@ -266,6 +295,8 @@ export function validateExecutionAuthorityV2ActivationIntent(manifest, activatio
       'schemaVersion',
       'kind',
       'trackedManifestPath',
+      'reviewPackagePath',
+      'reviewPackageSha256',
       'effectiveBase',
       'approvalEvidence',
       'activeWorkPackage',
@@ -282,6 +313,12 @@ export function validateExecutionAuthorityV2ActivationIntent(manifest, activatio
   }
   if (activationIntent.trackedManifestPath !== EXECUTION_AUTHORITY_V2_PATH) {
     errors.push('activation intent trackedManifestPath must target execution-authority.v2');
+  }
+  if (activationIntent.reviewPackagePath !== REVIEW_PACKAGE_PATH) {
+    errors.push('activation intent reviewPackagePath must target the pinned W06 review package');
+  }
+  if (!HEX64_PATTERN.test(activationIntent.reviewPackageSha256 ?? '')) {
+    errors.push('activation intent reviewPackageSha256 must be a sha256 hex digest');
   }
   if (
     !exactKeys(activationIntent.effectiveBase, ['ref', 'sha']) ||
@@ -374,6 +411,7 @@ export function validateExecutionAuthorityV2Evidence(
       'ownerApprovalSha256',
       'activationIntentPath',
       'activationIntentSha256',
+      'reviewPackagePath',
       'diffSha256',
       'changedPaths',
       'commands',
@@ -434,6 +472,12 @@ export function validateExecutionAuthorityV2Evidence(
   }
   if (reviewEvidence.activationIntentSha256 !== ownerEvidence.activationIntentSha256) {
     errors.push('review activationIntentSha256 must match owner activationIntentSha256');
+  }
+  if (reviewEvidence.reviewPackagePath !== REVIEW_PACKAGE_PATH) {
+    errors.push('review reviewPackagePath must target the pinned W06 review package');
+  }
+  if (!safeRepositoryPath(reviewEvidence.reviewPackagePath)) {
+    errors.push('review reviewPackagePath must be a safe repository path');
   }
   if (!HEX64_PATTERN.test(reviewEvidence.diffSha256 ?? '')) {
     errors.push('review diffSha256 must be a sha256 hex digest');
@@ -907,6 +951,7 @@ export async function loadExecutionAuthorityV2(root) {
     let ownerEvidence = null;
     let reviewEvidence = null;
     let activationIntent = null;
+    let reviewPackagePaths = null;
     if (ownerApprovalSource !== null) {
       try {
         ownerEvidence = parseExecutionAuthorityV2Evidence(
@@ -943,6 +988,33 @@ export async function loadExecutionAuthorityV2(root) {
         ),
       );
     }
+    if (reviewEvidence !== null) {
+      const reviewPackageSource = await readPinnedAuthorityFile(
+        root,
+        reviewEvidence.reviewPackagePath,
+        errors,
+      );
+      if (reviewPackageSource === null) {
+        errors.push('active execution authority requires a readable review package');
+      } else {
+        if (sha256Hex(reviewPackageSource) !== reviewEvidence.diffSha256) {
+          errors.push('reviewPackagePath: digest mismatch');
+        }
+        try {
+          reviewPackagePaths = parseExecutionAuthorityV2ReviewPackage(reviewPackageSource);
+        } catch (cause) {
+          errors.push(cause.message);
+        }
+      }
+      if (reviewPackagePaths === null) {
+        errors.push('active execution authority requires a parseable review package');
+      } else if (
+        !Array.isArray(reviewEvidence.changedPaths) ||
+        !sameArray([...reviewEvidence.changedPaths].sort(), reviewPackagePaths)
+      ) {
+        errors.push('review changedPaths must exactly match the review package path set');
+      }
+    }
     if (ownerEvidence !== null) {
       const activationIntentSource = await readPinnedAuthorityFile(
         root,
@@ -969,6 +1041,14 @@ export async function loadExecutionAuthorityV2(root) {
       errors.push('active execution authority requires parseable activation intent JSON');
     } else {
       errors.push(...validateExecutionAuthorityV2ActivationIntent(manifest, activationIntent));
+      if (reviewEvidence !== null) {
+        if (activationIntent.reviewPackagePath !== reviewEvidence.reviewPackagePath) {
+          errors.push('activation intent reviewPackagePath must match review reviewPackagePath');
+        }
+        if (activationIntent.reviewPackageSha256 !== reviewEvidence.diffSha256) {
+          errors.push('activation intent reviewPackageSha256 must match review diffSha256');
+        }
+      }
     }
   }
 

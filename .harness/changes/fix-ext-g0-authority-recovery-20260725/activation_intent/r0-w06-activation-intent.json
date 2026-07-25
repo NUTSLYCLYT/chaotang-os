@@ -2,6 +2,8 @@
   "schemaVersion": "execution-authority.v2.activation-intent.v1",
   "kind": "activation-intent",
   "trackedManifestPath": ".harness/manifest/execution-authority.v2.json",
+  "reviewPackagePath": ".harness/changes/fix-ext-g0-authority-recovery-20260725/review_inputs/review-7df6e4e1..e8be2ca9.diff",
+  "reviewPackageSha256": "0fdf3da62b977d6935b65c68e5509ee6b52eb98d7ee80a142341625bd4d3f885",
   "effectiveBase": {
     "ref": "origin/feature-chaotang-ext",
     "sha": "8feae838f09ad5202b21332d4280b989ab776bd7"

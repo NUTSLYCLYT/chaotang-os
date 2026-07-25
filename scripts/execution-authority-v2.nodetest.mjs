@@ -14,6 +14,7 @@ import {
   executionAuthorityV2CommandResult,
   loadExecutionAuthorityV2,
   parseExecutionAuthorityV2Evidence,
+  parseExecutionAuthorityV2ReviewPackage,
   parseJsonObjectWithUniqueKeys,
   readPinnedAuthorityFile,
   resolveExecutionAuthorityV2,
@@ -159,6 +160,9 @@ function w06EvidenceDocuments() {
     schemaVersion: 'execution-authority.v2.activation-intent.v1',
     kind: 'activation-intent',
     trackedManifestPath: '.harness/manifest/execution-authority.v2.json',
+    reviewPackagePath:
+      '.harness/changes/fix-ext-g0-authority-recovery-20260725/review_inputs/review-7df6e4e1..e8be2ca9.diff',
+    reviewPackageSha256: 'd'.repeat(64),
     effectiveBase: manifest.effectiveBase,
     approvalEvidence: {
       ownerApprovalPath: manifest.approvalEvidence.ownerApprovalPath,
@@ -186,6 +190,7 @@ function w06EvidenceDocuments() {
     ownerApprovalSha256: manifest.approvalEvidence.ownerApprovalSha256,
     activationIntentPath: owner.activationIntentPath,
     activationIntentSha256: owner.activationIntentSha256,
+    reviewPackagePath: activationIntent.reviewPackagePath,
     diffSha256: 'd'.repeat(64),
     changedPaths: [
       '.harness/changes/fix-ext-g0-authority-recovery-20260725/claude_code_review/exact-h-final.md',
@@ -206,6 +211,15 @@ function w06EvidenceDocuments() {
   return { manifest, owner, activationIntent, review };
 }
 
+function reviewPackageForPaths(paths) {
+  return paths
+    .map(
+      (path) =>
+        `diff --git a/${path} b/${path}\n--- a/${path}\n+++ b/${path}\n@@ -0,0 +1 @@\n+review\n`,
+    )
+    .join('');
+}
+
 async function writeRepositoryFile(temporaryRoot, path, source) {
   await mkdir(join(temporaryRoot, dirname(path)), { recursive: true });
   await writeFile(join(temporaryRoot, path), source, 'utf8');
@@ -217,12 +231,18 @@ async function createActiveAuthorityFixture({
   mutateReview,
   writeIntent = true,
   activationIntentDigest,
+  reviewPackageSource,
+  reviewPackageDigest,
+  writeReviewPackage = true,
 } = {}) {
   const temporaryRoot = await mkdtemp(join(tmpdir(), 'chaotang-v2-active-'));
   const fixture = w06EvidenceDocuments();
   const owner = structuredClone(fixture.owner);
   const review = structuredClone(fixture.review);
   const intent = structuredClone(fixture.activationIntent);
+  const packageSource = reviewPackageSource ?? reviewPackageForPaths(review.changedPaths);
+  intent.reviewPackageSha256 = sha256Hex(packageSource);
+  review.diffSha256 = reviewPackageDigest ?? sha256Hex(packageSource);
   mutateIntent?.(intent);
   const intentSource = `${JSON.stringify(intent, null, 2)}\n`;
   owner.activationIntentSha256 = activationIntentDigest ?? sha256Hex(intentSource);
@@ -256,6 +276,9 @@ async function createActiveAuthorityFixture({
   await writeRepositoryFile(temporaryRoot, manifest.approvalEvidence.reviewPath, reviewSource);
   if (writeIntent) {
     await writeRepositoryFile(temporaryRoot, fixture.owner.activationIntentPath, intentSource);
+  }
+  if (writeReviewPackage) {
+    await writeRepositoryFile(temporaryRoot, fixture.review.reviewPackagePath, packageSource);
   }
   return { temporaryRoot, manifest };
 }
@@ -358,7 +381,53 @@ for (const {
     expectedError: 'review changedPaths must stay within the authority review allowlist',
   },
   {
-    name: 'incomplete review verification commands',
+    name: 'partial review changed paths',
+    options: {
+      mutateReview: (review) => {
+        review.changedPaths = ['scripts/lib/execution-authority-v2.mjs'];
+      },
+    },
+    expectedError: 'review changedPaths must exactly match the review package path set',
+  },
+  {
+    name: 'extra review changed paths',
+    options: {
+      mutateReview: (review) => {
+        review.changedPaths.push('scripts/execution-authority.nodetest.mjs');
+      },
+    },
+    expectedError: 'review changedPaths must exactly match the review package path set',
+  },
+  {
+    name: 'fabricated review package digest',
+    options: { reviewPackageDigest: 'f'.repeat(64) },
+    expectedError: 'reviewPackagePath: digest mismatch',
+  },
+  {
+    name: 'missing review package',
+    options: { writeReviewPackage: false },
+    expectedError: 'active execution authority requires a readable review package',
+  },
+  {
+    name: 'unsafe review package diff header',
+    options: {
+      reviewPackageSource:
+        'diff --git a/../outside b/../outside\n--- a/../outside\n+++ b/../outside\n',
+    },
+    expectedError: 'review package: unsafe diff path',
+  },
+  {
+    name: 'duplicate review package diff header',
+    options: {
+      reviewPackageSource: reviewPackageForPaths([
+        'scripts/lib/execution-authority-v2.mjs',
+        'scripts/lib/execution-authority-v2.mjs',
+      ]),
+    },
+    expectedError: 'review package: duplicate diff path',
+  },
+  {
+    name: 'false review verification command metadata',
     options: { mutateReview: (review) => { review.commands = ['false']; } },
     expectedError: 'review commands must exactly match the required authority verification commands',
   },
@@ -843,6 +912,11 @@ test('W06 review request owner approval is strictly machine-readable and binds t
   );
   const activationIntentBytes = await readFile(activationIntentPath, 'utf8');
   const activationIntent = parseJsonObjectWithUniqueKeys(activationIntentBytes, activationIntentPath);
+  const reviewPackagePath = join(
+    root,
+    '.harness/changes/fix-ext-g0-authority-recovery-20260725/review_inputs/review-7df6e4e1..e8be2ca9.diff',
+  );
+  const reviewPackageBytes = await readFile(reviewPackagePath, 'utf8');
 
   assert.equal(evidence.decision, 'APPROVED');
   assert.equal(evidence.workPackage, 'R0-W06');
@@ -850,6 +924,28 @@ test('W06 review request owner approval is strictly machine-readable and binds t
   assert.equal(evidence.tree, '9d63f98041e5e13174dbba4c0b9d27eef1471bf9');
   assert.equal(evidence.activationIntentSha256, sha256Hex(activationIntentBytes));
   assert.equal(activationIntent.kind, 'activation-intent');
+  assert.equal(
+    activationIntent.reviewPackagePath,
+    '.harness/changes/fix-ext-g0-authority-recovery-20260725/review_inputs/review-7df6e4e1..e8be2ca9.diff',
+  );
+  assert.equal(activationIntent.reviewPackageSha256, sha256Hex(reviewPackageBytes));
+  assert.equal(
+    activationIntent.reviewPackageSha256,
+    '0fdf3da62b977d6935b65c68e5509ee6b52eb98d7ee80a142341625bd4d3f885',
+  );
+  assert.deepEqual(parseExecutionAuthorityV2ReviewPackage(reviewPackageBytes), [
+    '.harness/changes/fix-ext-g0-authority-recovery-20260725/activation_intent/r0-w06-activation-intent.json',
+    '.harness/changes/fix-ext-g0-authority-recovery-20260725/ci_result/ci_summary.md',
+    '.harness/changes/fix-ext-g0-authority-recovery-20260725/claude_code_review/review-request.md',
+    '.harness/changes/fix-ext-g0-authority-recovery-20260725/owner_approval/exact-h-approval.md',
+    '.harness/changes/fix-ext-g0-authority-recovery-20260725/owner_scope/recovery-boundary.md',
+    '.harness/changes/fix-ext-g0-authority-recovery-20260725/request_analysis/tasks.md',
+    '.harness/changes/fix-ext-g0-authority-recovery-20260725/summary.md',
+    'docs/superpowers/plans/2026-07-25-ext-recovery-program.md',
+    'scripts/execution-authority-v2.nodetest.mjs',
+    'scripts/execution-authority.nodetest.mjs',
+    'scripts/lib/execution-authority-v2.mjs',
+  ]);
   assert.deepEqual(activationIntent.effectiveBase, evidence.effectiveBase);
   assert.deepEqual(activationIntent.approvalEvidence.approvedScope, ['R0-W06']);
   assert.equal(activationIntent.activeWorkPackage, 'R0-W06');

@@ -54,12 +54,15 @@ authorize deployment.
   intent digest.
 - Exact non-authorizing activation intent:
   `activation_intent/r0-w06-activation-intent.json`. Its strict closed JSON shape records the only
-  permitted W06 ledger transition and evidence paths, but it is neither tracked v2 manifest bytes
-  nor an authorization.
+  permitted W06 ledger transition, evidence paths, and the exact pinned review package
+  `review_inputs/review-7df6e4e1..e8be2ca9.diff` with SHA-256
+  `0fdf3da62b977d6935b65c68e5509ee6b52eb98d7ee80a142341625bd4d3f885`; it is neither tracked v2
+  manifest bytes nor an authorization.
 - Read-only handoff: `claude_code_review/review-request.md`. `exact-h-final.md` intentionally does
   not exist; the independent reviewer alone must create it after checking the exact evidence.
 - The v2 loader now requires uniquely marked, duplicate-key-free JSON evidence, a pinned activation
-  intent whose actual SHA-256 and semantics match an active manifest, and an independent reviewer
-  exactly equal to amendment governance's `Claude Code` assignment and different from the owner.
-  Current W05 closeout remains quiescent and therefore preserves `STOP / NO_ACTIVE_WORK_PACKAGE`
-  for W06.
+  intent whose actual SHA-256 and semantics match an active manifest, a pinned review package whose
+  actual SHA-256 and parsed `diff --git` paths exactly match review evidence, and an independent
+  reviewer exactly equal to amendment governance's `Claude Code` assignment and different from the
+  owner. Current W05 closeout remains quiescent and therefore preserves
+  `STOP / NO_ACTIVE_WORK_PACKAGE` for W06.

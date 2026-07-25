@@ -7,6 +7,11 @@ gates. This approval records only the R0-W06 recovery entry point below. It does
 the tracked v2 manifest or authorize implementation until an independent read-only review is stored
 and the activation intent is independently reviewed and atomically applied.
 
+The reviewed authority package is fixed at
+`review_inputs/review-7df6e4e1..e8be2ca9.diff` with SHA-256
+`0fdf3da62b977d6935b65c68e5509ee6b52eb98d7ee80a142341625bd4d3f885`; the activation intent
+binds that package as a non-authorizing review input.
+
 ## Approved scope
 
 - One work package only: `R0-W06` Artifact Delivery Recovery.
@@ -49,7 +54,7 @@ and the activation intent is independently reviewed and atomically applied.
     "NO_PRODUCTION_CLAIM"
   ],
   "activationIntentPath": ".harness/changes/fix-ext-g0-authority-recovery-20260725/activation_intent/r0-w06-activation-intent.json",
-  "activationIntentSha256": "f8b09ca694ba049420ae3f7572515563e9d5410a0c78819e989b6b31711dd614"
+  "activationIntentSha256": "1608ad619c20207e859a8e0e0dd513dbf294e991930ba1a2f99195e31641e652"
 }
 ```
 <!-- execution-authority-v2-evidence:end -->
