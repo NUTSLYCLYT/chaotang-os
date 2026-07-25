@@ -20,6 +20,8 @@ from src.db.models import (
     ArtifactDeliveryAuditEvent,
     ArtifactDeliveryItem,
     ArtifactManifest,
+    DecisionTask,
+    FinalMemorial,
 )
 
 if TYPE_CHECKING:
@@ -143,6 +145,79 @@ def _validate_source_payload_json(
             "delivery source payload does not match payload hash"
         )
     return payload
+
+
+def _resolve_delivery_source(
+    db,
+    *,
+    tenant_id: int,
+    task_id: str,
+    final_memorial_id: str,
+    final_memorial_version: int,
+    supplied_payload: dict[str, Any],
+) -> dict[str, Any]:
+    from src.contracts.contract_review_pack import ContractReviewPackV1
+
+    task = (
+        db.query(DecisionTask)
+        .filter_by(id=task_id, tenant_id=tenant_id)
+        .one_or_none()
+    )
+    if task is None:
+        raise DeliveryNotFound("delivery task not found")
+
+    memorial = (
+        db.query(FinalMemorial)
+        .filter_by(
+            id=final_memorial_id,
+            tenant_id=tenant_id,
+            task_id=task_id,
+            version=final_memorial_version,
+        )
+        .one_or_none()
+    )
+    if memorial is None:
+        raise DeliveryNotFound("final memorial not found")
+    if not memorial.is_current:
+        raise DeliveryConflict("final memorial is not current")
+    if memorial.status != "ready_for_decision":
+        raise DeliveryConflict("final memorial is not ready for decision")
+
+    try:
+        memorial_payload = json.loads(memorial.memorial_json)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise DeliveryIntegrityError("final memorial payload is invalid") from exc
+    if not isinstance(memorial_payload, dict):
+        raise DeliveryIntegrityError("final memorial payload is invalid")
+    canonical_memorial_json = _canonical_source_payload_json(memorial_payload)
+    memorial_hash = _sha256_text(canonical_memorial_json)
+    if (
+        not isinstance(memorial.content_hash, str)
+        or not hmac.compare_digest(memorial_hash, memorial.content_hash)
+    ):
+        raise DeliveryIntegrityError("final memorial hash does not match content")
+
+    try:
+        source_pack = ContractReviewPackV1.model_validate(
+            memorial_payload.get("contract_review")
+        )
+    except (TypeError, ValueError) as exc:
+        raise DeliveryIntegrityError(
+            "final memorial contract review source is invalid"
+        ) from exc
+    try:
+        supplied_pack = ContractReviewPackV1.model_validate(supplied_payload)
+    except (TypeError, ValueError) as exc:
+        raise DeliveryConflict("supplied contract review pack is invalid") from exc
+    if source_pack.task_id != task_id:
+        raise DeliveryIntegrityError(
+            "final memorial contract review task does not match lineage"
+        )
+    if source_pack != supplied_pack:
+        raise DeliveryConflict(
+            "supplied contract review pack does not match final memorial"
+        )
+    return source_pack.model_dump(mode="json")
 
 
 def _manifest_id(*, tenant_id: int, idempotency_key_hash: str) -> str:
@@ -595,6 +670,14 @@ def _deliver_artifact_packet(
 ) -> DeliveryPacket:
     """Render, verify, and seal one canonical three-format delivery packet."""
     expires_at = _require_future_expiry(expires_at)
+    payload = _resolve_delivery_source(
+        db,
+        tenant_id=tenant_id,
+        task_id=task_id,
+        final_memorial_id=final_memorial_id,
+        final_memorial_version=final_memorial_version,
+        supplied_payload=payload,
+    )
     idempotency_key_hash = _sha256_text(idempotency_key)
     source_payload_json = _canonical_source_payload_json(payload)
     payload_hash = _sha256_text(source_payload_json)

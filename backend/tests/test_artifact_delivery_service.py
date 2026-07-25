@@ -14,6 +14,11 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from tests.artifact_delivery_support import (
+    contract_review_pack,
+    seed_delivery_source,
+)
+
 
 def test_deliver_packet_stores_exact_three_formats(
     isolated_session_local,
@@ -29,7 +34,15 @@ def test_deliver_packet_stores_exact_three_formats(
 
     db = isolated_session_local()
     storage_root = tmp_path / "artifact-storage"
-    payload = {"title": "测试奏折", "summary": "可复核结论"}
+    payload = contract_review_pack(task_id="task-ready")
+    seed_delivery_source(
+        db,
+        tenant_id=7,
+        task_id="task-ready",
+        final_memorial_id="memorial-ready",
+        final_memorial_version=2,
+        payload=payload,
+    )
     packet = deliver_artifact_packet(
         db,
         storage_root=storage_root,
@@ -94,6 +107,80 @@ def test_deliver_packet_stores_exact_three_formats(
     db.close()
 
 
+@pytest.mark.parametrize(
+    ("source_case", "expected_exception_name"),
+    [
+        ("missing", "DeliveryNotFound"),
+        ("cross_tenant", "DeliveryNotFound"),
+        ("non_current", "DeliveryConflict"),
+        ("non_ready", "DeliveryConflict"),
+        ("hash_corrupt", "DeliveryIntegrityError"),
+        ("pack_mismatch", "DeliveryConflict"),
+    ],
+)
+def test_create_rejects_untrusted_final_memorial_before_rendering(
+    isolated_session_local,
+    tmp_path: Path,
+    source_case: str,
+    expected_exception_name: str,
+) -> None:
+    from src.artifacts import service
+    from src.artifacts.delivery import render_one_artifact
+
+    db = isolated_session_local()
+    task_id = f"task-source-{source_case}"
+    memorial_id = f"memorial-source-{source_case}"
+    source_payload = contract_review_pack(task_id=task_id)
+    supplied_payload = source_payload
+    seed_options = {
+        "add_memorial": source_case != "missing",
+        "memorial_tenant_id": 99 if source_case == "cross_tenant" else None,
+        "is_current": source_case != "non_current",
+        "status": "rejected" if source_case == "non_ready" else "ready_for_decision",
+        "content_hash": "0" * 64 if source_case == "hash_corrupt" else None,
+    }
+    seed_delivery_source(
+        db,
+        tenant_id=7,
+        task_id=task_id,
+        final_memorial_id=memorial_id,
+        final_memorial_version=1,
+        payload=source_payload,
+        **seed_options,
+    )
+    if source_case == "pack_mismatch":
+        supplied_payload = {
+            **source_payload,
+            "decision_summary": "caller supplied a different review pack",
+        }
+
+    attempts: list[str] = []
+
+    def track_renderer(**kwargs):
+        attempts.append(kwargs["kind"])
+        return render_one_artifact(**kwargs)
+
+    expected_exception = getattr(service, expected_exception_name)
+    with pytest.raises(expected_exception):
+        service.deliver_artifact_packet(
+            db,
+            storage_root=tmp_path / "artifact-storage",
+            tenant_id=7,
+            task_id=task_id,
+            final_memorial_id=memorial_id,
+            final_memorial_version=1,
+            payload=supplied_payload,
+            delivery_formula_version="w06-v1",
+            idempotency_key=f"source-{source_case}-key",
+            expires_at=datetime(2099, 7, 26, tzinfo=timezone.utc),
+            renderer=track_renderer,
+        )
+
+    assert attempts == []
+    assert not (tmp_path / "artifact-storage").exists()
+    db.close()
+
+
 def test_partial_packet_resumes_only_pdf_without_rewriting_prior_revision(
     isolated_session_local,
     tmp_path: Path,
@@ -111,7 +198,15 @@ def test_partial_packet_resumes_only_pdf_without_rewriting_prior_revision(
 
     db = isolated_session_local()
     storage_root = tmp_path / "artifact-storage"
-    payload = {"title": "部分交付", "summary": "保留成功格式"}
+    payload = contract_review_pack(task_id="task-partial")
+    seed_delivery_source(
+        db,
+        tenant_id=7,
+        task_id="task-partial",
+        final_memorial_id="memorial-partial",
+        final_memorial_version=1,
+        payload=payload,
+    )
     raw_idempotency_key = "partial-key-secret"
     leaked_path = tmp_path / "private" / "renderer-token-secret"
 
@@ -271,6 +366,15 @@ def test_resume_rejects_expired_token(
         return render_one_artifact(**kwargs)
 
     db = isolated_session_local()
+    payload = contract_review_pack(task_id="task-expired")
+    seed_delivery_source(
+        db,
+        tenant_id=7,
+        task_id="task-expired",
+        final_memorial_id="memorial-expired",
+        final_memorial_version=1,
+        payload=payload,
+    )
     partial = deliver_artifact_packet(
         db,
         storage_root=tmp_path / "artifact-storage",
@@ -278,7 +382,7 @@ def test_resume_rejects_expired_token(
         task_id="task-expired",
         final_memorial_id="memorial-expired",
         final_memorial_version=1,
-        payload={"title": "过期交付"},
+        payload=payload,
         delivery_formula_version="w06-v1",
         idempotency_key="expired-create-key",
         expires_at=datetime(2099, 1, 1, tzinfo=timezone.utc),
@@ -318,6 +422,15 @@ def test_delivery_with_all_formats_failed_records_audit_and_raises(
 
     factory, engine = _file_session_factory(tmp_path / "all-failed.db")
     db = factory()
+    payload = contract_review_pack(task_id="task-failed")
+    seed_delivery_source(
+        db,
+        tenant_id=7,
+        task_id="task-failed",
+        final_memorial_id="memorial-failed",
+        final_memorial_version=1,
+        payload=payload,
+    )
     with pytest.raises(DeliveryError):
         deliver_artifact_packet(
             db,
@@ -326,7 +439,7 @@ def test_delivery_with_all_formats_failed_records_audit_and_raises(
             task_id="task-failed",
             final_memorial_id="memorial-failed",
             final_memorial_version=1,
-            payload={"title": "全部失败"},
+            payload=payload,
             delivery_formula_version="w06-v1",
             idempotency_key="all-failed-key",
             expires_at=datetime(2099, 7, 26, tzinfo=timezone.utc),
@@ -338,7 +451,12 @@ def test_delivery_with_all_formats_failed_records_audit_and_raises(
     try:
         failed_manifest = observed.query(ArtifactManifest).one()
         assert failed_manifest.overall_status == "UNDER_REVIEW"
-        assert failed_manifest.source_payload_json == '{"title":"全部失败"}'
+        assert failed_manifest.source_payload_json == json.dumps(
+            payload,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
         failed_items = observed.query(ArtifactDeliveryItem).all()
         assert len(failed_items) == 3
         assert {item.state for item in failed_items} == {"UNAVAILABLE"}
@@ -368,11 +486,10 @@ def test_json_unavailable_resumes_from_internal_source_payload_only(
     )
     from src.db.models import ArtifactManifest
 
-    payload = {
-        "title": "内部恢复源",
-        "summary": "JSON 输出不可作为恢复输入",
-        "nested": {"b": 2, "a": 1},
-    }
+    payload = contract_review_pack(
+        task_id="task-json-partial",
+        decision_summary="JSON 输出不可作为恢复输入",
+    )
 
     def fail_json(**kwargs):
         if kwargs["kind"] == "JSON":
@@ -380,6 +497,14 @@ def test_json_unavailable_resumes_from_internal_source_payload_only(
         return render_one_artifact(**kwargs)
 
     db = isolated_session_local()
+    seed_delivery_source(
+        db,
+        tenant_id=7,
+        task_id="task-json-partial",
+        final_memorial_id="memorial-json-partial",
+        final_memorial_version=1,
+        payload=payload,
+    )
     partial = deliver_artifact_packet(
         db,
         storage_root=tmp_path / "artifact-storage",
@@ -452,13 +577,24 @@ def test_delivery_rejects_tampered_internal_source_payload(
 
     db = isolated_session_local()
     storage_root = tmp_path / "artifact-storage"
+    task_id = f"task-source-tamper-{operation}"
+    memorial_id = f"memorial-source-tamper-{operation}"
+    payload = contract_review_pack(task_id=task_id)
+    seed_delivery_source(
+        db,
+        tenant_id=7,
+        task_id=task_id,
+        final_memorial_id=memorial_id,
+        final_memorial_version=1,
+        payload=payload,
+    )
     arguments = {
         "storage_root": storage_root,
         "tenant_id": 7,
-        "task_id": f"task-source-tamper-{operation}",
-        "final_memorial_id": f"memorial-source-tamper-{operation}",
+        "task_id": task_id,
+        "final_memorial_id": memorial_id,
         "final_memorial_version": 1,
-        "payload": {"title": "可信恢复源"},
+        "payload": payload,
         "delivery_formula_version": "w06-v1",
         "idempotency_key": f"source-create-{operation}",
         "expires_at": datetime(2099, 7, 26, tzinfo=timezone.utc),
@@ -502,6 +638,15 @@ def test_deliver_rejects_non_future_expiry_before_render_or_storage(
 
     db = isolated_session_local()
     storage_root = tmp_path / "artifact-storage"
+    payload = contract_review_pack(task_id="task-expiry-preflight")
+    seed_delivery_source(
+        db,
+        tenant_id=7,
+        task_id="task-expiry-preflight",
+        final_memorial_id="memorial-expiry-preflight",
+        final_memorial_version=1,
+        payload=payload,
+    )
     with pytest.raises(DeliveryExpired):
         deliver_artifact_packet(
             db,
@@ -510,7 +655,7 @@ def test_deliver_rejects_non_future_expiry_before_render_or_storage(
             task_id="task-expiry-preflight",
             final_memorial_id="memorial-expiry-preflight",
             final_memorial_version=1,
-            payload={"title": "过期请求"},
+            payload=payload,
             delivery_formula_version="w06-v1",
             idempotency_key=f"expiry-preflight-{offset.total_seconds()}",
             expires_at=datetime.now(timezone.utc) + offset,
@@ -557,14 +702,25 @@ def test_resume_rejects_tampered_prior_item_projection(
 
     db = isolated_session_local()
     storage_root = tmp_path / "artifact-storage"
+    task_id = f"task-tamper-{field}"
+    memorial_id = f"memorial-tamper-{field}"
+    payload = contract_review_pack(task_id=task_id)
+    seed_delivery_source(
+        db,
+        tenant_id=7,
+        task_id=task_id,
+        final_memorial_id=memorial_id,
+        final_memorial_version=1,
+        payload=payload,
+    )
     partial = deliver_artifact_packet(
         db,
         storage_root=storage_root,
         tenant_id=7,
-        task_id=f"task-tamper-{field}",
-        final_memorial_id=f"memorial-tamper-{field}",
+        task_id=task_id,
+        final_memorial_id=memorial_id,
         final_memorial_version=1,
-        payload={"title": "投影防篡改"},
+        payload=payload,
         delivery_formula_version="w06-v1",
         idempotency_key=f"tamper-create-{field}",
         expires_at=datetime(2099, 7, 26, tzinfo=timezone.utc),
@@ -617,13 +773,22 @@ def test_create_replay_is_idempotent_and_changed_payload_conflicts(
     )
 
     db = isolated_session_local()
+    payload = contract_review_pack(task_id="task-replay")
+    seed_delivery_source(
+        db,
+        tenant_id=7,
+        task_id="task-replay",
+        final_memorial_id="memorial-replay",
+        final_memorial_version=1,
+        payload=payload,
+    )
     arguments = {
         "storage_root": tmp_path / "artifact-storage",
         "tenant_id": 7,
         "task_id": "task-replay",
         "final_memorial_id": "memorial-replay",
         "final_memorial_version": 1,
-        "payload": {"title": "幂等交付", "summary": "相同输入"},
+        "payload": payload,
         "delivery_formula_version": "w06-v1",
         "idempotency_key": "create-replay-key",
         "expires_at": datetime(2099, 7, 26, tzinfo=timezone.utc),
@@ -640,9 +805,13 @@ def test_create_replay_is_idempotent_and_changed_payload_conflicts(
         == 7
     )
     with pytest.raises(DeliveryConflict):
+        changed_payload = {
+            **payload,
+            "decision_summary": "changed payload",
+        }
         deliver_artifact_packet(
             db,
-            **{**arguments, "payload": {"title": "changed payload"}},
+            **{**arguments, "payload": changed_payload},
         )
     assert db.query(ArtifactManifest).count() == 1
     assert db.query(ArtifactDeliveryItem).count() == 3
@@ -671,6 +840,15 @@ def test_resume_replay_is_idempotent(
 
     db = isolated_session_local()
     storage_root = tmp_path / "artifact-storage"
+    payload = contract_review_pack(task_id="task-resume-replay")
+    seed_delivery_source(
+        db,
+        tenant_id=7,
+        task_id="task-resume-replay",
+        final_memorial_id="memorial-resume-replay",
+        final_memorial_version=1,
+        payload=payload,
+    )
     partial = deliver_artifact_packet(
         db,
         storage_root=storage_root,
@@ -678,7 +856,7 @@ def test_resume_replay_is_idempotent(
         task_id="task-resume-replay",
         final_memorial_id="memorial-resume-replay",
         final_memorial_version=1,
-        payload={"title": "恢复幂等"},
+        payload=payload,
         delivery_formula_version="w06-v1",
         idempotency_key="partial-replay-key",
         expires_at=datetime(2099, 7, 26, tzinfo=timezone.utc),
@@ -730,6 +908,18 @@ def test_concurrent_create_converges_without_duplicate_items_or_success_audits(
     )
 
     factory, engine = _file_session_factory(tmp_path / "create-race.db")
+    seed_db = factory()
+    payload = contract_review_pack(task_id="task-create-race")
+    seed_delivery_source(
+        seed_db,
+        tenant_id=7,
+        task_id="task-create-race",
+        final_memorial_id="memorial-create-race",
+        final_memorial_version=1,
+        payload=payload,
+    )
+    seed_db.commit()
+    seed_db.close()
     start = Barrier(2)
 
     def create_once() -> str:
@@ -743,7 +933,7 @@ def test_concurrent_create_converges_without_duplicate_items_or_success_audits(
                 task_id="task-create-race",
                 final_memorial_id="memorial-create-race",
                 final_memorial_version=1,
-                payload={"title": "并发创建"},
+                payload=payload,
                 delivery_formula_version="w06-v1",
                 idempotency_key="create-race-key",
                 expires_at=datetime(2099, 7, 26, tzinfo=timezone.utc),
@@ -793,6 +983,15 @@ def test_concurrent_resume_converges_without_duplicate_revision_or_items(
     factory, engine = _file_session_factory(tmp_path / "resume-race.db")
     storage_root = tmp_path / "resume-storage"
     setup_db = factory()
+    payload = contract_review_pack(task_id="task-resume-race")
+    seed_delivery_source(
+        setup_db,
+        tenant_id=7,
+        task_id="task-resume-race",
+        final_memorial_id="memorial-resume-race",
+        final_memorial_version=1,
+        payload=payload,
+    )
     partial = deliver_artifact_packet(
         setup_db,
         storage_root=storage_root,
@@ -800,7 +999,7 @@ def test_concurrent_resume_converges_without_duplicate_revision_or_items(
         task_id="task-resume-race",
         final_memorial_id="memorial-resume-race",
         final_memorial_version=1,
-        payload={"title": "并发恢复"},
+        payload=payload,
         delivery_formula_version="w06-v1",
         idempotency_key="resume-race-create-key",
         expires_at=datetime(2099, 7, 26, tzinfo=timezone.utc),

@@ -6,6 +6,11 @@ import json
 
 import pytest
 
+from tests.artifact_delivery_support import (
+    contract_review_pack,
+    seed_delivery_source,
+)
+
 
 def _sealed_manifest_json(*, manifest_id: str, tenant_id: int) -> str:
     return json.dumps(
@@ -157,6 +162,15 @@ def test_download_membership_failure_audit_survives_session_close(
     storage_root = Path(tmp_path) / "artifact-storage"
     seed_db = isolated_session_local()
     try:
+        payload = contract_review_pack(task_id="task-membership-audit")
+        seed_delivery_source(
+            seed_db,
+            tenant_id=7,
+            task_id="task-membership-audit",
+            final_memorial_id="memorial-membership-audit",
+            final_memorial_version=1,
+            payload=payload,
+        )
         packet = deliver_artifact_packet(
             seed_db,
             storage_root=storage_root,
@@ -164,7 +178,7 @@ def test_download_membership_failure_audit_survives_session_close(
             task_id="task-membership-audit",
             final_memorial_id="memorial-membership-audit",
             final_memorial_version=1,
-            payload={"title": "membership", "summary": "audit"},
+            payload=payload,
             delivery_formula_version="w06-v1",
             idempotency_key="membership-audit-key",
             expires_at=datetime.now(timezone.utc) + timedelta(hours=1),

@@ -10,30 +10,14 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.artifact_delivery_support import (
+    contract_review_pack,
+    seed_delivery_source,
+)
+
 
 def _contract_review_pack(*, task_id: str) -> dict:
-    return {
-        "schema_version": "ContractReviewPackV1",
-        "review_pack_id": f"pack-{task_id}",
-        "tenant_id": "tenant-7",
-        "task_id": task_id,
-        "mission_contract_id": f"mission-{task_id}",
-        "court_review_id": f"review-{task_id}",
-        "evidence_packet_ids": ["evidence-1"],
-        "jurisdiction": "CN_MAINLAND",
-        "language": "zh-CN",
-        "contract_type": "procurement",
-        "our_role": "buyer",
-        "legal_question": "contract_risk_screening",
-        "risk_items": [],
-        "verdict": "REVISE_BEFORE_PROCEED",
-        "decision_summary": "付款和责任条款需修改后再推进。",
-        "affected_sections": ["contract_review"],
-        "source_labels": ["TASK_EVIDENCE"],
-        "engine_tiers": ["validated_model"],
-        "quality_gate_status": "PENDING",
-        "candidate_status": "CANDIDATE",
-    }
+    return contract_review_pack(task_id=task_id)
 
 
 def _create_request(*, task_id: str, idempotency_key: str) -> dict:
@@ -82,13 +66,38 @@ def _set_api_user(*, tenant_id: int | None, tenant_slug: str = "tenant-7") -> No
     )
 
 
-def _create_ready_delivery(client: TestClient, *, suffix: str) -> dict:
+def _seed_delivery_request(session_factory, body: dict, **overrides):
+    db = session_factory()
+    try:
+        result = seed_delivery_source(
+            db,
+            tenant_id=overrides.pop("tenant_id", 7),
+            task_id=body["task_id"],
+            final_memorial_id=body["final_memorial_id"],
+            final_memorial_version=body["final_memorial_version"],
+            payload=body["contract_review_pack"],
+            **overrides,
+        )
+        db.commit()
+        return result
+    finally:
+        db.close()
+
+
+def _create_ready_delivery(
+    client: TestClient,
+    session_factory,
+    *,
+    suffix: str,
+) -> dict:
+    body = _create_request(
+        task_id=f"task-api-{suffix}",
+        idempotency_key=f"api-{suffix}-secret",
+    )
+    _seed_delivery_request(session_factory, body)
     response = client.post(
         "/api/artifacts/deliveries",
-        json=_create_request(
-            task_id=f"task-api-{suffix}",
-            idempotency_key=f"api-{suffix}-secret",
-        ),
+        json=body,
     )
     assert response.status_code == 201
     return response.json()["manifest"]
@@ -179,6 +188,7 @@ def test_delivery_http_contract_create_read_download_and_resume(artifact_api) ->
         task_id="task-api-ready",
         idempotency_key="api-create-secret",
     )
+    _seed_delivery_request(session_factory, create_body)
 
     created = client.post("/api/artifacts/deliveries", json=create_body)
     assert created.status_code == 201
@@ -222,6 +232,15 @@ def test_delivery_http_contract_create_read_download_and_resume(artifact_api) ->
         return render_one_artifact(**kwargs)
 
     try:
+        partial_payload = _contract_review_pack(task_id="task-api-partial")
+        seed_delivery_source(
+            partial_db,
+            tenant_id=7,
+            task_id="task-api-partial",
+            final_memorial_id="memorial-task-api-partial",
+            final_memorial_version=2,
+            payload=partial_payload,
+        )
         partial_packet = deliver_artifact_packet(
             partial_db,
             storage_root=storage_root,
@@ -229,7 +248,7 @@ def test_delivery_http_contract_create_read_download_and_resume(artifact_api) ->
             task_id="task-api-partial",
             final_memorial_id="memorial-task-api-partial",
             final_memorial_version=2,
-            payload=_contract_review_pack(task_id="task-api-partial"),
+            payload=partial_payload,
             delivery_formula_version="w06-v1",
             idempotency_key="partial-seed-secret",
             expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
@@ -272,8 +291,12 @@ def test_delivery_http_contract_create_read_download_and_resume(artifact_api) ->
 
 
 def test_cross_tenant_and_unknown_delivery_resources_are_404(artifact_api) -> None:
-    client, _, _ = artifact_api
-    manifest = _create_ready_delivery(client, suffix="tenant-boundary")
+    client, session_factory, _ = artifact_api
+    manifest = _create_ready_delivery(
+        client,
+        session_factory,
+        suffix="tenant-boundary",
+    )
     artifact = manifest["artifacts"][0]
 
     _set_api_user(tenant_id=99, tenant_slug="tenant-99")
@@ -321,7 +344,7 @@ def test_expired_artifact_has_no_url_and_download_is_410(artifact_api) -> None:
     from src.db.models import ArtifactDeliveryItem, ArtifactManifest
 
     client, session_factory, _ = artifact_api
-    manifest = _create_ready_delivery(client, suffix="expired")
+    manifest = _create_ready_delivery(client, session_factory, suffix="expired")
     expired_at = datetime.now(timezone.utc) - timedelta(seconds=1)
 
     db = session_factory()
@@ -367,7 +390,7 @@ def test_corrupt_download_is_409_and_failure_audit_is_durable(
     from src.db.models import ArtifactDeliveryAuditEvent, ArtifactDeliveryItem
 
     client, session_factory, _ = artifact_api
-    manifest = _create_ready_delivery(client, suffix="corrupt")
+    manifest = _create_ready_delivery(client, session_factory, suffix="corrupt")
     artifact_id = next(
         item["artifact_id"]
         for item in manifest["artifacts"]
@@ -406,7 +429,7 @@ def test_malformed_expiry_is_409_and_failure_audit_is_durable(
     from src.db.models import ArtifactDeliveryAuditEvent, ArtifactDeliveryItem
 
     client, session_factory, _ = artifact_api
-    manifest = _create_ready_delivery(client, suffix="bad-expiry")
+    manifest = _create_ready_delivery(client, session_factory, suffix="bad-expiry")
     artifact_id = manifest["artifacts"][0]["artifact_id"]
 
     db = session_factory()
@@ -440,7 +463,11 @@ def test_successful_download_appends_one_durable_audit(artifact_api) -> None:
     from src.db.models import ArtifactDeliveryAuditEvent
 
     client, session_factory, _ = artifact_api
-    manifest = _create_ready_delivery(client, suffix="audit-success")
+    manifest = _create_ready_delivery(
+        client,
+        session_factory,
+        suffix="audit-success",
+    )
     artifact = next(
         item for item in manifest["artifacts"] if item["kind"] == "PDF"
     )
@@ -465,7 +492,7 @@ def test_successful_download_appends_one_durable_audit(artifact_api) -> None:
 
 
 def test_delivery_request_validation_and_conflict_mapping(artifact_api) -> None:
-    client, _, _ = artifact_api
+    client, session_factory, _ = artifact_api
     body = _create_request(
         task_id="task-api-validation",
         idempotency_key="validation-secret",
@@ -477,10 +504,60 @@ def test_delivery_request_validation_and_conflict_mapping(artifact_api) -> None:
     )
     assert client.post("/api/artifacts/deliveries", json=mismatched).status_code == 422
 
+    _seed_delivery_request(session_factory, body)
     assert client.post("/api/artifacts/deliveries", json=body).status_code == 201
     conflicting = dict(body)
-    conflicting["final_memorial_version"] = 3
+    conflicting["delivery_formula_version"] = "w06-v2"
     assert client.post("/api/artifacts/deliveries", json=conflicting).status_code == 409
+
+
+@pytest.mark.parametrize(
+    ("source_case", "expected_status"),
+    [
+        ("missing", 404),
+        ("cross_tenant", 404),
+        ("non_current", 409),
+        ("non_ready", 409),
+        ("hash_corrupt", 409),
+        ("pack_mismatch", 409),
+    ],
+)
+def test_create_rejects_untrusted_final_memorial_source(
+    artifact_api,
+    source_case: str,
+    expected_status: int,
+) -> None:
+    from src.db.models import ArtifactManifest
+
+    client, session_factory, _ = artifact_api
+    body = _create_request(
+        task_id=f"task-api-source-{source_case}",
+        idempotency_key=f"api-source-{source_case}-key",
+    )
+    source_payload = body["contract_review_pack"]
+    if source_case == "pack_mismatch":
+        body["contract_review_pack"] = {
+            **source_payload,
+            "decision_summary": "caller pack does not match the final memorial",
+        }
+    _seed_delivery_request(
+        session_factory,
+        {**body, "contract_review_pack": source_payload},
+        add_memorial=source_case != "missing",
+        memorial_tenant_id=99 if source_case == "cross_tenant" else None,
+        is_current=source_case != "non_current",
+        status="rejected" if source_case == "non_ready" else "ready_for_decision",
+        content_hash="0" * 64 if source_case == "hash_corrupt" else None,
+    )
+
+    response = client.post("/api/artifacts/deliveries", json=body)
+
+    assert response.status_code == expected_status
+    db = session_factory()
+    try:
+        assert db.query(ArtifactManifest).count() == 0
+    finally:
+        db.close()
 
 
 def test_create_and_resume_each_own_and_close_their_session(artifact_api) -> None:
@@ -513,12 +590,14 @@ def test_create_and_resume_each_own_and_close_their_session(artifact_api) -> Non
         artifacts_router.get_artifact_session_factory
     ] = lambda: tracking_factory
 
+    create_body = _create_request(
+        task_id="task-api-session-create",
+        idempotency_key="session-create-secret",
+    )
+    _seed_delivery_request(base_session_factory, create_body)
     created = client.post(
         "/api/artifacts/deliveries",
-        json=_create_request(
-            task_id="task-api-session-create",
-            idempotency_key="session-create-secret",
-        ),
+        json=create_body,
     )
     assert created.status_code == 201
     assert lifecycle == {"created": 1, "closed": 1}
@@ -531,6 +610,15 @@ def test_create_and_resume_each_own_and_close_their_session(artifact_api) -> Non
         return render_one_artifact(**kwargs)
 
     try:
+        partial_payload = _contract_review_pack(task_id="task-api-session-resume")
+        seed_delivery_source(
+            seed_db,
+            tenant_id=7,
+            task_id="task-api-session-resume",
+            final_memorial_id="memorial-task-api-session-resume",
+            final_memorial_version=1,
+            payload=partial_payload,
+        )
         partial = deliver_artifact_packet(
             seed_db,
             storage_root=storage_root,
@@ -538,7 +626,7 @@ def test_create_and_resume_each_own_and_close_their_session(artifact_api) -> Non
             task_id="task-api-session-resume",
             final_memorial_id="memorial-task-api-session-resume",
             final_memorial_version=1,
-            payload=_contract_review_pack(task_id="task-api-session-resume"),
+            payload=partial_payload,
             delivery_formula_version="w06-v1",
             idempotency_key="session-resume-seed-secret",
             expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
@@ -564,7 +652,11 @@ def test_coordinated_manifest_item_and_file_forgery_is_rejected(
     from src.db.models import ArtifactDeliveryItem, ArtifactManifest
 
     client, session_factory, _ = artifact_api
-    manifest = _create_ready_delivery(client, suffix="sealed-hash-forgery")
+    manifest = _create_ready_delivery(
+        client,
+        session_factory,
+        suffix="sealed-hash-forgery",
+    )
     artifact_id = next(
         item["artifact_id"]
         for item in manifest["artifacts"]
@@ -626,7 +718,11 @@ def test_invalid_persisted_manifest_is_409_and_download_audits_once(
     from src.db.models import ArtifactManifest
 
     client, session_factory, _ = artifact_api
-    manifest = _create_ready_delivery(client, suffix=f"persisted-{corruption}")
+    manifest = _create_ready_delivery(
+        client,
+        session_factory,
+        suffix=f"persisted-{corruption}",
+    )
     artifact_id = manifest["artifacts"][0]["artifact_id"]
 
     db = session_factory()
@@ -672,7 +768,11 @@ def test_unverified_stored_file_is_not_advertised(
     from src.db.models import ArtifactDeliveryItem
 
     client, session_factory, _ = artifact_api
-    manifest = _create_ready_delivery(client, suffix=f"stored-{corruption}")
+    manifest = _create_ready_delivery(
+        client,
+        session_factory,
+        suffix=f"stored-{corruption}",
+    )
     artifact_id = manifest["artifacts"][0]["artifact_id"]
 
     db = session_factory()
