@@ -92,21 +92,6 @@ def upgrade() -> None:
 
 def _preflight_downgrade() -> None:
     bind = op.get_bind()
-    source_payload_count = bind.execute(
-        sa.text(
-            """
-            SELECT COUNT(*)
-            FROM artifact_manifests
-            WHERE source_payload_json IS NOT NULL
-            """
-        )
-    ).scalar_one()
-    if source_payload_count:
-        raise RuntimeError(
-            "refusing downgrade 025 to 024: internal source payload facts "
-            f"would be deleted (artifact_manifests={source_payload_count})"
-        )
-
     duplicate_lineage = bind.execute(
         sa.text(
             """
@@ -152,6 +137,24 @@ def _preflight_downgrade() -> None:
         raise RuntimeError(
             "refusing downgrade 025 to 024: persisted delivery facts would "
             f"be deleted ({', '.join(populated_tables)})"
+        )
+
+    identity_count = bind.execute(
+        sa.text(
+            """
+            SELECT COUNT(*)
+            FROM artifact_manifests
+            WHERE delivery_revision IS NOT NULL
+               OR idempotency_key_hash IS NOT NULL
+               OR payload_hash IS NOT NULL
+               OR source_payload_json IS NOT NULL
+            """
+        )
+    ).scalar_one()
+    if identity_count:
+        raise RuntimeError(
+            "refusing downgrade 025 to 024: revision 025 identity facts "
+            f"would be deleted (artifact_manifests={identity_count})"
         )
 
 

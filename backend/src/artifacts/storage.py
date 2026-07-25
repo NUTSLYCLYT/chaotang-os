@@ -31,6 +31,15 @@ def _file_open_flags() -> int:
     return os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
 
 
+def _fsync_directory(directory_fd: int, *, label: str) -> None:
+    try:
+        os.fsync(directory_fd)
+    except OSError as exc:
+        raise DeliveryIntegrityError(
+            f"artifact {label} directory could not be synced"
+        ) from exc
+
+
 def _artifact_filename(artifact_id: str) -> str:
     if type(artifact_id) is not str:
         raise TypeError("artifact_id must be a non-empty string")
@@ -72,13 +81,17 @@ def _open_root(root: Path, *, create: bool) -> int:
 
 
 def _open_tenant(root_fd: int, tenant_name: str, *, create: bool) -> int:
+    created = False
     if create:
         try:
             os.mkdir(tenant_name, mode=0o700, dir_fd=root_fd)
+            created = True
         except FileExistsError:
             pass
         except OSError as exc:
             raise DeliveryIntegrityError("artifact tenant directory could not be created") from exc
+    if created:
+        _fsync_directory(root_fd, label="storage root")
     try:
         return os.open(tenant_name, _directory_open_flags(), dir_fd=root_fd)
     except OSError as exc:
@@ -180,13 +193,15 @@ def store_artifact_bytes(
         tenant_fd = _open_tenant(root_fd, tenant_name, create=True)
         try:
             if _read_existing(tenant_fd, final_path.name, content):
-                return _stored_artifact(
+                stored = _stored_artifact(
                     tenant_fd,
                     final_path.name,
                     final_path,
                     content_hash,
                     byte_size,
                 )
+                _fsync_directory(tenant_fd, label="tenant")
+                return stored
 
             temporary_name = f".{final_path.name}.{uuid.uuid4().hex}.tmp"
             temporary_created = False
@@ -258,6 +273,12 @@ def store_artifact_bytes(
                         os.unlink(temporary_name, dir_fd=tenant_fd)
                     except FileNotFoundError:
                         pass
+                    except OSError as exc:
+                        raise DeliveryIntegrityError(
+                            "artifact temporary file could not be removed"
+                        ) from exc
+                    finally:
+                        _fsync_directory(tenant_fd, label="tenant")
         finally:
             os.close(tenant_fd)
     finally:

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 
 import pytest
@@ -380,14 +379,23 @@ def test_upgrade_downgrade_reupgrade_preserves_legacy_manifest(
         engine.dispose()
 
 
-def test_downgrade_refuses_internal_source_payload_before_ddl(
+@pytest.mark.parametrize(
+    "identity_field",
+    [
+        "delivery_revision",
+        "idempotency_key_hash",
+        "payload_hash",
+        "source_payload_json",
+    ],
+)
+def test_downgrade_refuses_revision_025_identity_before_ddl(
     tmp_path: Path,
     monkeypatch,
+    identity_field: str,
 ) -> None:
-    path = tmp_path / "source-payload-fact.db"
+    path = tmp_path / f"{identity_field}-fact.db"
     cfg = _config(path, monkeypatch)
     alembic_command.upgrade(cfg, _REVISION)
-    source_payload_json = '{"title":"durable source"}'
 
     engine = create_engine(f"sqlite:///{path}")
     with engine.begin() as connection:
@@ -402,18 +410,32 @@ def test_downgrade_refuses_internal_source_payload_before_ddl(
                     overall_status, created_at
                 ) VALUES (
                     'manifest-source', 1, 'task-source', 'memorial-source',
-                    1, 'w06-v1', 1, :idempotency_key_hash, :payload_hash,
+                    1, 'w06-v1', :delivery_revision,
+                    :idempotency_key_hash, :payload_hash,
                     :source_payload_json, :content_hash, :manifest_json,
                     'READY', '2026-07-25T00:00:00+00:00'
                 )
                 """
             ),
             {
-                "idempotency_key_hash": "a" * 64,
-                "payload_hash": hashlib.sha256(source_payload_json.encode()).hexdigest(),
-                "source_payload_json": source_payload_json,
+                "delivery_revision": (
+                    1 if identity_field == "delivery_revision" else None
+                ),
+                "idempotency_key_hash": (
+                    "a" * 64
+                    if identity_field == "idempotency_key_hash"
+                    else None
+                ),
+                "payload_hash": (
+                    "b" * 64 if identity_field == "payload_hash" else None
+                ),
+                "source_payload_json": (
+                    '{"title":"durable source"}'
+                    if identity_field == "source_payload_json"
+                    else None
+                ),
                 "content_hash": "b" * 64,
-                "manifest_json": '{"delivery_revision":1}',
+                "manifest_json": "{}",
             },
         )
     engine.dispose()
@@ -426,5 +448,5 @@ def test_downgrade_refuses_internal_source_payload_before_ddl(
         before=before,
         after=after,
         error=error,
-        message="source payload",
+        message="revision 025 identity",
     )

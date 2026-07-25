@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import os
+import stat
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from threading import Barrier
@@ -147,6 +149,81 @@ def test_store_returns_verified_artifact_for_first_write(tmp_path: Path) -> None
         )
         == content
     )
+    assert _temporary_files(root) == []
+
+
+def test_store_fsyncs_first_tenant_creation_and_each_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "storage"
+    fsync_calls: list[os.stat_result] = []
+
+    def record_fsync(fd: int) -> None:
+        fsync_calls.append(os.fstat(fd))
+
+    monkeypatch.setattr(storage.os, "fsync", record_fsync)
+    store_artifact_bytes(
+        root,
+        tenant_id=7,
+        artifact_id="artifact-fsync-first",
+        content=b"first durable artifact",
+    )
+
+    root_identity = (root.stat().st_dev, root.stat().st_ino)
+    tenant = root / "7"
+    tenant_identity = (tenant.stat().st_dev, tenant.stat().st_ino)
+    directory_identities = [
+        (call.st_dev, call.st_ino)
+        for call in fsync_calls
+        if stat.S_ISDIR(call.st_mode)
+    ]
+    assert directory_identities.count(root_identity) == 1
+    assert directory_identities.count(tenant_identity) == 1
+    assert sum(stat.S_ISREG(call.st_mode) for call in fsync_calls) == 1
+
+    fsync_calls.clear()
+    store_artifact_bytes(
+        root,
+        tenant_id=7,
+        artifact_id="artifact-fsync-next",
+        content=b"next durable artifact",
+    )
+
+    directory_identities = [
+        (call.st_dev, call.st_ino)
+        for call in fsync_calls
+        if stat.S_ISDIR(call.st_mode)
+    ]
+    assert root_identity not in directory_identities
+    assert directory_identities.count(tenant_identity) == 1
+    assert sum(stat.S_ISREG(call.st_mode) for call in fsync_calls) == 1
+    assert _temporary_files(root) == []
+
+
+def test_store_fails_closed_when_tenant_directory_fsync_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "storage"
+    (root / "7").mkdir(parents=True)
+    real_fsync = os.fsync
+
+    def fail_directory_fsync(fd: int) -> None:
+        if stat.S_ISDIR(os.fstat(fd).st_mode):
+            raise OSError("expected directory fsync failure")
+        real_fsync(fd)
+
+    monkeypatch.setattr(storage.os, "fsync", fail_directory_fsync)
+
+    with pytest.raises(DeliveryIntegrityError, match="tenant directory"):
+        store_artifact_bytes(
+            root,
+            tenant_id=7,
+            artifact_id="artifact-fsync-failure",
+            content=b"directory failure artifact",
+        )
+
     assert _temporary_files(root) == []
 
 
