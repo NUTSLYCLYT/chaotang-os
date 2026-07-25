@@ -131,7 +131,7 @@ both doctors are clean, authority v1 is `VALID_INACTIVE_GUARD`, authority v2
 is `GO / APPROVED_WORK_PACKAGE`, and closeout/diff pass. Independent rereviews
 record requirements GO, quality GO, and full-diff SPEC/QUALITY GO with zero
 remaining findings. Status is
-`VERIFIED_COMPLETE / ACCEPTED_NOT_INTEGRATED`.
+`VERIFIED_COMPLETE / INTEGRATED_LOCAL_NOT_PUSHED`.
 
 ## Non-Goals And Boundary
 

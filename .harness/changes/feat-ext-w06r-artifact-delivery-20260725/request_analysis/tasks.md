@@ -137,7 +137,18 @@ scoped Ruff and compileall PASS, both doctors clean, v1
 `VALID_INACTIVE_GUARD`, v2 `GO / APPROVED_WORK_PACKAGE`, and strict
 closeout/baseline diff PASS. Independent requirements, quality, and full-diff
 reviews are GO with zero remaining findings. Status:
-`VERIFIED_COMPLETE / ACCEPTED_NOT_INTEGRATED`.
+`VERIFIED_COMPLETE / INTEGRATED_LOCAL_NOT_PUSHED`.
+
+### Local Integration Closeout
+
+- [x] Confirm local `feature-chaotang-ext` was exactly `64d7f935`.
+- [x] Fast-forward only to accepted Packet `ea4260c2`; no merge commit.
+- [x] Verify post-integration W06R `159 passed`.
+- [x] Verify isolated migration loop `10 passed`.
+- [x] Verify Ruff, compileall, backend/root doctors, strict closeout,
+  authorities, and baseline diff.
+- [x] Preserve `NO_PUSH`, `NOT_DEPLOYED`, `NO_PERSISTENT_DB_MIGRATION`, and
+  `NO_LISTENER_TAKEOVER`.
 
 ## Rollback Boundary
 

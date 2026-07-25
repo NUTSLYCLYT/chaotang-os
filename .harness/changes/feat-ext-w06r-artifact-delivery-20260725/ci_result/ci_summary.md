@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`VERIFIED_COMPLETE / ACCEPTED_NOT_INTEGRATED`
+`VERIFIED_COMPLETE / INTEGRATED_LOCAL_NOT_PUSHED`
 
 Implementation evidence and independent verdicts are both complete. This
 status authorizes only a separately approved controlled local integration; it
@@ -163,7 +163,25 @@ git diff --check 64d7f935..HEAD
   an approved retention, encryption, and access policy.
 - Delivery command callers must continue to supply a command-owned Session
   because the command owns commit of the supplied transaction.
-- Controlled local integration remains a separate explicit approval step.
+- Controlled local integration was explicitly approved and completed; push
+  and deployment remain separate, unauthorized actions.
+
+## Post-Integration Evidence
+
+The user approved controlled local integration of accepted Packet `ea4260c2`.
+Local `feature-chaotang-ext` fast-forwarded from `64d7f935` to `ea4260c2`
+without a merge commit.
+
+| Check | Result |
+| --- | --- |
+| Complete W06R suite | `159 passed in 37.17s` |
+| Isolated migration suite | `10 passed in 23.72s` |
+| Ruff / compileall | PASS / PASS |
+| Backend/root doctors | `0 errors, 0 warnings` |
+| Strict closeout / baseline diff | PASS / PASS |
+| Authority v1 / v2 | `VALID_INACTIVE_GUARD` / `GO` |
+| Remote branch | unchanged at `8feae838` |
+| Runtime boundary | `NO_PUSH / NOT_DEPLOYED / NO_PERSISTENT_DB_MIGRATION / NO_LISTENER_TAKEOVER` |
 
 ## Rollback
 

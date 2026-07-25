@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | feat-ext-w06r-artifact-delivery-20260725 |
 | Type | `feat` |
-| Status | `VERIFIED_COMPLETE / ACCEPTED_NOT_INTEGRATED` |
+| Status | `VERIFIED_COMPLETE / INTEGRATED_LOCAL_NOT_PUSHED` |
 | Owner | `EXT-W06R Task 8` |
 | Date | `2026-07-26` |
 | Authority | `R0-W06`: `GO / APPROVED_WORK_PACKAGE` |
@@ -97,8 +97,20 @@ All Task 8 databases and storage roots are pytest-owned or under `/tmp`.
 | Quality rereview | `GO`, candidate `cf8f6faf`, 0 findings |
 | Full-diff rereview | `SPEC GO / QUALITY GO`, candidate `cf8f6faf`, 0 findings |
 
-The Packet is accepted for controlled local integration only. It is not yet
-integrated into `feature-chaotang-ext`.
+The accepted Packet was fast-forward integrated into local
+`feature-chaotang-ext` from `64d7f935` to `ea4260c2`. Post-integration
+verification passed. The remote branch was not changed.
+
+## Local Integration
+
+| Check | Result |
+| --- | --- |
+| Method | `git merge --ff-only task/ext-w06r-artifact-delivery-20260725` |
+| Integrated Packet | `ea4260c2932b24fb5903bd92322a4e398214856d` |
+| Integrated tree | `c4a96667e120a13cd759ebecc9821e554da94fcf` |
+| Post-integration W06R suite | `159 passed in 37.17s` |
+| Post-integration migration suite | `10 passed in 23.72s` |
+| Push/deployment | `NO_PUSH / NOT_DEPLOYED` |
 
 ## Rollback
 
