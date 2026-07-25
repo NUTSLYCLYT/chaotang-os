@@ -122,6 +122,7 @@ git commit -m "test(w06r): align schema authority baseline"
 - Modify: `backend/src/contracts/artifact_manifest.py`
 - Modify: `backend/tests/test_artifact_manifest_persistence.py`
 - Modify: `backend/tests/test_artifact_manifest_access.py`
+- Modify: `backend/src/artifacts/service.py`
 
 **Interfaces:**
 - Consumes: exact artifact kinds `PDF`, `DOCX`, and `JSON`.
@@ -262,13 +263,24 @@ shape. They do not create a permissive compatibility path for missing tenant,
 revision, or hash identity. This is valid because W06R remains `NOT_DEPLOYED`
 and no persistent database migration has been performed.
 
+Add regression tests before changing the service boundary:
+
+- `persist_manifest` rejects a sealed manifest whose `tenant_id` differs from
+  its tenant argument;
+- `get_manifest_for_tenant` rejects a stored manifest whose embedded tenant
+  differs from the row tenant.
+
+The minimal production change adds these two identity comparisons alongside
+the existing task/memorial/formula checks. It does not add legacy coercion.
+
 - [ ] **Step 6: Commit**
 
 ```bash
 git add backend/src/contracts/artifact_manifest.py \
   backend/tests/test_artifact_manifest_v1.py \
   backend/tests/test_artifact_manifest_persistence.py \
-  backend/tests/test_artifact_manifest_access.py
+  backend/tests/test_artifact_manifest_access.py \
+  backend/src/artifacts/service.py
 git commit -m "feat(w06r): seal artifact manifest contract"
 ```
 
