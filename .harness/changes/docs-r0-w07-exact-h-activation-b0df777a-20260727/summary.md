@@ -1,0 +1,62 @@
+# 变更摘要：docs-r0-w07-exact-h-activation-b0df777a-20260727
+
+> 执行授权：`NOT_GRANTED_BY_CHANGE_RECORD`
+> 本 Packet 只定义治理、设计和证据生成流程；它不是 owner exact-H
+> approval，也不激活 R0-W07。
+
+| 字段 | 值 |
+| --- | --- |
+| Change ID | docs-r0-w07-exact-h-activation-b0df777a-20260727 |
+| 类型 | `docs` |
+| 状态 | `DRAFT / NON_AUTHORIZING / EVIDENCE_PREPARATION` |
+| Owner | `EXT Master Governance` |
+| 创建日期 | `2026-07-27` |
+| 唯一集成目标 | local `feature-chaotang-ext` |
+| 基线 H | `b0df777a1fe94d98afdc62b4cdd02a2f8a091391` |
+| 基线 tree | `a7beae653e5c9d2efd38fe1fda61a2cbe8b41565` |
+| 当前 authority | `R0-W07 = STOP / NO_ACTIVE_WORK_PACKAGE` |
+
+## 目标
+
+从当前本地 EXT 基线重新建立一份 W07 exact-H activation Packet，消除旧
+activation Packet 的过期基线、过期 reviewer 路径和过期测试证据。最终候选必须把
+一个 W07 范围绑定到一个 candidate H、tree、review package、activation intent、
+owner approval 和 Codex 独立审查。
+
+## 本轮范围
+
+- 固定当前 EXT 基线和现有 reviewer reassignment overlay。
+- 定义新的 canonical W07 evidence root 及迁移边界。
+- 定义 quiescent evidence candidate 与 atomic activation candidate 的顺序。
+- 定义 TDD、验证、独立审查和 exact-H 审批门。
+- 记录证据状态，不生成虚构 digest、owner approval 或 review verdict。
+
+## 明确未授权
+
+- 不激活 R0-W07。
+- 不修改 `.harness/manifest/execution-authority.v2.json`。
+- 不修改 authority runtime、schema、测试或产品代码。
+- 不 push、不部署、不迁移数据库、不操作 listener 3050。
+- 不使用真实客户数据，不声明 production ready。
+
+## 当前事实
+
+```text
+activeWorkPackage = null
+R0-W00..R0-W06 = MERGED_AND_VERIFIED
+R0-W07 ledger entry = absent
+R0-W07 authorize = STOP / NO_ACTIVE_WORK_PACKAGE
+reviewer reassignment overlay = registered for R0-W07
+```
+
+## 决策
+
+旧 `.harness/changes/docs-r0-w07-activation-20260726` profile 不能继续充当新
+activation Packet 的证据根。后续实施必须先以 TDD 将 canonical W07 profile 收敛到
+本 Change ID，再冻结 quiescent evidence candidate。只有经过另行 exact-H 批准和
+独立只读审查后，才允许生成单父、原子的 manifest activation candidate。
+
+## 回滚
+
+本 Packet 未进入本地 EXT 前，删除其隔离分支即可。进入 EXT 后如需撤销，只能通过
+另行批准的前向治理提交；不得改写已登记 overlay 或历史 authority。
