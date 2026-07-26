@@ -4,7 +4,20 @@
 
 `QUIESCENT_REGISTRATION_CANDIDATE / OWNER_APPROVED / NOT_AUTHORIZED`
 
-## Baseline
+## Current State
+
+The approved W07-only overlay exists only on this isolated governance branch.
+It is not integrated into local EXT. Registration candidates `b781166a` and
+`7075c126` are rejected. W07 remains `STOP / NO_ACTIVE_WORK_PACKAGE`, and
+the committed state containing this block is their successor quiescent
+registration candidate pending independent acceptance.
+
+## Historical Verification Timeline
+
+All sections below record point-in-time results at the named stage. They are
+evidence history, not current authority or current Packet status.
+
+## Historical Baseline
 
 ```text
 local EXT = 55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca
@@ -29,7 +42,7 @@ SyntaxError: amendment-governance.mjs does not provide
 effectiveIndependentReviewer
 ```
 
-The current governance implementation has no reviewer-reassignment API.
+The baseline governance implementation had no reviewer-reassignment API.
 
 ## Rejected Candidate
 
@@ -753,8 +766,8 @@ owner approval = c1388ecbab244a8e5f97e57790679bd10cdff79ba20bf6005f3b7b00f39d37f
 scope = R0-W07 reviewer reassignment only
 ```
 
-The owner evidence strict-parses and the staged overlay passes its exact-field
-schema validation. The registration candidate remains quiescent: it does not
+The owner evidence strict-parsed and the staged overlay passed its exact-field
+schema validation. The registration candidate remained quiescent: it did not
 activate W07 or change the v2 active work-package ledger.
 
 ## First Registration Candidate Rejected
@@ -770,8 +783,25 @@ pass 2 = GO / HIGH 0 / MEDIUM 0
 combined = NO_GO
 ```
 
-The candidate is rejected because current and historical status text could be
+The candidate was rejected because current and historical status text could be
 read as contradictory. The overlay and evidence validation passed, and W07
-remained stopped. The successor documentation now says explicitly that the
+remained stopped. The successor documentation was updated to say that the
 overlay exists only in the local registration candidate, is not integrated
 into local EXT, and does not activate W07.
+
+## Second Registration Candidate Rejected
+
+```text
+candidate = 7075c126db558e4367ca4f1a4168071bcb8ebc65
+tree = 70e18ebfa17432a57720c303026b353f200bbe2e
+pass 1 session = 019f9eaa-dc97-7a92-a004-97391ddb0c3a
+pass 1 = GO / HIGH 0 / MEDIUM 0
+pass 2 session = 019f9eab-007e-7bd0-a6dd-fbadd3883aea
+pass 2 = NO_GO / HIGH 0 / MEDIUM 1
+combined = NO_GO
+```
+
+The candidate was rejected because historical stages remained under
+`Current State` and retained present-tense status wording. The successor was
+required to use one current-state block and label the remaining evidence as a
+historical verification timeline.

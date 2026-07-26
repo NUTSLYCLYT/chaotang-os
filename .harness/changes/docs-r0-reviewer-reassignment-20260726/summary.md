@@ -17,14 +17,26 @@ Prepare a W07-only reviewer reassignment from `Claude Code` to
 
 ## Current State
 
-This Packet is non-authorizing. The historical amendment and reviewer remain
-effective, and W07 remains `STOP / NO_ACTIVE_WORK_PACKAGE`.
+This Packet is non-authorizing. Product Owner approval, both source-candidate
+reviews, the exact package, and the W07-only overlay exist on this isolated
+governance branch. They are not integrated into local EXT. The effective
+reviewer remains `Claude Code`, and W07 remains
+`STOP / NO_ACTIVE_WORK_PACKAGE`.
+
+Registration candidates `b781166a` and `7075c126` are rejected after mixed
+reviews. The committed state containing this block is their successor
+quiescent registration candidate and remains pending independent acceptance.
+
+## Historical Timeline
+
+Everything below this heading records the state at the named historical stage.
+It is not a second current-state source.
 
 The Product Owner approved the clean Codex/terminal Node startup environment
 and OS loader environment as external threat-model-B prerequisites. Malicious
 host or pre-start injection is outside the repository authority guarantee.
-This direction permits a twentieth candidate and two fresh read-only Codex
-reviews; it is not exact-H approval and does not register or activate W07.
+This direction permitted a twentieth candidate and two fresh read-only Codex
+reviews; it was not exact-H approval and did not register or activate W07.
 
 Candidate `a3652c91eaf02f868e8741ed9cf8e1c87db80ec8` was independently
 reviewed twice and rejected. Its H/tree/package digest are historical only and
@@ -282,9 +294,9 @@ Repeated-error prevention:
 - durable surface: the loader branch, behavioral tests, this Packet, and the v2
   authority wiki carry the invariant.
 
-This remediation and the approved startup boundary are now eligible for a
+This remediation and the approved startup boundary were then eligible for a
 twentieth exact-H candidate freeze and two fresh read-only reviews. Candidate
-freeze does not approve or register the overlay.
+freeze did not approve or register the overlay.
 
 Candidate `ac3a98650608c7d76450f00f939f27a7fb35e33c` was rejected by
 both fresh read-only reviews. Both found that four eighteenth/nineteenth
@@ -302,8 +314,8 @@ candidate may silently choose between those boundaries.
 The Product Owner selected controlled Git ref non-rollback as the external
 threat-model-B prerequisite. Malicious rollback of `HEAD` or the local EXT ref
 is therefore outside the repository guarantee. The four eighteenth/nineteenth
-`/root/...` aliases are now explicit denylist identities, while all current
-reviews still require canonical UUID session IDs. This state is eligible for a
+`/root/...` aliases became explicit denylist identities, while all reviews
+still required canonical UUID session IDs. This state was eligible for a
 twenty-first candidate freeze and two fresh read-only reviews only.
 
 Candidate `b9b99172263885c2381c6c3cea06486f02a9a8f3` received one
@@ -319,7 +331,7 @@ operation; no `await` remains between that recheck and return to the CLI's
 synchronous eligibility mapper. The ordering regression observed RED before
 the change and is GREEN afterward.
 
-The Product Owner directed the task to continue. This permits one successor
+The Product Owner directed the task to continue. This permitted one successor
 non-authorizing candidate and two fresh read-only reviews. It is not exact-H
 approval, overlay registration, W07 activation, push, deployment, migration,
 or listener takeover.
@@ -338,7 +350,7 @@ external serialization/immutable-snapshot mechanism must be designed.
 The Product Owner selected controlled isolated-worktree execution with no
 concurrent external writers during authorization as the external
 threat-model-B prerequisite. A process violating that isolation is outside the
-repository guarantee. This direction permits one twenty-third non-authorizing
+repository guarantee. This direction permitted one twenty-third non-authorizing
 candidate and two fresh read-only reviews; it does not approve, register, or
 activate W07.
 
@@ -355,16 +367,21 @@ The Product Owner approved the exact candidate, tree, review package, and both
 review evidence digests. The owner approval SHA-256 is
 `c1388ecbab244a8e5f97e57790679bd10cdff79ba20bf6005f3b7b00f39d37ff`.
 
-The W07-only reviewer reassignment overlay is now staged as a quiescent atomic
-registration candidate. Registration does not add an active W07 ledger entry,
-does not activate W07, and does not authorize product work. W07 remains
+The W07-only reviewer reassignment overlay was then staged as a quiescent
+atomic registration candidate. Registration did not add an active W07 ledger
+entry, did not activate W07, and did not authorize product work. W07 remained
 `STOP / NO_ACTIVE_WORK_PACKAGE` until a separately approved activation event.
 
 Registration candidate `b781166aeaee9513e431908b9436043ac008043e`
-received one `NO_GO / MEDIUM 1` and one `GO`. It is rejected because historical
+received one `NO_GO / MEDIUM 1` and one `GO`. It was rejected because historical
 status text could be read as the current state. The successor candidate must
 state unambiguously that the overlay exists only on the local registration
 candidate, is not integrated into local EXT, and does not activate W07.
+
+Registration candidate `7075c126db558e4367ca4f1a4168071bcb8ebc65`
+also received one `NO_GO / MEDIUM 1` and one `GO`. It was rejected because the
+document still placed historical stages under `Current State` and retained
+historical present-tense wording.
 
 ## Boundaries
 

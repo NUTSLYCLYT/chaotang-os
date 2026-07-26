@@ -132,6 +132,10 @@
   review because its status documentation was ambiguous.
 - [x] Clarify that registration exists only in the local candidate and is not
   integrated into EXT or activated.
+- [x] Reject registration candidate `7075c126` after one NO_GO and one GO
+  review because historical stages still appeared under current state.
+- [x] Establish one current-state block and move prior stages into an explicit
+  historical timeline.
 - [ ] Freeze and independently review the quiescent atomic registration
   candidate before controlled EXT integration.
 
