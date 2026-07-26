@@ -6,6 +6,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  rename,
   rm,
   stat,
   symlink,
@@ -1495,8 +1496,12 @@ test('authority Git commands disable the mutable commit-graph acceleration', asy
 });
 
 test('authority rejects HTTP alternates, promisor configuration, and promisor pack markers', async () => {
-  const temporaryRoot = await mkdtemp(join(tmpdir(), 'chaotang-v2-git-metadata-'));
+  const temporaryParent = await mkdtemp(
+    join(tmpdir(), 'chaotang-v2-git-metadata-'),
+  );
+  const temporaryRoot = join(temporaryParent, 'repo');
   try {
+    await mkdir(temporaryRoot);
     await execFileAsync('git', ['init', '-q'], { cwd: temporaryRoot });
     await writeRepositoryFile(
       temporaryRoot,
@@ -1516,6 +1521,11 @@ test('authority rejects HTTP alternates, promisor configuration, and promisor pa
     await execFileAsync(
       'git',
       ['config', '--local', 'remote.origin.partialCloneFilter', 'blob:none'],
+      { cwd: temporaryRoot },
+    );
+    await execFileAsync(
+      'git',
+      ['config', '--local', 'fsck.missingEmail', 'ignore'],
       { cwd: temporaryRoot },
     );
 
@@ -1545,8 +1555,26 @@ test('authority rejects HTTP alternates, promisor configuration, and promisor pa
       ),
       errors.join('\n'),
     );
+    assert.ok(
+      errors.some((error) => error.includes('fsck.missingemail')),
+      errors.join('\n'),
+    );
+
+    const externalObjects = join(temporaryParent, 'external-objects');
+    await rename(join(temporaryRoot, '.git/objects'), externalObjects);
+    await symlink(externalObjects, join(temporaryRoot, '.git/objects'), 'dir');
+    const symlinkErrors = await verifyRepositoryLocalGitDiffEnvironment(
+      temporaryRoot,
+      'test-authority',
+    );
+    assert.ok(
+      symlinkErrors.some((error) =>
+        error.includes('Git object database symbolic links are forbidden'),
+      ),
+      symlinkErrors.join('\n'),
+    );
   } finally {
-    await rm(temporaryRoot, { recursive: true, force: true });
+    await rm(temporaryParent, { recursive: true, force: true });
   }
 });
 

@@ -45,7 +45,8 @@ Product Owner 后续明确批准了 authority/profile TDD 实施。Event 1 只�
 - 通过 `GIT_ATTR_SOURCE=candidateH` 将 committed attributes 绑定到候选树；
 - 通过 `core.commitGraph=false` 直接使用 commit objects；
 - 通过 hardened fsck 校验 object database，并拒绝 alternates、partial-clone
-  配置和 `.promisor` pack markers；
+  配置、`fsck.*` 降级配置、`.promisor` pack markers 与 object database
+  symbolic links；
 - 将 Event 1 changed paths 约束为冻结的 12 条路径完全相等；
 - 同步本 wiki、任务和验证记录。
 

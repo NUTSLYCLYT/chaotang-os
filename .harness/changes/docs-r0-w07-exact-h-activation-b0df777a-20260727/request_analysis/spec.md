@@ -157,7 +157,8 @@ W07 activation 本身不实现上述功能，也不证明产品验收完成。
 - 当前 W07 authorize 仍为 STOP。
 - Event 1 review changed paths 与冻结的 12 条候选路径完全相等。
 - object database 通过 hardened fsck，且 alternates、partial clone 配置和
-  `.promisor` pack markers 均 fail closed。
+  `.promisor` pack markers、`fsck.*` 降级配置及 object database symbolic
+  links 均 fail closed。
 - 新旧证据边界、四事件顺序、owner/reviewer 分权和回滚规则明确。
 - 后续每个候选均有 exact H/tree/digest、fresh verification 和独立只读审查。
 

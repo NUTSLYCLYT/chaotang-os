@@ -631,6 +631,7 @@ function localGitConfigAffectsDiff(key) {
   const normalized = key.toLowerCase();
   return (
     normalized.startsWith('diff.') ||
+    normalized.startsWith('fsck.') ||
     normalized.startsWith('include.') ||
     normalized.startsWith('includeif.') ||
     normalized === 'extensions.worktreeconfig' ||
@@ -642,6 +643,33 @@ function localGitConfigAffectsDiff(key) {
     (normalized.startsWith('core.') &&
       !ALLOWED_LOCAL_CORE_CONFIG.has(normalized))
   );
+}
+
+async function firstGitObjectDatabaseSymlink(objectRoot) {
+  const pending = [{ path: objectRoot, relativePath: 'objects' }];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    let metadata;
+    try {
+      metadata = await lstat(current.path);
+    } catch (cause) {
+      if (cause.code === 'ENOENT') continue;
+      throw cause;
+    }
+    if (metadata.isSymbolicLink()) return current.relativePath;
+    if (!metadata.isDirectory()) continue;
+    for (const entry of await readdir(current.path, { withFileTypes: true })) {
+      const entryRelativePath = `${current.relativePath}/${entry.name}`;
+      if (entry.isSymbolicLink()) return entryRelativePath;
+      if (entry.isDirectory()) {
+        pending.push({
+          path: join(current.path, entry.name),
+          relativePath: entryRelativePath,
+        });
+      }
+    }
+  }
+  return null;
 }
 
 export async function verifyRepositoryLocalGitDiffEnvironment(
@@ -694,6 +722,13 @@ export async function verifyRepositoryLocalGitDiffEnvironment(
       const resolvedRoot = isAbsolute(metadataRoot)
         ? metadataRoot
         : join(root, metadataRoot);
+      const objectDatabaseSymlink =
+        await firstGitObjectDatabaseSymlink(join(resolvedRoot, 'objects'));
+      if (objectDatabaseSymlink !== null) {
+        errors.push(
+          `${label}: Git object database symbolic links are forbidden: ${objectDatabaseSymlink}`,
+        );
+      }
       for (const [relativePath, message] of [
         ['info/attributes', 'Git info attributes affect authority diff'],
         ['objects/info/alternates', 'Git object alternates are forbidden'],

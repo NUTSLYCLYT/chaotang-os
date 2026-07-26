@@ -106,7 +106,9 @@ system attributes 通过 `GIT_ATTR_NOSYSTEM=1` 禁用，用户 attributes 通过
 mutable commit-graph acceleration；commit/tree/parent 事实直接来自对象数据库。
 ACTIVE W07 exact-range 校验还会运行 hardened `git fsck --full --strict`，拒绝
 object hash/path 不一致；repository alternates、HTTP alternates、partial-clone/promisor
-配置和 `.promisor` pack markers 均禁止，不能把未绑定对象源引入 authority。
+配置、`fsck.*` 降级配置、`.promisor` pack markers 与 object database 内的
+symbolic links 均禁止，不能把未绑定对象源引入 authority。metadata guard
+通过后才允许运行 fsck。
 Event 1 review 的 changed paths 必须与冻结的 12 条候选路径完全相等，不接受
 额外 allowlist 路径或目录前缀扩张。
 

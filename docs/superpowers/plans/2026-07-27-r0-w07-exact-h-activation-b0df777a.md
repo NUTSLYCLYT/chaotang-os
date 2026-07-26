@@ -99,8 +99,8 @@ env -i GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null LC_ALL=C \
   -c core.commitGraph=false fsck --full --strict --no-reflogs --no-dangling \
   "$AUTHORITY_CANDIDATE_H"
 # Authority runtime additionally rejects alternates, partial-clone/promisor
-# config, .promisor pack markers, and any changed-path set other than the
-# frozen 12-path Event 1 candidate.
+# and fsck downgrade config, .promisor pack markers, object database symbolic
+# links, and any changed-path set other than the frozen 12-path Event 1 candidate.
 test -z "$(git status --porcelain=v1)"
 node --test scripts/execution-authority.nodetest.mjs scripts/r0-amendment-check.nodetest.mjs scripts/execution-authority-v2.nodetest.mjs
 node scripts/execution-authority.mjs --check
