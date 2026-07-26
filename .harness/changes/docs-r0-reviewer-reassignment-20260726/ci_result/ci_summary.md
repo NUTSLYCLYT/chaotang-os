@@ -2,7 +2,7 @@
 
 ## Status
 
-`TWENTY_FIRST_CANDIDATE_REJECTED / FINAL_IDENTITY_ORDER_REMEDIATION / NOT_AUTHORIZED`
+`TWENTY_SECOND_CANDIDATE_PRE_FREEZE / TWENTY_ONE_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -691,3 +691,6 @@ Git identity stability verification now runs after pinned working-tree
 verification and is the final `await` before the loader returns. This closes
 the twenty-first pass-1 finding only and is not a successor candidate or
 authorization.
+
+The remediated state is eligible for one successor exact-H freeze and two
+fresh read-only reviews. Candidate freeze remains non-authorizing.

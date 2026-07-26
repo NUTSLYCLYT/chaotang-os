@@ -116,7 +116,7 @@
   identities from reuse.
 - [x] Make Git identity stability verification the final asynchronous loader
   operation before synchronous eligibility mapping.
-- [ ] Prepare a successor non-authorizing candidate and obtain two fresh
+- [ ] Prepare a twenty-second non-authorizing candidate and obtain two fresh
   read-only reviews.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.

@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `TWENTY_FIRST_CANDIDATE_REJECTED / FINAL_IDENTITY_ORDER_REMEDIATION / NOT_AUTHORIZED` |
+| Status | `TWENTY_SECOND_CANDIDATE_PRE_FREEZE / TWENTY_ONE_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -316,6 +316,11 @@ all asynchronous working-tree checks. It is now the loader's final asynchronous
 operation; no `await` remains between that recheck and return to the CLI's
 synchronous eligibility mapper. The ordering regression observed RED before
 the change and is GREEN afterward.
+
+The Product Owner directed the task to continue. This permits one successor
+non-authorizing candidate and two fresh read-only reviews. It is not exact-H
+approval, overlay registration, W07 activation, push, deployment, migration,
+or listener takeover.
 
 ## Boundaries
 
