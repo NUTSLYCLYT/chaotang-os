@@ -39,27 +39,33 @@ Packet 不继承其授权状态、digest、owner approval 或 review verdict。
 
 只记录设计和证据生成规则。manifest 保持 quiescent，W07 保持 STOP。
 
-### Event 1：Quiescent Evidence Candidate
+### Event 1：Quiescent Profile Candidate
 
 在另行批准的 TDD 实施中：
 
 1. 将 canonical W07 profile 迁移到本 Change ID。
 2. 以 failing tests 证明旧路径不能被新候选冒充。
-3. 生成 deterministic review package 和 activation intent。
-4. 冻结 exact candidate H/tree 和全部 SHA-256。
-5. 保持 `activeWorkPackage=null` 且 ledger 无 W07。
+3. 保持 `activeWorkPackage=null` 且 ledger 无 W07。
+4. 先提交 profile candidate，再冻结其 exact H/tree。
 
-Event 1 仍不授权 W07。
+Event 1 不包含引用自身 H 的 activation intent，也不授权 W07。
 
-### Event 2：Owner And Independent Review
+### Event 2：Evidence Registration Parent
 
-Product Owner 只批准 Event 1 的 exact H/tree/package digest。随后由
-`Codex Independent QA` 在新的只读会话中审查不可变候选，要求 `GO`、
-`HIGH=0`、`MEDIUM=0`。写入证据后重新冻结 registration parent。
+从 Event 1 的已知 H/tree 生成 deterministic review package 和 activation intent。
+activation intent 绑定 Event 1 H/tree、package digest、目标 ledger 和 evidence paths，
+但位于 Event 1 的后继提交中，因此不存在 self-hash。
+
+Product Owner 必须逐字批准 Event 1 H/tree、review package path/digest、
+activation intent path/digest、scope 和 exclusions。随后由 `Codex Independent QA`
+在新的只读会话中审查不可变候选，绑定 owner approval digest，要求 `GO`、
+`HIGH=0`、`MEDIUM=0`。全部证据进入一个 quiescent registration parent；
+该 parent 仍保持 W07 STOP。
 
 ### Event 3：Atomic Activation Candidate
 
-在另行明确批准后，从 registration parent 生成恰好一个父提交的 activation event。
+在另行明确批准后，从 Event 2 registration parent 生成恰好一个父提交的
+activation event。
 该提交只进行已经审查的 manifest 状态转换：
 
 ```text

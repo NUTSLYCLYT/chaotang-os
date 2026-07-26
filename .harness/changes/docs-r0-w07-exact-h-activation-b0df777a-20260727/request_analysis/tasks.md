@@ -14,22 +14,23 @@
 - [ ] 冻结本 Packet candidate H/tree。
 - [ ] 请求本 Packet 受控整合审批。
 
-## 后续 Event 1：Quiescent Evidence Candidate
+## 后续 Event 1：Quiescent Profile Candidate
 
 - [ ] 取得 authority/profile TDD 实施授权。
 - [ ] RED：新增测试拒绝旧 W07 evidence root 和跨 Packet 证据混用。
 - [ ] GREEN：将 W07 profile 收敛到本 Change ID。
 - [ ] 运行 authority、amendment、doctor 全套回归。
-- [ ] 生成 deterministic review package 和 activation intent。
-- [ ] 冻结 exact H/tree/package digest，保持 W07 STOP。
+- [ ] 先提交 profile candidate，再冻结 exact H/tree，保持 W07 STOP。
 
-## 后续 Event 2：Approval And Review
+## 后续 Event 2：Evidence Registration Parent
 
-- [ ] 请求 Product Owner exact-H approval。
+- [ ] 从 Event 1 的已知 H/tree 生成 deterministic review package 和 activation intent。
+- [ ] 请求 Product Owner 对 H/tree、package digest、intent digest、scope 和 exclusions
+  的 exact approval。
 - [ ] 记录 owner approval 原始字节与 SHA-256。
 - [ ] 运行 fresh、read-only Codex Independent QA。
 - [ ] 要求 `GO / HIGH 0 / MEDIUM 0`。
-- [ ] 冻结包含全部证据的 registration parent。
+- [ ] 冻结包含全部证据但仍无 W07 ledger 的 registration parent。
 
 ## 后续 Event 3：Atomic Activation
 

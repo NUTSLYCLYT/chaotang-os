@@ -27,22 +27,32 @@ R0-W07 = STOP / NO_ACTIVE_WORK_PACKAGE
 
 ## 实测命令
 
+验证时间：`2026-07-27T01:19:17+0800`
+
 ```text
 node --test scripts/execution-authority.nodetest.mjs scripts/r0-amendment-check.nodetest.mjs scripts/execution-authority-v2.nodetest.mjs
-  108 passed / 0 failed
+  exit 0 / 108 passed / 0 failed
 node scripts/harness-doctor.mjs
-  0 errors / 0 warnings
+  exit 0 / 0 errors / 0 warnings
 (cd backend && python3 scripts/harness_doctor.py)
-  0 errors / 0 warnings
+  exit 0 / 0 errors / 0 warnings
 node scripts/execution-authority-v2.mjs --check
-  VALID_STRUCTURE
+  exit 0 / VALID_STRUCTURE
 node scripts/execution-authority.mjs --authorize
-  STOP / AMENDMENT_APPROVAL_REQUIRED
+  exit 2 / STOP / AMENDMENT_APPROVAL_REQUIRED
 node scripts/execution-authority-v2.mjs --authorize --work-package R0-W07
-  STOP / NO_ACTIVE_WORK_PACKAGE
+  exit 2 / STOP / NO_ACTIVE_WORK_PACKAGE
 git diff --check
-  PASS
+  exit 0 / PASS
 ```
+
+## Exact Candidate Receipt
+
+候选不能在自身内容中预写自身 Git H。每轮审查由仓外只读 receipt 记录 exact H/tree、
+base-to-H diff digest、命令退出码和时间，再将其作为不可变审查输入。首轮候选
+`b2d92c6e12854e11b7deb00d5e656d4aaefb41c5`、tree
+`3347d6b12765c86df93e5f30ea2be16a3be23258` 被独立 QA 判定
+`NO_GO / HIGH 1 / MEDIUM 2`，不得集成；本次修订处理其全部 findings。
 
 ## 尚未生成
 
