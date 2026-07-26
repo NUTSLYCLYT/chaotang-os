@@ -23,10 +23,9 @@ governance branch. They are not integrated into local EXT. The effective
 reviewer remains `Claude Code`, and W07 remains
 `STOP / NO_ACTIVE_WORK_PACKAGE`.
 
-Registration candidates `b781166a`, `7075c126`, and `311555d0` are rejected
-after mixed reviews. The committed state containing this block is their
-successor quiescent registration candidate and remains pending independent
-acceptance.
+Registration candidates `b781166a`, `7075c126`, `311555d0`, and `37f575bd`
+are rejected after independent review. The committed state containing this
+block is the quiescent registration candidate pending independent acceptance.
 
 ## Historical Timeline
 
@@ -374,9 +373,9 @@ entry, did not activate W07, and did not authorize product work. W07 remained
 
 Registration candidate `b781166aeaee9513e431908b9436043ac008043e`
 received one `NO_GO / MEDIUM 1` and one `GO`. It was rejected because historical
-status text could be read as the current state. The successor candidate must
-state unambiguously that the overlay exists only on the local registration
-candidate, is not integrated into local EXT, and does not activate W07.
+status text could be read as the current state. The finding required an
+unambiguous statement that the overlay was not integrated into local EXT and
+did not activate W07.
 
 Registration candidate `7075c126db558e4367ca4f1a4168071bcb8ebc65`
 also received one `NO_GO / MEDIUM 1` and one `GO`. It was rejected because the
@@ -386,8 +385,13 @@ historical present-tense wording.
 Registration candidate `311555d0f076eba24118777dd4430a56ba4d29c4`
 was rejected by both reviews. Historical text still carried one current-state
 sentence, and the immutable text review package caused the required ranged
-`git diff --check` to fail. The successor removes the duplicate status and
-uses the established scoped binary attribute for exact `.diff` evidence.
+`git diff --check` to fail. The findings required removal of the duplicate
+status and the established scoped binary attribute for exact `.diff` evidence.
+
+Registration candidate `37f575bd9635922fb4f37ea0b638085f5eb9745e`
+received one `NO_GO / MEDIUM 1` and one `GO`. It was rejected because its
+historical remediation record still referred to the then-current successor in
+the present tense.
 
 ## Boundaries
 

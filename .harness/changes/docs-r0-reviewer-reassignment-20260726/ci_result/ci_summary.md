@@ -783,9 +783,8 @@ combined = NO_GO
 
 The candidate was rejected because current and historical status text could be
 read as contradictory. The overlay and evidence validation passed, and W07
-remained stopped. The successor documentation was updated to say that the
-overlay exists only in the local registration candidate, is not integrated
-into local EXT, and does not activate W07.
+remained stopped. The finding required an unambiguous statement that the
+overlay was not integrated into local EXT and did not activate W07.
 
 ## Second Registration Candidate Rejected
 
@@ -800,9 +799,9 @@ combined = NO_GO
 ```
 
 The candidate was rejected because historical stages remained under
-`Current State` and retained present-tense status wording. The successor was
-required to use one current-state block and label the remaining evidence as a
-historical verification timeline.
+`Current State` and retained present-tense status wording. The finding required
+one current-state block and a separately labelled historical verification
+timeline.
 
 ## Third Registration Candidate Rejected
 
@@ -818,6 +817,21 @@ combined = NO_GO
 
 Both reviews found a duplicate current-state sentence in the historical
 timeline. Pass 1 also found that the immutable text review package made the
-required ranged `git diff --check` fail. The successor removes the duplicate
-status and uses the existing repository pattern of a scoped `*.diff binary`
-attribute; the package bytes and digest remain unchanged.
+required ranged `git diff --check` fail. The findings required removal of the
+duplicate status and the existing repository pattern of a scoped
+`*.diff binary` attribute.
+
+## Fourth Registration Candidate Rejected
+
+```text
+candidate = 37f575bd9635922fb4f37ea0b638085f5eb9745e
+tree = 4283d61c01599be182697ca452d90d7692f57552
+pass 1 session = 019f9eba-be1c-7810-822c-e500f3111c4a
+pass 1 = NO_GO / HIGH 0 / MEDIUM 1
+pass 2 session = 019f9eba-e5d3-74b3-9f6b-484547679b3e
+pass 2 = GO / HIGH 0 / MEDIUM 0
+combined = NO_GO
+```
+
+The candidate was rejected because its historical remediation record still
+referred to the then-current successor in the present tense.

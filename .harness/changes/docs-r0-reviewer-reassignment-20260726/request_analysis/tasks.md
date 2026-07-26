@@ -140,6 +140,10 @@
 - [x] Remove the final current-state sentence from the historical timeline.
 - [x] Apply the established scoped binary attribute to immutable `.diff`
   evidence so the required ranged diff check can evaluate the real candidate.
+- [x] Reject registration candidate `37f575bd` after one NO_GO and one GO
+  review because recent history still referenced its successor in present
+  tense.
+- [x] Remove successor-relative wording from recent historical findings.
 - [ ] Freeze and independently review the quiescent atomic registration
   candidate before controlled EXT integration.
 
