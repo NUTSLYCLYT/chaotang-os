@@ -278,6 +278,16 @@ test('approved reviewer reassignment requires two isolated read-only Codex QA pa
     ),
     'Claude Code',
   );
+  const malformedOverlay = structuredClone(overlay);
+  malformedOverlay.scope = ['R0-W08'];
+  assert.equal(
+    effectiveIndependentReviewer(
+      { independentReviewer: 'Claude Code', reviewerReassignment: malformedOverlay },
+      'R0-W06',
+      [{ id: 'R0-W06', status: 'ACTIVE' }],
+    ),
+    'Claude Code',
+  );
   assert.equal(
     effectiveIndependentReviewer(
       { independentReviewer: 'Claude Code', reviewerReassignment: overlay },
@@ -452,6 +462,15 @@ test('W07 activation requires a prior quiescent overlay registration commit', as
       await mkdir(dirname(join(tempRoot, path)), { recursive: true });
       await writeFile(join(tempRoot, path), `${path}\n`);
     }
+    await mkdir(join(tempRoot, '.harness/manifest'), { recursive: true });
+    await writeFile(
+      join(tempRoot, '.harness/manifest/project-harness.json'),
+      `${JSON.stringify({ amendmentGovernance: {} }, null, 2)}\n`,
+    );
+    await writeFile(
+      join(tempRoot, '.harness/manifest/execution-authority.v2.json'),
+      `${JSON.stringify({ activeWorkPackage: null, workPackageLedger: [] }, null, 2)}\n`,
+    );
     await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
     await execFileAsync('git', ['commit', '-qm', 'reviewed candidate'], {
       cwd: tempRoot,
@@ -735,6 +754,13 @@ test('activation history pins one complete HEAD object for every Git read', asyn
     /findReviewerReassignmentActivation\(\s*root,\s*overlay,\s*headH,/u,
   );
   assert.match(source, /reviewerReassignment HEAD moved during verification/u);
+  assert.match(source, /candidateH is not a first-parent ancestor/u);
+  assert.match(source, /validateExecutionManifest\(authority\)/u);
+  assert.match(source, /reviewerReassignmentFirstParentChain/u);
+  assert.doesNotMatch(
+    source,
+    /priorAuthorityHistory[\s\S]*?'\.harness\/manifest\/execution-authority\.v2\.json'/u,
+  );
 });
 
 for (const [name, mutate, expected] of [

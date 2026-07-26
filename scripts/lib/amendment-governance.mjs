@@ -591,7 +591,9 @@ export function effectiveIndependentReviewer(
   if (overlay === undefined || overlay === null) {
     return amendmentGovernance?.independentReviewer ?? null;
   }
-  if (validateReviewerReassignmentOverlay(overlay).length > 0) return null;
+  if (validateReviewerReassignmentOverlay(overlay).length > 0) {
+    return amendmentGovernance?.independentReviewer ?? null;
+  }
   const scopedPackage = workPackageLedger.find((entry) => entry.id === workPackage);
   if (scopedPackage?.status !== 'ACTIVE') {
     return amendmentGovernance?.independentReviewer ?? null;
@@ -625,12 +627,6 @@ function validateCommonFields(amendment, { requiredVerification, gateStatus }) {
   }
   if (amendment.independentReviewer !== 'Claude Code') {
     errors.push('amendment governance independentReviewer must be Claude Code');
-  }
-  if (
-    amendment.reviewerReassignment !== undefined &&
-    amendment.reviewerReassignment !== null
-  ) {
-    errors.push(...validateReviewerReassignmentOverlay(amendment.reviewerReassignment));
   }
   if (!hasExactItems(amendment.professionalReassignmentRequiredBefore, REQUIRED_REASSIGNMENT_BOUNDARIES)) {
     errors.push('amendment governance must reassign professionals before customer data, W08, and W09');
@@ -809,81 +805,115 @@ async function resolveReviewerReassignmentHead(root) {
   return headSource.trim();
 }
 
-async function findReviewerReassignmentActivation(root, overlay, headH) {
+async function reviewerReassignmentFirstParentChain(root, headH) {
   const { stdout } = await execFileAsync(
     'git',
-    reviewerReassignmentGitArgs(
-      'rev-list',
-      '--first-parent',
-      headH,
-      '--',
-      '.harness/manifest/execution-authority.v2.json',
-    ),
+    reviewerReassignmentGitArgs('rev-list', '--first-parent', headH),
     reviewerReassignmentGitOptions(root),
   );
+  return stdout.trim().split('\n').filter(Boolean);
+}
+
+function validateHistoricalExecutionManifest(
+  authority,
+  label,
+  validateExecutionManifest,
+) {
+  if (typeof validateExecutionManifest !== 'function') return;
+  const validationErrors = validateExecutionManifest(authority);
+  if (validationErrors.length > 0) {
+    throw new Error(`${label}: ${validationErrors.join('; ')}`);
+  }
+}
+
+async function findReviewerReassignmentActivation(
+  root,
+  overlay,
+  headH,
+  validateExecutionManifest,
+) {
+  const firstParentChain = await reviewerReassignmentFirstParentChain(root, headH);
+  const candidateIndex = firstParentChain.indexOf(overlay.candidateH);
+  if (candidateIndex === -1) {
+    throw new Error(
+      'reviewerReassignment candidateH is not a first-parent ancestor of HEAD',
+    );
+  }
   const candidates = [];
-  for (const commit of stdout.trim().split('\n').filter(Boolean)) {
-    try {
-      const authority = parseUniqueJsonObject(
-        (
-          await readGitBlob(
-            root,
-            commit,
-            '.harness/manifest/execution-authority.v2.json',
-          )
-        ).toString('utf8'),
-        'activation execution authority',
-      );
-      if (authority.activeWorkPackage !== 'R0-W07') continue;
-      const projectHarness = parseUniqueJsonObject(
-        (
-          await readGitBlob(root, commit, '.harness/manifest/project-harness.json')
-        ).toString('utf8'),
-        'activation project harness',
-      );
-      if (
-        JSON.stringify(projectHarness.amendmentGovernance?.reviewerReassignment) !==
-        JSON.stringify(overlay)
-      ) {
-        continue;
+  for (const commit of firstParentChain.slice(0, candidateIndex + 1)) {
+    const authority = parseUniqueJsonObject(
+      (
+        await readGitBlob(
+          root,
+          commit,
+          '.harness/manifest/execution-authority.v2.json',
+        )
+      ).toString('utf8'),
+      `activation execution authority at ${commit}`,
+    );
+    validateHistoricalExecutionManifest(
+      authority,
+      `activation execution authority at ${commit}`,
+      validateExecutionManifest,
+    );
+    if (authority.activeWorkPackage !== 'R0-W07') continue;
+    const projectHarness = parseUniqueJsonObject(
+      (
+        await readGitBlob(root, commit, '.harness/manifest/project-harness.json')
+      ).toString('utf8'),
+      'activation project harness',
+    );
+    if (
+      JSON.stringify(projectHarness.amendmentGovernance?.reviewerReassignment) !==
+      JSON.stringify(overlay)
+    ) {
+      continue;
+    }
+    const { stdout: parentSource } = await execFileAsync(
+      'git',
+      reviewerReassignmentGitArgs('rev-parse', `${commit}^`),
+      reviewerReassignmentGitOptions(root),
+    );
+    const parentH = parentSource.trim();
+    const parentProjectHarness = parseUniqueJsonObject(
+      (
+        await readGitBlob(
+          root,
+          parentH,
+          '.harness/manifest/project-harness.json',
+        )
+      ).toString('utf8'),
+      'activation parent project harness',
+    );
+    const parentAuthority = parseUniqueJsonObject(
+      (
+        await readGitBlob(
+          root,
+          parentH,
+          '.harness/manifest/execution-authority.v2.json',
+        )
+      ).toString('utf8'),
+      'activation parent execution authority',
+    );
+    validateHistoricalExecutionManifest(
+      parentAuthority,
+      'activation parent execution authority',
+      validateExecutionManifest,
+    );
+    if (
+      JSON.stringify(parentProjectHarness.amendmentGovernance?.reviewerReassignment) ===
+        JSON.stringify(overlay) &&
+      parentAuthority.activeWorkPackage === null &&
+      !parentAuthority.workPackageLedger?.some((entry) => entry.status === 'ACTIVE') &&
+      !parentAuthority.workPackageLedger?.some((entry) => entry.id === 'R0-W07')
+    ) {
+      const parentChain = await reviewerReassignmentFirstParentChain(root, parentH);
+      if (!parentChain.includes(overlay.candidateH)) {
+        throw new Error(
+          'reviewerReassignment candidateH is not a first-parent ancestor of activation parent',
+        );
       }
-      const { stdout: parentSource } = await execFileAsync(
-        'git',
-        reviewerReassignmentGitArgs('rev-parse', `${commit}^`),
-        reviewerReassignmentGitOptions(root),
-      );
-      const parentH = parentSource.trim();
-      const parentProjectHarness = parseUniqueJsonObject(
-        (
-          await readGitBlob(
-            root,
-            parentH,
-            '.harness/manifest/project-harness.json',
-          )
-        ).toString('utf8'),
-        'activation parent project harness',
-      );
-      const parentAuthority = parseUniqueJsonObject(
-        (
-          await readGitBlob(
-            root,
-            parentH,
-            '.harness/manifest/execution-authority.v2.json',
-          )
-        ).toString('utf8'),
-        'activation parent execution authority',
-      );
-      if (
-        JSON.stringify(parentProjectHarness.amendmentGovernance?.reviewerReassignment) ===
-          JSON.stringify(overlay) &&
-        parentAuthority.activeWorkPackage === null &&
-        !parentAuthority.workPackageLedger?.some((entry) => entry.status === 'ACTIVE') &&
-        !parentAuthority.workPackageLedger?.some((entry) => entry.id === 'R0-W07')
-      ) {
-        candidates.push({ activationH: commit, parentH });
-      }
-    } catch {
-      // Commits before these governance files existed cannot be activation events.
+      candidates.push({ activationH: commit, parentH });
     }
   }
   return candidates;
@@ -893,6 +923,7 @@ export async function verifyReviewerReassignmentActivationHistory(
   root,
   amendmentGovernance,
   executionManifest,
+  validateExecutionManifest,
 ) {
   const overlay = amendmentGovernance?.reviewerReassignment;
   if (overlay === null || overlay === undefined) return [];
@@ -905,6 +936,7 @@ export async function verifyReviewerReassignmentActivationHistory(
       root,
       overlay,
       headH,
+      validateExecutionManifest,
     );
     if (activationCandidates.length !== 1) {
       errors.push(
@@ -938,12 +970,18 @@ export async function verifyReviewerReassignmentActivationHistory(
           root,
           commit,
           '.harness/manifest/execution-authority.v2.json',
-        ).then((source) =>
-          parseUniqueJsonObject(
+        ).then((source) => {
+          const authority = parseUniqueJsonObject(
             source.toString('utf8'),
             'continuous activation execution authority',
-          ),
-        ),
+          );
+          validateHistoricalExecutionManifest(
+            authority,
+            'continuous activation execution authority',
+            validateExecutionManifest,
+          );
+          return authority;
+        }),
       ]);
       if (
         JSON.stringify(projectHarness.amendmentGovernance?.reviewerReassignment) !==
@@ -976,18 +1014,16 @@ export async function verifyReviewerReassignmentActivationHistory(
       }
     }
 
-    const { stdout: priorAuthorityHistory } = await execFileAsync(
+    const { stdout: firstParentPriorCommits } = await execFileAsync(
       'git',
       reviewerReassignmentGitArgs(
         'rev-list',
         '--first-parent',
         `${overlay.baseH}..${parentH}`,
-        '--',
-        '.harness/manifest/execution-authority.v2.json',
       ),
       reviewerReassignmentGitOptions(root),
     );
-    for (const commit of priorAuthorityHistory.trim().split('\n').filter(Boolean)) {
+    for (const commit of firstParentPriorCommits.trim().split('\n').filter(Boolean)) {
       const authority = parseUniqueJsonObject(
         (
           await readGitBlob(
@@ -997,6 +1033,11 @@ export async function verifyReviewerReassignmentActivationHistory(
           )
         ).toString('utf8'),
         'pre-activation execution authority',
+      );
+      validateHistoricalExecutionManifest(
+        authority,
+        `pre-activation execution authority at ${commit}`,
+        validateExecutionManifest,
       );
       if (authority.workPackageLedger?.some((entry) => entry.id === 'R0-W07')) {
         errors.push(
@@ -1063,7 +1104,11 @@ export function validateAmendmentGovernanceRegistration(amendment) {
   return [`amendment governance has invalid status: ${amendment.status}`];
 }
 
-export async function verifyAmendmentApprovalEvidenceFiles(root, amendment) {
+export async function verifyAmendmentApprovalEvidenceFiles(
+  root,
+  amendment,
+  { includeReviewerReassignment = true } = {},
+) {
   const errors = [];
   if (!amendment) return errors;
 
@@ -1105,7 +1150,11 @@ export async function verifyAmendmentApprovalEvidenceFiles(root, amendment) {
   }
 
   const overlay = amendment.reviewerReassignment;
-  if (overlay !== null && overlay !== undefined) {
+  if (
+    includeReviewerReassignment &&
+    overlay !== null &&
+    overlay !== undefined
+  ) {
     if (!hasExactKeys(overlay, REVIEWER_REASSIGNMENT_KEYS)) return errors;
     const reviewPackageSource = await verifyEvidenceFile(
       overlay.reviewPackagePath,

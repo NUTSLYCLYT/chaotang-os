@@ -2,7 +2,7 @@
 
 ## Status
 
-`TWELFTH_REMEDIATION_PENDING / ELEVEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`TWELFTH_CANDIDATE_PRE_FREEZE / ELEVEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -291,6 +291,29 @@ combined = NO_GO
 The next candidate must close candidate-history ancestry, path-simplified
 merge history, historical manifest validation, W06 overlay isolation, and
 source-ref movement. This rejection checkpoint does not authorize W07.
+
+## Twelfth Candidate Pre-Freeze Verification
+
+```text
+focused TDD RED: 3 expected failures
+focused TDD GREEN: 4 pass / 0 fail
+authority test suites: 102 pass / 0 fail
+project-harness-doctor: 0 errors / 0 warnings
+v1 authorize: STOP / AMENDMENT_APPROVAL_REQUIRED
+v2 check: VALID_STRUCTURE / NOT_AN_AUTHORIZATION
+v2 authorize R0-W07: STOP / NO_ACTIVE_WORK_PACKAGE
+working diff check: PASS
+```
+
+The verifier binds the reviewed candidate to the activation first-parent
+chain, enumerates commits without a manifest pathspec, and applies the complete
+v2 validator to historical authority manifests. Invalid or inactive W07
+overlay state is isolated from W06, while active W07 remains fail-closed. The
+mutable local EXT ref is sampled before and after exact packet verification.
+
+These results permit exact-H candidate freeze and independent review only.
+They do not approve the reviewer reassignment, register the overlay, activate
+W07, push, deploy, migrate a database, or operate listener 3050.
 
 ## Third Rejected Candidate
 

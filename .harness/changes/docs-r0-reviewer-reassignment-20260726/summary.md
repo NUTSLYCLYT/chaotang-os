@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `TWELFTH_REMEDIATION_PENDING / NOT_AUTHORIZED` |
+| Status | `TWELFTH_CANDIDATE_PRE_FREEZE / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -116,10 +116,19 @@ Candidate `f452879556a62263afe9b0d3d67137cb7bfe5edb` was rejected by both
 fresh review passes. Its H/tree/package and review sessions are historical
 only and cannot be approved or reused.
 
-The twelfth remediation must require candidate first-parent ancestry, enumerate
-every first-parent commit without path simplification, validate historical
-manifests, isolate invalid W07 overlays from W06, and recheck the mutable EXT
-ref before any GO. No twelfth candidate has been frozen.
+The twelfth remediation requires candidate first-parent ancestry and enumerates
+every first-parent commit without path simplification. Every post-candidate
+historical authority manifest used for registration, activation, or continuity
+is parsed and passed through the complete v2 manifest validator.
+
+A missing, malformed, or inactive W07 overlay has no effect on W06: the
+historical reviewer and W06 evidence contract remain authoritative. An active
+W07 overlay remains fail-closed. The mutable local EXT ref is sampled before
+and after exact packet Git verification, and movement prevents GO.
+
+The remediation passes 102 authority tests and project harness doctor with
+zero errors or warnings. No twelfth exact-H candidate has yet been frozen,
+reviewed, approved, registered, or activated.
 
 ## Boundaries
 

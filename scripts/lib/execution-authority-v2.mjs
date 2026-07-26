@@ -8,6 +8,7 @@ import { promisify } from 'node:util';
 import {
   effectiveIndependentReviewer,
   validateAmendmentGovernanceRegistration,
+  validateReviewerReassignmentOverlay,
   verifyAmendmentApprovalEvidenceFiles,
   verifyReviewerReassignmentActivationHistory,
 } from './amendment-governance.mjs';
@@ -240,8 +241,9 @@ async function verifyActivePacketGitIdentity(
           authorityGitOptions(root),
         ),
       ]);
+    const initialRefH = refH.trim();
     if (
-      refH.trim() !== manifest.effectiveBase.sha ||
+      initialRefH !== manifest.effectiveBase.sha ||
       effectiveH.trim() !== manifest.effectiveBase.sha
     ) {
       errors.push('active-packet effectiveBase ref/sha git identity mismatch');
@@ -281,6 +283,14 @@ async function verifyActivePacketGitIdentity(
     );
     if (!reviewPackageSource.equals(exactDiff)) {
       errors.push('review package bytes must equal exact git diff');
+    }
+    const { stdout: finalRefSource } = await execFileAsync(
+      'git',
+      authorityGitArgs('rev-parse', `${manifest.effectiveBase.ref}^{commit}`),
+      authorityGitOptions(root),
+    );
+    if (finalRefSource.trim() !== initialRefH) {
+      errors.push('active-packet effectiveBase ref moved during verification');
     }
   } catch (cause) {
     errors.push(`active-packet git identity is unverifiable: ${cause.code ?? cause.message}`);
@@ -1183,8 +1193,23 @@ export async function loadExecutionAuthorityV2(root) {
         validateAmendmentGovernanceRegistration(amendmentGovernance);
       errors.push(...governanceErrors);
       if (governanceErrors.length === 0) {
+        const overlay = amendmentGovernance?.reviewerReassignment;
+        const overlayErrors =
+          overlay === undefined || overlay === null
+            ? []
+            : validateReviewerReassignmentOverlay(overlay);
+        const w07Active = manifest?.activeWorkPackage === 'R0-W07';
+        if (w07Active) errors.push(...overlayErrors);
         errors.push(
-          ...(await verifyAmendmentApprovalEvidenceFiles(root, amendmentGovernance)),
+          ...(await verifyAmendmentApprovalEvidenceFiles(
+            root,
+            amendmentGovernance,
+            {
+              includeReviewerReassignment:
+                overlayErrors.length === 0 &&
+                (w07Active || manifest?.activeWorkPackage === null),
+            },
+          )),
         );
       }
     } catch (cause) {
@@ -1214,6 +1239,7 @@ export async function loadExecutionAuthorityV2(root) {
         root,
         amendmentGovernance,
         manifest,
+        validateExecutionAuthorityV2Manifest,
       )),
     );
   }

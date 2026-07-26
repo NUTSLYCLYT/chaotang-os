@@ -58,10 +58,10 @@
 - [x] Prepare an eleventh non-authorizing candidate for exact commit freeze.
 - [x] Reject candidate `f4528795` after two independent NO_GO reviews.
 - [x] Exclude all twenty-two rejected or superseded platform sessions.
-- [ ] Require candidate first-parent ancestry and unsimplified per-commit history.
-- [ ] Validate every historical authority manifest.
-- [ ] Make invalid or inactive W07 overlays no-op for W06.
-- [ ] Recheck the mutable EXT source ref before returning GO.
+- [x] Require candidate first-parent ancestry and unsimplified per-commit history.
+- [x] Validate every historical authority manifest.
+- [x] Make invalid or inactive W07 overlays no-op for W06.
+- [x] Recheck the mutable EXT source ref before returning GO.
 - [ ] Prepare a twelfth non-authorizing candidate for exact commit freeze.
 - [ ] Obtain two new fresh Codex Independent QA reviews.
 - [ ] Request exact-H Product Owner approval.

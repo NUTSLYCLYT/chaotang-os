@@ -814,27 +814,24 @@ test('active temporary root fails closed when canonical amendment bytes drift', 
   }
 });
 
-test('v2 loader fails closed when reviewer reassignment evidence is absent', async () => {
+test('inactive W07 reviewer reassignment cannot invalidate active W06 authority', async () => {
   const { temporaryRoot } = await createActiveAuthorityFixture();
   try {
     const governance = validGovernance();
     governance.reviewerReassignment = validReviewerReassignment();
+    governance.reviewerReassignment.scope = ['R0-W08'];
     await writeRepositoryFile(
       temporaryRoot,
       '.harness/manifest/project-harness.json',
       `${JSON.stringify({ amendmentGovernance: governance }, null, 2)}\n`,
     );
     const loaded = await loadExecutionAuthorityV2(temporaryRoot);
-    assert.ok(
-      loaded.errors.some((error) =>
-        error.includes('reviewerReassignment.reviewPackagePath: missing path component'),
-      ),
-    );
+    assert.deepEqual(loaded.errors, []);
     const result = executionAuthorityV2CommandResult(loaded, '--authorize', [], {
       workPackage: 'R0-W06',
     });
-    assert.equal(result.exitCode, 1);
-    assert.equal(result.output.reason, 'INVALID_EXECUTION_AUTHORITY');
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.output.reason, 'APPROVED_WORK_PACKAGE');
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }
@@ -1349,6 +1346,19 @@ test('authority readers bind an opened file descriptor to its in-repository targ
     assert.match(source, /stat\.nlink !== 1/u);
     assert.doesNotMatch(source, /return readFile\(current/u);
   }
+});
+
+test('W07 source ref is rechecked after all exact packet Git verification', async () => {
+  const source = await readFile(
+    join(root, 'scripts/lib/execution-authority-v2.mjs'),
+    'utf8',
+  );
+  assert.match(source, /const initialRefH = refH\.trim\(\)/u);
+  assert.match(source, /active-packet effectiveBase ref moved during verification/u);
+  assert.match(
+    source,
+    /verifyReviewerReassignmentActivationHistory\([\s\S]*?validateExecutionAuthorityV2Manifest/u,
+  );
 });
 
 test('v2 manifest source rejects duplicate JSON keys', () => {

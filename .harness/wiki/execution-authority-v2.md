@@ -77,14 +77,16 @@ v2 才回答“这个具体 work package 现在是否被授权”。
 
 历史 W06 证据保持原路径、排除项和命令集合，不允许被 W07 复用。W07 使用独立 profile：
 
-- `refs/heads/feature-chaotang-ext` 必须精确指向获批 candidate H；
+- `refs/heads/feature-chaotang-ext` 必须精确指向获批 candidate H，并在 exact packet Git
+  验证前后两次解析为同一 commit；
 - review package 必须以原始 `Buffer` 逐字节等于固定 EXT review base
   `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca..candidateH` 的 hardened Git diff；
 - owner approval、activation intent、review package 与 Codex final review 必须位于 W07 change root；
 - W07 review 路径使用 `codex_review/exact-h-final.md`，历史 Claude 路径不冒充 Codex；
 - candidate commit、tree、review base、分支 ref、changed paths、digest 和 W07 验证命令必须同时匹配。
 
-任何未知 work package profile、W06 证据复用、伪造但内部自洽的 diff、ref 漂移或 candidate/tree
+任何未知 work package profile、W06 证据复用、伪造但内部自洽的 diff、ref 在验证期间移动或
+candidate/tree
 漂移都会使 loader 返回 `INVALID_EXECUTION_AUTHORITY`。
 
 ## 独立审查人范围化修订
@@ -110,8 +112,9 @@ session。W07 激活必须是 overlay 静默注册之后的独立提交；注册
 当前 `HEAD` 的第一父
 历史必须连续保持同一 overlay 与 W07 ACTIVE；中途收口后恢复旧字节属于重放并会被拒绝。W07 ledger
 进入 `MERGED_AND_VERIFIED` 后 overlay 失效并回落到历史 reviewer。任何字段、
-文件、digest、Git identity 或审查结果不一致时，effective reviewer 解析为无效，execution authority
-必须 STOP。overlay 只替换 W07 的 evidence reviewer 身份，不激活 work package，也不修改 v1/v2 的
+文件、digest、Git identity 或审查结果不一致时，active W07 execution authority 必须 STOP。
+缺失、无效或尚未生效的 W07 overlay 不改变 W06：W06 继续使用历史 reviewer 和原 evidence
+contract。overlay 只替换 ACTIVE W07 的 evidence reviewer 身份，不激活 work package，也不修改 v1/v2 的
 执行权限边界；W07 激活仍需独立的 atomic activation candidate。
 
 工作树证据读取先以 `O_NOFOLLOW` 打开文件句柄，再通过 Linux `/proc/self/fd/<fd>` 验证已打开对象的
@@ -120,8 +123,10 @@ fail closed，不能退回到 `lstat` 后重新按路径读取。
 
 激活历史验证要求完整的 non-shallow repository，并在开始时将 `HEAD^{commit}` 解析为单一对象；所有
 activation discovery、first-parent traversal 和 HEAD blob comparison 都使用该对象，返回前再次解析
-并拒绝 ref movement。扫描范围覆盖 reviewed `baseH` 到 registration parent；曾出现 W07 ledger、
-manifest 缺失或 manifest 不可解析都不能通过删除记录来重置。
+并拒绝 HEAD movement。reviewed candidate 必须是 registration parent 的第一父祖先。扫描不使用
+manifest pathspec，而是枚举 candidate 之后到 registration parent 的每一个第一父 commit，避免 merge
+commit 因历史简化被遗漏；每份 authority manifest 都必须通过完整 v2 manifest validator。曾出现 W07
+ledger、manifest 缺失、JSON 不可解析或结构无效都不能通过删除记录来重置。
 
 v2 loader 还会直接读取 `manifest.amendment.path` 的原始字节并校验
 `approvedSourceDigest`，不能只比较 manifest 与 governance 中互相引用的 digest 字段。所有 governed
