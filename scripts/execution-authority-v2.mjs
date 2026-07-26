@@ -3,7 +3,7 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-  executionAuthorityV2CommandResult,
+  executeExecutionAuthorityV2Command,
   loadExecutionAuthorityV2,
 } from './lib/execution-authority-v2.mjs';
 
@@ -39,7 +39,7 @@ if (modes.length > 1 || extraArguments.length > 0) {
 }
 
 const loaded = await loadExecutionAuthorityV2(root);
-const result = executionAuthorityV2CommandResult(loaded, mode, extraArguments, {
+const result = await executeExecutionAuthorityV2Command(root, loaded, mode, extraArguments, {
   workPackage,
   realCustomerData,
 });

@@ -160,6 +160,7 @@ const ACTIVE_PACKET_PROFILES = Object.freeze({
     ]),
   }),
 });
+const AUTHORIZATION_BOUNDARY_VERIFIED_LOADS = new WeakSet();
 
 function activePacketProfile(manifest, errors) {
   const profile = ACTIVE_PACKET_PROFILES[manifest.activeWorkPackage];
@@ -1456,7 +1457,13 @@ export async function loadExecutionAuthorityV2(root) {
     authorizationBoundaryGitIdentity,
     errors,
   );
-  return { manifest, schema, amendmentGovernance, errors: [...new Set(errors)] };
+  return {
+    manifest,
+    schema,
+    amendmentGovernance,
+    authorizationBoundaryGitIdentity,
+    errors: [...new Set(errors)],
+  };
 }
 
 export function validateExecutionAuthorityV2(loaded) {
@@ -1516,9 +1523,62 @@ export function executionAuthorityV2CommandResult(
       },
     };
   }
+  if (
+    loaded.manifest.activeWorkPackage === 'R0-W07' &&
+    !AUTHORIZATION_BOUNDARY_VERIFIED_LOADS.delete(loaded)
+  ) {
+    return {
+      exitCode: 1,
+      output: {
+        schemaVersion: 'execution-authority.v2',
+        decision: 'STOP',
+        reason: 'AUTHORIZATION_BOUNDARY_RECHECK_REQUIRED',
+      },
+    };
+  }
   const decision = resolveExecutionAuthorityV2(loaded.manifest, loaded.amendmentGovernance, {
     workPackage,
     realCustomerData,
   });
   return { exitCode: decision.decision === 'GO' ? 0 : 2, output: decision };
+}
+
+export async function executeExecutionAuthorityV2Command(
+  root,
+  loaded,
+  mode = '--authorize',
+  extraArguments = [],
+  options = {},
+) {
+  if (mode === '--authorize' && loaded?.manifest?.activeWorkPackage === 'R0-W07') {
+    const boundaryErrors = [];
+    if (loaded.authorizationBoundaryGitIdentity === null ||
+        loaded.authorizationBoundaryGitIdentity === undefined) {
+      boundaryErrors.push('execution authority authorization-boundary snapshot is missing');
+    } else {
+      await verifyExecutionAuthorityGitIdentityStable(
+        root,
+        loaded.authorizationBoundaryGitIdentity,
+        boundaryErrors,
+      );
+    }
+    if (boundaryErrors.length > 0) {
+      return executionAuthorityV2CommandResult(
+        {
+          ...loaded,
+          errors: [...(loaded.errors ?? []), ...boundaryErrors],
+        },
+        mode,
+        extraArguments,
+        options,
+      );
+    }
+    AUTHORIZATION_BOUNDARY_VERIFIED_LOADS.add(loaded);
+  }
+  return executionAuthorityV2CommandResult(
+    loaded,
+    mode,
+    extraArguments,
+    options,
+  );
 }

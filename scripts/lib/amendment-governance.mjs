@@ -875,10 +875,16 @@ async function findReviewerReassignmentActivation(
     }
     const { stdout: parentSource } = await execFileAsync(
       'git',
-      reviewerReassignmentGitArgs('rev-parse', `${commit}^`),
+      reviewerReassignmentGitArgs('rev-list', '--parents', '-n', '1', commit),
       reviewerReassignmentGitOptions(root),
     );
-    const parentH = parentSource.trim();
+    const commitAndParents = parentSource.trim().split(/\s+/u);
+    if (commitAndParents.length !== 2) {
+      throw new Error(
+        'reviewerReassignment activation commit must have exactly one parent',
+      );
+    }
+    const parentH = commitAndParents[1];
     const parentProjectHarness = parseUniqueJsonObject(
       (
         await readGitBlob(

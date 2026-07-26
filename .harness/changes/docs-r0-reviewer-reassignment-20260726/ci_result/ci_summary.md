@@ -2,7 +2,7 @@
 
 ## Status
 
-`FOURTEENTH_REMEDIATION_PENDING / THIRTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`FOURTEENTH_CANDIDATE_PRE_FREEZE / THIRTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -416,6 +416,20 @@ working diff check: PASS
 
 The live project manifest does not contain the overlay. The effective reviewer
 therefore remains `Claude Code`, and W07 remains stopped.
+
+## Fourteenth Candidate Pre-Freeze Verification
+
+```text
+merge-activation TDD RED: merge activation incorrectly passed
+merge-activation TDD GREEN: activation must have exactly one parent
+authorization API TDD RED: asynchronous boundary command absent
+authorization API TDD GREEN: synchronous W07 bypass denied; stale refs rejected
+authority test suites: 101 pass / 0 fail
+project-harness-doctor: 0 errors / 0 warnings
+v2 authorize R0-W07: STOP / NO_ACTIVE_WORK_PACKAGE
+```
+
+This is candidate-freeze evidence only, not authorization or deployment.
 
 ## Runtime Boundary
 

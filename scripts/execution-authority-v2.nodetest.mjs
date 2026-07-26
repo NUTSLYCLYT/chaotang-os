@@ -737,7 +737,18 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
     });
     loaded = await loadExecutionAuthorityV2(temporaryRoot);
     assert.deepEqual(loaded.errors, []);
-    const result = executionAuthorityV2CommandResult(
+    const synchronousBypass = executionAuthorityV2CommandResult(
+      loaded,
+      '--authorize',
+      [],
+      { workPackage: 'R0-W07' },
+    );
+    assert.equal(
+      synchronousBypass.output.reason,
+      'AUTHORIZATION_BOUNDARY_RECHECK_REQUIRED',
+    );
+    const result = await executionAuthorityV2Module.executeExecutionAuthorityV2Command(
+      temporaryRoot,
       loaded,
       '--authorize',
       [],
@@ -1362,6 +1373,10 @@ test('W07 authorization boundary rejects HEAD and EXT ref movement', async () =>
     typeof executionAuthorityV2Module.verifyExecutionAuthorityGitIdentityStable,
     'function',
   );
+  assert.equal(
+    typeof executionAuthorityV2Module.executeExecutionAuthorityV2Command,
+    'function',
+  );
   const temporaryRoot = await mkdtemp(join(tmpdir(), 'authority-boundary-identity-'));
   try {
     await execFileAsync('git', ['init', '-q'], { cwd: temporaryRoot });
@@ -1403,6 +1418,25 @@ test('W07 authorization boundary rejects HEAD and EXT ref movement', async () =>
     assert.ok(errors.includes('execution authority HEAD moved before authorization'));
     assert.ok(
       errors.includes(
+        'execution authority effectiveBase ref moved before authorization',
+      ),
+    );
+    const result =
+      await executionAuthorityV2Module.executeExecutionAuthorityV2Command(
+        temporaryRoot,
+        {
+          manifest,
+          amendmentGovernance: {},
+          authorizationBoundaryGitIdentity: snapshot,
+          errors: [],
+        },
+        '--authorize',
+        [],
+        { workPackage: 'R0-W07' },
+      );
+    assert.equal(result.output.reason, 'INVALID_EXECUTION_AUTHORITY');
+    assert.ok(
+      result.output.errors.includes(
         'execution authority effectiveBase ref moved before authorization',
       ),
     );

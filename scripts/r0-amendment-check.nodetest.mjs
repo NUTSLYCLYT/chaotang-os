@@ -792,6 +792,56 @@ test('W07 activation requires a prior quiescent overlay registration commit', as
       )).some((error) => error.includes('unexpected historical manifest field')),
     );
 
+    await execFileAsync(
+      'git',
+      ['checkout', '-qb', 'merge-activation', overlay.candidateH],
+      { cwd: tempRoot },
+    );
+    await writeFile(
+      projectPath,
+      `${JSON.stringify({ amendmentGovernance: { reviewerReassignment: overlay } }, null, 2)}\n`,
+    );
+    await writeFile(
+      authorityPath,
+      `${JSON.stringify({ activeWorkPackage: null, workPackageLedger: [] }, null, 2)}\n`,
+    );
+    for (const [path, source] of evidencePaths) {
+      await mkdir(dirname(join(tempRoot, path)), { recursive: true });
+      await writeFile(join(tempRoot, path), source);
+    }
+    for (let index = 0; index < overlay.reviews.length; index += 1) {
+      const review = overlay.reviews[index];
+      await mkdir(dirname(join(tempRoot, review.path)), { recursive: true });
+      await writeFile(join(tempRoot, review.path), `review ${index + 1}\n`);
+    }
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'register before merge activation'], {
+      cwd: tempRoot,
+    });
+    await execFileAsync(
+      'git',
+      ['merge', '-q', '--no-ff', '--no-commit', '-s', 'ours', 'hidden-second-parent-w07'],
+      { cwd: tempRoot },
+    );
+    await writeFile(
+      authorityPath,
+      `${JSON.stringify({
+        activeWorkPackage: 'R0-W07',
+        workPackageLedger: [{ id: 'R0-W07', status: 'ACTIVE' }],
+      }, null, 2)}\n`,
+    );
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'merge activation'], {
+      cwd: tempRoot,
+    });
+    assert.ok(
+      (await verifyReviewerReassignmentActivationHistory(
+        tempRoot,
+        { reviewerReassignment: overlay },
+        { activeWorkPackage: 'R0-W07' },
+      )).some((error) => error.includes('activation commit must have exactly one parent')),
+    );
+
     await execFileAsync('git', ['checkout', '-qb', 'combined', overlay.candidateH], {
       cwd: tempRoot,
     });

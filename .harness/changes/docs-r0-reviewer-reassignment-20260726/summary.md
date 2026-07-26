@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `FOURTEENTH_REMEDIATION_PENDING / NOT_AUTHORIZED` |
+| Status | `FOURTEENTH_CANDIDATE_PRE_FREEZE / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -143,8 +143,14 @@ merge and ref-movement fixtures replace the rejected source-regex assertions.
 Candidate `53d868516f795050bda26f4e4b32ab7b009c7fdb` was rejected by both
 fresh reviews. Its H/tree/package and sessions cannot be approved or reused.
 
-The fourteenth remediation must forbid merge activation commits and move the
-final Git identity recheck into the actual asynchronous authorization API.
+The fourteenth remediation requires the activation event to have exactly one
+parent. W07's synchronous result API now fails with
+`AUTHORIZATION_BOUNDARY_RECHECK_REQUIRED`; only the asynchronous command API
+can consume a loaded W07 authority after rechecking HEAD and the EXT ref with
+no intervening await before the decision. CLI authorization uses that API.
+
+The remediation passes 101 authority tests and doctor with zero errors or
+warnings. No fourteenth candidate has yet been frozen or reviewed.
 
 ## Boundaries
 

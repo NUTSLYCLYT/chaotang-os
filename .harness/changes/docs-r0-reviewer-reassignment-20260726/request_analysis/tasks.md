@@ -73,8 +73,8 @@
 - [x] Obtain two new fresh Codex Independent QA reviews.
 - [x] Reject candidate `53d86851` after two independent NO_GO reviews.
 - [x] Exclude all twenty-six rejected or superseded platform sessions.
-- [ ] Require the W07 activation event to be a single-parent commit.
-- [ ] Recheck Git identity inside the actual asynchronous authorize API.
+- [x] Require the W07 activation event to be a single-parent commit.
+- [x] Recheck Git identity inside the actual asynchronous authorize API.
 - [ ] Prepare a fourteenth non-authorizing candidate for exact commit freeze.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.
