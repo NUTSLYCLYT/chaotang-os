@@ -5,9 +5,9 @@
 | EXT baseline H/tree | `RECORDED` | Current isolated worktree |
 | Reviewer reassignment overlay | `REGISTERED` | Candidate `142856e2...` |
 | Packet design/spec/plan | `PREPARED` | This candidate |
-| Integrated-mainline identity remediation | `NOT_IMPLEMENTED` | Separate TDD authority |
-| Canonical W07 profile migration | `NOT_IMPLEMENTED` | Same authority candidate |
-| Remediated authority candidate H/tree | `NOT_GENERATED` | After TDD |
+| Integrated-mainline identity remediation | `IMPLEMENTED_AND_VERIFIED` | Event 1 TDD |
+| Canonical W07 profile migration | `IMPLEMENTED_AND_VERIFIED` | Event 1 candidate |
+| Remediated authority candidate H/tree | `FROZEN_EXTERNAL_RECEIPT` | Exact Git candidate |
 | Reviewer overlay refresh | `NOT_GENERATED` | After authority candidate reviews |
 | Activation review package | `NOT_GENERATED` | From frozen Git range |
 | Activation intent | `NOT_GENERATED` | After package digest exists |

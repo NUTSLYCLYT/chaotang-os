@@ -4,7 +4,7 @@
 
 `EVENT_1_VERIFIED / EXACT_H_RECEIPT_EXTERNAL / NON_AUTHORIZING`
 
-## 基线
+## Packet Preparation Baseline
 
 ```text
 HEAD = b0df777a1fe94d98afdc62b4cdd02a2f8a091391
@@ -12,20 +12,20 @@ tree = a7beae653e5c9d2efd38fe1fda61a2cbe8b41565
 R0-W07 = STOP / NO_ACTIVE_WORK_PACKAGE
 ```
 
-## 本轮验证目标
+## Event 1 验证目标
 
 | 检查 | 预期 |
 | --- | --- |
-| changed paths | PASS：仅本 Packet 和对应 spec/plan |
+| changed paths | PASS：Packet、authority v2 wiki/runtime/test |
 | execution authority v1 | `STOP / AMENDMENT_APPROVAL_REQUIRED` |
 | execution authority v2 check | `VALID_STRUCTURE` |
 | R0-W07 authorize | `STOP / NO_ACTIVE_WORK_PACKAGE` |
-| authority + amendment tests | PASS：`108/108` |
+| authority + amendment tests | PASS：`109/109` |
 | root harness doctor | PASS：`0 errors / 0 warnings` |
 | backend harness doctor | PASS：`0 errors / 0 warnings` |
 | diff check | PASS |
 
-## 实测命令
+## Packet Preparation Baseline Verification
 
 验证时间：`2026-07-27T01:19:17+0800`
 

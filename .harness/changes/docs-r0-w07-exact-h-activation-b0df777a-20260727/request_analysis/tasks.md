@@ -25,7 +25,7 @@
 - [x] 将 W07 review base 固定为 `b0df777a...`。
 - [x] 固定测试 evidence 生成器使用 authority 的 `/usr/bin/git` 外部信任根。
 - [x] 运行 authority、amendment、doctor 全套回归。
-- [ ] 先提交 authority candidate，再冻结 exact H/tree，保持 W07 STOP。
+- [x] 先提交 authority candidate，再冻结 exact H/tree，保持 W07 STOP。
 
 ## 后续 Event 2：Reviewer Overlay Refresh
 
