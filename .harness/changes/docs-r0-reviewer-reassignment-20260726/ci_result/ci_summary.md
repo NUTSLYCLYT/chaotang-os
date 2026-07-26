@@ -2,7 +2,7 @@
 
 ## Status
 
-`SEVENTEENTH_CANDIDATE_PRE_FREEZE / SIXTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`EIGHTEENTH_REMEDIATION_PENDING / SEVENTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -504,3 +504,19 @@ working diff check: PASS
 The executable CLI is the only code path that converts policy eligibility into
 `GO`, and its root is derived from its own module path. This permits candidate
 freeze and fresh review only.
+
+## Seventeenth Rejected Candidate
+
+```text
+candidate = ddc2770e66bcdbf769e3a490b938d7b7c7bce456
+tree = 20edbfb47601b17977db8c66b1eb65504dac2ef4
+package = 46fc58917b27a89a254b5a27cfaa2a9d72035b3c6b8cd888744f23f55f264d5c
+pass 1 = NO_GO / HIGH 1 / MEDIUM 0
+pass 2 = NO_GO / HIGH 1 / MEDIUM 0
+combined = NO_GO
+```
+
+Both reviews reproduced parent-repository discovery when a copied CLI root had
+no local `.git`. The test suite covered only a standalone non-Git directory
+and did not exercise an ancestor repository. The candidate and both sessions
+are permanently excluded.

@@ -198,6 +198,8 @@ function approvedReviewerReassignmentFixture() {
       '019f9d5d-63d2-7690-9c52-4f422cc6e738',
       '019f9d6c-55a8-73e3-99ba-027549989c1f',
       '019f9d6c-55e8-7f00-89f5-b63114a791ea',
+      '019f9d77-931c-7103-888a-30d4bdac1bed',
+      '019f9d77-934c-7e33-b86a-78eddb22a420',
     ],
     reviewPackagePath:
       '.harness/changes/docs-r0-reviewer-reassignment-20260726/review_inputs/candidate.diff',

@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `SEVENTEENTH_CANDIDATE_PRE_FREEZE / SIXTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
+| Status | `EIGHTEENTH_REMEDIATION_PENDING / SEVENTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -206,6 +206,15 @@ The amendment evidence verifier now accepts the v2 loader's pinned reader.
 Original amendment approvals, reviewer reassignment package, owner approval,
 and both review passes are parsed from the same committed identity and are
 also included in final working-tree consistency checks.
+
+Candidate `ddc2770e66bcdbf769e3a490b938d7b7c7bce456` was rejected by both
+fresh reviews. A copied CLI nested inside an unrelated parent Git repository
+could omit its own `.git`, fall back to mutable authority files, discover the
+parent repository, reach `ELIGIBLE`, and convert that result to `GO`.
+
+The eighteenth remediation must require the exact authority root to own a Git
+identity, prevent ancestor discovery, and bind `git --show-toplevel` exactly to
+that root before reading any authority facts.
 
 ## Boundaries
 
