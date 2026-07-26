@@ -106,6 +106,8 @@ function validReviewerReassignment() {
       '019f9c5b-0cf9-7a20-a741-ce4a279dce9b',
       '019f9c6d-d611-7400-b03f-3b2e474543a8',
       '019f9c6d-d648-7961-a3eb-7071cc51eec9',
+      '019f9c7c-09d3-7d70-890a-9f77201076e3',
+      '019f9c7c-0a04-7a20-b62f-cdd8779ad09d',
     ],
     reviewPackagePath:
       '.harness/changes/docs-r0-reviewer-reassignment-20260726/review_inputs/candidate.diff',

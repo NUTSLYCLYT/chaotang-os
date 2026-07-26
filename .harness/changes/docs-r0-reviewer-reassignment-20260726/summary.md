@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `SIXTH_CANDIDATE_REVIEW_READY / NOT_AUTHORIZED` |
+| Status | `SEVENTH_CANDIDATE_PRE_FREEZE / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -57,7 +57,16 @@ one NO_GO and was rejected. The sixth remediation requires an activation
 commit's parent to contain the exact overlay and evidence in a quiescent state,
 and pins executing authority blobs to the reviewed candidate.
 
-The sixth candidate is ready for exact commit freeze and two new reviews.
+Candidate `4751c63b689c3304ea462f468d94aa2ad9a1df62` was rejected by two
+fresh sessions. Its history gate incorrectly treated current `HEAD` as the
+activation commit and did not bind executable working-tree bytes.
+
+The seventh remediation locates the unique W07 activation transition on the
+first-parent history and binds manifest, overlay, evidence, and protected
+authority files across the activation commit, current `HEAD`, and current
+working tree. It also permits unrelated commits after a valid activation.
+
+The seventh candidate is ready for exact commit freeze and two new reviews.
 
 ## Boundaries
 

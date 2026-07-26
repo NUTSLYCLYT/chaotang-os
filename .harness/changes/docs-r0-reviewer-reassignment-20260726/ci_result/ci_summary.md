@@ -2,7 +2,7 @@
 
 ## Status
 
-`SIXTH_CANDIDATE_REVIEW_READY / FIVE_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`SEVENTH_CANDIDATE_PRE_FREEZE / SIX_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -124,6 +124,35 @@ working diff check: PASS
 ```
 
 The exact H0-to-H1 ranged diff check must be rerun after commit freeze.
+
+## Sixth Rejected Candidate
+
+```text
+candidate = 4751c63b689c3304ea462f468d94aa2ad9a1df62
+tree = 1a2878336d455dd6ffb33acd1318aacb8b455700
+package = 85ae15c7b0eb7370602c08614c40085b39f603f5b3d8ec823712a89b253ac19f
+pass 1 = NO_GO / HIGH 1 / MEDIUM 0
+pass 2 = NO_GO / HIGH 0 / MEDIUM 1
+```
+
+Both findings traced to the same root cause: the history verifier conflated
+the activation commit with current `HEAD` and did not bind live working-tree
+authority bytes.
+
+## Seventh Candidate Pre-Freeze Verification
+
+```text
+authority test suites: 92 pass / 0 fail
+project-harness-doctor: 0 errors / 0 warnings
+v1 authorize: STOP / AMENDMENT_APPROVAL_REQUIRED
+v2 check: VALID_STRUCTURE / NOT_AN_AUTHORIZATION
+v2 authorize R0-W07: STOP / NO_ACTIVE_WORK_PACKAGE
+working diff check: PASS
+```
+
+Regression coverage proves that a committed two-event activation survives
+unrelated descendants, while uncommitted activation and protected-file drift
+fail closed. Exact ranged verification must be repeated after commit freeze.
 
 ## Third Rejected Candidate
 

@@ -65,6 +65,8 @@ const REJECTED_REVIEW_SESSION_IDS = Object.freeze([
   '019f9c5b-0cf9-7a20-a741-ce4a279dce9b',
   '019f9c6d-d611-7400-b03f-3b2e474543a8',
   '019f9c6d-d648-7961-a3eb-7071cc51eec9',
+  '019f9c7c-09d3-7d70-890a-9f77201076e3',
+  '019f9c7c-0a04-7a20-b62f-cdd8779ad09d',
 ]);
 const REVIEWER_REASSIGNMENT_KEYS = Object.freeze([
   'approvedBy',
@@ -737,6 +739,107 @@ async function readGitBlob(root, commit, path) {
   return Buffer.isBuffer(stdout) ? stdout : Buffer.from(stdout);
 }
 
+async function readRepositoryBlob(root, path) {
+  if (!safeRepositoryPath(path)) {
+    throw new Error(`unsafe repository path: ${path}`);
+  }
+  let current = root;
+  const components = path.split('/');
+  for (let index = 0; index < components.length; index += 1) {
+    current = join(current, components[index]);
+    const stat = await lstat(current);
+    if (stat.isSymbolicLink()) {
+      throw new Error(`symbolic links are forbidden: ${path}`);
+    }
+    if (index < components.length - 1 && !stat.isDirectory()) {
+      throw new Error(`path ancestor is not a directory: ${path}`);
+    }
+    if (index === components.length - 1 && !stat.isFile()) {
+      throw new Error(`path is not a regular file: ${path}`);
+    }
+  }
+  return readFile(current);
+}
+
+async function findReviewerReassignmentActivation(root, overlay) {
+  const { stdout } = await execFileAsync(
+    'git',
+    reviewerReassignmentGitArgs(
+      'rev-list',
+      '--first-parent',
+      'HEAD',
+      '--',
+      '.harness/manifest/execution-authority.v2.json',
+    ),
+    reviewerReassignmentGitOptions(root),
+  );
+  const candidates = [];
+  for (const commit of stdout.trim().split('\n').filter(Boolean)) {
+    try {
+      const authority = parseUniqueJsonObject(
+        (
+          await readGitBlob(
+            root,
+            commit,
+            '.harness/manifest/execution-authority.v2.json',
+          )
+        ).toString('utf8'),
+        'activation execution authority',
+      );
+      if (authority.activeWorkPackage !== 'R0-W07') continue;
+      const projectHarness = parseUniqueJsonObject(
+        (
+          await readGitBlob(root, commit, '.harness/manifest/project-harness.json')
+        ).toString('utf8'),
+        'activation project harness',
+      );
+      if (
+        JSON.stringify(projectHarness.amendmentGovernance?.reviewerReassignment) !==
+        JSON.stringify(overlay)
+      ) {
+        continue;
+      }
+      const { stdout: parentSource } = await execFileAsync(
+        'git',
+        reviewerReassignmentGitArgs('rev-parse', `${commit}^`),
+        reviewerReassignmentGitOptions(root),
+      );
+      const parentH = parentSource.trim();
+      const parentProjectHarness = parseUniqueJsonObject(
+        (
+          await readGitBlob(
+            root,
+            parentH,
+            '.harness/manifest/project-harness.json',
+          )
+        ).toString('utf8'),
+        'activation parent project harness',
+      );
+      const parentAuthority = parseUniqueJsonObject(
+        (
+          await readGitBlob(
+            root,
+            parentH,
+            '.harness/manifest/execution-authority.v2.json',
+          )
+        ).toString('utf8'),
+        'activation parent execution authority',
+      );
+      if (
+        JSON.stringify(parentProjectHarness.amendmentGovernance?.reviewerReassignment) ===
+          JSON.stringify(overlay) &&
+        parentAuthority.activeWorkPackage === null &&
+        !parentAuthority.workPackageLedger?.some((entry) => entry.status === 'ACTIVE')
+      ) {
+        candidates.push({ activationH: commit, parentH });
+      }
+    } catch {
+      // Commits before these governance files existed cannot be activation events.
+    }
+  }
+  return candidates;
+}
+
 export async function verifyReviewerReassignmentActivationHistory(
   root,
   amendmentGovernance,
@@ -748,49 +851,14 @@ export async function verifyReviewerReassignmentActivationHistory(
 
   const errors = [];
   try {
-    const { stdout: parentHSource } = await execFileAsync(
-      'git',
-      reviewerReassignmentGitArgs('rev-parse', 'HEAD^'),
-      reviewerReassignmentGitOptions(root),
-    );
-    const parentH = parentHSource.trim();
-    const parentProjectHarness = parseUniqueJsonObject(
-      (
-        await readGitBlob(
-          root,
-          parentH,
-          '.harness/manifest/project-harness.json',
-        )
-      ).toString('utf8'),
-      'parent project harness',
-    );
-    if (
-      JSON.stringify(parentProjectHarness.amendmentGovernance?.reviewerReassignment) !==
-      JSON.stringify(overlay)
-    ) {
+    const activationCandidates = await findReviewerReassignmentActivation(root, overlay);
+    if (activationCandidates.length !== 1) {
       errors.push(
-        'reviewerReassignment activation parent must already contain the exact overlay',
+        `reviewerReassignment requires exactly one committed activation event; found ${activationCandidates.length}`,
       );
+      return errors;
     }
-
-    const parentAuthority = parseUniqueJsonObject(
-      (
-        await readGitBlob(
-          root,
-          parentH,
-          '.harness/manifest/execution-authority.v2.json',
-        )
-      ).toString('utf8'),
-      'parent execution authority',
-    );
-    if (
-      parentAuthority.activeWorkPackage !== null ||
-      parentAuthority.workPackageLedger?.some((entry) => entry.status === 'ACTIVE')
-    ) {
-      errors.push(
-        'reviewerReassignment activation parent must be a quiescent authority state',
-      );
-    }
+    const [{ activationH, parentH }] = activationCandidates;
 
     for (const path of [
       overlay.reviewPackagePath,
@@ -809,12 +877,34 @@ export async function verifyReviewerReassignmentActivationHistory(
       }
     }
 
-    for (const path of REVIEWER_AUTHORITY_PROTECTED_PATHS) {
-      const [reviewedBlob, executingBlob] = await Promise.all([
-        readGitBlob(root, overlay.candidateH, path),
+    const activationBoundPaths = [
+      '.harness/manifest/execution-authority.v2.json',
+      '.harness/manifest/project-harness.json',
+      overlay.reviewPackagePath,
+      overlay.ownerApprovalPath,
+      ...overlay.reviews.map((review) => review.path),
+      ...REVIEWER_AUTHORITY_PROTECTED_PATHS,
+    ];
+    for (const path of activationBoundPaths) {
+      const [activationBlob, headBlob, workingBlob] = await Promise.all([
+        readGitBlob(root, activationH, path),
         readGitBlob(root, 'HEAD', path),
+        readRepositoryBlob(root, path),
       ]);
-      if (!reviewedBlob.equals(executingBlob)) {
+      if (!activationBlob.equals(headBlob)) {
+        errors.push(`reviewerReassignment activation-bound history drift: ${path}`);
+      }
+      if (!activationBlob.equals(workingBlob)) {
+        errors.push(`reviewerReassignment activation-bound working tree drift: ${path}`);
+      }
+    }
+
+    for (const path of REVIEWER_AUTHORITY_PROTECTED_PATHS) {
+      const [reviewedBlob, activationBlob] = await Promise.all([
+        readGitBlob(root, overlay.candidateH, path),
+        readGitBlob(root, activationH, path),
+      ]);
+      if (!reviewedBlob.equals(activationBlob)) {
         errors.push(
           `reviewerReassignment protected authority drift after review: ${path}`,
         );

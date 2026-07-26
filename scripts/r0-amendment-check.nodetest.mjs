@@ -176,6 +176,8 @@ function approvedReviewerReassignmentFixture() {
       '019f9c5b-0cf9-7a20-a741-ce4a279dce9b',
       '019f9c6d-d611-7400-b03f-3b2e474543a8',
       '019f9c6d-d648-7961-a3eb-7071cc51eec9',
+      '019f9c7c-09d3-7d70-890a-9f77201076e3',
+      '019f9c7c-0a04-7a20-b62f-cdd8779ad09d',
     ],
     reviewPackagePath:
       '.harness/changes/docs-r0-reviewer-reassignment-20260726/review_inputs/candidate.diff',
@@ -502,6 +504,78 @@ test('W07 activation requires a prior quiescent overlay registration commit', as
       ),
       [],
     );
+
+    await writeFile(join(tempRoot, protectedPaths[0]), 'uncommitted drift\n');
+    assert.ok(
+      (await verifyReviewerReassignmentActivationHistory(
+        tempRoot,
+        { reviewerReassignment: overlay },
+        { activeWorkPackage: 'R0-W07' },
+      )).some((error) => error.includes('working tree drift')),
+    );
+    await writeFile(join(tempRoot, protectedPaths[0]), `${protectedPaths[0]}\n`);
+
+    await writeFile(join(tempRoot, 'unrelated.txt'), 'post-activation work\n');
+    await execFileAsync('git', ['add', 'unrelated.txt'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'post activation work'], {
+      cwd: tempRoot,
+    });
+    assert.deepEqual(
+      await verifyReviewerReassignmentActivationHistory(
+        tempRoot,
+        { reviewerReassignment: overlay },
+        { activeWorkPackage: 'R0-W07' },
+      ),
+      [],
+    );
+
+    await execFileAsync('git', ['checkout', '-qb', 'uncommitted', overlay.candidateH], {
+      cwd: tempRoot,
+    });
+    await mkdir(dirname(projectPath), { recursive: true });
+    await writeFile(
+      projectPath,
+      `${JSON.stringify({ amendmentGovernance: { reviewerReassignment: overlay } }, null, 2)}\n`,
+    );
+    await writeFile(
+      authorityPath,
+      `${JSON.stringify({ activeWorkPackage: null, workPackageLedger: [] }, null, 2)}\n`,
+    );
+    for (const [path, source] of evidencePaths) {
+      await mkdir(dirname(join(tempRoot, path)), { recursive: true });
+      await writeFile(join(tempRoot, path), source);
+    }
+    for (let index = 0; index < overlay.reviews.length; index += 1) {
+      const review = overlay.reviews[index];
+      await mkdir(dirname(join(tempRoot, review.path)), { recursive: true });
+      await writeFile(join(tempRoot, review.path), `review ${index + 1}\n`);
+    }
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'register overlay for uncommitted case'], {
+      cwd: tempRoot,
+    });
+    await writeFile(join(tempRoot, 'unrelated.txt'), 'registration descendant\n');
+    await execFileAsync('git', ['add', 'unrelated.txt'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'registration descendant'], {
+      cwd: tempRoot,
+    });
+    await writeFile(
+      authorityPath,
+      `${JSON.stringify({
+        activeWorkPackage: 'R0-W07',
+        workPackageLedger: [{ id: 'R0-W07', status: 'ACTIVE' }],
+      }, null, 2)}\n`,
+    );
+    assert.ok(
+      (await verifyReviewerReassignmentActivationHistory(
+        tempRoot,
+        { reviewerReassignment: overlay },
+        { activeWorkPackage: 'R0-W07' },
+      )).some((error) => error.includes('committed activation event')),
+    );
+    await execFileAsync('git', ['restore', '.harness/manifest/execution-authority.v2.json'], {
+      cwd: tempRoot,
+    });
 
     await execFileAsync('git', ['checkout', '-qb', 'combined', overlay.candidateH], {
       cwd: tempRoot,

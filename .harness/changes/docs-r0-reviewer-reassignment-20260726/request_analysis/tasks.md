@@ -25,7 +25,12 @@
 - [x] Exclude all ten rejected or superseded review sessions.
 - [x] Require prior quiescent overlay registration before W07 activation.
 - [x] Pin executing authority blobs to the reviewed candidate.
-- [x] Prepare a sixth non-authorizing candidate for exact commit freeze.
+- [x] Reject candidate `4751c63b` after two new independent NO_GO reviews.
+- [x] Exclude all twelve rejected or superseded review sessions.
+- [x] Locate the committed W07 activation transition independently of current `HEAD`.
+- [x] Bind activation-sensitive working-tree bytes to committed Git blobs.
+- [x] Preserve valid post-activation descendants that do not alter authority inputs.
+- [x] Prepare a seventh non-authorizing candidate for exact commit freeze.
 - [ ] Obtain two new fresh Codex Independent QA reviews.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.
