@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import test from 'node:test';
 
+import * as executionAuthorityV2Module from './lib/execution-authority-v2.mjs';
 import {
   EXECUTION_AUTHORITY_V2_PATH,
   EXECUTION_AUTHORITY_V2_SCHEMA_PATH,
@@ -1350,17 +1351,62 @@ test('authority readers bind an opened file descriptor to its in-repository targ
   }
 });
 
-test('W07 source ref is rechecked after all exact packet Git verification', async () => {
-  const source = await readFile(
-    join(root, 'scripts/lib/execution-authority-v2.mjs'),
-    'utf8',
+test('W07 authorization boundary rejects HEAD and EXT ref movement', async () => {
+  assert.equal(
+    typeof executionAuthorityV2Module.captureExecutionAuthorityGitIdentity,
+    'function',
   );
-  assert.match(source, /const initialRefH = refH\.trim\(\)/u);
-  assert.match(source, /active-packet effectiveBase ref moved during verification/u);
-  assert.match(
-    source,
-    /verifyReviewerReassignmentActivationHistory\([\s\S]*?validateExecutionAuthorityV2Manifest/u,
+  assert.equal(
+    typeof executionAuthorityV2Module.verifyExecutionAuthorityGitIdentityStable,
+    'function',
   );
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'authority-boundary-identity-'));
+  try {
+    await execFileAsync('git', ['init', '-q'], { cwd: temporaryRoot });
+    await execFileAsync('git', ['config', 'user.name', 'R0 Test'], {
+      cwd: temporaryRoot,
+    });
+    await execFileAsync('git', ['config', 'user.email', 'r0@example.invalid'], {
+      cwd: temporaryRoot,
+    });
+    await writeFile(join(temporaryRoot, 'authority.txt'), 'initial\n');
+    await execFileAsync('git', ['add', '.'], { cwd: temporaryRoot });
+    await execFileAsync('git', ['commit', '-qm', 'initial authority'], {
+      cwd: temporaryRoot,
+    });
+    await execFileAsync('git', ['branch', '-M', 'feature-chaotang-ext'], {
+      cwd: temporaryRoot,
+    });
+    const manifest = {
+      activeWorkPackage: 'R0-W07',
+      effectiveBase: { ref: 'refs/heads/feature-chaotang-ext' },
+    };
+    const snapshot =
+      await executionAuthorityV2Module.captureExecutionAuthorityGitIdentity(
+        temporaryRoot,
+        manifest,
+      );
+
+    await writeFile(join(temporaryRoot, 'authority.txt'), 'moved\n');
+    await execFileAsync('git', ['add', '.'], { cwd: temporaryRoot });
+    await execFileAsync('git', ['commit', '-qm', 'move authority identities'], {
+      cwd: temporaryRoot,
+    });
+    const errors = [];
+    await executionAuthorityV2Module.verifyExecutionAuthorityGitIdentityStable(
+      temporaryRoot,
+      snapshot,
+      errors,
+    );
+    assert.ok(errors.includes('execution authority HEAD moved before authorization'));
+    assert.ok(
+      errors.includes(
+        'execution authority effectiveBase ref moved before authorization',
+      ),
+    );
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
 });
 
 test('v2 manifest source rejects duplicate JSON keys', () => {

@@ -2,7 +2,7 @@
 
 ## Status
 
-`THIRTEENTH_REMEDIATION_PENDING / TWELVE_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`THIRTEENTH_CANDIDATE_PRE_FREEZE / TWELVE_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -331,6 +331,25 @@ second-parent authority history. The second review also found that final
 mutable ref/HEAD checks preceded later asynchronous reads and that critical
 tests asserted source patterns instead of adversarial behavior. The candidate
 and both platform sessions are permanently excluded from approval or reuse.
+
+## Thirteenth Candidate Pre-Freeze Verification
+
+```text
+merge-history TDD RED: hidden second-parent W07 was accepted
+merge-history TDD GREEN: hidden second-parent W07 and invalid manifest rejected
+Git-identity TDD RED: authorization-boundary verifier absent
+Git-identity TDD GREEN: real HEAD and EXT ref movement rejected
+authority test suites: 101 pass / 0 fail
+```
+
+Activation event discovery remains first-parent constrained, while the
+pre-activation and continuous-history audits enumerate all reachable commits.
+Every reachable authority manifest is parsed and passed to the complete
+validator in production. Final HEAD and EXT ref sampling now occurs after all
+asynchronous loader verification.
+
+These results permit doctor/check verification and exact-H freeze only. They
+do not authorize W07 or any production action.
 
 ## Third Rejected Candidate
 

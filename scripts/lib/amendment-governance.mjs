@@ -951,7 +951,6 @@ export async function verifyReviewerReassignmentActivationHistory(
       'git',
       reviewerReassignmentGitArgs(
         'rev-list',
-        '--first-parent',
         `${activationH}..${headH}`,
       ),
       reviewerReassignmentGitOptions(root),
@@ -1016,16 +1015,15 @@ export async function verifyReviewerReassignmentActivationHistory(
       }
     }
 
-    const { stdout: firstParentPriorCommits } = await execFileAsync(
+    const { stdout: reachablePriorCommits } = await execFileAsync(
       'git',
       reviewerReassignmentGitArgs(
         'rev-list',
-        '--first-parent',
         `${overlay.baseH}..${parentH}`,
       ),
       reviewerReassignmentGitOptions(root),
     );
-    for (const commit of firstParentPriorCommits.trim().split('\n').filter(Boolean)) {
+    for (const commit of reachablePriorCommits.trim().split('\n').filter(Boolean)) {
       const authority = parseUniqueJsonObject(
         (
           await readGitBlob(
@@ -1043,7 +1041,7 @@ export async function verifyReviewerReassignmentActivationHistory(
       );
       if (authority.workPackageLedger?.some((entry) => entry.id === 'R0-W07')) {
         errors.push(
-          `reviewerReassignment prior history already contains R0-W07 at ${commit}`,
+          `reviewerReassignment reachable history already contains R0-W07 at ${commit}`,
         );
       }
     }

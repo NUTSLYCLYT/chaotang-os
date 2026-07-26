@@ -123,10 +123,15 @@ fail closed，不能退回到 `lstat` 后重新按路径读取。
 
 激活历史验证要求完整的 non-shallow repository，并在开始时将 `HEAD^{commit}` 解析为单一对象；所有
 activation discovery、first-parent traversal 和 HEAD blob comparison 都使用该对象，返回前再次解析
-并拒绝 HEAD movement。reviewed candidate 必须是 registration parent 的第一父祖先。扫描不使用
-manifest pathspec，而是枚举 candidate 之后到 registration parent 的每一个第一父 commit，避免 merge
-commit 因历史简化被遗漏；每份 authority manifest 都必须通过完整 v2 manifest validator。曾出现 W07
-ledger、manifest 缺失、JSON 不可解析或结构无效都不能通过删除记录来重置。
+并拒绝 HEAD movement。reviewed candidate 必须是 registration parent 的第一父祖先。第一父链定义
+activation event 的唯一集成顺序；历史审计本身不使用 `--first-parent` 或 manifest pathspec，而是枚举
+reviewed base 到 registration parent、activation event 到 HEAD 之间所有可达 commit，包括 merge 的
+第二父历史。每份 authority manifest 都必须通过完整 v2 manifest validator。曾出现 W07 ledger、
+manifest 缺失、JSON 不可解析或结构无效都不能通过删除记录或 ours merge 来重置。
+
+ACTIVE W07 loader 在读取证据前采样 `HEAD` 与 `refs/heads/feature-chaotang-ext`，并在全部异步
+evidence、activation intent 和 history 验证完成后再次解析二者。最终采样不一致时，authorization
+输入携带错误并 fail closed。
 
 v2 loader 还会直接读取 `manifest.amendment.path` 的原始字节并校验
 `approvedSourceDigest`，不能只比较 manifest 与 governance 中互相引用的 digest 字段。所有 governed

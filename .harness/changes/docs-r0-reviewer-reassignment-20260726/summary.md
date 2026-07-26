@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `THIRTEENTH_REMEDIATION_PENDING / NOT_AUTHORIZED` |
+| Status | `THIRTEENTH_CANDIDATE_PRE_FREEZE / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -130,10 +130,18 @@ Candidate `ab3c35d3eee740f7da45ba4a9bfe9a97f3e0c3a5` was frozen and
 rejected by both fresh review passes. Its H/tree/package and both review
 sessions are historical only and cannot be approved or reused.
 
-The thirteenth remediation must audit reachable merge-parent authority history,
-move final mutable ref/HEAD checks to the end of loading immediately before
-authorization, and replace source-regex assertions with behavioral merge and
-TOCTOU tests. No thirteenth candidate has been frozen.
+The thirteenth remediation audits every commit reachable between the reviewed
+base, registration parent, activation event, and current HEAD. First-parent
+ancestry still defines the integration train, but second-parent commits can no
+longer hide prior W07 lifecycle or malformed authority manifests.
+
+The loader samples HEAD and the local EXT ref before active W07 evidence reads,
+then checks both again after all asynchronous evidence and activation-history
+verification, immediately before returning the authorization input. Real Git
+merge and ref-movement fixtures replace the rejected source-regex assertions.
+
+The remediation passes 101 authority tests. No thirteenth exact-H candidate
+has yet been frozen, reviewed, approved, registered, or activated.
 
 ## Boundaries
 

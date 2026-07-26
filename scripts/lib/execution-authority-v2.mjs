@@ -198,6 +198,69 @@ function authorityGitOptions(root, extra = {}) {
   };
 }
 
+export async function captureExecutionAuthorityGitIdentity(root, manifest) {
+  if (manifest?.activeWorkPackage !== 'R0-W07') return null;
+  const [{ stdout: headSource }, { stdout: effectiveBaseSource }] =
+    await Promise.all([
+      execFileAsync(
+        'git',
+        authorityGitArgs('rev-parse', 'HEAD^{commit}'),
+        authorityGitOptions(root),
+      ),
+      execFileAsync(
+        'git',
+        authorityGitArgs(
+          'rev-parse',
+          `${manifest.effectiveBase.ref}^{commit}`,
+        ),
+        authorityGitOptions(root),
+      ),
+    ]);
+  return {
+    headH: headSource.trim(),
+    effectiveBaseRef: manifest.effectiveBase.ref,
+    effectiveBaseH: effectiveBaseSource.trim(),
+  };
+}
+
+export async function verifyExecutionAuthorityGitIdentityStable(
+  root,
+  snapshot,
+  errors,
+) {
+  if (snapshot === null) return;
+  try {
+    const [{ stdout: headSource }, { stdout: effectiveBaseSource }] =
+      await Promise.all([
+        execFileAsync(
+          'git',
+          authorityGitArgs('rev-parse', 'HEAD^{commit}'),
+          authorityGitOptions(root),
+        ),
+        execFileAsync(
+          'git',
+          authorityGitArgs(
+            'rev-parse',
+            `${snapshot.effectiveBaseRef}^{commit}`,
+          ),
+          authorityGitOptions(root),
+        ),
+      ]);
+    if (headSource.trim() !== snapshot.headH) {
+      errors.push('execution authority HEAD moved before authorization');
+    }
+    if (effectiveBaseSource.trim() !== snapshot.effectiveBaseH) {
+      errors.push(
+        'execution authority effectiveBase ref moved before authorization',
+      );
+    }
+  } catch (cause) {
+    errors.push(
+      `execution authority final Git identity is unverifiable: ${cause.code ?? cause.message}`,
+    );
+  }
+}
+
 async function verifyActivePacketGitIdentity(
   root,
   manifest,
@@ -1226,6 +1289,15 @@ export async function loadExecutionAuthorityV2(root) {
   if (manifestErrors.length > 0) {
     return { manifest, schema, amendmentGovernance, errors: [...new Set(errors)] };
   }
+  let authorizationBoundaryGitIdentity = null;
+  try {
+    authorizationBoundaryGitIdentity =
+      await captureExecutionAuthorityGitIdentity(root, manifest);
+  } catch (cause) {
+    errors.push(
+      `execution authority initial Git identity is unverifiable: ${cause.code ?? cause.message}`,
+    );
+  }
   const amendmentSource = await readPinnedAuthorityFile(root, AMENDMENT_PATH, errors);
   if (
     amendmentSource !== null &&
@@ -1379,6 +1451,11 @@ export async function loadExecutionAuthorityV2(root) {
     }
   }
 
+  await verifyExecutionAuthorityGitIdentityStable(
+    root,
+    authorizationBoundaryGitIdentity,
+    errors,
+  );
   return { manifest, schema, amendmentGovernance, errors: [...new Set(errors)] };
 }
 

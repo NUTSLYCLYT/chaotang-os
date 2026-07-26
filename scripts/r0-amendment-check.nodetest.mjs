@@ -700,7 +700,94 @@ test('W07 activation requires a prior quiescent overlay registration commit', as
         tempRoot,
         { reviewerReassignment: overlay },
         { activeWorkPackage: 'R0-W07' },
-      )).some((error) => error.includes('prior history already contains R0-W07')),
+      )).some((error) => error.includes('reachable history already contains R0-W07')),
+    );
+    await execFileAsync(
+      'git',
+      ['checkout', '-qb', 'hidden-second-parent-w07', overlay.candidateH],
+      { cwd: tempRoot },
+    );
+    await writeFile(
+      authorityPath,
+      `${JSON.stringify({
+        activeWorkPackage: 'R0-W07',
+        workPackageLedger: [{ id: 'R0-W07', status: 'ACTIVE' }],
+        unexpectedHistoricalField: true,
+      }, null, 2)}\n`,
+    );
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'hidden second-parent W07'], {
+      cwd: tempRoot,
+    });
+
+    await execFileAsync(
+      'git',
+      ['checkout', '-qb', 'merge-parent-replay', overlay.candidateH],
+      { cwd: tempRoot },
+    );
+    await execFileAsync(
+      'git',
+      [
+        'merge',
+        '-q',
+        '--no-ff',
+        '-s',
+        'ours',
+        'hidden-second-parent-w07',
+        '-m',
+        'merge hidden authority history',
+      ],
+      { cwd: tempRoot },
+    );
+    await writeFile(
+      projectPath,
+      `${JSON.stringify({ amendmentGovernance: { reviewerReassignment: overlay } }, null, 2)}\n`,
+    );
+    await writeFile(
+      authorityPath,
+      `${JSON.stringify({ activeWorkPackage: null, workPackageLedger: [] }, null, 2)}\n`,
+    );
+    for (const [path, source] of evidencePaths) {
+      await mkdir(dirname(join(tempRoot, path)), { recursive: true });
+      await writeFile(join(tempRoot, path), source);
+    }
+    for (let index = 0; index < overlay.reviews.length; index += 1) {
+      const review = overlay.reviews[index];
+      await mkdir(dirname(join(tempRoot, review.path)), { recursive: true });
+      await writeFile(join(tempRoot, review.path), `review ${index + 1}\n`);
+    }
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'register after hidden W07 merge'], {
+      cwd: tempRoot,
+    });
+    await writeFile(
+      authorityPath,
+      `${JSON.stringify({
+        activeWorkPackage: 'R0-W07',
+        workPackageLedger: [{ id: 'R0-W07', status: 'ACTIVE' }],
+      }, null, 2)}\n`,
+    );
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'activate after hidden W07 merge'], {
+      cwd: tempRoot,
+    });
+    assert.ok(
+      (await verifyReviewerReassignmentActivationHistory(
+        tempRoot,
+        { reviewerReassignment: overlay },
+        { activeWorkPackage: 'R0-W07' },
+      )).some((error) => error.includes('reachable history already contains R0-W07')),
+    );
+    assert.ok(
+      (await verifyReviewerReassignmentActivationHistory(
+        tempRoot,
+        { reviewerReassignment: overlay },
+        { activeWorkPackage: 'R0-W07' },
+        (authority) =>
+          authority.unexpectedHistoricalField === true
+            ? ['unexpected historical manifest field']
+            : [],
+      )).some((error) => error.includes('unexpected historical manifest field')),
     );
 
     await execFileAsync('git', ['checkout', '-qb', 'combined', overlay.candidateH], {
@@ -742,27 +829,6 @@ test('W07 activation requires a prior quiescent overlay registration commit', as
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
-});
-
-test('activation history pins one complete HEAD object for every Git read', async () => {
-  const source = await readFile(
-    join(root, 'scripts/lib/amendment-governance.mjs'),
-    'utf8',
-  );
-  assert.match(source, /const headH = await resolveReviewerReassignmentHead/u);
-  assert.match(source, /--is-shallow-repository/u);
-  assert.match(
-    source,
-    /findReviewerReassignmentActivation\(\s*root,\s*overlay,\s*headH,/u,
-  );
-  assert.match(source, /reviewerReassignment HEAD moved during verification/u);
-  assert.match(source, /candidateH is not a first-parent ancestor/u);
-  assert.match(source, /validateExecutionManifest\(authority\)/u);
-  assert.match(source, /reviewerReassignmentFirstParentChain/u);
-  assert.doesNotMatch(
-    source,
-    /priorAuthorityHistory[\s\S]*?'\.harness\/manifest\/execution-authority\.v2\.json'/u,
-  );
 });
 
 for (const [name, mutate, expected] of [
