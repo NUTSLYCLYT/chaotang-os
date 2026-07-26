@@ -96,7 +96,8 @@ candidate/tree 漂移、EXT ref 回退、candidate 仅从第二父可达，都�
 `/usr/bin/git` 信任根；PATH 中其他 Git 版本生成的 binary patch 字节不能作为等价证据。
 authority 与 reviewer overlay 的 exact diff 还要求 repository-local Git metadata
 保持中立：任何 `diff.*`、include、非基础 `core.*`、相关 color/submodule config
-都会 fail closed，worktree Git dir 或 common Git dir 中存在 `info/attributes` 也会拒绝。
+都会 fail closed；`extensions.worktreeConfig` 也被拒绝，不能通过 `config.worktree`
+引入第二套配置。worktree Git dir 或 common Git dir 中存在 `info/attributes` 同样拒绝。
 候选树内已提交的 `.gitattributes` 仍属于受 H/tree 约束的审查输入。
 
 ## 独立审查人范围化修订

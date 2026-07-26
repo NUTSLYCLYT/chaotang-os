@@ -621,6 +621,7 @@ function localGitConfigAffectsDiff(key) {
     normalized.startsWith('diff.') ||
     normalized.startsWith('include.') ||
     normalized.startsWith('includeif.') ||
+    normalized === 'extensions.worktreeconfig' ||
     normalized === 'color.ui' ||
     normalized === 'color.diff' ||
     /^submodule\..+\.ignore$/u.test(normalized) ||

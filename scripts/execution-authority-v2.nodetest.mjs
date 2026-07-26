@@ -847,6 +847,41 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
     await execFileAsync('git', ['config', '--local', '--unset', 'diff.noprefix'], {
       cwd: temporaryRoot,
     });
+    await execFileAsync(
+      'git',
+      ['config', '--local', 'extensions.worktreeConfig', 'true'],
+      { cwd: temporaryRoot },
+    );
+    await execFileAsync(
+      'git',
+      ['config', '--worktree', 'diff.context', '0'],
+      { cwd: temporaryRoot },
+    );
+    loaded = await loadExecutionAuthorityV2(temporaryRoot);
+    assert.ok(
+      loaded.errors.some((error) =>
+        error.includes(
+          'reviewerReassignment: repository-local Git config affects authority diff: extensions.worktreeconfig',
+        ),
+      ),
+      loaded.errors.join('\n'),
+    );
+    assert.ok(
+      loaded.errors.some((error) =>
+        error.includes(
+          'active-packet: repository-local Git config affects authority diff: extensions.worktreeconfig',
+        ),
+      ),
+      loaded.errors.join('\n'),
+    );
+    await execFileAsync('git', ['config', '--worktree', '--unset', 'diff.context'], {
+      cwd: temporaryRoot,
+    });
+    await execFileAsync(
+      'git',
+      ['config', '--local', '--unset', 'extensions.worktreeConfig'],
+      { cwd: temporaryRoot },
+    );
     await writeRepositoryFile(
       temporaryRoot,
       '.git/info/attributes',
@@ -1084,6 +1119,7 @@ test('W07 profile accepts every path in the exact Event 1 candidate', () => {
     'docs/superpowers/plans/2026-07-27-r0-w07-exact-h-activation-b0df777a.md',
     'docs/superpowers/specs/2026-07-27-r0-w07-exact-h-activation-b0df777a-design.md',
     'scripts/execution-authority-v2.nodetest.mjs',
+    'scripts/lib/amendment-governance.mjs',
     'scripts/lib/execution-authority-v2.mjs',
   ];
   assert.deepEqual(
