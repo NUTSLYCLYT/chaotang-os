@@ -627,7 +627,7 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
     ).stdout.trim();
     await execFileAsync(
       'git',
-      ['branch', 'feature-chaotang-ext', candidateH],
+      ['branch', '-f', 'feature-chaotang-ext', candidateH],
       { cwd: temporaryRoot },
     );
 
