@@ -58,7 +58,7 @@ Changed files: only the new Packet, this design, and this plan.
 6. 要求 `GO`、`HIGH=0`、`MEDIUM=0`。
 7. commit 全部证据并冻结仍为 quiescent 的 registration parent。
 
-## Task 6: Atomic Activation Candidate
+## Task 6: Atomic Activation Event
 
 需要单独 activation 授权。
 

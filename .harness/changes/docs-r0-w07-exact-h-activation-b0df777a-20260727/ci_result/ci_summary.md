@@ -69,6 +69,12 @@ SHA-256 为
 本次修订拆分 pre-integration STOP/simulation 与 post-integration canonical GO，
 并统一四事件术语。
 
+第四轮候选 `14668a1e8046fc81d8fb25985556405844538c7b`、tree
+`bdf3e374ab79b0f74840102c3953d761c3b62bb1` 获得独立 QA
+`GO / HIGH 0 / MEDIUM 0 / LOW 1`。其 hardened base-to-H diff SHA-256 为
+`3988ba4ee7501376d73b6c87500c441b299289ca9bd8773e07a3a274e2687dc4`。
+唯一 LOW 是 Event 4 名称不统一；本次修订统一为 `Atomic Activation Event`。
+
 ## 尚未生成
 
 - activation candidate H/tree；

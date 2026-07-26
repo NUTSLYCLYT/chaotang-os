@@ -82,7 +82,7 @@ activation intent path/digest、scope 和 exclusions。随后由 `Codex Independ
 `HIGH=0`、`MEDIUM=0`。全部证据进入一个 quiescent registration parent；
 该 parent 仍保持 W07 STOP。
 
-### Event 4：Atomic Activation Candidate
+### Event 4：Atomic Activation Event
 
 在另行明确批准后，从 Event 3 registration parent 生成恰好一个父提交的
 activation event。

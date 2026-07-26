@@ -43,7 +43,7 @@
 - [ ] 要求 `GO / HIGH 0 / MEDIUM 0`。
 - [ ] 冻结包含全部证据但仍无 W07 ledger 的 registration parent。
 
-## 后续 Event 4：Atomic Activation
+## 后续 Event 4：Atomic Activation Event
 
 - [ ] 取得 atomic activation candidate 明确授权。
 - [ ] 只修改已审查的 manifest 状态转换。
