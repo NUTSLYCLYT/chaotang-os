@@ -97,6 +97,8 @@ const REJECTED_REVIEW_SESSION_IDS = Object.freeze([
   '019f9d6c-55e8-7f00-89f5-b63114a791ea',
   '019f9d77-931c-7103-888a-30d4bdac1bed',
   '019f9d77-934c-7e33-b86a-78eddb22a420',
+  '019f9e54-18be-7961-acbb-d4b24a99f422',
+  '019f9e54-42d5-7373-9fb3-c49a81a37275',
 ]);
 const REVIEWER_REASSIGNMENT_KEYS = Object.freeze([
   'approvedBy',

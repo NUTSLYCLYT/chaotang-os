@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `TWENTIETH_CANDIDATE_PRE_FREEZE / NINETEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
+| Status | `TERMINAL_ROLLBACK_TRUST_DECISION_REQUIRED / TWENTY_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -283,6 +283,19 @@ Repeated-error prevention:
 This remediation and the approved startup boundary are now eligible for a
 twentieth exact-H candidate freeze and two fresh read-only reviews. Candidate
 freeze does not approve or register the overlay.
+
+Candidate `ac3a98650608c7d76450f00f939f27a7fb35e33c` was rejected by
+both fresh read-only reviews. Both found that four eighteenth/nineteenth
+review aliases lack canonical platform identity bindings and are absent from
+the exact rejection set. The second review also found that repository-reachable
+history cannot detect rollback of `HEAD` and the local EXT ref from a terminal
+W07 state to an earlier valid ACTIVE state.
+
+The two twentieth-candidate session identities are permanently rejected.
+Remediation requires an explicit decision on terminal-state monotonicity:
+either trusted Git ref non-rollback is an external threat-model-B prerequisite,
+or a protected external monotonic state anchor is introduced. No successor
+candidate may silently choose between those boundaries.
 
 ## Boundaries
 

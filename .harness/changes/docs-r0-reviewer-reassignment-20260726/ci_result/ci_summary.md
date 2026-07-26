@@ -2,7 +2,7 @@
 
 ## Status
 
-`TWENTIETH_CANDIDATE_PRE_FREEZE / NINETEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`TERMINAL_ROLLBACK_TRUST_DECISION_REQUIRED / TWENTY_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -621,3 +621,24 @@ The Product Owner selected the clean-startup external trust-root boundary.
 This state is eligible for twentieth-candidate freeze and two fresh read-only
 reviews only. It is not exact-H approval and does not register or activate the
 overlay.
+
+## Twentieth Rejected Candidate
+
+```text
+candidate = ac3a98650608c7d76450f00f939f27a7fb35e33c
+tree = e371ab93ecd5e4c76be88a8e8747dd9df616701c
+package = fc4b72f215ff087fe9ee18dd6edad4c88e588ba0de86d797f539585c53f77841
+package bytes = 268892
+pass 1 = NO_GO / HIGH 0 / MEDIUM 1
+pass 2 = NO_GO / HIGH 2 / MEDIUM 0
+combined = NO_GO
+```
+
+Both reviews found the four missing canonical identity bindings for rejected
+eighteenth/nineteenth sessions. Pass 2 additionally found terminal-state replay
+through rollback of `HEAD` and the local EXT ref to an earlier valid ACTIVE
+commit. The candidate and both review identities are rejected.
+
+No overlay is registered and W07 remains `STOP / NO_ACTIVE_WORK_PACKAGE`.
+A successor candidate requires an explicit terminal rollback trust-boundary
+decision.

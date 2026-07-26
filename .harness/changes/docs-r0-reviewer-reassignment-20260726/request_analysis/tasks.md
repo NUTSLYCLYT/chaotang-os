@@ -103,7 +103,13 @@
 - [x] Remove mutable authority reads when no supported pinned commit exists.
 - [x] Record Product Owner selection of clean Node startup and the OS loader as
   external threat-model-B trust roots.
-- [ ] Prepare a twentieth candidate only after that trust-boundary decision.
+- [x] Prepare and reject twentieth candidate `ac3a9865` after two NO_GO reviews.
+- [x] Permanently exclude both twentieth-candidate canonical session identities
+  from reuse.
+- [ ] Bind the four eighteenth/nineteenth legacy review aliases to enforceable
+  rejection identities without permitting alias evidence as a current review.
+- [ ] Decide whether trusted Git ref non-rollback is an external threat-model-B
+  prerequisite or introduce a protected external monotonic terminal-state anchor.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.
 
