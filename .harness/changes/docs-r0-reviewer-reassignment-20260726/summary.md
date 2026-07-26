@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `FIFTH_CANDIDATE_REVIEW_READY / NOT_AUTHORIZED` |
+| Status | `SIXTH_CANDIDATE_REVIEW_READY / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -52,8 +52,12 @@ B; this is a governance boundary decision, not candidate approval. The fifth
 candidate disables Git replacement objects and excludes all eight rejected or
 superseded review sessions.
 
-The fifth candidate is ready for exact commit freeze and two new reviews under
-the approved threat-model boundary.
+Candidate `993edb11c084a8b9365a77151dd9a51bcfcdf599` received one GO and
+one NO_GO and was rejected. The sixth remediation requires an activation
+commit's parent to contain the exact overlay and evidence in a quiescent state,
+and pins executing authority blobs to the reviewed candidate.
+
+The sixth candidate is ready for exact commit freeze and two new reviews.
 
 ## Boundaries
 

@@ -6,6 +6,7 @@ import {
   effectiveIndependentReviewer,
   validateAmendmentGovernanceRegistration,
   verifyAmendmentApprovalEvidenceFiles,
+  verifyReviewerReassignmentActivationHistory,
 } from './amendment-governance.mjs';
 
 export const EXECUTION_AUTHORITY_V2_PATH = '.harness/manifest/execution-authority.v2.json';
@@ -942,6 +943,15 @@ export async function loadExecutionAuthorityV2(root) {
   errors.push(...manifestErrors);
   if (manifestErrors.length > 0) {
     return { manifest, schema, amendmentGovernance, errors: [...new Set(errors)] };
+  }
+  if (amendmentGovernance !== null) {
+    errors.push(
+      ...(await verifyReviewerReassignmentActivationHistory(
+        root,
+        amendmentGovernance,
+        manifest,
+      )),
+    );
   }
 
   const ownerApprovalSource = await readPinnedAuthorityFile(

@@ -2,7 +2,7 @@
 
 ## Status
 
-`FIFTH_CANDIDATE_REVIEW_READY / FOUR_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`SIXTH_CANDIDATE_REVIEW_READY / FIVE_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -99,6 +99,26 @@ review result may be reused.
 authority test suites: 88 pass / 0 fail
 project-harness-doctor: 0 errors / 0 warnings
 v2 check: VALID_STRUCTURE / NOT_AN_AUTHORIZATION
+v2 authorize R0-W07: STOP / NO_ACTIVE_WORK_PACKAGE
+working diff check: PASS
+```
+
+## Fifth Rejected Candidate
+
+```text
+candidate = 993edb11c084a8b9365a77151dd9a51bcfcdf599
+tree = 6b8b73e9cbcd94f13e53de13626e9db16d7a101d
+package = 32af654ccc7bf9212b974c0219c1acaa6774830821aecb159acfe94e422b44e7
+pass 1 = NO_GO / HIGH 2 / MEDIUM 0
+pass 2 = GO / HIGH 0 / MEDIUM 0
+combined = NO_GO
+```
+
+## Sixth Candidate Pre-Freeze Verification
+
+```text
+authority test suites: 92 pass / 0 fail
+project-harness-doctor: 0 errors / 0 warnings
 v2 authorize R0-W07: STOP / NO_ACTIVE_WORK_PACKAGE
 working diff check: PASS
 ```

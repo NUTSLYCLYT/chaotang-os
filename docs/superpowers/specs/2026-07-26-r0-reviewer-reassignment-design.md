@@ -38,6 +38,18 @@ not claim to authenticate those identities against a malicious full repository
 writer. Git verification disables replacement objects, external diff, and text
 conversion and clears inherited `GIT_*` overrides.
 
+## Two-Event Enforcement
+
+When W07 is `ACTIVE`, the v2 loader proves that the activation commit's parent:
+
+- already contains the exact reviewer overlay;
+- contains every bound evidence artifact at its approved digest;
+- has `activeWorkPackage=null` and no `ACTIVE` ledger entry.
+
+It also requires the executing authority implementation blobs to equal those
+in the reviewed candidate H. Registration and activation therefore cannot be
+combined, and registration cannot silently replace reviewed authority logic.
+
 ## Goal
 
 Replace the unavailable Claude Code reviewer for R0-W07 with a scoped,

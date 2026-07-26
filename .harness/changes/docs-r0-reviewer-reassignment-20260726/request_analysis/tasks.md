@@ -21,7 +21,11 @@
 - [x] Record Product Owner threat-model option B approval separately.
 - [x] Disable Git replacement objects and inherited `GIT_*` overrides.
 - [x] Exclude all eight rejected or superseded review sessions.
-- [x] Prepare a fifth non-authorizing candidate for exact commit freeze.
+- [x] Reject candidate `993edb11` after mixed GO/NO_GO reviews.
+- [x] Exclude all ten rejected or superseded review sessions.
+- [x] Require prior quiescent overlay registration before W07 activation.
+- [x] Pin executing authority blobs to the reviewed candidate.
+- [x] Prepare a sixth non-authorizing candidate for exact commit freeze.
 - [ ] Obtain two new fresh Codex Independent QA reviews.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.

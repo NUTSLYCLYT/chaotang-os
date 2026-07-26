@@ -63,6 +63,8 @@ const REJECTED_REVIEW_SESSION_IDS = Object.freeze([
   '019f9c4f-201b-7d91-a2b0-e49e08a5985a',
   '019f9c5b-0cbc-72f0-a114-1b26dc852bd5',
   '019f9c5b-0cf9-7a20-a741-ce4a279dce9b',
+  '019f9c6d-d611-7400-b03f-3b2e474543a8',
+  '019f9c6d-d648-7961-a3eb-7071cc51eec9',
 ]);
 const REVIEWER_REASSIGNMENT_KEYS = Object.freeze([
   'approvedBy',
@@ -133,6 +135,12 @@ const OWNER_REASSIGNMENT_EVIDENCE_KEYS = Object.freeze([
   'writingSessionId',
 ]);
 const OWNER_REVIEW_REFERENCE_KEYS = Object.freeze(['path', 'sessionId', 'sha256']);
+const REVIEWER_AUTHORITY_PROTECTED_PATHS = Object.freeze([
+  '.harness/contracts/execution-authority-v2.schema.json',
+  'scripts/execution-authority-v2.mjs',
+  'scripts/lib/amendment-governance.mjs',
+  'scripts/lib/execution-authority-v2.mjs',
+]);
 
 function hasExactEntries(actual, expected) {
   if (actual === null || typeof actual !== 'object' || Array.isArray(actual)) return false;
@@ -717,6 +725,109 @@ function validateApprovedForW01(amendment) {
   return errors;
 }
 
+async function readGitBlob(root, commit, path) {
+  const { stdout } = await execFileAsync(
+    'git',
+    reviewerReassignmentGitArgs('show', `${commit}:${path}`),
+    reviewerReassignmentGitOptions(root, {
+      encoding: 'buffer',
+      maxBuffer: 10 * 1024 * 1024,
+    }),
+  );
+  return Buffer.isBuffer(stdout) ? stdout : Buffer.from(stdout);
+}
+
+export async function verifyReviewerReassignmentActivationHistory(
+  root,
+  amendmentGovernance,
+  executionManifest,
+) {
+  const overlay = amendmentGovernance?.reviewerReassignment;
+  if (overlay === null || overlay === undefined) return [];
+  if (executionManifest?.activeWorkPackage !== 'R0-W07') return [];
+
+  const errors = [];
+  try {
+    const { stdout: parentHSource } = await execFileAsync(
+      'git',
+      reviewerReassignmentGitArgs('rev-parse', 'HEAD^'),
+      reviewerReassignmentGitOptions(root),
+    );
+    const parentH = parentHSource.trim();
+    const parentProjectHarness = parseUniqueJsonObject(
+      (
+        await readGitBlob(
+          root,
+          parentH,
+          '.harness/manifest/project-harness.json',
+        )
+      ).toString('utf8'),
+      'parent project harness',
+    );
+    if (
+      JSON.stringify(parentProjectHarness.amendmentGovernance?.reviewerReassignment) !==
+      JSON.stringify(overlay)
+    ) {
+      errors.push(
+        'reviewerReassignment activation parent must already contain the exact overlay',
+      );
+    }
+
+    const parentAuthority = parseUniqueJsonObject(
+      (
+        await readGitBlob(
+          root,
+          parentH,
+          '.harness/manifest/execution-authority.v2.json',
+        )
+      ).toString('utf8'),
+      'parent execution authority',
+    );
+    if (
+      parentAuthority.activeWorkPackage !== null ||
+      parentAuthority.workPackageLedger?.some((entry) => entry.status === 'ACTIVE')
+    ) {
+      errors.push(
+        'reviewerReassignment activation parent must be a quiescent authority state',
+      );
+    }
+
+    for (const path of [
+      overlay.reviewPackagePath,
+      overlay.ownerApprovalPath,
+      ...overlay.reviews.map((review) => review.path),
+    ]) {
+      const source = await readGitBlob(root, parentH, path);
+      const expectedDigest =
+        path === overlay.reviewPackagePath
+          ? overlay.reviewPackageSha256
+          : path === overlay.ownerApprovalPath
+            ? overlay.ownerApprovalSha256
+            : overlay.reviews.find((review) => review.path === path).sha256;
+      if (createHash('sha256').update(source).digest('hex') !== expectedDigest) {
+        errors.push(`reviewerReassignment activation parent evidence drift: ${path}`);
+      }
+    }
+
+    for (const path of REVIEWER_AUTHORITY_PROTECTED_PATHS) {
+      const [reviewedBlob, executingBlob] = await Promise.all([
+        readGitBlob(root, overlay.candidateH, path),
+        readGitBlob(root, 'HEAD', path),
+      ]);
+      if (!reviewedBlob.equals(executingBlob)) {
+        errors.push(
+          `reviewerReassignment protected authority drift after review: ${path}`,
+        );
+      }
+    }
+  } catch (cause) {
+    errors.push(
+      `reviewerReassignment activation history is unverifiable: ${cause.code ?? cause.message}`,
+    );
+  }
+  return [...new Set(errors)];
+}
+
 export function validateAmendmentGovernanceRegistration(amendment) {
   if (amendment === null || typeof amendment !== 'object' || Array.isArray(amendment)) {
     return ['amendment governance registration must be an object'];
@@ -737,7 +848,7 @@ export async function verifyAmendmentApprovalEvidenceFiles(root, amendment) {
   async function verifyEvidenceFile(path, expectedDigest, fieldLabel) {
     if (!safeRepositoryPath(path)) {
       errors.push(`${fieldLabel}: unsafe path`);
-      return;
+      return null;
     }
     let current = root;
     const components = path.split('/');
@@ -748,11 +859,11 @@ export async function verifyAmendmentApprovalEvidenceFiles(root, amendment) {
         stat = await lstat(current);
       } catch (cause) {
         errors.push(`${fieldLabel}: missing path component: ${cause.code ?? cause.message}`);
-        return;
+        return null;
       }
       if (stat.isSymbolicLink()) {
         errors.push(`${fieldLabel}: symbolic links are forbidden`);
-        return;
+        return null;
       }
     }
     const finalStat = await lstat(current);
