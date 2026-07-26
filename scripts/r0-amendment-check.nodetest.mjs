@@ -271,6 +271,8 @@ test('review package Git command disables external diff, text conversion, and us
     '--no-replace-objects',
     '-c',
     'core.attributesFile=/dev/null',
+    '-c',
+    'core.commitGraph=false',
     'diff',
     '--no-ext-diff',
     '--no-textconv',

@@ -29,6 +29,7 @@
 - [x] 拒绝 `extensions.worktreeConfig` 和未检查的 `config.worktree` 覆盖。
 - [x] 禁用 system/user attributes，并在 diff 后重验 repository-local metadata。
 - [x] 用 `GIT_ATTR_SOURCE=candidateH` 将 `.gitattributes` 绑定到候选树。
+- [x] 用 `core.commitGraph=false` 禁用未绑定的 commit-graph acceleration。
 - [x] 运行 authority、amendment、doctor 全套回归。
 - [x] 先提交 authority candidate，再冻结 exact H/tree，保持 W07 STOP。
 

@@ -20,7 +20,7 @@ R0-W07 = STOP / NO_ACTIVE_WORK_PACKAGE
 | execution authority v1 | `STOP / AMENDMENT_APPROVAL_REQUIRED` |
 | execution authority v2 check | `VALID_STRUCTURE` |
 | R0-W07 authorize | `STOP / NO_ACTIVE_WORK_PACKAGE` |
-| authority + amendment tests | PASS：`110/110` |
+| authority + amendment tests | PASS：`111/111` |
 | root harness doctor | PASS：`0 errors / 0 warnings` |
 | backend harness doctor | PASS：`0 errors / 0 warnings` |
 | diff check | PASS |
@@ -77,11 +77,11 @@ SHA-256 为
 
 ## Event 1 Fresh Verification
 
-验证时间：`2026-07-27T03:18:35+08:00`
+验证时间：`2026-07-27T03:30:26+08:00`
 
 ```text
 node --test scripts/execution-authority.nodetest.mjs scripts/r0-amendment-check.nodetest.mjs scripts/execution-authority-v2.nodetest.mjs
-  exit 0 / 110 passed / 0 failed
+  exit 0 / 111 passed / 0 failed
 node scripts/execution-authority.mjs --check
   exit 0 / VALID_INACTIVE_GUARD
 node scripts/execution-authority.mjs --authorize

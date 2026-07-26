@@ -195,6 +195,8 @@ function authorityGitArgs(...args) {
     '--no-replace-objects',
     '-c',
     'core.attributesFile=/dev/null',
+    '-c',
+    'core.commitGraph=false',
     ...args,
   ];
 }

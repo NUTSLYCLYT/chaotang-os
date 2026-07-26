@@ -1391,6 +1391,16 @@ test('authority Git executable cannot be substituted through inherited PATH', as
   }
 });
 
+test('authority Git commands disable the mutable commit-graph acceleration', async () => {
+  for (const path of [
+    'scripts/lib/amendment-governance.mjs',
+    'scripts/lib/execution-authority-v2.mjs',
+  ]) {
+    const source = await readFile(join(root, path), 'utf8');
+    assert.match(source, /'core\.commitGraph=false'/u);
+  }
+});
+
 test('active temporary root fails closed when canonical amendment bytes drift', async () => {
   const { temporaryRoot, manifest } = await createActiveAuthorityFixture();
   try {

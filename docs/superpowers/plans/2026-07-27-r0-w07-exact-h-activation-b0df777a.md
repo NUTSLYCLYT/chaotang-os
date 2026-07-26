@@ -88,10 +88,10 @@ git rev-list --parents -n 1 "$ACTIVATION_H"
 git merge-base --is-ancestor "$AUTHORITY_CANDIDATE_H" "$ACTIVATION_H"
 git diff --check "$REVIEW_BASE_H..$ACTIVATION_H"
 export REVIEW_PACKAGE_PATH=/tmp/r0-w07-activation-candidate.diff
-GIT_ATTR_SOURCE="$AUTHORITY_CANDIDATE_H" GIT_ATTR_NOSYSTEM=1 \
-  GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null \
+env -i GIT_ATTR_SOURCE="$AUTHORITY_CANDIDATE_H" GIT_ATTR_NOSYSTEM=1 \
+  GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null LC_ALL=C \
   /usr/bin/git --no-replace-objects -c core.attributesFile=/dev/null \
-  diff --no-ext-diff --no-textconv --binary \
+  -c core.commitGraph=false diff --no-ext-diff --no-textconv --binary \
   "$REVIEW_BASE_H..$AUTHORITY_CANDIDATE_H" > "$REVIEW_PACKAGE_PATH"
 sha256sum "$REVIEW_PACKAGE_PATH"
 test -z "$(git status --porcelain=v1)"

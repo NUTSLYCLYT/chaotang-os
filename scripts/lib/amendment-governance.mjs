@@ -591,6 +591,8 @@ function reviewerReassignmentGitArgs(...args) {
     '--no-replace-objects',
     '-c',
     'core.attributesFile=/dev/null',
+    '-c',
+    'core.commitGraph=false',
     ...args,
   ];
 }
@@ -710,6 +712,8 @@ export function reviewerReassignmentDiffArgs(baseH, candidateH) {
     '--no-replace-objects',
     '-c',
     'core.attributesFile=/dev/null',
+    '-c',
+    'core.commitGraph=false',
     'diff',
     '--no-ext-diff',
     '--no-textconv',
