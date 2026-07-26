@@ -122,8 +122,10 @@
   identities from reuse.
 - [x] Record Product Owner selection of no concurrent external writers in a
   controlled isolated worktree as a threat-model-B prerequisite.
-- [ ] Prepare a twenty-third non-authorizing candidate and obtain two fresh
-  read-only reviews.
+- [x] Prepare twenty-third candidate `6c01c810` and obtain two fresh read-only
+  GO reviews with zero HIGH/MEDIUM findings.
+- [ ] Obtain Product Owner exact-H approval bound to candidate, tree, package,
+  both review evidence digests, scope, and exclusions.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.
 

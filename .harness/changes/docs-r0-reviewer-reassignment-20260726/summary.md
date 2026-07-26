@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `TWENTY_THIRD_CANDIDATE_PRE_FREEZE / TWENTY_TWO_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
+| Status | `CODEX_REVIEW_GO / EXACT_H_OWNER_APPROVAL_REQUIRED / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -339,6 +339,18 @@ threat-model-B prerequisite. A process violating that isolation is outside the
 repository guarantee. This direction permits one twenty-third non-authorizing
 candidate and two fresh read-only reviews; it does not approve, register, or
 activate W07.
+
+Candidate `6c01c810e60a20e955c5fb650e78317365c0d6df`, tree
+`3c9dfce871c362e2e9d7e93f12d24db3847f9d8d`, and review package
+SHA-256 `9fd0d7f60cc09362da78e3165d4e85283a69a178fd4a5faf6c920bba592a16f9`
+received two fresh read-only `GO` reviews with zero HIGH and MEDIUM findings.
+Pass 1 evidence SHA-256 is
+`6ad0418e9495cd02c1719404d035ae2b11dd309527c76623ebdd0342d8443c29`;
+pass 2 is
+`e9fea702e0a618afb8ed77b6bafffd36127f5992f990c10b32248502e211c7b7`.
+
+The candidate now requires exact-H Product Owner approval. No approval evidence
+has been generated, no overlay is registered, and W07 remains stopped.
 
 ## Boundaries
 

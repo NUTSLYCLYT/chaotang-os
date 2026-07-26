@@ -2,7 +2,7 @@
 
 ## Status
 
-`TWENTY_THIRD_CANDIDATE_PRE_FREEZE / TWENTY_TWO_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`CODEX_REVIEW_GO / EXACT_H_OWNER_APPROVAL_REQUIRED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -720,3 +720,23 @@ boundary, not a repository lock claim.
 
 The direction permits one non-authorizing candidate and two fresh read-only
 reviews only. W07 remains stopped.
+
+## Twenty-Third Candidate Reviews
+
+```text
+candidate = 6c01c810e60a20e955c5fb650e78317365c0d6df
+tree = 3c9dfce871c362e2e9d7e93f12d24db3847f9d8d
+package = 9fd0d7f60cc09362da78e3165d4e85283a69a178fd4a5faf6c920bba592a16f9
+package bytes = 292941
+pass 1 session = 019f9e8b-6947-7a63-a013-efd54f44dc01
+pass 1 evidence = 6ad0418e9495cd02c1719404d035ae2b11dd309527c76623ebdd0342d8443c29
+pass 1 = GO / HIGH 0 / MEDIUM 0
+pass 2 session = 019f9e8b-9806-7e51-a02e-65ee0e36450a
+pass 2 evidence = e9fea702e0a618afb8ed77b6bafffd36127f5992f990c10b32248502e211c7b7
+pass 2 = GO / HIGH 0 / MEDIUM 0
+combined = GO
+```
+
+Both evidence blocks strict-parse and bind the same exact candidate, tree,
+scope, package, rejected-session set, and writer receipt. This permits an
+exact-H Product Owner approval request only. W07 remains stopped.
