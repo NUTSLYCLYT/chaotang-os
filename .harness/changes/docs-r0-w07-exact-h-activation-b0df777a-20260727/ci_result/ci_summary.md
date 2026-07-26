@@ -61,6 +61,14 @@ base-to-H diff digest、命令退出码和时间，再将其作为不可变审�
 本次修订增加 integrated-mainline identity remediation、overlay refresh 和可复现的
 hardened diff 命令。
 
+第三轮候选 `d32cd4593f46ade3c45ac81b16d982f1a14b280d`、tree
+`76e16ab2d2f55613344ef534aa75cc1460df841c` 被独立 QA 判定
+`NO_GO / HIGH 1 / MEDIUM 0 / LOW 1`，不得集成。其 hardened base-to-H diff
+SHA-256 为
+`54685042045fc2854c9bf1061c26ca9bc383be1ab037e83e950d5555cf697eb7`。
+本次修订拆分 pre-integration STOP/simulation 与 post-integration canonical GO，
+并统一四事件术语。
+
 ## 尚未生成
 
 - activation candidate H/tree；

@@ -48,6 +48,20 @@ branch tip。ACTIVE W07 loader 必须证明：
 完成后必须用两轮新的 Codex review 和 Product Owner approval 静默刷新 overlay，
 否则 Event 4 必须 fail closed。
 
+## Integration Gate
+
+真实 EXT ref 不能在独立审查和集成批准前移动，因此 Event 4 candidate 在 isolated
+worktree 中不能取得 canonical GO。pre-integration gate 要求：
+
+- 除 `EXT ref != pinned activation HEAD` 外没有 loader finding；
+- disposable clone 将 EXT ref 指向同一 activation H 后取得 simulation GO；
+- exact activation H/tree、单父关系、evidence digests 和 changed paths 通过；
+- simulation 结果明确标记 `NOT_CANONICAL_AUTHORIZATION`。
+
+独立审查和 Product Owner fast-forward approval 通过后才移动 local EXT ref。
+post-integration gate 在真实 exact HEAD 上重新运行 canonical CLI；只有真实 GO 才能
+开始 W07 产品实施。失败时保持 STOP 并前向修复，不回滚 ref。
+
 ## Identity Binding
 
 每个后续 exact candidate 必须绑定：

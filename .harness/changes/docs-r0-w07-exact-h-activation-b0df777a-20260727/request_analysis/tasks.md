@@ -7,7 +7,7 @@
 - [x] 证明 W07 为 `STOP / NO_ACTIVE_WORK_PACKAGE`。
 - [x] 核对已登记 reviewer reassignment overlay。
 - [x] 将旧 activation worktree 和 Packet 降级为 Asset Pool。
-- [x] 定义新的 canonical evidence root 与三事件激活协议。
+- [x] 定义新的 canonical evidence root 与四事件激活协议。
 - [x] 定义后续 TDD、证据、审查和 exact-H 门。
 - [x] 完成本 Packet 的治理验证。
 - [ ] 完成本 Packet 的独立只读审查。
@@ -48,8 +48,12 @@
 - [ ] 取得 atomic activation candidate 明确授权。
 - [ ] 只修改已审查的 manifest 状态转换。
 - [ ] 证明 activation commit 恰好一个父提交。
-- [ ] 在 exact candidate 上运行完整 verification。
-- [ ] 独立审查并请求本地 EXT 集成批准。
+- [ ] 在 isolated candidate 上运行 pre-integration verification；真实 EXT ref 尚未移动，
+  W07 只允许因一个预期 ref-identity gate 返回 STOP。
+- [ ] 在 disposable integration simulation 中令 EXT ref 指向 activation H，证明 W07 GO。
+- [ ] 完成独立只读审查并请求本地 EXT fast-forward 集成批准。
+- [ ] 获批后更新 local EXT ref，再在 exact integrated HEAD 上运行 fresh acceptance。
+- [ ] 只有 post-integration W07 GO 后才解除产品实施等待；失败时 fail closed 并前向修复。
 
 ## 停止条件
 

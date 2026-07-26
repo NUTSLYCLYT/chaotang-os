@@ -64,22 +64,32 @@ Changed files: only the new Packet, this design, and this plan.
 
 1. 从 Task 5 registration parent 创建单父提交。
 2. 只修改 `.harness/manifest/execution-authority.v2.json` 的已批准转换。
-3. 验证 W06 为 `WORK_PACKAGE_MISMATCH`，W07 唯一 GO，W08/W09 为
-   `BLOCKED_DEPENDENCY`。
-4. 运行完整 verification-loop 和独立只读审查。
-5. 请求受控整合到 local EXT；不 push、不部署。
+3. 运行 pre-integration verification：真实 EXT ref 不移动，W07 必须只因预期的
+   ref-identity finding 而 STOP，其他 finding 为 0。
+4. 在 disposable clone 中把 EXT ref 指向同一 activation H，验证 simulation 中
+   W06 为 `WORK_PACKAGE_MISMATCH`、W07 唯一 GO、W08/W09 为
+   `BLOCKED_DEPENDENCY`；标记 `NOT_CANONICAL_AUTHORIZATION`。
+5. 对 exact activation H/tree 运行独立只读审查。
+6. 请求受控 fast-forward 整合到 local EXT；不 push、不部署。
+7. 获批集成后在 exact EXT HEAD fresh 运行 verification-loop。只有 canonical W07 GO
+   才解除 `WAITING_W07`；失败则 STOP 并另建前向 remediation Packet。
 
 ## Proof Commands
 
 ```bash
-export BASE_H=b0df777a1fe94d98afdc62b4cdd02a2f8a091391
-: "${CANDIDATE_H:?set CANDIDATE_H from the exact-H review receipt}"
-test "$(git rev-parse "$CANDIDATE_H^{commit}")" = "$CANDIDATE_H"
-git rev-parse "$CANDIDATE_H^{tree}"
-git diff --check "$BASE_H..$CANDIDATE_H"
+export REVIEW_BASE_H=b0df777a1fe94d98afdc62b4cdd02a2f8a091391
+: "${AUTHORITY_CANDIDATE_H:?set from the Event 1 exact-H receipt}"
+: "${ACTIVATION_H:?set from the Event 4 exact-H receipt}"
+test "$(git rev-parse "$AUTHORITY_CANDIDATE_H^{commit}")" = "$AUTHORITY_CANDIDATE_H"
+test "$(git rev-parse "$ACTIVATION_H^{commit}")" = "$ACTIVATION_H"
+git rev-parse "$AUTHORITY_CANDIDATE_H^{tree}"
+git rev-parse "$ACTIVATION_H^{tree}"
+git rev-list --parents -n 1 "$ACTIVATION_H"
+git merge-base --is-ancestor "$AUTHORITY_CANDIDATE_H" "$ACTIVATION_H"
+git diff --check "$REVIEW_BASE_H..$ACTIVATION_H"
 export REVIEW_PACKAGE_PATH=/tmp/r0-w07-activation-candidate.diff
 /usr/bin/git --no-replace-objects diff --no-ext-diff --no-textconv --binary \
-  "$BASE_H..$CANDIDATE_H" > "$REVIEW_PACKAGE_PATH"
+  "$REVIEW_BASE_H..$AUTHORITY_CANDIDATE_H" > "$REVIEW_PACKAGE_PATH"
 sha256sum "$REVIEW_PACKAGE_PATH"
 test -z "$(git status --porcelain=v1)"
 node --test scripts/execution-authority.nodetest.mjs scripts/r0-amendment-check.nodetest.mjs scripts/execution-authority-v2.nodetest.mjs
@@ -94,10 +104,14 @@ node scripts/harness-doctor.mjs
 (cd backend && python3 scripts/harness_doctor.py)
 ```
 
-`CANDIDATE_H` 由仓外 exact-H receipt 注入，不能在候选自身文件中预写。`BASE_H`
-同时是后续 W07 profile 的 frozen review base。验证记录必须保存命令退出码、时间、
-H/tree、raw diff SHA-256 和各 authorize reason。Event 1-3 预期四个 package 均
-`NO_ACTIVE_WORK_PACKAGE`；Event 4 预期 W06 mismatch、W07 GO、W08/W09 blocked。
+两个 H 均由仓外 exact-H receipt 注入，不能在候选自身文件中预写。
+`REVIEW_BASE_H` 是后续 W07 profile 的 frozen review base。验证记录必须保存命令退出码、
+时间、两个 H/tree、raw diff SHA-256 和各 authorize reason。
+
+- Event 1-3：四个 package 均 `NO_ACTIVE_WORK_PACKAGE`。
+- Event 4 pre-integration：canonical W07 STOP，且只有预期 ref-identity finding；
+  disposable simulation 才允许出现 W07 GO。
+- Event 4 post-integration：真实 W06 mismatch、W07 GO、W08/W09 blocked。
 
 ## Stop Conditions
 

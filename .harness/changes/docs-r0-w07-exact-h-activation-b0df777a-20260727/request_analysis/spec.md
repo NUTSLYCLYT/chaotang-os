@@ -98,8 +98,20 @@ approvalEvidence = exact approved W07 evidence
 ```
 
 该 exact activation candidate 受控集成后，local EXT ref 与 pinned HEAD 必须同时指向
-Event 4 H，而 `effectiveBase.sha` 继续指向其已审 Event 1 祖先。只有全套验证、独立审查
-和另行集成批准均通过后，canonical CLI 才可能返回 W07 GO。
+Event 4 H，而 `effectiveBase.sha` 继续指向其已审 Event 1 祖先。
+
+Event 4 使用两个不同的 gate：
+
+1. **Pre-integration candidate gate**：在 isolated worktree 中运行结构、证据、历史、
+   test 和 doctor 验证。由于 canonical EXT ref 尚未移动，真实 loader 必须仅因明确的
+   `EXT ref != pinned activation HEAD` identity finding 而 STOP；disposable integration
+   simulation 将 ref 指向同一 activation H 后必须 GO。该模拟不算真实授权或集成。
+2. **Post-integration acceptance gate**：独立审查和 Product Owner 集成批准通过后，
+   才 fast-forward local EXT ref。随后在 exact integrated HEAD 上 fresh 运行 authority；
+   只有真实 W07 GO 才解除产品实施等待。
+
+post-integration 验收失败时 authority 保持 STOP，必须使用另行批准的前向修复；不得回滚
+EXT ref 或把 simulation GO 描述为真实授权。
 
 ## W07 授权范围
 
@@ -142,7 +154,7 @@ W07 activation 本身不实现上述功能，也不证明产品验收完成。
 - 本 Packet 只含治理文档和证据计划。
 - 当前 manifest 与产品代码零变更。
 - 当前 W07 authorize 仍为 STOP。
-- 新旧证据边界、三事件顺序、owner/reviewer 分权和回滚规则明确。
+- 新旧证据边界、四事件顺序、owner/reviewer 分权和回滚规则明确。
 - 后续每个候选均有 exact H/tree/digest、fresh verification 和独立只读审查。
 
 ## 批准记录
