@@ -93,7 +93,12 @@
 - [x] Require the exact authority root to own `.git`.
 - [x] Set a Git discovery ceiling and verify exact repository top-level.
 - [x] Add a nested-parent replay regression test.
-- [ ] Prepare an eighteenth non-authorizing exact-H candidate.
+- [x] Prepare and reject eighteenth candidate `2c3aeaaa` after two NO_GO reviews.
+- [x] Permanently exclude both eighteenth-candidate review identities from reuse.
+- [ ] Reject unsupported Git object identities without mutable fallback.
+- [ ] Bind authority Git subprocesses to an absolute trusted executable.
+- [ ] Add SHA-256 object-format and hostile-PATH regression tests.
+- [ ] Prepare a nineteenth non-authorizing exact-H candidate.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.
 

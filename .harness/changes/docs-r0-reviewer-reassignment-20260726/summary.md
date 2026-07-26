@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `EIGHTEENTH_CANDIDATE_PRE_FREEZE / SEVENTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
+| Status | `NINETEENTH_REMEDIATION_PENDING / EIGHTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -222,6 +222,18 @@ authority Git subprocess, and requires the canonical `--show-toplevel` path to
 equal the canonical authority root. A real nested-parent fixture observes the
 historical replay as RED and verifies `STOP / INVALID_EXECUTION_AUTHORITY`
 after remediation.
+
+Candidate `2c3aeaaa8c56d891d61836793fc7d9469984054e` was rejected by both
+fresh reviews. One review proved that a successful non-40-hex Git identity
+silently disabled committed-blob pinning and fell back to mutable authority
+files. The other proved that inherited `PATH` could substitute the unqualified
+`git` executable and manufacture every Git trust fact needed for canonical
+`GO`.
+
+The nineteenth remediation must reject every unsupported object identity
+without mutable fallback and bind all authority Git subprocesses to an
+absolute trusted executable. Both historical bypasses require behavioral
+regression tests before implementation.
 
 ## Boundaries
 

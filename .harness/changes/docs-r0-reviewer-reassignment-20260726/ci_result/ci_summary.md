@@ -2,7 +2,7 @@
 
 ## Status
 
-`EIGHTEENTH_CANDIDATE_PRE_FREEZE / SEVENTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`NINETEENTH_REMEDIATION_PENDING / EIGHTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -538,3 +538,26 @@ working diff check: PASS
 ```
 
 These results permit candidate freeze and fresh review only.
+
+## Eighteenth Rejected Candidate
+
+```text
+candidate = 2c3aeaaa8c56d891d61836793fc7d9469984054e
+tree = 08b94a05313f40963ed8c6c6933deb7890c50c85
+package = 887d780aa885e40796b69b8c0b9dab9bfe4500723b32ca31f8946d9daeb6adc1
+pass 1 = NO_GO / HIGH 1 / MEDIUM 0
+pass 2 = NO_GO / HIGH 1 / MEDIUM 0
+combined = NO_GO
+```
+
+Pass 1 reproduced canonical `GO` from an uncommitted W06 manifest in a
+SHA-256-object-format repository. A successful 64-hex `HEAD` was treated as
+`null`, so committed-blob pinning silently degraded to mutable working-tree
+reads.
+
+Pass 2 reproduced canonical `GO` from an unrelated real repository by placing
+a Git wrapper first in inherited `PATH`. The unqualified `git` invocation let
+that wrapper supply HEAD, top-level, blobs, history, and final stability facts.
+
+Both review identities and this candidate are rejected and cannot be approved
+or reused. W07 remains stopped and no overlay is registered.
