@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
-import { lstat, readFile } from 'node:fs/promises';
+import { constants as fsConstants } from 'node:fs';
+import { lstat, open, realpath } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -397,12 +398,13 @@ function findDuplicateJsonKeys(source) {
 }
 
 export function parseJsonObjectWithUniqueKeys(source, label = 'JSON document') {
-  if (typeof source !== 'string') throw new TypeError(`${label}: source must be text`);
-  const duplicates = findDuplicateJsonKeys(source);
+  const text = Buffer.isBuffer(source) ? source.toString('utf8') : source;
+  if (typeof text !== 'string') throw new TypeError(`${label}: source must be text`);
+  const duplicates = findDuplicateJsonKeys(text);
   if (duplicates.length > 0) {
     throw new SyntaxError(`${label}: duplicate object key(s): ${duplicates.join(', ')}`);
   }
-  const value = JSON.parse(source);
+  const value = JSON.parse(text);
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     throw new TypeError(`${label}: root must be an object`);
   }
@@ -414,9 +416,10 @@ export function sha256Hex(source) {
 }
 
 export function parseExecutionAuthorityV2Evidence(source, label = 'authority evidence') {
-  if (typeof source !== 'string') throw new TypeError(`${label}: source must be text`);
+  const text = Buffer.isBuffer(source) ? source.toString('utf8') : source;
+  if (typeof text !== 'string') throw new TypeError(`${label}: source must be text`);
   const matches = [
-    ...source.matchAll(
+    ...text.matchAll(
       /<!-- execution-authority-v2-evidence:start -->\r?\n```json\r?\n([\s\S]*?)\r?\n```\r?\n<!-- execution-authority-v2-evidence:end -->/gu,
     ),
   ];
@@ -732,7 +735,7 @@ export async function readPinnedAuthorityFile(
   root,
   path,
   errors,
-  { encoding = 'utf8' } = {},
+  { encoding = null } = {},
 ) {
   if (!safeRepositoryPath(path)) {
     errors.push(`unsafe governed path: ${path}`);
@@ -764,13 +767,29 @@ export async function readPinnedAuthorityFile(
       return null;
     }
   }
+  const expectedPath = join(await realpath(root), path);
+  let handle;
   try {
-    return encoding === null
-      ? await readFile(current)
-      : await readFile(current, encoding);
+    handle = await open(current, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const [stat, openedPath] = await Promise.all([
+      handle.stat(),
+      realpath(`/proc/self/fd/${handle.fd}`),
+    ]);
+    if (!stat.isFile()) {
+      errors.push(`${path}: authority input must be a regular file`);
+      return null;
+    }
+    if (openedPath !== expectedPath) {
+      errors.push(`${path}: opened authority input escapes repository target`);
+      return null;
+    }
+    const source = await handle.readFile();
+    return encoding === null ? source : source.toString(encoding);
   } catch (cause) {
     errors.push(`${path}: unable to read authority input: ${cause.message}`);
     return null;
+  } finally {
+    await handle?.close();
   }
 }
 

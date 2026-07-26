@@ -100,13 +100,20 @@ v2 才回答“这个具体 work package 现在是否被授权”。
 - Product Owner exact-H approval 路径及 SHA-256。
 
 overlay 的证据文件会逐级拒绝符号链接，按原始字节校验 digest，并解析 machine-readable evidence。
-review package 的读取、SHA-256 和 Git diff 相等性比较全程保持 `Buffer`；只有提取 changed paths
-时才将副本解码为文本，文本解码结果不参与 digest 或字节相等性判定。
+所有 governed authority input 的读取和 SHA-256 校验全程保持 `Buffer`；review package 的 Git diff
+相等性比较也使用原始 Buffer。只有解析 JSON/evidence 或提取 changed paths 时才将副本解码为文本，
+文本解码结果不参与 digest 或字节相等性判定。
 base H、candidate H、tree、exact Git diff、两份 review、owner approval 必须互相绑定；路径和 digest
 不得复用。v2 loader 本身执行这些检查，不能依赖另行运行 doctor。writer session 不得充当 review
-session。W07 激活必须是 overlay 静默注册之后的独立提交，并且从该激活提交到当前 `HEAD` 的第一父
+session。W07 激活必须是 overlay 静默注册之后的独立提交；注册父状态不得已经出现任何 W07 ledger
+条目，因此 `MERGED_AND_VERIFIED` 或 `ROLLED_BACK` 的 W07 不能重新变回 ACTIVE。从该激活提交到
+当前 `HEAD` 的第一父
 历史必须连续保持同一 overlay 与 W07 ACTIVE；中途收口后恢复旧字节属于重放并会被拒绝。W07 ledger
 进入 `MERGED_AND_VERIFIED` 后 overlay 失效并回落到历史 reviewer。任何字段、
 文件、digest、Git identity 或审查结果不一致时，effective reviewer 解析为无效，execution authority
 必须 STOP。overlay 只替换 W07 的 evidence reviewer 身份，不激活 work package，也不修改 v1/v2 的
 执行权限边界；W07 激活仍需独立的 atomic activation candidate。
+
+工作树证据读取先以 `O_NOFOLLOW` 打开文件句柄，再通过 Linux `/proc/self/fd/<fd>` 验证已打开对象的
+真实路径等于仓内预期路径，并从同一句柄读取。平台不支持该绑定、目标被替换或目标逃逸时一律
+fail closed，不能退回到 `lstat` 后重新按路径读取。

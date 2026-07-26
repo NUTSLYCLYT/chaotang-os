@@ -113,6 +113,8 @@ function validReviewerReassignment() {
       '019f9c8a-e301-7430-a67f-270e119262b2',
       '019f9cd7-fbb2-76c2-adc5-a2dd003543c6',
       '019f9cd7-fbed-7e73-9774-80c8c23569ac',
+      '019f9ce3-9a79-79d1-ab66-caf35bb82778',
+      '019f9ce3-9ab1-7df1-aef9-14c1b939b7c3',
     ],
     reviewPackagePath:
       '.harness/changes/docs-r0-reviewer-reassignment-20260726/review_inputs/candidate.diff',
@@ -1271,6 +1273,34 @@ test('ancestor symlink is rejected before reading a v2 governed path', async () 
     assert.ok(errors.some((message) => message.includes('symbolic links are forbidden')));
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test('authority inputs are returned as raw bytes by default for digest verification', async () => {
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'chaotang-v2-raw-bytes-'));
+  try {
+    const path = '.harness/evidence/non-utf8.bin';
+    await mkdir(join(temporaryRoot, '.harness/evidence'), { recursive: true });
+    await writeFile(join(temporaryRoot, path), Buffer.from([0x80, 0x0a]));
+    const errors = [];
+    const source = await readPinnedAuthorityFile(temporaryRoot, path, errors);
+    assert.deepEqual(errors, []);
+    assert.ok(Buffer.isBuffer(source));
+    assert.deepEqual(source, Buffer.from([0x80, 0x0a]));
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test('authority readers bind an opened file descriptor to its in-repository target', async () => {
+  for (const path of [
+    'scripts/lib/amendment-governance.mjs',
+    'scripts/lib/execution-authority-v2.mjs',
+  ]) {
+    const source = await readFile(join(root, path), 'utf8');
+    assert.match(source, /open\(current,/u);
+    assert.match(source, /realpath\(`\/proc\/self\/fd\/\$\{handle\.fd\}`\)/u);
+    assert.doesNotMatch(source, /return readFile\(current/u);
   }
 });
 

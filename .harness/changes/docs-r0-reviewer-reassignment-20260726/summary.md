@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `NINTH_CANDIDATE_PRE_FREEZE / NOT_AUTHORIZED` |
+| Status | `TENTH_CANDIDATE_PRE_FREEZE / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -88,7 +88,19 @@ parsing the diff headers used to derive changed paths. A non-UTF-8 regression
 fixture exercises registration and activation without weakening W06
 compatibility or the real workspace's fail-closed state.
 
-The ninth candidate is ready for exact commit freeze and two new reviews.
+Candidate `50e05e85f791b8e90c2272155637110426a02b0f` received one GO and
+one NO_GO and was rejected as a unit. The blocking review found terminal W07
+reactivation, incomplete raw-byte treatment for non-package evidence, and a
+path check/use race.
+
+The tenth remediation permits a first W07 activation only when its quiescent
+parent has no W07 ledger entry. All governed authority files now remain raw
+Buffers through digest verification, with text decoding confined to parsing.
+Working-tree readers open with `O_NOFOLLOW`, validate the opened descriptor's
+real target through `/proc/self/fd`, and fail closed if that binding cannot be
+proven.
+
+The tenth candidate is ready for exact commit freeze and two new reviews.
 
 ## Boundaries
 

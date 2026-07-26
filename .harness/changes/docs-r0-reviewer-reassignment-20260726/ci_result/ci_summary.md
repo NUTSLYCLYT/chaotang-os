@@ -2,7 +2,7 @@
 
 ## Status
 
-`NINTH_CANDIDATE_PRE_FREEZE / EIGHT_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`TENTH_CANDIDATE_PRE_FREEZE / NINE_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -213,6 +213,38 @@ Review-package hashing and exact Git diff comparison now preserve raw Buffers
 end to end. UTF-8 decoding occurs only for changed-path header parsing. These
 results permit candidate freeze and review only; they do not approve the
 overlay or activate W07.
+
+## Ninth Rejected Candidate
+
+```text
+candidate = 50e05e85f791b8e90c2272155637110426a02b0f
+tree = 97ee9f6a2e2d9da0b16f744e3be0ff603d4e6caf
+package = 8350e3566375d3aa28e7305f668b3a3f59b56666848ed9317b389b7e2a59e791
+pass 1 = NO_GO / HIGH 1 / MEDIUM 2
+pass 2 = GO / HIGH 0 / MEDIUM 0
+combined = NO_GO
+```
+
+The rejected candidate allowed terminal W07 reactivation, decoded other
+active-packet evidence before hashing, and reopened paths after checking them.
+Neither review result may be reused.
+
+## Tenth Candidate Pre-Freeze Verification
+
+```text
+focused TDD RED: 3 expected failures
+focused TDD GREEN: 3 pass / 0 fail
+authority test suites: 98 pass / 0 fail
+project-harness-doctor: 0 errors / 0 warnings
+v2 check: VALID_STRUCTURE / NOT_AN_AUTHORIZATION
+v2 authorize R0-W07: STOP / NO_ACTIVE_WORK_PACKAGE
+working diff check: PASS
+```
+
+The activation parent must have no W07 ledger entry. Governed file digests use
+raw Buffers, and working-tree reads bind an `O_NOFOLLOW` file descriptor to
+the expected repository path through `/proc/self/fd`. Missing platform support
+or any binding mismatch fails closed.
 
 ## Third Rejected Candidate
 

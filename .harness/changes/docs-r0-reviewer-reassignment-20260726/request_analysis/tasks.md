@@ -43,6 +43,12 @@
 - [x] Preserve review-package and hardened Git diff bytes as Buffers through hashing and equality.
 - [x] Prove non-UTF-8 review bytes remain exact through W07 registration and activation.
 - [x] Prepare a ninth non-authorizing candidate for exact commit freeze.
+- [x] Reject candidate `50e05e85` after mixed GO/NO_GO reviews.
+- [x] Exclude all eighteen rejected or superseded review sessions.
+- [x] Reject activation when the quiescent parent already contains any W07 ledger entry.
+- [x] Preserve every governed authority input as raw bytes through digest verification.
+- [x] Bind working-tree reads to an opened in-repository file descriptor.
+- [x] Prepare a tenth non-authorizing candidate for exact commit freeze.
 - [ ] Obtain two new fresh Codex Independent QA reviews.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.

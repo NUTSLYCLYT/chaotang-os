@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
-import { lstat, readFile } from 'node:fs/promises';
+import { constants as fsConstants } from 'node:fs';
+import { lstat, open, realpath } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -71,6 +72,8 @@ const REJECTED_REVIEW_SESSION_IDS = Object.freeze([
   '019f9c8a-e301-7430-a67f-270e119262b2',
   '019f9cd7-fbb2-76c2-adc5-a2dd003543c6',
   '019f9cd7-fbed-7e73-9774-80c8c23569ac',
+  '019f9ce3-9a79-79d1-ab66-caf35bb82778',
+  '019f9ce3-9ab1-7df1-aef9-14c1b939b7c3',
 ]);
 const REVIEWER_REASSIGNMENT_KEYS = Object.freeze([
   'approvedBy',
@@ -762,7 +765,24 @@ async function readRepositoryBlob(root, path) {
       throw new Error(`path is not a regular file: ${path}`);
     }
   }
-  return readFile(current);
+  const expectedPath = join(await realpath(root), path);
+  let handle;
+  try {
+    handle = await open(current, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const [stat, openedPath] = await Promise.all([
+      handle.stat(),
+      realpath(`/proc/self/fd/${handle.fd}`),
+    ]);
+    if (!stat.isFile()) {
+      throw new Error(`path is not a regular file: ${path}`);
+    }
+    if (openedPath !== expectedPath) {
+      throw new Error(`opened path escapes repository target: ${path}`);
+    }
+    return await handle.readFile();
+  } finally {
+    await handle?.close();
+  }
 }
 
 async function findReviewerReassignmentActivation(root, overlay) {
@@ -833,7 +853,8 @@ async function findReviewerReassignmentActivation(root, overlay) {
         JSON.stringify(parentProjectHarness.amendmentGovernance?.reviewerReassignment) ===
           JSON.stringify(overlay) &&
         parentAuthority.activeWorkPackage === null &&
-        !parentAuthority.workPackageLedger?.some((entry) => entry.status === 'ACTIVE')
+        !parentAuthority.workPackageLedger?.some((entry) => entry.status === 'ACTIVE') &&
+        !parentAuthority.workPackageLedger?.some((entry) => entry.id === 'R0-W07')
       ) {
         candidates.push({ activationH: commit, parentH });
       }
@@ -989,32 +1010,15 @@ export async function verifyAmendmentApprovalEvidenceFiles(root, amendment) {
       errors.push(`${fieldLabel}: unsafe path`);
       return null;
     }
-    let current = root;
-    const components = path.split('/');
-    for (const component of components) {
-      current = join(current, component);
-      let stat;
-      try {
-        stat = await lstat(current);
-      } catch (cause) {
-        errors.push(`${fieldLabel}: missing path component: ${cause.code ?? cause.message}`);
-        return null;
-      }
-      if (stat.isSymbolicLink()) {
-        errors.push(`${fieldLabel}: symbolic links are forbidden`);
-        return null;
-      }
-    }
-    const finalStat = await lstat(current);
-    if (!finalStat.isFile()) {
-      errors.push(`${fieldLabel}: evidence path must be a regular file`);
-      return null;
-    }
     let source;
     try {
-      source = await readFile(current);
+      source = await readRepositoryBlob(root, path);
     } catch (cause) {
-      errors.push(`${fieldLabel}: unreadable evidence: ${cause.code ?? cause.message}`);
+      errors.push(
+        cause.code === 'ENOENT'
+          ? `${fieldLabel}: missing path component: ${cause.code}`
+          : `${fieldLabel}: unreadable evidence: ${cause.code ?? cause.message}`,
+      );
       return null;
     }
     const digest = createHash('sha256').update(source).digest('hex');
