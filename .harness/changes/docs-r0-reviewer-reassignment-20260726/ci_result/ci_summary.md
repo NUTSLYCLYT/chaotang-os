@@ -2,7 +2,7 @@
 
 ## Status
 
-`TERMINAL_ROLLBACK_TRUST_DECISION_REQUIRED / TWENTY_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`TWENTY_FIRST_CANDIDATE_PRE_FREEZE / TWENTY_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -642,3 +642,23 @@ commit. The candidate and both review identities are rejected.
 No overlay is registered and W07 remains `STOP / NO_ACTIVE_WORK_PACKAGE`.
 A successor candidate requires an explicit terminal rollback trust-boundary
 decision.
+
+## Twenty-First Candidate Remediation
+
+The Product Owner selected controlled Git ref non-rollback as an external
+threat-model-B prerequisite. The four legacy `/root/...` review aliases are
+explicit denylist entries and receive a dedicated rejection reason before the
+canonical UUID check. The new behavioral test observed the old generic-only
+rejection as RED and is now GREEN.
+
+```text
+legacy-alias focused regression: 3 pass / 0 fail
+authority test suites: 107 pass / 0 fail
+project-harness-doctor: 0 errors / 0 warnings
+v1 authorize: STOP / AMENDMENT_APPROVAL_REQUIRED
+v2 check: VALID_STRUCTURE / NOT_AN_AUTHORIZATION
+v2 authorize R0-W07: STOP / NO_ACTIVE_WORK_PACKAGE
+```
+
+This direction does not approve an exact H, register the overlay, or activate
+W07.

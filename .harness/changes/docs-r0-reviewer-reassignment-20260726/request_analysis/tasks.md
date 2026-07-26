@@ -106,10 +106,11 @@
 - [x] Prepare and reject twentieth candidate `ac3a9865` after two NO_GO reviews.
 - [x] Permanently exclude both twentieth-candidate canonical session identities
   from reuse.
-- [ ] Bind the four eighteenth/nineteenth legacy review aliases to enforceable
+- [x] Bind the four eighteenth/nineteenth legacy review aliases to enforceable
   rejection identities without permitting alias evidence as a current review.
-- [ ] Decide whether trusted Git ref non-rollback is an external threat-model-B
-  prerequisite or introduce a protected external monotonic terminal-state anchor.
+- [x] Record Product Owner selection of trusted Git ref non-rollback as an
+  external threat-model-B prerequisite.
+- [ ] Prepare a twenty-first candidate and obtain two fresh read-only reviews.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.
 

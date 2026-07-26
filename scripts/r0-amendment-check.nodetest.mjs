@@ -920,6 +920,11 @@ for (const [name, mutate, expected] of [
     'must not reuse a rejected session',
   ],
   [
+    'legacy rejected session alias replay',
+    (overlay) => { overlay.reviews[0].sessionId = '/root/r0_w07_qa19_pass2_retry'; },
+    'must not reuse a legacy rejected session alias',
+  ],
+  [
     'rejected session substitution',
     (overlay) => { overlay.rejectedSessionIds[0] = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'; },
     'must bind all prior rejected sessions',

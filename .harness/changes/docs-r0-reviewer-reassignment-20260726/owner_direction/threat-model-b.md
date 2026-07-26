@@ -52,4 +52,24 @@ This extension authorizes preparation and two fresh read-only reviews of a
 twentieth candidate only. It is not exact-H approval and has no activation
 effect.
 
+## Git Ref Non-Rollback Extension
+
+The Product Owner subsequently approved the controlled-ref boundary:
+
+> 批准方案 A2：将受控 Git HEAD 与 feature-chaotang-ext ref 不回滚定义为 R0-W07 threat-model-B 外部前提；恶意 ref 回退属于宿主/仓库控制面失陷，不属于仓内 authority 保证范围。批准显式拒绝四个 legacy noncanonical review identity，并生成下一候选；不 push、不部署、不迁移数据库、不操作 3050。
+
+For R0-W07 reviewer-reassignment governance:
+
+- controlled `HEAD` and `refs/heads/feature-chaotang-ext` non-rollback are
+  external host/repository-control-plane prerequisites;
+- malicious ref rollback is outside the repository authority guarantee;
+- ordinary ref movement during one authorization attempt, history
+  discontinuity reachable from the trusted current ref, governed-byte drift,
+  and evidence drift must still fail closed;
+- the four recorded `/root/...` legacy review aliases are explicitly denied
+  and cannot be used as current canonical review identities.
+
+This extension authorizes a successor candidate and two fresh read-only
+reviews only. It is not exact-H approval and has no activation effect.
+
 `NO_PUSH / NOT_DEPLOYED / NO_DB_MIGRATION / NO_LISTENER_3050_TAKEOVER`

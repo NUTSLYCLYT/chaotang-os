@@ -142,6 +142,10 @@ reader 必须直接返回 `null`；记录错误但继续解析 working-tree 字�
 ACTIVE W07 loader 在读取证据前采样 `HEAD` 与 `refs/heads/feature-chaotang-ext`，并在全部异步
 evidence、activation intent 和 history 验证完成后再次解析二者。最终采样不一致时，authorization
 输入携带错误并 fail closed。
+受控 `HEAD` 与本地 `feature-chaotang-ext` ref 不回滚属于经 Product Owner 批准的
+threat-model-B 仓外前提；恶意 ref 回退归类为宿主/仓库控制面失陷，不宣称由当前可达 Git 历史自行
+发现。单次授权期间的 ref movement、从可信当前 ref 可达的历史不连续和 evidence drift 仍必须
+fail closed。
 同步 `executionAuthorityV2CommandResult` 不具备 W07 Git 重验能力，因此不能直接返回 W07 GO。
 canonical CLI 从自身 module path 推导唯一 repository root，await 一次 fresh
 `loadExecutionAuthorityV2`，然后立即调用同步 result mapper；两者之间没有其他 await 或

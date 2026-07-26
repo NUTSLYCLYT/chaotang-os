@@ -46,6 +46,15 @@ injection. Inside that boundary, unsupported Git identities, missing pinned
 commits, mutable authority fallback, governed-byte drift, and evidence drift
 must still fail closed.
 
+The Product Owner further approved controlled `HEAD` and local
+`feature-chaotang-ext` ref non-rollback as external threat-model-B
+prerequisites. Malicious rollback of those refs is a host/repository control
+plane failure outside the repository authority guarantee. The implementation
+still detects movement during an authorization attempt and validates all
+history reachable from the trusted current ref. Four historical `/root/...`
+review aliases are explicit denylist entries; current review evidence continues
+to require canonical platform UUIDs.
+
 ## Two-Event Enforcement
 
 When W07 is `ACTIVE`, the v2 loader proves that the activation commit's parent:

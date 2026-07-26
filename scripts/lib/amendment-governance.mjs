@@ -100,6 +100,12 @@ const REJECTED_REVIEW_SESSION_IDS = Object.freeze([
   '019f9e54-18be-7961-acbb-d4b24a99f422',
   '019f9e54-42d5-7373-9fb3-c49a81a37275',
 ]);
+const LEGACY_REJECTED_REVIEW_SESSION_ALIASES = Object.freeze([
+  '/root/r0_w07_qa_pass1',
+  '/root/r0_w07_qa_pass2',
+  '/root/r0_w07_qa19_pass1',
+  '/root/r0_w07_qa19_pass2_retry',
+]);
 const REVIEWER_REASSIGNMENT_KEYS = Object.freeze([
   'approvedBy',
   'baseH',
@@ -510,7 +516,12 @@ export function validateReviewerReassignmentOverlay(overlay) {
         errors.push('review pass has missing or unsupported fields');
         continue;
       }
-      if (typeof review.sessionId !== 'string' || !SESSION_ID_PATTERN.test(review.sessionId)) {
+      if (LEGACY_REJECTED_REVIEW_SESSION_ALIASES.includes(review.sessionId)) {
+        errors.push('review sessionId must not reuse a legacy rejected session alias');
+      } else if (
+        typeof review.sessionId !== 'string' ||
+        !SESSION_ID_PATTERN.test(review.sessionId)
+      ) {
         errors.push('review sessionId must be a canonical session id');
       } else if (review.sessionId === overlay.writingSessionId) {
         errors.push('review sessionId must differ from writingSessionId');

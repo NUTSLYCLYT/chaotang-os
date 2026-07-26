@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `TERMINAL_ROLLBACK_TRUST_DECISION_REQUIRED / TWENTY_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
+| Status | `TWENTY_FIRST_CANDIDATE_PRE_FREEZE / TWENTY_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -296,6 +296,13 @@ Remediation requires an explicit decision on terminal-state monotonicity:
 either trusted Git ref non-rollback is an external threat-model-B prerequisite,
 or a protected external monotonic state anchor is introduced. No successor
 candidate may silently choose between those boundaries.
+
+The Product Owner selected controlled Git ref non-rollback as the external
+threat-model-B prerequisite. Malicious rollback of `HEAD` or the local EXT ref
+is therefore outside the repository guarantee. The four eighteenth/nineteenth
+`/root/...` aliases are now explicit denylist identities, while all current
+reviews still require canonical UUID session IDs. This state is eligible for a
+twenty-first candidate freeze and two fresh read-only reviews only.
 
 ## Boundaries
 
