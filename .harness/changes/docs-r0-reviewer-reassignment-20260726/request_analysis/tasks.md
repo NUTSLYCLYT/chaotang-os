@@ -62,7 +62,14 @@
 - [x] Validate every historical authority manifest.
 - [x] Make invalid or inactive W07 overlays no-op for W06.
 - [x] Recheck the mutable EXT source ref before returning GO.
-- [ ] Prepare a twelfth non-authorizing candidate for exact commit freeze.
+- [x] Prepare a twelfth non-authorizing candidate for exact commit freeze.
+- [x] Obtain two new fresh Codex Independent QA reviews.
+- [x] Reject candidate `ab3c35d3` after two independent NO_GO reviews.
+- [x] Exclude all twenty-four rejected or superseded platform sessions.
+- [ ] Audit every reachable merge-parent authority manifest.
+- [ ] Move final EXT ref and HEAD stability checks to the authorization boundary.
+- [ ] Replace source-regex assertions with behavioral merge and TOCTOU tests.
+- [ ] Prepare a thirteenth non-authorizing candidate for exact commit freeze.
 - [ ] Obtain two new fresh Codex Independent QA reviews.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.

@@ -2,7 +2,7 @@
 
 ## Status
 
-`TWELFTH_CANDIDATE_PRE_FREEZE / ELEVEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`THIRTEENTH_REMEDIATION_PENDING / TWELVE_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -314,6 +314,23 @@ mutable local EXT ref is sampled before and after exact packet verification.
 These results permit exact-H candidate freeze and independent review only.
 They do not approve the reviewer reassignment, register the overlay, activate
 W07, push, deploy, migrate a database, or operate listener 3050.
+
+## Twelfth Rejected Candidate
+
+```text
+candidate = ab3c35d3eee740f7da45ba4a9bfe9a97f3e0c3a5
+tree = 25e5e43380efb9f9da88e24f78a2a7f40f18acc3
+package = 81205d1bc94e3eb86b30261eb7523217ac41b6ff8d7a29214d0dee1b390be1e3
+pass 1 = NO_GO / HIGH 0 / MEDIUM 1
+pass 2 = NO_GO / HIGH 1 / MEDIUM 2
+combined = NO_GO
+```
+
+Both reviews found that first-parent-only traversal did not audit reachable
+second-parent authority history. The second review also found that final
+mutable ref/HEAD checks preceded later asynchronous reads and that critical
+tests asserted source patterns instead of adversarial behavior. The candidate
+and both platform sessions are permanently excluded from approval or reuse.
 
 ## Third Rejected Candidate
 

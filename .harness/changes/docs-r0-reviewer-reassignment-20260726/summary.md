@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `TWELFTH_CANDIDATE_PRE_FREEZE / NOT_AUTHORIZED` |
+| Status | `THIRTEENTH_REMEDIATION_PENDING / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -126,9 +126,14 @@ historical reviewer and W06 evidence contract remain authoritative. An active
 W07 overlay remains fail-closed. The mutable local EXT ref is sampled before
 and after exact packet Git verification, and movement prevents GO.
 
-The remediation passes 102 authority tests and project harness doctor with
-zero errors or warnings. No twelfth exact-H candidate has yet been frozen,
-reviewed, approved, registered, or activated.
+Candidate `ab3c35d3eee740f7da45ba4a9bfe9a97f3e0c3a5` was frozen and
+rejected by both fresh review passes. Its H/tree/package and both review
+sessions are historical only and cannot be approved or reused.
+
+The thirteenth remediation must audit reachable merge-parent authority history,
+move final mutable ref/HEAD checks to the end of loading immediately before
+authorization, and replace source-regex assertions with behavioral merge and
+TOCTOU tests. No thirteenth candidate has been frozen.
 
 ## Boundaries
 
