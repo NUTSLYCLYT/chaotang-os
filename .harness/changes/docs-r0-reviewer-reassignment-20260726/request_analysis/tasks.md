@@ -98,7 +98,12 @@
 - [x] Reject unsupported Git object identities without mutable fallback.
 - [x] Bind authority Git subprocesses to an absolute trusted executable.
 - [x] Add SHA-256 object-format and hostile-PATH regression tests.
-- [ ] Prepare a nineteenth non-authorizing exact-H candidate.
+- [x] Prepare and reject nineteenth candidate `a633b687` after two NO_GO reviews.
+- [x] Permanently exclude both nineteenth-candidate review identities from reuse.
+- [ ] Remove mutable authority reads when no supported pinned commit exists.
+- [ ] Decide whether clean Node startup is an external threat-model-B trust root
+  or authorize a protected launcher/service as a new trust root.
+- [ ] Prepare a twentieth candidate only after that trust-boundary decision.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.
 

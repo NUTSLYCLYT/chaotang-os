@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `NINETEENTH_CANDIDATE_PRE_FREEZE / EIGHTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
+| Status | `TRUST_ROOT_DECISION_REQUIRED / NINETEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -241,6 +241,19 @@ Authority Git subprocesses in both the v2 loader and amendment governance
 module spawn the absolute Linux trust root `/usr/bin/git`; inherited `PATH`
 cannot select a wrapper. Behavioral tests observed both historical bypasses as
 RED before implementation and now verify them as GREEN.
+
+Candidate `a633b68773dfc5dbca457b03cae32368036867a5` was rejected by both
+fresh reviews. One review found that an absolute Git child remains downstream
+of the Node process startup and dynamic-loader environment; code already
+injected through that environment executes before repository checks. The other
+found that unsupported object identity is sticky-fail-closed but still causes
+mutable authority files to be read and parsed.
+
+Mutable fallback removal remains an in-repository remediation. Startup
+integrity requires a separate decision: either clean Node startup is an
+external threat-model-B prerequisite, or a protected launcher/service becomes
+a newly authorized trust root. No twentieth candidate may be frozen by
+silently assuming either choice.
 
 ## Boundaries
 

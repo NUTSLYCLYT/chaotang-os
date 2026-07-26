@@ -2,7 +2,7 @@
 
 ## Status
 
-`NINETEENTH_CANDIDATE_PRE_FREEZE / EIGHTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`TRUST_ROOT_DECISION_REQUIRED / NINETEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -579,3 +579,23 @@ working diff check: PASS
 
 These results permit a new exact-H candidate freeze and fresh review only.
 They do not approve or register the overlay and do not activate W07.
+
+## Nineteenth Rejected Candidate
+
+```text
+candidate = a633b68773dfc5dbca457b03cae32368036867a5
+tree = 0f9f026a5d565a37fa7e1ce4e54149fb949d9c9c
+package = 15a306ad23eedb9f4452084d3b6379d27eee8d8c1960cc41f858402c0aead974
+package bytes = 260153
+pass 1 = NO_GO / HIGH 1 / MEDIUM 0
+pass 2 = NO_GO / HIGH 0 / MEDIUM 1
+combined = NO_GO
+```
+
+Pass 1 found that absolute `/usr/bin/git` does not by itself establish a clean
+Node startup or dynamic-loader trust root. Pass 2 found that unsupported object
+identity remains unable to authorize but still selects mutable authority-file
+reads. The candidate and both review identities are rejected.
+
+No overlay is registered and W07 remains `STOP / NO_ACTIVE_WORK_PACKAGE`.
+A twentieth candidate requires an explicit startup trust-root decision.
