@@ -44,6 +44,7 @@ Product Owner 后续明确批准了 authority/profile TDD 实施。Event 1 只�
 - 禁用 system/user attributes，并在 diff 后重复 metadata-neutrality 检查；
 - 通过 `GIT_ATTR_SOURCE=candidateH` 将 committed attributes 绑定到候选树；
 - 通过 `core.commitGraph=false` 直接使用 commit objects；
+- 通过 hardened fsck 校验 object database，并拒绝外部 object sources；
 - 同步本 wiki、任务和验证记录。
 
 Event 1 候选仍是非授权、静默状态；它只为 Event 2 reviewer overlay refresh 提供

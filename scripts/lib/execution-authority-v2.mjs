@@ -406,6 +406,24 @@ async function verifyActivePacketGitIdentity(
   const profile = ACTIVE_PACKET_PROFILES[manifest.activeWorkPackage];
   if (profile?.exactGitRange !== true) return;
   try {
+    try {
+      await execFileAsync(
+        'git',
+        authorityGitArgs(
+          'fsck',
+          '--full',
+          '--strict',
+          '--no-reflogs',
+          '--no-dangling',
+          pinnedCommitH,
+        ),
+        authorityGitOptions(root, { maxBuffer: 10 * 1024 * 1024 }),
+      );
+    } catch (cause) {
+      errors.push(
+        `active-packet Git object database integrity failure: ${cause.code ?? cause.message}`,
+      );
+    }
     errors.push(
       ...(await verifyRepositoryLocalGitDiffEnvironment(
         root,

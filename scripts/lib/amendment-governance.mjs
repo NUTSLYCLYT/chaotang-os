@@ -634,8 +634,10 @@ function localGitConfigAffectsDiff(key) {
     normalized.startsWith('include.') ||
     normalized.startsWith('includeif.') ||
     normalized === 'extensions.worktreeconfig' ||
+    normalized === 'extensions.partialclone' ||
     normalized === 'color.ui' ||
     normalized === 'color.diff' ||
+    /^remote\..+\.(promisor|partialclonefilter)$/u.test(normalized) ||
     /^submodule\..+\.ignore$/u.test(normalized) ||
     (normalized.startsWith('core.') &&
       !ALLOWED_LOCAL_CORE_CONFIG.has(normalized))
@@ -692,11 +694,17 @@ export async function verifyRepositoryLocalGitDiffEnvironment(
       const resolvedRoot = isAbsolute(metadataRoot)
         ? metadataRoot
         : join(root, metadataRoot);
-      try {
-        await lstat(join(resolvedRoot, 'info', 'attributes'));
-        errors.push(`${label}: Git info attributes affect authority diff`);
-      } catch (cause) {
-        if (cause.code !== 'ENOENT') throw cause;
+      for (const [relativePath, message] of [
+        ['info/attributes', 'Git info attributes affect authority diff'],
+        ['objects/info/alternates', 'Git object alternates are forbidden'],
+        ['objects/info/http-alternates', 'Git HTTP object alternates are forbidden'],
+      ]) {
+        try {
+          await lstat(join(resolvedRoot, ...relativePath.split('/')));
+          errors.push(`${label}: ${message}`);
+        } catch (cause) {
+          if (cause.code !== 'ENOENT') throw cause;
+        }
       }
     }
   } catch (cause) {

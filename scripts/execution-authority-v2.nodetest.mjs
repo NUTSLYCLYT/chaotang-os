@@ -7,6 +7,7 @@ import {
   mkdtemp,
   readFile,
   rm,
+  stat,
   symlink,
   writeFile,
 } from 'node:fs/promises';
@@ -15,6 +16,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import test from 'node:test';
+import { deflateSync } from 'node:zlib';
 
 import * as executionAuthorityV2Module from './lib/execution-authority-v2.mjs';
 import {
@@ -940,6 +942,77 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
       loaded.errors.join('\n'),
     );
     await rm(join(temporaryRoot, '.git/info/attributes'));
+    loaded = await loadExecutionAuthorityV2(temporaryRoot);
+    assert.deepEqual(loaded.errors, []);
+    const alternateObjectsRoot = join(temporaryParent, 'alternate-objects');
+    await mkdir(alternateObjectsRoot, { recursive: true });
+    await writeRepositoryFile(
+      temporaryRoot,
+      '.git/objects/info/alternates',
+      `${alternateObjectsRoot}\n`,
+    );
+    loaded = await loadExecutionAuthorityV2(temporaryRoot);
+    assert.ok(
+      loaded.errors.some((error) =>
+        error.includes('reviewerReassignment: Git object alternates are forbidden'),
+      ),
+      loaded.errors.join('\n'),
+    );
+    assert.ok(
+      loaded.errors.some((error) =>
+        error.includes('active-packet: Git object alternates are forbidden'),
+      ),
+      loaded.errors.join('\n'),
+    );
+    await rm(join(temporaryRoot, '.git/objects/info/alternates'));
+    const { stdout: trustedBlobSource } = await execFileAsync(
+      'git',
+      ['rev-parse', `HEAD:scripts/lib/execution-authority-v2.mjs`],
+      { cwd: temporaryRoot },
+    );
+    const trustedBlobH = trustedBlobSource.trim();
+    const trustedBlobPath = join(
+      temporaryRoot,
+      '.git',
+      'objects',
+      trustedBlobH.slice(0, 2),
+      trustedBlobH.slice(2),
+    );
+    let originalLooseObject = null;
+    let originalLooseObjectMode = null;
+    try {
+      originalLooseObject = await readFile(trustedBlobPath);
+      originalLooseObjectMode = (await stat(trustedBlobPath)).mode & 0o777;
+    } catch (cause) {
+      if (cause.code !== 'ENOENT') throw cause;
+    }
+    const forgedBlob = Buffer.from('forged authority bytes\n');
+    await mkdir(dirname(trustedBlobPath), { recursive: true });
+    if (originalLooseObject !== null) {
+      await chmod(trustedBlobPath, 0o600);
+    }
+    await writeFile(
+      trustedBlobPath,
+      deflateSync(
+        Buffer.concat([
+          Buffer.from(`blob ${forgedBlob.length}\0`),
+          forgedBlob,
+        ]),
+      ),
+    );
+    loaded = await loadExecutionAuthorityV2(temporaryRoot);
+    assert.ok(
+      loaded.errors.some((error) =>
+        error.includes('active-packet Git object database integrity failure'),
+      ),
+      loaded.errors.join('\n'),
+    );
+    if (originalLooseObject === null) {
+      await rm(trustedBlobPath);
+    } else {
+      await writeFile(trustedBlobPath, originalLooseObject);
+      await chmod(trustedBlobPath, originalLooseObjectMode);
+    }
     loaded = await loadExecutionAuthorityV2(temporaryRoot);
     assert.deepEqual(loaded.errors, []);
     const synchronousBypass = executionAuthorityV2CommandResult(

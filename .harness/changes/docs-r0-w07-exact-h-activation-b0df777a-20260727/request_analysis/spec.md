@@ -151,7 +151,8 @@ W07 activation 本身不实现上述功能，也不证明产品验收完成。
 
 ## 验收标准
 
-- 本 Packet 只含治理文档和证据计划。
+- Packet Preparation commit 只含治理文档和证据计划；后续获批的 Event 1
+  只修改本规格列明的 authority runtime、test 与治理文档。
 - 当前 manifest 与产品代码零变更。
 - 当前 W07 authorize 仍为 STOP。
 - 新旧证据边界、四事件顺序、owner/reviewer 分权和回滚规则明确。

@@ -94,6 +94,10 @@ env -i GIT_ATTR_SOURCE="$AUTHORITY_CANDIDATE_H" GIT_ATTR_NOSYSTEM=1 \
   -c core.commitGraph=false diff --no-ext-diff --no-textconv --binary \
   "$REVIEW_BASE_H..$AUTHORITY_CANDIDATE_H" > "$REVIEW_PACKAGE_PATH"
 sha256sum "$REVIEW_PACKAGE_PATH"
+env -i GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null LC_ALL=C \
+  /usr/bin/git --no-replace-objects -c core.attributesFile=/dev/null \
+  -c core.commitGraph=false fsck --full --strict --no-reflogs --no-dangling \
+  "$AUTHORITY_CANDIDATE_H"
 test -z "$(git status --porcelain=v1)"
 node --test scripts/execution-authority.nodetest.mjs scripts/r0-amendment-check.nodetest.mjs scripts/execution-authority-v2.nodetest.mjs
 node scripts/execution-authority.mjs --check

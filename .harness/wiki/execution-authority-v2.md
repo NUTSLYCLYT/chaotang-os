@@ -104,6 +104,9 @@ system attributes 通过 `GIT_ATTR_NOSYSTEM=1` 禁用，用户 attributes 通过
 `.gitattributes` 属于受 H/tree 约束的审查输入，mutable working-tree attributes
 不能改变 package bytes。所有 Git 调用还显式设置 `core.commitGraph=false`，不读取
 mutable commit-graph acceleration；commit/tree/parent 事实直接来自对象数据库。
+ACTIVE W07 exact-range 校验还会运行 hardened `git fsck --full --strict`，拒绝
+object hash/path 不一致；repository alternates、HTTP alternates、partial-clone/promisor
+配置均禁止，不能把未绑定对象源引入 authority。
 
 ## 独立审查人范围化修订
 
