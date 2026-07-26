@@ -8,7 +8,11 @@ import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-import { validateAmendmentGovernanceRegistration } from './lib/amendment-governance.mjs';
+import {
+  effectiveIndependentReviewer,
+  validateAmendmentGovernanceRegistration,
+  validateReviewerReassignmentOverlay,
+} from './lib/amendment-governance.mjs';
 import { validateR0AmendmentMarkdown } from './lib/r0-amendment-check.mjs';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -138,6 +142,113 @@ function proposedGovernanceFixture() {
       'node scripts/harness-doctor.mjs',
     ],
   };
+}
+
+function approvedReviewerReassignmentFixture() {
+  return {
+    schemaVersion: 'reviewer-reassignment.v1',
+    status: 'APPROVED',
+    scope: ['R0-W07'],
+    fromReviewer: 'Claude Code',
+    toReviewer: 'Codex Independent QA',
+    executionOwner: 'Codex',
+    reviewPassesRequired: 2,
+    sessionIsolation: 'FRESH_NO_FORK_CONTEXT',
+    writeAccess: 'DENIED',
+    candidateMutation: 'FORBIDDEN',
+    expiresAfter: 'R0-W07_MERGED_AND_VERIFIED',
+    candidateH: '1'.repeat(40),
+    tree: '2'.repeat(40),
+    reviewPackagePath:
+      '.harness/changes/docs-r0-reviewer-reassignment-20260726/review_inputs/candidate.diff',
+    reviewPackageSha256: '3'.repeat(64),
+    ownerApprovalPath:
+      '.harness/changes/docs-r0-reviewer-reassignment-20260726/owner_approval/exact-h-approval.md',
+    ownerApprovalSha256: '4'.repeat(64),
+    reviews: [
+      {
+        sessionId: 'codex-qa-pass-1',
+        path:
+          '.harness/changes/docs-r0-reviewer-reassignment-20260726/codex_review/pass-1.md',
+        sha256: '5'.repeat(64),
+        verdict: 'GO',
+        high: 0,
+        medium: 0,
+        writeAccess: 'DENIED',
+      },
+      {
+        sessionId: 'codex-qa-pass-2',
+        path:
+          '.harness/changes/docs-r0-reviewer-reassignment-20260726/codex_review/pass-2.md',
+        sha256: '6'.repeat(64),
+        verdict: 'GO',
+        high: 0,
+        medium: 0,
+        writeAccess: 'DENIED',
+      },
+    ],
+    approvedBy: 'lyt',
+  };
+}
+
+test('approved reviewer reassignment requires two isolated read-only Codex QA passes', () => {
+  const overlay = approvedReviewerReassignmentFixture();
+  assert.deepEqual(validateReviewerReassignmentOverlay(overlay), []);
+  assert.equal(
+    effectiveIndependentReviewer(
+      { independentReviewer: 'Claude Code', reviewerReassignment: overlay },
+      'R0-W07',
+    ),
+    'Codex Independent QA',
+  );
+  assert.equal(
+    effectiveIndependentReviewer(
+      { independentReviewer: 'Claude Code', reviewerReassignment: overlay },
+      'R0-W06',
+    ),
+    'Claude Code',
+  );
+});
+
+for (const [name, mutate, expected] of [
+  [
+    'scope expansion',
+    (overlay) => overlay.scope.push('R0-W08'),
+    'scope must be exactly R0-W07',
+  ],
+  [
+    'one review',
+    (overlay) => overlay.reviews.pop(),
+    'exactly two review passes',
+  ],
+  [
+    'reused session',
+    (overlay) => { overlay.reviews[1].sessionId = overlay.reviews[0].sessionId; },
+    'unique sessionId',
+  ],
+  [
+    'writable review',
+    (overlay) => { overlay.reviews[0].writeAccess = 'ALLOWED'; },
+    'review writeAccess must be DENIED',
+  ],
+  [
+    'non-GO review',
+    (overlay) => { overlay.reviews[1].verdict = 'NO_GO'; },
+    'review verdict must be GO',
+  ],
+  [
+    'unresolved high',
+    (overlay) => { overlay.reviews[0].high = 1; },
+    'zero unresolved HIGH and MEDIUM',
+  ],
+]) {
+  test(`reviewer reassignment fails closed for ${name}`, () => {
+    const overlay = approvedReviewerReassignmentFixture();
+    mutate(overlay);
+    assert.ok(
+      validateReviewerReassignmentOverlay(overlay).some((error) => error.includes(expected)),
+    );
+  });
 }
 
 test('PROPOSED_NOT_AUTHORITY governance branch stays a regression-safe standalone fixture', () => {

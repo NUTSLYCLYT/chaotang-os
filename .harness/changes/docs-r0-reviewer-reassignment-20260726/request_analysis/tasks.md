@@ -3,7 +3,7 @@
 - [x] Record Owner direction to use amendment path.
 - [x] Freeze reviewer reassignment design.
 - [x] Freeze implementation plan.
-- [ ] Observe validator RED.
+- [x] Observe validator RED: required overlay exports do not exist.
 - [ ] Implement overlay validator GREEN.
 - [ ] Freeze non-authorizing candidate.
 - [ ] Obtain two fresh Codex Independent QA reviews.

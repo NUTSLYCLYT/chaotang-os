@@ -2,7 +2,7 @@
 
 ## Status
 
-`DESIGN_READY / NOT_AUTHORIZED`
+`TDD_RED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -21,6 +21,15 @@ R0-W07 = STOP / NO_ACTIVE_WORK_PACKAGE
 - exact candidate H/tree/review-package digest;
 - Product Owner exact-H approval;
 - atomic overlay verification.
+
+## Observed RED
+
+```text
+SyntaxError: amendment-governance.mjs does not provide
+effectiveIndependentReviewer
+```
+
+The current governance implementation has no reviewer-reassignment API.
 
 ## Runtime Boundary
 
