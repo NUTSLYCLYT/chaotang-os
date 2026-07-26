@@ -10,7 +10,9 @@
   doctors clean.
 - [x] Receive independent read-only GO.
 - [x] Record `VERIFIED_COMPLETE / ACCEPTED_NOT_INTEGRATED`.
-- [ ] Request explicit local EXT integration approval.
+- [x] Receive explicit local EXT integration approval.
+- [x] Fast-forward accepted Packet `5d33c53e` into local EXT.
+- [x] Run post-integration authority and harness verification.
 
 ## Prohibited
 

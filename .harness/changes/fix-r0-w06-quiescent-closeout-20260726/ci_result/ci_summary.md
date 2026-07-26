@@ -2,7 +2,7 @@
 
 ## Status
 
-`VERIFIED_COMPLETE / ACCEPTED_NOT_INTEGRATED`
+`VERIFIED_COMPLETE / INTEGRATED_LOCAL_NOT_PUSHED`
 
 ## Expected RED
 
@@ -72,6 +72,21 @@ remaining findings = 0
 
 The reviewer made no file changes. This verdict accepts Event 1 only; it does
 not activate or authorize R0-W07.
+
+## Post-Integration Verification
+
+Accepted Packet `5d33c53e7521325cacfcbbc098d4c64ad99004f5`
+was fast-forwarded into local `feature-chaotang-ext` from baseline
+`bdc5865fd20ffe7c026a571e9c2b14262b6edde2`.
+
+| Check | Result |
+| --- | --- |
+| Complete v1/v2 authority suite | `62 passed / 0 failed` |
+| Root harness doctor | `0 errors / 0 warnings` |
+| Backend harness doctor | `0 errors / 0 warnings` |
+| R0-W06 authorize | exit 2, `STOP / NO_ACTIVE_WORK_PACKAGE` |
+| R0-W07 authorize | exit 2, `STOP / NO_ACTIVE_WORK_PACKAGE` |
+| Integration method | `git merge --ff-only` |
 
 ## Runtime Boundary
 
