@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `TWENTY_FIRST_CANDIDATE_PRE_FREEZE / TWENTY_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
+| Status | `TWENTY_FIRST_CANDIDATE_REJECTED / FINAL_IDENTITY_ORDER_REMEDIATION / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -303,6 +303,19 @@ is therefore outside the repository guarantee. The four eighteenth/nineteenth
 `/root/...` aliases are now explicit denylist identities, while all current
 reviews still require canonical UUID session IDs. This state is eligible for a
 twenty-first candidate freeze and two fresh read-only reviews only.
+
+Candidate `b9b99172263885c2381c6c3cea06486f02a9a8f3` received one
+`NO_GO / HIGH 1` and one `GO`. It is rejected. The blocking review found that
+the final Git identity stability check precedes asynchronous working-tree
+verification, leaving an in-attempt movement window before synchronous
+eligibility-to-GO mapping. Both twenty-first-candidate session identities are
+permanently rejected. W07 remains stopped.
+
+The post-rejection remediation moves Git identity stability verification after
+all asynchronous working-tree checks. It is now the loader's final asynchronous
+operation; no `await` remains between that recheck and return to the CLI's
+synchronous eligibility mapper. The ordering regression observed RED before
+the change and is GREEN afterward.
 
 ## Boundaries
 

@@ -110,7 +110,14 @@
   rejection identities without permitting alias evidence as a current review.
 - [x] Record Product Owner selection of trusted Git ref non-rollback as an
   external threat-model-B prerequisite.
-- [ ] Prepare a twenty-first candidate and obtain two fresh read-only reviews.
+- [x] Prepare and reject twenty-first candidate `b9b99172` after one NO_GO and
+  one GO review.
+- [x] Permanently exclude both twenty-first-candidate canonical session
+  identities from reuse.
+- [x] Make Git identity stability verification the final asynchronous loader
+  operation before synchronous eligibility mapping.
+- [ ] Prepare a successor non-authorizing candidate and obtain two fresh
+  read-only reviews.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.
 

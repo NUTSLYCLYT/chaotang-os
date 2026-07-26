@@ -1580,14 +1580,14 @@ export async function loadExecutionAuthorityV2(root) {
     }
   }
 
+  if (pinnedCommitH !== null) {
+    await verifyPinnedAuthorityWorkingTree(root, pinnedSources, errors);
+  }
   await verifyExecutionAuthorityGitIdentityStable(
     root,
     authorizationBoundaryGitIdentity,
     errors,
   );
-  if (pinnedCommitH !== null) {
-    await verifyPinnedAuthorityWorkingTree(root, pinnedSources, errors);
-  }
   return {
     manifest,
     schema,

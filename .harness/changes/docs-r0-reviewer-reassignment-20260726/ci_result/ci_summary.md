@@ -2,7 +2,7 @@
 
 ## Status
 
-`TWENTY_FIRST_CANDIDATE_PRE_FREEZE / TWENTY_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`TWENTY_FIRST_CANDIDATE_REJECTED / FINAL_IDENTITY_ORDER_REMEDIATION / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -662,3 +662,32 @@ v2 authorize R0-W07: STOP / NO_ACTIVE_WORK_PACKAGE
 
 This direction does not approve an exact H, register the overlay, or activate
 W07.
+
+## Twenty-First Rejected Candidate
+
+```text
+candidate = b9b99172263885c2381c6c3cea06486f02a9a8f3
+tree = 6318660e3e26422a361a6d1b2be926d9b05c7e18
+package = 3c575336b394c24cd57b184a903777bb9c850f1f18117de9ee9f2bcab712c1d0
+package bytes = 278854
+pass 1 = NO_GO / HIGH 1 / MEDIUM 0
+pass 2 = GO / HIGH 0 / MEDIUM 0
+combined = NO_GO
+```
+
+Pass 1 found a late in-attempt ref movement window because final identity
+stability verification runs before asynchronous working-tree verification.
+The candidate and both review identities are rejected. No overlay is
+registered and W07 remains `STOP / NO_ACTIVE_WORK_PACKAGE`.
+
+## Post-Rejection Final-Identity Remediation
+
+```text
+final-boundary focused regression: 2 pass / 0 fail
+authority test suites: 108 pass / 0 fail
+```
+
+Git identity stability verification now runs after pinned working-tree
+verification and is the final `await` before the loader returns. This closes
+the twenty-first pass-1 finding only and is not a successor candidate or
+authorization.

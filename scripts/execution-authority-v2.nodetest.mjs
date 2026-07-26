@@ -143,6 +143,8 @@ function validReviewerReassignment() {
       '019f9d77-934c-7e33-b86a-78eddb22a420',
       '019f9e54-18be-7961-acbb-d4b24a99f422',
       '019f9e54-42d5-7373-9fb3-c49a81a37275',
+      '019f9e63-ae15-7342-b54d-eb1335b88ca1',
+      '019f9e63-d995-7353-a9c7-b9ddf850de8a',
     ],
     reviewPackagePath:
       '.harness/changes/docs-r0-reviewer-reassignment-20260726/review_inputs/candidate.diff',
@@ -1749,6 +1751,27 @@ test('W07 authorization boundary rejects HEAD and EXT ref movement', async () =>
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }
+});
+
+test('Git identity stability is the loader final asynchronous verification', async () => {
+  const source = await readFile(
+    join(root, 'scripts/lib/execution-authority-v2.mjs'),
+    'utf8',
+  );
+  const workingTreeCheck = source.lastIndexOf(
+    'await verifyPinnedAuthorityWorkingTree(',
+  );
+  const identityCheck = source.lastIndexOf(
+    'await verifyExecutionAuthorityGitIdentityStable(',
+  );
+  const identityCheckEnd = source.indexOf('\n  );', identityCheck) + 5;
+  const loaderReturn = source.indexOf('\n  return {', identityCheck);
+
+  assert.ok(workingTreeCheck >= 0);
+  assert.ok(identityCheck > workingTreeCheck);
+  assert.ok(identityCheckEnd > identityCheck);
+  assert.ok(loaderReturn > identityCheck);
+  assert.doesNotMatch(source.slice(identityCheckEnd, loaderReturn), /\bawait\b/gu);
 });
 
 test('public module has no caller-supplied resolver capable of returning GO', () => {
