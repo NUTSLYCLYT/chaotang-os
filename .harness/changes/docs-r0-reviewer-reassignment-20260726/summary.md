@@ -38,8 +38,10 @@ The remediation fails closed unless a W07-only overlay binds:
 - zero unresolved HIGH or MEDIUM findings;
 - one byte-verified Product Owner exact-H approval.
 
-The v2 loader validates the overlay and all evidence before any authority
-decision. The overlay has not been registered in `project-harness.json`.
+At that stage, the v2 loader was required to validate the overlay and all
+evidence before any authority decision; no overlay had yet been registered in
+`project-harness.json`. The current local registration candidate now contains
+the approved overlay, but local EXT does not.
 
 Candidate `524c7f15c83570bd3662f8d6785a0eb033b4c550` was also rejected by
 two fresh sessions. Its H/tree/package digest are invalid for approval. The
@@ -357,6 +359,12 @@ The W07-only reviewer reassignment overlay is now staged as a quiescent atomic
 registration candidate. Registration does not add an active W07 ledger entry,
 does not activate W07, and does not authorize product work. W07 remains
 `STOP / NO_ACTIVE_WORK_PACKAGE` until a separately approved activation event.
+
+Registration candidate `b781166aeaee9513e431908b9436043ac008043e`
+received one `NO_GO / MEDIUM 1` and one `GO`. It is rejected because historical
+status text could be read as the current state. The successor candidate must
+state unambiguously that the overlay exists only on the local registration
+candidate, is not integrated into local EXT, and does not activate W07.
 
 ## Boundaries
 

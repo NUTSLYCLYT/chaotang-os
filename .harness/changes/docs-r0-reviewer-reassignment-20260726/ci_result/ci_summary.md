@@ -2,7 +2,7 @@
 
 ## Status
 
-`CODEX_REVIEW_GO / EXACT_H_OWNER_APPROVAL_REQUIRED / NOT_AUTHORIZED`
+`QUIESCENT_REGISTRATION_CANDIDATE / OWNER_APPROVED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -756,3 +756,22 @@ scope = R0-W07 reviewer reassignment only
 The owner evidence strict-parses and the staged overlay passes its exact-field
 schema validation. The registration candidate remains quiescent: it does not
 activate W07 or change the v2 active work-package ledger.
+
+## First Registration Candidate Rejected
+
+```text
+candidate = b781166aeaee9513e431908b9436043ac008043e
+tree = 6d396add7efc81560f05b78e37d6f042de5c351c
+registration diff = 0622b17424a58369db76f2adb8139b79cd9a18c973325f44909369d4c8efa8fc
+pass 1 session = 019f9ea4-a4cb-70c0-8f3a-9c0274b114c4
+pass 1 = NO_GO / HIGH 0 / MEDIUM 1
+pass 2 session = 019f9ea4-d810-76f1-b7b0-889461d11755
+pass 2 = GO / HIGH 0 / MEDIUM 0
+combined = NO_GO
+```
+
+The candidate is rejected because current and historical status text could be
+read as contradictory. The overlay and evidence validation passed, and W07
+remained stopped. The successor documentation now says explicitly that the
+overlay exists only in the local registration candidate, is not integrated
+into local EXT, and does not activate W07.

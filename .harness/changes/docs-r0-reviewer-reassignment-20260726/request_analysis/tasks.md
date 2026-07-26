@@ -128,6 +128,10 @@
   both review evidence digests, scope, and exclusions.
 - [x] Request exact-H Product Owner approval.
 - [x] Stage the W07-only overlay after exact approval.
+- [x] Reject registration candidate `b781166a` after one NO_GO and one GO
+  review because its status documentation was ambiguous.
+- [x] Clarify that registration exists only in the local candidate and is not
+  integrated into EXT or activated.
 - [ ] Freeze and independently review the quiescent atomic registration
   candidate before controlled EXT integration.
 
