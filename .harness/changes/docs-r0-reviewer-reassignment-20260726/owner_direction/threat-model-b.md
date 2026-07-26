@@ -72,4 +72,24 @@ For R0-W07 reviewer-reassignment governance:
 This extension authorizes a successor candidate and two fresh read-only
 reviews only. It is not exact-H approval and has no activation effect.
 
+## Isolated Authorization Extension
+
+The Product Owner subsequently approved the isolated-worktree boundary:
+
+> 批准方案 A3：R0-W07 authority 必须在受控 isolated worktree 中执行，授权开始至结果返回期间不存在并发外部 writer；恶意或不合作进程并发修改 governed files、HEAD 或 feature-chaotang-ext ref 属于宿主/工作区隔离失陷，不属于仓内 authority 保证范围。批准据此更新 threat-model-B、生成下一非授权候选并进行两轮 Codex 独立只读审查；不构成 exact-H 批准，不注册 overlay，不激活 W07，不 push、不部署、不迁移数据库、不操作 3050。
+
+For R0-W07 reviewer-reassignment governance:
+
+- authorization must run in a controlled isolated worktree;
+- from authorization start until result return, no concurrent external writer
+  may mutate governed files, `HEAD`, or the local EXT ref;
+- a malicious or uncooperative process violating that isolation is a
+  host/workspace-control failure outside the repository authority guarantee;
+- repository checks still validate the pinned commit, governed bytes, evidence,
+  identities, history, and observed drift within the isolated attempt.
+
+This extension authorizes one successor non-authorizing candidate and two fresh
+read-only reviews only. It is not exact-H approval and has no activation
+effect.
+
 `NO_PUSH / NOT_DEPLOYED / NO_DB_MIGRATION / NO_LISTENER_3050_TAKEOVER`

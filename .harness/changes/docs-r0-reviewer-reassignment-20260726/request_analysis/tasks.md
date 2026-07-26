@@ -120,8 +120,10 @@
   reviews.
 - [x] Permanently exclude both twenty-second-candidate canonical session
   identities from reuse.
-- [ ] Decide whether no concurrent external writers is an isolated-worktree
-  threat-model-B prerequisite or design an external serialization mechanism.
+- [x] Record Product Owner selection of no concurrent external writers in a
+  controlled isolated worktree as a threat-model-B prerequisite.
+- [ ] Prepare a twenty-third non-authorizing candidate and obtain two fresh
+  read-only reviews.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.
 

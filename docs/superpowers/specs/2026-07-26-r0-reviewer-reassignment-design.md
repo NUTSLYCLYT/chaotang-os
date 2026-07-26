@@ -55,6 +55,14 @@ history reachable from the trusted current ref. Four historical `/root/...`
 review aliases are explicit denylist entries; current review evidence continues
 to require canonical platform UUIDs.
 
+The Product Owner also approved controlled isolated-worktree execution as an
+external threat-model-B prerequisite. No concurrent external writer may mutate
+governed files, `HEAD`, or the local EXT ref from authorization start through
+result return. A malicious or uncooperative process violating isolation is a
+host/workspace-control failure outside the repository guarantee. This boundary
+does not replace immutable commit/blob checks, evidence binding, observed-drift
+checks, or the two-event registration/activation contract.
+
 ## Two-Event Enforcement
 
 When W07 is `ACTIVE`, the v2 loader proves that the activation commit's parent:

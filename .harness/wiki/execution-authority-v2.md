@@ -146,6 +146,10 @@ evidence、activation intent 和 history 验证完成后再次解析二者。最
 threat-model-B 仓外前提；恶意 ref 回退归类为宿主/仓库控制面失陷，不宣称由当前可达 Git 历史自行
 发现。单次授权期间的 ref movement、从可信当前 ref 可达的历史不连续和 evidence drift 仍必须
 fail closed。
+R0-W07 authority 还要求在受控 isolated worktree 中运行；从命令开始到结果返回不得存在并发外部
+writer 修改 governed files、`HEAD` 或本地 EXT ref。恶意或不合作进程破坏隔离属于宿主/工作区控制面
+失陷，不属于仓内 authority 的原子性保证。该前提不取消 pinned commit/blob、evidence digest、
+identity/history 和已观察 drift 的 fail-closed 检查。
 同步 `executionAuthorityV2CommandResult` 不具备 W07 Git 重验能力，因此不能直接返回 W07 GO。
 canonical CLI 从自身 module path 推导唯一 repository root，await 一次 fresh
 `loadExecutionAuthorityV2`，然后立即调用同步 result mapper；两者之间没有其他 await 或

@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `ISOLATED_AUTHORIZATION_BOUNDARY_DECISION_REQUIRED / TWENTY_TWO_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
+| Status | `TWENTY_THIRD_CANDIDATE_PRE_FREEZE / TWENTY_TWO_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -332,6 +332,13 @@ No further source-order candidate may be frozen. Progress requires an explicit
 boundary decision: authorization runs in an isolated worktree with no
 concurrent external writers as an external threat-model-B prerequisite, or an
 external serialization/immutable-snapshot mechanism must be designed.
+
+The Product Owner selected controlled isolated-worktree execution with no
+concurrent external writers during authorization as the external
+threat-model-B prerequisite. A process violating that isolation is outside the
+repository guarantee. This direction permits one twenty-third non-authorizing
+candidate and two fresh read-only reviews; it does not approve, register, or
+activate W07.
 
 ## Boundaries
 

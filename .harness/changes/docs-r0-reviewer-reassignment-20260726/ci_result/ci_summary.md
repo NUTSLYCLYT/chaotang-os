@@ -2,7 +2,7 @@
 
 ## Status
 
-`ISOLATED_AUTHORIZATION_BOUNDARY_DECISION_REQUIRED / TWENTY_TWO_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`TWENTY_THIRD_CANDIDATE_PRE_FREEZE / TWENTY_TWO_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -710,3 +710,13 @@ combined = NO_GO
 Both reviews found that sequential asynchronous observations cannot establish
 atomicity against an uncooperative external writer. The candidate and both
 review identities are rejected. W07 remains stopped.
+
+## Twenty-Third Candidate Boundary
+
+The Product Owner selected controlled isolated-worktree execution with no
+concurrent external writer from authorization start through result return as
+an external threat-model-B prerequisite. This is a host/workspace isolation
+boundary, not a repository lock claim.
+
+The direction permits one non-authorizing candidate and two fresh read-only
+reviews only. W07 remains stopped.
