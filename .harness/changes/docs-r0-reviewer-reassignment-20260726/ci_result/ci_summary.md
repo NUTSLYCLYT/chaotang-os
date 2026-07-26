@@ -2,7 +2,7 @@
 
 ## Status
 
-`THIRTEENTH_CANDIDATE_PRE_FREEZE / TWELVE_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`FOURTEENTH_REMEDIATION_PENDING / THIRTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -350,6 +350,21 @@ asynchronous loader verification.
 
 These results permit doctor/check verification and exact-H freeze only. They
 do not authorize W07 or any production action.
+
+## Thirteenth Rejected Candidate
+
+```text
+candidate = 53d868516f795050bda26f4e4b32ab7b009c7fdb
+tree = 244ad5baa291f420b708bcff28635edec1886be3
+package = c88e64251b8e370a72299515c1b55250b5de6d0ce5cdf39ed34e1316ee974392
+pass 1 = NO_GO / HIGH 1 / MEDIUM 0
+pass 2 = NO_GO / HIGH 1 / MEDIUM 0
+combined = NO_GO
+```
+
+A merge activation could hide authority state in its second parent. Separately,
+the synchronous command-result API could authorize a stale loaded object after
+Git refs moved. Both platform sessions are permanently excluded.
 
 ## Third Rejected Candidate
 

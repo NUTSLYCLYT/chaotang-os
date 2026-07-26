@@ -69,8 +69,13 @@
 - [x] Audit every reachable merge-parent authority manifest.
 - [x] Move final EXT ref and HEAD stability checks to the authorization boundary.
 - [x] Replace source-regex assertions with behavioral merge and TOCTOU tests.
-- [ ] Prepare a thirteenth non-authorizing candidate for exact commit freeze.
-- [ ] Obtain two new fresh Codex Independent QA reviews.
+- [x] Prepare a thirteenth non-authorizing candidate for exact commit freeze.
+- [x] Obtain two new fresh Codex Independent QA reviews.
+- [x] Reject candidate `53d86851` after two independent NO_GO reviews.
+- [x] Exclude all twenty-six rejected or superseded platform sessions.
+- [ ] Require the W07 activation event to be a single-parent commit.
+- [ ] Recheck Git identity inside the actual asynchronous authorize API.
+- [ ] Prepare a fourteenth non-authorizing candidate for exact commit freeze.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.
 
