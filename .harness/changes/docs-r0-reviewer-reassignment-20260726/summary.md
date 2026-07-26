@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `ELEVENTH_CANDIDATE_PRE_FREEZE / NOT_AUTHORIZED` |
+| Status | `TWELFTH_REMEDIATION_PENDING / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -112,7 +112,14 @@ and blob reads, then verifies HEAD did not move. The v2 loader hashes the
 canonical amendment directly, and governed readers reject multiply linked
 inodes.
 
-The eleventh candidate is ready for exact commit freeze and two new reviews.
+Candidate `f452879556a62263afe9b0d3d67137cb7bfe5edb` was rejected by both
+fresh review passes. Its H/tree/package and review sessions are historical
+only and cannot be approved or reused.
+
+The twelfth remediation must require candidate first-parent ancestry, enumerate
+every first-parent commit without path simplification, validate historical
+manifests, isolate invalid W07 overlays from W06, and recheck the mutable EXT
+ref before any GO. No twelfth candidate has been frozen.
 
 ## Boundaries
 

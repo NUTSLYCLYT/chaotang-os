@@ -2,7 +2,7 @@
 
 ## Status
 
-`ELEVENTH_CANDIDATE_PRE_FREEZE / TEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`TWELFTH_REMEDIATION_PENDING / ELEVEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -276,6 +276,21 @@ working diff check: PASS
 The verifier scans `baseH..registration-parent` on one pinned, complete
 first-parent history and rejects prior W07 state, malformed history, HEAD
 movement, canonical amendment drift, and multiply linked governed files.
+
+## Eleventh Rejected Candidate
+
+```text
+candidate = f452879556a62263afe9b0d3d67137cb7bfe5edb
+tree = 68f81993a81938432aa4666a8f8df8f82db34142
+package = dcb54b0bb9da0310153e36ba1260c4fea75865db5ac08d228ccc86953fab9536
+pass 1 = NO_GO / HIGH 1 / MEDIUM 2
+pass 2 = NO_GO / HIGH 1 / MEDIUM 2
+combined = NO_GO
+```
+
+The next candidate must close candidate-history ancestry, path-simplified
+merge history, historical manifest validation, W06 overlay isolation, and
+source-ref movement. This rejection checkpoint does not authorize W07.
 
 ## Third Rejected Candidate
 
