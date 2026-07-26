@@ -2,7 +2,7 @@
 
 ## Status
 
-`SIXTEENTH_CANDIDATE_PRE_FREEZE / FIFTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`SEVENTEENTH_REMEDIATION_PENDING / SIXTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -469,3 +469,19 @@ working diff check: PASS
 An active authority cannot authorize outside a verifiable Git identity.
 Pinned commit movement and working-tree drift fail closed. These results permit
 candidate freeze and fresh independent review only.
+
+## Sixteenth Rejected Candidate
+
+```text
+candidate = 6f2b5699da2a3e7d6f807282c5d324bfdd7b3d46
+tree = 3060dab2a0e0bc0c02209bf0f8389c9717f20943
+package = cf0d0f45a755fac8badf1410161fdab22cfd4c58de074cc4dd7aed7764fce4aa
+pass 1 = NO_GO / HIGH 1 / MEDIUM 0
+pass 2 = NO_GO / HIGH 1 / MEDIUM 1
+combined = NO_GO
+```
+
+The exported asynchronous command accepted caller-controlled roots, including
+a nested directory whose Git commands discovered an unrelated parent
+repository. Reviewer-reassignment evidence also bypassed the pinned blob
+reader. The candidate and both sessions cannot be approved or reused.

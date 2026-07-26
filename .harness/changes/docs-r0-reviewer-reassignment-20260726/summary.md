@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `SIXTEENTH_CANDIDATE_PRE_FREEZE / FIFTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
+| Status | `SEVENTEENTH_REMEDIATION_PENDING / SIXTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -184,6 +184,16 @@ one-shot boundary token and convert eligibility to `GO`.
 
 TDD observed both rejected behaviors before implementation. The remediated
 authority suites pass 103/103 and doctor reports zero errors or warnings.
+
+Candidate `6f2b5699da2a3e7d6f807282c5d324bfdd7b3d46` was rejected by both
+fresh Codex QA sessions. Both found that the exported asynchronous command
+still accepted a caller-controlled repository root and could return `GO`.
+One review also found reviewer-reassignment evidence reads outside the pinned
+blob reader. The candidate and both sessions are permanently excluded.
+
+The seventeenth remediation must bind the only GO-producing command to the
+module's canonical repository root and route every amendment/reviewer evidence
+read through the same pinned commit reader.
 
 ## Boundaries
 

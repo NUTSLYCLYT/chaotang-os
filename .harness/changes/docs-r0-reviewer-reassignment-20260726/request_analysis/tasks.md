@@ -83,7 +83,12 @@
 - [x] Load W07 authority facts from one immutable committed Git identity.
 - [x] Remove the exported direct resolver as a reachable GO path.
 - [x] Prove concurrent working-tree mutation cannot alter authority inputs.
-- [ ] Prepare a sixteenth non-authorizing exact-H candidate.
+- [x] Prepare and reject sixteenth candidate `6f2b5699` after two NO_GO reviews.
+- [x] Exclude all thirty-two rejected review sessions.
+- [ ] Remove caller-controlled repository root from every GO-producing API.
+- [ ] Route reviewer-reassignment evidence through the pinned blob reader.
+- [ ] Reproduce and reject parent-repository discovery replay.
+- [ ] Prepare a seventeenth non-authorizing exact-H candidate.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.
 
