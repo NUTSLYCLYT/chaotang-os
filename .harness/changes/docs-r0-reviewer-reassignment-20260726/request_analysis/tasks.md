@@ -75,7 +75,9 @@
 - [x] Exclude all twenty-six rejected or superseded platform sessions.
 - [x] Require the W07 activation event to be a single-parent commit.
 - [x] Recheck Git identity inside the actual asynchronous authorize API.
-- [ ] Prepare a fourteenth non-authorizing candidate for exact commit freeze.
+- [x] Prepare and reject fourteenth candidate `1a3161da` after two NO_GO reviews.
+- [x] Exclude all twenty-eight rejected review sessions.
+- [ ] Make the async authorization API perform its own fresh load.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.
 

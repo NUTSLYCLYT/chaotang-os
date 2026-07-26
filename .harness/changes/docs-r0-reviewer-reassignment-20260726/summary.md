@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `FOURTEENTH_CANDIDATE_PRE_FREEZE / NOT_AUTHORIZED` |
+| Status | `FIFTEENTH_REMEDIATION_PENDING / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -151,6 +151,10 @@ no intervening await before the decision. CLI authorization uses that API.
 
 The remediation passes 101 authority tests and doctor with zero errors or
 warnings. No fourteenth candidate has yet been frozen or reviewed.
+
+Candidate `1a3161dae4c75b9ad5c44dfcb4f522381e6af07f` was rejected twice.
+The fifteenth remediation replaces caller-supplied loaded authorization with
+an API that performs its own fresh load from its sole repository root.
 
 ## Boundaries
 
