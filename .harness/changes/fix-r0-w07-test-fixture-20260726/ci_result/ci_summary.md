@@ -31,7 +31,7 @@ TDD RED 与 GREEN 已确认。exact candidate 在真实 `feature-chaotang-ext`
 
 | DoD | 证据 | 状态 |
 | --- | --- | --- |
-| EXT 分支上下文测试通过 | focused/full suite | 部分通过；临时 clone 待验证 |
+| EXT 分支上下文测试通过 | focused/full suite | PASS：exact candidate 临时 clone 108/108 |
 | W07 保持 STOP | v2 authorize | PASS |
 | 无运行时代码变更 | exact name-status | PASS |
 
