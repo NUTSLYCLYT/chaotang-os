@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `FIFTEENTH_CANDIDATE_PRE_FREEZE / NOT_AUTHORIZED` |
+| Status | `SIXTEENTH_REMEDIATION_PENDING / FIFTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -159,6 +159,17 @@ an API that performs its own fresh load from its sole repository root.
 The API no longer accepts a caller-supplied loaded object. Fresh loading,
 final file/ref verification, one-shot W07 eligibility, and synchronous
 decision occur in one call. Verification is 101/101 with doctor 0/0.
+
+Candidate `0f4363b85e6d969dc7c3eb2ccd4342542d3b4271` was rejected by both
+fresh Codex review passes. One review found that governed working-tree bytes
+could change during the asynchronous load. The other additionally proved that
+the exported in-memory resolver remained a direct `GO` path outside the
+fresh-load boundary. The candidate and both platform sessions are permanently
+excluded from approval and reuse.
+
+The sixteenth remediation must make committed Git blobs the authority input,
+use the working tree only as a fail-closed consistency check, and remove every
+public direct resolver path capable of returning `GO`.
 
 ## Boundaries
 

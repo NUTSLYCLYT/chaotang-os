@@ -2,7 +2,7 @@
 
 ## Status
 
-`FIFTEENTH_CANDIDATE_PRE_FREEZE / FOURTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`SIXTEENTH_REMEDIATION_PENDING / FIFTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -434,3 +434,19 @@ This is candidate-freeze evidence only, not authorization or deployment.
 ## Runtime Boundary
 
 `NOT_DEPLOYED / NO_PUSH / NO_DB_MIGRATION / NO_LISTENER_3050_TAKEOVER`
+
+## Fifteenth Rejected Candidate
+
+```text
+candidate = 0f4363b85e6d969dc7c3eb2ccd4342542d3b4271
+tree = 846948d0da061a42fd14d318958bd9453087e685
+package = bed060734bc720606955de366d18424011e7d007e91a6500dd494cc8fcda3898
+pass 1 = NO_GO / HIGH 1 / MEDIUM 0
+pass 2 = NO_GO / HIGH 2 / MEDIUM 0
+combined = NO_GO
+```
+
+The candidate fresh-loaded authority data but still consumed mutable
+working-tree bytes during the asynchronous check sequence. The exported pure
+resolver also remained capable of returning `GO` from caller-supplied data.
+Both platform sessions are permanently excluded. W07 remains stopped.
