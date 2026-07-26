@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | `fix-r0-w06-quiescent-closeout-20260726` |
 | Type | `fix` |
-| Status | `IMPLEMENTATION_PENDING / NOT_INTEGRATED` |
+| Status | `IMPLEMENTER_VERIFIED / INDEPENDENT_REVIEW_PENDING` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `bdc5865fd20ffe7c026a571e9c2b14262b6edde2` |
@@ -17,6 +17,9 @@
 Close R0-W06 from `ACTIVE` to `MERGED_AND_VERIFIED` and set
 `activeWorkPackage=null`. This is a quiescent governance event. It does not
 activate R0-W07 or authorize product implementation.
+
+The implementation candidate has zero active ledger entries. W06 and W07 both
+return `STOP / NO_ACTIVE_WORK_PACKAGE`; independent review remains required.
 
 ## Boundaries
 
