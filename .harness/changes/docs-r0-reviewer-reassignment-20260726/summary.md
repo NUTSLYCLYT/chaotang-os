@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `TWENTY_SECOND_CANDIDATE_PRE_FREEZE / TWENTY_ONE_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
+| Status | `ISOLATED_AUTHORIZATION_BOUNDARY_DECISION_REQUIRED / TWENTY_TWO_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -321,6 +321,17 @@ The Product Owner directed the task to continue. This permits one successor
 non-authorizing candidate and two fresh read-only reviews. It is not exact-H
 approval, overlay registration, W07 activation, push, deployment, migration,
 or listener takeover.
+
+Candidate `5e60073fc6712e8e4f34a9cb8831ceea9b892c6f` was rejected by
+both fresh reviews with one HIGH finding each. Separate asynchronous
+observations cannot prove atomicity against an uncooperative external writer:
+refs can move between samples and governed bytes can change while Git
+subprocesses run. Both review identities are permanently rejected.
+
+No further source-order candidate may be frozen. Progress requires an explicit
+boundary decision: authorization runs in an isolated worktree with no
+concurrent external writers as an external threat-model-B prerequisite, or an
+external serialization/immutable-snapshot mechanism must be designed.
 
 ## Boundaries
 

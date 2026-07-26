@@ -2,7 +2,7 @@
 
 ## Status
 
-`TWENTY_SECOND_CANDIDATE_PRE_FREEZE / TWENTY_ONE_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`ISOLATED_AUTHORIZATION_BOUNDARY_DECISION_REQUIRED / TWENTY_TWO_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -694,3 +694,19 @@ authorization.
 
 The remediated state is eligible for one successor exact-H freeze and two
 fresh read-only reviews. Candidate freeze remains non-authorizing.
+
+## Twenty-Second Rejected Candidate
+
+```text
+candidate = 5e60073fc6712e8e4f34a9cb8831ceea9b892c6f
+tree = 71928039beba61255bcf300a9c16230abd65a001
+package = f7f6fff72f01e1f1e0e69819cd6261de06df998c1b36145a792c40f296c6bc1c
+package bytes = 285309
+pass 1 = NO_GO / HIGH 1 / MEDIUM 0
+pass 2 = NO_GO / HIGH 1 / MEDIUM 0
+combined = NO_GO
+```
+
+Both reviews found that sequential asynchronous observations cannot establish
+atomicity against an uncooperative external writer. The candidate and both
+review identities are rejected. W07 remains stopped.

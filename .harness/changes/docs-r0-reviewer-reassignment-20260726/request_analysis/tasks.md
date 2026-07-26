@@ -116,8 +116,12 @@
   identities from reuse.
 - [x] Make Git identity stability verification the final asynchronous loader
   operation before synchronous eligibility mapping.
-- [ ] Prepare a twenty-second non-authorizing candidate and obtain two fresh
-  read-only reviews.
+- [x] Prepare and reject twenty-second candidate `5e60073f` after two NO_GO
+  reviews.
+- [x] Permanently exclude both twenty-second-candidate canonical session
+  identities from reuse.
+- [ ] Decide whether no concurrent external writers is an isolated-worktree
+  threat-model-B prerequisite or design an external serialization mechanism.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.
 
