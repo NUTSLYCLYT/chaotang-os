@@ -80,9 +80,9 @@
 - [x] Make the async authorization API perform its own fresh load.
 - [x] Prepare and reject fifteenth candidate `0f4363b8` after two NO_GO reviews.
 - [x] Exclude all thirty rejected review sessions.
-- [ ] Load W07 authority facts from one immutable committed Git identity.
-- [ ] Remove the exported direct resolver as a reachable GO path.
-- [ ] Prove concurrent working-tree mutation cannot alter authority inputs.
+- [x] Load W07 authority facts from one immutable committed Git identity.
+- [x] Remove the exported direct resolver as a reachable GO path.
+- [x] Prove concurrent working-tree mutation cannot alter authority inputs.
 - [ ] Prepare a sixteenth non-authorizing exact-H candidate.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.

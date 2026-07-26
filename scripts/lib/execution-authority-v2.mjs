@@ -199,28 +199,101 @@ function authorityGitOptions(root, extra = {}) {
   };
 }
 
+async function capturePinnedAuthorityCommit(root, errors) {
+  try {
+    await lstat(join(root, '.git'));
+  } catch (cause) {
+    if (cause.code === 'ENOENT') return null;
+    errors.push(
+      `execution authority repository identity is unverifiable: ${cause.code ?? cause.message}`,
+    );
+    return null;
+  }
+  try {
+    const { stdout } = await execFileAsync(
+      'git',
+      authorityGitArgs('rev-parse', 'HEAD^{commit}'),
+      authorityGitOptions(root),
+    );
+    const headH = stdout.trim();
+    return HEX40_PATTERN.test(headH) ? headH : null;
+  } catch (cause) {
+    errors.push(
+      `execution authority pinned HEAD is unverifiable: ${cause.code ?? cause.message}`,
+    );
+    return null;
+  }
+}
+
+async function readCommittedAuthorityFile(
+  root,
+  commitH,
+  path,
+  errors,
+  { encoding = null } = {},
+) {
+  if (!HEX40_PATTERN.test(commitH) || !safeRepositoryPath(path)) {
+    errors.push(`unsafe committed authority identity: ${commitH}:${path}`);
+    return null;
+  }
+  try {
+    const { stdout } = await execFileAsync(
+      'git',
+      authorityGitArgs('cat-file', 'blob', `${commitH}:${path}`),
+      authorityGitOptions(root, { encoding: 'buffer', maxBuffer: 32 * 1024 * 1024 }),
+    );
+    return encoding === null ? stdout : stdout.toString(encoding);
+  } catch (cause) {
+    errors.push(
+      `${path}: unavailable from pinned authority commit ${commitH}: ${cause.code ?? cause.message}`,
+    );
+    return null;
+  }
+}
+
+async function verifyPinnedAuthorityWorkingTree(root, pinnedSources, errors) {
+  for (const [path, pinnedSource] of pinnedSources) {
+    const workingErrors = [];
+    const workingSource = await readPinnedAuthorityFile(root, path, workingErrors);
+    if (
+      workingSource === null ||
+      !Buffer.isBuffer(workingSource) ||
+      !workingSource.equals(pinnedSource)
+    ) {
+      errors.push(`${path}: working tree differs from pinned authority commit`);
+    }
+    errors.push(...workingErrors);
+  }
+}
+
 export async function captureExecutionAuthorityGitIdentity(root, manifest) {
-  if (manifest?.activeWorkPackage !== 'R0-W07') return null;
-  const [{ stdout: headSource }, { stdout: effectiveBaseSource }] =
-    await Promise.all([
-      execFileAsync(
-        'git',
-        authorityGitArgs('rev-parse', 'HEAD^{commit}'),
-        authorityGitOptions(root),
+  if (manifest?.activeWorkPackage === null || manifest?.activeWorkPackage === undefined) {
+    return null;
+  }
+  const { stdout: headSource } = await execFileAsync(
+    'git',
+    authorityGitArgs('rev-parse', 'HEAD^{commit}'),
+    authorityGitOptions(root),
+  );
+  let effectiveBaseH = null;
+  if (manifest.activeWorkPackage === 'R0-W07') {
+    const { stdout } = await execFileAsync(
+      'git',
+      authorityGitArgs(
+        'rev-parse',
+        `${manifest.effectiveBase.ref}^{commit}`,
       ),
-      execFileAsync(
-        'git',
-        authorityGitArgs(
-          'rev-parse',
-          `${manifest.effectiveBase.ref}^{commit}`,
-        ),
-        authorityGitOptions(root),
-      ),
-    ]);
+      authorityGitOptions(root),
+    );
+    effectiveBaseH = stdout.trim();
+  }
   return {
     headH: headSource.trim(),
-    effectiveBaseRef: manifest.effectiveBase.ref,
-    effectiveBaseH: effectiveBaseSource.trim(),
+    effectiveBaseRef:
+      manifest.activeWorkPackage === 'R0-W07'
+        ? manifest.effectiveBase.ref
+        : null,
+    effectiveBaseH,
   };
 }
 
@@ -231,26 +304,31 @@ export async function verifyExecutionAuthorityGitIdentityStable(
 ) {
   if (snapshot === null) return;
   try {
-    const [{ stdout: headSource }, { stdout: effectiveBaseSource }] =
-      await Promise.all([
-        execFileAsync(
-          'git',
-          authorityGitArgs('rev-parse', 'HEAD^{commit}'),
-          authorityGitOptions(root),
-        ),
-        execFileAsync(
+    const { stdout: headSource } = await execFileAsync(
+      'git',
+      authorityGitArgs('rev-parse', 'HEAD^{commit}'),
+      authorityGitOptions(root),
+    );
+    let effectiveBaseSource = null;
+    if (snapshot.effectiveBaseRef !== null) {
+      effectiveBaseSource = (
+        await execFileAsync(
           'git',
           authorityGitArgs(
             'rev-parse',
             `${snapshot.effectiveBaseRef}^{commit}`,
           ),
           authorityGitOptions(root),
-        ),
-      ]);
+        )
+      ).stdout;
+    }
     if (headSource.trim() !== snapshot.headH) {
       errors.push('execution authority HEAD moved before authorization');
     }
-    if (effectiveBaseSource.trim() !== snapshot.effectiveBaseH) {
+    if (
+      effectiveBaseSource !== null &&
+      effectiveBaseSource.trim() !== snapshot.effectiveBaseH
+    ) {
       errors.push(
         'execution authority effectiveBase ref moved before authorization',
       );
@@ -1094,7 +1172,7 @@ export function validateExecutionAuthorityV2Manifest(manifest) {
   return errors;
 }
 
-export function resolveExecutionAuthorityV2(manifest, amendmentGovernance, options = {}) {
+export function evaluateExecutionAuthorityV2Policy(manifest, amendmentGovernance, options = {}) {
   const { workPackage, realCustomerData = false } = options;
   const manifestErrors = validateExecutionAuthorityV2Manifest(manifest);
   if (manifestErrors.length > 0) {
@@ -1207,24 +1285,36 @@ export function resolveExecutionAuthorityV2(manifest, amendmentGovernance, optio
 
   return {
     schemaVersion: 'execution-authority.v2',
-    decision: 'GO',
+    decision: 'ELIGIBLE',
     activeWorkPackage: workPackage,
-    reason: 'APPROVED_WORK_PACKAGE',
+    reason: 'POLICY_ELIGIBLE',
   };
 }
 
 export async function loadExecutionAuthorityV2(root) {
   const errors = [];
-  const manifestSource = await readPinnedAuthorityFile(root, EXECUTION_AUTHORITY_V2_PATH, errors);
-  const schemaSource = await readPinnedAuthorityFile(
-    root,
-    EXECUTION_AUTHORITY_V2_SCHEMA_PATH,
-    errors,
-  );
-  const projectHarnessSource = await readPinnedAuthorityFile(
-    root,
+  const pinnedCommitH = await capturePinnedAuthorityCommit(root, errors);
+  const pinnedSources = new Map();
+  const readAuthorityFile = async (path, options = {}) => {
+    if (pinnedCommitH === null) {
+      return readPinnedAuthorityFile(root, path, errors, options);
+    }
+    const source = await readCommittedAuthorityFile(
+      root,
+      pinnedCommitH,
+      path,
+      errors,
+      { encoding: null },
+    );
+    if (source !== null) pinnedSources.set(path, source);
+    return source === null || options.encoding === null || options.encoding === undefined
+      ? source
+      : source.toString(options.encoding);
+  };
+  const manifestSource = await readAuthorityFile(EXECUTION_AUTHORITY_V2_PATH);
+  const schemaSource = await readAuthorityFile(EXECUTION_AUTHORITY_V2_SCHEMA_PATH);
+  const projectHarnessSource = await readAuthorityFile(
     '.harness/manifest/project-harness.json',
-    errors,
   );
 
   let manifest = null;
@@ -1294,12 +1384,19 @@ export async function loadExecutionAuthorityV2(root) {
   try {
     authorizationBoundaryGitIdentity =
       await captureExecutionAuthorityGitIdentity(root, manifest);
+    if (
+      pinnedCommitH !== null &&
+      authorizationBoundaryGitIdentity !== null &&
+      authorizationBoundaryGitIdentity.headH !== pinnedCommitH
+    ) {
+      errors.push('execution authority HEAD moved after authority commit was pinned');
+    }
   } catch (cause) {
     errors.push(
       `execution authority initial Git identity is unverifiable: ${cause.code ?? cause.message}`,
     );
   }
-  const amendmentSource = await readPinnedAuthorityFile(root, AMENDMENT_PATH, errors);
+  const amendmentSource = await readAuthorityFile(AMENDMENT_PATH);
   if (
     amendmentSource !== null &&
     sha256Hex(amendmentSource) !== manifest.amendment.approvedSourceDigest
@@ -1317,20 +1414,16 @@ export async function loadExecutionAuthorityV2(root) {
     );
   }
 
-  const ownerApprovalSource = await readPinnedAuthorityFile(
-    root,
+  const ownerApprovalSource = await readAuthorityFile(
     manifest.approvalEvidence.ownerApprovalPath,
-    errors,
   );
   if (ownerApprovalSource !== null) {
     if (sha256Hex(ownerApprovalSource) !== manifest.approvalEvidence.ownerApprovalSha256) {
       errors.push('approvalEvidence.ownerApprovalPath: digest mismatch');
     }
   }
-  const reviewSource = await readPinnedAuthorityFile(
-    root,
+  const reviewSource = await readAuthorityFile(
     manifest.approvalEvidence.reviewPath,
-    errors,
   );
   if (reviewSource !== null) {
     if (sha256Hex(reviewSource) !== manifest.approvalEvidence.reviewSha256) {
@@ -1380,10 +1473,8 @@ export async function loadExecutionAuthorityV2(root) {
       );
     }
     if (reviewEvidence !== null) {
-      const reviewPackageSource = await readPinnedAuthorityFile(
-        root,
+      const reviewPackageSource = await readAuthorityFile(
         reviewEvidence.reviewPackagePath,
-        errors,
         { encoding: null },
       );
       if (reviewPackageSource === null) {
@@ -1416,10 +1507,8 @@ export async function loadExecutionAuthorityV2(root) {
       }
     }
     if (ownerEvidence !== null) {
-      const activationIntentSource = await readPinnedAuthorityFile(
-        root,
+      const activationIntentSource = await readAuthorityFile(
         ownerEvidence.activationIntentPath,
-        errors,
       );
       if (activationIntentSource === null) {
         errors.push('active execution authority requires a readable activation intent');
@@ -1457,10 +1546,14 @@ export async function loadExecutionAuthorityV2(root) {
     authorizationBoundaryGitIdentity,
     errors,
   );
+  if (pinnedCommitH !== null) {
+    await verifyPinnedAuthorityWorkingTree(root, pinnedSources, errors);
+  }
   return {
     manifest,
     schema,
     amendmentGovernance,
+    pinnedCommitH,
     authorizationBoundaryGitIdentity,
     errors: [...new Set(errors)],
   };
@@ -1523,10 +1616,18 @@ export function executionAuthorityV2CommandResult(
       },
     };
   }
-  if (
-    loaded.manifest.activeWorkPackage === 'R0-W07' &&
-    !AUTHORIZATION_BOUNDARY_VERIFIED_LOADS.delete(loaded)
-  ) {
+  const policy = evaluateExecutionAuthorityV2Policy(
+    loaded.manifest,
+    loaded.amendmentGovernance,
+    {
+      workPackage,
+      realCustomerData,
+    },
+  );
+  if (policy.decision !== 'ELIGIBLE') {
+    return { exitCode: 2, output: policy };
+  }
+  if (!AUTHORIZATION_BOUNDARY_VERIFIED_LOADS.delete(loaded)) {
     return {
       exitCode: 1,
       output: {
@@ -1536,10 +1637,12 @@ export function executionAuthorityV2CommandResult(
       },
     };
   }
-  const decision = resolveExecutionAuthorityV2(loaded.manifest, loaded.amendmentGovernance, {
-    workPackage,
-    realCustomerData,
-  });
+  const decision = {
+    schemaVersion: policy.schemaVersion,
+    decision: 'GO',
+    activeWorkPackage: policy.activeWorkPackage,
+    reason: 'APPROVED_WORK_PACKAGE',
+  };
   return { exitCode: decision.decision === 'GO' ? 0 : 2, output: decision };
 }
 
@@ -1552,7 +1655,7 @@ export async function executeExecutionAuthorityV2Command(
   const loaded = await loadExecutionAuthorityV2(root);
   if (
     mode === '--authorize' &&
-    loaded?.manifest?.activeWorkPackage === 'R0-W07' &&
+    loaded?.manifest?.activeWorkPackage !== null &&
     (loaded.errors ?? []).length === 0
   ) {
     AUTHORIZATION_BOUNDARY_VERIFIED_LOADS.add(loaded);

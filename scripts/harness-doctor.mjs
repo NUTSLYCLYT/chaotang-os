@@ -13,8 +13,8 @@ import {
 import {
   EXPECTED_EXECUTION_AUTHORITY_V2_REGISTRATION,
   EXPECTED_R0_WORK_PACKAGE_SEQUENCE,
+  evaluateExecutionAuthorityV2Policy,
   loadExecutionAuthorityV2,
-  resolveExecutionAuthorityV2,
   validateExecutionAuthorityV2,
 } from './lib/execution-authority-v2.mjs';
 import {
@@ -211,7 +211,7 @@ if (manifest) {
         const probePackages = [lastMerged?.id, 'R0-W00'].filter(Boolean);
         const badDecision = probePackages
           .map((workPackage) =>
-            resolveExecutionAuthorityV2(loadedV2.manifest, loadedV2.amendmentGovernance, {
+            evaluateExecutionAuthorityV2Policy(loadedV2.manifest, loadedV2.amendmentGovernance, {
               workPackage,
             }),
           )
@@ -223,7 +223,7 @@ if (manifest) {
         }
       } else {
         const activeIndex = EXPECTED_R0_WORK_PACKAGE_SEQUENCE.indexOf(activePackage);
-        const decisionActive = resolveExecutionAuthorityV2(loadedV2.manifest, loadedV2.amendmentGovernance, {
+        const decisionActive = evaluateExecutionAuthorityV2Policy(loadedV2.manifest, loadedV2.amendmentGovernance, {
           workPackage: activePackage,
         });
         const nextPackage =
@@ -231,11 +231,11 @@ if (manifest) {
             ? EXPECTED_R0_WORK_PACKAGE_SEQUENCE[activeIndex + 1]
             : null;
         const decisionNext = nextPackage
-          ? resolveExecutionAuthorityV2(loadedV2.manifest, loadedV2.amendmentGovernance, {
+          ? evaluateExecutionAuthorityV2Policy(loadedV2.manifest, loadedV2.amendmentGovernance, {
               workPackage: nextPackage,
             })
           : null;
-        if (decisionActive.decision !== 'GO') {
+        if (decisionActive.decision !== 'ELIGIBLE') {
           error(`execution-authority.v2 must currently authorize exactly ${activePackage}`);
         } else if (decisionNext && decisionNext.decision !== 'STOP') {
           error(`execution-authority.v2 must still block ${nextPackage} until ${activePackage} is MERGED_AND_VERIFIED`);

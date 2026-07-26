@@ -2,7 +2,7 @@
 
 ## Status
 
-`SIXTEENTH_REMEDIATION_PENDING / FIFTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`SIXTEENTH_CANDIDATE_PRE_FREEZE / FIFTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -450,3 +450,22 @@ The candidate fresh-loaded authority data but still consumed mutable
 working-tree bytes during the asynchronous check sequence. The exported pure
 resolver also remained capable of returning `GO` from caller-supplied data.
 Both platform sessions are permanently excluded. W07 remains stopped.
+
+## Sixteenth Candidate Pre-Freeze Verification
+
+```text
+immutable-blob TDD RED: mutable working manifest replaced parsed authority facts
+immutable-blob TDD GREEN: parsed facts remain equal to pinned HEAD blobs
+direct-resolver TDD RED: exported resolver remained callable
+direct-resolver TDD GREEN: public policy result is ELIGIBLE, never GO
+authority test suites: 103 pass / 0 fail
+project-harness-doctor: 0 errors / 0 warnings
+v1 authorize: STOP / AMENDMENT_APPROVAL_REQUIRED
+v2 check: VALID_STRUCTURE / NOT_AN_AUTHORIZATION
+v2 authorize R0-W07: STOP / NO_ACTIVE_WORK_PACKAGE
+working diff check: PASS
+```
+
+An active authority cannot authorize outside a verifiable Git identity.
+Pinned commit movement and working-tree drift fail closed. These results permit
+candidate freeze and fresh independent review only.

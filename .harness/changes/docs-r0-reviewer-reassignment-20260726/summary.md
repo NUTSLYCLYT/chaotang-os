@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `SIXTEENTH_REMEDIATION_PENDING / FIFTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
+| Status | `SIXTEENTH_CANDIDATE_PRE_FREEZE / FIFTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -170,6 +170,20 @@ excluded from approval and reuse.
 The sixteenth remediation must make committed Git blobs the authority input,
 use the working tree only as a fail-closed consistency check, and remove every
 public direct resolver path capable of returning `GO`.
+
+The sixteenth remediation now pins one repository `HEAD` before parsing
+authority facts and reads governed inputs from that commit's immutable blobs.
+Working files are compared afterward as a fail-closed consistency check but
+cannot replace committed facts. The initial pinned commit, authorization
+boundary HEAD, and final HEAD must remain identical.
+
+The former public resolver is replaced by a policy evaluator whose positive
+result is only `ELIGIBLE`. All direct synchronous command calls fail before
+`GO`; only the fresh-load asynchronous command can consume the private
+one-shot boundary token and convert eligibility to `GO`.
+
+TDD observed both rejected behaviors before implementation. The remediated
+authority suites pass 103/103 and doctor reports zero errors or warnings.
 
 ## Boundaries
 

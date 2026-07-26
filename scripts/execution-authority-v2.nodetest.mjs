@@ -12,13 +12,13 @@ import {
   EXECUTION_AUTHORITY_V2_PATH,
   EXECUTION_AUTHORITY_V2_SCHEMA_PATH,
   EXPECTED_EXECUTION_AUTHORITY_V2_REGISTRATION,
+  evaluateExecutionAuthorityV2Policy,
   executionAuthorityV2CommandResult,
   loadExecutionAuthorityV2,
   parseExecutionAuthorityV2Evidence,
   parseExecutionAuthorityV2ReviewPackage,
   parseJsonObjectWithUniqueKeys,
   readPinnedAuthorityFile,
-  resolveExecutionAuthorityV2,
   sha256Hex,
   validateExecutionAuthorityV2ActivationIntent,
   validateExecutionAuthorityV2Evidence,
@@ -479,6 +479,17 @@ async function createActiveAuthorityFixture({
   if (writeReviewPackage) {
     await writeRepositoryFile(temporaryRoot, fixture.review.reviewPackagePath, packageSource);
   }
+  await execFileAsync('git', ['init', '-q'], { cwd: temporaryRoot });
+  await execFileAsync('git', ['config', 'user.name', 'R0 Test'], {
+    cwd: temporaryRoot,
+  });
+  await execFileAsync('git', ['config', 'user.email', 'r0@example.invalid'], {
+    cwd: temporaryRoot,
+  });
+  await execFileAsync('git', ['add', '.'], { cwd: temporaryRoot });
+  await execFileAsync('git', ['commit', '-qm', 'active authority fixture'], {
+    cwd: temporaryRoot,
+  });
   return { temporaryRoot, manifest };
 }
 
@@ -500,9 +511,16 @@ test('matching W06 machine-readable owner and independent review evidence permit
       parsedReview,
     ),
   };
+  const directResult = executionAuthorityV2CommandResult(
+    loaded,
+    '--authorize',
+    [],
+    { workPackage: 'R0-W06' },
+  );
+  assert.equal(directResult.exitCode, 1);
   assert.equal(
-    executionAuthorityV2CommandResult(loaded, '--authorize', [], { workPackage: 'R0-W06' }).exitCode,
-    0,
+    directResult.output.reason,
+    'AUTHORIZATION_BOUNDARY_RECHECK_REQUIRED',
   );
 });
 
@@ -760,6 +778,38 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
     assert.equal(result.exitCode, 0);
     assert.equal(result.output.reason, 'APPROVED_WORK_PACKAGE');
 
+    const committedManifest = structuredClone(fixture.manifest);
+    const workingManifest = structuredClone(fixture.manifest);
+    workingManifest.activeWorkPackage = null;
+    workingManifest.workPackageLedger =
+      workingManifest.workPackageLedger.map((entry) =>
+        entry.id === 'R0-W07'
+          ? { ...entry, status: 'NOT_STARTED' }
+          : entry
+      );
+    await writeRepositoryFile(
+      temporaryRoot,
+      EXECUTION_AUTHORITY_V2_PATH,
+      `${JSON.stringify(workingManifest, null, 2)}\n`,
+    );
+    loaded = await loadExecutionAuthorityV2(temporaryRoot);
+    assert.deepEqual(
+      loaded.manifest,
+      committedManifest,
+      'authority facts must come from the pinned HEAD blob, not mutable working bytes',
+    );
+    assert.ok(
+      loaded.errors.some((error) =>
+        error.includes('working tree differs from pinned authority commit'),
+      ),
+      loaded.errors.join('\n'),
+    );
+    await writeRepositoryFile(
+      temporaryRoot,
+      EXECUTION_AUTHORITY_V2_PATH,
+      `${JSON.stringify(committedManifest, null, 2)}\n`,
+    );
+
     await execFileAsync(
       'git',
       [
@@ -803,11 +853,39 @@ test('active temporary root authorizes only after loading the exact independent 
   try {
     const loaded = await loadExecutionAuthorityV2(temporaryRoot);
     assert.deepEqual(loaded.errors, []);
-    const result = executionAuthorityV2CommandResult(loaded, '--authorize', [], {
-      workPackage: 'R0-W06',
-    });
+    const result =
+      await executionAuthorityV2Module.executeExecutionAuthorityV2Command(
+        temporaryRoot,
+        '--authorize',
+        [],
+        { workPackage: 'R0-W06' },
+      );
     assert.equal(result.exitCode, 0);
     assert.equal(result.output.reason, 'APPROVED_WORK_PACKAGE');
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test('active authority cannot fall back to mutable files outside a Git identity', async () => {
+  const { temporaryRoot } = await createActiveAuthorityFixture();
+  try {
+    await rm(join(temporaryRoot, '.git'), { recursive: true, force: true });
+    const result =
+      await executionAuthorityV2Module.executeExecutionAuthorityV2Command(
+        temporaryRoot,
+        '--authorize',
+        [],
+        { workPackage: 'R0-W06' },
+      );
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.output.reason, 'INVALID_EXECUTION_AUTHORITY');
+    assert.ok(
+      result.output.errors.some((error) =>
+        error.includes('initial Git identity is unverifiable'),
+      ),
+      result.output.errors.join('\n'),
+    );
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }
@@ -821,6 +899,10 @@ test('active temporary root fails closed when canonical amendment bytes drift', 
       manifest.amendment.path,
       'drifted canonical amendment\n',
     );
+    await execFileAsync('git', ['add', '.'], { cwd: temporaryRoot });
+    await execFileAsync('git', ['commit', '-qm', 'drift canonical amendment'], {
+      cwd: temporaryRoot,
+    });
     const loaded = await loadExecutionAuthorityV2(temporaryRoot);
     assert.ok(
       loaded.errors.some((error) =>
@@ -844,11 +926,19 @@ test('inactive W07 reviewer reassignment cannot invalidate active W06 authority'
       '.harness/manifest/project-harness.json',
       `${JSON.stringify({ amendmentGovernance: governance }, null, 2)}\n`,
     );
+    await execFileAsync('git', ['add', '.'], { cwd: temporaryRoot });
+    await execFileAsync('git', ['commit', '-qm', 'inactive W07 overlay'], {
+      cwd: temporaryRoot,
+    });
     const loaded = await loadExecutionAuthorityV2(temporaryRoot);
     assert.deepEqual(loaded.errors, []);
-    const result = executionAuthorityV2CommandResult(loaded, '--authorize', [], {
-      workPackage: 'R0-W06',
-    });
+    const result =
+      await executionAuthorityV2Module.executeExecutionAuthorityV2Command(
+        temporaryRoot,
+        '--authorize',
+        [],
+        { workPackage: 'R0-W06' },
+      );
     assert.equal(result.exitCode, 0);
     assert.equal(result.output.reason, 'APPROVED_WORK_PACKAGE');
   } finally {
@@ -874,7 +964,7 @@ for (const {
       },
       writeIntent: false,
     },
-    expectedError: 'missing path component',
+    expectedError: 'unavailable from pinned authority commit',
   },
   {
     name: 'fabricated activation intent digest',
@@ -1068,14 +1158,14 @@ for (const {
   });
 }
 
-test('valid W01 manifest resolves to GO for exactly the active work package', () => {
+test('valid W01 manifest is policy-eligible for exactly the active work package', () => {
   assert.deepEqual(
-    resolveExecutionAuthorityV2(validManifest(), validGovernance(), { workPackage: 'R0-W01' }),
+    evaluateExecutionAuthorityV2Policy(validManifest(), validGovernance(), { workPackage: 'R0-W01' }),
     {
       schemaVersion: 'execution-authority.v2',
-      decision: 'GO',
+      decision: 'ELIGIBLE',
       activeWorkPackage: 'R0-W01',
-      reason: 'APPROVED_WORK_PACKAGE',
+      reason: 'POLICY_ELIGIBLE',
     },
   );
 });
@@ -1083,7 +1173,7 @@ test('valid W01 manifest resolves to GO for exactly the active work package', ()
 test('malformed approvedSourceDigest is a structural error', () => {
   const manifest = { ...validManifest(), amendment: { ...validManifest().amendment, approvedSourceDigest: 'not-hex' } };
   assert.equal(
-    resolveExecutionAuthorityV2(manifest, validGovernance(), { workPackage: 'R0-W01' }).reason,
+    evaluateExecutionAuthorityV2Policy(manifest, validGovernance(), { workPackage: 'R0-W01' }).reason,
     'INVALID_EXECUTION_AUTHORITY',
   );
 });
@@ -1091,7 +1181,7 @@ test('malformed approvedSourceDigest is a structural error', () => {
 test('well-formed but mismatched approvedSourceDigest stops on digest drift', () => {
   const governance = { ...validGovernance(), approvedSourceDigest: 'a'.repeat(64) };
   assert.equal(
-    resolveExecutionAuthorityV2(validManifest(), governance, { workPackage: 'R0-W01' }).reason,
+    evaluateExecutionAuthorityV2Policy(validManifest(), governance, { workPackage: 'R0-W01' }).reason,
     'AMENDMENT_DIGEST_DRIFT',
   );
 });
@@ -1102,7 +1192,7 @@ test('effective base mismatch stops the resolver when it drifts from the approve
     effectiveBase: { ref: 'origin/feature-chaotang-ext', sha: 'b'.repeat(40) },
   };
   assert.equal(
-    resolveExecutionAuthorityV2(manifest, validGovernance(), { workPackage: 'R0-W01' }).reason,
+    evaluateExecutionAuthorityV2Policy(manifest, validGovernance(), { workPackage: 'R0-W01' }).reason,
     'EFFECTIVE_BASE_MISMATCH',
   );
 });
@@ -1137,7 +1227,7 @@ test('two ACTIVE ledger entries is rejected before resolution', () => {
   const errors = validateExecutionAuthorityV2Manifest(manifest);
   assert.ok(errors.some((message) => message.includes('two ACTIVE entries')));
   assert.equal(
-    resolveExecutionAuthorityV2(manifest, validGovernance(), { workPackage: 'R0-W01' }).reason,
+    evaluateExecutionAuthorityV2Policy(manifest, validGovernance(), { workPackage: 'R0-W01' }).reason,
     'INVALID_EXECUTION_AUTHORITY',
   );
 });
@@ -1154,7 +1244,7 @@ test('activeWorkPackage drifting from the ledger ACTIVE entry is a structural er
 for (const badId of ['P12', 'PKT-04', 'S3']) {
   test(`legacy work package id ${badId} is rejected by format`, () => {
     assert.equal(
-      resolveExecutionAuthorityV2(validManifest(), validGovernance(), { workPackage: badId })
+      evaluateExecutionAuthorityV2Policy(validManifest(), validGovernance(), { workPackage: badId })
         .reason,
       'UNKNOWN_WORK_PACKAGE_FORMAT',
     );
@@ -1163,7 +1253,7 @@ for (const badId of ['P12', 'PKT-04', 'S3']) {
 
 test('requesting a successor package before its predecessor merges is blocked', () => {
   assert.equal(
-    resolveExecutionAuthorityV2(validManifest(), validGovernance(), { workPackage: 'R0-W02' })
+    evaluateExecutionAuthorityV2Policy(validManifest(), validGovernance(), { workPackage: 'R0-W02' })
       .reason,
     'BLOCKED_DEPENDENCY',
   );
@@ -1180,7 +1270,7 @@ test('W01 itself is blocked if W00 is not yet MERGED_AND_VERIFIED', () => {
     approvalEvidence: { ...validManifest().approvalEvidence, approvedScope: ['R0-W00'] },
   };
   assert.equal(
-    resolveExecutionAuthorityV2(manifest, validGovernance(), { workPackage: 'R0-W01' }).reason,
+    evaluateExecutionAuthorityV2Policy(manifest, validGovernance(), { workPackage: 'R0-W01' }).reason,
     'BLOCKED_DEPENDENCY',
   );
 });
@@ -1203,11 +1293,11 @@ test('professional reassignment gate fails closed for W08/W09 and real customer 
     approvalEvidence: { ...validManifest().approvalEvidence, approvedScope: ['R0-W08'] },
   };
   assert.equal(
-    resolveExecutionAuthorityV2(manifest, validGovernance(), { workPackage: 'R0-W08' }).reason,
+    evaluateExecutionAuthorityV2Policy(manifest, validGovernance(), { workPackage: 'R0-W08' }).reason,
     'PROFESSIONAL_REASSIGNMENT_REQUIRED',
   );
   assert.equal(
-    resolveExecutionAuthorityV2(validManifest(), validGovernance(), {
+    evaluateExecutionAuthorityV2Policy(validManifest(), validGovernance(), {
       workPackage: 'R0-W01',
       realCustomerData: true,
     }).reason,
@@ -1260,7 +1350,7 @@ test('rollback state (no active package) resolves to STOP with a guard present, 
   };
   assert.deepEqual(validateExecutionAuthorityV2Manifest(manifest), []);
   assert.equal(
-    resolveExecutionAuthorityV2(manifest, validGovernance(), { workPackage: 'R0-W01' }).reason,
+    evaluateExecutionAuthorityV2Policy(manifest, validGovernance(), { workPackage: 'R0-W01' }).reason,
     'NO_ACTIVE_WORK_PACKAGE',
   );
 });
@@ -1279,7 +1369,7 @@ test('a merged-and-verified packet can enter quiescent closeout without auto-act
   assert.deepEqual(validateExecutionAuthorityV2Manifest(manifest), []);
   for (const workPackage of ['R0-W01', 'R0-W02']) {
     assert.equal(
-      resolveExecutionAuthorityV2(manifest, validGovernance(), { workPackage }).reason,
+      evaluateExecutionAuthorityV2Policy(manifest, validGovernance(), { workPackage }).reason,
       'NO_ACTIVE_WORK_PACKAGE',
     );
   }
@@ -1435,6 +1525,13 @@ test('W07 authorization boundary rejects HEAD and EXT ref movement', async () =>
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }
+});
+
+test('public module has no caller-supplied resolver capable of returning GO', () => {
+  assert.equal(
+    typeof executionAuthorityV2Module.resolveExecutionAuthorityV2,
+    'undefined',
+  );
 });
 
 test('v2 manifest source rejects duplicate JSON keys', () => {
