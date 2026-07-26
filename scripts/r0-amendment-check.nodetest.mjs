@@ -184,6 +184,8 @@ function approvedReviewerReassignmentFixture() {
       '019f9cd7-fbed-7e73-9774-80c8c23569ac',
       '019f9ce3-9a79-79d1-ab66-caf35bb82778',
       '019f9ce3-9ab1-7df1-aef9-14c1b939b7c3',
+      '019f9cf4-7b7d-7840-85b4-953d47fa995d',
+      '019f9cf4-7bb2-79a3-ba7e-277a0eec60c8',
     ],
     reviewPackagePath:
       '.harness/changes/docs-r0-reviewer-reassignment-20260726/review_inputs/candidate.diff',
@@ -457,6 +459,7 @@ test('W07 activation requires a prior quiescent overlay registration commit', as
     overlay.candidateH = (
       await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: tempRoot })
     ).stdout.trim();
+    overlay.baseH = overlay.candidateH;
     overlay.tree = (
       await execFileAsync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: tempRoot })
     ).stdout.trim();
@@ -634,6 +637,14 @@ test('W07 activation requires a prior quiescent overlay registration commit', as
       cwd: tempRoot,
     });
     await writeFile(
+      authorityPath,
+      `${JSON.stringify({ activeWorkPackage: null, workPackageLedger: [] }, null, 2)}\n`,
+    );
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'delete terminal W07 ledger entry'], {
+      cwd: tempRoot,
+    });
+    await writeFile(
       projectPath,
       `${JSON.stringify({ amendmentGovernance: { reviewerReassignment: overlay } }, null, 2)}\n`,
     );
@@ -666,7 +677,7 @@ test('W07 activation requires a prior quiescent overlay registration commit', as
         tempRoot,
         { reviewerReassignment: overlay },
         { activeWorkPackage: 'R0-W07' },
-      )).some((error) => error.includes('committed activation event')),
+      )).some((error) => error.includes('prior history already contains R0-W07')),
     );
 
     await execFileAsync('git', ['checkout', '-qb', 'combined', overlay.candidateH], {
@@ -708,6 +719,20 @@ test('W07 activation requires a prior quiescent overlay registration commit', as
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+test('activation history pins one complete HEAD object for every Git read', async () => {
+  const source = await readFile(
+    join(root, 'scripts/lib/amendment-governance.mjs'),
+    'utf8',
+  );
+  assert.match(source, /const headH = await resolveReviewerReassignmentHead/u);
+  assert.match(source, /--is-shallow-repository/u);
+  assert.match(
+    source,
+    /findReviewerReassignmentActivation\(\s*root,\s*overlay,\s*headH,/u,
+  );
+  assert.match(source, /reviewerReassignment HEAD moved during verification/u);
 });
 
 for (const [name, mutate, expected] of [

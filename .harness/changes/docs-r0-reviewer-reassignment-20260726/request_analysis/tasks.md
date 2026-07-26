@@ -49,6 +49,13 @@
 - [x] Preserve every governed authority input as raw bytes through digest verification.
 - [x] Bind working-tree reads to an opened in-repository file descriptor.
 - [x] Prepare a tenth non-authorizing candidate for exact commit freeze.
+- [x] Reject candidate `08555c3b` after two independent NO_GO reviews.
+- [x] Exclude all twenty rejected or superseded platform sessions.
+- [x] Reject prior W07 history even when a later commit deletes its ledger entry.
+- [x] Verify canonical amendment bytes inside the v2 loader.
+- [x] Pin one complete non-shallow HEAD and reject ref movement during verification.
+- [x] Reject governed files with multiply linked inodes.
+- [x] Prepare an eleventh non-authorizing candidate for exact commit freeze.
 - [ ] Obtain two new fresh Codex Independent QA reviews.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.

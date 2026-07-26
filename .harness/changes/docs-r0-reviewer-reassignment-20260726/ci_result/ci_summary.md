@@ -2,7 +2,7 @@
 
 ## Status
 
-`TENTH_CANDIDATE_PRE_FREEZE / NINE_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`ELEVENTH_CANDIDATE_PRE_FREEZE / TEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -245,6 +245,37 @@ The activation parent must have no W07 ledger entry. Governed file digests use
 raw Buffers, and working-tree reads bind an `O_NOFOLLOW` file descriptor to
 the expected repository path through `/proc/self/fd`. Missing platform support
 or any binding mismatch fails closed.
+
+## Tenth Rejected Candidate
+
+```text
+candidate = 08555c3b25e610909b270861abe25782c1e46aa3
+tree = 3cae62bd5724622964a09c214d7798880b371977
+package = 8e6cdb79e160039655802378fdcacbc9cbdcd65002a30317b86d1f8e393dc7cc
+pass 1 = NO_GO / HIGH 2 / MEDIUM 2
+pass 2 = NO_GO / HIGH 1 / MEDIUM 0
+combined = NO_GO
+```
+
+Canonical session identity comes from the platform `agent_path`, not a
+reviewer's self-reported prose. Both platform sessions are permanently
+excluded from reuse.
+
+## Eleventh Candidate Pre-Freeze Verification
+
+```text
+focused TDD RED: 5 expected failures
+focused TDD GREEN: 5 pass / 0 fail
+authority test suites: 101 pass / 0 fail
+project-harness-doctor: 0 errors / 0 warnings
+v2 check: VALID_STRUCTURE / NOT_AN_AUTHORIZATION
+v2 authorize R0-W07: STOP / NO_ACTIVE_WORK_PACKAGE
+working diff check: PASS
+```
+
+The verifier scans `baseH..registration-parent` on one pinned, complete
+first-parent history and rejects prior W07 state, malformed history, HEAD
+movement, canonical amendment drift, and multiply linked governed files.
 
 ## Third Rejected Candidate
 

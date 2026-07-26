@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { link, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -115,6 +115,8 @@ function validReviewerReassignment() {
       '019f9cd7-fbed-7e73-9774-80c8c23569ac',
       '019f9ce3-9a79-79d1-ab66-caf35bb82778',
       '019f9ce3-9ab1-7df1-aef9-14c1b939b7c3',
+      '019f9cf4-7b7d-7840-85b4-953d47fa995d',
+      '019f9cf4-7bb2-79a3-ba7e-277a0eec60c8',
     ],
     reviewPackagePath:
       '.harness/changes/docs-r0-reviewer-reassignment-20260726/review_inputs/candidate.diff',
@@ -442,6 +444,11 @@ async function createActiveAuthorityFixture({
     temporaryRoot,
     '.harness/manifest/project-harness.json',
     `${JSON.stringify({ amendmentGovernance: validGovernance() }, null, 2)}\n`,
+  );
+  await writeRepositoryFile(
+    temporaryRoot,
+    fixture.manifest.amendment.path,
+    await readFile(join(root, fixture.manifest.amendment.path)),
   );
   for (const path of [
     liveAmendmentGovernance.approvalEvidence.ownerApprovalPath,
@@ -780,6 +787,26 @@ test('active temporary root authorizes only after loading the exact independent 
     });
     assert.equal(result.exitCode, 0);
     assert.equal(result.output.reason, 'APPROVED_WORK_PACKAGE');
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test('active temporary root fails closed when canonical amendment bytes drift', async () => {
+  const { temporaryRoot, manifest } = await createActiveAuthorityFixture();
+  try {
+    await writeRepositoryFile(
+      temporaryRoot,
+      manifest.amendment.path,
+      'drifted canonical amendment\n',
+    );
+    const loaded = await loadExecutionAuthorityV2(temporaryRoot);
+    assert.ok(
+      loaded.errors.some((error) =>
+        error.includes('amendment approvedSourceDigest: digest mismatch'),
+      ),
+      loaded.errors.join('\n'),
+    );
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }
@@ -1292,6 +1319,23 @@ test('authority inputs are returned as raw bytes by default for digest verificat
   }
 });
 
+test('authority inputs reject multiply linked inodes', async () => {
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'chaotang-v2-hardlink-'));
+  try {
+    const path = '.harness/evidence/owner.md';
+    const externalPath = join(temporaryRoot, 'external-owner.md');
+    await mkdir(join(temporaryRoot, '.harness/evidence'), { recursive: true });
+    await writeFile(externalPath, 'owner evidence\n');
+    await link(externalPath, join(temporaryRoot, path));
+    const errors = [];
+    const source = await readPinnedAuthorityFile(temporaryRoot, path, errors);
+    assert.equal(source, null);
+    assert.ok(errors.some((error) => error.includes('hard links are forbidden')));
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
 test('authority readers bind an opened file descriptor to its in-repository target', async () => {
   for (const path of [
     'scripts/lib/amendment-governance.mjs',
@@ -1300,6 +1344,7 @@ test('authority readers bind an opened file descriptor to its in-repository targ
     const source = await readFile(join(root, path), 'utf8');
     assert.match(source, /open\(current,/u);
     assert.match(source, /realpath\(`\/proc\/self\/fd\/\$\{handle\.fd\}`\)/u);
+    assert.match(source, /stat\.nlink !== 1/u);
     assert.doesNotMatch(source, /return readFile\(current/u);
   }
 });

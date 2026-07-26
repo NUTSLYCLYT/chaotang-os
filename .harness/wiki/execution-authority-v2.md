@@ -117,3 +117,12 @@ session。W07 激活必须是 overlay 静默注册之后的独立提交；注册
 工作树证据读取先以 `O_NOFOLLOW` 打开文件句柄，再通过 Linux `/proc/self/fd/<fd>` 验证已打开对象的
 真实路径等于仓内预期路径，并从同一句柄读取。平台不支持该绑定、目标被替换或目标逃逸时一律
 fail closed，不能退回到 `lstat` 后重新按路径读取。
+
+激活历史验证要求完整的 non-shallow repository，并在开始时将 `HEAD^{commit}` 解析为单一对象；所有
+activation discovery、first-parent traversal 和 HEAD blob comparison 都使用该对象，返回前再次解析
+并拒绝 ref movement。扫描范围覆盖 reviewed `baseH` 到 registration parent；曾出现 W07 ledger、
+manifest 缺失或 manifest 不可解析都不能通过删除记录来重置。
+
+v2 loader 还会直接读取 `manifest.amendment.path` 的原始字节并校验
+`approvedSourceDigest`，不能只比较 manifest 与 governance 中互相引用的 digest 字段。所有 governed
+file 必须是单链接 regular file；`stat.nlink !== 1` 时拒绝，避免仓外 hardlink alias 改写同一 inode。

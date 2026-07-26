@@ -779,6 +779,10 @@ export async function readPinnedAuthorityFile(
       errors.push(`${path}: authority input must be a regular file`);
       return null;
     }
+    if (stat.nlink !== 1) {
+      errors.push(`${path}: hard links are forbidden in authority inputs`);
+      return null;
+    }
     if (openedPath !== expectedPath) {
       errors.push(`${path}: opened authority input escapes repository target`);
       return null;
@@ -1196,6 +1200,13 @@ export async function loadExecutionAuthorityV2(root) {
   errors.push(...manifestErrors);
   if (manifestErrors.length > 0) {
     return { manifest, schema, amendmentGovernance, errors: [...new Set(errors)] };
+  }
+  const amendmentSource = await readPinnedAuthorityFile(root, AMENDMENT_PATH, errors);
+  if (
+    amendmentSource !== null &&
+    sha256Hex(amendmentSource) !== manifest.amendment.approvedSourceDigest
+  ) {
+    errors.push('amendment approvedSourceDigest: digest mismatch');
   }
   if (amendmentGovernance !== null) {
     errors.push(

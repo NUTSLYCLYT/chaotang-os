@@ -74,6 +74,8 @@ const REJECTED_REVIEW_SESSION_IDS = Object.freeze([
   '019f9cd7-fbed-7e73-9774-80c8c23569ac',
   '019f9ce3-9a79-79d1-ab66-caf35bb82778',
   '019f9ce3-9ab1-7df1-aef9-14c1b939b7c3',
+  '019f9cf4-7b7d-7840-85b4-953d47fa995d',
+  '019f9cf4-7bb2-79a3-ba7e-277a0eec60c8',
 ]);
 const REVIEWER_REASSIGNMENT_KEYS = Object.freeze([
   'approvedBy',
@@ -776,6 +778,9 @@ async function readRepositoryBlob(root, path) {
     if (!stat.isFile()) {
       throw new Error(`path is not a regular file: ${path}`);
     }
+    if (stat.nlink !== 1) {
+      throw new Error(`hard links are forbidden: ${path}`);
+    }
     if (openedPath !== expectedPath) {
       throw new Error(`opened path escapes repository target: ${path}`);
     }
@@ -785,13 +790,30 @@ async function readRepositoryBlob(root, path) {
   }
 }
 
-async function findReviewerReassignmentActivation(root, overlay) {
+async function resolveReviewerReassignmentHead(root) {
+  const { stdout: shallowSource } = await execFileAsync(
+    'git',
+    reviewerReassignmentGitArgs('rev-parse', '--is-shallow-repository'),
+    reviewerReassignmentGitOptions(root),
+  );
+  if (shallowSource.trim() !== 'false') {
+    throw new Error('reviewerReassignment requires complete non-shallow history');
+  }
+  const { stdout: headSource } = await execFileAsync(
+    'git',
+    reviewerReassignmentGitArgs('rev-parse', 'HEAD^{commit}'),
+    reviewerReassignmentGitOptions(root),
+  );
+  return headSource.trim();
+}
+
+async function findReviewerReassignmentActivation(root, overlay, headH) {
   const { stdout } = await execFileAsync(
     'git',
     reviewerReassignmentGitArgs(
       'rev-list',
       '--first-parent',
-      'HEAD',
+      headH,
       '--',
       '.harness/manifest/execution-authority.v2.json',
     ),
@@ -876,7 +898,12 @@ export async function verifyReviewerReassignmentActivationHistory(
 
   const errors = [];
   try {
-    const activationCandidates = await findReviewerReassignmentActivation(root, overlay);
+    const headH = await resolveReviewerReassignmentHead(root);
+    const activationCandidates = await findReviewerReassignmentActivation(
+      root,
+      overlay,
+      headH,
+    );
     if (activationCandidates.length !== 1) {
       errors.push(
         `reviewerReassignment requires exactly one committed activation event; found ${activationCandidates.length}`,
@@ -889,7 +916,7 @@ export async function verifyReviewerReassignmentActivationHistory(
       reviewerReassignmentGitArgs(
         'rev-list',
         '--first-parent',
-        `${activationH}..HEAD`,
+        `${activationH}..${headH}`,
       ),
       reviewerReassignmentGitOptions(root),
     );
@@ -947,6 +974,35 @@ export async function verifyReviewerReassignmentActivationHistory(
       }
     }
 
+    const { stdout: priorAuthorityHistory } = await execFileAsync(
+      'git',
+      reviewerReassignmentGitArgs(
+        'rev-list',
+        '--first-parent',
+        `${overlay.baseH}..${parentH}`,
+        '--',
+        '.harness/manifest/execution-authority.v2.json',
+      ),
+      reviewerReassignmentGitOptions(root),
+    );
+    for (const commit of priorAuthorityHistory.trim().split('\n').filter(Boolean)) {
+      const authority = parseUniqueJsonObject(
+        (
+          await readGitBlob(
+            root,
+            commit,
+            '.harness/manifest/execution-authority.v2.json',
+          )
+        ).toString('utf8'),
+        'pre-activation execution authority',
+      );
+      if (authority.workPackageLedger?.some((entry) => entry.id === 'R0-W07')) {
+        errors.push(
+          `reviewerReassignment prior history already contains R0-W07 at ${commit}`,
+        );
+      }
+    }
+
     const activationBoundPaths = [
       '.harness/manifest/execution-authority.v2.json',
       '.harness/manifest/project-harness.json',
@@ -958,7 +1014,7 @@ export async function verifyReviewerReassignmentActivationHistory(
     for (const path of activationBoundPaths) {
       const [activationBlob, headBlob, workingBlob] = await Promise.all([
         readGitBlob(root, activationH, path),
-        readGitBlob(root, 'HEAD', path),
+        readGitBlob(root, headH, path),
         readRepositoryBlob(root, path),
       ]);
       if (!activationBlob.equals(headBlob)) {
@@ -979,6 +1035,10 @@ export async function verifyReviewerReassignmentActivationHistory(
           `reviewerReassignment protected authority drift after review: ${path}`,
         );
       }
+    }
+    const finalHeadH = await resolveReviewerReassignmentHead(root);
+    if (finalHeadH !== headH) {
+      errors.push('reviewerReassignment HEAD moved during verification');
     }
   } catch (cause) {
     errors.push(

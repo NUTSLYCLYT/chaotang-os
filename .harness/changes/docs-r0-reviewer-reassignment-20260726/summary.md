@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `TENTH_CANDIDATE_PRE_FREEZE / NOT_AUTHORIZED` |
+| Status | `ELEVENTH_CANDIDATE_PRE_FREEZE / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -100,7 +100,19 @@ Working-tree readers open with `O_NOFOLLOW`, validate the opened descriptor's
 real target through `/proc/self/fd`, and fail closed if that binding cannot be
 proven.
 
-The tenth candidate is ready for exact commit freeze and two new reviews.
+Candidate `08555c3b25e610909b270861abe25782c1e46aa3` was rejected by both
+fresh review passes. The findings covered terminal-state deletion replay,
+missing canonical amendment byte verification, mutable HEAD reuse, and
+hardlink aliases.
+
+The eleventh remediation scans the complete non-shallow first-parent range
+from the reviewed base to the registration parent and rejects any prior W07
+ledger state or unreadable manifest. It pins one HEAD commit for all history
+and blob reads, then verifies HEAD did not move. The v2 loader hashes the
+canonical amendment directly, and governed readers reject multiply linked
+inodes.
+
+The eleventh candidate is ready for exact commit freeze and two new reviews.
 
 ## Boundaries
 
