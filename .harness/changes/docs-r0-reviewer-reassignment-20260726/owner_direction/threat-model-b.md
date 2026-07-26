@@ -32,4 +32,24 @@ narrow amendment:
 This direction is not exact-H candidate approval, does not register a reviewer
 overlay, and does not activate R0-W07.
 
+## Startup Trust Root Extension
+
+The Product Owner subsequently approved the clean process-launch boundary:
+
+> 批准方案 A：将干净的 Codex/终端 Node 启动环境及 OS loader 环境定义为 R0-W07 threat-model-B 外部信任根；宿主启动环境被恶意控制不属于仓内 authority 保证范围。批准据此生成第 20 候选并进行两轮 Codex 独立只读审查；不 push、不部署、不迁移数据库、不操作 3050。
+
+For R0-W07 reviewer-reassignment governance:
+
+- a clean Codex/terminal Node startup environment and the host OS loader
+  environment are external prerequisites;
+- repository checks begin after that trusted process startup;
+- malicious control of the host, loader, or pre-start environment is outside
+  the repository authority guarantee;
+- the authority implementation must still fail closed for repository, Git,
+  governed-byte, evidence, and identity drift inside its declared boundary.
+
+This extension authorizes preparation and two fresh read-only reviews of a
+twentieth candidate only. It is not exact-H approval and has no activation
+effect.
+
 `NO_PUSH / NOT_DEPLOYED / NO_DB_MIGRATION / NO_LISTENER_3050_TAKEOVER`

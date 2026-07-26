@@ -38,6 +38,14 @@ not claim to authenticate those identities against a malicious full repository
 writer. Git verification disables replacement objects, external diff, and text
 conversion and clears inherited `GIT_*` overrides.
 
+The Product Owner also approved a clean Codex/terminal Node startup environment
+and the host OS loader environment as external threat-model-B prerequisites.
+Repository authority begins after trusted process startup and does not claim to
+resist malicious host, loader, `NODE_OPTIONS`, or equivalent pre-start
+injection. Inside that boundary, unsupported Git identities, missing pinned
+commits, mutable authority fallback, governed-byte drift, and evidence drift
+must still fail closed.
+
 ## Two-Event Enforcement
 
 When W07 is `ACTIVE`, the v2 loader proves that the activation commit's parent:

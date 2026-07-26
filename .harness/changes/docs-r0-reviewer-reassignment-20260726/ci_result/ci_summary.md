@@ -2,7 +2,7 @@
 
 ## Status
 
-`TRUST_ROOT_DECISION_REQUIRED / NINETEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`TWENTIETH_CANDIDATE_PRE_FREEZE / NINETEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -617,6 +617,7 @@ every governed authority input instead of selecting the mutable file reader.
 The unsupported-object fixture directly asserts null manifest, schema, and
 amendment governance. This closes pass 2's deterministic finding only.
 
-This state is not a twentieth candidate and is not eligible for review freeze.
-The clean Node startup or protected launcher/service trust-root choice remains
-an explicit Product Owner decision.
+The Product Owner selected the clean-startup external trust-root boundary.
+This state is eligible for twentieth-candidate freeze and two fresh read-only
+reviews only. It is not exact-H approval and does not register or activate the
+overlay.

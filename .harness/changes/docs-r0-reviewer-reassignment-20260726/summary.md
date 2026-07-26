@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `TRUST_ROOT_DECISION_REQUIRED / NINETEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
+| Status | `TWENTIETH_CANDIDATE_PRE_FREEZE / NINETEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -19,6 +19,12 @@ Prepare a W07-only reviewer reassignment from `Claude Code` to
 
 This Packet is non-authorizing. The historical amendment and reviewer remain
 effective, and W07 remains `STOP / NO_ACTIVE_WORK_PACKAGE`.
+
+The Product Owner approved the clean Codex/terminal Node startup environment
+and OS loader environment as external threat-model-B prerequisites. Malicious
+host or pre-start injection is outside the repository authority guarantee.
+This direction permits a twentieth candidate and two fresh read-only Codex
+reviews; it is not exact-H approval and does not register or activate W07.
 
 Candidate `a3652c91eaf02f868e8741ed9cf8e1c87db80ec8` was independently
 reviewed twice and rejected. Its H/tree/package digest are historical only and
@@ -274,8 +280,9 @@ Repeated-error prevention:
 - durable surface: the loader branch, behavioral tests, this Packet, and the v2
   authority wiki carry the invariant.
 
-This remediation is not a twentieth candidate. Candidate freeze remains
-blocked on an explicit startup trust-root decision.
+This remediation and the approved startup boundary are now eligible for a
+twentieth exact-H candidate freeze and two fresh read-only reviews. Candidate
+freeze does not approve or register the overlay.
 
 ## Boundaries
 
