@@ -52,9 +52,15 @@ reviewer reassignment overlay = registered for R0-W07
 ## 决策
 
 旧 `.harness/changes/docs-r0-w07-activation-20260726` profile 不能继续充当新
-activation Packet 的证据根。后续实施必须先以 TDD 将 canonical W07 profile 收敛到
-本 Change ID，再冻结 quiescent evidence candidate。只有经过另行 exact-H 批准和
-独立只读审查后，才允许生成单父、原子的 manifest activation candidate。
+activation Packet 的证据根。现有 loader 的 EXT ref/effective-base 等值规则也不能
+证明 activation commit 已集成到 EXT，且现有 reviewer overlay 会拒绝受保护 authority
+文件的任何漂移。
+
+后续实施必须先以 TDD 修复 integrated-mainline identity contract 并将 canonical W07
+profile 收敛到本 Change ID，再对新的 authority candidate 重新执行 reviewer overlay
+审查和静默刷新。只有 refreshed overlay、activation evidence、owner approval 和独立
+review 全部进入 quiescent registration history 后，才允许生成单父、原子的 manifest
+activation candidate。
 
 ## 回滚
 

@@ -5,8 +5,10 @@
 | EXT baseline H/tree | `RECORDED` | Current isolated worktree |
 | Reviewer reassignment overlay | `REGISTERED` | Candidate `142856e2...` |
 | Packet design/spec/plan | `PREPARED` | This candidate |
-| Canonical W07 profile migration | `NOT_IMPLEMENTED` | Separate TDD authority |
-| Quiescent candidate H/tree | `NOT_GENERATED` | After profile migration |
+| Integrated-mainline identity remediation | `NOT_IMPLEMENTED` | Separate TDD authority |
+| Canonical W07 profile migration | `NOT_IMPLEMENTED` | Same authority candidate |
+| Remediated authority candidate H/tree | `NOT_GENERATED` | After TDD |
+| Reviewer overlay refresh | `NOT_GENERATED` | After authority candidate reviews |
 | Activation review package | `NOT_GENERATED` | From frozen Git range |
 | Activation intent | `NOT_GENERATED` | After package digest exists |
 | Product Owner exact-H approval | `NOT_REQUESTED` | After immutable candidate |
@@ -26,3 +28,5 @@ pass-2 sha256 = e9fea702e0a618afb8ed77b6bafffd36127f5992f990c10b32248502e211c7b7
 ```
 
 这些 identity 只证明 reviewer overlay 已登记，不构成 W07 activation approval。
+由于后续 identity remediation 会修改 protected authority blobs，该 overlay 必须在
+activation 前通过新的 exact-H 证据链静默刷新；不得把现有 digest 复用于新 runtime。

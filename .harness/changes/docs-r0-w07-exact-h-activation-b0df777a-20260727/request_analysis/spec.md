@@ -18,6 +18,8 @@ Packet 不继承其授权状态、digest、owner approval 或 review verdict。
 | 已确认 | W07 当前未激活 | v2 authorize 返回 `STOP / NO_ACTIVE_WORK_PACKAGE` | 否 |
 | 已确认 | W07 reviewer overlay 已登记 | `.harness/manifest/project-harness.json` | 否 |
 | 已确认 | loader 仍冻结旧 W07 change root | `scripts/lib/execution-authority-v2.mjs` | 是，阻塞未来激活 |
+| 已确认 | loader 要求 EXT ref 等于较早 reviewed candidate H，集成 activation commit 后无法满足 | `verifyActivePacketGitIdentity` | 是 |
+| 已确认 | 当前 overlay 固定四个 protected authority blobs 为 `6c01...` 版本 | `verifyReviewerReassignmentActivationHistory` | 是 |
 | 未生成 | 新 activation candidate H/tree/diff digest | 必须在后续 quiescent candidate 冻结后生成 | 是 |
 | 未生成 | owner approval 与独立 final review | 必须在 exact-H 候选产生后生成 | 是 |
 
@@ -39,18 +41,36 @@ Packet 不继承其授权状态、digest、owner approval 或 review verdict。
 
 只记录设计和证据生成规则。manifest 保持 quiescent，W07 保持 STOP。
 
-### Event 1：Quiescent Profile Candidate
+### Event 1：Authority Identity Remediation Candidate
 
 在另行批准的 TDD 实施中：
 
 1. 将 canonical W07 profile 迁移到本 Change ID。
 2. 以 failing tests 证明旧路径不能被新候选冒充。
-3. 保持 `activeWorkPackage=null` 且 ledger 无 W07。
-4. 先提交 profile candidate，再冻结其 exact H/tree。
+3. 以 failing integration test 证明 activation H 集成到 EXT 后，旧
+   `EXT ref == effectiveBase.sha` 规则不可满足。
+4. 将 identity contract 收敛为：
+   - `effectiveBase.sha == approvalEvidence.candidateH`，表示已审 authority candidate；
+   - candidate H 必须是 registration parent 和 activation H 的第一父祖先；
+   - 授权开始和结束时 local EXT ref 必须等于 pinned HEAD；
+   - HEAD、EXT ref、candidate ancestry 或 governed bytes 漂移均 fail closed。
+5. 将 W07 hardened review base 固定为本次获批基线 `b0df777a...`。
+6. 保持 `activeWorkPackage=null` 且 ledger 无 W07。
+7. 先提交 authority candidate，再冻结其 exact H/tree。
 
 Event 1 不包含引用自身 H 的 activation intent，也不授权 W07。
 
-### Event 2：Evidence Registration Parent
+### Event 2：Reviewer Overlay Refresh
+
+Event 1 修改了当前 overlay 保护的 authority blobs，因此旧 overlay 只能保留为历史证据，
+不能授权新 runtime。必须从 Event 1 exact H/tree 生成新的 reviewer reassignment
+review package，执行两轮 fresh/read-only Codex review 和 Product Owner exact-H
+approval，再以独立 quiescent commit 原子替换当前 overlay registration。
+
+Event 2 只刷新 `R0-W07` reviewer overlay，仍保持 W07 STOP；不得修改原 amendment
+或历史 evidence。
+
+### Event 3：Activation Evidence Registration Parent
 
 从 Event 1 的已知 H/tree 生成 deterministic review package 和 activation intent。
 activation intent 绑定 Event 1 H/tree、package digest、目标 ledger 和 evidence paths，
@@ -62,9 +82,9 @@ activation intent path/digest、scope 和 exclusions。随后由 `Codex Independ
 `HIGH=0`、`MEDIUM=0`。全部证据进入一个 quiescent registration parent；
 该 parent 仍保持 W07 STOP。
 
-### Event 3：Atomic Activation Candidate
+### Event 4：Atomic Activation Candidate
 
-在另行明确批准后，从 Event 2 registration parent 生成恰好一个父提交的
+在另行明确批准后，从 Event 3 registration parent 生成恰好一个父提交的
 activation event。
 该提交只进行已经审查的 manifest 状态转换：
 
@@ -73,12 +93,13 @@ activeWorkPackage = R0-W07
 R0-W07 ledger = ACTIVE
 R0-W00..R0-W06 = MERGED_AND_VERIFIED
 effectiveBase.ref = refs/heads/feature-chaotang-ext
-effectiveBase.sha = approved candidate H
+effectiveBase.sha = approved Event 1 authority candidate H
 approvalEvidence = exact approved W07 evidence
 ```
 
-只有该 exact activation candidate 通过全套验证、独立审查并另行获批集成后，canonical
-CLI 才可能返回 W07 GO。
+该 exact activation candidate 受控集成后，local EXT ref 与 pinned HEAD 必须同时指向
+Event 4 H，而 `effectiveBase.sha` 继续指向其已审 Event 1 祖先。只有全套验证、独立审查
+和另行集成批准均通过后，canonical CLI 才可能返回 W07 GO。
 
 ## W07 授权范围
 
@@ -107,10 +128,11 @@ W07 activation 本身不实现上述功能，也不证明产品验收完成。
 以下任一条件必须 STOP：
 
 - candidate H/tree、EXT ref 或 governed bytes 漂移；
+- EXT ref 不等于 pinned activation HEAD，或 approved candidate 不是其第一父祖先；
 - 新旧 W07 evidence root 混用；
 - owner/review evidence 缺失、digest 不匹配或身份不独立；
 - review package 不等于规定 Git range 的原始字节；
-- registration parent 已包含 W07 ledger；
+- reviewer refresh 或 activation registration parent 已包含 W07 ledger；
 - activation event 不是单父提交；
 - W07 之外 scope 被加入；
 - authority、生产边界、文件 ownership 或并发 writer 出现冲突。

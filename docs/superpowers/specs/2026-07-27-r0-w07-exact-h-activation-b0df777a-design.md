@@ -7,16 +7,19 @@ fail-closed。旧 W07 activation Packet 仅作为历史资产，不参与授权�
 
 ## Architecture Decision
 
-采用三个有序治理事件：
+采用四个有序治理事件：
 
-1. `Quiescent Profile Candidate`：迁移 canonical profile，提交后才冻结 H/tree；
-   不在该提交内生成引用自身 H 的 intent。
-2. `Evidence Registration Parent`：后继提交生成绑定 Event 1 H/tree 的
+1. `Authority Identity Remediation Candidate`：迁移 canonical profile，并把
+   integrated-mainline identity 改为 EXT ref 绑定 pinned HEAD、approved candidate
+   绑定其第一父祖先；提交后才冻结 H/tree。
+2. `Reviewer Overlay Refresh`：重新审查 Event 1 的 protected authority blobs，并
+   静默刷新 W07-only overlay；仍保持 W07 STOP。
+3. `Activation Evidence Registration Parent`：生成绑定 Event 1 H/tree 的
    intent/package，记录 exact-H owner approval 和独立 review，仍保持 W07 STOP。
-3. `Atomic Activation Event`：单父提交只执行 manifest 的 W07 ACTIVE 转换。
+4. `Atomic Activation Event`：单父提交只执行 manifest 的 W07 ACTIVE 转换。
 
-这使 reviewer overlay、activation evidence 和运行状态彼此可审计，同时避免在同一
-commit 内自我批准。
+这使 authority runtime、reviewer overlay、activation evidence 和运行状态彼此可审计，
+同时避免在同一 commit 内自我批准。
 
 ## Canonical Path Decision
 
@@ -28,6 +31,22 @@ commit 内自我批准。
 
 后续 TDD 实施必须更新 loader 的 W07 profile 并拒绝旧 root。旧 root 不得保留为
 fallback，也不得与新 root 混合。manifest 仍是唯一执行状态事实源。
+
+## Integrated Mainline Identity
+
+`effectiveBase.sha` 表示经过审查的 Event 1 authority candidate，不表示持续移动的
+branch tip。ACTIVE W07 loader 必须证明：
+
+- `effectiveBase.sha == approvalEvidence.candidateH`；
+- candidate H 是 registration parent 和 activation HEAD 的第一父祖先；
+- `refs/heads/feature-chaotang-ext == pinned HEAD`；
+- 初始/最终 HEAD 与 EXT ref 采样不漂移；
+- exact review package 等于
+  `b0df777a1fe94d98afdc62b4cdd02a2f8a091391..candidateH` 的 hardened raw diff。
+
+现有 overlay 把四个 protected authority files 固定为旧 candidate bytes。Event 1
+完成后必须用两轮新的 Codex review 和 Product Owner approval 静默刷新 overlay，
+否则 Event 4 必须 fail closed。
 
 ## Identity Binding
 
@@ -42,10 +61,10 @@ fallback，也不得与新 root 混合。manifest 仍是唯一执行状态事实
 - approved scope 仅 `R0-W07`；
 - 完整 ledger transition 和固定 exclusions。
 
-不得预计算包含自身 commit H 的文件。Event 1 H 在其 commit 后由 Event 2 intent、
-owner approval 和 review evidence 绑定；activation event 再从已包含全部证据的
-registration parent 前向产生。owner approval 必须同时绑定 intent digest，独立 review
-必须再绑定 owner approval digest。
+不得预计算包含自身 commit H 的文件。Event 1 H 在其 commit 后先由 Event 2 refreshed
+overlay 绑定，再由 Event 3 intent、owner approval 和 review evidence 绑定；activation
+event 从已包含全部证据的 registration parent 前向产生。owner approval 必须同时绑定
+intent digest，独立 review 必须再绑定 owner approval digest。
 
 ## Authority Boundary
 

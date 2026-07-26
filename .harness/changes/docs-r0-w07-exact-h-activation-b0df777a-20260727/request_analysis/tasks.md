@@ -14,15 +14,26 @@
 - [ ] 冻结本 Packet candidate H/tree。
 - [ ] 请求本 Packet 受控整合审批。
 
-## 后续 Event 1：Quiescent Profile Candidate
+## 后续 Event 1：Authority Identity Remediation Candidate
 
 - [ ] 取得 authority/profile TDD 实施授权。
 - [ ] RED：新增测试拒绝旧 W07 evidence root 和跨 Packet 证据混用。
-- [ ] GREEN：将 W07 profile 收敛到本 Change ID。
+- [ ] RED：新增测试证明 activation commit 集成 EXT 后，旧 ref/effective-base
+  等值规则拒绝有效 mainline。
+- [ ] GREEN：将 W07 profile 收敛到本 Change ID，并实现
+  `EXT ref == pinned HEAD`、approved candidate first-parent ancestry。
+- [ ] 将 W07 review base 固定为 `b0df777a...`。
 - [ ] 运行 authority、amendment、doctor 全套回归。
-- [ ] 先提交 profile candidate，再冻结 exact H/tree，保持 W07 STOP。
+- [ ] 先提交 authority candidate，再冻结 exact H/tree，保持 W07 STOP。
 
-## 后续 Event 2：Evidence Registration Parent
+## 后续 Event 2：Reviewer Overlay Refresh
+
+- [ ] 对 Event 1 的 protected authority blobs 生成 reviewer reassignment package。
+- [ ] 取得两轮 fresh/read-only Codex GO 和 Product Owner exact-H approval。
+- [ ] 以 quiescent forward event 刷新 W07-only overlay。
+- [ ] 证明旧 overlay 保留历史、W07 仍 STOP。
+
+## 后续 Event 3：Activation Evidence Registration Parent
 
 - [ ] 从 Event 1 的已知 H/tree 生成 deterministic review package 和 activation intent。
 - [ ] 请求 Product Owner 对 H/tree、package digest、intent digest、scope 和 exclusions
@@ -32,7 +43,7 @@
 - [ ] 要求 `GO / HIGH 0 / MEDIUM 0`。
 - [ ] 冻结包含全部证据但仍无 W07 ledger 的 registration parent。
 
-## 后续 Event 3：Atomic Activation
+## 后续 Event 4：Atomic Activation
 
 - [ ] 取得 atomic activation candidate 明确授权。
 - [ ] 只修改已审查的 manifest 状态转换。

@@ -54,6 +54,13 @@ base-to-H diff digest、命令退出码和时间，再将其作为不可变审�
 `3347d6b12765c86df93e5f30ea2be16a3be23258` 被独立 QA 判定
 `NO_GO / HIGH 1 / MEDIUM 2`，不得集成；本次修订处理其全部 findings。
 
+第二轮候选 `2f9d4a09aa235e656e51a8e19e2a550a89a46818`、tree
+`0c27ca3d759836a65fdd0596e0a19e79c5268956` 被独立 QA 判定
+`NO_GO / HIGH 1 / MEDIUM 1`，不得集成。其 hardened base-to-H diff SHA-256 为
+`ec12726a572f0703ce8b862e60051520f49c6736662c390047d2ac49dac37e28`。
+本次修订增加 integrated-mainline identity remediation、overlay refresh 和可复现的
+hardened diff 命令。
+
 ## 尚未生成
 
 - activation candidate H/tree；
