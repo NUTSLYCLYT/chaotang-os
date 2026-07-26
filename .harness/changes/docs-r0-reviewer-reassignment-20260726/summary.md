@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `REVIEW_READY / NOT_AUTHORIZED` |
+| Status | `REMEDIATION / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -20,15 +20,20 @@ Prepare a W07-only reviewer reassignment from `Claude Code` to
 This Packet is non-authorizing. The historical amendment and reviewer remain
 effective, and W07 remains `STOP / NO_ACTIVE_WORK_PACKAGE`.
 
-The implementation now fails closed unless a W07-only overlay binds:
+Candidate `a3652c91eaf02f868e8741ed9cf8e1c87db80ec8` was independently
+reviewed twice and rejected. Its H/tree/package digest are historical only and
+must not be used for approval or registration.
 
-- one immutable candidate commit and tree;
+The remediation fails closed unless a W07-only overlay binds:
+
+- one base commit, immutable candidate commit, and exact tree;
 - one byte-verified review package;
-- two unique `FRESH_NO_FORK_CONTEXT`, read-only Codex QA reviews;
+- two unique, canonical-session `FRESH_NO_FORK_CONTEXT`, read-only Codex QA reviews;
 - zero unresolved HIGH or MEDIUM findings;
 - one byte-verified Product Owner exact-H approval.
 
-The overlay has not been registered in `project-harness.json`.
+The v2 loader validates the overlay and all evidence before any authority
+decision. The overlay has not been registered in `project-harness.json`.
 
 ## Boundaries
 

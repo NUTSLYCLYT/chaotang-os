@@ -1,5 +1,12 @@
 # R0 Reviewer Reassignment Implementation Plan
 
+## Remediation Gate
+
+The first candidate `a3652c91` is `NO_GO` and cannot be approved. Before a new
+freeze, implementation and tests must prove loader-level evidence enforcement,
+content and Git identity binding, writer/reviewer session separation,
+ledger-driven expiry, and root doctor compliance.
+
 **Goal:** Create and verify a W07-only reviewer-reassignment overlay from
 `Claude Code` to `Codex Independent QA`.
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-`REVIEW_READY / NOT_AUTHORIZED`
+`REMEDIATION / PREVIOUS_CANDIDATE_NO_GO / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -31,7 +31,20 @@ effectiveIndependentReviewer
 
 The current governance implementation has no reviewer-reassignment API.
 
-## Observed GREEN
+## Rejected Candidate
+
+```text
+candidate = a3652c91eaf02f868e8741ed9cf8e1c87db80ec8
+tree = 3a5b928e41e43044a33c190e43565d44ef791b83
+package = da068313616f240ece9aee8a76c7f4e7c7b03a3f0ceaec68e01d2624a33b918d
+pass 1 = NO_GO / HIGH 3 / MEDIUM 1
+pass 2 = NO_GO / HIGH 2 / MEDIUM 2
+```
+
+The earlier GREEN/doctor claim is superseded. Root doctor failed after
+`.gitattributes` became tracked; that file has been removed in remediation.
+
+## Previous Test Result
 
 ```text
 node --test scripts/r0-amendment-check.nodetest.mjs \
@@ -46,8 +59,8 @@ GREEN covers closed overlay validation, W07-only reviewer resolution, unique
 read-only review sessions, zero HIGH/MEDIUM findings, and byte-level digest
 verification for all overlay evidence files.
 
-`node scripts/harness-doctor.mjs` reports `0 errors, 0 warning(s)`.
-Both authority commands remain fail-closed:
+This result applied to the rejected candidate and is not acceptance evidence.
+Both authority commands remained fail-closed:
 
 ```text
 v1: STOP / AMENDMENT_APPROVAL_REQUIRED

@@ -1,5 +1,20 @@
 # R0 Reviewer Reassignment Design
 
+## Review Remediation Addendum
+
+Candidate `a3652c91` was rejected by two independent Codex QA passes. The
+replacement candidate must additionally enforce:
+
+- v2 loader validation of the amendment registration and all overlay evidence;
+- canonical, distinct role paths and distinct evidence digests;
+- machine-readable owner/review evidence cross-bound to base H, candidate H,
+  tree, package path/digest, session identity, verdict, and finding counts;
+- Git verification that base H is an ancestor, candidate H/tree resolve, and
+  package bytes equal `git diff --binary <baseH>..<candidateH>`;
+- writer session exclusion and canonical unique review session IDs;
+- ledger-driven expiry once R0-W07 reaches `MERGED_AND_VERIFIED`;
+- no root-level `.gitattributes`.
+
 ## Goal
 
 Replace the unavailable Claude Code reviewer for R0-W07 with a scoped,

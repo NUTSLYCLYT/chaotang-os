@@ -1,6 +1,10 @@
 import { createHash } from 'node:crypto';
+import { execFile } from 'node:child_process';
 import { lstat, readFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 export const EXPECTED_R0_EFFECTIVE_BASE = Object.freeze({
   ref: 'origin/feature-chaotang-ext',
@@ -44,8 +48,11 @@ const APPROVED_SCOPE = Object.freeze(['R0-W01']);
 const HEX64_PATTERN = /^[0-9a-f]{64}$/;
 const HEX40_PATTERN = /^[0-9a-f]{40}$/;
 const WORK_PACKAGE_PATTERN = /^R0-W0[0-9]$/;
+const SESSION_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const REVIEWER_REASSIGNMENT_KEYS = Object.freeze([
   'approvedBy',
+  'baseH',
   'candidateH',
   'candidateMutation',
   'executionOwner',
@@ -64,6 +71,7 @@ const REVIEWER_REASSIGNMENT_KEYS = Object.freeze([
   'toReviewer',
   'tree',
   'writeAccess',
+  'writingSessionId',
 ]);
 const REVIEW_PASS_KEYS = Object.freeze([
   'high',
@@ -74,6 +82,38 @@ const REVIEW_PASS_KEYS = Object.freeze([
   'verdict',
   'writeAccess',
 ]);
+const REVIEW_EVIDENCE_KEYS = Object.freeze([
+  'baseH',
+  'candidateH',
+  'candidateMutated',
+  'high',
+  'kind',
+  'medium',
+  'pass',
+  'reviewPackagePath',
+  'reviewPackageSha256',
+  'reviewer',
+  'schemaVersion',
+  'scope',
+  'sessionId',
+  'tree',
+  'verdict',
+  'writeAccess',
+]);
+const OWNER_REASSIGNMENT_EVIDENCE_KEYS = Object.freeze([
+  'approver',
+  'baseH',
+  'candidateH',
+  'decision',
+  'kind',
+  'reviewPackagePath',
+  'reviewPackageSha256',
+  'reviews',
+  'schemaVersion',
+  'scope',
+  'tree',
+]);
+const OWNER_REVIEW_REFERENCE_KEYS = Object.freeze(['path', 'sessionId', 'sha256']);
 
 function hasExactEntries(actual, expected) {
   if (actual === null || typeof actual !== 'object' || Array.isArray(actual)) return false;
@@ -122,6 +162,185 @@ function safeRepositoryPath(path) {
   );
 }
 
+function findDuplicateJsonKeys(source) {
+  let cursor = 0;
+  const duplicates = [];
+  const skipWhitespace = () => {
+    while (/\s/u.test(source[cursor] ?? '')) cursor += 1;
+  };
+  const scanString = () => {
+    const start = cursor;
+    cursor += 1;
+    while (cursor < source.length) {
+      if (source[cursor] === '\\') cursor += 2;
+      else if (source[cursor] === '"') {
+        cursor += 1;
+        return JSON.parse(source.slice(start, cursor));
+      } else cursor += 1;
+    }
+    throw new SyntaxError('unterminated JSON string');
+  };
+  const scanValue = (path, depth = 0) => {
+    if (depth > 64) throw new SyntaxError('JSON nesting depth exceeds 64');
+    skipWhitespace();
+    if (source[cursor] === '{') return scanObject(path, depth);
+    if (source[cursor] === '[') return scanArray(path, depth);
+    if (source[cursor] === '"') return scanString();
+    while (cursor < source.length && !/[,\]}]/u.test(source[cursor])) cursor += 1;
+    return undefined;
+  };
+  const scanObject = (path, depth) => {
+    const keys = new Set();
+    cursor += 1;
+    skipWhitespace();
+    if (source[cursor] === '}') {
+      cursor += 1;
+      return;
+    }
+    while (cursor < source.length) {
+      skipWhitespace();
+      const key = scanString();
+      const keyPath = `${path}[${JSON.stringify(key)}]`;
+      if (keys.has(key)) duplicates.push(keyPath);
+      keys.add(key);
+      skipWhitespace();
+      if (source[cursor] !== ':') throw new SyntaxError(`missing colon at ${keyPath}`);
+      cursor += 1;
+      scanValue(keyPath, depth + 1);
+      skipWhitespace();
+      if (source[cursor] === '}') {
+        cursor += 1;
+        return;
+      }
+      if (source[cursor] !== ',') throw new SyntaxError(`missing comma at ${keyPath}`);
+      cursor += 1;
+    }
+    throw new SyntaxError(`unterminated object at ${path}`);
+  };
+  const scanArray = (path, depth) => {
+    cursor += 1;
+    skipWhitespace();
+    if (source[cursor] === ']') {
+      cursor += 1;
+      return;
+    }
+    let index = 0;
+    while (cursor < source.length) {
+      scanValue(`${path}[${index}]`, depth + 1);
+      index += 1;
+      skipWhitespace();
+      if (source[cursor] === ']') {
+        cursor += 1;
+        return;
+      }
+      if (source[cursor] !== ',') throw new SyntaxError(`missing comma at ${path}`);
+      cursor += 1;
+    }
+    throw new SyntaxError(`unterminated array at ${path}`);
+  };
+  scanValue('$');
+  return [...new Set(duplicates)];
+}
+
+function parseUniqueJsonObject(source, label) {
+  const duplicateKeys = findDuplicateJsonKeys(source);
+  if (duplicateKeys.length > 0) {
+    throw new Error(`${label}: duplicate JSON keys: ${duplicateKeys.join(', ')}`);
+  }
+  const value = JSON.parse(source);
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`${label}: evidence JSON must be an object`);
+  }
+  return value;
+}
+
+export function parseReviewerReassignmentEvidence(source, path) {
+  const matches = [
+    ...source.matchAll(
+      /<!-- reviewer-reassignment-evidence:start -->\s*```json\s*([\s\S]*?)\s*```\s*<!-- reviewer-reassignment-evidence:end -->/gu,
+    ),
+  ];
+  if (matches.length !== 1) {
+    throw new Error(`${path}: require exactly one reviewer reassignment evidence block`);
+  }
+  return parseUniqueJsonObject(matches[0][1], path);
+}
+
+function validateReviewerEvidence(evidence, overlay, review, index) {
+  const errors = [];
+  const label = `reviewerReassignment.reviews[${index}]`;
+  if (!hasExactKeys(evidence, REVIEW_EVIDENCE_KEYS)) {
+    return [`${label}: evidence has missing or unsupported fields`];
+  }
+  const expected = {
+    schemaVersion: 'reviewer-reassignment-evidence.v1',
+    kind: 'codex-independent-review',
+    pass: index + 1,
+    sessionId: review.sessionId,
+    reviewer: overlay.toReviewer,
+    scope: overlay.scope,
+    baseH: overlay.baseH,
+    candidateH: overlay.candidateH,
+    tree: overlay.tree,
+    reviewPackagePath: overlay.reviewPackagePath,
+    reviewPackageSha256: overlay.reviewPackageSha256,
+    verdict: review.verdict,
+    high: review.high,
+    medium: review.medium,
+    writeAccess: review.writeAccess,
+    candidateMutated: false,
+  };
+  for (const [key, value] of Object.entries(expected)) {
+    if (JSON.stringify(evidence[key]) !== JSON.stringify(value)) {
+      errors.push(`${label}: evidence ${key} must match overlay`);
+    }
+  }
+  return errors;
+}
+
+function validateOwnerReassignmentEvidence(evidence, overlay) {
+  const errors = [];
+  const label = 'reviewerReassignment.ownerApproval';
+  if (!hasExactKeys(evidence, OWNER_REASSIGNMENT_EVIDENCE_KEYS)) {
+    return [`${label}: evidence has missing or unsupported fields`];
+  }
+  const expected = {
+    schemaVersion: 'reviewer-reassignment-evidence.v1',
+    kind: 'owner-approval',
+    decision: 'APPROVED',
+    approver: overlay.approvedBy,
+    scope: overlay.scope,
+    baseH: overlay.baseH,
+    candidateH: overlay.candidateH,
+    tree: overlay.tree,
+    reviewPackagePath: overlay.reviewPackagePath,
+    reviewPackageSha256: overlay.reviewPackageSha256,
+  };
+  for (const [key, value] of Object.entries(expected)) {
+    if (JSON.stringify(evidence[key]) !== JSON.stringify(value)) {
+      errors.push(`${label}: evidence ${key} must match overlay`);
+    }
+  }
+  if (!Array.isArray(evidence.reviews) || evidence.reviews.length !== 2) {
+    errors.push(`${label}: evidence must bind exactly two reviews`);
+  } else {
+    for (let index = 0; index < evidence.reviews.length; index += 1) {
+      const reference = evidence.reviews[index];
+      if (!hasExactKeys(reference, OWNER_REVIEW_REFERENCE_KEYS)) {
+        errors.push(`${label}: review reference has missing or unsupported fields`);
+        continue;
+      }
+      const expectedReview = overlay.reviews[index];
+      for (const key of OWNER_REVIEW_REFERENCE_KEYS) {
+        if (reference[key] !== expectedReview[key]) {
+          errors.push(`${label}: review ${index + 1} ${key} must match overlay`);
+        }
+      }
+    }
+  }
+  return errors;
+}
+
 export function validateReviewerReassignmentOverlay(overlay) {
   const errors = [];
   if (!hasExactKeys(overlay, REVIEWER_REASSIGNMENT_KEYS)) {
@@ -163,11 +382,20 @@ export function validateReviewerReassignmentOverlay(overlay) {
   if (overlay.expiresAfter !== 'R0-W07_MERGED_AND_VERIFIED') {
     errors.push('reviewer reassignment must expire after R0-W07_MERGED_AND_VERIFIED');
   }
+  if (!HEX40_PATTERN.test(overlay.baseH ?? '')) {
+    errors.push('reviewer reassignment baseH must be a 40-hex git sha');
+  }
   if (!HEX40_PATTERN.test(overlay.candidateH ?? '')) {
     errors.push('reviewer reassignment candidateH must be a 40-hex git sha');
   }
   if (!HEX40_PATTERN.test(overlay.tree ?? '')) {
     errors.push('reviewer reassignment tree must be a 40-hex git tree');
+  }
+  if (
+    typeof overlay.writingSessionId !== 'string' ||
+    !SESSION_ID_PATTERN.test(overlay.writingSessionId)
+  ) {
+    errors.push('reviewer reassignment writingSessionId must be a canonical session id');
   }
   for (const [pathField, digestField] of [
     ['reviewPackagePath', 'reviewPackageSha256'],
@@ -181,19 +409,36 @@ export function validateReviewerReassignmentOverlay(overlay) {
     }
   }
   if (
+    overlay.reviewPackagePath !==
+    '.harness/changes/docs-r0-reviewer-reassignment-20260726/review_inputs/candidate.diff'
+  ) {
+    errors.push('reviewer reassignment reviewPackagePath must be canonical');
+  }
+  if (
+    overlay.ownerApprovalPath !==
+    '.harness/changes/docs-r0-reviewer-reassignment-20260726/owner_approval/exact-h-approval.md'
+  ) {
+    errors.push('reviewer reassignment ownerApprovalPath must be canonical');
+  }
+  if (
     !Array.isArray(overlay.reviews) ||
     overlay.reviews.length !== overlay.reviewPassesRequired
   ) {
     errors.push('reviewer reassignment requires exactly two review passes');
   } else {
     const sessions = new Set();
-    for (const review of overlay.reviews) {
+    const reviewPaths = new Set();
+    const reviewDigests = new Set();
+    for (let index = 0; index < overlay.reviews.length; index += 1) {
+      const review = overlay.reviews[index];
       if (!hasExactKeys(review, REVIEW_PASS_KEYS)) {
         errors.push('review pass has missing or unsupported fields');
         continue;
       }
-      if (typeof review.sessionId !== 'string' || review.sessionId.length === 0) {
-        errors.push('review sessionId must be non-empty');
+      if (typeof review.sessionId !== 'string' || !SESSION_ID_PATTERN.test(review.sessionId)) {
+        errors.push('review sessionId must be a canonical session id');
+      } else if (review.sessionId === overlay.writingSessionId) {
+        errors.push('review sessionId must differ from writingSessionId');
       } else if (sessions.has(review.sessionId)) {
         errors.push('review passes must use a unique sessionId');
       } else {
@@ -201,9 +446,22 @@ export function validateReviewerReassignmentOverlay(overlay) {
       }
       if (!safeRepositoryPath(review.path)) {
         errors.push('review path must be a safe repository path');
+      } else if (reviewPaths.has(review.path)) {
+        errors.push('review evidence paths must be unique');
+      } else if (
+        review.path !==
+        `.harness/changes/docs-r0-reviewer-reassignment-20260726/codex_review/pass-${index + 1}.md`
+      ) {
+        errors.push(`review pass ${index + 1} path must be canonical`);
+      } else {
+        reviewPaths.add(review.path);
       }
       if (!HEX64_PATTERN.test(review.sha256 ?? '')) {
         errors.push('review sha256 must be a sha256 hex digest');
+      } else if (reviewDigests.has(review.sha256)) {
+        errors.push('review digests must be unique');
+      } else {
+        reviewDigests.add(review.sha256);
       }
       if (review.verdict !== 'GO') errors.push('review verdict must be GO');
       if (review.high !== 0 || review.medium !== 0) {
@@ -217,15 +475,39 @@ export function validateReviewerReassignmentOverlay(overlay) {
   if (overlay.approvedBy !== 'lyt') {
     errors.push('reviewer reassignment approvedBy must be lyt');
   }
+  const allEvidencePaths = [
+    overlay.reviewPackagePath,
+    overlay.ownerApprovalPath,
+    ...(Array.isArray(overlay.reviews) ? overlay.reviews.map((review) => review.path) : []),
+  ];
+  if (new Set(allEvidencePaths).size !== allEvidencePaths.length) {
+    errors.push('reviewer reassignment evidence paths must be unique');
+  }
+  const allEvidenceDigests = [
+    overlay.reviewPackageSha256,
+    overlay.ownerApprovalSha256,
+    ...(Array.isArray(overlay.reviews) ? overlay.reviews.map((review) => review.sha256) : []),
+  ];
+  if (new Set(allEvidenceDigests).size !== allEvidenceDigests.length) {
+    errors.push('reviewer reassignment evidence digests must be unique');
+  }
   return [...new Set(errors)];
 }
 
-export function effectiveIndependentReviewer(amendmentGovernance, workPackage) {
+export function effectiveIndependentReviewer(
+  amendmentGovernance,
+  workPackage,
+  workPackageLedger = [],
+) {
   const overlay = amendmentGovernance?.reviewerReassignment;
   if (overlay === undefined || overlay === null) {
     return amendmentGovernance?.independentReviewer ?? null;
   }
   if (validateReviewerReassignmentOverlay(overlay).length > 0) return null;
+  const scopedPackage = workPackageLedger.find((entry) => entry.id === workPackage);
+  if (scopedPackage?.status === 'MERGED_AND_VERIFIED') {
+    return amendmentGovernance?.independentReviewer ?? null;
+  }
   return overlay.scope.includes(workPackage)
     ? overlay.toReviewer
     : amendmentGovernance?.independentReviewer ?? null;
@@ -406,11 +688,23 @@ export async function verifyAmendmentApprovalEvidenceFiles(root, amendment) {
         return;
       }
     }
-    const source = await readFile(current);
+    const finalStat = await lstat(current);
+    if (!finalStat.isFile()) {
+      errors.push(`${fieldLabel}: evidence path must be a regular file`);
+      return null;
+    }
+    let source;
+    try {
+      source = await readFile(current);
+    } catch (cause) {
+      errors.push(`${fieldLabel}: unreadable evidence: ${cause.code ?? cause.message}`);
+      return null;
+    }
     const digest = createHash('sha256').update(source).digest('hex');
     if (digest !== expectedDigest) {
       errors.push(`${fieldLabel}: digest mismatch`);
     }
+    return source;
   }
 
   const evidence = amendment.approvalEvidence;
@@ -429,24 +723,89 @@ export async function verifyAmendmentApprovalEvidenceFiles(root, amendment) {
 
   const overlay = amendment.reviewerReassignment;
   if (overlay !== null && overlay !== undefined) {
-    await verifyEvidenceFile(
+    if (validateReviewerReassignmentOverlay(overlay).length > 0) return errors;
+    const reviewPackageSource = await verifyEvidenceFile(
       overlay.reviewPackagePath,
       overlay.reviewPackageSha256,
       'reviewerReassignment.reviewPackagePath',
     );
-    await verifyEvidenceFile(
+    const ownerSource = await verifyEvidenceFile(
       overlay.ownerApprovalPath,
       overlay.ownerApprovalSha256,
       'reviewerReassignment.ownerApprovalPath',
     );
+    const reviewSources = [];
     if (Array.isArray(overlay.reviews)) {
       for (let index = 0; index < overlay.reviews.length; index += 1) {
-        await verifyEvidenceFile(
+        reviewSources.push(await verifyEvidenceFile(
           overlay.reviews[index].path,
           overlay.reviews[index].sha256,
           `reviewerReassignment.reviews[${index}].path`,
+        ));
+      }
+    }
+    for (let index = 0; index < reviewSources.length; index += 1) {
+      if (reviewSources[index] === null) continue;
+      try {
+        const evidence = parseReviewerReassignmentEvidence(
+          reviewSources[index].toString('utf8'),
+          overlay.reviews[index].path,
+        );
+        errors.push(
+          ...validateReviewerEvidence(evidence, overlay, overlay.reviews[index], index),
+        );
+      } catch (cause) {
+        errors.push(cause.message);
+      }
+    }
+    if (ownerSource !== null) {
+      try {
+        const evidence = parseReviewerReassignmentEvidence(
+          ownerSource.toString('utf8'),
+          overlay.ownerApprovalPath,
+        );
+        errors.push(...validateOwnerReassignmentEvidence(evidence, overlay));
+      } catch (cause) {
+        errors.push(cause.message);
+      }
+    }
+    try {
+      const [{ stdout: candidateH }, { stdout: tree }] = await Promise.all([
+        execFileAsync('git', ['rev-parse', `${overlay.candidateH}^{commit}`], {
+          cwd: root,
+        }),
+        execFileAsync('git', ['rev-parse', `${overlay.candidateH}^{tree}`], {
+          cwd: root,
+        }),
+      ]);
+      if (candidateH.trim() !== overlay.candidateH) {
+        errors.push('reviewerReassignment.candidateH: git object mismatch');
+      }
+      if (tree.trim() !== overlay.tree) {
+        errors.push('reviewerReassignment.tree: git tree mismatch');
+      }
+      await execFileAsync(
+        'git',
+        ['merge-base', '--is-ancestor', overlay.baseH, overlay.candidateH],
+        { cwd: root },
+      );
+      const { stdout: diffSource } = await execFileAsync(
+        'git',
+        ['diff', '--binary', `${overlay.baseH}..${overlay.candidateH}`],
+        { cwd: root, maxBuffer: 10 * 1024 * 1024 },
+      );
+      if (
+        reviewPackageSource !== null &&
+        !reviewPackageSource.equals(Buffer.from(diffSource, 'utf8'))
+      ) {
+        errors.push(
+          'reviewerReassignment.reviewPackagePath: bytes must equal exact git diff',
         );
       }
+    } catch (cause) {
+      errors.push(
+        `reviewerReassignment.gitIdentity: ${cause.code ?? cause.message}`,
+      );
     }
   }
   return errors;

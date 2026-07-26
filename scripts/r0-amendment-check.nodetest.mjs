@@ -10,6 +10,7 @@ import test from 'node:test';
 
 import {
   effectiveIndependentReviewer,
+  parseReviewerReassignmentEvidence,
   validateAmendmentGovernanceRegistration,
   validateReviewerReassignmentOverlay,
   verifyAmendmentApprovalEvidenceFiles,
@@ -158,8 +159,10 @@ function approvedReviewerReassignmentFixture() {
     writeAccess: 'DENIED',
     candidateMutation: 'FORBIDDEN',
     expiresAfter: 'R0-W07_MERGED_AND_VERIFIED',
+    baseH: '0'.repeat(40),
     candidateH: '1'.repeat(40),
     tree: '2'.repeat(40),
+    writingSessionId: '11111111-1111-1111-1111-111111111111',
     reviewPackagePath:
       '.harness/changes/docs-r0-reviewer-reassignment-20260726/review_inputs/candidate.diff',
     reviewPackageSha256: '3'.repeat(64),
@@ -168,7 +171,7 @@ function approvedReviewerReassignmentFixture() {
     ownerApprovalSha256: '4'.repeat(64),
     reviews: [
       {
-        sessionId: 'codex-qa-pass-1',
+        sessionId: '22222222-2222-2222-2222-222222222222',
         path:
           '.harness/changes/docs-r0-reviewer-reassignment-20260726/codex_review/pass-1.md',
         sha256: '5'.repeat(64),
@@ -178,7 +181,7 @@ function approvedReviewerReassignmentFixture() {
         writeAccess: 'DENIED',
       },
       {
-        sessionId: 'codex-qa-pass-2',
+        sessionId: '33333333-3333-3333-3333-333333333333',
         path:
           '.harness/changes/docs-r0-reviewer-reassignment-20260726/codex_review/pass-2.md',
         sha256: '6'.repeat(64),
@@ -192,6 +195,33 @@ function approvedReviewerReassignmentFixture() {
   };
 }
 
+function reviewerReassignmentEvidenceDocument(value) {
+  return [
+    '# Reviewer Reassignment Evidence',
+    '',
+    '<!-- reviewer-reassignment-evidence:start -->',
+    '```json',
+    JSON.stringify(value, null, 2),
+    '```',
+    '<!-- reviewer-reassignment-evidence:end -->',
+    '',
+  ].join('\n');
+}
+
+test('reviewer reassignment evidence rejects duplicate JSON keys', () => {
+  const source = [
+    '<!-- reviewer-reassignment-evidence:start -->',
+    '```json',
+    '{"kind":"owner-approval","kind":"codex-independent-review"}',
+    '```',
+    '<!-- reviewer-reassignment-evidence:end -->',
+  ].join('\n');
+  assert.throws(
+    () => parseReviewerReassignmentEvidence(source, 'duplicate.md'),
+    /duplicate JSON keys/,
+  );
+});
+
 test('approved reviewer reassignment requires two isolated read-only Codex QA passes', () => {
   const overlay = approvedReviewerReassignmentFixture();
   assert.deepEqual(validateReviewerReassignmentOverlay(overlay), []);
@@ -199,6 +229,7 @@ test('approved reviewer reassignment requires two isolated read-only Codex QA pa
     effectiveIndependentReviewer(
       { independentReviewer: 'Claude Code', reviewerReassignment: overlay },
       'R0-W07',
+      [{ id: 'R0-W07', status: 'ACTIVE' }],
     ),
     'Codex Independent QA',
   );
@@ -206,6 +237,15 @@ test('approved reviewer reassignment requires two isolated read-only Codex QA pa
     effectiveIndependentReviewer(
       { independentReviewer: 'Claude Code', reviewerReassignment: overlay },
       'R0-W06',
+      [{ id: 'R0-W06', status: 'MERGED_AND_VERIFIED' }],
+    ),
+    'Claude Code',
+  );
+  assert.equal(
+    effectiveIndependentReviewer(
+      { independentReviewer: 'Claude Code', reviewerReassignment: overlay },
+      'R0-W07',
+      [{ id: 'R0-W07', status: 'MERGED_AND_VERIFIED' }],
     ),
     'Claude Code',
   );
@@ -215,22 +255,83 @@ test('reviewer reassignment evidence is verified byte-for-byte and fails closed 
   const tempRoot = await mkdtemp(join(tmpdir(), 'reviewer-reassignment-'));
   try {
     const overlay = approvedReviewerReassignmentFixture();
-    const evidence = [
-      [overlay.reviewPackagePath, 'candidate diff\n', 'reviewPackageSha256'],
-      [overlay.ownerApprovalPath, 'owner approval\n', 'ownerApprovalSha256'],
-      [overlay.reviews[0].path, 'review pass 1\n', 'reviewSha256'],
-      [overlay.reviews[1].path, 'review pass 2\n', 'reviewSha256'],
-    ];
-    for (const [path, source, digestField] of evidence) {
-      await mkdir(dirname(join(tempRoot, path)), { recursive: true });
-      await writeFile(join(tempRoot, path), source);
-      const digest = createHash('sha256').update(source).digest('hex');
-      if (digestField === 'reviewSha256') {
-        overlay.reviews.find((review) => review.path === path).sha256 = digest;
-      } else {
-        overlay[digestField] = digest;
-      }
+    await execFileAsync('git', ['init', '-q'], { cwd: tempRoot });
+    await execFileAsync('git', ['config', 'user.name', 'R0 Test'], { cwd: tempRoot });
+    await execFileAsync('git', ['config', 'user.email', 'r0@example.invalid'], {
+      cwd: tempRoot,
+    });
+    await writeFile(join(tempRoot, 'candidate.txt'), 'base\n');
+    await execFileAsync('git', ['add', 'candidate.txt'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'base'], { cwd: tempRoot });
+    overlay.baseH = (await execFileAsync('git', ['rev-parse', 'HEAD'], {
+      cwd: tempRoot,
+    })).stdout.trim();
+    await writeFile(join(tempRoot, 'candidate.txt'), 'candidate\n');
+    await execFileAsync('git', ['add', 'candidate.txt'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'candidate'], { cwd: tempRoot });
+    overlay.candidateH = (await execFileAsync('git', ['rev-parse', 'HEAD'], {
+      cwd: tempRoot,
+    })).stdout.trim();
+    overlay.tree = (await execFileAsync('git', ['rev-parse', 'HEAD^{tree}'], {
+      cwd: tempRoot,
+    })).stdout.trim();
+    const packageSource = (
+      await execFileAsync('git', ['diff', '--binary', `${overlay.baseH}..${overlay.candidateH}`], {
+        cwd: tempRoot,
+        maxBuffer: 10 * 1024 * 1024,
+      })
+    ).stdout;
+    overlay.reviewPackageSha256 = createHash('sha256').update(packageSource).digest('hex');
+    await mkdir(dirname(join(tempRoot, overlay.reviewPackagePath)), { recursive: true });
+    await writeFile(join(tempRoot, overlay.reviewPackagePath), packageSource);
+
+    const reviewSources = overlay.reviews.map((review, index) =>
+      reviewerReassignmentEvidenceDocument({
+        schemaVersion: 'reviewer-reassignment-evidence.v1',
+        kind: 'codex-independent-review',
+        pass: index + 1,
+        sessionId: review.sessionId,
+        reviewer: overlay.toReviewer,
+        scope: overlay.scope,
+        baseH: overlay.baseH,
+        candidateH: overlay.candidateH,
+        tree: overlay.tree,
+        reviewPackagePath: overlay.reviewPackagePath,
+        reviewPackageSha256: overlay.reviewPackageSha256,
+        verdict: review.verdict,
+        high: review.high,
+        medium: review.medium,
+        writeAccess: review.writeAccess,
+        candidateMutated: false,
+      }),
+    );
+    for (let index = 0; index < overlay.reviews.length; index += 1) {
+      const review = overlay.reviews[index];
+      review.sha256 = createHash('sha256').update(reviewSources[index]).digest('hex');
+      await mkdir(dirname(join(tempRoot, review.path)), { recursive: true });
+      await writeFile(join(tempRoot, review.path), reviewSources[index]);
     }
+
+    const ownerSource = reviewerReassignmentEvidenceDocument({
+      schemaVersion: 'reviewer-reassignment-evidence.v1',
+      kind: 'owner-approval',
+      decision: 'APPROVED',
+      approver: overlay.approvedBy,
+      scope: overlay.scope,
+      baseH: overlay.baseH,
+      candidateH: overlay.candidateH,
+      tree: overlay.tree,
+      reviewPackagePath: overlay.reviewPackagePath,
+      reviewPackageSha256: overlay.reviewPackageSha256,
+      reviews: overlay.reviews.map(({ path, sessionId, sha256 }) => ({
+        path,
+        sessionId,
+        sha256,
+      })),
+    });
+    overlay.ownerApprovalSha256 = createHash('sha256').update(ownerSource).digest('hex');
+    await mkdir(dirname(join(tempRoot, overlay.ownerApprovalPath)), { recursive: true });
+    await writeFile(join(tempRoot, overlay.ownerApprovalPath), ownerSource);
 
     const governance = {
       approvalEvidence: null,
@@ -246,6 +347,20 @@ test('reviewer reassignment evidence is verified byte-for-byte and fails closed 
       (await verifyAmendmentApprovalEvidenceFiles(tempRoot, governance)).some(
         (error) =>
           error === 'reviewerReassignment.reviews[0].path: digest mismatch',
+      ),
+    );
+
+    const forgedReview = reviewSources[0].replace(
+      overlay.reviews[0].sessionId,
+      'forged-session',
+    );
+    overlay.reviews[0].sha256 = createHash('sha256').update(forgedReview).digest('hex');
+    await writeFile(join(tempRoot, overlay.reviews[0].path), forgedReview);
+    assert.ok(
+      (await verifyAmendmentApprovalEvidenceFiles(tempRoot, governance)).some(
+        (error) =>
+          error ===
+          'reviewerReassignment.reviews[0]: evidence sessionId must match overlay',
       ),
     );
   } finally {
@@ -268,6 +383,26 @@ for (const [name, mutate, expected] of [
     'reused session',
     (overlay) => { overlay.reviews[1].sessionId = overlay.reviews[0].sessionId; },
     'unique sessionId',
+  ],
+  [
+    'writer self-review',
+    (overlay) => { overlay.reviews[0].sessionId = overlay.writingSessionId; },
+    'must differ from writingSessionId',
+  ],
+  [
+    'reused evidence path',
+    (overlay) => { overlay.reviews[1].path = overlay.reviews[0].path; },
+    'evidence paths must be unique',
+  ],
+  [
+    'reused evidence digest',
+    (overlay) => { overlay.reviews[1].sha256 = overlay.reviews[0].sha256; },
+    'review digests must be unique',
+  ],
+  [
+    'wrong review role path',
+    (overlay) => { overlay.reviews[0].path = 'AGENTS.md'; },
+    'review pass 1 path must be canonical',
   ],
   [
     'writable review',

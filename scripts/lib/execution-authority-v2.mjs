@@ -2,7 +2,11 @@ import { createHash } from 'node:crypto';
 import { lstat, readFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 
-import { effectiveIndependentReviewer } from './amendment-governance.mjs';
+import {
+  effectiveIndependentReviewer,
+  validateAmendmentGovernanceRegistration,
+  verifyAmendmentApprovalEvidenceFiles,
+} from './amendment-governance.mjs';
 
 export const EXECUTION_AUTHORITY_V2_PATH = '.harness/manifest/execution-authority.v2.json';
 export const EXECUTION_AUTHORITY_V2_SCHEMA_PATH =
@@ -456,6 +460,7 @@ export function validateExecutionAuthorityV2Evidence(
   const expectedReviewer = effectiveIndependentReviewer(
     amendmentGovernance,
     manifest.activeWorkPackage,
+    manifest.workPackageLedger,
   );
   if (typeof expectedReviewer !== 'string' || expectedReviewer.length === 0) {
     errors.push('amendmentGovernance.independentReviewer must be a non-empty string');
@@ -916,6 +921,14 @@ export async function loadExecutionAuthorityV2(root) {
         '.harness/manifest/project-harness.json',
       );
       amendmentGovernance = projectHarness.amendmentGovernance ?? null;
+      const governanceErrors =
+        validateAmendmentGovernanceRegistration(amendmentGovernance);
+      errors.push(...governanceErrors);
+      if (governanceErrors.length === 0) {
+        errors.push(
+          ...(await verifyAmendmentApprovalEvidenceFiles(root, amendmentGovernance)),
+        );
+      }
     } catch (cause) {
       errors.push(cause.message);
     }

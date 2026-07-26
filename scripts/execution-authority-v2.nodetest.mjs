@@ -28,6 +28,9 @@ import {
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const cliPath = join(root, 'scripts/execution-authority-v2.mjs');
 const execFileAsync = promisify(execFile);
+const liveAmendmentGovernance = JSON.parse(
+  await readFile(join(root, '.harness/manifest/project-harness.json'), 'utf8'),
+).amendmentGovernance;
 
 function validManifest() {
   return {
@@ -72,15 +75,55 @@ function validManifest() {
 }
 
 function validGovernance() {
+  return structuredClone(liveAmendmentGovernance);
+}
+
+function validReviewerReassignment() {
   return {
-    status: 'APPROVED_FOR_W01',
-    independentReviewer: 'Claude Code',
-    approvedSourceDigest: '2ba59cbe4d4032d8f372d1dd757e03edb78038b38de6d657380f357100a83e38',
-    candidateSourceDigest: '2ba59cbe4d4032d8f372d1dd757e03edb78038b38de6d657380f357100a83e38',
-    effectiveBase: {
-      ref: 'origin/feature-chaotang-ext',
-      sha: 'ccc2d74a2e439830e9c6ae7adcefb5ee8c05c150',
-    },
+    schemaVersion: 'reviewer-reassignment.v1',
+    status: 'APPROVED',
+    scope: ['R0-W07'],
+    fromReviewer: 'Claude Code',
+    toReviewer: 'Codex Independent QA',
+    executionOwner: 'Codex',
+    reviewPassesRequired: 2,
+    sessionIsolation: 'FRESH_NO_FORK_CONTEXT',
+    writeAccess: 'DENIED',
+    candidateMutation: 'FORBIDDEN',
+    expiresAfter: 'R0-W07_MERGED_AND_VERIFIED',
+    baseH: '0'.repeat(40),
+    candidateH: '1'.repeat(40),
+    tree: '2'.repeat(40),
+    writingSessionId: '11111111-1111-1111-1111-111111111111',
+    reviewPackagePath:
+      '.harness/changes/docs-r0-reviewer-reassignment-20260726/review_inputs/candidate.diff',
+    reviewPackageSha256: '3'.repeat(64),
+    ownerApprovalPath:
+      '.harness/changes/docs-r0-reviewer-reassignment-20260726/owner_approval/exact-h-approval.md',
+    ownerApprovalSha256: '4'.repeat(64),
+    reviews: [
+      {
+        sessionId: '22222222-2222-2222-2222-222222222222',
+        path:
+          '.harness/changes/docs-r0-reviewer-reassignment-20260726/codex_review/pass-1.md',
+        sha256: '5'.repeat(64),
+        verdict: 'GO',
+        high: 0,
+        medium: 0,
+        writeAccess: 'DENIED',
+      },
+      {
+        sessionId: '33333333-3333-3333-3333-333333333333',
+        path:
+          '.harness/changes/docs-r0-reviewer-reassignment-20260726/codex_review/pass-2.md',
+        sha256: '6'.repeat(64),
+        verdict: 'GO',
+        high: 0,
+        medium: 0,
+        writeAccess: 'DENIED',
+      },
+    ],
+    approvedBy: 'lyt',
   };
 }
 
@@ -272,6 +315,16 @@ async function createActiveAuthorityFixture({
     '.harness/manifest/project-harness.json',
     `${JSON.stringify({ amendmentGovernance: validGovernance() }, null, 2)}\n`,
   );
+  for (const path of [
+    liveAmendmentGovernance.approvalEvidence.ownerApprovalPath,
+    liveAmendmentGovernance.approvalEvidence.reviewPath,
+  ]) {
+    await writeRepositoryFile(
+      temporaryRoot,
+      path,
+      await readFile(join(root, path), 'utf8'),
+    );
+  }
   await writeRepositoryFile(temporaryRoot, manifest.approvalEvidence.ownerApprovalPath, ownerSource);
   await writeRepositoryFile(temporaryRoot, manifest.approvalEvidence.reviewPath, reviewSource);
   if (writeIntent) {
@@ -317,6 +370,32 @@ test('active temporary root authorizes only after loading the exact independent 
     });
     assert.equal(result.exitCode, 0);
     assert.equal(result.output.reason, 'APPROVED_WORK_PACKAGE');
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test('v2 loader fails closed when reviewer reassignment evidence is absent', async () => {
+  const { temporaryRoot } = await createActiveAuthorityFixture();
+  try {
+    const governance = validGovernance();
+    governance.reviewerReassignment = validReviewerReassignment();
+    await writeRepositoryFile(
+      temporaryRoot,
+      '.harness/manifest/project-harness.json',
+      `${JSON.stringify({ amendmentGovernance: governance }, null, 2)}\n`,
+    );
+    const loaded = await loadExecutionAuthorityV2(temporaryRoot);
+    assert.ok(
+      loaded.errors.some((error) =>
+        error.includes('reviewerReassignment.reviewPackagePath: missing path component'),
+      ),
+    );
+    const result = executionAuthorityV2CommandResult(loaded, '--authorize', [], {
+      workPackage: 'R0-W06',
+    });
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.output.reason, 'INVALID_EXECUTION_AUTHORITY');
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }

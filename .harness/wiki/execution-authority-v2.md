@@ -86,7 +86,10 @@ W06。
 - 两次审查均为 `GO`，且未解决 HIGH/MEDIUM 均为 0；
 - Product Owner exact-H approval 路径及 SHA-256。
 
-overlay 的证据文件会逐级拒绝符号链接并按原始字节校验 digest。任何字段、文件、digest 或审查结果
-不一致时，effective reviewer 解析为无效，execution authority 必须 STOP。overlay 只替换 W07 的
-evidence reviewer 身份，不激活 work package，也不修改 v1/v2 的执行权限边界；W07 激活仍需独立的
-atomic activation candidate。
+overlay 的证据文件会逐级拒绝符号链接，按原始字节校验 digest，并解析 machine-readable evidence。
+base H、candidate H、tree、exact Git diff、两份 review、owner approval 必须互相绑定；路径和 digest
+不得复用。v2 loader 本身执行这些检查，不能依赖另行运行 doctor。writer session 不得充当 review
+session；W07 ledger 进入 `MERGED_AND_VERIFIED` 后 overlay 失效并回落到历史 reviewer。任何字段、
+文件、digest、Git identity 或审查结果不一致时，effective reviewer 解析为无效，execution authority
+必须 STOP。overlay 只替换 W07 的 evidence reviewer 身份，不激活 work package，也不修改 v1/v2 的
+执行权限边界；W07 激活仍需独立的 atomic activation candidate。
