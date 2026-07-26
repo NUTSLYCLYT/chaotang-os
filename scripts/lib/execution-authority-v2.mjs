@@ -1335,7 +1335,7 @@ export async function loadExecutionAuthorityV2(root) {
   const pinnedSources = new Map();
   const readAuthorityFile = async (path, options = {}) => {
     if (pinnedCommitH === null) {
-      return readPinnedAuthorityFile(root, path, errors, options);
+      return null;
     }
     const source = await readCommittedAuthorityFile(
       root,

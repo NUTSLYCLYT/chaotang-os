@@ -599,3 +599,24 @@ reads. The candidate and both review identities are rejected.
 
 No overlay is registered and W07 remains `STOP / NO_ACTIVE_WORK_PACKAGE`.
 A twentieth candidate requires an explicit startup trust-root decision.
+
+## Post-Rejection Mutable-Fallback Remediation
+
+```text
+unsupported-object focused regression: 3 pass / 0 fail
+authority test suites: 106 pass / 0 fail
+project-harness-doctor: 0 errors / 0 warnings
+v1 authorize: STOP / AMENDMENT_APPROVAL_REQUIRED
+v2 check: VALID_STRUCTURE / NOT_AN_AUTHORIZATION
+v2 authorize R0-W07: STOP / NO_ACTIVE_WORK_PACKAGE
+working diff check: PASS
+```
+
+When pinned commit capture returns `null`, the loader now returns `null` for
+every governed authority input instead of selecting the mutable file reader.
+The unsupported-object fixture directly asserts null manifest, schema, and
+amendment governance. This closes pass 2's deterministic finding only.
+
+This state is not a twentieth candidate and is not eligible for review freeze.
+The clean Node startup or protected launcher/service trust-root choice remains
+an explicit Product Owner decision.

@@ -255,6 +255,28 @@ external threat-model-B prerequisite, or a protected launcher/service becomes
 a newly authorized trust root. No twentieth candidate may be frozen by
 silently assuming either choice.
 
+The post-rejection remediation now returns `null` for every governed authority
+input when no supported pinned commit exists. Manifest, schema, and amendment
+governance parsing therefore cannot consume mutable working-tree bytes after a
+missing repository identity or unsupported object identity. The focused
+regression passes 3/3 and the full authority suites pass 106/106.
+
+Repeated-error prevention:
+
+- causal assumption: recording a sticky loader error was treated as equivalent
+  to preventing later authority reads;
+- missed signal: the `pinnedCommitH === null` branch still selected the mutable
+  file reader;
+- preventive instruction: no supported pinned commit means no governed
+  authority bytes may be read or parsed;
+- future check: missing-root and unsupported-object fixtures must assert null
+  manifest/schema/governance in addition to `STOP`;
+- durable surface: the loader branch, behavioral tests, this Packet, and the v2
+  authority wiki carry the invariant.
+
+This remediation is not a twentieth candidate. Candidate freeze remains
+blocked on an explicit startup trust-root decision.
+
 ## Boundaries
 
 `NO_W07_ACTIVATION / NO_PRODUCT_CODE / NO_PUSH / NOT_DEPLOYED /

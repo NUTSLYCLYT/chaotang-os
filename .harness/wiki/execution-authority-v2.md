@@ -136,6 +136,8 @@ authority Git 子进程不通过继承的 `PATH` 选择可执行文件；Linux �
 当前 authority commit 契约只接受 40 位 SHA-1 object identity；Git 成功返回其他长度或格式的
 object identity 时必须记录 `unsupported object identity` 并返回
 `INVALID_EXECUTION_AUTHORITY`，不能退回读取 mutable working-tree authority facts。
+无法取得受支持的 pinned commit 时，manifest、schema、amendment governance 与所有 evidence
+reader 必须直接返回 `null`；记录错误但继续解析 working-tree 字节不算 fail closed。
 
 ACTIVE W07 loader 在读取证据前采样 `HEAD` 与 `refs/heads/feature-chaotang-ext`，并在全部异步
 evidence、activation intent 和 history 验证完成后再次解析二者。最终采样不一致时，authorization

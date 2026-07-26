@@ -943,7 +943,7 @@ test('active authority cannot fall back to mutable files outside a Git identity'
     const loaded = await loadExecutionAuthorityV2(temporaryRoot);
     assert.ok(
       loaded.errors.some((error) =>
-        error.includes('initial Git identity is unverifiable'),
+        error.includes('root must own an exact .git identity'),
       ),
       loaded.errors.join('\n'),
     );
@@ -957,7 +957,7 @@ test('active authority cannot fall back to mutable files outside a Git identity'
     assert.equal(result.output.reason, 'INVALID_EXECUTION_AUTHORITY');
     assert.ok(
       result.output.errors.some((error) =>
-        error.includes('initial Git identity is unverifiable'),
+        error.includes('root must own an exact .git identity'),
       ),
       result.output.errors.join('\n'),
     );
@@ -1049,6 +1049,13 @@ test('unsupported Git object identity cannot fall back to mutable authority file
     );
 
     const loaded = await loadExecutionAuthorityV2(temporaryRoot);
+    assert.equal(
+      loaded.manifest,
+      null,
+      'unsupported Git identity must not parse mutable authority files',
+    );
+    assert.equal(loaded.schema, null);
+    assert.equal(loaded.amendmentGovernance, null);
     const result = executionAuthorityV2CommandResult(
       loaded,
       '--authorize',
