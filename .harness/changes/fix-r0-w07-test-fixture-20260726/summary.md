@@ -7,7 +7,7 @@
 | --- | --- |
 | Change ID | fix-r0-w07-test-fixture-20260726 |
 | 类型 | fix |
-| 状态 | VERIFIED_CANDIDATE / NOT_INTEGRATED |
+| 状态 | VERIFIED_COMPLETE_CANDIDATE / NOT_INTEGRATED |
 | Owner | Codex |
 | 创建日期 | 20260726 |
 

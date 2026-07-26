@@ -10,10 +10,12 @@
 | 三套 authority tests | 0 | 108/108 PASS | 完整 authority regression | isolated worktree，2026-07-26 |
 | `node scripts/harness-doctor.mjs` | 0 | 0 errors / 0 warnings | 根级治理结构 | isolated worktree，2026-07-26 |
 | v2 authorize W07 | 2 | `STOP / NO_ACTIVE_WORK_PACKAGE` | 未激活边界 | isolated worktree，2026-07-26 |
+| exact candidate 临时 EXT clone | 0 | 108/108；doctor 0/0 | 当前分支名为 `feature-chaotang-ext` | `/tmp/chaotang-w07-fixture-c83be194-0qCwMw`，2026-07-26 |
 
 ## 结果
 
-TDD RED 与 GREEN 已确认。exact candidate 的真实分支名上下文复验待运行。
+TDD RED 与 GREEN 已确认。exact candidate 在真实 `feature-chaotang-ext`
+分支名上下文复验通过。
 
 ## 未验证项
 
@@ -35,4 +37,4 @@ TDD RED 与 GREEN 已确认。exact candidate 的真实分支名上下文复验�
 
 ## 声明状态
 
-- `VERIFIED_PARTIAL / CANDIDATE_FREEZE_PENDING`
+- `VERIFIED_COMPLETE_CANDIDATE / NOT_INTEGRATED`

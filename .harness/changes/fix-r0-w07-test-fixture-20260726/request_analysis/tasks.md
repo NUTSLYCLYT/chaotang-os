@@ -19,5 +19,5 @@
 - [x] authority suite GREEN：108/108。
 - [x] root doctor：0 errors / 0 warnings。
 - [x] W07：`STOP / NO_ACTIVE_WORK_PACKAGE`。
-- [ ] exact candidate 在临时 `feature-chaotang-ext` clone 中复验。
+- [x] exact candidate 在临时 `feature-chaotang-ext` clone 中复验：108/108。
 - [ ] 独立只读审查与受控 EXT 整合。
