@@ -39,6 +39,8 @@ Product Owner 后续明确批准了 authority/profile TDD 实施。Event 1 只�
 - 将固定 review base 更新为 `b0df777a...`；
 - 实现 `EXT ref == pinned HEAD` 与 approved candidate 第一父祖先约束；
 - 添加旧 root、混合证据、ref drift、second-parent replay 的拒绝性测试；
+- 使 exact candidate 的全部 10 个路径进入显式 allowlist；
+- 拒绝影响 raw diff 的 repository-local config 与未绑定 `info/attributes`；
 - 同步本 wiki、任务和验证记录。
 
 Event 1 候选仍是非授权、静默状态；它只为 Event 2 reviewer overlay refresh 提供

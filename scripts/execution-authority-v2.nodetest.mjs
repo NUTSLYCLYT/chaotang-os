@@ -824,6 +824,50 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
       ['branch', '-f', 'feature-chaotang-ext', activationH],
       { cwd: temporaryRoot },
     );
+    await execFileAsync('git', ['config', '--local', 'diff.noprefix', 'true'], {
+      cwd: temporaryRoot,
+    });
+    loaded = await loadExecutionAuthorityV2(temporaryRoot);
+    assert.ok(
+      loaded.errors.some((error) =>
+        error.includes(
+          'reviewerReassignment: repository-local Git config affects authority diff',
+        ),
+      ),
+      loaded.errors.join('\n'),
+    );
+    assert.ok(
+      loaded.errors.some((error) =>
+        error.includes(
+          'active-packet: repository-local Git config affects authority diff',
+        ),
+      ),
+      loaded.errors.join('\n'),
+    );
+    await execFileAsync('git', ['config', '--local', '--unset', 'diff.noprefix'], {
+      cwd: temporaryRoot,
+    });
+    await writeRepositoryFile(
+      temporaryRoot,
+      '.git/info/attributes',
+      '*.mjs -diff\n',
+    );
+    loaded = await loadExecutionAuthorityV2(temporaryRoot);
+    assert.ok(
+      loaded.errors.some((error) =>
+        error.includes(
+          'reviewerReassignment: Git info attributes affect authority diff',
+        ),
+      ),
+      loaded.errors.join('\n'),
+    );
+    assert.ok(
+      loaded.errors.some((error) =>
+        error.includes('active-packet: Git info attributes affect authority diff'),
+      ),
+      loaded.errors.join('\n'),
+    );
+    await rm(join(temporaryRoot, '.git/info/attributes'));
     loaded = await loadExecutionAuthorityV2(temporaryRoot);
     assert.deepEqual(loaded.errors, []);
     const synchronousBypass = executionAuthorityV2CommandResult(
@@ -1023,6 +1067,33 @@ test('W07 evidence rejects the legacy W07 root and mixed-root identities', () =>
     ).some((error) =>
       error.includes('owner activationIntentPath must match active-packet profile'),
     ),
+  );
+});
+
+test('W07 profile accepts every path in the exact Event 1 candidate', () => {
+  const fixture = w07EvidenceDocuments();
+  const governance = validGovernance();
+  governance.reviewerReassignment = validReviewerReassignment();
+  fixture.review.changedPaths = [
+    '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/ci_result/ci_summary.md',
+    '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/evidence_inventory.md',
+    '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/request_analysis/spec.md',
+    '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/request_analysis/tasks.md',
+    '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/summary.md',
+    '.harness/wiki/execution-authority-v2.md',
+    'docs/superpowers/plans/2026-07-27-r0-w07-exact-h-activation-b0df777a.md',
+    'docs/superpowers/specs/2026-07-27-r0-w07-exact-h-activation-b0df777a-design.md',
+    'scripts/execution-authority-v2.nodetest.mjs',
+    'scripts/lib/execution-authority-v2.mjs',
+  ];
+  assert.deepEqual(
+    validateExecutionAuthorityV2Evidence(
+      fixture.manifest,
+      governance,
+      fixture.owner,
+      fixture.review,
+    ),
+    [],
   );
 });
 

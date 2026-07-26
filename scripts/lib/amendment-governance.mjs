@@ -607,6 +607,93 @@ function reviewerReassignmentGitOptions(root, extra = {}) {
   };
 }
 
+const ALLOWED_LOCAL_CORE_CONFIG = new Set([
+  'core.repositoryformatversion',
+  'core.filemode',
+  'core.bare',
+  'core.logallrefupdates',
+  'core.worktree',
+]);
+
+function localGitConfigAffectsDiff(key) {
+  const normalized = key.toLowerCase();
+  return (
+    normalized.startsWith('diff.') ||
+    normalized.startsWith('include.') ||
+    normalized.startsWith('includeif.') ||
+    normalized === 'color.ui' ||
+    normalized === 'color.diff' ||
+    /^submodule\..+\.ignore$/u.test(normalized) ||
+    (normalized.startsWith('core.') &&
+      !ALLOWED_LOCAL_CORE_CONFIG.has(normalized))
+  );
+}
+
+export async function verifyRepositoryLocalGitDiffEnvironment(
+  root,
+  label = 'authority',
+) {
+  const errors = [];
+  try {
+    const [
+      { stdout: configSource },
+      { stdout: gitDirSource },
+      { stdout: commonDirSource },
+    ] = await Promise.all([
+      execFileAsync(
+        'git',
+        reviewerReassignmentGitArgs(
+          'config',
+          '--local',
+          '--name-only',
+          '--null',
+          '--list',
+        ),
+        reviewerReassignmentGitOptions(root),
+      ),
+      execFileAsync(
+        'git',
+        reviewerReassignmentGitArgs('rev-parse', '--git-dir'),
+        reviewerReassignmentGitOptions(root),
+      ),
+      execFileAsync(
+        'git',
+        reviewerReassignmentGitArgs('rev-parse', '--git-common-dir'),
+        reviewerReassignmentGitOptions(root),
+      ),
+    ]);
+    const unsafeConfig = configSource
+      .split('\0')
+      .filter(Boolean)
+      .filter(localGitConfigAffectsDiff);
+    if (unsafeConfig.length > 0) {
+      errors.push(
+        `${label}: repository-local Git config affects authority diff: ${unsafeConfig.join(', ')}`,
+      );
+    }
+
+    const metadataRoots = new Set(
+      [gitDirSource, commonDirSource].map((source) => source.trim()),
+    );
+    for (const metadataRoot of metadataRoots) {
+      const resolvedRoot = isAbsolute(metadataRoot)
+        ? metadataRoot
+        : join(root, metadataRoot);
+      try {
+        await lstat(join(resolvedRoot, 'info', 'attributes'));
+        errors.push(`${label}: Git info attributes affect authority diff`);
+      } catch (cause) {
+        if (cause.code !== 'ENOENT') throw cause;
+      }
+    }
+  } catch (cause) {
+    errors.push(
+      `${label}: Git diff environment is unverifiable: ${cause.code ?? cause.message}`,
+    );
+  }
+  return [...new Set(errors)];
+}
+
 export function reviewerReassignmentDiffArgs(baseH, candidateH) {
   return [
     '--no-replace-objects',
@@ -1204,6 +1291,12 @@ export async function verifyAmendmentApprovalEvidenceFiles(
     overlay !== null &&
     overlay !== undefined
   ) {
+    errors.push(
+      ...(await verifyRepositoryLocalGitDiffEnvironment(
+        root,
+        'reviewerReassignment',
+      )),
+    );
     if (!hasExactKeys(overlay, REVIEWER_REASSIGNMENT_KEYS)) return errors;
     const reviewPackageSource = await verifyEvidenceFile(
       overlay.reviewPackagePath,

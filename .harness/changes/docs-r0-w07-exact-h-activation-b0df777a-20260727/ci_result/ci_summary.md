@@ -20,7 +20,7 @@ R0-W07 = STOP / NO_ACTIVE_WORK_PACKAGE
 | execution authority v1 | `STOP / AMENDMENT_APPROVAL_REQUIRED` |
 | execution authority v2 check | `VALID_STRUCTURE` |
 | R0-W07 authorize | `STOP / NO_ACTIVE_WORK_PACKAGE` |
-| authority + amendment tests | PASS：`109/109` |
+| authority + amendment tests | PASS：`110/110` |
 | root harness doctor | PASS：`0 errors / 0 warnings` |
 | backend harness doctor | PASS：`0 errors / 0 warnings` |
 | diff check | PASS |
@@ -77,11 +77,11 @@ SHA-256 为
 
 ## Event 1 Fresh Verification
 
-验证时间：`2026-07-27T02:27:49+08:00`
+验证时间：`2026-07-27T02:46:31+08:00`
 
 ```text
 node --test scripts/execution-authority.nodetest.mjs scripts/r0-amendment-check.nodetest.mjs scripts/execution-authority-v2.nodetest.mjs
-  exit 0 / 109 passed / 0 failed
+  exit 0 / 110 passed / 0 failed
 node scripts/execution-authority.mjs --check
   exit 0 / VALID_INACTIVE_GUARD
 node scripts/execution-authority.mjs --authorize
@@ -102,8 +102,9 @@ git diff --check
 ```
 
 Changed paths are limited to the W07 Packet status records, authority v2 wiki,
-authority v2 runtime, and its Node test. The v2 manifest, schema, product code,
-deployment state, database, and listener state are unchanged.
+authority v2 runtime, amendment-governance shared diff guard, and the Node test.
+The v2 manifest, schema, product code, deployment state, database, and listener
+state are unchanged.
 
 ## 尚未生成
 

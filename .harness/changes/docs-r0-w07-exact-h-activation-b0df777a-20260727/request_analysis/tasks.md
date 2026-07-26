@@ -24,6 +24,8 @@
   `EXT ref == pinned HEAD`、approved candidate first-parent ancestry。
 - [x] 将 W07 review base 固定为 `b0df777a...`。
 - [x] 固定测试 evidence 生成器使用 authority 的 `/usr/bin/git` 外部信任根。
+- [x] 补齐 exact Event 1 candidate 的 10 路径 allowlist 回归。
+- [x] 拒绝影响 exact diff 的 repository-local config 与 `info/attributes`。
 - [x] 运行 authority、amendment、doctor 全套回归。
 - [x] 先提交 authority candidate，再冻结 exact H/tree，保持 W07 STOP。
 

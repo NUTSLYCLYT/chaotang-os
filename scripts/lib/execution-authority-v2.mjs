@@ -10,6 +10,7 @@ import {
   validateAmendmentGovernanceRegistration,
   validateReviewerReassignmentOverlay,
   verifyAmendmentApprovalEvidenceFiles,
+  verifyRepositoryLocalGitDiffEnvironment,
   verifyReviewerReassignmentActivationHistory,
 } from './amendment-governance.mjs';
 
@@ -140,13 +141,17 @@ const ACTIVE_PACKET_PROFILES = Object.freeze({
       `${W07_CHANGE_ROOT}/activation_intent/r0-w07-activation-intent.json`,
       `${W07_CHANGE_ROOT}/ci_result/ci_summary.md`,
       `${W07_CHANGE_ROOT}/codex_review/exact-h-final.md`,
+      `${W07_CHANGE_ROOT}/evidence_inventory.md`,
       `${W07_CHANGE_ROOT}/owner_approval/exact-h-approval.md`,
+      `${W07_CHANGE_ROOT}/request_analysis/spec.md`,
       `${W07_CHANGE_ROOT}/request_analysis/tasks.md`,
       `${W07_CHANGE_ROOT}/summary.md`,
       '.harness/contracts/execution-authority-v2.schema.json',
       '.harness/manifest/execution-authority.v2.json',
       '.harness/wiki/execution-authority-v2.md',
+      'docs/superpowers/plans/2026-07-27-r0-w07-exact-h-activation-b0df777a.md',
       'docs/superpowers/plans/2026-07-26-r0-reviewer-reassignment.md',
+      'docs/superpowers/specs/2026-07-27-r0-w07-exact-h-activation-b0df777a-design.md',
       'docs/superpowers/specs/2026-07-26-r0-reviewer-reassignment-design.md',
       'scripts/execution-authority-v2.mjs',
       'scripts/execution-authority-v2.nodetest.mjs',
@@ -389,6 +394,12 @@ async function verifyActivePacketGitIdentity(
   const profile = ACTIVE_PACKET_PROFILES[manifest.activeWorkPackage];
   if (profile?.exactGitRange !== true) return;
   try {
+    errors.push(
+      ...(await verifyRepositoryLocalGitDiffEnvironment(
+        root,
+        'active-packet',
+      )),
+    );
     const [
       { stdout: refH },
       { stdout: effectiveH },
