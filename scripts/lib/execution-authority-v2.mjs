@@ -138,30 +138,20 @@ const ACTIVE_PACKET_PROFILES = Object.freeze({
       'NO_PRODUCTION_CLAIM',
     ]),
     allowedChangedPaths: new Set([
-      `${W07_CHANGE_ROOT}/activation_intent/r0-w07-activation-intent.json`,
       `${W07_CHANGE_ROOT}/ci_result/ci_summary.md`,
-      `${W07_CHANGE_ROOT}/codex_review/exact-h-final.md`,
       `${W07_CHANGE_ROOT}/evidence_inventory.md`,
-      `${W07_CHANGE_ROOT}/owner_approval/exact-h-approval.md`,
       `${W07_CHANGE_ROOT}/request_analysis/spec.md`,
       `${W07_CHANGE_ROOT}/request_analysis/tasks.md`,
       `${W07_CHANGE_ROOT}/summary.md`,
-      '.harness/contracts/execution-authority-v2.schema.json',
-      '.harness/manifest/execution-authority.v2.json',
       '.harness/wiki/execution-authority-v2.md',
       'docs/superpowers/plans/2026-07-27-r0-w07-exact-h-activation-b0df777a.md',
-      'docs/superpowers/plans/2026-07-26-r0-reviewer-reassignment.md',
       'docs/superpowers/specs/2026-07-27-r0-w07-exact-h-activation-b0df777a-design.md',
-      'docs/superpowers/specs/2026-07-26-r0-reviewer-reassignment-design.md',
-      'scripts/execution-authority-v2.mjs',
       'scripts/execution-authority-v2.nodetest.mjs',
       'scripts/lib/amendment-governance.mjs',
       'scripts/lib/execution-authority-v2.mjs',
       'scripts/r0-amendment-check.nodetest.mjs',
     ]),
-    allowedChangedPrefixes: Object.freeze([
-      '.harness/changes/docs-r0-reviewer-reassignment-20260726/',
-    ]),
+    exactChangedPaths: true,
     exactGitRange: true,
     requiredCommands: Object.freeze([
       'node --test scripts/execution-authority.nodetest.mjs scripts/r0-amendment-check.nodetest.mjs scripts/execution-authority-v2.nodetest.mjs',
@@ -975,6 +965,15 @@ export function validateExecutionAuthorityV2Evidence(
     )
   ) {
     errors.push('review changedPaths must be a non-empty list of safe repository paths');
+  } else if (profile.exactChangedPaths === true) {
+    if (
+      !sameArray(
+        [...reviewEvidence.changedPaths].sort(),
+        [...profile.allowedChangedPaths].sort(),
+      )
+    ) {
+      errors.push('review changedPaths must exactly match the Event 1 candidate');
+    }
   } else if (
     reviewEvidence.changedPaths.some((path) => !profileAllowsChangedPath(profile, path))
   ) {

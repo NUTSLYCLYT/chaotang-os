@@ -27,7 +27,7 @@ schema/manifest/resolver/CLI/tests，专门回答一个更窄的问题：
 | --- | --- |
 | `INVALID_EXECUTION_AUTHORITY` | manifest/schema 结构或字段格式不合法 |
 | `AMENDMENT_DIGEST_DRIFT` | manifest 的 `approvedSourceDigest` 与 `amendmentGovernance` 记录的不一致，或治理状态不是 `APPROVED_FOR_W01` |
-| `EFFECTIVE_BASE_MISMATCH` | manifest 的 `effectiveBase.sha` 与治理记录的基线不一致 |
+| `EFFECTIVE_BASE_MISMATCH` | manifest 的 `effectiveBase.sha` 与当前批准证据的 `candidateH` 不一致 |
 | `REVIEW_NOT_GO` | 批准证据里的三路 review verdict 不是 `GO` |
 | `WORK_PACKAGE_ARGUMENT_REQUIRED` | `--authorize` 未传 `--work-package` |
 | `UNKNOWN_WORK_PACKAGE_FORMAT` | 传入的包 ID 不匹配 `^R0-W0[0-9]$`（挡旧编号如 `P12`/`PKT-04`/`S3`） |
@@ -106,7 +106,9 @@ system attributes 通过 `GIT_ATTR_NOSYSTEM=1` 禁用，用户 attributes 通过
 mutable commit-graph acceleration；commit/tree/parent 事实直接来自对象数据库。
 ACTIVE W07 exact-range 校验还会运行 hardened `git fsck --full --strict`，拒绝
 object hash/path 不一致；repository alternates、HTTP alternates、partial-clone/promisor
-配置均禁止，不能把未绑定对象源引入 authority。
+配置和 `.promisor` pack markers 均禁止，不能把未绑定对象源引入 authority。
+Event 1 review 的 changed paths 必须与冻结的 12 条候选路径完全相等，不接受
+额外 allowlist 路径或目录前缀扩张。
 
 ## 独立审查人范围化修订
 

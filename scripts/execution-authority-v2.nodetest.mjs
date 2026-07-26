@@ -20,6 +20,9 @@ import { deflateSync } from 'node:zlib';
 
 import * as executionAuthorityV2Module from './lib/execution-authority-v2.mjs';
 import {
+  verifyRepositoryLocalGitDiffEnvironment,
+} from './lib/amendment-governance.mjs';
+import {
   EXECUTION_AUTHORITY_V2_PATH,
   EXECUTION_AUTHORITY_V2_SCHEMA_PATH,
   EXPECTED_EXECUTION_AUTHORITY_V2_REGISTRATION,
@@ -51,6 +54,20 @@ const hardenedGitEnvironment = {
   GIT_OPTIONAL_LOCKS: '0',
   LC_ALL: 'C',
 };
+const W07_EVENT1_CHANGED_PATHS = Object.freeze([
+  '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/ci_result/ci_summary.md',
+  '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/evidence_inventory.md',
+  '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/request_analysis/spec.md',
+  '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/request_analysis/tasks.md',
+  '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/summary.md',
+  '.harness/wiki/execution-authority-v2.md',
+  'docs/superpowers/plans/2026-07-27-r0-w07-exact-h-activation-b0df777a.md',
+  'docs/superpowers/specs/2026-07-27-r0-w07-exact-h-activation-b0df777a-design.md',
+  'scripts/execution-authority-v2.nodetest.mjs',
+  'scripts/lib/amendment-governance.mjs',
+  'scripts/lib/execution-authority-v2.mjs',
+  'scripts/r0-amendment-check.nodetest.mjs',
+]);
 const liveAmendmentGovernance = JSON.parse(
   await readFile(join(root, '.harness/manifest/project-harness.json'), 'utf8'),
 ).amendmentGovernance;
@@ -398,19 +415,7 @@ function w07EvidenceDocuments() {
     ownerApprovalPath: manifest.approvalEvidence.ownerApprovalPath,
     activationIntentPath: owner.activationIntentPath,
     reviewPackagePath: activationIntent.reviewPackagePath,
-    changedPaths: [
-      `${changeRoot}/activation_intent/r0-w07-activation-intent.json`,
-      `${changeRoot}/ci_result/ci_summary.md`,
-      `${changeRoot}/codex_review/exact-h-final.md`,
-      `${changeRoot}/owner_approval/exact-h-approval.md`,
-      `${changeRoot}/request_analysis/tasks.md`,
-      `${changeRoot}/summary.md`,
-      '.harness/contracts/execution-authority-v2.schema.json',
-      '.harness/manifest/execution-authority.v2.json',
-      '.harness/wiki/execution-authority-v2.md',
-      'scripts/execution-authority-v2.nodetest.mjs',
-      'scripts/lib/execution-authority-v2.mjs',
-    ],
+    changedPaths: [...W07_EVENT1_CHANGED_PATHS],
     commands: [
       'node --test scripts/execution-authority.nodetest.mjs scripts/r0-amendment-check.nodetest.mjs scripts/execution-authority-v2.nodetest.mjs',
       'node scripts/execution-authority.mjs --authorize',
@@ -606,27 +611,14 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
       ],
       { cwd: temporaryRoot },
     );
-    const protectedPaths = [
-      EXECUTION_AUTHORITY_V2_SCHEMA_PATH,
-      'scripts/execution-authority-v2.mjs',
-      'scripts/lib/amendment-governance.mjs',
-      'scripts/lib/execution-authority-v2.mjs',
-    ];
-    const nonUtf8Path =
-      '.harness/changes/docs-r0-reviewer-reassignment-20260726/non-utf8-review-byte.txt';
-    for (const path of protectedPaths) {
+    for (const path of W07_EVENT1_CHANGED_PATHS) {
       await writeRepositoryFile(
         temporaryRoot,
         path,
-        await readFile(join(root, path), 'utf8'),
+        await readFile(join(root, path)),
       );
     }
-    await writeRepositoryFile(
-      temporaryRoot,
-      nonUtf8Path,
-      Buffer.from([0x80, 0x0a]),
-    );
-    await execFileAsync('git', ['add', ...protectedPaths, nonUtf8Path], {
+    await execFileAsync('git', ['add', ...W07_EVENT1_CHANGED_PATHS], {
       cwd: temporaryRoot,
     });
     await execFileAsync('git', ['commit', '-qm', 'reviewed authority candidate'], {
@@ -965,6 +957,27 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
       loaded.errors.join('\n'),
     );
     await rm(join(temporaryRoot, '.git/objects/info/alternates'));
+    await writeRepositoryFile(
+      temporaryRoot,
+      '.git/objects/pack/pack-untrusted.promisor',
+      '',
+    );
+    loaded = await loadExecutionAuthorityV2(temporaryRoot);
+    assert.ok(
+      loaded.errors.some((error) =>
+        error.includes('reviewerReassignment: Git promisor pack markers are forbidden'),
+      ),
+      loaded.errors.join('\n'),
+    );
+    assert.ok(
+      loaded.errors.some((error) =>
+        error.includes('active-packet: Git promisor pack markers are forbidden'),
+      ),
+      loaded.errors.join('\n'),
+    );
+    await rm(
+      join(temporaryRoot, '.git/objects/pack/pack-untrusted.promisor'),
+    );
     const { stdout: trustedBlobSource } = await execFileAsync(
       'git',
       ['rev-parse', `HEAD:scripts/lib/execution-authority-v2.mjs`],
@@ -1219,20 +1232,7 @@ test('W07 profile accepts every path in the exact Event 1 candidate', () => {
   const fixture = w07EvidenceDocuments();
   const governance = validGovernance();
   governance.reviewerReassignment = validReviewerReassignment();
-  fixture.review.changedPaths = [
-    '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/ci_result/ci_summary.md',
-    '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/evidence_inventory.md',
-    '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/request_analysis/spec.md',
-    '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/request_analysis/tasks.md',
-    '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/summary.md',
-    '.harness/wiki/execution-authority-v2.md',
-    'docs/superpowers/plans/2026-07-27-r0-w07-exact-h-activation-b0df777a.md',
-    'docs/superpowers/specs/2026-07-27-r0-w07-exact-h-activation-b0df777a-design.md',
-    'scripts/execution-authority-v2.nodetest.mjs',
-    'scripts/lib/amendment-governance.mjs',
-    'scripts/lib/execution-authority-v2.mjs',
-    'scripts/r0-amendment-check.nodetest.mjs',
-  ];
+  fixture.review.changedPaths = [...W07_EVENT1_CHANGED_PATHS];
   assert.deepEqual(
     validateExecutionAuthorityV2Evidence(
       fixture.manifest,
@@ -1241,6 +1241,26 @@ test('W07 profile accepts every path in the exact Event 1 candidate', () => {
       fixture.review,
     ),
     [],
+  );
+});
+
+test('W07 profile rejects paths outside the exact Event 1 candidate', () => {
+  const fixture = w07EvidenceDocuments();
+  const governance = validGovernance();
+  governance.reviewerReassignment = validReviewerReassignment();
+  fixture.review.changedPaths.push(
+    '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/owner_approval/exact-h-approval.md',
+  );
+
+  assert.ok(
+    validateExecutionAuthorityV2Evidence(
+      fixture.manifest,
+      governance,
+      fixture.owner,
+      fixture.review,
+    ).some((error) =>
+      error.includes('review changedPaths must exactly match the Event 1 candidate'),
+    ),
   );
 });
 
@@ -1471,6 +1491,62 @@ test('authority Git commands disable the mutable commit-graph acceleration', asy
   ]) {
     const source = await readFile(join(root, path), 'utf8');
     assert.match(source, /'core\.commitGraph=false'/u);
+  }
+});
+
+test('authority rejects HTTP alternates, promisor configuration, and promisor pack markers', async () => {
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'chaotang-v2-git-metadata-'));
+  try {
+    await execFileAsync('git', ['init', '-q'], { cwd: temporaryRoot });
+    await writeRepositoryFile(
+      temporaryRoot,
+      '.git/objects/info/http-alternates',
+      'https://example.invalid/objects\n',
+    );
+    await writeRepositoryFile(
+      temporaryRoot,
+      '.git/objects/pack/pack-untrusted.promisor',
+      '',
+    );
+    await execFileAsync(
+      'git',
+      ['config', '--local', 'remote.origin.promisor', 'true'],
+      { cwd: temporaryRoot },
+    );
+    await execFileAsync(
+      'git',
+      ['config', '--local', 'remote.origin.partialCloneFilter', 'blob:none'],
+      { cwd: temporaryRoot },
+    );
+
+    const errors = await verifyRepositoryLocalGitDiffEnvironment(
+      temporaryRoot,
+      'test-authority',
+    );
+    assert.ok(
+      errors.some((error) =>
+        error.includes('Git HTTP object alternates are forbidden'),
+      ),
+      errors.join('\n'),
+    );
+    assert.ok(
+      errors.some((error) =>
+        error.includes('Git promisor pack markers are forbidden'),
+      ),
+      errors.join('\n'),
+    );
+    assert.ok(
+      errors.some((error) => error.includes('remote.origin.promisor')),
+      errors.join('\n'),
+    );
+    assert.ok(
+      errors.some((error) =>
+        error.includes('remote.origin.partialclonefilter'),
+      ),
+      errors.join('\n'),
+    );
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
   }
 });
 

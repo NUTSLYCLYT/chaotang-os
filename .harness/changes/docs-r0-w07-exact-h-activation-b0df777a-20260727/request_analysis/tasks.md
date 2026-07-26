@@ -30,7 +30,9 @@
 - [x] 禁用 system/user attributes，并在 diff 后重验 repository-local metadata。
 - [x] 用 `GIT_ATTR_SOURCE=candidateH` 将 `.gitattributes` 绑定到候选树。
 - [x] 用 `core.commitGraph=false` 禁用未绑定的 commit-graph acceleration。
-- [x] 对 ACTIVE W07 运行 hardened fsck，并拒绝 alternates/partial clone。
+- [x] 对 ACTIVE W07 运行 hardened fsck，并拒绝 alternates、partial clone
+  配置与 `.promisor` pack markers。
+- [x] 将 Event 1 review path set 收紧为冻结的 12 条路径完全相等。
 - [x] 运行 authority、amendment、doctor 全套回归。
 - [x] 先提交 authority candidate，再冻结 exact H/tree，保持 W07 STOP。
 

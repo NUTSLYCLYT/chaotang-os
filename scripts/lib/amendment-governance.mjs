@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { constants as fsConstants } from 'node:fs';
-import { lstat, open, realpath } from 'node:fs/promises';
+import { lstat, open, readdir, realpath } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -705,6 +705,14 @@ export async function verifyRepositoryLocalGitDiffEnvironment(
         } catch (cause) {
           if (cause.code !== 'ENOENT') throw cause;
         }
+      }
+      try {
+        const packEntries = await readdir(join(resolvedRoot, 'objects', 'pack'));
+        if (packEntries.some((entry) => entry.endsWith('.promisor'))) {
+          errors.push(`${label}: Git promisor pack markers are forbidden`);
+        }
+      } catch (cause) {
+        if (cause.code !== 'ENOENT') throw cause;
       }
     }
   } catch (cause) {

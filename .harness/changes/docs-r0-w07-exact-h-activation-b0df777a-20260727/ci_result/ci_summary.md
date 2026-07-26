@@ -77,11 +77,11 @@ SHA-256 为
 
 ## Event 1 Fresh Verification
 
-验证时间：`2026-07-27T03:43:54+08:00`
+验证时间：`2026-07-27T04:03:45+08:00`
 
 ```text
 node --test scripts/execution-authority.nodetest.mjs scripts/r0-amendment-check.nodetest.mjs scripts/execution-authority-v2.nodetest.mjs
-  exit 0 / 111 passed / 0 failed
+  exit 0 / 113 passed / 0 failed
 node scripts/execution-authority.mjs --check
   exit 0 / VALID_INACTIVE_GUARD
 node scripts/execution-authority.mjs --authorize
