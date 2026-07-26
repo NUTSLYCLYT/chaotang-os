@@ -505,6 +505,16 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
     await execFileAsync('git', ['config', 'user.email', 'r0@example.invalid'], {
       cwd: temporaryRoot,
     });
+    await execFileAsync(
+      'git',
+      [
+        'checkout',
+        '-q',
+        '--detach',
+        '55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca',
+      ],
+      { cwd: temporaryRoot },
+    );
     const protectedPaths = [
       EXECUTION_AUTHORITY_V2_SCHEMA_PATH,
       'scripts/execution-authority-v2.mjs',
