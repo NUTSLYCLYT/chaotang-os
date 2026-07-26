@@ -136,6 +136,10 @@
   review because historical stages still appeared under current state.
 - [x] Establish one current-state block and move prior stages into an explicit
   historical timeline.
+- [x] Reject registration candidate `311555d0` after two NO_GO reviews.
+- [x] Remove the final current-state sentence from the historical timeline.
+- [x] Apply the established scoped binary attribute to immutable `.diff`
+  evidence so the required ranged diff check can evaluate the real candidate.
 - [ ] Freeze and independently review the quiescent atomic registration
   candidate before controlled EXT integration.
 

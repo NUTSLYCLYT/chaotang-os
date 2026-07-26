@@ -23,9 +23,10 @@ governance branch. They are not integrated into local EXT. The effective
 reviewer remains `Claude Code`, and W07 remains
 `STOP / NO_ACTIVE_WORK_PACKAGE`.
 
-Registration candidates `b781166a` and `7075c126` are rejected after mixed
-reviews. The committed state containing this block is their successor
-quiescent registration candidate and remains pending independent acceptance.
+Registration candidates `b781166a`, `7075c126`, and `311555d0` are rejected
+after mixed reviews. The committed state containing this block is their
+successor quiescent registration candidate and remains pending independent
+acceptance.
 
 ## Historical Timeline
 
@@ -52,8 +53,7 @@ The remediation fails closed unless a W07-only overlay binds:
 
 At that stage, the v2 loader was required to validate the overlay and all
 evidence before any authority decision; no overlay had yet been registered in
-`project-harness.json`. The current local registration candidate now contains
-the approved overlay, but local EXT does not.
+`project-harness.json`.
 
 Candidate `524c7f15c83570bd3662f8d6785a0eb033b4c550` was also rejected by
 two fresh sessions. Its H/tree/package digest are invalid for approval. The
@@ -382,6 +382,12 @@ Registration candidate `7075c126db558e4367ca4f1a4168071bcb8ebc65`
 also received one `NO_GO / MEDIUM 1` and one `GO`. It was rejected because the
 document still placed historical stages under `Current State` and retained
 historical present-tense wording.
+
+Registration candidate `311555d0f076eba24118777dd4430a56ba4d29c4`
+was rejected by both reviews. Historical text still carried one current-state
+sentence, and the immutable text review package caused the required ranged
+`git diff --check` to fail. The successor removes the duplicate status and
+uses the established scoped binary attribute for exact `.diff` evidence.
 
 ## Boundaries
 

@@ -1,16 +1,14 @@
 # CI Summary: R0 Reviewer Reassignment
 
-## Status
+## Evidence Status
 
 `QUIESCENT_REGISTRATION_CANDIDATE / OWNER_APPROVED / NOT_AUTHORIZED`
 
-## Current State
+## Current-State Pointer
 
-The approved W07-only overlay exists only on this isolated governance branch.
-It is not integrated into local EXT. Registration candidates `b781166a` and
-`7075c126` are rejected. W07 remains `STOP / NO_ACTIVE_WORK_PACKAGE`, and
-the committed state containing this block is their successor quiescent
-registration candidate pending independent acceptance.
+The sole current-state source is the `Current State` section in `summary.md`.
+This file records verification history only and does not restate current
+authority or integration status.
 
 ## Historical Verification Timeline
 
@@ -805,3 +803,21 @@ The candidate was rejected because historical stages remained under
 `Current State` and retained present-tense status wording. The successor was
 required to use one current-state block and label the remaining evidence as a
 historical verification timeline.
+
+## Third Registration Candidate Rejected
+
+```text
+candidate = 311555d0f076eba24118777dd4430a56ba4d29c4
+tree = b9bed03155fca5bc11b809f90618dfcf67fb7356
+pass 1 session = 019f9eb1-f187-7493-8b88-a368fd65beb4
+pass 1 = NO_GO / HIGH 0 / MEDIUM 2
+pass 2 session = 019f9eb2-1bbb-7322-9eb9-66d96481ef10
+pass 2 = NO_GO / HIGH 0 / MEDIUM 1
+combined = NO_GO
+```
+
+Both reviews found a duplicate current-state sentence in the historical
+timeline. Pass 1 also found that the immutable text review package made the
+required ranged `git diff --check` fail. The successor removes the duplicate
+status and uses the existing repository pattern of a scoped `*.diff binary`
+attribute; the package bytes and digest remain unchanged.
