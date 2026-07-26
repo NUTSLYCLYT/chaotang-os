@@ -6,7 +6,8 @@
 - [x] Set W06 to `MERGED_AND_VERIFIED`.
 - [x] Set `activeWorkPackage=null`.
 - [x] Verify W06 and W07 both stop with `NO_ACTIVE_WORK_PACKAGE`.
-- [ ] Run complete authority and harness verification.
+- [x] Run complete authority and harness verification: `62 passed`, both
+  doctors clean.
 - [ ] Receive independent read-only GO.
 - [ ] Record `VERIFIED_COMPLETE / ACCEPTED_NOT_INTEGRATED`.
 - [ ] Request explicit local EXT integration approval.

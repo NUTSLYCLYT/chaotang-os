@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Change ID | `fix-r0-w06-quiescent-closeout-20260726` |
+| Change ID | fix-r0-w06-quiescent-closeout-20260726 |
 | Type | `fix` |
 | Status | `IMPLEMENTER_VERIFIED / INDEPENDENT_REVIEW_PENDING` |
 | Owner | EXT Master Governance |

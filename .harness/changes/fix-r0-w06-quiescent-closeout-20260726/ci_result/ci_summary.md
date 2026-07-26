@@ -41,12 +41,16 @@ No other authority-v2 test failed.
 | Check | Result |
 | --- | --- |
 | Authority-v2 focused suite | `52 passed / 0 failed` |
+| Complete v1/v2 authority suite | `62 passed / 0 failed` |
 | v1 integrity | `VALID_INACTIVE_GUARD` |
 | v2 structure | `VALID_STRUCTURE` |
 | R0-W06 authorize | exit 2, `STOP / NO_ACTIVE_WORK_PACKAGE` |
 | R0-W07 authorize | exit 2, `STOP / NO_ACTIVE_WORK_PACKAGE` |
 | Active ledger entries | `0` |
 | W06 ledger state | `MERGED_AND_VERIFIED` |
+| Root harness doctor | `0 errors / 0 warnings` |
+| Backend harness doctor | `0 errors / 0 warnings` |
+| Baseline diff check | PASS |
 
 The W06 approval and review evidence files and manifest digests were not
 modified. The loader's real-repository digest test remains GREEN.
