@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `EIGHTEENTH_REMEDIATION_PENDING / SEVENTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
+| Status | `EIGHTEENTH_CANDIDATE_PRE_FREEZE / SEVENTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -215,6 +215,13 @@ parent repository, reach `ELIGIBLE`, and convert that result to `GO`.
 The eighteenth remediation must require the exact authority root to own a Git
 identity, prevent ancestor discovery, and bind `git --show-toplevel` exactly to
 that root before reading any authority facts.
+
+The eighteenth remediation now rejects a missing, symbolic, or unsupported
+root `.git` marker, sets `GIT_CEILING_DIRECTORIES` to the exact root for every
+authority Git subprocess, and requires the canonical `--show-toplevel` path to
+equal the canonical authority root. A real nested-parent fixture observes the
+historical replay as RED and verifies `STOP / INVALID_EXECUTION_AUTHORITY`
+after remediation.
 
 ## Boundaries
 

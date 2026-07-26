@@ -191,6 +191,7 @@ function authorityGitOptions(root, extra = {}) {
       ...env,
       GIT_CONFIG_NOSYSTEM: '1',
       GIT_CONFIG_GLOBAL: '/dev/null',
+      GIT_CEILING_DIRECTORIES: root,
       GIT_OPTIONAL_LOCKS: '0',
       LC_ALL: 'C',
     },
@@ -199,22 +200,49 @@ function authorityGitOptions(root, extra = {}) {
 }
 
 async function capturePinnedAuthorityCommit(root, errors) {
+  let gitMarker;
   try {
-    await lstat(join(root, '.git'));
+    gitMarker = await lstat(join(root, '.git'));
   } catch (cause) {
-    if (cause.code === 'ENOENT') return null;
+    if (cause.code === 'ENOENT') {
+      errors.push('execution authority root must own an exact .git identity');
+      return null;
+    }
     errors.push(
       `execution authority repository identity is unverifiable: ${cause.code ?? cause.message}`,
     );
     return null;
   }
+  if (
+    gitMarker.isSymbolicLink() ||
+    (!gitMarker.isDirectory() && !gitMarker.isFile())
+  ) {
+    errors.push('execution authority root .git identity has an invalid file type');
+    return null;
+  }
   try {
-    const { stdout } = await execFileAsync(
-      'git',
-      authorityGitArgs('rev-parse', 'HEAD^{commit}'),
-      authorityGitOptions(root),
-    );
-    const headH = stdout.trim();
+    const [{ stdout: headSource }, { stdout: topLevelSource }] =
+      await Promise.all([
+        execFileAsync(
+          'git',
+          authorityGitArgs('rev-parse', 'HEAD^{commit}'),
+          authorityGitOptions(root),
+        ),
+        execFileAsync(
+          'git',
+          authorityGitArgs('rev-parse', '--show-toplevel'),
+          authorityGitOptions(root),
+        ),
+      ]);
+    const [canonicalRoot, canonicalTopLevel] = await Promise.all([
+      realpath(root),
+      realpath(topLevelSource.trim()),
+    ]);
+    if (canonicalTopLevel !== canonicalRoot) {
+      errors.push('execution authority Git top-level must equal the exact authority root');
+      return null;
+    }
+    const headH = headSource.trim();
     return HEX40_PATTERN.test(headH) ? headH : null;
   } catch (cause) {
     errors.push(

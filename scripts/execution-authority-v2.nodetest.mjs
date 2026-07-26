@@ -414,6 +414,7 @@ async function writeRepositoryFile(temporaryRoot, path, source) {
 }
 
 async function createActiveAuthorityFixture({
+  temporaryRoot: suppliedRoot,
   mutateIntent,
   mutateOwner,
   mutateReview,
@@ -423,7 +424,9 @@ async function createActiveAuthorityFixture({
   reviewPackageDigest,
   writeReviewPackage = true,
 } = {}) {
-  const temporaryRoot = await mkdtemp(join(tmpdir(), 'chaotang-v2-active-'));
+  const temporaryRoot =
+    suppliedRoot ?? await mkdtemp(join(tmpdir(), 'chaotang-v2-active-'));
+  await mkdir(temporaryRoot, { recursive: true });
   const fixture = w06EvidenceDocuments();
   const owner = structuredClone(fixture.owner);
   const review = structuredClone(fixture.review);
@@ -940,6 +943,57 @@ test('active authority cannot fall back to mutable files outside a Git identity'
     );
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test('copied CLI nested under a parent Git repository cannot replay mutable authority', async () => {
+  const temporaryParent = await mkdtemp(join(tmpdir(), 'authority-parent-replay-'));
+  const temporaryRoot = join(temporaryParent, 'copied-cli');
+  try {
+    await createActiveAuthorityFixture({ temporaryRoot });
+    for (const path of [
+      'scripts/execution-authority-v2.mjs',
+      'scripts/lib/amendment-governance.mjs',
+      'scripts/lib/execution-authority-v2.mjs',
+    ]) {
+      await writeRepositoryFile(
+        temporaryRoot,
+        path,
+        await readFile(join(root, path)),
+      );
+    }
+    await rm(join(temporaryRoot, '.git'), { recursive: true, force: true });
+    await execFileAsync('git', ['init', '-q'], { cwd: temporaryParent });
+    await execFileAsync('git', ['config', 'user.name', 'R0 Test'], {
+      cwd: temporaryParent,
+    });
+    await execFileAsync('git', ['config', 'user.email', 'r0@example.invalid'], {
+      cwd: temporaryParent,
+    });
+    await execFileAsync('git', ['add', '.'], { cwd: temporaryParent });
+    await execFileAsync('git', ['commit', '-qm', 'unrelated parent repository'], {
+      cwd: temporaryParent,
+    });
+    await assert.rejects(
+      execFileAsync(
+        process.execPath,
+        [
+          join(temporaryRoot, 'scripts/execution-authority-v2.mjs'),
+          '--authorize',
+          '--work-package',
+          'R0-W06',
+        ],
+        { cwd: temporaryRoot },
+      ),
+      (error) => {
+        const output = JSON.parse(error.stdout);
+        assert.equal(output.decision, 'STOP');
+        assert.equal(output.reason, 'INVALID_EXECUTION_AUTHORITY');
+        return true;
+      },
+    );
+  } finally {
+    await rm(temporaryParent, { recursive: true, force: true });
   }
 });
 

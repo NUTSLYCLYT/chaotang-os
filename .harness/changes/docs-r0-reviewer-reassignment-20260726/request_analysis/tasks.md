@@ -90,9 +90,9 @@
 - [x] Make library evaluation non-authorizing even for parent-repository discovery.
 - [x] Prepare and reject seventeenth candidate `ddc2770e` after two NO_GO reviews.
 - [x] Exclude all thirty-four rejected review sessions.
-- [ ] Require the exact authority root to own `.git`.
-- [ ] Set a Git discovery ceiling and verify exact repository top-level.
-- [ ] Add a nested-parent replay regression test.
+- [x] Require the exact authority root to own `.git`.
+- [x] Set a Git discovery ceiling and verify exact repository top-level.
+- [x] Add a nested-parent replay regression test.
 - [ ] Prepare an eighteenth non-authorizing exact-H candidate.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.

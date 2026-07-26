@@ -2,7 +2,7 @@
 
 ## Status
 
-`EIGHTEENTH_REMEDIATION_PENDING / SEVENTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`EIGHTEENTH_CANDIDATE_PRE_FREEZE / SEVENTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -520,3 +520,21 @@ Both reviews reproduced parent-repository discovery when a copied CLI root had
 no local `.git`. The test suite covered only a standalone non-Git directory
 and did not exercise an ancestor repository. The candidate and both sessions
 are permanently excluded.
+
+## Eighteenth Candidate Pre-Freeze Verification
+
+```text
+nested-parent TDD RED: copied CLI returned GO from mutable W06 replay
+nested-parent TDD GREEN: copied CLI returns STOP / INVALID_EXECUTION_AUTHORITY
+exact root owns .git: REQUIRED
+GIT_CEILING_DIRECTORIES: exact authority root
+git --show-toplevel: must equal exact canonical root
+authority test suites: 104 pass / 0 fail
+project-harness-doctor: 0 errors / 0 warnings
+v1 authorize: STOP / AMENDMENT_APPROVAL_REQUIRED
+v2 check: VALID_STRUCTURE / NOT_AN_AUTHORIZATION
+v2 authorize R0-W07: STOP / NO_ACTIVE_WORK_PACKAGE
+working diff check: PASS
+```
+
+These results permit candidate freeze and fresh review only.
