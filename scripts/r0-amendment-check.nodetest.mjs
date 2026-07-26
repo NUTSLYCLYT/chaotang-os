@@ -266,9 +266,11 @@ test('reviewer reassignment evidence rejects duplicate JSON keys', () => {
   );
 });
 
-test('review package Git command disables external diff and text conversion', () => {
+test('review package Git command disables external diff, text conversion, and user attributes', () => {
   assert.deepEqual(reviewerReassignmentDiffArgs('base', 'candidate'), [
     '--no-replace-objects',
+    '-c',
+    'core.attributesFile=/dev/null',
     'diff',
     '--no-ext-diff',
     '--no-textconv',

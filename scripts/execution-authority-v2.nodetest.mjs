@@ -45,6 +45,7 @@ const hardenedGitEnvironment = {
   ),
   GIT_CONFIG_NOSYSTEM: '1',
   GIT_CONFIG_GLOBAL: '/dev/null',
+  GIT_ATTR_NOSYSTEM: '1',
   GIT_OPTIONAL_LOCKS: '0',
   LC_ALL: 'C',
 };
@@ -648,6 +649,8 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
       '/usr/bin/git',
       [
         '--no-replace-objects',
+        '-c',
+        'core.attributesFile=/dev/null',
         'diff',
         '--no-ext-diff',
         '--no-textconv',
@@ -752,6 +755,8 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
       '/usr/bin/git',
       [
         '--no-replace-objects',
+        '-c',
+        'core.attributesFile=/dev/null',
         'diff',
         '--no-ext-diff',
         '--no-textconv',
@@ -882,6 +887,24 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
       ['config', '--local', '--unset', 'extensions.worktreeConfig'],
       { cwd: temporaryRoot },
     );
+    const externalAttributesRoot = join(temporaryParent, 'xdg');
+    await writeRepositoryFile(
+      externalAttributesRoot,
+      'git/attributes',
+      '*.mjs -diff\n',
+    );
+    const previousXdgConfigHome = process.env.XDG_CONFIG_HOME;
+    process.env.XDG_CONFIG_HOME = externalAttributesRoot;
+    try {
+      loaded = await loadExecutionAuthorityV2(temporaryRoot);
+      assert.deepEqual(loaded.errors, []);
+    } finally {
+      if (previousXdgConfigHome === undefined) {
+        delete process.env.XDG_CONFIG_HOME;
+      } else {
+        process.env.XDG_CONFIG_HOME = previousXdgConfigHome;
+      }
+    }
     await writeRepositoryFile(
       temporaryRoot,
       '.git/info/attributes',
@@ -1121,6 +1144,7 @@ test('W07 profile accepts every path in the exact Event 1 candidate', () => {
     'scripts/execution-authority-v2.nodetest.mjs',
     'scripts/lib/amendment-governance.mjs',
     'scripts/lib/execution-authority-v2.mjs',
+    'scripts/r0-amendment-check.nodetest.mjs',
   ];
   assert.deepEqual(
     validateExecutionAuthorityV2Evidence(

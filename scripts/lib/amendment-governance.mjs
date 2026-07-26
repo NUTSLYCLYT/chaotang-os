@@ -587,7 +587,12 @@ export function validateReviewerReassignmentOverlay(overlay) {
 }
 
 function reviewerReassignmentGitArgs(...args) {
-  return ['--no-replace-objects', ...args];
+  return [
+    '--no-replace-objects',
+    '-c',
+    'core.attributesFile=/dev/null',
+    ...args,
+  ];
 }
 
 function reviewerReassignmentGitOptions(root, extra = {}) {
@@ -600,6 +605,7 @@ function reviewerReassignmentGitOptions(root, extra = {}) {
       ...env,
       GIT_CONFIG_NOSYSTEM: '1',
       GIT_CONFIG_GLOBAL: '/dev/null',
+      GIT_ATTR_NOSYSTEM: '1',
       GIT_OPTIONAL_LOCKS: '0',
       LC_ALL: 'C',
     },
@@ -698,6 +704,8 @@ export async function verifyRepositoryLocalGitDiffEnvironment(
 export function reviewerReassignmentDiffArgs(baseH, candidateH) {
   return [
     '--no-replace-objects',
+    '-c',
+    'core.attributesFile=/dev/null',
     'diff',
     '--no-ext-diff',
     '--no-textconv',
@@ -1398,6 +1406,12 @@ export async function verifyAmendmentApprovalEvidenceFiles(
           'reviewerReassignment.reviewPackagePath: bytes must equal exact git diff',
         );
       }
+      errors.push(
+        ...(await verifyRepositoryLocalGitDiffEnvironment(
+          root,
+          'reviewerReassignment',
+        )),
+      );
     } catch (cause) {
       errors.push(
         `reviewerReassignment.gitIdentity: ${cause.code ?? cause.message}`,

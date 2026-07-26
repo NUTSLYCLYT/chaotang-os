@@ -10,9 +10,9 @@ activation train。
 - [x] 创建隔离 worktree。
 - [x] 核对 authority、overlay 和旧 Packet 边界。
 - [x] 编写新 Packet、design 和 implementation plan。
-- [ ] 运行治理验证。
-- [ ] 独立只读审查本 Packet。
-- [ ] 冻结 candidate H/tree 并请求受控整合。
+- [x] 运行治理验证。
+- [x] 独立只读审查本 Packet。
+- [x] 冻结 candidate H/tree 并请求受控整合。
 
 Changed files: only the new Packet, this design, and this plan.
 
@@ -88,7 +88,9 @@ git rev-list --parents -n 1 "$ACTIVATION_H"
 git merge-base --is-ancestor "$AUTHORITY_CANDIDATE_H" "$ACTIVATION_H"
 git diff --check "$REVIEW_BASE_H..$ACTIVATION_H"
 export REVIEW_PACKAGE_PATH=/tmp/r0-w07-activation-candidate.diff
-/usr/bin/git --no-replace-objects diff --no-ext-diff --no-textconv --binary \
+GIT_ATTR_NOSYSTEM=1 GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null \
+  /usr/bin/git --no-replace-objects -c core.attributesFile=/dev/null \
+  diff --no-ext-diff --no-textconv --binary \
   "$REVIEW_BASE_H..$AUTHORITY_CANDIDATE_H" > "$REVIEW_PACKAGE_PATH"
 sha256sum "$REVIEW_PACKAGE_PATH"
 test -z "$(git status --porcelain=v1)"

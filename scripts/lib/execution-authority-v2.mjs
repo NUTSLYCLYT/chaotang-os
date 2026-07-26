@@ -191,7 +191,12 @@ function profileAllowsChangedPath(profile, path) {
 }
 
 function authorityGitArgs(...args) {
-  return ['--no-replace-objects', ...args];
+  return [
+    '--no-replace-objects',
+    '-c',
+    'core.attributesFile=/dev/null',
+    ...args,
+  ];
 }
 
 function authorityGitOptions(root, extra = {}) {
@@ -204,6 +209,7 @@ function authorityGitOptions(root, extra = {}) {
       ...env,
       GIT_CONFIG_NOSYSTEM: '1',
       GIT_CONFIG_GLOBAL: '/dev/null',
+      GIT_ATTR_NOSYSTEM: '1',
       GIT_CEILING_DIRECTORIES: root,
       GIT_OPTIONAL_LOCKS: '0',
       LC_ALL: 'C',
@@ -499,6 +505,12 @@ async function verifyActivePacketGitIdentity(
     if (!reviewPackageSource.equals(exactDiff)) {
       errors.push('review package bytes must equal exact git diff');
     }
+    errors.push(
+      ...(await verifyRepositoryLocalGitDiffEnvironment(
+        root,
+        'active-packet',
+      )),
+    );
     const { stdout: finalRefSource } = await execFileAsync(
       'git',
       authorityGitArgs('rev-parse', `${manifest.effectiveBase.ref}^{commit}`),
