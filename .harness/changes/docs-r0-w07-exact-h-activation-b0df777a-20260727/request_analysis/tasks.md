@@ -16,14 +16,15 @@
 
 ## 后续 Event 1：Authority Identity Remediation Candidate
 
-- [ ] 取得 authority/profile TDD 实施授权。
-- [ ] RED：新增测试拒绝旧 W07 evidence root 和跨 Packet 证据混用。
-- [ ] RED：新增测试证明 activation commit 集成 EXT 后，旧 ref/effective-base
+- [x] 取得 authority/profile TDD 实施授权。
+- [x] RED：新增测试拒绝旧 W07 evidence root 和跨 Packet 证据混用。
+- [x] RED：新增测试证明 activation commit 集成 EXT 后，旧 ref/effective-base
   等值规则拒绝有效 mainline。
-- [ ] GREEN：将 W07 profile 收敛到本 Change ID，并实现
+- [x] GREEN：将 W07 profile 收敛到本 Change ID，并实现
   `EXT ref == pinned HEAD`、approved candidate first-parent ancestry。
-- [ ] 将 W07 review base 固定为 `b0df777a...`。
-- [ ] 运行 authority、amendment、doctor 全套回归。
+- [x] 将 W07 review base 固定为 `b0df777a...`。
+- [x] 固定测试 evidence 生成器使用 authority 的 `/usr/bin/git` 外部信任根。
+- [x] 运行 authority、amendment、doctor 全套回归。
 - [ ] 先提交 authority candidate，再冻结 exact H/tree，保持 W07 STOP。
 
 ## 后续 Event 2：Reviewer Overlay Refresh

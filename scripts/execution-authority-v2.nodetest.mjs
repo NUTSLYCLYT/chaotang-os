@@ -39,6 +39,15 @@ import {
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const cliPath = join(root, 'scripts/execution-authority-v2.mjs');
 const execFileAsync = promisify(execFile);
+const hardenedGitEnvironment = {
+  ...Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
+  ),
+  GIT_CONFIG_NOSYSTEM: '1',
+  GIT_CONFIG_GLOBAL: '/dev/null',
+  GIT_OPTIONAL_LOCKS: '0',
+  LC_ALL: 'C',
+};
 const liveAmendmentGovernance = JSON.parse(
   await readFile(join(root, '.harness/manifest/project-harness.json'), 'utf8'),
 ).amendmentGovernance;
@@ -322,7 +331,8 @@ function w06EvidenceDocuments() {
 
 function w07EvidenceDocuments() {
   const fixture = w06EvidenceDocuments();
-  const changeRoot = '.harness/changes/docs-r0-w07-activation-20260726';
+  const changeRoot =
+    '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727';
   const manifest = structuredClone(fixture.manifest);
   manifest.effectiveBase = {
     ref: 'refs/heads/feature-chaotang-ext',
@@ -589,7 +599,7 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
         'checkout',
         '-q',
         '--detach',
-        '55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca',
+        'b0df777a1fe94d98afdc62b4cdd02a2f8a091391',
       ],
       { cwd: temporaryRoot },
     );
@@ -635,7 +645,7 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
     overlay.candidateH = candidateH;
     overlay.tree = candidateTree;
     const { stdout: overlayPackageSource } = await execFileAsync(
-      'git',
+      '/usr/bin/git',
       [
         '--no-replace-objects',
         'diff',
@@ -644,7 +654,11 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
         '--binary',
         `${overlay.baseH}..${overlay.candidateH}`,
       ],
-      { cwd: temporaryRoot, encoding: 'buffer' },
+      {
+        cwd: temporaryRoot,
+        encoding: 'buffer',
+        env: hardenedGitEnvironment,
+      },
     );
     overlay.reviewPackageSha256 = sha256Hex(overlayPackageSource);
     await writeRepositoryFile(
@@ -735,16 +749,20 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
     fixture.activationIntent.approvalEvidence.tree = candidateTree;
     fixture.activationIntent.effectiveBase.sha = candidateH;
     const { stdout: exactPackageSource } = await execFileAsync(
-      'git',
+      '/usr/bin/git',
       [
         '--no-replace-objects',
         'diff',
         '--no-ext-diff',
         '--no-textconv',
         '--binary',
-        `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca..${candidateH}`,
+        `b0df777a1fe94d98afdc62b4cdd02a2f8a091391..${candidateH}`,
       ],
-      { cwd: temporaryRoot, encoding: 'buffer' },
+      {
+        cwd: temporaryRoot,
+        encoding: 'buffer',
+        env: hardenedGitEnvironment,
+      },
     );
     fixture.review.changedPaths =
       parseExecutionAuthorityV2ReviewPackage(exactPackageSource.toString('utf8'));
@@ -791,6 +809,21 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
     await execFileAsync('git', ['commit', '-qm', 'activate W07 with exact package'], {
       cwd: temporaryRoot,
     });
+    loaded = await loadExecutionAuthorityV2(temporaryRoot);
+    assert.ok(
+      loaded.errors.some((error) =>
+        error.includes('active-packet EXT ref must equal pinned HEAD'),
+      ),
+      loaded.errors.join('\n'),
+    );
+    const activationH = (
+      await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: temporaryRoot })
+    ).stdout.trim();
+    await execFileAsync(
+      'git',
+      ['branch', '-f', 'feature-chaotang-ext', activationH],
+      { cwd: temporaryRoot },
+    );
     loaded = await loadExecutionAuthorityV2(temporaryRoot);
     assert.deepEqual(loaded.errors, []);
     const synchronousBypass = executionAuthorityV2CommandResult(
@@ -887,7 +920,46 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
     loaded = await loadExecutionAuthorityV2(temporaryRoot);
     assert.ok(
       loaded.errors.some((error) =>
-        error.includes('effectiveBase ref/sha git identity mismatch'),
+        error.includes('active-packet EXT ref must equal pinned HEAD'),
+      ),
+      loaded.errors.join('\n'),
+    );
+
+    await execFileAsync(
+      'git',
+      [
+        'checkout',
+        '-q',
+        '--detach',
+        'b0df777a1fe94d98afdc62b4cdd02a2f8a091391',
+      ],
+      { cwd: temporaryRoot },
+    );
+    await execFileAsync(
+      'git',
+      ['merge', '-q', '--no-ff', '-s', 'ours', activationH, '-m', 'hide activation on second parent'],
+      { cwd: temporaryRoot },
+    );
+    await execFileAsync('git', ['checkout', activationH, '--', '.'], {
+      cwd: temporaryRoot,
+    });
+    await execFileAsync('git', ['commit', '-qam', 'replay active authority'], {
+      cwd: temporaryRoot,
+    });
+    const replayH = (
+      await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: temporaryRoot })
+    ).stdout.trim();
+    await execFileAsync(
+      'git',
+      ['branch', '-f', 'feature-chaotang-ext', replayH],
+      { cwd: temporaryRoot },
+    );
+    loaded = await loadExecutionAuthorityV2(temporaryRoot);
+    assert.ok(
+      loaded.errors.some((error) =>
+        error.includes(
+          'active-packet candidateH must be a first-parent ancestor of pinned HEAD',
+        ),
       ),
       loaded.errors.join('\n'),
     );
@@ -910,6 +982,48 @@ test('W07 evidence cannot reuse the historical W06 activation packet', () => {
     review,
   );
   assert.ok(errors.some((error) => error.includes('active-packet profile')));
+});
+
+test('W07 evidence rejects the legacy W07 root and mixed-root identities', () => {
+  const legacyRoot = '.harness/changes/docs-r0-w07-activation-20260726';
+  const governance = validGovernance();
+  governance.reviewerReassignment = validReviewerReassignment();
+
+  const legacy = w07EvidenceDocuments();
+  legacy.manifest.approvalEvidence.ownerApprovalPath =
+    `${legacyRoot}/owner_approval/exact-h-approval.md`;
+  legacy.manifest.approvalEvidence.reviewPath =
+    `${legacyRoot}/codex_review/exact-h-final.md`;
+  legacy.owner.activationIntentPath =
+    `${legacyRoot}/activation_intent/r0-w07-activation-intent.json`;
+  legacy.review.ownerApprovalPath =
+    legacy.manifest.approvalEvidence.ownerApprovalPath;
+  legacy.review.activationIntentPath = legacy.owner.activationIntentPath;
+  legacy.review.reviewPackagePath =
+    `${legacyRoot}/review_inputs/activation-candidate.diff`;
+  assert.ok(
+    validateExecutionAuthorityV2Evidence(
+      legacy.manifest,
+      governance,
+      legacy.owner,
+      legacy.review,
+    ).some((error) => error.includes('active-packet profile')),
+  );
+
+  const mixed = w07EvidenceDocuments();
+  mixed.owner.activationIntentPath =
+    `${legacyRoot}/activation_intent/r0-w07-activation-intent.json`;
+  mixed.review.activationIntentPath = mixed.owner.activationIntentPath;
+  assert.ok(
+    validateExecutionAuthorityV2Evidence(
+      mixed.manifest,
+      governance,
+      mixed.owner,
+      mixed.review,
+    ).some((error) =>
+      error.includes('owner activationIntentPath must match active-packet profile'),
+    ),
+  );
 });
 
 test('active temporary root authorizes only after loading the exact independent review and activation intent', async () => {

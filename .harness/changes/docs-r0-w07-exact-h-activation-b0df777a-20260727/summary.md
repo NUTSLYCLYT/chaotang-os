@@ -8,7 +8,7 @@
 | --- | --- |
 | Change ID | docs-r0-w07-exact-h-activation-b0df777a-20260727 |
 | 类型 | `docs` |
-| 状态 | `DRAFT / NON_AUTHORIZING / EVIDENCE_PREPARATION` |
+| 状态 | `EVENT_1_IMPLEMENTATION / NON_AUTHORIZING` |
 | Owner | `EXT Master Governance` |
 | 创建日期 | `2026-07-27` |
 | 唯一集成目标 | local `feature-chaotang-ext` |
@@ -31,11 +31,24 @@ owner approval 和 Codex 独立审查。
 - 定义 TDD、验证、独立审查和 exact-H 审批门。
 - 记录证据状态，不生成虚构 digest、owner approval 或 review verdict。
 
+## Event 1 受控范围
+
+Product Owner 后续明确批准了 authority/profile TDD 实施。Event 1 只允许：
+
+- 将 W07 canonical profile 迁移到本 Change ID；
+- 将固定 review base 更新为 `b0df777a...`；
+- 实现 `EXT ref == pinned HEAD` 与 approved candidate 第一父祖先约束；
+- 添加旧 root、混合证据、ref drift、second-parent replay 的拒绝性测试；
+- 同步本 wiki、任务和验证记录。
+
+Event 1 候选仍是非授权、静默状态；它只为 Event 2 reviewer overlay refresh 提供
+待审查的 authority bytes。
+
 ## 明确未授权
 
 - 不激活 R0-W07。
 - 不修改 `.harness/manifest/execution-authority.v2.json`。
-- 不修改 authority runtime、schema、测试或产品代码。
+- 不修改 schema 或产品代码；authority runtime 和测试仅限上方 Event 1 受控范围。
 - 不 push、不部署、不迁移数据库、不操作 listener 3050。
 - 不使用真实客户数据，不声明 production ready。
 

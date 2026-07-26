@@ -2,7 +2,7 @@
 
 ## 状态
 
-`PRE_INTEGRATION_REVIEW_READY / NON_AUTHORIZING`
+`EVENT_1_VERIFIED / EXACT_H_RECEIPT_EXTERNAL / NON_AUTHORIZING`
 
 ## 基线
 
@@ -74,6 +74,36 @@ SHA-256 为
 `GO / HIGH 0 / MEDIUM 0 / LOW 1`。其 hardened base-to-H diff SHA-256 为
 `3988ba4ee7501376d73b6c87500c441b299289ca9bd8773e07a3a274e2687dc4`。
 唯一 LOW 是 Event 4 名称不统一；本次修订统一为 `Atomic Activation Event`。
+
+## Event 1 Fresh Verification
+
+验证时间：`2026-07-27T02:27:49+08:00`
+
+```text
+node --test scripts/execution-authority.nodetest.mjs scripts/r0-amendment-check.nodetest.mjs scripts/execution-authority-v2.nodetest.mjs
+  exit 0 / 109 passed / 0 failed
+node scripts/execution-authority.mjs --check
+  exit 0 / VALID_INACTIVE_GUARD
+node scripts/execution-authority.mjs --authorize
+  exit 2 / STOP / AMENDMENT_APPROVAL_REQUIRED
+node scripts/execution-authority-v2.mjs --check
+  exit 0 / VALID_STRUCTURE
+node scripts/execution-authority-v2.mjs --authorize --work-package R0-W06
+node scripts/execution-authority-v2.mjs --authorize --work-package R0-W07
+node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08
+node scripts/execution-authority-v2.mjs --authorize --work-package R0-W09
+  each exit 2 / STOP / NO_ACTIVE_WORK_PACKAGE
+node scripts/harness-doctor.mjs
+  exit 0 / 0 errors / 0 warnings
+(cd backend && python3 scripts/harness_doctor.py)
+  exit 0 / 0 errors / 0 warnings
+git diff --check
+  exit 0 / PASS
+```
+
+Changed paths are limited to the W07 Packet status records, authority v2 wiki,
+authority v2 runtime, and its Node test. The v2 manifest, schema, product code,
+deployment state, database, and listener state are unchanged.
 
 ## 尚未生成
 

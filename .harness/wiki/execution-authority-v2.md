@@ -77,17 +77,23 @@ v2 才回答“这个具体 work package 现在是否被授权”。
 
 历史 W06 证据保持原路径、排除项和命令集合，不允许被 W07 复用。W07 使用独立 profile：
 
-- `refs/heads/feature-chaotang-ext` 必须精确指向获批 candidate H，并在 exact packet Git
-  验证前后两次解析为同一 commit；
+- canonical evidence root 是
+  `.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727`；旧 W07 root
+  和任何新旧 root 混用均拒绝；
+- `refs/heads/feature-chaotang-ext` 必须精确指向 loader pinned 的当前 `HEAD`，并在
+  exact packet Git 验证前后两次解析为同一 commit；
+- `effectiveBase.sha` 与 approved candidate H 绑定；candidate 必须位于 pinned
+  `HEAD` 的第一父历史，不能只通过 merge 的第二父可达；
 - review package 必须以原始 `Buffer` 逐字节等于固定 EXT review base
-  `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca..candidateH` 的 hardened Git diff；
+  `b0df777a1fe94d98afdc62b4cdd02a2f8a091391..candidateH` 的 hardened Git diff；
 - owner approval、activation intent、review package 与 Codex final review 必须位于 W07 change root；
 - W07 review 路径使用 `codex_review/exact-h-final.md`，历史 Claude 路径不冒充 Codex；
 - candidate commit、tree、review base、分支 ref、changed paths、digest 和 W07 验证命令必须同时匹配。
 
 任何未知 work package profile、W06 证据复用、伪造但内部自洽的 diff、ref 在验证期间移动或
-candidate/tree
-漂移都会使 loader 返回 `INVALID_EXECUTION_AUTHORITY`。
+candidate/tree 漂移、EXT ref 回退、candidate 仅从第二父可达，都会使 loader 返回
+`INVALID_EXECUTION_AUTHORITY`。生成和校验 raw diff 都必须使用 authority 固定的
+`/usr/bin/git` 信任根；PATH 中其他 Git 版本生成的 binary patch 字节不能作为等价证据。
 
 ## 独立审查人范围化修订
 

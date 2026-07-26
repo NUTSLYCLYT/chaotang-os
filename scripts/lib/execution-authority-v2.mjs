@@ -76,7 +76,8 @@ const EVIDENCE_VERSION = 'execution-authority-v2-evidence.v1';
 const ACTIVATION_INTENT_SCHEMA_VERSION = 'execution-authority.v2.activation-intent.v1';
 const ACTIVATION_INTENT_KIND = 'activation-intent';
 const RECOVERY_CHANGE_ROOT = '.harness/changes/fix-ext-g0-authority-recovery-20260725';
-const W07_CHANGE_ROOT = '.harness/changes/docs-r0-w07-activation-20260726';
+const W07_CHANGE_ROOT =
+  '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727';
 const ACTIVE_PACKET_PROFILES = Object.freeze({
   'R0-W06': Object.freeze({
     effectiveBaseRef: 'origin/feature-chaotang-ext',
@@ -121,7 +122,7 @@ const ACTIVE_PACKET_PROFILES = Object.freeze({
   }),
   'R0-W07': Object.freeze({
     effectiveBaseRef: 'refs/heads/feature-chaotang-ext',
-    reviewBaseH: '55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca',
+    reviewBaseH: 'b0df777a1fe94d98afdc62b4cdd02a2f8a091391',
     ownerApprovalPath: `${W07_CHANGE_ROOT}/owner_approval/exact-h-approval.md`,
     reviewPath: `${W07_CHANGE_ROOT}/codex_review/exact-h-final.md`,
     activationIntentPath: `${W07_CHANGE_ROOT}/activation_intent/r0-w07-activation-intent.json`,
@@ -382,12 +383,20 @@ async function verifyActivePacketGitIdentity(
   root,
   manifest,
   reviewPackageSource,
+  pinnedCommitH,
   errors,
 ) {
   const profile = ACTIVE_PACKET_PROFILES[manifest.activeWorkPackage];
   if (profile?.exactGitRange !== true) return;
   try {
-    const [{ stdout: refH }, { stdout: effectiveH }, { stdout: baseH }, { stdout: candidateH }, { stdout: tree }] =
+    const [
+      { stdout: refH },
+      { stdout: effectiveH },
+      { stdout: baseH },
+      { stdout: candidateH },
+      { stdout: tree },
+      { stdout: firstParentHistory },
+    ] =
       await Promise.all([
         execFileAsync(
           'git',
@@ -420,13 +429,18 @@ async function verifyActivePacketGitIdentity(
           ),
           authorityGitOptions(root),
         ),
+        execFileAsync(
+          'git',
+          authorityGitArgs('rev-list', '--first-parent', pinnedCommitH),
+          authorityGitOptions(root),
+        ),
       ]);
     const initialRefH = refH.trim();
-    if (
-      initialRefH !== manifest.effectiveBase.sha ||
-      effectiveH.trim() !== manifest.effectiveBase.sha
-    ) {
-      errors.push('active-packet effectiveBase ref/sha git identity mismatch');
+    if (initialRefH !== pinnedCommitH) {
+      errors.push('active-packet EXT ref must equal pinned HEAD');
+    }
+    if (effectiveH.trim() !== manifest.effectiveBase.sha) {
+      errors.push('active-packet effectiveBase sha git identity mismatch');
     }
     if (baseH.trim() !== profile.reviewBaseH) {
       errors.push('active-packet review base git identity mismatch');
@@ -436,6 +450,16 @@ async function verifyActivePacketGitIdentity(
     }
     if (tree.trim() !== manifest.approvalEvidence.tree) {
       errors.push('active-packet candidate tree git identity mismatch');
+    }
+    if (
+      !firstParentHistory
+        .trim()
+        .split('\n')
+        .includes(manifest.approvalEvidence.candidateH)
+    ) {
+      errors.push(
+        'active-packet candidateH must be a first-parent ancestor of pinned HEAD',
+      );
     }
     await execFileAsync(
       'git',
@@ -471,6 +495,9 @@ async function verifyActivePacketGitIdentity(
     );
     if (finalRefSource.trim() !== initialRefH) {
       errors.push('active-packet effectiveBase ref moved during verification');
+    }
+    if (finalRefSource.trim() !== pinnedCommitH) {
+      errors.push('active-packet EXT ref must equal pinned HEAD');
     }
   } catch (cause) {
     errors.push(`active-packet git identity is unverifiable: ${cause.code ?? cause.message}`);
@@ -1533,6 +1560,7 @@ export async function loadExecutionAuthorityV2(root) {
           root,
           manifest,
           reviewPackageSource,
+          pinnedCommitH,
           errors,
         );
       }
