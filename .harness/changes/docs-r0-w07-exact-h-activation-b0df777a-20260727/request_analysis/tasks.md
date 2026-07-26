@@ -10,9 +10,9 @@
 - [x] 定义新的 canonical evidence root 与四事件激活协议。
 - [x] 定义后续 TDD、证据、审查和 exact-H 门。
 - [x] 完成本 Packet 的治理验证。
-- [ ] 完成本 Packet 的独立只读审查。
-- [ ] 冻结本 Packet candidate H/tree。
-- [ ] 请求本 Packet 受控整合审批。
+- [x] 完成本 Packet 的独立只读审查。
+- [x] 冻结本 Packet candidate H/tree。
+- [x] 请求本 Packet 受控整合审批。
 
 ## 后续 Event 1：Authority Identity Remediation Candidate
 
@@ -28,6 +28,7 @@
 - [x] 拒绝影响 exact diff 的 repository-local config 与 `info/attributes`。
 - [x] 拒绝 `extensions.worktreeConfig` 和未检查的 `config.worktree` 覆盖。
 - [x] 禁用 system/user attributes，并在 diff 后重验 repository-local metadata。
+- [x] 用 `GIT_ATTR_SOURCE=candidateH` 将 `.gitattributes` 绑定到候选树。
 - [x] 运行 authority、amendment、doctor 全套回归。
 - [x] 先提交 authority candidate，再冻结 exact H/tree，保持 W07 STOP。
 

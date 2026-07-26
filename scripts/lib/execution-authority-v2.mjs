@@ -200,6 +200,7 @@ function authorityGitArgs(...args) {
 }
 
 function authorityGitOptions(root, extra = {}) {
+  const { attributeSource, ...execExtra } = extra;
   const env = Object.fromEntries(
     Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
   );
@@ -213,8 +214,11 @@ function authorityGitOptions(root, extra = {}) {
       GIT_CEILING_DIRECTORIES: root,
       GIT_OPTIONAL_LOCKS: '0',
       LC_ALL: 'C',
+      ...(attributeSource === undefined
+        ? {}
+        : { GIT_ATTR_SOURCE: attributeSource }),
     },
-    ...extra,
+    ...execExtra,
   };
 }
 
@@ -498,6 +502,7 @@ async function verifyActivePacketGitIdentity(
         `${profile.reviewBaseH}..${manifest.approvalEvidence.candidateH}`,
       ),
       authorityGitOptions(root, {
+        attributeSource: manifest.approvalEvidence.candidateH,
         encoding: 'buffer',
         maxBuffer: 10 * 1024 * 1024,
       }),

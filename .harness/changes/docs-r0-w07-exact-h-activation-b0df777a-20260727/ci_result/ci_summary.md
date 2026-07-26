@@ -77,7 +77,7 @@ SHA-256 为
 
 ## Event 1 Fresh Verification
 
-验证时间：`2026-07-27T03:08:45+08:00`
+验证时间：`2026-07-27T03:18:35+08:00`
 
 ```text
 node --test scripts/execution-authority.nodetest.mjs scripts/r0-amendment-check.nodetest.mjs scripts/execution-authority-v2.nodetest.mjs

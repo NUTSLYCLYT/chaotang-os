@@ -596,6 +596,7 @@ function reviewerReassignmentGitArgs(...args) {
 }
 
 function reviewerReassignmentGitOptions(root, extra = {}) {
+  const { attributeSource, ...execExtra } = extra;
   const env = Object.fromEntries(
     Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
   );
@@ -608,8 +609,11 @@ function reviewerReassignmentGitOptions(root, extra = {}) {
       GIT_ATTR_NOSYSTEM: '1',
       GIT_OPTIONAL_LOCKS: '0',
       LC_ALL: 'C',
+      ...(attributeSource === undefined
+        ? {}
+        : { GIT_ATTR_SOURCE: attributeSource }),
     },
-    ...extra,
+    ...execExtra,
   };
 }
 
@@ -1394,6 +1398,7 @@ export async function verifyAmendmentApprovalEvidenceFiles(
         'git',
         reviewerReassignmentDiffArgs(overlay.baseH, overlay.candidateH),
         reviewerReassignmentGitOptions(root, {
+          attributeSource: overlay.candidateH,
           encoding: 'buffer',
           maxBuffer: 10 * 1024 * 1024,
         }),

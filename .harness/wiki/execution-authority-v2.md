@@ -100,7 +100,9 @@ authority 与 reviewer overlay 的 exact diff 还要求 repository-local Git met
 引入第二套配置。worktree Git dir 或 common Git dir 中存在 `info/attributes` 同样拒绝。
 system attributes 通过 `GIT_ATTR_NOSYSTEM=1` 禁用，用户 attributes 通过命令级
 `core.attributesFile=/dev/null` 禁用；diff 完成后再次检查 repository-local metadata。
-候选树内已提交的 `.gitattributes` 仍属于受 H/tree 约束的审查输入。
+`GIT_ATTR_SOURCE` 精确设置为 approved candidate H，因此候选树内已提交的
+`.gitattributes` 属于受 H/tree 约束的审查输入，mutable working-tree attributes
+不能改变 package bytes。
 
 ## 独立审查人范围化修订
 

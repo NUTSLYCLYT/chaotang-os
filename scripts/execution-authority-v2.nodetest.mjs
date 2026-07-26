@@ -660,7 +660,10 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
       {
         cwd: temporaryRoot,
         encoding: 'buffer',
-        env: hardenedGitEnvironment,
+        env: {
+          ...hardenedGitEnvironment,
+          GIT_ATTR_SOURCE: overlay.candidateH,
+        },
       },
     );
     overlay.reviewPackageSha256 = sha256Hex(overlayPackageSource);
@@ -766,7 +769,10 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
       {
         cwd: temporaryRoot,
         encoding: 'buffer',
-        env: hardenedGitEnvironment,
+        env: {
+          ...hardenedGitEnvironment,
+          GIT_ATTR_SOURCE: candidateH,
+        },
       },
     );
     fixture.review.changedPaths =
@@ -905,6 +911,14 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
         process.env.XDG_CONFIG_HOME = previousXdgConfigHome;
       }
     }
+    await writeRepositoryFile(
+      temporaryRoot,
+      '.gitattributes',
+      '*.mjs -diff\n',
+    );
+    loaded = await loadExecutionAuthorityV2(temporaryRoot);
+    assert.deepEqual(loaded.errors, []);
+    await rm(join(temporaryRoot, '.gitattributes'));
     await writeRepositoryFile(
       temporaryRoot,
       '.git/info/attributes',

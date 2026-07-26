@@ -42,6 +42,7 @@ Product Owner 后续明确批准了 authority/profile TDD 实施。Event 1 只�
 - 使 exact candidate 的全部 12 个路径进入显式 allowlist；
 - 拒绝影响 raw diff 的 repository-local config 与未绑定 `info/attributes`；
 - 禁用 system/user attributes，并在 diff 后重复 metadata-neutrality 检查；
+- 通过 `GIT_ATTR_SOURCE=candidateH` 将 committed attributes 绑定到候选树；
 - 同步本 wiki、任务和验证记录。
 
 Event 1 候选仍是非授权、静默状态；它只为 Event 2 reviewer overlay refresh 提供
