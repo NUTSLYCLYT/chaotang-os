@@ -2,7 +2,7 @@
 
 ## Status
 
-`IMPLEMENTER_VERIFIED / INDEPENDENT_REVIEW_PENDING`
+`VERIFIED_COMPLETE / ACCEPTED_NOT_INTEGRATED`
 
 ## Expected RED
 
@@ -54,6 +54,24 @@ No other authority-v2 test failed.
 
 The W06 approval and review evidence files and manifest digests were not
 modified. The loader's real-repository digest test remains GREEN.
+
+## Independent Review
+
+The independent read-only review evaluated candidate
+`de927ec60ef556c47fcd233aa1f22f232f4fba2c` with tree
+`16d2139d1ff281d77c50596d1ebd83af51d01744`.
+
+```text
+HIGH = 0
+MEDIUM = 0
+LOW = 0
+GOVERNANCE = GO
+QUALITY = GO
+remaining findings = 0
+```
+
+The reviewer made no file changes. This verdict accepts Event 1 only; it does
+not activate or authorize R0-W07.
 
 ## Runtime Boundary
 

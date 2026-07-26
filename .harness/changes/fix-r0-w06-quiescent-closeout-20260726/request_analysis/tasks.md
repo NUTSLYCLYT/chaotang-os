@@ -8,8 +8,8 @@
 - [x] Verify W06 and W07 both stop with `NO_ACTIVE_WORK_PACKAGE`.
 - [x] Run complete authority and harness verification: `62 passed`, both
   doctors clean.
-- [ ] Receive independent read-only GO.
-- [ ] Record `VERIFIED_COMPLETE / ACCEPTED_NOT_INTEGRATED`.
+- [x] Receive independent read-only GO.
+- [x] Record `VERIFIED_COMPLETE / ACCEPTED_NOT_INTEGRATED`.
 - [ ] Request explicit local EXT integration approval.
 
 ## Prohibited
