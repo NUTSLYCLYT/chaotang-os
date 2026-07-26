@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `FOURTH_CANDIDATE_REVIEW_READY / NOT_AUTHORIZED` |
+| Status | `FIFTH_CANDIDATE_REVIEW_READY / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -46,8 +46,14 @@ fourth remediation pins the EXT baseline, writer receipt, and all six rejected
 sessions as implementation constants. The overlay is effective only while the
 W07 ledger entry is exactly `ACTIVE`.
 
-The fourth candidate is ready for exact commit freeze and two new review
-sessions. Previous candidates, packages, and review verdicts remain invalid.
+Candidate `8bfeaedb6223d21df9f32b6678e643a9581ea2a5` received one GO and
+one NO_GO, so it was rejected. The Product Owner approved threat-model option
+B; this is a governance boundary decision, not candidate approval. The fifth
+candidate disables Git replacement objects and excludes all eight rejected or
+superseded review sessions.
+
+The fifth candidate is ready for exact commit freeze and two new reviews under
+the approved threat-model boundary.
 
 ## Boundaries
 

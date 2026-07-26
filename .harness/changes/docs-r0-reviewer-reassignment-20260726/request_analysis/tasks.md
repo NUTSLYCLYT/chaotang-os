@@ -17,7 +17,11 @@
 - [x] Reject candidate `8af162e5` after two new independent NO_GO reviews.
 - [x] Pin EXT baseline, writer receipt, and all six rejected sessions.
 - [x] Restrict overlay effectiveness to ledger status `ACTIVE`.
-- [x] Prepare a fourth non-authorizing candidate for exact commit freeze.
+- [x] Reject candidate `8bfeaedb` after mixed GO/NO_GO reviews.
+- [x] Record Product Owner threat-model option B approval separately.
+- [x] Disable Git replacement objects and inherited `GIT_*` overrides.
+- [x] Exclude all eight rejected or superseded review sessions.
+- [x] Prepare a fifth non-authorizing candidate for exact commit freeze.
 - [ ] Obtain two new fresh Codex Independent QA reviews.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.

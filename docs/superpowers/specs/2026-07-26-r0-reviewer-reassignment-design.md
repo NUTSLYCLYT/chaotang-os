@@ -29,6 +29,15 @@ separate atomic event. The overlay is effective only for an `ACTIVE` W07 ledger
 entry; merged, rolled-back, missing, or any future state falls back to the
 historical reviewer.
 
+## Approved Trust Boundary
+
+The Product Owner approved option B. Codex platform session notifications and
+coordinating-session Product Owner approval are external trust roots. The
+repository prevents accidental or unauthorized state/evidence drift, but does
+not claim to authenticate those identities against a malicious full repository
+writer. Git verification disables replacement objects, external diff, and text
+conversion and clears inherited `GIT_*` overrides.
+
 ## Goal
 
 Replace the unavailable Claude Code reviewer for R0-W07 with a scoped,

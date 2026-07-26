@@ -171,6 +171,8 @@ function approvedReviewerReassignmentFixture() {
       '019f9c43-e632-75b1-99d9-0d9b162cd3e1',
       '019f9c4f-1fef-74c2-9767-a8a653569bbd',
       '019f9c4f-201b-7d91-a2b0-e49e08a5985a',
+      '019f9c5b-0cbc-72f0-a114-1b26dc852bd5',
+      '019f9c5b-0cf9-7a20-a741-ce4a279dce9b',
     ],
     reviewPackagePath:
       '.harness/changes/docs-r0-reviewer-reassignment-20260726/review_inputs/candidate.diff',
@@ -233,6 +235,7 @@ test('reviewer reassignment evidence rejects duplicate JSON keys', () => {
 
 test('review package Git command disables external diff and text conversion', () => {
   assert.deepEqual(reviewerReassignmentDiffArgs('base', 'candidate'), [
+    '--no-replace-objects',
     'diff',
     '--no-ext-diff',
     '--no-textconv',

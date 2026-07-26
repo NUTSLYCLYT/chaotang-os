@@ -2,7 +2,7 @@
 
 ## Status
 
-`FOURTH_CANDIDATE_REVIEW_READY / THREE_CANDIDATES_NO_GO / NOT_AUTHORIZED`
+`FIFTH_CANDIDATE_REVIEW_READY / FOUR_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -127,6 +127,31 @@ working diff check: PASS
 ```
 
 Exact ranged verification must be repeated after commit freeze.
+
+## Fourth Rejected Candidate
+
+```text
+candidate = 8bfeaedb6223d21df9f32b6678e643a9581ea2a5
+tree = 4839e45d60dc5c129776da5ad6cb09cc0d14f033
+package = c2ae75fd1885f62af46611744da404e94ef4d025edfbfafceb50ac03325b7473
+pass 1 = NO_GO / HIGH 1 / MEDIUM 1
+pass 2 = GO / HIGH 0 / MEDIUM 0
+combined = NO_GO
+```
+
+The remaining external-identity finding was resolved by the explicit Product
+Owner threat-model B direction. Git replacement-object handling is remediated
+in the fifth candidate.
+
+## Fifth Candidate Pre-Freeze Verification
+
+```text
+authority test suites: 91 pass / 0 fail
+project-harness-doctor: 0 errors / 0 warnings
+v2 check: VALID_STRUCTURE / NOT_AN_AUTHORIZATION
+v2 authorize R0-W07: STOP / NO_ACTIVE_WORK_PACKAGE
+working diff check: PASS
+```
 
 The live project manifest does not contain the overlay. The effective reviewer
 therefore remains `Claude Code`, and W07 remains stopped.

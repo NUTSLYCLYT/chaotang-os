@@ -61,6 +61,8 @@ const REJECTED_REVIEW_SESSION_IDS = Object.freeze([
   '019f9c43-e632-75b1-99d9-0d9b162cd3e1',
   '019f9c4f-1fef-74c2-9767-a8a653569bbd',
   '019f9c4f-201b-7d91-a2b0-e49e08a5985a',
+  '019f9c5b-0cbc-72f0-a114-1b26dc852bd5',
+  '019f9c5b-0cf9-7a20-a741-ce4a279dce9b',
 ]);
 const REVIEWER_REASSIGNMENT_KEYS = Object.freeze([
   'approvedBy',
@@ -527,8 +529,30 @@ export function validateReviewerReassignmentOverlay(overlay) {
   return [...new Set(errors)];
 }
 
+function reviewerReassignmentGitArgs(...args) {
+  return ['--no-replace-objects', ...args];
+}
+
+function reviewerReassignmentGitOptions(root, extra = {}) {
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
+  );
+  return {
+    cwd: root,
+    env: {
+      ...env,
+      GIT_CONFIG_NOSYSTEM: '1',
+      GIT_CONFIG_GLOBAL: '/dev/null',
+      GIT_OPTIONAL_LOCKS: '0',
+      LC_ALL: 'C',
+    },
+    ...extra,
+  };
+}
+
 export function reviewerReassignmentDiffArgs(baseH, candidateH) {
   return [
+    '--no-replace-objects',
     'diff',
     '--no-ext-diff',
     '--no-textconv',
@@ -815,15 +839,21 @@ export async function verifyAmendmentApprovalEvidenceFiles(root, amendment) {
     try {
       const [{ stdout: baseH }, { stdout: candidateH }, { stdout: tree }] =
         await Promise.all([
-        execFileAsync('git', ['rev-parse', `${overlay.baseH}^{commit}`], {
-          cwd: root,
-        }),
-        execFileAsync('git', ['rev-parse', `${overlay.candidateH}^{commit}`], {
-          cwd: root,
-        }),
-        execFileAsync('git', ['rev-parse', `${overlay.candidateH}^{tree}`], {
-          cwd: root,
-        }),
+        execFileAsync(
+          'git',
+          reviewerReassignmentGitArgs('rev-parse', `${overlay.baseH}^{commit}`),
+          reviewerReassignmentGitOptions(root),
+        ),
+        execFileAsync(
+          'git',
+          reviewerReassignmentGitArgs('rev-parse', `${overlay.candidateH}^{commit}`),
+          reviewerReassignmentGitOptions(root),
+        ),
+        execFileAsync(
+          'git',
+          reviewerReassignmentGitArgs('rev-parse', `${overlay.candidateH}^{tree}`),
+          reviewerReassignmentGitOptions(root),
+        ),
       ]);
       if (baseH.trim() !== overlay.baseH) {
         errors.push('reviewerReassignment.baseH: git object mismatch');
@@ -836,13 +866,18 @@ export async function verifyAmendmentApprovalEvidenceFiles(root, amendment) {
       }
       await execFileAsync(
         'git',
-        ['merge-base', '--is-ancestor', overlay.baseH, overlay.candidateH],
-        { cwd: root },
+        reviewerReassignmentGitArgs(
+          'merge-base',
+          '--is-ancestor',
+          overlay.baseH,
+          overlay.candidateH,
+        ),
+        reviewerReassignmentGitOptions(root),
       );
       const { stdout: diffSource } = await execFileAsync(
         'git',
         reviewerReassignmentDiffArgs(overlay.baseH, overlay.candidateH),
-        { cwd: root, maxBuffer: 10 * 1024 * 1024 },
+        reviewerReassignmentGitOptions(root, { maxBuffer: 10 * 1024 * 1024 }),
       );
       if (
         reviewPackageSource !== null &&
