@@ -2,7 +2,7 @@
 
 ## Status
 
-`REMEDIATION / PREVIOUS_CANDIDATE_NO_GO / NOT_AUTHORIZED`
+`REMEDIATED_REVIEW_READY / PREVIOUS_CANDIDATE_NO_GO / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -66,6 +66,19 @@ Both authority commands remained fail-closed:
 v1: STOP / AMENDMENT_APPROVAL_REQUIRED
 v2 R0-W07: STOP / NO_ACTIVE_WORK_PACKAGE
 ```
+
+## Remediated Verification
+
+```text
+authority test suites: 86 pass / 0 fail
+project-harness-doctor: 0 errors / 0 warnings
+v1 authorize: STOP / AMENDMENT_APPROVAL_REQUIRED
+v2 authorize R0-W07: STOP / NO_ACTIVE_WORK_PACKAGE
+git diff --check: PASS
+```
+
+This verification permits a new review candidate freeze only. It does not
+approve or register the reviewer overlay and does not activate W07.
 
 The live project manifest does not contain the overlay. The effective reviewer
 therefore remains `Claude Code`, and W07 remains stopped.

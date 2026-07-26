@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `REMEDIATION / NOT_AUTHORIZED` |
+| Status | `REMEDIATED_REVIEW_READY / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -34,6 +34,9 @@ The remediation fails closed unless a W07-only overlay binds:
 
 The v2 loader validates the overlay and all evidence before any authority
 decision. The overlay has not been registered in `project-harness.json`.
+
+The replacement candidate is ready for a new exact commit freeze. The rejected
+candidate and its review package remain invalid.
 
 ## Boundaries
 

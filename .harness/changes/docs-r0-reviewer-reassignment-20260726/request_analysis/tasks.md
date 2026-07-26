@@ -10,7 +10,7 @@
 - [x] Feed overlay validation and evidence verification into the v2 loader.
 - [x] Bind base/H/tree/diff, canonical role paths, unique digests, and session separation.
 - [x] Make reviewer reassignment expiry consume W07 ledger state.
-- [ ] Freeze a remediated non-authorizing candidate.
+- [x] Prepare the remediated non-authorizing candidate for exact commit freeze.
 - [ ] Obtain two new fresh Codex Independent QA reviews.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.
