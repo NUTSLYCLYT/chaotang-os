@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `CODEX_REVIEW_GO / EXACT_H_OWNER_APPROVAL_REQUIRED / NOT_AUTHORIZED` |
+| Status | `QUIESCENT_REGISTRATION_CANDIDATE / OWNER_APPROVED / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -349,8 +349,14 @@ Pass 1 evidence SHA-256 is
 pass 2 is
 `e9fea702e0a618afb8ed77b6bafffd36127f5992f990c10b32248502e211c7b7`.
 
-The candidate now requires exact-H Product Owner approval. No approval evidence
-has been generated, no overlay is registered, and W07 remains stopped.
+The Product Owner approved the exact candidate, tree, review package, and both
+review evidence digests. The owner approval SHA-256 is
+`c1388ecbab244a8e5f97e57790679bd10cdff79ba20bf6005f3b7b00f39d37ff`.
+
+The W07-only reviewer reassignment overlay is now staged as a quiescent atomic
+registration candidate. Registration does not add an active W07 ledger entry,
+does not activate W07, and does not authorize product work. W07 remains
+`STOP / NO_ACTIVE_WORK_PACKAGE` until a separately approved activation event.
 
 ## Boundaries
 

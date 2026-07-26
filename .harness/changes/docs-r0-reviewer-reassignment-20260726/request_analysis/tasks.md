@@ -124,10 +124,12 @@
   controlled isolated worktree as a threat-model-B prerequisite.
 - [x] Prepare twenty-third candidate `6c01c810` and obtain two fresh read-only
   GO reviews with zero HIGH/MEDIUM findings.
-- [ ] Obtain Product Owner exact-H approval bound to candidate, tree, package,
+- [x] Obtain Product Owner exact-H approval bound to candidate, tree, package,
   both review evidence digests, scope, and exclusions.
-- [ ] Request exact-H Product Owner approval.
-- [ ] Register overlay only after exact approval.
+- [x] Request exact-H Product Owner approval.
+- [x] Stage the W07-only overlay after exact approval.
+- [ ] Freeze and independently review the quiescent atomic registration
+  candidate before controlled EXT integration.
 
 ## Prohibited
 

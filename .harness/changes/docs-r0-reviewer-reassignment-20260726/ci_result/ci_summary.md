@@ -740,3 +740,19 @@ combined = GO
 Both evidence blocks strict-parse and bind the same exact candidate, tree,
 scope, package, rejected-session set, and writer receipt. This permits an
 exact-H Product Owner approval request only. W07 remains stopped.
+
+## Exact-H Owner Approval
+
+```text
+approved candidate = 6c01c810e60a20e955c5fb650e78317365c0d6df
+approved tree = 3c9dfce871c362e2e9d7e93f12d24db3847f9d8d
+approved package = 9fd0d7f60cc09362da78e3165d4e85283a69a178fd4a5faf6c920bba592a16f9
+approved pass 1 = 6ad0418e9495cd02c1719404d035ae2b11dd309527c76623ebdd0342d8443c29
+approved pass 2 = e9fea702e0a618afb8ed77b6bafffd36127f5992f990c10b32248502e211c7b7
+owner approval = c1388ecbab244a8e5f97e57790679bd10cdff79ba20bf6005f3b7b00f39d37ff
+scope = R0-W07 reviewer reassignment only
+```
+
+The owner evidence strict-parses and the staged overlay passes its exact-field
+schema validation. The registration candidate remains quiescent: it does not
+activate W07 or change the v2 active work-package ledger.
