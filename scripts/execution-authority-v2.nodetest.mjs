@@ -111,6 +111,8 @@ function validReviewerReassignment() {
       '019f9c7c-0a04-7a20-b62f-cdd8779ad09d',
       '019f9c8a-e2d2-7d13-8a5a-781992a38021',
       '019f9c8a-e301-7430-a67f-270e119262b2',
+      '019f9cd7-fbb2-76c2-adc5-a2dd003543c6',
+      '019f9cd7-fbed-7e73-9774-80c8c23569ac',
     ],
     reviewPackagePath:
       '.harness/changes/docs-r0-reviewer-reassignment-20260726/review_inputs/candidate.diff',
@@ -385,7 +387,11 @@ function reviewPackageForPaths(paths) {
 
 async function writeRepositoryFile(temporaryRoot, path, source) {
   await mkdir(join(temporaryRoot, dirname(path)), { recursive: true });
-  await writeFile(join(temporaryRoot, path), source, 'utf8');
+  await writeFile(
+    join(temporaryRoot, path),
+    source,
+    Buffer.isBuffer(source) ? undefined : 'utf8',
+  );
 }
 
 async function createActiveAuthorityFixture({
@@ -521,6 +527,8 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
       'scripts/lib/amendment-governance.mjs',
       'scripts/lib/execution-authority-v2.mjs',
     ];
+    const nonUtf8Path =
+      '.harness/changes/docs-r0-reviewer-reassignment-20260726/non-utf8-review-byte.txt';
     for (const path of protectedPaths) {
       await writeRepositoryFile(
         temporaryRoot,
@@ -528,7 +536,14 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
         await readFile(join(root, path), 'utf8'),
       );
     }
-    await execFileAsync('git', ['add', ...protectedPaths], { cwd: temporaryRoot });
+    await writeRepositoryFile(
+      temporaryRoot,
+      nonUtf8Path,
+      Buffer.from([0x80, 0x0a]),
+    );
+    await execFileAsync('git', ['add', ...protectedPaths, nonUtf8Path], {
+      cwd: temporaryRoot,
+    });
     await execFileAsync('git', ['commit', '-qm', 'reviewed authority candidate'], {
       cwd: temporaryRoot,
     });
@@ -557,7 +572,7 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
         '--binary',
         `${overlay.baseH}..${overlay.candidateH}`,
       ],
-      { cwd: temporaryRoot },
+      { cwd: temporaryRoot, encoding: 'buffer' },
     );
     overlay.reviewPackageSha256 = sha256Hex(overlayPackageSource);
     await writeRepositoryFile(
@@ -657,10 +672,10 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
         '--binary',
         `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca..${candidateH}`,
       ],
-      { cwd: temporaryRoot },
+      { cwd: temporaryRoot, encoding: 'buffer' },
     );
     fixture.review.changedPaths =
-      parseExecutionAuthorityV2ReviewPackage(exactPackageSource);
+      parseExecutionAuthorityV2ReviewPackage(exactPackageSource.toString('utf8'));
 
     async function writeActivation(packageSource) {
       fixture.activationIntent.reviewPackageSha256 = sha256Hex(packageSource);

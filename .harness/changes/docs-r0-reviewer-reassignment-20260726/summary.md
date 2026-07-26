@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `EIGHTH_CANDIDATE_PRE_FREEZE / NOT_AUTHORIZED` |
+| Status | `NINTH_CANDIDATE_PRE_FREEZE / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -70,14 +70,25 @@ Candidate `94f6e6f96da22314c542ca8934a279c16f15bb2c` was rejected by two
 fresh sessions. One found expired-overlay replay after an interrupted history;
 the other proved that W07 could not satisfy the W06-frozen evidence contract.
 
-The eighth remediation requires uninterrupted first-parent activation history,
+The eighth remediation required uninterrupted first-parent activation history,
 adds a W07 Codex evidence profile without changing W06 evidence semantics, and
 binds W07 source ref, fixed review base, candidate H/tree, and exact hardened
 Git diff. An end-to-end temporary repository test proves that a self-consistent
 forged package fails while the exact package can authorize only after separate
 registration and activation commits.
 
-The eighth candidate is ready for exact commit freeze and two new reviews.
+Candidate `6459279075aabe7cf4cc28d5d14402a110655590` received one GO and
+one NO_GO and was rejected as a unit. The blocking finding was that review
+package and Git diff bytes were decoded as UTF-8 before equality comparison,
+allowing distinct invalid byte sequences to normalize to the same text.
+
+The ninth remediation keeps review-package hashing and exact Git diff
+comparison as raw `Buffer` values end to end. Text decoding is limited to
+parsing the diff headers used to derive changed paths. A non-UTF-8 regression
+fixture exercises registration and activation without weakening W06
+compatibility or the real workspace's fail-closed state.
+
+The ninth candidate is ready for exact commit freeze and two new reviews.
 
 ## Boundaries
 

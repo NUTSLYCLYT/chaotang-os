@@ -273,9 +273,12 @@ async function verifyActivePacketGitIdentity(
         '--binary',
         `${profile.reviewBaseH}..${manifest.approvalEvidence.candidateH}`,
       ),
-      authorityGitOptions(root, { maxBuffer: 10 * 1024 * 1024 }),
+      authorityGitOptions(root, {
+        encoding: 'buffer',
+        maxBuffer: 10 * 1024 * 1024,
+      }),
     );
-    if (reviewPackageSource !== exactDiff) {
+    if (!reviewPackageSource.equals(exactDiff)) {
       errors.push('review package bytes must equal exact git diff');
     }
   } catch (cause) {
@@ -406,8 +409,8 @@ export function parseJsonObjectWithUniqueKeys(source, label = 'JSON document') {
   return value;
 }
 
-export function sha256Hex(text) {
-  return createHash('sha256').update(text, 'utf8').digest('hex');
+export function sha256Hex(source) {
+  return createHash('sha256').update(source).digest('hex');
 }
 
 export function parseExecutionAuthorityV2Evidence(source, label = 'authority evidence') {
@@ -725,7 +728,12 @@ export function validateExecutionAuthorityV2Evidence(
   return [...new Set(errors)];
 }
 
-export async function readPinnedAuthorityFile(root, path, errors) {
+export async function readPinnedAuthorityFile(
+  root,
+  path,
+  errors,
+  { encoding = 'utf8' } = {},
+) {
   if (!safeRepositoryPath(path)) {
     errors.push(`unsafe governed path: ${path}`);
     return null;
@@ -757,7 +765,9 @@ export async function readPinnedAuthorityFile(root, path, errors) {
     }
   }
   try {
-    return await readFile(current, 'utf8');
+    return encoding === null
+      ? await readFile(current)
+      : await readFile(current, encoding);
   } catch (cause) {
     errors.push(`${path}: unable to read authority input: ${cause.message}`);
     return null;
@@ -1245,6 +1255,7 @@ export async function loadExecutionAuthorityV2(root) {
         root,
         reviewEvidence.reviewPackagePath,
         errors,
+        { encoding: null },
       );
       if (reviewPackageSource === null) {
         errors.push('active execution authority requires a readable review package');
@@ -1253,7 +1264,9 @@ export async function loadExecutionAuthorityV2(root) {
           errors.push('reviewPackagePath: digest mismatch');
         }
         try {
-          reviewPackagePaths = parseExecutionAuthorityV2ReviewPackage(reviewPackageSource);
+          reviewPackagePaths = parseExecutionAuthorityV2ReviewPackage(
+            reviewPackageSource.toString('utf8'),
+          );
         } catch (cause) {
           errors.push(cause.message);
         }

@@ -69,6 +69,8 @@ const REJECTED_REVIEW_SESSION_IDS = Object.freeze([
   '019f9c7c-0a04-7a20-b62f-cdd8779ad09d',
   '019f9c8a-e2d2-7d13-8a5a-781992a38021',
   '019f9c8a-e301-7430-a67f-270e119262b2',
+  '019f9cd7-fbb2-76c2-adc5-a2dd003543c6',
+  '019f9cd7-fbed-7e73-9774-80c8c23569ac',
 ]);
 const REVIEWER_REASSIGNMENT_KEYS = Object.freeze([
   'approvedBy',
@@ -1125,11 +1127,14 @@ export async function verifyAmendmentApprovalEvidenceFiles(root, amendment) {
       const { stdout: diffSource } = await execFileAsync(
         'git',
         reviewerReassignmentDiffArgs(overlay.baseH, overlay.candidateH),
-        reviewerReassignmentGitOptions(root, { maxBuffer: 10 * 1024 * 1024 }),
+        reviewerReassignmentGitOptions(root, {
+          encoding: 'buffer',
+          maxBuffer: 10 * 1024 * 1024,
+        }),
       );
       if (
         reviewPackageSource !== null &&
-        !reviewPackageSource.equals(Buffer.from(diffSource, 'utf8'))
+        !reviewPackageSource.equals(diffSource)
       ) {
         errors.push(
           'reviewerReassignment.reviewPackagePath: bytes must equal exact git diff',

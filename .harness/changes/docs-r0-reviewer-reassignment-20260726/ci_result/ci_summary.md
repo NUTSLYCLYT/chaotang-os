@@ -2,7 +2,7 @@
 
 ## Status
 
-`EIGHTH_CANDIDATE_PRE_FREEZE / SEVEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`NINTH_CANDIDATE_PRE_FREEZE / EIGHT_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -183,6 +183,36 @@ working diff check: PASS
 The temporary W07 GO proves contract executability only. The real workspace
 remains quiescent and is not authorized, pushed, deployed, migrated, or bound
 to listener 3050.
+
+## Eighth Rejected Candidate
+
+```text
+candidate = 6459279075aabe7cf4cc28d5d14402a110655590
+tree = ed5edf0227379ce29f52aa1842ae22f79f81f00f
+package = b6a1efb66a11bdf5ed3d6d58f5743aac24df785ef59535165dc10a345e21d05e
+pass 1 = GO / HIGH 0 / MEDIUM 0
+pass 2 = NO_GO / HIGH 0 / MEDIUM 1
+combined = NO_GO
+```
+
+The package reader and hardened Git diff were decoded through UTF-8 strings
+before equality comparison. That violated the exact-byte contract for invalid
+UTF-8 input, so the candidate and its GO result are not reusable.
+
+## Ninth Candidate Pre-Freeze Verification
+
+```text
+authority test suites: 96 pass / 0 fail
+project-harness-doctor: 0 errors / 0 warnings
+non-UTF-8 W07 review package registration/activation fixture: PASS
+v2 check: VALID_STRUCTURE / NOT_AN_AUTHORIZATION
+v2 authorize R0-W07: STOP / NO_ACTIVE_WORK_PACKAGE
+```
+
+Review-package hashing and exact Git diff comparison now preserve raw Buffers
+end to end. UTF-8 decoding occurs only for changed-path header parsing. These
+results permit candidate freeze and review only; they do not approve the
+overlay or activate W07.
 
 ## Third Rejected Candidate
 

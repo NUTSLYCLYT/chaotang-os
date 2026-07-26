@@ -38,6 +38,11 @@
 - [x] Bind W07 local EXT ref, fixed review base, candidate H/tree, and exact Git diff.
 - [x] Prove W07 registration and activation end to end in an isolated temporary repository.
 - [x] Prepare an eighth non-authorizing candidate for exact commit freeze.
+- [x] Reject candidate `64592790` after mixed GO/NO_GO reviews.
+- [x] Exclude all sixteen rejected or superseded review sessions.
+- [x] Preserve review-package and hardened Git diff bytes as Buffers through hashing and equality.
+- [x] Prove non-UTF-8 review bytes remain exact through W07 registration and activation.
+- [x] Prepare a ninth non-authorizing candidate for exact commit freeze.
 - [ ] Obtain two new fresh Codex Independent QA reviews.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.
