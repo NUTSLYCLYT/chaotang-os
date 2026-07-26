@@ -73,3 +73,20 @@ v2 才回答“这个具体 work package 现在是否被授权”。
 所以 `R0-W06` 必须返回 `STOP / NO_ACTIVE_WORK_PACKAGE`。W01–W05 的任何历史 approval 或 review 都不
 构成 W06 授权；只有后续独立审查绑定 exact candidate、tree、scope 与 activation bytes 后，才可能原子激活
 W06。
+
+## 独立审查人范围化修订
+
+根修正案中的 `independentReviewer` 是历史默认审查人，不允许直接改写。审查人不可用时，只能在
+`amendmentGovernance.reviewerReassignment` 登记一个失效关闭的范围化 overlay。当前支持的 overlay
+仅限 `R0-W07`，且必须同时绑定：
+
+- exact candidate H 与 tree；
+- review package 路径及 SHA-256；
+- 两个 `FRESH_NO_FORK_CONTEXT`、`writeAccess=DENIED` 的 Codex Independent QA 审查；
+- 两次审查均为 `GO`，且未解决 HIGH/MEDIUM 均为 0；
+- Product Owner exact-H approval 路径及 SHA-256。
+
+overlay 的证据文件会逐级拒绝符号链接并按原始字节校验 digest。任何字段、文件、digest 或审查结果
+不一致时，effective reviewer 解析为无效，execution authority 必须 STOP。overlay 只替换 W07 的
+evidence reviewer 身份，不激活 work package，也不修改 v1/v2 的执行权限边界；W07 激活仍需独立的
+atomic activation candidate。

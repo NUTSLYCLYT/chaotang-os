@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import { lstat, readFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 
+import { effectiveIndependentReviewer } from './amendment-governance.mjs';
+
 export const EXECUTION_AUTHORITY_V2_PATH = '.harness/manifest/execution-authority.v2.json';
 export const EXECUTION_AUTHORITY_V2_SCHEMA_PATH =
   '.harness/contracts/execution-authority-v2.schema.json';
@@ -451,7 +453,10 @@ export function validateExecutionAuthorityV2Evidence(
     errors.push('review verdict must match manifest approvalEvidence.reviewVerdict');
   }
   if (reviewEvidence.verdict !== 'GO') errors.push('review verdict must be GO');
-  const expectedReviewer = amendmentGovernance?.independentReviewer;
+  const expectedReviewer = effectiveIndependentReviewer(
+    amendmentGovernance,
+    manifest.activeWorkPackage,
+  );
   if (typeof expectedReviewer !== 'string' || expectedReviewer.length === 0) {
     errors.push('amendmentGovernance.independentReviewer must be a non-empty string');
   } else if (reviewEvidence.reviewer !== expectedReviewer) {

@@ -12,6 +12,7 @@ import {
   effectiveIndependentReviewer,
   validateAmendmentGovernanceRegistration,
   validateReviewerReassignmentOverlay,
+  verifyAmendmentApprovalEvidenceFiles,
 } from './lib/amendment-governance.mjs';
 import { validateR0AmendmentMarkdown } from './lib/r0-amendment-check.mjs';
 
@@ -208,6 +209,48 @@ test('approved reviewer reassignment requires two isolated read-only Codex QA pa
     ),
     'Claude Code',
   );
+});
+
+test('reviewer reassignment evidence is verified byte-for-byte and fails closed on drift', async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), 'reviewer-reassignment-'));
+  try {
+    const overlay = approvedReviewerReassignmentFixture();
+    const evidence = [
+      [overlay.reviewPackagePath, 'candidate diff\n', 'reviewPackageSha256'],
+      [overlay.ownerApprovalPath, 'owner approval\n', 'ownerApprovalSha256'],
+      [overlay.reviews[0].path, 'review pass 1\n', 'reviewSha256'],
+      [overlay.reviews[1].path, 'review pass 2\n', 'reviewSha256'],
+    ];
+    for (const [path, source, digestField] of evidence) {
+      await mkdir(dirname(join(tempRoot, path)), { recursive: true });
+      await writeFile(join(tempRoot, path), source);
+      const digest = createHash('sha256').update(source).digest('hex');
+      if (digestField === 'reviewSha256') {
+        overlay.reviews.find((review) => review.path === path).sha256 = digest;
+      } else {
+        overlay[digestField] = digest;
+      }
+    }
+
+    const governance = {
+      approvalEvidence: null,
+      reviewerReassignment: overlay,
+    };
+    assert.deepEqual(
+      await verifyAmendmentApprovalEvidenceFiles(tempRoot, governance),
+      [],
+    );
+
+    await writeFile(join(tempRoot, overlay.reviews[0].path), 'drifted review\n');
+    assert.ok(
+      (await verifyAmendmentApprovalEvidenceFiles(tempRoot, governance)).some(
+        (error) =>
+          error === 'reviewerReassignment.reviews[0].path: digest mismatch',
+      ),
+    );
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 for (const [name, mutate, expected] of [

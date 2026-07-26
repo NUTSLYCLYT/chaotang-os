@@ -44,6 +44,36 @@ const APPROVED_SCOPE = Object.freeze(['R0-W01']);
 const HEX64_PATTERN = /^[0-9a-f]{64}$/;
 const HEX40_PATTERN = /^[0-9a-f]{40}$/;
 const WORK_PACKAGE_PATTERN = /^R0-W0[0-9]$/;
+const REVIEWER_REASSIGNMENT_KEYS = Object.freeze([
+  'approvedBy',
+  'candidateH',
+  'candidateMutation',
+  'executionOwner',
+  'expiresAfter',
+  'fromReviewer',
+  'ownerApprovalPath',
+  'ownerApprovalSha256',
+  'reviewPackagePath',
+  'reviewPackageSha256',
+  'reviewPassesRequired',
+  'reviews',
+  'schemaVersion',
+  'scope',
+  'sessionIsolation',
+  'status',
+  'toReviewer',
+  'tree',
+  'writeAccess',
+]);
+const REVIEW_PASS_KEYS = Object.freeze([
+  'high',
+  'medium',
+  'path',
+  'sessionId',
+  'sha256',
+  'verdict',
+  'writeAccess',
+]);
 
 function hasExactEntries(actual, expected) {
   if (actual === null || typeof actual !== 'object' || Array.isArray(actual)) return false;
@@ -60,6 +90,15 @@ function hasExactItems(actual, expected) {
     Array.isArray(actual) &&
     actual.length === expected.length &&
     expected.every((item, index) => actual[index] === item)
+  );
+}
+
+function hasExactKeys(actual, expected) {
+  return (
+    actual !== null &&
+    typeof actual === 'object' &&
+    !Array.isArray(actual) &&
+    sameArray(Object.keys(actual).sort(), [...expected].sort())
   );
 }
 
@@ -81,6 +120,115 @@ function safeRepositoryPath(path) {
     !path.includes('\0') &&
     !path.split('/').includes('..')
   );
+}
+
+export function validateReviewerReassignmentOverlay(overlay) {
+  const errors = [];
+  if (!hasExactKeys(overlay, REVIEWER_REASSIGNMENT_KEYS)) {
+    return ['reviewer reassignment has missing or unsupported fields'];
+  }
+  if (overlay.schemaVersion !== 'reviewer-reassignment.v1') {
+    errors.push('reviewer reassignment schemaVersion is unsupported');
+  }
+  if (overlay.status !== 'APPROVED') {
+    errors.push('reviewer reassignment status must be APPROVED');
+  }
+  if (!sameArray(overlay.scope, ['R0-W07'])) {
+    errors.push('reviewer reassignment scope must be exactly R0-W07');
+  }
+  if (overlay.fromReviewer !== 'Claude Code') {
+    errors.push('reviewer reassignment fromReviewer must be Claude Code');
+  }
+  if (overlay.toReviewer !== 'Codex Independent QA') {
+    errors.push('reviewer reassignment toReviewer must be Codex Independent QA');
+  }
+  if (overlay.executionOwner !== 'Codex') {
+    errors.push('reviewer reassignment executionOwner must remain Codex');
+  }
+  if (overlay.toReviewer === overlay.executionOwner) {
+    errors.push('reviewer reassignment reviewer must differ from execution owner identity');
+  }
+  if (overlay.reviewPassesRequired !== 2) {
+    errors.push('reviewer reassignment must require exactly two review passes');
+  }
+  if (overlay.sessionIsolation !== 'FRESH_NO_FORK_CONTEXT') {
+    errors.push('reviewer reassignment sessionIsolation must be FRESH_NO_FORK_CONTEXT');
+  }
+  if (overlay.writeAccess !== 'DENIED') {
+    errors.push('reviewer reassignment writeAccess must be DENIED');
+  }
+  if (overlay.candidateMutation !== 'FORBIDDEN') {
+    errors.push('reviewer reassignment candidateMutation must be FORBIDDEN');
+  }
+  if (overlay.expiresAfter !== 'R0-W07_MERGED_AND_VERIFIED') {
+    errors.push('reviewer reassignment must expire after R0-W07_MERGED_AND_VERIFIED');
+  }
+  if (!HEX40_PATTERN.test(overlay.candidateH ?? '')) {
+    errors.push('reviewer reassignment candidateH must be a 40-hex git sha');
+  }
+  if (!HEX40_PATTERN.test(overlay.tree ?? '')) {
+    errors.push('reviewer reassignment tree must be a 40-hex git tree');
+  }
+  for (const [pathField, digestField] of [
+    ['reviewPackagePath', 'reviewPackageSha256'],
+    ['ownerApprovalPath', 'ownerApprovalSha256'],
+  ]) {
+    if (!safeRepositoryPath(overlay[pathField])) {
+      errors.push(`reviewer reassignment ${pathField} must be a safe repository path`);
+    }
+    if (!HEX64_PATTERN.test(overlay[digestField] ?? '')) {
+      errors.push(`reviewer reassignment ${digestField} must be a sha256 hex digest`);
+    }
+  }
+  if (
+    !Array.isArray(overlay.reviews) ||
+    overlay.reviews.length !== overlay.reviewPassesRequired
+  ) {
+    errors.push('reviewer reassignment requires exactly two review passes');
+  } else {
+    const sessions = new Set();
+    for (const review of overlay.reviews) {
+      if (!hasExactKeys(review, REVIEW_PASS_KEYS)) {
+        errors.push('review pass has missing or unsupported fields');
+        continue;
+      }
+      if (typeof review.sessionId !== 'string' || review.sessionId.length === 0) {
+        errors.push('review sessionId must be non-empty');
+      } else if (sessions.has(review.sessionId)) {
+        errors.push('review passes must use a unique sessionId');
+      } else {
+        sessions.add(review.sessionId);
+      }
+      if (!safeRepositoryPath(review.path)) {
+        errors.push('review path must be a safe repository path');
+      }
+      if (!HEX64_PATTERN.test(review.sha256 ?? '')) {
+        errors.push('review sha256 must be a sha256 hex digest');
+      }
+      if (review.verdict !== 'GO') errors.push('review verdict must be GO');
+      if (review.high !== 0 || review.medium !== 0) {
+        errors.push('review must have zero unresolved HIGH and MEDIUM findings');
+      }
+      if (review.writeAccess !== 'DENIED') {
+        errors.push('review writeAccess must be DENIED');
+      }
+    }
+  }
+  if (overlay.approvedBy !== 'lyt') {
+    errors.push('reviewer reassignment approvedBy must be lyt');
+  }
+  return [...new Set(errors)];
+}
+
+export function effectiveIndependentReviewer(amendmentGovernance, workPackage) {
+  const overlay = amendmentGovernance?.reviewerReassignment;
+  if (overlay === undefined || overlay === null) {
+    return amendmentGovernance?.independentReviewer ?? null;
+  }
+  if (validateReviewerReassignmentOverlay(overlay).length > 0) return null;
+  return overlay.scope.includes(workPackage)
+    ? overlay.toReviewer
+    : amendmentGovernance?.independentReviewer ?? null;
 }
 
 function validateCommonFields(amendment, { requiredVerification, gateStatus }) {
@@ -107,6 +255,12 @@ function validateCommonFields(amendment, { requiredVerification, gateStatus }) {
   }
   if (amendment.independentReviewer !== 'Claude Code') {
     errors.push('amendment governance independentReviewer must be Claude Code');
+  }
+  if (
+    amendment.reviewerReassignment !== undefined &&
+    amendment.reviewerReassignment !== null
+  ) {
+    errors.push(...validateReviewerReassignmentOverlay(amendment.reviewerReassignment));
   }
   if (!hasExactItems(amendment.professionalReassignmentRequiredBefore, REQUIRED_REASSIGNMENT_BOUNDARIES)) {
     errors.push('amendment governance must reassign professionals before customer data, W08, and W09');
@@ -228,44 +382,71 @@ export function validateAmendmentGovernanceRegistration(amendment) {
 }
 
 export async function verifyAmendmentApprovalEvidenceFiles(root, amendment) {
-  if (!amendment || amendment.approvalEvidence === null || amendment.approvalEvidence === undefined) {
-    return [];
-  }
-  const evidence = amendment.approvalEvidence;
   const errors = [];
-  for (const [pathField, digestField] of [
-    ['ownerApprovalPath', 'ownerApprovalSha256'],
-    ['reviewPath', 'reviewSha256'],
-  ]) {
-    const path = evidence[pathField];
+  if (!amendment) return errors;
+
+  async function verifyEvidenceFile(path, expectedDigest, fieldLabel) {
     if (!safeRepositoryPath(path)) {
-      errors.push(`approvalEvidence.${pathField}: unsafe path`);
-      continue;
+      errors.push(`${fieldLabel}: unsafe path`);
+      return;
     }
     let current = root;
     const components = path.split('/');
-    let failed = false;
-    for (let index = 0; index < components.length; index += 1) {
-      current = join(current, components[index]);
+    for (const component of components) {
+      current = join(current, component);
       let stat;
       try {
         stat = await lstat(current);
       } catch (cause) {
-        errors.push(`approvalEvidence.${pathField}: missing path component: ${cause.code ?? cause.message}`);
-        failed = true;
-        break;
+        errors.push(`${fieldLabel}: missing path component: ${cause.code ?? cause.message}`);
+        return;
       }
       if (stat.isSymbolicLink()) {
-        errors.push(`approvalEvidence.${pathField}: symbolic links are forbidden`);
-        failed = true;
-        break;
+        errors.push(`${fieldLabel}: symbolic links are forbidden`);
+        return;
       }
     }
-    if (failed) continue;
-    const source = await readFile(current, 'utf8');
-    const digest = createHash('sha256').update(source, 'utf8').digest('hex');
-    if (digest !== evidence[digestField]) {
-      errors.push(`approvalEvidence.${pathField}: digest mismatch`);
+    const source = await readFile(current);
+    const digest = createHash('sha256').update(source).digest('hex');
+    if (digest !== expectedDigest) {
+      errors.push(`${fieldLabel}: digest mismatch`);
+    }
+  }
+
+  const evidence = amendment.approvalEvidence;
+  if (evidence !== null && evidence !== undefined) {
+    for (const [pathField, digestField] of [
+      ['ownerApprovalPath', 'ownerApprovalSha256'],
+      ['reviewPath', 'reviewSha256'],
+    ]) {
+      await verifyEvidenceFile(
+        evidence[pathField],
+        evidence[digestField],
+        `approvalEvidence.${pathField}`,
+      );
+    }
+  }
+
+  const overlay = amendment.reviewerReassignment;
+  if (overlay !== null && overlay !== undefined) {
+    await verifyEvidenceFile(
+      overlay.reviewPackagePath,
+      overlay.reviewPackageSha256,
+      'reviewerReassignment.reviewPackagePath',
+    );
+    await verifyEvidenceFile(
+      overlay.ownerApprovalPath,
+      overlay.ownerApprovalSha256,
+      'reviewerReassignment.ownerApprovalPath',
+    );
+    if (Array.isArray(overlay.reviews)) {
+      for (let index = 0; index < overlay.reviews.length; index += 1) {
+        await verifyEvidenceFile(
+          overlay.reviews[index].path,
+          overlay.reviews[index].sha256,
+          `reviewerReassignment.reviews[${index}].path`,
+        );
+      }
     }
   }
   return errors;

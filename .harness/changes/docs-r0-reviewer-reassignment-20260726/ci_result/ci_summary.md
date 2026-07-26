@@ -2,7 +2,7 @@
 
 ## Status
 
-`TDD_RED / NOT_AUTHORIZED`
+`REVIEW_READY / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -30,6 +30,32 @@ effectiveIndependentReviewer
 ```
 
 The current governance implementation has no reviewer-reassignment API.
+
+## Observed GREEN
+
+```text
+node --test scripts/r0-amendment-check.nodetest.mjs \
+  scripts/execution-authority-v2.nodetest.mjs
+
+tests 80
+pass 80
+fail 0
+```
+
+GREEN covers closed overlay validation, W07-only reviewer resolution, unique
+read-only review sessions, zero HIGH/MEDIUM findings, and byte-level digest
+verification for all overlay evidence files.
+
+`node scripts/harness-doctor.mjs` reports `0 errors, 0 warning(s)`.
+Both authority commands remain fail-closed:
+
+```text
+v1: STOP / AMENDMENT_APPROVAL_REQUIRED
+v2 R0-W07: STOP / NO_ACTIVE_WORK_PACKAGE
+```
+
+The live project manifest does not contain the overlay. The effective reviewer
+therefore remains `Claude Code`, and W07 remains stopped.
 
 ## Runtime Boundary
 

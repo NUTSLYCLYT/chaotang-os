@@ -4,8 +4,9 @@
 - [x] Freeze reviewer reassignment design.
 - [x] Freeze implementation plan.
 - [x] Observe validator RED: required overlay exports do not exist.
-- [ ] Implement overlay validator GREEN.
-- [ ] Freeze non-authorizing candidate.
+- [x] Implement overlay validator GREEN.
+- [x] Verify review package, owner approval, and both review files byte-for-byte.
+- [x] Prepare non-authorizing candidate for exact commit freeze.
 - [ ] Obtain two fresh Codex Independent QA reviews.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.
