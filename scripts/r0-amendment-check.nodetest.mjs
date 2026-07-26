@@ -11,6 +11,7 @@ import test from 'node:test';
 import {
   effectiveIndependentReviewer,
   parseReviewerReassignmentEvidence,
+  reviewerReassignmentDiffArgs,
   validateAmendmentGovernanceRegistration,
   validateReviewerReassignmentOverlay,
   verifyAmendmentApprovalEvidenceFiles,
@@ -163,6 +164,12 @@ function approvedReviewerReassignmentFixture() {
     candidateH: '1'.repeat(40),
     tree: '2'.repeat(40),
     writingSessionId: '11111111-1111-1111-1111-111111111111',
+    rejectedSessionIds: [
+      '019f9c33-5ae7-7b00-9c0c-1b3b3be8452d',
+      '019f9c33-5b1f-7360-a217-1c3d827045d5',
+      '019f9c43-e603-76c3-b30b-d78789057441',
+      '019f9c43-e632-75b1-99d9-0d9b162cd3e1',
+    ],
     reviewPackagePath:
       '.harness/changes/docs-r0-reviewer-reassignment-20260726/review_inputs/candidate.diff',
     reviewPackageSha256: '3'.repeat(64),
@@ -220,6 +227,16 @@ test('reviewer reassignment evidence rejects duplicate JSON keys', () => {
     () => parseReviewerReassignmentEvidence(source, 'duplicate.md'),
     /duplicate JSON keys/,
   );
+});
+
+test('review package Git command disables external diff and text conversion', () => {
+  assert.deepEqual(reviewerReassignmentDiffArgs('base', 'candidate'), [
+    'diff',
+    '--no-ext-diff',
+    '--no-textconv',
+    '--binary',
+    'base..candidate',
+  ]);
 });
 
 test('approved reviewer reassignment requires two isolated read-only Codex QA passes', () => {
@@ -292,6 +309,7 @@ test('reviewer reassignment evidence is verified byte-for-byte and fails closed 
         pass: index + 1,
         sessionId: review.sessionId,
         reviewer: overlay.toReviewer,
+        rejectedSessionIds: overlay.rejectedSessionIds,
         scope: overlay.scope,
         baseH: overlay.baseH,
         candidateH: overlay.candidateH,
@@ -302,6 +320,7 @@ test('reviewer reassignment evidence is verified byte-for-byte and fails closed 
         high: review.high,
         medium: review.medium,
         writeAccess: review.writeAccess,
+        writingSessionId: overlay.writingSessionId,
         candidateMutated: false,
       }),
     );
@@ -323,6 +342,8 @@ test('reviewer reassignment evidence is verified byte-for-byte and fails closed 
       tree: overlay.tree,
       reviewPackagePath: overlay.reviewPackagePath,
       reviewPackageSha256: overlay.reviewPackageSha256,
+      rejectedSessionIds: overlay.rejectedSessionIds,
+      writingSessionId: overlay.writingSessionId,
       reviews: overlay.reviews.map(({ path, sessionId, sha256 }) => ({
         path,
         sessionId,
@@ -341,6 +362,23 @@ test('reviewer reassignment evidence is verified byte-for-byte and fails closed 
       await verifyAmendmentApprovalEvidenceFiles(tempRoot, governance),
       [],
     );
+
+    await execFileAsync(
+      'git',
+      ['tag', '-a', 'candidate-tag', '-m', 'candidate tag', overlay.candidateH],
+      { cwd: tempRoot },
+    );
+    const tagObject = (
+      await execFileAsync('git', ['rev-parse', 'candidate-tag'], { cwd: tempRoot })
+    ).stdout.trim();
+    const originalBaseH = overlay.baseH;
+    overlay.baseH = tagObject;
+    assert.ok(
+      (await verifyAmendmentApprovalEvidenceFiles(tempRoot, governance)).some(
+        (error) => error === 'reviewerReassignment.baseH: git object mismatch',
+      ),
+    );
+    overlay.baseH = originalBaseH;
 
     await writeFile(join(tempRoot, overlay.reviews[0].path), 'drifted review\n');
     assert.ok(
@@ -388,6 +426,11 @@ for (const [name, mutate, expected] of [
     'writer self-review',
     (overlay) => { overlay.reviews[0].sessionId = overlay.writingSessionId; },
     'must differ from writingSessionId',
+  ],
+  [
+    'rejected session replay',
+    (overlay) => { overlay.reviews[0].sessionId = overlay.rejectedSessionIds[0]; },
+    'must not reuse a rejected session',
   ],
   [
     'reused evidence path',

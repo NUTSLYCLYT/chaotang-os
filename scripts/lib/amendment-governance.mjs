@@ -60,6 +60,7 @@ const REVIEWER_REASSIGNMENT_KEYS = Object.freeze([
   'fromReviewer',
   'ownerApprovalPath',
   'ownerApprovalSha256',
+  'rejectedSessionIds',
   'reviewPackagePath',
   'reviewPackageSha256',
   'reviewPassesRequired',
@@ -93,12 +94,14 @@ const REVIEW_EVIDENCE_KEYS = Object.freeze([
   'reviewPackagePath',
   'reviewPackageSha256',
   'reviewer',
+  'rejectedSessionIds',
   'schemaVersion',
   'scope',
   'sessionId',
   'tree',
   'verdict',
   'writeAccess',
+  'writingSessionId',
 ]);
 const OWNER_REASSIGNMENT_EVIDENCE_KEYS = Object.freeze([
   'approver',
@@ -108,10 +111,12 @@ const OWNER_REASSIGNMENT_EVIDENCE_KEYS = Object.freeze([
   'kind',
   'reviewPackagePath',
   'reviewPackageSha256',
+  'rejectedSessionIds',
   'reviews',
   'schemaVersion',
   'scope',
   'tree',
+  'writingSessionId',
 ]);
 const OWNER_REVIEW_REFERENCE_KEYS = Object.freeze(['path', 'sessionId', 'sha256']);
 
@@ -278,6 +283,7 @@ function validateReviewerEvidence(evidence, overlay, review, index) {
     pass: index + 1,
     sessionId: review.sessionId,
     reviewer: overlay.toReviewer,
+    rejectedSessionIds: overlay.rejectedSessionIds,
     scope: overlay.scope,
     baseH: overlay.baseH,
     candidateH: overlay.candidateH,
@@ -288,6 +294,7 @@ function validateReviewerEvidence(evidence, overlay, review, index) {
     high: review.high,
     medium: review.medium,
     writeAccess: review.writeAccess,
+    writingSessionId: overlay.writingSessionId,
     candidateMutated: false,
   };
   for (const [key, value] of Object.entries(expected)) {
@@ -315,6 +322,8 @@ function validateOwnerReassignmentEvidence(evidence, overlay) {
     tree: overlay.tree,
     reviewPackagePath: overlay.reviewPackagePath,
     reviewPackageSha256: overlay.reviewPackageSha256,
+    rejectedSessionIds: overlay.rejectedSessionIds,
+    writingSessionId: overlay.writingSessionId,
   };
   for (const [key, value] of Object.entries(expected)) {
     if (JSON.stringify(evidence[key]) !== JSON.stringify(value)) {
@@ -397,6 +406,14 @@ export function validateReviewerReassignmentOverlay(overlay) {
   ) {
     errors.push('reviewer reassignment writingSessionId must be a canonical session id');
   }
+  if (
+    !Array.isArray(overlay.rejectedSessionIds) ||
+    overlay.rejectedSessionIds.length !== 4 ||
+    overlay.rejectedSessionIds.some((id) => !SESSION_ID_PATTERN.test(id)) ||
+    new Set(overlay.rejectedSessionIds).size !== overlay.rejectedSessionIds.length
+  ) {
+    errors.push('reviewer reassignment rejectedSessionIds must bind four unique prior sessions');
+  }
   for (const [pathField, digestField] of [
     ['reviewPackagePath', 'reviewPackageSha256'],
     ['ownerApprovalPath', 'ownerApprovalSha256'],
@@ -439,6 +456,8 @@ export function validateReviewerReassignmentOverlay(overlay) {
         errors.push('review sessionId must be a canonical session id');
       } else if (review.sessionId === overlay.writingSessionId) {
         errors.push('review sessionId must differ from writingSessionId');
+      } else if (overlay.rejectedSessionIds?.includes(review.sessionId)) {
+        errors.push('review sessionId must not reuse a rejected session');
       } else if (sessions.has(review.sessionId)) {
         errors.push('review passes must use a unique sessionId');
       } else {
@@ -492,6 +511,16 @@ export function validateReviewerReassignmentOverlay(overlay) {
     errors.push('reviewer reassignment evidence digests must be unique');
   }
   return [...new Set(errors)];
+}
+
+export function reviewerReassignmentDiffArgs(baseH, candidateH) {
+  return [
+    'diff',
+    '--no-ext-diff',
+    '--no-textconv',
+    '--binary',
+    `${baseH}..${candidateH}`,
+  ];
 }
 
 export function effectiveIndependentReviewer(
@@ -770,7 +799,11 @@ export async function verifyAmendmentApprovalEvidenceFiles(root, amendment) {
       }
     }
     try {
-      const [{ stdout: candidateH }, { stdout: tree }] = await Promise.all([
+      const [{ stdout: baseH }, { stdout: candidateH }, { stdout: tree }] =
+        await Promise.all([
+        execFileAsync('git', ['rev-parse', `${overlay.baseH}^{commit}`], {
+          cwd: root,
+        }),
         execFileAsync('git', ['rev-parse', `${overlay.candidateH}^{commit}`], {
           cwd: root,
         }),
@@ -778,6 +811,9 @@ export async function verifyAmendmentApprovalEvidenceFiles(root, amendment) {
           cwd: root,
         }),
       ]);
+      if (baseH.trim() !== overlay.baseH) {
+        errors.push('reviewerReassignment.baseH: git object mismatch');
+      }
       if (candidateH.trim() !== overlay.candidateH) {
         errors.push('reviewerReassignment.candidateH: git object mismatch');
       }
@@ -791,7 +827,7 @@ export async function verifyAmendmentApprovalEvidenceFiles(root, amendment) {
       );
       const { stdout: diffSource } = await execFileAsync(
         'git',
-        ['diff', '--binary', `${overlay.baseH}..${overlay.candidateH}`],
+        reviewerReassignmentDiffArgs(overlay.baseH, overlay.candidateH),
         { cwd: root, maxBuffer: 10 * 1024 * 1024 },
       );
       if (

@@ -2,7 +2,7 @@
 
 ## Status
 
-`REMEDIATED_REVIEW_READY / PREVIOUS_CANDIDATE_NO_GO / NOT_AUTHORIZED`
+`THIRD_CANDIDATE_REVIEW_READY / TWO_CANDIDATES_NO_GO / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -79,6 +79,31 @@ git diff --check: PASS
 
 This verification permits a new review candidate freeze only. It does not
 approve or register the reviewer overlay and does not activate W07.
+
+## Second Rejected Candidate
+
+```text
+candidate = 524c7f15c83570bd3662f8d6785a0eb033b4c550
+tree = f052e129373980203fc9ccb870e49cd56fb78635
+package = 37515799c7f84e57df2a39d7fda3fd7ce0292c753397f49e70b9e69ad15e6d88
+pass 1 = NO_GO / HIGH 3 / MEDIUM 1
+pass 2 = NO_GO / HIGH 1 / MEDIUM 1
+```
+
+The third candidate must carry a fresh verification result. No prior PASS or
+review result may be reused.
+
+## Third Candidate Pre-Freeze Verification
+
+```text
+authority test suites: 88 pass / 0 fail
+project-harness-doctor: 0 errors / 0 warnings
+v2 check: VALID_STRUCTURE / NOT_AN_AUTHORIZATION
+v2 authorize R0-W07: STOP / NO_ACTIVE_WORK_PACKAGE
+working diff check: PASS
+```
+
+The exact H0-to-H1 ranged diff check must be rerun after commit freeze.
 
 The live project manifest does not contain the overlay. The effective reviewer
 therefore remains `Claude Code`, and W07 remains stopped.

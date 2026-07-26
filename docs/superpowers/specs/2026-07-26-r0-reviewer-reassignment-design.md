@@ -15,6 +15,11 @@ replacement candidate must additionally enforce:
 - ledger-driven expiry once R0-W07 reaches `MERGED_AND_VERIFIED`;
 - no root-level `.gitattributes`.
 
+After candidate `524c7f15` was rejected, the contract additionally requires
+all rejected review session IDs to be bound and excluded, `baseH` to resolve
+to the exact commit object, writer identity to appear in owner/review evidence,
+and Git diff execution to use `--no-ext-diff --no-textconv`.
+
 ## Goal
 
 Replace the unavailable Claude Code reviewer for R0-W07 with a scoped,

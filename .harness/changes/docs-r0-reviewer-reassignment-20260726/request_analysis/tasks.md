@@ -10,7 +10,11 @@
 - [x] Feed overlay validation and evidence verification into the v2 loader.
 - [x] Bind base/H/tree/diff, canonical role paths, unique digests, and session separation.
 - [x] Make reviewer reassignment expiry consume W07 ledger state.
-- [x] Prepare the remediated non-authorizing candidate for exact commit freeze.
+- [x] Reject candidate `524c7f15` after two new independent NO_GO reviews.
+- [x] Bind all prior rejected sessions and forbid replay.
+- [x] Require exact base commit identity and safe Git diff flags.
+- [x] Bind writer session in review and owner evidence.
+- [x] Prepare a third non-authorizing candidate for exact commit freeze.
 - [ ] Obtain two new fresh Codex Independent QA reviews.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.

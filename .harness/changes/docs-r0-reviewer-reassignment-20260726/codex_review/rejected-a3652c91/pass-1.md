@@ -20,4 +20,3 @@
 4. Overlay expiry did not consume the W07 ledger state.
 
 The original reviewer output is retained in the coordinating session record.
-

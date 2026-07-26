@@ -20,4 +20,3 @@
 4. Root doctor rejected the newly tracked `.gitattributes`.
 
 The original reviewer output is retained in the coordinating session record.
-

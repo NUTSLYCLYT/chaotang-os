@@ -95,6 +95,12 @@ function validReviewerReassignment() {
     candidateH: '1'.repeat(40),
     tree: '2'.repeat(40),
     writingSessionId: '11111111-1111-1111-1111-111111111111',
+    rejectedSessionIds: [
+      '019f9c33-5ae7-7b00-9c0c-1b3b3be8452d',
+      '019f9c33-5b1f-7360-a217-1c3d827045d5',
+      '019f9c43-e603-76c3-b30b-d78789057441',
+      '019f9c43-e632-75b1-99d9-0d9b162cd3e1',
+    ],
     reviewPackagePath:
       '.harness/changes/docs-r0-reviewer-reassignment-20260726/review_inputs/candidate.diff',
     reviewPackageSha256: '3'.repeat(64),
