@@ -134,8 +134,9 @@ ACTIVE W07 loader 在读取证据前采样 `HEAD` 与 `refs/heads/feature-chaota
 evidence、activation intent 和 history 验证完成后再次解析二者。最终采样不一致时，authorization
 输入携带错误并 fail closed。
 同步 `executionAuthorityV2CommandResult` 不具备 W07 Git 重验能力，因此不能直接返回 W07 GO。
-CLI 使用异步 `executeExecutionAuthorityV2Command`，在最终 HEAD/EXT ref 重验后以一次性资格立即
-计算决策，避免复用 stale loaded result。
+CLI 使用异步 `executeExecutionAuthorityV2Command`。该 API 只接收 repository root 和命令参数，
+不接收 caller-supplied loaded object；它内部 fresh load，并在最终 HEAD/EXT ref 与 governed file
+验证后以一次性资格立即计算决策，避免跨仓或 stale loaded result。
 
 v2 loader 还会直接读取 `manifest.amendment.path` 的原始字节并校验
 `approvedSourceDigest`，不能只比较 manifest 与 governance 中互相引用的 digest 字段。所有 governed

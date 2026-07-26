@@ -1545,34 +1545,16 @@ export function executionAuthorityV2CommandResult(
 
 export async function executeExecutionAuthorityV2Command(
   root,
-  loaded,
   mode = '--authorize',
   extraArguments = [],
   options = {},
 ) {
-  if (mode === '--authorize' && loaded?.manifest?.activeWorkPackage === 'R0-W07') {
-    const boundaryErrors = [];
-    if (loaded.authorizationBoundaryGitIdentity === null ||
-        loaded.authorizationBoundaryGitIdentity === undefined) {
-      boundaryErrors.push('execution authority authorization-boundary snapshot is missing');
-    } else {
-      await verifyExecutionAuthorityGitIdentityStable(
-        root,
-        loaded.authorizationBoundaryGitIdentity,
-        boundaryErrors,
-      );
-    }
-    if (boundaryErrors.length > 0) {
-      return executionAuthorityV2CommandResult(
-        {
-          ...loaded,
-          errors: [...(loaded.errors ?? []), ...boundaryErrors],
-        },
-        mode,
-        extraArguments,
-        options,
-      );
-    }
+  const loaded = await loadExecutionAuthorityV2(root);
+  if (
+    mode === '--authorize' &&
+    loaded?.manifest?.activeWorkPackage === 'R0-W07' &&
+    (loaded.errors ?? []).length === 0
+  ) {
     AUTHORIZATION_BOUNDARY_VERIFIED_LOADS.add(loaded);
   }
   return executionAuthorityV2CommandResult(

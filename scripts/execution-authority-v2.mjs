@@ -4,7 +4,6 @@ import { fileURLToPath } from 'node:url';
 
 import {
   executeExecutionAuthorityV2Command,
-  loadExecutionAuthorityV2,
 } from './lib/execution-authority-v2.mjs';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -38,8 +37,7 @@ if (modes.length > 1 || extraArguments.length > 0) {
   process.exit(64);
 }
 
-const loaded = await loadExecutionAuthorityV2(root);
-const result = await executeExecutionAuthorityV2Command(root, loaded, mode, extraArguments, {
+const result = await executeExecutionAuthorityV2Command(root, mode, extraArguments, {
   workPackage,
   realCustomerData,
 });

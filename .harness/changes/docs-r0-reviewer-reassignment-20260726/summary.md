@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `FIFTEENTH_REMEDIATION_PENDING / NOT_AUTHORIZED` |
+| Status | `FIFTEENTH_CANDIDATE_PRE_FREEZE / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -155,6 +155,10 @@ warnings. No fourteenth candidate has yet been frozen or reviewed.
 Candidate `1a3161dae4c75b9ad5c44dfcb4f522381e6af07f` was rejected twice.
 The fifteenth remediation replaces caller-supplied loaded authorization with
 an API that performs its own fresh load from its sole repository root.
+
+The API no longer accepts a caller-supplied loaded object. Fresh loading,
+final file/ref verification, one-shot W07 eligibility, and synchronous
+decision occur in one call. Verification is 101/101 with doctor 0/0.
 
 ## Boundaries
 

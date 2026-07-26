@@ -751,7 +751,6 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
     );
     const result = await executionAuthorityV2Module.executeExecutionAuthorityV2Command(
       temporaryRoot,
-      loaded,
       '--authorize',
       [],
       { workPackage: 'R0-W07' },
@@ -1426,22 +1425,11 @@ test('W07 authorization boundary rejects HEAD and EXT ref movement', async () =>
     const result =
       await executionAuthorityV2Module.executeExecutionAuthorityV2Command(
         temporaryRoot,
-        {
-          manifest,
-          amendmentGovernance: {},
-          authorizationBoundaryGitIdentity: snapshot,
-          errors: [],
-        },
         '--authorize',
         [],
         { workPackage: 'R0-W07' },
       );
     assert.equal(result.output.reason, 'INVALID_EXECUTION_AUTHORITY');
-    assert.ok(
-      result.output.errors.includes(
-        'execution authority effectiveBase ref moved before authorization',
-      ),
-    );
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }

@@ -77,7 +77,8 @@
 - [x] Recheck Git identity inside the actual asynchronous authorize API.
 - [x] Prepare and reject fourteenth candidate `1a3161da` after two NO_GO reviews.
 - [x] Exclude all twenty-eight rejected review sessions.
-- [ ] Make the async authorization API perform its own fresh load.
+- [x] Make the async authorization API perform its own fresh load.
+- [ ] Prepare a fifteenth non-authorizing exact-H candidate.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.
 
