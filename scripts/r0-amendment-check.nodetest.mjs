@@ -160,15 +160,17 @@ function approvedReviewerReassignmentFixture() {
     writeAccess: 'DENIED',
     candidateMutation: 'FORBIDDEN',
     expiresAfter: 'R0-W07_MERGED_AND_VERIFIED',
-    baseH: '0'.repeat(40),
+    baseH: '55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca',
     candidateH: '1'.repeat(40),
     tree: '2'.repeat(40),
-    writingSessionId: '11111111-1111-1111-1111-111111111111',
+    writingSessionId: '70da5ef5-c29f-4570-83ec-f7ee19e9bef1',
     rejectedSessionIds: [
       '019f9c33-5ae7-7b00-9c0c-1b3b3be8452d',
       '019f9c33-5b1f-7360-a217-1c3d827045d5',
       '019f9c43-e603-76c3-b30b-d78789057441',
       '019f9c43-e632-75b1-99d9-0d9b162cd3e1',
+      '019f9c4f-1fef-74c2-9767-a8a653569bbd',
+      '019f9c4f-201b-7d91-a2b0-e49e08a5985a',
     ],
     reviewPackagePath:
       '.harness/changes/docs-r0-reviewer-reassignment-20260726/review_inputs/candidate.diff',
@@ -249,6 +251,14 @@ test('approved reviewer reassignment requires two isolated read-only Codex QA pa
       [{ id: 'R0-W07', status: 'ACTIVE' }],
     ),
     'Codex Independent QA',
+  );
+  assert.equal(
+    effectiveIndependentReviewer(
+      { independentReviewer: 'Claude Code', reviewerReassignment: overlay },
+      'R0-W07',
+      [{ id: 'R0-W07', status: 'ROLLED_BACK' }],
+    ),
+    'Claude Code',
   );
   assert.equal(
     effectiveIndependentReviewer(
@@ -431,6 +441,21 @@ for (const [name, mutate, expected] of [
     'rejected session replay',
     (overlay) => { overlay.reviews[0].sessionId = overlay.rejectedSessionIds[0]; },
     'must not reuse a rejected session',
+  ],
+  [
+    'rejected session substitution',
+    (overlay) => { overlay.rejectedSessionIds[0] = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'; },
+    'must bind all prior rejected sessions',
+  ],
+  [
+    'writer receipt substitution',
+    (overlay) => { overlay.writingSessionId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'; },
+    'must match the frozen writer receipt',
+  ],
+  [
+    'base substitution',
+    (overlay) => { overlay.baseH = 'a'.repeat(40); },
+    'must match the frozen EXT baseline',
   ],
   [
     'reused evidence path',

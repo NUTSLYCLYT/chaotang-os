@@ -50,6 +50,18 @@ const HEX40_PATTERN = /^[0-9a-f]{40}$/;
 const WORK_PACKAGE_PATTERN = /^R0-W0[0-9]$/;
 const SESSION_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const REVIEWER_REASSIGNMENT_BASE_H =
+  '55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca';
+const REVIEWER_REASSIGNMENT_WRITING_SESSION =
+  '70da5ef5-c29f-4570-83ec-f7ee19e9bef1';
+const REJECTED_REVIEW_SESSION_IDS = Object.freeze([
+  '019f9c33-5ae7-7b00-9c0c-1b3b3be8452d',
+  '019f9c33-5b1f-7360-a217-1c3d827045d5',
+  '019f9c43-e603-76c3-b30b-d78789057441',
+  '019f9c43-e632-75b1-99d9-0d9b162cd3e1',
+  '019f9c4f-1fef-74c2-9767-a8a653569bbd',
+  '019f9c4f-201b-7d91-a2b0-e49e08a5985a',
+]);
 const REVIEWER_REASSIGNMENT_KEYS = Object.freeze([
   'approvedBy',
   'baseH',
@@ -393,6 +405,8 @@ export function validateReviewerReassignmentOverlay(overlay) {
   }
   if (!HEX40_PATTERN.test(overlay.baseH ?? '')) {
     errors.push('reviewer reassignment baseH must be a 40-hex git sha');
+  } else if (overlay.baseH !== REVIEWER_REASSIGNMENT_BASE_H) {
+    errors.push('reviewer reassignment baseH must match the frozen EXT baseline');
   }
   if (!HEX40_PATTERN.test(overlay.candidateH ?? '')) {
     errors.push('reviewer reassignment candidateH must be a 40-hex git sha');
@@ -405,14 +419,14 @@ export function validateReviewerReassignmentOverlay(overlay) {
     !SESSION_ID_PATTERN.test(overlay.writingSessionId)
   ) {
     errors.push('reviewer reassignment writingSessionId must be a canonical session id');
+  } else if (overlay.writingSessionId !== REVIEWER_REASSIGNMENT_WRITING_SESSION) {
+    errors.push('reviewer reassignment writingSessionId must match the frozen writer receipt');
   }
   if (
     !Array.isArray(overlay.rejectedSessionIds) ||
-    overlay.rejectedSessionIds.length !== 4 ||
-    overlay.rejectedSessionIds.some((id) => !SESSION_ID_PATTERN.test(id)) ||
-    new Set(overlay.rejectedSessionIds).size !== overlay.rejectedSessionIds.length
+    !sameArray(overlay.rejectedSessionIds, REJECTED_REVIEW_SESSION_IDS)
   ) {
-    errors.push('reviewer reassignment rejectedSessionIds must bind four unique prior sessions');
+    errors.push('reviewer reassignment rejectedSessionIds must bind all prior rejected sessions');
   }
   for (const [pathField, digestField] of [
     ['reviewPackagePath', 'reviewPackageSha256'],
@@ -534,7 +548,7 @@ export function effectiveIndependentReviewer(
   }
   if (validateReviewerReassignmentOverlay(overlay).length > 0) return null;
   const scopedPackage = workPackageLedger.find((entry) => entry.id === workPackage);
-  if (scopedPackage?.status === 'MERGED_AND_VERIFIED') {
+  if (scopedPackage?.status !== 'ACTIVE') {
     return amendmentGovernance?.independentReviewer ?? null;
   }
   return overlay.scope.includes(workPackage)
@@ -752,7 +766,7 @@ export async function verifyAmendmentApprovalEvidenceFiles(root, amendment) {
 
   const overlay = amendment.reviewerReassignment;
   if (overlay !== null && overlay !== undefined) {
-    if (validateReviewerReassignmentOverlay(overlay).length > 0) return errors;
+    if (!hasExactKeys(overlay, REVIEWER_REASSIGNMENT_KEYS)) return errors;
     const reviewPackageSource = await verifyEvidenceFile(
       overlay.reviewPackagePath,
       overlay.reviewPackageSha256,

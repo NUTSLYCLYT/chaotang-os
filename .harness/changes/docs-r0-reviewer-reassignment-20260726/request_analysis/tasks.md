@@ -14,7 +14,10 @@
 - [x] Bind all prior rejected sessions and forbid replay.
 - [x] Require exact base commit identity and safe Git diff flags.
 - [x] Bind writer session in review and owner evidence.
-- [x] Prepare a third non-authorizing candidate for exact commit freeze.
+- [x] Reject candidate `8af162e5` after two new independent NO_GO reviews.
+- [x] Pin EXT baseline, writer receipt, and all six rejected sessions.
+- [x] Restrict overlay effectiveness to ledger status `ACTIVE`.
+- [x] Prepare a fourth non-authorizing candidate for exact commit freeze.
 - [ ] Obtain two new fresh Codex Independent QA reviews.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.

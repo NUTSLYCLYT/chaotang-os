@@ -20,6 +20,15 @@ all rejected review session IDs to be bound and excluded, `baseH` to resolve
 to the exact commit object, writer identity to appear in owner/review evidence,
 and Git diff execution to use `--no-ext-diff --no-textconv`.
 
+After candidate `8af162e5` was rejected, the narrow amendment implementation
+pins the fixed EXT baseline, writer receipt, and all six rejected sessions.
+The generic validator does not self-pin its own candidate H because a Git
+commit cannot contain its own hash. Candidate H/tree/package are instead bound
+by both independent reviews and Product Owner evidence, then registered in a
+separate atomic event. The overlay is effective only for an `ACTIVE` W07 ledger
+entry; merged, rolled-back, missing, or any future state falls back to the
+historical reviewer.
+
 ## Goal
 
 Replace the unavailable Claude Code reviewer for R0-W07 with a scoped,

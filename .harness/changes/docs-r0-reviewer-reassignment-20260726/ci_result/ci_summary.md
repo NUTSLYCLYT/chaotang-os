@@ -2,7 +2,7 @@
 
 ## Status
 
-`THIRD_CANDIDATE_REVIEW_READY / TWO_CANDIDATES_NO_GO / NOT_AUTHORIZED`
+`FOURTH_CANDIDATE_REVIEW_READY / THREE_CANDIDATES_NO_GO / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -104,6 +104,29 @@ working diff check: PASS
 ```
 
 The exact H0-to-H1 ranged diff check must be rerun after commit freeze.
+
+## Third Rejected Candidate
+
+```text
+candidate = 8af162e565345e29ad4fb508e7885dc3578dcaf2
+tree = 6e28644ee7a757fff3c6f87b660346d196b1fde2
+package = 1e88d3a81cedb496b0693bde09901e09159b32b687141bfb61691fb6aeec3ccb
+pass 1 = NO_GO / HIGH 2 / MEDIUM 1
+pass 2 = NO_GO / HIGH 2 / MEDIUM 0
+```
+
+Its review sessions are now part of the immutable rejection set.
+
+## Fourth Candidate Pre-Freeze Verification
+
+```text
+authority test suites: 91 pass / 0 fail
+project-harness-doctor: 0 errors / 0 warnings
+v2 authorize R0-W07: STOP / NO_ACTIVE_WORK_PACKAGE
+working diff check: PASS
+```
+
+Exact ranged verification must be repeated after commit freeze.
 
 The live project manifest does not contain the overlay. The effective reviewer
 therefore remains `Claude Code`, and W07 remains stopped.

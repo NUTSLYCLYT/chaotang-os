@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `THIRD_CANDIDATE_REVIEW_READY / NOT_AUTHORIZED` |
+| Status | `FOURTH_CANDIDATE_REVIEW_READY / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -41,8 +41,13 @@ second remediation binds all four rejected session IDs, exact base commit
 identity, writer identity in owner/review evidence, and a no-ext-diff,
 no-textconv package command.
 
-The third candidate is ready for an exact commit freeze and two entirely new
-review sessions. No prior review result is reusable.
+Candidate `8af162e565345e29ad4fb508e7885dc3578dcaf2` was rejected. The
+fourth remediation pins the EXT baseline, writer receipt, and all six rejected
+sessions as implementation constants. The overlay is effective only while the
+W07 ledger entry is exactly `ACTIVE`.
+
+The fourth candidate is ready for exact commit freeze and two new review
+sessions. Previous candidates, packages, and review verdicts remain invalid.
 
 ## Boundaries
 
