@@ -799,28 +799,31 @@ test('CLI rejects an unsupported flag with exit 64', async () => {
   );
 });
 
-test('CLI subprocess against the real repo authorizes the exact active W06 package', async () => {
+test('CLI subprocess against the real repo is quiescent after verified W06 closeout', async () => {
   const loaded = await loadExecutionAuthorityV2(root);
   assert.deepEqual(loaded.errors, []);
-  assert.equal(loaded.manifest.activeWorkPackage, 'R0-W06');
+  assert.equal(loaded.manifest.activeWorkPackage, null);
   assert.deepEqual(loaded.manifest.workPackageLedger.at(-1), {
     id: 'R0-W06',
-    status: 'ACTIVE',
+    status: 'MERGED_AND_VERIFIED',
   });
-  const { stdout } = await execFileAsync(
-    process.execPath,
-    [cliPath, '--authorize', '--work-package', 'R0-W06'],
-    { cwd: root },
-  );
-  const output = JSON.parse(stdout);
-  assert.equal(output.decision, 'GO');
-  assert.equal(output.reason, 'APPROVED_WORK_PACKAGE');
+  for (const workPackage of ['R0-W06', 'R0-W07']) {
+    await assert.rejects(
+      execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', workPackage], {
+        cwd: root,
+      }),
+      (error) => {
+        const output = JSON.parse(error.stdout);
+        return output.decision === 'STOP' && output.reason === 'NO_ACTIVE_WORK_PACKAGE';
+      },
+    );
+  }
 });
 
 test('CLI subprocess against the real repo keeps predecessor and successor packages stopped', async () => {
   const loaded = await loadExecutionAuthorityV2(root);
   assert.deepEqual(loaded.errors, []);
-  for (const workPackage of ['R0-W05', 'R0-W07', 'R0-W09']) {
+  for (const workPackage of ['R0-W05', 'R0-W08', 'R0-W09']) {
     await assert.rejects(
       execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', workPackage], {
         cwd: root,
