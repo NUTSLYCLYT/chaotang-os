@@ -5,7 +5,14 @@ import { lstat, open, realpath } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { promisify } from 'node:util';
 
-const execFileAsync = promisify(execFile);
+const rawExecFileAsync = promisify(execFile);
+const AUTHORITY_GIT_EXECUTABLE = '/usr/bin/git';
+const execFileAsync = (executable, args, options) =>
+  rawExecFileAsync(
+    executable === 'git' ? AUTHORITY_GIT_EXECUTABLE : executable,
+    args,
+    options,
+  );
 
 export const EXPECTED_R0_EFFECTIVE_BASE = Object.freeze({
   ref: 'origin/feature-chaotang-ext',

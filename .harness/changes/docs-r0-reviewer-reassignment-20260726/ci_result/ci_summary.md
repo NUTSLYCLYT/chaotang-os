@@ -2,7 +2,7 @@
 
 ## Status
 
-`NINETEENTH_REMEDIATION_PENDING / EIGHTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`NINETEENTH_CANDIDATE_PRE_FREEZE / EIGHTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -561,3 +561,21 @@ that wrapper supply HEAD, top-level, blobs, history, and final stability facts.
 
 Both review identities and this candidate are rejected and cannot be approved
 or reused. W07 remains stopped and no overlay is registered.
+
+## Nineteenth Candidate Pre-Freeze Verification
+
+```text
+SHA-256 object-format TDD RED: uncommitted W06 manifest returned canonical GO
+SHA-256 object-format TDD GREEN: STOP / INVALID_EXECUTION_AUTHORITY
+hostile PATH TDD RED: PATH-selected Git wrapper was invoked
+hostile PATH TDD GREEN: wrapper not invoked; /usr/bin/git is the trust root
+authority test suites: 106 pass / 0 fail
+project-harness-doctor: 0 errors / 0 warnings
+v1 authorize: STOP / AMENDMENT_APPROVAL_REQUIRED
+v2 check: VALID_STRUCTURE / NOT_AN_AUTHORIZATION
+v2 authorize R0-W07: STOP / NO_ACTIVE_WORK_PACKAGE
+working diff check: PASS
+```
+
+These results permit a new exact-H candidate freeze and fresh review only.
+They do not approve or register the overlay and do not activate W07.

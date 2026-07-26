@@ -130,13 +130,21 @@ reviewed base 到 registration parent、activation event 到 HEAD 之间所有�
 manifest 缺失、JSON 不可解析或结构无效都不能通过删除记录或 ours merge 来重置。
 activation event 本身必须恰好一个父提交；merge commit 不能充当激活事件。
 
+authority Git 子进程不通过继承的 `PATH` 选择可执行文件；Linux 权威运行环境固定使用
+`/usr/bin/git`，该系统路径是仓库外信任根。缺少该可执行文件时必须 fail closed。所有 `GIT_*`
+覆盖仍会从子进程环境移除，并禁用 system/global Git config 与 replacement objects。
+当前 authority commit 契约只接受 40 位 SHA-1 object identity；Git 成功返回其他长度或格式的
+object identity 时必须记录 `unsupported object identity` 并返回
+`INVALID_EXECUTION_AUTHORITY`，不能退回读取 mutable working-tree authority facts。
+
 ACTIVE W07 loader 在读取证据前采样 `HEAD` 与 `refs/heads/feature-chaotang-ext`，并在全部异步
 evidence、activation intent 和 history 验证完成后再次解析二者。最终采样不一致时，authorization
 输入携带错误并 fail closed。
 同步 `executionAuthorityV2CommandResult` 不具备 W07 Git 重验能力，因此不能直接返回 W07 GO。
-CLI 使用异步 `executeExecutionAuthorityV2Command`。该 API 只接收 repository root 和命令参数，
-不接收 caller-supplied loaded object；它内部 fresh load，并在最终 HEAD/EXT ref 与 governed file
-验证后以一次性资格立即计算决策，避免跨仓或 stale loaded result。
+canonical CLI 从自身 module path 推导唯一 repository root，await 一次 fresh
+`loadExecutionAuthorityV2`，然后立即调用同步 result mapper；两者之间没有其他 await 或
+caller-supplied loaded object。library 的正向结果仅为 `ELIGIBLE`，只有该 executable CLI
+可以把经过最终 HEAD/EXT ref 与 governed-file 检查的资格转换为 `GO`。
 
 v2 loader 还会直接读取 `manifest.amendment.path` 的原始字节并校验
 `approvedSourceDigest`，不能只比较 manifest 与 governance 中互相引用的 digest 字段。所有 governed

@@ -13,7 +13,14 @@ import {
   verifyReviewerReassignmentActivationHistory,
 } from './amendment-governance.mjs';
 
-const execFileAsync = promisify(execFile);
+const rawExecFileAsync = promisify(execFile);
+const AUTHORITY_GIT_EXECUTABLE = '/usr/bin/git';
+const execFileAsync = (executable, args, options) =>
+  rawExecFileAsync(
+    executable === 'git' ? AUTHORITY_GIT_EXECUTABLE : executable,
+    args,
+    options,
+  );
 
 export const EXECUTION_AUTHORITY_V2_PATH = '.harness/manifest/execution-authority.v2.json';
 export const EXECUTION_AUTHORITY_V2_SCHEMA_PATH =
@@ -243,7 +250,11 @@ async function capturePinnedAuthorityCommit(root, errors) {
       return null;
     }
     const headH = headSource.trim();
-    return HEX40_PATTERN.test(headH) ? headH : null;
+    if (!HEX40_PATTERN.test(headH)) {
+      errors.push('execution authority repository has an unsupported object identity');
+      return null;
+    }
+    return headH;
   } catch (cause) {
     errors.push(
       `execution authority pinned HEAD is unverifiable: ${cause.code ?? cause.message}`,

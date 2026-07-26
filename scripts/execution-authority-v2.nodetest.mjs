@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { link, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  link,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -415,6 +424,7 @@ async function writeRepositoryFile(temporaryRoot, path, source) {
 
 async function createActiveAuthorityFixture({
   temporaryRoot: suppliedRoot,
+  gitObjectFormat,
   mutateIntent,
   mutateOwner,
   mutateReview,
@@ -486,7 +496,17 @@ async function createActiveAuthorityFixture({
   if (writeReviewPackage) {
     await writeRepositoryFile(temporaryRoot, fixture.review.reviewPackagePath, packageSource);
   }
-  await execFileAsync('git', ['init', '-q'], { cwd: temporaryRoot });
+  await execFileAsync(
+    'git',
+    [
+      'init',
+      '-q',
+      ...(gitObjectFormat === undefined
+        ? []
+        : [`--object-format=${gitObjectFormat}`]),
+    ],
+    { cwd: temporaryRoot },
+  );
   await execFileAsync('git', ['config', 'user.name', 'R0 Test'], {
     cwd: temporaryRoot,
   });
@@ -994,6 +1014,108 @@ test('copied CLI nested under a parent Git repository cannot replay mutable auth
     );
   } finally {
     await rm(temporaryParent, { recursive: true, force: true });
+  }
+});
+
+test('unsupported Git object identity cannot fall back to mutable authority files', async () => {
+  const { temporaryRoot, manifest } = await createActiveAuthorityFixture({
+    gitObjectFormat: 'sha256',
+  });
+  try {
+    const activeManifestSource = `${JSON.stringify(manifest, null, 2)}\n`;
+    const quiescentManifest = structuredClone(manifest);
+    quiescentManifest.activeWorkPackage = null;
+    quiescentManifest.workPackageLedger = quiescentManifest.workPackageLedger.map(
+      (entry) =>
+        entry.id === 'R0-W06'
+          ? { ...entry, status: 'MERGED_AND_VERIFIED' }
+          : entry,
+    );
+    await writeRepositoryFile(
+      temporaryRoot,
+      EXECUTION_AUTHORITY_V2_PATH,
+      `${JSON.stringify(quiescentManifest, null, 2)}\n`,
+    );
+    await execFileAsync('git', ['add', EXECUTION_AUTHORITY_V2_PATH], {
+      cwd: temporaryRoot,
+    });
+    await execFileAsync('git', ['commit', '-qm', 'close W06'], {
+      cwd: temporaryRoot,
+    });
+    await writeRepositoryFile(
+      temporaryRoot,
+      EXECUTION_AUTHORITY_V2_PATH,
+      activeManifestSource,
+    );
+
+    const loaded = await loadExecutionAuthorityV2(temporaryRoot);
+    const result = executionAuthorityV2CommandResult(
+      loaded,
+      '--authorize',
+      [],
+      { workPackage: 'R0-W06' },
+    );
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.output.reason, 'INVALID_EXECUTION_AUTHORITY');
+    assert.ok(
+      result.output.errors.some((error) =>
+        error.includes('unsupported object identity'),
+      ),
+      result.output.errors.join('\n'),
+    );
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test('authority Git executable cannot be substituted through inherited PATH', async () => {
+  const { temporaryRoot } = await createActiveAuthorityFixture();
+  const wrapperRoot = await mkdtemp(join(tmpdir(), 'authority-hostile-path-'));
+  const invocationMarker = join(wrapperRoot, 'invoked');
+  try {
+    for (const path of [
+      'scripts/execution-authority-v2.mjs',
+      'scripts/lib/amendment-governance.mjs',
+      'scripts/lib/execution-authority-v2.mjs',
+    ]) {
+      await writeRepositoryFile(
+        temporaryRoot,
+        path,
+        await readFile(join(root, path)),
+      );
+    }
+    const wrapperPath = join(wrapperRoot, 'git');
+    await writeFile(
+      wrapperPath,
+      `#!/bin/sh\nprintf invoked >> ${invocationMarker}\nexec /usr/bin/git "$@"\n`,
+      'utf8',
+    );
+    await chmod(wrapperPath, 0o755);
+
+    const { stdout } = await execFileAsync(
+      process.execPath,
+      [
+        join(temporaryRoot, 'scripts/execution-authority-v2.mjs'),
+        '--authorize',
+        '--work-package',
+        'R0-W06',
+      ],
+      {
+        cwd: temporaryRoot,
+        env: {
+          ...process.env,
+          PATH: `${wrapperRoot}:${process.env.PATH}`,
+        },
+      },
+    );
+    assert.equal(JSON.parse(stdout).decision, 'GO');
+    await assert.rejects(
+      readFile(invocationMarker),
+      (error) => error.code === 'ENOENT',
+    );
+  } finally {
+    await rm(wrapperRoot, { recursive: true, force: true });
+    await rm(temporaryRoot, { recursive: true, force: true });
   }
 });
 

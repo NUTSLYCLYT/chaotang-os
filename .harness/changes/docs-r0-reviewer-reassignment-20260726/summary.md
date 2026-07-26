@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `NINETEENTH_REMEDIATION_PENDING / EIGHTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
+| Status | `NINETEENTH_CANDIDATE_PRE_FREEZE / EIGHTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -234,6 +234,13 @@ The nineteenth remediation must reject every unsupported object identity
 without mutable fallback and bind all authority Git subprocesses to an
 absolute trusted executable. Both historical bypasses require behavioral
 regression tests before implementation.
+
+The nineteenth remediation now treats every successful non-40-hex `HEAD` as
+an unsupported object identity and records a fail-closed loader error.
+Authority Git subprocesses in both the v2 loader and amendment governance
+module spawn the absolute Linux trust root `/usr/bin/git`; inherited `PATH`
+cannot select a wrapper. Behavioral tests observed both historical bypasses as
+RED before implementation and now verify them as GREEN.
 
 ## Boundaries
 

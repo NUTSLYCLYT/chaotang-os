@@ -95,9 +95,9 @@
 - [x] Add a nested-parent replay regression test.
 - [x] Prepare and reject eighteenth candidate `2c3aeaaa` after two NO_GO reviews.
 - [x] Permanently exclude both eighteenth-candidate review identities from reuse.
-- [ ] Reject unsupported Git object identities without mutable fallback.
-- [ ] Bind authority Git subprocesses to an absolute trusted executable.
-- [ ] Add SHA-256 object-format and hostile-PATH regression tests.
+- [x] Reject unsupported Git object identities without mutable fallback.
+- [x] Bind authority Git subprocesses to an absolute trusted executable.
+- [x] Add SHA-256 object-format and hostile-PATH regression tests.
 - [ ] Prepare a nineteenth non-authorizing exact-H candidate.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.
