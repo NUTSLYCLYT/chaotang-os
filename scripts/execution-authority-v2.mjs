@@ -3,7 +3,8 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-  executeExecutionAuthorityV2Command,
+  executionAuthorityV2CommandResult,
+  loadExecutionAuthorityV2,
 } from './lib/execution-authority-v2.mjs';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -37,9 +38,19 @@ if (modes.length > 1 || extraArguments.length > 0) {
   process.exit(64);
 }
 
-const result = await executeExecutionAuthorityV2Command(root, mode, extraArguments, {
+const loaded = await loadExecutionAuthorityV2(root);
+const result = executionAuthorityV2CommandResult(loaded, mode, extraArguments, {
   workPackage,
   realCustomerData,
 });
-console.log(JSON.stringify(result.output, null, 2));
-process.exit(result.exitCode);
+const output =
+  mode === '--authorize' && result.output.decision === 'ELIGIBLE'
+    ? {
+        schemaVersion: result.output.schemaVersion,
+        decision: 'GO',
+        activeWorkPackage: result.output.activeWorkPackage,
+        reason: 'APPROVED_WORK_PACKAGE',
+      }
+    : result.output;
+console.log(JSON.stringify(output, null, 2));
+process.exit(output.decision === 'GO' ? 0 : result.exitCode);

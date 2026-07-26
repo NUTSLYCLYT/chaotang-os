@@ -519,11 +519,12 @@ test('matching W06 machine-readable owner and independent review evidence permit
     [],
     { workPackage: 'R0-W06' },
   );
-  assert.equal(directResult.exitCode, 1);
+  assert.equal(directResult.exitCode, 0);
   assert.equal(
     directResult.output.reason,
-    'AUTHORIZATION_BOUNDARY_RECHECK_REQUIRED',
+    'POLICY_ELIGIBLE',
   );
+  assert.equal(directResult.output.decision, 'ELIGIBLE');
 });
 
 test('matching W07 evidence uses Codex review and W07 packet identities', () => {
@@ -769,16 +770,22 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
     );
     assert.equal(
       synchronousBypass.output.reason,
-      'AUTHORIZATION_BOUNDARY_RECHECK_REQUIRED',
+      'POLICY_ELIGIBLE',
     );
-    const result = await executionAuthorityV2Module.executeExecutionAuthorityV2Command(
-      temporaryRoot,
-      '--authorize',
-      [],
-      { workPackage: 'R0-W07' },
+    assert.equal(synchronousBypass.output.decision, 'ELIGIBLE');
+    const { stdout: cliOutput } = await execFileAsync(
+      process.execPath,
+      [
+        join(temporaryRoot, 'scripts/execution-authority-v2.mjs'),
+        '--authorize',
+        '--work-package',
+        'R0-W07',
+      ],
+      { cwd: temporaryRoot },
     );
-    assert.equal(result.exitCode, 0);
-    assert.equal(result.output.reason, 'APPROVED_WORK_PACKAGE');
+    const result = JSON.parse(cliOutput);
+    assert.equal(result.decision, 'GO');
+    assert.equal(result.reason, 'APPROVED_WORK_PACKAGE');
 
     const committedManifest = structuredClone(fixture.manifest);
     const workingManifest = structuredClone(fixture.manifest);
@@ -805,6 +812,30 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
         error.includes('working tree differs from pinned authority commit'),
       ),
       loaded.errors.join('\n'),
+    );
+    await writeRepositoryFile(
+      temporaryRoot,
+      overlay.reviews[0].path,
+      'tampered mutable reviewer evidence\n',
+    );
+    loaded = await loadExecutionAuthorityV2(temporaryRoot);
+    assert.ok(
+      loaded.errors.some((error) =>
+        error.includes('working tree differs from pinned authority commit'),
+      ),
+      loaded.errors.join('\n'),
+    );
+    assert.equal(
+      loaded.errors.some((error) =>
+        error.includes('reviewerReassignment.reviews[0].path: digest mismatch'),
+      ),
+      false,
+      'reviewer evidence must be parsed from the pinned commit, not mutable working bytes',
+    );
+    await writeRepositoryFile(
+      temporaryRoot,
+      overlay.reviews[0].path,
+      reviewSources[0],
     );
     await writeRepositoryFile(
       temporaryRoot,
@@ -855,15 +886,26 @@ test('active temporary root authorizes only after loading the exact independent 
   try {
     const loaded = await loadExecutionAuthorityV2(temporaryRoot);
     assert.deepEqual(loaded.errors, []);
-    const result =
-      await executionAuthorityV2Module.executeExecutionAuthorityV2Command(
-        temporaryRoot,
-        '--authorize',
-        [],
+    assert.equal(
+      evaluateExecutionAuthorityV2Policy(
+        loaded.manifest,
+        loaded.amendmentGovernance,
         { workPackage: 'R0-W06' },
-      );
-    assert.equal(result.exitCode, 0);
-    assert.equal(result.output.reason, 'APPROVED_WORK_PACKAGE');
+      ).decision,
+      'ELIGIBLE',
+    );
+    const directResult = executionAuthorityV2CommandResult(
+      loaded,
+      '--authorize',
+      [],
+      { workPackage: 'R0-W06' },
+    );
+    assert.equal(directResult.exitCode, 0);
+    assert.equal(
+      directResult.output.reason,
+      'POLICY_ELIGIBLE',
+    );
+    assert.equal(directResult.output.decision, 'ELIGIBLE');
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }
@@ -873,13 +915,19 @@ test('active authority cannot fall back to mutable files outside a Git identity'
   const { temporaryRoot } = await createActiveAuthorityFixture();
   try {
     await rm(join(temporaryRoot, '.git'), { recursive: true, force: true });
-    const result =
-      await executionAuthorityV2Module.executeExecutionAuthorityV2Command(
-        temporaryRoot,
-        '--authorize',
-        [],
-        { workPackage: 'R0-W06' },
-      );
+    const loaded = await loadExecutionAuthorityV2(temporaryRoot);
+    assert.ok(
+      loaded.errors.some((error) =>
+        error.includes('initial Git identity is unverifiable'),
+      ),
+      loaded.errors.join('\n'),
+    );
+    const result = executionAuthorityV2CommandResult(
+      loaded,
+      '--authorize',
+      [],
+      { workPackage: 'R0-W06' },
+    );
     assert.equal(result.exitCode, 1);
     assert.equal(result.output.reason, 'INVALID_EXECUTION_AUTHORITY');
     assert.ok(
@@ -934,15 +982,14 @@ test('inactive W07 reviewer reassignment cannot invalidate active W06 authority'
     });
     const loaded = await loadExecutionAuthorityV2(temporaryRoot);
     assert.deepEqual(loaded.errors, []);
-    const result =
-      await executionAuthorityV2Module.executeExecutionAuthorityV2Command(
-        temporaryRoot,
-        '--authorize',
-        [],
+    assert.equal(
+      evaluateExecutionAuthorityV2Policy(
+        loaded.manifest,
+        loaded.amendmentGovernance,
         { workPackage: 'R0-W06' },
-      );
-    assert.equal(result.exitCode, 0);
-    assert.equal(result.output.reason, 'APPROVED_WORK_PACKAGE');
+      ).decision,
+      'ELIGIBLE',
+    );
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }
@@ -1468,10 +1515,6 @@ test('W07 authorization boundary rejects HEAD and EXT ref movement', async () =>
     typeof executionAuthorityV2Module.verifyExecutionAuthorityGitIdentityStable,
     'function',
   );
-  assert.equal(
-    typeof executionAuthorityV2Module.executeExecutionAuthorityV2Command,
-    'function',
-  );
   const temporaryRoot = await mkdtemp(join(tmpdir(), 'authority-boundary-identity-'));
   try {
     await execFileAsync('git', ['init', '-q'], { cwd: temporaryRoot });
@@ -1516,14 +1559,6 @@ test('W07 authorization boundary rejects HEAD and EXT ref movement', async () =>
         'execution authority effectiveBase ref moved before authorization',
       ),
     );
-    const result =
-      await executionAuthorityV2Module.executeExecutionAuthorityV2Command(
-        temporaryRoot,
-        '--authorize',
-        [],
-        { workPackage: 'R0-W07' },
-      );
-    assert.equal(result.output.reason, 'INVALID_EXECUTION_AUTHORITY');
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
   }
@@ -1532,6 +1567,14 @@ test('W07 authorization boundary rejects HEAD and EXT ref movement', async () =>
 test('public module has no caller-supplied resolver capable of returning GO', () => {
   assert.equal(
     typeof executionAuthorityV2Module.resolveExecutionAuthorityV2,
+    'undefined',
+  );
+  assert.equal(
+    typeof executionAuthorityV2Module.executeExecutionAuthorityV2Command,
+    'undefined',
+  );
+  assert.equal(
+    typeof executionAuthorityV2Module.executeCanonicalExecutionAuthorityV2Command,
     'undefined',
   );
 });

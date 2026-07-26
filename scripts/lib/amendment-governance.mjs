@@ -1121,7 +1121,10 @@ export function validateAmendmentGovernanceRegistration(amendment) {
 export async function verifyAmendmentApprovalEvidenceFiles(
   root,
   amendment,
-  { includeReviewerReassignment = true } = {},
+  {
+    includeReviewerReassignment = true,
+    readEvidenceFile = null,
+  } = {},
 ) {
   const errors = [];
   if (!amendment) return errors;
@@ -1133,7 +1136,13 @@ export async function verifyAmendmentApprovalEvidenceFiles(
     }
     let source;
     try {
-      source = await readRepositoryBlob(root, path);
+      source =
+        typeof readEvidenceFile === 'function'
+          ? await readEvidenceFile(path)
+          : await readRepositoryBlob(root, path);
+      if (!Buffer.isBuffer(source)) {
+        throw new Error('pinned evidence source is unavailable');
+      }
     } catch (cause) {
       errors.push(
         cause.code === 'ENOENT'

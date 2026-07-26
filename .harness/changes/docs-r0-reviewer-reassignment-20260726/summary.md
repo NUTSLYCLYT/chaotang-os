@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `SEVENTEENTH_REMEDIATION_PENDING / SIXTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
+| Status | `SEVENTEENTH_CANDIDATE_PRE_FREEZE / SIXTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -194,6 +194,18 @@ blob reader. The candidate and both sessions are permanently excluded.
 The seventeenth remediation must bind the only GO-producing command to the
 module's canonical repository root and route every amendment/reviewer evidence
 read through the same pinned commit reader.
+
+The seventeenth remediation removes every GO-producing export from the
+library. Public loaders, validators, policy evaluation, and synchronous
+command evaluation can return `STOP`, structural status, or `ELIGIBLE`, but
+never `GO`. Only the executable CLI derives its root from its own module path,
+fresh-loads that repository, and converts a verified `ELIGIBLE` result to
+`GO`.
+
+The amendment evidence verifier now accepts the v2 loader's pinned reader.
+Original amendment approvals, reviewer reassignment package, owner approval,
+and both review passes are parsed from the same committed identity and are
+also included in final working-tree consistency checks.
 
 ## Boundaries
 

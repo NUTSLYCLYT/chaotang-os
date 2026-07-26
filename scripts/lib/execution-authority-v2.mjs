@@ -160,7 +160,6 @@ const ACTIVE_PACKET_PROFILES = Object.freeze({
     ]),
   }),
 });
-const AUTHORIZATION_BOUNDARY_VERIFIED_LOADS = new WeakSet();
 
 function activePacketProfile(manifest, errors) {
   const profile = ACTIVE_PACKET_PROFILES[manifest.activeWorkPackage];
@@ -1362,6 +1361,7 @@ export async function loadExecutionAuthorityV2(root) {
               includeReviewerReassignment:
                 overlayErrors.length === 0 &&
                 (w07Active || manifest?.activeWorkPackage === null),
+              readEvidenceFile: readAuthorityFile,
             },
           )),
         );
@@ -1624,46 +1624,8 @@ export function executionAuthorityV2CommandResult(
       realCustomerData,
     },
   );
-  if (policy.decision !== 'ELIGIBLE') {
-    return { exitCode: 2, output: policy };
-  }
-  if (!AUTHORIZATION_BOUNDARY_VERIFIED_LOADS.delete(loaded)) {
-    return {
-      exitCode: 1,
-      output: {
-        schemaVersion: 'execution-authority.v2',
-        decision: 'STOP',
-        reason: 'AUTHORIZATION_BOUNDARY_RECHECK_REQUIRED',
-      },
-    };
-  }
-  const decision = {
-    schemaVersion: policy.schemaVersion,
-    decision: 'GO',
-    activeWorkPackage: policy.activeWorkPackage,
-    reason: 'APPROVED_WORK_PACKAGE',
+  return {
+    exitCode: policy.decision === 'ELIGIBLE' ? 0 : 2,
+    output: policy,
   };
-  return { exitCode: decision.decision === 'GO' ? 0 : 2, output: decision };
-}
-
-export async function executeExecutionAuthorityV2Command(
-  root,
-  mode = '--authorize',
-  extraArguments = [],
-  options = {},
-) {
-  const loaded = await loadExecutionAuthorityV2(root);
-  if (
-    mode === '--authorize' &&
-    loaded?.manifest?.activeWorkPackage !== null &&
-    (loaded.errors ?? []).length === 0
-  ) {
-    AUTHORIZATION_BOUNDARY_VERIFIED_LOADS.add(loaded);
-  }
-  return executionAuthorityV2CommandResult(
-    loaded,
-    mode,
-    extraArguments,
-    options,
-  );
 }

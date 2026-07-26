@@ -2,7 +2,7 @@
 
 ## Status
 
-`SEVENTEENTH_REMEDIATION_PENDING / SIXTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`SEVENTEENTH_CANDIDATE_PRE_FREEZE / SIXTEEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -485,3 +485,22 @@ The exported asynchronous command accepted caller-controlled roots, including
 a nested directory whose Git commands discovered an unrelated parent
 repository. Reviewer-reassignment evidence also bypassed the pinned blob
 reader. The candidate and both sessions cannot be approved or reused.
+
+## Seventeenth Candidate Pre-Freeze Verification
+
+```text
+caller-root TDD RED: exported root-taking command remained reachable
+caller-root TDD GREEN: library exports cannot produce GO
+review-evidence TDD RED: mutable reviewer pass changed verifier digest result
+review-evidence TDD GREEN: reviewer pass is parsed from pinned commit blob
+authority test suites: 103 pass / 0 fail
+project-harness-doctor: 0 errors / 0 warnings
+v1 authorize: STOP / AMENDMENT_APPROVAL_REQUIRED
+v2 check: VALID_STRUCTURE / NOT_AN_AUTHORIZATION
+v2 authorize R0-W07: STOP / NO_ACTIVE_WORK_PACKAGE
+working diff check: PASS
+```
+
+The executable CLI is the only code path that converts policy eligibility into
+`GO`, and its root is derived from its own module path. This permits candidate
+freeze and fresh review only.

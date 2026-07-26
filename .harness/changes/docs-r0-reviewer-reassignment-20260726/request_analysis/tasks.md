@@ -85,9 +85,9 @@
 - [x] Prove concurrent working-tree mutation cannot alter authority inputs.
 - [x] Prepare and reject sixteenth candidate `6f2b5699` after two NO_GO reviews.
 - [x] Exclude all thirty-two rejected review sessions.
-- [ ] Remove caller-controlled repository root from every GO-producing API.
-- [ ] Route reviewer-reassignment evidence through the pinned blob reader.
-- [ ] Reproduce and reject parent-repository discovery replay.
+- [x] Remove caller-controlled repository root from every GO-producing API.
+- [x] Route reviewer-reassignment evidence through the pinned blob reader.
+- [x] Make library evaluation non-authorizing even for parent-repository discovery.
 - [ ] Prepare a seventeenth non-authorizing exact-H candidate.
 - [ ] Request exact-H Product Owner approval.
 - [ ] Register overlay only after exact approval.
