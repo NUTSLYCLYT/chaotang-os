@@ -2,7 +2,7 @@
 
 ## Status
 
-`SEVENTH_CANDIDATE_PRE_FREEZE / SIX_CANDIDATES_REJECTED / NOT_AUTHORIZED`
+`EIGHTH_CANDIDATE_PRE_FREEZE / SEVEN_CANDIDATES_REJECTED / NOT_AUTHORIZED`
 
 ## Baseline
 
@@ -153,6 +153,36 @@ working diff check: PASS
 Regression coverage proves that a committed two-event activation survives
 unrelated descendants, while uncommitted activation and protected-file drift
 fail closed. Exact ranged verification must be repeated after commit freeze.
+
+## Seventh Rejected Candidate
+
+```text
+candidate = 94f6e6f96da22314c542ca8934a279c16f15bb2c
+tree = 4f8dee347217f21471aa0acf0952446094be29d1
+package = 0e5af59ec65335ca822019cdb477d8b4cd12344b5f4ed8dc29582a7eee8b57b1
+pass 1 = NO_GO / HIGH 1 / MEDIUM 0
+pass 2 = NO_GO / HIGH 1 / MEDIUM 0
+```
+
+The findings were expired-overlay replay through interrupted history and the
+absence of a genuine W07 evidence contract.
+
+## Eighth Candidate Pre-Freeze Verification
+
+```text
+authority test suites: 96 pass / 0 fail
+project-harness-doctor: 0 errors / 0 warnings
+W07 forged self-consistent review package: REJECTED
+W07 exact Git review package after separate registration/activation: GO in temp fixture
+v1 authorize: STOP / AMENDMENT_APPROVAL_REQUIRED
+v2 check: VALID_STRUCTURE / NOT_AN_AUTHORIZATION
+v2 authorize R0-W07: STOP / NO_ACTIVE_WORK_PACKAGE
+working diff check: PASS
+```
+
+The temporary W07 GO proves contract executability only. The real workspace
+remains quiescent and is not authorized, pushed, deployed, migrated, or bound
+to listener 3050.
 
 ## Third Rejected Candidate
 

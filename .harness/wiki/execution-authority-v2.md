@@ -69,10 +69,23 @@ schema/manifest/resolver/CLI/tests，专门回答一个更窄的问题：
 护栏完整性，再用 v2 `--authorize --work-package <R0-Wxx>` 作唯一的范围化产品施工决定。v1 永远 STOP，
 v2 才回答“这个具体 work package 现在是否被授权”。
 
-当前 EXT-G0 候选处于 `REVIEW_READY / NOT_ACTIVE`：`activeWorkPackage=null`，W06 没有 ledger 条目，
-所以 `R0-W06` 必须返回 `STOP / NO_ACTIVE_WORK_PACKAGE`。W01–W05 的任何历史 approval 或 review 都不
-构成 W06 授权；只有后续独立审查绑定 exact candidate、tree、scope 与 activation bytes 后，才可能原子激活
-W06。
+当前本地 EXT 已完成 W06 静默收口：`activeWorkPackage=null`，W06 ledger 为
+`MERGED_AND_VERIFIED`。因此 W06 与 W07 都必须返回 `STOP / NO_ACTIVE_WORK_PACKAGE`；这不表示 W07
+已批准或已激活。
+
+## Active Packet 证据 profile
+
+历史 W06 证据保持原路径、排除项和命令集合，不允许被 W07 复用。W07 使用独立 profile：
+
+- `refs/heads/feature-chaotang-ext` 必须精确指向获批 candidate H；
+- review package 必须逐字节等于固定 EXT review base
+  `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca..candidateH` 的 hardened Git diff；
+- owner approval、activation intent、review package 与 Codex final review 必须位于 W07 change root；
+- W07 review 路径使用 `codex_review/exact-h-final.md`，历史 Claude 路径不冒充 Codex；
+- candidate commit、tree、review base、分支 ref、changed paths、digest 和 W07 验证命令必须同时匹配。
+
+任何未知 work package profile、W06 证据复用、伪造但内部自洽的 diff、ref 漂移或 candidate/tree
+漂移都会使 loader 返回 `INVALID_EXECUTION_AUTHORITY`。
 
 ## 独立审查人范围化修订
 
@@ -89,7 +102,9 @@ W06。
 overlay 的证据文件会逐级拒绝符号链接，按原始字节校验 digest，并解析 machine-readable evidence。
 base H、candidate H、tree、exact Git diff、两份 review、owner approval 必须互相绑定；路径和 digest
 不得复用。v2 loader 本身执行这些检查，不能依赖另行运行 doctor。writer session 不得充当 review
-session；W07 ledger 进入 `MERGED_AND_VERIFIED` 后 overlay 失效并回落到历史 reviewer。任何字段、
+session。W07 激活必须是 overlay 静默注册之后的独立提交，并且从该激活提交到当前 `HEAD` 的第一父
+历史必须连续保持同一 overlay 与 W07 ACTIVE；中途收口后恢复旧字节属于重放并会被拒绝。W07 ledger
+进入 `MERGED_AND_VERIFIED` 后 overlay 失效并回落到历史 reviewer。任何字段、
 文件、digest、Git identity 或审查结果不一致时，effective reviewer 解析为无效，execution authority
 必须 STOP。overlay 只替换 W07 的 evidence reviewer 身份，不激活 work package，也不修改 v1/v2 的
 执行权限边界；W07 激活仍需独立的 atomic activation candidate。

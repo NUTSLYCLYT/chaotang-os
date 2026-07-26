@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `SEVENTH_CANDIDATE_PRE_FREEZE / NOT_AUTHORIZED` |
+| Status | `EIGHTH_CANDIDATE_PRE_FREEZE / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -66,7 +66,18 @@ first-parent history and binds manifest, overlay, evidence, and protected
 authority files across the activation commit, current `HEAD`, and current
 working tree. It also permits unrelated commits after a valid activation.
 
-The seventh candidate is ready for exact commit freeze and two new reviews.
+Candidate `94f6e6f96da22314c542ca8934a279c16f15bb2c` was rejected by two
+fresh sessions. One found expired-overlay replay after an interrupted history;
+the other proved that W07 could not satisfy the W06-frozen evidence contract.
+
+The eighth remediation requires uninterrupted first-parent activation history,
+adds a W07 Codex evidence profile without changing W06 evidence semantics, and
+binds W07 source ref, fixed review base, candidate H/tree, and exact hardened
+Git diff. An end-to-end temporary repository test proves that a self-consistent
+forged package fails while the exact package can authorize only after separate
+registration and activation commits.
+
+The eighth candidate is ready for exact commit freeze and two new reviews.
 
 ## Boundaries
 

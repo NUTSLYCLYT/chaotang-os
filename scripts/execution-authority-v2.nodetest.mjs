@@ -19,6 +19,7 @@ import {
   readPinnedAuthorityFile,
   resolveExecutionAuthorityV2,
   sha256Hex,
+  validateExecutionAuthorityV2ActivationIntent,
   validateExecutionAuthorityV2Evidence,
   validateExecutionAuthorityV2,
   validateExecutionAuthorityV2Manifest,
@@ -108,6 +109,8 @@ function validReviewerReassignment() {
       '019f9c6d-d648-7961-a3eb-7071cc51eec9',
       '019f9c7c-09d3-7d70-890a-9f77201076e3',
       '019f9c7c-0a04-7a20-b62f-cdd8779ad09d',
+      '019f9c8a-e2d2-7d13-8a5a-781992a38021',
+      '019f9c8a-e301-7430-a67f-270e119262b2',
     ],
     reviewPackagePath:
       '.harness/changes/docs-r0-reviewer-reassignment-20260726/review_inputs/candidate.diff',
@@ -188,6 +191,19 @@ function evidenceDocument(value) {
   ].join('\n');
 }
 
+function reviewerReassignmentEvidenceDocument(value) {
+  return [
+    '# Reviewer Reassignment Evidence',
+    '',
+    '<!-- reviewer-reassignment-evidence:start -->',
+    '```json',
+    JSON.stringify(value, null, 2),
+    '```',
+    '<!-- reviewer-reassignment-evidence:end -->',
+    '',
+  ].join('\n');
+}
+
 function w06EvidenceDocuments() {
   const manifest = w06ActivationManifest();
   const owner = {
@@ -264,6 +280,96 @@ function w06EvidenceDocuments() {
       'git diff --check',
     ],
     productionReady: false,
+  };
+  return { manifest, owner, activationIntent, review };
+}
+
+function w07EvidenceDocuments() {
+  const fixture = w06EvidenceDocuments();
+  const changeRoot = '.harness/changes/docs-r0-w07-activation-20260726';
+  const manifest = structuredClone(fixture.manifest);
+  manifest.effectiveBase = {
+    ref: 'refs/heads/feature-chaotang-ext',
+    sha: '55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca',
+  };
+  manifest.approvalEvidence = {
+    ownerApprovalPath: `${changeRoot}/owner_approval/exact-h-approval.md`,
+    ownerApprovalSha256: 'a'.repeat(64),
+    reviewPath: `${changeRoot}/codex_review/exact-h-final.md`,
+    reviewSha256: 'b'.repeat(64),
+    reviewVerdict: 'GO',
+    approver: 'lyt',
+    candidateH: manifest.effectiveBase.sha,
+    tree: 'f692b9090be04722595bbedd8725578f5ed9a745',
+    approvedScope: ['R0-W07'],
+  };
+  manifest.activeWorkPackage = 'R0-W07';
+  manifest.workPackageLedger = [
+    ...manifest.workPackageLedger.slice(0, -1),
+    { id: 'R0-W06', status: 'MERGED_AND_VERIFIED' },
+    { id: 'R0-W07', status: 'ACTIVE' },
+  ];
+
+  const owner = {
+    ...structuredClone(fixture.owner),
+    workPackage: 'R0-W07',
+    effectiveBase: manifest.effectiveBase,
+    candidateH: manifest.approvalEvidence.candidateH,
+    tree: manifest.approvalEvidence.tree,
+    approvedScope: ['R0-W07'],
+    exclusions: [
+      'NO_DEPLOYMENT',
+      'NO_REAL_CUSTOMER_DATA',
+      'NO_DB_MIGRATION',
+      'NO_LISTENER_3050_TAKEOVER',
+      'NO_R0_W08_TO_R0_W09',
+      'NO_AUTOMATIC_MERGE',
+      'NO_PRODUCTION_CLAIM',
+    ],
+    activationIntentPath: `${changeRoot}/activation_intent/r0-w07-activation-intent.json`,
+  };
+  const activationIntent = {
+    ...structuredClone(fixture.activationIntent),
+    reviewPackagePath: `${changeRoot}/review_inputs/activation-candidate.diff`,
+    effectiveBase: manifest.effectiveBase,
+    approvalEvidence: structuredClone(manifest.approvalEvidence),
+    activeWorkPackage: 'R0-W07',
+    workPackageLedger: manifest.workPackageLedger,
+  };
+  delete activationIntent.approvalEvidence.ownerApprovalSha256;
+  delete activationIntent.approvalEvidence.reviewSha256;
+  const review = {
+    ...structuredClone(fixture.review),
+    reviewer: 'Codex Independent QA',
+    workPackage: 'R0-W07',
+    effectiveBase: manifest.effectiveBase,
+    candidateH: manifest.approvalEvidence.candidateH,
+    tree: manifest.approvalEvidence.tree,
+    approvedScope: ['R0-W07'],
+    ownerApprovalPath: manifest.approvalEvidence.ownerApprovalPath,
+    activationIntentPath: owner.activationIntentPath,
+    reviewPackagePath: activationIntent.reviewPackagePath,
+    changedPaths: [
+      `${changeRoot}/activation_intent/r0-w07-activation-intent.json`,
+      `${changeRoot}/ci_result/ci_summary.md`,
+      `${changeRoot}/codex_review/exact-h-final.md`,
+      `${changeRoot}/owner_approval/exact-h-approval.md`,
+      `${changeRoot}/request_analysis/tasks.md`,
+      `${changeRoot}/summary.md`,
+      '.harness/contracts/execution-authority-v2.schema.json',
+      '.harness/manifest/execution-authority.v2.json',
+      '.harness/wiki/execution-authority-v2.md',
+      'scripts/execution-authority-v2.nodetest.mjs',
+      'scripts/lib/execution-authority-v2.mjs',
+    ],
+    commands: [
+      'node --test scripts/execution-authority.nodetest.mjs scripts/r0-amendment-check.nodetest.mjs scripts/execution-authority-v2.nodetest.mjs',
+      'node scripts/execution-authority.mjs --authorize',
+      'node scripts/execution-authority-v2.mjs --check',
+      'node scripts/execution-authority-v2.mjs --authorize --work-package R0-W07',
+      'node scripts/harness-doctor.mjs',
+      'git diff --check',
+    ],
   };
   return { manifest, owner, activationIntent, review };
 }
@@ -372,6 +478,269 @@ test('matching W06 machine-readable owner and independent review evidence permit
     executionAuthorityV2CommandResult(loaded, '--authorize', [], { workPackage: 'R0-W06' }).exitCode,
     0,
   );
+});
+
+test('matching W07 evidence uses Codex review and W07 packet identities', () => {
+  const { manifest, owner, activationIntent, review } = w07EvidenceDocuments();
+  const governance = validGovernance();
+  governance.reviewerReassignment = validReviewerReassignment();
+  assert.deepEqual(
+    validateExecutionAuthorityV2Evidence(manifest, governance, owner, review),
+    [],
+  );
+  assert.deepEqual(
+    validateExecutionAuthorityV2ActivationIntent(manifest, activationIntent),
+    [],
+  );
+});
+
+test('W07 Codex evidence authorizes end to end only after registration and activation commits', async () => {
+  const temporaryParent = await mkdtemp(join(tmpdir(), 'chaotang-v2-w07-'));
+  const temporaryRoot = join(temporaryParent, 'repo');
+  try {
+    await execFileAsync('git', ['clone', '-q', '--no-hardlinks', root, temporaryRoot]);
+    await execFileAsync('git', ['config', 'user.name', 'R0 Test'], {
+      cwd: temporaryRoot,
+    });
+    await execFileAsync('git', ['config', 'user.email', 'r0@example.invalid'], {
+      cwd: temporaryRoot,
+    });
+    const protectedPaths = [
+      EXECUTION_AUTHORITY_V2_SCHEMA_PATH,
+      'scripts/execution-authority-v2.mjs',
+      'scripts/lib/amendment-governance.mjs',
+      'scripts/lib/execution-authority-v2.mjs',
+    ];
+    for (const path of protectedPaths) {
+      await writeRepositoryFile(
+        temporaryRoot,
+        path,
+        await readFile(join(root, path), 'utf8'),
+      );
+    }
+    await execFileAsync('git', ['add', ...protectedPaths], { cwd: temporaryRoot });
+    await execFileAsync('git', ['commit', '-qm', 'reviewed authority candidate'], {
+      cwd: temporaryRoot,
+    });
+    const candidateH = (
+      await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: temporaryRoot })
+    ).stdout.trim();
+    const candidateTree = (
+      await execFileAsync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: temporaryRoot })
+    ).stdout.trim();
+    await execFileAsync(
+      'git',
+      ['branch', 'feature-chaotang-ext', candidateH],
+      { cwd: temporaryRoot },
+    );
+
+    const overlay = validReviewerReassignment();
+    overlay.candidateH = candidateH;
+    overlay.tree = candidateTree;
+    const { stdout: overlayPackageSource } = await execFileAsync(
+      'git',
+      [
+        '--no-replace-objects',
+        'diff',
+        '--no-ext-diff',
+        '--no-textconv',
+        '--binary',
+        `${overlay.baseH}..${overlay.candidateH}`,
+      ],
+      { cwd: temporaryRoot },
+    );
+    overlay.reviewPackageSha256 = sha256Hex(overlayPackageSource);
+    await writeRepositoryFile(
+      temporaryRoot,
+      overlay.reviewPackagePath,
+      overlayPackageSource,
+    );
+
+    const reviewSources = overlay.reviews.map((review, index) =>
+      reviewerReassignmentEvidenceDocument({
+        schemaVersion: 'reviewer-reassignment-evidence.v1',
+        kind: 'codex-independent-review',
+        pass: index + 1,
+        sessionId: review.sessionId,
+        reviewer: 'Codex Independent QA',
+        rejectedSessionIds: overlay.rejectedSessionIds,
+        scope: overlay.scope,
+        baseH: overlay.baseH,
+        candidateH: overlay.candidateH,
+        tree: overlay.tree,
+        reviewPackagePath: overlay.reviewPackagePath,
+        reviewPackageSha256: overlay.reviewPackageSha256,
+        verdict: 'GO',
+        high: 0,
+        medium: 0,
+        writeAccess: 'DENIED',
+        writingSessionId: overlay.writingSessionId,
+        candidateMutated: false,
+      }),
+    );
+    for (let index = 0; index < overlay.reviews.length; index += 1) {
+      overlay.reviews[index].sha256 = sha256Hex(reviewSources[index]);
+      await writeRepositoryFile(
+        temporaryRoot,
+        overlay.reviews[index].path,
+        reviewSources[index],
+      );
+    }
+    const overlayOwnerSource = reviewerReassignmentEvidenceDocument({
+      schemaVersion: 'reviewer-reassignment-evidence.v1',
+      kind: 'owner-approval',
+      decision: 'APPROVED',
+      approver: 'lyt',
+      scope: overlay.scope,
+      baseH: overlay.baseH,
+      candidateH: overlay.candidateH,
+      tree: overlay.tree,
+      reviewPackagePath: overlay.reviewPackagePath,
+      reviewPackageSha256: overlay.reviewPackageSha256,
+      rejectedSessionIds: overlay.rejectedSessionIds,
+      writingSessionId: overlay.writingSessionId,
+      reviews: overlay.reviews.map(({ path, sessionId, sha256 }) => ({
+        path,
+        sessionId,
+        sha256,
+      })),
+    });
+    overlay.ownerApprovalSha256 = sha256Hex(overlayOwnerSource);
+    await writeRepositoryFile(
+      temporaryRoot,
+      overlay.ownerApprovalPath,
+      overlayOwnerSource,
+    );
+
+    const governance = validGovernance();
+    governance.reviewerReassignment = overlay;
+    await writeRepositoryFile(
+      temporaryRoot,
+      '.harness/manifest/project-harness.json',
+      `${JSON.stringify({ amendmentGovernance: governance }, null, 2)}\n`,
+    );
+    await execFileAsync('git', ['add', '.'], { cwd: temporaryRoot });
+    await execFileAsync('git', ['commit', '-qm', 'register reviewer overlay'], {
+      cwd: temporaryRoot,
+    });
+
+    const fixture = w07EvidenceDocuments();
+    fixture.manifest.approvalEvidence.candidateH = candidateH;
+    fixture.manifest.approvalEvidence.tree = candidateTree;
+    fixture.manifest.effectiveBase.sha = candidateH;
+    fixture.owner.candidateH = candidateH;
+    fixture.owner.tree = candidateTree;
+    fixture.owner.effectiveBase.sha = candidateH;
+    fixture.review.candidateH = candidateH;
+    fixture.review.tree = candidateTree;
+    fixture.review.effectiveBase.sha = candidateH;
+    fixture.activationIntent.approvalEvidence.candidateH = candidateH;
+    fixture.activationIntent.approvalEvidence.tree = candidateTree;
+    fixture.activationIntent.effectiveBase.sha = candidateH;
+    const { stdout: exactPackageSource } = await execFileAsync(
+      'git',
+      [
+        '--no-replace-objects',
+        'diff',
+        '--no-ext-diff',
+        '--no-textconv',
+        '--binary',
+        `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca..${candidateH}`,
+      ],
+      { cwd: temporaryRoot },
+    );
+    fixture.review.changedPaths =
+      parseExecutionAuthorityV2ReviewPackage(exactPackageSource);
+
+    async function writeActivation(packageSource) {
+      fixture.activationIntent.reviewPackageSha256 = sha256Hex(packageSource);
+      fixture.review.diffSha256 = sha256Hex(packageSource);
+      const intentSource = `${JSON.stringify(fixture.activationIntent, null, 2)}\n`;
+      fixture.owner.activationIntentSha256 = sha256Hex(intentSource);
+      const ownerSource = evidenceDocument(fixture.owner);
+      fixture.review.ownerApprovalSha256 = sha256Hex(ownerSource);
+      fixture.review.activationIntentSha256 = fixture.owner.activationIntentSha256;
+      const reviewSource = evidenceDocument(fixture.review);
+      fixture.manifest.approvalEvidence.ownerApprovalSha256 = sha256Hex(ownerSource);
+      fixture.manifest.approvalEvidence.reviewSha256 = sha256Hex(reviewSource);
+      for (const [path, source] of [
+        [fixture.manifest.approvalEvidence.ownerApprovalPath, ownerSource],
+        [fixture.manifest.approvalEvidence.reviewPath, reviewSource],
+        [fixture.owner.activationIntentPath, intentSource],
+        [fixture.review.reviewPackagePath, packageSource],
+        [EXECUTION_AUTHORITY_V2_PATH, `${JSON.stringify(fixture.manifest, null, 2)}\n`],
+      ]) {
+        await writeRepositoryFile(temporaryRoot, path, source);
+      }
+    }
+
+    await writeActivation(reviewPackageForPaths(fixture.review.changedPaths));
+    await execFileAsync('git', ['add', '.'], { cwd: temporaryRoot });
+    await execFileAsync('git', ['commit', '-qm', 'activate W07'], {
+      cwd: temporaryRoot,
+    });
+
+    let loaded = await loadExecutionAuthorityV2(temporaryRoot);
+    assert.ok(
+      loaded.errors.some((error) =>
+        error.includes('review package bytes must equal exact git diff'),
+      ),
+      loaded.errors.join('\n'),
+    );
+
+    await execFileAsync('git', ['reset', '--hard', 'HEAD^'], { cwd: temporaryRoot });
+    await writeActivation(exactPackageSource);
+    await execFileAsync('git', ['add', '.'], { cwd: temporaryRoot });
+    await execFileAsync('git', ['commit', '-qm', 'activate W07 with exact package'], {
+      cwd: temporaryRoot,
+    });
+    loaded = await loadExecutionAuthorityV2(temporaryRoot);
+    assert.deepEqual(loaded.errors, []);
+    const result = executionAuthorityV2CommandResult(
+      loaded,
+      '--authorize',
+      [],
+      { workPackage: 'R0-W07' },
+    );
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.output.reason, 'APPROVED_WORK_PACKAGE');
+
+    await execFileAsync(
+      'git',
+      [
+        'branch',
+        '-f',
+        'feature-chaotang-ext',
+        '55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca',
+      ],
+      { cwd: temporaryRoot },
+    );
+    loaded = await loadExecutionAuthorityV2(temporaryRoot);
+    assert.ok(
+      loaded.errors.some((error) =>
+        error.includes('effectiveBase ref/sha git identity mismatch'),
+      ),
+      loaded.errors.join('\n'),
+    );
+  } finally {
+    await rm(temporaryParent, { recursive: true, force: true });
+  }
+});
+
+test('W07 evidence cannot reuse the historical W06 activation packet', () => {
+  const { manifest, owner, review } = w07EvidenceDocuments();
+  const governance = validGovernance();
+  governance.reviewerReassignment = validReviewerReassignment();
+  owner.activationIntentPath =
+    '.harness/changes/fix-ext-g0-authority-recovery-20260725/activation_intent/r0-w06-activation-intent.json';
+  review.activationIntentPath = owner.activationIntentPath;
+  const errors = validateExecutionAuthorityV2Evidence(
+    manifest,
+    governance,
+    owner,
+    review,
+  );
+  assert.ok(errors.some((error) => error.includes('active-packet profile')));
 });
 
 test('active temporary root authorizes only after loading the exact independent review and activation intent', async () => {
@@ -663,6 +1032,25 @@ test('effective base mismatch stops the resolver when it drifts from the approve
   assert.equal(
     resolveExecutionAuthorityV2(manifest, validGovernance(), { workPackage: 'R0-W01' }).reason,
     'EFFECTIVE_BASE_MISMATCH',
+  );
+});
+
+test('schema and manifest permit only origin refs or the exact local EXT ref', async () => {
+  const schema = JSON.parse(
+    await readFile(join(root, EXECUTION_AUTHORITY_V2_SCHEMA_PATH), 'utf8'),
+  );
+  const pattern = new RegExp(schema.properties.effectiveBase.properties.ref.pattern);
+  assert.equal(pattern.test('origin/feature-chaotang-ext'), true);
+  assert.equal(pattern.test('refs/heads/feature-chaotang-ext'), true);
+  assert.equal(pattern.test('refs/heads/other'), false);
+
+  const manifest = w07EvidenceDocuments().manifest;
+  assert.deepEqual(validateExecutionAuthorityV2Manifest(manifest), []);
+  manifest.effectiveBase.ref = 'refs/heads/other';
+  assert.ok(
+    validateExecutionAuthorityV2Manifest(manifest).some((error) =>
+      error.includes('effectiveBase.ref'),
+    ),
   );
 });
 

@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
+import { execFile } from 'node:child_process';
 import { lstat, readFile } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
+import { promisify } from 'node:util';
 
 import {
   effectiveIndependentReviewer,
@@ -8,6 +10,8 @@ import {
   verifyAmendmentApprovalEvidenceFiles,
   verifyReviewerReassignmentActivationHistory,
 } from './amendment-governance.mjs';
+
+const execFileAsync = promisify(execFile);
 
 export const EXECUTION_AUTHORITY_V2_PATH = '.harness/manifest/execution-authority.v2.json';
 export const EXECUTION_AUTHORITY_V2_SCHEMA_PATH =
@@ -47,6 +51,8 @@ const AMENDMENT_PATH = '.harness/changes/docs-r0-trusted-kernel-amendment-202607
 const HEX64_PATTERN = /^[0-9a-f]{64}$/;
 const HEX40_PATTERN = /^[0-9a-f]{40}$/;
 const WORK_PACKAGE_PATTERN = /^R0-W0[0-9]$/;
+const EFFECTIVE_BASE_REF_PATTERN =
+  /^(?:origin\/[A-Za-z0-9][A-Za-z0-9._/-]*|refs\/heads\/feature-chaotang-ext)$/;
 const LEDGER_STATUSES = new Set([
   'NOT_STARTED',
   'ACTIVE',
@@ -60,41 +66,222 @@ const PROFESSIONAL_GATE_TRIGGER_PACKAGES = new Set(['R0-W08', 'R0-W09']);
 const EVIDENCE_VERSION = 'execution-authority-v2-evidence.v1';
 const ACTIVATION_INTENT_SCHEMA_VERSION = 'execution-authority.v2.activation-intent.v1';
 const ACTIVATION_INTENT_KIND = 'activation-intent';
-const REQUIRED_W06_EXCLUSIONS = Object.freeze([
-  'NO_DEPLOYMENT',
-  'NO_REAL_CUSTOMER_DATA',
-  'NO_DB_MIGRATION',
-  'NO_LISTENER_3050_TAKEOVER',
-  'NO_R0_W07_TO_R0_W09',
-  'NO_AUTOMATIC_MERGE',
-  'NO_PRODUCTION_CLAIM',
-]);
 const RECOVERY_CHANGE_ROOT = '.harness/changes/fix-ext-g0-authority-recovery-20260725';
-const REVIEW_PACKAGE_PATH =
-  `${RECOVERY_CHANGE_ROOT}/review_inputs/review-7df6e4e1..e8be2ca9.diff`;
-const ALLOWED_REVIEW_CHANGED_PATHS = new Set([
-  '.harness/manifest/execution-authority.v2.json',
-  `${RECOVERY_CHANGE_ROOT}/ci_result/ci_summary.md`,
-  `${RECOVERY_CHANGE_ROOT}/claude_code_review/exact-h-final.md`,
-  `${RECOVERY_CHANGE_ROOT}/claude_code_review/review-request.md`,
-  `${RECOVERY_CHANGE_ROOT}/owner_approval/exact-h-approval.md`,
-  `${RECOVERY_CHANGE_ROOT}/owner_scope/recovery-boundary.md`,
-  `${RECOVERY_CHANGE_ROOT}/activation_intent/r0-w06-activation-intent.json`,
-  `${RECOVERY_CHANGE_ROOT}/request_analysis/tasks.md`,
-  `${RECOVERY_CHANGE_ROOT}/summary.md`,
-  'docs/superpowers/plans/2026-07-25-ext-recovery-program.md',
-  'scripts/execution-authority-v2.nodetest.mjs',
-  'scripts/execution-authority.nodetest.mjs',
-  'scripts/lib/execution-authority-v2.mjs',
-]);
-const REQUIRED_REVIEW_COMMANDS = Object.freeze([
-  'node --test scripts/execution-authority.nodetest.mjs',
-  'node --test scripts/execution-authority-v2.nodetest.mjs',
-  'node scripts/execution-authority.mjs --authorize',
-  'node scripts/execution-authority-v2.mjs --authorize --work-package R0-W06',
-  'node scripts/harness-doctor.mjs',
-  'git diff --check',
-]);
+const W07_CHANGE_ROOT = '.harness/changes/docs-r0-w07-activation-20260726';
+const ACTIVE_PACKET_PROFILES = Object.freeze({
+  'R0-W06': Object.freeze({
+    effectiveBaseRef: 'origin/feature-chaotang-ext',
+    ownerApprovalPath: `${RECOVERY_CHANGE_ROOT}/owner_approval/exact-h-approval.md`,
+    reviewPath: `${RECOVERY_CHANGE_ROOT}/claude_code_review/exact-h-final.md`,
+    activationIntentPath:
+      `${RECOVERY_CHANGE_ROOT}/activation_intent/r0-w06-activation-intent.json`,
+    reviewPackagePath:
+      `${RECOVERY_CHANGE_ROOT}/review_inputs/review-7df6e4e1..e8be2ca9.diff`,
+    exclusions: Object.freeze([
+      'NO_DEPLOYMENT',
+      'NO_REAL_CUSTOMER_DATA',
+      'NO_DB_MIGRATION',
+      'NO_LISTENER_3050_TAKEOVER',
+      'NO_R0_W07_TO_R0_W09',
+      'NO_AUTOMATIC_MERGE',
+      'NO_PRODUCTION_CLAIM',
+    ]),
+    allowedChangedPaths: new Set([
+      '.harness/manifest/execution-authority.v2.json',
+      `${RECOVERY_CHANGE_ROOT}/ci_result/ci_summary.md`,
+      `${RECOVERY_CHANGE_ROOT}/claude_code_review/exact-h-final.md`,
+      `${RECOVERY_CHANGE_ROOT}/claude_code_review/review-request.md`,
+      `${RECOVERY_CHANGE_ROOT}/owner_approval/exact-h-approval.md`,
+      `${RECOVERY_CHANGE_ROOT}/owner_scope/recovery-boundary.md`,
+      `${RECOVERY_CHANGE_ROOT}/activation_intent/r0-w06-activation-intent.json`,
+      `${RECOVERY_CHANGE_ROOT}/request_analysis/tasks.md`,
+      `${RECOVERY_CHANGE_ROOT}/summary.md`,
+      'docs/superpowers/plans/2026-07-25-ext-recovery-program.md',
+      'scripts/execution-authority-v2.nodetest.mjs',
+      'scripts/execution-authority.nodetest.mjs',
+      'scripts/lib/execution-authority-v2.mjs',
+    ]),
+    requiredCommands: Object.freeze([
+      'node --test scripts/execution-authority.nodetest.mjs',
+      'node --test scripts/execution-authority-v2.nodetest.mjs',
+      'node scripts/execution-authority.mjs --authorize',
+      'node scripts/execution-authority-v2.mjs --authorize --work-package R0-W06',
+      'node scripts/harness-doctor.mjs',
+      'git diff --check',
+    ]),
+  }),
+  'R0-W07': Object.freeze({
+    effectiveBaseRef: 'refs/heads/feature-chaotang-ext',
+    reviewBaseH: '55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca',
+    ownerApprovalPath: `${W07_CHANGE_ROOT}/owner_approval/exact-h-approval.md`,
+    reviewPath: `${W07_CHANGE_ROOT}/codex_review/exact-h-final.md`,
+    activationIntentPath: `${W07_CHANGE_ROOT}/activation_intent/r0-w07-activation-intent.json`,
+    reviewPackagePath: `${W07_CHANGE_ROOT}/review_inputs/activation-candidate.diff`,
+    exclusions: Object.freeze([
+      'NO_DEPLOYMENT',
+      'NO_REAL_CUSTOMER_DATA',
+      'NO_DB_MIGRATION',
+      'NO_LISTENER_3050_TAKEOVER',
+      'NO_R0_W08_TO_R0_W09',
+      'NO_AUTOMATIC_MERGE',
+      'NO_PRODUCTION_CLAIM',
+    ]),
+    allowedChangedPaths: new Set([
+      `${W07_CHANGE_ROOT}/activation_intent/r0-w07-activation-intent.json`,
+      `${W07_CHANGE_ROOT}/ci_result/ci_summary.md`,
+      `${W07_CHANGE_ROOT}/codex_review/exact-h-final.md`,
+      `${W07_CHANGE_ROOT}/owner_approval/exact-h-approval.md`,
+      `${W07_CHANGE_ROOT}/request_analysis/tasks.md`,
+      `${W07_CHANGE_ROOT}/summary.md`,
+      '.harness/contracts/execution-authority-v2.schema.json',
+      '.harness/manifest/execution-authority.v2.json',
+      '.harness/wiki/execution-authority-v2.md',
+      'docs/superpowers/plans/2026-07-26-r0-reviewer-reassignment.md',
+      'docs/superpowers/specs/2026-07-26-r0-reviewer-reassignment-design.md',
+      'scripts/execution-authority-v2.mjs',
+      'scripts/execution-authority-v2.nodetest.mjs',
+      'scripts/lib/amendment-governance.mjs',
+      'scripts/lib/execution-authority-v2.mjs',
+      'scripts/r0-amendment-check.nodetest.mjs',
+    ]),
+    allowedChangedPrefixes: Object.freeze([
+      '.harness/changes/docs-r0-reviewer-reassignment-20260726/',
+    ]),
+    exactGitRange: true,
+    requiredCommands: Object.freeze([
+      'node --test scripts/execution-authority.nodetest.mjs scripts/r0-amendment-check.nodetest.mjs scripts/execution-authority-v2.nodetest.mjs',
+      'node scripts/execution-authority.mjs --authorize',
+      'node scripts/execution-authority-v2.mjs --check',
+      'node scripts/execution-authority-v2.mjs --authorize --work-package R0-W07',
+      'node scripts/harness-doctor.mjs',
+      'git diff --check',
+    ]),
+  }),
+});
+
+function activePacketProfile(manifest, errors) {
+  const profile = ACTIVE_PACKET_PROFILES[manifest.activeWorkPackage];
+  if (profile === undefined) {
+    errors.push(`no active-packet profile for ${manifest.activeWorkPackage}`);
+    return null;
+  }
+  return profile;
+}
+
+function profileAllowsChangedPath(profile, path) {
+  return (
+    profile.allowedChangedPaths.has(path) ||
+    profile.allowedChangedPrefixes?.some((prefix) => path.startsWith(prefix)) === true
+  );
+}
+
+function authorityGitArgs(...args) {
+  return ['--no-replace-objects', ...args];
+}
+
+function authorityGitOptions(root, extra = {}) {
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
+  );
+  return {
+    cwd: root,
+    env: {
+      ...env,
+      GIT_CONFIG_NOSYSTEM: '1',
+      GIT_CONFIG_GLOBAL: '/dev/null',
+      GIT_OPTIONAL_LOCKS: '0',
+      LC_ALL: 'C',
+    },
+    ...extra,
+  };
+}
+
+async function verifyActivePacketGitIdentity(
+  root,
+  manifest,
+  reviewPackageSource,
+  errors,
+) {
+  const profile = ACTIVE_PACKET_PROFILES[manifest.activeWorkPackage];
+  if (profile?.exactGitRange !== true) return;
+  try {
+    const [{ stdout: refH }, { stdout: effectiveH }, { stdout: baseH }, { stdout: candidateH }, { stdout: tree }] =
+      await Promise.all([
+        execFileAsync(
+          'git',
+          authorityGitArgs('rev-parse', `${manifest.effectiveBase.ref}^{commit}`),
+          authorityGitOptions(root),
+        ),
+        execFileAsync(
+          'git',
+          authorityGitArgs('rev-parse', `${manifest.effectiveBase.sha}^{commit}`),
+          authorityGitOptions(root),
+        ),
+        execFileAsync(
+          'git',
+          authorityGitArgs('rev-parse', `${profile.reviewBaseH}^{commit}`),
+          authorityGitOptions(root),
+        ),
+        execFileAsync(
+          'git',
+          authorityGitArgs(
+            'rev-parse',
+            `${manifest.approvalEvidence.candidateH}^{commit}`,
+          ),
+          authorityGitOptions(root),
+        ),
+        execFileAsync(
+          'git',
+          authorityGitArgs(
+            'rev-parse',
+            `${manifest.approvalEvidence.candidateH}^{tree}`,
+          ),
+          authorityGitOptions(root),
+        ),
+      ]);
+    if (
+      refH.trim() !== manifest.effectiveBase.sha ||
+      effectiveH.trim() !== manifest.effectiveBase.sha
+    ) {
+      errors.push('active-packet effectiveBase ref/sha git identity mismatch');
+    }
+    if (baseH.trim() !== profile.reviewBaseH) {
+      errors.push('active-packet review base git identity mismatch');
+    }
+    if (candidateH.trim() !== manifest.approvalEvidence.candidateH) {
+      errors.push('active-packet candidateH git identity mismatch');
+    }
+    if (tree.trim() !== manifest.approvalEvidence.tree) {
+      errors.push('active-packet candidate tree git identity mismatch');
+    }
+    await execFileAsync(
+      'git',
+      authorityGitArgs(
+        'merge-base',
+        '--is-ancestor',
+        profile.reviewBaseH,
+        manifest.approvalEvidence.candidateH,
+      ),
+      authorityGitOptions(root),
+    );
+    const { stdout: exactDiff } = await execFileAsync(
+      'git',
+      authorityGitArgs(
+        'diff',
+        '--no-ext-diff',
+        '--no-textconv',
+        '--binary',
+        `${profile.reviewBaseH}..${manifest.approvalEvidence.candidateH}`,
+      ),
+      authorityGitOptions(root, { maxBuffer: 10 * 1024 * 1024 }),
+    );
+    if (reviewPackageSource !== exactDiff) {
+      errors.push('review package bytes must equal exact git diff');
+    }
+  } catch (cause) {
+    errors.push(`active-packet git identity is unverifiable: ${cause.code ?? cause.message}`);
+  }
+}
 
 function sameArray(left, right) {
   return (
@@ -297,6 +484,8 @@ export function validateExecutionAuthorityV2ActivationIntent(manifest, activatio
   const manifestErrors = validateExecutionAuthorityV2Manifest(manifest);
   if (manifestErrors.length > 0) return manifestErrors;
   if (manifest.activeWorkPackage === null) return errors;
+  const profile = activePacketProfile(manifest, errors);
+  if (profile === null) return errors;
   if (
     !exactKeys(activationIntent, [
       'schemaVersion',
@@ -321,8 +510,8 @@ export function validateExecutionAuthorityV2ActivationIntent(manifest, activatio
   if (activationIntent.trackedManifestPath !== EXECUTION_AUTHORITY_V2_PATH) {
     errors.push('activation intent trackedManifestPath must target execution-authority.v2');
   }
-  if (activationIntent.reviewPackagePath !== REVIEW_PACKAGE_PATH) {
-    errors.push('activation intent reviewPackagePath must target the pinned W06 review package');
+  if (activationIntent.reviewPackagePath !== profile.reviewPackagePath) {
+    errors.push('activation intent reviewPackagePath must match active-packet profile');
   }
   if (!HEX64_PATTERN.test(activationIntent.reviewPackageSha256 ?? '')) {
     errors.push('activation intent reviewPackageSha256 must be a sha256 hex digest');
@@ -382,6 +571,8 @@ export function validateExecutionAuthorityV2Evidence(
   const manifestErrors = validateExecutionAuthorityV2Manifest(manifest);
   if (manifestErrors.length > 0) return manifestErrors;
   if (manifest.activeWorkPackage === null) return errors;
+  const profile = activePacketProfile(manifest, errors);
+  if (profile === null) return errors;
 
   const ownerValid = evidenceHasExactKeys(
     ownerEvidence,
@@ -438,14 +629,26 @@ export function validateExecutionAuthorityV2Evidence(
     errors.push('owner approver must match manifest approvalEvidence.approver');
   }
   evidenceMatchesManifestIdentity(ownerEvidence, manifest, 'owner', errors);
-  if (!sameArray(ownerEvidence.exclusions, REQUIRED_W06_EXCLUSIONS)) {
-    errors.push('owner exclusions must match the frozen W06 exclusion list');
+  if (manifest.effectiveBase.ref !== profile.effectiveBaseRef) {
+    errors.push('manifest effectiveBase.ref must match active-packet profile');
+  }
+  if (manifest.approvalEvidence.ownerApprovalPath !== profile.ownerApprovalPath) {
+    errors.push('manifest ownerApprovalPath must match active-packet profile');
+  }
+  if (manifest.approvalEvidence.reviewPath !== profile.reviewPath) {
+    errors.push('manifest reviewPath must match active-packet profile');
+  }
+  if (!sameArray(ownerEvidence.exclusions, profile.exclusions)) {
+    errors.push('owner exclusions must match active-packet profile');
   }
   if (!safeRepositoryPath(ownerEvidence.activationIntentPath)) {
     errors.push('owner activationIntentPath must be a safe repository path');
   }
   if (!HEX64_PATTERN.test(ownerEvidence.activationIntentSha256 ?? '')) {
     errors.push('owner activationIntentSha256 must be a sha256 hex digest');
+  }
+  if (ownerEvidence.activationIntentPath !== profile.activationIntentPath) {
+    errors.push('owner activationIntentPath must match active-packet profile');
   }
 
   if (reviewEvidence.evidenceVersion !== EVIDENCE_VERSION) {
@@ -484,8 +687,8 @@ export function validateExecutionAuthorityV2Evidence(
   if (reviewEvidence.activationIntentSha256 !== ownerEvidence.activationIntentSha256) {
     errors.push('review activationIntentSha256 must match owner activationIntentSha256');
   }
-  if (reviewEvidence.reviewPackagePath !== REVIEW_PACKAGE_PATH) {
-    errors.push('review reviewPackagePath must target the pinned W06 review package');
+  if (reviewEvidence.reviewPackagePath !== profile.reviewPackagePath) {
+    errors.push('review reviewPackagePath must match active-packet profile');
   }
   if (!safeRepositoryPath(reviewEvidence.reviewPackagePath)) {
     errors.push('review reviewPackagePath must be a safe repository path');
@@ -501,7 +704,9 @@ export function validateExecutionAuthorityV2Evidence(
     )
   ) {
     errors.push('review changedPaths must be a non-empty list of safe repository paths');
-  } else if (reviewEvidence.changedPaths.some((path) => !ALLOWED_REVIEW_CHANGED_PATHS.has(path))) {
+  } else if (
+    reviewEvidence.changedPaths.some((path) => !profileAllowsChangedPath(profile, path))
+  ) {
     errors.push('review changedPaths must stay within the authority review allowlist');
   }
   if (
@@ -510,7 +715,7 @@ export function validateExecutionAuthorityV2Evidence(
     reviewEvidence.commands.some((command) => typeof command !== 'string' || command.length === 0)
   ) {
     errors.push('review commands must be a non-empty list of command strings');
-  } else if (!sameArray(reviewEvidence.commands, REQUIRED_REVIEW_COMMANDS)) {
+  } else if (!sameArray(reviewEvidence.commands, profile.requiredCommands)) {
     errors.push('review commands must exactly match the required authority verification commands');
   }
   if (reviewEvidence.productionReady !== false) {
@@ -635,8 +840,22 @@ export function validateExecutionAuthorityV2Manifest(manifest) {
 
   if (!exactKeys(manifest.effectiveBase, ['ref', 'sha'])) {
     errors.push('v2 effectiveBase must contain exactly ref, sha');
-  } else if (!HEX40_PATTERN.test(manifest.effectiveBase.sha ?? '')) {
-    errors.push('v2 effectiveBase sha must be a 40-hex git sha');
+  } else {
+    if (!EFFECTIVE_BASE_REF_PATTERN.test(manifest.effectiveBase.ref ?? '')) {
+      errors.push(
+        'v2 effectiveBase.ref must be an origin ref or refs/heads/feature-chaotang-ext',
+      );
+    }
+    if (!HEX40_PATTERN.test(manifest.effectiveBase.sha ?? '')) {
+      errors.push('v2 effectiveBase sha must be a 40-hex git sha');
+    }
+    const profile = ACTIVE_PACKET_PROFILES[manifest.activeWorkPackage];
+    if (
+      profile !== undefined &&
+      manifest.effectiveBase.ref !== profile.effectiveBaseRef
+    ) {
+      errors.push('v2 effectiveBase.ref must match the active-packet profile');
+    }
   }
 
   if (
@@ -661,7 +880,12 @@ export function validateExecutionAuthorityV2Manifest(manifest) {
     if (!HEX64_PATTERN.test(evidence.ownerApprovalSha256 ?? '')) {
       errors.push('v2 approvalEvidence.ownerApprovalSha256 must be a sha256 hex digest');
     }
-    if (!safeRepositoryPath(evidence.reviewPath) || !/claude_code_review\/exact-h-final\.md$/.test(evidence.reviewPath)) {
+    if (
+      !safeRepositoryPath(evidence.reviewPath) ||
+      !/(?:claude_code_review|codex_review)\/exact-h-final\.md$/.test(
+        evidence.reviewPath,
+      )
+    ) {
       errors.push('v2 approvalEvidence.reviewPath is not a valid review evidence path');
     }
     if (!HEX64_PATTERN.test(evidence.reviewSha256 ?? '')) {
@@ -1033,6 +1257,12 @@ export async function loadExecutionAuthorityV2(root) {
         } catch (cause) {
           errors.push(cause.message);
         }
+        await verifyActivePacketGitIdentity(
+          root,
+          manifest,
+          reviewPackageSource,
+          errors,
+        );
       }
       if (reviewPackagePaths === null) {
         errors.push('active execution authority requires a parseable review package');

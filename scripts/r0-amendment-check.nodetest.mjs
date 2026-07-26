@@ -178,6 +178,8 @@ function approvedReviewerReassignmentFixture() {
       '019f9c6d-d648-7961-a3eb-7071cc51eec9',
       '019f9c7c-09d3-7d70-890a-9f77201076e3',
       '019f9c7c-0a04-7a20-b62f-cdd8779ad09d',
+      '019f9c8a-e2d2-7d13-8a5a-781992a38021',
+      '019f9c8a-e301-7430-a67f-270e119262b2',
     ],
     reviewPackagePath:
       '.harness/changes/docs-r0-reviewer-reassignment-20260726/review_inputs/candidate.diff',
@@ -527,6 +529,37 @@ test('W07 activation requires a prior quiescent overlay registration commit', as
         { activeWorkPackage: 'R0-W07' },
       ),
       [],
+    );
+
+    const activeAuthoritySource = await readFile(authorityPath, 'utf8');
+    const activeProjectSource = await readFile(projectPath, 'utf8');
+    await writeFile(
+      authorityPath,
+      `${JSON.stringify({
+        activeWorkPackage: null,
+        workPackageLedger: [{ id: 'R0-W07', status: 'MERGED_AND_VERIFIED' }],
+      }, null, 2)}\n`,
+    );
+    await writeFile(
+      projectPath,
+      `${JSON.stringify({ amendmentGovernance: {} }, null, 2)}\n`,
+    );
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'expire W07 overlay'], {
+      cwd: tempRoot,
+    });
+    await writeFile(authorityPath, activeAuthoritySource);
+    await writeFile(projectPath, activeProjectSource);
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'replay expired overlay'], {
+      cwd: tempRoot,
+    });
+    assert.ok(
+      (await verifyReviewerReassignmentActivationHistory(
+        tempRoot,
+        { reviewerReassignment: overlay },
+        { activeWorkPackage: 'R0-W07' },
+      )).some((error) => error.includes('continuous activation history')),
     );
 
     await execFileAsync('git', ['checkout', '-qb', 'uncommitted', overlay.candidateH], {

@@ -67,6 +67,8 @@ const REJECTED_REVIEW_SESSION_IDS = Object.freeze([
   '019f9c6d-d648-7961-a3eb-7071cc51eec9',
   '019f9c7c-09d3-7d70-890a-9f77201076e3',
   '019f9c7c-0a04-7a20-b62f-cdd8779ad09d',
+  '019f9c8a-e2d2-7d13-8a5a-781992a38021',
+  '019f9c8a-e301-7430-a67f-270e119262b2',
 ]);
 const REVIEWER_REASSIGNMENT_KEYS = Object.freeze([
   'approvedBy',
@@ -859,6 +861,51 @@ export async function verifyReviewerReassignmentActivationHistory(
       return errors;
     }
     const [{ activationH, parentH }] = activationCandidates;
+    const { stdout: descendantSource } = await execFileAsync(
+      'git',
+      reviewerReassignmentGitArgs(
+        'rev-list',
+        '--first-parent',
+        `${activationH}..HEAD`,
+      ),
+      reviewerReassignmentGitOptions(root),
+    );
+    for (const commit of [
+      activationH,
+      ...descendantSource.trim().split('\n').filter(Boolean),
+    ]) {
+      const [projectHarness, authority] = await Promise.all([
+        readGitBlob(root, commit, '.harness/manifest/project-harness.json').then(
+          (source) =>
+            parseUniqueJsonObject(
+              source.toString('utf8'),
+              'continuous activation project harness',
+            ),
+        ),
+        readGitBlob(
+          root,
+          commit,
+          '.harness/manifest/execution-authority.v2.json',
+        ).then((source) =>
+          parseUniqueJsonObject(
+            source.toString('utf8'),
+            'continuous activation execution authority',
+          ),
+        ),
+      ]);
+      if (
+        JSON.stringify(projectHarness.amendmentGovernance?.reviewerReassignment) !==
+          JSON.stringify(overlay) ||
+        authority.activeWorkPackage !== 'R0-W07' ||
+        !authority.workPackageLedger?.some(
+          (entry) => entry.id === 'R0-W07' && entry.status === 'ACTIVE',
+        )
+      ) {
+        errors.push(
+          `reviewerReassignment continuous activation history is broken at ${commit}`,
+        );
+      }
+    }
 
     for (const path of [
       overlay.reviewPackagePath,
