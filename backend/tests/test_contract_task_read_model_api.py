@@ -53,28 +53,29 @@ def _decision_state(db, task_id: str) -> dict[str, object]:
         ShiguanArchive,
     )
 
-    task = db.get(DecisionTask, task_id)
-    return {
-        "task_status": task.status if task is not None else None,
-        "final_statuses": tuple(
-            status
-            for (status,) in db.query(FinalMemorial.status)
+    def rows(model) -> tuple[tuple[object, ...], ...]:
+        columns = tuple(column.name for column in model.__table__.columns)
+        return tuple(
+            tuple(getattr(row, column) for column in columns)
+            for row in db.query(model)
             .filter_by(task_id=task_id)
-            .order_by(FinalMemorial.id.asc())
+            .order_by(model.id.asc())
             .all()
+        )
+
+    task = db.get(DecisionTask, task_id)
+    task_columns = tuple(column.name for column in DecisionTask.__table__.columns)
+    return {
+        "task": (
+            tuple(getattr(task, column) for column in task_columns)
+            if task is not None
+            else None
         ),
-        "decision_count": db.query(EmperorDecision)
-        .filter_by(task_id=task_id)
-        .count(),
-        "archive_count": db.query(ShiguanArchive)
-        .filter_by(task_id=task_id)
-        .count(),
-        "review_count": db.query(CourtReview)
-        .filter_by(task_id=task_id)
-        .count(),
-        "loop_count": db.query(CourtLoopRun)
-        .filter_by(task_id=task_id)
-        .count(),
+        "finals": rows(FinalMemorial),
+        "decisions": rows(EmperorDecision),
+        "archives": rows(ShiguanArchive),
+        "reviews": rows(CourtReview),
+        "loops": rows(CourtLoopRun),
     }
 
 
@@ -265,6 +266,141 @@ def test_contract_brief_decision_requires_tenant_and_user_ownership(
     assert response.status_code == 404
     with isolated_session_local() as db:
         assert _decision_state(db, task_id) == before
+
+
+def test_contract_brief_decision_rejects_cross_tenant_review_before_write(
+    monkeypatch,
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    from src.db.models import CourtReview
+
+    monkeypatch.setenv("FENGQUN_RUNTIME_ROOT", str(tmp_path))
+    task_id = "task-api-brief-cross-tenant-review"
+    review_id = f"review-{task_id}"
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id=task_id)
+        final, pack = seed_final_memorial(db, task_id=task.id)
+        seed_delivery(
+            db,
+            storage_root=tmp_path / "artifacts",
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        db.add(
+            CourtReview(
+                id=review_id,
+                tenant_id=8,
+                task_id=task.id,
+                review_status="awaiting_decision",
+            )
+        )
+        content_hash = final.content_hash
+        db.commit()
+        before = _decision_state(db, task_id)
+
+    client, app = _client(monkeypatch, isolated_session_local, tmp_path)
+    try:
+        response = client.post(
+            f"/api/shangshufang/briefs/{review_id}/decision/advance",
+            json={
+                "decision": "issue_decree",
+                "reason": "跨租户 review 不得进入共享 writer",
+                "manualConfirmation": True,
+                "expectedFinalMemorialContentHash": content_hash,
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    with isolated_session_local() as db:
+        assert _decision_state(db, task_id) == before
+
+
+def test_shared_writer_rejects_review_outside_exact_final_lineage(
+    monkeypatch,
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    from src.db.models import CourtReview
+    from web.routers.shangshufang import _execute_final_memorial_decision
+
+    monkeypatch.setenv("FENGQUN_RUNTIME_ROOT", str(tmp_path))
+    task_id = "task-api-review-lineage-gate"
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id=task_id)
+        final, pack = seed_final_memorial(db, task_id=task.id)
+        seed_delivery(
+            db,
+            storage_root=tmp_path / "artifacts",
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        unrelated_review = CourtReview(
+            id=f"review-unrelated-{task_id}",
+            tenant_id=task.tenant_id,
+            task_id=task.id,
+            review_status="awaiting_decision",
+        )
+        db.add(unrelated_review)
+        content_hash = final.content_hash
+        db.commit()
+        before = _decision_state(db, task_id)
+
+        with pytest.raises(ValueError, match="lineage"):
+            _execute_final_memorial_decision(
+                db,
+                task=task,
+                review=unrelated_review,
+                action="approve",
+                reason="不得修改非 exact final 的 review",
+                human_confirmed=True,
+                expected_content_hash=content_hash,
+                actor_user_id="7",
+            )
+        db.rollback()
+
+    with isolated_session_local() as db:
+        assert _decision_state(db, task_id) == before
+
+
+def test_decision_state_snapshot_captures_review_and_loop_mutations(
+    isolated_session_local,
+) -> None:
+    from src.db.models import CourtLoopRun, CourtReview
+
+    task_id = "task-api-zero-write-snapshot"
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id=task_id)
+        review = CourtReview(
+            id=f"review-{task_id}",
+            tenant_id=task.tenant_id,
+            task_id=task.id,
+            review_status="awaiting_decision",
+        )
+        loop = CourtLoopRun(
+            id=f"loop-{task_id}",
+            task_id=task.id,
+            loop_id="decision",
+            status="awaiting_decision",
+            input_json="{}",
+            output_json=None,
+        )
+        db.add_all([review, loop])
+        db.commit()
+        before = _decision_state(db, task_id)
+
+        review.review_status = "archived"
+        review.updated_at = "2026-07-27T01:00:00Z"
+        loop.status = "completed"
+        loop.output_json = '{"mutated":true}'
+        loop.updated_at = "2026-07-27T01:00:00Z"
+        db.flush()
+
+        assert _decision_state(db, task_id) != before
 
 
 def test_pack_only_contract_candidate_is_blocked_at_shared_writer(

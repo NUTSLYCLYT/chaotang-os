@@ -60,6 +60,17 @@ def _resolution(
     )
 
 
+def _review_verdict_blocker(
+    verdict: ContractVerdict | None,
+) -> ContractTaskBlockerCode:
+    return {
+        "NEED_INFO": "EVIDENCE_INCOMPLETE",
+        "REVISE_BEFORE_PROCEED": "REVIEW_REVISION_REQUIRED",
+        "BLOCKED": "REVIEW_BLOCKED",
+        "NEED_LEGAL_REVIEW": "LEGAL_REVIEW_REQUIRED",
+    }.get(verdict, "STATE_INCONSISTENT")
+
+
 def resolve_contract_task_actions(
     facts: ContractTaskFacts,
 ) -> ContractTaskActionResolution:
@@ -83,6 +94,10 @@ def resolve_contract_task_actions(
     if facts.downloadable_count < 0:
         return _resolution(blockers=("STATE_INCONSISTENT",))
     if facts.archive_receipt_present:
+        if facts.review_verdict != "PROCEED_TO_HUMAN_APPROVAL":
+            return _resolution(
+                blockers=(_review_verdict_blocker(facts.review_verdict),)
+            )
         if (
             facts.final_status != "ARCHIVED"
             or facts.decision_status != "APPROVED"

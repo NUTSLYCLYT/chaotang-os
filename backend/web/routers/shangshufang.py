@@ -849,6 +849,46 @@ def _execute_final_memorial_decision(
     confirmation_extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Single task/brief adjudication writer with exact-hash CAS and rework parity."""
+    current_formal = (
+        db.query(FinalMemorial)
+        .filter_by(task_id=task.id, is_current=True)
+        .first()
+    )
+    formal_payload = (
+        _loads(current_formal.memorial_json, {})
+        if current_formal is not None
+        else {}
+    )
+    from src.contract_mission_repository import MISSION_LOOP_ID
+
+    is_contract_task = (
+        task.contract_scope_json is not None
+        or (
+            db.query(CourtLoopRun.id)
+            .filter_by(task_id=task.id, loop_id=MISSION_LOOP_ID)
+            .first()
+            is not None
+        )
+        or (
+            isinstance(formal_payload, dict)
+            and "contract_review" in formal_payload
+        )
+    )
+    if is_contract_task and review is not None:
+        if (
+            task.tenant_id is None
+            or review.tenant_id is None
+            or review.tenant_id != task.tenant_id
+            or review.task_id != task.id
+            or (
+                current_formal is not None
+                and current_formal.review_id != review.id
+            )
+        ):
+            raise ValueError(
+                "contract review ownership or final lineage conflict"
+            )
+
     evidence_actions = {"request_evidence", "followup"}
     if action in evidence_actions:
         from src.execution.decree_dispatcher import lock_evidence_rework_task
@@ -875,34 +915,10 @@ def _execute_final_memorial_decision(
         "request_evidence": "awaiting_evidence",
         "followup": "awaiting_evidence",
     }.get(action)
-    current_formal = (
-        db.query(FinalMemorial)
-        .filter_by(task_id=task.id, is_current=True)
-        .first()
-    )
     if action in _CONTRACT_FINAL_ACTIONS:
-        from src.contract_mission_repository import MISSION_LOOP_ID
         from src.contract_task_projection import project_contract_task
         from src.runtime_paths import resolve_runtime_paths
 
-        formal_payload = (
-            _loads(current_formal.memorial_json, {})
-            if current_formal is not None
-            else {}
-        )
-        is_contract_task = (
-            task.contract_scope_json is not None
-            or (
-                db.query(CourtLoopRun.id)
-                .filter_by(task_id=task.id, loop_id=MISSION_LOOP_ID)
-                .first()
-                is not None
-            )
-            or (
-                isinstance(formal_payload, dict)
-                and "contract_review" in formal_payload
-            )
-        )
         if is_contract_task:
             read_model = project_contract_task(
                 db,
@@ -2859,8 +2875,11 @@ def shangshufang_brief_decision_advance(
         if (
             task.user_id != _user_id(user)
             or task.tenant_id is None
+            or review.tenant_id is None
             or user.tenant_id is None
             or task.tenant_id != user.tenant_id
+            or review.tenant_id != user.tenant_id
+            or review.tenant_id != task.tenant_id
         ):
             return _http_fail(404, "无权裁决该任务")
         mapping = {

@@ -164,6 +164,7 @@ function hasExactLineage(model: Record<string, unknown>): boolean {
       pack.task_id !== taskId
       || pack.mission_contract_id !== taskId
       || String(pack.tenant_id) !== String(task.tenant_id)
+      || (final && pack.court_review_id !== final.court_review_id)
     )
   ) {
     return false;

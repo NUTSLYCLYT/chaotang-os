@@ -132,7 +132,7 @@ test('receipt cannot mask fallback or partial effective facts', () => {
       source_label: 'LIVE',
     },
     blockers: [{ code: 'NON_ADJUDICABLE_SOURCE' }],
-    allowed_actions: [],
+    allowed_actions: ['REOPEN_ARCHIVE'],
   });
 
   assert.equal(contractReviewUiPolicy(value).isArchived, false);

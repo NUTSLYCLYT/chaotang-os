@@ -109,6 +109,7 @@ from src.contract_task_actions import (
                 source_class="ADJUDICABLE",
                 evidence_ready=True,
                 review_pack_ready=True,
+                review_verdict="PROCEED_TO_HUMAN_APPROVAL",
                 final_status="ARCHIVED",
                 decision_status="APPROVED",
                 delivery_status="READY",
@@ -252,3 +253,36 @@ def test_non_proceed_verdict_never_exposes_decide(
     assert resolution.allowed_actions == actions
     assert resolution.blockers == blockers
     assert "DECIDE" not in resolution.allowed_actions
+
+
+@pytest.mark.parametrize(
+    ("verdict", "blocker"),
+    [
+        ("NEED_INFO", "EVIDENCE_INCOMPLETE"),
+        ("REVISE_BEFORE_PROCEED", "REVIEW_REVISION_REQUIRED"),
+        ("BLOCKED", "REVIEW_BLOCKED"),
+        ("NEED_LEGAL_REVIEW", "LEGAL_REVIEW_REQUIRED"),
+    ],
+)
+def test_non_proceed_verdict_cannot_reopen_an_existing_archive(
+    verdict: str,
+    blocker: str,
+) -> None:
+    resolution = resolve_contract_task_actions(
+        ContractTaskFacts(
+            mission_state="CONFIRMED",
+            source_class="ADJUDICABLE",
+            evidence_ready=True,
+            review_pack_ready=True,
+            review_verdict=verdict,
+            final_status="ARCHIVED",
+            delivery_status="READY",
+            decision_status="APPROVED",
+            downloadable_count=3,
+            delivery_complete=True,
+            archive_receipt_present=True,
+        )
+    )
+
+    assert resolution.allowed_actions == ()
+    assert resolution.blockers == (blocker,)

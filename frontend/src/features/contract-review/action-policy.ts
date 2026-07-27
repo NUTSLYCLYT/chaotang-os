@@ -43,7 +43,10 @@ export function contractReviewUiPolicy(
     deliveryState,
     isDelivered: deliveryState === 'READY',
     isArchived: model.archive_receipt != null
-      && isContractActionAllowed(model, 'REOPEN_ARCHIVE'),
+      && model.source_class === 'ADJUDICABLE'
+      && deliveryState === 'READY'
+      && isContractActionAllowed(model, 'REOPEN_ARCHIVE')
+      && model.blockers.length === 0,
     canDownload: isContractActionAllowed(model, 'DOWNLOAD_ARTIFACT'),
     canResume: deliveryState === 'PARTIAL'
       && isContractActionAllowed(model, 'RESUME_DELIVERY'),

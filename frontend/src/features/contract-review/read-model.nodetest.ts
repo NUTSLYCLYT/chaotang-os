@@ -109,6 +109,13 @@ test('rejects contradictory task, final, delivery and receipt lineage', () => {
     status: 'archived',
     source_label: 'LIVE',
   };
+  const exactPack = {
+    review_pack_id: 'pack-1',
+    task_id: 'task-1',
+    mission_contract_id: 'task-1',
+    tenant_id: 7,
+    court_review_id: 'review-1',
+  };
   const exactDelivery = {
     manifest_id: 'manifest-1',
     task_id: 'task-1',
@@ -131,6 +138,12 @@ test('rejects contradictory task, final, delivery and receipt lineage', () => {
   };
 
   for (const override of [
+    {
+      review_pack: {
+        ...exactPack,
+        court_review_id: 'review-other',
+      },
+    },
     { delivery: { ...exactDelivery, task_id: 'task-other' } },
     { delivery: { ...exactDelivery, final_memorial_version: 2 } },
     {
@@ -143,6 +156,7 @@ test('rejects contradictory task, final, delivery and receipt lineage', () => {
     assert.throws(
       () => parseContractTaskReadModel(readModel({
         final_memorial: exactFinal,
+        review_pack: exactPack,
         ...override,
       }), 'task-1'),
       /lineage/,
