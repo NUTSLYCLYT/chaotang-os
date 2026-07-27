@@ -175,6 +175,82 @@ test('rejects DECIDE when delivery or blockers contradict adjudication', () => {
   );
 });
 
+test('rejects DECIDE or REOPEN for an incomplete READY artifact packet', () => {
+  const incompleteReady = {
+    manifest_id: 'manifest-1',
+    task_id: 'task-1',
+    final_memorial_id: 'final-1',
+    final_memorial_version: 1,
+    delivery_formula_version: 'w06-v1',
+    delivery_revision: 1,
+    payload_hash: 'b'.repeat(64),
+    artifacts: [{
+      artifact_id: 'artifact-json',
+      kind: 'JSON',
+      mime_type: 'application/json',
+      byte_size: 64,
+      content_hash: 'd'.repeat(64),
+      lineage_hash: 'e'.repeat(64),
+      status: 'STORED',
+      download_url: '/api/artifacts/artifact-json/download',
+    }],
+    overall_status: 'READY',
+  };
+  const common = {
+    blockers: [],
+    mission: {
+      state: 'CONFIRMED',
+      mission: {
+        task_id: 'task-1',
+        mission_contract_id: 'task-1',
+      },
+    },
+    review_pack: reviewPack(),
+    delivery: incompleteReady,
+  };
+
+  for (const override of [
+    {
+      ...common,
+      allowed_actions: ['DECIDE'],
+      final_memorial: {
+        final_memorial_id: 'final-1',
+        final_memorial_version: 1,
+        final_memorial_content_hash: 'c'.repeat(64),
+        court_review_id: 'review-1',
+        status: 'ready_for_decision',
+        source_label: 'LIVE',
+      },
+    },
+    {
+      ...common,
+      allowed_actions: ['REOPEN_ARCHIVE'],
+      final_memorial: {
+        final_memorial_id: 'final-1',
+        final_memorial_version: 1,
+        final_memorial_content_hash: 'c'.repeat(64),
+        court_review_id: 'review-1',
+        status: 'archived',
+        source_label: 'LIVE',
+      },
+      archive_receipt: {
+        archive_id: 'archive-1',
+        task_id: 'task-1',
+        final_memorial_id: 'final-1',
+        final_memorial_version: 1,
+        final_memorial_content_hash: 'c'.repeat(64),
+        archived_at: '2026-07-27T00:00:00Z',
+        source_label: 'LIVE',
+      },
+    },
+  ]) {
+    assert.throws(
+      () => parseContractTaskReadModel(readModel(override), 'task-1'),
+      /contradictory/,
+    );
+  }
+});
+
 test('rejects mission identity that does not bind to the requested task', () => {
   assert.throws(
     () => parseContractTaskReadModel(

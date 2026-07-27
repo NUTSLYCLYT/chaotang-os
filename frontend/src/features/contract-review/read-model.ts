@@ -290,22 +290,47 @@ function hasExactLineage(model: Record<string, unknown>): boolean {
   return true;
 }
 
+function hasCompleteReadyArtifactPacket(
+  delivery: Record<string, unknown> | null,
+): boolean {
+  if (delivery?.overall_status !== 'READY' || !Array.isArray(delivery.artifacts)) {
+    return false;
+  }
+  const artifacts = delivery.artifacts.map(record);
+  if (artifacts.some((artifact) => artifact === null)) return false;
+  const kinds = new Set(artifacts.map((artifact) => artifact?.kind));
+  return artifacts.length === 3
+    && kinds.size === 3
+    && ['PDF', 'DOCX', 'JSON'].every((kind) => kinds.has(kind))
+    && artifacts.every((artifact) => (
+      artifact?.status === 'STORED'
+      && nonEmptyString(artifact.download_url)
+    ));
+}
+
 function hasConsistentDecisionState(model: Record<string, unknown>): boolean {
   const actions = model.allowed_actions as unknown[];
-  if (!actions.includes('DECIDE')) return true;
+  const canDecide = actions.includes('DECIDE');
+  const canReopen = actions.includes('REOPEN_ARCHIVE');
+  if (!canDecide && !canReopen) return true;
 
   const missionView = record(model.mission);
   const pack = record(model.review_pack);
   const final = record(model.final_memorial);
   const delivery = record(model.delivery);
-  return model.source_class === 'ADJUDICABLE'
+  const commonFactsValid = model.source_class === 'ADJUDICABLE'
     && missionView?.state === 'CONFIRMED'
     && pack?.verdict === 'PROCEED_TO_HUMAN_APPROVAL'
     && pack.quality_gate_status === 'PASSED'
-    && final?.status === 'ready_for_decision'
-    && delivery?.overall_status === 'READY'
-    && model.archive_receipt == null
+    && hasCompleteReadyArtifactPacket(delivery)
     && (model.blockers as unknown[]).length === 0;
+  if (!commonFactsValid || (canDecide && canReopen)) return false;
+  if (canDecide) {
+    return final?.status === 'ready_for_decision'
+      && model.archive_receipt == null;
+  }
+  return final?.status === 'archived'
+    && record(model.archive_receipt) !== null;
 }
 
 export function parseContractTaskReadModel(
