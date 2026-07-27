@@ -65,6 +65,9 @@
   response-ref OpenAPI reachability。
 - [x] 冻结 implementation candidate `4ed274f8e530d4049bc01e807366d1d9ac6ff691`
   / `77bf4aa111da81c9b8cdee485d42dac28201772a`。
+- [x] exact `4ed274f8...` 两路 fresh review 完成，结论均为 `NO-GO`，
+  去重 `HIGH 3 / MEDIUM 8 / LOW 2`。
+- [ ] TDD 修复最新两路审查全部适用 HIGH/MEDIUM。
 - [ ] 在新 exact candidate 上取得 two-pass GO。
 - [ ] 冻结 exact candidate H/tree 和 `RUNNABLE_MINIMUM` receipt。
 

@@ -61,7 +61,9 @@ envelope `a7937d7e...` 两路仍为 `NO-GO`，合并适用项
 后续 scope-amendment review 的适用 HIGH/MEDIUM 已在 exact implementation
 `4ed274f8e530d4049bc01e807366d1d9ac6ff691`、tree
 `77bf4aa111da81c9b8cdee485d42dac28201772a` 按 TDD 闭环并通过上表 fresh
-verification。当前等待该 exact candidate 两路独立复审，仍不得整合。
+verification。review envelope `5f351283...` 的两路 fresh review 均为
+`NO-GO`，去重 `HIGH 3 / MEDIUM 8 / LOW 2`；candidate 不得整合，进入下一轮
+H/M remediation。
 
 ## 全仓既有 Residual
 
@@ -100,9 +102,9 @@ verification。当前等待该 exact candidate 两路独立复审，仍不得整
 | sixth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
 | seventh remediation | all approved HIGH/MEDIUM locally closed | PASS |
 | eighth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
-| independent review | exact `4ed274f8...` fresh two-pass | PENDING |
-| exact implementation candidate | `4ed274f8...` / `77bf4aa1...` | PASS |
+| independent review | exact `4ed274f8...` fresh two-pass | NO-GO |
+| exact implementation candidate | `4ed274f8...` / `77bf4aa1...` | REJECTED |
 
 ## 声明状态
 
-- `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING / NOT_DEPLOYED`
+- `REVIEWED_NO_GO / REMEDIATION_IN_PROGRESS / NOT_DEPLOYED`

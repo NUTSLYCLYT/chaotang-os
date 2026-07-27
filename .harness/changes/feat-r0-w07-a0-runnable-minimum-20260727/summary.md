@@ -89,6 +89,13 @@ fresh implementation candidate：
 
 本候选未执行 Checkpoint B、push、部署、持久数据库迁移或 listener 3050 操作。
 
+review envelope `5f351283...` 对 `4ed274f8...` 的两路 fresh Codex 审查均为
+`NO-GO`，主控去重为 `HIGH 3 / MEDIUM 8 / LOW 2`。全部 HIGH/MEDIUM 仍落在
+已批准的 tenant ownership、decision authority、Mission/Final lineage、
+generation 幂等、OpenAPI response compatibility 和真实 browser selection
+事实链内，进入下一轮 TDD remediation。两个 LOW 保留 residual。当前状态：
+`REVIEWED_NO_GO / REMEDIATION_IN_PROGRESS / NOT_DEPLOYED`。
+
 ## 允许范围
 
 - `MissionContractV1 -> DecisionTask` 的 R0 唯一兼容绑定。

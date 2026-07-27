@@ -363,3 +363,35 @@ exact implementation candidate：
   NOT_DEPLOYED`
 
 本节仅登记待审候选，不预判两路 Codex 独立只读审查结论。
+
+## Latest Exact-Candidate Review Verdict
+
+Review envelope `5f351283613cc69269d722a4d3385083bad5ba80` 对 implementation
+`4ed274f8e530d4049bc01e807366d1d9ac6ff691` 的两路 fresh Codex 只读审查均为
+`NO-GO`：
+
+- backend/security/concurrency pass
+  `019fa570-56a7-76f3-9601-6f903415df2d`：
+  `HIGH 2 / MEDIUM 5 / LOW 0`；
+- frontend/OpenAPI/product-contract pass
+  `019fa570-8d91-77b3-b71e-d0624d41a07f`：
+  `HIGH 1 / MEDIUM 3 / LOW 2`。
+
+主控去重后为 `HIGH 3 / MEDIUM 8 / LOW 2`：
+
+1. HIGH：swarm-deepen、finance case、edict-return 仍可 same-user cross-tenant；
+2. HIGH：worker 未拒绝 wrong/null-tenant CourtReview；
+3. HIGH：任意 malformed current formal 可降级为 legacy writer；
+4. MEDIUM：generation 未冻结 Mission revision/digest；
+5. MEDIUM：worker 未重验 prior current FinalMemorial hash；
+6. MEDIUM：evidence readiness 可误用旧 generation packet；
+7. MEDIUM：legacy replay 可在无 durable decision 时返回成功；
+8. MEDIUM：legacy classifier 与任务锁之间存在 TOCTOU；
+9. MEDIUM：archived inconsistent facts 可重新开放 DECIDE；
+10. MEDIUM：OpenAPI guard 未比较 `components.responses` 自身；
+11. MEDIUM：Playwright 通过 query taskId 绕过 `/home/v1` classifier 用户路径；
+12. LOW：artifact 客户端 expiry 最多陈旧 10 秒；
+13. LOW：Shiguan exact loading 仍无用户可见状态。
+
+全部 HIGH/MEDIUM 属于已批准的 authority/lineage/closed-world 同一事实链，可按
+scope amendment 继续 TDD。两个 LOW 不扩展本轮范围。`4ed274f8...` 不得整合 EXT。
