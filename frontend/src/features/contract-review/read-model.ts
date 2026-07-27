@@ -41,15 +41,103 @@ export const CONTRACT_BLOCKERS = [
 const ACTION_SET = new Set<string>(CONTRACT_ACTIONS);
 const BLOCKER_SET = new Set<string>(CONTRACT_BLOCKERS);
 const SOURCE_CLASS_SET = new Set(['ADJUDICABLE', 'FALLBACK', 'UNKNOWN']);
+const ADJUDICABLE_RECEIPT_SOURCES = new Set([
+  'LIVE',
+  'MIXED',
+  'LIVE_ENGINE',
+  'LIVE_SWARM',
+]);
 const NON_EMPTY_STRING = z.string().min(1);
 const ISO_TIMESTAMP = z.string().datetime({ offset: true });
+const CONTRACT_JURISDICTION = z.enum(['CN_MAINLAND', 'UNSUPPORTED_OR_UNKNOWN']);
+const CONTRACT_LANGUAGE = z.enum(['zh-CN', 'UNSUPPORTED_OR_UNKNOWN']);
+const CONTRACT_TYPE = z.enum([
+  'procurement',
+  'sales',
+  'service',
+  'UNSUPPORTED_OR_UNKNOWN',
+]);
+const CONTRACT_ROLE = z.enum([
+  'buyer',
+  'seller',
+  'service_provider',
+  'other_party',
+  'UNSUPPORTED_OR_UNKNOWN',
+]);
+const CONTRACT_QUESTION = z.enum([
+  'contract_risk_screening',
+  'UNSUPPORTED_OR_UNKNOWN',
+]);
+const ENGINE_TIER = z.enum([
+  'deterministic',
+  'validated_model',
+  'fallback',
+]);
+const MISSION_SCHEMA = z.object({
+  schema_version: z.literal('MissionContractV1').optional(),
+  mission_contract_id: NON_EMPTY_STRING,
+  task_id: NON_EMPTY_STRING,
+  revision: z.number().int().min(1),
+  jurisdiction: CONTRACT_JURISDICTION,
+  language: CONTRACT_LANGUAGE,
+  contract_type: CONTRACT_TYPE,
+  our_role: CONTRACT_ROLE,
+  legal_question: CONTRACT_QUESTION,
+  goal: z.object({
+    user_intent: NON_EMPTY_STRING,
+    biggest_concern: NON_EMPTY_STRING,
+    risk_tolerance: z.string().optional(),
+  }).strict(),
+  constraints: z.array(z.string()),
+  prohibited_actions: z.array(z.string()),
+  desired_outcome: z.object({
+    required_artifacts: z.array(z.enum(['PDF', 'DOCX', 'JSON'])).min(1),
+  }).strict(),
+  assumptions: z.array(z.string()),
+  budget_limit_minor: z.number().int().min(0),
+  deadline_at: ISO_TIMESTAMP,
+  read_scope: z.array(z.string()).min(1),
+  plan_digest: z.string().regex(/^[0-9a-f]{64}$/),
+  content_digest: z.string().length(64),
+  created_at: NON_EMPTY_STRING,
+}).strict();
 const MISSION_VIEW_SCHEMA = z.object({
   state: z.enum(['DRAFT', 'CONFIRMED']),
-  mission: z.object({
-    task_id: NON_EMPTY_STRING,
-    mission_contract_id: NON_EMPTY_STRING,
-  }).passthrough(),
+  mission: MISSION_SCHEMA,
 }).strict();
+const RISK_ITEM_SCHEMA = z.object({
+  schema_version: z.literal('ContractRiskItemV1').optional(),
+  risk_item_id: NON_EMPTY_STRING,
+  evidence_packet_id: NON_EMPTY_STRING,
+  file_version_id: NON_EMPTY_STRING.nullable().optional(),
+  page_number: z.number().int().min(1).nullable().optional(),
+  clause_ref: NON_EMPTY_STRING.nullable().optional(),
+  raw_excerpt: z.string().min(1).max(2000).nullable().optional(),
+  risk_level: z.enum(['critical', 'high', 'medium', 'low']),
+  explanation: z.string().min(1).max(2000),
+  missing_evidence: z.array(z.string()).optional(),
+  recommended_revision: z.string().min(1).max(4000),
+  source_label: NON_EMPTY_STRING,
+  engine_tier: ENGINE_TIER,
+}).strict().superRefine((item, context) => {
+  const hasAnchor = Boolean(item.file_version_id)
+    && (item.page_number !== null && item.page_number !== undefined
+      || Boolean(item.clause_ref))
+    && Boolean(item.raw_excerpt);
+  if (item.risk_level === 'critical' || item.risk_level === 'high') {
+    if (!hasAnchor) {
+      context.addIssue({
+        code: 'custom',
+        message: 'critical/high risk requires an original anchor',
+      });
+    }
+  } else if (!hasAnchor && !(item.missing_evidence?.length)) {
+    context.addIssue({
+      code: 'custom',
+      message: 'missing original anchor requires missing_evidence',
+    });
+  }
+});
 const REVIEW_PACK_SCHEMA = z.object({
   schema_version: z.literal('ContractReviewPackV1').optional(),
   review_pack_id: NON_EMPTY_STRING,
@@ -58,26 +146,12 @@ const REVIEW_PACK_SCHEMA = z.object({
   mission_contract_id: NON_EMPTY_STRING,
   court_review_id: NON_EMPTY_STRING,
   evidence_packet_ids: z.array(NON_EMPTY_STRING).min(1),
-  jurisdiction: z.enum(['CN_MAINLAND', 'UNSUPPORTED_OR_UNKNOWN']),
-  language: z.enum(['zh-CN', 'UNSUPPORTED_OR_UNKNOWN']),
-  contract_type: z.enum([
-    'procurement',
-    'sales',
-    'service',
-    'UNSUPPORTED_OR_UNKNOWN',
-  ]),
-  our_role: z.enum([
-    'buyer',
-    'seller',
-    'service_provider',
-    'other_party',
-    'UNSUPPORTED_OR_UNKNOWN',
-  ]),
-  legal_question: z.enum([
-    'contract_risk_screening',
-    'UNSUPPORTED_OR_UNKNOWN',
-  ]),
-  risk_items: z.array(z.unknown()),
+  jurisdiction: CONTRACT_JURISDICTION,
+  language: CONTRACT_LANGUAGE,
+  contract_type: CONTRACT_TYPE,
+  our_role: CONTRACT_ROLE,
+  legal_question: CONTRACT_QUESTION,
+  risk_items: z.array(RISK_ITEM_SCHEMA),
   verdict: z.enum([
     'NEED_INFO',
     'REVISE_BEFORE_PROCEED',
@@ -88,14 +162,44 @@ const REVIEW_PACK_SCHEMA = z.object({
   decision_summary: NON_EMPTY_STRING,
   affected_sections: z.array(NON_EMPTY_STRING).min(1),
   source_labels: z.array(NON_EMPTY_STRING).min(1),
-  engine_tiers: z.array(z.enum([
-    'deterministic',
-    'validated_model',
-    'fallback',
-  ])).min(1),
+  engine_tiers: z.array(ENGINE_TIER).min(1),
   quality_gate_status: z.enum(['PENDING', 'PASSED', 'FAILED']),
   candidate_status: z.literal('CANDIDATE').optional(),
-}).strict();
+}).strict().superRefine((pack, context) => {
+  if (
+    pack.verdict === 'PROCEED_TO_HUMAN_APPROVAL'
+    && pack.risk_items.some((item) => item.risk_level === 'critical')
+  ) {
+    context.addIssue({
+      code: 'custom',
+      message: 'critical risk cannot proceed to approval',
+    });
+  }
+  if (
+    [
+      pack.jurisdiction,
+      pack.language,
+      pack.contract_type,
+      pack.our_role,
+      pack.legal_question,
+    ].includes('UNSUPPORTED_OR_UNKNOWN')
+    && pack.verdict !== 'NEED_LEGAL_REVIEW'
+  ) {
+    context.addIssue({
+      code: 'custom',
+      message: 'unsupported scope requires legal review',
+    });
+  }
+  const evidencePacketIds = new Set(pack.evidence_packet_ids);
+  if (pack.risk_items.some(
+    (item) => !evidencePacketIds.has(item.evidence_packet_id),
+  )) {
+    context.addIssue({
+      code: 'custom',
+      message: 'risk item evidence is outside the review pack',
+    });
+  }
+});
 const PUBLIC_DELIVERY_KEYS = new Set([
   'manifest_id',
   'task_id',
@@ -125,6 +229,16 @@ function sha256(value: unknown): value is string {
 
 function isoTimestamp(value: unknown): value is string {
   return ISO_TIMESTAMP.safeParse(value).success;
+}
+
+export function isCanonicalArtifactDownloadUrl(
+  value: unknown,
+  artifactId: unknown,
+): value is string {
+  return nonEmptyString(value)
+    && nonEmptyString(artifactId)
+    && /^[A-Za-z0-9_-]+$/.test(artifactId)
+    && value === `/api/artifacts/${artifactId}/download`;
 }
 
 function validMission(value: unknown): boolean {
@@ -195,7 +309,10 @@ function validDelivery(value: unknown): boolean {
         || item.download_url === null
         || (
           item.status === 'STORED'
-          && nonEmptyString(item.download_url)
+          && isCanonicalArtifactDownloadUrl(
+            item.download_url,
+            item.artifact_id,
+          )
         ))
       && (
         item.status !== 'UNAVAILABLE'
@@ -215,7 +332,8 @@ function validArchiveReceipt(value: unknown): boolean {
     && Number(receipt.final_memorial_version) >= 1
     && sha256(receipt.final_memorial_content_hash)
     && isoTimestamp(receipt.archived_at)
-    && nonEmptyString(receipt.source_label);
+    && nonEmptyString(receipt.source_label)
+    && ADJUDICABLE_RECEIPT_SOURCES.has(receipt.source_label);
 }
 
 function validFinalMemorial(value: unknown): boolean {
@@ -318,10 +436,31 @@ function hasConsistentDecisionState(model: Record<string, unknown>): boolean {
   const pack = record(model.review_pack);
   const final = record(model.final_memorial);
   const delivery = record(model.delivery);
+  const packSourceLabels = Array.isArray(pack?.source_labels)
+    ? pack.source_labels
+    : [];
+  const packEngineTiers = Array.isArray(pack?.engine_tiers)
+    ? pack.engine_tiers
+    : [];
+  const riskItems = Array.isArray(pack?.risk_items)
+    ? pack.risk_items.map(record)
+    : [];
+  const adjudicablePack = packSourceLabels.length > 0
+    && packSourceLabels.every((label) => label === 'TASK_EVIDENCE')
+    && packEngineTiers.length > 0
+    && packEngineTiers.every((tier) => tier !== 'fallback')
+    && riskItems.every((item) => (
+      item !== null
+      && item.source_label === 'TASK_EVIDENCE'
+      && packSourceLabels.includes(item.source_label)
+      && item.engine_tier !== 'fallback'
+      && packEngineTiers.includes(item.engine_tier)
+    ));
   const commonFactsValid = model.source_class === 'ADJUDICABLE'
     && missionView?.state === 'CONFIRMED'
     && pack?.verdict === 'PROCEED_TO_HUMAN_APPROVAL'
     && pack.quality_gate_status === 'PASSED'
+    && adjudicablePack
     && hasCompleteReadyArtifactPacket(delivery)
     && (model.blockers as unknown[]).length === 0;
   if (!commonFactsValid || (canDecide && canReopen)) return false;

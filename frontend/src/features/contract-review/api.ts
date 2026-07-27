@@ -8,7 +8,10 @@ import type {
   TaskDecisionResponse,
 } from '@/lib/contracts/backend-openapi-2026-07-21';
 
-import { parseContractTaskReadModel } from './read-model';
+import {
+  isCanonicalArtifactDownloadUrl,
+  parseContractTaskReadModel,
+} from './read-model';
 
 export function contractTaskReadModelPath(taskId: string): string {
   return `/api/contracts/tasks/${encodeURIComponent(taskId)}/read-model`;
@@ -63,6 +66,13 @@ export async function downloadContractArtifact(
   downloadUrl: string,
   filename: string,
 ): Promise<void> {
+  const match = /^\/api\/artifacts\/([A-Za-z0-9_-]+)\/download$/.exec(downloadUrl);
+  if (
+    !match
+    || !isCanonicalArtifactDownloadUrl(downloadUrl, match[1])
+  ) {
+    throw new Error('invalid artifact download URL');
+  }
   const response = await backendFetch(downloadUrl);
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const objectUrl = URL.createObjectURL(await response.blob());

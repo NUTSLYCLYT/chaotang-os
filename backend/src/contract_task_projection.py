@@ -41,6 +41,7 @@ from src.contracts.contract_task_read_model import (
 )
 from src.db.models import (
     ArtifactManifest,
+    CourtReview,
     DecisionTask,
     FinalMemorial,
     SecureIngestArtifact,
@@ -189,6 +190,21 @@ def _verified_pack(
     if pack.court_review_id != final.review_id:
         raise ValueError("review pack court review identity mismatch")
     return memorial_payload, pack
+
+
+def _has_authoritative_review(
+    db,
+    *,
+    task: DecisionTask,
+    final: FinalMemorial,
+) -> bool:
+    review = db.get(CourtReview, final.review_id)
+    return (
+        review is not None
+        and task.tenant_id is not None
+        and review.tenant_id == task.tenant_id
+        and review.task_id == task.id
+    )
 
 
 def _delivery_projection(
@@ -388,6 +404,8 @@ def project_contract_task(
         except (TypeError, ValueError, json.JSONDecodeError):
             projection_blockers.append("LINEAGE_CONFLICT")
         else:
+            if not _has_authoritative_review(db, task=task, final=final):
+                projection_blockers.append("LINEAGE_CONFLICT")
             final_view = FinalMemorialIdentityV1(
                 final_memorial_id=final.id,
                 final_memorial_version=final.version,

@@ -15,7 +15,7 @@ from src.contracts.mission_contract import (
     MissionOutcome,
     compute_mission_content_digest,
 )
-from src.db.models import DecisionTask, FinalMemorial, ShiguanArchive
+from src.db.models import CourtReview, DecisionTask, FinalMemorial, ShiguanArchive
 
 
 def contract_mission(task_id: str) -> MissionContractV1:
@@ -114,6 +114,28 @@ def seed_contract_task(
     return task
 
 
+def seed_exact_review(
+    db,
+    *,
+    task_id: str,
+    tenant_id: int = 7,
+    review_id: str | None = None,
+) -> CourtReview:
+    exact_review_id = review_id or f"review-{task_id}"
+    existing = db.get(CourtReview, exact_review_id)
+    if existing is not None:
+        return existing
+    review = CourtReview(
+        id=exact_review_id,
+        tenant_id=tenant_id,
+        task_id=task_id,
+        review_status="awaiting_decision",
+    )
+    db.add(review)
+    db.flush()
+    return review
+
+
 def seed_final_memorial(
     db,
     *,
@@ -121,8 +143,17 @@ def seed_final_memorial(
     tenant_id: int = 7,
     pack: dict[str, Any] | None = None,
     source_label: str = "LIVE",
+    seed_review: bool = True,
 ) -> tuple[FinalMemorial, dict[str, Any]]:
     pack = pack or contract_review_pack(task_id)
+    review_id = str(pack["court_review_id"])
+    if seed_review:
+        seed_exact_review(
+            db,
+            task_id=task_id,
+            tenant_id=tenant_id,
+            review_id=review_id,
+        )
     memorial = {"contract_review": pack}
     memorial_json = json.dumps(
         memorial,
@@ -134,7 +165,7 @@ def seed_final_memorial(
         id=f"final-{task_id}",
         tenant_id=tenant_id,
         task_id=task_id,
-        review_id=f"review-{task_id}",
+        review_id=review_id,
         swarm_run_id=f"swarm-{task_id}",
         quality_result_id=f"quality-{task_id}",
         status="ready_for_decision",

@@ -76,6 +76,13 @@ test('preserves LIVE_ENGINE as truthful live provenance in Shiguan', () => {
   assert.equal(detail?.sourceLabel, 'LIVE');
 });
 
+test('rejects a fallback receipt even when typed input claims adjudicable state', () => {
+  const value = model(true);
+  value.archive_receipt!.source_label = 'FALLBACK';
+
+  assert.equal(buildContractArchiveDetail(value, 'archive-1'), null);
+});
+
 test('rejects a contradictory exact receipt even for typed input', () => {
   const value = model(true);
   value.archive_receipt = {

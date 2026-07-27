@@ -51,6 +51,32 @@ def test_exact_ready_lineage_projects_verified_downloads(
     assert "storage_path" not in str(serialized)
 
 
+def test_missing_persisted_review_blocks_decide_projection(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-missing-persisted-review")
+        final, pack = seed_final_memorial(
+            db,
+            task_id=task.id,
+            seed_review=False,
+        )
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.allowed_actions == []
+    assert "LINEAGE_CONFLICT" in {item.code for item in model.blockers}
+
+
 def test_revise_verdict_cannot_be_promoted_to_decide(
     isolated_session_local,
     tmp_path,

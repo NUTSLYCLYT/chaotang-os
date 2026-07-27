@@ -875,23 +875,42 @@ def _execute_final_memorial_decision(
         )
     )
     if is_contract_task:
-        review_mismatch = review is not None and (
-            task.tenant_id is None
-            or review.tenant_id is None
-            or review.tenant_id != task.tenant_id
-            or review.task_id != task.id
+        authoritative_review_id = (
+            current_formal.review_id
+            if current_formal is not None
+            else review.id if review is not None else None
+        )
+        authoritative_review = (
+            db.get(CourtReview, authoritative_review_id)
+            if authoritative_review_id is not None
+            else None
+        )
+        review_mismatch = (
+            review is None
+            or authoritative_review is None
+            or task.tenant_id is None
+            or str(task.user_id) != str(actor_user_id)
+            or authoritative_review.tenant_id is None
+            or authoritative_review.tenant_id != task.tenant_id
+            or authoritative_review.task_id != task.id
+            or review.id != authoritative_review.id
+            or review.tenant_id != authoritative_review.tenant_id
+            or review.task_id != authoritative_review.task_id
         )
         final_review_missing_or_mismatched = (
             current_formal is not None
             and (
-                review is None
-                or current_formal.review_id != review.id
+                current_formal.tenant_id is None
+                or current_formal.tenant_id != task.tenant_id
+                or authoritative_review is None
+                or current_formal.review_id != authoritative_review.id
             )
         )
         if review_mismatch or final_review_missing_or_mismatched:
             raise ValueError(
                 "contract review ownership or final lineage conflict"
             )
+        review = authoritative_review
 
     evidence_actions = {"request_evidence", "followup"}
     if action in evidence_actions:

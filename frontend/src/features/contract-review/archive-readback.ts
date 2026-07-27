@@ -2,6 +2,13 @@ import type { ContractTaskReadModelV1 } from '@/lib/contracts/backend-openapi-20
 import type { ShiguanArchiveDetail } from '@/features/shiguan-ui/lib/shiguan-view-model';
 import { normalizeSourceLabel } from '@/features/shiguan-ui/lib/shiguan-source';
 
+const ADJUDICABLE_RECEIPT_SOURCES = new Set([
+  'LIVE',
+  'MIXED',
+  'LIVE_ENGINE',
+  'LIVE_SWARM',
+]);
+
 export function buildContractArchiveDetail(
   model: ContractTaskReadModelV1,
   requestedArchiveId?: string | null,
@@ -14,6 +21,7 @@ export function buildContractArchiveDetail(
     || model.delivery?.overall_status !== 'READY'
     || !model.allowed_actions.includes('REOPEN_ARCHIVE')
     || model.blockers.length > 0
+    || !ADJUDICABLE_RECEIPT_SOURCES.has(receipt.source_label)
     || (requestedArchiveId != null && receipt.archive_id !== requestedArchiveId)
     || receipt.task_id !== model.task.task_id
     || receipt.final_memorial_id !== final.final_memorial_id

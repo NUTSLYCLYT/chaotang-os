@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from tests.contract_task_support import (
     seed_contract_task,
     seed_delivery,
+    seed_exact_review,
     seed_final_memorial,
 )
 
@@ -44,17 +45,11 @@ def _client(
 
 
 def _seed_exact_review(db, task):
-    from src.db.models import CourtReview
-
-    review = CourtReview(
-        id=f"review-{task.id}",
-        tenant_id=task.tenant_id,
+    return seed_exact_review(
+        db,
         task_id=task.id,
-        review_status="awaiting_decision",
+        tenant_id=task.tenant_id,
     )
-    db.add(review)
-    db.flush()
-    return review
 
 
 def _decision_state(db, task_id: str) -> dict[str, object]:
@@ -62,8 +57,10 @@ def _decision_state(db, task_id: str) -> dict[str, object]:
         CourtLoopRun,
         CourtReview,
         DecisionTask,
+        DecreeExecutionEvent,
         EmperorDecision,
         FinalMemorial,
+        OutboxEvent,
         ShiguanArchive,
     )
 
@@ -90,6 +87,8 @@ def _decision_state(db, task_id: str) -> dict[str, object]:
         "archives": rows(ShiguanArchive),
         "reviews": rows(CourtReview),
         "loops": rows(CourtLoopRun),
+        "outbox": rows(OutboxEvent),
+        "decree_events": rows(DecreeExecutionEvent),
     }
 
 
@@ -162,7 +161,11 @@ def test_contract_final_decision_requires_server_decide_action_before_any_write(
     task_id = f"task-api-gate-{action}"
     with isolated_session_local() as db:
         task = seed_contract_task(db, task_id=task_id)
-        final, _ = seed_final_memorial(db, task_id=task.id)
+        final, _ = seed_final_memorial(
+            db,
+            task_id=task.id,
+            seed_review=False,
+        )
         _seed_exact_review(db, task)
         content_hash = final.content_hash
         db.commit()
@@ -199,7 +202,11 @@ def test_contract_brief_decision_requires_server_decide_before_any_write(
     review_id = f"review-{task_id}"
     with isolated_session_local() as db:
         task = seed_contract_task(db, task_id=task_id)
-        final, _ = seed_final_memorial(db, task_id=task.id)
+        final, _ = seed_final_memorial(
+            db,
+            task_id=task.id,
+            seed_review=False,
+        )
         db.add(
             CourtReview(
                 id=review_id,
@@ -283,6 +290,62 @@ def test_contract_brief_decision_requires_tenant_and_user_ownership(
         assert _decision_state(db, task_id) == before
 
 
+@pytest.mark.parametrize(
+    ("task_user_id", "task_tenant_id"),
+    [
+        ("another-user", 7),
+        ("7", 8),
+    ],
+)
+def test_contract_task_decision_requires_user_and_tenant_ownership(
+    task_user_id,
+    task_tenant_id,
+    monkeypatch,
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    task_id = f"task-api-owner-{task_user_id}-{task_tenant_id}"
+    with isolated_session_local() as db:
+        task = seed_contract_task(
+            db,
+            task_id=task_id,
+            user_id=task_user_id,
+            tenant_id=task_tenant_id,
+        )
+        final, _ = seed_final_memorial(
+            db,
+            task_id=task.id,
+            tenant_id=task_tenant_id,
+        )
+        content_hash = final.content_hash
+        db.commit()
+        before = _decision_state(db, task_id)
+
+    client, app = _client(
+        monkeypatch,
+        isolated_session_local,
+        tmp_path,
+        user_id=7,
+        tenant_id=7,
+    )
+    try:
+        response = client.post(
+            f"/api/shangshufang/tasks/{task_id}/decision",
+            json={
+                "action": "approve",
+                "reason": "任务必须同时匹配 user 与 tenant",
+                "human_confirmed": True,
+                "expected_final_memorial_content_hash": content_hash,
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    with isolated_session_local() as db:
+        assert _decision_state(db, task_id) == before
+
+
 def test_contract_brief_decision_rejects_cross_tenant_review_before_write(
     monkeypatch,
     isolated_session_local,
@@ -295,7 +358,11 @@ def test_contract_brief_decision_rejects_cross_tenant_review_before_write(
     review_id = f"review-{task_id}"
     with isolated_session_local() as db:
         task = seed_contract_task(db, task_id=task_id)
-        final, pack = seed_final_memorial(db, task_id=task.id)
+        final, pack = seed_final_memorial(
+            db,
+            task_id=task.id,
+            seed_review=False,
+        )
         seed_delivery(
             db,
             storage_root=tmp_path / "artifacts",
@@ -330,6 +397,74 @@ def test_contract_brief_decision_rejects_cross_tenant_review_before_write(
         app.dependency_overrides.clear()
 
     assert response.status_code == 404
+    with isolated_session_local() as db:
+        assert _decision_state(db, task_id) == before
+
+
+def test_legacy_memorial_caller_rejects_missing_exact_persisted_review(
+    monkeypatch,
+    isolated_session_local,
+) -> None:
+    import importlib
+    from types import SimpleNamespace
+
+    from src.db.models import DecisionTask
+    from web.routers import chaotang as chaotang_router
+    from web.schemas.auth import CurrentUser
+    from web.schemas.chaotang import ReviewRequest
+
+    task_id = "task-api-legacy-review-required"
+    run_id = f"swarm-{task_id}"
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id=task_id)
+        seed_final_memorial(
+            db,
+            task_id=task.id,
+            seed_review=False,
+        )
+        db.commit()
+        before = _decision_state(db, task_id)
+
+    monkeypatch.setattr(
+        chaotang_router,
+        "_observe_legacy_endpoint",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        chaotang_router,
+        "load_run",
+        lambda _run_id: SimpleNamespace(
+            final_output={},
+            task_input="审查采购合同",
+        ),
+    )
+    monkeypatch.setattr(
+        chaotang_router,
+        "resolve_memorial_task_id",
+        lambda _db, *, memorial_id: (task_id, None),
+    )
+    monkeypatch.setattr(
+        chaotang_router,
+        "get_owned_decision_task",
+        lambda db, *, task_id, requester_id: (db.get(DecisionTask, task_id), None),
+    )
+    db_engine_module = importlib.import_module("src.db.engine")
+    monkeypatch.setattr(db_engine_module, "SessionLocal", isolated_session_local)
+
+    response = chaotang_router.memorial_review(
+        run_id,
+        ReviewRequest(action="approve", comment="缺 review 不得裁决"),
+        CurrentUser(
+            user_id=7,
+            username="user-7",
+            role="user",
+            tenant_slug="tenant-7",
+            tenant_id=7,
+        ),
+    )
+
+    assert response.status_code == 409
+    assert "lineage" in response.body.decode("utf-8")
     with isolated_session_local() as db:
         assert _decision_state(db, task_id) == before
 
@@ -393,7 +528,11 @@ def test_shared_writer_requires_exact_review_to_exist(
     task_id = "task-api-review-required"
     with isolated_session_local() as db:
         task = seed_contract_task(db, task_id=task_id)
-        final, pack = seed_final_memorial(db, task_id=task.id)
+        final, pack = seed_final_memorial(
+            db,
+            task_id=task.id,
+            seed_review=False,
+        )
         seed_delivery(
             db,
             storage_root=tmp_path / "artifacts",
@@ -422,10 +561,117 @@ def test_shared_writer_requires_exact_review_to_exist(
         assert _decision_state(db, task_id) == before
 
 
-def test_decision_state_snapshot_captures_review_and_loop_mutations(
+def test_shared_writer_rejects_transient_exact_review_before_any_write(
+    monkeypatch,
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    from src.db.models import CourtReview
+    from web.routers.shangshufang import _execute_final_memorial_decision
+
+    monkeypatch.setenv("FENGQUN_RUNTIME_ROOT", str(tmp_path))
+    task_id = "task-api-transient-review"
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id=task_id)
+        final, pack = seed_final_memorial(
+            db,
+            task_id=task.id,
+            seed_review=False,
+        )
+        seed_delivery(
+            db,
+            storage_root=tmp_path / "artifacts",
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        content_hash = final.content_hash
+        db.commit()
+        before = _decision_state(db, task_id)
+        transient_review = CourtReview(
+            id=final.review_id,
+            tenant_id=task.tenant_id,
+            task_id=task.id,
+            review_status="awaiting_decision",
+        )
+
+        with pytest.raises(ValueError, match="persisted|lineage"):
+            _execute_final_memorial_decision(
+                db,
+                task=task,
+                review=transient_review,
+                action="approve",
+                reason="调用方对象不能替代持久化 CourtReview",
+                human_confirmed=True,
+                expected_content_hash=content_hash,
+                actor_user_id="7",
+            )
+        db.rollback()
+
+    with isolated_session_local() as db:
+        assert _decision_state(db, task_id) == before
+
+
+def test_cross_tenant_final_fails_before_evidence_lock_or_write(
+    monkeypatch,
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    from web.routers.shangshufang import _execute_final_memorial_decision
+
+    monkeypatch.setenv("FENGQUN_RUNTIME_ROOT", str(tmp_path))
+    task_id = "task-api-cross-tenant-final"
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id=task_id)
+        final, _ = seed_final_memorial(
+            db,
+            task_id=task.id,
+            tenant_id=8,
+            seed_review=False,
+        )
+        review = seed_exact_review(
+            db,
+            task_id=task.id,
+            tenant_id=task.tenant_id,
+            review_id=final.review_id,
+        )
+        content_hash = final.content_hash
+        db.commit()
+        before = _decision_state(db, task_id)
+
+        def unexpected_lock(*_args, **_kwargs):
+            raise AssertionError("evidence lock reached before ownership validation")
+
+        monkeypatch.setattr(
+            "src.execution.decree_dispatcher.lock_evidence_rework_task",
+            unexpected_lock,
+        )
+        with pytest.raises(ValueError, match="ownership|lineage"):
+            _execute_final_memorial_decision(
+                db,
+                task=task,
+                review=review,
+                action="request_evidence",
+                reason="跨租户 final 不得触发补证写链",
+                human_confirmed=True,
+                expected_content_hash=content_hash,
+                actor_user_id="7",
+            )
+        db.rollback()
+
+    with isolated_session_local() as db:
+        assert _decision_state(db, task_id) == before
+
+
+def test_decision_state_snapshot_captures_all_decision_ledgers(
     isolated_session_local,
 ) -> None:
-    from src.db.models import CourtLoopRun, CourtReview
+    from src.db.models import (
+        CourtLoopRun,
+        CourtReview,
+        DecreeExecutionEvent,
+        OutboxEvent,
+    )
 
     task_id = "task-api-zero-write-snapshot"
     with isolated_session_local() as db:
@@ -444,7 +690,24 @@ def test_decision_state_snapshot_captures_review_and_loop_mutations(
             input_json="{}",
             output_json=None,
         )
-        db.add_all([review, loop])
+        outbox = OutboxEvent(
+            id=f"outbox-{task_id}",
+            tenant_id=task.tenant_id,
+            task_id=task.id,
+            decision_id=f"decision-{task_id}",
+            event_type="decision.test",
+            status="pending",
+        )
+        decree_event = DecreeExecutionEvent(
+            id=f"event-{task_id}",
+            tenant_id=task.tenant_id,
+            task_id=task.id,
+            stage="decision",
+            actor="test",
+            message="before",
+            source_label="LIVE",
+        )
+        db.add_all([review, loop, outbox, decree_event])
         db.commit()
         before = _decision_state(db, task_id)
 
@@ -453,6 +716,9 @@ def test_decision_state_snapshot_captures_review_and_loop_mutations(
         loop.status = "completed"
         loop.output_json = '{"mutated":true}'
         loop.updated_at = "2026-07-27T01:00:00Z"
+        outbox.status = "completed"
+        outbox.updated_at = "2026-07-27T01:00:00Z"
+        decree_event.message = "after"
         db.flush()
 
         assert _decision_state(db, task_id) != before
