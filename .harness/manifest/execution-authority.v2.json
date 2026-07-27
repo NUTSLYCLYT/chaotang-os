@@ -7,21 +7,21 @@
     "approvedSourceDigest": "2ba59cbe4d4032d8f372d1dd757e03edb78038b38de6d657380f357100a83e38"
   },
   "effectiveBase": {
-    "ref": "origin/feature-chaotang-ext",
-    "sha": "8feae838f09ad5202b21332d4280b989ab776bd7"
+    "ref": "refs/heads/feature-chaotang-ext",
+    "sha": "eb6e86e586ab5401780e5b49cdcf32af5ee27f86"
   },
   "approvalEvidence": {
-    "ownerApprovalPath": ".harness/changes/fix-ext-g0-authority-recovery-20260725/owner_approval/exact-h-approval.md",
-    "ownerApprovalSha256": "4598a0fa9c12a19e9cc5e9bc34f075af552d5d93765a969f6f9d764772c1b7c2",
-    "reviewPath": ".harness/changes/fix-ext-g0-authority-recovery-20260725/claude_code_review/exact-h-final.md",
-    "reviewSha256": "7453e1642d2150d13ee69eb38f49450d1fc69b0b2dbb8dce65b557230941dd62",
+    "ownerApprovalPath": ".harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/owner_approval/exact-h-approval.md",
+    "ownerApprovalSha256": "ba25ca77dda32694eb7a5c5df8e1a6888f194cb993d8c48c67776a4dfdee61b5",
+    "reviewPath": ".harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/codex_review/exact-h-final.md",
+    "reviewSha256": "adac246d4c9bc6ff5439afc3e191ac325b16f71cc56d9b73414c798f3a62cedf",
     "reviewVerdict": "GO",
     "approver": "lyt",
-    "candidateH": "8feae838f09ad5202b21332d4280b989ab776bd7",
-    "tree": "9d63f98041e5e13174dbba4c0b9d27eef1471bf9",
-    "approvedScope": ["R0-W06"]
+    "candidateH": "eb6e86e586ab5401780e5b49cdcf32af5ee27f86",
+    "tree": "d08538039ad907c54bf1df41feaa3046097c91d9",
+    "approvedScope": ["R0-W07"]
   },
-  "activeWorkPackage": null,
+  "activeWorkPackage": "R0-W07",
   "workPackageLedger": [
     { "id": "R0-W00", "status": "MERGED_AND_VERIFIED" },
     { "id": "R0-W01", "status": "MERGED_AND_VERIFIED" },
@@ -29,7 +29,8 @@
     { "id": "R0-W03", "status": "MERGED_AND_VERIFIED" },
     { "id": "R0-W04", "status": "MERGED_AND_VERIFIED" },
     { "id": "R0-W05", "status": "MERGED_AND_VERIFIED" },
-    { "id": "R0-W06", "status": "MERGED_AND_VERIFIED" }
+    { "id": "R0-W06", "status": "MERGED_AND_VERIFIED" },
+    { "id": "R0-W07", "status": "ACTIVE" }
   ],
   "professionalReassignment": {
     "requiredBefore": ["REAL_CUSTOMER_DATA", "R0-W08", "R0-W09"],
