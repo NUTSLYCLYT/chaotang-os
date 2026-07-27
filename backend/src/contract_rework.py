@@ -11,6 +11,10 @@ from typing import TYPE_CHECKING, Any
 import docx
 from sqlalchemy import func, text
 
+from src.contracts.contract_lineage_identity import (
+    ContractLineageIdentityV1,
+    require_r0_review_pack_binding,
+)
 from src.contracts.contract_review_pack import ContractReviewPackV1
 from src.contracts.contract_risk_item import ContractRiskItemV1
 from src.contracts.contract_support import evaluate_support
@@ -245,6 +249,13 @@ def recompute_contract_review(
         source_labels=["TASK_EVIDENCE"],
         engine_tiers=["deterministic"],
         quality_gate_status="PENDING",
+    )
+    require_r0_review_pack_binding(
+        ContractLineageIdentityV1.for_task(
+            tenant_id=event.tenant_id,
+            task_id=event.task_id,
+        ),
+        pack,
     )
     # Parsing evidence is intentionally outside the task lock. Publication is
     # not: generation allocation and canonical writes share this lock so a

@@ -172,6 +172,10 @@ def derive_attack_surface() -> set[str]:
 # 攻击面 route → 本文件里对应的 probe 函数名。
 # 加一个碰 DecisionTask 查询的新端点 → 推导出的攻击面多一项 → 这里没登记 → 覆盖率门红。
 _PROBES = {
+    "contracts:activate_contract_capabilities": "test_contract_capability_activation",
+    "contracts:confirm_mission_contract": "test_contract_mission_confirm",
+    "contracts:draft_mission_contract": "test_contract_mission_draft",
+    "contracts:read_contract_task_model": "test_contract_task_read_model",
     "jinyiwei:intel_evidence_fill_gap": "test_guarded_exemplar_jinyiwei_fill_gap",
     "shangshufang:shangshufang_task_status": "test_shangshufang_task_status",
     "shangshufang:shangshufang_task_decision": "test_shangshufang_task_decision",
@@ -323,6 +327,57 @@ def test_guarded_exemplar_jinyiwei_fill_gap(isolated_session_local):
     assert "无权" in body["error"]
 
 
+def _assert_contract_not_found(response, what: str) -> None:
+    assert response.status_code == 404, (
+        f"{what}:跨用户合同任务访问必须与不存在的 task 一样返回 404"
+    )
+    assert response.json() == {"detail": "task_id 不存在"}
+
+
+def test_contract_mission_draft(isolated_session_local):
+    from tests.contract_task_support import contract_mission
+
+    task_id = "p0b_contract_draft"
+    _seed_other_users_task(isolated_session_local, task_id)
+    response = client.post(
+        "/api/contracts/mission/draft",
+        json=contract_mission(task_id).model_dump(mode="json"),
+    )
+    _assert_contract_not_found(response, "contract mission draft")
+
+
+def test_contract_mission_confirm(isolated_session_local):
+    task_id = "p0b_contract_confirm"
+    _seed_other_users_task(isolated_session_local, task_id)
+    response = client.post(
+        f"/api/contracts/mission/{task_id}/confirm",
+        json={"revision": 1, "content_digest": "a" * 64},
+    )
+    _assert_contract_not_found(response, "contract mission confirm")
+
+
+def test_contract_capability_activation(isolated_session_local):
+    task_id = "p0b_contract_capability"
+    _seed_other_users_task(isolated_session_local, task_id)
+    response = client.post(
+        "/api/contracts/capability/activate",
+        json={
+            "mission_contract_id": task_id,
+            "candidate_capability_ids": ["contract_review"],
+        },
+    )
+    _assert_contract_not_found(response, "contract capability activation")
+
+
+def test_contract_task_read_model(isolated_session_local):
+    task_id = "p0b_contract_read_model"
+    _seed_other_users_task(isolated_session_local, task_id)
+    response = client.get(
+        f"/api/contracts/tasks/{task_id}/read-model",
+    )
+    _assert_contract_not_found(response, "contract task read model")
+
+
 # ---------------------------------------------------------------------------
 # 已收口端点：曾以 strict xfail 留债，现已全部转为永久回归门
 # ---------------------------------------------------------------------------
@@ -335,6 +390,72 @@ def test_shangshufang_task_decision(isolated_session_local):
         json={"action": "approve"},
     ).json()
     _assert_denied(body, "task decision")
+
+
+def test_shangshufang_task_decision_rejects_same_user_cross_tenant(
+    isolated_session_local,
+):
+    from src.db.models import CourtReview, DecisionTask, ShiguanArchive
+    from src.formal_memorial import formalize_memorial
+
+    task_id = "p0b_decision_cross_tenant"
+    review_id = f"review_{task_id}"
+    db = isolated_session_local()
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=2,
+            user_id="1",
+            raw_question="其他租户的合同裁决",
+            status="awaiting_decision",
+            source_label="LIVE",
+        )
+    )
+    db.add(
+        CourtReview(
+            id=review_id,
+            tenant_id=2,
+            task_id=task_id,
+            review_status="awaiting_decision",
+            memorial_json='{"summary":"tenant secret"}',
+        )
+    )
+    db.commit()
+    formal = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result={
+            "swarm_run": {
+                "id": f"run_{task_id}",
+                "task_id": task_id,
+                "review_id": review_id,
+                "source_label": "LIVE_SWARM",
+            },
+            "quality_result": {
+                "id": f"quality_{task_id}",
+                "passed": True,
+            },
+        },
+    )
+    content_hash = formal.content_hash
+    db.commit()
+    db.close()
+
+    response = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "approve",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": content_hash,
+        },
+    )
+
+    assert response.status_code == 404
+    assert "无权" in response.json()["error"]
+    db = isolated_session_local()
+    assert db.query(ShiguanArchive).filter_by(task_id=task_id).count() == 0
+    db.close()
 
 
 def test_shangshufang_swarm_deepen(isolated_session_local):

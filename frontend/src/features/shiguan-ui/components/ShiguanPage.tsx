@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import useSWR from 'swr';
 import ShiguanDrawer from './ShiguanDrawer';
 import { ShiguanArchiveIndexPanel } from './ShiguanArchiveIndexPanel';
 import { ShiguanReviewRecallPanel } from './ShiguanReviewRecallPanel';
@@ -24,6 +25,14 @@ import {
   type ScribeLessonLike,
   type ShiguanArchiveListItem,
 } from '@/features/shiguan-ui/lib/shiguan-view-model';
+import {
+  contractTaskReadModelPath,
+  getContractTaskReadModel,
+} from '@/features/contract-review/api';
+import {
+  buildContractArchiveDetail,
+  selectArchiveDetail,
+} from '@/features/contract-review/archive-readback';
 
 export default function ShiguanPage() {
   const { data: archiveStats } = useArchiveStats();
@@ -32,6 +41,7 @@ export default function ShiguanPage() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [contractTaskId, setContractTaskId] = useState<string | null>(null);
   const [knowledgeCount, setKnowledgeCount] = useState(0);
   const [imaKnowledgeDocs, setImaKnowledgeDocs] = useState<ImaKnowledgeDocumentLike[]>([]);
   const [promoArchive, setPromoArchive] = useState<PromoArchiveLike | null>(null);
@@ -71,8 +81,17 @@ export default function ShiguanPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const initialId = params.get('archiveId') || params.get('taskId') || params.get('knowledgeId');
+    setContractTaskId(params.get('taskId'));
     if (initialId) setSelectedId(initialId);
   }, []);
+
+  const {
+    data: contractReadModel,
+    error: contractReadModelError,
+  } = useSWR(
+    contractTaskId ? contractTaskReadModelPath(contractTaskId) : null,
+    () => getContractTaskReadModel(contractTaskId!),
+  );
 
   const archiveItems = useMemo<ShiguanArchiveListItem[]>(() => {
     return [
@@ -97,7 +116,19 @@ export default function ShiguanPage() {
 
   const lessons = useMemo(() => lessonsToView(scribeLessons), [scribeLessons]);
   const selectedItem = archiveItems.find((item) => item.id === selectedId) ?? null;
-  const selectedDetail = useMemo(() => buildArchiveDetail(selectedItem, lessons), [lessons, selectedItem]);
+  const indexedDetail = useMemo(() => buildArchiveDetail(selectedItem, lessons), [lessons, selectedItem]);
+  const exactContractDetail = useMemo(
+    () => contractReadModel && !contractReadModelError
+      ? buildContractArchiveDetail(contractReadModel)
+      : null,
+    [contractReadModel, contractReadModelError],
+  );
+  const selectedDetail = selectArchiveDetail(
+    contractTaskId,
+    exactContractDetail,
+    indexedDetail,
+    Boolean(contractReadModelError),
+  );
   const similarCases = useMemo(() => {
     if (!selectedItem) return [];
     return archiveItems
@@ -119,7 +150,18 @@ export default function ShiguanPage() {
   );
 
   return (
-    <div className="relative h-full min-h-0">
+    <div
+      className="relative h-full min-h-0"
+      data-contract-read-model-status={
+        contractReadModelError
+            ? 'error'
+            : contractReadModel
+              ? 'ready'
+            : contractTaskId
+              ? 'loading'
+              : 'inactive'
+      }
+    >
       <main className="relative h-full min-h-0 overflow-hidden text-[#EAEEFB]">
         <div className="relative z-10 mx-auto flex h-full max-w-[1680px] flex-col px-4 pb-3 pt-3">
           <div className="mb-3 flex items-center justify-between gap-4">
@@ -129,6 +171,32 @@ export default function ShiguanPage() {
               <p className="mt-0.5 max-w-[760px] text-[11px] leading-4 text-slatey-300">
                 归档、复盘、旧案召回与可信留痕。中间卷轴展示当前案卷，左右面板负责索引和反哺。
               </p>
+              {contractTaskId && contractReadModelError ? (
+                <div
+                  className="mt-1.5 text-[10px] text-red-300"
+                  data-testid="contract-archive-readback-error"
+                >
+                  精确归档回读失败；当前普通索引不代表该合同案卷已验证。
+                </div>
+              ) : contractReadModel?.archive_receipt ? (
+                <div
+                  className="mt-1.5 flex max-w-[900px] flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-emerald-200"
+                  data-testid="contract-archive-identity"
+                >
+                  <span className="font-semibold">精确归档</span>
+                  <span>{contractReadModel.archive_receipt.final_memorial_id}</span>
+                  <span className="font-mono text-emerald-100/75">
+                    {contractReadModel.archive_receipt.final_memorial_content_hash.slice(0, 12)}
+                  </span>
+                </div>
+              ) : contractTaskId && contractReadModel ? (
+                <div
+                  className="mt-1.5 text-[10px] text-amber-200"
+                  data-testid="contract-archive-receipt-missing"
+                >
+                  当前合同任务没有可验证的精确归档回执。
+                </div>
+              ) : null}
             </div>
             <button
               type="button"

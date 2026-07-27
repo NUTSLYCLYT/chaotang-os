@@ -110,6 +110,8 @@ import {
 } from '@/components/CapabilityEvidenceMatrix';
 import { saveLocalReport } from '@/features/reports/lib/local-report-cache';
 import { recallBadgeLabel } from './lib/recall-badge';
+import { ContractReviewPanel } from '@/features/contract-review/ContractReviewPanel';
+import { selectContractTaskCandidate } from '@/features/contract-review/task-selection';
 
 type VerdictTaskAction = 'adopt' | 'request_evidence' | 'recheck' | 'reject' | 'followup';
 type VerdictLegacyAction = 'approve' | 'reject' | 'inquire';
@@ -2339,6 +2341,8 @@ export function ShangshufangPage() {
   const [edictCollapsed, setEdictCollapsed] = useState(true);
 
   const [activeMemorialId, setActiveMemorialId] = useState<string | null>(null);
+  const [requestedContractTaskId, setRequestedContractTaskId] = useState<string | null>(null);
+  const [verifiedContractTaskId, setVerifiedContractTaskId] = useState<string | null>(null);
   const [rejectedMemorialIds, setRejectedMemorialIds] = useState<Set<string>>(() => new Set());
   const [selectedMemorialOverride, setSelectedMemorialOverride] = useState<Memorial | null>(null);
   const [secondarySeal, setSecondarySeal] = useState<ActiveEdictSeal | null>(null);
@@ -2352,6 +2356,11 @@ export function ShangshufangPage() {
   useEffect(() => {
     edictOverrideRef.current = edictOverride;
   }, [edictOverride]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setRequestedContractTaskId(params.get('taskId'));
+  }, []);
 
   // 2026-07-14: fetchBuildLedger 失败会 throw(不再悄悄返回空数组),但如果这里
   // 还是只 console.warn,对真实用户来说"同步失败"和"本来就没有台账"看起来
@@ -4243,6 +4252,11 @@ export function ShangshufangPage() {
     setVerdictResult(null);
     setVerdictReceipt(null);
   }, []);
+  const contractTaskId = selectContractTaskCandidate({
+    requestedTaskId: requestedContractTaskId,
+    edictPrimaryTaskId: edictOverride?.primaryTaskId ?? null,
+    activeMemorialId: activeMemorial?.id ?? null,
+  });
   const isAutoRestoredJiqunReturn = edictOverride?.srcId.startsWith('jiqun-return-') ?? false;
   const defaultTopSuggestionReport =
     topSuggestion &&
@@ -4718,7 +4732,10 @@ export function ShangshufangPage() {
                       setVerdictReceipt(null);
                       setVerdictOpen(true);
                     }}
-                    actionsDisabled={rejectedMemorialIds.has(activeMemorial.id)}
+                    actionsDisabled={
+                      rejectedMemorialIds.has(activeMemorial.id)
+                      || verifiedContractTaskId === activeMemorial.id
+                    }
                   />
                 ) : activeSuggestionReport ? (
                   <EdictStage
@@ -4799,6 +4816,24 @@ export function ShangshufangPage() {
                 )}
                 </div>
               </div>
+              {contractTaskId ? (
+                <ContractReviewPanel
+                  taskId={contractTaskId}
+                  onContractIdentityChange={(isContractTask) => {
+                    setVerifiedContractTaskId(
+                      isContractTask ? contractTaskId : null,
+                    );
+                  }}
+                  onWorkflowAction={(action) => {
+                    focusDecree(
+                      'order',
+                      action === 'SUBMIT_EVIDENCE'
+                        ? `请为合同任务 ${contractTaskId} 补充可核验证据，并重新送审。`
+                        : `请重新会审合同任务 ${contractTaskId}，刷新 ContractReviewPack。`,
+                    );
+                  }}
+                />
+              ) : null}
               {!showingJiqunReturnEdict && jiqunProgress.status !== 'idle' && <SwarmProgressStrip
                 progress={jiqunProgress}
                 onViewSession={() => router.push('/manors')}

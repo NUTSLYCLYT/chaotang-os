@@ -1871,7 +1871,12 @@ def shangshufang_task_decision(
         task = db.query(DecisionTask).filter_by(id=task_id).first()
         if task is None:
             return _http_fail(404, "task_id 不存在")
-        if task.user_id != _user_id(user):
+        if (
+            task.user_id != _user_id(user)
+            or task.tenant_id is None
+            or user.tenant_id is None
+            or task.tenant_id != user.tenant_id
+        ):
             return _http_fail(404, "无权裁决该任务")
         review = (
             db.query(CourtReview)

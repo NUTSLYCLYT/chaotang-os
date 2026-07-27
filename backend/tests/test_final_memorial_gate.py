@@ -22,6 +22,7 @@ def _seed_candidate(
     db.add(
         DecisionTask(
             id=task_id,
+            tenant_id=1,
             user_id=user_id,
             raw_question="请形成一份有证据、可裁决的正式奏折",
             status="awaiting_decision",
@@ -31,6 +32,7 @@ def _seed_candidate(
     db.add(
         CourtReview(
             id=review_id,
+            tenant_id=1,
             task_id=task_id,
             routing_plan_json='{"route":{"mode":"cluster"}}',
             review_status="awaiting_decision",

@@ -353,6 +353,57 @@
         "title": "ActionRequest",
         "type": "object"
       },
+      "ArchiveReceiptV1": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_id": {
+            "minLength": 1,
+            "title": "Archive Id",
+            "type": "string"
+          },
+          "archived_at": {
+            "format": "date-time",
+            "title": "Archived At",
+            "type": "string"
+          },
+          "final_memorial_content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Final Memorial Content Hash",
+            "type": "string"
+          },
+          "final_memorial_id": {
+            "minLength": 1,
+            "title": "Final Memorial Id",
+            "type": "string"
+          },
+          "final_memorial_version": {
+            "minimum": 1,
+            "title": "Final Memorial Version",
+            "type": "integer"
+          },
+          "source_label": {
+            "minLength": 1,
+            "title": "Source Label",
+            "type": "string"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "archive_id",
+          "task_id",
+          "final_memorial_id",
+          "final_memorial_version",
+          "final_memorial_content_hash",
+          "archived_at",
+          "source_label"
+        ],
+        "title": "ArchiveReceiptV1",
+        "type": "object"
+      },
       "AuthMeResponse": {
         "properties": {
           "authenticated": {
@@ -392,6 +443,18 @@
               }
             ],
             "title": "Executiontype"
+          },
+          "expectedFinalMemorialContentHash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedfinalmemorialcontenthash"
           },
           "manualConfirmation": {
             "default": false,
@@ -1099,6 +1162,21 @@
             ],
             "title": "Language"
           },
+          "legal_question": {
+            "anyOf": [
+              {
+                "enum": [
+                  "contract_risk_screening",
+                  "UNSUPPORTED_OR_UNKNOWN"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legal Question"
+          },
           "our_role": {
             "anyOf": [
               {
@@ -1218,6 +1296,309 @@
         "title": "ContractLineageStatusV1",
         "type": "object"
       },
+      "ContractReviewPackV1": {
+        "additionalProperties": false,
+        "properties": {
+          "affected_sections": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Affected Sections",
+            "type": "array"
+          },
+          "candidate_status": {
+            "const": "CANDIDATE",
+            "default": "CANDIDATE",
+            "title": "Candidate Status",
+            "type": "string"
+          },
+          "contract_type": {
+            "enum": [
+              "procurement",
+              "sales",
+              "service",
+              "UNSUPPORTED_OR_UNKNOWN"
+            ],
+            "title": "Contract Type",
+            "type": "string"
+          },
+          "court_review_id": {
+            "minLength": 1,
+            "title": "Court Review Id",
+            "type": "string"
+          },
+          "decision_summary": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Decision Summary",
+            "type": "string"
+          },
+          "engine_tiers": {
+            "items": {
+              "enum": [
+                "deterministic",
+                "validated_model",
+                "fallback"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Engine Tiers",
+            "type": "array"
+          },
+          "evidence_packet_ids": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Evidence Packet Ids",
+            "type": "array"
+          },
+          "jurisdiction": {
+            "enum": [
+              "CN_MAINLAND",
+              "UNSUPPORTED_OR_UNKNOWN"
+            ],
+            "title": "Jurisdiction",
+            "type": "string"
+          },
+          "language": {
+            "enum": [
+              "zh-CN",
+              "UNSUPPORTED_OR_UNKNOWN"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "legal_question": {
+            "enum": [
+              "contract_risk_screening",
+              "UNSUPPORTED_OR_UNKNOWN"
+            ],
+            "title": "Legal Question",
+            "type": "string"
+          },
+          "mission_contract_id": {
+            "minLength": 1,
+            "title": "Mission Contract Id",
+            "type": "string"
+          },
+          "our_role": {
+            "enum": [
+              "buyer",
+              "seller",
+              "service_provider",
+              "other_party",
+              "UNSUPPORTED_OR_UNKNOWN"
+            ],
+            "title": "Our Role",
+            "type": "string"
+          },
+          "quality_gate_status": {
+            "enum": [
+              "PENDING",
+              "PASSED",
+              "FAILED"
+            ],
+            "title": "Quality Gate Status",
+            "type": "string"
+          },
+          "review_pack_id": {
+            "minLength": 1,
+            "title": "Review Pack Id",
+            "type": "string"
+          },
+          "risk_items": {
+            "items": {
+              "$ref": "#/components/schemas/ContractRiskItemV1"
+            },
+            "title": "Risk Items",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "ContractReviewPackV1",
+            "default": "ContractReviewPackV1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_labels": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Source Labels",
+            "type": "array"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "tenant_id": {
+            "minLength": 1,
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "NEED_INFO",
+              "REVISE_BEFORE_PROCEED",
+              "PROCEED_TO_HUMAN_APPROVAL",
+              "BLOCKED",
+              "NEED_LEGAL_REVIEW"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "review_pack_id",
+          "tenant_id",
+          "task_id",
+          "mission_contract_id",
+          "court_review_id",
+          "evidence_packet_ids",
+          "jurisdiction",
+          "language",
+          "contract_type",
+          "our_role",
+          "legal_question",
+          "risk_items",
+          "verdict",
+          "decision_summary",
+          "affected_sections",
+          "source_labels",
+          "engine_tiers",
+          "quality_gate_status"
+        ],
+        "title": "ContractReviewPackV1",
+        "type": "object"
+      },
+      "ContractRiskItemV1": {
+        "additionalProperties": false,
+        "properties": {
+          "clause_ref": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clause Ref"
+          },
+          "engine_tier": {
+            "enum": [
+              "deterministic",
+              "validated_model",
+              "fallback"
+            ],
+            "title": "Engine Tier",
+            "type": "string"
+          },
+          "evidence_packet_id": {
+            "minLength": 1,
+            "title": "Evidence Packet Id",
+            "type": "string"
+          },
+          "explanation": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Explanation",
+            "type": "string"
+          },
+          "file_version_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Version Id"
+          },
+          "missing_evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Evidence",
+            "type": "array"
+          },
+          "page_number": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Number"
+          },
+          "raw_excerpt": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Excerpt"
+          },
+          "recommended_revision": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Recommended Revision",
+            "type": "string"
+          },
+          "risk_item_id": {
+            "minLength": 1,
+            "title": "Risk Item Id",
+            "type": "string"
+          },
+          "risk_level": {
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Risk Level",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "ContractRiskItemV1",
+            "default": "ContractRiskItemV1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_label": {
+            "minLength": 1,
+            "title": "Source Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "risk_item_id",
+          "evidence_packet_id",
+          "risk_level",
+          "explanation",
+          "recommended_revision",
+          "source_label",
+          "engine_tier"
+        ],
+        "title": "ContractRiskItemV1",
+        "type": "object"
+      },
       "ContractSupportDecisionV1": {
         "additionalProperties": false,
         "properties": {
@@ -1228,9 +1609,11 @@
                 "MISSING_LANGUAGE",
                 "MISSING_CONTRACT_TYPE",
                 "MISSING_ROLE",
+                "MISSING_LEGAL_QUESTION",
                 "UNSUPPORTED_JURISDICTION",
                 "UNSUPPORTED_LANGUAGE",
                 "UNSUPPORTED_CONTRACT_TYPE",
+                "UNSUPPORTED_LEGAL_QUESTION",
                 "CAPABILITY_NOT_ACTIVATED",
                 "UNKNOWN_SCOPE"
               ],
@@ -1276,6 +1659,204 @@
         "title": "ContractSupportDecisionV1",
         "type": "object"
       },
+      "ContractTaskBlockerV1": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "enum": [
+              "MISSION_MISSING",
+              "MISSION_CONFLICT",
+              "MISSION_NOT_CONFIRMED",
+              "EVIDENCE_INCOMPLETE",
+              "REVIEW_PACK_MISSING",
+              "FINAL_MEMORIAL_MISSING",
+              "DELIVERY_MISSING",
+              "PARTIAL_RECOVERY_REQUIRES_HARDENING",
+              "NON_ADJUDICABLE_SOURCE",
+              "LINEAGE_CONFLICT",
+              "DELIVERY_INTEGRITY_FAILED",
+              "ARCHIVE_RECEIPT_MISSING",
+              "ARCHIVE_LINEAGE_CONFLICT",
+              "STATE_INCONSISTENT"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "ContractTaskBlockerV1",
+        "type": "object"
+      },
+      "ContractTaskIdentityV1": {
+        "additionalProperties": false,
+        "properties": {
+          "raw_question": {
+            "minLength": 1,
+            "title": "Raw Question",
+            "type": "string"
+          },
+          "refined_edict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refined Edict"
+          },
+          "source_label": {
+            "minLength": 1,
+            "title": "Source Label",
+            "type": "string"
+          },
+          "status": {
+            "minLength": 1,
+            "title": "Status",
+            "type": "string"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "tenant_id": {
+            "exclusiveMinimum": 0,
+            "title": "Tenant Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "task_id",
+          "tenant_id",
+          "status",
+          "source_label",
+          "raw_question"
+        ],
+        "title": "ContractTaskIdentityV1",
+        "type": "object"
+      },
+      "ContractTaskReadModelV1": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed_actions": {
+            "items": {
+              "enum": [
+                "CONFIRM_MISSION",
+                "SUBMIT_EVIDENCE",
+                "REFRESH_REVIEW",
+                "GENERATE_DELIVERY",
+                "RESUME_DELIVERY",
+                "DOWNLOAD_ARTIFACT",
+                "DECIDE",
+                "REOPEN_ARCHIVE"
+              ],
+              "type": "string"
+            },
+            "title": "Allowed Actions",
+            "type": "array"
+          },
+          "archive_receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArchiveReceiptV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "blockers": {
+            "items": {
+              "$ref": "#/components/schemas/ContractTaskBlockerV1"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "delivery": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicArtifactDeliveryV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "final_memorial": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FinalMemorialIdentityV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "mission": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MissionSnapshotViewV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "read_revision": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Read Revision",
+            "type": "string"
+          },
+          "review_pack": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContractReviewPackV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "schema_version": {
+            "const": "ContractTaskReadModelV1",
+            "default": "ContractTaskReadModelV1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "task": {
+            "$ref": "#/components/schemas/ContractTaskIdentityV1"
+          }
+        },
+        "required": [
+          "read_revision",
+          "generated_at",
+          "task",
+          "allowed_actions",
+          "blockers"
+        ],
+        "title": "ContractTaskReadModelV1",
+        "type": "object"
+      },
       "CorrectionRecordRequest": {
         "properties": {
           "fix": {
@@ -1300,6 +1881,56 @@
           }
         },
         "title": "CorrectionRecordRequest",
+        "type": "object"
+      },
+      "CreateDeliveryRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "contract_review_pack": {
+            "$ref": "#/components/schemas/ContractReviewPackV1"
+          },
+          "delivery_formula_version": {
+            "minLength": 1,
+            "title": "Delivery Formula Version",
+            "type": "string"
+          },
+          "expiry_seconds": {
+            "exclusiveMinimum": 0,
+            "maximum": 86400,
+            "title": "Expiry Seconds",
+            "type": "integer"
+          },
+          "final_memorial_id": {
+            "minLength": 1,
+            "title": "Final Memorial Id",
+            "type": "string"
+          },
+          "final_memorial_version": {
+            "minimum": 1,
+            "title": "Final Memorial Version",
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "final_memorial_id",
+          "final_memorial_version",
+          "contract_review_pack",
+          "delivery_formula_version",
+          "idempotency_key",
+          "expiry_seconds"
+        ],
+        "title": "CreateDeliveryRequest",
         "type": "object"
       },
       "CreateSwarmRunRequest": {
@@ -1527,10 +2158,23 @@
               "reject",
               "request_evidence",
               "recheck",
-              "followup"
+              "followup",
+              "cancel"
             ],
             "title": "Action",
             "type": "string"
+          },
+          "expected_final_memorial_content_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Final Memorial Content Hash"
           },
           "followup_question": {
             "anyOf": [
@@ -1569,6 +2213,29 @@
           "action"
         ],
         "title": "DecisionRequest",
+        "type": "object"
+      },
+      "DeliveryCommandResponse": {
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/PublicArtifactManifest"
+          },
+          "resume_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resume Token"
+          }
+        },
+        "required": [
+          "manifest"
+        ],
+        "title": "DeliveryCommandResponse",
         "type": "object"
       },
       "DeptFlowsRequest": {
@@ -1832,6 +2499,16 @@
             "title": "Attachments",
             "type": "array"
           },
+          "contract_scope": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContractIntakeV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "evidence_summary": {
             "anyOf": [
               {
@@ -2064,6 +2741,356 @@
         "title": "EditFinalOutputResponse",
         "type": "object"
       },
+      "EvidenceBindData": {
+        "properties": {
+          "evidence_packet": {
+            "$ref": "#/components/schemas/EvidencePacketV1"
+          },
+          "rework_generation": {
+            "$ref": "#/components/schemas/EvidenceReworkGenerationV1"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "evidence_packet",
+          "rework_generation"
+        ],
+        "title": "EvidenceBindData",
+        "type": "object"
+      },
+      "EvidenceBindRequest": {
+        "properties": {
+          "artifact_id": {
+            "minLength": 1,
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "contract_scope": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContractIntakeV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "artifact_id"
+        ],
+        "title": "EvidenceBindRequest",
+        "type": "object"
+      },
+      "EvidenceBindResponse": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvidenceBindData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "title": "EvidenceBindResponse",
+        "type": "object"
+      },
+      "EvidencePacketV1": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "evidence_packet_id": {
+            "minLength": 1,
+            "title": "Evidence Packet Id",
+            "type": "string"
+          },
+          "evidence_status": {
+            "enum": [
+              "NONE",
+              "COLLECTING",
+              "PARTIAL",
+              "GROUNDED",
+              "CONFLICTED",
+              "STALE",
+              "UNVERIFIED"
+            ],
+            "title": "Evidence Status",
+            "type": "string"
+          },
+          "generation": {
+            "minimum": 1,
+            "title": "Generation",
+            "type": "integer"
+          },
+          "input_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Input Digest",
+            "type": "string"
+          },
+          "input_version_id": {
+            "minLength": 1,
+            "title": "Input Version Id",
+            "type": "string"
+          },
+          "prior_final_memorial_content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Prior Final Memorial Content Hash",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "EvidencePacketV1",
+            "default": "EvidencePacketV1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "USER_UPLOAD",
+              "OFFICIAL_SOURCE",
+              "VERIFIED_TOOL",
+              "MANUAL_TEXT",
+              "URL",
+              "MODEL_ASSERTION"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_ref": {
+            "minLength": 1,
+            "title": "Source Ref",
+            "type": "string"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "tenant_id": {
+            "minimum": 1,
+            "title": "Tenant Id",
+            "type": "integer"
+          },
+          "verification_receipt_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verification Receipt Id"
+          }
+        },
+        "required": [
+          "evidence_packet_id",
+          "tenant_id",
+          "task_id",
+          "input_version_id",
+          "input_digest",
+          "prior_final_memorial_content_hash",
+          "generation",
+          "evidence_status",
+          "source_kind",
+          "source_ref",
+          "content_hash"
+        ],
+        "title": "EvidencePacketV1",
+        "type": "object"
+      },
+      "EvidenceReworkGenerationV1": {
+        "additionalProperties": false,
+        "description": "One immutable request identity plus its canonical processing projection.",
+        "properties": {
+          "affected_sections": {
+            "items": {
+              "const": "contract_review",
+              "type": "string"
+            },
+            "maxItems": 1,
+            "minItems": 1,
+            "title": "Affected Sections",
+            "type": "array"
+          },
+          "contract_review_pack_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Review Pack Id"
+          },
+          "contract_scope": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContractIntakeV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "court_review_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Court Review Id"
+          },
+          "evidence_packets": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/EvidencePacketV1"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Packets"
+          },
+          "evidence_request": {
+            "$ref": "#/components/schemas/EvidenceReworkRequestV1"
+          },
+          "evidence_status": {
+            "default": "NONE",
+            "enum": [
+              "NONE",
+              "COLLECTING",
+              "PARTIAL",
+              "GROUNDED",
+              "CONFLICTED",
+              "STALE",
+              "UNVERIFIED"
+            ],
+            "title": "Evidence Status",
+            "type": "string"
+          },
+          "gate_reasons": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gate Reasons"
+          },
+          "generation": {
+            "minimum": 2,
+            "title": "Generation",
+            "type": "integer"
+          },
+          "generation_id": {
+            "minLength": 1,
+            "title": "Generation Id",
+            "type": "string"
+          },
+          "prior_final_memorial_content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Prior Final Memorial Content Hash",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "EvidenceReworkGenerationV1",
+            "default": "EvidenceReworkGenerationV1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "awaiting_evidence",
+              "evidence_bound",
+              "pending",
+              "candidate_ready",
+              "quality_blocked"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "generation_id",
+          "generation",
+          "status",
+          "prior_final_memorial_content_hash",
+          "evidence_request",
+          "affected_sections"
+        ],
+        "title": "EvidenceReworkGenerationV1",
+        "type": "object"
+      },
+      "EvidenceReworkRequestV1": {
+        "additionalProperties": false,
+        "properties": {
+          "followup_question": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Followup Question"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "EvidenceReworkRequestV1",
+        "type": "object"
+      },
       "FeatureFlagUpdateRequest": {
         "properties": {
           "description": {
@@ -2103,6 +3130,51 @@
           "run_id"
         ],
         "title": "FeedbackSaveResponse",
+        "type": "object"
+      },
+      "FinalMemorialIdentityV1": {
+        "additionalProperties": false,
+        "properties": {
+          "court_review_id": {
+            "minLength": 1,
+            "title": "Court Review Id",
+            "type": "string"
+          },
+          "final_memorial_content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Final Memorial Content Hash",
+            "type": "string"
+          },
+          "final_memorial_id": {
+            "minLength": 1,
+            "title": "Final Memorial Id",
+            "type": "string"
+          },
+          "final_memorial_version": {
+            "minimum": 1,
+            "title": "Final Memorial Version",
+            "type": "integer"
+          },
+          "source_label": {
+            "minLength": 1,
+            "title": "Source Label",
+            "type": "string"
+          },
+          "status": {
+            "minLength": 1,
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "final_memorial_id",
+          "final_memorial_version",
+          "final_memorial_content_hash",
+          "court_review_id",
+          "status",
+          "source_label"
+        ],
+        "title": "FinalMemorialIdentityV1",
         "type": "object"
       },
       "FinanceIntelLoopCompleteRequest": {
@@ -2469,6 +3541,139 @@
           "message"
         ],
         "title": "ImPersistRequest",
+        "type": "object"
+      },
+      "IngestArtifactV1": {
+        "additionalProperties": false,
+        "description": "摄取产物的对外投影——不含原始字节、不含抽取文本。",
+        "properties": {
+          "artifact_id": {
+            "minLength": 1,
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "created_at": {
+            "minLength": 1,
+            "title": "Created At",
+            "type": "string"
+          },
+          "detected_format": {
+            "enum": [
+              "DOCX_OOXML",
+              "DOCX_ENCRYPTED",
+              "CORRUPTED",
+              "UNKNOWN"
+            ],
+            "title": "Detected Format",
+            "type": "string"
+          },
+          "digest_sha256": {
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Digest Sha256",
+            "type": "string"
+          },
+          "file_size_bytes": {
+            "minimum": 0,
+            "title": "File Size Bytes",
+            "type": "integer"
+          },
+          "injection_flag_categories": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Injection Flag Categories",
+            "type": "array"
+          },
+          "macro_detected": {
+            "title": "Macro Detected",
+            "type": "boolean"
+          },
+          "mission_contract_id": {
+            "minLength": 1,
+            "title": "Mission Contract Id",
+            "type": "string"
+          },
+          "ocr_status": {
+            "enum": [
+              "NOT_APPLICABLE",
+              "PENDING",
+              "LOW_CONFIDENCE",
+              "OK",
+              "FAILED"
+            ],
+            "title": "Ocr Status",
+            "type": "string"
+          },
+          "page_count": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Count"
+          },
+          "reject_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "FAKE_MIME",
+                  "OVERSIZE",
+                  "TOO_MANY_PAGES",
+                  "CORRUPTED",
+                  "ENCRYPTED",
+                  "MACRO_DETECTED",
+                  "ZIP_BOMB_SUSPECTED",
+                  "INJECTION_SUSPECTED",
+                  "MISSING_PURPOSE",
+                  "UNKNOWN_PROVIDER"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reject Reason"
+          },
+          "schema_version": {
+            "const": "IngestArtifactV1",
+            "default": "IngestArtifactV1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "RECEIVED",
+              "VALIDATING",
+              "ACCEPTED",
+              "REJECTED"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "zip_bomb_suspected": {
+            "title": "Zip Bomb Suspected",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "mission_contract_id",
+          "status",
+          "detected_format",
+          "file_size_bytes",
+          "digest_sha256",
+          "ocr_status",
+          "macro_detected",
+          "zip_bomb_suspected",
+          "created_at"
+        ],
+        "title": "IngestArtifactV1",
         "type": "object"
       },
       "KnowledgeSearchResponse": {
@@ -2869,7 +4074,7 @@
       },
       "MissionContractV1": {
         "additionalProperties": false,
-        "description": "确认后的精确任务版本——四维度必须齐全（SUPPORTED 之后才能构造）。",
+        "description": "确认后的精确任务版本——五维度必须齐全（SUPPORTED 之后才能构造）。",
         "properties": {
           "assumptions": {
             "items": {
@@ -2938,6 +4143,14 @@
             "title": "Language",
             "type": "string"
           },
+          "legal_question": {
+            "enum": [
+              "contract_risk_screening",
+              "UNSUPPORTED_OR_UNKNOWN"
+            ],
+            "title": "Legal Question",
+            "type": "string"
+          },
           "mission_contract_id": {
             "minLength": 1,
             "title": "Mission Contract Id",
@@ -2999,6 +4212,7 @@
           "language",
           "contract_type",
           "our_role",
+          "legal_question",
           "goal",
           "constraints",
           "prohibited_actions",
@@ -3061,6 +4275,28 @@
           "required_artifacts"
         ],
         "title": "MissionOutcome",
+        "type": "object"
+      },
+      "MissionSnapshotViewV1": {
+        "additionalProperties": false,
+        "properties": {
+          "mission": {
+            "$ref": "#/components/schemas/MissionContractV1"
+          },
+          "state": {
+            "enum": [
+              "DRAFT",
+              "CONFIRMED"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "mission"
+        ],
+        "title": "MissionSnapshotViewV1",
         "type": "object"
       },
       "OkResponse": {
@@ -3765,6 +5001,336 @@
         "title": "ProposalCreateRequest",
         "type": "object"
       },
+      "PublicArtifactDeliveryV1": {
+        "additionalProperties": false,
+        "properties": {
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/PublicArtifactItemV1"
+            },
+            "minItems": 1,
+            "title": "Artifacts",
+            "type": "array"
+          },
+          "delivery_formula_version": {
+            "minLength": 1,
+            "title": "Delivery Formula Version",
+            "type": "string"
+          },
+          "delivery_revision": {
+            "minimum": 1,
+            "title": "Delivery Revision",
+            "type": "integer"
+          },
+          "final_memorial_id": {
+            "minLength": 1,
+            "title": "Final Memorial Id",
+            "type": "string"
+          },
+          "final_memorial_version": {
+            "minimum": 1,
+            "title": "Final Memorial Version",
+            "type": "integer"
+          },
+          "manifest_id": {
+            "minLength": 1,
+            "title": "Manifest Id",
+            "type": "string"
+          },
+          "overall_status": {
+            "enum": [
+              "READY",
+              "PARTIAL",
+              "UNDER_REVIEW"
+            ],
+            "title": "Overall Status",
+            "type": "string"
+          },
+          "payload_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Payload Hash",
+            "type": "string"
+          },
+          "resume_token_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resume Token Expires At"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "manifest_id",
+          "task_id",
+          "final_memorial_id",
+          "final_memorial_version",
+          "delivery_formula_version",
+          "delivery_revision",
+          "payload_hash",
+          "artifacts",
+          "overall_status"
+        ],
+        "title": "PublicArtifactDeliveryV1",
+        "type": "object"
+      },
+      "PublicArtifactItem": {
+        "properties": {
+          "artifact_id": {
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "byte_size": {
+            "title": "Byte Size",
+            "type": "integer"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "download_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Download Url"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "incomplete_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incomplete Reason"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "lineage_hash": {
+            "title": "Lineage Hash",
+            "type": "string"
+          },
+          "mime_type": {
+            "title": "Mime Type",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "kind",
+          "mime_type",
+          "byte_size",
+          "content_hash",
+          "lineage_hash",
+          "status"
+        ],
+        "title": "PublicArtifactItem",
+        "type": "object"
+      },
+      "PublicArtifactItemV1": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "minLength": 1,
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "byte_size": {
+            "minimum": 0,
+            "title": "Byte Size",
+            "type": "integer"
+          },
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "download_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Download Url"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "incomplete_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incomplete Reason"
+          },
+          "kind": {
+            "enum": [
+              "PDF",
+              "DOCX",
+              "JSON"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "lineage_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Lineage Hash",
+            "type": "string"
+          },
+          "mime_type": {
+            "minLength": 1,
+            "title": "Mime Type",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "STORED",
+              "UNAVAILABLE"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "kind",
+          "mime_type",
+          "byte_size",
+          "content_hash",
+          "lineage_hash",
+          "status"
+        ],
+        "title": "PublicArtifactItemV1",
+        "type": "object"
+      },
+      "PublicArtifactManifest": {
+        "properties": {
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/PublicArtifactItem"
+            },
+            "title": "Artifacts",
+            "type": "array"
+          },
+          "delivery_formula_version": {
+            "title": "Delivery Formula Version",
+            "type": "string"
+          },
+          "delivery_revision": {
+            "title": "Delivery Revision",
+            "type": "integer"
+          },
+          "final_memorial_id": {
+            "title": "Final Memorial Id",
+            "type": "string"
+          },
+          "final_memorial_version": {
+            "title": "Final Memorial Version",
+            "type": "integer"
+          },
+          "manifest_id": {
+            "title": "Manifest Id",
+            "type": "string"
+          },
+          "overall_status": {
+            "title": "Overall Status",
+            "type": "string"
+          },
+          "payload_hash": {
+            "title": "Payload Hash",
+            "type": "string"
+          },
+          "resume_token_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resume Token Expires At"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          },
+          "tenant_id": {
+            "title": "Tenant Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schema_version",
+          "manifest_id",
+          "tenant_id",
+          "task_id",
+          "final_memorial_id",
+          "final_memorial_version",
+          "delivery_formula_version",
+          "delivery_revision",
+          "payload_hash",
+          "artifacts",
+          "overall_status"
+        ],
+        "title": "PublicArtifactManifest",
+        "type": "object"
+      },
       "QintianChatRequest": {
         "properties": {
           "message": {
@@ -4121,6 +5687,27 @@
           "mode"
         ],
         "title": "ResourceProfileUpdateRequest",
+        "type": "object"
+      },
+      "ResumeDeliveryRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "resume_token": {
+            "minLength": 1,
+            "title": "Resume Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resume_token",
+          "idempotency_key"
+        ],
+        "title": "ResumeDeliveryRequest",
         "type": "object"
       },
       "ReviewRequest": {
@@ -4945,6 +6532,96 @@
           "task_id"
         ],
         "title": "TaskAcceptedResponse",
+        "type": "object"
+      },
+      "TaskDecisionData": {
+        "properties": {
+          "archive_record": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archive Record"
+          },
+          "decision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Id"
+          },
+          "rework_generation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvidenceReworkGenerationV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sourceLabel": {
+            "title": "Sourcelabel",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "sourceLabel",
+          "status"
+        ],
+        "title": "TaskDecisionData",
+        "type": "object"
+      },
+      "TaskDecisionResponse": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskDecisionData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "title": "TaskDecisionResponse",
         "type": "object"
       },
       "TaskMonitorEntry": {
@@ -7535,6 +9212,311 @@
         "summary": "Approval Pending",
         "tags": [
           "approval"
+        ]
+      }
+    },
+    "/api/artifacts/{artifact_id}/download": {
+      "get": {
+        "operationId": "download_artifact_api_artifacts__artifact_id__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "title": "Artifact Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Artifact",
+        "tags": [
+          "artifacts"
+        ]
+      }
+    },
+    "/api/artifacts/deliveries": {
+      "post": {
+        "operationId": "create_delivery_api_artifacts_deliveries_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDeliveryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Delivery",
+        "tags": [
+          "artifacts"
+        ]
+      }
+    },
+    "/api/artifacts/manifests/{manifest_id}": {
+      "get": {
+        "operationId": "read_manifest_api_artifacts_manifests__manifest_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "manifest_id",
+            "required": true,
+            "schema": {
+              "title": "Manifest Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicArtifactManifest"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Manifest",
+        "tags": [
+          "artifacts"
+        ]
+      }
+    },
+    "/api/artifacts/manifests/{manifest_id}/resume": {
+      "post": {
+        "operationId": "resume_delivery_api_artifacts_manifests__manifest_id__resume_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "manifest_id",
+            "required": true,
+            "schema": {
+              "title": "Manifest Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResumeDeliveryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume Delivery",
+        "tags": [
+          "artifacts"
         ]
       }
     },
@@ -12876,7 +14858,7 @@
     },
     "/api/contracts/mission/draft": {
       "post": {
-        "description": "服务端重算 content_digest（不信任客户端传入的摘要），落草稿桩存储。",
+        "description": "服务端重算 digest，并保存到 owned DecisionTask 的兼容 mission lineage。",
         "operationId": "draft_mission_contract_api_contracts_mission_draft_post",
         "parameters": [
           {
@@ -12952,7 +14934,7 @@
     },
     "/api/contracts/support/evaluate": {
       "post": {
-        "description": "四维度支持/拒答评估——缺失或超范围一律 DECLINED，绝不静默放行（REQ-003）。",
+        "description": "五维度支持/拒答评估——缺失或超范围一律 DECLINED，绝不静默放行（REQ-003）。",
         "operationId": "evaluate_contract_support_api_contracts_support_evaluate_post",
         "parameters": [
           {
@@ -13021,6 +15003,80 @@
           }
         },
         "summary": "Evaluate Contract Support",
+        "tags": [
+          "contracts"
+        ]
+      }
+    },
+    "/api/contracts/tasks/{task_id}/read-model": {
+      "get": {
+        "operationId": "read_contract_task_model_api_contracts_tasks__task_id__read_model_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractTaskReadModelV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Contract Task Model",
         "tags": [
           "contracts"
         ]
@@ -26835,6 +28891,311 @@
         ]
       }
     },
+    "/api/secure-ingest/{artifact_id}/status": {
+      "get": {
+        "operationId": "get_artifact_status_api_secure_ingest__artifact_id__status_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "title": "Artifact Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestArtifactV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Artifact Status",
+        "tags": [
+          "secure_ingest"
+        ]
+      }
+    },
+    "/api/secure-ingest/{artifact_id}/ticket": {
+      "post": {
+        "operationId": "issue_ticket_api_secure_ingest__artifact_id__ticket_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "title": "Artifact Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "purpose",
+            "required": true,
+            "schema": {
+              "title": "Purpose",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Issue Ticket Api Secure Ingest  Artifact Id  Ticket Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Issue Ticket",
+        "tags": [
+          "secure_ingest"
+        ]
+      }
+    },
+    "/api/secure-ingest/download/{ticket_id}": {
+      "get": {
+        "operationId": "redeem_ticket_api_secure_ingest_download__ticket_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Redeem Ticket",
+        "tags": [
+          "secure_ingest"
+        ]
+      }
+    },
+    "/api/secure-ingest/upload": {
+      "post": {
+        "operationId": "upload_artifact_api_secure_ingest_upload_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestArtifactV1"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Artifact",
+        "tags": [
+          "secure_ingest"
+        ]
+      }
+    },
     "/api/shangshufang/briefs/{brief_id}/decision": {
       "post": {
         "operationId": "shangshufang_brief_decision_api_shangshufang_briefs__brief_id__decision_post",
@@ -26896,9 +29257,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Shangshufang Brief Decision Api Shangshufang Briefs  Brief Id  Decision Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/TaskDecisionResponse"
                 }
               }
             },
@@ -26982,13 +29341,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Shangshufang Brief Decision Advance Api Shangshufang Briefs  Brief Id  Decision Advance Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/TaskDecisionResponse"
                 }
               }
             },
             "description": "Successful Response"
+          },
+          "404": {
+            "description": "Brief or task not found or not owned by requester"
+          },
+          "409": {
+            "description": "Stale or conflicting FinalMemorial decision"
           },
           "422": {
             "content": {
@@ -28155,13 +30518,17 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Shangshufang Task Decision Api Shangshufang Tasks  Task Id  Decision Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/TaskDecisionResponse"
                 }
               }
             },
             "description": "Successful Response"
+          },
+          "404": {
+            "description": "Task not found or not owned by requester"
+          },
+          "409": {
+            "description": "Stale or conflicting FinalMemorial decision"
           },
           "422": {
             "content": {
@@ -28175,6 +30542,109 @@
           }
         },
         "summary": "Shangshufang Task Decision",
+        "tags": [
+          "shangshufang"
+        ]
+      }
+    },
+    "/api/shangshufang/tasks/{task_id}/rework-generations/{generation_id}/evidence": {
+      "post": {
+        "description": "Bind one accepted immutable upload to the waiting canonical generation.",
+        "operationId": "bind_rework_generation_evidence_api_shangshufang_tasks__task_id__rework_generations__generation_id__evidence_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "generation_id",
+            "required": true,
+            "schema": {
+              "title": "Generation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvidenceBindRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceBindResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Contract body access denied"
+          },
+          "404": {
+            "description": "Task, generation, or artifact not found"
+          },
+          "409": {
+            "description": "Capability, generation, or frozen-scope conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bind Rework Generation Evidence",
         "tags": [
           "shangshufang"
         ]

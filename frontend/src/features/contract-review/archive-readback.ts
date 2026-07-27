@@ -1,0 +1,83 @@
+import type { ContractTaskReadModelV1 } from '@/lib/contracts/backend-openapi-2026-07-21';
+import type { ShiguanArchiveDetail } from '@/features/shiguan-ui/lib/shiguan-view-model';
+import { normalizeSourceLabel } from '@/features/shiguan-ui/lib/shiguan-source';
+
+export function buildContractArchiveDetail(
+  model: ContractTaskReadModelV1,
+): ShiguanArchiveDetail | null {
+  const receipt = model.archive_receipt;
+  const final = model.final_memorial;
+  if (!receipt || !final) return null;
+  if (
+    receipt.task_id !== model.task.task_id
+    || receipt.final_memorial_id !== final.final_memorial_id
+    || receipt.final_memorial_version !== final.final_memorial_version
+    || receipt.final_memorial_content_hash
+      !== final.final_memorial_content_hash
+  ) {
+    return null;
+  }
+
+  const sourceLabel = normalizeSourceLabel(receipt.source_label);
+  const pack = model.review_pack;
+  const delivery = model.delivery;
+  return {
+    id: receipt.archive_id,
+    title: model.task.raw_question,
+    type: 'task',
+    sourceLabel,
+    summary: `任务 ${model.task.task_id} 的正式奏折 ${receipt.final_memorial_id} v${receipt.final_memorial_version} 已形成精确归档回执。`,
+    conclusion: `史馆已按 exact lineage 回读 final hash ${receipt.final_memorial_content_hash.slice(0, 12)}…；该案卷不是客户端索引推断。`,
+    retrospectiveStatus: 'pending',
+    updatedAt: receipt.archived_at,
+    decisionChain: [
+      {
+        id: final.court_review_id,
+        title: '军机处会审',
+        actor: '军机处',
+        status: pack?.verdict ?? '已形成正式奏折',
+        sourceLabel,
+      },
+      {
+        id: final.final_memorial_id,
+        title: `正式奏折 v${final.final_memorial_version}`,
+        actor: '上书房',
+        status: final.status,
+        sourceLabel,
+      },
+      {
+        id: receipt.archive_id,
+        title: '史馆精确归档',
+        actor: '太史令',
+        status: '已归档',
+        at: receipt.archived_at,
+        sourceLabel,
+      },
+    ],
+    evidence: [
+      ...(pack?.evidence_packet_ids ?? []).map((id) => ({
+        id,
+        title: 'EvidencePacket',
+        detail: `由 ContractReviewPack ${pack?.review_pack_id ?? ''} 引用`,
+        sourceLabel,
+      })),
+      ...(delivery?.artifacts ?? []).map((artifact) => ({
+        id: artifact.artifact_id,
+        title: `${artifact.kind} 交付物`,
+        detail: `${artifact.status} · ${artifact.content_hash.slice(0, 12)}…`,
+        sourceLabel,
+      })),
+    ],
+    lessons: [],
+  };
+}
+
+export function selectArchiveDetail(
+  contractTaskId: string | null,
+  exactDetail: ShiguanArchiveDetail | null,
+  indexedDetail: ShiguanArchiveDetail | null,
+  exactReadFailed = false,
+): ShiguanArchiveDetail | null {
+  if (!contractTaskId) return indexedDetail;
+  return exactReadFailed ? null : exactDetail;
+}

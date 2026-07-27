@@ -36,12 +36,12 @@ export type _QuickSummonRequest = {
 
 export type _RetrospectiveRequest = {
   "authoredBy"?: string;
-  "failures"?: string[];
-  "lessons"?: string[];
+  "failures"?: (string)[];
+  "lessons"?: (string)[];
   "outcome"?: "success" | "blocked" | "pending";
   "playbook"?: string | null;
   "score"?: number;
-  "successes"?: string[];
+  "successes"?: (string)[];
 };
 
 export type _TeachingRequest = {
@@ -73,6 +73,16 @@ export type ActionRequest = {
   "idempotency_key"?: string | null;
 };
 
+export type ArchiveReceiptV1 = {
+  "archive_id": string;
+  "archived_at": string;
+  "final_memorial_content_hash": string;
+  "final_memorial_id": string;
+  "final_memorial_version": number;
+  "source_label": string;
+  "task_id": string;
+};
+
 export type AuthMeResponse = {
   "authenticated": boolean;
   "user"?: CurrentUser | null;
@@ -81,6 +91,7 @@ export type AuthMeResponse = {
 export type BriefDecisionAdvanceRequest = {
   "decision": string;
   "executionType"?: string | null;
+  "expectedFinalMemorialContentHash"?: string | null;
   "manualConfirmation"?: boolean;
   "reason"?: string;
 };
@@ -118,7 +129,7 @@ export type CalibrationRequest = {
 };
 
 export type CapabilityActivationRequest = {
-  "candidate_capability_ids": string[];
+  "candidate_capability_ids": (string)[];
   "mission_contract_id": string;
 };
 
@@ -128,8 +139,8 @@ export type CapabilityGrantV1 = {
   "capability_id": string;
   "required_by_mission": boolean;
   "schema_version"?: "CapabilityGrantV1";
-  "token_scope"?: string[];
-  "tool_access"?: string[];
+  "token_scope"?: (string)[];
+  "tool_access"?: (string)[];
 };
 
 export type CaseActionResponse = {
@@ -141,9 +152,9 @@ export type CaseRejectRequest = {
 };
 
 export type CategorySelection = {
-  "groups"?: string[];
+  "groups"?: (string)[];
   "label"?: string | null;
-  "ministers"?: string[];
+  "ministers"?: (string)[];
   "taskType"?: string;
 };
 
@@ -159,7 +170,7 @@ export type ChatCompletionChoice = {
 
 export type ChatCompletionRequest = {
   "max_tokens"?: number | null;
-  "messages"?: ChatMessage[];
+  "messages"?: (ChatMessage)[];
   "model": string;
   "n"?: number | null;
   "stream"?: boolean;
@@ -168,7 +179,7 @@ export type ChatCompletionRequest = {
 };
 
 export type ChatCompletionResponse = {
-  "choices": ChatCompletionChoice[];
+  "choices": (ChatCompletionChoice)[];
   "id": string;
   "model": string;
   "object"?: string;
@@ -226,6 +237,7 @@ export type ContractIntakeV1 = {
   "contract_type"?: "procurement" | "sales" | "service" | "UNSUPPORTED_OR_UNKNOWN" | null;
   "jurisdiction"?: "CN_MAINLAND" | "UNSUPPORTED_OR_UNKNOWN" | null;
   "language"?: "zh-CN" | "UNSUPPORTED_OR_UNKNOWN" | null;
+  "legal_question"?: "contract_risk_screening" | "UNSUPPORTED_OR_UNKNOWN" | null;
   "our_role"?: "buyer" | "seller" | "service_provider" | "other_party" | "UNSUPPORTED_OR_UNKNOWN" | null;
   "schema_version"?: "ContractIntakeV1";
 };
@@ -243,8 +255,47 @@ export type ContractLineageStatusV1 = {
   "support_status": "SUPPORTED" | "DECLINED";
 };
 
+export type ContractReviewPackV1 = {
+  "affected_sections": (string)[];
+  "candidate_status"?: "CANDIDATE";
+  "contract_type": "procurement" | "sales" | "service" | "UNSUPPORTED_OR_UNKNOWN";
+  "court_review_id": string;
+  "decision_summary": string;
+  "engine_tiers": ("deterministic" | "validated_model" | "fallback")[];
+  "evidence_packet_ids": (string)[];
+  "jurisdiction": "CN_MAINLAND" | "UNSUPPORTED_OR_UNKNOWN";
+  "language": "zh-CN" | "UNSUPPORTED_OR_UNKNOWN";
+  "legal_question": "contract_risk_screening" | "UNSUPPORTED_OR_UNKNOWN";
+  "mission_contract_id": string;
+  "our_role": "buyer" | "seller" | "service_provider" | "other_party" | "UNSUPPORTED_OR_UNKNOWN";
+  "quality_gate_status": "PENDING" | "PASSED" | "FAILED";
+  "review_pack_id": string;
+  "risk_items": (ContractRiskItemV1)[];
+  "schema_version"?: "ContractReviewPackV1";
+  "source_labels": (string)[];
+  "task_id": string;
+  "tenant_id": string;
+  "verdict": "NEED_INFO" | "REVISE_BEFORE_PROCEED" | "PROCEED_TO_HUMAN_APPROVAL" | "BLOCKED" | "NEED_LEGAL_REVIEW";
+};
+
+export type ContractRiskItemV1 = {
+  "clause_ref"?: string | null;
+  "engine_tier": "deterministic" | "validated_model" | "fallback";
+  "evidence_packet_id": string;
+  "explanation": string;
+  "file_version_id"?: string | null;
+  "missing_evidence"?: (string)[];
+  "page_number"?: number | null;
+  "raw_excerpt"?: string | null;
+  "recommended_revision": string;
+  "risk_item_id": string;
+  "risk_level": "critical" | "high" | "medium" | "low";
+  "schema_version"?: "ContractRiskItemV1";
+  "source_label": string;
+};
+
 export type ContractSupportDecisionV1 = {
-  "decline_reasons": "MISSING_JURISDICTION" | "MISSING_LANGUAGE" | "MISSING_CONTRACT_TYPE" | "MISSING_ROLE" | "UNSUPPORTED_JURISDICTION" | "UNSUPPORTED_LANGUAGE" | "UNSUPPORTED_CONTRACT_TYPE" | "CAPABILITY_NOT_ACTIVATED" | "UNKNOWN_SCOPE"[];
+  "decline_reasons": ("MISSING_JURISDICTION" | "MISSING_LANGUAGE" | "MISSING_CONTRACT_TYPE" | "MISSING_ROLE" | "MISSING_LEGAL_QUESTION" | "UNSUPPORTED_JURISDICTION" | "UNSUPPORTED_LANGUAGE" | "UNSUPPORTED_CONTRACT_TYPE" | "UNSUPPORTED_LEGAL_QUESTION" | "CAPABILITY_NOT_ACTIVATED" | "UNKNOWN_SCOPE")[];
   "evaluated_at": string;
   "mission_contract_id": string;
   "revision": number;
@@ -252,11 +303,49 @@ export type ContractSupportDecisionV1 = {
   "support_status": "SUPPORTED" | "DECLINED";
 };
 
+export type ContractTaskBlockerV1 = {
+  "code": "MISSION_MISSING" | "MISSION_CONFLICT" | "MISSION_NOT_CONFIRMED" | "EVIDENCE_INCOMPLETE" | "REVIEW_PACK_MISSING" | "FINAL_MEMORIAL_MISSING" | "DELIVERY_MISSING" | "PARTIAL_RECOVERY_REQUIRES_HARDENING" | "NON_ADJUDICABLE_SOURCE" | "LINEAGE_CONFLICT" | "DELIVERY_INTEGRITY_FAILED" | "ARCHIVE_RECEIPT_MISSING" | "ARCHIVE_LINEAGE_CONFLICT" | "STATE_INCONSISTENT";
+  "detail"?: string | null;
+};
+
+export type ContractTaskIdentityV1 = {
+  "raw_question": string;
+  "refined_edict"?: string | null;
+  "source_label": string;
+  "status": string;
+  "task_id": string;
+  "tenant_id": number;
+};
+
+export type ContractTaskReadModelV1 = {
+  "allowed_actions": ("CONFIRM_MISSION" | "SUBMIT_EVIDENCE" | "REFRESH_REVIEW" | "GENERATE_DELIVERY" | "RESUME_DELIVERY" | "DOWNLOAD_ARTIFACT" | "DECIDE" | "REOPEN_ARCHIVE")[];
+  "archive_receipt"?: ArchiveReceiptV1 | null;
+  "blockers": (ContractTaskBlockerV1)[];
+  "delivery"?: PublicArtifactDeliveryV1 | null;
+  "final_memorial"?: FinalMemorialIdentityV1 | null;
+  "generated_at": string;
+  "mission"?: MissionSnapshotViewV1 | null;
+  "read_revision": string;
+  "review_pack"?: ContractReviewPackV1 | null;
+  "schema_version"?: "ContractTaskReadModelV1";
+  "task": ContractTaskIdentityV1;
+};
+
 export type CorrectionRecordRequest = {
   "fix"?: string;
   "issue"?: string;
   "severity"?: string;
   "step_id"?: string;
+};
+
+export type CreateDeliveryRequest = {
+  "contract_review_pack": ContractReviewPackV1;
+  "delivery_formula_version": string;
+  "expiry_seconds": number;
+  "final_memorial_id": string;
+  "final_memorial_version": number;
+  "idempotency_key": string;
+  "task_id": string;
 };
 
 export type CreateSwarmRunRequest = {
@@ -302,15 +391,21 @@ export type DecisionJudgmentRequest = {
 };
 
 export type DecisionRequest = {
-  "action": "approve" | "archive" | "adopt" | "reject" | "request_evidence" | "recheck" | "followup";
+  "action": "approve" | "archive" | "adopt" | "reject" | "request_evidence" | "recheck" | "followup" | "cancel";
+  "expected_final_memorial_content_hash"?: string | null;
   "followup_question"?: string | null;
   "human_confirmation_note"?: string | null;
   "human_confirmed"?: boolean;
   "reason"?: string;
 };
 
+export type DeliveryCommandResponse = {
+  "manifest": PublicArtifactManifest;
+  "resume_token"?: string | null;
+};
+
 export type DeptFlowsRequest = {
-  "flow_ids"?: string[];
+  "flow_ids"?: (string)[];
 };
 
 export type DeptInfo = {
@@ -349,22 +444,23 @@ export type DispatchRequest = {
   "intent"?: string;
   "mode"?: "scripted" | "hybrid" | "live" | null;
   "rawCommand": string;
-  "selectedCategories"?: CategorySelection[];
+  "selectedCategories"?: (CategorySelection)[];
   "stakes"?: string;
 };
 
 export type DomainExpertise = {
   "domain": string;
-  "keywords"?: string[];
+  "keywords"?: (string)[];
 };
 
 export type DraftEdictRequest = {
-  "archive_matches"?: {
+  "archive_matches"?: ({
   [key: string]: unknown;
-}[];
-  "attachments"?: {
+})[];
+  "attachments"?: ({
   [key: string]: unknown;
-}[];
+})[];
+  "contract_scope"?: ContractIntakeV1 | null;
   "evidence_summary"?: {
   [key: string]: unknown;
 } | null;
@@ -399,9 +495,9 @@ export type EdictReturnRequest = {
   "edictView"?: {
   [key: string]: unknown;
 } | null;
-  "finalOutputs"?: {
+  "finalOutputs"?: ({
   [key: string]: unknown;
-}[];
+})[];
   "jiqunTaskId"?: string | null;
   "mode"?: string | null;
   "sessionId"?: string | null;
@@ -422,6 +518,60 @@ export type EditFinalOutputResponse = {
   "status"?: string;
 };
 
+export type EvidenceBindData = {
+  "evidence_packet": EvidencePacketV1;
+  "rework_generation": EvidenceReworkGenerationV1;
+  "task_id": string;
+};
+
+export type EvidenceBindRequest = {
+  "artifact_id": string;
+  "contract_scope"?: ContractIntakeV1 | null;
+};
+
+export type EvidenceBindResponse = {
+  "data"?: EvidenceBindData | null;
+  "error"?: string | null;
+  "success": boolean;
+};
+
+export type EvidencePacketV1 = {
+  "content_hash": string;
+  "evidence_packet_id": string;
+  "evidence_status": "NONE" | "COLLECTING" | "PARTIAL" | "GROUNDED" | "CONFLICTED" | "STALE" | "UNVERIFIED";
+  "generation": number;
+  "input_digest": string;
+  "input_version_id": string;
+  "prior_final_memorial_content_hash": string;
+  "schema_version"?: "EvidencePacketV1";
+  "source_kind": "USER_UPLOAD" | "OFFICIAL_SOURCE" | "VERIFIED_TOOL" | "MANUAL_TEXT" | "URL" | "MODEL_ASSERTION";
+  "source_ref": string;
+  "task_id": string;
+  "tenant_id": number;
+  "verification_receipt_id"?: string | null;
+};
+
+export type EvidenceReworkGenerationV1 = {
+  "affected_sections": ("contract_review")[];
+  "contract_review_pack_id"?: string | null;
+  "contract_scope"?: ContractIntakeV1 | null;
+  "court_review_id"?: string | null;
+  "evidence_packets"?: (EvidencePacketV1)[] | null;
+  "evidence_request": EvidenceReworkRequestV1;
+  "evidence_status"?: "NONE" | "COLLECTING" | "PARTIAL" | "GROUNDED" | "CONFLICTED" | "STALE" | "UNVERIFIED";
+  "gate_reasons"?: (string)[] | null;
+  "generation": number;
+  "generation_id": string;
+  "prior_final_memorial_content_hash": string;
+  "schema_version"?: "EvidenceReworkGenerationV1";
+  "status": "awaiting_evidence" | "evidence_bound" | "pending" | "candidate_ready" | "quality_blocked";
+};
+
+export type EvidenceReworkRequestV1 = {
+  "followup_question"?: string | null;
+  "reason": string;
+};
+
 export type FeatureFlagUpdateRequest = {
   "description"?: string;
   "enabled"?: boolean;
@@ -433,12 +583,21 @@ export type FeedbackSaveResponse = {
   "status"?: string;
 };
 
+export type FinalMemorialIdentityV1 = {
+  "court_review_id": string;
+  "final_memorial_content_hash": string;
+  "final_memorial_id": string;
+  "final_memorial_version": number;
+  "source_label": string;
+  "status": string;
+};
+
 export type FinanceIntelLoopCompleteRequest = {
   "edictMode"?: "public" | "secret";
   "executionType"?: string;
   "market"?: string;
   "question": string;
-  "sourceUrls"?: string[];
+  "sourceUrls"?: (string)[];
   "ticker": string;
 };
 
@@ -500,7 +659,7 @@ export type HealthResponse = {
 };
 
 export type HTTPValidationError = {
-  "detail"?: ValidationError[];
+  "detail"?: (ValidationError)[];
 };
 
 export type ImMessagePayload = {
@@ -518,10 +677,27 @@ export type ImPersistRequest = {
   "message": ImMessagePayload;
 };
 
+export type IngestArtifactV1 = {
+  "artifact_id": string;
+  "created_at": string;
+  "detected_format": "DOCX_OOXML" | "DOCX_ENCRYPTED" | "CORRUPTED" | "UNKNOWN";
+  "digest_sha256": string;
+  "file_size_bytes": number;
+  "injection_flag_categories"?: (string)[];
+  "macro_detected": boolean;
+  "mission_contract_id": string;
+  "ocr_status": "NOT_APPLICABLE" | "PENDING" | "LOW_CONFIDENCE" | "OK" | "FAILED";
+  "page_count"?: number | null;
+  "reject_reason"?: "FAKE_MIME" | "OVERSIZE" | "TOO_MANY_PAGES" | "CORRUPTED" | "ENCRYPTED" | "MACRO_DETECTED" | "ZIP_BOMB_SUSPECTED" | "INJECTION_SUSPECTED" | "MISSING_PURPOSE" | "UNKNOWN_PROVIDER" | null;
+  "schema_version"?: "IngestArtifactV1";
+  "status": "RECEIVED" | "VALIDATING" | "ACCEPTED" | "REJECTED";
+  "zip_bomb_suspected": boolean;
+};
+
 export type KnowledgeSearchResponse = {
-  "results": {
+  "results": ({
   [key: string]: unknown;
-}[];
+})[];
 };
 
 export type LipuComplianceRequest = {
@@ -549,9 +725,9 @@ export type LoginResponse = {
 };
 
 export type MemorialsListResponse = {
-  "items": {
+  "items": ({
   [key: string]: unknown;
-}[];
+})[];
   "total": number;
 };
 
@@ -559,7 +735,7 @@ export type MemoryCreateRequest = {
   "content": string;
   "description"?: string;
   "name": string;
-  "tags"?: string[];
+  "tags"?: (string)[];
   "type"?: string;
 };
 
@@ -568,7 +744,7 @@ export type MemoryHeaderItem = {
   "description"?: string;
   "filename": string;
   "name": string;
-  "tags"?: string[];
+  "tags"?: (string)[];
   "type": string;
   "updated_at"?: string;
   "updated_at_hint"?: string;
@@ -582,7 +758,7 @@ export type MemorySearchRequest = {
 export type MemoryUpdateRequest = {
   "content"?: string | null;
   "description"?: string | null;
-  "tags"?: string[] | null;
+  "tags"?: (string)[] | null;
 };
 
 export type MetricEventRequest = {
@@ -601,9 +777,9 @@ export type MissionConfirmRequest = {
 };
 
 export type MissionContractV1 = {
-  "assumptions": string[];
+  "assumptions": (string)[];
   "budget_limit_minor": number;
-  "constraints": string[];
+  "constraints": (string)[];
   "content_digest": string;
   "contract_type": "procurement" | "sales" | "service" | "UNSUPPORTED_OR_UNKNOWN";
   "created_at": string;
@@ -612,11 +788,12 @@ export type MissionContractV1 = {
   "goal": MissionGoal;
   "jurisdiction": "CN_MAINLAND" | "UNSUPPORTED_OR_UNKNOWN";
   "language": "zh-CN" | "UNSUPPORTED_OR_UNKNOWN";
+  "legal_question": "contract_risk_screening" | "UNSUPPORTED_OR_UNKNOWN";
   "mission_contract_id": string;
   "our_role": "buyer" | "seller" | "service_provider" | "other_party" | "UNSUPPORTED_OR_UNKNOWN";
   "plan_digest": string;
-  "prohibited_actions": string[];
-  "read_scope": string[];
+  "prohibited_actions": (string)[];
+  "read_scope": (string)[];
   "revision": number;
   "schema_version"?: "MissionContractV1";
   "task_id": string;
@@ -629,7 +806,12 @@ export type MissionGoal = {
 };
 
 export type MissionOutcome = {
-  "required_artifacts": "PDF" | "DOCX" | "JSON"[];
+  "required_artifacts": ("PDF" | "DOCX" | "JSON")[];
+};
+
+export type MissionSnapshotViewV1 = {
+  "mission": MissionContractV1;
+  "state": "DRAFT" | "CONFIRMED";
 };
 
 export type OkResponse = {
@@ -643,7 +825,7 @@ export type OpenClawReplyRequest = {
 export type OptimizeApplyRequest = {
   "author"?: string;
   "from_step"?: number;
-  "suggestion_indices"?: number[];
+  "suggestion_indices"?: (number)[];
 };
 
 export type OrchestrationRunRequest = {
@@ -664,23 +846,23 @@ export type OverviewMetrics = {
 
 export type OverviewResponse = {
   "generatedAt": string;
-  "memorialsToday": {
+  "memorialsToday": ({
   [key: string]: unknown;
-}[];
+})[];
   "metrics": OverviewMetrics;
-  "ministers": {
+  "ministers": ({
   [key: string]: unknown;
-}[];
-  "risks": {
+})[];
+  "risks": ({
   [key: string]: unknown;
-}[];
+})[];
   "systemStatus": SystemStatus;
 };
 
 export type PackSwarmLoopRequest = {
   "command": string;
   "mode"?: "order" | "secret";
-  "source_urls"?: string[];
+  "source_urls"?: (string)[];
 };
 
 export type PatchTaskRequest = {
@@ -713,7 +895,7 @@ export type PolishEdictRequest = {
 
 export type PreferenceUpdateRequest = {
   "avoid_pattern"?: string | null;
-  "domain_expertise"?: DomainExpertise[] | null;
+  "domain_expertise"?: (DomainExpertise)[] | null;
   "reason"?: string;
   "style_preferences"?: {
   [key: string]: unknown;
@@ -744,12 +926,12 @@ export type PromptGroupedAgent = {
 };
 
 export type PromptGroupedResponse = {
-  "swarms": PromptGroupedSwarm[];
-  "ungrouped": PromptGroupedAgent[];
+  "swarms": (PromptGroupedSwarm)[];
+  "ungrouped": (PromptGroupedAgent)[];
 };
 
 export type PromptGroupedSwarm = {
-  "agents": PromptGroupedAgent[];
+  "agents": (PromptGroupedAgent)[];
   "id": string;
   "name": string;
 };
@@ -779,18 +961,72 @@ export type PromptUpdateResponse = {
 };
 
 export type PromptUpgradesResponse = {
-  "proposals": unknown[];
+  "proposals": (unknown)[];
 };
 
 export type ProposalCreateRequest = {
-  "options"?: {
+  "options"?: ({
   [key: string]: unknown;
-}[];
+})[];
   "proposal_id": string;
   "proposer"?: string;
   "quorum"?: number;
   "strategy"?: string;
   "topic": string;
+};
+
+export type PublicArtifactDeliveryV1 = {
+  "artifacts": (PublicArtifactItemV1)[];
+  "delivery_formula_version": string;
+  "delivery_revision": number;
+  "final_memorial_id": string;
+  "final_memorial_version": number;
+  "manifest_id": string;
+  "overall_status": "READY" | "PARTIAL" | "UNDER_REVIEW";
+  "payload_hash": string;
+  "resume_token_expires_at"?: string | null;
+  "task_id": string;
+};
+
+export type PublicArtifactItem = {
+  "artifact_id": string;
+  "byte_size": number;
+  "content_hash": string;
+  "download_url"?: string | null;
+  "expires_at"?: string | null;
+  "incomplete_reason"?: string | null;
+  "kind": string;
+  "lineage_hash": string;
+  "mime_type": string;
+  "status": string;
+};
+
+export type PublicArtifactItemV1 = {
+  "artifact_id": string;
+  "byte_size": number;
+  "content_hash": string;
+  "download_url"?: string | null;
+  "expires_at"?: string | null;
+  "incomplete_reason"?: string | null;
+  "kind": "PDF" | "DOCX" | "JSON";
+  "lineage_hash": string;
+  "mime_type": string;
+  "status": "PENDING" | "STORED" | "UNAVAILABLE";
+};
+
+export type PublicArtifactManifest = {
+  "artifacts": (PublicArtifactItem)[];
+  "delivery_formula_version": string;
+  "delivery_revision": number;
+  "final_memorial_id": string;
+  "final_memorial_version": number;
+  "manifest_id": string;
+  "overall_status": string;
+  "payload_hash": string;
+  "resume_token_expires_at"?: string | null;
+  "schema_version": string;
+  "task_id": string;
+  "tenant_id": number;
 };
 
 export type QintianChatRequest = {
@@ -860,12 +1096,12 @@ export type ResearchBudgetLoopRequest = {
   "budgetPeriod"?: string;
   "currency"?: string;
   "department"?: string;
-  "evidenceRefs"?: {
+  "evidenceRefs"?: ({
   [key: string]: unknown;
-}[];
-  "lineItems"?: {
+})[];
+  "lineItems"?: ({
   [key: string]: unknown;
-}[];
+})[];
   "owner"?: string;
   "purpose"?: string;
   "requestedAmount"?: number;
@@ -875,6 +1111,11 @@ export type ResearchBudgetLoopRequest = {
 
 export type ResourceProfileUpdateRequest = {
   "mode": string;
+};
+
+export type ResumeDeliveryRequest = {
+  "idempotency_key": string;
+  "resume_token": string;
 };
 
 export type ReviewRequest = {
@@ -909,7 +1150,7 @@ export type SerialLoopRequest = {
   "confirmed_edict"?: {
   [key: string]: unknown;
 } | null;
-  "departments"?: string[];
+  "departments"?: (string)[];
   "mode"?: "dry_run" | "standard" | "deep" | "live_swarm";
   "review_id"?: string | null;
   "task_id": string;
@@ -943,8 +1184,8 @@ export type SwarmConfigBinding = {
 };
 
 export type SwarmConfigResponse = {
-  "bindings": SwarmConfigBinding[];
-  "swarms": SwarmConfigSwarm[];
+  "bindings": (SwarmConfigBinding)[];
+  "swarms": (SwarmConfigSwarm)[];
 };
 
 export type SwarmConfigSwarm = {
@@ -968,23 +1209,23 @@ export type SwarmRosterItem = {
 
 export type SwarmRunRequest = {
   "config_path"?: string;
-  "courtos_departments"?: string[];
+  "courtos_departments"?: (string)[];
   "courtos_edict_mode"?: string | null;
   "courtos_loop_trace_id"?: string | null;
-  "courtos_swarm_bundles"?: string[];
+  "courtos_swarm_bundles"?: (string)[];
   "courtos_task_id"?: string | null;
   "courtos_user_id"?: string | null;
   "entry_swarm"?: string | null;
   "evidence_bound_run"?: {
   [key: string]: unknown;
 } | null;
-  "evidence_refs"?: string[];
-  "forbidden_outputs"?: string[];
+  "evidence_refs"?: (string)[];
+  "forbidden_outputs"?: (string)[];
   "intelligence_pack"?: {
   [key: string]: unknown;
 } | null;
   "intelligence_pack_id"?: string | null;
-  "missing_evidence"?: string[];
+  "missing_evidence"?: (string)[];
   "privacy_mode"?: string | null;
   "project_id"?: string | null;
   "provider"?: string | null;
@@ -1027,6 +1268,23 @@ export type TaskAcceptedResponse = {
   "task_id": string;
 };
 
+export type TaskDecisionData = {
+  "archive_record"?: {
+  [key: string]: unknown;
+} | null;
+  "decision_id"?: string | null;
+  "rework_generation"?: EvidenceReworkGenerationV1 | null;
+  "sourceLabel": string;
+  "status": string;
+  "task_id": string;
+};
+
+export type TaskDecisionResponse = {
+  "data"?: TaskDecisionData | null;
+  "error"?: string | null;
+  "success": boolean;
+};
+
 export type TaskMonitorEntry = {
   "completed_steps"?: number;
   "config"?: string | null;
@@ -1039,7 +1297,7 @@ export type TaskMonitorEntry = {
   "run_id"?: string | null;
   "started_at"?: string | null;
   "status"?: string | null;
-  "step_names"?: string[];
+  "step_names"?: (string)[];
   "task_id": string;
   "task_input"?: string;
   "total_steps"?: number | null;
@@ -1050,8 +1308,8 @@ export type TaskProtocolPreviewRequest = {
 };
 
 export type TasksSnapshot = {
-  "recent": TaskMonitorEntry[];
-  "running": TaskMonitorEntry[];
+  "recent": (TaskMonitorEntry)[];
+  "running": (TaskMonitorEntry)[];
 };
 
 export type TaskStatusResponse = {
@@ -1136,7 +1394,7 @@ export type UserCreateRequest = {
 };
 
 export type UserDeptsRequest = {
-  "dept_ids"?: number[];
+  "dept_ids"?: (number)[];
 };
 
 export type UserInfo = {
@@ -1150,7 +1408,7 @@ export type UserInfo = {
 export type ValidationError = {
   "ctx"?: Record<string, unknown>;
   "input"?: unknown;
-  "loc": string | number[];
+  "loc": (string | number)[];
   "msg": string;
   "type": string;
 };
@@ -1171,14 +1429,14 @@ export type VoiceAction = {
 };
   "result"?: {
   [key: string]: unknown;
-} | unknown[] | string;
+} | (unknown)[] | string;
   "status"?: string | null;
   "tool"?: string;
   "type": string;
 };
 
 export type VoiceProcessResponse = {
-  "actions"?: VoiceAction[];
+  "actions"?: (VoiceAction)[];
   "caller_phone"?: string;
   "duration_ms"?: number;
   "error"?: string | null;
@@ -1199,7 +1457,7 @@ export type VoiceSession = {
 
 export type VoiceSessionsResponse = {
   "error"?: string | null;
-  "sessions": VoiceSession[];
+  "sessions": (VoiceSession)[];
 };
 
 export type VoteRequest = {
@@ -1244,7 +1502,7 @@ export type web__schemas__runs__FeedbackRequest = {
   [key: string]: number;
 };
   "rating"?: number | string | null;
-  "tags"?: string[];
+  "tags"?: (string)[];
   "thumb"?: string | null;
 };
 
@@ -1264,6 +1522,8 @@ export interface BackendApiRoutes {
   "GET /api/agents/registry": { method: "GET"; path: "/api/agents/registry"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/analytics": { method: "GET"; path: "/api/analytics"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/approval/pending": { method: "GET"; path: "/api/approval/pending"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/artifacts/{artifact_id}/download": { method: "GET"; path: "/api/artifacts/{artifact_id}/download"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/artifacts/manifests/{manifest_id}": { method: "GET"; path: "/api/artifacts/manifests/{manifest_id}"; requestBody: unknown; responses: {"200":"#/components/schemas/PublicArtifactManifest","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/auth/me": { method: "GET"; path: "/api/auth/me"; requestBody: unknown; responses: {"200":"#/components/schemas/AuthMeResponse","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/build-ledger": { method: "GET"; path: "/api/build-ledger"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/cases/approved": { method: "GET"; path: "/api/cases/approved"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
@@ -1298,6 +1558,7 @@ export interface BackendApiRoutes {
   "GET /api/compare": { method: "GET"; path: "/api/compare"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/compare/export": { method: "GET"; path: "/api/compare/export"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/compare/quality": { method: "GET"; path: "/api/compare/quality"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/contracts/tasks/{task_id}/read-model": { method: "GET"; path: "/api/contracts/tasks/{task_id}/read-model"; requestBody: unknown; responses: {"200":"#/components/schemas/ContractTaskReadModelV1","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/court-session/latest": { method: "GET"; path: "/api/court-session/latest"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/court/backend/tasks/{task_id}": { method: "GET"; path: "/api/court/backend/tasks/{task_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/court/build-ledger": { method: "GET"; path: "/api/court/build-ledger"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
@@ -1417,6 +1678,8 @@ export interface BackendApiRoutes {
   "GET /api/runs/stream/{task_id}/status": { method: "GET"; path: "/api/runs/stream/{task_id}/status"; requestBody: unknown; responses: {"200":"#/components/schemas/TaskStatusResponse","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/scribe/archive-docs": { method: "GET"; path: "/api/scribe/archive-docs"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/scribe/lessons": { method: "GET"; path: "/api/scribe/lessons"; requestBody: unknown; responses: {"200":"object"} };
+  "GET /api/secure-ingest/{artifact_id}/status": { method: "GET"; path: "/api/secure-ingest/{artifact_id}/status"; requestBody: unknown; responses: {"200":"#/components/schemas/IngestArtifactV1","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/secure-ingest/download/{ticket_id}": { method: "GET"; path: "/api/secure-ingest/download/{ticket_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/shangshufang/finance-intel-loop/cases/{task_id}": { method: "GET"; path: "/api/shangshufang/finance-intel-loop/cases/{task_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/shangshufang/home": { method: "GET"; path: "/api/shangshufang/home"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/shangshufang/im": { method: "GET"; path: "/api/shangshufang/im"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
@@ -1446,6 +1709,8 @@ export interface BackendApiRoutes {
   "POST /api/admin/depts": { method: "POST"; path: "/api/admin/depts"; requestBody: "#/components/schemas/DeptNameRequest"; responses: {"201":"#/components/schemas/DeptInfo","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/admin/tenants": { method: "POST"; path: "/api/admin/tenants"; requestBody: "#/components/schemas/TenantCreateRequest"; responses: {"201":"#/components/schemas/TenantCreatedResponse","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/admin/users": { method: "POST"; path: "/api/admin/users"; requestBody: "#/components/schemas/UserCreateRequest"; responses: {"201":"#/components/schemas/UserCreatedResponse","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/artifacts/deliveries": { method: "POST"; path: "/api/artifacts/deliveries"; requestBody: "#/components/schemas/CreateDeliveryRequest"; responses: {"201":"#/components/schemas/DeliveryCommandResponse","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/artifacts/manifests/{manifest_id}/resume": { method: "POST"; path: "/api/artifacts/manifests/{manifest_id}/resume"; requestBody: "#/components/schemas/ResumeDeliveryRequest"; responses: {"200":"#/components/schemas/DeliveryCommandResponse","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/auth/login": { method: "POST"; path: "/api/auth/login"; requestBody: "#/components/schemas/LoginRequest"; responses: {"200":"#/components/schemas/LoginResponse","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/auth/logout": { method: "POST"; path: "/api/auth/logout"; requestBody: unknown; responses: {"200":"#/components/schemas/StatusResponse"} };
   "POST /api/auth/register": { method: "POST"; path: "/api/auth/register"; requestBody: "#/components/schemas/web__schemas__auth__RegisterRequest"; responses: {"201":"#/components/schemas/RegisterResponse","422":"#/components/schemas/HTTPValidationError"} };
@@ -1563,8 +1828,10 @@ export interface BackendApiRoutes {
   "POST /api/runs/stream/{task_id}/openclaw_reply": { method: "POST"; path: "/api/runs/stream/{task_id}/openclaw_reply"; requestBody: "#/components/schemas/OpenClawReplyRequest"; responses: {"200":"#/components/schemas/OkResponse","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/runs/stream/{task_id}/reject": { method: "POST"; path: "/api/runs/stream/{task_id}/reject"; requestBody: unknown; responses: {"200":"#/components/schemas/OkResponse","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/scribe/annals": { method: "POST"; path: "/api/scribe/annals"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/shangshufang/briefs/{brief_id}/decision": { method: "POST"; path: "/api/shangshufang/briefs/{brief_id}/decision"; requestBody: "#/components/schemas/BriefDecisionAdvanceRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/shangshufang/briefs/{brief_id}/decision/advance": { method: "POST"; path: "/api/shangshufang/briefs/{brief_id}/decision/advance"; requestBody: "#/components/schemas/BriefDecisionAdvanceRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/secure-ingest/{artifact_id}/ticket": { method: "POST"; path: "/api/secure-ingest/{artifact_id}/ticket"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/secure-ingest/upload": { method: "POST"; path: "/api/secure-ingest/upload"; requestBody: unknown; responses: {"200":"#/components/schemas/IngestArtifactV1","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/shangshufang/briefs/{brief_id}/decision": { method: "POST"; path: "/api/shangshufang/briefs/{brief_id}/decision"; requestBody: "#/components/schemas/BriefDecisionAdvanceRequest"; responses: {"200":"#/components/schemas/TaskDecisionResponse","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/shangshufang/briefs/{brief_id}/decision/advance": { method: "POST"; path: "/api/shangshufang/briefs/{brief_id}/decision/advance"; requestBody: "#/components/schemas/BriefDecisionAdvanceRequest"; responses: {"200":"#/components/schemas/TaskDecisionResponse","404":"unknown","409":"unknown","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/shangshufang/chancellor-chat": { method: "POST"; path: "/api/shangshufang/chancellor-chat"; requestBody: "#/components/schemas/ChancellorChatRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/shangshufang/confirm-edict": { method: "POST"; path: "/api/shangshufang/confirm-edict"; requestBody: "#/components/schemas/ConfirmEdictRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/shangshufang/draft-edict": { method: "POST"; path: "/api/shangshufang/draft-edict"; requestBody: "#/components/schemas/DraftEdictRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
@@ -1576,7 +1843,8 @@ export interface BackendApiRoutes {
   "POST /api/shangshufang/pack-swarm-loop": { method: "POST"; path: "/api/shangshufang/pack-swarm-loop"; requestBody: "#/components/schemas/PackSwarmLoopRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/shangshufang/polish-edict": { method: "POST"; path: "/api/shangshufang/polish-edict"; requestBody: "#/components/schemas/PolishEdictRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/shangshufang/research-budget-loop": { method: "POST"; path: "/api/shangshufang/research-budget-loop"; requestBody: "#/components/schemas/ResearchBudgetLoopRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/shangshufang/tasks/{task_id}/decision": { method: "POST"; path: "/api/shangshufang/tasks/{task_id}/decision"; requestBody: "#/components/schemas/DecisionRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/shangshufang/tasks/{task_id}/decision": { method: "POST"; path: "/api/shangshufang/tasks/{task_id}/decision"; requestBody: "#/components/schemas/DecisionRequest"; responses: {"200":"#/components/schemas/TaskDecisionResponse","404":"unknown","409":"unknown","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/shangshufang/tasks/{task_id}/rework-generations/{generation_id}/evidence": { method: "POST"; path: "/api/shangshufang/tasks/{task_id}/rework-generations/{generation_id}/evidence"; requestBody: "#/components/schemas/EvidenceBindRequest"; responses: {"200":"#/components/schemas/EvidenceBindResponse","403":"unknown","404":"unknown","409":"unknown","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/shangshufang/tasks/{task_id}/swarm-deepen": { method: "POST"; path: "/api/shangshufang/tasks/{task_id}/swarm-deepen"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/shiguan/archives/{archive_id}/retrospective": { method: "POST"; path: "/api/shiguan/archives/{archive_id}/retrospective"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/swarm-runs": { method: "POST"; path: "/api/swarm-runs"; requestBody: "anyOf:#/components/schemas/CreateSwarmRunRequest|null"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };

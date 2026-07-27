@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-07-21",
-  "routeCount": 352,
+  "routeCount": 362,
   "routes": [
     {
       "key": "DELETE /api/admin/depts/{dept_id}",
@@ -209,6 +209,34 @@
       "requestBody": "unknown",
       "responses": {
         "200": "object",
+        "422": "#/components/schemas/HTTPValidationError"
+      }
+    },
+    {
+      "key": "GET /api/artifacts/{artifact_id}/download",
+      "method": "GET",
+      "path": "/api/artifacts/{artifact_id}/download",
+      "operationId": "download_artifact_api_artifacts__artifact_id__download_get",
+      "tags": [
+        "artifacts"
+      ],
+      "requestBody": "unknown",
+      "responses": {
+        "200": "object",
+        "422": "#/components/schemas/HTTPValidationError"
+      }
+    },
+    {
+      "key": "GET /api/artifacts/manifests/{manifest_id}",
+      "method": "GET",
+      "path": "/api/artifacts/manifests/{manifest_id}",
+      "operationId": "read_manifest_api_artifacts_manifests__manifest_id__get",
+      "tags": [
+        "artifacts"
+      ],
+      "requestBody": "unknown",
+      "responses": {
+        "200": "#/components/schemas/PublicArtifactManifest",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -685,6 +713,20 @@
       "requestBody": "unknown",
       "responses": {
         "200": "object",
+        "422": "#/components/schemas/HTTPValidationError"
+      }
+    },
+    {
+      "key": "GET /api/contracts/tasks/{task_id}/read-model",
+      "method": "GET",
+      "path": "/api/contracts/tasks/{task_id}/read-model",
+      "operationId": "read_contract_task_model_api_contracts_tasks__task_id__read_model_get",
+      "tags": [
+        "contracts"
+      ],
+      "requestBody": "unknown",
+      "responses": {
+        "200": "#/components/schemas/ContractTaskReadModelV1",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2334,6 +2376,34 @@
       }
     },
     {
+      "key": "GET /api/secure-ingest/{artifact_id}/status",
+      "method": "GET",
+      "path": "/api/secure-ingest/{artifact_id}/status",
+      "operationId": "get_artifact_status_api_secure_ingest__artifact_id__status_get",
+      "tags": [
+        "secure_ingest"
+      ],
+      "requestBody": "unknown",
+      "responses": {
+        "200": "#/components/schemas/IngestArtifactV1",
+        "422": "#/components/schemas/HTTPValidationError"
+      }
+    },
+    {
+      "key": "GET /api/secure-ingest/download/{ticket_id}",
+      "method": "GET",
+      "path": "/api/secure-ingest/download/{ticket_id}",
+      "operationId": "redeem_ticket_api_secure_ingest_download__ticket_id__get",
+      "tags": [
+        "secure_ingest"
+      ],
+      "requestBody": "unknown",
+      "responses": {
+        "200": "object",
+        "422": "#/components/schemas/HTTPValidationError"
+      }
+    },
+    {
       "key": "GET /api/shangshufang/finance-intel-loop/cases/{task_id}",
       "method": "GET",
       "path": "/api/shangshufang/finance-intel-loop/cases/{task_id}",
@@ -2735,6 +2805,34 @@
       "requestBody": "#/components/schemas/UserCreateRequest",
       "responses": {
         "201": "#/components/schemas/UserCreatedResponse",
+        "422": "#/components/schemas/HTTPValidationError"
+      }
+    },
+    {
+      "key": "POST /api/artifacts/deliveries",
+      "method": "POST",
+      "path": "/api/artifacts/deliveries",
+      "operationId": "create_delivery_api_artifacts_deliveries_post",
+      "tags": [
+        "artifacts"
+      ],
+      "requestBody": "#/components/schemas/CreateDeliveryRequest",
+      "responses": {
+        "201": "#/components/schemas/DeliveryCommandResponse",
+        "422": "#/components/schemas/HTTPValidationError"
+      }
+    },
+    {
+      "key": "POST /api/artifacts/manifests/{manifest_id}/resume",
+      "method": "POST",
+      "path": "/api/artifacts/manifests/{manifest_id}/resume",
+      "operationId": "resume_delivery_api_artifacts_manifests__manifest_id__resume_post",
+      "tags": [
+        "artifacts"
+      ],
+      "requestBody": "#/components/schemas/ResumeDeliveryRequest",
+      "responses": {
+        "200": "#/components/schemas/DeliveryCommandResponse",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4374,6 +4472,34 @@
       }
     },
     {
+      "key": "POST /api/secure-ingest/{artifact_id}/ticket",
+      "method": "POST",
+      "path": "/api/secure-ingest/{artifact_id}/ticket",
+      "operationId": "issue_ticket_api_secure_ingest__artifact_id__ticket_post",
+      "tags": [
+        "secure_ingest"
+      ],
+      "requestBody": "unknown",
+      "responses": {
+        "200": "object",
+        "422": "#/components/schemas/HTTPValidationError"
+      }
+    },
+    {
+      "key": "POST /api/secure-ingest/upload",
+      "method": "POST",
+      "path": "/api/secure-ingest/upload",
+      "operationId": "upload_artifact_api_secure_ingest_upload_post",
+      "tags": [
+        "secure_ingest"
+      ],
+      "requestBody": "unknown",
+      "responses": {
+        "200": "#/components/schemas/IngestArtifactV1",
+        "422": "#/components/schemas/HTTPValidationError"
+      }
+    },
+    {
       "key": "POST /api/shangshufang/briefs/{brief_id}/decision",
       "method": "POST",
       "path": "/api/shangshufang/briefs/{brief_id}/decision",
@@ -4383,7 +4509,7 @@
       ],
       "requestBody": "#/components/schemas/BriefDecisionAdvanceRequest",
       "responses": {
-        "200": "object",
+        "200": "#/components/schemas/TaskDecisionResponse",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4397,7 +4523,9 @@
       ],
       "requestBody": "#/components/schemas/BriefDecisionAdvanceRequest",
       "responses": {
-        "200": "object",
+        "200": "#/components/schemas/TaskDecisionResponse",
+        "404": "unknown",
+        "409": "unknown",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4565,7 +4693,26 @@
       ],
       "requestBody": "#/components/schemas/DecisionRequest",
       "responses": {
-        "200": "object",
+        "200": "#/components/schemas/TaskDecisionResponse",
+        "404": "unknown",
+        "409": "unknown",
+        "422": "#/components/schemas/HTTPValidationError"
+      }
+    },
+    {
+      "key": "POST /api/shangshufang/tasks/{task_id}/rework-generations/{generation_id}/evidence",
+      "method": "POST",
+      "path": "/api/shangshufang/tasks/{task_id}/rework-generations/{generation_id}/evidence",
+      "operationId": "bind_rework_generation_evidence_api_shangshufang_tasks__task_id__rework_generations__generation_id__evidence_post",
+      "tags": [
+        "shangshufang"
+      ],
+      "requestBody": "#/components/schemas/EvidenceBindRequest",
+      "responses": {
+        "200": "#/components/schemas/EvidenceBindResponse",
+        "403": "unknown",
+        "404": "unknown",
+        "409": "unknown",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
