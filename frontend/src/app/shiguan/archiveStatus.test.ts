@@ -38,16 +38,39 @@ test("史馆筛选查询：裁剪空白并忽略空条件", () => {
 });
 
 test("史馆页面展示归档证据的事实绑定与 MCP 访问溯源", async () => {
-  const source = await readFile(
-    new URL("./ShiguanClient.tsx", import.meta.url),
-    "utf8",
-  );
-  assert.match(source, /evidenceReferences/);
-  assert.match(source, /category/);
-  assert.match(source, /dataScope/);
-  assert.match(source, /subject/);
-  assert.match(source, /jurisdiction/);
-  assert.match(source, /accessUrl/);
-  assert.match(source, /accessMetadata/);
-  assert.match(source, /MCP/);
+  const [source, detail] = await Promise.all([
+    readFile(new URL("./ShiguanClient.tsx", import.meta.url), "utf8"),
+    readFile(
+      new URL("../../features/shiguan-visual/ShiguanArchiveDetail.tsx", import.meta.url),
+      "utf8",
+    ),
+  ]);
+  assert.match(source, /ShiguanWorkspace/);
+  assert.match(detail, /evidenceReferences/);
+  assert.match(detail, /category/);
+  assert.match(detail, /dataScope/);
+  assert.match(detail, /subject/);
+  assert.match(detail, /jurisdiction/);
+  assert.match(detail, /sourceUrl/);
+  assert.match(detail, /accessUrl/);
+  assert.match(detail, /accessMetadata/);
+  assert.match(detail, /snapshot\.value/);
+  assert.match(detail, /snapshot\.unit/);
+  assert.match(detail, /snapshot\.asOf/);
+  assert.match(detail, /snapshot\.publishedAt/);
+  assert.match(detail, /snapshot\.retrievedAt/);
+  assert.match(detail, /snapshot\.publisher/);
+  assert.match(detail, /snapshot\.sourceType/);
+  assert.match(detail, /snapshot\.coverage/);
+  assert.match(detail, /snapshot\.licenseNote/);
+  assert.match(detail, /snapshot\.quality/);
+  assert.match(detail, /snapshot\.stance/);
+  assert.match(detail, /snapshot\.contentHash/);
+  assert.match(detail, /snapshot\.confidence/);
+  assert.match(detail, /reference\.packId/);
+  assert.match(detail, /reference\.investigationId/);
+  assert.match(detail, /reference\.ordinal/);
+  assert.match(detail, /serverId/);
+  assert.match(detail, /toolName/);
+  assert.match(detail, /MCP/);
 });
