@@ -9,14 +9,14 @@
 | --- | --- |
 | Change ID | feat-r0-w07-a0-runnable-minimum-20260727 |
 | 类型 | feat |
-| 状态 | `REVIEWED_NO_GO / REMEDIATION_IN_PROGRESS / NOT_DEPLOYED` |
+| 状态 | `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING / NOT_DEPLOYED` |
 | Owner | Codex W07 Implementation Lead |
 | Product Owner | `lyt` |
 | 创建日期 | `2026-07-27` |
 | Base H | `ed822255a452e8dd8dda8f86a180fd7c099b181e` |
 | Base tree | `0a56a0eab0135dcf46c31e5ae2cbc46f501cfdcb` |
-| Implementation candidate H | `029f836216de0ddf5361e24e886ab797202aae83` |
-| Implementation candidate tree | `9eb003f98f2cada1b280f283d45fcf9ed4402920` |
+| Implementation candidate H | `fd5886855d064ee3100b75a7311f41e47acef632` |
+| Implementation candidate tree | `e94686a92fdf08987e522620bd8a84161485d341` |
 | Integration target | local `feature-chaotang-ext` |
 | Authority before first edit | v1 `VALID_INACTIVE_GUARD`; v2 W07 `GO / APPROVED_WORK_PACKAGE` |
 
@@ -208,3 +208,31 @@ Codex 只读审查均为 `NO-GO`：
 
 三项均落在已批准的 router、rework contract、frontend selection 和 focused tests
 范围内。`029f8362...` 不得整合 EXT，进入下一轮最小 TDD remediation。
+
+## Latest Review Remediation Candidate
+
+Product Owner 批准的三项适用 finding 已按 TDD 闭环：
+
+1. final decision 取得共享 task lock 后，使用 `populate_existing()` fresh reload
+   requested CourtReview，再校验 exact task/tenant/final lineage；持久 review 在锁前后
+   发生变化时零 decision、零 archive。
+2. current 与 parent-compatible evidence-rework payload 在 worker 和 read projection
+   中均绑定 exact durable event id、generation 和状态组合；损坏 envelope 进入普通
+   audited failure/retry，不再被误标为 `superseded`。
+3. legacy query 只约束当前 exact memorial；用户在同页选中服务端分类的合同任务时，
+   URL 同步为新 task identity、typed panel 恢复、legacy decision actions 保持关闭。
+
+fresh implementation candidate：
+
+- H `fd5886855d064ee3100b75a7311f41e47acef632`
+- tree `e94686a92fdf08987e522620bd8a84161485d341`
+- parent `5b026343c0343e9b66a78d561e5765806fe6bae0`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `dd9fa9fe7057c70c423a27a8ce886727104d47ae29a2b6a93dbbecae1ea6d880`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本节不预判独立审查结论。候选未执行 Checkpoint B、push、部署、持久数据库迁移或
+listener 3050 操作。

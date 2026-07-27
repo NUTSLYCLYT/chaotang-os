@@ -445,6 +445,32 @@ implementation `029f836216de0ddf5361e24e886ab797202aae83`、tree
 三项均有独立静态路径或探针证据，且仍在 Product Owner 已批准的 Seventh Review
 remediation 文件范围内。`029f8362...` 状态为 `REJECTED / NOT_DEPLOYED`。
 
+## Latest Review Remediation Evidence
+
+Product Owner 已批准在既有 Seventh Review remediation scope 内修复
+`029f8362...` 两路 review 的全部 `HIGH 1 / MEDIUM 2`。本轮未执行 Checkpoint B
+或修改持久数据库 schema。
+
+| Finding | Remediation | Fresh evidence |
+| --- | --- | --- |
+| stale CourtReview identity | task lock 后 fresh reload requested review，再绑定 task/tenant/current final | persisted review drift API zero-write test |
+| parent payload envelope | current/parent payload 均校验 event id、generation、durable/payload status pairing | contract helper、worker audited retry、projection tests |
+| stale legacy query | query 只约束 exact active memorial；同页 server contract selection 同步 URL identity | 6 Node selection tests + real JWT Playwright |
+
+exact implementation candidate：
+
+- H `fd5886855d064ee3100b75a7311f41e47acef632`
+- tree `e94686a92fdf08987e522620bd8a84161485d341`
+- parent `5b026343c0343e9b66a78d561e5765806fe6bae0`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `dd9fa9fe7057c70c423a27a8ce886727104d47ae29a2b6a93dbbecae1ea6d880`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本节只登记待审候选，不预判两路 Codex 独立只读审查结论。
+
 ## Latest Seventh-Review Candidate Verdict
 
 Review envelope `857930ed5e9961fecfcd9d3d00298b9bb0ea2296` 对 implementation
