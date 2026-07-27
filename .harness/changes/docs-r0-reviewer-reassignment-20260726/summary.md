@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `QUIESCENT_REGISTRATION_CANDIDATE / OWNER_APPROVED / NOT_AUTHORIZED` |
+| Status | `REFRESH_QUIESCENT_REGISTRATION_CANDIDATE / OWNER_APPROVED / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -17,15 +17,17 @@ Prepare a W07-only reviewer reassignment from `Claude Code` to
 
 ## Current State
 
-This Packet is non-authorizing. Product Owner approval, both source-candidate
-reviews, the exact package, and the W07-only overlay exist on this isolated
-governance branch. They are not integrated into local EXT. The effective
-reviewer remains `Claude Code`, and W07 remains
-`STOP / NO_ACTIVE_WORK_PACKAGE`.
+This Packet is non-authorizing. The previously accepted overlay is registered
+in local EXT history. Event 2 now refreshes that W07-only overlay against
+authority candidate `eb6e86e586ab5401780e5b49cdcf32af5ee27f86`, tree
+`d08538039ad907c54bf1df41feaa3046097c91d9`, using exact package digest
+`e067b0241f7aa1fc1494b989daf432937a142da1616ea91f4f05190227ed1571`.
 
-Registration candidates `b781166a`, `7075c126`, `311555d0`, and `37f575bd`
-are rejected after independent review. The committed state containing this
-block is the quiescent registration candidate pending independent acceptance.
+Product Owner approval and two fresh read-only Codex GO reviews are recorded
+in the canonical evidence paths. The committed state containing this block is
+the Event 2 quiescent registration candidate pending exact-candidate
+verification and independent acceptance. It is not integrated into local EXT.
+W07 remains `STOP / NO_ACTIVE_WORK_PACKAGE`.
 
 ## Historical Timeline
 

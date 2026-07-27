@@ -2,7 +2,7 @@
 
 ## 状态
 
-`EVENT_1_VERIFIED / EXACT_H_RECEIPT_EXTERNAL / NON_AUTHORIZING`
+`EVENT_2_OVERLAY_REFRESH_REGISTRATION_CANDIDATE / NON_AUTHORIZING`
 
 ## Packet Preparation Baseline
 
@@ -116,6 +116,22 @@ state are unchanged.
 - W07 GO 证据。
 
 上述项目必须留空而不是填写临时值。本 Packet 不允许被解释为 activation evidence。
+
+## Event 2 Reviewer Overlay Refresh
+
+```text
+reviewed candidate = eb6e86e586ab5401780e5b49cdcf32af5ee27f86
+reviewed tree = d08538039ad907c54bf1df41feaa3046097c91d9
+review package sha256 =
+  e067b0241f7aa1fc1494b989daf432937a142da1616ea91f4f05190227ed1571
+owner approval sha256 =
+  8c59783ad3c56e35a9b897b7d331db922fe6529fc99a4295760abad3781b616f
+pass 1 = GO / HIGH 0 / MEDIUM 0
+pass 2 = GO / HIGH 0 / MEDIUM 0
+```
+
+正式验证必须在 Event 2 commit 冻结后重新运行。本段不预先声明 exact candidate
+通过，也不改变 W07 的 `STOP / NO_ACTIVE_WORK_PACKAGE`。
 
 ## 运行时边界
 

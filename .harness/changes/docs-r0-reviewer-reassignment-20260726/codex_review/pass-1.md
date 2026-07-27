@@ -1,9 +1,9 @@
 # Codex Independent QA Pass 1
 
-No HIGH or MEDIUM findings within the approved R0-W07 threat-model-B
-boundary. Exact candidate, tree, base ancestry, package digest/size, hardened
-diff equality, fail-closed authority probes, scope, and production boundaries
-passed. Root harness doctor reported zero errors and warnings.
+No HIGH, MEDIUM, or LOW findings within the approved R0-W07
+threat-model-B boundary. Candidate identity, tree, ancestry, exact package
+bytes, protected authority blobs, tests, doctors, quiescent authority state,
+scope, and production boundaries passed.
 
 <!-- reviewer-reassignment-evidence:start -->
 ```json
@@ -11,7 +11,7 @@ passed. Root harness doctor reported zero errors and warnings.
   "schemaVersion": "reviewer-reassignment-evidence.v1",
   "kind": "codex-independent-review",
   "pass": 1,
-  "sessionId": "019f9e8b-6947-7a63-a013-efd54f44dc01",
+  "sessionId": "019fa136-09a9-76c3-bb41-c423fecdf8b3",
   "reviewer": "Codex Independent QA",
   "rejectedSessionIds": [
     "019f9c33-5ae7-7b00-9c0c-1b3b3be8452d",
@@ -57,10 +57,10 @@ passed. Root harness doctor reported zero errors and warnings.
   ],
   "scope": ["R0-W07"],
   "baseH": "55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca",
-  "candidateH": "6c01c810e60a20e955c5fb650e78317365c0d6df",
-  "tree": "3c9dfce871c362e2e9d7e93f12d24db3847f9d8d",
+  "candidateH": "eb6e86e586ab5401780e5b49cdcf32af5ee27f86",
+  "tree": "d08538039ad907c54bf1df41feaa3046097c91d9",
   "reviewPackagePath": ".harness/changes/docs-r0-reviewer-reassignment-20260726/review_inputs/candidate.diff",
-  "reviewPackageSha256": "9fd0d7f60cc09362da78e3165d4e85283a69a178fd4a5faf6c920bba592a16f9",
+  "reviewPackageSha256": "e067b0241f7aa1fc1494b989daf432937a142da1616ea91f4f05190227ed1571",
   "verdict": "GO",
   "high": 0,
   "medium": 0,

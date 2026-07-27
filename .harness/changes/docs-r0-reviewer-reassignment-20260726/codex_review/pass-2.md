@@ -1,8 +1,8 @@
 # Codex Independent QA Pass 2
 
-No HIGH or MEDIUM findings. Exact candidate identity, tree, ancestry, package
-digest/size, hardened diff equality, focused adversarial checks, and quiescent
-W06/W07 authority probes passed.
+No HIGH, MEDIUM, or LOW findings. The independent governance, evidence,
+history, regression, exact package, authority, scope, and production-boundary
+checks passed. R0-W07 remains quiescent and not authorized.
 
 <!-- reviewer-reassignment-evidence:start -->
 ```json
@@ -10,7 +10,7 @@ W06/W07 authority probes passed.
   "schemaVersion": "reviewer-reassignment-evidence.v1",
   "kind": "codex-independent-review",
   "pass": 2,
-  "sessionId": "019f9e8b-9806-7e51-a02e-65ee0e36450a",
+  "sessionId": "019fa123-02b5-7dd2-87df-7de63fd52b9f",
   "reviewer": "Codex Independent QA",
   "rejectedSessionIds": [
     "019f9c33-5ae7-7b00-9c0c-1b3b3be8452d",
@@ -56,10 +56,10 @@ W06/W07 authority probes passed.
   ],
   "scope": ["R0-W07"],
   "baseH": "55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca",
-  "candidateH": "6c01c810e60a20e955c5fb650e78317365c0d6df",
-  "tree": "3c9dfce871c362e2e9d7e93f12d24db3847f9d8d",
+  "candidateH": "eb6e86e586ab5401780e5b49cdcf32af5ee27f86",
+  "tree": "d08538039ad907c54bf1df41feaa3046097c91d9",
   "reviewPackagePath": ".harness/changes/docs-r0-reviewer-reassignment-20260726/review_inputs/candidate.diff",
-  "reviewPackageSha256": "9fd0d7f60cc09362da78e3165d4e85283a69a178fd4a5faf6c920bba592a16f9",
+  "reviewPackageSha256": "e067b0241f7aa1fc1494b989daf432937a142da1616ea91f4f05190227ed1571",
   "verdict": "GO",
   "high": 0,
   "medium": 0,

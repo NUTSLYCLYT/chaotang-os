@@ -13,10 +13,10 @@ candidate. This approval does not activate R0-W07.
   "approver": "lyt",
   "scope": ["R0-W07"],
   "baseH": "55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca",
-  "candidateH": "6c01c810e60a20e955c5fb650e78317365c0d6df",
-  "tree": "3c9dfce871c362e2e9d7e93f12d24db3847f9d8d",
+  "candidateH": "eb6e86e586ab5401780e5b49cdcf32af5ee27f86",
+  "tree": "d08538039ad907c54bf1df41feaa3046097c91d9",
   "reviewPackagePath": ".harness/changes/docs-r0-reviewer-reassignment-20260726/review_inputs/candidate.diff",
-  "reviewPackageSha256": "9fd0d7f60cc09362da78e3165d4e85283a69a178fd4a5faf6c920bba592a16f9",
+  "reviewPackageSha256": "e067b0241f7aa1fc1494b989daf432937a142da1616ea91f4f05190227ed1571",
   "rejectedSessionIds": [
     "019f9c33-5ae7-7b00-9c0c-1b3b3be8452d",
     "019f9c33-5b1f-7360-a217-1c3d827045d5",
@@ -63,13 +63,13 @@ candidate. This approval does not activate R0-W07.
   "reviews": [
     {
       "path": ".harness/changes/docs-r0-reviewer-reassignment-20260726/codex_review/pass-1.md",
-      "sessionId": "019f9e8b-6947-7a63-a013-efd54f44dc01",
-      "sha256": "6ad0418e9495cd02c1719404d035ae2b11dd309527c76623ebdd0342d8443c29"
+      "sessionId": "019fa136-09a9-76c3-bb41-c423fecdf8b3",
+      "sha256": "0361d649584fb88fb66dc3f1cc87c2549af6a040c00956f7180d5cd9269339b6"
     },
     {
       "path": ".harness/changes/docs-r0-reviewer-reassignment-20260726/codex_review/pass-2.md",
-      "sessionId": "019f9e8b-9806-7e51-a02e-65ee0e36450a",
-      "sha256": "e9fea702e0a618afb8ed77b6bafffd36127f5992f990c10b32248502e211c7b7"
+      "sessionId": "019fa123-02b5-7dd2-87df-7de63fd52b9f",
+      "sha256": "3d5fbf6fe56d62cb791d0eae902e874f8187b79744c2c2771c3e33319938a5d4"
     }
   ]
 }

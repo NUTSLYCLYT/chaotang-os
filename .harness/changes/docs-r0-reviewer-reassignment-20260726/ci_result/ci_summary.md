@@ -2,7 +2,7 @@
 
 ## Evidence Status
 
-`QUIESCENT_REGISTRATION_CANDIDATE / OWNER_APPROVED / NOT_AUTHORIZED`
+`REFRESH_QUIESCENT_REGISTRATION_CANDIDATE / OWNER_APPROVED / NOT_AUTHORIZED`
 
 ## Current-State Pointer
 
@@ -14,6 +14,27 @@ authority or integration status.
 
 All sections below record point-in-time results at the named stage. They are
 evidence history, not current authority or current Packet status.
+
+## Event 2 Refresh Receipt
+
+```text
+base = 55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca
+reviewed candidate = eb6e86e586ab5401780e5b49cdcf32af5ee27f86
+reviewed tree = d08538039ad907c54bf1df41feaa3046097c91d9
+review package sha256 =
+  e067b0241f7aa1fc1494b989daf432937a142da1616ea91f4f05190227ed1571
+owner approval sha256 =
+  8c59783ad3c56e35a9b897b7d331db922fe6529fc99a4295760abad3781b616f
+pass 1 = GO / HIGH 0 / MEDIUM 0 / session 019fa136-09a9-76c3-bb41-c423fecdf8b3
+pass 1 sha256 =
+  0361d649584fb88fb66dc3f1cc87c2549af6a040c00956f7180d5cd9269339b6
+pass 2 = GO / HIGH 0 / MEDIUM 0 / session 019fa123-02b5-7dd2-87df-7de63fd52b9f
+pass 2 sha256 =
+  3d5fbf6fe56d62cb791d0eae902e874f8187b79744c2c2771c3e33319938a5d4
+```
+
+These identities authorize only a quiescent reviewer-overlay refresh
+candidate. They do not activate W07 and are not an integration approval.
 
 ## Historical Baseline
 

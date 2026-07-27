@@ -8,7 +8,7 @@
 | --- | --- |
 | Change ID | docs-r0-w07-exact-h-activation-b0df777a-20260727 |
 | 类型 | `docs` |
-| 状态 | `EVENT_1_IMPLEMENTATION / NON_AUTHORIZING` |
+| 状态 | `EVENT_2_OVERLAY_REFRESH_REGISTRATION_CANDIDATE / NON_AUTHORIZING` |
 | Owner | `EXT Master Governance` |
 | 创建日期 | `2026-07-27` |
 | 唯一集成目标 | local `feature-chaotang-ext` |
@@ -52,6 +52,18 @@ Product Owner 后续明确批准了 authority/profile TDD 实施。Event 1 只�
 
 Event 1 候选仍是非授权、静默状态；它只为 Event 2 reviewer overlay refresh 提供
 待审查的 authority bytes。
+
+## Event 2 Reviewer Overlay Refresh
+
+Event 1 exact candidate
+`eb6e86e586ab5401780e5b49cdcf32af5ee27f86`、tree
+`d08538039ad907c54bf1df41feaa3046097c91d9` 已由两轮 fresh/read-only Codex
+独立审查判定 `GO / HIGH 0 / MEDIUM 0`。Product Owner 已对 exact H、tree、
+review package digest 和两轮 review digest 作出仅限 R0-W07 reviewer overlay
+refresh 的批准。
+
+本 Event 2 候选只将上述证据和刷新后的 overlay 原子注册到隔离治理分支。它不修改
+W07 ledger，不激活 W07，也不构成本地 EXT 整合批准。
 
 ## 明确未授权
 

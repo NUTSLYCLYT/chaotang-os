@@ -39,10 +39,10 @@
 
 ## 后续 Event 2：Reviewer Overlay Refresh
 
-- [ ] 对 Event 1 的 protected authority blobs 生成 reviewer reassignment package。
-- [ ] 取得两轮 fresh/read-only Codex GO 和 Product Owner exact-H approval。
-- [ ] 以 quiescent forward event 刷新 W07-only overlay。
-- [ ] 证明旧 overlay 保留历史、W07 仍 STOP。
+- [x] 对 Event 1 的 protected authority blobs 生成 reviewer reassignment package。
+- [x] 取得两轮 fresh/read-only Codex GO 和 Product Owner exact-H approval。
+- [x] 以 quiescent forward event 刷新 W07-only overlay。
+- [x] 证明旧 overlay 保留历史、W07 仍 STOP。
 
 ## 后续 Event 3：Activation Evidence Registration Parent
 
