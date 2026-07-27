@@ -50,7 +50,9 @@ MissionContractV1
 - Backend contracts/runtime/routes/tests：
   `backend/src/contracts/`、`backend/src/contract_mission_repository.py`、
   `backend/src/contract_task_projection.py`、`backend/web/routers/contracts.py`、
-  `backend/web/routers/shangshufang.py`、focused `backend/tests/`。
+  `backend/src/decision_task_access.py`、`backend/src/contract_rework.py`、
+  `backend/web/routers/chaotang.py`、`backend/web/routers/shangshufang.py`、
+  focused `backend/tests/`。
 - Frontend generated contract/feature/tests：
   existing generated OpenAPI artifacts、`frontend/src/features/contract-review/`、
   hunk-only `ShangshufangPage.tsx`、`ShiguanPage.tsx`、focused `frontend/e2e/`。
@@ -80,6 +82,9 @@ MissionContractV1
 | nested RiskItem fallback/aggregate drift | effective source class fail closed，无 `DECIDE` | projection/API tests |
 | URL archiveId 与 receipt 不一致 | exact readback error，不回退 indexed detail | node/E2E |
 | manifest READY 但文件不可下载 | 公开状态降为 `UNDER_REVIEW` | projection/action tests |
+| 只有 legacy `contract_scope` | 所有 decision action 仍消费 server authority | API zero-write tests |
+| worker 处理途中 task/Mission 改变 | terminal 或 revision/digest drift fail closed | worker fence tests |
+| OpenAPI response 可达 schema 增加字段 | 固定 baseline 判定 breaking | Node guard tests |
 
 ## 风险与回滚
 
@@ -100,6 +105,11 @@ MissionContractV1
   endpoint 增加 `tenant_id + user_id` 双重所有权校验，并修改
   `backend/web/routers/shangshufang.py` 与 focused tests；补 seeded PARTIAL browser
   refresh 和固定 OpenAPI baseline。
+- 第七轮 scope amendment：允许新增修改
+  `backend/web/routers/chaotang.py`、`backend/src/decision_task_access.py`、
+  `backend/src/contract_rework.py` 及 focused tests，并在原批准范围内修复全部
+  HIGH/MEDIUM。该批准覆盖后续 exact review 对同一事实链发现的 H/M remediation，
+  但不扩展到 Checkpoint B。
 - 未批准：Checkpoint B、push、部署、数据库迁移、3050。
 
 ## 验收标准

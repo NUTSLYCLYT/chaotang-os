@@ -26,6 +26,14 @@
 | API stability test/generator | 0 | 6 passed；固定 ref 两次 PASS | 362 routes；0 breaking；新增 optional property warning | 2026-07-28 |
 | `NEXT_PUBLIC_API_MODE=real pnpm build` | 0 | pass | real-mode build | 2026-07-28 |
 | W07 Playwright | 0 | 1 passed | READY/PARTIAL、exact archive 只读右栏、tampered id | 2026-07-28 |
+| eighth remediation expanded backend suite | 0 | 484 passed, 2 skipped | W02-W07 contract、mission、artifact、worker、authz、legacy ownership | 2026-07-28 |
+| `ruff check <changed Python files>` | 0 | All checks passed | current implementation diff | 2026-07-28 |
+| contract-review Node + `tsc --noEmit` | 0 | 36 passed + typecheck pass | server selection、typed pack、closed-world、exact archive | 2026-07-28 |
+| API stability test/generator | 0 | 7 passed；362 routes；0 breaking | response-aware fixed-ref guard；双跑 deterministic | 2026-07-28 |
+| `NEXT_PUBLIC_API_MODE=real pnpm build` | 0 | pass | exact implementation real-mode build | 2026-07-28 |
+| W07 Playwright | 0 | 1 passed | exact implementation READY/PARTIAL/download/archive flow | 2026-07-28 |
+| backend/frontend doctor | 0 | 0 errors, 0 warnings | two owned harness layers | 2026-07-28 |
+| root doctor | 1 | expected exact-ref mismatch only | isolated candidate PRE_INTEGRATION fail-closed | 2026-07-28 |
 
 ## 结果
 
@@ -36,10 +44,12 @@ implementation candidate `5d5ff747850ee161a1b39af849f39a0732be15d9`, tree
 `492703ce9b6f89d57f5ac0b07082289426ed6b5e`, tree
 `6a2f5d859a1c4e6119e4d55e327823505895e9e7` 的两路 fresh review 均为
 `NO-GO`，合并 `HIGH 3 / MEDIUM 5 / LOW 1`。Product Owner 已批准第七轮
-remediation scope amendment；全部 HIGH/MEDIUM 已在 implementation
-`61805256968f23cc3bcafbdba4f1a251eadd8ed4`、tree
-`c47be09c7325f7d016a3be8362c2e55b194db22b` 闭环并通过 fresh tests。当前等待
-exact candidate 两路独立复审，仍不得整合。
+remediation scope amendment；其 implementation `61805256...` 随后的 review
+envelope `a7937d7e...` 两路仍为 `NO-GO`，合并适用项
+`HIGH 2 / MEDIUM 6 / LOW 1`。全部 H/M 已在新 implementation
+`7b8b84d20a3e21f38f89e97f590c554b4045081c`、tree
+`6263bf1d2a45a3b2dafdddc2ccdcd7b79cad07f8` 按 TDD 闭环并通过 fresh tests。
+当前等待该 exact candidate 两路独立复审，仍不得整合。
 
 ## 全仓既有 Residual
 
@@ -77,8 +87,9 @@ exact candidate 两路独立复审，仍不得整合。
 | no deployment or 3050 operation | isolated 3002/8081 config and report | PASS |
 | sixth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
 | seventh remediation | all approved HIGH/MEDIUM locally closed | PASS |
-| independent review | exact `61805256...` fresh two-pass | PENDING |
-| exact implementation candidate | `61805256...` / `c47be09c...` | PASS |
+| eighth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
+| independent review | exact `7b8b84d2...` fresh two-pass | PENDING |
+| exact implementation candidate | `7b8b84d2...` / `6263bf1d...` | PASS |
 
 ## 声明状态
 

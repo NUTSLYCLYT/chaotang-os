@@ -53,6 +53,12 @@
 - [x] exact remediation candidate 两路 fresh review 已完成，结论均为 `NO-GO`。
 - [x] 取得 legacy memorial tenant ownership 所需最小 scope amendment。
 - [x] 修复第七轮全部适用 HIGH/MEDIUM。
+- [x] exact `61805256...` review envelope `a7937d7e...` 两路复审完成，
+  结论均为 `NO-GO`。
+- [x] TDD 修复第八轮全部 H/M：scope-only authority、terminal worker fence、
+  Mission publication lock、legacy replay、server contract selection、response-aware
+  OpenAPI 和 cancellation fixtures。
+- [x] 冻结新 implementation candidate `7b8b84d2...` / `6263bf1d...`。
 - [ ] 在新 exact candidate 上取得 two-pass GO。
 - [ ] 冻结 exact candidate H/tree 和 `RUNNABLE_MINIMUM` receipt。
 

@@ -16,10 +16,10 @@
 | 1 | 需求分析 | DONE | request_analysis/spec.md, tasks.md |
 | 2 | 需求复核 | DONE | root accepted design Packet `ed822255...` |
 | 3 | 实现记录 | DONE | coding/coding_report_v1.md |
-| 4 | 代码复核 | AWAITING_REVIEW | seventh remediation `61805256...` 等待 fresh two-pass |
+| 4 | 代码复核 | AWAITING_REVIEW | eighth remediation `7b8b84d2...` 等待 fresh two-pass |
 | 5 | 测试计划 | DONE | unit_test/test_plan.md, e2e_test/e2e_plan.md |
 | 6 | 测试复核 | DONE | focused pass；browser READY + PARTIAL refresh |
-| 7 | 提交 / 收口 | DONE | implementation `61805256...`, tree `c47be09c...` |
+| 7 | 提交 / 收口 | DONE | implementation `7b8b84d2...`, tree `6263bf1d...` |
 | 8 | CI 验证 | PARTIAL | scoped PASS；canonical residual 1，root candidate expected STOP |
 | 9 | E2E 验证 | PASSED | e2e_test/e2e_summary.md |
 | 10 | 部署验证 | N/A | NOT_DEPLOYED; deployment/preview_report.md |

@@ -287,3 +287,52 @@ implementation candidate：
   NOT_DEPLOYED`
 
 第七轮 LOW visible loading 未包含在批准范围，本轮不顺带实现。
+
+## Eighth Candidate Verdict
+
+Review envelope `a7937d7edf8341990e3baaeeb992f386c88f8b39`, tree
+`019faafa0b59829fbae08dde37030ebf8ae65241` received two fresh independent
+Codex `NO-GO` verdicts:
+
+- backend/cross-boundary pass `019fa504-896e-7f21-8194-ca3cfa4d18f4`:
+  `HIGH 1 / MEDIUM 5 / LOW 0`;
+- frontend/contract pass `019fa504-cef7-7af3-833e-af91514eef2a`:
+  `HIGH 1 / MEDIUM 3 / LOW 1`.
+
+主控去重后的适用项为 `HIGH 2 / MEDIUM 6 / LOW 1`：
+
+1. HIGH：旧 evidence rework event 可在处理中恢复 terminal task；
+2. HIGH：只有 legacy `contract_scope` 的任务可绕过 server action authority；
+3. MEDIUM：普通任务列表选中服务端合同任务时仍可能暴露 legacy 动作；
+4. MEDIUM：OpenAPI guard 对 response 可达 schema 仍错误放行 optional property；
+5. MEDIUM：缺 Mission 的 rework worker 未明确 fail closed；
+6. MEDIUM：legacy cancel/recheck 重放会重复写 decision/timeline；
+7. MEDIUM：Mission 处理后到发布前存在 revision/digest drift 窗口；
+8. MEDIUM：直接 cancellation suite 的 legacy fixture 缺 tenant，无法提供回归证据；
+9. LOW：已缓存的前端 artifact expiry 不会本地实时关闭，只能等待服务端重投影。
+
+既有 LOW visible loading 仍是独立 residual，不计入上述两路新 review 数量。
+
+## Eighth Remediation Evidence
+
+| Finding | Remediation | Fresh evidence |
+| --- | --- | --- |
+| terminal worker resurrection | 处理前和 publication task lock 后均检查 terminal status | public worker interruption tests |
+| scope-only authority | `contract_scope` 也进入全部 contract action gate | 8-action zero-write table |
+| server contract selection | home summary 透传 `contract_scope`，仅 server-classified memorial 激活 typed panel | frontend task-selection tests |
+| response compatibility | 从旧 responses 递归计算 component reachability；response schema 增字段判 breaking | API guard Node tests |
+| missing Mission | worker 在任何 parse/write 前返回 `mission_missing` | worker missing-Mission test |
+| replay idempotency | terminal cancel / reviewing recheck 返回既有结果，不追加 decision/timeline | HTTP replay tests |
+| Mission publication | SQLite 使用既有写锁；PostgreSQL 最终重读前锁定 `court_loop_runs`，阻止事务内 publication drift | dialect lock + interruption tests |
+| cancellation fixtures | legacy task/review 显式 tenant 归属并直接复跑完整文件 | `test_task_cancellation.py` |
+| typed response | W07 read model 使用 required revision/digest 的专用 pack schema | OpenAPI/runtime tests |
+
+新 implementation candidate：
+
+- H `7b8b84d20a3e21f38f89e97f590c554b4045081c`
+- tree `6263bf1d2a45a3b2dafdddc2ccdcd7b79cad07f8`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本文件不预判 `7b8b84d2...` 的下一轮独立审查结论。

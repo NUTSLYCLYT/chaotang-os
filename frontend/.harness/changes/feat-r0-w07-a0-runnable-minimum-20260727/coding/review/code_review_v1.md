@@ -61,3 +61,18 @@ HIGH/MEDIUM：tenant ownership、decision authority、Mission revision/digest、
 terminal/clock/missing-review fail closed、closed-world parser 和 exact archive
 只读右栏。LOW visible loading 未包含在本轮批准范围。当前等待 exact candidate
 fresh two-pass，本文件不预先声明 GO。
+
+## Eighth Review
+
+review envelope `a7937d7e...` 两路均为 `NO-GO`，去重后为
+`HIGH 2 / MEDIUM 6 / LOW 1`。适用项覆盖 scope-only contract authority、
+terminal worker、服务端合同选择、response-aware OpenAPI、missing Mission、
+legacy replay、Mission publication window 和 cancellation fixtures。
+
+## Eighth Remediation
+
+上述 H/M 已在 `7b8b84d2...` 按 TDD 修复。Mission publication 在 PostgreSQL
+取得 `court_loop_runs` SHARE lock，SQLite 复用事务写锁；W07 response 使用 required
+revision/digest 的专用 pack schema。fresh backend 484、contract-review Node 36、
+typecheck/build/API/Playwright 均通过。当前仍等待该 exact H 的 fresh two-pass，
+本文件不预先声明 GO。

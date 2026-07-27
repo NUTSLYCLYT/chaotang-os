@@ -15,8 +15,8 @@
 | 创建日期 | `2026-07-27` |
 | Base H | `ed822255a452e8dd8dda8f86a180fd7c099b181e` |
 | Base tree | `0a56a0eab0135dcf46c31e5ae2cbc46f501cfdcb` |
-| Implementation candidate H | `61805256968f23cc3bcafbdba4f1a251eadd8ed4` |
-| Implementation candidate tree | `c47be09c7325f7d016a3be8362c2e55b194db22b` |
+| Implementation candidate H | `7b8b84d20a3e21f38f89e97f590c554b4045081c` |
+| Implementation candidate tree | `6263bf1d2a45a3b2dafdddc2ccdcd7b79cad07f8` |
 | Integration target | local `feature-chaotang-ext` |
 | Authority before first edit | v1 `VALID_INACTIVE_GUARD`; v2 W07 `GO / APPROVED_WORK_PACKAGE` |
 
@@ -58,6 +58,16 @@ root/task/blocker 及手工对象 closed-world；exact archive 右栏不再暴�
 property 分类为 warning，字段类型或 required 变化仍为 breaking。第七轮 LOW
 “visible loading”未获本轮 scope 批准，保留 residual。当前等待 exact candidate
 两路独立只读审查，不预先声明 GO 或允许整合。
+
+review envelope `a7937d7e...` 对 `61805256...` 的两路 Codex 复审继续为
+`NO-GO`，合并适用项为 `HIGH 2 / MEDIUM 6 / LOW 1`。本轮在既有批准范围内按
+TDD 补齐：scope-only contract action authority、terminal worker publication
+fence、Mission publication lock、legacy cancel/recheck 只读重放、服务端合同
+分类前端接线，以及 response-aware OpenAPI compatibility。fresh evidence 为
+backend `484 passed / 2 skipped`、contract-review Node `36 passed`、TypeScript、
+real-mode build、API guard `7 passed`、Playwright `1 passed` 和两层 doctor
+`0/0`。新 implementation candidate 已冻结为 `7b8b84d2...`、tree
+`6263bf1d...`；仍等待该 exact H 的两路独立只读审查，不允许整合 EXT。
 
 ## 允许范围
 
