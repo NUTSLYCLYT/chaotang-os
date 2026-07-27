@@ -8,6 +8,8 @@ from pydantic import ValidationError
 
 from src.contracts.evidence_rework_generation import (
     EvidenceReworkGenerationPayloadV1,
+    EvidenceReworkMissionIdentityMissing,
+    load_durable_evidence_rework_generation,
 )
 
 
@@ -39,9 +41,13 @@ def project_evidence_rework_generation(
         )
 
     try:
-        generation = EvidenceReworkGenerationPayloadV1.model_validate_json(
+        generation = load_durable_evidence_rework_generation(
             event.payload_json or "{}"
         )
+    except EvidenceReworkMissionIdentityMissing as exc:
+        raise EvidenceReworkUnavailable(
+            "补证 generation missing mission identity"
+        ) from exc
     except ValidationError as exc:
         raise RuntimeError(
             "evidence rework invariant: durable row contains an invalid payload"

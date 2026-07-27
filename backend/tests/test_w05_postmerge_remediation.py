@@ -403,6 +403,34 @@ def test_generation_projection_treats_invalid_payload_as_server_invariant() -> N
         )
 
 
+def test_projection_quarantines_parent_valid_payload_without_mission_identity():
+    from src.evidence_rework_projection import (
+        EvidenceReworkUnavailable,
+        project_evidence_rework_generation,
+    )
+
+    with pytest.raises(EvidenceReworkUnavailable, match="mission identity"):
+        project_evidence_rework_generation(
+            _ProjectionEvent(
+                status="pending",
+                payload_json=json.dumps(
+                    {
+                        "schema_version": "EvidenceReworkGenerationV1",
+                        "generation_id": "legacy-generation-2",
+                        "generation": 2,
+                        "status": "pending",
+                        "prior_final_memorial_content_hash": "a" * 64,
+                        "evidence_request": {
+                            "reason": "父版本生成的合法补证请求",
+                            "followup_question": None,
+                        },
+                        "affected_sections": ["contract_review"],
+                    }
+                ),
+            )
+        )
+
+
 def test_generation_projection_reports_authoritative_terminal_state() -> None:
     from src.evidence_rework_projection import (
         EvidenceReworkUnavailable,

@@ -1010,6 +1010,10 @@ def test_pack_only_contract_candidate_is_blocked_at_shared_writer(
         ("single_quote_marker", "{'contract_review':"),
         ("unicode_escaped_marker", r'{"\u0063ontract_review":'),
         ("generic_truncated_object", "{"),
+        ("json_array", "[]"),
+        ("json_null", "null"),
+        ("json_string", '"legacy"'),
+        ("empty_json_object", "{}"),
     ],
 )
 def test_malformed_pack_marker_cannot_downgrade_to_legacy_writer(
@@ -1076,6 +1080,60 @@ def test_malformed_pack_marker_cannot_downgrade_to_legacy_writer(
 
     with isolated_session_local() as db:
         assert _decision_state(db, task_id) == before
+
+
+def test_contract_final_decision_locks_before_authority_projection(
+    monkeypatch,
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    from web.routers import shangshufang
+
+    monkeypatch.setenv("FENGQUN_RUNTIME_ROOT", str(tmp_path))
+    task_id = "task-api-contract-lock-before-authority"
+    with isolated_session_local() as db:
+        from src.db.models import CourtReview
+
+        task = seed_contract_task(db, task_id=task_id)
+        final, _ = seed_final_memorial(db, task_id=task.id)
+        review = db.get(CourtReview, final.review_id)
+        assert review is not None
+        db.commit()
+
+        locked_task_ids: list[str] = []
+
+        def record_task_lock(_db, locked_task_id: str) -> None:
+            locked_task_ids.append(locked_task_id)
+
+        class AuthorityProbeReached(RuntimeError):
+            pass
+
+        def require_after_lock(_db, *, task, action) -> None:
+            assert action == "approve"
+            assert locked_task_ids == [task.id]
+            raise AuthorityProbeReached
+
+        monkeypatch.setattr(
+            "src.decision_task_access.lock_decision_task",
+            record_task_lock,
+        )
+        monkeypatch.setattr(
+            shangshufang,
+            "_require_contract_decision_action",
+            require_after_lock,
+        )
+
+        with pytest.raises(AuthorityProbeReached):
+            shangshufang._execute_final_memorial_decision(
+                db,
+                task=task,
+                review=review,
+                action="approve",
+                reason="裁决前必须先持有共享任务锁",
+                human_confirmed=True,
+                expected_content_hash=final.content_hash,
+                actor_user_id="7",
+            )
 
 
 def test_revise_verdict_cannot_be_approved_and_archived(

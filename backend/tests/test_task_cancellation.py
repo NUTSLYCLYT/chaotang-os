@@ -172,7 +172,6 @@ def test_concurrent_legacy_decision_replays_one_durable_result(
         expire_on_commit=False,
     )
     engine_module = importlib.import_module("src.db.engine")
-    router_module = importlib.import_module("web.routers.shangshufang")
     monkeypatch.setattr(engine_module, "SessionLocal", test_session)
 
     task_id = f"task_{action}_concurrent"
@@ -180,22 +179,23 @@ def test_concurrent_legacy_decision_replays_one_durable_result(
     _seed_task(db, task_id=task_id)
     db.close()
 
-    both_loaded = threading.Barrier(2)
-    classify_calls = threading.local()
-    original_is_contract_task = router_module._is_contract_task
+    from src import decision_task_access
 
-    def _pace_after_task_load(*args, **kwargs):
-        result = original_is_contract_task(*args, **kwargs)
-        call_count = getattr(classify_calls, "count", 0) + 1
-        classify_calls.count = call_count
+    both_ready_to_lock = threading.Barrier(2)
+    lock_calls = threading.local()
+    original_lock_decision_task = decision_task_access.lock_decision_task
+
+    def _pace_before_task_lock(db, locked_task_id):
+        call_count = getattr(lock_calls, "count", 0) + 1
+        lock_calls.count = call_count
         if call_count == 1:
-            both_loaded.wait(timeout=5)
-        return result
+            both_ready_to_lock.wait(timeout=5)
+        return original_lock_decision_task(db, locked_task_id)
 
     monkeypatch.setattr(
-        router_module,
-        "_is_contract_task",
-        _pace_after_task_load,
+        decision_task_access,
+        "lock_decision_task",
+        _pace_before_task_lock,
     )
 
     responses = []
@@ -226,7 +226,9 @@ def test_concurrent_legacy_decision_replays_one_durable_result(
 
     assert not errors
     assert len(responses) == 2
-    assert [response.status_code for response in responses] == [200, 200]
+    assert [response.status_code for response in responses] == [200, 200], [
+        response.text for response in responses
+    ]
 
     db = test_session()
     try:

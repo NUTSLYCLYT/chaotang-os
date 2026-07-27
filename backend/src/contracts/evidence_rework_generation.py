@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from src.contracts.evidence_packet import EvidencePacketV1, EvidenceStatus
 from src.contracts.mission_contract import ContractIntakeV1
@@ -95,3 +95,29 @@ class EvidenceReworkGenerationPayloadV1(EvidenceReworkGenerationV1):
             )
         )
         return public.to_payload()
+
+
+class EvidenceReworkMissionIdentityMissing(ValueError):
+    """A parent-valid durable payload predating the frozen Mission identity."""
+
+    def __init__(self, generation: EvidenceReworkGenerationV1) -> None:
+        super().__init__("durable evidence rework payload lacks mission identity")
+        self.generation = generation
+
+
+def load_durable_evidence_rework_generation(
+    payload_json: str,
+) -> EvidenceReworkGenerationPayloadV1:
+    """Read current payloads and identify valid parent payloads without mutation."""
+    try:
+        return EvidenceReworkGenerationPayloadV1.model_validate_json(payload_json)
+    except ValidationError as current_error:
+        try:
+            legacy_generation = EvidenceReworkGenerationV1.model_validate_json(
+                payload_json
+            )
+        except ValidationError as legacy_error:
+            raise current_error from legacy_error
+        raise EvidenceReworkMissionIdentityMissing(
+            legacy_generation
+        ) from current_error

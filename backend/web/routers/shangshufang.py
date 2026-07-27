@@ -427,7 +427,9 @@ def _is_contract_task(
         formal_payload = json.loads(formal.memorial_json)
     except json.JSONDecodeError:
         return True
-    return isinstance(formal_payload, dict) and "contract_review" in formal_payload
+    if not isinstance(formal_payload, dict) or not formal_payload:
+        return True
+    return "contract_review" in formal_payload
 
 
 def _contract_route_action_error(
@@ -1082,8 +1084,13 @@ def _execute_final_memorial_decision(
     confirmation_extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Single task/brief adjudication writer with exact-hash CAS and rework parity."""
+    from src.decision_task_access import lock_decision_task
+
+    lock_decision_task(db, task.id)
+    db.refresh(task)
     current_formal = (
         db.query(FinalMemorial)
+        .populate_existing()
         .filter_by(task_id=task.id, is_current=True)
         .first()
     )

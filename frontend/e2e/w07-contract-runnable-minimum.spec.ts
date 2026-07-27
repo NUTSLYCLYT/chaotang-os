@@ -8,6 +8,7 @@ import {
 const USERNAME = 'w07_runnable_user';
 const TASK_ID = 'task-w07-runnable-minimum';
 const PARTIAL_TASK_ID = `${TASK_ID}-partial`;
+const LEGACY_TASK_ID = `${TASK_ID}-legacy`;
 
 type HomeTask = {
   task_id: string;
@@ -96,6 +97,24 @@ test.describe('W07 contract RUNNABLE_MINIMUM', () => {
       );
       return response.status;
     }).toBe(200);
+
+    const legacyHomeResponse = page.waitForResponse((response) => (
+      response.url().includes('/api/shangshufang/home/v1')
+      && response.request().method() === 'GET'
+    ));
+    await page.goto(`/shangshufang?taskId=${LEGACY_TASK_ID}`);
+    const legacyHomePayload = await (await legacyHomeResponse).json() as {
+      data?: { pending_decisions?: HomeTask[] };
+    };
+    expect(
+      legacyHomePayload.data?.pending_decisions?.find(
+        (task) => task.task_id === LEGACY_TASK_ID,
+      ),
+    ).toMatchObject({
+      task_id: LEGACY_TASK_ID,
+      contract_task: false,
+    });
+    await expect(page.getByTestId('contract-review-panel')).toHaveCount(0);
 
     await openContractTaskFromHome(
       page,

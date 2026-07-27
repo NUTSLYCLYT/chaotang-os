@@ -2567,6 +2567,22 @@ export function ShangshufangPage() {
           : '暂无后端返回的 pending/running 今日要务或已完成蜂群流程。';
 
   const dedupedMemorialItems = uniqueMemorialItems(briefing.memorials);
+  const requestedContractMemorial = requestedContractTaskId
+    ? dedupedMemorialItems.find(
+        (item) => (
+          item.id === requestedContractTaskId.trim()
+          && item.contractTask === true
+        ),
+      )
+    : undefined;
+  useEffect(() => {
+    if (
+      requestedContractMemorial
+      && activeMemorialId !== requestedContractMemorial.id
+    ) {
+      setActiveMemorialId(requestedContractMemorial.id);
+    }
+  }, [activeMemorialId, requestedContractMemorial]);
   const activeMemorial: Memorial | null = (() => {
     if (selectedMemorialOverride) return selectedMemorialOverride;
     if (dedupedMemorialItems.length === 0) return null;
@@ -2581,6 +2597,7 @@ export function ShangshufangPage() {
   })();
   const contractTaskId = selectContractTaskCandidate({
     requestedTaskId: requestedContractTaskId,
+    requestedTaskIsContract: requestedContractMemorial !== undefined,
     edictPrimaryTaskId: edictOverride?.primaryTaskId ?? null,
     activeMemorialId: activeMemorial?.id ?? null,
     activeMemorialIsContract: activeMemorial?.contractTask === true,

@@ -71,6 +71,7 @@ from src.db.models import CourtReview, DecisionTask, FinalMemorial  # noqa: E402
 
 _TASK_ID = os.environ.get("W07_E2E_TASK_ID", "task-w07-runnable-minimum")
 _PARTIAL_TASK_ID = f"{_TASK_ID}-partial"
+_LEGACY_TASK_ID = f"{_TASK_ID}-legacy"
 _seed_lock = threading.Lock()
 
 
@@ -224,6 +225,27 @@ def _seed_contract_task(
         )
 
 
+def _seed_legacy_task(
+    db,
+    *,
+    task_id: str,
+    user_id: int,
+    tenant_id: int,
+) -> None:
+    if db.get(DecisionTask, task_id) is not None:
+        return
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=tenant_id,
+            user_id=str(user_id),
+            raw_question="处理普通非合同任务",
+            status="awaiting_decision",
+            source_label="LIVE",
+        )
+    )
+
+
 from fastapi import Depends, HTTPException  # noqa: E402
 
 from web.deps import get_current_user  # noqa: E402
@@ -239,6 +261,12 @@ def _seed_authenticated_contracts(
         raise HTTPException(status_code=403, detail="authenticated tenant required")
     with _seed_lock:
         with engine_module.SessionLocal() as db:
+            _seed_legacy_task(
+                db,
+                task_id=_LEGACY_TASK_ID,
+                user_id=user.user_id,
+                tenant_id=user.tenant_id,
+            )
             _seed_contract_task(
                 db,
                 task_id=_PARTIAL_TASK_ID,

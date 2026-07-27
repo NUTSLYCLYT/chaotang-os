@@ -138,6 +138,87 @@ def test_unknown_event_type_retries_then_dead_letters(isolated_session_local):
     db.close()
 
 
+def test_parent_valid_rework_payload_is_quarantined_without_task_failure(
+    isolated_session_local,
+    monkeypatch,
+):
+    import json
+
+    from src.db.models import (
+        CourtReview,
+        DecisionTask,
+        DecreeExecutionEvent,
+        FinalMemorial,
+        OutboxEvent,
+    )
+
+    monkeypatch.setenv("FENGQUN_W05_CONTRACT_REWORK", "1")
+    db = isolated_session_local()
+    task_id = "task-parent-valid-rework-payload"
+    event_id = "outbox-parent-valid-rework-payload"
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="父版本持久化补证任务",
+            status="awaiting_evidence",
+            source_label="LIVE",
+        )
+    )
+    db.add(
+        OutboxEvent(
+            id=event_id,
+            tenant_id=1,
+            task_id=task_id,
+            decision_id="decision-parent-valid-rework-payload",
+            event_type="evidence.rework",
+            generation=2,
+            idempotency_key="evidence-rework:parent-valid-payload",
+            status="pending",
+            attempts=0,
+            max_attempts=3,
+            payload_json=json.dumps(
+                {
+                    "schema_version": "EvidenceReworkGenerationV1",
+                    "generation_id": event_id,
+                    "generation": 2,
+                    "status": "pending",
+                    "prior_final_memorial_content_hash": "a" * 64,
+                    "evidence_request": {
+                        "reason": "父版本生成的合法补证请求",
+                        "followup_question": None,
+                    },
+                    "affected_sections": ["contract_review"],
+                }
+            ),
+            created_at="2026-07-24T00:00:00+00:00",
+            updated_at="2026-07-24T00:00:00+00:00",
+        )
+    )
+    db.commit()
+
+    result = process_event(db, event_id)
+
+    assert result["status"] == "superseded"
+    assert result["result"] == {
+        "fenced": True,
+        "reason": "mission_identity_missing",
+        "generation": 2,
+        "affected_sections": ["contract_review"],
+    }
+    event = db.get(OutboxEvent, event_id)
+    task = db.get(DecisionTask, task_id)
+    assert event.status == "superseded"
+    assert event.attempts == 0
+    assert event.last_error is None
+    assert task.status == "awaiting_evidence"
+    assert db.query(CourtReview).filter_by(task_id=task_id).count() == 0
+    assert db.query(FinalMemorial).filter_by(task_id=task_id).count() == 0
+    assert db.query(DecreeExecutionEvent).filter_by(task_id=task_id).count() == 0
+    db.close()
+
+
 def test_failure_finalizer_does_not_leave_processing_when_timeline_recording_fails(
     isolated_session_local,
 ):
