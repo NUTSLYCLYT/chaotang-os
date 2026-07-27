@@ -16,14 +16,14 @@
 | 1 | 需求分析 | DONE | request_analysis/spec.md, tasks.md |
 | 2 | 需求复核 | DONE | root accepted design Packet `ed822255...` |
 | 3 | 实现记录 | DONE | coding/coding_report_v1.md |
-| 4 | 代码复核 | NO_GO | `492703ce...` fresh two-pass：合并 HIGH 3 / MEDIUM 5 / LOW 1 |
+| 4 | 代码复核 | AWAITING_REVIEW | seventh remediation `61805256...` 等待 fresh two-pass |
 | 5 | 测试计划 | DONE | unit_test/test_plan.md, e2e_test/e2e_plan.md |
 | 6 | 测试复核 | DONE | focused pass；browser READY + PARTIAL refresh |
-| 7 | 提交 / 收口 | DONE | implementation `5d5ff747...`, tree `cf6a2508...` |
+| 7 | 提交 / 收口 | DONE | implementation `61805256...`, tree `c47be09c...` |
 | 8 | CI 验证 | PARTIAL | scoped PASS；canonical residual 1，root candidate expected STOP |
 | 9 | E2E 验证 | PASSED | e2e_test/e2e_summary.md |
 | 10 | 部署验证 | N/A | NOT_DEPLOYED; deployment/preview_report.md |
-| 11 | 用户确认 | BLOCKED | 等待 legacy tenant ownership 最小 scope amendment |
+| 11 | 用户确认 | APPROVED | seventh review remediation scope amendment |
 
 ## 说明
 
@@ -32,4 +32,6 @@
 - 验证：node tests、typecheck、build、Playwright、frontend doctor；root candidate
   doctor 按 authority 设计 PRE_INTEGRATION STOP。
 - 边界：`RUNNABLE_MINIMUM / NOT_DEPLOYED`；不修改 Checkpoint B，不操作 3050。
-- 细分状态：`REVIEWED_NO_GO / SCOPE_AMENDMENT_REQUIRED / NOT_DEPLOYED`。
+- 细分状态：
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`。

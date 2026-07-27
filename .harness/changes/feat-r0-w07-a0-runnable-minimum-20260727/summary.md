@@ -9,14 +9,14 @@
 | --- | --- |
 | Change ID | feat-r0-w07-a0-runnable-minimum-20260727 |
 | 类型 | feat |
-| 状态 | `REVIEWED_NO_GO / SCOPE_AMENDMENT_REQUIRED / NOT_DEPLOYED` |
+| 状态 | `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING / NOT_DEPLOYED` |
 | Owner | Codex W07 Implementation Lead |
 | Product Owner | `lyt` |
 | 创建日期 | `2026-07-27` |
 | Base H | `ed822255a452e8dd8dda8f86a180fd7c099b181e` |
 | Base tree | `0a56a0eab0135dcf46c31e5ae2cbc46f501cfdcb` |
-| Implementation candidate H | `5d5ff747850ee161a1b39af849f39a0732be15d9` |
-| Implementation candidate tree | `cf6a25089c69fe70961ae6d8f3972065923a605e` |
+| Implementation candidate H | `61805256968f23cc3bcafbdba4f1a251eadd8ed4` |
+| Implementation candidate tree | `c47be09c7325f7d016a3be8362c2e55b194db22b` |
 | Integration target | local `feature-chaotang-ext` |
 | Authority before first edit | v1 `VALID_INACTIVE_GUARD`; v2 W07 `GO / APPROVED_WORK_PACKAGE` |
 
@@ -47,6 +47,17 @@ candidate 已冻结。exact review envelope `492703ce...` 的两路复审均为 
 合并为 `HIGH 3 / MEDIUM 5 / LOW 1`。same-user cross-tenant legacy memorial
 路径需要修改当前 scope 外的 `backend/web/routers/chaotang.py` 或共享 ownership
 accessor，因此当前状态为 `SCOPE_AMENDMENT_REQUIRED`；不整合 EXT。
+
+Product Owner 随后批准第七轮 remediation scope amendment。candidate
+`61805256...` 已按 TDD 修复全部 `HIGH 3 / MEDIUM 5`：legacy ownership 同时
+校验 tenant/user；Mission revision/digest 与 ReviewPack/worker 绑定；全部 W07
+decision action 在写前消费 server authority，精确幂等重放保持只读；terminal
+task、clock expiry 和 missing-review downstream 均 fail closed；frontend
+root/task/blocker 及手工对象 closed-world；exact archive 右栏不再暴露 retrospective
+写按钮或 Next Action。固定 OpenAPI ref 未 repin，只把新增 optional component
+property 分类为 warning，字段类型或 required 变化仍为 breaking。第七轮 LOW
+“visible loading”未获本轮 scope 批准，保留 residual。当前等待 exact candidate
+两路独立只读审查，不预先声明 GO 或允许整合。
 
 ## 允许范围
 

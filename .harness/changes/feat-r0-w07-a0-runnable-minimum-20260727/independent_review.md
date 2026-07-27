@@ -257,3 +257,33 @@ Contract，发现 scope conflict 后停止业务修改，不允许通过阻断�
 当前状态：
 `REVIEWED_NO_GO / SCOPE_AMENDMENT_REQUIRED / NOT_DEPLOYED`。candidate 不得整合
 local EXT。
+
+## Seventh Remediation Evidence
+
+Product Owner 已批准扩大 scope 到 `backend/web/routers/chaotang.py`、
+`backend/src/decision_task_access.py`、`backend/src/contract_rework.py` 和 focused
+tests，并授权修复全部第七轮 HIGH/MEDIUM。
+
+| Finding | Remediation | Fresh evidence |
+| --- | --- | --- |
+| legacy tenant ownership | shared accessor 同时要求 tenant + user；三个 legacy caller 传入 caller tenant | same-user cross-tenant route RED/GREEN |
+| all decision authority | W07 Mission/pack task 的 final/evidence/recheck 全部消费 server action；cancel 明确拒绝；exact idempotency winner 只读重放 | API full-state zero-write + W05 replay regression |
+| Mission revision/digest | pack 携带 revision/digest；projection 与当前 Mission exact match；rework worker 写入同 identity | stale revision projection + real worker assertions |
+| terminal task | terminal statuses 优先返回 `STATE_INCONSISTENT` 和空 actions | resolver table |
+| clock expiry | UTC 当前时钟已过期即 public `UNAVAILABLE / expired` | immutable manifest + STORED row expiry test |
+| missing review omission | 缺 authoritative review 时清除 pack/final/delivery/archive downstream | projection omission test |
+| frontend closed-world | root/task/blocker/final/artifact/receipt 白名单 + strict Mission/Pack schema | Node parser RED/GREEN |
+| exact archive right rail | exact receipt 使用专用只读审计栏，不渲染 retrospective writer/Next Action | real JWT Playwright |
+
+固定 OpenAPI base 仍为 `ed822255...`。guard 仅允许新增 optional component property，
+字段删除、改型或 optional→required 仍返回 breaking；两次生成 hash 完全一致。
+
+implementation candidate：
+
+- H `61805256968f23cc3bcafbdba4f1a251eadd8ed4`
+- tree `c47be09c7325f7d016a3be8362c2e55b194db22b`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+第七轮 LOW visible loading 未包含在批准范围，本轮不顺带实现。

@@ -53,3 +53,11 @@ missing-review downstream omission、exact archive 右栏只读和 visible loadi
 decision action authority 缺口。same-user cross-tenant legacy route 的可靠修复需要
 当前批准范围外的 `backend/web/routers/chaotang.py` 或共享 accessor，状态转为
 `SCOPE_AMENDMENT_REQUIRED`。
+
+## Seventh Remediation
+
+Product Owner 已批准 scope amendment。implementation `61805256...` 已修复全部
+HIGH/MEDIUM：tenant ownership、decision authority、Mission revision/digest、
+terminal/clock/missing-review fail closed、closed-world parser 和 exact archive
+只读右栏。LOW visible loading 未包含在本轮批准范围。当前等待 exact candidate
+fresh two-pass，本文件不预先声明 GO。

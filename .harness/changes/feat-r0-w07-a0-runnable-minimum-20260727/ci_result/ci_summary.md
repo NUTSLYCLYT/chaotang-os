@@ -19,6 +19,13 @@
 | base `ed822255...`: `node scripts/harness-doctor.mjs` | 0 | 0 errors, 0 warnings | pre-edit integrated authority baseline | 2026-07-27 |
 | isolated candidate: `node scripts/harness-doctor.mjs` | 1 | expected `active-packet EXT ref must equal pinned HEAD` only | PRE_INTEGRATION fail-closed；不得伪装为 root PASS | 2026-07-27 |
 | `git diff --check` | 0 | pass | whitespace/diff integrity | 2026-07-27 |
+| seventh remediation expanded backend suite | 0 | 388 passed, 2 skipped | W05/W06/W07 mission、artifact、worker、authz、legacy ownership | 2026-07-28 |
+| seventh remediation direct backend files | 0 | 116 passed | action authority、projection、worker、legacy route | 2026-07-28 |
+| `ruff check` scoped files | 0 | All checks passed | changed Python；`chaotang.py` 的 11 项与 HEAD 基线相同 | 2026-07-28 |
+| contract-review Node + `tsc --noEmit` | 0 | 35 passed + typecheck pass | closed-world、mission identity、exact archive | 2026-07-28 |
+| API stability test/generator | 0 | 6 passed；固定 ref 两次 PASS | 362 routes；0 breaking；新增 optional property warning | 2026-07-28 |
+| `NEXT_PUBLIC_API_MODE=real pnpm build` | 0 | pass | real-mode build | 2026-07-28 |
+| W07 Playwright | 0 | 1 passed | READY/PARTIAL、exact archive 只读右栏、tampered id | 2026-07-28 |
 
 ## 结果
 
@@ -28,8 +35,11 @@ implementation candidate `5d5ff747850ee161a1b39af849f39a0732be15d9`, tree
 `cf6a25089c69fe70961ae6d8f3972065923a605e` 已冻结。review envelope
 `492703ce9b6f89d57f5ac0b07082289426ed6b5e`, tree
 `6a2f5d859a1c4e6119e4d55e327823505895e9e7` 的两路 fresh review 均为
-`NO-GO`，合并 `HIGH 3 / MEDIUM 5 / LOW 1`；状态是
-`REVIEWED_NO_GO / SCOPE_AMENDMENT_REQUIRED`，不得整合。
+`NO-GO`，合并 `HIGH 3 / MEDIUM 5 / LOW 1`。Product Owner 已批准第七轮
+remediation scope amendment；全部 HIGH/MEDIUM 已在 implementation
+`61805256968f23cc3bcafbdba4f1a251eadd8ed4`、tree
+`c47be09c7325f7d016a3be8362c2e55b194db22b` 闭环并通过 fresh tests。当前等待
+exact candidate 两路独立复审，仍不得整合。
 
 ## 全仓既有 Residual
 
@@ -66,9 +76,10 @@ implementation candidate `5d5ff747850ee161a1b39af849f39a0732be15d9`, tree
 | real backend synthetic flow | Playwright real JWT flow | PASS |
 | no deployment or 3050 operation | isolated 3002/8081 config and report | PASS |
 | sixth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
-| independent review | fresh two-pass read-only review | NO-GO |
-| exact implementation candidate | `5d5ff747...` / `cf6a2508...` | PASS |
+| seventh remediation | all approved HIGH/MEDIUM locally closed | PASS |
+| independent review | exact `61805256...` fresh two-pass | PENDING |
+| exact implementation candidate | `61805256...` / `c47be09c...` | PASS |
 
 ## 声明状态
 
-- `REVIEWED_NO_GO / SCOPE_AMENDMENT_REQUIRED / NOT_DEPLOYED`
+- `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING / NOT_DEPLOYED`
