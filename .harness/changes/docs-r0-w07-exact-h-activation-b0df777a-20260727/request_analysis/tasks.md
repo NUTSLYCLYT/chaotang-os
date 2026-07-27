@@ -47,9 +47,9 @@
 ## 后续 Event 3：Activation Evidence Registration Parent
 
 - [x] 从 Event 1 的已知 H/tree 生成 deterministic review package 和 activation intent。
-- [ ] 请求 Product Owner 对 H/tree、package digest、intent digest、scope 和 exclusions
+- [x] 请求 Product Owner 对 H/tree、package digest、intent digest、scope 和 exclusions
   的 exact approval。
-- [ ] 记录 owner approval 原始字节与 SHA-256。
+- [x] 记录 owner approval 原始字节与 SHA-256。
 - [ ] 运行 fresh、read-only Codex Independent QA。
 - [ ] 要求 `GO / HIGH 0 / MEDIUM 0`。
 - [ ] 冻结包含全部证据但仍无 W07 ledger 的 registration parent。

@@ -2,7 +2,7 @@
 
 ## 状态
 
-`EVENT_3_INPUT_CANDIDATE / OWNER_APPROVAL_PENDING / NON_AUTHORIZING`
+`EVENT_3_OWNER_EVIDENCE_CANDIDATE / REVIEW_PENDING / NON_AUTHORIZING`
 
 ## Packet Preparation Baseline
 
@@ -108,7 +108,6 @@ state are unchanged.
 
 ## 尚未生成
 
-- owner exact-H approval；
 - Codex Independent QA final verdict；
 - Event 3 quiescent registration parent H/tree；
 - Event 4 atomic activation candidate H/tree；
@@ -150,6 +149,9 @@ activation intent bytes = 1645
 activation intent sha256 =
   8450ae3ba33da562d75e10220508f38e04f06bf4f84db99249469e136039c328
 target manifest + intent structural validation = VALID_EVENT3_INPUTS
+owner approval bytes = 1745
+owner approval sha256 =
+  ba25ca77dda32694eb7a5c5df8e1a6888f194cb993d8c48c67776a4dfdee61b5
 ```
 
 这些结果只证明 owner 审批输入可复现且结构一致。它们不构成 owner approval、

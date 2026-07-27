@@ -12,7 +12,7 @@
 | Activation review package | `GENERATED_PRE_OWNER` | Event 1 exact Git range |
 | Activation intent | `GENERATED_PRE_OWNER` | Exact package digest |
 | Product Owner overlay-refresh approval | `RECORDED_FOR_EVENT_2` | Exact authority candidate |
-| Product Owner activation approval | `PENDING_EXACT_APPROVAL` | Exact package and intent bytes |
+| Product Owner activation approval | `RECORDED` | Exact package and intent bytes |
 | Independent final review | `NOT_REQUESTED` | After owner evidence |
 | Atomic activation candidate | `NOT_GENERATED` | Separate activation approval |
 | W07 GO | `NOT_OBSERVED` | After approved integration only |
@@ -65,5 +65,6 @@ activation intent sha256 =
   8450ae3ba33da562d75e10220508f38e04f06bf4f84db99249469e136039c328
 ```
 
-这两份文件是 owner exact-H 审批输入，不是 approval evidence。canonical owner
-approval、Codex final review、ACTIVE manifest 和 W07 GO 均未生成。
+Product Owner 已批准上述 exact inputs。canonical owner approval SHA-256 为
+`ba25ca77dda32694eb7a5c5df8e1a6888f194cb993d8c48c67776a4dfdee61b5`。
+Codex final review、ACTIVE manifest 和 W07 GO 均未生成。

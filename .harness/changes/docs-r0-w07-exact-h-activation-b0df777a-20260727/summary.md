@@ -8,7 +8,7 @@
 | --- | --- |
 | Change ID | docs-r0-w07-exact-h-activation-b0df777a-20260727 |
 | 类型 | `docs` |
-| 状态 | `EVENT_3_INPUT_CANDIDATE / OWNER_APPROVAL_PENDING / NON_AUTHORIZING` |
+| 状态 | `EVENT_3_OWNER_EVIDENCE_CANDIDATE / REVIEW_PENDING / NON_AUTHORIZING` |
 | Owner | `EXT Master Governance` |
 | 创建日期 | `2026-07-27` |
 | 唯一集成目标 | local `feature-chaotang-ext` |
@@ -87,7 +87,10 @@ activation intent sha256 =
 
 package 精确覆盖 Event 1 的 12 条允许路径。intent 绑定目标 W07 ledger、canonical
 evidence paths、scope 和 exclusions，但不携带 owner/review digest。Product Owner
-尚未对这些字节作出 exact-H approval；owner evidence 和独立 review 均不存在。
+已对 input candidate、Event 1 H/tree、package/intent digest、scope 和 exclusions
+作出 exact-H approval；canonical owner evidence SHA-256 为
+`ba25ca77dda32694eb7a5c5df8e1a6888f194cb993d8c48c67776a4dfdee61b5`。
+独立 review 尚未生成。
 
 ## 明确未授权
 
@@ -107,7 +110,8 @@ R0-W07 authorize = STOP / NO_ACTIVE_WORK_PACKAGE
 reviewer reassignment overlay = registered for R0-W07
 activation review package = generated / pre-owner candidate
 activation intent = generated / pre-owner candidate
-owner activation approval = absent
+owner activation approval = recorded
+Codex final review = absent
 ```
 
 ## 决策
