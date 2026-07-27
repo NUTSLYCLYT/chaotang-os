@@ -443,6 +443,7 @@ def project_contract_task(
                     has_pack=pack is not None,
                 ),
                 review_pack_ready=pack is not None,
+                review_verdict=pack.verdict if pack is not None else None,
                 final_status=final_status,
                 delivery_status=(
                     delivery.overall_status if delivery is not None else "NONE"

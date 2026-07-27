@@ -4732,10 +4732,8 @@ export function ShangshufangPage() {
                       setVerdictReceipt(null);
                       setVerdictOpen(true);
                     }}
-                    actionsDisabled={
-                      rejectedMemorialIds.has(activeMemorial.id)
-                      || verifiedContractTaskId === activeMemorial.id
-                    }
+                    actionsDisabled={rejectedMemorialIds.has(activeMemorial.id)}
+                    hideFooter={verifiedContractTaskId === activeMemorial.id}
                   />
                 ) : activeSuggestionReport ? (
                   <EdictStage

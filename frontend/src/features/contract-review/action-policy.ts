@@ -42,7 +42,8 @@ export function contractReviewUiPolicy(
     isLive: source === 'LIVE' || source === 'MIXED',
     deliveryState,
     isDelivered: deliveryState === 'READY',
-    isArchived: model.archive_receipt != null,
+    isArchived: model.archive_receipt != null
+      && isContractActionAllowed(model, 'REOPEN_ARCHIVE'),
     canDownload: isContractActionAllowed(model, 'DOWNLOAD_ARTIFACT'),
     canResume: deliveryState === 'PARTIAL'
       && isContractActionAllowed(model, 'RESUME_DELIVERY'),

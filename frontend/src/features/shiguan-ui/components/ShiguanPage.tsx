@@ -126,9 +126,9 @@ export default function ShiguanPage() {
     [contractReadModel, contractReadModelError, requestedArchiveId],
   );
   const exactContractIdentityFailed = Boolean(
-    requestedArchiveId
-    && contractReadModel
+    contractReadModel
     && !contractReadModelError
+    && (requestedArchiveId || contractReadModel.archive_receipt)
     && !exactContractDetail,
   );
   const exactContractReadFailed = Boolean(contractReadModelError)

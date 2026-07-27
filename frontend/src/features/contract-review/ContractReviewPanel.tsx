@@ -51,6 +51,9 @@ const BLOCKER_LABELS: Record<string, string> = {
   DELIVERY_INTEGRITY_FAILED: '交付物完整性校验失败',
   ARCHIVE_RECEIPT_MISSING: '归档回执缺失',
   ARCHIVE_LINEAGE_CONFLICT: '归档事实链不一致',
+  REVIEW_REVISION_REQUIRED: '审查结论要求修订合同后重新会审',
+  REVIEW_BLOCKED: '审查结论已阻止继续推进',
+  LEGAL_REVIEW_REQUIRED: '当前合同必须转人工法务复核',
   STATE_INCONSISTENT: '当前事实状态不一致',
 };
 
@@ -200,7 +203,7 @@ export function ContractReviewPanel({
         </div>
         <div className="flex items-center gap-2 text-[10px] text-[#A99768]">
           <span>{model.delivery?.overall_status ?? 'NOT_DELIVERED'}</span>
-          {model.archive_receipt ? <span className="text-[#73D6A0]">ARCHIVED</span> : null}
+          {policy.isArchived ? <span className="text-[#73D6A0]">ARCHIVED</span> : null}
         </div>
       </div>
 

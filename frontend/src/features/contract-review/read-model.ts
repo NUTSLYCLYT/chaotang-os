@@ -31,6 +31,9 @@ export const CONTRACT_BLOCKERS = [
   'DELIVERY_INTEGRITY_FAILED',
   'ARCHIVE_RECEIPT_MISSING',
   'ARCHIVE_LINEAGE_CONFLICT',
+  'REVIEW_REVISION_REQUIRED',
+  'REVIEW_BLOCKED',
+  'LEGAL_REVIEW_REQUIRED',
   'STATE_INCONSISTENT',
 ] as const satisfies readonly ContractBlocker[];
 
@@ -192,7 +195,10 @@ function hasExactLineage(model: Record<string, unknown>): boolean {
   return true;
 }
 
-export function parseContractTaskReadModel(value: unknown): ContractTaskReadModel {
+export function parseContractTaskReadModel(
+  value: unknown,
+  expectedTaskId: string,
+): ContractTaskReadModel {
   const model = record(value);
   if (
     !model
@@ -229,6 +235,10 @@ export function parseContractTaskReadModel(value: unknown): ContractTaskReadMode
   }
   if (!hasExactLineage(model)) {
     throw new Error('invalid contract lineage');
+  }
+  const task = record(model.task);
+  if (task?.task_id !== expectedTaskId) {
+    throw new Error('contract read model does not match requested task');
   }
   return model as ContractTaskReadModel;
 }

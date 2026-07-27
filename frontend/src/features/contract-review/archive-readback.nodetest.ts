@@ -88,6 +88,19 @@ test('rejects an exact receipt that does not match the requested archive id', ()
   );
 });
 
+test('rejects a receipt when effective source or delivery is not adjudicable', () => {
+  const value = model(true);
+  value.source_class = 'FALLBACK';
+  value.delivery = {
+    ...value.delivery!,
+    overall_status: 'PARTIAL',
+  };
+  value.allowed_actions = [];
+  value.blockers = [{ code: 'NON_ADJUDICABLE_SOURCE' }];
+
+  assert.equal(buildContractArchiveDetail(value, 'archive-1'), null);
+});
+
 test('an exact task request never falls back to indexed detail', () => {
   const indexed = {
     id: 'indexed-1',

@@ -119,7 +119,7 @@ def _review_pack(tenant_id: int, task_id: str) -> dict:
         "our_role": "buyer",
         "legal_question": "contract_risk_screening",
         "risk_items": [],
-        "verdict": "REVISE_BEFORE_PROCEED",
+        "verdict": "PROCEED_TO_HUMAN_APPROVAL",
         "decision_summary": "付款节点、验收异议期和责任上限需修改后再推进。",
         "affected_sections": ["contract_review"],
         "source_labels": ["TASK_EVIDENCE"],

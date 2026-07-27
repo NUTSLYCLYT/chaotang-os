@@ -58,6 +58,7 @@ def contract_review_pack(
     source_labels: list[str] | None = None,
     engine_tiers: list[str] | None = None,
     quality_gate_status: str = "PASSED",
+    verdict: str = "PROCEED_TO_HUMAN_APPROVAL",
 ) -> dict[str, Any]:
     return {
         "schema_version": "ContractReviewPackV1",
@@ -73,7 +74,7 @@ def contract_review_pack(
         "our_role": "buyer",
         "legal_question": "contract_risk_screening",
         "risk_items": risk_items or [],
-        "verdict": "REVISE_BEFORE_PROCEED",
+        "verdict": verdict,
         "decision_summary": "付款、验收和责任条款需修改后再推进。",
         "affected_sections": ["contract_review"],
         "source_labels": source_labels or ["TASK_EVIDENCE"],

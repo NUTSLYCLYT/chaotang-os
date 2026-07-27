@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from src.contract_taxonomy import ContractVerdict
 from src.contracts.contract_task_read_model import (
     ContractTaskAction,
     ContractTaskBlockerCode,
@@ -33,6 +34,7 @@ class ContractTaskFacts:
     source_class: SourceClass
     evidence_ready: bool = False
     review_pack_ready: bool = False
+    review_verdict: ContractVerdict | None = None
     final_status: FinalStatus = "NONE"
     delivery_status: DeliveryStatus = "NONE"
     decision_status: DecisionStatus = "NONE"
@@ -128,5 +130,29 @@ def resolve_contract_task_actions(
     if facts.delivery_status == "READY":
         if not facts.delivery_complete:
             return _resolution(blockers=("DELIVERY_INTEGRITY_FAILED",))
-        return _resolution("DOWNLOAD_ARTIFACT", "DECIDE")
+        if facts.review_verdict == "PROCEED_TO_HUMAN_APPROVAL":
+            return _resolution("DOWNLOAD_ARTIFACT", "DECIDE")
+        if facts.review_verdict == "NEED_INFO":
+            return _resolution(
+                "DOWNLOAD_ARTIFACT",
+                "SUBMIT_EVIDENCE",
+                blockers=("EVIDENCE_INCOMPLETE",),
+            )
+        if facts.review_verdict == "REVISE_BEFORE_PROCEED":
+            return _resolution(
+                "DOWNLOAD_ARTIFACT",
+                "REFRESH_REVIEW",
+                blockers=("REVIEW_REVISION_REQUIRED",),
+            )
+        if facts.review_verdict == "BLOCKED":
+            return _resolution(
+                "DOWNLOAD_ARTIFACT",
+                blockers=("REVIEW_BLOCKED",),
+            )
+        if facts.review_verdict == "NEED_LEGAL_REVIEW":
+            return _resolution(
+                "DOWNLOAD_ARTIFACT",
+                blockers=("LEGAL_REVIEW_REQUIRED",),
+            )
+        return _resolution(blockers=("STATE_INCONSISTENT",))
     return _resolution(blockers=("STATE_INCONSISTENT",))

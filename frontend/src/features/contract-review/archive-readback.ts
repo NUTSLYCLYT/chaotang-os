@@ -10,7 +10,11 @@ export function buildContractArchiveDetail(
   const final = model.final_memorial;
   if (!receipt || !final) return null;
   if (
-    (requestedArchiveId != null && receipt.archive_id !== requestedArchiveId)
+    model.source_class !== 'ADJUDICABLE'
+    || model.delivery?.overall_status !== 'READY'
+    || !model.allowed_actions.includes('REOPEN_ARCHIVE')
+    || model.blockers.length > 0
+    || (requestedArchiveId != null && receipt.archive_id !== requestedArchiveId)
     || receipt.task_id !== model.task.task_id
     || receipt.final_memorial_id !== final.final_memorial_id
     || receipt.final_memorial_version !== final.final_memorial_version

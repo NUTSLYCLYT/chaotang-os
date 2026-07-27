@@ -10,7 +10,14 @@ from tests.contract_task_support import (
 )
 
 
-def _client(monkeypatch, isolated_session_local, tmp_path, *, user_id: int = 7):
+def _client(
+    monkeypatch,
+    isolated_session_local,
+    tmp_path,
+    *,
+    user_id: int = 7,
+    tenant_id: int = 7,
+):
     from web import deps
     from web.main import app
     from web.routers import contracts as contracts_router
@@ -30,10 +37,45 @@ def _client(monkeypatch, isolated_session_local, tmp_path, *, user_id: int = 7):
         user_id=user_id,
         username=f"user-{user_id}",
         role="user",
-        tenant_slug="tenant-7",
-        tenant_id=7,
+        tenant_slug=f"tenant-{tenant_id}",
+        tenant_id=tenant_id,
     )
     return TestClient(app, raise_server_exceptions=False), app
+
+
+def _decision_state(db, task_id: str) -> dict[str, object]:
+    from src.db.models import (
+        CourtLoopRun,
+        CourtReview,
+        DecisionTask,
+        EmperorDecision,
+        FinalMemorial,
+        ShiguanArchive,
+    )
+
+    task = db.get(DecisionTask, task_id)
+    return {
+        "task_status": task.status if task is not None else None,
+        "final_statuses": tuple(
+            status
+            for (status,) in db.query(FinalMemorial.status)
+            .filter_by(task_id=task_id)
+            .order_by(FinalMemorial.id.asc())
+            .all()
+        ),
+        "decision_count": db.query(EmperorDecision)
+        .filter_by(task_id=task_id)
+        .count(),
+        "archive_count": db.query(ShiguanArchive)
+        .filter_by(task_id=task_id)
+        .count(),
+        "review_count": db.query(CourtReview)
+        .filter_by(task_id=task_id)
+        .count(),
+        "loop_count": db.query(CourtLoopRun)
+        .filter_by(task_id=task_id)
+        .count(),
+    }
 
 
 def test_read_model_endpoint_is_typed_in_openapi() -> None:
@@ -108,6 +150,7 @@ def test_contract_final_decision_requires_server_decide_action_before_any_write(
         final, _ = seed_final_memorial(db, task_id=task.id)
         content_hash = final.content_hash
         db.commit()
+        before = _decision_state(db, task_id)
 
     client, app = _client(monkeypatch, isolated_session_local, tmp_path)
     try:
@@ -126,8 +169,193 @@ def test_contract_final_decision_requires_server_decide_action_before_any_write(
     assert response.status_code == 409
     assert "DECIDE" in response.json()["error"]
     with isolated_session_local() as db:
-        assert db.query(EmperorDecision).filter_by(task_id=task_id).count() == 0
-        assert db.query(ShiguanArchive).filter_by(task_id=task_id).count() == 0
+        assert _decision_state(db, task_id) == before
+
+
+def test_contract_brief_decision_requires_server_decide_before_any_write(
+    monkeypatch,
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    from src.db.models import CourtReview
+
+    task_id = "task-api-brief-gate"
+    review_id = f"review-{task_id}"
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id=task_id)
+        final, _ = seed_final_memorial(db, task_id=task.id)
+        db.add(
+            CourtReview(
+                id=review_id,
+                tenant_id=task.tenant_id,
+                task_id=task.id,
+                review_status="awaiting_decision",
+            )
+        )
+        content_hash = final.content_hash
+        db.commit()
+        before = _decision_state(db, task_id)
+
+    client, app = _client(monkeypatch, isolated_session_local, tmp_path)
+    try:
+        response = client.post(
+            f"/api/shangshufang/briefs/{review_id}/decision/advance",
+            json={
+                "decision": "issue_decree",
+                "reason": "brief 入口不得绕过交付门",
+                "manualConfirmation": True,
+                "expectedFinalMemorialContentHash": content_hash,
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert "DECIDE" in response.json()["error"]
+    with isolated_session_local() as db:
+        assert _decision_state(db, task_id) == before
+
+
+def test_contract_brief_decision_requires_tenant_and_user_ownership(
+    monkeypatch,
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    from src.db.models import CourtReview
+
+    task_id = "task-api-brief-other-tenant"
+    review_id = f"review-{task_id}"
+    with isolated_session_local() as db:
+        task = seed_contract_task(
+            db,
+            task_id=task_id,
+            tenant_id=8,
+            user_id="7",
+        )
+        db.add(
+            CourtReview(
+                id=review_id,
+                tenant_id=task.tenant_id,
+                task_id=task.id,
+                review_status="awaiting_decision",
+            )
+        )
+        db.commit()
+        before = _decision_state(db, task_id)
+
+    client, app = _client(
+        monkeypatch,
+        isolated_session_local,
+        tmp_path,
+        user_id=7,
+        tenant_id=7,
+    )
+    try:
+        response = client.post(
+            f"/api/shangshufang/briefs/{review_id}/decision/advance",
+            json={
+                "decision": "issue_decree",
+                "reason": "跨租户不得裁决",
+                "manualConfirmation": True,
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    with isolated_session_local() as db:
+        assert _decision_state(db, task_id) == before
+
+
+def test_pack_only_contract_candidate_is_blocked_at_shared_writer(
+    monkeypatch,
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    from src.db.models import DecisionTask
+    from web.routers.shangshufang import _execute_final_memorial_decision
+
+    monkeypatch.setenv("FENGQUN_RUNTIME_ROOT", str(tmp_path))
+    task_id = "task-api-pack-only-writer-gate"
+    with isolated_session_local() as db:
+        task = DecisionTask(
+            id=task_id,
+            tenant_id=7,
+            user_id="7",
+            raw_question="pack-only 合同任务",
+            refined_edict="不得绕过统一裁决门",
+            status="reviewing",
+            source_label="LIVE",
+        )
+        db.add(task)
+        db.flush()
+        final, _ = seed_final_memorial(db, task_id=task_id)
+        content_hash = final.content_hash
+        db.commit()
+        before = _decision_state(db, task_id)
+
+        with pytest.raises(ValueError, match="DECIDE"):
+            _execute_final_memorial_decision(
+                db,
+                task=task,
+                review=None,
+                action="approve",
+                reason="pack-only 不得走 legacy 写入口",
+                human_confirmed=True,
+                expected_content_hash=content_hash,
+                actor_user_id="7",
+            )
+        db.rollback()
+
+    with isolated_session_local() as db:
+        assert _decision_state(db, task_id) == before
+
+
+def test_revise_verdict_cannot_be_approved_and_archived(
+    monkeypatch,
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    from tests.contract_task_support import contract_review_pack
+
+    monkeypatch.setenv("FENGQUN_RUNTIME_ROOT", str(tmp_path))
+    task_id = "task-api-revise-verdict"
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id=task_id)
+        pack = contract_review_pack(
+            task.id,
+            verdict="REVISE_BEFORE_PROCEED",
+        )
+        final, pack = seed_final_memorial(db, task_id=task.id, pack=pack)
+        seed_delivery(
+            db,
+            storage_root=tmp_path / "artifacts",
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        content_hash = final.content_hash
+        db.commit()
+        before = _decision_state(db, task_id)
+
+    client, app = _client(monkeypatch, isolated_session_local, tmp_path)
+    try:
+        response = client.post(
+            f"/api/shangshufang/tasks/{task_id}/decision",
+            json={
+                "action": "approve",
+                "reason": "修订前不得批准",
+                "human_confirmed": True,
+                "expected_final_memorial_content_hash": content_hash,
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert "DECIDE" in response.json()["error"]
+    with isolated_session_local() as db:
+        assert _decision_state(db, task_id) == before
 
 
 def test_contract_final_decision_preserves_ready_delivery_happy_path(

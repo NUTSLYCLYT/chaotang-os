@@ -9,7 +9,15 @@ import { pathToFileURL } from 'node:url';
 const ROOT = process.cwd();
 const DATE = '2026-07-21';
 export const DEFAULT_BASE_REF = 'ed822255a452e8dd8dda8f86a180fd7c099b181e';
-const BASE_REF = process.env.API_CONTRACT_BASE_REF || DEFAULT_BASE_REF;
+if (
+  process.env.API_CONTRACT_BASE_REF
+  && process.env.API_CONTRACT_BASE_REF !== DEFAULT_BASE_REF
+) {
+  throw new Error(
+    `API_CONTRACT_BASE_REF cannot repin fixed baseline ${DEFAULT_BASE_REF}`,
+  );
+}
+const BASE_REF = DEFAULT_BASE_REF;
 if (!/^[0-9a-f]{40}$/.test(BASE_REF)) {
   throw new Error('API_CONTRACT_BASE_REF must be an exact 40-character commit SHA');
 }

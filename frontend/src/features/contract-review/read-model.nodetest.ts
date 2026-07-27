@@ -23,16 +23,24 @@ function readModel(overrides: Record<string, unknown> = {}): Record<string, unkn
 }
 
 test('accepts an exact generated backend read model', () => {
-  const parsed = parseContractTaskReadModel(readModel());
+  const parsed = parseContractTaskReadModel(readModel(), 'task-1');
 
   assert.equal(parsed.task.task_id, 'task-1');
   assert.deepEqual(parsed.allowed_actions, ['DOWNLOAD_ARTIFACT', 'DECIDE']);
+});
+
+test('rejects a response that is not bound to the requested task id', () => {
+  assert.throws(
+    () => parseContractTaskReadModel(readModel(), 'task-requested'),
+    /requested task/,
+  );
 });
 
 test('fails closed on an unknown server action', () => {
   assert.throws(
     () => parseContractTaskReadModel(
       readModel({ allowed_actions: ['CLIENT_INVENTED_ACTION'] }),
+      'task-1',
     ),
     /unknown contract action/,
   );
@@ -42,6 +50,7 @@ test('fails closed on an unknown blocker', () => {
   assert.throws(
     () => parseContractTaskReadModel(
       readModel({ blockers: [{ code: 'UNKNOWN_BLOCKER' }] }),
+      'task-1',
     ),
     /unknown contract blocker/,
   );
@@ -51,6 +60,7 @@ test('fails closed on an unknown effective source class', () => {
   assert.throws(
     () => parseContractTaskReadModel(
       readModel({ source_class: 'CLIENT_INFERRED_LIVE' }),
+      'task-1',
     ),
     /source class/,
   );
@@ -68,6 +78,7 @@ test('rejects mission identity that does not bind to the requested task', () => 
           },
         },
       }),
+      'task-1',
     ),
     /lineage/,
   );
@@ -83,6 +94,7 @@ test('rejects an invalid public delivery shape', () => {
           resume_token: 'must-not-be-public',
         },
       }),
+      'task-1',
     ),
     /invalid contract delivery/,
   );
@@ -132,7 +144,7 @@ test('rejects contradictory task, final, delivery and receipt lineage', () => {
       () => parseContractTaskReadModel(readModel({
         final_memorial: exactFinal,
         ...override,
-      })),
+      }), 'task-1'),
       /lineage/,
     );
   }

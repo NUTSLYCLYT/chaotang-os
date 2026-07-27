@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
 import {
@@ -31,6 +32,25 @@ test('uses an immutable git ref instead of the mutable output snapshot', () => {
   assert.doesNotMatch(source, /readJsonIfExists\(OUT_ROUTE_SNAPSHOT\)/);
   assert.match(source, /exportOpenApiAtRef/);
   assert.match(source, /\^\[0-9a-f\]\{40\}\$/);
+});
+
+test('rejects attempts to repin the fixed baseline through the environment', () => {
+  const result = spawnSync(
+    process.execPath,
+    ['scripts/api-contract-stability.mjs'],
+    {
+      cwd: new URL('..', import.meta.url),
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        API_CONTRACT_BASE_REF:
+          'ea267d1c27cd8fa68ec3cee2f3356c06566c3923',
+      },
+    },
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(`${result.stderr}\n${result.stdout}`, /fixed baseline/i);
 });
 
 test('detects component schema content changes behind a stable ref', () => {

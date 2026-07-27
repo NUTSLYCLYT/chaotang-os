@@ -19,3 +19,10 @@
 Product Owner 已批准最小 scope amendment；上述 HIGH/MEDIUM 均已按 TDD 修复并通过
 focused、build、fixed OpenAPI baseline 和 real browser READY/PARTIAL 证据。当前等待
 fresh two-pass independent review；本文件不预先声明 GO。
+
+## Second Review
+
+`ea267d1c...` 的 fresh two-pass 仍为 `NO-GO`。第二轮适用项已在批准文件范围内按
+TDD 修复：共享 writer gate、verdict-aware actions、request task identity、有效归档
+显示、legacy footer suppression 与不可改钉 OpenAPI baseline。当前等待新 exact
+candidate 的两轮独立只读复审。

@@ -7,6 +7,30 @@ Candidate `c343cab312d69203ed0ebf36b0b0538760844552`, tree
 `NO-GO` verdicts. Each pass reported `HIGH 1 / MEDIUM 4`; the consolidated
 findings below also retain two low-severity scope/honesty defects.
 
+## Second Candidate Verdict
+
+Candidate `ea267d1c27cd8fa68ec3cee2f3356c06566c3923`, tree
+`9e5ddbf6c3454688809734412960fd97662359ec` also received two independent
+Codex `NO-GO` verdicts:
+
+- pass 1: `HIGH 4 / MEDIUM 1 / LOW 0`;
+- pass 2: `HIGH 1 / MEDIUM 4 / LOW 1`.
+
+主控逐项复核后确认的适用问题：
+
+1. brief 和 legacy memorial review 可绕过 endpoint-local `DECIDE` 检查；
+2. pack-only contract candidate 未进入合同 fail-closed 分类；
+3. `REVISE_BEFORE_PROCEED` 等非放行 verdict 未参与 server action resolution；
+4. 请求 taskId 未与响应 task identity 绑定；
+5. fallback/partial/blocker 与 receipt 并存时前端仍可显示 archived/LIVE；
+6. 合同 panel 复用 legacy rejected disabled 文案；
+7. OpenAPI baseline 可被环境变量改钉；
+8. “before any write”证据未覆盖完整 task/final/review/loop 状态。
+
+pass 1 的 artifact user-level finding 不适用：W06R 已批准并实现的是 tenant-owned
+artifact 与 cross-tenant isolation，见 W06R spec lines 63-74；W07-A0 不擅自引入
+第二层 artifact owner 身份或数据库变更。
+
 ## Required Remediation
 
 1. 正式裁决写入口必须消费 server `DECIDE`，不得绕过 delivery/source/mission 门。
@@ -44,6 +68,20 @@ baseline。该批准不扩展到 Checkpoint B、push、部署、数据库迁移�
 | API baseline | 从 exact `ed822255...` Git archive 生成，比较 schema 内容 | 4 node tests + double-run hash |
 | PARTIAL refresh | JWT-protected test-only seed + real JWT browser reload | Playwright 1/1 x2 fresh runs |
 
+## Second Remediation Evidence
+
+| Finding | Remediation | Focused evidence |
+| --- | --- | --- |
+| task/brief/legacy bypass | 将 `DECIDE` 门下沉到共享 final-decision writer | task/brief/pack-only API tests |
+| brief ownership | tenant + user + non-null identity before writer | cross-tenant brief test |
+| verdict promotion | 仅 `PROCEED_TO_HUMAN_APPROVAL` 可获得 `DECIDE`；其他 verdict 仍可下载并进入补证/复审 blocker | action/projection/API tests |
+| full zero-write proof | 比较 task/final status 及 decision/archive/review/loop 全快照 | API tests |
+| request identity | parser 强制 expected taskId | frontend parser test |
+| invalid archive display | `REOPEN_ARCHIVE` + adjudicable + READY + no blocker 才显示 archived/detail | policy/readback tests |
+| legacy rejected wording | 合同任务隐藏 legacy footer，保留 typed panel 为唯一动作入口 | browser assertion |
+| fixed API baseline | 非默认 `API_CONTRACT_BASE_REF` 直接拒绝 | 5 node tests |
+| launcher honesty | 明确记录隔离进程加载 canonical app，seed route 不进 schema | Packet diff |
+
 当前状态：
-`REMEDIATION_LOCAL_PASS / CANDIDATE_NOT_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING`。
+`SECOND_REMEDIATION_LOCAL_PASS / CANDIDATE_NOT_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING`。
 本文件不预判下一候选的独立审查结论。

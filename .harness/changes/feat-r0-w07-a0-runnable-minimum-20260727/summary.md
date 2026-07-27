@@ -9,7 +9,7 @@
 | --- | --- |
 | Change ID | feat-r0-w07-a0-runnable-minimum-20260727 |
 | 类型 | feat |
-| 状态 | `REMEDIATION_LOCAL_PASS / CANDIDATE_NOT_FROZEN / INDEPENDENT_REVIEW_PENDING / NOT_DEPLOYED` |
+| 状态 | `SECOND_REMEDIATION_LOCAL_PASS / CANDIDATE_NOT_FROZEN / INDEPENDENT_REVIEW_PENDING / NOT_DEPLOYED` |
 | Owner | Codex W07 Implementation Lead |
 | Product Owner | `lyt` |
 | 创建日期 | `2026-07-27` |
@@ -25,11 +25,12 @@
 
 ## 独立审查状态
 
-两路 Codex 只读审查均为 `NO-GO`。Product Owner 已批准最小 remediation scope
-amendment：修复全部 HIGH/MEDIUM，允许修改既有裁决端点及 focused tests 以增加
-`tenant_id + user_id` 双重所有权校验，并补 seeded PARTIAL browser refresh 和固定
-OpenAPI baseline。已报告项已完成 TDD 与本地验证；新候选尚未冻结，fresh two-pass
-GO 前不整合 EXT。
+首个候选与 remediation 候选 `ea267d1c...` 的两轮 Codex 只读审查均为
+`NO-GO`。第二轮有效 findings 已按既有 scope 完成 TDD：共享 final-decision writer
+统一消费 server `DECIDE`，brief 增加 tenant/user 双重所有权，pack-only 和非放行
+verdict fail closed，前端绑定请求 task identity，并禁止无效 receipt/source/delivery
+显示 archived。W06 明确批准的是 tenant-owned artifact，故“同租户再按 user 隔离”
+不作为 W07 缺陷扩展。新候选尚未冻结，fresh two-pass GO 前不整合 EXT。
 
 ## 允许范围
 
@@ -43,8 +44,9 @@ GO 前不整合 EXT。
 - 现有 Shangshufang/Shiguan 的 hunk-level 接入。
 - 一条 synthetic real-backend browser flow。
 - test-only、JWT-protected browser launcher：
-  `backend/harness/chaotang-true-loop/scripts/run_w07_runnable_backend.py`；该入口不挂载
-  产品 app，不进入 OpenAPI，只使用临时 runtime/DB。
+  `backend/harness/chaotang-true-loop/scripts/run_w07_runnable_backend.py`；该脚本只在
+  隔离进程中加载 canonical app，并注册 `include_in_schema=False` 的 seed route；
+  不进入产品 OpenAPI，只使用临时 runtime/DB。
 - 根、后端和前端 change/evidence/test 文件。
 
 ## 禁止范围

@@ -16,7 +16,7 @@
 | 1 | 需求分析 | DONE | request_analysis/spec.md, tasks.md |
 | 2 | 需求复核 | DONE | root accepted design Packet `ed822255...` |
 | 3 | 实现记录 | DONE | coding/coding_report_v1.md |
-| 4 | 代码复核 | AWAITING_REVIEW | 原 NO-GO 已修复；fresh review pending |
+| 4 | 代码复核 | AWAITING_REVIEW | `ea267d1c...` NO-GO 已完成第二轮本地修复；fresh review pending |
 | 5 | 测试计划 | DONE | unit_test/test_plan.md, e2e_test/e2e_plan.md |
 | 6 | 测试复核 | DONE | focused pass；browser READY + PARTIAL refresh |
 | 7 | 提交 / 收口 | TODO | exact candidate pending |
@@ -32,4 +32,4 @@
 - 验证：node tests、typecheck、build、Playwright、frontend doctor；root candidate
   doctor 按 authority 设计 PRE_INTEGRATION STOP。
 - 边界：`RUNNABLE_MINIMUM / NOT_DEPLOYED`；不修改 Checkpoint B，不操作 3050。
-- 细分状态：`REMEDIATION_LOCAL_PASS / INDEPENDENT_REVIEW_PENDING / NOT_DEPLOYED`。
+- 细分状态：`SECOND_REMEDIATION_LOCAL_PASS / INDEPENDENT_REVIEW_PENDING / NOT_DEPLOYED`。

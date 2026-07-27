@@ -880,6 +880,41 @@ def _execute_final_memorial_decision(
         .filter_by(task_id=task.id, is_current=True)
         .first()
     )
+    if action in _CONTRACT_FINAL_ACTIONS:
+        from src.contract_mission_repository import MISSION_LOOP_ID
+        from src.contract_task_projection import project_contract_task
+        from src.runtime_paths import resolve_runtime_paths
+
+        formal_payload = (
+            _loads(current_formal.memorial_json, {})
+            if current_formal is not None
+            else {}
+        )
+        is_contract_task = (
+            task.contract_scope_json is not None
+            or (
+                db.query(CourtLoopRun.id)
+                .filter_by(task_id=task.id, loop_id=MISSION_LOOP_ID)
+                .first()
+                is not None
+            )
+            or (
+                isinstance(formal_payload, dict)
+                and "contract_review" in formal_payload
+            )
+        )
+        if is_contract_task:
+            read_model = project_contract_task(
+                db,
+                storage_root=resolve_runtime_paths().root / "artifacts",
+                task=task,
+            )
+            if "DECIDE" not in read_model.allowed_actions:
+                blockers = ",".join(item.code for item in read_model.blockers)
+                raise ValueError(
+                    "DECIDE not allowed for current contract facts: "
+                    f"{blockers}"
+                )
     if current_formal is not None and action in formal_actions:
         if not expected_content_hash:
             label = "补证" if action in evidence_actions else "裁决"
@@ -1885,28 +1920,6 @@ def shangshufang_task_decision(
             .order_by(CourtReview.created_at.desc())
             .first()
         )
-        from src.contract_mission_repository import MISSION_LOOP_ID
-        from src.contract_task_projection import project_contract_task
-        from src.runtime_paths import resolve_runtime_paths
-
-        is_contract_task = task.contract_scope_json is not None or (
-            db.query(CourtLoopRun.id)
-            .filter_by(task_id=task.id, loop_id=MISSION_LOOP_ID)
-            .first()
-            is not None
-        )
-        if is_contract_task and body.action in _CONTRACT_FINAL_ACTIONS:
-            read_model = project_contract_task(
-                db,
-                storage_root=resolve_runtime_paths().root / "artifacts",
-                task=task,
-            )
-            if "DECIDE" not in read_model.allowed_actions:
-                blockers = ",".join(item.code for item in read_model.blockers)
-                return _http_fail(
-                    409,
-                    f"DECIDE not allowed for current contract facts: {blockers}",
-                )
         outcome = _execute_final_memorial_decision(
             db,
             task=task,
@@ -2843,7 +2856,12 @@ def shangshufang_brief_decision_advance(
         task = db.query(DecisionTask).filter_by(id=review.task_id).first()
         if task is None:
             return _http_fail(404, "task_id 不存在")
-        if task.user_id != _user_id(user):
+        if (
+            task.user_id != _user_id(user)
+            or task.tenant_id is None
+            or user.tenant_id is None
+            or task.tenant_id != user.tenant_id
+        ):
             return _http_fail(404, "无权裁决该任务")
         mapping = {
             "issue_decree": "adopt",

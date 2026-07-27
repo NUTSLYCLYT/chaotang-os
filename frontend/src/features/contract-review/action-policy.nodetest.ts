@@ -67,6 +67,32 @@ test('archive state requires an exact receipt', () => {
   assert.equal(contractReviewUiPolicy(model()).isArchived, false);
   assert.equal(
     contractReviewUiPolicy(model({
+      task: {
+        task_id: 'task-1',
+        tenant_id: 7,
+        status: 'archived',
+        source_label: 'LIVE',
+        raw_question: '审查采购合同',
+      },
+      final_memorial: {
+        final_memorial_id: 'final-1',
+        final_memorial_version: 1,
+        final_memorial_content_hash: 'c'.repeat(64),
+        court_review_id: 'review-1',
+        status: 'archived',
+        source_label: 'LIVE',
+      },
+      delivery: {
+        manifest_id: 'manifest-1',
+        task_id: 'task-1',
+        final_memorial_id: 'final-1',
+        final_memorial_version: 1,
+        delivery_formula_version: 'w06-v1',
+        delivery_revision: 1,
+        payload_hash: 'b'.repeat(64),
+        artifacts: [],
+        overall_status: 'READY',
+      },
       archive_receipt: {
         archive_id: 'archive-1',
         task_id: 'task-1',
@@ -76,9 +102,40 @@ test('archive state requires an exact receipt', () => {
         archived_at: '2026-07-27T00:00:00Z',
         source_label: 'LIVE',
       },
+      allowed_actions: ['REOPEN_ARCHIVE'],
     })).isArchived,
     true,
   );
+});
+
+test('receipt cannot mask fallback or partial effective facts', () => {
+  const value = model({
+    source_class: 'FALLBACK',
+    delivery: {
+      manifest_id: 'manifest-1',
+      task_id: 'task-1',
+      final_memorial_id: 'final-1',
+      final_memorial_version: 1,
+      delivery_formula_version: 'w06-v1',
+      delivery_revision: 1,
+      payload_hash: 'b'.repeat(64),
+      artifacts: [],
+      overall_status: 'PARTIAL',
+    },
+    archive_receipt: {
+      archive_id: 'archive-1',
+      task_id: 'task-1',
+      final_memorial_id: 'final-1',
+      final_memorial_version: 1,
+      final_memorial_content_hash: 'c'.repeat(64),
+      archived_at: '2026-07-27T00:00:00Z',
+      source_label: 'LIVE',
+    },
+    blockers: [{ code: 'NON_ADJUDICABLE_SOURCE' }],
+    allowed_actions: [],
+  });
+
+  assert.equal(contractReviewUiPolicy(value).isArchived, false);
 });
 
 test('effective FALLBACK remains visibly non-live even when task source is LIVE', () => {

@@ -98,6 +98,7 @@ from src.contract_task_actions import (
                 delivery_status="READY",
                 downloadable_count=3,
                 delivery_complete=True,
+                review_verdict="PROCEED_TO_HUMAN_APPROVAL",
             ),
             ("DOWNLOAD_ARTIFACT", "DECIDE"),
             (),
@@ -206,3 +207,48 @@ def test_ready_delivery_requires_complete_pdf_docx_json_set(
 
     assert resolution.allowed_actions == ()
     assert resolution.blockers == ("DELIVERY_INTEGRITY_FAILED",)
+
+
+@pytest.mark.parametrize(
+    ("verdict", "actions", "blockers"),
+    [
+        (
+            "NEED_INFO",
+            ("DOWNLOAD_ARTIFACT", "SUBMIT_EVIDENCE"),
+            ("EVIDENCE_INCOMPLETE",),
+        ),
+        (
+            "REVISE_BEFORE_PROCEED",
+            ("DOWNLOAD_ARTIFACT", "REFRESH_REVIEW"),
+            ("REVIEW_REVISION_REQUIRED",),
+        ),
+        ("BLOCKED", ("DOWNLOAD_ARTIFACT",), ("REVIEW_BLOCKED",)),
+        (
+            "NEED_LEGAL_REVIEW",
+            ("DOWNLOAD_ARTIFACT",),
+            ("LEGAL_REVIEW_REQUIRED",),
+        ),
+    ],
+)
+def test_non_proceed_verdict_never_exposes_decide(
+    verdict: str,
+    actions: tuple[str, ...],
+    blockers: tuple[str, ...],
+) -> None:
+    resolution = resolve_contract_task_actions(
+        ContractTaskFacts(
+            mission_state="CONFIRMED",
+            source_class="ADJUDICABLE",
+            evidence_ready=True,
+            review_pack_ready=True,
+            review_verdict=verdict,
+            final_status="READY_FOR_DECISION",
+            delivery_status="READY",
+            downloadable_count=3,
+            delivery_complete=True,
+        )
+    )
+
+    assert resolution.allowed_actions == actions
+    assert resolution.blockers == blockers
+    assert "DECIDE" not in resolution.allowed_actions

@@ -18,7 +18,7 @@ export async function getContractTaskReadModel(
   taskId: string,
 ): Promise<ContractTaskReadModelV1> {
   const value = await backendJson<unknown>(contractTaskReadModelPath(taskId));
-  return parseContractTaskReadModel(value);
+  return parseContractTaskReadModel(value, taskId);
 }
 
 export async function confirmContractMission(

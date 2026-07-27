@@ -42,6 +42,7 @@ test.describe('W07 contract RUNNABLE_MINIMUM', () => {
     await expect(panel).toBeVisible();
     await expect(panel).toContainText('审查合成采购合同');
     await expect(panel).toContainText('NOT_DELIVERED');
+    await expect(page.getByText('此折已驳回 · 三项圣裁已锁定')).toHaveCount(0);
 
     const deliveryResponse = page.waitForResponse((response) => (
       response.url().includes('/api/artifacts/deliveries')

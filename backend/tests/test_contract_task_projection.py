@@ -51,6 +51,35 @@ def test_exact_ready_lineage_projects_verified_downloads(
     assert "storage_path" not in str(serialized)
 
 
+def test_revise_verdict_cannot_be_promoted_to_decide(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-review-revision-required")
+        pack = contract_review_pack(
+            task.id,
+            verdict="REVISE_BEFORE_PROCEED",
+        )
+        final, pack = seed_final_memorial(db, task_id=task.id, pack=pack)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.allowed_actions == ["DOWNLOAD_ARTIFACT", "REFRESH_REVIEW"]
+    assert "DECIDE" not in model.allowed_actions
+    assert [item.code for item in model.blockers] == [
+        "REVIEW_REVISION_REQUIRED"
+    ]
+
+
 def test_partial_after_refresh_is_honest_and_not_resumable(
     isolated_session_local,
     tmp_path,

@@ -1677,6 +1677,9 @@
               "DELIVERY_INTEGRITY_FAILED",
               "ARCHIVE_RECEIPT_MISSING",
               "ARCHIVE_LINEAGE_CONFLICT",
+              "REVIEW_REVISION_REQUIRED",
+              "REVIEW_BLOCKED",
+              "LEGAL_REVIEW_REQUIRED",
               "STATE_INCONSISTENT"
             ],
             "title": "Code",
