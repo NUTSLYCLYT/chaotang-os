@@ -2268,36 +2268,121 @@ test('CLI rejects an unsupported flag with exit 64', async () => {
   );
 });
 
-test('CLI subprocess against the real repo is quiescent after verified W06 closeout', async () => {
-  const loaded = await loadExecutionAuthorityV2(root);
-  assert.deepEqual(loaded.errors, []);
-  assert.equal(loaded.manifest.activeWorkPackage, null);
+async function assertRealRepositoryAuthorityPhase(loaded) {
+  if (loaded.manifest.activeWorkPackage === null) {
+    assert.deepEqual(loaded.errors, []);
+    assert.deepEqual(loaded.manifest.workPackageLedger.at(-1), {
+      id: 'R0-W06',
+      status: 'MERGED_AND_VERIFIED',
+    });
+    return 'QUIESCENT';
+  }
+
+  assert.equal(loaded.manifest.activeWorkPackage, 'R0-W07');
   assert.deepEqual(loaded.manifest.workPackageLedger.at(-1), {
-    id: 'R0-W06',
-    status: 'MERGED_AND_VERIFIED',
+    id: 'R0-W07',
+    status: 'ACTIVE',
   });
-  for (const workPackage of ['R0-W06', 'R0-W07']) {
+  const [{ stdout: headSource }, { stdout: extSource }] = await Promise.all([
+    execFileAsync('/usr/bin/git', ['--no-replace-objects', 'rev-parse', 'HEAD^{commit}'], {
+      cwd: root,
+      env: hardenedGitEnvironment,
+    }),
+    execFileAsync(
+      '/usr/bin/git',
+      [
+        '--no-replace-objects',
+        'rev-parse',
+        'refs/heads/feature-chaotang-ext^{commit}',
+      ],
+      {
+        cwd: root,
+        env: hardenedGitEnvironment,
+      },
+    ),
+  ]);
+  if (headSource.trim() === extSource.trim()) {
+    assert.deepEqual(loaded.errors, []);
+    return 'INTEGRATED_W07';
+  }
+  assert.deepEqual(loaded.errors, ['active-packet EXT ref must equal pinned HEAD']);
+  return 'PRE_INTEGRATION_W07';
+}
+
+test('CLI subprocess matches the real repository authority phase', async () => {
+  const loaded = await loadExecutionAuthorityV2(root);
+  const phase = await assertRealRepositoryAuthorityPhase(loaded);
+  if (phase === 'QUIESCENT') {
+    for (const workPackage of ['R0-W06', 'R0-W07']) {
+      await assert.rejects(
+        execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', workPackage], {
+          cwd: root,
+        }),
+        (error) => {
+          const output = JSON.parse(error.stdout);
+          return output.decision === 'STOP' && output.reason === 'NO_ACTIVE_WORK_PACKAGE';
+        },
+      );
+    }
+    return;
+  }
+  if (phase === 'PRE_INTEGRATION_W07') {
+    await assert.rejects(
+      execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', 'R0-W07'], {
+        cwd: root,
+      }),
+      (error) => {
+        const output = JSON.parse(error.stdout);
+        return (
+          output.decision === 'STOP' &&
+          output.reason === 'INVALID_EXECUTION_AUTHORITY' &&
+          output.errors.length === 1 &&
+          output.errors[0] === 'active-packet EXT ref must equal pinned HEAD'
+        );
+      },
+    );
+    return;
+  }
+
+  const { stdout } = await execFileAsync(
+    process.execPath,
+    [cliPath, '--authorize', '--work-package', 'R0-W07'],
+    { cwd: root },
+  );
+  assert.deepEqual(JSON.parse(stdout), {
+    schemaVersion: 'execution-authority.v2',
+    decision: 'GO',
+    activeWorkPackage: 'R0-W07',
+    reason: 'APPROVED_WORK_PACKAGE',
+  });
+});
+
+test('CLI subprocess against the real repo keeps predecessor and successor packages stopped', async () => {
+  const loaded = await loadExecutionAuthorityV2(root);
+  const phase = await assertRealRepositoryAuthorityPhase(loaded);
+  const expectedReasons =
+    phase === 'QUIESCENT'
+      ? ['NO_ACTIVE_WORK_PACKAGE', 'NO_ACTIVE_WORK_PACKAGE', 'NO_ACTIVE_WORK_PACKAGE']
+      : phase === 'PRE_INTEGRATION_W07'
+        ? [
+            'INVALID_EXECUTION_AUTHORITY',
+            'INVALID_EXECUTION_AUTHORITY',
+            'INVALID_EXECUTION_AUTHORITY',
+          ]
+        : ['WORK_PACKAGE_MISMATCH', 'BLOCKED_DEPENDENCY', 'BLOCKED_DEPENDENCY'];
+  let index = 0;
+  for (const workPackage of ['R0-W05', 'R0-W08', 'R0-W09']) {
     await assert.rejects(
       execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', workPackage], {
         cwd: root,
       }),
       (error) => {
         const output = JSON.parse(error.stdout);
-        return output.decision === 'STOP' && output.reason === 'NO_ACTIVE_WORK_PACKAGE';
+        const matches =
+          output.decision === 'STOP' && output.reason === expectedReasons[index];
+        index += 1;
+        return matches;
       },
-    );
-  }
-});
-
-test('CLI subprocess against the real repo keeps predecessor and successor packages stopped', async () => {
-  const loaded = await loadExecutionAuthorityV2(root);
-  assert.deepEqual(loaded.errors, []);
-  for (const workPackage of ['R0-W05', 'R0-W08', 'R0-W09']) {
-    await assert.rejects(
-      execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', workPackage], {
-        cwd: root,
-      }),
-      (error) => JSON.parse(error.stdout).decision === 'STOP',
     );
   }
 });
@@ -2339,8 +2424,8 @@ test('real repo v2 manifest evidence digests match on-disk bytes', async () => {
     '.harness/contracts/execution-authority-v2.schema.json',
   );
   const loaded = await loadExecutionAuthorityV2(root);
-  assert.deepEqual(loaded.errors, []);
-  assert.deepEqual(validateExecutionAuthorityV2(loaded), []);
+  await assertRealRepositoryAuthorityPhase(loaded);
+  assert.deepEqual(validateExecutionAuthorityV2(loaded), loaded.errors);
   assert.deepEqual(validateExecutionAuthorityV2Schema(loaded.schema), []);
 
   const ownerApprovalBytes = await readFile(
