@@ -43,6 +43,11 @@
 - [x] 修复全部已报告 HIGH/MEDIUM。
 - [x] 要求 exact CourtReview 持久存在并补齐完整 decision-ledger 零写入快照。
 - [x] 拒绝外部 artifact URL、incomplete Mission/RiskItem 和 fallback receipt。
+- [x] ready final 绑定 `awaiting_decision` review；`recheck` 消费 server
+  `REFRESH_REVIEW` 且拒绝前零写入。
+- [x] Mission/ReviewPack 五项业务范围 exact match；W06 `EXPIRED` typed fail closed。
+- [x] 史馆 exact archive 使用 audit-only scroll，不显示来源待核或 legacy 裁决建议。
+- [x] P0-B `contracts.py` 表面积登记与既有跨用户行为探针对齐。
 - [x] 将 test-only JWT launcher 纳入 Packet 文件 ownership/scope。
 - [x] 区分 base doctor PASS 与 isolated candidate PRE_INTEGRATION STOP。
 - [ ] 在 exact remediation candidate 上取得 fresh two-pass GO。

@@ -34,3 +34,12 @@ candidate 的两轮独立只读复审。
 decision-ledger 零写入快照、canonical artifact URL、完整 Mission/Pack/RiskItem
 runtime schema 与 adjudicable receipt gate。implementation `08d46fb4...` 等待
 fresh two-pass independent review，本文件不预先声明 GO。
+
+## Sixth Review
+
+`6a2ffefc...` 的 backend/frontend 两路审查均为 `NO-GO`，合并为
+`HIGH 2 / MEDIUM 2 / LOW 1`。全部 H/M 已按批准 scope 修复：server
+`REFRESH_REVIEW` gate 与 persisted review status 对齐，W06 `EXPIRED` typed
+fail closed，Mission/ReviewPack 业务范围 exact match，史馆 exact archive
+改为 audit-only 卷轴。LOW 的 parser `additionalProperties` hardening 留作后续
+residual。implementation `5d5ff747...` 等待 fresh two-pass independent review。

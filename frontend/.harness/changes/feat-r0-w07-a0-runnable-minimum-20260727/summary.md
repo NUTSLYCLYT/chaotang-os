@@ -16,10 +16,10 @@
 | 1 | 需求分析 | DONE | request_analysis/spec.md, tasks.md |
 | 2 | 需求复核 | DONE | root accepted design Packet `ed822255...` |
 | 3 | 实现记录 | DONE | coding/coding_report_v1.md |
-| 4 | 代码复核 | AWAITING_REVIEW | `68158da9...` NO-GO 的全部适用 H/M 已修复；fresh review pending |
+| 4 | 代码复核 | AWAITING_REVIEW | `6a2ffefc...` NO-GO 的全部适用 H/M 已修复；fresh review pending |
 | 5 | 测试计划 | DONE | unit_test/test_plan.md, e2e_test/e2e_plan.md |
 | 6 | 测试复核 | DONE | focused pass；browser READY + PARTIAL refresh |
-| 7 | 提交 / 收口 | DONE | implementation `08d46fb4...`, tree `31067a4b...` |
+| 7 | 提交 / 收口 | DONE | implementation `5d5ff747...`, tree `cf6a2508...` |
 | 8 | CI 验证 | PARTIAL | scoped PASS；canonical residual 1，root candidate expected STOP |
 | 9 | E2E 验证 | PASSED | e2e_test/e2e_summary.md |
 | 10 | 部署验证 | N/A | NOT_DEPLOYED; deployment/preview_report.md |

@@ -181,3 +181,38 @@ Codex `NO-GO` verdicts:
 `31067a4b0573775086f7b423553ea40fb4b15ecf` 已冻结；状态为
 `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING`。
 本文件不预判下一候选的独立审查结论。
+
+## Sixth Candidate Verdict
+
+Review envelope `6a2ffefc24c687f0a2d26ed5dbbc6932577c69be`, tree
+`db272c49f102424d278684db971a1589857537d8` received two fresh independent
+Codex `NO-GO` verdicts:
+
+- backend pass: `HIGH 1 / MEDIUM 1 / LOW 0`;
+- frontend pass: `HIGH 1 / MEDIUM 1 / LOW 1`.
+
+主控逐项复核后确认全部 HIGH/MEDIUM 适用：
+
+1. `recheck` 未消费 server action，且 ready final 与 persisted review status 脱节；
+2. W06 `EXPIRED` artifact 无法进入 W07 typed public projection；
+3. Mission 与 ReviewPack 的五项业务范围可漂移但仍获得 `DECIDE`；
+4. 史馆顶部声明 exact archive，中间卷轴仍显示“来源待核”和 legacy 裁决建议。
+
+LOW 为 parser root/task/blocker 未统一声明 `additionalProperties: false`；不影响当前
+typed H/M closure，保留为后续 contract hardening residual，不在本次批准范围扩展。
+
+## Sixth Remediation Evidence
+
+| Finding | Remediation | Focused evidence |
+| --- | --- | --- |
+| review/action split | ready final 只接受 persisted `awaiting_decision` review；contract `recheck` 必须消费 `REFRESH_REVIEW` | projection + API zero-write tests |
+| expired artifact | internal `EXPIRED` 映射为 public `UNAVAILABLE / expired`，delivery 降为 `UNDER_REVIEW` | projection test |
+| business scope drift | backend 与 frontend 同时比较 jurisdiction/language/contract_type/our_role/legal_question | projection + parser tests |
+| archive contradiction | exact receipt 使用 audit-only `EdictView`，显示 LIVE 且不暴露 legacy decision advice | node + Playwright + screenshot |
+| P0-B ratchet | `contracts.py ×1` 只登记已有 `_owned_task` 查询；四个 route 继续由跨用户 404 probes 约束 | P0-B 26/26 |
+
+新 implementation candidate
+`5d5ff747850ee161a1b39af849f39a0732be15d9`, tree
+`cf6a25089c69fe70961ae6d8f3972065923a605e` 已冻结；状态为
+`IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+NOT_DEPLOYED`。本文件不预判下一候选的独立审查结论。
