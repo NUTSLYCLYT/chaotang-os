@@ -113,8 +113,41 @@ baseline。该批准不扩展到 Checkpoint B、push、部署、数据库迁移�
 | ARCHIVED gate | 上书房与史馆统一要求 adjudicable + READY + `REOPEN_ARCHIVE` + no blocker | action-policy tests |
 | single decision entrance | Playwright 直接断言 `准奏/驳回/会审/批示` 四按钮不存在 | real JWT browser 1/1 |
 
+## Fourth Candidate Verdict
+
+Review envelope `a8e8858988be2a3b086228cc469236ad2d7fb86c`, tree
+`611aad5b542c80bccd0755ede47db10cc9aee462` received two fresh independent
+Codex `NO-GO` verdicts:
+
+- backend pass `019fa3b8-bfb1-7880-904a-b7f1c993b964`:
+  `HIGH 1 / MEDIUM 0 / LOW 0`;
+- frontend pass `019fa3b8-f758-7753-8c0c-c2e25bb4fb9a`:
+  `HIGH 0 / MEDIUM 3 / LOW 1`.
+
+主控技术裁决：
+
+1. `review=None` 仍可写入合同 decision/archive：适用；
+2. malformed-present mission/pack 与矛盾 DECIDE fail open：适用；
+3. `LIVE_ENGINE` 在史馆被误降级：适用；
+4. 合同身份验证完成前 legacy footer/modal 仍可操作：适用；
+5. frontend child evidence 仍写 pending/24：适用；
+6. “PARTIAL/non-proceed 不得显示 LIVE”：不适用。W07-A0 spec 将来源真实性与
+   delivery completeness 分列；PARTIAL 必须显示 blocker 且不得显示
+   READY/ARCHIVED/resume/DECIDE，但不应把真实来源降级为 FALLBACK。
+
+## Fourth Remediation Evidence
+
+| Finding | Remediation | Focused evidence |
+| --- | --- | --- |
+| missing exact review | current final 存在时 `review=None` 或 review id drift 均在写前拒绝 | direct writer + endpoint tests |
+| malformed boundary | Zod 校验 mission/review pack，hash/time/delivery shape fail closed | parser tests |
+| contradictory DECIDE | 仅 confirmed + passed/proceed + READY + no blocker 可消费 DECIDE | parser state test |
+| source normalization | `LIVE_ENGINE` 在 exact Shiguan readback 保持 `LIVE` | archive test |
+| loading-window action | `useSearchParams` 首帧识别；footer/modal/handler 同步阻断 | delayed-read Playwright |
+| child evidence drift | exact rerun 和 focused `26 passed` 回写 child Packet | child CI/E2E summaries |
+
 当前状态：implementation candidate
-`82c5216e3249121ef9cb6c547074aefbeb12cfd9`, tree
-`d40a1624457f9f6d4211911fc5e6ee5601f9caa7` 已冻结；状态为
+`b12b0db4fecda88f7a5f44cc2205a8bb534cae2f`, tree
+`8df6679495f46006d9d9e70ccd05d141b3f393cb` 已冻结；状态为
 `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING`。
 本文件不预判下一候选的独立审查结论。

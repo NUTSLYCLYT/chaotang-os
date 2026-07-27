@@ -4,16 +4,16 @@
 
 | 命令 | 退出码 | 结果 | 证据覆盖范围 | 证据位置 / 时间 |
 | --- | ---: | --- | --- | --- |
-| `python3 -m pytest -q tests/test_contract*.py tests/test_artifact_delivery*.py ... tests/test_shangshufang_loop_api.py` | 0 | latest 309 passed, 2 skipped | mission、lineage、shared decision writer、brief/legacy、authz、W05/W06 regression | 2026-07-27 |
+| `python3 -m pytest -q tests/test_contract*.py tests/test_artifact_delivery*.py ... tests/test_shangshufang_loop_api.py` | 0 | latest 310 passed, 2 skipped | mission、lineage、shared decision writer、brief/legacy、authz、W05/W06 regression | 2026-07-27 |
 | `ruff check <W07-A0 backend files>` | 0 | All checks passed | Python scope | 2026-07-27 |
-| `pnpm exec tsx --test src/features/contract-review/*.nodetest.ts` | 0 | latest 22 passed | adapter、request/pack/final identity、effective source、archive identity、existing-page regression | 2026-07-27 |
+| `pnpm exec tsx --test src/features/contract-review/*.nodetest.ts` | 0 | latest 26 passed | runtime schema、request/pack/final identity、effective source、archive identity、existing-page regression | 2026-07-27 |
 | `pnpm test:node` | 1 | 1085 passed, 1 failed | canonical frontend residual scan；1 个既有、非本 diff 失败 | 2026-07-27 |
 | `pnpm exec tsx --test src/app/(dashboard)/liubu/page.nodetest.tsx` | 1 | 0 passed, 1 failed | canonical glob 未覆盖的 TSX residual；非本 diff | 2026-07-27 |
 | `pnpm exec tsc --noEmit` | 0 | pass | generated contract and frontend types | 2026-07-27 |
 | `NEXT_PUBLIC_API_MODE=real pnpm build` | 0 | pass | real-mode production build only | 2026-07-27 |
 | `node --test scripts/api-contract-stability.nodetest.mjs` | 0 | 5 passed | immutable base、repin rejection、schema content、determinism | 2026-07-27 |
 | `API_CONTRACT_BASE_REF=ed822... node scripts/api-contract-stability.mjs` x2 | 0 | pass, 362 routes, 0 breaking, 9 additions | fixed OpenAPI baseline；两次 report/snapshot hash 相同 | 2026-07-27 |
-| `pnpm exec playwright test --config=playwright.w07.config.ts` | 0 | latest remediation run 1 passed | fresh real JWT READY flow、legacy footer suppression、exact/tampered archiveId、seeded PARTIAL refresh | 2026-07-27 |
+| `pnpm exec playwright test --config=playwright.w07.config.ts` | 0 | latest remediation run 1 passed | delayed initial read、fresh real JWT READY flow、legacy footer suppression、exact/tampered archiveId、seeded PARTIAL refresh | 2026-07-27 |
 | `python3 scripts/harness_doctor.py` | 0 | 0 errors, 0 warnings | backend harness | 2026-07-27 |
 | `pnpm harness:doctor` | 0 | 0 errors, 0 warnings | frontend harness | 2026-07-27 |
 | base `ed822255...`: `node scripts/harness-doctor.mjs` | 0 | 0 errors, 0 warnings | pre-edit integrated authority baseline | 2026-07-27 |
@@ -22,10 +22,10 @@
 
 ## 结果
 
-review envelope `4795ebb7...` 的两路 independent review 为 `NO-GO`；主控确认的
-全部 HIGH/MEDIUM 已完成第三轮 TDD remediation 并通过上述 fresh evidence。
-implementation candidate `82c5216e3249121ef9cb6c547074aefbeb12cfd9`, tree
-`d40a1624457f9f6d4211911fc5e6ee5601f9caa7` 已冻结；状态是
+review envelope `a8e88589...` 的两路 independent review 为 `NO-GO`；主控确认的
+全部适用 HIGH/MEDIUM 已完成第四轮 TDD remediation 并通过上述 fresh evidence。
+implementation candidate `b12b0db4fecda88f7a5f44cc2205a8bb534cae2f`, tree
+`8df6679495f46006d9d9e70ccd05d141b3f393cb` 已冻结；状态是
 `INDEPENDENT_REVIEW_PENDING`，不得整合。
 
 ## 全仓既有 Residual
@@ -62,9 +62,9 @@ implementation candidate `82c5216e3249121ef9cb6c547074aefbeb12cfd9`, tree
 | honest PARTIAL limitation | backend/frontend tests + real browser refresh | PASS |
 | real backend synthetic flow | Playwright real JWT flow | PASS |
 | no deployment or 3050 operation | isolated 3002/8081 config and report | PASS |
-| third remediation | all applicable HIGH/MEDIUM locally closed | PASS |
+| fourth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
 | independent review | fresh two-pass read-only review | PENDING |
-| exact implementation candidate | `82c5216e...` / `d40a1624...` | PASS |
+| exact implementation candidate | `b12b0db4...` / `8df66794...` | PASS |
 
 ## 声明状态
 
