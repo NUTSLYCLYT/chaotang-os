@@ -67,6 +67,15 @@ test('maps exact receipt identity into the existing Shiguan detail contract', ()
   assert.equal(detail?.decisionChain.at(-1)?.id, 'archive-1');
 });
 
+test('preserves LIVE_ENGINE as truthful live provenance in Shiguan', () => {
+  const value = model(true);
+  value.archive_receipt!.source_label = 'LIVE_ENGINE';
+
+  const detail = buildContractArchiveDetail(value, 'archive-1');
+
+  assert.equal(detail?.sourceLabel, 'LIVE');
+});
+
 test('rejects a contradictory exact receipt even for typed input', () => {
   const value = model(true);
   value.archive_receipt = {

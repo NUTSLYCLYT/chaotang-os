@@ -22,6 +22,18 @@ test.describe('W07 contract RUNNABLE_MINIMUM', () => {
     });
     expect(seedResponse.status).toBe(200);
 
+    let delayedInitialRead = true;
+    await page.route(
+      `**/api/contracts/tasks/${TASK_ID}/read-model`,
+      async (route) => {
+        if (delayedInitialRead) {
+          delayedInitialRead = false;
+          await new Promise((resolve) => setTimeout(resolve, 750));
+        }
+        await route.continue();
+      },
+    );
+
     await expect.poll(async () => {
       const response = await fetch(
         `http://127.0.0.1:8081/api/contracts/tasks/${TASK_ID}/read-model`,
@@ -38,6 +50,11 @@ test.describe('W07 contract RUNNABLE_MINIMUM', () => {
     }).toBe(200);
 
     await page.goto(`/shangshufang?taskId=${TASK_ID}`);
+    for (const legacyAction of ['准奏', '驳回', '会审', '批示']) {
+      await expect(
+        page.getByRole('button', { name: legacyAction, exact: true }),
+      ).toHaveCount(0);
+    }
     const panel = page.getByTestId('contract-review-panel');
     await expect(panel).toBeVisible();
     await expect(panel).toContainText('审查合成采购合同');

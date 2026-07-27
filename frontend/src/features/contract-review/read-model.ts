@@ -1,6 +1,7 @@
 import type {
   ContractTaskReadModelV1,
 } from '@/lib/contracts/backend-openapi-2026-07-21';
+import { z } from 'zod';
 
 export type ContractTaskReadModel = ContractTaskReadModelV1;
 export type ContractAction = ContractTaskReadModelV1['allowed_actions'][number];
@@ -40,6 +41,61 @@ export const CONTRACT_BLOCKERS = [
 const ACTION_SET = new Set<string>(CONTRACT_ACTIONS);
 const BLOCKER_SET = new Set<string>(CONTRACT_BLOCKERS);
 const SOURCE_CLASS_SET = new Set(['ADJUDICABLE', 'FALLBACK', 'UNKNOWN']);
+const NON_EMPTY_STRING = z.string().min(1);
+const ISO_TIMESTAMP = z.string().datetime({ offset: true });
+const MISSION_VIEW_SCHEMA = z.object({
+  state: z.enum(['DRAFT', 'CONFIRMED']),
+  mission: z.object({
+    task_id: NON_EMPTY_STRING,
+    mission_contract_id: NON_EMPTY_STRING,
+  }).passthrough(),
+}).strict();
+const REVIEW_PACK_SCHEMA = z.object({
+  schema_version: z.literal('ContractReviewPackV1').optional(),
+  review_pack_id: NON_EMPTY_STRING,
+  tenant_id: NON_EMPTY_STRING,
+  task_id: NON_EMPTY_STRING,
+  mission_contract_id: NON_EMPTY_STRING,
+  court_review_id: NON_EMPTY_STRING,
+  evidence_packet_ids: z.array(NON_EMPTY_STRING).min(1),
+  jurisdiction: z.enum(['CN_MAINLAND', 'UNSUPPORTED_OR_UNKNOWN']),
+  language: z.enum(['zh-CN', 'UNSUPPORTED_OR_UNKNOWN']),
+  contract_type: z.enum([
+    'procurement',
+    'sales',
+    'service',
+    'UNSUPPORTED_OR_UNKNOWN',
+  ]),
+  our_role: z.enum([
+    'buyer',
+    'seller',
+    'service_provider',
+    'other_party',
+    'UNSUPPORTED_OR_UNKNOWN',
+  ]),
+  legal_question: z.enum([
+    'contract_risk_screening',
+    'UNSUPPORTED_OR_UNKNOWN',
+  ]),
+  risk_items: z.array(z.unknown()),
+  verdict: z.enum([
+    'NEED_INFO',
+    'REVISE_BEFORE_PROCEED',
+    'PROCEED_TO_HUMAN_APPROVAL',
+    'BLOCKED',
+    'NEED_LEGAL_REVIEW',
+  ]),
+  decision_summary: NON_EMPTY_STRING,
+  affected_sections: z.array(NON_EMPTY_STRING).min(1),
+  source_labels: z.array(NON_EMPTY_STRING).min(1),
+  engine_tiers: z.array(z.enum([
+    'deterministic',
+    'validated_model',
+    'fallback',
+  ])).min(1),
+  quality_gate_status: z.enum(['PENDING', 'PASSED', 'FAILED']),
+  candidate_status: z.literal('CANDIDATE').optional(),
+}).strict();
 const PUBLIC_DELIVERY_KEYS = new Set([
   'manifest_id',
   'task_id',
@@ -67,6 +123,22 @@ function sha256(value: unknown): value is string {
   return typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
 }
 
+function isoTimestamp(value: unknown): value is string {
+  return ISO_TIMESTAMP.safeParse(value).success;
+}
+
+function validMission(value: unknown): boolean {
+  return value === null
+    || value === undefined
+    || MISSION_VIEW_SCHEMA.safeParse(value).success;
+}
+
+function validReviewPack(value: unknown): boolean {
+  return value === null
+    || value === undefined
+    || REVIEW_PACK_SCHEMA.safeParse(value).success;
+}
+
 function validTask(value: unknown): boolean {
   const task = record(value);
   return task !== null
@@ -91,8 +163,15 @@ function validDelivery(value: unknown): boolean {
     || !nonEmptyString(delivery.delivery_formula_version)
     || !Number.isInteger(delivery.delivery_revision)
     || !nonEmptyString(delivery.payload_hash)
+    || !sha256(delivery.payload_hash)
     || !Array.isArray(delivery.artifacts)
+    || delivery.artifacts.length === 0
     || !['READY', 'PARTIAL', 'UNDER_REVIEW'].includes(String(delivery.overall_status))
+    || (
+      delivery.resume_token_expires_at !== null
+      && delivery.resume_token_expires_at !== undefined
+      && !isoTimestamp(delivery.resume_token_expires_at)
+    )
   ) {
     return false;
   }
@@ -103,12 +182,25 @@ function validDelivery(value: unknown): boolean {
       && ['PDF', 'DOCX', 'JSON'].includes(String(item.kind))
       && nonEmptyString(item.mime_type)
       && Number.isInteger(item.byte_size)
-      && nonEmptyString(item.content_hash)
-      && nonEmptyString(item.lineage_hash)
+      && Number(item.byte_size) >= 0
+      && sha256(item.content_hash)
+      && sha256(item.lineage_hash)
       && ['PENDING', 'STORED', 'UNAVAILABLE'].includes(String(item.status))
+      && (
+        item.expires_at === undefined
+        || item.expires_at === null
+        || isoTimestamp(item.expires_at)
+      )
       && (item.download_url === undefined
         || item.download_url === null
-        || nonEmptyString(item.download_url));
+        || (
+          item.status === 'STORED'
+          && nonEmptyString(item.download_url)
+        ))
+      && (
+        item.status !== 'UNAVAILABLE'
+        || nonEmptyString(item.incomplete_reason)
+      );
   });
 }
 
@@ -120,17 +212,19 @@ function validArchiveReceipt(value: unknown): boolean {
     && nonEmptyString(receipt.task_id)
     && nonEmptyString(receipt.final_memorial_id)
     && Number.isInteger(receipt.final_memorial_version)
+    && Number(receipt.final_memorial_version) >= 1
     && sha256(receipt.final_memorial_content_hash)
-    && nonEmptyString(receipt.archived_at)
+    && isoTimestamp(receipt.archived_at)
     && nonEmptyString(receipt.source_label);
 }
 
 function validFinalMemorial(value: unknown): boolean {
   if (value === null || value === undefined) return true;
   const final = record(value);
-  return final !== null
+    return final !== null
     && nonEmptyString(final.final_memorial_id)
     && Number.isInteger(final.final_memorial_version)
+    && Number(final.final_memorial_version) >= 1
     && sha256(final.final_memorial_content_hash)
     && nonEmptyString(final.court_review_id)
     && nonEmptyString(final.status)
@@ -196,6 +290,24 @@ function hasExactLineage(model: Record<string, unknown>): boolean {
   return true;
 }
 
+function hasConsistentDecisionState(model: Record<string, unknown>): boolean {
+  const actions = model.allowed_actions as unknown[];
+  if (!actions.includes('DECIDE')) return true;
+
+  const missionView = record(model.mission);
+  const pack = record(model.review_pack);
+  const final = record(model.final_memorial);
+  const delivery = record(model.delivery);
+  return model.source_class === 'ADJUDICABLE'
+    && missionView?.state === 'CONFIRMED'
+    && pack?.verdict === 'PROCEED_TO_HUMAN_APPROVAL'
+    && pack.quality_gate_status === 'PASSED'
+    && final?.status === 'ready_for_decision'
+    && delivery?.overall_status === 'READY'
+    && model.archive_receipt == null
+    && (model.blockers as unknown[]).length === 0;
+}
+
 export function parseContractTaskReadModel(
   value: unknown,
   expectedTaskId: string,
@@ -204,8 +316,8 @@ export function parseContractTaskReadModel(
   if (
     !model
     || model.schema_version !== 'ContractTaskReadModelV1'
-    || !nonEmptyString(model.read_revision)
-    || !nonEmptyString(model.generated_at)
+    || !sha256(model.read_revision)
+    || !isoTimestamp(model.generated_at)
     || typeof model.source_class !== 'string'
     || !SOURCE_CLASS_SET.has(model.source_class)
     || !validTask(model.task)
@@ -228,6 +340,12 @@ export function parseContractTaskReadModel(
   if (!validDelivery(model.delivery)) {
     throw new Error('invalid contract delivery');
   }
+  if (!validMission(model.mission)) {
+    throw new Error('invalid contract mission');
+  }
+  if (!validReviewPack(model.review_pack)) {
+    throw new Error('invalid contract review pack');
+  }
   if (!validFinalMemorial(model.final_memorial)) {
     throw new Error('invalid final memorial');
   }
@@ -236,6 +354,9 @@ export function parseContractTaskReadModel(
   }
   if (!hasExactLineage(model)) {
     throw new Error('invalid contract lineage');
+  }
+  if (!hasConsistentDecisionState(model)) {
+    throw new Error('contradictory contract decision state');
   }
   const task = record(model.task);
   if (task?.task_id !== expectedTaskId) {

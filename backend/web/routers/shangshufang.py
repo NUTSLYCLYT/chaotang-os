@@ -874,17 +874,21 @@ def _execute_final_memorial_decision(
             and "contract_review" in formal_payload
         )
     )
-    if is_contract_task and review is not None:
-        if (
+    if is_contract_task:
+        review_mismatch = review is not None and (
             task.tenant_id is None
             or review.tenant_id is None
             or review.tenant_id != task.tenant_id
             or review.task_id != task.id
-            or (
-                current_formal is not None
-                and current_formal.review_id != review.id
+        )
+        final_review_missing_or_mismatched = (
+            current_formal is not None
+            and (
+                review is None
+                or current_formal.review_id != review.id
             )
-        ):
+        )
+        if review_mismatch or final_review_missing_or_mismatched:
             raise ValueError(
                 "contract review ownership or final lineage conflict"
             )

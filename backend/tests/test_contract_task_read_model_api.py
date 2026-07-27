@@ -43,6 +43,20 @@ def _client(
     return TestClient(app, raise_server_exceptions=False), app
 
 
+def _seed_exact_review(db, task):
+    from src.db.models import CourtReview
+
+    review = CourtReview(
+        id=f"review-{task.id}",
+        tenant_id=task.tenant_id,
+        task_id=task.id,
+        review_status="awaiting_decision",
+    )
+    db.add(review)
+    db.flush()
+    return review
+
+
 def _decision_state(db, task_id: str) -> dict[str, object]:
     from src.db.models import (
         CourtLoopRun,
@@ -149,6 +163,7 @@ def test_contract_final_decision_requires_server_decide_action_before_any_write(
     with isolated_session_local() as db:
         task = seed_contract_task(db, task_id=task_id)
         final, _ = seed_final_memorial(db, task_id=task.id)
+        _seed_exact_review(db, task)
         content_hash = final.content_hash
         db.commit()
         before = _decision_state(db, task_id)
@@ -367,6 +382,46 @@ def test_shared_writer_rejects_review_outside_exact_final_lineage(
         assert _decision_state(db, task_id) == before
 
 
+def test_shared_writer_requires_exact_review_to_exist(
+    monkeypatch,
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    from web.routers.shangshufang import _execute_final_memorial_decision
+
+    monkeypatch.setenv("FENGQUN_RUNTIME_ROOT", str(tmp_path))
+    task_id = "task-api-review-required"
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id=task_id)
+        final, pack = seed_final_memorial(db, task_id=task.id)
+        seed_delivery(
+            db,
+            storage_root=tmp_path / "artifacts",
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        content_hash = final.content_hash
+        db.commit()
+        before = _decision_state(db, task_id)
+
+        with pytest.raises(ValueError, match="lineage"):
+            _execute_final_memorial_decision(
+                db,
+                task=task,
+                review=None,
+                action="approve",
+                reason="合同裁决必须绑定真实 CourtReview",
+                human_confirmed=True,
+                expected_content_hash=content_hash,
+                actor_user_id="7",
+            )
+        db.rollback()
+
+    with isolated_session_local() as db:
+        assert _decision_state(db, task_id) == before
+
+
 def test_decision_state_snapshot_captures_review_and_loop_mutations(
     isolated_session_local,
 ) -> None:
@@ -426,6 +481,7 @@ def test_pack_only_contract_candidate_is_blocked_at_shared_writer(
         db.add(task)
         db.flush()
         final, _ = seed_final_memorial(db, task_id=task_id)
+        review = _seed_exact_review(db, task)
         content_hash = final.content_hash
         db.commit()
         before = _decision_state(db, task_id)
@@ -434,7 +490,7 @@ def test_pack_only_contract_candidate_is_blocked_at_shared_writer(
             _execute_final_memorial_decision(
                 db,
                 task=task,
-                review=None,
+                review=review,
                 action="approve",
                 reason="pack-only 不得走 legacy 写入口",
                 human_confirmed=True,
@@ -463,6 +519,7 @@ def test_revise_verdict_cannot_be_approved_and_archived(
             verdict="REVISE_BEFORE_PROCEED",
         )
         final, pack = seed_final_memorial(db, task_id=task.id, pack=pack)
+        _seed_exact_review(db, task)
         seed_delivery(
             db,
             storage_root=tmp_path / "artifacts",
@@ -506,6 +563,7 @@ def test_contract_final_decision_preserves_ready_delivery_happy_path(
     with isolated_session_local() as db:
         task = seed_contract_task(db, task_id=task_id)
         final, pack = seed_final_memorial(db, task_id=task.id)
+        _seed_exact_review(db, task)
         seed_delivery(
             db,
             storage_root=tmp_path / "artifacts",

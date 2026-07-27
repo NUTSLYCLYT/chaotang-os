@@ -24,7 +24,9 @@ export function buildContractArchiveDetail(
     return null;
   }
 
-  const sourceLabel = normalizeSourceLabel(receipt.source_label);
+  const sourceLabel = receipt.source_label === 'LIVE_ENGINE'
+    ? 'LIVE'
+    : normalizeSourceLabel(receipt.source_label);
   const pack = model.review_pack;
   const delivery = model.delivery;
   return {

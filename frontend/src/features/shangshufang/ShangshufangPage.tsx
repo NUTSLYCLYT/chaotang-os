@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import {
   AlertTriangle,
@@ -2270,6 +2270,7 @@ function stripAppBasePath(path: string): string {
 
 export function ShangshufangPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dialogueSeqRef = useRef(0);
@@ -2341,8 +2342,7 @@ export function ShangshufangPage() {
   const [edictCollapsed, setEdictCollapsed] = useState(true);
 
   const [activeMemorialId, setActiveMemorialId] = useState<string | null>(null);
-  const [requestedContractTaskId, setRequestedContractTaskId] = useState<string | null>(null);
-  const [verifiedContractTaskId, setVerifiedContractTaskId] = useState<string | null>(null);
+  const requestedContractTaskId = searchParams.get('taskId');
   const [rejectedMemorialIds, setRejectedMemorialIds] = useState<Set<string>>(() => new Set());
   const [selectedMemorialOverride, setSelectedMemorialOverride] = useState<Memorial | null>(null);
   const [secondarySeal, setSecondarySeal] = useState<ActiveEdictSeal | null>(null);
@@ -2356,11 +2356,6 @@ export function ShangshufangPage() {
   useEffect(() => {
     edictOverrideRef.current = edictOverride;
   }, [edictOverride]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setRequestedContractTaskId(params.get('taskId'));
-  }, []);
 
   // 2026-07-14: fetchBuildLedger 失败会 throw(不再悄悄返回空数组),但如果这里
   // 还是只 console.warn,对真实用户来说"同步失败"和"本来就没有台账"看起来
@@ -2583,6 +2578,21 @@ export function ShangshufangPage() {
       ? memorialItemToDisplay(target, targetIndex === 0, briefing.sourceMode)
       : null;
   })();
+  const contractTaskId = selectContractTaskCandidate({
+    requestedTaskId: requestedContractTaskId,
+    edictPrimaryTaskId: edictOverride?.primaryTaskId ?? null,
+    activeMemorialId: activeMemorial?.id ?? null,
+  });
+  const legacyContractActionsBlocked = (
+    contractTaskId !== null
+    && activeMemorial?.id === contractTaskId
+  );
+  useEffect(() => {
+    if (!legacyContractActionsBlocked || !verdictOpen) return;
+    setVerdictOpen(false);
+    setVerdictResult(null);
+    setVerdictReceipt(null);
+  }, [legacyContractActionsBlocked, verdictOpen]);
   const todayDocketMemorials = dedupedMemorialItems
     .slice(0, 5)
     .map((item, index) => memorialItemToDisplay(item, index === 0, briefing.sourceMode));
@@ -4148,7 +4158,7 @@ export function ShangshufangPage() {
 
   const handleVerdictChoice = useCallback(
     async (option: string) => {
-      if (!activeMemorial) return;
+      if (!activeMemorial || legacyContractActionsBlocked) return;
       setVerdictReceipt(null);
       if (activeMemorial.id.startsWith('task_')) {
         const action = verdictTaskAction(option);
@@ -4244,7 +4254,7 @@ export function ShangshufangPage() {
         setVerdictResult(`裁决「${option}」未能送达后端（奏折可能非真实任务或服务不可用），未被记录 · 请稍后重试。`);
       }
     },
-    [activeMemorial, refreshBriefing],
+    [activeMemorial, legacyContractActionsBlocked, refreshBriefing],
   );
 
   const closeVerdict = useCallback(() => {
@@ -4252,11 +4262,6 @@ export function ShangshufangPage() {
     setVerdictResult(null);
     setVerdictReceipt(null);
   }, []);
-  const contractTaskId = selectContractTaskCandidate({
-    requestedTaskId: requestedContractTaskId,
-    edictPrimaryTaskId: edictOverride?.primaryTaskId ?? null,
-    activeMemorialId: activeMemorial?.id ?? null,
-  });
   const isAutoRestoredJiqunReturn = edictOverride?.srcId.startsWith('jiqun-return-') ?? false;
   const defaultTopSuggestionReport =
     topSuggestion &&
@@ -4733,7 +4738,7 @@ export function ShangshufangPage() {
                       setVerdictOpen(true);
                     }}
                     actionsDisabled={rejectedMemorialIds.has(activeMemorial.id)}
-                    hideFooter={verifiedContractTaskId === activeMemorial.id}
+                    hideFooter={legacyContractActionsBlocked}
                   />
                 ) : activeSuggestionReport ? (
                   <EdictStage
@@ -4817,11 +4822,6 @@ export function ShangshufangPage() {
               {contractTaskId ? (
                 <ContractReviewPanel
                   taskId={contractTaskId}
-                  onContractIdentityChange={(isContractTask) => {
-                    setVerifiedContractTaskId(
-                      isContractTask ? contractTaskId : null,
-                    );
-                  }}
                   onWorkflowAction={(action) => {
                     focusDecree(
                       'order',
@@ -5054,7 +5054,7 @@ export function ShangshufangPage() {
       </ImperialModal>
 
       <ImperialModal
-        open={verdictOpen}
+        open={verdictOpen && !legacyContractActionsBlocked}
         onClose={closeVerdict}
         eyebrow="IMPERIAL VERDICT · 御前裁决"
         title={verdictResult ? '裁决已下' : `裁决：${activeMemorial?.petitioner || '未知'} 之奏`}
