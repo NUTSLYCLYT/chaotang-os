@@ -14,6 +14,11 @@ import {
   type DepartmentDirectoryEntry,
 } from "./departmentDirectory";
 import type { MinistriesControllerState } from "./ministriesController";
+import {
+  projectMinistryMetrics,
+  projectMinistryReplies,
+  type MinistryReplyProjection,
+} from "./ministriesViewModel";
 import styles from "./ministries.module.css";
 
 export const CANVAS_WIDTH = 1672;
@@ -50,56 +55,23 @@ const DEV_COLORS: Readonly<Record<DepartmentDirectoryEntry["code"], string>> = {
   legal: "#6fa0ff",
   gongbu: "#7fc9a8",
 };
-const LIVE_DEPARTMENTS = new Set<DepartmentDirectoryEntry["code"]>([
-  "personnel",
-  "finance",
-  "ops",
-  "legal",
-  "gongbu",
-]);
-
 function MinistryGlyph({ code }: { code: DepartmentDirectoryEntry["code"] }) {
   return <span aria-hidden="true">{code === "finance" ? "贯" : code === "legal" ? "衡" : "印"}</span>;
 }
 
-function getDepartmentCases(cases: ReplyCaseView[] | null, department: DepartmentDirectoryEntry) {
-  return cases?.filter((item) => item.departments.includes(department.name)) ?? [];
-}
-
-function getMetrics(
-  departmentCases: ReplyCaseView[],
-  state: MinistriesControllerState["status"],
-) {
-  if (state === "loading") return [["办结回奏", "读取中"], ["参与卷宗", "读取中"], ["最近回奏", "读取中"]] as const;
-  if (state === "error") return [["办结回奏", "暂不可读"], ["参与卷宗", "暂不可读"], ["最近回奏", "暂不可读"]] as const;
-  const respondents = new Set(departmentCases.map((item) => item.respondent));
-  const latest = departmentCases
-    .map((item) => Date.parse(item.repliedAt))
-    .filter(Number.isFinite)
-    .sort((left, right) => right - left)[0];
-  return [
-    ["办结回奏", `${departmentCases.length} 件`],
-    ["参与官署", `${respondents.size} 处`],
-    ["最近回奏", latest ? new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit" }).format(latest) : "暂无"],
-  ] as const;
-}
-
 function MinistryCard({
   department,
-  departmentCases,
+  view,
   index,
   selected,
-  state,
   onSelect,
 }: {
   department: DepartmentDirectoryEntry;
-  departmentCases: ReplyCaseView[];
+  view: MinistryReplyProjection;
   index: number;
   selected: boolean;
-  state: MinistriesControllerState["status"];
   onSelect(): void;
 }) {
-  const live = LIVE_DEPARTMENTS.has(department.code);
   const style = {
     ...MINISTRY_BOXES[department.code],
     "--card-color": DEV_COLORS[department.code],
@@ -125,9 +97,9 @@ function MinistryCard({
         </Link>
         <strong>{MINISTRY_TITLES[department.code]}</strong>
       </div>
-      <span className={live ? styles.liveBadge : styles.pendingBadge}>{live ? "真 · LIVE" : "筹备中"}</span>
+      <span className={styles.readonlyBadge}>只读目录</span>
       <dl className={styles.cardMetrics}>
-        {getMetrics(departmentCases, state).map(([label, value]) => (
+        {projectMinistryMetrics(view).map(([label, value]) => (
           <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
         ))}
       </dl>
@@ -137,8 +109,13 @@ function MinistryCard({
   );
 }
 
-function SelectedMinistryRail({ department, count }: { department: DepartmentDirectoryEntry; count: number }) {
-  const live = LIVE_DEPARTMENTS.has(department.code);
+function SelectedMinistryRail({
+  department,
+  view,
+}: {
+  department: DepartmentDirectoryEntry;
+  view: MinistryReplyProjection;
+}) {
   return (
     <aside
       className={styles.selectedMinistryRail}
@@ -147,8 +124,8 @@ function SelectedMinistryRail({ department, count }: { department: DepartmentDir
       aria-label={`${department.name}属司`}
     >
       <div className={styles.railEyebrow}>{department.name} · OFFICE RAIL</div>
-      <div className={styles.railTitle}><span aria-hidden="true" /><div><p>{live ? "真部门" : "筹备中"}</p><h2>{department.name}属司</h2></div></div>
-      <div className={styles.railSummary}><span>真实回奏</span><strong>{count}</strong></div>
+      <div className={styles.railTitle}><span aria-hidden="true" /><div><p>只读目录</p><h2>{department.name}属司</h2></div></div>
+      <div className={styles.railSummary}><span>回奏记录</span><strong>{view.countLabel}</strong></div>
       <ul>
         {department.offices.map((office, index) => (
           <li key={office.slug}>
@@ -178,12 +155,24 @@ export function MinistryOverviewScene({
   const [scale, setScale] = useState(1);
   const [selectedCode, selectMinistry] = useState<DepartmentDirectoryEntry["code"] | null>(null);
   const selected = DEPARTMENT_DIRECTORY.find((department) => department.code === selectedCode) ?? null;
-  const casesByDepartment = useMemo(
+  const overviewView = useMemo(
+    () => projectMinistryReplies({ state, cases, error }),
+    [cases, error, state],
+  );
+  const viewsByDepartment = useMemo(
     () =>
       Object.fromEntries(
-        DEPARTMENT_DIRECTORY.map((department) => [department.code, getDepartmentCases(cases, department)]),
-      ) as Record<DepartmentDirectoryEntry["code"], ReplyCaseView[]>,
-    [cases],
+        DEPARTMENT_DIRECTORY.map((department) => [
+          department.code,
+          projectMinistryReplies({
+            state,
+            cases,
+            error,
+            department: department.name,
+          }),
+        ]),
+      ) as Record<DepartmentDirectoryEntry["code"], MinistryReplyProjection>,
+    [cases, error, state],
   );
 
   useLayoutEffect(() => {
@@ -213,10 +202,15 @@ export function MinistryOverviewScene({
       <section className={styles.overview} aria-labelledby="ministries-heading">
         <header className={styles.overviewHeading}>
           <h1 id="ministries-heading">六部政务分域</h1>
-          <p>回奏计数来自当前史馆真实 REPLY；礼部按 dev V1 如实标记筹备中。</p>
+          <p>六部与属司目录为权威静态注册；回奏指标仅来自当前史馆真实 REPLY。</p>
         </header>
         <div className={styles.canvasViewport} ref={viewportRef}>
-          {selected ? <SelectedMinistryRail department={selected} count={casesByDepartment[selected.code].length} /> : null}
+          {selected ? (
+            <SelectedMinistryRail
+              department={selected}
+              view={viewsByDepartment[selected.code]}
+            />
+          ) : null}
           <div
             className={styles.canvas}
             style={{
@@ -232,19 +226,29 @@ export function MinistryOverviewScene({
               <MinistryCard
                 key={department.code}
                 department={department}
-                departmentCases={casesByDepartment[department.code]}
+                view={viewsByDepartment[department.code]}
                 index={index}
                 selected={selectedCode === department.code}
-                state={state}
                 onSelect={() => selectMinistry((current) => current === department.code ? null : department.code)}
               />
             ))}
           </div>
         </div>
-        {state === "error" ? (
-          <div className={`${styles.readError} ${styles.overviewReadError}`} role="alert">
-            <span>{error}</span><button type="button" onClick={retry}>重试读取</button>
+        {overviewView.status === "loading" ? (
+          <div className={styles.overviewReadState} aria-live="polite">
+            正在调取史馆真实回奏…
           </div>
+        ) : null}
+        {overviewView.status === "error" ? (
+          <div className={`${styles.readError} ${styles.overviewReadError}`} role="alert">
+            <span>{overviewView.error}</span><button type="button" onClick={retry}>重试读取</button>
+          </div>
+        ) : null}
+        {overviewView.status === "empty" ? (
+          <div className={styles.overviewReadState}>史馆读取完成，当前暂无真实回奏记录。</div>
+        ) : null}
+        {overviewView.status === "ready" ? (
+          <span className={styles.departmentSrOnly}>史馆真实回奏读取完成</span>
         ) : null}
       </section>
     </ImmersiveCourtShell>

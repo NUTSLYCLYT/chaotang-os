@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { useState, type CSSProperties } from "react";
 
-import { filterReplyCasesByDepartment, type ReplyCaseView } from "../court-replies/replyFeed";
+import type { ReplyCaseView } from "../court-replies/replyFeed";
 import { CourtCapabilityButton } from "../court-visuals/CourtCapabilityButton";
 import { ImmersiveCourtShell } from "../court-visuals/ImmersiveCourtShell";
 import {
@@ -11,6 +11,7 @@ import {
 } from "./departmentDirectory";
 import { DepartmentEdictStage, DepartmentRailPanel } from "./DepartmentVisualPrimitives";
 import type { MinistriesControllerState } from "./ministriesController";
+import { projectMinistryReplies } from "./ministriesViewModel";
 import styles from "./ministries.module.css";
 
 export function OfficeScene({
@@ -28,7 +29,13 @@ export function OfficeScene({
   error: string | null;
   retry(): void;
 }) {
-  const departmentCases = cases ? filterReplyCasesByDepartment(cases, department.name) : [];
+  const replyView = projectMinistryReplies({
+    state,
+    cases,
+    error,
+    department: department.name,
+  });
+  const departmentCases = replyView.cases ?? [];
   const [selectedReplyId, selectReply] = useState<string | null>(null);
   const selectedReply =
     departmentCases.find((item) => item.id === selectedReplyId) ?? departmentCases[0] ?? null;
@@ -43,7 +50,7 @@ export function OfficeScene({
       <article
         className={styles.departmentWorkspace}
         style={{ "--accent": department.accent } as CSSProperties}
-        data-view-state={state}
+        data-view-state={replyView.status}
       >
         <header className={styles.departmentPageHeader}>
           <div>
@@ -97,7 +104,15 @@ export function OfficeScene({
               titleId="office-edict-title"
               kicker={`${department.name}奏 · 司级办事台`}
               title={selectedReply?.title ?? `${office.name}待命`}
-              subtitle={selectedReply ? "真实部门参与记录" : "当前无真实部门回奏"}
+              subtitle={
+                replyView.status === "loading"
+                  ? "正在读取史馆回奏"
+                  : replyView.status === "error"
+                    ? "史馆回奏暂不可读"
+                    : selectedReply
+                      ? "真实部门参与记录"
+                      : "史馆读取完成 · 暂无部门回奏"
+              }
               footer={office.actions.map((action) => (
                 <CourtCapabilityButton
                   capability="unavailable"
@@ -108,20 +123,32 @@ export function OfficeScene({
                 </CourtCapabilityButton>
               ))}
             >
-              {selectedReply ? (
+              {replyView.status === "loading" ? (
+                <div className={styles.edictReadState} aria-live="polite">
+                  正在调取史馆真实回奏；读取完成前不显示空记录或计数。
+                </div>
+              ) : null}
+              {replyView.status === "error" ? (
+                <div className={styles.departmentReadError} role="alert">
+                  <span>{replyView.error}</span>
+                  <button type="button" onClick={retry}>重试读取</button>
+                </div>
+              ) : null}
+              {replyView.status === "ready" && selectedReply ? (
                 <dl className={styles.edictFacts}>
                   <div><dt>部门回奏结论</dt><dd>{selectedReply.conclusion}</dd></div>
                   <div><dt>部门处理路径</dt><dd>{selectedReply.process}</dd></div>
                   <div><dt>回奏人</dt><dd>{selectedReply.respondent}</dd></div>
                   <div><dt>回奏时间</dt><dd>{selectedReply.repliedAt}</dd></div>
                 </dl>
-              ) : (
+              ) : null}
+              {replyView.status === "empty" ? (
                 <div className={styles.edictEmpty}>
                   <p className={styles.edictEmptyMark}>{office.name.slice(0, 1)}</p>
                   <h3>{office.name}</h3>
                   <p>没有可展示的真实部门回奏；不会生成本司意见。</p>
                 </div>
-              )}
+              ) : null}
               <p className={styles.departmentBoundary}>本奏折只展示{department.name}参与记录，不归属或映射到{office.name}。</p>
             </DepartmentEdictStage>
           </section>
@@ -129,20 +156,20 @@ export function OfficeScene({
           <aside data-right-rail aria-labelledby="office-context-heading">
             <DepartmentRailPanel
               title={`${office.name}右批`}
-              subtitle={state === "loading" ? "读取中" : state === "error" ? "读取失败" : `${departmentCases.length} 条部门记录`}
+              subtitle={replyView.countLabel}
             >
               <h2 className={styles.departmentSectionTitle} id="office-context-heading">部门回奏上下文</h2>
               <p className={styles.departmentBoundary}>以下记录不代表{office.name}意见。</p>
-              {state === "loading" ? <div className={styles.departmentLoading}>正在调取史馆真实回奏…</div> : null}
-              {state === "error" ? (
+              {replyView.status === "loading" ? <div className={styles.departmentLoading}>正在调取史馆真实回奏…</div> : null}
+              {replyView.status === "error" ? (
                 <div className={styles.departmentReadError} role="alert">
-                  <span>{error}</span><button type="button" onClick={retry}>重试读取</button>
+                  <span>{replyView.error}</span><button type="button" onClick={retry}>重试读取</button>
                 </div>
               ) : null}
-              {state === "empty" || (state === "ready" && departmentCases.length === 0) ? (
+              {replyView.status === "empty" ? (
                 <p className={styles.departmentEmpty}>当前未读取到本部参与的真实回奏。</p>
               ) : null}
-              {state === "ready" && departmentCases.length > 0 ? (
+              {replyView.status === "ready" ? (
                 <ul className={styles.departmentRailList}>
                   {departmentCases.map((item) => (
                     <li key={item.id} data-selected={selectedReply?.id === item.id || undefined}>

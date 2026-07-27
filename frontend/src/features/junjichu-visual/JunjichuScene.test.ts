@@ -19,6 +19,8 @@ test("junjichu renders complete archived REPLY fields and honest states", async 
     assert.match(source, new RegExp(`data-junjichu-state="${state}"`));
   }
   assert.doesNotMatch(source, /bureauOpinions|ownerId|BACKEND_BASE_URL|mock/);
+  assert.match(source, /projectJunjichuFacts/);
+  assert.doesNotMatch(source, /大臣|参与官署|真\s*·\s*LIVE|筹备中/);
 });
 
 test("junjichu actually imports and renders both shared edict forms", async () => {

@@ -54,10 +54,10 @@ test("department and office use shared edict and explicit read states", async ()
   const css = await read("./ministries.module.css");
   assert.match(primitive, /from\s+["']\.\.\/court-visuals\/edict\/EdictStage["']/);
   assert.match(primitive, /<EdictStage\b/);
-  assert.match(scenes, /state === "loading"/);
-  assert.match(scenes, /state === "error"/);
-  assert.match(scenes, /state === "empty"/);
-  assert.match(scenes, /state === "ready"/);
+  assert.match(scenes, /status === "loading"/);
+  assert.match(scenes, /status === "error"/);
+  assert.match(scenes, /status === "empty"/);
+  assert.match(scenes, /status === "ready"/);
   assert.match(scenes, /重试读取/);
   assert.match(css, /:focus-visible/);
   assert.match(css, /@media \(max-width: 767px\)/);
@@ -77,7 +77,6 @@ test("overview locks the dev canvas, hotspots and selected office rail", async (
     /personnel:\s*\{\s*left:\s*320,\s*top:\s*125,\s*width:\s*240,\s*height:\s*110\s*\}/,
   );
   assert.match(source, /market:\s*"礼部 · 品牌客户域"/);
-  assert.match(source, /getDepartmentCases\(cases,\s*department\)/);
   assert.match(source, /data-ministry-hotspot/);
   assert.match(source, /data-selected-ministry-rail/);
   assert.doesNotMatch(source, /12\.8\s*亿|2,480|8,952|3,682|128\s*个/);
@@ -111,4 +110,36 @@ test("department and office preserve independent three-axis rails and labelled c
     css,
     /@media \(max-width: 767px\)[\s\S]*?\.departmentThreeAxis\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/,
   );
+});
+
+test("production scenes forbid inferred live status and misleading actor labels", async () => {
+  const production = (
+    await Promise.all([
+      read("./MinistryOverviewScene.tsx"),
+      read("./DepartmentScene.tsx"),
+      read("./OfficeScene.tsx"),
+      read("../junjichu-visual/JunjichuScene.tsx"),
+    ])
+  ).join("\n");
+  assert.doesNotMatch(
+    production,
+    /LIVE_DEPARTMENTS|真\s*·\s*LIVE|筹备中|大臣|参与官署|真部门/,
+  );
+  assert.match(production, /projectMinistryReplies/);
+  assert.match(production, /projectJunjichuFacts/);
+});
+
+test("all ministry scenes render four explicit projected read states", async () => {
+  const sources = await Promise.all([
+    read("./MinistryOverviewScene.tsx"),
+    read("./DepartmentScene.tsx"),
+    read("./OfficeScene.tsx"),
+  ]);
+  for (const source of sources) {
+    assert.match(source, /status === "loading"/);
+    assert.match(source, /status === "error"/);
+    assert.match(source, /status === "empty"/);
+    assert.match(source, /status === "ready"/);
+    assert.match(source, /重试读取/);
+  }
 });

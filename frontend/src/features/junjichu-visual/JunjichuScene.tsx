@@ -7,6 +7,7 @@ import {
   EdictStage,
 } from "../court-visuals/edict/EdictStage";
 import type { ReplyCaseView } from "../court-replies/replyFeed";
+import { projectJunjichuFacts } from "./junjichuProjection";
 import styles from "./JunjichuScene.module.css";
 
 const VERDICT_ACTIONS = [
@@ -46,6 +47,7 @@ export function JunjichuScene({
   onRetry,
 }: JunjichuSceneProps) {
   const selected = cases?.find((item) => item.id === selectedId) ?? cases?.[0] ?? null;
+  const facts = selected ? projectJunjichuFacts(selected) : [];
 
   return (
     <ImmersiveCourtShell
@@ -144,9 +146,14 @@ export function JunjichuScene({
                 <span>归档事实</span>
               </div>
               <div className={styles.factGrid}>
-                <div className={styles.factCard}><span>大臣</span><strong>{selected.departments.length}</strong></div>
-                <div className={styles.factCard}><span>蜂群</span><strong aria-label="归档未提供">—</strong></div>
-                <div className={styles.factCard}><span>风险</span><strong aria-label="归档未提供">—</strong></div>
+                {facts.map((fact) => (
+                  <div className={styles.factCard} key={fact.label}>
+                    <span>{fact.label}</span>
+                    <strong aria-label={fact.value === null ? "归档未提供" : undefined}>
+                      {fact.value ?? "—"}
+                    </strong>
+                  </div>
+                ))}
               </div>
               <section className={styles.riskSegment}>
                 <h3>冲突与风险</h3>
