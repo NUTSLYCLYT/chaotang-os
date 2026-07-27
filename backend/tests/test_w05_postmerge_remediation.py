@@ -758,6 +758,142 @@ def test_evidence_bind_requires_server_submit_evidence_before_any_write(
     db.close()
 
 
+def test_evidence_bind_locks_task_before_server_authority_projection(
+    isolated_session_local,
+    tmp_path,
+    w05_contract_user,
+    monkeypatch,
+):
+    from src import contract_task_projection
+    from src.db.models import OutboxEvent, SecureIngestAuditEvent
+
+    task_id = "task_bind_authority_lock"
+    generation_id, artifact_id = _seed_binding_generation(
+        isolated_session_local,
+        tmp_path=tmp_path,
+        task_id=task_id,
+    )
+    db = isolated_session_local()
+    before_event = tuple(
+        getattr(db.get(OutboxEvent, generation_id), column.name)
+        for column in OutboxEvent.__table__.columns
+    )
+    before_audits = (
+        db.query(SecureIngestAuditEvent).filter_by(task_id=task_id).count()
+    )
+    db.close()
+
+    locked_task_ids: list[str] = []
+
+    def record_task_lock(_db, locked_task_id: str) -> None:
+        locked_task_ids.append(locked_task_id)
+
+    def authority_probe(*_args, **_kwargs):
+        if locked_task_ids != [task_id]:
+            raise RuntimeError("SUBMIT_EVIDENCE authority projected before task lock")
+        raise RuntimeError("SUBMIT_EVIDENCE authority projected after task lock")
+
+    monkeypatch.setattr(
+        "src.decision_task_access.lock_decision_task",
+        record_task_lock,
+    )
+    monkeypatch.setattr(
+        contract_task_projection,
+        "project_contract_task",
+        authority_probe,
+    )
+
+    response = TestClient(app).post(
+        (
+            f"/api/shangshufang/tasks/{task_id}/rework-generations/"
+            f"{generation_id}/evidence"
+        ),
+        json={"artifact_id": artifact_id},
+    )
+
+    assert response.status_code == 500
+    assert response.json()["error"] == (
+        "SUBMIT_EVIDENCE authority projected after task lock"
+    )
+    assert locked_task_ids == [task_id]
+    db = isolated_session_local()
+    after_event = tuple(
+        getattr(db.get(OutboxEvent, generation_id), column.name)
+        for column in OutboxEvent.__table__.columns
+    )
+    assert after_event == before_event
+    assert (
+        db.query(SecureIngestAuditEvent).filter_by(task_id=task_id).count()
+        == before_audits
+    )
+    db.close()
+
+
+def test_swarm_deepen_locks_task_before_refresh_authority_projection(
+    isolated_session_local,
+    tmp_path,
+    w05_contract_user,
+    monkeypatch,
+):
+    from src.db.models import DecisionTask
+    from web.routers import shangshufang
+
+    task_id = "task_refresh_authority_lock"
+    _seed_binding_generation(
+        isolated_session_local,
+        tmp_path=tmp_path,
+        task_id=task_id,
+        durable_status="pending",
+        payload_status="evidence_bound",
+        with_bound_packet=True,
+    )
+    db = isolated_session_local()
+    before = tuple(
+        getattr(db.get(DecisionTask, task_id), column.name)
+        for column in DecisionTask.__table__.columns
+    )
+    db.close()
+
+    locked_task_ids: list[str] = []
+
+    def record_task_lock(_db, locked_task_id: str) -> None:
+        locked_task_ids.append(locked_task_id)
+
+    def authority_probe(_db, *, task, required_action):
+        assert required_action == "REFRESH_REVIEW"
+        if locked_task_ids != [task.id]:
+            raise RuntimeError("REFRESH_REVIEW authority projected before task lock")
+        raise RuntimeError("REFRESH_REVIEW authority projected after task lock")
+
+    monkeypatch.setattr(
+        "src.decision_task_access.lock_decision_task",
+        record_task_lock,
+    )
+    monkeypatch.setattr(
+        shangshufang,
+        "_contract_route_action_error",
+        authority_probe,
+    )
+
+    response = TestClient(app).post(
+        f"/api/shangshufang/tasks/{task_id}/swarm-deepen"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["success"] is False
+    assert response.json()["error"] == (
+        "REFRESH_REVIEW authority projected after task lock"
+    )
+    assert locked_task_ids == [task_id]
+    db = isolated_session_local()
+    after = tuple(
+        getattr(db.get(DecisionTask, task_id), column.name)
+        for column in DecisionTask.__table__.columns
+    )
+    assert after == before
+    db.close()
+
+
 @pytest.mark.parametrize(
     "generation_scope",
     [

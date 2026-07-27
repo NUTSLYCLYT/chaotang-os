@@ -2375,6 +2375,15 @@ def bind_rework_generation_evidence(
             if ownership_error and "无权" in ownership_error:
                 return _http_fail(404, "无权绑定该任务的补证")
             return _http_fail(404, "task_id 不存在")
+        from src.decision_task_access import lock_decision_task
+
+        lock_decision_task(db, task.id)
+        db.refresh(task)
+        if (
+            task.tenant_id != user.tenant_id
+            or str(task.user_id) != str(_user_id(user))
+        ):
+            return _http_fail(404, "无权绑定该任务的补证")
 
         generation = (
             db.query(OutboxEvent)
@@ -2626,6 +2635,15 @@ def shangshufang_swarm_deepen(
         )
         if task is None:
             return fail(ownership_error or "无权对该任务发起深议")
+        from src.decision_task_access import lock_decision_task
+
+        lock_decision_task(db, task.id)
+        db.refresh(task)
+        if (
+            task.tenant_id != user.tenant_id
+            or str(task.user_id) != str(_user_id(user))
+        ):
+            return fail("无权对该任务发起深议")
         action_error = _contract_route_action_error(
             db,
             task=task,
