@@ -1,15 +1,5 @@
-.overview {
-  box-sizing: border-box;
-  width: 100%;
-  max-width: none;
-  min-height: calc(100dvh - 64px);
-  margin: 0;
-  padding: clamp(2rem, 6vw, 4rem) max(2rem, calc((100% - 960px) / 2));
-  color: #f5e9c9;
-  background-image: url("/assets/dadian/hall-stage-tang.webp");
-  background-position: center;
-  background-size: cover;
-}
-.metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1.5rem 0; }
-.metrics p, .overview li { background: rgba(16, 20, 27, .84); border: 1px solid rgba(201, 179, 138, .72); padding: 1rem; list-style: none; }
-@media (max-width: 700px) { .overview { padding: 2rem 1.25rem; background-position: 58% center; }.metrics { grid-template-columns: 1fr; } }
+/*
+ * The migrated Dadian surface now lives in features/dadian-visual and uses the
+ * shared immersive shell. Keep this route-local module dependency-free for
+ * compatibility with existing imports while the route migration settles.
+ */
