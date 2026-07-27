@@ -20,6 +20,8 @@ jobs:
         run: node scripts/check_harness.mjs
       - name: Test baseline checker
         run: node scripts/check_harness.mjs --self-test
+      - run: node --test scripts/check_migration_completeness.test.mjs
+      - run: node scripts/check_migration_completeness.mjs
       - name: Test shared Stop hook protocol
         run: node .agents/hooks/check-harness.mjs --self-test
       - name: Test product-flow Claude runner

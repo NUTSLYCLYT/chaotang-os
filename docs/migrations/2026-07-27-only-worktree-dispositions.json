@@ -1,0 +1,1312 @@
+{
+  "sourceHead": "df037478d50f4681103a4d62de4f959e51a55856",
+  "restoreCommit": "734b0aad07eb9b48469e9263e24cdd68fee1c4e4",
+  "counts": {
+    "total": 108,
+    "modified": 43,
+    "deleted": 4,
+    "untracked": 61,
+    "restoreIdentical": 58,
+    "postRestoreModified": 37,
+    "dirtyOnlyAdded": 13
+  },
+  "canonicalInventorySha256": "69f98bd4669489f3988c4be116440b5ee7eef594141c88aa05f9611c85f7dc6d",
+  "entries": [
+    {
+      "path": ".superpowers/sdd/progress.md",
+      "sourceStatus": "M",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "c6688c061944fe52a455c596bfe19e64d7a03d71d7e08a2538d7c6e9207cdfe6",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": ".superpowers/sdd/task-1-brief.md",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "d6f1837dcbdf2865883a604179237bb6f60408845abd51ad216969ab6bedd51d",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": ".superpowers/sdd/task-1-report.md",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "6a9eeffe71b5499af9dd29ee421801196a2f6f10bd8c9c5c59f2ab7817599019",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": ".superpowers/sdd/task-2-brief.md",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "086dc7ed2967be2f384f2baee6ed63ca8380bcccba041f480feab6fa81affbe3",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": ".superpowers/sdd/task-2-report.md",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "45770fd038596789235b55c8fb4d941d0456f30b8f734bf99be55852f3eceede",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": ".superpowers/sdd/task-3-brief.md",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "b4e29f9c16bc30d2f7452b4986d08c46b0642f9c3f91ee145533f8020f7bd2ce",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": ".superpowers/sdd/task-3-report.md",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "883ab0a4e6436da711ec249592c06f0b5eeeae86eca4f6dedcd1741cb0be0861",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": ".superpowers/sdd/task-4-brief.md",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "2cdca3b9f8e4bbf332acb0e2aaf0e58f321fe0c5f16421036b047f8f2347d13c",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": ".superpowers/sdd/task-4-report.md",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "69dcc973f77790d66f3e9c948aba72c13a29c9ef6d846e3de140775cb9a355a6",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": ".superpowers/sdd/task-5-brief.md",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "23a681c3ae2d020c289fab5179817daf25cd5369302f832950ef4fbaeade7008",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": ".superpowers/sdd/task-5-report.md",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "d30680d93b09838b820508a0af69266187b4a6537d138174762c2bedfc229a5b",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": ".superpowers/sdd/task-6-brief.md",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "cb7b084dbd807fb3e85de0731cb34c88516328dd68a88eac6e5eb42543801b14",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": ".superpowers/sdd/task-6-report.md",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "22d11e4824494300f3ac830680c98e0f4b0e54fa988df3eb6641d19d27e41dc4",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "backend/tests/test_shiguan_api.py",
+      "sourceStatus": "M",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "adf12ea2da86d5090f654818b2769a51f2e728ea7f3a95053cc30769b71add8f",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "backend/tests/test_shiguan_archive_decree.py",
+      "sourceStatus": "M",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "6da23f0fa160dcc24d9a304358000c5e48204a3e17a3c0a3653cd1e382143f8a",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "backend/tests/test_shiguan_models.py",
+      "sourceStatus": "M",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "d868749d1299e08b79099b0342edbb6ed6c43e0a0a2f60a1a940b26fd0cb2540",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "backend/tests/test_shiguan_recall.py",
+      "sourceStatus": "M",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "3d714b8f554a3811ada854ff260bd0f901a62fc857464716c6c1fdd3f18091e2",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "backend/tests/test_shiguan_storage.py",
+      "sourceStatus": "M",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "4168e8821f39db14a0216328db201e3cceccf6353fb2775696e5e8629a3e865e",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "backend/tests/test_shiguan_validation.py",
+      "sourceStatus": "M",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "823ae4d66f2bd452058f2b96481a754bfdca57ca8435042f27836eeb499ea962",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/court-entry-pages.test.ts",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "653a7a124a4c95d96aeefe1f260cd25df0ed2ceb9b71497b766c6415c0b74fbd",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/dadian/DadianOverviewClient.tsx",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "8bffff20d3af9e5888ca09f2d9cd6b92614fa7d11c7f1263d571edfcfbc2945c",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/dadian/dadian.module.css",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "1a965bbaa4479f4890369abd385edffc24b36ff07a742d687749aee761ca5c7b",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/dadian/page.tsx",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "18e2dc7cdc2305f2c569dc35c00ec97e7ac335354115f1289619ccf600ba795f",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/junjichu/page.tsx",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "e55febb57a9f647c39a35d28610c15d9100e5407a3f02e897ab3408165ec2875",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/layout.tsx",
+      "sourceStatus": "M",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "0fd9f109cc7c00563c4ba10009829ba472b43ee4382aa5dcd697ace406c806fe",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/liubu/[code]/[office]/page.tsx",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "6d0f1514f66cd1358b5273c113f9d03e61c3bfd852252fa31713b638d1d16d72",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/liubu/[code]/page.tsx",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "2a8cad84f2a3e02442e9353fdc76ccaa090ff18e1f284c700353d51bf8a2364e",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/liubu/page.tsx",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "ee442d38d853a017d6189ec20043a1ba35915f79165a3c6120e51fdd715f1a0b",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/shiguan/ShiguanClient.tsx",
+      "sourceStatus": "M",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "cc7950c873d0b48fc4de18d2d98acf1f90cfabb6026b461223f37bf0c137efee",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/shiguan/ShiguanClient.visual.test.ts",
+      "sourceStatus": "M",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "d7e7fe950ddb309f894f5fdf693d204efc7e1f4a076868e5ed32a1047b59730b",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/shiguan/archiveStatus.test.ts",
+      "sourceStatus": "M",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "94d0bba4a941808da51c377d9364b782119ad8f1dfa99ce5d23a5dfd2a6fb639",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/shiguan/shiguan.module.css",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "4ae8e16f08c801e6d27d9fcf87efb7ee97bc5321dcc4aede8de938e1f2088268",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/study/StudyClient.test.ts",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "a2b23ebbfe3ecde5d55e985c6d060960258b8f75bf5a1c09b1799cc54a946c8b",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/study/StudyClient.tsx",
+      "sourceStatus": "M",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "607f737f3ecf7f7233ee67cdc432290693682f50e53b7a6bfce8ebbf26026f37",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/study/study.module.css",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "46c8da091640b8243dad8f7faa8d8666171473cfc445542122430d85df0659f4",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/components/chaotang/ChaotangHeader.module.css",
+      "sourceStatus": "M",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "a3a1032f6320ba6412f90d9db5dae1fd9c990c1ff3f5fac6e2c0190348c045b8",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/components/chaotang/ChaotangHeader.tsx",
+      "sourceStatus": "M",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "bf8e77fc861269f75090c8b97fdb13d130c80205546ea14be2ec4450071096ca",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/components/chaotang/CourtPlaceholderPage.visual.test.ts",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "7d42ce90cc890996b2ad9e6beb46cffdcd024aae67546a80f90c456114e7dabb",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/components/chaotang/CourtShell.module.css",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "69018072ca53c728636e69480e7ffc28d0c9b0c1a0d3f6e62f5b34c7901d270f",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/components/chaotang/CourtShell.test.ts",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "c7f7e3b45ac1fcbc821da79ee220d7a0db8a4fb17580a17377192a5a58f7a97d",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/components/chaotang/CourtShell.tsx",
+      "sourceStatus": "M",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "c5ffe6c140fad552e4b316bb0ba20f641b58f0e6da733c9e3d5b2e93a3ffe182",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/department-demo/DepartmentDemoViews.tsx",
+      "sourceStatus": "D",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": null,
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/department-demo/departmentDemo.module.css",
+      "sourceStatus": "D",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": null,
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/department-demo/departmentDemoData.test.ts",
+      "sourceStatus": "D",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": null,
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/department-demo/departmentDemoData.ts",
+      "sourceStatus": "D",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": null,
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/lib/backendClient.test.ts",
+      "sourceStatus": "M",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "24533256a1f7588b500bbdb3dce932c1f688acf27190cb849816d353b94a171a",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "scripts/verify_integration.mjs",
+      "sourceStatus": "M",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "b36d60d60ff0cc7a51cc9c5b360d2476b02bea97d4c4a1e961c71ea5923f97b4",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "backend/tests/test_shiguan_migrations.py",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "194f2a54605c91968f3cc8adfc3217b465a0bbe0d04f4f3309465f7ca33e9b8d",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "design-qa.md",
+      "sourceStatus": "??",
+      "sourceLayer": "dirtyOnlyAdded",
+      "sourceSha256": "e1112489d9862b0f5638d0ce6628fbe404a149ab021678004ae4071f49d1a1e4",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "docs/product/tasks/2026-07-24-dev-court-pages-visual-migration.md",
+      "sourceStatus": "??",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "af73c51734bc047a47816585a9153618d41ae4e591c61f8f0e7410444dc31808",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-24-dev-court-pages-visual-migration.md",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "6c1058c7175518078a033ec3cbf40ebb047d9f4ba5ff53aba78e103ad0c52575",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "docs/superpowers/specs/2026-07-24-dev-court-pages-visual-migration-design.md",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "9b0a07686a84fff3af0a1e3ff53409c4abc9a0a9479f7148732baf800b9fda33",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/public/assets/zhuangyuan/04-zhuangyuan-new.webp",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "a692cffd2b6e2500c7ab54535cde60f5bedd3ea24c6cba8b5811f629398e057c",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/public/shangshufang/portrait-chancellor.webp",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "e6dcfa91d868a52eab1e1b5ba14ec7742ddf8f4effaaa44a83a8473691522964",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/public/shangshufang/portrait-wang.webp",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "8ffe941ba1f366577c5bae140f0b7245bbaa4ad71db2005e450a34b4214f3a70",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/api/dadian/overview/route.test.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "bcbbcc8cadbd9691323ee9c3537676c510fc9d9915e6bc4ce35d201abcd204e7",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/dadian/DadianOverviewController.test.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "6b91d63c490f73cc747bdb9a6f70323823a8f8e06a3e6b12f5a343770ed603ea",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/dadian/DadianOverviewController.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "e30d0554b128bbd38dd9806dbbebf1e0ec2f7f87253b3a04592793aab045dfd9",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/globals.css",
+      "sourceStatus": "??",
+      "sourceLayer": "dirtyOnlyAdded",
+      "sourceSha256": "9629c5f9a5a50cfe07a29c76c0b627a37b963c68a487fe50680f64a06d604a97",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/shiguan/shiguanController.test.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "ca58b36238bdfb6cc33c9b506d56be9a1c55dcd0e83a9db6691e40110b2315b7",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/shiguan/shiguanController.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "0dc23dc16ab277acfcb278bc4a6b06a9a7a97a54bb5311bf00ac58da0ae616d4",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/shiguan/shiguanPayload.test.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "dirtyOnlyAdded",
+      "sourceSha256": "f173fc09993a5aec4f6cfdab49b8d8a46c779365d21af603c5ce3d2c7d6e5e65",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/app/shiguan/shiguanPayload.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "dirtyOnlyAdded",
+      "sourceSha256": "0c6e40ea660a8c93879673252c02c98287dced964b2abf71797c06ad90635cb5",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/court-replies/replyFeed.test.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "a8998fab56b2c3c8ed1277876bcce500b63352786257bd83e4540bf960bad92a",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/court-replies/replyFeed.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "0982c8ce868604887be7d3d3204c836ff16d123cf66282b71a5459008fcfd708",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/court-visuals/CourtCapabilityButton.module.css",
+      "sourceStatus": "??",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "0a93e532e828dcd347bd23704d734a00126589a9e0da05a1de5704ac7ee2a874",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/court-visuals/CourtCapabilityButton.tsx",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "be7aa9ba37dbe1912ee7849c963c9d706b9c5398aa36cf00eb5230505153eaa5",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/court-visuals/CourtQuickDock.module.css",
+      "sourceStatus": "??",
+      "sourceLayer": "dirtyOnlyAdded",
+      "sourceSha256": "f7488cda20be4836cf1a817ffdb38377579cb90af999df02713e499165cb0c8a",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/court-visuals/CourtQuickDock.tsx",
+      "sourceStatus": "??",
+      "sourceLayer": "dirtyOnlyAdded",
+      "sourceSha256": "51c34821fc1be45a966ae308750bb023b419c5cb38b449f9083d9861faffbc73",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/court-visuals/ImmersiveCourtShell.module.css",
+      "sourceStatus": "??",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "02404e4fd8ef966baae107f53d2d74699c601dd8fc40c0caf345af47e44a4c24",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/court-visuals/ImmersiveCourtShell.tsx",
+      "sourceStatus": "??",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "76f12c97c5c5cf53c65c74686e752c55f3d8974b9f0c66c1a2cd70986dcb891e",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/court-visuals/courtVisuals.test.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "a5badc444c19321b3f82a952b3b6aa8444eccdc3197ab3e7b39e1ee491c52c9a",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/court-visuals/edict/EdictStage.module.css",
+      "sourceStatus": "??",
+      "sourceLayer": "dirtyOnlyAdded",
+      "sourceSha256": "addf676aa05e5cf1c0619be6c281aa9adb08a453d323cc71d37ff845ebe86bf5",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/court-visuals/edict/EdictStage.test.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "dirtyOnlyAdded",
+      "sourceSha256": "d9a4904d7ad6c83311f8224b54fd1675feffd2dfef93321ff7c2ec97ddbff1cc",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/court-visuals/edict/EdictStage.tsx",
+      "sourceStatus": "??",
+      "sourceLayer": "dirtyOnlyAdded",
+      "sourceSha256": "77f8ac78bc126179873af3a8c5de044d19bbd2f442c52299885a87b3d0685dd0",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/court-visuals/types.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "7e7e31f85045d97fbbfadbe0f54d934d25cad45be28b6f72452ea4796dc5a746",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/dadian-visual/DadianScene.module.css",
+      "sourceStatus": "??",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "e4156192648114a9967ae0eed5ec7dce61555087523e7b44577994cf64cbcdc2",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/dadian-visual/DadianScene.test.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "ec278c84090aeced340d7ca239be45f2fcd0c3a9aed2ea079a8ffc0f4b493c84",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/dadian-visual/DadianScene.tsx",
+      "sourceStatus": "??",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "446a74cb4a833502d3d1d7a9b2416f84a57e55cfd48ffbe34874f5b11afcad8b",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/junjichu-visual/JunjichuClient.tsx",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "9432beba5a67278f38c34e7ccacb9820704e4139a99ab3a9f05dcd0b545b5cfa",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/junjichu-visual/JunjichuScene.module.css",
+      "sourceStatus": "??",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "432be8adcaab5d636e0d638c8fd250ada00fa8a744ab3c08bdadee7e4726d308",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/junjichu-visual/JunjichuScene.test.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "c982daaf7fda58aa6b32c45339e235f51f06b3b4e9aeba8e1551d9d7e6ea1937",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/junjichu-visual/JunjichuScene.tsx",
+      "sourceStatus": "??",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "c1c2c7a8b1c0c6752b6f138bb6e8bad0ada6152336777a8ed2b4a0d0e92f1776",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/junjichu-visual/junjichuController.test.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "7f31fe79673c8009520299ba44930f95528fd094b6871574c38594deadf073f8",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/junjichu-visual/junjichuController.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "ff493c82d2735f22115ec0d843fb64873d3fb4765cc6405e2e97df0cc55f6288",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/ministries-visual/DepartmentScene.tsx",
+      "sourceStatus": "??",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "7ca50afe19fe91818b47e962ec605635233f6ccf9a74a3de5cda53d8e8cc1915",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/ministries-visual/DepartmentVisualPrimitives.tsx",
+      "sourceStatus": "??",
+      "sourceLayer": "dirtyOnlyAdded",
+      "sourceSha256": "d28dcb07aef405f1254577af8a63328499b8a1e20e55ea6ecce3f26d18dfdb9d",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/ministries-visual/MinistryOverviewClient.tsx",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "5a1034c1373a2b45132116dbaf608445801f3699898fab9352038e089f123d28",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/ministries-visual/MinistryOverviewScene.tsx",
+      "sourceStatus": "??",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "1d95c68f6bab5dc78aea63c2dfadf48d681d542f93c6f4078a39011f0e6e464c",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/ministries-visual/OfficeScene.tsx",
+      "sourceStatus": "??",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "f83c4937079b3f2cd67bfdd6b53b80bbe5850bb0947caef3c95fa2a01e3d2bba",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/ministries-visual/departmentDirectory.test.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "9ddf6945b5578d862ae3312e096cf3ef9fa6702932789b6e225a399b43f7ece7",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/ministries-visual/departmentDirectory.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "65b24190862736029cecccbe6c9b52101a86235f4227784738a9f735f9ec74e5",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/ministries-visual/ministries.module.css",
+      "sourceStatus": "??",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "f51c646b8df4d21c95de69959e6077a762b47dfbae44900497a38916fe38c404",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/ministries-visual/ministriesController.test.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "41a40d247c42864faa5cdc454f90385971ec3a5c316b24f7c6251b8c2ccb8e14",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/ministries-visual/ministriesController.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "6134d1b35e482aeb9f9c6986e7c6f282637927b117f1daea17a71dac5e9b5308",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/ministries-visual/ministriesVisual.test.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "e2dd072febeffa983a1a7ca0021ebb998c8b614c603c78d4ce5a0e431f59d01f",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/ministries-visual/ministryRouteResolver.test.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "55832f9766ba1516f400a3c121470cf2c1f986da25c8e9ad2e130676b49e6ec9",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/ministries-visual/ministryRouteResolver.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "e51ed3984989a422ee13b3ec00dc116879b768b7282218a04df7a258f4992aae",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/shiguan-visual/ShiguanArchiveDetail.tsx",
+      "sourceStatus": "??",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "6d1adf04694dee81fc79f604c85b28acfd70163f512518c0961d12f0fa97211d",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/shiguan-visual/ShiguanWorkspace.module.css",
+      "sourceStatus": "??",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "93cc408835f9dd60a99f8177ad0744d5639ec79aac1e569446dbb07380c7a85e",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/shiguan-visual/ShiguanWorkspace.test.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "4c96300906256ad3a40d64ae65ea58d4a051ed37518205d92cf98860158523c8",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/shiguan-visual/ShiguanWorkspace.tsx",
+      "sourceStatus": "??",
+      "sourceLayer": "postRestoreModified",
+      "sourceSha256": "6a7337eff6349a9938615be65ddc41ab5525386c9c6f3f80c72867f06d10e74e",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/study-visual/DevStudyWorkspace.module.css",
+      "sourceStatus": "??",
+      "sourceLayer": "dirtyOnlyAdded",
+      "sourceSha256": "894f81045fb08d8f177aa3fcac0cb892de82053d3eefac519b14d9e58eb5bc2f",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/study-visual/DevStudyWorkspace.test.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "dirtyOnlyAdded",
+      "sourceSha256": "fc019bce22545662b20f2f473d1d7d6ca71c4d257eee1f4baf9a52b282c7550e",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/study-visual/DevStudyWorkspace.tsx",
+      "sourceStatus": "??",
+      "sourceLayer": "dirtyOnlyAdded",
+      "sourceSha256": "47cc6eba1d87335a6b7b203118c6d2c498ed8ff19ea2561c96fbbb4079a97775",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/study-visual/StudyWorkspace.module.css",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "4151377366c473ee99b7d82e9d455ab89e57b89c993bda4d706c9a57407a0924",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/study-visual/StudyWorkspace.test.ts",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "94ee714389665e58d6fafd5afbffed84a32a63b082aee1a4be9fb0cadc856d18",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    },
+    {
+      "path": "frontend/src/features/study-visual/StudyWorkspace.tsx",
+      "sourceStatus": "??",
+      "sourceLayer": "restoreIdentical",
+      "sourceSha256": "8ec2f91ba5a7ef49bdaadd7aa67de56e1a1b6262ffa62f4c665de3008a6fbc28",
+      "disposition": "pending",
+      "targetPaths": [],
+      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "verification": [
+        "Pending target-path and contract verification in migration Tasks 2-7."
+      ]
+    }
+  ]
+}
