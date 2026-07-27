@@ -13,7 +13,8 @@
 | Activation intent | `GENERATED_PRE_OWNER` | Exact package digest |
 | Product Owner overlay-refresh approval | `RECORDED_FOR_EVENT_2` | Exact authority candidate |
 | Product Owner activation approval | `RECORDED` | Exact package and intent bytes |
-| Independent final review | `NOT_REQUESTED` | After owner evidence |
+| Independent final review | `RECORDED_GO` | Fresh/no-fork Codex QA |
+| Event 3 registration parent | `CANDIDATE_PRE_FREEZE` | Complete quiescent evidence set |
 | Atomic activation candidate | `NOT_GENERATED` | Separate activation approval |
 | W07 GO | `NOT_OBSERVED` | After approved integration only |
 
@@ -67,4 +68,7 @@ activation intent sha256 =
 
 Product Owner 已批准上述 exact inputs。canonical owner approval SHA-256 为
 `ba25ca77dda32694eb7a5c5df8e1a6888f194cb993d8c48c67776a4dfdee61b5`。
-Codex final review、ACTIVE manifest 和 W07 GO 均未生成。
+Codex final review session `019fa1a4-b271-7522-9cd7-976aaff17230` 返回
+`GO / HIGH 0 / MEDIUM 0 / LOW 0`；review SHA-256 为
+`adac246d4c9bc6ff5439afc3e191ac325b16f71cc56d9b73414c798f3a62cedf`。
+ACTIVE manifest 和 W07 GO 均未生成。

@@ -2,7 +2,7 @@
 
 ## 状态
 
-`EVENT_3_OWNER_EVIDENCE_CANDIDATE / REVIEW_PENDING / NON_AUTHORIZING`
+`EVENT_3_QUIESCENT_REGISTRATION_PARENT_CANDIDATE / REVIEW_GO / NON_AUTHORIZING`
 
 ## Packet Preparation Baseline
 
@@ -108,7 +108,6 @@ state are unchanged.
 
 ## 尚未生成
 
-- Codex Independent QA final verdict；
 - Event 3 quiescent registration parent H/tree；
 - Event 4 atomic activation candidate H/tree；
 - ACTIVE manifest；
@@ -152,10 +151,16 @@ target manifest + intent structural validation = VALID_EVENT3_INPUTS
 owner approval bytes = 1745
 owner approval sha256 =
   ba25ca77dda32694eb7a5c5df8e1a6888f194cb993d8c48c67776a4dfdee61b5
+Codex review session = 019fa1a4-b271-7522-9cd7-976aaff17230
+Codex review verdict = GO / HIGH 0 / MEDIUM 0 / LOW 0
+Codex review bytes = 3380
+Codex review sha256 =
+  adac246d4c9bc6ff5439afc3e191ac325b16f71cc56d9b73414c798f3a62cedf
+target evidence validation = VALID_EVENT3_EVIDENCE_SET
 ```
 
-这些结果只证明 owner 审批输入可复现且结构一致。它们不构成 owner approval、
-independent review、manifest activation 或 authority GO。
+这些结果证明 owner approval 与 independent review 已按 canonical bytes 登记且结构
+一致；它们不构成 manifest activation 或 authority GO。
 
 ### Embedded Exact-Diff Check Boundary
 
