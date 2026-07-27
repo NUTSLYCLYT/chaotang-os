@@ -1,6 +1,18 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import test from "node:test";
+
+test("DevStudyWorkspace supersedes the unused sibling workspace", async () => {
+  await Promise.all(
+    [
+      "./StudyWorkspace.tsx",
+      "./StudyWorkspace.module.css",
+      "./StudyWorkspace.test.ts",
+    ].map((path) =>
+      assert.rejects(access(new URL(path, import.meta.url)), { code: "ENOENT" }),
+    ),
+  );
+});
 
 test("dev study workspace exposes the latest named workspace contract", async () => {
   const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
@@ -37,6 +49,8 @@ test("dev study workspace preserves real decree controls while restoring dev loc
   assert.match(source, /data-testid="submit-decree-button"/);
   assert.match(source, /onClick=\{props\.onSubmit\}/);
   assert.match(source, /disabled=\{!props\.canSubmit\}/);
+  assert.match(source, /getStudyDepartmentCountLabel\(props\.uiState\)/);
+  assert.doesNotMatch(source, /countLabel="1 部门"/);
 });
 
 test("dev study workspace renders parchment only for a real successful reply", async () => {

@@ -16,27 +16,15 @@ test("StudyClient delegates presentation while preserving the real decree state 
   assert.doesNotMatch(source, /ChaotangHeader|EdictScrollShell|data-testid="decree-textarea"/);
 });
 
-test("StudyClient retains one user-triggered same-origin chancellor POST and 401 redirect", async () => {
+test("StudyClient uses the executable submission boundary and orchestration", async () => {
   const source = await readFile(new URL("./StudyClient.tsx", import.meta.url), "utf8");
 
-  assert.equal([...source.matchAll(/\bfetch\s*\(/g)].length, 1);
-  assert.match(source, /fetch\("\/api\/decrees\/chancellor"/);
-  assert.match(source, /method: "POST"/);
-  assert.match(source, /JSON\.stringify\(\{ decreeText \}\)/);
-  assert.match(source, /if \(!canSubmit\)/);
-  assert.match(source, /setUiState\(SUBMITTING_UI_STATE\)/);
-  assert.match(source, /response\.status === 401/);
-  assert.match(source, /window\.location\.assign\("\/login\?next=%2Fstudy"\)/);
+  assert.match(source, /import \{[\s\S]*?requestStudySubmission[\s\S]*?submitStudyDecree[\s\S]*?\} from "\.\/studySubmission"/);
+  assert.match(source, /submitStudyDecree\(\{/);
+  assert.match(source, /requestStudySubmission\(text,\s*\{/);
+  assert.match(source, /fetchImpl: fetch/);
+  assert.match(source, /scheduleRedirect:/);
+  assert.match(source, /window\.location\.assign\(path\)/);
   assert.doesNotMatch(source, /useEffect|SWR|EventSource|subscribeCourtStream|jiqun/);
-  assert.doesNotMatch(source, /fetch\(\s*["']https?:|process\.env\.BACKEND_BASE_URL/);
-});
-
-test("StudyClient keeps strict response parsing and friendly error mapping", async () => {
-  const source = await readFile(new URL("./StudyClient.tsx", import.meta.url), "utf8");
-
-  assert.match(source, /parseChancellorSuccessResponse\(body\)/);
-  assert.match(source, /mapSubmitDecreeResultToUiState/);
-  assert.match(source, /isKnownErrorKind\(error\.reason\)/);
-  assert.match(source, /响应体不是合法 JSON/);
-  assert.match(source, /响应体不符合预期契约/);
+  assert.doesNotMatch(source, /fetch\(\s*["']|process\.env\.BACKEND_BASE_URL/);
 });

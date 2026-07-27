@@ -9,6 +9,7 @@ import {
 } from "../court-visuals/edict/EdictStage";
 import { ImmersiveCourtShell } from "../court-visuals/ImmersiveCourtShell";
 import styles from "./DevStudyWorkspace.module.css";
+import { getStudyDepartmentCountLabel } from "./studyWorkspaceState";
 
 const ONBOARDED_KEY = "courtos.onboarded";
 const RULER_STYLE_KEY = "courtos.ruler.style";
@@ -229,7 +230,7 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
               title="今日圣旨"
               status="待裁决"
               source={polished ? "已润色" : "未润色"}
-              countLabel="1 部门"
+              countLabel={getStudyDepartmentCountLabel(props.uiState)}
               onOpen={() => setExpanded(true)}
             />
           ) : props.uiState.phase === "success" ? (
