@@ -336,3 +336,30 @@ Codex `NO-GO` verdicts:
   NOT_DEPLOYED`
 
 本文件不预判 `7b8b84d2...` 的下一轮独立审查结论。
+
+## Latest Scope-Amendment Remediation Evidence
+
+Product Owner 已批准在原范围和新增三个 backend 文件范围内按 TDD 修复最新
+review 全部 HIGH/MEDIUM。本轮未修改 Checkpoint B schema/migration。
+
+| Finding | Remediation | Fresh evidence |
+| --- | --- | --- |
+| same-user cross-tenant ownership | home/status/confirm/bind 均使用 tenant+user ownership；generation 查询绑定 task tenant | P0-B behavioral tests |
+| all decision action authority | contract final/evidence/recheck/cancel 与 evidence bind 均先消费 server read model；拒绝路径零写入 | action table、API ledger snapshot |
+| Mission scope identity | generation 五维 scope 与 confirmed Mission 在处理前、publication 前 exact match | worker drift/public-chain tests |
+| terminal task/evidence gate | terminal task 空 actions；awaiting evidence 只有真正 bound packet 才开放 refresh | projection/action/bind tests |
+| classifier drift | server 统一 scope/Mission/current formal classifier；malformed pack marker fail closed；frontend 只读 `contract_task` | home/API/Node tests |
+| legacy concurrent replay | cancel/recheck 复用任务行锁，持锁刷新后返回既有 durable result | 双 session race RED/GREEN |
+| response compatibility | inline response 与 component response refs 均进入 breaking 检测；typed home 使用新增 `/home/v1`，旧 `/home` 保持兼容 | 9 Node guard tests、fixed-ref generator x2 |
+| exact frontend boundary | typed read model 即合同边界；未知 root/task/blocker/action/lineage fail closed；exact archive 维持只读 | 43 Node tests、Playwright |
+
+exact implementation candidate：
+
+- H `4ed274f8e530d4049bc01e807366d1d9ac6ff691`
+- tree `77bf4aa111da81c9b8cdee485d42dac28201772a`
+- parent `c7297e261470a6866b5edffb54246bad4cd03499`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本节仅登记待审候选，不预判两路 Codex 独立只读审查结论。

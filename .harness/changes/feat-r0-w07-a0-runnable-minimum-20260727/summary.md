@@ -69,6 +69,26 @@ real-mode build、API guard `7 passed`、Playwright `1 passed` 和两层 doctor
 `0/0`。新 implementation candidate 已冻结为 `7b8b84d2...`、tree
 `6263bf1d...`；仍等待该 exact H 的两路独立只读审查，不允许整合 EXT。
 
+最新 scope-amendment remediation 继续沿同一事实链收口：home/status/confirm/bind
+统一 tenant+user ownership；合同分类只由服务端 scope/Mission/current formal
+产生；全部 decision action 与 evidence bind 消费 server allowed actions；Mission
+五维 scope 在 worker 解析前与发布锁后均重验；legacy cancel/recheck 在既有任务行锁
+下并发收敛。前端只消费 server `contract_task` 和 typed read model，不再从 scope、
+Mission/Pack 缺省状态推断合同模式。`/api/shangshufang/home` 保留旧开放响应兼容，
+canonical consumer 改用同 handler 的 typed `/home/v1`，固定 OpenAPI ref 未 repin，
+363 routes、0 breaking，生成物双跑哈希一致。
+
+fresh implementation candidate：
+
+- H `4ed274f8e530d4049bc01e807366d1d9ac6ff691`
+- tree `77bf4aa111da81c9b8cdee485d42dac28201772a`
+- parent `c7297e261470a6866b5edffb54246bad4cd03499`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本候选未执行 Checkpoint B、push、部署、持久数据库迁移或 listener 3050 操作。
+
 ## 允许范围
 
 - `MissionContractV1 -> DecisionTask` 的 R0 唯一兼容绑定。

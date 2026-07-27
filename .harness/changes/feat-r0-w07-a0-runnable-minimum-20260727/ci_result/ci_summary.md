@@ -34,6 +34,15 @@
 | W07 Playwright | 0 | 1 passed | exact implementation READY/PARTIAL/download/archive flow | 2026-07-28 |
 | backend/frontend doctor | 0 | 0 errors, 0 warnings | two owned harness layers | 2026-07-28 |
 | root doctor | 1 | expected exact-ref mismatch only | isolated candidate PRE_INTEGRATION fail-closed | 2026-07-28 |
+| latest expanded backend suite | 0 | 464 passed, 1 skipped | contract/Mission/artifact/W05/worker/authz/legacy concurrency | 2026-07-28 |
+| latest focused frontend + typecheck | 0 | 43 passed + `tsc --noEmit` pass | server classification、closed-world、exact archive、typed home path | 2026-07-28 |
+| latest Ruff | 0 | All checks passed | all changed Python files | 2026-07-28 |
+| latest API guard/generator x2 | 0 | 9 passed；363 routes；0 breaking；hashes identical | inline schema、component response reachability、fixed immutable ref | 2026-07-28 |
+| latest real-mode build | 0 | Next production build pass | isolated candidate buildability only | 2026-07-28 |
+| latest W07 Playwright | 0 | 1 passed | disposable real JWT READY/PARTIAL/download/archive/reopen | 2026-07-28 |
+| latest backend/frontend doctor | 0 | 0 errors, 0 warnings | owned harness layers | 2026-07-28 |
+| latest root doctor | 1 | only `active-packet EXT ref must equal pinned HEAD` | expected PRE_INTEGRATION fail-closed | 2026-07-28 |
+| `git diff --check` | 0 | pass | implementation diff integrity | 2026-07-28 |
 
 ## 结果
 
@@ -49,7 +58,10 @@ envelope `a7937d7e...` 两路仍为 `NO-GO`，合并适用项
 `HIGH 2 / MEDIUM 6 / LOW 1`。全部 H/M 已在新 implementation
 `7b8b84d20a3e21f38f89e97f590c554b4045081c`、tree
 `6263bf1d2a45a3b2dafdddc2ccdcd7b79cad07f8` 按 TDD 闭环并通过 fresh tests。
-当前等待该 exact candidate 两路独立复审，仍不得整合。
+后续 scope-amendment review 的适用 HIGH/MEDIUM 已在 exact implementation
+`4ed274f8e530d4049bc01e807366d1d9ac6ff691`、tree
+`77bf4aa111da81c9b8cdee485d42dac28201772a` 按 TDD 闭环并通过上表 fresh
+verification。当前等待该 exact candidate 两路独立复审，仍不得整合。
 
 ## 全仓既有 Residual
 
@@ -88,8 +100,8 @@ envelope `a7937d7e...` 两路仍为 `NO-GO`，合并适用项
 | sixth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
 | seventh remediation | all approved HIGH/MEDIUM locally closed | PASS |
 | eighth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
-| independent review | exact `7b8b84d2...` fresh two-pass | PENDING |
-| exact implementation candidate | `7b8b84d2...` / `6263bf1d...` | PASS |
+| independent review | exact `4ed274f8...` fresh two-pass | PENDING |
+| exact implementation candidate | `4ed274f8...` / `77bf4aa1...` | PASS |
 
 ## 声明状态
 
