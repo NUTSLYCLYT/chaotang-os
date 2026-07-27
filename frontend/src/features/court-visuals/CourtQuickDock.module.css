@@ -1,0 +1,157 @@
+.dock {
+  position: relative;
+  z-index: 215;
+  display: grid;
+  box-sizing: border-box;
+  height: 64px;
+  flex: 0 0 64px;
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr) minmax(0, 300px);
+  align-items: center;
+  padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(240, 198, 106, 0.28);
+  background: linear-gradient(180deg, rgba(7, 9, 16, 0.94), rgba(4, 6, 12, 0.9));
+  box-shadow: 0 -18px 54px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(18px);
+}
+
+.adviser {
+  display: inline-flex;
+  width: 100%;
+  min-width: 0;
+  height: 48px;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 16px 6px 40px;
+  color: #f5e9c9;
+  text-decoration: none;
+  transition: filter .2s ease, transform .2s ease;
+}
+
+.adviser:hover {
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+}
+
+.adviser span:not(.avatar) {
+  display: grid;
+  gap: 2px;
+}
+
+.adviser strong {
+  font: 600 11.5px/1.1 var(--font-serif, Georgia, serif);
+  letter-spacing: 0.08em;
+}
+
+.adviser small {
+  color: #8f876f;
+  font-size: 10px;
+}
+
+.astronomer {
+  grid-column: 3;
+  justify-self: end;
+  flex-direction: row;
+  justify-content: flex-start;
+  padding: 6px 40px 6px 16px;
+  text-align: right;
+}
+
+.portrait {
+  position: relative;
+  display: inline-flex;
+  width: 44px;
+  height: 48px;
+  flex: 0 0 44px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: radial-gradient(circle at 50% 10%, rgba(240, 198, 106, .14), rgba(5, 7, 13, .92) 72%);
+  box-shadow: 0 0 14px rgba(240, 198, 106, .1);
+}
+
+.portrait::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 42%, rgba(0, 0, 0, .48));
+  content: "";
+}
+
+.portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+
+.portraitIcon {
+  position: absolute;
+  z-index: 1;
+  right: 2px;
+  bottom: 2px;
+  display: grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  border-radius: 5px;
+  background: rgba(5, 7, 13, .9);
+  color: #f0c66a;
+  font: 700 8px/1 var(--font-serif, serif);
+}
+
+.qintianIcon {
+  color: #7ec8e3;
+}
+
+.handle {
+  position: absolute;
+  top: -33px;
+  left: 50%;
+  padding: 5px 13px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(240, 198, 106, 0.42);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(7, 9, 16, .94), rgba(4, 6, 12, .9));
+  color: #e7c976;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+}
+
+@media (max-width: 767px) {
+  .dock {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    box-sizing: border-box;
+    height: calc(56px + env(safe-area-inset-bottom));
+    flex-basis: 56px;
+    grid-template-columns: 44vw minmax(0, 1fr) 44vw;
+    padding-block: 4px max(4px, env(safe-area-inset-bottom));
+  }
+
+  .adviser {
+    height: 48px;
+    gap: 8px;
+    padding-inline: 12px 4px;
+  }
+
+  .astronomer {
+    padding-inline: 4px 12px;
+  }
+
+  .adviser small {
+    display: none;
+  }
+
+  .adviser strong {
+    font-size: 10px;
+  }
+
+  .handle { top: -31px; }
+}
+
+@media (max-width: 420px) {
+  .portrait { width: 38px; flex-basis: 38px; }
+  .adviser { padding-left: 8px; }
+  .astronomer { padding-right: 8px; }
+}

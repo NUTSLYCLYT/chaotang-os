@@ -16,9 +16,30 @@ const VISUAL_NAV_ITEMS: readonly VisualNavItem[] = [
   { label: "史馆", href: "/shiguan" },
 ] as const;
 
+function HeaderIcon({
+  children,
+  label,
+}: {
+  children: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button className={styles.iconButton} type="button" aria-label={label} title={label}>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        {children}
+      </svg>
+    </button>
+  );
+}
+
 export function ChaotangHeader({ currentLabel, currentPath = "/study" }: { currentLabel: string; currentPath?: string }) {
   return (
-    <header className={styles.header} data-three-axis-topnav aria-label="朝堂主导航">
+    <header
+      className={styles.header}
+      data-three-axis-topnav
+      aria-label="朝堂主导航"
+      title={currentLabel}
+    >
       <Link className={styles.brand} href="/study" aria-label="返回上书房">
         <span className={styles.emblem} aria-hidden>
           <svg viewBox="0 0 64 64">
@@ -60,7 +81,50 @@ export function ChaotangHeader({ currentLabel, currentPath = "/study" }: { curre
           );
         })}
       </nav>
-      <p className={styles.location}>内廷 · {currentLabel}</p>
+      <div className={styles.utilities} aria-label="当前朝堂视角">
+        <span className={styles.date}>
+          <span>甲申年 · 五月初八</span>
+          <time>辰时</time>
+        </span>
+        <button className={`${styles.utilityChip} ${styles.capability}`} type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3 19 6v5c0 4.7-2.7 7.8-7 10-4.3-2.2-7-5.3-7-10V6l7-3Z" />
+            <path d="m9 12 2 2 4-5" />
+          </svg>
+          能力边界
+        </button>
+        <span className={styles.audiences}>
+          <Link className={styles.utilityChip} href="/study">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 20V9l8-5 8 5v11M9 20v-5h6v5M7 11h.01M17 11h.01" />
+            </svg>
+            企业家
+          </Link>
+          <Link className={styles.utilityChip} href="/study?audience=ai_enthusiast">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 4a3 3 0 0 0-3 3v1a3 3 0 0 0-2 3 3 3 0 0 0 2 3v1a3 3 0 0 0 3 3M15 4a3 3 0 0 1 3 3v1a3 3 0 0 1 2 3 3 3 0 0 1-2 3v1a3 3 0 0 1-3 3M9 4v14M15 4v14M9 8h6M9 14h6" />
+            </svg>
+            AI爱好者
+          </Link>
+          <Link className={styles.utilityChip} href="/study?audience=ai_geek">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="5" y="7" width="14" height="11" rx="2" />
+              <path d="M9 3v4M15 3v4M8 12h.01M16 12h.01M9 16h6" />
+            </svg>
+            AI极客
+          </Link>
+        </span>
+        <HeaderIcon label="通知">
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" />
+        </HeaderIcon>
+        <HeaderIcon label="帮助 · 钦天监导师">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M9.8 9a2.4 2.4 0 1 1 3.4 2.2c-.8.4-1.2.9-1.2 1.8M12 17h.01" />
+        </HeaderIcon>
+        <button className={styles.emperor} type="button" aria-label="皇上" title="皇上">
+          皇
+        </button>
+      </div>
     </header>
   );
 }

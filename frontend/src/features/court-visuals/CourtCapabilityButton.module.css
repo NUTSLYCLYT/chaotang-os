@@ -1,0 +1,43 @@
+.wrapper {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  max-width: 24rem;
+}
+
+.wrapper button {
+  min-height: 40px;
+  padding: 8px 16px;
+  border: 1px solid rgba(240, 198, 106, 0.55);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(96, 55, 20, 0.94), rgba(48, 25, 12, 0.96));
+  color: #fff1ca;
+  font: inherit;
+  cursor: pointer;
+}
+
+.wrapper button:hover:not(:disabled) {
+  border-color: #f0c66a;
+  box-shadow: 0 0 16px rgba(240, 198, 106, 0.18);
+}
+
+.wrapper button:focus-visible {
+  outline: 2px solid #f0c66a;
+  outline-offset: 3px;
+}
+
+.wrapper button:disabled {
+  border-color: rgba(182, 171, 140, 0.24);
+  background: rgba(22, 25, 35, 0.72);
+  color: #9298a8;
+  cursor: not-allowed;
+}
+
+.wrapper small {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}

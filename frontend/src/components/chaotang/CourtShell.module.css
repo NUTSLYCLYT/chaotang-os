@@ -1,8 +1,13 @@
 .shell {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  height: 100dvh;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  padding-top: env(safe-area-inset-top);
   background-color: #04060e;
   color: #eaeefb;
 }
@@ -16,4 +21,14 @@
     radial-gradient(ellipse at 17% 24%, rgba(46, 160, 214, 0.09), transparent 35%),
     radial-gradient(ellipse at 86% 78%, rgba(185, 56, 86, 0.08), transparent 32%),
     linear-gradient(180deg, rgba(4, 6, 14, 0.2), rgba(4, 6, 14, 0.9));
+}
+
+@media (max-width: 767px) {
+  .shell {
+    overflow-y: auto;
+  }
+
+  .content {
+    overflow: visible;
+  }
 }

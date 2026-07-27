@@ -1,0 +1,59 @@
+.shell {
+  position: fixed;
+  inset: 0;
+  isolation: isolate;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-rows: 64px minmax(0, 1fr) 64px;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+  padding-top: env(safe-area-inset-top);
+  background-color: #04060e;
+  background-position: center;
+  background-size: cover;
+  color: #f5f0e4;
+}
+
+.veil {
+  position: absolute;
+  z-index: -1;
+  inset: calc(64px + env(safe-area-inset-top)) 0 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(2, 4, 10, 0.2), rgba(2, 4, 10, 0.78)),
+    radial-gradient(ellipse at 50% 12%, rgba(240, 198, 106, 0.13), transparent 58%),
+    linear-gradient(90deg, rgba(2, 4, 10, 0.42), transparent 20%, transparent 80%, rgba(2, 4, 10, 0.42));
+}
+
+.content {
+  z-index: 1;
+  box-sizing: border-box;
+  width: min(100%, 1600px);
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 767px) {
+  .shell {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    background-attachment: scroll;
+  }
+
+  .content {
+    width: 100%;
+    min-height: calc(100dvh - 64px);
+    overflow: visible;
+    padding-bottom: calc(56px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell {
+    scroll-behavior: auto;
+  }
+}
