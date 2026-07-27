@@ -24,6 +24,7 @@ from src.contracts.evidence_rework_generation import (
     EvidenceReworkGenerationPayloadV1,
     EvidenceReworkMissionIdentityMissing,
     load_durable_evidence_rework_generation,
+    validate_durable_evidence_rework_envelope,
 )
 from src.contracts.mission_contract import ContractIntakeV1
 from src.secure_ingest.evidence import classify_evidence_artifact
@@ -252,12 +253,24 @@ def recompute_contract_review(
             event.payload_json or "{}"
         )
     except EvidenceReworkMissionIdentityMissing as exc:
+        validate_durable_evidence_rework_envelope(
+            exc.generation,
+            event_id=event.id,
+            event_generation=event.generation,
+            durable_status=event.status,
+        )
         return {
             "fenced": True,
             "reason": "mission_identity_missing",
             "generation": exc.generation.generation,
             "affected_sections": exc.generation.affected_sections,
         }
+    validate_durable_evidence_rework_envelope(
+        generation,
+        event_id=event.id,
+        event_generation=event.generation,
+        durable_status=event.status,
+    )
     affected_sections = generation.affected_sections
     if not w05_contract_rework_active():
         return {

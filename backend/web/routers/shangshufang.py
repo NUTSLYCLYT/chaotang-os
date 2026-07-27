@@ -1012,7 +1012,10 @@ def _authoritative_contract_review(
         else review.id if review is not None else None
     )
     authoritative_review = (
-        db.get(CourtReview, authoritative_review_id)
+        db.query(CourtReview)
+        .populate_existing()
+        .filter_by(id=authoritative_review_id)
+        .first()
         if authoritative_review_id is not None
         else None
     )
@@ -1086,8 +1089,17 @@ def _execute_final_memorial_decision(
     """Single task/brief adjudication writer with exact-hash CAS and rework parity."""
     from src.decision_task_access import lock_decision_task
 
+    requested_review_id = review.id if review is not None else None
     lock_decision_task(db, task.id)
     db.refresh(task)
+    review = (
+        db.query(CourtReview)
+        .populate_existing()
+        .filter_by(id=requested_review_id)
+        .first()
+        if requested_review_id is not None
+        else None
+    )
     current_formal = (
         db.query(FinalMemorial)
         .populate_existing()

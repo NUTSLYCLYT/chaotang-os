@@ -138,9 +138,11 @@ def test_unknown_event_type_retries_then_dead_letters(isolated_session_local):
     db.close()
 
 
+@pytest.mark.parametrize("corrupt_envelope", [False, True])
 def test_parent_valid_rework_payload_is_quarantined_without_task_failure(
     isolated_session_local,
     monkeypatch,
+    corrupt_envelope,
 ):
     import json
 
@@ -173,7 +175,7 @@ def test_parent_valid_rework_payload_is_quarantined_without_task_failure(
             task_id=task_id,
             decision_id="decision-parent-valid-rework-payload",
             event_type="evidence.rework",
-            generation=2,
+            generation=9 if corrupt_envelope else 2,
             idempotency_key="evidence-rework:parent-valid-payload",
             status="pending",
             attempts=0,
@@ -181,9 +183,13 @@ def test_parent_valid_rework_payload_is_quarantined_without_task_failure(
             payload_json=json.dumps(
                 {
                     "schema_version": "EvidenceReworkGenerationV1",
-                    "generation_id": event_id,
+                    "generation_id": (
+                        "wrong-parent-generation-id"
+                        if corrupt_envelope
+                        else event_id
+                    ),
                     "generation": 2,
-                    "status": "pending",
+                    "status": "candidate_ready" if corrupt_envelope else "pending",
                     "prior_final_memorial_content_hash": "a" * 64,
                     "evidence_request": {
                         "reason": "父版本生成的合法补证请求",
@@ -199,6 +205,25 @@ def test_parent_valid_rework_payload_is_quarantined_without_task_failure(
     db.commit()
 
     result = process_event(db, event_id)
+
+    if corrupt_envelope:
+        assert result["status"] == "failed"
+        event = db.get(OutboxEvent, event_id)
+        task = db.get(DecisionTask, task_id)
+        assert event.status == "failed"
+        assert event.attempts == 1
+        assert "durable evidence rework envelope" in (event.last_error or "")
+        assert task.status == "awaiting_evidence"
+        assert db.query(CourtReview).filter_by(task_id=task_id).count() == 0
+        assert db.query(FinalMemorial).filter_by(task_id=task_id).count() == 0
+        assert (
+            db.query(DecreeExecutionEvent)
+            .filter_by(task_id=task_id, event_type="dispatch.failed")
+            .count()
+            == 1
+        )
+        db.close()
+        return
 
     assert result["status"] == "superseded"
     assert result["result"] == {

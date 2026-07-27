@@ -10,10 +10,13 @@ from src.contracts.evidence_rework_generation import (
     EvidenceReworkGenerationPayloadV1,
     EvidenceReworkMissionIdentityMissing,
     load_durable_evidence_rework_generation,
+    validate_durable_evidence_rework_envelope,
 )
 
 
 class EvidenceReworkEvent(Protocol):
+    id: str
+    generation: int | None
     status: str
     payload_json: str | None
     last_error: str | None
@@ -45,6 +48,17 @@ def project_evidence_rework_generation(
             event.payload_json or "{}"
         )
     except EvidenceReworkMissionIdentityMissing as exc:
+        try:
+            validate_durable_evidence_rework_envelope(
+                exc.generation,
+                event_id=event.id,
+                event_generation=event.generation,
+                durable_status=durable_status,
+            )
+        except ValueError as envelope_error:
+            raise RuntimeError(
+                "evidence rework invariant: durable envelope mismatch"
+            ) from envelope_error
         raise EvidenceReworkUnavailable(
             "补证 generation missing mission identity"
         ) from exc
@@ -52,6 +66,17 @@ def project_evidence_rework_generation(
         raise RuntimeError(
             "evidence rework invariant: durable row contains an invalid payload"
         ) from exc
+    try:
+        validate_durable_evidence_rework_envelope(
+            generation,
+            event_id=event.id,
+            event_generation=event.generation,
+            durable_status=durable_status,
+        )
+    except ValueError as envelope_error:
+        raise RuntimeError(
+            "evidence rework invariant: durable envelope mismatch"
+        ) from envelope_error
     payload_status = generation.status
 
     if durable_status == "awaiting_evidence":

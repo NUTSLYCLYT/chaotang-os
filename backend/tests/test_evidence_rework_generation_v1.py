@@ -92,6 +92,60 @@ def test_evidence_rework_payload_projects_stable_public_contract() -> None:
     }
 
 
+@pytest.mark.parametrize(
+    ("event_id", "event_generation", "durable_status", "error"),
+    [
+        ("wrong-generation-id", 2, "awaiting_evidence", "generation_id"),
+        ("outbox_rework_contract_v1", 9, "awaiting_evidence", "generation"),
+        ("outbox_rework_contract_v1", 2, "processing", "status"),
+    ],
+)
+def test_parent_payload_quarantine_requires_exact_durable_envelope(
+    event_id,
+    event_generation,
+    durable_status,
+    error,
+) -> None:
+    from src.contracts.evidence_rework_generation import (
+        EvidenceReworkGenerationV1,
+        validate_durable_evidence_rework_envelope,
+    )
+
+    payload = _valid_payload()
+    payload.pop("mission_revision")
+    payload.pop("mission_content_digest")
+    if error == "status":
+        payload["status"] = "candidate_ready"
+    generation = EvidenceReworkGenerationV1.model_validate(payload)
+
+    with pytest.raises(ValueError, match=error):
+        validate_durable_evidence_rework_envelope(
+            generation,
+            event_id=event_id,
+            event_generation=event_generation,
+            durable_status=durable_status,
+        )
+
+
+def test_parent_payload_quarantine_accepts_exact_durable_envelope() -> None:
+    from src.contracts.evidence_rework_generation import (
+        EvidenceReworkGenerationV1,
+        validate_durable_evidence_rework_envelope,
+    )
+
+    payload = _valid_payload()
+    payload.pop("mission_revision")
+    payload.pop("mission_content_digest")
+    generation = EvidenceReworkGenerationV1.model_validate(payload)
+
+    validate_durable_evidence_rework_envelope(
+        generation,
+        event_id=generation.generation_id,
+        event_generation=generation.generation,
+        durable_status="awaiting_evidence",
+    )
+
+
 def test_evidence_rework_generation_rejects_evidence_status_drift() -> None:
     payload = {**_valid_generation(), "evidence_status": "GROUNDED"}
 

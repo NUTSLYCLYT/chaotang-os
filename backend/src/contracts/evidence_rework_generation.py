@@ -105,6 +105,38 @@ class EvidenceReworkMissionIdentityMissing(ValueError):
         self.generation = generation
 
 
+_DURABLE_PAYLOAD_STATUSES = {
+    "awaiting_evidence": frozenset({"awaiting_evidence"}),
+    "evidence_bound": frozenset({"evidence_bound", "pending"}),
+    "pending": frozenset({"evidence_bound", "pending"}),
+    "processing": frozenset({"evidence_bound", "pending"}),
+    "completed": frozenset({"candidate_ready", "quality_blocked"}),
+}
+
+
+def validate_durable_evidence_rework_envelope(
+    generation: EvidenceReworkGenerationV1,
+    *,
+    event_id: str,
+    event_generation: int | None,
+    durable_status: str,
+) -> None:
+    """Require a durable row and its payload to describe the same generation."""
+    if generation.generation_id != event_id:
+        raise ValueError(
+            "durable evidence rework envelope generation_id mismatch"
+        )
+    if generation.generation != event_generation:
+        raise ValueError(
+            "durable evidence rework envelope generation mismatch"
+        )
+    allowed_statuses = _DURABLE_PAYLOAD_STATUSES.get(durable_status)
+    if allowed_statuses is None or generation.status not in allowed_statuses:
+        raise ValueError(
+            "durable evidence rework envelope status mismatch"
+        )
+
+
 def load_durable_evidence_rework_generation(
     payload_json: str,
 ) -> EvidenceReworkGenerationPayloadV1:

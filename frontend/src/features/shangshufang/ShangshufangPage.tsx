@@ -2342,8 +2342,10 @@ export function ShangshufangPage() {
   const [workbenchOpen, setWorkbenchOpen] = useState(false);
   const [edictCollapsed, setEdictCollapsed] = useState(true);
 
-  const [activeMemorialId, setActiveMemorialId] = useState<string | null>(null);
-  const requestedContractTaskId = searchParams.get('taskId');
+  const requestedTaskId = searchParams.get('taskId');
+  const [activeMemorialId, setActiveMemorialId] = useState<string | null>(
+    () => requestedTaskId?.trim() || null,
+  );
   const [rejectedMemorialIds, setRejectedMemorialIds] = useState<Set<string>>(() => new Set());
   const [selectedMemorialOverride, setSelectedMemorialOverride] = useState<Memorial | null>(null);
   const [secondarySeal, setSecondarySeal] = useState<ActiveEdictSeal | null>(null);
@@ -2567,22 +2569,19 @@ export function ShangshufangPage() {
           : '暂无后端返回的 pending/running 今日要务或已完成蜂群流程。';
 
   const dedupedMemorialItems = uniqueMemorialItems(briefing.memorials);
-  const requestedContractMemorial = requestedContractTaskId
+  const requestedMemorial = requestedTaskId
     ? dedupedMemorialItems.find(
-        (item) => (
-          item.id === requestedContractTaskId.trim()
-          && item.contractTask === true
-        ),
+        (item) => item.id === requestedTaskId.trim(),
       )
     : undefined;
   useEffect(() => {
     if (
-      requestedContractMemorial
-      && activeMemorialId !== requestedContractMemorial.id
+      requestedMemorial
+      && activeMemorialId !== requestedMemorial.id
     ) {
-      setActiveMemorialId(requestedContractMemorial.id);
+      setActiveMemorialId(requestedMemorial.id);
     }
-  }, [activeMemorialId, requestedContractMemorial]);
+  }, [activeMemorialId, requestedMemorial]);
   const activeMemorial: Memorial | null = (() => {
     if (selectedMemorialOverride) return selectedMemorialOverride;
     if (dedupedMemorialItems.length === 0) return null;
@@ -2596,16 +2595,13 @@ export function ShangshufangPage() {
       : null;
   })();
   const contractTaskId = selectContractTaskCandidate({
-    requestedTaskId: requestedContractTaskId,
-    requestedTaskIsContract: requestedContractMemorial !== undefined,
+    requestedTaskId,
+    requestedTaskIsContract: requestedMemorial?.contractTask === true,
     edictPrimaryTaskId: edictOverride?.primaryTaskId ?? null,
     activeMemorialId: activeMemorial?.id ?? null,
     activeMemorialIsContract: activeMemorial?.contractTask === true,
   });
-  const legacyContractActionsBlocked = (
-    contractTaskId !== null
-    && activeMemorial?.id === contractTaskId
-  );
+  const legacyContractActionsBlocked = activeMemorial?.contractTask === true;
   useEffect(() => {
     if (!legacyContractActionsBlocked || !verdictOpen) return;
     setVerdictOpen(false);
@@ -4143,6 +4139,17 @@ export function ShangshufangPage() {
     [focusDecree],
   );
 
+  const selectMemorialIdentity = useCallback(
+    (taskId: string) => {
+      setActiveMemorialId(taskId);
+      if (requestedTaskId?.trim() === taskId) return;
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.set('taskId', taskId);
+      router.replace(`/shangshufang?${nextParams.toString()}`);
+    },
+    [requestedTaskId, router, searchParams],
+  );
+
   const handleSelectSuggestion = useCallback(
     (s: ChancellorSuggestion) => {
       const taskId = suggestionTaskId(s, briefing.memorials);
@@ -4152,13 +4159,13 @@ export function ShangshufangPage() {
       setEdictCollapsed(false);
       if (s.memorial) {
         setSelectedMemorialOverride(s.memorial);
-        setActiveMemorialId(s.memorial.id);
+        selectMemorialIdentity(s.memorial.id);
         setEdictOverride(null);
         return;
       }
       if (taskId && briefing.memorials.some((m) => m.id === taskId)) {
         setSelectedMemorialOverride(null);
-        setActiveMemorialId(taskId);
+        selectMemorialIdentity(taskId);
         setEdictOverride(null);
         return;
       }
@@ -4172,7 +4179,7 @@ export function ShangshufangPage() {
         suggestion: s,
       });
     },
-    [briefing.memorials],
+    [briefing.memorials, selectMemorialIdentity],
   );
 
   const handleVerdictChoice = useCallback(

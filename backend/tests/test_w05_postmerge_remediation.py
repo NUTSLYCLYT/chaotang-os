@@ -27,6 +27,8 @@ class _ProjectionEvent:
     status: str
     payload_json: str | None
     last_error: str | None = None
+    id: str = "legacy-generation-2"
+    generation: int | None = 2
 
 
 def _formalize_task(session_local, task_id: str, storage_root) -> tuple[str, str]:

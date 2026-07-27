@@ -12,8 +12,9 @@ export function selectContractTaskCandidate({
 }): string | null {
   const explicit = requestedTaskId?.trim();
   if (explicit) {
-    if (!requestedTaskIsContract || activeMemorialId !== explicit) return null;
-    return explicit;
+    if (activeMemorialId === explicit) {
+      return requestedTaskIsContract ? explicit : null;
+    }
   }
   if (!activeMemorialIsContract) return null;
   return activeMemorialId?.trim() || null;

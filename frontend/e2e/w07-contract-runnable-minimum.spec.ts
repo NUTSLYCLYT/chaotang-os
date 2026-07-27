@@ -116,11 +116,18 @@ test.describe('W07 contract RUNNABLE_MINIMUM', () => {
     });
     await expect(page.getByTestId('contract-review-panel')).toHaveCount(0);
 
-    await openContractTaskFromHome(
-      page,
-      TASK_ID,
-      '审查合成采购合同',
+    const legacyHomeTasks = legacyHomePayload.data?.pending_decisions ?? [];
+    const contractTaskIndex = legacyHomeTasks.findIndex(
+      (task) => task.task_id === TASK_ID,
     );
+    expect(contractTaskIndex).toBeGreaterThanOrEqual(0);
+    const expandRails = page.getByRole('button', { name: /展开辅政/ });
+    if (await expandRails.isVisible()) {
+      await expandRails.click();
+    }
+    await page.getByTestId('chancellor-visible-item').nth(contractTaskIndex).click();
+    await expect(page).toHaveURL(new RegExp(`taskId=${TASK_ID}`));
+    await expect(page.getByTestId('contract-review-panel')).toBeVisible();
     for (const legacyAction of ['准奏', '驳回', '会审', '批示']) {
       await expect(
         page.getByRole('button', { name: legacyAction, exact: true }),

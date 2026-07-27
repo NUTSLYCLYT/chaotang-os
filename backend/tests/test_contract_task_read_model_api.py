@@ -1136,6 +1136,59 @@ def test_contract_final_decision_locks_before_authority_projection(
             )
 
 
+def test_contract_final_decision_fresh_loads_review_after_task_lock(
+    monkeypatch,
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    from sqlalchemy import update
+
+    from src.db.models import CourtReview, EmperorDecision, ShiguanArchive
+    from web.routers.shangshufang import _execute_final_memorial_decision
+
+    monkeypatch.setenv("FENGQUN_RUNTIME_ROOT", str(tmp_path))
+    task_id = "task-api-fresh-review-after-lock"
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id=task_id)
+        final, pack = seed_final_memorial(db, task_id=task.id)
+        seed_delivery(
+            db,
+            storage_root=tmp_path / "artifacts",
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        review = db.get(CourtReview, final.review_id)
+        assert review is not None
+        db.flush()
+
+        db.execute(
+            update(CourtReview)
+            .where(CourtReview.id == review.id)
+            .values(tenant_id=8, review_status="awaiting_evidence")
+            .execution_options(synchronize_session=False)
+        )
+        assert review.tenant_id == 7
+        assert review.review_status == "awaiting_decision"
+
+        with pytest.raises(ValueError, match="ownership|lineage"):
+            _execute_final_memorial_decision(
+                db,
+                task=task,
+                review=review,
+                action="approve",
+                reason="锁后必须读取持久化 review 事实",
+                human_confirmed=True,
+                expected_content_hash=final.content_hash,
+                actor_user_id="7",
+            )
+        db.rollback()
+
+    with isolated_session_local() as db:
+        assert db.query(EmperorDecision).filter_by(task_id=task_id).count() == 0
+        assert db.query(ShiguanArchive).filter_by(task_id=task_id).count() == 0
+
+
 def test_revise_verdict_cannot_be_approved_and_archived(
     monkeypatch,
     isolated_session_local,
