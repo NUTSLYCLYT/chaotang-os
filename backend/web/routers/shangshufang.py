@@ -16,7 +16,7 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from src.chancellor.contracts import RouteDecisionV2
 from src.chancellor.decree_status import (
@@ -38,6 +38,7 @@ from src.db.models import (
     FinalMemorial,
     ShiguanArchive,
 )
+from src.decision_task_access import get_owned_decision_task
 from src.decision_task_kernel import create_decision_task
 from src.emperor_decision_kind import emperor_decision_kind
 from src.evidence_rework_projection import project_evidence_rework_generation
@@ -89,6 +90,58 @@ _CONTRACT_REQUIRED_READ_ACTIONS = {
     "recheck": "REFRESH_REVIEW",
 }
 _CONTRACT_DENIED_DECISION_ACTIONS = frozenset({"cancel"})
+
+
+class _ClosedResponseModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class ShangshufangHomeLatestMemorial(_ClosedResponseModel):
+    verdict: str | None = None
+    summary: str | None = None
+    source_label: str | None = None
+    ministry_outputs: list[dict[str, Any]]
+    formal_memorial_id: str | None = None
+
+
+class ShangshufangHomeTaskSummary(_ClosedResponseModel):
+    task_id: str
+    status: str
+    raw_question: str
+    draft_edict: dict[str, Any] | None
+    source_label: str
+    risk_flags: list[Any]
+    known_facts: list[Any]
+    unknown_gaps: list[Any]
+    recommended_departments: list[Any]
+    contract_scope: ContractIntakeV1 | None
+    contract_task: bool
+    created_at: str
+    updated_at: str
+    latest_memorial: ShangshufangHomeLatestMemorial | None
+
+
+class ShangshufangHomeTodayIssue(_ClosedResponseModel):
+    title: str
+    why_now: str
+    urgency: str
+    recommended_action: str
+    evidence_basis: list[Any]
+    missing_evidence: list[Any]
+
+
+class ShangshufangHomeData(_ClosedResponseModel):
+    source_label: str
+    today_issue: ShangshufangHomeTodayIssue
+    pending_decisions: list[ShangshufangHomeTaskSummary]
+    pending_evidence_tasks: list[ShangshufangHomeTaskSummary]
+    archive_hints: list[dict[str, Any]]
+
+
+class ShangshufangHomeResponse(_ClosedResponseModel):
+    success: bool
+    data: ShangshufangHomeData | None = None
+    error: str | None = None
 
 
 class DraftEdictRequest(BaseModel):
@@ -339,10 +392,47 @@ def _user_id(user: CurrentUser) -> str:
     return str(user.user_id or user.username or user.tenant_slug or "anonymous")
 
 
+def _is_contract_task(
+    db,
+    *,
+    task: DecisionTask,
+    current_formal: FinalMemorial | None = None,
+) -> bool:
+    if task.contract_scope_json is not None:
+        return True
+
+    from src.contract_mission_repository import MISSION_LOOP_ID
+
+    if (
+        db.query(CourtLoopRun.id)
+        .filter_by(task_id=task.id, loop_id=MISSION_LOOP_ID)
+        .first()
+        is not None
+    ):
+        return True
+
+    formal = current_formal
+    if formal is None:
+        formal = (
+            db.query(FinalMemorial)
+            .filter_by(task_id=task.id, is_current=True)
+            .first()
+        )
+    if formal is None:
+        return False
+    try:
+        formal_payload = json.loads(formal.memorial_json)
+    except json.JSONDecodeError:
+        return '"contract_review"' in formal.memorial_json
+    return isinstance(formal_payload, dict) and "contract_review" in formal_payload
+
+
 def _task_to_payload(
     row: DecisionTask,
     review: "CourtReview | None" = None,
     formal: "FinalMemorial | None" = None,
+    *,
+    contract_task: bool = False,
 ) -> dict:
     """独立复审(2026-07-11)发现: /home 的任务摘要只有 draft_edict(下旨前的丞相
     拟旨),从不带真实回奏——上书房首页"建议"栏因此永远显示下旨前的草拟文字，
@@ -383,6 +473,7 @@ def _task_to_payload(
         "unknown_gaps": _loads(row.unknown_gaps_json, []),
         "recommended_departments": _loads(row.recommended_departments_json, []),
         "contract_scope": _loads(row.contract_scope_json, None),
+        "contract_task": contract_task,
         "created_at": row.created_at,
         "updated_at": row.updated_at,
         "latest_memorial": latest_memorial,
@@ -878,27 +969,10 @@ def _execute_final_memorial_decision(
         .filter_by(task_id=task.id, is_current=True)
         .first()
     )
-    formal_payload = (
-        _loads(current_formal.memorial_json, {})
-        if current_formal is not None
-        else {}
-    )
-    from src.contract_mission_repository import MISSION_LOOP_ID
-
-    has_contract_mission = (
-        db.query(CourtLoopRun.id)
-        .filter_by(task_id=task.id, loop_id=MISSION_LOOP_ID)
-        .first()
-        is not None
-    )
-    has_contract_review_pack = (
-        isinstance(formal_payload, dict)
-        and "contract_review" in formal_payload
-    )
-    is_contract_task = (
-        task.contract_scope_json is not None
-        or has_contract_mission
-        or has_contract_review_pack
+    is_contract_task = _is_contract_task(
+        db,
+        task=task,
+        current_formal=current_formal,
     )
     if is_contract_task:
         authoritative_review_id = (
@@ -973,6 +1047,14 @@ def _execute_final_memorial_decision(
             )
 
     if not is_contract_task:
+        if action in {"cancel", "recheck"}:
+            from src.execution.decree_dispatcher import lock_evidence_rework_task
+
+            lock_evidence_rework_task(db, task.id)
+            db.refresh(task)
+            if review is not None:
+                db.refresh(review)
+
         from src.execution.outbox_worker import TASK_TERMINAL_STATUSES
 
         if action == "cancel" and task.status in TASK_TERMINAL_STATUSES:
@@ -1299,6 +1381,7 @@ def _run_swarm_execution_loop_sync(params: dict[str, Any]) -> dict[str, Any]:
 
 
 @router.get("/home")
+@router.get("/home/v1", response_model=ShangshufangHomeResponse)
 def shangshufang_home(user: CurrentUser = Depends(get_current_user)) -> dict:
     from src.db.engine import SessionLocal
 
@@ -1308,6 +1391,7 @@ def shangshufang_home(user: CurrentUser = Depends(get_current_user)) -> dict:
         pending = (
             db.query(DecisionTask)
             .filter(
+                DecisionTask.tenant_id == user.tenant_id,
                 DecisionTask.user_id == _user_id(user),
                 DecisionTask.status.in_(
                     ["awaiting_emperor_confirm", "awaiting_decision"]
@@ -1320,6 +1404,7 @@ def shangshufang_home(user: CurrentUser = Depends(get_current_user)) -> dict:
         reviewing = (
             db.query(DecisionTask)
             .filter(
+                DecisionTask.tenant_id == user.tenant_id,
                 DecisionTask.user_id == _user_id(user),
                 DecisionTask.status.in_(["reviewing", "awaiting_evidence"]),
             )
@@ -1330,16 +1415,32 @@ def shangshufang_home(user: CurrentUser = Depends(get_current_user)) -> dict:
         task_ids = [row.id for row in (*pending, *reviewing)]
         latest_reviews = _latest_reviews_by_task(db, task_ids)
         final_memorials = _final_memorials_by_task(db, task_ids)
+        contract_task_ids = {
+            row.id
+            for row in (*pending, *reviewing)
+            if _is_contract_task(
+                db,
+                task=row,
+                current_formal=final_memorials.get(row.id),
+            )
+        }
         payload["pending_decisions"] = [
             _task_to_payload(
                 row,
                 latest_reviews.get(row.id),
                 final_memorials.get(row.id),
+                contract_task=row.id in contract_task_ids,
             )
             for row in pending
         ]
         payload["pending_evidence_tasks"] = [
-            _task_to_payload(row, latest_reviews.get(row.id)) for row in reviewing
+            _task_to_payload(
+                row,
+                latest_reviews.get(row.id),
+                final_memorials.get(row.id),
+                contract_task=row.id in contract_task_ids,
+            )
+            for row in reviewing
         ]
         if pending:
             top = pending[0]
@@ -1511,14 +1612,30 @@ def shangshufang_confirm_edict(
 
     db = SessionLocal()
     try:
-        task = db.query(DecisionTask).filter_by(id=body.task_id).first()
+        task, ownership_error = get_owned_decision_task(
+            db,
+            task_id=body.task_id,
+            requester_id=_user_id(user),
+            requester_tenant_id=user.tenant_id,
+        )
         if task is None:
             db.rollback()
+            if ownership_error and "无权" in ownership_error:
+                return fail("无权确认该任务")
             return fail("task_id 不存在")
-        if task.user_id != _user_id(user):
-            db.rollback()
-            return fail("无权确认该任务")
         if not body.confirmed:
+            if _is_contract_task(db, task=task):
+                db.rollback()
+                return fail("contract task cancel not authorized")
+
+            from src.execution.outbox_worker import TASK_TERMINAL_STATUSES
+
+            if task.status in TASK_TERMINAL_STATUSES:
+                db.rollback()
+                return fail("terminal task cannot be cancelled from confirm-edict")
+            if task.status != "awaiting_emperor_confirm":
+                db.rollback()
+                return fail("task is not awaiting emperor confirmation")
             task.status = "draft_cancelled"
             task.updated_at = now_iso()
             db.commit()
@@ -1950,13 +2067,16 @@ def shangshufang_task_status(
 
     db = SessionLocal()
     try:
-        task = db.query(DecisionTask).filter_by(id=task_id).first()
+        task, ownership_error = get_owned_decision_task(
+            db,
+            task_id=task_id,
+            requester_id=_user_id(user),
+            requester_tenant_id=user.tenant_id,
+        )
         if task is None:
+            if ownership_error and "无权" in ownership_error:
+                return fail("无权查看该任务")
             return fail("task_id 不存在")
-        # P0-B(2026-07-14):归属校验。跟 jinyiwei.py 的 fill-gap 同款口径——
-        # 别人的任务一律拒绝,不泄露其状态和会审内容。
-        if task.user_id != _user_id(user):
-            return fail("无权查看该任务")
         review = (
             db.query(CourtReview)
             .filter_by(task_id=task_id)
@@ -2118,17 +2238,23 @@ def bind_rework_generation_evidence(
     db = SessionLocal()
     try:
         require_w05_contract_rework()
-        task = db.query(DecisionTask).filter_by(id=task_id).first()
+        task, ownership_error = get_owned_decision_task(
+            db,
+            task_id=task_id,
+            requester_id=_user_id(user),
+            requester_tenant_id=user.tenant_id,
+        )
         if task is None:
+            if ownership_error and "无权" in ownership_error:
+                return _http_fail(404, "无权绑定该任务的补证")
             return _http_fail(404, "task_id 不存在")
-        if task.user_id != _user_id(user):
-            return _http_fail(404, "无权绑定该任务的补证")
 
         generation = (
             db.query(OutboxEvent)
             .filter_by(
                 id=generation_id,
                 task_id=task_id,
+                tenant_id=task.tenant_id,
                 event_type="evidence.rework",
             )
             .first()
@@ -2228,6 +2354,22 @@ def bind_rework_generation_evidence(
                 return _http_fail(409, "补证 generation 已绑定其他证据")
             raise RuntimeError(
                 "evidence rework invariant: awaiting generation already has evidence"
+            )
+
+        from src.contract_task_projection import project_contract_task
+        from src.runtime_paths import resolve_runtime_paths
+
+        read_model = project_contract_task(
+            db,
+            storage_root=resolve_runtime_paths().root / "artifacts",
+            task=task,
+        )
+        if "SUBMIT_EVIDENCE" not in read_model.allowed_actions:
+            blockers = ",".join(item.code for item in read_model.blockers)
+            return _http_fail(
+                409,
+                "SUBMIT_EVIDENCE not allowed for current contract facts: "
+                f"{blockers}",
             )
 
         packet_id = "evidence_" + hashlib.sha256(

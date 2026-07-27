@@ -129,6 +129,14 @@ def resolve_contract_task_actions(
             "SUBMIT_EVIDENCE",
             blockers=("EVIDENCE_INCOMPLETE",),
         )
+    if (
+        facts.task_status == "awaiting_evidence"
+        and facts.final_status == "AWAITING_EVIDENCE"
+    ):
+        return _resolution(
+            "REFRESH_REVIEW",
+            blockers=("REVIEW_REVISION_REQUIRED",),
+        )
     if not facts.review_pack_ready:
         return _resolution(
             "REFRESH_REVIEW",

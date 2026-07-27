@@ -182,3 +182,83 @@ test('rejects additive properties in an existing response component', () => {
   }]);
   assert.deepEqual(diff.warnings, []);
 });
+
+test('detects structural changes in inline response objects', () => {
+  const base = {
+    paths: {
+      '/inline': {
+        get: {
+          responses: {
+            200: {
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: { value: { type: 'string' } },
+                    required: ['value'],
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+  const current = structuredClone(base);
+  current.paths['/inline'].get.responses[200].content[
+    'application/json'
+  ].schema.properties.optional_identity = { type: 'string' };
+
+  const diff = compareContracts(base, current);
+
+  assert.deepEqual(diff.breaking.map((item) => item.type), [
+    'response_schema_changed',
+  ]);
+});
+
+test('follows component response refs when classifying response schemas', () => {
+  const base = {
+    paths: {
+      '/indirect': {
+        get: {
+          responses: {
+            200: { $ref: '#/components/responses/ExampleResponse' },
+          },
+        },
+      },
+    },
+    components: {
+      responses: {
+        ExampleResponse: {
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/Example' },
+            },
+          },
+        },
+      },
+      schemas: {
+        Example: {
+          type: 'object',
+          additionalProperties: false,
+          properties: { value: { type: 'string' } },
+          required: ['value'],
+        },
+      },
+    },
+  };
+  const current = structuredClone(base);
+  current.components.schemas.Example.properties.optional_identity = {
+    type: 'string',
+  };
+
+  const diff = compareContracts(base, current);
+
+  assert.deepEqual(diff.breaking, [{
+    type: 'component_schema_changed',
+    key: 'Example',
+  }]);
+  assert.deepEqual(diff.warnings, []);
+});

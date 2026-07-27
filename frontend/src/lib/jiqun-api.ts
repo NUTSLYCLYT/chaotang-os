@@ -515,6 +515,11 @@ export interface ShangshufangDecisionTaskSummary {
   } | null;
 }
 
+export interface ShangshufangHomeDecisionTaskSummary
+  extends ShangshufangDecisionTaskSummary {
+  contract_task: boolean;
+}
+
 export interface ShangshufangHomeResponse {
   source_label: ShangshufangSourceLabel;
   today_issue: {
@@ -525,8 +530,8 @@ export interface ShangshufangHomeResponse {
     evidence_basis: string[];
     missing_evidence: string[];
   };
-  pending_decisions: ShangshufangDecisionTaskSummary[];
-  pending_evidence_tasks: ShangshufangDecisionTaskSummary[];
+  pending_decisions: ShangshufangHomeDecisionTaskSummary[];
+  pending_evidence_tasks: ShangshufangHomeDecisionTaskSummary[];
   archive_hints: unknown[];
 }
 
@@ -623,7 +628,7 @@ export async function shangshufangFinanceReportingLoop(
 }
 
 export async function shangshufangHome(): Promise<ShangshufangHomeResponse> {
-  const res = await fetchLocalCourtApi('/api/court/shangshufang/home');
+  const res = await fetchLocalCourtApi('/api/court/shangshufang/home/v1');
   if (!res.ok) await throwLocalApiError(res, '查看上书房');
   const envelope = (await res.json()) as JiqunEnvelope<ShangshufangHomeResponse>;
   return unwrapJiqunEnvelope(envelope, '读取上书房决策首页');

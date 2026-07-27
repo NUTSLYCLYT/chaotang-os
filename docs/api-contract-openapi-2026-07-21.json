@@ -6146,6 +6146,290 @@
         "title": "SerialLoopRequest",
         "type": "object"
       },
+      "ShangshufangHomeData": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_hints": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Archive Hints",
+            "type": "array"
+          },
+          "pending_decisions": {
+            "items": {
+              "$ref": "#/components/schemas/ShangshufangHomeTaskSummary"
+            },
+            "title": "Pending Decisions",
+            "type": "array"
+          },
+          "pending_evidence_tasks": {
+            "items": {
+              "$ref": "#/components/schemas/ShangshufangHomeTaskSummary"
+            },
+            "title": "Pending Evidence Tasks",
+            "type": "array"
+          },
+          "source_label": {
+            "title": "Source Label",
+            "type": "string"
+          },
+          "today_issue": {
+            "$ref": "#/components/schemas/ShangshufangHomeTodayIssue"
+          }
+        },
+        "required": [
+          "source_label",
+          "today_issue",
+          "pending_decisions",
+          "pending_evidence_tasks",
+          "archive_hints"
+        ],
+        "title": "ShangshufangHomeData",
+        "type": "object"
+      },
+      "ShangshufangHomeLatestMemorial": {
+        "additionalProperties": false,
+        "properties": {
+          "formal_memorial_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Formal Memorial Id"
+          },
+          "ministry_outputs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Ministry Outputs",
+            "type": "array"
+          },
+          "source_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Label"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict"
+          }
+        },
+        "required": [
+          "ministry_outputs"
+        ],
+        "title": "ShangshufangHomeLatestMemorial",
+        "type": "object"
+      },
+      "ShangshufangHomeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ShangshufangHomeData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "title": "ShangshufangHomeResponse",
+        "type": "object"
+      },
+      "ShangshufangHomeTaskSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "contract_scope": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ContractIntakeV1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contract_task": {
+            "title": "Contract Task",
+            "type": "boolean"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "draft_edict": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Edict"
+          },
+          "known_facts": {
+            "items": {},
+            "title": "Known Facts",
+            "type": "array"
+          },
+          "latest_memorial": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ShangshufangHomeLatestMemorial"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "raw_question": {
+            "title": "Raw Question",
+            "type": "string"
+          },
+          "recommended_departments": {
+            "items": {},
+            "title": "Recommended Departments",
+            "type": "array"
+          },
+          "risk_flags": {
+            "items": {},
+            "title": "Risk Flags",
+            "type": "array"
+          },
+          "source_label": {
+            "title": "Source Label",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          },
+          "unknown_gaps": {
+            "items": {},
+            "title": "Unknown Gaps",
+            "type": "array"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "status",
+          "raw_question",
+          "draft_edict",
+          "source_label",
+          "risk_flags",
+          "known_facts",
+          "unknown_gaps",
+          "recommended_departments",
+          "contract_scope",
+          "contract_task",
+          "created_at",
+          "updated_at",
+          "latest_memorial"
+        ],
+        "title": "ShangshufangHomeTaskSummary",
+        "type": "object"
+      },
+      "ShangshufangHomeTodayIssue": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_basis": {
+            "items": {},
+            "title": "Evidence Basis",
+            "type": "array"
+          },
+          "missing_evidence": {
+            "items": {},
+            "title": "Missing Evidence",
+            "type": "array"
+          },
+          "recommended_action": {
+            "title": "Recommended Action",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "urgency": {
+            "title": "Urgency",
+            "type": "string"
+          },
+          "why_now": {
+            "title": "Why Now",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "why_now",
+          "urgency",
+          "recommended_action",
+          "evidence_basis",
+          "missing_evidence"
+        ],
+        "title": "ShangshufangHomeTodayIssue",
+        "type": "object"
+      },
       "StatusResponse": {
         "properties": {
           "status": {
@@ -30255,6 +30539,71 @@
                   "additionalProperties": true,
                   "title": "Response Shangshufang Home Api Shangshufang Home Get",
                   "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Shangshufang Home",
+        "tags": [
+          "shangshufang"
+        ]
+      }
+    },
+    "/api/shangshufang/home/v1": {
+      "get": {
+        "operationId": "shangshufang_home_api_shangshufang_home_v1_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShangshufangHomeResponse"
                 }
               }
             },

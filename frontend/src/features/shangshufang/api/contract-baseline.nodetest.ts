@@ -16,6 +16,7 @@ test('formal Shangshufang backend paths remain aligned across frontend adapters'
   }
 
   for (const path of [
+    '/api/court/shangshufang/home/v1',
     '/api/court/shangshufang/draft-edict',
     '/api/court/shangshufang/confirm-edict',
     '/api/court/shangshufang/tasks/${encodeURIComponent(taskId)}/status',

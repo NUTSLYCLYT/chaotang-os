@@ -42,6 +42,7 @@ function makeHomeResponse(overrides: Partial<ShangshufangHomeResponse['pending_d
           },
         },
         source_label: 'FALLBACK',
+        contract_task: false,
         risk_flags: [],
         known_facts: [],
         unknown_gaps: [],
@@ -85,6 +86,18 @@ test('mergeDecisionHome 真实回奏(latest_memorial)存在时优先展示真实
 
 test('mergeDecisionHome preserves the server contract classification', () => {
   const home = makeHomeResponse({
+    contract_task: true,
+    contract_scope: null,
+  });
+
+  const merged = mergeDecisionHome(EMPTY_BRIEFING, home);
+
+  assert.equal(merged.memorials[0]?.contractTask, true);
+});
+
+test('mergeDecisionHome does not create a second contract classifier', () => {
+  const home = makeHomeResponse({
+    contract_task: false,
     contract_scope: {
       schema_version: 'ContractIntakeV1',
       jurisdiction: 'CN_MAINLAND',
@@ -97,5 +110,5 @@ test('mergeDecisionHome preserves the server contract classification', () => {
 
   const merged = mergeDecisionHome(EMPTY_BRIEFING, home);
 
-  assert.equal(merged.memorials[0]?.contractTask, true);
+  assert.equal(merged.memorials[0]?.contractTask, false);
 });

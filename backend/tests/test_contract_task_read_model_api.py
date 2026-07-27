@@ -949,6 +949,71 @@ def test_pack_only_contract_candidate_is_blocked_at_shared_writer(
         assert _decision_state(db, task_id) == before
 
 
+def test_malformed_pack_marker_cannot_downgrade_to_legacy_writer(
+    monkeypatch,
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    import hashlib
+
+    from src.db.models import CourtReview, DecisionTask, FinalMemorial
+    from web.routers.shangshufang import _execute_final_memorial_decision
+
+    monkeypatch.setenv("FENGQUN_RUNTIME_ROOT", str(tmp_path))
+    task_id = "task-api-malformed-pack-writer-gate"
+    malformed_payload = '{"contract_review":'
+    with isolated_session_local() as db:
+        task = DecisionTask(
+            id=task_id,
+            tenant_id=7,
+            user_id="7",
+            raw_question="malformed pack-only 合同任务",
+            status="awaiting_decision",
+            source_label="LIVE",
+        )
+        review = CourtReview(
+            id=f"review-{task_id}",
+            tenant_id=7,
+            task_id=task_id,
+            review_status="awaiting_decision",
+        )
+        final = FinalMemorial(
+            id=f"final-{task_id}",
+            tenant_id=7,
+            task_id=task_id,
+            review_id=review.id,
+            swarm_run_id=f"swarm-{task_id}",
+            quality_result_id=f"quality-{task_id}",
+            status="ready_for_decision",
+            source_label="LIVE",
+            memorial_json=malformed_payload,
+            content_hash=hashlib.sha256(
+                malformed_payload.encode("utf-8")
+            ).hexdigest(),
+            version=1,
+            is_current=True,
+        )
+        db.add_all([task, review, final])
+        db.commit()
+        before = _decision_state(db, task_id)
+
+        with pytest.raises(ValueError, match="DECIDE|lineage|contract"):
+            _execute_final_memorial_decision(
+                db,
+                task=task,
+                review=review,
+                action="approve",
+                reason="malformed pack 不得降级为 legacy",
+                human_confirmed=True,
+                expected_content_hash=final.content_hash,
+                actor_user_id="7",
+            )
+        db.rollback()
+
+    with isolated_session_local() as db:
+        assert _decision_state(db, task_id) == before
+
+
 def test_revise_verdict_cannot_be_approved_and_archived(
     monkeypatch,
     isolated_session_local,

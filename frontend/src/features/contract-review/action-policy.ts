@@ -14,6 +14,12 @@ export interface ContractReviewUiPolicy {
   canResume: boolean;
 }
 
+export function isContractTaskReadModel(
+  model: ContractTaskReadModelV1,
+): boolean {
+  return model.schema_version === 'ContractTaskReadModelV1';
+}
+
 export function isContractActionAllowed(
   model: ContractTaskReadModelV1,
   action: ContractAction,

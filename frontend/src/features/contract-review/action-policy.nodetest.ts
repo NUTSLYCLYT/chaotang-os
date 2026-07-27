@@ -5,6 +5,7 @@ import type { ContractTaskReadModelV1 } from '@/lib/contracts/backend-openapi-20
 import {
   contractReviewUiPolicy,
   isContractActionAllowed,
+  isContractTaskReadModel,
 } from './action-policy';
 
 function model(
@@ -38,6 +39,16 @@ test('never invents an action absent from the server response', () => {
     contractReviewUiPolicy(model({ allowed_actions: [] })).canDownload,
     false,
   );
+});
+
+test('scope-only typed read model remains a contract view without mission or pack', () => {
+  const value = model({
+    mission: undefined,
+    review_pack: undefined,
+    blockers: [{ code: 'MISSION_MISSING' }],
+  });
+
+  assert.equal(isContractTaskReadModel(value), true);
 });
 
 test('PARTIAL after refresh is not delivered or resumable', () => {

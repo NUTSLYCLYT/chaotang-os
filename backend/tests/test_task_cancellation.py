@@ -4,9 +4,15 @@
 
 from __future__ import annotations
 
-from fastapi.testclient import TestClient
+import importlib
+import threading
 
-from src.db.models import CourtReview, DecisionTask
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from src.db.models import Base, CourtReview, DecisionTask
 from web.main import app
 
 
@@ -135,6 +141,108 @@ def test_repeated_recheck_is_idempotent(isolated_session_local):
         == 1
     )
     db.close()
+
+
+@pytest.mark.parametrize(
+    ("action", "expected_status", "event_type"),
+    [
+        ("cancel", "task_cancelled", "decision.cancelled"),
+        ("recheck", "reviewing", "decision.recheck_requested"),
+    ],
+)
+def test_concurrent_legacy_decision_replays_one_durable_result(
+    tmp_path,
+    monkeypatch,
+    action,
+    expected_status,
+    event_type,
+):
+    """Concurrent legacy retries serialize before deciding whether to append."""
+    from src.db.models import DecreeExecutionEvent, EmperorDecision
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / f'legacy-{action}-race.db'}",
+        connect_args={"check_same_thread": False, "timeout": 10},
+    )
+    Base.metadata.create_all(engine)
+    test_session = sessionmaker(
+        bind=engine,
+        autocommit=False,
+        autoflush=False,
+        expire_on_commit=False,
+    )
+    engine_module = importlib.import_module("src.db.engine")
+    router_module = importlib.import_module("web.routers.shangshufang")
+    monkeypatch.setattr(engine_module, "SessionLocal", test_session)
+
+    task_id = f"task_{action}_concurrent"
+    db = test_session()
+    _seed_task(db, task_id=task_id)
+    db.close()
+
+    both_loaded = threading.Barrier(2)
+    original_is_contract_task = router_module._is_contract_task
+
+    def _pace_after_task_load(*args, **kwargs):
+        result = original_is_contract_task(*args, **kwargs)
+        both_loaded.wait(timeout=5)
+        return result
+
+    monkeypatch.setattr(
+        router_module,
+        "_is_contract_task",
+        _pace_after_task_load,
+    )
+
+    responses = []
+    errors: list[BaseException] = []
+
+    def _submit(reason: str) -> None:
+        try:
+            response = TestClient(app).post(
+                f"/api/shangshufang/tasks/{task_id}/decision",
+                json={
+                    "action": action,
+                    "reason": reason,
+                    "human_confirmed": True,
+                },
+            )
+            responses.append(response)
+        except BaseException as exc:  # noqa: BLE001 - surface thread failures
+            errors.append(exc)
+
+    threads = [
+        threading.Thread(target=_submit, args=("first request",)),
+        threading.Thread(target=_submit, args=("concurrent retry",)),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=15)
+
+    assert not errors
+    assert len(responses) == 2
+    assert [response.status_code for response in responses] == [200, 200]
+
+    db = test_session()
+    try:
+        assert db.get(DecisionTask, task_id).status == expected_status
+        assert (
+            db.query(EmperorDecision)
+            .filter_by(task_id=task_id, action=action)
+            .count()
+            == 1
+        )
+        assert (
+            db.query(DecreeExecutionEvent)
+            .filter_by(task_id=task_id, event_type=event_type)
+            .count()
+            == 1
+        )
+    finally:
+        db.close()
+        Base.metadata.drop_all(engine)
+        engine.dispose()
 
 
 def test_cancel_rejected_on_already_archived_task(isolated_session_local):

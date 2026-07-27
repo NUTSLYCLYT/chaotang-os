@@ -560,6 +560,14 @@ def test_evidence_rework_recomputes_only_declared_contract_section(
                         "followup_question": None,
                     },
                     "affected_sections": ["contract_review"],
+                    "contract_scope": {
+                        "schema_version": "ContractIntakeV1",
+                        "jurisdiction": "CN_MAINLAND",
+                        "language": "zh-CN",
+                        "contract_type": "procurement",
+                        "our_role": "buyer",
+                        "legal_question": "contract_risk_screening",
+                    },
                     "evidence_packets": [
                         {
                             "schema_version": "EvidencePacketV1",
@@ -638,13 +646,13 @@ def test_evidence_rework_recomputes_only_declared_contract_section(
     status = TestClient(app).get(
         f"/api/shangshufang/tasks/{task_id}/status"
     ).json()["data"]
-    assert status["task"]["status"] == "awaiting_evidence"
-    assert status["review"]["review_status"] == "awaiting_evidence"
+    assert status["task"]["status"] == "awaiting_decision"
+    assert status["review"]["review_status"] == "awaiting_decision"
     memorial = status["review"]["memorial"]
     assert memorial["financial_review"] == {"status": "keep-me"}
     assert memorial["contract_review"]["schema_version"] == "ContractReviewPackV1"
     assert memorial["contract_review"]["candidate_status"] == "CANDIDATE"
-    assert memorial["contract_review"]["quality_gate_status"] == "FAILED"
+    assert memorial["contract_review"]["quality_gate_status"] == "PASSED"
     risk = memorial["contract_review"]["risk_items"][0]
     assert risk["risk_level"] == "medium"
     assert risk["page_number"] is None
@@ -747,6 +755,7 @@ def test_late_old_rework_generation_cannot_replace_current_review(
         "capability_disabled",
         "terminal_task",
         "mission_changed",
+        "mission_scope_changed_before_worker",
     ],
 )
 def test_supported_contract_rework_public_chain_appends_current_v2(
@@ -922,7 +931,30 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
         mission=contract_mission(task_id),
         state="confirmed",
     )
-    if interruption is not None:
+    if interruption == "mission_scope_changed_before_worker":
+        from src.contracts.mission_contract import compute_mission_content_digest
+
+        changed_mission = contract_mission(task_id).model_copy(
+            update={
+                "revision": 2,
+                "contract_type": "sales",
+                "our_role": "seller",
+                "content_digest": "0" * 64,
+            }
+        )
+        changed_mission = changed_mission.model_copy(
+            update={
+                "content_digest": compute_mission_content_digest(changed_mission),
+            }
+        )
+        save_mission_snapshot(
+            worker_db,
+            task=worker_task,
+            mission=changed_mission,
+            state="confirmed",
+        )
+        worker_db.flush()
+    elif interruption is not None:
         import src.contract_rework as contract_rework
 
         extract_docx_text = contract_rework._extract_docx_text
@@ -1012,6 +1044,8 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
         elif interruption == "terminal_task":
             assert worker_result["result"]["reason"] == "terminal_task"
             assert worker_result["result"]["task_status"] == "task_cancelled"
+        elif interruption == "mission_scope_changed_before_worker":
+            assert worker_result["result"]["reason"] == "mission_scope_changed"
         else:
             assert worker_result["result"]["reason"] == "mission_changed"
         db = isolated_session_local()

@@ -139,28 +139,25 @@ def test_request_evidence_snapshots_frozen_scope_into_generation(
     client = TestClient(app)
     task_id = _draft_contract_task(client)
 
-    # Isolate the generation snapshot RED from the draft-ingress RED. The task
-    # itself still came through the public canonical creation route.
-    from src.db.models import DecisionTask, OutboxEvent
+    from src.db.models import OutboxEvent
+    from src.execution.decree_dispatcher import (
+        enqueue_evidence_rework_generation,
+    )
 
     db = isolated_session_local()
-    task = db.query(DecisionTask).filter_by(id=task_id).one()
-    task.contract_scope_json = json.dumps(
-        _SUPPORTED_SCOPE,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
+    generation, created = enqueue_evidence_rework_generation(
+        db,
+        task_id=task_id,
+        decision_id=f"decision_{task_id}",
+        prior_final_memorial_content_hash="a" * 64,
+        reason="补充付款条件原文",
+        followup_question=None,
     )
     db.commit()
-    db.close()
 
-    content_hash, _ = _formalize_task(isolated_session_local, task_id)
-    response = _request_evidence(client, task_id, content_hash)
-    generation = response["data"]["rework_generation"]
-
-    assert generation.get("contract_scope") == _SUPPORTED_SCOPE
+    assert created is True
+    assert generation["contract_scope"] == _SUPPORTED_SCOPE
     assert generation["evidence_status"] == "NONE"
-    db = isolated_session_local()
     stored = db.query(OutboxEvent).filter_by(id=generation["generation_id"]).one()
     stored_payload = json.loads(stored.payload_json)
     assert stored_payload["contract_scope"] == _SUPPORTED_SCOPE
@@ -415,12 +412,14 @@ def _seed_binding_generation(
     payload_status: str = "awaiting_evidence",
     with_bound_packet: bool = False,
 ):
+    from src.contract_mission_repository import save_mission_snapshot
     from src.db.models import (
         DecisionTask,
         OutboxEvent,
         SecureIngestArtifact,
         SecureIngestAuditEvent,
     )
+    from tests.contract_task_support import contract_mission
 
     db = session_local()
     artifact = _artifact_row(
@@ -430,25 +429,31 @@ def _seed_binding_generation(
         text="付款应在验收完成后七日内支付。",
         created_at="2026-07-24T00:01:00+00:00",
     )
-    db.add(
-        DecisionTask(
-            id=task_id,
-            tenant_id=1,
-            user_id="1",
-            raw_question="复核采购合同",
-            status="awaiting_evidence",
-            source_label="LIVE",
-            contract_scope_json=json.dumps(
-                {
-                    "schema_version": "ContractIntakeV1",
-                    "jurisdiction": "CN_MAINLAND",
-                    "language": "zh-CN",
-                    "contract_type": "procurement",
-                    "our_role": "buyer",
-                    "legal_question": "contract_risk_screening",
-                }
-            ),
+    task = DecisionTask(
+        id=task_id,
+        tenant_id=1,
+        user_id="1",
+        raw_question="复核采购合同",
+        status="awaiting_evidence",
+        source_label="LIVE",
+        contract_scope_json=json.dumps(
+            {
+                "schema_version": "ContractIntakeV1",
+                "jurisdiction": "CN_MAINLAND",
+                "language": "zh-CN",
+                "contract_type": "procurement",
+                "our_role": "buyer",
+                "legal_question": "contract_risk_screening",
+            }
         )
+    )
+    db.add(task)
+    db.flush()
+    save_mission_snapshot(
+        db,
+        task=task,
+        mission=contract_mission(task_id),
+        state="confirmed",
     )
     db.add(artifact)
     generation_id = f"generation_{task_id}"
@@ -518,7 +523,12 @@ def test_first_evidence_bind_queues_durable_event_and_projects_evidence_status(
     tmp_path,
     w05_contract_user,
 ):
-    from src.db.models import OutboxEvent, SecureIngestAuditEvent
+    from src.contract_task_projection import project_contract_task
+    from src.db.models import (
+        DecisionTask,
+        OutboxEvent,
+        SecureIngestAuditEvent,
+    )
 
     task_id = "task_first_bind_pending"
     generation_id, artifact_id = _seed_binding_generation(
@@ -535,7 +545,7 @@ def test_first_evidence_bind_queues_durable_event_and_projects_evidence_status(
         json={"artifact_id": artifact_id},
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.json()
     payload = response.json()
     assert payload["success"] is True, payload
     assert payload["data"]["evidence_packet"]["evidence_status"] == "GROUNDED"
@@ -545,6 +555,60 @@ def test_first_evidence_bind_queues_durable_event_and_projects_evidence_status(
     event = db.query(OutboxEvent).filter_by(id=generation_id).one()
     assert event.status == "pending"
     assert db.query(SecureIngestAuditEvent).filter_by(task_id=task_id).count() == 1
+    model = project_contract_task(
+        db,
+        storage_root=tmp_path,
+        task=db.get(DecisionTask, task_id),
+    )
+    assert model.allowed_actions == ["REFRESH_REVIEW"]
+    db.close()
+
+
+def test_evidence_bind_requires_server_submit_evidence_before_any_write(
+    isolated_session_local,
+    tmp_path,
+    w05_contract_user,
+):
+    from src.db.models import DecisionTask, OutboxEvent, SecureIngestAuditEvent
+
+    task_id = "task_bind_without_server_action"
+    generation_id, artifact_id = _seed_binding_generation(
+        isolated_session_local,
+        tmp_path=tmp_path,
+        task_id=task_id,
+    )
+    db = isolated_session_local()
+    db.get(DecisionTask, task_id).status = "task_cancelled"
+    db.commit()
+    before_event = tuple(
+        getattr(db.get(OutboxEvent, generation_id), column.name)
+        for column in OutboxEvent.__table__.columns
+    )
+    before_audits = (
+        db.query(SecureIngestAuditEvent).filter_by(task_id=task_id).count()
+    )
+    db.close()
+
+    response = TestClient(app).post(
+        (
+            f"/api/shangshufang/tasks/{task_id}/rework-generations/"
+            f"{generation_id}/evidence"
+        ),
+        json={"artifact_id": artifact_id},
+    )
+
+    assert response.status_code == 409, response.json()
+    assert "SUBMIT_EVIDENCE" in response.json()["error"]
+    db = isolated_session_local()
+    after_event = tuple(
+        getattr(db.get(OutboxEvent, generation_id), column.name)
+        for column in OutboxEvent.__table__.columns
+    )
+    assert after_event == before_event
+    assert (
+        db.query(SecureIngestAuditEvent).filter_by(task_id=task_id).count()
+        == before_audits
+    )
     db.close()
 
 
@@ -1148,7 +1212,7 @@ def test_equivalent_partial_scope_is_normalized_before_bind_comparison(
 
 
 @pytest.mark.parametrize("legal_question", [None, "UNSUPPORTED_OR_UNKNOWN"])
-def test_worker_fails_closed_when_only_legal_question_is_not_supported(
+def test_worker_fences_scope_that_no_longer_matches_confirmed_mission(
     isolated_session_local,
     tmp_path,
     w05_contract_user,
@@ -1193,17 +1257,14 @@ def test_worker_fails_closed_when_only_legal_question_is_not_supported(
     result = process_event(worker_db, generation_id)
     worker_db.close()
 
-    assert result["status"] == "completed", result
-    assert result["result"]["quality_gate_status"] == "FAILED"
-    assert "contract_scope_requires_legal_review" in result["result"]["gate_reasons"]
+    assert result["status"] == "superseded", result
+    assert result["result"]["fenced"] is True
+    assert result["result"]["reason"] == "mission_scope_changed"
     db = isolated_session_local()
     event = db.query(OutboxEvent).filter_by(id=generation_id).one()
-    generation = json.loads(event.payload_json)
-    assert generation["status"] == "quality_blocked"
+    assert event.status == "superseded"
     review = db.query(CourtReview).filter_by(task_id=task_id).one()
-    pack = json.loads(review.memorial_json)["contract_review"]
-    assert pack["verdict"] == "NEED_LEGAL_REVIEW"
-    assert pack["legal_question"] == "UNSUPPORTED_OR_UNKNOWN"
+    assert json.loads(review.memorial_json) == {}
     assert db.query(FinalMemorial).filter_by(task_id=task_id).count() == 0
     db.close()
 

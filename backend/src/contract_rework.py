@@ -134,6 +134,34 @@ def _mission_fence(
     return None
 
 
+_MISSION_SCOPE_FIELDS = (
+    "jurisdiction",
+    "language",
+    "contract_type",
+    "our_role",
+    "legal_question",
+)
+
+
+def _mission_scope_fence(
+    mission_snapshot: Any,
+    *,
+    generation_scope: ContractIntakeV1 | None,
+    affected_sections: list[str],
+) -> dict[str, Any] | None:
+    if generation_scope is not None and all(
+        getattr(generation_scope, field)
+        == getattr(mission_snapshot.mission, field)
+        for field in _MISSION_SCOPE_FIELDS
+    ):
+        return None
+    return {
+        "fenced": True,
+        "reason": "mission_scope_changed",
+        "affected_sections": affected_sections,
+    }
+
+
 def recompute_contract_review(
     db: "Session",
     event: "OutboxEvent",
@@ -184,6 +212,16 @@ def recompute_contract_review(
     )
     if mission_fence is not None:
         return mission_fence
+    scope_fence = _mission_scope_fence(
+        mission_snapshot,
+        generation_scope=generation.contract_scope,
+        affected_sections=affected_sections,
+    )
+    if scope_fence is not None:
+        return scope_fence
+    scope = generation.contract_scope
+    if scope is None:
+        raise RuntimeError("mission scope fence returned without a frozen scope")
     review = (
         db.query(CourtReview)
         .filter_by(task_id=event.task_id)
@@ -273,7 +311,6 @@ def recompute_contract_review(
     generation = EvidenceReworkGenerationV1.model_validate(generation_payload)
     packets = generation.evidence_packets or []
 
-    scope = generation.contract_scope or ContractIntakeV1()
     support = evaluate_support(
         scope,
         mission_contract_id=event.task_id,
@@ -354,6 +391,13 @@ def recompute_contract_review(
     )
     if mission_fence is not None:
         return mission_fence
+    scope_fence = _mission_scope_fence(
+        publication_mission,
+        generation_scope=scope,
+        affected_sections=affected_sections,
+    )
+    if scope_fence is not None:
+        return scope_fence
     if (
         publication_mission.mission.revision != mission_snapshot.mission.revision
         or publication_mission.mission.content_digest

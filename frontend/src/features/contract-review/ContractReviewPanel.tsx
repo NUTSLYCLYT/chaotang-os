@@ -21,7 +21,10 @@ import {
   downloadContractArtifact,
   getContractTaskReadModel,
 } from './api';
-import { contractReviewUiPolicy } from './action-policy';
+import {
+  contractReviewUiPolicy,
+  isContractTaskReadModel,
+} from './action-policy';
 import {
   DeliveryAttemptRegistry,
   type DeliveryAttemptIdentity,
@@ -94,7 +97,7 @@ export function ContractReviewPanel({
     );
   }
   const policy = model ? contractReviewUiPolicy(model) : null;
-  const isContractTask = Boolean(model?.mission || model?.review_pack);
+  const isContractTask = model ? isContractTaskReadModel(model) : false;
   useEffect(() => {
     onContractIdentityChange?.(isContractTask);
   }, [isContractTask, onContractIdentityChange]);

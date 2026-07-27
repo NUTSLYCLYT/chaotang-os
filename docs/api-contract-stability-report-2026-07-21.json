@@ -1,7 +1,7 @@
 {
   "generatedAt": "2026-07-21",
   "status": "pass",
-  "routeCount": 362,
+  "routeCount": 363,
   "baseline": {
     "ref": "ed822255a452e8dd8dda8f86a180fd7c099b181e",
     "source": "git_archive_generated_openapi",
@@ -20,6 +20,10 @@
       {
         "type": "route_added",
         "key": "GET /api/contracts/tasks/{task_id}/read-model"
+      },
+      {
+        "type": "route_added",
+        "key": "GET /api/shangshufang/home/v1"
       },
       {
         "type": "component_optional_properties_added",
@@ -64,6 +68,26 @@
       {
         "type": "component_schema_added",
         "key": "PublicArtifactItemV1"
+      },
+      {
+        "type": "component_schema_added",
+        "key": "ShangshufangHomeData"
+      },
+      {
+        "type": "component_schema_added",
+        "key": "ShangshufangHomeLatestMemorial"
+      },
+      {
+        "type": "component_schema_added",
+        "key": "ShangshufangHomeResponse"
+      },
+      {
+        "type": "component_schema_added",
+        "key": "ShangshufangHomeTaskSummary"
+      },
+      {
+        "type": "component_schema_added",
+        "key": "ShangshufangHomeTodayIssue"
       }
     ]
   }

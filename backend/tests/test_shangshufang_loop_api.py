@@ -228,6 +228,88 @@ def test_confirm_edict_retry_on_vetoed_task_is_idempotent(isolated_session_local
     assert retry.json()["data"]["review_id"] == first.json()["data"]["review_id"]
 
 
+def test_confirm_edict_cannot_cancel_scope_only_contract_task(
+    isolated_session_local,
+):
+    import json
+
+    from src.db.models import DecisionTask
+
+    task_id = "task_confirm_contract_cancel_gate"
+    db = isolated_session_local()
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查采购合同",
+            status="awaiting_emperor_confirm",
+            source_label="LIVE",
+            contract_scope_json=json.dumps(
+                {
+                    "schema_version": "ContractIntakeV1",
+                    "jurisdiction": "CN_MAINLAND",
+                    "language": "zh-CN",
+                    "contract_type": "procurement",
+                    "our_role": "buyer",
+                    "legal_question": "contract_risk_screening",
+                }
+            ),
+        )
+    )
+    db.commit()
+    before_updated_at = db.get(DecisionTask, task_id).updated_at
+    db.close()
+
+    response = TestClient(app).post(
+        "/api/shangshufang/confirm-edict",
+        json={"task_id": task_id, "confirmed": False},
+    )
+
+    assert response.json()["success"] is False
+    assert "contract" in response.json()["error"].lower()
+    db = isolated_session_local()
+    task = db.get(DecisionTask, task_id)
+    assert task.status == "awaiting_emperor_confirm"
+    assert task.updated_at == before_updated_at
+    db.close()
+
+
+def test_confirm_edict_cannot_rewrite_terminal_legacy_task(
+    isolated_session_local,
+):
+    from src.db.models import DecisionTask
+
+    task_id = "task_confirm_terminal_cancel_gate"
+    db = isolated_session_local()
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="已经归档的普通任务",
+            status="archived",
+            source_label="LIVE",
+        )
+    )
+    db.commit()
+    before_updated_at = db.get(DecisionTask, task_id).updated_at
+    db.close()
+
+    response = TestClient(app).post(
+        "/api/shangshufang/confirm-edict",
+        json={"task_id": task_id, "confirmed": False},
+    )
+
+    assert response.json()["success"] is False
+    assert "terminal" in response.json()["error"].lower()
+    db = isolated_session_local()
+    task = db.get(DecisionTask, task_id)
+    assert task.status == "archived"
+    assert task.updated_at == before_updated_at
+    db.close()
+
+
 def test_confirm_edict_creates_review_status(isolated_session_local):
     # 刑部/户部真实引擎已由 tests/conftest.py 的 _no_network_real_department_engines
     # 自动patch成空结果,这里不需要重复mock,直接走安全默认值即可。
@@ -593,6 +675,57 @@ def test_home_reads_pending_confirm_decision_and_evidence(isolated_session_local
     evidence_ids = {item["task_id"] for item in data["pending_evidence_tasks"]}
     assert pending_confirm in pending_ids
     assert confirmed_task in evidence_ids
+
+
+def test_home_uses_one_server_contract_classification(
+    isolated_session_local,
+):
+    from src.db.models import DecisionTask
+    from tests.contract_task_support import seed_contract_task, seed_final_memorial
+
+    mission_task_id = "task_home_mission_only"
+    pack_task_id = "task_home_pack_only"
+    legacy_task_id = "task_home_legacy"
+    db = isolated_session_local()
+    mission_task = seed_contract_task(
+        db,
+        task_id=mission_task_id,
+        tenant_id=1,
+        user_id="1",
+    )
+    mission_task.status = "awaiting_decision"
+    pack_task = DecisionTask(
+        id=pack_task_id,
+        tenant_id=1,
+        user_id="1",
+        raw_question="pack-only 合同",
+        status="awaiting_decision",
+        source_label="LIVE",
+    )
+    legacy_task = DecisionTask(
+        id=legacy_task_id,
+        tenant_id=1,
+        user_id="1",
+        raw_question="普通任务",
+        status="awaiting_decision",
+        source_label="LIVE",
+    )
+    db.add_all([pack_task, legacy_task])
+    db.flush()
+    seed_final_memorial(db, task_id=pack_task_id, tenant_id=1)
+    db.commit()
+    db.close()
+
+    response = TestClient(app).get("/api/shangshufang/home")
+
+    assert response.status_code == 200, response.json()
+    tasks = {
+        item["task_id"]: item
+        for item in response.json()["data"]["pending_decisions"]
+    }
+    assert tasks[mission_task_id]["contract_task"] is True
+    assert tasks[pack_task_id]["contract_task"] is True
+    assert tasks[legacy_task_id]["contract_task"] is False
 
 
 def test_swarm_deepen_endpoint(isolated_session_local):

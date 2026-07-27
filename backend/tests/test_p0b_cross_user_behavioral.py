@@ -269,6 +269,29 @@ def _seed_victim_with_sentinel(session_local, task_id: str, status: str = "revie
     db.close()
 
 
+def _seed_same_user_other_tenant_task(
+    session_local,
+    task_id: str,
+    *,
+    status: str = "reviewing",
+) -> None:
+    from src.db.models import DecisionTask
+
+    db = session_local()
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=2,
+            user_id="1",
+            raw_question=_SENTINEL,
+            status=status,
+            source_label="LIVE",
+        )
+    )
+    db.commit()
+    db.close()
+
+
 def _assert_sentinel_not_leaked(resp, what: str) -> None:
     """列表端点的跨用户检验:他人任务的机密内容绝不能出现在返回体任何角落。
 
@@ -314,6 +337,22 @@ def test_shangshufang_task_status(isolated_session_local):
     body = client.get("/api/shangshufang/tasks/p0b_status/status").json()
     _assert_denied(body, "task status")
     assert "无权" in body.get("error", "")
+
+
+def test_shangshufang_task_status_rejects_same_user_cross_tenant(
+    isolated_session_local,
+):
+    _seed_same_user_other_tenant_task(
+        isolated_session_local,
+        "p0b_status_cross_tenant",
+    )
+
+    body = client.get(
+        "/api/shangshufang/tasks/p0b_status_cross_tenant/status"
+    ).json()
+
+    _assert_denied(body, "same-user cross-tenant task status")
+    assert _SENTINEL not in str(body)
 
 
 def test_guarded_exemplar_jinyiwei_fill_gap(isolated_session_local):
@@ -473,6 +512,31 @@ def test_shangshufang_confirm_edict(isolated_session_local):
     _assert_denied(body, "confirm edict")
 
 
+def test_shangshufang_confirm_edict_rejects_same_user_cross_tenant(
+    isolated_session_local,
+):
+    from src.db.models import DecisionTask
+
+    task_id = "p0b_confirm_cross_tenant"
+    _seed_same_user_other_tenant_task(
+        isolated_session_local,
+        task_id,
+        status="awaiting_emperor_confirm",
+    )
+
+    body = client.post(
+        "/api/shangshufang/confirm-edict",
+        json={"task_id": task_id, "confirmed": False},
+    ).json()
+
+    _assert_denied(body, "same-user cross-tenant confirm edict")
+    db = isolated_session_local()
+    assert db.query(DecisionTask).filter_by(id=task_id).one().status == (
+        "awaiting_emperor_confirm"
+    )
+    db.close()
+
+
 def test_shangshufang_finance_intel_case(isolated_session_local):
     _seed_other_users_task(isolated_session_local, "p0b_finance")
     body = client.get("/api/shangshufang/finance-intel-loop/cases/p0b_finance").json()
@@ -511,6 +575,27 @@ def test_bind_rework_generation_evidence(isolated_session_local):
         json={"artifact_id": "attacker-artifact"},
     ).json()
     _assert_denied(body, "bind rework generation evidence")
+
+
+def test_bind_rework_generation_evidence_rejects_same_user_cross_tenant(
+    isolated_session_local,
+):
+    task_id = "p0b_bind_cross_tenant"
+    _seed_same_user_other_tenant_task(
+        isolated_session_local,
+        task_id,
+        status="awaiting_evidence",
+    )
+
+    body = client.post(
+        (
+            f"/api/shangshufang/tasks/{task_id}/"
+            "rework-generations/attacker-generation/evidence"
+        ),
+        json={"artifact_id": "attacker-artifact"},
+    ).json()
+
+    _assert_denied(body, "same-user cross-tenant evidence bind")
 
 
 def test_swarm_runs_create(isolated_session_local):
@@ -657,6 +742,20 @@ def test_shangshufang_home_list_leak(isolated_session_local):
     _seed_victim_with_sentinel(isolated_session_local, "p0b_home_leak")
     resp = client.get("/api/shangshufang/home")
     _assert_sentinel_not_leaked(resp, "shangshufang home")
+
+
+def test_shangshufang_home_excludes_same_user_other_tenant(
+    isolated_session_local,
+):
+    _seed_same_user_other_tenant_task(
+        isolated_session_local,
+        "p0b_home_cross_tenant",
+        status="awaiting_decision",
+    )
+
+    resp = client.get("/api/shangshufang/home")
+
+    _assert_sentinel_not_leaked(resp, "same-user cross-tenant shangshufang home")
 
 
 # ---------------------------------------------------------------------------

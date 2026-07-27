@@ -125,11 +125,7 @@ async function exportOpenApiAtRef(ref) {
 function schemaKind(schema) {
   if (!schema) return 'unknown';
   if (schema.$ref) return schema.$ref;
-  if (schema.type) return schema.type;
-  if (schema.anyOf) return `anyOf:${schema.anyOf.map(schemaKind).join('|')}`;
-  if (schema.oneOf) return `oneOf:${schema.oneOf.map(schemaKind).join('|')}`;
-  if (schema.allOf) return `allOf:${schema.allOf.map(schemaKind).join('|')}`;
-  return 'object';
+  return `inline:${JSON.stringify(sortObject(schema))}`;
 }
 
 function responseSignature(operation) {
@@ -237,45 +233,56 @@ function additiveOptionalProperties(previousSchema, currentSchema) {
     : null;
 }
 
-function componentReferences(value, references = new Set()) {
-  if (Array.isArray(value)) {
-    for (const item of value) componentReferences(item, references);
-    return references;
+function decodeJsonPointerSegment(value) {
+  return value.replaceAll('~1', '/').replaceAll('~0', '~');
+}
+
+function resolveLocalRef(openapi, ref) {
+  if (typeof ref !== 'string' || !ref.startsWith('#/')) return null;
+  let current = openapi;
+  for (const segment of ref.slice(2).split('/').map(decodeJsonPointerSegment)) {
+    if (!current || typeof current !== 'object' || !(segment in current)) {
+      return null;
+    }
+    current = current[segment];
   }
-  if (!value || typeof value !== 'object') return references;
-  if (
-    typeof value.$ref === 'string'
-    && value.$ref.startsWith('#/components/schemas/')
-  ) {
-    references.add(
-      value.$ref
-        .slice('#/components/schemas/'.length)
-        .replaceAll('~1', '/')
-        .replaceAll('~0', '~'),
-    );
-  }
-  for (const nested of Object.values(value)) {
-    componentReferences(nested, references);
-  }
-  return references;
+  return current;
 }
 
 function responseReachableComponents(openapi) {
-  const schemas = openapi.components?.schemas || {};
   const reachable = new Set();
+  const visitedRefs = new Set();
+
+  function visit(value) {
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item);
+      return;
+    }
+    if (!value || typeof value !== 'object') return;
+
+    const ref = value.$ref;
+    if (typeof ref === 'string') {
+      if (ref.startsWith('#/components/schemas/')) {
+        reachable.add(
+          decodeJsonPointerSegment(
+            ref.slice('#/components/schemas/'.length),
+          ),
+        );
+      }
+      if (!visitedRefs.has(ref)) {
+        visitedRefs.add(ref);
+        visit(resolveLocalRef(openapi, ref));
+      }
+    }
+    for (const [key, nested] of Object.entries(value)) {
+      if (key !== '$ref') visit(nested);
+    }
+  }
+
   for (const methods of Object.values(openapi.paths || {})) {
     for (const operation of Object.values(methods || {})) {
       if (!operation || typeof operation !== 'object') continue;
-      componentReferences(operation.responses || {}, reachable);
-    }
-  }
-  const pending = [...reachable];
-  while (pending.length) {
-    const name = pending.pop();
-    for (const nested of componentReferences(schemas[name])) {
-      if (reachable.has(nested)) continue;
-      reachable.add(nested);
-      pending.push(nested);
+      visit(operation.responses || {});
     }
   }
   return reachable;

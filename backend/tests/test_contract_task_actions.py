@@ -53,6 +53,18 @@ from src.contract_task_actions import (
             ContractTaskFacts(
                 mission_state="CONFIRMED",
                 source_class="ADJUDICABLE",
+                task_status="awaiting_evidence",
+                evidence_ready=True,
+                review_pack_ready=True,
+                final_status="AWAITING_EVIDENCE",
+            ),
+            ("REFRESH_REVIEW",),
+            ("REVIEW_REVISION_REQUIRED",),
+        ),
+        (
+            ContractTaskFacts(
+                mission_state="CONFIRMED",
+                source_class="ADJUDICABLE",
                 evidence_ready=True,
                 review_pack_ready=True,
                 final_status="READY_FOR_DECISION",

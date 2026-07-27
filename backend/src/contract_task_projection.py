@@ -46,9 +46,11 @@ from src.db.models import (
     CourtReview,
     DecisionTask,
     FinalMemorial,
+    OutboxEvent,
     SecureIngestArtifact,
     ShiguanArchive,
 )
+from src.evidence_rework_projection import project_evidence_rework_generation
 from src.formal_memorial import ADJUDICABLE_SOURCE_LABELS
 
 _DELIVERY_ERRORS = (
@@ -131,10 +133,29 @@ def _delivery_complete(delivery: PublicArtifactDeliveryV1 | None) -> bool:
 
 
 def _evidence_ready(db, *, task: DecisionTask, has_pack: bool) -> bool:
-    if has_pack:
-        return True
     if task.tenant_id is None:
         return False
+    if task.status == "awaiting_evidence":
+        generations = (
+            db.query(OutboxEvent)
+            .filter_by(
+                tenant_id=task.tenant_id,
+                task_id=task.id,
+                event_type="evidence.rework",
+            )
+            .order_by(OutboxEvent.generation.desc(), OutboxEvent.id.desc())
+            .all()
+        )
+        for row in generations:
+            try:
+                generation = project_evidence_rework_generation(row)
+            except (RuntimeError, ValueError):
+                continue
+            if generation.evidence_packets:
+                return True
+        return False
+    if has_pack:
+        return True
     return (
         db.query(SecureIngestArtifact)
         .filter_by(

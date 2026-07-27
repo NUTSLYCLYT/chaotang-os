@@ -89,6 +89,42 @@ def test_missing_persisted_review_blocks_decide_projection(
     assert model.delivery is None
 
 
+def test_awaiting_evidence_requires_bound_generation_before_refresh(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    from src.db.models import SecureIngestArtifact
+
+    task_id = "task-uploaded-evidence-not-bound"
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id=task_id)
+        task.status = "awaiting_evidence"
+        db.add(
+            SecureIngestArtifact(
+                id=f"artifact-{task_id}",
+                tenant_id=task.tenant_id,
+                user_id=task.user_id,
+                mission_contract_id=task.id,
+                original_filename="evidence.docx",
+                declared_content_type=(
+                    "application/vnd.openxmlformats-officedocument."
+                    "wordprocessingml.document"
+                ),
+                detected_format="DOCX",
+                file_size_bytes=16,
+                digest_sha256="a" * 64,
+                status="ACCEPTED",
+                storage_path=str(tmp_path / "evidence.docx"),
+            )
+        )
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.allowed_actions == ["SUBMIT_EVIDENCE"]
+    assert [item.code for item in model.blockers] == ["EVIDENCE_INCOMPLETE"]
+
+
 def test_mission_and_review_pack_business_scope_must_match(
     isolated_session_local,
     tmp_path,

@@ -9,9 +9,9 @@
 | Baseline source | git_archive_generated_openapi |
 | Baseline routes | 361 |
 | Baseline schemas | 184 |
-| Route count | 362 |
+| Route count | 363 |
 | Breaking changes | 0 |
-| Warnings | 11 |
+| Warnings | 17 |
 
 ## Artifacts
 
@@ -28,6 +28,7 @@ None.
 | Type | Key |
 | --- | --- |
 | route_added | GET /api/contracts/tasks/{task_id}/read-model |
+| route_added | GET /api/shangshufang/home/v1 |
 | component_optional_properties_added | ContractReviewPackV1 |
 | component_schema_added | ArchiveReceiptV1 |
 | component_schema_added | ContractTaskBlockerV1 |
@@ -38,6 +39,11 @@ None.
 | component_schema_added | MissionSnapshotViewV1 |
 | component_schema_added | PublicArtifactDeliveryV1 |
 | component_schema_added | PublicArtifactItemV1 |
+| component_schema_added | ShangshufangHomeData |
+| component_schema_added | ShangshufangHomeLatestMemorial |
+| component_schema_added | ShangshufangHomeResponse |
+| component_schema_added | ShangshufangHomeTaskSummary |
+| component_schema_added | ShangshufangHomeTodayIssue |
 
 ## CI Policy
 
