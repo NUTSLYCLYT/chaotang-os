@@ -15,8 +15,8 @@
 | 创建日期 | `2026-07-27` |
 | Base H | `ed822255a452e8dd8dda8f86a180fd7c099b181e` |
 | Base tree | `0a56a0eab0135dcf46c31e5ae2cbc46f501cfdcb` |
-| Implementation candidate H | `4eaab7cc31480c24caa8c4b3277d34f3c152d68c` |
-| Implementation candidate tree | `3458c262e00f6769000a877a9a3bbf34011965b6` |
+| Implementation candidate H | `08d46fb4a8c194947e827776bf1fbf4d46e9a038` |
+| Implementation candidate tree | `31067a4b0573775086f7b423553ea40fb4b15ecf` |
 | Integration target | local `feature-chaotang-ext` |
 | Authority before first edit | v1 `VALID_INACTIVE_GUARD`; v2 W07 `GO / APPROVED_WORK_PACKAGE` |
 
@@ -27,11 +27,13 @@
 
 ## 独立审查状态
 
-截至 review envelope `a8e88589...` 的独立 Codex 只读审查均为 `NO-GO`。
-最新适用 findings 已按批准 scope 完成 TDD：合同 final 存在时 exact CourtReview
-必须存在且匹配 task/tenant/final；runtime parser 使用结构化 schema 拒绝 malformed
-optional facts、坏 hash/date 和矛盾 DECIDE；史馆保留 `LIVE_ENGINE` 的真实来源；
-上书房从 URL 首帧起阻断目标合同的 legacy footer、modal 和 handler。审查提出的
+截至 review envelope `68158da9...` 的独立 Codex 只读审查均为 `NO-GO`。
+最新适用 findings 已按批准 scope 完成 TDD：合同 final 的 exact CourtReview 必须
+持久存在并匹配 task/tenant/final，task endpoint 同时校验 tenant + user；runtime
+parser 使用完整 Mission/Pack/RiskItem schema，拒绝外部 artifact URL、fallback
+risk/receipt 和矛盾 DECIDE；零写入证据覆盖 OutboxEvent 与 DecreeExecutionEvent。
+此前修复还保证史馆保留 `LIVE_ENGINE` 的真实来源，并从 URL 首帧起阻断目标合同的
+legacy footer、modal 和 handler。审查提出的
 “PARTIAL 不得显示 LIVE”不适用：设计中 `LIVE` 是来源真实性，`PARTIAL` 是交付
 完整度；现有合同只禁止把 PARTIAL 宣称为 READY、ARCHIVED 或 resumable。W06 明确
 批准的是 tenant-owned artifact，故“同租户再按 user 隔离”也不作为 W07 缺陷扩展。

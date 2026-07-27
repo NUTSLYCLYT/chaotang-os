@@ -26,3 +26,11 @@ fresh two-pass independent review；本文件不预先声明 GO。
 TDD 修复：共享 writer gate、verdict-aware actions、request task identity、有效归档
 显示、legacy footer suppression 与不可改钉 OpenAPI baseline。当前等待新 exact
 candidate 的两轮独立只读复审。
+
+## Fifth Review
+
+`68158da9...` 的 backend/frontend 两路审查均为 `NO-GO`，合并为
+`HIGH 2 / MEDIUM 4`。已按批准 scope 补齐 persisted exact review、完整
+decision-ledger 零写入快照、canonical artifact URL、完整 Mission/Pack/RiskItem
+runtime schema 与 adjudicable receipt gate。implementation `08d46fb4...` 等待
+fresh two-pass independent review，本文件不预先声明 GO。

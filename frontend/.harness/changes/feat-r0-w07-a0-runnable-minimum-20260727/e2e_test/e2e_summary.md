@@ -4,7 +4,7 @@
 
 ## 结果
 
-- 第四轮 remediation exact-state fresh run 为 1/1 passed。
+- 第五轮 remediation exact-state fresh run 为 1/1 passed。
 - test-only seed 入口受真实 JWT 保护，注册登录后串行准备 READY/PARTIAL fixture，
   不进入产品 OpenAPI 或生产入口。
 - 注册登录、read model、交付生成、READY reload、JSON 下载、裁决归档、

@@ -147,8 +147,37 @@ Codex `NO-GO` verdicts:
 | loading-window action | `useSearchParams` 首帧识别；footer/modal/handler 同步阻断 | delayed-read Playwright |
 | child evidence drift | exact rerun 和 focused `26 passed` 回写 child Packet | child CI/E2E summaries |
 
+## Fifth Candidate Verdict
+
+Review envelope `68158da9f4e5b0c2158ee3a18e1055a038eaddd4`, tree
+`d124c0a5b96799967854e028549f35441319428d` received two fresh independent
+Codex `NO-GO` verdicts:
+
+- backend pass: `HIGH 1 / MEDIUM 2`;
+- frontend pass: `HIGH 1 / MEDIUM 2`.
+
+主控逐项复核后确认全部 findings 适用：
+
+1. 调用方构造但未持久化的 `CourtReview` 仍可被共享 writer 信任；
+2. projection 在 exact `CourtReview` 缺失时仍可能公开 `DECIDE`；
+3. 零写入快照未覆盖 `OutboxEvent` 和 `DecreeExecutionEvent`；
+4. 任意 absolute/protocol-relative artifact URL 可把 JWT 带往外部 origin；
+5. incomplete mission 或 fallback/unknown risk item 仍可能保留 `DECIDE`；
+6. fallback archive receipt 可被 typed readback 组装为史馆案卷。
+
+## Fifth Remediation Evidence
+
+| Finding | Remediation | Focused evidence |
+| --- | --- | --- |
+| persisted review | projection 和共享 writer 均从 DB 读取 exact final review，拒绝 transient/missing row | projection + direct writer + legacy API tests |
+| decision ownership | task endpoint 校验 tenant + user；writer 校验 task/review/final tenant、task user 和 exact review lineage | parameterized endpoint + cross-tenant final tests |
+| complete zero-write proof | 快照加入 `OutboxEvent`、`DecreeExecutionEvent` 全持久列并验证 mutation sensitivity | API snapshot tests |
+| download origin | parser 与 download API 均只接受 exact `/api/artifacts/{artifact_id}/download` | frontend parser tests + defense-in-depth guard |
+| complete typed facts | MissionContract/ContractRiskItem/ContractReviewPack 结构化校验，fallback/unknown facts fail closed | frontend node tests |
+| receipt provenance | parser 和 typed archive readback 均拒绝非 adjudicable receipt source | parser + archive-readback tests |
+
 当前状态：implementation candidate
-`4eaab7cc31480c24caa8c4b3277d34f3c152d68c`, tree
-`3458c262e00f6769000a877a9a3bbf34011965b6` 已冻结；状态为
+`08d46fb4a8c194947e827776bf1fbf4d46e9a038`, tree
+`31067a4b0573775086f7b423553ea40fb4b15ecf` 已冻结；状态为
 `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING`。
 本文件不预判下一候选的独立审查结论。

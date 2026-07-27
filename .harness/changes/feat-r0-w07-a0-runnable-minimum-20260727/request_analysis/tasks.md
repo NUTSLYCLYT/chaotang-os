@@ -41,6 +41,8 @@
 - [x] TDD 修复 frontend task isolation/action/lineage/error/idempotency。
 - [x] 固定 OpenAPI baseline 并补 seeded PARTIAL browser refresh。
 - [x] 修复全部已报告 HIGH/MEDIUM。
+- [x] 要求 exact CourtReview 持久存在并补齐完整 decision-ledger 零写入快照。
+- [x] 拒绝外部 artifact URL、incomplete Mission/RiskItem 和 fallback receipt。
 - [x] 将 test-only JWT launcher 纳入 Packet 文件 ownership/scope。
 - [x] 区分 base doctor PASS 与 isolated candidate PRE_INTEGRATION STOP。
 - [ ] 在 exact remediation candidate 上取得 fresh two-pass GO。

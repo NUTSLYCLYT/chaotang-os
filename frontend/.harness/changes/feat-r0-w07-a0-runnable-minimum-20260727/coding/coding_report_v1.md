@@ -21,5 +21,5 @@
 
 ## 验证
 
-- focused Node 25/25、TypeScript pass、real-mode Next build pass。
-- Playwright 真实后端 READY + PARTIAL refresh 纵向流连续两轮 1/1。
+- focused contract-review Node 31/31、TypeScript pass、real-mode Next build pass。
+- Playwright 真实后端 READY + PARTIAL refresh 纵向流 fresh 1/1。

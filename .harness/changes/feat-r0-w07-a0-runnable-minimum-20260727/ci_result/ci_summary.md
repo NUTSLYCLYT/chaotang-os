@@ -4,15 +4,15 @@
 
 | 命令 | 退出码 | 结果 | 证据覆盖范围 | 证据位置 / 时间 |
 | --- | ---: | --- | --- | --- |
-| `python3 -m pytest -q tests/test_contract*.py tests/test_artifact_delivery*.py ... tests/test_shangshufang_loop_api.py` | 0 | latest 310 passed, 2 skipped | mission、lineage、shared decision writer、brief/legacy、authz、W05/W06 regression | 2026-07-27 |
+| `python3 -m pytest -q tests/test_contract*.py tests/test_artifact_delivery*.py ... tests/test_shangshufang_loop_api.py` | 0 | latest 329 passed, 2 skipped | mission、persisted review lineage、shared decision writer、brief/legacy、authz、W05/W06 regression | 2026-07-27 |
 | `ruff check <W07-A0 backend files>` | 0 | All checks passed | Python scope | 2026-07-27 |
-| `pnpm exec tsx --test src/features/contract-review/*.nodetest.ts` | 0 | latest 27 passed | runtime schema、三件套完整性、request/pack/final identity、effective source、archive identity、existing-page regression | 2026-07-27 |
-| `pnpm test:node` | 1 | 1085 passed, 1 failed | canonical frontend residual scan；1 个既有、非本 diff 失败 | 2026-07-27 |
+| `pnpm exec tsx --test src/features/contract-review/*.nodetest.ts` | 0 | latest 31 passed | full mission/pack/risk schema、canonical download URL、三件套完整性、effective source、archive identity | 2026-07-27 |
+| `pnpm test:node` | 1 | 1097 passed, 1 failed | canonical frontend residual scan；1 个既有、非本 diff 失败 | 2026-07-27 |
 | `pnpm exec tsx --test src/app/(dashboard)/liubu/page.nodetest.tsx` | 1 | 0 passed, 1 failed | canonical glob 未覆盖的 TSX residual；非本 diff | 2026-07-27 |
 | `pnpm exec tsc --noEmit` | 0 | pass | generated contract and frontend types | 2026-07-27 |
 | `NEXT_PUBLIC_API_MODE=real pnpm build` | 0 | pass | real-mode production build only | 2026-07-27 |
 | `node --test scripts/api-contract-stability.nodetest.mjs` | 0 | 5 passed | immutable base、repin rejection、schema content、determinism | 2026-07-27 |
-| `API_CONTRACT_BASE_REF=ed822... node scripts/api-contract-stability.mjs` x2 | 0 | pass, 362 routes, 0 breaking, 9 additions | fixed OpenAPI baseline；两次 report/snapshot hash 相同 | 2026-07-27 |
+| `API_CONTRACT_BASE_REF=ed822... node scripts/api-contract-stability.mjs` x2 | 0 | pass, 362 routes, 0 breaking, 9 additions | fixed OpenAPI baseline；OpenAPI `72ada7c1...`、route snapshot `c1a36a68...`、TS `5314e34f...` 两次一致 | 2026-07-27 |
 | `pnpm exec playwright test --config=playwright.w07.config.ts` | 0 | latest remediation run 1 passed | delayed initial read、fresh real JWT READY flow、legacy footer suppression、exact/tampered archiveId、seeded PARTIAL refresh | 2026-07-27 |
 | `python3 scripts/harness_doctor.py` | 0 | 0 errors, 0 warnings | backend harness | 2026-07-27 |
 | `pnpm harness:doctor` | 0 | 0 errors, 0 warnings | frontend harness | 2026-07-27 |
@@ -22,10 +22,10 @@
 
 ## 结果
 
-review envelope `a8e88589...` 的两路 independent review 为 `NO-GO`；主控确认的
-全部适用 HIGH/MEDIUM 已完成第四轮 TDD remediation 并通过上述 fresh evidence。
-implementation candidate `4eaab7cc31480c24caa8c4b3277d34f3c152d68c`, tree
-`3458c262e00f6769000a877a9a3bbf34011965b6` 已冻结；状态是
+review envelope `68158da9...` 的两路 independent review 为 `NO-GO`；主控确认的
+全部适用 HIGH/MEDIUM 已完成第五轮 TDD remediation 并通过上述 fresh evidence。
+implementation candidate `08d46fb4a8c194947e827776bf1fbf4d46e9a038`, tree
+`31067a4b0573775086f7b423553ea40fb4b15ecf` 已冻结；状态是
 `INDEPENDENT_REVIEW_PENDING`，不得整合。
 
 ## 全仓既有 Residual
@@ -62,9 +62,9 @@ implementation candidate `4eaab7cc31480c24caa8c4b3277d34f3c152d68c`, tree
 | honest PARTIAL limitation | backend/frontend tests + real browser refresh | PASS |
 | real backend synthetic flow | Playwright real JWT flow | PASS |
 | no deployment or 3050 operation | isolated 3002/8081 config and report | PASS |
-| fourth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
+| fifth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
 | independent review | fresh two-pass read-only review | PENDING |
-| exact implementation candidate | `4eaab7cc...` / `3458c262...` | PASS |
+| exact implementation candidate | `08d46fb4...` / `31067a4b...` | PASS |
 
 ## 声明状态
 
