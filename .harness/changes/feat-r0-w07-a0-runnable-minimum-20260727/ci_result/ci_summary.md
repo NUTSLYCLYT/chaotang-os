@@ -97,6 +97,13 @@ TDD remediation。
 `9eb003f98f2cada1b280f283d45fcf9ed4402920` 按 TDD 闭环，并通过上表 fresh
 verification。当前等待该 exact candidate 两路独立只读审查，仍不得整合 EXT。
 
+两路 fresh review 随后均返回 `NO-GO`：pass 1
+`019fa5d1-6a3c-7071-b2b6-2ec40151fdd1` 为
+`HIGH 1 / MEDIUM 2 / LOW 0`，pass 2
+`019fa5d1-a1b5-7840-8513-b4513e019b94` 为
+`HIGH 0 / MEDIUM 1 / LOW 0`。主控去重 `HIGH 1 / MEDIUM 2 / LOW 0`；
+`029f8362...` 被拒绝，不得整合 EXT。
+
 ## 全仓既有 Residual
 
 - `src/lib/intel/signal-dispatch.nodetest.ts`：固定日期样例在当前日期新增

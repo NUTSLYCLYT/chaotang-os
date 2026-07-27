@@ -426,6 +426,25 @@ exact implementation candidate：
 
 本节只登记待审候选，不预判两路 Codex 独立只读审查结论。
 
+## Latest Candidate Review Verdict
+
+implementation `029f836216de0ddf5361e24e886ab797202aae83`、tree
+`9eb003f98f2cada1b280f283d45fcf9ed4402920` 的两路 fresh review：
+
+- pass 1 `019fa5d1-6a3c-7071-b2b6-2ec40151fdd1`：
+  `NO-GO / HIGH 1 / MEDIUM 2 / LOW 0`；
+- pass 2 `019fa5d1-a1b5-7840-8513-b4513e019b94`：
+  `NO-GO / HIGH 0 / MEDIUM 1 / LOW 0`。
+
+主控去重后的适用 findings：
+
+1. HIGH：task lock 后仍通过 SQLAlchemy identity map 使用锁前 CourtReview；
+2. MEDIUM：parent-compatible payload 未绑定 exact event id/generation/status；
+3. MEDIUM：legacy query 压制当前合同 memorial，合同面板消失且 legacy footer 重现。
+
+三项均有独立静态路径或探针证据，且仍在 Product Owner 已批准的 Seventh Review
+remediation 文件范围内。`029f8362...` 状态为 `REJECTED / NOT_DEPLOYED`。
+
 ## Latest Seventh-Review Candidate Verdict
 
 Review envelope `857930ed5e9961fecfcd9d3d00298b9bb0ea2296` 对 implementation

@@ -78,6 +78,10 @@
 - [x] 冻结 implementation candidate
   `029f836216de0ddf5361e24e886ab797202aae83` /
   `9eb003f98f2cada1b280f283d45fcf9ed4402920`。
+- [x] exact `029f8362...` 两路 fresh review 完成，结论均为 `NO-GO`，
+  去重 `HIGH 1 / MEDIUM 2 / LOW 0`。
+- [ ] TDD 修复 fresh review：锁内 fresh CourtReview、legacy envelope integrity、
+  legacy query 后同页合同选择。
 - [ ] 在新 exact candidate 上取得 two-pass GO。
 - [ ] 冻结 exact candidate H/tree 和 `RUNNABLE_MINIMUM` receipt。
 

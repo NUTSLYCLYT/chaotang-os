@@ -9,7 +9,7 @@
 | --- | --- |
 | Change ID | feat-r0-w07-a0-runnable-minimum-20260727 |
 | 类型 | feat |
-| 状态 | `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING / NOT_DEPLOYED` |
+| 状态 | `REVIEWED_NO_GO / REMEDIATION_IN_PROGRESS / NOT_DEPLOYED` |
 | Owner | Codex W07 Implementation Lead |
 | Product Owner | `lyt` |
 | 创建日期 | `2026-07-27` |
@@ -187,3 +187,24 @@ fresh implementation candidate：
 
 本节不预判独立审查结论。候选未执行 Checkpoint B、push、部署、持久数据库迁移或
 listener 3050 操作。
+
+## Latest Candidate Verdict
+
+implementation `029f836216de0ddf5361e24e886ab797202aae83` 的两路 fresh
+Codex 只读审查均为 `NO-GO`：
+
+- backend/security/concurrency pass
+  `019fa5d1-6a3c-7071-b2b6-2ec40151fdd1`：
+  `HIGH 1 / MEDIUM 2 / LOW 0`；
+- frontend/product-contract pass
+  `019fa5d1-a1b5-7840-8513-b4513e019b94`：
+  `HIGH 0 / MEDIUM 1 / LOW 0`。
+
+主控去重为 `HIGH 1 / MEDIUM 2 / LOW 0`：
+
+1. lock 后未 fresh reload authoritative CourtReview，identity map 仍可提供锁前旧值；
+2. parent payload quarantine 未先验证 event id/generation/status envelope；
+3. legacy query 会压制后来同页选中的 server-classified contract memorial。
+
+三项均落在已批准的 router、rework contract、frontend selection 和 focused tests
+范围内。`029f8362...` 不得整合 EXT，进入下一轮最小 TDD remediation。
