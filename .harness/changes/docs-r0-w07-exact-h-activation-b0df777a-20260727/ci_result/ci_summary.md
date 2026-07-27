@@ -2,7 +2,7 @@
 
 ## 状态
 
-`EVENT_2_OVERLAY_REFRESH_REGISTRATION_CANDIDATE / NON_AUTHORIZING`
+`EVENT_3_INPUT_CANDIDATE / OWNER_APPROVAL_PENDING / NON_AUTHORIZING`
 
 ## Packet Preparation Baseline
 
@@ -108,10 +108,10 @@ state are unchanged.
 
 ## 尚未生成
 
-- activation candidate H/tree；
-- activation intent 和 review package digest；
 - owner exact-H approval；
 - Codex Independent QA final verdict；
+- Event 3 quiescent registration parent H/tree；
+- Event 4 atomic activation candidate H/tree；
 - ACTIVE manifest；
 - W07 GO 证据。
 
@@ -132,6 +132,28 @@ pass 2 = GO / HIGH 0 / MEDIUM 0
 
 正式验证必须在 Event 2 commit 冻结后重新运行。本段不预先声明 exact candidate
 通过，也不改变 W07 的 `STOP / NO_ACTIVE_WORK_PACKAGE`。
+
+## Event 3 Pre-Owner Input Verification
+
+```text
+isolated baseline = 35ac0e2839be300a295ca63bd99577bbe47a088d
+isolated baseline tree = 4142f785185cdbecc3a34d4d51b8df64ce0ae68c
+local EXT = 35ac0e2839be300a295ca63bd99577bbe47a088d
+review base = b0df777a1fe94d98afdc62b4cdd02a2f8a091391
+authority candidate = eb6e86e586ab5401780e5b49cdcf32af5ee27f86
+authority tree = d08538039ad907c54bf1df41feaa3046097c91d9
+review package bytes = 81750
+review package changed paths = 12 exact
+review package sha256 =
+  ba87835b8bb74aab4782411f8037515e0ea7c09d8798e80419f2e4be06a7fd7a
+activation intent bytes = 1645
+activation intent sha256 =
+  8450ae3ba33da562d75e10220508f38e04f06bf4f84db99249469e136039c328
+target manifest + intent structural validation = VALID_EVENT3_INPUTS
+```
+
+这些结果只证明 owner 审批输入可复现且结构一致。它们不构成 owner approval、
+independent review、manifest activation 或 authority GO。
 
 ## 运行时边界
 

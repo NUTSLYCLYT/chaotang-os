@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | docs-r0-reviewer-reassignment-20260726 |
 | Type | `docs` |
-| Status | `REFRESH_QUIESCENT_REGISTRATION_CANDIDATE / OWNER_APPROVED / NOT_AUTHORIZED` |
+| Status | `REFRESH_REGISTERED_IN_LOCAL_EXT / OWNER_APPROVED / NOT_AUTHORIZED` |
 | Owner | EXT Master Governance |
 | Date | `2026-07-26` |
 | Local EXT baseline | `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca` |
@@ -24,9 +24,10 @@ authority candidate `eb6e86e586ab5401780e5b49cdcf32af5ee27f86`, tree
 `e067b0241f7aa1fc1494b989daf432937a142da1616ea91f4f05190227ed1571`.
 
 Product Owner approval and two fresh read-only Codex GO reviews are recorded
-in the canonical evidence paths. The committed state containing this block is
-the Event 2 quiescent registration candidate pending exact-candidate
-verification and independent acceptance. It is not integrated into local EXT.
+in the canonical evidence paths. Event 2 quiescent registration candidate
+`35ac0e2839be300a295ca63bd99577bbe47a088d`, tree
+`4142f785185cdbecc3a34d4d51b8df64ce0ae68c`, passed exact-candidate
+verification and independent acceptance and is registered in local EXT.
 W07 remains `STOP / NO_ACTIVE_WORK_PACKAGE`.
 
 ## Historical Timeline

@@ -46,7 +46,7 @@
 
 ## 后续 Event 3：Activation Evidence Registration Parent
 
-- [ ] 从 Event 1 的已知 H/tree 生成 deterministic review package 和 activation intent。
+- [x] 从 Event 1 的已知 H/tree 生成 deterministic review package 和 activation intent。
 - [ ] 请求 Product Owner 对 H/tree、package digest、intent digest、scope 和 exclusions
   的 exact approval。
 - [ ] 记录 owner approval 原始字节与 SHA-256。

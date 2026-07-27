@@ -3,16 +3,16 @@
 | Evidence | Current state | Generation gate |
 | --- | --- | --- |
 | EXT baseline H/tree | `RECORDED` | Current isolated worktree |
-| Reviewer reassignment overlay | `REGISTERED` | Candidate `142856e2...` |
+| Reviewer reassignment overlay | `REGISTERED_IN_LOCAL_EXT` | Candidate `35ac0e28...` |
 | Packet design/spec/plan | `PREPARED` | This candidate |
 | Integrated-mainline identity remediation | `IMPLEMENTED_AND_VERIFIED` | Event 1 TDD |
 | Canonical W07 profile migration | `IMPLEMENTED_AND_VERIFIED` | Event 1 candidate |
 | Remediated authority candidate H/tree | `FROZEN_EXTERNAL_RECEIPT` | Exact Git candidate |
-| Reviewer overlay refresh | `REGISTRATION_CANDIDATE` | Event 2 exact-H evidence |
-| Activation review package | `NOT_GENERATED` | From frozen Git range |
-| Activation intent | `NOT_GENERATED` | After package digest exists |
+| Reviewer overlay refresh | `REGISTERED_IN_LOCAL_EXT` | Event 2 exact-H evidence |
+| Activation review package | `GENERATED_PRE_OWNER` | Event 1 exact Git range |
+| Activation intent | `GENERATED_PRE_OWNER` | Exact package digest |
 | Product Owner overlay-refresh approval | `RECORDED_FOR_EVENT_2` | Exact authority candidate |
-| Product Owner activation approval | `NOT_REQUESTED` | After activation package and intent |
+| Product Owner activation approval | `PENDING_EXACT_APPROVAL` | Exact package and intent bytes |
 | Independent final review | `NOT_REQUESTED` | After owner evidence |
 | Atomic activation candidate | `NOT_GENERATED` | Separate activation approval |
 | W07 GO | `NOT_OBSERVED` | After approved integration only |
@@ -44,4 +44,26 @@ pass-2 sha256 = 3d5fbf6fe56d62cb791d0eae902e874f8187b79744c2c2771c3e33319938a5d4
 ```
 
 该 receipt 只支持 quiescent overlay registration。旧 overlay 保留在 Git 历史中；
-W07 ledger 仍不存在，activation evidence 尚未生成。
+Event 2 registration candidate
+`35ac0e2839be300a295ca63bd99577bbe47a088d` 已受控整合到本地 EXT。W07 ledger
+仍不存在。
+
+## Event 3 Pre-Owner Inputs
+
+```text
+local EXT = 35ac0e2839be300a295ca63bd99577bbe47a088d
+review base = b0df777a1fe94d98afdc62b4cdd02a2f8a091391
+authority candidate = eb6e86e586ab5401780e5b49cdcf32af5ee27f86
+authority tree = d08538039ad907c54bf1df41feaa3046097c91d9
+review package path =
+  .harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/review_inputs/activation-candidate.diff
+review package sha256 =
+  ba87835b8bb74aab4782411f8037515e0ea7c09d8798e80419f2e4be06a7fd7a
+activation intent path =
+  .harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/activation_intent/r0-w07-activation-intent.json
+activation intent sha256 =
+  8450ae3ba33da562d75e10220508f38e04f06bf4f84db99249469e136039c328
+```
+
+这两份文件是 owner exact-H 审批输入，不是 approval evidence。canonical owner
+approval、Codex final review、ACTIVE manifest 和 W07 GO 均未生成。
