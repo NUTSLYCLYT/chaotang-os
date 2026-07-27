@@ -82,7 +82,7 @@ function parseStringArray(
 }
 
 function isNonNegativeInteger(value: unknown): value is number {
-  return Number.isFinite(value) && Number.isInteger(value) && Number(value) >= 0;
+  return Number.isSafeInteger(value) && Number(value) >= 0;
 }
 
 const REALITY_LABELS = new Set<RealityLabel>(["LIVE", "MIXED", "FALLBACK"]);

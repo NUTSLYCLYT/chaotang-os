@@ -195,6 +195,12 @@ test("strict Shiguan archive decoder rejects malformed immutable evidence refere
   }
   assert.equal(decode([{ ...EVIDENCE_REFERENCE, snapshotHash: "not-a-sha256" }]), null);
   assert.equal(decode([{ ...EVIDENCE_REFERENCE, evidenceId: "evidence-other" }]), null);
+  assert.equal(decode([{ ...EVIDENCE_REFERENCE, ordinal: -1 }]), null);
+  assert.equal(decode([{ ...EVIDENCE_REFERENCE, ordinal: 2 ** 53 }]), null);
+  assert.notEqual(
+    decode([{ ...EVIDENCE_REFERENCE, ordinal: Number.MAX_SAFE_INTEGER }]),
+    null,
+  );
   assert.equal(decode(undefined), null);
 });
 
@@ -234,6 +240,42 @@ test("statistics decoder enforces totals, denominator, and backend success-rate 
     null,
   );
   assert.equal(decode({ ...STATISTICS, successRate: 0.4 }), null);
+  assert.notEqual(
+    decode({
+      total: Number.MAX_SAFE_INTEGER,
+      achieved: Number.MAX_SAFE_INTEGER,
+      notAchieved: 0,
+      partial: 0,
+      observing: 0,
+      pendingReview: 0,
+      successRate: 1,
+    }),
+    null,
+  );
+  assert.equal(
+    decode({
+      total: 2 ** 53,
+      achieved: Number.MAX_SAFE_INTEGER,
+      notAchieved: 0,
+      partial: 0,
+      observing: 0,
+      pendingReview: 1,
+      successRate: 1,
+    }),
+    null,
+  );
+  assert.equal(
+    decode({
+      total: Number.MAX_SAFE_INTEGER + 1,
+      achieved: Number.MAX_SAFE_INTEGER + 1,
+      notAchieved: 0,
+      partial: 0,
+      observing: 0,
+      pendingReview: 0,
+      successRate: 1,
+    }),
+    null,
+  );
 });
 
 test("archive decoder requires complete timezone-aware ISO datetimes", () => {

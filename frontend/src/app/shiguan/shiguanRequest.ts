@@ -55,11 +55,6 @@ export async function requestShiguanJson<T>(
   }
 
   if (response.status === 401) {
-    try {
-      await response.json();
-    } catch {
-      // Authentication status is authoritative; an error body is optional.
-    }
     throw new ShiguanUiError(
       "unauthenticated",
       "会话已过期，正在返回登录页。",
