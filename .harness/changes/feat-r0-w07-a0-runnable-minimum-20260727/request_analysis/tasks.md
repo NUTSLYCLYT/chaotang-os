@@ -71,6 +71,10 @@
 - [x] 冻结 implementation candidate
   `af714f77ae9752cf1aafbcfd4a14a6e4081f26a3` /
   `d37fe17900354afab1bcaa029fe3d097e210623c`。
+- [x] exact `af714f77...` 两路 fresh review 完成，结论均为 `NO-GO`，
+  去重 `HIGH 3 / MEDIUM 1 / LOW 0`。
+- [ ] TDD 修复 malformed formal、final decision TOCTOU、legacy generation
+  non-destructive quarantine 和 explicit taskId server binding。
 - [ ] 在新 exact candidate 上取得 two-pass GO。
 - [ ] 冻结 exact candidate H/tree 和 `RUNNABLE_MINIMUM` receipt。
 

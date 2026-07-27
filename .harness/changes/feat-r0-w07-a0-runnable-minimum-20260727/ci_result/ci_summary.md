@@ -77,6 +77,9 @@ H/M remediation。全部适用 HIGH/MEDIUM 已在 implementation
 `af714f77ae9752cf1aafbcfd4a14a6e4081f26a3`、tree
 `d37fe17900354afab1bcaa029fe3d097e210623c` 按 TDD 闭环并通过上表 fresh
 verification。当前等待该 exact candidate 两路独立只读审查，仍不得整合。
+review envelope `857930ed...` 的两路 fresh review 均为 `NO-GO`，去重
+`HIGH 3 / MEDIUM 1 / LOW 0`；implementation `af714f77...` 被拒绝，进入下一轮
+TDD remediation。
 
 ## 全仓既有 Residual
 
@@ -115,9 +118,9 @@ verification。当前等待该 exact candidate 两路独立只读审查，仍不
 | sixth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
 | seventh remediation | all approved HIGH/MEDIUM locally closed | PASS |
 | eighth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
-| independent review | exact `af714f77...` fresh two-pass | PENDING |
-| exact implementation candidate | `af714f77...` / `d37fe179...` | PASS |
+| independent review | exact `af714f77...` fresh two-pass | NO-GO |
+| exact implementation candidate | `af714f77...` / `d37fe179...` | REJECTED |
 
 ## 声明状态
 
-- `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING / NOT_DEPLOYED`
+- `REVIEWED_NO_GO / REMEDIATION_IN_PROGRESS / NOT_DEPLOYED`

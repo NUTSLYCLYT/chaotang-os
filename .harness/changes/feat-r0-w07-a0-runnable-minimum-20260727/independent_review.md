@@ -425,3 +425,27 @@ exact implementation candidate：
   NOT_DEPLOYED`
 
 本节只登记待审候选，不预判两路 Codex 独立只读审查结论。
+
+## Latest Seventh-Review Candidate Verdict
+
+Review envelope `857930ed5e9961fecfcd9d3d00298b9bb0ea2296` 对 implementation
+`af714f77ae9752cf1aafbcfd4a14a6e4081f26a3` 的两路 fresh Codex 只读审查均为
+`NO-GO`：
+
+- backend/security/concurrency pass
+  `019fa5b2-b7c9-76d3-ac43-fa8e181b46ea`：
+  `HIGH 2 / MEDIUM 0 / LOW 0`；
+- frontend/OpenAPI/product-contract pass
+  `019fa5b3-0c36-79c1-8eb2-5e8e679128be`：
+  `HIGH 1 / MEDIUM 1 / LOW 0`。
+
+主控去重后为 `HIGH 3 / MEDIUM 1 / LOW 0`：
+
+1. HIGH：JSON 合法但 top-level 结构非法/空的 current formal 仍可降级为 legacy；
+2. HIGH：最终合同裁决读取 `DECIDE` 后未持有 Mission writer 共用 task lock；
+3. HIGH：parent 合法的旧 generation payload 缺少 Mission identity 时会失败/死信；
+4. MEDIUM：explicit `?taskId=` 未绑定服务端 `contract_task=true` 分类。
+
+四项均在已批准的 router、Mission/rework contract、frontend selection 和 focused
+tests 范围内；无需 Checkpoint B 或数据库迁移。`af714f77...` 不得整合 EXT，
+当前状态为 `REVIEWED_NO_GO / REMEDIATION_IN_PROGRESS / NOT_DEPLOYED`。

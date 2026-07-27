@@ -9,7 +9,7 @@
 | --- | --- |
 | Change ID | feat-r0-w07-a0-runnable-minimum-20260727 |
 | 类型 | feat |
-| 状态 | `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING / NOT_DEPLOYED` |
+| 状态 | `REVIEWED_NO_GO / REMEDIATION_IN_PROGRESS / NOT_DEPLOYED` |
 | Owner | Codex W07 Implementation Lead |
 | Product Owner | `lyt` |
 | 创建日期 | `2026-07-27` |
@@ -88,6 +88,13 @@ fresh implementation candidate：
   NOT_DEPLOYED`
 
 本候选未执行 Checkpoint B、push、部署、持久数据库迁移或 listener 3050 操作。
+
+review envelope `857930ed...` 对 `af714f77...` 的两路 fresh Codex 审查均为
+`NO-GO`，主控去重为 `HIGH 3 / MEDIUM 1 / LOW 0`：结构非法但 JSON 合法的
+current formal 仍可能降级 legacy；最终合同裁决读取 `DECIDE` 后未与 Mission
+writer 共用 task lock；parent 合法的旧 generation payload 缺少新 Mission identity
+时会进入失败/死信；`?taskId=` 未绑定服务端 `contract_task` 分类。四项均在已批准
+文件范围内，进入下一轮 TDD remediation。`af714f77...` 不得整合 EXT。
 
 review envelope `5f351283...` 对 `4ed274f8...` 的两路 fresh Codex 审查均为
 `NO-GO`，主控去重为 `HIGH 3 / MEDIUM 8 / LOW 2`。全部 HIGH/MEDIUM 仍落在
