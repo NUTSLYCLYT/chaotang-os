@@ -125,6 +125,106 @@ def test_awaiting_evidence_requires_bound_generation_before_refresh(
     assert [item.code for item in model.blockers] == ["EVIDENCE_INCOMPLETE"]
 
 
+def test_awaiting_evidence_uses_only_latest_generation_binding(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    from src.db.models import OutboxEvent
+
+    with isolated_session_local() as db:
+        task = seed_contract_task(
+            db,
+            task_id="task-latest-generation-binding-only",
+        )
+        task.status = "awaiting_evidence"
+        mission = contract_mission(task.id)
+        base_payload = {
+            "schema_version": "EvidenceReworkGenerationV1",
+            "prior_final_memorial_content_hash": "a" * 64,
+            "mission_revision": mission.revision,
+            "mission_content_digest": mission.content_digest,
+            "evidence_request": {
+                "reason": "补充付款条件原文",
+                "followup_question": None,
+            },
+            "affected_sections": ["contract_review"],
+            "contract_scope": {
+                "schema_version": "ContractIntakeV1",
+                "jurisdiction": "CN_MAINLAND",
+                "language": "zh-CN",
+                "contract_type": "procurement",
+                "our_role": "buyer",
+                "legal_question": "contract_risk_screening",
+            },
+        }
+        bound_packet = {
+            "schema_version": "EvidencePacketV1",
+            "evidence_packet_id": "evidence-old-generation",
+            "tenant_id": task.tenant_id,
+            "task_id": task.id,
+            "input_version_id": "artifact-old-generation",
+            "input_digest": "b" * 64,
+            "prior_final_memorial_content_hash": "a" * 64,
+            "generation": 2,
+            "evidence_status": "GROUNDED",
+            "source_kind": "USER_UPLOAD",
+            "source_ref": "artifact-old-generation",
+            "content_hash": "b" * 64,
+            "verification_receipt_id": "receipt-old-generation",
+        }
+        db.add_all(
+            [
+                OutboxEvent(
+                    id="generation-old-bound",
+                    tenant_id=task.tenant_id,
+                    task_id=task.id,
+                    decision_id="decision-old-bound",
+                    event_type="evidence.rework",
+                    generation=2,
+                    idempotency_key="evidence-rework:old-bound",
+                    status="pending",
+                    attempts=0,
+                    max_attempts=3,
+                    payload_json=json.dumps(
+                        {
+                            **base_payload,
+                            "generation_id": "generation-old-bound",
+                            "generation": 2,
+                            "status": "evidence_bound",
+                            "evidence_packets": [bound_packet],
+                        }
+                    ),
+                ),
+                OutboxEvent(
+                    id="generation-current-unbound",
+                    tenant_id=task.tenant_id,
+                    task_id=task.id,
+                    decision_id="decision-current-unbound",
+                    event_type="evidence.rework",
+                    generation=3,
+                    idempotency_key="evidence-rework:current-unbound",
+                    status="awaiting_evidence",
+                    attempts=0,
+                    max_attempts=3,
+                    payload_json=json.dumps(
+                        {
+                            **base_payload,
+                            "generation_id": "generation-current-unbound",
+                            "generation": 3,
+                            "status": "awaiting_evidence",
+                        }
+                    ),
+                ),
+            ]
+        )
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.allowed_actions == ["SUBMIT_EVIDENCE"]
+    assert [item.code for item in model.blockers] == ["EVIDENCE_INCOMPLETE"]
+
+
 def test_mission_and_review_pack_business_scope_must_match(
     isolated_session_local,
     tmp_path,
@@ -678,6 +778,30 @@ def test_exact_archive_receipt_enables_reopen(
 
     assert model.archive_receipt.archive_id == f"archive-{task.id}"
     assert model.allowed_actions == ["DOWNLOAD_ARTIFACT", "REOPEN_ARCHIVE"]
+
+
+def test_archived_task_without_exact_receipt_never_reopens_decide(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-archived-without-receipt")
+        final, pack = seed_final_memorial(db, task_id=task.id)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        task.status = "archived"
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.archive_receipt is None
+    assert model.allowed_actions == []
+    assert [item.code for item in model.blockers] == ["STATE_INCONSISTENT"]
 
 
 def test_synthetic_archive_never_becomes_a_receipt(

@@ -26,7 +26,10 @@ from src.chancellor.decree_status import (
 )
 from src.chancellor.routing_service import chancellor_routing_service, legacy_route_dict
 from src.contracts.evidence_packet import EvidencePacketV1
-from src.contracts.evidence_rework_generation import EvidenceReworkGenerationV1
+from src.contracts.evidence_rework_generation import (
+    EvidenceReworkGenerationPayloadV1,
+    EvidenceReworkGenerationV1,
+)
 from src.contracts.mission_contract import ContractIntakeV1
 from src.db.models import (
     AgentSkillRun,
@@ -423,8 +426,36 @@ def _is_contract_task(
     try:
         formal_payload = json.loads(formal.memorial_json)
     except json.JSONDecodeError:
-        return '"contract_review"' in formal.memorial_json
+        return True
     return isinstance(formal_payload, dict) and "contract_review" in formal_payload
+
+
+def _contract_route_action_error(
+    db,
+    *,
+    task: DecisionTask,
+    required_action: str | None,
+) -> str | None:
+    if not _is_contract_task(db, task=task):
+        return None
+    if required_action is None:
+        return "route not authorized for contract tasks"
+
+    from src.contract_task_projection import project_contract_task
+    from src.runtime_paths import resolve_runtime_paths
+
+    read_model = project_contract_task(
+        db,
+        storage_root=resolve_runtime_paths().root / "artifacts",
+        task=task,
+    )
+    if required_action not in read_model.allowed_actions:
+        blockers = ",".join(item.code for item in read_model.blockers)
+        return (
+            f"{required_action} not allowed for current contract facts: "
+            f"{blockers}"
+        )
+    return None
 
 
 def _task_to_payload(
@@ -920,9 +951,22 @@ def _canonical_contract_scope(
     return scope.model_dump(mode="json", exclude_none=True)
 
 
+def _public_rework_generation_payload(
+    value: dict[str, Any] | EvidenceReworkGenerationPayloadV1 | None,
+) -> dict[str, object] | None:
+    if value is None:
+        return None
+    generation = (
+        value
+        if isinstance(value, EvidenceReworkGenerationPayloadV1)
+        else EvidenceReworkGenerationPayloadV1.model_validate(value)
+    )
+    return generation.to_public_payload()
+
+
 def _replayed_evidence_rework_result(existing) -> dict[str, Any]:
     """Interpret replay state through the shared durable-to-domain projection."""
-    payload = project_evidence_rework_generation(existing).to_payload()
+    payload = project_evidence_rework_generation(existing).to_public_payload()
     return {
         "decision": None,
         "decision_id": existing.decision_id,
@@ -940,14 +984,88 @@ def _replayed_legacy_decision_result(db, *, task: DecisionTask, action: str) -> 
         .order_by(EmperorDecision.created_at.desc(), EmperorDecision.id.desc())
         .first()
     )
+    if existing is None:
+        raise ValueError("durable legacy decision missing")
     return {
         "decision": existing,
-        "decision_id": existing.id if existing is not None else None,
+        "decision_id": existing.id,
         "archive_record": None,
         "rework_generation": None,
         "replayed": True,
-        "now": existing.created_at if existing is not None else task.updated_at,
+        "now": existing.created_at,
     }
+
+
+def _authoritative_contract_review(
+    db,
+    *,
+    task: DecisionTask,
+    review: CourtReview | None,
+    current_formal: FinalMemorial | None,
+    actor_user_id: str,
+) -> CourtReview:
+    authoritative_review_id = (
+        current_formal.review_id
+        if current_formal is not None
+        else review.id if review is not None else None
+    )
+    authoritative_review = (
+        db.get(CourtReview, authoritative_review_id)
+        if authoritative_review_id is not None
+        else None
+    )
+    review_mismatch = (
+        review is None
+        or authoritative_review is None
+        or task.tenant_id is None
+        or str(task.user_id) != str(actor_user_id)
+        or authoritative_review.tenant_id is None
+        or authoritative_review.tenant_id != task.tenant_id
+        or authoritative_review.task_id != task.id
+        or review.id != authoritative_review.id
+        or review.tenant_id != authoritative_review.tenant_id
+        or review.task_id != authoritative_review.task_id
+    )
+    final_review_missing_or_mismatched = (
+        current_formal is not None
+        and (
+            current_formal.tenant_id is None
+            or current_formal.tenant_id != task.tenant_id
+            or authoritative_review is None
+            or current_formal.review_id != authoritative_review.id
+        )
+    )
+    if review_mismatch or final_review_missing_or_mismatched:
+        raise ValueError("contract review ownership or final lineage conflict")
+    return authoritative_review
+
+
+def _require_contract_decision_action(
+    db,
+    *,
+    task: DecisionTask,
+    action: str,
+) -> None:
+    if action in _CONTRACT_DENIED_DECISION_ACTIONS:
+        raise ValueError(f"{action} not authorized for contract tasks")
+    required_read_action = _CONTRACT_REQUIRED_READ_ACTIONS.get(action)
+    if required_read_action is None:
+        raise ValueError(f"{action} not authorized for contract tasks")
+
+    from src.contract_task_projection import project_contract_task
+    from src.runtime_paths import resolve_runtime_paths
+
+    read_model = project_contract_task(
+        db,
+        storage_root=resolve_runtime_paths().root / "artifacts",
+        task=task,
+    )
+    if required_read_action not in read_model.allowed_actions:
+        blockers = ",".join(item.code for item in read_model.blockers)
+        raise ValueError(
+            f"{required_read_action} not allowed for current contract facts: "
+            f"{blockers}"
+        )
 
 
 def _execute_final_memorial_decision(
@@ -975,42 +1093,13 @@ def _execute_final_memorial_decision(
         current_formal=current_formal,
     )
     if is_contract_task:
-        authoritative_review_id = (
-            current_formal.review_id
-            if current_formal is not None
-            else review.id if review is not None else None
+        review = _authoritative_contract_review(
+            db,
+            task=task,
+            review=review,
+            current_formal=current_formal,
+            actor_user_id=actor_user_id,
         )
-        authoritative_review = (
-            db.get(CourtReview, authoritative_review_id)
-            if authoritative_review_id is not None
-            else None
-        )
-        review_mismatch = (
-            review is None
-            or authoritative_review is None
-            or task.tenant_id is None
-            or str(task.user_id) != str(actor_user_id)
-            or authoritative_review.tenant_id is None
-            or authoritative_review.tenant_id != task.tenant_id
-            or authoritative_review.task_id != task.id
-            or review.id != authoritative_review.id
-            or review.tenant_id != authoritative_review.tenant_id
-            or review.task_id != authoritative_review.task_id
-        )
-        final_review_missing_or_mismatched = (
-            current_formal is not None
-            and (
-                current_formal.tenant_id is None
-                or current_formal.tenant_id != task.tenant_id
-                or authoritative_review is None
-                or current_formal.review_id != authoritative_review.id
-            )
-        )
-        if review_mismatch or final_review_missing_or_mismatched:
-            raise ValueError(
-                "contract review ownership or final lineage conflict"
-            )
-        review = authoritative_review
 
     evidence_actions = {"request_evidence", "followup"}
     if action in evidence_actions and expected_content_hash:
@@ -1025,26 +1114,11 @@ def _execute_final_memorial_decision(
             return _replayed_evidence_rework_result(existing)
 
     if is_contract_task:
-        if action in _CONTRACT_DENIED_DECISION_ACTIONS:
-            raise ValueError(f"{action} not authorized for contract tasks")
-        required_read_action = _CONTRACT_REQUIRED_READ_ACTIONS.get(action)
-        if required_read_action is None:
-            raise ValueError(f"{action} not authorized for contract tasks")
-
-        from src.contract_task_projection import project_contract_task
-        from src.runtime_paths import resolve_runtime_paths
-
-        read_model = project_contract_task(
+        _require_contract_decision_action(
             db,
-            storage_root=resolve_runtime_paths().root / "artifacts",
             task=task,
+            action=action,
         )
-        if required_read_action not in read_model.allowed_actions:
-            blockers = ",".join(item.code for item in read_model.blockers)
-            raise ValueError(
-                f"{required_read_action} not allowed for current contract facts: "
-                f"{blockers}"
-            )
 
     if not is_contract_task:
         if action in {"cancel", "recheck"}:
@@ -1054,16 +1128,48 @@ def _execute_final_memorial_decision(
             db.refresh(task)
             if review is not None:
                 db.refresh(review)
+            current_formal = (
+                db.query(FinalMemorial)
+                .populate_existing()
+                .filter_by(task_id=task.id, is_current=True)
+                .first()
+            )
+            is_contract_task = _is_contract_task(
+                db,
+                task=task,
+                current_formal=current_formal,
+            )
+            if is_contract_task:
+                review = _authoritative_contract_review(
+                    db,
+                    task=task,
+                    review=review,
+                    current_formal=current_formal,
+                    actor_user_id=actor_user_id,
+                )
+                _require_contract_decision_action(
+                    db,
+                    task=task,
+                    action=action,
+                )
 
         from src.execution.outbox_worker import TASK_TERMINAL_STATUSES
 
-        if action == "cancel" and task.status in TASK_TERMINAL_STATUSES:
+        if (
+            not is_contract_task
+            and action == "cancel"
+            and task.status in TASK_TERMINAL_STATUSES
+        ):
             return _replayed_legacy_decision_result(
                 db,
                 task=task,
                 action=action,
             )
-        if action == "recheck" and task.status == "reviewing":
+        if (
+            not is_contract_task
+            and action == "recheck"
+            and task.status == "reviewing"
+        ):
             return _replayed_legacy_decision_result(
                 db,
                 task=task,
@@ -1194,7 +1300,9 @@ def _execute_final_memorial_decision(
         "decision": decision,
         "decision_id": decision.id,
         "archive_record": archive_record,
-        "rework_generation": rework_generation,
+        "rework_generation": _public_rework_generation_payload(
+            rework_generation
+        ),
         "replayed": False,
         "now": now,
     }
@@ -2337,7 +2445,7 @@ def bind_rework_generation_evidence(
                 {
                     "task_id": task_id,
                     "evidence_packet": existing_packet,
-                    "rework_generation": generation_contract.to_payload(),
+                    "rework_generation": generation_contract.to_public_payload(),
                 }
             )
 
@@ -2412,7 +2520,7 @@ def bind_rework_generation_evidence(
             content_hash=artifact.digest_sha256,
             verification_receipt_id=receipt_id,
         )
-        generation_contract = EvidenceReworkGenerationV1.model_validate(
+        generation_contract = EvidenceReworkGenerationPayloadV1.model_validate(
             {
                 **generation_payload,
                 "status": "evidence_bound",
@@ -2459,7 +2567,7 @@ def bind_rework_generation_evidence(
                 {
                     "task_id": task_id,
                     "evidence_packet": existing_packet,
-                    "rework_generation": winner_generation.to_payload(),
+                    "rework_generation": winner_generation.to_public_payload(),
                 }
             )
         db.add(audit_event)
@@ -2468,7 +2576,9 @@ def bind_rework_generation_evidence(
             {
                 "task_id": task_id,
                 "evidence_packet": packet.model_dump(),
-                "rework_generation": generation_payload,
+                "rework_generation": (
+                    generation_contract.to_public_payload()
+                ),
             }
         )
     except ValueError as exc:
@@ -2489,11 +2599,21 @@ def shangshufang_swarm_deepen(
 
     db = SessionLocal()
     try:
-        task = db.query(DecisionTask).filter_by(id=task_id).first()
+        task, ownership_error = get_owned_decision_task(
+            db,
+            task_id=task_id,
+            requester_id=_user_id(user),
+            requester_tenant_id=user.tenant_id,
+        )
         if task is None:
-            return fail("task_id 不存在")
-        if task.user_id != _user_id(user):
-            return fail("无权对该任务发起深议")
+            return fail(ownership_error or "无权对该任务发起深议")
+        action_error = _contract_route_action_error(
+            db,
+            task=task,
+            required_action="REFRESH_REVIEW",
+        )
+        if action_error is not None:
+            return fail(action_error)
         review = _latest_review(db, task_id)
         if review is None:
             edict = draft_edict(task.raw_question, source_label=task.source_label)
@@ -3051,11 +3171,14 @@ def shangshufang_finance_intel_loop_case(
 
     db = SessionLocal()
     try:
-        task = db.query(DecisionTask).filter_by(id=task_id).first()
+        task, ownership_error = get_owned_decision_task(
+            db,
+            task_id=task_id,
+            requester_id=_user_id(user),
+            requester_tenant_id=user.tenant_id,
+        )
         if task is None:
-            return fail("task_id 不存在")
-        if task.user_id != _user_id(user):
-            return fail("无权查看该任务案卷")
+            return fail(ownership_error or "无权查看该任务案卷")
         return ok(_finance_case_from_task(task, _latest_review(db, task_id)))
     finally:
         db.close()
@@ -3228,11 +3351,21 @@ def shangshufang_edict_return(
 
     db = SessionLocal()
     try:
-        task = db.query(DecisionTask).filter_by(id=body.taskId).first()
+        task, ownership_error = get_owned_decision_task(
+            db,
+            task_id=body.taskId,
+            requester_id=_user_id(user),
+            requester_tenant_id=user.tenant_id,
+        )
         if task is None:
-            return fail("task_id 不存在")
-        if task.user_id != _user_id(user):
-            return fail("无权回填该任务")
+            return fail(ownership_error or "无权回填该任务")
+        action_error = _contract_route_action_error(
+            db,
+            task=task,
+            required_action=None,
+        )
+        if action_error is not None:
+            return fail(action_error)
         review = _latest_review(db, body.taskId)
         now = now_iso()
         return_payload = {

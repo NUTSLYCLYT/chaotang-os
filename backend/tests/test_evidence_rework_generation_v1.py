@@ -3,7 +3,10 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from src.contracts.evidence_rework_generation import EvidenceReworkGenerationV1
+from src.contracts.evidence_rework_generation import (
+    EvidenceReworkGenerationPayloadV1,
+    EvidenceReworkGenerationV1,
+)
 from src.db.models import FinalMemorial
 
 
@@ -19,6 +22,14 @@ def _valid_generation() -> dict[str, object]:
             "followup_question": None,
         },
         "affected_sections": ["contract_review"],
+    }
+
+
+def _valid_payload() -> dict[str, object]:
+    return {
+        **_valid_generation(),
+        "mission_revision": 1,
+        "mission_content_digest": "b" * 64,
     }
 
 
@@ -56,6 +67,29 @@ def test_evidence_rework_generation_v1_rejects_unknown_fields() -> None:
 
     with pytest.raises(ValidationError):
         EvidenceReworkGenerationV1.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["mission_revision", "mission_content_digest"],
+)
+def test_evidence_rework_payload_v1_requires_frozen_mission_identity(
+    field: str,
+) -> None:
+    payload = _valid_payload()
+    payload.pop(field)
+
+    with pytest.raises(ValidationError):
+        EvidenceReworkGenerationPayloadV1.model_validate(payload)
+
+
+def test_evidence_rework_payload_projects_stable_public_contract() -> None:
+    payload = EvidenceReworkGenerationPayloadV1.model_validate(_valid_payload())
+
+    assert payload.to_public_payload() == {
+        **_valid_generation(),
+        "evidence_status": "NONE",
+    }
 
 
 def test_evidence_rework_generation_rejects_evidence_status_drift() -> None:

@@ -122,6 +122,8 @@ def resolve_contract_task_actions(
             actions.append("DOWNLOAD_ARTIFACT")
         actions.append("REOPEN_ARCHIVE")
         return _resolution(*actions)
+    if facts.task_status == "archived":
+        return _resolution(blockers=("STATE_INCONSISTENT",))
     if facts.decision_status == "APPROVED" or facts.final_status == "ARCHIVED":
         return _resolution(blockers=("ARCHIVE_RECEIPT_MISSING",))
     if not facts.evidence_ready:

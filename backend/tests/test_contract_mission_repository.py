@@ -121,6 +121,43 @@ def test_identical_revision_and_digest_replay_is_idempotent(
     assert row_count == 1
 
 
+def test_save_mission_snapshot_locks_task_before_reading_current_revision(
+    isolated_session_local,
+    monkeypatch,
+) -> None:
+    import src.contract_mission_repository as repository
+    import src.decision_task_access as task_access
+
+    events: list[str] = []
+    original_load = repository.load_current_mission_snapshot
+
+    monkeypatch.setattr(
+        task_access,
+        "lock_decision_task",
+        lambda _db, _task_id: events.append("lock"),
+        raising=False,
+    )
+
+    def _observed_load(db, *, task):
+        events.append("load")
+        return original_load(db, task=task)
+
+    monkeypatch.setattr(repository, "load_current_mission_snapshot", _observed_load)
+
+    with isolated_session_local() as db:
+        task = _task("task-mission-lock-order")
+        db.add(task)
+        db.flush()
+        save_mission_snapshot(
+            db,
+            task=task,
+            mission=_mission("task-mission-lock-order"),
+            state="draft",
+        )
+
+    assert events[:2] == ["lock", "load"]
+
+
 def test_stale_revision_cannot_replace_the_current_snapshot(
     isolated_session_local,
 ) -> None:

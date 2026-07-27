@@ -29,14 +29,26 @@ class _ProjectionEvent:
     last_error: str | None = None
 
 
-def _formalize_task(session_local, task_id: str) -> tuple[str, str]:
+def _formalize_task(session_local, task_id: str, storage_root) -> tuple[str, str]:
+    from src.contract_mission_repository import save_mission_snapshot
     from src.db.models import CourtReview, DecisionTask
     from src.formal_memorial import formalize_memorial
+    from tests.contract_task_support import (
+        contract_mission,
+        contract_review_pack,
+        seed_delivery,
+    )
 
     db = session_local()
     task = db.query(DecisionTask).filter_by(id=task_id).one()
     task.status = "awaiting_decision"
+    task.contract_scope_json = json.dumps(_SUPPORTED_SCOPE)
     review_id = f"review_{task_id}"
+    pack = contract_review_pack(
+        task_id,
+        tenant_id=str(task.tenant_id),
+        court_review_id=review_id,
+    )
     db.add(
         CourtReview(
             id=review_id,
@@ -51,6 +63,7 @@ def _formalize_task(session_local, task_id: str) -> tuple[str, str]:
                     "title": "合同会审正式奏折",
                     "summary": "证据充分，建议有条件通过。",
                     "recommendation": "adopt_with_conditions",
+                    "contract_review": pack,
                 },
                 ensure_ascii=False,
             ),
@@ -58,7 +71,13 @@ def _formalize_task(session_local, task_id: str) -> tuple[str, str]:
             updated_at="2026-07-24T00:00:00+00:00",
         )
     )
-    db.commit()
+    db.flush()
+    save_mission_snapshot(
+        db,
+        task=task,
+        mission=contract_mission(task_id),
+        state="confirmed",
+    )
     formal = formalize_memorial(
         db,
         task_id=task_id,
@@ -77,6 +96,15 @@ def _formalize_task(session_local, task_id: str) -> tuple[str, str]:
                 "warnings": [],
             },
         },
+    )
+    db.flush()
+    seed_delivery(
+        db,
+        storage_root=storage_root,
+        tenant_id=task.tenant_id,
+        task_id=task_id,
+        final=formal,
+        pack=pack,
     )
     content_hash = formal.content_hash
     db.commit()
@@ -139,12 +167,27 @@ def test_request_evidence_snapshots_frozen_scope_into_generation(
     client = TestClient(app)
     task_id = _draft_contract_task(client)
 
-    from src.db.models import OutboxEvent
+    from src.contract_mission_repository import (
+        load_current_mission_snapshot,
+        save_mission_snapshot,
+    )
+    from src.db.models import DecisionTask, OutboxEvent
     from src.execution.decree_dispatcher import (
         enqueue_evidence_rework_generation,
     )
 
     db = isolated_session_local()
+    task = db.get(DecisionTask, task_id)
+    from tests.contract_task_support import contract_mission
+
+    save_mission_snapshot(
+        db,
+        task=task,
+        mission=contract_mission(task_id),
+        state="confirmed",
+    )
+    mission_snapshot = load_current_mission_snapshot(db, task=task)
+    assert mission_snapshot is not None
     generation, created = enqueue_evidence_rework_generation(
         db,
         task_id=task_id,
@@ -158,10 +201,20 @@ def test_request_evidence_snapshots_frozen_scope_into_generation(
     assert created is True
     assert generation["contract_scope"] == _SUPPORTED_SCOPE
     assert generation["evidence_status"] == "NONE"
+    assert generation["mission_revision"] == mission_snapshot.mission.revision
+    assert (
+        generation["mission_content_digest"]
+        == mission_snapshot.mission.content_digest
+    )
     stored = db.query(OutboxEvent).filter_by(id=generation["generation_id"]).one()
     stored_payload = json.loads(stored.payload_json)
     assert stored_payload["contract_scope"] == _SUPPORTED_SCOPE
     assert stored_payload["evidence_status"] == "NONE"
+    assert stored_payload["mission_revision"] == mission_snapshot.mission.revision
+    assert (
+        stored_payload["mission_content_digest"]
+        == mission_snapshot.mission.content_digest
+    )
     db.close()
 
 
@@ -176,6 +229,8 @@ def test_request_evidence_snapshots_frozen_scope_into_generation(
 )
 def test_decision_replay_projects_durable_status_into_public_contract(
     isolated_session_local,
+    monkeypatch,
+    tmp_path,
     durable_status,
     payload_status,
     expected_http,
@@ -197,7 +252,12 @@ def test_decision_replay_projects_durable_status_into_public_contract(
     )
     db.commit()
     db.close()
-    content_hash, _ = _formalize_task(isolated_session_local, task_id)
+    monkeypatch.setenv("FENGQUN_RUNTIME_ROOT", str(tmp_path))
+    content_hash, _ = _formalize_task(
+        isolated_session_local,
+        task_id,
+        tmp_path / "artifacts",
+    )
 
     client = TestClient(app)
     first = _request_evidence(client, task_id, content_hash)
@@ -279,13 +339,19 @@ def _generation_payload(
     status: str,
     packet: dict | None = None,
     contract_scope: dict | None = _SUPPORTED_SCOPE,
+    prior_final_memorial_content_hash: str = "a" * 64,
 ) -> dict:
+    from tests.contract_task_support import contract_mission
+
+    mission = contract_mission(task_id)
     payload = {
         "schema_version": "EvidenceReworkGenerationV1",
         "generation_id": generation_id,
         "generation": 2,
         "status": status,
-        "prior_final_memorial_content_hash": "a" * 64,
+        "prior_final_memorial_content_hash": prior_final_memorial_content_hash,
+        "mission_revision": mission.revision,
+        "mission_content_digest": mission.content_digest,
         "evidence_request": {
             "reason": "补充付款条件原文",
             "followup_question": None,
@@ -414,12 +480,17 @@ def _seed_binding_generation(
 ):
     from src.contract_mission_repository import save_mission_snapshot
     from src.db.models import (
+        CourtReview,
         DecisionTask,
+        FinalMemorial,
         OutboxEvent,
         SecureIngestArtifact,
         SecureIngestAuditEvent,
     )
-    from tests.contract_task_support import contract_mission
+    from tests.contract_task_support import (
+        contract_mission,
+        contract_review_pack,
+    )
 
     db = session_local()
     artifact = _artifact_row(
@@ -449,10 +520,54 @@ def _seed_binding_generation(
     )
     db.add(task)
     db.flush()
+    review_id = f"review_{task_id}"
+    mission = contract_mission(task_id)
+    pack = contract_review_pack(
+        task_id,
+        tenant_id="1",
+        court_review_id=review_id,
+    )
+    memorial_json = json.dumps(
+        {"contract_review": pack},
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    prior_final_hash = hashlib.sha256(memorial_json.encode("utf-8")).hexdigest()
+    db.add(
+        CourtReview(
+            id=review_id,
+            tenant_id=1,
+            task_id=task_id,
+            routing_plan_json="{}",
+            review_status="awaiting_evidence",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json=memorial_json,
+            created_at="2026-07-24T00:00:00+00:00",
+            updated_at="2026-07-24T00:00:00+00:00",
+        )
+    )
+    db.add(
+        FinalMemorial(
+            id=f"final_{task_id}",
+            tenant_id=1,
+            task_id=task_id,
+            review_id=review_id,
+            swarm_run_id=f"swarm_{task_id}",
+            quality_result_id=f"quality_{task_id}",
+            status="awaiting_evidence",
+            source_label="LIVE",
+            memorial_json=memorial_json,
+            content_hash=prior_final_hash,
+            version=1,
+            is_current=True,
+        )
+    )
     save_mission_snapshot(
         db,
         task=task,
-        mission=contract_mission(task_id),
+        mission=mission,
         state="confirmed",
     )
     db.add(artifact)
@@ -467,7 +582,7 @@ def _seed_binding_generation(
             "task_id": task_id,
             "input_version_id": artifact.id,
             "input_digest": artifact.digest_sha256,
-            "prior_final_memorial_content_hash": "a" * 64,
+            "prior_final_memorial_content_hash": prior_final_hash,
             "generation": 2,
             "evidence_status": "GROUNDED",
             "source_kind": "USER_UPLOAD",
@@ -506,6 +621,7 @@ def _seed_binding_generation(
                     task_id=task_id,
                     status=payload_status,
                     packet=packet,
+                    prior_final_memorial_content_hash=prior_final_hash,
                 )
             ),
             created_at="2026-07-24T00:00:00+00:00",
@@ -779,8 +895,6 @@ def test_worker_revalidates_tampered_artifact_and_quality_blocks(
     w05_contract_user,
 ):
     from src.db.models import (
-        CourtReview,
-        FinalMemorial,
         OutboxEvent,
         SecureIngestArtifact,
     )
@@ -792,23 +906,6 @@ def test_worker_revalidates_tampered_artifact_and_quality_blocks(
         tmp_path=tmp_path,
         task_id=task_id,
     )
-    db = isolated_session_local()
-    db.add(
-        CourtReview(
-            id=f"review_{task_id}",
-            tenant_id=1,
-            task_id=task_id,
-            routing_plan_json="{}",
-            review_status="awaiting_evidence",
-            ministry_outputs_json="[]",
-            conflict_summary_json="[]",
-            memorial_json="{}",
-            created_at="2026-07-24T00:00:00+00:00",
-            updated_at="2026-07-24T00:00:00+00:00",
-        )
-    )
-    db.commit()
-    db.close()
 
     client = TestClient(app)
     bound = client.post(
@@ -841,7 +938,7 @@ def test_worker_revalidates_tampered_artifact_and_quality_blocks(
     assert generation["status"] == "quality_blocked"
     assert generation["evidence_status"] == "STALE"
     assert generation["evidence_packets"][0]["evidence_status"] == "STALE"
-    assert db.query(FinalMemorial).filter_by(task_id=task_id).count() == 0
+    _assert_only_prior_final(db, task_id)
     db.close()
 
 
@@ -849,6 +946,9 @@ def _seed_rework_review(session_local, task_id: str) -> None:
     from src.db.models import CourtReview
 
     db = session_local()
+    if db.get(CourtReview, f"review_{task_id}") is not None:
+        db.close()
+        return
     db.add(
         CourtReview(
             id=f"review_{task_id}",
@@ -865,6 +965,21 @@ def _seed_rework_review(session_local, task_id: str) -> None:
     )
     db.commit()
     db.close()
+
+
+def _assert_only_prior_final(db, task_id: str) -> None:
+    from src.db.models import FinalMemorial
+
+    finals = (
+        db.query(FinalMemorial)
+        .filter_by(task_id=task_id)
+        .order_by(FinalMemorial.version.asc())
+        .all()
+    )
+    assert [
+        (row.version, row.status, row.is_current)
+        for row in finals
+    ] == [(1, "awaiting_evidence", True)]
 
 
 @pytest.mark.parametrize("durable_status", ["failed", "dead_letter", "superseded"])
@@ -1240,6 +1355,7 @@ def test_worker_fences_scope_that_no_longer_matches_confirmed_mission(
     payload = json.loads(event.payload_json)
     payload["contract_scope"] = scope
     event.payload_json = json.dumps(payload)
+    review_before = db.get(CourtReview, f"review_{task_id}").memorial_json
     db.commit()
     db.close()
     _seed_rework_review(isolated_session_local, task_id)
@@ -1264,8 +1380,8 @@ def test_worker_fences_scope_that_no_longer_matches_confirmed_mission(
     event = db.query(OutboxEvent).filter_by(id=generation_id).one()
     assert event.status == "superseded"
     review = db.query(CourtReview).filter_by(task_id=task_id).one()
-    assert json.loads(review.memorial_json) == {}
-    assert db.query(FinalMemorial).filter_by(task_id=task_id).count() == 0
+    assert review.memorial_json == review_before
+    _assert_only_prior_final(db, task_id)
     db.close()
 
 
@@ -1340,7 +1456,7 @@ def test_worker_never_promotes_conflicted_packet_and_allows_monotonic_degradatio
     generation = json.loads(event.payload_json)
     assert generation["evidence_status"] == expected_status
     assert generation["evidence_packets"][0]["evidence_status"] == expected_status
-    assert db.query(FinalMemorial).filter_by(task_id=task_id).count() == 0
+    _assert_only_prior_final(db, task_id)
     assert older_artifact_id != selected_artifact_id
     db.close()
 
@@ -1403,7 +1519,7 @@ def test_worker_does_not_promote_conflict_after_sibling_disappears_without_human
     generation = json.loads(event.payload_json)
     assert generation["evidence_status"] == "CONFLICTED"
     assert generation["evidence_packets"][0]["evidence_status"] == "CONFLICTED"
-    assert db.query(FinalMemorial).filter_by(task_id=task_id).count() == 0
+    _assert_only_prior_final(db, task_id)
     db.close()
 
 
@@ -1515,5 +1631,5 @@ def test_worker_digest_drift_between_classification_and_read_quality_blocks(
     assert generation["evidence_status"] == "STALE"
     assert generation["evidence_packets"][0]["evidence_status"] == "STALE"
     assert generation["status"] == "quality_blocked"
-    assert db.query(FinalMemorial).filter_by(task_id=task_id).count() == 0
+    _assert_only_prior_final(db, task_id)
     db.close()

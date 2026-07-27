@@ -20,7 +20,9 @@ from src.contracts.contract_review_pack import ContractReviewPackV1
 from src.contracts.contract_risk_item import ContractRiskItemV1
 from src.contracts.contract_support import evaluate_support
 from src.contracts.evidence_packet import EvidencePacketV1, EvidenceStatus
-from src.contracts.evidence_rework_generation import EvidenceReworkGenerationV1
+from src.contracts.evidence_rework_generation import (
+    EvidenceReworkGenerationPayloadV1,
+)
 from src.contracts.mission_contract import ContractIntakeV1
 from src.secure_ingest.evidence import classify_evidence_artifact
 from src.secure_ingest.storage import read_artifact_bytes_at_path
@@ -162,15 +164,88 @@ def _mission_scope_fence(
     }
 
 
+def _mission_identity_fence(
+    mission_snapshot: Any,
+    *,
+    generation: EvidenceReworkGenerationPayloadV1,
+    affected_sections: list[str],
+) -> dict[str, Any] | None:
+    if (
+        mission_snapshot.mission.revision == generation.mission_revision
+        and mission_snapshot.mission.content_digest
+        == generation.mission_content_digest
+    ):
+        return None
+    return {
+        "fenced": True,
+        "reason": "mission_changed",
+        "mission_revision": generation.mission_revision,
+        "current_mission_revision": mission_snapshot.mission.revision,
+        "affected_sections": affected_sections,
+    }
+
+
+def _prior_final_review_fence(
+    db: "Session",
+    *,
+    event: "OutboxEvent",
+    task: Any,
+    generation: EvidenceReworkGenerationPayloadV1,
+    affected_sections: list[str],
+) -> tuple[Any | None, Any | None, dict[str, Any] | None]:
+    from src.db.models import CourtReview, FinalMemorial
+
+    current_final = (
+        db.query(FinalMemorial)
+        .populate_existing()
+        .filter_by(task_id=event.task_id, is_current=True)
+        .one_or_none()
+    )
+    if (
+        task.tenant_id is None
+        or event.tenant_id is None
+        or task.tenant_id != event.tenant_id
+        or current_final is None
+        or current_final.tenant_id is None
+        or current_final.tenant_id != event.tenant_id
+        or current_final.status != "awaiting_evidence"
+        or current_final.content_hash
+        != generation.prior_final_memorial_content_hash
+    ):
+        return None, None, {
+            "fenced": True,
+            "reason": "prior_final_changed",
+            "affected_sections": affected_sections,
+        }
+
+    review = db.get(
+        CourtReview,
+        current_final.review_id,
+        populate_existing=True,
+    )
+    if (
+        review is None
+        or review.tenant_id is None
+        or review.tenant_id != event.tenant_id
+        or review.task_id != event.task_id
+    ):
+        return current_final, None, {
+            "fenced": True,
+            "reason": "review_lineage_conflict",
+            "affected_sections": affected_sections,
+        }
+    return current_final, review, None
+
+
 def recompute_contract_review(
     db: "Session",
     event: "OutboxEvent",
 ) -> dict[str, Any]:
     """Recompute only the declared contract section for the current generation."""
-    from src.db.models import CourtReview, DecisionTask, OutboxEvent, SecureIngestArtifact
+    from src.db.models import DecisionTask, OutboxEvent, SecureIngestArtifact
     from src.w05_feature import w05_contract_rework_active
 
-    generation = EvidenceReworkGenerationV1.model_validate_json(
+    generation = EvidenceReworkGenerationPayloadV1.model_validate_json(
         event.payload_json or "{}"
     )
     affected_sections = generation.affected_sections
@@ -219,17 +294,25 @@ def recompute_contract_review(
     )
     if scope_fence is not None:
         return scope_fence
+    mission_identity_fence = _mission_identity_fence(
+        mission_snapshot,
+        generation=generation,
+        affected_sections=affected_sections,
+    )
+    if mission_identity_fence is not None:
+        return mission_identity_fence
+    _, review, lineage_fence = _prior_final_review_fence(
+        db,
+        event=event,
+        task=task,
+        generation=generation,
+        affected_sections=affected_sections,
+    )
+    if lineage_fence is not None:
+        return lineage_fence
     scope = generation.contract_scope
     if scope is None:
         raise RuntimeError("mission scope fence returned without a frozen scope")
-    review = (
-        db.query(CourtReview)
-        .filter_by(task_id=event.task_id)
-        .order_by(CourtReview.created_at.desc())
-        .first()
-    )
-    if review is None:
-        raise ValueError("rework generation 缺少 canonical CourtReview")
 
     risk_items: list[ContractRiskItemV1] = []
     revalidated_packets: list[EvidencePacketV1] = []
@@ -308,7 +391,9 @@ def recompute_contract_review(
     generation_payload["evidence_packets"] = [
         packet.model_dump(mode="json") for packet in revalidated_packets
     ]
-    generation = EvidenceReworkGenerationV1.model_validate(generation_payload)
+    generation = EvidenceReworkGenerationPayloadV1.model_validate(
+        generation_payload
+    )
     packets = generation.evidence_packets or []
 
     support = evaluate_support(
@@ -363,6 +448,16 @@ def recompute_contract_review(
     task_fence = _terminal_task_fence(task, affected_sections=affected_sections)
     if task_fence is not None:
         return task_fence
+    _, publication_review, lineage_fence = _prior_final_review_fence(
+        db,
+        event=event,
+        task=task,
+        generation=generation,
+        affected_sections=affected_sections,
+    )
+    if lineage_fence is not None:
+        return lineage_fence
+    review = publication_review
     if not w05_contract_rework_active():
         return {
             "fenced": True,
@@ -398,18 +493,13 @@ def recompute_contract_review(
     )
     if scope_fence is not None:
         return scope_fence
-    if (
-        publication_mission.mission.revision != mission_snapshot.mission.revision
-        or publication_mission.mission.content_digest
-        != mission_snapshot.mission.content_digest
-    ):
-        return {
-            "fenced": True,
-            "reason": "mission_changed",
-            "mission_revision": mission_snapshot.mission.revision,
-            "current_mission_revision": publication_mission.mission.revision,
-            "affected_sections": affected_sections,
-        }
+    mission_identity_fence = _mission_identity_fence(
+        publication_mission,
+        generation=generation,
+        affected_sections=affected_sections,
+    )
+    if mission_identity_fence is not None:
+        return mission_identity_fence
 
     _lock_evidence_version_publication(db)
     # Final fail-closed recheck under the artifact-version publication fence.
@@ -430,7 +520,9 @@ def recompute_contract_review(
     generation_payload["evidence_packets"] = [
         packet.model_dump(mode="json") for packet in publication_packets
     ]
-    generation = EvidenceReworkGenerationV1.model_validate(generation_payload)
+    generation = EvidenceReworkGenerationPayloadV1.model_validate(
+        generation_payload
+    )
     packets = generation.evidence_packets or []
     grounded_packet_ids = {
         packet.evidence_packet_id
@@ -461,7 +553,7 @@ def recompute_contract_review(
     )
     review.review_status = "awaiting_evidence" if gate_reasons else "awaiting_decision"
     task.status = "awaiting_evidence" if gate_reasons else "awaiting_decision"
-    generation = EvidenceReworkGenerationV1.model_validate(
+    generation = EvidenceReworkGenerationPayloadV1.model_validate(
         {
             **generation.to_payload(),
             "status": "quality_blocked" if gate_reasons else "candidate_ready",

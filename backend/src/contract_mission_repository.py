@@ -102,6 +102,9 @@ def save_mission_snapshot(
     candidate = mission.model_copy(
         update={"content_digest": compute_mission_content_digest(mission)}
     )
+    from src.decision_task_access import lock_decision_task
+
+    lock_decision_task(db, task.id)
     current = load_current_mission_snapshot(db, task=task)
     if current is not None:
         if candidate.revision < current.mission.revision:

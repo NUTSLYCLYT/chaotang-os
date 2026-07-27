@@ -19,7 +19,7 @@ P0-B 视野:要么在行为门里补一条跨用户测试,要么在这里有意�
 - contracts.py ×1(W07 `_owned_task`, user_id + tenant_id 双校验及行为探针)
 - court_compat.py ×1
 - jinyiwei.py ×1(fill-gap,已有归属校验)
-- shangshufang.py ×11(其中 tasks/{id}/status 已于 2026-07-14 修复)
+- shangshufang.py ×5(2026-07-28 将六处旧裸查收敛到 tenant+user ownership helper)
 - swarm_runs.py ×1
 计数不区分 guarded/unguarded——因为它区分不了,这正是它不是硬门的原因。
 """
@@ -95,7 +95,7 @@ _BASELINE = {
     "contracts.py": 1,
     "court_compat.py": 1,
     "jinyiwei.py": 1,
-    "shangshufang.py": 11,
+    "shangshufang.py": 5,
     "swarm_runs.py": 1,
 }
 

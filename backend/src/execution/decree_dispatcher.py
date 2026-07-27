@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from hashlib import sha1, sha256
 from typing import TYPE_CHECKING
 
-from sqlalchemy import func, update
+from sqlalchemy import func
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -83,7 +83,9 @@ def enqueue_evidence_rework_generation(
     followup_question: str | None,
 ) -> tuple[dict[str, object], bool]:
     """Create or reuse the generation bound to one exact evidence request."""
-    from src.contracts.evidence_rework_generation import EvidenceReworkGenerationV1
+    from src.contracts.evidence_rework_generation import (
+        EvidenceReworkGenerationPayloadV1,
+    )
     from src.contracts.mission_contract import ContractIntakeV1
     from src.core_tenant_lineage import tenant_id_for_task
     from src.db.models import DecisionTask, OutboxEvent
@@ -92,11 +94,6 @@ def enqueue_evidence_rework_generation(
     require_w05_contract_rework()
     lock_evidence_rework_task(db, task_id)
     task = db.query(DecisionTask).filter_by(id=task_id).one()
-    contract_scope = (
-        ContractIntakeV1.model_validate_json(task.contract_scope_json)
-        if task.contract_scope_json
-        else None
-    )
     idempotency_key = evidence_rework_idempotency_key(
         task_id=task_id,
         prior_final_memorial_content_hash=prior_final_memorial_content_hash,
@@ -111,6 +108,18 @@ def enqueue_evidence_rework_generation(
     if existing is not None:
         return json.loads(existing.payload_json), False
 
+    from src.contract_mission_repository import load_current_mission_snapshot
+
+    mission_snapshot = load_current_mission_snapshot(db, task=task)
+    if mission_snapshot is None or mission_snapshot.state != "confirmed":
+        raise ValueError(
+            "evidence rework generation requires confirmed MissionContract"
+        )
+    contract_scope = (
+        ContractIntakeV1.model_validate_json(task.contract_scope_json)
+        if task.contract_scope_json
+        else None
+    )
     latest_generation = (
         db.query(func.max(OutboxEvent.generation))
         .filter_by(task_id=task_id)
@@ -118,11 +127,13 @@ def enqueue_evidence_rework_generation(
     )
     generation = max(latest_generation or 1, 1) + 1
     generation_id = f"outbox_rework_{sha256(idempotency_key.encode('utf-8')).hexdigest()[:16]}"
-    payload = EvidenceReworkGenerationV1(
+    payload = EvidenceReworkGenerationPayloadV1(
         generation_id=generation_id,
         generation=generation,
         status="awaiting_evidence",
         prior_final_memorial_content_hash=prior_final_memorial_content_hash,
+        mission_revision=mission_snapshot.mission.revision,
+        mission_content_digest=mission_snapshot.mission.content_digest,
         evidence_request={
             "reason": reason,
             "followup_question": followup_question,
@@ -164,15 +175,14 @@ def lock_evidence_rework_task(db: "Session", task_id: str) -> None:
     All W05 generation creators and publishers must take this lock before they
     decide which generation is current.
     """
-    from src.db.models import DecisionTask
+    from src.decision_task_access import lock_decision_task
 
-    result = db.execute(
-        update(DecisionTask)
-        .where(DecisionTask.id == task_id)
-        .values(id=DecisionTask.id)
-    )
-    if result.rowcount != 1:
-        raise ValueError("rework generation 缺少 canonical DecisionTask")
+    try:
+        lock_decision_task(db, task_id)
+    except ValueError as exc:
+        raise ValueError(
+            "rework generation 缺少 canonical DecisionTask"
+        ) from exc
 
 
 def evidence_rework_idempotency_key(

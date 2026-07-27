@@ -181,11 +181,15 @@ def test_concurrent_legacy_decision_replays_one_durable_result(
     db.close()
 
     both_loaded = threading.Barrier(2)
+    classify_calls = threading.local()
     original_is_contract_task = router_module._is_contract_task
 
     def _pace_after_task_load(*args, **kwargs):
         result = original_is_contract_task(*args, **kwargs)
-        both_loaded.wait(timeout=5)
+        call_count = getattr(classify_calls, "count", 0) + 1
+        classify_calls.count = call_count
+        if call_count == 1:
+            both_loaded.wait(timeout=5)
         return result
 
     monkeypatch.setattr(
@@ -257,7 +261,9 @@ def test_cancel_rejected_on_already_archived_task(isolated_session_local):
         f"/api/shangshufang/tasks/{task_id}/decision",
         json={"action": "cancel", "reason": "太迟了", "human_confirmed": True},
     )
-    assert resp.json()["success"] is True
+    assert resp.status_code == 409
+    assert resp.json()["success"] is False
+    assert "durable legacy decision missing" in resp.json()["error"]
 
     db = isolated_session_local()
     assert db.query(DecisionTask).filter_by(id=task_id).one().status == "archived"
@@ -280,11 +286,107 @@ def test_cancel_rejected_on_already_draft_cancelled_task(isolated_session_local)
         f"/api/shangshufang/tasks/{task_id}/decision",
         json={"action": "cancel", "reason": "太迟了", "human_confirmed": True},
     )
-    assert resp.json()["success"] is True
+    assert resp.status_code == 409
+    assert resp.json()["success"] is False
+    assert "durable legacy decision missing" in resp.json()["error"]
 
     db = isolated_session_local()
     assert db.query(DecisionTask).filter_by(id=task_id).one().status == "draft_cancelled"
     db.close()
+
+
+def test_recheck_replay_requires_durable_decision(isolated_session_local):
+    db = isolated_session_local()
+    task_id = "task_recheck_without_decision"
+    _seed_task(db, task_id=task_id, status="reviewing")
+    db.close()
+
+    response = TestClient(app).post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "recheck",
+            "reason": "没有 durable decision 不得伪装 replay",
+            "human_confirmed": True,
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["success"] is False
+    assert "durable legacy decision missing" in response.json()["error"]
+    db = isolated_session_local()
+    assert db.get(DecisionTask, task_id).status == "reviewing"
+    db.close()
+
+
+@pytest.mark.parametrize(
+    ("action", "initial_status"),
+    [
+        ("cancel", "awaiting_decision"),
+        ("recheck", "awaiting_decision"),
+    ],
+)
+def test_legacy_action_reclassifies_after_task_lock_when_mission_appears(
+    isolated_session_local,
+    monkeypatch,
+    action,
+    initial_status,
+):
+    from src.contract_mission_repository import save_mission_snapshot
+    from src.db.models import DecreeExecutionEvent, EmperorDecision
+    from src.execution import decree_dispatcher
+    from tests.contract_task_support import contract_mission
+
+    task_id = f"task-mission-race-{action}"
+    with isolated_session_local() as db:
+        _seed_task(db, task_id=task_id, status=initial_status)
+
+    original_lock = decree_dispatcher.lock_evidence_rework_task
+    mission_published = False
+
+    def _publish_mission_while_acquiring_lock(db, locked_task_id):
+        nonlocal mission_published
+        original_lock(db, locked_task_id)
+        if not mission_published:
+            mission_published = True
+            task = db.get(DecisionTask, locked_task_id)
+            save_mission_snapshot(
+                db,
+                task=task,
+                mission=contract_mission(locked_task_id),
+                state="confirmed",
+            )
+
+    monkeypatch.setattr(
+        decree_dispatcher,
+        "lock_evidence_rework_task",
+        _publish_mission_while_acquiring_lock,
+    )
+
+    response = TestClient(app).post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": action,
+            "reason": "锁后出现 Mission 必须改走合同 authority",
+            "human_confirmed": True,
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["success"] is False
+    assert "contract" in response.json()["error"] or (
+        "REFRESH_REVIEW" in response.json()["error"]
+    )
+    with isolated_session_local() as db:
+        assert db.get(DecisionTask, task_id).status == initial_status
+        assert (
+            db.query(CourtReview).filter_by(task_id=task_id).one().review_status
+            == initial_status
+        )
+        assert db.query(EmperorDecision).filter_by(task_id=task_id).count() == 0
+        assert (
+            db.query(DecreeExecutionEvent).filter_by(task_id=task_id).count()
+            == 0
+        )
 
 
 def test_cancel_action_is_recorded_with_final_verdict_kind(isolated_session_local):

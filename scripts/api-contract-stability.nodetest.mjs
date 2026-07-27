@@ -262,3 +262,72 @@ test('follows component response refs when classifying response schemas', () => 
   }]);
   assert.deepEqual(diff.warnings, []);
 });
+
+test('detects changes to a component response object behind a stable ref', () => {
+  const base = {
+    paths: {
+      '/indirect': {
+        get: {
+          responses: {
+            200: { $ref: '#/components/responses/ExampleResponse' },
+          },
+        },
+      },
+    },
+    components: {
+      responses: {
+        ExampleResponse: {
+          description: 'original response',
+          content: {
+            'application/json': {
+              schema: { type: 'object' },
+            },
+          },
+        },
+      },
+    },
+  };
+  const current = structuredClone(base);
+  current.components.responses.ExampleResponse.description = 'changed response';
+
+  const diff = compareContracts(base, current);
+
+  assert.deepEqual(diff.breaking, [{
+    type: 'component_response_changed',
+    key: 'ExampleResponse',
+  }]);
+});
+
+test('detects replacement of a route component response ref', () => {
+  const base = {
+    paths: {
+      '/indirect': {
+        get: {
+          responses: {
+            200: { $ref: '#/components/responses/ExampleResponse' },
+          },
+        },
+      },
+    },
+    components: {
+      responses: {
+        ExampleResponse: {
+          description: 'example',
+        },
+        ReplacementResponse: {
+          description: 'replacement',
+        },
+      },
+    },
+  };
+  const current = structuredClone(base);
+  current.paths['/indirect'].get.responses[200].$ref = (
+    '#/components/responses/ReplacementResponse'
+  );
+
+  const diff = compareContracts(base, current);
+
+  assert.deepEqual(diff.breaking.map((item) => item.type), [
+    'response_schema_changed',
+  ]);
+});

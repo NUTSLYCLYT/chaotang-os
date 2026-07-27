@@ -7,9 +7,21 @@ boundary, complementing the single writer in ``decision_task_kernel``.
 
 from __future__ import annotations
 
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from src.db.models import DecisionTask
+
+
+def lock_decision_task(db: Session, task_id: str) -> None:
+    """Serialize writers that can change a task's contract classification."""
+    result = db.execute(
+        update(DecisionTask)
+        .where(DecisionTask.id == task_id)
+        .values(id=DecisionTask.id)
+    )
+    if result.rowcount != 1:
+        raise ValueError("canonical DecisionTask missing")
 
 
 def get_owned_decision_task(

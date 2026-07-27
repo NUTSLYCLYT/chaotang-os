@@ -79,3 +79,19 @@ class EvidenceReworkGenerationV1(BaseModel):
         payload = self.model_dump(mode="json", exclude_none=True)
         payload["evidence_request"] = self.evidence_request.model_dump(mode="json")
         return payload
+
+
+class EvidenceReworkGenerationPayloadV1(EvidenceReworkGenerationV1):
+    """Durable generation payload with the frozen Mission identity fence."""
+
+    mission_revision: int = Field(ge=1)
+    mission_content_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    def to_public_payload(self) -> dict[str, object]:
+        public = EvidenceReworkGenerationV1.model_validate(
+            self.model_dump(
+                mode="json",
+                exclude={"mission_revision", "mission_content_digest"},
+            )
+        )
+        return public.to_payload()

@@ -134,6 +134,7 @@ function responseSignature(operation) {
     Object.entries(responses)
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([status, response]) => {
+        if (response?.$ref) return [status, schemaKind(response)];
         const content = response?.content || {};
         const json = content['application/json'] || content['text/event-stream'] || Object.values(content)[0];
         return [status, schemaKind(json?.schema)];
@@ -296,6 +297,8 @@ export function compareContracts(previousOpenApi, currentOpenApi) {
   const warnings = [...routeDiff.warnings];
   const previousSchemas = previousOpenApi.components?.schemas || {};
   const currentSchemas = currentOpenApi.components?.schemas || {};
+  const previousResponses = previousOpenApi.components?.responses || {};
+  const currentResponses = currentOpenApi.components?.responses || {};
   const previousResponseComponents = responseReachableComponents(previousOpenApi);
 
   for (const [name, schema] of Object.entries(previousSchemas)) {
@@ -330,6 +333,32 @@ export function compareContracts(previousOpenApi, currentOpenApi) {
     if (!(name in previousSchemas)) {
       warnings.push({
         type: 'component_schema_added',
+        key: name,
+      });
+    }
+  }
+  for (const [name, response] of Object.entries(previousResponses).sort(
+    ([left], [right]) => left.localeCompare(right),
+  )) {
+    if (!(name in currentResponses)) {
+      breaking.push({
+        type: 'component_response_removed',
+        key: name,
+      });
+    } else if (
+      JSON.stringify(sortObject(response))
+      !== JSON.stringify(sortObject(currentResponses[name]))
+    ) {
+      breaking.push({
+        type: 'component_response_changed',
+        key: name,
+      });
+    }
+  }
+  for (const name of Object.keys(currentResponses).sort()) {
+    if (!(name in previousResponses)) {
+      warnings.push({
+        type: 'component_response_added',
         key: name,
       });
     }

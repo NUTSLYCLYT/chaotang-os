@@ -119,6 +119,22 @@ from src.contract_task_actions import (
             ContractTaskFacts(
                 mission_state="CONFIRMED",
                 source_class="ADJUDICABLE",
+                task_status="archived",
+                evidence_ready=True,
+                review_pack_ready=True,
+                review_verdict="PROCEED_TO_HUMAN_APPROVAL",
+                final_status="READY_FOR_DECISION",
+                delivery_status="READY",
+                downloadable_count=3,
+                delivery_complete=True,
+            ),
+            (),
+            ("STATE_INCONSISTENT",),
+        ),
+        (
+            ContractTaskFacts(
+                mission_state="CONFIRMED",
+                source_class="ADJUDICABLE",
                 evidence_ready=True,
                 review_pack_ready=True,
                 review_verdict="PROCEED_TO_HUMAN_APPROVAL",

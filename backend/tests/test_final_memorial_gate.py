@@ -54,6 +54,45 @@ def _seed_candidate(
     return review_id
 
 
+def _seed_contract_evidence_candidate(
+    db,
+    *,
+    task_id: str,
+    storage_root,
+    user_id: str = "1",
+):
+    from tests.contract_task_support import (
+        contract_review_pack,
+        seed_contract_task,
+        seed_delivery,
+        seed_final_memorial,
+    )
+
+    task = seed_contract_task(
+        db,
+        task_id=task_id,
+        tenant_id=1,
+        user_id=user_id,
+    )
+    task.status = "awaiting_decision"
+    pack = contract_review_pack(task_id, tenant_id="1")
+    final, pack = seed_final_memorial(
+        db,
+        task_id=task_id,
+        tenant_id=1,
+        pack=pack,
+    )
+    seed_delivery(
+        db,
+        storage_root=storage_root,
+        tenant_id=1,
+        task_id=task_id,
+        final=final,
+        pack=pack,
+    )
+    return str(pack["court_review_id"]), final
+
+
 def _swarm_result(
     *, task_id: str, review_id: str, source_label: str, passed: bool = True
 ):
@@ -541,6 +580,8 @@ def test_reject_supersedes_formal_memorial_and_blocks_later_adopt(isolated_sessi
 
 def test_request_evidence_invalidates_old_memorial_before_later_adopt(
     isolated_session_local,
+    monkeypatch,
+    tmp_path,
 ):
     """补证令必须先关闭旧奏折的裁决资格，再等待新 generation。
 
@@ -548,18 +589,13 @@ def test_request_evidence_invalidates_old_memorial_before_later_adopt(
     要求补证后，旧内容不能仍保持可准奏状态。后续新证据、新 generation 和新
     FinalMemorial 尚未形成之前，再次 adopt 必须 fail closed。
     """
-    from src.formal_memorial import formalize_memorial
-
+    monkeypatch.setenv("FENGQUN_RUNTIME_ROOT", str(tmp_path))
     db = isolated_session_local()
     task_id = "task_request_evidence_then_adopt"
-    review_id = _seed_candidate(db, task_id=task_id)
-    formal = formalize_memorial(
+    _, formal = _seed_contract_evidence_candidate(
         db,
         task_id=task_id,
-        review_id=review_id,
-        swarm_result=_swarm_result(
-            task_id=task_id, review_id=review_id, source_label="LIVE_SWARM"
-        ),
+        storage_root=tmp_path / "artifacts",
     )
     content_hash = formal.content_hash
     db.commit()
@@ -582,7 +618,8 @@ def test_request_evidence_invalidates_old_memorial_before_later_adopt(
         json={"action": "adopt", "reason": "沿用旧稿", "human_confirmed": True},
     )
     assert blocked_adopt.json()["success"] is False
-    assert "正式奏折" in blocked_adopt.json()["error"]
+    assert "DECIDE" in blocked_adopt.json()["error"]
+    assert "EVIDENCE_INCOMPLETE" in blocked_adopt.json()["error"]
 
 
 def test_request_evidence_requires_current_memorial_content_hash(
@@ -739,20 +776,17 @@ def test_w05_contract_rework_defaults_off_without_creating_generation(
 
 def test_repeated_evidence_request_reuses_one_rework_generation(
     isolated_session_local,
+    monkeypatch,
+    tmp_path,
 ):
     """网络重试不得为同一份补证要求创建两条 generation。"""
-    from src.formal_memorial import formalize_memorial
-
+    monkeypatch.setenv("FENGQUN_RUNTIME_ROOT", str(tmp_path))
     db = isolated_session_local()
     task_id = "task_request_evidence_generation_idempotent"
-    review_id = _seed_candidate(db, task_id=task_id)
-    formal = formalize_memorial(
+    _, formal = _seed_contract_evidence_candidate(
         db,
         task_id=task_id,
-        review_id=review_id,
-        swarm_result=_swarm_result(
-            task_id=task_id, review_id=review_id, source_label="LIVE_SWARM"
-        ),
+        storage_root=tmp_path / "artifacts",
     )
     content_hash = formal.content_hash
     db.commit()
@@ -851,6 +885,8 @@ def test_competing_identical_request_replays_winning_generation_after_cas_loss(
             "generation": 2,
             "status": "awaiting_evidence",
             "prior_final_memorial_content_hash": content_hash,
+            "mission_revision": 1,
+            "mission_content_digest": "b" * 64,
             "evidence_request": {
                 "reason": reason,
                 "followup_question": None,
@@ -905,24 +941,19 @@ def test_competing_identical_request_replays_winning_generation_after_cas_loss(
 @pytest.mark.parametrize("failed_status", ["failed", "dead_letter"])
 def test_failed_generation_replay_reports_authoritative_failure(
     isolated_session_local,
+    monkeypatch,
+    tmp_path,
     failed_status,
 ):
     """失败 generation 的旧 pending payload 不能伪装成成功重放。"""
     from src.db.models import EmperorDecision, OutboxEvent
-    from src.formal_memorial import formalize_memorial
-
+    monkeypatch.setenv("FENGQUN_RUNTIME_ROOT", str(tmp_path))
     db = isolated_session_local()
     task_id = f"task_generation_replay_{failed_status}"
-    review_id = _seed_candidate(db, task_id=task_id)
-    formal = formalize_memorial(
+    _, formal = _seed_contract_evidence_candidate(
         db,
         task_id=task_id,
-        review_id=review_id,
-        swarm_result=_swarm_result(
-            task_id=task_id,
-            review_id=review_id,
-            source_label="LIVE_SWARM",
-        ),
+        storage_root=tmp_path / "artifacts",
     )
     content_hash = formal.content_hash
     db.commit()
@@ -970,22 +1001,17 @@ def test_failed_generation_replay_reports_authoritative_failure(
 
 def test_brief_evidence_request_uses_same_idempotent_rework_generation(
     isolated_session_local,
+    monkeypatch,
+    tmp_path,
 ):
     """兼容 brief 入口不能只改状态，必须复用 task 入口的 generation 事实。"""
-    from src.formal_memorial import formalize_memorial
-
+    monkeypatch.setenv("FENGQUN_RUNTIME_ROOT", str(tmp_path))
     db = isolated_session_local()
     task_id = "task_brief_request_evidence_generation"
-    review_id = _seed_candidate(db, task_id=task_id)
-    formal = formalize_memorial(
+    review_id, formal = _seed_contract_evidence_candidate(
         db,
         task_id=task_id,
-        review_id=review_id,
-        swarm_result=_swarm_result(
-            task_id=task_id,
-            review_id=review_id,
-            source_label="LIVE_SWARM",
-        ),
+        storage_root=tmp_path / "artifacts",
     )
     content_hash = formal.content_hash
     db.commit()
@@ -1068,25 +1094,22 @@ def test_current_memorial_claim_is_atomic_for_competing_decisions(
 def test_accepted_upload_binds_to_waiting_rework_generation(
     isolated_session_local,
     monkeypatch,
+    tmp_path,
     capability_active,
     w05_contract_user,
 ):
     """安全摄取通过的附件才能形成 generation-bound EvidencePacket。"""
     from src.db.models import OutboxEvent
-    from src.formal_memorial import formalize_memorial
     from tests.fixtures.secure_ingest_fixtures import golden_docx_bytes
 
     monkeypatch.setenv("FENGQUN_W05_CONTRACT_REWORK", "1")
+    monkeypatch.setenv("FENGQUN_RUNTIME_ROOT", str(tmp_path))
     db = isolated_session_local()
     task_id = "task_bind_accepted_evidence"
-    review_id = _seed_candidate(db, task_id=task_id)
-    formal = formalize_memorial(
+    _, formal = _seed_contract_evidence_candidate(
         db,
         task_id=task_id,
-        review_id=review_id,
-        swarm_result=_swarm_result(
-            task_id=task_id, review_id=review_id, source_label="LIVE_SWARM"
-        ),
+        storage_root=tmp_path / "artifacts",
     )
     content_hash = formal.content_hash
     db.commit()
@@ -1188,28 +1211,24 @@ def test_accepted_upload_binds_to_waiting_rework_generation(
 @pytest.mark.parametrize("denial", ["cross_user", "internal_ops"])
 def test_evidence_binding_enforces_owner_and_body_access_policy(
     isolated_session_local,
+    monkeypatch,
+    tmp_path,
     w05_contract_user,
     denial,
 ):
     """任务归属不能替代附件归属和 W03 正文 purpose/role 授权。"""
     from src.db.models import OutboxEvent, SecureIngestArtifact
-    from src.formal_memorial import formalize_memorial
     from tests.fixtures.secure_ingest_fixtures import golden_docx_bytes
     from web import deps
     from web.schemas.auth import CurrentUser
 
+    monkeypatch.setenv("FENGQUN_RUNTIME_ROOT", str(tmp_path))
     db = isolated_session_local()
     task_id = f"task_bind_authz_{denial}"
-    review_id = _seed_candidate(db, task_id=task_id)
-    formal = formalize_memorial(
+    _, formal = _seed_contract_evidence_candidate(
         db,
         task_id=task_id,
-        review_id=review_id,
-        swarm_result=_swarm_result(
-            task_id=task_id,
-            review_id=review_id,
-            source_label="LIVE_SWARM",
-        ),
+        storage_root=tmp_path / "artifacts",
     )
     content_hash = formal.content_hash
     db.commit()

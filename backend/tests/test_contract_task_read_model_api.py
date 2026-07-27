@@ -241,6 +241,60 @@ def test_contract_recheck_requires_server_refresh_review_before_any_write(
         assert _decision_state(db, task_id) == before
 
 
+def test_contract_swarm_deepen_requires_server_refresh_review_before_any_write(
+    monkeypatch,
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    task_id = "task-api-swarm-deepen-gate"
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id=task_id)
+        task.status = "task_cancelled"
+        db.commit()
+        before = _decision_state(db, task_id)
+
+    client, app = _client(monkeypatch, isolated_session_local, tmp_path)
+    try:
+        response = client.post(
+            f"/api/shangshufang/tasks/{task_id}/swarm-deepen"
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["success"] is False
+    assert "REFRESH_REVIEW" in response.json()["error"]
+    with isolated_session_local() as db:
+        assert _decision_state(db, task_id) == before
+
+
+def test_contract_edict_return_is_not_authorized_before_any_write(
+    monkeypatch,
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    task_id = "task-api-edict-return-gate"
+    with isolated_session_local() as db:
+        seed_contract_task(db, task_id=task_id)
+        db.commit()
+        before = _decision_state(db, task_id)
+
+    client, app = _client(monkeypatch, isolated_session_local, tmp_path)
+    try:
+        response = client.post(
+            "/api/shangshufang/edict-return",
+            json={"taskId": task_id, "command": "legacy write"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["success"] is False
+    assert "not authorized for contract tasks" in response.json()["error"]
+    with isolated_session_local() as db:
+        assert _decision_state(db, task_id) == before
+
+
 @pytest.mark.parametrize("action", ["request_evidence", "followup"])
 def test_contract_evidence_action_requires_server_decide_before_any_write(
     action,
@@ -949,10 +1003,21 @@ def test_pack_only_contract_candidate_is_blocked_at_shared_writer(
         assert _decision_state(db, task_id) == before
 
 
+@pytest.mark.parametrize(
+    ("case_id", "malformed_payload"),
+    [
+        ("truncated_marker", '{"contract_review":'),
+        ("single_quote_marker", "{'contract_review':"),
+        ("unicode_escaped_marker", r'{"\u0063ontract_review":'),
+        ("generic_truncated_object", "{"),
+    ],
+)
 def test_malformed_pack_marker_cannot_downgrade_to_legacy_writer(
     monkeypatch,
     isolated_session_local,
     tmp_path,
+    case_id,
+    malformed_payload,
 ) -> None:
     import hashlib
 
@@ -960,8 +1025,7 @@ def test_malformed_pack_marker_cannot_downgrade_to_legacy_writer(
     from web.routers.shangshufang import _execute_final_memorial_decision
 
     monkeypatch.setenv("FENGQUN_RUNTIME_ROOT", str(tmp_path))
-    task_id = "task-api-malformed-pack-writer-gate"
-    malformed_payload = '{"contract_review":'
+    task_id = f"task-api-malformed-pack-writer-gate-{case_id}"
     with isolated_session_local() as db:
         task = DecisionTask(
             id=task_id,

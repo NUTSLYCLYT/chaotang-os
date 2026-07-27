@@ -473,6 +473,7 @@ def test_evidence_rework_recomputes_only_declared_contract_section(
     from src.db.models import (
         CourtReview,
         DecisionTask,
+        FinalMemorial,
         OutboxEvent,
         SecureIngestArtifact,
     )
@@ -486,6 +487,15 @@ def test_evidence_rework_recomputes_only_declared_contract_section(
     artifact_path = tmp_path / "payment-evidence.docx"
     artifact_path.write_bytes(artifact_bytes)
     digest = hashlib.sha256(artifact_bytes).hexdigest()
+    prior_memorial = json.dumps(
+        {
+            "contract_review": {"status": "old"},
+            "financial_review": {"status": "keep-me"},
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    prior_final_hash = hashlib.sha256(prior_memorial.encode("utf-8")).hexdigest()
     task = DecisionTask(
         id=task_id,
         tenant_id=1,
@@ -504,14 +514,25 @@ def test_evidence_rework_recomputes_only_declared_contract_section(
             review_status="awaiting_evidence",
             ministry_outputs_json="[]",
             conflict_summary_json="[]",
-            memorial_json=json.dumps(
-                {
-                    "contract_review": {"status": "old"},
-                    "financial_review": {"status": "keep-me"},
-                }
-            ),
+                memorial_json=prior_memorial,
             created_at="2026-07-24T00:00:00+00:00",
             updated_at="2026-07-24T00:00:00+00:00",
+        )
+    )
+    db.add(
+        FinalMemorial(
+            id="final-evidence-rework-worker-v1",
+            tenant_id=1,
+            task_id=task_id,
+            review_id="review-evidence-rework-worker",
+            swarm_run_id="swarm-evidence-rework-worker-v1",
+            quality_result_id="quality-evidence-rework-worker-v1",
+            status="awaiting_evidence",
+            source_label="LIVE",
+            memorial_json=prior_memorial,
+            content_hash=prior_final_hash,
+            version=1,
+            is_current=True,
         )
     )
     db.add(
@@ -536,6 +557,9 @@ def test_evidence_rework_recomputes_only_declared_contract_section(
         )
     )
     generation_id = "outbox-rework-generation-2"
+    from tests.contract_task_support import contract_mission
+
+    generation_mission = contract_mission(task_id)
     db.add(
         OutboxEvent(
             id=generation_id,
@@ -554,7 +578,9 @@ def test_evidence_rework_recomputes_only_declared_contract_section(
                     "generation_id": generation_id,
                     "generation": 2,
                     "status": "evidence_bound",
-                    "prior_final_memorial_content_hash": "a" * 64,
+                    "prior_final_memorial_content_hash": prior_final_hash,
+                    "mission_revision": generation_mission.revision,
+                    "mission_content_digest": generation_mission.content_digest,
                     "evidence_request": {
                         "reason": "补充第 4 页付款条件原文",
                         "followup_question": None,
@@ -576,7 +602,7 @@ def test_evidence_rework_recomputes_only_declared_contract_section(
                             "task_id": task_id,
                             "input_version_id": artifact_id,
                             "input_digest": digest,
-                            "prior_final_memorial_content_hash": "a" * 64,
+                            "prior_final_memorial_content_hash": prior_final_hash,
                             "generation": 2,
                             "evidence_status": "GROUNDED",
                             "source_kind": "USER_UPLOAD",
@@ -700,6 +726,8 @@ def test_late_old_rework_generation_cannot_replace_current_review(
         "schema_version": "EvidenceReworkGenerationV1",
         "status": "evidence_bound",
         "prior_final_memorial_content_hash": "a" * 64,
+        "mission_revision": 1,
+        "mission_content_digest": "b" * 64,
         "evidence_request": {"reason": "补证", "followup_question": None},
         "affected_sections": ["contract_review"],
         "evidence_packets": [],
@@ -755,7 +783,12 @@ def test_late_old_rework_generation_cannot_replace_current_review(
         "capability_disabled",
         "terminal_task",
         "mission_changed",
+        "prior_final_changed",
+        "mission_same_scope_changed_before_worker",
         "mission_scope_changed_before_worker",
+        "prior_final_changed_before_worker",
+        "wrong_review_tenant_before_worker",
+        "null_review_tenant_before_worker",
     ],
 )
 def test_supported_contract_rework_public_chain_appends_current_v2(
@@ -888,6 +921,8 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
     ).json()
     assert requested["success"] is True, requested
     generation = requested["data"]["rework_generation"]
+    assert "mission_revision" not in generation
+    assert "mission_content_digest" not in generation
 
     uploaded = client.post(
         "/api/secure-ingest/upload",
@@ -922,25 +957,39 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
         },
     ).json()
     assert bound["success"] is True, bound
+    assert "mission_revision" not in bound["data"]["rework_generation"]
+    assert "mission_content_digest" not in bound["data"]["rework_generation"]
 
     worker_db = isolated_session_local()
     worker_task = worker_db.get(DecisionTask, task_id)
+    durable_generation = json.loads(
+        worker_db.get(OutboxEvent, generation["generation_id"]).payload_json
+    )
     save_mission_snapshot(
         worker_db,
         task=worker_task,
         mission=contract_mission(task_id),
         state="confirmed",
     )
-    if interruption == "mission_scope_changed_before_worker":
+    if interruption in {
+        "mission_same_scope_changed_before_worker",
+        "mission_scope_changed_before_worker",
+    }:
         from src.contracts.mission_contract import compute_mission_content_digest
 
+        mission_updates = {
+            "revision": 2,
+            "content_digest": "0" * 64,
+        }
+        if interruption == "mission_scope_changed_before_worker":
+            mission_updates.update(
+                {
+                    "contract_type": "sales",
+                    "our_role": "seller",
+                }
+            )
         changed_mission = contract_mission(task_id).model_copy(
-            update={
-                "revision": 2,
-                "contract_type": "sales",
-                "our_role": "seller",
-                "content_digest": "0" * 64,
-            }
+            update=mission_updates
         )
         changed_mission = changed_mission.model_copy(
             update={
@@ -952,6 +1001,23 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
             task=worker_task,
             mission=changed_mission,
             state="confirmed",
+        )
+        worker_db.flush()
+    elif interruption == "prior_final_changed_before_worker":
+        current_final = (
+            worker_db.query(FinalMemorial)
+            .filter_by(task_id=task_id, is_current=True)
+            .one()
+        )
+        current_final.content_hash = "f" * 64
+        worker_db.flush()
+    elif interruption in {
+        "wrong_review_tenant_before_worker",
+        "null_review_tenant_before_worker",
+    }:
+        review = worker_db.get(CourtReview, review_id)
+        review.tenant_id = (
+            2 if interruption == "wrong_review_tenant_before_worker" else None
         )
         worker_db.flush()
     elif interruption is not None:
@@ -992,6 +1058,15 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
                 )
                 worker_db.flush()
                 return text
+            if interruption == "prior_final_changed":
+                current_final = (
+                    worker_db.query(FinalMemorial)
+                    .filter_by(task_id=task_id, is_current=True)
+                    .one()
+                )
+                current_final.content_hash = "e" * 64
+                worker_db.flush()
+                return text
             newer_id = "outbox-rework-generation-3-mid-processing"
             worker_db.add(
                 OutboxEvent(
@@ -1012,6 +1087,12 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
                             "generation": 3,
                             "status": "awaiting_evidence",
                             "prior_final_memorial_content_hash": first_hash,
+                            "mission_revision": durable_generation[
+                                "mission_revision"
+                            ],
+                            "mission_content_digest": durable_generation[
+                                "mission_content_digest"
+                            ],
                             "evidence_request": {
                                 "reason": "处理途中追加的新补证",
                                 "followup_question": None,
@@ -1046,6 +1127,17 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
             assert worker_result["result"]["task_status"] == "task_cancelled"
         elif interruption == "mission_scope_changed_before_worker":
             assert worker_result["result"]["reason"] == "mission_scope_changed"
+        elif interruption == "mission_same_scope_changed_before_worker":
+            assert worker_result["result"]["reason"] == "mission_changed"
+        elif interruption == "prior_final_changed_before_worker":
+            assert worker_result["result"]["reason"] == "prior_final_changed"
+        elif interruption == "prior_final_changed":
+            assert worker_result["result"]["reason"] == "prior_final_changed"
+        elif interruption in {
+            "wrong_review_tenant_before_worker",
+            "null_review_tenant_before_worker",
+        }:
+            assert worker_result["result"]["reason"] == "review_lineage_conflict"
         else:
             assert worker_result["result"]["reason"] == "mission_changed"
         db = isolated_session_local()
@@ -1154,6 +1246,8 @@ def test_evidence_bind_cannot_replace_frozen_contract_scope(
         "generation": 2,
         "status": "pending" if already_bound else "awaiting_evidence",
         "prior_final_memorial_content_hash": "a" * 64,
+        "mission_revision": 1,
+        "mission_content_digest": "b" * 64,
         "evidence_request": {
             "reason": "补证",
             "followup_question": None,

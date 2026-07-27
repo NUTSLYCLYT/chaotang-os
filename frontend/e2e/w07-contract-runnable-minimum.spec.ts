@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import {
   installRealBrowserSession,
@@ -8,6 +8,54 @@ import {
 const USERNAME = 'w07_runnable_user';
 const TASK_ID = 'task-w07-runnable-minimum';
 const PARTIAL_TASK_ID = `${TASK_ID}-partial`;
+
+type HomeTask = {
+  task_id: string;
+  raw_question: string;
+  contract_task: boolean;
+};
+
+async function openContractTaskFromHome(
+  page: Page,
+  taskId: string,
+  title: string,
+) {
+  const homeResponsePromise = page.waitForResponse((response) => (
+    response.url().includes('/api/shangshufang/home/v1')
+    && response.request().method() === 'GET'
+  ));
+  await page.goto('/shangshufang');
+  const homeResponse = await homeResponsePromise;
+  expect(homeResponse.status()).toBe(200);
+
+  const homePayload = await homeResponse.json() as {
+    data?: {
+      pending_decisions?: HomeTask[];
+      pending_evidence_tasks?: HomeTask[];
+    };
+  };
+  const homeTasks = [
+    ...(homePayload.data?.pending_decisions ?? []),
+    ...(homePayload.data?.pending_evidence_tasks ?? []),
+  ];
+  const taskIndex = homeTasks.findIndex((task) => task.task_id === taskId);
+  expect(taskIndex).toBeGreaterThanOrEqual(0);
+  expect(homeTasks[taskIndex]).toMatchObject({
+    task_id: taskId,
+    raw_question: title,
+    contract_task: true,
+  });
+
+  const expandRails = page.getByRole('button', { name: /展开辅政/ });
+  if (await expandRails.isVisible()) {
+    await expandRails.click();
+  }
+  expect(taskIndex).toBeLessThan(3);
+  const taskItems = page.getByTestId('chancellor-visible-item');
+  const taskItem = taskItems.nth(taskIndex);
+  await expect(taskItem).toBeVisible();
+  await taskItem.click();
+}
 
 test.describe('W07 contract RUNNABLE_MINIMUM', () => {
   test.describe.configure({ mode: 'serial' });
@@ -49,7 +97,11 @@ test.describe('W07 contract RUNNABLE_MINIMUM', () => {
       return response.status;
     }).toBe(200);
 
-    await page.goto(`/shangshufang?taskId=${TASK_ID}`);
+    await openContractTaskFromHome(
+      page,
+      TASK_ID,
+      '审查合成采购合同',
+    );
     for (const legacyAction of ['准奏', '驳回', '会审', '批示']) {
       await expect(
         page.getByRole('button', { name: legacyAction, exact: true }),
@@ -149,7 +201,11 @@ test.describe('W07 contract RUNNABLE_MINIMUM', () => {
       page.getByTestId('contract-archive-readback-error'),
     ).toBeVisible();
 
-    await page.goto(`/shangshufang?taskId=${PARTIAL_TASK_ID}`);
+    await openContractTaskFromHome(
+      page,
+      PARTIAL_TASK_ID,
+      '审查合成采购合同（部分交付）',
+    );
     const partialPanel = page.getByTestId('contract-review-panel');
     await expect(partialPanel).toBeVisible();
     await expect(partialPanel).toContainText('PARTIAL');

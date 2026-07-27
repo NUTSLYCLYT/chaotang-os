@@ -6,7 +6,9 @@ from typing import Protocol
 
 from pydantic import ValidationError
 
-from src.contracts.evidence_rework_generation import EvidenceReworkGenerationV1
+from src.contracts.evidence_rework_generation import (
+    EvidenceReworkGenerationPayloadV1,
+)
 
 
 class EvidenceReworkEvent(Protocol):
@@ -21,7 +23,7 @@ class EvidenceReworkUnavailable(ValueError):
 
 def project_evidence_rework_generation(
     event: EvidenceReworkEvent,
-) -> EvidenceReworkGenerationV1:
+) -> EvidenceReworkGenerationPayloadV1:
     """Map durable execution state to the one public domain contract.
 
     Durable worker states never leak into ``EvidenceReworkGenerationV1``.
@@ -37,7 +39,7 @@ def project_evidence_rework_generation(
         )
 
     try:
-        generation = EvidenceReworkGenerationV1.model_validate_json(
+        generation = EvidenceReworkGenerationPayloadV1.model_validate_json(
             event.payload_json or "{}"
         )
     except ValidationError as exc:

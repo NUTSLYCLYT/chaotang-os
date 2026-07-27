@@ -503,6 +503,27 @@ def test_shangshufang_swarm_deepen(isolated_session_local):
     _assert_denied(body, "swarm deepen")
 
 
+def test_shangshufang_swarm_deepen_rejects_same_user_cross_tenant(
+    isolated_session_local,
+):
+    from src.db.models import CourtReview, DecisionTask
+
+    task_id = "p0b_deepen_cross_tenant"
+    _seed_same_user_other_tenant_task(isolated_session_local, task_id)
+
+    body = client.post(
+        f"/api/shangshufang/tasks/{task_id}/swarm-deepen"
+    ).json()
+
+    _assert_denied(body, "same-user cross-tenant swarm deepen")
+    db = isolated_session_local()
+    task = db.query(DecisionTask).filter_by(id=task_id).one()
+    assert task.status == "reviewing"
+    assert task.raw_question == _SENTINEL
+    assert db.query(CourtReview).filter_by(task_id=task_id).count() == 0
+    db.close()
+
+
 def test_shangshufang_confirm_edict(isolated_session_local):
     _seed_other_users_task(isolated_session_local, "p0b_confirm")
     body = client.post(
@@ -543,6 +564,20 @@ def test_shangshufang_finance_intel_case(isolated_session_local):
     _assert_denied(body, "finance intel case")
 
 
+def test_shangshufang_finance_intel_case_rejects_same_user_cross_tenant(
+    isolated_session_local,
+):
+    task_id = "p0b_finance_cross_tenant"
+    _seed_same_user_other_tenant_task(isolated_session_local, task_id)
+
+    response = client.get(
+        f"/api/shangshufang/finance-intel-loop/cases/{task_id}"
+    )
+
+    _assert_denied(response.json(), "same-user cross-tenant finance intel case")
+    assert _SENTINEL not in response.text
+
+
 def test_shangshufang_brief_decision_advance(isolated_session_local):
     _seed_other_users_review(isolated_session_local, "p0b_brief", "p0b_brief_task")
     body = client.post(
@@ -559,6 +594,30 @@ def test_shangshufang_edict_return(isolated_session_local):
         json={"taskId": "p0b_return", "command": "x"},
     ).json()
     _assert_denied(body, "edict return")
+
+
+def test_shangshufang_edict_return_rejects_same_user_cross_tenant(
+    isolated_session_local,
+):
+    from src.db.models import CourtLoopRun, DecisionTask
+
+    task_id = "p0b_return_cross_tenant"
+    _seed_same_user_other_tenant_task(isolated_session_local, task_id)
+    db = isolated_session_local()
+    updated_at_before = db.query(DecisionTask).filter_by(id=task_id).one().updated_at
+    db.close()
+
+    body = client.post(
+        "/api/shangshufang/edict-return",
+        json={"taskId": task_id, "command": "x"},
+    ).json()
+
+    _assert_denied(body, "same-user cross-tenant edict return")
+    db = isolated_session_local()
+    task = db.query(DecisionTask).filter_by(id=task_id).one()
+    assert task.updated_at == updated_at_before
+    assert db.query(CourtLoopRun).filter_by(task_id=task_id).count() == 0
+    db.close()
 
 
 def test_bind_rework_generation_evidence(isolated_session_local):

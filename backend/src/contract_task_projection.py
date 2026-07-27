@@ -136,7 +136,7 @@ def _evidence_ready(db, *, task: DecisionTask, has_pack: bool) -> bool:
     if task.tenant_id is None:
         return False
     if task.status == "awaiting_evidence":
-        generations = (
+        current_generation = (
             db.query(OutboxEvent)
             .filter_by(
                 tenant_id=task.tenant_id,
@@ -144,16 +144,15 @@ def _evidence_ready(db, *, task: DecisionTask, has_pack: bool) -> bool:
                 event_type="evidence.rework",
             )
             .order_by(OutboxEvent.generation.desc(), OutboxEvent.id.desc())
-            .all()
+            .first()
         )
-        for row in generations:
-            try:
-                generation = project_evidence_rework_generation(row)
-            except (RuntimeError, ValueError):
-                continue
-            if generation.evidence_packets:
-                return True
-        return False
+        if current_generation is None:
+            return False
+        try:
+            generation = project_evidence_rework_generation(current_generation)
+        except (RuntimeError, ValueError):
+            return False
+        return bool(generation.evidence_packets)
     if has_pack:
         return True
     return (
