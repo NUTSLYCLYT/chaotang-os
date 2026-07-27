@@ -155,6 +155,24 @@ target manifest + intent structural validation = VALID_EVENT3_INPUTS
 这些结果只证明 owner 审批输入可复现且结构一致。它们不构成 owner approval、
 independent review、manifest activation 或 authority GO。
 
+### Embedded Exact-Diff Check Boundary
+
+review package 是 `b0df777a...eb6e86e5` 的逐字节 unified diff。原始 diff 的空白
+context line 由单个空格 context marker 表示，因此：
+
+```text
+git diff --check b0df777a...eb6e86e5
+  exit 0 / PASS
+git diff --check
+  exit 0 / PASS on the clean Event 3 worktree
+git diff --check <Event 3 parent>..<Event 3 candidate>
+  expected non-zero only inside review_inputs/activation-candidate.diff
+```
+
+最后一条命令会把内嵌 patch 当成普通新增文本，并将 context marker 报告为 trailing
+whitespace。规范化或排除这些字节都会破坏 exact-package contract。适用的 source
+检查是 Event 1 Git range PASS，以及 canonical package 与 hardened 生成结果逐字节相等。
+
 ## 运行时边界
 
 `NOT_DEPLOYED / NO_PUSH / NO_DB_MIGRATION / NO_LISTENER_3050_TAKEOVER`
