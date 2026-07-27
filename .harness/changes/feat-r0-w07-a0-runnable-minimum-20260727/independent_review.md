@@ -426,6 +426,48 @@ exact implementation candidate：
 
 本节只登记待审候选，不预判两路 Codex 独立只读审查结论。
 
+## Authority Writer Candidate Review Verdict
+
+Review envelope `c52a74140f5719277a3081e91ab4578918fc44d6` 对 implementation
+`fd5886855d064ee3100b75a7311f41e47acef632` 的两路 fresh Codex 只读审查：
+
+- backend/security/concurrency pass
+  `019fa5ec-9529-7182-92c6-4fa4bb52ee20`：
+  `NO-GO / HIGH 1 / MEDIUM 1 / LOW 0`；
+- frontend/product-contract pass
+  `019fa5ec-cc28-71f2-8088-923b3c6161bb`：
+  `GO / HIGH 0 / MEDIUM 0 / LOW 0`。
+
+主控确认的适用 findings：
+
+1. HIGH：`REFRESH_REVIEW` 在耗时 swarm 后可无共享锁覆盖已完成 final decision 的
+   terminal task/review。
+2. MEDIUM：evidence bind 的 server authority projection 与 generation CAS 未和
+   Mission writer 共用 task lock，可能成功写入 stale Mission generation/audit。
+
+`fd588685...` 状态为 `REJECTED / NOT_DEPLOYED`，不得整合 EXT。
+
+## Authority Writer Remediation Evidence
+
+| Finding | Remediation | Fresh evidence |
+| --- | --- | --- |
+| REFRESH_REVIEW writer race | owned task 先取共享 lock，fresh reload/recheck ownership，再投影 `REFRESH_REVIEW`；持锁覆盖 swarm persistence 与 commit | order RED/GREEN + affected route suite |
+| SUBMIT_EVIDENCE Mission race | owned task 先取共享 lock，fresh reload/recheck ownership，再投影 `SUBMIT_EVIDENCE`；持锁覆盖 generation CAS、audit 与 commit | order/zero-write RED/GREEN + W05/P0-B regressions |
+
+exact implementation candidate：
+
+- H `9c98710090ed9f73c75e131b6e649ca6ee3d8df1`
+- tree `719233acc04b550a0df97cc9de566f7bf92d3b12`
+- parent `c52a74140f5719277a3081e91ab4578918fc44d6`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `4823079cbbe60e7986bca5a6afac454865b5c0060f64ef09da6d3567e25e7f80`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本节只登记待审候选，不预判下一轮 Codex 独立只读审查结论。
+
 ## Latest Candidate Review Verdict
 
 implementation `029f836216de0ddf5361e24e886ab797202aae83`、tree

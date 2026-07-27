@@ -15,8 +15,8 @@
 | 创建日期 | `2026-07-27` |
 | Base H | `ed822255a452e8dd8dda8f86a180fd7c099b181e` |
 | Base tree | `0a56a0eab0135dcf46c31e5ae2cbc46f501cfdcb` |
-| Implementation candidate H | `fd5886855d064ee3100b75a7311f41e47acef632` |
-| Implementation candidate tree | `e94686a92fdf08987e522620bd8a84161485d341` |
+| Implementation candidate H | `9c98710090ed9f73c75e131b6e649ca6ee3d8df1` |
+| Implementation candidate tree | `719233acc04b550a0df97cc9de566f7bf92d3b12` |
 | Integration target | local `feature-chaotang-ext` |
 | Authority before first edit | v1 `VALID_INACTIVE_GUARD`; v2 W07 `GO / APPROVED_WORK_PACKAGE` |
 
@@ -187,6 +187,43 @@ fresh implementation candidate：
 
 本节不预判独立审查结论。候选未执行 Checkpoint B、push、部署、持久数据库迁移或
 listener 3050 操作。
+
+## Latest Candidate Review And Remediation
+
+implementation `fd5886855d064ee3100b75a7311f41e47acef632` 的两路 fresh
+Codex 只读审查结论：
+
+- backend/security/concurrency pass
+  `019fa5ec-9529-7182-92c6-4fa4bb52ee20`：
+  `NO-GO / HIGH 1 / MEDIUM 1 / LOW 0`；
+- frontend/product-contract pass
+  `019fa5ec-cc28-71f2-8088-923b3c6161bb`：
+  `GO / HIGH 0 / MEDIUM 0 / LOW 0`。
+
+任一路含 HIGH/MEDIUM 即整体 NO-GO。主控复核确认：`swarm-deepen` 的
+`REFRESH_REVIEW` 和 evidence bind 的 `SUBMIT_EVIDENCE` 都在未持共享 task lock
+时投影 authority 并写入，可能与 final decision 或 Mission writer 交错。
+`fd588685...` 被拒绝，不得整合 EXT。
+
+两项已在批准 scope 内按 TDD 修复：两个入口都先取得共享 DecisionTask lock，fresh
+reload task 并重验 tenant/user，然后才投影 server action；同一事务持锁覆盖
+swarm result 持久化或 evidence generation CAS、audit 与 commit。两个 RED 探针
+均先稳定报告 `authority projected before task lock`，实现后转为 GREEN，并验证
+探针中断时 task/generation/audit 零写入。
+
+fresh implementation candidate：
+
+- H `9c98710090ed9f73c75e131b6e649ca6ee3d8df1`
+- tree `719233acc04b550a0df97cc9de566f7bf92d3b12`
+- parent `c52a74140f5719277a3081e91ab4578918fc44d6`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `4823079cbbe60e7986bca5a6afac454865b5c0060f64ef09da6d3567e25e7f80`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本节不预判下一轮独立审查结论。
 
 ## Latest Candidate Verdict
 

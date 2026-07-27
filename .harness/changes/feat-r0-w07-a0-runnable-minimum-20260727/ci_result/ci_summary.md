@@ -76,6 +76,18 @@
 | latest-review root doctor | 1 | only `active-packet EXT ref must equal pinned HEAD` | expected PRE_INTEGRATION fail-closed | 2026-07-28 |
 | latest-review authority check | 1 | v1 amendment STOP；v2 exact-ref mismatch STOP | expected isolated PRE_INTEGRATION fail-closed | 2026-07-28 |
 | latest-review `git diff --check` + secret scan | 0 | pass | exact candidate integrity | 2026-07-28 |
+| authority-writer TDD RED | 1 | 2 failed | both probes reported authority projection before shared task lock | 2026-07-28 |
+| authority-writer TDD GREEN | 0 | 2 passed | lock precedes `REFRESH_REVIEW` and `SUBMIT_EVIDENCE`; interrupted probes are zero-write | 2026-07-28 |
+| authority-writer affected routes | 0 | 152 passed | W05、typed API、swarm route、P0-B ownership、legacy concurrency | 2026-07-28 |
+| authority-writer expanded backend | 0 | 613 passed, 2 skipped | contract/Mission/artifact/W05/worker/authz/routes/concurrency | 2026-07-28 |
+| authority-writer focused frontend + typecheck | 0 | 40 passed + `tsc --noEmit` pass | unchanged typed consumer on exact backend candidate | 2026-07-28 |
+| authority-writer Ruff | 0 | All checks passed | changed router and focused tests | 2026-07-28 |
+| authority-writer API guard/generator x2 | 0 | 11 passed；363 routes；0 breaking；five hashes identical | public schema unchanged | 2026-07-28 |
+| authority-writer real-mode build | 0 | Next production build pass | isolated candidate buildability only | 2026-07-28 |
+| authority-writer W07 Playwright | 0 | 1 passed | real JWT legacy→contract、READY/PARTIAL/download/archive/reopen | 2026-07-28 |
+| authority-writer backend/frontend doctor | 0 | 0 errors, 0 warnings | owned harness layers | 2026-07-28 |
+| authority-writer root doctor | 1 | only `active-packet EXT ref must equal pinned HEAD` | expected PRE_INTEGRATION fail-closed | 2026-07-28 |
+| authority-writer `git diff --check` + secret scan | 0 | pass | exact candidate integrity | 2026-07-28 |
 
 ## 结果
 
@@ -121,6 +133,13 @@ verification。当前等待该 exact candidate 两路独立只读审查，仍不
 `e94686a92fdf08987e522620bd8a84161485d341` 按 TDD 闭环，并通过上表 fresh
 verification。当前等待该 exact candidate 两路独立只读审查，仍不得整合 EXT。
 
+该 candidate 两路 review 中 backend pass 为 `NO-GO / HIGH 1 / MEDIUM 1`，
+frontend pass 为 `GO / 0 / 0 / 0`；整体按 fail-closed 判定 NO-GO。
+两项 authority-writer finding 已在 exact implementation
+`9c98710090ed9f73c75e131b6e649ca6ee3d8df1`、tree
+`719233acc04b550a0df97cc9de566f7bf92d3b12` 按 TDD 闭环并通过 fresh
+verification。当前等待该 exact candidate 的两路全新独立只读审查。
+
 ## 全仓既有 Residual
 
 - `src/lib/intel/signal-dispatch.nodetest.ts`：固定日期样例在当前日期新增
@@ -158,8 +177,8 @@ verification。当前等待该 exact candidate 两路独立只读审查，仍不
 | sixth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
 | seventh remediation | all approved HIGH/MEDIUM locally closed | PASS |
 | eighth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
-| independent review | exact `fd588685...` fresh two-pass | PENDING |
-| exact implementation candidate | `fd588685...` / `e94686a9...` | FROZEN |
+| independent review | exact `9c987100...` fresh two-pass | PENDING |
+| exact implementation candidate | `9c987100...` / `719233ac...` | FROZEN |
 
 ## 声明状态
 
