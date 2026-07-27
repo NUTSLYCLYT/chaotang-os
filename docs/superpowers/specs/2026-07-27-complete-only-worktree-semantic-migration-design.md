@@ -2,9 +2,11 @@
 
 ## Status
 
-Approved in conversation on 2026-07-27. The selected approach is to migrate
-the complete source worktree snapshot semantically, rather than merge only its
-branch ref or overwrite the target tree.
+Approved in conversation on 2026-07-27, then narrowed by the user's final
+clarification to a UI-only migration. The selected approach is to inventory
+the complete source worktree snapshot, migrate only its UI semantics, and
+record every non-UI entry as rejected rather than merge the branch ref or
+overwrite the target tree.
 
 ## Problem
 
@@ -41,8 +43,11 @@ silently ignored.
 
 ## Target invariants
 
-The target remains `harness-only` and must preserve all behavior that predates
-or was added by the first merge:
+The target remains `harness-only`. Backend code and tests, production BFF
+routes, authentication, `frontend/src/lib/backendClient.ts`, and the Jinyiwei
+production surface are out of scope and must remain untouched. The UI
+migration must preserve all behavior that predates or was added by the first
+merge:
 
 - authenticated FastAPI ownership and opaque revocable sessions;
 - same-origin Next.js BFF cookie forwarding;
@@ -92,12 +97,13 @@ approved equivalent server boundary.
 The four legacy `frontend/src/features/department-demo/` files are deleted
 only after all ministry routes and tests use `ministries-visual`.
 
-### Owner propagation repair
+### Cancelled backend owner-flow task
 
-The authenticated user ID must flow from the decree endpoint into the
-Chancellor graph/evidence session and then into `ShiguanSource` recall and
-archive loading. The source boundary must not swallow a missing owner
-signature as `shiguan_unavailable`.
+The earlier owner-propagation repair proposal was Task 6. The user subsequently
+confirmed that this correction is UI-only, so Task 6 is cancelled and was not
+implemented. Existing authenticated ownership, evidence-session, Shiguan
+source, BFF, and Jinyiwei production contracts remain authoritative and are
+verified only through the existing frontend and repository boundaries.
 
 ### Integration verification repair
 
@@ -118,8 +124,6 @@ signature as `shiguan_unavailable`.
 - Unsupported or malformed payloads fail with stable, non-sensitive UI
   messages.
 - Read-only court pages must not issue business write requests.
-- Owner propagation failures are surfaced by tests rather than converted into
-  an unexplained source-unavailable result.
 
 ## Test strategy
 
@@ -131,14 +135,11 @@ Testing follows red-green-refactor for behavior absent from the target:
    authentication, independent settlement, and last-known-good behavior.
 3. Add payload tests covering the complete target archive contract, including
    immutable evidence references and MCP access metadata.
-4. Add owner propagation tests across API, graph/evidence session, Shiguan
-   recall, and archive loading.
-5. Add visual source and asset guards for every migrated product surface.
-6. Run frontend lint, typecheck, all tests, and production build.
-7. Run backend Ruff and all tests.
-8. Run `scripts/verify_integration.mjs` with its documented safe local
+4. Add visual source and asset guards for every migrated product surface.
+5. Run frontend lint, typecheck, all tests, and production build.
+6. Run `scripts/verify_integration.mjs` with its documented safe local
    process lifecycle.
-9. Run all four repository harness commands and `git diff --check`.
+7. Run all four repository harness commands and `git diff --check`.
 
 No test may use a real DeepSeek call. Network behavior uses injected clients
 or the repository's explicit safe local integration harness.
@@ -146,7 +147,9 @@ or the repository's explicit safe local integration harness.
 ## Completeness gate
 
 Before completion, generate a disposition report for all 108 original source
-worktree status entries. The gate fails if:
+worktree status entries. Non-UI source entries are explicitly rejected under
+the confirmed UI-only scope; UI entries are integrated or superseded. The gate
+fails if:
 
 - a source-only file has no target equivalent or rejection reason;
 - a tracked source deletion remains accidentally referenced;

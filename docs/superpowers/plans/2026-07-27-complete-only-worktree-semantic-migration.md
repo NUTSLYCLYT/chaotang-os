@@ -2,15 +2,16 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Semantically migrate all 108 source-worktree entries into `harness-only` while preserving the target branch's authentication, owner isolation, immutable evidence, and safe integration contracts.
+**Goal:** Account for all 108 source-worktree entries while migrating only the user-confirmed UI surface into `harness-only`; explicitly reject non-UI entries and preserve the target branch's authentication, owner isolation, immutable evidence, and safe integration contracts.
 
-**Architecture:** Freeze the source snapshot in a machine-checkable disposition manifest, then recover the visual/controller layers in dependency order. Target-only backend ownership and evidence contracts remain authoritative; source controllers and payload decoders are extended around them instead of overwriting them. Every behavior change starts with a failing test, and the final gate checks both the migrated product surfaces and all 108 source entries.
+**Architecture:** Freeze the source snapshot in a machine-checkable disposition manifest, then recover the visual/controller layers in dependency order. Backend code and tests, production BFF routes, auth, `frontend/src/lib/backendClient.ts`, and Jinyiwei production are excluded. Target-only ownership and evidence contracts remain authoritative; migrated UI controllers and payload decoders adapt to them without overwriting them. Every behavior change starts with a failing test, and the final gate checks both the migrated product surfaces and all 108 dispositions.
 
-**Tech Stack:** Next.js 16 App Router, React 19, TypeScript 5.9, CSS Modules, Node `node:test`, Python 3.11+, FastAPI, Pydantic, pytest, Ruff, SQLite, PowerShell.
+**Tech Stack:** Next.js 16 App Router, React 19, TypeScript 5.9, CSS Modules, Node `node:test`, and PowerShell. Backend technologies are preserved but are not implementation targets for this UI-only correction.
 
 ## Global Constraints
 
 - The migration input is `D:\workspace\chaotang-os-harness-only-worktree`, interpreted as recovered commit `734b0aad07eb9b48469e9263e24cdd68fee1c4e4` plus its current dirty delta.
+- The user's final clarification is authoritative: migrate UI only. Reject source backend/tests/migrations, BFF/auth/backendClient boundary changes, Jinyiwei production changes, SDD scratch state, and historical delivery documents.
 - Preserve authenticated FastAPI ownership, opaque revocable sessions, same-origin BFF cookie forwarding, and per-user Shiguan isolation.
 - Preserve `MEMORIAL` and `REPLY` as the only archive types and retain immutable Jinyiwei `evidenceReferences` plus MCP provenance.
 - Preserve ADR 0028, deterministic Jinyiwei orchestration, approved MCP boundaries, public `/` and `/health`, login, and registration.
@@ -418,93 +419,15 @@ Expected: PASS; evidence reference tests prove no field is silently discarded.
 
 ---
 
-### Task 6: Propagate authenticated owner identity into Chancellor evidence and Shiguan recall
+### Task 6: Cancelled — backend owner-flow repair
 
-**Files:**
-
-- Modify: `backend/tests/test_decrees_api.py`
-- Modify: `backend/tests/test_chancellor_graph.py`
-- Modify: `backend/tests/test_agent_evidence_protocol.py`
-- Modify: `backend/tests/test_jinyiwei_shiguan_source.py`
-- Modify: `backend/app/api/decrees.py`
-- Modify: `backend/app/agents/chancellor/graph.py`
-- Modify: `backend/app/agents/evidence_protocol.py`
-- Modify: `backend/app/jinyiwei/sources/shiguan.py`
-
-**Interfaces:**
-
-- Consumes: authenticated `CurrentUser.id`.
-- Produces: `owner_user_id` in `ChancellorGraphState`, `EvidenceSessionFactory = Callable[[str], AgentEvidenceSession]`, and owner-bound `ShiguanSource`.
-
-- [ ] **Step 1: Write owner-isolation tests and verify RED**
-
-Tests must assert:
-
-```python
-graph.invoke({"decree_text": "整顿吏治", "owner_user_id": "owner-a"})
-```
-
-The session factory receives `"owner-a"`; recall and archive load both receive `owner_user_id="owner-a"`; a second invocation for `"owner-b"` creates an independent session. An injected legacy callable that cannot accept owner must raise `TypeError`, not degrade to `shiguan_unavailable`.
-
-Run:
-
-```powershell
-cd backend
-.venv\Scripts\python.exe -m pytest tests/test_decrees_api.py tests/test_chancellor_graph.py tests/test_agent_evidence_protocol.py tests/test_jinyiwei_shiguan_source.py -q
-```
-
-Expected: FAIL because owner is not yet passed to the evidence session or source.
-
-- [ ] **Step 2: Add owner to graph state and default evidence wiring**
-
-Implement:
-
-```python
-class ChancellorGraphState(TypedDict):
-    decree_text: str
-    owner_user_id: str
-    # existing fields remain unchanged
-
-EvidenceSessionFactory = Callable[[str], AgentEvidenceSession]
-```
-
-`_decide_route` calls the injected factory with `state["owner_user_id"]`, or calls:
-
-```python
-build_default_evidence_session(
-    resolved_chat_model,
-    owner_user_id=state["owner_user_id"],
-)
-```
-
-The API invocation supplies `current_user.id`.
-
-- [ ] **Step 3: Bind Shiguan recall and archive load to owner**
-
-Implement:
-
-```python
-@dataclass(frozen=True)
-class ShiguanSource:
-    owner_user_id: str
-    recall: RecallCallable = _default_recall
-    load_archive: ArchiveLoader = get_archive
-```
-
-Both injected calls receive `owner_user_id=self.owner_user_id`. Restrict the fail-closed exception boundary to storage/validation failures; do not catch callable signature `TypeError`.
-
-- [ ] **Step 4: Verify backend owner flow**
-
-Run:
-
-```powershell
-cd backend
-.venv\Scripts\python.exe -m pytest tests/test_decrees_api.py tests/test_chancellor_graph.py tests/test_agent_evidence_protocol.py tests/test_jinyiwei_shiguan_source.py
-.venv\Scripts\python.exe -m ruff check app tests
-.venv\Scripts\python.exe -m pytest
-```
-
-Expected: all commands PASS without network access or real model calls.
+The original plan proposed authenticated owner propagation changes across
+FastAPI, the Chancellor graph, evidence sessions, and `ShiguanSource`. The
+user's final clarification narrowed this correction to UI migration only.
+Therefore Task 6 is cancelled and no backend code/tests, production BFF route,
+auth, `frontend/src/lib/backendClient.ts`, or Jinyiwei production file may be
+modified or migrated. Those source entries receive explicit `rejected`
+dispositions in Task 8.
 
 ---
 
@@ -572,7 +495,8 @@ Expected: all guards and both integration scenarios PASS.
 **Files:**
 
 - Modify: `docs/migrations/2026-07-27-only-worktree-dispositions.json`
-- Modify with evidence: `docs/product/tasks/2026-07-24-dev-court-pages-visual-migration.md`
+- Modify: `docs/superpowers/specs/2026-07-27-complete-only-worktree-semantic-migration-design.md`
+- Modify: `docs/superpowers/plans/2026-07-27-complete-only-worktree-semantic-migration.md`
 - Modify only for defects: files introduced or changed by Tasks 1-7.
 
 **Interfaces:**
@@ -609,17 +533,7 @@ npm run build
 
 Expected: all PASS.
 
-- [ ] **Step 3: Run the complete backend gate**
-
-```powershell
-cd backend
-.venv\Scripts\python.exe -m ruff check .
-.venv\Scripts\python.exe -m pytest
-```
-
-Expected: all PASS.
-
-- [ ] **Step 4: Run integration, harness, and diff gates**
+- [ ] **Step 3: Run integration, harness, and diff gates**
 
 ```powershell
 cd ..
@@ -633,11 +547,11 @@ git diff --check
 
 Expected: every command exits zero.
 
-- [ ] **Step 5: Perform independent review**
+- [ ] **Step 4: Perform independent review**
 
 Dispatch separate specification and code-quality reviewers. Fix only findings that are reproducible against the approved spec, then rerun the affected focused tests and the full gate.
 
-- [ ] **Step 6: Git write preflight and local commits**
+- [ ] **Step 5: Git write preflight and local commits**
 
 Before staging:
 
@@ -650,13 +564,11 @@ git status --short
 
 Expected: workspace is `D:\workspace\chaotang-os-harness-only`, branch is `harness-only`, and all changes are in the approved paths.
 
-Stage by task boundary and create local commits with messages:
+Stage only the UI-only Task 8 files and create a local commit. Exclude SDD
+scratch files and unrelated concurrent work:
 
 ```text
-test: enforce complete worktree migration
-feat: migrate complete court visual surfaces
-fix: preserve owner and evidence contracts
-test: verify migrated court integration
+docs: finalize UI-only worktree dispositions
 ```
 
 Do not push.

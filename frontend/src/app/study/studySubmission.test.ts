@@ -31,15 +31,25 @@ const VALID_SUCCESS_BODY = {
   recommendations: ["核定预算", "分期拨付", "设置审计节点"],
 };
 
-test("importing the Study submission boundary performs zero requests", () => {
+test("importing the Study submission boundary performs zero requests", async () => {
+  const originalFetch = globalThis.fetch;
   let requestCount = 0;
-  const fetchImpl: StudyFetch = async () => {
+  globalThis.fetch = async () => {
     requestCount += 1;
     return new Response();
   };
 
-  assert.equal(requestCount, 0);
-  assert.equal(typeof fetchImpl, "function");
+  try {
+    const boundaryModulePath =
+      "./studySubmission.ts?zero-fetch-import-boundary";
+    const importedBoundary = await import(boundaryModulePath);
+
+    assert.equal(typeof importedBoundary.requestStudySubmission, "function");
+    assert.equal(typeof importedBoundary.submitStudyDecree, "function");
+    assert.equal(requestCount, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("one submission sends exactly one same-origin POST with the decree body", async () => {

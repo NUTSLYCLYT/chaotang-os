@@ -10,18 +10,18 @@
     "postRestoreModified": 37,
     "dirtyOnlyAdded": 13
   },
-  "canonicalInventorySha256": "69f98bd4669489f3988c4be116440b5ee7eef594141c88aa05f9611c85f7dc6d",
+  "canonicalInventorySha256": "5be65240a9bf94c66f8a1ba81da25b2197c7fff14447e5e449ac05c40108682f",
   "entries": [
     {
       "path": ".superpowers/sdd/progress.md",
       "sourceStatus": "M",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "c6688c061944fe52a455c596bfe19e64d7a03d71d7e08a2538d7c6e9207cdfe6",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because source SDD scratch and agent report state is not runtime UI and importing it would violate the current migration evidence boundary.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope contract check rejects operational scratch path .superpowers/sdd/progress.md; no target runtime path is assigned."
       ]
     },
     {
@@ -29,11 +29,11 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "d6f1837dcbdf2865883a604179237bb6f60408845abd51ad216969ab6bedd51d",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because source SDD scratch and agent report state is not runtime UI and importing it would violate the current migration evidence boundary.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope contract check rejects operational scratch path .superpowers/sdd/task-1-brief.md; no target runtime path is assigned."
       ]
     },
     {
@@ -41,11 +41,11 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "6a9eeffe71b5499af9dd29ee421801196a2f6f10bd8c9c5c59f2ab7817599019",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because source SDD scratch and agent report state is not runtime UI and importing it would violate the current migration evidence boundary.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope contract check rejects operational scratch path .superpowers/sdd/task-1-report.md; no target runtime path is assigned."
       ]
     },
     {
@@ -53,11 +53,11 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "086dc7ed2967be2f384f2baee6ed63ca8380bcccba041f480feab6fa81affbe3",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because source SDD scratch and agent report state is not runtime UI and importing it would violate the current migration evidence boundary.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope contract check rejects operational scratch path .superpowers/sdd/task-2-brief.md; no target runtime path is assigned."
       ]
     },
     {
@@ -65,11 +65,11 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "45770fd038596789235b55c8fb4d941d0456f30b8f734bf99be55852f3eceede",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because source SDD scratch and agent report state is not runtime UI and importing it would violate the current migration evidence boundary.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope contract check rejects operational scratch path .superpowers/sdd/task-2-report.md; no target runtime path is assigned."
       ]
     },
     {
@@ -77,11 +77,11 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "b4e29f9c16bc30d2f7452b4986d08c46b0642f9c3f91ee145533f8020f7bd2ce",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because source SDD scratch and agent report state is not runtime UI and importing it would violate the current migration evidence boundary.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope contract check rejects operational scratch path .superpowers/sdd/task-3-brief.md; no target runtime path is assigned."
       ]
     },
     {
@@ -89,11 +89,11 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "883ab0a4e6436da711ec249592c06f0b5eeeae86eca4f6dedcd1741cb0be0861",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because source SDD scratch and agent report state is not runtime UI and importing it would violate the current migration evidence boundary.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope contract check rejects operational scratch path .superpowers/sdd/task-3-report.md; no target runtime path is assigned."
       ]
     },
     {
@@ -101,11 +101,11 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "2cdca3b9f8e4bbf332acb0e2aaf0e58f321fe0c5f16421036b047f8f2347d13c",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because source SDD scratch and agent report state is not runtime UI and importing it would violate the current migration evidence boundary.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope contract check rejects operational scratch path .superpowers/sdd/task-4-brief.md; no target runtime path is assigned."
       ]
     },
     {
@@ -113,11 +113,11 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "69dcc973f77790d66f3e9c948aba72c13a29c9ef6d846e3de140775cb9a355a6",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because source SDD scratch and agent report state is not runtime UI and importing it would violate the current migration evidence boundary.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope contract check rejects operational scratch path .superpowers/sdd/task-4-report.md; no target runtime path is assigned."
       ]
     },
     {
@@ -125,11 +125,11 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "23a681c3ae2d020c289fab5179817daf25cd5369302f832950ef4fbaeade7008",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because source SDD scratch and agent report state is not runtime UI and importing it would violate the current migration evidence boundary.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope contract check rejects operational scratch path .superpowers/sdd/task-5-brief.md; no target runtime path is assigned."
       ]
     },
     {
@@ -137,11 +137,11 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "d30680d93b09838b820508a0af69266187b4a6537d138174762c2bedfc229a5b",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because source SDD scratch and agent report state is not runtime UI and importing it would violate the current migration evidence boundary.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope contract check rejects operational scratch path .superpowers/sdd/task-5-report.md; no target runtime path is assigned."
       ]
     },
     {
@@ -149,11 +149,11 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "cb7b084dbd807fb3e85de0731cb34c88516328dd68a88eac6e5eb42543801b14",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because source SDD scratch and agent report state is not runtime UI and importing it would violate the current migration evidence boundary.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope contract check rejects operational scratch path .superpowers/sdd/task-6-brief.md; no target runtime path is assigned."
       ]
     },
     {
@@ -161,11 +161,11 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "22d11e4824494300f3ac830680c98e0f4b0e54fa988df3eb6641d19d27e41dc4",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because source SDD scratch and agent report state is not runtime UI and importing it would violate the current migration evidence boundary.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope contract check rejects operational scratch path .superpowers/sdd/task-6-report.md; no target runtime path is assigned."
       ]
     },
     {
@@ -173,11 +173,11 @@
       "sourceStatus": "M",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "adf12ea2da86d5090f654818b2769a51f2e728ea7f3a95053cc30769b71add8f",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because backend Shiguan tests and migrations are outside the user-confirmed UI-only scope and importing them would violate the immutable evidence-flow governance boundary.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope and ADR 0028 contract check reject backend path backend/tests/test_shiguan_api.py; backend production and test files remain untouched."
       ]
     },
     {
@@ -185,11 +185,11 @@
       "sourceStatus": "M",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "6da23f0fa160dcc24d9a304358000c5e48204a3e17a3c0a3653cd1e382143f8a",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because backend Shiguan tests and migrations are outside the user-confirmed UI-only scope and importing them would violate the immutable evidence-flow governance boundary.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope and ADR 0028 contract check reject backend path backend/tests/test_shiguan_archive_decree.py; backend production and test files remain untouched."
       ]
     },
     {
@@ -197,11 +197,11 @@
       "sourceStatus": "M",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "d868749d1299e08b79099b0342edbb6ed6c43e0a0a2f60a1a940b26fd0cb2540",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because backend Shiguan tests and migrations are outside the user-confirmed UI-only scope and importing them would violate the immutable evidence-flow governance boundary.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope and ADR 0028 contract check reject backend path backend/tests/test_shiguan_models.py; backend production and test files remain untouched."
       ]
     },
     {
@@ -209,11 +209,11 @@
       "sourceStatus": "M",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "3d714b8f554a3811ada854ff260bd0f901a62fc857464716c6c1fdd3f18091e2",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because backend Shiguan tests and migrations are outside the user-confirmed UI-only scope and importing them would violate the immutable evidence-flow governance boundary.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope and ADR 0028 contract check reject backend path backend/tests/test_shiguan_recall.py; backend production and test files remain untouched."
       ]
     },
     {
@@ -221,11 +221,11 @@
       "sourceStatus": "M",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "4168e8821f39db14a0216328db201e3cceccf6353fb2775696e5e8629a3e865e",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because backend Shiguan tests and migrations are outside the user-confirmed UI-only scope and importing them would violate the immutable evidence-flow governance boundary.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope and ADR 0028 contract check reject backend path backend/tests/test_shiguan_storage.py; backend production and test files remain untouched."
       ]
     },
     {
@@ -233,11 +233,11 @@
       "sourceStatus": "M",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "823ae4d66f2bd452058f2b96481a754bfdca57ca8435042f27836eeb499ea962",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because backend Shiguan tests and migrations are outside the user-confirmed UI-only scope and importing them would violate the immutable evidence-flow governance boundary.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope and ADR 0028 contract check reject backend path backend/tests/test_shiguan_validation.py; backend production and test files remain untouched."
       ]
     },
     {
@@ -245,11 +245,13 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "653a7a124a4c95d96aeefe1f260cd25df0ed2ceb9b71497b766c6415c0b74fbd",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/app/court-entry-pages.test.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/app/court-entry-pages.test.ts exists with newer SHA-256 e0a86b693323f52c42289c7dc8712604c501c6dea50a588c22279403693670fa; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -257,11 +259,13 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "8bffff20d3af9e5888ca09f2d9cd6b92614fa7d11c7f1263d571edfcfbc2945c",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/app/dadian/DadianOverviewClient.tsx"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/src/app/dadian/DadianOverviewClient.tsx: 8bffff20d3af9e5888ca09f2d9cd6b92614fa7d11c7f1263d571edfcfbc2945c."
       ]
     },
     {
@@ -269,11 +273,13 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "1a965bbaa4479f4890369abd385edffc24b36ff07a742d687749aee761ca5c7b",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/app/dadian/dadian.module.css"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/src/app/dadian/dadian.module.css: 1a965bbaa4479f4890369abd385edffc24b36ff07a742d687749aee761ca5c7b."
       ]
     },
     {
@@ -281,11 +287,13 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "18e2dc7cdc2305f2c569dc35c00ec97e7ac335354115f1289619ccf600ba795f",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/app/dadian/page.tsx"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/src/app/dadian/page.tsx: 18e2dc7cdc2305f2c569dc35c00ec97e7ac335354115f1289619ccf600ba795f."
       ]
     },
     {
@@ -293,11 +301,13 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "e55febb57a9f647c39a35d28610c15d9100e5407a3f02e897ab3408165ec2875",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/app/junjichu/page.tsx"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/src/app/junjichu/page.tsx: e55febb57a9f647c39a35d28610c15d9100e5407a3f02e897ab3408165ec2875."
       ]
     },
     {
@@ -305,11 +315,13 @@
       "sourceStatus": "M",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "0fd9f109cc7c00563c4ba10009829ba472b43ee4382aa5dcd697ace406c806fe",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/app/layout.tsx"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/app/layout.tsx exists with newer SHA-256 fed11d336e59eeef84430503b82eadccdc92ca1c66ddb37e4b6d6da1f590666c; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -317,11 +329,13 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "6d0f1514f66cd1358b5273c113f9d03e61c3bfd852252fa31713b638d1d16d72",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/app/liubu/[code]/[office]/page.tsx"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/app/liubu/[code]/[office]/page.tsx exists with newer SHA-256 b84a213f9e02164286a1200b498b5001235440064bc4f3aacb14593f0c2743d6; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -329,11 +343,13 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "2a8cad84f2a3e02442e9353fdc76ccaa090ff18e1f284c700353d51bf8a2364e",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/app/liubu/[code]/page.tsx"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/app/liubu/[code]/page.tsx exists with newer SHA-256 9cf920b0831cbac992455af86045face893f545cb3b3363f1b07c60aed3e8de9; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -341,11 +357,13 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "ee442d38d853a017d6189ec20043a1ba35915f79165a3c6120e51fdd715f1a0b",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/app/liubu/page.tsx"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/src/app/liubu/page.tsx: ee442d38d853a017d6189ec20043a1ba35915f79165a3c6120e51fdd715f1a0b."
       ]
     },
     {
@@ -353,11 +371,13 @@
       "sourceStatus": "M",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "cc7950c873d0b48fc4de18d2d98acf1f90cfabb6026b461223f37bf0c137efee",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/app/shiguan/ShiguanClient.tsx"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/app/shiguan/ShiguanClient.tsx exists with newer SHA-256 edf4db701939a38641643504de5ef0a26e7b382d098b8c8617ddc49bfff5ff7f; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -365,11 +385,13 @@
       "sourceStatus": "M",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "d7e7fe950ddb309f894f5fdf693d204efc7e1f4a076868e5ed32a1047b59730b",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/app/shiguan/ShiguanClient.visual.test.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/app/shiguan/ShiguanClient.visual.test.ts exists with newer SHA-256 3fc812365c4ef81eaf87f5ccc8c3320ae1fb870efb58b37c193dfcb489d10df2; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -377,11 +399,13 @@
       "sourceStatus": "M",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "94d0bba4a941808da51c377d9364b782119ad8f1dfa99ce5d23a5dfd2a6fb639",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/app/shiguan/archiveStatus.test.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/app/shiguan/archiveStatus.test.ts exists with newer SHA-256 50039ebce17e9904b19effaf4d383b684b5bee59d8c220dddafdf69987c03f52; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -389,11 +413,13 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "4ae8e16f08c801e6d27d9fcf87efb7ee97bc5321dcc4aede8de938e1f2088268",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/app/shiguan/shiguan.module.css"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/src/app/shiguan/shiguan.module.css: 4ae8e16f08c801e6d27d9fcf87efb7ee97bc5321dcc4aede8de938e1f2088268."
       ]
     },
     {
@@ -401,11 +427,13 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "a2b23ebbfe3ecde5d55e985c6d060960258b8f75bf5a1c09b1799cc54a946c8b",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/app/study/StudyClient.test.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/app/study/StudyClient.test.ts exists with newer SHA-256 56f77d1ffdcec0d5c55a4f22006ceb987c035f4daeee8d076f62c6da12eb69a0; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -413,11 +441,13 @@
       "sourceStatus": "M",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "607f737f3ecf7f7233ee67cdc432290693682f50e53b7a6bfce8ebbf26026f37",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/app/study/StudyClient.tsx"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/app/study/StudyClient.tsx exists with newer SHA-256 7254aa0a372ec18c92a404f47972bd8d1142474bea87cf83c7c8c5631ab27665; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -425,11 +455,13 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "46c8da091640b8243dad8f7faa8d8666171473cfc445542122430d85df0659f4",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/app/study/study.module.css"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/app/study/study.module.css exists with newer SHA-256 ef7aaf49978c7f2c88d9d0b37b12e122c5cddd0d47a619fb3b719963d7aa0299; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -437,11 +469,13 @@
       "sourceStatus": "M",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "a3a1032f6320ba6412f90d9db5dae1fd9c990c1ff3f5fac6e2c0190348c045b8",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/components/chaotang/ChaotangHeader.module.css"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/components/chaotang/ChaotangHeader.module.css exists with newer SHA-256 aa452d3e27c4014cf35d2193ce1f2acd087aefbe393b83349db6421cf42c1b96; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -449,11 +483,13 @@
       "sourceStatus": "M",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "bf8e77fc861269f75090c8b97fdb13d130c80205546ea14be2ec4450071096ca",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/components/chaotang/ChaotangHeader.tsx"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/components/chaotang/ChaotangHeader.tsx exists with newer SHA-256 31e4098126b372fd16449fd57ff392b3557d92d49da6d1d0dc19457083a1f5e5; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -461,11 +497,13 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "7d42ce90cc890996b2ad9e6beb46cffdcd024aae67546a80f90c456114e7dabb",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/components/chaotang/CourtPlaceholderPage.visual.test.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/components/chaotang/CourtPlaceholderPage.visual.test.ts exists with newer SHA-256 c41e5241fdf79bb85a96d68eb56a0fecde010c1fdcbcf199e9b70f11a915f125; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -473,11 +511,13 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "69018072ca53c728636e69480e7ffc28d0c9b0c1a0d3f6e62f5b34c7901d270f",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/components/chaotang/CourtShell.module.css"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/components/chaotang/CourtShell.module.css exists with newer SHA-256 d84a33f41732ea509716cfa639954031f88de9d0ef6b3bad1bfccc2f19bfeed8; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -485,11 +525,13 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "c7f7e3b45ac1fcbc821da79ee220d7a0db8a4fb17580a17377192a5a58f7a97d",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/components/chaotang/CourtShell.test.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/components/chaotang/CourtShell.test.ts exists with newer SHA-256 0bd18f515d41f7d7a39ba808eaf9190185b92110397f6bb976cd6d88c6753bd1; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -497,11 +539,13 @@
       "sourceStatus": "M",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "c5ffe6c140fad552e4b316bb0ba20f641b58f0e6da733c9e3d5b2e93a3ffe182",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/components/chaotang/CourtShell.tsx"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/components/chaotang/CourtShell.tsx exists with newer SHA-256 460afdb4fd900f4c7b1d1a726e5d9b159a632e92200007b1e2b4961013c1c431; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -509,11 +553,13 @@
       "sourceStatus": "D",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": null,
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/features/department-demo/DepartmentDemoViews.tsx"
+      ],
+      "reason": "Integrated the source UI deletion by removing the obsolete department-demo path after its routes were migrated to the current ministry views.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target absence check confirms the integrated deleted UI path does not exist: frontend/src/features/department-demo/DepartmentDemoViews.tsx."
       ]
     },
     {
@@ -521,11 +567,13 @@
       "sourceStatus": "D",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": null,
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/features/department-demo/departmentDemo.module.css"
+      ],
+      "reason": "Integrated the source UI deletion by removing the obsolete department-demo path after its routes were migrated to the current ministry views.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target absence check confirms the integrated deleted UI path does not exist: frontend/src/features/department-demo/departmentDemo.module.css."
       ]
     },
     {
@@ -533,11 +581,13 @@
       "sourceStatus": "D",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": null,
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/features/department-demo/departmentDemoData.test.ts"
+      ],
+      "reason": "Integrated the source UI deletion by removing the obsolete department-demo path after its routes were migrated to the current ministry views.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target absence check confirms the integrated deleted UI path does not exist: frontend/src/features/department-demo/departmentDemoData.test.ts."
       ]
     },
     {
@@ -545,11 +595,13 @@
       "sourceStatus": "D",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": null,
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/features/department-demo/departmentDemoData.ts"
+      ],
+      "reason": "Integrated the source UI deletion by removing the obsolete department-demo path after its routes were migrated to the current ministry views.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target absence check confirms the integrated deleted UI path does not exist: frontend/src/features/department-demo/departmentDemoData.ts."
       ]
     },
     {
@@ -557,11 +609,11 @@
       "sourceStatus": "M",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "24533256a1f7588b500bbdb3dce932c1f688acf27190cb849816d353b94a171a",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because backendClient transport tests govern the protected server boundary rather than UI, and the user explicitly forbade changing that contract.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope contract check rejects frontend/src/lib/backendClient.test.ts and preserves frontend/src/lib/backendClient.ts unchanged."
       ]
     },
     {
@@ -569,11 +621,13 @@
       "sourceStatus": "M",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "b36d60d60ff0cc7a51cc9c5b360d2476b02bea97d4c4a1e961c71ea5923f97b4",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "scripts/verify_integration.mjs"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms scripts/verify_integration.mjs exists with newer SHA-256 e15a5885da24e64125d13d6ce9ad16501f532dd1be6b6ef2f3c53d300d359f70; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -581,11 +635,11 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "194f2a54605c91968f3cc8adfc3217b465a0bbe0d04f4f3309465f7ca33e9b8d",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because backend Shiguan tests and migrations are outside the user-confirmed UI-only scope and importing them would violate the immutable evidence-flow governance boundary.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope and ADR 0028 contract check reject backend path backend/tests/test_shiguan_migrations.py; backend production and test files remain untouched."
       ]
     },
     {
@@ -593,11 +647,11 @@
       "sourceStatus": "??",
       "sourceLayer": "dirtyOnlyAdded",
       "sourceSha256": "e1112489d9862b0f5638d0ce6628fbe404a149ab021678004ae4071f49d1a1e4",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because this historical design or delivery document is not runtime UI and importing it would violate the user-confirmed UI-only correction scope.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope contract check rejects historical non-runtime document design-qa.md; the current correction design and plan record the accepted scope."
       ]
     },
     {
@@ -605,11 +659,11 @@
       "sourceStatus": "??",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "af73c51734bc047a47816585a9153618d41ae4e591c61f8f0e7410444dc31808",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because this historical design or delivery document is not runtime UI and importing it would violate the user-confirmed UI-only correction scope.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope contract check rejects historical non-runtime document docs/product/tasks/2026-07-24-dev-court-pages-visual-migration.md; the current correction design and plan record the accepted scope."
       ]
     },
     {
@@ -617,11 +671,11 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "6c1058c7175518078a033ec3cbf40ebb047d9f4ba5ff53aba78e103ad0c52575",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because this historical design or delivery document is not runtime UI and importing it would violate the user-confirmed UI-only correction scope.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope contract check rejects historical non-runtime document docs/superpowers/plans/2026-07-24-dev-court-pages-visual-migration.md; the current correction design and plan record the accepted scope."
       ]
     },
     {
@@ -629,11 +683,11 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "9b0a07686a84fff3af0a1e3ff53409c4abc9a0a9479f7148732baf800b9fda33",
-      "disposition": "pending",
+      "disposition": "rejected",
       "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "reason": "Rejected because this historical design or delivery document is not runtime UI and importing it would violate the user-confirmed UI-only correction scope.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "UI-only scope contract check rejects historical non-runtime document docs/superpowers/specs/2026-07-24-dev-court-pages-visual-migration-design.md; the current correction design and plan record the accepted scope."
       ]
     },
     {
@@ -641,11 +695,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "a692cffd2b6e2500c7ab54535cde60f5bedd3ea24c6cba8b5811f629398e057c",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/public/assets/zhuangyuan/04-zhuangyuan-new.webp"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/public/assets/zhuangyuan/04-zhuangyuan-new.webp: a692cffd2b6e2500c7ab54535cde60f5bedd3ea24c6cba8b5811f629398e057c."
       ]
     },
     {
@@ -653,11 +709,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "e6dcfa91d868a52eab1e1b5ba14ec7742ddf8f4effaaa44a83a8473691522964",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/public/shangshufang/portrait-chancellor.webp"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/public/shangshufang/portrait-chancellor.webp: e6dcfa91d868a52eab1e1b5ba14ec7742ddf8f4effaaa44a83a8473691522964."
       ]
     },
     {
@@ -665,11 +723,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "8ffe941ba1f366577c5bae140f0b7245bbaa4ad71db2005e450a34b4214f3a70",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/public/shangshufang/portrait-wang.webp"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/public/shangshufang/portrait-wang.webp: 8ffe941ba1f366577c5bae140f0b7245bbaa4ad71db2005e450a34b4214f3a70."
       ]
     },
     {
@@ -677,11 +737,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "bcbbcc8cadbd9691323ee9c3537676c510fc9d9915e6bc4ce35d201abcd204e7",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/app/api/dadian/overview/route.test.ts"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/src/app/api/dadian/overview/route.test.ts: bcbbcc8cadbd9691323ee9c3537676c510fc9d9915e6bc4ce35d201abcd204e7."
       ]
     },
     {
@@ -689,11 +751,13 @@
       "sourceStatus": "??",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "6b91d63c490f73cc747bdb9a6f70323823a8f8e06a3e6b12f5a343770ed603ea",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/app/dadian/DadianOverviewController.test.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/app/dadian/DadianOverviewController.test.ts exists with newer SHA-256 68cae32cad6c5eec99fea64fd02b7e952e194805b57cfd68ced1df65b43ca897; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -701,11 +765,13 @@
       "sourceStatus": "??",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "e30d0554b128bbd38dd9806dbbebf1e0ec2f7f87253b3a04592793aab045dfd9",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/app/dadian/DadianOverviewController.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/app/dadian/DadianOverviewController.ts exists with newer SHA-256 b33dd0e0a208dffcbd543224ad7f082f3a5c8f1f8181c208baa9099dfc6107d9; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -713,11 +779,13 @@
       "sourceStatus": "??",
       "sourceLayer": "dirtyOnlyAdded",
       "sourceSha256": "9629c5f9a5a50cfe07a29c76c0b627a37b963c68a487fe50680f64a06d604a97",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/app/globals.css"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/src/app/globals.css: 9629c5f9a5a50cfe07a29c76c0b627a37b963c68a487fe50680f64a06d604a97."
       ]
     },
     {
@@ -725,11 +793,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "ca58b36238bdfb6cc33c9b506d56be9a1c55dcd0e83a9db6691e40110b2315b7",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/app/shiguan/shiguanController.test.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/app/shiguan/shiguanController.test.ts exists with newer SHA-256 6bb9952ce13377d2f08221de1c9073814fc2963741b3fc9690e67f0644af3d53; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -737,11 +807,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "0dc23dc16ab277acfcb278bc4a6b06a9a7a97a54bb5311bf00ac58da0ae616d4",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/app/shiguan/shiguanController.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/app/shiguan/shiguanController.ts exists with newer SHA-256 7cc735661c1e607e04d9da7983dd3dc5b9883092dcb0cfd47c7ab2f0a4a7f392; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -749,11 +821,13 @@
       "sourceStatus": "??",
       "sourceLayer": "dirtyOnlyAdded",
       "sourceSha256": "f173fc09993a5aec4f6cfdab49b8d8a46c779365d21af603c5ce3d2c7d6e5e65",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/app/shiguan/shiguanPayload.test.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/app/shiguan/shiguanPayload.test.ts exists with newer SHA-256 a1a2ba37f782d915dc2313438a2dd0294ef745deb2134a6f91dd1c98b3eaff99; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -761,11 +835,13 @@
       "sourceStatus": "??",
       "sourceLayer": "dirtyOnlyAdded",
       "sourceSha256": "0c6e40ea660a8c93879673252c02c98287dced964b2abf71797c06ad90635cb5",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/app/shiguan/shiguanPayload.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/app/shiguan/shiguanPayload.ts exists with newer SHA-256 c1d49cb74d470803a9f50a6cc9c0a405f1dfcc8ec03eb89e110d169c0f775410; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -773,11 +849,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "a8998fab56b2c3c8ed1277876bcce500b63352786257bd83e4540bf960bad92a",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/features/court-replies/replyFeed.test.ts"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/src/features/court-replies/replyFeed.test.ts: a8998fab56b2c3c8ed1277876bcce500b63352786257bd83e4540bf960bad92a."
       ]
     },
     {
@@ -785,11 +863,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "0982c8ce868604887be7d3d3204c836ff16d123cf66282b71a5459008fcfd708",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/features/court-replies/replyFeed.ts"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/src/features/court-replies/replyFeed.ts: 0982c8ce868604887be7d3d3204c836ff16d123cf66282b71a5459008fcfd708."
       ]
     },
     {
@@ -797,11 +877,13 @@
       "sourceStatus": "??",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "0a93e532e828dcd347bd23704d734a00126589a9e0da05a1de5704ac7ee2a874",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/features/court-visuals/CourtCapabilityButton.module.css"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/src/features/court-visuals/CourtCapabilityButton.module.css: 0a93e532e828dcd347bd23704d734a00126589a9e0da05a1de5704ac7ee2a874."
       ]
     },
     {
@@ -809,11 +891,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "be7aa9ba37dbe1912ee7849c963c9d706b9c5398aa36cf00eb5230505153eaa5",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/features/court-visuals/CourtCapabilityButton.tsx"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/src/features/court-visuals/CourtCapabilityButton.tsx: be7aa9ba37dbe1912ee7849c963c9d706b9c5398aa36cf00eb5230505153eaa5."
       ]
     },
     {
@@ -821,11 +905,13 @@
       "sourceStatus": "??",
       "sourceLayer": "dirtyOnlyAdded",
       "sourceSha256": "f7488cda20be4836cf1a817ffdb38377579cb90af999df02713e499165cb0c8a",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/features/court-visuals/CourtQuickDock.module.css"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/src/features/court-visuals/CourtQuickDock.module.css: f7488cda20be4836cf1a817ffdb38377579cb90af999df02713e499165cb0c8a."
       ]
     },
     {
@@ -833,11 +919,13 @@
       "sourceStatus": "??",
       "sourceLayer": "dirtyOnlyAdded",
       "sourceSha256": "51c34821fc1be45a966ae308750bb023b419c5cb38b449f9083d9861faffbc73",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/features/court-visuals/CourtQuickDock.tsx"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/src/features/court-visuals/CourtQuickDock.tsx: 51c34821fc1be45a966ae308750bb023b419c5cb38b449f9083d9861faffbc73."
       ]
     },
     {
@@ -845,11 +933,13 @@
       "sourceStatus": "??",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "02404e4fd8ef966baae107f53d2d74699c601dd8fc40c0caf345af47e44a4c24",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/features/court-visuals/ImmersiveCourtShell.module.css"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/src/features/court-visuals/ImmersiveCourtShell.module.css: 02404e4fd8ef966baae107f53d2d74699c601dd8fc40c0caf345af47e44a4c24."
       ]
     },
     {
@@ -857,11 +947,13 @@
       "sourceStatus": "??",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "76f12c97c5c5cf53c65c74686e752c55f3d8974b9f0c66c1a2cd70986dcb891e",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/features/court-visuals/ImmersiveCourtShell.tsx"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/src/features/court-visuals/ImmersiveCourtShell.tsx: 76f12c97c5c5cf53c65c74686e752c55f3d8974b9f0c66c1a2cd70986dcb891e."
       ]
     },
     {
@@ -869,11 +961,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "a5badc444c19321b3f82a952b3b6aa8444eccdc3197ab3e7b39e1ee491c52c9a",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/features/court-visuals/courtVisuals.test.ts"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/src/features/court-visuals/courtVisuals.test.ts: a5badc444c19321b3f82a952b3b6aa8444eccdc3197ab3e7b39e1ee491c52c9a."
       ]
     },
     {
@@ -881,11 +975,13 @@
       "sourceStatus": "??",
       "sourceLayer": "dirtyOnlyAdded",
       "sourceSha256": "addf676aa05e5cf1c0619be6c281aa9adb08a453d323cc71d37ff845ebe86bf5",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/features/court-visuals/edict/EdictStage.module.css"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/src/features/court-visuals/edict/EdictStage.module.css: addf676aa05e5cf1c0619be6c281aa9adb08a453d323cc71d37ff845ebe86bf5."
       ]
     },
     {
@@ -893,11 +989,13 @@
       "sourceStatus": "??",
       "sourceLayer": "dirtyOnlyAdded",
       "sourceSha256": "d9a4904d7ad6c83311f8224b54fd1675feffd2dfef93321ff7c2ec97ddbff1cc",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/court-visuals/edict/EdictStage.test.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/court-visuals/edict/EdictStage.test.ts exists with newer SHA-256 5eb74c445d0b8d62edb58180cdd922d153fade6a37d557bafd3d6c2139f87646; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -905,11 +1003,13 @@
       "sourceStatus": "??",
       "sourceLayer": "dirtyOnlyAdded",
       "sourceSha256": "77f8ac78bc126179873af3a8c5de044d19bbd2f442c52299885a87b3d0685dd0",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/features/court-visuals/edict/EdictStage.tsx"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/src/features/court-visuals/edict/EdictStage.tsx: 77f8ac78bc126179873af3a8c5de044d19bbd2f442c52299885a87b3d0685dd0."
       ]
     },
     {
@@ -917,11 +1017,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "7e7e31f85045d97fbbfadbe0f54d934d25cad45be28b6f72452ea4796dc5a746",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/features/court-visuals/types.ts"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/src/features/court-visuals/types.ts: 7e7e31f85045d97fbbfadbe0f54d934d25cad45be28b6f72452ea4796dc5a746."
       ]
     },
     {
@@ -929,11 +1031,13 @@
       "sourceStatus": "??",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "e4156192648114a9967ae0eed5ec7dce61555087523e7b44577994cf64cbcdc2",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/dadian-visual/DadianScene.module.css"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/dadian-visual/DadianScene.module.css exists with newer SHA-256 ddf4009d3a1665e22afa6edf6a1aa1f2a63d51ba7f4908d02a6709d71d5d4c40; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -941,11 +1045,13 @@
       "sourceStatus": "??",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "ec278c84090aeced340d7ca239be45f2fcd0c3a9aed2ea079a8ffc0f4b493c84",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/dadian-visual/DadianScene.test.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/dadian-visual/DadianScene.test.ts exists with newer SHA-256 758e2291188cec2765d0f4768c1beac3e6bf06e0841e5a09adb338cd6e574e2a; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -953,11 +1059,13 @@
       "sourceStatus": "??",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "446a74cb4a833502d3d1d7a9b2416f84a57e55cfd48ffbe34874f5b11afcad8b",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/dadian-visual/DadianScene.tsx"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/dadian-visual/DadianScene.tsx exists with newer SHA-256 c8241e5e51530896f2b29ae2c20d9479b1e98b895d4535a899b6fe074dd62b27; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -965,11 +1073,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "9432beba5a67278f38c34e7ccacb9820704e4139a99ab3a9f05dcd0b545b5cfa",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/junjichu-visual/JunjichuClient.tsx"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/junjichu-visual/JunjichuClient.tsx exists with newer SHA-256 04ba67293b6da7f178dca948779a489ddf43c72e122c86557e14187c3ff92f54; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -977,11 +1087,13 @@
       "sourceStatus": "??",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "432be8adcaab5d636e0d638c8fd250ada00fa8a744ab3c08bdadee7e4726d308",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/junjichu-visual/JunjichuScene.module.css"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/junjichu-visual/JunjichuScene.module.css exists with newer SHA-256 b9488ab52521fb2e5042d34d0c428e74c555cea82cb96cc4e03b7a2ad8c45656; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -989,11 +1101,13 @@
       "sourceStatus": "??",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "c982daaf7fda58aa6b32c45339e235f51f06b3b4e9aeba8e1551d9d7e6ea1937",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/junjichu-visual/JunjichuScene.test.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/junjichu-visual/JunjichuScene.test.ts exists with newer SHA-256 8bc5d49af6c62f5924b5f5ff78f1dd8ccc4bfaec0817d76d532a06f897131861; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1001,11 +1115,13 @@
       "sourceStatus": "??",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "c1c2c7a8b1c0c6752b6f138bb6e8bad0ada6152336777a8ed2b4a0d0e92f1776",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/junjichu-visual/JunjichuScene.tsx"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/junjichu-visual/JunjichuScene.tsx exists with newer SHA-256 4404dfade760981a5875a61de85cba32784e5eca7b8763fdb96aafa2f1dc0571; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1013,11 +1129,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "7f31fe79673c8009520299ba44930f95528fd094b6871574c38594deadf073f8",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/junjichu-visual/junjichuController.test.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/junjichu-visual/junjichuController.test.ts exists with newer SHA-256 0cada24cef4019acce17ca8e669290a0d05fff457db9fb07fc222382a6f58845; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1025,11 +1143,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "ff493c82d2735f22115ec0d843fb64873d3fb4765cc6405e2e97df0cc55f6288",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/junjichu-visual/junjichuController.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/junjichu-visual/junjichuController.ts exists with newer SHA-256 e62b49b90d5d13167da95f40bcf900806a8dce81379b23be9a1ae284f6f5bc55; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1037,11 +1157,13 @@
       "sourceStatus": "??",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "7ca50afe19fe91818b47e962ec605635233f6ccf9a74a3de5cda53d8e8cc1915",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/ministries-visual/DepartmentScene.tsx"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/ministries-visual/DepartmentScene.tsx exists with newer SHA-256 57d498adfacf54a2bf2a8945bf76dcd86bbc5c4539a5625e6045516eac803016; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1049,11 +1171,13 @@
       "sourceStatus": "??",
       "sourceLayer": "dirtyOnlyAdded",
       "sourceSha256": "d28dcb07aef405f1254577af8a63328499b8a1e20e55ea6ecce3f26d18dfdb9d",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/ministries-visual/DepartmentVisualPrimitives.tsx"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/ministries-visual/DepartmentVisualPrimitives.tsx exists with newer SHA-256 10a49d1957b332d2ce0ec6bd097b9bf964ccbac4ecec7e4b82e47bbacfd73ce8; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1061,11 +1185,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "5a1034c1373a2b45132116dbaf608445801f3699898fab9352038e089f123d28",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/ministries-visual/MinistryOverviewClient.tsx"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/ministries-visual/MinistryOverviewClient.tsx exists with newer SHA-256 78b7f24cd13be860211e44261536d35d554f7b7af2a06cb4cf433dc1b5bde546; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1073,11 +1199,13 @@
       "sourceStatus": "??",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "1d95c68f6bab5dc78aea63c2dfadf48d681d542f93c6f4078a39011f0e6e464c",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/ministries-visual/MinistryOverviewScene.tsx"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/ministries-visual/MinistryOverviewScene.tsx exists with newer SHA-256 fac03f8f32c0b348ccb6a585fc0459a1a28d46442c440f69afffa347e280807a; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1085,11 +1213,13 @@
       "sourceStatus": "??",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "f83c4937079b3f2cd67bfdd6b53b80bbe5850bb0947caef3c95fa2a01e3d2bba",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/ministries-visual/OfficeScene.tsx"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/ministries-visual/OfficeScene.tsx exists with newer SHA-256 149b97a0e85ac7da03764ec5568476cb4dc8f4fe6737ad397fbd1df5f008688c; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1097,11 +1227,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "9ddf6945b5578d862ae3312e096cf3ef9fa6702932789b6e225a399b43f7ece7",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/ministries-visual/departmentDirectory.test.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/ministries-visual/departmentDirectory.test.ts exists with newer SHA-256 357de73369badd66eee050c154eb3f89bd2faa55302e5212d7ac489a2e6bb495; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1109,11 +1241,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "65b24190862736029cecccbe6c9b52101a86235f4227784738a9f735f9ec74e5",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/ministries-visual/departmentDirectory.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/ministries-visual/departmentDirectory.ts exists with newer SHA-256 ea84de9a14c491648d37e9b16d0276042cad4a85dd21ad6c8ead6e25cc96dec4; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1121,11 +1255,13 @@
       "sourceStatus": "??",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "f51c646b8df4d21c95de69959e6077a762b47dfbae44900497a38916fe38c404",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/ministries-visual/ministries.module.css"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/ministries-visual/ministries.module.css exists with newer SHA-256 6f4750ea225797131f0bccc35d8b2f41741504dca430de41d3e52a783ecaab72; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1133,11 +1269,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "41a40d247c42864faa5cdc454f90385971ec3a5c316b24f7c6251b8c2ccb8e14",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/ministries-visual/ministriesController.test.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/ministries-visual/ministriesController.test.ts exists with newer SHA-256 0f749549a36275926cf4fcbbf24530d15a9b26ced645f581981713612a8fc19e; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1145,11 +1283,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "6134d1b35e482aeb9f9c6986e7c6f282637927b117f1daea17a71dac5e9b5308",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/ministries-visual/ministriesController.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/ministries-visual/ministriesController.ts exists with newer SHA-256 1fcf61391b451a4187c6a862e0347c0625e034719f52658d38ce6a15814d3c0e; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1157,11 +1297,13 @@
       "sourceStatus": "??",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "e2dd072febeffa983a1a7ca0021ebb998c8b614c603c78d4ce5a0e431f59d01f",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/ministries-visual/ministriesVisual.test.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/ministries-visual/ministriesVisual.test.ts exists with newer SHA-256 3309392bd9fb208313f10fb41bf896094381b8a7766a2e2214f82413d927b2ef; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1169,11 +1311,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "55832f9766ba1516f400a3c121470cf2c1f986da25c8e9ad2e130676b49e6ec9",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/ministries-visual/ministryRouteResolver.test.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/ministries-visual/ministryRouteResolver.test.ts exists with newer SHA-256 eecfed1b327a01bb0692d36a5a67ad057deec4da3031748c3bd110202f2c3fa0; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1181,11 +1325,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "e51ed3984989a422ee13b3ec00dc116879b768b7282218a04df7a258f4992aae",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/ministries-visual/ministryRouteResolver.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/ministries-visual/ministryRouteResolver.ts exists with newer SHA-256 cf4d3547026346ad98a4e95c27a1177a96eabe48b99ad8724d5fe7e9eb1518fb; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1193,11 +1339,13 @@
       "sourceStatus": "??",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "6d1adf04694dee81fc79f604c85b28acfd70163f512518c0961d12f0fa97211d",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/shiguan-visual/ShiguanArchiveDetail.tsx"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/shiguan-visual/ShiguanArchiveDetail.tsx exists with newer SHA-256 86810f9a2c0d6de2521a49ba26cf72f10912399f78deaead3cefcf7b87669285; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1205,11 +1353,13 @@
       "sourceStatus": "??",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "93cc408835f9dd60a99f8177ad0744d5639ec79aac1e569446dbb07380c7a85e",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/shiguan-visual/ShiguanWorkspace.module.css"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/shiguan-visual/ShiguanWorkspace.module.css exists with newer SHA-256 82c1a4478d5a24730f698bef1583e5983d8553e77eeefd45f257f7c90c620acb; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1217,11 +1367,13 @@
       "sourceStatus": "??",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "4c96300906256ad3a40d64ae65ea58d4a051ed37518205d92cf98860158523c8",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/shiguan-visual/ShiguanWorkspace.test.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/shiguan-visual/ShiguanWorkspace.test.ts exists with newer SHA-256 d1018ac77659d06e100a1cd353752047c6c0bb0b51ec3a1530b950755cc2c87d; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1229,11 +1381,13 @@
       "sourceStatus": "??",
       "sourceLayer": "postRestoreModified",
       "sourceSha256": "6a7337eff6349a9938615be65ddc41ab5525386c9c6f3f80c72867f06d10e74e",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/shiguan-visual/ShiguanWorkspace.tsx"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/shiguan-visual/ShiguanWorkspace.tsx exists with newer SHA-256 491ff31bec054922c10dd09ad7e6244764ba9e18ea6fb2a1e76e6fdc57a7f0db; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1241,11 +1395,13 @@
       "sourceStatus": "??",
       "sourceLayer": "dirtyOnlyAdded",
       "sourceSha256": "894f81045fb08d8f177aa3fcac0cb892de82053d3eefac519b14d9e58eb5bc2f",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "integrated",
+      "targetPaths": [
+        "frontend/src/features/study-visual/DevStudyWorkspace.module.css"
+      ],
+      "reason": "Integrated this UI artifact unchanged from the frozen source snapshot into the target worktree.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target SHA-256 equals frozen sourceSha256 for integrated path frontend/src/features/study-visual/DevStudyWorkspace.module.css: 894f81045fb08d8f177aa3fcac0cb892de82053d3eefac519b14d9e58eb5bc2f."
       ]
     },
     {
@@ -1253,11 +1409,13 @@
       "sourceStatus": "??",
       "sourceLayer": "dirtyOnlyAdded",
       "sourceSha256": "fc019bce22545662b20f2f473d1d7d6ca71c4d257eee1f4baf9a52b282c7550e",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/study-visual/DevStudyWorkspace.test.ts"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/study-visual/DevStudyWorkspace.test.ts exists with newer SHA-256 0c1c09b23b0ec3390cde379d277b83a703d7c17b285e0e4705ff54e5ec6b03a8; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1265,11 +1423,13 @@
       "sourceStatus": "??",
       "sourceLayer": "dirtyOnlyAdded",
       "sourceSha256": "47cc6eba1d87335a6b7b203118c6d2c498ed8ff19ea2561c96fbbb4079a97775",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/study-visual/DevStudyWorkspace.tsx"
+      ],
+      "reason": "Superseded the frozen source artifact with the newer target UI implementation at the same path, preserving current authentication, evidence, and presentation contracts.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check confirms frontend/src/features/study-visual/DevStudyWorkspace.tsx exists with newer SHA-256 cad3d36352983286fedabfe2d742a8b4aa291d98cac1f45d72a67855dbbee255; frontend tests verify the superseding UI contract."
       ]
     },
     {
@@ -1277,11 +1437,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "4151377366c473ee99b7d82e9d455ab89e57b89c993bda4d706c9a57407a0924",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/study-visual/DevStudyWorkspace.module.css"
+      ],
+      "reason": "Superseded the older StudyWorkspace UI artifact with the newer DevStudyWorkspace implementation that preserves the migrated visual behavior.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check maps frontend/src/features/study-visual/StudyWorkspace.module.css to frontend/src/features/study-visual/DevStudyWorkspace.module.css; frontend tests exercise the newer workspace."
       ]
     },
     {
@@ -1289,11 +1451,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "94ee714389665e58d6fafd5afbffed84a32a63b082aee1a4be9fb0cadc856d18",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/study-visual/DevStudyWorkspace.test.ts"
+      ],
+      "reason": "Superseded the older StudyWorkspace UI artifact with the newer DevStudyWorkspace implementation that preserves the migrated visual behavior.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check maps frontend/src/features/study-visual/StudyWorkspace.test.ts to frontend/src/features/study-visual/DevStudyWorkspace.test.ts; frontend tests exercise the newer workspace."
       ]
     },
     {
@@ -1301,11 +1465,13 @@
       "sourceStatus": "??",
       "sourceLayer": "restoreIdentical",
       "sourceSha256": "8ec2f91ba5a7ef49bdaadd7aa67de56e1a1b6262ffa62f4c665de3008a6fbc28",
-      "disposition": "pending",
-      "targetPaths": [],
-      "reason": "Pending semantic disposition by migration Tasks 2-7.",
+      "disposition": "superseded",
+      "targetPaths": [
+        "frontend/src/features/study-visual/DevStudyWorkspace.tsx"
+      ],
+      "reason": "Superseded the older StudyWorkspace UI artifact with the newer DevStudyWorkspace implementation that preserves the migrated visual behavior.",
       "verification": [
-        "Pending target-path and contract verification in migration Tasks 2-7."
+        "Target replacement check maps frontend/src/features/study-visual/StudyWorkspace.tsx to frontend/src/features/study-visual/DevStudyWorkspace.tsx; frontend tests exercise the newer workspace."
       ]
     }
   ]
