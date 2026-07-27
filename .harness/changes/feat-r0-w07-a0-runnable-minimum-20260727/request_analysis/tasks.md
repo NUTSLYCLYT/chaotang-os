@@ -73,8 +73,11 @@
   `d37fe17900354afab1bcaa029fe3d097e210623c`。
 - [x] exact `af714f77...` 两路 fresh review 完成，结论均为 `NO-GO`，
   去重 `HIGH 3 / MEDIUM 1 / LOW 0`。
-- [ ] TDD 修复 malformed formal、final decision TOCTOU、legacy generation
+- [x] TDD 修复 malformed formal、final decision TOCTOU、legacy generation
   non-destructive quarantine 和 explicit taskId server binding。
+- [x] 冻结 implementation candidate
+  `029f836216de0ddf5361e24e886ab797202aae83` /
+  `9eb003f98f2cada1b280f283d45fcf9ed4402920`。
 - [ ] 在新 exact candidate 上取得 two-pass GO。
 - [ ] 冻结 exact candidate H/tree 和 `RUNNABLE_MINIMUM` receipt。
 

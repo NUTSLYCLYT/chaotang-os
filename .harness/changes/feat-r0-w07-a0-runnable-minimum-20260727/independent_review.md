@@ -449,3 +449,28 @@ Review envelope `857930ed5e9961fecfcd9d3d00298b9bb0ea2296` 对 implementation
 四项均在已批准的 router、Mission/rework contract、frontend selection 和 focused
 tests 范围内；无需 Checkpoint B 或数据库迁移。`af714f77...` 不得整合 EXT，
 当前状态为 `REVIEWED_NO_GO / REMEDIATION_IN_PROGRESS / NOT_DEPLOYED`。
+
+## Latest Seventh Review Remediation Evidence
+
+Product Owner 已批准在既有范围内修复 review envelope `857930ed...` 的全部
+`HIGH 3 / MEDIUM 1`。本轮未执行 Checkpoint B 或数据库迁移。
+
+| Finding | Remediation | Fresh evidence |
+| --- | --- | --- |
+| JSON-valid malformed formal | non-object 与 empty object current formal 均 contract fail-closed | 8-case API zero-write table |
+| final decision TOCTOU | shared DecisionTask lock 前置，锁内刷新 task/current formal 后再投影 authority | lock-order probe + legacy two-session race |
+| parent durable payload | version-aware read；parent-valid row deterministic `mission_identity_missing / superseded` | projection + worker no-failure tests |
+| explicit taskId boundary | URL identity 必须由 `/home/v1 contract_task=true` 且与 active memorial exact match | 5 Node tests + real JWT non-contract deep-link browser gate |
+
+exact implementation candidate：
+
+- H `029f836216de0ddf5361e24e886ab797202aae83`
+- tree `9eb003f98f2cada1b280f283d45fcf9ed4402920`
+- parent `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `2c53af08abb49745fb19c4a6779081655cee5792f97d5f25a554156d1043c71a`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本节只登记待审候选，不预判两路 Codex 独立只读审查结论。

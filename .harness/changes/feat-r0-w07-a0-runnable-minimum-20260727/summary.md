@@ -9,14 +9,14 @@
 | --- | --- |
 | Change ID | feat-r0-w07-a0-runnable-minimum-20260727 |
 | 类型 | feat |
-| 状态 | `REVIEWED_NO_GO / REMEDIATION_IN_PROGRESS / NOT_DEPLOYED` |
+| 状态 | `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING / NOT_DEPLOYED` |
 | Owner | Codex W07 Implementation Lead |
 | Product Owner | `lyt` |
 | 创建日期 | `2026-07-27` |
 | Base H | `ed822255a452e8dd8dda8f86a180fd7c099b181e` |
 | Base tree | `0a56a0eab0135dcf46c31e5ae2cbc46f501cfdcb` |
-| Implementation candidate H | `af714f77ae9752cf1aafbcfd4a14a6e4081f26a3` |
-| Implementation candidate tree | `d37fe17900354afab1bcaa029fe3d097e210623c` |
+| Implementation candidate H | `029f836216de0ddf5361e24e886ab797202aae83` |
+| Implementation candidate tree | `9eb003f98f2cada1b280f283d45fcf9ed4402920` |
 | Integration target | local `feature-chaotang-ext` |
 | Authority before first edit | v1 `VALID_INACTIVE_GUARD`; v2 W07 `GO / APPROVED_WORK_PACKAGE` |
 
@@ -158,3 +158,32 @@ real backend synthetic flow
 + honest PARTIAL limitation
 + focused regression and browser evidence
 ```
+
+## Seventh Review Remediation Candidate
+
+Product Owner 批准的四项最新 HIGH/MEDIUM 已按 TDD 闭环：
+
+1. JSON 合法但 top-level 非 object 或空 object 的 current FinalMemorial 保持
+   contract fail-closed，不再进入 legacy writer。
+2. 所有 final decision 在读取 current formal、Mission/pack authority 和
+   `allowed_actions` 前持有共享 DecisionTask lock，并在锁内刷新 task/formal。
+3. parent 合法但缺 Mission revision/digest 的 durable evidence-rework payload
+   被确定性标记为 `mission_identity_missing` 并 `superseded`；不重试、不死信、
+   不修改任务状态，也不执行持久数据迁移。
+4. explicit `?taskId=` 只有在 `/home/v1` 返回 exact memorial 且
+   `contract_task=true`、并与当前右栏 identity 一致时才能激活合同面板。真实浏览器
+   另种入 server-classified non-contract task，验证 legacy 深链不显示合同面板。
+
+fresh implementation candidate：
+
+- H `029f836216de0ddf5361e24e886ab797202aae83`
+- tree `9eb003f98f2cada1b280f283d45fcf9ed4402920`
+- parent `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `2c53af08abb49745fb19c4a6779081655cee5792f97d5f25a554156d1043c71a`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本节不预判独立审查结论。候选未执行 Checkpoint B、push、部署、持久数据库迁移或
+listener 3050 操作。

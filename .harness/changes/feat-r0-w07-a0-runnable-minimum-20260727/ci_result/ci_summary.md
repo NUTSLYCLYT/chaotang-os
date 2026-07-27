@@ -53,6 +53,17 @@
 | seventh-review backend/frontend doctor | 0 | 0 errors, 0 warnings | owned harness layers | 2026-07-28 |
 | seventh-review root doctor | 1 | only `active-packet EXT ref must equal pinned HEAD` | expected PRE_INTEGRATION fail-closed | 2026-07-28 |
 | seventh-review `git diff --check` + secret scan | 0 | pass | candidate integrity | 2026-07-28 |
+| latest remediation direct backend files | 0 | 117 passed | malformed formal、lock order、legacy payload quarantine | 2026-07-28 |
+| latest remediation expanded backend suite | 0 | 574 passed, 2 skipped | contract/Mission/artifact/W05/worker/authz/legacy concurrency | 2026-07-28 |
+| latest remediation focused frontend + typecheck | 0 | 39 passed + typecheck/build pass | server-classified explicit task identity、closed-world | 2026-07-28 |
+| latest remediation full frontend residual | 1 | 1107 passed, 1 known date-fixture failure | unchanged `signal_older_than_30_days` residual outside diff | 2026-07-28 |
+| latest remediation Ruff | 0 | All checks passed | all changed Python files | 2026-07-28 |
+| latest remediation API guard/generator x2 | 0 | 11 passed；363 routes；0 breaking；five hashes identical | fixed immutable ref and public schema stability | 2026-07-28 |
+| latest remediation real-mode build | 0 | Next production build pass | isolated candidate buildability only | 2026-07-28 |
+| latest remediation W07 Playwright | 0 | 1 passed | non-contract deep link、READY/PARTIAL/download/archive/reopen | 2026-07-28 |
+| latest remediation backend/frontend doctor | 0 | 0 errors, 0 warnings | owned harness layers | 2026-07-28 |
+| latest remediation authority check | 1 | v1 amendment STOP；v2 exact-ref mismatch STOP | expected isolated PRE_INTEGRATION fail-closed | 2026-07-28 |
+| latest remediation `git diff --check` + secret scan | 0 | pass | implementation candidate integrity | 2026-07-28 |
 
 ## 结果
 
@@ -80,6 +91,11 @@ verification。当前等待该 exact candidate 两路独立只读审查，仍不
 review envelope `857930ed...` 的两路 fresh review 均为 `NO-GO`，去重
 `HIGH 3 / MEDIUM 1 / LOW 0`；implementation `af714f77...` 被拒绝，进入下一轮
 TDD remediation。
+
+上述四项已在 exact implementation
+`029f836216de0ddf5361e24e886ab797202aae83`、tree
+`9eb003f98f2cada1b280f283d45fcf9ed4402920` 按 TDD 闭环，并通过上表 fresh
+verification。当前等待该 exact candidate 两路独立只读审查，仍不得整合 EXT。
 
 ## 全仓既有 Residual
 
