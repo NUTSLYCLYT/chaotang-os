@@ -19,7 +19,15 @@ const pages = [
 test("court entries are server-protected migrated views or visual placeholders", async () => {
   for (const [file, path, name, expectedView, expectedShell] of pages) {
     const source = await readFile(new URL(`./${file}`, import.meta.url), "utf8");
-    assert.match(source, /await requireUser\(/);
+    assert.match(source, /^import \{ requireUser \} from "[^"]+\/requireUser";\r?$/m);
+    const directGuards = source.match(
+      /^\s{2}await requireUser\((?:routeSegment|"[^"]+")\);\r?$/gm,
+    );
+    assert.equal(directGuards?.length, 1, `${file} must execute exactly one direct requireUser guard`);
+    assert.ok(
+      source.indexOf(directGuards[0]) < source.indexOf("return "),
+      `${file} must authenticate before rendering`,
+    );
     assert.match(source, new RegExp(path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     assert.match(source, expectedShell);
     assert.match(source, expectedView);

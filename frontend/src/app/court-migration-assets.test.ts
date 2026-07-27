@@ -8,17 +8,41 @@ async function readSource(path: string): Promise<string> {
   return source;
 }
 
-test("court migration keeps the three shared binary assets non-empty", async () => {
+test("court migration keeps valid WebP assets wired to their actual consumers", async () => {
   const assets = [
-    "../../public/assets/zhuangyuan/04-zhuangyuan-new.webp",
-    "../../public/shangshufang/portrait-chancellor.webp",
-    "../../public/shangshufang/portrait-wang.webp",
+    {
+      file: "../../public/assets/zhuangyuan/04-zhuangyuan-new.webp",
+      publicPath: "/assets/zhuangyuan/04-zhuangyuan-new.webp",
+      consumer: "../features/ministries-visual/MinistryOverviewScene.tsx",
+    },
+    {
+      file: "../../public/shangshufang/portrait-chancellor.webp",
+      publicPath: "/shangshufang/portrait-chancellor.webp",
+      consumer: "../features/court-visuals/CourtQuickDock.tsx",
+    },
+    {
+      file: "../../public/shangshufang/portrait-wang.webp",
+      publicPath: "/shangshufang/portrait-wang.webp",
+      consumer: "../features/court-visuals/CourtQuickDock.tsx",
+    },
   ] as const;
 
   for (const asset of assets) {
-    const metadata = await stat(new URL(asset, import.meta.url));
-    assert.ok(metadata.isFile(), `${asset} must remain a file`);
-    assert.ok(metadata.size > 0, `${asset} must not be empty`);
+    const assetUrl = new URL(asset.file, import.meta.url);
+    const [metadata, bytes, consumer] = await Promise.all([
+      stat(assetUrl),
+      readFile(assetUrl),
+      readSource(asset.consumer),
+    ]);
+    assert.ok(metadata.isFile(), `${asset.file} must remain a file`);
+    assert.ok(metadata.size >= 12, `${asset.file} must contain a WebP header`);
+    assert.equal(bytes.subarray(0, 4).toString("ascii"), "RIFF");
+    assert.equal(bytes.subarray(8, 12).toString("ascii"), "WEBP");
+    assert.equal(bytes.readUInt32LE(4) + 8, metadata.size);
+    assert.ok(
+      consumer.includes(asset.publicPath),
+      `${asset.consumer} must consume ${asset.publicPath}`,
+    );
   }
 });
 

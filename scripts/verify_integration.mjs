@@ -7,9 +7,9 @@
  *
  *   1. Success path: backend and frontend both running, frontend pointed at
  *      the live backend via `BACKEND_BASE_URL`. Asserts the public home page
- *      remains the WelcomeGate and `/health` renders the backend-healthy marker.
- *   2. Failure path: backend not started at all, frontend pointed at an
- *      unused port. Asserts `/health` renders a graceful
+ *      renders its visible public heading and `/health` renders the backend-healthy marker.
+ *   2. Failure path: backend not started at all, frontend pointed at a held
+ *      sentinel port that never serves a valid backend response. Asserts `/health` renders a graceful
  *      "backend unavailable" marker (not a 500 / crash).
  *
  * Written in plain Node.js (no bash) on purpose so behaviour is identical on
@@ -38,6 +38,7 @@ const BACKEND_DIR = path.join(REPO_ROOT, "backend");
 const FRONTEND_DIR = path.join(REPO_ROOT, "frontend");
 
 const IS_WINDOWS = process.platform === "win32";
+const MAX_START_ATTEMPTS = 3;
 
 function log(message) {
   console.log(`[verify_integration] ${message}`);
@@ -100,6 +101,47 @@ async function getFreePort() {
   });
 }
 
+async function getUniqueFreePort(usedPorts) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const port = await getFreePort();
+    if (!usedPorts.has(port)) {
+      usedPorts.add(port);
+      return port;
+    }
+  }
+  throw new Error("无法分配本次集成校验尚未使用的唯一端口");
+}
+
+async function createUnavailableBackendSentinel() {
+  const sockets = new Set();
+  const server = createServer((socket) => {
+    sockets.add(socket);
+    socket.once("close", () => sockets.delete(socket));
+    socket.destroy();
+  });
+  const port = await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", reject);
+      const address = server.address();
+      if (typeof address === "object" && address) resolve(address.port);
+      else reject(new Error("无法为不可用后端 sentinel 分配监听端口"));
+    });
+  });
+  return {
+    port,
+    close: async () => {
+      for (const socket of sockets) socket.destroy();
+      await new Promise((resolve, reject) => {
+        server.close((error) => {
+          if (error) reject(error);
+          else resolve();
+        });
+      });
+    },
+  };
+}
+
 async function waitForHttp(url, { timeoutMs = 20000, intervalMs = 250 } = {}) {
   const deadline = Date.now() + timeoutMs;
   let lastError;
@@ -112,6 +154,31 @@ async function waitForHttp(url, { timeoutMs = 20000, intervalMs = 250 } = {}) {
     }
   }
   throw new Error(`等待 ${url} 就绪超时（${timeoutMs}ms）：${lastError}`);
+}
+
+async function waitForManagedHttp(managedProcess, url) {
+  const deadline = Date.now() + 20000;
+  let lastError;
+  while (Date.now() < deadline) {
+    if (managedProcess.spawnError) throw managedProcess.spawnError;
+    if (
+      managedProcess.child.exitCode !== null ||
+      managedProcess.child.signalCode !== null
+    ) {
+      throw new Error(
+        `${managedProcess.name} 在 HTTP 就绪前退出\n${managedProcess.describeForError()}`,
+      );
+    }
+    try {
+      const response = await fetch(url, { cache: "no-store" });
+      if (response.status === 200) return response;
+      lastError = new Error(`HTTP ${response.status}`);
+    } catch (error) {
+      lastError = error;
+    }
+    await sleep(250);
+  }
+  throw new Error(`等待 ${url} 就绪超时（20000ms）：${lastError}`);
 }
 
 function ensureFrontendBuilt() {
@@ -151,25 +218,34 @@ class ManagedProcess {
 
   async kill() {
     const child = this.child;
-    if (child.exitCode !== null || child.signalCode !== null) {
-      return;
-    }
-    await new Promise((resolve) => {
-      child.once("exit", () => resolve());
-      if (IS_WINDOWS) {
+    const pid = child.pid;
+    if (pid === undefined) return;
+    if (IS_WINDOWS) {
+      if (child.exitCode !== null || child.signalCode !== null) return;
+      await new Promise((resolve) => {
+        child.once("exit", () => resolve());
         // uvicorn/next 在 Windows 上可能派生额外子进程；taskkill /T 终止整棵进程树。
         spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
           stdio: "ignore",
         }).on("error", () => resolve());
-      } else {
-        child.kill("SIGTERM");
-        setTimeout(() => {
-          if (child.exitCode === null) child.kill("SIGKILL");
-        }, 3000);
-      }
-      // 兜底：即使 exit 事件因异常情况未触发，也不要无限等待。
-      setTimeout(resolve, 5000);
-    });
+        setTimeout(resolve, 5000);
+      });
+      return;
+    }
+
+    // detached 子进程的 PID 同时是其 PGID；负 PID 只命中本脚本创建的进程组。
+    try {
+      process.kill(-pid, "SIGTERM");
+    } catch (error) {
+      if (error?.code !== "ESRCH") throw error;
+    }
+    if (await waitForProcessGroupExit(pid, 3000)) return;
+    try {
+      process.kill(-pid, "SIGKILL");
+    } catch (error) {
+      if (error?.code !== "ESRCH") throw error;
+    }
+    await waitForProcessGroupExit(pid, 2000);
   }
 
   describeForError() {
@@ -180,12 +256,26 @@ class ManagedProcess {
   }
 }
 
+async function waitForProcessGroupExit(pid, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      process.kill(-pid, 0);
+    } catch (error) {
+      if (error?.code === "ESRCH") return true;
+      throw error;
+    }
+    await sleep(50);
+  }
+  return false;
+}
+
 function startBackend(port) {
   const python = resolvePythonExecutable();
   const child = spawn(
     python,
     ["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", String(port)],
-    { cwd: BACKEND_DIR, stdio: ["ignore", "pipe", "pipe"] },
+    { cwd: BACKEND_DIR, stdio: ["ignore", "pipe", "pipe"], detached: !IS_WINDOWS },
   );
   return new ManagedProcess("backend", child);
 }
@@ -197,12 +287,40 @@ function startFrontend(port, backendBaseUrl) {
     stdio: ["ignore", "pipe", "pipe"],
     env: { ...process.env, BACKEND_BASE_URL: backendBaseUrl },
     shell,
+    detached: !IS_WINDOWS,
   });
   return new ManagedProcess("frontend", child);
 }
 
+async function startManagedServiceWithRetry({
+  name,
+  usedPorts,
+  start,
+  readinessPath,
+}) {
+  const failures = [];
+  for (let attempt = 1; attempt <= MAX_START_ATTEMPTS; attempt += 1) {
+    const port = await getUniqueFreePort(usedPorts);
+    const managedProcess = start(port);
+    try {
+      await waitForManagedHttp(
+        managedProcess,
+        `http://127.0.0.1:${port}${readinessPath}`,
+      );
+      return { port, managedProcess };
+    } catch (error) {
+      failures.push(`端口 ${port}: ${error.message}`);
+      await managedProcess.kill();
+      if (attempt < MAX_START_ATTEMPTS) {
+        log(`${name} 第 ${attempt} 次启动未就绪，改用新的唯一端口重试。`);
+      }
+    }
+  }
+  throw new Error(`${name} 连续启动失败：\n${failures.join("\n")}`);
+}
+
 function createPageAsserter(frontendPort, frontend) {
-  return async function assertPage(pathname, { contains, excludes } = {}) {
+  return async function assertPage(pathname, { contains, matches = [], excludes } = {}) {
     const url = `http://127.0.0.1:${frontendPort}${pathname}`;
     const response = await waitForHttp(url).catch((error) => {
       throw new Error(`前端页面 ${pathname} 未能就绪：${error.message}\n${frontend.describeForError()}`);
@@ -221,6 +339,14 @@ function createPageAsserter(frontendPort, frontend) {
           frontend.describeForError(),
       );
     }
+    for (const pattern of matches) {
+      if (!pattern.test(html)) {
+        throw new Error(
+          `前端页面 ${pathname} 缺少可见 DOM ${pattern}，页面片段：${html.slice(0, 800)}\n` +
+            frontend.describeForError(),
+        );
+      }
+    }
     if (excludes && html.includes(excludes)) {
       throw new Error(
         `前端页面 ${pathname} 不应包含 ${JSON.stringify(excludes)}，页面片段：${html.slice(0, 800)}\n` +
@@ -230,48 +356,79 @@ function createPageAsserter(frontendPort, frontend) {
   };
 }
 
-async function runSuccessScenario() {
+async function runSuccessScenario(usedPorts) {
   log("场景一（成功路径）：启动后端 + 前端指向它 ...");
-  const backendPort = await getFreePort();
-  const frontendPort = await getFreePort();
-  const backend = startBackend(backendPort);
+  let backend;
   let frontend;
   try {
-    await waitForHttp(`http://127.0.0.1:${backendPort}/health`).catch((error) => {
-      throw new Error(`后端未能就绪：${error.message}\n${backend.describeForError()}`);
+    const backendStart = await startManagedServiceWithRetry({
+      name: "backend",
+      usedPorts,
+      start: startBackend,
+      readinessPath: "/health",
     });
-
-    frontend = startFrontend(frontendPort, `http://127.0.0.1:${backendPort}`);
+    backend = backendStart.managedProcess;
+    const frontendStart = await startManagedServiceWithRetry({
+      name: "frontend",
+      usedPorts,
+      start: (port) =>
+        startFrontend(port, `http://127.0.0.1:${backendStart.port}`),
+      readinessPath: "/",
+    });
+    frontend = frontendStart.managedProcess;
+    const frontendPort = frontendStart.port;
     const assertPage = createPageAsserter(frontendPort, frontend);
-    await assertPage("/", { contains: "WelcomeGate", excludes: "data-backend-ok" });
+    await assertPage("/", {
+      matches: [
+        /<h1[^>]*>朝堂 OS<\/h1>/,
+        /<a[^>]*href="\/login"[^>]*>已有账号<\/a>/,
+      ],
+      excludes: "data-backend-ok",
+    });
     await assertPage("/health", { contains: 'data-backend-ok="true"' });
-    log("场景一通过：首页保持 WelcomeGate，健康页体现后端健康状态。");
+    log("场景一通过：首页展示公开可见入口，健康页体现后端健康状态。");
   } finally {
     if (frontend) await frontend.kill();
-    await backend.kill();
+    if (backend) await backend.kill();
   }
 }
 
-async function runFailureScenario() {
+async function runFailureScenario(usedPorts) {
   log("场景二（失败路径）：后端不可用时前端应优雅降级 ...");
-  // 只借用一次「当前空闲端口」的判定，刻意不启动任何监听该端口的后端进程。
-  const unreachableBackendPort = await getFreePort();
-  const frontendPort = await getFreePort();
-  const frontend = startFrontend(frontendPort, `http://127.0.0.1:${unreachableBackendPort}`);
+  const sentinel = await createUnavailableBackendSentinel();
+  usedPorts.add(sentinel.port);
+  let frontend;
   try {
+    const frontendStart = await startManagedServiceWithRetry({
+      name: "frontend（后端不可用场景）",
+      usedPorts,
+      start: (port) =>
+        startFrontend(port, `http://127.0.0.1:${sentinel.port}`),
+      readinessPath: "/",
+    });
+    frontend = frontendStart.managedProcess;
+    const frontendPort = frontendStart.port;
     const assertPage = createPageAsserter(frontendPort, frontend);
-    await assertPage("/", { contains: "WelcomeGate", excludes: "data-backend-ok" });
+    await assertPage("/", {
+      matches: [
+        /<h1[^>]*>朝堂 OS<\/h1>/,
+        /<a[^>]*href="\/login"[^>]*>已有账号<\/a>/,
+      ],
+      excludes: "data-backend-ok",
+    });
     await assertPage("/health", { contains: 'data-backend-ok="false"' });
-    log("场景二通过：首页保持 WelcomeGate，健康页优雅体现后端不可用。");
+    log("场景二通过：首页展示公开可见入口，健康页优雅体现后端不可用。");
   } finally {
-    await frontend.kill();
+    if (frontend) await frontend.kill();
+    await sentinel.close();
   }
 }
 
 async function main() {
   ensureFrontendBuilt();
-  await runSuccessScenario();
-  await runFailureScenario();
+  const usedPorts = new Set();
+  await runSuccessScenario(usedPorts);
+  await runFailureScenario(usedPorts);
   log("集成校验全部通过：成功路径与失败路径均可重复验证，子进程均已清理。");
 }
 
