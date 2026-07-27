@@ -6,6 +6,8 @@
 - backend-owned read model。
 - W06 PDF/DOCX/JSON delivery generation。
 - 授权 JSON 下载、人工裁决、ArchiveReceipt、Shiguan exact readback。
+- URL `archiveId` exact match 成功，tampered ID fail closed。
+- seeded PARTIAL 刷新前后均无 delivered/resume/decision。
 
 ## 命令
 

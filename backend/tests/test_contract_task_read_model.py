@@ -94,6 +94,7 @@ def test_read_model_has_closed_action_and_blocker_vocabularies() -> None:
     payload = {
         "read_revision": "a" * 64,
         "generated_at": "2026-07-27T00:00:00Z",
+        "source_class": "ADJUDICABLE",
         "task": {
             "task_id": "task-1",
             "tenant_id": 7,

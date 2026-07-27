@@ -14,6 +14,7 @@ function model(
     schema_version: 'ContractTaskReadModelV1',
     read_revision: 'a'.repeat(64),
     generated_at: '2026-07-27T00:00:00Z',
+    source_class: 'ADJUDICABLE',
     task: {
       task_id: 'task-1',
       tenant_id: 7,
@@ -80,15 +81,9 @@ test('archive state requires an exact receipt', () => {
   );
 });
 
-test('FALLBACK remains visibly non-live', () => {
+test('effective FALLBACK remains visibly non-live even when task source is LIVE', () => {
   const policy = contractReviewUiPolicy(model({
-    task: {
-      task_id: 'task-1',
-      tenant_id: 7,
-      status: 'reviewing',
-      source_label: 'FALLBACK',
-      raw_question: '审查采购合同',
-    },
+    source_class: 'FALLBACK',
   }));
 
   assert.equal(policy.sourceState, 'FALLBACK');

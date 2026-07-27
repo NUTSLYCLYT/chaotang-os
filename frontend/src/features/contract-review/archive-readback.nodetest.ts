@@ -12,6 +12,7 @@ function model(hasReceipt: boolean): ContractTaskReadModelV1 {
     schema_version: 'ContractTaskReadModelV1',
     read_revision: 'a'.repeat(64),
     generated_at: '2026-07-27T00:00:00Z',
+    source_class: 'ADJUDICABLE',
     task: {
       task_id: 'task-1',
       tenant_id: 7,
@@ -74,6 +75,17 @@ test('rejects a contradictory exact receipt even for typed input', () => {
   };
 
   assert.equal(buildContractArchiveDetail(value), null);
+});
+
+test('rejects an exact receipt that does not match the requested archive id', () => {
+  assert.equal(
+    buildContractArchiveDetail(model(true), 'archive-tampered'),
+    null,
+  );
+  assert.equal(
+    buildContractArchiveDetail(model(true), 'archive-1')?.id,
+    'archive-1',
+  );
 });
 
 test('an exact task request never falls back to indexed detail', () => {

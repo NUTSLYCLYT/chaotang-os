@@ -36,6 +36,7 @@ export const CONTRACT_BLOCKERS = [
 
 const ACTION_SET = new Set<string>(CONTRACT_ACTIONS);
 const BLOCKER_SET = new Set<string>(CONTRACT_BLOCKERS);
+const SOURCE_CLASS_SET = new Set(['ADJUDICABLE', 'FALLBACK', 'UNKNOWN']);
 const PUBLIC_DELIVERY_KEYS = new Set([
   'manifest_id',
   'task_id',
@@ -135,6 +136,8 @@ function validFinalMemorial(value: unknown): boolean {
 
 function hasExactLineage(model: Record<string, unknown>): boolean {
   const task = record(model.task);
+  const missionView = record(model.mission);
+  const mission = record(missionView?.mission);
   const final = record(model.final_memorial);
   const delivery = record(model.delivery);
   const receipt = record(model.archive_receipt);
@@ -142,6 +145,16 @@ function hasExactLineage(model: Record<string, unknown>): boolean {
   if (!task) return false;
   const taskId = task.task_id;
 
+  if (
+    missionView
+    && (
+      !mission
+      || mission.task_id !== taskId
+      || mission.mission_contract_id !== taskId
+    )
+  ) {
+    return false;
+  }
   if (
     pack
     && (
@@ -186,11 +199,13 @@ export function parseContractTaskReadModel(value: unknown): ContractTaskReadMode
     || model.schema_version !== 'ContractTaskReadModelV1'
     || !nonEmptyString(model.read_revision)
     || !nonEmptyString(model.generated_at)
+    || typeof model.source_class !== 'string'
+    || !SOURCE_CLASS_SET.has(model.source_class)
     || !validTask(model.task)
     || !Array.isArray(model.allowed_actions)
     || !Array.isArray(model.blockers)
   ) {
-    throw new Error('invalid contract read model');
+    throw new Error('invalid contract read model or source class');
   }
   for (const action of model.allowed_actions) {
     if (typeof action !== 'string' || !ACTION_SET.has(action)) {

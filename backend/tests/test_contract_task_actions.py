@@ -169,6 +169,24 @@ def test_unknown_or_inconsistent_facts_fail_closed(facts: ContractTaskFacts) -> 
     assert resolution.blockers
 
 
+def test_under_review_delivery_reports_integrity_failure() -> None:
+    resolution = resolve_contract_task_actions(
+        ContractTaskFacts(
+            mission_state="CONFIRMED",
+            source_class="ADJUDICABLE",
+            evidence_ready=True,
+            review_pack_ready=True,
+            final_status="READY_FOR_DECISION",
+            delivery_status="UNDER_REVIEW",
+            downloadable_count=2,
+            delivery_complete=False,
+        )
+    )
+
+    assert resolution.allowed_actions == ()
+    assert resolution.blockers == ("DELIVERY_INTEGRITY_FAILED",)
+
+
 @pytest.mark.parametrize("downloadable_count", [0, 1, 2])
 def test_ready_delivery_requires_complete_pdf_docx_json_set(
     downloadable_count: int,

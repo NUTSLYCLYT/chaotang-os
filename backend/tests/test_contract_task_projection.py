@@ -36,6 +36,7 @@ def test_exact_ready_lineage_projects_verified_downloads(
         model = project_contract_task(db, storage_root=tmp_path, task=task)
 
     assert model.review_pack.mission_contract_id == task_id
+    assert model.source_class == "ADJUDICABLE"
     assert model.delivery.overall_status == "READY"
     assert {item.kind for item in model.delivery.artifacts} == {
         "PDF",
@@ -164,6 +165,7 @@ def test_fallback_pack_engine_is_not_adjudicable(
         model = project_contract_task(db, storage_root=tmp_path, task=task)
 
     assert model.allowed_actions == []
+    assert model.source_class == "FALLBACK"
     assert "NON_ADJUDICABLE_SOURCE" in {
         item.code for item in model.blockers
     }
@@ -192,7 +194,92 @@ def test_fallback_pack_source_label_is_not_adjudicable(
         model = project_contract_task(db, storage_root=tmp_path, task=task)
 
     assert model.allowed_actions == []
+    assert model.source_class == "FALLBACK"
     assert "NON_ADJUDICABLE_SOURCE" in {
+        item.code for item in model.blockers
+    }
+
+
+def test_fallback_risk_item_cannot_hide_behind_adjudicable_pack_aggregate(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-risk-fallback")
+        pack = contract_review_pack(
+            task.id,
+            risk_items=[
+                {
+                    "schema_version": "ContractRiskItemV1",
+                    "risk_item_id": "risk-fallback",
+                    "evidence_packet_id": "evidence-1",
+                    "risk_level": "medium",
+                    "explanation": "回退引擎生成的风险项不得用于裁决。",
+                    "missing_evidence": ["原文锚点"],
+                    "recommended_revision": "补齐原文后重新审查。",
+                    "source_label": "FALLBACK",
+                    "engine_tier": "fallback",
+                }
+            ],
+        )
+        final, pack = seed_final_memorial(db, task_id=task.id, pack=pack)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.source_class == "FALLBACK"
+    assert model.allowed_actions == []
+    assert "NON_ADJUDICABLE_SOURCE" in {
+        item.code for item in model.blockers
+    }
+
+
+def test_risk_item_source_and_engine_must_be_declared_by_pack(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-risk-aggregate-drift")
+        pack = contract_review_pack(
+            task.id,
+            risk_items=[
+                {
+                    "schema_version": "ContractRiskItemV1",
+                    "risk_item_id": "risk-aggregate-drift",
+                    "evidence_packet_id": "evidence-1",
+                    "risk_level": "medium",
+                    "explanation": "风险项来源与 pack 汇总声明不一致。",
+                    "missing_evidence": ["原文锚点"],
+                    "recommended_revision": "修正来源汇总后重新审查。",
+                    "source_label": "VALIDATED_MODEL",
+                    "engine_tier": "validated_model",
+                }
+            ],
+            source_labels=["TASK_EVIDENCE"],
+            engine_tiers=["deterministic"],
+        )
+        final, pack = seed_final_memorial(db, task_id=task.id, pack=pack)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.source_class == "UNKNOWN"
+    assert model.allowed_actions == []
+    assert "STATE_INCONSISTENT" in {
         item.code for item in model.blockers
     }
 
@@ -234,7 +321,7 @@ def test_ready_manifest_with_missing_stored_file_cannot_be_decided(
         task = db.get(DecisionTask, task_id)
         model = project_contract_task(db, storage_root=tmp_path, task=task)
 
-    assert model.delivery.overall_status == "READY"
+    assert model.delivery.overall_status == "UNDER_REVIEW"
     assert model.allowed_actions == []
     assert "DELIVERY_INTEGRITY_FAILED" in {
         item.code for item in model.blockers

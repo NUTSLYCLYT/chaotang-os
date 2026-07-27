@@ -66,7 +66,10 @@ test.describe('W07 contract RUNNABLE_MINIMUM', () => {
       && response.request().method() === 'POST'
     ));
     await page.getByTestId('contract-action-decide').click();
-    expect((await decisionResponse).status()).toBe(200);
+    const decision = await decisionResponse;
+    expect(decision.status()).toBe(200);
+    const decisionPayload = await decision.json();
+    const archiveId = decisionPayload.data.archive_record.archive_id as string;
     await expect(panel).toContainText('ARCHIVED');
 
     await page.getByTestId('contract-action-reopen_archive').click();
@@ -79,11 +82,28 @@ test.describe('W07 contract RUNNABLE_MINIMUM', () => {
     await expect(archiveIdentity).toContainText(
       'final-task-w07-runnable-minimum',
     );
+    await page.goto(
+      `/shiguan?taskId=${TASK_ID}&archiveId=${encodeURIComponent(archiveId)}`,
+    );
+    await expect(
+      page.locator('[data-contract-read-model-status="ready"]'),
+    ).toBeVisible();
+    await expect(page.getByTestId('contract-archive-identity')).toBeVisible();
     await page.waitForTimeout(1_200);
     await page.screenshot({
       path: testInfo.outputPath('w07-shiguan-exact-lineage.png'),
       fullPage: true,
     });
+
+    await page.goto(
+      `/shiguan?taskId=${TASK_ID}&archiveId=archive-tampered`,
+    );
+    await expect(
+      page.locator('[data-contract-read-model-status="error"]'),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId('contract-archive-readback-error'),
+    ).toBeVisible();
 
     await page.goto(`/shangshufang?taskId=${PARTIAL_TASK_ID}`);
     const partialPanel = page.getByTestId('contract-review-panel');

@@ -4,12 +4,14 @@ import { normalizeSourceLabel } from '@/features/shiguan-ui/lib/shiguan-source';
 
 export function buildContractArchiveDetail(
   model: ContractTaskReadModelV1,
+  requestedArchiveId?: string | null,
 ): ShiguanArchiveDetail | null {
   const receipt = model.archive_receipt;
   const final = model.final_memorial;
   if (!receipt || !final) return null;
   if (
-    receipt.task_id !== model.task.task_id
+    (requestedArchiveId != null && receipt.archive_id !== requestedArchiveId)
+    || receipt.task_id !== model.task.task_id
     || receipt.final_memorial_id !== final.final_memorial_id
     || receipt.final_memorial_version !== final.final_memorial_version
     || receipt.final_memorial_content_hash

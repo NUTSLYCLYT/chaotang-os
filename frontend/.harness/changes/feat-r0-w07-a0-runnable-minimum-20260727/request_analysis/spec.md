@@ -25,7 +25,8 @@ R0-W07 Checkpoint A 需要让现有 `/shangshufang` 与 `/shiguan` 消费同一�
 
 - 浏览器仅呈现服务端 `allowed_actions`，未知 action fail closed。
 - PARTIAL 刷新不显示 delivered 或 resume。
-- 上书房显示 pack/delivery，史馆 exact receipt 可重新打开。
+- 上书房显示 effective source/pack/delivery；史馆只在 URL `archiveId` 与 exact
+  receipt 一致时重新打开，篡改 ID 显示错误且不回退普通索引。
 - focused node tests、typecheck、build、doctors 与真实后端 Playwright 通过。
 
 ## 风险

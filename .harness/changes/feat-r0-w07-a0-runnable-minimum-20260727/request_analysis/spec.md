@@ -55,6 +55,9 @@ MissionContractV1
   existing generated OpenAPI artifacts、`frontend/src/features/contract-review/`、
   hunk-only `ShangshufangPage.tsx`、`ShiguanPage.tsx`、focused `frontend/e2e/`。
 - Governance/evidence：本 root Packet；需要时建立一个 frontend child change。
+- Test-only browser harness：
+  `backend/harness/chaotang-true-loop/scripts/run_w07_runnable_backend.py`，仅允许临时
+  runtime、真实 JWT seed 和 READY/PARTIAL 合成任务；不得挂载到产品 OpenAPI。
 
 ## 非目标
 
@@ -74,6 +77,9 @@ MissionContractV1
 | archive final identity 不完整 | 无 receipt、无 archived label | archive tests |
 | PARTIAL 刷新 | 显示 hardening blocker，不提供 resume/delivered | backend/frontend/E2E |
 | FALLBACK/DEMO | 保留 source label | component/E2E |
+| nested RiskItem fallback/aggregate drift | effective source class fail closed，无 `DECIDE` | projection/API tests |
+| URL archiveId 与 receipt 不一致 | exact readback error，不回退 indexed detail | node/E2E |
+| manifest READY 但文件不可下载 | 公开状态降为 `UNDER_REVIEW` | projection/action tests |
 
 ## 风险与回滚
 

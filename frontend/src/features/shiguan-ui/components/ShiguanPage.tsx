@@ -42,6 +42,7 @@ export default function ShiguanPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [contractTaskId, setContractTaskId] = useState<string | null>(null);
+  const [requestedArchiveId, setRequestedArchiveId] = useState<string | null>(null);
   const [knowledgeCount, setKnowledgeCount] = useState(0);
   const [imaKnowledgeDocs, setImaKnowledgeDocs] = useState<ImaKnowledgeDocumentLike[]>([]);
   const [promoArchive, setPromoArchive] = useState<PromoArchiveLike | null>(null);
@@ -82,6 +83,7 @@ export default function ShiguanPage() {
     const params = new URLSearchParams(window.location.search);
     const initialId = params.get('archiveId') || params.get('taskId') || params.get('knowledgeId');
     setContractTaskId(params.get('taskId'));
+    setRequestedArchiveId(params.get('archiveId'));
     if (initialId) setSelectedId(initialId);
   }, []);
 
@@ -119,15 +121,23 @@ export default function ShiguanPage() {
   const indexedDetail = useMemo(() => buildArchiveDetail(selectedItem, lessons), [lessons, selectedItem]);
   const exactContractDetail = useMemo(
     () => contractReadModel && !contractReadModelError
-      ? buildContractArchiveDetail(contractReadModel)
+      ? buildContractArchiveDetail(contractReadModel, requestedArchiveId)
       : null,
-    [contractReadModel, contractReadModelError],
+    [contractReadModel, contractReadModelError, requestedArchiveId],
   );
+  const exactContractIdentityFailed = Boolean(
+    requestedArchiveId
+    && contractReadModel
+    && !contractReadModelError
+    && !exactContractDetail,
+  );
+  const exactContractReadFailed = Boolean(contractReadModelError)
+    || exactContractIdentityFailed;
   const selectedDetail = selectArchiveDetail(
     contractTaskId,
     exactContractDetail,
     indexedDetail,
-    Boolean(contractReadModelError),
+    exactContractReadFailed,
   );
   const similarCases = useMemo(() => {
     if (!selectedItem) return [];
@@ -153,7 +163,7 @@ export default function ShiguanPage() {
     <div
       className="relative h-full min-h-0"
       data-contract-read-model-status={
-        contractReadModelError
+        exactContractReadFailed
             ? 'error'
             : contractReadModel
               ? 'ready'
@@ -171,22 +181,22 @@ export default function ShiguanPage() {
               <p className="mt-0.5 max-w-[760px] text-[11px] leading-4 text-slatey-300">
                 归档、复盘、旧案召回与可信留痕。中间卷轴展示当前案卷，左右面板负责索引和反哺。
               </p>
-              {contractTaskId && contractReadModelError ? (
+              {contractTaskId && exactContractReadFailed ? (
                 <div
                   className="mt-1.5 text-[10px] text-red-300"
                   data-testid="contract-archive-readback-error"
                 >
                   精确归档回读失败；当前普通索引不代表该合同案卷已验证。
                 </div>
-              ) : contractReadModel?.archive_receipt ? (
+              ) : exactContractDetail ? (
                 <div
                   className="mt-1.5 flex max-w-[900px] flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-emerald-200"
                   data-testid="contract-archive-identity"
                 >
                   <span className="font-semibold">精确归档</span>
-                  <span>{contractReadModel.archive_receipt.final_memorial_id}</span>
+                  <span>{contractReadModel?.archive_receipt?.final_memorial_id}</span>
                   <span className="font-mono text-emerald-100/75">
-                    {contractReadModel.archive_receipt.final_memorial_content_hash.slice(0, 12)}
+                    {contractReadModel?.archive_receipt?.final_memorial_content_hash.slice(0, 12)}
                   </span>
                 </div>
               ) : contractTaskId && contractReadModel ? (

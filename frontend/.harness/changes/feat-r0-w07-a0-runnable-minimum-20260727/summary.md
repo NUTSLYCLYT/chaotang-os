@@ -4,7 +4,7 @@
 | --- | --- |
 | Change ID | feat-r0-w07-a0-runnable-minimum-20260727 |
 | Type | feat |
-| Status | DRAFT |
+| Status | `REMEDIATION_LOCAL_PASS / CANDIDATE_NOT_FROZEN / NOT_DEPLOYED` |
 | Owner | Codex W07-A0 implementation worktree |
 | Created | 20260727 |
 
@@ -20,7 +20,7 @@
 | 5 | 测试计划 | DONE | unit_test/test_plan.md, e2e_test/e2e_plan.md |
 | 6 | 测试复核 | DONE | focused pass；browser READY + PARTIAL refresh |
 | 7 | 提交 / 收口 | TODO | exact candidate pending |
-| 8 | CI 验证 | PASSED | ci_result/ci_summary.md |
+| 8 | CI 验证 | CONDITIONAL | scoped PASS；canonical residual 1，root candidate expected STOP |
 | 9 | E2E 验证 | PASSED | e2e_test/e2e_summary.md |
 | 10 | 部署验证 | N/A | NOT_DEPLOYED; deployment/preview_report.md |
 | 11 | 用户确认 | TODO | 等待用户确认 |
@@ -29,5 +29,6 @@
 
 - 范围：typed read model consumer、两个现有页面 hunk 接入、真实后端 E2E。
 - 风险：大页面冲突与假认证；已登记唯一写者和真实 JWT 门。
-- 验证：node tests、typecheck、build、Playwright、frontend/root doctors。
+- 验证：node tests、typecheck、build、Playwright、frontend doctor；root candidate
+  doctor 按 authority 设计 PRE_INTEGRATION STOP。
 - 边界：`RUNNABLE_MINIMUM / NOT_DEPLOYED`；不修改 Checkpoint B，不操作 3050。

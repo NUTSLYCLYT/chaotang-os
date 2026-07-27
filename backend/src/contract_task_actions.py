@@ -18,7 +18,7 @@ FinalStatus = Literal[
     "SUPERSEDED",
     "CONFLICT",
 ]
-DeliveryStatus = Literal["NONE", "READY", "PARTIAL", "CONFLICT"]
+DeliveryStatus = Literal["NONE", "READY", "PARTIAL", "UNDER_REVIEW", "CONFLICT"]
 DecisionStatus = Literal[
     "NONE",
     "APPROVED",
@@ -76,7 +76,7 @@ def resolve_contract_task_actions(
         )
     if facts.final_status == "CONFLICT":
         return _resolution(blockers=("LINEAGE_CONFLICT",))
-    if facts.delivery_status == "CONFLICT":
+    if facts.delivery_status in {"UNDER_REVIEW", "CONFLICT"}:
         return _resolution(blockers=("DELIVERY_INTEGRITY_FAILED",))
     if facts.downloadable_count < 0:
         return _resolution(blockers=("STATE_INCONSISTENT",))

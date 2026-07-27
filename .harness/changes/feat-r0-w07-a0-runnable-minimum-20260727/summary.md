@@ -9,7 +9,7 @@
 | --- | --- |
 | Change ID | feat-r0-w07-a0-runnable-minimum-20260727 |
 | 类型 | feat |
-| 状态 | `REMEDIATION_VERIFIED / INDEPENDENT_REVIEW_PENDING / NOT_DEPLOYED` |
+| 状态 | `REMEDIATION_LOCAL_PASS / CANDIDATE_NOT_FROZEN / INDEPENDENT_REVIEW_PENDING / NOT_DEPLOYED` |
 | Owner | Codex W07 Implementation Lead |
 | Product Owner | `lyt` |
 | 创建日期 | `2026-07-27` |
@@ -28,8 +28,8 @@
 两路 Codex 只读审查均为 `NO-GO`。Product Owner 已批准最小 remediation scope
 amendment：修复全部 HIGH/MEDIUM，允许修改既有裁决端点及 focused tests 以增加
 `tenant_id + user_id` 双重所有权校验，并补 seeded PARTIAL browser refresh 和固定
-OpenAPI baseline。全部已报告项已完成 TDD 和本地验证；fresh two-pass GO 前不整合
-EXT。
+OpenAPI baseline。已报告项已完成 TDD 与本地验证；新候选尚未冻结，fresh two-pass
+GO 前不整合 EXT。
 
 ## 允许范围
 
@@ -42,6 +42,9 @@ EXT。
 - generated/verified TypeScript consumer。
 - 现有 Shangshufang/Shiguan 的 hunk-level 接入。
 - 一条 synthetic real-backend browser flow。
+- test-only、JWT-protected browser launcher：
+  `backend/harness/chaotang-true-loop/scripts/run_w07_runnable_backend.py`；该入口不挂载
+  产品 app，不进入 OpenAPI，只使用临时 runtime/DB。
 - 根、后端和前端 change/evidence/test 文件。
 
 ## 禁止范围

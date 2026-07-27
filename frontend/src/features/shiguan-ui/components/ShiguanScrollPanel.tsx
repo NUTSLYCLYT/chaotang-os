@@ -106,10 +106,6 @@ function detailToEdictView(detail: ShiguanArchiveDetail): EdictView {
       ],
     },
     rows: [
-      {
-        label: '建议',
-        body: `${detail.summary}\n${detail.conclusion}`,
-      },
       { label: '事实摘要', body: detail.summary },
       { label: '决策链', body: decisionChain || '暂无决策链。' },
       { label: '证据链', body: evidence || '暂无证据链。' },

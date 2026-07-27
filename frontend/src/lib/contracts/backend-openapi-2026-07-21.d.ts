@@ -328,6 +328,7 @@ export type ContractTaskReadModelV1 = {
   "read_revision": string;
   "review_pack"?: ContractReviewPackV1 | null;
   "schema_version"?: "ContractTaskReadModelV1";
+  "source_class": "ADJUDICABLE" | "FALLBACK" | "UNKNOWN";
   "task": ContractTaskIdentityV1;
 };
 

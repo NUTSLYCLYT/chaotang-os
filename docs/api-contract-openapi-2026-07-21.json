@@ -1843,6 +1843,15 @@
             "title": "Schema Version",
             "type": "string"
           },
+          "source_class": {
+            "enum": [
+              "ADJUDICABLE",
+              "FALLBACK",
+              "UNKNOWN"
+            ],
+            "title": "Source Class",
+            "type": "string"
+          },
           "task": {
             "$ref": "#/components/schemas/ContractTaskIdentityV1"
           }
@@ -1850,6 +1859,7 @@
         "required": [
           "read_revision",
           "generated_at",
+          "source_class",
           "task",
           "allowed_actions",
           "blockers"

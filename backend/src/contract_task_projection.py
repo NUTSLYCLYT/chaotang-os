@@ -97,11 +97,20 @@ def _source_class(
     if pack is None:
         return "ADJUDICABLE"
     pack_labels = {label.upper() for label in pack.source_labels}
-    if pack_labels & _FALLBACK_SOURCE_LABELS or "fallback" in pack.engine_tiers:
+    pack_engines = set(pack.engine_tiers)
+    risk_labels = {item.source_label.upper() for item in pack.risk_items}
+    risk_engines = {item.engine_tier for item in pack.risk_items}
+    if (
+        (pack_labels | risk_labels) & _FALLBACK_SOURCE_LABELS
+        or "fallback" in pack_engines | risk_engines
+    ):
         return "FALLBACK"
     if (
         pack.quality_gate_status != "PASSED"
         or not pack_labels <= _ADJUDICABLE_PACK_SOURCE_LABELS
+        or not risk_labels <= _ADJUDICABLE_PACK_SOURCE_LABELS
+        or not risk_labels <= pack_labels
+        or not risk_engines <= pack_engines
     ):
         return "UNKNOWN"
     return "ADJUDICABLE"
@@ -240,6 +249,32 @@ def _delivery_projection(
     if source_pack != pack:
         return None, "DELIVERY_INTEGRITY_FAILED"
     manifest = access.manifest
+    artifacts = [
+        PublicArtifactItemV1(
+            artifact_id=item.artifact_id,
+            kind=item.kind,
+            mime_type=item.mime_type,
+            byte_size=item.byte_size,
+            content_hash=item.content_hash,
+            lineage_hash=item.lineage_hash,
+            status=item.status,
+            incomplete_reason=item.incomplete_reason,
+            expires_at=item.expires_at,
+            download_url=(
+                f"/api/artifacts/{item.artifact_id}/download"
+                if item.downloadable
+                else None
+            ),
+        )
+        for item in access.items
+    ]
+    effective_status = manifest.overall_status
+    if manifest.overall_status == "READY" and not (
+        len(artifacts) == len(_REQUIRED_ARTIFACT_KINDS)
+        and {item.kind for item in artifacts} == _REQUIRED_ARTIFACT_KINDS
+        and all(item.download_url is not None for item in artifacts)
+    ):
+        effective_status = "UNDER_REVIEW"
     return (
         PublicArtifactDeliveryV1(
             manifest_id=manifest.manifest_id,
@@ -249,26 +284,8 @@ def _delivery_projection(
             delivery_formula_version=manifest.delivery_formula_version,
             delivery_revision=manifest.delivery_revision,
             payload_hash=manifest.payload_hash,
-            artifacts=[
-                PublicArtifactItemV1(
-                    artifact_id=item.artifact_id,
-                    kind=item.kind,
-                    mime_type=item.mime_type,
-                    byte_size=item.byte_size,
-                    content_hash=item.content_hash,
-                    lineage_hash=item.lineage_hash,
-                    status=item.status,
-                    incomplete_reason=item.incomplete_reason,
-                    expires_at=item.expires_at,
-                    download_url=(
-                        f"/api/artifacts/{item.artifact_id}/download"
-                        if item.downloadable
-                        else None
-                    ),
-                )
-                for item in access.items
-            ],
-            overall_status=manifest.overall_status,
+            artifacts=artifacts,
+            overall_status=effective_status,
             resume_token_expires_at=manifest.resume_token_expires_at,
         ),
         None,
@@ -403,6 +420,7 @@ def project_contract_task(
         if receipt_error is not None:
             projection_blockers.append(receipt_error)
 
+    source_class = _source_class(task, final, pack)
     if projection_blockers:
         allowed_actions = []
         blocker_codes = list(dict.fromkeys(projection_blockers))
@@ -418,7 +436,7 @@ def project_contract_task(
         resolution = resolve_contract_task_actions(
             ContractTaskFacts(
                 mission_state=mission_state,
-                source_class=_source_class(task, final, pack),
+                source_class=source_class,
                 evidence_ready=_evidence_ready(
                     db,
                     task=task,
@@ -454,6 +472,7 @@ def project_contract_task(
     model = ContractTaskReadModelV1(
         read_revision="0" * 64,
         generated_at=generated_at,
+        source_class=source_class,
         task=ContractTaskIdentityV1(
             task_id=task.id,
             tenant_id=task.tenant_id,

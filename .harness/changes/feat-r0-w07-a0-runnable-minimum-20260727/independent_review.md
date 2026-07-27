@@ -1,22 +1,23 @@
 # W07-A0 Independent Review
 
-## Verdict
+## First Candidate Verdict
 
-`NO-GO / HIGH 5 / MEDIUM 6 / NOT_DEPLOYED`
+Candidate `c343cab312d69203ed0ebf36b0b0538760844552`, tree
+`a273d7c3811e05e6cce872597e85e761a08b3b72` received two independent Codex
+`NO-GO` verdicts. Each pass reported `HIGH 1 / MEDIUM 4`; the consolidated
+findings below also retain two low-severity scope/honesty defects.
 
 ## Required Remediation
 
-1. `DECIDE` 只在 PDF、DOCX、JSON 三项全部 verified/downloadable 时开放。
-2. pack quality gate、source labels 和 engine tiers 必须可裁决。
-3. 既有 decision endpoint 同时校验 tenant 和 user。
-4. 非合同任务不得挂载合同面板或锁定旧工作流。
-5. 下载按钮必须服从 server `DOWNLOAD_ARTIFACT`。
-6. mission DRAFT 必须先于 archive/decision 分支 fail closed。
-7. frontend parser/readback 验证 task/final/receipt 跨字段 identity。
-8. exact readback 错误必须对用户可见，不能静默伪装 indexed success。
-9. delivery idempotency key 在不确定重试期间保持稳定。
-10. API stability 使用固定 baseline，不得被重复运行自我清零。
-11. 增加 seeded PARTIAL browser refresh，证明 blocker 且无 resume/delivered。
+1. 正式裁决写入口必须消费 server `DECIDE`，不得绕过 delivery/source/mission 门。
+2. nested RiskItem 的 source/engine 必须进入有效来源裁决，aggregate drift fail closed。
+3. 对外 read model 必须公开 effective source class，不得只展示 task source。
+4. manifest 虽为 READY 但三件套不可下载时，对外状态不得继续显示 READY。
+5. `/shiguan` 必须校验 URL `archiveId` 与 exact receipt 一致。
+6. Packet 必须诚实区分 base doctor PASS 与 candidate PRE_INTEGRATION STOP。
+7. test-only JWT launcher 必须列入 Packet scope/ownership。
+8. frontend parser 必须校验 mission/task identity。
+9. 删除与本纵切无关的史馆通用“建议”行改动。
 
 ## Scope Gate
 
@@ -43,4 +44,6 @@ baseline。该批准不扩展到 Checkpoint B、push、部署、数据库迁移�
 | API baseline | 从 exact `ed822255...` Git archive 生成，比较 schema 内容 | 4 node tests + double-run hash |
 | PARTIAL refresh | JWT-protected test-only seed + real JWT browser reload | Playwright 1/1 x2 fresh runs |
 
-当前状态：`REMEDIATION_VERIFIED / FRESH_TWO_PASS_REVIEW_PENDING`。
+当前状态：
+`REMEDIATION_LOCAL_PASS / CANDIDATE_NOT_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING`。
+本文件不预判下一候选的独立审查结论。

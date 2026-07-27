@@ -144,6 +144,7 @@ class ContractTaskReadModelV1(_ContractModel):
     schema_version: Literal["ContractTaskReadModelV1"] = "ContractTaskReadModelV1"
     read_revision: str = Field(pattern=r"^[0-9a-f]{64}$")
     generated_at: datetime
+    source_class: Literal["ADJUDICABLE", "FALLBACK", "UNKNOWN"]
     task: ContractTaskIdentityV1
     mission: MissionSnapshotViewV1 | None = None
     review_pack: ContractReviewPackV1 | None = None

@@ -8,6 +8,7 @@ function readModel(overrides: Record<string, unknown> = {}): Record<string, unkn
     schema_version: 'ContractTaskReadModelV1',
     read_revision: 'a'.repeat(64),
     generated_at: '2026-07-27T00:00:00Z',
+    source_class: 'ADJUDICABLE',
     task: {
       task_id: 'task-1',
       tenant_id: 7,
@@ -43,6 +44,32 @@ test('fails closed on an unknown blocker', () => {
       readModel({ blockers: [{ code: 'UNKNOWN_BLOCKER' }] }),
     ),
     /unknown contract blocker/,
+  );
+});
+
+test('fails closed on an unknown effective source class', () => {
+  assert.throws(
+    () => parseContractTaskReadModel(
+      readModel({ source_class: 'CLIENT_INFERRED_LIVE' }),
+    ),
+    /source class/,
+  );
+});
+
+test('rejects mission identity that does not bind to the requested task', () => {
+  assert.throws(
+    () => parseContractTaskReadModel(
+      readModel({
+        mission: {
+          state: 'CONFIRMED',
+          mission: {
+            task_id: 'task-other',
+            mission_contract_id: 'task-1',
+          },
+        },
+      }),
+    ),
+    /lineage/,
   );
 });
 

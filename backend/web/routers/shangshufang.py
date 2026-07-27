@@ -81,6 +81,7 @@ SKILL_ID = "skill.chancellor.draft_edict"
 SKILL_VERSION = "0.1.0"
 _IM_MESSAGES: list[dict[str, Any]] = []
 _POLISH_FORBIDDEN_WORDS = ("军机处", "会审", "六部", "蜂群", "任务单", "立案")
+_CONTRACT_FINAL_ACTIONS = frozenset({"adopt", "approve", "archive", "reject"})
 
 
 class DraftEdictRequest(BaseModel):
@@ -1884,6 +1885,28 @@ def shangshufang_task_decision(
             .order_by(CourtReview.created_at.desc())
             .first()
         )
+        from src.contract_mission_repository import MISSION_LOOP_ID
+        from src.contract_task_projection import project_contract_task
+        from src.runtime_paths import resolve_runtime_paths
+
+        is_contract_task = task.contract_scope_json is not None or (
+            db.query(CourtLoopRun.id)
+            .filter_by(task_id=task.id, loop_id=MISSION_LOOP_ID)
+            .first()
+            is not None
+        )
+        if is_contract_task and body.action in _CONTRACT_FINAL_ACTIONS:
+            read_model = project_contract_task(
+                db,
+                storage_root=resolve_runtime_paths().root / "artifacts",
+                task=task,
+            )
+            if "DECIDE" not in read_model.allowed_actions:
+                blockers = ",".join(item.code for item in read_model.blockers)
+                return _http_fail(
+                    409,
+                    f"DECIDE not allowed for current contract facts: {blockers}",
+                )
         outcome = _execute_final_memorial_decision(
             db,
             task=task,

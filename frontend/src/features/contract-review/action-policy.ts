@@ -31,7 +31,11 @@ function sourceState(sourceLabel: string): ContractSourceState {
 export function contractReviewUiPolicy(
   model: ContractTaskReadModelV1,
 ): ContractReviewUiPolicy {
-  const source = sourceState(model.task.source_label);
+  const source = model.source_class === 'FALLBACK'
+    ? 'FALLBACK'
+    : model.source_class === 'UNKNOWN'
+      ? 'UNKNOWN'
+      : sourceState(model.task.source_label);
   const deliveryState = model.delivery?.overall_status ?? 'NONE';
   return {
     sourceState: source,
