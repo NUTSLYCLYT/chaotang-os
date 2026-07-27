@@ -156,8 +156,8 @@ function ArchiveIndexPanel({
 
   const metrics = [
     ["案卷", statistics?.total ?? "—"],
-    ["奏折", archives.filter((archive) => archive.type === "MEMORIAL").length],
-    ["回奏", archives.filter((archive) => archive.type === "REPLY").length],
+    ["当前结果 · 奏折", archives.filter((archive) => archive.type === "MEMORIAL").length],
+    ["当前结果 · 回奏", archives.filter((archive) => archive.type === "REPLY").length],
     ["待复盘", statistics?.pendingReview ?? "—"],
   ];
 

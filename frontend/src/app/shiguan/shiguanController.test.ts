@@ -12,6 +12,7 @@ import {
   ShiguanController,
   ShiguanUiError,
 } from "./shiguanController.ts";
+import { requestShiguanJson } from "./shiguanRequest.ts";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -241,6 +242,48 @@ test("unauthenticated response clears all expired state and navigates once", asy
   controller.retryRecall();
   await settle();
   assert.equal(navigations, 1);
+});
+
+test("real empty and HTML 401 responses clear controller state and navigate once", async () => {
+  for (const responseBody of [null, "<html>expired</html>"]) {
+    let expired = false;
+    let navigations = 0;
+    const controller = new ShiguanController(
+      {
+        listArchives: async () => [archive("a-1")],
+        getStatistics: async () => statistics(1),
+        recall: async () => {
+          if (!expired) return [];
+          return requestShiguanJson(
+            "/api/shiguan/recall",
+            {},
+            () => [],
+            async () => new Response(responseBody, {
+              status: 401,
+              headers: responseBody === null
+                ? undefined
+                : { "content-type": "text/html" },
+            }),
+          );
+        },
+        review: async () => review("OBSERVING", "2026-07-24T09:00:00Z"),
+      },
+      { onUnauthorized: () => { navigations += 1; } },
+    );
+
+    controller.start();
+    await settle();
+    expired = true;
+    controller.recall({ matterType: "漕运", department: "" });
+    await settle();
+    await settle();
+
+    assert.deepEqual(controller.state.archives, []);
+    assert.equal(controller.state.statistics, null);
+    assert.equal(controller.state.selectedArchiveId, null);
+    assert.equal(controller.state.recallState.errorKind, "unauthenticated");
+    assert.equal(navigations, 1);
+  }
 });
 
 test("review disables duplicate submit, ignores stale responses, and preserves PARTIAL exactly", async () => {

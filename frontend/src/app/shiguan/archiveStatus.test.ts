@@ -8,6 +8,8 @@ import {
   formatRealityLabel,
   formatReviewStatus,
   formatSuccessRate,
+  reviewDraftFromStatus,
+  resolveReviewDraft,
 } from "./archiveStatus.ts";
 
 test("史馆标签格式化：仅奏折、回奏两类档案，并保留真实度与复盘状态", () => {
@@ -67,10 +69,29 @@ test("史馆页面展示归档证据的事实绑定与 MCP 访问溯源", async 
   assert.match(detail, /snapshot\.stance/);
   assert.match(detail, /snapshot\.contentHash/);
   assert.match(detail, /snapshot\.confidence/);
+  assert.match(detail, /snapshot\.evidenceId/);
   assert.match(detail, /reference\.packId/);
   assert.match(detail, /reference\.investigationId/);
   assert.match(detail, /reference\.ordinal/);
   assert.match(detail, /serverId/);
   assert.match(detail, /toolName/);
   assert.match(detail, /MCP/);
+  assert.match(detail, /resolveReviewDraft/);
+  assert.match(detail, /reviewStatusReviewedAt/);
+});
+
+test("review draft follows a same-archive review status refresh", () => {
+  const initial = reviewDraftFromStatus(null, null, null);
+  const edited = { ...initial, note: "尚未提交的旧值" };
+  const refreshed = reviewDraftFromStatus(
+    "PARTIAL",
+    "新复盘结论",
+    "2026-07-24T10:00:00Z",
+  );
+  assert.deepEqual(initial, {
+    status: "OBSERVING",
+    note: "",
+    revision: "null\u0000null\u0000null",
+  });
+  assert.deepEqual(resolveReviewDraft(edited, refreshed), refreshed);
 });

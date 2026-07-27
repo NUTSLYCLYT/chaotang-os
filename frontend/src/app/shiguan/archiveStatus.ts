@@ -34,6 +34,25 @@ export function formatSuccessRate(value: number | null): string {
   return value === null ? "暂无可计算样本" : `${Math.round(value * 100)}%`;
 }
 
+export function reviewDraftFromStatus(
+  status: ReviewStatusValue | null,
+  note: string | null,
+  reviewedAt: string | null,
+): { status: ReviewStatusValue; note: string; revision: string } {
+  return {
+    status: status ?? "OBSERVING",
+    note: note ?? "",
+    revision: `${String(status)}\u0000${String(note)}\u0000${String(reviewedAt)}`,
+  };
+}
+
+export function resolveReviewDraft(
+  current: ReturnType<typeof reviewDraftFromStatus>,
+  incoming: ReturnType<typeof reviewDraftFromStatus>,
+): ReturnType<typeof reviewDraftFromStatus> {
+  return current.revision === incoming.revision ? current : incoming;
+}
+
 export function buildArchiveFilterQuery(input: {
   type?: string;
   matterType?: string;

@@ -70,6 +70,16 @@ const ARCHIVE = {
   evidenceReferences: [EVIDENCE_REFERENCE],
 };
 
+const STATISTICS = {
+  total: 5,
+  achieved: 2,
+  notAchieved: 1,
+  partial: 1,
+  observing: 0,
+  pendingReview: 1,
+  successRate: 0.5,
+};
+
 test("strict Shiguan payload decoders accept complete legal payloads and preserve PARTIAL", () => {
   const parsedArchive = parseArchivesPayload({ status: "ok", archives: [ARCHIVE] })?.[0];
   assert.equal(parsedArchive?.reviewStatus?.status, "PARTIAL");
@@ -77,25 +87,9 @@ test("strict Shiguan payload decoders accept complete legal payloads and preserv
   assert.deepEqual(
     parseStatisticsPayload({
       status: "ok",
-      statistics: {
-        total: 1,
-        achieved: 0,
-        notAchieved: 0,
-        partial: 1,
-        observing: 0,
-        pendingReview: 0,
-        successRate: null,
-      },
+      statistics: STATISTICS,
     }),
-    {
-      total: 1,
-      achieved: 0,
-      notAchieved: 0,
-      partial: 1,
-      observing: 0,
-      pendingReview: 0,
-      successRate: null,
-    },
+    STATISTICS,
   );
   assert.equal(
     parseRecallPayload({
@@ -202,4 +196,100 @@ test("strict Shiguan archive decoder rejects malformed immutable evidence refere
   assert.equal(decode([{ ...EVIDENCE_REFERENCE, snapshotHash: "not-a-sha256" }]), null);
   assert.equal(decode([{ ...EVIDENCE_REFERENCE, evidenceId: "evidence-other" }]), null);
   assert.equal(decode(undefined), null);
+});
+
+test("statistics decoder enforces totals, denominator, and backend success-rate semantics", () => {
+  const decode = (statistics: unknown) =>
+    parseStatisticsPayload({ status: "ok", statistics });
+
+  assert.deepEqual(decode(STATISTICS), STATISTICS);
+  assert.notEqual(
+    decode({ ...STATISTICS, successRate: 0.5000000000005 }),
+    null,
+  );
+  assert.equal(decode({ ...STATISTICS, total: 6 }), null);
+  assert.equal(
+    decode({
+      ...STATISTICS,
+      total: 2,
+      achieved: 3,
+      notAchieved: 0,
+      partial: 0,
+      observing: 0,
+      pendingReview: 0,
+      successRate: 1,
+    }),
+    null,
+  );
+  assert.equal(
+    decode({
+      total: 1,
+      achieved: 0,
+      notAchieved: 0,
+      partial: 0,
+      observing: 1,
+      pendingReview: 0,
+      successRate: 0,
+    }),
+    null,
+  );
+  assert.equal(decode({ ...STATISTICS, successRate: 0.4 }), null);
+});
+
+test("archive decoder requires complete timezone-aware ISO datetimes", () => {
+  const decode = (archive: unknown) =>
+    parseArchivesPayload({ status: "ok", archives: [archive] });
+  for (const createdAt of [
+    "2026-07-24",
+    "2026-07-24T08:00:00",
+    "0",
+    "2026-02-30T08:00:00Z",
+  ]) {
+    assert.equal(decode({ ...ARCHIVE, createdAt }), null);
+  }
+  assert.equal(
+    decode({ ...ARCHIVE, replyTime: "0" }),
+    null,
+  );
+  for (const field of ["asOf", "publishedAt", "retrievedAt"] as const) {
+    assert.equal(
+      decode({
+        ...ARCHIVE,
+        evidenceReferences: [{
+          ...EVIDENCE_REFERENCE,
+          snapshot: {
+            ...EVIDENCE_REFERENCE.snapshot,
+            [field]: "2026-07-24T08:00:00",
+          },
+        }],
+      }),
+      null,
+    );
+  }
+  for (const [field, invalid] of [
+    ["asOf", "2026-07-24"],
+    ["publishedAt", "2026-07-24"],
+    ["retrievedAt", "0"],
+  ] as const) {
+    assert.equal(
+      decode({
+        ...ARCHIVE,
+        evidenceReferences: [{
+          ...EVIDENCE_REFERENCE,
+          snapshot: {
+            ...EVIDENCE_REFERENCE.snapshot,
+            [field]: invalid,
+          },
+        }],
+      }),
+      null,
+    );
+  }
+  assert.equal(
+    decode({
+      ...ARCHIVE,
+      reviewStatus: { ...REVIEW, reviewedAt: "0" },
+    }),
+    null,
+  );
 });

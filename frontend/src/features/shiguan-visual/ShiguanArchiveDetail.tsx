@@ -10,6 +10,8 @@ import {
   formatArchiveType,
   formatRealityLabel,
   formatReviewStatus,
+  reviewDraftFromStatus,
+  resolveReviewDraft,
   REVIEW_STATUS_LABELS,
 } from "../../app/shiguan/archiveStatus.ts";
 import type { ShiguanReviewViewState } from "./ShiguanWorkspace";
@@ -176,6 +178,7 @@ export function ShiguanArchiveDetail({
                     <div><dt>证据包</dt><dd>{reference.packId}</dd></div>
                     <div><dt>调查编号</dt><dd>{reference.investigationId}</dd></div>
                     <div><dt>证据标识</dt><dd>{reference.evidenceId}</dd></div>
+                    <div><dt>快照证据标识</dt><dd>{snapshot.evidenceId}</dd></div>
                     <div><dt>引用序号</dt><dd>{reference.ordinal}</dd></div>
                     <div><dt>快照校验</dt><dd>{reference.snapshotHash}</dd></div>
                   </dl>
@@ -212,10 +215,16 @@ export function ShiguanReviewControl({
   reviewState: ShiguanReviewViewState;
   onReview(id: string, input: { status: ReviewStatusValue; note: string }): void;
 }) {
-  const [status, setStatus] = useState<ReviewStatusValue>(
-    archive.reviewStatus?.status ?? "OBSERVING",
+  const reviewStatusValue = archive.reviewStatus?.status ?? null;
+  const reviewStatusNote = archive.reviewStatus?.note ?? null;
+  const reviewStatusReviewedAt = archive.reviewStatus?.reviewedAt ?? null;
+  const incomingDraft = reviewDraftFromStatus(
+    reviewStatusValue,
+    reviewStatusNote,
+    reviewStatusReviewedAt,
   );
-  const [note, setNote] = useState(archive.reviewStatus?.note ?? "");
+  const [editedDraft, setEditedDraft] = useState(incomingDraft);
+  const draft = resolveReviewDraft(editedDraft, incomingDraft);
   const showReviewState = reviewState.archiveId === archive.id;
   const isSaving = showReviewState && reviewState.status === "loading";
 
@@ -236,15 +245,21 @@ export function ShiguanReviewControl({
         className={styles.reviewForm}
         onSubmit={(event) => {
           event.preventDefault();
-          onReview(archive.id, { status, note });
+          onReview(archive.id, {
+            status: draft.status,
+            note: draft.note,
+          });
         }}
       >
         <label>
           结果复盘
           <select
-            value={status}
+            value={draft.status}
             disabled={isSaving}
-            onChange={(event) => setStatus(event.target.value as ReviewStatusValue)}
+            onChange={(event) => setEditedDraft({
+              ...draft,
+              status: event.target.value as ReviewStatusValue,
+            })}
           >
             {REVIEW_STATUSES.map((item) => (
               <option key={item} value={item}>
@@ -256,9 +271,12 @@ export function ShiguanReviewControl({
         <label className={styles.reviewNote}>
           复盘备注
           <textarea
-            value={note}
+            value={draft.note}
             disabled={isSaving}
-            onChange={(event) => setNote(event.target.value)}
+            onChange={(event) => setEditedDraft({
+              ...draft,
+              note: event.target.value,
+            })}
             placeholder="记录复盘依据或后续观察点"
             rows={2}
           />

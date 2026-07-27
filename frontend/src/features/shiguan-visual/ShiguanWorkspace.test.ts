@@ -68,6 +68,8 @@ test("shiguan visual is a local interaction layer with honest states", async () 
   assert.match(workspace, /aria-current/);
   assert.match(workspace, /key=\{props\.selectedArchive\?\.id \?\? "empty"\}/);
   assert.match(workspace, /reviewStatus\.reviewedAt/);
+  assert.match(workspace, /当前结果 · 奏折/);
+  assert.match(workspace, /当前结果 · 回奏/);
   assert.match(detail, /"PARTIAL"/);
   assert.match(detail, /reviewState\.status === "loading"/);
   assert.match(detail, /role=\{reviewState\.status === "error" \? "alert" : "status"\}/);

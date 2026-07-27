@@ -14,6 +14,8 @@ test("史馆保留现有 BFF 契约，同时采用太史馆三栏视觉外壳", 
   assert.match(source, /from "\.\/shiguan\.module\.css"/);
   assert.match(source, /ShiguanWorkspace/);
   assert.match(source, /ShiguanController/);
+  assert.match(source, /requestShiguanJson/);
+  assert.doesNotMatch(source, /async function requestJson/);
   assert.match(source, /controller\.connect/);
   assert.match(source, /controller\.start/);
   assert.doesNotMatch(source, /controller\.loadInitial/);

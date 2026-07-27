@@ -37,7 +37,34 @@ function isNullableString(value: unknown): value is string | null {
 }
 
 function isIsoDateTime(value: unknown): value is string {
-  return isNonEmptyString(value) && !Number.isNaN(Date.parse(value));
+  if (!isNonEmptyString(value)) return false;
+  const match = /^(?!0000)(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/u.exec(
+    value,
+  );
+  if (!match || Number.isNaN(Date.parse(value))) return false;
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText, offsetHourText, offsetMinuteText] =
+    match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  const offsetHour = offsetHourText === undefined ? 0 : Number(offsetHourText);
+  const offsetMinute = offsetMinuteText === undefined ? 0 : Number(offsetMinuteText);
+  if (
+    month < 1 ||
+    month > 12 ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59 ||
+    offsetHour > 23 ||
+    offsetMinute > 59
+  ) {
+    return false;
+  }
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return day >= 1 && day <= daysInMonth;
 }
 
 function parseStringArray(
@@ -475,6 +502,30 @@ export function parseStatisticsPayload(value: unknown): ShiguanStatistics | null
         statistics.successRate < 0 ||
         statistics.successRate > 1
       )
+    )
+  ) {
+    return null;
+  }
+  const countedTotal =
+    statistics.achieved +
+    statistics.notAchieved +
+    statistics.partial +
+    statistics.observing +
+    statistics.pendingReview;
+  const denominator =
+    statistics.achieved +
+    statistics.notAchieved +
+    statistics.partial;
+  const expectedSuccessRate = denominator === 0
+    ? null
+    : statistics.achieved / denominator;
+  if (
+    statistics.total !== countedTotal ||
+    (
+      expectedSuccessRate === null
+        ? statistics.successRate !== null
+        : typeof statistics.successRate !== "number" ||
+          Math.abs(statistics.successRate - expectedSuccessRate) > 1e-12
     )
   ) {
     return null;
