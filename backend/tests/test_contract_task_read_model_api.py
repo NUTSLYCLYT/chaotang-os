@@ -191,6 +191,46 @@ def test_contract_final_decision_requires_server_decide_action_before_any_write(
         assert _decision_state(db, task_id) == before
 
 
+def test_contract_recheck_requires_server_refresh_review_before_any_write(
+    monkeypatch,
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    task_id = "task-api-recheck-gate"
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id=task_id)
+        final, pack = seed_final_memorial(db, task_id=task.id)
+        seed_delivery(
+            db,
+            storage_root=tmp_path / "artifacts",
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        content_hash = final.content_hash
+        db.commit()
+        before = _decision_state(db, task_id)
+
+    client, app = _client(monkeypatch, isolated_session_local, tmp_path)
+    try:
+        response = client.post(
+            f"/api/shangshufang/tasks/{task_id}/decision",
+            json={
+                "action": "recheck",
+                "reason": "server 未开放复审动作时不得改变 review 状态",
+                "human_confirmed": True,
+                "expected_final_memorial_content_hash": content_hash,
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert "REFRESH_REVIEW" in response.json()["error"]
+    with isolated_session_local() as db:
+        assert _decision_state(db, task_id) == before
+
+
 def test_contract_brief_decision_requires_server_decide_before_any_write(
     monkeypatch,
     isolated_session_local,

@@ -112,6 +112,13 @@ test.describe('W07 contract RUNNABLE_MINIMUM', () => {
       page.locator('[data-contract-read-model-status="ready"]'),
     ).toBeVisible();
     await expect(page.getByTestId('contract-archive-identity')).toBeVisible();
+    const exactArchiveScroll = page.getByTestId('contract-archive-scroll');
+    await expect(exactArchiveScroll).toBeVisible();
+    await expect(exactArchiveScroll).toContainText('LIVE');
+    await expect(exactArchiveScroll).not.toContainText('来源待核');
+    await expect(exactArchiveScroll).not.toContainText(
+      '准奏、驳回、会审或批示',
+    );
     await page.waitForTimeout(1_200);
     await page.screenshot({
       path: testInfo.outputPath('w07-shiguan-exact-lineage.png'),

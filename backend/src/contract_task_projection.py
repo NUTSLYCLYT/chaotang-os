@@ -39,6 +39,7 @@ from src.contracts.contract_task_read_model import (
     PublicArtifactDeliveryV1,
     PublicArtifactItemV1,
 )
+from src.contracts.mission_contract import MissionContractV1
 from src.db.models import (
     ArtifactManifest,
     CourtReview,
@@ -171,6 +172,7 @@ def _verified_pack(
     *,
     task: DecisionTask,
     final: FinalMemorial,
+    mission: MissionContractV1 | None,
 ) -> tuple[dict[str, Any], ContractReviewPackV1]:
     memorial_payload = _parse_json_object(final.memorial_json)
     canonical = _canonical_json(memorial_payload)
@@ -189,6 +191,14 @@ def _verified_pack(
     require_r0_review_pack_binding(identity, pack)
     if pack.court_review_id != final.review_id:
         raise ValueError("review pack court review identity mismatch")
+    if mission is not None and (
+        pack.jurisdiction != mission.jurisdiction
+        or pack.language != mission.language
+        or pack.contract_type != mission.contract_type
+        or pack.our_role != mission.our_role
+        or pack.legal_question != mission.legal_question
+    ):
+        raise ValueError("mission and review pack business scope mismatch")
     return memorial_payload, pack
 
 
@@ -204,6 +214,10 @@ def _has_authoritative_review(
         and task.tenant_id is not None
         and review.tenant_id == task.tenant_id
         and review.task_id == task.id
+        and (
+            final.status != "ready_for_decision"
+            or review.review_status == "awaiting_decision"
+        )
     )
 
 
@@ -265,25 +279,30 @@ def _delivery_projection(
     if source_pack != pack:
         return None, "DELIVERY_INTEGRITY_FAILED"
     manifest = access.manifest
-    artifacts = [
-        PublicArtifactItemV1(
-            artifact_id=item.artifact_id,
-            kind=item.kind,
-            mime_type=item.mime_type,
-            byte_size=item.byte_size,
-            content_hash=item.content_hash,
-            lineage_hash=item.lineage_hash,
-            status=item.status,
-            incomplete_reason=item.incomplete_reason,
-            expires_at=item.expires_at,
-            download_url=(
-                f"/api/artifacts/{item.artifact_id}/download"
-                if item.downloadable
-                else None
-            ),
+    artifacts: list[PublicArtifactItemV1] = []
+    for item in access.items:
+        public_status = "UNAVAILABLE" if item.status == "EXPIRED" else item.status
+        incomplete_reason = item.incomplete_reason
+        if item.status == "EXPIRED" and not incomplete_reason:
+            incomplete_reason = "expired"
+        artifacts.append(
+            PublicArtifactItemV1(
+                artifact_id=item.artifact_id,
+                kind=item.kind,
+                mime_type=item.mime_type,
+                byte_size=item.byte_size,
+                content_hash=item.content_hash,
+                lineage_hash=item.lineage_hash,
+                status=public_status,
+                incomplete_reason=incomplete_reason,
+                expires_at=item.expires_at,
+                download_url=(
+                    f"/api/artifacts/{item.artifact_id}/download"
+                    if item.downloadable and public_status == "STORED"
+                    else None
+                ),
+            )
         )
-        for item in access.items
-    ]
     effective_status = manifest.overall_status
     if manifest.overall_status == "READY" and not (
         len(artifacts) == len(_REQUIRED_ARTIFACT_KINDS)
@@ -400,7 +419,11 @@ def project_contract_task(
     final_view = None
     if final is not None:
         try:
-            final_payload, pack = _verified_pack(task=task, final=final)
+            final_payload, pack = _verified_pack(
+                task=task,
+                final=final,
+                mission=snapshot.mission if snapshot is not None else None,
+            )
         except (TypeError, ValueError, json.JSONDecodeError):
             projection_blockers.append("LINEAGE_CONFLICT")
         else:

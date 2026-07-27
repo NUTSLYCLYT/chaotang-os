@@ -16,8 +16,10 @@ P0-B 视野:要么在行为门里补一条跨用户测试,要么在这里有意�
 说明理由。行号一律不进基线(会漂移),只计数。
 
 基线(2026-07-14 实测,含已修点):
+- contracts.py ×1(W07 `_owned_task`, user_id + tenant_id 双校验及行为探针)
+- court_compat.py ×1
 - jinyiwei.py ×1(fill-gap,已有归属校验)
-- shangshufang.py ×8(其中 tasks/{id}/status 已于 2026-07-14 修复)
+- shangshufang.py ×11(其中 tasks/{id}/status 已于 2026-07-14 修复)
 - swarm_runs.py ×1
 计数不区分 guarded/unguarded——因为它区分不了,这正是它不是硬门的原因。
 """
@@ -90,6 +92,7 @@ def _count_query_entries(src: str) -> int:
 
 # 文件名 → DecisionTask 查询入口数(每条查询一次;不区分是否带归属校验——本门区分不了)。
 _BASELINE = {
+    "contracts.py": 1,
     "court_compat.py": 1,
     "jinyiwei.py": 1,
     "shangshufang.py": 11,

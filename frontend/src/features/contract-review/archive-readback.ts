@@ -1,6 +1,7 @@
 import type { ContractTaskReadModelV1 } from '@/lib/contracts/backend-openapi-2026-07-21';
 import type { ShiguanArchiveDetail } from '@/features/shiguan-ui/lib/shiguan-view-model';
 import { normalizeSourceLabel } from '@/features/shiguan-ui/lib/shiguan-source';
+import type { EdictView } from '@/features/shangshufang/edict-content';
 
 const ADJUDICABLE_RECEIPT_SOURCES = new Set([
   'LIVE',
@@ -96,4 +97,64 @@ export function selectArchiveDetail(
 ): ShiguanArchiveDetail | null {
   if (!contractTaskId) return indexedDetail;
   return exactReadFailed ? null : exactDetail;
+}
+
+export function buildContractArchiveEdictView(
+  detail: ShiguanArchiveDetail,
+): EdictView {
+  return {
+    id: `contract-archive:${detail.id}:${detail.retrospectiveStatus}`,
+    title: detail.title,
+    subtitle: '史馆精确案卷',
+    headerKicker: 'EXACT ARCHIVE',
+    issuerLine: '太史令精确回读',
+    question: detail.summary,
+    meta: {
+      reporter: '太史令',
+      priority: 'medium',
+      accent: '#3D8F78',
+      accentSoft: '#F0C66A',
+      badges: [
+        { label: '精确归档', tone: 'green' },
+        {
+          label: detail.sourceLabel,
+          tone: detail.sourceLabel === 'FALLBACK' ? 'amber' : 'green',
+        },
+      ],
+    },
+    rows: [
+      {
+        label: '来源',
+        body: `${detail.sourceLabel} · exact ArchiveReceipt ${detail.id}`,
+      },
+      {
+        label: '建议',
+        body: '该案卷已完成精确归档，仅供审计回放；不提供新的裁决动作。',
+      },
+      {
+        label: '事实摘要',
+        body: detail.summary,
+      },
+      {
+        label: '决策链',
+        body: detail.decisionChain
+          .map((item) => `${item.actor}：${item.title}（${item.status}）`)
+          .join('\n'),
+      },
+      {
+        label: '证据链',
+        body: detail.evidence.length > 0
+          ? detail.evidence
+            .map((item) => `${item.title}：${item.detail}`)
+            .join('\n')
+          : '该精确回执未声明附加证据条目。',
+      },
+      {
+        label: '史馆判词',
+        body: detail.conclusion,
+      },
+    ],
+    sealDate: detail.updatedAt,
+    seal: 'imperial',
+  };
 }

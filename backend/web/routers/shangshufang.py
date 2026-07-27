@@ -82,6 +82,10 @@ SKILL_VERSION = "0.1.0"
 _IM_MESSAGES: list[dict[str, Any]] = []
 _POLISH_FORBIDDEN_WORDS = ("军机处", "会审", "六部", "蜂群", "任务单", "立案")
 _CONTRACT_FINAL_ACTIONS = frozenset({"adopt", "approve", "archive", "reject"})
+_CONTRACT_REQUIRED_READ_ACTIONS = {
+    **{action: "DECIDE" for action in _CONTRACT_FINAL_ACTIONS},
+    "recheck": "REFRESH_REVIEW",
+}
 
 
 class DraftEdictRequest(BaseModel):
@@ -938,7 +942,8 @@ def _execute_final_memorial_decision(
         "request_evidence": "awaiting_evidence",
         "followup": "awaiting_evidence",
     }.get(action)
-    if action in _CONTRACT_FINAL_ACTIONS:
+    required_read_action = _CONTRACT_REQUIRED_READ_ACTIONS.get(action)
+    if required_read_action is not None:
         from src.contract_task_projection import project_contract_task
         from src.runtime_paths import resolve_runtime_paths
 
@@ -948,10 +953,10 @@ def _execute_final_memorial_decision(
                 storage_root=resolve_runtime_paths().root / "artifacts",
                 task=task,
             )
-            if "DECIDE" not in read_model.allowed_actions:
+            if required_read_action not in read_model.allowed_actions:
                 blockers = ",".join(item.code for item in read_model.blockers)
                 raise ValueError(
-                    "DECIDE not allowed for current contract facts: "
+                    f"{required_read_action} not allowed for current contract facts: "
                     f"{blockers}"
                 )
     if current_formal is not None and action in formal_actions:

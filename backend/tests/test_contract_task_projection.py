@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from src.artifacts.delivery import render_one_artifact
 from src.contract_task_projection import project_contract_task
-from src.db.models import ArtifactDeliveryItem
+from src.db.models import ArtifactDeliveryItem, CourtReview
 from tests.contract_task_support import (
     contract_review_pack,
     seed_contract_task,
@@ -75,6 +75,97 @@ def test_missing_persisted_review_blocks_decide_projection(
 
     assert model.allowed_actions == []
     assert "LINEAGE_CONFLICT" in {item.code for item in model.blockers}
+
+
+def test_mission_and_review_pack_business_scope_must_match(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-pack-business-drift")
+        pack = contract_review_pack(task.id)
+        pack["contract_type"] = "sales"
+        pack["our_role"] = "seller"
+        final, pack = seed_final_memorial(db, task_id=task.id, pack=pack)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.review_pack is None
+    assert model.delivery is None
+    assert model.allowed_actions == []
+    assert "LINEAGE_CONFLICT" in {item.code for item in model.blockers}
+
+
+def test_reviewing_exact_review_blocks_ready_final_decision(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-reviewing-review")
+        final, pack = seed_final_memorial(db, task_id=task.id)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        review = db.get(CourtReview, final.review_id)
+        review.review_status = "reviewing"
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.allowed_actions == []
+    assert "LINEAGE_CONFLICT" in {item.code for item in model.blockers}
+
+
+def test_expired_w06_artifact_projects_typed_fail_closed_delivery(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-expired-artifact")
+        final, pack = seed_final_memorial(db, task_id=task.id)
+        delivery = seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        expired = (
+            db.query(ArtifactDeliveryItem)
+            .filter_by(
+                manifest_id=delivery.manifest.manifest_id,
+                kind="PDF",
+            )
+            .one()
+        )
+        expired.state = "EXPIRED"
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    expired_public = next(
+        item for item in model.delivery.artifacts if item.kind == "PDF"
+    )
+    assert expired_public.status == "UNAVAILABLE"
+    assert expired_public.incomplete_reason == "expired"
+    assert expired_public.download_url is None
+    assert model.delivery.overall_status == "UNDER_REVIEW"
+    assert model.allowed_actions == []
+    assert "DELIVERY_INTEGRITY_FAILED" in {
+        item.code for item in model.blockers
+    }
 
 
 def test_revise_verdict_cannot_be_promoted_to_decide(

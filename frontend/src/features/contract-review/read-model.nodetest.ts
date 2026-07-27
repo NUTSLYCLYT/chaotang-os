@@ -342,6 +342,29 @@ test('rejects mission identity that does not bind to the requested task', () => 
   );
 });
 
+test('rejects DECIDE when mission and review pack business scope drift', () => {
+  assert.throws(
+    () => parseContractTaskReadModel(
+      readModel({
+        allowed_actions: ['DECIDE'],
+        blockers: [],
+        mission: {
+          state: 'CONFIRMED',
+          mission: mission(),
+        },
+        review_pack: reviewPack({
+          contract_type: 'sales',
+          our_role: 'seller',
+        }),
+        final_memorial: finalMemorial(),
+        delivery: readyDelivery(),
+      }),
+      'task-1',
+    ),
+    /lineage/,
+  );
+});
+
 test('rejects an invalid public delivery shape', () => {
   assert.throws(
     () => parseContractTaskReadModel(

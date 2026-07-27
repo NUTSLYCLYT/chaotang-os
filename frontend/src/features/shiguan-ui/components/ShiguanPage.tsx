@@ -31,8 +31,10 @@ import {
 } from '@/features/contract-review/api';
 import {
   buildContractArchiveDetail,
+  buildContractArchiveEdictView,
   selectArchiveDetail,
 } from '@/features/contract-review/archive-readback';
+import { EdictStage } from '@/features/shangshufang/components/MemorialScroll';
 
 export default function ShiguanPage() {
   const { data: archiveStats } = useArchiveStats();
@@ -226,7 +228,21 @@ export default function ShiguanPage() {
                 onSelect={setSelectedId}
               />
             }
-            center={<ShiguanScrollPanel detail={selectedDetail} stats={stats} />}
+            center={
+              exactContractDetail ? (
+                <div
+                  className="h-full min-h-0"
+                  data-testid="contract-archive-scroll"
+                >
+                  <EdictStage
+                    view={buildContractArchiveEdictView(exactContractDetail)}
+                    hideFooter
+                  />
+                </div>
+              ) : (
+                <ShiguanScrollPanel detail={selectedDetail} stats={stats} />
+              )
+            }
             right={
               <ShiguanReviewRecallPanel
                 detail={selectedDetail}

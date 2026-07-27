@@ -4,6 +4,7 @@ import test from 'node:test';
 import type { ContractTaskReadModelV1 } from '@/lib/contracts/backend-openapi-2026-07-21';
 import {
   buildContractArchiveDetail,
+  buildContractArchiveEdictView,
   selectArchiveDetail,
 } from './archive-readback';
 
@@ -65,6 +66,20 @@ test('maps exact receipt identity into the existing Shiguan detail contract', ()
   assert.match(detail?.summary ?? '', /final-1/);
   assert.match(detail?.conclusion ?? '', /exact lineage/);
   assert.equal(detail?.decisionChain.at(-1)?.id, 'archive-1');
+});
+
+test('maps exact detail into an audit-only scroll without legacy decision advice', () => {
+  const detail = buildContractArchiveDetail(model(true));
+  assert.ok(detail);
+
+  const view = buildContractArchiveEdictView(detail);
+  const source = view.rows.find((row) => row.label === '来源');
+  const advice = view.rows.find((row) => row.label === '建议');
+
+  assert.equal(view.meta?.badges?.some((badge) => badge.label === 'LIVE'), true);
+  assert.match(source?.body ?? '', /exact ArchiveReceipt archive-1/);
+  assert.match(advice?.body ?? '', /仅供审计回放/);
+  assert.doesNotMatch(advice?.body ?? '', /准奏、驳回、会审或批示/);
 });
 
 test('preserves LIVE_ENGINE as truthful live provenance in Shiguan', () => {
