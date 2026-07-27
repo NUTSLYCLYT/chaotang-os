@@ -19,7 +19,7 @@
 | 4 | 代码复核 | AWAITING_REVIEW | `ea267d1c...` NO-GO 已完成第二轮本地修复；fresh review pending |
 | 5 | 测试计划 | DONE | unit_test/test_plan.md, e2e_test/e2e_plan.md |
 | 6 | 测试复核 | DONE | focused pass；browser READY + PARTIAL refresh |
-| 7 | 提交 / 收口 | TODO | exact candidate pending |
+| 7 | 提交 / 收口 | DONE | implementation `bea08dd2...`, tree `7f142a30...` |
 | 8 | CI 验证 | PARTIAL | scoped PASS；canonical residual 1，root candidate expected STOP |
 | 9 | E2E 验证 | PASSED | e2e_test/e2e_summary.md |
 | 10 | 部署验证 | N/A | NOT_DEPLOYED; deployment/preview_report.md |
@@ -32,4 +32,4 @@
 - 验证：node tests、typecheck、build、Playwright、frontend doctor；root candidate
   doctor 按 authority 设计 PRE_INTEGRATION STOP。
 - 边界：`RUNNABLE_MINIMUM / NOT_DEPLOYED`；不修改 Checkpoint B，不操作 3050。
-- 细分状态：`SECOND_REMEDIATION_LOCAL_PASS / INDEPENDENT_REVIEW_PENDING / NOT_DEPLOYED`。
+- 细分状态：`IMPLEMENTATION_CANDIDATE_FROZEN / INDEPENDENT_REVIEW_PENDING / NOT_DEPLOYED`。

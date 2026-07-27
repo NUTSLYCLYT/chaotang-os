@@ -9,12 +9,14 @@
 | --- | --- |
 | Change ID | feat-r0-w07-a0-runnable-minimum-20260727 |
 | 类型 | feat |
-| 状态 | `SECOND_REMEDIATION_LOCAL_PASS / CANDIDATE_NOT_FROZEN / INDEPENDENT_REVIEW_PENDING / NOT_DEPLOYED` |
+| 状态 | `IMPLEMENTATION_CANDIDATE_FROZEN / INDEPENDENT_REVIEW_PENDING / NOT_DEPLOYED` |
 | Owner | Codex W07 Implementation Lead |
 | Product Owner | `lyt` |
 | 创建日期 | `2026-07-27` |
 | Base H | `ed822255a452e8dd8dda8f86a180fd7c099b181e` |
 | Base tree | `0a56a0eab0135dcf46c31e5ae2cbc46f501cfdcb` |
+| Implementation candidate H | `bea08dd24eef8ac1af89a202e8049f27b22e1382` |
+| Implementation candidate tree | `7f142a30e00a32794000dc290eea397bed077ec8` |
 | Integration target | local `feature-chaotang-ext` |
 | Authority before first edit | v1 `VALID_INACTIVE_GUARD`; v2 W07 `GO / APPROVED_WORK_PACKAGE` |
 
@@ -30,7 +32,8 @@
 统一消费 server `DECIDE`，brief 增加 tenant/user 双重所有权，pack-only 和非放行
 verdict fail closed，前端绑定请求 task identity，并禁止无效 receipt/source/delivery
 显示 archived。W06 明确批准的是 tenant-owned artifact，故“同租户再按 user 隔离”
-不作为 W07 缺陷扩展。新候选尚未冻结，fresh two-pass GO 前不整合 EXT。
+不作为 W07 缺陷扩展。implementation candidate 已冻结；fresh two-pass GO 前不整合
+EXT。
 
 ## 允许范围
 

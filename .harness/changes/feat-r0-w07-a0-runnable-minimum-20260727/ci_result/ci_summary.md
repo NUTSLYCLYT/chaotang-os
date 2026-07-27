@@ -24,8 +24,9 @@
 
 候选 `ea267d1c...` 的两路 independent review 为 `NO-GO`；主控确认的适用
 HIGH/MEDIUM 已完成第二轮 TDD remediation 并通过上述 fresh evidence。当前工作树尚
-未冻结新候选；状态是
-`CANDIDATE_NOT_FROZEN / INDEPENDENT_REVIEW_PENDING`，不得整合。
+implementation candidate `bea08dd24eef8ac1af89a202e8049f27b22e1382`, tree
+`7f142a30e00a32794000dc290eea397bed077ec8` 已冻结；状态是
+`INDEPENDENT_REVIEW_PENDING`，不得整合。
 
 ## 全仓既有 Residual
 
@@ -63,8 +64,8 @@ HIGH/MEDIUM 已完成第二轮 TDD remediation 并通过上述 fresh evidence。
 | no deployment or 3050 operation | isolated 3002/8081 config and report | PASS |
 | second remediation | all applicable HIGH/MEDIUM locally closed | PASS |
 | independent review | fresh two-pass read-only review | PENDING |
-| exact candidate | pending review freeze | PENDING |
+| exact implementation candidate | `bea08dd2...` / `7f142a30...` | PASS |
 
 ## 声明状态
 
-- `SECOND_REMEDIATION_LOCAL_PASS / CANDIDATE_NOT_FROZEN / INDEPENDENT_REVIEW_PENDING / NOT_DEPLOYED`
+- `IMPLEMENTATION_CANDIDATE_FROZEN / INDEPENDENT_REVIEW_PENDING / NOT_DEPLOYED`

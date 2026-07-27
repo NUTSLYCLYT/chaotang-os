@@ -83,5 +83,7 @@ baseline。该批准不扩展到 Checkpoint B、push、部署、数据库迁移�
 | launcher honesty | 明确记录隔离进程加载 canonical app，seed route 不进 schema | Packet diff |
 
 当前状态：
-`SECOND_REMEDIATION_LOCAL_PASS / CANDIDATE_NOT_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING`。
+implementation candidate `bea08dd24eef8ac1af89a202e8049f27b22e1382`, tree
+`7f142a30e00a32794000dc290eea397bed077ec8` 已冻结；状态为
+`IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING`。
 本文件不预判下一候选的独立审查结论。
