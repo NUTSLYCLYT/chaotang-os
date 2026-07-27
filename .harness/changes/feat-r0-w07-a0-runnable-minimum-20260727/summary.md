@@ -15,8 +15,8 @@
 | 创建日期 | `2026-07-27` |
 | Base H | `ed822255a452e8dd8dda8f86a180fd7c099b181e` |
 | Base tree | `0a56a0eab0135dcf46c31e5ae2cbc46f501cfdcb` |
-| Implementation candidate H | `7b8b84d20a3e21f38f89e97f590c554b4045081c` |
-| Implementation candidate tree | `6263bf1d2a45a3b2dafdddc2ccdcd7b79cad07f8` |
+| Implementation candidate H | `af714f77ae9752cf1aafbcfd4a14a6e4081f26a3` |
+| Implementation candidate tree | `d37fe17900354afab1bcaa029fe3d097e210623c` |
 | Integration target | local `feature-chaotang-ext` |
 | Authority before first edit | v1 `VALID_INACTIVE_GUARD`; v2 W07 `GO / APPROVED_WORK_PACKAGE` |
 
@@ -95,6 +95,26 @@ review envelope `5f351283...` 对 `4ed274f8...` 的两路 fresh Codex 审查均�
 generation 幂等、OpenAPI response compatibility 和真实 browser selection
 事实链内，进入下一轮 TDD remediation。两个 LOW 保留 residual。当前状态：
 `REVIEWED_NO_GO / REMEDIATION_IN_PROGRESS / NOT_DEPLOYED`。
+
+最新 remediation 已按 TDD 关闭上述 11 项 HIGH/MEDIUM：旧路由统一
+tenant+user ownership；worker 在处理前和 publication lock 后绑定 exact
+Mission、FinalMemorial 与 CourtReview tenant；malformed current formal 不再降级
+legacy；evidence readiness 只读最新 generation；无 durable decision 的 legacy
+重放返回冲突；分类与写入共享任务锁并在锁内重判；archived 异常事实 fail closed；
+OpenAPI guard 比较 `components.responses` 自身。Mission revision/digest 保留在
+durable payload 的必填内部契约中，公共响应 schema 维持固定基线。真实浏览器验收
+从 `/home/v1` 服务端列表按 exact task identity 进入，不再使用 query taskId 深链。
+
+fresh implementation candidate：
+
+- H `af714f77ae9752cf1aafbcfd4a14a6e4081f26a3`
+- tree `d37fe17900354afab1bcaa029fe3d097e210623c`
+- parent `dd5e92fee12e5c6a3ef7db3bad793e1f758ea708`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本候选未执行 Checkpoint B、push、部署、持久数据库迁移或 listener 3050 操作。
 
 ## 允许范围
 

@@ -395,3 +395,33 @@ Review envelope `5f351283613cc69269d722a4d3385083bad5ba80` 对 implementation
 
 全部 HIGH/MEDIUM 属于已批准的 authority/lineage/closed-world 同一事实链，可按
 scope amendment 继续 TDD。两个 LOW 不扩展本轮范围。`4ed274f8...` 不得整合 EXT。
+
+## Latest Seventh-Review Remediation Evidence
+
+Product Owner 已批准在原范围和新增 backend 文件范围内按 TDD 修复全部第七轮
+HIGH/MEDIUM。本轮未执行 Checkpoint B 或修改持久数据库 schema。
+
+| Finding | Remediation | Fresh evidence |
+| --- | --- | --- |
+| legacy route ownership | swarm-deepen、finance case、edict-return 使用 tenant+user accessor | same-user cross-tenant behavioral tests |
+| review tenant lineage | worker 要求 exact FinalMemorial review 的 task/tenant 非空且一致 | wrong/null tenant worker tests |
+| malformed formal downgrade | current formal 只要存在但无法验证即保持 contract fail-closed | malformed formal API tests |
+| frozen Mission identity | durable generation payload 必填 revision/digest；公共 response schema 稳定 | payload/public projection TDD + OpenAPI generator |
+| prior final drift | worker 处理前与 publication lock 后重验 current final hash/status | before/during-processing interruption tests |
+| latest evidence generation | readiness 只投影最高 generation，不扫描历史 packet | multi-generation projection test |
+| durable replay | 缺少 exact EmperorDecision 时 legacy replay 返回冲突 | cancellation replay tests |
+| classifier TOCTOU | Mission writer 与 legacy decision 共用 task lock；锁内刷新并重分类 | concurrent publication tests |
+| archived inconsistency | 无 exact complete receipt 的 archived task 返回 `STATE_INCONSISTENT` | resolver + projection tests |
+| component responses | guard 比较 `components.responses` 内容和 route response ref | API Node tests 10/11 |
+| real browser selection | 从真实 home payload 校验 exact task + `contract_task=true` 后点击列表 | disposable Playwright 1/1 |
+
+exact implementation candidate：
+
+- H `af714f77ae9752cf1aafbcfd4a14a6e4081f26a3`
+- tree `d37fe17900354afab1bcaa029fe3d097e210623c`
+- parent `dd5e92fee12e5c6a3ef7db3bad793e1f758ea708`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本节只登记待审候选，不预判两路 Codex 独立只读审查结论。
