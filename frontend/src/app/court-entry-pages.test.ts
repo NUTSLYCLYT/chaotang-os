@@ -4,11 +4,11 @@ import test from "node:test";
 
 const pages = [
   ["dadian/page.tsx", "/dadian", undefined, /DadianOverviewClient/, /DadianOverviewClient/],
-  ["junjichu/page.tsx", "/junjichu", "军机处", /CourtPlaceholderPage/, /CourtShell/],
+  ["junjichu/page.tsx", "/junjichu", undefined, /JunjichuClient/, /JunjichuClient/],
   ["command-center/page.tsx", "/command-center", "指挥中心", /CourtPlaceholderPage/, /CourtShell/],
-  ["liubu/page.tsx", "/liubu", "六部", /MinistryOverview/, /CourtShell/],
-  ["liubu/[code]/page.tsx", "/liubu/", undefined, /DepartmentOverview/, /CourtShell/],
-  ["liubu/[code]/[office]/page.tsx", "/liubu/", undefined, /DepartmentOfficeView/, /CourtShell/],
+  ["liubu/page.tsx", "/liubu", undefined, /MinistryOverviewClient/, /MinistryOverviewClient/],
+  ["liubu/[code]/page.tsx", "/liubu/", undefined, /MinistryOverviewClient/, /MinistryOverviewClient/],
+  ["liubu/[code]/[office]/page.tsx", "/liubu/", undefined, /MinistryOverviewClient/, /MinistryOverviewClient/],
   ["zhuanshu/page.tsx", "/zhuanshu", "专署", /CourtPlaceholderPage/, /CourtShell/],
   ["zhuanshu/jinyiwei/page.tsx", "/zhuanshu/jinyiwei", "锦衣卫", /CourtPlaceholderPage/, /CourtShell/],
   ["zhuanshu/jinyiwei/[signalId]/page.tsx", "/zhuanshu/jinyiwei/", undefined, /CourtPlaceholderPage/, /CourtShell/],
@@ -36,4 +36,20 @@ test("Dadian delegates its immersive shell to DadianScene and rejects the old pl
   assert.match(page, /DadianOverviewClient/);
   assert.doesNotMatch(page, /CourtShell|CourtPlaceholderPage|variant="dadian"/);
   assert.match(scene, /ImmersiveCourtShell/);
+});
+
+test("junjichu and liubu routes delegate to their read-only controllers", async () => {
+  const junjichuSource = await readFile(new URL("./junjichu/page.tsx", import.meta.url), "utf8");
+  const liubuSources = (
+    await Promise.all([
+      readFile(new URL("./liubu/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("./liubu/[code]/page.tsx", import.meta.url), "utf8"),
+      readFile(new URL("./liubu/[code]/[office]/page.tsx", import.meta.url), "utf8"),
+    ])
+  ).join("\n");
+
+  assert.match(junjichuSource, /JunjichuClient/);
+  assert.doesNotMatch(junjichuSource, /CourtPlaceholderPage/);
+  assert.match(liubuSources, /MinistryOverviewClient|resolveMinistryRoute/);
+  assert.doesNotMatch(liubuSources, /department-demo|DepartmentDemo/);
 });

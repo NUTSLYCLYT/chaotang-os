@@ -25,7 +25,9 @@ test("protected court entries select their current visual shells and keep honest
   assert.match(css, /zhuanshu/);
   assert.match(dadian, /DadianOverviewClient/);
   assert.doesNotMatch(dadian, /CourtPlaceholderPage|variant="dadian"|CourtShell/);
-  assert.match(junjichu, /variant="junjichu"/);
-  assert.match(liubu, /MinistryOverview/);
+  assert.match(junjichu, /JunjichuClient/);
+  assert.doesNotMatch(junjichu, /CourtPlaceholderPage|variant="junjichu"|CourtShell/);
+  assert.match(liubu, /MinistryOverviewClient/);
+  assert.doesNotMatch(liubu, /department-demo|CourtPlaceholderPage|CourtShell/);
   assert.match(zhuanshu, /variant="zhuanshu"/);
 });
