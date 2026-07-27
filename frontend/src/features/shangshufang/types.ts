@@ -47,6 +47,8 @@ export interface Memorial {
   sourceLabel?: string;
   /** 可核验证据条数 */
   evidenceCount?: number;
+  /** 后端 contract_scope 对该任务的显式分类。 */
+  contractTask?: boolean;
   /** 提折人，如「江南巡抚 田丰」 */
   petitioner: string;
   /** 奏闻人，如「兵部尚书 白浚」 */

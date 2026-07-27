@@ -842,6 +842,23 @@ def _replayed_evidence_rework_result(existing) -> dict[str, Any]:
     }
 
 
+def _replayed_legacy_decision_result(db, *, task: DecisionTask, action: str) -> dict[str, Any]:
+    existing = (
+        db.query(EmperorDecision)
+        .filter_by(task_id=task.id, action=action)
+        .order_by(EmperorDecision.created_at.desc(), EmperorDecision.id.desc())
+        .first()
+    )
+    return {
+        "decision": existing,
+        "decision_id": existing.id if existing is not None else None,
+        "archive_record": None,
+        "rework_generation": None,
+        "replayed": True,
+        "now": existing.created_at if existing is not None else task.updated_at,
+    }
+
+
 def _execute_final_memorial_decision(
     db,
     *,
@@ -933,7 +950,7 @@ def _execute_final_memorial_decision(
         if existing is not None:
             return _replayed_evidence_rework_result(existing)
 
-    if has_contract_mission or has_contract_review_pack:
+    if is_contract_task:
         if action in _CONTRACT_DENIED_DECISION_ACTIONS:
             raise ValueError(f"{action} not authorized for contract tasks")
         required_read_action = _CONTRACT_REQUIRED_READ_ACTIONS.get(action)
@@ -953,6 +970,22 @@ def _execute_final_memorial_decision(
             raise ValueError(
                 f"{required_read_action} not allowed for current contract facts: "
                 f"{blockers}"
+            )
+
+    if not is_contract_task:
+        from src.execution.outbox_worker import TASK_TERMINAL_STATUSES
+
+        if action == "cancel" and task.status in TASK_TERMINAL_STATUSES:
+            return _replayed_legacy_decision_result(
+                db,
+                task=task,
+                action=action,
+            )
+        if action == "recheck" and task.status == "reviewing":
+            return _replayed_legacy_decision_result(
+                db,
+                task=task,
+                action=action,
             )
 
     if action in evidence_actions:

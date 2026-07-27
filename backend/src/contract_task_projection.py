@@ -35,6 +35,7 @@ from src.contracts.contract_task_read_model import (
     ContractTaskIdentityV1,
     ContractTaskReadModelV1,
     FinalMemorialIdentityV1,
+    MissionBoundContractReviewPackV1,
     MissionSnapshotViewV1,
     PublicArtifactDeliveryV1,
     PublicArtifactItemV1,
@@ -539,7 +540,11 @@ def project_contract_task(
             refined_edict=task.refined_edict,
         ),
         mission=mission,
-        review_pack=pack,
+        review_pack=(
+            MissionBoundContractReviewPackV1.model_validate(pack.model_dump())
+            if pack is not None
+            else None
+        ),
         final_memorial=final_view,
         delivery=delivery,
         archive_receipt=receipt,

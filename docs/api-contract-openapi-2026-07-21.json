@@ -1857,7 +1857,7 @@
           "review_pack": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ContractReviewPackV1"
+                "$ref": "#/components/schemas/MissionBoundContractReviewPackV1"
               },
               {
                 "type": "null"
@@ -4085,6 +4085,198 @@
           "name"
         ],
         "title": "MetricEventRequest",
+        "type": "object"
+      },
+      "MissionBoundContractReviewPackV1": {
+        "additionalProperties": false,
+        "description": "W07 read-model view of the backward-compatible W06 pack.",
+        "properties": {
+          "affected_sections": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Affected Sections",
+            "type": "array"
+          },
+          "candidate_status": {
+            "const": "CANDIDATE",
+            "default": "CANDIDATE",
+            "title": "Candidate Status",
+            "type": "string"
+          },
+          "contract_type": {
+            "enum": [
+              "procurement",
+              "sales",
+              "service",
+              "UNSUPPORTED_OR_UNKNOWN"
+            ],
+            "title": "Contract Type",
+            "type": "string"
+          },
+          "court_review_id": {
+            "minLength": 1,
+            "title": "Court Review Id",
+            "type": "string"
+          },
+          "decision_summary": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Decision Summary",
+            "type": "string"
+          },
+          "engine_tiers": {
+            "items": {
+              "enum": [
+                "deterministic",
+                "validated_model",
+                "fallback"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Engine Tiers",
+            "type": "array"
+          },
+          "evidence_packet_ids": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Evidence Packet Ids",
+            "type": "array"
+          },
+          "jurisdiction": {
+            "enum": [
+              "CN_MAINLAND",
+              "UNSUPPORTED_OR_UNKNOWN"
+            ],
+            "title": "Jurisdiction",
+            "type": "string"
+          },
+          "language": {
+            "enum": [
+              "zh-CN",
+              "UNSUPPORTED_OR_UNKNOWN"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "legal_question": {
+            "enum": [
+              "contract_risk_screening",
+              "UNSUPPORTED_OR_UNKNOWN"
+            ],
+            "title": "Legal Question",
+            "type": "string"
+          },
+          "mission_content_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Mission Content Digest",
+            "type": "string"
+          },
+          "mission_contract_id": {
+            "minLength": 1,
+            "title": "Mission Contract Id",
+            "type": "string"
+          },
+          "mission_revision": {
+            "minimum": 1,
+            "title": "Mission Revision",
+            "type": "integer"
+          },
+          "our_role": {
+            "enum": [
+              "buyer",
+              "seller",
+              "service_provider",
+              "other_party",
+              "UNSUPPORTED_OR_UNKNOWN"
+            ],
+            "title": "Our Role",
+            "type": "string"
+          },
+          "quality_gate_status": {
+            "enum": [
+              "PENDING",
+              "PASSED",
+              "FAILED"
+            ],
+            "title": "Quality Gate Status",
+            "type": "string"
+          },
+          "review_pack_id": {
+            "minLength": 1,
+            "title": "Review Pack Id",
+            "type": "string"
+          },
+          "risk_items": {
+            "items": {
+              "$ref": "#/components/schemas/ContractRiskItemV1"
+            },
+            "title": "Risk Items",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "ContractReviewPackV1",
+            "default": "ContractReviewPackV1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_labels": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Source Labels",
+            "type": "array"
+          },
+          "task_id": {
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "tenant_id": {
+            "minLength": 1,
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "NEED_INFO",
+              "REVISE_BEFORE_PROCEED",
+              "PROCEED_TO_HUMAN_APPROVAL",
+              "BLOCKED",
+              "NEED_LEGAL_REVIEW"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "review_pack_id",
+          "tenant_id",
+          "task_id",
+          "mission_contract_id",
+          "mission_revision",
+          "mission_content_digest",
+          "court_review_id",
+          "evidence_packet_ids",
+          "jurisdiction",
+          "language",
+          "contract_type",
+          "our_role",
+          "legal_question",
+          "risk_items",
+          "verdict",
+          "decision_summary",
+          "affected_sections",
+          "source_labels",
+          "engine_tiers",
+          "quality_gate_status"
+        ],
+        "title": "MissionBoundContractReviewPackV1",
         "type": "object"
       },
       "MissionConfirmRequest": {

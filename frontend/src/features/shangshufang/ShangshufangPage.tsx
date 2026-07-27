@@ -2035,6 +2035,7 @@ function memorialItemToDisplay(
     sourceMode,
     sourceLabel,
     evidenceCount,
+    contractTask: m.contractTask,
     petitioner: m.petitioner,
     reporter: m.reporter,
     priority: priorityMap[m.priority] ?? 'medium',
@@ -2582,6 +2583,7 @@ export function ShangshufangPage() {
     requestedTaskId: requestedContractTaskId,
     edictPrimaryTaskId: edictOverride?.primaryTaskId ?? null,
     activeMemorialId: activeMemorial?.id ?? null,
+    activeMemorialIsContract: activeMemorial?.contractTask === true,
   });
   const legacyContractActionsBlocked = (
     contractTaskId !== null

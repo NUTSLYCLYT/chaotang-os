@@ -328,7 +328,7 @@ export type ContractTaskReadModelV1 = {
   "generated_at": string;
   "mission"?: MissionSnapshotViewV1 | null;
   "read_revision": string;
-  "review_pack"?: ContractReviewPackV1 | null;
+  "review_pack"?: MissionBoundContractReviewPackV1 | null;
   "schema_version"?: "ContractTaskReadModelV1";
   "source_class": "ADJUDICABLE" | "FALLBACK" | "UNKNOWN";
   "task": ContractTaskIdentityV1;
@@ -772,6 +772,31 @@ export type MetricEventRequest = {
   "route"?: string | null;
   "taskId"?: string | null;
   "ts"?: number | null;
+};
+
+export type MissionBoundContractReviewPackV1 = {
+  "affected_sections": (string)[];
+  "candidate_status"?: "CANDIDATE";
+  "contract_type": "procurement" | "sales" | "service" | "UNSUPPORTED_OR_UNKNOWN";
+  "court_review_id": string;
+  "decision_summary": string;
+  "engine_tiers": ("deterministic" | "validated_model" | "fallback")[];
+  "evidence_packet_ids": (string)[];
+  "jurisdiction": "CN_MAINLAND" | "UNSUPPORTED_OR_UNKNOWN";
+  "language": "zh-CN" | "UNSUPPORTED_OR_UNKNOWN";
+  "legal_question": "contract_risk_screening" | "UNSUPPORTED_OR_UNKNOWN";
+  "mission_content_digest": string;
+  "mission_contract_id": string;
+  "mission_revision": number;
+  "our_role": "buyer" | "seller" | "service_provider" | "other_party" | "UNSUPPORTED_OR_UNKNOWN";
+  "quality_gate_status": "PENDING" | "PASSED" | "FAILED";
+  "review_pack_id": string;
+  "risk_items": (ContractRiskItemV1)[];
+  "schema_version"?: "ContractReviewPackV1";
+  "source_labels": (string)[];
+  "task_id": string;
+  "tenant_id": string;
+  "verdict": "NEED_INFO" | "REVISE_BEFORE_PROCEED" | "PROCEED_TO_HUMAN_APPROVAL" | "BLOCKED" | "NEED_LEGAL_REVIEW";
 };
 
 export type MissionConfirmRequest = {

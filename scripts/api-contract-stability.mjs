@@ -237,6 +237,50 @@ function additiveOptionalProperties(previousSchema, currentSchema) {
     : null;
 }
 
+function componentReferences(value, references = new Set()) {
+  if (Array.isArray(value)) {
+    for (const item of value) componentReferences(item, references);
+    return references;
+  }
+  if (!value || typeof value !== 'object') return references;
+  if (
+    typeof value.$ref === 'string'
+    && value.$ref.startsWith('#/components/schemas/')
+  ) {
+    references.add(
+      value.$ref
+        .slice('#/components/schemas/'.length)
+        .replaceAll('~1', '/')
+        .replaceAll('~0', '~'),
+    );
+  }
+  for (const nested of Object.values(value)) {
+    componentReferences(nested, references);
+  }
+  return references;
+}
+
+function responseReachableComponents(openapi) {
+  const schemas = openapi.components?.schemas || {};
+  const reachable = new Set();
+  for (const methods of Object.values(openapi.paths || {})) {
+    for (const operation of Object.values(methods || {})) {
+      if (!operation || typeof operation !== 'object') continue;
+      componentReferences(operation.responses || {}, reachable);
+    }
+  }
+  const pending = [...reachable];
+  while (pending.length) {
+    const name = pending.pop();
+    for (const nested of componentReferences(schemas[name])) {
+      if (reachable.has(nested)) continue;
+      reachable.add(nested);
+      pending.push(nested);
+    }
+  }
+  return reachable;
+}
+
 export function compareContracts(previousOpenApi, currentOpenApi) {
   const previousSnapshot = buildRouteSnapshot(previousOpenApi);
   const currentSnapshot = buildRouteSnapshot(currentOpenApi);
@@ -245,6 +289,7 @@ export function compareContracts(previousOpenApi, currentOpenApi) {
   const warnings = [...routeDiff.warnings];
   const previousSchemas = previousOpenApi.components?.schemas || {};
   const currentSchemas = currentOpenApi.components?.schemas || {};
+  const previousResponseComponents = responseReachableComponents(previousOpenApi);
 
   for (const [name, schema] of Object.entries(previousSchemas)) {
     if (!(name in currentSchemas)) {
@@ -260,7 +305,7 @@ export function compareContracts(previousOpenApi, currentOpenApi) {
         schema,
         currentSchemas[name],
       );
-      if (added) {
+      if (added && !previousResponseComponents.has(name)) {
         warnings.push({
           type: 'component_optional_properties_added',
           key: name,

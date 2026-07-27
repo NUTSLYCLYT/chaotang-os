@@ -14,6 +14,7 @@ def _seed_task(db, *, task_id: str, status: str = "awaiting_decision"):
     db.add(
         DecisionTask(
             id=task_id,
+            tenant_id=1,
             user_id="1",
             raw_question="请复核这份合同的违约责任和合规风险",
             status=status,
@@ -23,6 +24,7 @@ def _seed_task(db, *, task_id: str, status: str = "awaiting_decision"):
     db.add(
         CourtReview(
             id=f"review_{task_id}",
+            tenant_id=1,
             task_id=task_id,
             routing_plan_json='{"route":{"mode":"council"}}',
             review_status=status,
@@ -58,42 +60,80 @@ def test_cancel_moves_live_task_to_cancelled(isolated_session_local):
 
 
 def test_repeated_cancel_is_idempotent(isolated_session_local):
-    """apply_task_decision 层面直接验证：状态围栏本身幂等，不经过 HTTP 端点——
-    端点每次调用都会用 make_id(..., now) 生成 EmperorDecision/CourtLoopRun 的
-    id(秒级精度、无 nonce)，同一秒内连续两次相同 action 会撞主键，这是端点
-    既有的、跟本次 REQ-018 无关的预先存在的问题(任何 action 连续调用两次都会
-    撞)，记录不顺手修——这里只测本次改动真正要保证的东西：cancel 分支的终态
-    幂等围栏本身，不经过会踩雷的那条 id 生成路径。"""
-    from web.routers.shangshufang import apply_task_decision
+    """HTTP 重放必须返回既有结果，不能重复追加裁决和时间线。"""
+    from src.db.models import DecreeExecutionEvent, EmperorDecision
 
     db = isolated_session_local()
     task_id = "task_cancel_repeated"
     _seed_task(db, task_id=task_id)
+    db.close()
+
+    client = TestClient(app)
+    first = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={"action": "cancel", "reason": "客户撤单", "human_confirmed": True},
+    )
+    second = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={"action": "cancel", "reason": "重复点击", "human_confirmed": True},
+    )
+
+    assert first.status_code == 200, first.json()
+    assert second.status_code == 200, second.json()
+    db = isolated_session_local()
     task = db.query(DecisionTask).filter_by(id=task_id).one()
     review = db.query(CourtReview).filter_by(task_id=task_id).one()
-
-    apply_task_decision(
-        db,
-        task=task,
-        review=review,
-        action="cancel",
-        reason="客户撤单",
-        human_confirmed=True,
-        now="2026-07-23T01:00:00+00:00",
-    )
-    assert task.status == "task_cancelled"
-
-    apply_task_decision(
-        db,
-        task=task,
-        review=review,
-        action="cancel",
-        reason="重复点击",
-        human_confirmed=True,
-        now="2026-07-23T01:00:05+00:00",
-    )
     assert task.status == "task_cancelled"
     assert review.review_status == "task_cancelled"
+    assert (
+        db.query(EmperorDecision)
+        .filter_by(task_id=task_id, action="cancel")
+        .count()
+        == 1
+    )
+    assert (
+        db.query(DecreeExecutionEvent)
+        .filter_by(task_id=task_id, event_type="decision.cancelled")
+        .count()
+        == 1
+    )
+    db.close()
+
+
+def test_repeated_recheck_is_idempotent(isolated_session_local):
+    from src.db.models import DecreeExecutionEvent, EmperorDecision
+
+    db = isolated_session_local()
+    task_id = "task_recheck_repeated"
+    _seed_task(db, task_id=task_id)
+    db.close()
+
+    client = TestClient(app)
+    first = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={"action": "recheck", "reason": "重新会审", "human_confirmed": True},
+    )
+    second = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={"action": "recheck", "reason": "重复点击", "human_confirmed": True},
+    )
+
+    assert first.status_code == 200, first.json()
+    assert second.status_code == 200, second.json()
+    db = isolated_session_local()
+    assert db.query(DecisionTask).filter_by(id=task_id).one().status == "reviewing"
+    assert (
+        db.query(EmperorDecision)
+        .filter_by(task_id=task_id, action="recheck")
+        .count()
+        == 1
+    )
+    assert (
+        db.query(DecreeExecutionEvent)
+        .filter_by(task_id=task_id, event_type="decision.recheck_requested")
+        .count()
+        == 1
+    )
     db.close()
 
 

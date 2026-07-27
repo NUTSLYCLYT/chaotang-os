@@ -11,7 +11,7 @@
 | Baseline schemas | 184 |
 | Route count | 362 |
 | Breaking changes | 0 |
-| Warnings | 10 |
+| Warnings | 11 |
 
 ## Artifacts
 
@@ -34,6 +34,7 @@ None.
 | component_schema_added | ContractTaskIdentityV1 |
 | component_schema_added | ContractTaskReadModelV1 |
 | component_schema_added | FinalMemorialIdentityV1 |
+| component_schema_added | MissionBoundContractReviewPackV1 |
 | component_schema_added | MissionSnapshotViewV1 |
 | component_schema_added | PublicArtifactDeliveryV1 |
 | component_schema_added | PublicArtifactItemV1 |

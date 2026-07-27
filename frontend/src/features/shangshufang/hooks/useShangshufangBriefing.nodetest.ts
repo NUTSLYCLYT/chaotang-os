@@ -82,3 +82,20 @@ test('mergeDecisionHome 真实回奏(latest_memorial)存在时优先展示真实
   assert.equal(memorial.verdict, '需人工复核');
   assert.doesNotMatch(memorial.enhancedSuggestion, /请军机处组织刑部参审，围绕原问形成可裁决奏折。/);
 });
+
+test('mergeDecisionHome preserves the server contract classification', () => {
+  const home = makeHomeResponse({
+    contract_scope: {
+      schema_version: 'ContractIntakeV1',
+      jurisdiction: 'CN_MAINLAND',
+      language: 'zh-CN',
+      contract_type: 'procurement',
+      our_role: 'buyer',
+      legal_question: 'contract_risk_screening',
+    },
+  });
+
+  const merged = mergeDecisionHome(EMPTY_BRIEFING, home);
+
+  assert.equal(merged.memorials[0]?.contractTask, true);
+});

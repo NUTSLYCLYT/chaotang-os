@@ -14,6 +14,49 @@ from src.execution.decree_dispatcher import enqueue_dispatch
 from src.execution.outbox_worker import process_event, process_pending_events
 
 
+@pytest.mark.parametrize(
+    ("dialect_name", "expected_statements"),
+    [
+        ("postgresql", ["LOCK TABLE court_loop_runs IN SHARE MODE"]),
+        ("sqlite", []),
+    ],
+)
+def test_mission_publication_lock_matches_supported_dialect(
+    dialect_name,
+    expected_statements,
+):
+    from types import SimpleNamespace
+
+    from src.contract_rework import _lock_mission_publication
+
+    class _Database:
+        def __init__(self):
+            self.statements: list[str] = []
+
+        def get_bind(self):
+            return SimpleNamespace(dialect=SimpleNamespace(name=dialect_name))
+
+        def execute(self, statement):
+            self.statements.append(str(statement))
+
+    db = _Database()
+    _lock_mission_publication(db)
+    assert db.statements == expected_statements
+
+
+def test_mission_publication_lock_fails_closed_for_unknown_dialect():
+    from types import SimpleNamespace
+
+    from src.contract_rework import _lock_mission_publication
+
+    class _Database:
+        def get_bind(self):
+            return SimpleNamespace(dialect=SimpleNamespace(name="unknown-db"))
+
+    with pytest.raises(RuntimeError, match="unsupported"):
+        _lock_mission_publication(_Database())
+
+
 def _seed_direct_task(db, task_id: str = "task_direct_1"):
     from src.db.models import CourtReview, DecisionTask
 
@@ -411,12 +454,16 @@ def test_council_event_passes_recommended_departments_to_swarm_loop(isolated_ses
     db.close()
 
 
-@pytest.mark.parametrize("capability_active", [True, False])
+@pytest.mark.parametrize(
+    ("capability_active", "mission_present"),
+    [(True, True), (True, False), (False, False)],
+)
 def test_evidence_rework_recomputes_only_declared_contract_section(
     isolated_session_local,
     tmp_path,
     monkeypatch,
     capability_active,
+    mission_present,
 ):
     import hashlib
     import json
@@ -439,16 +486,15 @@ def test_evidence_rework_recomputes_only_declared_contract_section(
     artifact_path = tmp_path / "payment-evidence.docx"
     artifact_path.write_bytes(artifact_bytes)
     digest = hashlib.sha256(artifact_bytes).hexdigest()
-    db.add(
-        DecisionTask(
-            id=task_id,
-            tenant_id=1,
-            user_id="1",
-            raw_question="审查采购合同付款条款",
-            status="awaiting_evidence",
-            source_label="LIVE",
-        )
+    task = DecisionTask(
+        id=task_id,
+        tenant_id=1,
+        user_id="1",
+        raw_question="审查采购合同付款条款",
+        status="awaiting_evidence",
+        source_label="LIVE",
     )
+    db.add(task)
     db.add(
         CourtReview(
             id="review-evidence-rework-worker",
@@ -537,6 +583,17 @@ def test_evidence_rework_recomputes_only_declared_contract_section(
             updated_at="2026-07-24T00:00:00+00:00",
         )
     )
+    if mission_present:
+        from src.contract_mission_repository import save_mission_snapshot
+        from tests.contract_task_support import contract_mission
+
+        db.flush()
+        save_mission_snapshot(
+            db,
+            task=task,
+            mission=contract_mission(task_id),
+            state="confirmed",
+        )
     db.commit()
 
     monkeypatch.setenv(
@@ -555,6 +612,18 @@ def test_evidence_rework_recomputes_only_declared_contract_section(
         assert result["status"] == "superseded", result
         assert result["result"]["fenced"] is True
         assert result["result"]["reason"] == "capability_disabled"
+        status = TestClient(app).get(
+            f"/api/shangshufang/tasks/{task_id}/status"
+        ).json()["data"]
+        assert status["task"]["status"] == "awaiting_evidence"
+        assert status["review"]["memorial"]["contract_review"] == {
+            "status": "old"
+        }
+        return
+    if not mission_present:
+        assert result["status"] == "superseded", result
+        assert result["result"]["fenced"] is True
+        assert result["result"]["reason"] == "mission_missing"
         status = TestClient(app).get(
             f"/api/shangshufang/tasks/{task_id}/status"
         ).json()["data"]
@@ -672,11 +741,18 @@ def test_late_old_rework_generation_cannot_replace_current_review(
 
 @pytest.mark.parametrize(
     "interruption",
-    [None, "new_generation", "capability_disabled"],
+    [
+        None,
+        "new_generation",
+        "capability_disabled",
+        "terminal_task",
+        "mission_changed",
+    ],
 )
 def test_supported_contract_rework_public_chain_appends_current_v2(
     isolated_session_local,
     monkeypatch,
+    tmp_path,
     interruption,
     w05_contract_user,
 ):
@@ -696,30 +772,38 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
         SwarmRun,
     )
     from src.formal_memorial import formalize_memorial
-    from tests.contract_task_support import contract_mission
+    from tests.contract_task_support import (
+        contract_mission,
+        contract_review_pack,
+        seed_delivery,
+    )
     from tests.fixtures.secure_ingest_fixtures import golden_docx_bytes
     from web.main import app
 
     db = isolated_session_local()
     task_id = "task_supported_contract_rework_public_chain"
     review_id = "review-supported-contract-rework-public-chain"
-    db.add(
-        DecisionTask(
-            id=task_id,
-            tenant_id=1,
-            user_id="1",
-            raw_question="审查中国大陆中文采购合同付款条款",
-                status="awaiting_decision",
-                source_label="LIVE",
-                contract_scope_json=json.dumps({
-                    "schema_version": "ContractIntakeV1",
-                    "jurisdiction": "CN_MAINLAND",
-                    "language": "zh-CN",
-                    "contract_type": "procurement",
-                    "our_role": "buyer",
-                    "legal_question": "contract_risk_screening",
-                }),
-        )
+    task = DecisionTask(
+        id=task_id,
+        tenant_id=1,
+        user_id="1",
+        raw_question="审查中国大陆中文采购合同付款条款",
+        status="awaiting_decision",
+        source_label="LIVE",
+        contract_scope_json=json.dumps({
+            "schema_version": "ContractIntakeV1",
+            "jurisdiction": "CN_MAINLAND",
+            "language": "zh-CN",
+            "contract_type": "procurement",
+            "our_role": "buyer",
+            "legal_question": "contract_risk_screening",
+        }),
+    )
+    db.add(task)
+    first_pack = contract_review_pack(
+        task_id,
+        tenant_id="1",
+        court_review_id=review_id,
     )
     db.add(
         CourtReview(
@@ -735,6 +819,7 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
                     "title": "合同会审正式奏折 v1",
                     "summary": "现有付款条款需要补充原文。",
                     "recommendation": "request_evidence",
+                    "contract_review": first_pack,
                 },
                 ensure_ascii=False,
             ),
@@ -743,6 +828,12 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
         )
     )
     db.flush()
+    save_mission_snapshot(
+        db,
+        task=task,
+        mission=contract_mission(task_id),
+        state="confirmed",
+    )
     first = formalize_memorial(
         db,
         task_id=task_id,
@@ -762,10 +853,20 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
             },
         },
     )
+    db.flush()
+    seed_delivery(
+        db,
+        storage_root=tmp_path / "artifacts",
+        tenant_id=1,
+        task_id=task_id,
+        final=first,
+        pack=first_pack,
+    )
     first_hash = first.content_hash
     db.commit()
     db.close()
 
+    monkeypatch.setenv("FENGQUN_RUNTIME_ROOT", str(tmp_path))
     client = TestClient(app)
     requested = client.post(
         f"/api/shangshufang/tasks/{task_id}/decision",
@@ -831,6 +932,34 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
             if interruption == "capability_disabled":
                 monkeypatch.setenv("FENGQUN_W05_CONTRACT_REWORK", "0")
                 return text
+            if interruption == "terminal_task":
+                worker_task.status = "task_cancelled"
+                worker_db.flush()
+                return text
+            if interruption == "mission_changed":
+                from src.contracts.mission_contract import (
+                    compute_mission_content_digest,
+                )
+
+                mission = contract_mission(task_id).model_copy(
+                    update={
+                        "revision": 2,
+                        "content_digest": "0" * 64,
+                    }
+                )
+                mission = mission.model_copy(
+                    update={
+                        "content_digest": compute_mission_content_digest(mission),
+                    }
+                )
+                save_mission_snapshot(
+                    worker_db,
+                    task=worker_task,
+                    mission=mission,
+                    state="confirmed",
+                )
+                worker_db.flush()
+                return text
             newer_id = "outbox-rework-generation-3-mid-processing"
             worker_db.add(
                 OutboxEvent(
@@ -878,14 +1007,19 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
         assert worker_result["result"]["fenced"] is True
         if interruption == "new_generation":
             assert worker_result["result"]["current_generation"] == 3
-        else:
+        elif interruption == "capability_disabled":
             assert worker_result["result"]["reason"] == "capability_disabled"
+        elif interruption == "terminal_task":
+            assert worker_result["result"]["reason"] == "terminal_task"
+            assert worker_result["result"]["task_status"] == "task_cancelled"
+        else:
+            assert worker_result["result"]["reason"] == "mission_changed"
         db = isolated_session_local()
         versions = db.query(FinalMemorial).filter_by(task_id=task_id).all()
         assert [(row.version, row.is_current) for row in versions] == [(1, True)]
         assert db.query(SwarmRun).filter_by(task_id=task_id).count() == 0
         review = db.query(CourtReview).filter_by(id=review_id).one()
-        assert "contract_review" not in json.loads(review.memorial_json)
+        assert json.loads(review.memorial_json)["contract_review"] == first_pack
         db.close()
         return
 

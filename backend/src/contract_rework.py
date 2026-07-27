@@ -88,6 +88,52 @@ def _lock_evidence_version_publication(db: "Session") -> None:
     )
 
 
+def _lock_mission_publication(db: "Session") -> None:
+    """Keep the final Mission identity stable through publication."""
+    dialect = db.get_bind().dialect.name
+    if dialect == "sqlite":
+        return
+    if dialect == "postgresql":
+        db.execute(text("LOCK TABLE court_loop_runs IN SHARE MODE"))
+        return
+    raise RuntimeError(
+        f"mission publication unsupported for dialect {dialect!r}"
+    )
+
+
+def _terminal_task_fence(task: Any, *, affected_sections: list[str]) -> dict[str, Any] | None:
+    from src.execution.outbox_worker import TASK_TERMINAL_STATUSES
+
+    if task.status not in TASK_TERMINAL_STATUSES:
+        return None
+    return {
+        "fenced": True,
+        "reason": "terminal_task",
+        "task_status": task.status,
+        "affected_sections": affected_sections,
+    }
+
+
+def _mission_fence(
+    mission_snapshot: Any,
+    *,
+    affected_sections: list[str],
+) -> dict[str, Any] | None:
+    if mission_snapshot is None:
+        return {
+            "fenced": True,
+            "reason": "mission_missing",
+            "affected_sections": affected_sections,
+        }
+    if mission_snapshot.state != "confirmed":
+        return {
+            "fenced": True,
+            "reason": "mission_not_confirmed",
+            "affected_sections": affected_sections,
+        }
+    return None
+
+
 def recompute_contract_review(
     db: "Session",
     event: "OutboxEvent",
@@ -128,7 +174,16 @@ def recompute_contract_review(
         raise ValueError("rework generation 缺少 EvidencePacket")
 
     task = db.query(DecisionTask).filter_by(id=event.task_id).one()
+    task_fence = _terminal_task_fence(task, affected_sections=affected_sections)
+    if task_fence is not None:
+        return task_fence
     mission_snapshot = load_current_mission_snapshot(db, task=task)
+    mission_fence = _mission_fence(
+        mission_snapshot,
+        affected_sections=affected_sections,
+    )
+    if mission_fence is not None:
+        return mission_fence
     review = (
         db.query(CourtReview)
         .filter_by(task_id=event.task_id)
@@ -233,16 +288,8 @@ def recompute_contract_review(
         tenant_id=str(event.tenant_id),
         task_id=event.task_id,
         mission_contract_id=event.task_id,
-        mission_revision=(
-            mission_snapshot.mission.revision
-            if mission_snapshot is not None
-            else None
-        ),
-        mission_content_digest=(
-            mission_snapshot.mission.content_digest
-            if mission_snapshot is not None
-            else None
-        ),
+        mission_revision=mission_snapshot.mission.revision,
+        mission_content_digest=mission_snapshot.mission.content_digest,
         court_review_id=review.id,
         evidence_packet_ids=[packet.evidence_packet_id for packet in packets],
         jurisdiction=scope.jurisdiction or "UNSUPPORTED_OR_UNKNOWN",
@@ -275,6 +322,10 @@ def recompute_contract_review(
     from src.execution.decree_dispatcher import lock_evidence_rework_task
 
     lock_evidence_rework_task(db, event.task_id)
+    db.refresh(task)
+    task_fence = _terminal_task_fence(task, affected_sections=affected_sections)
+    if task_fence is not None:
+        return task_fence
     if not w05_contract_rework_active():
         return {
             "fenced": True,
@@ -292,6 +343,27 @@ def recompute_contract_review(
             "fenced": True,
             "generation": event.generation,
             "current_generation": current_generation,
+            "affected_sections": affected_sections,
+        }
+
+    _lock_mission_publication(db)
+    publication_mission = load_current_mission_snapshot(db, task=task)
+    mission_fence = _mission_fence(
+        publication_mission,
+        affected_sections=affected_sections,
+    )
+    if mission_fence is not None:
+        return mission_fence
+    if (
+        publication_mission.mission.revision != mission_snapshot.mission.revision
+        or publication_mission.mission.content_digest
+        != mission_snapshot.mission.content_digest
+    ):
+        return {
+            "fenced": True,
+            "reason": "mission_changed",
+            "mission_revision": mission_snapshot.mission.revision,
+            "current_mission_revision": publication_mission.mission.revision,
             "affected_sections": affected_sections,
         }
 

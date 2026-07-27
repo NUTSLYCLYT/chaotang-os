@@ -90,9 +90,24 @@ test('detects component schema content changes behind a stable ref', () => {
   ]);
 });
 
-test('allows additive optional component properties without repinning', () => {
+test('allows additive optional request component properties without repinning', () => {
   const base = {
-    paths: {},
+    paths: {
+      '/example': {
+        post: {
+          requestBody: {
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/Example' },
+              },
+            },
+          },
+          responses: {
+            204: { description: 'accepted' },
+          },
+        },
+      },
+    },
     components: {
       schemas: {
         Example: {
@@ -116,4 +131,54 @@ test('allows additive optional component properties without repinning', () => {
     key: 'Example',
     properties: ['optional_identity'],
   }]);
+});
+
+test('rejects additive properties in an existing response component', () => {
+  const base = {
+    paths: {
+      '/example': {
+        get: {
+          responses: {
+            200: {
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/ExampleEnvelope' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    components: {
+      schemas: {
+        ExampleEnvelope: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            data: { $ref: '#/components/schemas/Example' },
+          },
+          required: ['data'],
+        },
+        Example: {
+          type: 'object',
+          additionalProperties: false,
+          properties: { value: { type: 'string' } },
+          required: ['value'],
+        },
+      },
+    },
+  };
+  const current = structuredClone(base);
+  current.components.schemas.Example.properties.optional_identity = {
+    anyOf: [{ type: 'string' }, { type: 'null' }],
+  };
+
+  const diff = compareContracts(base, current);
+
+  assert.deepEqual(diff.breaking, [{
+    type: 'component_schema_changed',
+    key: 'Example',
+  }]);
+  assert.deepEqual(diff.warnings, []);
 });

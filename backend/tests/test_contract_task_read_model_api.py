@@ -102,6 +102,16 @@ def test_read_model_endpoint_is_typed_in_openapi() -> None:
     schema = operation["responses"]["200"]["content"]["application/json"]["schema"]
 
     assert "ContractTaskReadModelV1" in schema["$ref"]
+    read_model_schema = document["components"]["schemas"]["ContractTaskReadModelV1"]
+    bound_pack_ref = read_model_schema["properties"]["review_pack"]["anyOf"][0]["$ref"]
+    assert bound_pack_ref.endswith("/MissionBoundContractReviewPackV1")
+    bound_pack_schema = document["components"]["schemas"][
+        "MissionBoundContractReviewPackV1"
+    ]
+    assert {
+        "mission_revision",
+        "mission_content_digest",
+    } <= set(bound_pack_schema["required"])
 
 
 def test_read_model_endpoint_returns_owned_task(
@@ -293,6 +303,67 @@ def test_contract_cancel_is_not_authorized_before_any_write(
 
     assert response.status_code == 409
     assert "not authorized" in response.json()["error"]
+    with isolated_session_local() as db:
+        assert _decision_state(db, task_id) == before
+
+
+@pytest.mark.parametrize(
+    "action",
+    [
+        "adopt",
+        "approve",
+        "archive",
+        "reject",
+        "request_evidence",
+        "followup",
+        "recheck",
+        "cancel",
+    ],
+)
+def test_scope_only_contract_task_cannot_bypass_server_actions(
+    action,
+    monkeypatch,
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    from src.db.models import CourtReview, DecisionTask
+    from web.routers.shangshufang import _execute_final_memorial_decision
+
+    monkeypatch.setenv("FENGQUN_RUNTIME_ROOT", str(tmp_path))
+    task_id = f"task-api-scope-only-{action}"
+    with isolated_session_local() as db:
+        task = DecisionTask(
+            id=task_id,
+            tenant_id=7,
+            user_id="7",
+            raw_question="仅有 legacy contract_scope 的合同任务",
+            status="awaiting_decision",
+            source_label="LIVE",
+            contract_scope_json='{"schema_version":"ContractIntakeV1"}',
+        )
+        review = CourtReview(
+            id=f"review-{task_id}",
+            tenant_id=7,
+            task_id=task_id,
+            review_status="awaiting_decision",
+        )
+        db.add_all([task, review])
+        db.commit()
+        before = _decision_state(db, task_id)
+
+        with pytest.raises(ValueError, match="not allowed|not authorized"):
+            _execute_final_memorial_decision(
+                db,
+                task=task,
+                review=review,
+                action=action,
+                reason="scope-only task 必须服从 server allowed_actions",
+                human_confirmed=True,
+                expected_content_hash=None,
+                actor_user_id="7",
+            )
+        db.rollback()
+
     with isolated_session_local() as db:
         assert _decision_state(db, task_id) == before
 

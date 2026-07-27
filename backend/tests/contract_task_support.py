@@ -191,6 +191,7 @@ def seed_delivery(
     db,
     *,
     storage_root: Path,
+    tenant_id: int = 7,
     task_id: str,
     final: FinalMemorial,
     pack: dict[str, Any],
@@ -201,7 +202,7 @@ def seed_delivery(
     return deliver_artifact_packet(
         db,
         storage_root=storage_root,
-        tenant_id=7,
+        tenant_id=tenant_id,
         task_id=task_id,
         final_memorial_id=final.id,
         final_memorial_version=final.version,
