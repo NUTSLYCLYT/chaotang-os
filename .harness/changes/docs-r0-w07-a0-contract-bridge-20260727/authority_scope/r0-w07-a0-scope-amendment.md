@@ -103,8 +103,10 @@ Checkpoint A 的 PARTIAL 恢复只覆盖当前持有 raw token 的浏览器会�
 
 1. Product Owner 明确批准本 scope、设计和 TDD 计划。
 2. 从届时最新 local EXT exact H 创建新的 isolated implementation worktree。
-3. v1 integrity check 返回 `VALID_INACTIVE_GUARD`。
-4. v2 对 `R0-W07` 返回 `GO / APPROVED_WORK_PACKAGE`。
+3. 在任何实施提交前，v1 integrity check 返回 `VALID_INACTIVE_GUARD`。
+4. 在 worktree HEAD 仍等于 local EXT exact H 时，v2 对 `R0-W07` 返回
+   `GO / APPROVED_WORK_PACKAGE`；首个隔离提交后必须预期
+   `STOP / PRE_INTEGRATION_W07`，不得移动 EXT ref 绕过。
 5. implementation Packet 固定 owner、files、out-of-scope、RED 和 proof commands。
 6. Checkpoint A 通过后由 Codex 只读验收，再决定是否进入 Checkpoint B。
 

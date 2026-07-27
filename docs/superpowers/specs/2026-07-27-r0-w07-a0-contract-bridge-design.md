@@ -8,6 +8,9 @@
 - Base tree: `156ad59c927d9e8f47a6ab8a97642da69b97e362`.
 - Product code: unchanged by this Packet.
 - Production state: `NOT_DEPLOYED`.
+- Authority at design base: `GO / APPROVED_WORK_PACKAGE`.
+- Authority on this isolated candidate: expected
+  `STOP / active-packet EXT ref must equal pinned HEAD`.
 
 ## Objective
 

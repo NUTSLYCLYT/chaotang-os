@@ -14,7 +14,8 @@
 | 创建日期 | `2026-07-27` |
 | 基线 | `feature-chaotang-ext@b8f7b27b87a68b159e6db1b0a39a205c13126721` |
 | 基线 tree | `156ad59c927d9e8f47a6ab8a97642da69b97e362` |
-| 机器 authority | `R0-W07 = GO / APPROVED_WORK_PACKAGE` |
+| 设计基线 authority | EXT exact `b8f7b27b...` 上 `R0-W07 = GO / APPROVED_WORK_PACKAGE` |
+| 隔离候选 authority | `STOP / PRE_INTEGRATION_W07`，不得作为产品执行源 |
 
 ## 产品裁决
 

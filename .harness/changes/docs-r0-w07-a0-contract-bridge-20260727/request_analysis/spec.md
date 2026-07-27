@@ -25,7 +25,8 @@ Checkpoint B 是 W08 的硬前置，不能因 A 已跑通而取消。
 
 | 事实 | 证据 | 结论 |
 | --- | --- | --- |
-| W07 machine authority 为 GO | `execution-authority-v2.mjs --authorize --work-package R0-W07` | 可设计；本 change 不授权产品修改 |
+| W07 在 exact EXT 设计基线上为 GO | 开始编辑前运行 v2 authorize | 可设计；本 change 不授权产品修改 |
+| 隔离候选因 HEAD 与 EXT ref 不同而 STOP | exact candidate 上 v2 authorize | 预期 `PRE_INTEGRATION_W07`；禁止移动 ref 绕过 |
 | Mission draft/confirm 使用进程内 dict | `backend/web/routers/contracts.py` | A 必须消除 W07 对内存事实的依赖 |
 | W05 pack 将 task id 写成 mission id | `backend/src/contract_rework.py` | A 要显式化 R0 compatibility binding |
 | task status 不含 actions/manifest/receipt | `shangshufang_task_status` | A 新增 typed server projection |

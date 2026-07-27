@@ -22,7 +22,10 @@ Node test runner, Playwright.
 
 - Parent work package is exactly `R0-W07`; W07-A0 is not a ledger item.
 - Begin from the latest accepted local `feature-chaotang-ext` exact H, not from this design branch.
-- Run v1 integrity check and v2 W07 authorization before material implementation.
+- Run v1 integrity check and v2 W07 authorization while isolated HEAD still equals exact EXT,
+  before the first material edit or commit.
+- After an isolated candidate commit, v2 must fail closed as `PRE_INTEGRATION_W07`; never move the
+  EXT ref merely to make a feature worktree return GO.
 - Only `/shangshufang` and `/shiguan` may change as product surfaces.
 - No new page, Agent, BFF, department, task state, completion state or decision system.
 - Generated OpenAPI types are the frontend contract source.
@@ -71,7 +74,9 @@ node scripts/execution-authority.mjs --check
 node scripts/execution-authority-v2.mjs --authorize --work-package R0-W07
 ```
 
-Expected: v1 `VALID_INACTIVE_GUARD`; v2 `GO / APPROVED_WORK_PACKAGE`.
+Expected before the first edit: v1 `VALID_INACTIVE_GUARD`; v2
+`GO / APPROVED_WORK_PACKAGE`. After the branch creates a candidate commit, record the expected
+`STOP / active-packet EXT ref must equal pinned HEAD` as pre-integration evidence.
 
 - [ ] **Step 3: Freeze scope**
 
