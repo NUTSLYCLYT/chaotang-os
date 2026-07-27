@@ -2,6 +2,7 @@ import {
   type ReviewStatusValue,
   updateShiguanReview,
 } from "../../../../../../lib/backendClient.ts";
+import { readSessionId } from "../../../../../../lib/session.ts";
 
 const REVIEW_STATUSES = new Set<ReviewStatusValue>([
   "ACHIEVED",
@@ -16,6 +17,7 @@ const FRIENDLY_MESSAGE_BY_KIND = {
   storage: "史馆暂时不可用，请稍后重试。",
   network: "无法连接朝堂后端，请稍后重试。",
   unknown: "史馆服务暂时不可用，请稍后重试。",
+  unauthenticated: "authentication required",
 } as const;
 
 function jsonResponse(body: unknown, status: number): Response {
@@ -26,6 +28,9 @@ function jsonResponse(body: unknown, status: number): Response {
 }
 
 function errorStatus(kind: keyof typeof FRIENDLY_MESSAGE_BY_KIND): number {
+  if (kind === "unauthenticated") {
+    return 401;
+  }
   if (kind === "validation") {
     return 422;
   }
@@ -46,6 +51,8 @@ export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> | { id: string } },
 ): Promise<Response> {
+  const sessionId = readSessionId(request);
+  if (!sessionId) return jsonResponse({ status: "error", reason: "unauthenticated", message: "authentication required" }, 401);
   let payload: unknown;
   try {
     payload = await request.json();
@@ -82,6 +89,7 @@ export async function PATCH(
     await readArchiveId(context),
     status as ReviewStatusValue,
     note ?? "",
+    { sessionId },
   );
 
   if (result.ok) {

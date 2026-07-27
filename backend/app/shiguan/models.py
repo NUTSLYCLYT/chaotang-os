@@ -401,7 +401,7 @@ class ArchiveCreate(BaseModel):
     pitfalls: str | None = None
 
     # REPLY-only fields. Required when type == "REPLY"; must not be
-    # provided (non-None) for any other type. See `_validate_decision_fields`.
+    # provided (non-None) for ``MEMORIAL``. See `_validate_reply_fields`.
     source_kind: ReplySourceKind | None = None
     source_text: str | None = None
     participating_departments: list[str] | None = None
@@ -467,6 +467,11 @@ class ArchiveCreate(BaseModel):
             if len(stripped_departments) != len(set(stripped_departments)):
                 raise ValueError("participating_departments 不能包含重复部门")
             self.participating_departments = stripped_departments
+
+            if self.source_kind == "DECREE" and self.related_archive_ids:
+                raise ValueError("DECREE 回奏不得关联档案")
+            if self.source_kind == "MEMORIAL" and len(self.related_archive_ids) != 1:
+                raise ValueError("MEMORIAL 回奏必须关联且仅关联一条档案")
         else:
             provided = [
                 field_name
@@ -511,3 +516,32 @@ class Statistics(BaseModel):
     observing: int
     pending_review: int
     success_rate: float | None
+
+
+class DepartmentCount(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    department: str
+    count: int = Field(ge=0)
+
+
+class RecentReply(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    title: str
+    participating_departments: list[str]
+    reply_conclusion: str
+    reply_time: str
+    created_at: str
+    respondent: str
+
+
+class DadianOverview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reply_count: int = Field(ge=0)
+    department_counts: list[DepartmentCount]
+    recent_replies: list[RecentReply]
+    pending_review_count: int = Field(ge=0)
+    today_focus: str

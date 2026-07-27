@@ -1,5 +1,7 @@
 # 任务：<简短名称>
 
+> 所有任务必须阅读并遵循 `docs/decisions/0028-decree-evidence-flow-governance-baseline.md`；若任务与该基线冲突，必须标记为 `Blocked`，不得自行变更流程。
+
 ## Status
 
 Draft

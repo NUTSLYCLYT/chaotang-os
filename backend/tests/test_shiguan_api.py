@@ -19,6 +19,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.api.shiguan as shiguan_api
+from app.auth import configure_auth_db, create_session, create_user
 from app.main import app
 from app.shiguan.errors import ArchiveNotFoundError, ArchiveValidationError, ShiguanStorageError
 
@@ -27,6 +28,17 @@ client = TestClient(app)
 ARCHIVES_URL = "/api/v1/shiguan/archives"
 STATISTICS_URL = "/api/v1/shiguan/statistics"
 RECALL_URL = "/api/v1/shiguan/recall"
+
+
+@pytest.fixture(autouse=True)
+def _authenticate_client(isolate_shiguan_default_db_path, tmp_path):
+    del isolate_shiguan_default_db_path
+    configure_auth_db(tmp_path / "auth.sqlite3")
+    user = create_user("shiguan-user", "shiguan@example.com", "six-or-more")
+    client.headers["Authorization"] = f"Bearer {create_session(user.id)}"
+    yield
+    client.headers.pop("Authorization", None)
+    configure_auth_db(None)
 
 
 def _memorial_payload(**overrides) -> dict:
@@ -58,6 +70,11 @@ def _reply_payload(**overrides) -> dict:
     }
     payload.update(overrides)
     return payload
+
+
+def _second_user_headers() -> dict[str, str]:
+    user = create_user("shiguan-other", "shiguan-other@example.com", "six-or-more")
+    return {"Authorization": f"Bearer {create_session(user.id)}"}
 
 
 class TestCreateArchive:
@@ -128,6 +145,21 @@ class TestCreateArchive:
 
 
 class TestGetArchive:
+    def test_other_user_cannot_get_or_review_an_archive(self):
+        created = client.post(ARCHIVES_URL, json=_memorial_payload()).json()
+        other_headers = _second_user_headers()
+
+        get_response = client.get(f"{ARCHIVES_URL}/{created['id']}", headers=other_headers)
+        review_response = client.patch(
+            f"{ARCHIVES_URL}/{created['id']}/review",
+            json={"status": "ACHIEVED", "reviewed_at": "2026-07-23T00:00:00+00:00"},
+            headers=other_headers,
+        )
+
+        assert get_response.status_code == review_response.status_code == 404
+        assert get_response.json()["reason"] == "archive_not_found"
+        assert review_response.json()["reason"] == "archive_not_found"
+
     def test_get_returns_created_archive(self):
         created = client.post(ARCHIVES_URL, json=_memorial_payload()).json()
         response = client.get(f"{ARCHIVES_URL}/{created['id']}")

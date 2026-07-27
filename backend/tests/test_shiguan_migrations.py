@@ -359,20 +359,24 @@ def test_explicit_confirmed_pair_migration_merges_fake_memorial_into_reply(tmp_p
     db.migrate_v1_to_v2(path, confirmed_pairs={"decision-1": "memorial-1"})
 
     db.migrate_v2_to_v3(path)
-    reply = storage.get_archive("decision-1", db_path=path)
-    assert reply.type == "REPLY"
-    assert reply.source_kind == "DECREE"
-    assert reply.source_text == "请赈济灾民"
-    assert reply.reply_process == "办理过程"
-    assert reply.reply_conclusion == "准奏"
-    assert reply.reply_time == "2026-07-17T10:00:00+00:00"
-    assert reply.respondent == "丞相"
-    assert reply.related_archive_ids == []
+    with pytest.raises(ArchiveNotFoundError):
+        storage.get_archive("decision-1", db_path=path)
     with pytest.raises(ArchiveNotFoundError):
         storage.get_archive("memorial-1", db_path=path)
 
     conn = db.get_connection(path)
     try:
+        reply = conn.execute(
+            "SELECT * FROM archives WHERE id = 'decision-1'"
+        ).fetchone()
+        assert reply["type"] == "REPLY"
+        assert reply["source_kind"] == "DECREE"
+        assert reply["source_text"] == "请赈济灾民"
+        assert reply["reply_process"] == "办理过程"
+        assert reply["reply_conclusion"] == "准奏"
+        assert reply["reply_time"] == "2026-07-17T10:00:00+00:00"
+        assert reply["respondent"] == "丞相"
+        assert reply["owner_user_id"] is None
         evidence_count = conn.execute(
             "SELECT COUNT(*) FROM archive_evidence WHERE archive_id = 'memorial-1'"
         ).fetchone()[0]

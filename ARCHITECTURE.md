@@ -78,8 +78,8 @@ uvicorn + pip/venv，扁平 `app/` 包；选型与验证证据见
 并新增锦衣卫三个只读调查入口。当前持久化仅包含彼此隔离的史馆档案 SQLite 与锦衣卫证据
 SQLite；仍不含通用数据库模型、持久化任务编排、鉴权或生产部署能力。
 `frontend/` 已完成最小工程骨架的技术选型（Next.js App Router + React/react-dom +
-TypeScript，npm 管理依赖，扁平 `src/app/`、`src/lib/` 结构，`page.tsx` 只做后端
-健康检查展示，`backendClient.ts` 封装对后端的服务端调用；选型与验证证据见同一
+TypeScript，npm 管理依赖，扁平 `src/app/`、`src/lib/` 结构，根路径 `page.tsx` 提供
+登录前欢迎引导，`/health` 提供后端健康检查展示，`backendClient.ts` 封装对后端的服务端调用；选型与验证证据见同一
 决策记录的 `## 前端` 章节）。生产部署方式和业务数据模型仍未确定；`GET /health`
 跨端契约已确定为根级 `docs/contracts/health.schema.json`，调用路径为浏览器 →
 Next.js 服务端 → FastAPI。`backend/` 已新增最小、无外部服务依赖的 LangGraph
@@ -205,3 +205,10 @@ multi 为 54 次基础模型调用；司级缺数可按 ADR 0018 追加最多一
 2. 更新本文件及受影响的 scoped `AGENTS.md`。
 3. 把可机械判断的约束加入 `scripts/check_harness.mjs` 或所属工程测试。
 4. 运行本地验证，并确保 `.github/workflows/harness.yml` 执行仓库级检查。
+
+## 账户与所有者边界
+
+本地账户体系以 FastAPI 为唯一身份、会话和数据所有者权威；Next.js 仅作为同源 BFF。浏览器仅保留 `HttpOnly` 、`SameSite=Lax`
+cookie（生产环境加 `Secure`），BFF 仅在服务端将其转为后端认证请求。令牌、后端地址和密码哈希不得暴露给浏览器。
+受保护的上书和史馆端点从 `require_current_user` 解析会话，并仅以该用户 ID 作为 owner 进行读写与过滤；客户端不可选择或传入 owner。
+无 owner 的旧 SQLite 行保留但对所有账户不可见，不在此次变更中猜测归属。`GET /health` 、欢迎页、注册与登录保持公开；`/study`、`/shiguan` 及受保护 BFF 路由必须登录。详见 ADR 0027。

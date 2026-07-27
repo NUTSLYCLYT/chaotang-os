@@ -2,7 +2,8 @@
 
 A dedicated, deterministic domain service independent of ``app.agents.**``,
 ``app.api.**`` and ``app.langgraph_runtime`` -- no LLM calls, no HTTP
-concerns. Persists two archive types (``MEMORIAL``/``REPLY``) to a local sqlite database
+concerns. Persists two archive types (``MEMORIAL``/
+``REPLY``) to a local sqlite database
 (``app.shiguan.db``), exposes strict CRUD + statistics
 (``app.shiguan.storage``), explainable old-case recall
 (``app.shiguan.recall``) and best-effort automatic archival of chancellor

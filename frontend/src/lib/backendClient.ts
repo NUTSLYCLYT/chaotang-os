@@ -91,6 +91,122 @@ function describeError(error: unknown): string {
   return "无法连接后端，请稍后重试";
 }
 
+/** Public account fields that may cross the BFF boundary. */
+export interface PublicUser {
+  id: string;
+  username: string;
+  email: string;
+}
+
+export type BackendAuthResult =
+  | { ok: true; status: number; user: PublicUser; sessionId?: string }
+  | {
+      ok: false;
+      kind: "validation" | "conflict" | "unauthenticated" | "network" | "unknown";
+    };
+
+export interface RegisterOptions {
+  baseUrl?: string;
+  timeoutMs?: number;
+}
+
+export interface LoginOptions {
+  baseUrl?: string;
+  timeoutMs?: number;
+}
+
+export interface AuthenticatedRequestOptions {
+  baseUrl?: string;
+  timeoutMs?: number;
+  /** Opaque session forwarded only by Next.js server code. */
+  sessionId?: string;
+}
+
+function parsePublicUser(value: unknown): PublicUser | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  if (
+    typeof record.id !== "string" ||
+    typeof record.username !== "string" ||
+    typeof record.email !== "string"
+  ) {
+    return null;
+  }
+  return { id: record.id, username: record.username, email: record.email };
+}
+
+function authFailure(status: number): BackendAuthResult {
+  if (status === 401) return { ok: false, kind: "unauthenticated" };
+  if (status === 409) return { ok: false, kind: "conflict" };
+  if (status === 422) return { ok: false, kind: "validation" };
+  return { ok: false, kind: "unknown" };
+}
+
+async function requestAuth(
+  path: string,
+  init: RequestInit,
+  options: AuthenticatedRequestOptions = {},
+  expectsSession = false,
+): Promise<BackendAuthResult> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${(options.baseUrl ?? getBackendBaseUrl()).replace(/\/+$/, "")}${path}`, {
+      ...init,
+      headers: {
+        ...init.headers,
+        ...(options.sessionId ? { authorization: `Bearer ${options.sessionId}` } : {}),
+      },
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    if (!response.ok) return authFailure(response.status);
+    if (response.status === 204) return { ok: true, status: response.status, user: { id: "", username: "", email: "" } };
+    const body = await response.json() as unknown;
+    const record = typeof body === "object" && body !== null ? body as Record<string, unknown> : null;
+    const user = parsePublicUser(expectsSession ? record?.user : body);
+    const sessionId = expectsSession && typeof record?.session_id === "string" ? record.session_id : undefined;
+    if (user === null || (expectsSession && !sessionId)) return { ok: false, kind: "unknown" };
+    return { ok: true, status: response.status, user, sessionId };
+  } catch {
+    return { ok: false, kind: "network" };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export function registerUser(
+  payload: { username: string; email: string; password: string },
+  options: RegisterOptions = {},
+): Promise<BackendAuthResult> {
+  return requestAuth(
+    "/api/v1/auth/register",
+    { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) },
+    options,
+    true,
+  );
+}
+
+export function loginUser(
+  payload: { identifier: string; password: string },
+  options: LoginOptions = {},
+): Promise<BackendAuthResult> {
+  return requestAuth(
+    "/api/v1/auth/login",
+    { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) },
+    options,
+    true,
+  );
+}
+
+export function getCurrentUser(options: AuthenticatedRequestOptions): Promise<BackendAuthResult> {
+  return requestAuth("/api/v1/auth/me", { method: "GET" }, options);
+}
+
+export async function logoutUser(options: AuthenticatedRequestOptions): Promise<BackendAuthResult> {
+  return requestAuth("/api/v1/auth/logout", { method: "POST" }, options);
+}
+
 /** 一个司级意见，按所属部的咨询顺序保留。 */
 export interface BureauOpinion {
   bureau: string;
@@ -133,7 +249,7 @@ export type SubmitDecreeResult =
   | { ok: true; data: SubmitDecreeData }
   | {
       ok: false;
-      kind: "validation" | "config" | "model" | "network" | "unknown";
+      kind: "validation" | "config" | "model" | "network" | "unauthenticated" | "unknown";
       error: string;
     };
 
@@ -148,6 +264,8 @@ export interface SubmitDecreeOptions {
   scheduleTimeout?: (callback: () => void, delayMs: number) => unknown;
   /** 与 `scheduleTimeout` 配对的取消函数。 */
   cancelTimeout?: (handle: unknown) => void;
+  /** Opaque session forwarded only by Next.js server code. */
+  sessionId?: string;
 }
 
 /**
@@ -361,7 +479,10 @@ export async function submitDecree(
   try {
     const response = await fetchImpl(`${baseUrl.replace(/\/+$/, "")}/api/v1/decrees/chancellor`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        ...(options.sessionId ? { authorization: `Bearer ${options.sessionId}` } : {}),
+      },
       body: JSON.stringify({ decree_text: decreeText }),
       signal: controller.signal,
       cache: "no-store",
@@ -387,6 +508,9 @@ export async function submitDecree(
         kind: "model",
         error: await extractErrorMessage(response, "丞相模型调用失败"),
       };
+    }
+    if (response.status === 401) {
+      return { ok: false, kind: "unauthenticated", error: "authentication required" };
     }
 
     if (!response.ok) {
@@ -500,6 +624,29 @@ export interface ShiguanStatistics {
   successRate: number | null;
 }
 
+export interface DadianDepartmentCount {
+  department: string;
+  count: number;
+}
+
+export interface DadianRecentReply {
+  id: string;
+  title: string;
+  participatingDepartments: string[];
+  replyConclusion: string;
+  replyTime: string;
+  createdAt: string;
+  respondent: string;
+}
+
+export interface DadianOverview {
+  replyCount: number;
+  departmentCounts: DadianDepartmentCount[];
+  recentReplies: DadianRecentReply[];
+  pendingReviewCount: number;
+  todayFocus: string;
+}
+
 export interface ShiguanRecallMatch {
   archiveId: string;
   matchReason: string;
@@ -514,7 +661,7 @@ export type ShiguanResult<T> =
   | { ok: true; data: T }
   | {
       ok: false;
-      kind: "validation" | "not_found" | "storage" | "network" | "unknown";
+      kind: "validation" | "not_found" | "storage" | "network" | "unauthenticated" | "unknown";
       error: string;
     };
 
@@ -523,6 +670,8 @@ type ShiguanErrorKind = Exclude<ShiguanResult<unknown>, { ok: true }>["kind"];
 export interface ShiguanRequestOptions {
   baseUrl?: string;
   timeoutMs?: number;
+  /** Opaque session forwarded only by Next.js server code. */
+  sessionId?: string;
   /** 测试注入点；生产默认使用全局 `fetch`。 */
   fetchImpl?: typeof fetch;
   /** 测试注入点；生产默认使用 `setTimeout`。 */
@@ -647,11 +796,16 @@ function parseArchive(value: unknown): ShiguanArchive | null {
       "id", "created_at", "review_status", "evidence_references",
     ]) ||
     typeof record.id !== "string" ||
+    record.id.trim().length === 0 ||
     !ARCHIVE_TYPES.has(record.type as ArchiveType) ||
     typeof record.title !== "string" ||
+    record.title.trim().length === 0 ||
     typeof record.content !== "string" ||
+    record.content.trim().length === 0 ||
     typeof record.matter_type !== "string" ||
+    record.matter_type.trim().length === 0 ||
     typeof record.department !== "string" ||
+    record.department.trim().length === 0 ||
     !isIsoDateTime(record.created_at)
   ) {
     return null;
@@ -662,6 +816,7 @@ function parseArchive(value: unknown): ShiguanArchive | null {
   const evidenceReferences = parseShiguanEvidenceReferences(record.evidence_references);
   if (
     relatedArchiveIds === null ||
+    relatedArchiveIds.some((archiveId) => archiveId.trim().length === 0) ||
     evidence === null ||
     !("review_status" in record) ||
     (record.review_status !== null && reviewStatus === null) ||
@@ -686,13 +841,18 @@ function parseArchive(value: unknown): ShiguanArchive | null {
     record.source_text.trim().length > 0 &&
     participatingDepartments !== null &&
     participatingDepartments.length > 0 &&
+    participatingDepartments.every((department) => department.trim().length > 0) &&
+    new Set(participatingDepartments.map((department) => department.trim())).size ===
+      participatingDepartments.length &&
     typeof record.reply_process === "string" &&
     record.reply_process.trim().length > 0 &&
     typeof record.reply_conclusion === "string" &&
     record.reply_conclusion.trim().length > 0 &&
     isIsoDateTime(record.reply_time) &&
     typeof record.respondent === "string" &&
-    record.respondent.trim().length > 0;
+    record.respondent.trim().length > 0 &&
+    ((record.source_kind === "DECREE" && relatedArchiveIds.length === 0) ||
+      (record.source_kind === "MEMORIAL" && relatedArchiveIds.length === 1));
   const replyFieldsAreEmpty =
     record.source_kind == null &&
     record.source_text == null &&
@@ -760,6 +920,43 @@ function parseStatistics(value: unknown): ShiguanStatistics | null {
   };
 }
 
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+function parseDadianOverview(value: unknown): DadianOverview | null {
+  const record = asRecord(value);
+  if (
+    record === null ||
+    !hasExactKeys(record, ["reply_count", "department_counts", "recent_replies", "pending_review_count", "today_focus"]) ||
+    !isNonNegativeInteger(record.reply_count) ||
+    !isNonNegativeInteger(record.pending_review_count) ||
+    typeof record.today_focus !== "string" || record.today_focus.trim().length === 0 ||
+    !Array.isArray(record.department_counts) || !Array.isArray(record.recent_replies)
+  ) return null;
+  const departmentCounts: DadianDepartmentCount[] = [];
+  for (const item of record.department_counts) {
+    const department = asRecord(item);
+    if (department === null || !hasExactKeys(department, ["department", "count"]) ||
+      typeof department.department !== "string" || department.department.trim().length === 0 ||
+      !isNonNegativeInteger(department.count)) return null;
+    departmentCounts.push({ department: department.department, count: department.count });
+  }
+  const recentReplies: DadianRecentReply[] = [];
+  for (const item of record.recent_replies) {
+    const reply = asRecord(item);
+    if (reply === null || !hasExactKeys(reply, ["id", "title", "participating_departments", "reply_conclusion", "reply_time", "created_at", "respondent"]) ||
+      typeof reply.id !== "string" || !reply.id.trim() || typeof reply.title !== "string" || !reply.title.trim() ||
+      typeof reply.reply_conclusion !== "string" || !reply.reply_conclusion.trim() ||
+      typeof reply.respondent !== "string" || !reply.respondent.trim() ||
+      !isIsoDateTime(reply.reply_time) || !isIsoDateTime(reply.created_at)) return null;
+    const participatingDepartments = parseStringArray(reply.participating_departments);
+    if (participatingDepartments === null || participatingDepartments.length === 0 || participatingDepartments.some((department) => !department.trim())) return null;
+    recentReplies.push({ id: reply.id, title: reply.title, participatingDepartments, replyConclusion: reply.reply_conclusion, replyTime: reply.reply_time, createdAt: reply.created_at, respondent: reply.respondent });
+  }
+  return { replyCount: record.reply_count, departmentCounts, recentReplies, pendingReviewCount: record.pending_review_count, todayFocus: record.today_focus };
+}
+
 function parseRecallMatch(value: unknown): ShiguanRecallMatch | null {
   const record = asRecord(value);
   if (
@@ -803,6 +1000,9 @@ function parseRecallMatch(value: unknown): ShiguanRecallMatch | null {
 }
 
 function mapShiguanErrorStatus(status: number): ShiguanErrorKind {
+  if (status === 401) {
+    return "unauthenticated";
+  }
   if (status === 404) {
     return "not_found";
   }
@@ -859,6 +1059,10 @@ async function fetchShiguan<T>(
   try {
     const response = await fetchImpl(`${baseUrl.replace(/\/+$/, "")}${path}`, {
       ...init,
+      headers: {
+        ...init.headers,
+        ...(options.sessionId ? { authorization: `Bearer ${options.sessionId}` } : {}),
+      },
       signal: controller.signal,
       cache: "no-store",
     });
@@ -910,6 +1114,20 @@ export async function getShiguanStatistics(
     "/api/v1/shiguan/statistics",
     { method: "GET" },
     parseStatistics,
+    options,
+  );
+}
+
+export async function getDadianOverview(
+  options: { department?: string; baseUrl?: string; timeoutMs?: number; sessionId?: string } = {},
+): Promise<ShiguanResult<DadianOverview>> {
+  const params = new URLSearchParams();
+  if (options.department?.trim()) params.set("department", options.department.trim());
+  const suffix = params.size ? `?${params.toString()}` : "";
+  return fetchShiguan(
+    `/api/v1/shiguan/dadian-overview${suffix}`,
+    { method: "GET" },
+    parseDadianOverview,
     options,
   );
 }

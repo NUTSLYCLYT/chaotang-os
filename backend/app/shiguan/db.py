@@ -48,7 +48,8 @@ CREATE TABLE IF NOT EXISTS archives (
     reply_process TEXT,
     reply_conclusion TEXT,
     reply_time TEXT,
-    respondent TEXT
+    respondent TEXT,
+    owner_user_id TEXT
 );
 
 CREATE TABLE IF NOT EXISTS archive_evidence (
@@ -76,7 +77,51 @@ CREATE TABLE IF NOT EXISTS archive_review_status (
     note TEXT,
     FOREIGN KEY (archive_id) REFERENCES archives(id)
 );
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS auth_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    revoked_at TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_active_user
+ON auth_sessions (id, user_id, expires_at)
+WHERE revoked_at IS NULL;
+
 PRAGMA user_version = 2;
+"""
+
+_AUTH_SCHEMA = """
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS auth_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    revoked_at TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_active_user
+ON auth_sessions (id, user_id, expires_at)
+WHERE revoked_at IS NULL;
 """
 
 _EVIDENCE_REFERENCES_SCHEMA = """
@@ -101,6 +146,27 @@ _SCHEMA_STATEMENTS = (
 )
 
 _LEGACY_MIGRATION_ERROR = "史馆旧库无法迁移；请核对已确认档案对后重试"
+
+_CURRENT_ARCHIVE_COLUMNS = {
+    "source_kind": "TEXT",
+    "source_text": "TEXT",
+    "reply_process": "TEXT",
+    "reply_conclusion": "TEXT",
+    "reply_time": "TEXT",
+    "respondent": "TEXT",
+    "owner_user_id": "TEXT",
+}
+
+
+def _add_missing_archive_columns(connection: sqlite3.Connection) -> None:
+    """Extend pre-existing archive tables without rewriting their records."""
+
+    existing_columns = {
+        row[1] for row in connection.execute("PRAGMA table_info(archives)")
+    }
+    for name, column_type in _CURRENT_ARCHIVE_COLUMNS.items():
+        if name not in existing_columns:
+            connection.execute(f"ALTER TABLE archives ADD COLUMN {name} {column_type}")
 
 
 def get_connection(path: Path | None = None) -> sqlite3.Connection:
@@ -138,7 +204,11 @@ def get_connection(path: Path | None = None) -> sqlite3.Connection:
             raise ShiguanStorageError("史馆旧库需要显式迁移后才能使用")
         if not has_schema:
             connection.executescript(_SCHEMA_STATEMENTS)
-            connection.commit()
+        else:
+            _add_missing_archive_columns(connection)
+            connection.executescript(_AUTH_SCHEMA)
+            _validate_v3_table(connection)
+        connection.commit()
     except (OSError, sqlite3.Error) as exc:
         raise ShiguanStorageError("史馆存储暂时不可用，请稍后再试") from exc
     return connection
@@ -178,6 +248,10 @@ def migrate_v2_to_v3(path: Path) -> None:
         ).fetchone()
         if version != 2 or has_schema is None:
             raise ValueError("not a schema-v2 database")
+        _add_missing_archive_columns(connection)
+        for statement in _AUTH_SCHEMA.split(";"):
+            if statement.strip():
+                connection.execute(statement)
         connection.execute(_EVIDENCE_REFERENCES_SCHEMA)
         _validate_v3_table(connection)
         connection.execute("PRAGMA user_version = 3")

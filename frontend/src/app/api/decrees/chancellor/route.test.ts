@@ -4,10 +4,13 @@ import { test } from "node:test";
 import type { SubmitDecreeResult } from "../../../../lib/backendClient.ts";
 import { createPostHandler } from "./route.ts";
 
-function makeRequest(body: unknown): Request {
+function makeRequest(body: unknown, authenticated = true): Request {
   return new Request("http://localhost/api/decrees/chancellor", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      ...(authenticated ? { cookie: "courtos_session=test-session" } : {}),
+    },
     body: typeof body === "string" ? body : JSON.stringify(body),
   });
 }
@@ -52,12 +55,31 @@ const MULTI_RESULT: SubmitDecreeResult = {
   },
 };
 
+test("POST：未认证请求在调用后端前返回 401", async () => {
+  let calls = 0;
+  const handler = createPostHandler(async () => {
+    calls += 1;
+    return SINGLE_RESULT;
+  });
+
+  const response = await handler(makeRequest({ decreeText: "测试" }, false));
+
+  assert.equal(response.status, 401);
+  assert.equal(calls, 0);
+  assert.deepEqual(await response.json(), {
+    status: "error",
+    reason: "unauthenticated",
+    message: "authentication required",
+  });
+});
+
 for (const [name, result] of [["single", SINGLE_RESULT], ["multi", MULTI_RESULT]] as const) {
-  test(`POST：${name} 成功结果映射为固定 200 envelope`, async () => {
+  test(`POST：${name} 成功结果映射为固定 200 envelope 并转发会话`, async () => {
     let calls = 0;
-    const handler = createPostHandler(async (text) => {
+    const handler = createPostHandler(async (text, options) => {
       calls += 1;
       assert.equal(typeof text, "string");
+      assert.equal(options?.sessionId, "test-session");
       return result;
     });
 
@@ -77,6 +99,7 @@ for (const [kind, expectedStatus] of [
   ["config", 503],
   ["model", 502],
   ["network", 503],
+  ["unauthenticated", 401],
   ["unknown", 503],
 ] as const) {
   test(`POST：${kind} 使用脱敏固定错误映射`, async () => {

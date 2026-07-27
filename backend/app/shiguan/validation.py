@@ -1,7 +1,7 @@
 """Strict, storage-facing validation for 史馆 archive payloads.
 
 ``app.shiguan.models`` already encodes structural contracts (types,
-required fields, enum membership, cross-field DECISION requirements) as
+required fields, enum membership, cross-field REPLY requirements) as
 Pydantic validators. This module is the single place that:
 
 - Translates any ``pydantic.ValidationError`` raised while constructing an
@@ -38,7 +38,7 @@ def validate_archive_create(payload: dict) -> ArchiveCreate:
     Raises:
         ArchiveValidationError: ``payload`` fails structural validation
             (unknown type, empty required text, illegal evidence label,
-            incomplete/duplicate DECISION-only fields, unparseable time,
+            incomplete/duplicate REPLY-only fields, unparseable time,
             an attempt to set ``id``/``created_at``, etc.).
     """
 
@@ -49,9 +49,9 @@ def validate_archive_create(payload: dict) -> ArchiveCreate:
 
 
 def validate_related_archive_ids(
-    conn: sqlite3.Connection, related_archive_ids: list[str]
+    conn: sqlite3.Connection, related_archive_ids: list[str], *, owner_user_id: str
 ) -> None:
-    """Confirm every id in ``related_archive_ids`` already exists in ``conn``.
+    """Confirm every related archive exists and belongs to the same owner.
 
     Raises:
         ArchiveValidationError: At least one referenced archive id does not
@@ -59,12 +59,17 @@ def validate_related_archive_ids(
     """
 
     for related_id in related_archive_ids:
-        row = conn.execute("SELECT 1 FROM archives WHERE id = ?", (related_id,)).fetchone()
+        row = conn.execute(
+            "SELECT 1 FROM archives WHERE id = ? AND owner_user_id = ?",
+            (related_id, owner_user_id),
+        ).fetchone()
         if row is None:
             raise ArchiveValidationError(f"related_archive_ids 引用了不存在的档案: {related_id}")
 
 
-def validate_reply_source(conn: sqlite3.Connection, archive: ArchiveCreate) -> None:
+def validate_reply_source(
+    conn: sqlite3.Connection, archive: ArchiveCreate, *, owner_user_id: str
+) -> None:
     """Validate REPLY source semantics that require stored archive data."""
 
     if archive.type != "REPLY":
@@ -76,8 +81,8 @@ def validate_reply_source(conn: sqlite3.Connection, archive: ArchiveCreate) -> N
     if len(archive.related_archive_ids) != 1:
         raise ArchiveValidationError("MEMORIAL 来源的回奏必须且只能关联一条奏折")
     row = conn.execute(
-        "SELECT type, content FROM archives WHERE id = ?",
-        (archive.related_archive_ids[0],),
+        "SELECT type, content FROM archives WHERE id = ? AND owner_user_id = ?",
+        (archive.related_archive_ids[0], owner_user_id),
     ).fetchone()
     if row is None or row["type"] != "MEMORIAL":
         raise ArchiveValidationError("MEMORIAL 来源的回奏必须关联真实奏折")

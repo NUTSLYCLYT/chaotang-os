@@ -13,6 +13,7 @@ tests it exercises.
 
 from __future__ import annotations
 
+import sqlite3
 import types
 import uuid
 
@@ -53,7 +54,89 @@ def _reply_payload(**overrides) -> dict:
     return payload
 
 
+@pytest.fixture(autouse=True)
+def _existing_storage_tests_use_one_owner(monkeypatch):
+    """Keep pre-isolation behavior tests explicit about their single tenant."""
+
+    def _with_owner(function):
+        def wrapped(*args, owner_user_id="test-owner", **kwargs):
+            return function(*args, owner_user_id=owner_user_id, **kwargs)
+
+        return wrapped
+
+    for name in (
+        "create_archive",
+        "get_archive",
+        "list_archives",
+        "upsert_review_status",
+        "get_statistics",
+    ):
+        monkeypatch.setattr(storage, name, _with_owner(getattr(storage, name)))
+
+
 class TestCreateAndGetArchive:
+    def test_archives_statistics_and_review_are_owner_scoped(self, tmp_path):
+        db_path = tmp_path / "owner-scoped.sqlite3"
+        owner_a = "owner-a"
+        owner_b = "owner-b"
+
+        created = storage.create_archive(
+            _memorial_payload(), owner_user_id=owner_a, db_path=db_path
+        )
+
+        assert storage.list_archives(owner_user_id=owner_a, db_path=db_path) == [created]
+        assert storage.list_archives(owner_user_id=owner_b, db_path=db_path) == []
+        assert storage.get_statistics(owner_user_id=owner_b, db_path=db_path).total == 0
+        with pytest.raises(ArchiveNotFoundError):
+            storage.upsert_review_status(
+                created.id,
+                "ACHIEVED",
+                "2026-07-23T00:00:00+00:00",
+                owner_user_id=owner_b,
+                db_path=db_path,
+            )
+
+    def test_legacy_unowned_rows_require_explicit_migration(self, tmp_path):
+        db_path = tmp_path / "legacy.sqlite3"
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            """
+            CREATE TABLE archives (
+                id TEXT PRIMARY KEY, type TEXT NOT NULL, title TEXT NOT NULL,
+                content TEXT NOT NULL, matter_type TEXT NOT NULL, department TEXT NOT NULL,
+                created_at TEXT NOT NULL, lessons_learned TEXT, pitfalls TEXT,
+                participating_departments TEXT, decision_process TEXT,
+                decision_conclusion TEXT, decision_time TEXT, responsible_owner TEXT
+            )
+            """
+        )
+        conn.execute(
+            "INSERT INTO archives VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "legacy",
+                "MEMORIAL",
+                "old",
+                "old",
+                "old",
+                "户部",
+                "2026-01-01T00:00:00+00:00",
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+        with pytest.raises(
+            ShiguanStorageError, match="史馆旧库需要显式迁移后才能使用"
+        ):
+            storage.list_archives(owner_user_id="owner-a", db_path=db_path)
+
     def test_create_then_get_roundtrip(self, tmp_path):
         db_path = tmp_path / "shiguan.sqlite3"
         created = storage.create_archive(_memorial_payload(), db_path=db_path)
@@ -381,7 +464,9 @@ class TestArchiveChancellorDecree:
         isolated_db_path = tmp_path / "decree-archive.sqlite3"
         monkeypatch.setattr(db, "_DEFAULT_DB_PATH", isolated_db_path)
 
-        archive_decree.archive_chancellor_decree("请赈济灾民", self._fake_response())
+        archive_decree.archive_chancellor_decree(
+            "请赈济灾民", self._fake_response(), owner_user_id="test-owner"
+        )
 
         memorials = storage.list_archives(type="MEMORIAL", db_path=isolated_db_path)
         replies = storage.list_archives(type="REPLY", db_path=isolated_db_path)
@@ -407,7 +492,7 @@ class TestArchiveChancellorDecree:
             "council_verdict": None,
             "final_verdict": "批准",
         }
-        archive_decree.archive_chancellor_decree("请调兵防边", response)
+        archive_decree.archive_chancellor_decree("请调兵防边", response, owner_user_id="test-owner")
 
         replies = storage.list_archives(type="REPLY", db_path=isolated_db_path)
         assert len(replies) == 1
@@ -423,7 +508,9 @@ class TestArchiveChancellorDecree:
         monkeypatch.setattr(archive_decree.storage, "create_reply_with_evidence", _boom)
 
         # Must not raise.
-        result = archive_decree.archive_chancellor_decree("请赈济灾民", self._fake_response())
+        result = archive_decree.archive_chancellor_decree(
+            "请赈济灾民", self._fake_response(), owner_user_id="test-owner"
+        )
         assert result.archived is False
 
     def test_never_raises_on_malformed_response(self, tmp_path, monkeypatch):
@@ -431,6 +518,8 @@ class TestArchiveChancellorDecree:
         monkeypatch.setattr(db, "_DEFAULT_DB_PATH", isolated_db_path)
 
         # A response object missing every expected attribute.
-        result = archive_decree.archive_chancellor_decree("请赈济灾民", object())
+        result = archive_decree.archive_chancellor_decree(
+            "请赈济灾民", object(), owner_user_id="test-owner"
+        )
         assert result.archived is False
         assert storage.list_archives(db_path=isolated_db_path) == []

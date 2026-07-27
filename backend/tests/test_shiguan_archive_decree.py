@@ -27,11 +27,15 @@ def test_archival_result_is_assertable_and_single_department_is_recallable(
     path = tmp_path / "decree.sqlite3"
     monkeypatch.setattr(db, "_DEFAULT_DB_PATH", path)
 
-    result = archive_decree.archive_chancellor_decree("请核定年度预算", _response())
+    result = archive_decree.archive_chancellor_decree(
+        "请核定年度预算", _response(), owner_user_id="owner-a"
+    )
 
     assert result.archived is True
     assert result.reply_id
-    recalled = storage.list_archives(department="户部", db_path=path)
+    recalled = storage.list_archives(
+        department="户部", owner_user_id="owner-a", db_path=path
+    )
     assert len(recalled) == 1
     reply = recalled[0]
     assert reply.id == result.reply_id
@@ -46,12 +50,27 @@ def test_archival_result_is_assertable_and_single_department_is_recallable(
     assert reply.respondent == "丞相"
 
 
+def test_chancellor_archival_binds_reply_to_the_authenticated_owner(tmp_path, monkeypatch):
+    path = tmp_path / "owner-scoped-decree.sqlite3"
+    monkeypatch.setattr(db, "_DEFAULT_DB_PATH", path)
+
+    result = archive_decree.archive_chancellor_decree(
+        "请核定年度预算", _response(), owner_user_id="owner-a"
+    )
+
+    assert result.archived is True
+    assert len(storage.list_archives(owner_user_id="owner-a", db_path=path)) == 1
+    assert storage.list_archives(owner_user_id="owner-b", db_path=path) == []
+
+
 def test_archival_failure_is_degraded_without_partial_success(monkeypatch):
     def _fail(*_args, **_kwargs):
         raise ShiguanStorageError("史馆写入失败，请稍后再试")
 
     monkeypatch.setattr(storage, "create_reply_with_evidence", _fail)
-    result = archive_decree.archive_chancellor_decree("请核定年度预算", _response())
+    result = archive_decree.archive_chancellor_decree(
+        "请核定年度预算", _response(), owner_user_id="owner-a"
+    )
     assert result.archived is False
     assert result.reply_id is not None
 

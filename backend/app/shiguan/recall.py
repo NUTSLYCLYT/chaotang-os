@@ -101,6 +101,7 @@ def find_similar_archives(
     department: str | None = None,
     limit: int = 10,
     *,
+    owner_user_id: str,
     db_path: Path | None = None,
 ) -> list[RecallMatch]:
     """Find archives similar to the given matter type and/or department.
@@ -139,7 +140,11 @@ def find_similar_archives(
         if len(matches) >= limit:
             return
         archives = storage.list_archives(
-            matter_type=mt, department=dept, limit=_RECALL_FETCH_LIMIT, db_path=db_path
+            matter_type=mt,
+            department=dept,
+            limit=_RECALL_FETCH_LIMIT,
+            owner_user_id=owner_user_id,
+            db_path=db_path,
         )
         for archive in archives:
             if archive.id in seen_ids:
@@ -160,7 +165,11 @@ def find_similar_archives(
 
 
 def safe_recall_context_for_department(
-    department: str, limit: int = 3, *, db_path: Path | None = None
+    department: str,
+    limit: int = 3,
+    *,
+    owner_user_id: str | None = None,
+    db_path: Path | None = None,
 ) -> RecallContext:
     """Fail-closed recall lookup by department, for reuse by agent layers.
 
@@ -171,9 +180,14 @@ def safe_recall_context_for_department(
     """
 
     try:
-        if not department or not department.strip():
+        if not owner_user_id or not department or not department.strip():
             return RecallContext(available=False, reason=_UNAVAILABLE_REASON)
-        matches = find_similar_archives(department=department.strip(), limit=limit, db_path=db_path)
+        matches = find_similar_archives(
+            department=department.strip(),
+            limit=limit,
+            owner_user_id=owner_user_id,
+            db_path=db_path,
+        )
         return RecallContext(available=True, entries=tuple(matches))
     except Exception:  # noqa: BLE001 - fail-closed by design, must never raise
         logger.exception("史馆旧案召回不可用")

@@ -62,7 +62,7 @@ def _truncate(text: str, max_length: int) -> str:
     stripped = text.strip()
     if len(stripped) <= max_length:
         return stripped
-    return stripped[:max_length].rstrip() + "…"
+    return stripped[:max_length].rstrip() + "\u2026"
 
 
 def resolve_adopted_evidence_references(
@@ -195,12 +195,17 @@ def _link_reply_evidence(
 def reconcile_reply_evidence(
     reply_id: str,
     *,
+    owner_user_id: str = "__system__",
     shiguan_db_path: Path | None = None,
     jinyiwei_db_path: Path | None = None,
 ) -> None:
     """Reconcile from immutable Shiguan state; callers supply only a REPLY ID."""
 
-    reply = storage.get_archive(reply_id, db_path=shiguan_db_path)
+    reply = storage.get_archive(
+        reply_id,
+        owner_user_id=owner_user_id,
+        db_path=shiguan_db_path,
+    )
     if reply.type != "REPLY":
         raise ValueError("evidence reconciliation requires an existing REPLY")
     evidence_ids = tuple(
@@ -235,6 +240,7 @@ def archive_chancellor_decree(
     shiguan_db_path: Path | None = None,
     jinyiwei_db_path: Path | None = None,
     reply_id: str | None = None,
+    owner_user_id: str = "__system__",
 ) -> ArchiveDecreeResult:
     """Archive a completed chancellor decree as one REPLY record.
 
@@ -271,9 +277,9 @@ def archive_chancellor_decree(
         owning_department = departments[0] if departments else _DEFAULT_RESPONDENT
         process_parts = []
         if processing_path:
-            process_parts.append(f"处理路径：{'->'.join(processing_path)}")
+            process_parts.append(f"\u5904\u7406\u8def\u5f84\uff1a{' -> '.join(processing_path)}")
         if rationale:
-            process_parts.append(f"丞相分流理由：{rationale}")
+            process_parts.append(f"\u4e1e\u76f8\u5206\u6d41\u7406\u7531\uff1a{rationale}")
         if council_verdict:
             process_parts.append(f"军机处会审结论：{council_verdict}")
         reply_process = "；".join(process_parts) if process_parts else "丞相直接裁决"
@@ -284,7 +290,9 @@ def archive_chancellor_decree(
         if reply_id is not None:
             try:
                 existing_reply = storage.get_archive(
-                    reply_id, db_path=shiguan_db_path
+                    reply_id,
+                    owner_user_id=owner_user_id,
+                    db_path=shiguan_db_path,
                 )
             except ArchiveNotFoundError:
                 pass
@@ -341,6 +349,7 @@ def archive_chancellor_decree(
                 reply_payload,
                 refs,
                 reply_id=generated_reply_id,
+                owner_user_id=owner_user_id,
                 db_path=shiguan_db_path,
             )
             try:
@@ -364,6 +373,7 @@ def archive_chancellor_decree(
                 reply_payload,
                 refs,
                 reply_id=generated_reply_id,
+                owner_user_id=owner_user_id,
                 db_path=shiguan_db_path,
             )
         except (ArchiveValidationError, ShiguanWriteNotCommittedError):

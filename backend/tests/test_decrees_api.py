@@ -35,6 +35,7 @@ from app.agents.chancellor import (
     ChancellorGraphInvocationError,
     build_chancellor_graph,
 )
+from app.auth import configure_auth_db, create_session, create_user
 from app.langgraph_runtime.deepseek_client import DeepSeekModelNameError
 from app.langgraph_runtime.deepseek_config import DeepSeekApiKeyError
 from app.main import app
@@ -42,6 +43,17 @@ from app.main import app
 client = TestClient(app)
 
 DECREE_URL = "/api/v1/decrees/chancellor"
+
+
+@pytest.fixture(autouse=True)
+def _authenticate_client(isolate_shiguan_default_db_path, tmp_path):
+    del isolate_shiguan_default_db_path
+    configure_auth_db(tmp_path / "auth.sqlite3")
+    user = create_user("decree-user", "decree@example.com", "six-or-more")
+    client.headers["Authorization"] = f"Bearer {create_session(user.id)}"
+    yield
+    client.headers.pop("Authorization", None)
+    configure_auth_db(None)
 
 _SINGLE_ROUTE_RESULT = {
     "decree_text": "整顿吏治",
@@ -164,12 +176,12 @@ def fake_provider(monkeypatch):
 def test_submit_decree_single_route_returns_full_contract(fake_provider, monkeypatch):
     graph = _FakeGraph(invoke_result=_SINGLE_ROUTE_RESULT)
     provider = fake_provider(_FakeProvider(graph=graph))
-    archived_calls: list[tuple[str, object, object]] = []
+    archived_calls: list[tuple[str, object, object, str]] = []
     monkeypatch.setattr(
         decrees_module,
         "archive_chancellor_decree",
-        lambda decree_text, response, internal_result: archived_calls.append(
-            (decree_text, response, internal_result)
+        lambda decree_text, response, internal_result, *, owner_user_id: archived_calls.append(
+            (decree_text, response, internal_result, owner_user_id)
         ),
     )
 
@@ -207,13 +219,12 @@ def test_submit_decree_single_route_returns_full_contract(fake_provider, monkeyp
     assert len(body["recommendations"]) == 3
     assert provider.call_count == 1
     assert graph.invoke_calls == [{"decree_text": "整顿吏治"}]
-    assert archived_calls == [
-        (
-            "整顿吏治",
-            decrees_module.ChancellorDecreeResponse(**body),
-            _SINGLE_ROUTE_RESULT,
-        )
-    ]
+    assert archived_calls[0][:3] == (
+        "整顿吏治",
+        decrees_module.ChancellorDecreeResponse(**body),
+        _SINGLE_ROUTE_RESULT,
+    )
+    assert archived_calls[0][3]
 
 
 def test_submit_decree_multi_route_returns_full_contract(fake_provider):

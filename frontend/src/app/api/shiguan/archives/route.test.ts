@@ -5,7 +5,9 @@ import { GET } from "./route.ts";
 
 test("史馆档案 BFF：旧 DECISION 类型返回 400，且不转发后端", async () => {
   const response = await GET(
-    new Request("http://localhost/api/shiguan/archives?type=DECISION"),
+    new Request("http://localhost/api/shiguan/archives?type=DECISION", {
+      headers: { cookie: "courtos_session=test-session" },
+    }),
   );
 
   assert.equal(response.status, 400);

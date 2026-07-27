@@ -1,4 +1,5 @@
 import { recallShiguanArchives } from "../../../../lib/backendClient.ts";
+import { readSessionId } from "../../../../lib/session.ts";
 
 const FRIENDLY_MESSAGE_BY_KIND = {
   validation: "旧案召回条件未通过校验，请至少填写事项类型或所属部门。",
@@ -6,6 +7,7 @@ const FRIENDLY_MESSAGE_BY_KIND = {
   storage: "史馆暂时不可用，请稍后重试。",
   network: "无法连接朝堂后端，请稍后重试。",
   unknown: "史馆服务暂时不可用，请稍后重试。",
+  unauthenticated: "authentication required",
 } as const;
 
 function jsonResponse(body: unknown, status: number): Response {
@@ -16,6 +18,8 @@ function jsonResponse(body: unknown, status: number): Response {
 }
 
 export async function POST(request: Request): Promise<Response> {
+  const sessionId = readSessionId(request);
+  if (!sessionId) return jsonResponse({ status: "error", reason: "unauthenticated", message: "authentication required" }, 401);
   let payload: unknown;
   try {
     payload = await request.json();
@@ -56,7 +60,7 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  const result = await recallShiguanArchives({ matterType, department, limit });
+  const result = await recallShiguanArchives({ matterType, department, limit, sessionId });
 
   if (result.ok) {
     return jsonResponse({ status: "ok", matches: result.data }, 200);
@@ -68,6 +72,6 @@ export async function POST(request: Request): Promise<Response> {
       reason: result.kind,
       message: FRIENDLY_MESSAGE_BY_KIND[result.kind],
     },
-    result.kind === "validation" ? 422 : 503,
+    result.kind === "unauthenticated" ? 401 : result.kind === "validation" ? 422 : 503,
   );
 }

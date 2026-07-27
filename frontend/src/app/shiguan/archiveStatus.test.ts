@@ -38,7 +38,10 @@ test("史馆筛选查询：裁剪空白并忽略空条件", () => {
 });
 
 test("史馆页面展示归档证据的事实绑定与 MCP 访问溯源", async () => {
-  const source = await readFile(new URL("./page.tsx", import.meta.url), "utf8");
+  const source = await readFile(
+    new URL("./ShiguanClient.tsx", import.meta.url),
+    "utf8",
+  );
   assert.match(source, /evidenceReferences/);
   assert.match(source, /category/);
   assert.match(source, /dataScope/);

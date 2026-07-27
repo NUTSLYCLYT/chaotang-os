@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
+from app.api.auth import register_auth_exception_handlers
+from app.api.auth import router as auth_router
 from app.api.decrees import register_chancellor_exception_handlers
 from app.api.decrees import router as decrees_router
 from app.api.jinyiwei import register_jinyiwei_exception_handlers
@@ -37,3 +39,6 @@ register_shiguan_exception_handlers(app)
 
 app.include_router(jinyiwei_router)
 register_jinyiwei_exception_handlers(app)
+
+app.include_router(auth_router)
+register_auth_exception_handlers(app)

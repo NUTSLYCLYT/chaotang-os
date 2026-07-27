@@ -1232,3 +1232,25 @@ test("史馆客户端：注入的超时调度通过 AbortSignal 中止请求", a
     error: "请求超时",
   });
 });
+
+test("authenticated backend calls send Bearer sessions and preserve a backend 401", async () => {
+  let authorization: string | undefined;
+  const decree = await submitDecree("authenticated decree", {
+    baseUrl: "https://backend.invalid",
+    sessionId: "test-session",
+    fetchImpl: async (_input, init) => {
+      authorization = new Headers(init?.headers).get("authorization") ?? undefined;
+      return new Response(JSON.stringify({ message: "invalid credentials" }), {
+        status: 401,
+        headers: { "content-type": "application/json" },
+      });
+    },
+  });
+
+  assert.equal(authorization, "Bearer test-session");
+  assert.deepEqual(decree, {
+    ok: false,
+    kind: "unauthenticated",
+    error: "authentication required",
+  });
+});

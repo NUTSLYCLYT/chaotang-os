@@ -273,9 +273,14 @@ class TestReplyOnlyFields:
 
     @pytest.mark.parametrize("source_kind", ["DECREE", "MEMORIAL"])
     def test_reply_accepts_supported_source_kinds(self, source_kind):
+        related_archive_ids = ["memorial-1"] if source_kind == "MEMORIAL" else []
         archive = ArchiveCreate(
             type="REPLY", title="回奏", content="内容", matter_type="事项", department="丞相府",
-            **_minimal_reply_fields() | {"source_kind": source_kind},
+            **_minimal_reply_fields()
+            | {
+                "source_kind": source_kind,
+                "related_archive_ids": related_archive_ids,
+            },
         )
         assert archive.source_kind == source_kind
 

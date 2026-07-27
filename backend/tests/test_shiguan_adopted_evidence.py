@@ -11,6 +11,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.api.decrees as decrees_module
+from app.auth import create_session, create_user
+from app.auth import storage as auth_storage
 from app.jinyiwei import db as jinyiwei_db
 from app.jinyiwei import storage as jinyiwei_storage
 from app.jinyiwei.models import (
@@ -1184,8 +1186,13 @@ def test_http_success_contract_survives_link_failure_with_one_reply(tmp_path, mo
         def invoke(self, _state):
             return internal_result
 
+    monkeypatch.setattr(auth_storage, "_configured_db_path", tmp_path / "auth.sqlite3")
+    user = create_user("evidence-user", "evidence@example.com", "six-or-more")
     monkeypatch.setattr(decrees_module, "get_chancellor_graph", lambda: _Graph())
-    response = TestClient(app).post(
+    response = TestClient(
+        app,
+        headers={"Authorization": f"Bearer {create_session(user.id)}"},
+    ).post(
         "/api/v1/decrees/chancellor", json={"decree_text": "请核定预算"}
     )
 
@@ -1202,7 +1209,7 @@ def test_http_success_contract_survives_link_failure_with_one_reply(tmp_path, mo
         "final_verdict",
         "recommendations",
     }
-    replies = storage.list_archives(db_path=shiguan_path)
+    replies = storage.list_archives(owner_user_id=user.id, db_path=shiguan_path)
     assert len(replies) == 1
     assert replies[0].evidence_references[0].evidence_id == "evidence-1"
     reply_id = replies[0].id
@@ -1212,6 +1219,7 @@ def test_http_success_contract_survives_link_failure_with_one_reply(tmp_path, mo
     monkeypatch.setattr(jinyiwei_storage, "confirm_adoptions", original_confirm)
     archive_decree.reconcile_reply_evidence(
         reply_id,
+        owner_user_id=user.id,
         shiguan_db_path=shiguan_path,
         jinyiwei_db_path=jinyiwei_path,
     )

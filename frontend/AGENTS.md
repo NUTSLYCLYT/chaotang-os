@@ -27,9 +27,9 @@ TypeScript，npm 管理依赖，Node 内置 `node:test` 做单元测试。选型
 ## 边界
 
 - 这里只放前端工程及其验证，不实现后端内部功能。
-- `src/app/page.tsx` 只做最小健康检查展示（调用后端 `GET /health` 并展示状态），
-  不承载任何业务 UI、状态管理、UI 组件库或鉴权；新增业务页面前先确认是否有对应
-  产品任务。
+- `src/app/page.tsx` 承载登录前欢迎页；健康检查展示位于 `src/app/health/page.tsx`（调用后端
+  `GET /health` 并展示状态）。欢迎页不承载认证、会话或业务后端调用；新增业务页面前先确认
+  是否有对应产品任务。
 - `src/lib/backendClient.ts` 是唯一对后端发起网络调用的位置，只在 Next.js 服务端
   （Server Component / Route Handler）中使用；不得引入 `NEXT_PUBLIC_` 前缀的后端
   地址变量，避免把后端地址暴露到浏览器端。
@@ -64,6 +64,12 @@ TypeScript，npm 管理依赖，Node 内置 `node:test` 做单元测试。选型
   `backendClient` 的成功/失败路径为主，涉及页面渲染时通过 `next build` + 一次性
   entry 烟雾验证（启动 `next start` 请求 `/`、`/study` 与 `/jinyiwei` 确认 200，然后
   关闭进程）覆盖。
+
+## 账户与 BFF 边界
+
+`/study` 和 `/shiguan` 为登录保护页面；服务端在渲染前验证 `courtos_session`。浏览器只保留 BFF 设置的 `HttpOnly`、`SameSite=Lax` cookie（生产环境为 `Secure`），不得把 session ID、后端地址或可用令牌写入客户端状态。
+
+所有受保护的 `src/app/api/**` Route Handler 必须在服务端读取 cookie，无 cookie 时返回 401，有 cookie 时仅以 `Authorization: Bearer <session>` 转发给 FastAPI。不得转发或接受 owner ID；FastAPI 从认证上下文决定 owner。退出时先请求后端废止会话，无论废止返回如何都清除本地 cookie。本地验证使用注入图响应，不点击会触发真实模型的路径。见 ADR 0027。
 
 ## 环境要求
 
@@ -155,7 +161,7 @@ npm run build
 npm run start
 ```
 
-启动后可用 `curl -i http://localhost:3000/`（或等效工具）确认页面返回
+启动后可用 `curl -i http://localhost:3000/health`（或等效工具）确认页面返回
 `200 OK`；页面会展示后端健康检查结果——若 `backend/` 服务同时运行且
 `BACKEND_BASE_URL` 指向它，会展示 `后端状态：ok（...）`；若后端不可达，会展示
 `后端不可用：<错误描述>`，均不导致页面报错或非 200。还应请求

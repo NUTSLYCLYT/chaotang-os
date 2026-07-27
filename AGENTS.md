@@ -68,6 +68,11 @@
 - `node .agents/hooks/check-harness.mjs --self-test`
 - `node .agents/skills/product-flow/scripts/run-claude-delivery.mjs --self-test`
 
+## 不可变业务流基线
+
+- 所有 AI、自动化和实现任务必须先阅读并遵循 `docs/decisions/0028-decree-evidence-flow-governance-baseline.md`。
+- 未经当前用户明确授权，不得修改、绕过或以旧 `dev` 代码替代该基线；harness 会校验其完整性。
+
 前后端 setup、lint、typecheck、test、build/run 命令见 `frontend/AGENTS.md`、
 `backend/AGENTS.md`；CI（`.github/workflows/harness.yml`）已新增对应的
 `backend`、`frontend`、`integration` job 执行同一批真实命令。再次改变技术栈或

@@ -31,7 +31,10 @@ from app.shiguan.models import (
     ArchiveEvidenceReferenceCreate,
     ArchiveEvidenceSnapshot,
     ArchiveType,
+    DadianOverview,
+    DepartmentCount,
     Evidence,
+    RecentReply,
     ReviewStatus,
     Statistics,
     _snapshot_json,
@@ -40,8 +43,10 @@ from app.shiguan.models import (
 _ARCHIVE_COLUMNS = (
     "id, type, title, content, matter_type, department, created_at, "
     "lessons_learned, pitfalls, source_kind, source_text, participating_departments, "
-    "reply_process, reply_conclusion, reply_time, respondent"
+    "reply_process, reply_conclusion, reply_time, respondent, owner_user_id"
 )
+
+_SYSTEM_OWNER_ID = "__system__"
 
 
 def _now_iso() -> str:
@@ -52,16 +57,21 @@ def _insert_validated_archive(
     conn: sqlite3.Connection,
     validated: ArchiveCreate,
     *,
+    owner_user_id: str,
     archive_id: str | None = None,
 ) -> Archive:
     """Insert one validated archive into the caller-owned transaction."""
-    validation.validate_related_archive_ids(conn, validated.related_archive_ids)
-    validation.validate_reply_source(conn, validated)
+    validation.validate_related_archive_ids(
+        conn, validated.related_archive_ids, owner_user_id=owner_user_id
+    )
+    validation.validate_reply_source(
+        conn, validated, owner_user_id=owner_user_id
+    )
     archive_id = archive_id or uuid.uuid4().hex
     created_at = _now_iso()
     conn.execute(
         f"INSERT INTO archives ({_ARCHIVE_COLUMNS}) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             archive_id,
             validated.type,
@@ -81,6 +91,7 @@ def _insert_validated_archive(
             validated.reply_conclusion,
             validated.reply_time,
             validated.respondent,
+            owner_user_id,
         ),
     )
     for evidence in validated.evidence:
@@ -95,10 +106,10 @@ def _insert_validated_archive(
             (archive_id, related_id),
         )
     row = conn.execute("SELECT * FROM archives WHERE id = ?", (archive_id,)).fetchone()
-    return _build_archive(conn, row)
+    return _build_archive(conn, row, owner_user_id)
 
 
-def _build_archive(conn: sqlite3.Connection, row: sqlite3.Row) -> Archive:
+def _build_archive(conn: sqlite3.Connection, row: sqlite3.Row, owner_user_id: str) -> Archive:
     archive_id = row["id"]
 
     evidence_rows = conn.execute(
@@ -112,8 +123,11 @@ def _build_archive(conn: sqlite3.Connection, row: sqlite3.Row) -> Archive:
     ]
 
     related_rows = conn.execute(
-        "SELECT related_id FROM archive_relations WHERE archive_id = ? ORDER BY seq ASC",
-        (archive_id,),
+        "SELECT relation.related_id FROM archive_relations AS relation "
+        "JOIN archives AS related ON related.id = relation.related_id "
+        "WHERE relation.archive_id = ? AND related.owner_user_id = ? "
+        "ORDER BY relation.seq ASC",
+        (archive_id, owner_user_id),
     ).fetchall()
     related_archive_ids = [r["related_id"] for r in related_rows]
 
@@ -214,6 +228,7 @@ def create_reply_with_evidence(
     refs: list[ArchiveEvidenceReferenceCreate] | tuple[ArchiveEvidenceReferenceCreate, ...],
     *,
     reply_id: str,
+    owner_user_id: str = _SYSTEM_OWNER_ID,
     db_path: Path | None = None,
 ) -> Archive:
     """Atomically create one server-identified REPLY and trusted citations."""
@@ -242,10 +257,11 @@ def create_reply_with_evidence(
     try:
         conn.execute("BEGIN IMMEDIATE")
         existing_row = conn.execute(
-            "SELECT * FROM archives WHERE id = ?", (reply_id.strip(),)
+            "SELECT * FROM archives WHERE id = ? AND owner_user_id = ?",
+            (reply_id.strip(), owner_user_id),
         ).fetchone()
         if existing_row is not None:
-            existing = _build_archive(conn, existing_row)
+            existing = _build_archive(conn, existing_row, owner_user_id)
             existing_refs = tuple(
                 ArchiveEvidenceReferenceCreate(
                     pack_id=reference.pack_id,
@@ -267,7 +283,10 @@ def create_reply_with_evidence(
             return existing
 
         archive = _insert_validated_archive(
-            conn, validated, archive_id=reply_id.strip()
+            conn,
+            validated,
+            owner_user_id=owner_user_id,
+            archive_id=reply_id.strip(),
         )
         for ordinal, reference in enumerate(validated_refs):
             snapshot_json = _snapshot_json(reference.snapshot)
@@ -299,8 +318,11 @@ def create_reply_with_evidence(
                     snapshot_hash,
                 ),
             )
-        row = conn.execute("SELECT * FROM archives WHERE id = ?", (reply_id.strip(),)).fetchone()
-        archive = _build_archive(conn, row)
+        row = conn.execute(
+            "SELECT * FROM archives WHERE id = ? AND owner_user_id = ?",
+            (reply_id.strip(), owner_user_id),
+        ).fetchone()
+        archive = _build_archive(conn, row, owner_user_id)
         commit_started = True
         conn.commit()
         return archive
@@ -319,7 +341,12 @@ def create_reply_with_evidence(
         conn.close()
 
 
-def create_archive(payload: dict | ArchiveCreate, *, db_path: Path | None = None) -> Archive:
+def create_archive(
+    payload: dict | ArchiveCreate,
+    *,
+    owner_user_id: str = _SYSTEM_OWNER_ID,
+    db_path: Path | None = None,
+) -> Archive:
     """Validate and persist a new archive, returning the full stored record.
 
     ``id`` is always server-generated (UUID4 hex) and inserted with a plain
@@ -339,7 +366,9 @@ def create_archive(payload: dict | ArchiveCreate, *, db_path: Path | None = None
     try:
         validated = validation.validate_archive_create(payload_dict)
         try:
-            archive = _insert_validated_archive(conn, validated)
+            archive = _insert_validated_archive(
+                conn, validated, owner_user_id=owner_user_id
+            )
             conn.commit()
         except sqlite3.Error as exc:
             conn.rollback()
@@ -350,7 +379,12 @@ def create_archive(payload: dict | ArchiveCreate, *, db_path: Path | None = None
         conn.close()
 
 
-def get_archive(archive_id: str, *, db_path: Path | None = None) -> Archive:
+def get_archive(
+    archive_id: str,
+    *,
+    owner_user_id: str = _SYSTEM_OWNER_ID,
+    db_path: Path | None = None,
+) -> Archive:
     """Fetch a single archive by id.
 
     Raises:
@@ -361,13 +395,16 @@ def get_archive(archive_id: str, *, db_path: Path | None = None) -> Archive:
     conn = db.get_connection(db_path)
     try:
         try:
-            row = conn.execute("SELECT * FROM archives WHERE id = ?", (archive_id,)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM archives WHERE id = ? AND owner_user_id = ?",
+                (archive_id, owner_user_id),
+            ).fetchone()
         except sqlite3.Error as exc:
             raise ShiguanStorageError("史馆查询失败，请稍后再试") from exc
         if row is None:
             raise ArchiveNotFoundError(f"档案不存在: {archive_id}")
         try:
-            return _build_archive(conn, row)
+            return _build_archive(conn, row, owner_user_id)
         except sqlite3.Error as exc:
             raise ShiguanStorageError("史馆查询失败，请稍后再试") from exc
     finally:
@@ -380,6 +417,7 @@ def list_archives(
     department: str | None = None,
     limit: int = 100,
     *,
+    owner_user_id: str = _SYSTEM_OWNER_ID,
     db_path: Path | None = None,
 ) -> list[Archive]:
     """List archives, optionally filtered, with a deterministic ordering.
@@ -396,8 +434,8 @@ def list_archives(
     if not isinstance(limit, int) or isinstance(limit, bool) or limit <= 0:
         raise ArchiveValidationError("limit 必须为正整数")
 
-    conditions: list[str] = []
-    params: list[object] = []
+    conditions: list[str] = ["owner_user_id = ?"]
+    params: list[object] = [owner_user_id]
     if type is not None:
         conditions.append("type = ?")
         params.append(type)
@@ -423,7 +461,7 @@ def list_archives(
         except sqlite3.Error as exc:
             raise ShiguanStorageError("史馆查询失败，请稍后再试") from exc
         try:
-            return [_build_archive(conn, row) for row in rows]
+            return [_build_archive(conn, row, owner_user_id) for row in rows]
         except sqlite3.Error as exc:
             raise ShiguanStorageError("史馆查询失败，请稍后再试") from exc
     finally:
@@ -436,6 +474,7 @@ def upsert_review_status(
     reviewed_at: str,
     note: str | None = None,
     *,
+    owner_user_id: str = _SYSTEM_OWNER_ID,
     db_path: Path | None = None,
 ) -> ReviewStatus:
     """Set (or replace) an archive's review/复盘 status.
@@ -453,7 +492,10 @@ def upsert_review_status(
     conn = db.get_connection(db_path)
     try:
         try:
-            exists = conn.execute("SELECT 1 FROM archives WHERE id = ?", (archive_id,)).fetchone()
+            exists = conn.execute(
+                "SELECT 1 FROM archives WHERE id = ? AND owner_user_id = ?",
+                (archive_id, owner_user_id),
+            ).fetchone()
         except sqlite3.Error as exc:
             raise ShiguanStorageError("史馆查询失败，请稍后再试") from exc
         if exists is None:
@@ -485,7 +527,9 @@ def upsert_review_status(
         conn.close()
 
 
-def get_statistics(*, db_path: Path | None = None) -> Statistics:
+def get_statistics(
+    *, owner_user_id: str = _SYSTEM_OWNER_ID, db_path: Path | None = None
+) -> Statistics:
     """Compute archive counters and the achievement success rate.
 
     ``success_rate`` is ``achieved / (achieved + not_achieved + partial)``;
@@ -500,12 +544,20 @@ def get_statistics(*, db_path: Path | None = None) -> Statistics:
     conn = db.get_connection(db_path)
     try:
         try:
-            total = conn.execute("SELECT COUNT(*) FROM archives").fetchone()[0]
+            total = conn.execute(
+                "SELECT COUNT(*) FROM archives WHERE owner_user_id = ?", (owner_user_id,)
+            ).fetchone()[0]
             status_rows = conn.execute(
-                "SELECT status, COUNT(*) AS n FROM archive_review_status GROUP BY status"
+                "SELECT review.status, COUNT(*) AS n FROM archive_review_status AS review "
+                "JOIN archives ON archives.id = review.archive_id "
+                "WHERE archives.owner_user_id = ? GROUP BY review.status",
+                (owner_user_id,),
             ).fetchall()
             reviewed_total = conn.execute(
-                "SELECT COUNT(*) FROM archive_review_status"
+                "SELECT COUNT(*) FROM archive_review_status AS review "
+                "JOIN archives ON archives.id = review.archive_id "
+                "WHERE archives.owner_user_id = ?",
+                (owner_user_id,),
             ).fetchone()[0]
         except sqlite3.Error as exc:
             raise ShiguanStorageError("史馆统计查询失败，请稍后再试") from exc
@@ -527,5 +579,86 @@ def get_statistics(*, db_path: Path | None = None) -> Statistics:
             pending_review=pending_review,
             success_rate=success_rate,
         )
+    finally:
+        conn.close()
+
+
+def get_dadian_overview(
+    *,
+    owner_user_id: str = _SYSTEM_OWNER_ID,
+    department: str | None = None,
+    db_path: Path | None = None,
+) -> DadianOverview:
+    """Read the owner-scoped, REPLY-only overview used by 大殿.
+
+    Aggregates stay in SQLite so a browser never infers totals from a
+    truncated archive list. A review row of any status means a reply is no
+    longer pending review.
+    """
+    selected_department = department.strip() if department and department.strip() else None
+    conditions = ["archives.owner_user_id = ?", "archives.type = 'REPLY'"]
+    params: list[object] = [owner_user_id]
+    if selected_department is not None:
+        conditions.append(
+            "EXISTS (SELECT 1 FROM json_each(archives.participating_departments) WHERE value = ?)"
+        )
+        params.append(selected_department)
+    where_clause = " AND ".join(conditions)
+    conn = db.get_connection(db_path)
+    try:
+        try:
+            reply_count = conn.execute(
+                f"SELECT COUNT(*) FROM archives WHERE {where_clause}", params
+            ).fetchone()[0]
+            pending_review_count = conn.execute(
+                "SELECT COUNT(*) FROM archives LEFT JOIN archive_review_status AS review "
+                "ON review.archive_id = archives.id "
+                f"WHERE {where_clause} AND review.archive_id IS NULL",
+                params,
+            ).fetchone()[0]
+            recent_rows = conn.execute(
+                "SELECT id, title, participating_departments, reply_conclusion, reply_time, "
+                "created_at, respondent "
+                f"FROM archives WHERE {where_clause} ORDER BY created_at DESC, id ASC LIMIT 5",
+                params,
+            ).fetchall()
+            department_rows = conn.execute(
+                "SELECT json_each.value AS department, COUNT(*) AS count FROM archives "
+                "CROSS JOIN json_each(archives.participating_departments) "
+                "WHERE archives.owner_user_id = ? AND archives.type = 'REPLY' "
+                "GROUP BY json_each.value ORDER BY count DESC, json_each.value ASC",
+                (owner_user_id,),
+            ).fetchall()
+        except (sqlite3.Error, json.JSONDecodeError) as exc:
+            raise ShiguanStorageError("史馆查询失败，请稍后再试") from exc
+
+        recent_replies = [
+            RecentReply(
+                id=row["id"],
+                title=row["title"],
+                participating_departments=json.loads(row["participating_departments"]),
+                reply_conclusion=row["reply_conclusion"],
+                reply_time=row["reply_time"],
+                created_at=row["created_at"],
+                respondent=row["respondent"],
+            )
+            for row in recent_rows
+        ]
+        return DadianOverview(
+            reply_count=reply_count,
+            department_counts=[
+                DepartmentCount(department=row["department"], count=row["count"])
+                for row in department_rows
+            ],
+            recent_replies=recent_replies,
+            pending_review_count=pending_review_count,
+            today_focus=(
+                f"有 {pending_review_count} 条回奏待复盘"
+                if pending_review_count
+                else "暂无建议"
+            ),
+        )
+    except (sqlite3.Error, json.JSONDecodeError) as exc:
+        raise ShiguanStorageError("史馆查询失败，请稍后再试") from exc
     finally:
         conn.close()
