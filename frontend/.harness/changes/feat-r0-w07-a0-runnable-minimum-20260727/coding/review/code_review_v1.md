@@ -43,3 +43,13 @@ fresh two-pass independent review，本文件不预先声明 GO。
 fail closed，Mission/ReviewPack 业务范围 exact match，史馆 exact archive
 改为 audit-only 卷轴。LOW 的 parser `additionalProperties` hardening 留作后续
 residual。implementation `5d5ff747...` 等待 fresh two-pass independent review。
+
+## Seventh Review
+
+review envelope `492703ce...` 的两路 fresh review 均为 `NO-GO`，合并
+`HIGH 3 / MEDIUM 5 / LOW 1`。前端适用项包括 root boundary closed-world、
+missing-review downstream omission、exact archive 右栏只读和 visible loading；
+跨边界还发现 stale Mission revision、terminal task status、clock expiry 及多个
+decision action authority 缺口。same-user cross-tenant legacy route 的可靠修复需要
+当前批准范围外的 `backend/web/routers/chaotang.py` 或共享 accessor，状态转为
+`SCOPE_AMENDMENT_REQUIRED`。

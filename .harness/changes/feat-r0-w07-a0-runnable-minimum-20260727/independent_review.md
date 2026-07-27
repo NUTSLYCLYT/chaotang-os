@@ -216,3 +216,44 @@ typed H/M closure，保留为后续 contract hardening residual，不在本次�
 `cf6a25089c69fe70961ae6d8f3972065923a605e` 已冻结；状态为
 `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
 NOT_DEPLOYED`。本文件不预判下一候选的独立审查结论。
+
+## Seventh Candidate Verdict
+
+Review envelope `492703ce9b6f89d57f5ac0b07082289426ed6b5e`, tree
+`6a2f5d859a1c4e6119e4d55e327823505895e9e7` received two independent
+Codex `NO-GO` verdicts:
+
+- backend pass `019fa41e-6f6d-7de3-bc69-fdfc946c0d86`:
+  `HIGH 2 / MEDIUM 1 / LOW 0`;
+- frontend/cross-boundary pass `019fa41e-b775-7de2-b5c4-8185696a7d8c`:
+  `HIGH 1 / MEDIUM 4 / LOW 1`.
+
+合并后的唯一 findings 为 `HIGH 3 / MEDIUM 5 / LOW 1`：
+
+1. HIGH：legacy memorial route 只验证 user；same-user cross-tenant 可写 decision/archive；
+2. HIGH：`request_evidence`、`followup`、`cancel` 未消费 server `allowed_actions`；
+3. HIGH：Mission revision/digest 未绑定 ReviewPack，可复用旧 review/delivery 取得 `DECIDE`；
+4. MEDIUM：clock-expired W06 artifact 对外仍显示 `STORED`；
+5. MEDIUM：terminal/cancelled DecisionTask status 未进入 privileged action resolution；
+6. MEDIUM：frontend root/task/blocker boundary 未 closed-world，额外字段被保留；
+7. MEDIUM：authoritative review 缺失时仍投影 final/delivery，虽无 action 但会显示 READY/LIVE；
+8. MEDIUM：exact archive 中栏只读，但右栏仍暴露 retrospective 写按钮与 Next Action；
+9. LOW：exact `/shiguan` loading 只有 data attribute，没有可见 loading state。
+
+两路分别运行了 backend focused/broad、frontend 33 tests、tsc、API stability、
+disposable Playwright/build/OpenAPI 和独立攻击 probe；均确认 review 前后 worktree
+clean，未修改文件、未部署、未迁移数据库、未操作 3050。
+
+## Scope Conflict
+
+finding 1 无法仅在当前批准的
+`backend/web/routers/shangshufang.py`、projection/contracts、frontend consumer 和
+focused tests 范围内正确闭环。可靠修复需要修改
+`backend/web/routers/chaotang.py` 和/或共享 `backend/src/decision_task_access.py`，
+使 legacy route 把 caller tenant 传入统一 ownership gate。按 EXT Governance
+Contract，发现 scope conflict 后停止业务修改，不允许通过阻断全部 legacy
+同租户功能来伪装修复。
+
+当前状态：
+`REVIEWED_NO_GO / SCOPE_AMENDMENT_REQUIRED / NOT_DEPLOYED`。candidate 不得整合
+local EXT。

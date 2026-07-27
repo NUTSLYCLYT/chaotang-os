@@ -1,6 +1,6 @@
 ﻿# CI 验证摘要
 
-结论：`SCOPED PASS / INDEPENDENT REVIEW PENDING`
+结论：`SCOPED TEST PASS / INDEPENDENT REVIEW NO-GO`
 
 ## 命令
 
@@ -20,3 +20,6 @@
 - canonical `pnpm test:node` 为 1099 passed / 1 个既有非本 diff residual
   failed；另有 1 个不在 canonical glob 的既有 TSX residual，详见 root CI
   summary。
+- review envelope `492703ce...` fresh two-pass 合并为
+  `HIGH 3 / MEDIUM 5 / LOW 1`；测试通过不覆盖这些 authority/trust-boundary
+  缺口，当前不得整合。

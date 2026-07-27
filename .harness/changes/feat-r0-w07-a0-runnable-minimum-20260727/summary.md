@@ -9,7 +9,7 @@
 | --- | --- |
 | Change ID | feat-r0-w07-a0-runnable-minimum-20260727 |
 | 类型 | feat |
-| 状态 | `IMPLEMENTATION_CANDIDATE_FROZEN / INDEPENDENT_REVIEW_PENDING / NOT_DEPLOYED` |
+| 状态 | `REVIEWED_NO_GO / SCOPE_AMENDMENT_REQUIRED / NOT_DEPLOYED` |
 | Owner | Codex W07 Implementation Lead |
 | Product Owner | `lyt` |
 | 创建日期 | `2026-07-27` |
@@ -43,7 +43,10 @@ legacy footer、modal 和 handler。审查提出的
 批准的是 tenant-owned artifact，故“同租户再按 user 隔离”也不作为 W07 缺陷扩展。
 runtime boundary 还要求 PDF/DOCX/JSON 三种 artifact 全部 STORED 且可下载后才接受
 DECIDE/REOPEN。P0-B 表面积登记已与既有跨用户行为探针对齐。新 implementation
-candidate 已冻结；fresh two-pass GO 前不整合 EXT。
+candidate 已冻结。exact review envelope `492703ce...` 的两路复审均为 `NO-GO`，
+合并为 `HIGH 3 / MEDIUM 5 / LOW 1`。same-user cross-tenant legacy memorial
+路径需要修改当前 scope 外的 `backend/web/routers/chaotang.py` 或共享 ownership
+accessor，因此当前状态为 `SCOPE_AMENDMENT_REQUIRED`；不整合 EXT。
 
 ## 允许范围
 

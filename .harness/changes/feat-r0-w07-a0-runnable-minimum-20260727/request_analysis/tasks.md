@@ -50,7 +50,9 @@
 - [x] P0-B `contracts.py` 表面积登记与既有跨用户行为探针对齐。
 - [x] 将 test-only JWT launcher 纳入 Packet 文件 ownership/scope。
 - [x] 区分 base doctor PASS 与 isolated candidate PRE_INTEGRATION STOP。
-- [ ] 在 exact remediation candidate 上取得 fresh two-pass GO。
+- [x] exact remediation candidate 两路 fresh review 已完成，结论均为 `NO-GO`。
+- [ ] 取得 legacy memorial tenant ownership 所需最小 scope amendment。
+- [ ] 修复第七轮全部适用 HIGH/MEDIUM，并在新 exact candidate 上取得 two-pass GO。
 - [ ] 冻结 exact candidate H/tree 和 `RUNNABLE_MINIMUM` receipt。
 
 ## 停止条件

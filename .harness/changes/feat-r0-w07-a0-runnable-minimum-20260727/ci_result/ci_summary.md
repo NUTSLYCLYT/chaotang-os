@@ -25,8 +25,11 @@
 review envelope `6a2ffefc...` 的两路 independent review 为 `NO-GO`；主控确认的
 全部适用 HIGH/MEDIUM 已完成第六轮 TDD remediation 并通过上述 fresh evidence。
 implementation candidate `5d5ff747850ee161a1b39af849f39a0732be15d9`, tree
-`cf6a25089c69fe70961ae6d8f3972065923a605e` 已冻结；状态是
-`INDEPENDENT_REVIEW_PENDING`，不得整合。
+`cf6a25089c69fe70961ae6d8f3972065923a605e` 已冻结。review envelope
+`492703ce9b6f89d57f5ac0b07082289426ed6b5e`, tree
+`6a2f5d859a1c4e6119e4d55e327823505895e9e7` 的两路 fresh review 均为
+`NO-GO`，合并 `HIGH 3 / MEDIUM 5 / LOW 1`；状态是
+`REVIEWED_NO_GO / SCOPE_AMENDMENT_REQUIRED`，不得整合。
 
 ## 全仓既有 Residual
 
@@ -63,9 +66,9 @@ implementation candidate `5d5ff747850ee161a1b39af849f39a0732be15d9`, tree
 | real backend synthetic flow | Playwright real JWT flow | PASS |
 | no deployment or 3050 operation | isolated 3002/8081 config and report | PASS |
 | sixth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
-| independent review | fresh two-pass read-only review | PENDING |
+| independent review | fresh two-pass read-only review | NO-GO |
 | exact implementation candidate | `5d5ff747...` / `cf6a2508...` | PASS |
 
 ## 声明状态
 
-- `IMPLEMENTATION_CANDIDATE_FROZEN / INDEPENDENT_REVIEW_PENDING / NOT_DEPLOYED`
+- `REVIEWED_NO_GO / SCOPE_AMENDMENT_REQUIRED / NOT_DEPLOYED`
