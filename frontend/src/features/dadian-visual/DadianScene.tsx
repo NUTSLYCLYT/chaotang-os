@@ -10,6 +10,7 @@ import {
 import type { DadianOverview } from "../../lib/backendClient";
 import { CourtCapabilityButton } from "../court-visuals/CourtCapabilityButton";
 import { ImmersiveCourtShell } from "../court-visuals/ImmersiveCourtShell";
+import { createDadianViewModel } from "./dadianViewModel";
 import styles from "./DadianScene.module.css";
 
 type HotspotTone = "green" | "amber" | "blue" | "violet";
@@ -38,9 +39,10 @@ type DevHotspot =
 const DEV_HOTSPOTS: readonly DevHotspot[] = [
   { id: "gongbu", label: "工部", post: "营造 · 修缮 · 基建", kind: "department", department: "工部", tone: "green", x: 21.7, y: 38.6 },
   { id: "hubu", label: "户部", post: "财政 · 度支 · 资源", kind: "department", department: "户部", tone: "amber", x: 30, y: 30.4 },
-  { id: "shibu", label: "史部", post: "考绩 · 任免 · 文档", kind: "department", department: "吏部", tone: "green", x: 34.1, y: 23.6 },
+  { id: "libu-personnel", label: "吏部", post: "考绩 · 任免 · 文档", kind: "department", department: "吏部", tone: "green", x: 34.1, y: 23.6 },
   { id: "libu", label: "礼部", post: "礼仪 · 公文 · 对外", kind: "department", department: "礼部", tone: "green", x: 41.6, y: 26.5 },
   { id: "prime", label: "丞相", post: "总揽 · 会辅 · 裁断", kind: "unavailable", tone: "amber", x: 50.7, y: 28.6 },
+  { id: "xingbu", label: "刑部", post: "律令 · 刑名 · 审断", kind: "department", department: "刑部", tone: "violet", x: 55.8, y: 35.2 },
   { id: "bingbu", label: "兵部", post: "戍卫 · 情势 · 边务", kind: "department", department: "兵部", tone: "green", x: 60.7, y: 26.5 },
   { id: "jinyiwei", label: "锦衣卫", post: "情报 · 侦缉 · 暗访", kind: "unavailable", tone: "blue", x: 68.3, y: 23.6 },
   { id: "qintianjian", label: "钦天监", post: "天象 · 历法 · 预测", kind: "unavailable", tone: "violet", x: 73.1, y: 30.4 },
@@ -69,7 +71,7 @@ export function DadianScene({
   onDepartmentChange,
   onRetry,
 }: DadianSceneProps) {
-  const isEmpty = overview?.replyCount === 0;
+  const view = createDadianViewModel({ overview, error });
 
   return (
     <ImmersiveCourtShell
@@ -93,7 +95,7 @@ export function DadianScene({
           <span className={styles.heroRule} aria-hidden="true" />
         </header>
 
-        {error ? (
+        {view.state === "error" ? (
           <section
             className={`${styles.stateCard} ${styles.errorCard}`}
             data-dadian-state="error"
@@ -102,13 +104,13 @@ export function DadianScene({
             <span className={styles.stateSeal} aria-hidden="true">!</span>
             <div>
               <h2>回奏暂未呈上</h2>
-              <p>{error}</p>
+              <p>{view.blockingError}</p>
             </div>
             <button className={styles.retryButton} type="button" onClick={onRetry}>
               重试读取
             </button>
           </section>
-        ) : overview === null ? (
+        ) : view.state === "loading" ? (
           <section
             className={styles.stateCard}
             data-dadian-state="loading"
@@ -120,11 +122,23 @@ export function DadianScene({
               <p>大殿正在向同源史馆概览核对当前数据…</p>
             </div>
           </section>
-        ) : (
+        ) : view.overview !== null ? (
           <section
             className={styles.dashboard}
-            data-dadian-state={isEmpty ? "empty" : "ready"}
+            data-dadian-state={view.state}
           >
+            {view.nonBlockingError ? (
+              <div
+                className={styles.errorBanner}
+                data-dadian-error="nonblocking"
+                role="alert"
+              >
+                <span>{view.nonBlockingError} 当前继续展示上次成功读取的数据。</span>
+                <button className={styles.retryButton} type="button" onClick={onRetry}>
+                  重试读取
+                </button>
+              </div>
+            ) : null}
             <aside className={styles.focusCard}>
               <div className={styles.panelHeading}>
                 <span aria-hidden="true">♛</span>
@@ -133,15 +147,15 @@ export function DadianScene({
                   <small>御前要务</small>
                 </div>
               </div>
-              <p className={styles.focusText}>{overview.todayFocus}</p>
+              <p className={styles.focusText}>{view.overview.todayFocus}</p>
               <div className={styles.focusMetrics}>
                 <p>
                   <span>已归档回奏</span>
-                  <strong>{overview.replyCount}</strong>
+                  <strong>{view.overview.replyCount}</strong>
                 </p>
                 <p>
                   <span>待复盘</span>
-                  <strong>{overview.pendingReviewCount}</strong>
+                  <strong>{view.overview.pendingReviewCount}</strong>
                 </p>
               </div>
               <CourtCapabilityButton
@@ -161,7 +175,7 @@ export function DadianScene({
                   onChange={(event) => onDepartmentChange(event.target.value)}
                 >
                   <option value="">全部真实回奏</option>
-                  {overview.departmentCounts.map((item) => (
+                  {view.departmentOptions.map((item) => (
                     <option key={item.department} value={item.department}>
                       {item.department}（{item.count}）
                     </option>
@@ -173,9 +187,9 @@ export function DadianScene({
                 {DEV_HOTSPOTS.map((hotspot) => {
                   const count =
                     hotspot.kind === "department"
-                      ? overview.departmentCounts.find(
+                      ? view.departmentOptions.find(
                           (item) => item.department === hotspot.department,
-                        )?.count ?? 0
+                        )?.count
                       : null;
                   return (
                     <MinisterHotspot
@@ -187,7 +201,7 @@ export function DadianScene({
                         department === hotspot.department
                       }
                       onSelect={() => {
-                        if (hotspot.kind === "department") {
+                        if (hotspot.kind === "department" && count !== undefined) {
                           onDepartmentChange(
                             department === hotspot.department ? "" : hotspot.department,
                           );
@@ -208,7 +222,7 @@ export function DadianScene({
                 <span>{department || "全部部门"}</span>
               </div>
 
-              {overview.recentReplies.length === 0 ? (
+              {view.replies.length === 0 ? (
                 <div className={styles.emptyState} aria-live="polite">
                   <strong>暂无真实回奏</strong>
                   <p>
@@ -219,17 +233,17 @@ export function DadianScene({
                 </div>
               ) : (
                 <ul className={styles.replyList}>
-                  {overview.recentReplies.map((reply) => (
+                  {view.replies.map((reply) => (
                     <li key={reply.id}>
                       <div className={styles.replyTitle}>
                         <strong>{reply.title}</strong>
                         <time dateTime={reply.replyTime}>{reply.replyTime}</time>
                       </div>
-                      <p>{reply.replyConclusion}</p>
+                      <p>{reply.conclusion}</p>
                       <small>
                         {reply.respondent}
                         <span aria-hidden="true"> · </span>
-                        {reply.participatingDepartments.join("、")}
+                        {reply.departments.join("、")}
                       </small>
                     </li>
                   ))}
@@ -237,7 +251,7 @@ export function DadianScene({
               )}
             </section>
           </section>
-        )}
+        ) : null}
       </div>
     </ImmersiveCourtShell>
   );
@@ -250,7 +264,7 @@ function MinisterHotspot({
   onSelect,
 }: {
   hotspot: DevHotspot;
-  count: number | null;
+  count: number | null | undefined;
   selected: boolean;
   onSelect(): void;
 }) {
@@ -273,7 +287,8 @@ function MinisterHotspot({
   useEffect(() => clearCloseTimer, [clearCloseTimer]);
 
   const edge = hotspot.x < 25 ? "left" : hotspot.x > 68 ? "right" : "center";
-  const status = count === null ? "暂无数据" : `${count} 条回奏`;
+  const status =
+    count === null ? "暂无数据" : count === undefined ? "未返回" : `${count} 条回奏`;
   const tooltipId = `dadian-hotspot-${hotspot.id}-tooltip`;
   const statusColor = TONE_COLORS[hotspot.tone];
 
@@ -285,7 +300,9 @@ function MinisterHotspot({
       data-tooltip-open={tipOpen || undefined}
       type="button"
       aria-pressed={hotspot.kind === "department" ? selected : undefined}
-      aria-disabled={hotspot.kind === "unavailable" || undefined}
+      aria-disabled={
+        hotspot.kind === "unavailable" || count === undefined || undefined
+      }
       aria-describedby={tooltipId}
       style={{
         "--hotspot-x": `${hotspot.x}%`,
@@ -315,10 +332,14 @@ function MinisterHotspot({
         <span>{hotspot.post}</span>
         {hotspot.kind === "department" ? (
           <>
-            <span>真实归档回奏 {count} 条</span>
+            <span>
+              {count === undefined
+                ? "本次概览未返回该部门计数"
+                : `真实归档回奏 ${count} 条`}
+            </span>
             <em>
-              {hotspot.label === "史部"
-                ? "沿用 dev 席位名；当前数据来自吏部"
+              {count === undefined
+                ? "装饰席位不用于推断真实计数"
                 : selected
                   ? "再次选择可清除筛选"
                   : "选择以筛选真实回奏"}

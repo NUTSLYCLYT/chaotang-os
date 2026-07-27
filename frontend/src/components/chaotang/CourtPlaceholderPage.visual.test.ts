@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("protected court placeholders select only dev visual shells and keep the honest preparation state", async () => {
+test("protected court entries select their current visual shells and keep honest states", async () => {
   const source = await readFile(new URL("./CourtPlaceholderPage.tsx", import.meta.url), "utf8");
   const css = await readFile(new URL("./CourtPlaceholderPage.module.css", import.meta.url), "utf8");
   const dadian = await readFile(new URL("../../app/dadian/page.tsx", import.meta.url), "utf8");
@@ -23,7 +23,8 @@ test("protected court placeholders select only dev visual shells and keep the ho
   assert.match(css, /junjichu\.webp/);
   assert.match(css, /assets\/liubu\.webp/);
   assert.match(css, /zhuanshu/);
-  assert.match(dadian, /variant="dadian"/);
+  assert.match(dadian, /DadianOverviewClient/);
+  assert.doesNotMatch(dadian, /CourtPlaceholderPage|variant="dadian"|CourtShell/);
   assert.match(junjichu, /variant="junjichu"/);
   assert.match(liubu, /MinistryOverview/);
   assert.match(zhuanshu, /variant="zhuanshu"/);

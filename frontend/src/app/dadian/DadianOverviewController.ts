@@ -16,6 +16,8 @@ export interface DadianOverviewViewState {
 
 export interface DadianOverviewController {
   getState(): DadianOverviewViewState;
+  load(department?: string): Promise<void>;
+  abort(): void;
   loadInitial(): Promise<void>;
   selectDepartment(department: string): Promise<void>;
   retry(): Promise<void>;
@@ -162,7 +164,7 @@ export function createDadianOverviewController({
     onStateChange(state);
   };
 
-  const load = async (department: string, publishLoading: boolean) => {
+  const loadOverview = async (department: string, publishLoading: boolean) => {
     const lastKnownGood = state.overview;
     activeRequest?.abort();
     const request = new AbortController();
@@ -215,15 +217,19 @@ export function createDadianOverviewController({
     }
   };
 
+  const abort = () => {
+    requestSequence += 1;
+    activeRequest?.abort();
+    activeRequest = null;
+  };
+
   return {
     getState: () => state,
-    loadInitial: () => load("", false),
-    selectDepartment: (department) => load(department, true),
-    retry: () => load(state.department, true),
-    dispose: () => {
-      requestSequence += 1;
-      activeRequest?.abort();
-      activeRequest = null;
-    },
+    load: (department = state.department) => loadOverview(department, true),
+    abort,
+    loadInitial: () => loadOverview("", false),
+    selectDepartment: (department) => loadOverview(department, true),
+    retry: () => loadOverview(state.department, true),
+    dispose: abort,
   };
 }

@@ -110,6 +110,29 @@ test("controller aborts rapid switches and accepts only the latest response", as
   assert.equal(controller.getState().overview?.recentReplies[0]?.title, "最新兵部");
 });
 
+test("controller exposes load and abort as real request controls", async () => {
+  const pending = deferred<Response>();
+  let signal: AbortSignal | undefined;
+  const controller = createDadianOverviewController({
+    fetch: async (_input, init) => {
+      signal = init?.signal;
+      return pending.promise;
+    },
+    navigate: () => assert.fail("an aborted request must not navigate"),
+    onStateChange: () => undefined,
+  });
+
+  const request = controller.load("刑部");
+  assert.equal(controller.getState().department, "刑部");
+  assert.equal(signal?.aborted, false);
+
+  controller.abort();
+  assert.equal(signal?.aborted, true);
+  pending.resolve(successResponse(overview(1, [{ department: "刑部", count: 1 }], "过期")));
+  await request;
+  assert.equal(controller.getState().overview, null);
+});
+
 test("controller retries the current filter and sends a backend 401 to login", async () => {
   const requests: string[] = [];
   const navigations: string[] = [];

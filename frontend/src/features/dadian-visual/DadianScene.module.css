@@ -118,10 +118,37 @@
 
 .filterBar {
   position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
+  z-index: 12;
+  top: 152px;
+  right: 24px;
+  display: flex;
+  width: min(300px, calc(100% - 48px));
+  box-sizing: border-box;
+  flex-direction: column;
+  gap: 8px;
+  padding: 13px 15px;
+  border: 1px solid rgba(240, 198, 106, 0.3);
+  border-radius: 12px;
+  background: rgba(7, 12, 22, 0.78);
+  color: #d8c08a;
+  pointer-events: auto;
+  backdrop-filter: blur(14px);
+}
+
+.filterBar label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.filterBar select {
+  min-height: 38px;
+  width: 100%;
+  border: 1px solid rgba(240, 198, 106, 0.42);
+  border-radius: 6px;
+  background: rgba(11, 17, 28, 0.95);
+  color: #f5e9c9;
+  font: inherit;
 }
 
 .focusCard {
@@ -387,29 +414,122 @@
 
 .replyDock {
   position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  border: 0;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
+  z-index: 11;
+  right: 24px;
+  bottom: 22px;
+  width: min(560px, calc(100% - 48px));
+  max-height: min(350px, 40vh);
+  box-sizing: border-box;
+  padding: 16px;
+  border: 1px solid rgba(240, 198, 106, 0.3);
+  border-radius: 14px;
+  overflow-y: auto;
+  background: rgba(7, 12, 22, 0.86);
+  color: #f5e9c9;
+  pointer-events: auto;
+  backdrop-filter: blur(16px);
+}
+
+.dockHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.dockHeading p,
+.dockHeading h2 {
+  margin: 0;
+}
+
+.dockHeading p {
+  color: #938a77;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.dockHeading h2 {
+  margin-top: 3px;
+  font-family: "STKaiti", "KaiTi", serif;
+  font-size: 1.05rem;
+}
+
+.dockHeading > span {
+  flex: none;
+  padding: 3px 8px;
+  border: 1px solid rgba(240, 198, 106, 0.26);
+  border-radius: 999px;
+  color: #d8c08a;
+  font-size: 0.66rem;
+}
+
+.emptyState p {
+  margin: 5px 0 0;
+  color: #a99f8c;
+  line-height: 1.55;
 }
 
 .replyList {
+  display: grid;
+  gap: 10px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+.replyList li {
+  padding: 11px 12px;
+  border: 1px solid rgba(240, 198, 106, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
 .replyTitle {
   display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   gap: 12px;
 }
 
+.replyTitle time,
+.replyList small {
+  color: #a99f8c;
+  font-size: 0.66rem;
+}
+
 .replyList p {
+  margin: 8px 0;
+  color: #d9d0bc;
+  line-height: 1.55;
   overflow-wrap: anywhere;
   white-space: normal;
+}
+
+.errorBanner {
+  position: absolute;
+  z-index: 32;
+  top: 92px;
+  right: 24px;
+  left: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  border: 1px solid rgba(228, 126, 91, 0.5);
+  border-radius: 8px;
+  background: rgba(45, 18, 14, 0.9);
+  color: #f3c3ad;
+  font-size: 0.76rem;
+  pointer-events: auto;
+}
+
+.errorBanner .retryButton {
+  min-height: 32px;
+  padding: 4px 12px;
 }
 
 .stateCard {
@@ -565,6 +685,14 @@
     margin-top: 18px;
   }
 
+  .filterBar {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: 100%;
+    margin-bottom: 14px;
+  }
+
   .hotspots {
     position: relative;
     inset: auto;
@@ -600,6 +728,25 @@
     top: 180px;
     grid-template-columns: auto minmax(0, 1fr);
     transform: translateX(-50%);
+  }
+
+  .errorBanner {
+    position: relative;
+    top: auto;
+    right: auto;
+    left: auto;
+    flex-direction: column;
+    margin-bottom: 14px;
+    text-align: center;
+  }
+
+  .replyDock {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    width: 100%;
+    max-height: none;
+    margin-top: 18px;
   }
 
   .retryButton {
