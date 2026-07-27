@@ -171,6 +171,36 @@ def test_unknown_or_inconsistent_facts_fail_closed(facts: ContractTaskFacts) -> 
     assert resolution.blockers
 
 
+@pytest.mark.parametrize(
+    "task_status",
+    [
+        "task_cancelled",
+        "draft_cancelled",
+        "direct_completed",
+        "rejected",
+        "execution_failed",
+    ],
+)
+def test_terminal_task_status_never_exposes_actions(task_status: str) -> None:
+    resolution = resolve_contract_task_actions(
+        ContractTaskFacts(
+            task_status=task_status,
+            mission_state="CONFIRMED",
+            source_class="ADJUDICABLE",
+            evidence_ready=True,
+            review_pack_ready=True,
+            review_verdict="PROCEED_TO_HUMAN_APPROVAL",
+            final_status="READY_FOR_DECISION",
+            delivery_status="READY",
+            downloadable_count=3,
+            delivery_complete=True,
+        )
+    )
+
+    assert resolution.allowed_actions == ()
+    assert resolution.blockers == ("STATE_INCONSISTENT",)
+
+
 def test_under_review_delivery_reports_integrity_failure() -> None:
     resolution = resolve_contract_task_actions(
         ContractTaskFacts(

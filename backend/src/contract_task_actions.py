@@ -26,12 +26,22 @@ DecisionStatus = Literal[
     "REJECTED",
     "REQUEST_EVIDENCE",
 ]
+_TERMINAL_TASK_STATUSES = frozenset(
+    {
+        "task_cancelled",
+        "draft_cancelled",
+        "direct_completed",
+        "rejected",
+        "execution_failed",
+    }
+)
 
 
 @dataclass(frozen=True)
 class ContractTaskFacts:
     mission_state: MissionState
     source_class: SourceClass
+    task_status: str = ""
     evidence_ready: bool = False
     review_pack_ready: bool = False
     review_verdict: ContractVerdict | None = None
@@ -74,6 +84,8 @@ def _review_verdict_blocker(
 def resolve_contract_task_actions(
     facts: ContractTaskFacts,
 ) -> ContractTaskActionResolution:
+    if facts.task_status in _TERMINAL_TASK_STATUSES:
+        return _resolution(blockers=("STATE_INCONSISTENT",))
     if facts.source_class == "UNKNOWN":
         return _resolution(blockers=("STATE_INCONSISTENT",))
     if facts.source_class == "FALLBACK":

@@ -1379,10 +1379,34 @@
             "title": "Legal Question",
             "type": "string"
           },
+          "mission_content_digest": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mission Content Digest"
+          },
           "mission_contract_id": {
             "minLength": 1,
             "title": "Mission Contract Id",
             "type": "string"
+          },
+          "mission_revision": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mission Revision"
           },
           "our_role": {
             "enum": [

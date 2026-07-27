@@ -105,12 +105,15 @@ def _mission(task_id: str) -> MissionContractV1:
 
 
 def _review_pack(tenant_id: int, task_id: str) -> dict:
+    mission = _mission(task_id)
     return {
         "schema_version": "ContractReviewPackV1",
         "review_pack_id": f"pack-{task_id}",
         "tenant_id": str(tenant_id),
         "task_id": task_id,
         "mission_contract_id": task_id,
+        "mission_revision": mission.revision,
+        "mission_content_digest": mission.content_digest,
         "court_review_id": f"review-{task_id}",
         "evidence_packet_ids": ["evidence-synthetic-contract-v1"],
         "jurisdiction": "CN_MAINLAND",

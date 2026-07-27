@@ -210,6 +210,33 @@ function compareSnapshots(previous, current) {
   return { mode: 'diff_checked', breaking, warnings };
 }
 
+function additiveOptionalProperties(previousSchema, currentSchema) {
+  const previousProperties = previousSchema?.properties;
+  const currentProperties = currentSchema?.properties;
+  if (
+    !previousProperties
+    || !currentProperties
+    || typeof previousProperties !== 'object'
+    || typeof currentProperties !== 'object'
+  ) {
+    return null;
+  }
+  const previousKeys = new Set(Object.keys(previousProperties));
+  const added = Object.keys(currentProperties)
+    .filter((key) => !previousKeys.has(key))
+    .sort();
+  if (!added.length) return null;
+  const currentRequired = new Set(currentSchema.required || []);
+  if (added.some((key) => currentRequired.has(key))) return null;
+
+  const normalizedCurrent = structuredClone(currentSchema);
+  for (const key of added) delete normalizedCurrent.properties[key];
+  return JSON.stringify(sortObject(previousSchema))
+    === JSON.stringify(sortObject(normalizedCurrent))
+    ? added
+    : null;
+}
+
 export function compareContracts(previousOpenApi, currentOpenApi) {
   const previousSnapshot = buildRouteSnapshot(previousOpenApi);
   const currentSnapshot = buildRouteSnapshot(currentOpenApi);
@@ -229,10 +256,22 @@ export function compareContracts(previousOpenApi, currentOpenApi) {
       JSON.stringify(sortObject(schema))
       !== JSON.stringify(sortObject(currentSchemas[name]))
     ) {
-      breaking.push({
-        type: 'component_schema_changed',
-        key: name,
-      });
+      const added = additiveOptionalProperties(
+        schema,
+        currentSchemas[name],
+      );
+      if (added) {
+        warnings.push({
+          type: 'component_optional_properties_added',
+          key: name,
+          properties: added,
+        });
+      } else {
+        breaking.push({
+          type: 'component_schema_changed',
+          key: name,
+        });
+      }
     }
   }
   for (const name of Object.keys(currentSchemas).sort()) {

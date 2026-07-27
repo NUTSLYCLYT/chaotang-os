@@ -191,14 +191,17 @@ def _verified_pack(
     require_r0_review_pack_binding(identity, pack)
     if pack.court_review_id != final.review_id:
         raise ValueError("review pack court review identity mismatch")
-    if mission is not None and (
-        pack.jurisdiction != mission.jurisdiction
+    if (
+        mission is None
+        or pack.mission_revision != mission.revision
+        or pack.mission_content_digest != mission.content_digest
+        or pack.jurisdiction != mission.jurisdiction
         or pack.language != mission.language
         or pack.contract_type != mission.contract_type
         or pack.our_role != mission.our_role
         or pack.legal_question != mission.legal_question
     ):
-        raise ValueError("mission and review pack business scope mismatch")
+        raise ValueError("mission and review pack identity mismatch")
     return memorial_payload, pack
 
 
@@ -280,10 +283,18 @@ def _delivery_projection(
         return None, "DELIVERY_INTEGRITY_FAILED"
     manifest = access.manifest
     artifacts: list[PublicArtifactItemV1] = []
+    now = datetime.now(timezone.utc)
     for item in access.items:
-        public_status = "UNAVAILABLE" if item.status == "EXPIRED" else item.status
+        clock_expired = (
+            item.expires_at is not None and item.expires_at <= now
+        )
+        public_status = (
+            "UNAVAILABLE"
+            if item.status == "EXPIRED" or clock_expired
+            else item.status
+        )
         incomplete_reason = item.incomplete_reason
-        if item.status == "EXPIRED" and not incomplete_reason:
+        if public_status == "UNAVAILABLE" and not incomplete_reason:
             incomplete_reason = "expired"
         artifacts.append(
             PublicArtifactItemV1(
@@ -429,14 +440,17 @@ def project_contract_task(
         else:
             if not _has_authoritative_review(db, task=task, final=final):
                 projection_blockers.append("LINEAGE_CONFLICT")
-            final_view = FinalMemorialIdentityV1(
-                final_memorial_id=final.id,
-                final_memorial_version=final.version,
-                final_memorial_content_hash=final.content_hash,
-                court_review_id=final.review_id,
-                status=final.status,
-                source_label=final.source_label,
-            )
+                final_payload = None
+                pack = None
+            else:
+                final_view = FinalMemorialIdentityV1(
+                    final_memorial_id=final.id,
+                    final_memorial_version=final.version,
+                    final_memorial_content_hash=final.content_hash,
+                    court_review_id=final.review_id,
+                    status=final.status,
+                    source_label=final.source_label,
+                )
 
     delivery = None
     if final is not None and pack is not None:
@@ -478,6 +492,7 @@ def project_contract_task(
             ContractTaskFacts(
                 mission_state=mission_state,
                 source_class=source_class,
+                task_status=task.status,
                 evidence_ready=_evidence_ready(
                     db,
                     task=task,

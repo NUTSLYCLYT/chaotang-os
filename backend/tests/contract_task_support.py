@@ -53,6 +53,8 @@ def contract_review_pack(
     *,
     tenant_id: str = "7",
     mission_contract_id: str | None = None,
+    mission_revision: int | None = None,
+    mission_content_digest: str | None = None,
     court_review_id: str | None = None,
     risk_items: list[dict[str, Any]] | None = None,
     source_labels: list[str] | None = None,
@@ -60,12 +62,17 @@ def contract_review_pack(
     quality_gate_status: str = "PASSED",
     verdict: str = "PROCEED_TO_HUMAN_APPROVAL",
 ) -> dict[str, Any]:
+    mission = contract_mission(task_id)
     return {
         "schema_version": "ContractReviewPackV1",
         "review_pack_id": f"pack-{task_id}",
         "tenant_id": tenant_id,
         "task_id": task_id,
         "mission_contract_id": mission_contract_id or task_id,
+        "mission_revision": mission_revision or mission.revision,
+        "mission_content_digest": (
+            mission_content_digest or mission.content_digest
+        ),
         "court_review_id": court_review_id or f"review-{task_id}",
         "evidence_packet_ids": ["evidence-1"],
         "jurisdiction": "CN_MAINLAND",

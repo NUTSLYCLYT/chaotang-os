@@ -4,8 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
 import ShiguanDrawer from './ShiguanDrawer';
 import { ShiguanArchiveIndexPanel } from './ShiguanArchiveIndexPanel';
+import GlassPanel from './GlassPanel';
 import { ShiguanReviewRecallPanel } from './ShiguanReviewRecallPanel';
 import { ShiguanScrollPanel } from './ShiguanScrollPanel';
+import { ShiguanSourceBadge } from './ShiguanSourceBadge';
 import { ShiguanThreeColumnLayout } from './ShiguanThreeColumnLayout';
 import { chaotang } from '@/lib/api/chaotang';
 import { withBasePath } from '@/lib/base-path';
@@ -244,12 +246,18 @@ export default function ShiguanPage() {
               )
             }
             right={
-              <ShiguanReviewRecallPanel
-                detail={selectedDetail}
-                lessons={lessons}
-                similarCases={similarCases}
-                onRetroUpdate={handleRetroUpdate}
-              />
+              exactContractDetail ? (
+                <ExactContractArchiveAuditPanel
+                  detail={exactContractDetail}
+                />
+              ) : (
+                <ShiguanReviewRecallPanel
+                  detail={selectedDetail}
+                  lessons={lessons}
+                  similarCases={similarCases}
+                  onRetroUpdate={handleRetroUpdate}
+                />
+              )
             }
           />
         </div>
@@ -257,5 +265,61 @@ export default function ShiguanPage() {
 
       <ShiguanDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </div>
+  );
+}
+
+function ExactContractArchiveAuditPanel({
+  detail,
+}: {
+  detail: NonNullable<ReturnType<typeof buildContractArchiveDetail>>;
+}) {
+  return (
+    <GlassPanel
+      title="归档审计"
+      eyebrow="Read-only Audit"
+      className="flex h-full min-h-0 flex-col"
+      bodyClassName="min-h-0 flex-1 overflow-y-auto"
+    >
+      <div
+        className="space-y-3 text-[11px] leading-5 text-slatey-300"
+        data-testid="contract-archive-audit-panel"
+      >
+        <section className="rounded border border-emerald-400/16 bg-emerald-400/[0.045] p-3">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <div className="text-[10px] text-emerald-200/75">
+                只读审计
+              </div>
+              <div className="mt-1 text-[13px] font-semibold text-jade-100">
+                精确 ArchiveReceipt 回放
+              </div>
+            </div>
+            <ShiguanSourceBadge sourceLabel={detail.sourceLabel} />
+          </div>
+          <p className="mt-2">
+            此视图只展示已验证归档事实，不提供复盘写入或后续裁决动作。
+          </p>
+        </section>
+
+        <dl className="space-y-2 rounded border border-gold-300/12 bg-white/[0.03] p-3">
+          <div>
+            <dt className="text-[10px] text-gold-200/70">Archive ID</dt>
+            <dd className="mt-0.5 break-all font-mono text-jade-100">
+              {detail.id}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[10px] text-gold-200/70">结论</dt>
+            <dd className="mt-0.5 text-jade-100">{detail.conclusion}</dd>
+          </div>
+          <div>
+            <dt className="text-[10px] text-gold-200/70">审计链节点</dt>
+            <dd className="mt-0.5 text-jade-100">
+              {detail.decisionChain.length}
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </GlassPanel>
   );
 }

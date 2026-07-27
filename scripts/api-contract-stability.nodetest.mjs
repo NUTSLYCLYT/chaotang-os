@@ -89,3 +89,31 @@ test('detects component schema content changes behind a stable ref', () => {
     'component_schema_changed',
   ]);
 });
+
+test('allows additive optional component properties without repinning', () => {
+  const base = {
+    paths: {},
+    components: {
+      schemas: {
+        Example: {
+          type: 'object',
+          properties: { value: { type: 'string' } },
+          required: ['value'],
+        },
+      },
+    },
+  };
+  const current = structuredClone(base);
+  current.components.schemas.Example.properties.optional_identity = {
+    anyOf: [{ type: 'string' }, { type: 'null' }],
+  };
+
+  const diff = compareContracts(base, current);
+
+  assert.deepEqual(diff.breaking, []);
+  assert.deepEqual(diff.warnings, [{
+    type: 'component_optional_properties_added',
+    key: 'Example',
+    properties: ['optional_identity'],
+  }]);
+});

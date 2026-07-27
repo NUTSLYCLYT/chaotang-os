@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 import docx
 from sqlalchemy import func, text
 
+from src.contract_mission_repository import load_current_mission_snapshot
 from src.contracts.contract_lineage_identity import (
     ContractLineageIdentityV1,
     require_r0_review_pack_binding,
@@ -127,6 +128,7 @@ def recompute_contract_review(
         raise ValueError("rework generation 缺少 EvidencePacket")
 
     task = db.query(DecisionTask).filter_by(id=event.task_id).one()
+    mission_snapshot = load_current_mission_snapshot(db, task=task)
     review = (
         db.query(CourtReview)
         .filter_by(task_id=event.task_id)
@@ -231,6 +233,16 @@ def recompute_contract_review(
         tenant_id=str(event.tenant_id),
         task_id=event.task_id,
         mission_contract_id=event.task_id,
+        mission_revision=(
+            mission_snapshot.mission.revision
+            if mission_snapshot is not None
+            else None
+        ),
+        mission_content_digest=(
+            mission_snapshot.mission.content_digest
+            if mission_snapshot is not None
+            else None
+        ),
         court_review_id=review.id,
         evidence_packet_ids=[packet.evidence_packet_id for packet in packets],
         jurisdiction=scope.jurisdiction or "UNSUPPORTED_OR_UNKNOWN",

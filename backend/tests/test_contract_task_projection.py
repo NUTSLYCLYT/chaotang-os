@@ -1,9 +1,18 @@
 from __future__ import annotations
 
+import json
+from datetime import datetime, timedelta, timezone
+
 from src.artifacts.delivery import render_one_artifact
+from src.contract_mission_repository import save_mission_snapshot
 from src.contract_task_projection import project_contract_task
-from src.db.models import ArtifactDeliveryItem, CourtReview
+from src.contracts.artifact_manifest import (
+    ArtifactManifestV1,
+    canonical_manifest_hash,
+)
+from src.db.models import ArtifactDeliveryItem, ArtifactManifest, CourtReview
 from tests.contract_task_support import (
+    contract_mission,
     contract_review_pack,
     seed_contract_task,
     seed_delivery,
@@ -75,6 +84,9 @@ def test_missing_persisted_review_blocks_decide_projection(
 
     assert model.allowed_actions == []
     assert "LINEAGE_CONFLICT" in {item.code for item in model.blockers}
+    assert model.review_pack is None
+    assert model.final_memorial is None
+    assert model.delivery is None
 
 
 def test_mission_and_review_pack_business_scope_must_match(
@@ -99,6 +111,46 @@ def test_mission_and_review_pack_business_scope_must_match(
         model = project_contract_task(db, storage_root=tmp_path, task=task)
 
     assert model.review_pack is None
+    assert model.delivery is None
+    assert model.allowed_actions == []
+    assert "LINEAGE_CONFLICT" in {item.code for item in model.blockers}
+
+
+def test_mission_revision_and_digest_must_match_review_pack(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-mission-revised")
+        final, pack = seed_final_memorial(db, task_id=task.id)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        original = contract_mission(task.id)
+        revised = original.model_copy(
+            update={
+                "revision": 2,
+                "goal": original.goal.model_copy(
+                    update={"biggest_concern": "修订后的责任边界"}
+                ),
+            }
+        )
+        save_mission_snapshot(
+            db,
+            task=task,
+            mission=revised,
+            state="confirmed",
+        )
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.review_pack is None
+    assert model.final_memorial is None
     assert model.delivery is None
     assert model.allowed_actions == []
     assert "LINEAGE_CONFLICT" in {item.code for item in model.blockers}
@@ -151,6 +203,67 @@ def test_expired_w06_artifact_projects_typed_fail_closed_delivery(
             .one()
         )
         expired.state = "EXPIRED"
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    expired_public = next(
+        item for item in model.delivery.artifacts if item.kind == "PDF"
+    )
+    assert expired_public.status == "UNAVAILABLE"
+    assert expired_public.incomplete_reason == "expired"
+    assert expired_public.download_url is None
+    assert model.delivery.overall_status == "UNDER_REVIEW"
+    assert model.allowed_actions == []
+    assert "DELIVERY_INTEGRITY_FAILED" in {
+        item.code for item in model.blockers
+    }
+
+
+def test_clock_expired_stored_artifact_projects_unavailable(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-clock-expired-artifact")
+        final, pack = seed_final_memorial(db, task_id=task.id)
+        delivery = seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        manifest_row = db.get(ArtifactManifest, delivery.manifest.manifest_id)
+        manifest = ArtifactManifestV1.model_validate_json(
+            manifest_row.manifest_json
+        )
+        past = datetime.now(timezone.utc) - timedelta(minutes=1)
+        artifacts = [
+            (
+                item.model_copy(update={"expires_at": past})
+                if item.kind == "PDF"
+                else item
+            )
+            for item in manifest.artifacts
+        ]
+        expired_manifest = manifest.model_copy(update={"artifacts": artifacts})
+        manifest_row.manifest_json = json.dumps(
+            expired_manifest.model_dump(mode="json"),
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        manifest_row.content_hash = canonical_manifest_hash(expired_manifest)
+        expired_row = (
+            db.query(ArtifactDeliveryItem)
+            .filter_by(
+                manifest_id=delivery.manifest.manifest_id,
+                kind="PDF",
+            )
+            .one()
+        )
+        expired_row.expires_at = past.isoformat()
         db.commit()
 
         model = project_contract_task(db, storage_root=tmp_path, task=task)

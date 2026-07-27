@@ -12,6 +12,8 @@ function reviewPack(
     tenant_id: '7',
     task_id: 'task-1',
     mission_contract_id: 'task-1',
+    mission_revision: 1,
+    mission_content_digest: 'b'.repeat(64),
     court_review_id: 'review-1',
     evidence_packet_ids: ['evidence-1'],
     jurisdiction: 'CN_MAINLAND',
@@ -121,6 +123,7 @@ function readModel(overrides: Record<string, unknown> = {}): Record<string, unkn
       status: 'reviewing',
       source_label: 'LIVE',
       raw_question: '审查采购合同',
+      refined_edict: '识别风险、补证并生成审查包',
     },
     allowed_actions: [],
     blockers: [{ code: 'MISSION_MISSING' }],
@@ -160,6 +163,31 @@ test('fails closed on an unknown blocker', () => {
     ),
     /unknown contract blocker/,
   );
+});
+
+test('fails closed on unknown root, task and blocker fields', () => {
+  const base = readModel();
+  const task = base.task as Record<string, unknown>;
+
+  for (const value of [
+    { ...base, resume_token: 'must-not-cross-boundary' },
+    {
+      ...base,
+      task: { ...task, client_status: 'ready' },
+    },
+    {
+      ...base,
+      blockers: [{
+        code: 'MISSION_MISSING',
+        hidden_action: 'DECIDE',
+      }],
+    },
+  ]) {
+    assert.throws(
+      () => parseContractTaskReadModel(value, 'task-1'),
+      /invalid|unknown/,
+    );
+  }
 });
 
 test('fails closed on an unknown effective source class', () => {
@@ -363,6 +391,27 @@ test('rejects DECIDE when mission and review pack business scope drift', () => {
     ),
     /lineage/,
   );
+});
+
+test('rejects mission revision or digest drift in the review pack', () => {
+  for (const packOverride of [
+    { mission_revision: 2 },
+    { mission_content_digest: 'c'.repeat(64) },
+  ]) {
+    assert.throws(
+      () => parseContractTaskReadModel(
+        readModel({
+          mission: {
+            state: 'CONFIRMED',
+            mission: mission(),
+          },
+          review_pack: reviewPack(packOverride),
+        }),
+        'task-1',
+      ),
+      /lineage/,
+    );
+  }
 });
 
 test('rejects an invalid public delivery shape', () => {

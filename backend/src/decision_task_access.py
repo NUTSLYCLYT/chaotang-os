@@ -13,13 +13,20 @@ from src.db.models import DecisionTask
 
 
 def get_owned_decision_task(
-    db: Session, *, task_id: str, requester_id: str
+    db: Session,
+    *,
+    task_id: str,
+    requester_id: str,
+    requester_tenant_id: int,
 ) -> tuple[DecisionTask | None, str | None]:
-    """Return a formal task only when it belongs to the requester."""
+    """Return a formal task only when both tenant and user own it."""
     decision = db.query(DecisionTask).filter_by(id=task_id).first()
     if decision is None:
         return None, "正式 DecisionTask 不存在"
-    if decision.user_id != requester_id:
+    if (
+        decision.tenant_id != requester_tenant_id
+        or str(decision.user_id) != str(requester_id)
+    ):
         return None, "无权访问他人的 DecisionTask"
     return decision, None
 

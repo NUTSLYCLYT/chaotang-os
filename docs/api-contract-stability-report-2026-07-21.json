@@ -22,6 +22,14 @@
         "key": "GET /api/contracts/tasks/{task_id}/read-model"
       },
       {
+        "type": "component_optional_properties_added",
+        "key": "ContractReviewPackV1",
+        "properties": [
+          "mission_content_digest",
+          "mission_revision"
+        ]
+      },
+      {
         "type": "component_schema_added",
         "key": "ArchiveReceiptV1"
       },

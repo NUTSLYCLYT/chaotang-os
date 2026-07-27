@@ -144,6 +144,8 @@ const REVIEW_PACK_SCHEMA = z.object({
   tenant_id: NON_EMPTY_STRING,
   task_id: NON_EMPTY_STRING,
   mission_contract_id: NON_EMPTY_STRING,
+  mission_revision: z.number().int().min(1),
+  mission_content_digest: z.string().regex(/^[0-9a-f]{64}$/),
   court_review_id: NON_EMPTY_STRING,
   evidence_packet_ids: z.array(NON_EMPTY_STRING).min(1),
   jurisdiction: CONTRACT_JURISDICTION,
@@ -212,11 +214,70 @@ const PUBLIC_DELIVERY_KEYS = new Set([
   'overall_status',
   'resume_token_expires_at',
 ]);
+const ROOT_KEYS = new Set([
+  'schema_version',
+  'read_revision',
+  'generated_at',
+  'source_class',
+  'task',
+  'mission',
+  'review_pack',
+  'final_memorial',
+  'delivery',
+  'archive_receipt',
+  'allowed_actions',
+  'blockers',
+]);
+const TASK_KEYS = new Set([
+  'task_id',
+  'tenant_id',
+  'status',
+  'source_label',
+  'raw_question',
+  'refined_edict',
+]);
+const BLOCKER_KEYS = new Set(['code', 'detail']);
+const FINAL_MEMORIAL_KEYS = new Set([
+  'final_memorial_id',
+  'final_memorial_version',
+  'final_memorial_content_hash',
+  'court_review_id',
+  'status',
+  'source_label',
+]);
+const ARCHIVE_RECEIPT_KEYS = new Set([
+  'archive_id',
+  'task_id',
+  'final_memorial_id',
+  'final_memorial_version',
+  'final_memorial_content_hash',
+  'archived_at',
+  'source_label',
+]);
+const PUBLIC_ARTIFACT_KEYS = new Set([
+  'artifact_id',
+  'kind',
+  'mime_type',
+  'byte_size',
+  'content_hash',
+  'lineage_hash',
+  'status',
+  'incomplete_reason',
+  'expires_at',
+  'download_url',
+]);
 
 function record(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
     : null;
+}
+
+function hasOnlyKeys(
+  value: Record<string, unknown>,
+  allowed: ReadonlySet<string>,
+): boolean {
+  return Object.keys(value).every((key) => allowed.has(key));
 }
 
 function nonEmptyString(value: unknown): value is string {
@@ -256,6 +317,7 @@ function validReviewPack(value: unknown): boolean {
 function validTask(value: unknown): boolean {
   const task = record(value);
   return task !== null
+    && hasOnlyKeys(task, TASK_KEYS)
     && nonEmptyString(task.task_id)
     && Number.isInteger(task.tenant_id)
     && Number(task.tenant_id) > 0
@@ -292,6 +354,7 @@ function validDelivery(value: unknown): boolean {
   return delivery.artifacts.every((value) => {
     const item = record(value);
     return item !== null
+      && hasOnlyKeys(item, PUBLIC_ARTIFACT_KEYS)
       && nonEmptyString(item.artifact_id)
       && ['PDF', 'DOCX', 'JSON'].includes(String(item.kind))
       && nonEmptyString(item.mime_type)
@@ -325,6 +388,7 @@ function validArchiveReceipt(value: unknown): boolean {
   if (value === null || value === undefined) return true;
   const receipt = record(value);
   return receipt !== null
+    && hasOnlyKeys(receipt, ARCHIVE_RECEIPT_KEYS)
     && nonEmptyString(receipt.archive_id)
     && nonEmptyString(receipt.task_id)
     && nonEmptyString(receipt.final_memorial_id)
@@ -340,6 +404,7 @@ function validFinalMemorial(value: unknown): boolean {
   if (value === null || value === undefined) return true;
   const final = record(value);
     return final !== null
+    && hasOnlyKeys(final, FINAL_MEMORIAL_KEYS)
     && nonEmptyString(final.final_memorial_id)
     && Number.isInteger(final.final_memorial_version)
     && Number(final.final_memorial_version) >= 1
@@ -380,7 +445,9 @@ function hasExactLineage(model: Record<string, unknown>): boolean {
       || (
         mission
         && (
-          pack.jurisdiction !== mission.jurisdiction
+          pack.mission_revision !== mission.revision
+          || pack.mission_content_digest !== mission.content_digest
+          || pack.jurisdiction !== mission.jurisdiction
           || pack.language !== mission.language
           || pack.contract_type !== mission.contract_type
           || pack.our_role !== mission.our_role
@@ -489,6 +556,7 @@ export function parseContractTaskReadModel(
   const model = record(value);
   if (
     !model
+    || !hasOnlyKeys(model, ROOT_KEYS)
     || model.schema_version !== 'ContractTaskReadModelV1'
     || !sha256(model.read_revision)
     || !isoTimestamp(model.generated_at)
@@ -507,7 +575,12 @@ export function parseContractTaskReadModel(
   }
   for (const value of model.blockers) {
     const blocker = record(value);
-    if (!blocker || typeof blocker.code !== 'string' || !BLOCKER_SET.has(blocker.code)) {
+    if (
+      !blocker
+      || !hasOnlyKeys(blocker, BLOCKER_KEYS)
+      || typeof blocker.code !== 'string'
+      || !BLOCKER_SET.has(blocker.code)
+    ) {
       throw new Error(`unknown contract blocker: ${String(blocker?.code)}`);
     }
   }

@@ -266,7 +266,9 @@ export type ContractReviewPackV1 = {
   "jurisdiction": "CN_MAINLAND" | "UNSUPPORTED_OR_UNKNOWN";
   "language": "zh-CN" | "UNSUPPORTED_OR_UNKNOWN";
   "legal_question": "contract_risk_screening" | "UNSUPPORTED_OR_UNKNOWN";
+  "mission_content_digest"?: string | null;
   "mission_contract_id": string;
+  "mission_revision"?: number | null;
   "our_role": "buyer" | "seller" | "service_provider" | "other_party" | "UNSUPPORTED_OR_UNKNOWN";
   "quality_gate_status": "PENDING" | "PASSED" | "FAILED";
   "review_pack_id": string;

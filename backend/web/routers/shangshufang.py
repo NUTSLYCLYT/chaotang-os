@@ -84,8 +84,11 @@ _POLISH_FORBIDDEN_WORDS = ("军机处", "会审", "六部", "蜂群", "任务单
 _CONTRACT_FINAL_ACTIONS = frozenset({"adopt", "approve", "archive", "reject"})
 _CONTRACT_REQUIRED_READ_ACTIONS = {
     **{action: "DECIDE" for action in _CONTRACT_FINAL_ACTIONS},
+    "request_evidence": "DECIDE",
+    "followup": "DECIDE",
     "recheck": "REFRESH_REVIEW",
 }
+_CONTRACT_DENIED_DECISION_ACTIONS = frozenset({"cancel"})
 
 
 class DraftEdictRequest(BaseModel):
@@ -865,18 +868,20 @@ def _execute_final_memorial_decision(
     )
     from src.contract_mission_repository import MISSION_LOOP_ID
 
+    has_contract_mission = (
+        db.query(CourtLoopRun.id)
+        .filter_by(task_id=task.id, loop_id=MISSION_LOOP_ID)
+        .first()
+        is not None
+    )
+    has_contract_review_pack = (
+        isinstance(formal_payload, dict)
+        and "contract_review" in formal_payload
+    )
     is_contract_task = (
         task.contract_scope_json is not None
-        or (
-            db.query(CourtLoopRun.id)
-            .filter_by(task_id=task.id, loop_id=MISSION_LOOP_ID)
-            .first()
-            is not None
-        )
-        or (
-            isinstance(formal_payload, dict)
-            and "contract_review" in formal_payload
-        )
+        or has_contract_mission
+        or has_contract_review_pack
     )
     if is_contract_task:
         authoritative_review_id = (
@@ -917,6 +922,39 @@ def _execute_final_memorial_decision(
         review = authoritative_review
 
     evidence_actions = {"request_evidence", "followup"}
+    if action in evidence_actions and expected_content_hash:
+        existing = _existing_evidence_rework_generation(
+            db,
+            task_id=task.id,
+            prior_final_memorial_content_hash=expected_content_hash,
+            reason=reason,
+            followup_question=followup_question,
+        )
+        if existing is not None:
+            return _replayed_evidence_rework_result(existing)
+
+    if has_contract_mission or has_contract_review_pack:
+        if action in _CONTRACT_DENIED_DECISION_ACTIONS:
+            raise ValueError(f"{action} not authorized for contract tasks")
+        required_read_action = _CONTRACT_REQUIRED_READ_ACTIONS.get(action)
+        if required_read_action is None:
+            raise ValueError(f"{action} not authorized for contract tasks")
+
+        from src.contract_task_projection import project_contract_task
+        from src.runtime_paths import resolve_runtime_paths
+
+        read_model = project_contract_task(
+            db,
+            storage_root=resolve_runtime_paths().root / "artifacts",
+            task=task,
+        )
+        if required_read_action not in read_model.allowed_actions:
+            blockers = ",".join(item.code for item in read_model.blockers)
+            raise ValueError(
+                f"{required_read_action} not allowed for current contract facts: "
+                f"{blockers}"
+            )
+
     if action in evidence_actions:
         from src.execution.decree_dispatcher import lock_evidence_rework_task
         from src.w05_feature import require_w05_contract_rework
@@ -942,23 +980,6 @@ def _execute_final_memorial_decision(
         "request_evidence": "awaiting_evidence",
         "followup": "awaiting_evidence",
     }.get(action)
-    required_read_action = _CONTRACT_REQUIRED_READ_ACTIONS.get(action)
-    if required_read_action is not None:
-        from src.contract_task_projection import project_contract_task
-        from src.runtime_paths import resolve_runtime_paths
-
-        if is_contract_task:
-            read_model = project_contract_task(
-                db,
-                storage_root=resolve_runtime_paths().root / "artifacts",
-                task=task,
-            )
-            if required_read_action not in read_model.allowed_actions:
-                blockers = ",".join(item.code for item in read_model.blockers)
-                raise ValueError(
-                    f"{required_read_action} not allowed for current contract facts: "
-                    f"{blockers}"
-                )
     if current_formal is not None and action in formal_actions:
         if not expected_content_hash:
             label = "补证" if action in evidence_actions else "裁决"

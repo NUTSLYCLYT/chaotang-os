@@ -231,6 +231,72 @@ def test_contract_recheck_requires_server_refresh_review_before_any_write(
         assert _decision_state(db, task_id) == before
 
 
+@pytest.mark.parametrize("action", ["request_evidence", "followup"])
+def test_contract_evidence_action_requires_server_decide_before_any_write(
+    action,
+    monkeypatch,
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    task_id = f"task-api-evidence-gate-{action}"
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id=task_id)
+        final, _ = seed_final_memorial(db, task_id=task.id)
+        content_hash = final.content_hash
+        db.commit()
+        before = _decision_state(db, task_id)
+
+    client, app = _client(monkeypatch, isolated_session_local, tmp_path)
+    try:
+        response = client.post(
+            f"/api/shangshufang/tasks/{task_id}/decision",
+            json={
+                "action": action,
+                "reason": "服务端未开放 DECIDE 时不得退回补证",
+                "human_confirmed": True,
+                "expected_final_memorial_content_hash": content_hash,
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert "DECIDE" in response.json()["error"]
+    with isolated_session_local() as db:
+        assert _decision_state(db, task_id) == before
+
+
+def test_contract_cancel_is_not_authorized_before_any_write(
+    monkeypatch,
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    task_id = "task-api-cancel-gate"
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id=task_id)
+        seed_final_memorial(db, task_id=task.id)
+        db.commit()
+        before = _decision_state(db, task_id)
+
+    client, app = _client(monkeypatch, isolated_session_local, tmp_path)
+    try:
+        response = client.post(
+            f"/api/shangshufang/tasks/{task_id}/decision",
+            json={
+                "action": "cancel",
+                "reason": "合同任务没有服务端 cancel authority",
+                "human_confirmed": True,
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert "not authorized" in response.json()["error"]
+    with isolated_session_local() as db:
+        assert _decision_state(db, task_id) == before
+
+
 def test_contract_brief_decision_requires_server_decide_before_any_write(
     monkeypatch,
     isolated_session_local,
@@ -486,7 +552,10 @@ def test_legacy_memorial_caller_rejects_missing_exact_persisted_review(
     monkeypatch.setattr(
         chaotang_router,
         "get_owned_decision_task",
-        lambda db, *, task_id, requester_id: (db.get(DecisionTask, task_id), None),
+        lambda db, *, task_id, requester_id, requester_tenant_id: (
+            db.get(DecisionTask, task_id),
+            None,
+        ),
     )
     db_engine_module = importlib.import_module("src.db.engine")
     monkeypatch.setattr(db_engine_module, "SessionLocal", isolated_session_local)

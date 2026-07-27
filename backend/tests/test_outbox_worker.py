@@ -685,6 +685,7 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
 
     from fastapi.testclient import TestClient
 
+    from src.contract_mission_repository import save_mission_snapshot
     from src.db.models import (
         CourtReview,
         DecisionTask,
@@ -695,6 +696,7 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
         SwarmRun,
     )
     from src.formal_memorial import formalize_memorial
+    from tests.contract_task_support import contract_mission
     from tests.fixtures.secure_ingest_fixtures import golden_docx_bytes
     from web.main import app
 
@@ -812,6 +814,13 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
     assert bound["success"] is True, bound
 
     worker_db = isolated_session_local()
+    worker_task = worker_db.get(DecisionTask, task_id)
+    save_mission_snapshot(
+        worker_db,
+        task=worker_task,
+        mission=contract_mission(task_id),
+        state="confirmed",
+    )
     if interruption is not None:
         import src.contract_rework as contract_rework
 
@@ -898,6 +907,13 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
     assert versions[1].status == "ready_for_decision"
     assert versions[1].is_current is True
     assert versions[1].supersedes_id == versions[0].id
+    current_pack = json.loads(versions[1].memorial_json)["contract_review"]
+    current_mission = contract_mission(task_id)
+    assert current_pack["mission_revision"] == current_mission.revision
+    assert (
+        current_pack["mission_content_digest"]
+        == current_mission.content_digest
+    )
     assert db.query(SwarmRun).filter_by(id=versions[1].swarm_run_id).one()
     assert (
         db.query(SwarmQualityResult)

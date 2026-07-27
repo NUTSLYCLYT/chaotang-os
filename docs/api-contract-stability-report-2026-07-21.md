@@ -11,7 +11,7 @@
 | Baseline schemas | 184 |
 | Route count | 362 |
 | Breaking changes | 0 |
-| Warnings | 9 |
+| Warnings | 10 |
 
 ## Artifacts
 
@@ -28,6 +28,7 @@ None.
 | Type | Key |
 | --- | --- |
 | route_added | GET /api/contracts/tasks/{task_id}/read-model |
+| component_optional_properties_added | ContractReviewPackV1 |
 | component_schema_added | ArchiveReceiptV1 |
 | component_schema_added | ContractTaskBlockerV1 |
 | component_schema_added | ContractTaskIdentityV1 |
