@@ -11,7 +11,7 @@
 - [x] 完成 `docs/superpowers/plans/2026-07-27-r0-w07-a0-contract-bridge.md`。
 - [x] 自审 placeholder、接口一致性、W08/W09 越界和 file ownership。
 - [x] 运行 authority、root/backend doctor、diff check。
-- [ ] 冻结 non-authorizing design candidate H/tree。
+- [x] 冻结 non-authorizing design candidate H/tree。
 - [ ] 请求 Product Owner 对后续 implementation exact scope 批准。
 
 ## 后续 Implementation Packet：尚未授权
