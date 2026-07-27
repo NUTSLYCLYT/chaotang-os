@@ -1,13 +1,15 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { isAbsolute, join } from "node:path";
+import { isAbsolute, join, posix } from "node:path";
 
 const MANIFEST_PATH = join(
   "docs",
   "migrations",
   "2026-07-27-only-worktree-dispositions.json",
 );
+const EXPECTED_SOURCE_HEAD = "df037478d50f4681103a4d62de4f959e51a55856";
+const EXPECTED_RESTORE_COMMIT = "734b0aad07eb9b48469e9263e24cdd68fee1c4e4";
 const EXPECTED_COUNTS = Object.freeze({
   total: 108,
   modified: 43,
@@ -43,8 +45,23 @@ const SOURCE_LAYERS = new Set([
 const DISPOSITIONS = new Set(["integrated", "superseded", "rejected"]);
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const GIT_COMMIT_PATTERN = /^[0-9a-f]{40,64}$/;
-const GENERIC_REASON_PATTERN =
-  /^(?:n\/a|none|not needed|obsolete|unused|rejected|superseded|todo|pending)$/i;
+const PLACEHOLDER_AUDIT_PATTERN =
+  /\b(?:pending|placeholder|generic|todo|tbd|later)\b/i;
+const GENERIC_AUDIT_PATTERN =
+  /^(?:n\/a|none|not needed|obsolete|unused|rejected|superseded|verified|checked|done|complete|completed|reviewed|verification)\.?$/i;
+const DISPOSITION_REASON_PATTERNS = Object.freeze({
+  integrated: /\b(?:integrat\w*|migrat\w*|restor\w*|implement\w*)\b/i,
+  superseded: /\b(?:supersed\w*|replac\w*|equivalent|newer)\b/i,
+  rejected: /\b(?:reject\w*|violat\w*|forbid\w*|invariant|contract)\b/i,
+});
+const DISPOSITION_VERIFICATION_PATTERNS = Object.freeze({
+  integrated:
+    /\b(?:integrat\w*|target|test\w*|check\w*|sha-?256|build|lint)\b/i,
+  superseded:
+    /\b(?:supersed\w*|equivalent|replacement|target|test\w*|check\w*|sha-?256)\b/i,
+  rejected:
+    /\b(?:reject\w*|invariant|contract|test\w*|check\w*|sha-?256)\b/i,
+});
 
 function canonicalJson(value) {
   if (Array.isArray(value)) {
@@ -95,10 +112,10 @@ function isSafeRelativePath(path) {
   return (
     typeof path === "string" &&
     path.length > 0 &&
+    path !== "." &&
     !isAbsolute(path) &&
     !path.includes("\\") &&
-    !path.startsWith("./") &&
-    !path.split("/").includes("..")
+    posix.normalize(path) === path
   );
 }
 
@@ -180,15 +197,42 @@ function validateEntry(entry, index, targetRoot, errors) {
     errors.push(`${label}.verification must contain at least one non-empty check`);
   }
 
-  if (!DISPOSITIONS.has(entry.disposition) || !Array.isArray(entry.targetPaths)) {
+  if (
+    !DISPOSITIONS.has(entry.disposition) ||
+    !Array.isArray(entry.targetPaths) ||
+    typeof entry.reason !== "string" ||
+    !Array.isArray(entry.verification)
+  ) {
     return;
   }
-  const reason = typeof entry.reason === "string" ? entry.reason.trim() : "";
+  const reason = entry.reason.trim();
   if (
-    (entry.disposition === "superseded" || entry.disposition === "rejected") &&
-    (reason.length === 0 || GENERIC_REASON_PATTERN.test(reason))
+    reason.length === 0 ||
+    PLACEHOLDER_AUDIT_PATTERN.test(reason) ||
+    GENERIC_AUDIT_PATTERN.test(reason) ||
+    !DISPOSITION_REASON_PATTERNS[entry.disposition].test(reason)
   ) {
-    errors.push(`${label} needs a contract-specific ${entry.disposition} reason`);
+    errors.push(
+      `${label} needs a disposition-specific auditable ${entry.disposition} reason`,
+    );
+  }
+  for (const verification of entry.verification) {
+    if (
+      typeof verification !== "string" ||
+      verification.trim().length === 0
+    ) {
+      continue;
+    }
+    const auditText = verification.trim();
+    if (
+      PLACEHOLDER_AUDIT_PATTERN.test(auditText) ||
+      GENERIC_AUDIT_PATTERN.test(auditText) ||
+      !DISPOSITION_VERIFICATION_PATTERNS[entry.disposition].test(auditText)
+    ) {
+      errors.push(
+        `${label}.verification needs disposition-specific auditable content`,
+      );
+    }
   }
   if (entry.disposition === "rejected" && entry.targetPaths.length !== 0) {
     errors.push(`${label} rejected entries must not name target paths`);
@@ -215,7 +259,7 @@ function validateEntry(entry, index, targetRoot, errors) {
   }
 }
 
-function validateManifest(manifest, targetRoot) {
+function validateManifest(manifest, targetRoot, enforceFrozenCommits) {
   const errors = [];
   if (!checkExactKeys(manifest, TOP_LEVEL_KEYS, "manifest", errors)) {
     return errors;
@@ -225,6 +269,19 @@ function validateManifest(manifest, targetRoot) {
   }
   if (!GIT_COMMIT_PATTERN.test(manifest.restoreCommit ?? "")) {
     errors.push("manifest.restoreCommit must be a lowercase Git object ID");
+  }
+  if (enforceFrozenCommits && manifest.sourceHead !== EXPECTED_SOURCE_HEAD) {
+    errors.push(
+      `manifest.sourceHead drift: expected ${EXPECTED_SOURCE_HEAD}, got ${manifest.sourceHead}`,
+    );
+  }
+  if (
+    enforceFrozenCommits &&
+    manifest.restoreCommit !== EXPECTED_RESTORE_COMMIT
+  ) {
+    errors.push(
+      `manifest.restoreCommit drift: expected ${EXPECTED_RESTORE_COMMIT}, got ${manifest.restoreCommit}`,
+    );
   }
   if (!SHA256_PATTERN.test(manifest.canonicalInventorySha256 ?? "")) {
     errors.push("manifest.canonicalInventorySha256 must be a lowercase SHA-256");
@@ -403,7 +460,7 @@ function main() {
     return;
   }
 
-  const errors = validateManifest(manifest, targetRoot);
+  const errors = validateManifest(manifest, targetRoot, !options.sourceWorktree);
   if (options.sourceWorktree && Array.isArray(manifest.entries)) {
     errors.push(...validateSourceWorktree(manifest, options.sourceWorktree));
   }

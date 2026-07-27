@@ -18,6 +18,8 @@ import test from "node:test";
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const checkerPath = join(repositoryRoot, "scripts", "check_migration_completeness.mjs");
 const temporaryRoots = [];
+const expectedSourceHead = "df037478d50f4681103a4d62de4f959e51a55856";
+const expectedRestoreCommit = "734b0aad07eb9b48469e9263e24cdd68fee1c4e4";
 
 function git(root, args) {
   return execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
@@ -149,8 +151,8 @@ function buildSourceFixture() {
       sourceSha256: sourceContents === null ? null : sha256(sourceContents),
       disposition: "rejected",
       targetPaths: [],
-      reason: `Violates the fixture invariant for ${path}`,
-      verification: ["fixture contract verification"],
+      reason: `Rejected because the fixture contract forbids importing ${path}`,
+      verification: [`Verified rejection against fixture-contract/${path}`],
     };
   });
 
@@ -198,6 +200,13 @@ function clone(value) {
   return structuredClone(value);
 }
 
+function defaultManifest() {
+  const manifest = clone(sourceFixture.manifest);
+  manifest.sourceHead = expectedSourceHead;
+  manifest.restoreCommit = expectedRestoreCommit;
+  return manifest;
+}
+
 function writeManifest(root, manifest) {
   const path = join(
     root,
@@ -237,7 +246,7 @@ test.after(() => {
 const sourceFixture = buildSourceFixture();
 
 test("accepts a complete 108-entry fixture in default mode", () => {
-  const target = makeTarget(clone(sourceFixture.manifest));
+  const target = makeTarget(defaultManifest());
   const result = runChecker(target);
   assert.equal(result.status, 0, result.stderr || result.stdout);
 });
@@ -323,7 +332,9 @@ const invalidCases = [
 
 for (const invalidCase of invalidCases) {
   test(`rejects ${invalidCase.name}`, () => {
-    const manifest = clone(sourceFixture.manifest);
+    const manifest = invalidCase.sourceMode
+      ? clone(sourceFixture.manifest)
+      : defaultManifest();
     invalidCase.mutate?.(manifest);
     const target = makeTarget(manifest);
     invalidCase.prepareTarget?.(target, manifest);
@@ -342,9 +353,110 @@ for (const invalidCase of invalidCases) {
 }
 
 test("rejects unknown manifest keys", () => {
-  const manifest = clone(sourceFixture.manifest);
+  const manifest = defaultManifest();
   manifest.unexpected = true;
   const target = makeTarget(manifest);
   const result = runChecker(target);
   assert.notEqual(result.status, 0, "checker unexpectedly accepted an unknown key");
 });
+
+test("rejects pending metadata disguised as a rejected disposition", () => {
+  const manifest = defaultManifest();
+  Object.assign(manifest.entries[0], {
+    disposition: "rejected",
+    reason: "Pending semantic disposition by migration Tasks 2-7.",
+    verification: [
+      "Pending target-path and contract verification in migration Tasks 2-7.",
+    ],
+  });
+  refreshInventoryHash(manifest);
+  const target = makeTarget(manifest);
+  const result = runChecker(target);
+  assert.notEqual(result.status, 0, "checker accepted pending disposition metadata");
+});
+
+const invalidAuditDetails = [
+  {
+    name: "placeholder reason",
+    reason: "Placeholder rejection reason for later review.",
+    verification: ["Verified rejection against fixture-contract/file-0"],
+  },
+  {
+    name: "generic reason",
+    reason: "Generic rejection reason.",
+    verification: ["Verified rejection against fixture-contract/file-0"],
+  },
+  {
+    name: "non-specific reason",
+    reason: "This old file is unnecessary.",
+    verification: ["Verified rejection against fixture-contract/file-0"],
+  },
+  {
+    name: "pending verification",
+    reason: "Rejected because the fixture contract forbids this file.",
+    verification: ["Pending target-path verification."],
+  },
+  {
+    name: "placeholder verification",
+    reason: "Rejected because the fixture contract forbids this file.",
+    verification: ["Placeholder verification for later."],
+  },
+  {
+    name: "generic verification",
+    reason: "Rejected because the fixture contract forbids this file.",
+    verification: ["Verified."],
+  },
+  {
+    name: "non-specific verification",
+    reason: "Rejected because the fixture contract forbids this file.",
+    verification: ["Reviewed by the migration team."],
+  },
+];
+
+for (const invalidDetail of invalidAuditDetails) {
+  test(`rejects ${invalidDetail.name}`, () => {
+    const manifest = defaultManifest();
+    Object.assign(manifest.entries[0], {
+      reason: invalidDetail.reason,
+      verification: invalidDetail.verification,
+    });
+    refreshInventoryHash(manifest);
+    const target = makeTarget(manifest);
+    const result = runChecker(target);
+    assert.notEqual(result.status, 0, `checker accepted ${invalidDetail.name}`);
+  });
+}
+
+test("rejects default source HEAD drift", () => {
+  const manifest = defaultManifest();
+  manifest.sourceHead = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  const target = makeTarget(manifest);
+  const result = runChecker(target);
+  assert.notEqual(result.status, 0, "checker accepted source HEAD drift");
+});
+
+test("rejects default restore commit drift", () => {
+  const manifest = defaultManifest();
+  manifest.restoreCommit = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  const target = makeTarget(manifest);
+  const result = runChecker(target);
+  assert.notEqual(result.status, 0, "checker accepted restore commit drift");
+});
+
+const invalidPosixPaths = [
+  ["dot segment", "foo/./bar"],
+  ["empty segment", "foo//bar"],
+  ["repository dot", "."],
+  ["normalized alias", "foo/../bar"],
+];
+
+for (const [name, path] of invalidPosixPaths) {
+  test(`rejects POSIX ${name} path`, () => {
+    const manifest = defaultManifest();
+    manifest.entries[0].path = path;
+    refreshInventoryHash(manifest);
+    const target = makeTarget(manifest);
+    const result = runChecker(target);
+    assert.notEqual(result.status, 0, `checker accepted POSIX ${name} path`);
+  });
+}
