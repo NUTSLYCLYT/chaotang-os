@@ -142,12 +142,13 @@ Codex `NO-GO` verdicts:
 | missing exact review | current final 存在时 `review=None` 或 review id drift 均在写前拒绝 | direct writer + endpoint tests |
 | malformed boundary | Zod 校验 mission/review pack，hash/time/delivery shape fail closed | parser tests |
 | contradictory DECIDE | 仅 confirmed + passed/proceed + READY + no blocker 可消费 DECIDE | parser state test |
+| incomplete READY | DECIDE/REOPEN 要求 PDF/DOCX/JSON 恰好三种且全部 STORED/downloadable | parser packet test |
 | source normalization | `LIVE_ENGINE` 在 exact Shiguan readback 保持 `LIVE` | archive test |
 | loading-window action | `useSearchParams` 首帧识别；footer/modal/handler 同步阻断 | delayed-read Playwright |
 | child evidence drift | exact rerun 和 focused `26 passed` 回写 child Packet | child CI/E2E summaries |
 
 当前状态：implementation candidate
-`b12b0db4fecda88f7a5f44cc2205a8bb534cae2f`, tree
-`8df6679495f46006d9d9e70ccd05d141b3f393cb` 已冻结；状态为
+`4eaab7cc31480c24caa8c4b3277d34f3c152d68c`, tree
+`3458c262e00f6769000a877a9a3bbf34011965b6` 已冻结；状态为
 `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING`。
 本文件不预判下一候选的独立审查结论。

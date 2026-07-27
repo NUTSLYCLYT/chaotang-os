@@ -11,7 +11,7 @@
 
 ## 结果
 
-- latest focused Node 26 passed；TypeScript exit 0；Next real-mode build exit 0。
+- latest focused Node 27 passed；TypeScript exit 0；Next real-mode build exit 0。
 - OpenAPI fixed baseline `ed822255...`：362 routes / 0 breaking / 9 additions；
   连跑两次报告与 route snapshot hash 不变。
 - latest remediation Playwright 1 passed，覆盖 delayed initial read、READY reload、
