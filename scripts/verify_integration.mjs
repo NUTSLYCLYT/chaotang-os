@@ -6,10 +6,10 @@
  * as OS-level child processes and exercises two scenarios end-to-end:
  *
  *   1. Success path: backend and frontend both running, frontend pointed at
- *      the live backend via `BACKEND_BASE_URL`. Asserts the frontend home
- *      page renders the backend-healthy marker.
+ *      the live backend via `BACKEND_BASE_URL`. Asserts the public home page
+ *      remains the WelcomeGate and `/health` renders the backend-healthy marker.
  *   2. Failure path: backend not started at all, frontend pointed at an
- *      unused port. Asserts the frontend home page renders a graceful
+ *      unused port. Asserts `/health` renders a graceful
  *      "backend unavailable" marker (not a 500 / crash).
  *
  * Written in plain Node.js (no bash) on purpose so behaviour is identical on
@@ -201,6 +201,35 @@ function startFrontend(port, backendBaseUrl) {
   return new ManagedProcess("frontend", child);
 }
 
+function createPageAsserter(frontendPort, frontend) {
+  return async function assertPage(pathname, { contains, excludes } = {}) {
+    const url = `http://127.0.0.1:${frontendPort}${pathname}`;
+    const response = await waitForHttp(url).catch((error) => {
+      throw new Error(`前端页面 ${pathname} 未能就绪：${error.message}\n${frontend.describeForError()}`);
+    });
+    if (response.status !== 200) {
+      throw new Error(
+        `前端页面 ${pathname} 返回非 200 状态码：${response.status}\n` +
+          frontend.describeForError(),
+      );
+    }
+
+    const html = await response.text();
+    if (contains && !html.includes(contains)) {
+      throw new Error(
+        `前端页面 ${pathname} 缺少 ${JSON.stringify(contains)}，页面片段：${html.slice(0, 800)}\n` +
+          frontend.describeForError(),
+      );
+    }
+    if (excludes && html.includes(excludes)) {
+      throw new Error(
+        `前端页面 ${pathname} 不应包含 ${JSON.stringify(excludes)}，页面片段：${html.slice(0, 800)}\n` +
+          frontend.describeForError(),
+      );
+    }
+  };
+}
+
 async function runSuccessScenario() {
   log("场景一（成功路径）：启动后端 + 前端指向它 ...");
   const backendPort = await getFreePort();
@@ -213,23 +242,10 @@ async function runSuccessScenario() {
     });
 
     frontend = startFrontend(frontendPort, `http://127.0.0.1:${backendPort}`);
-    const response = await waitForHttp(`http://127.0.0.1:${frontendPort}/`).catch((error) => {
-      throw new Error(`前端未能就绪：${error.message}\n${frontend.describeForError()}`);
-    });
-
-    if (response.status !== 200) {
-      throw new Error(
-        `前端首页返回非 200 状态码：${response.status}\n${frontend.describeForError()}`,
-      );
-    }
-    const html = await response.text();
-    if (!html.includes('data-backend-ok="true"') || !html.includes("后端状态")) {
-      throw new Error(
-        `前端首页未体现「后端健康」信息，页面片段：${html.slice(0, 800)}\n` +
-          frontend.describeForError(),
-      );
-    }
-    log("场景一通过：前端首页体现后端健康状态。");
+    const assertPage = createPageAsserter(frontendPort, frontend);
+    await assertPage("/", { contains: "WelcomeGate", excludes: "data-backend-ok" });
+    await assertPage("/health", { contains: 'data-backend-ok="true"' });
+    log("场景一通过：首页保持 WelcomeGate，健康页体现后端健康状态。");
   } finally {
     if (frontend) await frontend.kill();
     await backend.kill();
@@ -243,24 +259,10 @@ async function runFailureScenario() {
   const frontendPort = await getFreePort();
   const frontend = startFrontend(frontendPort, `http://127.0.0.1:${unreachableBackendPort}`);
   try {
-    const response = await waitForHttp(`http://127.0.0.1:${frontendPort}/`).catch((error) => {
-      throw new Error(`前端未能就绪：${error.message}\n${frontend.describeForError()}`);
-    });
-
-    if (response.status !== 200) {
-      throw new Error(
-        `前端首页在后端不可用时返回非 200 状态码：${response.status}\n` +
-          frontend.describeForError(),
-      );
-    }
-    const html = await response.text();
-    if (!html.includes('data-backend-ok="false"') || !html.includes("后端不可用")) {
-      throw new Error(
-        `前端首页未体现「后端不可用」的优雅降级，页面片段：${html.slice(0, 800)}\n` +
-          frontend.describeForError(),
-      );
-    }
-    log("场景二通过：前端首页体现后端不可用，且未 500 / 崩溃。");
+    const assertPage = createPageAsserter(frontendPort, frontend);
+    await assertPage("/", { contains: "WelcomeGate", excludes: "data-backend-ok" });
+    await assertPage("/health", { contains: 'data-backend-ok="false"' });
+    log("场景二通过：首页保持 WelcomeGate，健康页优雅体现后端不可用。");
   } finally {
     await frontend.kill();
   }

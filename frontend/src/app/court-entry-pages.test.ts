@@ -9,6 +9,8 @@ const pages = [
   ["liubu/page.tsx", "/liubu", undefined, /MinistryOverviewClient/, /MinistryOverviewClient/],
   ["liubu/[code]/page.tsx", "/liubu/", undefined, /MinistryOverviewClient/, /MinistryOverviewClient/],
   ["liubu/[code]/[office]/page.tsx", "/liubu/", undefined, /MinistryOverviewClient/, /MinistryOverviewClient/],
+  ["shiguan/page.tsx", "/shiguan", undefined, /ShiguanClient/, /ShiguanClient/],
+  ["study/page.tsx", "/study", undefined, /StudyClient/, /StudyClient/],
   ["zhuanshu/page.tsx", "/zhuanshu", "专署", /CourtPlaceholderPage/, /CourtShell/],
   ["zhuanshu/jinyiwei/page.tsx", "/zhuanshu/jinyiwei", "锦衣卫", /CourtPlaceholderPage/, /CourtShell/],
   ["zhuanshu/jinyiwei/[signalId]/page.tsx", "/zhuanshu/jinyiwei/", undefined, /CourtPlaceholderPage/, /CourtShell/],
@@ -52,4 +54,14 @@ test("junjichu and liubu routes delegate to their read-only controllers", async 
   assert.doesNotMatch(junjichuSource, /CourtPlaceholderPage/);
   assert.match(liubuSources, /MinistryOverviewClient|resolveMinistryRoute/);
   assert.doesNotMatch(liubuSources, /department-demo|DepartmentDemo/);
+});
+
+test("Shiguan and Study entries delegate to their migrated workspace clients", async () => {
+  const shiguanClient = await readFile(new URL("./shiguan/ShiguanClient.tsx", import.meta.url), "utf8");
+  const studyClient = await readFile(new URL("./study/StudyClient.tsx", import.meta.url), "utf8");
+
+  assert.match(shiguanClient, /import\s+\{\s*ShiguanWorkspace\s*\}/);
+  assert.match(shiguanClient, /<ShiguanWorkspace\b/);
+  assert.match(studyClient, /import\s+\{\s*DevStudyWorkspace\s*\}/);
+  assert.match(studyClient, /<DevStudyWorkspace\b/);
 });
