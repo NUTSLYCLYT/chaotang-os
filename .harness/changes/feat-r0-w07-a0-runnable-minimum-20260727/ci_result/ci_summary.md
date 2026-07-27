@@ -4,9 +4,9 @@
 
 | 命令 | 退出码 | 结果 | 证据覆盖范围 | 证据位置 / 时间 |
 | --- | ---: | --- | --- | --- |
-| `python3 -m pytest -q tests/test_contract*.py tests/test_artifact_delivery*.py ... tests/test_shangshufang_loop_api.py` | 0 | 302 passed, 2 skipped | mission、lineage、shared decision writer、brief/legacy、authz、W05/W06 regression | 2026-07-27 |
+| `python3 -m pytest -q tests/test_contract*.py tests/test_artifact_delivery*.py ... tests/test_shangshufang_loop_api.py` | 0 | latest 309 passed, 2 skipped | mission、lineage、shared decision writer、brief/legacy、authz、W05/W06 regression | 2026-07-27 |
 | `ruff check <W07-A0 backend files>` | 0 | All checks passed | Python scope | 2026-07-27 |
-| `pnpm exec tsx --test <contract/shangshufang/shiguan focused files>` | 0 | 24 passed | adapter、request identity、effective source、archive identity、existing-page regression | 2026-07-27 |
+| `pnpm exec tsx --test src/features/contract-review/*.nodetest.ts` | 0 | latest 22 passed | adapter、request/pack/final identity、effective source、archive identity、existing-page regression | 2026-07-27 |
 | `pnpm test:node` | 1 | 1085 passed, 1 failed | canonical frontend residual scan；1 个既有、非本 diff 失败 | 2026-07-27 |
 | `pnpm exec tsx --test src/app/(dashboard)/liubu/page.nodetest.tsx` | 1 | 0 passed, 1 failed | canonical glob 未覆盖的 TSX residual；非本 diff | 2026-07-27 |
 | `pnpm exec tsc --noEmit` | 0 | pass | generated contract and frontend types | 2026-07-27 |
@@ -22,10 +22,10 @@
 
 ## 结果
 
-候选 `ea267d1c...` 的两路 independent review 为 `NO-GO`；主控确认的适用
-HIGH/MEDIUM 已完成第二轮 TDD remediation 并通过上述 fresh evidence。当前工作树尚
-implementation candidate `bea08dd24eef8ac1af89a202e8049f27b22e1382`, tree
-`7f142a30e00a32794000dc290eea397bed077ec8` 已冻结；状态是
+review envelope `4795ebb7...` 的两路 independent review 为 `NO-GO`；主控确认的
+全部 HIGH/MEDIUM 已完成第三轮 TDD remediation 并通过上述 fresh evidence。
+implementation candidate `82c5216e3249121ef9cb6c547074aefbeb12cfd9`, tree
+`d40a1624457f9f6d4211911fc5e6ee5601f9caa7` 已冻结；状态是
 `INDEPENDENT_REVIEW_PENDING`，不得整合。
 
 ## 全仓既有 Residual
@@ -62,9 +62,9 @@ implementation candidate `bea08dd24eef8ac1af89a202e8049f27b22e1382`, tree
 | honest PARTIAL limitation | backend/frontend tests + real browser refresh | PASS |
 | real backend synthetic flow | Playwright real JWT flow | PASS |
 | no deployment or 3050 operation | isolated 3002/8081 config and report | PASS |
-| second remediation | all applicable HIGH/MEDIUM locally closed | PASS |
+| third remediation | all applicable HIGH/MEDIUM locally closed | PASS |
 | independent review | fresh two-pass read-only review | PENDING |
-| exact implementation candidate | `bea08dd2...` / `7f142a30...` | PASS |
+| exact implementation candidate | `82c5216e...` / `d40a1624...` | PASS |
 
 ## 声明状态
 

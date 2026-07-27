@@ -31,6 +31,26 @@ pass 1 的 artifact user-level finding 不适用：W06R 已批准并实现的是
 artifact 与 cross-tenant isolation，见 W06R spec lines 63-74；W07-A0 不擅自引入
 第二层 artifact owner 身份或数据库变更。
 
+## Third Candidate Verdict
+
+Review envelope `4795ebb77a90007225e2d947cd880bd95fc42f7f`, tree
+`8f92ba3e56ccae5dae038cd9a774f4afd039dfae` received two fresh independent
+Codex `NO-GO` verdicts:
+
+- backend pass `019fa3a4-b192-7271-b67c-9216b5a10a7c`:
+  `HIGH 1 / MEDIUM 2 / LOW 0`;
+- frontend pass `019fa3a4-fbdd-7893-810a-887726132f23`:
+  `HIGH 0 / MEDIUM 2 / LOW 1`.
+
+主控逐项复核后确认全部 findings 适用：
+
+1. brief/shared writer 未验证 review tenant 与 exact final lineage；
+2. 非放行 verdict 可被异常既有 receipt 重新投影为有效归档；
+3. 零写入快照只比较状态和行数，未覆盖 review/loop/decision/archive 内容；
+4. 前端 parser 未绑定 pack/final 的 `court_review_id`；
+5. 上书房 ARCHIVED 标签未执行 adjudicable + READY + no blocker 完整 gate；
+6. 浏览器证据未直接断言 legacy 四个裁决按钮均消失。
+
 ## Required Remediation
 
 1. 正式裁决写入口必须消费 server `DECIDE`，不得绕过 delivery/source/mission 门。
@@ -82,8 +102,19 @@ baseline。该批准不扩展到 Checkpoint B、push、部署、数据库迁移�
 | fixed API baseline | 非默认 `API_CONTRACT_BASE_REF` 直接拒绝 | 5 node tests |
 | launcher honesty | 明确记录隔离进程加载 canonical app，seed route 不进 schema | Packet diff |
 
-当前状态：
-implementation candidate `bea08dd24eef8ac1af89a202e8049f27b22e1382`, tree
-`7f142a30e00a32794000dc290eea397bed077ec8` 已冻结；状态为
+## Third Remediation Evidence
+
+| Finding | Remediation | Focused evidence |
+| --- | --- | --- |
+| review ownership/lineage | shared writer 写前校验 task/tenant/current final；brief 校验 task/review/user tenant | cross-tenant + unrelated review API tests |
+| abnormal receipt | receipt 分支要求 `PROCEED_TO_HUMAN_APPROVAL`，否则按 verdict fail closed | four-verdict resolver table |
+| complete zero-write proof | task/final/decision/archive/review/loop 均按完整持久列快照 | mutation-sensitivity + API no-write tests |
+| pack/final lineage | parser 强制相同 `court_review_id` | frontend parser test |
+| ARCHIVED gate | 上书房与史馆统一要求 adjudicable + READY + `REOPEN_ARCHIVE` + no blocker | action-policy tests |
+| single decision entrance | Playwright 直接断言 `准奏/驳回/会审/批示` 四按钮不存在 | real JWT browser 1/1 |
+
+当前状态：implementation candidate
+`82c5216e3249121ef9cb6c547074aefbeb12cfd9`, tree
+`d40a1624457f9f6d4211911fc5e6ee5601f9caa7` 已冻结；状态为
 `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING`。
 本文件不预判下一候选的独立审查结论。
