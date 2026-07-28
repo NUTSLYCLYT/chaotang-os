@@ -14,6 +14,15 @@ RUNNER_PATH = (
     / "scripts"
     / "run_w08_acceptance.py"
 )
+USER_ACCEPTANCE_FIXTURE = (
+    ROOT
+    / "harness"
+    / "chaotang-true-loop"
+    / "product_acceptance"
+    / "user_acceptance"
+    / "fixtures"
+    / "valid_closeout_example.json"
+)
 
 
 def _load_runner():
@@ -285,3 +294,20 @@ def test_w08_closeout_preflight_passes_with_complete_user_acceptance(tmp_path):
     assert result["gates"]["golden_contracts"]["passed"] is True
     assert result["gates"]["browser_flows"]["passed"] is True
     assert result["gates"]["user_acceptance"]["successes"] == 5
+
+
+def test_w08_user_acceptance_fixture_documents_valid_shape_without_claiming_real_evidence():
+    runner = _load_runner()
+
+    assert USER_ACCEPTANCE_FIXTURE.exists()
+    assert "records" not in USER_ACCEPTANCE_FIXTURE.relative_to(
+        ROOT / "harness" / "chaotang-true-loop" / "product_acceptance" / "user_acceptance"
+    ).parts
+
+    user_result = runner.run_user_acceptance(USER_ACCEPTANCE_FIXTURE)
+    preflight_result = runner.run_closeout_preflight(user_acceptance_path=USER_ACCEPTANCE_FIXTURE)
+
+    assert user_result["passed"] is True
+    assert user_result["records"] == 5
+    assert user_result["successes"] == 5
+    assert preflight_result["decision"] == "READY_FOR_CLOSEOUT"

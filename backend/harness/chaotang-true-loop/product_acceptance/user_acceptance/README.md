@@ -11,6 +11,7 @@ Execution materials:
 - `observer_checklist.md`: what to observe and record per participant.
 - `acceptance_rules.md`: what counts as a valid and successful session.
 - `submission_checklist.md`: what must be submitted before closeout review.
+- `fixtures/`: valid JSON examples for tests and reviewer rehearsal only.
 
 Required threshold:
 
