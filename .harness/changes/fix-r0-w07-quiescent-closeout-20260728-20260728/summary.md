@@ -7,7 +7,7 @@
 | --- | --- |
 | Change ID | fix-r0-w07-quiescent-closeout-20260728-20260728 |
 | 类型 | fix |
-| 状态 | IMPLEMENTATION_IN_PROGRESS / GOVERNANCE_ONLY / NOT_DEPLOYED |
+| 状态 | BLOCKED_SCOPE_AMENDMENT_REQUIRED / TEST_FIXTURE_ONLY / NOT_DEPLOYED |
 | Owner | EXT Master Governance |
 | 创建日期 | 20260728 |
 | Authorized base | `ceb46c1dddb24243170936a80b6440a72f23f3b9` |
@@ -33,6 +33,20 @@ Product Owner approved:
 Close R0-W07 from `ACTIVE` to `MERGED_AND_VERIFIED` and set
 `activeWorkPackage=null`. This is a quiescent governance event. It does not
 activate R0-W08 or R0-W09 and does not authorize product implementation.
+
+## Current Blocker
+
+The committed closeout candidate `53a28d602711693c18967271dab1f5cfdf15ab35`
+correctly makes W07/W08/W09 return `STOP / NO_ACTIVE_WORK_PACKAGE`, and root
+doctor returns `0 errors / 0 warnings`. However, the full
+`scripts/execution-authority-v2.nodetest.mjs` suite still has real-repository
+phase assertions that expect the last merged package to be `R0-W06`. After W07
+closeout, the last merged package is correctly `R0-W07`, so three tests fail
+with expected `R0-W06` vs actual `R0-W07`.
+
+Fixing this requires a test-only scope amendment for
+`scripts/execution-authority-v2.nodetest.mjs`. This Packet will not modify that
+file without Product Owner approval.
 
 ## Boundaries
 

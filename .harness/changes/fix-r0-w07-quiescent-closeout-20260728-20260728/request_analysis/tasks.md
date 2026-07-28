@@ -17,13 +17,24 @@
 
 - [x] Pre-commit authority guard fails closed on dirty manifest bytes, as expected.
 - [ ] Commit exact closeout candidate.
-- [ ] `node --test scripts/execution-authority-v2.nodetest.mjs`
-- [ ] `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W07`
-- [ ] `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08`
-- [ ] `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W09`
-- [ ] `node scripts/harness-doctor.mjs`
-- [ ] `git diff --check`
+- [ ] `node --test scripts/execution-authority-v2.nodetest.mjs`:
+  `70 passed / 3 failed`; blocked by real-repo phase fixture expecting W06 as
+  latest merged package.
+- [x] `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W07`:
+  `STOP / NO_ACTIVE_WORK_PACKAGE`.
+- [x] `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08`:
+  `STOP / NO_ACTIVE_WORK_PACKAGE`.
+- [x] `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W09`:
+  `STOP / NO_ACTIVE_WORK_PACKAGE`.
+- [x] `node scripts/harness-doctor.mjs`: `0 errors / 0 warnings`.
+- [x] `git diff --check`
 - [ ] Independent read-only review.
+
+## Scope Amendment Needed
+
+- [ ] Product Owner approves test-only update to
+  `scripts/execution-authority-v2.nodetest.mjs` so real-repository quiescent
+  phase assertions accept W07 as the latest merged package after W07 closeout.
 
 ## Completion Boundary
 
