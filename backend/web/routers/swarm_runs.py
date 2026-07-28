@@ -156,6 +156,23 @@ def _default_context(
     return task, review, confirmed_edict, review_plan
 
 
+def _owned_swarm_run(db, swarm_run_id: str, user: CurrentUser) -> SwarmRun | None:
+    run = db.query(SwarmRun).filter_by(id=swarm_run_id).first()
+    if run is None:
+        return None
+    try:
+        _default_context(
+            db,
+            run.task_id,
+            run.review_id,
+            _owner_id(user),
+            user.tenant_id,
+        )
+    except ValueError as exc:
+        raise _NotOwner() from exc
+    return run
+
+
 def _edict_from_confirmed(confirmed_edict: dict[str, Any]) -> DraftEdict:
     """confirmed_edict 是 draft_to_dict(DraftEdict) 形状(task.draft_edict_json 或客户端回传)；
     这里防御性补全缺字段,避免客户端传半个 dict 时构造失败。"""
@@ -353,12 +370,15 @@ def create_serial_loop(user: CurrentUser = Depends(get_current_user), body: Seri
 
 
 @router.get("/{swarm_run_id}")
-def get_swarm_run(swarm_run_id: str, _: CurrentUser = Depends(get_current_user)) -> dict:
+def get_swarm_run(swarm_run_id: str, user: CurrentUser = Depends(get_current_user)) -> dict:
     from src.db.engine import SessionLocal
 
     db = SessionLocal()
     try:
-        run = db.query(SwarmRun).filter_by(id=swarm_run_id).first()
+        try:
+            run = _owned_swarm_run(db, swarm_run_id, user)
+        except _NotOwner:
+            return fail("无权操作该任务")
         if run is None:
             return fail("swarm_run_id 不存在")
         tasks = db.query(SwarmTaskRun).filter_by(swarm_run_id=swarm_run_id).all()
@@ -393,12 +413,15 @@ def get_swarm_run(swarm_run_id: str, _: CurrentUser = Depends(get_current_user))
 
 
 @router.get("/{swarm_run_id}/progress")
-def get_swarm_run_progress(swarm_run_id: str, _: CurrentUser = Depends(get_current_user)) -> dict:
+def get_swarm_run_progress(swarm_run_id: str, user: CurrentUser = Depends(get_current_user)) -> dict:
     from src.db.engine import SessionLocal
 
     db = SessionLocal()
     try:
-        run = db.query(SwarmRun).filter_by(id=swarm_run_id).first()
+        try:
+            run = _owned_swarm_run(db, swarm_run_id, user)
+        except _NotOwner:
+            return fail("无权操作该任务")
         if run is None:
             return fail("swarm_run_id 不存在")
         tasks = db.query(SwarmTaskRun).filter_by(swarm_run_id=swarm_run_id).all()
@@ -425,11 +448,17 @@ def get_swarm_run_progress(swarm_run_id: str, _: CurrentUser = Depends(get_curre
 
 
 @router.get("/{swarm_run_id}/brief")
-def get_swarm_run_brief(swarm_run_id: str, _: CurrentUser = Depends(get_current_user)) -> dict:
+def get_swarm_run_brief(swarm_run_id: str, user: CurrentUser = Depends(get_current_user)) -> dict:
     from src.db.engine import SessionLocal
 
     db = SessionLocal()
     try:
+        try:
+            run = _owned_swarm_run(db, swarm_run_id, user)
+        except _NotOwner:
+            return fail("无权操作该任务")
+        if run is None:
+            return fail("swarm_run_id 不存在或尚无质门结果")
         quality = db.query(SwarmQualityResult).filter_by(swarm_run_id=swarm_run_id).order_by(SwarmQualityResult.created_at.desc()).first()
         if quality is None:
             return fail("swarm_run_id 不存在或尚无质门结果")
