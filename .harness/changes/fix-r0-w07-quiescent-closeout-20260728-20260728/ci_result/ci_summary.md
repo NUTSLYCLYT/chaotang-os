@@ -12,19 +12,17 @@
 | `node scripts/execution-authority.mjs --authorize` | 2 | `STOP / AMENDMENT_APPROVAL_REQUIRED` | v1 fail-closed unchanged | 2026-07-28 |
 | `node scripts/harness-doctor.mjs` | 0 | `0 errors / 0 warnings` | root governance health | 2026-07-28 |
 | `git diff --check ceb46c1d..HEAD` | 0 | PASS | manifest + Packet diff | 2026-07-28 |
-| `node --test scripts/execution-authority-v2.nodetest.mjs` | 1 | `70 passed / 3 failed` | blocked by real-repo phase fixture expecting W06 | 2026-07-28 |
+| first `node --test scripts/execution-authority-v2.nodetest.mjs` | 1 | `70 passed / 3 failed` | blocked by real-repo phase fixture expecting W06 | 2026-07-28 |
+| post-amendment `node --test scripts/execution-authority-v2.nodetest.mjs` | 0 | `73 passed` | authority v2 closeout fixture and regression suite | 2026-07-28 |
 
 ## 结果
 
-The exact closeout candidate changes authority behavior correctly, but full
-authority test completion is blocked by a test fixture that still expects W06 as
-the latest merged package in a quiescent real-repository phase. W07 closeout makes
-W07 the latest merged package. Test-only scope amendment is required before this
-candidate can proceed to independent review.
+The exact closeout candidate changes authority behavior correctly. The test-only
+fixture amendment is complete and the full authority v2 nodetest suite now passes.
+The candidate is ready for independent read-only review.
 
 ## 未验证项
 
-- Test-only fixture remediation for real-repository quiescent phase.
 - Independent review.
 
 ## Diff 与回滚复核
@@ -41,8 +39,8 @@ candidate can proceed to independent review.
 | W07 closeout manifest transition | W07 CLI STOP / NO_ACTIVE_WORK_PACKAGE | PASS |
 | W08/W09 not active | W08/W09 CLI STOP / NO_ACTIVE_WORK_PACKAGE | PASS |
 | root doctor | 0 errors / 0 warnings | PASS |
-| authority nodetest | 70 passed / 3 failed fixture mismatch | BLOCKED |
+| authority nodetest | 73 passed | PASS |
 
 ## 声明状态
 
-- `BLOCKED_SCOPE_AMENDMENT_REQUIRED / TEST_FIXTURE_ONLY / NOT_DEPLOYED`
+- `CANDIDATE_VERIFIED / INDEPENDENT_REVIEW_PENDING / NOT_DEPLOYED`

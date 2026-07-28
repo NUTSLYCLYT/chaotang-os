@@ -7,7 +7,7 @@
 | --- | --- |
 | Change ID | fix-r0-w07-quiescent-closeout-20260728-20260728 |
 | 类型 | fix |
-| 状态 | BLOCKED_SCOPE_AMENDMENT_REQUIRED / TEST_FIXTURE_ONLY / NOT_DEPLOYED |
+| 状态 | CANDIDATE_VERIFIED / INDEPENDENT_REVIEW_PENDING / NOT_DEPLOYED |
 | Owner | EXT Master Governance |
 | 创建日期 | 20260728 |
 | Authorized base | `ceb46c1dddb24243170936a80b6440a72f23f3b9` |
@@ -47,6 +47,22 @@ with expected `R0-W06` vs actual `R0-W07`.
 Fixing this requires a test-only scope amendment for
 `scripts/execution-authority-v2.nodetest.mjs`. This Packet will not modify that
 file without Product Owner approval.
+
+## Test-Only Scope Amendment
+
+Product Owner approved a test-only amendment allowing only
+`scripts/execution-authority-v2.nodetest.mjs` to update the real-repository
+quiescent phase fixture. The fixture now derives quiescent state from zero ACTIVE
+entries and the latest `MERGED_AND_VERIFIED` ledger entry, which is `R0-W07`
+after this closeout.
+
+Fresh verification:
+
+- `node --test scripts/execution-authority-v2.nodetest.mjs`: `73 passed`
+- `R0-W07`: `STOP / NO_ACTIVE_WORK_PACKAGE`
+- `R0-W08`: `STOP / NO_ACTIVE_WORK_PACKAGE`
+- `R0-W09`: `STOP / NO_ACTIVE_WORK_PACKAGE`
+- root doctor: `0 errors / 0 warnings`
 
 ## Boundaries
 

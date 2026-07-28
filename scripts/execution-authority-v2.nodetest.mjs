@@ -2271,8 +2271,15 @@ test('CLI rejects an unsupported flag with exit 64', async () => {
 async function assertRealRepositoryAuthorityPhase(loaded) {
   if (loaded.manifest.activeWorkPackage === null) {
     assert.deepEqual(loaded.errors, []);
-    assert.deepEqual(loaded.manifest.workPackageLedger.at(-1), {
-      id: 'R0-W06',
+    const activeEntries = loaded.manifest.workPackageLedger.filter(
+      (entry) => entry.status === 'ACTIVE',
+    );
+    const mergedEntries = loaded.manifest.workPackageLedger.filter(
+      (entry) => entry.status === 'MERGED_AND_VERIFIED',
+    );
+    assert.deepEqual(activeEntries, []);
+    assert.deepEqual(mergedEntries.at(-1), {
+      id: 'R0-W07',
       status: 'MERGED_AND_VERIFIED',
     });
     return 'QUIESCENT';
