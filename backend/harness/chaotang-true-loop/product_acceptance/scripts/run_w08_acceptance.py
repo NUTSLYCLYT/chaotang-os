@@ -62,6 +62,7 @@ USER_ACCEPTANCE_MODE = "FINAL_USER_ACCEPTANCE"
 USER_ACCEPTANCE_TARGET = 5
 USER_ACCEPTANCE_SUCCESS_MINIMUM = 4
 FIRST_VALUE_SECONDS_TARGET = 180
+FIXTURE_PREFIX = "fixture-"
 
 
 def coverage_for(cases: list[dict[str, Any]]) -> dict[str, Any]:
@@ -194,9 +195,15 @@ def validate_payload(payload: dict[str, Any]) -> list[str]:
     return failures
 
 
-def _validate_user_record(record: dict[str, Any]) -> list[str]:
+def _looks_like_fixture_value(value: Any) -> bool:
+    return isinstance(value, str) and value.startswith(FIXTURE_PREFIX)
+
+
+def _validate_user_record(record: dict[str, Any], *, allow_fixture: bool = False) -> list[str]:
     failures: list[str] = []
     participant_id = str(record.get("participant_id") or "<missing participant_id>")
+    if not allow_fixture:
+        _require(not _looks_like_fixture_value(participant_id), f"{participant_id} participant_id cannot use fixture prefix", failures)
     _require(record.get("target_profile") == "manufacturing_contract_operator", f"{participant_id} target_profile must be manufacturing_contract_operator", failures)
     _require(record.get("involved_in_development") is False, f"{participant_id} must not be involved in development", failures)
     _require(
@@ -227,14 +234,22 @@ def _validate_user_record(record: dict[str, Any]) -> list[str]:
             "browser_evidence_ref",
         ):
             _require(bool(evidence.get(field)), f"{participant_id} evidence must include {field}", failures)
+            if not allow_fixture:
+                _require(
+                    not _looks_like_fixture_value(evidence.get(field)),
+                    f"{participant_id} evidence {field} cannot use fixture prefix",
+                    failures,
+                )
 
     return failures
 
 
-def validate_user_acceptance_payload(payload: dict[str, Any]) -> dict[str, Any]:
+def validate_user_acceptance_payload(payload: dict[str, Any], *, allow_fixture: bool = False) -> dict[str, Any]:
     failures: list[str] = []
     _require(payload.get("schemaVersion") == USER_ACCEPTANCE_SCHEMA_VERSION, f"schemaVersion must be {USER_ACCEPTANCE_SCHEMA_VERSION}", failures)
     _require(payload.get("mode") == USER_ACCEPTANCE_MODE, f"mode must be {USER_ACCEPTANCE_MODE}", failures)
+    if not allow_fixture:
+        _require(payload.get("fixture") is not True, "fixture payload cannot be final user acceptance evidence", failures)
 
     records = payload.get("records") or []
     _require(isinstance(records, list), "records must be a list", failures)
@@ -249,14 +264,14 @@ def validate_user_acceptance_payload(payload: dict[str, Any]) -> dict[str, Any]:
     record_failures = [
         failure
         for record in records
-        for failure in _validate_user_record(record)
+        for failure in _validate_user_record(record, allow_fixture=allow_fixture)
     ]
     failures.extend(record_failures)
 
     successes = [
         record
         for record in records
-        if record.get("completion_success") is True and not _validate_user_record(record)
+        if record.get("completion_success") is True and not _validate_user_record(record, allow_fixture=allow_fixture)
     ]
     _require(len(successes) >= USER_ACCEPTANCE_SUCCESS_MINIMUM, "user acceptance requires at least four successful completions", failures)
 

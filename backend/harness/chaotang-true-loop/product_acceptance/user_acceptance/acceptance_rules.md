@@ -46,6 +46,7 @@ The following cannot close W08:
 - screenshots without JSON record and evidence IDs
 - mock backend browser flows
 - developer or agent operator sessions
+- fixture payloads or any final participant/evidence ID beginning with `fixture-`
 - production deployment claims
 - database migration claims
 - listener 3050 claims

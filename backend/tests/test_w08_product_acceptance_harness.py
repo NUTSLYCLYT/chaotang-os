@@ -304,10 +304,37 @@ def test_w08_user_acceptance_fixture_documents_valid_shape_without_claiming_real
         ROOT / "harness" / "chaotang-true-loop" / "product_acceptance" / "user_acceptance"
     ).parts
 
+    shape_result = runner.validate_user_acceptance_payload(
+        json.loads(USER_ACCEPTANCE_FIXTURE.read_text(encoding="utf-8")),
+        allow_fixture=True,
+    )
     user_result = runner.run_user_acceptance(USER_ACCEPTANCE_FIXTURE)
     preflight_result = runner.run_closeout_preflight(user_acceptance_path=USER_ACCEPTANCE_FIXTURE)
 
-    assert user_result["passed"] is True
-    assert user_result["records"] == 5
-    assert user_result["successes"] == 5
-    assert preflight_result["decision"] == "READY_FOR_CLOSEOUT"
+    assert shape_result["passed"] is True
+    assert shape_result["records"] == 5
+    assert shape_result["successes"] == 5
+    assert user_result["passed"] is False
+    assert "fixture payload cannot be final user acceptance evidence" in user_result["failures"]
+    assert "fixture-user-001 participant_id cannot use fixture prefix" in user_result["failures"]
+    assert preflight_result["decision"] == "BLOCKED"
+
+
+def test_w08_user_acceptance_rejects_fixture_prefixes_in_final_records():
+    runner = _load_runner()
+    payload = {
+        "schemaVersion": "w08-user-acceptance.v1",
+        "mode": "FINAL_USER_ACCEPTANCE",
+        "records": [
+            _successful_user("fixture-user-001"),
+            _successful_user("user-002"),
+            _successful_user("user-003"),
+            _successful_user("user-004"),
+            _successful_user("user-005"),
+        ],
+    }
+
+    result = runner.validate_user_acceptance_payload(payload)
+
+    assert result["passed"] is False
+    assert "fixture-user-001 participant_id cannot use fixture prefix" in result["failures"]
