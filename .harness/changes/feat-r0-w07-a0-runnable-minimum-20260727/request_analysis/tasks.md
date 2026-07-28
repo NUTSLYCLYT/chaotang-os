@@ -80,8 +80,15 @@
   `9eb003f98f2cada1b280f283d45fcf9ed4402920`。
 - [x] exact `029f8362...` 两路 fresh review 完成，结论均为 `NO-GO`，
   去重 `HIGH 1 / MEDIUM 2 / LOW 0`。
-- [ ] TDD 修复 fresh review：锁内 fresh CourtReview、legacy envelope integrity、
+- [x] TDD 修复 fresh review：锁内 fresh CourtReview、legacy envelope integrity、
   legacy query 后同页合同选择。
+- [x] exact `9c987100...` 两路 fresh review 完成，整体 `NO-GO`，
+  去重 `HIGH 2 / MEDIUM 2 / LOW 0`。
+- [x] TDD 修复 exact refresh review、council publication fence、真实双会话锁证据
+  和 same-id server refresh。
+- [x] 冻结 implementation candidate
+  `7745743d26906e7be759104ba4b7721cb1563705` /
+  `f1e0381a21c505cd0614d4339aa91d6e72053b0c`。
 - [ ] 在新 exact candidate 上取得 two-pass GO。
 - [ ] 冻结 exact candidate H/tree 和 `RUNNABLE_MINIMUM` receipt。
 

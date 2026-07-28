@@ -426,6 +426,53 @@ exact implementation candidate：
 
 本节只登记待审候选，不预判两路 Codex 独立只读审查结论。
 
+## Authority Writer Candidate Fresh Review Verdict
+
+Review envelope `b936d368549d91e4feecbd6712aabdc5e8cf0896` 对 implementation
+`9c98710090ed9f73c75e131b6e649ca6ee3d8df1` 的两路 fresh review：
+
+- backend/security/concurrency pass
+  `019fa5ff-e7ab-7b23-abf8-5bcfaf4279bc`：
+  `NO-GO / HIGH 2 / MEDIUM 1 / LOW 0`；
+- frontend/product-contract pass
+  `019fa600-2312-7032-bef5-c10a99db8324`：
+  `NO-GO / HIGH 0 / MEDIUM 1 / LOW 0`。
+
+主控确认的适用 findings：
+
+1. HIGH：`swarm-deepen` 选择 newest CourtReview，可绕过 current FinalMemorial
+   指向的 exact review，甚至写入错误 tenant review。
+2. HIGH：`route.council` 在蜂群返回后不持共享 DecisionTask lock，也不重验
+   terminal task、Mission、FinalMemorial 或 review identity，可发布过期结果。
+3. MEDIUM：新增锁测试只 mock `lock_decision_task`，没有证明真实互斥和锁覆盖范围。
+4. MEDIUM：同 ID 任务被服务端重新分类为合同任务后，旧
+   `selectedMemorialOverride.contractTask=false` 仍可恢复 legacy actions。
+
+`9c987100...` 状态为 `REJECTED / NOT_DEPLOYED`，不得整合 EXT。
+
+## Final Seventh Review Remediation Evidence
+
+| Finding | Remediation | Fresh evidence |
+| --- | --- | --- |
+| exact refresh review | current FinalMemorial 的 `review_id` 是唯一 refresh target；复用 authoritative tenant/user/final 校验 | wrong-tenant newer review RED/GREEN + zero-write probe |
+| council stale publication | pre-run terminal fence；post-run shared task lock + fresh task/latest review + Mission/final/review/input snapshot comparison | terminal-before-run、terminal-during-run、Mission-during-run RED/GREEN |
+| real lock extent | 文件型 SQLite 两个独立 session 竞争同一 DecisionTask writer lock | evidence bind + swarm-deepen concurrent Mission writer tests |
+| stale frontend override | same-id server snapshot replaces local selected snapshot | Node RED/GREEN + real JWT same-page legacy→contract flow |
+
+exact implementation candidate：
+
+- H `7745743d26906e7be759104ba4b7721cb1563705`
+- tree `f1e0381a21c505cd0614d4339aa91d6e72053b0c`
+- parent `b936d368549d91e4feecbd6712aabdc5e8cf0896`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `7d0a71e29cf7e696422390f92fe02f5656b73bb348364bafd31624bd8016a520`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本节只登记待审候选，不预判两路 fresh Codex 独立只读审查结论。
+
 ## Authority Writer Candidate Review Verdict
 
 Review envelope `c52a74140f5719277a3081e91ab4578918fc44d6` 对 implementation

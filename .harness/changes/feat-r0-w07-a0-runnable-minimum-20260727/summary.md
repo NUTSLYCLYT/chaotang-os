@@ -15,8 +15,8 @@
 | 创建日期 | `2026-07-27` |
 | Base H | `ed822255a452e8dd8dda8f86a180fd7c099b181e` |
 | Base tree | `0a56a0eab0135dcf46c31e5ae2cbc46f501cfdcb` |
-| Implementation candidate H | `9c98710090ed9f73c75e131b6e649ca6ee3d8df1` |
-| Implementation candidate tree | `719233acc04b550a0df97cc9de566f7bf92d3b12` |
+| Implementation candidate H | `7745743d26906e7be759104ba4b7721cb1563705` |
+| Implementation candidate tree | `f1e0381a21c505cd0614d4339aa91d6e72053b0c` |
 | Integration target | local `feature-chaotang-ext` |
 | Authority before first edit | v1 `VALID_INACTIVE_GUARD`; v2 W07 `GO / APPROVED_WORK_PACKAGE` |
 
@@ -187,6 +187,53 @@ fresh implementation candidate：
 
 本节不预判独立审查结论。候选未执行 Checkpoint B、push、部署、持久数据库迁移或
 listener 3050 操作。
+
+## Seventh Review Final Remediation Candidate
+
+implementation `9c98710090ed9f73c75e131b6e649ca6ee3d8df1` 的两路 fresh
+Codex 只读审查整体为 `NO-GO`：
+
+- backend/security/concurrency pass
+  `019fa5ff-e7ab-7b23-abf8-5bcfaf4279bc`：
+  `HIGH 2 / MEDIUM 1 / LOW 0`；
+- frontend/product-contract pass
+  `019fa600-2312-7032-bef5-c10a99db8324`：
+  `HIGH 0 / MEDIUM 1 / LOW 0`。
+
+主控去重为 `HIGH 2 / MEDIUM 2 / LOW 0`：`swarm-deepen` 错误选择 newest
+CourtReview 而非 current FinalMemorial exact review；`route.council` 在耗时蜂群
+返回后没有共享 task lock、terminal gate 或 Mission/final/review 漂移重验；既有
+锁测试只验证 mock 调用顺序；前端同 ID 的旧 selected override 可压制服务端最新
+`contract_task=true` 分类。`9c987100...` 被拒绝，不得整合 EXT。
+
+四项已在批准 scope 内按 TDD 修复：
+
+1. `swarm-deepen` 在共享 task lock 内只使用 current FinalMemorial 指向的 exact
+   CourtReview，并复用 tenant/user/final lineage 校验。
+2. `route.council` 在执行前拒绝既有终态；蜂群返回后取得共享 task lock，fresh
+   reload task/latest review，并比较 Mission、FinalMemorial、CourtReview 和任务
+   输入快照；任何终态或漂移都 `superseded`，且在任何 swarm publication 写入前
+   返回。
+3. 文件型 SQLite 双会话测试证明 evidence bind 与 `swarm-deepen` 在 authority、
+   execution 和 publication 范围内真实阻塞并发 Mission writer，不再只依赖 mock
+   顺序。
+4. 同 ID 服务端新快照优先于旧 selected override；真实 JWT browser flow 在同页
+   legacy→contract 重分类后立即关闭 legacy actions 并显示 typed contract panel。
+
+fresh implementation candidate：
+
+- H `7745743d26906e7be759104ba4b7721cb1563705`
+- tree `f1e0381a21c505cd0614d4339aa91d6e72053b0c`
+- parent `b936d368549d91e4feecbd6712aabdc5e8cf0896`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `7d0a71e29cf7e696422390f92fe02f5656b73bb348364bafd31624bd8016a520`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本节不预判下一轮独立审查结论。候选未执行 Checkpoint B、push、部署、持久数据库
+迁移或 listener 3050 操作。
 
 ## Latest Candidate Review And Remediation
 

@@ -88,6 +88,19 @@
 | authority-writer backend/frontend doctor | 0 | 0 errors, 0 warnings | owned harness layers | 2026-07-28 |
 | authority-writer root doctor | 1 | only `active-packet EXT ref must equal pinned HEAD` | expected PRE_INTEGRATION fail-closed | 2026-07-28 |
 | authority-writer `git diff --check` + secret scan | 0 | pass | exact candidate integrity | 2026-07-28 |
+| final-remediation TDD RED | 1 | exact review、terminal/Mission council、frontend refresh 按预期失败 | four fresh review findings reproduced before implementation | 2026-07-28 |
+| final-remediation focused backend | 0 | 97 passed；latest affected files 82 passed | W05/outbox/cancellation/Mission + real two-session locks | 2026-07-28 |
+| final-remediation expanded backend | 0 | 567 passed, 6 skipped | contract/Mission/artifact/W05/worker/authz/routes/concurrency | 2026-07-28 |
+| final-remediation focused frontend + typecheck | 0 | 41 passed + `tsc --noEmit` pass | same-id server refresh、closed-world、typed read model | 2026-07-28 |
+| final-remediation full frontend residual | 1 | 1109 passed, 1 known date-fixture failure | unchanged `signal_older_than_30_days` residual outside diff | 2026-07-28 |
+| final-remediation Ruff | 0 | All checks passed | all changed Python files | 2026-07-28 |
+| final-remediation API guard/generator x2 | 0 | 11 passed；363 routes；0 breaking；five hashes identical | fixed immutable ref and public schema stability | 2026-07-28 |
+| final-remediation real-mode build | 0 | Next production build pass | isolated candidate buildability only | 2026-07-28 |
+| final-remediation W07 Playwright | 0 | 1 passed | real JWT same-page legacy→contract、READY/PARTIAL/download/archive/reopen | 2026-07-28 |
+| final-remediation backend/frontend doctor | 0 | 0 errors, 0 warnings | owned harness layers | 2026-07-28 |
+| final-remediation root doctor | 1 | only `active-packet EXT ref must equal pinned HEAD` | expected PRE_INTEGRATION fail-closed | 2026-07-28 |
+| final-remediation authority | 1/2 | v1 amendment STOP；v2 exact-ref mismatch STOP | expected isolated PRE_INTEGRATION fail-closed | 2026-07-28 |
+| final-remediation `git diff --check` + secret scan | 0 | pass | implementation candidate integrity | 2026-07-28 |
 
 ## 结果
 
@@ -140,6 +153,14 @@ frontend pass 为 `GO / 0 / 0 / 0`；整体按 fail-closed 判定 NO-GO。
 `719233acc04b550a0df97cc9de566f7bf92d3b12` 按 TDD 闭环并通过 fresh
 verification。当前等待该 exact candidate 的两路全新独立只读审查。
 
+该 exact candidate 两路 fresh review 均为 `NO-GO`：backend pass
+`019fa5ff-e7ab-7b23-abf8-5bcfaf4279bc` 为 `HIGH 2 / MEDIUM 1`，frontend
+pass `019fa600-2312-7032-bef5-c10a99db8324` 为 `MEDIUM 1`。四项适用 finding
+已在 exact implementation `7745743d26906e7be759104ba4b7721cb1563705`、tree
+`f1e0381a21c505cd0614d4339aa91d6e72053b0c` 按 TDD 闭环并通过上表 fresh
+verification。当前等待该 exact candidate 的两路全新独立只读审查；仍不得整合
+EXT。
+
 ## 全仓既有 Residual
 
 - `src/lib/intel/signal-dispatch.nodetest.ts`：固定日期样例在当前日期新增
@@ -177,8 +198,8 @@ verification。当前等待该 exact candidate 的两路全新独立只读审查
 | sixth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
 | seventh remediation | all approved HIGH/MEDIUM locally closed | PASS |
 | eighth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
-| independent review | exact `9c987100...` fresh two-pass | PENDING |
-| exact implementation candidate | `9c987100...` / `719233ac...` | FROZEN |
+| independent review | exact `7745743d...` fresh two-pass | PENDING |
+| exact implementation candidate | `7745743d...` / `f1e0381a...` | FROZEN |
 
 ## 声明状态
 
