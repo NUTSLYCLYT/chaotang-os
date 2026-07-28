@@ -317,6 +317,29 @@ def _reclassify_authenticated_legacy_task(
     return {"status": "reclassified", "task_id": _LEGACY_TASK_ID}
 
 
+@app.post("/__w07/archive-reclassified", include_in_schema=False)
+def _archive_authenticated_reclassified_task(
+    user: CurrentUser = Depends(get_current_user),
+) -> dict[str, str]:
+    if user.user_id is None or user.tenant_id is None:
+        raise HTTPException(status_code=403, detail="authenticated tenant required")
+    with _seed_lock:
+        with engine_module.SessionLocal() as db:
+            task = db.get(DecisionTask, _LEGACY_TASK_ID)
+            if task is None:
+                raise HTTPException(status_code=404, detail="seeded task missing")
+            if (
+                task.tenant_id != user.tenant_id
+                or str(task.user_id) != str(user.user_id)
+            ):
+                raise HTTPException(status_code=403, detail="task ownership mismatch")
+            if task.contract_scope_json is None:
+                raise HTTPException(status_code=409, detail="task not reclassified")
+            task.status = "archived"
+            db.commit()
+    return {"status": "archived", "task_id": _LEGACY_TASK_ID}
+
+
 if __name__ == "__main__":
     import uvicorn
 

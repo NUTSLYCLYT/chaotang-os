@@ -113,6 +113,8 @@ import { recallBadgeLabel } from './lib/recall-badge';
 import { ContractReviewPanel } from '@/features/contract-review/ContractReviewPanel';
 import {
   findRefreshedTaskSnapshot,
+  rememberServerContractTaskIds,
+  resolveSelectedTaskSnapshot,
   selectContractTaskCandidate,
 } from '@/features/contract-review/task-selection';
 
@@ -2351,6 +2353,9 @@ export function ShangshufangPage() {
   );
   const [rejectedMemorialIds, setRejectedMemorialIds] = useState<Set<string>>(() => new Set());
   const [selectedMemorialOverride, setSelectedMemorialOverride] = useState<Memorial | null>(null);
+  const [serverContractTaskIds, setServerContractTaskIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [secondarySeal, setSecondarySeal] = useState<ActiveEdictSeal | null>(null);
 
   // 圣旨展示平台「一台三路」:奏折为默认台面;丞相/钦天监点击后把各自内容
@@ -2572,6 +2577,11 @@ export function ShangshufangPage() {
           : '暂无后端返回的 pending/running 今日要务或已完成蜂群流程。';
 
   const dedupedMemorialItems = uniqueMemorialItems(briefing.memorials);
+  useEffect(() => {
+    setServerContractTaskIds((current) => (
+      rememberServerContractTaskIds(current, dedupedMemorialItems)
+    ));
+  }, [briefing.memorials]);
   const requestedMemorial = requestedTaskId
     ? dedupedMemorialItems.find(
         (item) => item.id === requestedTaskId.trim(),
@@ -2586,21 +2596,27 @@ export function ShangshufangPage() {
     }
   }, [activeMemorialId, requestedMemorial]);
   const activeMemorial: Memorial | null = (() => {
-    const refreshedSelectedMemorial = findRefreshedTaskSnapshot(
+    const refreshedSelectedItem = findRefreshedTaskSnapshot(
       selectedMemorialOverride?.id ?? null,
       dedupedMemorialItems,
     );
-    if (refreshedSelectedMemorial) {
+    let refreshedSelectedMemorial: Memorial | null = null;
+    if (refreshedSelectedItem) {
       const refreshedIndex = dedupedMemorialItems.indexOf(
-        refreshedSelectedMemorial,
+        refreshedSelectedItem,
       );
-      return memorialItemToDisplay(
-        refreshedSelectedMemorial,
+      refreshedSelectedMemorial = memorialItemToDisplay(
+        refreshedSelectedItem,
         refreshedIndex === 0,
         briefing.sourceMode,
       );
     }
-    if (selectedMemorialOverride) return selectedMemorialOverride;
+    const resolvedSelected = resolveSelectedTaskSnapshot(
+      selectedMemorialOverride,
+      refreshedSelectedMemorial ? [refreshedSelectedMemorial] : [],
+      serverContractTaskIds,
+    );
+    if (resolvedSelected) return resolvedSelected;
     if (dedupedMemorialItems.length === 0) return null;
     const targetIndex = activeMemorialId
       ? dedupedMemorialItems.findIndex((m) => m.id === activeMemorialId)
@@ -2613,7 +2629,12 @@ export function ShangshufangPage() {
   })();
   const contractTaskId = selectContractTaskCandidate({
     requestedTaskId,
-    requestedTaskIsContract: requestedMemorial?.contractTask === true,
+    requestedTaskIsContract:
+      requestedMemorial?.contractTask === true
+      || (
+        requestedTaskId?.trim() === activeMemorial?.id
+        && activeMemorial?.contractTask === true
+      ),
     edictPrimaryTaskId: edictOverride?.primaryTaskId ?? null,
     activeMemorialId: activeMemorial?.id ?? null,
     activeMemorialIsContract: activeMemorial?.contractTask === true,

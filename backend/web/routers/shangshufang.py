@@ -41,7 +41,10 @@ from src.db.models import (
     FinalMemorial,
     ShiguanArchive,
 )
-from src.decision_task_access import get_owned_decision_task
+from src.decision_task_access import (
+    get_owned_decision_task,
+    is_contract_decision_task,
+)
 from src.decision_task_kernel import create_decision_task
 from src.emperor_decision_kind import emperor_decision_kind
 from src.evidence_rework_projection import project_evidence_rework_generation
@@ -401,35 +404,11 @@ def _is_contract_task(
     task: DecisionTask,
     current_formal: FinalMemorial | None = None,
 ) -> bool:
-    if task.contract_scope_json is not None:
-        return True
-
-    from src.contract_mission_repository import MISSION_LOOP_ID
-
-    if (
-        db.query(CourtLoopRun.id)
-        .filter_by(task_id=task.id, loop_id=MISSION_LOOP_ID)
-        .first()
-        is not None
-    ):
-        return True
-
-    formal = current_formal
-    if formal is None:
-        formal = (
-            db.query(FinalMemorial)
-            .filter_by(task_id=task.id, is_current=True)
-            .first()
-        )
-    if formal is None:
-        return False
-    try:
-        formal_payload = json.loads(formal.memorial_json)
-    except json.JSONDecodeError:
-        return True
-    if not isinstance(formal_payload, dict) or not formal_payload:
-        return True
-    return "contract_review" in formal_payload
+    return is_contract_decision_task(
+        db,
+        task=task,
+        current_formal=current_formal,
+    )
 
 
 def _contract_route_action_error(

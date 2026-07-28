@@ -702,6 +702,239 @@ def test_council_event_fences_terminal_task_before_swarm_execution(
     db.close()
 
 
+def test_contract_council_rejects_nullable_review_tenant_before_swarm(
+    isolated_session_local,
+):
+    import json
+
+    from src.db.models import CourtReview, DecisionTask, OutboxEvent
+
+    db = isolated_session_local()
+    task_id = "task_contract_council_null_review_tenant"
+    review_id = "review_contract_council_null_review_tenant"
+    now = "2026-07-28T00:00:00+00:00"
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查采购合同",
+            status="edict_recorded",
+            source_label="LIVE",
+            contract_scope_json=json.dumps(
+                {
+                    "schema_version": "ContractIntakeV1",
+                    "jurisdiction": "CN_MAINLAND",
+                    "language": "zh-CN",
+                    "contract_type": "procurement",
+                    "our_role": "buyer",
+                    "legal_question": "contract_risk_screening",
+                }
+            ),
+            draft_edict_json="{}",
+        )
+    )
+    db.add(
+        CourtReview(
+            id=review_id,
+            tenant_id=None,
+            task_id=task_id,
+            routing_plan_json='{"route":{"mode":"cluster"}}',
+            review_status="edict_recorded",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json='{"title":"无租户会审"}',
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    db.commit()
+    event_id = enqueue_dispatch(
+        db,
+        task_id=task_id,
+        decision_id="decision_contract_council_null_review_tenant",
+        event_type="route.council",
+    )
+    db.commit()
+
+    with patch(
+        "src.swarm_execution_loop.run_swarm_execution_loop",
+        side_effect=AssertionError("contract tenant failure must precede swarm"),
+    ) as run_swarm:
+        result = process_event(db, event_id)
+
+    assert result["status"] == "failed"
+    event = db.get(OutboxEvent, event_id)
+    assert event is not None
+    assert "contract council requires owned tenant lineage" in (
+        event.last_error or ""
+    )
+    run_swarm.assert_not_called()
+    db.close()
+
+
+def test_council_rechecks_terminal_task_after_started_timeline_commit(
+    isolated_session_local,
+    monkeypatch,
+):
+    from src.db.models import CourtReview, DecisionTask
+
+    db = isolated_session_local()
+    task_id = "task_council_terminal_after_started_commit"
+    review_id = "review_council_terminal_after_started_commit"
+    now = "2026-07-28T00:00:00+00:00"
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查合同",
+            status="edict_recorded",
+            source_label="LIVE",
+            draft_edict_json="{}",
+        )
+    )
+    db.add(
+        CourtReview(
+            id=review_id,
+            tenant_id=1,
+            task_id=task_id,
+            routing_plan_json='{"route":{"mode":"cluster"}}',
+            review_status="edict_recorded",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json='{"title":"候选奏折"}',
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    db.commit()
+    event_id = enqueue_dispatch(
+        db,
+        task_id=task_id,
+        decision_id="decision_council_terminal_after_started_commit",
+        event_type="route.council",
+    )
+    db.commit()
+
+    original_refresh = db.refresh
+    archived = False
+
+    def archive_before_first_refresh(instance, *args, **kwargs):
+        nonlocal archived
+        if isinstance(instance, DecisionTask) and not archived:
+            archived = True
+            other = isolated_session_local()
+            other_task = other.get(DecisionTask, task_id)
+            other_task.status = "archived"
+            other_task.updated_at = "2026-07-28T00:01:00+00:00"
+            other.commit()
+            other.close()
+        return original_refresh(instance, *args, **kwargs)
+
+    monkeypatch.setattr(db, "refresh", archive_before_first_refresh)
+    with patch(
+        "src.swarm_execution_loop.run_swarm_execution_loop"
+    ) as run_swarm:
+        result = process_event(db, event_id)
+
+    assert result["status"] == "superseded"
+    assert result["result"]["reason"] == "terminal_task"
+    run_swarm.assert_not_called()
+    db.close()
+
+
+def test_council_swarm_inputs_come_from_post_timeline_authority_snapshot(
+    isolated_session_local,
+    monkeypatch,
+):
+    import json
+
+    from src.db.models import CourtReview, DecisionTask
+
+    db = isolated_session_local()
+    task_id = "task_council_post_timeline_inputs"
+    review_id = "review_council_post_timeline_inputs"
+    now = "2026-07-28T00:00:00+00:00"
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查合同",
+            status="edict_recorded",
+            source_label="LIVE",
+            draft_edict_json=json.dumps(
+                {"recommended_departments": ["户部"], "snapshot": "before"}
+            ),
+        )
+    )
+    db.add(
+        CourtReview(
+            id=review_id,
+            tenant_id=1,
+            task_id=task_id,
+            routing_plan_json=json.dumps(
+                {"route": {"mode": "cluster"}, "snapshot": "before"}
+            ),
+            review_status="edict_recorded",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json='{"title":"候选奏折"}',
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    db.commit()
+    event_id = enqueue_dispatch(
+        db,
+        task_id=task_id,
+        decision_id="decision_council_post_timeline_inputs",
+        event_type="route.council",
+    )
+    db.commit()
+
+    original_refresh = db.refresh
+    revised = False
+
+    def revise_before_first_refresh(instance, *args, **kwargs):
+        nonlocal revised
+        if isinstance(instance, DecisionTask) and not revised:
+            revised = True
+            other = isolated_session_local()
+            other_task = other.get(DecisionTask, task_id)
+            other_review = other.get(CourtReview, review_id)
+            other_task.draft_edict_json = json.dumps(
+                {"recommended_departments": ["刑部"], "snapshot": "after"}
+            )
+            other_task.updated_at = "2026-07-28T00:01:00+00:00"
+            other_review.routing_plan_json = json.dumps(
+                {"route": {"mode": "cluster"}, "snapshot": "after"}
+            )
+            other_review.updated_at = "2026-07-28T00:01:00+00:00"
+            other.commit()
+            other.close()
+        return original_refresh(instance, *args, **kwargs)
+
+    captured: list[dict] = []
+
+    def capture_inputs(params):
+        captured.append(params)
+        raise RuntimeError("stop after input capture")
+
+    monkeypatch.setattr(db, "refresh", revise_before_first_refresh)
+    with patch(
+        "src.swarm_execution_loop.run_swarm_execution_loop",
+        side_effect=capture_inputs,
+    ):
+        process_event(db, event_id)
+
+    assert captured[0]["confirmed_edict"]["snapshot"] == "after"
+    assert captured[0]["review_plan"]["snapshot"] == "after"
+    assert captured[0]["department_ids"] == ["刑部"]
+    db.close()
+
+
 def test_council_event_fences_mission_drift_before_publication(
     isolated_session_local,
 ):

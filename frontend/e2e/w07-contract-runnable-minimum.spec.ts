@@ -156,6 +156,33 @@ test.describe('W07 contract RUNNABLE_MINIMUM', () => {
         page.getByRole('button', { name: legacyAction, exact: true }),
       ).toHaveCount(0);
     }
+    const omittedHomeResponse = page.waitForResponse((response) => (
+      response.url().includes('/api/shangshufang/home/v1')
+      && response.request().method() === 'GET'
+    ));
+    const archiveReclassifiedResponse = await fetch(
+      'http://127.0.0.1:8081/__w07/archive-reclassified',
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.token}` },
+      },
+    );
+    expect(archiveReclassifiedResponse.status).toBe(200);
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    const omittedHomePayload = await (await omittedHomeResponse).json() as {
+      data?: { pending_decisions?: HomeTask[] };
+    };
+    expect(
+      omittedHomePayload.data?.pending_decisions?.some(
+        (task) => task.task_id === LEGACY_TASK_ID,
+      ),
+    ).toBe(false);
+    await expect(page.getByTestId('contract-review-panel')).toBeVisible();
+    for (const legacyAction of ['准奏', '驳回', '会审', '批示']) {
+      await expect(
+        page.getByRole('button', { name: legacyAction, exact: true }),
+      ).toHaveCount(0);
+    }
 
     const refreshedHomeTasks = refreshedHomePayload.data?.pending_decisions ?? [];
     const contractTaskIndex = refreshedHomeTasks.findIndex(

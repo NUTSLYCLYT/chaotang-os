@@ -101,6 +101,27 @@ def _council_authority_snapshot(
     }
 
 
+def _require_owned_contract_council_lineage(
+    db: "Session",
+    *,
+    task: Any,
+    review: Any,
+    outbox_tenant_id: int | None,
+) -> None:
+    from src.core_tenant_lineage import TenantLineageConflict
+    from src.decision_task_access import is_contract_decision_task
+
+    if not is_contract_decision_task(db, task=task):
+        return
+    lineage = (task.tenant_id, outbox_tenant_id, review.tenant_id)
+    if any(value is None for value in lineage) or len(set(lineage)) != 1:
+        raise TenantLineageConflict(
+            "contract council requires owned tenant lineage: "
+            f"task={task.tenant_id!r}, outbox={outbox_tenant_id!r}, "
+            f"review={review.tenant_id!r}"
+        )
+
+
 def _promote_task_to_execution_failed(db: "Session", task_id: str) -> None:
     """R0-REQ-018：硬重试上限打满(dead_letter)必须让人类可见层进入明确终态，
     不得停留在 "executing" 假装还在跑，也不得静默重试。此前只写
@@ -254,12 +275,11 @@ def _execute_council(
         outbox_tenant_id=tenant_id,
         review_tenant_id=review.tenant_id,
     )
-
-    import json
-
-    routing_plan = json.loads(review.routing_plan_json or "{}")
-    draft_payload = json.loads(task.draft_edict_json or "null") or draft_to_dict(
-        draft_edict(task.raw_question, source_label=task.source_label)
+    _require_owned_contract_council_lineage(
+        db,
+        task=task,
+        review=review,
+        outbox_tenant_id=tenant_id,
     )
 
     _record_timeline(
@@ -277,11 +297,39 @@ def _execute_council(
     )
     db.commit()
     db.refresh(task)
-    db.refresh(review)
+    if task.status in TASK_TERMINAL_STATUSES:
+        return {
+            "fenced": True,
+            "reason": "terminal_task",
+            "task_status": task.status,
+        }
+    latest_review = (
+        db.query(CourtReview)
+        .populate_existing()
+        .filter_by(task_id=task_id)
+        .order_by(CourtReview.created_at.desc())
+        .first()
+    )
+    if latest_review is None or latest_review.id != review.id:
+        return {"fenced": True, "reason": "authority_changed"}
+    review = latest_review
+    _require_owned_contract_council_lineage(
+        db,
+        task=task,
+        review=review,
+        outbox_tenant_id=tenant_id,
+    )
     authority_snapshot = _council_authority_snapshot(
         db,
         task=task,
         review=review,
+    )
+
+    import json
+
+    routing_plan = json.loads(review.routing_plan_json or "{}")
+    draft_payload = json.loads(task.draft_edict_json or "null") or draft_to_dict(
+        draft_edict(task.raw_question, source_label=task.source_label)
     )
 
     # 单一事实源(阶段0任务0.2)：draft_edict 阶段已经算出 recommended_departments，

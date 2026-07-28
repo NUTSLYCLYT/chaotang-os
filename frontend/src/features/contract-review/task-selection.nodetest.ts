@@ -3,8 +3,10 @@ import test from 'node:test';
 
 import {
   findRefreshedTaskSnapshot,
+  rememberServerContractTaskIds,
   selectContractTaskCandidate,
 } from './task-selection';
+import * as taskSelection from './task-selection';
 
 test('does not infer contract mode from a legacy task prefix', () => {
   assert.equal(selectContractTaskCandidate({
@@ -79,4 +81,77 @@ test('same-id server refresh replaces a stale selected task classification', () 
     id: 'task-reclassified',
     contractTask: true,
   });
+});
+
+test('a server-confirmed contract task cannot downgrade when a later list omits it', () => {
+  type Snapshot = {
+    id: string;
+    contractTask?: boolean;
+    title: string;
+  };
+  const resolveSelectedTaskSnapshot = (
+    taskSelection as unknown as {
+      resolveSelectedTaskSnapshot?: (
+        selected: Snapshot,
+        serverTasks: readonly Snapshot[],
+        confirmedContractTaskIds: Set<string>,
+      ) => Snapshot | null;
+    }
+  ).resolveSelectedTaskSnapshot;
+  const staleLegacySnapshot = {
+    id: 'task-reclassified',
+    contractTask: false,
+    title: '旧任务快照',
+  };
+  const serverTasks = [{
+    id: 'task-reclassified',
+    contractTask: true,
+    title: '服务器合同快照',
+  }];
+  const initialIds = new Set<string>();
+  const confirmedContractTaskIds = rememberServerContractTaskIds(
+    initialIds,
+    serverTasks,
+  );
+  assert.notEqual(confirmedContractTaskIds, initialIds);
+  assert.deepEqual([...confirmedContractTaskIds], ['task-reclassified']);
+
+  const refreshed = resolveSelectedTaskSnapshot?.(
+    staleLegacySnapshot,
+    serverTasks,
+    confirmedContractTaskIds,
+  );
+  assert.deepEqual(refreshed, {
+    id: 'task-reclassified',
+    contractTask: true,
+    title: '服务器合同快照',
+  });
+
+  const omitted = resolveSelectedTaskSnapshot?.(
+    staleLegacySnapshot,
+    [],
+    confirmedContractTaskIds,
+  );
+  assert.deepEqual(omitted, {
+    id: 'task-reclassified',
+    contractTask: true,
+    title: '旧任务快照',
+  });
+});
+
+test('remembering server contract tasks is monotonic and preserves stable state', () => {
+  const existing = new Set(['task-contract-1']);
+  assert.equal(
+    rememberServerContractTaskIds(existing, [
+      { id: 'task-contract-1', contractTask: false },
+      { id: 'task-legacy', contractTask: false },
+    ]),
+    existing,
+  );
+  assert.deepEqual(
+    [...rememberServerContractTaskIds(existing, [
+      { id: 'task-contract-2', contractTask: true },
+    ])],
+    ['task-contract-1', 'task-contract-2'],
+  );
 });

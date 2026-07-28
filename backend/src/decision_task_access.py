@@ -7,10 +7,12 @@ boundary, complementing the single writer in ``decision_task_kernel``.
 
 from __future__ import annotations
 
+import json
+
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 
-from src.db.models import DecisionTask
+from src.db.models import DecisionTask, FinalMemorial
 
 
 def lock_decision_task(db: Session, task_id: str) -> None:
@@ -22,6 +24,45 @@ def lock_decision_task(db: Session, task_id: str) -> None:
     )
     if result.rowcount != 1:
         raise ValueError("canonical DecisionTask missing")
+
+
+def is_contract_decision_task(
+    db: Session,
+    *,
+    task: DecisionTask,
+    current_formal: FinalMemorial | None = None,
+) -> bool:
+    """Return the server-owned contract classification for one DecisionTask."""
+    if task.contract_scope_json is not None:
+        return True
+
+    from src.contract_mission_repository import MISSION_LOOP_ID
+    from src.db.models import CourtLoopRun
+
+    if (
+        db.query(CourtLoopRun.id)
+        .filter_by(task_id=task.id, loop_id=MISSION_LOOP_ID)
+        .first()
+        is not None
+    ):
+        return True
+
+    formal = current_formal
+    if formal is None:
+        formal = (
+            db.query(FinalMemorial)
+            .filter_by(task_id=task.id, is_current=True)
+            .first()
+        )
+    if formal is None:
+        return False
+    try:
+        formal_payload = json.loads(formal.memorial_json)
+    except json.JSONDecodeError:
+        return True
+    if not isinstance(formal_payload, dict) or not formal_payload:
+        return True
+    return "contract_review" in formal_payload
 
 
 def get_owned_decision_task(
