@@ -190,8 +190,9 @@ fresh review of `e31ed498...` returned `NO-GO` due to nullable tenant
 fail-open and candidate-doc mismatch. Nullable tenant remediation is complete in
 exact implementation `6523688359ecdd389d190c56227ec7ae6a570253`、tree
 `b47cbd74f8bbf256f07936dcf82671b834c13404` with fresh evidence above.
-Current state remains `FRESH_TWO_PASS_REVIEW_PENDING / NOT_DEPLOYED`; no EXT
-integration is authorized yet.
+That code candidate was superseded by the readback IDOR remediation registered
+below. Current state is tracked by the `295416f4...` candidate; no EXT integration
+is authorized yet.
 
 ## 全仓既有 Residual
 
@@ -231,16 +232,16 @@ integration is authorized yet.
 | seventh remediation | all approved HIGH/MEDIUM locally closed | PASS |
 | eighth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
 | independent review | docs-included exact HEAD supplied in final review request | PENDING |
-| exact implementation candidate | code `65236883...` / tree `b47cbd74...`; Packet docs now current | FROZEN |
+| exact implementation candidate | code `295416f4...` / tree `67321556...`; Packet docs pending final review | FROZEN |
 
 ## 声明状态
 
-- `IMPLEMENTATION_CANDIDATE_FROZEN / FINAL_PACKET_CONSISTENCY_REVIEW_PENDING / NOT_DEPLOYED`
+- `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING / NOT_DEPLOYED`
 
 ## Current Exact Candidate Boundary
 
-The frozen implementation code candidate is `6523688359ecdd389d190c56227ec7ae6a570253`
-with tree `b47cbd74f8bbf256f07936dcf82671b834c13404`. The final review target
+The frozen implementation code candidate is `295416f4be53bdaded9fdd47e9def2cf29485eed`
+with tree `673215560eb94e19f894582548f3c214b58c64cd`. The final review target
 is the docs-included exact Git HEAD supplied in the review request. This avoids
 treating older remediation hashes as the current integration candidate.
 
@@ -251,6 +252,10 @@ operation is authorized or performed.
 
 | Verification | Exit | Result | Boundary | Date |
 | --- | ---: | --- | --- | --- |
+| fresh review on `be666d44...` | N/A | two-pass `NO-GO`; HIGH 1 readback IDOR | historical candidate rejected; remediated in `295416f4...` | 2026-07-28 |
+| readback IDOR RED | 1 | detail/progress/brief 3 failed | cross-tenant GET leak reproduced | 2026-07-28 |
+| readback IDOR GREEN | 0 | 3 passed；swarm API contract 10 passed | shared read authority guard | 2026-07-28 |
+| latest expanded backend suite | 0 | 168 passed；2 existing FastAPI warnings | swarm/read model/rework/cancel/outbox | 2026-07-28 |
 | fresh review on `73228dd9...` | N/A | pass 1 GO, pass 2 `NO-GO`; HIGH 1 docs consistency only | Packet docs stale; current cleanup required | 2026-07-28 |
 | fresh review on `7745743d...` | N/A | two-pass `NO-GO`; deduped HIGH 2 / MEDIUM 2 | historical candidate rejected | 2026-07-28 |
 | latest TDD RED | 1 | backend 3 failed；frontend Node 1 failed；browser 1 failed | all four findings reproduced before implementation | 2026-07-28 |
@@ -268,7 +273,7 @@ operation is authorized or performed.
 | v1/v2 authority | 2/1 | v1 amendment STOP；v2 exact-ref mismatch STOP | no authority bypass | 2026-07-28 |
 | diff/security scan | 0 | diff check passed；no credential pattern match | exact implementation candidate | 2026-07-28 |
 
-implementation code `6523688359ecdd389d190c56227ec7ae6a570253`、tree
-`b47cbd74f8bbf256f07936dcf82671b834c13404` 已冻结。当前等待包含本 Packet
+implementation code `295416f4be53bdaded9fdd47e9def2cf29485eed`、tree
+`673215560eb94e19f894582548f3c214b58c64cd` 已冻结。当前等待包含本 Packet
 文档修正的 exact HEAD 两路 fresh Codex 独立只读审查；未执行 Checkpoint B、push、
 部署、持久数据库迁移或 listener 3050 操作。

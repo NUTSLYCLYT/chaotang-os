@@ -771,3 +771,36 @@ still presented older implementation hashes as the latest review candidate. The
 current remediation is document-only and updates the authoritative Packet summary
 without modifying runtime code. The next final review target is the exact Git HEAD
 that includes this Packet correction.
+
+## Swarm Runs Readback Candidate Review
+
+docs-included candidate `be666d448878e4b678a0e8ffaa8946c06400dafa` /
+tree `0614034c47d9ae16ad31ec449ed4aa196d8c5555` received two fresh Codex
+read-only `NO-GO` reviews:
+
+- backend/security/concurrency pass `019fa685-0ab1-7751-bc18-73f3d58d2a01`:
+  `NO-GO / HIGH 1 / MEDIUM 0 / LOW 0`;
+- product/Packet/frontend pass `019fa685-3122-7260-af46-2a2059baa28e`:
+  `NO-GO / HIGH 1 / MEDIUM 0 / LOW 0`.
+
+Both reviews identified the same accepted blocker: `/api/swarm-runs/{id}`,
+`/progress`, and `/brief` accepted an authenticated user but read by
+`swarm_run_id` only, exposing cross-tenant run data and private revised briefs.
+This belongs to the approved `backend/web/routers/swarm_runs.py` authority fence
+scope.
+
+Remediation evidence: three focused RED probes reproduced cross-tenant read
+success on detail/progress/brief, then passed after the shared `_owned_swarm_run`
+guard bound each read through DecisionTask and CourtReview ownership. Fresh suites:
+`test_swarm_runs_api_contract.py` `10 passed`, expanded backend `168 passed / 2
+existing FastAPI warnings`, Ruff passed, and `git diff --check` passed.
+
+fresh implementation candidate:
+
+- H `295416f4be53bdaded9fdd47e9def2cf29485eed`
+- tree `673215560eb94e19f894582548f3c214b58c64cd`
+- parent `be666d448878e4b678a0e8ffaa8946c06400dafa`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`

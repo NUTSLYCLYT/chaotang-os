@@ -122,7 +122,15 @@
   `NO-GO / HIGH 1`；唯一 blocker 为 Packet latest candidate 文档一致性。
 - [x] 修正 Packet 候选事实源：旧 implementation hashes 归入 historical rejected
   evidence，当前复审目标改为包含 Packet 文档修正的 exact HEAD。
-- [ ] 在 Packet 一致性修正后的 exact candidate 上取得 two-pass GO。
+- [x] Packet 一致性修正后的 exact `be666d44...` 两路 fresh review 已完成，
+  均为 `NO-GO / HIGH 1`；唯一 blocker 为 swarm run detail/progress/brief
+  readback 未绑定 task/review tenant+user。
+- [x] TDD 修复 swarm run readback IDOR：detail、progress、brief 三个 GET
+  统一复用 `_owned_swarm_run` authority fence。
+- [x] 冻结 implementation candidate
+  `295416f4be53bdaded9fdd47e9def2cf29485eed` /
+  `673215560eb94e19f894582548f3c214b58c64cd`。
+- [ ] 在 readback authority 修正后的 exact candidate 上取得 two-pass GO。
 - [ ] 冻结 exact candidate H/tree 和 `RUNNABLE_MINIMUM` receipt。
 
 ## 停止条件

@@ -9,14 +9,14 @@
 | --- | --- |
 | Change ID | feat-r0-w07-a0-runnable-minimum-20260727 |
 | 类型 | feat |
-| 状态 | `IMPLEMENTATION_CANDIDATE_FROZEN / FINAL_PACKET_CONSISTENCY_REVIEW_PENDING / NOT_DEPLOYED` |
+| 状态 | `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING / NOT_DEPLOYED` |
 | Owner | Codex W07 Implementation Lead |
 | Product Owner | `lyt` |
 | 创建日期 | `2026-07-27` |
 | Base H | `ed822255a452e8dd8dda8f86a180fd7c099b181e` |
 | Base tree | `0a56a0eab0135dcf46c31e5ae2cbc46f501cfdcb` |
-| Implementation candidate H | `6523688359ecdd389d190c56227ec7ae6a570253` |
-| Implementation candidate tree | `b47cbd74f8bbf256f07936dcf82671b834c13404` |
+| Implementation candidate H | `295416f4be53bdaded9fdd47e9def2cf29485eed` |
+| Implementation candidate tree | `673215560eb94e19f894582548f3c214b58c64cd` |
 | Latest docs-included review target | exact Git HEAD supplied in the final review request |
 | Integration target | local `feature-chaotang-ext` |
 | Authority before first edit | v1 `VALID_INACTIVE_GUARD`; v2 W07 `GO / APPROVED_WORK_PACKAGE` |
@@ -336,6 +336,35 @@ docs-included exact review target `73228dd990291ec14357f3bd753f4c879e6f11af`
 review target。当前文档修正仅重标候选事实源和审查状态，不修改业务代码、不执行
 Checkpoint B、不 push、不部署、不迁移数据库、不操作 listener 3050。下一轮复审目标
 必须是包含本修正的 exact Git HEAD。
+
+包含 Packet 文档修正的 exact candidate `be666d448878e4b678a0e8ffaa8946c06400dafa`
+/ tree `0614034c47d9ae16ad31ec449ed4aa196d8c5555` 的两路复审均为
+`NO-GO / HIGH 1 / MEDIUM 0 / LOW 0`。两路独立指出同一 blocker：`/api/swarm-runs`
+detail/progress/brief readback 仍按 `swarm_run_id` 直接读取，未绑定
+`SwarmRun.task_id -> DecisionTask` 与 `SwarmRun.review_id -> CourtReview` 的
+user+tenant authority，存在 same-user cross-tenant IDOR。
+
+remediation 已按 TDD 完成：新增三条 RED 覆盖 detail、progress、brief 跨 tenant
+读泄漏；`_owned_swarm_run` 统一在三个 GET 入口复用 task/review owner+tenant
+校验，nullable/missing lineage fail closed；既有 owned brief readback 保持可用。
+fresh evidence：三条 RED 先失败后 `3 passed`，`test_swarm_runs_api_contract.py`
+`10 passed`，expanded backend suite `168 passed / 2 existing FastAPI warnings`，
+Ruff 与 `git diff --check` 通过。
+
+fresh implementation candidate：
+
+- H `295416f4be53bdaded9fdd47e9def2cf29485eed`
+- tree `673215560eb94e19f894582548f3c214b58c64cd`
+- parent `be666d448878e4b678a0e8ffaa8946c06400dafa`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `4b501b301acf5887ba7098b0a5f1eea0fcbe0e97fc0a62e1850252920eca33e7`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本节不预判下一轮独立审查结论。未执行 Checkpoint B、push、部署、持久数据库迁移或
+listener 3050 操作。
 
 ## Seventh Review Final Remediation Candidate
 
