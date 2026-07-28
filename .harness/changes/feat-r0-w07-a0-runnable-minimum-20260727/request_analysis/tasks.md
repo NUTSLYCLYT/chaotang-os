@@ -97,7 +97,16 @@
 - [x] 冻结 implementation candidate
   `1d6e7f083843050f00def874ac2cbc4da04d8103` /
   `4271daed2bb5ccfff31cd39c9e118fb8dea9d3eb`。
-- [ ] 在新 exact candidate 上取得 two-pass GO。
+- [x] exact `1d6e7f...` fresh review 已完成：pass 1 `NO-GO / HIGH 1 /
+  MEDIUM 2`，pass 2 `GO / 0 / 0 / 0`。
+- [x] TDD 修复已批准范围内两个 MEDIUM：ambiguous latest review fail closed，
+  文件型 SQLite 独立 session worker 覆盖。
+- [x] 冻结 in-scope implementation candidate
+  `ab9125d1c055c3a5f11975c556d67e6635954edb` /
+  `b9feb081235499c86ca340e12d6f12b3db064cee`。
+- [ ] 取得 `backend/web/routers/swarm_runs.py` scope amendment，或由 Product
+  Owner 明确将该公开 API 从 W07-A0 验收面排除。
+- [ ] 在 scope conflict 解除后的 exact candidate 上取得 two-pass GO。
 - [ ] 冻结 exact candidate H/tree 和 `RUNNABLE_MINIMUM` receipt。
 
 ## 停止条件

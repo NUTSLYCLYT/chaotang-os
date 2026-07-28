@@ -426,6 +426,43 @@ exact implementation candidate：
 
 本节只登记待审候选，不预判两路 Codex 独立只读审查结论。
 
+## Post-1d6 Fresh Review Verdict
+
+implementation `1d6e7f083843050f00def874ac2cbc4da04d8103`、tree
+`4271daed2bb5ccfff31cd39c9e118fb8dea9d3eb` 的 fresh Codex 只读审查：
+
+- pass 1 `019fa63e-9f02-7d60-a68d-c88c45c4fb3d`：
+  `NO-GO / HIGH 1 / MEDIUM 2 / LOW 0`；
+- pass 2 `019fa653-9b42-7370-be6e-ae9a2a57f868`：
+  `GO / HIGH 0 / MEDIUM 0 / LOW 0`。
+
+主控复核结论：
+
+1. MEDIUM：`outbox_worker.py` 三处 latest-review 查询只有 `created_at DESC`，
+   秒级时间戳并列时可能选择旧 review。该项有效且在批准范围内。
+2. MEDIUM：worker 关键 review authority 竞态缺少文件型 SQLite 独立 session
+   测试。该项有效且在 focused tests 范围内。
+3. HIGH：`backend/web/routers/swarm_runs.py` 的 `review_id` 与 tenant/task
+   绑定不足。该文件是公开 API，但不在本轮明确文件范围和当前 candidate diff 内。
+   主控按 scope conflict 处理，不直接修改。
+
+## Ambiguous Review Authority Remediation
+
+已在 implementation `ab9125d1c055c3a5f11975c556d67e6635954edb`、tree
+`b9feb081235499c86ca340e12d6f12b3db064cee` 完成已批准范围内 remediation：
+
+| Finding | Remediation | Fresh evidence |
+| --- | --- | --- |
+| latest review tie | 新增 `_latest_court_review_for_task`；最高 `created_at` 并列时 fail closed，不进入 swarm 或 publication | RED 2 failed → GREEN 2 passed；`tests/test_outbox_worker.py` 42 passed |
+| worker independent-session coverage | 新增文件型 SQLite helper，使用独立 Session 在 worker 执行期间插入并列 review | `test_council_event_fences_file_backed_review_tie_before_publication` |
+
+剩余 scope conflict：
+
+- `backend/web/routers/swarm_runs.py` 需要单独 Product Owner 批准后才能修改。
+- 当前 Packet 状态为
+  `IMPLEMENTATION_CANDIDATE_FROZEN / SCOPE_AMENDMENT_REQUIRED / NOT_DEPLOYED`。
+  不得宣称 W07-A0 GO，不得整合 EXT。
+
 ## Review Verdict For 7745743d
 
 exact implementation `7745743d26906e7be759104ba4b7721cb1563705` 的两路

@@ -101,6 +101,11 @@
 | final-remediation root doctor | 1 | only `active-packet EXT ref must equal pinned HEAD` | expected PRE_INTEGRATION fail-closed | 2026-07-28 |
 | final-remediation authority | 1/2 | v1 amendment STOP；v2 exact-ref mismatch STOP | expected isolated PRE_INTEGRATION fail-closed | 2026-07-28 |
 | final-remediation `git diff --check` + secret scan | 0 | pass | implementation candidate integrity | 2026-07-28 |
+| ambiguous-review TDD RED | 1 | 2 failed | `created_at` 并列 latest review 会进入 swarm 或 publication | 2026-07-28 |
+| ambiguous-review TDD GREEN | 0 | 2 passed | highest timestamp tie fail closed as `ambiguous_review_authority`；file-backed independent session covered | 2026-07-28 |
+| ambiguous-review outbox suite | 0 | 42 passed | direct/council/rework worker regression | 2026-07-28 |
+| ambiguous-review Ruff | 0 | All checks passed | `src/execution/outbox_worker.py` and `tests/test_outbox_worker.py` | 2026-07-28 |
+| ambiguous-review `git diff --check` | 0 | pass | implementation diff integrity | 2026-07-28 |
 
 ## 结果
 
@@ -160,6 +165,15 @@ pass `019fa600-2312-7032-bef5-c10a99db8324` 为 `MEDIUM 1`。四项适用 findin
 `f1e0381a21c505cd0614d4339aa91d6e72053b0c` 按 TDD 闭环并通过上表 fresh
 verification。当前等待该 exact candidate 的两路全新独立只读审查；仍不得整合
 EXT。
+
+implementation `1d6e7f083843050f00def874ac2cbc4da04d8103` 的 fresh review
+结果为 pass 1 `NO-GO / HIGH 1 / MEDIUM 2`、pass 2 `GO / 0 / 0 / 0`。
+两个 MEDIUM 已在 exact implementation
+`ab9125d1c055c3a5f11975c556d67e6635954edb`、tree
+`b9feb081235499c86ca340e12d6f12b3db064cee` 按 TDD 闭环并通过上表 fresh
+verification。剩余 HIGH 指向 `backend/web/routers/swarm_runs.py`，该文件不在
+当前明确文件范围和 diff 内，状态为
+`SCOPE_AMENDMENT_REQUIRED / NOT_DEPLOYED`；不得宣布 GO 或整合 EXT。
 
 ## 全仓既有 Residual
 

@@ -9,14 +9,14 @@
 | --- | --- |
 | Change ID | feat-r0-w07-a0-runnable-minimum-20260727 |
 | 类型 | feat |
-| 状态 | `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING / NOT_DEPLOYED` |
+| 状态 | `IMPLEMENTATION_CANDIDATE_FROZEN / SCOPE_AMENDMENT_REQUIRED / NOT_DEPLOYED` |
 | Owner | Codex W07 Implementation Lead |
 | Product Owner | `lyt` |
 | 创建日期 | `2026-07-27` |
 | Base H | `ed822255a452e8dd8dda8f86a180fd7c099b181e` |
 | Base tree | `0a56a0eab0135dcf46c31e5ae2cbc46f501cfdcb` |
-| Implementation candidate H | `7745743d26906e7be759104ba4b7721cb1563705` |
-| Implementation candidate tree | `f1e0381a21c505cd0614d4339aa91d6e72053b0c` |
+| Implementation candidate H | `ab9125d1c055c3a5f11975c556d67e6635954edb` |
+| Implementation candidate tree | `b9feb081235499c86ca340e12d6f12b3db064cee` |
 | Integration target | local `feature-chaotang-ext` |
 | Authority before first edit | v1 `VALID_INACTIVE_GUARD`; v2 W07 `GO / APPROVED_WORK_PACKAGE` |
 
@@ -228,6 +228,42 @@ fresh implementation candidate：
 
 本节不预判下一轮独立审查结论。未执行 Checkpoint B、push、部署、持久数据库
 迁移或 listener 3050 操作。
+
+## Post-Review Scope Split
+
+implementation `1d6e7f083843050f00def874ac2cbc4da04d8103` 的 fresh Codex
+只读审查出现分歧：
+
+- pass 1 `019fa63e-9f02-7d60-a68d-c88c45c4fb3d`：
+  `NO-GO / HIGH 1 / MEDIUM 2 / LOW 0`；
+- pass 2 `019fa653-9b42-7370-be6e-ae9a2a57f868`：
+  `GO / HIGH 0 / MEDIUM 0 / LOW 0`。
+
+主控验证后将 findings 拆分：
+
+1. pass 1 的两个 MEDIUM 属于已批准 `outbox_worker.py` 与 focused tests 范围，
+   已按 TDD 修复：latest CourtReview authority 在最高 `created_at` 并列时
+   fail closed 为 `ambiguous_review_authority`；新增文件型 SQLite 独立 session
+   测试覆盖 worker 执行期间 review 并列插入。
+2. pass 1 的 HIGH 指向公开 API `backend/web/routers/swarm_runs.py`，该文件未在
+   当前 candidate diff 中，且未列入本轮明确新增文件范围。它仍可能影响同用户跨租户
+   `CourtReview` 写入和非 outbox 的 swarm route，需单独 scope amendment 后处理。
+
+fresh in-scope implementation candidate：
+
+- H `ab9125d1c055c3a5f11975c556d67e6635954edb`
+- tree `b9feb081235499c86ca340e12d6f12b3db064cee`
+- parent `bfab9c17e58d2f806628259d515774a4fe0b2a05`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `8847c9aebc7824106fa75d11396875ec873776ddf5f26c601da3a1f6de851eb9`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / SCOPE_AMENDMENT_REQUIRED /
+  NOT_DEPLOYED`
+
+当前不得宣布 W07-A0 GO，也不得整合 EXT。下一步只能由 Product Owner 明确批准
+包含 `backend/web/routers/swarm_runs.py` 与 focused tests 的 scope amendment，
+或明确将该公开 API 从 W07-A0 验收面排除。
 
 ## Seventh Review Final Remediation Candidate
 
