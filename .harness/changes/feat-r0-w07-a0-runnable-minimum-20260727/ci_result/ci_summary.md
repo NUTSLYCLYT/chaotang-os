@@ -204,3 +204,28 @@ EXT。
 ## 声明状态
 
 - `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING / NOT_DEPLOYED`
+
+## Latest Exact Candidate Evidence
+
+| Verification | Exit | Result | Boundary | Date |
+| --- | ---: | --- | --- | --- |
+| fresh review on `7745743d...` | N/A | two-pass `NO-GO`; deduped HIGH 2 / MEDIUM 2 | candidate rejected | 2026-07-28 |
+| latest TDD RED | 1 | backend 3 failed；frontend Node 1 failed；browser 1 failed | all four findings reproduced before implementation | 2026-07-28 |
+| latest TDD GREEN | 0 | backend 3 passed；selection Node 9 passed；browser 1 passed | tenant/terminal/input/omission | 2026-07-28 |
+| outbox worker suite | 0 | 40 passed | claim/retry/fence/concurrency | 2026-07-28 |
+| expanded backend suite | 0 | 377 passed；2 existing FastAPI warnings | Mission/read model/actions/W05/lineage/artifacts | 2026-07-28 |
+| contract frontend suite | 0 | 46 passed；`tsc --noEmit` passed | typed read model/closed-world/archive | 2026-07-28 |
+| full frontend Node baseline | 1 | 1110 passed / 1 known date-fixture failure | unchanged `signal_older_than_30_days` residual | 2026-07-28 |
+| Ruff | 0 | All checks passed | all changed Python files | 2026-07-28 |
+| API guard/generator x2 | 0 | 11 passed；363 routes；0 breaking；five hashes identical | fixed immutable baseline | 2026-07-28 |
+| real-mode build | 0 | Next production build passed | buildability only | 2026-07-28 |
+| W07 Playwright | 0 | 1 passed | real JWT omission + READY/PARTIAL/download/archive/reopen | 2026-07-28 |
+| backend/frontend doctors | 0 | 0 errors / 0 warnings | owned harness layers | 2026-07-28 |
+| root doctor | 1 | only active-packet EXT ref mismatch | expected isolated PRE_INTEGRATION fail-closed | 2026-07-28 |
+| v1/v2 authority | 2/1 | v1 amendment STOP；v2 exact-ref mismatch STOP | no authority bypass | 2026-07-28 |
+| diff/security scan | 0 | diff check passed；no credential pattern match | exact implementation candidate | 2026-07-28 |
+
+implementation `1d6e7f083843050f00def874ac2cbc4da04d8103`、tree
+`4271daed2bb5ccfff31cd39c9e118fb8dea9d3eb` 已冻结。当前等待该 exact
+candidate 的两路 fresh Codex 独立只读审查；未执行 Checkpoint B、push、部署、
+持久数据库迁移或 listener 3050 操作。

@@ -188,6 +188,47 @@ fresh implementation candidate：
 本节不预判独立审查结论。候选未执行 Checkpoint B、push、部署、持久数据库迁移或
 listener 3050 操作。
 
+## Latest Exact Candidate
+
+implementation `7745743d26906e7be759104ba4b7721cb1563705` 的两路 fresh
+Codex 只读审查均为 `NO-GO`：
+
+- backend pass `019fa61d-683d-77e1-8fc8-93c19bac6bb7`：
+  `HIGH 1 / MEDIUM 1 / LOW 0`；
+- frontend/concurrency pass `019fa61d-a468-7862-ad2d-021483b1ffa5`：
+  `HIGH 1 / MEDIUM 1 / LOW 0`。
+
+主控确认四项适用 finding：contract council nullable tenant、started timeline
+提交后的 terminal window、刷新后仍使用旧 swarm input、server-confirmed contract
+任务从 home 列表遗漏后降回 legacy。四项均在 Product Owner 已批准的 Seventh
+Review remediation scope 内。
+
+本轮按 TDD 修复：
+
+1. `decision_task_access` 成为 server contract classifier 单一事实源；contract
+   council 要求 task/outbox/review tenant 全部非空且相等。
+2. `dispatch.started` 提交后 fresh reload task/latest review；重验 terminal、
+   contract tenant 与 authority，再由同一快照构造 swarm input。
+3. `/shangshufang` 对服务端确认过的合同任务维持单调 closed-world 分类；后续
+   `/home/v1` 遗漏只能 fail closed，不能恢复 legacy decision actions。
+4. 真实 JWT browser flow 新增 legacy→contract→archived/omitted 同页刷新，并继续
+   覆盖 READY/PARTIAL、下载、归档和重开。
+
+fresh implementation candidate：
+
+- H `1d6e7f083843050f00def874ac2cbc4da04d8103`
+- tree `4271daed2bb5ccfff31cd39c9e118fb8dea9d3eb`
+- parent `c2eefed42bf536cdaadaeea4cf447c3bbc4c0b8f`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `6f3109924f79920126b3ab16ee0196c8cb605d155049724cee7422638f287eca`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本节不预判下一轮独立审查结论。未执行 Checkpoint B、push、部署、持久数据库
+迁移或 listener 3050 操作。
+
 ## Seventh Review Final Remediation Candidate
 
 implementation `9c98710090ed9f73c75e131b6e649ca6ee3d8df1` 的两路 fresh

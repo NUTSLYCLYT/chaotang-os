@@ -426,6 +426,51 @@ exact implementation candidate：
 
 本节只登记待审候选，不预判两路 Codex 独立只读审查结论。
 
+## Review Verdict For 7745743d
+
+exact implementation `7745743d26906e7be759104ba4b7721cb1563705` 的两路
+fresh Codex 只读审查均为 `NO-GO`：
+
+- pass 1 `019fa61d-683d-77e1-8fc8-93c19bac6bb7`：
+  `HIGH 1 / MEDIUM 1 / LOW 0`；
+- pass 2 `019fa61d-a468-7862-ad2d-021483b1ffa5`：
+  `HIGH 1 / MEDIUM 1 / LOW 0`。
+
+主控去重后的适用 findings：
+
+1. HIGH：contract `route.council` 允许 nullable CourtReview tenant 通过兼容校验；
+2. MEDIUM：task 可在 `dispatch.started` commit 与 refresh 之间进入终态，但仍调用
+   swarm；
+3. HIGH：task/review refresh 后 authority snapshot 已是 B，swarm input 仍使用锁前
+   缓存 A；
+4. MEDIUM：server-confirmed contract task 后续从 `/home/v1` 遗漏时，本地
+   selected override 可降回 legacy actions。
+
+`7745743d...` 被拒绝，不得整合 EXT。
+
+## Remediation Candidate 1d6e7f08
+
+| Finding | Remediation | Fresh evidence |
+| --- | --- | --- |
+| nullable contract tenant | shared classifier；contract task/outbox/review tenant 必须 non-null exact match | lineage RED/GREEN + outbox 40 passed |
+| post-timeline terminal window | commit 后 fresh task/latest review，terminal gate precedes swarm | SQLite second-session RED/GREEN |
+| stale swarm input A | routing/draft 只从 post-commit authority snapshot 对象生成 | second-session A→B input probe |
+| omission downgrade | monotonic server-confirmed contract IDs；omission fail closed | Node 9 passed + real JWT browser omission flow |
+
+exact implementation candidate：
+
+- H `1d6e7f083843050f00def874ac2cbc4da04d8103`
+- tree `4271daed2bb5ccfff31cd39c9e118fb8dea9d3eb`
+- parent `c2eefed42bf536cdaadaeea4cf447c3bbc4c0b8f`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `6f3109924f79920126b3ab16ee0196c8cb605d155049724cee7422638f287eca`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本节只登记待审候选，不预判两路 fresh Codex 独立只读审查结论。
+
 ## Authority Writer Candidate Fresh Review Verdict
 
 Review envelope `b936d368549d91e4feecbd6712aabdc5e8cf0896` 对 implementation

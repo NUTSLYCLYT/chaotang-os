@@ -89,6 +89,14 @@
 - [x] 冻结 implementation candidate
   `7745743d26906e7be759104ba4b7721cb1563705` /
   `f1e0381a21c505cd0614d4339aa91d6e72053b0c`。
+- [x] exact `7745743d...` 两路 fresh review 完成，整体 `NO-GO`，
+  去重 `HIGH 2 / MEDIUM 2 / LOW 0`。
+- [x] TDD 修复 contract council non-null tenant、post-timeline terminal gate、
+  post-refresh swarm input 与 frontend omission fail-closed。
+- [x] 真实 JWT browser flow 覆盖 legacy→contract→archived/omitted 同页刷新。
+- [x] 冻结 implementation candidate
+  `1d6e7f083843050f00def874ac2cbc4da04d8103` /
+  `4271daed2bb5ccfff31cd39c9e118fb8dea9d3eb`。
 - [ ] 在新 exact candidate 上取得 two-pass GO。
 - [ ] 冻结 exact candidate H/tree 和 `RUNNABLE_MINIMUM` receipt。
 
