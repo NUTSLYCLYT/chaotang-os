@@ -4,7 +4,7 @@
 
 ## Status
 
-Ready
+Accepted
 
 ## Product Definition
 
@@ -16,11 +16,11 @@ Ready
 
 ## Acceptance Criteria
 
-- [ ] 六部只能从本部已注册的司级能力中按业务意图选择；跨部、未知或重复选择必须失败关闭。
-- [ ] 可复用的 dev 能力以司级能力包接入：兵部（获客、项目方案）、户部（财务、报价）、刑部（法务合规）、工部（产品、供应链、研发、制造、交付/售后）、礼部（品牌、内容、运营）、吏部（人才），以及受控的工具/参谋能力。
-- [ ] 每个能力包只接收本部上下文与已采纳证据，只返回结构化专业意见、产物、风险和证据引用；不得自行跨部、归档、调查或执行现实动作。
-- [ ] 单部门、跨部门军机处会审、锦衣卫证据边界、史馆单条 `REPLY` 归档和既有 HTTP/BFF/UI 契约保持不变。
-- [ ] 旧 dev 运行框架未被引入；新增能力均有离线测试，且既有回归通过。
+- [x] 六部只能从本部已注册的司级能力中按业务意图选择；跨部、未知或重复选择必须失败关闭。
+- [x] 可复用的 dev 能力以司级能力包接入：兵部（获客、项目方案）、户部（财务、报价）、刑部（法务合规）、工部（产品、供应链、研发、制造、交付/售后）、礼部（品牌、内容、运营）、吏部（人才），以及受控的工具/参谋能力。
+- [x] 每个能力包只接收本部上下文与已采纳证据，只返回结构化专业意见、产物、风险和证据引用；不得自行跨部、归档、调查或执行现实动作。
+- [x] 单部门、跨部门军机处会审、锦衣卫证据边界、史馆单条 `REPLY` 归档和既有 HTTP/BFF/UI 契约保持不变。
+- [x] 旧 dev 运行框架未被引入；新增能力均有离线测试，且既有回归通过。
 
 ## Delivery Constraints
 
@@ -39,14 +39,25 @@ Ready
 
 ## Technical Plan
 
-待实施负责人根据设计稿 `docs/superpowers/specs/2026-07-27-dev-swarm-bureau-capabilities-design.md` 完成架构复核、允许路径、实施顺序和验证计划。
+- 架构边界：只把 `dev` 蜂群语义下沉为现有六部司级能力包，不恢复旧 swarm 控制面、事件总线、API、队列或持久化。
+- 接口与依赖：能力注册表与司级提示接入既有六部调用链；六部仍通过现有部门代理完成选司、逐司咨询和部级综合。
+- 验证顺序：军机处定向回归 → 蜂群专项 → 完整后端 Ruff/pytest → 仓库 harness 与 self-test。
 
 ## Implementation Report
 
-待实现。
+- 当前实现包含静态司级能力包、提示注入、六部选司完整性校验及对应离线测试；旧 swarm 运行框架未引入。
+- 军机处多部门测试夹具已按 `departments` 顺序生成等长部议，生产 API 的失败关闭契约保持不变。
+- ADR 0028 完整性校验在计算 SHA-256 前统一 CRLF、CR 为 LF；业务基线正文未修改。
+- 实际使用技能：`using-superpowers`、`using-git-worktrees`、`executing-plans`、`test-driven-development`、`record-failure`、`codex-engineering-workflow`、`verification-before-completion`。
+- 未运行真实 DeepSeek、外部网络或 MCP smoke；本次迁移仅做离线验证。
 
 ## Acceptance Review
 
-- 验收结果：Pending
-- 验收证据：待实现负责人提供。
+- 验收结果：Accepted
+- 验收证据：
+  - 军机处案件 API：`8 passed, 1 warning`。
+  - 蜂群专项：`328 passed, 1 warning`。
+  - 完整后端：Ruff `All checks passed!`；pytest `1833 passed, 1 warning`。
+  - 仓库门禁：`node scripts/check_harness.mjs` 通过（72 个基线文件）；harness self-test 通过（44 项）；Stop hook self-test 通过（3 项）；product-flow runner self-test 通过（25 项）；`git diff --check` 通过。
 - 未通过项：无。
+- 剩余风险：测试仍报告一条既有 `StarletteDeprecationWarning`，属于依赖升级维护项；真实模型与外部集成未在本次离线迁移中执行。

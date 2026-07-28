@@ -93,7 +93,7 @@ const STATIC_POLICY_GUARDS = [
 ];
 
 const DECREE_FLOW_BASELINE = "docs/decisions/0028-decree-evidence-flow-governance-baseline.md";
-const DECREE_FLOW_BASELINE_SHA256 = "4f5f8c4ecd98f475edd2f9a74a8844cca91c892caa673fdca360fb58018affd2";
+const DECREE_FLOW_BASELINE_SHA256 = "3ac5d0c3510c62dbdf9b4b785d8175a259b1ce46b0c56c29abbbc7bb2e39a31e";
 const DECREE_FLOW_POLICY_ENTRIES = [
   "AGENTS.md",
   "CLAUDE.md",
@@ -246,6 +246,10 @@ function requireText(path, content, values, errors) {
   }
 }
 
+function canonicalTextForHash(content) {
+  return content.replace(/\r\n?/gu, "\n");
+}
+
 export function decreeFlowBaselineErrors({
   baselineExists = false,
   baselineContent = "",
@@ -258,7 +262,7 @@ export function decreeFlowBaselineErrors({
     return errors;
   }
 
-  const actualHash = createHash("sha256").update(baselineContent).digest("hex");
+  const actualHash = createHash("sha256").update(canonicalTextForHash(baselineContent)).digest("hex");
   if (actualHash !== expectedHash) {
     errors.push(`不可变业务流基线已被改写: ${DECREE_FLOW_BASELINE}`);
   }
@@ -1563,6 +1567,16 @@ def render_mainland_last_price(pack):
         baselineExists: true,
         baselineContent: "authoritative-flow",
         expectedHash: createHash("sha256").update("authoritative-flow").digest("hex"),
+        policyEntries: Object.fromEntries(DECREE_FLOW_POLICY_ENTRIES.map((path) => [path, DECREE_FLOW_BASELINE])),
+      }),
+      [],
+    ],
+    [
+      "接受仅换行格式不同的不可变业务流基线",
+      decreeFlowBaselineErrors({
+        baselineExists: true,
+        baselineContent: "authoritative\r\nflow\r\n",
+        expectedHash: createHash("sha256").update("authoritative\nflow\n").digest("hex"),
         policyEntries: Object.fromEntries(DECREE_FLOW_POLICY_ENTRIES.map((path) => [path, DECREE_FLOW_BASELINE])),
       }),
       [],
