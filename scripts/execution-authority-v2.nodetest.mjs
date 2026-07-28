@@ -69,6 +69,16 @@ const W07_EVENT1_CHANGED_PATHS = Object.freeze([
   'scripts/lib/execution-authority-v2.mjs',
   'scripts/r0-amendment-check.nodetest.mjs',
 ]);
+const W08_PROFESSIONAL_CHANGED_PATHS = Object.freeze([
+  '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/ci_result/ci_summary.md',
+  '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/codex_review/professional-reassignment.md',
+  '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/owner_evidence/professional-reassignment.md',
+  '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/request_analysis/spec.md',
+  '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/request_analysis/tasks.md',
+  '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/summary.md',
+  '.harness/manifest/execution-authority.v2.json',
+  'scripts/execution-authority-v2.nodetest.mjs',
+]);
 const liveAmendmentGovernance = JSON.parse(
   await readFile(join(root, '.harness/manifest/project-harness.json'), 'utf8'),
 ).amendmentGovernance;
@@ -424,6 +434,93 @@ function w07EvidenceDocuments() {
       'node scripts/execution-authority-v2.mjs --authorize --work-package R0-W07',
       'node scripts/harness-doctor.mjs',
       'git diff --check',
+    ],
+  };
+  return { manifest, owner, activationIntent, review };
+}
+
+function w08EvidenceDocuments() {
+  const fixture = w07EvidenceDocuments();
+  const changeRoot =
+    '.harness/changes/docs-r0-w08-exact-h-activation-20260728-20260728';
+  const manifest = structuredClone(fixture.manifest);
+  manifest.effectiveBase = {
+    ref: 'refs/heads/feature-chaotang-ext',
+    sha: '80940d237a39f176b458763fd70e2c33d4ccac07',
+  };
+  manifest.approvalEvidence = {
+    ownerApprovalPath: `${changeRoot}/owner_approval/exact-h-approval.md`,
+    ownerApprovalSha256: 'a'.repeat(64),
+    reviewPath: `${changeRoot}/codex_review/exact-h-final.md`,
+    reviewSha256: 'b'.repeat(64),
+    reviewVerdict: 'GO',
+    approver: 'lyt',
+    candidateH: manifest.effectiveBase.sha,
+    tree: '6477274dbb6e6d8a8472ccf17875102f356e5675',
+    approvedScope: ['R0-W08'],
+  };
+  manifest.activeWorkPackage = 'R0-W08';
+  manifest.workPackageLedger = [
+    ...manifest.workPackageLedger.slice(0, -1),
+    { id: 'R0-W07', status: 'MERGED_AND_VERIFIED' },
+    { id: 'R0-W08', status: 'ACTIVE' },
+  ];
+  manifest.professionalReassignment = {
+    ...manifest.professionalReassignment,
+    assignments: {
+      security: 'r0-security-owner',
+      legal: 'r0-legal-owner',
+      release: 'r0-release-owner',
+    },
+  };
+
+  const owner = {
+    ...structuredClone(fixture.owner),
+    workPackage: 'R0-W08',
+    effectiveBase: manifest.effectiveBase,
+    candidateH: manifest.approvalEvidence.candidateH,
+    tree: manifest.approvalEvidence.tree,
+    approvedScope: ['R0-W08'],
+    exclusions: [
+      'NO_DEPLOYMENT',
+      'NO_REAL_CUSTOMER_DATA',
+      'NO_DB_MIGRATION',
+      'NO_LISTENER_3050_TAKEOVER',
+      'NO_R0_W09_ACTIVATION',
+      'NO_AUTOMATIC_MERGE',
+      'NO_PRODUCTION_CLAIM',
+    ],
+    activationIntentPath: `${changeRoot}/activation_intent/r0-w08-activation-intent.json`,
+  };
+  const activationIntent = {
+    ...structuredClone(fixture.activationIntent),
+    reviewPackagePath: `${changeRoot}/review_inputs/activation-candidate.diff`,
+    effectiveBase: manifest.effectiveBase,
+    approvalEvidence: structuredClone(manifest.approvalEvidence),
+    activeWorkPackage: 'R0-W08',
+    workPackageLedger: manifest.workPackageLedger,
+  };
+  delete activationIntent.approvalEvidence.ownerApprovalSha256;
+  delete activationIntent.approvalEvidence.reviewSha256;
+  const review = {
+    ...structuredClone(fixture.review),
+    reviewer: 'Claude Code',
+    workPackage: 'R0-W08',
+    effectiveBase: manifest.effectiveBase,
+    candidateH: manifest.approvalEvidence.candidateH,
+    tree: manifest.approvalEvidence.tree,
+    approvedScope: ['R0-W08'],
+    ownerApprovalPath: manifest.approvalEvidence.ownerApprovalPath,
+    activationIntentPath: owner.activationIntentPath,
+    reviewPackagePath: activationIntent.reviewPackagePath,
+    changedPaths: [...W08_PROFESSIONAL_CHANGED_PATHS],
+    commands: [
+      'node --test scripts/execution-authority-v2.nodetest.mjs',
+      'node scripts/execution-authority.mjs --check',
+      'node scripts/execution-authority-v2.mjs --check',
+      'node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08',
+      'node scripts/harness-doctor.mjs',
+      "git diff --check -- . ':(exclude).harness/changes/docs-r0-w08-exact-h-activation-20260728-20260728/review_inputs/activation-candidate.diff'",
     ],
   };
   return { manifest, owner, activationIntent, review };
@@ -1265,6 +1362,19 @@ test('W07 profile rejects paths outside the exact Event 1 candidate', () => {
   );
 });
 
+test('W08 profile accepts the professional reassignment candidate path set', () => {
+  const fixture = w08EvidenceDocuments();
+  assert.deepEqual(
+    validateExecutionAuthorityV2Evidence(
+      fixture.manifest,
+      validGovernance(),
+      fixture.owner,
+      fixture.review,
+    ),
+    [],
+  );
+});
+
 test('active temporary root authorizes only after loading the exact independent review and activation intent', async () => {
   const { temporaryRoot } = await createActiveAuthorityFixture();
   try {
@@ -1964,6 +2074,10 @@ test('W01 itself is blocked if W00 is not yet MERGED_AND_VERIFIED', () => {
 test('professional reassignment gate fails closed while roles are default and opens after reassignment', () => {
   const manifest = {
     ...validManifest(),
+    effectiveBase: {
+      ref: 'refs/heads/feature-chaotang-ext',
+      sha: '80940d237a39f176b458763fd70e2c33d4ccac07',
+    },
     activeWorkPackage: 'R0-W08',
     workPackageLedger: [
       { id: 'R0-W00', status: 'MERGED_AND_VERIFIED' },
@@ -1976,7 +2090,16 @@ test('professional reassignment gate fails closed while roles are default and op
       { id: 'R0-W07', status: 'MERGED_AND_VERIFIED' },
       { id: 'R0-W08', status: 'ACTIVE' },
     ],
-    approvalEvidence: { ...validManifest().approvalEvidence, approvedScope: ['R0-W08'] },
+    approvalEvidence: {
+      ...validManifest().approvalEvidence,
+      ownerApprovalPath:
+        '.harness/changes/docs-r0-w08-exact-h-activation-20260728-20260728/owner_approval/exact-h-approval.md',
+      reviewPath:
+        '.harness/changes/docs-r0-w08-exact-h-activation-20260728-20260728/codex_review/exact-h-final.md',
+      candidateH: '80940d237a39f176b458763fd70e2c33d4ccac07',
+      tree: '6477274dbb6e6d8a8472ccf17875102f356e5675',
+      approvedScope: ['R0-W08'],
+    },
   };
   assert.equal(
     evaluateExecutionAuthorityV2Policy(manifest, validGovernance(), { workPackage: 'R0-W08' }).reason,
@@ -2300,9 +2423,9 @@ async function assertRealRepositoryAuthorityPhase(loaded) {
     return 'QUIESCENT';
   }
 
-  assert.equal(loaded.manifest.activeWorkPackage, 'R0-W07');
+  assert.ok(['R0-W07', 'R0-W08'].includes(loaded.manifest.activeWorkPackage));
   assert.deepEqual(loaded.manifest.workPackageLedger.at(-1), {
-    id: 'R0-W07',
+    id: loaded.manifest.activeWorkPackage,
     status: 'ACTIVE',
   });
   const [{ stdout: headSource }, { stdout: extSource }] = await Promise.all([
@@ -2325,10 +2448,10 @@ async function assertRealRepositoryAuthorityPhase(loaded) {
   ]);
   if (headSource.trim() === extSource.trim()) {
     assert.deepEqual(loaded.errors, []);
-    return 'INTEGRATED_W07';
+    return `INTEGRATED_${loaded.manifest.activeWorkPackage}`;
   }
   assert.deepEqual(loaded.errors, ['active-packet EXT ref must equal pinned HEAD']);
-  return 'PRE_INTEGRATION_W07';
+  return `PRE_INTEGRATION_${loaded.manifest.activeWorkPackage}`;
 }
 
 test('CLI subprocess matches the real repository authority phase', async () => {
@@ -2348,9 +2471,10 @@ test('CLI subprocess matches the real repository authority phase', async () => {
     }
     return;
   }
-  if (phase === 'PRE_INTEGRATION_W07') {
+  if (phase.startsWith('PRE_INTEGRATION_')) {
+    const activePackage = phase.replace('PRE_INTEGRATION_', '');
     await assert.rejects(
-      execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', 'R0-W07'], {
+      execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', activePackage], {
         cwd: root,
       }),
       (error) => {
@@ -2365,16 +2489,17 @@ test('CLI subprocess matches the real repository authority phase', async () => {
     );
     return;
   }
+  const activePackage = phase.replace('INTEGRATED_', '');
 
   const { stdout } = await execFileAsync(
     process.execPath,
-    [cliPath, '--authorize', '--work-package', 'R0-W07'],
+    [cliPath, '--authorize', '--work-package', activePackage],
     { cwd: root },
   );
   assert.deepEqual(JSON.parse(stdout), {
     schemaVersion: 'execution-authority.v2',
     decision: 'GO',
-    activeWorkPackage: 'R0-W07',
+    activeWorkPackage: activePackage,
     reason: 'APPROVED_WORK_PACKAGE',
   });
 });
@@ -2385,13 +2510,15 @@ test('CLI subprocess against the real repo keeps predecessor and successor packa
   const expectedReasons =
     phase === 'QUIESCENT'
       ? ['NO_ACTIVE_WORK_PACKAGE', 'NO_ACTIVE_WORK_PACKAGE', 'NO_ACTIVE_WORK_PACKAGE']
-      : phase === 'PRE_INTEGRATION_W07'
+      : phase.startsWith('PRE_INTEGRATION_')
         ? [
             'INVALID_EXECUTION_AUTHORITY',
             'INVALID_EXECUTION_AUTHORITY',
             'INVALID_EXECUTION_AUTHORITY',
           ]
-        : ['WORK_PACKAGE_MISMATCH', 'BLOCKED_DEPENDENCY', 'BLOCKED_DEPENDENCY'];
+        : phase === 'INTEGRATED_R0-W07'
+          ? ['WORK_PACKAGE_MISMATCH', 'BLOCKED_DEPENDENCY', 'BLOCKED_DEPENDENCY']
+          : ['WORK_PACKAGE_MISMATCH', 'WORK_PACKAGE_MISMATCH', 'BLOCKED_DEPENDENCY'];
   let index = 0;
   for (const workPackage of ['R0-W05', 'R0-W08', 'R0-W09']) {
     await assert.rejects(

@@ -79,6 +79,8 @@ const ACTIVATION_INTENT_KIND = 'activation-intent';
 const RECOVERY_CHANGE_ROOT = '.harness/changes/fix-ext-g0-authority-recovery-20260725';
 const W07_CHANGE_ROOT =
   '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727';
+const W08_CHANGE_ROOT =
+  '.harness/changes/docs-r0-w08-exact-h-activation-20260728-20260728';
 const ACTIVE_PACKET_PROFILES = Object.freeze({
   'R0-W06': Object.freeze({
     effectiveBaseRef: 'origin/feature-chaotang-ext',
@@ -160,6 +162,42 @@ const ACTIVE_PACKET_PROFILES = Object.freeze({
       'node scripts/execution-authority-v2.mjs --authorize --work-package R0-W07',
       'node scripts/harness-doctor.mjs',
       'git diff --check',
+    ]),
+  }),
+  'R0-W08': Object.freeze({
+    effectiveBaseRef: 'refs/heads/feature-chaotang-ext',
+    reviewBaseH: '39bd654b4cac8ee0fa59ddcbd7ad6a79f5ee9097',
+    ownerApprovalPath: `${W08_CHANGE_ROOT}/owner_approval/exact-h-approval.md`,
+    reviewPath: `${W08_CHANGE_ROOT}/codex_review/exact-h-final.md`,
+    activationIntentPath: `${W08_CHANGE_ROOT}/activation_intent/r0-w08-activation-intent.json`,
+    reviewPackagePath: `${W08_CHANGE_ROOT}/review_inputs/activation-candidate.diff`,
+    exclusions: Object.freeze([
+      'NO_DEPLOYMENT',
+      'NO_REAL_CUSTOMER_DATA',
+      'NO_DB_MIGRATION',
+      'NO_LISTENER_3050_TAKEOVER',
+      'NO_R0_W09_ACTIVATION',
+      'NO_AUTOMATIC_MERGE',
+      'NO_PRODUCTION_CLAIM',
+    ]),
+    allowedChangedPaths: new Set([
+      '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/ci_result/ci_summary.md',
+      '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/codex_review/professional-reassignment.md',
+      '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/owner_evidence/professional-reassignment.md',
+      '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/request_analysis/spec.md',
+      '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/request_analysis/tasks.md',
+      '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/summary.md',
+      '.harness/manifest/execution-authority.v2.json',
+      'scripts/execution-authority-v2.nodetest.mjs',
+    ]),
+    exactGitRange: true,
+    requiredCommands: Object.freeze([
+      'node --test scripts/execution-authority-v2.nodetest.mjs',
+      'node scripts/execution-authority.mjs --check',
+      'node scripts/execution-authority-v2.mjs --check',
+      'node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08',
+      'node scripts/harness-doctor.mjs',
+      "git diff --check -- . ':(exclude).harness/changes/docs-r0-w08-exact-h-activation-20260728-20260728/review_inputs/activation-candidate.diff'",
     ]),
   }),
 });

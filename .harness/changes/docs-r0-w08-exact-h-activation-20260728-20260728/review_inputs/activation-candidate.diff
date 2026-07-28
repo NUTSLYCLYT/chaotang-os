@@ -1,0 +1,392 @@
+diff --git a/.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/ci_result/ci_summary.md b/.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/ci_result/ci_summary.md
+new file mode 100644
+index 00000000..ab7d444a
+--- /dev/null
++++ b/.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/ci_result/ci_summary.md
+@@ -0,0 +1,30 @@
++# CI 摘要：docs-r0-w08-professional-reassignment-20260728-20260728
++
++## Commands
++
++| Command | Exit | Result | Coverage | Time |
++| --- | ---: | --- | --- | --- |
++| pre-commit `node --test scripts/execution-authority-v2.nodetest.mjs` | 1 | `70 passed / 3 failed`; dirty manifest rejected | expected fail-closed before candidate commit | 2026-07-28 |
++| `node --test scripts/execution-authority-v2.nodetest.mjs` | 0 | `73 passed` | authority v2 regression | 2026-07-28 |
++| `node scripts/execution-authority.mjs --check` | 0 | `VALID_INACTIVE_GUARD` | v1 remains non-authorizing guard | 2026-07-28 |
++| `node scripts/execution-authority-v2.mjs --check` | 0 | `VALID_STRUCTURE / STRUCTURALLY_VALID_NOT_AN_AUTHORIZATION` | structure | 2026-07-28 |
++| `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08` | 2 | `STOP / NO_ACTIVE_WORK_PACKAGE` | W08 remains inactive | 2026-07-28 |
++| `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W09` | 2 | `STOP / NO_ACTIVE_WORK_PACKAGE` | W09 remains inactive | 2026-07-28 |
++| `node scripts/harness-doctor.mjs` | 0 | `project-harness-doctor: 0 errors, 0 warning(s)` | root harness | 2026-07-28 |
++| `git diff --check` | 0 | PASS | diff sanity | 2026-07-28 |
++
++## Current Result
++
++Professional roles have been reassigned away from the default owner. W08 and
++W09 remain inactive.
++
++## Unverified Areas
++
++- no product/browser/backend acceptance was run; this Packet is governance-only
++
++## Declared State
++
++- `CANDIDATE`
++- `NON_AUTHORIZING`
++- `NOT_DEPLOYED`
++- `NO_PRODUCT_CODE_CHANGE`
+diff --git a/.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/codex_review/professional-reassignment.md b/.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/codex_review/professional-reassignment.md
+new file mode 100644
+index 00000000..d560bac5
+--- /dev/null
++++ b/.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/codex_review/professional-reassignment.md
+@@ -0,0 +1,41 @@
++# Codex Review Evidence
++
++Review type: focused governance review.
++
++Scope reviewed:
++
++- `.harness/manifest/execution-authority.v2.json`
++- `scripts/execution-authority-v2.nodetest.mjs`
++- `.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/**`
++
++Final verdict:
++
++```text
++GO / HIGH 0 / MEDIUM 0 / LOW 0
++```
++
++Review checklist:
++
++- W08 remains inactive.
++- W09 remains inactive.
++- `activeWorkPackage` remains `null`.
++- R0-W07 remains `MERGED_AND_VERIFIED`.
++- The only manifest behavior change is assigning `security`, `legal`, and
++  `release` away from `defaultOwner`.
++- Focused test proves the professional gate fails closed for default assignment
++  and opens after reassignment.
++- No product code, deployment, database migration, or listener 3050 operation is
++  included.
++
++Verification:
++
++- `node --test scripts/execution-authority-v2.nodetest.mjs`: `73 passed`
++- `node scripts/execution-authority.mjs --check`: `VALID_INACTIVE_GUARD`
++- `node scripts/execution-authority-v2.mjs --check`:
++  `VALID_STRUCTURE / STRUCTURALLY_VALID_NOT_AN_AUTHORIZATION`
++- `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08`:
++  `STOP / NO_ACTIVE_WORK_PACKAGE`
++- `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W09`:
++  `STOP / NO_ACTIVE_WORK_PACKAGE`
++- `node scripts/harness-doctor.mjs`: `0 errors / 0 warnings`
++- `git diff --check`: PASS
+diff --git a/.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/owner_evidence/professional-reassignment.md b/.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/owner_evidence/professional-reassignment.md
+new file mode 100644
+index 00000000..0d0b34db
+--- /dev/null
++++ b/.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/owner_evidence/professional-reassignment.md
+@@ -0,0 +1,32 @@
++# R0-W08 Professional Reassignment Owner Evidence
++
++Product Owner approved assigning the R0-W08/R0-W09 professional gate roles away
++from the default owner before W08 activation.
++
++```json
++{
++  "evidenceVersion": "r0-professional-reassignment.v1",
++  "decision": "APPROVED",
++  "approver": "lyt",
++  "base": "39bd654b4cac8ee0fa59ddcbd7ad6a79f5ee9097",
++  "scope": ["R0-W08", "R0-W09", "REAL_CUSTOMER_DATA"],
++  "assignments": {
++    "security": "r0-security-owner",
++    "legal": "r0-legal-owner",
++    "release": "r0-release-owner"
++  },
++  "exclusions": [
++    "NO_W08_ACTIVATION",
++    "NO_W09_ACTIVATION",
++    "NO_PRODUCT_CODE_CHANGE",
++    "NO_PUSH",
++    "NO_DEPLOYMENT",
++    "NO_DB_MIGRATION",
++    "NO_LISTENER_3050_TAKEOVER",
++    "NO_PRODUCTION_CLAIM"
++  ]
++}
++```
++
++This evidence does not activate W08. It only records the owner-approved
++professional role assignment required before a later W08 activation candidate.
+diff --git a/.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/request_analysis/spec.md b/.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/request_analysis/spec.md
+new file mode 100644
+index 00000000..45a5effe
+--- /dev/null
++++ b/.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/request_analysis/spec.md
+@@ -0,0 +1,81 @@
++# 规格说明：docs-r0-w08-professional-reassignment-20260728-20260728
++
++## Background
++
++R0-W08 is defined as `Product Acceptance Hardening`, but W08/W09 are protected
++by the v2 `professionalReassignment` runtime gate. The gate is triggered for
++`R0-W08`, `R0-W09`, or `--real-customer-data`.
++
++Current manifest before this Packet:
++
++```json
++{
++  "security": "lyt",
++  "legal": "lyt",
++  "release": "lyt"
++}
++```
++
++Because all three roles equal `defaultOwner`, any active W08/W09 candidate would
++stop with `PROFESSIONAL_REASSIGNMENT_REQUIRED`.
++
++## Design
++
++This Packet changes only the assignments under:
++
++```text
++.harness/manifest/execution-authority.v2.json
++professionalReassignment.assignments
++```
++
++New assignments:
++
++```json
++{
++  "security": "r0-security-owner",
++  "legal": "r0-legal-owner",
++  "release": "r0-release-owner"
++}
++```
++
++The frozen boundary fields stay unchanged:
++
++- `requiredBefore = ["REAL_CUSTOMER_DATA", "R0-W08", "R0-W09"]`
++- `rolesRequired = ["security", "legal", "release"]`
++- `defaultOwner = "lyt"`
++
++## Data Flow
++
++```text
++execution-authority.v2.json
++-> validateExecutionAuthorityV2Manifest
++-> evaluateExecutionAuthorityV2Policy
++-> professional gate no longer blocks solely because roles equal defaultOwner
++```
++
++## Acceptance Criteria
++
++- manifest schema remains valid
++- `activeWorkPackage` remains `null`
++- W08 remains inactive until a later activation candidate
++- focused test proves default assignment fails closed
++- focused test proves reassigned W08 policy proceeds to `POLICY_ELIGIBLE`
++- root doctor passes
++- diff check passes
++
++## Risks
++
++| Risk | Mitigation |
++| --- | --- |
++| Treating reassignment as W08 activation | v2 W08 must remain `STOP / NO_ACTIVE_WORK_PACKAGE` |
++| Reassigning only one role | test uses all three non-default roles |
++| Weak evidence | owner evidence and Codex review evidence are recorded in this Packet |
++| Scope creep into product code | changed paths are limited to authority governance, tests, and Packet docs |
++
++## Verification Plan
++
++- `node --test scripts/execution-authority-v2.nodetest.mjs`
++- `node scripts/execution-authority-v2.mjs --check`
++- `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08`
++- `node scripts/harness-doctor.mjs`
++- `git diff --check`
+diff --git a/.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/request_analysis/tasks.md b/.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/request_analysis/tasks.md
+new file mode 100644
+index 00000000..4117e476
+--- /dev/null
++++ b/.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/request_analysis/tasks.md
+@@ -0,0 +1,45 @@
++# 任务：docs-r0-w08-professional-reassignment-20260728-20260728
++
++## Task 1: Establish Isolated Packet
++
++- [x] Create isolated worktree from local EXT `39bd654b...`.
++- [x] Create root `.harness/changes/` Packet.
++- [x] Record Product Owner scope and non-goals.
++
++## Task 2: Reassign Professional Roles
++
++- [x] Set `professionalReassignment.assignments.security` to
++  `r0-security-owner`.
++- [x] Set `professionalReassignment.assignments.legal` to `r0-legal-owner`.
++- [x] Set `professionalReassignment.assignments.release` to
++  `r0-release-owner`.
++- [x] Preserve `activeWorkPackage = null`.
++- [x] Preserve W07 as `MERGED_AND_VERIFIED`.
++
++## Task 3: Focused Validation
++
++- [x] Add a policy-level test that default assignment returns
++  `PROFESSIONAL_REASSIGNMENT_REQUIRED`.
++- [x] Add a policy-level test that reassigned W08 proceeds to
++  `POLICY_ELIGIBLE`.
++
++## Task 4: Evidence
++
++- [x] Add owner evidence for the three assignments.
++- [x] Add Codex review evidence scaffold.
++- [x] Finalize Codex review evidence after verification.
++
++## Task 5: Verification
++
++- [x] `node --test scripts/execution-authority-v2.nodetest.mjs`
++- [x] `node scripts/execution-authority.mjs --check`
++- [x] `node scripts/execution-authority-v2.mjs --check`
++- [x] `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08`
++- [x] `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W09`
++- [x] `node scripts/harness-doctor.mjs`
++- [x] `git diff --check`
++
++## Completion Boundary
++
++This Packet is not integrated into local `feature-chaotang-ext` until it has
++fresh verification and review. It does not activate W08.
+diff --git a/.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/summary.md b/.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/summary.md
+new file mode 100644
+index 00000000..344cfefb
+--- /dev/null
++++ b/.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/summary.md
+@@ -0,0 +1,69 @@
++# 变更摘要：docs-r0-w08-professional-reassignment-20260728-20260728
++
++> 执行授权：`NOT_GRANTED_BY_CHANGE_RECORD`
++> 本 Packet 只记录 R0-W08 前置 professional reassignment；不激活 W08。
++
++| 字段 | 值 |
++| --- | --- |
++| Change ID | docs-r0-w08-professional-reassignment-20260728-20260728 |
++| 类型 | docs |
++| 状态 | CANDIDATE / NON_AUTHORIZING / NOT_DEPLOYED |
++| Owner | EXT Master Governance |
++| 创建日期 | 20260728 |
++| Authorized base | `39bd654b4cac8ee0fa59ddcbd7ad6a79f5ee9097` |
++| Base branch | local `feature-chaotang-ext` |
++
++## Product Owner Approval
++
++Product Owner approved:
++
++> 批准基于本地 EXT `39bd654b4cac8ee0fa59ddcbd7ad6a79f5ee9097`
++> 创建 isolated R0-W08 professional reassignment Packet；将
++> security/legal/release 三角色从默认 owner `lyt` 重新指定为
++> `r0-security-owner`、`r0-legal-owner`、`r0-release-owner`；范围仅治理
++> manifest、owner evidence、review evidence 和验证，不激活 W08、不修改产品代码、
++> 不 push、不部署、不迁移数据库、不操作 3050。
++
++## Goal
++
++Remove the R0-W08/R0-W09 professional gate blocker by assigning the three
++required roles away from the default owner:
++
++- `security = r0-security-owner`
++- `legal = r0-legal-owner`
++- `release = r0-release-owner`
++
++## Scope
++
++- `.harness/manifest/execution-authority.v2.json`
++- this Packet's owner evidence, review evidence, summary, spec, tasks, and CI
++  record
++- focused authority v2 nodetest coverage for default-vs-reassigned professional
++  gate behavior
++
++## Non-Goals
++
++- no W08 activation
++- no W09 activation
++- no product code change
++- no push
++- no deployment
++- no database migration
++- no listener 3050 operation
++- no production claim
++
++## Expected Authority State
++
++After this Packet:
++
++- `activeWorkPackage` remains `null`
++- R0-W08 still returns `STOP / NO_ACTIVE_WORK_PACKAGE`
++- when a later approved W08 activation candidate sets W08 active, the
++  professional gate should no longer return
++  `PROFESSIONAL_REASSIGNMENT_REQUIRED`
++
++## Rollback
++
++Before local integration, revert this candidate. After local integration, undo
++requires a separately approved forward governance Packet that reassigns the
++roles again. There is no production rollback because no runtime state changes.
+diff --git a/.harness/manifest/execution-authority.v2.json b/.harness/manifest/execution-authority.v2.json
+index 0b5a816f..ead9c4ad 100644
+--- a/.harness/manifest/execution-authority.v2.json
++++ b/.harness/manifest/execution-authority.v2.json
+@@ -36,9 +36,9 @@
+     "requiredBefore": ["REAL_CUSTOMER_DATA", "R0-W08", "R0-W09"],
+     "rolesRequired": ["security", "legal", "release"],
+     "assignments": {
+-      "security": "lyt",
+-      "legal": "lyt",
+-      "release": "lyt"
++      "security": "r0-security-owner",
++      "legal": "r0-legal-owner",
++      "release": "r0-release-owner"
+     },
+     "defaultOwner": "lyt"
+   }
+diff --git a/scripts/execution-authority-v2.nodetest.mjs b/scripts/execution-authority-v2.nodetest.mjs
+index cc90d132..d024db4e 100644
+--- a/scripts/execution-authority-v2.nodetest.mjs
++++ b/scripts/execution-authority-v2.nodetest.mjs
+@@ -1961,7 +1961,7 @@ test('W01 itself is blocked if W00 is not yet MERGED_AND_VERIFIED', () => {
+   );
+ });
+ 
+-test('professional reassignment gate fails closed for W08/W09 and real customer data while roles are default', () => {
++test('professional reassignment gate fails closed while roles are default and opens after reassignment', () => {
+   const manifest = {
+     ...validManifest(),
+     activeWorkPackage: 'R0-W08',
+@@ -1989,9 +1989,24 @@ test('professional reassignment gate fails closed for W08/W09 and real customer
+     }).reason,
+     'PROFESSIONAL_REASSIGNMENT_REQUIRED',
+   );
+-  // Deliberately no positive fixture for this branch: no reassignment has happened in the
+-  // real repo yet, so this gate cannot be exercised as GO today. That is the intended
+-  // fail-closed default, not a coverage gap.
++
++  const reassignedManifest = {
++    ...manifest,
++    professionalReassignment: {
++      ...manifest.professionalReassignment,
++      assignments: {
++        security: 'r0-security-owner',
++        legal: 'r0-legal-owner',
++        release: 'r0-release-owner',
++      },
++    },
++  };
++  assert.equal(
++    evaluateExecutionAuthorityV2Policy(reassignedManifest, validGovernance(), {
++      workPackage: 'R0-W08',
++    }).reason,
++    'POLICY_ELIGIBLE',
++  );
+ });
+ 
+ test('review verdict other than GO stops the resolver', () => {
