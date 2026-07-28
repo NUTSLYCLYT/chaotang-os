@@ -130,8 +130,12 @@
 - [x] 冻结 implementation candidate
   `295416f4be53bdaded9fdd47e9def2cf29485eed` /
   `673215560eb94e19f894582548f3c214b58c64cd`。
-- [ ] 在 readback authority 修正后的 exact candidate 上取得 two-pass GO。
-- [ ] 冻结 exact candidate H/tree 和 `RUNNABLE_MINIMUM` receipt。
+- [x] 在 readback authority 修正后的 exact candidate
+  `10393b64da8cccd0c6e3b5dda041adc708f0e1a7` /
+  `821304ad5e4b50a1013e5926a5db581bfb59a88b` 上取得 two-pass GO。
+- [x] 受控 fast-forward 整合到本地 `feature-chaotang-ext`。
+- [x] 冻结 `RUNNABLE_MINIMUM` receipt：整合后 v2 W07 GO、root doctor
+  `0/0`、backend focused `168 passed`、frontend focused `36 passed`。
 
 ## 停止条件
 

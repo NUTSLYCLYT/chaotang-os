@@ -231,22 +231,33 @@ is authorized yet.
 | sixth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
 | seventh remediation | all approved HIGH/MEDIUM locally closed | PASS |
 | eighth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
-| independent review | docs-included exact HEAD supplied in final review request | PENDING |
-| exact implementation candidate | code `295416f4...` / tree `67321556...`; Packet docs pending final review | FROZEN |
+| independent review | exact `10393b64...` two-pass Codex review | PASS |
+| exact implementation candidate | code `295416f4...` / tree `67321556...` | FROZEN |
+| local EXT integration | fast-forward to `10393b64...` / tree `821304ad...` | PASS |
 
 ## 声明状态
 
-- `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING / NOT_DEPLOYED`
+- `LOCAL_EXT_INTEGRATED / RUNNABLE_MINIMUM_ACCEPTED / NOT_DEPLOYED`
 
 ## Current Exact Candidate Boundary
 
 The frozen implementation code candidate is `295416f4be53bdaded9fdd47e9def2cf29485eed`
-with tree `673215560eb94e19f894582548f3c214b58c64cd`. The final review target
-is the docs-included exact Git HEAD supplied in the review request. This avoids
-treating older remediation hashes as the current integration candidate.
+with tree `673215560eb94e19f894582548f3c214b58c64cd`. The reviewed
+docs-included exact candidate is `10393b64da8cccd0c6e3b5dda041adc708f0e1a7`
+with tree `821304ad5e4b50a1013e5926a5db581bfb59a88b`.
 
 No Checkpoint B, push, deployment, persistent database migration, or listener 3050
 operation is authorized or performed.
+
+## Post-Integration Acceptance
+
+| Verification | Exit | Result | Boundary | Date |
+| --- | ---: | --- | --- | --- |
+| v2 authority | 0 | `GO / APPROVED_WORK_PACKAGE` for `R0-W07` | integrated local EXT | 2026-07-28 |
+| root doctor | 0 | `0 errors / 0 warnings` | integrated local EXT | 2026-07-28 |
+| backend focused suite | 0 | 168 passed；2 existing FastAPI warnings | W07/W05/swarm/read model/outbox | 2026-07-28 |
+| frontend focused Node | 0 | 36 passed | task selection/read model/archive readback | 2026-07-28 |
+| Ruff + diff check | 0 | All checks passed | integrated local EXT | 2026-07-28 |
 
 ## Historical Rejected Candidate Evidence
 
@@ -274,6 +285,7 @@ operation is authorized or performed.
 | diff/security scan | 0 | diff check passed；no credential pattern match | exact implementation candidate | 2026-07-28 |
 
 implementation code `295416f4be53bdaded9fdd47e9def2cf29485eed`、tree
-`673215560eb94e19f894582548f3c214b58c64cd` 已冻结。当前等待包含本 Packet
-文档修正的 exact HEAD 两路 fresh Codex 独立只读审查；未执行 Checkpoint B、push、
-部署、持久数据库迁移或 listener 3050 操作。
+`673215560eb94e19f894582548f3c214b58c64cd` 已冻结。reviewed docs-included
+candidate `10393b64da8cccd0c6e3b5dda041adc708f0e1a7` 已受控 fast-forward 整合到
+本地 `feature-chaotang-ext`。未执行 Checkpoint B、push、部署、持久数据库迁移或
+listener 3050 操作。

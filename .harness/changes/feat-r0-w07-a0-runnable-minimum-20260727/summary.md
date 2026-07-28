@@ -9,7 +9,7 @@
 | --- | --- |
 | Change ID | feat-r0-w07-a0-runnable-minimum-20260727 |
 | 类型 | feat |
-| 状态 | `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING / NOT_DEPLOYED` |
+| 状态 | `LOCAL_EXT_INTEGRATED / RUNNABLE_MINIMUM_ACCEPTED / NOT_DEPLOYED` |
 | Owner | Codex W07 Implementation Lead |
 | Product Owner | `lyt` |
 | 创建日期 | `2026-07-27` |
@@ -17,14 +17,16 @@
 | Base tree | `0a56a0eab0135dcf46c31e5ae2cbc46f501cfdcb` |
 | Implementation candidate H | `295416f4be53bdaded9fdd47e9def2cf29485eed` |
 | Implementation candidate tree | `673215560eb94e19f894582548f3c214b58c64cd` |
-| Latest docs-included review target | exact Git HEAD supplied in the final review request |
+| Reviewed docs-included candidate H | `10393b64da8cccd0c6e3b5dda041adc708f0e1a7` |
+| Reviewed docs-included candidate tree | `821304ad5e4b50a1013e5926a5db581bfb59a88b` |
 | Integration target | local `feature-chaotang-ext` |
 | Authority before first edit | v1 `VALID_INACTIVE_GUARD`; v2 W07 `GO / APPROVED_WORK_PACKAGE` |
 
 ## 目标
 
 用现有持久表、W05/W06 能力和现有 `/shangshufang`、`/shiguan` 跑通一条合成合同
-真实后端闭环。验收结论最多为 `RUNNABLE_MINIMUM`，不关闭 W07。
+真实后端闭环。验收结论为 `RUNNABLE_MINIMUM`；本 Packet 不关闭 W07，也不授权
+Checkpoint B、W08、W09、push、部署、持久数据库迁移或 listener 3050。
 
 ## 独立审查状态
 
@@ -365,6 +367,37 @@ fresh implementation candidate：
 
 本节不预判下一轮独立审查结论。未执行 Checkpoint B、push、部署、持久数据库迁移或
 listener 3050 操作。
+
+## Post-Integration Acceptance Receipt
+
+reviewed docs-included candidate：
+
+- H `10393b64da8cccd0c6e3b5dda041adc708f0e1a7`
+- tree `821304ad5e4b50a1013e5926a5db581bfb59a88b`
+- implementation H `295416f4be53bdaded9fdd47e9def2cf29485eed`
+- implementation tree `673215560eb94e19f894582548f3c214b58c64cd`
+
+两路 Codex 独立只读复审均为 `GO / HIGH 0 / MEDIUM 0 / LOW 0`：
+
+- backend/security/concurrency pass
+  `019fa690-cfef-7132-91b9-093dfc5c1fb1`；
+- product/Packet/frontend pass
+  `019fa690-fd25-7462-b5d0-32cb5681d04d`。
+
+本地 `feature-chaotang-ext` 已 fast-forward 到 reviewed candidate
+`10393b64...`。整合后 fresh acceptance：
+
+| Verification | Result |
+| --- | --- |
+| v1 authority | `STOP / AMENDMENT_APPROVAL_REQUIRED`，预期旧入口 fail closed |
+| v2 authority | `GO / APPROVED_WORK_PACKAGE` for `R0-W07` |
+| root harness doctor | `0 errors / 0 warnings` |
+| backend focused suite | `168 passed / 2 existing FastAPI warnings` |
+| frontend focused Node | `36 passed` |
+| Ruff + `git diff --check` | PASS |
+
+本地 EXT 当前仅代表 `RUNNABLE_MINIMUM` 已验收整合；仍为 `NOT_DEPLOYED`。未执行
+push、部署、Checkpoint B、持久数据库迁移或 listener 3050 操作。
 
 ## Seventh Review Final Remediation Candidate
 
