@@ -33,3 +33,14 @@ python3 backend/harness/chaotang-true-loop/product_acceptance/scripts/run_w08_ac
 The repository intentionally does not include completed user records. Real
 records must be gathered from target-profile users who were not involved in
 development and must remain deidentified.
+
+W08 closeout preflight is validated with:
+
+```bash
+python3 backend/harness/chaotang-true-loop/product_acceptance/scripts/run_w08_acceptance.py \
+  --closeout-preflight \
+  --user-acceptance backend/harness/chaotang-true-loop/product_acceptance/user_acceptance/records/<approved-record>.json
+```
+
+Running preflight without `--user-acceptance` must return `BLOCKED`; that is
+the expected fail-closed state until real user sessions are recorded.

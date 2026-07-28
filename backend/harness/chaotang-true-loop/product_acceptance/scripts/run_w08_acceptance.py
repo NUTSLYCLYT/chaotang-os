@@ -8,7 +8,14 @@ from typing import Any
 
 
 HARNESS_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[5]
 DEFAULT_CASES = HARNESS_ROOT / "golden_cases" / "w08_contracts.json"
+BROWSER_FLOW_EVIDENCE = [
+    ("feat-r0-w08-browser-flow-batch1-20260728", 1),
+    ("feat-r0-w08-browser-flow-batch2-20260728", 3),
+    ("feat-r0-w08-browser-flow-batch3-20260728", 3),
+    ("feat-r0-w08-browser-flow-batch4-20260728", 3),
+]
 REQUIRED_ARTIFACT_KINDS = {"PDF", "DOCX", "JSON"}
 REQUIRED_LINEAGE_FIELDS = {
     "mission_contract_id",
@@ -283,6 +290,89 @@ def run_user_acceptance(path: Path) -> dict[str, Any]:
     return result
 
 
+def validate_browser_flow_evidence(repo_root: Path = REPO_ROOT) -> dict[str, Any]:
+    failures: list[str] = []
+    records: list[dict[str, Any]] = []
+
+    for change_id, expected_flows in BROWSER_FLOW_EVIDENCE:
+        change_root = repo_root / ".harness" / "changes" / change_id
+        summary_path = change_root / "summary.md"
+        ci_path = change_root / "ci_result" / "ci_summary.md"
+        if not summary_path.exists() or not ci_path.exists():
+            failures.append(f"{change_id} evidence files are missing")
+            records.append({"change_id": change_id, "flows": 0, "passed": False})
+            continue
+
+        summary = summary_path.read_text(encoding="utf-8")
+        ci_summary = ci_path.read_text(encoding="utf-8")
+        passed = (
+            "VERIFIED_PARTIAL" in summary
+            and "real backend browser flow" in summary
+            and "Playwright" in ci_summary
+            and "passed" in ci_summary
+        )
+        if not passed:
+            failures.append(f"{change_id} does not contain verified browser flow evidence")
+        records.append({"change_id": change_id, "flows": expected_flows if passed else 0, "passed": passed})
+
+    flows = sum(record["flows"] for record in records)
+    _require(flows == 10, "W08 closeout requires exactly 10 verified browser flows", failures)
+    return {
+        "passed": not failures,
+        "flows": flows,
+        "records": records,
+        "failures": failures,
+    }
+
+
+def run_closeout_preflight(
+    *,
+    cases_path: Path = DEFAULT_CASES,
+    user_acceptance_path: Path | None = None,
+    repo_root: Path = REPO_ROOT,
+) -> dict[str, Any]:
+    golden = run(cases_path)
+    browser = validate_browser_flow_evidence(repo_root)
+    if user_acceptance_path is None:
+        user = {
+            "passed": False,
+            "records": 0,
+            "successes": 0,
+            "failures": ["user acceptance evidence path is required for W08 closeout"],
+        }
+    else:
+        user = run_user_acceptance(user_acceptance_path)
+
+    gates = {
+        "golden_contracts": {
+            "passed": golden["passed"],
+            "cases": golden["cases"],
+            "failures": golden["failures"],
+        },
+        "browser_flows": browser,
+        "user_acceptance": user,
+    }
+    failures = [
+        failure
+        for gate in gates.values()
+        for failure in gate.get("failures", [])
+    ]
+    passed = all(gate["passed"] for gate in gates.values())
+    return {
+        "harness": "chaotang_product_acceptance",
+        "mode": "W08_CLOSEOUT_PREFLIGHT",
+        "decision": "READY_FOR_CLOSEOUT" if passed else "BLOCKED",
+        "passed": passed,
+        "gates": gates,
+        "failures": failures,
+        "nonGoals": [
+            "production deployment",
+            "database migration",
+            "listener 3050 operation",
+        ],
+    }
+
+
 def run(path: Path = DEFAULT_CASES) -> dict[str, Any]:
     payload = load_payload(path)
     cases = payload.get("cases") or []
@@ -305,8 +395,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Validate W08 product acceptance golden contracts")
     parser.add_argument("--cases", type=Path, default=DEFAULT_CASES)
     parser.add_argument("--user-acceptance", type=Path)
+    parser.add_argument("--closeout-preflight", action="store_true")
     args = parser.parse_args()
-    if args.user_acceptance:
+    if args.closeout_preflight:
+        result = run_closeout_preflight(cases_path=args.cases, user_acceptance_path=args.user_acceptance)
+    elif args.user_acceptance:
         result = run_user_acceptance(args.user_acceptance)
     else:
         result = run(args.cases)

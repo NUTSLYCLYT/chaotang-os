@@ -249,3 +249,39 @@ def test_w08_user_acceptance_runner_reads_evidence_file(tmp_path):
 
     assert result["passed"] is True
     assert result["evidencePath"] == str(evidence_path)
+
+
+def test_w08_closeout_preflight_blocks_without_real_user_acceptance():
+    runner = _load_runner()
+
+    result = runner.run_closeout_preflight()
+
+    assert result["passed"] is False
+    assert result["decision"] == "BLOCKED"
+    assert result["gates"]["golden_contracts"]["passed"] is True
+    assert result["gates"]["golden_contracts"]["cases"] == 36
+    assert result["gates"]["browser_flows"]["passed"] is True
+    assert result["gates"]["browser_flows"]["flows"] == 10
+    assert result["gates"]["user_acceptance"]["passed"] is False
+    assert "user acceptance evidence path is required for W08 closeout" in result["failures"]
+
+
+def test_w08_closeout_preflight_passes_with_complete_user_acceptance(tmp_path):
+    runner = _load_runner()
+    evidence_path = tmp_path / "w08_user_acceptance.json"
+    evidence_path.write_text(
+        json.dumps({
+            "schemaVersion": "w08-user-acceptance.v1",
+            "mode": "FINAL_USER_ACCEPTANCE",
+            "records": [_successful_user(f"user-{index:03d}") for index in range(1, 6)],
+        }),
+        encoding="utf-8",
+    )
+
+    result = runner.run_closeout_preflight(user_acceptance_path=evidence_path)
+
+    assert result["passed"] is True
+    assert result["decision"] == "READY_FOR_CLOSEOUT"
+    assert result["gates"]["golden_contracts"]["passed"] is True
+    assert result["gates"]["browser_flows"]["passed"] is True
+    assert result["gates"]["user_acceptance"]["successes"] == 5
