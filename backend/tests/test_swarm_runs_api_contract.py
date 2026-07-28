@@ -154,8 +154,8 @@ def test_swarm_run_create_rejects_cross_tenant_explicit_review_id(
     db.close()
 
     with (
-        patch("src.swarm_execution_loop.run_swarm_execution_loop") as run_swarm,
-        patch("src.swarm_persistence.attach_swarm_result_to_review") as attach_review,
+        patch("web.routers.swarm_runs.run_swarm_execution_loop") as run_swarm,
+        patch("web.routers.swarm_runs.attach_swarm_result_to_review") as attach_review,
     ):
         response = TestClient(app).post(
             "/api/swarm-runs",
@@ -239,8 +239,8 @@ def test_swarm_run_retry_rejects_cross_tenant_stored_review_id(
     db.close()
 
     with (
-        patch("src.swarm_execution_loop.run_swarm_execution_loop") as run_swarm,
-        patch("src.swarm_persistence.attach_swarm_result_to_review") as attach_review,
+        patch("web.routers.swarm_runs.run_swarm_execution_loop") as run_swarm,
+        patch("web.routers.swarm_runs.attach_swarm_result_to_review") as attach_review,
     ):
         response = TestClient(app).post(
             "/api/swarm-runs/swarm-retry-cross-tenant-run/retry"
@@ -251,3 +251,136 @@ def test_swarm_run_retry_rejects_cross_tenant_stored_review_id(
     assert "无权" in payload["error"] or "review" in payload["error"]
     run_swarm.assert_not_called()
     attach_review.assert_not_called()
+
+
+def test_swarm_run_create_rejects_nullable_tenant_lineage(
+    isolated_session_local,
+):
+    from web import deps
+    from web.schemas.auth import CurrentUser
+
+    app.dependency_overrides[deps.get_current_user] = lambda: CurrentUser(
+        user_id=1,
+        username="tenantless-user",
+        role="user",
+        tenant_slug="default",
+        tenant_id=None,
+    )
+    db = isolated_session_local()
+    db.add(
+        DecisionTask(
+            id="swarm-null-requester-task",
+            tenant_id=1,
+            user_id="1",
+            raw_question="判断合同风险",
+            status="edict_recorded",
+            source_label="LIVE",
+            draft_edict_json="{}",
+        )
+    )
+    db.add(
+        CourtReview(
+            id="swarm-null-requester-review",
+            tenant_id=1,
+            task_id="swarm-null-requester-task",
+            routing_plan_json='{"route":{"mode":"cluster"}}',
+            review_status="edict_recorded",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json='{"title":"候选"}',
+            created_at="2026-07-28T00:00:00+00:00",
+            updated_at="2026-07-28T00:00:00+00:00",
+        )
+    )
+    db.commit()
+    db.close()
+
+    with (
+        patch("web.routers.swarm_runs.run_swarm_execution_loop") as run_swarm,
+        patch("web.routers.swarm_runs.attach_swarm_result_to_review") as attach_review,
+    ):
+        response = TestClient(app).post(
+            "/api/swarm-runs",
+            json={
+                "task_id": "swarm-null-requester-task",
+                "review_id": "swarm-null-requester-review",
+                "mode": "standard",
+            },
+        )
+
+    payload = response.json()
+    assert payload["success"] is False
+    run_swarm.assert_not_called()
+    attach_review.assert_not_called()
+
+
+def test_swarm_run_create_rejects_nullable_task_or_review_tenant(
+    isolated_session_local,
+):
+    from web import deps
+    from web.schemas.auth import CurrentUser
+
+    app.dependency_overrides[deps.get_current_user] = lambda: CurrentUser(
+        user_id=1,
+        username="tenant-one-user",
+        role="user",
+        tenant_slug="default",
+        tenant_id=1,
+    )
+    db = isolated_session_local()
+    db.add(
+        DecisionTask(
+            id="swarm-null-task-tenant",
+            tenant_id=None,
+            user_id="1",
+            raw_question="判断合同风险",
+            status="edict_recorded",
+            source_label="LIVE",
+            draft_edict_json="{}",
+        )
+    )
+    db.add(
+        DecisionTask(
+            id="swarm-null-review-task",
+            tenant_id=1,
+            user_id="1",
+            raw_question="判断合同风险",
+            status="edict_recorded",
+            source_label="LIVE",
+            draft_edict_json="{}",
+        )
+    )
+    db.add(
+        CourtReview(
+            id="swarm-null-review-tenant",
+            tenant_id=None,
+            task_id="swarm-null-review-task",
+            routing_plan_json='{"route":{"mode":"cluster"}}',
+            review_status="edict_recorded",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json='{"title":"候选"}',
+            created_at="2026-07-28T00:00:00+00:00",
+            updated_at="2026-07-28T00:00:00+00:00",
+        )
+    )
+    db.commit()
+    db.close()
+
+    with patch("web.routers.swarm_runs.run_swarm_execution_loop") as run_swarm:
+        null_task = TestClient(app).post(
+            "/api/swarm-runs",
+            json={"task_id": "swarm-null-task-tenant", "mode": "standard"},
+        )
+        null_review = TestClient(app).post(
+            "/api/swarm-runs",
+            json={
+                "task_id": "swarm-null-review-task",
+                "review_id": "swarm-null-review-tenant",
+                "mode": "standard",
+            },
+        )
+
+    assert null_task.json()["success"] is False
+    assert null_review.json()["success"] is False
+    run_swarm.assert_not_called()

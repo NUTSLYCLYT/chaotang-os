@@ -100,7 +100,7 @@ def _owner_id(user: CurrentUser) -> str:
 
 
 def _tenant_matches(row_tenant_id: int | None, requester_tenant_id: int | None) -> bool:
-    return row_tenant_id is None or requester_tenant_id is None or row_tenant_id == requester_tenant_id
+    return row_tenant_id is not None and requester_tenant_id is not None and row_tenant_id == requester_tenant_id
 
 
 def _default_context(
