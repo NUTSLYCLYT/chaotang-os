@@ -284,6 +284,39 @@ def _seed_authenticated_contracts(
             db.commit()
     return {"status": "seeded"}
 
+
+@app.post("/__w07/reclassify-legacy", include_in_schema=False)
+def _reclassify_authenticated_legacy_task(
+    user: CurrentUser = Depends(get_current_user),
+) -> dict[str, str]:
+    if user.user_id is None or user.tenant_id is None:
+        raise HTTPException(status_code=403, detail="authenticated tenant required")
+    with _seed_lock:
+        with engine_module.SessionLocal() as db:
+            task = db.get(DecisionTask, _LEGACY_TASK_ID)
+            if task is None:
+                raise HTTPException(status_code=404, detail="seeded legacy task missing")
+            if (
+                task.tenant_id != user.tenant_id
+                or str(task.user_id) != str(user.user_id)
+            ):
+                raise HTTPException(status_code=403, detail="task ownership mismatch")
+            task.contract_scope_json = json.dumps(
+                {
+                    "schema_version": "ContractIntakeV1",
+                    "jurisdiction": "CN_MAINLAND",
+                    "language": "zh-CN",
+                    "contract_type": "procurement",
+                    "our_role": "buyer",
+                    "legal_question": "contract_risk_screening",
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            db.commit()
+    return {"status": "reclassified", "task_id": _LEGACY_TASK_ID}
+
+
 if __name__ == "__main__":
     import uvicorn
 

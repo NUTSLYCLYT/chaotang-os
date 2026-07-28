@@ -2651,7 +2651,28 @@ def shangshufang_swarm_deepen(
         )
         if action_error is not None:
             return fail(action_error)
-        review = _latest_review(db, task_id)
+        current_formal = (
+            db.query(FinalMemorial)
+            .populate_existing()
+            .filter_by(task_id=task.id, is_current=True)
+            .first()
+        )
+        review = (
+            db.query(CourtReview)
+            .populate_existing()
+            .filter_by(id=current_formal.review_id)
+            .first()
+            if current_formal is not None
+            else _latest_review(db, task_id)
+        )
+        if current_formal is not None:
+            review = _authoritative_contract_review(
+                db,
+                task=task,
+                review=review,
+                current_formal=current_formal,
+                actor_user_id=str(_user_id(user)),
+            )
         if review is None:
             edict = draft_edict(task.raw_question, source_label=task.source_label)
             routing_plan = routing_plan_for(edict)

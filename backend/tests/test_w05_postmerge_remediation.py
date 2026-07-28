@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
+from src.db.models import Base
 from web.main import app
 
 _SUPPORTED_SCOPE = {
@@ -892,6 +897,304 @@ def test_swarm_deepen_locks_task_before_refresh_authority_projection(
     )
     assert after == before
     db.close()
+
+
+def test_swarm_deepen_uses_current_final_memorial_review_not_newest_review(
+    isolated_session_local,
+    tmp_path,
+    w05_contract_user,
+    monkeypatch,
+):
+    from src.db.models import CourtReview, DecisionTask
+    from web.routers import shangshufang
+
+    task_id = "task_refresh_exact_review"
+    _seed_binding_generation(
+        isolated_session_local,
+        tmp_path=tmp_path,
+        task_id=task_id,
+        durable_status="pending",
+        payload_status="evidence_bound",
+        with_bound_packet=True,
+    )
+    authoritative_review_id = f"review_{task_id}"
+    newer_review_id = f"review_newer_{task_id}"
+    db = isolated_session_local()
+    db.add(
+        CourtReview(
+            id=newer_review_id,
+            tenant_id=2,
+            task_id=task_id,
+            routing_plan_json='{"route":{"mode":"cluster"}}',
+            review_status="reviewing",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json="{}",
+            created_at="2026-07-24T00:02:00+00:00",
+            updated_at="2026-07-24T00:02:00+00:00",
+        )
+    )
+    db.commit()
+    before_task = tuple(
+        getattr(db.get(DecisionTask, task_id), column.name)
+        for column in DecisionTask.__table__.columns
+    )
+    db.close()
+
+    selected_review_ids: list[str] = []
+
+    def stop_after_review_selection(params):
+        selected_review_ids.append(params["review_id"])
+        raise RuntimeError("review selection probe")
+
+    monkeypatch.setattr(
+        shangshufang,
+        "_run_swarm_execution_loop_sync",
+        stop_after_review_selection,
+    )
+
+    response = TestClient(app).post(
+        f"/api/shangshufang/tasks/{task_id}/swarm-deepen"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["success"] is False
+    assert response.json()["error"] == "review selection probe"
+    assert selected_review_ids == [authoritative_review_id]
+    db = isolated_session_local()
+    after_task = tuple(
+        getattr(db.get(DecisionTask, task_id), column.name)
+        for column in DecisionTask.__table__.columns
+    )
+    assert after_task == before_task
+    assert db.get(CourtReview, newer_review_id).tenant_id == 2
+    db.close()
+
+
+def test_evidence_bind_holds_real_task_lock_through_authority_and_publication(
+    tmp_path,
+    monkeypatch,
+    w05_contract_user,
+):
+    from src import contract_task_projection
+    from src.contract_mission_repository import save_mission_snapshot
+    from tests.contract_task_support import contract_mission
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'evidence-bind-task-lock.db'}",
+        connect_args={"check_same_thread": False, "timeout": 10},
+    )
+    Base.metadata.create_all(engine)
+    test_session = sessionmaker(
+        bind=engine,
+        autocommit=False,
+        autoflush=False,
+        expire_on_commit=False,
+    )
+    engine_module = importlib.import_module("src.db.engine")
+    monkeypatch.setattr(engine_module, "SessionLocal", test_session)
+
+    task_id = "task_bind_real_task_lock"
+    generation_id, artifact_id = _seed_binding_generation(
+        test_session,
+        tmp_path=tmp_path,
+        task_id=task_id,
+    )
+    authority_reached = threading.Event()
+    release_authority = threading.Event()
+    writer_started = threading.Event()
+    writer_finished = threading.Event()
+    errors: list[BaseException] = []
+    responses = []
+    original_projection = contract_task_projection.project_contract_task
+
+    def pause_authority(*args, **kwargs):
+        authority_reached.set()
+        assert release_authority.wait(timeout=5)
+        return original_projection(*args, **kwargs)
+
+    monkeypatch.setattr(
+        contract_task_projection,
+        "project_contract_task",
+        pause_authority,
+    )
+
+    def bind_evidence() -> None:
+        try:
+            responses.append(
+                TestClient(app).post(
+                    (
+                        f"/api/shangshufang/tasks/{task_id}/rework-generations/"
+                        f"{generation_id}/evidence"
+                    ),
+                    json={"artifact_id": artifact_id},
+                )
+            )
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    def publish_new_mission() -> None:
+        try:
+            writer_started.set()
+            db = test_session()
+            task = db.get(
+                importlib.import_module("src.db.models").DecisionTask,
+                task_id,
+            )
+            mission = contract_mission(task_id).model_copy(update={"revision": 2})
+            save_mission_snapshot(
+                db,
+                task=task,
+                mission=mission,
+                state="confirmed",
+            )
+            db.commit()
+            db.close()
+            writer_finished.set()
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    bind_thread = threading.Thread(target=bind_evidence)
+    bind_thread.start()
+    assert authority_reached.wait(timeout=5)
+    writer_thread = threading.Thread(target=publish_new_mission)
+    writer_thread.start()
+    assert writer_started.wait(timeout=5)
+    assert not writer_finished.wait(timeout=0.25)
+    release_authority.set()
+    bind_thread.join(timeout=10)
+    writer_thread.join(timeout=10)
+
+    assert not errors
+    assert len(responses) == 1
+    assert responses[0].status_code == 200, responses[0].text
+    assert writer_finished.is_set()
+    Base.metadata.drop_all(engine)
+    engine.dispose()
+
+
+def test_swarm_deepen_holds_real_task_lock_through_execution_and_publication(
+    tmp_path,
+    monkeypatch,
+    w05_contract_user,
+):
+    from src.contract_mission_repository import save_mission_snapshot
+    from src.db.models import DecisionTask
+    from tests.contract_task_support import contract_mission
+    from web.routers import shangshufang
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'swarm-deepen-task-lock.db'}",
+        connect_args={"check_same_thread": False, "timeout": 10},
+    )
+    Base.metadata.create_all(engine)
+    test_session = sessionmaker(
+        bind=engine,
+        autocommit=False,
+        autoflush=False,
+        expire_on_commit=False,
+    )
+    engine_module = importlib.import_module("src.db.engine")
+    monkeypatch.setattr(engine_module, "SessionLocal", test_session)
+
+    task_id = "task_swarm_real_task_lock"
+    _seed_binding_generation(
+        test_session,
+        tmp_path=tmp_path,
+        task_id=task_id,
+        durable_status="pending",
+        payload_status="evidence_bound",
+        with_bound_packet=True,
+    )
+    swarm_reached = threading.Event()
+    release_swarm = threading.Event()
+    writer_started = threading.Event()
+    writer_finished = threading.Event()
+    errors: list[BaseException] = []
+    responses = []
+
+    def pause_swarm(params):
+        swarm_reached.set()
+        assert release_swarm.wait(timeout=5)
+        return {
+            "swarm_run": {
+                "id": f"swarm_refresh_{task_id}",
+                "task_id": task_id,
+                "review_id": params["review_id"],
+                "source_label": "LIVE_SWARM",
+                "status": "completed",
+                "trace_id": f"trace_{task_id}",
+                "route_plan": {"selected_swarms": []},
+            },
+            "quality_result": {
+                "id": f"quality_refresh_{task_id}",
+                "passed": True,
+                "blocking_reasons": [],
+            },
+        }
+
+    monkeypatch.setattr(
+        shangshufang,
+        "_run_swarm_execution_loop_sync",
+        pause_swarm,
+    )
+    monkeypatch.setattr(
+        shangshufang,
+        "persist_swarm_execution_result",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        shangshufang,
+        "attach_swarm_result_to_review",
+        lambda *_args, **_kwargs: None,
+    )
+
+    def refresh_review() -> None:
+        try:
+            responses.append(
+                TestClient(app).post(
+                    f"/api/shangshufang/tasks/{task_id}/swarm-deepen"
+                )
+            )
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    def publish_new_mission() -> None:
+        try:
+            writer_started.set()
+            db = test_session()
+            task = db.get(DecisionTask, task_id)
+            mission = contract_mission(task_id).model_copy(update={"revision": 2})
+            save_mission_snapshot(
+                db,
+                task=task,
+                mission=mission,
+                state="confirmed",
+            )
+            db.commit()
+            db.close()
+            writer_finished.set()
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    refresh_thread = threading.Thread(target=refresh_review)
+    refresh_thread.start()
+    assert swarm_reached.wait(timeout=5)
+    writer_thread = threading.Thread(target=publish_new_mission)
+    writer_thread.start()
+    assert writer_started.wait(timeout=5)
+    assert not writer_finished.wait(timeout=0.25)
+    release_swarm.set()
+    refresh_thread.join(timeout=10)
+    writer_thread.join(timeout=10)
+
+    assert not errors
+    assert len(responses) == 1
+    assert responses[0].status_code == 200, responses[0].text
+    assert responses[0].json()["success"] is True, responses[0].json()
+    assert writer_finished.is_set()
+    Base.metadata.drop_all(engine)
+    engine.dispose()
 
 
 @pytest.mark.parametrize(

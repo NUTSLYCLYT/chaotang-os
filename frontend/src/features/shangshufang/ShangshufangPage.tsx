@@ -111,7 +111,10 @@ import {
 import { saveLocalReport } from '@/features/reports/lib/local-report-cache';
 import { recallBadgeLabel } from './lib/recall-badge';
 import { ContractReviewPanel } from '@/features/contract-review/ContractReviewPanel';
-import { selectContractTaskCandidate } from '@/features/contract-review/task-selection';
+import {
+  findRefreshedTaskSnapshot,
+  selectContractTaskCandidate,
+} from '@/features/contract-review/task-selection';
 
 type VerdictTaskAction = 'adopt' | 'request_evidence' | 'recheck' | 'reject' | 'followup';
 type VerdictLegacyAction = 'approve' | 'reject' | 'inquire';
@@ -2583,6 +2586,20 @@ export function ShangshufangPage() {
     }
   }, [activeMemorialId, requestedMemorial]);
   const activeMemorial: Memorial | null = (() => {
+    const refreshedSelectedMemorial = findRefreshedTaskSnapshot(
+      selectedMemorialOverride?.id ?? null,
+      dedupedMemorialItems,
+    );
+    if (refreshedSelectedMemorial) {
+      const refreshedIndex = dedupedMemorialItems.indexOf(
+        refreshedSelectedMemorial,
+      );
+      return memorialItemToDisplay(
+        refreshedSelectedMemorial,
+        refreshedIndex === 0,
+        briefing.sourceMode,
+      );
+    }
     if (selectedMemorialOverride) return selectedMemorialOverride;
     if (dedupedMemorialItems.length === 0) return null;
     const targetIndex = activeMemorialId

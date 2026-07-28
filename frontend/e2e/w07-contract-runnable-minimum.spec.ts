@@ -117,14 +117,51 @@ test.describe('W07 contract RUNNABLE_MINIMUM', () => {
     await expect(page.getByTestId('contract-review-panel')).toHaveCount(0);
 
     const legacyHomeTasks = legacyHomePayload.data?.pending_decisions ?? [];
-    const contractTaskIndex = legacyHomeTasks.findIndex(
-      (task) => task.task_id === TASK_ID,
+    const legacyTaskIndex = legacyHomeTasks.findIndex(
+      (task) => task.task_id === LEGACY_TASK_ID,
     );
-    expect(contractTaskIndex).toBeGreaterThanOrEqual(0);
+    expect(legacyTaskIndex).toBeGreaterThanOrEqual(0);
     const expandRails = page.getByRole('button', { name: /展开辅政/ });
     if (await expandRails.isVisible()) {
       await expandRails.click();
     }
+    await page.getByTestId('chancellor-visible-item').nth(legacyTaskIndex).click();
+    const refreshedHomeResponse = page.waitForResponse((response) => (
+      response.url().includes('/api/shangshufang/home/v1')
+      && response.request().method() === 'GET'
+    ));
+    const reclassifyResponse = await fetch(
+      'http://127.0.0.1:8081/__w07/reclassify-legacy',
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.token}` },
+      },
+    );
+    expect(reclassifyResponse.status).toBe(200);
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    const refreshedHomePayload = await (await refreshedHomeResponse).json() as {
+      data?: { pending_decisions?: HomeTask[] };
+    };
+    expect(
+      refreshedHomePayload.data?.pending_decisions?.find(
+        (task) => task.task_id === LEGACY_TASK_ID,
+      ),
+    ).toMatchObject({
+      task_id: LEGACY_TASK_ID,
+      contract_task: true,
+    });
+    await expect(page.getByTestId('contract-review-panel')).toBeVisible();
+    for (const legacyAction of ['准奏', '驳回', '会审', '批示']) {
+      await expect(
+        page.getByRole('button', { name: legacyAction, exact: true }),
+      ).toHaveCount(0);
+    }
+
+    const refreshedHomeTasks = refreshedHomePayload.data?.pending_decisions ?? [];
+    const contractTaskIndex = refreshedHomeTasks.findIndex(
+      (task) => task.task_id === TASK_ID,
+    );
+    expect(contractTaskIndex).toBeGreaterThanOrEqual(0);
     await page.getByTestId('chancellor-visible-item').nth(contractTaskIndex).click();
     await expect(page).toHaveURL(new RegExp(`taskId=${TASK_ID}`));
     await expect(page.getByTestId('contract-review-panel')).toBeVisible();

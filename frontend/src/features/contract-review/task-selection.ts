@@ -1,3 +1,12 @@
+export function findRefreshedTaskSnapshot<T extends { id: string }>(
+  selectedTaskId: string | null,
+  serverTasks: readonly T[],
+): T | null {
+  const selected = selectedTaskId?.trim();
+  if (!selected) return null;
+  return serverTasks.find((task) => task.id === selected) ?? null;
+}
+
 export function selectContractTaskCandidate({
   requestedTaskId,
   requestedTaskIsContract,

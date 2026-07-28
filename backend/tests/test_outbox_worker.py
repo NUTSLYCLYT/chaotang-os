@@ -560,6 +560,248 @@ def test_council_event_passes_recommended_departments_to_swarm_loop(isolated_ses
     db.close()
 
 
+def test_council_event_fences_terminal_task_before_publication(
+    isolated_session_local,
+):
+    from src.db.models import CourtReview, DecisionTask
+
+    db = isolated_session_local()
+    task_id = "task_council_terminal_during_swarm"
+    review_id = "review_council_terminal_during_swarm"
+    now = "2026-07-28T00:00:00+00:00"
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查合同",
+            status="edict_recorded",
+            source_label="LIVE",
+            draft_edict_json="{}",
+        )
+    )
+    db.add(
+        CourtReview(
+            id=review_id,
+            tenant_id=1,
+            task_id=task_id,
+            routing_plan_json='{"route":{"mode":"cluster"}}',
+            review_status="edict_recorded",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json='{"title":"候选奏折"}',
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    db.commit()
+    event_id = enqueue_dispatch(
+        db,
+        task_id=task_id,
+        decision_id="decision_council_terminal_during_swarm",
+        event_type="route.council",
+    )
+    db.commit()
+    fake_swarm_result = {
+        "swarm_run": {
+            "id": "run_council_terminal_during_swarm",
+            "task_id": task_id,
+            "review_id": review_id,
+            "source_label": "LIVE_SWARM",
+            "route_plan": {"selected_swarms": []},
+        },
+        "quality_result": {
+            "id": "quality_council_terminal_during_swarm",
+            "passed": True,
+            "blocking_reasons": [],
+        },
+    }
+
+    def archive_while_swarm_runs(_params):
+        other = isolated_session_local()
+        task = other.get(DecisionTask, task_id)
+        task.status = "archived"
+        task.updated_at = "2026-07-28T00:01:00+00:00"
+        other.commit()
+        other.close()
+        return fake_swarm_result
+
+    with (
+        patch(
+            "src.swarm_execution_loop.run_swarm_execution_loop",
+            side_effect=archive_while_swarm_runs,
+        ),
+        patch(
+            "src.swarm_persistence.persist_swarm_execution_result"
+        ) as persist_result,
+        patch(
+            "src.swarm_persistence.attach_swarm_result_to_review"
+        ) as attach_result,
+    ):
+        result = process_event(db, event_id)
+
+    assert result["status"] == "superseded"
+    assert result["result"]["reason"] == "terminal_task"
+    assert db.get(DecisionTask, task_id).status == "archived"
+    persist_result.assert_not_called()
+    attach_result.assert_not_called()
+    db.close()
+
+
+def test_council_event_fences_terminal_task_before_swarm_execution(
+    isolated_session_local,
+):
+    from src.db.models import CourtReview, DecisionTask
+
+    db = isolated_session_local()
+    task_id = "task_council_terminal_before_swarm"
+    review_id = "review_council_terminal_before_swarm"
+    now = "2026-07-28T00:00:00+00:00"
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查合同",
+            status="archived",
+            source_label="LIVE",
+            draft_edict_json="{}",
+        )
+    )
+    db.add(
+        CourtReview(
+            id=review_id,
+            tenant_id=1,
+            task_id=task_id,
+            routing_plan_json='{"route":{"mode":"cluster"}}',
+            review_status="awaiting_decision",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json='{"title":"已归档奏折"}',
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    db.commit()
+    event_id = enqueue_dispatch(
+        db,
+        task_id=task_id,
+        decision_id="decision_council_terminal_before_swarm",
+        event_type="route.council",
+    )
+    db.commit()
+
+    with patch(
+        "src.swarm_execution_loop.run_swarm_execution_loop"
+    ) as run_swarm:
+        result = process_event(db, event_id)
+
+    assert result["status"] == "superseded"
+    assert result["result"]["reason"] == "terminal_task"
+    run_swarm.assert_not_called()
+    db.close()
+
+
+def test_council_event_fences_mission_drift_before_publication(
+    isolated_session_local,
+):
+    from src.contract_mission_repository import save_mission_snapshot
+    from src.db.models import CourtReview, DecisionTask
+    from tests.contract_task_support import contract_mission
+
+    db = isolated_session_local()
+    task_id = "task_council_mission_drift"
+    review_id = "review_council_mission_drift"
+    now = "2026-07-28T00:00:00+00:00"
+    task = DecisionTask(
+        id=task_id,
+        tenant_id=1,
+        user_id="1",
+        raw_question="审查合同",
+        status="edict_recorded",
+        source_label="LIVE",
+        draft_edict_json="{}",
+    )
+    db.add(task)
+    db.add(
+        CourtReview(
+            id=review_id,
+            tenant_id=1,
+            task_id=task_id,
+            routing_plan_json='{"route":{"mode":"cluster"}}',
+            review_status="edict_recorded",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json='{"title":"候选奏折"}',
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    db.flush()
+    save_mission_snapshot(
+        db,
+        task=task,
+        mission=contract_mission(task_id),
+        state="confirmed",
+    )
+    db.commit()
+    event_id = enqueue_dispatch(
+        db,
+        task_id=task_id,
+        decision_id="decision_council_mission_drift",
+        event_type="route.council",
+    )
+    db.commit()
+    fake_swarm_result = {
+        "swarm_run": {
+            "id": "run_council_mission_drift",
+            "task_id": task_id,
+            "review_id": review_id,
+            "source_label": "LIVE_SWARM",
+            "route_plan": {"selected_swarms": []},
+        },
+        "quality_result": {
+            "id": "quality_council_mission_drift",
+            "passed": True,
+            "blocking_reasons": [],
+        },
+    }
+
+    def revise_mission_while_swarm_runs(_params):
+        other = isolated_session_local()
+        other_task = other.get(DecisionTask, task_id)
+        revised = contract_mission(task_id).model_copy(update={"revision": 2})
+        save_mission_snapshot(
+            other,
+            task=other_task,
+            mission=revised,
+            state="confirmed",
+        )
+        other.commit()
+        other.close()
+        return fake_swarm_result
+
+    with (
+        patch(
+            "src.swarm_execution_loop.run_swarm_execution_loop",
+            side_effect=revise_mission_while_swarm_runs,
+        ),
+        patch(
+            "src.swarm_persistence.persist_swarm_execution_result"
+        ) as persist_result,
+        patch(
+            "src.swarm_persistence.attach_swarm_result_to_review"
+        ) as attach_result,
+    ):
+        result = process_event(db, event_id)
+
+    assert result["status"] == "superseded"
+    assert result["result"]["reason"] == "authority_changed"
+    persist_result.assert_not_called()
+    attach_result.assert_not_called()
+    db.close()
+
+
 @pytest.mark.parametrize(
     ("capability_active", "mission_present"),
     [(True, True), (True, False), (False, False)],

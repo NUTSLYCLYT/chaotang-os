@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { selectContractTaskCandidate } from './task-selection';
+import {
+  findRefreshedTaskSnapshot,
+  selectContractTaskCandidate,
+} from './task-selection';
 
 test('does not infer contract mode from a legacy task prefix', () => {
   assert.equal(selectContractTaskCandidate({
@@ -61,4 +64,19 @@ test('uses the selected memorial when the server marked it as a contract task', 
     activeMemorialId: 'task-contract-from-home',
     activeMemorialIsContract: true,
   }), 'task-contract-from-home');
+});
+
+test('same-id server refresh replaces a stale selected task classification', () => {
+  const refreshed = findRefreshedTaskSnapshot(
+    'task-reclassified',
+    [
+      { id: 'task-other', contractTask: false },
+      { id: 'task-reclassified', contractTask: true },
+    ],
+  );
+
+  assert.deepEqual(refreshed, {
+    id: 'task-reclassified',
+    contractTask: true,
+  });
 });
