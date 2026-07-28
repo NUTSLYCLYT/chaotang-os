@@ -1961,7 +1961,7 @@ test('W01 itself is blocked if W00 is not yet MERGED_AND_VERIFIED', () => {
   );
 });
 
-test('professional reassignment gate fails closed for W08/W09 and real customer data while roles are default', () => {
+test('professional reassignment gate fails closed while roles are default and opens after reassignment', () => {
   const manifest = {
     ...validManifest(),
     activeWorkPackage: 'R0-W08',
@@ -1989,9 +1989,24 @@ test('professional reassignment gate fails closed for W08/W09 and real customer 
     }).reason,
     'PROFESSIONAL_REASSIGNMENT_REQUIRED',
   );
-  // Deliberately no positive fixture for this branch: no reassignment has happened in the
-  // real repo yet, so this gate cannot be exercised as GO today. That is the intended
-  // fail-closed default, not a coverage gap.
+
+  const reassignedManifest = {
+    ...manifest,
+    professionalReassignment: {
+      ...manifest.professionalReassignment,
+      assignments: {
+        security: 'r0-security-owner',
+        legal: 'r0-legal-owner',
+        release: 'r0-release-owner',
+      },
+    },
+  };
+  assert.equal(
+    evaluateExecutionAuthorityV2Policy(reassignedManifest, validGovernance(), {
+      workPackage: 'R0-W08',
+    }).reason,
+    'POLICY_ELIGIBLE',
+  );
 });
 
 test('review verdict other than GO stops the resolver', () => {

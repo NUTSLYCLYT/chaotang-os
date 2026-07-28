@@ -36,9 +36,9 @@
     "requiredBefore": ["REAL_CUSTOMER_DATA", "R0-W08", "R0-W09"],
     "rolesRequired": ["security", "legal", "release"],
     "assignments": {
-      "security": "lyt",
-      "legal": "lyt",
-      "release": "lyt"
+      "security": "r0-security-owner",
+      "legal": "r0-legal-owner",
+      "release": "r0-release-owner"
     },
     "defaultOwner": "lyt"
   }
