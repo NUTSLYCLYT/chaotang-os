@@ -2507,20 +2507,20 @@ test('CLI subprocess matches the real repository authority phase', async () => {
 test('CLI subprocess against the real repo keeps predecessor and successor packages stopped', async () => {
   const loaded = await loadExecutionAuthorityV2(root);
   const phase = await assertRealRepositoryAuthorityPhase(loaded);
+  const stoppedPackages =
+    phase === 'INTEGRATED_R0-W08'
+      ? ['R0-W05', 'R0-W09']
+      : ['R0-W05', 'R0-W08', 'R0-W09'];
   const expectedReasons =
     phase === 'QUIESCENT'
-      ? ['NO_ACTIVE_WORK_PACKAGE', 'NO_ACTIVE_WORK_PACKAGE', 'NO_ACTIVE_WORK_PACKAGE']
+      ? stoppedPackages.map(() => 'NO_ACTIVE_WORK_PACKAGE')
       : phase.startsWith('PRE_INTEGRATION_')
-        ? [
-            'INVALID_EXECUTION_AUTHORITY',
-            'INVALID_EXECUTION_AUTHORITY',
-            'INVALID_EXECUTION_AUTHORITY',
-          ]
+        ? stoppedPackages.map(() => 'INVALID_EXECUTION_AUTHORITY')
         : phase === 'INTEGRATED_R0-W07'
           ? ['WORK_PACKAGE_MISMATCH', 'BLOCKED_DEPENDENCY', 'BLOCKED_DEPENDENCY']
-          : ['WORK_PACKAGE_MISMATCH', 'WORK_PACKAGE_MISMATCH', 'BLOCKED_DEPENDENCY'];
+          : ['WORK_PACKAGE_MISMATCH', 'BLOCKED_DEPENDENCY'];
   let index = 0;
-  for (const workPackage of ['R0-W05', 'R0-W08', 'R0-W09']) {
+  for (const workPackage of stoppedPackages) {
     await assert.rejects(
       execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', workPackage], {
         cwd: root,
