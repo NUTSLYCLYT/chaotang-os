@@ -10,6 +10,7 @@ from typing import Any
 HARNESS_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = Path(__file__).resolve().parents[5]
 DEFAULT_CASES = HARNESS_ROOT / "golden_cases" / "w08_contracts.json"
+DEFAULT_USER_ACCEPTANCE_RECORDS_DIR = HARNESS_ROOT / "user_acceptance" / "records"
 BROWSER_FLOW_EVIDENCE = [
     ("feat-r0-w08-browser-flow-batch1-20260728", 1),
     ("feat-r0-w08-browser-flow-batch2-20260728", 3),
@@ -305,6 +306,28 @@ def run_user_acceptance(path: Path) -> dict[str, Any]:
     return result
 
 
+def discover_user_acceptance_path(records_dir: Path = DEFAULT_USER_ACCEPTANCE_RECORDS_DIR) -> dict[str, Any]:
+    if not records_dir.exists():
+        return {
+            "passed": False,
+            "records": 0,
+            "successes": 0,
+            "failures": ["one approved user acceptance JSON file is required under records/"],
+        }
+
+    candidates = sorted(path for path in records_dir.glob("*.json") if path.is_file())
+    if len(candidates) != 1:
+        return {
+            "passed": False,
+            "records": 0,
+            "successes": 0,
+            "failures": ["records/ must contain exactly one approved user acceptance JSON file"],
+            "candidatePaths": [str(path) for path in candidates],
+        }
+
+    return run_user_acceptance(candidates[0])
+
+
 def validate_browser_flow_evidence(repo_root: Path = REPO_ROOT) -> dict[str, Any]:
     failures: list[str] = []
     records: list[dict[str, Any]] = []
@@ -344,17 +367,13 @@ def run_closeout_preflight(
     *,
     cases_path: Path = DEFAULT_CASES,
     user_acceptance_path: Path | None = None,
+    records_dir: Path = DEFAULT_USER_ACCEPTANCE_RECORDS_DIR,
     repo_root: Path = REPO_ROOT,
 ) -> dict[str, Any]:
     golden = run(cases_path)
     browser = validate_browser_flow_evidence(repo_root)
     if user_acceptance_path is None:
-        user = {
-            "passed": False,
-            "records": 0,
-            "successes": 0,
-            "failures": ["user acceptance evidence path is required for W08 closeout"],
-        }
+        user = discover_user_acceptance_path(records_dir)
     else:
         user = run_user_acceptance(user_acceptance_path)
 

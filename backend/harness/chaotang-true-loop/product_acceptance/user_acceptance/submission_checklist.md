@@ -10,6 +10,8 @@ Before requesting W08 closeout, the Product Acceptance Owner must provide:
 - deidentified feedback and evidence references
 - validation output from `--user-acceptance`
 - preflight output from `--closeout-preflight --user-acceptance`
+- default preflight output from `--closeout-preflight` after the approved record
+  is the only JSON file under `records/`
 
 ## Required Commands
 
@@ -20,6 +22,9 @@ python3 backend/harness/chaotang-true-loop/product_acceptance/scripts/run_w08_ac
 python3 backend/harness/chaotang-true-loop/product_acceptance/scripts/run_w08_acceptance.py \
   --closeout-preflight \
   --user-acceptance backend/harness/chaotang-true-loop/product_acceptance/user_acceptance/records/<approved-record>.json
+
+python3 backend/harness/chaotang-true-loop/product_acceptance/scripts/run_w08_acceptance.py \
+  --closeout-preflight
 ```
 
 ## Closeout Boundary
