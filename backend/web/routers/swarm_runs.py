@@ -10,13 +10,16 @@ from typing import Any, Literal
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from web.deps import get_current_user
-from web.routers._envelope import fail, ok
-from web.schemas.auth import CurrentUser
-
 from src.chancellor.contracts import RouteDecisionV2
 from src.chancellor.routing_service import legacy_route_dict
-from src.db.models import ChancellorRouteDecision, CourtReview, DecisionTask, SwarmQualityResult, SwarmRun, SwarmTaskRun
+from src.db.models import (
+    ChancellorRouteDecision,
+    CourtReview,
+    DecisionTask,
+    SwarmQualityResult,
+    SwarmRun,
+    SwarmTaskRun,
+)
 from src.shangshufang_loop import (
     DraftEdict,
     chancellor_decide_route,
@@ -28,7 +31,13 @@ from src.shangshufang_loop import (
     routing_plan_for,
 )
 from src.swarm_execution_loop import run_swarm_execution_loop
-from src.swarm_persistence import attach_swarm_result_to_review, persist_swarm_execution_result
+from src.swarm_persistence import (
+    attach_swarm_result_to_review,
+    persist_swarm_execution_result,
+)
+from web.deps import get_current_user
+from web.routers._envelope import fail, ok
+from web.schemas.auth import CurrentUser
 
 router = APIRouter(prefix="/api/swarm-runs", tags=["swarm-runs"])
 
@@ -90,28 +99,61 @@ def _owner_id(user: CurrentUser) -> str:
     return str(user.user_id or user.username or user.tenant_slug or "anonymous")
 
 
+def _tenant_matches(row_tenant_id: int | None, requester_tenant_id: int | None) -> bool:
+    return row_tenant_id is None or requester_tenant_id is None or row_tenant_id == requester_tenant_id
+
+
 def _default_context(
-    db, task_id: str, review_id: str | None, owner_id: str
-) -> tuple[str, dict[str, Any], dict[str, Any]]:
+    db,
+    task_id: str,
+    review_id: str | None,
+    owner_id: str,
+    requester_tenant_id: int | None,
+) -> tuple[DecisionTask, CourtReview | None, dict[str, Any], dict[str, Any]]:
     # P0-B(2026-07-14):归属校验收口在此——create/serial/retry 都经这条唯一入口,
     # 一处 guard 挡住三个端点对他人 DecisionTask 的读取与蜂群发起。
     task = db.query(DecisionTask).filter_by(id=task_id).first()
     if task is None:
         raise ValueError("task_id 不存在")
-    if task.user_id != owner_id:
+    if task.user_id != owner_id or not _tenant_matches(task.tenant_id, requester_tenant_id):
         raise _NotOwner()
     review = None
     if review_id:
         review = db.query(CourtReview).filter_by(id=review_id).first()
+        if review is None:
+            raise ValueError("review_id 不存在")
+        if (
+            review.task_id != task.id
+            or not _tenant_matches(review.tenant_id, requester_tenant_id)
+            or (
+                task.tenant_id is not None
+                and review.tenant_id is not None
+                and review.tenant_id != task.tenant_id
+            )
+        ):
+            raise _NotOwner()
     if review is None:
-        review = db.query(CourtReview).filter_by(task_id=task_id).order_by(CourtReview.created_at.desc()).first()
-    actual_review_id = review.id if review is not None else make_id("review", task_id, "swarm")
+        review = (
+            db.query(CourtReview)
+            .filter_by(task_id=task_id)
+            .order_by(CourtReview.created_at.desc())
+            .first()
+        )
+        if review is not None and (
+            not _tenant_matches(review.tenant_id, requester_tenant_id)
+            or (
+                task.tenant_id is not None
+                and review.tenant_id is not None
+                and review.tenant_id != task.tenant_id
+            )
+        ):
+            raise _NotOwner()
     confirmed_edict = _loads(task.draft_edict_json, None)
     if not confirmed_edict:
         edict = draft_edict(task.raw_question, source_label=task.source_label)
         confirmed_edict = draft_to_dict(edict)
     review_plan = _loads(review.routing_plan_json, {}) if review is not None else {}
-    return actual_review_id, confirmed_edict, review_plan
+    return task, review, confirmed_edict, review_plan
 
 
 def _edict_from_confirmed(confirmed_edict: dict[str, Any]) -> DraftEdict:
@@ -148,7 +190,11 @@ def _resolve_chancellor_route(db, task_id: str, edict: DraftEdict) -> dict:
 
 
 def _direct_swarm_short_circuit(
-    db, body: "CreateSwarmRunRequest", edict: DraftEdict, route: dict, review_id: str
+    db,
+    body: "CreateSwarmRunRequest",
+    review: CourtReview | None,
+    edict: DraftEdict,
+    route: dict,
 ) -> dict:
     """丞相判定为 direct 时跳过全量蜂群,写一条 degenerate SwarmRun 记录,复用上书房
     direct_receipt_for 的回执文案。不复制 CourtReview/CourtLoopRun/EmperorDecision 三件套——
@@ -156,6 +202,7 @@ def _direct_swarm_short_circuit(
     routing_plan = routing_plan_for(edict, route)
     receipt = direct_receipt_for(edict, routing_plan)
     now = now_iso()
+    review_id = review.id if review is not None else make_id("review", body.task_id, "swarm")
     run_id = make_id("swarmrun", body.task_id, review_id, now, "direct")
     db.add(
         SwarmRun(
@@ -172,7 +219,6 @@ def _direct_swarm_short_circuit(
             error=None,
         )
     )
-    review = db.query(CourtReview).filter_by(id=review_id).first()
     if review is not None:
         review.review_status = "direct_completed"
         review.updated_at = now
@@ -216,20 +262,29 @@ def _run_and_persist(db, params: dict[str, Any], review_id: str) -> dict:
 @router.post("")
 def create_swarm_run(user: CurrentUser = Depends(get_current_user), body: CreateSwarmRunRequest | None = None) -> dict:
     from src.db.engine import SessionLocal
+    from src.decision_task_access import lock_decision_task
 
     if body is None:
         return fail("请求体不能为空")
     db = SessionLocal()
     try:
         try:
-            review_id, confirmed_edict, review_plan = _default_context(db, body.task_id, body.review_id, _owner_id(user))
+            lock_decision_task(db, body.task_id)
+            task, review, confirmed_edict, review_plan = _default_context(
+                db,
+                body.task_id,
+                body.review_id,
+                _owner_id(user),
+                user.tenant_id,
+            )
         except _NotOwner:
             return fail("无权操作该任务")
         resolved_edict = body.confirmed_edict or confirmed_edict
         edict = _edict_from_confirmed(resolved_edict)
         route = _resolve_chancellor_route(db, body.task_id, edict)
         if body.mode != "live_swarm" and route.get("mode") == "direct":
-            return _direct_swarm_short_circuit(db, body, edict, route, review_id)
+            return _direct_swarm_short_circuit(db, body, review, edict, route)
+        review_id = review.id if review is not None else make_id("review", task.id, "swarm")
         return _run_and_persist(
             db,
             {
@@ -258,15 +313,24 @@ def create_serial_loop(user: CurrentUser = Depends(get_current_user), body: Seri
     council=False:跳过多部门冲突合奏,回奏口吻直呈上书房。落库/回放与军机处产线一致。
     """
     from src.db.engine import SessionLocal
+    from src.decision_task_access import lock_decision_task
 
     if body is None:
         return fail("请求体不能为空")
     db = SessionLocal()
     try:
         try:
-            review_id, confirmed_edict, review_plan = _default_context(db, body.task_id, body.review_id, _owner_id(user))
+            lock_decision_task(db, body.task_id)
+            task, review, confirmed_edict, review_plan = _default_context(
+                db,
+                body.task_id,
+                body.review_id,
+                _owner_id(user),
+                user.tenant_id,
+            )
         except _NotOwner:
             return fail("无权操作该任务")
+        review_id = review.id if review is not None else make_id("review", task.id, "swarm")
         return _run_and_persist(
             db,
             {

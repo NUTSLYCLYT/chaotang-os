@@ -1,8 +1,9 @@
 import json
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from src.db.models import SwarmQualityResult, SwarmRun
+from src.db.models import CourtReview, DecisionTask, SwarmQualityResult, SwarmRun
 from web.main import app
 
 
@@ -96,3 +97,157 @@ def test_swarm_run_retry_contract_reports_missing_run(isolated_session_local):
     payload = response.json()
     assert payload["success"] is False
     assert payload["error"]
+
+
+def test_swarm_run_create_rejects_cross_tenant_explicit_review_id(
+    isolated_session_local,
+    monkeypatch,
+):
+    from web import deps
+    from web.schemas.auth import CurrentUser
+
+    app.dependency_overrides[deps.get_current_user] = lambda: CurrentUser(
+        user_id=1,
+        username="tenant-two-user",
+        role="user",
+        tenant_slug="tenant-two",
+        tenant_id=2,
+    )
+    db = isolated_session_local()
+    db.add(
+        DecisionTask(
+            id="swarm-explicit-review-attacker-task",
+            tenant_id=2,
+            user_id="1",
+            raw_question="判断合同风险",
+            status="edict_recorded",
+            source_label="LIVE",
+            draft_edict_json="{}",
+        )
+    )
+    db.add(
+        DecisionTask(
+            id="swarm-explicit-review-victim-task",
+            tenant_id=1,
+            user_id="1",
+            raw_question="受害方任务",
+            status="edict_recorded",
+            source_label="LIVE",
+            draft_edict_json="{}",
+        )
+    )
+    db.add(
+        CourtReview(
+            id="swarm-explicit-review-victim-review",
+            tenant_id=1,
+            task_id="swarm-explicit-review-victim-task",
+            routing_plan_json='{"route":{"mode":"cluster"}}',
+            review_status="edict_recorded",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json='{"title":"victim"}',
+            created_at="2026-07-28T00:00:00+00:00",
+            updated_at="2026-07-28T00:00:00+00:00",
+        )
+    )
+    db.commit()
+    db.close()
+
+    with (
+        patch("src.swarm_execution_loop.run_swarm_execution_loop") as run_swarm,
+        patch("src.swarm_persistence.attach_swarm_result_to_review") as attach_review,
+    ):
+        response = TestClient(app).post(
+            "/api/swarm-runs",
+            json={
+                "task_id": "swarm-explicit-review-attacker-task",
+                "review_id": "swarm-explicit-review-victim-review",
+                "mode": "standard",
+            },
+        )
+
+    payload = response.json()
+    assert payload["success"] is False
+    assert "无权" in payload["error"] or "review" in payload["error"]
+    run_swarm.assert_not_called()
+    attach_review.assert_not_called()
+
+
+def test_swarm_run_retry_rejects_cross_tenant_stored_review_id(
+    isolated_session_local,
+    monkeypatch,
+):
+    from web import deps
+    from web.schemas.auth import CurrentUser
+
+    app.dependency_overrides[deps.get_current_user] = lambda: CurrentUser(
+        user_id=1,
+        username="tenant-two-user",
+        role="user",
+        tenant_slug="tenant-two",
+        tenant_id=2,
+    )
+    db = isolated_session_local()
+    db.add(
+        DecisionTask(
+            id="swarm-retry-attacker-task",
+            tenant_id=2,
+            user_id="1",
+            raw_question="判断合同风险",
+            status="edict_recorded",
+            source_label="LIVE",
+            draft_edict_json="{}",
+        )
+    )
+    db.add(
+        DecisionTask(
+            id="swarm-retry-victim-task",
+            tenant_id=1,
+            user_id="1",
+            raw_question="受害方任务",
+            status="edict_recorded",
+            source_label="LIVE",
+            draft_edict_json="{}",
+        )
+    )
+    db.add(
+        CourtReview(
+            id="swarm-retry-victim-review",
+            tenant_id=1,
+            task_id="swarm-retry-victim-task",
+            routing_plan_json='{"route":{"mode":"cluster"}}',
+            review_status="edict_recorded",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json='{"title":"victim"}',
+            created_at="2026-07-28T00:00:00+00:00",
+            updated_at="2026-07-28T00:00:00+00:00",
+        )
+    )
+    db.add(
+        SwarmRun(
+            id="swarm-retry-cross-tenant-run",
+            task_id="swarm-retry-attacker-task",
+            review_id="swarm-retry-victim-review",
+            mode="standard",
+            status="failed",
+            source_label="FALLBACK",
+            route_plan_json="{}",
+        )
+    )
+    db.commit()
+    db.close()
+
+    with (
+        patch("src.swarm_execution_loop.run_swarm_execution_loop") as run_swarm,
+        patch("src.swarm_persistence.attach_swarm_result_to_review") as attach_review,
+    ):
+        response = TestClient(app).post(
+            "/api/swarm-runs/swarm-retry-cross-tenant-run/retry"
+        )
+
+    payload = response.json()
+    assert payload["success"] is False
+    assert "无权" in payload["error"] or "review" in payload["error"]
+    run_swarm.assert_not_called()
+    attach_review.assert_not_called()
