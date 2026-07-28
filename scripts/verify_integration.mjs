@@ -11,6 +11,18 @@
  *   2. Failure path: backend not started at all, frontend pointed at a held
  *      sentinel port that never serves a valid backend response. Asserts `/health` renders a graceful
  *      "backend unavailable" marker (not a 500 / crash).
+ *   3. Decree BFF connectivity path (`POST /api/decrees/chancellor` -> real FastAPI
+ *      `POST /api/v1/decrees/chancellor`): registers a one-off throwaway test account
+ *      through the real `POST /api/auth/register` BFF to obtain a real session cookie,
+ *      then submits `{"decreeText": ""}` (which fails Pydantic validation on the backend
+ *      before `get_chancellor_graph()` is ever called -- see
+ *      `backend/app/api/decrees.py`'s "Provider wiring pitfall" docstring) and asserts the
+ *      BFF returns `{status:"error", reason:"validation"}`/422 -- never `reason:"network"` --
+ *      proving the BFF really reaches the decree endpoint when the backend is healthy.
+ *      A second sub-scenario points a fresh frontend instance at an unreachable sentinel
+ *      (reusing `createUnavailableBackendSentinel()`) and asserts the same request instead
+ *      returns `{status:"error", reason:"network"}`/503 with no internal address leaked in
+ *      the response body. Never submits real decree text that could reach a real model call.
  *
  * Written in plain Node.js (no bash) on purpose so behaviour is identical on
  * a Windows development machine and on Ubuntu CI runners. All spawned child
@@ -424,12 +436,182 @@ async function runFailureScenario(usedPorts) {
   }
 }
 
+/**
+ * BFF 会话 cookie 名称，与 `frontend/src/lib/session.ts` 的 `SESSION_COOKIE_NAME`
+ * 保持一致的字面量（本脚本是独立的纯 Node.js 集成校验，不经过 Next.js/webpack 打包，
+ * 无法直接 `import` TypeScript 源文件，因此在此复制常量而非引用它；两处任一变更都需要
+ * 同步核对）。
+ */
+const SESSION_COOKIE_NAME = "courtos_session";
+
+/** 发起一次 JSON POST 请求，返回状态码、原始文本与（若可解析）JSON 解析结果。 */
+async function postJson(url, body, extraHeaders = {}) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json", ...extraHeaders },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  const text = await response.text();
+  let json = null;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    json = null;
+  }
+  return { status: response.status, headers: response.headers, text, json };
+}
+
+/** 从 `Set-Cookie` 响应头中提取指定 cookie 名称的原始（仍是 URL-encoded）值。 */
+function parseSetCookieValue(setCookieHeader, cookieName) {
+  if (!setCookieHeader) return null;
+  const match = setCookieHeader.match(new RegExp(`(?:^|,\\s*)${cookieName}=([^;]+)`));
+  return match ? match[1] : null;
+}
+
+/**
+ * 场景三：下旨 BFF -> FastAPI 后端代理路径的真实连通性校验。
+ *
+ * 覆盖 `docs/product/tasks/2026-07-28-decree-bff-backend-connectivity.md` 的验收标准
+ * 第一、二条：健康后端下 BFF 确实能转发到下旨端点（而不是误报 `network`），以及后端
+ * 不可达时 BFF 返回可操作且不泄露内部地址的错误。全程只发送 `decreeText: ""`，在后端
+ * Pydantic 校验阶段即被拒绝（422），`get_chancellor_graph()` 不会被调用，不产生任何真实
+ * 模型调用。
+ */
+async function runDecreeBffConnectivityScenario(usedPorts) {
+  log("场景三（下旨 BFF 连通性）：健康后端下应转发到下旨端点并映射为 validation，而非 network ...");
+  let backend;
+  let healthyFrontend;
+  try {
+    const backendStart = await startManagedServiceWithRetry({
+      name: "backend（下旨 BFF 场景）",
+      usedPorts,
+      start: startBackend,
+      readinessPath: "/health",
+    });
+    backend = backendStart.managedProcess;
+    const backendBaseUrl = `http://127.0.0.1:${backendStart.port}`;
+    const frontendStart = await startManagedServiceWithRetry({
+      name: "frontend（下旨 BFF 场景 · 健康后端）",
+      usedPorts,
+      start: (port) => startFrontend(port, backendBaseUrl),
+      readinessPath: "/",
+    });
+    healthyFrontend = frontendStart.managedProcess;
+    const frontendPort = frontendStart.port;
+
+    // 一次性测试账号：仅本次运行使用，用户名/邮箱带时间戳与随机后缀避免冲突。
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const username = `verify-integration-${suffix}`;
+    const email = `verify-integration-${suffix}@example.invalid`;
+    const password = "Verify-Integration-Test-Password-123";
+
+    const registerResponse = await postJson(
+      `http://127.0.0.1:${frontendPort}/api/auth/register`,
+      { username, email, password },
+    );
+    if (registerResponse.status !== 201) {
+      throw new Error(
+        `注册一次性测试账号失败，期望 201 实际 ${registerResponse.status}：${registerResponse.text.slice(0, 500)}\n` +
+          healthyFrontend.describeForError(),
+      );
+    }
+    const setCookieHeader = registerResponse.headers.get("set-cookie");
+    const sessionCookieValue = parseSetCookieValue(setCookieHeader, SESSION_COOKIE_NAME);
+    if (!sessionCookieValue) {
+      throw new Error(
+        `注册响应缺少 ${SESSION_COOKIE_NAME} 会话 cookie；Set-Cookie 头：${JSON.stringify(setCookieHeader)}`,
+      );
+    }
+
+    const decreeResponse = await postJson(
+      `http://127.0.0.1:${frontendPort}/api/decrees/chancellor`,
+      { decreeText: "" },
+      { cookie: `${SESSION_COOKIE_NAME}=${sessionCookieValue}` },
+    );
+    if (decreeResponse.status !== 422) {
+      throw new Error(
+        `健康后端场景期望下旨 BFF 返回 422（validation），实际 ${decreeResponse.status}：` +
+          `${decreeResponse.text.slice(0, 500)}\n${healthyFrontend.describeForError()}`,
+      );
+    }
+    if (
+      decreeResponse.json === null ||
+      decreeResponse.json.status !== "error" ||
+      decreeResponse.json.reason !== "validation"
+    ) {
+      throw new Error(
+        `健康后端场景期望响应体 {status:"error", reason:"validation"}，实际：` +
+          `${JSON.stringify(decreeResponse.json)}（原文：${decreeResponse.text.slice(0, 500)}）`,
+      );
+    }
+    log("场景三 · 正向子场景通过：健康后端下下旨 BFF 转发成功，422/validation（不是 network）。");
+  } finally {
+    if (healthyFrontend) await healthyFrontend.kill();
+    if (backend) await backend.kill();
+  }
+
+  log("场景三（下旨 BFF 连通性）：后端不可达时应返回 network/503，且不泄露内部地址 ...");
+  const sentinel = await createUnavailableBackendSentinel();
+  usedPorts.add(sentinel.port);
+  let unavailableFrontend;
+  try {
+    const frontendStart = await startManagedServiceWithRetry({
+      name: "frontend（下旨 BFF 场景 · 后端不可达）",
+      usedPorts,
+      start: (port) => startFrontend(port, `http://127.0.0.1:${sentinel.port}`),
+      readinessPath: "/",
+    });
+    unavailableFrontend = frontendStart.managedProcess;
+    const frontendPort = frontendStart.port;
+
+    // `readSessionId` 只检查 cookie 是否存在、非空，并不向后端校验其有效性
+    // （见 `frontend/src/lib/session.ts`），因此这里无需一个真实会话即可让请求
+    // 走到 `submitDecree()` 从而触发 network 分支。
+    const fakeSessionCookieValue = "verify-integration-sentinel-fake-session-token";
+    const decreeResponse = await postJson(
+      `http://127.0.0.1:${frontendPort}/api/decrees/chancellor`,
+      { decreeText: "" },
+      { cookie: `${SESSION_COOKIE_NAME}=${fakeSessionCookieValue}` },
+    );
+    if (decreeResponse.status !== 503) {
+      throw new Error(
+        `后端不可达场景期望下旨 BFF 返回 503（network），实际 ${decreeResponse.status}：` +
+          `${decreeResponse.text.slice(0, 500)}\n${unavailableFrontend.describeForError()}`,
+      );
+    }
+    if (
+      decreeResponse.json === null ||
+      decreeResponse.json.status !== "error" ||
+      decreeResponse.json.reason !== "network"
+    ) {
+      throw new Error(
+        `后端不可达场景期望响应体 {status:"error", reason:"network"}，实际：` +
+          `${JSON.stringify(decreeResponse.json)}（原文：${decreeResponse.text.slice(0, 500)}）`,
+      );
+    }
+    const leakNeedles = [String(sentinel.port), "BACKEND_BASE_URL", "127.0.0.1"];
+    for (const needle of leakNeedles) {
+      if (decreeResponse.text.includes(needle)) {
+        throw new Error(
+          `后端不可达场景响应体不应包含内部地址信息 ${JSON.stringify(needle)}：${decreeResponse.text}`,
+        );
+      }
+    }
+    log("场景三 · 反向子场景通过：后端不可达时返回 network/503，响应体未泄露内部地址。");
+  } finally {
+    if (unavailableFrontend) await unavailableFrontend.kill();
+    await sentinel.close();
+  }
+}
+
 async function main() {
   ensureFrontendBuilt();
   const usedPorts = new Set();
   await runSuccessScenario(usedPorts);
   await runFailureScenario(usedPorts);
-  log("集成校验全部通过：成功路径与失败路径均可重复验证，子进程均已清理。");
+  await runDecreeBffConnectivityScenario(usedPorts);
+  log("集成校验全部通过：成功路径、失败路径与下旨 BFF 连通性场景均可重复验证，子进程均已清理。");
 }
 
 main().catch((error) => {

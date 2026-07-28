@@ -16,7 +16,6 @@ const RULER_STYLE_KEY = "courtos.ruler.style";
 const FIRST_DECREE =
   "制定 2027 年旗舰产品发布战略 · 财务预算 · 竞品扫描 · 营销节奏 · 全球合规 · 上市时机";
 
-type DecreeMode = "order" | "secret";
 type RulerStyle = "strict" | "benevolent" | "diligent";
 
 const RULER_STYLES: Array<{
@@ -155,10 +154,10 @@ function FirstCourtRitual({
           <div className={styles.ritualBody}>
             <p className={styles.eyebrow}>STEP 3 · 朝堂动线</p>
             <h2 id="ritual-title">圣意已置于御前</h2>
-            <p className={styles.ritualLead}>请核对旨意与费用提示。只有您亲自点击“下旨”，系统才会进入真实办理流程。</p>
+            <p className={styles.ritualLead}>请核对旨意内容。只有您亲自点击“下旨”，系统才会进入真实办理流程。</p>
             <div className={styles.hintGrid}>
               <article><strong>今日圣旨</strong><span>收卷看殿，展卷读回奏</span></article>
-              <article><strong>御前输入</strong><span>圣旨与密旨仅切换呈现语境</span></article>
+              <article><strong>御前输入</strong><span>拟好旨意后，即可交由百官会审</span></article>
               <article><strong>真实办理</strong><span>亲自下旨后才调用当前接口</span></article>
             </div>
             <div className={styles.ritualActions}>
@@ -174,7 +173,6 @@ function FirstCourtRitual({
 
 export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
   const [expanded, setExpanded] = useState(false);
-  const [mode, setMode] = useState<DecreeMode>("order");
   const [polished, setPolished] = useState(false);
   const [attachments, setAttachments] = useState<string[]>([]);
   const [showRitual, setShowRitual] = useState(false);
@@ -198,11 +196,30 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
     event.currentTarget.value = "";
   }
 
+  const composer = (
+    <section className={styles.composer} aria-label="御前下旨">
+      {(polished || attachments.length > 0) && (
+        <p className={styles.localNotice}>
+          {polished ? "润色预览已开启 · 未调用模型" : ""}
+          {polished && attachments.length ? "　·　" : ""}
+          {attachments.length ? `本地待附 ${attachments.length} 份 · 提交接口暂不上传附件` : ""}
+        </p>
+      )}
+      <div className={styles.composerRow}>
+        <button type="button" className={styles.polish} data-testid="decree-polish-inline" data-active={polished} onClick={() => setPolished((value) => !value)} disabled={!props.canEdit}>✦ 润色</button>
+        <label className={styles.attach} data-testid="decree-evidence-upload" title="选择本地补证附件（当前不会上传）">上传附件<input type="file" multiple onChange={handleFiles} disabled={!props.canEdit} /></label>
+        <textarea id="decree-text" data-testid="decree-textarea" value={props.decreeText} onChange={(event) => props.onDecreeTextChange(event.target.value)} rows={1} maxLength={2000} disabled={!props.canEdit} placeholder="请写下要交由丞相与六部会审的旨意……" />
+        <button type="button" className={styles.submit} data-testid="submit-decree-button" disabled={!props.canSubmit} onClick={props.onSubmit}>{props.uiState.phase === "submitting" ? "办理中" : "下旨"}</button>
+      </div>
+    </section>
+  );
+
   return (
     <ImmersiveCourtShell
       currentLabel="上书房"
       currentPath="/study"
       backgroundImage="/shangshufang/bg-shangshufang-scene.webp"
+      quickDockCenter={composer}
       scene="study"
     >
       <div className={styles.stage}>
@@ -236,12 +253,12 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
           ) : props.uiState.phase === "success" ? (
             <EdictStage
               document={{
-                id: `study-${mode}-${props.uiState.routeType}`,
+                id: `study-${props.uiState.routeType}`,
                 kicker: "奉天承运 · 上书房",
-                title: mode === "secret" ? "密旨" : "圣旨",
+                title: "圣旨",
                 issuer: "旨意下达 · 丞相回奏 · 史馆留痕",
               }}
-              theme={mode === "secret" ? "secret" : "imperial"}
+              theme="imperial"
               bodyLabel="丞相与百官回奏"
             >
               <section
@@ -294,51 +311,6 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
           )}
         </section>
 
-        <section className={styles.composer} data-mode={mode} aria-label="御前下旨">
-          {(polished || attachments.length > 0) && (
-            <p className={styles.localNotice}>
-              {polished ? "润色预览已开启 · 未调用模型" : ""}
-              {polished && attachments.length ? "　·　" : ""}
-              {attachments.length ? `本地待附 ${attachments.length} 份 · 提交接口暂不上传附件` : ""}
-            </p>
-          )}
-          <div className={styles.composerRow}>
-            <button
-              type="button"
-              className={styles.polish}
-              data-testid="decree-polish-inline"
-              data-active={polished}
-              onClick={() => setPolished((value) => !value)}
-              disabled={!props.canEdit}
-            >
-              ✧ 润色
-            </button>
-            <label className={styles.attach} data-testid="decree-evidence-upload" title="选择本地补证附件（当前不会上传）">
-              ⌕
-              <input type="file" multiple onChange={handleFiles} disabled={!props.canEdit} />
-            </label>
-            <div className={styles.modeSwitch} role="group" aria-label="切换圣旨或密旨">
-              <button type="button" data-testid="decree-mode-order" data-active={mode === "order"} onClick={() => setMode("order")}>▤ 圣旨</button>
-              <button type="button" data-testid="decree-mode-secret" data-active={mode === "secret"} onClick={() => setMode("secret")}>▣ 密旨</button>
-            </div>
-            <textarea
-              id="decree-text"
-              data-testid="decree-textarea"
-              value={props.decreeText}
-              onChange={(event) => props.onDecreeTextChange(event.target.value)}
-              rows={1}
-              maxLength={2000}
-              disabled={!props.canEdit}
-              placeholder={mode === "secret" ? "密旨：请各司直陈利弊、冲突与风险。" : "为了俾厚度营收，要不要大幅压价清库存抢市场份额？请户部与兵部各陈利弊。"}
-            />
-            <button type="button" className={styles.submit} data-testid="submit-decree-button" disabled={!props.canSubmit} onClick={props.onSubmit}>
-              {props.uiState.phase === "submitting" ? "办理中" : mode === "secret" ? "下密旨" : "下旨"}
-            </button>
-          </div>
-          <p className={styles.feeNotice} data-testid="decree-fee-notice">
-            下旨会触发真实司议、部议、军机处会审与丞相汇总，并可能产生多次模型调用费用；请确认后提交。
-          </p>
-        </section>
       </div>
       {showRitual && (
         <FirstCourtRitual

@@ -1,0 +1,103 @@
+.desk {
+  isolation: isolate;
+  min-height: calc(100vh - 64px);
+  position: relative;
+  overflow: hidden;
+  background: #05080d;
+  color: #ead8ad;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background-image:
+    linear-gradient(90deg, rgba(2, 5, 9, 0.84), rgba(3, 7, 13, 0.15) 36%, rgba(3, 7, 13, 0.18) 66%, rgba(2, 5, 9, 0.84)),
+    linear-gradient(180deg, rgba(2, 6, 11, 0.1) 48%, #05080d 100%),
+    url("/assets/jinyiwei/audit-hall.png");
+  background-position: center;
+  background-size: cover;
+}
+
+.content {
+  width: min(1480px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 34px 0 46px;
+}
+
+.intro { text-align: center; text-shadow: 0 2px 14px #000; }
+.intro p { margin: 0; color: #d59651; font: 700 10px/1.2 ui-monospace, monospace; letter-spacing: .22em; }
+.intro h1 { margin: 8px 0 3px; font-family: "STKaiti", "KaiTi", serif; font-size: clamp(30px, 3vw, 46px); }
+.intro span { color: #c4ad83; font-size: 13px; letter-spacing: .18em; }
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(210px, .72fr) minmax(520px, 1.7fr) minmax(210px, .72fr);
+  gap: 22px;
+  align-items: center;
+  margin-top: 24px;
+}
+
+.index, .evidence {
+  border: 1px solid rgba(189, 139, 72, .36);
+  background: linear-gradient(145deg, rgba(5, 11, 18, .92), rgba(7, 13, 20, .72));
+  box-shadow: inset 0 0 35px rgba(200, 147, 75, .06), 0 18px 42px rgba(0, 0, 0, .35);
+  backdrop-filter: blur(5px);
+}
+.index {
+  display: flex;
+  max-height: clamp(360px, 62vh, 620px);
+  min-height: 0;
+  flex-direction: column;
+  padding: 18px 15px;
+}
+.evidence { padding: 18px; }
+.panelHeading { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 11px; border-bottom: 1px solid rgba(199, 148, 76, .28); font-family: "STKaiti", "KaiTi", serif; font-size: 21px; }
+.panelHeading small { color: #b58b55; font: 700 10px/1 ui-monospace, monospace; letter-spacing: .15em; }
+.panelHint { margin: 12px 0 14px; color: #9c927e; font-size: 12px; line-height: 1.7; }
+.caseList {
+  display: grid;
+  min-height: 0;
+  flex: 1 1 auto;
+  gap: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
+.caseButton, .caseActive { appearance: none; width: 100%; padding: 11px; border: 1px solid rgba(174, 128, 69, .24); background: rgba(1, 5, 10, .62); color: #d7c7aa; text-align: left; cursor: pointer; }
+.caseButton:hover, .caseActive { border-color: #cf9147; background: rgba(128, 68, 29, .22); }
+.caseButton span, .caseActive span { display: block; color: #d29352; font-size: 10px; letter-spacing: .14em; }
+.caseButton strong, .caseActive strong { display: block; margin: 5px 0; font-family: "STKaiti", "KaiTi", serif; font-size: 18px; }
+.caseButton small, .caseActive small { color: #a69a83; font-size: 11px; }
+
+.scrollColumn { min-width: 0; min-height: 0; filter: drop-shadow(0 20px 24px rgba(0, 0, 0, .36)); }
+.expandedScroll { height: clamp(420px, 62vh, 700px); min-height: 0; }
+.scrollState { margin: 0; color: #2c2119; font-family: "STKaiti", "KaiTi", serif; font-size: 18px; text-align: center; }
+.caseBody { color: #2c2119; font-family: "STKaiti", "KaiTi", serif; font-size: 16px; line-height: 1.85; }
+.caseBody .lead { margin-top: 0; font-size: 18px; }
+.caseBody section { margin-top: 21px; border-top: 1px solid rgba(94, 60, 31, .32); }
+.caseBody h3 { margin: 13px 0 2px; color: #5d291d; font-size: 20px; }
+.caseBody p { margin: 0; }
+
+.facts { display: grid; gap: 13px; margin: 18px 0; }
+.facts div { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px solid rgba(194, 144, 76, .17); padding-bottom: 8px; }
+.facts dt { color: #9b927f; font-size: 12px; }
+.facts dd { margin: 0; color: #e5c88e; font-size: 13px; text-align: right; }
+.boundary { border-left: 2px solid #c77c3d; padding: 8px 0 8px 12px; }
+.boundary strong { color: #e4bf7e; font-family: "STKaiti", "KaiTi", serif; font-size: 18px; }
+.boundary p { margin: 7px 0 0; color: #a89c89; font-size: 12px; line-height: 1.75; }
+
+@media (max-width: 980px) {
+  .workspace { grid-template-columns: 1fr; }
+  .index, .evidence { max-width: 680px; width: 100%; justify-self: center; }
+  .index { max-height: min(45vh, 420px); }
+  .expandedScroll { height: min(66vh, 660px); }
+  .scrollColumn { order: -1; }
+}
+
+@media (max-width: 600px) {
+  .content { width: min(100% - 24px, 1480px); padding-top: 22px; }
+  .workspace { gap: 14px; }
+  .intro h1 { font-size: 31px; }
+  .expandedScroll { height: min(70vh, 560px); }
+}

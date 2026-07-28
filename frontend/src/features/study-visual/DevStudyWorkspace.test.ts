@@ -35,22 +35,61 @@ test("dev study workspace restores the first-court ritual as local-only interact
   assert.doesNotMatch(source, /fetch\s*\(|EventSource|SWR|useRouter/);
 });
 
-test("dev study workspace preserves real decree controls while restoring dev local affordances", async () => {
-  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+test("dev study workspace keeps one polished decree action without secret modes", async () => {
+  const [source, css] = await Promise.all([
+    readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8"),
+    readFile(new URL("./DevStudyWorkspace.module.css", import.meta.url), "utf8"),
+  ]);
 
   assert.match(source, /真实任务库暂不可读/);
   assert.match(source, /今日圣旨/);
   assert.match(source, /收卷看殿/);
-  assert.match(source, /data-testid="decree-mode-order"/);
-  assert.match(source, /data-testid="decree-mode-secret"/);
+  assert.doesNotMatch(source, /DecreeMode|decree-mode-order|decree-mode-secret|setMode|密旨|下密旨/);
   assert.match(source, /data-testid="decree-polish-inline"/);
   assert.match(source, /data-testid="decree-evidence-upload"/);
   assert.match(source, /data-testid="decree-textarea"/);
   assert.match(source, /data-testid="submit-decree-button"/);
+  assert.match(source, /\? "办理中" : "下旨"/);
+  assert.doesNotMatch(source, /data-testid="decree-fee-notice"|下旨会触发真实司议、部议、军机处会审与丞相汇总，并可能产生多次模型调用费用；请确认后提交。|模型调用费用/);
+  assert.doesNotMatch(source, /费用提示/);
+  assert.doesNotMatch(css, /\.feeNotice\s*\{/);
   assert.match(source, /onClick=\{props\.onSubmit\}/);
   assert.match(source, /disabled=\{!props\.canSubmit\}/);
   assert.match(source, /getStudyDepartmentCountLabel\(props\.uiState\)/);
   assert.doesNotMatch(source, /countLabel="1 部门"/);
+});
+
+test("study places the decree composer in the quick dock center slot", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /const composer = \(/);
+  assert.match(source, /<ImmersiveCourtShell[\s\S]*?quickDockCenter=\{composer\}/);
+  assert.match(source, /<section className=\{styles\.composer\}[\s\S]*?data-testid="decree-textarea"/);
+  assert.match(source, /data-testid="submit-decree-button"/);
+});
+
+test("study renders exactly one decree composer instance", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+
+  const countMatches = (pattern: RegExp) => (source.match(pattern) ?? []).length;
+
+  assert.equal(countMatches(/data-testid="decree-textarea"/g), 1);
+  assert.equal(countMatches(/data-testid="submit-decree-button"/g), 1);
+  assert.equal(countMatches(/aria-label="御前下旨"/g), 1);
+});
+
+test("study composer uses a minimal text-first visual treatment", async () => {
+  const [source, css] = await Promise.all([
+    readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8"),
+    readFile(new URL("./DevStudyWorkspace.module.css", import.meta.url), "utf8"),
+  ]);
+  const composerRule = css.match(/\.composer \{([^}]*)\}/)?.[1] ?? "";
+
+  assert.match(source, />上传附件<input type="file"/);
+  assert.match(composerRule, /border: 1px solid rgba\(240, 198, 106, 0\.28\);/);
+  assert.doesNotMatch(composerRule, /linear-gradient|box-shadow: (?!none)|backdrop-filter: (?!none)/);
+  assert.doesNotMatch(css, /\.submit \{[^}]*linear-gradient|\.submit:not\(:disabled\):hover/);
+  assert.match(css, /\.submit \{[^}]*border-color: #a77c35;[^}]*color: #a77c35;/);
 });
 
 test("dev study workspace renders parchment only for a real successful reply", async () => {

@@ -172,7 +172,20 @@ for (const [name, body] of [
   });
 }
 
-const ERROR_KINDS: DecreeErrorKind[] = ["validation", "config", "model", "network", "unknown"];
+const ERROR_KINDS: DecreeErrorKind[] = ["validation", "config", "model", "timeout", "network", "unknown"];
+
+test("mapSubmitDecreeResultToUiState：timeout 映射为明确的下旨处理超时提示", () => {
+  const state = mapSubmitDecreeResultToUiState({
+    ok: false,
+    kind: "timeout",
+    error: "请求超时",
+  });
+
+  assert.deepEqual(state, {
+    phase: "error",
+    message: "下旨处理超时，请稍后重试。",
+  });
+});
 
 for (const kind of ERROR_KINDS) {
   test(`mapSubmitDecreeResultToUiState：kind=${kind} 映射为 error 状态，携带非空中文文案`, () => {

@@ -13,6 +13,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.agents.bureaus import BUREAU_PROFILES, bureau_profiles_for
+from app.agents.bureaus.prompts import bureau_system_prompt
 from app.agents.ministries import (
     MINISTRY_POSITIONINGS as EXPORTED_MINISTRY_POSITIONINGS,
 )
@@ -509,6 +510,103 @@ def test_invoke_ministry_agent_invokes_multiple_bureaus_serially_in_route_order(
         "质量司",
         "进度司",
     ]
+
+
+def test_selected_bureau_capability_boundary_preserves_model_call_order_and_scope(
+    monkeypatch,
+) -> None:
+    calls: list[str] = []
+    capability_lookups: list[tuple[str, str]] = []
+
+    def fake_capability_profiles_for(department: str, bureau: str):
+        capability_lookups.append((department, bureau))
+        return ()
+
+    def fake_model(messages: list[dict[str, str]]) -> str:
+        system_content = messages[0]["content"]
+        if system_content == ministry_system_prompt("兵部"):
+            calls.append("route")
+            return _route_response("报价司")
+        if system_content == bureau_system_prompt("兵部", "报价司"):
+            calls.append("bureau:报价司")
+            return '{"opinion": "报价意见"}'
+        if system_content == ministry_synthesis_system_prompt("兵部"):
+            calls.append("synthesis")
+            return '{"opinion": "兵部综合意见"}'
+        pytest.fail("unexpected model invocation")
+
+    monkeypatch.setattr(
+        "app.agents.ministries.agent.capability_profiles_for",
+        fake_capability_profiles_for,
+    )
+
+    opinion = invoke_ministry_agent("兵部", "推进报价", "交兵部办理", fake_model)
+
+    assert calls == ["route", "bureau:报价司", "synthesis"]
+    assert capability_lookups == [("兵部", "报价司")]
+    assert [item["bureau"] for item in opinion["bureau_opinions"]] == ["报价司"]
+
+
+def test_selected_bureau_capability_boundary_keeps_multiple_bureaus_in_model_order(
+    monkeypatch,
+) -> None:
+    calls: list[str] = []
+    capability_lookups: list[tuple[str, str]] = []
+    bureaus = ("技术司", "质量司")
+
+    def fake_capability_profiles_for(department: str, bureau: str):
+        capability_lookups.append((department, bureau))
+        return ()
+
+    def fake_model(messages: list[dict[str, str]]) -> str:
+        system_content = messages[0]["content"]
+        if system_content == ministry_system_prompt("工部"):
+            calls.append("route")
+            return _route_response(*bureaus)
+        for bureau in bureaus:
+            if system_content == bureau_system_prompt("工部", bureau):
+                calls.append(f"bureau:{bureau}")
+                return json.dumps({"opinion": f"{bureau}意见"}, ensure_ascii=False)
+        if system_content == ministry_synthesis_system_prompt("工部"):
+            calls.append("synthesis")
+            return '{"opinion": "工部综合意见"}'
+        pytest.fail("unexpected model invocation")
+
+    monkeypatch.setattr(
+        "app.agents.ministries.agent.capability_profiles_for",
+        fake_capability_profiles_for,
+    )
+
+    opinion = invoke_ministry_agent("工部", "产品交付", "交工部办理", fake_model)
+
+    assert calls == ["route", "bureau:技术司", "bureau:质量司", "synthesis"]
+    assert capability_lookups == [("工部", "技术司"), ("工部", "质量司")]
+    assert [item["bureau"] for item in opinion["bureau_opinions"]] == list(bureaus)
+
+
+def test_selected_bureau_capability_lookup_failure_stops_before_bureau_or_synthesis(
+    monkeypatch,
+) -> None:
+    model_calls: list[str] = []
+    failure = RuntimeError("capability lookup unavailable")
+
+    def failing_capability_profiles_for(_department: str, _bureau: str):
+        raise failure
+
+    def fake_model(messages: list[dict[str, str]]) -> str:
+        model_calls.append(messages[0]["content"])
+        return _route_response("预算司")
+
+    monkeypatch.setattr(
+        "app.agents.ministries.agent.capability_profiles_for",
+        failing_capability_profiles_for,
+    )
+
+    with pytest.raises(MinistryAgentInvocationError) as exc_info:
+        invoke_ministry_agent("户部", "制定年度预算", "交户部办理", fake_model)
+
+    assert exc_info.value.__cause__ is failure
+    assert model_calls == [ministry_system_prompt("户部")]
 
 
 @pytest.mark.parametrize("profile", BUREAU_PROFILES)

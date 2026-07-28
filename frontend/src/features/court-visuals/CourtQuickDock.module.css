@@ -5,7 +5,6 @@
   box-sizing: border-box;
   height: 64px;
   flex: 0 0 64px;
-  grid-template-columns: minmax(0, 300px) minmax(0, 1fr) minmax(0, 300px);
   align-items: center;
   padding: 8px 0 max(8px, env(safe-area-inset-bottom));
   border-top: 1px solid rgba(240, 198, 106, 0.28);
@@ -14,8 +13,18 @@
   backdrop-filter: blur(18px);
 }
 
+.dockWithoutCenter {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dockWithCenter {
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 40vw) minmax(0, 1fr);
+}
+
 .adviser {
+  grid-column: 1;
   display: inline-flex;
+  box-sizing: border-box;
   width: 100%;
   min-width: 0;
   height: 48px;
@@ -48,12 +57,23 @@
 }
 
 .astronomer {
-  grid-column: 3;
-  justify-self: end;
+  grid-column: 2;
+  justify-self: stretch;
   flex-direction: row;
-  justify-content: flex-start;
-  padding: 6px 40px 6px 16px;
+  justify-content: flex-end;
+  padding: 6px max(16px, env(safe-area-inset-right)) 6px 16px;
   text-align: right;
+}
+
+.dockWithCenter .astronomer {
+  grid-column: 3;
+}
+
+.centerSlot {
+  grid-column: 2;
+  min-width: 0;
+  max-width: 100%;
+  height: 48px;
 }
 
 .portrait {
@@ -116,6 +136,16 @@
   text-decoration: none;
 }
 
+@media (max-width: 959px) {
+  .dockWithCenter {
+    grid-template-columns: minmax(0, 1fr) minmax(84px, 28vw) minmax(0, 1fr);
+  }
+
+  .dockWithCenter .adviser small {
+    display: none;
+  }
+}
+
 @media (max-width: 767px) {
   .dock {
     position: fixed;
@@ -125,8 +155,11 @@
     box-sizing: border-box;
     height: calc(56px + env(safe-area-inset-bottom));
     flex-basis: 56px;
-    grid-template-columns: 44vw minmax(0, 1fr) 44vw;
     padding-block: 4px max(4px, env(safe-area-inset-bottom));
+  }
+
+  .dockWithoutCenter {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .adviser {
@@ -136,7 +169,7 @@
   }
 
   .astronomer {
-    padding-inline: 4px 12px;
+    padding-inline: 4px max(8px, env(safe-area-inset-right));
   }
 
   .adviser small {
@@ -153,5 +186,4 @@
 @media (max-width: 420px) {
   .portrait { width: 38px; flex-basis: 38px; }
   .adviser { padding-left: 8px; }
-  .astronomer { padding-right: 8px; }
 }

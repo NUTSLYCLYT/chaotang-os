@@ -8,6 +8,11 @@ export function ImmersiveCourtShell({
   currentLabel,
   currentPath,
   backgroundImage,
+  quickDockCenter,
+  showQuickDockHandle = true,
+  showVeil = true,
+  fullBleedContent = false,
+  hideScrollbar = false,
   scene,
 }: ImmersiveCourtShellProps) {
   return (
@@ -17,9 +22,11 @@ export function ImmersiveCourtShell({
       style={{ backgroundImage: `url("${backgroundImage}")` }}
     >
       <ChaotangHeader currentLabel={currentLabel} currentPath={currentPath} />
-      <div className={styles.veil} aria-hidden="true" />
-      <main className={styles.content}>{children}</main>
-      <CourtQuickDock />
+      {showVeil ? <div className={styles.veil} aria-hidden="true" /> : null}
+      <main className={`${styles.content}${fullBleedContent ? ` ${styles.contentFullBleed}` : ""}${hideScrollbar ? ` ${styles.contentScrollbarHidden}` : ""}`}>
+        {children}
+      </main>
+      <CourtQuickDock centerSlot={quickDockCenter} showHandle={showQuickDockHandle} />
     </div>
   );
 }

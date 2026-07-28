@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 export type CourtCapability = "enabled" | "readonly" | "unavailable";
 export type CourtDataState = "loading" | "empty" | "ready" | "error";
@@ -8,6 +8,11 @@ export interface ImmersiveCourtShellProps {
   currentLabel: string;
   currentPath: string;
   backgroundImage: string;
+  quickDockCenter?: ReactElement | null;
+  showQuickDockHandle?: boolean;
+  showVeil?: boolean;
+  fullBleedContent?: boolean;
+  hideScrollbar?: boolean;
   scene: "study" | "dadian" | "junjichu" | "liubu" | "shiguan";
 }
 

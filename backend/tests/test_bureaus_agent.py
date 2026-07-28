@@ -15,9 +15,16 @@ from app.agents.bureaus import (
     bureau_profile_for,
     bureau_profiles_for,
     bureau_system_prompt,
+    capability_profile_for,
     invoke_bureau_agent,
 )
-from app.agents.evidence_protocol import AgentEvidenceSession, bureau_node_id
+from app.agents.bureaus.prompts import capability_prompt_section
+from app.agents.evidence_protocol import (
+    AgentEvidenceSession,
+    EvidenceProtocolError,
+    bureau_node_id,
+    invoke_bureau_with_evidence,
+)
 from app.agents.evidence_rendering import render_mainland_last_price
 from app.agents.fact_plans import FactPlanDisposition, FactPlanResult
 from app.agents.ministries import NO_IRREVERSIBLE_ACTION_CONSTRAINT
@@ -140,6 +147,117 @@ def test_investment_bureau_declares_market_quote_capability() -> None:
     assert "股票价格" in profile.responsibilities
 
 
+def test_bound_bureau_prompt_renders_package_purpose_deliverables_and_guardrails_in_order():
+    prompt = bureau_system_prompt("工部", "技术司")
+
+    expected_content = (
+        "Advise on battery pack research and development.",
+        "Pack R&D advisory.",
+        "Advise on hardware design trade-offs.",
+        "Hardware design review.",
+        "Advise on software delivery lifecycle choices.",
+        "SDLC advisory memo.",
+        "Advise on code review findings.",
+        "Code review advisory.",
+    )
+
+    position = 0
+    for content in expected_content:
+        position = prompt.index(content, position) + len(content)
+    guardrail = (
+        "Quotes, contracts, payments, signing, publication, deployment, recruitment, "
+        "and external commitments are advice or drafts only and remain pending approval."
+    )
+    assert prompt.count(guardrail) == 4
+    assert "pack_rd" not in prompt
+    assert prompt.index("Code review advisory.") < prompt.index(
+        NO_IRREVERSIBLE_ACTION_CONSTRAINT
+    )
+
+
+def test_capability_bound_high_risk_prompts_remain_advice_or_drafts_pending_approval():
+    """Capability packages must not turn a bureau into an action authority."""
+
+    high_risk_capabilities = {
+        "commercial_opportunity",
+        "quotation_analysis",
+        "contract_review",
+        "delivery_aftercare",
+        "social_content_operations",
+        "persona_screening",
+    }
+    expected_guardrail = (
+        "advice or drafts only and remain pending approval."
+    )
+
+    for capability_id in high_risk_capabilities:
+        profile = capability_profile_for(capability_id)
+        prompt = bureau_system_prompt(profile.department, profile.bureau)
+        assert expected_guardrail in prompt
+        assert NO_IRREVERSIBLE_ACTION_CONSTRAINT in prompt
+
+
+@pytest.mark.parametrize(
+    "non_bureau_node_id",
+    ("ministry:户部", "junjichu:council", "chancellor:finalize"),
+)
+def test_controlled_evidence_session_rejects_non_bureau_roles_before_any_access(
+    non_bureau_node_id: str,
+) -> None:
+    """A department, Junjichu, or Chancellor cannot reuse a bureau session."""
+
+    coordinator_calls = 0
+    model_calls = 0
+
+    class Coordinator:
+        def investigate(self, *_args, **_kwargs):
+            nonlocal coordinator_calls
+            coordinator_calls += 1
+            raise AssertionError("non-bureau roles must not investigate")
+
+    def model(_messages: object) -> str:
+        nonlocal model_calls
+        model_calls += 1
+        return '{"opinion":"must not run"}'
+
+    profile = BUREAU_PROFILES[0]
+    with pytest.raises(EvidenceProtocolError, match="bureau_identity_invalid"):
+        invoke_bureau_with_evidence(
+            node_id=non_bureau_node_id,
+            department=profile.department,
+            bureau=profile.bureau,
+            matter_type="MEMORIAL",
+            decree_text="offline decree",
+            messages=[{"role": "system", "content": "offline fake"}],
+            chat_model=model,
+            legacy_parser=lambda value: value,
+            fallback=lambda reason: reason,
+            session=AgentEvidenceSession(coordinator=Coordinator()),
+        )
+
+    assert model_calls == 0
+    assert coordinator_calls == 0
+
+
+def test_unbound_bureau_prompt_explicitly_has_no_special_package_and_inherits_none():
+    prompt = bureau_system_prompt("户部", "预算司")
+
+    assert "No special capability packages are assigned to this bureau." in prompt
+    assert "Financial analysis memo." not in prompt
+    assert "Contract review notes." not in prompt
+
+
+def test_same_named_cross_department_bureaus_keep_capability_sections_isolated():
+    personnel = capability_prompt_section("吏部", "制度司")
+    legal = capability_prompt_section("刑部", "制度司")
+
+    expected = "No special capability packages are assigned to this bureau."
+    assert personnel == expected
+    assert legal == expected
+    with pytest.raises(ValueError):
+        capability_prompt_section("吏部", "合同司")
+
+
 def test_all_six_rites_bureaus_are_open_and_use_the_same_prompt_mechanism():
     rites = bureau_profiles_for("礼部")
     assert tuple(item.bureau for item in rites) == EXPECTED_BUREAUS["礼部"]
@@ -203,8 +321,11 @@ def test_every_bureau_prompt_includes_shared_enterprise_safety_constraint(forbid
 
 def test_invoke_bureau_agent_sends_identity_context_and_returns_stripped_opinion():
     captured: list[dict[str, str]] = []
+    model_calls = 0
 
     def fake_model(messages: list[dict[str, str]]) -> str:
+        nonlocal model_calls
+        model_calls += 1
         captured.extend(messages)
         return '{"opinion": "  建议先核查合同授权链。  "}'
 
@@ -213,6 +334,7 @@ def test_invoke_bureau_agent_sends_identity_context_and_returns_stripped_opinion
     )
 
     assert result == "建议先核查合同授权链。"
+    assert model_calls == 1
     assert captured[0] == {
         "role": "system",
         "content": bureau_system_prompt("刑部", "合同司"),

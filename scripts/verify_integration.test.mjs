@@ -31,3 +31,27 @@ test("service startup retries fresh unique ports after bind or readiness races",
   assert.match(source, /usedPorts\.has\(port\)/);
   assert.match(source, /for\s*\(let attempt = 1; attempt <= MAX_START_ATTEMPTS; attempt \+= 1\)/);
 });
+
+test("decree BFF connectivity scenario asserts validation on a healthy backend, not network", () => {
+  assert.match(source, /runDecreeBffConnectivityScenario/);
+  assert.match(source, /\/api\/auth\/register/);
+  assert.match(source, /decreeText:\s*""/);
+  assert.match(
+    source,
+    /decreeResponse\.status !== 422[\s\S]*?期望下旨 BFF 返回 422（validation）/,
+  );
+  assert.match(source, /decreeResponse\.json\.reason !== "validation"/);
+});
+
+test("decree BFF connectivity scenario asserts network/503 with no leaked internal address when backend is unreachable", () => {
+  assert.match(source, /createUnavailableBackendSentinel\(\)/);
+  assert.match(
+    source,
+    /decreeResponse\.status !== 503[\s\S]*?期望下旨 BFF 返回 503（network）/,
+  );
+  assert.match(source, /decreeResponse\.json\.reason !== "network"/);
+  assert.match(
+    source,
+    /leakNeedles = \[String\(sentinel\.port\), "BACKEND_BASE_URL", "127\.0\.0\.1"\]/,
+  );
+});

@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 import type { DadianOverview } from "../../lib/backendClient";
 import { CourtCapabilityButton } from "../court-visuals/CourtCapabilityButton";
 import { ImmersiveCourtShell } from "../court-visuals/ImmersiveCourtShell";
@@ -23,6 +24,7 @@ type DevHotspot =
       kind: "department";
       department: string;
       tone: HotspotTone;
+      href: string;
       x: number;
       y: number;
     }
@@ -32,21 +34,21 @@ type DevHotspot =
       post: string;
       kind: "unavailable";
       tone: HotspotTone;
+      href: string;
       x: number;
       y: number;
     };
 
 const DEV_HOTSPOTS: readonly DevHotspot[] = [
-  { id: "gongbu", label: "工部", post: "营造 · 修缮 · 基建", kind: "department", department: "工部", tone: "green", x: 21.7, y: 38.6 },
-  { id: "hubu", label: "户部", post: "财政 · 度支 · 资源", kind: "department", department: "户部", tone: "amber", x: 30, y: 30.4 },
-  { id: "libu-personnel", label: "吏部", post: "考绩 · 任免 · 文档", kind: "department", department: "吏部", tone: "green", x: 34.1, y: 23.6 },
-  { id: "libu", label: "礼部", post: "礼仪 · 公文 · 对外", kind: "department", department: "礼部", tone: "green", x: 41.6, y: 26.5 },
-  { id: "prime", label: "丞相", post: "总揽 · 会辅 · 裁断", kind: "unavailable", tone: "amber", x: 50.7, y: 28.6 },
-  { id: "xingbu", label: "刑部", post: "律令 · 刑名 · 审断", kind: "department", department: "刑部", tone: "violet", x: 55.8, y: 35.2 },
-  { id: "bingbu", label: "兵部", post: "戍卫 · 情势 · 边务", kind: "department", department: "兵部", tone: "green", x: 60.7, y: 26.5 },
-  { id: "jinyiwei", label: "锦衣卫", post: "情报 · 侦缉 · 暗访", kind: "unavailable", tone: "blue", x: 68.3, y: 23.6 },
-  { id: "qintianjian", label: "钦天监", post: "天象 · 历法 · 预测", kind: "unavailable", tone: "violet", x: 73.1, y: 30.4 },
-  { id: "shiguan", label: "史馆", post: "史料 · 起居注 · 典藏", kind: "unavailable", tone: "blue", x: 79.5, y: 38.6 },
+  { id: "gongbu", label: "工部", post: "营造 · 修缮 · 基建", kind: "department", department: "工部", tone: "green", href: "/liubu/gongbu", x: 23.4, y: 44.5 },
+  { id: "hubu", label: "户部", post: "财政 · 度支 · 资源", kind: "department", department: "户部", tone: "amber", href: "/liubu/finance", x: 29.4, y: 35.3 },
+  { id: "libu-personnel", label: "吏部", post: "考绩 · 任免 · 文档", kind: "department", department: "吏部", tone: "green", href: "/liubu/personnel", x: 34.1, y: 29.7 },
+  { id: "libu", label: "礼部", post: "礼仪 · 公文 · 对外", kind: "department", department: "礼部", tone: "green", href: "/liubu/market", x: 41.7, y: 31.4 },
+  { id: "prime", label: "丞相", post: "总揽 · 会辅 · 裁断", kind: "unavailable", tone: "amber", href: "/study", x: 50.7, y: 37.0 },
+  { id: "xingbu", label: "刑部", post: "律令 · 刑名 · 审断", kind: "department", department: "刑部", tone: "violet", href: "/liubu/legal", x: 60.2, y: 31.4 },
+  { id: "bingbu", label: "兵部", post: "戍卫 · 情势 · 边务", kind: "department", department: "兵部", tone: "green", href: "/liubu/ops", x: 72.4, y: 35.2 },
+  { id: "jinyiwei", label: "锦衣卫", post: "情报 · 侦缉 · 暗访", kind: "unavailable", tone: "blue", href: "/jinyiwei", x: 67.5, y: 29.3 },
+  { id: "shiguan", label: "史馆", post: "史料 · 起居注 · 典藏", kind: "unavailable", tone: "blue", href: "/shiguan", x: 79.1, y: 44.4 },
 ] as const;
 
 const TONE_COLORS: Record<HotspotTone, string> = {
@@ -57,41 +59,35 @@ const TONE_COLORS: Record<HotspotTone, string> = {
 };
 
 export interface DadianSceneProps {
-  department: string;
   overview: DadianOverview | null;
   error: string | null;
-  onDepartmentChange(department: string): void;
   onRetry(): void;
 }
 
 export function DadianScene({
-  department,
   overview,
   error,
-  onDepartmentChange,
   onRetry,
 }: DadianSceneProps) {
   const view = createDadianViewModel({ overview, error });
+  const router = useRouter();
 
   return (
     <ImmersiveCourtShell
       currentLabel="大殿"
       currentPath="/dadian"
       backgroundImage="/assets/dadian/hall-stage-tang.webp"
+      fullBleedContent
+      showQuickDockHandle={false}
       scene="dadian"
     >
       <div className={styles.scene}>
         <header className={styles.hero}>
-          <p className={styles.eyebrow}>
-            <span aria-hidden="true" />
-            Chaotang OS
-          </p>
           <div className={styles.titleRow}>
             <CloudFlourish mirrored />
             <h1>大殿</h1>
             <CloudFlourish />
           </div>
-          <p className={styles.subtitle}>企业 AI 指挥中枢 · 万务一统</p>
           <span className={styles.heroRule} aria-hidden="true" />
         </header>
 
@@ -159,97 +155,21 @@ export function DadianScene({
                 </p>
               </div>
               <CourtCapabilityButton
-                capability="unavailable"
-                explanation="当前大殿仅提供真实回奏概览；下旨请前往上书房，本页不会代为发起写操作。"
+                capability="enabled"
+                explanation="前往上书房拟定并下达旨意。"
+                onClick={() => router.push("/study")}
               >
                 殿前发令
               </CourtCapabilityButton>
             </aside>
 
             <div className={styles.courtMap}>
-              <div className={styles.filterBar}>
-                <label htmlFor="dadian-department">参与部门</label>
-                <select
-                  id="dadian-department"
-                  value={department}
-                  onChange={(event) => onDepartmentChange(event.target.value)}
-                >
-                  <option value="">全部真实回奏</option>
-                  {view.departmentOptions.map((item) => (
-                    <option key={item.department} value={item.department}>
-                      {item.department}（{item.count}）
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className={styles.hotspots} aria-label="大殿百官席位与真实部门回奏分布">
-                {DEV_HOTSPOTS.map((hotspot) => {
-                  const count =
-                    hotspot.kind === "department"
-                      ? view.departmentOptions.find(
-                          (item) => item.department === hotspot.department,
-                        )?.count
-                      : null;
-                  return (
-                    <MinisterHotspot
-                      key={hotspot.id}
-                      hotspot={hotspot}
-                      count={count}
-                      selected={
-                        hotspot.kind === "department" &&
-                        department === hotspot.department
-                      }
-                      onSelect={() => {
-                        if (hotspot.kind === "department" && count !== undefined) {
-                          onDepartmentChange(
-                            department === hotspot.department ? "" : hotspot.department,
-                          );
-                        }
-                      }}
-                    />
-                  );
-                })}
+              <div className={styles.hotspots} aria-label="大殿百官席位">
+                {DEV_HOTSPOTS.map((hotspot) => (
+                  <MinisterHotspot key={hotspot.id} hotspot={hotspot} />
+                ))}
               </div>
             </div>
-
-            <section className={styles.replyDock} aria-labelledby="recent-replies-heading">
-              <div className={styles.dockHeading}>
-                <div>
-                  <p>Imperial Archive · 御前回奏栏</p>
-                  <h2 id="recent-replies-heading">最新真实回奏</h2>
-                </div>
-                <span>{department || "全部部门"}</span>
-              </div>
-
-              {view.replies.length === 0 ? (
-                <div className={styles.emptyState} aria-live="polite">
-                  <strong>暂无真实回奏</strong>
-                  <p>
-                    {department
-                      ? `当前筛选“${department}”没有可展示的已归档回奏。`
-                      : "史馆尚未返回可展示的已归档回奏。"}
-                  </p>
-                </div>
-              ) : (
-                <ul className={styles.replyList}>
-                  {view.replies.map((reply) => (
-                    <li key={reply.id}>
-                      <div className={styles.replyTitle}>
-                        <strong>{reply.title}</strong>
-                        <time dateTime={reply.replyTime}>{reply.replyTime}</time>
-                      </div>
-                      <p>{reply.conclusion}</p>
-                      <small>
-                        {reply.respondent}
-                        <span aria-hidden="true"> · </span>
-                        {reply.departments.join("、")}
-                      </small>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
           </section>
         ) : null}
       </div>
@@ -259,15 +179,10 @@ export function DadianScene({
 
 function MinisterHotspot({
   hotspot,
-  count,
-  selected,
-  onSelect,
 }: {
   hotspot: DevHotspot;
-  count: number | null | undefined;
-  selected: boolean;
-  onSelect(): void;
 }) {
+  const router = useRouter();
   const [tipOpen, setTipOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearCloseTimer = useCallback(() => {
@@ -287,29 +202,22 @@ function MinisterHotspot({
   useEffect(() => clearCloseTimer, [clearCloseTimer]);
 
   const edge = hotspot.x < 25 ? "left" : hotspot.x > 68 ? "right" : "center";
-  const status =
-    count === null ? "暂无数据" : count === undefined ? "未返回" : `${count} 条回奏`;
   const tooltipId = `dadian-hotspot-${hotspot.id}-tooltip`;
   const statusColor = TONE_COLORS[hotspot.tone];
 
   return (
     <button
       className={styles.hotspot}
-      data-selected={selected || undefined}
       data-tooltip-edge={edge}
       data-tooltip-open={tipOpen || undefined}
       type="button"
-      aria-pressed={hotspot.kind === "department" ? selected : undefined}
-      aria-disabled={
-        hotspot.kind === "unavailable" || count === undefined || undefined
-      }
       aria-describedby={tooltipId}
+      onClick={() => router.push(hotspot.href)}
       style={{
         "--hotspot-x": `${hotspot.x}%`,
         "--hotspot-y": `${hotspot.y}%`,
         "--status-color": statusColor,
       } as CSSProperties}
-      onClick={onSelect}
       onMouseEnter={openTip}
       onMouseLeave={closeTip}
       onFocus={openTip}
@@ -319,7 +227,7 @@ function MinisterHotspot({
       <strong>{hotspot.label}</strong>
       <span>
         <b aria-hidden="true" />
-        {status}
+        席位展示
       </span>
       <span
         className={styles.hotspotTooltip}
@@ -330,27 +238,6 @@ function MinisterHotspot({
       >
         <strong>{hotspot.label}</strong>
         <span>{hotspot.post}</span>
-        {hotspot.kind === "department" ? (
-          <>
-            <span>
-              {count === undefined
-                ? "本次概览未返回该部门计数"
-                : `真实归档回奏 ${count} 条`}
-            </span>
-            <em>
-              {count === undefined
-                ? "装饰席位不用于推断真实计数"
-                : selected
-                  ? "再次选择可清除筛选"
-                  : "选择以筛选真实回奏"}
-            </em>
-          </>
-        ) : (
-          <>
-            <span>当前接口未提供该席位指标</span>
-            <em>仅还原 dev 视觉席位，不展示推测数值</em>
-          </>
-        )}
       </span>
     </button>
   );

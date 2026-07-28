@@ -717,7 +717,7 @@
     background-position: -100% 0;
   }
 }
-@media (max-width: 1080px) {
+@media (max-width: 1280px) {
   .columns {
     height: auto;
     min-height: 0;

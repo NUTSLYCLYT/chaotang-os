@@ -1,0 +1,7 @@
+# Task 3: 将能力包约束编入司级提示词
+
+Allowed paths: `backend/app/agents/bureaus/prompts.py`, `backend/app/agents/bureaus/agent.py` only if strictly necessary, `backend/tests/test_bureaus_agent.py`, `backend/tests/test_bureau_capabilities.py`.
+
+Add `capability_prompt_section(department, bureau)` in `prompts.py`. It must use `capability_profiles_for`, preserve registry order, and render each selected package's purpose, deliverables, and guardrails. A known bureau with no packages must get an explicit no-special-package section; unknown/cross-department identity remains fail-closed through the registry. Compose it in `bureau_system_prompt` after responsibilities and before `NO_IRREVERSIBLE_ACTION_CONSTRAINT`. Keep the exact one-field `{\"opinion\": ...}` output contract and never instruct models to output capability IDs. `invoke_bureau_agent` signature, evidence protocol, model call count and error behavior must remain unchanged; do not change it unless a test proves necessary.
+
+TDD: add focused tests first to prove a bound bureau's prompt contains its package content and guardrails, an unbound existing bureau does not inherit another package, a same-named cross-department identity stays isolated, and invocation still makes one model call. Observe RED, implement minimal code, then run `cd backend; .venv\Scripts\python.exe -m pytest tests/test_bureaus_agent.py tests/test_bureau_capabilities.py -q` GREEN and Ruff. No Git writes. No network/model persistence/API/scheduler/ADR changes. Report in final message RED/GREEN evidence and files; do not edit unrelated docs.

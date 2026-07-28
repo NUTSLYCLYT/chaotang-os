@@ -187,6 +187,63 @@ def test_market_quote_decree_overrides_valid_but_wrong_model_route(
     assert "军机处（召集）" not in result["processing_path"]
 
 
+def test_market_quote_capability_keeps_single_department_layered_flow(
+    monkeypatch,
+) -> None:
+    def fake_ministry(
+        department,
+        _decree,
+        _rationale,
+        _model,
+        *,
+        recall_context=None,
+        evidence_session=None,
+    ):
+        assert department == "户部"
+        assert recall_context is not None
+        assert evidence_session is not None
+        return _expected_ministry("户部", "行情司意见", "户部行情补充意见")
+
+    monkeypatch.setattr(
+        "app.agents.chancellor.graph.invoke_ministry_agent", fake_ministry
+    )
+
+    result = build_chancellor_graph(
+        chat_model=lambda _messages: _final_response("行情回奏")
+    ).invoke({"decree_text": "帮我看看比亚迪的股票价格"})
+
+    bureau = bureau_profiles_for("户部")[0].bureau
+    assert result["route_type"] == "single"
+    assert result["departments"] == ["户部"]
+    assert result["ministry_opinions"] == [
+        _expected_ministry("户部", "行情司意见", "户部行情补充意见")
+    ]
+    assert result["council_verdict"] is None
+    assert result["final_verdict"] == "行情回奏"
+    assert result["recommendations"] == ["建议一", "建议二", "建议三"]
+    assert result["processing_path"] == [
+        "上书房",
+        "丞相（首次分流）",
+        "户部",
+        f"户部·{bureau}",
+        "户部（部级补充）",
+        "丞相（最终汇总）",
+    ]
+    forbidden_node_fragments = (
+        "capability",
+        "swarm",
+        "worker",
+        "task-run",
+        "军机处",
+        "junjichu",
+    )
+    assert not any(
+        fragment in node.lower()
+        for node in result["processing_path"]
+        for fragment in forbidden_node_fragments
+    )
+
+
 def _quote_ready_response() -> str:
     opinion = "比亚迪最新可得价格为 300 CNY。"
     return json.dumps(
@@ -640,6 +697,83 @@ def test_multi_route_runs_all_layered_ministries_then_council_then_finalizer():
         )
     expected_path.extend(["军机处（会审）", "丞相（最终汇总）"])
     assert result["processing_path"] == expected_path
+
+
+def test_cross_department_capability_intention_keeps_existing_council_path_and_inputs():
+    departments = ["工部", "兵部"]
+    captured_messages: list[list[dict[str, str]]] = []
+    responses = iter(
+        [
+            _multi_route_response(departments),
+            *_ministry_turns("工部", "工部司议", "工部部议"),
+            *_ministry_turns("兵部", "兵部司议", "兵部部议"),
+            '{"verdict":"军机处会审结论"}',
+            _final_response("跨部门能力回奏"),
+        ]
+    )
+
+    def model(messages: list[dict[str, str]]) -> str:
+        captured_messages.append(messages)
+        return next(responses)
+
+    result = build_chancellor_graph(chat_model=model).invoke(
+        {"decree_text": "为跨部门治河能力协调工部与兵部"}
+    )
+
+    expected_path = ["上书房", "丞相（首次分流）", "军机处（召集）"]
+    for department in departments:
+        bureau = bureau_profiles_for(department)[0].bureau
+        expected_path.extend(
+            [department, f"{department}·{bureau}", f"{department}（部级补充）"]
+        )
+    expected_path.extend(["军机处（会审）", "丞相（最终汇总）"])
+
+    assert result["processing_path"] == expected_path
+    assert result["processing_path"].count("军机处（召集）") == 1
+    assert result["processing_path"].count("军机处（会审）") == 1
+    assert [node for node in result["processing_path"] if node.startswith("军机处")] == [
+        "军机处（召集）",
+        "军机处（会审）",
+    ]
+    assert [opinion["department"] for opinion in result["ministry_opinions"]] == departments
+    assert all(
+        set(opinion) == {"department", "bureau_opinions", "opinion"}
+        for opinion in result["ministry_opinions"]
+    )
+    council_evidence = captured_messages[7][1]["content"]
+    assert "工部司议" in council_evidence
+    assert "工部部议" in council_evidence
+    assert "兵部司议" in council_evidence
+    assert "兵部部议" in council_evidence
+    assert "capability" not in council_evidence.lower()
+    assert "evidence" not in council_evidence.lower()
+    assert captured_messages[8][0]["content"] == CHANCELLOR_FINALIZATION_SYSTEM_PROMPT
+
+
+def test_cross_department_bureau_failure_stops_later_ministries_council_and_finalizer():
+    model_calls: list[list[dict[str, str]]] = []
+    responses = iter(
+        [
+            _multi_route_response(["工部", "兵部"]),
+            _bureau_route_response("工部"),
+        ]
+    )
+
+    def model(messages: list[dict[str, str]]) -> str:
+        model_calls.append(messages)
+        if len(model_calls) == 3:
+            raise RuntimeError("simulated selected-bureau failure")
+        return next(responses)
+
+    with pytest.raises(ChancellorGraphInvocationError) as exc_info:
+        build_chancellor_graph(chat_model=model).invoke({"decree_text": "跨部门能力旨意"})
+
+    assert isinstance(exc_info.value.__cause__, MinistryAgentInvocationError)
+    assert len(model_calls) == 3
+    assert not any(
+        messages[0]["content"] == CHANCELLOR_FINALIZATION_SYSTEM_PROMPT
+        for messages in model_calls
+    )
 
 
 def test_multi_route_all_six_ministries_remains_serial_and_feasible():

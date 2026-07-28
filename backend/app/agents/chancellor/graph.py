@@ -80,7 +80,7 @@ from app.agents.evidence_protocol import (
     bureau_node_id,
 )
 from app.agents.evidence_rendering import render_mainland_last_price
-from app.agents.junjichu.agent import run_junjichu_council
+from app.agents.junjichu.agent import CaseLifecycleObserver, run_junjichu_council
 from app.agents.market_intent import (
     is_mainland_last_price_intent,
     normalize_market_quote_route,
@@ -183,6 +183,7 @@ def build_chancellor_graph(
     dotenv_path: Path | None = None,
     *,
     evidence_session_factory: Callable[[], AgentEvidenceSession] | None = None,
+    lifecycle_observer: CaseLifecycleObserver | None = None,
 ) -> CompiledStateGraph:
     """Build and compile the layered Chancellor memorial graph.
 
@@ -309,13 +310,20 @@ def build_chancellor_graph(
         )
         departments = list(normalized_departments)
 
-        return {
+        route_state = {
             "chancellor_rationale": rationale,
             "route_type": route_type,
             "departments": departments,
             "evidence_session": evidence_session,
             "processing_path": ["上书房", "丞相（首次分流）"],
         }
+        if route_type == "multi" and lifecycle_observer is not None:
+            lifecycle_observer.open_case(
+                decree_text=state["decree_text"],
+                departments=departments,
+                processing_path=route_state["processing_path"],
+            )
+        return route_state
 
     def _route_condition(state: ChancellorGraphState) -> str:
         return state["route_type"]
@@ -373,13 +381,19 @@ def build_chancellor_graph(
             for department in departments
         }
         try:
+            council_kwargs: dict[str, object] = {
+                "recall_contexts": recall_contexts,
+                "evidence_session": state["evidence_session"],
+            }
+            if lifecycle_observer is not None:
+                council_kwargs["lifecycle_observer"] = lifecycle_observer
+                council_kwargs["processing_path"] = state["processing_path"]
             ministry_opinions, verdict = run_junjichu_council(
                 state["decree_text"],
                 state["chancellor_rationale"],
                 departments,
                 resolved_chat_model,
-                recall_contexts=recall_contexts,
-                evidence_session=state["evidence_session"],
+                **council_kwargs,
             )
         except Exception as exc:  # noqa: BLE001 - intentionally wrap any model/validation error
             raise ChancellorGraphInvocationError(
@@ -409,6 +423,12 @@ def build_chancellor_graph(
                     investigation_marked = True
             layered_path.append(f"{department}（部级补充）")
         layered_path.append("军机处（会审）")
+        if lifecycle_observer is not None:
+            lifecycle_observer.record_checkpoint(
+                status="COUNCIL_REVIEWING",
+                processing_path=layered_path,
+                council_verdict=verdict,
+            )
 
         return {
             "processing_path": layered_path,
@@ -423,6 +443,11 @@ def build_chancellor_graph(
         }
 
     def _finalize_chancellor(state: ChancellorGraphState) -> dict:
+        if state["route_type"] == "multi" and lifecycle_observer is not None:
+            lifecycle_observer.record_checkpoint(
+                status="CHANCELLOR_FINALIZING",
+                processing_path=state["processing_path"],
+            )
         evidence = {
             "decree_text": state["decree_text"],
             "route_type": state["route_type"],

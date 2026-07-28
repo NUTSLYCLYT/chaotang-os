@@ -27,6 +27,7 @@ from typing import TypedDict
 from app.agents.bureaus import (
     BureauAgentInvocationError,
     bureau_profiles_for,
+    capability_profiles_for,
     invoke_bureau_agent,
 )
 from app.agents.evidence_protocol import AgentEvidenceSession
@@ -208,6 +209,14 @@ def invoke_ministry_agent(
                 bureaus=selected_bureaus,
             )
         )
+
+    for bureau in selected_bureaus:
+        try:
+            capability_profiles_for(department, bureau)
+        except Exception as exc:  # noqa: BLE001 - fail closed at the integrity boundary
+            raise MinistryAgentInvocationError(
+                f"{department} agent failed selected-bureau capability integrity validation."
+            ) from exc
 
     bureau_opinions: list[BureauOpinion] = []
     for bureau in selected_bureaus:

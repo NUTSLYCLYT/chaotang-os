@@ -3,6 +3,12 @@
 from __future__ import annotations
 
 from app.agents.bureaus.agent import BureauAgentInvocationError, invoke_bureau_agent
+from app.agents.bureaus.capabilities import (
+    CAPABILITY_PROFILES,
+    CapabilityProfile,
+    capability_profile_for,
+    capability_profiles_for,
+)
 from app.agents.bureaus.profiles import (
     BUREAU_PROFILES,
     BureauProfile,
@@ -13,10 +19,14 @@ from app.agents.bureaus.prompts import bureau_system_prompt
 
 __all__ = [
     "BUREAU_PROFILES",
+    "CAPABILITY_PROFILES",
     "BureauAgentInvocationError",
     "BureauProfile",
+    "CapabilityProfile",
     "bureau_profile_for",
     "bureau_profiles_for",
     "bureau_system_prompt",
+    "capability_profile_for",
+    "capability_profiles_for",
     "invoke_bureau_agent",
 ]

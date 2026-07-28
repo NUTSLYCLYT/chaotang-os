@@ -68,7 +68,11 @@ test("shared court shell and migrated workspaces import the quick dock and edict
     shell,
     /import\s+\{\s*CourtQuickDock\s*\}\s+from\s+"\.\/CourtQuickDock"/,
   );
-  assert.match(shell, /<CourtQuickDock\s*\/>/);
+  assert.match(
+    shell,
+    /<CourtQuickDock\s+centerSlot=\{quickDockCenter\}\s+showHandle=\{showQuickDockHandle\}\s*\/>/,
+    "the shared shell must forward its optional center module and handle visibility to the quick dock",
+  );
 
   const edictConsumers = [
     "../features/junjichu-visual/JunjichuScene.tsx",

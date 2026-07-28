@@ -20,6 +20,7 @@ const KNOWN_ERROR_KINDS: readonly DecreeErrorKind[] = [
   "validation",
   "config",
   "model",
+  "timeout",
   "network",
   "unknown",
 ];

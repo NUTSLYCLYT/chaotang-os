@@ -47,6 +47,7 @@ export function DepartmentScene({
       currentPath={`/liubu/${department.code}`}
       backgroundImage={department.background}
       scene="liubu"
+      hideScrollbar
     >
       <div
         className={styles.departmentWorkspace}

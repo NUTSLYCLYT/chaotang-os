@@ -107,6 +107,10 @@ test("invalid JSON, invalid success data, known errors, and network failures map
     kind: "model",
     error: "",
   });
+  const timeoutState: DecreeUiState = {
+    phase: "error",
+    message: "下旨处理超时，请稍后重试。",
+  };
   const cases: Array<[string, StudyFetch, DecreeUiState]> = [
     [
       "invalid JSON",
@@ -130,6 +134,14 @@ test("invalid JSON, invalid success data, known errors, and network failures map
         { status: 502 },
       ),
       modelState,
+    ],
+    [
+      "timeout route error",
+      async () => Response.json(
+        { status: "error", reason: "timeout", message: "internal" },
+        { status: 504 },
+      ),
+      timeoutState,
     ],
     [
       "network failure",

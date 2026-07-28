@@ -2,139 +2,124 @@ import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("dadian scene renders only values supplied by the real overview adapter", async () => {
-  const source = await readFile(new URL("./DadianScene.tsx", import.meta.url), "utf8");
+async function sceneSource() {
+  return readFile(new URL("./DadianScene.tsx", import.meta.url), "utf8");
+}
+
+test("dadian retains only the overview values used by its visible summary", async () => {
+  const source = await sceneSource();
 
   assert.match(source, /createDadianViewModel/);
   assert.match(source, /view\.overview\.replyCount/);
   assert.match(source, /view\.overview\.pendingReviewCount/);
   assert.match(source, /view\.overview\.todayFocus/);
-  assert.match(source, /view\.departmentOptions/);
-  assert.match(source, /view\.replies/);
-  assert.match(source, /reply\.conclusion/);
-  assert.match(source, /reply\.respondent/);
-  assert.match(source, /reply\.departments/);
-  assert.doesNotMatch(
-    source,
-    /mockDadianData|Math\.random|useSWR|SWR|refreshInterval|EventSource|\/api\/court|BACKEND_BASE_URL|ownerId/,
-  );
+  assert.doesNotMatch(source, /view\.departmentOptions|view\.replies/);
+  assert.doesNotMatch(source, /reply\.conclusion|reply\.respondent|reply\.departments/);
+  assert.doesNotMatch(source, /mockDadianData|Math\.random|EventSource|BACKEND_BASE_URL|ownerId/);
 });
 
-test("dadian scene uses the shared immersive shell and exposes honest data states", async () => {
-  const source = await readFile(new URL("./DadianScene.tsx", import.meta.url), "utf8");
+test("dadian anchors each module arrow to the corresponding figure's head on the background asset stage", async () => {
+  const source = await sceneSource();
   const css = await readFile(new URL("./DadianScene.module.css", import.meta.url), "utf8");
 
-  await access(
-    new URL("../../../public/assets/dadian/hall-stage-tang.webp", import.meta.url),
-  );
-  assert.match(source, /ImmersiveCourtShell/);
-  assert.match(source, /CourtCapabilityButton/);
-  assert.match(source, /\/assets\/dadian\/hall-stage-tang\.webp/);
-  assert.match(source, /data-dadian-state="loading"/);
-  assert.match(source, /data-dadian-state="error"/);
-  assert.match(source, /data-dadian-state=\{view\.state\}/);
-  assert.match(source, /role="alert"/);
-  assert.match(source, /data-dadian-error="nonblocking"/);
-  assert.match(source, /aria-live="polite"/);
-  assert.match(source, /capability="unavailable"/);
-  assert.match(source, /当前大殿仅提供真实回奏概览/);
-  assert.match(css, /overflow-wrap:\s*anywhere/);
-  assert.match(css, /@media \(max-width: 767px\)/);
-});
-
-test("desktop court restores positioned minister hotspots, tooltips, and cloud flourishes", async () => {
-  const source = await readFile(new URL("./DadianScene.tsx", import.meta.url), "utf8");
-  const css = await readFile(new URL("./DadianScene.module.css", import.meta.url), "utf8");
-
-  assert.match(source, /DEV_HOTSPOTS/);
-  for (const label of ["工部", "户部", "吏部", "礼部", "刑部", "丞相", "兵部", "锦衣卫", "钦天监", "史馆"]) {
-    assert.match(source, new RegExp(`label: "${label}"`));
+  assert.doesNotMatch(source, /qintianjian|钦天监/);
+  for (const { id, x, y } of [
+    { id: "gongbu", x: 23.4, y: 44.5 },
+    { id: "hubu", x: 29.4, y: 35.3 },
+    { id: "libu-personnel", x: 34.1, y: 29.7 },
+    { id: "libu", x: 41.7, y: 31.4 },
+    { id: "prime", x: 50.7, y: 37.0 },
+    { id: "xingbu", x: 60.2, y: 31.4 },
+    { id: "bingbu", x: 72.4, y: 35.2 },
+    { id: "jinyiwei", x: 67.5, y: 29.3 },
+    { id: "shiguan", x: 79.1, y: 44.4 },
+  ]) {
+    assert.match(source, new RegExp(`id: "${id}"[^\\n]*x: ${x}, y: ${y}`));
   }
-  assert.doesNotMatch(source, /label: "史部"/);
-  assert.match(source, /x: 21\.7,\s*y: 38\.6/);
-  assert.match(source, /x: 50\.7,\s*y: 28\.6/);
-  assert.match(source, /x: 79\.5,\s*y: 38\.6/);
-  assert.match(source, /--hotspot-x/);
-  assert.match(source, /--hotspot-y/);
-  assert.match(source, /role="tooltip"/);
-  assert.match(source, /aria-describedby/);
-  assert.match(source, /CloudFlourish/);
-  assert.match(source, /viewBox="0 0 120 40"/);
-  assert.match(css, /\.hotspot\s*\{[^}]*position:\s*absolute/);
-  assert.match(css, /\.hotspot:hover[\s\S]*?\.hotspot:focus-visible/);
-  assert.match(css, /\.hotspot:hover[\s\S]*?\.hotspotTooltip/);
   assert.match(
     css,
-    /@media \(max-width: 767px\)[\s\S]*?\.hotspot\s*\{[^}]*position:\s*relative/,
+    /\.courtMap\s*\{[\s\S]*?position:\s*fixed[\s\S]*?inset:\s*0/,
+  );
+  assert.match(
+    css,
+    /\.hotspots\s*\{[\s\S]*?left:\s*50%[\s\S]*?top:\s*50%[\s\S]*?width:\s*max\(100vw,\s*calc\(100dvh\s*\*\s*1660\s*\/\s*947\)\)[\s\S]*?height:\s*max\(100dvh,\s*calc\(100vw\s*\*\s*947\s*\/\s*1660\)\)[\s\S]*?transform:\s*translate\(-50%,\s*-50%\)/,
+  );
+  assert.match(css, /\.hotspot\s*\{[\s\S]*?transform:\s*translate\(-50%,\s*calc\(-100%\s*-\s*6px\)\)/);
+  assert.match(css, /\.hotspot:hover,[\s\S]*?transform:\s*translate\(-50%,\s*calc\(-100%\s*-\s*8px\)\)/);
+});
+
+test("dadian omits the department filter and latest-replies dock", async () => {
+  const source = await sceneSource();
+  const css = await readFile(new URL("./DadianScene.module.css", import.meta.url), "utf8");
+
+  assert.doesNotMatch(source, /<select|filterBar|replyDock|replyList/);
+  assert.doesNotMatch(source, /参与部门|最新真实回奏|暂无真实回奏/);
+  assert.doesNotMatch(source, /当前大殿不提供部门统计或筛选|仅保留朝堂席位定位，不展示推测数值/);
+  assert.doesNotMatch(css, /\.filterBar\s*\{|\.replyDock\s*\{|\.replyList\s*\{/);
+});
+
+test("dadian keeps the shared shell, honest states, and static court seats", async () => {
+  const source = await sceneSource();
+  const css = await readFile(new URL("./DadianScene.module.css", import.meta.url), "utf8");
+
+  await access(new URL("../../../public/assets/dadian/hall-stage-tang.webp", import.meta.url));
+  assert.match(source, /ImmersiveCourtShell/);
+  assert.match(source, /fullBleedContent/);
+  assert.match(source, /showQuickDockHandle=\{false\}/);
+  assert.doesNotMatch(source, /styles\.subtitle|企业 AI 指挥中枢 · 万务一统/);
+  assert.doesNotMatch(source, /styles\.eyebrow|Chaotang OS/);
+  assert.match(source, /CourtCapabilityButton/);
+  assert.match(source, /data-dadian-state="loading"/);
+  assert.match(source, /data-dadian-state="error"/);
+  assert.match(source, /data-dadian-error="nonblocking"/);
+  assert.match(source, /DEV_HOTSPOTS/);
+  assert.match(source, /role="tooltip"/);
+  assert.doesNotMatch(source, /当前大殿不提供部门统计或筛选|仅保留朝堂席位定位，不展示推测数值/);
+  assert.match(css, /@media \(max-width: 767px\)/);
+  assert.match(css, /\.titleRow h1\s*\{[\s\S]*?font-size:\s*clamp\(3rem,\s*5\.25vw,\s*3\.75rem\)/);
+  assert.match(css, /\.hero\s*\{[\s\S]*?top:\s*12px/);
+  assert.doesNotMatch(css, /\.eyebrow(?:\s|\{|\.)/);
+  assert.match(
+    css,
+    /\.courtMap:has\(\.hotspot:hover\),[\s\S]*?\.courtMap:has\(\.hotspot:focus-visible\),[\s\S]*?\.courtMap:has\(\.hotspot\[data-tooltip-open\]\)\s*\{[\s\S]*?z-index:\s*11/,
   );
 });
 
-test("non-department dev hotspots disclose unavailable metrics instead of fabricating counts", async () => {
-  const source = await readFile(new URL("./DadianScene.tsx", import.meta.url), "utf8");
+test("dadian sends the enabled throne command button to the study", async () => {
+  const source = await sceneSource();
 
-  assert.match(source, /kind: "unavailable"/);
-  assert.match(source, /暂无数据/);
-  assert.match(source, /当前接口未提供该席位指标/);
-  assert.doesNotMatch(source, /\?\.count \?\? 0/);
-  assert.doesNotMatch(source, /Math\.random|运行中|会辅中|已上奏|待命/);
+  assert.match(source, /useRouter/);
+  assert.match(source, /const router = useRouter\(\)/);
+  assert.match(
+    source,
+    /capability="enabled"[\s\S]*?onClick=\{\(\) => router\.push\("\/study"\)\}/,
+  );
 });
 
-test("real filters and replies remain visibly rendered rather than visually clipped", async () => {
-  const source = await readFile(new URL("./DadianScene.tsx", import.meta.url), "utf8");
-  const css = await readFile(new URL("./DadianScene.module.css", import.meta.url), "utf8");
-  const declarations = (selector: string) => {
-    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const match = css.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`))?.[1];
-    assert.ok(match, `${selector} rule must exist`);
-    return match;
-  };
+test("dadian seat cards navigate to their corresponding workspaces", async () => {
+  const source = await sceneSource();
 
-  assert.match(source, /<select/);
-  assert.match(source, /view\.departmentOptions\.map/);
-  assert.match(source, /最新真实回奏/);
-  assert.match(source, /暂无真实回奏/);
-  for (const selector of [".filterBar", ".replyDock"]) {
-    const rule = declarations(selector);
-    assert.doesNotMatch(rule, /(?:width|height):\s*1px/);
-    assert.doesNotMatch(rule, /clip(?:-path)?:/);
-    assert.doesNotMatch(rule, /overflow:\s*hidden/);
+  for (const { id, href } of [
+    { id: "gongbu", href: "/liubu/gongbu" },
+    { id: "hubu", href: "/liubu/finance" },
+    { id: "libu-personnel", href: "/liubu/personnel" },
+    { id: "libu", href: "/liubu/market" },
+    { id: "prime", href: "/study" },
+    { id: "xingbu", href: "/liubu/legal" },
+    { id: "bingbu", href: "/liubu/ops" },
+    { id: "jinyiwei", href: "/jinyiwei" },
+    { id: "shiguan", href: "/shiguan" },
+  ]) {
+    assert.match(source, new RegExp(`id: "${id}"[^\\n]*href: "${href}"`));
   }
+  assert.match(source, /onClick=\{\(\) => router\.push\(hotspot\.href\)\}/);
 });
 
-test("real reply conclusions wrap in full without line clamping or clipping", async () => {
+test("today-focus card sits 20px from the desktop left edge without changing the mobile layout", async () => {
   const css = await readFile(new URL("./DadianScene.module.css", import.meta.url), "utf8");
-  const replyParagraphRule = css.match(/\.replyList p\s*\{([^}]*)\}/)?.[1];
+  const desktopCard = css.match(/\.focusCard\s*\{([^}]*)\}/)?.[1];
 
-  assert.ok(replyParagraphRule, "reply conclusion rule must exist");
-  assert.match(replyParagraphRule, /overflow-wrap:\s*anywhere/);
-  assert.match(replyParagraphRule, /white-space:\s*normal/);
-  assert.doesNotMatch(replyParagraphRule, /overflow:\s*hidden/);
-  assert.doesNotMatch(replyParagraphRule, /line-clamp/);
-});
-
-test("hotspot layer stays above the focus card without blocking the whole court map", async () => {
-  const css = await readFile(new URL("./DadianScene.module.css", import.meta.url), "utf8");
-  const rule = (selector: string) => {
-    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const declarations = css.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`))?.[1];
-    assert.ok(declarations, `${selector} rule must exist`);
-    return declarations;
-  };
-  const numericZIndex = (declarations: string, selector: string) => {
-    const value = declarations.match(/z-index:\s*(\d+)/)?.[1];
-    assert.ok(value, `${selector} must use a numeric z-index`);
-    return Number(value);
-  };
-
-  const focusCard = rule(".focusCard");
-  const hotspotLayer = rule(".hotspots");
-  const hotspotButton = rule(".hotspot");
-
-  assert.ok(
-    numericZIndex(hotspotLayer, ".hotspots") >
-      numericZIndex(focusCard, ".focusCard"),
-    "positioned hotspots and their tooltips must paint above the focus card",
-  );
-  assert.match(hotspotLayer, /pointer-events:\s*none/);
-  assert.match(hotspotButton, /pointer-events:\s*auto/);
+  assert.ok(desktopCard, "desktop focus-card rule must exist");
+  assert.match(desktopCard, /left:\s*20px/);
+  assert.match(css, /@media \(max-width: 767px\)[\s\S]*?\.focusCard\s*\{[^}]*left:\s*auto/);
 });

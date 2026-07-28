@@ -65,23 +65,45 @@ test("department and office use shared edict and explicit read states", async ()
   assert.doesNotMatch(css, /line-clamp/);
 });
 
-test("overview locks the dev canvas, hotspots and selected office rail", async () => {
+test("overview renders six manor plaques with hover-only reply details on one shell background", async () => {
   const source = await read("./MinistryOverviewScene.tsx");
   const css = await read("./ministries.module.css");
-  assert.match(source, /CANVAS_WIDTH\s*=\s*1672/);
-  assert.match(source, /CANVAS_HEIGHT\s*=\s*941/);
-  assert.match(source, /TOP_CROP\s*=\s*52/);
-  assert.match(source, /ResizeObserver/);
-  assert.match(
-    source,
-    /personnel:\s*\{\s*left:\s*320,\s*top:\s*125,\s*width:\s*240,\s*height:\s*110\s*\}/,
-  );
-  assert.match(source, /market:\s*"礼部 · 品牌客户域"/);
+  assert.doesNotMatch(source, /ResizeObserver|useLayoutEffect|viewportRef|canvasViewport|canvasImage|canvas-scale/);
+  assert.match(source, /const MINISTRY_BOXES/);
+  assert.match(source, /04-zhuangyuan-liubu-manors\.png/);
+  assert.match(source, /personnel:\s*\{\s*left:\s*158,\s*top:\s*128,\s*width:\s*365,\s*height:\s*135\s*\}/);
+  assert.match(source, /ops:\s*\{\s*left:\s*95,\s*top:\s*287,\s*width:\s*430,\s*height:\s*142\s*\}/);
+  assert.match(source, /gongbu:\s*\{\s*left:\s*34,\s*top:\s*477,\s*width:\s*480,\s*height:\s*186\s*\}/);
+  assert.match(source, /finance:\s*\{\s*left:\s*1149,\s*top:\s*128,\s*width:\s*365,\s*height:\s*135\s*\}/);
+  assert.match(source, /market:\s*\{\s*left:\s*1147,\s*top:\s*287,\s*width:\s*430,\s*height:\s*142\s*\}/);
+  assert.match(source, /legal:\s*\{\s*left:\s*1158,\s*top:\s*477,\s*width:\s*480,\s*height:\s*186\s*\}/);
+  assert.match(source, /data-manor-plaque/);
+  assert.match(source, /className=\{styles\.manorDetails\}/);
+  assert.match(source, /projectMinistryMetrics\(view\)/);
   assert.match(source, /data-ministry-hotspot/);
-  assert.match(source, /data-selected-ministry-rail/);
+  assert.doesNotMatch(source, /data-slot-density/);
+  assert.doesNotMatch(
+    source,
+    /SelectedMinistryRail|selectedCode|selectMinistry|data-selected-ministry-rail|cardSelect/,
+  );
+  assert.match(source, /href=\{`\/liubu\/\$\{department\.code\}`\}/);
+  assert.match(source, /fullBleedContent/);
+  assert.match(source, /showVeil=\{false\}/);
+  assert.doesNotMatch(source, /sceneMap|sceneBackground|<img/);
+  assert.match(source, /className=\{styles\.sceneCoordinates\}/);
+  assert.doesNotMatch(css, /\.sceneMap\b|\.sceneBackground\b|container-type:\s*size/);
+  assert.doesNotMatch(css, /\.overview\s*\{[^}]*background-image/);
+  assert.match(css, /\.overview\s*\{[^}]*overflow:\s*clip/);
+  assert.match(css, /\.sceneCoordinates\s*\{[\s\S]*?width:\s*max\(100vw,\s*177\.6833dvh\)/);
+  assert.match(css, /\.sceneCoordinates\s*\{[\s\S]*?height:\s*max\(100dvh,\s*56\.280vw\)/);
+  assert.match(css, /\.ministryHotspot\s*\{[\s\S]*?box-sizing:\s*border-box/);
+  assert.match(css, /\.overviewHeading\s*\{[^}]*left:\s*50%;[^}]*transform:\s*translateX\(-50%\)/);
   assert.doesNotMatch(source, /12\.8\s*亿|2,480|8,952|3,682|128\s*个/);
-  assert.match(css, /\.canvas\s*\{[\s\S]*?aspect-ratio:\s*1672\s*\/\s*941/);
   assert.match(css, /\.ministryHotspot\s*\{[\s\S]*?position:\s*absolute/);
+  assert.match(css, /\.manorPlaque\s*\{/);
+  assert.match(css, /\.manorDetails\s*\{[\s\S]*?opacity:\s*0/);
+  assert.match(css, /\.ministryHotspot:hover\s+\.manorDetails[\s\S]*?opacity:\s*1/);
+  assert.match(css, /\.ministryHotspot:focus-visible\s+\.manorDetails[\s\S]*?opacity:\s*1/);
 });
 
 test("department and office preserve independent three-axis rails and labelled central edicts", async () => {
@@ -108,8 +130,21 @@ test("department and office preserve independent three-axis rails and labelled c
   );
   assert.match(
     css,
+    /@media \(max-width: 1280px\)\s*\{\s*\.departmentThreeAxis\s*\{[^}]*grid-template-columns:\s*minmax\(240px,\s*\.75fr\)\s+minmax\(480px,\s*1\.25fr\)/,
+  );
+  assert.doesNotMatch(
+    css,
+    /@media \(max-width: 1150px\)\s*\{\s*\.departmentThreeAxis\b/,
+  );
+  assert.match(
+    css,
     /@media \(max-width: 767px\)[\s\S]*?\.departmentThreeAxis\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/,
   );
+});
+
+test("ministry department and office hide their scrollbar without disabling scrolling", async () => {
+  const scenes = await Promise.all([read("./DepartmentScene.tsx"), read("./OfficeScene.tsx")]);
+  for (const source of scenes) assert.match(source, /hideScrollbar/);
 });
 
 test("production scenes forbid inferred live status and misleading actor labels", async () => {

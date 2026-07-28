@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from typing import Protocol
 
 from app.agents.evidence_protocol import AgentEvidenceSession
 from app.agents.junjichu.prompts import junjichu_system_prompt
@@ -44,6 +45,28 @@ from app.agents.ministries.agent import MinistryOpinion, invoke_ministry_agent
 from app.agents.structured_output import parse_strict_json_object
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel
 from app.shiguan.recall import RecallContext, safe_recall_context_for_department
+
+
+class CaseLifecycleObserver(Protocol):
+    """Receives validated, storage-agnostic multi-case lifecycle events."""
+
+    def open_case(
+        self, *, decree_text: str, departments: list[str], processing_path: list[str]
+    ) -> None: ...
+
+    def record_ministry_opinion(self, opinion: MinistryOpinion) -> None: ...
+
+    def record_checkpoint(
+        self,
+        *,
+        status: str,
+        processing_path: list[str],
+        council_verdict: str | None = None,
+    ) -> None: ...
+
+    def archive(self, reply_id: str) -> None: ...
+
+    def fail(self) -> None: ...
 
 
 def _format_ministry_opinions(ministry_opinions: list[MinistryOpinion]) -> str:
@@ -139,6 +162,8 @@ def run_junjichu_council(
     *,
     recall_contexts: Mapping[str, RecallContext] | None = None,
     evidence_session: AgentEvidenceSession | None = None,
+    lifecycle_observer: CaseLifecycleObserver | None = None,
+    processing_path: list[str] | None = None,
 ) -> tuple[list[MinistryOpinion], str]:
     """Run the full multi-department 军机处 council sequence.
 
@@ -189,7 +214,18 @@ def run_junjichu_council(
             **ministry_kwargs,
         )
         ministry_opinions.append(opinion)
+        if lifecycle_observer is not None:
+            lifecycle_observer.record_ministry_opinion(opinion)
 
+    if lifecycle_observer is not None:
+        council_processing_path = [
+            node for node in (processing_path or []) if node != "军机处（会审）"
+        ]
+        council_processing_path.append("军机处（会审）")
+        lifecycle_observer.record_checkpoint(
+            status="COUNCIL_REVIEWING",
+            processing_path=council_processing_path,
+        )
     verdict = invoke_junjichu_council(
         decree_text,
         rationale,

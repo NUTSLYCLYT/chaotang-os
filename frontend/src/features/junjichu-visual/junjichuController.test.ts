@@ -3,143 +3,121 @@ import test from "node:test";
 
 import {
   createJunjichuController,
-  decodeReplyCasesPayload,
+  decodeJunjichuCasesPayload,
   type JunjichuControllerState,
 } from "./junjichuController.ts";
 
-const ARCHIVE = {
-  id: "reply-1",
-  type: "REPLY",
-  title: "赈务回奏",
-  participatingDepartments: ["户部", "工部"],
-  replyProcess: "丞相 → 户部 → 工部 → 丞相",
-  replyConclusion: "准予施行。",
-  replyTime: "2026-07-24T08:00:00+00:00",
-  respondent: "丞相",
+const ACTIVE_CASE = {
+  id: "case-active",
+  decreeText: "请议边防粮饷",
+  departments: ["兵部", "户部"],
+  status: "COUNCIL_REVIEWING",
+  processingPath: ["丞相分流", "军机处会审"],
+  completedMinistryOpinions: [{ department: "兵部", bureauOpinions: [], opinion: "兵部意见" }],
+  councilVerdict: null,
+  replyId: null,
+  failureReason: null,
+  createdAt: "2026-07-28T00:00:00+00:00",
+  updatedAt: "2026-07-28T00:02:00+00:00",
+};
+const ARCHIVED_CASE = {
+  ...ACTIVE_CASE,
+  id: "case-archived",
+  decreeText: "请议河工",
+  status: "ARCHIVED",
+  councilVerdict: "会审结论",
+  replyId: "reply-1",
+  updatedAt: "2026-07-27T00:02:00+00:00",
+};
+const FAILED_CASE = {
+  ...ACTIVE_CASE,
+  id: "case-failed",
+  decreeText: "请议失效的河工方案",
+  status: "FAILED",
+  failureReason: "processing_failed",
+  updatedAt: "2026-07-26T00:02:00+00:00",
 };
 
-const okResponse = (archives: unknown[]) =>
-  new Response(JSON.stringify({ status: "ok", archives }), { status: 200 });
+const okResponse = (cases: unknown[]) =>
+  new Response(JSON.stringify({ status: "ok", cases }), { status: 200 });
 const settle = () => new Promise<void>((resolve) => setImmediate(resolve));
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => {
-    resolve = done;
-  });
-  return { promise, resolve };
-}
 
 function harness(fetch: typeof globalThis.fetch) {
   const states: JunjichuControllerState[] = [];
   const redirects: string[] = [];
-  const scheduled: Array<() => void> = [];
   const controller = createJunjichuController({
     fetch,
     redirect: (location) => redirects.push(location),
-    schedule: (task) => scheduled.push(task),
   });
   const disconnect = controller.connect((state) => states.push(state));
-  return {
-    controller,
-    disconnect,
-    states,
-    redirects,
-    flushScheduled: () => scheduled.splice(0).forEach((task) => task()),
-  };
+  return { controller, disconnect, states, redirects };
 }
 
-test("decoder accepts only a wholly valid strict REPLY response", () => {
-  assert.deepEqual(decodeReplyCasesPayload({ status: "ok", archives: [ARCHIVE] }), [{
-    id: "reply-1",
-    title: "赈务回奏",
-    departments: ["户部", "工部"],
-    process: "丞相 → 户部 → 工部 → 丞相",
-    conclusion: "准予施行。",
-    repliedAt: "2026-07-24T08:00:00+00:00",
-    respondent: "丞相",
-  }]);
+test("decoder accepts only strict owner-free Grand Council cases", () => {
+  assert.deepEqual(decodeJunjichuCasesPayload({ status: "ok", cases: [ACTIVE_CASE] }), [ACTIVE_CASE]);
   for (const payload of [
     null,
-    [],
-    { status: "error", archives: [] },
-    { status: "ok", archives: null },
-    { status: "ok", archives: [ARCHIVE, { ...ARCHIVE, id: " " }] },
-  ]) {
-    assert.equal(decodeReplyCasesPayload(payload), null);
-  }
+    { status: "ok", cases: [{ ...ACTIVE_CASE, ownerId: "owner-1" }] },
+    { status: "ok", cases: [{ ...ACTIVE_CASE, replyId: 42 }] },
+    { status: "error", cases: [] },
+  ]) assert.equal(decodeJunjichuCasesPayload(payload), null);
 });
 
-test("controller uses one protected GET and publishes ready and empty states", async () => {
-  const calls: Array<{ input: string; init?: RequestInit }> = [];
-  const ready = harness(async (input, init) => {
-    calls.push({ input: String(input), init });
-    return okResponse([ARCHIVE]);
-  });
-  ready.controller.start();
-  await settle();
-  assert.equal(ready.controller.state.status, "ready");
-  assert.equal(ready.controller.state.selectedId, "reply-1");
-  assert.equal(calls[0]?.input, "/api/shiguan/archives?type=REPLY&limit=100");
-  assert.equal(calls[0]?.init?.cache, "no-store");
-
-  const empty = harness(async () => okResponse([]));
-  empty.controller.start();
-  await settle();
-  assert.equal(empty.controller.state.status, "empty");
-});
-
-test("malformed payload errors and retry aborts stale work before recovering", async () => {
-  const first = deferred<Response>();
-  const second = deferred<Response>();
-  const signals: AbortSignal[] = [];
-  let calls = 0;
-  const view = harness((_input, init) => {
-    signals.push(init?.signal as AbortSignal);
-    calls += 1;
-    return calls === 1 ? first.promise : second.promise;
-  });
+test("controller projects active cases before archived cases and keeps selection through filters", async () => {
+  const view = harness(async () => okResponse([ARCHIVED_CASE, FAILED_CASE, ACTIVE_CASE]));
   view.controller.start();
-  view.controller.retry();
-  assert.equal(signals[0]?.aborted, true);
-  second.resolve(okResponse([{ ...ARCHIVE, id: "new" }]));
   await settle();
-  first.resolve(okResponse([{ ...ARCHIVE, id: "old" }]));
-  await settle();
-  assert.equal(view.controller.state.selectedId, "new");
-});
 
-test("401 redirects only while connected and real disconnect aborts late state", async () => {
-  const live = harness(async () => new Response(null, { status: 401 }));
-  live.controller.start();
-  await settle();
-  live.flushScheduled();
-  assert.deepEqual(live.redirects, ["/login?next=%2Fjunjichu"]);
-
-  const response = deferred<Response>();
-  const disconnected = harness(() => response.promise);
-  disconnected.controller.start();
-  disconnected.disconnect();
-  response.resolve(new Response(null, { status: 401 }));
-  await settle();
-  disconnected.flushScheduled();
-  assert.deepEqual(disconnected.redirects, []);
-});
-
-test("Strict Mode replay reuses the initial in-flight load", async () => {
-  const response = deferred<Response>();
-  let calls = 0;
-  const view = harness(() => {
-    calls += 1;
-    return response.promise;
-  });
-  view.controller.start();
-  view.disconnect();
-  view.controller.connect(() => undefined);
-  view.controller.start();
-  view.flushScheduled();
-  assert.equal(calls, 1);
-  response.resolve(okResponse([ARCHIVE]));
-  await settle();
   assert.equal(view.controller.state.status, "ready");
+  assert.ok(view.controller.state.activeCases);
+  assert.ok(view.controller.state.archivedCases);
+  assert.ok(view.controller.state.failedCases);
+  assert.deepEqual(view.controller.state.activeCases.map((item) => item.id), ["case-active"]);
+  assert.deepEqual(view.controller.state.archivedCases.map((item) => item.id), ["case-archived"]);
+  assert.deepEqual(view.controller.state.failedCases.map((item) => item.id), ["case-failed"]);
+  assert.equal(view.controller.state.selectedId, "case-active");
+
+  view.controller.selectCase("case-archived");
+  view.controller.selectDepartment("兵部");
+  assert.equal(view.controller.state.selectedId, "case-archived");
+  view.controller.selectKeyword("河工");
+  assert.equal(view.controller.state.selectedId, "case-archived");
+  assert.deepEqual(view.controller.state.activeCases, []);
+});
+
+test("controller projects a successful empty ledger into three empty case groups", async () => {
+  const view = harness(async () => okResponse([]));
+  view.controller.start();
+  await settle();
+
+  assert.equal(view.controller.state.status, "empty");
+  assert.deepEqual(view.controller.state.activeCases, []);
+  assert.deepEqual(view.controller.state.archivedCases, []);
+  assert.deepEqual(view.controller.state.failedCases, []);
+  assert.equal(view.controller.state.selectedId, null);
+});
+
+test("controller clears selection only when the active filter excludes it", async () => {
+  const view = harness(async () => okResponse([ACTIVE_CASE, ARCHIVED_CASE]));
+  view.controller.start();
+  await settle();
+  view.controller.selectCase("case-archived");
+  view.controller.selectStatus("COUNCIL_REVIEWING");
+  assert.equal(view.controller.state.selectedId, "case-active");
+  assert.ok(view.controller.state.archivedCases);
+  assert.equal(view.controller.state.archivedCases.length, 0);
+});
+
+test("controller uses only the protected Grand Council BFF and redirects on 401", async () => {
+  const calls: Array<{ input: string; init?: RequestInit }> = [];
+  const view = harness(async (input, init) => {
+    calls.push({ input: String(input), init });
+    return new Response(null, { status: 401 });
+  });
+  view.controller.start();
+  await settle();
+  await settle();
+  assert.equal(calls[0]?.input, "/api/junjichu/cases");
+  assert.equal(calls[0]?.init?.cache, "no-store");
+  assert.deepEqual(view.redirects, ["/login?next=%2Fjunjichu"]);
 });

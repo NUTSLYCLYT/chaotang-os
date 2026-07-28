@@ -30,6 +30,8 @@ the HTTP response body.
 
 from __future__ import annotations
 
+from contextvars import ContextVar
+
 from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, field_validator
@@ -39,8 +41,16 @@ from app.agents.chancellor import (
     ChancellorGraphInvocationError,
     build_chancellor_graph,
 )
+from app.agents.junjichu.agent import CaseLifecycleObserver
 from app.agents.ministries import MINISTRIES
 from app.api.auth import CurrentUser
+from app.junjichu_cases import (
+    JunjichuCaseOpenInput,
+    archive_case,
+    fail_case,
+    open_case,
+    record_checkpoint,
+)
 from app.langgraph_runtime.deepseek_client import DeepSeekModelNameError
 from app.langgraph_runtime.deepseek_config import DeepSeekConfigError
 from app.shiguan.archive_decree import archive_chancellor_decree
@@ -49,6 +59,80 @@ _SANITIZED_MESSAGE = "丞相暂时无法处理旨意，请稍后再试"
 
 _MIN_DECREE_LENGTH = 1
 _MAX_DECREE_LENGTH = 2000
+_FIXED_FAILURE_REASON = "processing_failed"
+
+
+class _StorageCaseLifecycleObserver(CaseLifecycleObserver):
+    """Bind validated lifecycle events to one authenticated owner's case."""
+
+    def __init__(self, owner_user_id: str) -> None:
+        self._owner_user_id = owner_user_id
+        self._case_id: str | None = None
+        self._completed_ministry_opinions: list[dict[str, object]] = []
+
+    def open_case(
+        self, *, decree_text: str, departments: list[str], processing_path: list[str]
+    ) -> None:
+        case = open_case(
+            JunjichuCaseOpenInput(
+                decree_text=decree_text,
+                route_type="multi",
+                departments=departments,
+                processing_path=processing_path,
+            ),
+            owner_user_id=self._owner_user_id,
+        )
+        self._case_id = case.id
+
+    def record_ministry_opinion(self, opinion: dict[str, object]) -> None:
+        if self._case_id is None:
+            return
+        self._completed_ministry_opinions.append(opinion)
+        record_checkpoint(
+            self._case_id,
+            owner_user_id=self._owner_user_id,
+            status="MINISTRY_REVIEWING",
+            completed_ministry_opinions=self._completed_ministry_opinions,
+        )
+
+    def record_checkpoint(
+        self,
+        *,
+        status: str,
+        processing_path: list[str],
+        council_verdict: str | None = None,
+    ) -> None:
+        if self._case_id is None:
+            return
+        record_checkpoint(
+            self._case_id,
+            owner_user_id=self._owner_user_id,
+            status=status,  # type: ignore[arg-type]
+            processing_path=processing_path,
+            completed_ministry_opinions=self._completed_ministry_opinions,
+            council_verdict=council_verdict,
+        )
+
+    def archive(self, reply_id: str) -> None:
+        if self._case_id is not None:
+            archive_case(
+                self._case_id,
+                owner_user_id=self._owner_user_id,
+                reply_id=reply_id,
+            )
+
+    def fail(self) -> None:
+        if self._case_id is not None:
+            fail_case(
+                self._case_id,
+                owner_user_id=self._owner_user_id,
+                reason=_FIXED_FAILURE_REASON,
+            )
+
+
+_lifecycle_observer_context: ContextVar[CaseLifecycleObserver | None] = ContextVar(
+    "lifecycle_observer", default=None
+)
 
 
 class ChancellorDecreeRequest(BaseModel):
@@ -270,7 +354,9 @@ def get_chancellor_graph():
     inject a fake graph without touching configuration, environment
     variables, or the network.
     """
-    return build_chancellor_graph()
+    return build_chancellor_graph(
+        lifecycle_observer=_lifecycle_observer_context.get()
+    )
 
 
 router = APIRouter()
@@ -293,16 +379,30 @@ def submit_decree(
     any routing/orchestration logic itself (see ``backend/AGENTS.md``: "api
     不实现 agent 图逻辑").
     """
-    graph = get_chancellor_graph()
-    result = graph.invoke({"decree_text": payload.decree_text})
-    response = _build_response_from_graph_result(result)
-    archive_chancellor_decree(
-        payload.decree_text,
-        response,
-        result,
-        owner_user_id=current_user.id,
-    )
-    return response
+    observer = _StorageCaseLifecycleObserver(current_user.id)
+    context_token = _lifecycle_observer_context.set(observer)
+    try:
+        graph = get_chancellor_graph()
+        result = graph.invoke({"decree_text": payload.decree_text})
+        response = _build_response_from_graph_result(result)
+        archive_result = archive_chancellor_decree(
+            payload.decree_text,
+            response,
+            result,
+            owner_user_id=current_user.id,
+        )
+        if response.route_type == "multi":
+            reply_id = getattr(archive_result, "reply_id", None)
+            if getattr(archive_result, "archived", False) and isinstance(reply_id, str):
+                observer.archive(reply_id)
+            else:
+                observer.fail()
+        return response
+    except Exception:
+        observer.fail()
+        raise
+    finally:
+        _lifecycle_observer_context.reset(context_token)
 
 
 def register_chancellor_exception_handlers(app: FastAPI) -> None:

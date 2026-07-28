@@ -76,7 +76,14 @@ test("shiguan visual is a local interaction layer with honest states", async () 
   assert.match(css, /white-space:\s*pre-wrap/);
   assert.match(css, /overflow-wrap:\s*anywhere/);
   assert.match(css, /grid-template-columns:/);
-  assert.match(css, /@media \(max-width: 1080px\)/);
+  assert.match(
+    css,
+    /@media \(max-width: 1280px\)\s*\{\s*\.columns\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(260px,\s*0\.8fr\)/,
+  );
+  assert.doesNotMatch(
+    css,
+    /@media \(max-width: 1080px\)\s*\{\s*\.columns\b/,
+  );
   assert.match(css, /@media \(max-width: 700px\)/);
   assert.match(css, /:focus-visible/);
 });

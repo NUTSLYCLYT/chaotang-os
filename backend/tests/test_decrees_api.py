@@ -39,6 +39,7 @@ from app.auth import configure_auth_db, create_session, create_user
 from app.langgraph_runtime.deepseek_client import DeepSeekModelNameError
 from app.langgraph_runtime.deepseek_config import DeepSeekApiKeyError
 from app.main import app
+from app.shiguan import storage as shiguan_storage
 
 client = TestClient(app)
 
@@ -225,6 +226,43 @@ def test_submit_decree_single_route_returns_full_contract(fake_provider, monkeyp
         _SINGLE_ROUTE_RESULT,
     )
     assert archived_calls[0][3]
+
+
+def test_successful_single_decree_archives_one_reply_with_original_source_text(
+    fake_provider, monkeypatch
+):
+    graph = _FakeGraph(invoke_result=_SINGLE_ROUTE_RESULT)
+    fake_provider(_FakeProvider(graph=graph))
+    owner_user_ids: list[str] = []
+    real_archive = decrees_module.archive_chancellor_decree
+
+    def capture_and_archive(decree_text, response, internal_result, *, owner_user_id):
+        owner_user_ids.append(owner_user_id)
+        return real_archive(
+            decree_text,
+            response,
+            internal_result,
+            owner_user_id=owner_user_id,
+        )
+
+    monkeypatch.setattr(decrees_module, "archive_chancellor_decree", capture_and_archive)
+
+    response = client.post(DECREE_URL, json={"decree_text": "整顿吏治"})
+
+    assert response.status_code == 200
+    assert len(owner_user_ids) == 1
+    replies = shiguan_storage.list_archives(
+        type="REPLY", owner_user_id=owner_user_ids[0]
+    )
+    assert len(replies) == 1
+    reply = replies[0]
+    assert reply.source_kind == "DECREE"
+    assert reply.source_text == "整顿吏治"
+    archive_text = str(reply.model_dump(mode="json")).lower()
+    assert all(
+        forbidden not in archive_text
+        for forbidden in ("capability", "swarm", "worker", "task-run", "junjichu")
+    )
 
 
 def test_submit_decree_multi_route_returns_full_contract(fake_provider):

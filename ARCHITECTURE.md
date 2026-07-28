@@ -76,7 +76,7 @@ uvicorn + pip/venv，扁平 `app/` 包；选型与验证证据见
 `docs/decisions/0006-frontend-backend-foundation-stack.md`），并在保持 `GET /health`
 契约不变的前提下新增本地下旨入口 `POST /api/v1/decrees/chancellor` 和专用丞相 Agent，
 并新增锦衣卫三个只读调查入口。当前持久化仅包含彼此隔离的史馆档案 SQLite 与锦衣卫证据
-SQLite；仍不含通用数据库模型、持久化任务编排、鉴权或生产部署能力。
+SQLite；仍不含通用数据库模型、持久化任务编排、鉴权或生产部署能力。ADR 0029 仅为军机处多部门会审引入按认证所有者隔离的窄域案卷台账；它不是通用任务编排，实施前必须完成对应的数据库、认证与跨端契约验证。
 `frontend/` 已完成最小工程骨架的技术选型（Next.js App Router + React/react-dom +
 TypeScript，npm 管理依赖，扁平 `src/app/`、`src/lib/` 结构，根路径 `page.tsx` 提供
 登录前欢迎引导，`/health` 提供后端健康检查展示，`backendClient.ts` 封装对后端的服务端调用；选型与验证证据见同一

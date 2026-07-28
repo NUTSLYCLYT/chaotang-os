@@ -16,7 +16,7 @@
  */
 
 /** 与 `SubmitDecreeResult` 的 `kind` 保持一致的稳定错误分类。 */
-export type DecreeErrorKind = "validation" | "config" | "model" | "network" | "unknown";
+export type DecreeErrorKind = "validation" | "config" | "model" | "timeout" | "network" | "unknown";
 
 export interface DecreeBureauOpinion {
   bureau: string;
@@ -88,6 +88,7 @@ const FRIENDLY_MESSAGE_BY_KIND: Record<DecreeErrorKind, string> = {
   validation: "旨意校验未通过：请确认内容非空且不超过 2000 字后重试。",
   config: "朝堂后端配置暂不可用，请联系管理员检查后端配置后重试。",
   model: "丞相暂时无法给出回奏（模型调用失败），请稍后重试。",
+  timeout: "下旨处理超时，请稍后重试。",
   network: "无法连接朝堂后端，请确认后端服务已启动后重试。",
   unknown: "发生未知错误，请稍后重试。",
 };

@@ -13,9 +13,9 @@ test("protected court entries select their current visual shells and keep honest
   await Promise.all([
     access(new URL("../../../public/assets/dadian/hall-stage-tang.webp", import.meta.url)),
     access(new URL("../../../public/assets/junjichu/junjichu.webp", import.meta.url)),
-    access(new URL("../../../public/assets/junjichu/war-room-full.webp", import.meta.url)),
     access(new URL("../../../public/assets/liubu.webp", import.meta.url)),
   ]);
+  assert.doesNotMatch(css, /war-room-full\.webp/);
   assert.match(source, /variant/);
   assert.match(source, /功能筹备中/);
   assert.doesNotMatch(source, /fetch\(|useState|useEffect|mock|统计|案卷|消息/);

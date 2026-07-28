@@ -497,23 +497,66 @@ test("submitDecree：后端不可达路径 - 映射为 kind: network，且不抛
   }
 });
 
-test("submitDecree：请求耗时超过自定义 timeoutMs 时超时中止，映射为 kind: network", async () => {
+test("submitDecree：请求耗时超过自定义 timeoutMs 时超时中止，映射为 kind: timeout", async () => {
   /**
    * `DECREE_TIMEOUT_MS` 默认值已上调至 120000ms（见模块内注释与新 ADR），本测试不
    * 依赖该默认值、也不真实等待 120s：通过显式传入一个远小于服务端响应延迟的
    * `timeoutMs`，覆盖默认值来验证超时（`AbortController`）分支本身仍然生效。
    */
+  let scheduledDelay: number | undefined;
+  let timeoutCallback: (() => void) | undefined;
+  let cancelled = 0;
   const result = await submitDecree("请核查国库存银", {
     baseUrl:"https://unused.invalid",
     timeoutMs:10,
+    scheduleTimeout: (callback, delayMs) => {
+      scheduledDelay = delayMs;
+      timeoutCallback = callback;
+      return "injected-decree-timeout";
+    },
+    cancelTimeout: (handle) => {
+      assert.equal(handle, "injected-decree-timeout");
+      cancelled += 1;
+    },
     fetchImpl:async(_input,init)=>new Promise<Response>((_resolve,reject)=>{
+      assert.equal(init?.signal?.aborted, false);
       init?.signal?.addEventListener("abort",()=>reject(new DOMException("aborted","AbortError")),{once:true});
+      timeoutCallback?.();
     }),
   });
+  assert.equal(scheduledDelay, 10);
+  assert.equal(cancelled, 1);
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.kind, "timeout");
+    assert.equal(result.error, "请求超时");
+  }
+});
+
+test("submitDecree：未触发本地计时器的外部 AbortError 仍映射为 kind: network", async () => {
+  let timeoutCallback: (() => void) | undefined;
+  let cancelled = 0;
+  const result = await submitDecree("请核查国库存银", {
+    baseUrl: "https://unused.invalid",
+    scheduleTimeout: (callback) => {
+      timeoutCallback = callback;
+      return "unused-decree-timeout";
+    },
+    cancelTimeout: (handle) => {
+      assert.equal(handle, "unused-decree-timeout");
+      cancelled += 1;
+    },
+    fetchImpl: async (_input, init) => {
+      assert.equal(init?.signal?.aborted, false);
+      assert.ok(timeoutCallback);
+      throw new DOMException("external", "AbortError");
+    },
+  });
+
+  assert.equal(cancelled, 1);
   assert.equal(result.ok, false);
   if (!result.ok) {
     assert.equal(result.kind, "network");
-    assert.equal(result.error, "请求超时");
   }
 });
 
@@ -606,7 +649,7 @@ const JINYIWEI_EVIDENCE = {
 
 const JINYIWEI_DETAIL = {
   pack_id: "pack-1", investigation_id: "inv/一", status: "RESOLVED",
-  request: { requesting_agent: "户部度支司", question: "数额为何？", required_facts: [{ key: "amount", description: "核定数额", expected_unit: "两", expected_shape: "number" }], decision_context: "用于司级意见", freshness: { max_age_seconds: 3600, not_before: null }, existing_evidence_ids: [], request_id: "req-1", timeout_seconds: 30, source_scope: ["PUBLIC_API"] },
+  request: { requesting_agent: "户部度支司", question: "数额为何？", required_facts: [{ key: "amount", description: "核定数额", expected_unit: "两", expected_shape: "number", market_metric: null }], decision_context: "用于司级意见", freshness: { max_age_seconds: 3600, not_before: null }, existing_evidence_ids: [], request_id: "req-1", timeout_seconds: 30, source_scope: ["PUBLIC_API"] },
   investigation_plan: { fact_keys: ["amount"], source_scope: ["PUBLIC_API"] },
   evidence_by_fact: { amount: [JINYIWEI_EVIDENCE] }, historical_evidence_by_fact: { amount: [] },
   resolved_facts: ["amount"], unresolved_facts: [], conflicts: [],
@@ -685,6 +728,18 @@ test("Jinyiwei client maps typed fact and public-source metadata", async () => {
     assert.deepEqual(result.data.evidenceByFact.amount[0].coverage, ["CN"]);
     assert.equal(result.data.evidenceByFact.amount[0].licenseNote, "Free public source.");
   }
+});
+
+test("Jinyiwei client accepts the required market metric in a market-quote fact", async () => {
+  const body = structuredClone(JINYIWEI_DETAIL);
+  Object.assign(body.request.required_facts[0], {
+    category: "MARKET_QUOTE",
+    market_metric: "LAST_PRICE",
+  });
+  const { getJinyiweiInvestigation } = await import("./backendClient.ts");
+  const result = await getJinyiweiInvestigation("inv-market-quote", jinyiweiReadOptions(body));
+
+  assert.equal(result.ok, true);
 });
 
 test("Jinyiwei client rejects missing fact category", async () => {

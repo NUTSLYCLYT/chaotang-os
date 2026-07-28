@@ -30,7 +30,10 @@ export function StudyClient() {
       setUiState,
       requestSubmission: (text) =>
         requestStudySubmission(text, {
-          fetchImpl: fetch,
+          // Keep the browser receiver intact: some embedded browsers reject an
+          // unbound `fetch` when the submission boundary invokes it as a
+          // dependency method.
+          fetchImpl: window.fetch.bind(window),
           scheduleRedirect: scheduleStudyLoginRedirect,
         }),
     });

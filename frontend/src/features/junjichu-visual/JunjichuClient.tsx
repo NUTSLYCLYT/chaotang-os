@@ -22,12 +22,18 @@ export function JunjichuClient() {
 
   return (
     <JunjichuScene
-      cases={state.cases}
+      activeCases={state.activeCases}
+      archivedCases={state.archivedCases}
+      failedCases={state.failedCases}
       department={state.department}
       departments={state.departments}
+      caseStatus={state.caseStatus}
+      keyword={state.keyword}
       selectedId={state.selectedId}
       error={state.error}
       onDepartmentChange={(department) => controller.selectDepartment(department)}
+      onStatusChange={(status) => controller.selectStatus(status)}
+      onKeywordChange={(keyword) => controller.selectKeyword(keyword)}
       onSelect={(id) => controller.selectCase(id)}
       onRetry={() => controller.retry()}
     />

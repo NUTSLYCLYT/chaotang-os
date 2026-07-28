@@ -98,6 +98,7 @@ for (const [kind, expectedStatus] of [
   ["validation", 422],
   ["config", 503],
   ["model", 502],
+  ["timeout", 504],
   ["network", 503],
   ["unauthenticated", 401],
   ["unknown", 503],
@@ -117,6 +118,23 @@ for (const [kind, expectedStatus] of [
     assert.equal((JSON.parse(text) as { reason: string }).reason, kind);
   });
 }
+
+test("POST：submit 依赖意外抛出时返回脱敏 503 JSON", async () => {
+  const handler = createPostHandler(async () => {
+    throw new Error("private backend detail");
+  });
+
+  const response = await handler(makeRequest({ decreeText: "测试" }));
+  const text = await response.text();
+
+  assert.equal(response.status, 503);
+  assert.equal(text.includes("private backend detail"), false);
+  assert.deepEqual(JSON.parse(text), {
+    status: "error",
+    reason: "unknown",
+    message: "服务暂时不可用，请稍后重试。",
+  });
+});
 
 for (const [name, body] of [
   ["非法 JSON", "not-json{"],

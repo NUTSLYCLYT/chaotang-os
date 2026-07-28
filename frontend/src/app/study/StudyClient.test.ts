@@ -22,7 +22,7 @@ test("StudyClient uses the executable submission boundary and orchestration", as
   assert.match(source, /import \{[\s\S]*?requestStudySubmission[\s\S]*?submitStudyDecree[\s\S]*?\} from "\.\/studySubmission"/);
   assert.match(source, /submitStudyDecree\(\{/);
   assert.match(source, /requestStudySubmission\(text,\s*\{/);
-  assert.match(source, /fetchImpl: fetch/);
+  assert.match(source, /fetchImpl: window\.fetch\.bind\(window\)/);
   assert.match(source, /scheduleRedirect:/);
   assert.match(source, /window\.location\.assign\(path\)/);
   assert.doesNotMatch(source, /useEffect|SWR|EventSource|subscribeCourtStream|jiqun/);

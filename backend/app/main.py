@@ -16,6 +16,7 @@ from app.api.decrees import register_chancellor_exception_handlers
 from app.api.decrees import router as decrees_router
 from app.api.jinyiwei import register_jinyiwei_exception_handlers
 from app.api.jinyiwei import router as jinyiwei_router
+from app.api.junjichu_cases import router as junjichu_cases_router
 from app.api.shiguan import register_shiguan_exception_handlers
 from app.api.shiguan import router as shiguan_router
 from app.health import HealthResponse, get_service_version
@@ -39,6 +40,8 @@ register_shiguan_exception_handlers(app)
 
 app.include_router(jinyiwei_router)
 register_jinyiwei_exception_handlers(app)
+
+app.include_router(junjichu_cases_router)
 
 app.include_router(auth_router)
 register_auth_exception_handlers(app)

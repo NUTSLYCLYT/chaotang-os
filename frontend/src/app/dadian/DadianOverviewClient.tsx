@@ -25,10 +25,8 @@ export function DadianOverviewClient() {
 
   return (
     <DadianScene
-      department={state.department}
       overview={state.overview}
       error={state.error}
-      onDepartmentChange={(department) => void controller.selectDepartment(department)}
       onRetry={() => void controller.retry()}
     />
   );

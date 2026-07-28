@@ -30,11 +30,16 @@
   z-index: 1;
   box-sizing: border-box;
   width: min(100%, 1600px);
+  margin-inline: auto;
   min-height: 0;
   overflow-y: auto;
   padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left);
   overscroll-behavior: contain;
 }
+
+.contentFullBleed { width: 100%; overflow: clip; }
+.contentScrollbarHidden { scrollbar-width: none; }
+.contentScrollbarHidden::-webkit-scrollbar { display: none; }
 
 @media (max-width: 767px) {
   .shell {
@@ -50,6 +55,8 @@
     overflow: visible;
     padding-bottom: calc(56px + env(safe-area-inset-bottom));
   }
+
+  .contentFullBleed { overflow: clip; }
 }
 
 @media (prefers-reduced-motion: reduce) {

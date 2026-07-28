@@ -249,7 +249,7 @@ export type SubmitDecreeResult =
   | { ok: true; data: SubmitDecreeData }
   | {
       ok: false;
-      kind: "validation" | "config" | "model" | "network" | "unauthenticated" | "unknown";
+      kind: "validation" | "config" | "model" | "network" | "timeout" | "unauthenticated" | "unknown";
       error: string;
     };
 
@@ -474,7 +474,11 @@ export async function submitDecree(
     ((handle: unknown) => clearTimeout(handle as ReturnType<typeof setTimeout>));
 
   const controller = new AbortController();
-  const timer = scheduleTimeout(() => controller.abort(), timeoutMs);
+  let didTimeout = false;
+  const timer = scheduleTimeout(() => {
+    didTimeout = true;
+    controller.abort();
+  }, timeoutMs);
 
   try {
     const response = await fetchImpl(`${baseUrl.replace(/\/+$/, "")}/api/v1/decrees/chancellor`, {
@@ -530,6 +534,9 @@ export async function submitDecree(
     }
     return { ok: true, data };
   } catch (error) {
+    if (didTimeout) {
+      return { ok: false, kind: "timeout", error: "请求超时" };
+    }
     return { ok: false, kind: "network", error: describeError(error) };
   } finally {
     cancelTimeout(timer);
@@ -1181,6 +1188,133 @@ export async function updateShiguanReview(
   );
 }
 
+// ---- Read-only Grand Council case ledger ---------------------------------
+
+export type JunjichuCaseStatus =
+  | "MINISTRY_REVIEWING"
+  | "COUNCIL_REVIEWING"
+  | "CHANCELLOR_FINALIZING"
+  | "ARCHIVED"
+  | "FAILED";
+
+export interface JunjichuCase {
+  id: string;
+  decreeText: string;
+  departments: string[];
+  status: JunjichuCaseStatus;
+  processingPath: string[];
+  completedMinistryOpinions: JunjichuMinistryOpinion[];
+  councilVerdict: string | null;
+  replyId: string | null;
+  failureReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface JunjichuBureauOpinion {
+  bureau: string;
+  opinion: string;
+}
+
+export interface JunjichuMinistryOpinion {
+  department: string;
+  bureauOpinions: JunjichuBureauOpinion[];
+  opinion: string;
+}
+
+export type JunjichuCasesResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; kind: "validation" | "not_found" | "storage" | "network" | "unauthenticated" | "unknown"; error: string };
+
+export interface ListJunjichuCasesOptions extends AuthenticatedRequestOptions {
+  status?: JunjichuCaseStatus;
+  department?: string;
+  keyword?: string;
+  fetchImpl?: typeof fetch;
+}
+
+const JUNJICHU_CASE_STATUSES = new Set<JunjichuCaseStatus>([
+  "MINISTRY_REVIEWING", "COUNCIL_REVIEWING", "CHANCELLOR_FINALIZING", "ARCHIVED", "FAILED",
+]);
+
+function parseJunjichuBureauOpinion(value: unknown): JunjichuBureauOpinion | null {
+  const record = asRecord(value);
+  if (record === null || !hasExactKeys(record, ["bureau", "opinion"]) ||
+    typeof record.bureau !== "string" || !record.bureau.trim() ||
+    typeof record.opinion !== "string" || !record.opinion.trim()) return null;
+  return { bureau: record.bureau, opinion: record.opinion };
+}
+
+function parseJunjichuMinistryOpinion(value: unknown): JunjichuMinistryOpinion | null {
+  const record = asRecord(value);
+  if (record === null || !hasExactKeys(record, ["department", "bureau_opinions", "opinion"]) ||
+    typeof record.department !== "string" || !record.department.trim() ||
+    typeof record.opinion !== "string" || !record.opinion.trim() || !Array.isArray(record.bureau_opinions)) return null;
+  const bureauOpinions = record.bureau_opinions.map(parseJunjichuBureauOpinion);
+  return bureauOpinions.every((item): item is JunjichuBureauOpinion => item !== null)
+    ? { department: record.department, bureauOpinions, opinion: record.opinion }
+    : null;
+}
+
+function parseJunjichuCase(value: unknown): JunjichuCase | null {
+  const record = asRecord(value);
+  if (record === null || !hasExactKeys(record, [
+    "id", "decree_text", "departments", "status", "processing_path", "completed_ministry_opinions",
+    "council_verdict", "reply_id", "failure_reason", "created_at", "updated_at",
+  ]) || typeof record.id !== "string" || !record.id.trim() || typeof record.decree_text !== "string" ||
+    !record.decree_text.trim() || typeof record.status !== "string" || !JUNJICHU_CASE_STATUSES.has(record.status as JunjichuCaseStatus) ||
+    !isNullableString(record.council_verdict) || !isNullableString(record.reply_id) || !isNullableString(record.failure_reason) ||
+    !isIsoDateTime(record.created_at) || !isIsoDateTime(record.updated_at)) return null;
+  const departments = parseStringArray(record.departments);
+  const processingPath = parseStringArray(record.processing_path);
+  if (departments === null || processingPath === null || !Array.isArray(record.completed_ministry_opinions)) return null;
+  const completedMinistryOpinions = record.completed_ministry_opinions.map(parseJunjichuMinistryOpinion);
+  if (!completedMinistryOpinions.every((item): item is JunjichuMinistryOpinion => item !== null)) return null;
+  return {
+    id: record.id, decreeText: record.decree_text, departments, status: record.status as JunjichuCaseStatus,
+    processingPath, completedMinistryOpinions,
+    councilVerdict: parseNullableString(record.council_verdict), replyId: parseNullableString(record.reply_id), failureReason: parseNullableString(record.failure_reason),
+    createdAt: record.created_at, updatedAt: record.updated_at,
+  };
+}
+
+function mapJunjichuCasesErrorStatus(status: number): Exclude<JunjichuCasesResult<unknown>, { ok: true }>['kind'] {
+  if (status === 401) return "unauthenticated";
+  if (status === 404) return "not_found";
+  if (status === 400 || status === 422) return "validation";
+  if (status === 503) return "storage";
+  return "unknown";
+}
+
+export async function listJunjichuCases(
+  options: ListJunjichuCasesOptions = {},
+): Promise<JunjichuCasesResult<JunjichuCase[]>> {
+  const params = new URLSearchParams();
+  if (options.status) params.set("status", options.status);
+  if (options.department?.trim()) params.set("department", options.department.trim());
+  if (options.keyword?.trim()) params.set("keyword", options.keyword.trim());
+  const suffix = params.size ? `?${params.toString()}` : "";
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+  try {
+    const response = await (options.fetchImpl ?? fetch)(
+      `${(options.baseUrl ?? getBackendBaseUrl()).replace(/\/+$/, "")}/api/v1/junjichu/cases${suffix}`,
+      { method: "GET", headers: options.sessionId ? { authorization: `Bearer ${options.sessionId}` } : undefined, signal: controller.signal, cache: "no-store" },
+    );
+    if (!response.ok) return { ok: false, kind: mapJunjichuCasesErrorStatus(response.status), error: await extractErrorMessage(response, "军机处案卷暂时不可用") };
+    const body: unknown = await response.json();
+    if (!Array.isArray(body)) return { ok: false, kind: "unknown", error: "军机处案卷响应不符合预期契约" };
+    const cases = body.map(parseJunjichuCase);
+    return cases.every((item): item is JunjichuCase => item !== null)
+      ? { ok: true, data: cases }
+      : { ok: false, kind: "unknown", error: "军机处案卷响应不符合预期契约" };
+  } catch (error) {
+    return { ok: false, kind: "network", error: describeError(error) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ---- Read-only Jinyiwei audit contracts ---------------------------------
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
@@ -1191,6 +1325,7 @@ export type JinyiweiEvidenceStance = "SUPPORTS" | "CONTRADICTS";
 export type JinyiweiAttemptStatus = "SUCCEEDED" | "FAILED" | "SKIPPED" | "BLOCKED";
 export type JinyiweiAdoptionStatus = "PENDING" | "CONFIRMED";
 export type JinyiweiFactCategory = "MARKET_QUOTE" | "REGULATORY_FILING" | "NEWS_EVENT" | "PUBLIC_STATISTIC" | "ENTITY_REFERENCE";
+export type JinyiweiMarketMetric = "LAST_PRICE" | "VOLUME" | "CHANGE_PERCENT" | "INTRADAY_SERIES" | "PE_RATIO" | "PB_RATIO" | "MARKET_CAP" | "PRICE_TREND_30D";
 export type JinyiweiDataScope = "INTERNAL_BUSINESS" | "EXTERNAL_PUBLIC" | "HYBRID";
 
 export interface JinyiweiSummary {
@@ -1204,7 +1339,7 @@ export interface JinyiweiListItem {
   sourceAttemptCount: number; evidenceCount: number; linkedReplyCount: number;
 }
 export interface JinyiweiPage { items: JinyiweiListItem[]; total: number; limit: number; offset: number; }
-export interface JinyiweiRequiredFact { key: string; description: string; category: JinyiweiFactCategory; dataScope: JinyiweiDataScope; subject: string; jurisdiction: string | null; expectedUnit: string | null; expectedShape: string | null; }
+export interface JinyiweiRequiredFact { key: string; description: string; category: JinyiweiFactCategory; dataScope: JinyiweiDataScope; subject: string; jurisdiction: string | null; expectedUnit: string | null; expectedShape: string | null; marketMetric: JinyiweiMarketMetric | null; }
 export interface JinyiweiFreshness { maxAgeSeconds: number | null; notBefore: string | null; }
 export interface JinyiweiRequest {
   requestingAgent: string; question: string; requiredFacts: JinyiweiRequiredFact[];
@@ -1262,6 +1397,7 @@ const JINYIWEI_STANCES = new Set<JinyiweiEvidenceStance>(["SUPPORTS", "CONTRADIC
 const ATTEMPT_STATUSES = new Set<JinyiweiAttemptStatus>(["SUCCEEDED", "FAILED", "SKIPPED", "BLOCKED"]);
 const ADOPTION_STATUSES = new Set<JinyiweiAdoptionStatus>(["PENDING", "CONFIRMED"]);
 const FACT_CATEGORIES = new Set<JinyiweiFactCategory>(["MARKET_QUOTE", "REGULATORY_FILING", "NEWS_EVENT", "PUBLIC_STATISTIC", "ENTITY_REFERENCE"]);
+const MARKET_METRICS = new Set<JinyiweiMarketMetric>(["LAST_PRICE", "VOLUME", "CHANGE_PERCENT", "INTRADAY_SERIES", "PE_RATIO", "PB_RATIO", "MARKET_CAP", "PRICE_TREND_30D"]);
 const DATA_SCOPES = new Set<JinyiweiDataScope>(["INTERNAL_BUSINESS", "EXTERNAL_PUBLIC", "HYBRID"]);
 const HASH_RE = /^[0-9a-f]{64}$/;
 const TZ_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
@@ -1357,7 +1493,7 @@ function parsePage(value:unknown):JinyiweiPage|null { const r=asRecord(value); i
 function parseRequest(value:unknown):JinyiweiRequest|null {
   const r=asRecord(value), keys=["requesting_agent","question","required_facts","decision_context","freshness","existing_evidence_ids","request_id","timeout_seconds","source_scope"];
   if(!r||!hasExactKeys(r,keys)||![r.requesting_agent,r.question,r.decision_context,r.request_id].every(textValue)||!Array.isArray(r.required_facts)||r.required_facts.length<1||r.required_facts.length>5||!Number.isInteger(r.timeout_seconds)||!(r.timeout_seconds as number>=1&&r.timeout_seconds as number<=120)) return null;
-  const facts:JinyiweiRequiredFact[]=[]; for(const f of r.required_facts){const x=asRecord(f);if(!x||!hasExactKeys(x,["key","description","category","data_scope","subject","jurisdiction","expected_unit","expected_shape"])||!textValue(x.key)||!textValue(x.description)||!FACT_CATEGORIES.has(x.category as JinyiweiFactCategory)||!DATA_SCOPES.has(x.data_scope as JinyiweiDataScope)||!textValue(x.subject)||!nullableText(x.jurisdiction)||!nullableText(x.expected_unit)||!nullableText(x.expected_shape))return null;facts.push({key:x.key,description:x.description,category:x.category as JinyiweiFactCategory,dataScope:x.data_scope as JinyiweiDataScope,subject:x.subject,jurisdiction:x.jurisdiction as string|null,expectedUnit:x.expected_unit as string|null,expectedShape:x.expected_shape as string|null});}
+  const facts:JinyiweiRequiredFact[]=[]; for(const f of r.required_facts){const x=asRecord(f),baseKeys=["key","description","category","data_scope","subject","jurisdiction","expected_unit","expected_shape"],hasMarketMetric="market_metric" in (x??{});if(!x||!(hasExactKeys(x,baseKeys)||(hasMarketMetric&&hasExactKeys(x,[...baseKeys,"market_metric"])))||!textValue(x.key)||!textValue(x.description)||!FACT_CATEGORIES.has(x.category as JinyiweiFactCategory)||!DATA_SCOPES.has(x.data_scope as JinyiweiDataScope)||!textValue(x.subject)||!nullableText(x.jurisdiction)||!nullableText(x.expected_unit)||!nullableText(x.expected_shape)||!(x.market_metric===undefined||x.market_metric===null||MARKET_METRICS.has(x.market_metric as JinyiweiMarketMetric))||(hasMarketMetric&&(x.category==="MARKET_QUOTE"?x.market_metric===null:x.market_metric!==null)))return null;facts.push({key:x.key,description:x.description,category:x.category as JinyiweiFactCategory,dataScope:x.data_scope as JinyiweiDataScope,subject:x.subject,jurisdiction:x.jurisdiction as string|null,expectedUnit:x.expected_unit as string|null,expectedShape:x.expected_shape as string|null,marketMetric:(x.market_metric??null) as JinyiweiMarketMetric|null});}
   if(new Set(facts.map(f=>f.key)).size!==facts.length)return null;
   const fr=asRecord(r.freshness);if(!fr||!hasExactKeys(fr,["max_age_seconds","not_before"])||!(fr.max_age_seconds===null||(Number.isInteger(fr.max_age_seconds)&&fr.max_age_seconds as number>0&&fr.max_age_seconds as number<=31536000))||!optionalDate(fr.not_before)||(fr.max_age_seconds===null&&fr.not_before===null))return null;
   const ids=uniqueTextArray(r.existing_evidence_ids),sources=enumArray(r.source_scope,JINYIWEI_SOURCES); if(!ids||!sources||sources.length<1)return null;

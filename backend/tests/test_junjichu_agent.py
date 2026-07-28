@@ -219,6 +219,84 @@ def test_run_junjichu_calls_layered_ministries_serially_then_council():
         assert f"{department}补充" in council_evidence
 
 
+def test_cross_department_capability_intention_preserves_layered_ministry_inputs(
+    monkeypatch,
+):
+    """Capability wording must not introduce an upper-layer capability protocol."""
+    departments = ["工部", "兵部"]
+    execution: list[str] = []
+    council_inputs: list[list[MinistryOpinion]] = []
+
+    def fake_ministry(
+        department,
+        _decree,
+        _rationale,
+        _model,
+        *,
+        recall_context=None,
+        evidence_session=None,
+    ):
+        assert recall_context is None
+        assert evidence_session is None
+        bureau = bureau_profiles_for(department)[0].bureau
+        execution.extend(
+            [
+                f"{department}:route",
+                f"{department}:{bureau}",
+                f"{department}:synthesis",
+            ]
+        )
+        return _layered_opinion(department, f"{department}司议", f"{department}部议")
+
+    def fake_council(
+        _decree,
+        _rationale,
+        selected_departments,
+        opinions,
+        _model,
+        *,
+        recall_contexts=None,
+    ):
+        assert selected_departments == departments
+        assert recall_contexts is None
+        execution.append("军机处:会审")
+        council_inputs.append(opinions)
+        return "军机处会审结论"
+
+    monkeypatch.setattr("app.agents.junjichu.agent.invoke_ministry_agent", fake_ministry)
+    monkeypatch.setattr("app.agents.junjichu.agent.invoke_junjichu_council", fake_council)
+
+    opinions, verdict = run_junjichu_council(
+        "为跨部门治河能力协调工部与兵部",
+        "需两部串行会审",
+        departments,
+        lambda _messages: pytest.fail("fake collaborators must handle this regression"),
+    )
+
+    expected_opinions = [
+        _layered_opinion(department, f"{department}司议", f"{department}部议")
+        for department in departments
+    ]
+    assert opinions == expected_opinions
+    assert council_inputs == [expected_opinions]
+    assert execution == [
+        "工部:route",
+        f"工部:{bureau_profiles_for('工部')[0].bureau}",
+        "工部:synthesis",
+        "兵部:route",
+        f"兵部:{bureau_profiles_for('兵部')[0].bureau}",
+        "兵部:synthesis",
+        "军机处:会审",
+    ]
+    assert all(
+        set(opinion) == {"department", "bureau_opinions", "opinion"}
+        for opinion in council_inputs[0]
+    )
+    assert "capability" not in json.dumps(council_inputs[0], ensure_ascii=False).lower()
+    assert "evidence" not in json.dumps(council_inputs[0], ensure_ascii=False).lower()
+    assert verdict == "军机处会审结论"
+
+
 def test_run_junjichu_failure_short_circuits_remaining_ministries_and_council():
     calls = {"value": 0}
 
