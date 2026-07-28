@@ -426,6 +426,47 @@ exact implementation candidate：
 
 本节只登记待审候选，不预判两路 Codex 独立只读审查结论。
 
+## Swarm Runs Nullable Tenant Review Verdict
+
+implementation `e31ed4983fea9abc8251589539367a0cdce5569a` 的两路 fresh
+Codex 只读审查均为 `NO-GO`：
+
+- pass 1 `019fa673-d1ce-76f2-870f-ffed61d793ff`：
+  `HIGH 1 / MEDIUM 0 / LOW 1`；
+- pass 2 `019fa674-0d28-7e21-9fc4-012b7c6d3037`：
+  `HIGH 1 / MEDIUM 1 / LOW 0`。
+
+主控去重：
+
+1. HIGH：`_tenant_matches` 对 requester/task/review tenant 的 `None` 值 fail-open；
+2. LOW：nullable tenant 缺少 probes，且 side-effect mocks 没 patch 路由导入符号；
+3. docs mismatch：pass 2 审查的是 implementation commit，不含后续 Packet docs
+   commit；下一轮 review target 改为包含 docs 的 exact HEAD。
+
+## Swarm Runs Nullable Tenant Remediation Evidence
+
+已在 implementation `6523688359ecdd389d190c56227ec7ae6a570253`、tree
+`b47cbd74f8bbf256f07936dcf82671b834c13404` 完成 remediation：
+
+| Finding | Remediation | Fresh evidence |
+| --- | --- | --- |
+| nullable tenant fail-open | `_tenant_matches` 要求两侧均非空且相等；task/review/request tenant 任一为空均拒绝 | nullable RED 2 failed → GREEN 4 passed |
+| mock symbol drift | probes patch `web.routers.swarm_runs.run_swarm_execution_loop` 与 `attach_swarm_result_to_review` | focused route suite |
+
+exact implementation candidate：
+
+- H `6523688359ecdd389d190c56227ec7ae6a570253`
+- tree `b47cbd74f8bbf256f07936dcf82671b834c13404`
+- parent `93a4fd462f93f3d2e09a8fc1798e515d41aaf1bf`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `adfcce9ac9d36471fa6b2b4491f6fbad5ce6377bd5ef5da00270bddb6175f9cb`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本节只登记待审候选，不预判下一轮两路 Codex 独立只读审查结论。
+
 ## Post-1d6 Fresh Review Verdict
 
 implementation `1d6e7f083843050f00def874ac2cbc4da04d8103`、tree

@@ -15,8 +15,8 @@
 | 创建日期 | `2026-07-27` |
 | Base H | `ed822255a452e8dd8dda8f86a180fd7c099b181e` |
 | Base tree | `0a56a0eab0135dcf46c31e5ae2cbc46f501cfdcb` |
-| Implementation candidate H | `e31ed4983fea9abc8251589539367a0cdce5569a` |
-| Implementation candidate tree | `2dd85a3fc37737f9568500abb0fd9dc1d9a90f81` |
+| Implementation candidate H | `6523688359ecdd389d190c56227ec7ae6a570253` |
+| Implementation candidate tree | `b47cbd74f8bbf256f07936dcf82671b834c13404` |
 | Integration target | local `feature-chaotang-ext` |
 | Authority before first edit | v1 `VALID_INACTIVE_GUARD`; v2 W07 `GO / APPROVED_WORK_PACKAGE` |
 
@@ -288,6 +288,39 @@ fresh evidence：RED 两个 cross-tenant review probes 先失败；GREEN 后 cre
 retry 均拒绝同用户跨 tenant `CourtReview` 绑定且未调用 swarm/attach。相关后端套件
 `57 passed`，expanded backend suite `248 passed`，Ruff 和 `git diff --check`
 均通过。当前仍不得整合 EXT，需等 exact candidate 两路独立只读审查。
+
+## Swarm Runs Nullable Tenant Remediation
+
+fresh review of `e31ed498...` returned `NO-GO`：
+
+- pass 1 `019fa673-d1ce-76f2-870f-ffed61d793ff`：
+  `HIGH 1 / MEDIUM 0 / LOW 1`；
+- pass 2 `019fa674-0d28-7e21-9fc4-012b7c6d3037`：
+  `HIGH 1 / MEDIUM 1 / LOW 0`。
+
+去重后的实质 blocker 是 `/api/swarm-runs` tenant guard 对 nullable tenant
+fail-open。另一个 HIGH 为 review target 未包含后续 Packet docs commit，属于候选冻结
+顺序问题；本轮将审查目标改为包含 docs 的 exact HEAD。
+
+remediation：`_tenant_matches` 现在要求 requester/task/review tenant 均非空且相等；
+新增 nullable requester、nullable task tenant、nullable review tenant probes；测试
+mocks 改为 patch `web.routers.swarm_runs` 中实际导入符号。
+
+fresh implementation candidate：
+
+- H `6523688359ecdd389d190c56227ec7ae6a570253`
+- tree `b47cbd74f8bbf256f07936dcf82671b834c13404`
+- parent `93a4fd462f93f3d2e09a8fc1798e515d41aaf1bf`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `adfcce9ac9d36471fa6b2b4491f6fbad5ce6377bd5ef5da00270bddb6175f9cb`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+fresh evidence：nullable RED `2 failed`，GREEN `4 passed`，related suite
+`101 passed`，Ruff 和 `git diff --check` 通过。当前仍不得整合 EXT，需等包含本
+Packet 文档的 exact HEAD 两路独立只读审查。
 
 ## Seventh Review Final Remediation Candidate
 

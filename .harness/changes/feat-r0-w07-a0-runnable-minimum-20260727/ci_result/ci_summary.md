@@ -111,6 +111,10 @@
 | swarm-runs related suite | 0 | 57 passed | `/api/swarm-runs` contract/chancellor/loop + P0-B ownership | 2026-07-28 |
 | swarm-runs expanded backend | 0 | 248 passed, 2 warnings | W07 read model、outbox、artifact、W05、P0-B、swarm routes | 2026-07-28 |
 | swarm-runs Ruff + `git diff --check` | 0 | All checks passed + pass | changed route/tests and diff integrity | 2026-07-28 |
+| swarm-runs nullable TDD RED | 1 | 2 failed | nullable requester/task/review tenant entered route writer | 2026-07-28 |
+| swarm-runs nullable TDD GREEN | 0 | 4 passed | cross-tenant + nullable tenant probes all deny before swarm/attach | 2026-07-28 |
+| swarm-runs nullable related suite | 0 | 101 passed | swarm routes、P0-B、outbox regression | 2026-07-28 |
+| swarm-runs nullable Ruff + `git diff --check` | 0 | All checks passed + pass | changed route/tests and diff integrity | 2026-07-28 |
 
 ## 结果
 
@@ -181,6 +185,13 @@ verification。剩余 HIGH 指向 `backend/web/routers/swarm_runs.py`，Product 
 `e31ed4983fea9abc8251589539367a0cdce5569a`、tree
 `2dd85a3fc37737f9568500abb0fd9dc1d9a90f81` 按 TDD 闭环并通过上表 fresh
 verification。当前等待该 exact candidate 两路独立只读审查；仍不得整合 EXT。
+
+fresh review of `e31ed498...` returned `NO-GO` due to nullable tenant
+fail-open and candidate-doc mismatch. Nullable tenant remediation is complete in
+exact implementation `6523688359ecdd389d190c56227ec7ae6a570253`、tree
+`b47cbd74f8bbf256f07936dcf82671b834c13404` with fresh evidence above.
+Current state remains `FRESH_TWO_PASS_REVIEW_PENDING / NOT_DEPLOYED`; no EXT
+integration is authorized yet.
 
 ## 全仓既有 Residual
 

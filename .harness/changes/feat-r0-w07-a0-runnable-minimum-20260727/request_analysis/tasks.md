@@ -110,6 +110,13 @@
 - [x] 冻结 implementation candidate
   `e31ed4983fea9abc8251589539367a0cdce5569a` /
   `2dd85a3fc37737f9568500abb0fd9dc1d9a90f81`。
+- [x] exact `e31ed498...` 两路 fresh review 完成，整体 `NO-GO`，
+  去重 `HIGH 1 / LOW 1`；docs mismatch 在下一 exact HEAD review 中消除。
+- [x] TDD 修复 nullable requester/task/review tenant fail-open，并修正 probes
+  patch 路由导入符号。
+- [x] 冻结 implementation candidate
+  `6523688359ecdd389d190c56227ec7ae6a570253` /
+  `b47cbd74f8bbf256f07936dcf82671b834c13404`。
 - [ ] 在 scope conflict 解除后的 exact candidate 上取得 two-pass GO。
 - [ ] 冻结 exact candidate H/tree 和 `RUNNABLE_MINIMUM` receipt。
 
