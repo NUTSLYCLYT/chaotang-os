@@ -182,6 +182,10 @@ npm run start
 
 再次改变框架、包管理器、测试方式或跨端调用路径时，在同一变更中：
 
+`POST /api/chat/chancellor-consult` 是 `/study` 的受认证同源咨询 BFF。它只在服务端把
+`courtos_session` 转为 Bearer session 并调用后端独立咨询端点；不得复用下旨 BFF，
+不得把后端地址或 session 暴露给浏览器。咨询历史只保存在页面 React 内存中。
+
 1. 用最小原型验证关键假设。
 2. 在 `docs/decisions/` 记录选择和取舍。
 3. 更新本文件，登记准确的 setup、lint、typecheck、test、build/run 命令，并接入

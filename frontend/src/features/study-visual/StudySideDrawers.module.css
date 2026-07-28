@@ -1,0 +1,27 @@
+.trigger { position: fixed; z-index: 40; top: 50%; width: 34px; height: 76px; border: 1px solid rgba(240,198,106,.55); background: rgba(10,8,4,.88); color: #f0c66a; cursor: pointer; font-size: 28px; transform: translateY(-50%); }
+.trigger:focus-visible, .drawer button:focus-visible, .drawer textarea:focus-visible { outline: 2px solid #f0c66a; outline-offset: 2px; }
+.leftTrigger { left: 0; border-radius: 0 12px 12px 0; }
+.rightTrigger { right: 0; border-radius: 12px 0 0 12px; }
+.backdrop { position: fixed; z-index: 49; inset: 0; border: 0; background: rgba(0,0,0,.48); }
+.drawer { position: fixed; z-index: 50; top: 0; bottom: 0; width: min(420px, 100vw); box-sizing: border-box; padding: 18px; overflow: hidden; background: #10100e; color: #f5e9c9; transition: transform .22s ease; }
+.left { left: 0; transform: translateX(-100%); }
+.leftOpen { left: 0; transform: translateX(0); }
+.right { right: 0; transform: translateX(100%); }
+.rightOpen { right: 0; transform: translateX(0); }
+.drawer header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.drawer h2, .drawer h3 { margin: 0; color: #f0c66a; }
+.drawer header button, .chat button { min-height: 36px; border: 1px solid #a77c35; background: transparent; color: #f0c66a; cursor: pointer; }
+.records, .chat { min-height: 0; overflow: auto; }
+.records { height: 38%; margin-top: 14px; padding-bottom: 12px; border-bottom: 1px solid rgba(240,198,106,.25); }
+.records article { margin-top: 10px; padding: 10px; background: rgba(240,198,106,.07); }
+.records p, .messages p { overflow-wrap: anywhere; }
+.chat { display: flex; height: calc(62% - 72px); flex-direction: column; padding-top: 14px; }
+.notice { color: #c7b98e; font-size: 12px; line-height: 1.6; }
+.messages { flex: 1; min-height: 80px; overflow: auto; }
+.messages [data-role="assistant"] { color: #ead7a5; }
+.error { color: #f1a18e; }
+.chat form { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.chat textarea { min-height: 68px; resize: vertical; box-sizing: border-box; background: #080907; color: #fff; }
+.unavailable { display: grid; height: calc(100% - 50px); place-items: center; color: #988d71; }
+@media (max-width: 360px) { .drawer { width: 100vw; padding: 12px; } }
+@media (prefers-reduced-motion: reduce) { .drawer { transition: none; } }

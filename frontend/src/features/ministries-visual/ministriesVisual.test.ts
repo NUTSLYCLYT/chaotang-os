@@ -161,7 +161,8 @@ test("production scenes forbid inferred live status and misleading actor labels"
     /LIVE_DEPARTMENTS|真\s*·\s*LIVE|筹备中|大臣|参与官署|真部门/,
   );
   assert.match(production, /projectMinistryReplies/);
-  assert.match(production, /projectJunjichuFacts/);
+  assert.match(production, /completedMinistryOpinions/);
+  assert.match(production, /processingPath/);
 });
 
 test("all ministry scenes render four explicit projected read states", async () => {

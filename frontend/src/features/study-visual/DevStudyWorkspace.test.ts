@@ -41,7 +41,8 @@ test("dev study workspace keeps one polished decree action without secret modes"
     readFile(new URL("./DevStudyWorkspace.module.css", import.meta.url), "utf8"),
   ]);
 
-  assert.match(source, /真实任务库暂不可读/);
+  assert.doesNotMatch(source, /真实任务库暂不可读/);
+  assert.doesNotMatch(source, /styles\.warning/);
   assert.match(source, /今日圣旨/);
   assert.match(source, /收卷看殿/);
   assert.doesNotMatch(source, /DecreeMode|decree-mode-order|decree-mode-secret|setMode|密旨|下密旨/);
@@ -125,7 +126,7 @@ test("dev study CSS owns the responsive parent slot instead of redrawing the scr
 
   assert.match(css, /\.stage\s*\{[\s\S]*?grid-template-rows:\s*auto auto/);
   assert.match(css, /\.stage\s*\{[\s\S]*?align-content:\s*start/);
-  assert.match(css, /\.warning\s*\{/);
+  assert.doesNotMatch(css, /\.warning(?:\s|\{)/);
   assert.match(
     css,
     /\.edictSlot\s*\{[\s\S]*?max-width:\s*min\(1180px,\s*max\(640px,\s*calc\(100vw - 760px\)\)\)/,

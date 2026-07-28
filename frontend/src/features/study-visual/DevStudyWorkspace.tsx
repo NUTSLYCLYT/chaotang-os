@@ -9,7 +9,10 @@ import {
 } from "../court-visuals/edict/EdictStage";
 import { ImmersiveCourtShell } from "../court-visuals/ImmersiveCourtShell";
 import styles from "./DevStudyWorkspace.module.css";
+import { StudySideDrawers } from "./StudySideDrawers";
 import { getStudyDepartmentCountLabel } from "./studyWorkspaceState";
+import type { ConsultMessage } from "../../app/study/chancellorConsultStatus";
+import type { DecreeSessionRecord } from "../../app/study/decreeSessionLog";
 
 const ONBOARDED_KEY = "courtos.onboarded";
 const RULER_STYLE_KEY = "courtos.ruler.style";
@@ -59,6 +62,11 @@ export interface DevStudyWorkspaceProps {
   canSubmit: boolean;
   onDecreeTextChange(value: string): void;
   onSubmit(): void;
+  decreeSessionRecords: DecreeSessionRecord[];
+  consultMessages: ConsultMessage[];
+  consultPending: boolean;
+  consultError: string | null;
+  onConsultSend(content: string): Promise<boolean>;
 }
 
 function FirstCourtRitual({
@@ -222,12 +230,14 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
       quickDockCenter={composer}
       scene="study"
     >
+      <StudySideDrawers
+        records={props.decreeSessionRecords}
+        messages={props.consultMessages}
+        pending={props.consultPending}
+        error={props.consultError}
+        onSend={props.onConsultSend}
+      />
       <div className={styles.stage}>
-        <div className={styles.warning} role="status">
-          <span aria-hidden="true">△</span>
-          真实任务库暂不可读 · 当前为本地兜底骨架，请勿当作最终裁决依据。
-        </div>
-
         <button className={styles.scrollToggle} type="button" onClick={() => setExpanded((value) => !value)}>
           <span aria-hidden="true">{showScroll ? "↙" : "↗"}</span>
           {showScroll ? "收卷看殿" : "展卷"}

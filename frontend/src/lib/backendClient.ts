@@ -694,6 +694,71 @@ export interface ListShiguanArchivesOptions extends ShiguanRequestOptions {
   limit?: number;
 }
 
+export interface ChancellorConsultMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export type SubmitConsultResult =
+  | { ok: true; reply: string; consultant: string }
+  | {
+      ok: false;
+      kind: "validation" | "config" | "model" | "unauthenticated" | "network" | "timeout" | "unknown";
+    };
+
+export interface ChancellorConsultOptions extends AuthenticatedRequestOptions {
+  fetchImpl?: typeof fetch;
+  scheduleTimeout?: (callback: () => void, delayMs: number) => unknown;
+  cancelTimeout?: (handle: unknown) => void;
+}
+
+export async function chancellorConsult(
+  messages: ChancellorConsultMessage[],
+  options: ChancellorConsultOptions = {},
+): Promise<SubmitConsultResult> {
+  const controller = new AbortController();
+  let timedOut = false;
+  const schedule = options.scheduleTimeout ?? ((callback, delay) => setTimeout(callback, delay));
+  const cancel = options.cancelTimeout ?? ((handle) => clearTimeout(handle as ReturnType<typeof setTimeout>));
+  const timer = schedule(() => {
+    timedOut = true;
+    controller.abort();
+  }, options.timeoutMs ?? 30000);
+  try {
+    const response = await (options.fetchImpl ?? fetch)(
+      `${(options.baseUrl ?? getBackendBaseUrl()).replace(/\/+$/, "")}/api/v1/chancellor-consult`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(options.sessionId ? { authorization: `Bearer ${options.sessionId}` } : {}),
+        },
+        body: JSON.stringify({ messages }),
+        signal: controller.signal,
+        cache: "no-store",
+      },
+    );
+    if (!response.ok) {
+      const kind =
+        response.status === 401 ? "unauthenticated" :
+        response.status === 422 ? "validation" :
+        response.status === 503 ? "config" :
+        response.status === 502 ? "model" : "unknown";
+      return { ok: false, kind };
+    }
+    const body = await response.json() as Record<string, unknown>;
+    if (body.status !== "ok" || typeof body.consultant !== "string" ||
+        typeof body.reply !== "string" || !body.reply.trim()) {
+      return { ok: false, kind: "unknown" };
+    }
+    return { ok: true, consultant: body.consultant, reply: body.reply.trim() };
+  } catch {
+    return { ok: false, kind: timedOut ? "timeout" : "network" };
+  } finally {
+    cancel(timer);
+  }
+}
+
 export interface RecallShiguanArchivesOptions extends ShiguanRequestOptions {
   matterType?: string;
   department?: string;

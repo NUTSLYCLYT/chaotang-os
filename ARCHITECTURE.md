@@ -1,5 +1,12 @@
 # chaotang-os 当前架构事实
 
+## 丞相咨询边界
+
+`/study` 另有一条与 ADR 0028 下旨闭环平行的非业务咨询链路：浏览器通过受认证的同源
+`POST /api/chat/chancellor-consult` BFF 调用 FastAPI
+`POST /api/v1/chancellor-consult`。每次发送只调用一次 DeepSeek；会话历史仅保存在当前页面
+React 内存中，不进入六部、军机处、锦衣卫或史馆，也不产生办理或归档事实。完整契约见 ADR 0030。
+
 ## 史馆边界
 
 史馆属于后端域，以 `app/shiguan` 的 Pydantic 模型和 SQLite 存储为事实源。公开业务档案只

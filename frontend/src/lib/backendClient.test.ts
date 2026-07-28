@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 import {
+  chancellorConsult,
   fetchHealth,
   getShiguanStatistics,
   listShiguanArchives,
@@ -13,6 +14,34 @@ import {
   type JinyiweiReadOptions,
   updateShiguanReview,
 } from "./backendClient.ts";
+
+test("chancellorConsult sends one authenticated request and maps the independent response", async () => {
+  let calls = 0;
+  const result = await chancellorConsult([{ role: "user", content: "请教一事" }], {
+    baseUrl: "http://backend.test",
+    sessionId: "opaque-session",
+    fetchImpl: async (_input, init) => {
+      calls += 1;
+      assert.equal((init?.headers as Record<string, string>).authorization, "Bearer opaque-session");
+      return new Response(JSON.stringify({ status: "ok", consultant: "丞相（咨询）", reply: "臣以为可行。" }), { status: 200 });
+    },
+    scheduleTimeout: () => 1,
+    cancelTimeout: () => undefined,
+  });
+  assert.equal(calls, 1);
+  assert.deepEqual(result, { ok: true, consultant: "丞相（咨询）", reply: "臣以为可行。" });
+});
+
+test("chancellorConsult maps stable validation/config/model status kinds", async () => {
+  for (const [status, kind] of [[422, "validation"], [503, "config"], [502, "model"]] as const) {
+    const result = await chancellorConsult([{ role: "user", content: "问" }], {
+      fetchImpl: async () => new Response("{}", { status }),
+      scheduleTimeout: () => 1,
+      cancelTimeout: () => undefined,
+    });
+    assert.deepEqual(result, { ok: false, kind });
+  }
+});
 
 /**
  * 契约文件路径：`frontend/src/lib` -> `frontend/src` -> `frontend` -> 仓库根，

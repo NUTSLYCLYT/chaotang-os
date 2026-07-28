@@ -12,6 +12,8 @@ from fastapi import FastAPI
 
 from app.api.auth import register_auth_exception_handlers
 from app.api.auth import router as auth_router
+from app.api.chancellor_consult import register_chancellor_consult_exception_handlers
+from app.api.chancellor_consult import router as chancellor_consult_router
 from app.api.decrees import register_chancellor_exception_handlers
 from app.api.decrees import router as decrees_router
 from app.api.jinyiwei import register_jinyiwei_exception_handlers
@@ -34,6 +36,9 @@ def health() -> HealthResponse:
 
 app.include_router(decrees_router)
 register_chancellor_exception_handlers(app)
+
+app.include_router(chancellor_consult_router)
+register_chancellor_consult_exception_handlers(app)
 
 app.include_router(shiguan_router)
 register_shiguan_exception_handlers(app)

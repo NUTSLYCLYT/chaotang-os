@@ -425,6 +425,11 @@ Agent，并通过独立模型调用生成结构化部级补充）、
 
 再次改变语言、运行方式、包管理器或评测方式时，在同一变更中：
 
+`app/agents/chancellor_consult/` 是 ADR 0030 定义的独立非业务咨询包，只可复用
+`app/langgraph_runtime` 的 DeepSeek 配置与客户端辅助函数；禁止导入下旨、六部、军机处、
+锦衣卫、史馆或案卷模块。其受认证 HTTP 入口为 `POST /api/v1/chancellor-consult`，
+每个合法请求恰好调用一次模型且不持久化。
+
 1. 用最小原型验证关键假设。
 2. 在 `docs/decisions/` 记录选择和取舍。
 3. 更新本文件，登记准确的 setup、lint、test、run/eval 命令，并接入 CI。

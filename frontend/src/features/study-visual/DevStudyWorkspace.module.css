@@ -11,23 +11,6 @@
   font-family: var(--font-serif, "Noto Serif SC", Georgia, serif);
 }
 
-.warning {
-  display: flex;
-  width: min(100%, 1680px);
-  min-height: 35px;
-  align-items: center;
-  gap: 10px;
-  box-sizing: border-box;
-  padding: 7px 13px;
-  border: 1px solid rgba(194, 85, 61, .42);
-  border-radius: 8px;
-  background: rgba(76, 22, 19, .25);
-  color: #e8b4a6;
-  font-size: 11px;
-}
-
-.warning span { color: #f0c66a; font-size: 16px; }
-
 .scrollToggle {
   position: absolute;
   z-index: 5;
@@ -244,7 +227,6 @@
 
 @media (max-width: 700px) {
   .stage { min-height: calc(100dvh - 64px); padding: 8px 8px 148px; }
-  .warning { font-size: 10px; line-height: 1.45; }
   .scrollToggle { top: 58px; right: 12px; }
   .edictSlot { max-width: 100%; padding-inline: 0; }
   .collapsedSlot { margin-top: 377px; }
