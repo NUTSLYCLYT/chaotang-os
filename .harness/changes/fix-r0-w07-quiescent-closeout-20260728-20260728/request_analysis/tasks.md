@@ -16,7 +16,7 @@
 ## Task 3: Verification
 
 - [x] Pre-commit authority guard fails closed on dirty manifest bytes, as expected.
-- [ ] Commit exact closeout candidate.
+- [x] Commit exact closeout candidate `b147290f83f4e5ec85fac5cbb99bc2d52058b0e0`.
 - [x] `node --test scripts/execution-authority-v2.nodetest.mjs`: `73 passed`.
 - [x] `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W07`:
   `STOP / NO_ACTIVE_WORK_PACKAGE`.

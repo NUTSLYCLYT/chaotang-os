@@ -39,6 +39,8 @@ R0-W08/R0-W09 remain not active
 
 - `.harness/manifest/execution-authority.v2.json`
 - `.harness/changes/fix-r0-w07-quiescent-closeout-20260728-20260728/**`
+- `scripts/execution-authority-v2.nodetest.mjs` test-only real-repository
+  quiescent phase fixture
 
 ## 非目标
 
@@ -67,7 +69,8 @@ authority rollback requires a separately approved governance event.
 
 - 批准人：`lyt`
 - 批准日期：`2026-07-28`
-- 批准范围：governance manifest and closeout evidence only
+- 批准范围：governance manifest, closeout evidence, and test-only
+  `scripts/execution-authority-v2.nodetest.mjs` fixture remediation
 - 明确未批准：W08/W09 activation, product code, push, deployment, DB migration, 3050
 
 ## 验收标准
@@ -76,7 +79,8 @@ authority rollback requires a separately approved governance event.
 - W07 ledger entry is `MERGED_AND_VERIFIED`.
 - W08/W09 remain inactive.
 - Authority tests and root doctor pass.
-- Changed files are limited to manifest and this Packet.
+- Changed files are limited to manifest, this Packet, and the approved test-only
+  nodetest fixture.
 
 ## 验证计划
 

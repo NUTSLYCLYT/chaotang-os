@@ -27,8 +27,9 @@ The candidate is ready for independent read-only review.
 
 ## Diff 与回滚复核
 
-- changed files：manifest and this Packet only.
-- diff review：pending after exact candidate commit.
+- changed files：manifest, this Packet, and approved test-only
+  `scripts/execution-authority-v2.nodetest.mjs` fixture.
+- diff review：only approved governance and test-only fixture paths.
 - 回滚是否演练：not executed; revert candidate before integration.
 
 ## 完成定义映射
