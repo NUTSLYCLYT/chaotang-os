@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { useState, type CSSProperties } from "react";
 
+import { formatBusinessTime } from "../../lib/formatBusinessTime";
 import type { ReplyCaseView } from "../court-replies/replyFeed";
 import { CourtCapabilityButton } from "../court-visuals/CourtCapabilityButton";
 import { ImmersiveCourtShell } from "../court-visuals/ImmersiveCourtShell";
@@ -129,7 +130,7 @@ export function DepartmentScene({
                     <div><dt>回奏结论</dt><dd>{selectedReply.conclusion}</dd></div>
                     <div><dt>处理路径</dt><dd>{selectedReply.process}</dd></div>
                     <div><dt>回奏人</dt><dd>{selectedReply.respondent}</dd></div>
-                    <div><dt>回奏时间</dt><dd>{selectedReply.repliedAt}</dd></div>
+                    <div><dt>回奏时间</dt><dd><time dateTime={selectedReply.repliedAt}>{formatBusinessTime(selectedReply.repliedAt)}</time></dd></div>
                   </dl>
                   <p className={styles.departmentBoundary}>这是{department.name}参与记录，不代表任一司已形成意见。</p>
                 </>

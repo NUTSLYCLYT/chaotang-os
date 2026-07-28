@@ -14,6 +14,7 @@ import { getStudyDepartmentCountLabel } from "./studyWorkspaceState";
 import type { ConsultMessage } from "../../app/study/chancellorConsultStatus";
 import type { StudyRecentRepliesState } from "../../app/study/studyRecentReplies";
 import type { ShiguanArchive } from "../../lib/backendClient";
+import { formatBusinessTime } from "../../lib/formatBusinessTime";
 
 const ONBOARDED_KEY = "courtos.onboarded";
 const RULER_STYLE_KEY = "courtos.ruler.style";
@@ -300,7 +301,7 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
                 id: `study-archive-${archivedReply.id}`,
                 kicker: "史馆留痕 · 上书房阅奏",
                 title: "回奏",
-                issuer: `${archivedReply.respondent} · ${archivedReply.replyTime}`,
+                issuer: `${archivedReply.respondent} · ${formatBusinessTime(archivedReply.replyTime)}`,
               }}
               theme="imperial"
               bodyLabel="史馆归档回奏"
@@ -315,7 +316,7 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
                 <p><strong>办理过程</strong>{archivedReply.replyProcess}</p>
                 <p><strong>参与部门</strong>{archivedReply.participatingDepartments!.join("、")}</p>
                 <p><strong>回奏结论</strong>{archivedReply.replyConclusion}</p>
-                <p><strong>回奏时间</strong>{archivedReply.replyTime}</p>
+                <p><strong>回奏时间</strong><time dateTime={archivedReply.replyTime ?? undefined}>{formatBusinessTime(archivedReply.replyTime)}</time></p>
                 <p><strong>责任主体</strong>{archivedReply.respondent}</p>
               </section>
             </EdictStage>

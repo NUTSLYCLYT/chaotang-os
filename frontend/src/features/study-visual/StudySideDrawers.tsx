@@ -13,6 +13,7 @@ import {
   submitConsultDraft,
 } from "../../app/study/chancellorConsultSubmission";
 import type { StudyRecentRepliesState } from "../../app/study/studyRecentReplies";
+import { formatBusinessTime } from "../../lib/formatBusinessTime";
 import styles from "./StudySideDrawers.module.css";
 
 export interface StudySideDrawersProps {
@@ -99,7 +100,7 @@ export function StudySideDrawers(props: StudySideDrawersProps) {
                 }}
               >
                 <span className={styles.recordMeta}>
-                  {archive.replyTime} · {archive.participatingDepartments!.join("、")}
+                  <time dateTime={archive.replyTime ?? undefined}>{formatBusinessTime(archive.replyTime)}</time> · {archive.participatingDepartments!.join("、")}
                 </span>
                 <strong className={styles.recordSummary}>{archive.sourceText}</strong>
                 <span className={styles.openReply}>展卷阅奏</span>

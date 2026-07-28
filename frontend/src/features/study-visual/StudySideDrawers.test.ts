@@ -67,7 +67,7 @@ test("left drawer renders at most three archived replies", async () => {
   assert.match(source, /recentReplies\.archives\.slice\(0,\s*3\)\.map/);
   assert.match(source, /archive\.sourceText/);
   assert.match(source, /archive\.participatingDepartments/);
-  assert.match(source, /archive\.replyTime/);
+  assert.match(source, /formatBusinessTime\(archive\.replyTime\)/);
 });
 
 test("recent replies render as archived decree slips without inline reply details", async () => {

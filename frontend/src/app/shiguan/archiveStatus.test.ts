@@ -58,9 +58,9 @@ test("史馆页面展示归档证据的事实绑定与 MCP 访问溯源", async 
   assert.match(detail, /accessMetadata/);
   assert.match(detail, /snapshot\.value/);
   assert.match(detail, /snapshot\.unit/);
-  assert.match(detail, /snapshot\.asOf/);
+  assert.match(detail, /formatBusinessTime\(snapshot\.asOf\)/);
   assert.match(detail, /snapshot\.publishedAt/);
-  assert.match(detail, /snapshot\.retrievedAt/);
+  assert.match(detail, /formatBusinessTime\(snapshot\.retrievedAt\)/);
   assert.match(detail, /snapshot\.publisher/);
   assert.match(detail, /snapshot\.sourceType/);
   assert.match(detail, /snapshot\.coverage/);

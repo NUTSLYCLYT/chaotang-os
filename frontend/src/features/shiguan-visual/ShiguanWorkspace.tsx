@@ -8,6 +8,7 @@ import type {
   ShiguanRecallMatch,
   ShiguanStatistics,
 } from "../../lib/backendClient.ts";
+import { formatBusinessTime } from "../../lib/formatBusinessTime";
 import type { CourtDataState } from "../court-visuals/types";
 import { ImmersiveCourtShell } from "../court-visuals/ImmersiveCourtShell";
 import {
@@ -361,7 +362,7 @@ function ReviewRecallPanel({
               {match.reviewStatus && (
                 <div>
                   <dt>复盘时间</dt>
-                  <dd>{displayDate(match.reviewStatus.reviewedAt)}</dd>
+                  <dd><time dateTime={match.reviewStatus.reviewedAt}>{formatBusinessTime(match.reviewStatus.reviewedAt)}</time></dd>
                 </div>
               )}
             </dl>
@@ -455,9 +456,4 @@ function StateNotice({
       )}
     </div>
   );
-}
-
-function displayDate(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("zh-CN");
 }

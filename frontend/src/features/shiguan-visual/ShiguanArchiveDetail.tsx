@@ -6,6 +6,7 @@ import type {
   ReviewStatusValue,
   ShiguanArchive,
 } from "../../lib/backendClient.ts";
+import { formatBusinessTime } from "../../lib/formatBusinessTime";
 import {
   formatArchiveType,
   formatRealityLabel,
@@ -23,14 +24,6 @@ const REVIEW_STATUSES: ReviewStatusValue[] = [
   "PARTIAL",
   "OBSERVING",
 ];
-
-function displayDate(value: string | null): string {
-  if (value === null) {
-    return "未记录";
-  }
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString("zh-CN");
-}
 
 export function ShiguanArchiveDetail({
   archive,
@@ -67,7 +60,7 @@ export function ShiguanArchiveDetail({
       <dl className={styles.archiveFacts}>
         <div>
           <dt>归档时间</dt>
-          <dd>{displayDate(archive.createdAt)}</dd>
+          <dd><time dateTime={archive.createdAt}>{formatBusinessTime(archive.createdAt)}</time></dd>
         </div>
         <div>
           <dt>证据来源</dt>
@@ -106,7 +99,7 @@ export function ShiguanArchiveDetail({
             </div>
             <div>
               <dt>回奏时间</dt>
-              <dd>{displayDate(archive.replyTime)}</dd>
+              <dd><time dateTime={archive.replyTime ?? undefined}>{formatBusinessTime(archive.replyTime)}</time></dd>
             </div>
             <div>
               <dt>答复者</dt>
@@ -131,7 +124,7 @@ export function ShiguanArchiveDetail({
             <dt>复盘留痕</dt>
             <dd>
               {formatReviewStatus(archive.reviewStatus.status)} ·{" "}
-              {displayDate(archive.reviewStatus.reviewedAt)}
+              <time dateTime={archive.reviewStatus.reviewedAt}>{formatBusinessTime(archive.reviewStatus.reviewedAt)}</time>
               {archive.reviewStatus.note ? ` · ${archive.reviewStatus.note}` : ""}
             </dd>
           </div>
@@ -164,9 +157,9 @@ export function ShiguanArchiveDetail({
                     <div><dt>司法辖区</dt><dd>{snapshot.jurisdiction ?? "未记录"}</dd></div>
                     <div><dt>事实值</dt><dd>{JSON.stringify(snapshot.value)}</dd></div>
                     <div><dt>单位</dt><dd>{snapshot.unit ?? "未记录"}</dd></div>
-                    <div><dt>数据时点</dt><dd>{displayDate(snapshot.asOf)}</dd></div>
-                    <div><dt>发布时间</dt><dd>{displayDate(snapshot.publishedAt)}</dd></div>
-                    <div><dt>取证时间</dt><dd>{displayDate(snapshot.retrievedAt)}</dd></div>
+                    <div><dt>数据时点</dt><dd><time dateTime={snapshot.asOf}>{formatBusinessTime(snapshot.asOf)}</time></dd></div>
+                    <div><dt>发布时间</dt><dd><time dateTime={snapshot.publishedAt ?? undefined}>{formatBusinessTime(snapshot.publishedAt)}</time></dd></div>
+                    <div><dt>取证时间</dt><dd><time dateTime={snapshot.retrievedAt}>{formatBusinessTime(snapshot.retrievedAt)}</time></dd></div>
                     <div><dt>发布方</dt><dd>{snapshot.publisher}</dd></div>
                     <div><dt>来源类型</dt><dd>{snapshot.sourceType}</dd></div>
                     <div><dt>覆盖范围</dt><dd>{snapshot.coverage?.join("、") || "未记录"}</dd></div>

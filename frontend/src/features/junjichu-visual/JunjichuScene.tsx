@@ -6,6 +6,7 @@ import {
   type JunjichuCaseStatus,
   type JunjichuCaseView,
 } from "./junjichuController";
+import { formatBusinessTime } from "../../lib/formatBusinessTime";
 import styles from "./JunjichuScene.module.css";
 
 const SIX_MINISTRIES = ["吏部", "户部", "礼部", "兵部", "刑部", "工部"] as const;
@@ -49,7 +50,7 @@ function CaseCard({ item, selected, onSelect }: { item: JunjichuCaseView; select
       <span>{STATUS_LABELS[item.status]}</span>
       <strong>{item.decreeText}</strong>
       <small>{item.departments.join(" · ") || "待核对参与部院"}</small>
-      <time dateTime={item.updatedAt}>更新 {item.updatedAt}</time>
+      <time dateTime={item.updatedAt}>更新 {formatBusinessTime(item.updatedAt)}</time>
     </button>
   );
 }
@@ -157,7 +158,7 @@ export function JunjichuScene({
             <main className={styles.imperialStage} aria-label="会审主舞台">
               <EdictStage className={styles.edictScroll} bodyLabel="军机处会审案卷正文" document={{ id: selected.id, kicker: STATUS_LABELS[selected.status], title: selected.decreeText, issuer: "军机处会审" }}>
                 <p className={styles.stageKicker}>{STATUS_LABELS[selected.status]}</p>
-                <dl className={styles.caseMeta}><div><dt>当前节点</dt><dd>{currentStage(selected)}</dd></div><div><dt>最近更新</dt><dd><time dateTime={selected.updatedAt}>{selected.updatedAt}</time></dd></div></dl>
+                <dl className={styles.caseMeta}><div><dt>当前节点</dt><dd>{currentStage(selected)}</dd></div><div><dt>最近更新</dt><dd><time dateTime={selected.updatedAt}>{formatBusinessTime(selected.updatedAt)}</time></dd></div></dl>
                 <section className={styles.pathSection}><h3>真实办理路径</h3><ol className={styles.path}>{selected.processingPath.map((step, index) => <li key={`${step}-${index}`} data-current={index === selected.processingPath.length - 1}>{step}</li>)}</ol></section>
                 {selected.completedMinistryOpinions.length > 0 ? <section className={styles.opinionSection}><h3>已完成部议</h3>{selected.completedMinistryOpinions.map((item) => <article key={item.department}><strong>{item.department}</strong><p>{item.opinion}</p>{item.bureauOpinions.length > 0 ? <ul>{item.bureauOpinions.map((bureau) => <li key={bureau.bureau}>{bureau.bureau}：{bureau.opinion}</li>)}</ul> : null}</article>)}</section> : <p className={styles.waiting}>尚未形成可展示的部议；本页不会预填或推演后续意见。</p>}
                 {selected.status === "ARCHIVED" ? <section className={styles.archiveSummary}><h3>已归档会审结论</h3><p>{selected.councilVerdict ?? "归档案卷未提供单列会审结论。"}</p>{selected.replyId ? <a href={`/shiguan?archive=${encodeURIComponent(selected.replyId)}`}>查看史馆回奏摘要</a> : <p>该归档案卷尚无可链接的史馆回奏。</p>}</section> : null}
