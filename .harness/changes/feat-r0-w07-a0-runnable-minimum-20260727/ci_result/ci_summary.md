@@ -230,18 +230,29 @@ integration is authorized yet.
 | sixth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
 | seventh remediation | all approved HIGH/MEDIUM locally closed | PASS |
 | eighth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
-| independent review | exact `7745743d...` fresh two-pass | PENDING |
-| exact implementation candidate | `7745743d...` / `f1e0381a...` | FROZEN |
+| independent review | docs-included exact HEAD supplied in final review request | PENDING |
+| exact implementation candidate | code `65236883...` / tree `b47cbd74...`; Packet docs now current | FROZEN |
 
 ## 声明状态
 
-- `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING / NOT_DEPLOYED`
+- `IMPLEMENTATION_CANDIDATE_FROZEN / FINAL_PACKET_CONSISTENCY_REVIEW_PENDING / NOT_DEPLOYED`
 
-## Latest Exact Candidate Evidence
+## Current Exact Candidate Boundary
+
+The frozen implementation code candidate is `6523688359ecdd389d190c56227ec7ae6a570253`
+with tree `b47cbd74f8bbf256f07936dcf82671b834c13404`. The final review target
+is the docs-included exact Git HEAD supplied in the review request. This avoids
+treating older remediation hashes as the current integration candidate.
+
+No Checkpoint B, push, deployment, persistent database migration, or listener 3050
+operation is authorized or performed.
+
+## Historical Rejected Candidate Evidence
 
 | Verification | Exit | Result | Boundary | Date |
 | --- | ---: | --- | --- | --- |
-| fresh review on `7745743d...` | N/A | two-pass `NO-GO`; deduped HIGH 2 / MEDIUM 2 | candidate rejected | 2026-07-28 |
+| fresh review on `73228dd9...` | N/A | pass 1 GO, pass 2 `NO-GO`; HIGH 1 docs consistency only | Packet docs stale; current cleanup required | 2026-07-28 |
+| fresh review on `7745743d...` | N/A | two-pass `NO-GO`; deduped HIGH 2 / MEDIUM 2 | historical candidate rejected | 2026-07-28 |
 | latest TDD RED | 1 | backend 3 failed；frontend Node 1 failed；browser 1 failed | all four findings reproduced before implementation | 2026-07-28 |
 | latest TDD GREEN | 0 | backend 3 passed；selection Node 9 passed；browser 1 passed | tenant/terminal/input/omission | 2026-07-28 |
 | outbox worker suite | 0 | 40 passed | claim/retry/fence/concurrency | 2026-07-28 |
@@ -257,7 +268,7 @@ integration is authorized yet.
 | v1/v2 authority | 2/1 | v1 amendment STOP；v2 exact-ref mismatch STOP | no authority bypass | 2026-07-28 |
 | diff/security scan | 0 | diff check passed；no credential pattern match | exact implementation candidate | 2026-07-28 |
 
-implementation `1d6e7f083843050f00def874ac2cbc4da04d8103`、tree
-`4271daed2bb5ccfff31cd39c9e118fb8dea9d3eb` 已冻结。当前等待该 exact
-candidate 的两路 fresh Codex 独立只读审查；未执行 Checkpoint B、push、部署、
-持久数据库迁移或 listener 3050 操作。
+implementation code `6523688359ecdd389d190c56227ec7ae6a570253`、tree
+`b47cbd74f8bbf256f07936dcf82671b834c13404` 已冻结。当前等待包含本 Packet
+文档修正的 exact HEAD 两路 fresh Codex 独立只读审查；未执行 Checkpoint B、push、
+部署、持久数据库迁移或 listener 3050 操作。

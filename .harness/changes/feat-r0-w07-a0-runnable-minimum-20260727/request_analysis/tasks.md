@@ -117,7 +117,12 @@
 - [x] 冻结 implementation candidate
   `6523688359ecdd389d190c56227ec7ae6a570253` /
   `b47cbd74f8bbf256f07936dcf82671b834c13404`。
-- [ ] 在 scope conflict 解除后的 exact candidate 上取得 two-pass GO。
+- [x] docs-included exact `73228dd990291ec14357f3bd753f4c879e6f11af`
+  fresh review 已完成：pass 1 `GO / 0 / 0 / 0`，pass 2
+  `NO-GO / HIGH 1`；唯一 blocker 为 Packet latest candidate 文档一致性。
+- [x] 修正 Packet 候选事实源：旧 implementation hashes 归入 historical rejected
+  evidence，当前复审目标改为包含 Packet 文档修正的 exact HEAD。
+- [ ] 在 Packet 一致性修正后的 exact candidate 上取得 two-pass GO。
 - [ ] 冻结 exact candidate H/tree 和 `RUNNABLE_MINIMUM` receipt。
 
 ## 停止条件

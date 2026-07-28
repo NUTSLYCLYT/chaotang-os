@@ -9,7 +9,7 @@
 | --- | --- |
 | Change ID | feat-r0-w07-a0-runnable-minimum-20260727 |
 | 类型 | feat |
-| 状态 | `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING / NOT_DEPLOYED` |
+| 状态 | `IMPLEMENTATION_CANDIDATE_FROZEN / FINAL_PACKET_CONSISTENCY_REVIEW_PENDING / NOT_DEPLOYED` |
 | Owner | Codex W07 Implementation Lead |
 | Product Owner | `lyt` |
 | 创建日期 | `2026-07-27` |
@@ -17,6 +17,7 @@
 | Base tree | `0a56a0eab0135dcf46c31e5ae2cbc46f501cfdcb` |
 | Implementation candidate H | `6523688359ecdd389d190c56227ec7ae6a570253` |
 | Implementation candidate tree | `b47cbd74f8bbf256f07936dcf82671b834c13404` |
+| Latest docs-included review target | exact Git HEAD supplied in the final review request |
 | Integration target | local `feature-chaotang-ext` |
 | Authority before first edit | v1 `VALID_INACTIVE_GUARD`; v2 W07 `GO / APPROVED_WORK_PACKAGE` |
 
@@ -321,6 +322,20 @@ fresh implementation candidate：
 fresh evidence：nullable RED `2 failed`，GREEN `4 passed`，related suite
 `101 passed`，Ruff 和 `git diff --check` 通过。当前仍不得整合 EXT，需等包含本
 Packet 文档的 exact HEAD 两路独立只读审查。
+
+docs-included exact review target `73228dd990291ec14357f3bd753f4c879e6f11af`
+/ tree `234a40af7f70e5f1250c78a238aa1dd896f683b5` 已完成两路 Codex
+只读审查：
+
+- pass 1 `019fa67e-083e-7733-ad28-d4d98865d1ef`：
+  `GO / HIGH 0 / MEDIUM 0 / LOW 0`；
+- pass 2 `019fa67e-4417-7cf0-a279-220809d31f43`：
+  `NO-GO / HIGH 1 / MEDIUM 0 / LOW 0`。
+
+唯一 blocker 为 Packet 文档仍把旧 implementation candidates 描述为 latest
+review target。当前文档修正仅重标候选事实源和审查状态，不修改业务代码、不执行
+Checkpoint B、不 push、不部署、不迁移数据库、不操作 listener 3050。下一轮复审目标
+必须是包含本修正的 exact Git HEAD。
 
 ## Seventh Review Final Remediation Candidate
 

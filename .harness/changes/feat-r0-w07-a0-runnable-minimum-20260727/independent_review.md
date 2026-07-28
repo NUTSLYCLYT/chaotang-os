@@ -754,3 +754,20 @@ exact implementation candidate：
   NOT_DEPLOYED`
 
 本节只登记待审候选，不预判两路 Codex 独立只读审查结论。
+
+## Swarm Runs Nullable Candidate Review
+
+docs-included candidate `73228dd990291ec14357f3bd753f4c879e6f11af` /
+tree `234a40af7f70e5f1250c78a238aa1dd896f683b5` received split fresh Codex
+read-only review:
+
+- pass 1 `019fa67e-083e-7733-ad28-d4d98865d1ef`:
+  `GO / HIGH 0 / MEDIUM 0 / LOW 0`;
+- pass 2 `019fa67e-4417-7cf0-a279-220809d31f43`:
+  `NO-GO / HIGH 1 / MEDIUM 0 / LOW 0`.
+
+The single accepted blocker was Packet consistency: the CI summary and task receipt
+still presented older implementation hashes as the latest review candidate. The
+current remediation is document-only and updates the authoritative Packet summary
+without modifying runtime code. The next final review target is the exact Git HEAD
+that includes this Packet correction.
