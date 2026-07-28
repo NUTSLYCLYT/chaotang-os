@@ -33,7 +33,7 @@ def test_w08_runnable_minimum_acceptance_contract_passes():
 
     assert result["passed"] is True
     assert result["mode"] == "RUNNABLE_MINIMUM"
-    assert result["cases"] == 6
+    assert result["cases"] == 12
     assert result["targets"] == {
         "golden_contracts_final": 36,
         "real_backend_browser_runs_final": 10,
@@ -47,9 +47,15 @@ def test_w08_runnable_minimum_acceptance_contract_passes():
         "acceptance_warranty",
         "delivery_delay",
         "dispute_compliance",
+        "framework_price_supply",
+        "installation_acceptance_delay",
         "ip_confidentiality",
+        "mold_confidentiality_dispute",
         "payment_acceptance_liability",
+        "recall_compliance_warranty",
         "termination_liability",
+        "tooling_payment_ip",
+        "warranty_service_liability",
     ]
     assert result["coverage"]["risk_families"] == [
         "acceptance",
