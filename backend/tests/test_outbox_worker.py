@@ -14,6 +14,25 @@ from src.execution.decree_dispatcher import enqueue_dispatch
 from src.execution.outbox_worker import process_event, process_pending_events
 
 
+def _file_backed_session_local(tmp_path, monkeypatch, name: str):
+    import importlib
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from src.db.models import Base
+
+    engine_module = importlib.import_module("src.db.engine")
+    engine = create_engine(
+        f"sqlite:///{tmp_path / f'{name}.db'}",
+        connect_args={"check_same_thread": False, "timeout": 5},
+    )
+    Base.metadata.create_all(engine)
+    TestSession = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    monkeypatch.setattr(engine_module, "SessionLocal", TestSession)
+    return TestSession, engine
+
+
 @pytest.mark.parametrize(
     ("dialect_name", "expected_statements"),
     [
@@ -771,6 +790,165 @@ def test_contract_council_rejects_nullable_review_tenant_before_swarm(
     )
     run_swarm.assert_not_called()
     db.close()
+
+
+def test_council_event_fences_ambiguous_latest_review_before_swarm(
+    isolated_session_local,
+):
+    from src.db.models import CourtReview, DecisionTask
+
+    db = isolated_session_local()
+    task_id = "task_council_ambiguous_latest_before_swarm"
+    now = "2026-07-28T00:00:00+00:00"
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查合同",
+            status="edict_recorded",
+            source_label="LIVE",
+            draft_edict_json="{}",
+        )
+    )
+    for review_id in (
+        "review_council_ambiguous_latest_a",
+        "review_council_ambiguous_latest_b",
+    ):
+        db.add(
+            CourtReview(
+                id=review_id,
+                tenant_id=1,
+                task_id=task_id,
+                routing_plan_json='{"route":{"mode":"cluster"}}',
+                review_status="edict_recorded",
+                ministry_outputs_json="[]",
+                conflict_summary_json="[]",
+                memorial_json='{"title":"并列候选奏折"}',
+                created_at=now,
+                updated_at=now,
+            )
+        )
+    db.commit()
+    event_id = enqueue_dispatch(
+        db,
+        task_id=task_id,
+        decision_id="decision_council_ambiguous_latest_before_swarm",
+        event_type="route.council",
+    )
+    db.commit()
+
+    with patch(
+        "src.swarm_execution_loop.run_swarm_execution_loop",
+        side_effect=AssertionError("ambiguous review authority must precede swarm"),
+    ) as run_swarm:
+        result = process_event(db, event_id)
+
+    assert result["status"] == "superseded"
+    assert result["result"]["reason"] == "ambiguous_review_authority"
+    run_swarm.assert_not_called()
+    db.close()
+
+
+def test_council_event_fences_file_backed_review_tie_before_publication(
+    tmp_path,
+    monkeypatch,
+):
+    from src.db.models import CourtReview, DecisionTask
+
+    SessionLocal, engine = _file_backed_session_local(
+        tmp_path,
+        monkeypatch,
+        "outbox-review-tie",
+    )
+    db = SessionLocal()
+    task_id = "task_council_file_backed_review_tie"
+    review_id = "review_council_file_backed_review_tie_a"
+    now = "2026-07-28T00:00:00+00:00"
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查合同",
+            status="edict_recorded",
+            source_label="LIVE",
+            draft_edict_json="{}",
+        )
+    )
+    db.add(
+        CourtReview(
+            id=review_id,
+            tenant_id=1,
+            task_id=task_id,
+            routing_plan_json='{"route":{"mode":"cluster"}}',
+            review_status="edict_recorded",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json='{"title":"候选奏折"}',
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    db.commit()
+    event_id = enqueue_dispatch(
+        db,
+        task_id=task_id,
+        decision_id="decision_council_file_backed_review_tie",
+        event_type="route.council",
+    )
+    db.commit()
+    fake_swarm_result = {
+        "swarm_run": {
+            "id": "run_council_file_backed_review_tie",
+            "task_id": task_id,
+            "review_id": review_id,
+            "source_label": "LIVE_SWARM",
+            "route_plan": {"selected_swarms": []},
+        },
+        "quality_result": {
+            "id": "quality_council_file_backed_review_tie",
+            "passed": True,
+            "blocking_reasons": [],
+        },
+    }
+
+    def insert_tied_review_from_independent_session(_params):
+        other = SessionLocal()
+        other.add(
+            CourtReview(
+                id="review_council_file_backed_review_tie_b",
+                tenant_id=1,
+                task_id=task_id,
+                routing_plan_json='{"route":{"mode":"cluster"},"changed":true}',
+                review_status="edict_recorded",
+                ministry_outputs_json="[]",
+                conflict_summary_json="[]",
+                memorial_json='{"title":"并列新奏折"}',
+                created_at=now,
+                updated_at="2026-07-28T00:01:00+00:00",
+            )
+        )
+        other.commit()
+        other.close()
+        return fake_swarm_result
+
+    with (
+        patch(
+            "src.swarm_execution_loop.run_swarm_execution_loop",
+            side_effect=insert_tied_review_from_independent_session,
+        ),
+        patch("src.swarm_persistence.persist_swarm_execution_result") as persist_result,
+        patch("src.swarm_persistence.attach_swarm_result_to_review") as attach_result,
+    ):
+        result = process_event(db, event_id)
+
+    assert result["status"] == "superseded"
+    assert result["result"]["reason"] == "ambiguous_review_authority"
+    persist_result.assert_not_called()
+    attach_result.assert_not_called()
+    db.close()
+    engine.dispose()
 
 
 def test_council_rechecks_terminal_task_after_started_timeline_commit(
