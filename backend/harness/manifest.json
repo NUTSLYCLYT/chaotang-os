@@ -36,8 +36,8 @@
     {
       "id": "chaotang-true-loop",
       "summary": "真实闭环契约 harness",
-      "required": ["README.md", "golden_cases/true_loop_cases.json", "scripts/run_true_loop_contract.py"],
-      "tests": []
+      "required": ["README.md", "golden_cases/true_loop_cases.json", "scripts/run_true_loop_contract.py", "product_acceptance/README.md", "product_acceptance/golden_cases/w08_contracts.json", "product_acceptance/scripts/run_w08_acceptance.py"],
+      "tests": ["tests/test_w08_product_acceptance_harness.py"]
     },
     {
       "id": "deep-research-skill-distillation",

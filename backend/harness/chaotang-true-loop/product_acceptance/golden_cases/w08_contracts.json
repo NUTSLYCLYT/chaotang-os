@@ -1,0 +1,91 @@
+{
+  "schema_version": "chaotang_product_acceptance.v1",
+  "mode": "RUNNABLE_MINIMUM",
+  "targets": {
+    "golden_contracts_final": 36,
+    "real_backend_browser_runs_final": 10,
+    "non_developer_users_final": 5,
+    "non_developer_users_success_minimum": 4
+  },
+  "cases": [
+    {
+      "case_id": "w08-cn-manufacturing-procurement-001",
+      "category": "payment_acceptance_liability",
+      "redaction": "synthetic_no_customer_secret",
+      "contract_language": "zh-CN",
+      "contract_type": "procurement",
+      "our_role": "buyer",
+      "upload": {
+        "surface": "/shangshufang",
+        "input_kind": "contract_text",
+        "source_label": "LIVE",
+        "text_digest": "f2e78e094d0dc868c28a8f1a81bd5dc79e6753dbbc172e57c705a5311ad3734d"
+      },
+      "mission_contract": {
+        "required": true,
+        "jurisdiction": "CN_MAINLAND",
+        "language": "zh-CN",
+        "legal_question": "contract_risk_screening"
+      },
+      "evidence_packet": {
+        "required": true,
+        "source_labels": ["TASK_EVIDENCE"],
+        "requires_original_anchor": true
+      },
+      "expected_risks": [
+        {
+          "risk_family": "payment",
+          "minimum_level": "medium",
+          "expected_clause": "验收后付款"
+        },
+        {
+          "risk_family": "acceptance",
+          "minimum_level": "medium",
+          "expected_clause": "异议期"
+        },
+        {
+          "risk_family": "liability",
+          "minimum_level": "medium",
+          "expected_clause": "责任上限"
+        }
+      ],
+      "contract_review_pack": {
+        "required": true,
+        "artifact_kinds": ["PDF", "DOCX", "JSON"],
+        "lineage_fields": [
+          "mission_contract_id",
+          "evidence_packet_ids",
+          "risk_item_ids",
+          "final_memorial_id",
+          "artifact_manifest_id",
+          "archive_id"
+        ]
+      },
+      "browser_flow": {
+        "backend": "real",
+        "frontend_surfaces": ["/shangshufang", "/shiguan"],
+        "mocking": "forbidden",
+        "canonical_steps": [
+          "upload_contract",
+          "parse_mission_contract",
+          "review_risks",
+          "supplement_evidence",
+          "decide_risk",
+          "generate_contract_review_pack",
+          "download_artifacts",
+          "reopen_audit"
+        ]
+      },
+      "download": {
+        "authorized": true,
+        "requires_artifact_hashes": true,
+        "requires_expiry": true
+      },
+      "audit_replay": {
+        "surface": "/shiguan",
+        "same_lineage_required": true,
+        "read_only": true
+      }
+    }
+  ]
+}
