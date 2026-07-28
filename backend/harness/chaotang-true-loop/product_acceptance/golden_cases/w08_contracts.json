@@ -86,6 +86,376 @@
         "same_lineage_required": true,
         "read_only": true
       }
+    },
+    {
+      "case_id": "w08-cn-manufacturing-procurement-002",
+      "category": "delivery_delay",
+      "redaction": "synthetic_no_customer_secret",
+      "contract_language": "zh-CN",
+      "contract_type": "procurement",
+      "our_role": "buyer",
+      "upload": {
+        "surface": "/shangshufang",
+        "input_kind": "contract_text",
+        "source_label": "LIVE",
+        "text_digest": "e3d6f3e196f347b6b5482a4e9bc53e9796ff4cb1e20f9086d981e5d9c9df26a4"
+      },
+      "mission_contract": {
+        "required": true,
+        "jurisdiction": "CN_MAINLAND",
+        "language": "zh-CN",
+        "legal_question": "contract_risk_screening"
+      },
+      "evidence_packet": {
+        "required": true,
+        "source_labels": ["TASK_EVIDENCE"],
+        "requires_original_anchor": true
+      },
+      "expected_risks": [
+        {
+          "risk_family": "delivery",
+          "minimum_level": "medium",
+          "expected_clause": "分批交付"
+        },
+        {
+          "risk_family": "liability",
+          "minimum_level": "medium",
+          "expected_clause": "逾期违约金"
+        }
+      ],
+      "contract_review_pack": {
+        "required": true,
+        "artifact_kinds": ["PDF", "DOCX", "JSON"],
+        "lineage_fields": [
+          "mission_contract_id",
+          "evidence_packet_ids",
+          "risk_item_ids",
+          "final_memorial_id",
+          "artifact_manifest_id",
+          "archive_id"
+        ]
+      },
+      "browser_flow": {
+        "backend": "real",
+        "frontend_surfaces": ["/shangshufang", "/shiguan"],
+        "mocking": "forbidden",
+        "canonical_steps": [
+          "upload_contract",
+          "parse_mission_contract",
+          "review_risks",
+          "supplement_evidence",
+          "decide_risk",
+          "generate_contract_review_pack",
+          "download_artifacts",
+          "reopen_audit"
+        ]
+      },
+      "download": {
+        "authorized": true,
+        "requires_artifact_hashes": true,
+        "requires_expiry": true
+      },
+      "audit_replay": {
+        "surface": "/shiguan",
+        "same_lineage_required": true,
+        "read_only": true
+      }
+    },
+    {
+      "case_id": "w08-cn-manufacturing-quality-003",
+      "category": "acceptance_warranty",
+      "redaction": "synthetic_no_customer_secret",
+      "contract_language": "zh-CN",
+      "contract_type": "service",
+      "our_role": "buyer",
+      "upload": {
+        "surface": "/shangshufang",
+        "input_kind": "contract_text",
+        "source_label": "LIVE",
+        "text_digest": "9965dcd35b90f40b35d9d4a7473401e27f32131fda5d63c91b6614c111ff9e8e"
+      },
+      "mission_contract": {
+        "required": true,
+        "jurisdiction": "CN_MAINLAND",
+        "language": "zh-CN",
+        "legal_question": "contract_risk_screening"
+      },
+      "evidence_packet": {
+        "required": true,
+        "source_labels": ["TASK_EVIDENCE"],
+        "requires_original_anchor": true
+      },
+      "expected_risks": [
+        {
+          "risk_family": "acceptance",
+          "minimum_level": "medium",
+          "expected_clause": "验收标准"
+        },
+        {
+          "risk_family": "warranty",
+          "minimum_level": "medium",
+          "expected_clause": "质保期"
+        }
+      ],
+      "contract_review_pack": {
+        "required": true,
+        "artifact_kinds": ["PDF", "DOCX", "JSON"],
+        "lineage_fields": [
+          "mission_contract_id",
+          "evidence_packet_ids",
+          "risk_item_ids",
+          "final_memorial_id",
+          "artifact_manifest_id",
+          "archive_id"
+        ]
+      },
+      "browser_flow": {
+        "backend": "real",
+        "frontend_surfaces": ["/shangshufang", "/shiguan"],
+        "mocking": "forbidden",
+        "canonical_steps": [
+          "upload_contract",
+          "parse_mission_contract",
+          "review_risks",
+          "supplement_evidence",
+          "decide_risk",
+          "generate_contract_review_pack",
+          "download_artifacts",
+          "reopen_audit"
+        ]
+      },
+      "download": {
+        "authorized": true,
+        "requires_artifact_hashes": true,
+        "requires_expiry": true
+      },
+      "audit_replay": {
+        "surface": "/shiguan",
+        "same_lineage_required": true,
+        "read_only": true
+      }
+    },
+    {
+      "case_id": "w08-cn-manufacturing-oem-004",
+      "category": "ip_confidentiality",
+      "redaction": "synthetic_no_customer_secret",
+      "contract_language": "zh-CN",
+      "contract_type": "service",
+      "our_role": "buyer",
+      "upload": {
+        "surface": "/shangshufang",
+        "input_kind": "contract_text",
+        "source_label": "LIVE",
+        "text_digest": "b2bc6e7ecf84182117b756aa2983582b4f103eb6f86290dc207cd33fb3a4769b"
+      },
+      "mission_contract": {
+        "required": true,
+        "jurisdiction": "CN_MAINLAND",
+        "language": "zh-CN",
+        "legal_question": "contract_risk_screening"
+      },
+      "evidence_packet": {
+        "required": true,
+        "source_labels": ["TASK_EVIDENCE"],
+        "requires_original_anchor": true
+      },
+      "expected_risks": [
+        {
+          "risk_family": "ip",
+          "minimum_level": "medium",
+          "expected_clause": "工艺图纸归属"
+        },
+        {
+          "risk_family": "confidentiality",
+          "minimum_level": "medium",
+          "expected_clause": "保密期限"
+        }
+      ],
+      "contract_review_pack": {
+        "required": true,
+        "artifact_kinds": ["PDF", "DOCX", "JSON"],
+        "lineage_fields": [
+          "mission_contract_id",
+          "evidence_packet_ids",
+          "risk_item_ids",
+          "final_memorial_id",
+          "artifact_manifest_id",
+          "archive_id"
+        ]
+      },
+      "browser_flow": {
+        "backend": "real",
+        "frontend_surfaces": ["/shangshufang", "/shiguan"],
+        "mocking": "forbidden",
+        "canonical_steps": [
+          "upload_contract",
+          "parse_mission_contract",
+          "review_risks",
+          "supplement_evidence",
+          "decide_risk",
+          "generate_contract_review_pack",
+          "download_artifacts",
+          "reopen_audit"
+        ]
+      },
+      "download": {
+        "authorized": true,
+        "requires_artifact_hashes": true,
+        "requires_expiry": true
+      },
+      "audit_replay": {
+        "surface": "/shiguan",
+        "same_lineage_required": true,
+        "read_only": true
+      }
+    },
+    {
+      "case_id": "w08-cn-manufacturing-framework-005",
+      "category": "termination_liability",
+      "redaction": "synthetic_no_customer_secret",
+      "contract_language": "zh-CN",
+      "contract_type": "sales",
+      "our_role": "seller",
+      "upload": {
+        "surface": "/shangshufang",
+        "input_kind": "contract_text",
+        "source_label": "LIVE",
+        "text_digest": "9ef7e4fe25a42b080ec4c94f51ad9fe790eb0b78d8464fc0c83bb1c4551944c3"
+      },
+      "mission_contract": {
+        "required": true,
+        "jurisdiction": "CN_MAINLAND",
+        "language": "zh-CN",
+        "legal_question": "contract_risk_screening"
+      },
+      "evidence_packet": {
+        "required": true,
+        "source_labels": ["TASK_EVIDENCE"],
+        "requires_original_anchor": true
+      },
+      "expected_risks": [
+        {
+          "risk_family": "termination",
+          "minimum_level": "medium",
+          "expected_clause": "单方解除"
+        },
+        {
+          "risk_family": "liability",
+          "minimum_level": "medium",
+          "expected_clause": "间接损失"
+        }
+      ],
+      "contract_review_pack": {
+        "required": true,
+        "artifact_kinds": ["PDF", "DOCX", "JSON"],
+        "lineage_fields": [
+          "mission_contract_id",
+          "evidence_packet_ids",
+          "risk_item_ids",
+          "final_memorial_id",
+          "artifact_manifest_id",
+          "archive_id"
+        ]
+      },
+      "browser_flow": {
+        "backend": "real",
+        "frontend_surfaces": ["/shangshufang", "/shiguan"],
+        "mocking": "forbidden",
+        "canonical_steps": [
+          "upload_contract",
+          "parse_mission_contract",
+          "review_risks",
+          "supplement_evidence",
+          "decide_risk",
+          "generate_contract_review_pack",
+          "download_artifacts",
+          "reopen_audit"
+        ]
+      },
+      "download": {
+        "authorized": true,
+        "requires_artifact_hashes": true,
+        "requires_expiry": true
+      },
+      "audit_replay": {
+        "surface": "/shiguan",
+        "same_lineage_required": true,
+        "read_only": true
+      }
+    },
+    {
+      "case_id": "w08-cn-manufacturing-export-006",
+      "category": "dispute_compliance",
+      "redaction": "synthetic_no_customer_secret",
+      "contract_language": "zh-CN",
+      "contract_type": "sales",
+      "our_role": "seller",
+      "upload": {
+        "surface": "/shangshufang",
+        "input_kind": "contract_text",
+        "source_label": "LIVE",
+        "text_digest": "4afb9f095eb66e2e86e3a3768242a813806a80c4d71de9f3d15115aa998a3e07"
+      },
+      "mission_contract": {
+        "required": true,
+        "jurisdiction": "CN_MAINLAND",
+        "language": "zh-CN",
+        "legal_question": "contract_risk_screening"
+      },
+      "evidence_packet": {
+        "required": true,
+        "source_labels": ["TASK_EVIDENCE"],
+        "requires_original_anchor": true
+      },
+      "expected_risks": [
+        {
+          "risk_family": "dispute",
+          "minimum_level": "medium",
+          "expected_clause": "仲裁地"
+        },
+        {
+          "risk_family": "compliance",
+          "minimum_level": "medium",
+          "expected_clause": "出口管制"
+        }
+      ],
+      "contract_review_pack": {
+        "required": true,
+        "artifact_kinds": ["PDF", "DOCX", "JSON"],
+        "lineage_fields": [
+          "mission_contract_id",
+          "evidence_packet_ids",
+          "risk_item_ids",
+          "final_memorial_id",
+          "artifact_manifest_id",
+          "archive_id"
+        ]
+      },
+      "browser_flow": {
+        "backend": "real",
+        "frontend_surfaces": ["/shangshufang", "/shiguan"],
+        "mocking": "forbidden",
+        "canonical_steps": [
+          "upload_contract",
+          "parse_mission_contract",
+          "review_risks",
+          "supplement_evidence",
+          "decide_risk",
+          "generate_contract_review_pack",
+          "download_artifacts",
+          "reopen_audit"
+        ]
+      },
+      "download": {
+        "authorized": true,
+        "requires_artifact_hashes": true,
+        "requires_expiry": true
+      },
+      "audit_replay": {
+        "surface": "/shiguan",
+        "same_lineage_required": true,
+        "read_only": true
+      }
     }
   ]
 }

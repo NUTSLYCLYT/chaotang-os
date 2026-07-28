@@ -27,6 +27,33 @@ REQUIRED_BROWSER_STEPS = {
     "download_artifacts",
     "reopen_audit",
 }
+MANUFACTURING_B2B_RISK_FAMILIES = {
+    "acceptance",
+    "compliance",
+    "confidentiality",
+    "delivery",
+    "dispute",
+    "ip",
+    "liability",
+    "payment",
+    "termination",
+    "warranty",
+}
+
+
+def coverage_for(cases: list[dict[str, Any]]) -> dict[str, Any]:
+    case_ids = [str(case.get("case_id") or "") for case in cases]
+    categories = sorted({str(case.get("category") or "") for case in cases})
+    risk_families = sorted({
+        str(risk.get("risk_family") or "")
+        for case in cases
+        for risk in (case.get("expected_risks") or [])
+    })
+    return {
+        "case_ids_unique": len(case_ids) == len(set(case_ids)),
+        "categories": categories,
+        "risk_families": risk_families,
+    }
 
 
 def load_payload(path: Path = DEFAULT_CASES) -> dict[str, Any]:
@@ -83,7 +110,7 @@ def validate_case(case: dict[str, Any]) -> dict[str, Any]:
     risks = case.get("expected_risks") or []
     _require(len(risks) >= 1, "at least one expected risk is required", failures)
     risk_families = {str(risk.get("risk_family")) for risk in risks}
-    _require(bool({"payment", "delivery", "acceptance", "liability"} & risk_families), "expected risks must cover manufacturing/B2B clauses", failures)
+    _require(bool(MANUFACTURING_B2B_RISK_FAMILIES & risk_families), "expected risks must cover manufacturing/B2B clauses", failures)
 
     review_pack = case.get("contract_review_pack") or {}
     artifact_kinds = set(review_pack.get("artifact_kinds") or [])
@@ -138,6 +165,9 @@ def validate_payload(payload: dict[str, Any]) -> list[str]:
     _require(targets.get("real_backend_browser_runs_final") == 10, "final W08 target must be 10 browser runs", failures)
     _require(targets.get("non_developer_users_final") == 5, "final W08 target must be five non-developer users", failures)
     _require(targets.get("non_developer_users_success_minimum") == 4, "final W08 target must require four user successes", failures)
+    cases = payload.get("cases") or []
+    coverage = coverage_for(cases)
+    _require(coverage["case_ids_unique"] is True, "case_id values must be unique", failures)
     return failures
 
 
@@ -152,6 +182,7 @@ def run(path: Path = DEFAULT_CASES) -> dict[str, Any]:
         "mode": payload.get("mode"),
         "targets": payload.get("targets"),
         "cases": len(records),
+        "coverage": coverage_for(cases),
         "passed": passed,
         "failures": payload_failures,
         "records": records,

@@ -33,7 +33,7 @@ def test_w08_runnable_minimum_acceptance_contract_passes():
 
     assert result["passed"] is True
     assert result["mode"] == "RUNNABLE_MINIMUM"
-    assert result["cases"] == 1
+    assert result["cases"] == 6
     assert result["targets"] == {
         "golden_contracts_final": 36,
         "real_backend_browser_runs_final": 10,
@@ -42,6 +42,27 @@ def test_w08_runnable_minimum_acceptance_contract_passes():
     }
     assert result["records"][0]["case_id"] == "w08-cn-manufacturing-procurement-001"
     assert result["records"][0]["failures"] == []
+    assert result["coverage"]["case_ids_unique"] is True
+    assert result["coverage"]["categories"] == [
+        "acceptance_warranty",
+        "delivery_delay",
+        "dispute_compliance",
+        "ip_confidentiality",
+        "payment_acceptance_liability",
+        "termination_liability",
+    ]
+    assert result["coverage"]["risk_families"] == [
+        "acceptance",
+        "compliance",
+        "confidentiality",
+        "delivery",
+        "dispute",
+        "ip",
+        "liability",
+        "payment",
+        "termination",
+        "warranty",
+    ]
 
 
 def test_w08_acceptance_rejects_mock_browser_or_missing_replay():
