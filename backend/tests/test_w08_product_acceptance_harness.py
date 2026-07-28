@@ -33,7 +33,7 @@ def test_w08_runnable_minimum_acceptance_contract_passes():
 
     assert result["passed"] is True
     assert result["mode"] == "RUNNABLE_MINIMUM"
-    assert result["cases"] == 30
+    assert result["cases"] == 36
     assert result["targets"] == {
         "golden_contracts_final": 36,
         "real_backend_browser_runs_final": 10,
@@ -44,18 +44,22 @@ def test_w08_runnable_minimum_acceptance_contract_passes():
     assert result["records"][0]["failures"] == []
     assert result["coverage"]["case_ids_unique"] is True
     assert result["coverage"]["categories"] == [
+        "acceptance_dispute_escalation",
         "acceptance_warranty",
         "advance_payment_security",
         "commissioned_rd_ip",
+        "compliance_audit_trace",
         "consignment_inventory_payment",
         "custom_equipment_change_order",
         "delivery_delay",
         "dispute_compliance",
         "embedded_software_license",
+        "engineering_change_freeze",
         "environmental_compliance_liability",
         "equipment_finance_lease",
         "equipment_maintenance_sla",
         "export_documents_payment",
+        "force_majeure_allocation",
         "framework_price_supply",
         "installation_acceptance_delay",
         "ip_confidentiality",
@@ -64,6 +68,7 @@ def test_w08_runnable_minimum_acceptance_contract_passes():
         "oem_quality_indemnity",
         "packaging_label_compliance",
         "payment_acceptance_liability",
+        "payment_guarantee_release",
         "quality_deposit_retention",
         "raw_material_price_adjustment",
         "recall_compliance_warranty",
@@ -71,6 +76,7 @@ def test_w08_runnable_minimum_acceptance_contract_passes():
         "spare_parts_supply",
         "subcontract_confidentiality_quality",
         "supplier_audit_right",
+        "technical_data_delivery",
         "termination_liability",
         "tooling_payment_ip",
         "warranty_service_liability",
