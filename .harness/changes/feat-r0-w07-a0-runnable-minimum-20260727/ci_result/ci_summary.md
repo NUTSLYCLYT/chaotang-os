@@ -106,6 +106,11 @@
 | ambiguous-review outbox suite | 0 | 42 passed | direct/council/rework worker regression | 2026-07-28 |
 | ambiguous-review Ruff | 0 | All checks passed | `src/execution/outbox_worker.py` and `tests/test_outbox_worker.py` | 2026-07-28 |
 | ambiguous-review `git diff --check` | 0 | pass | implementation diff integrity | 2026-07-28 |
+| swarm-runs binding TDD RED | 1 | 2 failed | create/retry accepted same-user cross-tenant `CourtReview` binding | 2026-07-28 |
+| swarm-runs binding TDD GREEN | 0 | 2 passed | create/retry deny cross-tenant review id and do not call swarm/attach | 2026-07-28 |
+| swarm-runs related suite | 0 | 57 passed | `/api/swarm-runs` contract/chancellor/loop + P0-B ownership | 2026-07-28 |
+| swarm-runs expanded backend | 0 | 248 passed, 2 warnings | W07 read model、outbox、artifact、W05、P0-B、swarm routes | 2026-07-28 |
+| swarm-runs Ruff + `git diff --check` | 0 | All checks passed + pass | changed route/tests and diff integrity | 2026-07-28 |
 
 ## 结果
 
@@ -171,9 +176,11 @@ implementation `1d6e7f083843050f00def874ac2cbc4da04d8103` 的 fresh review
 两个 MEDIUM 已在 exact implementation
 `ab9125d1c055c3a5f11975c556d67e6635954edb`、tree
 `b9feb081235499c86ca340e12d6f12b3db064cee` 按 TDD 闭环并通过上表 fresh
-verification。剩余 HIGH 指向 `backend/web/routers/swarm_runs.py`，该文件不在
-当前明确文件范围和 diff 内，状态为
-`SCOPE_AMENDMENT_REQUIRED / NOT_DEPLOYED`；不得宣布 GO 或整合 EXT。
+verification。剩余 HIGH 指向 `backend/web/routers/swarm_runs.py`，Product Owner
+已批准 scope amendment；已在 exact implementation
+`e31ed4983fea9abc8251589539367a0cdce5569a`、tree
+`2dd85a3fc37737f9568500abb0fd9dc1d9a90f81` 按 TDD 闭环并通过上表 fresh
+verification。当前等待该 exact candidate 两路独立只读审查；仍不得整合 EXT。
 
 ## 全仓既有 Residual
 

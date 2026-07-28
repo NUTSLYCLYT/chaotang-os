@@ -458,10 +458,33 @@ implementation `1d6e7f083843050f00def874ac2cbc4da04d8103`、tree
 
 剩余 scope conflict：
 
-- `backend/web/routers/swarm_runs.py` 需要单独 Product Owner 批准后才能修改。
-- 当前 Packet 状态为
-  `IMPLEMENTATION_CANDIDATE_FROZEN / SCOPE_AMENDMENT_REQUIRED / NOT_DEPLOYED`。
-  不得宣称 W07-A0 GO，不得整合 EXT。
+- Product Owner 已批准修改 `backend/web/routers/swarm_runs.py` 与 focused tests。
+- scope conflict 已解除，进入 TDD remediation。
+
+## Swarm Runs Review Binding Remediation Evidence
+
+scope amendment 已在 implementation `e31ed4983fea9abc8251589539367a0cdce5569a`、
+tree `2dd85a3fc37737f9568500abb0fd9dc1d9a90f81` 完成。
+
+| Finding | Remediation | Fresh evidence |
+| --- | --- | --- |
+| explicit cross-tenant review id | `_default_context` 校验 task user、request tenant、review task_id、review tenant 与 task tenant；失败时不进入 swarm | RED 2 failed → GREEN 2 passed |
+| retry stored wrong review id | retry 构造 body 后复用 create 的同一 lock/context guard | retry probe zero swarm/attach |
+| non-outbox writer fence | create/serial 入口先取得 `lock_decision_task`，direct/full persist 只写校验过的 review | related suite 57 passed；expanded backend 248 passed |
+
+exact implementation candidate：
+
+- H `e31ed4983fea9abc8251589539367a0cdce5569a`
+- tree `2dd85a3fc37737f9568500abb0fd9dc1d9a90f81`
+- parent `0be0a4a5cedc50570e2c0ad0818977ec4d400873`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `b4d7633c471f2e12dfcd2c931d0634b0dab923b3f005ecbc0ba5f0e0257546cb`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本节只登记待审候选，不预判两路 Codex 独立只读审查结论。
 
 ## Review Verdict For 7745743d
 

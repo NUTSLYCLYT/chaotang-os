@@ -104,8 +104,12 @@
 - [x] 冻结 in-scope implementation candidate
   `ab9125d1c055c3a5f11975c556d67e6635954edb` /
   `b9feb081235499c86ca340e12d6f12b3db064cee`。
-- [ ] 取得 `backend/web/routers/swarm_runs.py` scope amendment，或由 Product
-  Owner 明确将该公开 API 从 W07-A0 验收面排除。
+- [x] 取得 `backend/web/routers/swarm_runs.py` scope amendment。
+- [x] TDD 修复 `/api/swarm-runs` create/retry cross-tenant review binding 与
+  non-outbox writer fence。
+- [x] 冻结 implementation candidate
+  `e31ed4983fea9abc8251589539367a0cdce5569a` /
+  `2dd85a3fc37737f9568500abb0fd9dc1d9a90f81`。
 - [ ] 在 scope conflict 解除后的 exact candidate 上取得 two-pass GO。
 - [ ] 冻结 exact candidate H/tree 和 `RUNNABLE_MINIMUM` receipt。
 

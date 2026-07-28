@@ -9,14 +9,14 @@
 | --- | --- |
 | Change ID | feat-r0-w07-a0-runnable-minimum-20260727 |
 | 类型 | feat |
-| 状态 | `IMPLEMENTATION_CANDIDATE_FROZEN / SCOPE_AMENDMENT_REQUIRED / NOT_DEPLOYED` |
+| 状态 | `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING / NOT_DEPLOYED` |
 | Owner | Codex W07 Implementation Lead |
 | Product Owner | `lyt` |
 | 创建日期 | `2026-07-27` |
 | Base H | `ed822255a452e8dd8dda8f86a180fd7c099b181e` |
 | Base tree | `0a56a0eab0135dcf46c31e5ae2cbc46f501cfdcb` |
-| Implementation candidate H | `ab9125d1c055c3a5f11975c556d67e6635954edb` |
-| Implementation candidate tree | `b9feb081235499c86ca340e12d6f12b3db064cee` |
+| Implementation candidate H | `e31ed4983fea9abc8251589539367a0cdce5569a` |
+| Implementation candidate tree | `2dd85a3fc37737f9568500abb0fd9dc1d9a90f81` |
 | Integration target | local `feature-chaotang-ext` |
 | Authority before first edit | v1 `VALID_INACTIVE_GUARD`; v2 W07 `GO / APPROVED_WORK_PACKAGE` |
 
@@ -261,9 +261,33 @@ fresh in-scope implementation candidate：
   `IMPLEMENTATION_CANDIDATE_FROZEN / SCOPE_AMENDMENT_REQUIRED /
   NOT_DEPLOYED`
 
-当前不得宣布 W07-A0 GO，也不得整合 EXT。下一步只能由 Product Owner 明确批准
-包含 `backend/web/routers/swarm_runs.py` 与 focused tests 的 scope amendment，
-或明确将该公开 API 从 W07-A0 验收面排除。
+Product Owner 已批准包含 `backend/web/routers/swarm_runs.py` 与 focused tests 的
+scope amendment。
+
+## Swarm Runs Review Binding Remediation
+
+scope amendment 已按 TDD 执行：`/api/swarm-runs` create/serial/retry 现在在入口
+事务中取得共享 DecisionTask lock；task 必须匹配当前 user，且非空 tenant 必须匹配
+当前请求 tenant；显式 `review_id` 必须存在、属于同一 task，并与 task/request tenant
+一致。direct short-circuit 和 full swarm persist 都只消费已经校验过的 review 对象，
+不再二次裸查 `CourtReview.id` 后写入。
+
+fresh implementation candidate：
+
+- H `e31ed4983fea9abc8251589539367a0cdce5569a`
+- tree `2dd85a3fc37737f9568500abb0fd9dc1d9a90f81`
+- parent `0be0a4a5cedc50570e2c0ad0818977ec4d400873`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `b4d7633c471f2e12dfcd2c931d0634b0dab923b3f005ecbc0ba5f0e0257546cb`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+fresh evidence：RED 两个 cross-tenant review probes 先失败；GREEN 后 create 和
+retry 均拒绝同用户跨 tenant `CourtReview` 绑定且未调用 swarm/attach。相关后端套件
+`57 passed`，expanded backend suite `248 passed`，Ruff 和 `git diff --check`
+均通过。当前仍不得整合 EXT，需等 exact candidate 两路独立只读审查。
 
 ## Seventh Review Final Remediation Candidate
 
