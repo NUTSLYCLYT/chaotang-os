@@ -3,6 +3,7 @@
 Before requesting W08 closeout, the Product Acceptance Owner must provide:
 
 - one approved JSON file under `user_acceptance/records/`
+- no closeout evidence JSON outside `user_acceptance/records/`
 - 5 participant records
 - at least 4 successful completions
 - no development participants
@@ -26,6 +27,9 @@ python3 backend/harness/chaotang-true-loop/product_acceptance/scripts/run_w08_ac
 python3 backend/harness/chaotang-true-loop/product_acceptance/scripts/run_w08_acceptance.py \
   --closeout-preflight
 ```
+
+Closeout preflight rejects explicit `--user-acceptance` paths outside
+`user_acceptance/records/`.
 
 ## Closeout Boundary
 

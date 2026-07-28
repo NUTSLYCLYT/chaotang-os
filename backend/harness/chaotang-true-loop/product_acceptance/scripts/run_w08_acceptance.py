@@ -328,6 +328,20 @@ def discover_user_acceptance_path(records_dir: Path = DEFAULT_USER_ACCEPTANCE_RE
     return run_user_acceptance(candidates[0])
 
 
+def validate_closeout_user_acceptance_path(path: Path, records_dir: Path = DEFAULT_USER_ACCEPTANCE_RECORDS_DIR) -> dict[str, Any]:
+    try:
+        path.resolve().relative_to(records_dir.resolve())
+    except ValueError:
+        return {
+            "passed": False,
+            "records": 0,
+            "successes": 0,
+            "failures": ["explicit user acceptance path must be inside records/"],
+            "evidencePath": str(path),
+        }
+    return run_user_acceptance(path)
+
+
 def validate_browser_flow_evidence(repo_root: Path = REPO_ROOT) -> dict[str, Any]:
     failures: list[str] = []
     records: list[dict[str, Any]] = []
@@ -375,7 +389,7 @@ def run_closeout_preflight(
     if user_acceptance_path is None:
         user = discover_user_acceptance_path(records_dir)
     else:
-        user = run_user_acceptance(user_acceptance_path)
+        user = validate_closeout_user_acceptance_path(user_acceptance_path, records_dir)
 
     gates = {
         "golden_contracts": {

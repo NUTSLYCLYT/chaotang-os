@@ -319,7 +319,9 @@ def test_w08_closeout_preflight_blocks_ambiguous_records_files(tmp_path):
 
 def test_w08_closeout_preflight_passes_with_complete_user_acceptance(tmp_path):
     runner = _load_runner()
-    evidence_path = tmp_path / "w08_user_acceptance.json"
+    records_dir = tmp_path / "records"
+    records_dir.mkdir()
+    evidence_path = records_dir / "w08_user_acceptance.json"
     evidence_path.write_text(
         json.dumps({
             "schemaVersion": "w08-user-acceptance.v1",
@@ -329,13 +331,35 @@ def test_w08_closeout_preflight_passes_with_complete_user_acceptance(tmp_path):
         encoding="utf-8",
     )
 
-    result = runner.run_closeout_preflight(user_acceptance_path=evidence_path)
+    result = runner.run_closeout_preflight(user_acceptance_path=evidence_path, records_dir=records_dir)
 
     assert result["passed"] is True
     assert result["decision"] == "READY_FOR_CLOSEOUT"
     assert result["gates"]["golden_contracts"]["passed"] is True
     assert result["gates"]["browser_flows"]["passed"] is True
     assert result["gates"]["user_acceptance"]["successes"] == 5
+
+
+def test_w08_closeout_preflight_blocks_explicit_user_acceptance_outside_records(tmp_path):
+    runner = _load_runner()
+    records_dir = tmp_path / "records"
+    records_dir.mkdir()
+    evidence_path = tmp_path / "drafts" / "w08_user_acceptance.json"
+    evidence_path.parent.mkdir()
+    evidence_path.write_text(
+        json.dumps({
+            "schemaVersion": "w08-user-acceptance.v1",
+            "mode": "FINAL_USER_ACCEPTANCE",
+            "records": [_successful_user(f"user-{index:03d}") for index in range(1, 6)],
+        }),
+        encoding="utf-8",
+    )
+
+    result = runner.run_closeout_preflight(user_acceptance_path=evidence_path, records_dir=records_dir)
+
+    assert result["passed"] is False
+    assert result["decision"] == "BLOCKED"
+    assert "explicit user acceptance path must be inside records/" in result["failures"]
 
 
 def test_w08_user_acceptance_fixture_documents_valid_shape_without_claiming_real_evidence():
