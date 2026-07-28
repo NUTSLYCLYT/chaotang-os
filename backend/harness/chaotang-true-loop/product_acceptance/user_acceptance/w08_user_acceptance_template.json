@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "w08-user-acceptance.v1",
+  "mode": "FINAL_USER_ACCEPTANCE",
+  "records": [
+    {
+      "participant_id": "user-001",
+      "target_profile": "manufacturing_contract_operator",
+      "involved_in_development": false,
+      "unassisted": true,
+      "engineer_guidance": false,
+      "completed_steps": [
+        "upload_contract",
+        "parse_mission_contract",
+        "review_risks",
+        "supplement_evidence",
+        "decide_risk",
+        "generate_contract_review_pack",
+        "download_artifacts",
+        "reopen_shiguan_audit"
+      ],
+      "completion_success": true,
+      "first_value_seconds": 0,
+      "evidence": {
+        "contract_review_pack_id": "",
+        "artifact_manifest_id": "",
+        "archive_receipt_id": "",
+        "browser_evidence_ref": ""
+      },
+      "feedback_deidentified": true
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 
 
@@ -134,3 +135,117 @@ def test_w08_acceptance_requires_review_pack_artifacts_and_lineage():
     assert result["passed"] is False
     assert "ContractReviewPack must require PDF, DOCX, and JSON artifacts" in result["failures"]
     assert "ContractReviewPack lineage must bind mission, evidence, risk, final, manifest, and archive" in result["failures"]
+
+
+def _successful_user(participant_id: str, first_value_seconds: int = 150) -> dict:
+    return {
+        "participant_id": participant_id,
+        "target_profile": "manufacturing_contract_operator",
+        "involved_in_development": False,
+        "unassisted": True,
+        "engineer_guidance": False,
+        "completed_steps": [
+            "upload_contract",
+            "parse_mission_contract",
+            "review_risks",
+            "supplement_evidence",
+            "decide_risk",
+            "generate_contract_review_pack",
+            "download_artifacts",
+            "reopen_shiguan_audit",
+        ],
+        "completion_success": True,
+        "first_value_seconds": first_value_seconds,
+        "evidence": {
+            "contract_review_pack_id": f"crp-{participant_id}",
+            "artifact_manifest_id": f"am-{participant_id}",
+            "archive_receipt_id": f"ar-{participant_id}",
+            "browser_evidence_ref": f"ci_result/artifacts/usability/{participant_id}.json",
+        },
+        "feedback_deidentified": True,
+    }
+
+
+def test_w08_user_acceptance_requires_five_non_developer_users_with_four_successes():
+    runner = _load_runner()
+    payload = {
+        "schemaVersion": "w08-user-acceptance.v1",
+        "mode": "FINAL_USER_ACCEPTANCE",
+        "records": [
+            _successful_user("user-001", 120),
+            _successful_user("user-002", 135),
+            _successful_user("user-003", 150),
+            _successful_user("user-004", 165),
+            {
+                **_successful_user("user-005", 240),
+                "completion_success": False,
+                "completed_steps": ["upload_contract"],
+            },
+        ],
+    }
+
+    result = runner.validate_user_acceptance_payload(payload)
+
+    assert result["passed"] is True
+    assert result["records"] == 5
+    assert result["successes"] == 4
+    assert result["median_first_value_seconds"] == 142.5
+
+
+def test_w08_user_acceptance_blocks_missing_real_records():
+    runner = _load_runner()
+
+    result = runner.validate_user_acceptance_payload({
+        "schemaVersion": "w08-user-acceptance.v1",
+        "mode": "FINAL_USER_ACCEPTANCE",
+        "records": [],
+    })
+
+    assert result["passed"] is False
+    assert "user acceptance requires five participant records" in result["failures"]
+
+
+def test_w08_user_acceptance_rejects_developer_or_assisted_sessions():
+    runner = _load_runner()
+    bad_user = {
+        **_successful_user("user-001"),
+        "involved_in_development": True,
+        "unassisted": False,
+        "engineer_guidance": True,
+        "feedback_deidentified": False,
+    }
+
+    result = runner.validate_user_acceptance_payload({
+        "schemaVersion": "w08-user-acceptance.v1",
+        "mode": "FINAL_USER_ACCEPTANCE",
+        "records": [
+            bad_user,
+            _successful_user("user-002"),
+            _successful_user("user-003"),
+            _successful_user("user-004"),
+            _successful_user("user-005"),
+        ],
+    })
+
+    assert result["passed"] is False
+    assert "user-001 must not be involved in development" in result["failures"]
+    assert "user-001 must complete without engineer guidance" in result["failures"]
+    assert "user-001 feedback must be deidentified" in result["failures"]
+
+
+def test_w08_user_acceptance_runner_reads_evidence_file(tmp_path):
+    runner = _load_runner()
+    evidence_path = tmp_path / "w08_user_acceptance.json"
+    evidence_path.write_text(
+        json.dumps({
+            "schemaVersion": "w08-user-acceptance.v1",
+            "mode": "FINAL_USER_ACCEPTANCE",
+            "records": [_successful_user(f"user-{index:03d}") for index in range(1, 6)],
+        }),
+        encoding="utf-8",
+    )
+
+    result = runner.run_user_acceptance(evidence_path)
+
+    assert result["passed"] is True
+    assert result["evidencePath"] == str(evidence_path)

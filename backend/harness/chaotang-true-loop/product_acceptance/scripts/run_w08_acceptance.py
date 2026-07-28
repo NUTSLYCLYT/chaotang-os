@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import statistics
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +28,16 @@ REQUIRED_BROWSER_STEPS = {
     "download_artifacts",
     "reopen_audit",
 }
+REQUIRED_USER_STEPS = {
+    "upload_contract",
+    "parse_mission_contract",
+    "review_risks",
+    "supplement_evidence",
+    "decide_risk",
+    "generate_contract_review_pack",
+    "download_artifacts",
+    "reopen_shiguan_audit",
+}
 MANUFACTURING_B2B_RISK_FAMILIES = {
     "acceptance",
     "compliance",
@@ -39,6 +50,11 @@ MANUFACTURING_B2B_RISK_FAMILIES = {
     "termination",
     "warranty",
 }
+USER_ACCEPTANCE_SCHEMA_VERSION = "w08-user-acceptance.v1"
+USER_ACCEPTANCE_MODE = "FINAL_USER_ACCEPTANCE"
+USER_ACCEPTANCE_TARGET = 5
+USER_ACCEPTANCE_SUCCESS_MINIMUM = 4
+FIRST_VALUE_SECONDS_TARGET = 180
 
 
 def coverage_for(cases: list[dict[str, Any]]) -> dict[str, Any]:
@@ -171,6 +187,102 @@ def validate_payload(payload: dict[str, Any]) -> list[str]:
     return failures
 
 
+def _validate_user_record(record: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    participant_id = str(record.get("participant_id") or "<missing participant_id>")
+    _require(record.get("target_profile") == "manufacturing_contract_operator", f"{participant_id} target_profile must be manufacturing_contract_operator", failures)
+    _require(record.get("involved_in_development") is False, f"{participant_id} must not be involved in development", failures)
+    _require(
+        record.get("unassisted") is True and record.get("engineer_guidance") is False,
+        f"{participant_id} must complete without engineer guidance",
+        failures,
+    )
+    _require(record.get("feedback_deidentified") is True, f"{participant_id} feedback must be deidentified", failures)
+
+    if record.get("completion_success") is True:
+        steps = set(record.get("completed_steps") or [])
+        _require(
+            REQUIRED_USER_STEPS.issubset(steps),
+            f"{participant_id} must complete upload, parse, review, supplement, decide, delivery, download, and replay",
+            failures,
+        )
+        first_value_seconds = record.get("first_value_seconds")
+        _require(
+            isinstance(first_value_seconds, (int, float)) and first_value_seconds > 0,
+            f"{participant_id} first_value_seconds must be positive",
+            failures,
+        )
+        evidence = record.get("evidence") or {}
+        for field in (
+            "contract_review_pack_id",
+            "artifact_manifest_id",
+            "archive_receipt_id",
+            "browser_evidence_ref",
+        ):
+            _require(bool(evidence.get(field)), f"{participant_id} evidence must include {field}", failures)
+
+    return failures
+
+
+def validate_user_acceptance_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    failures: list[str] = []
+    _require(payload.get("schemaVersion") == USER_ACCEPTANCE_SCHEMA_VERSION, f"schemaVersion must be {USER_ACCEPTANCE_SCHEMA_VERSION}", failures)
+    _require(payload.get("mode") == USER_ACCEPTANCE_MODE, f"mode must be {USER_ACCEPTANCE_MODE}", failures)
+
+    records = payload.get("records") or []
+    _require(isinstance(records, list), "records must be a list", failures)
+    if not isinstance(records, list):
+        records = []
+    _require(len(records) == USER_ACCEPTANCE_TARGET, "user acceptance requires five participant records", failures)
+
+    participant_ids = [str(record.get("participant_id") or "") for record in records]
+    _require(all(participant_ids), "every participant record requires participant_id", failures)
+    _require(len(participant_ids) == len(set(participant_ids)), "participant_id values must be unique", failures)
+
+    record_failures = [
+        failure
+        for record in records
+        for failure in _validate_user_record(record)
+    ]
+    failures.extend(record_failures)
+
+    successes = [
+        record
+        for record in records
+        if record.get("completion_success") is True and not _validate_user_record(record)
+    ]
+    _require(len(successes) >= USER_ACCEPTANCE_SUCCESS_MINIMUM, "user acceptance requires at least four successful completions", failures)
+
+    first_value_seconds = [
+        float(record["first_value_seconds"])
+        for record in successes
+        if isinstance(record.get("first_value_seconds"), (int, float))
+    ]
+    median_first_value = statistics.median(first_value_seconds) if first_value_seconds else None
+    _require(
+        median_first_value is not None and median_first_value <= FIRST_VALUE_SECONDS_TARGET,
+        "successful users must reach median first value within 180 seconds",
+        failures,
+    )
+
+    return {
+        "harness": "chaotang_product_acceptance",
+        "mode": payload.get("mode"),
+        "records": len(records),
+        "successes": len(successes),
+        "median_first_value_seconds": median_first_value,
+        "passed": not failures,
+        "failures": failures,
+    }
+
+
+def run_user_acceptance(path: Path) -> dict[str, Any]:
+    payload = load_payload(path)
+    result = validate_user_acceptance_payload(payload)
+    result["evidencePath"] = str(path)
+    return result
+
+
 def run(path: Path = DEFAULT_CASES) -> dict[str, Any]:
     payload = load_payload(path)
     cases = payload.get("cases") or []
@@ -192,8 +304,12 @@ def run(path: Path = DEFAULT_CASES) -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate W08 product acceptance golden contracts")
     parser.add_argument("--cases", type=Path, default=DEFAULT_CASES)
+    parser.add_argument("--user-acceptance", type=Path)
     args = parser.parse_args()
-    result = run(args.cases)
+    if args.user_acceptance:
+        result = run_user_acceptance(args.user_acceptance)
+    else:
+        result = run(args.cases)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result["passed"] else 1
 
