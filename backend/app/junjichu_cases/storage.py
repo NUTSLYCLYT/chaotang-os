@@ -23,6 +23,17 @@ _STATUS_ORDER = {
 }
 _TERMINAL_STATUSES = frozenset({"ARCHIVED", "FAILED"})
 _FIXED_FAILURE_REASON = "processing_failed"
+_ALLOWED_FAILURE_STAGES = frozenset(
+    {"route", "bureau", "ministry", "council", "finalize", "archive"}
+)
+_ALLOWED_FAILURE_CODES = frozenset(
+    {
+        "schema_invalid",
+        "content_unsupported",
+        "provider_unavailable",
+        "state_invalid",
+    }
+)
 
 
 class JunjichuCaseNotFoundError(LookupError):
@@ -57,11 +68,21 @@ def _connect(db_path: Path | None) -> sqlite3.Connection:
             council_verdict TEXT,
             reply_id TEXT,
             failure_reason TEXT,
+            failure_stage TEXT,
+            failure_code TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )
         """
     )
+    columns = {
+        row["name"]
+        for row in connection.execute("PRAGMA table_info(junjichu_cases)").fetchall()
+    }
+    if "failure_stage" not in columns:
+        connection.execute("ALTER TABLE junjichu_cases ADD COLUMN failure_stage TEXT")
+    if "failure_code" not in columns:
+        connection.execute("ALTER TABLE junjichu_cases ADD COLUMN failure_code TEXT")
     return connection
 
 
@@ -83,6 +104,8 @@ def _case_from_row(row: sqlite3.Row) -> JunjichuCase:
         council_verdict=row["council_verdict"],
         reply_id=row["reply_id"],
         failure_reason=row["failure_reason"],
+        failure_stage=row["failure_stage"],
+        failure_code=row["failure_code"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
@@ -110,6 +133,8 @@ def _update_case(
     council_verdict: str | None = None,
     reply_id: str | None = None,
     failure_reason: str | None = None,
+    failure_stage: str | None = None,
+    failure_code: str | None = None,
 ) -> JunjichuCase:
     updated_at = _now_iso()
     next_path = processing_path if processing_path is not None else case.processing_path
@@ -123,7 +148,8 @@ def _update_case(
         """
         UPDATE junjichu_cases
         SET status = ?, processing_path_json = ?, completed_ministry_opinions_json = ?,
-            council_verdict = ?, reply_id = ?, failure_reason = ?, updated_at = ?
+            council_verdict = ?, reply_id = ?, failure_reason = ?,
+            failure_stage = ?, failure_code = ?, updated_at = ?
         WHERE id = ? AND owner_user_id = ?
         """,
         (
@@ -133,6 +159,8 @@ def _update_case(
             next_verdict,
             reply_id,
             failure_reason,
+            failure_stage,
+            failure_code,
             updated_at,
             case.id,
             case.owner_user_id,
@@ -146,6 +174,8 @@ def _update_case(
             "council_verdict": next_verdict,
             "reply_id": reply_id,
             "failure_reason": failure_reason,
+            "failure_stage": failure_stage,
+            "failure_code": failure_code,
             "updated_at": updated_at,
         }
     )
@@ -185,8 +215,9 @@ def open_case(
             INSERT INTO junjichu_cases (
                 id, owner_user_id, decree_text, departments_json, status,
                 processing_path_json, completed_ministry_opinions_json,
-                council_verdict, reply_id, failure_reason, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                council_verdict, reply_id, failure_reason, failure_stage,
+                failure_code, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 case.id,
@@ -196,6 +227,8 @@ def open_case(
                 case.status,
                 _dump_json(case.processing_path),
                 _dump_json(case.completed_ministry_opinions),
+                None,
+                None,
                 None,
                 None,
                 None,
@@ -280,11 +313,18 @@ def fail_case(
     *,
     owner_user_id: str,
     reason: str = _FIXED_FAILURE_REASON,
+    failure_stage: str = "route",
+    failure_code: str = "state_invalid",
     db_path: Path | None = None,
 ) -> JunjichuCase:
     """Close a failed case while persisting only the fixed, safe reason."""
 
     del reason
+    if (
+        failure_stage not in _ALLOWED_FAILURE_STAGES
+        or failure_code not in _ALLOWED_FAILURE_CODES
+    ):
+        failure_stage, failure_code = "route", "state_invalid"
     connection = _connect(db_path)
     try:
         case = _get_owned_case(connection, case_id, owner_user_id)
@@ -295,6 +335,8 @@ def fail_case(
             case,
             status="FAILED",
             failure_reason=_FIXED_FAILURE_REASON,
+            failure_stage=failure_stage,
+            failure_code=failure_code,
         )
         connection.commit()
         return updated

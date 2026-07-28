@@ -28,6 +28,28 @@ from app.agents.chancellor_consult.prompts import CHANCELLOR_CONSULT_SYSTEM_PROM
 _PACKAGE_DIR = Path(__file__).resolve().parents[1] / "app" / "agents" / "chancellor_consult"
 _API_MODULE_PATH = Path(__file__).resolve().parents[1] / "app" / "api" / "chancellor_consult.py"
 
+def test_production_consult_graph_keeps_default_text_output(monkeypatch):
+    calls = []
+    fake_config = object()
+    monkeypatch.setattr(
+        "app.agents.chancellor_consult.graph.load_deepseek_provider_config",
+        lambda: fake_config,
+    )
+
+    def fake_builder(config, dotenv_path, *, json_output=False):
+        calls.append((config, dotenv_path, json_output))
+        return lambda _messages: "ok"
+
+    monkeypatch.setattr(
+        "app.agents.chancellor_consult.graph.build_deepseek_chat_model",
+        fake_builder,
+    )
+
+    build_chancellor_consult_graph()
+
+    assert calls == [(fake_config, None, False)]
+
+
 # Every ADR 0028 decree/evidence business flow module (and its submodules).
 # A module name is forbidden when it equals one of these prefixes exactly, or
 # starts with one of these prefixes followed by a dot (so this subpackage's

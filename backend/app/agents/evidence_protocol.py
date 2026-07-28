@@ -66,6 +66,15 @@ _SOURCE_SCOPE = (
 _MAX_INVESTIGATIONS = 3
 _MAX_EXTRACTIONS = 6
 _DEADLINE_SECONDS = 30.0
+_DEGRADABLE_SYNTHESIS_ERRORS = frozenset(
+    {
+        "uncited_fact_dependency",
+        "unsupported_factual_dependency",
+        "response_invalid",
+        "adoption_invalid",
+        "evidence_binding_invalid",
+    }
+)
 
 _DATA_REQUEST_PATTERN = re.compile(
     r"(?:看看|查询|查找|检索|获取|告诉我|多少|是什么|最新|当前|实时).{0,32}"
@@ -279,6 +288,7 @@ class AgentEvidenceSession:
         self._id_factory = id_factory
         self._deadline = monotonic() + _DEADLINE_SECONDS
         self._lock = threading.Lock()
+        self._envelope_correction_claimed = False
         self._protocol_correction_claimed = False
         self._investigations = 0
         self._extractions = 0
@@ -317,6 +327,15 @@ class AgentEvidenceSession:
             if self._protocol_correction_claimed:
                 return False
             self._protocol_correction_claimed = True
+            return True
+
+    def claim_envelope_correction(self) -> bool:
+        """Claim the decree's only response-envelope correction call."""
+
+        with self._lock:
+            if self._envelope_correction_claimed:
+                return False
+            self._envelope_correction_claimed = True
             return True
 
     def record_investigation_result(self, node_id: str, pack: EvidencePack) -> None:
@@ -573,18 +592,47 @@ def invoke_bureau_with_evidence(
     try:
         ready = _parse_ready(first, legacy_parser, session, node_id, original_messages)
     except EvidenceProtocolError as exc:
-        if str(exc) != "unsupported_factual_dependency":
+        if str(exc) == "uncited_fact_dependency":
+            if not _is_bare_opinion(first):
+                session.record_degradation(node_id)
+                return _fallback(fallback, "model_synthesis_invalid")
+            if not session.claim_envelope_correction():
+                session.record_degradation(node_id)
+                return _fallback(fallback, "model_synthesis_invalid")
+            corrected = _call_and_parse(
+                chat_model,
+                [*original_messages, _bare_opinion_correction(node_id)],
+            )
+            try:
+                ready = _parse_ready(
+                    corrected,
+                    legacy_parser,
+                    session,
+                    node_id,
+                    original_messages,
+                )
+            except EvidenceProtocolError as corrected_exc:
+                if str(corrected_exc) not in _DEGRADABLE_SYNTHESIS_ERRORS:
+                    raise
+                session.record_degradation(node_id)
+                return _fallback(fallback, "model_synthesis_invalid")
+            if ready is not None:
+                return ready
+            first = corrected
+        elif str(exc) != "unsupported_factual_dependency":
             raise
-        if not session.claim_protocol_correction():
-            raise
-        corrected = _call_and_parse(
-            chat_model,
-            [*original_messages, _unsupported_dependency_correction(node_id)],
-        )
-        if not _is_needs_data(corrected):
-            raise EvidenceProtocolError("unsupported_factual_dependency") from None
-        first = corrected
-        ready = None
+        else:
+            if not session.claim_protocol_correction():
+                session.record_degradation(node_id)
+                return _fallback(fallback, "model_synthesis_invalid")
+            corrected = _call_and_parse(
+                chat_model,
+                [*original_messages, _unsupported_dependency_correction(node_id)],
+            )
+            if not _is_needs_data(corrected):
+                raise EvidenceProtocolError("unsupported_factual_dependency") from None
+            first = corrected
+            ready = None
     if ready is not None:
         return ready
 
@@ -626,7 +674,34 @@ def invoke_bureau_with_evidence(
     if _is_needs_data(second):
         _parse_gap(second, node_id, session, decree_text)
         return _fallback(fallback, "second_data_gap")
-    ready = _parse_ready(second, legacy_parser, session, node_id, original_messages)
+    try:
+        ready = _parse_ready(second, legacy_parser, session, node_id, original_messages)
+    except EvidenceProtocolError as exc:
+        if str(exc) != "unsupported_factual_dependency":
+            raise
+        if not session.claim_protocol_correction():
+            session.record_degradation(node_id)
+            return _fallback(fallback, "model_synthesis_invalid")
+        corrected = _call_and_parse(
+            chat_model,
+            [*resumed_messages, _resumed_dependency_correction(node_id)],
+        )
+        if _is_needs_data(corrected):
+            _parse_gap(corrected, node_id, session, decree_text)
+            return _fallback(fallback, "second_data_gap")
+        try:
+            ready = _parse_ready(
+                corrected,
+                legacy_parser,
+                session,
+                node_id,
+                original_messages,
+            )
+        except EvidenceProtocolError as corrected_exc:
+            if str(corrected_exc) not in _DEGRADABLE_SYNTHESIS_ERRORS:
+                raise
+            session.record_degradation(node_id)
+            return _fallback(fallback, "model_synthesis_invalid")
     if ready is None:  # defensive: exact envelopes are exhausted above
         raise EvidenceProtocolError("response_invalid")
     return ready
@@ -1139,6 +1214,47 @@ def _unsupported_dependency_correction(node_id: str) -> Message:
             '"existing_evidence_ids":[]}}. '
             f"{MARKET_METRIC_PROMPT_CONTRACT} "
             "Do not include any other text."
+        ),
+    }
+
+
+def _resumed_dependency_correction(node_id: str) -> Message:
+    return {
+        "role": "user",
+        "content": (
+            "Return only one strict JSON object using the complete READY or "
+            "NEEDS_DATA schema from the system message. The prior READY depended "
+            "on an undeclared or unsupported fact. READY may use only facts bound "
+            "to evidence IDs in the supplied evidence pack, USER_PROVIDED facts "
+            "from the original request, or explicitly NORMATIVE recommendations. "
+            "Declare every factual claim and its basis; do not invent, infer, or "
+            "repeat unsupported facts. "
+            f'NEEDS_DATA must use requesting_agent "{node_id}". '
+            "Do not quote, repeat, or discuss any previous response. "
+            "Do not include markdown or any other text."
+        ),
+    }
+
+
+def _is_bare_opinion(payload: Mapping[str, object]) -> bool:
+    return (
+        set(payload) == {"opinion"}
+        and isinstance(payload.get("opinion"), str)
+        and bool(payload["opinion"].strip())
+    )
+
+
+def _bare_opinion_correction(node_id: str) -> Message:
+    return {
+        "role": "user",
+        "content": (
+            "Your response did not use the required evidence-session envelope. "
+            "Return only one strict JSON object using the complete READY or "
+            "NEEDS_DATA schema from the system message. Do not return a bare "
+            "opinion. READY must declare every factual claim and its basis. "
+            f'NEEDS_DATA must use requesting_agent "{node_id}". '
+            "Do not quote, repeat, or discuss any previous response. "
+            "Do not include markdown or any other text."
         ),
     }
 

@@ -6,6 +6,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.agents.synthesis_failures import SynthesisFailureCode, SynthesisStage
+
 JunjichuCaseStatus = Literal[
     "MINISTRY_REVIEWING",
     "COUNCIL_REVIEWING",
@@ -58,5 +60,7 @@ class JunjichuCase(BaseModel):
     council_verdict: str | None = None
     reply_id: str | None = None
     failure_reason: str | None = None
+    failure_stage: SynthesisStage | None = Field(default=None, exclude=True)
+    failure_code: SynthesisFailureCode | None = Field(default=None, exclude=True)
     created_at: str
     updated_at: str

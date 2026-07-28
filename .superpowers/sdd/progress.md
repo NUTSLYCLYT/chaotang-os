@@ -21,3 +21,20 @@ Plan: `docs/superpowers/plans/2026-07-27-complete-only-worktree-semantic-migrati
 - Task 6: skipped (user clarified UI-only; backend owner/evidence work is out of scope)
 - Task 7: pending
 - Task 8: pending
+
+# Study Recent Replies SDD Progress
+
+Plan: `docs/superpowers/plans/2026-07-28-study-recent-replies.md`
+
+- Task 1: complete — uncommitted by authorization boundary; reviewer PASS
+- Task 2: complete — uncommitted by authorization boundary; reviewer PASS
+- Task 3: complete — uncommitted by authorization boundary; reviewer PASS
+
+# Study Recent Replies Redesign SDD Progress
+
+Plan: `docs/superpowers/plans/2026-07-28-study-recent-replies-redesign.md`
+
+- Task 1: complete — uncommitted by authorization boundary; reviewer PASS; minor: add direct current-source null assertion if touched again
+- Task 2: complete — uncommitted by authorization boundary; reviewer PASS; minor: source-regex tests are not DOM interaction tests
+- Task 3: complete — uncommitted by authorization boundary; reviewer PASS after false-green test remediation
+- Task 4: complete — uncommitted by authorization boundary; reviewer PASS after documentation consistency remediation

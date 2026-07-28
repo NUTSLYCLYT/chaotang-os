@@ -72,7 +72,10 @@ def normalize_deepseek_model_name(model_name: str) -> str:
 
 
 def build_deepseek_chat_model(
-    config: DeepSeekProviderConfig, dotenv_path: Path | None = None
+    config: DeepSeekProviderConfig,
+    dotenv_path: Path | None = None,
+    *,
+    json_output: bool = False,
 ) -> DeepSeekChatModel:
     """Build a callable DeepSeek chat model backed by the real ``openai`` SDK.
 
@@ -89,6 +92,9 @@ def build_deepseek_chat_model(
             fallback when the process environment variable is unset/empty.
             Defaults to ``backend/.env.example`` when omitted; primarily
             useful for injecting a temporary path in offline tests.
+        json_output: Whether to request DeepSeek JSON Output. Defaults to
+            ``False`` so generic chat and consultation callers retain their
+            free-text response contract.
 
     Returns:
         A callable accepting an OpenAI-style message list and returning the
@@ -105,7 +111,10 @@ def build_deepseek_chat_model(
 
     def call_deepseek_chat_model(messages: list[dict[str, str]]) -> str:
         try:
-            response = client.chat.completions.create(model=model_name, messages=messages)
+            request_kwargs = {"model": model_name, "messages": messages}
+            if json_output:
+                request_kwargs["response_format"] = {"type": "json_object"}
+            response = client.chat.completions.create(**request_kwargs)
         except Exception as exc:  # noqa: BLE001 - intentionally wrap any SDK error
             raise DeepSeekModelInvocationError(
                 "DeepSeek chat completion request failed "

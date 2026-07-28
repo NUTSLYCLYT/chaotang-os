@@ -62,6 +62,7 @@ verdict, and enforces exact ``summary`` plus three unique recommendations.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import TypedDict
@@ -69,6 +70,7 @@ from typing import TypedDict
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
+from app.agents.bureaus import BureauAgentInvocationError
 from app.agents.chancellor.prompts import (
     CHANCELLOR_FINALIZATION_SYSTEM_PROMPT,
     CHANCELLOR_SYSTEM_PROMPT,
@@ -85,9 +87,14 @@ from app.agents.market_intent import (
     is_mainland_last_price_intent,
     normalize_market_quote_route,
 )
-from app.agents.ministries.agent import MinistryOpinion, invoke_ministry_agent
+from app.agents.ministries.agent import (
+    MinistryAgentInvocationError,
+    MinistryOpinion,
+    invoke_ministry_agent,
+)
 from app.agents.ministries.prompts import MINISTRIES
 from app.agents.structured_output import StructuredOutputError, parse_strict_json_object
+from app.agents.synthesis_failures import SynthesisStage, is_locally_degradable
 from app.jinyiwei.models import FactCategory, MarketMetric
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel, build_deepseek_chat_model
 from app.langgraph_runtime.deepseek_config import load_deepseek_provider_config
@@ -98,6 +105,31 @@ _CANONICAL_MARKET_RECOMMENDATIONS = [
     "请结合自身风险承受能力独立判断。",
     "本回奏仅提供行情信息，不构成投资建议。",
 ]
+_SAFE_RECOMMENDATIONS = (
+    "明确岗位职责、权限边界与交付标准",
+    "按里程碑评审办理成果并保留验证记录",
+    "涉及投资决策时另行完成合规与风险审查",
+)
+_ROUTE_DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "吏部": ("招聘", "招人", "人员", "岗位", "任免", "绩效", "薪酬"),
+    "户部": ("财务", "预算", "报价", "融资", "审计", "投资", "股票", "证券"),
+    "礼部": ("品牌", "公关", "内容", "体验", "对外沟通"),
+    "兵部": ("销售", "客户", "商机", "渠道", "竞争", "增长"),
+    "刑部": ("合同", "合规", "授权", "安全", "争议", "法务", "风控"),
+    "工部": ("产品", "技术", "研发", "开发", "交付", "供应链", "产能", "质量", "工程"),
+}
+_RECRUITING_PEOPLE_PATTERN = re.compile(
+    r"(?<!不要)(?<!暂不)(?<!无需)(?<!不用)"
+    r"招[一二三四五六七八九十百千万两\d]+(?:个|名|位)?人"
+)
+
+
+class _FinalizationContentError(ValueError):
+    """Marks only locally degradable finalizer response-content failures."""
+
+
+class _RouteContentError(ValueError):
+    """Marks only locally degradable route response-content failures."""
 
 
 class ChancellorGraphState(TypedDict, total=False):
@@ -147,6 +179,117 @@ class ChancellorGraphState(TypedDict, total=False):
     adopted_evidence_ids: tuple[str, ...]
 
 
+def _fallback_finalization(
+    state: ChancellorGraphState,
+) -> tuple[str, list[str]]:
+    departments = "、".join(state["departments"])
+    summary = (
+        f"已完成{departments}分层办理；"
+        "当前回奏仅保留规范性安排与证据边界。"
+    )
+    return summary, list(_SAFE_RECOMMENDATIONS)
+
+
+def _deterministic_route(decree_text: str) -> tuple[str, str, list[str]]:
+    departments = [
+        department
+        for department in MINISTRIES
+        if any(
+            keyword in decree_text
+            for keyword in _ROUTE_DOMAIN_KEYWORDS[department]
+        )
+        or (
+            department == "吏部"
+            and _RECRUITING_PEOPLE_PATTERN.search(decree_text) is not None
+        )
+    ]
+    if len(departments) >= 2:
+        return (
+            "multi",
+            "旨意明确涉及多个固定职责领域，按六部名录顺序会审；"
+            "该分流不形成任何事实判断。",
+            departments,
+        )
+    if len(departments) == 1:
+        return (
+            "single",
+            "旨意匹配一个固定职责领域，由对应部门规范办理；"
+            "该分流不形成任何事实判断。",
+            departments,
+        )
+    return (
+        "single",
+        "旨意未匹配明确职责领域，先由吏部澄清责任边界；"
+        "该分流不形成任何事实判断。",
+        ["吏部"],
+    )
+
+
+def _parse_route_response(raw_response: object) -> tuple[str, str, list[str]]:
+    if not isinstance(raw_response, str) or not raw_response.strip():
+        raise _RouteContentError("The Chancellor route response is empty.")
+    try:
+        parsed = parse_strict_json_object(raw_response)
+    except StructuredOutputError as exc:
+        raise _RouteContentError("The Chancellor route response is not JSON.") from exc
+
+    route_type = parsed.get("route_type")
+    if route_type not in ("single", "multi"):
+        raise _RouteContentError("The Chancellor route type is invalid.")
+    rationale = parsed.get("rationale")
+    if not isinstance(rationale, str) or not rationale.strip():
+        raise _RouteContentError("The Chancellor route rationale is invalid.")
+    departments = parsed.get("departments")
+    if not isinstance(departments, list) or not departments or not all(
+        isinstance(department, str) for department in departments
+    ):
+        raise _RouteContentError("The Chancellor route departments are invalid.")
+    if len(set(departments)) != len(departments):
+        raise _RouteContentError("The Chancellor route departments contain duplicates.")
+    if not all(department in MINISTRIES for department in departments):
+        raise _RouteContentError("The Chancellor route contains an unknown department.")
+    if route_type == "single" and len(departments) != 1:
+        raise _RouteContentError("A single route requires exactly one department.")
+    if route_type == "multi" and len(departments) < 2:
+        raise _RouteContentError("A multi route requires at least two departments.")
+    return route_type, rationale.strip(), departments
+
+
+def _parse_finalization_response(raw_response: object) -> tuple[str, list[str]]:
+    if not isinstance(raw_response, str) or not raw_response.strip():
+        raise _FinalizationContentError(
+            "The Chancellor finalizer returned no usable response."
+        )
+    parsed = parse_strict_json_object(raw_response)
+    if set(parsed) != {"summary", "recommendations"}:
+        raise _FinalizationContentError(
+            "The Chancellor finalizer response has an invalid schema."
+        )
+    summary = parsed["summary"]
+    raw_recommendations = parsed["recommendations"]
+    if not isinstance(summary, str) or not summary.strip():
+        raise _FinalizationContentError(
+            "The Chancellor finalizer summary is invalid."
+        )
+    if (
+        not isinstance(raw_recommendations, list)
+        or len(raw_recommendations) != 3
+        or any(
+            not isinstance(item, str) or not item.strip()
+            for item in raw_recommendations
+        )
+    ):
+        raise _FinalizationContentError(
+            "The Chancellor finalizer recommendations are invalid."
+        )
+    recommendations = [item.strip() for item in raw_recommendations]
+    if len(set(recommendations)) != 3:
+        raise _FinalizationContentError(
+            "The Chancellor finalizer recommendations must be unique."
+        )
+    return summary.strip(), recommendations
+
+
 class ChancellorGraphInvocationError(Exception):
     """Raised by the graph's nodes when routing or ministry invocation fails.
 
@@ -163,6 +306,23 @@ class ChancellorGraphInvocationError(Exception):
     it cannot leak a secret or arbitrary model output that may appear in a
     third-party SDK error message or a malformed model response.
     """
+
+
+def _trusted_failure_stage(
+    exc: BaseException, *, default: SynthesisStage
+) -> SynthesisStage:
+    if isinstance(
+        exc,
+        (
+            BureauAgentInvocationError,
+            MinistryAgentInvocationError,
+            ChancellorGraphInvocationError,
+        ),
+    ):
+        stage = getattr(exc, "failure_stage", default)
+        if stage in {"route", "bureau", "ministry", "council", "finalize", "archive"}:
+            return stage
+    return default
 
 
 def _has_canonical_last_price_evidence(session: AgentEvidenceSession) -> bool:
@@ -218,7 +378,11 @@ def build_chancellor_graph(
         resolved_chat_model = chat_model
     else:
         config = load_deepseek_provider_config()
-        resolved_chat_model = build_deepseek_chat_model(config, dotenv_path)
+        resolved_chat_model = build_deepseek_chat_model(
+            config,
+            dotenv_path,
+            json_output=True,
+        )
 
     def _decide_route(state: ChancellorGraphState) -> dict:
         try:
@@ -240,6 +404,19 @@ def build_chancellor_graph(
                 "evidence_session": evidence_session,
                 "processing_path": ["上书房", "丞相（首次分流）"],
             }
+        fallback_route = _deterministic_route(state["decree_text"])
+        processing_path = ["上书房", "丞相（首次分流）"]
+        case_opened = False
+        if (
+            fallback_route[0] == "multi"
+            and lifecycle_observer is not None
+        ):
+            lifecycle_observer.open_case(
+                decree_text=state["decree_text"],
+                departments=fallback_route[2],
+                processing_path=processing_path,
+            )
+            case_opened = True
         messages = [
             {"role": "system", "content": CHANCELLOR_SYSTEM_PROMPT},
             {"role": "user", "content": state["decree_text"]},
@@ -247,60 +424,21 @@ def build_chancellor_graph(
         try:
             raw_response = resolved_chat_model(messages)
         except Exception as exc:  # noqa: BLE001 - intentionally wrap any model error
-            raise ChancellorGraphInvocationError(
+            error = ChancellorGraphInvocationError(
                 "Chancellor graph node failed to obtain a model response; "
                 "see __cause__ for the original exception."
-            ) from exc
-
-        if not isinstance(raw_response, str) or not raw_response.strip():
-            raise ChancellorGraphInvocationError(
-                "Chancellor graph node returned an empty model response."
             )
+            error.failure_stage = "route"
+            raise error from exc
 
         try:
-            parsed = parse_strict_json_object(raw_response)
-        except StructuredOutputError as exc:
-            raise ChancellorGraphInvocationError(
-                "Chancellor graph node response failed strict JSON parsing."
-            ) from exc
+            route_type, rationale, departments = _parse_route_response(raw_response)
+        except _RouteContentError:
+            route_type, rationale, departments = fallback_route
+            evidence_session.record_degradation("chancellor:route")
 
-        route_type = parsed.get("route_type")
-        if route_type not in ("single", "multi"):
-            raise ChancellorGraphInvocationError(
-                "Chancellor graph node response has an invalid 'route_type'."
-            )
-
-        rationale = parsed.get("rationale")
-        if not isinstance(rationale, str) or not rationale.strip():
-            raise ChancellorGraphInvocationError(
-                "Chancellor graph node response is missing a non-empty 'rationale'."
-            )
-
-        departments = parsed.get("departments")
-        if not isinstance(departments, list) or not departments or not all(
-            isinstance(department, str) for department in departments
-        ):
-            raise ChancellorGraphInvocationError(
-                "Chancellor graph node response has an invalid 'departments' list."
-            )
-        if len(set(departments)) != len(departments):
-            raise ChancellorGraphInvocationError(
-                "Chancellor graph node response contains duplicate departments."
-            )
-        if not all(department in MINISTRIES for department in departments):
-            raise ChancellorGraphInvocationError(
-                "Chancellor graph node response contains an unknown department."
-            )
-        if route_type == "single" and len(departments) != 1:
-            raise ChancellorGraphInvocationError(
-                "Chancellor graph node response must select exactly 1 department "
-                "for 'single' routing."
-            )
-        if route_type == "multi" and len(departments) < 2:
-            raise ChancellorGraphInvocationError(
-                "Chancellor graph node response must select at least 2 departments "
-                "for 'multi' routing."
-            )
+        if len(fallback_route[2]) >= 2:
+            route_type, rationale, departments = fallback_route
 
         route_type, rationale, normalized_departments = normalize_market_quote_route(
             decree_text=state["decree_text"],
@@ -315,9 +453,9 @@ def build_chancellor_graph(
             "route_type": route_type,
             "departments": departments,
             "evidence_session": evidence_session,
-            "processing_path": ["上书房", "丞相（首次分流）"],
+            "processing_path": processing_path,
         }
-        if route_type == "multi" and lifecycle_observer is not None:
+        if route_type == "multi" and lifecycle_observer is not None and not case_opened:
             lifecycle_observer.open_case(
                 decree_text=state["decree_text"],
                 departments=departments,
@@ -341,10 +479,12 @@ def build_chancellor_graph(
                 evidence_session=state["evidence_session"],
             )
         except Exception as exc:  # noqa: BLE001 - one sanitized graph error boundary
-            raise ChancellorGraphInvocationError(
+            error = ChancellorGraphInvocationError(
                 f"Chancellor graph node failed to obtain a {department} ministry "
                 "response; see __cause__ for the original exception."
-            ) from exc
+            )
+            error.failure_stage = _trusted_failure_stage(exc, default="ministry")
+            raise error from exc
 
         snapshot = state["evidence_session"].snapshot()
         first_investigating_bureau = (
@@ -396,10 +536,12 @@ def build_chancellor_graph(
                 **council_kwargs,
             )
         except Exception as exc:  # noqa: BLE001 - intentionally wrap any model/validation error
-            raise ChancellorGraphInvocationError(
+            error = ChancellorGraphInvocationError(
                 "Chancellor graph node failed to complete the 军机处 multi-department "
                 "council review; see __cause__ for the original exception."
-            ) from exc
+            )
+            error.failure_stage = _trusted_failure_stage(exc, default="council")
+            raise error from exc
 
         snapshot = state["evidence_session"].snapshot()
         first_investigating_bureau = (
@@ -469,58 +611,23 @@ def build_chancellor_graph(
         ]
         try:
             raw_response = resolved_chat_model(messages)
-            if not isinstance(raw_response, str) or not raw_response.strip():
-                raise ValueError("The Chancellor finalizer returned no usable response.")
-            parsed = parse_strict_json_object(raw_response)
-            if set(parsed) != {"summary", "recommendations"}:
-                raise ValueError("The Chancellor finalizer response has an invalid schema.")
-            summary = parsed["summary"]
-            raw_recommendations = parsed["recommendations"]
-            if not isinstance(summary, str) or not summary.strip():
-                raise ValueError("The Chancellor finalizer summary is invalid.")
-            if (
-                not isinstance(raw_recommendations, list)
-                or len(raw_recommendations) != 3
-                or any(
-                    not isinstance(item, str) or not item.strip()
-                    for item in raw_recommendations
-                )
-            ):
-                raise ValueError("The Chancellor finalizer recommendations are invalid.")
-            recommendations = [item.strip() for item in raw_recommendations]
-            if len(set(recommendations)) != 3:
-                raise ValueError("The Chancellor finalizer recommendations must be unique.")
-            can_use_canonical = (
-                state["route_type"] == "single"
-                and state["departments"] == ["户部"]
-                and is_mainland_last_price_intent(state["decree_text"])
-                and bool(state["evidence_session"].snapshot().adopted_evidence_ids)
-                and _has_canonical_last_price_evidence(state["evidence_session"])
-                and len(state["ministry_opinions"]) == 1
+        except Exception as exc:  # noqa: BLE001 - sanitized provider boundary
+            error = ChancellorGraphInvocationError(
+                "Chancellor graph finalization failed; "
+                "see __cause__ for the original exception."
             )
-            if can_use_canonical:
-                authoritative_summary = state["ministry_opinions"][0]["opinion"]
-                if (
-                    summary.strip() != authoritative_summary
-                    or recommendations != _CANONICAL_MARKET_RECOMMENDATIONS
-                ):
-                    state["evidence_session"].record_degradation(
-                        "chancellor:finalize"
-                    )
-                    snapshot = state["evidence_session"].snapshot()
-                    return {
-                        "processing_path": [
-                            *state["processing_path"],
-                            "丞相（最终汇总）",
-                        ],
-                        "final_verdict": authoritative_summary,
-                        "recommendations": list(
-                            _CANONICAL_MARKET_RECOMMENDATIONS
-                        ),
-                        "evidence_snapshot": snapshot,
-                        "adopted_evidence_ids": snapshot.adopted_evidence_ids,
-                    }
-        except Exception as exc:  # noqa: BLE001 - one sanitized graph error boundary
+            error.failure_stage = "finalize"
+            raise error from exc
+        try:
+            summary, recommendations = _parse_finalization_response(raw_response)
+        except (_FinalizationContentError, StructuredOutputError) as exc:
+            if not is_locally_degradable(exc):
+                error = ChancellorGraphInvocationError(
+                    "Chancellor graph finalization failed; "
+                    "see __cause__ for the original exception."
+                )
+                error.failure_stage = "finalize"
+                raise error from exc
             can_degrade = (
                 state["route_type"] == "single"
                 and state["departments"] == ["户部"]
@@ -529,13 +636,22 @@ def build_chancellor_graph(
                 and _has_canonical_last_price_evidence(state["evidence_session"])
                 and len(state["ministry_opinions"]) == 1
             )
-            if not can_degrade:
-                raise ChancellorGraphInvocationError(
-                    "Chancellor graph finalization failed; "
-                    "see __cause__ for the original exception."
-                ) from exc
             state["evidence_session"].record_degradation("chancellor:finalize")
             snapshot = state["evidence_session"].snapshot()
+            if not can_degrade:
+                fallback_summary, fallback_recommendations = _fallback_finalization(
+                    state
+                )
+                return {
+                    "processing_path": [
+                        *state["processing_path"],
+                        "丞相（最终汇总）",
+                    ],
+                    "final_verdict": fallback_summary,
+                    "recommendations": fallback_recommendations,
+                    "evidence_snapshot": snapshot,
+                    "adopted_evidence_ids": snapshot.adopted_evidence_ids,
+                }
             return {
                 "processing_path": [*state["processing_path"], "丞相（最终汇总）"],
                 "final_verdict": state["ministry_opinions"][0]["opinion"],
@@ -544,9 +660,36 @@ def build_chancellor_graph(
                 "adopted_evidence_ids": snapshot.adopted_evidence_ids,
             }
 
+        can_use_canonical = (
+            state["route_type"] == "single"
+            and state["departments"] == ["户部"]
+            and is_mainland_last_price_intent(state["decree_text"])
+            and bool(state["evidence_session"].snapshot().adopted_evidence_ids)
+            and _has_canonical_last_price_evidence(state["evidence_session"])
+            and len(state["ministry_opinions"]) == 1
+        )
+        if can_use_canonical:
+            authoritative_summary = state["ministry_opinions"][0]["opinion"]
+            if (
+                summary != authoritative_summary
+                or recommendations != _CANONICAL_MARKET_RECOMMENDATIONS
+            ):
+                state["evidence_session"].record_degradation("chancellor:finalize")
+                snapshot = state["evidence_session"].snapshot()
+                return {
+                    "processing_path": [
+                        *state["processing_path"],
+                        "丞相（最终汇总）",
+                    ],
+                    "final_verdict": authoritative_summary,
+                    "recommendations": list(_CANONICAL_MARKET_RECOMMENDATIONS),
+                    "evidence_snapshot": snapshot,
+                    "adopted_evidence_ids": snapshot.adopted_evidence_ids,
+                }
+
         return {
             "processing_path": [*state["processing_path"], "丞相（最终汇总）"],
-            "final_verdict": summary.strip(),
+            "final_verdict": summary,
             "recommendations": recommendations,
         }
 

@@ -288,62 +288,78 @@ def test_bare_ready_response_is_rejected_without_investigation() -> None:
     coordinator = Coordinator()
     session = AgentEvidenceSession(coordinator=coordinator)
 
-    with pytest.raises(EvidenceProtocolError, match="uncited_fact_dependency"):
-        _invoke(session, lambda _messages: '{"opinion":"可行"}')
+    result = _invoke(session, lambda _messages: '{"opinion":"可行"}')
+
+    assert result == {"opinion": "证据受限：model_synthesis_invalid"}
     assert coordinator.calls == []
     snapshot = session.snapshot()
     assert snapshot.investigation_count == 0
     assert snapshot.bureau_selections == ()
+    assert snapshot.adopted_evidence_ids == ()
+    assert snapshot.degradation_reasons == (
+        f"model_synthesis_degraded:{bureau_node_id('户部', '预算司')}",
+    )
 
 
-def test_ready_response_rejects_undeclared_fact_basis() -> None:
-    """An evidence-session READY response cannot silently omit its fact basis."""
+def test_initial_malformed_ready_degrades_without_adopting_output() -> None:
+    """An incomplete READY is discarded instead of aborting the whole decree."""
 
-    with pytest.raises(EvidenceProtocolError, match="uncited_fact_dependency"):
-        _invoke(
-            AgentEvidenceSession(coordinator=Coordinator()),
-            lambda _messages: '{"status":"READY","result":{"opinion":"最新股价上涨"},'
-            '"adopted_evidence_ids":[]}',
-        )
+    session = AgentEvidenceSession(coordinator=Coordinator())
+    node = bureau_node_id("户部", "预算司")
+
+    result = _invoke(
+        session,
+        lambda _messages: '{"status":"READY","result":{"opinion":"SECRET-FACT"},'
+        '"adopted_evidence_ids":[]}',
+        node_id=node,
+    )
+
+    assert result == {"opinion": "证据受限：model_synthesis_invalid"}
+    snapshot = session.snapshot()
+    assert snapshot.adopted_evidence_ids == ()
+    assert snapshot.degradation_reasons == (f"model_synthesis_degraded:{node}",)
+    assert "SECRET-FACT" not in result["opinion"]
 
 
 def test_ready_response_rejects_missing_factual_claim_declarations() -> None:
     """READY envelopes cannot hide a factual dependency outside the contract."""
 
-    with pytest.raises(EvidenceProtocolError, match="uncited_fact_dependency"):
-        _invoke(
-            AgentEvidenceSession(coordinator=Coordinator()),
-            lambda _messages: json.dumps(
-                {
-                    "status": "READY",
-                    "result": {"opinion": "比亚迪最新股价上涨"},
-                    "adopted_evidence_ids": [],
-                    "fact_basis": "NOT_REQUIRED",
-                },
-                ensure_ascii=False,
-            ),
-        )
+    result = _invoke(
+        AgentEvidenceSession(coordinator=Coordinator()),
+        lambda _messages: json.dumps(
+            {
+                "status": "READY",
+                "result": {"opinion": "比亚迪最新股价上涨"},
+                "adopted_evidence_ids": [],
+                "fact_basis": "NOT_REQUIRED",
+            },
+            ensure_ascii=False,
+        ),
+    )
+
+    assert result == {"opinion": "证据受限：model_synthesis_invalid"}
 
 
 def test_ready_response_rejects_empty_citations_for_declared_external_claim() -> None:
-    with pytest.raises(EvidenceProtocolError, match="uncited_fact_dependency"):
-        _invoke(
-            AgentEvidenceSession(coordinator=Coordinator()),
-            lambda _messages: _ready(
-                "比亚迪最新股价上涨",
-                fact_basis="CITED",
-                factual_claims=[
-                    {
-                        "claim": "比亚迪最新股价上涨",
-                        "basis": "CITED",
-                        "evidence_ids": [],
-                        "fact_key": "quote",
-                        "category": "MARKET_QUOTE",
-                        "subject": "比亚迪",
-                    }
-                ],
-            ),
-        )
+    result = _invoke(
+        AgentEvidenceSession(coordinator=Coordinator()),
+        lambda _messages: _ready(
+            "比亚迪最新股价上涨",
+            fact_basis="CITED",
+            factual_claims=[
+                {
+                    "claim": "比亚迪最新股价上涨",
+                    "basis": "CITED",
+                    "evidence_ids": [],
+                    "fact_key": "quote",
+                    "category": "MARKET_QUOTE",
+                    "subject": "比亚迪",
+                }
+            ],
+        ),
+    )
+
+    assert result == {"opinion": "证据受限：model_synthesis_invalid"}
 
 
 def test_ready_cannot_hide_external_fact_dependency_with_empty_claims() -> None:
@@ -424,21 +440,208 @@ def test_unsupported_dependency_correction_rejects_corrected_ready() -> None:
     assert len(model_calls) == 2
 
 
+def test_bare_opinion_gets_one_sanitized_protocol_correction() -> None:
+    bare_response = '{"opinion":"建议先定义岗位职责与交付里程碑"}'
+    responses = iter(
+        (
+            bare_response,
+            _ready("建议先定义岗位职责与交付里程碑"),
+        )
+    )
+    model_calls: list[list[dict[str, str]]] = []
+
+    def model(messages: list[dict[str, str]]) -> str:
+        model_calls.append(messages)
+        return next(responses)
+
+    result = _invoke(AgentEvidenceSession(coordinator=Coordinator()), model)
+
+    assert result == {"opinion": "建议先定义岗位职责与交付里程碑"}
+    assert len(model_calls) == 2
+    correction = model_calls[1][-1]["content"]
+    assert bare_response not in correction
+    assert "READY" in correction
+    assert "NEEDS_DATA" in correction
+
+
+def test_bare_opinion_invalid_correction_degrades_without_using_output() -> None:
+    session = AgentEvidenceSession(coordinator=Coordinator())
+    node = bureau_node_id("户部", "预算司")
+    rejected_correction = '{"opinion":"SECRET-REJECTED-FACT 300"}'
+    responses = iter(
+        (
+            '{"opinion":"Recommend hiring two quantitative developers."}',
+            rejected_correction,
+        )
+    )
+
+    result = _invoke(
+        session,
+        lambda _messages: next(responses),
+        node_id=node,
+    )
+
+    assert result == {"opinion": "证据受限：model_synthesis_invalid"}
+    snapshot = session.snapshot()
+    assert snapshot.degradation_reasons == (f"model_synthesis_degraded:{node}",)
+    assert snapshot.adopted_evidence_ids == ()
+    assert "SECRET-REJECTED-FACT" not in result["opinion"]
+
+
+def test_bare_opinion_with_consumed_envelope_budget_degrades_locally() -> None:
+    session = AgentEvidenceSession(coordinator=Coordinator())
+    node = bureau_node_id("工部", "技术司")
+    assert session.claim_envelope_correction() is True
+
+    result = invoke_bureau_with_evidence(
+        node_id=node,
+        department="工部",
+        bureau="技术司",
+        matter_type="MEMORIAL",
+        decree_text="开发量化交易系统",
+        messages=[{"role": "user", "content": "旨意：开发量化交易系统"}],
+        chat_model=lambda _messages: '{"opinion":"开发团队已有完整交易系统经验"}',
+        legacy_parser=_legacy_parser,
+        fallback=lambda reason: {"opinion": f"证据受限：{reason}"},
+        session=session,
+    )
+
+    assert result == {"opinion": "证据受限：model_synthesis_invalid"}
+    assert session.snapshot().degradation_reasons == (
+        f"model_synthesis_degraded:{node}",
+    )
+    assert session.snapshot().adopted_evidence_ids == ()
+
+
+def test_bare_opinion_then_investigation_can_correct_resumed_factual_dependency() -> None:
+    coordinator = Coordinator()
+    session = AgentEvidenceSession(coordinator=coordinator)
+    node = bureau_node_id("户部", "预算司")
+    bare_response = '{"opinion":"Recommend hiring two quantitative developers."}'
+    rejected_resumed_ready = _ready("The target market size is 300.")
+    responses = iter(
+        (
+            bare_response,
+            _gap(node),
+            rejected_resumed_ready,
+            _ready(
+                "Recommend defining the two roles and delivery milestones first.",
+                factual_claims=[
+                    {
+                        "claim": (
+                            "Recommend defining the two roles and delivery "
+                            "milestones first."
+                        ),
+                        "basis": "NORMATIVE",
+                        "evidence_ids": [],
+                    }
+                ],
+            ),
+        )
+    )
+    model_calls: list[list[dict[str, str]]] = []
+
+    def model(messages: list[dict[str, str]]) -> str:
+        model_calls.append(messages)
+        return next(responses)
+
+    result = _invoke(session, model, node_id=node)
+
+    assert result == {
+        "opinion": "Recommend defining the two roles and delivery milestones first."
+    }
+    assert len(model_calls) == 4
+    resumed_correction = model_calls[3][-1]["content"]
+    assert rejected_resumed_ready not in resumed_correction
+    assert "READY" in resumed_correction
+    assert "NEEDS_DATA" in resumed_correction
+    assert "BEGIN_UNTRUSTED_EVIDENCE_PACK" not in resumed_correction
+    assert len(coordinator.calls) == 1
+
+
+def test_resumed_correction_invalid_envelope_degrades_without_adopting_output() -> None:
+    coordinator = Coordinator()
+    session = AgentEvidenceSession(coordinator=coordinator)
+    node = bureau_node_id("户部", "预算司")
+    rejected_ready = _ready("The target market size is 300.")
+    rejected_correction = '{"opinion":"SECRET-REJECTED-FACT 300"}'
+    responses = iter(
+        (
+            '{"opinion":"Recommend hiring two quantitative developers."}',
+            _gap(node),
+            rejected_ready,
+            rejected_correction,
+        )
+    )
+
+    result = _invoke(
+        session,
+        lambda _messages: next(responses),
+        node_id=node,
+    )
+
+    assert result == {"opinion": "证据受限：model_synthesis_invalid"}
+    snapshot = session.snapshot()
+    assert snapshot.degradation_reasons == (f"model_synthesis_degraded:{node}",)
+    assert snapshot.adopted_evidence_ids == ()
+    assert "SECRET-REJECTED-FACT" not in result["opinion"]
+
+
+def test_resumed_correction_model_failure_does_not_degrade() -> None:
+    session = AgentEvidenceSession(coordinator=Coordinator())
+    node = bureau_node_id("户部", "预算司")
+    responses = iter(
+        (
+            '{"opinion":"Recommend hiring two quantitative developers."}',
+            _gap(node),
+            _ready("The target market size is 300."),
+        )
+    )
+    model_calls = 0
+
+    def model(_messages: list[dict[str, str]]) -> str:
+        nonlocal model_calls
+        model_calls += 1
+        if model_calls == 4:
+            raise RuntimeError("provider failure")
+        return next(responses)
+
+    with pytest.raises(EvidenceProtocolError, match="model_unavailable"):
+        _invoke(session, model, node_id=node)
+
+    assert model_calls == 4
+    assert session.snapshot().degradation_reasons == ()
+
+
 def test_unsupported_dependency_correction_is_once_per_session() -> None:
     session = AgentEvidenceSession(coordinator=Coordinator())
     calls_by_bureau: dict[str, int] = {}
 
-    def invoke(department: str, bureau: str) -> None:
+    def invoke(department: str, bureau: str, *, correction_available: bool) -> None:
         node = bureau_node_id(department, bureau)
 
         def model(_messages: list[dict[str, str]]) -> str:
             calls_by_bureau[bureau] = calls_by_bureau.get(bureau, 0) + 1
             return _ready("比亚迪现价为 300 元")
 
-        with pytest.raises(
-            EvidenceProtocolError, match="unsupported_factual_dependency"
-        ):
-            invoke_bureau_with_evidence(
+        if correction_available:
+            with pytest.raises(
+                EvidenceProtocolError, match="unsupported_factual_dependency"
+            ):
+                invoke_bureau_with_evidence(
+                    node_id=node,
+                    department=department,
+                    bureau=bureau,
+                    matter_type="MEMORIAL",
+                    decree_text="查看比亚迪股票价格",
+                    messages=[{"role": "user", "content": "旨意：查看比亚迪股票价格"}],
+                    chat_model=model,
+                    legacy_parser=_legacy_parser,
+                    fallback=lambda reason: {"opinion": reason},
+                    session=session,
+                )
+        else:
+            result = invoke_bureau_with_evidence(
                 node_id=node,
                 department=department,
                 bureau=bureau,
@@ -450,11 +653,40 @@ def test_unsupported_dependency_correction_is_once_per_session() -> None:
                 fallback=lambda reason: {"opinion": reason},
                 session=session,
             )
+            assert result == {"opinion": "model_synthesis_invalid"}
 
-    invoke("户部", "预算司")
-    invoke("户部", "投资司")
+    invoke("户部", "预算司", correction_available=True)
+    invoke("户部", "投资司", correction_available=False)
 
     assert calls_by_bureau == {"预算司": 2, "投资司": 1}
+    assert session.snapshot().degradation_reasons == (
+        f"model_synthesis_degraded:{bureau_node_id('户部', '投资司')}",
+    )
+
+
+def test_unsupported_dependency_with_consumed_budget_degrades_locally() -> None:
+    session = AgentEvidenceSession(coordinator=Coordinator())
+    node = bureau_node_id("工部", "技术司")
+    assert session.claim_protocol_correction() is True
+
+    result = invoke_bureau_with_evidence(
+        node_id=node,
+        department="工部",
+        bureau="技术司",
+        matter_type="MEMORIAL",
+        decree_text="开发量化交易系统",
+        messages=[{"role": "user", "content": "旨意：开发量化交易系统"}],
+        chat_model=lambda _messages: _ready("当前开发团队已有完整交易系统经验"),
+        legacy_parser=_legacy_parser,
+        fallback=lambda reason: {"opinion": f"证据受限：{reason}"},
+        session=session,
+    )
+
+    assert result == {"opinion": "证据受限：model_synthesis_invalid"}
+    assert session.snapshot().degradation_reasons == (
+        f"model_synthesis_degraded:{node}",
+    )
+    assert session.snapshot().adopted_evidence_ids == ()
 
 
 def test_protocol_correction_claim_is_atomic() -> None:
@@ -465,6 +697,23 @@ def test_protocol_correction_claim_is_atomic() -> None:
 
     assert claims.count(True) == 1
     assert claims.count(False) == 63
+
+
+def test_envelope_and_protocol_correction_claims_have_independent_atomic_budgets() -> None:
+    session = AgentEvidenceSession(coordinator=Coordinator())
+
+    with ThreadPoolExecutor(max_workers=16) as executor:
+        envelope_claims = list(
+            executor.map(lambda _index: session.claim_envelope_correction(), range(64))
+        )
+        protocol_claims = list(
+            executor.map(lambda _index: session.claim_protocol_correction(), range(64))
+        )
+
+    assert envelope_claims.count(True) == 1
+    assert envelope_claims.count(False) == 63
+    assert protocol_claims.count(True) == 1
+    assert protocol_claims.count(False) == 63
 
 
 def test_unsupported_dependency_correction_skips_model_unavailable() -> None:
@@ -611,31 +860,36 @@ def test_normative_ready_is_not_misclassified_as_external_dependency() -> None:
 
 def test_ready_rejects_objective_opinion_not_covered_by_declared_claim() -> None:
     node = bureau_node_id("户部", "预算司")
+    rejected_ready = _ready(
+        "比亚迪现价为 300 元",
+        adopted_evidence_ids=["e-1"],
+        factual_claims=[
+            {
+                "claim": "证据表明市场活跃",
+                "basis": "CITED",
+                "evidence_ids": ["e-1"],
+                "fact_key": "market_size",
+                "category": "ENTITY_REFERENCE",
+                "subject": "target market",
+            }
+        ],
+    )
     responses = iter(
         (
             _gap(node),
-            _ready(
-                "比亚迪现价为 300 元",
-                adopted_evidence_ids=["e-1"],
-                factual_claims=[
-                    {
-                        "claim": "证据表明市场活跃",
-                        "basis": "CITED",
-                        "evidence_ids": ["e-1"],
-                        "fact_key": "market_size",
-                        "category": "ENTITY_REFERENCE",
-                        "subject": "target market",
-                    }
-                ],
-            ),
+            rejected_ready,
+            rejected_ready,
         )
     )
 
-    with pytest.raises(EvidenceProtocolError, match="unsupported_factual_dependency"):
-        _invoke(
-            AgentEvidenceSession(coordinator=Coordinator()),
-            lambda _messages: next(responses),
-        )
+    session = AgentEvidenceSession(coordinator=Coordinator())
+    result = _invoke(session, lambda _messages: next(responses))
+
+    assert result == {"opinion": "证据受限：model_synthesis_invalid"}
+    assert session.snapshot().adopted_evidence_ids == ()
+    assert session.snapshot().degradation_reasons == (
+        f"model_synthesis_degraded:{node}",
+    )
 
 
 def test_ready_allows_nonassertive_citation_attribution_before_bound_claim() -> None:
@@ -682,70 +936,81 @@ def test_ready_allows_nonassertive_citation_attribution_before_bound_claim() -> 
 def test_ready_rejects_attribution_clause_that_asserts_an_extra_fact() -> None:
     node = bureau_node_id("户部", "投资司")
     price_claim = "比亚迪A股最新收盘价为91.89元人民币"
+    rejected_ready = _ready(
+        f"根据腾讯数据表明公司已经停牌，{price_claim}",
+        adopted_evidence_ids=["e-1"],
+        factual_claims=[
+            {
+                "claim": price_claim,
+                "basis": "CITED",
+                "evidence_ids": ["e-1"],
+                "fact_key": "byd_current_quote",
+                "category": "MARKET_QUOTE",
+                "subject": "BYD",
+            }
+        ],
+    )
     responses = iter(
         (
             _quote_gap(node),
-            _ready(
-                f"根据腾讯数据表明公司已经停牌，{price_claim}",
-                adopted_evidence_ids=["e-1"],
-                factual_claims=[
-                    {
-                        "claim": price_claim,
-                        "basis": "CITED",
-                        "evidence_ids": ["e-1"],
-                        "fact_key": "byd_current_quote",
-                        "category": "MARKET_QUOTE",
-                        "subject": "BYD",
-                    }
-                ],
-            ),
+            rejected_ready,
+            rejected_ready,
         )
     )
 
-    with pytest.raises(
-        EvidenceProtocolError, match="unsupported_factual_dependency"
-    ):
-        invoke_bureau_with_evidence(
-            node_id=node,
-            department="户部",
-            bureau="投资司",
-            matter_type="MEMORIAL",
-            decree_text="查看比亚迪股票价格",
-            messages=[{"role": "user", "content": "旨意：查看比亚迪股票价格"}],
-            chat_model=lambda _messages: next(responses),
-            legacy_parser=_legacy_parser,
-            fallback=lambda reason: {"opinion": reason},
-            session=AgentEvidenceSession(coordinator=Coordinator()),
-        )
+    session = AgentEvidenceSession(coordinator=Coordinator())
+    result = invoke_bureau_with_evidence(
+        node_id=node,
+        department="户部",
+        bureau="投资司",
+        matter_type="MEMORIAL",
+        decree_text="查看比亚迪股票价格",
+        messages=[{"role": "user", "content": "旨意：查看比亚迪股票价格"}],
+        chat_model=lambda _messages: next(responses),
+        legacy_parser=_legacy_parser,
+        fallback=lambda reason: {"opinion": reason},
+        session=session,
+    )
+
+    assert result == {"opinion": "model_synthesis_invalid"}
+    assert session.snapshot().adopted_evidence_ids == ()
+    assert session.snapshot().degradation_reasons == (
+        f"model_synthesis_degraded:{node}",
+    )
 
 
 def test_ready_rejects_unrelated_citation_with_same_value_and_state() -> None:
     node = bureau_node_id("户部", "预算司")
+    rejected_ready = _ready(
+        "比亚迪现价为 300 元",
+        adopted_evidence_ids=["e-1"],
+        factual_claims=[
+            {
+                "claim": "腾讯现价为 300 元",
+                "basis": "CITED",
+                "evidence_ids": ["e-1"],
+                "fact_key": "market_size",
+                "category": "ENTITY_REFERENCE",
+                "subject": "target market",
+            }
+        ],
+    )
     responses = iter(
         (
             _gap(node),
-            _ready(
-                "比亚迪现价为 300 元",
-                adopted_evidence_ids=["e-1"],
-                factual_claims=[
-                    {
-                        "claim": "腾讯现价为 300 元",
-                        "basis": "CITED",
-                        "evidence_ids": ["e-1"],
-                        "fact_key": "market_size",
-                        "category": "ENTITY_REFERENCE",
-                        "subject": "target market",
-                    }
-                ],
-            ),
+            rejected_ready,
+            rejected_ready,
         )
     )
 
-    with pytest.raises(EvidenceProtocolError, match="unsupported_factual_dependency"):
-        _invoke(
-            AgentEvidenceSession(coordinator=Coordinator()),
-            lambda _messages: next(responses),
-        )
+    session = AgentEvidenceSession(coordinator=Coordinator())
+    result = _invoke(session, lambda _messages: next(responses))
+
+    assert result == {"opinion": "证据受限：model_synthesis_invalid"}
+    assert session.snapshot().adopted_evidence_ids == ()
+    assert session.snapshot().degradation_reasons == (
+        f"model_synthesis_degraded:{node}",
+    )
 
 
 def test_user_provided_claim_must_be_traceable_to_original_prompt() -> None:
@@ -1693,19 +1958,20 @@ def test_policy_only_ready_response_declares_not_required_fact_basis() -> None:
 
 
 def test_cited_ready_response_requires_adopted_evidence() -> None:
-    with pytest.raises(EvidenceProtocolError, match="uncited_fact_dependency"):
-        _invoke(
-            AgentEvidenceSession(coordinator=Coordinator()),
-            lambda _messages: json.dumps(
-                {
-                    "status": "READY",
-                    "result": {"opinion": "依据最新股价处理"},
-                    "adopted_evidence_ids": [],
-                    "fact_basis": "CITED",
-                },
-                ensure_ascii=False,
-            ),
-        )
+    result = _invoke(
+        AgentEvidenceSession(coordinator=Coordinator()),
+        lambda _messages: json.dumps(
+            {
+                "status": "READY",
+                "result": {"opinion": "依据最新股价处理"},
+                "adopted_evidence_ids": [],
+                "fact_basis": "CITED",
+            },
+            ensure_ascii=False,
+        ),
+    )
+
+    assert result == {"opinion": "证据受限：model_synthesis_invalid"}
 
 
 def test_enveloped_ready_adopts_only_frozen_unique_evidence() -> None:

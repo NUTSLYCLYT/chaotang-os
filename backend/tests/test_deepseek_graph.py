@@ -28,6 +28,28 @@ def _echo_chat_model(messages: list[dict[str, str]]) -> str:
     return f"echo:{messages[0]['content']}"
 
 
+def test_production_generic_graph_keeps_default_text_output(monkeypatch):
+    calls = []
+    fake_config = object()
+    monkeypatch.setattr(
+        "app.langgraph_runtime.deepseek_graph.load_deepseek_provider_config",
+        lambda: fake_config,
+    )
+
+    def fake_builder(config, dotenv_path, *, json_output=False):
+        calls.append((config, dotenv_path, json_output))
+        return lambda _messages: "ok"
+
+    monkeypatch.setattr(
+        "app.langgraph_runtime.deepseek_graph.build_deepseek_chat_model",
+        fake_builder,
+    )
+
+    build_deepseek_graph()
+
+    assert calls == [(fake_config, None, False)]
+
+
 def _raising_chat_model(messages: list[dict[str, str]]) -> str:
     raise RuntimeError("simulated fake-model failure")
 

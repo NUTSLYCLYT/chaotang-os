@@ -36,13 +36,18 @@ preserved), exactly like it already does for the single-department branch.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Protocol
 
 from app.agents.evidence_protocol import AgentEvidenceSession
 from app.agents.junjichu.prompts import junjichu_system_prompt
 from app.agents.ministries.agent import MinistryOpinion, invoke_ministry_agent
-from app.agents.structured_output import parse_strict_json_object
+from app.agents.structured_output import StructuredOutputError, parse_strict_json_object
+from app.agents.synthesis_failures import (
+    SynthesisFailureCode,
+    SynthesisStage,
+    is_locally_degradable,
+)
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel
 from app.shiguan.recall import RecallContext, safe_recall_context_for_department
 
@@ -66,7 +71,16 @@ class CaseLifecycleObserver(Protocol):
 
     def archive(self, reply_id: str) -> None: ...
 
-    def fail(self) -> None: ...
+    def fail(
+        self,
+        *,
+        stage: SynthesisStage = "route",
+        code: SynthesisFailureCode = "state_invalid",
+    ) -> None: ...
+
+
+class _CouncilContentError(ValueError):
+    """Marks only locally degradable council response-content failures."""
 
 
 def _format_ministry_opinions(ministry_opinions: list[MinistryOpinion]) -> str:
@@ -86,6 +100,32 @@ def _format_recall_contexts(
         for department in departments
     }
     return json.dumps(contexts, ensure_ascii=False)
+
+
+def _fallback_council_verdict(
+    ministry_opinions: Sequence[MinistryOpinion],
+) -> str:
+    departments = "、".join(item["department"] for item in ministry_opinions)
+    return (
+        f"军机处已会审{departments}意见；仅确认协同办理顺序，"
+        "不形成未经证据支持的事实判断。"
+    )
+
+
+def _parse_council_verdict(raw_response: object) -> str:
+    if not isinstance(raw_response, str) or not raw_response.strip():
+        raise _CouncilContentError("军机处 agent returned an empty model response.")
+    parsed = parse_strict_json_object(raw_response)
+    if set(parsed) != {"verdict"}:
+        raise _CouncilContentError(
+            "军机处 agent response JSON has an invalid schema."
+        )
+    verdict = parsed.get("verdict")
+    if not isinstance(verdict, str) or not verdict.strip():
+        raise _CouncilContentError(
+            "军机处 agent response JSON is missing a non-empty 'verdict' string."
+        )
+    return verdict.strip()
 
 
 def invoke_junjichu_council(
@@ -138,20 +178,7 @@ def invoke_junjichu_council(
     ]
 
     raw_response = chat_model(messages)
-    if not isinstance(raw_response, str) or not raw_response.strip():
-        raise ValueError("军机处 agent returned an empty model response.")
-
-    parsed = parse_strict_json_object(raw_response)
-
-    if set(parsed) != {"verdict"}:
-        raise ValueError("军机处 agent response JSON has an invalid schema.")
-
-    verdict = parsed.get("verdict")
-    if not isinstance(verdict, str) or not verdict.strip():
-        raise ValueError(
-            "军机处 agent response JSON is missing a non-empty 'verdict' string."
-        )
-    return verdict.strip()
+    return _parse_council_verdict(raw_response)
 
 
 def run_junjichu_council(
@@ -226,12 +253,19 @@ def run_junjichu_council(
             status="COUNCIL_REVIEWING",
             processing_path=council_processing_path,
         )
-    verdict = invoke_junjichu_council(
-        decree_text,
-        rationale,
-        departments,
-        ministry_opinions,
-        chat_model,
-        recall_contexts=recall_contexts,
-    )
+    try:
+        verdict = invoke_junjichu_council(
+            decree_text,
+            rationale,
+            departments,
+            ministry_opinions,
+            chat_model,
+            recall_contexts=recall_contexts,
+        )
+    except (_CouncilContentError, StructuredOutputError) as exc:
+        if not is_locally_degradable(exc):
+            raise
+        if evidence_session is not None:
+            evidence_session.record_degradation("junjichu:council")
+        verdict = _fallback_council_verdict(ministry_opinions)
     return ministry_opinions, verdict

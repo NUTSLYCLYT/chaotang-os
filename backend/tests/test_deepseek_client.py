@@ -45,7 +45,7 @@ def _make_fake_openai_response(content: str) -> MagicMock:
 
 
 @patch("app.langgraph_runtime.deepseek_client.openai.OpenAI")
-def test_build_deepseek_chat_model_constructs_client_with_expected_arguments(
+def test_build_deepseek_chat_model_defaults_to_text_output(
     mock_openai_class, monkeypatch
 ):
     monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-fake-value-for-tests")
@@ -65,7 +65,28 @@ def test_build_deepseek_chat_model_constructs_client_with_expected_arguments(
 
     assert result == "hello from deepseek"
     mock_client_instance.chat.completions.create.assert_called_once_with(
-        model="deepseek-chat", messages=[{"role": "user", "content": "hi"}]
+        model="deepseek-chat",
+        messages=[{"role": "user", "content": "hi"}],
+    )
+
+
+@patch("app.langgraph_runtime.deepseek_client.openai.OpenAI")
+def test_build_deepseek_chat_model_can_request_json_output(mock_openai_class, monkeypatch):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-fake-value-for-tests")
+    mock_client_instance = MagicMock()
+    mock_openai_class.return_value = mock_client_instance
+    mock_client_instance.chat.completions.create.return_value = _make_fake_openai_response(
+        '{"status":"ok"}'
+    )
+
+    call_model = build_deepseek_chat_model(_CONFIG, json_output=True)
+    result = call_model([{"role": "user", "content": "return json"}])
+
+    assert result == '{"status":"ok"}'
+    mock_client_instance.chat.completions.create.assert_called_once_with(
+        model="deepseek-chat",
+        messages=[{"role": "user", "content": "return json"}],
+        response_format={"type": "json_object"},
     )
 
 

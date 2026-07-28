@@ -184,7 +184,9 @@ npm run start
 
 `POST /api/chat/chancellor-consult` 是 `/study` 的受认证同源咨询 BFF。它只在服务端把
 `courtos_session` 转为 Bearer session 并调用后端独立咨询端点；不得复用下旨 BFF，
-不得把后端地址或 session 暴露给浏览器。咨询历史只保存在页面 React 内存中。
+不得把后端地址或 session 暴露给浏览器。咨询历史按 ADR 0032 仅保存在当前浏览器
+localStorage 中，并使用服务端认证得到的公开 `user.id` 隔离；不得使用用户名、邮箱、
+session 或客户端输入作为隔离键，也不得把咨询写入史馆或后端业务存储。
 
 1. 用最小原型验证关键假设。
 2. 在 `docs/decisions/` 记录选择和取舍。

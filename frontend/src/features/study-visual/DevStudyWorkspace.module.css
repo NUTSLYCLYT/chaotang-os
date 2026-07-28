@@ -74,6 +74,24 @@
 .returnContent > ul > li { min-width: 0; margin-top: 12px; overflow-wrap: anywhere; padding: 11px; border: 1px solid rgba(114,72,21,.2); background: rgba(255,250,230,.28); }
 .path { padding: 10px; background: rgba(114,72,21,.08); }
 .path strong, .returnContent p strong { margin-right: .6em; color: #734516; }
+.archivedReply {
+  min-width: 0;
+  color: #33230f;
+  overflow-wrap: anywhere;
+}
+.archivedReply p {
+  margin: 0 0 14px;
+  line-height: 1.8;
+}
+.archivedReply strong {
+  margin-right: .7em;
+  color: #734516;
+}
+.archivedReply:focus { outline: none; }
+.archivedReply:focus-visible {
+  outline: 2px solid #8b2a20;
+  outline-offset: 4px;
+}
 
 .composer {
   position: relative;

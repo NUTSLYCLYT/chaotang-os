@@ -5,6 +5,7 @@ export type CourtDataState = "loading" | "empty" | "ready" | "error";
 
 export interface ImmersiveCourtShellProps {
   children: ReactNode;
+  overlay?: ReactNode;
   currentLabel: string;
   currentPath: string;
   backgroundImage: string;

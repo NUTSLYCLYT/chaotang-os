@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 from functools import partial
 
 import pytest
@@ -10,11 +11,15 @@ from fastapi.testclient import TestClient
 
 import app.agents.chancellor.graph as graph_module
 import app.agents.junjichu.agent as council_module
+import app.agents.ministries.agent as ministries_module
 import app.api.decrees as decrees_module
+from app.agents.bureaus.agent import BureauAgentInvocationError
 from app.agents.chancellor.graph import build_chancellor_graph
+from app.agents.evidence_protocol import EvidenceProtocolError
 from app.api.auth import require_current_user
 from app.auth.models import AuthenticatedUser
 from app.junjichu_cases import storage as case_storage
+from app.langgraph_runtime.deepseek_client import DeepSeekModelInvocationError
 from app.shiguan.archive_decree import ArchiveDecreeResult
 
 
@@ -303,6 +308,161 @@ def test_api_marks_open_case_failed_and_resets_observer_context_after_graph_erro
     cases = case_storage.list_cases(owner_user_id="owner-a", db_path=db_path)
     assert [case.status for case in cases] == ["ARCHIVED", "FAILED"]
     assert seen_observers[0] is not seen_observers[1]
+    failed = cases[1]
+    assert failed.failure_stage == "ministry"
+    assert failed.failure_code == "state_invalid"
+
+
+def test_api_does_not_trust_failure_stage_on_untyped_graph_exception(
+    monkeypatch, tmp_path
+):
+    db_path = tmp_path / "cases.sqlite3"
+    _install_temporary_case_storage(monkeypatch, db_path)
+
+    class ForgedStageError(RuntimeError):
+        failure_stage = "bureau"
+
+    error = ForgedStageError("sdk")
+    monkeypatch.setattr(
+        decrees_module,
+        "build_chancellor_graph",
+        lambda *, lifecycle_observer: _fake_graph_for(
+            lifecycle_observer, error=error
+        ),
+    )
+
+    with pytest.raises(ForgedStageError):
+        decrees_module.submit_decree(
+            decrees_module.ChancellorDecreeRequest(decree_text="跨部旨意"),
+            AuthenticatedUser("owner-a", "owner", "owner@example.test"),
+        )
+
+    case = case_storage.list_cases(owner_user_id="owner-a", db_path=db_path)[0]
+    assert case.failure_stage == "ministry"
+
+
+def test_real_bureau_provider_failure_persists_bureau_stage(monkeypatch, tmp_path):
+    db_path = tmp_path / "cases.sqlite3"
+    _install_temporary_case_storage(monkeypatch, db_path)
+    responses = iter(
+        [
+            (
+                '{"route_type":"multi","rationale":"需要跨部会审",'
+                '"departments":["户部","工部"]}'
+            ),
+            '{"rationale":"先由预算司核办","bureaus":["预算司"]}',
+        ]
+    )
+
+    def fail_bureau(*_args, **_kwargs):
+        provider = EvidenceProtocolError("model_unavailable")
+        raise BureauAgentInvocationError("sanitized bureau failure") from provider
+
+    monkeypatch.setattr(ministries_module, "invoke_bureau_agent", fail_bureau)
+    monkeypatch.setattr(
+        decrees_module,
+        "get_chancellor_graph",
+        lambda: build_chancellor_graph(
+            chat_model=lambda _messages: next(responses),
+            lifecycle_observer=decrees_module._lifecycle_observer_context.get(),
+        ),
+    )
+
+    with pytest.raises(graph_module.ChancellorGraphInvocationError) as raised:
+        decrees_module.submit_decree(
+            decrees_module.ChancellorDecreeRequest(decree_text="跨部旨意"),
+            AuthenticatedUser("owner-a", "owner", "owner@example.test"),
+        )
+
+    case = case_storage.list_cases(owner_user_id="owner-a", db_path=db_path)[0]
+    assert case.status == "FAILED"
+    assert case.failure_stage == "bureau"
+    assert case.failure_code == "provider_unavailable"
+    assert isinstance(raised.value.__cause__.__cause__.__cause__, EvidenceProtocolError)
+
+
+def test_real_route_provider_failure_persists_route_stage_once(monkeypatch, tmp_path):
+    db_path = tmp_path / "cases.sqlite3"
+    _install_temporary_case_storage(monkeypatch, db_path)
+    sdk_error = RuntimeError("SECRET SDK BODY")
+    provider_error = DeepSeekModelInvocationError("sanitized provider failure")
+    provider_error.__cause__ = sdk_error
+
+    def fail_route(_messages):
+        raise provider_error
+
+    monkeypatch.setattr(
+        decrees_module,
+        "get_chancellor_graph",
+        lambda: build_chancellor_graph(
+            chat_model=fail_route,
+            lifecycle_observer=decrees_module._lifecycle_observer_context.get(),
+        ),
+    )
+
+    with pytest.raises(graph_module.ChancellorGraphInvocationError):
+        decrees_module.submit_decree(
+            decrees_module.ChancellorDecreeRequest(
+                decree_text="我要招两个人做量化炒股，然后让他们去开发"
+            ),
+            AuthenticatedUser("owner-a", "owner", "owner@example.test"),
+        )
+
+    cases = case_storage.list_cases(owner_user_id="owner-a", db_path=db_path)
+    assert len(cases) == 1
+    assert cases[0].status == "FAILED"
+    assert cases[0].failure_stage == "route"
+    assert cases[0].failure_code == "provider_unavailable"
+
+
+def test_failed_case_persists_only_fixed_stage_and_code(monkeypatch, tmp_path):
+    db_path = tmp_path / "cases.sqlite3"
+    _install_temporary_case_storage(monkeypatch, db_path)
+    observer = decrees_module._StorageCaseLifecycleObserver("owner-a")
+    observer.open_case(
+        decree_text="跨部旨意",
+        departments=["户部", "工部"],
+        processing_path=["上书房", "丞相"],
+    )
+
+    observer.fail(stage="ministry", code="schema_invalid")
+
+    case = case_storage.list_cases(owner_user_id="owner-a", db_path=db_path)[0]
+    assert case.failure_stage == "ministry"
+    assert case.failure_code == "schema_invalid"
+    assert "SECRET" not in repr(case)
+
+
+def test_existing_case_database_migrates_failure_columns_idempotently(tmp_path):
+    db_path = tmp_path / "cases.sqlite3"
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            """
+            CREATE TABLE junjichu_cases (
+                id TEXT PRIMARY KEY,
+                owner_user_id TEXT NOT NULL,
+                decree_text TEXT NOT NULL,
+                departments_json TEXT NOT NULL,
+                status TEXT NOT NULL,
+                processing_path_json TEXT NOT NULL,
+                completed_ministry_opinions_json TEXT NOT NULL,
+                council_verdict TEXT,
+                reply_id TEXT,
+                failure_reason TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+
+    assert case_storage.list_cases(owner_user_id="owner-a", db_path=db_path) == []
+    assert case_storage.list_cases(owner_user_id="owner-a", db_path=db_path) == []
+
+    with sqlite3.connect(db_path) as connection:
+        columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(junjichu_cases)")
+        }
+    assert {"failure_stage", "failure_code"} <= columns
 
 
 def test_invalid_request_returns_422_without_building_a_graph_or_case(monkeypatch):

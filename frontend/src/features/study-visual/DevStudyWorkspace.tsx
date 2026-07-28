@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 
 import type { DecreeUiState } from "../../app/study/decreeStatus";
 import {
@@ -12,7 +12,8 @@ import styles from "./DevStudyWorkspace.module.css";
 import { StudySideDrawers } from "./StudySideDrawers";
 import { getStudyDepartmentCountLabel } from "./studyWorkspaceState";
 import type { ConsultMessage } from "../../app/study/chancellorConsultStatus";
-import type { DecreeSessionRecord } from "../../app/study/decreeSessionLog";
+import type { StudyRecentRepliesState } from "../../app/study/studyRecentReplies";
+import type { ShiguanArchive } from "../../lib/backendClient";
 
 const ONBOARDED_KEY = "courtos.onboarded";
 const RULER_STYLE_KEY = "courtos.ruler.style";
@@ -62,7 +63,12 @@ export interface DevStudyWorkspaceProps {
   canSubmit: boolean;
   onDecreeTextChange(value: string): void;
   onSubmit(): void;
-  decreeSessionRecords: DecreeSessionRecord[];
+  recentReplies: StudyRecentRepliesState;
+  onOpenRecentReplies(): void;
+  onRetryRecentReplies(): void;
+  onSelectRecentReply(archiveId: string): void;
+  selectedArchivedReply: ShiguanArchive | null;
+  onReturnToCurrentReply(): void;
   consultMessages: ConsultMessage[];
   consultPending: boolean;
   consultError: string | null;
@@ -184,8 +190,20 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
   const [polished, setPolished] = useState(false);
   const [attachments, setAttachments] = useState<string[]>([]);
   const [showRitual, setShowRitual] = useState(false);
-  const showScroll = expanded || props.uiState.phase !== "idle";
-  const hasRealReply = props.uiState.phase === "success";
+  const archivedReply = props.selectedArchivedReply;
+  const archivedReplyId = archivedReply?.id;
+  const archivedReplyRef = useRef<HTMLElement>(null);
+  const showScroll = expanded || archivedReply !== null || props.uiState.phase !== "idle";
+  const hasReplyContent = archivedReply !== null || props.uiState.phase === "success";
+
+  useEffect(() => {
+    if (!archivedReplyId) return;
+    const timer = window.setTimeout(() => {
+      setExpanded(true);
+      archivedReplyRef.current?.focus();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [archivedReplyId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -221,6 +239,18 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
       </div>
     </section>
   );
+  const drawers = (
+    <StudySideDrawers
+      recentReplies={props.recentReplies}
+      onOpenRecentReplies={props.onOpenRecentReplies}
+      onRetryRecentReplies={props.onRetryRecentReplies}
+      onSelectRecentReply={props.onSelectRecentReply}
+      messages={props.consultMessages}
+      pending={props.consultPending}
+      error={props.consultError}
+      onSend={props.onConsultSend}
+    />
+  );
 
   return (
     <ImmersiveCourtShell
@@ -228,17 +258,21 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
       currentPath="/study"
       backgroundImage="/shangshufang/bg-shangshufang-scene.webp"
       quickDockCenter={composer}
+      overlay={drawers}
       scene="study"
     >
-      <StudySideDrawers
-        records={props.decreeSessionRecords}
-        messages={props.consultMessages}
-        pending={props.consultPending}
-        error={props.consultError}
-        onSend={props.onConsultSend}
-      />
       <div className={styles.stage}>
-        <button className={styles.scrollToggle} type="button" onClick={() => setExpanded((value) => !value)}>
+        <button
+          className={styles.scrollToggle}
+          type="button"
+          onClick={() => {
+            if (archivedReply) {
+              props.onReturnToCurrentReply();
+              return;
+            }
+            setExpanded((value) => !value);
+          }}
+        >
           <span aria-hidden="true">{showScroll ? "↙" : "↗"}</span>
           {showScroll ? "收卷看殿" : "展卷"}
         </button>
@@ -246,7 +280,7 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
         <section
           className={`${styles.edictSlot} ${
             showScroll
-              ? hasRealReply
+              ? hasReplyContent
                 ? styles.expandedSlot
                 : styles.emptyExpanded
               : styles.collapsedSlot
@@ -260,6 +294,31 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
               countLabel={getStudyDepartmentCountLabel(props.uiState)}
               onOpen={() => setExpanded(true)}
             />
+          ) : archivedReply ? (
+            <EdictStage
+              document={{
+                id: `study-archive-${archivedReply.id}`,
+                kicker: "史馆留痕 · 上书房阅奏",
+                title: "回奏",
+                issuer: `${archivedReply.respondent} · ${archivedReply.replyTime}`,
+              }}
+              theme="imperial"
+              bodyLabel="史馆归档回奏"
+            >
+              <section
+                ref={archivedReplyRef}
+                className={styles.archivedReply}
+                tabIndex={-1}
+                data-testid="archived-reply-scroll"
+              >
+                <p><strong>原旨正文</strong>{archivedReply.sourceText}</p>
+                <p><strong>办理过程</strong>{archivedReply.replyProcess}</p>
+                <p><strong>参与部门</strong>{archivedReply.participatingDepartments!.join("、")}</p>
+                <p><strong>回奏结论</strong>{archivedReply.replyConclusion}</p>
+                <p><strong>回奏时间</strong>{archivedReply.replyTime}</p>
+                <p><strong>责任主体</strong>{archivedReply.respondent}</p>
+              </section>
+            </EdictStage>
           ) : props.uiState.phase === "success" ? (
             <EdictStage
               document={{

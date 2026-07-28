@@ -397,6 +397,52 @@ def test_invalid_responses_fail_closed_with_sanitized_preserved_cause(response):
     assert "secret-output-marker" not in str(exc_info.value)
 
 
+def test_session_enabled_bureau_degrades_invalid_model_content_without_leaking_body():
+    rejected_body = "SECRET-INVALID-BUREAU-BODY"
+    session = AgentEvidenceSession(coordinator=object())
+
+    result = invoke_bureau_agent(
+        "工部",
+        "质量司",
+        "旨意",
+        "判断",
+        lambda _messages: rejected_body,
+        evidence_session=session,
+    )
+
+    assert result == (
+        "数据不足（model_synthesis_invalid），无法形成事实结论；"
+        "待取得可验证数据后再行复核。"
+    )
+    assert session.snapshot().degradation_reasons == (
+        "model_synthesis_degraded:bureau:工部:质量司",
+    )
+    assert rejected_body not in result
+
+
+def test_session_enabled_bureau_provider_failure_still_fails_closed():
+    marker = "SECRET-PROVIDER-FAILURE"
+    session = AgentEvidenceSession(coordinator=object())
+
+    def failing_model(_messages):
+        raise RuntimeError(marker)
+
+    with pytest.raises(BureauAgentInvocationError) as exc_info:
+        invoke_bureau_agent(
+            "工部",
+            "质量司",
+            "旨意",
+            "判断",
+            failing_model,
+            evidence_session=session,
+        )
+
+    assert isinstance(exc_info.value.__cause__, EvidenceProtocolError)
+    assert str(exc_info.value.__cause__) == "model_unavailable"
+    assert marker not in str(exc_info.value)
+    assert session.snapshot().degradation_reasons == ()
+
+
 def test_session_enabled_bureau_alone_receives_evidence_protocol_prompt():
     class Coordinator:
         def investigate(self, *_args, **_kwargs):

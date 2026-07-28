@@ -3,6 +3,7 @@ import test from "node:test";
 import { EMPTY_CONSULT_STATE } from "./chancellorConsultStatus.ts";
 import {
   requestChancellorConsult,
+  shouldSubmitConsultKey,
   submitChancellorConsult,
   submitConsultDraft,
 } from "./chancellorConsultSubmission.ts";
@@ -53,4 +54,11 @@ test("drawer draft survives failure and is cleared only after a successful retry
   });
   assert.equal(second, "");
   assert.equal(attempts, 2);
+});
+
+test("Enter submits while Shift+Enter and IME composition keep editing", () => {
+  assert.equal(shouldSubmitConsultKey({ key: "Enter", shiftKey: false, isComposing: false }), true);
+  assert.equal(shouldSubmitConsultKey({ key: "Enter", shiftKey: true, isComposing: false }), false);
+  assert.equal(shouldSubmitConsultKey({ key: "Enter", shiftKey: false, isComposing: true }), false);
+  assert.equal(shouldSubmitConsultKey({ key: "a", shiftKey: false, isComposing: false }), false);
 });

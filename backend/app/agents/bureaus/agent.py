@@ -15,6 +15,8 @@ if TYPE_CHECKING:
 class BureauAgentInvocationError(Exception):
     """A sanitized, fail-closed bureau invocation failure."""
 
+    failure_stage = "bureau"
+
 
 def _evidence_protocol_prompt(node_id: str) -> str:
     from app.agents.evidence_protocol import MARKET_METRIC_PROMPT_CONTRACT
@@ -134,6 +136,14 @@ def invoke_bureau_agent(
                 **evidence_kwargs,
             )
         except EvidenceProtocolError as exc:
+            from app.agents.synthesis_failures import is_locally_degradable
+
+            if is_locally_degradable(exc):
+                evidence_session.record_degradation(node_id)
+                return (
+                    "数据不足（model_synthesis_invalid），无法形成事实结论；"
+                    "待取得可验证数据后再行复核。"
+                )
             raise BureauAgentInvocationError("Bureau evidence protocol failed.") from exc
 
     try:

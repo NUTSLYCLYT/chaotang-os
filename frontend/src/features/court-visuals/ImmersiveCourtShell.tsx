@@ -5,6 +5,7 @@ import type { ImmersiveCourtShellProps } from "./types";
 
 export function ImmersiveCourtShell({
   children,
+  overlay,
   currentLabel,
   currentPath,
   backgroundImage,
@@ -26,6 +27,7 @@ export function ImmersiveCourtShell({
       <main className={`${styles.content}${fullBleedContent ? ` ${styles.contentFullBleed}` : ""}${hideScrollbar ? ` ${styles.contentScrollbarHidden}` : ""}`}>
         {children}
       </main>
+      {overlay}
       <CourtQuickDock centerSlot={quickDockCenter} showHandle={showQuickDockHandle} />
     </div>
   );

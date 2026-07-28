@@ -32,6 +32,7 @@ test("dev study workspace restores the first-court ritual as local-only interact
   assert.match(source, /勤政陛下/);
   assert.match(source, /跳过 · 直接进朝堂/);
   assert.match(source, /下一步 · 亲下第一道旨/);
+  assert.match(source, /role="dialog"/);
   assert.doesNotMatch(source, /fetch\s*\(|EventSource|SWR|useRouter/);
 });
 
@@ -109,6 +110,38 @@ test("dev study workspace renders parchment only for a real successful reply", a
   assert.doesNotMatch(source, /当前没有展开的回奏。拟旨期间不会调用模型或后端办理流程。/);
 });
 
+test("dev study workspace renders an archived reply in the central scroll without a dialog", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+  const archivedBranch = source.match(
+    /\) : archivedReply \? \(([\s\S]*?)\) : props\.uiState\.phase === "success"/,
+  )?.[1];
+
+  assert.ok(archivedBranch);
+  assert.match(source, /selectedArchivedReply/);
+  assert.match(archivedBranch, /data-testid="archived-reply-scroll"/);
+  assert.match(archivedBranch, /bodyLabel="史馆归档回奏"/);
+  assert.match(archivedBranch, /原旨正文/);
+  assert.match(archivedBranch, /办理过程/);
+  assert.match(archivedBranch, /参与部门/);
+  assert.match(archivedBranch, /回奏结论/);
+  assert.match(archivedBranch, /回奏时间/);
+  assert.match(archivedBranch, /责任主体/);
+  assert.doesNotMatch(archivedBranch, /role="dialog"/);
+});
+
+test("archive id changes schedule scroll expansion and focus with cleanup", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+  const effect = source.match(
+    /useEffect\(\(\) => \{\s*if \(!archivedReplyId\)[\s\S]*?\}, \[archivedReplyId\]\);/,
+  )?.[0];
+
+  assert.ok(effect);
+  assert.match(effect, /window\.setTimeout\(\(\) => \{/);
+  assert.match(effect, /setExpanded\(true\)/);
+  assert.match(effect, /archivedReplyRef\.current\?\.focus\(\)/);
+  assert.match(effect, /return \(\) => window\.clearTimeout\(timer\)/);
+});
+
 test("dev study uses the shared dev-derived scroll shells", async () => {
   const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
 
@@ -156,4 +189,23 @@ test("dev study CSS owns the responsive parent slot instead of redrawing the scr
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.doesNotMatch(css, /\.(?:collapsedScroll|roller|scrollPaper)\s*\{/);
   assert.doesNotMatch(css, /\.expanded::(?:before|after)/);
+});
+
+test("dev study workspace passes recent reply state and callbacks to the drawer", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /recentReplies: StudyRecentRepliesState/);
+  assert.match(source, /recentReplies=\{props\.recentReplies\}/);
+  assert.match(source, /onOpenRecentReplies=\{props\.onOpenRecentReplies\}/);
+  assert.match(source, /onRetryRecentReplies=\{props\.onRetryRecentReplies\}/);
+  assert.match(source, /onSelectRecentReply=\{props\.onSelectRecentReply\}/);
+  assert.doesNotMatch(source, /DecreeSessionRecord|decreeSessionRecords/);
+});
+
+test("study mounts side drawers in the shell overlay layer", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /const drawers = \(\s*<StudySideDrawers/);
+  assert.match(source, /<ImmersiveCourtShell[\s\S]*?overlay=\{drawers\}/);
+  assert.equal((source.match(/<StudySideDrawers/g) ?? []).length, 1);
 });

@@ -121,6 +121,20 @@ test("immersive shell forwards an optional React element to the quick dock", asy
   );
 });
 
+test("immersive shell renders overlays outside the content stacking context", async () => {
+  const [typesSource, shellSource] = await Promise.all([
+    readFile(new URL("./types.ts", import.meta.url), "utf8"),
+    readFile(new URL("./ImmersiveCourtShell.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(typesSource, /overlay\?: ReactNode;/);
+  assert.match(
+    shellSource,
+    /<\/main>\s*\{overlay\}\s*<CourtQuickDock/,
+    "fixed overlays must be siblings of the dock instead of descendants of the z-indexed content",
+  );
+});
+
 test("quick dock fills two columns by default and aligns the right entry to the safe edge", async () => {
   const css = await readFile(
     new URL("./CourtQuickDock.module.css", import.meta.url),

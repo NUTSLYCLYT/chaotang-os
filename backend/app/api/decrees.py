@@ -43,6 +43,11 @@ from app.agents.chancellor import (
 )
 from app.agents.junjichu.agent import CaseLifecycleObserver
 from app.agents.ministries import MINISTRIES
+from app.agents.synthesis_failures import (
+    SynthesisFailureCode,
+    SynthesisStage,
+    classify_synthesis_failure,
+)
 from app.api.auth import CurrentUser
 from app.junjichu_cases import (
     JunjichuCaseOpenInput,
@@ -60,6 +65,9 @@ _SANITIZED_MESSAGE = "丞相暂时无法处理旨意，请稍后再试"
 _MIN_DECREE_LENGTH = 1
 _MAX_DECREE_LENGTH = 2000
 _FIXED_FAILURE_REASON = "processing_failed"
+_FAILURE_STAGES = frozenset(
+    {"route", "bureau", "ministry", "council", "finalize", "archive"}
+)
 
 
 class _StorageCaseLifecycleObserver(CaseLifecycleObserver):
@@ -69,6 +77,8 @@ class _StorageCaseLifecycleObserver(CaseLifecycleObserver):
         self._owner_user_id = owner_user_id
         self._case_id: str | None = None
         self._completed_ministry_opinions: list[dict[str, object]] = []
+        self._failure_stage: SynthesisStage = "route"
+        self._failure_recorded = False
 
     def open_case(
         self, *, decree_text: str, departments: list[str], processing_path: list[str]
@@ -83,10 +93,12 @@ class _StorageCaseLifecycleObserver(CaseLifecycleObserver):
             owner_user_id=self._owner_user_id,
         )
         self._case_id = case.id
+        self._failure_stage = "ministry"
 
     def record_ministry_opinion(self, opinion: dict[str, object]) -> None:
         if self._case_id is None:
             return
+        self._failure_stage = "ministry"
         self._completed_ministry_opinions.append(opinion)
         record_checkpoint(
             self._case_id,
@@ -104,6 +116,10 @@ class _StorageCaseLifecycleObserver(CaseLifecycleObserver):
     ) -> None:
         if self._case_id is None:
             return
+        if status == "COUNCIL_REVIEWING":
+            self._failure_stage = "council"
+        elif status == "CHANCELLOR_FINALIZING":
+            self._failure_stage = "finalize"
         record_checkpoint(
             self._case_id,
             owner_user_id=self._owner_user_id,
@@ -121,12 +137,20 @@ class _StorageCaseLifecycleObserver(CaseLifecycleObserver):
                 reply_id=reply_id,
             )
 
-    def fail(self) -> None:
-        if self._case_id is not None:
+    def fail(
+        self,
+        *,
+        stage: SynthesisStage | None = None,
+        code: SynthesisFailureCode = "state_invalid",
+    ) -> None:
+        if self._case_id is not None and not self._failure_recorded:
+            self._failure_recorded = True
             fail_case(
                 self._case_id,
                 owner_user_id=self._owner_user_id,
                 reason=_FIXED_FAILURE_REASON,
+                failure_stage=stage or self._failure_stage,
+                failure_code=code,
             )
 
 
@@ -385,21 +409,35 @@ def submit_decree(
         graph = get_chancellor_graph()
         result = graph.invoke({"decree_text": payload.decree_text})
         response = _build_response_from_graph_result(result)
-        archive_result = archive_chancellor_decree(
-            payload.decree_text,
-            response,
-            result,
-            owner_user_id=current_user.id,
-        )
+        try:
+            archive_result = archive_chancellor_decree(
+                payload.decree_text,
+                response,
+                result,
+                owner_user_id=current_user.id,
+            )
+        except Exception as exc:
+            observer.fail(
+                stage="archive", code=classify_synthesis_failure(exc)
+            )
+            raise
         if response.route_type == "multi":
             reply_id = getattr(archive_result, "reply_id", None)
             if getattr(archive_result, "archived", False) and isinstance(reply_id, str):
                 observer.archive(reply_id)
             else:
-                observer.fail()
+                observer.fail(stage="archive", code="state_invalid")
         return response
-    except Exception:
-        observer.fail()
+    except Exception as exc:
+        failure_stage = (
+            getattr(exc, "failure_stage", None)
+            if isinstance(exc, ChancellorGraphInvocationError)
+            else None
+        )
+        observer.fail(
+            stage=failure_stage if failure_stage in _FAILURE_STAGES else None,
+            code=classify_synthesis_failure(exc),
+        )
         raise
     finally:
         _lifecycle_observer_context.reset(context_token)

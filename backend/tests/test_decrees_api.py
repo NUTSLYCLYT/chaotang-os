@@ -427,6 +427,9 @@ def test_model_error_maps_to_sanitized_502(fake_provider):
         "message": "丞相暂时无法处理旨意，请稍后再试",
     }
     assert secret_marker not in response.text
+    assert set(body) == {"status", "reason", "message"}
+    assert "failure_stage" not in response.text
+    assert "failure_code" not in response.text
     assert provider.call_count == 1
 
 

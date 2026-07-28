@@ -219,6 +219,28 @@ def test_run_junjichu_calls_layered_ministries_serially_then_council():
         assert f"{department}补充" in council_evidence
 
 
+def test_council_schema_drift_uses_verified_ministry_inputs(monkeypatch):
+    departments = ["吏部", "工部"]
+    expected_opinions = [_layered_opinion(department) for department in departments]
+    calls = iter(expected_opinions)
+    monkeypatch.setattr(
+        "app.agents.junjichu.agent.invoke_ministry_agent",
+        lambda *_args, **_kwargs: next(calls),
+    )
+
+    opinions, verdict = run_junjichu_council(
+        "旨意",
+        "判断",
+        departments,
+        lambda _messages: '{"verdict":"SECRET-REJECTED","extra":true}',
+    )
+
+    assert opinions == expected_opinions
+    assert verdict
+    assert all(department in verdict for department in departments)
+    assert "SECRET-REJECTED" not in verdict
+
+
 def test_cross_department_capability_intention_preserves_layered_ministry_inputs(
     monkeypatch,
 ):

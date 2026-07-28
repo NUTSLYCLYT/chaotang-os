@@ -5,9 +5,9 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from app.auth import configure_auth_db, create_session, create_user
 import app.api.decrees as decrees_module
 from app.agents.chancellor.graph import ChancellorGraphInvocationError
+from app.auth import configure_auth_db, create_session, create_user
 from app.junjichu_cases import storage
 from app.junjichu_cases.models import JunjichuCaseOpenInput
 from app.main import app
@@ -160,18 +160,20 @@ def test_decree_to_case_ledger_is_private_and_records_only_real_terminal_outcome
 
     def result_for(route_type: str) -> dict[str, object]:
         departments = ["兵部", "户部"] if route_type == "multi" else ["户部"]
+        ministry_opinions = [
+            {
+                "department": department,
+                "bureau_opinions": [{"bureau": "核验司", "opinion": "已核验"}],
+                "opinion": "部议已成",
+            }
+            for department in departments
+        ]
         return {
             "chancellor_rationale": "离线测试分流",
             "route_type": route_type,
             "processing_path": ["上书房", "丞相", "军机处（会审）", "丞相（最终汇总）"],
             "departments": departments,
-            "ministry_opinions": [
-                {
-                    "department": departments[0],
-                    "bureau_opinions": [{"bureau": "核验司", "opinion": "已核验"}],
-                    "opinion": "部议已成",
-                }
-            ],
+            "ministry_opinions": ministry_opinions,
             "council_verdict": "会审结论" if route_type == "multi" else None,
             "final_verdict": "丞相最终汇总",
             "recommendations": ["建议一", "建议二", "建议三"],
@@ -252,4 +254,6 @@ def test_decree_to_case_ledger_is_private_and_records_only_real_terminal_outcome
     assert archived["reply_id"] == "reply-owner-a"
     assert failed["reply_id"] is None
     assert failed["failure_reason"] == "processing_failed"
+    assert "failure_stage" not in failed
+    assert "failure_code" not in failed
     assert archived["reply_id"] != second_owner_cases[0]["reply_id"]

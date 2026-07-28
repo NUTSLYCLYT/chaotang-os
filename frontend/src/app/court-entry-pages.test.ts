@@ -21,7 +21,7 @@ test("court entries are server-protected migrated views or visual placeholders",
     const source = await readFile(new URL(`./${file}`, import.meta.url), "utf8");
     assert.match(source, /^import \{ requireUser \} from "[^"]+\/requireUser";\r?$/m);
     const directGuards = source.match(
-      /^\s{2}await requireUser\((?:routeSegment|"[^"]+")\);\r?$/gm,
+      /^\s{2}(?:const \w+ = )?await requireUser\((?:routeSegment|"[^"]+")\);\r?$/gm,
     );
     assert.equal(directGuards?.length, 1, `${file} must execute exactly one direct requireUser guard`);
     assert.ok(

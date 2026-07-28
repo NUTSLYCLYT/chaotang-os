@@ -14,6 +14,7 @@ from langgraph.graph.state import CompiledStateGraph
 from app.agents.bureaus import bureau_profiles_for
 from app.agents.chancellor.graph import (
     ChancellorGraphInvocationError,
+    _deterministic_route,
     build_chancellor_graph,
 )
 from app.agents.chancellor.prompts import (
@@ -651,10 +652,23 @@ def test_single_route_works_for_every_ministry():
         '{"route_type":"single","rationale":" ","departments":["户部"]}',
     ],
 )
-def test_invalid_route_responses_fail_closed(response):
-    graph = build_chancellor_graph(chat_model=lambda _messages: response)
-    with pytest.raises(ChancellorGraphInvocationError):
-        graph.invoke({"decree_text": "旨意"})
+def test_invalid_route_responses_use_safe_deterministic_fallback(response):
+    graph = build_chancellor_graph(
+        chat_model=_sequenced_chat_model(
+            [
+                response,
+                *_ministry_turns("吏部", "司见", "部见"),
+                _final_response("最终总结"),
+            ]
+        )
+    )
+    result = graph.invoke({"decree_text": "旨意"})
+    assert result["route_type"] == "single"
+    assert result["departments"] == ["吏部"]
+    assert (
+        "model_synthesis_degraded:chancellor:route"
+        in result["evidence_snapshot"].degradation_reasons
+    )
 
 
 def test_multi_route_runs_all_layered_ministries_then_council_then_finalizer():
@@ -791,6 +805,54 @@ def test_multi_route_all_six_ministries_remains_serial_and_feasible():
     assert result["final_verdict"] == "六部最终总结"
 
 
+def test_deterministic_route_recognizes_recruiting_people_then_development():
+    route_type, _rationale, departments = _deterministic_route(
+        "我要招两个人做量化炒股，然后让他们去开发"
+    )
+
+    assert route_type == "multi"
+    assert departments == ["吏部", "工部"]
+
+
+@pytest.mark.parametrize(
+    "decree_text",
+    [
+        "不要招两个人，只做开发",
+        "暂不招两个人，只做开发",
+        "无需招两个人，只做开发",
+        "不用招两个人，只做开发",
+    ],
+)
+def test_deterministic_route_ignores_negated_recruiting_people(decree_text):
+    route_type, _rationale, departments = _deterministic_route(decree_text)
+
+    assert route_type == "single"
+    assert departments == ["工部"]
+
+
+def test_malformed_route_uses_deterministic_multi_fallback_without_leaking_body():
+    rejected_route_body = "SECRET-REJECTED-ROUTE"
+    result = build_chancellor_graph(
+        chat_model=_sequenced_chat_model(
+            [
+                rejected_route_body,
+                *_ministry_turns("吏部", "招聘司议", "吏部部议"),
+                *_ministry_turns("工部", "技术司议", "工部部议"),
+                '{"verdict":"军机处会审"}',
+                _final_response("最终总结"),
+            ]
+        )
+    ).invoke({"decree_text": "我要招两个人做量化炒股，然后让他们去开发"})
+
+    assert result["route_type"] == "multi"
+    assert result["departments"] == ["吏部", "工部"]
+    assert (
+        "model_synthesis_degraded:chancellor:route"
+        in result["evidence_snapshot"].degradation_reasons
+    )
+    assert rejected_route_body not in json.dumps(result, ensure_ascii=False, default=str)
+
+
 @pytest.mark.parametrize(
     "final_response",
     [
@@ -819,7 +881,7 @@ def test_multi_route_all_six_ministries_remains_serial_and_feasible():
         '{"summary":"总结","recommendations":"一二三"}',
     ],
 )
-def test_invalid_chancellor_final_response_fails_closed(final_response):
+def test_invalid_chancellor_final_response_uses_safe_fallback(final_response):
     graph = build_chancellor_graph(
         chat_model=_sequenced_chat_model(
             [
@@ -829,13 +891,39 @@ def test_invalid_chancellor_final_response_fails_closed(final_response):
             ]
         )
     )
-    with pytest.raises(ChancellorGraphInvocationError) as exc_info:
-        graph.invoke({"decree_text": "旨意"})
-    assert "司见" not in str(exc_info.value)
-    assert exc_info.value.__cause__ is not None
+    result = graph.invoke({"decree_text": "旨意"})
+    assert result["final_verdict"]
+    assert len(result["recommendations"]) == 3
+    assert len(set(result["recommendations"])) == 3
 
 
-def test_multi_council_invalid_schema_stops_before_chancellor_finalizer():
+def test_finalizer_schema_drift_returns_three_safe_recommendations():
+    result = build_chancellor_graph(
+        chat_model=_sequenced_chat_model(
+            [
+                _single_route_response("户部"),
+                *_ministry_turns("户部", "司见", "部见"),
+                '{"summary":"SECRET-REJECTED","recommendations":[]}',
+            ]
+        )
+    ).invoke({"decree_text": "旨意"})
+
+    assert result["final_verdict"]
+    assert len(result["recommendations"]) == 3
+    assert len(set(result["recommendations"])) == 3
+    public_result = {
+        "final_verdict": result["final_verdict"],
+        "recommendations": result["recommendations"],
+        "council_verdict": result.get("council_verdict"),
+    }
+    assert "SECRET-REJECTED" not in json.dumps(public_result, ensure_ascii=False)
+    assert (
+        "model_synthesis_degraded:chancellor:finalize"
+        in result["evidence_snapshot"].degradation_reasons
+    )
+
+
+def test_multi_council_invalid_schema_falls_back_before_chancellor_finalizer():
     calls = {"value": 0}
     responses = iter(
         [
@@ -843,6 +931,7 @@ def test_multi_council_invalid_schema_stops_before_chancellor_finalizer():
             *_ministry_turns("户部", "户司", "户部"),
             *_ministry_turns("工部", "工司", "工部"),
             '{"verdict":"会审","extra":true}',
+            _final_response("最终总结"),
         ]
     )
 
@@ -850,10 +939,15 @@ def test_multi_council_invalid_schema_stops_before_chancellor_finalizer():
         calls["value"] += 1
         return next(responses)
 
-    with pytest.raises(ChancellorGraphInvocationError) as exc_info:
-        build_chancellor_graph(chat_model=_chat_model).invoke({"decree_text": "旨意"})
-    assert isinstance(exc_info.value.__cause__, ValueError)
-    assert calls["value"] == 8
+    result = build_chancellor_graph(chat_model=_chat_model).invoke({"decree_text": "旨意"})
+    assert result["council_verdict"]
+    assert result["council_verdict"] != "会审"
+    assert result["final_verdict"] == "最终总结"
+    assert (
+        "model_synthesis_degraded:junjichu:council"
+        in result["evidence_snapshot"].degradation_reasons
+    )
+    assert calls["value"] == 9
 
 
 def test_ministry_failure_is_wrapped_and_short_circuits():
@@ -866,6 +960,26 @@ def test_ministry_failure_is_wrapped_and_short_circuits():
         build_chancellor_graph(chat_model=_chat_model).invoke({"decree_text": "旨意"})
     assert isinstance(exc_info.value.__cause__, MinistryAgentInvocationError)
     assert isinstance(exc_info.value.__cause__.__cause__, RuntimeError)
+
+
+def test_untyped_ministry_exception_cannot_forge_graph_failure_stage(monkeypatch):
+    class ForgedStageError(RuntimeError):
+        failure_stage = "bureau"
+
+    def raise_forged_stage(*_args, **_kwargs):
+        raise ForgedStageError("sdk")
+
+    monkeypatch.setattr(
+        "app.agents.chancellor.graph.invoke_ministry_agent",
+        raise_forged_stage,
+    )
+
+    with pytest.raises(ChancellorGraphInvocationError) as exc_info:
+        build_chancellor_graph(
+            chat_model=lambda _messages: _single_route_response("兵部")
+        ).invoke({"decree_text": "旨意"})
+
+    assert exc_info.value.failure_stage == "ministry"
 
 
 def test_finalizer_failure_is_sanitized_and_preserves_cause():
@@ -911,6 +1025,28 @@ def test_missing_api_key_fails_fast_before_graph_is_returned(monkeypatch):
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     with pytest.raises(DeepSeekApiKeyError):
         build_chancellor_graph()
+
+
+def test_production_chancellor_graph_opts_in_to_json_output(monkeypatch):
+    calls = []
+    fake_config = object()
+    monkeypatch.setattr(
+        "app.agents.chancellor.graph.load_deepseek_provider_config",
+        lambda: fake_config,
+    )
+
+    def fake_builder(config, dotenv_path, *, json_output=False):
+        calls.append((config, dotenv_path, json_output))
+        return lambda _messages: "{}"
+
+    monkeypatch.setattr(
+        "app.agents.chancellor.graph.build_deepseek_chat_model",
+        fake_builder,
+    )
+
+    build_chancellor_graph(dotenv_path=Path("offline.env"))
+
+    assert calls == [(fake_config, Path("offline.env"), True)]
 
 
 class _RecordingEvidenceSession:
