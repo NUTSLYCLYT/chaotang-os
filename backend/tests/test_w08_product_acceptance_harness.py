@@ -189,6 +189,7 @@ def test_w08_user_acceptance_requires_five_non_developer_users_with_four_success
     payload = {
         "schemaVersion": "w08-user-acceptance.v1",
         "mode": "FINAL_USER_ACCEPTANCE",
+        "task_prompt_ref": "participant_task_card.zh-CN.md",
         "records": [
             _successful_user("user-001", 120),
             _successful_user("user-002", 135),
@@ -216,6 +217,7 @@ def test_w08_user_acceptance_blocks_missing_real_records():
     result = runner.validate_user_acceptance_payload({
         "schemaVersion": "w08-user-acceptance.v1",
         "mode": "FINAL_USER_ACCEPTANCE",
+        "task_prompt_ref": "participant_task_card.zh-CN.md",
         "records": [],
     })
 
@@ -236,6 +238,7 @@ def test_w08_user_acceptance_rejects_developer_or_assisted_sessions():
     result = runner.validate_user_acceptance_payload({
         "schemaVersion": "w08-user-acceptance.v1",
         "mode": "FINAL_USER_ACCEPTANCE",
+        "task_prompt_ref": "participant_task_card.zh-CN.md",
         "records": [
             bad_user,
             _successful_user("user-002"),
@@ -251,6 +254,19 @@ def test_w08_user_acceptance_rejects_developer_or_assisted_sessions():
     assert "user-001 feedback must be deidentified" in result["failures"]
 
 
+def test_w08_user_acceptance_requires_task_prompt_ref():
+    runner = _load_runner()
+
+    result = runner.validate_user_acceptance_payload({
+        "schemaVersion": "w08-user-acceptance.v1",
+        "mode": "FINAL_USER_ACCEPTANCE",
+        "records": [_successful_user(f"user-{index:03d}") for index in range(1, 6)],
+    })
+
+    assert result["passed"] is False
+    assert "task_prompt_ref must be participant_task_card.zh-CN.md" in result["failures"]
+
+
 def test_w08_user_acceptance_runner_reads_evidence_file(tmp_path):
     runner = _load_runner()
     evidence_path = tmp_path / "w08_user_acceptance.json"
@@ -258,6 +274,7 @@ def test_w08_user_acceptance_runner_reads_evidence_file(tmp_path):
         json.dumps({
             "schemaVersion": "w08-user-acceptance.v1",
             "mode": "FINAL_USER_ACCEPTANCE",
+            "task_prompt_ref": "participant_task_card.zh-CN.md",
             "records": [_successful_user(f"user-{index:03d}") for index in range(1, 6)],
         }),
         encoding="utf-8",
@@ -293,6 +310,7 @@ def test_w08_closeout_preflight_discovers_single_records_file(tmp_path):
         json.dumps({
             "schemaVersion": "w08-user-acceptance.v1",
             "mode": "FINAL_USER_ACCEPTANCE",
+            "task_prompt_ref": "participant_task_card.zh-CN.md",
             "approval": _approval(),
             "records": [_successful_user(f"user-{index:03d}") for index in range(1, 6)],
         }),
@@ -315,6 +333,7 @@ def test_w08_closeout_preflight_blocks_ambiguous_records_files(tmp_path):
             json.dumps({
                 "schemaVersion": "w08-user-acceptance.v1",
                 "mode": "FINAL_USER_ACCEPTANCE",
+                "task_prompt_ref": "participant_task_card.zh-CN.md",
                 "approval": _approval(),
                 "records": [_successful_user(f"user-{index:03d}") for index in range(1, 6)],
             }),
@@ -337,6 +356,7 @@ def test_w08_closeout_preflight_passes_with_complete_user_acceptance(tmp_path):
         json.dumps({
             "schemaVersion": "w08-user-acceptance.v1",
             "mode": "FINAL_USER_ACCEPTANCE",
+            "task_prompt_ref": "participant_task_card.zh-CN.md",
             "approval": _approval(),
             "records": [_successful_user(f"user-{index:03d}") for index in range(1, 6)],
         }),
@@ -362,6 +382,7 @@ def test_w08_closeout_preflight_blocks_explicit_user_acceptance_outside_records(
         json.dumps({
             "schemaVersion": "w08-user-acceptance.v1",
             "mode": "FINAL_USER_ACCEPTANCE",
+            "task_prompt_ref": "participant_task_card.zh-CN.md",
             "approval": _approval(),
             "records": [_successful_user(f"user-{index:03d}") for index in range(1, 6)],
         }),
@@ -384,6 +405,7 @@ def test_w08_closeout_preflight_blocks_unapproved_records_file(tmp_path):
         json.dumps({
             "schemaVersion": "w08-user-acceptance.v1",
             "mode": "FINAL_USER_ACCEPTANCE",
+            "task_prompt_ref": "participant_task_card.zh-CN.md",
             "records": [_successful_user(f"user-{index:03d}") for index in range(1, 6)],
         }),
         encoding="utf-8",
@@ -407,6 +429,7 @@ def test_w08_closeout_preflight_blocks_incomplete_approval_metadata(tmp_path):
         json.dumps({
             "schemaVersion": "w08-user-acceptance.v1",
             "mode": "FINAL_USER_ACCEPTANCE",
+            "task_prompt_ref": "participant_task_card.zh-CN.md",
             "approval": {
                 "status": "APPROVED",
                 "owner": "",
@@ -439,6 +462,7 @@ def test_w08_closeout_preflight_blocks_invalid_approval_timestamp(tmp_path):
         json.dumps({
             "schemaVersion": "w08-user-acceptance.v1",
             "mode": "FINAL_USER_ACCEPTANCE",
+            "task_prompt_ref": "participant_task_card.zh-CN.md",
             "approval": bad_approval,
             "records": [_successful_user(f"user-{index:03d}") for index in range(1, 6)],
         }),
@@ -480,6 +504,7 @@ def test_w08_user_acceptance_rejects_fixture_prefixes_in_final_records():
     payload = {
         "schemaVersion": "w08-user-acceptance.v1",
         "mode": "FINAL_USER_ACCEPTANCE",
+        "task_prompt_ref": "participant_task_card.zh-CN.md",
         "records": [
             _successful_user("fixture-user-001"),
             _successful_user("user-002"),

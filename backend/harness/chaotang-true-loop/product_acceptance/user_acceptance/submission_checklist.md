@@ -11,6 +11,7 @@ Before requesting W08 closeout, the Product Acceptance Owner must provide:
 - at least 4 successful completions
 - no development participants
 - no engineer-guided sessions counted as successful
+- `task_prompt_ref` is exactly `participant_task_card.zh-CN.md`
 - `participant_task_card.zh-CN.md` was the only task prompt given to
   participants after the session started
 - deidentified feedback and evidence references

@@ -65,6 +65,7 @@ USER_ACCEPTANCE_TARGET = 5
 USER_ACCEPTANCE_SUCCESS_MINIMUM = 4
 FIRST_VALUE_SECONDS_TARGET = 180
 FIXTURE_PREFIX = "fixture-"
+TASK_PROMPT_REF = "participant_task_card.zh-CN.md"
 UTC_ISO8601_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
 
@@ -251,6 +252,7 @@ def validate_user_acceptance_payload(payload: dict[str, Any], *, allow_fixture: 
     failures: list[str] = []
     _require(payload.get("schemaVersion") == USER_ACCEPTANCE_SCHEMA_VERSION, f"schemaVersion must be {USER_ACCEPTANCE_SCHEMA_VERSION}", failures)
     _require(payload.get("mode") == USER_ACCEPTANCE_MODE, f"mode must be {USER_ACCEPTANCE_MODE}", failures)
+    _require(payload.get("task_prompt_ref") == TASK_PROMPT_REF, f"task_prompt_ref must be {TASK_PROMPT_REF}", failures)
     if not allow_fixture:
         _require(payload.get("fixture") is not True, "fixture payload cannot be final user acceptance evidence", failures)
 

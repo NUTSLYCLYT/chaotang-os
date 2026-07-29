@@ -17,6 +17,7 @@ The approved JSON must include:
 
 ```json
 {
+  "task_prompt_ref": "participant_task_card.zh-CN.md",
   "approval": {
     "status": "APPROVED",
     "owner": "<product-acceptance-owner>",

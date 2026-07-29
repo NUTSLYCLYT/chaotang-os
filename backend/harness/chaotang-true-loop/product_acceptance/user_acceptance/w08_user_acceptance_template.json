@@ -1,6 +1,7 @@
 {
   "schemaVersion": "w08-user-acceptance.v1",
   "mode": "FINAL_USER_ACCEPTANCE",
+  "task_prompt_ref": "participant_task_card.zh-CN.md",
   "approval": {
     "status": "DRAFT",
     "owner": "",
