@@ -31,6 +31,10 @@ from src.contracts.evidence_rework_generation import (
     EvidenceReworkGenerationV1,
 )
 from src.contracts.mission_contract import ContractIntakeV1
+from src.contracts.deterministic_intake import (
+    ensure_deterministic_contract_candidate,
+    infer_supported_contract_scope,
+)
 from src.db.models import (
     AgentSkillRun,
     ChancellorRouteDecision,
@@ -1629,8 +1633,14 @@ def shangshufang_draft_edict(
             evidence_summary=evidence_summary,
             archive_matches=body.archive_matches,
         )
+        contract_scope = body.contract_scope or infer_supported_contract_scope(
+            body.raw_question
+        )
         route = chancellor_decide_route(edict)
         edict_payload = {**draft_to_dict(edict), "route": route}
+        source_label = "MIXED" if contract_scope is not None else edict.source_label
+        if contract_scope is not None:
+            edict_payload["source_label"] = source_label
         eval_result = evaluate_draft(edict)
         now = now_iso()
 
@@ -1642,7 +1652,7 @@ def shangshufang_draft_edict(
             refined_edict=edict.refined_edict,
             decision_type=edict.decision_type,
             status="awaiting_emperor_confirm",
-            source_label=edict.source_label,
+            source_label=source_label,
             risk_flags=edict.risk_flags,
             known_facts=edict.known_facts,
             unknown_gaps=edict.unknown_gaps,
@@ -1650,7 +1660,7 @@ def shangshufang_draft_edict(
             draft_edict=edict_payload,
             now=now,
             tenant_id=user.tenant_id,
-            contract_scope=body.contract_scope,
+            contract_scope=contract_scope,
         )
         db.add(
             CourtLoopRun(
@@ -1798,6 +1808,42 @@ def shangshufang_confirm_edict(
         # 等措辞会重新命中部门关键词、自我污染出多余部门。真正的"确认正文"只能是
         # 用户原问，或客户端显式传入的 confirmed_edict_text(方案7.2节请求体)。
         confirmed_edict_text = body.confirmed_edict_text or task.raw_question
+        contract_scope = (
+            _canonical_contract_scope(task.contract_scope_json)
+            or _canonical_contract_scope(infer_supported_contract_scope(confirmed_edict_text))
+        )
+        if contract_scope is not None:
+            final = ensure_deterministic_contract_candidate(
+                db,
+                task=task,
+                confirmed_text=confirmed_edict_text,
+                now=now_iso(),
+            )
+            review = db.get(CourtReview, final.review_id)
+            db.commit()
+            memorial = _loads(final.memorial_json, {})
+            return ok(
+                {
+                    "task_id": task.id,
+                    "status": task.status,
+                    "message": "合同文本已进入确定性审查闭环，可生成 ContractReviewPack 交付物。",
+                    "review_id": final.review_id,
+                    "routing_plan": _loads(review.routing_plan_json, {}) if review else {},
+                    "memorial": memorial,
+                    "route": {
+                        "mode": "deterministic_contract_intake",
+                        "decidedBy": "server",
+                        "swarmRequired": False,
+                    },
+                    "route_decision": None,
+                    "final_memorial": {
+                        "final_memorial_id": final.id,
+                        "final_memorial_version": final.version,
+                        "final_memorial_content_hash": final.content_hash,
+                    },
+                    "review_status_url": f"/api/shangshufang/tasks/{task.id}/status",
+                }
+            )
         # 阶段1(方案6.6节)：路由必须依据用户确认/编辑后的最终正文重新生成，
         # 不得信任客户端 draft_payload 里回传的 route——2026-07-10 前的实现在这里
         # 直接读 draft_payload["route"]，等于让浏览器决定路由结果。

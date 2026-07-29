@@ -147,6 +147,116 @@ def test_confirm_direct_task_creates_simple_receipt_without_swarm(
     assert status_data["review"]["review_status"] == "direct_completed"
 
 
+def test_confirm_plain_chinese_contract_text_creates_contract_review_pack(
+    isolated_session_local,
+):
+    """W08 runnable minimum: 普通合同文本不能因模型网关不可用退成不可裁决 fallback。"""
+    client = TestClient(app)
+    contract_text = (
+        "请审查这份采购合同：甲方向乙方采购数控零部件，合同金额50万元，"
+        "乙方收到预付款后30日交货，货到7日内验收，逾期交付每日按合同总价千分之一承担违约金。"
+    )
+    draft_response = client.post(
+        "/api/shangshufang/draft-edict",
+        json={"raw_question": contract_text},
+    )
+    assert draft_response.status_code == 200
+    task_id = draft_response.json()["data"]["task_id"]
+
+    confirm_response = client.post(
+        "/api/shangshufang/confirm-edict",
+        json={"task_id": task_id, "confirmed": True},
+    )
+    replay_response = client.post(
+        "/api/shangshufang/confirm-edict",
+        json={"task_id": task_id, "confirmed": True},
+    )
+
+    assert confirm_response.status_code == 200
+    confirm_data = confirm_response.json()["data"]
+    assert confirm_data["status"] == "awaiting_decision"
+    assert confirm_data["routing_plan"]["swarm_plan"] == []
+    assert confirm_data["memorial"]["contract_review"]["schema_version"] == "ContractReviewPackV1"
+    assert replay_response.status_code == 200
+    replay_data = replay_response.json()
+    assert replay_data["success"] is True
+    assert replay_data["data"]["review_id"] == confirm_data["review_id"]
+    assert (
+        replay_data["data"]["final_memorial"]["final_memorial_id"]
+        == confirm_data["final_memorial"]["final_memorial_id"]
+    )
+
+    home_response = client.get("/api/shangshufang/home")
+    assert home_response.status_code == 200
+    home_tasks = home_response.json()["data"]["pending_decisions"]
+    home_task = next(item for item in home_tasks if item["task_id"] == task_id)
+    assert "军机处" not in home_task["draft_edict"]["refined_edict"]
+    assert "蜂群" not in home_task["draft_edict"]["refined_edict"]
+    assert "ContractReviewPack" in home_task["draft_edict"]["refined_edict"]
+
+    read_model = client.get(f"/api/contracts/tasks/{task_id}/read-model")
+    assert read_model.status_code == 200
+    model = read_model.json()
+    assert model["source_class"] == "ADJUDICABLE"
+    assert model["mission"]["state"] == "CONFIRMED"
+    assert "军机处" not in model["task"]["refined_edict"]
+    assert "蜂群" not in model["task"]["refined_edict"]
+    assert "ContractReviewPack" in model["task"]["refined_edict"]
+    assert model["review_pack"]["contract_type"] == "procurement"
+    assert "GENERATE_DELIVERY" in model["allowed_actions"]
+    assert model["blockers"] == [{"code": "DELIVERY_MISSING"}]
+
+
+def test_confirm_archived_contract_task_does_not_resurrect_decision_state(
+    isolated_session_local,
+):
+    """Regression: archived contract tasks are terminal audit records, not drafts to re-confirm."""
+    from src.db.engine import SessionLocal
+
+    client = TestClient(app)
+    contract_text = (
+        "请审查这份采购合同：甲方向乙方采购夹具，合同金额8万元，"
+        "乙方10日内交货，货到3日验收，缺少质保条款。"
+    )
+    task_id = client.post(
+        "/api/shangshufang/draft-edict",
+        json={"raw_question": contract_text},
+    ).json()["data"]["task_id"]
+    confirmed = client.post(
+        "/api/shangshufang/confirm-edict",
+        json={"task_id": task_id, "confirmed": True},
+    ).json()["data"]
+
+    db = SessionLocal()
+    try:
+        from src.db.models import DecisionTask, FinalMemorial
+
+        task = db.get(DecisionTask, task_id)
+        final = db.get(FinalMemorial, confirmed["final_memorial"]["final_memorial_id"])
+        task.status = "archived"
+        final.status = "archived"
+        db.commit()
+    finally:
+        db.close()
+
+    replay = client.post(
+        "/api/shangshufang/confirm-edict",
+        json={"task_id": task_id, "confirmed": True},
+    )
+
+    assert replay.status_code == 200
+    replay_data = replay.json()
+    assert replay_data["success"] is True
+    assert replay_data["data"]["status"] == "archived"
+    db = SessionLocal()
+    try:
+        from src.db.models import DecisionTask
+
+        assert db.get(DecisionTask, task_id).status == "archived"
+    finally:
+        db.close()
+
+
 def test_confirm_edict_vetoed_route_returns_full_contract_and_honest_status(
     isolated_session_local,
 ):

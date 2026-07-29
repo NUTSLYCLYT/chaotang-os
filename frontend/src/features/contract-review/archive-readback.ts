@@ -2,6 +2,7 @@ import type { ContractTaskReadModelV1 } from '@/lib/contracts/backend-openapi-20
 import type { ShiguanArchiveDetail } from '@/features/shiguan-ui/lib/shiguan-view-model';
 import { normalizeSourceLabel } from '@/features/shiguan-ui/lib/shiguan-source';
 import type { EdictView } from '@/features/shangshufang/edict-content';
+import { withBasePath } from '@/lib/base-path';
 
 const ADJUDICABLE_RECEIPT_SOURCES = new Set([
   'LIVE',
@@ -9,6 +10,18 @@ const ADJUDICABLE_RECEIPT_SOURCES = new Set([
   'LIVE_ENGINE',
   'LIVE_SWARM',
 ]);
+
+export function buildDownloadHref(downloadUrl: string, basePath?: string): string {
+  if (basePath) {
+    const normalizedBase = basePath === '/' ? '' : basePath.replace(/\/$/, '');
+    const normalizedPath = downloadUrl.startsWith('/') ? downloadUrl : `/${downloadUrl}`;
+    if (!normalizedBase || normalizedPath === normalizedBase || normalizedPath.startsWith(`${normalizedBase}/`)) {
+      return normalizedPath;
+    }
+    return `${normalizedBase}${normalizedPath}`;
+  }
+  return withBasePath(downloadUrl);
+}
 
 export function buildContractArchiveDetail(
   model: ContractTaskReadModelV1,
@@ -86,6 +99,12 @@ export function buildContractArchiveDetail(
       })),
     ],
     lessons: [],
+    downloads: (delivery?.artifacts ?? [])
+      .filter((artifact) => artifact.download_url)
+      .map((artifact) => ({
+        label: artifact.kind,
+        href: buildDownloadHref(artifact.download_url!),
+      })),
   };
 }
 
@@ -121,6 +140,11 @@ export function buildContractArchiveEdictView(
           tone: detail.sourceLabel === 'FALLBACK' ? 'amber' : 'green',
         },
       ],
+      downloads: detail.downloads?.map((item) => ({
+        label: item.label,
+        href: item.href,
+        kind: 'attachment',
+      })),
     },
     rows: [
       {

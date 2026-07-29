@@ -5,6 +5,7 @@ import type { ContractTaskReadModelV1 } from '@/lib/contracts/backend-openapi-20
 import {
   buildContractArchiveDetail,
   buildContractArchiveEdictView,
+  buildDownloadHref,
   selectArchiveDetail,
 } from './archive-readback';
 
@@ -37,7 +38,16 @@ function model(hasReceipt: boolean): ContractTaskReadModelV1 {
       delivery_formula_version: 'w06-v1',
       delivery_revision: 1,
       payload_hash: 'c'.repeat(64),
-      artifacts: [],
+      artifacts: ['PDF', 'DOCX', 'JSON'].map((kind) => ({
+        artifact_id: `artifact-${kind.toLowerCase()}`,
+        kind,
+        mime_type: 'application/octet-stream',
+        byte_size: 12,
+        content_hash: 'd'.repeat(64),
+        lineage_hash: 'e'.repeat(64),
+        status: 'STORED',
+        download_url: `/api/artifacts/artifact-${kind.toLowerCase()}/download`,
+      })),
       overall_status: 'READY',
     },
     archive_receipt: hasReceipt ? {
@@ -66,6 +76,11 @@ test('maps exact receipt identity into the existing Shiguan detail contract', ()
   assert.match(detail?.summary ?? '', /final-1/);
   assert.match(detail?.conclusion ?? '', /exact lineage/);
   assert.equal(detail?.decisionChain.at(-1)?.id, 'archive-1');
+  assert.deepEqual(detail?.downloads?.map((item) => item.label), [
+    'PDF',
+    'DOCX',
+    'JSON',
+  ]);
 });
 
 test('maps exact detail into an audit-only scroll without legacy decision advice', () => {
@@ -77,9 +92,25 @@ test('maps exact detail into an audit-only scroll without legacy decision advice
   const advice = view.rows.find((row) => row.label === '建议');
 
   assert.equal(view.meta?.badges?.some((badge) => badge.label === 'LIVE'), true);
+  assert.deepEqual(view.meta?.downloads?.map((item) => item.label), [
+    'PDF',
+    'DOCX',
+    'JSON',
+  ]);
   assert.match(source?.body ?? '', /exact ArchiveReceipt archive-1/);
   assert.match(advice?.body ?? '', /仅供审计回放/);
   assert.doesNotMatch(advice?.body ?? '', /准奏、驳回、会审或批示/);
+});
+
+test('maps backend canonical artifact URLs through the current frontend base path', () => {
+  assert.equal(
+    buildDownloadHref('/api/artifacts/artifact-pdf/download', '/chaotang'),
+    '/chaotang/api/artifacts/artifact-pdf/download',
+  );
+  assert.equal(
+    buildDownloadHref('/chaotang/api/artifacts/artifact-pdf/download', '/chaotang'),
+    '/chaotang/api/artifacts/artifact-pdf/download',
+  );
 });
 
 test('preserves LIVE_ENGINE as truthful live provenance in Shiguan', () => {

@@ -38,6 +38,16 @@ test('rejects an explicit contract task until the exact memorial is active', () 
   }), null);
 });
 
+test('keeps an explicit task id eligible when the task disappeared from the home list', () => {
+  assert.equal(selectContractTaskCandidate({
+    requestedTaskId: 'task-archived-contract',
+    requestedTaskIsContract: false,
+    edictPrimaryTaskId: null,
+    activeMemorialId: null,
+    activeMemorialIsContract: false,
+  }), 'task-archived-contract');
+});
+
 test('a stale legacy request cannot suppress the active server contract task', () => {
   assert.equal(selectContractTaskCandidate({
     requestedTaskId: 'task-legacy-1',

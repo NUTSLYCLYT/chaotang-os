@@ -43,6 +43,11 @@ export interface ShiguanEvidenceItem {
   sourceLabel: ShiguanSourceLabel;
 }
 
+export interface ShiguanArchiveDownload {
+  label: string;
+  href: string;
+}
+
 export interface ShiguanLesson {
   id: string;
   title: string;
@@ -59,6 +64,7 @@ export interface ShiguanArchiveDetail {
   conclusion: string;
   decisionChain: ShiguanDecisionStep[];
   evidence: ShiguanEvidenceItem[];
+  downloads?: ShiguanArchiveDownload[];
   lessons: ShiguanLesson[];
   retrospectiveStatus: ShiguanRetrospectiveStatus;
   updatedAt?: string;

@@ -61,6 +61,7 @@ export function selectContractTaskCandidate({
     if (activeMemorialId === explicit) {
       return requestedTaskIsContract ? explicit : null;
     }
+    if (!activeMemorialId) return explicit;
   }
   if (!activeMemorialIsContract) return null;
   return activeMemorialId?.trim() || null;
