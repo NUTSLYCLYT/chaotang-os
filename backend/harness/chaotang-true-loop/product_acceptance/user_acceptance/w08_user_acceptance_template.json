@@ -4,7 +4,7 @@
   "approval": {
     "status": "DRAFT",
     "owner": "",
-    "approved_at": "",
+    "approved_at": "YYYY-MM-DDTHH:MM:SSZ",
     "evidence_review_id": ""
   },
   "records": [

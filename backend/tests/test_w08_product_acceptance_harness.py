@@ -426,6 +426,31 @@ def test_w08_closeout_preflight_blocks_incomplete_approval_metadata(tmp_path):
     assert "approval.evidence_review_id is required for W08 closeout" in result["failures"]
 
 
+def test_w08_closeout_preflight_blocks_invalid_approval_timestamp(tmp_path):
+    runner = _load_runner()
+    records_dir = tmp_path / "records"
+    records_dir.mkdir()
+    evidence_path = records_dir / "w08_user_acceptance.json"
+    bad_approval = {
+        **_approval(),
+        "approved_at": "approved yesterday",
+    }
+    evidence_path.write_text(
+        json.dumps({
+            "schemaVersion": "w08-user-acceptance.v1",
+            "mode": "FINAL_USER_ACCEPTANCE",
+            "approval": bad_approval,
+            "records": [_successful_user(f"user-{index:03d}") for index in range(1, 6)],
+        }),
+        encoding="utf-8",
+    )
+
+    result = runner.run_closeout_preflight(records_dir=records_dir)
+
+    assert result["passed"] is False
+    assert "approval.approved_at must be a UTC ISO-8601 timestamp ending with Z" in result["failures"]
+
+
 def test_w08_user_acceptance_fixture_documents_valid_shape_without_claiming_real_evidence():
     runner = _load_runner()
 

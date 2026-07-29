@@ -20,7 +20,7 @@ The approved JSON must include:
   "approval": {
     "status": "APPROVED",
     "owner": "<product-acceptance-owner>",
-    "approved_at": "<ISO-8601 timestamp>",
+    "approved_at": "<UTC ISO-8601 timestamp, e.g. 2026-07-29T12:00:00Z>",
     "evidence_review_id": "<review evidence id>"
   }
 }

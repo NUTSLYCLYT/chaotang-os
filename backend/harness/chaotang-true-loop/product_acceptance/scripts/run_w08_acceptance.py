@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import statistics
 from pathlib import Path
 from typing import Any
@@ -64,6 +65,7 @@ USER_ACCEPTANCE_TARGET = 5
 USER_ACCEPTANCE_SUCCESS_MINIMUM = 4
 FIRST_VALUE_SECONDS_TARGET = 180
 FIXTURE_PREFIX = "fixture-"
+UTC_ISO8601_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
 
 def coverage_for(cases: list[dict[str, Any]]) -> dict[str, Any]:
@@ -315,6 +317,12 @@ def validate_closeout_approval(payload: dict[str, Any]) -> list[str]:
     _require(approval.get("status") == "APPROVED", "approval.status must be APPROVED for W08 closeout", failures)
     _require(bool(approval.get("owner")), "approval.owner is required for W08 closeout", failures)
     _require(bool(approval.get("approved_at")), "approval.approved_at is required for W08 closeout", failures)
+    if approval.get("approved_at"):
+        _require(
+            isinstance(approval.get("approved_at"), str) and bool(UTC_ISO8601_PATTERN.match(approval["approved_at"])),
+            "approval.approved_at must be a UTC ISO-8601 timestamp ending with Z",
+            failures,
+        )
     _require(bool(approval.get("evidence_review_id")), "approval.evidence_review_id is required for W08 closeout", failures)
     return failures
 

@@ -55,8 +55,8 @@ The record must satisfy:
 - successful median first value time at or below 180 seconds
 - successful records include ContractReviewPack, ArtifactManifest, ArchiveReceipt, and browser evidence references
 - no fixture payload and no `fixture-` participant or evidence IDs
-- approval metadata with `status` `APPROVED`, `owner`, `approved_at`, and
-  `evidence_review_id`
+- approval metadata with `status` `APPROVED`, `owner`, UTC ISO-8601
+  `approved_at` ending with `Z`, and `evidence_review_id`
 
 ## Required Commands After Real Records Exist
 
