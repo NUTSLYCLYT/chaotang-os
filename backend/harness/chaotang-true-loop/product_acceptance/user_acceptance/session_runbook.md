@@ -49,22 +49,24 @@ Rejected:
 
 1. Assign an anonymous `participant_id` such as `user-001`.
 2. Provide the participant with a Chinese manufacturing/B2B contract sample.
-3. Start the timer when the participant first sees `/shangshufang`.
-4. Record first value time when the participant first reaches an actionable risk
+3. Give the participant `participant_task_card.zh-CN.md` as the only task
+   prompt.
+4. Start the timer when the participant first sees `/shangshufang`.
+5. Record first value time when the participant first reaches an actionable risk
    review or evidence-backed decision.
-5. Let the participant complete the canonical loop without engineering help.
-6. Record evidence IDs from the completed session:
+6. Let the participant complete the canonical loop without engineering help.
+7. Record evidence IDs from the completed session:
    `contract_review_pack_id`, `artifact_manifest_id`, `archive_receipt_id`, and
    browser evidence reference.
-7. Deidentify notes before writing the final JSON record.
-8. Validate the record file with:
+8. Deidentify notes before writing the final JSON record.
+9. Validate the record file with:
 
 ```bash
 python3 backend/harness/chaotang-true-loop/product_acceptance/scripts/run_w08_acceptance.py \
   --user-acceptance backend/harness/chaotang-true-loop/product_acceptance/user_acceptance/records/<approved-record>.json
 ```
 
-9. Run final preflight:
+10. Run final preflight:
 
 ```bash
 python3 backend/harness/chaotang-true-loop/product_acceptance/scripts/run_w08_acceptance.py \

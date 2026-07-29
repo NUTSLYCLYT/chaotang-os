@@ -7,6 +7,8 @@ W08 cannot close until a reviewer supplies one approved JSON record file under
 
 Execution materials:
 
+- `participant_task_card.zh-CN.md`: task prompt given to each non-developer
+  participant before the session starts.
 - `session_runbook.md`: how to run each user session.
 - `observer_checklist.md`: what to observe and record per participant.
 - `acceptance_rules.md`: what counts as a valid and successful session.
