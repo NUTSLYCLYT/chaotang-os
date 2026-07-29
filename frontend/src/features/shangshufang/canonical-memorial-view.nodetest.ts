@@ -159,6 +159,15 @@ test('direct completed displays the backend receipt unchanged', () => {
   assert.equal(body(result, '军机处总回报'), 'review summary');
 });
 
+test('edict recorded with a returned memorial displays the backend candidate instead of staying in dispatch wait', () => {
+  const result = projectCanonicalMemorialView('task-1', status({ taskStatus: 'edict_recorded' }));
+
+  assert.equal(result.kind, 'candidate');
+  assert.equal(result.shouldRetry, false);
+  assert.notEqual(result.view, null);
+  assert.equal(body(result, '军机处总回报'), 'review summary');
+});
+
 test('empty backend arrays do not become no-risk, no-conflict, or passed claims', () => {
   const result = projectCanonicalMemorialView('task-1', status({ review: memorial('empty', true) }));
   const text = JSON.stringify(result.view);

@@ -199,7 +199,7 @@ export function projectCanonicalMemorialView(
       shouldRetry: false,
     };
   }
-  if (status.task.status === 'awaiting_evidence' && candidate) {
+  if ((status.task.status === 'awaiting_evidence' || status.task.status === 'edict_recorded') && candidate) {
     return {
       kind: 'candidate',
       view: buildView({ taskId, status, memorial: candidate, sourceLabel: candidate.source_label, kind: 'candidate' }),
