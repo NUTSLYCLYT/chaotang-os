@@ -8,13 +8,13 @@
 
 ```text
 上传合同
--> 查看系统解析出的合同任务
--> 审查风险与证据
+-> 查看系统解析出的 MissionContract 合同任务
+-> 审查 RiskItem 风险与证据
 -> 补充证据或确认证据不足
 -> 作出风险裁决
 -> 生成 ContractReviewPack
--> 下载交付文件
--> 打开 /shiguan 回看审计记录
+-> 下载包含 ArtifactManifest 的交付文件
+-> 打开 /shiguan 回看 ArchiveReceipt 审计记录
 ```
 
 ## 允许使用
@@ -40,7 +40,8 @@
 - 对证据不足的地方做过补证或明确确认
 - 已作出风险裁决
 - 已生成并下载 ContractReviewPack 或对应交付包
-- 已在 `/shiguan` 打开只读审计回看
+- 已看到 ArtifactManifest 或对应交付清单
+- 已在 `/shiguan` 打开 ArchiveReceipt 只读审计回看
 
 ## 反馈
 

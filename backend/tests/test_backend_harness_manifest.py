@@ -6,6 +6,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "harness" / "manifest.json"
+TASK_CARD = (
+    ROOT
+    / "harness"
+    / "chaotang-true-loop"
+    / "product_acceptance"
+    / "user_acceptance"
+    / "participant_task_card.zh-CN.md"
+)
 
 
 def test_w08_participant_task_card_is_backend_doctor_required() -> None:
@@ -18,3 +26,16 @@ def test_w08_participant_task_card_is_backend_doctor_required() -> None:
         "product_acceptance/user_acceptance/participant_task_card.zh-CN.md"
         in true_loop["required"]
     )
+
+
+def test_w08_participant_task_card_names_canonical_acceptance_objects() -> None:
+    body = TASK_CARD.read_text(encoding="utf-8")
+
+    for term in [
+        "MissionContract",
+        "RiskItem",
+        "ContractReviewPack",
+        "ArtifactManifest",
+        "ArchiveReceipt",
+    ]:
+        assert term in body
