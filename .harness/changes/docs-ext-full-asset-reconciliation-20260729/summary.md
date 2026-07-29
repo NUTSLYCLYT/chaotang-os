@@ -7,7 +7,7 @@
 | --- | --- |
 | Change ID | docs-ext-full-asset-reconciliation-20260729 |
 | 类型 | docs |
-| 状态 | VERIFIED_PARTIAL / INVENTORY_BASELINE |
+| 状态 | VERIFIED_PARTIAL / BATCH1_DECISION_MATRIX |
 | Owner | EXT Master Governance |
 | 创建日期 | 20260729 |
 | Base HEAD | `9d82bea9488adc14d0c625a03c16fdfa0f5f5cbe` |
@@ -19,6 +19,7 @@
 - 文件：
   - `.harness/changes/docs-ext-full-asset-reconciliation-20260729/`
   - `.harness/changes/docs-ext-full-asset-reconciliation-20260729/asset_reconciliation_ledger.md`
+  - `.harness/changes/docs-ext-full-asset-reconciliation-20260729/asset_decision_matrix_batch1.md`
 - 验证：
   - `git worktree list --porcelain`
   - `git for-each-ref --format=... refs/heads refs/remotes`
@@ -32,6 +33,8 @@
 - EXT-A9 不等于合并所有代码；它要求所有资产都有明确结论。
 - W08 仍是当前唯一 active work package。
 - W09 当前必须保持 `STOP / BLOCKED_DEPENDENCY`。
+- 第一批高价值资产已有可执行取舍矩阵：直接整支合并全部拒绝，按 `ABSORB`、`REBUILD`、`SUPERSEDED_VERIFY`、`ARCHIVE`、`CONFLICT_DECISION` 推进。
+- 当前主选择：制造业/B2B 合同审查闭环、后端事实源、typed frontend read model、单一 harness authority、安全审查后的真实数据适配器。
 
 ## 非目标
 

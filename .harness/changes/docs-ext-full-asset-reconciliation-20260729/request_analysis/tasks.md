@@ -32,9 +32,15 @@
 - 目标：先处理部门 runtime、Jinyiwei real fetch、harness-only、temporal decision、deep module、Menxia/Gongbu/P8/P9。
 - 前置条件：任务 2 至少覆盖第一批资产。
 - 输入：first high-value batch。
-- 输出：每项 `ABSORB` / `REBUILD` / `SUPERSEDED` / `ARCHIVE` / `REJECT` / `CONFLICT_DECISION`。
-- 涉及文件：ledger 和后续 Packets。
+- 输出：`asset_decision_matrix_batch1.md`，每项 `ABSORB` / `REBUILD` / `SUPERSEDED` / `ARCHIVE` / `REJECT` / `CONFLICT_DECISION`。
+- 涉及文件：ledger、decision matrix 和后续 Packets。
 - 状态 / 数据变化：除明确批准的 absorption Packet 外，不改产品代码。
-- 验证命令与证据：按资产定义。
+- 验证命令与证据：
+  - `git diff --name-status feature-chaotang-ext..<asset-ref>`
+  - `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08`
+  - `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W09`
+  - `node scripts/harness-doctor.mjs`
+  - `git diff --check`
 - 回滚边界：每个 Packet 独立回滚。
 - 完成定义：第一批资产全部有 final disposition 或 blocked reason。
+- 当前状态：`COMPLETE_FOR_BATCH1_DECISION_MATRIX`。
