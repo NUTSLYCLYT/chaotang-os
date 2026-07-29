@@ -7,17 +7,25 @@
 | --- | --- |
 | Change ID | docs-ext-a9-jinyiwei-security-coverage-20260730 |
 | 类型 | docs |
-| 状态 | DESIGN_READY / USER_SPEC_REVIEW_PENDING / IMPLEMENTATION_NOT_AUTHORIZED |
+| 状态 | P1_SCOPE_APPROVED / IMPLEMENTATION_READY_ON_COMMITTED_PACKET |
 | Owner | EXT Master Governance / Codex |
 | 创建日期 | 20260730 |
-| 基线 | `feature-chaotang-ext@4f28d048296140431108bb429c1e2dbebc922363` |
+| 审计起源基线 | `AUDIT_ORIGIN_BASE feature-chaotang-ext@4f28d048296140431108bb429c1e2dbebc922363` |
+| 实施基线 | `BASE_COMMIT` 在 exact plan Packet 提交后从干净 EXT worktree 捕获 |
 | 资产来源 | `task/pkt-a1-jinyiwei-real-fetch@9651be5235c3ae5c79acd699ccb34cace62b0a11` |
 
 ## 范围
 
 - 主线：EXT-A9-E1 锦衣卫真实数据源与共享证据池安全覆盖审计。
-- 文件：仅本 change Packet；不修改后端、前端、数据库 schema 或运行配置。
-- 验证：Git ancestry、聚焦后端测试、authority、根 Harness doctor 和文档 diff。
+- P1 runtime：`backend/web/routers/jinyiwei.py`、
+  `backend/src/jinyiwei_agent.py`、`backend/src/real_department_engines.py`。
+- P1 frontend honesty：仅现有锦衣卫 read model 与两个既有消费组件；不新增页面。
+- P1 tests：scope amendment 中列出的 focused backend/frontend tests 与 fakes。
+- Packet：本目录中的 scope、plan、CI、review 和 acceptance evidence。
+- 禁止：P2、数据库 schema、W09、push、部署、迁移和 listener 3050。
+- 执行条件：`R0-W08` 机器门返回 GO、用户批准的 scope amendment、以及已提交并
+  固定 SHA/tree 的 exact implementation plan 三者同时成立。本 change record
+  本身不授予 execution authority。
 
 ## 结论
 
@@ -37,5 +45,7 @@
 
 `SUPERSEDED_BY_EXT_HEAD / SECURITY_REMEDIATION_CANDIDATE`
 
-本 Packet 不授予修复权。书面规格经用户复核后，才允许生成 TDD 实施计划和精确
-scope amendment。
+2026-07-30 用户在审阅书面规格后要求继续，并明确要求按 Harness 从 P1 开始执行
+长时任务、次日验收。该指令批准本 Packet 的 P1 runtime scope amendment；P2、
+W09、push、部署、数据库迁移和 3050 仍未批准。精确范围见
+`authority_scope/p1-runtime-scope-amendment.md`。

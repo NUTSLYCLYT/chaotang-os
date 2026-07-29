@@ -51,8 +51,9 @@ Shangshufang finance flow
 | 契约 | 生产者 / 事实源 | 消费者 | 兼容性与验证 |
 | --- | --- | --- | --- |
 | Authentication identity | `web.deps.get_current_user` | all `/api/intel/*` routes | Existing dependency tests |
-| Tenant identity | `src.tenant.resolve_current_tenant_id` | evidence read/write and ownership checks | Cross-tenant negative tests |
+| Evidence tenant identity | `src.tenant.resolve_current_tenant_id` | tenant-scoped evidence read/write | Existing isolation tests |
 | DecisionTask ownership | `src.decision_task_access.get_owned_decision_task` | `fill-gap` | Reuse existing SSOT; do not add a second ownership rule |
+| Request tenant identity | fail-closed `CurrentUser.tenant_id` | `fill-gap` ownership helper | Reject `None`; never authorize through default-tenant fallback |
 | Source trust | server-owned adapter type + normalized provenance | `jinyiwei_vet` and evidence store | Caller cannot self-assert server-verified tier |
 | Evidence state | `JinyiweiEvidence.decision/trust/source_label` | shared evidence API and departments | `拒` never returned; `待核` opt-in only |
 | SEC verification | successful fixed-host companyfacts response | finance review flow | Existing `test_sec_edgar.py` |
@@ -66,13 +67,22 @@ Shangshufang finance flow
 - Define remediation architecture, TDD order and verification commands.
 - Update no runtime behavior.
 
-### Future remediation candidate
+### Approved P1 remediation scope
 
 - `backend/web/routers/jinyiwei.py`
-- `backend/src/jinyiwei_vet.py`
-- a narrowly scoped source-provenance helper if required;
-- `backend/src/direct_rate_limit.py` only if a new `intel` mode is selected;
-- focused tests under `backend/tests/`.
+- `backend/src/jinyiwei_agent.py`
+- `backend/src/real_department_engines.py`
+- `backend/tests/test_jinyiwei_endpoint.py`
+- `backend/tests/test_jinyiwei_agent.py`
+- `backend/tests/test_real_department_engines.py`
+- `backend/tests/test_swarm_execution_loop_api.py`
+- `backend/tests/test_chaotang_assemble.py`
+- `backend/tests/conftest.py`
+- `frontend/src/features/intel/lib/jinyiwei-brief-contract.ts`
+- `frontend/src/features/intel/lib/jinyiwei-brief-contract.nodetest.ts`
+- `frontend/src/features/intel/components/JinyiweiBriefScroll.tsx`
+- `frontend/src/features/intel/components/JinyiweiVerdictRail.tsx`
+- `frontend/e2e/jinyiwei-source-trust.spec.ts`
 
 Any future file outside this list requires a scope amendment before modification.
 
@@ -105,12 +115,13 @@ Recommended design:
 1. Only server-owned adapters may issue a server provenance type such as
    `TAVILY_SEARCH` or `SEC_EDGAR`.
 2. Caller-provided findings remain useful for offline evidence intake, but their
-   source tier is not authoritative. They enter as `CALLER_ASSERTED / 待核`
-   unless a separate human approval record promotes them.
-3. `jinyiwei_vet` receives normalized server provenance instead of trusting a
-   raw caller `tier` field.
-4. Tenant-shared `jinyiwei_verified` rows require either server-verifiable
-   provenance or a durable human approval reference.
+   source tier is not authoritative. They return as `CALLER_ASSERTED / 待核`
+   and are not written to the tenant-shared evidence pool.
+3. `jinyiwei_agent.gather_intel` requires an explicit internal
+   `source_authority`; there is no default. Every production call site must
+   choose `server_adapter` or `caller_asserted`.
+4. Tenant-shared `jinyiwei_verified` rows require server-adapter provenance.
+   Durable human promotion is a separate future design and is not inferred here.
 
 Rejected alternatives:
 
@@ -123,31 +134,50 @@ Rejected alternatives:
 ## 风险与回滚边界
 
 - Tightening caller trust can change existing `CALLER_FINDINGS` results from green
-  to pending. The API shape should remain compatible; only trust semantics change.
+  to pending and stops their shared-pool persistence. The response shape remains
+  compatible; trust and persistence semantics change deliberately.
 - Reusing `get_owned_decision_task` is preferred over another inline ownership
   implementation.
 - In-process rate limiting is a local guard, not a distributed production quota.
   The Packet must not claim production-grade global enforcement.
-- Runtime remediation must be one revertable commit and cannot include database
-  migration. Existing rows are not silently reclassified in this scope.
+- Runtime remediation must be one revertable runtime/test commit and cannot
+  include database migration. Existing rows are not silently reclassified.
+- Existing `DecisionTask.tenant_id IS NULL` rows fail closed at `fill-gap`; this
+  scope does not infer ownership or migrate legacy rows.
+- Existing persisted rows whose historical source label is `CALLER_FINDINGS` are
+  not cleaned by P1. P1 prevents new caller-derived shared rows; local repository
+  evidence cannot prove the state of an uninspected production database.
 
 ## 计划确认记录
 
 - 批准人：项目业主
 - 批准日期：2026-07-30
-- 批准范围：方案 A，先建立 `EXT-A9-E1` 锦衣卫安全覆盖审计 Packet。
-- 明确未批准：产品代码修复、W09 激活、push、部署、数据库迁移、3050 操作。
+- 批准范围：方案 A；审阅规格后要求“从 P1 开始一直往后”的 Harness 长时任务，
+  次日验收。精确 P1 文件范围见 scope amendment。
+- 明确未批准：P2 实现、W09 激活、push、部署、数据库迁移、3050 操作。
 
-## 验收标准
+## P1 Blocking Acceptance
 
 1. Historical candidate has no unabsorbed commit inventory.
 2. Existing controls and every candidate gap have exact code/test evidence.
 3. P1 findings have named failing tests before runtime implementation.
 4. No caller-controlled field can create server-verified shared evidence.
 5. `fill-gap` uses the existing tenant + user ownership SSOT.
-6. Network work is bounded by typed input, timeout and rate policy.
-7. Focused tests, backend doctor and root doctor pass on the exact candidate.
-8. Independent security review has HIGH 0 / MEDIUM 0 before integration.
+6. Missing authenticated tenant identity fails closed without default fallback.
+7. Unknown internal source authority fails before search, archive or persistence.
+8. Frontend displays `CALLER_FINDINGS` as caller-asserted/pending, never LIVE.
+9. Focused backend/frontend tests, doctors and diff gates pass on exact identity.
+10. Independent security review has HIGH 0 / MEDIUM 0 before integration.
+
+## P2 Deferred Acceptance
+
+The following are intentionally not P1 completion gates and remain unimplemented
+until a separate scope approval:
+
+1. Typed request bodies and body length/count limits.
+2. Search rate limiting before external fetch.
+3. Claim-level Tavily corroboration and safe URL normalization.
+4. Generic client errors with internal-only diagnostic logging.
 
 ## 验证计划
 
@@ -171,7 +201,15 @@ git diff --check
 Future TDD RED must include:
 
 - `test_fill_gap_rejects_same_user_cross_tenant_task`
-- `test_caller_findings_cannot_self_assert_primary_source`
+- `test_fill_gap_rejects_request_without_resolved_tenant`
+- `test_caller_findings_cannot_self_assert_or_persist_primary_source`
+- `test_caller_findings_without_sources_remain_pending_and_unpersisted`
+- `test_unknown_source_authority_fails_before_search_or_archive`
+- frontend source-trust projection tests for `LIVE_SEARCH`, `CALLER_FINDINGS` and
+  `FALLBACK`
+
+Deferred P2 RED candidates:
+
 - `test_intel_brief_rejects_oversized_payload`
 - `test_intel_search_rate_limit_blocks_before_fetch`
 - `test_intel_endpoint_does_not_expose_internal_exception`

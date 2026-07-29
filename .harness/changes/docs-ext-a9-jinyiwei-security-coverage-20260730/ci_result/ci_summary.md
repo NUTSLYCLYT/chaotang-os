@@ -4,12 +4,15 @@
 
 | 命令 | 退出码 | 结果 | 证据覆盖范围 | 证据位置 / 时间 |
 | --- | ---: | --- | --- | --- |
+| `node scripts/execution-authority.mjs --check` | 0 | `VALID_INACTIVE_GUARD / V1_CHECK_INTEGRITY_ONLY_NON_AUTHORIZING` | v1 fail-closed integrity；不授予施工权 | 2026-07-30 |
+| `node scripts/execution-authority-v2.mjs --check` | 0 | `VALID_STRUCTURE / STRUCTURALLY_VALID_NOT_AN_AUTHORIZATION` | v2 schema/structure；不授予施工权 | 2026-07-30 |
 | `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08` | 0 | `GO / APPROVED_WORK_PACKAGE` | 当前 active package | 2026-07-30 |
 | `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W09` | 2 | `STOP / BLOCKED_DEPENDENCY`（预期） | successor 保持 fail closed | 2026-07-30 |
 | `git rev-list --left-right --count feature-chaotang-ext...task/pkt-a1-jinyiwei-real-fetch` | 0 | `365 0` | 候选分支无独有提交 | 2026-07-30 |
 | `python3 -m pytest -q backend/tests/test_sec_edgar.py backend/tests/test_jinyiwei_search.py backend/tests/test_jinyiwei_agent.py backend/tests/test_jinyiwei_vet.py backend/tests/test_jinyiwei_evidence_store.py backend/tests/test_jinyiwei_endpoint.py backend/tests/test_real_department_engines.py` | 0 | `106 passed in 8.54s` | 当前锦衣卫、SEC、证据池和部门接线基线 | 2026-07-30 |
 | `node scripts/harness-doctor.mjs` | 0 | `0 errors, 0 warnings` | 三层 Harness 结构 | 2026-07-30 |
-| `rg -n '待填写\|TBD\|TODO\|PLACEHOLDER' <packet>` | 0 | 无匹配 | 规格自审无占位符 | 2026-07-30 |
+| `rg -n '待填写\|TBD\|TODO\|PLACEHOLDER' .harness/changes/docs-ext-a9-jinyiwei-security-coverage-20260730/{summary.md,implementation_plan.md,request_analysis,authority_scope}` | 1 | 无匹配（`rg` no-match expected） | active 规格/计划无占位符；排除 CI 命令自身和 rejected history | 2026-07-30 |
+| `sha256sum .../review_inputs/plan-review-closure.md` | 0 | `2b6aa5a5f86cae09624993f3898a5f15d295fbfdb991241f6c17b05ebdeee81b` | 独立计划审查 closure 记录 | 2026-07-30 |
 | `git diff --check` | 0 | 无输出 | whitespace / patch integrity | 2026-07-30 |
 
 ## 结果
@@ -20,7 +23,8 @@
 
 ## 未验证项
 
-- 尚未运行新 P1/P2 的 TDD RED tests；这些测试尚未获得实施授权。
+- 尚未运行新 P1 的 TDD RED tests；执行等待 exact plan commit pin。
+- P2 未授权，P2 tests 与实现均未开始。
 - 未执行真实 Tavily 或 SEC 网络 smoke。
 - 未执行独立 security reviewer。
 - 未证明分布式生产限流；仓内现有 rate limiter 是进程内控制。
@@ -28,7 +32,8 @@
 
 ## Diff 与回滚复核
 
-- changed files：仅本 `.harness/changes/docs-ext-a9-jinyiwei-security-coverage-20260730/`。
+- changed files：当前仍仅本
+  `.harness/changes/docs-ext-a9-jinyiwei-security-coverage-20260730/`。
 - diff review：规格自审无占位符；staged diff review 在提交前执行。
 - 回滚是否演练：不需要；docs-only，可 revert 单提交。
 
@@ -39,9 +44,10 @@
 | 候选资产身份固定 | Git ancestry `365 0` | PASS |
 | 当前能力基线可执行 | focused pytest `106 passed` | PASS |
 | 安全控制与缺口有代码证据 | `security_coverage_matrix.md` | PASS |
-| 运行时修复完成 | 本 Packet 不授权实现 | NOT_STARTED |
-| 独立审查完成 | 尚未执行 | NOT_STARTED |
+| 运行时修复完成 | scope/plan ready；本 Packet commit 后开始 | NOT_STARTED |
+| 独立计划审查完成 | closure GO / HIGH 0 / MEDIUM 0 | PASS |
+| 独立运行时候选审查完成 | 尚未执行 | NOT_STARTED |
 
 ## 声明状态
 
-- `VERIFIED_PARTIAL / DESIGN_READY / USER_SPEC_REVIEW_PENDING`
+- `VERIFIED_PARTIAL / P1_SCOPE_APPROVED / IMPLEMENTATION_READY_ON_COMMITTED_PACKET`
