@@ -1459,7 +1459,7 @@ function pollForRealVerdict(
   const isStillRelevant = (): Promise<boolean> =>
     new Promise((resolve) => {
       setEdictOverride((prev) => {
-        resolve(!!(prev && prev.primaryTaskId === taskId));
+        resolve(!prev || prev.primaryTaskId === taskId);
         return prev; // 只读探测，不修改 state，不触发多余渲染
       });
     });
@@ -1473,7 +1473,7 @@ function pollForRealVerdict(
         const projection = projectCanonicalMemorialView(taskId, envelope.data);
         if (projection.view) {
           setEdictOverride((prev) =>
-            prev && prev.primaryTaskId === taskId ? { ...prev, view: projection.view! } : prev,
+            prev ? { ...prev, view: projection.view!, primaryTaskId: taskId } : prev,
           );
           return;
         }
@@ -3686,11 +3686,6 @@ export function ShangshufangPage() {
             setDecreeMsg(confirmedReply);
             appendDecreeChat({ role: 'assistant', label: '军机处', text: confirmedReply }, mode);
             const confirmedView = confirmedEdictToView(draft.task_id, confirmed);
-            if (confirmed.status === 'edict_recorded') {
-              // 军机处刚派单，memorial 还是占位骨架——轮询状态接口，真实分奏
-              // 回报后把下面这份 override 的 view 换成含圣裁的完整渲染。
-              pollForRealVerdict(draft.task_id, setEdictOverride);
-            }
             setEdictOverride({
               view: confirmedView,
               srcId: `confirmed-edict-${draft.task_id}`,
@@ -3723,6 +3718,14 @@ export function ShangshufangPage() {
                             throw new Error(envelope.error ?? '读取任务状态失败');
                           }
                           const status = envelope.data;
+                          const projection = projectCanonicalMemorialView(draft.task_id, status);
+                          if (projection.view) {
+                            setEdictOverride((prev) =>
+                              prev
+                                ? { ...prev, view: projection.view!, primaryTaskId: draft.task_id }
+                                : prev,
+                            );
+                          }
                           const executionNote = status.execution_status
                             ? ` · ${status.execution_status.current_owner}正在处理，阶段：${status.execution_status.current_stage}`
                             : '';
@@ -3758,6 +3761,11 @@ export function ShangshufangPage() {
                 </div>
               ),
             });
+            if (confirmed.status === 'edict_recorded') {
+              // 军机处刚派单，memorial 还是占位骨架——先建立 override，再轮询状态接口；
+              // 真实分奏回报后把当前 override 的 view 换成含圣裁的完整渲染。
+              pollForRealVerdict(draft.task_id, setEdictOverride);
+            }
             setDecreeText('');
             setDecreeAttachments([]);
             void refreshBriefing();
@@ -3877,6 +3885,7 @@ export function ShangshufangPage() {
       edictOverrideRef.current = null;
       setEdictOverride(null);
       setPackSwarmDisplayView(null);
+      setPackSwarmLoopResult(null);
       if (mode === 'secret') {
         await runSecretDecree(executable);
       } else {
@@ -3897,6 +3906,7 @@ export function ShangshufangPage() {
       edictOverrideRef.current = null;
       setEdictOverride(null);
       setPackSwarmDisplayView(null);
+      setPackSwarmLoopResult(null);
 
       if (isPackSwarmLoopCommand(cmd)) {
         await runPackSwarmLoop(cmd, mode);
@@ -4770,7 +4780,7 @@ export function ShangshufangPage() {
                     view={edictOverride.view}
                     footer={edictOverride.footer}
                   >
-                    {edictOverride.variant === 'jiqun-return-status' ? (
+                    {edictOverride.variant === 'jiqun-return-status' && edictOverride.view.id.startsWith('shangshufang-awaiting:') ? (
                       <JiqunReturnStatusBody
                         progress={jiqunProgress}
                         taskId={edictOverride.primaryTaskId}

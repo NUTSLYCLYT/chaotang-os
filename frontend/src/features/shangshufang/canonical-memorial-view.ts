@@ -13,8 +13,19 @@ export interface CanonicalMemorialViewResult {
   shouldRetry: boolean;
 }
 
-function unique(values: Array<string | null | undefined>): string[] {
-  return [...new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value)))];
+function readable(value: unknown): string | undefined {
+  if (typeof value === 'string') return value.trim() || undefined;
+  if (!value || typeof value !== 'object') return undefined;
+  const record = value as Record<string, unknown>;
+  return text(record.risk)
+    ?? text(record.summary)
+    ?? text(record.reason)
+    ?? text(record.label)
+    ?? text(record.title);
+}
+
+function unique(values: Array<unknown>): string[] {
+  return [...new Set(values.map(readable).filter((value): value is string => Boolean(value)))];
 }
 
 function text(value: unknown): string | undefined {

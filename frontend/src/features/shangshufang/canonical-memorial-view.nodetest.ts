@@ -168,6 +168,24 @@ test('edict recorded with a returned memorial displays the backend candidate ins
   assert.equal(body(result, '军机处总回报'), 'review summary');
 });
 
+test('object risk register entries from the backend do not break candidate projection', () => {
+  const result = projectCanonicalMemorialView('task-1', status({
+    taskStatus: 'edict_recorded',
+    review: {
+      ...memorial('review'),
+      risk_register: [{
+        risk: '预付比例过高',
+        severity: '高',
+        reason: '付款节点需要重设',
+      }] as unknown as string[],
+    },
+  }));
+
+  assert.equal(result.kind, 'candidate');
+  assert.equal(result.shouldRetry, false);
+  assert.match(body(result, '风险与缺证') ?? '', /预付比例过高/);
+});
+
 test('empty backend arrays do not become no-risk, no-conflict, or passed claims', () => {
   const result = projectCanonicalMemorialView('task-1', status({ review: memorial('empty', true) }));
   const text = JSON.stringify(result.view);

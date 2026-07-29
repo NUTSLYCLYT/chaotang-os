@@ -1,6 +1,7 @@
 const BLOCKED_EXACT_PATHS = ['/', '/welcome'];
 
 const BLOCKED_PATH_PREFIXES = [
+  '/chaotang',
   '/intro',
   '/login',
   '/register',
@@ -18,9 +19,19 @@ const BLOCKED_PATH_PREFIXES = [
   '/manors',
   '/prime',
   '/study',
+  '/dadian',
+  '/junjichu',
+  '/liubu',
+  '/shangshufang',
+  '/shiguan',
+  '/zhuanshu',
   '/throne',
 ];
 
 export function shouldBlockCourtOnboarding(pathname: string) {
-  return BLOCKED_EXACT_PATHS.includes(pathname) || BLOCKED_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  const normalized = pathname.startsWith('/chaotang/')
+    ? pathname.slice('/chaotang'.length)
+    : pathname;
+  return BLOCKED_EXACT_PATHS.includes(normalized)
+    || BLOCKED_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix) || normalized.startsWith(prefix));
 }
