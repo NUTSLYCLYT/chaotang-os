@@ -1,0 +1,105 @@
+{
+  "notice": "DRAFT_ONLY_DO_NOT_USE_FOR_CLOSEOUT",
+  "instructions": "When real user sessions are complete, remove this notice, replace all TBD values, set approval.status to APPROVED, and place the final JSON under backend/harness/chaotang-true-loop/product_acceptance/user_acceptance/records/ as the only JSON file there.",
+  "schemaVersion": "w08-user-acceptance.v1",
+  "mode": "FINAL_USER_ACCEPTANCE",
+  "task_prompt_ref": "participant_task_card.zh-CN.md",
+  "approval": {
+    "status": "DRAFT",
+    "owner": "TBD",
+    "approved_at": "YYYY-MM-DDTHH:MM:SSZ",
+    "evidence_review_id": "TBD"
+  },
+  "records": [
+    {
+      "participant_id": "user-001",
+      "target_profile": "manufacturing_contract_operator",
+      "involved_in_development": false,
+      "unassisted": true,
+      "engineer_guidance": false,
+      "surfaces_used": ["/shangshufang", "/shiguan"],
+      "completed_steps": [],
+      "completion_success": false,
+      "first_value_seconds": 0,
+      "evidence": {
+        "contract_review_pack_id": "TBD",
+        "artifact_manifest_id": "TBD",
+        "archive_receipt_id": "TBD",
+        "browser_evidence_ref": "TBD"
+      },
+      "feedback_deidentified": true
+    },
+    {
+      "participant_id": "user-002",
+      "target_profile": "manufacturing_contract_operator",
+      "involved_in_development": false,
+      "unassisted": true,
+      "engineer_guidance": false,
+      "surfaces_used": ["/shangshufang", "/shiguan"],
+      "completed_steps": [],
+      "completion_success": false,
+      "first_value_seconds": 0,
+      "evidence": {
+        "contract_review_pack_id": "TBD",
+        "artifact_manifest_id": "TBD",
+        "archive_receipt_id": "TBD",
+        "browser_evidence_ref": "TBD"
+      },
+      "feedback_deidentified": true
+    },
+    {
+      "participant_id": "user-003",
+      "target_profile": "manufacturing_contract_operator",
+      "involved_in_development": false,
+      "unassisted": true,
+      "engineer_guidance": false,
+      "surfaces_used": ["/shangshufang", "/shiguan"],
+      "completed_steps": [],
+      "completion_success": false,
+      "first_value_seconds": 0,
+      "evidence": {
+        "contract_review_pack_id": "TBD",
+        "artifact_manifest_id": "TBD",
+        "archive_receipt_id": "TBD",
+        "browser_evidence_ref": "TBD"
+      },
+      "feedback_deidentified": true
+    },
+    {
+      "participant_id": "user-004",
+      "target_profile": "manufacturing_contract_operator",
+      "involved_in_development": false,
+      "unassisted": true,
+      "engineer_guidance": false,
+      "surfaces_used": ["/shangshufang", "/shiguan"],
+      "completed_steps": [],
+      "completion_success": false,
+      "first_value_seconds": 0,
+      "evidence": {
+        "contract_review_pack_id": "TBD",
+        "artifact_manifest_id": "TBD",
+        "archive_receipt_id": "TBD",
+        "browser_evidence_ref": "TBD"
+      },
+      "feedback_deidentified": true
+    },
+    {
+      "participant_id": "user-005",
+      "target_profile": "manufacturing_contract_operator",
+      "involved_in_development": false,
+      "unassisted": true,
+      "engineer_guidance": false,
+      "surfaces_used": ["/shangshufang", "/shiguan"],
+      "completed_steps": [],
+      "completion_success": false,
+      "first_value_seconds": 0,
+      "evidence": {
+        "contract_review_pack_id": "TBD",
+        "artifact_manifest_id": "TBD",
+        "archive_receipt_id": "TBD",
+        "browser_evidence_ref": "TBD"
+      },
+      "feedback_deidentified": true
+    }
+  ]
+}

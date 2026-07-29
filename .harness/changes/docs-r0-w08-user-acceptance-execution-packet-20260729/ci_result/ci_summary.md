@@ -35,6 +35,8 @@
   - `.harness/changes/docs-r0-w08-user-acceptance-execution-packet-20260729/request_analysis/spec.md`
   - `.harness/changes/docs-r0-w08-user-acceptance-execution-packet-20260729/request_analysis/tasks.md`
   - `.harness/changes/docs-r0-w08-user-acceptance-execution-packet-20260729/ci_result/ci_summary.md`
+  - `.harness/changes/docs-r0-w08-user-acceptance-execution-packet-20260729/session_execution_queue.md`
+  - `.harness/changes/docs-r0-w08-user-acceptance-execution-packet-20260729/draft_user_acceptance_record.json`
 - diff review：docs-only Packet；不改产品代码，不改 authority manifest。
 - 回滚是否演练：未演练；删除本 Packet 目录即可回滚。
 

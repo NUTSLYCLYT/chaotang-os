@@ -25,6 +25,8 @@
 - 输出：5 条 deidentified participant records。
 - 涉及文件：
   - `backend/harness/chaotang-true-loop/product_acceptance/user_acceptance/records/<approved-record>.json`
+  - 本 Packet 的 `session_execution_queue.md` 可作为执行队列。
+  - 本 Packet 的 `draft_user_acceptance_record.json` 只能作为草稿，不得直接 closeout。
 - 状态 / 数据变化：只新增最终用户验收记录；不得修改产品代码。
 - 验证命令与证据：
   - 每名成功用户必须记录 `contract_review_pack_id`、`artifact_manifest_id`、`archive_receipt_id`、`browser_evidence_ref`。
