@@ -1,6 +1,12 @@
 {
   "schemaVersion": "w08-user-acceptance.v1",
   "mode": "FINAL_USER_ACCEPTANCE",
+  "approval": {
+    "status": "DRAFT",
+    "owner": "",
+    "approved_at": "",
+    "evidence_review_id": ""
+  },
   "records": [
     {
       "participant_id": "user-001",

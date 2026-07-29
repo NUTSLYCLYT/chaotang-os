@@ -175,6 +175,15 @@ def _successful_user(participant_id: str, first_value_seconds: int = 150) -> dic
     }
 
 
+def _approval() -> dict:
+    return {
+        "status": "APPROVED",
+        "owner": "product-acceptance-owner",
+        "approved_at": "2026-07-29T12:00:00Z",
+        "evidence_review_id": "w08-user-acceptance-review-001",
+    }
+
+
 def test_w08_user_acceptance_requires_five_non_developer_users_with_four_successes():
     runner = _load_runner()
     payload = {
@@ -284,6 +293,7 @@ def test_w08_closeout_preflight_discovers_single_records_file(tmp_path):
         json.dumps({
             "schemaVersion": "w08-user-acceptance.v1",
             "mode": "FINAL_USER_ACCEPTANCE",
+            "approval": _approval(),
             "records": [_successful_user(f"user-{index:03d}") for index in range(1, 6)],
         }),
         encoding="utf-8",
@@ -305,6 +315,7 @@ def test_w08_closeout_preflight_blocks_ambiguous_records_files(tmp_path):
             json.dumps({
                 "schemaVersion": "w08-user-acceptance.v1",
                 "mode": "FINAL_USER_ACCEPTANCE",
+                "approval": _approval(),
                 "records": [_successful_user(f"user-{index:03d}") for index in range(1, 6)],
             }),
             encoding="utf-8",
@@ -326,6 +337,7 @@ def test_w08_closeout_preflight_passes_with_complete_user_acceptance(tmp_path):
         json.dumps({
             "schemaVersion": "w08-user-acceptance.v1",
             "mode": "FINAL_USER_ACCEPTANCE",
+            "approval": _approval(),
             "records": [_successful_user(f"user-{index:03d}") for index in range(1, 6)],
         }),
         encoding="utf-8",
@@ -350,6 +362,7 @@ def test_w08_closeout_preflight_blocks_explicit_user_acceptance_outside_records(
         json.dumps({
             "schemaVersion": "w08-user-acceptance.v1",
             "mode": "FINAL_USER_ACCEPTANCE",
+            "approval": _approval(),
             "records": [_successful_user(f"user-{index:03d}") for index in range(1, 6)],
         }),
         encoding="utf-8",
@@ -360,6 +373,57 @@ def test_w08_closeout_preflight_blocks_explicit_user_acceptance_outside_records(
     assert result["passed"] is False
     assert result["decision"] == "BLOCKED"
     assert "explicit user acceptance path must be inside records/" in result["failures"]
+
+
+def test_w08_closeout_preflight_blocks_unapproved_records_file(tmp_path):
+    runner = _load_runner()
+    records_dir = tmp_path / "records"
+    records_dir.mkdir()
+    evidence_path = records_dir / "w08_user_acceptance.json"
+    evidence_path.write_text(
+        json.dumps({
+            "schemaVersion": "w08-user-acceptance.v1",
+            "mode": "FINAL_USER_ACCEPTANCE",
+            "records": [_successful_user(f"user-{index:03d}") for index in range(1, 6)],
+        }),
+        encoding="utf-8",
+    )
+
+    file_result = runner.run_user_acceptance(evidence_path)
+    closeout_result = runner.run_closeout_preflight(records_dir=records_dir)
+
+    assert file_result["passed"] is True
+    assert closeout_result["passed"] is False
+    assert closeout_result["decision"] == "BLOCKED"
+    assert "approval.status must be APPROVED for W08 closeout" in closeout_result["failures"]
+
+
+def test_w08_closeout_preflight_blocks_incomplete_approval_metadata(tmp_path):
+    runner = _load_runner()
+    records_dir = tmp_path / "records"
+    records_dir.mkdir()
+    evidence_path = records_dir / "w08_user_acceptance.json"
+    evidence_path.write_text(
+        json.dumps({
+            "schemaVersion": "w08-user-acceptance.v1",
+            "mode": "FINAL_USER_ACCEPTANCE",
+            "approval": {
+                "status": "APPROVED",
+                "owner": "",
+                "approved_at": "",
+                "evidence_review_id": "",
+            },
+            "records": [_successful_user(f"user-{index:03d}") for index in range(1, 6)],
+        }),
+        encoding="utf-8",
+    )
+
+    result = runner.run_closeout_preflight(records_dir=records_dir)
+
+    assert result["passed"] is False
+    assert "approval.owner is required for W08 closeout" in result["failures"]
+    assert "approval.approved_at is required for W08 closeout" in result["failures"]
+    assert "approval.evidence_review_id is required for W08 closeout" in result["failures"]
 
 
 def test_w08_user_acceptance_fixture_documents_valid_shape_without_claiming_real_evidence():

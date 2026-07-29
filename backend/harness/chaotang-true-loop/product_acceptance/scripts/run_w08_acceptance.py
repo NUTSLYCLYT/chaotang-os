@@ -306,6 +306,29 @@ def run_user_acceptance(path: Path) -> dict[str, Any]:
     return result
 
 
+def validate_closeout_approval(payload: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    approval = payload.get("approval") or {}
+    _require(isinstance(approval, dict), "approval must be an object for W08 closeout", failures)
+    if not isinstance(approval, dict):
+        approval = {}
+    _require(approval.get("status") == "APPROVED", "approval.status must be APPROVED for W08 closeout", failures)
+    _require(bool(approval.get("owner")), "approval.owner is required for W08 closeout", failures)
+    _require(bool(approval.get("approved_at")), "approval.approved_at is required for W08 closeout", failures)
+    _require(bool(approval.get("evidence_review_id")), "approval.evidence_review_id is required for W08 closeout", failures)
+    return failures
+
+
+def run_closeout_user_acceptance(path: Path) -> dict[str, Any]:
+    payload = load_payload(path)
+    result = validate_user_acceptance_payload(payload)
+    approval_failures = validate_closeout_approval(payload)
+    result["failures"].extend(approval_failures)
+    result["passed"] = result["passed"] and not approval_failures
+    result["evidencePath"] = str(path)
+    return result
+
+
 def discover_user_acceptance_path(records_dir: Path = DEFAULT_USER_ACCEPTANCE_RECORDS_DIR) -> dict[str, Any]:
     if not records_dir.exists():
         return {
@@ -325,7 +348,7 @@ def discover_user_acceptance_path(records_dir: Path = DEFAULT_USER_ACCEPTANCE_RE
             "candidatePaths": [str(path) for path in candidates],
         }
 
-    return run_user_acceptance(candidates[0])
+    return run_closeout_user_acceptance(candidates[0])
 
 
 def validate_closeout_user_acceptance_path(path: Path, records_dir: Path = DEFAULT_USER_ACCEPTANCE_RECORDS_DIR) -> dict[str, Any]:
@@ -339,7 +362,7 @@ def validate_closeout_user_acceptance_path(path: Path, records_dir: Path = DEFAU
             "failures": ["explicit user acceptance path must be inside records/"],
             "evidencePath": str(path),
         }
-    return run_user_acceptance(path)
+    return run_closeout_user_acceptance(path)
 
 
 def validate_browser_flow_evidence(repo_root: Path = REPO_ROOT) -> dict[str, Any]:

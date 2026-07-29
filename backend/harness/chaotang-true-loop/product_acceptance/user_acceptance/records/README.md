@@ -13,5 +13,18 @@ approved JSON file.
 When `--closeout-preflight --user-acceptance <path>` is used, `<path>` must also
 be inside this directory.
 
+The approved JSON must include:
+
+```json
+{
+  "approval": {
+    "status": "APPROVED",
+    "owner": "<product-acceptance-owner>",
+    "approved_at": "<ISO-8601 timestamp>",
+    "evidence_review_id": "<review evidence id>"
+  }
+}
+```
+
 Do not place fixtures, rehearsal files, screenshots, logs, or draft records in
 this directory.

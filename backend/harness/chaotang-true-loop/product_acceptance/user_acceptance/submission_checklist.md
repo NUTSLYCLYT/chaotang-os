@@ -4,6 +4,9 @@ Before requesting W08 closeout, the Product Acceptance Owner must provide:
 
 - one approved JSON file under `user_acceptance/records/`
 - no closeout evidence JSON outside `user_acceptance/records/`
+- `approval.status` is `APPROVED`
+- `approval.owner`, `approval.approved_at`, and `approval.evidence_review_id`
+  are populated
 - 5 participant records
 - at least 4 successful completions
 - no development participants
