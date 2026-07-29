@@ -12,6 +12,8 @@ Before requesting W08 closeout, the Product Acceptance Owner must provide:
 - no development participants
 - no engineer-guided sessions counted as successful
 - `task_prompt_ref` is exactly `participant_task_card.zh-CN.md`
+- every participant record has `surfaces_used` exactly
+  `["/shangshufang", "/shiguan"]`
 - `participant_task_card.zh-CN.md` was the only task prompt given to
   participants after the session started
 - deidentified feedback and evidence references

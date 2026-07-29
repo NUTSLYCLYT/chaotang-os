@@ -47,6 +47,7 @@ REQUIRED_USER_STEPS = {
     "download_artifacts",
     "reopen_shiguan_audit",
 }
+REQUIRED_USER_SURFACES = {"/shangshufang", "/shiguan"}
 MANUFACTURING_B2B_RISK_FAMILIES = {
     "acceptance",
     "compliance",
@@ -216,6 +217,11 @@ def _validate_user_record(record: dict[str, Any], *, allow_fixture: bool = False
         failures,
     )
     _require(record.get("feedback_deidentified") is True, f"{participant_id} feedback must be deidentified", failures)
+    _require(
+        set(record.get("surfaces_used") or []) == REQUIRED_USER_SURFACES,
+        f"{participant_id} surfaces_used must be exactly /shangshufang and /shiguan",
+        failures,
+    )
 
     if record.get("completion_success") is True:
         steps = set(record.get("completed_steps") or [])

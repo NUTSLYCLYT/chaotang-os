@@ -29,7 +29,11 @@
         "archive_receipt_id": "fixture-archive-receipt-001",
         "browser_evidence_ref": "fixtures/browser-evidence/fixture-user-001.json"
       },
-      "feedback_deidentified": true
+      "feedback_deidentified": true,
+      "surfaces_used": [
+        "/shangshufang",
+        "/shiguan"
+      ]
     },
     {
       "participant_id": "fixture-user-002",
@@ -55,7 +59,11 @@
         "archive_receipt_id": "fixture-archive-receipt-002",
         "browser_evidence_ref": "fixtures/browser-evidence/fixture-user-002.json"
       },
-      "feedback_deidentified": true
+      "feedback_deidentified": true,
+      "surfaces_used": [
+        "/shangshufang",
+        "/shiguan"
+      ]
     },
     {
       "participant_id": "fixture-user-003",
@@ -81,7 +89,11 @@
         "archive_receipt_id": "fixture-archive-receipt-003",
         "browser_evidence_ref": "fixtures/browser-evidence/fixture-user-003.json"
       },
-      "feedback_deidentified": true
+      "feedback_deidentified": true,
+      "surfaces_used": [
+        "/shangshufang",
+        "/shiguan"
+      ]
     },
     {
       "participant_id": "fixture-user-004",
@@ -107,7 +119,11 @@
         "archive_receipt_id": "fixture-archive-receipt-004",
         "browser_evidence_ref": "fixtures/browser-evidence/fixture-user-004.json"
       },
-      "feedback_deidentified": true
+      "feedback_deidentified": true,
+      "surfaces_used": [
+        "/shangshufang",
+        "/shiguan"
+      ]
     },
     {
       "participant_id": "fixture-user-005",
@@ -133,7 +149,11 @@
         "archive_receipt_id": "fixture-archive-receipt-005",
         "browser_evidence_ref": "fixtures/browser-evidence/fixture-user-005.json"
       },
-      "feedback_deidentified": true
+      "feedback_deidentified": true,
+      "surfaces_used": [
+        "/shangshufang",
+        "/shiguan"
+      ]
     }
   ]
 }

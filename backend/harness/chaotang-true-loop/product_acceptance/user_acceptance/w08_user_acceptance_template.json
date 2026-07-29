@@ -15,6 +15,7 @@
       "involved_in_development": false,
       "unassisted": true,
       "engineer_guidance": false,
+      "surfaces_used": ["/shangshufang", "/shiguan"],
       "completed_steps": [
         "upload_contract",
         "parse_mission_contract",

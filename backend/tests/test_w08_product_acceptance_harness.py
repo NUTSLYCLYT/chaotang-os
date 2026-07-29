@@ -153,6 +153,7 @@ def _successful_user(participant_id: str, first_value_seconds: int = 150) -> dic
         "involved_in_development": False,
         "unassisted": True,
         "engineer_guidance": False,
+        "surfaces_used": ["/shangshufang", "/shiguan"],
         "completed_steps": [
             "upload_contract",
             "parse_mission_contract",
@@ -265,6 +266,30 @@ def test_w08_user_acceptance_requires_task_prompt_ref():
 
     assert result["passed"] is False
     assert "task_prompt_ref must be participant_task_card.zh-CN.md" in result["failures"]
+
+
+def test_w08_user_acceptance_requires_closed_world_surfaces():
+    runner = _load_runner()
+    bad_user = {
+        **_successful_user("user-001"),
+        "surfaces_used": ["/shangshufang", "/shiguan", "/admin"],
+    }
+
+    result = runner.validate_user_acceptance_payload({
+        "schemaVersion": "w08-user-acceptance.v1",
+        "mode": "FINAL_USER_ACCEPTANCE",
+        "task_prompt_ref": "participant_task_card.zh-CN.md",
+        "records": [
+            bad_user,
+            _successful_user("user-002"),
+            _successful_user("user-003"),
+            _successful_user("user-004"),
+            _successful_user("user-005"),
+        ],
+    })
+
+    assert result["passed"] is False
+    assert "user-001 surfaces_used must be exactly /shangshufang and /shiguan" in result["failures"]
 
 
 def test_w08_user_acceptance_runner_reads_evidence_file(tmp_path):

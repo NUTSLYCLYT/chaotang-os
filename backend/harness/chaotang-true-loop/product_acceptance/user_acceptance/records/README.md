@@ -18,6 +18,11 @@ The approved JSON must include:
 ```json
 {
   "task_prompt_ref": "participant_task_card.zh-CN.md",
+  "records": [
+    {
+      "surfaces_used": ["/shangshufang", "/shiguan"]
+    }
+  ],
   "approval": {
     "status": "APPROVED",
     "owner": "<product-acceptance-owner>",

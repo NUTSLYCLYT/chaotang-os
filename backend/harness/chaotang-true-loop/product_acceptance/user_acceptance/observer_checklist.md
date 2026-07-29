@@ -24,6 +24,7 @@ committed record.
 - Downloaded artifact packet.
 - Reopened audit replay in `/shiguan`.
 - Confirmed replay was read-only.
+- Confirmed no other product surface was used.
 
 ## Timing
 
