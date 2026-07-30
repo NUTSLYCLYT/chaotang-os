@@ -194,3 +194,10 @@ session 或客户端输入作为隔离键，也不得把咨询写入史馆或后
    CI。
 4. 保持 `src/lib/backendClient.ts` 与 UI 解耦，确保成功/失败两条路径都能在无
    浏览器、无常驻服务的 CI 环境里重复运行。
+
+## 会计报告成果下载
+
+- `/study` 只展示后端成功回奏中严格校验后的可选 `artifacts`；普通回奏继续使用空列表，不推断或自行生成成果。
+- 浏览器下载只访问同源 `GET /api/report-artifacts/{id}`。该 BFF 在服务端转发 `courtos_session`，不向浏览器暴露 Bearer session、FastAPI 地址或文件路径。
+- BFF 只允许安全成果 ID，只接受 XLSX MIME 与固定安全响应头；401、404、503 使用脱敏稳定错误，跨 owner 的 404 不透露成果是否存在。
+- UI 每个成果渲染一个可访问下载链接，使用 `encodeURIComponent` 编码 opaque ID；前端不预取工作簿，也不读取真实财务数据。

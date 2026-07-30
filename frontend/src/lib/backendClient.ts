@@ -220,6 +220,15 @@ export interface MinistryOpinion {
   opinion: string;
 }
 
+export interface ReportArtifact {
+  artifactId: string;
+  kind: "ACCOUNTING_MANAGEMENT_REPORT_XLSX";
+  displayName: string;
+  periodStart: number;
+  periodEnd: number;
+  generatedAt: string;
+}
+
 /**
  * `POST /api/v1/decrees/chancellor` 成功响应体映射到前端后的形状。
  *
@@ -239,6 +248,7 @@ export interface SubmitDecreeData {
   councilVerdict: string | null;
   finalVerdict: string;
   recommendations: string[];
+  artifacts: ReportArtifact[];
 }
 
 /**
@@ -249,7 +259,7 @@ export type SubmitDecreeResult =
   | { ok: true; data: SubmitDecreeData }
   | {
       ok: false;
-      kind: "validation" | "config" | "model" | "network" | "timeout" | "unauthenticated" | "unknown";
+      kind: "validation" | "draft_not_current" | "config" | "model" | "network" | "timeout" | "unauthenticated" | "unknown";
       error: string;
     };
 
@@ -266,6 +276,8 @@ export interface SubmitDecreeOptions {
   cancelTimeout?: (handle: unknown) => void;
   /** Opaque session forwarded only by Next.js server code. */
   sessionId?: string;
+  draftVersion?: number;
+  draftFingerprint?: string;
 }
 
 /**
@@ -371,6 +383,52 @@ function parseNonEmptyStringArray(value: unknown): string[] | null {
   return value as string[];
 }
 
+function parseReportArtifacts(value: unknown): ReportArtifact[] | null {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) return null;
+  const artifacts: ReportArtifact[] = [];
+  const ids = new Set<string>();
+  const keys = ["artifact_id", "kind", "display_name", "period_start", "period_end", "generated_at"];
+  for (const entry of value) {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) return null;
+    const record = entry as Record<string, unknown>;
+    if (Object.keys(record).length !== keys.length || keys.some((key) => !(key in record))) return null;
+    if (typeof record.artifact_id !== "string" || record.artifact_id.trim().length === 0 ||
+        record.kind !== "ACCOUNTING_MANAGEMENT_REPORT_XLSX" ||
+        typeof record.display_name !== "string" || record.display_name.trim().length === 0 ||
+        !Number.isInteger(record.period_start) || !Number.isInteger(record.period_end) ||
+        (record.period_start as number) > (record.period_end as number) ||
+        typeof record.generated_at !== "string" || !isTimezoneAwareRfc3339(record.generated_at)) return null;
+    const artifactId = record.artifact_id.trim();
+    if (ids.has(artifactId)) return null;
+    ids.add(artifactId);
+    artifacts.push({
+      artifactId, kind: "ACCOUNTING_MANAGEMENT_REPORT_XLSX",
+      displayName: record.display_name.trim(),
+      periodStart: record.period_start as number, periodEnd: record.period_end as number,
+      generatedAt: record.generated_at.trim(),
+    });
+  }
+  return artifacts;
+}
+
+function isTimezoneAwareRfc3339(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|([+-])(\d{2}):(\d{2}))$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const offsetHour = match[9] === undefined ? 0 : Number(match[9]);
+  const offsetMinute = match[10] === undefined ? 0 : Number(match[10]);
+  if (month < 1 || month > 12 || hour > 23 || minute > 59 || second > 59 ||
+      offsetHour > 23 || offsetMinute > 59) return false;
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return day >= 1 && day <= daysInMonth && Number.isFinite(Date.parse(value));
+}
+
 /**
  * 校验并提取一份符合新契约的 `SubmitDecreeData`；任一必需字段缺失或形状不符（含旧的
  * `memorial_text` 单段字形状）都回退到 `null`，由调用方映射为 `kind: "unknown"`。
@@ -436,6 +494,8 @@ function parseSubmitDecreeData(body: unknown): SubmitDecreeData | null {
   ) {
     return null;
   }
+  const artifacts = parseReportArtifacts(record.artifacts);
+  if (artifacts === null) return null;
 
   return {
     status: record.status,
@@ -448,7 +508,31 @@ function parseSubmitDecreeData(body: unknown): SubmitDecreeData | null {
     councilVerdict,
     finalVerdict: record.final_verdict.trim(),
     recommendations: recommendations.map((item) => item.trim()),
+    artifacts,
   };
+}
+
+export type ReportArtifactDownloadResult =
+  | { ok: true; response: Response }
+  | { ok: false; kind: "unauthenticated" | "not_found" | "unavailable" };
+
+export async function downloadReportArtifact(
+  artifactId: string,
+  options: AuthenticatedRequestOptions & { fetchImpl?: typeof fetch },
+): Promise<ReportArtifactDownloadResult> {
+  if (!options.sessionId) return { ok: false, kind: "unauthenticated" };
+  try {
+    const response = await (options.fetchImpl ?? fetch)(
+      `${(options.baseUrl ?? getBackendBaseUrl()).replace(/\/+$/, "")}/api/v1/report-artifacts/${encodeURIComponent(artifactId)}/download`,
+      { method: "GET", headers: { authorization: `Bearer ${options.sessionId}` }, cache: "no-store" },
+    );
+    if (response.ok) return { ok: true, response };
+    if (response.status === 401) return { ok: false, kind: "unauthenticated" };
+    if (response.status === 404) return { ok: false, kind: "not_found" };
+    return { ok: false, kind: "unavailable" };
+  } catch {
+    return { ok: false, kind: "unavailable" };
+  }
 }
 
 /**
@@ -487,7 +571,11 @@ export async function submitDecree(
         "content-type": "application/json",
         ...(options.sessionId ? { authorization: `Bearer ${options.sessionId}` } : {}),
       },
-      body: JSON.stringify({ decree_text: decreeText }),
+      body: JSON.stringify({
+        decree_text: decreeText,
+        draft_version: options.draftVersion,
+        draft_fingerprint: options.draftFingerprint,
+      }),
       signal: controller.signal,
       cache: "no-store",
     });
@@ -531,6 +619,13 @@ export async function submitDecree(
     const data = parseSubmitDecreeData(body);
     if (data === null) {
       return { ok: false, kind: "unknown", error: "后端成功响应体不符合预期契约" };
+    }
+    if (response.status === 409) {
+      return {
+        ok: false,
+        kind: "draft_not_current",
+        error: await extractErrorMessage(response, "拟旨草案已失效"),
+      };
     }
     return { ok: true, data };
   } catch (error) {
@@ -752,6 +847,66 @@ export async function chancellorConsult(
       return { ok: false, kind: "unknown" };
     }
     return { ok: true, consultant: body.consultant, reply: body.reply.trim() };
+  } catch {
+    return { ok: false, kind: timedOut ? "timeout" : "network" };
+  } finally {
+    cancel(timer);
+  }
+}
+
+export type SubmitDraftResult =
+  | { ok: true; draft: Record<string, unknown> }
+  | {
+      ok: false;
+      kind: "validation" | "config" | "model" | "unauthenticated" | "network" | "timeout" | "unknown";
+    };
+
+export async function chancellorDraft(
+  messages: ChancellorConsultMessage[],
+  version: number,
+  options: ChancellorConsultOptions = {},
+): Promise<SubmitDraftResult> {
+  const controller = new AbortController();
+  let timedOut = false;
+  const schedule = options.scheduleTimeout ?? ((callback, delay) => setTimeout(callback, delay));
+  const cancel = options.cancelTimeout ?? ((handle) => clearTimeout(handle as ReturnType<typeof setTimeout>));
+  const timer = schedule(() => {
+    timedOut = true;
+    controller.abort();
+  }, options.timeoutMs ?? 30000);
+  try {
+    const response = await (options.fetchImpl ?? fetch)(
+      `${(options.baseUrl ?? getBackendBaseUrl()).replace(/\/+$/, "")}/api/v1/chancellor-drafts`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(options.sessionId ? { authorization: `Bearer ${options.sessionId}` } : {}),
+        },
+        body: JSON.stringify({ messages, version }),
+        signal: controller.signal,
+        cache: "no-store",
+      },
+    );
+    if (!response.ok) {
+      const kind =
+        response.status === 401 ? "unauthenticated" :
+        response.status === 422 ? "validation" :
+        response.status === 503 ? "config" :
+        response.status === 502 ? "model" : "unknown";
+      return { ok: false, kind };
+    }
+    const body = await response.json() as Record<string, unknown>;
+    if (
+      typeof body.status !== "string" ||
+      typeof body.version !== "number" ||
+      typeof body.fingerprint !== "string" ||
+      typeof body.understanding !== "string" ||
+      typeof body.expert_example !== "string"
+    ) {
+      return { ok: false, kind: "unknown" };
+    }
+    return { ok: true, draft: body };
   } catch {
     return { ok: false, kind: timedOut ? "timeout" : "network" };
   } finally {

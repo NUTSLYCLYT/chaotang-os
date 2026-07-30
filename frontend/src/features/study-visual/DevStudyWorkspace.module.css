@@ -74,6 +74,16 @@
 .returnContent > ul > li { min-width: 0; margin-top: 12px; overflow-wrap: anywhere; padding: 11px; border: 1px solid rgba(114,72,21,.2); background: rgba(255,250,230,.28); }
 .path { padding: 10px; background: rgba(114,72,21,.08); }
 .path strong, .returnContent p strong { margin-right: .6em; color: #734516; }
+.artifact { margin: 14px 0 0; }
+.artifact a {
+  color: #734516;
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+.artifact a:focus-visible {
+  outline: 2px solid #8b2a20;
+  outline-offset: 3px;
+}
 .archivedReply {
   min-width: 0;
   color: #33230f;
@@ -110,12 +120,12 @@
 .composer::before { display: none; }
 .composerRow {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 7px;
   padding: 6px 8px 5px;
 }
-.polish,
+.draftAction,
 .attach,
 .submit {
   display: inline-flex;
@@ -130,8 +140,7 @@
   cursor: pointer;
   font: 600 11px/1 var(--font-serif, serif);
 }
-.polish { padding: 0 10px; }
-.polish[data-active="true"] { background: transparent; color: #a77c35; box-shadow: none; }
+.draftAction { padding: 0 14px; white-space: nowrap; }
 .attach { width: auto; padding: 0 10px; color: #a77c35; }
 .attach input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
 .composer textarea {
@@ -151,7 +160,7 @@
 .composer textarea::placeholder { color: rgba(245,233,201,.52); }
 .composer textarea:focus { border-color: #a77c35; box-shadow: none; }
 .submit { padding: 0 18px; border-color: #a77c35; background: transparent; box-shadow: none; color: #a77c35; text-shadow: none; }
-.submit:disabled, .polish:disabled { cursor: not-allowed; opacity: .45; }
+.submit:disabled, .draftAction:disabled { cursor: not-allowed; opacity: .45; }
 .localNotice {
   position: absolute;
   left: 0;
@@ -252,8 +261,8 @@
   .expandedSlot { height: min(74vh, 680px); min-height: 420px; margin-top: 58px; }
   .emptyExpanded { margin-top: 42vh; }
   .composer { position: relative; bottom: auto; width: 100%; }
-  .composerRow { grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 5px; padding: 6px; }
-  .polish { display: none; }
+  .composerRow { grid-template-columns: auto minmax(0, 1fr) auto; gap: 5px; padding: 6px; }
+  .draftAction { height: 40px; padding: 0 10px; }
   .composer textarea { height: 40px; padding: 10px; border-radius: 8px; font-size: 11px; }
   .submit { height: 40px; padding: 0 10px; }
   .localNotice { right: 4px; left: 4px; text-align: center; }

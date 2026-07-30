@@ -9,8 +9,10 @@ import {
 import {
   SUBMITTING_UI_STATE,
   mapSubmitDecreeResultToUiState,
+  parseChancellorSuccessResponse,
   type DecreeUiState,
 } from "./decreeStatus.ts";
+import { projectStudyArtifacts } from "../../features/study-visual/studyWorkspaceState.ts";
 
 const VALID_SUCCESS_BODY = {
   status: "ok",
@@ -29,6 +31,14 @@ const VALID_SUCCESS_BODY = {
   councilVerdict: null,
   finalVerdict: "准行。",
   recommendations: ["核定预算", "分期拨付", "设置审计节点"],
+  artifacts: [{
+    artifactId: "report 甲/2025",
+    kind: "ACCOUNTING_MANAGEMENT_REPORT_XLSX",
+    displayName: "2025年度财务管理报告",
+    periodStart: 2025,
+    periodEnd: 2025,
+    generatedAt: "2026-07-29T08:00:00Z",
+  }],
 };
 
 test("importing the Study submission boundary performs zero requests", async () => {
@@ -62,17 +72,28 @@ test("one submission sends exactly one same-origin POST with the decree body", a
   const state = await requestStudySubmission("修筑河工", {
     fetchImpl,
     scheduleRedirect: () => assert.fail("success must not redirect"),
+    draftVersion: 3,
+    draftFingerprint: "c".repeat(64),
   });
 
   assert.equal(requests.length, 1);
   assert.equal(requests[0].input, "/api/decrees/chancellor");
   assert.equal(requests[0].init?.method, "POST");
   assert.equal(requests[0].init?.headers && new Headers(requests[0].init.headers).get("content-type"), "application/json");
-  assert.equal(requests[0].init?.body, JSON.stringify({ decreeText: "修筑河工" }));
+  assert.equal(requests[0].init?.body, JSON.stringify({
+    decreeText: "修筑河工",
+    draftVersion: 3,
+    draftFingerprint: "c".repeat(64),
+  }));
   assert.equal(state.phase, "success");
   if (state.phase === "success") {
+    const parsed = parseChancellorSuccessResponse(VALID_SUCCESS_BODY);
+    assert.ok(parsed);
+    assert.deepEqual(parsed.artifacts, VALID_SUCCESS_BODY.artifacts);
     assert.deepEqual(state.departments, ["户部"]);
     assert.equal(state.finalVerdict, "准行。");
+    assert.deepEqual(state.artifacts, VALID_SUCCESS_BODY.artifacts);
+    assert.deepEqual(projectStudyArtifacts(state), VALID_SUCCESS_BODY.artifacts);
   }
 });
 

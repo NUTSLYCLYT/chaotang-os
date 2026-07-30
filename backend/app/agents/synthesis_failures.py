@@ -7,7 +7,9 @@ from app.agents.evidence_protocol import EvidenceProtocolError
 from app.agents.structured_output import StructuredOutputError
 from app.langgraph_runtime.deepseek_client import DeepSeekModelInvocationError
 
-SynthesisStage = Literal["route", "bureau", "ministry", "council", "finalize", "archive"]
+SynthesisStage = Literal[
+    "route", "report", "bureau", "ministry", "council", "finalize", "archive"
+]
 SynthesisFailureCode = Literal[
     "schema_invalid",
     "content_unsupported",

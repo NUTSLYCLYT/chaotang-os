@@ -9,6 +9,7 @@ from app.agents.structured_output import StructuredOutputError, parse_strict_jso
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel
 
 if TYPE_CHECKING:
+    from app.accounting_reports.session import AccountingReportSession
     from app.agents.evidence_protocol import AgentEvidenceSession
 
 
@@ -24,7 +25,9 @@ def _evidence_protocol_prompt(node_id: str) -> str:
     return f"""
 This is an evidence-session response. Return only one strict JSON envelope.
 If no externally verifiable fact is necessary, return exactly
-{{"status":"READY","result":{{"opinion":"<non-empty bureau opinion>","factual_claims":[]}},
+{{"status":"READY","result":{{"opinion":"<complete normative clause>",
+"factual_claims":[{{"claim":"<same complete normative clause>","basis":"NORMATIVE",
+"evidence_ids":[],"fact_key":null,"category":null,"subject":null}}]}},
 "adopted_evidence_ids":[],"fact_basis":"NOT_REQUIRED"}}.
 If the opinion relies on archive or Jinyiwei evidence, return exactly
 {{"status":"READY","result":{{"opinion":"<non-empty bureau opinion>",
@@ -41,14 +44,19 @@ When any necessary public fact is missing, return exactly
 "expected_shape":null,"market_metric":"LAST_PRICE"}}],"decision_context":"<context>",
 "freshness":{{"max_age_seconds":3600}},"existing_evidence_ids":[]}}}}.
 {MARKET_METRIC_PROMPT_CONTRACT}
-Do not return a bare opinion. Declare every factual claim used in the final opinion.
+Do not return a bare opinion.
+A declaration may cover one or more contiguous substantive opinion clauses.
+Together the declarations must provide complete ordered coverage of the opinion
+after normalization; reordered, overlapping, duplicate,
+missing, extra, or partial coverage is invalid. The empty factual_claims list is invalid
+for a nonempty opinion.
 Each declaration must use NORMATIVE, USER_PROVIDED, ARCHIVED, or CITED; only
 ARCHIVED and CITED declarations may name evidence IDs, and every named ID must be
 adopted. ARCHIVED and CITED declarations must copy the matching fact_key, category,
 and subject from the evidence pack. NORMATIVE and USER_PROVIDED declarations must
 set evidence_ids to [] and fact_key/category/subject to null. USER_PROVIDED is only
 valid for a fact explicitly stated by the user, never a question or lookup request.
-Every non-normative opinion clause must exactly match one declaration. Do not label an externally
+Every opinion clause must be covered exactly once in order. Do not label an externally
 verifiable factual dependency as NOT_REQUIRED; request it with NEEDS_DATA or cite it.
 If the decree asks for current/latest external facts or current business-system state,
 you must return NEEDS_DATA unless the supplied evidence already supports every fact.
@@ -65,20 +73,39 @@ def invoke_bureau_agent(
     chat_model: DeepSeekChatModel,
     *,
     evidence_session: AgentEvidenceSession | None = None,
+    report_session: AccountingReportSession | None = None,
 ) -> str:
     """Invoke one bureau selected by its compound identity and return its opinion."""
 
     try:
-        system_prompt = bureau_system_prompt(department, bureau)
+        system_prompt = bureau_system_prompt(
+            department,
+            bureau,
+            evidence_session=evidence_session is not None,
+        )
     except ValueError as exc:
         raise BureauAgentInvocationError("Bureau identity validation failed.") from exc
 
+    report_summary = None
+    if report_session is not None and (department, bureau) == ("户部", "会计司"):
+        from app.accounting_reports.intent import detect_accounting_report_intent
+
+        if detect_accounting_report_intent(decree_text).requested:
+            try:
+                report_summary = report_session.maybe_generate(
+                    department, bureau, decree_text
+                )
+            except Exception as exc:  # noqa: BLE001 - sanitized report boundary
+                error = BureauAgentInvocationError("Accounting report generation failed.")
+                error.failure_stage = "report"
+                raise error from exc
+
+    user_content = f"旨意：{decree_text}\n\n部级路由判断：{rationale}"
+    if report_summary is not None:
+        user_content += f"\n\n会计司确定性报表摘要：\n{report_summary}"
     messages = [
         {"role": "system", "content": system_prompt},
-        {
-            "role": "user",
-            "content": f"旨意：{decree_text}\n\n部级路由判断：{rationale}",
-        },
+        {"role": "user", "content": user_content},
     ]
     if evidence_session is not None:
         from app.agents.evidence_protocol import (

@@ -84,15 +84,30 @@ _DATA_REQUEST_PATTERN = re.compile(
 )
 _CLAUSE_SPLIT_PATTERN = re.compile(r"[。！？!?；;，,：:\n]+")
 _NORMATIVE_LEAD_PATTERN = re.compile(
-    r"^(?:建议|应当|应该|宜|可以|可(?:将)?|可考虑|有必要|须|需要)"
+    r"^(?:建议|应当|应该|宜|可以|可(?:将)?|可考虑|有必要|须|需要|必须|不得|不应(?:当)?|严禁|禁止)"
+    r"|^未经.{1,80}不得"
     r"|^(?:(?:the\s+plan\s+)?should|recommend|consider|set|use|allocate|propose)\b",
     re.IGNORECASE,
+)
+_CAUSAL_BASIS_PATTERN = re.compile(r"(?:因为|由于|鉴于|根据|依据)(?=.)")
+_FACTUAL_CAUSAL_SOURCE_PATTERN = re.compile(
+    r"(?:因为|由于|鉴于)(?=.)"
+    r"|(?:根据|依据)(?:当前|目前|最新|昨日|今日|今天|实时|公告|数据|统计|新闻|资讯)"
+)
+_CURRENT_QUANTIFIED_OBSERVATION_PATTERN = re.compile(
+    r"(?:当前|目前).{0,32}(?:共|有|为|计)"
+    r"[零一二三四五六七八九十百千万两\d]+[\u4e00-\u9fff]"
 )
 _EPISTEMIC_PATTERN = re.compile(r"(?:看到|可见|显示|表明|据悉|已知)")
 _EXPLICIT_PROPOSAL_PATTERN = re.compile(
     r"(?:设为|定为|改为|调整为|在.{0,24}(?:执行|实施|生效|完成))"
     r"|\b(?:set|adjust|change).{0,32}\b(?:at|to)\b",
     re.IGNORECASE,
+)
+_EXPLICIT_PROPOSAL_VALUE_PATTERN = re.compile(
+    r"(?:设为|定为|改为|调整为)"
+    r"[零一二三四五六七八九十百千万两\d.]+"
+    r"(?:%|个|项|条|家|名|次|份|台|宗|笔|元|万元|亿元|年|月|日)?"
 )
 _OBSERVATION_ASSERTION_PATTERN = re.compile(
     r"(?:现价|报价)"
@@ -288,7 +303,7 @@ class AgentEvidenceSession:
         self._id_factory = id_factory
         self._deadline = monotonic() + _DEADLINE_SECONDS
         self._lock = threading.Lock()
-        self._envelope_correction_claimed = False
+        self._envelope_correction_nodes: set[str] = set()
         self._protocol_correction_claimed = False
         self._investigations = 0
         self._extractions = 0
@@ -329,13 +344,13 @@ class AgentEvidenceSession:
             self._protocol_correction_claimed = True
             return True
 
-    def claim_envelope_correction(self) -> bool:
-        """Claim the decree's only response-envelope correction call."""
+    def claim_envelope_correction(self, node_id: str) -> bool:
+        """Claim a bureau node's only response-envelope correction call."""
 
         with self._lock:
-            if self._envelope_correction_claimed:
+            if node_id in self._envelope_correction_nodes:
                 return False
-            self._envelope_correction_claimed = True
+            self._envelope_correction_nodes.add(node_id)
             return True
 
     def record_investigation_result(self, node_id: str, pack: EvidencePack) -> None:
@@ -593,10 +608,7 @@ def invoke_bureau_with_evidence(
         ready = _parse_ready(first, legacy_parser, session, node_id, original_messages)
     except EvidenceProtocolError as exc:
         if str(exc) == "uncited_fact_dependency":
-            if not _is_bare_opinion(first):
-                session.record_degradation(node_id)
-                return _fallback(fallback, "model_synthesis_invalid")
-            if not session.claim_envelope_correction():
+            if not session.claim_envelope_correction(node_id):
                 session.record_degradation(node_id)
                 return _fallback(fallback, "model_synthesis_invalid")
             corrected = _call_and_parse(
@@ -986,15 +998,6 @@ def _has_unsupported_factual_dependency(
         for message in messages
         if message.get("role") == "user"
     )
-    supported_claims = [
-        claim
-        for claim in claims
-        if claim.basis in {
-            ClaimBasis.USER_PROVIDED,
-            ClaimBasis.ARCHIVED,
-            ClaimBasis.CITED,
-        }
-    ]
     cited_claims = [
         claim
         for claim in claims
@@ -1009,21 +1012,23 @@ def _has_unsupported_factual_dependency(
     if _DATA_REQUEST_PATTERN.search(prompt) and not cited_claims:
         return True
     opinion_clauses = _clauses(opinion)
-    supported_claim_texts = {
-        _compact_text(claim.claim) for claim in supported_claims
-    }
-    if any(
-        _compact_text(clause) not in supported_claim_texts
-        for clause in opinion_clauses
-        if not _is_normative_proposal(clause)
-        and not _is_nonassertive_citation_attribution(clause)
+    normalized_opinion_clauses = tuple(
+        _compact_text(clause) for clause in opinion_clauses
+    )
+    normalized_claim_clauses = tuple(
+        _compact_text(clause)
+        for claim in claims
+        for clause in _clauses(claim.claim)
+    )
+    if (
+        len(set(normalized_opinion_clauses)) != len(normalized_opinion_clauses)
+        or len(set(normalized_claim_clauses)) != len(normalized_claim_clauses)
+        or normalized_opinion_clauses != normalized_claim_clauses
     ):
         return True
     return any(
         claim.basis is ClaimBasis.NORMATIVE
-        and any(
-            not _is_normative_proposal(clause) for clause in _clauses(claim.claim)
-        )
+        and _normative_claim_contains_factual_assertion(claim.claim)
         for claim in claims
     )
 
@@ -1042,7 +1047,7 @@ def _clauses(value: str) -> tuple[str, ...]:
 
 def _is_normative_proposal(clause: str) -> bool:
     lead = _NORMATIVE_LEAD_PATTERN.search(clause)
-    if lead is None or re.search(r"(?:因为|由于|鉴于|根据|依据)", clause):
+    if lead is None or _CAUSAL_BASIS_PATTERN.search(clause):
         return False
     if _EPISTEMIC_PATTERN.search(clause):
         return False
@@ -1055,6 +1060,38 @@ def _is_normative_proposal(clause: str) -> bool:
     ) and _OBSERVED_VALUE_OR_TIME_PATTERN.search(clause):
         return False
     return True
+
+
+def _normative_claim_contains_factual_assertion(claim: str) -> bool:
+    """Reject observed facts wrapped in an otherwise normative declaration."""
+
+    if _FACTUAL_CAUSAL_SOURCE_PATTERN.search(claim) or _EPISTEMIC_PATTERN.search(
+        claim
+    ):
+        return True
+    scan_claim = _EXPLICIT_PROPOSAL_VALUE_PATTERN.sub("", claim)
+    if _OBSERVATION_ASSERTION_PATTERN.search(scan_claim):
+        return True
+    if (
+        _OBJECTIVE_FACT_TERM_PATTERN.search(scan_claim)
+        and _OBSERVED_VALUE_OR_TIME_PATTERN.search(scan_claim)
+    ):
+        return True
+    if re.search(
+        r"\b(?:is|are|has|have)\b.{0,32}\d",
+        scan_claim,
+        re.IGNORECASE,
+    ):
+        return True
+    if _CURRENT_QUANTIFIED_OBSERVATION_PATTERN.search(scan_claim):
+        return True
+    return bool(
+        re.search(r"(?:当前|目前|最新|昨日|今日|今天|实时)", scan_claim)
+        and re.search(
+            r"(?:[零一二三四五六七八九十百千万两\d]+个)",
+            scan_claim,
+        )
+    )
 
 
 def _is_nonassertive_citation_attribution(clause: str) -> bool:
@@ -1236,22 +1273,17 @@ def _resumed_dependency_correction(node_id: str) -> Message:
     }
 
 
-def _is_bare_opinion(payload: Mapping[str, object]) -> bool:
-    return (
-        set(payload) == {"opinion"}
-        and isinstance(payload.get("opinion"), str)
-        and bool(payload["opinion"].strip())
-    )
-
-
 def _bare_opinion_correction(node_id: str) -> Message:
     return {
         "role": "user",
         "content": (
             "Your response did not use the required evidence-session envelope. "
             "Return only one strict JSON object using the complete READY or "
-            "NEEDS_DATA schema from the system message. Do not return a bare "
-            "opinion. READY must declare every factual claim and its basis. "
+            "NEEDS_DATA schema from the system message. In READY, status, result, "
+            "adopted_evidence_ids, and fact_basis are top-level fields; only "
+            "opinion and factual_claims belong inside result. Do not return a bare "
+            "opinion. READY must declare every claim and its basis, omit unsupported "
+            "facts, and contain only normative advice when no evidence is available. "
             f'NEEDS_DATA must use requesting_agent "{node_id}". '
             "Do not quote, repeat, or discuss any previous response. "
             "Do not include markdown or any other text."

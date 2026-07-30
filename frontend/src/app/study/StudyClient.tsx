@@ -25,6 +25,11 @@ import {
   saveChancellorConsultMessages,
 } from "./chancellorConsultPersistence";
 import {
+  canIssueChancellorDraft,
+  requestChancellorDraft,
+  type ChancellorDraftResult,
+} from "./chancellorDraft";
+import {
   EMPTY_STUDY_RECENT_REPLIES_STATE,
   beginStudyRecentRepliesLoad,
   invalidateStudyRecentReplies,
@@ -98,10 +103,61 @@ export async function runStudyDecreeSubmission({
   return true;
 }
 
+type ChancellorDraftRequestResult = Awaited<
+  ReturnType<typeof requestChancellorDraft>
+>;
+
+interface ChancellorDraftRequestRunnerOptions {
+  requestId: number;
+  sourceText: string;
+  getLatestRequestId(): number;
+  getCurrentSourceText(): string;
+  request(sourceText: string): Promise<ChancellorDraftRequestResult>;
+  setPending(pending: boolean): void;
+  setError(error: string | null): void;
+  setDraft(draft: ChancellorDraftResult): void;
+  scheduleRedirect(path: string): void;
+}
+
+export async function runChancellorDraftRequest({
+  requestId,
+  sourceText,
+  getLatestRequestId,
+  getCurrentSourceText,
+  request,
+  setPending,
+  setError,
+  setDraft,
+  scheduleRedirect,
+}: ChancellorDraftRequestRunnerOptions): Promise<boolean> {
+  const normalizedSource = sourceText.trim();
+  const result = await request(normalizedSource);
+  if (
+    requestId !== getLatestRequestId() ||
+    getCurrentSourceText().trim() !== normalizedSource
+  ) {
+    return false;
+  }
+
+  setPending(false);
+  if (!result.ok) {
+    if (result.unauthenticated) {
+      scheduleRedirect("/login?next=%2Fstudy");
+    }
+    setError("丞相暂时无法拟旨，请稍后再试。");
+    return true;
+  }
+  setDraft(result.draft);
+  return true;
+}
+
 export function StudyClient({ userId }: { userId: string }) {
   const [decreeText, setDecreeText] = useState("");
   const [uiState, setUiState] = useState<DecreeUiState>(IDLE_UI_STATE);
   const [consultState, setConsultState] = useState<ChancellorConsultState>(EMPTY_CONSULT_STATE);
+  const [draftResult, setDraftResult] = useState<ChancellorDraftResult | null>(null);
+  const [draftPending, setDraftPending] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
   const [recentReplies, setRecentReplies] =
     useState<StudyRecentRepliesState>(EMPTY_STUDY_RECENT_REPLIES_STATE);
   const [replyPresentation, setReplyPresentation] =
@@ -109,6 +165,8 @@ export function StudyClient({ userId }: { userId: string }) {
   const recentRepliesRef = useRef<StudyRecentRepliesState>(
     EMPTY_STUDY_RECENT_REPLIES_STATE,
   );
+  const decreeTextRef = useRef("");
+  const draftRequestIdRef = useRef(0);
 
   useEffect(() => {
     const restoreTimer = window.setTimeout(() => {
@@ -129,16 +187,17 @@ export function StudyClient({ userId }: { userId: string }) {
   }
 
   const { canEdit, canSubmit } = getDecreeFormAvailability(decreeText, uiState);
+  const canIssue = canSubmit && canIssueChancellorDraft(draftResult);
   const selectedArchivedReply = resolveSelectedArchive(replyPresentation, recentReplies.archives);
 
   async function handleSubmitDecree() {
     await runStudyDecreeSubmission({
-      canSubmit,
+      canSubmit: canIssue,
       resetPresentation: () =>
         setReplyPresentation(resetToCurrentReply()),
       submit: () => submitStudyDecree({
-        decreeText,
-        canSubmit,
+        decreeText: draftResult?.decree_text ?? "",
+        canSubmit: canIssue,
         setUiState: (state) => {
           setUiState(state);
           if (state.phase === "success") {
@@ -146,6 +205,8 @@ export function StudyClient({ userId }: { userId: string }) {
           }
         },
         requestSubmission: (text) => requestStudySubmission(text, {
+            draftVersion: draftResult?.version ?? 0,
+            draftFingerprint: draftResult?.fingerprint ?? "",
             // Keep the browser receiver intact: some embedded browsers reject an
             // unbound `fetch` when the submission boundary invokes it as a
             // dependency method.
@@ -153,6 +214,30 @@ export function StudyClient({ userId }: { userId: string }) {
             scheduleRedirect: scheduleStudyLoginRedirect,
         }),
       }),
+    });
+  }
+
+  async function handleDraft() {
+    if (!decreeText.trim() || draftPending) return;
+    const requestId = draftRequestIdRef.current + 1;
+    draftRequestIdRef.current = requestId;
+    const sourceText = decreeText;
+    setDraftPending(true);
+    setDraftError(null);
+    await runChancellorDraftRequest({
+      requestId,
+      sourceText,
+      getLatestRequestId: () => draftRequestIdRef.current,
+      getCurrentSourceText: () => decreeTextRef.current,
+      request: (text) => requestChancellorDraft(
+        text,
+        (draftResult?.version ?? 0) + 1,
+        window.fetch.bind(window),
+      ),
+      setPending: setDraftPending,
+      setError: setDraftError,
+      setDraft: setDraftResult,
+      scheduleRedirect: scheduleStudyLoginRedirect,
     });
   }
 
@@ -192,8 +277,19 @@ export function StudyClient({ userId }: { userId: string }) {
       decreeText={decreeText}
       uiState={uiState}
       canEdit={canEdit}
-      canSubmit={canSubmit}
-      onDecreeTextChange={setDecreeText}
+      canSubmit={canIssue}
+      onDecreeTextChange={(value) => {
+        decreeTextRef.current = value;
+        draftRequestIdRef.current += 1;
+        setDecreeText(value);
+        setDraftPending(false);
+        setDraftResult(null);
+        setDraftError(null);
+      }}
+      draftResult={draftResult}
+      draftPending={draftPending}
+      draftError={draftError}
+      onDraft={() => void handleDraft()}
       onSubmit={() => void handleSubmitDecree()}
       recentReplies={recentReplies}
       onOpenRecentReplies={handleOpenRecentReplies}

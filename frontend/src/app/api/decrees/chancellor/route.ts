@@ -1,4 +1,4 @@
-import { submitDecree } from "../../../../lib/backendClient.ts";
+import { submitDecree, type ReportArtifact } from "../../../../lib/backendClient.ts";
 import { readSessionId } from "../../../../lib/session.ts";
 
 /**
@@ -20,6 +20,8 @@ import { readSessionId } from "../../../../lib/session.ts";
 /** `/study` 页面提交给本 Route Handler 的请求体形状。 */
 interface ChancellorRequestBody {
   decreeText?: unknown;
+  draftVersion?: unknown;
+  draftFingerprint?: unknown;
 }
 
 interface ChancellorBureauOpinion {
@@ -50,10 +52,11 @@ interface ChancellorSuccessResponseBody {
   councilVerdict: string | null;
   finalVerdict: string;
   recommendations: string[];
+  artifacts: ReportArtifact[];
 }
 
 /** 与 `submitDecree` 的 `kind` 保持一致的稳定错误分类，供浏览器区分场景展示。 */
-type ChancellorErrorReason = "validation" | "config" | "model" | "timeout" | "network" | "unauthenticated" | "unknown";
+type ChancellorErrorReason = "validation" | "draft_not_current" | "config" | "model" | "timeout" | "network" | "unauthenticated" | "unknown";
 
 /** 失败时返回给浏览器的脱敏响应体：不包含 key、路径、traceback 或异常原文。 */
 interface ChancellorErrorResponseBody {
@@ -65,6 +68,7 @@ interface ChancellorErrorResponseBody {
 /** `submitDecree` 的 `kind` -> 返回给浏览器的 HTTP 状态码。 */
 const HTTP_STATUS_BY_KIND: Record<ChancellorErrorReason, number> = {
   validation: 422,
+  draft_not_current: 409,
   config: 503,
   model: 502,
   timeout: 504,
@@ -77,6 +81,7 @@ const HTTP_STATUS_BY_KIND: Record<ChancellorErrorReason, number> = {
 /** 每种错误分类对应的用户可读中文文案（脱敏，不透传后端/网络原始错误描述）。 */
 const FRIENDLY_MESSAGE_BY_KIND: Record<ChancellorErrorReason, string> = {
   validation: "旨意校验未通过：请确认内容非空且不超过 2000 字后重试。",
+  draft_not_current: "拟旨草案已失效，请重新拟旨后再下旨。",
   config: "朝堂后端配置暂不可用，请稍后重试或联系管理员。",
   model: "丞相暂时无法给出回奏，请稍后重试。",
   timeout: "下旨处理超时，请稍后重试。",
@@ -118,13 +123,23 @@ export function createPostHandler(
   }
 
   const decreeText = (payload as ChancellorRequestBody).decreeText;
-  if (typeof decreeText !== "string") {
+  const draftVersion = (payload as ChancellorRequestBody).draftVersion;
+  const draftFingerprint = (payload as ChancellorRequestBody).draftFingerprint;
+  if (
+    typeof decreeText !== "string" ||
+    typeof draftVersion !== "number" ||
+    typeof draftFingerprint !== "string"
+  ) {
     return malformedRequestResponse("请求体缺少字符串类型的 decreeText 字段。");
   }
 
   let result: Awaited<ReturnType<typeof submitDecree>>;
   try {
-    result = await submit(decreeText, { sessionId });
+    result = await submit(decreeText, {
+      sessionId,
+      draftVersion,
+      draftFingerprint,
+    });
   } catch {
     const body: ChancellorErrorResponseBody = {
       status: "error",
@@ -146,6 +161,7 @@ export function createPostHandler(
       councilVerdict: result.data.councilVerdict,
       finalVerdict: result.data.finalVerdict,
       recommendations: result.data.recommendations,
+      artifacts: result.data.artifacts,
     };
     return jsonResponse(body, 200);
   }

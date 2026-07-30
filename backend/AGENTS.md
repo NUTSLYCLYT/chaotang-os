@@ -435,3 +435,13 @@ Agent，并通过独立模型调用生成结构化部级补充）、
 3. 更新本文件，登记准确的 setup、lint、test、run/eval 命令，并接入 CI。
 4. 让 agent 能直接读取测试、日志和必要的本地运行状态；工具优先提供非交互接口、
    可操作错误信息和安全的 dry-run。
+
+## 会计司管理报告
+
+- 仅当下旨真实进入 `户部/会计司` 且旨意明确要求财务报表、财务报告或 Excel 时触发；非会计司或未明确要求报告的回奏不生成成果。
+- `app/accounting_reports/` 负责受控 `.xlsx`/`.xls` 加载、标准化、确定性分析、七表工作簿和成果存储。七表固定为管理摘要、核心财务报表、科目趋势、异常分析、科目明细、校验结果、数据来源。
+- 原始数据默认只读根目录 `data/财务数据资料/20-25年财务报表及科目余额表/`；运行态成果与元数据只落在 `backend/data/report_artifacts/`，两者均不得提交。
+- 每次下旨最多一份报告：先保存 `PENDING`，史馆成功归档唯一 `REPLY` 后才绑定 `reply_id` 并发布为 `PUBLISHED`；归档或发布失败时失败关闭并中止成果。
+- `GET /api/v1/report-artifacts/{artifact_id}/download` 必须认证且只按当前用户 ID 查询 `PUBLISHED` 成果；不存在与跨 owner 均返回 404，不暴露路径或归属。
+- 离线跨层回归位于 `tests/test_accounting_report_cross_layer.py`，只使用 `tmp_path`、合成台账和 fake graph，同时走真实 session、分析、工作簿、下旨、归档、发布和下载代码。
+- 前后端本地合成验收先在 `frontend/` 运行 `npm run build`，再从仓库根运行 `backend/.venv/Scripts/python.exe backend/tests/run_accounting_synthetic_acceptance.py`；它启动随机 localhost 端口的 fake-wired Uvicorn 与实际 Next build server，所有数据库和成果仍只在临时目录。

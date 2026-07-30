@@ -23,6 +23,15 @@ from app.langgraph_runtime.deepseek_client import DeepSeekModelInvocationError
 from app.shiguan.archive_decree import ArchiveDecreeResult
 
 
+@pytest.fixture(autouse=True)
+def _allow_legacy_direct_decree_calls(monkeypatch):
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "consume",
+        lambda **_kwargs: True,
+    )
+
+
 class _RecordingLifecycleObserver:
     def __init__(self) -> None:
         self.events: list[tuple[str, object]] = []
@@ -229,7 +238,9 @@ def test_api_archives_multi_case_only_with_successful_reply_id(monkeypatch, tmp_
     monkeypatch.setattr(
         decrees_module,
         "build_chancellor_graph",
-        lambda *, lifecycle_observer: _fake_graph_for(lifecycle_observer, result=result),
+        lambda *, lifecycle_observer, report_session: _fake_graph_for(
+            lifecycle_observer, result=result
+        ),
     )
     monkeypatch.setattr(
         decrees_module,
@@ -260,7 +271,9 @@ def test_api_marks_open_case_failed_when_archiving_does_not_succeed(
     monkeypatch.setattr(
         decrees_module,
         "build_chancellor_graph",
-        lambda *, lifecycle_observer: _fake_graph_for(lifecycle_observer, result=result),
+        lambda *, lifecycle_observer, report_session: _fake_graph_for(
+            lifecycle_observer, result=result
+        ),
     )
     monkeypatch.setattr(
         decrees_module,
@@ -286,7 +299,7 @@ def test_api_marks_open_case_failed_and_resets_observer_context_after_graph_erro
     error = graph_module.ChancellorGraphInvocationError("sanitized")
     seen_observers = []
 
-    def fake_builder(*, lifecycle_observer):
+    def fake_builder(*, lifecycle_observer, report_session):
         seen_observers.append(lifecycle_observer)
         if len(seen_observers) == 1:
             return _fake_graph_for(lifecycle_observer, error=error)
@@ -326,7 +339,7 @@ def test_api_does_not_trust_failure_stage_on_untyped_graph_exception(
     monkeypatch.setattr(
         decrees_module,
         "build_chancellor_graph",
-        lambda *, lifecycle_observer: _fake_graph_for(
+        lambda *, lifecycle_observer, report_session: _fake_graph_for(
             lifecycle_observer, error=error
         ),
     )
@@ -362,9 +375,10 @@ def test_real_bureau_provider_failure_persists_bureau_stage(monkeypatch, tmp_pat
     monkeypatch.setattr(
         decrees_module,
         "get_chancellor_graph",
-        lambda: build_chancellor_graph(
+        lambda *, report_session: build_chancellor_graph(
             chat_model=lambda _messages: next(responses),
             lifecycle_observer=decrees_module._lifecycle_observer_context.get(),
+            report_session=report_session,
         ),
     )
 
@@ -394,9 +408,10 @@ def test_real_route_provider_failure_persists_route_stage_once(monkeypatch, tmp_
     monkeypatch.setattr(
         decrees_module,
         "get_chancellor_graph",
-        lambda: build_chancellor_graph(
+        lambda *, report_session: build_chancellor_graph(
             chat_model=fail_route,
             lifecycle_observer=decrees_module._lifecycle_observer_context.get(),
+            report_session=report_session,
         ),
     )
 

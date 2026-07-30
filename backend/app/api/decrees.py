@@ -30,17 +30,24 @@ the HTTP response body.
 
 from __future__ import annotations
 
+import secrets
 from contextvars import ContextVar
+from datetime import datetime
+from pathlib import Path
 
 from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.accounting_reports.models import PublishedReportArtifact
+from app.accounting_reports.session import AccountingReportSession
+from app.accounting_reports.storage import DEFAULT_ARTIFACT_DIR, DEFAULT_DB_PATH
 from app.agents.chancellor import (
     CHANCELLOR_IDENTITY,
     ChancellorGraphInvocationError,
     build_chancellor_graph,
 )
+from app.agents.chancellor_draft.authority import draft_authority_registry
 from app.agents.junjichu.agent import CaseLifecycleObserver
 from app.agents.ministries import MINISTRIES
 from app.agents.synthesis_failures import (
@@ -66,8 +73,30 @@ _MIN_DECREE_LENGTH = 1
 _MAX_DECREE_LENGTH = 2000
 _FIXED_FAILURE_REASON = "processing_failed"
 _FAILURE_STAGES = frozenset(
-    {"route", "bureau", "ministry", "council", "finalize", "archive"}
+    {"route", "bureau", "ministry", "council", "finalize", "archive", "report"}
 )
+_ACCOUNTING_SOURCE_DIR = (
+    Path(__file__).resolve().parents[3]
+    / "data"
+    / "财务数据资料"
+    / "20-25年财务报表及科目余额表"
+)
+
+
+class AccountingReportPublicationError(RuntimeError):
+    """Raised when a pending report cannot be attached to an archived reply."""
+
+
+def build_accounting_report_session(
+    *, owner_user_id: str, run_id: str
+) -> AccountingReportSession:
+    return AccountingReportSession(
+        owner_user_id=owner_user_id,
+        run_id=run_id,
+        source_dir=_ACCOUNTING_SOURCE_DIR,
+        artifact_dir=DEFAULT_ARTIFACT_DIR,
+        db_path=DEFAULT_DB_PATH,
+    )
 
 
 class _StorageCaseLifecycleObserver(CaseLifecycleObserver):
@@ -163,6 +192,10 @@ class ChancellorDecreeRequest(BaseModel):
     """Request body for ``POST /api/v1/decrees/chancellor``."""
 
     decree_text: str
+    draft_version: int | None = None
+    draft_fingerprint: str | None = None
+
+    model_config = ConfigDict(extra="forbid")
 
     @field_validator("decree_text")
     @classmethod
@@ -174,6 +207,28 @@ class ChancellorDecreeRequest(BaseModel):
                 "(inclusive) after stripping leading/trailing whitespace"
             )
         return value.strip()
+
+    @field_validator("draft_version")
+    @classmethod
+    def _validate_draft_version(cls, value: int | None) -> int | None:
+        if value is None:
+            return value
+        if value < 1:
+            raise ValueError("draft_version must be positive")
+        return value
+
+    @field_validator("draft_fingerprint")
+    @classmethod
+    def _validate_draft_fingerprint(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        if len(value) != 64 or any(character not in "0123456789abcdef" for character in value):
+            raise ValueError("draft_fingerprint must be a lowercase SHA-256 value")
+        return value
+
+
+class DraftNotCurrentError(Exception):
+    """Raised before execution when the supplied draft authority is stale."""
 
 
 class BureauOpinionResponse(BaseModel):
@@ -228,6 +283,28 @@ class MinistryOpinionResponse(BaseModel):
         return value
 
 
+class ReportArtifactResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    artifact_id: str
+    kind: str
+    display_name: str
+    period_start: int
+    period_end: int
+    generated_at: datetime
+
+    @classmethod
+    def from_domain(cls, item: PublishedReportArtifact) -> ReportArtifactResponse:
+        return cls(
+            artifact_id=item.artifact_id,
+            kind="ACCOUNTING_MANAGEMENT_REPORT_XLSX",
+            display_name=item.display_name,
+            period_start=item.period.start_year,
+            period_end=item.period.end_year,
+            generated_at=item.generated_at,
+        )
+
+
 class ChancellorDecreeResponse(BaseModel):
     """Successful response body for ``POST /api/v1/decrees/chancellor``.
 
@@ -252,6 +329,7 @@ class ChancellorDecreeResponse(BaseModel):
     council_verdict: str | None
     final_verdict: str
     recommendations: list[str]
+    artifacts: list[ReportArtifactResponse] = Field(default_factory=list)
 
 
 def _non_empty_string(value: object) -> bool:
@@ -367,7 +445,7 @@ def _build_response_from_graph_result(result: object) -> ChancellorDecreeRespons
         ) from exc
 
 
-def get_chancellor_graph():
+def get_chancellor_graph(*, report_session: AccountingReportSession | None = None):
     """Build the real Chancellor graph.
 
     A plain module-level function (not a FastAPI ``Depends()``) so it is
@@ -379,7 +457,8 @@ def get_chancellor_graph():
     variables, or the network.
     """
     return build_chancellor_graph(
-        lifecycle_observer=_lifecycle_observer_context.get()
+        lifecycle_observer=_lifecycle_observer_context.get(),
+        report_session=report_session,
     )
 
 
@@ -403,10 +482,27 @@ def submit_decree(
     any routing/orchestration logic itself (see ``backend/AGENTS.md``: "api
     不实现 agent 图逻辑").
     """
+    report_session = build_accounting_report_session(
+        owner_user_id=current_user.id,
+        run_id=secrets.token_hex(16),
+    )
     observer = _StorageCaseLifecycleObserver(current_user.id)
-    context_token = _lifecycle_observer_context.set(observer)
+    context_token = None
     try:
-        graph = get_chancellor_graph()
+        try:
+            draft_is_current = draft_authority_registry.consume(
+                owner_user_id=current_user.id,
+                version=payload.draft_version or 0,
+                fingerprint=payload.draft_fingerprint or "",
+                decree_text=payload.decree_text,
+            )
+        except Exception:
+            raise AccountingReportPublicationError("draft_authority_unavailable") from None
+        if not draft_is_current:
+            raise DraftNotCurrentError
+
+        context_token = _lifecycle_observer_context.set(observer)
+        graph = get_chancellor_graph(report_session=report_session)
         result = graph.invoke({"decree_text": payload.decree_text})
         response = _build_response_from_graph_result(result)
         try:
@@ -420,7 +516,23 @@ def submit_decree(
             observer.fail(
                 stage="archive", code=classify_synthesis_failure(exc)
             )
-            raise
+            raise AccountingReportPublicationError("reply_archive_failed") from None
+        has_pending = getattr(
+            report_session,
+            "has_pending",
+            getattr(report_session, "_summary", None) is not None,
+        )
+        if has_pending:
+            if not archive_result.archived or not archive_result.reply_id:
+                raise AccountingReportPublicationError("reply_archive_required")
+            try:
+                published = report_session.publish(archive_result.reply_id)
+                artifacts = [
+                    ReportArtifactResponse.from_domain(item) for item in published
+                ]
+            except Exception:
+                raise AccountingReportPublicationError("publication_failed") from None
+            response = response.model_copy(update={"artifacts": artifacts})
         if response.route_type == "multi":
             reply_id = getattr(archive_result, "reply_id", None)
             if getattr(archive_result, "archived", False) and isinstance(reply_id, str):
@@ -429,6 +541,7 @@ def submit_decree(
                 observer.fail(stage="archive", code="state_invalid")
         return response
     except Exception as exc:
+        report_session.abort()
         failure_stage = (
             getattr(exc, "failure_stage", None)
             if isinstance(exc, ChancellorGraphInvocationError)
@@ -440,7 +553,8 @@ def submit_decree(
         )
         raise
     finally:
-        _lifecycle_observer_context.reset(context_token)
+        if context_token is not None:
+            _lifecycle_observer_context.reset(context_token)
 
 
 def register_chancellor_exception_handlers(app: FastAPI) -> None:
@@ -490,6 +604,32 @@ def register_chancellor_exception_handlers(app: FastAPI) -> None:
             content={
                 "status": "error",
                 "reason": "model_unavailable",
+                "message": _SANITIZED_MESSAGE,
+            },
+        )
+
+    @app.exception_handler(DraftNotCurrentError)
+    async def _handle_draft_not_current(
+        _request, _exc: DraftNotCurrentError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "status": "error",
+                "reason": "draft_not_current",
+                "message": "拟旨草案已失效，请重新拟旨后再下旨",
+            },
+        )
+
+    @app.exception_handler(AccountingReportPublicationError)
+    async def _handle_report_publication_error(
+        _request, _exc: AccountingReportPublicationError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=502,
+            content={
+                "status": "error",
+                "reason": "report_unavailable",
                 "message": _SANITIZED_MESSAGE,
             },
         )

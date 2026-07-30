@@ -219,3 +219,11 @@ multi 为 54 次基础模型调用；司级缺数可按 ADR 0018 追加最多一
 cookie（生产环境加 `Secure`），BFF 仅在服务端将其转为后端认证请求。令牌、后端地址和密码哈希不得暴露给浏览器。
 受保护的上书和史馆端点从 `require_current_user` 解析会话，并仅以该用户 ID 作为 owner 进行读写与过滤；客户端不可选择或传入 owner。
 无 owner 的旧 SQLite 行保留但对所有账户不可见，不在此次变更中猜测归属。`GET /health` 、欢迎页、注册与登录保持公开；`/study`、`/shiguan` 及受保护 BFF 路由必须登录。详见 ADR 0027。
+
+## 会计司管理报告成果
+
+管理报告不新增业务入口：`/study` 下旨经 Next.js BFF 到 FastAPI，只有真实分流结果进入 `户部/会计司` 且旨意明确要求财务报表、财务报告或 Excel 时，会计司才调用 `backend/app/accounting_reports/`。该模块从受控只读源适配 `.xlsx`/`.xls`，以确定性代码计算金额、比例、同比、异常与勾稽，模型只接收有界校验摘要。
+
+工作簿固定包含管理摘要、核心财务报表、科目趋势、异常分析、科目明细、校验结果、数据来源七表。每次下旨/run 最多产生一个成果：工作簿与元数据先处于 `PENDING`；FastAPI 成功归档该旨意唯一的史馆 `REPLY` 后，才把 `reply_id` 绑定到成果并原子发布为 `PUBLISHED`。归档或发布失败不得返回虚假成功，未发布成果不可下载。
+
+成果元数据随回奏的可选 `artifacts` 返回。浏览器只通过同源 `GET /api/report-artifacts/{id}` 下载；Next.js 服务端把 HttpOnly session 转为后端认证请求，FastAPI 的 `GET /api/v1/report-artifacts/{artifact_id}/download` 仅按当前用户 ID 读取已发布成果。opaque ID 不代表授权，未知成果与跨 owner 统一为 404；后端地址、存储路径、session 和原始财务内容不进入浏览器。

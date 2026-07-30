@@ -163,7 +163,7 @@ def _ready(
                 }
             ]
             if adopted
-            else []
+            else [_normative_claim(opinion)]
         )
     return json.dumps(
         {
@@ -174,6 +174,17 @@ def _ready(
         },
         ensure_ascii=False,
     )
+
+
+def _normative_claim(claim: str) -> dict[str, object]:
+    return {
+        "claim": claim,
+        "basis": "NORMATIVE",
+        "evidence_ids": [],
+        "fact_key": None,
+        "category": None,
+        "subject": None,
+    }
 
 
 def _evidence(
@@ -488,10 +499,63 @@ def test_bare_opinion_invalid_correction_degrades_without_using_output() -> None
     assert "SECRET-REJECTED-FACT" not in result["opinion"]
 
 
+def test_misnested_ready_envelope_gets_one_schema_correction() -> None:
+    malformed_ready = json.dumps(
+        {
+            "status": "READY",
+            "result": {
+                "opinion": "建议先定义最小输入输出契约",
+                "factual_claims": [
+                    {
+                        "claim": "建议先定义最小输入输出契约",
+                        "basis": "NORMATIVE",
+                        "evidence_ids": [],
+                        "fact_key": None,
+                        "category": None,
+                        "subject": None,
+                    }
+                ],
+                "adopted_evidence_ids": [],
+                "fact_basis": "NOT_REQUIRED",
+            },
+        },
+        ensure_ascii=False,
+    )
+    responses = iter(
+        (
+            malformed_ready,
+            _ready(
+                "建议先定义最小输入输出契约",
+                factual_claims=[
+                    {
+                        "claim": "建议先定义最小输入输出契约",
+                        "basis": "NORMATIVE",
+                        "evidence_ids": [],
+                    }
+                ],
+            ),
+        )
+    )
+    model_calls: list[list[dict[str, str]]] = []
+
+    def model(messages: list[dict[str, str]]) -> str:
+        model_calls.append(messages)
+        return next(responses)
+
+    result = _invoke(AgentEvidenceSession(coordinator=Coordinator()), model)
+
+    assert result == {"opinion": "建议先定义最小输入输出契约"}
+    assert len(model_calls) == 2
+    correction = model_calls[1][-1]["content"]
+    assert "top-level" in correction
+    assert "adopted_evidence_ids" in correction
+    assert "fact_basis" in correction
+
+
 def test_bare_opinion_with_consumed_envelope_budget_degrades_locally() -> None:
     session = AgentEvidenceSession(coordinator=Coordinator())
     node = bureau_node_id("工部", "技术司")
-    assert session.claim_envelope_correction() is True
+    assert session.claim_envelope_correction(node) is True
 
     result = invoke_bureau_with_evidence(
         node_id=node,
@@ -699,12 +763,28 @@ def test_protocol_correction_claim_is_atomic() -> None:
     assert claims.count(False) == 63
 
 
+def test_envelope_correction_budget_is_once_per_bureau_node() -> None:
+    session = AgentEvidenceSession(coordinator=Coordinator())
+    first = bureau_node_id("工部", "技术司")
+    second = bureau_node_id("工部", "质量司")
+
+    assert session.claim_envelope_correction(first) is True
+    assert session.claim_envelope_correction(first) is False
+    assert session.claim_envelope_correction(second) is True
+    assert session.claim_envelope_correction(second) is False
+
+
 def test_envelope_and_protocol_correction_claims_have_independent_atomic_budgets() -> None:
     session = AgentEvidenceSession(coordinator=Coordinator())
+    first = bureau_node_id("工部", "技术司")
+    second = bureau_node_id("工部", "质量司")
 
     with ThreadPoolExecutor(max_workers=16) as executor:
         envelope_claims = list(
-            executor.map(lambda _index: session.claim_envelope_correction(), range(64))
+            executor.map(
+                lambda _index: session.claim_envelope_correction(first),
+                range(64),
+            )
         )
         protocol_claims = list(
             executor.map(lambda _index: session.claim_protocol_correction(), range(64))
@@ -712,6 +792,8 @@ def test_envelope_and_protocol_correction_claims_have_independent_atomic_budgets
 
     assert envelope_claims.count(True) == 1
     assert envelope_claims.count(False) == 63
+    assert session.claim_envelope_correction(second) is True
+    assert session.claim_envelope_correction(second) is False
     assert protocol_claims.count(True) == 1
     assert protocol_claims.count(False) == 63
 
@@ -895,13 +977,22 @@ def test_ready_rejects_objective_opinion_not_covered_by_declared_claim() -> None
 def test_ready_allows_nonassertive_citation_attribution_before_bound_claim() -> None:
     node = bureau_node_id("户部", "投资司")
     price_claim = "比亚迪A股最新收盘价为91.89元人民币"
+    opinion = f"根据腾讯自选股提供的MCP数据，{price_claim}"
     responses = iter(
         (
             _quote_gap(node),
             _ready(
-                f"根据腾讯自选股提供的MCP数据，{price_claim}",
+                opinion,
                 adopted_evidence_ids=["e-1"],
                 factual_claims=[
+                    {
+                        "claim": "根据腾讯自选股提供的MCP数据",
+                        "basis": "CITED",
+                        "evidence_ids": ["e-1"],
+                        "fact_key": "byd_current_quote",
+                        "category": "MARKET_QUOTE",
+                        "subject": "BYD",
+                    },
                     {
                         "claim": price_claim,
                         "basis": "CITED",
@@ -1059,6 +1150,43 @@ def test_ready_allows_numeric_and_date_normative_proposals(opinion: str) -> None
         AgentEvidenceSession(coordinator=Coordinator()),
         lambda _messages: _ready(opinion),
     ) == {"opinion": opinion}
+
+
+@pytest.mark.parametrize(
+    "opinion",
+    [
+        "必须在方案设计完成后进行技术评审",
+        "不得在验收通过前发布",
+        "不应以口头承诺替代书面验收依据",
+        "严禁绕过质量门禁",
+        "禁止在缺陷未关闭时进入下一阶段",
+        "未经技术司评审不得进入详细设计阶段",
+    ],
+)
+def test_ready_allows_explicit_normative_obligations(opinion: str) -> None:
+    assert _invoke(
+        AgentEvidenceSession(coordinator=Coordinator()),
+        lambda _messages: _ready(opinion),
+    ) == {"opinion": opinion}
+
+
+@pytest.mark.parametrize(
+    "opinion",
+    [
+        "当前必须返工的项目有三个",
+        "最新数据显示必须提高预算",
+        "根据公告不得继续交易",
+        "建议根据最新公告继续交易",
+        "建议根据最新公告调整预算",
+        "今日已完成全部质量验收",
+    ],
+)
+def test_normative_words_cannot_hide_observed_facts(opinion: str) -> None:
+    with pytest.raises(EvidenceProtocolError, match="unsupported_factual_dependency"):
+        _invoke(
+            AgentEvidenceSession(coordinator=Coordinator()),
+            lambda _messages: _ready(opinion),
+        )
 
 
 @pytest.mark.parametrize(
@@ -1265,6 +1393,186 @@ def test_explicit_proposal_remains_exempt(opinion: str) -> None:
         AgentEvidenceSession(coordinator=Coordinator()),
         lambda _messages: _ready(opinion),
     ) == {"opinion": opinion}
+
+
+def test_nonempty_ready_requires_exact_claim_for_every_clause() -> None:
+    with pytest.raises(EvidenceProtocolError, match="unsupported_factual_dependency"):
+        _invoke(
+            AgentEvidenceSession(coordinator=Coordinator()),
+            lambda _messages: _ready(
+                "必须评审；不得绕过验收",
+                factual_claims=[],
+            ),
+        )
+
+
+def test_structured_normative_claims_allow_imperative_and_numbered_clauses() -> None:
+    opinion = "1. 设置评审门槛；2. 未经验收不得发布"
+    claims = [
+        _normative_claim("1. 设置评审门槛"),
+        _normative_claim("2. 未经验收不得发布"),
+    ]
+
+    assert _invoke(
+        AgentEvidenceSession(coordinator=Coordinator()),
+        lambda _messages: _ready(opinion, factual_claims=claims),
+    ) == {"opinion": opinion}
+
+
+def test_structured_normative_claim_can_cover_multiple_contiguous_clauses() -> None:
+    opinion = "必须完成技术评审；不得绕过质量验收"
+
+    assert _invoke(
+        AgentEvidenceSession(coordinator=Coordinator()),
+        lambda _messages: _ready(
+            opinion,
+            factual_claims=[_normative_claim(opinion)],
+        ),
+    ) == {"opinion": opinion}
+
+
+@pytest.mark.parametrize(
+    ("opinion", "claims"),
+    [
+        (
+            "必须评审；不得绕过验收",
+            [_normative_claim("必须评审")],
+        ),
+        (
+            "必须评审",
+            [_normative_claim("必须评审"), _normative_claim("不得绕过验收")],
+        ),
+        (
+            "必须完成技术评审",
+            [_normative_claim("必须完成评审")],
+        ),
+        (
+            "必须评审",
+            [_normative_claim("必须评审"), _normative_claim("必须评审")],
+        ),
+        (
+            "必须评审；不得绕过验收",
+            [_normative_claim("不得绕过验收；必须评审")],
+        ),
+        (
+            "必须评审；不得绕过验收",
+            [
+                _normative_claim("必须评审"),
+                _normative_claim("必须评审；不得绕过验收"),
+            ],
+        ),
+    ],
+)
+def test_structured_normative_requires_exact_unique_clause_coverage(
+    opinion: str,
+    claims: list[dict[str, object]],
+) -> None:
+    with pytest.raises(EvidenceProtocolError, match="unsupported_factual_dependency"):
+        _invoke(
+            AgentEvidenceSession(coordinator=Coordinator()),
+            lambda _messages: _ready(opinion, factual_claims=claims),
+        )
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "必须对当前三个项目返工",
+        "建议根据最新公告调整方案",
+        "不得依据当前数据形成结论",
+        "今日已完成全部验收",
+    ],
+)
+def test_structured_normative_rejects_fact_disguise(claim: str) -> None:
+    with pytest.raises(EvidenceProtocolError, match="unsupported_factual_dependency"):
+        _invoke(
+            AgentEvidenceSession(coordinator=Coordinator()),
+            lambda _messages: _ready(
+                claim,
+                factual_claims=[_normative_claim(claim)],
+            ),
+        )
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "当前项目共三项",
+        "目前待办事项共3项",
+        "当前规则共三条",
+        "目前供应商共3家",
+        "当前候选人共三名",
+        "目前重试共3次",
+        "当前文件共三份",
+        "目前设备共3台",
+        "当前案件共三宗",
+        "目前交易共3笔",
+        "当前乘客共三人",
+        "目前车辆共3辆",
+        "当前设备共三套",
+        "目前物料共3件",
+        "当前住户共三户",
+    ],
+)
+def test_structured_normative_rejects_current_quantified_observation(
+    claim: str,
+) -> None:
+    with pytest.raises(EvidenceProtocolError, match="unsupported_factual_dependency"):
+        _invoke(
+            AgentEvidenceSession(coordinator=Coordinator()),
+            lambda _messages: _ready(
+                claim,
+                factual_claims=[_normative_claim(claim)],
+            ),
+        )
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "当前项目共三项建议将目标设为3项",
+        "今日已完成全部验收后建议将目标设为3项",
+    ],
+)
+def test_structured_normative_proposal_cannot_hide_observation(
+    claim: str,
+) -> None:
+    with pytest.raises(EvidenceProtocolError, match="unsupported_factual_dependency"):
+        _invoke(
+            AgentEvidenceSession(coordinator=Coordinator()),
+            lambda _messages: _ready(
+                claim,
+                factual_claims=[_normative_claim(claim)],
+            ),
+        )
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "不得以口头承诺作为书面验收依据办理交付",
+        "建议将测试覆盖率目标设为80%",
+        "每个阶段设置书面准入条件",
+        "建议设置三个评审阶段",
+        "建议将目标设为3项",
+        "建议将当前目标设为3项",
+        "建议将目前阶段的验收目标设为3项",
+        "建议将当前目标定为3项",
+        "建议将目前目标改为3项",
+        "建议将当前目标调整为3项",
+        "验收必须依据事先书面确认的文档",
+    ],
+)
+def test_structured_normative_accepts_pure_declaration_without_lead(
+    claim: str,
+) -> None:
+    assert _invoke(
+        AgentEvidenceSession(coordinator=Coordinator()),
+        lambda _messages: _ready(
+            claim,
+            factual_claims=[_normative_claim(claim)],
+        ),
+    ) == {"opinion": claim}
 
 
 def test_frozen_evidence_binding_is_read_only_and_fact_specific() -> None:
@@ -1944,9 +2252,12 @@ def test_policy_only_ready_response_declares_not_required_fact_basis() -> None:
     result = _invoke(
         AgentEvidenceSession(coordinator=Coordinator()),
         lambda _messages: json.dumps(
-            {
-                "status": "READY",
-                    "result": {"opinion": "建议建立审核流程", "factual_claims": []},
+                {
+                    "status": "READY",
+                    "result": {
+                        "opinion": "建议建立审核流程",
+                        "factual_claims": [_normative_claim("建议建立审核流程")],
+                    },
                 "adopted_evidence_ids": [],
                 "fact_basis": "NOT_REQUIRED",
             },

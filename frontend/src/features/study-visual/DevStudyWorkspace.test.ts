@@ -47,7 +47,9 @@ test("dev study workspace keeps one polished decree action without secret modes"
   assert.match(source, /今日圣旨/);
   assert.match(source, /收卷看殿/);
   assert.doesNotMatch(source, /DecreeMode|decree-mode-order|decree-mode-secret|setMode|密旨|下密旨/);
-  assert.match(source, /data-testid="decree-polish-inline"/);
+  assert.match(source, /data-testid="draft-edict-button"/);
+  assert.match(source, /"拟旨"/);
+  assert.match(source, /data-testid="chancellor-draft-result"/);
   assert.match(source, /data-testid="decree-evidence-upload"/);
   assert.match(source, /data-testid="decree-textarea"/);
   assert.match(source, /data-testid="submit-decree-button"/);
@@ -59,6 +61,38 @@ test("dev study workspace keeps one polished decree action without secret modes"
   assert.match(source, /disabled=\{!props\.canSubmit\}/);
   assert.match(source, /getStudyDepartmentCountLabel\(props\.uiState\)/);
   assert.doesNotMatch(source, /countLabel="1 部门"/);
+});
+
+test("composer only drafts while the completed draft scroll owns the sole issue action", async () => {
+  const source = await readFile(
+    new URL("./DevStudyWorkspace.tsx", import.meta.url),
+    "utf8",
+  );
+  const composerStart = source.indexOf("const composer = (");
+  const composerEnd = source.indexOf("const drawers = (");
+  const composer = source.slice(composerStart, composerEnd);
+  const draftBranch = source.slice(source.indexOf("props.draftResult ? ("));
+
+  assert.match(composer, /data-testid="draft-edict-button"/);
+  assert.doesNotMatch(composer, /data-testid="submit-decree-button"/);
+  assert.equal(
+    (source.match(/data-testid="submit-decree-button"/g) ?? []).length,
+    1,
+  );
+  assert.ok(
+    draftBranch.indexOf("完整拟旨草案") <
+      draftBranch.indexOf('data-testid="submit-decree-button"'),
+  );
+});
+
+test("ready draft is presented as an expert edict with visible temporary boundaries", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+
+  assert.match(source, /大神级拟旨草案/);
+  assert.match(source, /丞相为什么这样补全/);
+  assert.match(source, /丞相建议与暂定边界/);
+  assert.match(source, /草案完整，可以直接下旨/);
+  assert.doesNotMatch(source, /请按案例修改/);
 });
 
 test("study places the decree composer in the quick dock center slot", async () => {
@@ -77,7 +111,7 @@ test("study renders exactly one decree composer instance", async () => {
 
   assert.equal(countMatches(/data-testid="decree-textarea"/g), 1);
   assert.equal(countMatches(/data-testid="submit-decree-button"/g), 1);
-  assert.equal(countMatches(/aria-label="御前下旨"/g), 1);
+  assert.equal(countMatches(/aria-label="御前拟旨"/g), 1);
 });
 
 test("study composer uses a minimal text-first visual treatment", async () => {
@@ -92,6 +126,27 @@ test("study composer uses a minimal text-first visual treatment", async () => {
   assert.doesNotMatch(composerRule, /linear-gradient|box-shadow: (?!none)|backdrop-filter: (?!none)/);
   assert.doesNotMatch(css, /\.submit \{[^}]*linear-gradient|\.submit:not\(:disabled\):hover/);
   assert.match(css, /\.submit \{[^}]*border-color: #a77c35;[^}]*color: #a77c35;/);
+});
+
+test("study composer keeps the textarea flexible beside the draft action", async () => {
+  const [source, css] = await Promise.all([
+    readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8"),
+    readFile(new URL("./DevStudyWorkspace.module.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(
+    source,
+    /className=\{styles\.draftAction\}[\s\S]*?data-testid="draft-edict-button"/,
+  );
+  assert.match(
+    css,
+    /\.composerRow\s*\{[^}]*grid-template-columns:\s*auto minmax\(0,\s*1fr\) auto;/,
+  );
+  assert.match(
+    css,
+    /@media \(max-width: 700px\)[\s\S]*?\.composerRow\s*\{[^}]*grid-template-columns:\s*auto minmax\(0,\s*1fr\) auto;/,
+  );
+  assert.doesNotMatch(css, /\.draftAction\s*\{[^}]*display:\s*none;/);
 });
 
 test("dev study workspace renders parchment only for a real successful reply", async () => {
@@ -208,4 +263,16 @@ test("study mounts side drawers in the shell overlay layer", async () => {
   assert.match(source, /const drawers = \(\s*<StudySideDrawers/);
   assert.match(source, /<ImmersiveCourtShell[\s\S]*?overlay=\{drawers\}/);
   assert.equal((source.match(/<StudySideDrawers/g) ?? []).length, 1);
+});
+
+test("successful reply delegates artifact rendering after the three recommendations", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+  const successBranch = source.match(
+    /props\.uiState\.phase === "success" \? \(([\s\S]*?)\) : props\.draftResult/,
+  )?.[1] ?? "";
+
+  assert.match(source, /import \{ StudyArtifactLinks \} from "\.\/StudyArtifactLinks"/);
+  assert.match(source, /projectStudyArtifacts\(props\.uiState\)/);
+  assert.match(successBranch, /<StudyArtifactLinks artifacts=\{artifactView\} className=\{styles\.artifact\} \/>/);
+  assert.ok(successBranch.indexOf("decree-recommendations") < successBranch.indexOf("<StudyArtifactLinks"));
 });

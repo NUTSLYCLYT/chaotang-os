@@ -91,7 +91,9 @@ def test_graph_fetches_one_context_and_reuses_unavailable_degradation(monkeypatc
             '{"route_type":"single","rationale":"交户部","departments":["户部"]}',
             f'{{"rationale":"交本司","bureaus":["{bureau}"]}}',
             '{"status":"READY","result":{"opinion":"建议司级办理",'
-            '"factual_claims":[]},"adopted_evidence_ids":[],"fact_basis":"NOT_REQUIRED"}',
+            '"factual_claims":[{"claim":"建议司级办理","basis":"NORMATIVE",'
+            '"evidence_ids":[],"fact_key":null,"category":null,"subject":null}]},'
+            '"adopted_evidence_ids":[],"fact_basis":"NOT_REQUIRED"}',
             '{"opinion":"部级意见"}',
             '{"summary":"丞相总结","recommendations":["甲","乙","丙"]}',
         ]

@@ -1,0 +1,4 @@
+interface:
+  display_name: "丞相·直接拟旨"
+  short_description: "把模糊想法保守补全为可直接确认下旨的专业草案"
+  default_prompt: "使用 $chancellor-draft-edict 将我的想法补全成易懂、完整、可确认下旨的拟旨草案。"

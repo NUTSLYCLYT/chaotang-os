@@ -1018,3 +1018,26 @@ def test_ministry_synthesis_content_drift_discards_rejected_body() -> None:
 
     assert result["opinion"]
     assert "SECRET-REJECTED" not in result["opinion"]
+def test_ministry_forwards_same_report_session_to_every_selected_bureau(monkeypatch):
+    session = object()
+    seen = []
+
+    def fake_bureau(*_args, **kwargs):
+        seen.append(kwargs.get("report_session"))
+        return "司议"
+
+    monkeypatch.setattr("app.agents.ministries.agent.invoke_bureau_agent", fake_bureau)
+    responses = iter(
+        [
+            '{"rationale":"办理","bureaus":["技术司","质量司"]}',
+            '{"opinion":"部议"}',
+        ]
+    )
+    invoke_ministry_agent(
+        "工部",
+        "产品交付",
+        "判断",
+        lambda _messages: next(responses),
+        report_session=session,
+    )
+    assert seen == [session, session]

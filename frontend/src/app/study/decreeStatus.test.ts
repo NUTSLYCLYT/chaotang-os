@@ -57,6 +57,7 @@ test("mapSubmitDecreeResultToUiState：single 路由成功结果映射为 succes
       councilVerdict: null,
       finalVerdict: "丞相汇总：核查考绩并复核职责。",
       recommendations: ["核查考绩", "复核职责", "限期整改"],
+      artifacts: [],
     },
   });
 
@@ -71,6 +72,7 @@ test("mapSubmitDecreeResultToUiState：single 路由成功结果映射为 succes
     councilVerdict: null,
     finalVerdict: "丞相汇总：核查考绩并复核职责。",
     recommendations: ["核查考绩", "复核职责", "限期整改"],
+    artifacts: [],
   });
 });
 
@@ -91,6 +93,14 @@ test("mapSubmitDecreeResultToUiState：multi 路由成功结果映射为 success
       councilVerdict: "军机处会审：分期拨付并按里程碑验收。",
       finalVerdict: "丞相汇总：准予分阶段兴修水利。",
       recommendations: ["先完成勘察", "分期拨付预算", "按里程碑验收"],
+      artifacts: [{
+        artifactId: "report 甲/2025",
+        kind: "ACCOUNTING_MANAGEMENT_REPORT_XLSX",
+        displayName: "2025年度财务管理报告",
+        periodStart: 2025,
+        periodEnd: 2025,
+        generatedAt: "2026-07-29T08:00:00Z",
+      }],
     },
   });
 
@@ -103,6 +113,14 @@ test("mapSubmitDecreeResultToUiState：multi 路由成功结果映射为 success
     assert.ok(state.councilVerdict);
     assert.equal(state.recommendations.length, 3);
     assert.ok(state.finalVerdict.length > 0);
+    assert.deepEqual(state.artifacts, [{
+      artifactId: "report 甲/2025",
+      kind: "ACCOUNTING_MANAGEMENT_REPORT_XLSX",
+      displayName: "2025年度财务管理报告",
+      periodStart: 2025,
+      periodEnd: 2025,
+      generatedAt: "2026-07-29T08:00:00Z",
+    }]);
   }
 });
 
@@ -117,10 +135,38 @@ const VALID_PAGE_BODY = {
   councilVerdict: null,
   finalVerdict: "丞相汇总：分期拨付。",
   recommendations: ["核定预算", "分期拨付", "设置审计节点"],
+  artifacts: [],
 };
 
 test("parseChancellorSuccessResponse：严格接受完整 single 分层响应", () => {
   assert.deepEqual(parseChancellorSuccessResponse(VALID_PAGE_BODY), VALID_PAGE_BODY);
+});
+
+test("parseChancellorSuccessResponse：精确保留报告产物元数据", () => {
+  const artifacts = [{
+    artifactId: "report 甲/2025",
+    kind: "ACCOUNTING_MANAGEMENT_REPORT_XLSX",
+    displayName: "2025年度财务管理报告",
+    periodStart: 2025,
+    periodEnd: 2025,
+    generatedAt: "2026-07-29T08:00:00Z",
+  }] as const;
+  assert.deepEqual(parseChancellorSuccessResponse({ ...VALID_PAGE_BODY, artifacts })?.artifacts, artifacts);
+});
+
+test("parseChancellorSuccessResponse：拒绝重复的报告产物 ID", () => {
+  const artifact = {
+    artifactId: "report 甲/2025",
+    kind: "ACCOUNTING_MANAGEMENT_REPORT_XLSX",
+    displayName: "2025年度财务管理报告",
+    periodStart: 2025,
+    periodEnd: 2025,
+    generatedAt: "2026-07-29T08:00:00Z",
+  };
+  assert.equal(parseChancellorSuccessResponse({
+    ...VALID_PAGE_BODY,
+    artifacts: [artifact, { ...artifact, displayName: "重复报告" }],
+  }), null);
 });
 
 for (const [name, body] of [

@@ -403,3 +403,20 @@ def test_junjichu_only_passes_evidence_session_to_ministries(monkeypatch):
     assert ministry_sessions == [session, session]
     assert len(council_messages) == 1
     assert "NEEDS_DATA" not in council_messages[0][0]["content"]
+def test_junjichu_forwards_same_report_session_to_all_ministries(monkeypatch):
+    session = object()
+    seen = []
+
+    def fake_ministry(department, *_args, **kwargs):
+        seen.append((department, kwargs.get("report_session")))
+        return _layered_opinion(department)
+
+    monkeypatch.setattr("app.agents.junjichu.agent.invoke_ministry_agent", fake_ministry)
+    run_junjichu_council(
+        "旨意",
+        "判断",
+        ["户部", "工部"],
+        lambda _messages: '{"verdict":"会审"}',
+        report_session=session,
+    )
+    assert seen == [("户部", session), ("工部", session)]

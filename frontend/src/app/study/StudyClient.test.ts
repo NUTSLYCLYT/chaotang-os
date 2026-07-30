@@ -25,6 +25,21 @@ type DecreeSubmissionRunner = (options: {
   submit(): Promise<void>;
 }) => Promise<boolean>;
 
+type DraftRequestRunner = (options: {
+  requestId: number;
+  sourceText: string;
+  getLatestRequestId(): number;
+  getCurrentSourceText(): string;
+  request(sourceText: string): Promise<
+    | { ok: true; draft: { status: "DRAFT_READY"; decree_text: string } }
+    | { ok: false; unauthenticated: boolean }
+  >;
+  setPending(pending: boolean): void;
+  setError(error: string | null): void;
+  setDraft(draft: { status: "DRAFT_READY"; decree_text: string }): void;
+  scheduleRedirect(path: string): void;
+}) => Promise<boolean>;
+
 async function loadExecutableRecentRepliesLoader(): Promise<RecentRepliesLoader> {
   const source = await readFile(new URL("./StudyClient.tsx", import.meta.url), "utf8");
   const compiled = ts.transpileModule(source, {
@@ -69,6 +84,25 @@ async function loadExecutableDecreeSubmissionRunner(): Promise<DecreeSubmissionR
   return compiledModule.exports.runStudyDecreeSubmission as DecreeSubmissionRunner;
 }
 
+async function loadExecutableDraftRequestRunner(): Promise<DraftRequestRunner> {
+  const source = await readFile(new URL("./StudyClient.tsx", import.meta.url), "utf8");
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: {
+      jsx: ts.JsxEmit.ReactJSX,
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2017,
+    },
+  }).outputText;
+  const compiledModule = { exports: {} as Record<string, unknown> };
+
+  Function("require", "module", "exports", compiled)(
+    () => ({}),
+    compiledModule,
+    compiledModule.exports,
+  );
+  return compiledModule.exports.runChancellorDraftRequest as DraftRequestRunner;
+}
+
 test("StudyClient delegates presentation while preserving the real decree state contract", async () => {
   const source = await readFile(new URL("./StudyClient.tsx", import.meta.url), "utf8");
 
@@ -77,8 +111,9 @@ test("StudyClient delegates presentation while preserving the real decree state 
   assert.match(source, /decreeText=\{decreeText\}/);
   assert.match(source, /uiState=\{uiState\}/);
   assert.match(source, /canEdit=\{canEdit\}/);
-  assert.match(source, /canSubmit=\{canSubmit\}/);
-  assert.match(source, /onDecreeTextChange=\{setDecreeText\}/);
+  assert.match(source, /canSubmit=\{canIssue\}/);
+  assert.match(source, /setDraftResult\(null\)/);
+  assert.match(source, /requestChancellorDraft/);
   assert.match(source, /onSubmit=\{\(\) => void handleSubmitDecree\(\)\}/);
   assert.doesNotMatch(source, /ChaotangHeader|EdictScrollShell|data-testid="decree-textarea"/);
 });
@@ -204,6 +239,47 @@ test("valid decree submission resets presentation before invoking submission", a
 
   assert.equal(started, true);
   assert.deepEqual(events, ["reset", "submit"]);
+});
+
+test("editing the source while a draft request is pending ignores the stale response", async () => {
+  const runDraftRequest = await loadExecutableDraftRequestRunner();
+  let latestRequestId = 1;
+  let currentSourceText = "事项 A";
+  let resolveDraft!: (result: {
+    ok: true;
+    draft: { status: "DRAFT_READY"; decree_text: string };
+  }) => void;
+  const installedDrafts: Array<{ status: "DRAFT_READY"; decree_text: string }> = [];
+  const pendingStates: boolean[] = [];
+  const errors: Array<string | null> = [];
+
+  const pending = runDraftRequest({
+    requestId: 1,
+    sourceText: currentSourceText,
+    getLatestRequestId: () => latestRequestId,
+    getCurrentSourceText: () => currentSourceText,
+    request: () => new Promise((resolve) => {
+      resolveDraft = resolve;
+    }),
+    setPending: (value) => pendingStates.push(value),
+    setError: (value) => errors.push(value),
+    setDraft: (draft) => installedDrafts.push(draft),
+    scheduleRedirect: () => {
+      assert.fail("stale success must not redirect");
+    },
+  });
+
+  currentSourceText = "事项 B";
+  latestRequestId += 1;
+  resolveDraft({
+    ok: true,
+    draft: { status: "DRAFT_READY", decree_text: "事项 A 的旧拟旨" },
+  });
+
+  assert.equal(await pending, false);
+  assert.deepEqual(installedDrafts, []);
+  assert.deepEqual(pendingStates, []);
+  assert.deepEqual(errors, []);
 });
 
 test("recent reply loader atomically suppresses two opens before React commits", async () => {

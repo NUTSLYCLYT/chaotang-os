@@ -5,9 +5,15 @@ from __future__ import annotations
 import json
 from collections import Counter
 from dataclasses import FrozenInstanceError, fields
+from decimal import Decimal
 
 import pytest
 
+from app.accounting_reports.models import (
+    AccountingReportSummary,
+    ReportCheck,
+    ReportPeriod,
+)
 from app.agents.bureaus import (
     BUREAU_PROFILES,
     BureauAgentInvocationError,
@@ -136,6 +142,24 @@ def test_every_declared_responsibility_is_non_empty_and_present_in_its_prompt():
         for responsibility in profile.responsibilities:
             assert responsibility
             assert responsibility in prompt
+
+
+def test_direct_bureau_prompt_contains_only_bare_opinion_contract() -> None:
+    prompt = bureau_system_prompt("工部", "技术司")
+
+    assert '{"opinion": "<本司非空专业意见>"}' in prompt
+    assert '"status":"READY"' not in prompt
+
+
+def test_evidence_bureau_prompt_excludes_bare_opinion_contract() -> None:
+    prompt = bureau_system_prompt(
+        "工部",
+        "技术司",
+        evidence_session=True,
+    )
+
+    assert '{"opinion": "<本司非空专业意见>"}' not in prompt
+    assert "你必须只输出一个严格的 JSON 对象" not in prompt
 
 
 def test_investment_bureau_declares_market_quote_capability() -> None:
@@ -453,7 +477,9 @@ def test_session_enabled_bureau_alone_receives_evidence_protocol_prompt():
     def fake_model(messages: list[dict[str, str]]) -> str:
         captured.append(messages)
         return (
-            '{"status":"READY","result":{"opinion":"建议继续办理","factual_claims":[]},'
+            '{"status":"READY","result":{"opinion":"建议继续办理","factual_claims":['
+            '{"claim":"建议继续办理","basis":"NORMATIVE","evidence_ids":[],'
+            '"fact_key":null,"category":null,"subject":null}]},'
             '"adopted_evidence_ids":[],"fact_basis":"NOT_REQUIRED"}'
         )
 
@@ -471,11 +497,18 @@ def test_session_enabled_bureau_alone_receives_evidence_protocol_prompt():
 
     assert result == "建议继续办理"
     assert len(captured) == 1
-    assert "NEEDS_DATA" in captured[0][0]["content"]
-    assert "READY" in captured[0][0]["content"]
-    assert "fact_basis" in captured[0][0]["content"]
-    assert bureau_node_id(profile.department, profile.bureau) in captured[0][0]["content"]
-    assert "required_facts" in captured[0][0]["content"]
+    system_content = captured[0][0]["content"]
+    assert "NEEDS_DATA" in system_content
+    assert "READY" in system_content
+    assert '{"opinion": "<本司非空专业意见>"}' not in system_content
+    assert "fact_basis" in system_content
+    assert "one or more contiguous substantive opinion clauses" in system_content
+    assert "complete ordered coverage" in system_content
+    assert "empty factual_claims list is invalid" in system_content
+    assert '"basis":"NORMATIVE"' in system_content
+    assert '"claim":"<same complete normative clause>"' in system_content
+    assert bureau_node_id(profile.department, profile.bureau) in system_content
+    assert "required_facts" in system_content
     for market_metric in (
         "LAST_PRICE",
         "VOLUME",
@@ -486,9 +519,9 @@ def test_session_enabled_bureau_alone_receives_evidence_protocol_prompt():
         "MARKET_CAP",
         "PRICE_TREND_30D",
     ):
-        assert market_metric in captured[0][0]["content"]
-    assert '"market_metric":"LAST_PRICE"' in captured[0][0]["content"]
-    assert "all other categories require JSON null" in captured[0][0]["content"]
+        assert market_metric in system_content
+    assert '"market_metric":"LAST_PRICE"' in system_content
+    assert "all other categories require JSON null" in system_content
     assert session.snapshot().used is False
 
 
@@ -606,3 +639,82 @@ def test_investment_bureau_rejected_plan_fails_with_only_stable_reason(
 
     assert str(exc_info.value.__cause__) == "entity_ambiguous"
     assert marker not in str(exc_info.value)
+@pytest.mark.parametrize(
+    ("department", "bureau", "decree_text", "expected_calls"),
+    [
+        ("户部", "会计司", "生成2020至2025年财务报表", 1),
+        ("户部", "会计司", "生成2020年会计报表", 1),
+        ("户部", "会计司", "分析费用变化", 0),
+        ("户部", "预算司", "生成财务报表", 0),
+        ("工部", "技术司", "生成财务报表", 0),
+    ],
+)
+def test_bureau_report_trigger_matrix(
+    department, bureau, decree_text, expected_calls
+):
+    calls = []
+
+    class FakeSession:
+        def maybe_generate(self, *args):
+            calls.append(args)
+            return None
+
+    invoke_bureau_agent(
+        department,
+        bureau,
+        decree_text,
+        "判断",
+        lambda _messages: '{"opinion":"完成"}',
+        report_session=FakeSession(),
+    )
+    assert len(calls) == expected_calls
+
+
+def test_bureau_appends_only_bounded_accounting_summary_to_prompt():
+    captured = []
+    raw_markers = ("RAW_ROW_7788", r"C:\private\ledger.xlsx", "客户甲", "PK\x03\x04")
+
+    class FakeSession:
+        raw_row = raw_markers[0]
+        source_path = raw_markers[1]
+        customer_name = raw_markers[2]
+        workbook_bytes = raw_markers[3].encode()
+
+        def maybe_generate(self, *_args):
+            return "期间：2020-2025；收入合计：100；费用合计：20"
+
+    def model(messages):
+        captured.extend(messages)
+        return '{"opinion":"完成"}'
+
+    invoke_bureau_agent(
+        "户部",
+        "会计司",
+        "生成2020至2025年财务报表",
+        "判断",
+        model,
+        report_session=FakeSession(),
+    )
+    user_prompt = captured[1]["content"]
+    assert "会计司确定性报表摘要" in user_prompt
+    assert "期间：2020-2025；收入合计：100；费用合计：20" in user_prompt
+    assert all(marker not in user_prompt for marker in raw_markers)
+    all_messages = json.dumps(captured, ensure_ascii=False)
+    assert all(marker not in all_messages for marker in raw_markers)
+
+
+def test_accounting_summary_model_prompt_is_bounded_and_excludes_raw_material():
+    raw_markers = ("RAW_ROW_7788", r"C:\private\ledger.xlsx", "客户甲", "PK\x03\x04")
+    summary = AccountingReportSummary(
+        period=ReportPeriod(2020, 2020),
+        metrics_by_year={2020: {"revenue": Decimal("100")}},
+        exceptions=tuple(f"exception-{index}" for index in range(1000)),
+        checks=(ReportCheck("平衡检查", "PASS", "已平衡"),),
+        source_ids=("source-hash-only",),
+    )
+
+    prompt = summary.to_model_prompt()
+
+    assert len(prompt) <= 4000
+    assert '"period":{"start_year":2020,"end_year":2020}' in prompt
+    assert all(marker not in prompt for marker in raw_markers)

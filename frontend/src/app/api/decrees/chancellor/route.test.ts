@@ -5,17 +5,29 @@ import type { SubmitDecreeResult } from "../../../../lib/backendClient.ts";
 import { createPostHandler } from "./route.ts";
 
 function makeRequest(body: unknown, authenticated = true): Request {
+  const normalizedBody =
+    typeof body === "object" &&
+    body !== null &&
+    "decreeText" in body
+      ? {
+          ...(body as Record<string, unknown>),
+          draftVersion: 1,
+          draftFingerprint: "a".repeat(64),
+        }
+      : body;
   return new Request("http://localhost/api/decrees/chancellor", {
     method: "POST",
     headers: {
       "content-type": "application/json",
       ...(authenticated ? { cookie: "courtos_session=test-session" } : {}),
     },
-    body: typeof body === "string" ? body : JSON.stringify(body),
+    body: typeof normalizedBody === "string"
+      ? normalizedBody
+      : JSON.stringify(normalizedBody),
   });
 }
 
-const SINGLE_RESULT: SubmitDecreeResult = {
+const SINGLE_RESULT = {
   ok: true,
   data: {
     status: "ok",
@@ -32,10 +44,18 @@ const SINGLE_RESULT: SubmitDecreeResult = {
     councilVerdict: null,
     finalVerdict: "准行。",
     recommendations: ["核定预算", "分期拨付", "设置审计节点"],
+    artifacts: [{
+      artifactId: "artifact-1",
+      kind: "ACCOUNTING_MANAGEMENT_REPORT_XLSX",
+      displayName: "management-report.xlsx",
+      periodStart: 2024,
+      periodEnd: 2025,
+      generatedAt: "2026-07-29T08:00:00Z",
+    }],
   },
-};
+} satisfies SubmitDecreeResult;
 
-const MULTI_RESULT: SubmitDecreeResult = {
+const MULTI_RESULT = {
   ok: true,
   data: {
     ...SINGLE_RESULT.data,
@@ -53,7 +73,7 @@ const MULTI_RESULT: SubmitDecreeResult = {
     ],
     councilVerdict: "军机处会审通过。",
   },
-};
+} satisfies SubmitDecreeResult;
 
 test("POST：未认证请求在调用后端前返回 401", async () => {
   let calls = 0;
@@ -80,6 +100,8 @@ for (const [name, result] of [["single", SINGLE_RESULT], ["multi", MULTI_RESULT]
       calls += 1;
       assert.equal(typeof text, "string");
       assert.equal(options?.sessionId, "test-session");
+      assert.equal(options?.draftVersion, 1);
+      assert.equal(options?.draftFingerprint, "a".repeat(64));
       return result;
     });
 
@@ -91,8 +113,18 @@ for (const [name, result] of [["single", SINGLE_RESULT], ["multi", MULTI_RESULT]
     assert.equal(body.routeType, result.data.routeType);
     assert.deepEqual(body.processingPath, result.data.processingPath);
     assert.deepEqual(body.recommendations, result.data.recommendations);
+    assert.deepEqual(body.artifacts, result.data.artifacts);
   });
 }
+
+test("POST preserves an empty artifacts list", async () => {
+  const handler = createPostHandler(async () => ({
+    ...SINGLE_RESULT,
+    data: { ...SINGLE_RESULT.data, artifacts: [] },
+  }));
+  const response = await handler(makeRequest({ decreeText: "test" }));
+  assert.deepEqual((await response.json() as { artifacts: unknown }).artifacts, []);
+});
 
 for (const [kind, expectedStatus] of [
   ["validation", 422],

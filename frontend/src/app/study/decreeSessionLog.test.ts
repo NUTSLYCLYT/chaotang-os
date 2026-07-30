@@ -6,7 +6,7 @@ test("session decree log appends final success and error outcomes", () => {
   const success = appendDecreeSessionRecord([], "  整顿河工  ", {
     phase: "success", chancellor: "丞相", routeType: "single", rationale: "r",
     processingPath: ["丞相"], departments: ["工部"], ministryOpinions: [],
-    councilVerdict: null, finalVerdict: "准奏", recommendations: ["执行"],
+    councilVerdict: null, finalVerdict: "准奏", recommendations: ["执行"], artifacts: [],
   });
   const failed = appendDecreeSessionRecord(success, "赈灾", { phase: "error", message: "未能办理" });
   assert.deepEqual(failed.map(({ decree, outcome, summary }) => ({ decree, outcome, summary })), [

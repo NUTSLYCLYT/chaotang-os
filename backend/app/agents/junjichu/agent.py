@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from app.agents.evidence_protocol import AgentEvidenceSession
 from app.agents.junjichu.prompts import junjichu_system_prompt
@@ -50,6 +50,9 @@ from app.agents.synthesis_failures import (
 )
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel
 from app.shiguan.recall import RecallContext, safe_recall_context_for_department
+
+if TYPE_CHECKING:
+    from app.accounting_reports.session import AccountingReportSession
 
 
 class CaseLifecycleObserver(Protocol):
@@ -189,6 +192,7 @@ def run_junjichu_council(
     *,
     recall_contexts: Mapping[str, RecallContext] | None = None,
     evidence_session: AgentEvidenceSession | None = None,
+    report_session: AccountingReportSession | None = None,
     lifecycle_observer: CaseLifecycleObserver | None = None,
     processing_path: list[str] | None = None,
 ) -> tuple[list[MinistryOpinion], str]:
@@ -233,6 +237,8 @@ def run_junjichu_council(
         }
         if evidence_session is not None:
             ministry_kwargs["evidence_session"] = evidence_session
+        if report_session is not None:
+            ministry_kwargs["report_session"] = report_session
         opinion = invoke_ministry_agent(
             department,
             decree_text,

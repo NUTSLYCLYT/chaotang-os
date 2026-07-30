@@ -14,9 +14,10 @@
  * 已把 `SubmitDecreeResult` 映射为 JSON body + 状态码）重新构造出一个符合该结构的
  * 字面量再传入。
  */
+import type { ReportArtifact } from "../../lib/backendClient.ts";
 
 /** 与 `SubmitDecreeResult` 的 `kind` 保持一致的稳定错误分类。 */
-export type DecreeErrorKind = "validation" | "config" | "model" | "timeout" | "network" | "unknown";
+export type DecreeErrorKind = "validation" | "draft_not_current" | "config" | "model" | "timeout" | "network" | "unknown";
 
 export interface DecreeBureauOpinion {
   bureau: string;
@@ -41,6 +42,7 @@ export interface DecreeSuccessData {
   councilVerdict: string | null;
   finalVerdict: string;
   recommendations: string[];
+  artifacts: ReportArtifact[];
 }
 
 /**
@@ -72,6 +74,7 @@ export type DecreeUiState =
       councilVerdict: string | null;
       finalVerdict: string;
       recommendations: string[];
+      artifacts: ReportArtifact[];
     }
   | { phase: "error"; message: string };
 
@@ -86,6 +89,7 @@ export type DecreeUiState =
  */
 const FRIENDLY_MESSAGE_BY_KIND: Record<DecreeErrorKind, string> = {
   validation: "旨意校验未通过：请确认内容非空且不超过 2000 字后重试。",
+  draft_not_current: "拟旨草案已失效，请重新拟旨后再下旨。",
   config: "朝堂后端配置暂不可用，请联系管理员检查后端配置后重试。",
   model: "丞相暂时无法给出回奏（模型调用失败），请稍后重试。",
   timeout: "下旨处理超时，请稍后重试。",
@@ -108,6 +112,36 @@ function parseNonEmptyStrings(value: unknown): string[] | null {
     return null;
   }
   return value.map((item) => item.trim());
+}
+
+function parseReportArtifacts(value: unknown): ReportArtifact[] | null {
+  if (!Array.isArray(value)) return null;
+  const artifacts: ReportArtifact[] = [];
+  const artifactIds = new Set<string>();
+  for (const rawArtifact of value) {
+    if (typeof rawArtifact !== "object" || rawArtifact === null || Array.isArray(rawArtifact)) return null;
+    const artifact = rawArtifact as Record<string, unknown>;
+    if (
+      Object.keys(artifact).length !== 6 ||
+      !isNonEmptyString(artifact.artifactId) ||
+      artifact.kind !== "ACCOUNTING_MANAGEMENT_REPORT_XLSX" ||
+      !isNonEmptyString(artifact.displayName) ||
+      !Number.isInteger(artifact.periodStart) ||
+      !Number.isInteger(artifact.periodEnd) ||
+      !isNonEmptyString(artifact.generatedAt)
+    ) return null;
+    if (artifactIds.has(artifact.artifactId)) return null;
+    artifactIds.add(artifact.artifactId);
+    artifacts.push({
+      artifactId: artifact.artifactId,
+      kind: artifact.kind,
+      displayName: artifact.displayName,
+      periodStart: artifact.periodStart as number,
+      periodEnd: artifact.periodEnd as number,
+      generatedAt: artifact.generatedAt,
+    });
+  }
+  return artifacts;
 }
 
 /** 严格校验 Route Handler 的 camelCase 成功响应；非法结构返回 null。 */
@@ -194,10 +228,12 @@ export function parseChancellorSuccessResponse(body: unknown): DecreeSuccessData
     councilVerdict = record.councilVerdict.trim();
   }
   const recommendations = parseNonEmptyStrings(record.recommendations);
+  const artifacts = parseReportArtifacts(record.artifacts);
   if (
     recommendations === null ||
     recommendations.length !== 3 ||
-    new Set(recommendations).size !== 3
+    new Set(recommendations).size !== 3 ||
+    artifacts === null
   ) {
     return null;
   }
@@ -212,6 +248,7 @@ export function parseChancellorSuccessResponse(body: unknown): DecreeSuccessData
     councilVerdict,
     finalVerdict: record.finalVerdict.trim(),
     recommendations,
+    artifacts,
   };
 }
 
@@ -248,6 +285,7 @@ export function mapSubmitDecreeResultToUiState(result: DecreeSubmitOutcome): Dec
       councilVerdict: result.data.councilVerdict,
       finalVerdict: result.data.finalVerdict,
       recommendations: result.data.recommendations,
+      artifacts: result.data.artifacts,
     };
   }
   return { phase: "error", message: FRIENDLY_MESSAGE_BY_KIND[result.kind] };

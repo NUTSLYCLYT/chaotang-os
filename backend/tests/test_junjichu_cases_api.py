@@ -179,7 +179,8 @@ def test_decree_to_case_ledger_is_private_and_records_only_real_terminal_outcome
             "recommendations": ["建议一", "建议二", "建议三"],
         }
 
-    def fake_builder(*, lifecycle_observer):
+    def fake_builder(*, lifecycle_observer, report_session=None):
+        del report_session
         outcome = next(outcomes)
 
         class _FakeGraph:
@@ -221,6 +222,11 @@ def test_decree_to_case_ledger_is_private_and_records_only_real_terminal_outcome
 
     monkeypatch.setattr(decrees_module, "build_chancellor_graph", fake_builder)
     monkeypatch.setattr(decrees_module, "archive_chancellor_decree", fake_archive)
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "consume",
+        lambda **_kwargs: True,
+    )
 
     first = client.post("/api/v1/decrees/chancellor", json={"decree_text": "甲的跨部旨意"})
     assert first.status_code == 200

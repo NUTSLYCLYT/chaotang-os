@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   getStudyDepartmentCountLabel,
+  projectStudyArtifacts,
 } from "./studyWorkspaceState.ts";
 import type { DecreeUiState } from "../../app/study/decreeStatus.ts";
 
@@ -41,7 +42,28 @@ test("study route summary counts departments only from a successful decoded resu
     councilVerdict: "准予会审办理。",
     finalVerdict: "准行。",
     recommendations: ["分期", "验收", "归档"],
+    artifacts: [],
   };
 
   assert.equal(getStudyDepartmentCountLabel(success), "2 部门");
+  assert.deepEqual(projectStudyArtifacts(success), []);
+});
+
+test("study workspace projects exact report artifact metadata from success state", () => {
+  const artifacts = [{
+    artifactId: "report 甲/2025",
+    kind: "ACCOUNTING_MANAGEMENT_REPORT_XLSX" as const,
+    displayName: "2025年度财务管理报告",
+    periodStart: 2025,
+    periodEnd: 2025,
+    generatedAt: "2026-07-29T08:00:00Z",
+  }];
+  const state: DecreeUiState = {
+    phase: "success", chancellor: "丞相", routeType: "single", rationale: "户部办理",
+    processingPath: ["丞相", "户部"], departments: ["户部"], ministryOpinions: [],
+    councilVerdict: null, finalVerdict: "准行", recommendations: ["一", "二", "三"],
+    artifacts,
+  };
+  assert.deepEqual(projectStudyArtifacts(state), artifacts);
+  assert.deepEqual(projectStudyArtifacts({ phase: "idle" }), []);
 });

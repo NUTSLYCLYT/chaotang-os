@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from app.agents.bureaus import (
     BureauAgentInvocationError,
@@ -46,6 +46,9 @@ from app.agents.synthesis_failures import is_locally_degradable
 from app.jinyiwei.models import FactCategory, MarketMetric
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel
 from app.shiguan.recall import RecallContext, safe_recall_context_for_department
+
+if TYPE_CHECKING:
+    from app.accounting_reports.session import AccountingReportSession
 
 
 class MinistryAgentInvocationError(Exception):
@@ -130,6 +133,7 @@ def invoke_ministry_agent(
     *,
     recall_context: RecallContext | None = None,
     evidence_session: AgentEvidenceSession | None = None,
+    report_session: AccountingReportSession | None = None,
 ) -> MinistryOpinion:
     """Consult selected bureaus serially, then produce a ministry synthesis.
 
@@ -237,23 +241,19 @@ def invoke_ministry_agent(
     bureau_opinions: list[BureauOpinion] = []
     for bureau in selected_bureaus:
         try:
-            if evidence_session is None:
-                opinion = invoke_bureau_agent(
-                    department,
-                    bureau,
-                    decree_text,
-                    route_rationale.strip(),
-                    chat_model,
-                )
-            else:
-                opinion = invoke_bureau_agent(
-                    department,
-                    bureau,
-                    decree_text,
-                    route_rationale.strip(),
-                    chat_model,
-                    evidence_session=evidence_session,
-                )
+            bureau_kwargs: dict[str, object] = {}
+            if evidence_session is not None:
+                bureau_kwargs["evidence_session"] = evidence_session
+            if report_session is not None:
+                bureau_kwargs["report_session"] = report_session
+            opinion = invoke_bureau_agent(
+                department,
+                bureau,
+                decree_text,
+                route_rationale.strip(),
+                chat_model,
+                **bureau_kwargs,
+            )
         except BureauAgentInvocationError as exc:
             error = MinistryAgentInvocationError(
                 f"{department} agent failed while consulting a selected bureau."

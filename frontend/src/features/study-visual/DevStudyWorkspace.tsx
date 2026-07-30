@@ -10,8 +10,10 @@ import {
 import { ImmersiveCourtShell } from "../court-visuals/ImmersiveCourtShell";
 import styles from "./DevStudyWorkspace.module.css";
 import { StudySideDrawers } from "./StudySideDrawers";
-import { getStudyDepartmentCountLabel } from "./studyWorkspaceState";
+import { StudyArtifactLinks } from "./StudyArtifactLinks";
+import { getStudyDepartmentCountLabel, projectStudyArtifacts } from "./studyWorkspaceState";
 import type { ConsultMessage } from "../../app/study/chancellorConsultStatus";
+import type { ChancellorDraftResult } from "../../app/study/chancellorDraft";
 import type { StudyRecentRepliesState } from "../../app/study/studyRecentReplies";
 import type { ShiguanArchive } from "../../lib/backendClient";
 import { formatBusinessTime } from "../../lib/formatBusinessTime";
@@ -63,6 +65,10 @@ export interface DevStudyWorkspaceProps {
   canEdit: boolean;
   canSubmit: boolean;
   onDecreeTextChange(value: string): void;
+  draftResult: ChancellorDraftResult | null;
+  draftPending: boolean;
+  draftError: string | null;
+  onDraft(): void;
   onSubmit(): void;
   recentReplies: StudyRecentRepliesState;
   onOpenRecentReplies(): void;
@@ -188,14 +194,15 @@ function FirstCourtRitual({
 
 export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
   const [expanded, setExpanded] = useState(false);
-  const [polished, setPolished] = useState(false);
+  const polished = false;
   const [attachments, setAttachments] = useState<string[]>([]);
   const [showRitual, setShowRitual] = useState(false);
   const archivedReply = props.selectedArchivedReply;
   const archivedReplyId = archivedReply?.id;
   const archivedReplyRef = useRef<HTMLElement>(null);
-  const showScroll = expanded || archivedReply !== null || props.uiState.phase !== "idle";
-  const hasReplyContent = archivedReply !== null || props.uiState.phase === "success";
+  const showScroll = expanded || archivedReply !== null || props.uiState.phase !== "idle" || props.draftResult !== null;
+  const hasReplyContent = archivedReply !== null || props.uiState.phase === "success" || props.draftResult !== null;
+  const artifactView = projectStudyArtifacts(props.uiState);
 
   useEffect(() => {
     if (!archivedReplyId) return;
@@ -224,7 +231,7 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
   }
 
   const composer = (
-    <section className={styles.composer} aria-label="御前下旨">
+    <section className={styles.composer} aria-label="御前拟旨">
       {(polished || attachments.length > 0) && (
         <p className={styles.localNotice}>
           {polished ? "润色预览已开启 · 未调用模型" : ""}
@@ -233,11 +240,11 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
         </p>
       )}
       <div className={styles.composerRow}>
-        <button type="button" className={styles.polish} data-testid="decree-polish-inline" data-active={polished} onClick={() => setPolished((value) => !value)} disabled={!props.canEdit}>✦ 润色</button>
         <label className={styles.attach} data-testid="decree-evidence-upload" title="选择本地补证附件（当前不会上传）">上传附件<input type="file" multiple onChange={handleFiles} disabled={!props.canEdit} /></label>
-        <textarea id="decree-text" data-testid="decree-textarea" value={props.decreeText} onChange={(event) => props.onDecreeTextChange(event.target.value)} rows={1} maxLength={2000} disabled={!props.canEdit} placeholder="请写下要交由丞相与六部会审的旨意……" />
-        <button type="button" className={styles.submit} data-testid="submit-decree-button" disabled={!props.canSubmit} onClick={props.onSubmit}>{props.uiState.phase === "submitting" ? "办理中" : "下旨"}</button>
+        <textarea id="decree-text" data-testid="decree-textarea" value={props.decreeText} onChange={(event) => props.onDecreeTextChange(event.target.value)} rows={1} maxLength={2000} disabled={!props.canEdit} placeholder="先说出大概想法，丞相会用专业案例帮您拟清楚……" />
+        <button type="button" className={styles.draftAction} data-testid="draft-edict-button" disabled={!props.canEdit || !props.decreeText.trim() || props.draftPending} onClick={props.onDraft}>{props.draftPending ? "拟旨中" : "拟旨"}</button>
       </div>
+      {props.draftError && <p className={styles.localNotice}>{props.draftError}</p>}
     </section>
   );
   const drawers = (
@@ -363,6 +370,56 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
                   <ol data-testid="decree-recommendations">
                     {props.uiState.recommendations.map((recommendation) => <li key={recommendation}>{recommendation}</li>)}
                   </ol>
+                  <StudyArtifactLinks artifacts={artifactView} className={styles.artifact} />
+                </div>
+              </section>
+            </EdictStage>
+          ) : props.draftResult ? (
+            <EdictStage
+              document={{
+                id: `draft-${props.draftResult.fingerprint}`,
+                kicker: `丞相拟旨 · 第 ${props.draftResult.version} 版`,
+                title: "拟旨草案",
+                issuer: `当前状态 · ${props.draftResult.status}`,
+              }}
+              theme="imperial"
+              bodyLabel="丞相拟旨草案"
+            >
+              <section className={styles.response} data-testid="chancellor-draft-result">
+                <div className={styles.returnContent}>
+                  <h2>臣对您的理解</h2>
+                  <p>{props.draftResult.understanding}</p>
+                  <h3>大神级拟旨草案</h3>
+                  <p>{props.draftResult.expert_example}</p>
+                  <h3>丞相为什么这样补全</h3>
+                  <p>{props.draftResult.recommendation_reason}</p>
+                  {props.draftResult.assumptions.length > 0 && (
+                    <>
+                      <h3>丞相建议与暂定边界</h3>
+                      <ul>{props.draftResult.assumptions.map((item) => <li key={item}>{item}</li>)}</ul>
+                    </>
+                  )}
+                  {props.draftResult.draft && (
+                    <>
+                      <h2>完整拟旨草案</h2>
+                      <pre>{JSON.stringify(props.draftResult.draft, null, 2)}</pre>
+                    </>
+                  )}
+                  <p>
+                    <strong>下旨：</strong>
+                    {props.canSubmit
+                      ? "草案完整，可以直接下旨"
+                      : props.draftResult.revision_prompt}
+                  </p>
+                  <button
+                    type="button"
+                    className={styles.submit}
+                    data-testid="submit-decree-button"
+                    disabled={!props.canSubmit}
+                    onClick={props.onSubmit}
+                  >
+                    {props.uiState.phase === "submitting" ? "办理中" : "下旨"}
+                  </button>
                 </div>
               </section>
             </EdictStage>

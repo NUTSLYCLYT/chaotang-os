@@ -14,10 +14,13 @@ export type StudyFetch = (
 interface StudySubmissionDependencies {
   fetchImpl: StudyFetch;
   scheduleRedirect(path: string): void;
+  draftVersion?: number;
+  draftFingerprint?: string;
 }
 
 const KNOWN_ERROR_KINDS: readonly DecreeErrorKind[] = [
   "validation",
+  "draft_not_current",
   "config",
   "model",
   "timeout",
@@ -45,7 +48,11 @@ export async function requestStudySubmission(
     response = await dependencies.fetchImpl("/api/decrees/chancellor", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ decreeText }),
+      body: JSON.stringify({
+        decreeText,
+        draftVersion: dependencies.draftVersion,
+        draftFingerprint: dependencies.draftFingerprint,
+      }),
     });
   } catch (error) {
     return mapSubmitDecreeResultToUiState({

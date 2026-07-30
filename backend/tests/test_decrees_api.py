@@ -24,7 +24,9 @@ from __future__ import annotations
 
 import tomllib
 from copy import deepcopy
+from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -47,10 +49,20 @@ DECREE_URL = "/api/v1/decrees/chancellor"
 
 
 @pytest.fixture(autouse=True)
-def _authenticate_client(isolate_shiguan_default_db_path, tmp_path):
+def _authenticate_client(isolate_shiguan_default_db_path, tmp_path, monkeypatch):
     del isolate_shiguan_default_db_path
     configure_auth_db(tmp_path / "auth.sqlite3")
     user = create_user("decree-user", "decree@example.com", "six-or-more")
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "consume",
+        lambda **_kwargs: True,
+    )
+    monkeypatch.setattr(
+        decrees_module,
+        "build_accounting_report_session",
+        lambda **_kwargs: _FakeReportSession(),
+    )
     client.headers["Authorization"] = f"Bearer {create_session(user.id)}"
     yield
     client.headers.pop("Authorization", None)
@@ -151,7 +163,8 @@ class _FakeProvider:
         self.build_error = build_error
         self.call_count = 0
 
-    def __call__(self) -> _FakeGraph:
+    def __call__(self, *, report_session=None) -> _FakeGraph:
+        self.report_session = report_session
         self.call_count += 1
         if self.build_error is not None:
             raise self.build_error
@@ -172,6 +185,228 @@ def fake_provider(monkeypatch):
         return provider
 
     return _install
+
+
+class _FakeReportSession:
+    def __init__(self, *, pending=False, published=(), publish_error=None):
+        self.has_pending = pending
+        self.published = published
+        self.publish_error = publish_error
+        self.events: list[object] = []
+
+    def publish(self, reply_id):
+        self.events.append(("publish", reply_id))
+        if self.publish_error is not None:
+            raise self.publish_error
+        return self.published
+
+    def abort(self):
+        self.events.append("abort")
+
+
+@pytest.fixture
+def report_session(monkeypatch):
+    session = _FakeReportSession()
+    builds = []
+
+    def build(**kwargs):
+        builds.append(kwargs)
+        return session
+
+    monkeypatch.setattr(decrees_module, "build_accounting_report_session", build)
+    return session, builds
+
+
+def test_normal_decree_returns_empty_artifacts(fake_provider, report_session):
+    session, builds = report_session
+    provider = fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_SINGLE_ROUTE_RESULT)))
+
+    response = client.post(DECREE_URL, json={"decree_text": "整顿吏治"})
+
+    assert response.status_code == 200
+    assert response.json()["artifacts"] == []
+    assert provider.report_session is session
+    assert len(builds) == 1
+    assert builds[0]["owner_user_id"]
+    assert len(builds[0]["run_id"]) == 32
+
+
+def test_report_artifact_publishes_once_only_after_successful_archive(
+    fake_provider, monkeypatch, report_session
+):
+    session, _builds = report_session
+    session.has_pending = True
+    session.published = (
+        SimpleNamespace(
+            artifact_id="opaque-id",
+            report_type="management",
+            display_name="2020-2025年管理层综合财务报告.xlsx",
+            period=SimpleNamespace(start_year=2020, end_year=2025),
+            generated_at=datetime(2026, 7, 29, 8, 30, tzinfo=UTC),
+        ),
+    )
+    events = []
+    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_SINGLE_ROUTE_RESULT)))
+    real_archive = decrees_module.archive_chancellor_decree
+
+    def archive(*args, **kwargs):
+        events.append("archive")
+        return real_archive(*args, **kwargs)
+
+    monkeypatch.setattr(decrees_module, "archive_chancellor_decree", archive)
+    original_publish = session.publish
+
+    def publish(reply_id):
+        events.append("publish")
+        return original_publish(reply_id)
+
+    session.publish = publish
+    response = client.post(DECREE_URL, json={"decree_text": "生成2020至2025年财务报表"})
+
+    assert response.status_code == 200
+    assert events == ["archive", "publish"]
+    replies = shiguan_storage.list_archives(
+        type="REPLY", owner_user_id=_builds[0]["owner_user_id"]
+    )
+    assert len(replies) == 1
+    assert session.events == [("publish", replies[0].id)]
+    assert response.json()["artifacts"] == [
+        {
+            "artifact_id": "opaque-id",
+            "kind": "ACCOUNTING_MANAGEMENT_REPORT_XLSX",
+            "display_name": "2020-2025年管理层综合财务报告.xlsx",
+            "period_start": 2020,
+            "period_end": 2025,
+            "generated_at": "2026-07-29T08:30:00Z",
+        }
+    ]
+
+
+def test_archive_failure_aborts_pending_report_and_prevents_publication(
+    fake_provider, monkeypatch, report_session
+):
+    session, _builds = report_session
+    session.has_pending = True
+    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_SINGLE_ROUTE_RESULT)))
+    monkeypatch.setattr(
+        decrees_module,
+        "archive_chancellor_decree",
+        lambda *_args, **_kwargs: SimpleNamespace(archived=False, reply_id="reply-1"),
+    )
+
+    response = client.post(DECREE_URL, json={"decree_text": "生成2020至2025年财务报表"})
+
+    assert response.status_code == 502
+    assert response.json()["reason"] == "report_unavailable"
+    assert session.events == ["abort"]
+
+
+def test_publication_failure_is_sanitized_and_aborts(
+    fake_provider, monkeypatch, report_session
+):
+    session, _builds = report_session
+    session.has_pending = True
+    session.publish_error = RuntimeError("secret path C:/private/report.xlsx")
+    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_SINGLE_ROUTE_RESULT)))
+    monkeypatch.setattr(
+        decrees_module,
+        "archive_chancellor_decree",
+        lambda *_args, **_kwargs: SimpleNamespace(archived=True, reply_id="reply-1"),
+    )
+
+    response = client.post(DECREE_URL, json={"decree_text": "生成2020至2025年财务报表"})
+
+    assert response.status_code == 502
+    assert response.json()["reason"] == "report_unavailable"
+    assert "private" not in response.text
+    assert session.events == [("publish", "reply-1"), "abort"]
+
+
+def test_archive_exception_is_sanitized_as_report_failure_and_aborts(
+    fake_provider, monkeypatch, report_session
+):
+    session, _builds = report_session
+    session.has_pending = True
+    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_SINGLE_ROUTE_RESULT)))
+
+    def fail_archive(*_args, **_kwargs):
+        raise RuntimeError("private Shiguan path")
+
+    monkeypatch.setattr(decrees_module, "archive_chancellor_decree", fail_archive)
+
+    response = client.post(DECREE_URL, json={"decree_text": "生成2020至2025年财务报表"})
+
+    assert response.status_code == 502
+    assert response.json()["reason"] == "report_unavailable"
+    assert "private" not in response.text
+    assert session.events == ["abort"]
+
+
+def test_draft_authority_exception_is_sanitized_and_aborts(
+    fake_provider, monkeypatch, report_session
+):
+    session, _builds = report_session
+    provider = fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_SINGLE_ROUTE_RESULT)))
+
+    def fail_consume(**_kwargs):
+        raise RuntimeError("private authority database")
+
+    monkeypatch.setattr(decrees_module.draft_authority_registry, "consume", fail_consume)
+
+    response = client.post(DECREE_URL, json={"decree_text": "整顿吏治"})
+
+    assert response.status_code == 502
+    assert response.json()["reason"] == "report_unavailable"
+    assert "private" not in response.text
+    assert session.events == ["abort"]
+    assert provider.call_count == 0
+
+
+def test_response_conversion_is_pure_and_uses_domain_generation_time():
+    generated_at = datetime(2026, 7, 29, 8, 30, tzinfo=UTC)
+    artifact = SimpleNamespace(
+        artifact_id="opaque-id",
+        report_type="management",
+        display_name="report.xlsx",
+        period=SimpleNamespace(start_year=2020, end_year=2025),
+        generated_at=generated_at,
+        file_path=SimpleNamespace(stat=lambda: (_ for _ in ()).throw(AssertionError)),
+    )
+
+    response = decrees_module.ReportArtifactResponse.from_domain(artifact)
+
+    assert response.generated_at == generated_at
+
+
+def test_real_graph_factory_receives_exact_report_session(monkeypatch):
+    session = object()
+    seen = []
+
+    def builder(*, lifecycle_observer, report_session):
+        seen.append((lifecycle_observer, report_session))
+        return object()
+
+    monkeypatch.setattr(decrees_module, "build_chancellor_graph", builder)
+
+    decrees_module.get_chancellor_graph(report_session=session)
+
+    assert seen == [(None, session)]
+
+
+def test_report_generation_failure_aborts_and_uses_sanitized_status(
+    fake_provider, report_session
+):
+    session, _builds = report_session
+    error = ChancellorGraphInvocationError("private report generation detail")
+    error.failure_stage = "report"
+    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_error=error)))
+
+    response = client.post(DECREE_URL, json={"decree_text": "生成2020至2025年财务报表"})
+
+    assert response.status_code == 502
+    assert response.json()["reason"] == "model_unavailable"
+    assert "private" not in response.text
+    assert session.events == ["abort"]
 
 
 def test_submit_decree_single_route_returns_full_contract(fake_provider, monkeypatch):
@@ -201,7 +436,9 @@ def test_submit_decree_single_route_returns_full_contract(fake_provider, monkeyp
         "council_verdict",
         "final_verdict",
         "recommendations",
+        "artifacts",
     }
+    assert body["artifacts"] == []
     assert body["status"] == "ok"
     assert body["chancellor"] == CHANCELLOR_IDENTITY
     assert body["route_type"] == "single"
@@ -300,7 +537,10 @@ def test_real_graph_single_route_keeps_api_contract_and_exposes_named_bureau_opi
             '"departments": ["礼部"]}',
             '{"rationale": "交由品牌司办理", "bureaus": ["品牌司"]}',
             '{"status":"READY","result":{"opinion":"建议统一品牌表达与视觉资产",'
-            '"factual_claims":[]},"adopted_evidence_ids":[],"fact_basis":"NOT_REQUIRED"}',
+            '"factual_claims":[{"claim":"建议统一品牌表达与视觉资产",'
+            '"basis":"NORMATIVE","evidence_ids":[],"fact_key":null,'
+            '"category":null,"subject":null}]},"adopted_evidence_ids":[],'
+            '"fact_basis":"NOT_REQUIRED"}',
             '{"opinion": "礼部补充：对外口径须统一并完成发布门禁。"}',
             '{"summary": "丞相汇总：统一品牌表达并设置发布门禁。", '
             '"recommendations": ["统一对外口径", "校验视觉资产", "设置发布门禁"]}',

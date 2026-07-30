@@ -6,6 +6,7 @@ import path from "node:path";
 
 import {
   chancellorConsult,
+  downloadReportArtifact,
   fetchHealth,
   getShiguanStatistics,
   listShiguanArchives,
@@ -42,6 +43,15 @@ test("chancellorConsult maps stable validation/config/model status kinds", async
     assert.deepEqual(result, { ok: false, kind });
   }
 });
+
+const VALID_REPORT_ARTIFACT_TASK_8 = {
+  artifact_id: "artifact-2025",
+  kind: "ACCOUNTING_MANAGEMENT_REPORT_XLSX",
+  display_name: "management-report.xlsx",
+  period_start: 2024,
+  period_end: 2025,
+  generated_at: "2026-07-29T08:00:00Z",
+};
 
 /**
  * 契约文件路径：`frontend/src/lib` -> `frontend/src` -> `frontend` -> 仓库根，
@@ -347,7 +357,9 @@ test("submitDecree：成功路径（single 路由）- 后端返回符合契约�
   const result = await submitDecree("请核查国库存银", memoryRequestOptions(SINGLE_ROUTE_BODY));
   assert.equal(result.ok, true);
   if (result.ok) {
-      assert.deepEqual(result.data, {
+      const { artifacts, ...data } = result.data;
+      assert.deepEqual(artifacts, []);
+      assert.deepEqual(data, {
         status: "ok",
         chancellor: "丞相",
         routeType: "single",
@@ -1338,3 +1350,75 @@ test("authenticated backend calls send Bearer sessions and preserve a backend 40
     error: "authentication required",
   });
 });
+
+test("submitDecree maps missing artifacts to an empty compatibility list", async () => {
+  const result = await submitDecree("report", memoryRequestOptions(SINGLE_ROUTE_BODY));
+  assert.equal(result.ok, true);
+  if (result.ok) assert.deepEqual(result.data.artifacts, []);
+});
+
+test("submitDecree strictly maps a valid report artifact", async () => {
+  const result = await submitDecree("report", memoryRequestOptions({ ...SINGLE_ROUTE_BODY, artifacts: [VALID_REPORT_ARTIFACT_TASK_8] }));
+  assert.equal(result.ok, true);
+  if (result.ok) assert.deepEqual(result.data.artifacts, [{
+    artifactId: "artifact-2025", kind: "ACCOUNTING_MANAGEMENT_REPORT_XLSX",
+    displayName: "management-report.xlsx", periodStart: 2024, periodEnd: 2025,
+    generatedAt: "2026-07-29T08:00:00Z",
+  }]);
+});
+
+for (const [name, artifacts] of [
+  ["duplicate IDs", [VALID_REPORT_ARTIFACT_TASK_8, { ...VALID_REPORT_ARTIFACT_TASK_8 }]],
+  ["unknown kind", [{ ...VALID_REPORT_ARTIFACT_TASK_8, kind: "PDF" }]],
+  ["blank display name", [{ ...VALID_REPORT_ARTIFACT_TASK_8, display_name: " " }]],
+  ["noninteger years", [{ ...VALID_REPORT_ARTIFACT_TASK_8, period_start: 2024.5 }]],
+  ["reversed years", [{ ...VALID_REPORT_ARTIFACT_TASK_8, period_start: 2026, period_end: 2025 }]],
+  ["unexpected fields", [{ ...VALID_REPORT_ARTIFACT_TASK_8, owner_id: "private" }]],
+  ["invalid generatedAt", [{ ...VALID_REPORT_ARTIFACT_TASK_8, generated_at: "not-a-date" }]],
+  ["timezone-free generatedAt", [{ ...VALID_REPORT_ARTIFACT_TASK_8, generated_at: "2026-07-29T08:00:00" }]],
+  ["normalized overflow generatedAt", [{ ...VALID_REPORT_ARTIFACT_TASK_8, generated_at: "2026-02-30T08:00:00Z" }]],
+  ["invalid timezone generatedAt", [{ ...VALID_REPORT_ARTIFACT_TASK_8, generated_at: "2026-07-29T08:00:00+24:00" }]],
+] as const) {
+  test(`submitDecree rejects malformed artifacts: ${name}`, async () => {
+    const result = await submitDecree("report", memoryRequestOptions({ ...SINGLE_ROUTE_BODY, artifacts }));
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.kind, "unknown");
+  });
+}
+
+test("downloadReportArtifact encodes a route-safe ID and forwards the exact Bearer session", async () => {
+  let url = "";
+  let authorization = "";
+  const result = await downloadReportArtifact("report 甲+v1", {
+    baseUrl: "http://backend.test/",
+    sessionId: "opaque-session",
+    fetchImpl: async (input, init) => {
+      url = String(input);
+      authorization = (init?.headers as Record<string, string>).authorization;
+      return new Response(new Uint8Array([80, 75]), { status: 200 });
+    },
+  });
+  assert.equal(result.ok, true);
+  assert.equal(url, "http://backend.test/api/v1/report-artifacts/report%20%E7%94%B2%2Bv1/download");
+  assert.equal(authorization, "Bearer opaque-session");
+});
+
+test("downloadReportArtifact rejects an empty session without fetching", async () => {
+  let calls = 0;
+  const result = await downloadReportArtifact("artifact-1", {
+    sessionId: "",
+    fetchImpl: async () => { calls += 1; return new Response(); },
+  });
+  assert.deepEqual(result, { ok: false, kind: "unauthenticated" });
+  assert.equal(calls, 0);
+});
+
+for (const [status, kind] of [[401, "unauthenticated"], [404, "not_found"], [503, "unavailable"]] as const) {
+  test(`downloadReportArtifact maps backend ${status} to ${kind}`, async () => {
+    const result = await downloadReportArtifact("artifact-1", {
+      sessionId: "session",
+      fetchImpl: async () => new Response("private", { status }),
+    });
+    assert.deepEqual(result, { ok: false, kind });
+  });
+}

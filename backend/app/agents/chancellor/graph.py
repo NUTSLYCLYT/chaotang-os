@@ -65,7 +65,7 @@ import json
 import re
 from collections.abc import Callable
 from pathlib import Path
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -99,6 +99,9 @@ from app.jinyiwei.models import FactCategory, MarketMetric
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel, build_deepseek_chat_model
 from app.langgraph_runtime.deepseek_config import load_deepseek_provider_config
 from app.shiguan.recall import RecallContext, safe_recall_context_for_department
+
+if TYPE_CHECKING:
+    from app.accounting_reports.session import AccountingReportSession
 
 _CANONICAL_MARKET_RECOMMENDATIONS = [
     "请核对行情时间与交易时段后再使用该价格。",
@@ -320,7 +323,15 @@ def _trusted_failure_stage(
         ),
     ):
         stage = getattr(exc, "failure_stage", default)
-        if stage in {"route", "bureau", "ministry", "council", "finalize", "archive"}:
+        if stage in {
+            "route",
+            "report",
+            "bureau",
+            "ministry",
+            "council",
+            "finalize",
+            "archive",
+        }:
             return stage
     return default
 
@@ -343,6 +354,7 @@ def build_chancellor_graph(
     dotenv_path: Path | None = None,
     *,
     evidence_session_factory: Callable[[], AgentEvidenceSession] | None = None,
+    report_session: AccountingReportSession | None = None,
     lifecycle_observer: CaseLifecycleObserver | None = None,
 ) -> CompiledStateGraph:
     """Build and compile the layered Chancellor memorial graph.
@@ -470,13 +482,18 @@ def build_chancellor_graph(
         department = state["departments"][0]
         recall_context = safe_recall_context_for_department(department)
         try:
+            ministry_kwargs: dict[str, object] = {
+                "recall_context": recall_context,
+                "evidence_session": state["evidence_session"],
+            }
+            if report_session is not None:
+                ministry_kwargs["report_session"] = report_session
             opinion = invoke_ministry_agent(
                 department,
                 state["decree_text"],
                 state["chancellor_rationale"],
                 resolved_chat_model,
-                recall_context=recall_context,
-                evidence_session=state["evidence_session"],
+                **ministry_kwargs,
             )
         except Exception as exc:  # noqa: BLE001 - one sanitized graph error boundary
             error = ChancellorGraphInvocationError(
@@ -525,6 +542,8 @@ def build_chancellor_graph(
                 "recall_contexts": recall_contexts,
                 "evidence_session": state["evidence_session"],
             }
+            if report_session is not None:
+                council_kwargs["report_session"] = report_session
             if lifecycle_observer is not None:
                 council_kwargs["lifecycle_observer"] = lifecycle_observer
                 council_kwargs["processing_path"] = state["processing_path"]

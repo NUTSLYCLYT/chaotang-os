@@ -1188,7 +1188,14 @@ def test_http_success_contract_survives_link_failure_with_one_reply(tmp_path, mo
 
     monkeypatch.setattr(auth_storage, "_configured_db_path", tmp_path / "auth.sqlite3")
     user = create_user("evidence-user", "evidence@example.com", "six-or-more")
-    monkeypatch.setattr(decrees_module, "get_chancellor_graph", lambda: _Graph())
+    monkeypatch.setattr(
+        decrees_module, "get_chancellor_graph", lambda *, report_session: _Graph()
+    )
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "consume",
+        lambda **_kwargs: True,
+    )
     response = TestClient(
         app,
         headers={"Authorization": f"Bearer {create_session(user.id)}"},
@@ -1208,7 +1215,9 @@ def test_http_success_contract_survives_link_failure_with_one_reply(tmp_path, mo
         "council_verdict",
         "final_verdict",
         "recommendations",
+        "artifacts",
     }
+    assert response.json()["artifacts"] == []
     replies = storage.list_archives(owner_user_id=user.id, db_path=shiguan_path)
     assert len(replies) == 1
     assert replies[0].evidence_references[0].evidence_id == "evidence-1"

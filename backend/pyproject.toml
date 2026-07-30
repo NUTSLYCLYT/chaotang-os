@@ -11,6 +11,8 @@ dependencies = [
     "pyyaml>=6.0,<7",
     "python-dotenv>=1.0,<2",
     "jsonschema>=4.17",
+    "openpyxl>=3.1,<4",
+    "xlrd>=2.0,<3",
 ]
 
 [project.optional-dependencies]

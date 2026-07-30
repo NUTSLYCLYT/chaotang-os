@@ -96,7 +96,16 @@ def _ministry_turns(department: str, bureau_opinion: str, ministry_opinion: str)
                 "status": "READY",
                 "result": {
                     "opinion": f"建议{bureau_opinion}",
-                    "factual_claims": [],
+                    "factual_claims": [
+                        {
+                            "claim": f"建议{bureau_opinion}",
+                            "basis": "NORMATIVE",
+                            "evidence_ids": [],
+                            "fact_key": None,
+                            "category": None,
+                            "subject": None,
+                        }
+                    ],
                 },
                 "adopted_evidence_ids": [],
                 "fact_basis": "NOT_REQUIRED",
@@ -1546,3 +1555,124 @@ def test_real_graph_byd_price_gap_runs_jinyiwei_and_resolves_fresh_quote(
     assert "evidence_unavailable" not in synthesis_prompt
     assert "321.5" in synthesis_prompt
     assert "CNY" in synthesis_prompt
+def test_graph_sanitizes_report_failure_stage(monkeypatch):
+    marker = "private-ledger-path"
+
+    def fail_ministry(*_args, **_kwargs):
+        exc = MinistryAgentInvocationError(marker)
+        exc.failure_stage = "report"
+        raise exc
+
+    monkeypatch.setattr(
+        "app.agents.chancellor.graph.invoke_ministry_agent", fail_ministry
+    )
+    responses = iter([_single_route_response("户部")])
+    with pytest.raises(ChancellorGraphInvocationError) as caught:
+        build_chancellor_graph(
+            chat_model=lambda _messages: next(responses),
+            report_session=object(),
+        ).invoke({"decree_text": "生成2020年至2025年财务报表"})
+    assert caught.value.failure_stage == "report"
+    assert marker not in str(caught.value)
+
+
+def test_real_single_graph_report_session_preserves_model_call_sequence():
+    decree = "请户部会计司生成2020年会计报表"
+    responses = [
+        _single_route_response("户部"),
+        json.dumps(
+            {"rationale": "交会计司办理", "bureaus": ["会计司"]},
+            ensure_ascii=False,
+        ),
+        *_ministry_turns("户部", "会计司意见", "户部补充")[1:],
+        _final_response("单部门回奏"),
+    ]
+
+    def run(report_session=None):
+        captured = []
+        response_iter = iter(responses)
+
+        def model(messages):
+            captured.append(messages)
+            return next(response_iter)
+
+        result = build_chancellor_graph(
+            chat_model=model, report_session=report_session
+        ).invoke({"decree_text": decree})
+        return result, captured
+
+    baseline_result, baseline_calls = run()
+
+    class SpySession:
+        def __init__(self):
+            self.calls = []
+
+        def maybe_generate(self, *args):
+            self.calls.append(args)
+            return '{"period":{"start_year":2020,"end_year":2020}}'
+
+    session = SpySession()
+    result, report_calls = run(session)
+
+    assert session.calls == [("户部", "会计司", decree)]
+    assert result["departments"] == baseline_result["departments"] == ["户部"]
+    assert len(report_calls) == len(baseline_calls) == 5
+    assert [call[0]["content"] for call in report_calls] == [
+        call[0]["content"] for call in baseline_calls
+    ]
+
+
+def test_real_multi_graph_report_session_generates_once_and_preserves_order():
+    decree = "请户部生成2020年会计报表并由工部协同技术审查"
+    responses = [
+        _multi_route_response(["户部", "工部"]),
+        json.dumps(
+            {"rationale": "交会计司办理", "bureaus": ["会计司"]},
+            ensure_ascii=False,
+        ),
+        *_ministry_turns("户部", "会计司意见", "户部补充")[1:],
+        json.dumps(
+            {"rationale": "交技术司办理", "bureaus": ["技术司"]},
+            ensure_ascii=False,
+        ),
+        *_ministry_turns("工部", "技术司意见", "工部补充")[1:],
+        '{"verdict":"军机处会审意见"}',
+        _final_response("多部门回奏"),
+    ]
+
+    def run(report_session=None):
+        captured = []
+        response_iter = iter(responses)
+
+        def model(messages):
+            captured.append(messages)
+            return next(response_iter)
+
+        result = build_chancellor_graph(
+            chat_model=model, report_session=report_session
+        ).invoke({"decree_text": decree})
+        return result, captured
+
+    baseline_result, baseline_calls = run()
+
+    class SpySession:
+        def __init__(self):
+            self.calls = []
+
+        def maybe_generate(self, *args):
+            self.calls.append(args)
+            return '{"period":{"start_year":2020,"end_year":2020}}'
+
+    session = SpySession()
+    result, report_calls = run(session)
+
+    assert session.calls == [("户部", "会计司", decree)]
+    assert result["departments"] == baseline_result["departments"] == ["户部", "工部"]
+    assert [item["department"] for item in result["ministry_opinions"]] == [
+        "户部",
+        "工部",
+    ]
+    assert len(report_calls) == len(baseline_calls) == 9
+    assert [call[0]["content"] for call in report_calls] == [
+        call[0]["content"] for call in baseline_calls
+    ]
