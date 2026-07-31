@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from io import BytesIO
 from pathlib import Path
 
@@ -10,6 +11,13 @@ from openpyxl import load_workbook
 import app.api.decrees as decrees_api
 from app.accounting_reports.models import NormalizedLedgerRow, SourceRef
 from app.accounting_reports.session import AccountingReportSession
+from app.agents.chancellor.graph import build_chancellor_graph
+from app.agents.chancellor_draft.authority import DraftAuthorityRegistry
+from app.agents.chancellor_draft.routing import (
+    ApprovedDepartmentRoute,
+    ApprovedRouteSnapshot,
+)
+from app.agents.ministries.agent import invoke_ministry_agent
 from app.api.report_artifacts import configure_report_artifact_db
 from app.auth import configure_auth_db, create_session, create_user
 from app.main import app
@@ -64,7 +72,7 @@ class _AccountingGraph:
                 "department": department,
                 "bureau_opinions": [
                     {
-                        "bureau": "会计司" if department == "户部" else "营缮司",
+                        "bureau": "会计司" if department == "户部" else "技术司",
                         "opinion": "合成意见",
                     }
                 ],
@@ -76,7 +84,7 @@ class _AccountingGraph:
         if self.route_type == "multi":
             path.append("军机处（召集）")
         for department in departments:
-            bureau = "会计司" if department == "户部" else "营缮司"
+            bureau = "会计司" if department == "户部" else "技术司"
             path.extend(
                 [department, f"{department}·{bureau}", f"{department}（部级补充）"]
             )
@@ -96,9 +104,62 @@ class _AccountingGraph:
         }
 
 
+def test_required_accounting_bureau_alone_generates_and_publishes_excel(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = AccountingReportSession(
+        owner_user_id="owner-required-bureau",
+        run_id="run-required-bureau",
+        source_dir=tmp_path / "source",
+        artifact_dir=tmp_path / "artifacts",
+        db_path=tmp_path / "artifacts.sqlite3",
+    )
+    monkeypatch.setattr(
+        "app.accounting_reports.session.load_ledger_rows",
+        lambda _source, _period: SYNTHETIC_ROWS,
+    )
+    captured: list[list[dict[str, str]]] = []
+    responses = iter(
+        [
+            '{"rationale":"生成财务报表","bureaus":["会计司"]}',
+            '{"opinion":"会计司已生成管理报告"}',
+            '{"opinion":"户部确认会计管理报告"}',
+        ]
+    )
+
+    def chat_model(messages: list[dict[str, str]]) -> str:
+        captured.append(messages)
+        return next(responses)
+
+    result = invoke_ministry_agent(
+        "户部",
+        "请生成2025年财务报表",
+        "批准户部会计司办理",
+        chat_model,
+        required_bureaus=("会计司",),
+        report_session=session,
+    )
+    published = session.publish("reply-required-bureau")
+
+    assert len(captured) == 3
+    assert "你是户部下属的会计司" in captured[1][0]["content"]
+    assert "会计司确定性报表摘要" in captured[1][1]["content"]
+    assert [item["bureau"] for item in result["bureau_opinions"]] == ["会计司"]
+    assert len(published) == 1
+    assert published[0].display_name.endswith("会计管理报告.xlsx")
+    workbook = load_workbook(published[0].file_path, data_only=False)
+    try:
+        assert "管理摘要" in workbook.sheetnames
+        assert "核心财务报表" in workbook.sheetnames
+        assert workbook["核心财务报表"]["A2"].value == 2025
+    finally:
+        workbook.close()
+
+
 @pytest.mark.parametrize(
     ("route_type", "expected_departments"),
-    [("single", ["户部"]), ("multi", ["户部", "工部"])],
+    [("single", ["户部"])],
 )
 def test_synthetic_accounting_report_crosses_decree_archive_publish_and_download(
     route_type: str,
@@ -139,7 +200,19 @@ def test_synthetic_accounting_report_crosses_decree_archive_publish_and_download
         lambda *, report_session: _AccountingGraph(report_session, route_type),
     )
     monkeypatch.setattr(
-        decrees_api.draft_authority_registry, "consume", lambda **_kwargs: True
+        decrees_api.draft_authority_registry,
+        "consume",
+        lambda **_kwargs: ApprovedRouteSnapshot(
+            departments=tuple(
+                ApprovedDepartmentRoute(
+                    department=department,
+                    required_bureaus=(
+                        ("会计司",) if department == "户部" else ("技术司",)
+                    ),
+                )
+                for department in expected_departments
+            )
+        ),
     )
 
     try:
@@ -150,7 +223,7 @@ def test_synthetic_accounting_report_crosses_decree_archive_publish_and_download
                 json={"decree_text": "请生成2025年财务报表"},
                 headers=owner_headers,
             )
-            assert response.status_code == 200
+            assert response.status_code == 200, response.text
             body = response.json()
             assert body["departments"] == expected_departments
             assert [
@@ -165,7 +238,7 @@ def test_synthetic_accounting_report_crosses_decree_archive_publish_and_download
                     "户部·会计司",
                     "户部（部级补充）",
                     "工部",
-                    "工部·营缮司",
+                    "工部·技术司",
                     "工部（部级补充）",
                     "军机处（会审）",
                     "丞相（最终汇总）",
@@ -215,6 +288,190 @@ def test_synthetic_accounting_report_crosses_decree_archive_publish_and_download
             ) == 1000
         finally:
             workbook.close()
+    finally:
+        configure_report_artifact_db(None)
+        configure_auth_db(None)
+
+
+def test_real_authority_graph_report_archive_download_trust_chain(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    isolate_shiguan_default_db_path,
+) -> None:
+    del isolate_shiguan_default_db_path
+    auth_db = tmp_path / "auth.sqlite3"
+    artifact_db = tmp_path / "artifacts.sqlite3"
+    configure_auth_db(auth_db)
+    owner = create_user("chain-owner", "chain-owner@example.test", "six-or-more")
+    other = create_user("chain-other", "chain-other@example.test", "six-or-more")
+    owner_headers = {"Authorization": f"Bearer {create_session(owner.id)}"}
+    other_headers = {"Authorization": f"Bearer {create_session(other.id)}"}
+    decree_text = (
+        "请户部会计司根据现有财务数据，生成2024年至2025年管理层综合财务报表，"
+        "并交付可下载的 Excel 文件。报告需包括管理摘要、核心财务报表、科目趋势、"
+        "异常分析、科目明细、校验结果和数据来源；核对金额、同比变化及勾稽关系，"
+        "列明数据缺口，不修改原始数据。"
+    )
+    draft_version = 9
+    draft_fingerprint = "9" * 64
+    approved_route = ApprovedRouteSnapshot(
+        departments=(
+            ApprovedDepartmentRoute(
+                department="户部", required_bureaus=("会计司",)
+            ),
+        )
+    )
+    registry = DraftAuthorityRegistry()
+    registry.register(
+        owner_user_id=owner.id,
+        version=draft_version,
+        fingerprint=draft_fingerprint,
+        decree_text=decree_text,
+        route_snapshot=approved_route,
+    )
+    monkeypatch.setattr(decrees_api, "draft_authority_registry", registry)
+    monkeypatch.setattr(
+        "app.agents.chancellor.graph.run_junjichu_council",
+        lambda *_args, **_kwargs: pytest.fail(
+            "single accounting route must not invoke 军机处"
+        ),
+    )
+    monkeypatch.setattr(
+        decrees_api,
+        "open_case",
+        lambda *_args, **_kwargs: pytest.fail(
+            "single accounting route must not open a 军机处 case"
+        ),
+    )
+    monkeypatch.setattr(
+        "app.agents.evidence_protocol.invoke_bureau_with_evidence",
+        lambda *_args, **_kwargs: pytest.fail(
+            "deterministic accounting report must not request 锦衣卫 evidence"
+        ),
+    )
+    monkeypatch.setattr(
+        "app.accounting_reports.session.load_ledger_rows",
+        lambda _source, _period: SYNTHETIC_ROWS,
+    )
+
+    def build_session(
+        *, owner_user_id: str, run_id: str
+    ) -> AccountingReportSession:
+        return AccountingReportSession(
+            owner_user_id=owner_user_id,
+            run_id=run_id,
+            source_dir=tmp_path / "synthetic-source",
+                artifact_dir=tmp_path / "report_artifacts",
+            db_path=artifact_db,
+        )
+
+    responses = iter(
+        [
+            '{"rationale":"批准会计司办理","bureaus":["会计司"]}',
+            '{"opinion":"会计司已生成并核验管理报告"}',
+            '{"opinion":"户部确认会计管理报告"}',
+            (
+                '{"summary":"准予交付会计管理报告",'
+                '"recommendations":["核验来源","复核勾稽","审阅报告"]}'
+            ),
+        ]
+    )
+    monkeypatch.setattr(
+        decrees_api, "build_accounting_report_session", build_session
+    )
+    monkeypatch.setattr(
+        decrees_api,
+        "get_chancellor_graph",
+        lambda *, report_session: build_chancellor_graph(
+            chat_model=lambda _messages: next(responses),
+            lifecycle_observer=decrees_api._lifecycle_observer_context.get(),
+            report_session=report_session,
+        ),
+    )
+
+    try:
+        with TestClient(app) as client:
+            configure_report_artifact_db(artifact_db)
+            response = client.post(
+                "/api/v1/decrees/chancellor",
+                headers=owner_headers,
+                json={
+                    "decree_text": decree_text,
+                    "draft_version": draft_version,
+                    "draft_fingerprint": draft_fingerprint,
+                },
+            )
+
+            assert response.status_code == 200, response.text
+            body = response.json()
+            assert body["route_type"] == "single"
+            assert body["departments"] == ["户部"]
+            assert body["processing_path"] == [
+                "上书房",
+                "丞相（首次分流）",
+                "户部",
+                "户部·会计司",
+                "户部（部级补充）",
+                "丞相（最终汇总）",
+            ]
+            assert body["council_verdict"] is None
+            assert [
+                item["bureau"]
+                for item in body["ministry_opinions"][0]["bureau_opinions"]
+            ] == ["会计司"]
+            artifact_id = body["artifacts"][0]["artifact_id"]
+            download = client.get(
+                f"/api/v1/report-artifacts/{artifact_id}/download",
+                headers=owner_headers,
+            )
+            assert download.status_code == 200
+            workbook = load_workbook(BytesIO(download.content), data_only=False)
+            try:
+                assert "管理摘要" in workbook.sheetnames
+                assert workbook["核心财务报表"]["A2"].value == 2024
+                assert workbook["核心财务报表"]["A3"].value == 2025
+            finally:
+                workbook.close()
+
+            archives = client.get(
+                "/api/v1/shiguan/archives?type=REPLY", headers=owner_headers
+            ).json()
+            assert len(archives) == 1
+            authority = next(
+                item
+                for item in archives[0]["evidence"]
+                if item["source"] == "approved_route_authority"
+            )
+            assert json.loads(authority["note"]) == {
+                "draft_fingerprint": draft_fingerprint,
+                "draft_version": draft_version,
+                "departments": [
+                    {
+                        "department": "户部",
+                        "required_bureaus": ["会计司"],
+                    }
+                ],
+            }
+            assert (
+                client.get(
+                    f"/api/v1/shiguan/archives/{archives[0]['id']}",
+                    headers=other_headers,
+                ).status_code
+                == 404
+            )
+            assert (
+                client.get(
+                    f"/api/v1/report-artifacts/{artifact_id}/download",
+                    headers=other_headers,
+                ).status_code
+                == 404
+            )
+            assert registry.consume(
+                owner_user_id=owner.id,
+                version=draft_version,
+                fingerprint=draft_fingerprint,
+                decree_text=decree_text,
+            ) is None
     finally:
         configure_report_artifact_db(None)
         configure_auth_db(None)

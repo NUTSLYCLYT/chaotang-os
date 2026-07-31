@@ -37,6 +37,10 @@ from app.agents.chancellor import (
     ChancellorGraphInvocationError,
     build_chancellor_graph,
 )
+from app.agents.chancellor_draft.routing import (
+    ApprovedDepartmentRoute,
+    ApprovedRouteSnapshot,
+)
 from app.auth import configure_auth_db, create_session, create_user
 from app.langgraph_runtime.deepseek_client import DeepSeekModelNameError
 from app.langgraph_runtime.deepseek_config import DeepSeekApiKeyError
@@ -46,6 +50,34 @@ from app.shiguan import storage as shiguan_storage
 client = TestClient(app)
 
 DECREE_URL = "/api/v1/decrees/chancellor"
+ACCOUNTING_DECREE = (
+    "请户部会计司根据现有财务数据，生成2024年至2025年管理层综合财务报表，"
+    "并交付可下载的 Excel 文件。报告需包括管理摘要、核心财务报表、科目趋势、"
+    "异常分析、科目明细、校验结果和数据来源；核对金额、同比变化及勾稽关系，"
+    "列明数据缺口，不修改原始数据。"
+)
+ACCOUNTING_PROCESSING_PATH = [
+    "上书房",
+    "丞相（首次分流）",
+    "户部",
+    "户部·会计司",
+    "户部（部级补充）",
+    "丞相（最终汇总）",
+]
+
+
+def _approved_route(
+    *routes: tuple[str, tuple[str, ...]],
+) -> ApprovedRouteSnapshot:
+    return ApprovedRouteSnapshot(
+        departments=tuple(
+            ApprovedDepartmentRoute(
+                department=department,
+                required_bureaus=required_bureaus,
+            )
+            for department, required_bureaus in routes
+        )
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -56,7 +88,7 @@ def _authenticate_client(isolate_shiguan_default_db_path, tmp_path, monkeypatch)
     monkeypatch.setattr(
         decrees_module.draft_authority_registry,
         "consume",
-        lambda **_kwargs: True,
+        lambda **_kwargs: _approved_route(("吏部", ("任免司",))),
     )
     monkeypatch.setattr(
         decrees_module,
@@ -126,6 +158,23 @@ _MULTI_ROUTE_RESULT = {
     "council_verdict": "军机处会审：同意分期拨付、分段验收。",
     "final_verdict": "丞相汇总：准予兴修水利，户部与工部依会审结论协同。",
     "recommendations": ["先完成勘察", "分期拨付预算", "按里程碑验收"],
+}
+
+_ACCOUNTING_ROUTE_RESULT = {
+    **deepcopy(_SINGLE_ROUTE_RESULT),
+    "decree_text": ACCOUNTING_DECREE,
+    "chancellor_rationale": "依已批准拟旨路由办理。",
+    "departments": ["户部"],
+    "processing_path": ACCOUNTING_PROCESSING_PATH,
+    "ministry_opinions": [
+        {
+            "department": "户部",
+            "bureau_opinions": [
+                {"bureau": "会计司", "opinion": "会计司已生成财务报表。"}
+            ],
+            "opinion": "户部确认会计司财务报表。",
+        }
+    ],
 }
 
 
@@ -231,6 +280,118 @@ def test_normal_decree_returns_empty_artifacts(fake_provider, report_session):
     assert len(builds[0]["run_id"]) == 32
 
 
+def test_consumes_and_validates_route_before_creating_side_effects(
+    monkeypatch, fake_provider
+):
+    effects: list[str] = []
+    invalid = ApprovedRouteSnapshot.model_construct(
+        departments=({"department": "未知部", "required_bureaus": ("未知司",)},)
+    )
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "consume",
+        lambda **_kwargs: invalid,
+    )
+    monkeypatch.setattr(
+        decrees_module,
+        "build_accounting_report_session",
+        lambda **_kwargs: effects.append("report"),
+    )
+    monkeypatch.setattr(
+        decrees_module,
+        "_StorageCaseLifecycleObserver",
+        lambda *_args: effects.append("observer"),
+    )
+    provider = fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_SINGLE_ROUTE_RESULT)))
+    monkeypatch.setattr(
+        decrees_module,
+        "archive_chancellor_decree",
+        lambda *_args, **_kwargs: effects.append("archive"),
+    )
+
+    response = client.post(DECREE_URL, json={"decree_text": "整顿吏治"})
+
+    assert response.status_code == 409
+    assert effects == []
+    assert provider.call_count == 0
+
+
+def test_passes_consumed_snapshot_by_identity_to_graph(monkeypatch, fake_provider):
+    approved = _approved_route(("吏部", ("任免司",)))
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "consume",
+        lambda **_kwargs: approved,
+    )
+    graph = _FakeGraph(invoke_result=_SINGLE_ROUTE_RESULT)
+    fake_provider(_FakeProvider(graph=graph))
+
+    response = client.post(DECREE_URL, json={"decree_text": "整顿吏治"})
+
+    assert response.status_code == 200
+    assert graph.invoke_calls == [
+        {"decree_text": "整顿吏治", "approved_route": approved}
+    ]
+
+
+@pytest.mark.parametrize(
+    "result",
+    [
+        {**_SINGLE_ROUTE_RESULT, "departments": ["礼部"]},
+        {
+            **_SINGLE_ROUTE_RESULT,
+            "ministry_opinions": [
+                {
+                    "department": "吏部",
+                    "bureau_opinions": [{"bureau": "考功司", "opinion": "考核"}],
+                    "opinion": "吏部意见",
+                }
+            ],
+        },
+    ],
+)
+def test_rejects_graph_route_drift_before_archive(
+    monkeypatch, fake_provider, result
+):
+    approved = _approved_route(("吏部", ("任免司",)))
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "consume",
+        lambda **_kwargs: approved,
+    )
+    archive_calls: list[object] = []
+    monkeypatch.setattr(
+        decrees_module,
+        "archive_chancellor_decree",
+        lambda *_args, **_kwargs: archive_calls.append(True),
+    )
+    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=result)))
+
+    response = client.post(DECREE_URL, json={"decree_text": "整顿吏治"})
+
+    assert response.status_code == 502
+    assert archive_calls == []
+
+
+def test_request_rejects_client_supplied_route(fake_provider):
+    provider = fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_SINGLE_ROUTE_RESULT)))
+
+    response = client.post(
+        DECREE_URL,
+        json={
+            "decree_text": "整顿吏治",
+            "approved_route": {
+                "departments": [
+                    {"department": "礼部", "required_bureaus": ["品牌司"]}
+                ]
+            },
+        },
+    )
+
+    assert response.status_code == 422
+    assert provider.call_count == 0
+
+
 def test_report_artifact_publishes_once_only_after_successful_archive(
     fake_provider, monkeypatch, report_session
 ):
@@ -246,7 +407,12 @@ def test_report_artifact_publishes_once_only_after_successful_archive(
         ),
     )
     events = []
-    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_SINGLE_ROUTE_RESULT)))
+    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_ACCOUNTING_ROUTE_RESULT)))
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "consume",
+        lambda **_kwargs: _approved_route(("户部", ("会计司",))),
+    )
     real_archive = decrees_module.archive_chancellor_decree
 
     def archive(*args, **kwargs):
@@ -261,7 +427,7 @@ def test_report_artifact_publishes_once_only_after_successful_archive(
         return original_publish(reply_id)
 
     session.publish = publish
-    response = client.post(DECREE_URL, json={"decree_text": "生成2020至2025年财务报表"})
+    response = client.post(DECREE_URL, json={"decree_text": ACCOUNTING_DECREE})
 
     assert response.status_code == 200
     assert events == ["archive", "publish"]
@@ -287,14 +453,19 @@ def test_archive_failure_aborts_pending_report_and_prevents_publication(
 ):
     session, _builds = report_session
     session.has_pending = True
-    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_SINGLE_ROUTE_RESULT)))
+    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_ACCOUNTING_ROUTE_RESULT)))
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "consume",
+        lambda **_kwargs: _approved_route(("户部", ("会计司",))),
+    )
     monkeypatch.setattr(
         decrees_module,
         "archive_chancellor_decree",
         lambda *_args, **_kwargs: SimpleNamespace(archived=False, reply_id="reply-1"),
     )
 
-    response = client.post(DECREE_URL, json={"decree_text": "生成2020至2025年财务报表"})
+    response = client.post(DECREE_URL, json={"decree_text": ACCOUNTING_DECREE})
 
     assert response.status_code == 502
     assert response.json()["reason"] == "report_unavailable"
@@ -307,14 +478,19 @@ def test_publication_failure_is_sanitized_and_aborts(
     session, _builds = report_session
     session.has_pending = True
     session.publish_error = RuntimeError("secret path C:/private/report.xlsx")
-    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_SINGLE_ROUTE_RESULT)))
+    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_ACCOUNTING_ROUTE_RESULT)))
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "consume",
+        lambda **_kwargs: _approved_route(("户部", ("会计司",))),
+    )
     monkeypatch.setattr(
         decrees_module,
         "archive_chancellor_decree",
         lambda *_args, **_kwargs: SimpleNamespace(archived=True, reply_id="reply-1"),
     )
 
-    response = client.post(DECREE_URL, json={"decree_text": "生成2020至2025年财务报表"})
+    response = client.post(DECREE_URL, json={"decree_text": ACCOUNTING_DECREE})
 
     assert response.status_code == 502
     assert response.json()["reason"] == "report_unavailable"
@@ -327,14 +503,19 @@ def test_archive_exception_is_sanitized_as_report_failure_and_aborts(
 ):
     session, _builds = report_session
     session.has_pending = True
-    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_SINGLE_ROUTE_RESULT)))
+    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_ACCOUNTING_ROUTE_RESULT)))
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "consume",
+        lambda **_kwargs: _approved_route(("户部", ("会计司",))),
+    )
 
     def fail_archive(*_args, **_kwargs):
         raise RuntimeError("private Shiguan path")
 
     monkeypatch.setattr(decrees_module, "archive_chancellor_decree", fail_archive)
 
-    response = client.post(DECREE_URL, json={"decree_text": "生成2020至2025年财务报表"})
+    response = client.post(DECREE_URL, json={"decree_text": ACCOUNTING_DECREE})
 
     assert response.status_code == 502
     assert response.json()["reason"] == "report_unavailable"
@@ -358,7 +539,8 @@ def test_draft_authority_exception_is_sanitized_and_aborts(
     assert response.status_code == 502
     assert response.json()["reason"] == "report_unavailable"
     assert "private" not in response.text
-    assert session.events == ["abort"]
+    assert session.events == []
+    assert _builds == []
     assert provider.call_count == 0
 
 
@@ -456,12 +638,20 @@ def test_submit_decree_single_route_returns_full_contract(fake_provider, monkeyp
     assert body["final_verdict"]
     assert len(body["recommendations"]) == 3
     assert provider.call_count == 1
-    assert graph.invoke_calls == [{"decree_text": "整顿吏治"}]
-    assert archived_calls[0][:3] == (
+    assert graph.invoke_calls[0]["decree_text"] == "整顿吏治"
+    assert graph.invoke_calls[0]["approved_route"] == _approved_route(
+        ("吏部", ("任免司",))
+    )
+    assert archived_calls[0][0:2] == (
         "整顿吏治",
         decrees_module.ChancellorDecreeResponse(**body),
-        _SINGLE_ROUTE_RESULT,
     )
+    assert archived_calls[0][2] == {
+        **_SINGLE_ROUTE_RESULT,
+        "approved_route": _approved_route(("吏部", ("任免司",))),
+        "draft_version": None,
+        "draft_fingerprint": None,
+    }
     assert archived_calls[0][3]
 
 
@@ -502,7 +692,14 @@ def test_successful_single_decree_archives_one_reply_with_original_source_text(
     )
 
 
-def test_submit_decree_multi_route_returns_full_contract(fake_provider):
+def test_submit_decree_multi_route_returns_full_contract(fake_provider, monkeypatch):
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "consume",
+        lambda **_kwargs: _approved_route(
+            ("户部", ("预算司",)), ("工部", ("进度司",))
+        ),
+    )
     graph = _FakeGraph(invoke_result=_MULTI_ROUTE_RESULT)
     fake_provider(_FakeProvider(graph=graph))
 
@@ -529,12 +726,15 @@ def test_submit_decree_multi_route_returns_full_contract(fake_provider):
 
 
 def test_real_graph_single_route_keeps_api_contract_and_exposes_named_bureau_opinion(
-    fake_provider,
+    fake_provider, monkeypatch
 ):
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "consume",
+        lambda **_kwargs: _approved_route(("礼部", ("品牌司",))),
+    )
     responses = iter(
         [
-            '{"route_type": "single", "rationale": "交由礼部办理", '
-            '"departments": ["礼部"]}',
             '{"rationale": "交由品牌司办理", "bureaus": ["品牌司"]}',
             '{"status":"READY","result":{"opinion":"建议统一品牌表达与视觉资产",'
             '"factual_claims":[{"claim":"建议统一品牌表达与视觉资产",'
@@ -576,7 +776,10 @@ def test_submit_decree_strips_surrounding_whitespace_before_agent_call(fake_prov
     response = client.post(DECREE_URL, json={"decree_text": "  整顿吏治  "})
 
     assert response.status_code == 200
-    assert graph.invoke_calls == [{"decree_text": "整顿吏治"}]
+    assert graph.invoke_calls[0]["decree_text"] == "整顿吏治"
+    assert graph.invoke_calls[0]["approved_route"] == _approved_route(
+        ("吏部", ("任免司",))
+    )
 
 
 @pytest.mark.parametrize(
@@ -829,6 +1032,155 @@ def test_multi_without_council_verdict_maps_to_sanitized_502(fake_provider):
 
     assert response.status_code == 502
     assert response.json()["reason"] == "model_unavailable"
+
+
+@pytest.mark.parametrize(
+    "bureau_opinions",
+    [
+        pytest.param(
+            [
+                {"bureau": "会计司", "opinion": "会计意见"},
+                {"bureau": "技术司", "opinion": "跨部伪造意见"},
+            ],
+            id="cross_department_bureau",
+        ),
+        pytest.param(
+            [
+                {"bureau": "会计司", "opinion": "会计意见"},
+                {"bureau": "未知司", "opinion": "未知司伪造意见"},
+            ],
+            id="unknown_bureau",
+        ),
+        pytest.param(
+            [
+                {"bureau": "会计司", "opinion": "第一份会计意见"},
+                {"bureau": "会计司", "opinion": "重复会计意见"},
+            ],
+            id="duplicate_bureau",
+        ),
+    ],
+)
+def test_rejects_adversarial_bureau_opinions_before_archive(
+    fake_provider, monkeypatch, bureau_opinions
+):
+    invoke_result = deepcopy(_SINGLE_ROUTE_RESULT)
+    invoke_result["departments"] = ["户部"]
+    invoke_result["ministry_opinions"] = [
+        {
+            "department": "户部",
+            "bureau_opinions": bureau_opinions,
+            "opinion": "户部意见",
+        }
+    ]
+    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=invoke_result)))
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "consume",
+        lambda **_kwargs: _approved_route(("户部", ("会计司",))),
+    )
+    archive_calls: list[object] = []
+    monkeypatch.setattr(
+        decrees_module,
+        "archive_chancellor_decree",
+        lambda *_args, **_kwargs: archive_calls.append(True),
+    )
+
+    response = client.post(DECREE_URL, json={"decree_text": "核验户部意见"})
+
+    assert response.status_code == 502
+    assert response.json()["reason"] == "model_unavailable"
+    assert archive_calls == []
+
+
+@pytest.mark.parametrize(
+    ("path", "bureaus"),
+    [
+        pytest.param(
+            [
+                "上书房",
+                "丞相（首次分流）",
+                "军机处（召集）",
+                "户部",
+                "户部·会计司",
+                "军机处（会审）",
+                "丞相（最终汇总）",
+            ],
+            ["会计司"],
+            id="junjichu_path",
+        ),
+        pytest.param(
+            [
+                "上书房",
+                "丞相（首次分流）",
+                "户部",
+                "户部·会计司",
+                "锦衣卫（调查）",
+                "户部（部级补充）",
+                "丞相（最终汇总）",
+            ],
+            ["会计司"],
+            id="jinyiwei_path",
+        ),
+        pytest.param(
+            [
+                "上书房",
+                "丞相（首次分流）",
+                "户部",
+                "户部·会计司",
+                "礼部",
+                "工部",
+                "户部（部级补充）",
+                "丞相（最终汇总）",
+            ],
+            ["会计司"],
+            id="other_ministry_path",
+        ),
+        pytest.param(
+            ACCOUNTING_PROCESSING_PATH,
+            ["会计司", "审计司"],
+            id="extra_hubu_bureau",
+        ),
+    ],
+)
+def test_accounting_decree_rejects_any_route_beyond_exact_approved_path_before_archive(
+    fake_provider, monkeypatch, path, bureaus
+):
+    invoke_result = deepcopy(_SINGLE_ROUTE_RESULT)
+    invoke_result.update(
+        {
+            "decree_text": ACCOUNTING_DECREE,
+            "departments": ["户部"],
+            "processing_path": path,
+            "ministry_opinions": [
+                {
+                    "department": "户部",
+                    "bureau_opinions": [
+                        {"bureau": bureau, "opinion": f"{bureau}意见"}
+                        for bureau in bureaus
+                    ],
+                    "opinion": "户部确认会计司财务报表。",
+                }
+            ],
+        }
+    )
+    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=invoke_result)))
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "consume",
+        lambda **_kwargs: _approved_route(("户部", ("会计司",))),
+    )
+    archive_calls: list[object] = []
+    monkeypatch.setattr(
+        decrees_module,
+        "archive_chancellor_decree",
+        lambda *_args, **_kwargs: archive_calls.append(True),
+    )
+
+    response = client.post(DECREE_URL, json={"decree_text": ACCOUNTING_DECREE})
+
+    assert response.status_code == 502
+    assert response.json()["reason"] == "model_unavailable"
+    assert archive_calls == []
 
 
 @pytest.mark.parametrize(

@@ -186,3 +186,32 @@ for (const [name, body] of [
     assert.equal(calls, 0);
   });
 }
+
+for (const decreeText of [" ", "旨".repeat(2001)]) {
+  test(`POST rejects out-of-bounds decree text before backend: ${decreeText.length}`, async () => {
+    let calls = 0;
+    const handler = createPostHandler(async () => {
+      calls += 1;
+      return SINGLE_RESULT;
+    });
+
+    const response = await handler(makeRequest({ decreeText }));
+
+    assert.equal(response.status, 400);
+    assert.equal(calls, 0);
+  });
+}
+
+test("POST preserves a valid 2000-character decree text exactly", async () => {
+  const decreeText = ` ${"旨".repeat(1998)} `;
+  let received = "";
+  const handler = createPostHandler(async (text) => {
+    received = text;
+    return SINGLE_RESULT;
+  });
+
+  const response = await handler(makeRequest({ decreeText }));
+
+  assert.equal(response.status, 200);
+  assert.equal(received, decreeText);
+});

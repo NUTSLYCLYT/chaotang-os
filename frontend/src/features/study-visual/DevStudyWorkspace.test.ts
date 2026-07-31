@@ -79,20 +79,63 @@ test("composer only drafts while the completed draft scroll owns the sole issue 
     (source.match(/data-testid="submit-decree-button"/g) ?? []).length,
     1,
   );
+  assert.match(draftBranch, /即将下旨的草案/);
   assert.ok(
-    draftBranch.indexOf("完整拟旨草案") <
+    draftBranch.indexOf("即将下旨的草案") <
       draftBranch.indexOf('data-testid="submit-decree-button"'),
+  );
+  assert.doesNotMatch(
+    draftBranch,
+    /JSON\.stringify\(props\.draftResult\.draft|<pre>/,
   );
 });
 
-test("ready draft is presented as an expert edict with visible temporary boundaries", async () => {
+test("ready draft only presents participating departments and the edict about to be issued", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+  const draftBranch = source.slice(
+    source.indexOf(") : props.draftResult ? ("),
+    source.indexOf(") : archivedReply ? ("),
+  );
+
+  assert.match(draftBranch, /参与部门/);
+  assert.match(draftBranch, /必选承办司/);
+  assert.match(draftBranch, /角色/);
+  assert.match(draftBranch, /参与原因/);
+  assert.match(draftBranch, /负责事项/);
+  assert.match(draftBranch, /预计产出/);
+  assert.match(draftBranch, /即将下旨的草案/);
+  assert.match(draftBranch, /props\.draftResult\.expert_example/);
+  assert.match(draftBranch, /draftDepartmentDisplayRows\(props\.draftResult\.draft\.departments\)\.map/);
+  assert.match(draftBranch, /item\.department/);
+  assert.match(draftBranch, /item\.bureaus/);
+  assert.match(draftBranch, /item\.role/);
+  assert.match(draftBranch, /item\.reason/);
+  assert.match(draftBranch, /item\.responsibility/);
+  assert.match(draftBranch, /item\.expectedOutput/);
+  assert.doesNotMatch(draftBranch, /\{item\.department\} · \{item\.role\}/);
+  assert.match(draftBranch, /当前状态/);
+  assert.match(draftBranch, /草案完整，可以直接下旨/);
+  assert.doesNotMatch(
+    draftBranch,
+    /臣对您的理解|大神级拟旨草案|丞相为什么这样补全|丞相建议与暂定边界|任务目标|执行范围|不包含|输入材料|材料缺口|重点问题|执行步骤|最终交付物|完成标准|权限与限制/,
+  );
+  assert.doesNotMatch(
+    draftBranch,
+    /props\.draftResult\.(understanding|recommendation_reason|assumptions)|props\.draftResult\.draft\.(objective|scope|exclusions|input_materials|material_gaps|key_questions|execution_steps|deliverables|completion_criteria|permissions_and_limits)/,
+  );
+});
+
+test("draft pending and failure are visible in the central scroll", async () => {
   const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
 
-  assert.match(source, /大神级拟旨草案/);
-  assert.match(source, /丞相为什么这样补全/);
-  assert.match(source, /丞相建议与暂定边界/);
-  assert.match(source, /草案完整，可以直接下旨/);
-  assert.doesNotMatch(source, /请按案例修改/);
+  assert.match(
+    source,
+    /const showScroll = [^;]*props\.draftPending[^;]*props\.draftError/,
+  );
+  assert.match(source, /props\.draftPending \? \(/);
+  assert.match(source, /丞相正在揣摩上意并整理拟旨草案/);
+  assert.match(source, /props\.draftError \? \(/);
+  assert.match(source, /拟旨未能完成/);
 });
 
 test("study places the decree composer in the quick dock center slot", async () => {
@@ -267,9 +310,9 @@ test("study mounts side drawers in the shell overlay layer", async () => {
 
 test("successful reply delegates artifact rendering after the three recommendations", async () => {
   const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
-  const successBranch = source.match(
-    /props\.uiState\.phase === "success" \? \(([\s\S]*?)\) : props\.draftResult/,
-  )?.[1] ?? "";
+  const successStart = source.indexOf('props.uiState.phase === "success" ? (');
+  const successEnd = source.indexOf(") : (", successStart);
+  const successBranch = source.slice(successStart, successEnd);
 
   assert.match(source, /import \{ StudyArtifactLinks \} from "\.\/StudyArtifactLinks"/);
   assert.match(source, /projectStudyArtifacts\(props\.uiState\)/);

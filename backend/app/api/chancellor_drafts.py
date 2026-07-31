@@ -15,6 +15,7 @@ from app.agents.chancellor_draft import (
     build_chancellor_draft_graph,
 )
 from app.agents.chancellor_draft.authority import draft_authority_registry
+from app.agents.chancellor_draft.routing import build_route_snapshot
 from app.api.auth import CurrentUser
 from app.langgraph_runtime.deepseek_client import DeepSeekModelNameError
 from app.langgraph_runtime.deepseek_config import DeepSeekConfigError
@@ -114,6 +115,7 @@ def submit_chancellor_draft(
             version=validated.version,
             fingerprint=validated.fingerprint,
             decree_text=validated.decree_text,
+            route_snapshot=build_route_snapshot(validated.draft),
         )
     else:
         draft_authority_registry.revoke(owner_user_id=current_user.id)

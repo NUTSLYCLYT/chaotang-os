@@ -13,7 +13,10 @@ import { StudySideDrawers } from "./StudySideDrawers";
 import { StudyArtifactLinks } from "./StudyArtifactLinks";
 import { getStudyDepartmentCountLabel, projectStudyArtifacts } from "./studyWorkspaceState";
 import type { ConsultMessage } from "../../app/study/chancellorConsultStatus";
-import type { ChancellorDraftResult } from "../../app/study/chancellorDraft";
+import {
+  draftDepartmentDisplayRows,
+  type ChancellorDraftResult,
+} from "../../app/study/chancellorDraft";
 import type { StudyRecentRepliesState } from "../../app/study/studyRecentReplies";
 import type { ShiguanArchive } from "../../lib/backendClient";
 import { formatBusinessTime } from "../../lib/formatBusinessTime";
@@ -200,8 +203,8 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
   const archivedReply = props.selectedArchivedReply;
   const archivedReplyId = archivedReply?.id;
   const archivedReplyRef = useRef<HTMLElement>(null);
-  const showScroll = expanded || archivedReply !== null || props.uiState.phase !== "idle" || props.draftResult !== null;
-  const hasReplyContent = archivedReply !== null || props.uiState.phase === "success" || props.draftResult !== null;
+  const showScroll = expanded || archivedReply !== null || props.uiState.phase !== "idle" || props.draftPending || props.draftError !== null || props.draftResult !== null;
+  const hasReplyContent = archivedReply !== null || props.uiState.phase === "success" || props.draftPending || props.draftError !== null || props.draftResult !== null;
   const artifactView = projectStudyArtifacts(props.uiState);
 
   useEffect(() => {
@@ -302,6 +305,65 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
               countLabel={getStudyDepartmentCountLabel(props.uiState)}
               onOpen={() => setExpanded(true)}
             />
+          ) : props.draftPending ? (
+            <section className={styles.emptyStage} data-testid="chancellor-draft-pending" aria-live="polite">
+              <p>丞相正在揣摩上意并整理拟旨草案……</p>
+            </section>
+          ) : props.draftError ? (
+            <section className={styles.emptyStage} data-testid="chancellor-draft-error" aria-live="polite">
+              <p className={styles.emptyError}><strong>拟旨未能完成</strong>{props.draftError}</p>
+            </section>
+          ) : props.draftResult ? (
+            <EdictStage
+              document={{
+                id: `draft-${props.draftResult.fingerprint}`,
+                kicker: `丞相拟旨 · 第 ${props.draftResult.version} 版`,
+                title: "拟旨草案",
+                issuer: `当前状态 · ${props.draftResult.status}`,
+              }}
+              theme="imperial"
+              bodyLabel="丞相拟旨草案"
+            >
+              <section className={styles.response} data-testid="chancellor-draft-result">
+                <div className={styles.returnContent}>
+                  {props.draftResult.draft && (
+                    <section data-testid="chancellor-readable-draft">
+                      <h2>参与部门</h2>
+                      <ul data-testid="chancellor-draft-departments">
+                        {draftDepartmentDisplayRows(props.draftResult.draft.departments).map((item) => (
+                          <li key={`${item.department}-${item.role}`}>
+                            <p><strong>参与部门：</strong>{item.department}</p>
+                            <p><strong>必选承办司：</strong>{item.bureaus}</p>
+                            <p><strong>角色：</strong>{item.role}</p>
+                            <p><strong>参与原因：</strong>{item.reason}</p>
+                            <p>负责事项：{item.responsibility}</p>
+                            <p><strong>预计产出：</strong>{item.expectedOutput}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
+                  <h2>即将下旨的草案</h2>
+                  <p data-testid="chancellor-issue-draft">{props.draftResult.expert_example}</p>
+                  <p><strong>当前状态：</strong>{props.draftResult.status}</p>
+                  <p>
+                    <strong>下旨：</strong>
+                    {props.canSubmit
+                      ? "草案完整，可以直接下旨"
+                      : props.draftResult.revision_prompt}
+                  </p>
+                  <button
+                    type="button"
+                    className={styles.submit}
+                    data-testid="submit-decree-button"
+                    disabled={!props.canSubmit}
+                    onClick={props.onSubmit}
+                  >
+                    {props.uiState.phase === "submitting" ? "办理中" : "下旨"}
+                  </button>
+                </div>
+              </section>
+            </EdictStage>
           ) : archivedReply ? (
             <EdictStage
               document={{
@@ -371,55 +433,6 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
                     {props.uiState.recommendations.map((recommendation) => <li key={recommendation}>{recommendation}</li>)}
                   </ol>
                   <StudyArtifactLinks artifacts={artifactView} className={styles.artifact} />
-                </div>
-              </section>
-            </EdictStage>
-          ) : props.draftResult ? (
-            <EdictStage
-              document={{
-                id: `draft-${props.draftResult.fingerprint}`,
-                kicker: `丞相拟旨 · 第 ${props.draftResult.version} 版`,
-                title: "拟旨草案",
-                issuer: `当前状态 · ${props.draftResult.status}`,
-              }}
-              theme="imperial"
-              bodyLabel="丞相拟旨草案"
-            >
-              <section className={styles.response} data-testid="chancellor-draft-result">
-                <div className={styles.returnContent}>
-                  <h2>臣对您的理解</h2>
-                  <p>{props.draftResult.understanding}</p>
-                  <h3>大神级拟旨草案</h3>
-                  <p>{props.draftResult.expert_example}</p>
-                  <h3>丞相为什么这样补全</h3>
-                  <p>{props.draftResult.recommendation_reason}</p>
-                  {props.draftResult.assumptions.length > 0 && (
-                    <>
-                      <h3>丞相建议与暂定边界</h3>
-                      <ul>{props.draftResult.assumptions.map((item) => <li key={item}>{item}</li>)}</ul>
-                    </>
-                  )}
-                  {props.draftResult.draft && (
-                    <>
-                      <h2>完整拟旨草案</h2>
-                      <pre>{JSON.stringify(props.draftResult.draft, null, 2)}</pre>
-                    </>
-                  )}
-                  <p>
-                    <strong>下旨：</strong>
-                    {props.canSubmit
-                      ? "草案完整，可以直接下旨"
-                      : props.draftResult.revision_prompt}
-                  </p>
-                  <button
-                    type="button"
-                    className={styles.submit}
-                    data-testid="submit-decree-button"
-                    disabled={!props.canSubmit}
-                    onClick={props.onSubmit}
-                  >
-                    {props.uiState.phase === "submitting" ? "办理中" : "下旨"}
-                  </button>
                 </div>
               </section>
             </EdictStage>

@@ -5,9 +5,16 @@ import json
 import pytest
 from pydantic import ValidationError
 
+from app.agents.chancellor_draft import graph as draft_graph
 from app.agents.chancellor_draft.graph import (
     ChancellorDraftGraphInvocationError,
     build_chancellor_draft_graph,
+)
+from app.agents.chancellor_draft.models import DraftEdict
+from app.agents.chancellor_draft.routing import (
+    ApprovedDepartmentRoute,
+    ApprovedRouteSnapshot,
+    build_route_snapshot,
 )
 
 
@@ -39,6 +46,7 @@ def _valid_ready_payload() -> dict[str, object]:
         "departments": [
             {
                 "department": "户部",
+                "bureaus": ["会计司"],
                 "role": "主审",
                 "reason": "涉及付款",
                 "responsibility": "审查结算风险",
@@ -76,6 +84,9 @@ def test_graph_loads_skill_and_calls_model_once() -> None:
     assert "暂定边界" in system_prompt
     assert '"assumptions": ["string"]' in system_prompt
     assert '"departments": [' in system_prompt
+    assert '"bureaus": [' in system_prompt
+    assert "六部固定为" in system_prompt
+    assert "本部真实司" in system_prompt
     assert "即使只有一项或零项" in system_prompt
     assert "revision_prompt 必须是非空字符串" in system_prompt
     assert "departments 必须是至少包含一项的 JSON 数组" in system_prompt
@@ -83,6 +94,9 @@ def test_graph_loads_skill_and_calls_model_once() -> None:
     assert "exclusions、input_materials、material_gaps、assumptions 可以为空数组" in (
         system_prompt
     )
+    assert "expert_example 是用户确认并直接执行的自然语言旨意正文" in system_prompt
+    assert "不得放结构化 JSON" in system_prompt
+    assert "去除首尾空白后必须为 1–2000 字" in system_prompt
     skeleton_index = system_prompt.index("严格遵循这个完整类型 JSON 骨架")
     assert system_prompt.index(
         "DRAFT_READY requires draft to be a non-null object"
@@ -291,8 +305,9 @@ def test_graph_correction_explains_ready_draft_consistency() -> None:
     assert "draft.material_gaps must be an empty JSON array" in correction
 
 
-def test_ready_graph_response_contains_server_canonical_decree_text() -> None:
+def test_ready_graph_response_uses_expert_example_as_decree_text() -> None:
     payload = _valid_ready_payload()
+    payload["expert_example"] = "  请户部核查合同付款风险并交付风险清单。  "
     graph = build_chancellor_draft_graph(
         chat_model=lambda _messages: json.dumps(payload, ensure_ascii=False)
     )
@@ -302,7 +317,259 @@ def test_ready_graph_response_contains_server_canonical_decree_text() -> None:
         "version": 1,
     })["response"]
 
-    assert json.loads(response["decree_text"])["objective"] == "核查合同风险"
+    assert response["decree_text"] == payload["expert_example"].strip()
+    assert response["expert_example"] == payload["expert_example"].strip()
+
+
+def test_ready_financial_draft_routes_to_hubu_accounting_bureau() -> None:
+    payload = _valid_ready_payload()
+    payload["expert_example"] = (
+        "请户部会计司根据现有财务数据生成2024年至2025年管理层综合财务报表，"
+        "并交付可下载的 Excel 文件。"
+    )
+
+    response = build_chancellor_draft_graph(
+        chat_model=lambda _messages: json.dumps(payload, ensure_ascii=False)
+    ).invoke({
+        "messages": [{"role": "user", "content": payload["expert_example"]}],
+        "version": 1,
+    })["response"]
+
+    assert response["draft"]["departments"][0]["department"] == "户部"
+    assert response["draft"]["departments"][0]["bureaus"] == ["会计司"]
+
+
+def test_financial_intent_corrects_legal_but_wrong_budget_route() -> None:
+    invalid = _valid_ready_payload()
+    invalid["draft"]["departments"][0]["bureaus"] = ["预算司"]
+    corrected = _valid_ready_payload()
+    calls: list[list[dict[str, str]]] = []
+    responses = iter((invalid, corrected))
+    decree = (
+        "请户部会计司根据现有财务数据，生成2024年至2025年管理层综合财务报表，"
+        "并交付可下载的 Excel 文件。"
+    )
+
+    def fake_model(messages: list[dict[str, str]]) -> str:
+        calls.append(messages)
+        return json.dumps(next(responses), ensure_ascii=False)
+
+    response = build_chancellor_draft_graph(chat_model=fake_model).invoke({
+        "messages": [{"role": "user", "content": decree}],
+        "version": 1,
+    })["response"]
+
+    assert len(calls) == 2
+    assert response["draft"]["departments"] == [
+        {
+            **corrected["draft"]["departments"][0],
+            "bureaus": ["会计司"],
+        }
+    ]
+
+
+def test_financial_intent_rejects_legal_but_wrong_route_twice() -> None:
+    invalid = _valid_ready_payload()
+    invalid["draft"]["departments"][0]["bureaus"] = ["预算司"]
+    decree = (
+        "请户部会计司根据现有财务数据，生成2024年至2025年管理层综合财务报表，"
+        "并交付可下载的 Excel 文件。"
+    )
+
+    with pytest.raises(ChancellorDraftGraphInvocationError):
+        build_chancellor_draft_graph(
+            chat_model=lambda _messages: json.dumps(invalid, ensure_ascii=False)
+        ).invoke({
+            "messages": [{"role": "user", "content": decree}],
+            "version": 1,
+        })
+
+
+@pytest.mark.parametrize(
+    "departments",
+    [
+        [{**_valid_ready_payload()["draft"]["departments"][0], "department": "户部会计司"}],
+        [{**_valid_ready_payload()["draft"]["departments"][0], "department": "未知部"}],
+        [{**_valid_ready_payload()["draft"]["departments"][0], "bureaus": []}],
+        [{**_valid_ready_payload()["draft"]["departments"][0], "bureaus": ["会计司", "会计司"]}],
+        [{**_valid_ready_payload()["draft"]["departments"][0], "bureaus": ["营缮司"]}],
+        [
+            _valid_ready_payload()["draft"]["departments"][0],
+            _valid_ready_payload()["draft"]["departments"][0],
+        ],
+    ],
+)
+def test_graph_corrects_invalid_department_routes_once(departments) -> None:
+    invalid = _valid_ready_payload()
+    invalid["draft"]["departments"] = departments
+    corrected = _valid_ready_payload()
+    calls: list[list[dict[str, str]]] = []
+    responses = iter((invalid, corrected))
+
+    def fake_model(messages: list[dict[str, str]]) -> str:
+        calls.append(messages)
+        return json.dumps(next(responses), ensure_ascii=False)
+
+    response = build_chancellor_draft_graph(chat_model=fake_model).invoke({
+        "messages": [{"role": "user", "content": "请生成财务报表"}],
+        "version": 1,
+    })["response"]
+
+    assert response["draft"]["departments"][0]["bureaus"] == ["会计司"]
+    assert len(calls) == 2
+    assert "六部固定为" in calls[1][0]["content"]
+    assert "本部真实司" in calls[1][0]["content"]
+
+
+def test_graph_rejects_invalid_department_routes_twice() -> None:
+    payload = _valid_ready_payload()
+    payload["draft"]["departments"][0]["bureaus"] = []
+
+    with pytest.raises(ChancellorDraftGraphInvocationError):
+        build_chancellor_draft_graph(
+            chat_model=lambda _messages: json.dumps(payload, ensure_ascii=False)
+        ).invoke({
+            "messages": [{"role": "user", "content": "请生成财务报表"}],
+            "version": 1,
+        })
+
+
+def test_route_snapshot_preserves_order_and_is_frozen() -> None:
+    payload = _valid_ready_payload()
+    payload["draft"]["departments"].append({
+        "department": "工部",
+        "bureaus": ["技术司", "质量司"],
+        "role": "协办",
+        "reason": "负责交付",
+        "responsibility": "校验技术交付",
+        "expected_output": "交付验收意见",
+    })
+    snapshot = build_route_snapshot(DraftEdict.model_validate(payload["draft"]))
+
+    assert snapshot == ApprovedRouteSnapshot(
+        departments=(
+            ApprovedDepartmentRoute(
+                department="户部", required_bureaus=("会计司",)
+            ),
+            ApprovedDepartmentRoute(
+                department="工部", required_bureaus=("技术司", "质量司")
+            ),
+        )
+    )
+    with pytest.raises(ValidationError):
+        snapshot.departments = tuple(reversed(snapshot.departments))
+    with pytest.raises(ValidationError):
+        snapshot.departments[0].required_bureaus = ("预算司",)
+
+
+def test_fingerprint_changes_with_route_order_or_required_bureaus() -> None:
+    base = _valid_ready_payload()
+    base["draft"]["departments"].append({
+        "department": "工部",
+        "bureaus": ["技术司"],
+        "role": "协办",
+        "reason": "负责交付",
+        "responsibility": "校验技术交付",
+        "expected_output": "交付验收意见",
+    })
+    reordered = json.loads(json.dumps(base, ensure_ascii=False))
+    reordered["draft"]["departments"].reverse()
+    changed_bureau = json.loads(json.dumps(base, ensure_ascii=False))
+    changed_bureau["draft"]["departments"][0]["bureaus"] = ["预算司"]
+
+    def fingerprint(payload: dict[str, object]) -> str:
+        return build_chancellor_draft_graph(
+            chat_model=lambda _messages: json.dumps(payload, ensure_ascii=False)
+        ).invoke({
+            "messages": [{"role": "user", "content": "请办理"}],
+            "version": 1,
+        })["response"]["fingerprint"]
+
+    assert len({fingerprint(base), fingerprint(reordered), fingerprint(changed_bureau)}) == 3
+
+
+def test_canonical_payload_explicitly_contains_route_snapshot() -> None:
+    normalized_payload = {"status": "DRAFT_READY", "draft": {"same": "value"}}
+    route_snapshot = {
+        "departments": [
+            {"department": "户部", "required_bureaus": ["会计司"]}
+        ]
+    }
+
+    canonical = draft_graph._canonical_payload(
+        version=3,
+        normalized_payload=normalized_payload,
+        decree_text="请生成财务报表",
+        route_snapshot=route_snapshot,
+    )
+
+    assert canonical["draft"] == {"same": "value"}
+    assert canonical["route_snapshot"] == route_snapshot
+
+
+def test_ready_financial_draft_uses_visible_natural_language_as_decree_text() -> None:
+    payload = _valid_ready_payload()
+    payload["expert_example"] = (
+        "  请户部会计司生成2024年至2025年管理层综合财务报表并交付 Excel，"
+        "不修改原始数据。  "
+    )
+    draft = payload["draft"]
+    assert isinstance(draft, dict)
+    draft["scope"] = [
+        f"财务数据范围 {index}: " + "明细" * 80 for index in range(30)
+    ]
+    assert len(json.dumps(draft, ensure_ascii=False, indent=2)) > 2000
+
+    response = build_chancellor_draft_graph(
+        chat_model=lambda _messages: json.dumps(payload, ensure_ascii=False)
+    ).invoke({
+        "messages": [{"role": "user", "content": "请生成2024年至2025年财务报表"}],
+        "version": 2,
+    })["response"]
+
+    assert response["decree_text"] == payload["expert_example"].strip()
+    assert response["expert_example"] == payload["expert_example"].strip()
+    assert len(response["decree_text"]) <= 2000
+    assert not response["decree_text"].startswith("{")
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(response["decree_text"])
+
+
+@pytest.mark.parametrize("invalid_example", ["", " " * 10, "旨" * 2001])
+def test_graph_corrects_invalid_expert_example_once(invalid_example: str) -> None:
+    invalid = _valid_ready_payload()
+    invalid["expert_example"] = invalid_example
+    corrected = _valid_ready_payload()
+    corrected["expert_example"] = "请户部核查合同付款风险。"
+    responses = iter(
+        (
+            json.dumps(invalid, ensure_ascii=False),
+            json.dumps(corrected, ensure_ascii=False),
+        )
+    )
+
+    response = build_chancellor_draft_graph(
+        chat_model=lambda _messages: next(responses)
+    ).invoke({
+        "messages": [{"role": "user", "content": "审合同"}],
+        "version": 1,
+    })["response"]
+
+    assert response["decree_text"] == corrected["expert_example"]
+
+
+@pytest.mark.parametrize("invalid_example", ["", " " * 10, "旨" * 2001])
+def test_graph_rejects_expert_example_invalid_twice(invalid_example: str) -> None:
+    payload = _valid_ready_payload()
+    payload["expert_example"] = invalid_example
+
+    with pytest.raises(ChancellorDraftGraphInvocationError):
+        build_chancellor_draft_graph(
+            chat_model=lambda _messages: json.dumps(payload, ensure_ascii=False)
+        ).invoke({
+            "messages": [{"role": "user", "content": "审合同"}],
+            "version": 1,
+        })
 
 
 @pytest.mark.parametrize(

@@ -1,28 +1,203 @@
-.page { min-height: 100vh; color: #f6efd8; background: #04060e; }
-.hero { position: relative; min-height: 88svh; overflow: hidden; border-bottom: 1px solid rgba(240,198,106,.16); }
-.backdrop, .overlay, .grid, .axis { position: absolute; inset: 0; pointer-events: none; }
-.backdrop { background: url("/assets/intro/courtos-vision-hero.png") center/cover no-repeat; }
-.overlay { background: radial-gradient(circle at 50% 20%, rgba(255,221,143,.25), transparent 25%), linear-gradient(90deg, rgba(4,6,14,.82), rgba(4,6,14,.18) 50%, rgba(4,6,14,.75)), linear-gradient(180deg, rgba(4,6,14,.12), rgba(4,6,14,.92)); }
-.grid { opacity: .12; background-image: linear-gradient(rgba(240,198,106,.7) 1px, transparent 1px), linear-gradient(90deg, rgba(240,198,106,.7) 1px, transparent 1px); background-size: 94px 94px; }
-.axis { opacity: .75; display: grid; place-items: stretch; }
-.axis svg { width: 100%; height: 100%; filter: drop-shadow(0 0 8px #ffd46d) drop-shadow(0 0 25px #c89136); }
-.axis path { fill: none; stroke: #ffe2a0; stroke-width: .45; stroke-linejoin: bevel; stroke-dasharray: 120; animation: trace 5s ease-in-out infinite; }
-.header, .content, .how { position: relative; z-index: 1; width: min(100% - 40px, 1180px); margin: auto; }
-.header { display: grid; grid-template-columns: auto 1fr auto; gap: 24px; align-items: center; padding: 18px 0; }
-.brand { display: inline-flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; font-weight: 700; letter-spacing: .08em; }
-.brand small { display: block; margin-top: 3px; color: #ad9670; font-size: .58rem; letter-spacing: .2em; }
-.seal { display: grid; width: 36px; height: 36px; place-items: center; border: 1px solid #f0c66a; border-radius: 50%; color: #f0c66a; font-family: Georgia, serif; font-size: 1.25rem; }
-.nav, .accountLinks, .actions { display: flex; align-items: center; gap: 12px; }
-.nav { justify-content: center; }.nav a, .accountLinks a, .secondaryLink { color: #d8deef; text-decoration: none; font-size: .82rem; }.nav a:hover, .accountLinks a:hover, .secondaryLink:hover { color: #f0c66a; }
-.primaryLink { display: inline-flex; align-items: center; justify-content: center; padding: 10px 16px; border-radius: 999px; background: linear-gradient(135deg, #f0c66a, #c89239); color: #111; font-size: .82rem; font-weight: 700; text-decoration: none; }
-.content { display: flex; min-height: calc(88svh - 73px); flex-direction: column; align-items: center; justify-content: center; padding: 56px 0; text-align: center; }
-.kicker { margin: 0; color: #f5d891; font-size: .7rem; letter-spacing: .2em; text-transform: uppercase; }.content h1 { margin: 18px 0 0; font: 700 clamp(3rem, 8vw, 5.5rem)/1 Georgia, "Noto Serif SC", serif; }.tagline { margin: 16px 0 0; color: #f2dfac; font: 600 clamp(1.35rem, 4vw, 2.35rem)/1.35 Georgia, "Noto Serif SC", serif; }.intro { max-width: 700px; margin: 18px auto 0; color: #c6cce0; line-height: 1.8; }
-.actions { justify-content: center; margin-top: 25px; }.secondaryLink { padding: 10px 16px; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; background: rgba(0,0,0,.25); }
-.tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 18px; }.tags span { padding: 6px 10px; border: 1px solid rgba(255,255,255,.14); border-radius: 999px; background: rgba(0,0,0,.2); color: #d8c799; font-size: .74rem; }
-.flow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 14px; }.flow span { padding: 8px 4px; border: 1px solid rgba(107,160,255,.2); border-radius: 5px; color: #cfe0ff; text-align: center; font-size: .72rem; }.flow b { display: block; color: #f0c66a; font-size: .6rem; }
-.section, .conversion { width: min(100% - 40px, 1180px); margin: 0 auto; padding: 74px 0; }.section h2, .conversion h2 { max-width: 780px; margin: 10px 0; font: 600 clamp(1.8rem,4vw,2.8rem)/1.3 Georgia, "Noto Serif SC", serif; }.lead { max-width: 700px; color: #aeb7d1; line-height: 1.8; }.cards, .proofs, .stages, .metrics { display: grid; gap: 12px; margin-top: 28px; }.cards { grid-template-columns: repeat(4, 1fr); }.cards article, .proofs article, .stages article { padding: 18px; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; background: rgba(255,255,255,.025); }.cards h3, .proofs h3, .stages h3 { margin: 15px 0 8px; font: 600 1.08rem Georgia, "Noto Serif SC", serif; }.cards p, .proofs p { color: #aeb7d1; font-size: .84rem; line-height: 1.7; }.cards p b { color: #f0c66a; }.mark { display: grid; width: 28px; height: 28px; place-items: center; border: 1px solid rgba(240,198,106,.35); border-radius: 5px; color: #f0c66a; font-size: .7rem; }.metrics { grid-template-columns: repeat(3, 1fr); }.metrics span { padding: 14px; border: 1px solid rgba(240,198,106,.18); border-radius: 7px; color: #aeb7d1; text-align: center; }.metrics b { display: block; margin-bottom: 5px; color: #f0c66a; font-size: 1.25rem; }.stages { grid-template-columns: repeat(5, 1fr); }.stages article b { color: #8f9cc5; font-size: .68rem; }.stages article span { color: #f0c66a; font-size: .77rem; }.proofs { grid-template-columns: repeat(4, 1fr); }.conversion { display: flex; align-items: center; justify-content: space-between; gap: 28px; border-top: 1px solid rgba(240,198,106,.18); }.conversion p { max-width: 660px; color: #aeb7d1; line-height: 1.8; }.conversion .actions { flex-shrink: 0; }
-.demo { width: min(100%, 820px); margin-top: 38px; padding: 16px; border: 1px solid rgba(240,198,106,.25); border-radius: 10px; background: rgba(4,7,17,.8); box-shadow: 0 24px 70px rgba(0,0,0,.45); text-align: left; backdrop-filter: blur(12px); }.demo form { display: grid; grid-template-columns: 1fr auto; gap: 12px; }.demo label { color: #b5a88a; font-size: .7rem; letter-spacing: .14em; }.demo input { display: block; width: 100%; box-sizing: border-box; margin-top: 7px; padding: 11px; border: 1px solid rgba(255,255,255,.15); border-radius: 6px; background: rgba(0,0,0,.35); color: #f5e9c9; font: inherit; }.demo input:focus-visible, .demo button:focus-visible, a:focus-visible { outline: 2px solid #f0c66a; outline-offset: 3px; }.demo button { align-self: end; padding: 11px 15px; border: 1px solid rgba(240,198,106,.45); border-radius: 6px; background: rgba(240,198,106,.12); color: #f0c66a; cursor: pointer; font-weight: 700; }.verdict { display: grid; grid-template-columns: 1fr auto; gap: 7px 14px; margin-top: 15px; padding: 14px; border: 1px solid rgba(240,198,106,.15); border-radius: 6px; background: rgba(240,198,106,.055); }.verdict p { margin: 0; color: #cbd2e5; font-size: .83rem; line-height: 1.6; }.verdict h2 { margin: 0; font: 600 1.1rem Georgia, "Noto Serif SC", serif; }.verdict strong { grid-column: 2; grid-row: 1 / span 2; color: #f6b2a8; font-size: .72rem; }.verdict p:last-child { grid-column: span 2; color: #d8c799; }
-.how { padding: 76px 0; }.how h2 { max-width: 650px; margin: 10px 0 28px; font: 600 clamp(1.8rem, 4vw, 2.8rem)/1.3 Georgia, "Noto Serif SC", serif; }.how > div { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }.how article { padding: 19px; border: 1px solid rgba(107,160,255,.2); border-radius: 8px; background: rgba(107,160,255,.05); }.how b, .how span { display: block; }.how span { margin-top: 8px; color: #99a7cd; font-size: .82rem; }
-@keyframes trace { 0%, 100% { opacity: .3; stroke-dashoffset: 120; } 45%, 65% { opacity: 1; stroke-dashoffset: 0; } }
-@media (max-width: 720px) { .header { grid-template-columns: 1fr auto; }.nav { display: none; }.accountLinks .primaryLink { display: none; }.demo form { grid-template-columns: 1fr; }.demo button { width: 100%; }.how > div, .cards, .proofs { grid-template-columns: repeat(2, 1fr); }.stages { grid-template-columns: repeat(2, 1fr); }.flow { grid-template-columns: repeat(3, 1fr); }.metrics { grid-template-columns: 1fr; }.conversion { display: block; }.conversion .actions { justify-content: flex-start; }.verdict { grid-template-columns: 1fr; }.verdict strong, .verdict p:last-child { grid-column: auto; grid-row: auto; } }
-@media (prefers-reduced-motion: reduce) { .axis path { animation: none; } }
+.page {
+  position: relative;
+  min-height: 100svh;
+  overflow: hidden;
+  color: #d8c8a9;
+  background: #050504;
+}
+
+.scene {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.backdrop,
+.backgroundVideo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.backdrop {
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.closed {
+  background-image: url("/assets/v5-pre-auth/welcome-gate-closed.png");
+}
+
+.backgroundVideo {
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
+}
+
+.header,
+.hero,
+.actions {
+  position: relative;
+  z-index: 1;
+}
+
+.header {
+  display: flex;
+  width: min(100% - 64px, 1280px);
+  margin: 0 auto;
+  padding-top: 30px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand,
+.skip,
+.attend,
+.login {
+  color: inherit;
+  text-decoration: none;
+}
+
+.brand {
+  font: 600 1rem/1.4 Georgia, "Noto Serif SC", serif;
+  letter-spacing: 0.12em;
+}
+
+.skip {
+  color: rgba(216, 200, 169, 0.78);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+}
+
+.hero {
+  position: absolute;
+  inset: 16.6% 0 auto;
+  padding: 0 24px;
+  text-align: center;
+}
+
+.hero h1 {
+  margin: 0;
+  color: #d8c8a9;
+  font: 600 clamp(3rem, 5vw, 4.5rem)/1.3 Georgia, "Noto Serif SC", serif;
+  letter-spacing: 0.18em;
+}
+
+.hero p {
+  margin: 14px 0 0;
+  color: rgba(216, 200, 169, 0.82);
+  font: 400 clamp(0.9rem, 1.4vw, 1.08rem)/1.7 Georgia, "Noto Serif SC", serif;
+  letter-spacing: 0.08em;
+}
+
+.actions {
+  position: absolute;
+  inset: auto 0 8.5%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.attend {
+  display: grid;
+  min-width: 224px;
+  min-height: 60px;
+  place-items: center;
+  border: 1px solid rgba(237, 173, 82, 0.9);
+  border-radius: 3px;
+  background: linear-gradient(#8f1f14, #b8301f);
+  box-shadow: 0 10px 30px rgba(32, 3, 0, 0.42);
+  color: #ffebb8;
+  cursor: pointer;
+  font: 600 1.08rem/1 Georgia, "Noto Serif SC", serif;
+  letter-spacing: 0.22em;
+}
+
+.attend:disabled {
+  cursor: default;
+}
+
+.login {
+  color: rgba(216, 200, 169, 0.78);
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+}
+
+.brand:focus-visible,
+.skip:focus-visible,
+.attend:focus-visible,
+.login:focus-visible {
+  outline: 2px solid #edaf58;
+  outline-offset: 4px;
+}
+
+.skip:hover,
+.login:hover {
+  color: #ffebb8;
+}
+
+.attend:not(:disabled):hover {
+  background: linear-gradient(#a5281b, #c33a27);
+}
+
+@keyframes welcome-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero,
+  .actions {
+    animation: welcome-in 0.8s ease-out both;
+  }
+
+  .actions {
+    animation-delay: 0.18s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero,
+  .actions {
+    animation: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .header {
+    width: calc(100% - 32px);
+    padding-top: 20px;
+  }
+
+  .hero {
+    inset: 18% 0 auto;
+  }
+
+  .hero h1 {
+    font-size: clamp(2.6rem, 14vw, 3.6rem);
+  }
+
+  .hero p {
+    max-width: 18rem;
+    margin-inline: auto;
+  }
+
+  .actions {
+    inset: auto 16px 7%;
+  }
+
+  .attend {
+    width: min(100%, 280px);
+    min-width: 0;
+  }
+}

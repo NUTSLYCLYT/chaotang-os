@@ -12,12 +12,12 @@ const user = { id: "user-1", username: "court", email: "court@example.com" };
 
 async function startAuthStub(logoutStatus = 204): Promise<{
   baseUrl: string;
-  authorization: () => string | undefined;
+  authorizations: () => (string | undefined)[];
   close: () => Promise<void>;
 }> {
-  let lastAuthorization: string | undefined;
+  const requestAuthorizations: (string | undefined)[] = [];
   const server: Server = createServer((req, res) => {
-    lastAuthorization = req.headers.authorization;
+    requestAuthorizations.push(req.headers.authorization);
     const send = (status: number, body?: unknown) => {
       res.writeHead(status, body === undefined ? undefined : { "content-type": "application/json" });
       res.end(body === undefined ? undefined : JSON.stringify(body));
@@ -52,7 +52,7 @@ async function startAuthStub(logoutStatus = 204): Promise<{
   const address = server.address() as AddressInfo;
   return {
     baseUrl: `http://127.0.0.1:${address.port}`,
-    authorization: () => lastAuthorization,
+    authorizations: () => requestAuthorizations,
     close: () => new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())),
   };
 }
@@ -90,15 +90,40 @@ test("login BFF sets an HttpOnly same-site cookie and omits the backend session 
   }
 });
 
-test("register BFF sets a cookie only after the backend creates the user", async () => {
+test("register BFF revokes the issued session and expires the browser cookie", async () => {
   const stub = await startAuthStub();
   try {
     const response = await withBackendBaseUrl(stub.baseUrl, () =>
-      register(jsonRequest("/api/auth/register", { username: "court", email: "court@example.com", password: "six-or-more" })),
+      register(jsonRequest(
+        "/api/auth/register",
+        { username: "court", email: "court@example.com", password: "six-or-more" },
+        "courtos_session=old-session",
+      )),
     );
     assert.equal(response.status, 201);
-    assert.match(response.headers.get("set-cookie") ?? "", /courtos_session=test-session/);
     assert.deepEqual(await response.json(), { user });
+    assert.deepEqual(stub.authorizations(), [undefined, "Bearer test-session"]);
+    assert.match(response.headers.get("set-cookie") ?? "", /courtos_session=.*Max-Age=0/);
+    assert.doesNotMatch(response.headers.get("set-cookie") ?? "", /courtos_session=test-session/);
+  } finally {
+    await stub.close();
+  }
+});
+
+test("register BFF still reports created account when session revocation fails", async () => {
+  const stub = await startAuthStub(503);
+  try {
+    const response = await withBackendBaseUrl(stub.baseUrl, () =>
+      register(jsonRequest("/api/auth/register", {
+        username: "court",
+        email: "court@example.com",
+        password: "six-or-more",
+      })),
+    );
+    assert.equal(response.status, 201);
+    assert.deepEqual(await response.json(), { user });
+    assert.deepEqual(stub.authorizations(), [undefined, "Bearer test-session"]);
+    assert.match(response.headers.get("set-cookie") ?? "", /courtos_session=.*Max-Age=0/);
   } finally {
     await stub.close();
   }
@@ -115,7 +140,7 @@ test("authenticated auth BFF forwards the cookie session and rejects no-cookie c
       const response = await me(new Request("http://localhost/api/auth/me", { headers: { cookie: "courtos_session=test-session" } }));
       assert.equal(response.status, 200);
       assert.deepEqual(await response.json(), { user });
-      assert.equal(stub.authorization(), "Bearer test-session");
+      assert.deepEqual(stub.authorizations(), ["Bearer test-session"]);
     });
   } finally {
     await stub.close();
@@ -128,7 +153,7 @@ test("logout revokes the cookie session before clearing its browser cookie", asy
     await withBackendBaseUrl(stub.baseUrl, async () => {
       const response = await logout(jsonRequest("/api/auth/logout", {}, "courtos_session=test-session"));
       assert.equal(response.status, 204);
-      assert.equal(stub.authorization(), "Bearer test-session");
+      assert.deepEqual(stub.authorizations(), ["Bearer test-session"]);
       assert.match(response.headers.get("set-cookie") ?? "", /courtos_session=.*Max-Age=0/);
     });
   } finally {
@@ -142,7 +167,7 @@ test("logout clears the local cookie even when FastAPI rejects revocation", asyn
     await withBackendBaseUrl(stub.baseUrl, async () => {
       const response = await logout(jsonRequest("/api/auth/logout", {}, "courtos_session=test-session"));
       assert.equal(response.status, 401);
-      assert.equal(stub.authorization(), "Bearer test-session");
+      assert.deepEqual(stub.authorizations(), ["Bearer test-session"]);
       assert.match(response.headers.get("set-cookie") ?? "", /courtos_session=.*Max-Age=0/);
     });
   } finally {

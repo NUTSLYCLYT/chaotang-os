@@ -7,6 +7,10 @@ from fastapi.testclient import TestClient
 
 import app.api.decrees as decrees_module
 from app.agents.chancellor.graph import ChancellorGraphInvocationError
+from app.agents.chancellor_draft.routing import (
+    ApprovedDepartmentRoute,
+    ApprovedRouteSnapshot,
+)
 from app.auth import configure_auth_db, create_session, create_user
 from app.junjichu_cases import storage
 from app.junjichu_cases.models import JunjichuCaseOpenInput
@@ -163,7 +167,12 @@ def test_decree_to_case_ledger_is_private_and_records_only_real_terminal_outcome
         ministry_opinions = [
             {
                 "department": department,
-                "bureau_opinions": [{"bureau": "核验司", "opinion": "已核验"}],
+                "bureau_opinions": [
+                    {
+                        "bureau": "报价司" if department == "兵部" else "预算司",
+                        "opinion": "已核验",
+                    }
+                ],
                 "opinion": "部议已成",
             }
             for department in departments
@@ -200,7 +209,7 @@ def test_decree_to_case_ledger_is_private_and_records_only_real_terminal_outcome
                 lifecycle_observer.record_ministry_opinion(
                     {
                         "department": "兵部",
-                        "bureau_opinions": [{"bureau": "核验司", "opinion": "已核验"}],
+                        "bureau_opinions": [{"bureau": "报价司", "opinion": "已核验"}],
                         "opinion": "部议已成",
                     }
                 )
@@ -225,7 +234,24 @@ def test_decree_to_case_ledger_is_private_and_records_only_real_terminal_outcome
     monkeypatch.setattr(
         decrees_module.draft_authority_registry,
         "consume",
-        lambda **_kwargs: True,
+        lambda **kwargs: ApprovedRouteSnapshot(
+            departments=(
+                (
+                    ApprovedDepartmentRoute(
+                        department="户部", required_bureaus=("预算司",)
+                    ),
+                )
+                if "单部" in kwargs["decree_text"]
+                else (
+                    ApprovedDepartmentRoute(
+                        department="兵部", required_bureaus=("报价司",)
+                    ),
+                    ApprovedDepartmentRoute(
+                        department="户部", required_bureaus=("预算司",)
+                    ),
+                )
+            )
+        ),
     )
 
     first = client.post("/api/v1/decrees/chancellor", json={"decree_text": "甲的跨部旨意"})

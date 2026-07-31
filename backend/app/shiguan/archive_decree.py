@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 _TITLE_MAX_LENGTH = 80
 _DEFAULT_RESPONDENT = "丞相"
 _DEFAULT_MATTER_TYPE = "综合事项"
+_APPROVED_ROUTE_AUTHORITY_SOURCE = "approved_route_authority"
 
 
 @dataclass(frozen=True)
@@ -63,6 +64,58 @@ def _truncate(text: str, max_length: int) -> str:
     if len(stripped) <= max_length:
         return stripped
     return stripped[:max_length].rstrip() + "\u2026"
+
+
+def _approved_route_authority_evidence(
+    internal_result: object | None,
+) -> list[dict[str, object]]:
+    approved_route = _get_field(internal_result, "approved_route")
+    draft_version = _get_field(internal_result, "draft_version")
+    draft_fingerprint = _get_field(internal_result, "draft_fingerprint")
+    if approved_route is None:
+        return []
+    if draft_version is None and draft_fingerprint is None:
+        return []
+    if (
+        not isinstance(draft_version, int)
+        or draft_version < 1
+        or not isinstance(draft_fingerprint, str)
+        or len(draft_fingerprint) != 64
+        or any(
+            character not in "0123456789abcdef"
+            for character in draft_fingerprint
+        )
+    ):
+        raise ValueError("approved route authority audit is incomplete")
+    departments = _get_field(approved_route, "departments")
+    if not isinstance(departments, tuple) or not departments:
+        raise ValueError("approved route authority departments are invalid")
+    serialized_departments = [
+        {
+            "department": _get_field(route, "department"),
+            "required_bureaus": list(
+                _get_field(route, "required_bureaus", ()) or ()
+            ),
+        }
+        for route in departments
+    ]
+    note = json.dumps(
+        {
+            "draft_fingerprint": draft_fingerprint,
+            "draft_version": draft_version,
+            "departments": serialized_departments,
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return [
+        {
+            "source": _APPROVED_ROUTE_AUTHORITY_SOURCE,
+            "reality_label": "LIVE",
+            "note": note,
+        }
+    ]
 
 
 def resolve_adopted_evidence_references(
@@ -313,6 +366,7 @@ def archive_chancellor_decree(
             "reply_conclusion": reply_conclusion,
             "reply_time": reply_time,
             "respondent": _DEFAULT_RESPONDENT,
+            "evidence": _approved_route_authority_evidence(internal_result),
         }
         adopted = tuple(_get_field(internal_result, "adopted_evidence_ids", ()) or ())
         snapshot = _get_field(internal_result, "evidence_snapshot")

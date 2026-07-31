@@ -3,12 +3,15 @@ export type RegisterValues = LoginValues & { email: string; confirm: string };
 
 type AuthFetch = (url: string, init?: RequestInit) => Promise<Response>;
 
+type LoginDestination = "/dadian" | "/study" | "/shiguan";
+type RegistrationDestination = "/login?registered=1";
+
 export type AuthSubmission =
-  | { ok: true; destination: "/study" | "/shiguan"; requestUrl: string }
+  | { ok: true; destination: LoginDestination | RegistrationDestination; requestUrl: string }
   | { ok: false; message: string; requestUrl: string };
 
-export function getSafeDestination(next: string | null | undefined): "/study" | "/shiguan" {
-  return next === "/shiguan" ? "/shiguan" : "/study";
+export function getSafeLoginDestination(next: string | null | undefined): LoginDestination {
+  return next === "/study" || next === "/shiguan" || next === "/dadian" ? next : "/dadian";
 }
 
 function failureMessage(response: Response, action: "login" | "register"): string {
@@ -23,7 +26,7 @@ function failureMessage(response: Response, action: "login" | "register"): strin
 async function submitAuth(
   requestUrl: "/api/auth/login" | "/api/auth/register",
   payload: Record<string, string>,
-  next: string | null | undefined,
+  destination: LoginDestination | RegistrationDestination,
   action: "login" | "register",
   request: AuthFetch,
 ): Promise<AuthSubmission> {
@@ -34,7 +37,7 @@ async function submitAuth(
       body: JSON.stringify(payload),
     });
     if (!response.ok) return { ok: false, message: failureMessage(response, action), requestUrl };
-    return { ok: true, destination: getSafeDestination(next), requestUrl };
+    return { ok: true, destination, requestUrl };
   } catch {
     return { ok: false, message: "认证服务暂时不可用，请稍后重试。", requestUrl };
   }
@@ -43,13 +46,13 @@ async function submitAuth(
 export async function submitLogin(values: LoginValues, next?: string | null, request: AuthFetch = fetch): Promise<AuthSubmission> {
   const validationError = validateLogin(values);
   if (validationError) return { ok: false, message: validationError, requestUrl: "/api/auth/login" };
-  return submitAuth("/api/auth/login", { identifier: values.username.trim(), password: values.password }, next, "login", request);
+  return submitAuth("/api/auth/login", { identifier: values.username.trim(), password: values.password }, getSafeLoginDestination(next), "login", request);
 }
 
-export async function submitRegister(values: RegisterValues, next?: string | null, request: AuthFetch = fetch): Promise<AuthSubmission> {
+export async function submitRegister(values: RegisterValues, _next?: string | null, request: AuthFetch = fetch): Promise<AuthSubmission> {
   const validationError = validateRegister(values);
   if (validationError) return { ok: false, message: validationError, requestUrl: "/api/auth/register" };
-  return submitAuth("/api/auth/register", { username: values.username.trim(), email: values.email.trim(), password: values.password }, next, "register", request);
+  return submitAuth("/api/auth/register", { username: values.username.trim(), email: values.email.trim(), password: values.password }, "/login?registered=1", "register", request);
 }
 
 export function validateLogin({ username, password }: LoginValues): string | null {

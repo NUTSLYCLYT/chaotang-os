@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 
 import { submitRegister } from "./formValidation";
 import styles from "./preAuth.module.css";
+import { createSubmissionGate, type SubmissionGate } from "./submissionGate";
 
 export function RegisterForm() {
   const searchParams = useSearchParams();
@@ -14,11 +15,21 @@ export function RegisterForm() {
   const [username, setUsername] = useState(""); const [email, setEmail] = useState("");
   const [password, setPassword] = useState(""); const [confirm, setConfirm] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const submissionGate = useRef<SubmissionGate | null>(null);
+  if (submissionGate.current === null) {
+    submissionGate.current = createSubmissionGate(setSubmitting);
+  }
   const loginHref = inviteCode ? `/login?invite=${encodeURIComponent(inviteCode)}` : "/login";
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const result = await submitRegister({ username, email, password, confirm }, next);
+    const request = submissionGate.current?.run(() => submitRegister({ username, email, password, confirm }, next));
+    if (!request) {
+      return;
+    }
+
+    const result = await request;
     if (result.ok) {
       window.location.assign(result.destination);
       return;
@@ -34,7 +45,9 @@ export function RegisterForm() {
       <label className={styles.field}>密码<input className={styles.input} type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" placeholder="至少 6 位" required /></label>
       <label className={styles.field}>确认密码<input className={styles.input} type="password" value={confirm} onChange={(event) => setConfirm(event.target.value)} autoComplete="new-password" placeholder="再次输入密码" required /></label>
       {message ? <p className={`${styles.message} ${styles.error}`} role="alert">{message}</p> : null}
-      <button className={styles.button} type="submit">{inviteCode ? "使用引荐码注册" : "注册账号"}</button>
+      <button className={styles.button} type="submit" disabled={submitting}>
+        {submitting ? "正在创建…" : "创建朝堂"}
+      </button>
     </form>
     <p className={styles.actions}><Link className={styles.link} href={loginHref}>改为登录 →</Link></p></>;
 }

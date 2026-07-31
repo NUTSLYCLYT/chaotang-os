@@ -103,6 +103,25 @@ export async function runStudyDecreeSubmission({
   return true;
 }
 
+interface StudyDecreeUiStateCommitOptions {
+  state: DecreeUiState;
+  setUiState(state: DecreeUiState): void;
+  clearDraft(): void;
+  invalidateRecentReplies(): void;
+}
+
+export function commitStudyDecreeUiState({
+  state,
+  setUiState,
+  clearDraft,
+  invalidateRecentReplies,
+}: StudyDecreeUiStateCommitOptions): void {
+  setUiState(state);
+  if (state.phase !== "success") return;
+  clearDraft();
+  invalidateRecentReplies();
+}
+
 type ChancellorDraftRequestResult = Awaited<
   ReturnType<typeof requestChancellorDraft>
 >;
@@ -186,8 +205,9 @@ export function StudyClient({ userId }: { userId: string }) {
     setRecentReplies(next);
   }
 
-  const { canEdit, canSubmit } = getDecreeFormAvailability(decreeText, uiState);
-  const canIssue = canSubmit && canIssueChancellorDraft(draftResult);
+  const { canEdit } = getDecreeFormAvailability(decreeText, uiState);
+  const canIssue = uiState.phase !== "submitting" &&
+    canIssueChancellorDraft(draftResult);
   const selectedArchivedReply = resolveSelectedArchive(replyPresentation, recentReplies.archives);
 
   async function handleSubmitDecree() {
@@ -198,12 +218,13 @@ export function StudyClient({ userId }: { userId: string }) {
       submit: () => submitStudyDecree({
         decreeText: draftResult?.decree_text ?? "",
         canSubmit: canIssue,
-        setUiState: (state) => {
-          setUiState(state);
-          if (state.phase === "success") {
-            commitRecentReplies(invalidateStudyRecentReplies);
-          }
-        },
+        setUiState: (state) => commitStudyDecreeUiState({
+          state,
+          setUiState,
+          clearDraft: () => setDraftResult(null),
+          invalidateRecentReplies: () =>
+            commitRecentReplies(invalidateStudyRecentReplies),
+        }),
         requestSubmission: (text) => requestStudySubmission(text, {
             draftVersion: draftResult?.version ?? 0,
             draftFingerprint: draftResult?.fingerprint ?? "",

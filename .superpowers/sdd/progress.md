@@ -1,3 +1,14 @@
+# Bureau Page Evidence Envelope Fix SDD Progress
+
+Plan: `docs/superpowers/plans/2026-07-29-bureau-page-evidence-envelope-fix.md`
+
+- Task 1: complete (uncommitted; reviewer PASS; report `bureau-envelope-task-1-report.md`)
+- Task 2: complete (uncommitted; reviewer PASS; report `bureau-envelope-task-2-report.md`)
+- Task 3: complete (uncommitted; reviewer PASS; report `bureau-envelope-task-3-report.md`)
+- Task 4: in progress
+- Task 5: complete (uncommitted; reviewer PASS; report `bureau-envelope-task-5-report.md`)
+- Task 6: complete (uncommitted; reviewer PASS; report `bureau-envelope-task-6-report.md`)
+
 # Authenticated User Isolation SDD Progress
 
 Plan: `docs/superpowers/plans/2026-07-23-authenticated-user-isolation.md`
@@ -38,3 +49,42 @@ Plan: `docs/superpowers/plans/2026-07-28-study-recent-replies-redesign.md`
 - Task 2: complete — uncommitted by authorization boundary; reviewer PASS; minor: source-regex tests are not DOM interaction tests
 - Task 3: complete — uncommitted by authorization boundary; reviewer PASS after false-green test remediation
 - Task 4: complete — uncommitted by authorization boundary; reviewer PASS after documentation consistency remediation
+
+# Chancellor Conservative Direct Draft SDD Progress
+
+Plan: `docs/superpowers/plans/2026-07-29-chancellor-conservative-direct-draft.md`
+
+- Task 1: complete (uncommitted by authorization boundary; reviewer PASS after exact-anchor and honest-readiness fixes)
+- Task 2: complete (uncommitted by authorization boundary; reviewer PASS; minor: add inverse non-ready/ready-nested regression if touched again)
+- Task 3: complete (uncommitted by authorization boundary; reviewer PASS; minor: structurally scope draft-branch copy test if touched again)
+- Task 4: complete (uncommitted by authorization boundary; reviewer PASS after real-model and evidence closure)
+- Final review: complete (reviewer PASS after stale-response race fix and UTF-8-safe real-model verification)
+
+# Study Reply After Draft SDD Progress
+
+Plan: `docs/superpowers/plans/2026-07-30-study-reply-after-draft.md`
+
+- Task 1: complete (uncommitted by authorization boundary; spec review PASS; code quality PASS)
+- Task 2: complete (uncommitted by authorization boundary; spec review PASS; documentation quality PASS after path-resolution re-review)
+- Task 3: complete (verification PASS: 403 tests, typecheck, lint, build, harness, diff check)
+- Final review: complete (READY; no findings)
+
+# V5 Pre-Auth Implementation SDD Progress
+
+Plan: `docs/superpowers/plans/2026-07-30-v5-pre-auth-implementation.md`
+
+- Task 1: complete (uncommitted by authorization boundary; reviewer PASS; assets have distinct verified SHA-256 hashes)
+- Task 2: complete (uncommitted by authorization boundary; reviewer PASS after test-gate remediation)
+- Task 3: complete (uncommitted by authorization boundary; reviewer PASS after page-contract test remediation)
+- Task 4: complete (uncommitted by authorization boundary; reviewer PASS after submission-gate remediation)
+- Task 5: complete (verification evidence PASS; product Acceptance remains Pending)
+- Final review: complete (READY; no findings; fresh lint, typecheck, 416-test suite, build, harness, self-test, diff check, and visual evidence review PASS)
+
+# Auth Entry Routing SDD Progress
+
+Plan: `docs/superpowers/plans/2026-07-30-auth-entry-routing.md`
+
+- Task 1: complete (uncommitted by authorization boundary; spec compliance APPROVED; code quality APPROVED)
+- Task 2: complete (uncommitted by authorization boundary; spec compliance APPROVED; code quality APPROVED; one non-blocking coverage observation)
+- Task 3: complete (uncommitted by authorization boundary; spec compliance APPROVED after isolated production-build evidence; code quality APPROVED)
+- Final review: complete (READY; no Critical, Important, or Minor findings; fresh lint, typecheck, 419-test suite, harness, self-test, diff check, and isolated production build PASS)

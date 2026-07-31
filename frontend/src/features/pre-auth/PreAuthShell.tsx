@@ -15,22 +15,27 @@ export function PreAuthShell({ eyebrow, title, description, children, footer }: 
   return (
     <main className={styles.page} data-public-entry-shell>
       <header className={styles.topbar}>
-        <Link href="/" className={styles.brand} aria-label="朝堂 OS 首页"><span aria-hidden>朝</span><b>朝堂 OS<small>COURTOS</small></b></Link>
-        <nav aria-label="公共入口"><Link href="/login">已有账号</Link><Link href="/register" className={styles.topCta}>创建朝堂</Link></nav>
+        <Link href="/" className={styles.brand}>朝堂 OS</Link>
+        <nav className={styles.navigation} aria-label="公共入口">
+          <Link href="/login">登录</Link>
+          <Link href="/register">注册</Link>
+        </nav>
       </header>
       <div className={styles.frame}>
         <section className={styles.introduction} aria-labelledby="pre-auth-title">
-          <p className={styles.eyebrow}>COURTOS · {eyebrow}</p>
-          <div className={styles.seal} aria-hidden="true">朝</div>
+          <p className={styles.eyebrow}>{eyebrow}</p>
           <h1 id="pre-auth-title" className={styles.title}>{title}</h1>
           <p className={styles.description}>{description}</p>
-          <p className={styles.motto}>明德慎刑 · 协同议政</p>
         </section>
         <section className={styles.panel} aria-label={title}>
           {children}
-          {footer ? <footer className={styles.footer}>{footer}</footer> : null}
+          {footer ? <footer className={styles.formFooter}>{footer}</footer> : null}
         </section>
       </div>
+      <footer className={styles.siteFooter}>
+        <span>chaotang-os · 数字朝堂</span>
+        <span>独立朝堂 · Agent 自动办理 · v5</span>
+      </footer>
     </main>
   );
 }

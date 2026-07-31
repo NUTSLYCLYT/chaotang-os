@@ -15,6 +15,10 @@ import app.agents.ministries.agent as ministries_module
 import app.api.decrees as decrees_module
 from app.agents.bureaus.agent import BureauAgentInvocationError
 from app.agents.chancellor.graph import build_chancellor_graph
+from app.agents.chancellor_draft.routing import (
+    ApprovedDepartmentRoute,
+    ApprovedRouteSnapshot,
+)
 from app.agents.evidence_protocol import EvidenceProtocolError
 from app.api.auth import require_current_user
 from app.auth.models import AuthenticatedUser
@@ -28,7 +32,16 @@ def _allow_legacy_direct_decree_calls(monkeypatch):
     monkeypatch.setattr(
         decrees_module.draft_authority_registry,
         "consume",
-        lambda **_kwargs: True,
+        lambda **_kwargs: ApprovedRouteSnapshot(
+            departments=(
+                ApprovedDepartmentRoute(
+                    department="户部", required_bureaus=("预算司",)
+                ),
+                ApprovedDepartmentRoute(
+                    department="工部", required_bureaus=("技术司",)
+                ),
+            )
+        ),
     )
 
 
@@ -54,6 +67,24 @@ class _RecordingLifecycleObserver:
         self.events.append(("failed", "processing_failed"))
 
 
+def _approved_input(
+    decree_text: str,
+    *routes: tuple[str, tuple[str, ...]],
+) -> dict[str, object]:
+    return {
+        "decree_text": decree_text,
+        "approved_route": ApprovedRouteSnapshot(
+            departments=tuple(
+                ApprovedDepartmentRoute(
+                    department=department,
+                    required_bureaus=required_bureaus,
+                )
+                for department, required_bureaus in routes
+            )
+        ),
+    }
+
+
 def test_multi_graph_reports_real_checkpoints_in_department_order(monkeypatch):
     observer = _RecordingLifecycleObserver()
     opinions = [
@@ -77,7 +108,6 @@ def test_multi_graph_reports_real_checkpoints_in_department_order(monkeypatch):
     monkeypatch.setattr(graph_module, "run_junjichu_council", fake_council)
     responses = iter(
         [
-            '{"route_type":"multi","rationale":"需跨部会审","departments":["户部","工部"]}',
             '{"summary":"丞相最终汇总","recommendations":["建议一","建议二","建议三"]}',
         ]
     )
@@ -85,7 +115,13 @@ def test_multi_graph_reports_real_checkpoints_in_department_order(monkeypatch):
     graph = build_chancellor_graph(
         chat_model=lambda _messages: next(responses), lifecycle_observer=observer
     )
-    graph.invoke({"decree_text": "兴修水利并核定预算"})
+    graph.invoke(
+        _approved_input(
+            "兴修水利并核定预算",
+            ("户部", ("预算司",)),
+            ("工部", ("技术司",)),
+        )
+    )
 
     assert observer.events == [
         ("open", ("兴修水利并核定预算", ["户部", "工部"], ["上书房", "丞相（首次分流）"])),
@@ -109,7 +145,6 @@ def test_single_graph_never_calls_lifecycle_observer(monkeypatch):
     )
     responses = iter(
         [
-            '{"route_type":"single","rationale":"职责明确","departments":["户部"]}',
             '{"summary":"丞相最终汇总","recommendations":["建议一","建议二","建议三"]}',
         ]
     )
@@ -117,8 +152,35 @@ def test_single_graph_never_calls_lifecycle_observer(monkeypatch):
     graph = build_chancellor_graph(
         chat_model=lambda _messages: next(responses), lifecycle_observer=observer
     )
-    graph.invoke({"decree_text": "核定预算"})
+    graph.invoke(_approved_input("核定预算", ("户部", ("预算司",))))
 
+    assert observer.events == []
+
+
+def test_invalid_approved_route_fails_before_evidence_case_or_ministry(monkeypatch):
+    observer = _RecordingLifecycleObserver()
+    effects = []
+    invalid = ApprovedRouteSnapshot.model_construct(
+        departments=(
+            {"department": "未知部", "required_bureaus": ("未知司",)},
+        )
+    )
+
+    monkeypatch.setattr(
+        graph_module,
+        "invoke_ministry_agent",
+        lambda *_args, **_kwargs: effects.append("ministry"),
+    )
+
+    graph = build_chancellor_graph(
+        chat_model=lambda _messages: pytest.fail("model must not run"),
+        lifecycle_observer=observer,
+        evidence_session_factory=lambda: effects.append("evidence"),
+    )
+    with pytest.raises(graph_module.ChancellorGraphInvocationError):
+        graph.invoke({"decree_text": "旨意", "approved_route": invalid})
+
+    assert effects == []
     assert observer.events == []
 
 
@@ -154,6 +216,10 @@ def test_council_checkpoint_is_recorded_before_council_model_invocation(monkeypa
         "会审",
         ["户部", "工部"],
         lambda _messages: "unused",
+        required_bureaus_by_department={
+            "户部": ("预算司",),
+            "工部": ("技术司",),
+        },
         lifecycle_observer=observer,
         processing_path=["上书房", "丞相（首次分流）"],
     )
@@ -359,10 +425,6 @@ def test_real_bureau_provider_failure_persists_bureau_stage(monkeypatch, tmp_pat
     _install_temporary_case_storage(monkeypatch, db_path)
     responses = iter(
         [
-            (
-                '{"route_type":"multi","rationale":"需要跨部会审",'
-                '"departments":["户部","工部"]}'
-            ),
             '{"rationale":"先由预算司核办","bureaus":["预算司"]}',
         ]
     )
@@ -395,21 +457,23 @@ def test_real_bureau_provider_failure_persists_bureau_stage(monkeypatch, tmp_pat
     assert isinstance(raised.value.__cause__.__cause__.__cause__, EvidenceProtocolError)
 
 
-def test_real_route_provider_failure_persists_route_stage_once(monkeypatch, tmp_path):
+def test_real_ministry_route_provider_failure_persists_ministry_stage_once(
+    monkeypatch, tmp_path
+):
     db_path = tmp_path / "cases.sqlite3"
     _install_temporary_case_storage(monkeypatch, db_path)
     sdk_error = RuntimeError("SECRET SDK BODY")
     provider_error = DeepSeekModelInvocationError("sanitized provider failure")
     provider_error.__cause__ = sdk_error
 
-    def fail_route(_messages):
+    def fail_ministry_route(_messages):
         raise provider_error
 
     monkeypatch.setattr(
         decrees_module,
         "get_chancellor_graph",
         lambda *, report_session: build_chancellor_graph(
-            chat_model=fail_route,
+            chat_model=fail_ministry_route,
             lifecycle_observer=decrees_module._lifecycle_observer_context.get(),
             report_session=report_session,
         ),
@@ -426,7 +490,7 @@ def test_real_route_provider_failure_persists_route_stage_once(monkeypatch, tmp_
     cases = case_storage.list_cases(owner_user_id="owner-a", db_path=db_path)
     assert len(cases) == 1
     assert cases[0].status == "FAILED"
-    assert cases[0].failure_stage == "route"
+    assert cases[0].failure_stage == "ministry"
     assert cases[0].failure_code == "provider_unavailable"
 
 

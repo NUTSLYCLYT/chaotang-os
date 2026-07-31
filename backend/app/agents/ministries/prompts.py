@@ -135,6 +135,26 @@ def ministry_system_prompt(department: str) -> str:
     )
 
 
+def ministry_required_bureaus_correction_prompt(
+    department: str,
+    *,
+    allowed_bureaus: tuple[str, ...],
+    required_bureaus: tuple[str, ...],
+) -> str:
+    """Return the fixed, raw-response-free correction for a missing required bureau."""
+
+    _positioning_for(department)
+    return (
+        f"上一次选司未包含全部已批准的必选司，请重新为{department}选择。\n"
+        f"允许名录：{'、'.join(allowed_bureaus)}。\n"
+        f"必选司：{'、'.join(required_bureaus)}。\n"
+        "可以按办理顺序保留同一部内其他相关真实司，但不得跨部、重复或遗漏必选司。\n"
+        "你必须只输出严格 JSON 对象，且只能包含非空 rationale 字符串与非空 "
+        'bureaus 字符串数组，形如：{"rationale":"<纠正后的路由判断>",'
+        '"bureaus":["<本部司名>"]}'
+    )
+
+
 def ministry_synthesis_system_prompt(department: str) -> str:
     """Return the strict prompt for the ministry's independent synthesis step.
 

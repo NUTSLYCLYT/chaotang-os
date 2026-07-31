@@ -11,6 +11,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.api.decrees as decrees_module
+from app.agents.chancellor_draft.routing import (
+    ApprovedDepartmentRoute,
+    ApprovedRouteSnapshot,
+)
 from app.auth import create_session, create_user
 from app.auth import storage as auth_storage
 from app.jinyiwei import db as jinyiwei_db
@@ -1194,7 +1198,13 @@ def test_http_success_contract_survives_link_failure_with_one_reply(tmp_path, mo
     monkeypatch.setattr(
         decrees_module.draft_authority_registry,
         "consume",
-        lambda **_kwargs: True,
+        lambda **_kwargs: ApprovedRouteSnapshot(
+            departments=(
+                ApprovedDepartmentRoute(
+                    department="户部", required_bureaus=("预算司",)
+                ),
+            )
+        ),
     )
     response = TestClient(
         app,

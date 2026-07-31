@@ -52,6 +52,13 @@ def _sequenced_chat_model(responses: list[str]):
     return _chat_model
 
 
+def _required_bureaus(*departments: str) -> dict[str, tuple[str, ...]]:
+    return {
+        department: (bureau_profiles_for(department)[0].bureau,)
+        for department in departments
+    }
+
+
 def test_junjichu_prompt_contains_identity_departments_layers_and_constraint():
     prompt = junjichu_system_prompt(["户部", "工部"])
     assert JUNJICHU_IDENTITY in prompt
@@ -186,7 +193,7 @@ def test_invoke_junjichu_model_failure_propagates_to_graph_boundary():
     assert marker in str(exc_info.value)
 
 
-def test_run_junjichu_calls_layered_ministries_serially_then_council():
+def test_run_junjichu_calls_layered_ministries_serially_then_council(monkeypatch):
     departments = ["户部", "工部", "兵部"]
     captured_messages: list[list[dict[str, str]]] = []
     responses: list[str] = []
@@ -200,7 +207,11 @@ def test_run_junjichu_calls_layered_ministries_serially_then_council():
         return inner(messages)
 
     opinions, verdict = run_junjichu_council(
-        "旨意", "判断说明", departments, _chat_model
+        "旨意",
+        "判断说明",
+        departments,
+        _chat_model,
+        required_bureaus_by_department=_required_bureaus(*departments),
     )
 
     assert opinions == [
@@ -219,6 +230,37 @@ def test_run_junjichu_calls_layered_ministries_serially_then_council():
         assert f"{department}补充" in council_evidence
 
 
+def test_junjichu_forwards_required_bureaus_in_approved_department_order(
+    monkeypatch,
+):
+    departments = ["户部", "工部"]
+    required = {"户部": ("会计司",), "工部": ("营缮司", "虞衡司")}
+    seen = []
+
+    def fake_ministry(department, *_args, **kwargs):
+        seen.append((department, kwargs["required_bureaus"]))
+        return _layered_opinion(department)
+
+    monkeypatch.setattr("app.agents.junjichu.agent.invoke_ministry_agent", fake_ministry)
+    monkeypatch.setattr(
+        "app.agents.junjichu.agent.invoke_junjichu_council",
+        lambda *_args, **_kwargs: "会审结论",
+    )
+
+    run_junjichu_council(
+        "旨意",
+        "批准路由",
+        departments,
+        lambda _messages: "unused",
+        required_bureaus_by_department=required,
+    )
+
+    assert seen == [
+        ("户部", ("会计司",)),
+        ("工部", ("营缮司", "虞衡司")),
+    ]
+
+
 def test_council_schema_drift_uses_verified_ministry_inputs(monkeypatch):
     departments = ["吏部", "工部"]
     expected_opinions = [_layered_opinion(department) for department in departments]
@@ -233,6 +275,7 @@ def test_council_schema_drift_uses_verified_ministry_inputs(monkeypatch):
         "判断",
         departments,
         lambda _messages: '{"verdict":"SECRET-REJECTED","extra":true}',
+        required_bureaus_by_department=_required_bureaus(*departments),
     )
 
     assert opinions == expected_opinions
@@ -257,7 +300,9 @@ def test_cross_department_capability_intention_preserves_layered_ministry_inputs
         *,
         recall_context=None,
         evidence_session=None,
+        required_bureaus=None,
     ):
+        assert required_bureaus == _required_bureaus(department)[department]
         assert recall_context is None
         assert evidence_session is None
         bureau = bureau_profiles_for(department)[0].bureau
@@ -293,6 +338,7 @@ def test_cross_department_capability_intention_preserves_layered_ministry_inputs
         "需两部串行会审",
         departments,
         lambda _messages: pytest.fail("fake collaborators must handle this regression"),
+        required_bureaus_by_department=_required_bureaus(*departments),
     )
 
     expected_opinions = [
@@ -319,7 +365,9 @@ def test_cross_department_capability_intention_preserves_layered_ministry_inputs
     assert verdict == "军机处会审结论"
 
 
-def test_run_junjichu_failure_short_circuits_remaining_ministries_and_council():
+def test_run_junjichu_failure_short_circuits_remaining_ministries_and_council(
+    monkeypatch,
+):
     calls = {"value": 0}
 
     def _chat_model(_messages: list[dict[str, str]]) -> str:
@@ -333,11 +381,17 @@ def test_run_junjichu_failure_short_circuits_remaining_ministries_and_council():
         raise RuntimeError("simulated second ministry failure")
 
     with pytest.raises(MinistryAgentInvocationError):
-        run_junjichu_council("旨意", "判断", ["户部", "工部", "兵部"], _chat_model)
+        run_junjichu_council(
+            "旨意",
+            "判断",
+            ["户部", "工部", "兵部"],
+            _chat_model,
+            required_bureaus_by_department=_required_bureaus("户部", "工部", "兵部"),
+        )
     assert calls["value"] == 4
 
 
-def test_run_junjichu_has_no_state_leak_across_invocations():
+def test_run_junjichu_has_no_state_leak_across_invocations(monkeypatch):
     first = _sequenced_chat_model(
         [
             *_ministry_turns("户部", "户司一", "户部一"),
@@ -353,10 +407,18 @@ def test_run_junjichu_has_no_state_leak_across_invocations():
         ]
     )
     opinions_one, verdict_one = run_junjichu_council(
-        "旨意一", "判断一", ["户部", "工部"], first
+        "旨意一",
+        "判断一",
+        ["户部", "工部"],
+        first,
+        required_bureaus_by_department=_required_bureaus("户部", "工部"),
     )
     opinions_two, verdict_two = run_junjichu_council(
-        "旨意二", "判断二", ["刑部", "兵部"], second
+        "旨意二",
+        "判断二",
+        ["刑部", "兵部"],
+        second,
+        required_bureaus_by_department=_required_bureaus("刑部", "兵部"),
     )
     assert verdict_one == "结论一"
     assert verdict_two == "结论二"
@@ -379,7 +441,9 @@ def test_junjichu_only_passes_evidence_session_to_ministries(monkeypatch):
         *,
         recall_context=None,
         evidence_session=None,
+        required_bureaus=None,
     ):
+        assert required_bureaus == _required_bureaus(department)[department]
         assert recall_context is None
         ministry_sessions.append(evidence_session)
         return _layered_opinion(department)
@@ -395,6 +459,7 @@ def test_junjichu_only_passes_evidence_session_to_ministries(monkeypatch):
         "route",
         departments,
         council_model,
+        required_bureaus_by_department=_required_bureaus(*departments),
         evidence_session=session,
     )
 
@@ -417,6 +482,7 @@ def test_junjichu_forwards_same_report_session_to_all_ministries(monkeypatch):
         "判断",
         ["户部", "工部"],
         lambda _messages: '{"verdict":"会审"}',
+        required_bureaus_by_department=_required_bureaus("户部", "工部"),
         report_session=session,
     )
     assert seen == [("户部", session), ("工部", session)]

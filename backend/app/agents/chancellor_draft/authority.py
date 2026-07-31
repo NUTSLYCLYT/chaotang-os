@@ -5,12 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from threading import Lock
 
+from app.agents.chancellor_draft.routing import ApprovedRouteSnapshot
+
 
 @dataclass(frozen=True)
 class _Authority:
     version: int
     fingerprint: str
     decree_text: str
+    route_snapshot: ApprovedRouteSnapshot
 
 
 class DraftAuthorityRegistry:
@@ -27,8 +30,9 @@ class DraftAuthorityRegistry:
         version: int,
         fingerprint: str,
         decree_text: str,
+        route_snapshot: ApprovedRouteSnapshot,
     ) -> None:
-        authority = _Authority(version, fingerprint, decree_text)
+        authority = _Authority(version, fingerprint, decree_text, route_snapshot)
         with self._lock:
             self._by_owner[owner_user_id] = authority
 
@@ -43,13 +47,17 @@ class DraftAuthorityRegistry:
         version: int,
         fingerprint: str,
         decree_text: str,
-    ) -> bool:
-        expected = _Authority(version, fingerprint, decree_text)
+    ) -> ApprovedRouteSnapshot | None:
         with self._lock:
-            if self._by_owner.get(owner_user_id) != expected:
-                return False
+            authority = self._by_owner.get(owner_user_id)
+            if authority is None or (
+                authority.version != version
+                or authority.fingerprint != fingerprint
+                or authority.decree_text != decree_text
+            ):
+                return None
             del self._by_owner[owner_user_id]
-            return True
+            return authority.route_snapshot
 
 
 draft_authority_registry = DraftAuthorityRegistry()

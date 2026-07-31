@@ -1,5 +1,5 @@
-import { registerUser } from "../../../../lib/backendClient.ts";
-import { setSessionCookie } from "../../../../lib/session.ts";
+import { logoutUser, registerUser } from "../../../../lib/backendClient.ts";
+import { clearSessionCookie } from "../../../../lib/session.ts";
 
 function json(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -19,5 +19,8 @@ export async function POST(request: Request): Promise<Response> {
     const status = result.kind === "validation" ? 422 : result.kind === "conflict" ? 409 : result.kind === "unauthenticated" ? 401 : 503;
     return json({ status: "error", reason: result.kind, message: "registration failed" }, status);
   }
-  return setSessionCookie(json({ user: result.user }, result.status), result.sessionId!);
+  if (result.sessionId) {
+    await logoutUser({ sessionId: result.sessionId });
+  }
+  return clearSessionCookie(json({ user: result.user }, result.status));
 }

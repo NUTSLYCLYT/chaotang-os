@@ -8,6 +8,52 @@ export type ChancellorDraftStatus =
   | "EXECUTING"
   | "RETURNED";
 
+export interface ChancellorDraftDepartment {
+  department: string;
+  bureaus: string[];
+  role: string;
+  reason: string;
+  responsibility: string;
+  expected_output: string;
+}
+
+export interface DraftDepartmentDisplayRow {
+  department: string;
+  bureaus: string;
+  role: string;
+  reason: string;
+  responsibility: string;
+  expectedOutput: string;
+}
+
+export function draftDepartmentDisplayRows(
+  departments: readonly ChancellorDraftDepartment[],
+): DraftDepartmentDisplayRow[] {
+  return departments.map((item) => ({
+    department: item.department,
+    bureaus: item.bureaus.join("、"),
+    role: item.role,
+    reason: item.reason,
+    responsibility: item.responsibility,
+    expectedOutput: item.expected_output,
+  }));
+}
+
+export interface ChancellorDraftEdict {
+  objective: string;
+  scope: string[];
+  exclusions: string[];
+  input_materials: string[];
+  material_gaps: string[];
+  key_questions: string[];
+  departments: ChancellorDraftDepartment[];
+  execution_steps: string[];
+  deliverables: string[];
+  completion_criteria: string[];
+  permissions_and_limits: string[];
+  current_status: ChancellorDraftStatus;
+}
+
 export interface ChancellorDraftResult {
   status: ChancellorDraftStatus;
   version: number;
@@ -17,9 +63,11 @@ export interface ChancellorDraftResult {
   recommendation_reason: string;
   assumptions: string[];
   revision_prompt: string;
-  draft: Record<string, unknown> | null;
+  draft: ChancellorDraftEdict | null;
   decree_text: string | null;
 }
+
+export const MAX_DECREE_TEXT_LENGTH = 2000;
 
 export async function requestChancellorDraft(
   content: string,
@@ -58,8 +106,14 @@ export async function requestChancellorDraft(
 export function canIssueChancellorDraft(
   draft: ChancellorDraftResult | null,
 ): boolean {
-  return draft?.status === "DRAFT_READY" &&
-    draft.draft !== null &&
-    typeof draft.decree_text === "string" &&
-    Boolean(draft.decree_text.trim());
+  if (
+    draft?.status !== "DRAFT_READY" ||
+    draft.draft === null ||
+    typeof draft.decree_text !== "string"
+  ) {
+    return false;
+  }
+  const normalizedLength = draft.decree_text.trim().length;
+  return normalizedLength >= 1 &&
+    normalizedLength <= MAX_DECREE_TEXT_LENGTH;
 }

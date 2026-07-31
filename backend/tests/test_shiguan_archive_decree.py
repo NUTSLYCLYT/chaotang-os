@@ -1,11 +1,18 @@
 """Regression tests for decree archival and recall semantics."""
 
+import json
 from types import SimpleNamespace
+
+import pytest
 
 from app.agents.bureaus import bureau_profiles_for
 from app.agents.chancellor.graph import build_chancellor_graph
+from app.agents.chancellor_draft.routing import (
+    ApprovedDepartmentRoute,
+    ApprovedRouteSnapshot,
+)
 from app.shiguan import archive_decree, db, storage
-from app.shiguan.errors import ShiguanStorageError
+from app.shiguan.errors import ArchiveNotFoundError, ShiguanStorageError
 from app.shiguan.recall import RecallContext
 
 
@@ -88,7 +95,6 @@ def test_graph_fetches_one_context_and_reuses_unavailable_degradation(monkeypatc
     bureau = bureau_profiles_for("户部")[0].bureau
     responses = iter(
         [
-            '{"route_type":"single","rationale":"交户部","departments":["户部"]}',
             f'{{"rationale":"交本司","bureaus":["{bureau}"]}}',
             '{"status":"READY","result":{"opinion":"建议司级办理",'
             '"factual_claims":[{"claim":"建议司级办理","basis":"NORMATIVE",'
@@ -104,8 +110,67 @@ def test_graph_fetches_one_context_and_reuses_unavailable_degradation(monkeypatc
         prompts.append(messages[-1]["content"])
         return next(responses)
 
-    result = build_chancellor_graph(chat_model=_model).invoke({"decree_text": "请核定预算"})
+    result = build_chancellor_graph(chat_model=_model).invoke(
+        {
+            "decree_text": "请核定预算",
+            "approved_route": ApprovedRouteSnapshot(
+                departments=(
+                    ApprovedDepartmentRoute(
+                        department="户部", required_bureaus=(bureau,)
+                    ),
+                )
+            ),
+        }
+    )
 
     assert calls == ["户部"]
     assert result["recall_contexts"]["户部"]["available"] is False
     assert sum("shiguan_unavailable" in prompt for prompt in prompts) == 1
+
+
+def test_archived_reply_round_trips_approved_route_authority_evidence(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(db, "_DEFAULT_DB_PATH", tmp_path / "shiguan.sqlite3")
+    fingerprint = "f" * 64
+    approved_route = ApprovedRouteSnapshot(
+        departments=(
+            ApprovedDepartmentRoute(
+                department="户部", required_bureaus=("会计司",)
+            ),
+        )
+    )
+    response = SimpleNamespace(
+        departments=["户部"],
+        processing_path=["上书房", "丞相", "户部·会计司", "丞相（最终汇总）"],
+        rationale="依批准路由办理",
+        council_verdict=None,
+        final_verdict="准奏",
+    )
+
+    result = archive_decree.archive_chancellor_decree(
+        "请生成2025年财务报表",
+        response,
+        {
+            "approved_route": approved_route,
+            "draft_version": 7,
+            "draft_fingerprint": fingerprint,
+        },
+        owner_user_id="owner-a",
+    )
+
+    assert result.archived is True
+    archived = storage.get_archive(result.reply_id, owner_user_id="owner-a")
+    authority = next(
+        item for item in archived.evidence if item.source == "approved_route_authority"
+    )
+    assert authority.reality_label == "LIVE"
+    assert json.loads(authority.note) == {
+        "draft_fingerprint": fingerprint,
+        "draft_version": 7,
+        "departments": [
+            {"department": "户部", "required_bureaus": ["会计司"]}
+        ],
+    }
+    with pytest.raises(ArchiveNotFoundError):
+        storage.get_archive(result.reply_id, owner_user_id="owner-b")

@@ -65,15 +65,16 @@ import json
 import re
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, Required, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from app.agents.bureaus import BureauAgentInvocationError
-from app.agents.chancellor.prompts import (
-    CHANCELLOR_FINALIZATION_SYSTEM_PROMPT,
-    CHANCELLOR_SYSTEM_PROMPT,
+from app.agents.chancellor.prompts import CHANCELLOR_FINALIZATION_SYSTEM_PROMPT
+from app.agents.chancellor_draft.routing import (
+    ApprovedRouteSnapshot,
+    validate_route_snapshot,
 )
 from app.agents.evidence_protocol import (
     AgentEvidenceSession,
@@ -83,10 +84,7 @@ from app.agents.evidence_protocol import (
 )
 from app.agents.evidence_rendering import render_mainland_last_price
 from app.agents.junjichu.agent import CaseLifecycleObserver, run_junjichu_council
-from app.agents.market_intent import (
-    is_mainland_last_price_intent,
-    normalize_market_quote_route,
-)
+from app.agents.market_intent import is_mainland_last_price_intent
 from app.agents.ministries.agent import (
     MinistryAgentInvocationError,
     MinistryOpinion,
@@ -168,6 +166,7 @@ class ChancellorGraphState(TypedDict, total=False):
     """
 
     decree_text: str
+    approved_route: Required[ApprovedRouteSnapshot]
     chancellor_rationale: str
     route_type: str
     departments: list[str]
@@ -180,6 +179,7 @@ class ChancellorGraphState(TypedDict, total=False):
     evidence_session: AgentEvidenceSession
     evidence_snapshot: AgentEvidenceSnapshot
     adopted_evidence_ids: tuple[str, ...]
+    required_bureaus_by_department: dict[str, tuple[str, ...]]
 
 
 def _fallback_finalization(
@@ -398,6 +398,24 @@ def build_chancellor_graph(
 
     def _decide_route(state: ChancellorGraphState) -> dict:
         try:
+            approved_route = validate_route_snapshot(state["approved_route"])
+        except Exception as exc:  # noqa: BLE001 - sanitized graph boundary
+            error = ChancellorGraphInvocationError(
+                "Chancellor graph rejected the approved route snapshot; "
+                "see __cause__ for the original exception."
+            )
+            error.failure_stage = "route"
+            raise error from exc
+        departments = [item.department for item in approved_route.departments]
+        route_type = "single" if len(departments) == 1 else "multi"
+        required_bureaus_by_department = {
+            item.department: item.required_bureaus
+            for item in approved_route.departments
+        }
+        rationale = (
+            "依已批准拟旨路由办理，参与部门及顺序不得变更。"
+        )
+        try:
             evidence_session = (
                 evidence_session_factory()
                 if evidence_session_factory is not None
@@ -408,57 +426,13 @@ def build_chancellor_graph(
                 "Chancellor graph failed to initialize its evidence session; "
                 "see __cause__ for the original exception."
             ) from exc
-        if is_mainland_last_price_intent(state["decree_text"]):
-            return {
-                "chancellor_rationale": "明确的中国大陆证券最新价查询，由户部办理。",
-                "route_type": "single",
-                "departments": ["户部"],
-                "evidence_session": evidence_session,
-                "processing_path": ["上书房", "丞相（首次分流）"],
-            }
-        fallback_route = _deterministic_route(state["decree_text"])
         processing_path = ["上书房", "丞相（首次分流）"]
-        case_opened = False
-        if (
-            fallback_route[0] == "multi"
-            and lifecycle_observer is not None
-        ):
+        if route_type == "multi" and lifecycle_observer is not None:
             lifecycle_observer.open_case(
                 decree_text=state["decree_text"],
-                departments=fallback_route[2],
+                departments=departments,
                 processing_path=processing_path,
             )
-            case_opened = True
-        messages = [
-            {"role": "system", "content": CHANCELLOR_SYSTEM_PROMPT},
-            {"role": "user", "content": state["decree_text"]},
-        ]
-        try:
-            raw_response = resolved_chat_model(messages)
-        except Exception as exc:  # noqa: BLE001 - intentionally wrap any model error
-            error = ChancellorGraphInvocationError(
-                "Chancellor graph node failed to obtain a model response; "
-                "see __cause__ for the original exception."
-            )
-            error.failure_stage = "route"
-            raise error from exc
-
-        try:
-            route_type, rationale, departments = _parse_route_response(raw_response)
-        except _RouteContentError:
-            route_type, rationale, departments = fallback_route
-            evidence_session.record_degradation("chancellor:route")
-
-        if len(fallback_route[2]) >= 2:
-            route_type, rationale, departments = fallback_route
-
-        route_type, rationale, normalized_departments = normalize_market_quote_route(
-            decree_text=state["decree_text"],
-            route_type=route_type,
-            rationale=rationale.strip(),
-            departments=departments,
-        )
-        departments = list(normalized_departments)
 
         route_state = {
             "chancellor_rationale": rationale,
@@ -466,13 +440,9 @@ def build_chancellor_graph(
             "departments": departments,
             "evidence_session": evidence_session,
             "processing_path": processing_path,
+            "approved_route": approved_route,
+            "required_bureaus_by_department": required_bureaus_by_department,
         }
-        if route_type == "multi" and lifecycle_observer is not None and not case_opened:
-            lifecycle_observer.open_case(
-                decree_text=state["decree_text"],
-                departments=departments,
-                processing_path=route_state["processing_path"],
-            )
         return route_state
 
     def _route_condition(state: ChancellorGraphState) -> str:
@@ -485,6 +455,9 @@ def build_chancellor_graph(
             ministry_kwargs: dict[str, object] = {
                 "recall_context": recall_context,
                 "evidence_session": state["evidence_session"],
+                "required_bureaus": state["required_bureaus_by_department"][
+                    department
+                ],
             }
             if report_session is not None:
                 ministry_kwargs["report_session"] = report_session
@@ -541,6 +514,9 @@ def build_chancellor_graph(
             council_kwargs: dict[str, object] = {
                 "recall_contexts": recall_contexts,
                 "evidence_session": state["evidence_session"],
+                "required_bureaus_by_department": state[
+                    "required_bureaus_by_department"
+                ],
             }
             if report_session is not None:
                 council_kwargs["report_session"] = report_session

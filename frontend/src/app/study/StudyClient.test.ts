@@ -25,6 +25,13 @@ type DecreeSubmissionRunner = (options: {
   submit(): Promise<void>;
 }) => Promise<boolean>;
 
+type DecreeUiStateCommitter = (options: {
+  state: { phase: "success" } | { phase: "error"; message: string };
+  setUiState(state: { phase: "success" } | { phase: "error"; message: string }): void;
+  clearDraft(): void;
+  invalidateRecentReplies(): void;
+}) => void;
+
 type DraftRequestRunner = (options: {
   requestId: number;
   sourceText: string;
@@ -82,6 +89,25 @@ async function loadExecutableDecreeSubmissionRunner(): Promise<DecreeSubmissionR
     compiledModule.exports,
   );
   return compiledModule.exports.runStudyDecreeSubmission as DecreeSubmissionRunner;
+}
+
+async function loadExecutableDecreeUiStateCommitter(): Promise<DecreeUiStateCommitter> {
+  const source = await readFile(new URL("./StudyClient.tsx", import.meta.url), "utf8");
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: {
+      jsx: ts.JsxEmit.ReactJSX,
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2017,
+    },
+  }).outputText;
+  const compiledModule = { exports: {} as Record<string, unknown> };
+
+  Function("require", "module", "exports", compiled)(
+    () => ({}),
+    compiledModule,
+    compiledModule.exports,
+  );
+  return compiledModule.exports.commitStudyDecreeUiState as DecreeUiStateCommitter;
 }
 
 async function loadExecutableDraftRequestRunner(): Promise<DraftRequestRunner> {
@@ -182,11 +208,43 @@ test("StudyClient invalidates recent replies only after a successful decree", as
 
   assert.match(
     source,
-    /if \(state\.phase === "success"\)[\s\S]*?invalidateStudyRecentReplies/,
+    /if \(state\.phase !== "success"\) return;[\s\S]*?invalidateStudyRecentReplies/,
   );
   assert.doesNotMatch(source, /appendDecreeSessionRecord|DecreeSessionRecord/);
   assert.match(source, /recentReplies=\{recentReplies\}/);
   assert.match(source, /onSelectRecentReply=/);
+});
+
+test("successful decree state clears the draft before invalidating recent replies", async () => {
+  const commitUiState = await loadExecutableDecreeUiStateCommitter();
+  const events: string[] = [];
+
+  commitUiState({
+    state: { phase: "success" },
+    setUiState: (state) => events.push(`state:${state.phase}`),
+    clearDraft: () => events.push("clear-draft"),
+    invalidateRecentReplies: () => events.push("invalidate-replies"),
+  });
+
+  assert.deepEqual(events, [
+    "state:success",
+    "clear-draft",
+    "invalidate-replies",
+  ]);
+});
+
+test("failed decree state preserves the confirmed draft for retry", async () => {
+  const commitUiState = await loadExecutableDecreeUiStateCommitter();
+  const events: string[] = [];
+
+  commitUiState({
+    state: { phase: "error", message: "retry" },
+    setUiState: (state) => events.push(`state:${state.phase}`),
+    clearDraft: () => events.push("clear-draft"),
+    invalidateRecentReplies: () => events.push("invalidate-replies"),
+  });
+
+  assert.deepEqual(events, ["state:error"]);
 });
 
 test("StudyClient keeps archived presentation separate from decree UI state", async () => {
@@ -239,6 +297,20 @@ test("valid decree submission resets presentation before invoking submission", a
 
   assert.equal(started, true);
   assert.deepEqual(events, ["reset", "submit"]);
+});
+
+test("StudyClient gates issuing on the confirmed decree text, not the source input", async () => {
+  const source = await readFile(new URL("./StudyClient.tsx", import.meta.url), "utf8");
+
+  assert.match(
+    source,
+    /const canIssue = uiState\.phase !== "submitting" &&\s*canIssueChancellorDraft\(draftResult\)/,
+  );
+  assert.doesNotMatch(
+    source,
+    /const canIssue = canSubmit && canIssueChancellorDraft\(draftResult\)/,
+  );
+  assert.match(source, /decreeText: draftResult\?\.decree_text \?\? ""/);
 });
 
 test("editing the source while a draft request is pending ignores the stale response", async () => {

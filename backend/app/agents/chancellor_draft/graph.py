@@ -11,7 +11,9 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import ValidationError
 
+from app.accounting_reports.intent import detect_accounting_report_intent
 from app.agents.chancellor_draft.models import ChancellorDraftResponse
+from app.agents.chancellor_draft.routing import build_route_snapshot
 from app.agents.chancellor_draft.skill_loader import load_chancellor_draft_skill
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel, build_deepseek_chat_model
 from app.langgraph_runtime.deepseek_config import load_deepseek_provider_config
@@ -44,7 +46,8 @@ _TYPED_JSON_SKELETON = json.dumps(
             "key_questions": ["string"],
             "departments": [
                 {
-                    "department": "non-empty string",
+                    "department": "户部",
+                    "bureaus": ["会计司"],
                     "role": "non-empty string",
                     "reason": "non-empty string",
                     "responsibility": "non-empty string",
@@ -122,6 +125,7 @@ _KNOWN_EXACT_PATHS = {
 
 _DEPARTMENT_FIELDS = {
     "department",
+    "bureaus",
     "role",
     "reason",
     "responsibility",
@@ -158,6 +162,14 @@ def _safe_validation_path(location: tuple[object, ...]) -> str:
         and location[3] in _DEPARTMENT_FIELDS
     ):
         return f"draft.departments[].{location[3]}"
+    if (
+        len(location) == 5
+        and location[:2] == ("draft", "departments")
+        and isinstance(location[2], int)
+        and location[3] == "bureaus"
+        and isinstance(location[4], int)
+    ):
+        return "draft.departments[].bureaus[]"
     return "unknown field"
 
 
@@ -180,7 +192,8 @@ def _structure_correction(error: Exception | None) -> str:
             path_rules.append(
                 "draft.departments must be a non-empty JSON array; each "
                 "department object requires non-empty strings for department, "
-                "role, reason, responsibility, and expected_output."
+                "role, reason, responsibility, and expected_output, plus a "
+                "non-empty bureaus array."
             )
         elif path in _ARRAY_OF_STRINGS_PATHS:
             path_rules.append(f"{path} must be a JSON array of strings.")
@@ -200,6 +213,14 @@ def _structure_correction(error: Exception | None) -> str:
         "into this correction instruction. Every list field must remain a JSON "
         "array even with one or zero items. draft must be null unless the complete "
         "draft schema is available. Do not add version, fingerprint, or decree_text. "
+        "expert_example must be the natural-language decree text the user can confirm "
+        "and execute directly, never structured JSON, and must contain 1 to 2000 "
+        "characters after trimming surrounding whitespace. "
+        "department must be one of the fixed six ministries: "
+        "吏部、户部、礼部、兵部、刑部、工部. bureaus must list one or more "
+        "real bureaus belonging to that department, without duplicates. "
+        "For accounting or financial-report work use department 户部 and "
+        'bureaus ["会计司"], never department 户部会计司. '
         f"Use this complete typed JSON skeleton:\n{_TYPED_JSON_SKELETON}"
     )
 
@@ -222,18 +243,64 @@ def _system_prompt(instructions: str) -> str:
         "objective, scope, exclusions, input_materials, material_gaps, "
         "key_questions, departments, execution_steps, deliverables, "
         "completion_criteria, permissions_and_limits, current_status。"
-        "departments 的每项包含 department、role、reason、responsibility、"
+        "departments 的每项包含 department、bureaus、role、reason、responsibility、"
         "expected_output。所有列表字段必须保持 JSON 数组，即使只有一项或零项。"
+        "六部固定为吏部、户部、礼部、兵部、刑部、工部；department 只能是六部名称。"
+        "bureaus 必须是非空、无重复且仅包含本部真实司的数组。"
+        "财务报表任务必须使用 department: \"户部\" 与 bureaus: [\"会计司\"]，"
+        "不得把户部会计司写成 department。"
         "revision_prompt 必须是非空字符串。"
         "departments 必须是至少包含一项的 JSON 数组，且每个对象的 department、role、"
         "reason、responsibility、expected_output 都必须是非空字符串。"
         "scope、key_questions、execution_steps、deliverables、completion_criteria、"
         "permissions_and_limits 必须是至少包含一项的 JSON 数组。"
         "exclusions、input_materials、material_gaps、assumptions 可以为空数组。"
+        "expert_example 是用户确认并直接执行的自然语言旨意正文，不得放结构化 JSON，"
+        "去除首尾空白后必须为 1–2000 字。"
         "不要输出 version、fingerprint 或 decree_text，它们由系统生成。"
         f"{_READY_CONSISTENCY_RULES}"
         f"严格遵循这个完整类型 JSON 骨架：\n{_TYPED_JSON_SKELETON}"
     )
+
+
+def _validate_ready_route_semantics(
+    messages: list[dict[str, str]],
+    response: ChancellorDraftResponse,
+) -> None:
+    user_text = "\n".join(
+        message["content"]
+        for message in messages
+        if message.get("role") == "user"
+        and isinstance(message.get("content"), str)
+    )
+    if not detect_accounting_report_intent(user_text).requested:
+        return
+    if response.draft is None:
+        return
+    routes = response.draft.departments
+    if (
+        len(routes) != 1
+        or routes[0].department != "户部"
+        or routes[0].bureaus != ["会计司"]
+    ):
+        raise ValueError(
+            "accounting report drafts require only 户部 and 会计司"
+        )
+
+
+def _canonical_payload(
+    *,
+    version: int,
+    normalized_payload: dict,
+    decree_text: str | None,
+    route_snapshot: dict | None,
+) -> dict:
+    return {
+        "version": version,
+        **normalized_payload,
+        "decree_text": decree_text,
+        "route_snapshot": route_snapshot,
+    }
 
 
 def build_chancellor_draft_graph(
@@ -289,34 +356,61 @@ def build_chancellor_draft_graph(
                 if not isinstance(payload, dict):
                     raise TypeError
                 version = state["version"]
+                expert_example = payload["expert_example"]
+                if not isinstance(expert_example, str):
+                    raise TypeError
+                normalized_payload = {
+                    **payload,
+                    "expert_example": expert_example.strip(),
+                }
+                decree_text = (
+                    normalized_payload["expert_example"]
+                    if normalized_payload.get("status") == "DRAFT_READY"
+                    else None
+                )
+                validated = ChancellorDraftResponse.model_validate(
+                    {
+                        **normalized_payload,
+                        "version": version,
+                        "fingerprint": "0" * 64,
+                        "decree_text": decree_text,
+                    }
+                )
+                _validate_ready_route_semantics(state["messages"], validated)
+                route_snapshot = (
+                    build_route_snapshot(validated.draft).model_dump(mode="json")
+                    if validated.draft is not None
+                    else None
+                )
                 canonical = json.dumps(
-                    {"version": version, **payload},
+                    _canonical_payload(
+                        version=version,
+                        normalized_payload=normalized_payload,
+                        decree_text=decree_text,
+                        route_snapshot=route_snapshot,
+                    ),
                     ensure_ascii=False,
                     sort_keys=True,
                     separators=(",", ":"),
                 )
                 response = ChancellorDraftResponse.model_validate(
                     {
-                        **payload,
+                        **normalized_payload,
                         "version": version,
                         "fingerprint": hashlib.sha256(
                             canonical.encode("utf-8")
                         ).hexdigest(),
-                        "decree_text": (
-                            json.dumps(
-                                payload["draft"],
-                                ensure_ascii=False,
-                                sort_keys=True,
-                                indent=2,
-                            )
-                            if payload.get("status") == "DRAFT_READY"
-                            and isinstance(payload.get("draft"), dict)
-                            else None
-                        ),
+                        "decree_text": decree_text,
                     }
                 )
                 break
-            except (json.JSONDecodeError, TypeError, KeyError, ValidationError) as exc:
+            except (
+                json.JSONDecodeError,
+                TypeError,
+                KeyError,
+                ValueError,
+                ValidationError,
+            ) as exc:
                 validation_error = exc
 
         if response is None:

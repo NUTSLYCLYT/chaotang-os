@@ -1,5 +1,6 @@
 import { submitDecree, type ReportArtifact } from "../../../../lib/backendClient.ts";
 import { readSessionId } from "../../../../lib/session.ts";
+import { MAX_DECREE_TEXT_LENGTH } from "../../../study/chancellorDraft.ts";
 
 /**
  * `POST /api/decrees/chancellor` —— Next.js 服务端边界。
@@ -131,6 +132,16 @@ export function createPostHandler(
     typeof draftFingerprint !== "string"
   ) {
     return malformedRequestResponse("请求体缺少字符串类型的 decreeText 字段。");
+  }
+
+  const normalizedLength = decreeText.trim().length;
+  if (
+    normalizedLength < 1 ||
+    normalizedLength > MAX_DECREE_TEXT_LENGTH
+  ) {
+    return malformedRequestResponse(
+      `decreeText must contain 1 to ${MAX_DECREE_TEXT_LENGTH} non-whitespace characters.`,
+    );
   }
 
   let result: Awaited<ReturnType<typeof submitDecree>>;

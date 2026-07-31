@@ -190,6 +190,7 @@ def run_junjichu_council(
     departments: list[str],
     chat_model: DeepSeekChatModel,
     *,
+    required_bureaus_by_department: Mapping[str, Sequence[str]],
     recall_contexts: Mapping[str, RecallContext] | None = None,
     evidence_session: AgentEvidenceSession | None = None,
     report_session: AccountingReportSession | None = None,
@@ -233,7 +234,10 @@ def run_junjichu_council(
         ministry_kwargs = {
             "recall_context": (
                 recall_contexts[department] if recall_contexts else None
-            )
+            ),
+            "required_bureaus": tuple(
+                required_bureaus_by_department[department]
+            ),
         }
         if evidence_session is not None:
             ministry_kwargs["evidence_session"] = evidence_session

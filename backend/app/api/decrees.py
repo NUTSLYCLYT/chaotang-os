@@ -39,15 +39,21 @@ from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.accounting_reports.intent import detect_accounting_report_intent
 from app.accounting_reports.models import PublishedReportArtifact
 from app.accounting_reports.session import AccountingReportSession
 from app.accounting_reports.storage import DEFAULT_ARTIFACT_DIR, DEFAULT_DB_PATH
+from app.agents.bureaus import bureau_profiles_for
 from app.agents.chancellor import (
     CHANCELLOR_IDENTITY,
     ChancellorGraphInvocationError,
     build_chancellor_graph,
 )
 from app.agents.chancellor_draft.authority import draft_authority_registry
+from app.agents.chancellor_draft.routing import (
+    ApprovedRouteSnapshot,
+    validate_route_snapshot,
+)
 from app.agents.junjichu.agent import CaseLifecycleObserver
 from app.agents.ministries import MINISTRIES
 from app.agents.synthesis_failures import (
@@ -336,7 +342,12 @@ def _non_empty_string(value: object) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
-def _build_response_from_graph_result(result: object) -> ChancellorDecreeResponse:
+def _build_response_from_graph_result(
+    result: object,
+    approved_route: ApprovedRouteSnapshot,
+    *,
+    decree_text: str,
+) -> ChancellorDecreeResponse:
     """Validate the complete graph result and construct the HTTP response.
 
     This is one fail-closed boundary: malformed graph state never escapes as
@@ -392,22 +403,52 @@ def _build_response_from_graph_result(result: object) -> ChancellorDecreeRespons
             raise ValueError("single routing must contain exactly one department")
         if route_type == "multi" and len(departments) < 2:
             raise ValueError("multi routing must contain at least two departments")
+        approved_departments = [
+            route.department for route in approved_route.departments
+        ]
+        if departments != approved_departments:
+            raise ValueError("departments must exactly match the approved route")
         if not isinstance(ministry_opinions, list) or len(ministry_opinions) != len(
             departments
         ):
             raise ValueError("ministry_opinions must correspond to departments")
 
         parsed_ministry_opinions: list[MinistryOpinionResponse] = []
-        for department, opinion in zip(departments, ministry_opinions, strict=True):
+        for approved_department, opinion in zip(
+            approved_route.departments, ministry_opinions, strict=True
+        ):
             if not isinstance(opinion, dict) or set(opinion) != {
                 "department",
                 "bureau_opinions",
                 "opinion",
             }:
                 raise ValueError("ministry opinion has an invalid schema")
-            if opinion.get("department") != department:
+            if opinion.get("department") != approved_department.department:
                 raise ValueError("ministry opinion order must match departments")
-            parsed_ministry_opinions.append(MinistryOpinionResponse.model_validate(opinion))
+            parsed_opinion = MinistryOpinionResponse.model_validate(opinion)
+            actual_bureaus = [
+                bureau_opinion.bureau
+                for bureau_opinion in parsed_opinion.bureau_opinions
+            ]
+            if len(actual_bureaus) != len(set(actual_bureaus)):
+                raise ValueError(
+                    "ministry opinion must not contain duplicate bureaus"
+                )
+            department_bureaus = {
+                profile.bureau
+                for profile in bureau_profiles_for(approved_department.department)
+            }
+            if any(bureau not in department_bureaus for bureau in actual_bureaus):
+                raise ValueError(
+                    "ministry opinion bureaus must belong to the department"
+                )
+            if not set(approved_department.required_bureaus).issubset(
+                set(actual_bureaus)
+            ):
+                raise ValueError(
+                    "ministry opinion must include every required bureau"
+                )
+            parsed_ministry_opinions.append(parsed_opinion)
 
         if route_type == "single":
             if council_verdict is not None:
@@ -424,6 +465,38 @@ def _build_response_from_graph_result(result: object) -> ChancellorDecreeRespons
         normalized_recommendations = [item.strip() for item in recommendations]
         if len(set(normalized_recommendations)) != 3:
             raise ValueError("recommendations must be unique after stripping")
+
+        if detect_accounting_report_intent(decree_text).requested:
+            if (
+                route_type != "single"
+                or len(approved_route.departments) != 1
+                or approved_route.departments[0].department != "户部"
+                or approved_route.departments[0].required_bureaus != ("会计司",)
+            ):
+                raise ValueError(
+                    "accounting reports require the approved 户部·会计司 route"
+                )
+            actual_bureaus = [
+                item.bureau
+                for item in parsed_ministry_opinions[0].bureau_opinions
+            ]
+            if actual_bureaus != ["会计司"]:
+                raise ValueError(
+                    "accounting reports must be handled only by 会计司"
+                )
+            expected_processing_path = [
+                "上书房",
+                "丞相（首次分流）",
+                "户部",
+                "户部·会计司",
+                "户部（部级补充）",
+                "丞相（最终汇总）",
+            ]
+            if processing_path != expected_processing_path:
+                raise ValueError(
+                    "accounting report processing path must exactly match "
+                    "the approved single-department route"
+                )
 
         return ChancellorDecreeResponse(
             status="ok",
@@ -482,6 +555,24 @@ def submit_decree(
     any routing/orchestration logic itself (see ``backend/AGENTS.md``: "api
     不实现 agent 图逻辑").
     """
+    try:
+        approved_route = draft_authority_registry.consume(
+            owner_user_id=current_user.id,
+            version=payload.draft_version or 0,
+            fingerprint=payload.draft_fingerprint or "",
+            decree_text=payload.decree_text,
+        )
+    except Exception:
+        raise AccountingReportPublicationError(
+            "draft_authority_unavailable"
+        ) from None
+    if approved_route is None:
+        raise DraftNotCurrentError
+    try:
+        approved_route = validate_route_snapshot(approved_route)
+    except Exception:
+        raise DraftNotCurrentError from None
+
     report_session = build_accounting_report_session(
         owner_user_id=current_user.id,
         run_id=secrets.token_hex(16),
@@ -489,27 +580,32 @@ def submit_decree(
     observer = _StorageCaseLifecycleObserver(current_user.id)
     context_token = None
     try:
-        try:
-            draft_is_current = draft_authority_registry.consume(
-                owner_user_id=current_user.id,
-                version=payload.draft_version or 0,
-                fingerprint=payload.draft_fingerprint or "",
-                decree_text=payload.decree_text,
-            )
-        except Exception:
-            raise AccountingReportPublicationError("draft_authority_unavailable") from None
-        if not draft_is_current:
-            raise DraftNotCurrentError
-
         context_token = _lifecycle_observer_context.set(observer)
         graph = get_chancellor_graph(report_session=report_session)
-        result = graph.invoke({"decree_text": payload.decree_text})
-        response = _build_response_from_graph_result(result)
+        result = graph.invoke(
+            {
+                "decree_text": payload.decree_text,
+                "approved_route": approved_route,
+            }
+        )
+        response = _build_response_from_graph_result(
+            result,
+            approved_route,
+            decree_text=payload.decree_text,
+        )
+        audited_result = dict(result)
+        audited_result.update(
+            {
+                "approved_route": approved_route,
+                "draft_version": payload.draft_version,
+                "draft_fingerprint": payload.draft_fingerprint,
+            }
+        )
         try:
             archive_result = archive_chancellor_decree(
                 payload.decree_text,
                 response,
-                result,
+                audited_result,
                 owner_user_id=current_user.id,
             )
         except Exception as exc:

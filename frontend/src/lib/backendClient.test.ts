@@ -574,6 +574,37 @@ test("submitDecree：请求耗时超过自定义 timeoutMs 时超时中止，映
   }
 });
 
+test("submitDecree：正式下旨只提交正文与拟旨授权字段，不提交客户端路由", async () => {
+  let requestPayload: Record<string, unknown> | undefined;
+  const result = await submitDecree("请核查国库存银", {
+    ...memoryRequestOptions(SINGLE_ROUTE_BODY),
+    draftVersion: 7,
+    draftFingerprint: "b".repeat(64),
+    fetchImpl: async (_input, init) => {
+      requestPayload = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(JSON.stringify(SINGLE_ROUTE_BODY), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(requestPayload, {
+    decree_text: "请核查国库存银",
+    draft_version: 7,
+    draft_fingerprint: "b".repeat(64),
+  });
+  assert.deepEqual(Object.keys(requestPayload ?? {}).sort(), [
+    "decree_text",
+    "draft_fingerprint",
+    "draft_version",
+  ]);
+  for (const forbidden of ["route", "approved_route", "department", "departments", "bureau", "bureaus"]) {
+    assert.equal(Object.hasOwn(requestPayload ?? {}, forbidden), false);
+  }
+});
+
 test("submitDecree：未触发本地计时器的外部 AbortError 仍映射为 kind: network", async () => {
   let timeoutCallback: (() => void) | undefined;
   let cancelled = 0;

@@ -20,6 +20,12 @@ from openpyxl import load_workbook
 ROOT = Path(__file__).resolve().parents[2]
 BACKEND = ROOT / "backend"
 FRONTEND = ROOT / "frontend"
+ACCOUNTING_DECREE = (
+    "请户部会计司根据现有财务数据，生成2024年至2025年管理层综合财务报表，"
+    "并交付可下载的 Excel 文件。报告需包括管理摘要、核心财务报表、科目趋势、"
+    "异常分析、科目明细、校验结果和数据来源；核对金额、同比变化及勾稽关系，"
+    "列明数据缺口，不修改原始数据。"
+)
 SHEETS = [
     "管理摘要",
     "核心财务报表",
@@ -141,19 +147,51 @@ def main() -> int:
                 cookie = next(iter(jar))
                 session_cookies[username] = f"{cookie.name}={cookie.value}"
 
+            status, draft = _json_request(
+                owner,
+                f"{base}/api/drafts/chancellor",
+                {
+                    "messages": [{"role": "user", "content": ACCOUNTING_DECREE}],
+                    "version": 1,
+                },
+                session_cookies["synthetic-owner"],
+            )
+            assert status == 200
+            assert draft["status"] == "DRAFT_READY"
+            assert draft["decree_text"] == ACCOUNTING_DECREE
+            assert draft["draft"]["departments"] == [
+                {
+                    "department": "户部",
+                    "bureaus": ["会计司"],
+                    "role": "主审",
+                    "reason": "负责财务报表。",
+                    "responsibility": "生成并校验报表。",
+                    "expected_output": "可下载的 Excel 文件。",
+                }
+            ]
+
             status, decree = _json_request(
                 owner,
                 f"{base}/api/decrees/chancellor",
                 {
-                    "decreeText": "请生成2025年财务报表",
-                    "draftVersion": 1,
-                    "draftFingerprint": "a" * 64,
+                    "decreeText": draft["decree_text"],
+                    "draftVersion": draft["version"],
+                    "draftFingerprint": draft["fingerprint"],
                 },
                 session_cookies["synthetic-owner"],
             )
             assert status == 200
             assert decree["routeType"] == "single"
             assert decree["departments"] == ["户部"]
+            assert decree["processingPath"] == [
+                "上书房",
+                "丞相（首次分流）",
+                "户部",
+                "户部·会计司",
+                "户部（部级补充）",
+                "丞相（最终汇总）",
+            ]
+            assert decree["councilVerdict"] is None
             assert len(decree["artifacts"]) == 1
             artifact_id = decree["artifacts"][0]["artifactId"]
             download_url = f"{base}/api/report-artifacts/{artifact_id}"

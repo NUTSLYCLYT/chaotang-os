@@ -208,6 +208,183 @@ def _route_response(*bureaus: str, rationale: str = "按职责分工办理") -> 
     )
 
 
+def test_required_bureau_is_corrected_once_before_any_bureau_call(monkeypatch):
+    invoked: list[tuple[str, str]] = []
+    captured: list[list[dict[str, str]]] = []
+
+    def fake_bureau(department, bureau, *_args, **_kwargs):
+        invoked.append((department, bureau))
+        return f"{bureau}意见"
+
+    monkeypatch.setattr("app.agents.ministries.agent.invoke_bureau_agent", fake_bureau)
+    model = _sequenced_chat_model(
+        [
+            _route_response("审计司"),
+            _route_response("会计司", rationale="纠正为必选司"),
+            '{"opinion":"户部综合意见"}',
+        ],
+        captured,
+    )
+
+    result = invoke_ministry_agent(
+        "户部",
+        "生成财务报表",
+        "交户部办理",
+        model,
+        required_bureaus=("会计司",),
+    )
+
+    assert invoked == [("户部", "会计司")]
+    assert [item["bureau"] for item in result["bureau_opinions"]] == ["会计司"]
+    correction = captured[1]
+    assert "会计司" in correction[-1]["content"]
+    assert "按职责分工办理" not in correction[-1]["content"]
+    assert '"rationale"' in correction[-1]["content"]
+    assert '"bureaus"' in correction[-1]["content"]
+
+
+def test_accounting_report_extra_bureau_is_corrected_to_exact_required_route(
+    monkeypatch,
+):
+    invoked: list[str] = []
+    bureau_sessions: list[object | None] = []
+    evidence_session = AgentEvidenceSession(coordinator=object())
+
+    def fake_bureau(_department, bureau, *_args, **kwargs):
+        invoked.append(bureau)
+        bureau_sessions.append(kwargs.get("evidence_session"))
+        return f"{bureau}意见"
+
+    monkeypatch.setattr("app.agents.ministries.agent.invoke_bureau_agent", fake_bureau)
+
+    result = invoke_ministry_agent(
+        "户部",
+        "请根据现有财务数据生成2024年至2025年管理层综合财务报表，并交付Excel文件。",
+        "交户部办理",
+        _sequenced_chat_model(
+            [
+                _route_response("会计司", "审计司"),
+                _route_response("会计司", rationale="纠正为精确承办司"),
+                '{"opinion":"户部综合意见"}',
+            ]
+        ),
+        required_bureaus=("会计司",),
+        evidence_session=evidence_session,
+        report_session=SimpleNamespace(),
+    )
+
+    assert invoked == ["会计司"]
+    assert [item["bureau"] for item in result["bureau_opinions"]] == ["会计司"]
+    assert bureau_sessions == [None]
+
+
+def test_accounting_report_repeated_extra_bureau_fails_before_any_bureau_call(
+    monkeypatch,
+):
+    bureau_calls: list[str] = []
+    monkeypatch.setattr(
+        "app.agents.ministries.agent.invoke_bureau_agent",
+        lambda *_args, **_kwargs: bureau_calls.append("bureau"),
+    )
+
+    with pytest.raises(MinistryAgentInvocationError) as caught:
+        invoke_ministry_agent(
+            "户部",
+            "请根据现有财务数据生成2024年至2025年管理层综合财务报表，并交付Excel文件。",
+            "交户部办理",
+            _sequenced_chat_model(
+                [
+                    _route_response("会计司", "审计司"),
+                    _route_response("会计司", "审计司"),
+                ]
+            ),
+            required_bureaus=("会计司",),
+        )
+
+    assert caught.value.failure_stage == "bureau"
+    assert bureau_calls == []
+
+
+def test_non_last_price_market_route_preserves_model_order_and_required_bureau(
+    monkeypatch,
+):
+    invoked: list[str] = []
+    monkeypatch.setattr(
+        "app.agents.ministries.agent.invoke_bureau_agent",
+        lambda _department, bureau, *_args, **_kwargs: (
+            invoked.append(bureau) or f"{bureau}意见"
+        ),
+    )
+
+    result = invoke_ministry_agent(
+        "户部",
+        "分析证券成交量并复核账务",
+        "批准户部会计司办理",
+        _sequenced_chat_model(
+            [
+                _route_response("审计司", "会计司"),
+                '{"opinion":"户部综合意见"}',
+            ]
+        ),
+        required_bureaus=("会计司",),
+    )
+
+    assert invoked == ["审计司", "会计司"]
+    assert [item["bureau"] for item in result["bureau_opinions"]] == invoked
+
+
+def test_required_bureau_second_omission_fails_before_bureau_synthesis_or_report(
+    monkeypatch,
+):
+    bureau_calls: list[str] = []
+    report_session = SimpleNamespace(maybe_generate=lambda *_args: pytest.fail("report"))
+    monkeypatch.setattr(
+        "app.agents.ministries.agent.invoke_bureau_agent",
+        lambda *_args, **_kwargs: bureau_calls.append("bureau"),
+    )
+    model = _sequenced_chat_model(
+        [_route_response("审计司"), _route_response("预算司")]
+    )
+
+    with pytest.raises(MinistryAgentInvocationError) as caught:
+        invoke_ministry_agent(
+            "户部",
+            "生成财务报表",
+            "交户部办理",
+            model,
+            required_bureaus=("会计司",),
+            report_session=report_session,
+        )
+
+    assert caught.value.failure_stage == "bureau"
+    assert bureau_calls == []
+
+
+@pytest.mark.parametrize(
+    "required_bureaus",
+    [(), ("会计司", "会计司"), ("营缮司",)],
+)
+def test_required_bureaus_are_validated_at_entry_before_capability_or_model(
+    required_bureaus,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "app.agents.ministries.agent.capability_profiles_for",
+        lambda *_args: pytest.fail("capability validation must not run"),
+    )
+
+    with pytest.raises(MinistryAgentInvocationError) as caught:
+        invoke_ministry_agent(
+            "户部",
+            "生成财务报表",
+            "交户部办理",
+            lambda _messages: pytest.fail("model must not run"),
+            required_bureaus=required_bureaus,
+        )
+
+    assert caught.value.failure_stage == "bureau"
+
+
 def test_invoke_ministry_agent_routes_to_one_bureau_and_returns_named_opinion():
     captured_messages: list[list[dict[str, str]]] = []
     chat_model = _sequenced_chat_model(
@@ -219,7 +396,10 @@ def test_invoke_ministry_agent_routes_to_one_bureau_and_returns_named_opinion():
         captured_messages,
     )
 
-    opinion = invoke_ministry_agent("户部", "制定年度预算", "交户部办理", chat_model)
+    opinion = invoke_ministry_agent(
+        "户部", "制定年度预算", "交户部办理", chat_model,
+        required_bureaus=("预算司",),
+    )
 
     assert opinion == {
         "department": "户部",
@@ -274,6 +454,7 @@ def test_household_market_decree_statically_routes_only_to_investment_bureau(
         "查询比亚迪股票价格",
         "交户部办理",
         model,
+        required_bureaus=("投资司",),
         recall_context=RecallContext(available=True, entries=[]),
     )
 
@@ -312,6 +493,7 @@ def test_household_market_ministry_schema_drift_reuses_adopted_bureau_opinion(
         "查询比亚迪股票价格",
         "交户部办理",
         lambda _messages: '{"opinion":"REJECTED-MINISTRY","extra":true}',
+        required_bureaus=("投资司",),
         recall_context=RecallContext(available=True, entries=[]),
         evidence_session=session,
     )
@@ -350,6 +532,7 @@ def test_household_market_ministry_rejects_valid_but_altered_time_and_source(
             '{"opinion":"比亚迪最新可得价格为 300 CNY'
             '（行情时间：2099-01-01；来源：伪造来源）。"}'
         ),
+        required_bureaus=("投资司",),
         recall_context=RecallContext(available=True, entries=[]),
         evidence_session=session,
     )
@@ -373,6 +556,7 @@ def test_household_market_ministry_synthesis_failure_without_adoption_fails_clos
             "查询比亚迪股票价格",
             "交户部办理",
             lambda _messages: (_ for _ in ()).throw(RuntimeError("synthesis failed")),
+            required_bureaus=("投资司",),
             recall_context=RecallContext(available=True, entries=[]),
             evidence_session=session,
         )
@@ -401,6 +585,7 @@ def test_household_market_ministry_rejects_unrelated_prefilled_adoption(
             "查询比亚迪股票价格",
             "交户部办理",
             model,
+            required_bureaus=("投资司",),
             recall_context=RecallContext(available=True, entries=[]),
             evidence_session=session,
         )
@@ -432,7 +617,8 @@ def test_household_non_market_bureau_order_remains_unchanged(monkeypatch):
                 _route_response("预算司"),
                 '{"opinion": "户部综合意见"}',
             ]
-        ),
+            ),
+        required_bureaus=("预算司",),
         recall_context=RecallContext(available=True, entries=[]),
     )
 
@@ -468,7 +654,10 @@ def test_invoke_ministry_agent_injects_read_only_recall_context(monkeypatch):
         captured_messages,
     )
 
-    invoke_ministry_agent("户部", "制定年度预算", "交户部办理", chat_model)
+    invoke_ministry_agent(
+        "户部", "制定年度预算", "交户部办理", chat_model,
+        required_bureaus=("预算司",),
+    )
 
     routing_content = captured_messages[0][1]["content"]
     synthesis_content = captured_messages[2][1]["content"]
@@ -492,7 +681,10 @@ def test_invoke_ministry_agent_invokes_multiple_bureaus_serially_in_route_order(
         captured_messages,
     )
 
-    opinion = invoke_ministry_agent("工部", "产品交付", "交工部办理", chat_model)
+    opinion = invoke_ministry_agent(
+        "工部", "产品交付", "交工部办理", chat_model,
+        required_bureaus=("技术司",),
+    )
 
     assert opinion == {
         "department": "工部",
@@ -542,7 +734,10 @@ def test_selected_bureau_capability_boundary_preserves_model_call_order_and_scop
         fake_capability_profiles_for,
     )
 
-    opinion = invoke_ministry_agent("兵部", "推进报价", "交兵部办理", fake_model)
+    opinion = invoke_ministry_agent(
+        "兵部", "推进报价", "交兵部办理", fake_model,
+        required_bureaus=("报价司",),
+    )
 
     assert calls == ["route", "bureau:报价司", "synthesis"]
     assert capability_lookups == [("兵部", "报价司")]
@@ -579,7 +774,10 @@ def test_selected_bureau_capability_boundary_keeps_multiple_bureaus_in_model_ord
         fake_capability_profiles_for,
     )
 
-    opinion = invoke_ministry_agent("工部", "产品交付", "交工部办理", fake_model)
+    opinion = invoke_ministry_agent(
+        "工部", "产品交付", "交工部办理", fake_model,
+        required_bureaus=("技术司",),
+    )
 
     assert calls == ["route", "bureau:技术司", "bureau:质量司", "synthesis"]
     assert capability_lookups == [("工部", "技术司"), ("工部", "质量司")]
@@ -605,7 +803,10 @@ def test_selected_bureau_capability_lookup_failure_stops_before_bureau_or_synthe
     )
 
     with pytest.raises(MinistryAgentInvocationError) as exc_info:
-        invoke_ministry_agent("户部", "制定年度预算", "交户部办理", fake_model)
+        invoke_ministry_agent(
+            "户部", "制定年度预算", "交户部办理", fake_model,
+            required_bureaus=("预算司",),
+        )
 
     assert exc_info.value.__cause__ is failure
     assert model_calls == [ministry_system_prompt("户部")]
@@ -624,6 +825,7 @@ def test_every_one_of_the_39_bureaus_can_be_selected(profile):
                 '{"opinion": "部级综合意见"}',
             ]
         ),
+        required_bureaus=(profile.bureau,),
     )
     assert opinion == {
         "department": profile.department,
@@ -641,7 +843,8 @@ def test_all_six_libu_bureaus_use_the_same_route_and_aggregation_mechanism():
     responses.append('{"opinion": "礼部统筹全部六司形成对外建议"}')
 
     opinion = invoke_ministry_agent(
-        "礼部", "对外沟通", "交礼部办理", _sequenced_chat_model(responses)
+        "礼部", "对外沟通", "交礼部办理", _sequenced_chat_model(responses),
+        required_bureaus=(bureaus[0],),
     )
 
     assert opinion == {
@@ -655,7 +858,10 @@ def test_all_six_libu_bureaus_use_the_same_route_and_aggregation_mechanism():
 
 def test_invoke_ministry_agent_unknown_department_raises_value_error():
     with pytest.raises(ValueError):
-        invoke_ministry_agent("礼仪司", "旨意", "判断说明", lambda _messages: "unused")
+        invoke_ministry_agent(
+            "礼仪司", "旨意", "判断说明", lambda _messages: "unused",
+            required_bureaus=("未知司",),
+        )
 
 
 def test_invoke_ministry_agent_model_call_failure_wrapped_with_cause_preserved():
@@ -663,7 +869,10 @@ def test_invoke_ministry_agent_model_call_failure_wrapped_with_cause_preserved()
         raise RuntimeError("simulated fake-model failure")
 
     with pytest.raises(MinistryAgentInvocationError) as exc_info:
-        invoke_ministry_agent("吏部", "旨意", "判断说明", _raising_chat_model)
+        invoke_ministry_agent(
+            "吏部", "旨意", "判断说明", _raising_chat_model,
+            required_bureaus=("任免司",),
+        )
 
     assert isinstance(exc_info.value.__cause__, RuntimeError)
     assert str(exc_info.value.__cause__) == "simulated fake-model failure"
@@ -693,24 +902,16 @@ def test_invoke_ministry_agent_model_call_failure_wrapped_with_cause_preserved()
         '{"rationale": "说明", "bureaus": ["增长司", "增长司"]}',
     ],
 )
-def test_invoke_ministry_agent_degrades_invalid_bureau_route(invalid_response):
+def test_invoke_ministry_agent_rejects_invalid_bureau_route(invalid_response):
     department = "兵部"
-    result = invoke_ministry_agent(
-        department,
-        "旨意",
-        "判断说明",
-        _sequenced_chat_model(
-            [
-                invalid_response,
-                '{"opinion":"司级意见"}',
-                '{"opinion":"部级意见"}',
-            ]
-        ),
-    )
-
-    assert [item["bureau"] for item in result["bureau_opinions"]] == [
-        bureau_profiles_for(department)[0].bureau
-    ]
+    with pytest.raises(MinistryAgentInvocationError):
+        invoke_ministry_agent(
+            department,
+            "旨意",
+            "判断说明",
+            _sequenced_chat_model([invalid_response]),
+            required_bureaus=("增长司",),
+        )
 
 
 def test_bureau_failure_short_circuits_and_is_wrapped_with_sanitized_cause_chain():
@@ -726,7 +927,10 @@ def test_bureau_failure_short_circuits_and_is_wrapped_with_sanitized_cause_chain
         raise RuntimeError(f"provider leaked {marker}")
 
     with pytest.raises(MinistryAgentInvocationError) as exc_info:
-        invoke_ministry_agent("户部", "旨意", "判断", _chat_model)
+        invoke_ministry_agent(
+            "户部", "旨意", "判断", _chat_model,
+            required_bureaus=("预算司",),
+        )
 
     assert calls["value"] == 3
     assert marker not in str(exc_info.value)
@@ -767,7 +971,10 @@ def test_invalid_ministry_synthesis_uses_safe_fallback_after_all_bureaus(
         ]
         return responses[calls["value"] - 1]
 
-    result = invoke_ministry_agent("户部", "旨意", "判断", _chat_model)
+    result = invoke_ministry_agent(
+        "户部", "旨意", "判断", _chat_model,
+        required_bureaus=("预算司",),
+    )
 
     assert calls["value"] == 4
     assert result["opinion"]
@@ -787,7 +994,10 @@ def test_ministry_synthesis_failure_short_circuits_without_returning_partial_res
         raise RuntimeError(f"provider leaked {marker}")
 
     with pytest.raises(MinistryAgentInvocationError) as exc_info:
-        invoke_ministry_agent("户部", "旨意", "判断", _chat_model)
+        invoke_ministry_agent(
+            "户部", "旨意", "判断", _chat_model,
+            required_bureaus=("预算司",),
+        )
 
     assert len(calls) == 3
     assert marker not in str(exc_info.value)
@@ -820,6 +1030,7 @@ def test_ministry_synthesis_model_exception_fails_closed(model_failure) -> None:
             "\u4ea4\u4ed8\u4ea7\u54c1",
             "\u4ea4\u5de5\u90e8\u529e\u7406",
             _chat_model,
+            required_bureaus=(selected_bureau,),
         )
 
     assert exc_info.value.__cause__ is model_failure
@@ -837,8 +1048,14 @@ def test_reusing_same_callable_for_two_ministry_invocations_does_not_leak_state(
         ]
     )
 
-    first = invoke_ministry_agent("礼部", "旨意一", "判断一", chat_model)
-    second = invoke_ministry_agent("礼部", "旨意二", "判断二", chat_model)
+    first = invoke_ministry_agent(
+        "礼部", "旨意一", "判断一", chat_model,
+        required_bureaus=("品牌司",),
+    )
+    second = invoke_ministry_agent(
+        "礼部", "旨意二", "判断二", chat_model,
+        required_bureaus=("体验司",),
+    )
 
     assert first == {
         "department": "礼部",
@@ -859,7 +1076,10 @@ def test_invoke_ministry_agent_does_not_leak_secret_from_underlying_exception():
         raise RuntimeError(f"simulated SDK failure, key={leaking_marker}")
 
     with pytest.raises(MinistryAgentInvocationError) as exc_info:
-        invoke_ministry_agent("刑部", "旨意", "判断说明", _leaking_chat_model)
+        invoke_ministry_agent(
+            "刑部", "旨意", "判断说明", _leaking_chat_model,
+            required_bureaus=("合同司",),
+        )
 
     assert leaking_marker in str(exc_info.value.__cause__)
     assert leaking_marker not in str(exc_info.value)
@@ -897,6 +1117,7 @@ def test_ministry_only_passes_evidence_session_to_selected_bureau(monkeypatch):
         "decree",
         "chancellor route",
         model,
+        required_bureaus=(profile.bureau,),
         evidence_session=session,
     )
 
@@ -909,30 +1130,21 @@ def test_ministry_only_passes_evidence_session_to_selected_bureau(monkeypatch):
 
 
 @pytest.mark.parametrize("selector_response", ["plain text", "{}", '{"bureaus":[]}'])
-def test_selector_content_drift_uses_deterministic_registered_bureau(
+def test_selector_content_drift_fails_closed_without_deterministic_fallback(
     selector_response: str,
 ) -> None:
     department = "\u540f\u90e8"
-    fallback_bureau = bureau_profiles_for(department)[0].bureau
-    result = invoke_ministry_agent(
-        department,
-        "\u62db\u8058\u4e24\u540d\u5458\u5de5",
-        "\u4ea4\u540f\u90e8\u529e\u7406",
-        _sequenced_chat_model(
-            [
-                selector_response,
-                '{"opinion":"READY-BUREAU"}',
-                '{"opinion":"VALID-SYNTHESIS"}',
-            ]
-        ),
-    )
-
-    assert [item["bureau"] for item in result["bureau_opinions"]] == [
-        fallback_bureau
-    ]
+    with pytest.raises(MinistryAgentInvocationError):
+        invoke_ministry_agent(
+            department,
+            "\u62db\u8058\u4e24\u540d\u5458\u5de5",
+            "\u4ea4\u540f\u90e8\u529e\u7406",
+            _sequenced_chat_model([selector_response]),
+            required_bureaus=(bureau_profiles_for(department)[0].bureau,),
+        )
 
 
-def test_selector_degradation_records_exact_ministry_node_once(
+def test_selector_invalid_response_does_not_record_degradation(
     monkeypatch,
 ) -> None:
     department = "\u540f\u90e8"
@@ -942,62 +1154,17 @@ def test_selector_degradation_records_exact_ministry_node_once(
         lambda *_args, **_kwargs: "READY-BUREAU",
     )
 
-    for _ in range(2):
+    with pytest.raises(MinistryAgentInvocationError):
         invoke_ministry_agent(
             department,
             "\u62db\u8058\u4e24\u540d\u5458\u5de5",
             "\u4ea4\u540f\u90e8\u529e\u7406",
-            _sequenced_chat_model(
-                ["plain text", '{"opinion":"VALID-SYNTHESIS"}']
-            ),
+            _sequenced_chat_model(["plain text"]),
+            required_bureaus=(bureau_profiles_for(department)[0].bureau,),
             evidence_session=session,
         )
 
-    assert session.snapshot().degradation_reasons == (
-        f"model_synthesis_degraded:ministry:{department}",
-    )
-
-
-def test_selector_orchestration_helper_value_error_fails_closed(
-    monkeypatch,
-) -> None:
-    department = "\u540f\u90e8"
-    selected_bureau = bureau_profiles_for(department)[0].bureau
-    helper_failure = ValueError("deterministic orchestration failure")
-    bureau_calls = 0
-
-    def failing_prioritizer(**_kwargs):
-        raise helper_failure
-
-    def fake_bureau(*_args, **_kwargs):
-        nonlocal bureau_calls
-        bureau_calls += 1
-        return "must not be used"
-
-    monkeypatch.setattr(
-        "app.agents.ministries.agent.prioritize_market_quote_bureaus",
-        failing_prioritizer,
-    )
-    monkeypatch.setattr(
-        "app.agents.ministries.agent.invoke_bureau_agent",
-        fake_bureau,
-    )
-
-    with pytest.raises(ValueError) as exc_info:
-        invoke_ministry_agent(
-            department,
-            "\u62db\u8058\u4e24\u540d\u5458\u5de5",
-            "\u4ea4\u540f\u90e8\u529e\u7406",
-            _sequenced_chat_model(
-                [
-                    _route_response(selected_bureau),
-                    '{"opinion":"must not be used"}',
-                ]
-            ),
-        )
-
-    assert exc_info.value is helper_failure
-    assert bureau_calls == 0
+    assert session.snapshot().degradation_reasons == ()
 
 
 def test_ministry_synthesis_content_drift_discards_rejected_body() -> None:
@@ -1014,6 +1181,7 @@ def test_ministry_synthesis_content_drift_discards_rejected_body() -> None:
                 '{"opinion":"SECRET-REJECTED","extra":true}',
             ]
         ),
+        required_bureaus=(selected_bureau,),
     )
 
     assert result["opinion"]
@@ -1038,6 +1206,7 @@ def test_ministry_forwards_same_report_session_to_every_selected_bureau(monkeypa
         "产品交付",
         "判断",
         lambda _messages: next(responses),
+        required_bureaus=("技术司",),
         report_session=session,
     )
     assert seen == [session, session]
