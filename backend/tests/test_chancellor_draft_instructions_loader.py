@@ -1,3 +1,5 @@
+"""Tests for the backend-owned Chancellor drafting instruction resource."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -5,51 +7,54 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from app.agents.chancellor_draft.instructions_loader import (
+    ChancellorDraftInstructionsError,
+    load_chancellor_draft_instructions,
+)
 from app.agents.chancellor_draft.models import (
     ChancellorDraftResponse,
     DraftStatus,
 )
-from app.agents.chancellor_draft.skill_loader import (
-    ChancellorDraftSkillError,
-    load_chancellor_draft_skill,
-)
 
 
-def _write_skill(path: Path, body: str) -> Path:
+def _write_instructions(path: Path, body: str) -> Path:
     path.write_text(body, encoding="utf-8")
     return path
 
 
-def test_loads_repository_chancellor_skill() -> None:
-    skill = load_chancellor_draft_skill()
+def test_loads_repository_chancellor_instructions() -> None:
+    resource = load_chancellor_draft_instructions()
 
-    assert skill.name == "chancellor-draft-edict"
-    assert "保守补全、直接成旨" in skill.instructions
-    assert "只有 `DRAFT_READY` 能启用【下旨】" in skill.instructions
-    assert skill.sha256
-
-
-def test_repository_skill_requires_conservative_direct_draft_contract() -> None:
-    skill = load_chancellor_draft_skill()
-
-    assert "保守补全、直接成旨" in skill.instructions
-    assert "不得为了多问一句而维持 `CLARIFYING`" in skill.instructions
-    assert "丞相建议" in skill.instructions
-    assert "暂定边界" in skill.instructions
+    assert resource.source_path.name == "instructions.md"
+    assert ".agents" not in resource.source_path.parts
+    assert "保守补全、直接成旨" in resource.instructions
+    assert "只有 `DRAFT_READY` 能启用【下旨】" in resource.instructions
+    assert resource.sha256
 
 
-def test_loader_rejects_skill_without_direct_draft_anchor(tmp_path: Path) -> None:
-    source = load_chancellor_draft_skill().source_path.read_text(encoding="utf-8")
+def test_repository_instructions_require_conservative_direct_draft_contract() -> None:
+    resource = load_chancellor_draft_instructions()
+
+    assert "保守补全、直接成旨" in resource.instructions
+    assert "不得为了多问一句而维持 `CLARIFYING`" in resource.instructions
+    assert "丞相建议" in resource.instructions
+    assert "暂定边界" in resource.instructions
+
+
+def test_loader_rejects_instructions_without_direct_draft_anchor(
+    tmp_path: Path,
+) -> None:
+    source = load_chancellor_draft_instructions().source_path.read_text(encoding="utf-8")
     downgraded = source.replace("保守补全、直接成旨", "保守补全、直接成稿")
     path = tmp_path / "SKILL.md"
     path.write_text(downgraded, encoding="utf-8")
 
-    with pytest.raises(ChancellorDraftSkillError):
-        load_chancellor_draft_skill(path)
+    with pytest.raises(ChancellorDraftInstructionsError):
+        load_chancellor_draft_instructions(path)
 
 
-def test_repository_skill_ready_example_has_no_missing_personalization_inputs() -> None:
-    instructions = load_chancellor_draft_skill().instructions
+def test_repository_instructions_ready_example_has_no_missing_inputs() -> None:
+    instructions = load_chancellor_draft_instructions().instructions
     example = instructions.split("## 优秀示例", maxsplit=1)[1].split(
         "## 快速检查", maxsplit=1
     )[0]
@@ -62,47 +67,27 @@ def test_repository_skill_ready_example_has_no_missing_personalization_inputs() 
     assert "形成新版本草案" in example
 
 
-def test_rejects_skill_with_wrong_identity(tmp_path: Path) -> None:
-    path = _write_skill(
-        tmp_path / "SKILL.md",
-        """---
-name: another-skill
-description: invalid
----
-案例是主要产出
-只有 `DRAFT_READY` 能启用【下旨】
-""",
-    )
-
-    with pytest.raises(ChancellorDraftSkillError, match="invalid"):
-        load_chancellor_draft_skill(path)
-
-
-def test_rejects_skill_missing_governance_anchor(tmp_path: Path) -> None:
-    path = _write_skill(
-        tmp_path / "SKILL.md",
-        """---
-name: chancellor-draft-edict
-description: incomplete
----
+def test_rejects_instructions_missing_governance_anchor(tmp_path: Path) -> None:
+    path = _write_instructions(
+        tmp_path / "instructions.md",
+        """
 案例是主要产出
 """,
     )
 
-    with pytest.raises(ChancellorDraftSkillError, match="invalid"):
-        load_chancellor_draft_skill(path)
+    with pytest.raises(ChancellorDraftInstructionsError, match="invalid"):
+        load_chancellor_draft_instructions(path)
 
 
-def test_loader_accepts_valid_crlf_front_matter(tmp_path: Path) -> None:
-    source = load_chancellor_draft_skill().source_path.read_bytes()
+def test_loader_accepts_valid_crlf_instructions(tmp_path: Path) -> None:
+    source = load_chancellor_draft_instructions().source_path.read_bytes()
     normalized = source.replace(b"\r\n", b"\n")
     path = tmp_path / "SKILL.md"
     path.write_bytes(normalized.replace(b"\n", b"\r\n"))
 
-    skill = load_chancellor_draft_skill(path)
+    resource = load_chancellor_draft_instructions(path)
 
-    assert skill.name == "chancellor-draft-edict"
-    assert skill.sha256
+    assert resource.sha256
 
 
 def test_draft_response_accepts_only_governed_statuses() -> None:

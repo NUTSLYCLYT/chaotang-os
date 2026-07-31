@@ -12,9 +12,11 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import ValidationError
 
 from app.accounting_reports.intent import detect_accounting_report_intent
+from app.agents.chancellor_draft.instructions_loader import (
+    load_chancellor_draft_instructions,
+)
 from app.agents.chancellor_draft.models import ChancellorDraftResponse
 from app.agents.chancellor_draft.routing import build_route_snapshot
-from app.agents.chancellor_draft.skill_loader import load_chancellor_draft_skill
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel, build_deepseek_chat_model
 from app.langgraph_runtime.deepseek_config import load_deepseek_provider_config
 
@@ -227,7 +229,7 @@ def _structure_correction(error: Exception | None) -> str:
 
 def _system_prompt(instructions: str) -> str:
     return (
-        "你正在运行朝堂 OS 独立的拟旨阶段。以下仓库 Skill 是必须遵守的完整行为契约：\n\n"
+        "你正在运行朝堂 OS 独立的拟旨阶段。以下后端运行指令是必须遵守的完整行为契约：\n\n"
         f"{instructions}\n\n"
         "只输出一个 JSON 对象，不要输出 Markdown 或额外说明。对象必须包含："
         "status、understanding、expert_example、recommendation_reason、"
@@ -309,7 +311,7 @@ def build_chancellor_draft_graph(
 ) -> CompiledStateGraph:
     """Build the isolated draft graph without importing the decree workflow."""
 
-    skill = load_chancellor_draft_skill()
+    instructions = load_chancellor_draft_instructions()
     if chat_model is None:
         config = load_deepseek_provider_config()
         resolved_chat_model = build_deepseek_chat_model(
@@ -322,7 +324,10 @@ def build_chancellor_draft_graph(
 
     def _draft(state: ChancellorDraftGraphState) -> dict:
         messages = [
-            {"role": "system", "content": _system_prompt(skill.instructions)},
+            {
+                "role": "system",
+                "content": _system_prompt(instructions.instructions),
+            },
             *state["messages"],
         ]
         response = None

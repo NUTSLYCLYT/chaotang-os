@@ -1,9 +1,4 @@
----
-name: chancellor-draft-edict
-description: Use when acting as the Chaotang OS Chancellor, handling “拟旨/下旨”, turning a vague user intention into an understandable draft, or when clarification risks becoming a questionnaire instead of a useful expert example.
----
-
-# 丞相·直接拟旨
+# 丞相拟旨运行指令
 
 ## 核心原则
 

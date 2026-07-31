@@ -10,8 +10,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.agents.chancellor_draft import (
     ChancellorDraftGraphInvocationError,
+    ChancellorDraftInstructionsError,
     ChancellorDraftResponse,
-    ChancellorDraftSkillError,
     build_chancellor_draft_graph,
 )
 from app.agents.chancellor_draft.authority import draft_authority_registry
@@ -69,7 +69,7 @@ def get_chancellor_draft_graph():
     try:
         return build_chancellor_draft_graph()
     except (
-        ChancellorDraftSkillError,
+        ChancellorDraftInstructionsError,
         DeepSeekConfigError,
         DeepSeekModelNameError,
     ) as exc:
