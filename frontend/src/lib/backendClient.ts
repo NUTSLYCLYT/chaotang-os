@@ -1788,3 +1788,172 @@ async function fetchJinyiwei<T>(path:string,parse:(value:unknown)=>T|null,option
 export function getJinyiweiSummary(options:JinyiweiReadOptions={}):Promise<JinyiweiReadResult<JinyiweiSummary>>{return fetchJinyiwei("/api/v1/jinyiwei/summary",parseSummary,options);}
 export function listJinyiweiInvestigations(options:ListJinyiweiOptions={}):Promise<JinyiweiReadResult<JinyiweiPage>>{const q=new URLSearchParams();if(options.status)q.set("status",options.status);q.set("limit",String(options.limit??20));q.set("offset",String(options.offset??0));return fetchJinyiwei(`/api/v1/jinyiwei/investigations?${q}`,parsePage,options);}
 export function getJinyiweiInvestigation(id:string,options:JinyiweiReadOptions={}):Promise<JinyiweiReadResult<JinyiweiDetail>>{return fetchJinyiwei(`/api/v1/jinyiwei/investigations/${encodeURIComponent(id)}`,parseDetail,options);}
+
+// ---- Qintianjian advisory contracts -------------------------------------
+
+import {
+  parseQintianConsultResponse,
+  parseQintianForecast,
+  parseQintianForecastList,
+  parseQintianPendingTriggers,
+  parseQintianReview,
+  type QintianConsultResponse,
+  type QintianEvidenceRef,
+  type QintianForecast,
+  type QintianReview,
+  type QintianReviewDecision,
+  type QintianSubject,
+} from "../app/study/qintianContracts.ts";
+
+export type QintianClientError =
+  "unauthenticated" | "validation" | "not_found" | "config_unavailable" |
+  "model_unavailable" | "network" | "unknown";
+export type QintianClientResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; kind: QintianClientError; error: string };
+export interface QintianClientOptions {
+  baseUrl?: string;
+  sessionId?: string;
+  timeoutMs?: number;
+  fetchImpl?: typeof fetch;
+}
+const QINTIAN_TIMEOUT_MS = 30000;
+export interface QintianConsultRequest {
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
+}
+export interface QintianCreateForecastRequest {
+  idempotencyKey: string;
+  subject: QintianSubject;
+  question: string;
+  evidenceRefs: QintianEvidenceRef[];
+  reviewAt: string;
+}
+export interface QintianReviewRequest {
+  triggerId: string;
+  decision: QintianReviewDecision;
+  observation: string;
+  judgmentInvalidated: boolean;
+}
+
+const QINTIAN_ERROR_TEXT: Record<QintianClientError, string> = {
+  unauthenticated: "authentication required",
+  validation: "钦天监请求未通过校验",
+  not_found: "未找到对应的钦天监推演",
+  config_unavailable: "钦天监服务尚未配置",
+  model_unavailable: "钦天监模型暂不可用",
+  network: "无法连接钦天监服务",
+  unknown: "钦天监服务暂不可用",
+};
+
+function qintianError(status: number): QintianClientError {
+  if (status === 401) return "unauthenticated";
+  if (status === 404) return "not_found";
+  if (status === 400 || status === 422) return "validation";
+  if (status === 502 || status === 503) return "model_unavailable";
+  return "unknown";
+}
+
+async function requestQintian<T>(
+  path: string,
+  parser: (value: unknown) => T | null,
+  options: QintianClientOptions,
+  init: { method: "GET" | "POST"; body?: unknown },
+): Promise<QintianClientResult<T>> {
+  if (!options.sessionId) {
+    return { ok: false, kind: "unauthenticated", error: QINTIAN_ERROR_TEXT.unauthenticated };
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? QINTIAN_TIMEOUT_MS);
+  try {
+    const response = await (options.fetchImpl ?? fetch)(
+      `${(options.baseUrl ?? getBackendBaseUrl()).replace(/\/+$/, "")}${path}`,
+      {
+        method: init.method,
+        headers: {
+          authorization: `Bearer ${options.sessionId}`,
+          ...(init.body === undefined ? {} : { "content-type": "application/json" }),
+        },
+        ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
+        signal: controller.signal,
+        cache: "no-store",
+      },
+    );
+    if (!response.ok) {
+      const kind = qintianError(response.status);
+      return { ok: false, kind, error: QINTIAN_ERROR_TEXT[kind] };
+    }
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      return { ok: false, kind: "unknown", error: QINTIAN_ERROR_TEXT.unknown };
+    }
+    const data = parser(body);
+    return data === null
+      ? { ok: false, kind: "unknown", error: QINTIAN_ERROR_TEXT.unknown }
+      : { ok: true, data };
+  } catch {
+    return { ok: false, kind: "network", error: QINTIAN_ERROR_TEXT.network };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function evidenceToWire(evidence: QintianEvidenceRef) {
+  return { id: evidence.id, summary: evidence.summary, source: evidence.source, as_of: evidence.asOf };
+}
+
+export function consultQintian(
+  input: QintianConsultRequest,
+  options: QintianClientOptions = {},
+): Promise<QintianClientResult<QintianConsultResponse>> {
+  return requestQintian("/api/v1/qintianjian/consult", parseQintianConsultResponse, options, {
+    method: "POST", body: input,
+  });
+}
+export function createQintianForecast(
+  input: QintianCreateForecastRequest,
+  options: QintianClientOptions = {},
+): Promise<QintianClientResult<QintianForecast>> {
+  return requestQintian("/api/v1/qintianjian/forecasts", parseQintianForecast, options, {
+    method: "POST",
+    body: {
+      idempotency_key: input.idempotencyKey,
+      subject: input.subject,
+      question: input.question,
+      evidence_refs: input.evidenceRefs.map(evidenceToWire),
+      review_at: input.reviewAt,
+    },
+  });
+}
+export function listQintianForecasts(
+  options: QintianClientOptions = {},
+): Promise<QintianClientResult<{ items: QintianForecast[] }>> {
+  return requestQintian("/api/v1/qintianjian/forecasts", parseQintianForecastList, options, { method: "GET" });
+}
+export function getQintianForecast(
+  id: string,
+  options: QintianClientOptions = {},
+): Promise<QintianClientResult<QintianForecast>> {
+  return requestQintian(`/api/v1/qintianjian/forecasts/${encodeURIComponent(id)}`, parseQintianForecast, options, { method: "GET" });
+}
+export function listPendingQintianTriggers(
+  options: QintianClientOptions = {},
+): Promise<QintianClientResult<ReturnType<typeof parseQintianPendingTriggers> extends infer T ? NonNullable<T> : never>> {
+  return requestQintian("/api/v1/qintianjian/triggers/pending", parseQintianPendingTriggers, options, { method: "GET" });
+}
+export function reviewQintianForecast(
+  id: string,
+  input: QintianReviewRequest,
+  options: QintianClientOptions = {},
+): Promise<QintianClientResult<QintianReview>> {
+  return requestQintian(`/api/v1/qintianjian/forecasts/${encodeURIComponent(id)}/reviews`, parseQintianReview, options, {
+    method: "POST",
+    body: {
+      trigger_id: input.triggerId,
+      decision: input.decision,
+      observation: input.observation,
+      judgment_invalidated: input.judgmentInvalidated,
+    },
+  });
+}

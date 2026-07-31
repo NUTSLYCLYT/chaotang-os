@@ -1,10 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import {
-  closeStudyDrawer,
   type ConsultMessage,
   type StudyDrawerSide,
 } from "../../app/study/chancellorConsultStatus";
@@ -13,10 +12,18 @@ import {
   submitConsultDraft,
 } from "../../app/study/chancellorConsultSubmission";
 import type { StudyRecentRepliesState } from "../../app/study/studyRecentReplies";
+import type { QintianDecisionRadarView } from "../../app/study/qintianDecisionRadar";
+import type { QintianContext } from "../../app/study/qintianWorkspaceState";
 import { formatBusinessTime } from "../../lib/formatBusinessTime";
+import { AdvisorDrawerShell } from "./AdvisorDrawerShell";
+import advisorStyles from "./AdvisorDrawerShell.module.css";
+import { QintianPanel } from "./QintianPanel";
 import styles from "./StudySideDrawers.module.css";
 
 export interface StudySideDrawersProps {
+  qintianRadar: QintianDecisionRadarView;
+  qintianContext: QintianContext;
+  onPrefillDecree(value: string): void;
   recentReplies: StudyRecentRepliesState;
   onOpenRecentReplies(): void;
   onRetryRecentReplies(): void;
@@ -29,22 +36,34 @@ export interface StudySideDrawersProps {
 
 export function StudySideDrawers(props: StudySideDrawersProps) {
   const [open, setOpen] = useState<"left" | "right" | null>(null);
+  const [closing, setClosing] = useState<"left" | "right" | null>(null);
+  const [drawerBounds, setDrawerBounds] = useState<{ top: number; height: number } | null>(null);
   const [draft, setDraft] = useState("");
-  const closeRef = useRef<HTMLButtonElement>(null);
   const leftTriggerRef = useRef<HTMLButtonElement>(null);
   const rightTriggerRef = useRef<HTMLButtonElement>(null);
 
   function close(side: StudyDrawerSide, restoreFocus = true) {
+    if (side === "right" && window.location.hash === "#qintian") {
+      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+    }
     if (!restoreFocus) {
       setOpen(null);
+      setClosing(null);
       return;
     }
-    closeStudyDrawer(
-      side,
-      setOpen,
-      side === "left" ? leftTriggerRef.current : rightTriggerRef.current,
-      (callback) => window.setTimeout(callback, 0),
-    );
+    setOpen(null);
+    setClosing(side);
+  }
+
+  function finishClose(side: StudyDrawerSide) {
+    if (closing !== side) return;
+    setClosing(null);
+    (side === "left" ? leftTriggerRef.current : rightTriggerRef.current)?.focus();
+  }
+
+  function openDrawer(side: StudyDrawerSide) {
+    setClosing(null);
+    setOpen(side);
   }
 
   async function sendDraft() {
@@ -60,56 +79,98 @@ export function StudySideDrawers(props: StudySideDrawersProps) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open]);
   useEffect(() => {
-    if (open) closeRef.current?.focus();
-  }, [open]);
+    const openQintianFromHash = () => {
+      if (window.location.hash === "#qintian") openDrawer("right");
+    };
+    openQintianFromHash();
+    window.addEventListener("hashchange", openQintianFromHash);
+    return () => window.removeEventListener("hashchange", openQintianFromHash);
+  }, []);
+  useEffect(() => {
+    const measureBounds = () => {
+      const content = document.querySelector<HTMLElement>('[data-layout-region="content"]');
+      if (!content) {
+        setDrawerBounds(null);
+        return;
+      }
+      const rect = content.getBoundingClientRect();
+      setDrawerBounds({ top: Math.max(0, rect.top), height: Math.max(0, rect.height + 1) });
+    };
+    measureBounds();
+    window.addEventListener("resize", measureBounds);
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measureBounds);
+    const regions = document.querySelectorAll<HTMLElement>(
+      '[data-app-layout="header-content-footer"], [data-layout-region="header"], [data-layout-region="content"], [data-layout-region="footer"]',
+    );
+    regions.forEach((region) => observer?.observe(region));
+    return () => {
+      window.removeEventListener("resize", measureBounds);
+      observer?.disconnect();
+    };
+  }, [open, closing]);
+
+  const rendered = open ?? closing;
+  const phase = closing ? "closing" as const : "opening" as const;
+  const leftActive = rendered === "left";
+  const rightActive = rendered === "right";
+  const leftOpen = open === "left";
+  const rightOpen = open === "right";
+  const leftToggleLabel = leftOpen ? "关闭上书房左侧抽屉" : "打开上书房左侧抽屉";
+  const rightToggleLabel = rightOpen ? "关闭上书房右侧抽屉" : "打开上书房右侧抽屉";
+  const drawerToggleTop = drawerBounds
+    ? drawerBounds.top + drawerBounds.height / 2
+    : "50%";
 
   return (
     <>
-      <button ref={leftTriggerRef} className={`${styles.trigger} ${styles.leftTrigger}`} type="button" aria-label="打开上书房左侧抽屉" onClick={() => {
-        setOpen("left");
-        props.onOpenRecentReplies();
-      }}>‹</button>
-      <button ref={rightTriggerRef} className={`${styles.trigger} ${styles.rightTrigger}`} type="button" aria-label="打开上书房右侧抽屉" onClick={() => setOpen("right")}>›</button>
+      <button
+        ref={leftTriggerRef}
+        className={`${styles.trigger} ${styles.leftTrigger}`}
+        type="button"
+        data-drawer-side="left"
+        data-drawer-phase={leftActive ? phase : "closed"}
+        style={{ top: drawerToggleTop }}
+        onAnimationEnd={() => finishClose("left")}
+        aria-label={leftToggleLabel}
+        aria-expanded={leftOpen}
+        aria-controls="chancellor-advisor-drawer"
+        onClick={leftOpen ? () => close("left") : () => {
+          openDrawer("left");
+          props.onOpenRecentReplies();
+        }}
+      >
+        <span className={styles.triggerIcon} aria-hidden="true">
+          <span className={styles.triggerArrow} />
+        </span>
+      </button>
+      <button
+        ref={rightTriggerRef}
+        className={`${styles.trigger} ${styles.rightTrigger}`}
+        type="button"
+        data-drawer-side="right"
+        data-drawer-phase={rightActive ? phase : "closed"}
+        style={{ top: drawerToggleTop }}
+        onAnimationEnd={() => finishClose("right")}
+        aria-label={rightToggleLabel}
+        aria-expanded={rightOpen}
+        aria-controls="qintian-advisor-drawer"
+        onClick={rightOpen ? () => close("right") : () => openDrawer("right")}
+      >
+        <span className={styles.triggerIcon} aria-hidden="true">
+          <span className={styles.triggerArrow} />
+        </span>
+      </button>
       {open && <button className={styles.backdrop} type="button" aria-label="关闭抽屉" onClick={() => close(open)} />}
-      {open === "left" && <aside className={`${styles.drawer} ${styles.leftOpen}`}>
-        <header><h2>御前侧记</h2><button ref={closeRef} type="button" onClick={() => close("left")}>关闭</button></header>
-        <section className={styles.records}>
-          <h3>最近三次下旨回奏</h3>
-          {props.recentReplies.phase === "loading" && (
-            <p className={styles.recordState}>正在读取最近回奏……</p>
-          )}
-          {props.recentReplies.phase === "empty" && (
-            <p className={styles.recordState}>尚无已归档回奏。</p>
-          )}
-          {props.recentReplies.phase === "error" && (
-            <div className={styles.recordState} role="alert">
-              <p>{props.recentReplies.message}</p>
-              <button className={styles.retryButton} type="button" onClick={props.onRetryRecentReplies}>重试</button>
-            </div>
-          )}
-          {props.recentReplies.archives.slice(0, 3).map((archive) => (
-            <article className={styles.decreeSlip} key={archive.id}>
-              <span className={styles.bindingLine} aria-hidden="true" />
-              <button
-                type="button"
-                className={styles.decreeSlipButton}
-                aria-label={`展卷阅奏：${archive.sourceText}`}
-                onClick={() => {
-                  props.onSelectRecentReply(archive.id);
-                  close("left", false);
-                }}
-              >
-                <span className={styles.recordMeta}>
-                  <time dateTime={archive.replyTime ?? undefined}>{formatBusinessTime(archive.replyTime)}</time> · {archive.participatingDepartments!.join("、")}
-                </span>
-                <strong className={styles.recordSummary}>{archive.sourceText}</strong>
-                <span className={styles.openReply}>展卷阅奏</span>
-                <span className={styles.replySeal} aria-hidden="true">回奏</span>
-              </button>
-            </article>
-          ))}
-        </section>
-        <section className={styles.chat}>
+      {rendered === "left" && <AdvisorDrawerShell
+        id="chancellor-advisor-drawer"
+        side="left"
+        phase={phase}
+        bounds={drawerBounds}
+        portrait="/heroes/character-roster/v5-command-center-zhuge-liang.webp"
+        name="丞相"
+        duty="辅政之臣 · 总揽要务"
+        testId="chancellor-advisor-drawer"
+        footer={<section className={`${styles.drawerConversation} ${styles.chat}`}>
           <h3>与丞相对话</h3>
           <div className={styles.messages} aria-live="polite">
             {props.messages.length === 0 && <p className={styles.emptyMessage}>尚无对话。</p>}
@@ -152,6 +213,8 @@ export function StudySideDrawers(props: StudySideDrawersProps) {
             await sendDraft();
           }}>
             <textarea
+              className={advisorStyles.composerInput}
+              style={{ "--chat-accent": "#F0C66A" } as CSSProperties}
               aria-label="给丞相的咨询内容"
               maxLength={4000}
               value={draft}
@@ -166,23 +229,71 @@ export function StudySideDrawers(props: StudySideDrawersProps) {
                 await sendDraft();
               }}
             />
-            <button
-              className={styles.sendButton}
-              type="submit"
-              aria-label="发送"
-              disabled={props.pending || !draft.trim()}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M3.7 3.4 21 11.2a.9.9 0 0 1 0 1.6L3.7 20.6a.9.9 0 0 1-1.2-1l1.2-6.1 9.1-1.5-9.1-1.5-1.2-6.1a.9.9 0 0 1 1.2-1Z" />
-              </svg>
+            <button className={`${styles.sendButton} ${advisorStyles.composerButton}`} type="submit" aria-label="发送" disabled={props.pending || !draft.trim()}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.7 3.4 21 11.2a.9.9 0 0 1 0 1.6L3.7 20.6a.9.9 0 0 1-1.2-1l1.2-6.1 9.1-1.5-9.1-1.5-1.2-6.1a.9.9 0 0 1 1.2-1Z" /></svg>
             </button>
           </form>
+        </section>}
+      >
+        <section className={styles.records}>
+          <h3>最近三次下旨回奏</h3>
+          {props.recentReplies.phase === "loading" && (
+            <p className={styles.recordState}>正在读取最近回奏……</p>
+          )}
+          {props.recentReplies.phase === "empty" && (
+            <p className={styles.recordState}>尚无已归档回奏。</p>
+          )}
+          {props.recentReplies.phase === "error" && (
+            <div className={styles.recordState} role="alert">
+              <p>{props.recentReplies.message}</p>
+              <button className={styles.retryButton} type="button" onClick={props.onRetryRecentReplies}>重试</button>
+            </div>
+          )}
+          {props.recentReplies.archives.slice(0, 3).map((archive) => (
+            <article className={styles.decreeSlip} key={archive.id}>
+              <span className={styles.bindingLine} aria-hidden="true" />
+              <button
+                type="button"
+                className={styles.decreeSlipButton}
+                aria-label={`展卷阅奏：${archive.sourceText}`}
+                onClick={() => {
+                  props.onSelectRecentReply(archive.id);
+                  close("left", false);
+                }}
+              >
+                <span className={styles.recordMeta}>
+                  <time dateTime={archive.replyTime ?? undefined}>{formatBusinessTime(archive.replyTime)}</time> · {archive.participatingDepartments!.join("、")}
+                </span>
+                <strong className={styles.recordSummary}>{archive.sourceText}</strong>
+                <span className={styles.openReply}>展卷阅奏</span>
+                <span className={styles.replySeal} aria-hidden="true">回奏</span>
+              </button>
+            </article>
+          ))}
         </section>
-      </aside>}
-      {open === "right" && <aside className={`${styles.drawer} ${styles.rightOpen}`}>
-        <header><h2>右侧抽屉</h2><button ref={closeRef} type="button" onClick={() => close("right")}>关闭</button></header>
-        <div className={styles.unavailable}>暂未开放</div>
-      </aside>}
+      </AdvisorDrawerShell>}
+      {rendered === "right" && (
+        <QintianPanel
+          radar={props.qintianRadar}
+          context={props.qintianContext}
+          onPrefillDecree={props.onPrefillDecree}
+          renderLayout={(body, footer) => (
+            <AdvisorDrawerShell
+              id="qintian-advisor-drawer"
+              side="right"
+              phase={phase}
+              bounds={drawerBounds}
+              portrait="/shangshufang/portrait-qintian.webp"
+              name="钦天监"
+              duty="观星导师 · 先知用法"
+              testId="qintian-advisor-drawer"
+              footer={footer}
+            >
+              {body}
+            </AdvisorDrawerShell>
+          )}
+        />
+      )}
     </>
   );
 }

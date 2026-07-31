@@ -21,6 +21,8 @@ from app.api.decrees import router as decrees_router
 from app.api.jinyiwei import register_jinyiwei_exception_handlers
 from app.api.jinyiwei import router as jinyiwei_router
 from app.api.junjichu_cases import router as junjichu_cases_router
+from app.api.qintianjian import register_qintianjian_exception_handlers
+from app.api.qintianjian import router as qintianjian_router
 from app.api.report_artifacts import router as report_artifacts_router
 from app.api.shiguan import register_shiguan_exception_handlers
 from app.api.shiguan import router as shiguan_router
@@ -55,6 +57,9 @@ register_jinyiwei_exception_handlers(app)
 app.include_router(junjichu_cases_router)
 
 app.include_router(report_artifacts_router)
+
+app.include_router(qintianjian_router)
+register_qintianjian_exception_handlers(app)
 
 app.include_router(auth_router)
 register_auth_exception_handlers(app)

@@ -17,6 +17,8 @@ import {
   draftDepartmentDisplayRows,
   type ChancellorDraftResult,
 } from "../../app/study/chancellorDraft";
+import { projectQintianDecisionRadar } from "../../app/study/qintianDecisionRadar";
+import { createQintianContext } from "../../app/study/qintianWorkspaceState";
 import type { StudyRecentRepliesState } from "../../app/study/studyRecentReplies";
 import type { ShiguanArchive } from "../../lib/backendClient";
 import { formatBusinessTime } from "../../lib/formatBusinessTime";
@@ -206,6 +208,42 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
   const showScroll = expanded || archivedReply !== null || props.uiState.phase !== "idle" || props.draftPending || props.draftError !== null || props.draftResult !== null;
   const hasReplyContent = archivedReply !== null || props.uiState.phase === "success" || props.draftPending || props.draftError !== null || props.draftResult !== null;
   const artifactView = projectStudyArtifacts(props.uiState);
+  const qintianRadar = projectQintianDecisionRadar({
+    decreeText: props.decreeText,
+    draftResult: props.draftResult,
+    draftPending: props.draftPending,
+    draftError: props.draftError,
+    uiState: props.uiState,
+  });
+  const qintianContext = createQintianContext({
+    decreeText: props.decreeText,
+    draft: props.draftResult
+      ? {
+          fingerprint: props.draftResult.fingerprint,
+          content: props.draftResult.expert_example,
+        }
+      : null,
+    currentReply: props.uiState.phase === "success"
+      ? {
+          id: `${props.uiState.routeType}-${props.uiState.processingPath.join("-")}`,
+          content: [
+            props.uiState.rationale,
+            props.uiState.finalVerdict,
+            ...props.uiState.recommendations,
+          ].join("\n"),
+        }
+      : null,
+    archivedReply: archivedReply
+      ? {
+          id: archivedReply.id,
+          content: [
+            archivedReply.sourceText,
+            archivedReply.replyProcess,
+            archivedReply.replyConclusion,
+          ].join("\n"),
+        }
+      : null,
+  });
 
   useEffect(() => {
     if (!archivedReplyId) return;
@@ -252,6 +290,9 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
   );
   const drawers = (
     <StudySideDrawers
+      qintianRadar={qintianRadar}
+      qintianContext={qintianContext}
+      onPrefillDecree={props.onDecreeTextChange}
       recentReplies={props.recentReplies}
       onOpenRecentReplies={props.onOpenRecentReplies}
       onRetryRecentReplies={props.onRetryRecentReplies}

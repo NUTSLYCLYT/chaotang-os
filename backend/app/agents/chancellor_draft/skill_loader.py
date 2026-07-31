@@ -58,6 +58,7 @@ def load_chancellor_draft_skill(path: Path | None = None) -> ChancellorDraftSkil
     except UnicodeDecodeError as exc:
         raise ChancellorDraftSkillError("Chancellor draft skill is invalid.") from exc
 
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
     if not text.startswith("---\n"):
         raise ChancellorDraftSkillError("Chancellor draft skill is invalid.")
 

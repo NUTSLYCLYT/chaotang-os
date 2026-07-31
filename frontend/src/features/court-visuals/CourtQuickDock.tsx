@@ -41,7 +41,7 @@ export function CourtQuickDock({
           {centerSlot}
         </div>
       ) : null}
-      <Link href="/study" className={`${styles.adviser} ${styles.astronomer}`}>
+      <Link href="/study#qintian" className={`${styles.adviser} ${styles.astronomer}`}>
         <span>
           <strong>问钦天监</strong>
           <small>先看时机与风险</small>

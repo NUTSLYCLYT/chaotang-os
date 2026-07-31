@@ -93,6 +93,18 @@ description: incomplete
         load_chancellor_draft_skill(path)
 
 
+def test_loader_accepts_valid_crlf_front_matter(tmp_path: Path) -> None:
+    source = load_chancellor_draft_skill().source_path.read_bytes()
+    normalized = source.replace(b"\r\n", b"\n")
+    path = tmp_path / "SKILL.md"
+    path.write_bytes(normalized.replace(b"\n", b"\r\n"))
+
+    skill = load_chancellor_draft_skill(path)
+
+    assert skill.name == "chancellor-draft-edict"
+    assert skill.sha256
+
+
 def test_draft_response_accepts_only_governed_statuses() -> None:
     response = ChancellorDraftResponse(
         status=DraftStatus.CLARIFYING,

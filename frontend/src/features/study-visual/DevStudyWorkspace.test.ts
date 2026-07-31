@@ -303,6 +303,9 @@ test("dev study workspace passes recent reply state and callbacks to the drawer"
 test("study mounts side drawers in the shell overlay layer", async () => {
   const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
 
+  assert.match(source, /projectQintianDecisionRadar/);
+  assert.match(source, /const qintianRadar = projectQintianDecisionRadar\(/);
+  assert.match(source, /qintianRadar=\{qintianRadar\}/);
   assert.match(source, /const drawers = \(\s*<StudySideDrawers/);
   assert.match(source, /<ImmersiveCourtShell[\s\S]*?overlay=\{drawers\}/);
   assert.equal((source.match(/<StudySideDrawers/g) ?? []).length, 1);
