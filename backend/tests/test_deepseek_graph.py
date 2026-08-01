@@ -161,5 +161,8 @@ def test_full_real_construction_path_wraps_invocation_error_without_leaking_key(
     assert leaking_marker not in str(graph_error)
     assert leaking_marker not in str(client_error)
     mock_openai_class.assert_called_once_with(
-        base_url="https://api.deepseek.com/v1", api_key=leaking_marker
+        base_url="https://api.deepseek.com/v1",
+        api_key=leaking_marker,
+        max_retries=0,
+        timeout=30.0,
     )

@@ -12,6 +12,7 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import ValidationError
 
 from app.accounting_reports.intent import detect_accounting_report_intent
+from app.agents.bureaus.profiles import BUREAU_PROFILES
 from app.agents.chancellor_draft.instructions_loader import (
     load_chancellor_draft_instructions,
 )
@@ -64,6 +65,11 @@ _TYPED_JSON_SKELETON = json.dumps(
         },
     },
     ensure_ascii=False,
+)
+
+_BUREAU_ROUTE_CATALOG = "; ".join(
+    f"{department}=[{','.join(profile.bureau for profile in BUREAU_PROFILES if profile.department == department)}]"  # noqa: E501
+    for department in ("吏部", "户部", "礼部", "兵部", "刑部", "工部")
 )
 
 _ARRAY_OF_STRINGS_PATHS = {
@@ -221,6 +227,7 @@ def _structure_correction(error: Exception | None) -> str:
         "department must be one of the fixed six ministries: "
         "吏部、户部、礼部、兵部、刑部、工部. bureaus must list one or more "
         "real bureaus belonging to that department, without duplicates. "
+        f"Use only this department-to-bureau catalog: {_BUREAU_ROUTE_CATALOG}. "
         "For accounting or financial-report work use department 户部 and "
         'bureaus ["会计司"], never department 户部会计司. '
         f"Use this complete typed JSON skeleton:\n{_TYPED_JSON_SKELETON}"
@@ -249,6 +256,7 @@ def _system_prompt(instructions: str) -> str:
         "expected_output。所有列表字段必须保持 JSON 数组，即使只有一项或零项。"
         "六部固定为吏部、户部、礼部、兵部、刑部、工部；department 只能是六部名称。"
         "bureaus 必须是非空、无重复且仅包含本部真实司的数组。"
+        f"司级路由只能从以下对应表选择：{_BUREAU_ROUTE_CATALOG}。"
         "财务报表任务必须使用 department: \"户部\" 与 bureaus: [\"会计司\"]，"
         "不得把户部会计司写成 department。"
         "revision_prompt 必须是非空字符串。"
@@ -332,7 +340,7 @@ def build_chancellor_draft_graph(
         ]
         response = None
         validation_error: Exception | None = None
-        for attempt in range(2):
+        for attempt in range(3):
             attempt_messages = (
                 messages
                 if attempt == 0

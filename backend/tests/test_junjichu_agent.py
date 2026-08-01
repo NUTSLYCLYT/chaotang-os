@@ -33,9 +33,7 @@ def _layered_opinion(
 def _ministry_turns(department: str, bureau_opinion: str, ministry_opinion: str) -> list[str]:
     bureau = bureau_profiles_for(department)[0].bureau
     return [
-        json.dumps(
-            {"rationale": "交由本司办理", "bureaus": [bureau]}, ensure_ascii=False
-        ),
+        json.dumps({"rationale": "交由本司办理", "bureaus": [bureau]}, ensure_ascii=False),
         json.dumps({"opinion": bureau_opinion}, ensure_ascii=False),
         json.dumps({"opinion": ministry_opinion}, ensure_ascii=False),
     ]
@@ -53,10 +51,7 @@ def _sequenced_chat_model(responses: list[str]):
 
 
 def _required_bureaus(*departments: str) -> dict[str, tuple[str, ...]]:
-    return {
-        department: (bureau_profiles_for(department)[0].bureau,)
-        for department in departments
-    }
+    return {department: (bureau_profiles_for(department)[0].bureau,) for department in departments}
 
 
 def test_junjichu_prompt_contains_identity_departments_layers_and_constraint():
@@ -193,6 +188,42 @@ def test_invoke_junjichu_model_failure_propagates_to_graph_boundary():
     assert marker in str(exc_info.value)
 
 
+def test_run_junjichu_corrects_two_invalid_council_responses(monkeypatch) -> None:
+    departments = ["户部", "工部"]
+    opinions = [_layered_opinion(item) for item in departments]
+    opinion_iter = iter(opinions)
+    monkeypatch.setattr(
+        "app.agents.junjichu.agent.invoke_ministry_agent",
+        lambda *_args, **_kwargs: next(opinion_iter),
+    )
+    responses = iter(
+        [
+            "not-json secret-council-one",
+            '{"wrong":"secret-council-two"}',
+            '{"verdict":"validated council"}',
+        ]
+    )
+    calls: list[list[dict[str, str]]] = []
+
+    def model(messages: list[dict[str, str]]) -> str:
+        calls.append(messages)
+        return next(responses)
+
+    result_opinions, verdict = run_junjichu_council(
+        "offline decree",
+        "approved rationale",
+        departments,
+        model,
+        required_bureaus_by_department=_required_bureaus(*departments),
+    )
+
+    assert result_opinions == opinions
+    assert verdict == "validated council"
+    assert len(calls) == 3
+    assert calls[1][-1]["role"] == "system"
+    assert "secret-council-one" not in calls[1][-1]["content"]
+
+
 def test_run_junjichu_calls_layered_ministries_serially_then_council(monkeypatch):
     departments = ["户部", "工部", "兵部"]
     captured_messages: list[list[dict[str, str]]] = []
@@ -323,9 +354,11 @@ def test_cross_department_capability_intention_preserves_layered_ministry_inputs
         _model,
         *,
         recall_contexts=None,
+        _max_attempts=1,
     ):
         assert selected_departments == departments
         assert recall_contexts is None
+        assert _max_attempts == 3
         execution.append("军机处:会审")
         council_inputs.append(opinions)
         return "军机处会审结论"
@@ -468,6 +501,8 @@ def test_junjichu_only_passes_evidence_session_to_ministries(monkeypatch):
     assert ministry_sessions == [session, session]
     assert len(council_messages) == 1
     assert "NEEDS_DATA" not in council_messages[0][0]["content"]
+
+
 def test_junjichu_forwards_same_report_session_to_all_ministries(monkeypatch):
     session = object()
     seen = []

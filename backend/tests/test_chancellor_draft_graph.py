@@ -239,6 +239,35 @@ def test_graph_correction_never_echoes_unknown_field_name() -> None:
     assert "unknown field" in correction
 
 
+def test_graph_accepts_valid_third_response_after_two_schema_failures() -> None:
+    calls: list[list[dict[str, str]]] = []
+    responses = iter(
+        (
+            "not-json secret-first-draft",
+            '{"status":"CLARIFYING","secret":"second-draft"}',
+            _valid_model_response(),
+        )
+    )
+
+    def fake_model(messages: list[dict[str, str]]) -> str:
+        calls.append(messages)
+        return next(responses)
+
+    response = build_chancellor_draft_graph(chat_model=fake_model).invoke(
+        {
+            "messages": [{"role": "user", "content": "帮我拟旨"}],
+            "version": 1,
+        }
+    )["response"]
+
+    assert response["status"] == "CLARIFYING"
+    assert len(calls) == 3
+    assert calls[1][0]["role"] == "system"
+    assert calls[2][0]["role"] == "system"
+    assert "secret-first-draft" not in calls[1][0]["content"]
+    assert "second-draft" not in calls[2][0]["content"]
+
+
 def test_graph_correction_explains_non_empty_string_and_array_minimums() -> None:
     invalid = _valid_ready_payload()
     invalid["revision_prompt"] = ""
@@ -419,6 +448,10 @@ def test_graph_corrects_invalid_department_routes_once(departments) -> None:
     assert len(calls) == 2
     assert "六部固定为" in calls[1][0]["content"]
     assert "本部真实司" in calls[1][0]["content"]
+    assert (
+        "刑部=[合同司,合规稽查司,风控司,缺证核查司,争议处置司,知识产权司,制度司]"
+        in calls[1][0]["content"]
+    )
 
 
 def test_graph_rejects_invalid_department_routes_twice() -> None:

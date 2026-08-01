@@ -203,9 +203,7 @@ def _sequenced_chat_model(responses: list[str], captured=None):
 
 
 def _route_response(*bureaus: str, rationale: str = "按职责分工办理") -> str:
-    return json.dumps(
-        {"rationale": rationale, "bureaus": list(bureaus)}, ensure_ascii=False
-    )
+    return json.dumps({"rationale": rationale, "bureaus": list(bureaus)}, ensure_ascii=False)
 
 
 def test_required_bureau_is_corrected_once_before_any_bureau_call(monkeypatch):
@@ -293,10 +291,11 @@ def test_accounting_report_repeated_extra_bureau_fails_before_any_bureau_call(
             "请根据现有财务数据生成2024年至2025年管理层综合财务报表，并交付Excel文件。",
             "交户部办理",
             _sequenced_chat_model(
-                [
-                    _route_response("会计司", "审计司"),
-                    _route_response("会计司", "审计司"),
-                ]
+                    [
+                        _route_response("会计司", "审计司"),
+                        _route_response("会计司", "审计司"),
+                        _route_response("会计司", "审计司"),
+                    ]
             ),
             required_bureaus=("会计司",),
         )
@@ -311,9 +310,7 @@ def test_non_last_price_market_route_preserves_model_order_and_required_bureau(
     invoked: list[str] = []
     monkeypatch.setattr(
         "app.agents.ministries.agent.invoke_bureau_agent",
-        lambda _department, bureau, *_args, **_kwargs: (
-            invoked.append(bureau) or f"{bureau}意见"
-        ),
+        lambda _department, bureau, *_args, **_kwargs: invoked.append(bureau) or f"{bureau}意见",
     )
 
     result = invoke_ministry_agent(
@@ -343,7 +340,11 @@ def test_required_bureau_second_omission_fails_before_bureau_synthesis_or_report
         lambda *_args, **_kwargs: bureau_calls.append("bureau"),
     )
     model = _sequenced_chat_model(
-        [_route_response("审计司"), _route_response("预算司")]
+        [
+            _route_response("审计司"),
+            _route_response("预算司"),
+            _route_response("审计司"),
+        ]
     )
 
     with pytest.raises(MinistryAgentInvocationError) as caught:
@@ -397,7 +398,10 @@ def test_invoke_ministry_agent_routes_to_one_bureau_and_returns_named_opinion():
     )
 
     opinion = invoke_ministry_agent(
-        "户部", "制定年度预算", "交户部办理", chat_model,
+        "户部",
+        "制定年度预算",
+        "交户部办理",
+        chat_model,
         required_bureaus=("预算司",),
     )
 
@@ -423,6 +427,64 @@ def test_invoke_ministry_agent_routes_to_one_bureau_and_returns_named_opinion():
     assert "本部司级路由说明：预算司先核定口径" in synthesis_content
     assert '"bureau": "预算司"' in synthesis_content
     assert '"opinion": "建议追溯预算口径"' in synthesis_content
+
+
+def test_ministry_route_corrects_two_invalid_structured_responses() -> None:
+    department = "工部"
+    selected_bureau = bureau_profiles_for(department)[0].bureau
+    captured: list[list[dict[str, str]]] = []
+    model = _sequenced_chat_model(
+        [
+            "not-json secret-route-one",
+            '{"wrong":"secret-route-two"}',
+            _route_response(selected_bureau, rationale="validated route"),
+            '{"opinion":"bureau opinion"}',
+            '{"opinion":"ministry opinion"}',
+        ],
+        captured,
+    )
+
+    result = invoke_ministry_agent(
+        department,
+        "offline decree",
+        "approved rationale",
+        model,
+        required_bureaus=(selected_bureau,),
+    )
+
+    assert result["opinion"] == "ministry opinion"
+    assert len(captured) == 5
+    assert captured[1][-1]["role"] == "system"
+    assert "secret-route-one" not in captured[1][-1]["content"]
+
+
+def test_ministry_synthesis_corrects_two_invalid_structured_responses() -> None:
+    department = "工部"
+    selected_bureau = bureau_profiles_for(department)[0].bureau
+    captured: list[list[dict[str, str]]] = []
+    model = _sequenced_chat_model(
+        [
+            _route_response(selected_bureau, rationale="validated route"),
+            '{"opinion":"bureau opinion"}',
+            "not-json secret-synthesis-one",
+            '{"wrong":"secret-synthesis-two"}',
+            '{"opinion":"validated synthesis"}',
+        ],
+        captured,
+    )
+
+    result = invoke_ministry_agent(
+        department,
+        "offline decree",
+        "approved rationale",
+        model,
+        required_bureaus=(selected_bureau,),
+    )
+
+    assert result["opinion"] == "validated synthesis"
+    assert len(captured) == 5
+    assert captured[3][-1]["role"] == "system"
+    assert "secret-synthesis-one" not in captured[3][-1]["content"]
 
 
 def test_household_market_decree_statically_routes_only_to_investment_bureau(
@@ -500,9 +562,7 @@ def test_household_market_ministry_schema_drift_reuses_adopted_bureau_opinion(
 
     assert opinion == {
         "department": "户部",
-        "bureau_opinions": [
-            {"bureau": "投资司", "opinion": "比亚迪最新可得价格为 300 CNY。"}
-        ],
+        "bureau_opinions": [{"bureau": "投资司", "opinion": "比亚迪最新可得价格为 300 CNY。"}],
         "opinion": "比亚迪最新可得价格为 300 CNY。",
     }
     assert "REJECTED-MINISTRY" not in opinion["opinion"]
@@ -529,8 +589,7 @@ def test_household_market_ministry_rejects_valid_but_altered_time_and_source(
         "查询比亚迪股票价格",
         "交户部办理",
         lambda _messages: (
-            '{"opinion":"比亚迪最新可得价格为 300 CNY'
-            '（行情时间：2099-01-01；来源：伪造来源）。"}'
+            '{"opinion":"比亚迪最新可得价格为 300 CNY（行情时间：2099-01-01；来源：伪造来源）。"}'
         ),
         required_bureaus=("投资司",),
         recall_context=RecallContext(available=True, entries=[]),
@@ -617,7 +676,7 @@ def test_household_non_market_bureau_order_remains_unchanged(monkeypatch):
                 _route_response("预算司"),
                 '{"opinion": "户部综合意见"}',
             ]
-            ),
+        ),
         required_bureaus=("预算司",),
         recall_context=RecallContext(available=True, entries=[]),
     )
@@ -655,7 +714,10 @@ def test_invoke_ministry_agent_injects_read_only_recall_context(monkeypatch):
     )
 
     invoke_ministry_agent(
-        "户部", "制定年度预算", "交户部办理", chat_model,
+        "户部",
+        "制定年度预算",
+        "交户部办理",
+        chat_model,
         required_bureaus=("预算司",),
     )
 
@@ -682,7 +744,10 @@ def test_invoke_ministry_agent_invokes_multiple_bureaus_serially_in_route_order(
     )
 
     opinion = invoke_ministry_agent(
-        "工部", "产品交付", "交工部办理", chat_model,
+        "工部",
+        "产品交付",
+        "交工部办理",
+        chat_model,
         required_bureaus=("技术司",),
     )
 
@@ -735,7 +800,10 @@ def test_selected_bureau_capability_boundary_preserves_model_call_order_and_scop
     )
 
     opinion = invoke_ministry_agent(
-        "兵部", "推进报价", "交兵部办理", fake_model,
+        "兵部",
+        "推进报价",
+        "交兵部办理",
+        fake_model,
         required_bureaus=("报价司",),
     )
 
@@ -775,7 +843,10 @@ def test_selected_bureau_capability_boundary_keeps_multiple_bureaus_in_model_ord
     )
 
     opinion = invoke_ministry_agent(
-        "工部", "产品交付", "交工部办理", fake_model,
+        "工部",
+        "产品交付",
+        "交工部办理",
+        fake_model,
         required_bureaus=("技术司",),
     )
 
@@ -804,7 +875,10 @@ def test_selected_bureau_capability_lookup_failure_stops_before_bureau_or_synthe
 
     with pytest.raises(MinistryAgentInvocationError) as exc_info:
         invoke_ministry_agent(
-            "户部", "制定年度预算", "交户部办理", fake_model,
+            "户部",
+            "制定年度预算",
+            "交户部办理",
+            fake_model,
             required_bureaus=("预算司",),
         )
 
@@ -843,15 +917,16 @@ def test_all_six_libu_bureaus_use_the_same_route_and_aggregation_mechanism():
     responses.append('{"opinion": "礼部统筹全部六司形成对外建议"}')
 
     opinion = invoke_ministry_agent(
-        "礼部", "对外沟通", "交礼部办理", _sequenced_chat_model(responses),
+        "礼部",
+        "对外沟通",
+        "交礼部办理",
+        _sequenced_chat_model(responses),
         required_bureaus=(bureaus[0],),
     )
 
     assert opinion == {
         "department": "礼部",
-        "bureau_opinions": [
-            {"bureau": bureau, "opinion": f"{bureau}意见"} for bureau in bureaus
-        ],
+        "bureau_opinions": [{"bureau": bureau, "opinion": f"{bureau}意见"} for bureau in bureaus],
         "opinion": "礼部统筹全部六司形成对外建议",
     }
 
@@ -859,7 +934,10 @@ def test_all_six_libu_bureaus_use_the_same_route_and_aggregation_mechanism():
 def test_invoke_ministry_agent_unknown_department_raises_value_error():
     with pytest.raises(ValueError):
         invoke_ministry_agent(
-            "礼仪司", "旨意", "判断说明", lambda _messages: "unused",
+            "礼仪司",
+            "旨意",
+            "判断说明",
+            lambda _messages: "unused",
             required_bureaus=("未知司",),
         )
 
@@ -870,7 +948,10 @@ def test_invoke_ministry_agent_model_call_failure_wrapped_with_cause_preserved()
 
     with pytest.raises(MinistryAgentInvocationError) as exc_info:
         invoke_ministry_agent(
-            "吏部", "旨意", "判断说明", _raising_chat_model,
+            "吏部",
+            "旨意",
+            "判断说明",
+            _raising_chat_model,
             required_bureaus=("任免司",),
         )
 
@@ -928,7 +1009,10 @@ def test_bureau_failure_short_circuits_and_is_wrapped_with_sanitized_cause_chain
 
     with pytest.raises(MinistryAgentInvocationError) as exc_info:
         invoke_ministry_agent(
-            "户部", "旨意", "判断", _chat_model,
+            "户部",
+            "旨意",
+            "判断",
+            _chat_model,
             required_bureaus=("预算司",),
         )
 
@@ -968,15 +1052,20 @@ def test_invalid_ministry_synthesis_uses_safe_fallback_after_all_bureaus(
             '{"opinion": "预算意见"}',
             '{"opinion": "资金意见"}',
             invalid_response,
+            invalid_response,
+            invalid_response,
         ]
         return responses[calls["value"] - 1]
 
     result = invoke_ministry_agent(
-        "户部", "旨意", "判断", _chat_model,
+        "户部",
+        "旨意",
+        "判断",
+        _chat_model,
         required_bureaus=("预算司",),
     )
 
-    assert calls["value"] == 4
+    assert calls["value"] == 6
     assert result["opinion"]
     assert "未经证据支持的事实结论" in result["opinion"]
 
@@ -995,7 +1084,10 @@ def test_ministry_synthesis_failure_short_circuits_without_returning_partial_res
 
     with pytest.raises(MinistryAgentInvocationError) as exc_info:
         invoke_ministry_agent(
-            "户部", "旨意", "判断", _chat_model,
+            "户部",
+            "旨意",
+            "判断",
+            _chat_model,
             required_bureaus=("预算司",),
         )
 
@@ -1018,9 +1110,7 @@ def test_ministry_synthesis_model_exception_fails_closed(model_failure) -> None:
     def _chat_model(messages: list[dict[str, str]]) -> str:
         if messages[0]["content"] == ministry_synthesis_system_prompt(department):
             raise model_failure
-        if messages[0]["content"] == bureau_system_prompt(
-            department, selected_bureau
-        ):
+        if messages[0]["content"] == bureau_system_prompt(department, selected_bureau):
             return '{"opinion":"READY-BUREAU"}'
         return _route_response(selected_bureau)
 
@@ -1049,11 +1139,17 @@ def test_reusing_same_callable_for_two_ministry_invocations_does_not_leak_state(
     )
 
     first = invoke_ministry_agent(
-        "礼部", "旨意一", "判断一", chat_model,
+        "礼部",
+        "旨意一",
+        "判断一",
+        chat_model,
         required_bureaus=("品牌司",),
     )
     second = invoke_ministry_agent(
-        "礼部", "旨意二", "判断二", chat_model,
+        "礼部",
+        "旨意二",
+        "判断二",
+        chat_model,
         required_bureaus=("体验司",),
     )
 
@@ -1077,7 +1173,10 @@ def test_invoke_ministry_agent_does_not_leak_secret_from_underlying_exception():
 
     with pytest.raises(MinistryAgentInvocationError) as exc_info:
         invoke_ministry_agent(
-            "刑部", "旨意", "判断说明", _leaking_chat_model,
+            "刑部",
+            "旨意",
+            "判断说明",
+            _leaking_chat_model,
             required_bureaus=("合同司",),
         )
 
@@ -1121,9 +1220,7 @@ def test_ministry_only_passes_evidence_session_to_selected_bureau(monkeypatch):
         evidence_session=session,
     )
 
-    assert result["bureau_opinions"] == [
-        {"bureau": profile.bureau, "opinion": "bureau opinion"}
-    ]
+    assert result["bureau_opinions"] == [{"bureau": profile.bureau, "opinion": "bureau opinion"}]
     assert bureau_sessions == [session]
     assert len(upper_messages) == 2
     assert all("NEEDS_DATA" not in message[0]["content"] for message in upper_messages)
@@ -1179,6 +1276,8 @@ def test_ministry_synthesis_content_drift_discards_rejected_body() -> None:
                 _route_response(selected_bureau),
                 '{"opinion":"READY-BUREAU"}',
                 '{"opinion":"SECRET-REJECTED","extra":true}',
+                '{"opinion":"SECRET-REJECTED","extra":true}',
+                '{"opinion":"SECRET-REJECTED","extra":true}',
             ]
         ),
         required_bureaus=(selected_bureau,),
@@ -1186,6 +1285,8 @@ def test_ministry_synthesis_content_drift_discards_rejected_body() -> None:
 
     assert result["opinion"]
     assert "SECRET-REJECTED" not in result["opinion"]
+
+
 def test_ministry_forwards_same_report_session_to_every_selected_bureau(monkeypatch):
     session = object()
     seen = []

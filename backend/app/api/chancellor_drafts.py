@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import secrets
 from typing import Literal
 
 from fastapi import APIRouter, FastAPI
@@ -16,6 +17,17 @@ from app.agents.chancellor_draft import (
 )
 from app.agents.chancellor_draft.authority import draft_authority_registry
 from app.agents.chancellor_draft.routing import build_route_snapshot
+from app.agents.chancellor_runtime import (
+    ChancellorAgent,
+    ChancellorEntrypoint,
+    ChancellorRuntimeError,
+    ChancellorSkillId,
+    ChancellorSkillRegistryError,
+    GraphSkillHandler,
+    build_default_skill_registry,
+    complete_chancellor_audit,
+    emit_chancellor_audit,
+)
 from app.api.auth import CurrentUser
 from app.langgraph_runtime.deepseek_client import DeepSeekModelNameError
 from app.langgraph_runtime.deepseek_config import DeepSeekConfigError
@@ -78,6 +90,17 @@ def get_chancellor_draft_graph():
         ) from exc
 
 
+def get_chancellor_agent() -> ChancellorAgent:
+    return ChancellorAgent(
+        registry=build_default_skill_registry(),
+        handlers={
+            ChancellorSkillId.DRAFT_DECREE: GraphSkillHandler(
+                get_chancellor_draft_graph
+            )
+        },
+    )
+
+
 router = APIRouter()
 
 
@@ -88,38 +111,106 @@ def submit_chancellor_draft(
 ) -> ChancellorDraftResponse:
     """Prepare a draft only; this endpoint has no execution dependencies."""
 
-    graph = get_chancellor_draft_graph()
-    result = graph.invoke(
-        {
-            "messages": [
-                {"role": message.role, "content": message.content}
-                for message in payload.messages
-            ],
-            "version": payload.version,
-        }
-    )
-    response = result.get("response") if isinstance(result, dict) else None
     try:
+        result = get_chancellor_agent().invoke(
+            entrypoint=ChancellorEntrypoint.DRAFT,
+            requested_skill=ChancellorSkillId.DRAFT_DECREE,
+            owner_user_id=current_user.id,
+            request_id=secrets.token_hex(16),
+            payload={
+                "messages": [
+                    {"role": message.role, "content": message.content}
+                    for message in payload.messages
+                ],
+                "version": payload.version,
+            },
+        )
+    except (ChancellorRuntimeError, ChancellorSkillRegistryError) as exc:
+        failure_audit = getattr(exc, "audit", None)
+        if failure_audit is not None:
+            try:
+                emit_chancellor_audit(
+                    complete_chancellor_audit(
+                        failure_audit,
+                        side_effects=(),
+                        result="failure",
+                        failure_code=failure_audit.failure_code,
+                    )
+                )
+            except Exception:  # noqa: BLE001 - audit is best-effort
+                pass
+        if isinstance(exc.__cause__, ChancellorDraftConfigError):
+            raise exc.__cause__ from exc
+        if isinstance(
+            exc.__cause__,
+            (
+                ChancellorDraftInstructionsError,
+                DeepSeekConfigError,
+                DeepSeekModelNameError,
+            ),
+        ):
+            raise ChancellorDraftConfigError(
+                "Chancellor draft graph configuration is unavailable."
+            ) from exc.__cause__
+        raise ChancellorDraftGraphInvocationError(
+            "Chancellor draft graph invocation failed."
+        ) from exc
+    failure_code = None
+    side_effects: tuple[str, ...] = ()
+    try:
+        graph_result = result.output
+        response = graph_result.get("response") if isinstance(graph_result, dict) else None
         validated = ChancellorDraftResponse.model_validate(response)
     except Exception as exc:  # noqa: BLE001
+        failure_code = "response_invalid"
+        if getattr(result, "audit", None) is not None:
+            try:
+                emit_chancellor_audit(
+                    complete_chancellor_audit(
+                        result.audit,
+                        side_effects=(),
+                        result="failure",
+                        failure_code=failure_code,
+                    )
+                )
+            except Exception:  # noqa: BLE001 - audit is best-effort
+                pass
         raise ChancellorDraftGraphInvocationError(
             "Chancellor draft graph returned an invalid response."
         ) from exc
-    if (
-        validated.status.value == "DRAFT_READY"
-        and validated.draft is not None
-        and validated.decree_text is not None
-    ):
-        draft_authority_registry.register(
-            owner_user_id=current_user.id,
-            version=validated.version,
-            fingerprint=validated.fingerprint,
-            decree_text=validated.decree_text,
-            route_snapshot=build_route_snapshot(validated.draft),
-        )
-    else:
-        draft_authority_registry.revoke(owner_user_id=current_user.id)
-    return validated
+    try:
+        if (
+            validated.status.value == "DRAFT_READY"
+            and validated.draft is not None
+            and validated.decree_text is not None
+        ):
+            draft_authority_registry.register(
+                owner_user_id=current_user.id,
+                version=validated.version,
+                fingerprint=validated.fingerprint,
+                decree_text=validated.decree_text,
+                route_snapshot=build_route_snapshot(validated.draft),
+            )
+            side_effects = ("authority_registered",)
+        elif draft_authority_registry.revoke(owner_user_id=current_user.id):
+            side_effects = ("authority_revoked",)
+        return validated
+    except Exception:
+        failure_code = "draft_processing_failed"
+        raise
+    finally:
+        if getattr(result, "audit", None) is not None:
+            try:
+                emit_chancellor_audit(
+                    complete_chancellor_audit(
+                        result.audit,
+                        side_effects=side_effects,
+                        result="failure" if failure_code else "success",
+                        failure_code=failure_code,
+                    )
+                )
+            except Exception:  # noqa: BLE001 - audit is best-effort
+                pass
 
 
 def register_chancellor_draft_exception_handlers(app: FastAPI) -> None:

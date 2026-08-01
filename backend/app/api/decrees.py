@@ -54,6 +54,18 @@ from app.agents.chancellor_draft.routing import (
     ApprovedRouteSnapshot,
     validate_route_snapshot,
 )
+from app.agents.chancellor_runtime import (
+    ChancellorAgent,
+    ChancellorEntrypoint,
+    ChancellorRuntimeError,
+    ChancellorSkillId,
+    ChancellorSkillInvocationError,
+    ChancellorSkillRegistryError,
+    GraphSkillHandler,
+    build_default_skill_registry,
+    complete_chancellor_audit,
+    emit_chancellor_audit,
+)
 from app.agents.junjichu.agent import CaseLifecycleObserver
 from app.agents.ministries import MINISTRIES
 from app.agents.synthesis_failures import (
@@ -114,6 +126,10 @@ class _StorageCaseLifecycleObserver(CaseLifecycleObserver):
         self._completed_ministry_opinions: list[dict[str, object]] = []
         self._failure_stage: SynthesisStage = "route"
         self._failure_recorded = False
+
+    @property
+    def case_created(self) -> bool:
+        return self._case_id is not None
 
     def open_case(
         self, *, decree_text: str, departments: list[str], processing_path: list[str]
@@ -535,6 +551,19 @@ def get_chancellor_graph(*, report_session: AccountingReportSession | None = Non
     )
 
 
+def get_execution_chancellor_agent(
+    *, report_session: AccountingReportSession
+) -> ChancellorAgent:
+    return ChancellorAgent(
+        registry=build_default_skill_registry(),
+        handlers={
+            ChancellorSkillId.EXECUTE_DECREE: GraphSkillHandler(
+                lambda: get_chancellor_graph(report_session=report_session)
+            )
+        },
+    )
+
+
 router = APIRouter()
 
 
@@ -573,32 +602,83 @@ def submit_decree(
     except Exception:
         raise DraftNotCurrentError from None
 
+    run_id = secrets.token_hex(16)
     report_session = build_accounting_report_session(
         owner_user_id=current_user.id,
-        run_id=secrets.token_hex(16),
+        run_id=run_id,
     )
     observer = _StorageCaseLifecycleObserver(current_user.id)
     context_token = None
+    runtime_audit = None
+    final_side_effects = ["authority_consumed"]
+    audit_result = "failure"
+    audit_failure_code = "execution_failed"
     try:
         context_token = _lifecycle_observer_context.set(observer)
-        graph = get_chancellor_graph(report_session=report_session)
-        result = graph.invoke(
-            {
-                "decree_text": payload.decree_text,
-                "approved_route": approved_route,
-            }
-        )
+        try:
+            runtime_result = get_execution_chancellor_agent(
+                report_session=report_session
+            ).invoke(
+                entrypoint=ChancellorEntrypoint.EXECUTE,
+                requested_skill=ChancellorSkillId.EXECUTE_DECREE,
+                owner_user_id=current_user.id,
+                request_id=run_id,
+                payload={
+                    "decree_text": payload.decree_text,
+                    "approved_route": approved_route,
+                },
+            )
+        except (ChancellorRuntimeError, ChancellorSkillRegistryError) as exc:
+            runtime_audit = getattr(exc, "audit", None)
+            if runtime_audit is not None:
+                audit_failure_code = runtime_audit.failure_code
+            if (
+                isinstance(exc, ChancellorSkillInvocationError)
+                and exc.__cause__ is not None
+            ):
+                cause = exc.__cause__
+                raise cause from cause.__cause__
+            raise ChancellorGraphInvocationError(
+                "Chancellor runtime skill invocation failed."
+            ) from exc
+        result = runtime_result.output
+        runtime_audit = runtime_result.audit
         response = _build_response_from_graph_result(
             result,
             approved_route,
             decree_text=payload.decree_text,
         )
         audited_result = dict(result)
+        pre_archive_side_effects = ["authority_consumed"]
+        if observer.case_created:
+            pre_archive_side_effects.append("case_created")
+            final_side_effects.append("case_created")
+        has_pending = getattr(
+            report_session,
+            "has_pending",
+            getattr(report_session, "_summary", None) is not None,
+        )
+        if has_pending:
+            pre_archive_side_effects.append("report_prepared")
+            final_side_effects.append("report_prepared")
+        persisted_audit = (
+            complete_chancellor_audit(
+                runtime_result.audit,
+                side_effects=tuple(pre_archive_side_effects),
+            )
+            if runtime_result.audit is not None
+            else None
+        )
         audited_result.update(
             {
                 "approved_route": approved_route,
                 "draft_version": payload.draft_version,
                 "draft_fingerprint": payload.draft_fingerprint,
+                "runtime_audit": (
+                    persisted_audit.model_dump(mode="json")
+                    if persisted_audit is not None
+                    else None
+                ),
             }
         )
         try:
@@ -613,11 +693,8 @@ def submit_decree(
                 stage="archive", code=classify_synthesis_failure(exc)
             )
             raise AccountingReportPublicationError("reply_archive_failed") from None
-        has_pending = getattr(
-            report_session,
-            "has_pending",
-            getattr(report_session, "_summary", None) is not None,
-        )
+        if getattr(archive_result, "archived", False):
+            final_side_effects.append("reply_archived")
         if has_pending:
             if not archive_result.archived or not archive_result.reply_id:
                 raise AccountingReportPublicationError("reply_archive_required")
@@ -629,12 +706,17 @@ def submit_decree(
             except Exception:
                 raise AccountingReportPublicationError("publication_failed") from None
             response = response.model_copy(update={"artifacts": artifacts})
+            if artifacts:
+                final_side_effects.append("report_published")
         if response.route_type == "multi":
             reply_id = getattr(archive_result, "reply_id", None)
             if getattr(archive_result, "archived", False) and isinstance(reply_id, str):
                 observer.archive(reply_id)
+                final_side_effects.append("case_archived")
             else:
                 observer.fail(stage="archive", code="state_invalid")
+        audit_result = "success"
+        audit_failure_code = None
         return response
     except Exception as exc:
         report_session.abort()
@@ -649,6 +731,20 @@ def submit_decree(
         )
         raise
     finally:
+        if observer.case_created and "case_created" not in final_side_effects:
+            final_side_effects.append("case_created")
+        if runtime_audit is not None:
+            try:
+                emit_chancellor_audit(
+                    complete_chancellor_audit(
+                        runtime_audit,
+                        side_effects=tuple(final_side_effects),
+                        result=audit_result,
+                        failure_code=audit_failure_code,
+                    )
+                )
+            except Exception:  # noqa: BLE001 - audit is best-effort
+                pass
         if context_token is not None:
             _lifecycle_observer_context.reset(context_token)
 

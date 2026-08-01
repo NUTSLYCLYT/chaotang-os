@@ -12,14 +12,34 @@ def test_decree_without_current_ready_draft_is_blocked_before_graph(
 ) -> None:
     configure_auth_db(tmp_path / "auth.sqlite3")
     user = create_user("gate-user", "gate@example.com", "six-or-more")
-    calls = 0
+    effects: list[str] = []
 
     def provider():
-        nonlocal calls
-        calls += 1
+        effects.append("graph")
         raise AssertionError("graph must not be built")
 
     monkeypatch.setattr(decrees_api, "get_chancellor_graph", provider)
+    monkeypatch.setattr(
+        decrees_api,
+        "get_execution_chancellor_agent",
+        lambda **_kwargs: effects.append("agent"),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        decrees_api,
+        "build_accounting_report_session",
+        lambda **_kwargs: effects.append("report"),
+    )
+    monkeypatch.setattr(
+        decrees_api,
+        "_StorageCaseLifecycleObserver",
+        lambda *_args: effects.append("observer"),
+    )
+    monkeypatch.setattr(
+        decrees_api,
+        "archive_chancellor_decree",
+        lambda *_args, **_kwargs: effects.append("archive"),
+    )
     try:
         response = TestClient(app).post(
             "/api/v1/decrees/chancellor",
@@ -39,4 +59,4 @@ def test_decree_without_current_ready_draft_is_blocked_before_graph(
         "reason": "draft_not_current",
         "message": "拟旨草案已失效，请重新拟旨后再下旨",
     }
-    assert calls == 0
+    assert effects == []

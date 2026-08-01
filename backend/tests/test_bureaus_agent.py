@@ -163,9 +163,7 @@ def test_evidence_bureau_prompt_excludes_bare_opinion_contract() -> None:
 
 
 def test_investment_bureau_declares_market_quote_capability() -> None:
-    profile = next(
-        item for item in bureau_profiles_for("户部") if item.bureau == "投资司"
-    )
+    profile = next(item for item in bureau_profiles_for("户部") if item.bureau == "投资司")
 
     assert "证券行情" in profile.responsibilities
     assert "股票价格" in profile.responsibilities
@@ -194,9 +192,7 @@ def test_bound_bureau_prompt_renders_package_purpose_deliverables_and_guardrails
     )
     assert prompt.count(guardrail) == 4
     assert "pack_rd" not in prompt
-    assert prompt.index("Code review advisory.") < prompt.index(
-        NO_IRREVERSIBLE_ACTION_CONSTRAINT
-    )
+    assert prompt.index("Code review advisory.") < prompt.index(NO_IRREVERSIBLE_ACTION_CONSTRAINT)
 
 
 def test_capability_bound_high_risk_prompts_remain_advice_or_drafts_pending_approval():
@@ -210,15 +206,42 @@ def test_capability_bound_high_risk_prompts_remain_advice_or_drafts_pending_appr
         "social_content_operations",
         "persona_screening",
     }
-    expected_guardrail = (
-        "advice or drafts only and remain pending approval."
-    )
+    expected_guardrail = "advice or drafts only and remain pending approval."
 
     for capability_id in high_risk_capabilities:
         profile = capability_profile_for(capability_id)
         prompt = bureau_system_prompt(profile.department, profile.bureau)
         assert expected_guardrail in prompt
         assert NO_IRREVERSIBLE_ACTION_CONSTRAINT in prompt
+
+
+def test_invoke_bureau_agent_corrects_two_invalid_structured_responses():
+    responses = iter(
+        (
+            "not-json secret-first-response",
+            '{"wrong":"secret-second-response"}',
+            '{"opinion":"validated opinion"}',
+        )
+    )
+    calls: list[list[dict[str, str]]] = []
+
+    def model(messages: list[dict[str, str]]) -> str:
+        calls.append(messages)
+        return next(responses)
+
+    result = invoke_bureau_agent(
+        "工部",
+        "技术司",
+        "offline decree",
+        "approved rationale",
+        model,
+    )
+
+    assert result == "validated opinion"
+    assert len(calls) == 3
+    assert calls[0][-1]["role"] == "user"
+    assert calls[1][-1]["role"] == "system"
+    assert "secret-first-response" not in calls[1][-1]["content"]
 
 
 @pytest.mark.parametrize(
@@ -314,9 +337,7 @@ def test_compound_key_distinguishes_the_two_policy_bureaus():
     ("department", "bureau"),
     (("不存在部", "制度司"), ("吏部", "不存在司"), ("吏部", "合同司")),
 )
-def test_profile_lookup_and_prompt_reject_unknown_or_cross_department_identity(
-    department, bureau
-):
+def test_profile_lookup_and_prompt_reject_unknown_or_cross_department_identity(department, bureau):
     with pytest.raises(ValueError):
         bureau_profile_for(department, bureau)
     with pytest.raises(ValueError):
@@ -353,9 +374,7 @@ def test_invoke_bureau_agent_sends_identity_context_and_returns_stripped_opinion
         captured.extend(messages)
         return '{"opinion": "  建议先核查合同授权链。  "}'
 
-    result = invoke_bureau_agent(
-        "刑部", "合同司", "审查客户合同", "合同事项交合同司", fake_model
-    )
+    result = invoke_bureau_agent("刑部", "合同司", "审查客户合同", "合同事项交合同司", fake_model)
 
     assert result == "建议先核查合同授权链。"
     assert model_calls == 1
@@ -372,14 +391,10 @@ def test_invoke_bureau_agent_sends_identity_context_and_returns_stripped_opinion
     ("department", "bureau"),
     (("不存在部", "合同司"), ("刑部", "不存在司"), ("吏部", "合同司")),
 )
-def test_invoke_rejects_unknown_and_cross_department_with_sanitized_cause(
-    department, bureau
-):
+def test_invoke_rejects_unknown_and_cross_department_with_sanitized_cause(department, bureau):
     marker = "secret-decree-must-not-leak"
     with pytest.raises(BureauAgentInvocationError) as exc_info:
-        invoke_bureau_agent(
-            department, bureau, marker, marker, lambda _messages: '{"opinion":"x"}'
-        )
+        invoke_bureau_agent(department, bureau, marker, marker, lambda _messages: '{"opinion":"x"}')
     assert isinstance(exc_info.value.__cause__, ValueError)
     assert marker not in str(exc_info.value)
 
@@ -435,8 +450,7 @@ def test_session_enabled_bureau_degrades_invalid_model_content_without_leaking_b
     )
 
     assert result == (
-        "数据不足（model_synthesis_invalid），无法形成事实结论；"
-        "待取得可验证数据后再行复核。"
+        "数据不足（model_synthesis_invalid），无法形成事实结论；待取得可验证数据后再行复核。"
     )
     assert session.snapshot().degradation_reasons == (
         "model_synthesis_degraded:bureau:工部:质量司",
@@ -639,6 +653,8 @@ def test_investment_bureau_rejected_plan_fails_with_only_stable_reason(
 
     assert str(exc_info.value.__cause__) == "entity_ambiguous"
     assert marker not in str(exc_info.value)
+
+
 @pytest.mark.parametrize(
     ("department", "bureau", "decree_text", "expected_calls"),
     [
@@ -649,9 +665,7 @@ def test_investment_bureau_rejected_plan_fails_with_only_stable_reason(
         ("工部", "技术司", "生成财务报表", 0),
     ],
 )
-def test_bureau_report_trigger_matrix(
-    department, bureau, decree_text, expected_calls
-):
+def test_bureau_report_trigger_matrix(department, bureau, decree_text, expected_calls):
     calls = []
 
     class FakeSession:

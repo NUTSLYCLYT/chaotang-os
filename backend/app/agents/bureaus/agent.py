@@ -5,7 +5,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from app.agents.bureaus.prompts import bureau_system_prompt
-from app.agents.structured_output import StructuredOutputError, parse_strict_json_object
+from app.agents.structured_invocation import (
+    StructuredInvocationError,
+    invoke_strict_structured,
+)
+from app.agents.structured_output import parse_strict_json_object
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel
 
 if TYPE_CHECKING:
@@ -92,9 +96,7 @@ def invoke_bureau_agent(
 
         if detect_accounting_report_intent(decree_text).requested:
             try:
-                report_summary = report_session.maybe_generate(
-                    department, bureau, decree_text
-                )
+                report_summary = report_session.maybe_generate(department, bureau, decree_text)
             except Exception as exc:  # noqa: BLE001 - sanitized report boundary
                 error = BureauAgentInvocationError("Accounting report generation failed.")
                 error.failure_stage = "report"
@@ -156,8 +158,7 @@ def invoke_bureau_agent(
                 chat_model=chat_model,
                 legacy_parser=_parse_opinion,
                 fallback=lambda reason: (
-                    f"数据不足（{reason}），无法形成事实结论；"
-                    "待取得可验证数据后再行复核。"
+                    f"数据不足（{reason}），无法形成事实结论；待取得可验证数据后再行复核。"
                 ),
                 session=evidence_session,
                 **evidence_kwargs,
@@ -174,20 +175,17 @@ def invoke_bureau_agent(
             raise BureauAgentInvocationError("Bureau evidence protocol failed.") from exc
 
     try:
-        raw_response = chat_model(messages)
-    except Exception as exc:  # noqa: BLE001 - model boundary must fail closed
-        raise BureauAgentInvocationError("Bureau model invocation failed.") from exc
-
-    if not isinstance(raw_response, str) or not raw_response.strip():
-        cause = ValueError("The bureau model returned no usable text.")
-        raise BureauAgentInvocationError("Bureau response validation failed.") from cause
-
-    try:
-        return _parse_opinion(parse_strict_json_object(raw_response))
-    except StructuredOutputError as exc:
-        raise BureauAgentInvocationError("Bureau response parsing failed.") from exc
-    except ValueError as exc:
-        raise BureauAgentInvocationError("Bureau response validation failed.") from exc
+        return invoke_strict_structured(
+            chat_model,
+            messages,
+            lambda raw: _parse_opinion(parse_strict_json_object(raw)),
+            stage="bureau",
+        )
+    except StructuredInvocationError as exc:
+        error = BureauAgentInvocationError("Bureau structured response failed.")
+        error.failure_stage = exc.failure_stage
+        cause = exc.__cause__ if exc.failure_code == "provider_unavailable" else exc
+        raise error from cause
 
 
 def _parse_opinion(value: object) -> str:

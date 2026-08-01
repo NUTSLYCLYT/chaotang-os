@@ -87,9 +87,7 @@ def _multi_route_response(departments: list[str]) -> str:
 
 def _bureau_route_response(department: str) -> str:
     bureau = bureau_profiles_for(department)[0].bureau
-    return json.dumps(
-        {"rationale": "交由本司办理", "bureaus": [bureau]}, ensure_ascii=False
-    )
+    return json.dumps({"rationale": "交由本司办理", "bureaus": [bureau]}, ensure_ascii=False)
 
 
 def _ministry_turns(department: str, bureau_opinion: str, ministry_opinion: str) -> list[str]:
@@ -157,8 +155,7 @@ def _approved_input(
     required_bureaus: dict[str, tuple[str, ...]] | None = None,
 ) -> dict[str, object]:
     required = required_bureaus or {
-        department: (bureau_profiles_for(department)[0].bureau,)
-        for department in departments
+        department: (bureau_profiles_for(department)[0].bureau,) for department in departments
     }
     return {
         "decree_text": decree_text,
@@ -188,20 +185,14 @@ def test_approved_single_route_bypasses_route_model_and_forwards_required_bureau
         calls.append((department, kwargs["required_bureaus"]))
         return _expected_ministry("户部", "会计司议", "户部意见")
 
-    monkeypatch.setattr(
-        "app.agents.chancellor.graph.invoke_ministry_agent", fake_ministry
-    )
+    monkeypatch.setattr("app.agents.chancellor.graph.invoke_ministry_agent", fake_ministry)
 
     def model(messages):
         assert messages[0]["content"] != CHANCELLOR_SYSTEM_PROMPT
         return _final_response()
 
     approved_route = ApprovedRouteSnapshot(
-        departments=(
-            ApprovedDepartmentRoute(
-                department="户部", required_bureaus=("会计司",)
-            ),
-        )
+        departments=(ApprovedDepartmentRoute(department="户部", required_bureaus=("会计司",)),)
     )
     result = build_chancellor_graph(chat_model=model).invoke(
         {"decree_text": "生成财务报表", "approved_route": approved_route}
@@ -243,17 +234,14 @@ def test_market_quote_decree_overrides_valid_but_wrong_model_route(
         assert evidence_session is not None
         return _expected_ministry("户部", "行情司议", "户部行情意见")
 
-    monkeypatch.setattr(
-        "app.agents.chancellor.graph.invoke_ministry_agent", fake_ministry
-    )
+    monkeypatch.setattr("app.agents.chancellor.graph.invoke_ministry_agent", fake_ministry)
+
     def model(messages):
         if messages[0]["content"] == CHANCELLOR_SYSTEM_PROMPT:
             raise AssertionError("supported market route must bypass Chancellor routing")
         return _final_response("行情回奏")
 
-    result = build_chancellor_graph(
-        chat_model=model
-    ).invoke(
+    result = build_chancellor_graph(chat_model=model).invoke(
         _approved_input(
             "帮我看看比亚迪的股票价格",
             "户部",
@@ -285,9 +273,7 @@ def test_market_quote_capability_keeps_single_department_layered_flow(
         assert evidence_session is not None
         return _expected_ministry("户部", "行情司意见", "户部行情补充意见")
 
-    monkeypatch.setattr(
-        "app.agents.chancellor.graph.invoke_ministry_agent", fake_ministry
-    )
+    monkeypatch.setattr("app.agents.chancellor.graph.invoke_ministry_agent", fake_ministry)
 
     result = build_chancellor_graph(
         chat_model=lambda _messages: _final_response("行情回奏")
@@ -573,9 +559,7 @@ def test_finalizer_fallback_rejects_unrelated_prefilled_adoption(monkeypatch):
         "app.agents.chancellor.graph.invoke_ministry_agent",
         lambda *_args, **_kwargs: {
             "department": "户部",
-            "bureau_opinions": [
-                {"bureau": "投资司", "opinion": "伪造价格 300 CNY"}
-            ],
+            "bureau_opinions": [{"bureau": "投资司", "opinion": "伪造价格 300 CNY"}],
             "opinion": "伪造价格 300 CNY",
         },
     )
@@ -616,8 +600,7 @@ def test_canonical_finalizer_rejects_valid_but_altered_source_and_recommendation
             return json.dumps(
                 {
                     "summary": (
-                        "比亚迪最新可得价格为 999 CNY"
-                        "（行情时间：2099-01-01；来源：伪造来源）。"
+                        "比亚迪最新可得价格为 999 CNY（行情时间：2099-01-01；来源：伪造来源）。"
                     ),
                     "recommendations": ["立即买入", "保证收益", "无需核验"],
                 },
@@ -673,18 +656,16 @@ def test_non_market_route_remains_multi_and_keeps_selected_departments(
         assert evidence_session is not None
         return opinions, "军机处会审意见"
 
-    monkeypatch.setattr(
-        "app.agents.chancellor.graph.run_junjichu_council", fake_council
-    )
+    monkeypatch.setattr("app.agents.chancellor.graph.run_junjichu_council", fake_council)
     responses = iter(
         [
             _final_response("非行情回奏"),
         ]
     )
 
-    result = build_chancellor_graph(
-        chat_model=lambda _messages: next(responses)
-    ).invoke(_approved_input("请协调官员任用与河道修缮", "吏部", "工部"))
+    result = build_chancellor_graph(chat_model=lambda _messages: next(responses)).invoke(
+        _approved_input("请协调官员任用与河道修缮", "吏部", "工部")
+    )
 
     assert result["route_type"] == "multi"
     assert result["departments"] == departments
@@ -711,9 +692,7 @@ def test_single_route_runs_ministry_then_common_finalizer_without_junjichu():
     bureau = bureau_profiles_for("户部")[0].bureau
     assert result["route_type"] == "single"
     assert result["departments"] == ["户部"]
-    assert result["ministry_opinions"] == [
-        _expected_ministry("户部", "预算司意见", "户部补充意见")
-    ]
+    assert result["ministry_opinions"] == [_expected_ministry("户部", "预算司意见", "户部补充意见")]
     assert result["council_verdict"] is None
     assert result["final_verdict"] == "丞相最终总结"
     assert result["recommendations"] == ["建议一", "建议二", "建议三"]
@@ -734,9 +713,7 @@ def test_single_route_runs_ministry_then_common_finalizer_without_junjichu():
     assert "预算司意见" in final_evidence
     assert "户部补充意见" in final_evidence
     assert '"council_verdict": null' in final_evidence
-    assert not any(
-        message[0]["content"].startswith("你是军机处") for message in captured_messages
-    )
+    assert not any(message[0]["content"].startswith("你是军机处") for message in captured_messages)
 
 
 def test_single_route_works_for_every_ministry():
@@ -745,9 +722,9 @@ def test_single_route_works_for_every_ministry():
             *_ministry_turns(department, "司级意见", "部级补充"),
             _final_response(f"{department}最终总结"),
         ]
-        result = build_chancellor_graph(
-            chat_model=_sequenced_chat_model(responses)
-        ).invoke(_approved_input("旨意", department))
+        result = build_chancellor_graph(chat_model=_sequenced_chat_model(responses)).invoke(
+            _approved_input("旨意", department)
+        )
         assert result["departments"] == [department]
         assert result["final_verdict"] == f"{department}最终总结"
         assert result["processing_path"][-1] == "丞相（最终汇总）"
@@ -789,9 +766,7 @@ def test_multi_route_runs_all_layered_ministries_then_council_then_finalizer():
     expected_path = ["上书房", "丞相（首次分流）", "军机处（召集）"]
     for department in departments:
         bureau = bureau_profiles_for(department)[0].bureau
-        expected_path.extend(
-            [department, f"{department}·{bureau}", f"{department}（部级补充）"]
-        )
+        expected_path.extend([department, f"{department}·{bureau}", f"{department}（部级补充）"])
     expected_path.extend(["军机处（会审）", "丞相（最终汇总）"])
     assert result["processing_path"] == expected_path
 
@@ -819,9 +794,7 @@ def test_cross_department_capability_intention_keeps_existing_council_path_and_i
     expected_path = ["上书房", "丞相（首次分流）", "军机处（召集）"]
     for department in departments:
         bureau = bureau_profiles_for(department)[0].bureau
-        expected_path.extend(
-            [department, f"{department}·{bureau}", f"{department}（部级补充）"]
-        )
+        expected_path.extend([department, f"{department}·{bureau}", f"{department}（部级补充）"])
     expected_path.extend(["军机处（会审）", "丞相（最终汇总）"])
 
     assert result["processing_path"] == expected_path
@@ -868,8 +841,7 @@ def test_cross_department_bureau_failure_stops_later_ministries_council_and_fina
     assert isinstance(exc_info.value.__cause__, MinistryAgentInvocationError)
     assert len(model_calls) == 2
     assert not any(
-        messages[0]["content"] == CHANCELLOR_FINALIZATION_SYSTEM_PROMPT
-        for messages in model_calls
+        messages[0]["content"] == CHANCELLOR_FINALIZATION_SYSTEM_PROMPT for messages in model_calls
     )
 
 
@@ -947,6 +919,8 @@ def test_invalid_chancellor_final_response_uses_safe_fallback(final_response):
             [
                 *_ministry_turns("户部", "司见", "部见"),
                 final_response,
+                final_response,
+                final_response,
             ]
         )
     )
@@ -961,6 +935,8 @@ def test_finalizer_schema_drift_returns_three_safe_recommendations():
         chat_model=_sequenced_chat_model(
             [
                 *_ministry_turns("户部", "司见", "部见"),
+                '{"summary":"SECRET-REJECTED","recommendations":[]}',
+                '{"summary":"SECRET-REJECTED","recommendations":[]}',
                 '{"summary":"SECRET-REJECTED","recommendations":[]}',
             ]
         )
@@ -981,12 +957,33 @@ def test_finalizer_schema_drift_returns_three_safe_recommendations():
     )
 
 
+def test_finalizer_corrects_two_invalid_structured_responses() -> None:
+    result = build_chancellor_graph(
+        chat_model=_sequenced_chat_model(
+            [
+                *_ministry_turns("工部", "bureau opinion", "ministry opinion"),
+                "not-json secret-final-one",
+                '{"summary":"secret-final-two","recommendations":[]}',
+                _final_response("validated final"),
+            ]
+        )
+    ).invoke(_approved_input("offline decree", "工部"))
+
+    assert result["final_verdict"] == "validated final"
+    assert result["recommendations"] == ["建议一", "建议二", "建议三"]
+    assert "model_synthesis_degraded:chancellor:finalize" not in (
+        result["evidence_snapshot"].degradation_reasons
+    )
+
+
 def test_multi_council_invalid_schema_falls_back_before_chancellor_finalizer():
     calls = {"value": 0}
     responses = iter(
         [
             *_ministry_turns("户部", "户司", "户部"),
             *_ministry_turns("工部", "工司", "工部"),
+            '{"verdict":"会审","extra":true}',
+            '{"verdict":"会审","extra":true}',
             '{"verdict":"会审","extra":true}',
             _final_response("最终总结"),
         ]
@@ -1006,7 +1003,7 @@ def test_multi_council_invalid_schema_falls_back_before_chancellor_finalizer():
         "model_synthesis_degraded:junjichu:council"
         in result["evidence_snapshot"].degradation_reasons
     )
-    assert calls["value"] == 8
+    assert calls["value"] == 10
 
 
 def test_ministry_failure_is_wrapped_and_short_circuits():
@@ -1016,9 +1013,7 @@ def test_ministry_failure_is_wrapped_and_short_circuits():
         raise RuntimeError("simulated ministry failure")
 
     with pytest.raises(ChancellorGraphInvocationError) as exc_info:
-        build_chancellor_graph(chat_model=_chat_model).invoke(
-            _approved_input("旨意", "兵部")
-        )
+        build_chancellor_graph(chat_model=_chat_model).invoke(_approved_input("旨意", "兵部"))
     assert isinstance(exc_info.value.__cause__, MinistryAgentInvocationError)
     assert isinstance(exc_info.value.__cause__.__cause__, RuntimeError)
 
@@ -1036,9 +1031,9 @@ def test_untyped_ministry_exception_cannot_forge_graph_failure_stage(monkeypatch
     )
 
     with pytest.raises(ChancellorGraphInvocationError) as exc_info:
-        build_chancellor_graph(
-            chat_model=lambda _messages: _single_route_response("兵部")
-        ).invoke(_approved_input("旨意", "兵部"))
+        build_chancellor_graph(chat_model=lambda _messages: _single_route_response("兵部")).invoke(
+            _approved_input("旨意", "兵部")
+        )
 
     assert exc_info.value.failure_stage == "ministry"
 
@@ -1057,9 +1052,7 @@ def test_finalizer_failure_is_sanitized_and_preserves_cause():
         return next(responses)
 
     with pytest.raises(ChancellorGraphInvocationError) as exc_info:
-        build_chancellor_graph(chat_model=_chat_model).invoke(
-            _approved_input("旨意", "户部")
-        )
+        build_chancellor_graph(chat_model=_chat_model).invoke(_approved_input("旨意", "户部"))
     assert marker in str(exc_info.value.__cause__)
     assert marker not in str(exc_info.value)
 
@@ -1227,9 +1220,9 @@ def test_graph_creates_one_fresh_session_per_invoke_and_only_marks_used_path(mon
     assert second["processing_path"].index("锦衣卫（调查）") == (
         second["processing_path"].index(f"{department}·{bureau}") + 1
     )
-    assert second["processing_path"].index("锦衣卫（调查）") < second[
-        "processing_path"
-    ].index(f"{department}（部级补充）")
+    assert second["processing_path"].index("锦衣卫（调查）") < second["processing_path"].index(
+        f"{department}（部级补充）"
+    )
     assert first["adopted_evidence_ids"] == ()
     assert second["adopted_evidence_ids"] == ("evidence-2", "evidence-1")
     assert second["evidence_snapshot"] == created[1].snapshot()
@@ -1245,9 +1238,7 @@ def test_multi_graph_passes_same_session_to_council_without_upper_protocol(monke
         used=True,
         investigating=(
             bureau_node_id(departments[1], investigated_bureau),
-            bureau_node_id(
-                departments[0], bureau_profiles_for(departments[0])[0].bureau
-            ),
+            bureau_node_id(departments[0], bureau_profiles_for(departments[0])[0].bureau),
         ),
     )
 
@@ -1289,12 +1280,11 @@ def test_multi_graph_passes_same_session_to_council_without_upper_protocol(monke
     assert result["evidence_snapshot"] == session.snapshot()
     marker_index = result["processing_path"].index("锦衣卫（调查）")
     assert result["processing_path"].count("锦衣卫（调查）") == 1
-    assert marker_index == result["processing_path"].index(
-        f"{departments[1]}·{investigated_bureau}"
-    ) + 1
-    assert marker_index < result["processing_path"].index(
-        f"{departments[1]}（部级补充）"
+    assert (
+        marker_index
+        == result["processing_path"].index(f"{departments[1]}·{investigated_bureau}") + 1
     )
+    assert marker_index < result["processing_path"].index(f"{departments[1]}（部级补充）")
     assert marker_index < result["processing_path"].index("军机处（会审）")
 
 
@@ -1490,9 +1480,7 @@ def test_market_quote_graph_uses_precompiled_plan_and_adopts_latest_available_ev
         "丞相（最终汇总）",
     ]
     assert result["evidence_snapshot"].adopted_evidence_ids
-    evidence = result["evidence_snapshot"].packs[0].evidence_by_fact[
-        "market_quote:last_price"
-    ][0]
+    evidence = result["evidence_snapshot"].packs[0].evidence_by_fact["market_quote:last_price"][0]
     assert evidence.source_type is SourceType.MCP
     assert evidence.as_of < evidence.retrieved_at
     assert len(calls) == 3
@@ -1505,9 +1493,7 @@ def test_real_graph_byd_price_gap_runs_jinyiwei_and_resolves_fresh_quote(
 ) -> None:
     backend = Path(__file__).parents[1]
     fixture_dir = Path(__file__).parent / "fixtures" / "mcp"
-    config = yaml.safe_load(
-        (backend / "config" / "jinyiwei_mcp.yaml").read_text(encoding="utf-8")
-    )
+    config = yaml.safe_load((backend / "config" / "jinyiwei_mcp.yaml").read_text(encoding="utf-8"))
     config["servers"][0]["enabled"] = True
     for tool in config["tools"]:
         tool["enabled"] = True
@@ -1616,6 +1602,8 @@ def test_real_graph_byd_price_gap_runs_jinyiwei_and_resolves_fresh_quote(
     assert "evidence_unavailable" not in synthesis_prompt
     assert "321.5" in synthesis_prompt
     assert "CNY" in synthesis_prompt
+
+
 def test_graph_sanitizes_report_failure_stage(monkeypatch):
     marker = "private-ledger-path"
 
@@ -1624,9 +1612,7 @@ def test_graph_sanitizes_report_failure_stage(monkeypatch):
         exc.failure_stage = "report"
         raise exc
 
-    monkeypatch.setattr(
-        "app.agents.chancellor.graph.invoke_ministry_agent", fail_ministry
-    )
+    monkeypatch.setattr("app.agents.chancellor.graph.invoke_ministry_agent", fail_ministry)
     with pytest.raises(ChancellorGraphInvocationError) as caught:
         build_chancellor_graph(
             chat_model=lambda _messages: pytest.fail("model must not run"),
@@ -1661,9 +1647,7 @@ def test_real_single_graph_report_session_preserves_model_call_sequence():
             captured.append(messages)
             return next(response_iter)
 
-        result = build_chancellor_graph(
-            chat_model=model, report_session=report_session
-        ).invoke(
+        result = build_chancellor_graph(chat_model=model, report_session=report_session).invoke(
             _approved_input(
                 decree,
                 "户部",
@@ -1723,9 +1707,7 @@ def test_real_multi_graph_report_session_generates_once_and_preserves_order():
             captured.append(messages)
             return next(response_iter)
 
-        result = build_chancellor_graph(
-            chat_model=model, report_session=report_session
-        ).invoke(
+        result = build_chancellor_graph(chat_model=model, report_session=report_session).invoke(
             _approved_input(
                 decree,
                 "户部",

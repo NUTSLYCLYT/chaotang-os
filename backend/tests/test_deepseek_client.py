@@ -58,7 +58,10 @@ def test_build_deepseek_chat_model_defaults_to_text_output(
     call_model = build_deepseek_chat_model(_CONFIG)
 
     mock_openai_class.assert_called_once_with(
-        base_url="https://api.deepseek.com/v1", api_key="sk-fake-value-for-tests"
+        base_url="https://api.deepseek.com/v1",
+        api_key="sk-fake-value-for-tests",
+        max_retries=0,
+        timeout=30.0,
     )
 
     result = call_model([{"role": "user", "content": "hi"}])
@@ -67,6 +70,8 @@ def test_build_deepseek_chat_model_defaults_to_text_output(
     mock_client_instance.chat.completions.create.assert_called_once_with(
         model="deepseek-chat",
         messages=[{"role": "user", "content": "hi"}],
+        max_tokens=2500,
+        temperature=0,
     )
 
 
@@ -86,7 +91,9 @@ def test_build_deepseek_chat_model_can_request_json_output(mock_openai_class, mo
     mock_client_instance.chat.completions.create.assert_called_once_with(
         model="deepseek-chat",
         messages=[{"role": "user", "content": "return json"}],
+        max_tokens=2500,
         response_format={"type": "json_object"},
+        temperature=0,
     )
 
 
@@ -131,7 +138,10 @@ def test_build_deepseek_chat_model_falls_back_to_injected_dotenv_path(
     build_deepseek_chat_model(_CONFIG, dotenv_path=dotenv_path)
 
     mock_openai_class.assert_called_once_with(
-        base_url="https://api.deepseek.com/v1", api_key="sk-from-dotenv-file"
+        base_url="https://api.deepseek.com/v1",
+        api_key="sk-from-dotenv-file",
+        max_retries=0,
+        timeout=30.0,
     )
 
 

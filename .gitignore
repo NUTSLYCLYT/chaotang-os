@@ -29,3 +29,7 @@ backend/data/
 *.sqlite3-shm
 .gstack/
 .superpowers/
+
+# Local runtime, QA, and private input data.
+/data/
+/.tmp-welcome-qa/

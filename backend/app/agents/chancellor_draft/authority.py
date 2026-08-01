@@ -36,9 +36,9 @@ class DraftAuthorityRegistry:
         with self._lock:
             self._by_owner[owner_user_id] = authority
 
-    def revoke(self, *, owner_user_id: str) -> None:
+    def revoke(self, *, owner_user_id: str) -> bool:
         with self._lock:
-            self._by_owner.pop(owner_user_id, None)
+            return self._by_owner.pop(owner_user_id, None) is not None
 
     def consume(
         self,

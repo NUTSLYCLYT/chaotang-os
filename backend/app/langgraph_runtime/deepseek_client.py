@@ -24,6 +24,7 @@ from app.langgraph_runtime.deepseek_config import DeepSeekProviderConfig
 from app.langgraph_runtime.deepseek_env import resolve_deepseek_api_key_with_dotenv_fallback
 
 _MODEL_NAME_PREFIX = "openai/"
+_REQUEST_TIMEOUT_SECONDS = 30.0
 
 # A DeepSeek chat model is any callable that takes an OpenAI-style list of
 # ``{"role": ..., "content": ...}`` messages and returns the assistant's
@@ -106,12 +107,22 @@ def build_deepseek_chat_model(
             fallback also failed.
     """
     api_key = resolve_deepseek_api_key_with_dotenv_fallback(config, dotenv_path)
-    client = openai.OpenAI(base_url=config.base_url, api_key=api_key)
+    client = openai.OpenAI(
+        base_url=config.base_url,
+        api_key=api_key,
+        max_retries=0,
+        timeout=_REQUEST_TIMEOUT_SECONDS,
+    )
     model_name = normalize_deepseek_model_name(config.default_model)
 
     def call_deepseek_chat_model(messages: list[dict[str, str]]) -> str:
         try:
-            request_kwargs = {"model": model_name, "messages": messages}
+            request_kwargs = {
+                "model": model_name,
+                "messages": messages,
+                "max_tokens": 2500,
+                "temperature": 0,
+            }
             if json_output:
                 request_kwargs["response_format"] = {"type": "json_object"}
             response = client.chat.completions.create(**request_kwargs)

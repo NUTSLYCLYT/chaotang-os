@@ -406,9 +406,22 @@ result = graph.invoke({"input_text": "hello", "response_text": ""})
 `APIRouter`/`app.include_router(...)` 挂到 `app/main.py` 的既有 `app` 实例上）是两个
 职责边界清晰、彼此独立的子包：`app/agents/**` 不涉及 HTTP，`app/api/**` 不实现 agent
 的图逻辑，只做请求/响应契约（Pydantic 模型 + 校验）、错误脱敏映射与路由注册。
-`app/main.py` 中 `GET /health` 的既有代码路径不受这两个子包影响。`app/agents/` 目前含
-四个业务子包：`app/agents/chancellor/`（丞相首次分流与最终汇总图，唯一定义
-`ChancellorGraphState` 和拓扑的地方）、`app/agents/ministries/`（六部固定名录
+`app/main.py` 中 `GET /health` 的既有代码路径不受这两个子包影响。
+
+`app/agents/chancellor_runtime/` 是产品运行时唯一的丞相身份与调度边界，以版本化
+Runtime Skill 表达 `consult`、`draft_decree`、`execute_decree`，并只把 `follow_up`
+登记为禁用的未来扩展。Runtime Skill 是 Python 拥有的产品能力契约，不加载也不依赖开发期
+`.agents/skills/*/SKILL.md`。现有 API 入口分别确定性地限定为咨询、拟旨和正式下旨 Skill；
+模型只能建议后续 Skill，不能自行执行转换。咨询不得访问六部、司级、军机处、锦衣卫、
+MCP 或史馆写入；拟旨不得执行旨意或访问六部、锦衣卫和 MCP；正式下旨继续要求当前用户范围
+的一次性拟旨授权与批准路由。ADR 0028 的单部/多部办理、司级证据协议、锦衣卫和史馆边界
+保持不变，MCP 仍只能经“司级证据请求 → Evidence Protocol → 锦衣卫”间接访问。
+
+`app/agents/chancellor_consult/`、`app/agents/chancellor_draft/` 和
+`app/agents/chancellor/` 仍是相互隔离、可独立测试和演进的 handler Graph，不合并拓扑；
+统一运行时只在当前 Skill 的最小上下文和服务边界内惰性调用对应 handler。正式办理图仍在
+`app/agents/chancellor/` 唯一定义 `ChancellorGraphState` 和拓扑。其余业务子包包括
+`app/agents/ministries/`（六部固定名录
 `MINISTRIES`、single/军机处共用的 `invoke_ministry_agent`，负责严格选司、顺序调用司级
 Agent，并通过独立模型调用生成结构化部级补充）、
 `app/agents/bureaus/`（39 司不可变复合注册表与统一通用司级 Agent，礼部六司全部开放）、
@@ -425,7 +438,7 @@ Agent，并通过独立模型调用生成结构化部级补充）、
 
 再次改变语言、运行方式、包管理器或评测方式时，在同一变更中：
 
-`app/agents/chancellor_consult/` 是 ADR 0030 定义的独立非业务咨询包，只可复用
+`app/agents/chancellor_consult/` 是 ADR 0030 定义的隔离非业务咨询 handler，只可复用
 `app/langgraph_runtime` 的 DeepSeek 配置与客户端辅助函数；禁止导入下旨、六部、军机处、
 锦衣卫、史馆或案卷模块。其受认证 HTTP 入口为 `POST /api/v1/chancellor-consult`，
 每个合法请求恰好调用一次模型且不持久化。

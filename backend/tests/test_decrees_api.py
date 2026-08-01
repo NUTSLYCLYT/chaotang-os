@@ -41,6 +41,15 @@ from app.agents.chancellor_draft.routing import (
     ApprovedDepartmentRoute,
     ApprovedRouteSnapshot,
 )
+from app.agents.chancellor_runtime import (
+    ChancellorAgent,
+    ChancellorEntrypoint,
+    ChancellorInvocationResult,
+    ChancellorRuntimeError,
+    ChancellorSkillId,
+    ChancellorSkillRegistry,
+    ChancellorSkillRegistryError,
+)
 from app.auth import configure_auth_db, create_session, create_user
 from app.langgraph_runtime.deepseek_client import DeepSeekModelNameError
 from app.langgraph_runtime.deepseek_config import DeepSeekApiKeyError
@@ -305,6 +314,11 @@ def test_consumes_and_validates_route_before_creating_side_effects(
     provider = fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_SINGLE_ROUTE_RESULT)))
     monkeypatch.setattr(
         decrees_module,
+        "get_execution_chancellor_agent",
+        lambda **_kwargs: effects.append("agent"),
+    )
+    monkeypatch.setattr(
+        decrees_module,
         "archive_chancellor_decree",
         lambda *_args, **_kwargs: effects.append("archive"),
     )
@@ -314,6 +328,46 @@ def test_consumes_and_validates_route_before_creating_side_effects(
     assert response.status_code == 409
     assert effects == []
     assert provider.call_count == 0
+
+
+def test_lazy_execution_graph_receives_observer_context_and_report_session(
+    monkeypatch, report_session
+):
+    session, _builds = report_session
+    approved = _approved_route(("吏部", ("任免司",)))
+    observer = decrees_module._StorageCaseLifecycleObserver("observer-owner")
+    graph = _FakeGraph(invoke_result=_SINGLE_ROUTE_RESULT)
+    graph_builds: list[dict[str, object]] = []
+
+    def build_graph(**kwargs):
+        graph_builds.append(kwargs)
+        return graph
+
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "consume",
+        lambda **_kwargs: approved,
+    )
+    monkeypatch.setattr(
+        decrees_module,
+        "_StorageCaseLifecycleObserver",
+        lambda _owner_user_id: observer,
+    )
+    monkeypatch.setattr(decrees_module, "build_chancellor_graph", build_graph)
+
+    response = client.post(DECREE_URL, json={"decree_text": "整顿吏治"})
+
+    assert response.status_code == 200
+    assert len(graph_builds) == 1
+    assert graph_builds[0]["report_session"] is session
+    assert graph_builds[0]["lifecycle_observer"] is observer
+    assert decrees_module._lifecycle_observer_context.get() is None
+    assert graph.invoke_calls == [
+        {
+            "decree_text": "整顿吏治",
+            "approved_route": approved,
+        }
+    ]
 
 
 def test_passes_consumed_snapshot_by_identity_to_graph(monkeypatch, fake_provider):
@@ -371,6 +425,337 @@ def test_rejects_graph_route_drift_before_archive(
 
     assert response.status_code == 502
     assert archive_calls == []
+
+
+def test_routes_execution_through_single_agent_and_reuses_run_id(
+    monkeypatch, report_session
+):
+    approved = _approved_route(("吏部", ("任免司",)))
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "consume",
+        lambda **_kwargs: approved,
+    )
+    session, builds = report_session
+    agent_builds: list[object] = []
+    calls: list[dict[str, object]] = []
+
+    class FakeAgent:
+        def invoke(self, **kwargs):
+            calls.append(kwargs)
+            return ChancellorInvocationResult(
+                owner_user_id=kwargs["owner_user_id"],
+                request_id=kwargs["request_id"],
+                entrypoint=kwargs["entrypoint"],
+                skill_id=kwargs["requested_skill"],
+                skill_version="1.0.0",
+                output=_SINGLE_ROUTE_RESULT,
+            )
+
+    def build_agent(*, report_session):
+        agent_builds.append(report_session)
+        return FakeAgent()
+
+    monkeypatch.setattr(
+        decrees_module,
+        "get_execution_chancellor_agent",
+        build_agent,
+        raising=False,
+    )
+
+    response = client.post(DECREE_URL, json={"decree_text": "整顿吏治"})
+
+    assert response.status_code == 200
+    assert agent_builds == [session]
+    assert len(calls) == 1
+    call = calls[0]
+    assert call["entrypoint"] is ChancellorEntrypoint.EXECUTE
+    assert call["requested_skill"] is ChancellorSkillId.EXECUTE_DECREE
+    assert call["payload"] == {
+        "decree_text": "整顿吏治",
+        "approved_route": approved,
+    }
+    assert call["request_id"] == builds[0]["run_id"]
+
+
+def test_generic_runtime_error_maps_to_sanitized_model_error(monkeypatch):
+    secret = "runtime-secret-must-not-leak"
+
+    class FailingAgent:
+        def invoke(self, **_kwargs):
+            raise ChancellorRuntimeError(secret)
+
+    monkeypatch.setattr(
+        decrees_module,
+        "get_execution_chancellor_agent",
+        lambda **_kwargs: FailingAgent(),
+    )
+
+    response = client.post(DECREE_URL, json={"decree_text": "整顿吏治"})
+
+    assert response.status_code == 502
+    assert response.json()["reason"] == "model_unavailable"
+    assert secret not in response.text
+
+
+def test_plain_runtime_error_cannot_forge_transparent_handler_failure(monkeypatch):
+    secret = "forged-handler-cause-must-not-leak"
+    forged_cause = RuntimeError(secret)
+    forged_cause.failure_stage = "bureau"
+    error = ChancellorRuntimeError("skill_invocation_failed")
+    error.__cause__ = forged_cause
+
+    class FailingAgent:
+        def invoke(self, **_kwargs):
+            raise error
+
+    monkeypatch.setattr(
+        decrees_module,
+        "get_execution_chancellor_agent",
+        lambda **_kwargs: FailingAgent(),
+    )
+
+    response = client.post(DECREE_URL, json={"decree_text": "整顿吏治"})
+
+    assert response.status_code == 502
+    assert response.json()["reason"] == "model_unavailable"
+    assert secret not in response.text
+    assert "failure_stage" not in response.text
+
+
+def test_execute_api_preserves_generic_graph_exception_identity(monkeypatch):
+    error = RuntimeError("generic graph failure")
+    monkeypatch.setattr(
+        decrees_module,
+        "get_chancellor_graph",
+        lambda **_kwargs: _FakeGraph(invoke_error=error),
+    )
+
+    with pytest.raises(RuntimeError) as raised:
+        decrees_module.submit_decree(
+            decrees_module.ChancellorDecreeRequest(decree_text="整顿吏治"),
+            SimpleNamespace(id="user-1"),
+        )
+
+    assert raised.value is error
+
+
+def test_execute_handler_failure_emits_authority_only_final_audit(monkeypatch):
+    error = RuntimeError("private graph failure")
+    monkeypatch.setattr(
+        decrees_module,
+        "get_chancellor_graph",
+        lambda **_kwargs: _FakeGraph(invoke_error=error),
+    )
+    audits = []
+    monkeypatch.setattr(decrees_module, "emit_chancellor_audit", audits.append)
+
+    with pytest.raises(RuntimeError) as raised:
+        decrees_module.submit_decree(
+            decrees_module.ChancellorDecreeRequest(decree_text="整顿吏治"),
+            SimpleNamespace(id="user-1"),
+        )
+
+    assert raised.value is error
+    assert len(audits) == 1
+    assert audits[-1].result == "failure"
+    assert audits[-1].side_effects == ("authority_consumed",)
+    assert "private graph failure" not in audits[-1].model_dump_json()
+
+
+def test_execute_handler_failure_after_case_open_emits_case_created(monkeypatch):
+    error = RuntimeError("private post-case failure")
+
+    class FailingAfterCaseGraph:
+        def invoke(self, state):
+            decrees_module._lifecycle_observer_context.get().open_case(
+                decree_text=state["decree_text"],
+                departments=["户部", "工部"],
+                processing_path=["上书房", "丞相"],
+            )
+            raise error
+
+    monkeypatch.setattr(
+        decrees_module,
+        "get_chancellor_graph",
+        lambda **_kwargs: FailingAfterCaseGraph(),
+    )
+    audits = []
+    monkeypatch.setattr(decrees_module, "emit_chancellor_audit", audits.append)
+
+    with pytest.raises(RuntimeError) as raised:
+        decrees_module.submit_decree(
+            decrees_module.ChancellorDecreeRequest(decree_text="兴修水利"),
+            SimpleNamespace(id="user-1"),
+        )
+
+    assert raised.value is error
+    assert len(audits) == 1
+    assert audits[-1].side_effects == ("authority_consumed", "case_created")
+    assert all(
+        effect not in audits[-1].side_effects
+        for effect in ("report_prepared", "reply_archived", "report_published")
+    )
+
+
+def test_execute_non_dict_after_case_open_emits_runtime_owned_final_audit(
+    monkeypatch
+) -> None:
+    class InvalidAfterCaseGraph:
+        def invoke(self, state):
+            decrees_module._lifecycle_observer_context.get().open_case(
+                decree_text=state["decree_text"],
+                departments=["户部", "工部"],
+                processing_path=["上书房", "丞相"],
+            )
+            return "private invalid graph output"
+
+    monkeypatch.setattr(
+        decrees_module,
+        "get_chancellor_graph",
+        lambda **_kwargs: InvalidAfterCaseGraph(),
+    )
+    audits = []
+    monkeypatch.setattr(decrees_module, "emit_chancellor_audit", audits.append)
+
+    response = client.post(DECREE_URL, json={"decree_text": "兴修水利"})
+
+    assert response.status_code == 502
+    assert len(audits) == 1
+    assert audits[-1].failure_code == "skill_result_invalid"
+    assert audits[-1].side_effects == ("authority_consumed", "case_created")
+    assert "private invalid graph output" not in audits[-1].model_dump_json()
+
+
+def test_execute_registry_rejection_after_authority_emits_final_audit(monkeypatch):
+    monkeypatch.setattr(
+        decrees_module,
+        "get_execution_chancellor_agent",
+        lambda **_kwargs: ChancellorAgent(
+            registry=ChancellorSkillRegistry(()),
+            handlers={},
+        ),
+    )
+    audits = []
+    monkeypatch.setattr(decrees_module, "emit_chancellor_audit", audits.append)
+
+    response = client.post(DECREE_URL, json={"decree_text": "整顿吏治"})
+
+    assert response.status_code == 502
+    assert len(audits) == 1
+    assert audits[-1].failure_code == "skill_not_registered"
+    assert audits[-1].side_effects == ("authority_consumed",)
+
+
+@pytest.mark.parametrize(
+    ("mode", "failure_code", "transparent"),
+    [
+        ("registry", "skill_not_registered", False),
+        ("missing_handler", "handler_unavailable", False),
+        ("runtime", "runtime_failure", False),
+        ("invalid_result", "skill_result_invalid", False),
+        ("generic", "skill_invocation_failed", True),
+    ],
+)
+def test_execute_all_agent_failure_types_emit_uniform_final_audit(
+    monkeypatch, mode, failure_code, transparent
+) -> None:
+    def fail_runtime(_payload):
+        raise ChancellorRuntimeError("private runtime detail")
+
+    def fail_generic(_payload):
+        raise ValueError("private generic detail")
+
+    if mode == "registry":
+        agent = ChancellorAgent(ChancellorSkillRegistry(()), handlers={})
+    else:
+        handlers = {
+            "missing_handler": {},
+            "runtime": {ChancellorSkillId.EXECUTE_DECREE: fail_runtime},
+            "invalid_result": {
+                ChancellorSkillId.EXECUTE_DECREE: lambda _payload: "private output"
+            },
+            "generic": {ChancellorSkillId.EXECUTE_DECREE: fail_generic},
+        }[mode]
+        agent = ChancellorAgent(
+            decrees_module.build_default_skill_registry(),
+            handlers=handlers,
+        )
+    monkeypatch.setattr(
+        decrees_module,
+        "get_execution_chancellor_agent",
+        lambda **_kwargs: agent,
+    )
+    audits = []
+    monkeypatch.setattr(decrees_module, "emit_chancellor_audit", audits.append)
+
+    expected_error = ValueError if transparent else ChancellorGraphInvocationError
+    with pytest.raises(expected_error):
+        decrees_module.submit_decree(
+            decrees_module.ChancellorDecreeRequest(decree_text="整顿吏治"),
+            SimpleNamespace(id="user-1"),
+        )
+
+    assert len(audits) == 1
+    assert audits[-1].failure_code == failure_code
+    assert audits[-1].side_effects == ("authority_consumed",)
+    serialized = audits[-1].model_dump_json()
+    assert all(
+        secret not in serialized
+        for secret in ("private runtime detail", "private generic detail", "private output")
+    )
+
+
+def test_execute_api_preserves_typed_graph_error_nested_cause(monkeypatch):
+    nested_cause = RuntimeError("provider failure")
+    error = ChancellorGraphInvocationError("sanitized graph failure")
+    error.__cause__ = nested_cause
+    monkeypatch.setattr(
+        decrees_module,
+        "get_chancellor_graph",
+        lambda **_kwargs: _FakeGraph(invoke_error=error),
+    )
+
+    with pytest.raises(ChancellorGraphInvocationError) as raised:
+        decrees_module.submit_decree(
+            decrees_module.ChancellorDecreeRequest(decree_text="整顿吏治"),
+            SimpleNamespace(id="user-1"),
+        )
+
+    assert raised.value is error
+    assert raised.value.__cause__ is nested_cause
+
+
+@pytest.mark.parametrize(
+    ("error_type", "message"),
+    [
+        (ChancellorRuntimeError, "handler_unavailable"),
+        (ChancellorRuntimeError, "skill_result_invalid"),
+        (ChancellorSkillRegistryError, "skill_not_registered"),
+    ],
+)
+def test_execute_api_sanitizes_runtime_owned_errors_and_ignores_forged_stage(
+    monkeypatch, error_type, message
+):
+    error = error_type(message)
+    error.failure_stage = "bureau"
+
+    class FailingAgent:
+        def invoke(self, **_kwargs):
+            raise error
+
+    monkeypatch.setattr(
+        decrees_module,
+        "get_execution_chancellor_agent",
+        lambda **_kwargs: FailingAgent(),
+    )
+
+    response = client.post(DECREE_URL, json={"decree_text": "整顿吏治"})
+
+    assert response.status_code == 502
+    assert response.json()["reason"] == "model_unavailable"
+    assert message not in response.text
+    assert "failure_stage" not in response.text
 
 
 def test_request_rejects_client_supplied_route(fake_provider):
@@ -646,13 +1031,94 @@ def test_submit_decree_single_route_returns_full_contract(fake_provider, monkeyp
         "整顿吏治",
         decrees_module.ChancellorDecreeResponse(**body),
     )
-    assert archived_calls[0][2] == {
+    archived_internal_result = dict(archived_calls[0][2])
+    persisted_audit = archived_internal_result.pop("runtime_audit")
+    assert archived_internal_result == {
         **_SINGLE_ROUTE_RESULT,
         "approved_route": _approved_route(("吏部", ("任免司",))),
         "draft_version": None,
         "draft_fingerprint": None,
     }
+    assert persisted_audit["skill_id"] == "execute_decree"
+    assert persisted_audit["authorization_checked"] is True
+    assert persisted_audit["authorization_result"] == "allowed"
+    assert persisted_audit["side_effects"] == ["authority_consumed"]
+    assert "decree_text" not in persisted_audit
     assert archived_calls[0][3]
+
+
+def test_throwing_execute_audit_emitter_does_not_change_success(
+    fake_provider, monkeypatch
+) -> None:
+    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_SINGLE_ROUTE_RESULT)))
+    monkeypatch.setattr(
+        decrees_module,
+        "emit_chancellor_audit",
+        lambda _audit: (_ for _ in ()).throw(RuntimeError("sink secret")),
+    )
+
+    response = client.post(DECREE_URL, json={"decree_text": "整顿吏治"})
+
+    assert response.status_code == 200
+
+
+def test_execute_archive_failure_emits_final_failed_audit(
+    fake_provider, monkeypatch
+) -> None:
+    fake_provider(_FakeProvider(graph=_FakeGraph(invoke_result=_SINGLE_ROUTE_RESULT)))
+    monkeypatch.setattr(
+        decrees_module,
+        "archive_chancellor_decree",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("private archive error")
+        ),
+    )
+    audits = []
+    monkeypatch.setattr(decrees_module, "emit_chancellor_audit", audits.append)
+
+    response = client.post(DECREE_URL, json={"decree_text": "整顿吏治"})
+
+    assert response.status_code == 502
+    assert len(audits) == 1
+    assert audits[-1].result == "failure"
+    assert audits[-1].side_effects == ("authority_consumed",)
+    assert "private archive error" not in audits[-1].model_dump_json()
+
+
+def test_multi_execute_audit_records_case_archive_after_observer_outcome(
+    fake_provider, monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        decrees_module.draft_authority_registry,
+        "consume",
+        lambda **_kwargs: _approved_route(
+            ("户部", ("预算司",)), ("工部", ("进度司",))
+        ),
+    )
+    class LifecycleGraph(_FakeGraph):
+        def invoke(self, state):
+            decrees_module._lifecycle_observer_context.get().open_case(
+                decree_text=state["decree_text"],
+                departments=["户部", "工部"],
+                processing_path=_MULTI_ROUTE_RESULT["processing_path"],
+            )
+            return super().invoke(state)
+
+    fake_provider(
+        _FakeProvider(graph=LifecycleGraph(invoke_result=_MULTI_ROUTE_RESULT))
+    )
+    audits = []
+    monkeypatch.setattr(decrees_module, "emit_chancellor_audit", audits.append)
+
+    response = client.post(
+        DECREE_URL,
+        json={"decree_text": "兴修水利并征调粮草以工代赈"},
+    )
+
+    assert response.status_code == 200
+    assert len(audits) == 1
+    assert "case_created" in audits[-1].side_effects
+    assert "case_archived" in audits[-1].side_effects
 
 
 def test_successful_single_decree_archives_one_reply_with_original_source_text(

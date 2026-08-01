@@ -42,6 +42,10 @@ from typing import TYPE_CHECKING, Protocol
 from app.agents.evidence_protocol import AgentEvidenceSession
 from app.agents.junjichu.prompts import junjichu_system_prompt
 from app.agents.ministries.agent import MinistryOpinion, invoke_ministry_agent
+from app.agents.structured_invocation import (
+    StructuredInvocationError,
+    invoke_strict_structured,
+)
 from app.agents.structured_output import StructuredOutputError, parse_strict_json_object
 from app.agents.synthesis_failures import (
     SynthesisFailureCode,
@@ -109,10 +113,7 @@ def _fallback_council_verdict(
     ministry_opinions: Sequence[MinistryOpinion],
 ) -> str:
     departments = "、".join(item["department"] for item in ministry_opinions)
-    return (
-        f"军机处已会审{departments}意见；仅确认协同办理顺序，"
-        "不形成未经证据支持的事实判断。"
-    )
+    return f"军机处已会审{departments}意见；仅确认协同办理顺序，不形成未经证据支持的事实判断。"
 
 
 def _parse_council_verdict(raw_response: object) -> str:
@@ -120,9 +121,7 @@ def _parse_council_verdict(raw_response: object) -> str:
         raise _CouncilContentError("军机处 agent returned an empty model response.")
     parsed = parse_strict_json_object(raw_response)
     if set(parsed) != {"verdict"}:
-        raise _CouncilContentError(
-            "军机处 agent response JSON has an invalid schema."
-        )
+        raise _CouncilContentError("军机处 agent response JSON has an invalid schema.")
     verdict = parsed.get("verdict")
     if not isinstance(verdict, str) or not verdict.strip():
         raise _CouncilContentError(
@@ -139,6 +138,7 @@ def invoke_junjichu_council(
     chat_model: DeepSeekChatModel,
     *,
     recall_contexts: Mapping[str, RecallContext] | None = None,
+    _max_attempts: int = 1,
 ) -> str:
     """Invoke 军机处's own council-verdict model turn and return the verdict.
 
@@ -180,8 +180,16 @@ def invoke_junjichu_council(
         },
     ]
 
-    raw_response = chat_model(messages)
-    return _parse_council_verdict(raw_response)
+    if _max_attempts == 1:
+        raw_response = chat_model(messages)
+        return _parse_council_verdict(raw_response)
+    return invoke_strict_structured(
+        chat_model,
+        messages,
+        _parse_council_verdict,
+        stage="junjichu_council",
+        max_attempts=_max_attempts,
+    )
 
 
 def run_junjichu_council(
@@ -232,12 +240,8 @@ def run_junjichu_council(
     ministry_opinions: list[MinistryOpinion] = []
     for department in departments:
         ministry_kwargs = {
-            "recall_context": (
-                recall_contexts[department] if recall_contexts else None
-            ),
-            "required_bureaus": tuple(
-                required_bureaus_by_department[department]
-            ),
+            "recall_context": (recall_contexts[department] if recall_contexts else None),
+            "required_bureaus": tuple(required_bureaus_by_department[department]),
         }
         if evidence_session is not None:
             ministry_kwargs["evidence_session"] = evidence_session
@@ -271,7 +275,19 @@ def run_junjichu_council(
             ministry_opinions,
             chat_model,
             recall_contexts=recall_contexts,
+            _max_attempts=3,
         )
+    except StructuredInvocationError as exc:
+        if exc.failure_code == "provider_unavailable":
+            cause = exc.__cause__
+            if cause is None:
+                raise
+            raise cause from exc
+        if not is_locally_degradable(exc):
+            raise
+        if evidence_session is not None:
+            evidence_session.record_degradation("junjichu:council")
+        verdict = _fallback_council_verdict(ministry_opinions)
     except (_CouncilContentError, StructuredOutputError) as exc:
         if not is_locally_degradable(exc):
             raise

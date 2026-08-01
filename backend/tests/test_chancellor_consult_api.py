@@ -21,6 +21,8 @@ enters the decree/evidence business flow governed by ADR 0028.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -28,6 +30,13 @@ import app.api.chancellor_consult as chancellor_consult_module
 from app.agents.chancellor_consult import (
     CHANCELLOR_CONSULT_IDENTITY,
     ChancellorConsultGraphInvocationError,
+)
+from app.agents.chancellor_runtime import (
+    ChancellorAgent,
+    ChancellorEntrypoint,
+    ChancellorRuntimeError,
+    ChancellorSkillId,
+    ChancellorSkillRegistry,
 )
 from app.api.chancellor_consult import ChancellorConsultConfigError
 from app.auth import configure_auth_db, create_session, create_user
@@ -84,6 +93,16 @@ class _FakeProvider:
         return self.graph
 
 
+class _FakeChancellorAgent:
+    def __init__(self, output: dict[str, object]) -> None:
+        self.output = output
+        self.calls: list[dict[str, object]] = []
+
+    def invoke(self, **kwargs):
+        self.calls.append(kwargs)
+        return SimpleNamespace(output=self.output)
+
+
 @pytest.fixture
 def fake_provider(monkeypatch):
     def _install(provider: _FakeProvider) -> _FakeProvider:
@@ -91,6 +110,167 @@ def fake_provider(monkeypatch):
         return provider
 
     return _install
+
+
+def test_submit_consult_routes_through_single_chancellor_agent(
+    monkeypatch, _authenticate_client
+):
+    agent = _FakeChancellorAgent({"reply": "consult reply"})
+    monkeypatch.setattr(chancellor_consult_module, "get_chancellor_agent", lambda: agent)
+
+    response = client.post(
+        CONSULT_URL,
+        json={"messages": [{"role": "user", "content": "consult question"}]},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "consultant": CHANCELLOR_CONSULT_IDENTITY,
+        "reply": "consult reply",
+    }
+    assert len(agent.calls) == 1
+    call = agent.calls[0]
+    assert call["entrypoint"] is ChancellorEntrypoint.CONSULT
+    assert call["requested_skill"] is ChancellorSkillId.CONSULT
+    assert call["owner_user_id"] == _authenticate_client.id
+    assert call["payload"] == {
+        "messages": [{"role": "user", "content": "consult question"}]
+    }
+    assert isinstance(call["request_id"], str)
+    assert len(call["request_id"]) == 32
+
+
+def test_consult_emits_sanitized_no_side_effect_audit(
+    monkeypatch, _authenticate_client
+) -> None:
+    graph = _FakeGraph(invoke_result={"reply": "private graph output"})
+    monkeypatch.setattr(
+        chancellor_consult_module, "get_chancellor_consult_graph", lambda: graph
+    )
+    audits: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        chancellor_consult_module,
+        "emit_chancellor_audit",
+        lambda audit: audits.append(audit.model_dump(mode="json")),
+    )
+
+    response = client.post(
+        CONSULT_URL,
+        json={"messages": [{"role": "user", "content": "private prompt"}]},
+    )
+
+    assert response.status_code == 200
+    assert len(audits) == 1
+    assert audits[0]["authorization_checked"] is True
+    assert audits[0]["authorization_result"] == "allowed"
+    assert audits[0]["side_effects"] == []
+    assert "private prompt" not in str(audits[0])
+    assert "private graph output" not in str(audits[0])
+
+
+def test_throwing_consult_audit_emitter_does_not_change_success(monkeypatch) -> None:
+    monkeypatch.setattr(
+        chancellor_consult_module,
+        "get_chancellor_consult_graph",
+        lambda: _FakeGraph(invoke_result={"reply": "ok"}),
+    )
+    monkeypatch.setattr(
+        chancellor_consult_module,
+        "emit_chancellor_audit",
+        lambda _audit: (_ for _ in ()).throw(RuntimeError("sink secret")),
+    )
+
+    response = client.post(CONSULT_URL, json=_single_user_message())
+
+    assert response.status_code == 200
+
+
+def test_consult_postprocessing_failure_emits_final_failed_audit(monkeypatch) -> None:
+    monkeypatch.setattr(
+        chancellor_consult_module,
+        "get_chancellor_consult_graph",
+        lambda: _FakeGraph(invoke_result={"reply": " "}),
+    )
+    audits = []
+    monkeypatch.setattr(chancellor_consult_module, "emit_chancellor_audit", audits.append)
+
+    response = client.post(CONSULT_URL, json=_single_user_message())
+
+    assert response.status_code == 502
+    assert len(audits) == 1
+    assert audits[0].result == "failure"
+    assert audits[0].failure_code == "response_invalid"
+
+
+@pytest.mark.parametrize(
+    ("mode", "failure_code"),
+    [
+        ("registry", "skill_not_registered"),
+        ("missing", "handler_unavailable"),
+        ("runtime", "runtime_failure"),
+        ("invalid", "skill_result_invalid"),
+        ("generic", "skill_invocation_failed"),
+    ],
+)
+def test_consult_runtime_failures_reemit_safe_final_audit(
+    monkeypatch, mode, failure_code
+) -> None:
+    def runtime_failure(_payload):
+        raise ChancellorRuntimeError("private runtime detail")
+
+    def generic_failure(_payload):
+        raise ValueError("private generic detail")
+
+    registry = (
+        ChancellorSkillRegistry(())
+        if mode == "registry"
+        else chancellor_consult_module.build_default_skill_registry()
+    )
+    handlers = {
+        "registry": {},
+        "missing": {},
+        "runtime": {ChancellorSkillId.CONSULT: runtime_failure},
+        "invalid": {ChancellorSkillId.CONSULT: lambda _payload: "private output"},
+        "generic": {ChancellorSkillId.CONSULT: generic_failure},
+    }[mode]
+    monkeypatch.setattr(
+        chancellor_consult_module,
+        "get_chancellor_agent",
+        lambda: ChancellorAgent(registry, handlers=handlers),
+    )
+    audits = []
+    monkeypatch.setattr(chancellor_consult_module, "emit_chancellor_audit", audits.append)
+
+    response = client.post(
+        CONSULT_URL,
+        json={"messages": [{"role": "user", "content": "private prompt"}]},
+    )
+
+    assert response.status_code == 502
+    assert len(audits) == 1
+    assert audits[-1].failure_code == failure_code
+    assert audits[-1].side_effects == ()
+    assert "private prompt" not in audits[-1].model_dump_json()
+    assert "private runtime detail" not in audits[-1].model_dump_json()
+    assert "private generic detail" not in audits[-1].model_dump_json()
+    assert "private output" not in audits[-1].model_dump_json()
+
+
+def test_invalid_consult_request_never_constructs_chancellor_agent(monkeypatch):
+    call_count = 0
+
+    def provider():
+        nonlocal call_count
+        call_count += 1
+        return _FakeChancellorAgent({"reply": "unused"})
+
+    monkeypatch.setattr(chancellor_consult_module, "get_chancellor_agent", provider)
+
+    response = client.post(CONSULT_URL, json={"messages": []})
+
+    assert response.status_code == 422
+    assert call_count == 0
 
 
 def _single_user_message(text: str = "国库存银大概是多少？") -> dict:

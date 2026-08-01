@@ -47,6 +47,7 @@ the same underlying DeepSeek exception classes.
 
 from __future__ import annotations
 
+import secrets
 from typing import Literal
 
 from fastapi import APIRouter, FastAPI
@@ -57,6 +58,17 @@ from app.agents.chancellor_consult import (
     CHANCELLOR_CONSULT_IDENTITY,
     ChancellorConsultGraphInvocationError,
     build_chancellor_consult_graph,
+)
+from app.agents.chancellor_runtime import (
+    ChancellorAgent,
+    ChancellorEntrypoint,
+    ChancellorRuntimeError,
+    ChancellorSkillId,
+    ChancellorSkillRegistryError,
+    GraphSkillHandler,
+    build_default_skill_registry,
+    complete_chancellor_audit,
+    emit_chancellor_audit,
 )
 from app.api.auth import CurrentUser
 from app.langgraph_runtime.deepseek_client import DeepSeekModelNameError
@@ -181,6 +193,17 @@ def get_chancellor_consult_graph():
         ) from exc
 
 
+def get_chancellor_agent() -> ChancellorAgent:
+    return ChancellorAgent(
+        registry=build_default_skill_registry(),
+        handlers={
+            ChancellorSkillId.CONSULT: GraphSkillHandler(
+                get_chancellor_consult_graph
+            )
+        },
+    )
+
+
 router = APIRouter()
 
 
@@ -198,28 +221,70 @@ def submit_chancellor_consult(
     completion call (see ``app.agents.chancellor_consult.graph``); it never
     routes to a ministry, 军机处 or 锦衣卫, and never writes to 史馆.
     """
-    del current_user
-    graph = get_chancellor_consult_graph()
-    result = graph.invoke(
-        {
-            "messages": [
-                {"role": message.role, "content": message.content}
-                for message in payload.messages
-            ]
-        }
-    )
-
-    reply = result.get("reply") if isinstance(result, dict) else None
-    if not isinstance(reply, str) or not reply.strip():
-        raise ChancellorConsultGraphInvocationError(
-            "Chancellor consultation graph returned an invalid result."
+    normalized_messages = [
+        {"role": message.role, "content": message.content}
+        for message in payload.messages
+    ]
+    try:
+        result = get_chancellor_agent().invoke(
+            entrypoint=ChancellorEntrypoint.CONSULT,
+            requested_skill=ChancellorSkillId.CONSULT,
+            owner_user_id=current_user.id,
+            request_id=secrets.token_hex(16),
+            payload={
+                "messages": normalized_messages,
+            },
         )
-
-    return ChancellorConsultResponse(
-        status="ok",
-        consultant=CHANCELLOR_CONSULT_IDENTITY,
-        reply=reply.strip(),
-    )
+    except (ChancellorRuntimeError, ChancellorSkillRegistryError) as exc:
+        failure_audit = getattr(exc, "audit", None)
+        if failure_audit is not None:
+            try:
+                emit_chancellor_audit(
+                    complete_chancellor_audit(
+                        failure_audit,
+                        side_effects=(),
+                        result="failure",
+                        failure_code=failure_audit.failure_code,
+                    )
+                )
+            except Exception:  # noqa: BLE001 - audit is best-effort
+                pass
+        if isinstance(exc.__cause__, ChancellorConsultConfigError):
+            raise exc.__cause__ from exc
+        if isinstance(exc.__cause__, (DeepSeekConfigError, DeepSeekModelNameError)):
+            raise ChancellorConsultConfigError(
+                "Chancellor consultation graph configuration is unavailable."
+            ) from exc.__cause__
+        raise ChancellorConsultGraphInvocationError(
+            "Chancellor consultation graph invocation failed."
+        ) from exc
+    failure_code = None
+    try:
+        graph_result = result.output
+        reply = graph_result.get("reply") if isinstance(graph_result, dict) else None
+        if not isinstance(reply, str) or not reply.strip():
+            failure_code = "response_invalid"
+            raise ChancellorConsultGraphInvocationError(
+                "Chancellor consultation graph returned an invalid result."
+            )
+        return ChancellorConsultResponse(
+            status="ok",
+            consultant=CHANCELLOR_CONSULT_IDENTITY,
+            reply=reply.strip(),
+        )
+    finally:
+        if getattr(result, "audit", None) is not None:
+            try:
+                emit_chancellor_audit(
+                    complete_chancellor_audit(
+                        result.audit,
+                        side_effects=(),
+                        result="failure" if failure_code else "success",
+                        failure_code=failure_code,
+                    )
+                )
+            except Exception:  # noqa: BLE001 - audit is best-effort
+                pass
 
 
 def register_chancellor_consult_exception_handlers(app: FastAPI) -> None:

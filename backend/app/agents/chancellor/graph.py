@@ -91,6 +91,10 @@ from app.agents.ministries.agent import (
     invoke_ministry_agent,
 )
 from app.agents.ministries.prompts import MINISTRIES
+from app.agents.structured_invocation import (
+    StructuredInvocationError,
+    invoke_strict_structured,
+)
 from app.agents.structured_output import StructuredOutputError, parse_strict_json_object
 from app.agents.synthesis_failures import SynthesisStage, is_locally_degradable
 from app.jinyiwei.models import FactCategory, MarketMetric
@@ -186,10 +190,7 @@ def _fallback_finalization(
     state: ChancellorGraphState,
 ) -> tuple[str, list[str]]:
     departments = "、".join(state["departments"])
-    summary = (
-        f"已完成{departments}分层办理；"
-        "当前回奏仅保留规范性安排与证据边界。"
-    )
+    summary = f"已完成{departments}分层办理；当前回奏仅保留规范性安排与证据边界。"
     return summary, list(_SAFE_RECOMMENDATIONS)
 
 
@@ -197,33 +198,24 @@ def _deterministic_route(decree_text: str) -> tuple[str, str, list[str]]:
     departments = [
         department
         for department in MINISTRIES
-        if any(
-            keyword in decree_text
-            for keyword in _ROUTE_DOMAIN_KEYWORDS[department]
-        )
-        or (
-            department == "吏部"
-            and _RECRUITING_PEOPLE_PATTERN.search(decree_text) is not None
-        )
+        if any(keyword in decree_text for keyword in _ROUTE_DOMAIN_KEYWORDS[department])
+        or (department == "吏部" and _RECRUITING_PEOPLE_PATTERN.search(decree_text) is not None)
     ]
     if len(departments) >= 2:
         return (
             "multi",
-            "旨意明确涉及多个固定职责领域，按六部名录顺序会审；"
-            "该分流不形成任何事实判断。",
+            "旨意明确涉及多个固定职责领域，按六部名录顺序会审；该分流不形成任何事实判断。",
             departments,
         )
     if len(departments) == 1:
         return (
             "single",
-            "旨意匹配一个固定职责领域，由对应部门规范办理；"
-            "该分流不形成任何事实判断。",
+            "旨意匹配一个固定职责领域，由对应部门规范办理；该分流不形成任何事实判断。",
             departments,
         )
     return (
         "single",
-        "旨意未匹配明确职责领域，先由吏部澄清责任边界；"
-        "该分流不形成任何事实判断。",
+        "旨意未匹配明确职责领域，先由吏部澄清责任边界；该分流不形成任何事实判断。",
         ["吏部"],
     )
 
@@ -243,8 +235,10 @@ def _parse_route_response(raw_response: object) -> tuple[str, str, list[str]]:
     if not isinstance(rationale, str) or not rationale.strip():
         raise _RouteContentError("The Chancellor route rationale is invalid.")
     departments = parsed.get("departments")
-    if not isinstance(departments, list) or not departments or not all(
-        isinstance(department, str) for department in departments
+    if (
+        not isinstance(departments, list)
+        or not departments
+        or not all(isinstance(department, str) for department in departments)
     ):
         raise _RouteContentError("The Chancellor route departments are invalid.")
     if len(set(departments)) != len(departments):
@@ -260,36 +254,23 @@ def _parse_route_response(raw_response: object) -> tuple[str, str, list[str]]:
 
 def _parse_finalization_response(raw_response: object) -> tuple[str, list[str]]:
     if not isinstance(raw_response, str) or not raw_response.strip():
-        raise _FinalizationContentError(
-            "The Chancellor finalizer returned no usable response."
-        )
+        raise _FinalizationContentError("The Chancellor finalizer returned no usable response.")
     parsed = parse_strict_json_object(raw_response)
     if set(parsed) != {"summary", "recommendations"}:
-        raise _FinalizationContentError(
-            "The Chancellor finalizer response has an invalid schema."
-        )
+        raise _FinalizationContentError("The Chancellor finalizer response has an invalid schema.")
     summary = parsed["summary"]
     raw_recommendations = parsed["recommendations"]
     if not isinstance(summary, str) or not summary.strip():
-        raise _FinalizationContentError(
-            "The Chancellor finalizer summary is invalid."
-        )
+        raise _FinalizationContentError("The Chancellor finalizer summary is invalid.")
     if (
         not isinstance(raw_recommendations, list)
         or len(raw_recommendations) != 3
-        or any(
-            not isinstance(item, str) or not item.strip()
-            for item in raw_recommendations
-        )
+        or any(not isinstance(item, str) or not item.strip() for item in raw_recommendations)
     ):
-        raise _FinalizationContentError(
-            "The Chancellor finalizer recommendations are invalid."
-        )
+        raise _FinalizationContentError("The Chancellor finalizer recommendations are invalid.")
     recommendations = [item.strip() for item in raw_recommendations]
     if len(set(recommendations)) != 3:
-        raise _FinalizationContentError(
-            "The Chancellor finalizer recommendations must be unique."
-        )
+        raise _FinalizationContentError("The Chancellor finalizer recommendations must be unique.")
     return summary.strip(), recommendations
 
 
@@ -311,9 +292,7 @@ class ChancellorGraphInvocationError(Exception):
     """
 
 
-def _trusted_failure_stage(
-    exc: BaseException, *, default: SynthesisStage
-) -> SynthesisStage:
+def _trusted_failure_stage(exc: BaseException, *, default: SynthesisStage) -> SynthesisStage:
     if isinstance(
         exc,
         (
@@ -409,12 +388,9 @@ def build_chancellor_graph(
         departments = [item.department for item in approved_route.departments]
         route_type = "single" if len(departments) == 1 else "multi"
         required_bureaus_by_department = {
-            item.department: item.required_bureaus
-            for item in approved_route.departments
+            item.department: item.required_bureaus for item in approved_route.departments
         }
-        rationale = (
-            "依已批准拟旨路由办理，参与部门及顺序不得变更。"
-        )
+        rationale = "依已批准拟旨路由办理，参与部门及顺序不得变更。"
         try:
             evidence_session = (
                 evidence_session_factory()
@@ -455,9 +431,7 @@ def build_chancellor_graph(
             ministry_kwargs: dict[str, object] = {
                 "recall_context": recall_context,
                 "evidence_session": state["evidence_session"],
-                "required_bureaus": state["required_bureaus_by_department"][
-                    department
-                ],
+                "required_bureaus": state["required_bureaus_by_department"][department],
             }
             if report_session is not None:
                 ministry_kwargs["report_session"] = report_session
@@ -485,10 +459,7 @@ def build_chancellor_graph(
         bureau_path: list[str] = []
         for bureau_opinion in opinion["bureau_opinions"]:
             bureau_path.append(f"{department}·{bureau_opinion['bureau']}")
-            if (
-                first_investigating_bureau
-                == bureau_node_id(department, bureau_opinion["bureau"])
-            ):
+            if first_investigating_bureau == bureau_node_id(department, bureau_opinion["bureau"]):
                 bureau_path.append("锦衣卫（调查）")
         return {
             "processing_path": [
@@ -507,16 +478,13 @@ def build_chancellor_graph(
     def _run_junjichu_council(state: ChancellorGraphState) -> dict:
         departments = state["departments"]
         recall_contexts: dict[str, RecallContext] = {
-            department: safe_recall_context_for_department(department)
-            for department in departments
+            department: safe_recall_context_for_department(department) for department in departments
         }
         try:
             council_kwargs: dict[str, object] = {
                 "recall_contexts": recall_contexts,
                 "evidence_session": state["evidence_session"],
-                "required_bureaus_by_department": state[
-                    "required_bureaus_by_department"
-                ],
+                "required_bureaus_by_department": state["required_bureaus_by_department"],
             }
             if report_session is not None:
                 council_kwargs["report_session"] = report_session
@@ -551,10 +519,8 @@ def build_chancellor_graph(
             layered_path.append(department)
             for bureau_opinion in ministry_opinion["bureau_opinions"]:
                 layered_path.append(f"{department}·{bureau_opinion['bureau']}")
-                if (
-                    not investigation_marked
-                    and first_investigating_bureau
-                    == bureau_node_id(department, bureau_opinion["bureau"])
+                if not investigation_marked and first_investigating_bureau == bureau_node_id(
+                    department, bureau_opinion["bureau"]
                 ):
                     layered_path.append("锦衣卫（调查）")
                     investigation_marked = True
@@ -572,8 +538,7 @@ def build_chancellor_graph(
             "ministry_opinions": ministry_opinions,
             "council_verdict": verdict,
             "recall_contexts": {
-                department: context.model_dump()
-                for department, context in recall_contexts.items()
+                department: context.model_dump() for department, context in recall_contexts.items()
             },
             "evidence_snapshot": snapshot,
             "adopted_evidence_ids": snapshot.adopted_evidence_ids,
@@ -605,17 +570,20 @@ def build_chancellor_graph(
             },
         ]
         try:
-            raw_response = resolved_chat_model(messages)
-        except Exception as exc:  # noqa: BLE001 - sanitized provider boundary
-            error = ChancellorGraphInvocationError(
-                "Chancellor graph finalization failed; "
-                "see __cause__ for the original exception."
+            summary, recommendations = invoke_strict_structured(
+                resolved_chat_model,
+                messages,
+                _parse_finalization_response,
+                stage="chancellor_finalize",
             )
-            error.failure_stage = "finalize"
-            raise error from exc
-        try:
-            summary, recommendations = _parse_finalization_response(raw_response)
-        except (_FinalizationContentError, StructuredOutputError) as exc:
+        except StructuredInvocationError as exc:
+            if exc.failure_code == "provider_unavailable":
+                error = ChancellorGraphInvocationError(
+                    "Chancellor graph finalization failed; "
+                    "see __cause__ for the original exception."
+                )
+                error.failure_stage = "finalize"
+                raise error from exc.__cause__
             if not is_locally_degradable(exc):
                 error = ChancellorGraphInvocationError(
                     "Chancellor graph finalization failed; "
@@ -634,9 +602,7 @@ def build_chancellor_graph(
             state["evidence_session"].record_degradation("chancellor:finalize")
             snapshot = state["evidence_session"].snapshot()
             if not can_degrade:
-                fallback_summary, fallback_recommendations = _fallback_finalization(
-                    state
-                )
+                fallback_summary, fallback_recommendations = _fallback_finalization(state)
                 return {
                     "processing_path": [
                         *state["processing_path"],
