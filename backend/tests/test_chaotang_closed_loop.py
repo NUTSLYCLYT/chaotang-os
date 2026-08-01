@@ -61,6 +61,7 @@ def _seed_review_chain(session_factory, run_id: str, *, final_ready: bool = Fals
         db.add(
             DecisionTask(
                 id=task_id,
+                tenant_id=1,
                 user_id="1",
                 raw_question=f"正式任务 {run_id}",
                 status="awaiting_decision",
@@ -72,6 +73,7 @@ def _seed_review_chain(session_factory, run_id: str, *, final_ready: bool = Fals
             db.add(
                 FinalMemorial(
                     id=f"formal_{run_id}",
+                    tenant_id=1,
                     task_id=task_id,
                     review_id=f"court_{run_id}",
                     swarm_run_id=run_id,

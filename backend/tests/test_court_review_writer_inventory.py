@@ -52,4 +52,4 @@ def test_court_review_production_writer_multiset_matches_frozen_baseline():
     actual = _scan_court_review_writers()
 
     assert actual == Counter(COURT_REVIEW_WRITER_BASELINE)
-    assert actual.total() == 10
+    assert actual.total() == 11

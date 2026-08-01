@@ -207,6 +207,88 @@ def test_confirm_plain_chinese_contract_text_creates_contract_review_pack(
     assert model["blockers"] == [{"code": "DELIVERY_MISSING"}]
 
 
+def test_tenantless_contract_draft_is_rejected_without_persistence(
+    isolated_session_local,
+):
+    from web import deps
+    from web.schemas.auth import CurrentUser
+    from src.db.models import DecisionTask
+
+    deps_user = lambda: CurrentUser(
+        user_id=1,
+        username="tenantless-user",
+        role="user",
+        tenant_slug="default",
+        tenant_id=None,
+    )
+    app.dependency_overrides[deps.get_current_user] = deps_user
+    client = TestClient(app)
+    response = client.post(
+        "/api/shangshufang/draft-edict",
+        json={
+            "raw_question": (
+                "请审查这份采购合同：甲方向乙方采购数控零部件，合同金额50万元，"
+                "乙方收到预付款后30日交货，货到7日内验收。"
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["success"] is False
+    assert "租户" in response.json()["error"]
+    db = isolated_session_local()
+    try:
+        assert db.query(DecisionTask).count() == 0
+    finally:
+        db.close()
+
+
+def test_tenantless_contract_task_cannot_be_confirmed(
+    isolated_session_local,
+):
+    import json
+    from web import deps
+    from web.schemas.auth import CurrentUser
+    from src.db.models import DecisionTask
+
+    task_id = "tenantless-contract-confirm"
+    db = isolated_session_local()
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=None,
+            user_id="1",
+            raw_question="请审查采购合同风险",
+            status="awaiting_emperor_confirm",
+            source_label="MIXED",
+            contract_scope_json=json.dumps({"schema_version": "ContractIntakeV1"}),
+        )
+    )
+    db.commit()
+    db.close()
+
+    app.dependency_overrides[deps.get_current_user] = lambda: CurrentUser(
+        user_id=1,
+        username="tenantless-user",
+        role="user",
+        tenant_slug="default",
+        tenant_id=None,
+    )
+    response = TestClient(app).post(
+        "/api/shangshufang/confirm-edict",
+        json={"task_id": task_id, "confirmed": True},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["success"] is False
+    assert "租户" in response.json()["error"]
+    db = isolated_session_local()
+    try:
+        assert db.get(DecisionTask, task_id).status == "awaiting_emperor_confirm"
+    finally:
+        db.close()
+
+
 def test_confirm_archived_contract_task_does_not_resurrect_decision_state(
     isolated_session_local,
 ):

@@ -21,4 +21,5 @@ COURT_REVIEW_WRITER_BASELINE: Final[dict[tuple[str, str], int]] = {
         "shangshufang_finance_intel_loop_complete",
     ): 1,
     ("web/routers/shangshufang.py", "shangshufang_research_budget_loop"): 1,
+    ("src/contracts/deterministic_intake.py", "ensure_deterministic_contract_candidate"): 1,
 }

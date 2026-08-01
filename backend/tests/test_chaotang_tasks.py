@@ -73,6 +73,7 @@ def test_tasks_persist_endpoints_are_read_only_and_detail_is_canonical(
         db.add(
             DecisionTask(
                 id="task_frontend_1",
+                tenant_id=1,
                 user_id="1",
                 raw_question="评估上书房刷新持久化",
                 status="executing",

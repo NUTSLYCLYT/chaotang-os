@@ -37,6 +37,7 @@ def test_review_persists_in_canonical_decision_chain(
         db.add(
             DecisionTask(
                 id="task_run_x",
+                tenant_id=1,
                 user_id="1",
                 raw_question="正式任务 x",
                 status="awaiting_decision",
@@ -47,6 +48,7 @@ def test_review_persists_in_canonical_decision_chain(
         db.add(
             FinalMemorial(
                 id="formal_run_x",
+                tenant_id=1,
                 task_id="task_run_x",
                 review_id="court_run_x",
                 swarm_run_id="run_x",

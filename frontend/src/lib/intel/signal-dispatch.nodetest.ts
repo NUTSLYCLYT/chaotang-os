@@ -10,6 +10,8 @@ import {
   sourceLabelForSignalSource,
 } from './signal-dispatch';
 
+const recentTimestamp = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
 const baseSignal: IntelSignal = {
   id: 'sig_pack_001',
   category: 'opportunity',
@@ -24,11 +26,11 @@ const baseSignal: IntelSignal = {
     {
       name: 'Tender bulletin',
       url: 'https://example.test/tender',
-      publishedAt: '2026-06-20T00:00:00.000Z',
+      publishedAt: recentTimestamp,
     },
   ],
-  firstSeenAt: '2026-06-20T00:00:00.000Z',
-  lastUpdatedAt: '2026-06-20T00:00:00.000Z',
+  firstSeenAt: recentTimestamp,
+  lastUpdatedAt: recentTimestamp,
   impactScore: 0.82,
 };
 

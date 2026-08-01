@@ -1636,6 +1636,8 @@ def shangshufang_draft_edict(
         contract_scope = body.contract_scope or infer_supported_contract_scope(
             body.raw_question
         )
+        if contract_scope is not None and user.tenant_id is None:
+            return fail("合同任务必须绑定有效租户")
         route = chancellor_decide_route(edict)
         edict_payload = {**draft_to_dict(edict), "route": route}
         source_label = "MIXED" if contract_scope is not None else edict.source_label
@@ -1739,6 +1741,12 @@ def shangshufang_confirm_edict(
             if ownership_error and "无权" in ownership_error:
                 return fail("无权确认该任务")
             return fail("task_id 不存在")
+        if (
+            (task.tenant_id is None or user.tenant_id is None)
+            and _is_contract_task(db, task=task)
+        ):
+            db.rollback()
+            return fail("合同任务必须绑定有效租户")
         if not body.confirmed:
             if _is_contract_task(db, task=task):
                 db.rollback()

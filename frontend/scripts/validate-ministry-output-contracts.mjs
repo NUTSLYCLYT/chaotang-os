@@ -16,23 +16,19 @@ const requiredFiles = [
 ];
 
 const sourceLabels = ['LIVE', 'LIVE_SWARM', 'MIXED', 'FALLBACK', 'DEMO'];
-const departments = ['jinyiwei', 'finance', 'ritual', 'war', 'personnel', 'justice', 'works'];
+const departments = ['hubu_cfo', 'libu_hr_admin', 'rites_brand_comms', 'bingbu_sales', 'xingbu_legal_risk', 'works'];
 const departmentFields = [
   'schema_version',
+  'task_id',
   'department_id',
-  'department_name',
-  'role_summary',
-  'verdict',
   'signal',
-  'one_sentence',
-  'key_findings',
-  'evidence_used',
+  'verdict',
+  'summary',
+  'evidence',
   'missing_evidence',
   'risks',
-  'conflicts',
-  'recommended_actions',
-  'conditions_to_proceed',
-  'needs_human_confirmation',
+  'next_order',
+  'human_confirmation_required',
   'source_label',
 ];
 const reportFields = [
@@ -112,8 +108,13 @@ for (const rule of [
 
 const registry = read('config/departments.registry.yaml');
 for (const department of departments) {
-  const block = new RegExp(`- id: ${department}[\\s\\S]*?output_schema: DepartmentOpinionV1[\\s\\S]*?status: active`);
-  assert(block.test(registry), `registry department ${department} must output DepartmentOpinionV1 and be active`);
+  const block = new RegExp(
+    `- id: ${department}\\n([\\s\\S]*?)(?=\\n\\s*- id:|$)`,
+  ).exec(registry)?.[1] ?? '';
+  assert(
+    /enabled: true/.test(block) && /output_schema: DepartmentOpinionV1/.test(block),
+    `registry department ${department} must be enabled and output DepartmentOpinionV1`,
+  );
 }
 
 const goldenLines = read('evals/ministry_output_contracts.golden.jsonl')

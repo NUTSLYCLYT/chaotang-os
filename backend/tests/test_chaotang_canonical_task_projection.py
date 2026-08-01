@@ -31,6 +31,7 @@ def _seed_canonical_task(session_local, *, owner: str = "1") -> None:
     db = session_local()
     task = DecisionTask(
             id="task_p3b",
+            tenant_id=1,
             user_id=owner,
             raw_question="核查供应商合同风险",
             refined_edict="请刑部核查合同证据并给出裁决建议",
@@ -98,6 +99,7 @@ def _seed_canonical_task(session_local, *, owner: str = "1") -> None:
     db.add(
         OutboxEvent(
             id="outbox_p3b",
+            tenant_id=1,
             task_id=task.id,
             decision_id=route.decision_id,
             event_type="route.council",
@@ -113,6 +115,7 @@ def _seed_canonical_task(session_local, *, owner: str = "1") -> None:
         [
             DecreeExecutionEvent(
                 id="evt_p3b_1",
+                tenant_id=1,
                 task_id="task_p3b",
                 stage="executing",
                 actor="worker",
@@ -126,6 +129,7 @@ def _seed_canonical_task(session_local, *, owner: str = "1") -> None:
             ),
             DecreeExecutionEvent(
                 id="evt_p3b_2",
+                tenant_id=1,
                 task_id="task_p3b",
                 stage="department_reporting",
                 actor="worker",
@@ -142,6 +146,7 @@ def _seed_canonical_task(session_local, *, owner: str = "1") -> None:
             ),
             DecreeExecutionEvent(
                 id="evt_p3b_3",
+                tenant_id=1,
                 task_id="task_p3b",
                 stage="awaiting_emperor_decision",
                 actor="junjichu",

@@ -187,6 +187,9 @@ _PROBES = {
     "shangshufang:bind_rework_generation_evidence": "test_bind_rework_generation_evidence",
     "swarm_runs:create_swarm_run": "test_swarm_runs_create",
     "swarm_runs:create_serial_loop": "test_swarm_runs_create_serial_loop",
+    "swarm_runs:get_swarm_run": "test_swarm_runs_get",
+    "swarm_runs:get_swarm_run_brief": "test_swarm_runs_get_brief",
+    "swarm_runs:get_swarm_run_progress": "test_swarm_runs_get_progress",
     # form-agnostic 检测新抓出的两个列表泄露端点(窄正则漏掉的):
     "court_compat:grand_council_live": "test_grand_council_live_list_leak",
     "shangshufang:shangshufang_home": "test_shangshufang_home_list_leak",
@@ -224,6 +227,36 @@ def _seed_other_users_task(session_local, task_id: str, status: str = "reviewing
             raw_question="别人的机密问题",
             status=status,
             source_label="LIVE",
+        )
+    )
+    db.commit()
+    db.close()
+
+
+def _seed_other_users_swarm_run(session_local, run_id: str) -> None:
+    from src.db.models import DecisionTask, SwarmRun
+
+    db = session_local()
+    db.add(
+        DecisionTask(
+            id=f"task_{run_id}",
+            tenant_id=1,
+            user_id="someone_else",
+            raw_question=_SENTINEL,
+            status="reviewing",
+            source_label="LIVE",
+        )
+    )
+    db.add(
+        SwarmRun(
+            id=run_id,
+            task_id=f"task_{run_id}",
+            review_id=f"review_{run_id}",
+            mode="standard",
+            status="completed",
+            source_label="LIVE_SWARM",
+            route_plan_json="{}",
+            trace_id=f"trace_{run_id}",
         )
     )
     db.commit()
@@ -709,6 +742,27 @@ def test_swarm_runs_retry(isolated_session_local):
     db.close()
     body = client.post("/api/swarm-runs/p0b_retry_run/retry").json()
     _assert_denied(body, "swarm run retry")
+
+
+def test_swarm_runs_get(isolated_session_local):
+    run_id = "p0b_get_swarm_run"
+    _seed_other_users_swarm_run(isolated_session_local, run_id)
+    response = client.get(f"/api/swarm-runs/{run_id}")
+    _assert_denied(response.json(), "swarm run get")
+
+
+def test_swarm_runs_get_brief(isolated_session_local):
+    run_id = "p0b_get_swarm_brief"
+    _seed_other_users_swarm_run(isolated_session_local, run_id)
+    response = client.get(f"/api/swarm-runs/{run_id}/brief")
+    _assert_denied(response.json(), "swarm run brief")
+
+
+def test_swarm_runs_get_progress(isolated_session_local):
+    run_id = "p0b_get_swarm_progress"
+    _seed_other_users_swarm_run(isolated_session_local, run_id)
+    response = client.get(f"/api/swarm-runs/{run_id}/progress")
+    _assert_denied(response.json(), "swarm run progress")
 
 
 def test_chaotang_task_persist(isolated_session_local):
