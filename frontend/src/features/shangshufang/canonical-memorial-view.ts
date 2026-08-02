@@ -20,6 +20,11 @@ export function canonicalMemorialKind(view: EdictView | null | undefined): Canon
   return (match?.[1] as CanonicalMemorialKind | undefined) ?? null;
 }
 
+export function canonicalMemorialSource(view: EdictView | null | undefined): string | null {
+  if (!canonicalMemorialKind(view)) return null;
+  return view?.meta?.badges?.find((badge) => /LIVE|LIVE_SWARM|MIXED|FALLBACK|DEMO|来源|主库|蜂群/.test(badge.label))?.label ?? null;
+}
+
 function readable(value: unknown): string | undefined {
   if (typeof value === 'string') return value.trim() || undefined;
   if (!value || typeof value !== 'object') return undefined;

@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
 
-const BASE = 'http://127.0.0.1:3002/chaotang';
-const API = 'http://127.0.0.1:8081';
+const BASE = process.env.CHAOTANG_E2E_BASE_URL ?? 'http://127.0.0.1:3002/chaotang';
+const API = process.env.CHAOTANG_E2E_API_URL ?? 'http://127.0.0.1:8081';
 
 async function waitForTask(request: APIRequestContext, taskId: string) {
   for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -15,6 +15,7 @@ async function waitForTask(request: APIRequestContext, taskId: string) {
 }
 
 test('real loop: 上书房下旨到史馆精确回放', async ({ page, request }) => {
+  test.skip(process.env.RUN_REAL_LOOP !== '1', '真实闭环需要显式 RUN_REAL_LOOP=1，并使用隔离本地后端');
   test.setTimeout(90_000);
   const prompt = `请审查这份采购合同（真人闭环回归 ${Date.now()}）：甲方向乙方采购数控零部件，金额50万元，预付款30%，30日交货，货到7日验收。请识别付款、交付、验收和违约责任风险。`;
 

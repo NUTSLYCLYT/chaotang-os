@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { ShangshufangReviewMemorial, ShangshufangTaskStatusResponse } from '@/lib/jiqun-api';
-import { canonicalMemorialKind, projectCanonicalMemorialView } from './canonical-memorial-view';
+import { canonicalMemorialKind, canonicalMemorialSource, projectCanonicalMemorialView } from './canonical-memorial-view';
 
 function memorial(marker: string, sparse = false): ShangshufangReviewMemorial {
   return {
@@ -234,5 +234,7 @@ test('canonical memorial kind is the single display-priority signal', () => {
 
   assert.equal(canonicalMemorialKind(formal.view), 'formal');
   assert.equal(canonicalMemorialKind(candidate.view), 'candidate');
+  assert.equal(canonicalMemorialSource(formal.view), 'LIVE_SWARM');
   assert.equal(canonicalMemorialKind(null), null);
+  assert.equal(canonicalMemorialSource(null), null);
 });

@@ -102,7 +102,7 @@ import {
 import { extractJiqunFinalOutputs, jiqunFinalOutputText, jiqunReturnChatText, mergeJiqunReturnIntoEdict } from './jiqun-return-edict';
 import type { SourceLabel } from '@/core/courtos/types';
 import { loopTraceIdForTask } from '@/core/courtos/loop-trace';
-import { canonicalMemorialKind, projectCanonicalMemorialView } from './canonical-memorial-view';
+import { canonicalMemorialKind, canonicalMemorialSource, projectCanonicalMemorialView } from './canonical-memorial-view';
 import {
   CapabilityEvidenceMatrix,
   type CapabilityEvidenceItem,
@@ -4373,6 +4373,7 @@ export function ShangshufangPage() {
     topSuggestion?.title ??
     '今日圣旨';
   const currentEdictSourceRaw =
+    (hasCanonicalReturn ? canonicalMemorialSource(edictOverride?.view) : null) ??
     packSwarmDisplayView?.meta?.badges?.[0]?.label ??
     packSwarmLoopResult?.source_label ??
     edictOverride?.view.meta?.badges?.find((badge) => /LIVE|LIVE_SWARM|MIXED|FALLBACK|DEMO|来源|主库|蜂群/.test(badge.label))?.label ??
