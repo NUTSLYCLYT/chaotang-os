@@ -112,3 +112,14 @@ test('mergeDecisionHome does not create a second contract classifier', () => {
 
   assert.equal(merged.memorials[0]?.contractTask, false);
 });
+
+test('mergeDecisionHome keeps awaiting_evidence in the review loop, not the human decision queue', () => {
+  const merged = mergeDecisionHome(
+    EMPTY_BRIEFING,
+    makeHomeResponse({ status: 'awaiting_evidence' }),
+  );
+
+  assert.equal(merged.dailyStats.pendingCount, 0);
+  assert.equal(merged.dailyStats.runningCount, 1);
+  assert.equal(merged.memorials[0]?.decisionOptions[0], '补证');
+});

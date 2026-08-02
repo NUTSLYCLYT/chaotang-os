@@ -13,6 +13,13 @@ export interface CanonicalMemorialViewResult {
   shouldRetry: boolean;
 }
 
+export type CanonicalMemorialKind = CanonicalMemorialViewResult['kind'];
+
+export function canonicalMemorialKind(view: EdictView | null | undefined): CanonicalMemorialKind | null {
+  const match = view?.id.match(/^shangshufang-canonical:(formal|candidate|direct|vetoed):/);
+  return (match?.[1] as CanonicalMemorialKind | undefined) ?? null;
+}
+
 function readable(value: unknown): string | undefined {
   if (typeof value === 'string') return value.trim() || undefined;
   if (!value || typeof value !== 'object') return undefined;

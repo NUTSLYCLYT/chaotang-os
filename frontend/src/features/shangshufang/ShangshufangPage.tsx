@@ -102,7 +102,7 @@ import {
 import { extractJiqunFinalOutputs, jiqunFinalOutputText, jiqunReturnChatText, mergeJiqunReturnIntoEdict } from './jiqun-return-edict';
 import type { SourceLabel } from '@/core/courtos/types';
 import { loopTraceIdForTask } from '@/core/courtos/loop-trace';
-import { projectCanonicalMemorialView } from './canonical-memorial-view';
+import { canonicalMemorialKind, projectCanonicalMemorialView } from './canonical-memorial-view';
 import {
   CapabilityEvidenceMatrix,
   type CapabilityEvidenceItem,
@@ -3766,9 +3766,17 @@ export function ShangshufangPage() {
               // 真实分奏回报后把当前 override 的 view 换成含圣裁的完整渲染。
               pollForRealVerdict(draft.task_id, setEdictOverride);
             }
+            setActiveMemorialId(draft.task_id);
+            const nextParams = new URLSearchParams(searchParams.toString());
+            nextParams.set('taskId', draft.task_id);
+            router.replace(`/shangshufang?${nextParams.toString()}`);
             setDecreeText('');
             setDecreeAttachments([]);
-            void refreshBriefing();
+            void refreshBriefing().then((refreshed) => {
+              if (refreshed?.memorials.some((item) => item.id === draft.task_id)) {
+                setActiveMemorialId(draft.task_id);
+              }
+            });
           } catch (e) {
             const msg = withTraceMessage(
               e instanceof Error && e.message ? e.message : `${isSecret ? '密旨' : '下旨'}失败，请重试。`,
@@ -3797,6 +3805,7 @@ export function ShangshufangPage() {
       closeOverride,
       decreeAttachmentMeta,
       refreshBriefing,
+      searchParams,
       refreshSwarmSessions,
       router,
       showNotice,
@@ -4349,8 +4358,11 @@ export function ShangshufangPage() {
     edictOverride?.variant === 'suggestion-report' && edictOverride.suggestion
       ? displayedSuggestions.find((item) => item.id === edictOverride.suggestion?.id) ?? edictOverride.suggestion
       : defaultTopSuggestionReport;
+  const canonicalReturnKind = canonicalMemorialKind(edictOverride?.view);
+  const hasCanonicalReturn = canonicalReturnKind !== null;
   const isDecreeSubmitting = decreeState === 'consulting' && Boolean(decreeSubmittingPreview);
   const currentEdictTitle =
+    (hasCanonicalReturn ? edictOverride?.view.title : null) ??
     packSwarmDisplayView?.title ??
     (packSwarmLoopResult ? 'PACK 蜂群协同评估' : null) ??
     edictOverride?.view.title ??
@@ -4372,6 +4384,14 @@ export function ShangshufangPage() {
   const currentEdictSourceLabel = sourceLabelDisplay(String(currentEdictSourceRaw));
   const currentEdictStatus = isDecreeSubmitting
     ? '下旨中'
+    : canonicalReturnKind === 'formal'
+    ? '待裁决'
+    : canonicalReturnKind === 'candidate'
+      ? '待补证'
+      : canonicalReturnKind === 'direct'
+        ? '已回奏'
+        : canonicalReturnKind === 'vetoed'
+          ? '已封驳'
     : decreeDraftPreview
     ? decreeDraftPreview.polished
       ? '润色完成'
@@ -4713,7 +4733,7 @@ export function ShangshufangPage() {
                       onOpen={() => setEdictCollapsed(false)}
                     />
                   </div>
-                ) : packSwarmDisplayView ? (
+                ) : packSwarmDisplayView && !hasCanonicalReturn ? (
                   <EdictStage
                     view={packSwarmLoopResult ? packSwarmLoopToEdict(packSwarmLoopResult, jiqunProgress) : packSwarmDisplayView}
                     footer={makeFooter({
@@ -4721,7 +4741,7 @@ export function ShangshufangPage() {
                       onClick: () => focusDecree('order', `请锦衣卫按 PACK 采集清单补齐证据：\n${fallbackPackSwarmCommand}`),
                     })}
                   />
-                ) : packSwarmLoopResult ? (
+                ) : packSwarmLoopResult && !hasCanonicalReturn ? (
                   <EdictStage
                     view={packSwarmLoopToEdict(packSwarmLoopResult, jiqunProgress)}
                     footer={makeFooter({
@@ -4729,7 +4749,7 @@ export function ShangshufangPage() {
                       onClick: () => focusDecree('order', `请锦衣卫按 PACK 采集清单补齐证据，并回填到任务 ${packSwarmLoopResult.task_id}。\n${packSwarmLoopResult.collection_checklist.join('\n')}`),
                     })}
                   />
-                ) : showingPackSwarmStatus ? (
+                ) : showingPackSwarmStatus && !hasCanonicalReturn ? (
                   <EdictStage
                     view={
                       edictOverride?.srcId.startsWith('pack-swarm-loop')
@@ -4741,14 +4761,14 @@ export function ShangshufangPage() {
                       onClick: () => focusDecree('order', `请锦衣卫按 PACK 采集清单补齐证据：\n${fallbackPackSwarmCommand}`),
                     })}
                   />
-                ) : isDecreeSubmitting && decreeSubmittingPreview ? (
+                ) : isDecreeSubmitting && decreeSubmittingPreview && !hasCanonicalReturn ? (
                   <EdictStage
                     view={decreeSubmittingToView(decreeSubmittingPreview.mode, decreeSubmittingPreview.command)}
                     customBodyScroll="native"
                   >
                     <DecreeSubmittingBody mode={decreeSubmittingPreview.mode} command={decreeSubmittingPreview.command} />
                   </EdictStage>
-                ) : decreeDraftPreview ? (
+                ) : decreeDraftPreview && !hasCanonicalReturn ? (
                   <EdictStage
                     view={decreeDraftToView(decreeDraftPreview.mode)}
                     customBodyScroll="native"

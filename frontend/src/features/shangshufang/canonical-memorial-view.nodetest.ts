@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { ShangshufangReviewMemorial, ShangshufangTaskStatusResponse } from '@/lib/jiqun-api';
-import { projectCanonicalMemorialView } from './canonical-memorial-view';
+import { canonicalMemorialKind, projectCanonicalMemorialView } from './canonical-memorial-view';
 
 function memorial(marker: string, sparse = false): ShangshufangReviewMemorial {
   return {
@@ -226,4 +226,13 @@ test('rollout off degrades to a terminal safe waiting view', () => {
   assert.equal(result.kind, 'waiting');
   assert.equal(result.view, null);
   assert.equal(result.shouldRetry, false);
+});
+
+test('canonical memorial kind is the single display-priority signal', () => {
+  const formal = projectCanonicalMemorialView('task-1', status({ formal: memorial('formal') }));
+  const candidate = projectCanonicalMemorialView('task-1', status({ taskStatus: 'awaiting_evidence' }));
+
+  assert.equal(canonicalMemorialKind(formal.view), 'formal');
+  assert.equal(canonicalMemorialKind(candidate.view), 'candidate');
+  assert.equal(canonicalMemorialKind(null), null);
 });
