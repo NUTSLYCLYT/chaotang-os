@@ -51,7 +51,7 @@ const BLOCKER_LABELS: Record<string, string> = {
   PARTIAL_RECOVERY_REQUIRES_HARDENING: '部分交付可下载；刷新后暂不支持恢复',
   NON_ADJUDICABLE_SOURCE: '当前来源不可进入正式裁决',
   LINEAGE_CONFLICT: '合同事实链不一致',
-  DELIVERY_INTEGRITY_FAILED: '交付物完整性校验失败',
+  DELIVERY_INTEGRITY_FAILED: '交付物已过期或完整性校验失败',
   ARCHIVE_RECEIPT_MISSING: '归档回执缺失',
   ARCHIVE_LINEAGE_CONFLICT: '归档事实链不一致',
   REVIEW_REVISION_REQUIRED: '审查结论要求修订合同后重新会审',
@@ -152,7 +152,7 @@ export function ContractReviewPanel({
           contract_review_pack: model.review_pack,
           delivery_formula_version: 'w06-v1',
           idempotency_key: deliveryAttempts.current!.keyFor(attemptIdentity),
-          expiry_seconds: 3600,
+          expiry_seconds: 86400,
         });
         deliveryAttempts.current!.confirm(attemptIdentity);
       } else if (action === 'DECIDE' && model?.final_memorial) {
