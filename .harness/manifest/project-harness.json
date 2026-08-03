@@ -253,6 +253,20 @@
       "node --test scripts/knowledge-quality-rubric.nodetest.mjs"
     ]
   },
+  "extBranchConvergence": {
+    "status": "DRAFT_OBSERVE_ONLY",
+    "sourceRefCount": 99,
+    "manifest": ".harness/manifest/ext-branch-convergence.v1.json",
+    "contract": ".harness/contracts/ext-branch-convergence.schema.json",
+    "command": "scripts/ext-branch-convergence.mjs",
+    "test": "scripts/ext-branch-convergence.nodetest.mjs",
+    "documentation": ".harness/wiki/ext-branch-capability-convergence.md",
+    "verification": [
+      "node --test scripts/ext-branch-convergence.nodetest.mjs",
+      "node scripts/ext-branch-convergence.mjs --check",
+      "node scripts/harness-doctor.mjs"
+    ]
+  },
   "packetReviewLocalFeedback": {
     "status": "LOCAL_FEEDBACK_ONLY",
     "activationSha": "d8d8a6ae23d013bede6b1db649b06eb5ed38ea1f",

@@ -91,6 +91,11 @@ const required = [
   '.harness/manifest/knowledge-quality-rubric.v1.json',
   'scripts/knowledge-quality-rubric.mjs',
   'scripts/knowledge-quality-rubric.nodetest.mjs',
+  '.harness/contracts/ext-branch-convergence.schema.json',
+  '.harness/manifest/ext-branch-convergence.v1.json',
+  '.harness/wiki/ext-branch-capability-convergence.md',
+  'scripts/ext-branch-convergence.mjs',
+  'scripts/ext-branch-convergence.nodetest.mjs',
   '.harness/templates/change-template/summary.md',
   '.harness/templates/change-template/request_analysis/spec.md',
   '.harness/templates/change-template/request_analysis/tasks.md',
@@ -288,6 +293,21 @@ if (manifest) {
     }
   } else {
     error('manifest missing knowledgeQualityRubric');
+  }
+
+  if (manifest.extBranchConvergence) {
+    const convergence = manifest.extBranchConvergence;
+    for (const key of ['manifest', 'contract', 'command', 'test', 'documentation']) {
+      checkExists(convergence[key], `manifest EXT branch convergence ${key}`);
+    }
+    if (convergence.status !== 'DRAFT_OBSERVE_ONLY') {
+      error(`EXT branch convergence has invalid status: ${convergence.status}`);
+    }
+    if (convergence.sourceRefCount !== 99) {
+      error(`EXT branch convergence must freeze exactly 99 refs, found ${convergence.sourceRefCount}`);
+    }
+  } else {
+    error('manifest missing extBranchConvergence');
   }
 
   if (manifest.controlPlane) {

@@ -12,6 +12,14 @@ worktree is merged. It means every asset receives a final disposition:
 - `CONFLICT_DECISION`: conflict exists; one option must be selected and the
   rejected option must be documented.
 
+## Current Convergence Plan
+
+The graph-based execution plan for the 99 currently unmerged local branches is
+`docs/superpowers/plans/2026-08-03-ext-99-branch-capability-convergence.md`.
+It preserves this ledger's disposition model and adds exact authority,
+checkpoint, review, integration, rollback, and 99/99 closeout gates. The plan
+does not authorize a branch merge or product implementation by itself.
+
 ## Snapshot
 
 | Inventory | Count | Source command |
