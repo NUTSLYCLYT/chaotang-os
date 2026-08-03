@@ -37,7 +37,7 @@ export const ALLOWED_STATUSES = Object.freeze([
 const IMPLEMENTATION_DISPOSITIONS = new Set(['ABSORB_ADAPT', 'REBUILD']);
 const FULL_COMMIT = /^[0-9a-f]{40}$/u;
 const COMMIT = /^[0-9a-f]{7,40}$/u;
-const ISO_DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u;
+const ISO_DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-](\d{2}):(\d{2}))$/u;
 const TARGET_OWNERS = new Set(['root', 'backend', 'frontend']);
 const SNAPSHOT_KEYS = [
   'capturedAt',
@@ -49,6 +49,8 @@ const SNAPSHOT_KEYS = [
   'authorityPackage',
   'plan',
 ];
+const MANIFEST_KEYS = ['schemaVersion', 'snapshot', 'assetFamilies', 'branches'];
+const ASSET_FAMILY_ID = /^[A-Z][A-Z0-9_]+$/u;
 
 function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -65,6 +67,47 @@ function hasExactKeys(value, expected) {
   return actual.length === wanted.length && actual.every((key, index) => key === wanted[index]);
 }
 
+function hasUniqueJsonValues(values) {
+  const canonical = new Set();
+  for (const value of values) {
+    const encoded = JSON.stringify(canonicalizeJson(value));
+    if (canonical.has(encoded)) return false;
+    canonical.add(encoded);
+  }
+  return true;
+}
+
+function canonicalizeJson(value) {
+  if (Array.isArray(value)) return value.map(canonicalizeJson);
+  if (!isObject(value)) return value;
+  return Object.fromEntries(
+    Object.keys(value).sort().map((key) => [key, canonicalizeJson(value[key])]),
+  );
+}
+
+function isNullableString(value) {
+  return value === null || typeof value === 'string';
+}
+
+function isIsoDateTime(value) {
+  if (typeof value !== 'string') return false;
+  const match = ISO_DATE_TIME.exec(value);
+  if (!match) return false;
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText, zone, offsetHourText, offsetMinuteText] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (month < 1 || month > 12 || day < 1 || day > daysInMonth[month - 1]) return false;
+  if (hour > 23 || minute > 59 || second > 59) return false;
+  if (zone !== 'Z' && (Number(offsetHourText) > 23 || Number(offsetMinuteText) > 59)) return false;
+  return true;
+}
+
 export async function loadConvergenceManifest(root = defaultRoot) {
   const text = await readFile(resolve(root, CONVERGENCE_MANIFEST_PATH), 'utf8');
   return JSON.parse(text);
@@ -73,6 +116,7 @@ export async function loadConvergenceManifest(root = defaultRoot) {
 export function validateConvergenceManifest(manifest) {
   const errors = [];
   if (!isObject(manifest)) return ['manifest must be an object'];
+  if (!hasExactKeys(manifest, MANIFEST_KEYS)) errors.push('manifest has an invalid field set');
   if (manifest.schemaVersion !== 'ext-branch-convergence.v1') {
     errors.push('schemaVersion must be ext-branch-convergence.v1');
   }
@@ -82,7 +126,7 @@ export function validateConvergenceManifest(manifest) {
   if (errors.length > 0) return errors;
 
   if (!hasExactKeys(manifest.snapshot, SNAPSHOT_KEYS)) errors.push('snapshot has an invalid field set');
-  if (!ISO_DATE_TIME.test(manifest.snapshot.capturedAt ?? '') || Number.isNaN(Date.parse(manifest.snapshot.capturedAt))) {
+  if (!isIsoDateTime(manifest.snapshot.capturedAt)) {
     errors.push('snapshot.capturedAt must be an ISO 8601 date-time');
   }
   if (manifest.snapshot.sourceRefCount !== manifest.branches.length) {
@@ -110,12 +154,14 @@ export function validateConvergenceManifest(manifest) {
 
   const familyIds = new Set();
   const familiesById = new Map();
+  if (manifest.assetFamilies.length < 1) errors.push('assetFamilies must contain at least one entry');
+  if (!hasUniqueJsonValues(manifest.assetFamilies)) errors.push('assetFamilies must contain unique entries');
   manifest.assetFamilies.forEach((family, index) => {
     if (!hasExactKeys(family, ['id', 'title', 'canonicalDonor', 'decision', 'status'])) {
       errors.push(`assetFamilies[${index}] has an invalid field set`);
       return;
     }
-    if (!nonEmptyString(family.id)) errors.push(`assetFamilies[${index}].id is required`);
+    if (!ASSET_FAMILY_ID.test(family.id ?? '')) errors.push(`assetFamilies[${index}].id must match ^[A-Z][A-Z0-9_]+$`);
     else if (familyIds.has(family.id)) errors.push(`duplicate asset family: ${family.id}`);
     else {
       familyIds.add(family.id);
@@ -126,6 +172,12 @@ export function validateConvergenceManifest(manifest) {
     }
     if (!ALLOWED_STATUSES.includes(family.status)) {
       errors.push(`assetFamilies[${index}].status is not allowed: ${family.status}`);
+    }
+    if (typeof family.title !== 'string' || family.title.length < 1) {
+      errors.push(`assetFamilies[${index}].title must be a non-empty string`);
+    }
+    if (!isNullableString(family.canonicalDonor)) {
+      errors.push(`assetFamilies[${index}].canonicalDonor must be a string or null`);
     }
   });
 
@@ -148,6 +200,7 @@ export function validateConvergenceManifest(manifest) {
     'blockedReason',
   ];
   const branchNames = new Set();
+  if (manifest.branches.length !== 99) errors.push('branches must contain exactly 99 entries');
   manifest.branches.forEach((branch, index) => {
     if (!hasExactKeys(branch, requiredRecordKeys)) {
       errors.push(`branches[${index}] has an invalid field set`);
@@ -171,6 +224,12 @@ export function validateConvergenceManifest(manifest) {
     if (typeof branch.canonicalDonor !== 'boolean') {
       errors.push(`branches[${index}].canonicalDonor must be boolean`);
     }
+    for (const field of ['containedBy', 'authorityPackage', 'checkpoint', 'reviewReceipt', 'blockedReason']) {
+      if (!isNullableString(branch[field])) errors.push(`branches[${index}].${field} must be a string or null`);
+    }
+    if (branch.integrationCommit !== null && !FULL_COMMIT.test(branch.integrationCommit ?? '')) {
+      errors.push(`branches[${index}].integrationCommit must be a 40-character lowercase commit hash or null`);
+    }
     if (IMPLEMENTATION_DISPOSITIONS.has(branch.disposition) && !nonEmptyString(branch.authorityPackage)) {
       errors.push(`branches[${index}] ${branch.disposition} requires authorityPackage`);
     }
@@ -187,6 +246,7 @@ export function validateConvergenceManifest(manifest) {
       if (!Array.isArray(branch[field])) errors.push(`branches[${index}].${field} must be an array`);
     }
     if (Array.isArray(branch.candidateCommits)) {
+      if (!hasUniqueJsonValues(branch.candidateCommits)) errors.push(`branches[${index}].candidateCommits must contain unique entries`);
       branch.candidateCommits.forEach((commit, itemIndex) => {
         if (!COMMIT.test(commit ?? '')) {
           errors.push(`branches[${index}].candidateCommits[${itemIndex}] must be a 7-40 character lowercase commit hash`);
@@ -194,6 +254,7 @@ export function validateConvergenceManifest(manifest) {
       });
     }
     if (Array.isArray(branch.targetOwners)) {
+      if (!hasUniqueJsonValues(branch.targetOwners)) errors.push(`branches[${index}].targetOwners must contain unique entries`);
       branch.targetOwners.forEach((owner, itemIndex) => {
         if (!TARGET_OWNERS.has(owner)) {
           errors.push(`branches[${index}].targetOwners[${itemIndex}] is not allowed: ${owner}`);
@@ -202,6 +263,7 @@ export function validateConvergenceManifest(manifest) {
     }
     for (const field of ['targetFiles', 'proofCommands']) {
       if (!Array.isArray(branch[field])) continue;
+      if (!hasUniqueJsonValues(branch[field])) errors.push(`branches[${index}].${field} must contain unique entries`);
       branch[field].forEach((value, itemIndex) => {
         if (!nonEmptyString(value)) {
           errors.push(`branches[${index}].${field}[${itemIndex}] must be a non-empty string`);
@@ -225,6 +287,14 @@ export function validateConvergenceManifest(manifest) {
   for (const [index, branch] of manifest.branches.entries()) {
     if (branch.containedBy !== null && !branchNames.has(branch.containedBy)) {
       errors.push(`branches[${index}].containedBy is not a frozen source ref: ${branch.containedBy}`);
+    }
+    if (branch.disposition === 'DUPLICATE') {
+      const family = familiesById.get(branch.assetFamily);
+      if (family?.canonicalDonor === null) {
+        errors.push(`branches[${index}] DUPLICATE requires an asset family canonical donor`);
+      } else if (family && branch.containedBy !== family.canonicalDonor) {
+        errors.push(`branches[${index}] DUPLICATE must resolve directly to asset family canonical donor: expected ${family.canonicalDonor} got ${branch.containedBy}`);
+      }
     }
   }
   return errors;
@@ -305,6 +375,7 @@ export async function verifyConvergenceGitRelations(
 ) {
   const errors = [];
   const branchesByName = new Map(manifest.branches.map((branch) => [branch.branch, branch]));
+  const familiesById = new Map((manifest.assetFamilies ?? []).map((family) => [family.id, family]));
   for (const branch of manifest.branches) {
     for (const commit of branch.candidateCommits) {
       const resolved = await resolveCommit(commit);
@@ -315,6 +386,13 @@ export async function verifyConvergenceGitRelations(
       }
     }
     if (branch.disposition !== 'DUPLICATE') continue;
+    const canonicalDonor = familiesById.get(branch.assetFamily)?.canonicalDonor;
+    if (branch.containedBy !== canonicalDonor) {
+      errors.push(
+        `duplicate relation must resolve directly to family canonical donor: ${branch.branch} containedBy ${branch.containedBy} expected ${canonicalDonor}`,
+      );
+      continue;
+    }
     const target = branchesByName.get(branch.containedBy);
     if (!target) continue;
     const contained = await isAncestor(branch.tip, target.tip);

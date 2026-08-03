@@ -256,6 +256,14 @@ authority.
 
 ### Task 2: Close W08 Family Reduction and Prepare the Exact Adaptation Packet
 
+**Hard precondition — all required before any Task 2 implementation:** Task 1
+must have (1) an independent-review receipt bound to its exact candidate,
+(2) a separate user integration decision, (3) an integration lease, and (4)
+post-integration proof on the resulting EXT exact-H: authority v2 `GO` and
+root doctor `0 errors, 0 warnings`. Scope Amendment 01 authorizes none of
+these integration prerequisites. Until all four are recorded, Task 2 remains
+blocked and no Task 2 implementation may begin.
+
 **Files:**
 - Create: `.harness/changes/fix-r0-w08-current-ext-convergence-20260803/`
 - Compare donor commits: `3d8964a1`, `07c83a58`, `32a1c572`
@@ -653,4 +661,7 @@ The program is complete only when:
 | Security | 2/2 | identity, secrets, owner isolation, external-effect gates |
 | Rollout | 2/2 | phased Packets, Observer Graph first, no big-bang merge |
 
-**Rubric result:** 20/20 design completeness. Implementation status remains `NOT_STARTED`; the score does not grant authority or prove any capability integrated.
+**Rubric result:** 20/20 design completeness. Task 1's ledger is locally
+implemented and remains `REVIEW_PENDING`; all later product/family Packets
+(Tasks 2–12) remain `NOT_STARTED`. This score does not grant authority or prove
+any capability integrated.

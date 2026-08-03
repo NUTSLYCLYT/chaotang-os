@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 
 const root = new URL('../', import.meta.url);
@@ -169,6 +171,26 @@ function validManifest(overrides = {}) {
   };
 }
 
+async function runCliWithManifest(manifest) {
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'ext-branch-convergence-'));
+  try {
+    await mkdir(join(fixtureRoot, 'scripts'));
+    await mkdir(join(fixtureRoot, '.harness', 'manifest'), { recursive: true });
+    await cp(new URL('ext-branch-convergence.mjs', import.meta.url), join(fixtureRoot, 'scripts', 'ext-branch-convergence.mjs'));
+    await writeFile(
+      join(fixtureRoot, '.harness', 'manifest', 'ext-branch-convergence.v1.json'),
+      JSON.stringify(manifest),
+      'utf8',
+    );
+    return spawnSync(process.execPath, ['scripts/ext-branch-convergence.mjs', '--status'], {
+      cwd: fixtureRoot,
+      encoding: 'utf8',
+    });
+  } finally {
+    await rm(fixtureRoot, { recursive: true, force: true });
+  }
+}
+
 test('project harness registers the read-only 99-ref convergence control plane', async () => {
   const project = await readJson('.harness/manifest/project-harness.json');
   const registration = project.extBranchConvergence;
@@ -304,6 +326,7 @@ test('repository verifier detects a moved or missing frozen source ref without c
 test('Git relation verifier rejects unreachable candidates and false duplicate containment', async () => {
   const { verifyConvergenceGitRelations } = await loadModule();
   const manifest = {
+    assetFamilies: [{ id: 'EXAMPLE_FAMILY', canonicalDonor: 'task/example' }],
     branches: [
       validRecord({
         candidateCommits: ['deadbee', 'feed123'],
@@ -335,6 +358,7 @@ test('Git relation verifier rejects unreachable candidates and false duplicate c
 test('Git relation verifier accepts a rebased duplicate only with patch-equivalence proof', async () => {
   const { verifyConvergenceGitRelations } = await loadModule();
   const manifest = {
+    assetFamilies: [{ id: 'EXAMPLE_FAMILY', canonicalDonor: 'task/example' }],
     branches: [
       validRecord(),
       validRecord({
@@ -355,6 +379,116 @@ test('Git relation verifier accepts a rebased duplicate only with patch-equivale
   });
 
   assert.deepEqual(errors, []);
+});
+
+test('Git relation verifier requires a DUPLICATE to resolve directly to its asset family canonical donor', async () => {
+  const { verifyConvergenceGitRelations } = await loadModule();
+  const manifest = {
+    assetFamilies: [{ id: 'EXAMPLE_FAMILY', canonicalDonor: 'task/example-canonical' }],
+    branches: [
+      validRecord({ branch: 'task/example-canonical' }),
+      validRecord({
+        branch: 'task/example-intermediate',
+        canonicalDonor: false,
+        containedBy: 'task/example-canonical',
+      }),
+      validRecord({
+        branch: 'task/example-duplicate',
+        canonicalDonor: false,
+        disposition: 'DUPLICATE',
+        containedBy: 'task/example-intermediate',
+        authorityPackage: null,
+      }),
+    ],
+  };
+  const errors = await verifyConvergenceGitRelations(manifest, {
+    resolveCommit: async () => '1234567890abcdef1234567890abcdef12345678',
+    isAncestor: async () => true,
+    isPatchEquivalent: async () => true,
+  });
+
+  assert.deepEqual(errors, [
+    'duplicate relation must resolve directly to family canonical donor: task/example-duplicate containedBy task/example-intermediate expected task/example-canonical',
+  ]);
+});
+
+test('CLI rejects every material schema-invalid manifest shape that the handwritten validator previously missed', async () => {
+  const base = validManifest({
+    snapshot: { ...validManifest().snapshot, sourceRefCount: 99 },
+    branches: Array.from({ length: 99 }, (_, index) => validRecord({
+      branch: `task/example-${index}`,
+      canonicalDonor: index === 0,
+    })),
+  });
+  base.assetFamilies[0].canonicalDonor = 'task/example-0';
+  const cases = [
+    ['unknown top-level field', ['manifest has an invalid field set'], (manifest) => ({ ...manifest, unexpected: true })],
+    ['invalid calendar date-time', ['snapshot.capturedAt must be an ISO 8601 date-time'], (manifest) => ({
+      ...manifest,
+      snapshot: { ...manifest.snapshot, capturedAt: '2026-02-30T00:00:00+08:00' },
+    })],
+    ['invalid asset family id', ['assetFamilies[0].id must match ^[A-Z][A-Z0-9_]+$'], (manifest) => ({
+      ...manifest,
+      assetFamilies: [{ ...manifest.assetFamilies[0], id: 'invalid-family' }],
+      branches: [{ ...manifest.branches[0], assetFamily: 'invalid-family' }],
+    })],
+    ['duplicate uniqueItems', [
+      'branches[0].candidateCommits must contain unique entries',
+      'branches[0].targetOwners must contain unique entries',
+      'branches[0].targetFiles must contain unique entries',
+      'branches[0].proofCommands must contain unique entries',
+    ], (manifest) => ({
+      ...manifest,
+      branches: [{
+        ...manifest.branches[0],
+        candidateCommits: ['1234567890ab', '1234567890ab'],
+        targetOwners: ['root', 'root'],
+        targetFiles: ['scripts/example.mjs', 'scripts/example.mjs'],
+        proofCommands: ['node --test scripts/example.nodetest.mjs', 'node --test scripts/example.nodetest.mjs'],
+      }, ...manifest.branches.slice(1)],
+    })],
+    ['duplicate asset families', ['assetFamilies must contain unique entries'], (manifest) => ({
+      ...manifest,
+      assetFamilies: [{ ...manifest.assetFamilies[0] }, { ...manifest.assetFamilies[0] }],
+    })],
+    ['wrong nullable field types', [
+      'assetFamilies[0].canonicalDonor must be a string or null',
+      'branches[0].containedBy must be a string or null',
+      'branches[0].authorityPackage must be a string or null',
+      'branches[0].checkpoint must be a string or null',
+      'branches[0].reviewReceipt must be a string or null',
+      'branches[0].integrationCommit must be a 40-character lowercase commit hash or null',
+      'branches[0].blockedReason must be a string or null',
+    ], (manifest) => ({
+      ...manifest,
+      assetFamilies: [{ ...manifest.assetFamilies[0], canonicalDonor: 1 }],
+      branches: [{
+        ...manifest.branches[0],
+        containedBy: false,
+        authorityPackage: 1,
+        checkpoint: false,
+        reviewReceipt: false,
+        integrationCommit: false,
+        blockedReason: false,
+      }],
+    })],
+    ['empty required arrays', ['assetFamilies must contain at least one entry', 'branches must contain exactly 99 entries'], (manifest) => ({
+      ...manifest,
+      assetFamilies: [],
+      branches: [],
+      snapshot: { ...manifest.snapshot, sourceRefCount: 0 },
+    })],
+  ];
+
+  for (const [name, expectedErrors, mutate] of cases) {
+    const result = await runCliWithManifest(mutate(base));
+    assert.equal(result.status, 1, `${name}: ${result.stderr || result.stdout}`);
+    const output = JSON.parse(result.stdout);
+    assert.equal(output.decision, 'FAIL', name);
+    for (const expectedError of expectedErrors) {
+      assert.ok(output.errors.includes(expectedError), `${name}: ${JSON.stringify(output.errors)}`);
+    }
+  }
 });
 
 test('status and family projections are deterministic and do not mutate the manifest', async () => {

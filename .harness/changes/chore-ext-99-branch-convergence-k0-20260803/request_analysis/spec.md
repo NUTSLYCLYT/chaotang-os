@@ -94,7 +94,13 @@ CLI 没有写模式，不调用 merge/cherry-pick/update-ref/worktree remove，�
 - Candidate commits are reachable and duplicates have ancestry or patch-equivalence proof.
 - Validator fails closed for malformed authority, closure, duplicate, and tip data.
 - `--check`, `--status`, and `--family` are deterministic and read-only.
-- Root doctor reports zero errors and zero warnings.
+- On the isolated pre-integration exact-H candidate, authority v2 and the root
+  doctor return the sole expected fail-closed diagnostic
+  `active-packet EXT ref must equal pinned HEAD`; any additional error fails
+  the Packet.
+- Only after separately authorized local integration, the resulting EXT
+  exact-H must have authority v2 `GO` and root doctor `0 errors, 0 warnings`.
+  This post-integration proof is not authorized by this change record.
 
 ## 验证计划
 
