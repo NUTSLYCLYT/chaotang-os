@@ -662,6 +662,8 @@ The program is complete only when:
 | Rollout | 2/2 | phased Packets, Observer Graph first, no big-bang merge |
 
 **Rubric result:** 20/20 design completeness. Task 1's ledger is locally
-implemented and remains `REVIEW_PENDING`; all later product/family Packets
-(Tasks 2–12) remain `NOT_STARTED`. This score does not grant authority or prove
-any capability integrated.
+implemented and has an exact-candidate independent `REVIEW_GO`; local
+integration remains blocked by the dirty EXT target and absent separate
+integration authority. All later product/family Packets (Tasks 2–12) remain
+`NOT_STARTED`. This score and review do not grant authority or prove any
+capability integrated.
