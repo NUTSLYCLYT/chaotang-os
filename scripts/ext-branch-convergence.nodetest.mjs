@@ -323,6 +323,65 @@ test('repository verifier detects a moved or missing frozen source ref without c
   assert.deepEqual(missing, ['source ref missing: task/example']);
 });
 
+test('snapshot verifier rejects a missing integration head commit', async () => {
+  const { verifyConvergenceSnapshot } = await loadModule();
+  const errors = await verifyConvergenceSnapshot(validManifest(), {
+    resolveCommit: async () => null,
+    resolveTree: async () => '615ac60452170c891f023c5d845472e327c6bebe',
+    resolveCommitTree: async () => '615ac60452170c891f023c5d845472e327c6bebe',
+    isAncestor: async () => false,
+  });
+
+  assert.deepEqual(errors, [
+    'snapshot integration head is missing or not a commit: b78a4f8f4ea84d01de5255cbc1c4e566b2f8932f',
+  ]);
+});
+
+test('snapshot verifier rejects a missing recorded integration tree', async () => {
+  const { verifyConvergenceSnapshot } = await loadModule();
+  const errors = await verifyConvergenceSnapshot(validManifest(), {
+    resolveCommit: async () => 'b78a4f8f4ea84d01de5255cbc1c4e566b2f8932f',
+    resolveTree: async () => null,
+    resolveCommitTree: async () => '615ac60452170c891f023c5d845472e327c6bebe',
+    isAncestor: async () => false,
+  });
+
+  assert.deepEqual(errors, [
+    'snapshot integration tree is missing or not a tree: 615ac60452170c891f023c5d845472e327c6bebe',
+  ]);
+});
+
+test('snapshot verifier rejects a recorded tree that does not equal the integration head tree', async () => {
+  const { verifyConvergenceSnapshot } = await loadModule();
+  const errors = await verifyConvergenceSnapshot(validManifest(), {
+    resolveCommit: async () => 'b78a4f8f4ea84d01de5255cbc1c4e566b2f8932f',
+    resolveTree: async () => '615ac60452170c891f023c5d845472e327c6bebe',
+    resolveCommitTree: async () => 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    isAncestor: async () => false,
+  });
+
+  assert.deepEqual(errors, [
+    'snapshot integration tree mismatch: head b78a4f8f4ea84d01de5255cbc1c4e566b2f8932f resolves aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa expected 615ac60452170c891f023c5d845472e327c6bebe',
+  ]);
+});
+
+test('snapshot verifier rejects a source tip that was an ancestor at capture', async () => {
+  const { verifyConvergenceSnapshot } = await loadModule();
+  const errors = await verifyConvergenceSnapshot(validManifest(), {
+    resolveCommit: async () => 'b78a4f8f4ea84d01de5255cbc1c4e566b2f8932f',
+    resolveTree: async () => '615ac60452170c891f023c5d845472e327c6bebe',
+    resolveCommitTree: async () => '615ac60452170c891f023c5d845472e327c6bebe',
+    isAncestor: async (ancestor, descendant) => (
+      ancestor === '1234567890abcdef1234567890abcdef12345678'
+      && descendant === 'b78a4f8f4ea84d01de5255cbc1c4e566b2f8932f'
+    ),
+  });
+
+  assert.deepEqual(errors, [
+    'snapshot source tip was an integration-head ancestor at capture: task/example 1234567890abcdef1234567890abcdef12345678 -> b78a4f8f4ea84d01de5255cbc1c4e566b2f8932f',
+  ]);
+});
+
 test('Git relation verifier rejects unreachable candidates and false duplicate containment', async () => {
   const { verifyConvergenceGitRelations } = await loadModule();
   const manifest = {

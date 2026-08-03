@@ -44,7 +44,9 @@ CLI 没有写模式，不调用 merge/cherry-pick/update-ref/worktree remove，�
 ## 范围
 
 - Freeze the exact 99 audited local refs and their captured tips.
-- Register 47 asset families with one canonical donor each.
+- Register 47 asset families with one canonical donor each; the contract also
+  permits an explicit no-product-donor decision for future archive-only
+  families, as required by the governing plan.
 - Record `ABSORB_ADAPT`, `REBUILD`, `SUPERSEDED_VERIFY`, `ARCHIVE`, `REJECT`, `DUPLICATE`, or `BLOCKED_WIP` for every source ref.
 - Provide deterministic, read-only validation and projections.
 - Register the control plane in the root Harness and documentation.
@@ -90,7 +92,8 @@ CLI 没有写模式，不调用 merge/cherry-pick/update-ref/worktree remove，�
 
 - Exactly 99 unique frozen source refs and 47 non-empty asset families.
 - Every source ref has one disposition and one family.
-- Every family has exactly one canonical donor.
+- Every family has exactly one canonical donor or an explicit no-product-donor
+  decision. All 47 families in this frozen snapshot have one canonical donor.
 - Candidate commits are reachable and duplicates have ancestry or patch-equivalence proof.
 - Validator fails closed for malformed authority, closure, duplicate, and tip data.
 - `--check`, `--status`, and `--family` are deterministic and read-only.

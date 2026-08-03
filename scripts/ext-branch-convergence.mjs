@@ -334,6 +334,30 @@ async function resolveGitCommit(root, commit) {
   }
 }
 
+async function resolveGitTree(root, tree) {
+  try {
+    const { stdout } = await execFileAsync('git', ['rev-parse', '--verify', `${tree}^{tree}`], {
+      cwd: root,
+      encoding: 'utf8',
+    });
+    return stdout.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveGitCommitTree(root, commit) {
+  try {
+    const { stdout } = await execFileAsync('git', ['rev-parse', '--verify', `${commit}^{tree}`], {
+      cwd: root,
+      encoding: 'utf8',
+    });
+    return stdout.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 async function isGitAncestor(root, ancestor, descendant) {
   try {
     await execFileAsync('git', ['merge-base', '--is-ancestor', ancestor, descendant], {
@@ -370,6 +394,40 @@ export async function verifyConvergenceRefs(
     const actual = await resolveRef(branch.branch);
     if (actual === null) errors.push(`source ref missing: ${branch.branch}`);
     else if (actual !== branch.tip) errors.push(`source ref moved: ${branch.branch} expected ${branch.tip} got ${actual}`);
+  }
+  return errors;
+}
+
+export async function verifyConvergenceSnapshot(
+  manifest,
+  {
+    root = defaultRoot,
+    resolveCommit = (commit) => resolveGitCommit(root, commit),
+    resolveTree = (tree) => resolveGitTree(root, tree),
+    resolveCommitTree = (commit) => resolveGitCommitTree(root, commit),
+    isAncestor = (ancestor, descendant) => isGitAncestor(root, ancestor, descendant),
+  } = {},
+) {
+  const errors = [];
+  const { integrationHead, integrationTree } = manifest.snapshot;
+  const resolvedHead = await resolveCommit(integrationHead);
+  if (resolvedHead === null) {
+    errors.push(`snapshot integration head is missing or not a commit: ${integrationHead}`);
+  }
+  const resolvedTree = await resolveTree(integrationTree);
+  if (resolvedTree === null) {
+    errors.push(`snapshot integration tree is missing or not a tree: ${integrationTree}`);
+  }
+  if (resolvedHead !== null) {
+    const headTree = await resolveCommitTree(integrationHead);
+    if (headTree !== integrationTree) {
+      errors.push(`snapshot integration tree mismatch: head ${integrationHead} resolves ${headTree} expected ${integrationTree}`);
+    }
+    for (const branch of manifest.branches) {
+      if (await isAncestor(branch.tip, integrationHead)) {
+        errors.push(`snapshot source tip was an integration-head ancestor at capture: ${branch.branch} ${branch.tip} -> ${integrationHead}`);
+      }
+    }
   }
   return errors;
 }
@@ -473,11 +531,14 @@ async function runCli(args = process.argv.slice(2), root = defaultRoot) {
     console.log(JSON.stringify({ schemaVersion: manifest.schemaVersion, decision: 'PASS', summary: summarizeConvergence(manifest), errors: [] }, null, 2));
     return 0;
   }
-  const refErrors = await verifyConvergenceRefs(manifest, { root });
-  const relationErrors = refErrors.length === 0
+  const snapshotErrors = await verifyConvergenceSnapshot(manifest, { root });
+  const refErrors = snapshotErrors.length === 0
+    ? await verifyConvergenceRefs(manifest, { root })
+    : [];
+  const relationErrors = snapshotErrors.length === 0 && refErrors.length === 0
     ? await verifyConvergenceGitRelations(manifest, { root })
     : [];
-  const errors = [...refErrors, ...relationErrors];
+  const errors = [...snapshotErrors, ...refErrors, ...relationErrors];
   console.log(JSON.stringify({ schemaVersion: manifest.schemaVersion, decision: errors.length === 0 ? 'PASS' : 'FAIL', summary: summarizeConvergence(manifest), errors }, null, 2));
   return errors.length === 0 ? 0 : 1;
 }
