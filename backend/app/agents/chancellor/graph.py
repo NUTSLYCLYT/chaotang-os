@@ -83,7 +83,11 @@ from app.agents.evidence_protocol import (
     bureau_node_id,
 )
 from app.agents.evidence_rendering import render_mainland_last_price
-from app.agents.junjichu.agent import CaseLifecycleObserver, run_junjichu_council
+from app.agents.junjichu.agent import (
+    CaseLifecycleObserver,
+    run_junjichu_council,
+    run_junjichu_council_with_report,
+)
 from app.agents.market_intent import is_mainland_last_price_intent
 from app.agents.ministries.agent import (
     MinistryAgentInvocationError,
@@ -104,6 +108,8 @@ from app.shiguan.recall import RecallContext, safe_recall_context_for_department
 
 if TYPE_CHECKING:
     from app.accounting_reports.session import AccountingReportSession
+
+_DEFAULT_LEGACY_COUNCIL_RUNNER = run_junjichu_council
 
 _CANONICAL_MARKET_RECOMMENDATIONS = [
     "请核对行情时间与交易时段后再使用该价格。",
@@ -491,13 +497,24 @@ def build_chancellor_graph(
             if lifecycle_observer is not None:
                 council_kwargs["lifecycle_observer"] = lifecycle_observer
                 council_kwargs["processing_path"] = state["processing_path"]
-            ministry_opinions, verdict = run_junjichu_council(
-                state["decree_text"],
-                state["chancellor_rationale"],
-                departments,
-                resolved_chat_model,
-                **council_kwargs,
-            )
+            if run_junjichu_council is not _DEFAULT_LEGACY_COUNCIL_RUNNER:
+                ministry_opinions, verdict = run_junjichu_council(
+                    state["decree_text"],
+                    state["chancellor_rationale"],
+                    departments,
+                    resolved_chat_model,
+                    **council_kwargs,
+                )
+            else:
+                typed_result = run_junjichu_council_with_report(
+                    state["decree_text"],
+                    state["chancellor_rationale"],
+                    departments,
+                    resolved_chat_model,
+                    **council_kwargs,
+                )
+                ministry_opinions = typed_result.ministry_opinions
+                verdict = typed_result.verdict
         except Exception as exc:  # noqa: BLE001 - intentionally wrap any model/validation error
             error = ChancellorGraphInvocationError(
                 "Chancellor graph node failed to complete the 军机处 multi-department "

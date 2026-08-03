@@ -119,7 +119,7 @@ def ministry_system_prompt(department: str) -> str:
         for profile in bureau_profiles_for(department)
     )
     responsibility = _responsibility_summary(positioning)
-    return (
+    base_prompt = (
         f"你是{department}，部定位：{positioning.positioning}；{responsibility}。\n"
         "君上已下达企业经营旨意，丞相已完成初步判断并将此事交由你部办理。\n"
         f"请以{department}的专业职责为边界，基于旨意与丞相的判断说明，"
@@ -132,6 +132,22 @@ def ministry_system_prompt(department: str) -> str:
         "且只能包含非空 rationale 字符串与非空 bureaus 字符串数组，"
         '形如：{"rationale": "<本部司级路由判断，不能为空>", '
         '"bureaus": ["<本部司名>"]}'
+    )
+    from app.agents.runtime_skills.roles.ministries import MINISTRY_SKILLS
+
+    skill = next(item for item in MINISTRY_SKILLS if department in item.purpose)
+    return (
+        base_prompt
+        + "\n\n"
+        + "\n\n".join(
+            (
+                f"Runtime Skill: {skill.skill_id} v{skill.version}",
+                f"Agent: {skill.agent_id}",
+                "Analysis procedure: " + repr(skill.analysis_procedure),
+                "Required findings: " + repr(skill.required_findings),
+                "Forbidden actions: " + repr(skill.forbidden_actions),
+            )
+        )
     )
 
 
@@ -175,6 +191,10 @@ def ministry_synthesis_system_prompt(department: str) -> str:
         "部级综合意见。不得只是机械拼接、复述或遗漏司级意见。\n\n"
         f"{NO_IRREVERSIBLE_ACTION_CONSTRAINT}\n\n"
         "你必须只输出一个严格的 JSON 对象，不附带任何其他文字、说明或 markdown 代码块，"
-        "且只能包含非空 opinion 字符串，"
-        '形如：{"opinion": "<本部补充与综合意见，不能为空>"}'
+        "且必须包含 opinion、shared_findings、conflicts、cross_bureau_impacts、"
+        "ministry_position、unresolved_items 六个字段。opinion 必须是非空字符串，"
+        "其余字段必须是字符串数组；没有对应事项时返回空数组。不得把同一 opinion "
+        "机械复制到其他字段。旧版兼容形如："
+        '形如：{"opinion": "<本部补充与综合意见，不能为空>"}；若仅返回该旧版结构，'
+        "运行时会明确降级而不会标记完成。"
     )

@@ -79,6 +79,36 @@ def test_unknown_capability_ids_fail_closed() -> None:
             bureaus.capability_profile_for(capability_id)
 
 
+def test_all_legacy_capability_ids_have_an_explicit_skill_mapping() -> None:
+    from app.agents.bureaus.capabilities import skill_id_for_legacy_capability
+
+    assert {
+        profile.capability_id: skill_id_for_legacy_capability(profile.capability_id)
+        for profile in bureaus.CAPABILITY_PROFILES
+    } == {
+        "lead_acquisition": "analyze-lead-acquisition",
+        "commercial_opportunity": "analyze-sales-opportunity",
+        "financial_analysis": "analyze-accounting-position",
+        "quotation_analysis": "analyze-pricing-economics",
+        "contract_review": "analyze-contract-risk",
+        "legal_compliance": "analyze-compliance-posture",
+        "product_planning": "analyze-product-strategy",
+        "trend_simulation": "analyze-product-strategy",
+        "sourcing": "analyze-supply-readiness",
+        "pack_rd": "analyze-technical-feasibility",
+        "hardware_design": "analyze-technical-feasibility",
+        "sdlc_advisory": "analyze-technical-feasibility",
+        "code_review_advisory": "analyze-technical-feasibility",
+        "battery_stage_gate": "analyze-quality-readiness",
+        "process_manufacturing": "analyze-field-conditions",
+        "delivery_aftercare": "analyze-commitment-fulfillment",
+        "brand_strategy": "analyze-brand-consistency",
+        "content_quality": "analyze-content-quality",
+        "social_content_operations": "analyze-customer-communications",
+        "persona_screening": "analyze-recruitment-pipeline",
+    }
+
+
 def test_pair_lookup_rejects_unknown_and_cross_department_bureau_identities() -> None:
     bureau = BUREAU_PROFILES[0]
     different_department = next(

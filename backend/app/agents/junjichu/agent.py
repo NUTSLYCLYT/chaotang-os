@@ -36,12 +36,19 @@ preserved), exactly like it already does for the single-department branch.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
 from app.agents.evidence_protocol import AgentEvidenceSession
 from app.agents.junjichu.prompts import junjichu_system_prompt
-from app.agents.ministries.agent import MinistryOpinion, invoke_ministry_agent
+from app.agents.ministries.agent import (
+    MinistryAgentInvocationError,
+    MinistryAgentInvocationResult,
+    MinistryOpinion,
+    invoke_ministry_agent,
+    invoke_ministry_agent_with_report,
+)
 from app.agents.structured_invocation import (
     StructuredInvocationError,
     invoke_strict_structured,
@@ -57,6 +64,7 @@ from app.shiguan.recall import RecallContext, safe_recall_context_for_department
 
 if TYPE_CHECKING:
     from app.accounting_reports.session import AccountingReportSession
+    from app.agents.runtime_skills.models import CouncilReport
 
 
 class CaseLifecycleObserver(Protocol):
@@ -88,6 +96,24 @@ class CaseLifecycleObserver(Protocol):
 
 class _CouncilContentError(ValueError):
     """Marks only locally degradable council response-content failures."""
+
+
+@dataclass(frozen=True, slots=True)
+class JunjichuCouncilInvocationResult:
+    ministry_opinions: list[MinistryOpinion]
+    verdict: str
+    runtime_report: CouncilReport
+
+
+@dataclass(frozen=True, slots=True)
+class _CouncilSynthesis:
+    verdict: str
+    consensus: tuple[str, ...] = ()
+    disagreements: tuple[str, ...] = ()
+    cross_ministry_dependencies: tuple[str, ...] = ()
+    joint_options: tuple[str, ...] = ()
+    matters_for_chancellor_decision: tuple[str, ...] = ()
+    legacy: bool = False
 
 
 def _format_ministry_opinions(ministry_opinions: list[MinistryOpinion]) -> str:
@@ -128,6 +154,323 @@ def _parse_council_verdict(raw_response: object) -> str:
             "军机处 agent response JSON is missing a non-empty 'verdict' string."
         )
     return verdict.strip()
+
+
+def _parse_council_synthesis(raw_response: object) -> _CouncilSynthesis:
+    if not isinstance(raw_response, str) or not raw_response.strip():
+        raise _CouncilContentError("军机处 agent returned an empty model response.")
+    parsed = parse_strict_json_object(raw_response)
+    if set(parsed) == {"verdict"}:
+        return _CouncilSynthesis(verdict=_parse_council_verdict(raw_response), legacy=True)
+    fields = {
+        "verdict",
+        "consensus",
+        "disagreements",
+        "cross_ministry_dependencies",
+        "joint_options",
+        "matters_for_chancellor_decision",
+    }
+    if set(parsed) != fields:
+        raise _CouncilContentError("军机处 agent response JSON has an invalid schema.")
+    verdict = parsed["verdict"]
+    if not isinstance(verdict, str) or not verdict.strip():
+        raise _CouncilContentError("军机处 verdict must be a non-empty string.")
+    values: dict[str, tuple[str, ...]] = {}
+    for field in fields - {"verdict"}:
+        value = parsed[field]
+        if not isinstance(value, list) or any(
+            not isinstance(item, str) or not item.strip() for item in value
+        ):
+            raise _CouncilContentError(f"军机处 {field} must be a string array.")
+        values[field] = tuple(item.strip() for item in value)
+    normalize = lambda value: " ".join(value.split()).casefold()  # noqa: E731
+    verdict_key = normalize(verdict)
+    seen: set[str] = set()
+    for field in (
+        "consensus",
+        "disagreements",
+        "cross_ministry_dependencies",
+        "joint_options",
+        "matters_for_chancellor_decision",
+    ):
+        normalized = tuple(normalize(item) for item in values[field])
+        if verdict_key in normalized or len(normalized) != len(set(normalized)):
+            raise _CouncilContentError("军机处 response duplicates semantic content.")
+        if seen.intersection(normalized):
+            raise _CouncilContentError("军机处 response duplicates semantic content.")
+        seen.update(normalized)
+    return _CouncilSynthesis(verdict=verdict.strip(), **values)
+
+
+def _invoke_junjichu_council_with_report_authorized(
+    decree_text: str,
+    rationale: str,
+    departments: list[str],
+    chat_model: DeepSeekChatModel,
+    *,
+    approved_departments: Sequence[str],
+    required_bureaus_by_department: Mapping[str, Sequence[str]],
+    ministry_invoker: Callable[[str, tuple[str, ...]], MinistryAgentInvocationResult],
+) -> JunjichuCouncilInvocationResult:
+    """Run one typed ministry call per approved department and synthesize a CouncilReport."""
+    approved = tuple(approved_departments)
+    selected = tuple(departments)
+    if selected != approved or tuple(required_bureaus_by_department) != approved:
+        raise ValueError("approved_department_order_mismatch")
+
+    ministry_results: list[MinistryAgentInvocationResult] = []
+    missing_ministries: list[str] = []
+    for department in approved:
+        try:
+            result = ministry_invoker(department, tuple(required_bureaus_by_department[department]))
+            ministry_results.append(result)
+        except MinistryAgentInvocationError as exc:
+            if exc.__cause__ is not None:
+                raise
+            missing_ministries.append(department)
+
+    reports = [item.runtime_report for item in ministry_results]
+    opinions = [item.opinion for item in ministry_results]
+    compact_reports = [
+        {
+            "department": item.opinion["department"],
+            "report_ref": item.runtime_report.report_id,
+            "executive_summary": item.runtime_report.executive_summary,
+            "bureau_opinions": item.opinion["bureau_opinions"],
+            "opinion": item.opinion["opinion"],
+            "status": item.runtime_report.status.value,
+            "data_gaps": item.runtime_report.data_gaps,
+            "conflicts": item.runtime_report.conflicts,
+            "unresolved_items": item.runtime_report.unresolved_items,
+        }
+        for item in ministry_results
+    ]
+    messages = [
+        {"role": "system", "content": junjichu_system_prompt(departments)},
+        {
+            "role": "user",
+            "content": (
+                f"旨意：{decree_text}\n\n丞相判断说明：{rationale}\n\n"
+                "已验证的部级结构化报告（按批准顺序）："
+                + json.dumps(compact_reports, ensure_ascii=False)
+            ),
+        },
+    ]
+    try:
+        synthesis = invoke_strict_structured(
+            chat_model,
+            messages,
+            _parse_council_synthesis,
+            stage="junjichu_council",
+            max_attempts=3,
+        )
+    except StructuredInvocationError as exc:
+        if exc.failure_code == "provider_unavailable" or not is_locally_degradable(exc):
+            raise
+        synthesis = _CouncilSynthesis(
+            verdict=_fallback_council_verdict(opinions),
+            matters_for_chancellor_decision=("council_synthesis_invalid",),
+            legacy=True,
+        )
+
+    from app.agents.runtime_skills.models import (
+        CouncilReport,
+        EvidenceSufficiency,
+        ReportStatus,
+    )
+    from app.agents.runtime_skills.registry import build_default_downstream_skill_registry
+
+    skill = build_default_downstream_skill_registry().get_by_agent("junjichu")
+    report_issues: list[str] = [
+        *(f"ministry_failed:{department}" for department in missing_ministries),
+    ]
+    for item in ministry_results:
+        department = item.opinion["department"]
+        report = item.runtime_report
+        if report.status is not ReportStatus.COMPLETED:
+            report_issues.append(f"{department}:status:{report.status.value}")
+            report_issues.extend(f"{department}:data_gap:{gap}" for gap in report.data_gaps)
+            report_issues.extend(
+                f"{department}:unresolved:{issue}" for issue in report.unresolved_items
+            )
+            report_issues.extend(
+                f"{department}:conflict:{conflict}" for conflict in report.conflicts
+            )
+    unresolved = tuple(
+        dict.fromkeys(
+            [
+                *report_issues,
+                *(("council_synthesis_legacy_contract",) if synthesis.legacy else ()),
+            ]
+        )
+    )
+    propagated_conflicts = tuple(
+        f"{item.opinion['department']}:conflict:{conflict}"
+        for item in ministry_results
+        for conflict in item.runtime_report.conflicts
+    )
+    degraded = bool(unresolved) or any(
+        report.status is not ReportStatus.COMPLETED for report in reports
+    )
+    request_id = reports[0].request_id if reports else "council-request:missing"
+    candidate_report = CouncilReport(
+        report_id=f"council-report:{request_id}",
+        request_id=request_id,
+        agent_id=skill.agent_id,
+        skill_id=skill.skill_id,
+        skill_version=skill.version,
+        subject=skill.purpose,
+        executive_summary=synthesis.verdict,
+        input_refs=tuple(report.report_id for report in reports),
+        evidence_refs=tuple(
+            dict.fromkeys(ref for report in reports for ref in report.evidence_refs)
+        ),
+        data_gaps=unresolved,
+        evidence_sufficiency=(
+            EvidenceSufficiency.INSUFFICIENT
+            if not reports
+            else (EvidenceSufficiency.PARTIAL if degraded else EvidenceSufficiency.SUFFICIENT)
+        ),
+        status=ReportStatus.DEGRADED if degraded else ReportStatus.COMPLETED,
+        participating_ministries=approved,
+        review_order=approved,
+        ministry_report_refs=tuple(report.report_id for report in reports),
+        consensus=synthesis.consensus,
+        disagreements=tuple(dict.fromkeys((*synthesis.disagreements, *propagated_conflicts))),
+        cross_ministry_dependencies=synthesis.cross_ministry_dependencies,
+        joint_options=synthesis.joint_options,
+        matters_for_chancellor_decision=tuple(
+            dict.fromkeys((*synthesis.matters_for_chancellor_decision, *unresolved))
+        ),
+    )
+    from app.agents.runtime_skills import executor as runtime_executor
+    from app.agents.runtime_skills.models import RuntimeService, SkillInvocation
+
+    order_ref = f"approved-council-order:{'|'.join(approved)}"
+    ministry_report_refs = tuple(report.report_id for report in reports)
+    invocation = SkillInvocation(
+        request_id=request_id,
+        agent_id=skill.agent_id,
+        skill_id=skill.skill_id,
+        skill_version=skill.version,
+        input_refs=(order_ref, *ministry_report_refs),
+        evidence_refs=candidate_report.evidence_refs,
+        requested_services=frozenset({RuntimeService.MINISTRY_AGENTS}),
+        requirement_data_refs={
+            skill.data_requirements[0]: (order_ref,),
+            **({skill.data_requirements[1]: ministry_report_refs} if ministry_report_refs else {}),
+        },
+    )
+    execution = runtime_executor.execute_runtime_skill(
+        invocation,
+        skill,
+        {RuntimeService.MINISTRY_AGENTS: ministry_invoker},
+        lambda _messages: "",
+        precomputed_report=candidate_report,
+    )
+    report = execution.report
+    if not isinstance(report, CouncilReport):
+        raise ValueError("council_runtime_skill_report_invalid")
+    return JunjichuCouncilInvocationResult(opinions, synthesis.verdict, report)
+
+
+def invoke_junjichu_council_with_report(
+    decree_text: str,
+    rationale: str,
+    departments: list[str],
+    chat_model: DeepSeekChatModel,
+    *,
+    approved_departments: Sequence[str],
+    required_bureaus_by_department: Mapping[str, Sequence[str]],
+    ministry_invoker: Callable[[str, tuple[str, ...]], MinistryAgentInvocationResult],
+) -> JunjichuCouncilInvocationResult:
+    """Authorize ministry access before any council-side production action."""
+
+    from app.agents.runtime_skills import executor as runtime_executor
+    from app.agents.runtime_skills.models import RuntimeService, SkillInvocation
+    from app.agents.runtime_skills.registry import build_default_downstream_skill_registry
+
+    skill = build_default_downstream_skill_registry().get_by_agent("junjichu")
+    invocation = SkillInvocation(
+        request_id="council-operation",
+        agent_id=skill.agent_id,
+        skill_id=skill.skill_id,
+        skill_version=skill.version,
+        requested_services=frozenset({RuntimeService.MINISTRY_AGENTS}),
+    )
+    return runtime_executor.run_authorized_runtime_operation(
+        invocation,
+        skill,
+        {RuntimeService.MINISTRY_AGENTS: ministry_invoker},
+        lambda: _invoke_junjichu_council_with_report_authorized(
+            decree_text,
+            rationale,
+            departments,
+            chat_model,
+            approved_departments=approved_departments,
+            required_bureaus_by_department=required_bureaus_by_department,
+            ministry_invoker=ministry_invoker,
+        ),
+    )
+
+
+def run_junjichu_council_with_report(
+    decree_text: str,
+    rationale: str,
+    departments: list[str],
+    chat_model: DeepSeekChatModel,
+    *,
+    required_bureaus_by_department: Mapping[str, Sequence[str]],
+    recall_contexts: Mapping[str, RecallContext] | None = None,
+    evidence_session: AgentEvidenceSession | None = None,
+    report_session: AccountingReportSession | None = None,
+    lifecycle_observer: CaseLifecycleObserver | None = None,
+    processing_path: list[str] | None = None,
+) -> JunjichuCouncilInvocationResult:
+    """Compatibility orchestration boundary that owns privileged ministry context."""
+
+    def ministry_invoker(
+        department: str, required_bureaus: tuple[str, ...]
+    ) -> MinistryAgentInvocationResult:
+        kwargs: dict[str, object] = {
+            "required_bureaus": required_bureaus,
+            "recall_context": recall_contexts[department] if recall_contexts else None,
+        }
+        if evidence_session is not None:
+            kwargs["evidence_session"] = evidence_session
+        if report_session is not None:
+            kwargs["report_session"] = report_session
+        result = invoke_ministry_agent_with_report(
+            department,
+            decree_text,
+            rationale,
+            chat_model,
+            **kwargs,
+        )
+        if lifecycle_observer is not None:
+            lifecycle_observer.record_ministry_opinion(result.opinion)
+        return result
+
+    result = invoke_junjichu_council_with_report(
+        decree_text,
+        rationale,
+        departments,
+        chat_model,
+        approved_departments=tuple(departments),
+        required_bureaus_by_department=required_bureaus_by_department,
+        ministry_invoker=ministry_invoker,
+    )
+    if evidence_session is not None and result.runtime_report.status.value != "completed":
+        evidence_session.record_degradation("junjichu:council")
+    if lifecycle_observer is not None:
+        council_path = [node for node in (processing_path or []) if node != "军机处（会审）"]
+        council_path.append("军机处（会审）")
+        lifecycle_observer.record_checkpoint(
+            status="COUNCIL_REVIEWING",
+            processing_path=council_path,
+            council_verdict=result.verdict,
+        )
+    return result
 
 
 def invoke_junjichu_council(
@@ -192,6 +535,10 @@ def invoke_junjichu_council(
     )
 
 
+_DEFAULT_LEGACY_MINISTRY_INVOKER = invoke_ministry_agent
+_DEFAULT_LEGACY_COUNCIL_INVOKER = invoke_junjichu_council
+
+
 def run_junjichu_council(
     decree_text: str,
     rationale: str,
@@ -237,6 +584,24 @@ def run_junjichu_council(
             unwrapped, from :func:`invoke_junjichu_council` when 军机处's
             own call fails.
     """
+    if (
+        invoke_ministry_agent is _DEFAULT_LEGACY_MINISTRY_INVOKER
+        and invoke_junjichu_council is _DEFAULT_LEGACY_COUNCIL_INVOKER
+    ):
+        result = run_junjichu_council_with_report(
+            decree_text,
+            rationale,
+            departments,
+            chat_model,
+            required_bureaus_by_department=required_bureaus_by_department,
+            recall_contexts=recall_contexts,
+            evidence_session=evidence_session,
+            report_session=report_session,
+            lifecycle_observer=lifecycle_observer,
+            processing_path=processing_path,
+        )
+        return result.ministry_opinions, result.verdict
+
     ministry_opinions: list[MinistryOpinion] = []
     for department in departments:
         ministry_kwargs = {

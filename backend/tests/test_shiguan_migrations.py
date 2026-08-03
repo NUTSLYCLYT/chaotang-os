@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -13,6 +15,8 @@ from app.jinyiwei import db as jinyiwei_db
 from app.jinyiwei.models import DataGapRequest
 from app.shiguan import db, maintenance, storage
 from app.shiguan.errors import ArchiveNotFoundError, ShiguanStorageError
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 V1_SCHEMA = """
 CREATE TABLE archives (
@@ -58,6 +62,118 @@ PRAGMA user_version = 1;
 """
 
 
+def _parse_maintenance_result(result: subprocess.CompletedProcess[str]) -> dict:
+    if result.returncode != 0:
+        stderr_bytes = result.stderr.encode("utf-8")
+        stderr_sha256 = hashlib.sha256(stderr_bytes).hexdigest()
+        raise AssertionError(
+            "maintenance subprocess failed; "
+            f"returncode={result.returncode}; "
+            f"stderr_utf8_bytes={len(stderr_bytes)}; "
+            f"stderr_sha256={stderr_sha256}"
+        )
+    if not result.stdout.strip():
+        raise AssertionError("maintenance subprocess succeeded but stdout was empty")
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise AssertionError(
+            "maintenance subprocess succeeded but stdout was not valid JSON"
+        ) from exc
+
+
+def _run_maintenance_check(path: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "app.shiguan.maintenance",
+            "--check",
+            "--database",
+            str(path),
+        ],
+        capture_output=True,
+        check=False,
+        cwd=BACKEND_ROOT,
+        text=True,
+    )
+
+
+def test_parse_maintenance_result_reports_nonzero_without_stderr_body():
+    stderr = (
+        'Traceback: File "/srv/private/app.py", line 7\n'
+        "failed opening \\\\server\\private\\shiguan.sqlite3\n"
+        "Authorization: Bearer bearer-secret\n"
+        "token=sk-super-secret\n"
+        "DATABASE_URL=postgresql://user:database-password@db.example/app\n"
+        "failed opening C:\\private\\shiguan.sqlite3\n"
+        "非 ASCII 密钥"
+    )
+    stderr_bytes = stderr.encode("utf-8")
+    result = subprocess.CompletedProcess(
+        args=["maintenance"],
+        returncode=7,
+        stdout="",
+        stderr=stderr,
+    )
+
+    with pytest.raises(AssertionError) as exc_info:
+        _parse_maintenance_result(result)
+
+    message = str(exc_info.value)
+    assert message == (
+        "maintenance subprocess failed; returncode=7; "
+        f"stderr_utf8_bytes={len(stderr_bytes)}; "
+        f"stderr_sha256={hashlib.sha256(stderr_bytes).hexdigest()}"
+    )
+    for sensitive_fragment in (
+        "/srv/private/app.py",
+        "server",
+        "shiguan.sqlite3",
+        "Bearer",
+        "bearer-secret",
+        "sk-super-secret",
+        "postgresql",
+        "database-password",
+        "C:\\private",
+        "非 ASCII 密钥",
+    ):
+        assert sensitive_fragment not in message
+
+
+def test_parse_maintenance_result_parses_successful_json():
+    result = subprocess.CompletedProcess(
+        args=["maintenance"],
+        returncode=0,
+        stdout='{"ready": true}',
+        stderr="",
+    )
+
+    assert _parse_maintenance_result(result) == {"ready": True}
+
+
+@pytest.mark.parametrize(
+    ("stdout", "message"),
+    [
+        ("", "maintenance subprocess succeeded but stdout was empty"),
+        (
+            "not-json",
+            "maintenance subprocess succeeded but stdout was not valid JSON",
+        ),
+    ],
+)
+def test_parse_maintenance_result_reports_stable_success_output_errors(stdout, message):
+    result = subprocess.CompletedProcess(
+        args=["maintenance"],
+        returncode=0,
+        stdout=stdout,
+        stderr="ignored because the subprocess succeeded",
+    )
+
+    with pytest.raises(AssertionError, match=f"^{message}$"):
+        _parse_maintenance_result(result)
+
+
 def _make_v1(path, *, archive_type="DECISION", related_id="memorial-1"):
     conn = sqlite3.connect(path)
     conn.executescript(V1_SCHEMA)
@@ -69,10 +185,20 @@ def _make_v1(path, *, archive_type="DECISION", related_id="memorial-1"):
     conn.execute(
         "INSERT INTO archives VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
-            "decision-1", archive_type, "办理回奏", "办理结果", "赈灾", "丞相府",
-            "2026-07-17T10:00:00+00:00", "经验", "风险",
-            json.dumps(["户部"], ensure_ascii=False), "办理过程", "准奏",
-            "2026-07-17T10:00:00+00:00", "丞相",
+            "decision-1",
+            archive_type,
+            "办理回奏",
+            "办理结果",
+            "赈灾",
+            "丞相府",
+            "2026-07-17T10:00:00+00:00",
+            "经验",
+            "风险",
+            json.dumps(["户部"], ensure_ascii=False),
+            "办理过程",
+            "准奏",
+            "2026-07-17T10:00:00+00:00",
+            "丞相",
         ),
     )
     conn.execute(
@@ -180,9 +306,7 @@ def _insert_jinyiwei_v1_request(connection, request, canonical_json=None) -> Non
         ("source_scope_json", '["PUBLIC_WEB"]'),
     ],
 )
-def test_jinyiwei_v1_migration_rejects_divergent_request_columns(
-    tmp_path, column, value
-):
+def test_jinyiwei_v1_migration_rejects_divergent_request_columns(tmp_path, column, value):
     path = tmp_path / f"jinyiwei-divergent-{column}.sqlite3"
     _make_jinyiwei_v1(path)
     connection = sqlite3.connect(path)
@@ -197,8 +321,7 @@ def test_jinyiwei_v1_migration_rejects_divergent_request_columns(
     try:
         assert connection.execute("PRAGMA user_version").fetchone()[0] == 1
         assert "category" not in {
-            row[1]
-            for row in connection.execute("PRAGMA table_info(requested_fact_slots)")
+            row[1] for row in connection.execute("PRAGMA table_info(requested_fact_slots)")
         }
     finally:
         connection.close()
@@ -209,9 +332,7 @@ def test_jinyiwei_v1_migration_rolls_back_all_rows_when_later_row_is_invalid(
 ):
     path = tmp_path / "jinyiwei-multi-row-invalid.sqlite3"
     first = _jinyiwei_request()
-    second = first.model_copy(
-        update={"request_id": "request-2", "question": "Second request"}
-    )
+    second = first.model_copy(update={"request_id": "request-2", "question": "Second request"})
     connection = sqlite3.connect(path)
     connection.executescript(JINYIWEI_V1_SCHEMA)
     _insert_jinyiwei_v1_request(connection, first)
@@ -228,12 +349,18 @@ def test_jinyiwei_v1_migration_rolls_back_all_rows_when_later_row_is_invalid(
     connection = sqlite3.connect(path)
     try:
         assert connection.execute("PRAGMA user_version").fetchone()[0] == 1
-        assert connection.execute(
-            "SELECT * FROM requested_fact_slots ORDER BY request_id, ordinal"
-        ).fetchall() == before
-        assert connection.execute(
-            "SELECT name FROM sqlite_master WHERE name = 'requested_fact_slots_v2'"
-        ).fetchone() is None
+        assert (
+            connection.execute(
+                "SELECT * FROM requested_fact_slots ORDER BY request_id, ordinal"
+            ).fetchall()
+            == before
+        )
+        assert (
+            connection.execute(
+                "SELECT name FROM sqlite_master WHERE name = 'requested_fact_slots_v2'"
+            ).fetchone()
+            is None
+        )
     finally:
         connection.close()
 
@@ -277,10 +404,7 @@ def test_jinyiwei_schema_v3_normalizes_required_fact_identity(tmp_path):
 
     connection = sqlite3.connect(path)
     try:
-        columns = {
-            row[1]
-            for row in connection.execute("PRAGMA table_info(requested_fact_slots)")
-        }
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(requested_fact_slots)")}
         assert {"category", "data_scope", "subject", "jurisdiction"} <= columns
         assert connection.execute("PRAGMA user_version").fetchone()[0] == 4
     finally:
@@ -297,8 +421,7 @@ def test_jinyiwei_v1_migration_strictly_backfills_fact_identity(tmp_path):
     connection = sqlite3.connect(path)
     try:
         row = connection.execute(
-            "SELECT category, data_scope, subject, jurisdiction "
-            "FROM requested_fact_slots"
+            "SELECT category, data_scope, subject, jurisdiction FROM requested_fact_slots"
         ).fetchone()
         assert row == ("MARKET_QUOTE", "EXTERNAL_PUBLIC", "002594.SZ", "CN")
         assert connection.execute("PRAGMA user_version").fetchone()[0] == 4
@@ -315,10 +438,7 @@ def test_jinyiwei_v1_migration_rolls_back_invalid_legacy_fact_slot(tmp_path):
 
     connection = sqlite3.connect(path)
     try:
-        columns = {
-            row[1]
-            for row in connection.execute("PRAGMA table_info(requested_fact_slots)")
-        }
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(requested_fact_slots)")}
         assert "category" not in columns
         assert connection.execute("PRAGMA user_version").fetchone()[0] == 1
     finally:
@@ -366,9 +486,7 @@ def test_explicit_confirmed_pair_migration_merges_fake_memorial_into_reply(tmp_p
 
     conn = db.get_connection(path)
     try:
-        reply = conn.execute(
-            "SELECT * FROM archives WHERE id = 'decision-1'"
-        ).fetchone()
+        reply = conn.execute("SELECT * FROM archives WHERE id = 'decision-1'").fetchone()
         assert reply["type"] == "REPLY"
         assert reply["source_kind"] == "DECREE"
         assert reply["source_text"] == "请赈济灾民"
@@ -476,26 +594,25 @@ def test_runtime_migration_refuses_to_overwrite_existing_backup(tmp_path):
     assert maintenance.inspect_runtime_database(path).version == 2
 
 
-def test_maintenance_check_emits_desensitized_json(tmp_path):
+def test_maintenance_check_emits_desensitized_json_without_ambient_import_path(
+    tmp_path, monkeypatch
+):
     path = tmp_path / "shiguan.sqlite3"
     db.get_connection(path).close()
+    repository_root = Path(__file__).resolve().parents[2]
+    monkeypatch.chdir(repository_root)
+    monkeypatch.delenv("PYTHONPATH", raising=False)
+    real_subprocess_run = subprocess.run
 
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "app.shiguan.maintenance",
-            "--check",
-            "--database",
-            str(path),
-        ],
-        capture_output=True,
-        check=False,
-        text=True,
-    )
+    def run_with_isolation_assertion(*args, **kwargs):
+        assert kwargs.get("cwd") == BACKEND_ROOT
+        return real_subprocess_run(*args, **kwargs)
 
-    payload = json.loads(result.stdout)
-    assert result.returncode == 0
+    monkeypatch.setattr(subprocess, "run", run_with_isolation_assertion)
+
+    result = _run_maintenance_check(path)
+
+    payload = _parse_maintenance_result(result)
     assert payload["ready"] is True
     assert set(payload) == {
         "archive_count",

@@ -144,10 +144,12 @@ def test_every_declared_responsibility_is_non_empty_and_present_in_its_prompt():
             assert responsibility in prompt
 
 
-def test_direct_bureau_prompt_contains_only_bare_opinion_contract() -> None:
+def test_direct_bureau_prompt_contains_structured_professional_report_contract() -> None:
     prompt = bureau_system_prompt("工部", "技术司")
 
-    assert '{"opinion": "<本司非空专业意见>"}' in prompt
+    assert '"professional_findings"' in prompt
+    assert '"recommendations"' in prompt
+    assert "不得跨区复制" in prompt
     assert '"status":"READY"' not in prompt
 
 
@@ -169,30 +171,26 @@ def test_investment_bureau_declares_market_quote_capability() -> None:
     assert "股票价格" in profile.responsibilities
 
 
-def test_bound_bureau_prompt_renders_package_purpose_deliverables_and_guardrails_in_order():
+def test_bound_bureau_prompt_renders_only_runtime_skill_professional_method():
     prompt = bureau_system_prompt("工部", "技术司")
 
     expected_content = (
-        "Advise on battery pack research and development.",
-        "Pack R&D advisory.",
-        "Advise on hardware design trade-offs.",
-        "Hardware design review.",
-        "Advise on software delivery lifecycle choices.",
-        "SDLC advisory memo.",
-        "Advise on code review findings.",
-        "Code review advisory.",
+        "analyze-technical-feasibility",
+        "架构、接口、依赖与运行约束",
+        "建立当前系统与约束基线",
+        "技术可行性与关键依赖",
+        "不得部署、改生产或暴露凭证",
     )
 
     position = 0
     for content in expected_content:
         position = prompt.index(content, position) + len(content)
-    guardrail = (
-        "Quotes, contracts, payments, signing, publication, deployment, recruitment, "
-        "and external commitments are advice or drafts only and remain pending approval."
+    assert prompt.count("兼容分析模式") == 1
+    assert prompt.count("Pack R&D advisory.") == 1
+    assert prompt.count("SDLC advisory memo.") == 1
+    assert prompt.index("不得部署、改生产或暴露凭证") < prompt.index(
+        NO_IRREVERSIBLE_ACTION_CONSTRAINT
     )
-    assert prompt.count(guardrail) == 4
-    assert "pack_rd" not in prompt
-    assert prompt.index("Code review advisory.") < prompt.index(NO_IRREVERSIBLE_ACTION_CONSTRAINT)
 
 
 def test_capability_bound_high_risk_prompts_remain_advice_or_drafts_pending_approval():
@@ -206,12 +204,10 @@ def test_capability_bound_high_risk_prompts_remain_advice_or_drafts_pending_appr
         "social_content_operations",
         "persona_screening",
     }
-    expected_guardrail = "advice or drafts only and remain pending approval."
-
     for capability_id in high_risk_capabilities:
         profile = capability_profile_for(capability_id)
         prompt = bureau_system_prompt(profile.department, profile.bureau)
-        assert expected_guardrail in prompt
+        assert "运行时 Skill" in prompt
         assert NO_IRREVERSIBLE_ACTION_CONSTRAINT in prompt
 
 
@@ -286,10 +282,10 @@ def test_controlled_evidence_session_rejects_non_bureau_roles_before_any_access(
     assert coordinator_calls == 0
 
 
-def test_unbound_bureau_prompt_explicitly_has_no_special_package_and_inherits_none():
+def test_bureau_without_legacy_package_uses_its_own_runtime_skill_only():
     prompt = bureau_system_prompt("户部", "预算司")
 
-    assert "No special capability packages are assigned to this bureau." in prompt
+    assert "analyze-budget-performance" in prompt
     assert "Financial analysis memo." not in prompt
     assert "Contract review notes." not in prompt
 
@@ -311,18 +307,16 @@ def test_all_six_rites_bureaus_are_open_and_use_the_same_prompt_mechanism():
     assert len(rites) == 6
     for profile in rites:
         prompt = bureau_system_prompt("礼部", profile.bureau)
-        assert "1.0" not in prompt
+        assert "版本 1.0.0" in prompt
         assert "暂不开放" not in prompt
         assert NO_IRREVERSIBLE_ACTION_CONSTRAINT in prompt
 
 
-def test_no_bureau_prompt_contains_a_release_gate():
+def test_every_bureau_prompt_contains_its_enabled_runtime_skill_version():
     for profile in BUREAU_PROFILES:
         prompt = bureau_system_prompt(profile.department, profile.bureau)
-        assert "1.0" not in prompt
+        assert "版本 1.0.0" in prompt
         assert "暂不开放" not in prompt
-        assert "enabled" not in prompt
-        assert "version" not in prompt
 
 
 def test_compound_key_distinguishes_the_two_policy_bureaus():

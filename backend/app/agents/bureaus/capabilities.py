@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from app.agents.bureaus.profiles import bureau_profile_for
+
+if TYPE_CHECKING:
+    from app.agents.runtime_skills.registry import DownstreamSkillRegistry
 
 
 @dataclass(frozen=True, slots=True)
@@ -247,3 +251,61 @@ def capability_profile_for(capability_id: str) -> CapabilityProfile:
         return _PROFILES_BY_ID[capability_id]
     except KeyError as exc:
         raise ValueError("Unknown capability ID.") from exc
+
+
+def skill_id_for_legacy_capability(capability_id: str) -> str:
+    """Map one legacy capability ID to its owning bureau's Runtime Skill."""
+
+    profile = capability_profile_for(capability_id)
+    from app.agents.runtime_skills import (
+        build_default_downstream_skill_registry,
+        bureau_agent_id,
+    )
+
+    registry = build_default_downstream_skill_registry()
+    return registry.get_by_agent(bureau_agent_id(profile.department, profile.bureau)).skill_id
+
+
+def validate_legacy_capability_skill_bindings(
+    registry: DownstreamSkillRegistry,
+    *,
+    profiles: tuple[CapabilityProfile, ...] = CAPABILITY_PROFILES,
+) -> None:
+    """Fail closed unless every legacy profile resolves to its owning bureau Skill."""
+
+    from app.agents.runtime_skills.models import AgentLayer
+    from app.agents.runtime_skills.registry import bureau_agent_id
+
+    for profile in profiles:
+        expected_agent_id = bureau_agent_id(profile.department, profile.bureau)
+        try:
+            skill = registry.get_by_agent(expected_agent_id)
+        except ValueError as exc:
+            raise ValueError("legacy_capability_skill_not_registered") from exc
+        if skill.layer is not AgentLayer.BUREAU:
+            raise ValueError("legacy_capability_non_bureau_skill")
+        if skill.agent_id != expected_agent_id:
+            raise ValueError("legacy_capability_cross_bureau_binding")
+
+
+def capability_analysis_modes_for_skill(skill_id: str) -> tuple[CapabilityProfile, ...]:
+    """Return legacy metadata as optional modes of one authoritative bureau Skill."""
+
+    # Resolve through the authoritative registry so unknown and non-bureau IDs fail closed.
+    # The local import avoids a registry -> bureau package initialization cycle.
+    from app.agents.runtime_skills import AgentLayer, build_default_downstream_skill_registry
+
+    registry = build_default_downstream_skill_registry()
+    try:
+        skill = registry.get(skill_id)
+    except ValueError as exc:
+        raise ValueError("Unknown Runtime Skill ID.") from exc
+    if skill.layer is not AgentLayer.BUREAU:
+        raise ValueError("Unknown Runtime Skill ID.")
+    from app.agents.runtime_skills import bureau_agent_id
+
+    return tuple(
+        profile
+        for profile in CAPABILITY_PROFILES
+        if bureau_agent_id(profile.department, profile.bureau) == skill.agent_id
+    )

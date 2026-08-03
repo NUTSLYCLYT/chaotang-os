@@ -24,23 +24,30 @@ def __getattr__(name: str):
     if name in {
         "BureauOpinion",
         "MinistryAgentInvocationError",
+        "MinistryAgentInvocationResult",
         "MinistryOpinion",
         "invoke_ministry_agent",
+        "invoke_ministry_agent_with_report",
     }:
         from app.agents.ministries.agent import (
             BureauOpinion,
             MinistryAgentInvocationError,
+            MinistryAgentInvocationResult,
             MinistryOpinion,
             invoke_ministry_agent,
+            invoke_ministry_agent_with_report,
         )
 
         return {
             "BureauOpinion": BureauOpinion,
             "MinistryAgentInvocationError": MinistryAgentInvocationError,
+            "MinistryAgentInvocationResult": MinistryAgentInvocationResult,
             "MinistryOpinion": MinistryOpinion,
             "invoke_ministry_agent": invoke_ministry_agent,
+            "invoke_ministry_agent_with_report": invoke_ministry_agent_with_report,
         }[name]
     raise AttributeError(name)
+
 
 __all__ = [
     "MINISTRIES",
@@ -48,9 +55,11 @@ __all__ = [
     "NO_IRREVERSIBLE_ACTION_CONSTRAINT",
     "BureauOpinion",
     "MinistryAgentInvocationError",
+    "MinistryAgentInvocationResult",
     "MinistryOpinion",
     "MinistryPositioning",
     "invoke_ministry_agent",
+    "invoke_ministry_agent_with_report",
     "ministry_routing_guide",
     "ministry_synthesis_system_prompt",
     "ministry_system_prompt",

@@ -55,6 +55,10 @@ def junjichu_system_prompt(departments: Sequence[str]) -> str:
         "请你以军机处的身份，讨论并综合全部分层意见，形成一个统一的会审结论，\n"
         "而不是简单重复某一个部门的意见，也不要遗漏任何部门已经提出的关切。\n\n"
         f"{NO_IRREVERSIBLE_ACTION_CONSTRAINT}\n\n"
-        "你必须只输出一个严格的 JSON 对象，不附带任何其他文字、说明或 markdown 代码块，"
-        '对象必须且只能包含 verdict 字段，形如：{"verdict": "<军机处的会审结论，不能为空>"}'
+        "你必须只输出一个严格的 JSON 对象，不附带任何其他文字、说明或 markdown 代码块。"
+        "对象必须且只能包含 verdict、consensus、disagreements、cross_ministry_dependencies、"
+        "joint_options、matters_for_chancellor_decision 六个字段；verdict 必须是非空字符串，"
+        "其余字段必须是字符串数组，没有事项时返回空数组。必须保留真实分歧、依赖和待丞相裁决事项。"
+        "不得把 verdict 复制到任何数组字段，也不得在同一字段内或不同数组字段之间复制同一事项。"
+        "旧版只包含 verdict 字段的对象仅用于兼容，运行时会明确降级。"
     )

@@ -176,6 +176,17 @@ def test_build_chancellor_graph_with_injected_model_returns_compiled_graph():
     assert isinstance(graph, CompiledStateGraph)
 
 
+def test_runtime_skill_integration_preserves_exact_chancellor_business_nodes():
+    graph = build_chancellor_graph(chat_model=lambda _messages: _single_route_response("户部"))
+    nodes = set(graph.get_graph().nodes) - {"__start__", "__end__"}
+    assert nodes == {
+        "decide_route",
+        "handle_single_ministry",
+        "run_junjichu_council",
+        "finalize_chancellor",
+    }
+
+
 def test_approved_single_route_bypasses_route_model_and_forwards_required_bureaus(
     monkeypatch,
 ):
