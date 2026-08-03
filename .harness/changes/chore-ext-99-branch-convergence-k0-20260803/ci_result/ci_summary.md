@@ -13,6 +13,11 @@
 | `node scripts/ext-branch-convergence.mjs --check` | 0 | PASS; `99 refs / 47 families / 0 errors` | live full-tip reconciliation | isolated worktree / 2026-08-03 |
 | `--status` and `--family W08_FULL_CONTRACT_LOOP` | 0 | PASS; 99 open refs, W08 9 refs/1 canonical donor | deterministic read projections | isolated worktree / 2026-08-03 |
 | focused root regression（pre-commit） | 1 | `107 passed, 3 failed`; all three fail closed because the modified `project-harness.json` is not yet at a committed exact-H | proves authority refuses a mutable control-plane candidate | isolated worktree / 2026-08-03 |
+| candidate identity after local commit | 0 | H `51868739857276de2c16c80c8a2cfd4e8b5cd0ef`; tree `0c70cd9f1918882348d4f2d13be37ad1ca17a131`; EXT remained `b78a4f8f...` | exact isolated candidate identity before evidence amendment | isolated worktree / 2026-08-03 |
+| exact-H convergence test and CLI | 0 | `10 passed, 0 failed`; `99 refs / 47 families / 0 errors` | Packet behavior and live frozen-ref proof | isolated worktree / 2026-08-03 |
+| exact-H authority v2 / root doctor | 1 | sole error `active-packet EXT ref must equal pinned HEAD` | expected pre-integration fail-closed boundary; contradicts the original plan's pre-review doctor-PASS expectation | isolated worktree / 2026-08-03 |
+| full root Node suite | interrupted | passed through 293 tests; two unchanged baseline service-contract failures, then an unchanged `resource-lock` test hung with a `tail -f` child for more than five minutes; test process was stopped and its child exited | broad regression attempt; not claimed PASS | isolated worktree / 2026-08-03 |
+| baseline blob comparison for broad-suite failures | 0 | `b78a4f8f...` already contains `/usr/bin/env FENGQUN_SCHEMA_MODE=strict` in both service files; relevant Packet diff is empty | proves the two failures and resource-lock test surface were not changed by this Packet | Git object database / 2026-08-03 |
 
 ## 结果
 
@@ -24,7 +29,8 @@ changed.
 ## 未验证项
 
 - Independent read-only review has not yet been recorded.
-- Exact-H focused/full root Node suites and final root doctor are pending the committed candidate verification pass.
+- Pre-integration root doctor cannot pass under the existing W08 authority identity contract; draft sequencing amendment awaits approval.
+- The full root Node suite has two pre-existing failures and one pre-existing hang; no broad-suite PASS is claimed.
 - No family capability has been implemented or integrated by this K0 ledger.
 
 ## Diff 与回滚复核
@@ -40,9 +46,9 @@ changed.
 | exactly 99 unique refs | manifest literal set + CLI full-tip check | PASS |
 | one family and disposition per ref | validator + 10 Node tests | PASS |
 | read-only CLI | SHA-256 before/after + invalid write flag rejection | PASS |
-| root Harness registration | root doctor final pass | PENDING_FINAL_RUN |
+| root Harness registration | pre-integration expected STOP; post-integration doctor final pass | BLOCKED_BY_SEQUENCE_AMENDMENT |
 | independent review | exact candidate receipt | PENDING |
 
 ## 声明状态
 
-- `VERIFIED_PARTIAL / IMPLEMENTED_LOCAL / REVIEW_PENDING`
+- `VERIFIED_PARTIAL / IMPLEMENTED_LOCAL / PLAN_AMENDMENT_REQUIRED / REVIEW_PENDING`
