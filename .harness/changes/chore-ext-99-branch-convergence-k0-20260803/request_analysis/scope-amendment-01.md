@@ -1,9 +1,9 @@
-# DRAFT Scope Amendment 01: Pre-Integration Authority Sequence
+# Scope Amendment 01: Pre-Integration Authority Sequence
 
-> Status: `DRAFT_REQUIRES_USER_APPROVAL`
+> Status: `APPROVED_SEQUENCE_ONLY`
 >
-> This document does not change authority, move `feature-chaotang-ext`, approve
-> integration, or modify the implementation plan by itself.
+> This document does not change execution-authority code or manifest data, move
+> `feature-chaotang-ext`, or approve integration.
 
 ## Trigger
 
@@ -26,7 +26,7 @@ This behavior is already documented as the expected pre-integration result in:
 Changing the authority manifest or moving the EXT ref to make a candidate
 doctor pass would bypass the intended trust boundary and is not proposed.
 
-## Proposed minimal sequencing correction
+## Approved minimal sequencing correction
 
 Replace only the Task 1 Step 4/5 ordering and expected doctor result:
 
@@ -50,13 +50,17 @@ Replace only the Task 1 Step 4/5 ordering and expected doctor result:
   unchanged.
 - Independent review remains before local EXT integration.
 - No merge, cherry-pick, fast-forward, ref movement, push, deploy, Runtime,
-  database, or branch deletion is authorized by this draft.
+  database, or branch deletion is authorized by this amendment.
 - Task 2 remains blocked until Task 1 has an approved sequence, an independent
   review receipt, and the required integration decision.
 
-## Approval requested
+## Approval record
 
-Approve this sequencing correction only. After approval, the implementation
-plan may be updated to distinguish `PRE_INTEGRATION_EXPECTED_STOP` from
-`POST_INTEGRATION_REQUIRED_PASS` without modifying execution-authority code or
-manifest data.
+- Governor: user.
+- Approval date: 2026-08-03.
+- Approved text: `批准 EXT 99-ref Task 1 Scope Amendment 01；不授权合入、push、deploy、Runtime 或数据库操作`.
+- Effect: the implementation plan may distinguish
+  `PRE_INTEGRATION_EXPECTED_STOP` from `POST_INTEGRATION_REQUIRED_PASS`.
+- Explicitly not authorized: local integration, ref movement, push, deploy,
+  Runtime, persistent database work, or Task 2 implementation before the Task 1
+  review gate closes.

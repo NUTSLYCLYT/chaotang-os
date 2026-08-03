@@ -189,7 +189,7 @@ These are hunk-coordinated files, never wholesale donor replacements:
 - Consumes: local Git refs and the existing EXT-A9 reconciliation taxonomy.
 - Produces: `loadConvergenceManifest()`, `validateConvergenceManifest()`, and a CLI with `--check`, `--status`, and `--family <id>`.
 
-- [ ] **Step 1: Capture the clean planning baseline**
+- [x] **Step 1: Capture the clean planning baseline**
 
 Run:
 
@@ -203,7 +203,7 @@ node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08
 
 Expected: EXT identity is explicit; v1 remains inactive; v2 returns GO only for R0-W08. Any unexpected tracked modification stops the task.
 
-- [ ] **Step 2: Write schema tests that reject missing or duplicate refs**
+- [x] **Step 2: Write schema tests that reject missing or duplicate refs**
 
 The tests must prove rejection of duplicate branch names, duplicate canonical donors, unknown dispositions, missing tip hashes, missing authority packages for implementation dispositions, and `CLOSED` entries without proof.
 
@@ -215,11 +215,11 @@ node --test scripts/ext-branch-convergence.nodetest.mjs
 
 Expected: RED because the schema, manifest, and loader do not exist.
 
-- [ ] **Step 3: Add the schema, loader, evaluator, and all 99 records**
+- [x] **Step 3: Add the schema, loader, evaluator, and all 99 records**
 
 Populate the manifest from committed refs only. Every ref must have one asset family and one disposition. Every family must identify exactly one canonical donor or explicitly state that it has no product donor.
 
-- [ ] **Step 4: Verify inventory closure**
+- [x] **Step 4: Verify the isolated exact-H inventory candidate**
 
 Run:
 
@@ -227,15 +227,30 @@ Run:
 node --test scripts/ext-branch-convergence.nodetest.mjs
 node scripts/ext-branch-convergence.mjs --check
 node scripts/ext-branch-convergence.mjs --status
+node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08
 node scripts/harness-doctor.mjs
 git diff --check
 ```
 
-Expected: 99 unique refs, zero unknown dispositions, zero unowned implementation families, root doctor PASS.
+Expected: 99 unique refs, zero unknown dispositions, zero unowned implementation
+families, clean exact-H/tree, and no diff error. Because this is an isolated
+pre-integration candidate, authority v2 and the root doctor must fail closed for
+the single reason `active-packet EXT ref must equal pinned HEAD`; any additional
+error fails the Packet. This expectation is authorized by Scope Amendment 01
+and does not authorize moving EXT.
 
 - [ ] **Step 5: Request independent ledger review**
 
 The reviewer compares the manifest against `git for-each-ref`, `git merge-base --is-ancestor`, `git cherry`, branch tips, and worktree status. The reviewer must not infer a product capability from a review-only commit.
+
+- [ ] **Step 6: Prove post-integration closure only after separate authority**
+
+Only after independent review GO, explicit user integration approval, an
+integration lease, and a clean/coordinated EXT target may the reviewed commits
+be applied using the repository-approved non-merge-candidate integration
+method. On the resulting EXT exact-H, require authority v2 `GO` and root doctor
+`0 errors, 0 warnings`. Scope Amendment 01 does not grant this integration
+authority.
 
 ---
 

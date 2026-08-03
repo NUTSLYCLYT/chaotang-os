@@ -7,7 +7,7 @@
 | --- | --- |
 | Change ID | chore-ext-99-branch-convergence-k0-20260803 |
 | 类型 | chore |
-| 状态 | IMPLEMENTED_LOCAL / PLAN_AMENDMENT_REQUIRED / REVIEW_PENDING |
+| 状态 | IMPLEMENTED_LOCAL / REVIEW_PENDING |
 | Owner | Codex / Root Harness |
 | 创建日期 | 20260803 |
 
@@ -22,4 +22,4 @@
 - 本变更不执行 merge、cherry-pick、ref 更新、分支删除、产品代码修改、Runtime、数据库、push 或 deploy。
 - `ABSORB_ADAPT` 与 `REBUILD` 只是处置意图；对应功能仍必须取得独立 machine-readable work-package GO。
 - 唯一 integration target 保持 `feature-chaotang-ext`；本候选位于隔离分支 `task/ext-99-branch-ledger-20260803`。
-- 隔离 exact-H 按既有 W08 authority 必须返回 `active-packet EXT ref must equal pinned HEAD`；拟议的最小顺序修订见 `request_analysis/scope-amendment-01.md`，当前未获批准。
+- 隔离 exact-H 按既有 W08 authority 必须返回 `active-packet EXT ref must equal pinned HEAD`；最小顺序修订已由用户批准并记录于 `request_analysis/scope-amendment-01.md`，但不授权集成。

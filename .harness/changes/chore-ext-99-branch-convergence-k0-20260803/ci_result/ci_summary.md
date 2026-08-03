@@ -31,7 +31,7 @@ changed.
 ## 未验证项
 
 - Independent read-only review has not yet been recorded.
-- Pre-integration root doctor cannot pass under the existing W08 authority identity contract; draft sequencing amendment awaits approval.
+- Pre-integration root doctor cannot pass under the existing W08 authority identity contract; Scope Amendment 01 now records the expected sole STOP and reserves PASS for separately authorized post-integration proof.
 - The full root Node suite has two pre-existing failures and one pre-existing hang; no broad-suite PASS is claimed.
 - No family capability has been implemented or integrated by this K0 ledger.
 
@@ -49,9 +49,9 @@ changed.
 | one family and disposition per ref | validator + 12 Node tests | PASS |
 | candidate reachability and duplicate relation | Git relation verifier + live CLI | PASS |
 | read-only CLI | SHA-256 before/after + invalid write flag rejection | PASS |
-| root Harness registration | pre-integration expected STOP; post-integration doctor final pass | BLOCKED_BY_SEQUENCE_AMENDMENT |
+| root Harness registration | pre-integration expected sole STOP; post-integration doctor final pass | PRE_INTEGRATION_PASS / POST_INTEGRATION_NOT_AUTHORIZED |
 | independent review | exact candidate receipt | PENDING |
 
 ## 声明状态
 
-- `VERIFIED_PARTIAL / IMPLEMENTED_LOCAL / PLAN_AMENDMENT_REQUIRED / REVIEW_PENDING`
+- `VERIFIED_PARTIAL / IMPLEMENTED_LOCAL / REVIEW_PENDING`
