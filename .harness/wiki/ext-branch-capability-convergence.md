@@ -40,8 +40,10 @@ node scripts/ext-branch-convergence.mjs --family W08_FULL_CONTRACT_LOOP
 node --test scripts/ext-branch-convergence.nodetest.mjs
 ```
 
-`--check` validates the manifest and verifies each frozen branch still resolves
-to its captured tip. `--status` summarizes dispositions and progress without
+`--check` validates the manifest, verifies each frozen branch still resolves
+to its captured tip, proves every candidate commit is reachable from that tip,
+and requires each `DUPLICATE` to be either ancestor-contained or patch-equivalent
+under `git cherry`. `--status` summarizes dispositions and progress without
 consulting or mutating runtime state. `--family` returns one asset family and
 its source refs. No mode accepts a write flag.
 

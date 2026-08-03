@@ -242,6 +242,45 @@ async function resolveGitRef(root, branch) {
   }
 }
 
+async function resolveGitCommit(root, commit) {
+  try {
+    const { stdout } = await execFileAsync('git', ['rev-parse', '--verify', `${commit}^{commit}`], {
+      cwd: root,
+      encoding: 'utf8',
+    });
+    return stdout.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+async function isGitAncestor(root, ancestor, descendant) {
+  try {
+    await execFileAsync('git', ['merge-base', '--is-ancestor', ancestor, descendant], {
+      cwd: root,
+      encoding: 'utf8',
+    });
+    return true;
+  } catch (cause) {
+    if (cause && cause.code === 1) return false;
+    throw cause;
+  }
+}
+
+async function isGitPatchEquivalent(root, sourceTip, targetTip) {
+  try {
+    const { stdout } = await execFileAsync('git', ['cherry', targetTip, sourceTip], {
+      cwd: root,
+      encoding: 'utf8',
+      maxBuffer: 8 * 1024 * 1024,
+    });
+    const rows = stdout.trim().split('\n').filter(Boolean);
+    return rows.length > 0 && rows.every((row) => row.startsWith('- '));
+  } catch {
+    return false;
+  }
+}
+
 export async function verifyConvergenceRefs(
   manifest,
   { root = defaultRoot, resolveRef = (branch) => resolveGitRef(root, branch) } = {},
@@ -251,6 +290,39 @@ export async function verifyConvergenceRefs(
     const actual = await resolveRef(branch.branch);
     if (actual === null) errors.push(`source ref missing: ${branch.branch}`);
     else if (actual !== branch.tip) errors.push(`source ref moved: ${branch.branch} expected ${branch.tip} got ${actual}`);
+  }
+  return errors;
+}
+
+export async function verifyConvergenceGitRelations(
+  manifest,
+  {
+    root = defaultRoot,
+    resolveCommit = (commit) => resolveGitCommit(root, commit),
+    isAncestor = (ancestor, descendant) => isGitAncestor(root, ancestor, descendant),
+    isPatchEquivalent = (sourceTip, targetTip) => isGitPatchEquivalent(root, sourceTip, targetTip),
+  } = {},
+) {
+  const errors = [];
+  const branchesByName = new Map(manifest.branches.map((branch) => [branch.branch, branch]));
+  for (const branch of manifest.branches) {
+    for (const commit of branch.candidateCommits) {
+      const resolved = await resolveCommit(commit);
+      if (resolved === null) {
+        errors.push(`candidate commit missing: ${branch.branch} ${commit}`);
+      } else if (!(await isAncestor(resolved, branch.tip))) {
+        errors.push(`candidate commit is not reachable from source tip: ${branch.branch} ${commit}`);
+      }
+    }
+    if (branch.disposition !== 'DUPLICATE') continue;
+    const target = branchesByName.get(branch.containedBy);
+    if (!target) continue;
+    const contained = await isAncestor(branch.tip, target.tip);
+    if (!contained && !(await isPatchEquivalent(branch.tip, target.tip))) {
+      errors.push(
+        `duplicate relation unproved: ${branch.branch} is neither contained by nor patch-equivalent to ${branch.containedBy}`,
+      );
+    }
   }
   return errors;
 }
@@ -306,7 +378,10 @@ async function runCli(args = process.argv.slice(2), root = defaultRoot) {
     return validationErrors.length === 0 ? 0 : 1;
   }
   const refErrors = validationErrors.length === 0 ? await verifyConvergenceRefs(manifest, { root }) : [];
-  const errors = [...validationErrors, ...refErrors];
+  const relationErrors = validationErrors.length === 0 && refErrors.length === 0
+    ? await verifyConvergenceGitRelations(manifest, { root })
+    : [];
+  const errors = [...validationErrors, ...refErrors, ...relationErrors];
   console.log(JSON.stringify({ schemaVersion: manifest.schemaVersion, decision: errors.length === 0 ? 'PASS' : 'FAIL', summary: summarizeConvergence(manifest), errors }, null, 2));
   return errors.length === 0 ? 0 : 1;
 }

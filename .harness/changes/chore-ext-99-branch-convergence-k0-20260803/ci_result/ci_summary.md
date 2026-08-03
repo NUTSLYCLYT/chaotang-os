@@ -15,6 +15,8 @@
 | focused root regression（pre-commit） | 1 | `107 passed, 3 failed`; all three fail closed because the modified `project-harness.json` is not yet at a committed exact-H | proves authority refuses a mutable control-plane candidate | isolated worktree / 2026-08-03 |
 | candidate identity after local commit | 0 | H `51868739857276de2c16c80c8a2cfd4e8b5cd0ef`; tree `0c70cd9f1918882348d4f2d13be37ad1ca17a131`; EXT remained `b78a4f8f...` | exact isolated candidate identity before evidence amendment | isolated worktree / 2026-08-03 |
 | exact-H convergence test and CLI | 0 | `10 passed, 0 failed`; `99 refs / 47 families / 0 errors` | Packet behavior and live frozen-ref proof | isolated worktree / 2026-08-03 |
+| Git-relation hardening RED | 1 | `10 passed, 2 failed`; `verifyConvergenceGitRelations` absent | proves candidate reachability and rebased-duplicate proof were not previously enforced | isolated worktree / 2026-08-03 |
+| Git-relation hardening GREEN | 0 | `12 passed, 0 failed`; live `--check` PASS | all 59 candidate-commit relations and 8 duplicate relations; `p18-v4-rebased` accepted only by all-minus `git cherry` proof | isolated worktree / 2026-08-03 |
 | exact-H authority v2 / root doctor | 1 | sole error `active-packet EXT ref must equal pinned HEAD` | expected pre-integration fail-closed boundary; contradicts the original plan's pre-review doctor-PASS expectation | isolated worktree / 2026-08-03 |
 | full root Node suite | interrupted | passed through 293 tests; two unchanged baseline service-contract failures, then an unchanged `resource-lock` test hung with a `tail -f` child for more than five minutes; test process was stopped and its child exited | broad regression attempt; not claimed PASS | isolated worktree / 2026-08-03 |
 | baseline blob comparison for broad-suite failures | 0 | `b78a4f8f...` already contains `/usr/bin/env FENGQUN_SCHEMA_MODE=strict` in both service files; relevant Packet diff is empty | proves the two failures and resource-lock test surface were not changed by this Packet | Git object database / 2026-08-03 |
@@ -44,7 +46,8 @@ changed.
 | DoD | 证据 | 状态 |
 | --- | --- | --- |
 | exactly 99 unique refs | manifest literal set + CLI full-tip check | PASS |
-| one family and disposition per ref | validator + 10 Node tests | PASS |
+| one family and disposition per ref | validator + 12 Node tests | PASS |
+| candidate reachability and duplicate relation | Git relation verifier + live CLI | PASS |
 | read-only CLI | SHA-256 before/after + invalid write flag rejection | PASS |
 | root Harness registration | pre-integration expected STOP; post-integration doctor final pass | BLOCKED_BY_SEQUENCE_AMENDMENT |
 | independent review | exact candidate receipt | PENDING |

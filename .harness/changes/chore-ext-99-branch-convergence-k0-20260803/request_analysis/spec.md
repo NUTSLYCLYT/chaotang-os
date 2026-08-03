@@ -66,6 +66,8 @@ CLI 没有写模式，不调用 merge/cherry-pick/update-ref/worktree remove，�
 | `CLOSED` without checkpoint proof | fail validation | Node negative tests |
 | duplicate canonical donors | fail validation | Node negative tests |
 | frozen source ref missing or moved | `--check` returns FAIL | injected ref resolver tests + live CLI |
+| candidate commit missing or not reachable from recorded tip | `--check` returns FAIL | injected Git relation tests + live CLI |
+| duplicate history is neither contained nor patch-equivalent | `--check` returns FAIL | negative relation test; rebased-equivalent positive test |
 | unknown family | CLI returns `NOT_FOUND`, exit 2 | CLI test |
 | attempted write flag | usage error, exit 64 | CLI test |
 
@@ -89,6 +91,7 @@ CLI 没有写模式，不调用 merge/cherry-pick/update-ref/worktree remove，�
 - Exactly 99 unique frozen source refs and 47 non-empty asset families.
 - Every source ref has one disposition and one family.
 - Every family has exactly one canonical donor.
+- Candidate commits are reachable and duplicates have ancestry or patch-equivalence proof.
 - Validator fails closed for malformed authority, closure, duplicate, and tip data.
 - `--check`, `--status`, and `--family` are deterministic and read-only.
 - Root doctor reports zero errors and zero warnings.

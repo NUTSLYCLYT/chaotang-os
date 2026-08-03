@@ -301,6 +301,62 @@ test('repository verifier detects a moved or missing frozen source ref without c
   assert.deepEqual(missing, ['source ref missing: task/example']);
 });
 
+test('Git relation verifier rejects unreachable candidates and false duplicate containment', async () => {
+  const { verifyConvergenceGitRelations } = await loadModule();
+  const manifest = {
+    branches: [
+      validRecord({
+        candidateCommits: ['deadbee', 'feed123'],
+      }),
+      validRecord({
+        branch: 'task/example-rebased',
+        tip: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        candidateCommits: [],
+        disposition: 'DUPLICATE',
+        canonicalDonor: false,
+        containedBy: 'task/example',
+        authorityPackage: null,
+      }),
+    ],
+  };
+  const errors = await verifyConvergenceGitRelations(manifest, {
+    resolveCommit: async (commit) => (commit === 'deadbee' ? null : 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'),
+    isAncestor: async () => false,
+    isPatchEquivalent: async () => false,
+  });
+
+  assert.deepEqual(errors, [
+    'candidate commit missing: task/example deadbee',
+    'candidate commit is not reachable from source tip: task/example feed123',
+    'duplicate relation unproved: task/example-rebased is neither contained by nor patch-equivalent to task/example',
+  ]);
+});
+
+test('Git relation verifier accepts a rebased duplicate only with patch-equivalence proof', async () => {
+  const { verifyConvergenceGitRelations } = await loadModule();
+  const manifest = {
+    branches: [
+      validRecord(),
+      validRecord({
+        branch: 'task/example-rebased',
+        tip: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        candidateCommits: [],
+        disposition: 'DUPLICATE',
+        canonicalDonor: false,
+        containedBy: 'task/example',
+        authorityPackage: null,
+      }),
+    ],
+  };
+  const errors = await verifyConvergenceGitRelations(manifest, {
+    resolveCommit: async () => '1234567890abcdef1234567890abcdef12345678',
+    isAncestor: async (ancestor) => ancestor === '1234567890abcdef1234567890abcdef12345678',
+    isPatchEquivalent: async () => true,
+  });
+
+  assert.deepEqual(errors, []);
+});
+
 test('status and family projections are deterministic and do not mutate the manifest', async () => {
   const { selectConvergenceFamily, summarizeConvergence } = await loadModule();
   const manifestText = await readFile(new URL('.harness/manifest/ext-branch-convergence.v1.json', root), 'utf8');
