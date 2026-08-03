@@ -495,6 +495,7 @@ test('CLI projects malformed manifest containers as structured validation failur
   const cases = [
     ['branches:null', (manifest) => ({ ...manifest, branches: null })],
     ['assetFamilies:{}', (manifest) => ({ ...manifest, assetFamilies: {} })],
+    ['branches:[null]', (manifest) => ({ ...manifest, branches: [null] })],
   ];
   const modes = [
     ['--check'],
@@ -514,6 +515,37 @@ test('CLI projects malformed manifest containers as structured validation failur
       assert.ok(output.errors.length > 0, `${shape} ${args.join(' ')} must have validation errors`);
       assert.notEqual(output.decision, 'NOT_FOUND', `${shape} ${args.join(' ')} must not conceal invalid state as NOT_FOUND`);
     }
+  }
+});
+
+test('validator is total for arbitrary JSON values and invalid collection element shapes', async () => {
+  const { validateConvergenceManifest } = await loadModule();
+  const arbitraryJson = [
+    null,
+    true,
+    false,
+    0,
+    1,
+    '',
+    'manifest',
+    [],
+    [null],
+    { schemaVersion: 'ext-branch-convergence.v1' },
+    { schemaVersion: 'ext-branch-convergence.v1', snapshot: [], assetFamilies: {}, branches: {} },
+  ];
+  const invalidElements = [null, [], 'invalid', 1, true, false];
+
+  for (const value of arbitraryJson) {
+    assert.doesNotThrow(() => validateConvergenceManifest(value), `must not throw for ${JSON.stringify(value)}`);
+    assert.ok(validateConvergenceManifest(value).length > 0, `must reject ${JSON.stringify(value)}`);
+  }
+  for (const element of invalidElements) {
+    const invalidFamily = validManifest({ assetFamilies: [element] });
+    const invalidBranch = validManifest({ branches: [element] });
+    assert.doesNotThrow(() => validateConvergenceManifest(invalidFamily), `family element must not throw: ${JSON.stringify(element)}`);
+    assert.doesNotThrow(() => validateConvergenceManifest(invalidBranch), `branch element must not throw: ${JSON.stringify(element)}`);
+    assert.ok(validateConvergenceManifest(invalidFamily).some((error) => error.includes('assetFamilies[0] has an invalid field set')));
+    assert.ok(validateConvergenceManifest(invalidBranch).some((error) => error.includes('branches[0] has an invalid field set')));
   }
 });
 

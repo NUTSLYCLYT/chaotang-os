@@ -125,6 +125,42 @@ export function validateConvergenceManifest(manifest) {
   if (!Array.isArray(manifest.branches)) errors.push('branches must be an array');
   if (errors.length > 0) return errors;
 
+  // Phase 1: prove that every collection element has the declared record shape
+  // before any pass that joins, groups, or otherwise projects across records.
+  // This keeps validation total for every JSON value accepted by JSON.parse().
+  const requiredRecordKeys = [
+    'branch',
+    'tip',
+    'assetFamily',
+    'candidateCommits',
+    'disposition',
+    'canonicalDonor',
+    'containedBy',
+    'authorityPackage',
+    'targetOwners',
+    'targetFiles',
+    'proofCommands',
+    'status',
+    'checkpoint',
+    'reviewReceipt',
+    'integrationCommit',
+    'blockedReason',
+  ];
+  let invalidElementShape = false;
+  manifest.assetFamilies.forEach((family, index) => {
+    if (!hasExactKeys(family, ['id', 'title', 'canonicalDonor', 'decision', 'status'])) {
+      errors.push(`assetFamilies[${index}] has an invalid field set`);
+      invalidElementShape = true;
+    }
+  });
+  manifest.branches.forEach((branch, index) => {
+    if (!hasExactKeys(branch, requiredRecordKeys)) {
+      errors.push(`branches[${index}] has an invalid field set`);
+      invalidElementShape = true;
+    }
+  });
+  if (invalidElementShape) return errors;
+
   if (!hasExactKeys(manifest.snapshot, SNAPSHOT_KEYS)) errors.push('snapshot has an invalid field set');
   if (!isIsoDateTime(manifest.snapshot.capturedAt)) {
     errors.push('snapshot.capturedAt must be an ISO 8601 date-time');
@@ -157,10 +193,6 @@ export function validateConvergenceManifest(manifest) {
   if (manifest.assetFamilies.length < 1) errors.push('assetFamilies must contain at least one entry');
   if (!hasUniqueJsonValues(manifest.assetFamilies)) errors.push('assetFamilies must contain unique entries');
   manifest.assetFamilies.forEach((family, index) => {
-    if (!hasExactKeys(family, ['id', 'title', 'canonicalDonor', 'decision', 'status'])) {
-      errors.push(`assetFamilies[${index}] has an invalid field set`);
-      return;
-    }
     if (!ASSET_FAMILY_ID.test(family.id ?? '')) errors.push(`assetFamilies[${index}].id must match ^[A-Z][A-Z0-9_]+$`);
     else if (familyIds.has(family.id)) errors.push(`duplicate asset family: ${family.id}`);
     else {
@@ -181,31 +213,9 @@ export function validateConvergenceManifest(manifest) {
     }
   });
 
-  const requiredRecordKeys = [
-    'branch',
-    'tip',
-    'assetFamily',
-    'candidateCommits',
-    'disposition',
-    'canonicalDonor',
-    'containedBy',
-    'authorityPackage',
-    'targetOwners',
-    'targetFiles',
-    'proofCommands',
-    'status',
-    'checkpoint',
-    'reviewReceipt',
-    'integrationCommit',
-    'blockedReason',
-  ];
   const branchNames = new Set();
   if (manifest.branches.length !== 99) errors.push('branches must contain exactly 99 entries');
   manifest.branches.forEach((branch, index) => {
-    if (!hasExactKeys(branch, requiredRecordKeys)) {
-      errors.push(`branches[${index}] has an invalid field set`);
-      return;
-    }
     if (!nonEmptyString(branch.branch)) errors.push(`branches[${index}].branch is required`);
     else if (branchNames.has(branch.branch)) errors.push(`duplicate branch: ${branch.branch}`);
     else branchNames.add(branch.branch);
