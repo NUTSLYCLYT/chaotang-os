@@ -442,24 +442,32 @@ async function runCli(args = process.argv.slice(2), root = defaultRoot) {
 
   const manifest = await loadConvergenceManifest(root);
   const validationErrors = validateConvergenceManifest(manifest);
+  if (validationErrors.length > 0) {
+    console.log(JSON.stringify({
+      schemaVersion: isObject(manifest) ? (manifest.schemaVersion ?? null) : null,
+      decision: 'FAIL',
+      errors: validationErrors,
+    }, null, 2));
+    return 1;
+  }
   if (mode === '--family') {
     const selected = selectConvergenceFamily(manifest, value);
     if (!selected) {
       console.log(JSON.stringify({ schemaVersion: manifest.schemaVersion, decision: 'NOT_FOUND', familyId: value }, null, 2));
       return 2;
     }
-    console.log(JSON.stringify({ schemaVersion: manifest.schemaVersion, decision: validationErrors.length === 0 ? 'PASS' : 'FAIL', ...selected, errors: validationErrors }, null, 2));
-    return validationErrors.length === 0 ? 0 : 1;
+    console.log(JSON.stringify({ schemaVersion: manifest.schemaVersion, decision: 'PASS', ...selected, errors: [] }, null, 2));
+    return 0;
   }
   if (mode === '--status') {
-    console.log(JSON.stringify({ schemaVersion: manifest.schemaVersion, decision: validationErrors.length === 0 ? 'PASS' : 'FAIL', summary: summarizeConvergence(manifest), errors: validationErrors }, null, 2));
-    return validationErrors.length === 0 ? 0 : 1;
+    console.log(JSON.stringify({ schemaVersion: manifest.schemaVersion, decision: 'PASS', summary: summarizeConvergence(manifest), errors: [] }, null, 2));
+    return 0;
   }
-  const refErrors = validationErrors.length === 0 ? await verifyConvergenceRefs(manifest, { root }) : [];
-  const relationErrors = validationErrors.length === 0 && refErrors.length === 0
+  const refErrors = await verifyConvergenceRefs(manifest, { root });
+  const relationErrors = refErrors.length === 0
     ? await verifyConvergenceGitRelations(manifest, { root })
     : [];
-  const errors = [...validationErrors, ...refErrors, ...relationErrors];
+  const errors = [...refErrors, ...relationErrors];
   console.log(JSON.stringify({ schemaVersion: manifest.schemaVersion, decision: errors.length === 0 ? 'PASS' : 'FAIL', summary: summarizeConvergence(manifest), errors }, null, 2));
   return errors.length === 0 ? 0 : 1;
 }

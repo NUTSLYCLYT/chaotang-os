@@ -171,7 +171,7 @@ function validManifest(overrides = {}) {
   };
 }
 
-async function runCliWithManifest(manifest) {
+async function runCliWithManifest(manifest, args = ['--status']) {
   const fixtureRoot = await mkdtemp(join(tmpdir(), 'ext-branch-convergence-'));
   try {
     await mkdir(join(fixtureRoot, 'scripts'));
@@ -182,7 +182,7 @@ async function runCliWithManifest(manifest) {
       JSON.stringify(manifest),
       'utf8',
     );
-    return spawnSync(process.execPath, ['scripts/ext-branch-convergence.mjs', '--status'], {
+    return spawnSync(process.execPath, ['scripts/ext-branch-convergence.mjs', ...args], {
       cwd: fixtureRoot,
       encoding: 'utf8',
     });
@@ -487,6 +487,32 @@ test('CLI rejects every material schema-invalid manifest shape that the handwrit
     assert.equal(output.decision, 'FAIL', name);
     for (const expectedError of expectedErrors) {
       assert.ok(output.errors.includes(expectedError), `${name}: ${JSON.stringify(output.errors)}`);
+    }
+  }
+});
+
+test('CLI projects malformed manifest containers as structured validation failures before any projection', async () => {
+  const cases = [
+    ['branches:null', (manifest) => ({ ...manifest, branches: null })],
+    ['assetFamilies:{}', (manifest) => ({ ...manifest, assetFamilies: {} })],
+  ];
+  const modes = [
+    ['--check'],
+    ['--status'],
+    ['--family', 'EXAMPLE_FAMILY'],
+    ['--family', 'NOT_A_FAMILY'],
+  ];
+
+  for (const [shape, mutate] of cases) {
+    for (const args of modes) {
+      const result = await runCliWithManifest(mutate(validManifest()), args);
+      assert.equal(result.status, 1, `${shape} ${args.join(' ')}: ${result.stderr || result.stdout}`);
+      assert.equal(result.stderr, '', `${shape} ${args.join(' ')} must not throw to stderr`);
+      const output = JSON.parse(result.stdout);
+      assert.equal(output.decision, 'FAIL', `${shape} ${args.join(' ')}`);
+      assert.ok(Array.isArray(output.errors), `${shape} ${args.join(' ')} must include validation errors`);
+      assert.ok(output.errors.length > 0, `${shape} ${args.join(' ')} must have validation errors`);
+      assert.notEqual(output.decision, 'NOT_FOUND', `${shape} ${args.join(' ')} must not conceal invalid state as NOT_FOUND`);
     }
   }
 });

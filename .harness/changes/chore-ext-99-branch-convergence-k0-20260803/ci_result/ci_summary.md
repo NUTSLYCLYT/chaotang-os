@@ -21,6 +21,9 @@
 | Round 1 validator remediation RED | 1 | canonical-donor and unknown-root-field cases failed before remediation | proves both reviewer findings were executable defects | isolated worktree / 2026-08-03 |
 | Round 1 validator remediation GREEN | 0 | `14 passed, 0 failed`; live `--check` PASS | runtime/schema constraint classes, direct canonical duplicate target, calendar date, fixture cleanup | isolated worktree / 2026-08-03 |
 | focused root regression after remediation | 0 | `30 passed, 0 failed` | convergence plus repository structure, knowledge rubric, and capability-entry governance | isolated worktree / 2026-08-03 |
+| Round 2 multi-Agent independent review | n/a | aggregate `NO_GO`; Critical 0, Important 2, Minor 0 | malformed container projection could throw or conceal invalid state as `NOT_FOUND` | `codex_review/round2-multi-agent-independent-review.md` |
+| Round 2 malformed-container RED | 1 | `branches:null --check` threw `manifest.branches is not iterable` | executable proof of fail-closed projection defect | isolated temporary fixture / 2026-08-03 |
+| Round 2 malformed-container GREEN | 0 | `15 passed, 0 failed`; focused root regression `31 passed, 0 failed` | all modes return structured `FAIL` before projection; valid unknown family remains `NOT_FOUND` | isolated worktree / 2026-08-03 |
 | exact-H authority v2 / root doctor | 1 | sole error `active-packet EXT ref must equal pinned HEAD` | expected pre-integration fail-closed boundary; contradicts the original plan's pre-review doctor-PASS expectation | isolated worktree / 2026-08-03 |
 | full root Node suite | interrupted | passed through 293 tests; two unchanged baseline service-contract failures, then an unchanged `resource-lock` test hung with a `tail -f` child for more than five minutes; test process was stopped and its child exited | broad regression attempt; not claimed PASS | isolated worktree / 2026-08-03 |
 | baseline blob comparison for broad-suite failures | 0 | `b78a4f8f...` already contains `/usr/bin/env FENGQUN_SCHEMA_MODE=strict` in both service files; relevant Packet diff is empty | proves the two failures and resource-lock test surface were not changed by this Packet | Git object database / 2026-08-03 |
@@ -50,12 +53,12 @@ changed.
 | DoD | 证据 | 状态 |
 | --- | --- | --- |
 | exactly 99 unique refs | manifest literal set + CLI full-tip check | PASS |
-| one family and disposition per ref | validator + 14 Node tests | PASS |
+| one family and disposition per ref | validator + 15 Node tests | PASS |
 | candidate reachability and duplicate relation | Git relation verifier + live CLI | PASS |
 | read-only CLI | SHA-256 before/after + invalid write flag rejection | PASS |
 | root Harness registration | pre-integration expected sole STOP; post-integration doctor final pass | PRE_INTEGRATION_EXPECTED_STOP / POST_INTEGRATION_NOT_AUTHORIZED |
-| independent review | Round 1 exact receipt is `NO_GO`; remediation exact-H requires fresh review | REREVIEW_PENDING |
+| independent review | Rounds 1 and 2 are exact `NO_GO` receipts; latest remediation exact-H requires fresh review | REREVIEW_PENDING |
 
 ## 声明状态
 
-- `VERIFIED_PARTIAL / IMPLEMENTED_LOCAL / REMEDIATED_AFTER_NO_GO / REREVIEW_PENDING`
+- `VERIFIED_PARTIAL / IMPLEMENTED_LOCAL / REMEDIATED_AFTER_ROUND2_NO_GO / REREVIEW_PENDING`
