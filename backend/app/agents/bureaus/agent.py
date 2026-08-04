@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from app.agents.bureaus.prompts import bureau_runtime_skill_for, bureau_system_prompt
-from app.agents.structured_invocation import (
-    StructuredInvocationError,
-    invoke_strict_structured,
-)
 from app.agents.structured_output import parse_strict_json_object
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel
 
@@ -55,7 +54,8 @@ def _result_with_runtime_report(
     selection_start: int = 0,
     degradation_start: int = 0,
     requirement_data_refs: Mapping[str, tuple[str, ...]] | None = None,
-    approved_data_refs: Sequence[str] = (),
+    result_refs: Sequence[str] = (),
+    audit_refs: Sequence[str] = (),
 ) -> BureauAgentInvocationResult:
     from app.agents.runtime_skills.models import (
         BureauReport,
@@ -83,13 +83,13 @@ def _result_with_runtime_report(
             for reason in snapshot.degradation_reasons[degradation_start:]
             if reason.endswith(f":{node_id}")
         )
-    approved_evidence = frozenset((*evidence_refs, *approved_data_refs))
+    trusted_refs = frozenset((*evidence_refs, *result_refs))
     supplied_coverage = requirement_data_refs or {}
     covered_requirements = {
         requirement
         for requirement in skill.data_requirements
         if supplied_coverage.get(requirement)
-        and all(ref in approved_evidence for ref in supplied_coverage[requirement])
+        and all(ref in trusted_refs for ref in supplied_coverage[requirement])
     }
     missing_requirements = tuple(
         requirement
@@ -100,7 +100,15 @@ def _result_with_runtime_report(
     opinion = synthesis.opinion
     fully_covered = not data_gaps and not synthesis.legacy and "数据不足" not in opinion
     partially_covered = bool(covered_requirements)
-    input_refs = tuple(dict.fromkeys(ref for refs in supplied_coverage.values() for ref in refs))
+    input_refs = tuple(dict.fromkeys([
+        *(
+            ref
+            for refs in supplied_coverage.values()
+            for ref in refs
+            if ref in trusted_refs
+        ),
+        *result_refs,
+    ]))
     candidate = BureauReport(
         report_id=f"bureau-report:{uuid4()}",
         request_id=f"bureau-request:{uuid4()}",
@@ -111,6 +119,7 @@ def _result_with_runtime_report(
         executive_summary=opinion,
         input_refs=input_refs,
         evidence_refs=evidence_refs,
+        audit_refs=tuple(dict.fromkeys(audit_refs)),
         data_gaps=data_gaps,
         evidence_sufficiency=(
             EvidenceSufficiency.SUFFICIENT
@@ -220,6 +229,7 @@ def _invoke_bureau_agent_with_report_authorized(
     report_session: AccountingReportSession | None = None,
     requirement_data_refs: Mapping[str, tuple[str, ...]] | None = None,
     approved_data_refs: Sequence[str] = (),
+    approved_data_inputs: Mapping[str, Mapping[str, object]] | None = None,
 ) -> BureauAgentInvocationResult:
     """Invoke one bureau once and return its opinion with an internal report."""
 
@@ -253,18 +263,11 @@ def _invoke_bureau_agent_with_report_authorized(
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_content},
     ]
+    node_id = None
+    selection_start = 0
+    degradation_start = 0
     if evidence_session is not None:
-        from app.agents.evidence_protocol import (
-            EvidenceProtocolError,
-            bureau_node_id,
-            invoke_bureau_with_evidence,
-        )
-        from app.agents.evidence_rendering import render_mainland_last_price
-        from app.agents.fact_plans import FactPlanDisposition
-        from app.agents.market_fact_plan import (
-            compile_mainland_last_price_plan,
-            extract_mainland_market_entity,
-        )
+        from app.agents.evidence_protocol import bureau_node_id
 
         node_id = bureau_node_id(department, bureau)
         snapshot_reader = getattr(evidence_session, "snapshot", None)
@@ -272,99 +275,324 @@ def _invoke_bureau_agent_with_report_authorized(
             before_snapshot = snapshot_reader()
             selection_start = len(before_snapshot.bureau_selections)
             degradation_start = len(before_snapshot.degradation_reasons)
-        else:
-            selection_start = 0
-            degradation_start = 0
         messages[0] = {
             "role": "system",
             "content": f"{system_prompt}\n\n{_evidence_protocol_prompt(node_id)}",
         }
-        evidence_kwargs: dict[str, object] = {}
-        if (department, bureau) == ("户部", "投资司"):
-            fact_plan = compile_mainland_last_price_plan(
+
+    try:
+        from app.agents.bureaus.prompts import policy_projected_tool_descriptors
+        from app.agents.runtime_skills.tool_handlers import build_bureau_tool_handlers
+        from app.agents.runtime_skills.tool_loop import run_bureau_tool_loop
+        from app.agents.runtime_skills.tool_models import ToolAuthorizationContext
+        from app.agents.runtime_skills.tool_registry import (
+            SYSTEM_MAX_RESULT_BYTES,
+            SYSTEM_MAX_RESULT_ROWS,
+            SYSTEM_MAX_TOOL_CALLS,
+            SYSTEM_MAX_TOOL_ROUNDS,
+        )
+
+        policy = runtime_skill.tool_policy
+        if policy is None:
+            raise ValueError("bureau_tool_policy_missing")
+        operation_id = str(uuid4())
+        case_id = f"case-{operation_id}"
+        decree_id = f"decree-{operation_id}"
+        approved_material_ref = (
+            f"input:case:{case_id}:decree:{decree_id}:bureau-request"
+        )
+        deterministic_fact_plan = None
+        if (
+            evidence_session is not None
+            and node_id is not None
+            and runtime_skill.agent_id == "hubu-investment"
+        ):
+            from app.agents.fact_plans import FactPlanDisposition
+            from app.agents.market_fact_plan import (
+                compile_mainland_last_price_plan,
+                extract_mainland_market_entity,
+            )
+
+            deterministic_fact_plan = compile_mainland_last_price_plan(
                 decree_text=decree_text,
                 node_id=node_id,
                 entity_extractor=lambda text: extract_mainland_market_entity(
-                    text,
-                    chat_model,
+                    text, chat_model
                 ),
             )
-            if fact_plan.disposition is FactPlanDisposition.REJECTED:
-                cause = ValueError(fact_plan.reason or "data_plan_invalid")
+            if deterministic_fact_plan.disposition is FactPlanDisposition.REJECTED:
+                cause = ValueError(
+                    deterministic_fact_plan.reason or "data_plan_invalid"
+                )
                 raise BureauAgentInvocationError(
                     "Bureau deterministic fact plan was rejected."
                 ) from cause
-            if fact_plan.disposition is FactPlanDisposition.PLANNED:
-                evidence_kwargs = {
-                    "fact_plan": fact_plan,
-                    "evidence_renderer": render_mainland_last_price,
-                }
-        try:
-            opinion = invoke_bureau_with_evidence(
+            if deterministic_fact_plan.disposition is not FactPlanDisposition.PLANNED:
+                deterministic_fact_plan = None
+        supplied_data: dict[str, dict[str, object]] = {}
+        for key, value in (approved_data_inputs or {}).items():
+            if (
+                not isinstance(key, str)
+                or not key.strip()
+                or ":" in key
+                or not isinstance(value, Mapping)
+            ):
+                raise ValueError("approved_data_input_invalid")
+            copied = deepcopy(dict(value))
+            if set(copied) != {"columns", "rows", "values", "unit"}:
+                raise ValueError("approved_data_input_invalid")
+            columns, rows = copied["columns"], copied["rows"]
+            if (
+                not isinstance(columns, list)
+                or not columns
+                or not isinstance(rows, list)
+                or any(not isinstance(row, Mapping) for row in rows)
+            ):
+                raise ValueError("approved_data_input_invalid")
+            supplied_data[key] = copied
+        canonical_data = {
+            f"approved-data:case:{case_id}:decree:{decree_id}:{key}": value
+            for key, value in supplied_data.items()
+        }
+        approved_refs = tuple(dict.fromkeys((*approved_data_refs, *canonical_data)))
+        authorization_context = ToolAuthorizationContext(
+            request_id=f"bureau-tool-request:{operation_id}",
+            case_id=case_id,
+            decree_id=decree_id,
+            agent_id=runtime_skill.agent_id,
+            skill_id=runtime_skill.skill_id,
+            skill_version=runtime_skill.version,
+            policy_id=policy.policy_id,
+            policy_version=policy.version,
+            approved_input_refs=(approved_material_ref,),
+            approved_evidence_refs=(),
+            approved_data_refs=approved_refs,
+            business_state="ready",
+            system_max_calls=SYSTEM_MAX_TOOL_CALLS,
+            system_max_rounds=SYSTEM_MAX_TOOL_ROUNDS,
+            system_max_result_rows=SYSTEM_MAX_RESULT_ROWS,
+            system_max_result_bytes=SYSTEM_MAX_RESULT_BYTES,
+        )
+        evidence_requester = None
+        if evidence_session is not None and node_id is not None:
+            from app.agents.evidence_protocol import build_bureau_evidence_tool_adapter
+
+            evidence_requester = build_bureau_evidence_tool_adapter(
+                session=evidence_session,
                 node_id=node_id,
                 department=department,
-                bureau=bureau,
                 matter_type="MEMORIAL",
-                decree_text=decree_text,
-                messages=messages,
-                chat_model=chat_model,
-                legacy_parser=_parse_opinion,
-                fallback=lambda reason: (
-                    f"数据不足（{reason}），无法形成事实结论；待取得可验证数据后再行复核。"
-                ),
-                session=evidence_session,
-                **evidence_kwargs,
+                case_id=case_id,
+                decree_id=decree_id,
             )
-            return _result_with_runtime_report(
-                _BureauSynthesis(opinion=opinion, recommendations=(opinion,), legacy=True),
-                runtime_skill,
-                evidence_session=evidence_session,
-                node_id=node_id,
-                selection_start=selection_start,
-                degradation_start=degradation_start,
-                requirement_data_refs=requirement_data_refs,
-                approved_data_refs=approved_data_refs,
-            )
-        except EvidenceProtocolError as exc:
-            from app.agents.synthesis_failures import is_locally_degradable
+        def material_reader(context):
+            fields = context.approved_call.normalized_arguments["fields"]
+            authorized_summary = f"旨意：{decree_text}\n部级路由判断：{rationale}"
+            projection = {
+                str(field).rsplit(".", 1)[-1]: authorized_summary for field in fields
+            }
+            return {
+                "result_schema": "approved_materials_result.v1",
+                "data": {"materials": [{
+                    "ref": approved_material_ref,
+                    "summary": authorized_summary,
+                    "projection": projection,
+                }]},
+                "input_refs": [approved_material_ref],
+                "evidence_refs": [],
+                "approved_data_refs": [],
+                "data_quality": "SUFFICIENT",
+                "limitations": [],
+                "as_of": datetime.now(UTC).isoformat(),
+            }
 
-            if is_locally_degradable(exc):
-                evidence_session.record_degradation(node_id)
-                opinion = (
-                    "数据不足（model_synthesis_invalid），无法形成事实结论；"
-                    "待取得可验证数据后再行复核。"
-                )
-                return _result_with_runtime_report(
-                    _BureauSynthesis(opinion=opinion, recommendations=(opinion,), legacy=True),
-                    runtime_skill,
-                    evidence_session=evidence_session,
-                    node_id=node_id,
-                    selection_start=selection_start,
-                    degradation_start=degradation_start,
-                    requirement_data_refs=requirement_data_refs,
-                    approved_data_refs=approved_data_refs,
-                )
-            raise BureauAgentInvocationError("Bureau evidence protocol failed.") from exc
+        def data_reader(context):
+            selected = next(iter(context.resolved_approved_inputs.values()))
+            return {
+                "result_schema": "approved_data_result.v1",
+                "data": {
+                    "operation": context.approved_call.normalized_arguments["operation"],
+                    "columns": list(selected["columns"]),
+                    "rows": deepcopy(selected["rows"]),
+                },
+                "input_refs": [],
+                "evidence_refs": [],
+                "approved_data_refs": list(context.resolved_approved_inputs),
+                "data_quality": "SUFFICIENT",
+                "limitations": [],
+                "as_of": datetime.now(UTC).isoformat(),
+            }
 
-    try:
-        synthesis = invoke_strict_structured(
-            chat_model,
-            messages,
-            lambda raw: _parse_bureau_synthesis(parse_strict_json_object(raw)),
-            stage="bureau",
+        handlers = build_bureau_tool_handlers(
+            material_reader=material_reader,
+            data_reader=data_reader if canonical_data else None,
+            evidence_requester=evidence_requester,
         )
+
+        def model_adapter(loop_messages: tuple[Mapping[str, object], ...]) -> object:
+            if deterministic_fact_plan is not None:
+                from app.agents.evidence_protocol import evidence_draft_to_tool_call
+                from app.agents.evidence_rendering import render_mainland_last_price
+
+                if len(loop_messages) == 2:
+                    if deterministic_fact_plan.draft is None:
+                        raise ValueError("data_plan_invalid")
+                    return evidence_draft_to_tool_call(
+                        deterministic_fact_plan.draft,
+                        domain=next(iter(policy.allowed_data_domains)),
+                    )
+                pack = evidence_session.latest_frozen_pack()
+                if pack is None:
+                    raise ValueError("evidence_unavailable")
+                rendered_opinion = render_mainland_last_price(pack)
+                evidence_session.record_selection(
+                    node_id, rendered_opinion.evidence_ids
+                )
+                return {
+                    "status": "FINAL",
+                    "report": {"opinion": rendered_opinion.opinion},
+                }
+            rendered = [dict(message) for message in messages]
+            rendered[-1]["content"] = (
+                f"{rendered[-1]['content']}\n\napproved_input_refs="
+                f"{approved_material_ref}"
+            )
+            if canonical_data:
+                rendered[-1]["content"] += (
+                    f"\napproved_data_refs={','.join(canonical_data)}"
+                )
+            for message in loop_messages[2:]:
+                role = message.get("role")
+                content = message.get("content")
+                rendered.append(
+                    {
+                        "role": "system" if role == "correction" else "user",
+                        "content": json.dumps(
+                            content,
+                            ensure_ascii=False,
+                            sort_keys=True,
+                            separators=(",", ":"),
+                        ),
+                    }
+                )
+            try:
+                raw = chat_model(rendered)
+            except Exception as exc:  # noqa: BLE001 - provider boundary
+                if evidence_session is not None:
+                    from app.agents.evidence_protocol import EvidenceProtocolError
+
+                    raise EvidenceProtocolError("model_unavailable") from exc
+                raise BureauAgentInvocationError(
+                    "Bureau structured response failed."
+                ) from exc
+            parsed: object = raw
+            if isinstance(raw, str):
+                try:
+                    parsed = parse_strict_json_object(raw)
+                except Exception as exc:  # normalized for the bounded loop
+                    raise ValueError("malformed_model_envelope") from exc
+            if (
+                evidence_session is not None
+                and node_id is not None
+                and isinstance(parsed, Mapping)
+                and parsed.get("status") == "NEEDS_DATA"
+            ):
+                from app.agents.evidence_protocol import legacy_gap_to_tool_call
+
+                return legacy_gap_to_tool_call(
+                    parsed,
+                    node_id=node_id,
+                    session=evidence_session,
+                    decree_text=decree_text,
+                    domain=next(iter(policy.allowed_data_domains)),
+                )
+            if (
+                evidence_session is not None
+                and node_id is not None
+                and isinstance(parsed, Mapping)
+                and parsed.get("status") == "READY"
+            ):
+                from app.agents.evidence_protocol import parse_bureau_ready_envelope
+
+                opinion = parse_bureau_ready_envelope(
+                    parsed,
+                    session=evidence_session,
+                    node_id=node_id,
+                    messages=messages,
+                )
+                if opinion is None:
+                    raise ValueError("evidence_ready_invalid")
+                return {"status": "FINAL", "report": {"opinion": opinion}}
+            if isinstance(parsed, Mapping) and "status" not in parsed:
+                return {"status": "FINAL", "report": dict(parsed)}
+            return parsed
+
+        loop_result = run_bureau_tool_loop(
+            skill=runtime_skill,
+            policy=policy,
+            tool_descriptors=policy_projected_tool_descriptors(policy),
+            canonical_context={
+                "department": department,
+                "bureau": bureau,
+                "decree_text": decree_text,
+                "rationale": rationale,
+                "approved_data_refs": list(approved_refs),
+            },
+            model_adapter=model_adapter,
+            authorization_context=authorization_context,
+            handlers=handlers,
+            resolved_approved_inputs={
+                approved_material_ref: {
+                    "decree_text": decree_text,
+                    "rationale": rationale,
+                },
+                **canonical_data,
+            },
+        )
+        if (
+            evidence_session is not None
+            and node_id is not None
+            and isinstance(loop_result.final_synthesis, Mapping)
+            and loop_result.final_synthesis.get("status") == "DEGRADED"
+        ):
+            evidence_session.record_degradation(node_id)
+            opinion = (
+                "数据不足（model_synthesis_invalid），无法形成事实结论；"
+                "待取得可验证数据后再行复核。"
+            )
+            synthesis = _BureauSynthesis(
+                opinion=opinion, recommendations=(opinion,), legacy=True
+            )
+        else:
+            synthesis = _parse_bureau_synthesis(loop_result.final_synthesis)
+        gated_refs = tuple(dict.fromkeys(
+            ref
+            for result in loop_result.accepted_results
+            for ref in (
+                *result.approved_input_refs,
+                *result.evidence_refs,
+                *result.approved_data_refs,
+            )
+        ))
         return _result_with_runtime_report(
             synthesis,
             runtime_skill,
-            evidence_session=None,
+            evidence_session=evidence_session,
+            node_id=node_id,
+            selection_start=selection_start,
+            degradation_start=degradation_start,
             requirement_data_refs=requirement_data_refs,
-            approved_data_refs=approved_data_refs,
+            result_refs=gated_refs,
+            audit_refs=loop_result.audit_refs,
         )
-    except StructuredInvocationError as exc:
-        error = BureauAgentInvocationError("Bureau structured response failed.")
-        error.failure_stage = exc.failure_stage
-        cause = exc.__cause__ if exc.failure_code == "provider_unavailable" else exc
-        raise error from cause
+    except (TypeError, ValueError) as exc:
+        raise BureauAgentInvocationError("Bureau structured response failed.") from exc
+    except Exception as exc:
+        from app.agents.evidence_protocol import EvidenceProtocolError
+
+        if isinstance(exc, EvidenceProtocolError):
+            raise BureauAgentInvocationError("Bureau evidence protocol failed.") from exc
+        raise
 
 
 def invoke_bureau_agent_with_report(
@@ -378,6 +606,7 @@ def invoke_bureau_agent_with_report(
     report_session: AccountingReportSession | None = None,
     requirement_data_refs: Mapping[str, tuple[str, ...]] | None = None,
     approved_data_refs: Sequence[str] = (),
+    approved_data_inputs: Mapping[str, Mapping[str, object]] | None = None,
 ) -> BureauAgentInvocationResult:
     """Authorize the bureau boundary before model, evidence, or report side effects."""
 
@@ -416,6 +645,7 @@ def invoke_bureau_agent_with_report(
             report_session=report_session,
             requirement_data_refs=requirement_data_refs,
             approved_data_refs=approved_data_refs,
+            approved_data_inputs=approved_data_inputs,
         ),
     )
 

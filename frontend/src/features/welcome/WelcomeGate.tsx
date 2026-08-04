@@ -16,7 +16,7 @@ export function WelcomeGate() {
     if (phase !== "opening") return;
 
     void videoRef.current?.play().catch(() => {
-      router.replace("/register");
+      router.replace("/login");
     });
   }, [phase, router]);
 
@@ -25,7 +25,7 @@ export function WelcomeGate() {
   }
 
   function completeOpening() {
-    router.replace("/register");
+    router.replace("/login");
   }
 
   return (

@@ -8,78 +8,21 @@ from app.agents.runtime_skills.models import (
     RuntimeService,
     RuntimeSkillDefinition,
 )
-from app.agents.runtime_skills.roles.bureaus.bingbu import SKILL_IDS as BINGBU_IDS
-from app.agents.runtime_skills.roles.bureaus.gongbu import SKILL_IDS as GONGBU_IDS
-from app.agents.runtime_skills.roles.bureaus.hubu import SKILL_IDS as HUBU_IDS
-from app.agents.runtime_skills.roles.bureaus.libu import SKILL_IDS as LIBU_IDS
-from app.agents.runtime_skills.roles.bureaus.libu_rites import (
-    SKILL_IDS as LIBU_RITES_IDS,
-)
-from app.agents.runtime_skills.roles.bureaus.professional import BUREAU_METHODS
-from app.agents.runtime_skills.roles.bureaus.xingbu import SKILL_IDS as XINGBU_IDS
+from app.agents.runtime_skills.roles.bureaus.skill_registry import BUREAU_SKILL_SPECS
 from app.agents.runtime_skills.roles.junjichu import JUNJICHU_SKILL
 from app.agents.runtime_skills.roles.ministries import MINISTRY_SKILLS
+from app.agents.runtime_skills.tool_registry import (
+    bureau_tool_policy_for,
+    validate_bureau_tool_registry,
+)
 
 
 class DownstreamSkillRegistryError(ValueError):
     """A stable fail-closed registry error."""
 
 
-_DEPARTMENT_SLUGS = {
-    "吏部": "libu",
-    "户部": "hubu",
-    "礼部": "libu-rites",
-    "兵部": "bingbu",
-    "刑部": "xingbu",
-    "工部": "gongbu",
-}
-_BUREAU_SLUGS = {
-    "任免司": "appointments",
-    "招聘司": "recruitment",
-    "劳关司": "labor-relations",
-    "薪酬司": "compensation",
-    "制度司": "policy",
-    "协同司": "coordination",
-    "预算司": "budget",
-    "出纳司": "treasury",
-    "盐铁司": "pricing",
-    "融资司": "financing",
-    "审计司": "audit",
-    "会计司": "accounting",
-    "投资司": "investment",
-    "品牌司": "brand",
-    "公关司": "public-relations",
-    "客户沟通司": "customer-communications",
-    "内容司": "content",
-    "政企司": "government-enterprise",
-    "体验司": "experience",
-    "报价司": "sales-opportunity",
-    "线索司": "leads",
-    "渠道司": "channels",
-    "客户司": "customers",
-    "竞情司": "competition",
-    "增长司": "growth",
-    "合同司": "contracts",
-    "合规稽查司": "compliance",
-    "风控司": "risk-control",
-    "缺证核查司": "evidence-integrity",
-    "争议处置司": "disputes",
-    "知识产权司": "intellectual-property",
-    "产研司": "product",
-    "技术司": "technology",
-    "物料司": "supply",
-    "进度司": "schedule",
-    "质量司": "quality",
-    "现场司": "field",
-    "承诺司": "commitments",
-}
-_SKILL_IDS_BY_DEPARTMENT = {
-    "吏部": LIBU_IDS,
-    "户部": HUBU_IDS,
-    "礼部": LIBU_RITES_IDS,
-    "兵部": BINGBU_IDS,
-    "刑部": XINGBU_IDS,
-    "工部": GONGBU_IDS,
+_BUREAU_SPECS_BY_IDENTITY = {
+    (spec.department, spec.bureau): spec for spec in BUREAU_SKILL_SPECS
 }
 
 
@@ -87,7 +30,7 @@ def bureau_agent_id(department: str, bureau: str) -> str:
     """Return the stable agent ID for an authoritative compound identity."""
 
     try:
-        return f"{_DEPARTMENT_SLUGS[department]}-{_BUREAU_SLUGS[bureau]}"
+        return _BUREAU_SPECS_BY_IDENTITY[(department, bureau)].agent_id
     except KeyError as exc:
         raise DownstreamSkillRegistryError("unknown_bureau_identity") from exc
 
@@ -133,33 +76,20 @@ class DownstreamSkillRegistry:
 
 def _build_bureau_skills() -> tuple[RuntimeSkillDefinition, ...]:
     authoritative = {(item.department, item.bureau) for item in BUREAU_PROFILES}
-    declared = {
-        (department, bureau)
-        for department, skill_ids in _SKILL_IDS_BY_DEPARTMENT.items()
-        for bureau in skill_ids
-    }
+    declared = set(_BUREAU_SPECS_BY_IDENTITY)
     if declared != authoritative:
         raise DownstreamSkillRegistryError("bureau_registry_mismatch")
-    if set(BUREAU_METHODS) != authoritative:
-        raise DownstreamSkillRegistryError("bureau_method_registry_mismatch")
-
     return tuple(
         RuntimeSkillDefinition(
-            skill_id=_SKILL_IDS_BY_DEPARTMENT[profile.department][profile.bureau],
+            skill_id=spec.skill_id,
             version="1.0.0",
-            agent_id=bureau_agent_id(profile.department, profile.bureau),
+            agent_id=spec.agent_id,
             layer=AgentLayer.BUREAU,
             purpose=f"以{profile.bureau}职责分析{'、'.join(profile.responsibilities)}。",
             responsibility_scope=profile.responsibilities,
-            data_requirements=BUREAU_METHODS[
-                (profile.department, profile.bureau)
-            ].data_requirements,
-            analysis_procedure=BUREAU_METHODS[
-                (profile.department, profile.bureau)
-            ].analysis_procedure,
-            required_findings=BUREAU_METHODS[
-                (profile.department, profile.bureau)
-            ].required_findings,
+            data_requirements=spec.method.data_requirements,
+            analysis_procedure=spec.method.analysis_procedure,
+            required_findings=spec.method.required_findings,
             allowed_services=frozenset(
                 {
                     RuntimeService.REQUEST_MATERIALS,
@@ -169,12 +99,11 @@ def _build_bureau_skills() -> tuple[RuntimeSkillDefinition, ...]:
                     RuntimeService.EVIDENCE_PROTOCOL,
                 }
             ),
-            forbidden_actions=BUREAU_METHODS[
-                (profile.department, profile.bureau)
-            ].forbidden_actions,
+            forbidden_actions=spec.method.forbidden_actions,
             report_type=BureauReport,
+            tool_policy=bureau_tool_policy_for(spec.agent_id),
         )
-        for profile in BUREAU_PROFILES
+        for profile, spec in zip(BUREAU_PROFILES, BUREAU_SKILL_SPECS, strict=True)
     )
 
 
@@ -213,7 +142,7 @@ def _authoritative_bindings() -> dict[str, tuple[str, AgentLayer, frozenset[Runt
         },
         **{
             bureau_agent_id(profile.department, profile.bureau): (
-                _SKILL_IDS_BY_DEPARTMENT[profile.department][profile.bureau],
+                _BUREAU_SPECS_BY_IDENTITY[(profile.department, profile.bureau)].skill_id,
                 AgentLayer.BUREAU,
                 _BUREAU_SERVICES,
             )
@@ -242,9 +171,16 @@ def _validate_authoritative_inventory(
             raise DownstreamSkillRegistryError("invalid_agent_layer")
         if skill.allowed_services != expected_services:
             raise DownstreamSkillRegistryError("invalid_service_policy")
+        if expected_layer is AgentLayer.BUREAU:
+            expected_policy = bureau_tool_policy_for(skill.agent_id)
+            if skill.tool_policy != expected_policy:
+                raise DownstreamSkillRegistryError("invalid_tool_policy_binding")
+        elif skill.tool_policy is not None:
+            raise DownstreamSkillRegistryError("upper_layer_tool_policy_forbidden")
 
 
 def build_default_downstream_skill_registry() -> DownstreamSkillRegistry:
+    validate_bureau_tool_registry()
     registry = DownstreamSkillRegistry(ALL_DOWNSTREAM_SKILLS)
     validate_legacy_capability_skill_bindings(registry)
     counts = {layer: 0 for layer in AgentLayer}

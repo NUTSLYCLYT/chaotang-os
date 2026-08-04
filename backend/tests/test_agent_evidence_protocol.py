@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# ruff: noqa: E501, I001
+
 import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
@@ -12,6 +14,8 @@ import pytest
 from app.agents.evidence_protocol import (
     AgentEvidenceSession,
     EvidenceProtocolError,
+    build_bureau_evidence_tool_adapter,
+    verify_bureau_evidence_tool_adapter,
     build_default_evidence_session,
     bureau_node_id,
     invoke_bureau_with_evidence,
@@ -33,6 +37,15 @@ from app.jinyiwei.models import (
     MarketMetric,
     SourceType,
 )
+from app.agents.runtime_skills.registry import build_default_downstream_skill_registry
+from app.agents.runtime_skills.tool_executor import execute_approved_tool
+from app.agents.runtime_skills.tool_handlers import build_bureau_tool_handlers
+from app.agents.runtime_skills.tool_models import (
+    ToolAuthorizationContext, ToolBudget, ToolCallProposal, ToolHandlerContext,
+    ToolName,
+)
+from app.agents.runtime_skills.tool_policy import approve_tool_call
+from app.agents.runtime_skills.tool_registry import TOOL_DESCRIPTORS
 
 
 def _legacy_parser(value: object) -> dict[str, str]:
@@ -265,6 +278,123 @@ class Coordinator:
     ) -> EvidencePack:
         self.calls.append((request, department, matter_type, extraction_budget))
         return _pack(request, status=self.status, cache_hit=self.cache_hit)
+
+
+def test_bureau_evidence_tool_adapter_uses_real_session_and_canonical_projection() -> None:
+    coordinator = Coordinator()
+    session = AgentEvidenceSession(coordinator=coordinator, id_factory=lambda: "request-tool")
+    adapter = build_bureau_evidence_tool_adapter(
+        session=session, node_id="bureau:libu:policy", department="吏部",
+        matter_type="MEMORIAL", case_id="case-1", decree_id="decree-1",
+    )
+    call = SimpleNamespace(
+        case_id="case-1", decree_id="decree-1",
+        normalized_arguments={
+            "domain": "workforce.policy",
+            "fact_slots": [{
+                "fact_slot": "market_size", "description": "market size",
+                "category": "PUBLIC_STATISTIC", "data_scope": "EXTERNAL_PUBLIC",
+                "subject": "market", "time_range": {"as_of": "case"},
+                "freshness": {"max_age_seconds": 600}, "use": "decision",
+            }],
+        },
+    )
+    payload = adapter(SimpleNamespace(approved_call=call))
+    assert len(coordinator.calls) == 1
+    assert coordinator.calls[0][0].required_facts[0].key == "market_size"
+    assert session.snapshot().available_evidence_ids == ("e-1",)
+    assert payload["data"] == {"facts": [{
+        "ref": "evidence:case:case-1:decree:decree-1:e-1",
+        "fact_key": "market_size", "summary": "公开事实原文",
+        "value": 100, "as_of": "2026-07-20T11:30:00Z",
+    }]}
+    with pytest.raises(AttributeError, match="frozen"):
+        adapter._case_id = "forged"  # type: ignore[attr-defined]
+
+
+def test_bureau_evidence_tool_adapter_is_signed_final_and_tamper_evident() -> None:
+    session = AgentEvidenceSession(coordinator=Coordinator())
+    adapter = build_bureau_evidence_tool_adapter(
+        session=session, node_id="bureau:libu:policy", department="吏部",
+        matter_type="MEMORIAL", case_id="case-1", decree_id="decree-1",
+    )
+    assert verify_bureau_evidence_tool_adapter(
+        adapter, case_id="case-1", decree_id="decree-1"
+    )
+    with pytest.raises(TypeError):
+        class Forged(type(adapter)):
+            pass
+    object.__setattr__(adapter, "_case_id", "forged")
+    assert not verify_bureau_evidence_tool_adapter(
+        adapter, case_id="case-1", decree_id="decree-1"
+    )
+
+
+def test_exact_type_full_slot_clone_cannot_reuse_signed_provenance() -> None:
+    session = AgentEvidenceSession(coordinator=Coordinator())
+    original = build_bureau_evidence_tool_adapter(session=session, node_id="bureau:x", department="吏部", matter_type="MEMORIAL", case_id="case-1", decree_id="decree-1")
+    clone = object.__new__(type(original))
+    for slot in type(original).__slots__:
+        object.__setattr__(clone, slot, getattr(original, slot))
+    assert not verify_bureau_evidence_tool_adapter(clone, case_id="case-1", decree_id="decree-1")
+    object.__setattr__(clone, "_signature", "0" * 64)
+    assert not verify_bureau_evidence_tool_adapter(clone, case_id="case-1", decree_id="decree-1")
+
+
+def test_bureau_evidence_tool_real_approved_end_to_end() -> None:
+    coordinator = Coordinator()
+    session = AgentEvidenceSession(coordinator=coordinator, id_factory=lambda: "req-e2e")
+    skill = build_default_downstream_skill_registry().get_by_agent("libu-policy")
+    policy = skill.tool_policy
+    assert policy is not None
+    arguments = {
+        "operation": "request_fact_slots", "domain": "workforce.policy",
+        "fact_slots": [{"fact_slot": "market_size", "description": "market size", "category": "PUBLIC_STATISTIC", "data_scope": "EXTERNAL_PUBLIC", "subject": "market", "time_range": {"as_of": "case"}, "freshness": {"max_age_seconds": 600}, "use": "decision"}],
+        "estimated_rows": 1, "estimated_bytes": 1024,
+    }
+    authorization = ToolAuthorizationContext(
+        request_id="request-1", case_id="case-1", decree_id="decree-1",
+        agent_id=skill.agent_id, skill_id=skill.skill_id, skill_version=skill.version,
+        policy_id=policy.policy_id, policy_version=policy.version,
+        approved_input_refs=(), approved_evidence_refs=(), approved_data_refs=(),
+        business_state="ready", system_max_calls=4, system_max_rounds=2,
+        system_max_result_rows=200, system_max_result_bytes=262144,
+    )
+    budget = ToolBudget(max_calls=4, consumed_calls=0, max_rounds=2, consumed_rounds=0, max_rows=200, consumed_rows=0, max_bytes=262144, consumed_bytes=0)
+    approved = approve_tool_call(authorization, ToolCallProposal(tool_call_id="tc-e2e", tool_name=ToolName.REQUEST_EVIDENCE, purpose="bounded fact", arguments=arguments, required_for=("finding",), expected_result_schema=TOOL_DESCRIPTORS[ToolName.REQUEST_EVIDENCE].output_schema_id), budget, ())
+    adapter = build_bureau_evidence_tool_adapter(session=session, node_id="bureau:libu:policy", department="吏部", matter_type="MEMORIAL", case_id="case-1", decree_id="decree-1")
+    capability = build_bureau_tool_handlers(material_reader=None, data_reader=None, evidence_requester=adapter)
+    context = ToolHandlerContext(approved_call=approved, capability_id=capability.capability_id, resolved_approved_inputs={}, restricted_adapters={"evidence": "protocol"}, budget=budget)  # type: ignore[attr-defined]
+    result = execute_approved_tool(approved, context, capability)
+    assert result.data["facts"][0]["fact_key"] == "market_size"
+    assert len(coordinator.calls) == 1
+    assert coordinator.calls[0][0].source_scope[:2] == (SourceType.SHIGUAN, SourceType.MCP)
+    snapshot = session.snapshot()
+    assert snapshot.bureau_selections == snapshot.adopted_evidence_ids == ()
+    assert snapshot.degradation_reasons == ()
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        (EvidencePackStatus.PARTIAL, "PARTIAL"),
+        (EvidencePackStatus.UNAVAILABLE, "evidence_unavailable"),
+        (EvidencePackStatus.BLOCKED, "evidence_blocked"),
+    ],
+)
+def test_bureau_evidence_tool_status_mapping(status, expected) -> None:
+    session = AgentEvidenceSession(coordinator=Coordinator(status=status))
+    adapter = build_bureau_evidence_tool_adapter(session=session, node_id="bureau:x", department="吏部", matter_type="MEMORIAL", case_id="case-1", decree_id="decree-1")
+    call = SimpleNamespace(case_id="case-1", decree_id="decree-1", normalized_arguments={"domain": "workforce.policy", "fact_slots": [{"fact_slot": "market_size", "description": "market size", "category": "PUBLIC_STATISTIC", "data_scope": "EXTERNAL_PUBLIC", "subject": "market", "time_range": {"as_of": "case"}, "freshness": {"max_age_seconds": 600}, "use": "decision"}]})
+    if status is EvidencePackStatus.PARTIAL:
+        assert adapter(SimpleNamespace(approved_call=call))["data_quality"] == expected
+    else:
+        with pytest.raises(EvidenceProtocolError, match=expected):
+            adapter(SimpleNamespace(approved_call=call))
+    snapshot = session.snapshot()
+    assert len(snapshot.packs) == 1
+    assert snapshot.bureau_selections == snapshot.adopted_evidence_ids == ()
+    assert snapshot.degradation_reasons
 
 
 class Clock:

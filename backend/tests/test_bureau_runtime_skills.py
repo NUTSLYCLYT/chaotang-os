@@ -16,6 +16,7 @@ from app.agents.bureaus import (
 )
 from app.agents.evidence_protocol import AgentEvidenceSession, bureau_node_id
 from app.agents.runtime_skills import (
+    AgentLayer,
     BureauReport,
     EvidenceSufficiency,
     ReportStatus,
@@ -23,6 +24,7 @@ from app.agents.runtime_skills import (
     build_default_downstream_skill_registry,
     bureau_agent_id,
 )
+from app.agents.runtime_skills.tool_registry import BUREAU_TOOL_POLICIES
 
 
 @pytest.fixture(autouse=True)
@@ -32,6 +34,31 @@ def isolated_runtime_audits():
         yield
     finally:
         runtime_executor_module.clear_runtime_skill_audits()
+
+
+def test_registry_attaches_all_exact_professional_policies_only_to_bureaus() -> None:
+    skills = build_default_downstream_skill_registry().skills
+    bureau_skills = tuple(skill for skill in skills if skill.layer is AgentLayer.BUREAU)
+    upper_skills = tuple(skill for skill in skills if skill.layer is not AgentLayer.BUREAU)
+
+    assert len(bureau_skills) == 39
+    assert {skill.agent_id for skill in bureau_skills} == set(BUREAU_TOOL_POLICIES)
+    assert all(
+        skill.tool_policy is BUREAU_TOOL_POLICIES[skill.agent_id]
+        for skill in bureau_skills
+    )
+    assert all(skill.tool_policy is None for skill in upper_skills)
+    for skill in bureau_skills:
+        policy = skill.tool_policy
+        assert policy is not None
+        assert policy.agent_id == skill.agent_id
+        assert policy.allowed_data_domains
+        assert set(policy.tool_operations) == set(policy.allowed_tools)
+        assert set(policy.tool_argument_constraints) == set(policy.allowed_tools)
+        assert all(
+            set(constraints["allowed_domains"]) <= policy.allowed_data_domains
+            for constraints in policy.tool_argument_constraints.values()
+        )
 
 
 @pytest.mark.parametrize(
@@ -165,14 +192,12 @@ def test_production_bureau_report_runs_through_shared_executor(monkeypatch) -> N
 
     assert len(calls) == 1
     assert order == ["authorized", "model"]
-    assert result.runtime_report.analysis
-    assert result.runtime_report.risks
-    assert result.runtime_report.out_of_scope_items
-    assert result.runtime_report.analysis == ("reconciled ledger to voucher",)
-    assert result.runtime_report.professional_findings == ("one timing difference",)
-    assert result.runtime_report.risks == ("cutoff risk",)
+    assert result.runtime_report.analysis == ()
+    assert result.runtime_report.professional_findings == ()
+    assert result.runtime_report.risks == ()
     assert result.runtime_report.recommendations == ("correct the timing difference",)
-    assert result.runtime_report.status is ReportStatus.COMPLETED
+    assert result.runtime_report.status is ReportStatus.DEGRADED
+    assert result.runtime_report.input_refs == ()
     audits = executor_module.runtime_skill_audit_snapshot()
     assert [audit.agent_id for audit in audits] == [skill.agent_id]
     assert "approved accounting request" not in audits[0].model_dump_json()
@@ -212,16 +237,16 @@ def test_partial_coverage_uses_only_current_bureau_selection(monkeypatch) -> Non
     session.record_selection(node_id, ("old-evidence",))
     calls = 0
 
-    def fake_evidence_invoke(**kwargs):
+    def model(_messages):
         nonlocal calls
         calls += 1
-        kwargs["session"].record_selection(node_id, (f"new-evidence-{calls}",))
-        return f"opinion-{calls}"
-
-    monkeypatch.setattr(
-        "app.agents.evidence_protocol.invoke_bureau_with_evidence",
-        fake_evidence_invoke,
-    )
+        session.record_selection(node_id, (f"new-evidence-{calls}",))
+        opinion = f"opinion-{calls}"
+        return json.dumps({"status": "READY", "result": {
+            "opinion": opinion, "factual_claims": [{
+                "claim": opinion, "basis": "NORMATIVE", "evidence_ids": [],
+                "fact_key": None, "category": None, "subject": None,
+            }]}, "adopted_evidence_ids": [], "fact_basis": "NOT_REQUIRED"})
     skill = build_default_downstream_skill_registry().get_by_agent("hubu-accounting")
 
     first = invoke_bureau_agent_with_report(
@@ -229,7 +254,7 @@ def test_partial_coverage_uses_only_current_bureau_selection(monkeypatch) -> Non
         "会计司",
         "request one",
         "route",
-        lambda _messages: pytest.fail("evidence adapter owns the call"),
+        model,
         evidence_session=session,
         requirement_data_refs={skill.data_requirements[0]: ("new-evidence-1",)},
     )
@@ -238,7 +263,7 @@ def test_partial_coverage_uses_only_current_bureau_selection(monkeypatch) -> Non
         "会计司",
         "request two",
         "route",
-        lambda _messages: pytest.fail("evidence adapter owns the call"),
+        model,
         evidence_session=session,
         requirement_data_refs={skill.data_requirements[0]: ("new-evidence-2",)},
     )
@@ -256,20 +281,20 @@ def test_full_current_call_legacy_evidence_result_remains_degraded(monkeypatch) 
     node_id = bureau_node_id("户部", "会计司")
     skill = build_default_downstream_skill_registry().get_by_agent("hubu-accounting")
 
-    def fake_evidence_invoke(**kwargs):
-        kwargs["session"].record_selection(node_id, ("ledger", "contracts"))
-        return "bounded accounting recommendation"
-
-    monkeypatch.setattr(
-        "app.agents.evidence_protocol.invoke_bureau_with_evidence",
-        fake_evidence_invoke,
-    )
+    def model(_messages):
+        session.record_selection(node_id, ("ledger", "contracts"))
+        opinion = "bounded accounting recommendation"
+        return json.dumps({"status": "READY", "result": {
+            "opinion": opinion, "factual_claims": [{
+                "claim": opinion, "basis": "NORMATIVE", "evidence_ids": [],
+                "fact_key": None, "category": None, "subject": None,
+            }]}, "adopted_evidence_ids": [], "fact_basis": "NOT_REQUIRED"})
     result = invoke_bureau_agent_with_report(
         "户部",
         "会计司",
         "request",
         "route",
-        lambda _messages: pytest.fail("evidence adapter owns the call"),
+        model,
         evidence_session=session,
         requirement_data_refs={
             skill.data_requirements[0]: ("ledger",),
@@ -290,19 +315,19 @@ def test_second_call_does_not_inherit_first_call_degradation(monkeypatch) -> Non
     skill = build_default_downstream_skill_registry().get_by_agent("hubu-accounting")
     calls = 0
 
-    def fake_evidence_invoke(**kwargs):
+    def model(_messages):
         nonlocal calls
         calls += 1
         refs = (f"call-{calls}-one", f"call-{calls}-two")
-        kwargs["session"].record_selection(node_id, refs)
+        session.record_selection(node_id, refs)
         if calls == 1:
-            kwargs["session"].record_degradation(node_id)
-        return f"opinion-{calls}"
-
-    monkeypatch.setattr(
-        "app.agents.evidence_protocol.invoke_bureau_with_evidence",
-        fake_evidence_invoke,
-    )
+            session.record_degradation(node_id)
+        opinion = f"opinion-{calls}"
+        return json.dumps({"status": "READY", "result": {
+            "opinion": opinion, "factual_claims": [{
+                "claim": opinion, "basis": "NORMATIVE", "evidence_ids": [],
+                "fact_key": None, "category": None, "subject": None,
+            }]}, "adopted_evidence_ids": [], "fact_basis": "NOT_REQUIRED"})
 
     def coverage(call: int) -> dict[str, tuple[str, ...]]:
         return {
@@ -315,7 +340,7 @@ def test_second_call_does_not_inherit_first_call_degradation(monkeypatch) -> Non
         "会计司",
         "first",
         "route",
-        lambda _messages: pytest.fail("evidence adapter owns the call"),
+        model,
         evidence_session=session,
         requirement_data_refs=coverage(1),
     )
@@ -324,7 +349,7 @@ def test_second_call_does_not_inherit_first_call_degradation(monkeypatch) -> Non
         "会计司",
         "second",
         "route",
-        lambda _messages: pytest.fail("evidence adapter owns the call"),
+        model,
         evidence_session=session,
         requirement_data_refs=coverage(2),
     )
@@ -341,19 +366,19 @@ def test_second_call_records_its_own_new_degradation(monkeypatch) -> None:
     skill = build_default_downstream_skill_registry().get_by_agent("hubu-accounting")
     calls = 0
 
-    def fake_evidence_invoke(**kwargs):
+    def model(_messages):
         nonlocal calls
         calls += 1
         refs = (f"call-{calls}-one", f"call-{calls}-two")
-        kwargs["session"].record_selection(node_id, refs)
+        session.record_selection(node_id, refs)
         if calls == 2:
-            kwargs["session"].record_degradation(node_id)
-        return f"opinion-{calls}"
-
-    monkeypatch.setattr(
-        "app.agents.evidence_protocol.invoke_bureau_with_evidence",
-        fake_evidence_invoke,
-    )
+            session.record_degradation(node_id)
+        opinion = f"opinion-{calls}"
+        return json.dumps({"status": "READY", "result": {
+            "opinion": opinion, "factual_claims": [{
+                "claim": opinion, "basis": "NORMATIVE", "evidence_ids": [],
+                "fact_key": None, "category": None, "subject": None,
+            }]}, "adopted_evidence_ids": [], "fact_basis": "NOT_REQUIRED"})
 
     def coverage(call: int) -> dict[str, tuple[str, ...]]:
         return {
@@ -366,7 +391,7 @@ def test_second_call_records_its_own_new_degradation(monkeypatch) -> None:
         "会计司",
         "first",
         "route",
-        lambda _messages: pytest.fail("evidence adapter owns the call"),
+        model,
         evidence_session=session,
         requirement_data_refs=coverage(1),
     )
@@ -375,7 +400,7 @@ def test_second_call_records_its_own_new_degradation(monkeypatch) -> None:
         "会计司",
         "second",
         "route",
-        lambda _messages: pytest.fail("evidence adapter owns the call"),
+        model,
         evidence_session=session,
         requirement_data_refs=coverage(2),
     )

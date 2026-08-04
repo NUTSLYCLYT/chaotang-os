@@ -1,3 +1,20 @@
+# Bureau Agent Controlled Tool Use SDD Progress
+
+# DeepSeek v4 Flash Model Refresh SDD Progress
+
+Plan: `docs/superpowers/plans/2026-08-04-deepseek-v4-flash-model-refresh.md`
+
+- Task 1: complete (uncommitted by authorization boundary; spec compliance APPROVED; code quality APPROVED; TDD RED then 17 GREEN tests)
+- Task 2: complete (uncommitted by authorization boundary; spec compliance APPROVED; document quality APPROVED after executable live-probe remediation)
+- Task 3: complete (runtime spec/evidence APPROVED; reviewed 120s timeout; final single authenticated draft HTTP 200 and visible in 66.234s; low report-banner note recorded)
+- Task 4: complete (authoritative reset 10/10 rounds; fingerprint d9c5ddad6d9fe2132d06effee9a10bff6d71d2327db0823ffd0447d4d6f0a587; 120/120 commands; final whole-delivery review READY)
+
+Plan: `docs/superpowers/plans/2026-08-03-bureau-agent-tool-use.md`
+
+- Tasks 1-8: complete (whole-branch review APPROVED)
+- Task 9: complete (Evidence review APPROVED; accepted fingerprint `97c08d5aa1fa186083eda45edef8178fd3565826303b6887b277d8b117943e6b`; 10/10 rounds, 90/90 commands)
+- Historical fingerprints `7d7d2538...`, `2fbc7e11...`, `519a4228...`, and failed preflight `858c64d3...` are invalid/non-counting.
+
 # Bureau Page Evidence Envelope Fix SDD Progress
 
 Plan: `docs/superpowers/plans/2026-07-29-bureau-page-evidence-envelope-fix.md`

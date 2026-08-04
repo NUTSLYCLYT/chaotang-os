@@ -1,0 +1,91 @@
+"""Authoritative Runtime Skill declaration for one bureau."""
+
+from app.agents.runtime_skills.roles.bureaus.skill_spec import (
+    BureauMethod,
+    BureauRuntimeSkillSpec,
+    BureauToolPolicySpec,
+)
+from app.agents.runtime_skills.tool_models import ToolName
+
+__all__ = ("SKILL",)
+
+SKILL: BureauRuntimeSkillSpec = BureauRuntimeSkillSpec(
+    department="礼部",
+    bureau="品牌司",
+    agent_id="libu-rites-brand",
+    skill_id="analyze-brand-consistency",
+    method=BureauMethod(
+        data_requirements=(
+            "品牌规范、视觉资产与语气指南",
+            "拟发布物料、渠道和目标受众",
+        ),
+        analysis_procedure=(
+            "核对品牌元素和使用场景",
+            "检查语气、视觉与主张一致性",
+            "评估误读风险并给出修订清单",
+        ),
+        required_findings=(
+            "品牌规范偏离",
+            "受众误读与声誉影响",
+        ),
+        forbidden_actions=(
+            "不得擅自修改受保护品牌资产",
+            "不得把草案标记为已发布",
+        ),
+    ),
+    tool_policy=BureauToolPolicySpec(
+        policy_id="bureau.libu_rites.brand.tools",
+        version="1.0.0",
+        agent_id="libu-rites-brand",
+        allowed_tools=(ToolName.READ_APPROVED_MATERIALS,),
+        allowed_data_domains=("communications.brand",),
+        tool_operations=(
+            (
+                ToolName.READ_APPROVED_MATERIALS,
+                (
+                    "read_summary",
+                    "lookup_section",
+                ),
+            ),
+        ),
+        tool_argument_constraints=(
+            (
+                ToolName.READ_APPROVED_MATERIALS,
+                (
+                    (
+                        "allowed_domains",
+                        ("communications.brand",),
+                    ),
+                    (
+                        "operation_required",
+                        True,
+                    ),
+                    (
+                        "approved_refs_only",
+                        True,
+                    ),
+                    (
+                        "allowed_fields",
+                        ("communications.brand.asset_id",),
+                    ),
+                    (
+                        "allowed_dimensions",
+                        ("communications.brand.channel",),
+                    ),
+                    (
+                        "allowed_metrics",
+                        ("communications.brand.brand_deviation",),
+                    ),
+                ),
+            ),
+        ),
+        required_data_refs=(
+            "case",
+            "decree",
+        ),
+        max_tool_calls=4,
+        max_tool_rounds=2,
+        max_result_rows=200,
+        max_result_bytes=262144,
+    ),
+)

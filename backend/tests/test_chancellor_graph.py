@@ -448,15 +448,9 @@ def test_supported_market_graph_degrades_each_model_layer_with_adopted_evidence(
     assert len(result["recommendations"]) == 3
     assert len(set(result["recommendations"])) == 3
     expected_degradations = {
-        "bureau": ("model_synthesis_degraded:bureau:户部:投资司",),
-        "ministry": (
-            "model_synthesis_degraded:bureau:户部:投资司",
-            "model_synthesis_degraded:ministry:户部",
-        ),
-        "finalizer": (
-            "model_synthesis_degraded:bureau:户部:投资司",
-            "model_synthesis_degraded:chancellor:finalize",
-        ),
+        "bureau": (),
+        "ministry": ("model_synthesis_degraded:ministry:户部",),
+        "finalizer": ("model_synthesis_degraded:chancellor:finalize",),
     }[failed_stage]
     assert snapshot.degradation_reasons == expected_degradations
     if failed_stage == "finalizer":
@@ -553,7 +547,7 @@ def test_supported_market_graph_extracts_ambiguous_entity_before_one_investigati
 
     assert entity_calls == 2
     assert len(coordinator.requests) == 1
-    assert events == ["entity", "entity", "investigation", "expression"]
+    assert events == ["entity", "entity", "investigation"]
     assert result["adopted_evidence_ids"] == ("evidence-market-graph",)
 
 
@@ -1141,6 +1135,7 @@ class _RecordingEvidenceSession:
 class _AdoptingEvidenceSession(_RecordingEvidenceSession):
     def __init__(self, available: tuple[str, ...]) -> None:
         super().__init__(used=False)
+        self.coordinator = object()
         self.available = available
         self.selections: list[tuple[str, tuple[str, ...]]] = []
 
@@ -1494,7 +1489,7 @@ def test_market_quote_graph_uses_precompiled_plan_and_adopts_latest_available_ev
     evidence = result["evidence_snapshot"].packs[0].evidence_by_fact["market_quote:last_price"][0]
     assert evidence.source_type is SourceType.MCP
     assert evidence.as_of < evidence.retrieved_at
-    assert len(calls) == 3
+    assert len(calls) == 2
     assert "NEEDS_DATA" not in calls[0][-1]["content"]
     assert "evidence-market-graph" in calls[0][-1]["content"]
 

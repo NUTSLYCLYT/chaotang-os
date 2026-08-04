@@ -44,8 +44,11 @@ def test_load_real_providers_yaml_with_active_deepseek_succeeds():
 
     assert config.base_url == "https://api.deepseek.com/v1"
     assert config.api_key_env == "DEEPSEEK_API_KEY"
-    assert config.default_model == "openai/deepseek-chat"
-    assert config.models == ("openai/deepseek-chat", "openai/deepseek-reasoner")
+    assert config.default_model == "openai/deepseek-v4-flash"
+    assert config.models == (
+        "openai/deepseek-v4-flash",
+        "openai/deepseek-v4-pro",
+    )
 
 
 def test_load_from_explicit_tmp_path_succeeds(tmp_path):

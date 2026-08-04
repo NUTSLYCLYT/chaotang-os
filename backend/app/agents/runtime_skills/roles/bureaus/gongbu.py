@@ -1,9 +1,7 @@
+"""工部 compatibility Skill-ID export."""
+
+from app.agents.runtime_skills.roles.bureaus.skill_registry import BUREAU_SKILL_SPECS
+
 SKILL_IDS = {
-    "产研司": "analyze-product-strategy",
-    "技术司": "analyze-technical-feasibility",
-    "物料司": "analyze-supply-readiness",
-    "进度司": "analyze-delivery-schedule",
-    "质量司": "analyze-quality-readiness",
-    "现场司": "analyze-field-conditions",
-    "承诺司": "analyze-commitment-fulfillment",
+    spec.bureau: spec.skill_id for spec in BUREAU_SKILL_SPECS if spec.department == "工部"
 }

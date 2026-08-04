@@ -1,8 +1,7 @@
+"""吏部 compatibility Skill-ID export."""
+
+from app.agents.runtime_skills.roles.bureaus.skill_registry import BUREAU_SKILL_SPECS
+
 SKILL_IDS = {
-    "任免司": "analyze-appointment-fit",
-    "招聘司": "analyze-recruitment-pipeline",
-    "劳关司": "analyze-labor-relations",
-    "薪酬司": "analyze-compensation-equity",
-    "制度司": "analyze-hr-policy",
-    "协同司": "analyze-workforce-coordination",
+    spec.bureau: spec.skill_id for spec in BUREAU_SKILL_SPECS if spec.department == "吏部"
 }

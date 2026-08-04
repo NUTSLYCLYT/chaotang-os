@@ -20,6 +20,7 @@ export type BackendHealthResult =
 
 const DEFAULT_BACKEND_BASE_URL = "http://127.0.0.1:8000";
 const DEFAULT_TIMEOUT_MS = 3000;
+const CHANCELLOR_DRAFT_TIMEOUT_MS = 120000;
 
 /**
  * 读取服务端专用环境变量 `BACKEND_BASE_URL`；未设置时使用本地开发默认值。
@@ -873,7 +874,7 @@ export async function chancellorDraft(
   const timer = schedule(() => {
     timedOut = true;
     controller.abort();
-  }, options.timeoutMs ?? 30000);
+  }, options.timeoutMs ?? CHANCELLOR_DRAFT_TIMEOUT_MS);
   try {
     const response = await (options.fetchImpl ?? fetch)(
       `${(options.baseUrl ?? getBackendBaseUrl()).replace(/\/+$/, "")}/api/v1/chancellor-drafts`,

@@ -15,6 +15,24 @@ from app.agents.runtime_skills.models import (
     SkillAuditRecord,
     SkillInvocation,
 )
+from app.agents.runtime_skills.tool_models import BureauToolPolicy, ToolName
+
+
+def _minimal_bureau_tool_policy() -> BureauToolPolicy:
+    return BureauToolPolicy(
+        policy_id="policy-hubu-accounting",
+        version="1.0.0",
+        agent_id="hubu-accounting",
+        allowed_tools=frozenset({ToolName.READ_APPROVED_MATERIALS}),
+        allowed_data_domains=frozenset({"accounting"}),
+        tool_operations={ToolName.READ_APPROVED_MATERIALS: ("read",)},
+        tool_argument_constraints={ToolName.READ_APPROVED_MATERIALS: {}},
+        required_data_refs=("approved-material:ledger",),
+        max_tool_calls=1,
+        max_tool_rounds=1,
+        max_result_rows=10,
+        max_result_bytes=1024,
+    )
 
 
 def _bureau_report(**overrides: object) -> BureauReport:
@@ -115,6 +133,7 @@ def test_runtime_skill_definition_is_immutable_and_serializes_string_enums() -> 
         allowed_services=frozenset({RuntimeService.EVIDENCE_PROTOCOL}),
         forbidden_actions=("直接访问 MCP",),
         report_type=BureauReport,
+        tool_policy=_minimal_bureau_tool_policy(),
     )
 
     assert definition.model_dump(mode="json", exclude={"report_type"})["layer"] == "bureau"
@@ -149,6 +168,7 @@ def test_runtime_skill_definition_rejects_invalid_metadata(
         "allowed_services": frozenset(),
         "forbidden_actions": ("直接执行付款",),
         "report_type": BureauReport,
+        "tool_policy": _minimal_bureau_tool_policy(),
     }
     values[field] = value
 
@@ -359,6 +379,11 @@ def test_runtime_skill_definition_rejects_layer_report_type_mismatch(
             allowed_services=frozenset(),
             forbidden_actions=("overreach",),
             report_type=report_type,
+            tool_policy=(
+                _minimal_bureau_tool_policy()
+                if layer is AgentLayer.BUREAU
+                else None
+            ),
         )
 
 

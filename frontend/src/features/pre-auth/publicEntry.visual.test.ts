@@ -62,6 +62,8 @@ test("public entry shells use the V5 palace visual language without replacing li
   const topbarRule = extractBlock(authCss, ".topbar {");
   const frameRule = extractBlock(authCss, ".frame {");
   const footerRule = extractBlock(authCss, ".siteFooter {", 2);
+  const inputFocusRule = extractBlock(authCss, ".input:focus-visible {");
+  const buttonFocusRule = extractBlock(authCss, ".button:focus-visible {");
   const narrowRules = extractBlock(authCss, "@media (max-width: 720px)");
   const reducedMotionRules = extractBlock(authCss, "@media (prefers-reduced-motion: reduce)");
 
@@ -86,6 +88,10 @@ test("public entry shells use the V5 palace visual language without replacing li
   assert.match(reducedMotionRules, /transition-duration:\s*\.01ms\s*!important\s*;/);
   assert.match(reducedMotionRules, /scroll-behavior:\s*auto\s*!important\s*;/);
   assert.match(authCss, /#9a6a34/i);
+  assert.match(inputFocusRule, /border-color:\s*#c38b4b\s*;/i);
+  assert.match(inputFocusRule, /outline:\s*none\s*;/i);
+  assert.doesNotMatch(inputFocusRule, /outline-offset|box-shadow/);
+  assert.match(buttonFocusRule, /outline:\s*2px\s+solid\s+#efd7a9\s*;/i);
   assert.doesNotMatch(shell, /fetch\(|localStorage|sessionStorage|backendClient|useRouter/);
 
   assertSuspenseWrapsForm(loginPage, "LoginForm");

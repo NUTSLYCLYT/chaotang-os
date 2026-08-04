@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 import {
+  chancellorDraft,
   chancellorConsult,
   downloadReportArtifact,
   fetchHealth,
@@ -15,6 +16,77 @@ import {
   type JinyiweiReadOptions,
   updateShiguanReview,
 } from "./backendClient.ts";
+
+test("chancellor draft uses 120 second default timeout", async () => {
+  let scheduledDelay: number | undefined;
+  const result = await chancellorDraft(
+    [{ role: "user", content: "请拟旨" }],
+    1,
+    {
+      fetchImpl: async () =>
+        new Response(
+          JSON.stringify({
+            status: "ok",
+            version: 1,
+            fingerprint: "draft-fingerprint",
+            understanding: "拟旨理解",
+            expert_example: "专家示例",
+          }),
+          { status: 200 },
+        ),
+      scheduleTimeout: (_callback, delay) => {
+        scheduledDelay = delay;
+        return "injected-draft-timeout";
+      },
+      cancelTimeout: (handle) =>
+        assert.equal(handle, "injected-draft-timeout"),
+    },
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(scheduledDelay, 120000);
+});
+
+test("chancellor draft preserves an explicit timeout override", async () => {
+  let scheduledDelay: number | undefined;
+  let timeoutCallback: (() => void) | undefined;
+  let requestSignal: AbortSignal | undefined;
+  let cancelled = 0;
+  const request = chancellorDraft(
+    [{ role: "user", content: "请拟旨" }],
+    1,
+    {
+      timeoutMs: 7,
+      fetchImpl: async (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          requestSignal = init?.signal ?? undefined;
+          requestSignal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("aborted", "AbortError")),
+            { once: true },
+          );
+        }),
+      scheduleTimeout: (callback, delay) => {
+        scheduledDelay = delay;
+        timeoutCallback = callback;
+        return "injected-draft-override-timeout";
+      },
+      cancelTimeout: (handle) => {
+        assert.equal(handle, "injected-draft-override-timeout");
+        cancelled += 1;
+      },
+    },
+  );
+
+  assert.equal(scheduledDelay, 7);
+  assert.ok(timeoutCallback);
+  timeoutCallback();
+  const result = await request;
+
+  assert.equal(requestSignal?.aborted, true);
+  assert.deepEqual(result, { ok: false, kind: "timeout" });
+  assert.equal(cancelled, 1);
+});
 
 test("chancellorConsult sends one authenticated request and maps the independent response", async () => {
   let calls = 0;

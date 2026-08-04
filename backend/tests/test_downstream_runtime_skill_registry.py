@@ -10,6 +10,7 @@ from app.agents.runtime_skills import (
     bureau_agent_id,
 )
 from app.agents.runtime_skills.models import RuntimeSkillDefinition
+from app.agents.runtime_skills.tool_registry import BUREAU_TOOL_POLICIES
 
 EXPECTED_SKILL_IDS = {
     "conduct-joint-ministry-review",
@@ -63,6 +64,10 @@ EXPECTED_SKILL_IDS = {
 
 def test_default_registry_has_exactly_46_one_to_one_bindings() -> None:
     registry = build_default_downstream_skill_registry()
+    assert all(
+        (skill.tool_policy is not None) is (skill.layer is AgentLayer.BUREAU)
+        for skill in registry.skills
+    )
     assert len(registry.skills) == 46
     assert len({skill.skill_id for skill in registry.skills}) == 46
     assert len({skill.agent_id for skill in registry.skills}) == 46
@@ -227,7 +232,6 @@ def test_registry_rejects_upper_layer_evidence_protocol(layer: AgentLayer) -> No
     with pytest.raises(DownstreamSkillRegistryError, match="invalid_service_policy"):
         DownstreamSkillRegistry(tuple(skills))
 
-
 def test_registry_rejects_bureau_missing_or_having_illegal_service() -> None:
     skills = list(build_default_downstream_skill_registry().skills)
     index = next(i for i, skill in enumerate(skills) if skill.layer is AgentLayer.BUREAU)
@@ -244,4 +248,28 @@ def test_registry_rejects_bureau_missing_or_having_illegal_service() -> None:
         allowed_services=skills[index].allowed_services | {RuntimeService.BUREAU_AGENTS},
     )
     with pytest.raises(DownstreamSkillRegistryError, match="invalid_service_policy"):
+        DownstreamSkillRegistry(tuple(skills))
+
+
+def test_registry_rejects_mutated_wrong_bureau_policy_binding() -> None:
+    skills = list(build_default_downstream_skill_registry().skills)
+    bureau_indexes = [
+        index for index, skill in enumerate(skills) if skill.layer is AgentLayer.BUREAU
+    ]
+    first, second = bureau_indexes[:2]
+    skills[first] = _replace(skills[first], tool_policy=skills[second].tool_policy)
+    with pytest.raises(DownstreamSkillRegistryError, match="invalid_tool_policy_binding"):
+        DownstreamSkillRegistry(tuple(skills))
+
+
+@pytest.mark.parametrize("layer", [AgentLayer.MINISTRY, AgentLayer.COUNCIL])
+def test_registry_rejects_upper_layer_tool_policy(layer: AgentLayer) -> None:
+    skills = list(build_default_downstream_skill_registry().skills)
+    index = next(i for i, skill in enumerate(skills) if skill.layer is layer)
+    skills[index] = _replace(
+        skills[index], tool_policy=next(iter(BUREAU_TOOL_POLICIES.values()))
+    )
+    with pytest.raises(
+        DownstreamSkillRegistryError, match="upper_layer_tool_policy_forbidden"
+    ):
         DownstreamSkillRegistry(tuple(skills))

@@ -6,6 +6,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.agents.runtime_skills.tool_models import BureauToolPolicy
+
 _SEMANTIC_VERSION = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 
 
@@ -54,6 +56,7 @@ class RuntimeSkillDefinition(_FrozenContract):
     allowed_services: frozenset[RuntimeService]
     forbidden_actions: tuple[str, ...]
     report_type: type[BureauReport | MinistryReport | CouncilReport]
+    tool_policy: BureauToolPolicy | None = None
 
     @field_validator("skill_id", "agent_id", "purpose")
     @classmethod
@@ -91,6 +94,13 @@ class RuntimeSkillDefinition(_FrozenContract):
         }[self.layer]
         if self.report_type is not expected:
             raise ValueError("report_type_layer_mismatch")
+        if self.layer is AgentLayer.BUREAU:
+            if self.tool_policy is None:
+                raise ValueError("bureau_tool_policy_required")
+            if self.tool_policy.agent_id != self.agent_id:
+                raise ValueError("tool_policy_agent_mismatch")
+        elif self.tool_policy is not None:
+            raise ValueError("upper_layer_tool_policy_forbidden")
         return self
 
 
@@ -144,6 +154,7 @@ class _ReportBase(_FrozenContract):
     input_refs: tuple[str, ...] = ()
     data_sources: tuple[str, ...] = ()
     evidence_refs: tuple[str, ...] = ()
+    audit_refs: tuple[str, ...] = ()
     data_gaps: tuple[str, ...] = ()
     evidence_sufficiency: EvidenceSufficiency
     status: ReportStatus

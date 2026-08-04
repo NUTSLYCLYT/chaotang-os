@@ -12,7 +12,7 @@ providers:
   deepseek:
     base_url: https://api.deepseek.com/v1
     api_key_env: DEEPSEEK_API_KEY
-    default_model: openai/deepseek-chat
+    default_model: openai/deepseek-v4-flash
     models:
-      - openai/deepseek-chat
-      - openai/deepseek-reasoner
+      - openai/deepseek-v4-flash
+      - openai/deepseek-v4-pro

@@ -1,0 +1,91 @@
+"""Authoritative Runtime Skill declaration for one bureau."""
+
+from app.agents.runtime_skills.roles.bureaus.skill_spec import (
+    BureauMethod,
+    BureauRuntimeSkillSpec,
+    BureauToolPolicySpec,
+)
+from app.agents.runtime_skills.tool_models import ToolName
+
+__all__ = ("SKILL",)
+
+SKILL: BureauRuntimeSkillSpec = BureauRuntimeSkillSpec(
+    department="礼部",
+    bureau="客户沟通司",
+    agent_id="libu-rites-customer-communications",
+    skill_id="analyze-customer-communications",
+    method=BureauMethod(
+        data_requirements=(
+            "客户背景、沟通目标与历史往来",
+            "批准话术、禁用表述与承诺权限",
+        ),
+        analysis_procedure=(
+            "确认对象、目标和当前事实",
+            "审查话术清晰度与承诺边界",
+            "设计异议处理和后续确认动作",
+        ),
+        required_findings=(
+            "沟通歧义与客户预期差",
+            "禁用话术和越权承诺风险",
+        ),
+        forbidden_actions=(
+            "不得编造交付、价格或补偿承诺",
+            "不得代替授权人员发送客户消息",
+        ),
+    ),
+    tool_policy=BureauToolPolicySpec(
+        policy_id="bureau.libu_rites.customer_communications.tools",
+        version="1.0.0",
+        agent_id="libu-rites-customer-communications",
+        allowed_tools=(ToolName.READ_APPROVED_MATERIALS,),
+        allowed_data_domains=("communications.customer",),
+        tool_operations=(
+            (
+                ToolName.READ_APPROVED_MATERIALS,
+                (
+                    "read_summary",
+                    "lookup_section",
+                ),
+            ),
+        ),
+        tool_argument_constraints=(
+            (
+                ToolName.READ_APPROVED_MATERIALS,
+                (
+                    (
+                        "allowed_domains",
+                        ("communications.customer",),
+                    ),
+                    (
+                        "operation_required",
+                        True,
+                    ),
+                    (
+                        "approved_refs_only",
+                        True,
+                    ),
+                    (
+                        "allowed_fields",
+                        ("communications.customer.message_id",),
+                    ),
+                    (
+                        "allowed_dimensions",
+                        ("communications.customer.audience_segment",),
+                    ),
+                    (
+                        "allowed_metrics",
+                        ("communications.customer.promise_count",),
+                    ),
+                ),
+            ),
+        ),
+        required_data_refs=(
+            "case",
+            "decree",
+        ),
+        max_tool_calls=4,
+        max_tool_rounds=2,
+        max_result_rows=200,
+        max_result_bytes=262144,
+    ),
+)

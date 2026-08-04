@@ -1,9 +1,7 @@
+"""户部 compatibility Skill-ID export."""
+
+from app.agents.runtime_skills.roles.bureaus.skill_registry import BUREAU_SKILL_SPECS
+
 SKILL_IDS = {
-    "预算司": "analyze-budget-performance",
-    "出纳司": "analyze-cash-safety",
-    "盐铁司": "analyze-pricing-economics",
-    "融资司": "analyze-financing-options",
-    "审计司": "analyze-financial-controls",
-    "会计司": "analyze-accounting-position",
-    "投资司": "analyze-investment-case",
+    spec.bureau: spec.skill_id for spec in BUREAU_SKILL_SPECS if spec.department == "户部"
 }

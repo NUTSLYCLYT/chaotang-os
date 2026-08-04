@@ -31,7 +31,6 @@ from app.agents.evidence_protocol import (
     bureau_node_id,
     invoke_bureau_with_evidence,
 )
-from app.agents.evidence_rendering import render_mainland_last_price
 from app.agents.fact_plans import FactPlanDisposition, FactPlanResult
 from app.agents.ministries import NO_IRREVERSIBLE_ACTION_CONSTRAINT
 
@@ -211,11 +210,10 @@ def test_capability_bound_high_risk_prompts_remain_advice_or_drafts_pending_appr
         assert NO_IRREVERSIBLE_ACTION_CONSTRAINT in prompt
 
 
-def test_invoke_bureau_agent_corrects_two_invalid_structured_responses():
+def test_invoke_bureau_agent_corrects_one_invalid_structured_response():
     responses = iter(
         (
             "not-json secret-first-response",
-            '{"wrong":"secret-second-response"}',
             '{"opinion":"validated opinion"}',
         )
     )
@@ -234,7 +232,7 @@ def test_invoke_bureau_agent_corrects_two_invalid_structured_responses():
     )
 
     assert result == "validated opinion"
-    assert len(calls) == 3
+    assert len(calls) == 2
     assert calls[0][-1]["role"] == "user"
     assert calls[1][-1]["role"] == "system"
     assert "secret-first-response" not in calls[1][-1]["content"]
@@ -582,10 +580,10 @@ def test_evidence_fallback_says_data_is_insufficient_without_factual_conclusion(
     assert "无法形成事实结论" in result
 
 
-def test_investment_bureau_attaches_only_planned_mainland_last_price_plan(
+def test_investment_bureau_rejects_planned_fact_plan_without_a_draft(
     monkeypatch,
 ) -> None:
-    session = object()
+    session = AgentEvidenceSession(coordinator=object())
     captured: dict[str, object] = {}
     planned = FactPlanResult(FactPlanDisposition.PLANNED)
 
@@ -617,9 +615,8 @@ def test_investment_bureau_attaches_only_planned_mainland_last_price_plan(
         evidence_session=session,
     )
 
-    assert result == "已形成行情意见"
-    assert captured["fact_plan"] is planned
-    assert captured["evidence_renderer"] is render_mainland_last_price
+    assert "数据不足" in result
+    assert captured == {}
 
 
 def test_investment_bureau_rejected_plan_fails_with_only_stable_reason(

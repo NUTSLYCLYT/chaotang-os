@@ -1,8 +1,7 @@
+"""兵部 compatibility Skill-ID export."""
+
+from app.agents.runtime_skills.roles.bureaus.skill_registry import BUREAU_SKILL_SPECS
+
 SKILL_IDS = {
-    "报价司": "analyze-sales-opportunity",
-    "线索司": "analyze-lead-acquisition",
-    "渠道司": "analyze-channel-performance",
-    "客户司": "analyze-customer-health",
-    "竞情司": "analyze-competitive-position",
-    "增长司": "analyze-growth-funnel",
+    spec.bureau: spec.skill_id for spec in BUREAU_SKILL_SPECS if spec.department == "兵部"
 }

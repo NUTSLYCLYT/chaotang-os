@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import math
 import re
+import secrets
 import threading
 import time
 import uuid
 from collections.abc import Callable, Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -413,6 +417,12 @@ class AgentEvidenceSession:
         with self._lock:
             return self._evidence_bindings.get(evidence_id)
 
+    def latest_frozen_pack(self) -> EvidencePack | None:
+        """Return the latest immutable pack for deterministic evidence rendering."""
+
+        with self._lock:
+            return self._packs[-1] if self._packs else None
+
     def validates_claim_binding(self, claim: FactualClaim) -> bool:
         """Validate one evidence-backed claim against all frozen evidence metadata."""
 
@@ -447,6 +457,7 @@ class AgentEvidenceSession:
                 if evidence_id not in self._adopted_set:
                     self._adopted_set.add(evidence_id)
                     self._adopted.append(evidence_id)
+
 
     def has_adopted_fact(
         self,
@@ -549,6 +560,161 @@ def bureau_node_id(department: str, bureau: str) -> str:
     if len(node_id) > 100:
         raise ValueError("bureau node identity is too long")
     return node_id
+
+
+_BUREAU_EVIDENCE_ADAPTER_SEAL = object()
+_BUREAU_EVIDENCE_SIGNING_KEY = secrets.token_bytes(32)
+
+
+def _bureau_evidence_signature(provenance: tuple[object, ...]) -> str:
+    message = "\x1f".join(str(value) for value in provenance).encode()
+    return hmac.new(
+        _BUREAU_EVIDENCE_SIGNING_KEY, message, hashlib.sha256
+    ).hexdigest()
+
+
+class BureauEvidenceToolAdapter:
+    __slots__ = (
+        "_session", "_node_id", "_department", "_matter_type", "_case_id",
+        "_decree_id", "_adapter_id", "_provenance", "_signature",
+        "_seal", "_frozen",
+    )
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        raise TypeError("bureau_evidence_adapter_is_final")
+
+    def __init__(
+        self, *, session: AgentEvidenceSession, node_id: str, department: str,
+        matter_type: str, case_id: str, decree_id: str,
+        _seal: object | None = None,
+    ) -> None:
+        if _seal is not _BUREAU_EVIDENCE_ADAPTER_SEAL:
+            raise TypeError("bureau_evidence_adapter_factory_required")
+        adapter_id = secrets.token_urlsafe(24)
+        provenance = (
+            adapter_id, id(self), id(session), id(session.coordinator), case_id, decree_id,
+            node_id, department, matter_type, id(BureauEvidenceToolAdapter.__call__),
+        )
+        fields = (
+            ("_session", session), ("_node_id", node_id),
+            ("_department", department), ("_matter_type", matter_type),
+            ("_case_id", case_id), ("_decree_id", decree_id),
+            ("_adapter_id", adapter_id), ("_provenance", provenance),
+            ("_signature", _bureau_evidence_signature(provenance)),
+            ("_seal", _seal), ("_frozen", True),
+        )
+        for name, value in fields:
+            object.__setattr__(self, name, value)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if getattr(self, "_frozen", False):
+            raise AttributeError("bureau_evidence_adapter_is_frozen")
+        object.__setattr__(self, name, value)
+
+    def __call__(self, context: object) -> Mapping[str, object]:
+        call = context.approved_call  # type: ignore[attr-defined]
+        if call.case_id != self._case_id or call.decree_id != self._decree_id:
+            raise EvidenceProtocolError("evidence_adapter_context_mismatch")
+        arguments = call.normalized_arguments
+        draft = DataGapDraft(
+            requesting_agent=self._node_id,
+            question="; ".join(
+                f"{slot['description']} time_range={slot['time_range']}"
+                for slot in arguments["fact_slots"]
+            ),
+            required_facts=tuple(
+                RequiredFact(
+                    key=slot["fact_slot"], description=slot["description"],
+                    category=slot["category"], data_scope=slot["data_scope"],
+                    subject=slot["subject"], jurisdiction=slot.get("jurisdiction"),
+                    expected_unit=slot.get("expected_unit"),
+                    expected_shape=slot.get("expected_shape"),
+                    market_metric=slot.get("market_metric"),
+                )
+                for slot in arguments["fact_slots"]
+            ),
+            decision_context="; ".join(
+                [arguments["domain"]]
+                + [f"use={slot['use']}" for slot in arguments["fact_slots"]]
+            ),
+            freshness=arguments["fact_slots"][0]["freshness"],
+        )
+        pack, failure = _investigate_draft(
+            draft=draft, source_scope=_SOURCE_SCOPE, node_id=self._node_id,
+            department=self._department, matter_type=self._matter_type,
+            session=self._session,
+        )
+        if pack is None:
+            raise EvidenceProtocolError(failure or "evidence_unavailable")
+        if pack.status is EvidencePackStatus.BLOCKED:
+            self._session.record_degradation(self._node_id)
+            raise EvidenceProtocolError("evidence_blocked")
+        if pack.status is EvidencePackStatus.UNAVAILABLE:
+            self._session.record_degradation(self._node_id)
+            raise EvidenceProtocolError("evidence_unavailable")
+        if pack.status is EvidencePackStatus.PARTIAL:
+            self._session.record_degradation(self._node_id)
+        items = [item for group in pack.evidence_by_fact.values() for item in group]
+        refs = [
+            f"evidence:case:{self._case_id}:decree:{self._decree_id}:{item.evidence_id}"
+            for item in items
+        ]
+        facts = [
+            {"ref": ref, "fact_key": item.fact_key, "summary": item.excerpt,
+             "value": item.value, "as_of": item.as_of}
+            for ref, item in zip(refs, items, strict=True)
+        ]
+        return {
+            "result_schema": "evidence_result.v1", "data": {"facts": facts},
+            "input_refs": [], "evidence_refs": refs, "approved_data_refs": [],
+            "data_quality": (
+                "SUFFICIENT"
+                if pack.status is EvidencePackStatus.RESOLVED
+                else "PARTIAL"
+            ),
+            "limitations": (
+                []
+                if pack.status is EvidencePackStatus.RESOLVED
+                else [*pack.unresolved_facts, failure or "evidence_partial"]
+            ),
+            "as_of": max(
+                (item.as_of for item in items), default="1970-01-01T00:00:00Z"
+            ),
+        }
+
+
+def build_bureau_evidence_tool_adapter(
+    *, session: AgentEvidenceSession, node_id: str, department: str,
+    matter_type: str, case_id: str, decree_id: str,
+) -> BureauEvidenceToolAdapter:
+    return BureauEvidenceToolAdapter(
+        session=session, node_id=node_id, department=department,
+        matter_type=matter_type, case_id=case_id, decree_id=decree_id,
+        _seal=_BUREAU_EVIDENCE_ADAPTER_SEAL,
+    )
+
+
+def verify_bureau_evidence_tool_adapter(
+    adapter: object, *, case_id: str, decree_id: str
+) -> bool:
+    if type(adapter) is not BureauEvidenceToolAdapter:
+        return False
+    current = (
+        adapter._adapter_id, id(adapter), id(adapter._session),
+        id(adapter._session.coordinator),
+        adapter._case_id, adapter._decree_id, adapter._node_id,
+        adapter._department, adapter._matter_type,
+        id(BureauEvidenceToolAdapter.__call__),
+    )
+    return bool(
+        adapter._seal is _BUREAU_EVIDENCE_ADAPTER_SEAL
+        and adapter._case_id == case_id
+        and adapter._decree_id == decree_id
+        and adapter._provenance == current
+        and hmac.compare_digest(
+            adapter._signature, _bureau_evidence_signature(current)
+        )
+    )
 
 
 def invoke_bureau_with_evidence(
@@ -985,6 +1151,47 @@ def _parse_ready(
     return result
 
 
+def parse_bureau_ready_envelope(
+    payload: Mapping[str, Any],
+    *,
+    session: AgentEvidenceSession,
+    node_id: str,
+    messages: Sequence[Mapping[str, str]],
+) -> str | None:
+    """Validate/adopt a legacy READY envelope for the shared bureau Tool Loop."""
+
+    normalized = deepcopy(dict(payload))
+
+    def evidence_id(value: object) -> object:
+        if not isinstance(value, str) or session.knows_all((value,)):
+            return value
+        if value.startswith("evidence:case:") and ":decree:" in value:
+            raw = value.rsplit(":", 1)[-1]
+            if session.knows_all((raw,)):
+                return raw
+        return value
+
+    adopted = normalized.get("adopted_evidence_ids")
+    if isinstance(adopted, list):
+        normalized["adopted_evidence_ids"] = [evidence_id(item) for item in adopted]
+    result = normalized.get("result")
+    if isinstance(result, dict):
+        claims = result.get("factual_claims")
+        if isinstance(claims, list):
+            for claim in claims:
+                if isinstance(claim, dict) and isinstance(claim.get("evidence_ids"), list):
+                    claim["evidence_ids"] = [
+                        evidence_id(item) for item in claim["evidence_ids"]
+                    ]
+    return _parse_ready(
+        normalized,
+        lambda value: str(value["opinion"]),
+        session,
+        node_id,
+        messages,
+    )
+
+
 def _has_unsupported_factual_dependency(
     envelope: ReadyEnvelope,
     messages: Sequence[Mapping[str, str]],
@@ -1158,6 +1365,61 @@ def _parse_gap(
         return draft.model_copy(update={"required_facts": constrained_facts})
     except (TypeError, ValueError, ValidationError) as exc:
         raise EvidenceProtocolError("data_gap_invalid") from exc
+
+
+def legacy_gap_to_tool_call(
+    payload: Mapping[str, Any],
+    *,
+    node_id: str,
+    session: AgentEvidenceSession,
+    decree_text: str,
+    domain: str,
+) -> dict[str, object]:
+    """Validate a legacy NEEDS_DATA envelope and emit an untrusted tool proposal."""
+
+    draft = _parse_gap(dict(payload), node_id, session, decree_text)
+    return evidence_draft_to_tool_call(draft, domain=domain)
+
+
+def evidence_draft_to_tool_call(
+    draft: DataGapDraft, *, domain: str
+) -> dict[str, object]:
+    """Convert one already validated deterministic draft to a tool proposal."""
+
+    return {
+        "status": "TOOL_CALLS",
+        "calls": [{
+            "tool_call_id": f"request-evidence-{secrets.token_hex(8)}",
+            "tool_name": "request_evidence",
+            "purpose": draft.decision_context,
+            "arguments": {
+                "operation": "request_fact_slots",
+                "domain": domain,
+                "fact_slots": [{
+                    "fact_slot": fact.key,
+                    "description": fact.description,
+                    "category": fact.category.value,
+                    "data_scope": fact.data_scope.value,
+                    "subject": fact.subject,
+                    "jurisdiction": fact.jurisdiction,
+                    "expected_unit": fact.expected_unit,
+                    "expected_shape": fact.expected_shape,
+                    "market_metric": (
+                        fact.market_metric.value if fact.market_metric is not None else None
+                    ),
+                    "time_range": {"as_of": "case"},
+                    "freshness": draft.freshness.model_dump(
+                        mode="json", exclude_none=True
+                    ),
+                    "use": draft.decision_context,
+                } for fact in draft.required_facts],
+                "estimated_rows": len(draft.required_facts),
+                "estimated_bytes": 4096,
+            },
+            "required_for": [fact.key for fact in draft.required_facts],
+            "expected_result_schema": "evidence_result.v1",
+        }],
+    }
 
 
 def _constrain_market_facts(
@@ -1340,6 +1602,8 @@ __all__ = [
     "FactualClaim",
     "MARKET_METRIC_PROMPT_CONTRACT",
     "build_default_evidence_session",
+    "build_bureau_evidence_tool_adapter",
+    "verify_bureau_evidence_tool_adapter",
     "bureau_node_id",
     "invoke_bureau_with_evidence",
 ]

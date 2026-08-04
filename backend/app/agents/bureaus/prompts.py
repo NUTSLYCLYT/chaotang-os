@@ -2,13 +2,41 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from copy import deepcopy
+from typing import TYPE_CHECKING, Any
 
 from app.agents.bureaus.profiles import bureau_profile_for
 from app.agents.ministries.prompts import NO_IRREVERSIBLE_ACTION_CONSTRAINT
 
 if TYPE_CHECKING:
     from app.agents.runtime_skills.models import RuntimeSkillDefinition
+    from app.agents.runtime_skills.tool_models import BureauToolPolicy
+
+
+def policy_projected_tool_descriptors(
+    policy: BureauToolPolicy,
+) -> tuple[dict[str, Any], ...]:
+    """Expose only model-safe capabilities authorized by the current policy."""
+
+    from app.agents.runtime_skills.tool_registry import tool_descriptor_for
+
+    projected = []
+    for tool_name in sorted(policy.allowed_tools, key=lambda item: item.value):
+        descriptor = tool_descriptor_for(tool_name)
+        projected.append(
+            {
+                "tool_name": tool_name.value,
+                "input_schema": descriptor.input_schema_id,
+                "result_schema": descriptor.output_schema_id,
+                "operations": list(policy.tool_operations[tool_name]),
+                "argument_constraints": deepcopy(
+                    policy.tool_argument_constraints[tool_name]
+                ),
+                "max_result_rows": min(policy.max_result_rows, descriptor.max_result_rows),
+                "max_result_bytes": min(policy.max_result_bytes, descriptor.max_result_bytes),
+            }
+        )
+    return tuple(projected)
 
 
 def capability_prompt_section(department: str, bureau: str) -> str:

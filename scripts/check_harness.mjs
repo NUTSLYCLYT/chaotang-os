@@ -198,6 +198,13 @@ export function sectionBody(markdown, section) {
   return lines.slice(start + 1, end).join("\n").trim();
 }
 
+function stripAcceptanceFingerprintMarkers(value) {
+  return value.replace(
+    /<!-- ACCEPTANCE-FP-(?:BEGIN|END):(?:STATUS|AC-(?:0[1-9]|10)|IMPLEMENTATION|ACCEPTANCE-REVIEW) -->/g,
+    "",
+  );
+}
+
 export function productTaskErrors(path, content) {
   const errors = [];
   for (const section of missingSections(content, PRODUCT_TASK_SECTIONS)) {
@@ -209,7 +216,9 @@ export function productTaskErrors(path, content) {
   }
 
   const statusBody = sectionBody(content, "Status");
-  const status = statusBody?.split(/\r?\n/, 1)[0].trim();
+  const status = statusBody === null
+    ? undefined
+    : stripAcceptanceFingerprintMarkers(statusBody).split(/\r?\n/, 1)[0].trim();
   if (statusBody !== null && !PRODUCT_TASK_STATUSES.includes(status)) {
     errors.push(
       `产品任务 ${path} 的 Status 必须是 ${PRODUCT_TASK_STATUSES.join(", ")}，当前为: ${status || "空"}`,
@@ -217,7 +226,7 @@ export function productTaskErrors(path, content) {
   }
 
   const criteria = sectionBody(content, "Acceptance Criteria");
-  if (criteria !== null && !/^- \[(?: |x|X)\] .+/m.test(criteria)) {
+  if (criteria !== null && !/^- \[(?: |x|X)\] .+/m.test(stripAcceptanceFingerprintMarkers(criteria))) {
     errors.push(`产品任务 ${path} 的 Acceptance Criteria 至少需要一个 Markdown checkbox`);
   }
 
@@ -1687,6 +1696,26 @@ def render_mainland_last_price(pack):
       "Ready",
     ],
     ["接受合法产品任务", productTaskErrors("task.md", validProductTask), []],
+    [
+      "接受精确验收指纹 marker 包围的状态与复选框",
+      productTaskErrors(
+        "marked-task.md",
+        validProductTask
+          .replace("Ready", "<!-- ACCEPTANCE-FP-BEGIN:STATUS -->Ready<!-- ACCEPTANCE-FP-END:STATUS -->")
+          .replace("- [ ]", "<!-- ACCEPTANCE-FP-BEGIN:AC-01 -->- [ ]<!-- ACCEPTANCE-FP-END:AC-01 -->"),
+      ),
+      [],
+    ],
+    [
+      "拒绝把未知 HTML marker 当成验收指纹 marker 剥离",
+      productTaskErrors(
+        "unknown-marker-task.md",
+        validProductTask.replace("Ready", "<!-- ACCEPTANCE-FP-BEGIN:UNKNOWN -->Ready<!-- ACCEPTANCE-FP-END:UNKNOWN -->"),
+      ),
+      [
+        `产品任务 unknown-marker-task.md 的 Status 必须是 ${PRODUCT_TASK_STATUSES.join(", ")}，当前为: <!-- ACCEPTANCE-FP-BEGIN:UNKNOWN -->Ready<!-- ACCEPTANCE-FP-END:UNKNOWN -->`,
+      ],
+    ],
     [
       "拒绝非法产品任务状态和空验收清单",
       productTaskErrors(

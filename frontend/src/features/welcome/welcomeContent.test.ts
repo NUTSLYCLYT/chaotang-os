@@ -43,11 +43,11 @@ test("root welcome renders the V5 palace gate transition and two direct login ro
   assert.doesNotMatch(component, /\scontrols(?:\s|=|>)/);
   assert.match(component, /onEnded=\{completeOpening\}/);
   assert.match(component, /onError=\{completeOpening\}/);
-  assert.match(component, /router\.replace\("\/register"\)/);
+  assert.equal(component.match(/router\.replace\("\/login"\)/g)?.length, 2);
   assert.doesNotMatch(component, /\bopened\b/);
   assert.doesNotMatch(component, /welcome-gate-open\.png/);
   assert.doesNotMatch(component, /setTimeout/);
-  assert.doesNotMatch(component, /router\.(?:push|replace)\("\/login"\)/);
+  assert.doesNotMatch(component, /router\.(?:push|replace)\("\/register"\)/);
   assert.doesNotMatch(component, /\b(?:onSubmit|preventDefault|setSubmitted|demo)\b/i);
 
   assert.match(reducedMotionRule, /\.hero\s*,\s*\.actions\s*\{[^}]*animation:\s*none\s*;/);
