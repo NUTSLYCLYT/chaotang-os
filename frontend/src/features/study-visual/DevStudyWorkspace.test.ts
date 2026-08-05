@@ -138,6 +138,16 @@ test("draft pending and failure are visible in the central scroll", async () => 
   assert.match(source, /拟旨未能完成/);
 });
 
+test("submission failure is visible even while the approved draft is retained", async () => {
+  const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
+
+  const errorBranch = source.indexOf('props.uiState.phase === "error"');
+  const draftBranch = source.indexOf("props.draftResult ? (");
+  assert.ok(errorBranch >= 0);
+  assert.ok(errorBranch < draftBranch);
+  assert.match(source, /办理未能完成/);
+});
+
 test("study places the decree composer in the quick dock center slot", async () => {
   const source = await readFile(new URL("./DevStudyWorkspace.tsx", import.meta.url), "utf8");
 

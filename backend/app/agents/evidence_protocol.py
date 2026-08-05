@@ -814,19 +814,23 @@ def invoke_bureau_with_evidence(
     if ready is not None:
         return ready
 
+    requested_metrics = requested_market_metrics(decree_text)
     try:
         draft = _parse_gap(first, node_id, session, decree_text)
     except EvidenceProtocolError as exc:
         if (
             str(exc) != "data_gap_invalid"
-            or requested_market_metrics(decree_text) != (MarketMetric.LAST_PRICE,)
+            or not requested_metrics
             or has_out_of_scope_market_hint(decree_text)
             or not session.claim_protocol_correction()
         ):
             raise
         corrected = _call_and_parse(
             chat_model,
-            [*original_messages, _invalid_price_gap_correction(node_id)],
+            [
+                *original_messages,
+                _invalid_price_gap_correction(node_id, requested_metrics),
+            ],
         )
         if not _is_needs_data(corrected):
             raise EvidenceProtocolError("data_gap_invalid") from None
@@ -1339,7 +1343,53 @@ def _parse_gap(
     if set(payload) != {"status", "data_gap"} or payload.get("status") != "NEEDS_DATA":
         raise EvidenceProtocolError("response_invalid")
     try:
-        draft = DataGapDraft.model_validate(payload["data_gap"])
+        gap_payload = payload["data_gap"]
+        if isinstance(gap_payload, dict) and isinstance(
+            gap_payload.get("required_facts"), list
+        ):
+            requested_metrics = requested_market_metrics(decree_text)
+            requested_values = {metric.value for metric in requested_metrics}
+            valid_requested_market_facts = [
+                fact
+                for fact in gap_payload["required_facts"]
+                if isinstance(fact, dict)
+                and fact.get("category") == FactCategory.MARKET_QUOTE.value
+                and fact.get("market_metric") in requested_values
+            ]
+            if requested_values and {
+                fact["market_metric"] for fact in valid_requested_market_facts
+            } == requested_values:
+                # The original decree is the authority for market scope. Once the
+                # model supplied every requested metric, discard optional or
+                # malformed market slots before contract validation; they cannot
+                # expand the investigation and should not invalidate valid slots.
+                gap_payload = {
+                    **gap_payload,
+                    "required_facts": valid_requested_market_facts,
+                }
+            jurisdiction_aliases = {
+                "中国": "CN",
+                "中国大陆": "CN",
+                "中华人民共和国": "CN",
+                "中国A股": "CN",
+                "香港": "HK",
+                "中国香港": "HK",
+            }
+            gap_payload = {
+                **gap_payload,
+                "required_facts": [
+                    {
+                        **fact,
+                        "jurisdiction": jurisdiction_aliases.get(
+                            fact.get("jurisdiction"), fact.get("jurisdiction")
+                        ),
+                    }
+                    if isinstance(fact, dict)
+                    else fact
+                    for fact in gap_payload["required_facts"]
+                ],
+            }
+        draft = DataGapDraft.model_validate(gap_payload)
         _validate_gap_bounds(draft)
         if draft.requesting_agent != node_id:
             raise ValueError
@@ -1553,24 +1603,44 @@ def _bare_opinion_correction(node_id: str) -> Message:
     }
 
 
-def _invalid_price_gap_correction(node_id: str) -> Message:
+def _invalid_price_gap_correction(
+    node_id: str,
+    requested_metrics: tuple[MarketMetric, ...],
+) -> Message:
+    required_facts = [
+        {
+            "key": f"MAINLAND_{metric.value}",
+            "description": f"mainland China {metric.value}",
+            "category": "MARKET_QUOTE",
+            "data_scope": "EXTERNAL_PUBLIC",
+            "subject": "<mainland listed company or A-share ticker>",
+            "jurisdiction": "CN",
+            "expected_unit": "CNY",
+            "expected_shape": "number",
+            "market_metric": metric.value,
+        }
+        for metric in requested_metrics
+    ]
+    envelope = {
+        "status": "NEEDS_DATA",
+        "data_gap": {
+            "requesting_agent": node_id,
+            "question": "<question>",
+            "required_facts": required_facts,
+            "decision_context": "<context>",
+            "freshness": {"max_age_seconds": 300},
+            "existing_evidence_ids": [],
+        },
+    }
     return {
         "role": "user",
         "content": (
             "Return only one strict JSON object. READY is forbidden. "
-            "The decree asks only for a mainland China stock price. Return exactly "
-            "one mainland LAST_PRICE fact, use the ISO 3166-1 alpha-2 jurisdiction "
-            'code "CN", and do not add Hong Kong or overseas facts. Return exactly '
-            '{"status":"NEEDS_DATA","data_gap":{"requesting_agent":'
-            f'"{node_id}","question":"<question>","required_facts":['
-            '{"key":"<key>","description":"<description>",'
-            '"category":"MARKET_QUOTE","data_scope":"EXTERNAL_PUBLIC",'
-            '"subject":"<mainland listed company or A-share ticker>",'
-            '"jurisdiction":"CN","expected_unit":"CNY",'
-            '"expected_shape":"number","market_metric":"LAST_PRICE"}],'
-            '"decision_context":"<context>",'
-            '"freshness":{"max_age_seconds":300},'
-            '"existing_evidence_ids":[]}}. '
+            "The decree asks for explicit mainland China market metrics. Return "
+            "exactly one fact for each metric shown in the template, use the ISO "
+            '3166-1 alpha-2 jurisdiction code "CN", and do not add Hong Kong or '
+            "overseas facts. Return exactly "
+            f"{json.dumps(envelope, ensure_ascii=False, separators=(',', ':'))}. "
             "Do not mention Hong Kong, overseas markets, or non-mainland tickers "
             "in any field. "
             "Do not include any other text."

@@ -243,6 +243,7 @@ export function StudyClient({ userId }: { userId: string }) {
     const requestId = draftRequestIdRef.current + 1;
     draftRequestIdRef.current = requestId;
     const sourceText = decreeText;
+    setUiState(IDLE_UI_STATE);
     setDraftPending(true);
     setDraftError(null);
     await runChancellorDraftRequest({

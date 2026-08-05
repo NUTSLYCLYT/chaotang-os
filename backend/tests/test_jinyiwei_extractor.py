@@ -167,6 +167,63 @@ def test_extractor_uses_deterministic_mcp_mapping_without_model_interpretation()
     assert "\u0000" in document.metadata["value"]["summary"]
 
 
+def test_extractor_deterministically_maps_exact_wikidata_entity_result() -> None:
+    request = DataGapRequest(
+        request_id="req-entity",
+        requesting_agent="bureau:礼部:内容司",
+        question="核查 OpenAI 是什么公开实体",
+        required_facts=(
+            RequiredFact(
+                key="entity_reference:identity",
+                description="核查 OpenAI 的公开实体身份",
+                category=FactCategory.ENTITY_REFERENCE,
+                data_scope="EXTERNAL_PUBLIC",
+                subject="OpenAI",
+                jurisdiction="US",
+                expected_shape="string",
+            ),
+        ),
+        decision_context="公开实体核查",
+        freshness=FreshnessRequirement(max_age_seconds=86400),
+        timeout_seconds=30,
+        source_scope=(SourceType.PUBLIC_API,),
+    )
+    query = SourceQuery(
+        request=request,
+        unresolved_fact_keys=("entity_reference:identity",),
+        max_items=3,
+        deadline_at="2099-07-20T12:00:00Z",
+    )
+    document = SourceDocument(
+        source_type=SourceType.PUBLIC_API,
+        source_name="wikidata_entity_search",
+        source_url=(
+            "https://www.wikidata.org/w/api.php?action=wbsearchentities&"
+            "search=OpenAI&language=zh&format=json&limit=3"
+        ),
+        publisher="Wikidata",
+        title="OpenAI (Q24283660)",
+        retrieved_at="2026-08-05T00:00:00Z",
+        as_of="2026-08-05T00:00:00Z",
+        text="OpenAI — 美国人工智能研究组织",
+        quality_ceiling=EvidenceQuality.SECONDARY,
+        metadata={"connector": "wikidata_entity_search"},
+    )
+    calls: list[str] = []
+
+    evidence = StructuredEvidenceExtractor(
+        model=lambda prompt: calls.append(prompt) or "{}"
+    ).extract(query, (document,))
+
+    assert calls == []
+    assert len(evidence) == 1
+    assert evidence[0].fact_key == "entity_reference:identity"
+    assert evidence[0].value == "OpenAI — 美国人工智能研究组织"
+    assert evidence[0].excerpt == document.text
+    assert evidence[0].source_type is SourceType.PUBLIC_API
+    assert evidence[0].quality is EvidenceQuality.SECONDARY
+
+
 def test_extractor_derives_provenance_hash_confidence_and_deterministic_id() -> None:
     prompts: list[str] = []
 

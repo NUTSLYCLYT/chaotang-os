@@ -430,7 +430,7 @@ def test_default_public_api_registry_uses_bounded_private_wikidata_search() -> N
     assert parsed.path == "/w/api.php"
     assert parse_qs(parsed.query) == {
         "action": ["wbsearchentities"],
-        "search": ["北京市常住人口 北京市行政面积"],
+        "search": ["北京市"],
         "language": ["zh"],
         "format": ["json"],
         "limit": ["10"],
@@ -445,9 +445,10 @@ def test_default_public_api_registry_uses_bounded_private_wikidata_search() -> N
             ]
         }
     ).encode()
+    client = FakeClient([_response(connector.build_url(facts, 2), body)])
     result = PublicApiSource(
         registry=registry,
-        client=FakeClient([_response(connector.build_url(facts, 2), body)]),
+        client=client,
         now=lambda: NOW,
     ).fetch(_query(SourceType.PUBLIC_API))
 
@@ -457,6 +458,28 @@ def test_default_public_api_registry_uses_bounded_private_wikidata_search() -> N
     assert result.documents[0].publisher == "Wikidata"
     assert result.documents[0].quality_ceiling is EvidenceQuality.SECONDARY
     assert result.documents[0].as_of == "2026-07-20T12:00:00Z"
+    assert client.calls[0][1]["headers"] == {
+        "Accept": "application/json",
+        "User-Agent": "chaotang-os/1.0",
+    }
+
+
+def test_wikidata_search_uses_english_for_ascii_entity_subject() -> None:
+    connector = build_default_public_api_registry().get("wikidata_entity_search")
+    fact = RequiredFact(
+        key="entity_reference:identity",
+        description="核查 OpenAI 的公开实体身份",
+        category=FactCategory.ENTITY_REFERENCE,
+        data_scope="EXTERNAL_PUBLIC",
+        subject="OpenAI",
+        jurisdiction="US",
+        expected_shape="string",
+    )
+
+    parsed = urlsplit(connector.build_url((fact,), 1))
+
+    assert parse_qs(parsed.query)["search"] == ["OpenAI"]
+    assert parse_qs(parsed.query)["language"] == ["en"]
 
 
 def test_public_api_source_skips_empty_registry_explicitly() -> None:

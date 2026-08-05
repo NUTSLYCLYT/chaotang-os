@@ -323,10 +323,11 @@ def build_default_public_api_registry() -> PublicApiRegistry:
 def _build_wikidata_query(
     facts: tuple[RequiredFact, ...], limit: int
 ) -> Mapping[str, str]:
+    subjects = tuple(dict.fromkeys(fact.subject for fact in facts))
     return {
         "action": "wbsearchentities",
-        "search": " ".join(fact.description for fact in facts),
-        "language": "zh",
+        "search": " ".join(subjects),
+        "language": "en" if all(subject.isascii() for subject in subjects) else "zh",
         "format": "json",
         "limit": str(min(max(limit, 1), 10)),
     }

@@ -72,6 +72,13 @@ _BUREAU_ROUTE_CATALOG = "; ".join(
     for department in ("吏部", "户部", "礼部", "兵部", "刑部", "工部")
 )
 
+_BUREAU_FALLBACK_RULES = "；".join(
+    f'{department}不确定时必须使用 bureaus: ["'
+    f"{next(profile.bureau for profile in BUREAU_PROFILES if profile.department == department)}"
+    '"]'
+    for department in ("吏部", "户部", "礼部", "兵部", "刑部", "工部")
+)
+
 _ARRAY_OF_STRINGS_PATHS = {
     "assumptions",
     "draft.scope",
@@ -228,6 +235,7 @@ def _structure_correction(error: Exception | None) -> str:
         "吏部、户部、礼部、兵部、刑部、工部. bureaus must list one or more "
         "real bureaus belonging to that department, without duplicates. "
         f"Use only this department-to-bureau catalog: {_BUREAU_ROUTE_CATALOG}. "
+        f"If uncertain, obey these exact safe fallbacks: {_BUREAU_FALLBACK_RULES}. "
         "For accounting or financial-report work use department 户部 and "
         'bureaus ["会计司"], never department 户部会计司. '
         f"Use this complete typed JSON skeleton:\n{_TYPED_JSON_SKELETON}"
@@ -257,6 +265,7 @@ def _system_prompt(instructions: str) -> str:
         "六部固定为吏部、户部、礼部、兵部、刑部、工部；department 只能是六部名称。"
         "bureaus 必须是非空、无重复且仅包含本部真实司的数组。"
         f"司级路由只能从以下对应表选择：{_BUREAU_ROUTE_CATALOG}。"
+        f"无法确定本部具体司时，严格使用以下固定回退，不得创造司名：{_BUREAU_FALLBACK_RULES}。"
         "财务报表任务必须使用 department: \"户部\" 与 bureaus: [\"会计司\"]，"
         "不得把户部会计司写成 department。"
         "revision_prompt 必须是非空字符串。"

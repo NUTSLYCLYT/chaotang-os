@@ -580,3 +580,49 @@ def test_investment_fact_plan_uses_the_same_signed_tool_loop_without_model_call(
     assert coordinator.calls == 1
     assert session.snapshot().adopted_evidence_ids == ("quote-1",)
     assert len(result.runtime_report.audit_refs) == 1
+
+
+def test_rites_content_entity_plan_uses_signed_evidence_loop_without_model_call() -> None:
+    class EntityCoordinator:
+        calls = 0
+
+        def investigate(self, request, **_kwargs):
+            self.calls += 1
+            fact = request.required_facts[0]
+            item = EvidenceItem(
+                evidence_id="entity-1", fact_key=fact.key,
+                value="美国人工智能研究与部署公司", unit=None,
+                as_of="2026-08-04T00:00:00Z", retrieved_at="2026-08-04T00:00:01Z",
+                source_url="https://zh.wikipedia.org/wiki/OpenAI", publisher="Wikipedia",
+                source_type=SourceType.PUBLIC_API, quality=EvidenceQuality.SECONDARY,
+                stance=EvidenceStance.SUPPORTS, excerpt="OpenAI",
+                content_hash=hashlib.sha256(b"entity-1").hexdigest(), confidence=0.9,
+            )
+            return EvidencePack(
+                pack_id="entity-pack", investigation_id="entity-investigation",
+                status=EvidencePackStatus.RESOLVED, request=request,
+                investigation_plan=InvestigationPlan(
+                    fact_keys=(fact.key,), source_scope=request.source_scope,
+                ),
+                evidence_by_fact={fact.key: (item,)}, historical_evidence_by_fact={},
+                resolved_facts=(fact.key,), unresolved_facts=(), conflicts=(),
+                source_attempts=(), investigation_started_at="2026-08-04T00:00:00Z",
+                investigation_completed_at="2026-08-04T00:00:02Z",
+                cache=CacheMetadata(hit=False), do_not_infer=(),
+            )
+
+    coordinator = EntityCoordinator()
+    session = AgentEvidenceSession(coordinator=coordinator)
+
+    result = invoke_bureau_agent_with_report(
+        "礼部", "内容司",
+        "通过锦衣卫外网调查核查 OpenAI 是什么公开实体，只需要一个 ENTITY_REFERENCE",
+        "公开实体事实核查",
+        lambda _messages: pytest.fail("deterministic entity plan must own synthesis"),
+        evidence_session=session,
+    )
+
+    assert "美国人工智能研究与部署公司" in result.opinion
+    assert coordinator.calls == 1
+    assert session.snapshot().adopted_evidence_ids == ("entity-1",)
+    assert len(result.runtime_report.audit_refs) == 1

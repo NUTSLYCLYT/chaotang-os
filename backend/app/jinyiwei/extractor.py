@@ -14,6 +14,7 @@ from app.jinyiwei.models import (
     EvidenceItem,
     EvidenceQuality,
     EvidenceStance,
+    FactCategory,
     RequiredFact,
     SourceType,
 )
@@ -73,6 +74,16 @@ class StructuredEvidenceExtractor:
             or len(query.unresolved_fact_keys) == 1
         ):
             return _extract_deterministic_shiguan(query, bounded, requested)
+        if all(
+            document.source_type is SourceType.PUBLIC_API
+            and document.source_name == "wikidata_entity_search"
+            for document in bounded
+        ):
+            deterministic_entity = _extract_deterministic_wikidata_entity(
+                query, bounded, requested
+            )
+            if deterministic_entity is not None:
+                return deterministic_entity
         indexed = {_document_id(document): document for document in bounded}
         if len(indexed) != len(bounded):
             raise EvidenceExtractionError("extractor_input_invalid")
@@ -235,6 +246,66 @@ def _extract_deterministic_shiguan(
     except Exception as exc:
         raise EvidenceExtractionError("extractor_output_invalid") from exc
     return tuple(accepted)
+
+
+def _extract_deterministic_wikidata_entity(
+    query: SourceQuery,
+    documents: tuple[SourceDocument, ...],
+    requested: Mapping[str, RequiredFact],
+) -> tuple[EvidenceItem, ...] | None:
+    if len(query.unresolved_fact_keys) != 1:
+        return None
+    fact_key = query.unresolved_fact_keys[0]
+    fact = requested.get(fact_key)
+    if (
+        fact is None
+        or fact.category is not FactCategory.ENTITY_REFERENCE
+        or fact.expected_shape != "string"
+        or fact.expected_unit is not None
+    ):
+        return None
+    exact = tuple(
+        document
+        for document in documents
+        if document.metadata.get("connector") == "wikidata_entity_search"
+        and document.title.split(" (", 1)[0].casefold() == fact.subject.casefold()
+    )
+    if len(exact) != 1:
+        return ()
+    document = exact[0]
+    excerpt = document.text.strip()
+    if not excerpt:
+        return ()
+    evidence_id = _evidence_id(
+        fact_key=fact_key,
+        document=document,
+        excerpt=excerpt,
+        value=excerpt,
+        unit=None,
+        as_of=document.as_of,
+        stance=EvidenceStance.SUPPORTS,
+    )
+    return (
+        EvidenceItem(
+            evidence_id=evidence_id,
+            fact_key=fact_key,
+            value=excerpt,
+            unit=None,
+            as_of=document.as_of,
+            published_at=document.published_at,
+            retrieved_at=document.retrieved_at,
+            source_url=document.source_url,
+            publisher=document.publisher,
+            source_type=SourceType.PUBLIC_API,
+            coverage=document.coverage,
+            license_note=document.license_note,
+            quality=document.quality_ceiling,
+            stance=EvidenceStance.SUPPORTS,
+            excerpt=excerpt,
+            content_hash=hashlib.sha256(excerpt.encode()).hexdigest(),
+            confidence=_CONFIDENCE[document.quality_ceiling],
+        ),
+    )
 
 
 def _reuse_adopted_evidence(

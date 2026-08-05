@@ -24,7 +24,7 @@ from app.langgraph_runtime.deepseek_config import DeepSeekProviderConfig
 from app.langgraph_runtime.deepseek_env import resolve_deepseek_api_key_with_dotenv_fallback
 
 _MODEL_NAME_PREFIX = "openai/"
-_REQUEST_TIMEOUT_SECONDS = 30.0
+_REQUEST_TIMEOUT_SECONDS = 60.0
 
 # A DeepSeek chat model is any callable that takes an OpenAI-style list of
 # ``{"role": ..., "content": ...}`` messages and returns the assistant's
@@ -116,21 +116,31 @@ def build_deepseek_chat_model(
     model_name = normalize_deepseek_model_name(config.default_model)
 
     def call_deepseek_chat_model(messages: list[dict[str, str]]) -> str:
-        try:
-            request_kwargs = {
-                "model": model_name,
-                "messages": messages,
-                "max_tokens": 2500,
-                "temperature": 0,
-            }
-            if json_output:
-                request_kwargs["response_format"] = {"type": "json_object"}
-            response = client.chat.completions.create(**request_kwargs)
-        except Exception as exc:  # noqa: BLE001 - intentionally wrap any SDK error
-            raise DeepSeekModelInvocationError(
-                "DeepSeek chat completion request failed "
-                f"(model={model_name!r}); see __cause__ for the original exception."
-            ) from exc
+        request_kwargs = {
+            "model": model_name,
+            "messages": messages,
+            "max_tokens": 2500,
+            "temperature": 0,
+        }
+        if json_output:
+            request_kwargs["response_format"] = {"type": "json_object"}
+            request_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
+        for attempt in range(3):
+            try:
+                response = client.chat.completions.create(**request_kwargs)
+                break
+            except (openai.APITimeoutError, openai.APIConnectionError) as exc:
+                if attempt < 2:
+                    continue
+                raise DeepSeekModelInvocationError(
+                    "DeepSeek chat completion request failed "
+                    f"(model={model_name!r}); see __cause__ for the original exception."
+                ) from exc
+            except Exception as exc:  # noqa: BLE001 - intentionally wrap any SDK error
+                raise DeepSeekModelInvocationError(
+                    "DeepSeek chat completion request failed "
+                    f"(model={model_name!r}); see __cause__ for the original exception."
+                ) from exc
         return response.choices[0].message.content
 
     return call_deepseek_chat_model

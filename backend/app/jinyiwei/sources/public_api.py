@@ -16,6 +16,8 @@ from app.jinyiwei.network import PinnedHTTPSResponse
 from app.jinyiwei.source_registry import PublicApiRecord, PublicApiRegistry
 from app.jinyiwei.sources.base import SourceDocument, SourceQuery, SourceResult
 
+_PUBLIC_API_USER_AGENT = "chaotang-os/1.0"
+
 
 class _Client(Protocol):
     def fetch(self, url: str, **kwargs: object) -> PinnedHTTPSResponse: ...
@@ -82,7 +84,10 @@ class PublicApiSource:
                 url = connector.build_url(matched_facts, remaining_items)
                 response = self._client.fetch(
                     url,
-                    headers={"Accept": "application/json"},
+                    headers={
+                        "Accept": "application/json",
+                        "User-Agent": _PUBLIC_API_USER_AGENT,
+                    },
                     total_timeout=self._remaining_seconds(query),
                 )
                 if self._expired(query):

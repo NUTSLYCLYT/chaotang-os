@@ -20,7 +20,7 @@ export type BackendHealthResult =
 
 const DEFAULT_BACKEND_BASE_URL = "http://127.0.0.1:8000";
 const DEFAULT_TIMEOUT_MS = 3000;
-const CHANCELLOR_DRAFT_TIMEOUT_MS = 120000;
+const CHANCELLOR_DRAFT_TIMEOUT_MS = 570000;
 
 /**
  * 读取服务端专用环境变量 `BACKEND_BASE_URL`；未设置时使用本地开发默认值。
@@ -286,10 +286,11 @@ export interface SubmitDecreeOptions {
  * `DEFAULT_TIMEOUT_MS`（3000ms），不与其共用默认值。
  *
  * 分层回奏最坏会触发 54 次串行 DeepSeek 调用（司级咨询、部级补充、军机处会审与
- * 丞相最终汇总均不并发），可能仍超过既有 120 秒；本轮按产品约束只更新风险说明，
+ * 丞相最终汇总均不并发），理论最坏仍可能超过过渡性的 900 秒等待上限；
+ * 通用根治需要异步作业与状态查询，本常量只避免常见单部门流程被过早中止。
  * 不改变超时。数值依据见分层回奏任务与 ADR 0014。
  */
-const DECREE_TIMEOUT_MS = 120000;
+const DECREE_TIMEOUT_MS = 900000;
 
 /** 从错误响应体中提取脱敏的 `message` 字段；解析失败或字段缺失时回退到 `fallback`。 */
 async function extractErrorMessage(response: Response, fallback: string): Promise<string> {
@@ -605,6 +606,13 @@ export async function submitDecree(
     if (response.status === 401) {
       return { ok: false, kind: "unauthenticated", error: "authentication required" };
     }
+    if (response.status === 409) {
+      return {
+        ok: false,
+        kind: "draft_not_current",
+        error: await extractErrorMessage(response, "拟旨草案已失效"),
+      };
+    }
 
     if (!response.ok) {
       return { ok: false, kind: "unknown", error: `后端响应非预期状态码：${response.status}` };
@@ -620,13 +628,6 @@ export async function submitDecree(
     const data = parseSubmitDecreeData(body);
     if (data === null) {
       return { ok: false, kind: "unknown", error: "后端成功响应体不符合预期契约" };
-    }
-    if (response.status === 409) {
-      return {
-        ok: false,
-        kind: "draft_not_current",
-        error: await extractErrorMessage(response, "拟旨草案已失效"),
-      };
     }
     return { ok: true, data };
   } catch (error) {

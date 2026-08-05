@@ -17,7 +17,7 @@ import {
   updateShiguanReview,
 } from "./backendClient.ts";
 
-test("chancellor draft uses 120 second default timeout", async () => {
+test("chancellor draft uses 570 second default timeout", async () => {
   let scheduledDelay: number | undefined;
   const result = await chancellorDraft(
     [{ role: "user", content: "请拟旨" }],
@@ -44,7 +44,7 @@ test("chancellor draft uses 120 second default timeout", async () => {
   );
 
   assert.equal(result.ok, true);
-  assert.equal(scheduledDelay, 120000);
+  assert.equal(scheduledDelay, 570000);
 });
 
 test("chancellor draft preserves an explicit timeout override", async () => {
@@ -408,6 +408,32 @@ const SINGLE_ROUTE_BODY = {
   final_verdict: "丞相汇总：预算可控，可分期拨付。",
   recommendations: ["核定预算", "分期拨付", "设置审计节点"],
 };
+
+test("submitDecree maps HTTP 409 to draft_not_current", async () => {
+  const result = await submitDecree(
+    "stale approved draft",
+    memoryRequestOptions({ status: "error", reason: "draft_not_current" }, 409),
+  );
+
+  assert.equal(result.ok, false);
+  if (!result.ok) assert.equal(result.kind, "draft_not_current");
+});
+
+test("submitDecree uses 900 second default timeout", async () => {
+  let scheduledDelay: number | undefined;
+  const result = await submitDecree("test decree", {
+    ...memoryRequestOptions(SINGLE_ROUTE_BODY),
+    scheduleTimeout: (_callback, delay) => {
+      scheduledDelay = delay;
+      return "injected-default-decree-timeout";
+    },
+    cancelTimeout: (handle) =>
+      assert.equal(handle, "injected-default-decree-timeout"),
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(scheduledDelay, 900000);
+});
 
 const MULTI_ROUTE_BODY = {
   status: "ok",

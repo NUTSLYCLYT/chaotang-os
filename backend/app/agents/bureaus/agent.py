@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
@@ -13,6 +14,8 @@ from uuid import uuid4
 from app.agents.bureaus.prompts import bureau_runtime_skill_for, bureau_system_prompt
 from app.agents.structured_output import parse_strict_json_object
 from app.langgraph_runtime.deepseek_client import DeepSeekChatModel
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from app.accounting_reports.session import AccountingReportSession
@@ -329,6 +332,27 @@ def _invoke_bureau_agent_with_report_authorized(
                 ) from cause
             if deterministic_fact_plan.disposition is not FactPlanDisposition.PLANNED:
                 deterministic_fact_plan = None
+        elif (
+            evidence_session is not None
+            and node_id is not None
+            and runtime_skill.agent_id == "libu-rites-content"
+        ):
+            from app.agents.entity_fact_plan import compile_entity_reference_plan
+            from app.agents.fact_plans import FactPlanDisposition
+
+            deterministic_fact_plan = compile_entity_reference_plan(
+                decree_text=decree_text,
+                node_id=node_id,
+            )
+            if deterministic_fact_plan.disposition is FactPlanDisposition.REJECTED:
+                cause = ValueError(
+                    deterministic_fact_plan.reason or "data_plan_invalid"
+                )
+                raise BureauAgentInvocationError(
+                    "Bureau deterministic fact plan was rejected."
+                ) from cause
+            if deterministic_fact_plan.disposition is not FactPlanDisposition.PLANNED:
+                deterministic_fact_plan = None
         supplied_data: dict[str, dict[str, object]] = {}
         for key, value in (approved_data_inputs or {}).items():
             if (
@@ -432,7 +456,10 @@ def _invoke_bureau_agent_with_report_authorized(
         def model_adapter(loop_messages: tuple[Mapping[str, object], ...]) -> object:
             if deterministic_fact_plan is not None:
                 from app.agents.evidence_protocol import evidence_draft_to_tool_call
-                from app.agents.evidence_rendering import render_mainland_last_price
+                from app.agents.evidence_rendering import (
+                    render_entity_reference,
+                    render_mainland_last_price,
+                )
 
                 if len(loop_messages) == 2:
                     if deterministic_fact_plan.draft is None:
@@ -444,7 +471,12 @@ def _invoke_bureau_agent_with_report_authorized(
                 pack = evidence_session.latest_frozen_pack()
                 if pack is None:
                     raise ValueError("evidence_unavailable")
-                rendered_opinion = render_mainland_last_price(pack)
+                renderer = (
+                    render_entity_reference
+                    if runtime_skill.agent_id == "libu-rites-content"
+                    else render_mainland_last_price
+                )
+                rendered_opinion = renderer(pack)
                 evidence_session.record_selection(
                     node_id, rendered_opinion.evidence_ids
                 )
@@ -555,6 +587,12 @@ def _invoke_bureau_agent_with_report_authorized(
             and isinstance(loop_result.final_synthesis, Mapping)
             and loop_result.final_synthesis.get("status") == "DEGRADED"
         ):
+            logger.warning(
+                "bureau tool loop degraded node=%s reasons=%s accepted_results=%d",
+                node_id,
+                ",".join(loop_result.degradation_reasons) or "unknown",
+                len(loop_result.accepted_results),
+            )
             evidence_session.record_degradation(node_id)
             opinion = (
                 "数据不足（model_synthesis_invalid），无法形成事实结论；"

@@ -1986,6 +1986,44 @@ def test_price_and_volume_decree_keeps_both_explicit_metrics() -> None:
     ]
 
 
+def test_explicit_market_decree_discards_malformed_optional_market_fact() -> None:
+    coordinator = Coordinator()
+    session = AgentEvidenceSession(coordinator=coordinator)
+    node = bureau_node_id("户部", "投资司")
+    malformed_optional = _market_fact("BYD_TRADING_CONTEXT", "PE_RATIO")
+    malformed_optional.pop("market_metric")
+    gap = _market_gap(
+        node,
+        [
+            _market_fact("BYD_STOCK_PRICE", "LAST_PRICE"),
+            _market_fact("BYD_CHANGE", "CHANGE_PERCENT"),
+            malformed_optional,
+        ],
+    )
+    responses = iter((gap, _ready("建议等待")))
+
+    invoke_bureau_with_evidence(
+        node_id=node,
+        department="户部",
+        bureau="投资司",
+        matter_type="MEMORIAL",
+        decree_text="核查比亚迪A股当前最新股价与涨跌幅",
+        messages=[{"role": "user", "content": "旨意：核查比亚迪A股当前最新股价与涨跌幅"}],
+        chat_model=lambda _messages: next(responses),
+        legacy_parser=_legacy_parser,
+        fallback=lambda reason: {"opinion": reason},
+        session=session,
+    )
+
+    assert [
+        (fact.key, fact.market_metric)
+        for fact in coordinator.calls[0][0].required_facts
+    ] == [
+        ("BYD_STOCK_PRICE", MarketMetric.LAST_PRICE),
+        ("BYD_CHANGE", MarketMetric.CHANGE_PERCENT),
+    ]
+
+
 def test_market_scope_uses_only_explicit_original_decree_text() -> None:
     coordinator = Coordinator(status=EvidencePackStatus.UNAVAILABLE)
     session = AgentEvidenceSession(coordinator=coordinator)
@@ -2054,7 +2092,13 @@ def test_price_only_decree_fails_closed_for_ambiguous_mainland_facts() -> None:
         )
 
 
-def test_price_gap_with_non_iso_jurisdictions_gets_one_static_correction() -> None:
+@pytest.mark.parametrize(
+    "jurisdiction_alias",
+    ["中国", "中国大陆", "中华人民共和国", "中国A股"],
+)
+def test_price_gap_normalizes_known_mainland_jurisdiction_alias(
+    jurisdiction_alias: str,
+) -> None:
     coordinator = Coordinator()
     session = AgentEvidenceSession(coordinator=coordinator)
     node = bureau_node_id("户部", "投资司")
@@ -2064,57 +2108,40 @@ def test_price_gap_with_non_iso_jurisdictions_gets_one_static_correction() -> No
             _market_fact(
                 "BYD_CN_PRICE",
                 "LAST_PRICE",
-                jurisdiction="中国",
+                jurisdiction=jurisdiction_alias,
                 subject="比亚迪",
             ),
             _market_fact(
-                "BYD_HK_PRICE",
-                "LAST_PRICE",
-                jurisdiction="香港",
+                "BYD_CHANGE_PERCENT",
+                "CHANGE_PERCENT",
+                jurisdiction=jurisdiction_alias,
                 subject="比亚迪",
             ),
         ],
-    )
-    responses = iter(
-        (
-            invalid_gap,
-            _quote_gap(node),
-            _ready(
-                "有证据的行情意见",
-                adopted_evidence_ids=["e-1"],
-                fact_key="byd_current_quote",
-                category="MARKET_QUOTE",
-                subject="BYD",
-            ),
-        )
     )
     model_calls: list[list[dict[str, str]]] = []
 
     def model(messages: list[dict[str, str]]) -> str:
         model_calls.append(messages)
-        return next(responses)
+        return invalid_gap
 
     result = invoke_bureau_with_evidence(
         node_id=node,
         department="户部",
         bureau="投资司",
         matter_type="MEMORIAL",
-        decree_text="查看比亚迪股票价格",
-        messages=[{"role": "user", "content": "旨意：查看比亚迪股票价格"}],
+        decree_text="查看比亚迪股票价格和涨跌幅",
+        messages=[{"role": "user", "content": "旨意：查看比亚迪股票价格和涨跌幅"}],
         chat_model=model,
         legacy_parser=_legacy_parser,
         fallback=lambda reason: {"opinion": reason},
         session=session,
     )
 
-    assert result == {"opinion": "有证据的行情意见"}
-    assert len(model_calls) == 3
+    assert result == {"opinion": "evidence_unavailable"}
+    assert len(model_calls) == 1
     assert len(coordinator.calls) == 1
-    assert coordinator.calls[0][0].required_facts[0].jurisdiction == "CN"
-    correction = model_calls[1][-1]["content"]
-    assert invalid_gap not in correction
-    assert '"jurisdiction":"CN"' in correction
-    assert "exactly one mainland LAST_PRICE fact" in correction
+    assert [fact.jurisdiction for fact in coordinator.calls[0][0].required_facts] == ["CN", "CN"]
 
 
 def test_price_gap_with_model_added_hk_scope_gets_one_static_correction() -> None:

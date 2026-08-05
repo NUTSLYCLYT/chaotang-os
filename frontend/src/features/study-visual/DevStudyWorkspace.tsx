@@ -354,6 +354,10 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
             <section className={styles.emptyStage} data-testid="chancellor-draft-error" aria-live="polite">
               <p className={styles.emptyError}><strong>拟旨未能完成</strong>{props.draftError}</p>
             </section>
+          ) : props.uiState.phase === "error" ? (
+            <section className={styles.emptyStage} data-testid="decree-submission-error" aria-live="polite">
+              <p className={styles.emptyError}><strong>办理未能完成</strong>{props.uiState.message}</p>
+            </section>
           ) : props.draftResult ? (
             <EdictStage
               document={{
@@ -482,12 +486,10 @@ export function DevStudyWorkspace(props: DevStudyWorkspaceProps) {
               className={styles.emptyStage}
               data-testid="decree-status"
               data-phase={props.uiState.phase}
-              data-decree-ok={props.uiState.phase === "error" ? "false" : undefined}
               aria-live="polite"
             >
               {props.uiState.phase === "idle" && <p>暂无奏折，陛下可下达新旨。</p>}
               {props.uiState.phase === "submitting" && <p>圣旨已递，正在等候丞相与百官回奏……</p>}
-              {props.uiState.phase === "error" && <p className={styles.emptyError}>下旨失败：{props.uiState.message}</p>}
             </section>
           )}
         </section>

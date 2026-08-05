@@ -452,6 +452,7 @@ def test_graph_corrects_invalid_department_routes_once(departments) -> None:
         "刑部=[合同司,合规稽查司,风控司,缺证核查司,争议处置司,知识产权司,制度司]"
         in calls[1][0]["content"]
     )
+    assert "礼部不确定时必须使用 bureaus: [\"品牌司\"]" in calls[1][0]["content"]
 
 
 def test_graph_rejects_invalid_department_routes_twice() -> None:

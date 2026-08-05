@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import httpx
+import openai
 import pytest
 
 from app.langgraph_runtime.deepseek_client import (
@@ -61,7 +63,7 @@ def test_build_deepseek_chat_model_defaults_to_text_output(
         base_url="https://api.deepseek.com/v1",
         api_key="sk-fake-value-for-tests",
         max_retries=0,
-        timeout=30.0,
+        timeout=60.0,
     )
 
     result = call_model([{"role": "user", "content": "hi"}])
@@ -91,6 +93,7 @@ def test_build_deepseek_chat_model_can_request_json_output(mock_openai_class, mo
     mock_client_instance.chat.completions.create.assert_called_once_with(
         model="deepseek-chat",
         messages=[{"role": "user", "content": "return json"}],
+        extra_body={"thinking": {"type": "disabled"}},
         max_tokens=2500,
         response_format={"type": "json_object"},
         temperature=0,
@@ -122,6 +125,28 @@ def test_build_deepseek_chat_model_wraps_underlying_exceptions(mock_openai_class
 
 
 @patch("app.langgraph_runtime.deepseek_client.openai.OpenAI")
+def test_build_deepseek_chat_model_retries_two_transient_timeouts(
+    mock_openai_class, monkeypatch
+):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-fake-value-for-tests")
+    mock_client_instance = MagicMock()
+    mock_openai_class.return_value = mock_client_instance
+    timeout = openai.APITimeoutError(
+        request=httpx.Request("POST", "https://api.deepseek.com/v1/chat/completions")
+    )
+    mock_client_instance.chat.completions.create.side_effect = [
+        timeout,
+        timeout,
+        _make_fake_openai_response("recovered"),
+    ]
+
+    call_model = build_deepseek_chat_model(_CONFIG)
+
+    assert call_model([{"role": "user", "content": "hi"}]) == "recovered"
+    assert mock_client_instance.chat.completions.create.call_count == 3
+
+
+@patch("app.langgraph_runtime.deepseek_client.openai.OpenAI")
 def test_build_deepseek_chat_model_falls_back_to_injected_dotenv_path(
     mock_openai_class, monkeypatch, tmp_path
 ):
@@ -141,7 +166,7 @@ def test_build_deepseek_chat_model_falls_back_to_injected_dotenv_path(
         base_url="https://api.deepseek.com/v1",
         api_key="sk-from-dotenv-file",
         max_retries=0,
-        timeout=30.0,
+        timeout=60.0,
     )
 
 

@@ -6,7 +6,7 @@ from decimal import Decimal
 import pytest
 
 from app.agents.evidence_protocol import EvidenceProtocolError
-from app.agents.evidence_rendering import render_mainland_last_price
+from app.agents.evidence_rendering import render_entity_reference, render_mainland_last_price
 from app.jinyiwei.models import (
     CacheMetadata,
     DataGapRequest,
@@ -260,3 +260,64 @@ def test_renderer_rejects_noncanonical_quote_fact(
 
     with pytest.raises(EvidenceProtocolError, match="^quote_unavailable$"):
         render_mainland_last_price(forged)
+
+
+def test_entity_renderer_uses_only_verified_current_string_evidence() -> None:
+    fact = RequiredFact(
+        key="entity_reference:identity",
+        description="核查 OpenAI 的公开实体身份",
+        category=FactCategory.ENTITY_REFERENCE,
+        data_scope=DataScope.EXTERNAL_PUBLIC,
+        subject="OpenAI",
+        jurisdiction="US",
+        expected_shape="string",
+    )
+    request = DataGapRequest(
+        requesting_agent="bureau:礼部:内容司",
+        question="核查 OpenAI 是什么公开实体，只需要一个 ENTITY_REFERENCE",
+        required_facts=(fact,),
+        decision_context="核查一个公开实体身份",
+        freshness=FreshnessRequirement(max_age_seconds=86400),
+        request_id="request-entity-render",
+        timeout_seconds=30,
+        source_scope=(SourceType.SHIGUAN, SourceType.PUBLIC_API, SourceType.PUBLIC_WEB),
+    )
+    item = _item("entity-1", value="美国人工智能研究与部署公司", unit=None).model_copy(
+        update={
+            "fact_key": fact.key,
+            "source_type": SourceType.PUBLIC_WEB,
+            "publisher": "Wikipedia",
+            "quality": EvidenceQuality.SECONDARY,
+        }
+    )
+    pack = _pack(current=()).model_copy(
+        update={
+            "request": request,
+            "investigation_plan": InvestigationPlan(
+                fact_keys=(fact.key,), source_scope=request.source_scope
+            ),
+            "evidence_by_fact": {fact.key: (item,)},
+            "resolved_facts": (fact.key,),
+        }
+    )
+
+    rendered = render_entity_reference(pack)
+
+    assert rendered.evidence_ids == ("entity-1",)
+    assert rendered.opinion == (
+        "OpenAI 的公开实体身份为：美国人工智能研究与部署公司"
+        "（来源：Wikipedia；资料时间：2026-07-24T10:00:00+08:00）。"
+    )
+    assert "provider.example.test" not in rendered.opinion
+
+
+def test_entity_renderer_fails_closed_on_unresolved_pack() -> None:
+    with pytest.raises(EvidenceProtocolError, match="^entity_reference_unavailable$"):
+        render_entity_reference(
+            _pack(
+                status=EvidencePackStatus.UNAVAILABLE,
+                current=(),
+                resolved=(),
+                unresolved=(FACT_KEY,),
+            )
+        )

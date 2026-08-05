@@ -39,7 +39,7 @@ TypeScript，npm 管理依赖，Node 内置 `node:test` 做单元测试。选型
   `BACKEND_BASE_URL`、不直接请求 FastAPI）。页面明确提示点击“下旨”会触发一次下旨
   流程中的多次模型调用（丞相首次判断、司级意见、部级补充、multi 军机处会审及丞相最终
   汇总）并产生相应的 DeepSeek 调用费用；最坏 single 为 11 次、全六部 multi 为 54 次同步
-  模型调用，现有 `submitDecree()` 120 秒超时可能不足。页面
+  模型调用，`submitDecree()` 采用 ADR 0029 定义的 900 秒过渡性超时，仍不保证覆盖全六部最坏链路。页面
   并展示处理中/成功/失败三种状态；成功状态展示丞相判断说明（`rationale`）、完整流转
   路径（`processingPath.join(" → ")`）、各参与部门的分层意见列表（`ministryOpinions`：每部
   先展示有序 `bureauOpinions`，再展示部级 `opinion`）、仅 multi 展示的军机处会审结论

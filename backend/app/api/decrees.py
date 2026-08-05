@@ -30,6 +30,7 @@ the HTTP response body.
 
 from __future__ import annotations
 
+import logging
 import secrets
 from contextvars import ContextVar
 from datetime import datetime
@@ -85,6 +86,7 @@ from app.langgraph_runtime.deepseek_client import DeepSeekModelNameError
 from app.langgraph_runtime.deepseek_config import DeepSeekConfigError
 from app.shiguan.archive_decree import archive_chancellor_decree
 
+_LOGGER = logging.getLogger(__name__)
 _SANITIZED_MESSAGE = "丞相暂时无法处理旨意，请稍后再试"
 
 _MIN_DECREE_LENGTH = 1
@@ -791,6 +793,12 @@ def register_chancellor_exception_handlers(app: FastAPI) -> None:
     async def _handle_model_unavailable(
         _request, _exc: ChancellorGraphInvocationError
     ) -> JSONResponse:
+        chain: list[str] = []
+        current: BaseException | None = _exc
+        while current is not None and len(chain) < 8:
+            chain.append(f"{type(current).__name__}:{current}")
+            current = current.__cause__
+        _LOGGER.warning("decree model failure chain=%s", " <- ".join(chain))
         return JSONResponse(
             status_code=502,
             content={
