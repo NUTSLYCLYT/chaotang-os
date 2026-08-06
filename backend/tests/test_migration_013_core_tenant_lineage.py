@@ -143,7 +143,7 @@ def test_fresh_migration_chain_reaches_head_with_all_013_columns(tmp_path, monke
     try:
         assert (
             conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
-            == "022_shiguan_memorial_identity"
+            == "025_artifact_delivery_state"
         )
         for table in _TABLES:
             column = _column(path, table, "tenant_id")

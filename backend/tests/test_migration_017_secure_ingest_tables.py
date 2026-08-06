@@ -34,7 +34,7 @@ def test_fresh_chain_creates_secure_ingest_tables_at_head(tmp_path: Path, monkey
         } <= tables
         assert (
             conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
-            == "022_shiguan_memorial_identity"
+            == "025_artifact_delivery_state"
         )
         artifact_cols = {row[1] for row in conn.execute("PRAGMA table_info(secure_ingest_artifacts)")}
         assert {

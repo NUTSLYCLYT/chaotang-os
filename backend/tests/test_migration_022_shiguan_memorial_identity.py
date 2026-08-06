@@ -52,7 +52,7 @@ def test_upgrade_preserves_old_archive_with_nullable_memorial_identity(
     conn = sqlite3.connect(path)
     try:
         assert conn.execute("SELECT version_num FROM alembic_version").fetchone()[0] == (
-            "022_shiguan_memorial_identity"
+            "025_artifact_delivery_state"
         )
         columns = {row[1] for row in conn.execute("PRAGMA table_info(shiguan_archives)")}
         assert {
