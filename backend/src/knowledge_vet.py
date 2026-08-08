@@ -24,18 +24,63 @@ import re
 
 logger = logging.getLogger(__name__)
 
-# 相关度阈值:≥此值视为"知识库里有东西撑住这句话"。
-# 0.35 是混合检索(RRF 融合分 / 向量余弦分)上一个偏保守的支撑线:
-# 宁可把弱支撑判"无据·待人核",也不放幻觉过门。
+# 相关度只是一道召回下限，不能单独证明声明有据。部分向量后端的分数
+# 没有零相关下界，离题文本也可能高于 0.35；还须通过主题与数字口径检查。
 DEFAULT_THRESHOLD = 0.35
+MIN_TOPIC_OVERLAP = 0.30
 
 DECISION_GROUNDED = "有据"
 DECISION_UNGROUNDED = "无据·疑幻觉,待人核"
+DECISION_FIGURE_CONFLICT = "无据·数字与真库不符,待人核"
 DECISION_EMPTY = "无据·知识库为空,待人核"
 DECISION_ERROR = "无据·检索失败,待人核"
 
 # 解析 _format_search_hits / RAGFlow 文本里的 "(相关度: 71%)"
 _RELEVANCE_RE = re.compile(r"相关度[:：]\s*([0-9]+(?:\.[0-9]+)?)%")
+_WORD_OR_NUMBER_RE = re.compile(r"[A-Za-z]{2,}|\d+(?:\.\d+)?")
+_FIGURE_RE = re.compile(
+    r"(\d+(?:\.\d+)?)\s*(%|％|‰|元|万元|亿元|万|亿|Ah|mAh|GWh|MWh|kWh|Wh|kg|"
+    r"V|W|A|C|℃|°C|次|只|台|件|人)",
+    re.IGNORECASE,
+)
+
+
+def _is_cjk(char: str) -> bool:
+    return "一" <= char <= "鿿"
+
+
+def _content_tokens(text: str) -> set[str]:
+    """Return stable word, number and CJK bigram tokens for overlap checks."""
+    value = str(text or "")
+    tokens = {match.group(0).lower() for match in _WORD_OR_NUMBER_RE.finditer(value)}
+    tokens.update(
+        value[index : index + 2]
+        for index in range(len(value) - 1)
+        if _is_cjk(value[index]) and _is_cjk(value[index + 1])
+    )
+    return tokens
+
+
+def _topic_overlap(claim: str, evidence: str) -> float:
+    claim_tokens = _content_tokens(claim)
+    if not claim_tokens:
+        return 0.0
+    return len(claim_tokens & _content_tokens(evidence)) / len(claim_tokens)
+
+
+def _figure_pairs(text: str) -> list[str]:
+    """Extract ordered, unique business figures such as ``420元`` or ``70%``."""
+    pairs: list[str] = []
+    for match in _FIGURE_RE.finditer(str(text or "")):
+        pair = f"{match.group(1)}{match.group(2).lower()}"
+        if pair not in pairs:
+            pairs.append(pair)
+    return pairs
+
+
+def _unmatched_figures(claim: str, evidence: str) -> list[str]:
+    evidence_figures = set(_figure_pairs(evidence))
+    return [pair for pair in _figure_pairs(claim) if pair not in evidence_figures]
 
 
 def _result(grounded: bool, evidence: str, relevance: float, decision: str) -> dict:
@@ -129,10 +174,15 @@ def vet_against_knowledge(
         logger.error("knowledge_vet 检索失败 claim=%r: %s", claim[:80], e)
         return _result(False, "", 0.0, DECISION_ERROR)
 
-    grounded = relevance >= threshold
-    decision = DECISION_GROUNDED if grounded else DECISION_UNGROUNDED
-    # 无据时不返回检索到的弱片段,避免把"擦边但不支撑"的内容当证据误导下游。
-    return _result(grounded, evidence if grounded else "", relevance, decision)
+    if relevance < threshold or _topic_overlap(claim, evidence) < MIN_TOPIC_OVERLAP:
+        return _result(False, "", relevance, DECISION_UNGROUNDED)
+
+    unmatched = _unmatched_figures(claim, evidence)
+    if unmatched:
+        decision = f"{DECISION_FIGURE_CONFLICT}({','.join(unmatched[:5])})"
+        return _result(False, "", relevance, decision)
+
+    return _result(True, evidence, relevance, DECISION_GROUNDED)
 
 
 def _cli() -> int:
