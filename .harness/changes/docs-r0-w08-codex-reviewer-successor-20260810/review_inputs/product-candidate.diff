@@ -1,0 +1,1535 @@
+diff --git a/.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/ci_result/ci_summary.md b/.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/ci_result/ci_summary.md
+new file mode 100644
+index 00000000..878f7681
+--- /dev/null
++++ b/.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/ci_result/ci_summary.md
+@@ -0,0 +1,48 @@
++# CI 摘要：chore-professional-agent-k0-ext-convergence-20260810
++
++## 命令
++
++| 命令 | 退出码 | 结果 | 证据覆盖范围 | 证据位置 / 时间 |
++| --- | ---: | --- | --- | --- |
++| `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08` | 0 | GO / APPROVED_WORK_PACKAGE | 修改前及收窄后 current EXT 权威 | 本地控制台，2026-08-10 |
++| `node --test scripts/professional-agent-matrix.nodetest.mjs` | 0 | 12/12 PASS | Draft 2020-12、schema 摘要、路径、来源、覆盖与篡改反例 | 本地控制台，2026-08-10 |
++| `node scripts/professional-agent-matrix.mjs --check` | 0 | PASS：8 assets / 6 verified / 2 partial | current EXT 路径、35 个设计、71 个 Prompt | 本地控制台，2026-08-10 |
++| `backend/.venv/bin/python -m pytest -q <12 个矩阵引用测试文件>` | 0 | 93 passed / 1 dependency deprecation warning | 6 个 VERIFIED 能力域的现有行为 | 临时环境，本地控制台，2026-08-10 |
++| `node scripts/harness-doctor.mjs` | 0 | 0 errors / 0 warnings | 根项目与委派门禁 | 本地控制台，2026-08-10 |
++| `cd backend && python3 scripts/harness_doctor.py` | 0 | 0 errors / 0 warnings | 后端 harness 架构 | 本地控制台，2026-08-10 |
++| `git diff --check` | 0 | PASS | 补丁格式 | 本地控制台，2026-08-10 |
++| `node scripts/ext-branch-convergence.mjs --check` | 1 | FAIL：2 个既存 source ref 已移动 | 99 分支冻结台账完整性 | 本地控制台，2026-08-10 |
++| 独立只读 `code-reviewer` | 0 | GO_FOR_CANDIDATE / 0 HIGH / 0 MEDIUM | exact candidate `ac815b52` | `codex_review/candidate-review.md` |
++
++## 结果
++
++K0 当前候选的结构、来源绑定、路径、计数和引用能力测试通过。太医只登记为“诚实不可用”兼容边界；钦天监只登记离线契约与信号能力，不声明旧兼容 API 已就绪。
++
++## 未验证项
++
++- 99 分支台账因 `codex/professional-agent-overlay-clean` 与 `docs/r0-trusted-kernel-amendment-20260720` 在冻结后移动而失败；与本 Packet 无因果关系，必须用 audited successor 记录修复。
++- 根 `project-harness.json` 与 root doctor 登记尚未执行，因为两者属于 R0-W08 钉住的权威输入；需后续 exact-H authority Packet，不能在当前候选里静默修改。
++- Python 临时环境已删除；1 条 Starlette/httpx 依赖弃用警告未影响 93 个测试。
++
++## Diff 与回滚复核
++
++- changed files：仅本 change 记录、专业 Agent matrix schema/manifest/wiki、只读检查器及 Node 测试。
++- diff review：不含 `backend/app`、产品 runtime、API、前端、数据、provider、旧 worktree 或根权威钉住文件。
++- 回滚是否演练：未执行破坏性回滚；候选为纯新增文件，可由单提交 revert。
++
++## 完成定义映射
++
++| DoD | 证据 | 状态 |
++| --- | --- | --- |
++| 旧 K0 来源可追溯 | exact donor + EXT convergence cross-check | PASS |
++| 发布 schema 不可静默弱化 | Draft 2020-12 + canonical schema SHA-256 + mutation tests | PASS |
++| current EXT 路径真实存在 | CLI path/lstat checks | PASS |
++| VERIFIED 不可无测试或占位命令 | 负向测试 | PASS |
++| 35 design / 71 prompt 数量冻结 | recursive assertions | PASS |
++| 引用能力行为不回归 | 93 pytest | PASS |
++| 根 manifest/doctor 强制登记 | exact-H authority successor | PENDING |
++| 99 台账恢复全绿 | audited successor refs | PENDING |
++
++## 声明状态
++
++- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL`（候选本身通过，根登记与 99 台账继承记录待后续 Packet）
+diff --git a/.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/codex_review/candidate-review.md b/.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/codex_review/candidate-review.md
+new file mode 100644
+index 00000000..62673057
+--- /dev/null
++++ b/.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/codex_review/candidate-review.md
+@@ -0,0 +1,25 @@
++# K0 候选独立复核
++
++## 候选身份
++
++- Base H：`4c543209333fa14f3a296ff1ff917642153ffc30`
++- Candidate H：`ac815b52837be8b486fd139404222c1ba95fd074`
++- Candidate tree：`1720342520c2d5f4f37682f8ab1fcc2f9efe0f45`
++- Reviewer：独立只读 `code-reviewer`
++- 写权限：`DENIED`
++- 结论：`GO_FOR_CANDIDATE`
++
++## 复核结果
++
++| 严重度 | 数量 |
++| --- | ---: |
++| CRITICAL | 0 |
++| HIGH | 0 |
++| MEDIUM | 0 |
++| LOW | 0 |
++
++复核确认：12/12 Node 测试通过，矩阵为 8 个能力域（6 VERIFIED / 2 PARTIAL），schema canonical SHA-256 与 Draft 2020-12 校验通过，旧 `backend/app` 未进入候选，没有创建第二运行控制面。
++
++## 边界
++
++本结论只批准候选完整性，不代表根 manifest/doctor 已登记，不代表 99 台账已 CLOSED，也不授权 push、merge、deploy 或生产启用。根登记必须进入后续 exact-H authority Packet 并重新独立复核。
+diff --git a/.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/request_analysis/spec.md b/.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/request_analysis/spec.md
+new file mode 100644
+index 00000000..b80cdcb9
+--- /dev/null
++++ b/.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/request_analysis/spec.md
+@@ -0,0 +1,74 @@
++# 规格说明：chore-professional-agent-k0-ext-convergence-20260810
++
++## 背景
++
++旧 `codex/professional-agent-k0-20260803` 提供了机器可读资产台账，但其 39 个 bureau 与 20 个 capability 均指向旧 `backend/app`。当前 EXT 的运行事实源已迁移到 `backend/src`、`backend/web`、`backend/harness`，不能整包复制。
++
++## 当前实现与证据
++
++| 分类 | 结论 | 证据路径 / 命令与时间 | 验证方式 / Owner | 是否阻塞 |
++| --- | --- | --- | --- | --- |
++| 已确认事实 | 当前 EXT 无专业 Agent 资产矩阵检查器 | `node scripts/professional-agent-matrix.mjs --check` 初始返回 MODULE_NOT_FOUND | Project Owner | 否 |
++| 已确认事实 | 旧 K0 路径基于 `backend/app`，不适配当前 EXT | donor commits `a6c391cb`、`4c55ad78`、`675aa950` | Project Owner | 否 |
++| 已确认事实 | 当前 EXT 有 35 个设计契约、71 个运行 Prompt | 递归文件计数，由新检查器复验 | Backend Owner | 否 |
++| 未知问题 | 71 个 Prompt 与 35 个设计尚未逐个绑定运行入口、工具权限和黄金样例 | 矩阵 `PARTIAL` 条目 | 后续 Packet | 否 |
++
++## 数据流与调用链
++
++旧 K0 donor → 只提取字段与失败关闭规则 → 对照当前 EXT 路径 → 生成 current-EXT manifest → 只读检查器验证路径、计数、成熟度和测试覆盖。
++
++## 接口、数据结构与事实源
++
++| 契约 | 生产者 / 事实源 | 消费者 | 兼容性与验证 |
++| --- | --- | --- | --- |
++| 专业 Agent 资产矩阵 | `.harness/manifest/professional-agent-asset-matrix.v1.json` | 收敛计划、后续专业 Agent Packet | Draft 2020-12 schema + Node 测试 + 只读 CLI；根 doctor 登记待后续 authority Packet |
++| 现行 Agent 事实 | `backend/src`、`backend/web`、`backend/harness` | 资产矩阵 | 只登记存在路径，不复制运行逻辑 |
++| 设计与 Prompt 集合 | `backend/agent_design`、`backend/runtime_prompts` | 资产矩阵 | 递归计数；覆盖不足必须标 `PARTIAL` |
++
++## 范围
++
++仅根 `.harness`、`scripts` 与本 change 记录；不改运行时、API、前端、数据和旧 donor worktree。
++
++## 非目标
++
++- 不吸收 `backend/app`。
++- 不实现专业 Agent runtime、Companion 或十样本工作产品。
++- 不修改 99 个冻结 source ref，不删除 worktree。
++- 不授予 push、merge、deploy 或生产权限。
++
++## 边界条件
++
++| 条件 | 预期行为 | 证据 / 验证 |
++| --- | --- | --- |
++| 登记路径不存在 | 检查失败并列出路径 | Node 负向测试与 `--check` |
++| 无测试却声明 VERIFIED | 校验拒绝 | Node 负向测试 |
++| 设计/Prompt 数量漂移 | 检查失败并给出期望/实际数量 | inventory assertions |
++| 旧 donor 路径混入 | 安全路径存在性检查失败 | `--check` |
++
++## 风险与回滚边界
++
++风险是把文档/Prompt 数量误当运行能力。矩阵通过 `coverageStatus` 与 `gapReason` 显式区分。回滚只需反向移除本 Packet 新增文件；根项目登记尚未发生，无数据迁移。
++
++## 计划确认记录
++
++- 批准人：用户
++- 批准日期：2026-08-10
++- 批准范围：继续 EXT 单主线收敛，先吸收专业 Agent K0 资产矩阵并避免重复开发。
++- 明确未批准：旧分支整包合并、删除 worktree、生产启用和外部副作用。
++
++## 验收标准
++
++1. 当前 EXT 矩阵能独立通过结构与路径检查。
++2. 所有 VERIFIED 能力都有现行测试；无测试集合必须为 PARTIAL。
++3. 35 个设计契约和 71 个运行 Prompt 数量由机器核对。
++4. 根、后端 doctor 通过，工作树只含本 Packet 文件。
++5. 根 manifest/doctor 登记由后续 exact-H authority Packet 完成；登记前不得称 K0 已集成或 CLOSED。
++
++## 验证计划
++
++- `node --test scripts/professional-agent-matrix.nodetest.mjs`
++- `node scripts/professional-agent-matrix.mjs --check`
++- `node scripts/ext-branch-convergence.mjs --check`
++- `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08`
++- `node scripts/harness-doctor.mjs`
++- `cd backend && python3 scripts/harness_doctor.py`
+diff --git a/.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/request_analysis/tasks.md b/.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/request_analysis/tasks.md
+new file mode 100644
+index 00000000..4b09fbea
+--- /dev/null
++++ b/.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/request_analysis/tasks.md
+@@ -0,0 +1,13 @@
++# 任务：chore-professional-agent-k0-ext-convergence-20260810
++
++## 任务 1
++
++- 目标：将旧 K0 的机器可读台账能力适配到当前 EXT，建立能力 + 契约 + 测试事实表。
++- 前置条件：`R0-W08` V2 返回 GO；EXT 基线为 `4c543209333fa14f3a296ff1ff917642153ffc30`。
++- 输入：K0 donor 三个候选提交、当前 `backend/src`/`backend/web`/`backend/harness`、35 个设计契约、71 个运行 Prompt。
++- 输出：schema、manifest、Draft 2020-12 校验器、只读 CLI、Node 测试与候选说明；根 harness 登记留给后续 exact-H authority Packet。
++- 涉及文件：仅本 change 记录、专业 Agent matrix 文件与 `scripts/professional-agent-*` / `scripts/professional_agent_*`。
++- 状态 / 数据变化：无运行数据变化；新增 `BASELINED_CURRENT_EXT` 治理状态。
++- 验证命令与证据：见 `ci_result/ci_summary.md`。
++- 回滚边界：单 Packet、无数据库迁移；反向移除新增登记即可。
++- 完成定义：12 个 focused tests、矩阵检查、93 个引用能力测试、根/后端 doctor 通过；99 台账既存 ref 漂移和根登记转交后续 exact-H authority Packet，独立复核后才可集成。
+diff --git a/.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/summary.md b/.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/summary.md
+new file mode 100644
+index 00000000..85377196
+--- /dev/null
++++ b/.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/summary.md
+@@ -0,0 +1,26 @@
++# 变更摘要：chore-professional-agent-k0-ext-convergence-20260810
++
++> 执行授权：`NOT_GRANTED_BY_CHANGE_RECORD`
++> 本目录只记录需求与证据；产品实施必须绑定获批 amendment 和 exact-HEAD 执行权威。
++
++| 字段 | 值 |
++| --- | --- |
++| Change ID | chore-professional-agent-k0-ext-convergence-20260810 |
++| 类型 | chore |
++| 状态 | REVIEW_GO_PENDING_ROOT_REGISTRATION |
++| Owner | Project Agent |
++| 创建日期 | 20260810 |
++
++## 范围
++
++- 主线：`feature-chaotang-ext` 上的 `PROFESSIONAL_AGENT_K0` 治理资产。
++- 文件：专业 Agent 资产矩阵 schema、manifest、只读检查器、测试与本变更证据；不含根总清单登记。
++- 验证：矩阵测试、矩阵检查、R0-W08 V2 权威、根/后端 doctor。
++
++## 结论
++
++- 旧 K0 的台账能力采用 `ABSORB_ADAPT`，不复制任何旧 `backend/app` 路径。
++- 当前 EXT 登记 8 个能力域：5 个现行能力、1 个诚实不可用边界、2 个明确标记覆盖缺口的集合资产。
++- `backend/runtime_prompts` 的 71 个角色和 `backend/agent_design` 的 35 个设计契约由检查器递归计数。
++- 本 Packet 无运行时、网络、数据、前端、部署或生产状态变化。
++- 当前候选未修改被 R0-W08 钉住的 `project-harness.json` 与根 doctor；根登记必须作为后续 exact-H authority Packet 完成，不能在本候选中绕过。
+diff --git a/.harness/changes/fix-professional-agent-k0-root-registration-20260810/ci_result/ci_summary.md b/.harness/changes/fix-professional-agent-k0-root-registration-20260810/ci_result/ci_summary.md
+new file mode 100644
+index 00000000..e5a3f028
+--- /dev/null
++++ b/.harness/changes/fix-professional-agent-k0-root-registration-20260810/ci_result/ci_summary.md
+@@ -0,0 +1,40 @@
++# CI 摘要：fix-professional-agent-k0-root-registration-20260810
++
++## 命令
++
++| 命令 | 退出码 | 结果 | 证据覆盖范围 | 证据位置 / 时间 |
++| --- | ---: | --- | --- | --- |
++| `node --test scripts/professional-agent-matrix.nodetest.mjs` | 0 | 13/13 PASS | root registration 正/负例、matrix/schema/provenance | 本地控制台，2026-08-10 |
++| `node scripts/professional-agent-matrix.mjs --check` | 0 | PASS | 8 assets、35 designs、71 prompts | 本地控制台，2026-08-10 |
++| `node scripts/harness-doctor.mjs` | 1 | K0 登记全部 PASS；仅 2 个 exact-H authority 错误 | 根登记与 authority 边界 | 本地控制台，2026-08-10 |
++| `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08` | 1 | STOP / INVALID_EXECUTION_AUTHORITY | 新 candidate 尚未 exact-H 推广 | 本地控制台，2026-08-10 |
++| `git diff --check` | 0 | PASS | 补丁格式 | 本地控制台，2026-08-10 |
++
++## 结果
++
++根 manifest、required files、doctor 委派与 wiki 已接线；删除登记会令 13 项测试失败，删除/损坏 matrix 会令 doctor 失败。当前 STOP 是预期的 fail-closed 状态：分支 HEAD 尚未成为 EXT pinned HEAD，且 project manifest 已变更。
++
++## 未验证项
++
++- exact-H owner approval、独立复核、authority 重钉和 Gitee 推广尚未完成。
++- 99 台账的两个既存 moved-ref 仍需独立 successor 记录。
++
++## Diff 与回滚复核
++
++- changed files：project manifest、root doctor、matrix registration validator/test、两份 root wiki、本 change。
++- diff review：无产品 runtime、API、数据、前端、provider 或旧 donor 变更。
++- 回滚是否演练：未执行；单注册提交可 revert。
++
++## 完成定义映射
++
++| DoD | 证据 | 状态 |
++| --- | --- | --- |
++| 根 manifest 精确登记 | Node registration test | PASS |
++| 缺失登记 fail closed | negative test | PASS |
++| doctor 委派 matrix CLI | doctor 输出 `registered and valid` | PASS |
++| exact-H authority | v2 STOP | PENDING |
++| Gitee promotion | 未执行 | PENDING |
++
++## 声明状态
++
++- `DRAFT / VERIFIED_PARTIAL / VERIFIED_COMPLETE / BLOCKED`：`VERIFIED_PARTIAL`（登记实现完成，exact-H authority/promotion 待办）
+diff --git a/.harness/changes/fix-professional-agent-k0-root-registration-20260810/request_analysis/spec.md b/.harness/changes/fix-professional-agent-k0-root-registration-20260810/request_analysis/spec.md
+new file mode 100644
+index 00000000..a596a763
+--- /dev/null
++++ b/.harness/changes/fix-professional-agent-k0-root-registration-20260810/request_analysis/spec.md
+@@ -0,0 +1,65 @@
++# 规格说明：fix-professional-agent-k0-root-registration-20260810
++
++## 背景
++
++K0 内容候选已在 `ac815b52837be8b486fd139404222c1ba95fd074` 获得独立 `GO_FOR_CANDIDATE`，但根总清单与 doctor 尚未强制索引。若不登记，删除全部矩阵文件也不会被根 doctor 发现。
++
++## 当前实现与证据
++
++| 分类 | 结论 | 证据路径 / 命令与时间 | 验证方式 / Owner | 是否阻塞 |
++| --- | --- | --- | --- | --- |
++| 已确认事实 | K0 candidate 12/12，93 pytest，独立复核 GO | 前序 change review/CI | Project Owner | 否 |
++| 已确认事实 | 根 manifest/doctor 当前未登记 K0 | 删除/缺失登记负向审查 | Project Owner | 是 |
++| 已确认事实 | 修改 project manifest 会令旧 exact-H authority 暂时 STOP | V2 pinned-tree check | Authority Owner | 是，直至新 exact-H 推广 |
++
++## 数据流与调用链
++
++K0 candidate → 根 manifest 精确登记 → root doctor 必需文件与 CLI 委派 → exact-H review/authority → Gitee 推广。
++
++## 接口、数据结构与事实源
++
++| 契约 | 生产者 / 事实源 | 消费者 | 兼容性与验证 |
++| --- | --- | --- | --- |
++| `professionalAgentAssets` | `.harness/manifest/project-harness.json` | root doctor / 项目 Owner | exact object validator + Node test |
++| K0 matrix | 前序候选 | root doctor | CLI 必须 PASS，否则 doctor FAIL |
++
++## 范围
++
++仅根登记、doctor、清单 wiki、测试和本 change；不改产品 runtime/API/data/frontend。
++
++## 非目标
++
++不修改旧 K0 donor，不更改 99 frozen refs，不启用生产，不绕过 exact-H authority。
++
++## 边界条件
++
++| 条件 | 预期行为 | 证据 / 验证 |
++| --- | --- | --- |
++| 登记缺失/漂移 | Node test 与 doctor 失败 | registration negative test |
++| 矩阵文件缺失或无效 | root doctor 失败 | delegated matrix CLI |
++| 未完成 exact-H 推广 | authority STOP，禁止合并 | v2 authorize |
++
++## 风险与回滚边界
++
++主要风险是为了让 doctor 变绿而削弱旧 authority。控制方式是允许候选阶段 authority 暂时 STOP，完成 exact-H 审批后再推广；不修改 resolver 规则。回滚为单提交 revert 根登记。
++
++## 计划确认记录
++
++- 批准人：用户
++- 批准日期：2026-08-10
++- 批准范围：继续完成 K0 根登记与 EXT 单主线收敛。
++- 明确未批准：绕过 authority、生产启用、删除旧资产或整包合并旧分支。
++
++## 验收标准
++
++1. 根 manifest 精确登记 K0。
++2. doctor 缺失矩阵或登记漂移时失败。
++3. matrix test/CLI 通过。
++4. exact-H 独立复核与 authority 完成后才允许 Gitee 合入。
++
++## 验证计划
++
++- `node --test scripts/professional-agent-matrix.nodetest.mjs`
++- `node scripts/professional-agent-matrix.mjs --check`
++- `node scripts/harness-doctor.mjs`
++- `node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08`
+diff --git a/.harness/changes/fix-professional-agent-k0-root-registration-20260810/request_analysis/tasks.md b/.harness/changes/fix-professional-agent-k0-root-registration-20260810/request_analysis/tasks.md
+new file mode 100644
+index 00000000..bfe9d339
+--- /dev/null
++++ b/.harness/changes/fix-professional-agent-k0-root-registration-20260810/request_analysis/tasks.md
+@@ -0,0 +1,13 @@
++# 任务：fix-professional-agent-k0-root-registration-20260810
++
++## 任务 1
++
++- 目标：让根 harness 强制索引 K0，删除或漂移时 fail closed。
++- 前置条件：K0 candidate `ac815b52` 与独立 GO。
++- 输入：matrix schema/manifest/CLI/tests。
++- 输出：project manifest registration、doctor delegation、wiki 与负向测试。
++- 涉及文件：根 harness 登记面，不含产品 runtime。
++- 状态 / 数据变化：治理状态从 candidate-only 变为 `REVIEW_GO_PENDING_PROMOTION`。
++- 验证命令与证据：见 CI 摘要。
++- 回滚边界：单注册提交 revert。
++- 完成定义：exact-H review/authority 完成后经 Gitee 合入唯一 EXT。
+diff --git a/.harness/changes/fix-professional-agent-k0-root-registration-20260810/summary.md b/.harness/changes/fix-professional-agent-k0-root-registration-20260810/summary.md
+new file mode 100644
+index 00000000..39bce820
+--- /dev/null
++++ b/.harness/changes/fix-professional-agent-k0-root-registration-20260810/summary.md
+@@ -0,0 +1,18 @@
++# 变更摘要：fix-professional-agent-k0-root-registration-20260810
++
++> 执行授权：`NOT_GRANTED_BY_CHANGE_RECORD`
++> 本目录只记录需求与证据；产品实施必须绑定获批 amendment 和 exact-HEAD 执行权威。
++
++| 字段 | 值 |
++| --- | --- |
++| Change ID | fix-professional-agent-k0-root-registration-20260810 |
++| 类型 | fix |
++| 状态 | IMPLEMENTED_PENDING_EXACT_H_REVIEW |
++| Owner | Project Agent |
++| 创建日期 | 20260810 |
++
++## 范围
++
++- 主线：K0 候选的根 harness 强制登记，不修改任何产品 runtime。
++- 文件：`project-harness.json`、root doctor、harness/verification wiki、matrix registration test 与本 change 记录。
++- 验证：缺失登记负例、matrix test/CLI、root doctor、exact-H authority。
+diff --git a/.harness/contracts/professional-agent-asset-matrix.v1.schema.json b/.harness/contracts/professional-agent-asset-matrix.v1.schema.json
+new file mode 100644
+index 00000000..b49f4773
+--- /dev/null
++++ b/.harness/contracts/professional-agent-asset-matrix.v1.schema.json
+@@ -0,0 +1,116 @@
++{
++  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "title": "EXT professional Agent asset matrix",
++  "type": "object",
++  "additionalProperties": false,
++  "required": [
++    "schemaVersion",
++    "matrixId",
++    "canonicalOwner",
++    "integrationTarget",
++    "provenance",
++    "inventoryAssertions",
++    "assets"
++  ],
++  "properties": {
++    "schemaVersion": { "const": "professional-agent-asset-matrix.v1" },
++    "matrixId": { "const": "professional-agent-assets-ext-k0" },
++    "canonicalOwner": { "const": "feature-chaotang-ext" },
++    "integrationTarget": { "const": "backend/src" },
++    "provenance": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": ["assetFamily", "decision", "donorBranch", "donorTip", "candidateCommits", "adaptation"],
++      "properties": {
++        "assetFamily": { "const": "PROFESSIONAL_AGENT_K0" },
++        "decision": { "const": "ABSORB_ADAPT" },
++        "donorBranch": { "const": "codex/professional-agent-k0-20260803" },
++        "donorTip": { "const": "675aa950a073ae4e3e72b562aab13eea43d018df" },
++        "candidateCommits": {
++          "type": "array",
++          "uniqueItems": true,
++          "const": [
++            "a6c391cbda1217a392009c8bc51eed159cdd3464",
++            "4c55ad785540463edb16860d5302f77480d2e381",
++            "675aa950a073ae4e3e72b562aab13eea43d018df"
++          ]
++        },
++        "adaptation": { "const": "REBUILT_ON_CURRENT_EXT" }
++      }
++    },
++    "inventoryAssertions": {
++      "type": "array",
++      "minItems": 1,
++      "items": { "$ref": "#/$defs/inventoryAssertion" }
++    },
++    "assets": {
++      "type": "array",
++      "minItems": 1,
++      "items": { "$ref": "#/$defs/asset" }
++    }
++  },
++  "$defs": {
++    "safePath": {
++      "type": "string",
++      "pattern": "^(?!/)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))[A-Za-z0-9._/\\u4e00-\\u9fff-]+$"
++    },
++    "inventoryAssertion": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": ["id", "root", "fileName", "expectedCount"],
++      "properties": {
++        "id": { "type": "string", "minLength": 1 },
++        "root": { "$ref": "#/$defs/safePath" },
++        "fileName": { "type": "string", "minLength": 1 },
++        "expectedCount": { "type": "integer", "minimum": 1 }
++      }
++    },
++    "asset": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "assetId",
++        "title",
++        "owner",
++        "kind",
++        "maturity",
++        "capabilities",
++        "runtimeEntries",
++        "apiEntries",
++        "contractEntries",
++        "promptEntries",
++        "designEntries",
++        "toolEntries",
++        "testEntries",
++        "coverageStatus",
++        "gapReason",
++        "verificationCommand",
++        "sourceDisposition"
++      ],
++      "properties": {
++        "assetId": { "type": "string", "minLength": 1 },
++        "title": { "type": "string", "minLength": 1 },
++        "owner": { "enum": ["root", "backend"] },
++        "kind": { "enum": ["CANONICAL_REGISTRY", "RUNTIME_AGENT", "ROLE_COLLECTION"] },
++        "maturity": { "enum": ["DESIGN_ONLY", "PROMPT_ONLY", "CONTRACT_READY", "API_READY", "LIVE"] },
++        "capabilities": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
++        "runtimeEntries": { "$ref": "#/$defs/pathList" },
++        "apiEntries": { "$ref": "#/$defs/pathList" },
++        "contractEntries": { "$ref": "#/$defs/pathList" },
++        "promptEntries": { "$ref": "#/$defs/pathList" },
++        "designEntries": { "$ref": "#/$defs/pathList" },
++        "toolEntries": { "$ref": "#/$defs/pathList" },
++        "testEntries": { "$ref": "#/$defs/pathList" },
++        "coverageStatus": { "enum": ["VERIFIED", "PARTIAL"] },
++        "gapReason": { "type": ["string", "null"] },
++        "verificationCommand": { "type": "string", "minLength": 1 },
++        "sourceDisposition": { "enum": ["CURRENT_CANONICAL", "CURRENT_WITH_GAPS"] }
++      }
++    },
++    "pathList": {
++      "type": "array",
++      "uniqueItems": true,
++      "items": { "$ref": "#/$defs/safePath" }
++    }
++  }
++}
+diff --git a/.harness/manifest/professional-agent-asset-matrix.v1.json b/.harness/manifest/professional-agent-asset-matrix.v1.json
+new file mode 100644
+index 00000000..f75be3cf
+--- /dev/null
++++ b/.harness/manifest/professional-agent-asset-matrix.v1.json
+@@ -0,0 +1,212 @@
++{
++  "schemaVersion": "professional-agent-asset-matrix.v1",
++  "matrixId": "professional-agent-assets-ext-k0",
++  "canonicalOwner": "feature-chaotang-ext",
++  "integrationTarget": "backend/src",
++  "provenance": {
++    "assetFamily": "PROFESSIONAL_AGENT_K0",
++    "decision": "ABSORB_ADAPT",
++    "donorBranch": "codex/professional-agent-k0-20260803",
++    "donorTip": "675aa950a073ae4e3e72b562aab13eea43d018df",
++    "candidateCommits": [
++      "a6c391cbda1217a392009c8bc51eed159cdd3464",
++      "4c55ad785540463edb16860d5302f77480d2e381",
++      "675aa950a073ae4e3e72b562aab13eea43d018df"
++    ],
++    "adaptation": "REBUILT_ON_CURRENT_EXT"
++  },
++  "inventoryAssertions": [
++    {
++      "id": "agent-design-contracts",
++      "root": "backend/agent_design",
++      "fileName": "AGENTS.md",
++      "expectedCount": 35
++    },
++    {
++      "id": "runtime-prompt-contracts",
++      "root": "backend/runtime_prompts",
++      "fileName": "AGENTS.md",
++      "expectedCount": 71
++    }
++  ],
++  "assets": [
++    {
++      "assetId": "canonical:court-agent-registry",
++      "title": "朝堂 11 角色身份映射",
++      "owner": "backend",
++      "kind": "CANONICAL_REGISTRY",
++      "maturity": "CONTRACT_READY",
++      "capabilities": ["11 个冻结 AgentCode 与后端部门代码双向映射"],
++      "runtimeEntries": ["backend/src/chaotang_agents.py"],
++      "apiEntries": [],
++      "contractEntries": ["backend/src/chaotang_agents.py"],
++      "promptEntries": [],
++      "designEntries": [],
++      "toolEntries": [],
++      "testEntries": ["backend/tests/test_chaotang_agents.py"],
++      "coverageStatus": "VERIFIED",
++      "gapReason": null,
++      "verificationCommand": "python3 -m pytest -q backend/tests/test_chaotang_agents.py",
++      "sourceDisposition": "CURRENT_CANONICAL"
++    },
++    {
++      "assetId": "canonical:six-ministry-identity",
++      "title": "六部身份与部门协议事实源",
++      "owner": "backend",
++      "kind": "CANONICAL_REGISTRY",
++      "maturity": "CONTRACT_READY",
++      "capabilities": ["规范部门 ID、运行代码、AgentCode 与旧 API 别名"],
++      "runtimeEntries": ["backend/src/department_identity.py"],
++      "apiEntries": [],
++      "contractEntries": ["backend/harness/chaotang_department_protocol/departments.yaml"],
++      "promptEntries": [],
++      "designEntries": ["backend/agent_design/buildAgent/三省六部体系/总工作区/AGENTS.md"],
++      "toolEntries": [],
++      "testEntries": [
++        "backend/tests/test_department_identity_ssot.py",
++        "backend/tests/test_chaotang_department_protocol.py"
++      ],
++      "coverageStatus": "VERIFIED",
++      "gapReason": null,
++      "verificationCommand": "python3 -m pytest -q backend/tests/test_department_identity_ssot.py backend/tests/test_chaotang_department_protocol.py",
++      "sourceDisposition": "CURRENT_CANONICAL"
++    },
++    {
++      "assetId": "agent:chancellor-routing",
++      "title": "丞相契约与确定性路由",
++      "owner": "backend",
++      "kind": "RUNTIME_AGENT",
++      "maturity": "API_READY",
++      "capabilities": ["诏令分类", "部门路由", "受控汇总"],
++      "runtimeEntries": [
++        "backend/src/chancellor/contracts.py",
++        "backend/src/chancellor/routing_service.py",
++        "backend/src/chancellor_router.py"
++      ],
++      "apiEntries": ["backend/web/routers/shangshufang.py"],
++      "contractEntries": ["backend/src/chancellor/contracts.py"],
++      "promptEntries": [],
++      "designEntries": ["backend/agent_design/buildAgent/三省六部体系/中书省/AGENTS.md"],
++      "toolEntries": ["backend/src/tool_router.py", "backend/src/tool_sandbox.py"],
++      "testEntries": [
++        "backend/tests/test_chancellor_contracts.py",
++        "backend/tests/test_chancellor_routing_service.py"
++      ],
++      "coverageStatus": "VERIFIED",
++      "gapReason": null,
++      "verificationCommand": "python3 -m pytest -q backend/tests/test_chancellor_contracts.py backend/tests/test_chancellor_routing_service.py",
++      "sourceDisposition": "CURRENT_CANONICAL"
++    },
++    {
++      "assetId": "agent:jinyiwei-evidence",
++      "title": "锦衣卫证据采集与校验",
++      "owner": "backend",
++      "kind": "RUNTIME_AGENT",
++      "maturity": "API_READY",
++      "capabilities": ["证据检索", "证据持久化", "来源校验"],
++      "runtimeEntries": [
++        "backend/src/jinyiwei_agent.py",
++        "backend/src/jinyiwei_evidence_store.py",
++        "backend/src/jinyiwei_vet.py"
++      ],
++      "apiEntries": ["backend/web/routers/jinyiwei.py"],
++      "contractEntries": ["backend/harness/jinyiwei-scrapling-poc/README.md"],
++      "promptEntries": ["backend/src/prompts_jinyiwei.py"],
++      "designEntries": [],
++      "toolEntries": ["backend/src/jinyiwei_search.py"],
++      "testEntries": [
++        "backend/tests/test_jinyiwei_agent.py",
++        "backend/tests/test_jinyiwei_endpoint.py",
++        "backend/tests/test_jinyiwei_vet.py"
++      ],
++      "coverageStatus": "VERIFIED",
++      "gapReason": null,
++      "verificationCommand": "python3 -m pytest -q backend/tests/test_jinyiwei_agent.py backend/tests/test_jinyiwei_endpoint.py backend/tests/test_jinyiwei_vet.py",
++      "sourceDisposition": "CURRENT_CANONICAL"
++    },
++    {
++      "assetId": "agent:qintianjian-forecast",
++      "title": "钦天监离线预测契约与信号分析",
++      "owner": "backend",
++      "kind": "RUNTIME_AGENT",
++      "maturity": "CONTRACT_READY",
++      "capabilities": ["离线预测简报", "多视角分析", "信号与触发器"],
++      "runtimeEntries": [
++        "backend/src/qintianjian_brief.py",
++        "backend/src/qintianjian_lens.py",
++        "backend/src/qintianjian_signals.py"
++      ],
++      "apiEntries": [],
++      "contractEntries": ["backend/src/qintianjian_brief.py"],
++      "promptEntries": ["backend/src/prompts_tianjian.py"],
++      "designEntries": [],
++      "toolEntries": [],
++      "testEntries": [
++        "backend/tests/test_qintianjian_brief.py",
++        "backend/tests/test_qintianjian_lens.py",
++        "backend/tests/test_qintianjian_signals.py"
++      ],
++      "coverageStatus": "VERIFIED",
++      "gapReason": null,
++      "verificationCommand": "python3 -m pytest -q backend/tests/test_qintianjian_brief.py backend/tests/test_qintianjian_lens.py backend/tests/test_qintianjian_signals.py",
++      "sourceDisposition": "CURRENT_CANONICAL"
++    },
++    {
++      "assetId": "agent:taiyi-advisory",
++      "title": "太医诚实不可用兼容入口",
++      "owner": "backend",
++      "kind": "RUNTIME_AGENT",
++      "maturity": "API_READY",
++      "capabilities": ["对历史健康分析接口返回可验证的不可用状态，不伪造诊断或真实数据"],
++      "runtimeEntries": ["backend/web/routers/forecast_intel_taiyi.py"],
++      "apiEntries": ["backend/web/routers/forecast_intel_taiyi.py"],
++      "contractEntries": ["backend/web/routers/forecast_intel_taiyi.py"],
++      "promptEntries": [],
++      "designEntries": [],
++      "toolEntries": [],
++      "testEntries": ["backend/tests/test_forecast_intel_taiyi.py"],
++      "coverageStatus": "VERIFIED",
++      "gapReason": null,
++      "verificationCommand": "python3 -m pytest -q backend/tests/test_forecast_intel_taiyi.py",
++      "sourceDisposition": "CURRENT_CANONICAL"
++    },
++    {
++      "assetId": "collection:runtime-prompts",
++      "title": "71 个运行时 Prompt 角色",
++      "owner": "backend",
++      "kind": "ROLE_COLLECTION",
++      "maturity": "PROMPT_ONLY",
++      "capabilities": ["按专业角色提供运行时指令与输入输出边界"],
++      "runtimeEntries": [],
++      "apiEntries": [],
++      "contractEntries": ["backend/runtime_prompts/README.md"],
++      "promptEntries": ["backend/runtime_prompts"],
++      "designEntries": [],
++      "toolEntries": [],
++      "testEntries": [],
++      "coverageStatus": "PARTIAL",
++      "gapReason": "只有集合清单与目录护栏；尚未逐角色绑定运行入口和离线评测。",
++      "verificationCommand": "python3 backend/scripts/harness_doctor.py",
++      "sourceDisposition": "CURRENT_WITH_GAPS"
++    },
++    {
++      "assetId": "collection:agent-design",
++      "title": "35 个 Agent 职责设计",
++      "owner": "backend",
++      "kind": "ROLE_COLLECTION",
++      "maturity": "DESIGN_ONLY",
++      "capabilities": ["记录部门、蜂群与专业角色的职责和协作边界"],
++      "runtimeEntries": [],
++      "apiEntries": [],
++      "contractEntries": ["backend/agent_design/README.md"],
++      "promptEntries": [],
++      "designEntries": ["backend/agent_design"],
++      "toolEntries": [],
++      "testEntries": [],
++      "coverageStatus": "PARTIAL",
++      "gapReason": "设计资产尚未全部映射到当前运行时 AgentCode、工具权限和黄金样例。",
++      "verificationCommand": "python3 backend/scripts/harness_doctor.py",
++      "sourceDisposition": "CURRENT_WITH_GAPS"
++    }
++  ]
++}
+diff --git a/.harness/manifest/project-harness.json b/.harness/manifest/project-harness.json
+index f0064935..00ec50ff 100644
+--- a/.harness/manifest/project-harness.json
++++ b/.harness/manifest/project-harness.json
+@@ -267,6 +267,22 @@
+       "node scripts/harness-doctor.mjs"
+     ]
+   },
++  "professionalAgentAssets": {
++    "status": "REVIEW_GO_PENDING_PROMOTION",
++    "assetFamily": "PROFESSIONAL_AGENT_K0",
++    "canonicalOwner": "feature-chaotang-ext",
++    "manifest": ".harness/manifest/professional-agent-asset-matrix.v1.json",
++    "contract": ".harness/contracts/professional-agent-asset-matrix.v1.schema.json",
++    "evaluator": "scripts/professional-agent-matrix.mjs",
++    "schemaChecker": "scripts/professional_agent_matrix_schema_check.py",
++    "test": "scripts/professional-agent-matrix.nodetest.mjs",
++    "documentation": ".harness/wiki/professional-agent-asset-matrix.md",
++    "verification": [
++      "node --test scripts/professional-agent-matrix.nodetest.mjs",
++      "node scripts/professional-agent-matrix.mjs --check",
++      "node scripts/harness-doctor.mjs"
++    ]
++  },
+   "packetReviewLocalFeedback": {
+     "status": "LOCAL_FEEDBACK_ONLY",
+     "activationSha": "d8d8a6ae23d013bede6b1db649b06eb5ed38ea1f",
+diff --git a/.harness/wiki/harness-inventory.md b/.harness/wiki/harness-inventory.md
+index b9b70bed..1d26850e 100644
+--- a/.harness/wiki/harness-inventory.md
++++ b/.harness/wiki/harness-inventory.md
+@@ -61,3 +61,11 @@
+ - `.harness/contracts/ext-branch-convergence.schema.json`：分支、能力族、处置、状态、checkpoint 和回执字段契约。
+ - `scripts/ext-branch-convergence.mjs`：只读 `--check`、`--status`、`--family` CLI；不提供 ref、工作树或 manifest 写入口。
+ - `.harness/wiki/ext-branch-capability-convergence.md`：99/99 清算、失败关闭和后续 Packet 权威边界。
++
++## 专业 Agent 资产矩阵
++
++- `.harness/manifest/professional-agent-asset-matrix.v1.json`：当前 EXT 的专业 Agent 能力、契约、入口、测试与覆盖缺口事实源。
++- `.harness/contracts/professional-agent-asset-matrix.v1.schema.json`：Draft 2020-12 字段、成熟度、覆盖状态与安全路径契约。
++- `scripts/professional-agent-matrix.mjs`：只读检查器；验证登记路径、exact donor、35 个设计契约和 71 个运行 Prompt。
++- `scripts/professional_agent_matrix_schema_check.py`：Draft 2020-12 完整校验；缺少校验依赖时失效关闭。
++- `.harness/wiki/professional-agent-asset-matrix.md`：旧 K0 donor 到当前 EXT 的适配边界；`PARTIAL` 不等于可运行或已验收。
+diff --git a/.harness/wiki/professional-agent-asset-matrix.md b/.harness/wiki/professional-agent-asset-matrix.md
+new file mode 100644
+index 00000000..73f689e0
+--- /dev/null
++++ b/.harness/wiki/professional-agent-asset-matrix.md
+@@ -0,0 +1,25 @@
++# EXT 专业 Agent 资产矩阵
++
++本矩阵是 `PROFESSIONAL_AGENT_K0` 在当前 EXT 架构上的事实源。它吸收旧 K0 的“机器可读资产台账”能力，但不复制旧 `backend/app` 路径，也不创建第二运行控制面。
++
++## 读取原则
++
++- 唯一可写主线：`feature-chaotang-ext`。
++- 现行运行目标：`backend/src` 与 `backend/web`。
++- 旧分支只提供能力意图、契约反例和测试线索；来源固定为 `codex/professional-agent-k0-20260803@675aa950a073ae4e3e72b562aab13eea43d018df`。
++- 每个运行能力必须同时登记能力、契约入口、测试和验证命令。
++- `PROMPT_ONLY`、`DESIGN_ONLY` 或 `PARTIAL` 不能被解释为可运行、已接线或已验收。
++
++## 当前结论
++
++矩阵登记 8 个能力域：5 个现行能力、1 个“诚实不可用”兼容边界，以及 2 个仍需后续逐角色对账的集合资产。太医条目只证明旧接口会明确返回不可用，不能解释为已经具备健康分析或分诊能力。运行 Prompt 共 71 个，Agent 设计契约共 35 个；数量由检查器递归核验，不靠文档手工声明。
++
++## 命令
++
++```bash
++node scripts/professional-agent-matrix.mjs --check
++node scripts/professional-agent-matrix.mjs --print
++node --test scripts/professional-agent-matrix.nodetest.mjs
++```
++
++该矩阵只提供治理和吸收决策证据，不授予 Agent 运行、网络、推送、合并、部署或生产启用权限。
+diff --git a/.harness/wiki/verification-matrix.md b/.harness/wiki/verification-matrix.md
+index 33b14d4c..4b1032cc 100644
+--- a/.harness/wiki/verification-matrix.md
++++ b/.harness/wiki/verification-matrix.md
+@@ -8,6 +8,7 @@
+ | 能力入口清算与遥测契约 | `node --test scripts/capability-entry-governance.nodetest.mjs` | 验证功能清算表、统一调用事件、14 天零调用与 replacement 证据删除门 | 2026-07-14，OBSERVE；尚无统一 runtime sink，不得删除入口 |
+ | K0B 知识质量 rubric | `node --test scripts/knowledge-quality-rubric.nodetest.mjs` | 验证合同/检索/outcome/成本/时效阈值、逐run门和 fail-closed 状态 | 2026-07-14，FROZEN_LOCAL / NO_DATA；门已冻结，真实黄金案例与 outcome 未到 |
+ | EXT 99 分支能力融合台账 | `node --test scripts/ext-branch-convergence.nodetest.mjs && node scripts/ext-branch-convergence.mjs --check` | 验证 99 个冻结 ref、唯一能力归属、唯一 canonical donor、处置/authority/checkpoint 契约和 ref tip 未漂移；CLI 全部只读 | 2026-08-03，DRAFT_OBSERVE_ONLY；不授权 merge、cherry-pick、代码实施或删除分支 |
++| EXT 专业 Agent K0 资产矩阵 | `node --test scripts/professional-agent-matrix.nodetest.mjs && node scripts/professional-agent-matrix.mjs --check` | 验证 Draft 2020-12、exact donor、当前 EXT 能力/契约/测试路径、35 个设计契约与 71 个运行 Prompt；阻止无测试集合标成 VERIFIED | 2026-08-10，REVIEW_GO_PENDING_PROMOTION；6 个能力域 VERIFIED，2 个集合资产 PARTIAL |
+ | Packet 独立复核本地反馈门 | `node --test scripts/packet-review-local-feedback.nodetest.mjs && node scripts/packet-review-pre-push.mjs --status` | 验证 B→H→R→M、唯一 change/approval、报告 digest、终态 GO、安装/卸载与 bypass 诚实声明 | 2026-07-16，`LOCAL_FEEDBACK_ONLY`；无外部签名/required check，不得称 ENFORCED |
+ | 前端工程 harness | `cd frontend && pnpm harness:doctor` | 验证前端 `.harness` 结构、模板、skills 和变更记录 | 由根 doctor 委托；2026-07-09 通过 |
+ | 后端 harness 架构 | `cd backend && python scripts/harness_doctor.py` | 验证后端 harness manifest、共享契约、主 harness、实现包和变更记录 | 由根 doctor 委托；2026-07-09 通过 |
+diff --git a/scripts/harness-doctor.mjs b/scripts/harness-doctor.mjs
+index 700b67d8..96b4dc77 100644
+--- a/scripts/harness-doctor.mjs
++++ b/scripts/harness-doctor.mjs
+@@ -22,6 +22,10 @@ import {
+   verifyAmendmentApprovalEvidenceFiles,
+ } from './lib/amendment-governance.mjs';
+ import { validateRepositoryStructure } from './lib/repository-structure.mjs';
++import {
++  EXPECTED_PROFESSIONAL_AGENT_REGISTRATION,
++  validateProfessionalAgentRegistration,
++} from './lib/professional-agent-matrix.mjs';
+ 
+ const __dirname = dirname(fileURLToPath(import.meta.url));
+ const root = join(__dirname, '..');
+@@ -96,6 +100,13 @@ const required = [
+   '.harness/wiki/ext-branch-capability-convergence.md',
+   'scripts/ext-branch-convergence.mjs',
+   'scripts/ext-branch-convergence.nodetest.mjs',
++  '.harness/contracts/professional-agent-asset-matrix.v1.schema.json',
++  '.harness/manifest/professional-agent-asset-matrix.v1.json',
++  '.harness/wiki/professional-agent-asset-matrix.md',
++  'scripts/lib/professional-agent-matrix.mjs',
++  'scripts/professional-agent-matrix.mjs',
++  'scripts/professional-agent-matrix.nodetest.mjs',
++  'scripts/professional_agent_matrix_schema_check.py',
+   '.harness/templates/change-template/summary.md',
+   '.harness/templates/change-template/request_analysis/spec.md',
+   '.harness/templates/change-template/request_analysis/tasks.md',
+@@ -310,6 +321,31 @@ if (manifest) {
+     error('manifest missing extBranchConvergence');
+   }
+ 
++  if (manifest.professionalAgentAssets) {
++    const registrationErrors = validateProfessionalAgentRegistration(
++      manifest.professionalAgentAssets,
++    );
++    if (registrationErrors.length > 0) {
++      for (const message of registrationErrors) error(message);
++    } else {
++      for (const key of ['manifest', 'contract', 'evaluator', 'schemaChecker', 'test', 'documentation']) {
++        checkExists(
++          EXPECTED_PROFESSIONAL_AGENT_REGISTRATION[key],
++          `manifest professional Agent assets ${key}`,
++        );
++      }
++      const result = spawnSync(
++        process.execPath,
++        [join(root, EXPECTED_PROFESSIONAL_AGENT_REGISTRATION.evaluator), '--check'],
++        { cwd: root, encoding: 'utf8' },
++      );
++      if (result.status === 0) ok('professional Agent asset matrix is registered and valid');
++      else error(`professional Agent asset matrix failed: ${(result.stdout || result.stderr).trim()}`);
++    }
++  } else {
++    error('manifest missing professionalAgentAssets');
++  }
++
+   if (manifest.controlPlane) {
+     for (const key of ['blueprint', 'documentation', 'baseline']) {
+       if (manifest.controlPlane[key]) checkExists(manifest.controlPlane[key], `manifest control plane ${key}`);
+diff --git a/scripts/lib/professional-agent-matrix.mjs b/scripts/lib/professional-agent-matrix.mjs
+new file mode 100644
+index 00000000..16073e01
+--- /dev/null
++++ b/scripts/lib/professional-agent-matrix.mjs
+@@ -0,0 +1,344 @@
++import { createHash } from 'node:crypto';
++import { lstat, readdir } from 'node:fs/promises';
++import { resolve, sep } from 'node:path';
++
++export const MATRIX_SCHEMA_VERSION = 'professional-agent-asset-matrix.v1';
++export const MATRIX_ID = 'professional-agent-assets-ext-k0';
++export const CANONICAL_OWNER = 'feature-chaotang-ext';
++export const DONOR_BRANCH = 'codex/professional-agent-k0-20260803';
++export const DONOR_TIP = '675aa950a073ae4e3e72b562aab13eea43d018df';
++export const DONOR_CANDIDATE_COMMITS = Object.freeze([
++  'a6c391cbda1217a392009c8bc51eed159cdd3464',
++  '4c55ad785540463edb16860d5302f77480d2e381',
++  '675aa950a073ae4e3e72b562aab13eea43d018df',
++]);
++export const SAFE_PATH_SCHEMA_PATTERN = '^(?!/)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))[A-Za-z0-9._/\\u4e00-\\u9fff-]+$';
++export const SCHEMA_CANONICAL_SHA256 = 'a3d4cfe45863d511068271f974b21161ee78f53b23ef6f5176f54aeed5572552';
++export const EXPECTED_PROFESSIONAL_AGENT_REGISTRATION = Object.freeze({
++  status: 'REVIEW_GO_PENDING_PROMOTION',
++  assetFamily: 'PROFESSIONAL_AGENT_K0',
++  canonicalOwner: CANONICAL_OWNER,
++  manifest: '.harness/manifest/professional-agent-asset-matrix.v1.json',
++  contract: '.harness/contracts/professional-agent-asset-matrix.v1.schema.json',
++  evaluator: 'scripts/professional-agent-matrix.mjs',
++  schemaChecker: 'scripts/professional_agent_matrix_schema_check.py',
++  test: 'scripts/professional-agent-matrix.nodetest.mjs',
++  documentation: '.harness/wiki/professional-agent-asset-matrix.md',
++  verification: [
++    'node --test scripts/professional-agent-matrix.nodetest.mjs',
++    'node scripts/professional-agent-matrix.mjs --check',
++    'node scripts/harness-doctor.mjs',
++  ],
++});
++
++export function validateProfessionalAgentRegistration(registration) {
++  return JSON.stringify(registration) === JSON.stringify(EXPECTED_PROFESSIONAL_AGENT_REGISTRATION)
++    ? []
++    : ['project professionalAgentAssets registration differs from the reviewed K0 registration'];
++}
++
++const MATURITIES = new Set(['DESIGN_ONLY', 'PROMPT_ONLY', 'CONTRACT_READY', 'API_READY', 'LIVE']);
++const KINDS = new Set(['CANONICAL_REGISTRY', 'RUNTIME_AGENT', 'ROLE_COLLECTION']);
++const COVERAGE = new Set(['VERIFIED', 'PARTIAL']);
++const DISPOSITIONS = new Set(['CURRENT_CANONICAL', 'CURRENT_WITH_GAPS']);
++const TOP_LEVEL_KEYS = new Set([
++  'schemaVersion',
++  'matrixId',
++  'canonicalOwner',
++  'integrationTarget',
++  'provenance',
++  'inventoryAssertions',
++  'assets',
++]);
++const PROVENANCE_KEYS = new Set([
++  'assetFamily',
++  'decision',
++  'donorBranch',
++  'donorTip',
++  'candidateCommits',
++  'adaptation',
++]);
++const ASSERTION_KEYS = new Set(['id', 'root', 'fileName', 'expectedCount']);
++const PATH_FIELDS = [
++  'runtimeEntries',
++  'apiEntries',
++  'contractEntries',
++  'promptEntries',
++  'designEntries',
++  'toolEntries',
++  'testEntries',
++];
++const ASSET_KEYS = new Set([
++  'assetId',
++  'title',
++  'owner',
++  'kind',
++  'maturity',
++  'capabilities',
++  ...PATH_FIELDS,
++  'coverageStatus',
++  'gapReason',
++  'verificationCommand',
++  'sourceDisposition',
++]);
++
++function isNonBlank(value) {
++  return typeof value === 'string' && value.trim().length > 0;
++}
++
++export function isSafeRepositoryPath(value) {
++  if (!isNonBlank(value) || value.startsWith('/') || value.includes('\\')) return false;
++  const segments = value.split('/');
++  return /^[A-Za-z0-9._/\u4e00-\u9fff-]+$/u.test(value)
++    && !value.includes('//')
++    && !segments.some((segment) => segment === '.' || segment === '..');
++}
++
++function rejectUnsupportedKeys(errors, label, value, allowed) {
++  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
++    errors.push(`${label} must be an object`);
++    return;
++  }
++  for (const key of Object.keys(value)) {
++    if (!allowed.has(key)) errors.push(`${label} has unsupported field ${key}`);
++  }
++}
++
++function validatePathList(errors, assetId, field, value) {
++  if (!Array.isArray(value)) {
++    errors.push(`${assetId}.${field} must be an array`);
++    return;
++  }
++  const seen = new Set();
++  for (const path of value) {
++    if (!isSafeRepositoryPath(path)) errors.push(`${assetId}.${field} contains an unsafe path`);
++    if (seen.has(path)) errors.push(`${assetId}.${field} contains duplicate path: ${path}`);
++    seen.add(path);
++  }
++}
++
++export function validateProfessionalAgentMatrix(matrix) {
++  const errors = [];
++  rejectUnsupportedKeys(errors, 'matrix', matrix, TOP_LEVEL_KEYS);
++  if (matrix?.schemaVersion !== MATRIX_SCHEMA_VERSION) errors.push('schemaVersion is invalid');
++  if (matrix?.matrixId !== MATRIX_ID) errors.push('matrixId is invalid');
++  if (matrix?.canonicalOwner !== CANONICAL_OWNER) errors.push('canonicalOwner must be feature-chaotang-ext');
++  if (matrix?.integrationTarget !== 'backend/src') errors.push('integrationTarget must remain backend/src');
++
++  const provenance = matrix?.provenance;
++  rejectUnsupportedKeys(errors, 'provenance', provenance, PROVENANCE_KEYS);
++  if (provenance?.assetFamily !== 'PROFESSIONAL_AGENT_K0') errors.push('provenance.assetFamily is invalid');
++  if (provenance?.decision !== 'ABSORB_ADAPT') errors.push('provenance.decision is invalid');
++  if (provenance?.donorBranch !== DONOR_BRANCH) errors.push('provenance.donorBranch is invalid');
++  if (provenance?.donorTip !== DONOR_TIP) errors.push('provenance.donorTip is invalid');
++  if (JSON.stringify(provenance?.candidateCommits) !== JSON.stringify(DONOR_CANDIDATE_COMMITS)) {
++    errors.push('provenance.candidateCommits is invalid');
++  }
++  if (provenance?.adaptation !== 'REBUILT_ON_CURRENT_EXT') errors.push('provenance.adaptation is invalid');
++
++  if (!Array.isArray(matrix?.inventoryAssertions) || matrix.inventoryAssertions.length === 0) {
++    errors.push('inventoryAssertions must be a non-empty array');
++  } else {
++    const assertionIds = new Set();
++    for (const assertion of matrix.inventoryAssertions) {
++      rejectUnsupportedKeys(errors, `inventory assertion ${assertion?.id ?? '<unknown>'}`, assertion, ASSERTION_KEYS);
++      if (!isNonBlank(assertion?.id)) errors.push('inventory assertion id is required');
++      if (assertionIds.has(assertion?.id)) errors.push(`duplicate inventory assertion: ${assertion?.id}`);
++      assertionIds.add(assertion?.id);
++      if (!isSafeRepositoryPath(assertion?.root)) errors.push(`inventory assertion ${assertion?.id} root is unsafe`);
++      if (!isNonBlank(assertion?.fileName) || assertion.fileName.includes('/') || assertion.fileName.includes('\\')) {
++        errors.push(`inventory assertion ${assertion?.id} fileName is invalid`);
++      }
++      if (!Number.isInteger(assertion?.expectedCount) || assertion.expectedCount < 1) {
++        errors.push(`inventory assertion ${assertion?.id} expectedCount is invalid`);
++      }
++    }
++  }
++
++  if (!Array.isArray(matrix?.assets) || matrix.assets.length === 0) {
++    errors.push('assets must be a non-empty array');
++    return errors;
++  }
++  const assetIds = new Set();
++  for (const [index, asset] of matrix.assets.entries()) {
++    const assetId = isNonBlank(asset?.assetId) ? asset.assetId : `asset[${index}]`;
++    if (!isNonBlank(asset?.assetId)) errors.push(`${assetId}.assetId is required`);
++    for (const key of ASSET_KEYS) {
++      if (!Object.hasOwn(asset ?? {}, key)) errors.push(`${assetId} missing ${key}`);
++    }
++    for (const key of Object.keys(asset ?? {})) {
++      if (!ASSET_KEYS.has(key)) errors.push(`${assetId} has unsupported field ${key}`);
++    }
++    if (assetIds.has(asset?.assetId)) errors.push(`duplicate assetId: ${asset?.assetId}`);
++    assetIds.add(asset?.assetId);
++    if (!isNonBlank(asset?.title)) errors.push(`${assetId}.title is required`);
++    if (!['root', 'backend'].includes(asset?.owner)) errors.push(`${assetId}.owner is invalid`);
++    if (!KINDS.has(asset?.kind)) errors.push(`${assetId}.kind is invalid`);
++    if (!MATURITIES.has(asset?.maturity)) errors.push(`${assetId}.maturity is invalid`);
++    if (!Array.isArray(asset?.capabilities) || asset.capabilities.length === 0
++      || asset.capabilities.some((capability) => !isNonBlank(capability))) {
++      errors.push(`${assetId}.capabilities must be non-empty strings`);
++    }
++    for (const field of PATH_FIELDS) validatePathList(errors, assetId, field, asset?.[field]);
++    const hasImplementation = ['runtimeEntries', 'promptEntries', 'designEntries']
++      .some((field) => Array.isArray(asset?.[field]) && asset[field].length > 0);
++    if (!hasImplementation) errors.push(`${assetId} has no runtime, prompt, or design entry`);
++    if (!Array.isArray(asset?.contractEntries) || asset.contractEntries.length === 0) {
++      errors.push(`${assetId}.contractEntries must not be empty`);
++    }
++    if (!COVERAGE.has(asset?.coverageStatus)) errors.push(`${assetId}.coverageStatus is invalid`);
++    if (asset?.coverageStatus === 'VERIFIED') {
++      if (!Array.isArray(asset?.testEntries) || asset.testEntries.length === 0) {
++        errors.push(`${assetId} cannot be VERIFIED without tests`);
++      }
++      if (asset?.gapReason !== null) errors.push(`${assetId}.gapReason must be null when VERIFIED`);
++      if (asset?.sourceDisposition !== 'CURRENT_CANONICAL') {
++        errors.push(`${assetId} VERIFIED assets must be CURRENT_CANONICAL`);
++      }
++    }
++    if (asset?.coverageStatus === 'PARTIAL') {
++      if (!isNonBlank(asset?.gapReason)) errors.push(`${assetId}.gapReason is required when PARTIAL`);
++      if (asset?.sourceDisposition !== 'CURRENT_WITH_GAPS') {
++        errors.push(`${assetId} PARTIAL assets must be CURRENT_WITH_GAPS`);
++      }
++    }
++    if (!isNonBlank(asset?.verificationCommand)) errors.push(`${assetId}.verificationCommand is required`);
++    if (asset?.coverageStatus === 'VERIFIED') {
++      const expectedCommand = `python3 -m pytest -q ${asset.testEntries.join(' ')}`;
++      if (asset.verificationCommand !== expectedCommand) {
++        errors.push(`${assetId}.verificationCommand must execute its exact registered tests`);
++      }
++    }
++    if (!DISPOSITIONS.has(asset?.sourceDisposition)) errors.push(`${assetId}.sourceDisposition is invalid`);
++  }
++  return errors;
++}
++
++export function validateProfessionalAgentSchema(schema) {
++  const errors = [];
++  const actualDigest = createHash('sha256').update(JSON.stringify(schema)).digest('hex');
++  if (actualDigest !== SCHEMA_CANONICAL_SHA256) errors.push('schema document hash differs from the reviewed Draft 2020-12 contract');
++  if (schema?.additionalProperties !== false) errors.push('schema top-level additionalProperties must be false');
++  if (schema?.properties?.schemaVersion?.const !== MATRIX_SCHEMA_VERSION) errors.push('schema schemaVersion differs from validator');
++  if (schema?.properties?.matrixId?.const !== MATRIX_ID) errors.push('schema matrixId differs from validator');
++  if (schema?.properties?.canonicalOwner?.const !== CANONICAL_OWNER) errors.push('schema canonicalOwner differs from validator');
++  if (schema?.properties?.integrationTarget?.const !== 'backend/src') errors.push('schema integrationTarget differs from validator');
++  const schemaTopLevel = new Set(Object.keys(schema?.properties ?? {}));
++  if (schemaTopLevel.size !== TOP_LEVEL_KEYS.size || [...TOP_LEVEL_KEYS].some((key) => !schemaTopLevel.has(key))) {
++    errors.push('schema top-level fields differ from validator');
++  }
++  const schemaAssetKeys = new Set(schema?.$defs?.asset?.required ?? []);
++  if (schemaAssetKeys.size !== ASSET_KEYS.size || [...ASSET_KEYS].some((key) => !schemaAssetKeys.has(key))) {
++    errors.push('schema asset fields differ from validator');
++  }
++  const schemaAssetProperties = new Set(Object.keys(schema?.$defs?.asset?.properties ?? {}));
++  if (schema?.$defs?.asset?.additionalProperties !== false
++    || schemaAssetProperties.size !== ASSET_KEYS.size
++    || [...ASSET_KEYS].some((key) => !schemaAssetProperties.has(key))) {
++    errors.push('schema asset properties differ from validator');
++  }
++  const schemaProvenanceProperties = new Set(Object.keys(schema?.properties?.provenance?.properties ?? {}));
++  if (schema?.properties?.provenance?.additionalProperties !== false
++    || schemaProvenanceProperties.size !== PROVENANCE_KEYS.size
++    || [...PROVENANCE_KEYS].some((key) => !schemaProvenanceProperties.has(key))) {
++    errors.push('schema provenance fields differ from validator');
++  }
++  if (schema?.properties?.provenance?.properties?.donorBranch?.const !== DONOR_BRANCH) {
++    errors.push('schema donorBranch differs from validator');
++  }
++  if (schema?.properties?.provenance?.properties?.donorTip?.const !== DONOR_TIP) {
++    errors.push('schema donorTip differs from validator');
++  }
++  if (schema?.properties?.provenance?.properties?.candidateCommits?.uniqueItems !== true) {
++    errors.push('schema candidateCommits must be unique');
++  }
++  if (JSON.stringify(schema?.properties?.provenance?.properties?.candidateCommits?.const)
++    !== JSON.stringify(DONOR_CANDIDATE_COMMITS)) {
++    errors.push('schema candidateCommits differ from validator');
++  }
++  if (schema?.$defs?.safePath?.pattern !== SAFE_PATH_SCHEMA_PATTERN) {
++    errors.push('schema safePath pattern differs from validator');
++  }
++  return errors;
++}
++
++export function validateProfessionalAgentProvenance(matrix, convergence) {
++  const errors = [];
++  const family = convergence?.assetFamilies?.find((item) => item.id === 'PROFESSIONAL_AGENT_K0');
++  const donor = convergence?.branches?.find((item) => item.branch === DONOR_BRANCH);
++  if (family?.canonicalDonor !== DONOR_BRANCH || family?.decision !== 'ABSORB_ADAPT') {
++    errors.push('EXT convergence family does not bind the expected K0 donor');
++  }
++  if (donor?.assetFamily !== 'PROFESSIONAL_AGENT_K0' || donor?.canonicalDonor !== true
++    || donor?.tip !== DONOR_TIP || donor?.disposition !== 'ABSORB_ADAPT') {
++    errors.push('EXT convergence branch does not match the frozen K0 donor');
++  }
++  const shortCandidates = DONOR_CANDIDATE_COMMITS.map((commit) => commit.slice(0, 8));
++  if (JSON.stringify(donor?.candidateCommits) !== JSON.stringify(shortCandidates)) {
++    errors.push('EXT convergence candidate commits do not match the K0 matrix provenance');
++  }
++  if (matrix?.provenance?.donorTip !== donor?.tip) errors.push('matrix donor tip differs from EXT convergence');
++  return errors;
++}
++
++async function countNamedFiles(rootPath, fileName) {
++  let count = 0;
++  for (const entry of await readdir(rootPath, { withFileTypes: true })) {
++    if (entry.isSymbolicLink()) throw new Error(`symbolic link is not allowed in inventory: ${entry.name}`);
++    const path = resolve(rootPath, entry.name);
++    if (entry.isDirectory()) count += await countNamedFiles(path, fileName);
++    else if (entry.isFile() && entry.name === fileName) count += 1;
++  }
++  return count;
++}
++
++function insideRoot(rootPath, relativePath) {
++  const absolute = resolve(rootPath, relativePath);
++  return absolute === rootPath || absolute.startsWith(`${rootPath}${sep}`);
++}
++
++export async function verifyProfessionalAgentMatrix(matrix, repositoryRoot) {
++  const errors = validateProfessionalAgentMatrix(matrix);
++  const rootPath = resolve(repositoryRoot);
++  if (errors.length > 0) return errors;
++
++  const paths = new Map();
++  for (const asset of matrix.assets) {
++    for (const field of PATH_FIELDS) {
++      for (const path of asset[field]) {
++        if (!paths.has(path)) paths.set(path, new Set());
++        paths.get(path).add(field);
++      }
++    }
++  }
++  for (const [path, fields] of paths) {
++    if (!insideRoot(rootPath, path)) {
++      errors.push(`path escapes repository root: ${path}`);
++      continue;
++    }
++    try {
++      const stat = await lstat(resolve(rootPath, path));
++      if (stat.isSymbolicLink()) errors.push(`path must not be a symbolic link: ${path}`);
++      if (fields.has('testEntries')) {
++        if (!stat.isFile()) errors.push(`registered test must be a file: ${path}`);
++        if (!/(?:^|\/)test_[A-Za-z0-9_]+\.py$/u.test(path)) {
++          errors.push(`registered Python test path is invalid: ${path}`);
++        }
++      }
++    } catch {
++      errors.push(`missing asset path: ${path}`);
++    }
++  }
++
++  for (const assertion of matrix.inventoryAssertions) {
++    try {
++      const actual = await countNamedFiles(resolve(rootPath, assertion.root), assertion.fileName);
++      if (actual !== assertion.expectedCount) {
++        errors.push(`${assertion.id} count mismatch: expected ${assertion.expectedCount}, got ${actual}`);
++      }
++    } catch (error) {
++      errors.push(`${assertion.id} inventory failed: ${error.message}`);
++    }
++  }
++  return errors;
++}
+diff --git a/scripts/professional-agent-matrix.mjs b/scripts/professional-agent-matrix.mjs
+new file mode 100644
+index 00000000..599a2e7a
+--- /dev/null
++++ b/scripts/professional-agent-matrix.mjs
+@@ -0,0 +1,65 @@
++#!/usr/bin/env node
++import { readFile } from 'node:fs/promises';
++import { spawnSync } from 'node:child_process';
++import { dirname, join } from 'node:path';
++import { fileURLToPath } from 'node:url';
++
++import {
++  validateProfessionalAgentSchema,
++  validateProfessionalAgentProvenance,
++  verifyProfessionalAgentMatrix,
++} from './lib/professional-agent-matrix.mjs';
++
++const root = join(dirname(fileURLToPath(import.meta.url)), '..');
++const manifestPath = join(root, '.harness/manifest/professional-agent-asset-matrix.v1.json');
++const schemaPath = join(root, '.harness/contracts/professional-agent-asset-matrix.v1.schema.json');
++const convergencePath = join(root, '.harness/manifest/ext-branch-convergence.v1.json');
++const schemaCheckerPath = join(root, 'scripts/professional_agent_matrix_schema_check.py');
++const command = process.argv[2];
++
++if (!['--check', '--print'].includes(command)) {
++  console.log(JSON.stringify({ decision: 'STOP', reason: 'UNSUPPORTED_COMMAND' }));
++  process.exitCode = 64;
++} else {
++  try {
++    const [matrix, schema, convergence] = await Promise.all([
++      readFile(manifestPath, 'utf8').then(JSON.parse),
++      readFile(schemaPath, 'utf8').then(JSON.parse),
++      readFile(convergencePath, 'utf8').then(JSON.parse),
++    ]);
++    const errors = [
++      ...validateProfessionalAgentSchema(schema),
++      ...validateProfessionalAgentProvenance(matrix, convergence),
++      ...await verifyProfessionalAgentMatrix(matrix, root),
++    ];
++    const schemaResult = spawnSync(
++      process.env.PYTHON3 || 'python3',
++      [schemaCheckerPath, schemaPath, manifestPath],
++      { cwd: root, encoding: 'utf8' },
++    );
++    if (schemaResult.status !== 0) {
++      errors.push(`Draft 2020-12 validation failed: ${(schemaResult.stdout || schemaResult.stderr).trim()}`);
++    }
++    if (errors.length > 0) {
++      console.log(JSON.stringify({ decision: 'FAIL', errors }, null, 2));
++      process.exitCode = 1;
++    } else if (command === '--print') {
++      console.log(JSON.stringify(matrix, null, 2));
++    } else {
++      console.log(JSON.stringify({
++        decision: 'PASS',
++        matrixId: matrix.matrixId,
++        canonicalOwner: matrix.canonicalOwner,
++        assetCount: matrix.assets.length,
++        verifiedAssets: matrix.assets.filter((asset) => asset.coverageStatus === 'VERIFIED').length,
++        partialAssets: matrix.assets.filter((asset) => asset.coverageStatus === 'PARTIAL').length,
++        inventoryCounts: Object.fromEntries(
++          matrix.inventoryAssertions.map((assertion) => [assertion.id, assertion.expectedCount]),
++        ),
++      }));
++    }
++  } catch (error) {
++    console.log(JSON.stringify({ decision: 'FAIL', reason: 'INVALID_MATRIX', detail: error.message }));
++    process.exitCode = 1;
++  }
++}
+diff --git a/scripts/professional-agent-matrix.nodetest.mjs b/scripts/professional-agent-matrix.nodetest.mjs
+new file mode 100644
+index 00000000..2666453e
+--- /dev/null
++++ b/scripts/professional-agent-matrix.nodetest.mjs
+@@ -0,0 +1,183 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import { execFile } from 'node:child_process';
++import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
++import { tmpdir } from 'node:os';
++import { join } from 'node:path';
++import { promisify } from 'node:util';
++
++import {
++  EXPECTED_PROFESSIONAL_AGENT_REGISTRATION,
++  validateProfessionalAgentMatrix,
++  validateProfessionalAgentProvenance,
++  validateProfessionalAgentRegistration,
++  validateProfessionalAgentSchema,
++  verifyProfessionalAgentMatrix,
++} from './lib/professional-agent-matrix.mjs';
++
++const root = new URL('../', import.meta.url);
++const manifestUrl = new URL('.harness/manifest/professional-agent-asset-matrix.v1.json', root);
++const execFileAsync = promisify(execFile);
++
++async function currentMatrix() {
++  return JSON.parse(await readFile(manifestUrl, 'utf8'));
++}
++
++test('current EXT matrix is structurally valid and all registered paths exist', async () => {
++  const matrix = await currentMatrix();
++  assert.deepEqual(validateProfessionalAgentMatrix(matrix), []);
++  assert.deepEqual(await verifyProfessionalAgentMatrix(matrix, root.pathname), []);
++  assert.equal(matrix.assets.length, 8);
++  assert.equal(matrix.assets.filter((asset) => asset.coverageStatus === 'VERIFIED').length, 6);
++  assert.equal(matrix.assets.filter((asset) => asset.coverageStatus === 'PARTIAL').length, 2);
++});
++
++test('root project manifest registers the exact K0 control-plane asset', async () => {
++  const projectManifest = JSON.parse(await readFile(
++    new URL('.harness/manifest/project-harness.json', root),
++    'utf8',
++  ));
++  assert.deepEqual(
++    projectManifest.professionalAgentAssets,
++    EXPECTED_PROFESSIONAL_AGENT_REGISTRATION,
++  );
++  assert.deepEqual(
++    validateProfessionalAgentRegistration(projectManifest.professionalAgentAssets),
++    [],
++  );
++  delete projectManifest.professionalAgentAssets;
++  assert.match(
++    validateProfessionalAgentRegistration(projectManifest.professionalAgentAssets).join('\n'),
++    /differs from the reviewed K0 registration/u,
++  );
++});
++
++test('executable validator is pinned to the published schema fields', async () => {
++  const schema = JSON.parse(await readFile(
++    new URL('.harness/contracts/professional-agent-asset-matrix.v1.schema.json', root),
++    'utf8',
++  ));
++  assert.deepEqual(validateProfessionalAgentSchema(schema), []);
++  schema.$defs.asset.required.pop();
++  assert.match(validateProfessionalAgentSchema(schema).join('\n'), /asset fields differ/u);
++});
++
++test('schema mirror rejects weakened integration, provenance, and path constraints', async () => {
++  const schema = JSON.parse(await readFile(
++    new URL('.harness/contracts/professional-agent-asset-matrix.v1.schema.json', root),
++    'utf8',
++  ));
++  schema.properties.integrationTarget.const = 'backend/app';
++  schema.properties.provenance.additionalProperties = true;
++  schema.$defs.safePath.pattern = '.*';
++  const errors = validateProfessionalAgentSchema(schema).join('\n');
++  assert.match(errors, /integrationTarget differs/u);
++  assert.match(errors, /provenance fields differ/u);
++  assert.match(errors, /safePath pattern differs/u);
++});
++
++test('any published schema mutation breaks the reviewed schema digest', async () => {
++  const schema = JSON.parse(await readFile(
++    new URL('.harness/contracts/professional-agent-asset-matrix.v1.schema.json', root),
++    'utf8',
++  ));
++  schema.required = [];
++  schema.properties.provenance.required = [];
++  schema.$defs.asset.properties.coverageStatus.enum.push('FORGED');
++  schema.$defs.asset.properties.maturity.enum.push('FORGED');
++  schema.$defs.pathList.uniqueItems = false;
++  assert.match(validateProfessionalAgentSchema(schema).join('\n'), /schema document hash differs/u);
++});
++
++test('Draft 2020-12 checker rejects a schema-invalid matrix', async () => {
++  const temporaryRoot = await mkdtemp(join(tmpdir(), 'professional-agent-matrix-'));
++  try {
++    const matrix = await currentMatrix();
++    matrix.assets[0].owner = 'forged-owner';
++    const matrixPath = join(temporaryRoot, 'matrix.json');
++    await writeFile(matrixPath, JSON.stringify(matrix), 'utf8');
++    await assert.rejects(
++      execFileAsync('python3', [
++        new URL('scripts/professional_agent_matrix_schema_check.py', root).pathname,
++        new URL('.harness/contracts/professional-agent-asset-matrix.v1.schema.json', root).pathname,
++        matrixPath,
++      ]),
++      (error) => error.code === 1 && /SCHEMA_VALIDATION_FAILED/u.test(error.stdout),
++    );
++  } finally {
++    await rm(temporaryRoot, { recursive: true, force: true });
++  }
++});
++
++test('provenance is bound to the frozen canonical K0 donor', async () => {
++  const [matrix, convergence] = await Promise.all([
++    currentMatrix(),
++    readFile(new URL('.harness/manifest/ext-branch-convergence.v1.json', root), 'utf8').then(JSON.parse),
++  ]);
++  assert.deepEqual(validateProfessionalAgentProvenance(matrix, convergence), []);
++  const forgedMatrix = structuredClone(matrix);
++  forgedMatrix.provenance.donorTip = '0'.repeat(40);
++  assert.match(validateProfessionalAgentMatrix(forgedMatrix).join('\n'), /donorTip is invalid/u);
++  const forgedLedger = structuredClone(convergence);
++  forgedLedger.branches.find((item) => item.branch === matrix.provenance.donorBranch).tip = '0'.repeat(40);
++  assert.match(validateProfessionalAgentProvenance(matrix, forgedLedger).join('\n'), /frozen K0 donor/u);
++});
++
++test('inventory assertions freeze 35 designs and 71 runtime prompts', async () => {
++  const matrix = await currentMatrix();
++  assert.deepEqual(
++    Object.fromEntries(matrix.inventoryAssertions.map((item) => [item.id, item.expectedCount])),
++    { 'agent-design-contracts': 35, 'runtime-prompt-contracts': 71 },
++  );
++});
++
++test('VERIFIED cannot be claimed without tests', async () => {
++  const matrix = structuredClone(await currentMatrix());
++  matrix.assets[0].testEntries = [];
++  assert.match(validateProfessionalAgentMatrix(matrix).join('\n'), /cannot be VERIFIED without tests/u);
++});
++
++test('PARTIAL assets must expose their gap', async () => {
++  const matrix = structuredClone(await currentMatrix());
++  const asset = matrix.assets.find((item) => item.coverageStatus === 'PARTIAL');
++  asset.gapReason = null;
++  assert.match(validateProfessionalAgentMatrix(matrix).join('\n'), /gapReason is required/u);
++});
++
++test('rejects duplicate identities and escaping paths', async () => {
++  const matrix = structuredClone(await currentMatrix());
++  matrix.assets.push(structuredClone(matrix.assets[0]));
++  matrix.assets[0].runtimeEntries = ['../outside.py'];
++  const errors = validateProfessionalAgentMatrix(matrix).join('\n');
++  assert.match(errors, /duplicate assetId/u);
++  assert.match(errors, /unsafe path/u);
++});
++
++test('rejects blank IDs, duplicate donor commits, extra fields, and schema-unsafe characters', async () => {
++  const matrix = structuredClone(await currentMatrix());
++  matrix.unapproved = true;
++  matrix.provenance.candidateCommits.push(matrix.provenance.candidateCommits[0]);
++  matrix.assets[0].assetId = ' ';
++  matrix.assets[0].runtimeEntries = ['backend/src/file name.py'];
++  const errors = validateProfessionalAgentMatrix(matrix).join('\n');
++  assert.match(errors, /unsupported field unapproved/u);
++  assert.match(errors, /candidateCommits is invalid/u);
++  assert.match(errors, /assetId is required/u);
++  assert.match(errors, /unsafe path/u);
++});
++
++test('VERIFIED command must execute the exact registered test files', async () => {
++  const matrix = structuredClone(await currentMatrix());
++  matrix.assets[0].testEntries = ['backend/tests'];
++  matrix.assets[0].verificationCommand = 'python3 -m pytest -q backend/tests';
++  const pathErrors = (await verifyProfessionalAgentMatrix(matrix, root.pathname)).join('\n');
++  assert.match(pathErrors, /registered test must be a file/u);
++  assert.match(pathErrors, /registered Python test path is invalid/u);
++
++  const placeholder = structuredClone(await currentMatrix());
++  placeholder.assets[0].verificationCommand = 'true';
++  assert.match(
++    validateProfessionalAgentMatrix(placeholder).join('\n'),
++    /exact registered tests/u,
++  );
++});
+diff --git a/scripts/professional_agent_matrix_schema_check.py b/scripts/professional_agent_matrix_schema_check.py
+new file mode 100644
+index 00000000..f448f56b
+--- /dev/null
++++ b/scripts/professional_agent_matrix_schema_check.py
+@@ -0,0 +1,56 @@
++#!/usr/bin/env python3
++"""Validate the professional Agent matrix with JSON Schema Draft 2020-12."""
++
++from __future__ import annotations
++
++import json
++import sys
++from pathlib import Path
++
++from jsonschema import Draft202012Validator
++from jsonschema.exceptions import SchemaError
++
++
++def main() -> int:
++    if len(sys.argv) != 3:
++        print(json.dumps({"decision": "STOP", "reason": "UNSUPPORTED_COMMAND"}))
++        return 64
++
++    schema_path, matrix_path = (Path(value) for value in sys.argv[1:])
++    try:
++        schema = json.loads(schema_path.read_text(encoding="utf-8"))
++        matrix = json.loads(matrix_path.read_text(encoding="utf-8"))
++        Draft202012Validator.check_schema(schema)
++        errors = sorted(
++            Draft202012Validator(schema).iter_errors(matrix),
++            key=lambda error: tuple(str(part) for part in error.absolute_path),
++        )
++    except (OSError, ValueError, SchemaError) as error:
++        print(json.dumps({"decision": "FAIL", "reason": "INVALID_SCHEMA", "detail": str(error)}))
++        return 1
++
++    if errors:
++        print(
++            json.dumps(
++                {
++                    "decision": "FAIL",
++                    "reason": "SCHEMA_VALIDATION_FAILED",
++                    "errors": [
++                        {
++                            "path": "/".join(str(part) for part in error.absolute_path),
++                            "message": error.message,
++                        }
++                        for error in errors
++                    ],
++                },
++                ensure_ascii=False,
++            )
++        )
++        return 1
++
++    print(json.dumps({"decision": "PASS", "draft": "2020-12"}))
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
