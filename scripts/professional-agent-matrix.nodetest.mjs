@@ -7,8 +7,10 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 
 import {
+  EXPECTED_PROFESSIONAL_AGENT_REGISTRATION,
   validateProfessionalAgentMatrix,
   validateProfessionalAgentProvenance,
+  validateProfessionalAgentRegistration,
   validateProfessionalAgentSchema,
   verifyProfessionalAgentMatrix,
 } from './lib/professional-agent-matrix.mjs';
@@ -28,6 +30,26 @@ test('current EXT matrix is structurally valid and all registered paths exist', 
   assert.equal(matrix.assets.length, 8);
   assert.equal(matrix.assets.filter((asset) => asset.coverageStatus === 'VERIFIED').length, 6);
   assert.equal(matrix.assets.filter((asset) => asset.coverageStatus === 'PARTIAL').length, 2);
+});
+
+test('root project manifest registers the exact K0 control-plane asset', async () => {
+  const projectManifest = JSON.parse(await readFile(
+    new URL('.harness/manifest/project-harness.json', root),
+    'utf8',
+  ));
+  assert.deepEqual(
+    projectManifest.professionalAgentAssets,
+    EXPECTED_PROFESSIONAL_AGENT_REGISTRATION,
+  );
+  assert.deepEqual(
+    validateProfessionalAgentRegistration(projectManifest.professionalAgentAssets),
+    [],
+  );
+  delete projectManifest.professionalAgentAssets;
+  assert.match(
+    validateProfessionalAgentRegistration(projectManifest.professionalAgentAssets).join('\n'),
+    /differs from the reviewed K0 registration/u,
+  );
 });
 
 test('executable validator is pinned to the published schema fields', async () => {

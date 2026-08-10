@@ -267,6 +267,22 @@
       "node scripts/harness-doctor.mjs"
     ]
   },
+  "professionalAgentAssets": {
+    "status": "REVIEW_GO_PENDING_PROMOTION",
+    "assetFamily": "PROFESSIONAL_AGENT_K0",
+    "canonicalOwner": "feature-chaotang-ext",
+    "manifest": ".harness/manifest/professional-agent-asset-matrix.v1.json",
+    "contract": ".harness/contracts/professional-agent-asset-matrix.v1.schema.json",
+    "evaluator": "scripts/professional-agent-matrix.mjs",
+    "schemaChecker": "scripts/professional_agent_matrix_schema_check.py",
+    "test": "scripts/professional-agent-matrix.nodetest.mjs",
+    "documentation": ".harness/wiki/professional-agent-asset-matrix.md",
+    "verification": [
+      "node --test scripts/professional-agent-matrix.nodetest.mjs",
+      "node scripts/professional-agent-matrix.mjs --check",
+      "node scripts/harness-doctor.mjs"
+    ]
+  },
   "packetReviewLocalFeedback": {
     "status": "LOCAL_FEEDBACK_ONLY",
     "activationSha": "d8d8a6ae23d013bede6b1db649b06eb5ed38ea1f",

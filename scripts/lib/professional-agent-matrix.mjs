@@ -14,6 +14,28 @@ export const DONOR_CANDIDATE_COMMITS = Object.freeze([
 ]);
 export const SAFE_PATH_SCHEMA_PATTERN = '^(?!/)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))[A-Za-z0-9._/\\u4e00-\\u9fff-]+$';
 export const SCHEMA_CANONICAL_SHA256 = 'a3d4cfe45863d511068271f974b21161ee78f53b23ef6f5176f54aeed5572552';
+export const EXPECTED_PROFESSIONAL_AGENT_REGISTRATION = Object.freeze({
+  status: 'REVIEW_GO_PENDING_PROMOTION',
+  assetFamily: 'PROFESSIONAL_AGENT_K0',
+  canonicalOwner: CANONICAL_OWNER,
+  manifest: '.harness/manifest/professional-agent-asset-matrix.v1.json',
+  contract: '.harness/contracts/professional-agent-asset-matrix.v1.schema.json',
+  evaluator: 'scripts/professional-agent-matrix.mjs',
+  schemaChecker: 'scripts/professional_agent_matrix_schema_check.py',
+  test: 'scripts/professional-agent-matrix.nodetest.mjs',
+  documentation: '.harness/wiki/professional-agent-asset-matrix.md',
+  verification: [
+    'node --test scripts/professional-agent-matrix.nodetest.mjs',
+    'node scripts/professional-agent-matrix.mjs --check',
+    'node scripts/harness-doctor.mjs',
+  ],
+});
+
+export function validateProfessionalAgentRegistration(registration) {
+  return JSON.stringify(registration) === JSON.stringify(EXPECTED_PROFESSIONAL_AGENT_REGISTRATION)
+    ? []
+    : ['project professionalAgentAssets registration differs from the reviewed K0 registration'];
+}
 
 const MATURITIES = new Set(['DESIGN_ONLY', 'PROMPT_ONLY', 'CONTRACT_READY', 'API_READY', 'LIVE']);
 const KINDS = new Set(['CANONICAL_REGISTRY', 'RUNTIME_AGENT', 'ROLE_COLLECTION']);
