@@ -1,4 +1,11 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { link, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import test from 'node:test';
 
 import {
@@ -10,7 +17,31 @@ import {
   effectiveReviewerSuccessorW08,
   parseReviewerSuccessorW08Evidence,
   validateReviewerSuccessorW08,
+  verifyReviewerSuccessorW08,
 } from './lib/reviewer-successor-w08.mjs';
+
+const root = dirname(dirname(fileURLToPath(import.meta.url)));
+const execFileAsync = promisify(execFile);
+
+function sha256(source) {
+  return createHash('sha256').update(source).digest('hex');
+}
+
+async function writeRepositoryFile(repository, path, source) {
+  await mkdir(join(repository, dirname(path)), { recursive: true });
+  await writeFile(join(repository, path), source);
+}
+
+function evidenceDocument(value) {
+  return [
+    '<!-- reviewer-successor-w08-evidence:start -->',
+    '```json',
+    JSON.stringify(value, null, 2),
+    '```',
+    '<!-- reviewer-successor-w08-evidence:end -->',
+    '',
+  ].join('\n');
+}
 
 function validOverlay() {
   return {
@@ -109,4 +140,195 @@ test('review evidence requires one marked block', () => {
     () => parseReviewerSuccessorW08Evidence('{}'),
     /require exactly one marked JSON evidence block/u,
   );
+});
+
+test('review evidence rejects duplicate JSON keys', () => {
+  assert.throws(
+    () => parseReviewerSuccessorW08Evidence([
+      '<!-- reviewer-successor-w08-evidence:start -->',
+      '```json',
+      '{"verdict":"GO","verdict":"NO_GO"}',
+      '```',
+      '<!-- reviewer-successor-w08-evidence:end -->',
+    ].join('\n')),
+    /duplicate object key/u,
+  );
+});
+
+test('exact verifier binds committed evidence, hardened Git diff, and protected authority files', async () => {
+  const temporaryParent = await mkdtemp(join(tmpdir(), 'w08-reviewer-successor-'));
+  const repository = join(temporaryParent, 'repo');
+  try {
+    await execFileAsync('git', ['clone', '-q', '--no-hardlinks', root, repository]);
+    await execFileAsync('git', ['config', 'user.name', 'W08 Test'], { cwd: repository });
+    await execFileAsync('git', ['config', 'user.email', 'w08@example.invalid'], { cwd: repository });
+    for (const path of [
+      'scripts/lib/reviewer-successor-w08.mjs',
+      'scripts/reviewer-successor-w08.nodetest.mjs',
+    ]) {
+      await writeRepositoryFile(repository, path, await readFile(join(root, path)));
+    }
+    await execFileAsync('git', ['add', '.'], { cwd: repository });
+    await execFileAsync('git', ['commit', '-qm', 'reviewed W08 successor candidate'], {
+      cwd: repository,
+    });
+    const governanceCandidateH = (
+      await execFileAsync('git', ['rev-parse', 'HEAD^{commit}'], { cwd: repository })
+    ).stdout.trim();
+    const governanceTree = (
+      await execFileAsync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: repository })
+    ).stdout.trim();
+    const gitDiff = async (base, candidate) => (
+      await execFileAsync(
+        '/usr/bin/git',
+        [
+          '--no-replace-objects',
+          '-c',
+          'core.attributesFile=/dev/null',
+          '-c',
+          'core.commitGraph=false',
+          'diff',
+          '--no-ext-diff',
+          '--no-textconv',
+          '--binary',
+          `${base}..${candidate}`,
+        ],
+        {
+          cwd: repository,
+          encoding: 'buffer',
+          env: {
+            ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_'))),
+            GIT_CONFIG_NOSYSTEM: '1',
+            GIT_CONFIG_GLOBAL: '/dev/null',
+            GIT_ATTR_NOSYSTEM: '1',
+            GIT_ATTR_SOURCE: candidate,
+            GIT_OPTIONAL_LOCKS: '0',
+            LC_ALL: 'C',
+          },
+        },
+      )
+    ).stdout;
+    const productPackage = await gitDiff(
+      REVIEWER_SUCCESSOR_W08_PRODUCT_BASE,
+      REVIEWER_SUCCESSOR_W08_PRODUCT_H,
+    );
+    const governancePackage = await gitDiff(
+      REVIEWER_SUCCESSOR_W08_PRODUCT_H,
+      governanceCandidateH,
+    );
+    const overlay = validOverlay();
+    overlay.governanceCandidateH = governanceCandidateH;
+    overlay.governanceTree = governanceTree;
+    overlay.governanceReviewPackageSha256 = sha256(governancePackage);
+    const reviewSources = overlay.reviews.map((review, index) => evidenceDocument({
+      schemaVersion: 'reviewer-successor.w08.evidence.v1',
+      kind: 'independent-review',
+      reviewer: 'Codex Independent QA',
+      identity: review.identity,
+      pass: index + 1,
+      scope: ['R0-W08'],
+      productBaseH: overlay.productBaseH,
+      productCandidateH: overlay.productCandidateH,
+      productTree: overlay.productTree,
+      productReviewPackagePath: overlay.productReviewPackagePath,
+      productReviewPackageSha256: overlay.productReviewPackageSha256,
+      governanceBaseH: overlay.governanceBaseH,
+      governanceCandidateH: overlay.governanceCandidateH,
+      governanceTree: overlay.governanceTree,
+      governanceReviewPackagePath: overlay.governanceReviewPackagePath,
+      governanceReviewPackageSha256: overlay.governanceReviewPackageSha256,
+      verdict: 'GO',
+      high: 0,
+      medium: 0,
+      writeAccess: 'DENIED',
+      candidateMutation: 'FORBIDDEN',
+    }));
+    for (let index = 0; index < overlay.reviews.length; index += 1) {
+      overlay.reviews[index].sha256 = sha256(reviewSources[index]);
+    }
+    const ownerSource = evidenceDocument({
+      schemaVersion: 'reviewer-successor.w08.evidence.v1',
+      kind: 'owner-approval',
+      decision: 'APPROVED',
+      approver: 'lyt',
+      scope: ['R0-W08'],
+      productBaseH: overlay.productBaseH,
+      productCandidateH: overlay.productCandidateH,
+      productTree: overlay.productTree,
+      productReviewPackagePath: overlay.productReviewPackagePath,
+      productReviewPackageSha256: overlay.productReviewPackageSha256,
+      governanceBaseH: overlay.governanceBaseH,
+      governanceCandidateH: overlay.governanceCandidateH,
+      governanceTree: overlay.governanceTree,
+      governanceReviewPackagePath: overlay.governanceReviewPackagePath,
+      governanceReviewPackageSha256: overlay.governanceReviewPackageSha256,
+      reviews: overlay.reviews.map(({ identity, path, sha256: digest }) => ({
+        identity,
+        path,
+        sha256: digest,
+      })),
+    });
+    overlay.ownerApprovalSha256 = sha256(ownerSource);
+    await writeRepositoryFile(repository, overlay.productReviewPackagePath, productPackage);
+    await writeRepositoryFile(repository, overlay.governanceReviewPackagePath, governancePackage);
+    await writeRepositoryFile(repository, overlay.ownerApprovalPath, ownerSource);
+    for (let index = 0; index < overlay.reviews.length; index += 1) {
+      await writeRepositoryFile(repository, overlay.reviews[index].path, reviewSources[index]);
+    }
+    await execFileAsync('git', ['add', '.'], { cwd: repository });
+    await execFileAsync('git', ['commit', '-qm', 'pin W08 successor evidence'], {
+      cwd: repository,
+    });
+
+    assert.deepEqual(await verifyReviewerSuccessorW08(repository, overlay), []);
+
+    const cliPath = join(repository, 'scripts/execution-authority-v2.mjs');
+    const cliSource = await readFile(cliPath);
+    await writeFile(cliPath, 'process.stdout.write("unconditional GO")\n');
+    assert.ok(
+      (await verifyReviewerSuccessorW08(repository, overlay)).some((error) =>
+        error.includes('protected path drift: scripts/execution-authority-v2.mjs'),
+      ),
+    );
+    await writeFile(cliPath, cliSource);
+
+    await execFileAsync('git', ['config', '--local', 'diff.external', '/bin/true'], {
+      cwd: repository,
+    });
+    assert.ok(
+      (await verifyReviewerSuccessorW08(repository, overlay)).some((error) =>
+        error.includes('repository-local Git config affects authority diff'),
+      ),
+    );
+    await execFileAsync('git', ['config', '--local', '--unset', 'diff.external'], {
+      cwd: repository,
+    });
+
+    const reviewPath = join(repository, overlay.reviews[0].path);
+    const reviewSource = await readFile(reviewPath);
+    await writeFile(reviewPath, `${reviewSource.toString('utf8')}drift\n`);
+    assert.ok(
+      (await verifyReviewerSuccessorW08(repository, overlay)).some((error) =>
+        error.includes(`evidence working tree drift: ${overlay.reviews[0].path}`),
+      ),
+    );
+    await rm(reviewPath);
+    await symlink('/etc/hosts', reviewPath);
+    assert.ok(
+      (await verifyReviewerSuccessorW08(repository, overlay)).some((error) =>
+        error.includes(`evidence unreadable: ${overlay.reviews[0].path}`),
+      ),
+    );
+    await rm(reviewPath);
+    const externalReviewPath = join(temporaryParent, 'external-review.md');
+    await writeFile(externalReviewPath, reviewSource);
+    await link(externalReviewPath, reviewPath);
+    assert.ok(
+      (await verifyReviewerSuccessorW08(repository, overlay)).some((error) =>
+        error.includes(`evidence unreadable: ${overlay.reviews[0].path}`),
+      ),
+    );
+  } finally {
+    await rm(temporaryParent, { recursive: true, force: true });
+  }
 });

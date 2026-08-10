@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { constants as fsConstants } from 'node:fs';
-import { lstat, open, realpath } from 'node:fs/promises';
+import { lstat, open, readdir, realpath } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -101,6 +101,8 @@ const OWNER_EVIDENCE_KEYS = Object.freeze([
 ]);
 const OWNER_REVIEW_KEYS = Object.freeze(['identity', 'path', 'sha256']);
 const PROTECTED_PATHS = Object.freeze([
+  '.harness/contracts/execution-authority-v2.schema.json',
+  'scripts/execution-authority-v2.mjs',
   'scripts/lib/reviewer-successor-w08.mjs',
   'scripts/lib/amendment-governance.mjs',
   'scripts/lib/execution-authority-v2.mjs',
@@ -123,6 +125,86 @@ function sameArray(left, right) {
     left.length === right.length &&
     left.every((value, index) => value === right[index])
   );
+}
+
+function findDuplicateJsonKeys(source) {
+  let cursor = 0;
+  const duplicates = [];
+  const skipWhitespace = () => {
+    while (/\s/u.test(source[cursor] ?? '')) cursor += 1;
+  };
+  const scanString = () => {
+    const start = cursor;
+    cursor += 1;
+    while (cursor < source.length) {
+      if (source[cursor] === '\\') cursor += 2;
+      else if (source[cursor] === '"') {
+        cursor += 1;
+        return JSON.parse(source.slice(start, cursor));
+      } else cursor += 1;
+    }
+    throw new SyntaxError('unterminated JSON string');
+  };
+  const scanValue = (path, depth = 0) => {
+    if (depth > 64) throw new SyntaxError('JSON nesting depth exceeds 64');
+    skipWhitespace();
+    if (source[cursor] === '{') return scanObject(path, depth);
+    if (source[cursor] === '[') return scanArray(path, depth);
+    if (source[cursor] === '"') return scanString();
+    while (cursor < source.length && !/[,\]}]/u.test(source[cursor])) cursor += 1;
+    return undefined;
+  };
+  const scanObject = (path, depth) => {
+    const keys = new Set();
+    cursor += 1;
+    skipWhitespace();
+    if (source[cursor] === '}') {
+      cursor += 1;
+      return;
+    }
+    while (cursor < source.length) {
+      skipWhitespace();
+      const key = scanString();
+      const keyPath = `${path}[${JSON.stringify(key)}]`;
+      if (keys.has(key)) duplicates.push(keyPath);
+      keys.add(key);
+      skipWhitespace();
+      if (source[cursor] !== ':') throw new SyntaxError(`missing colon at ${keyPath}`);
+      cursor += 1;
+      scanValue(keyPath, depth + 1);
+      skipWhitespace();
+      if (source[cursor] === '}') {
+        cursor += 1;
+        return;
+      }
+      if (source[cursor] !== ',') throw new SyntaxError(`missing comma at ${keyPath}`);
+      cursor += 1;
+    }
+    throw new SyntaxError(`unterminated object at ${path}`);
+  };
+  const scanArray = (path, depth) => {
+    cursor += 1;
+    skipWhitespace();
+    if (source[cursor] === ']') {
+      cursor += 1;
+      return;
+    }
+    let index = 0;
+    while (cursor < source.length) {
+      scanValue(`${path}[${index}]`, depth + 1);
+      index += 1;
+      skipWhitespace();
+      if (source[cursor] === ']') {
+        cursor += 1;
+        return;
+      }
+      if (source[cursor] !== ',') throw new SyntaxError(`missing comma at ${path}`);
+      cursor += 1;
+    }
+    throw new SyntaxError(`unterminated array at ${path}`);
+  };
+  scanValue('$');
+  return [...new Set(duplicates)];
 }
 
 function safePath(path) {
@@ -148,6 +230,7 @@ function gitArgs(...args) {
 }
 
 function gitOptions(root, extra = {}) {
+  const { attributeSource, ...execExtra } = extra;
   const env = Object.fromEntries(
     Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
   );
@@ -160,9 +243,101 @@ function gitOptions(root, extra = {}) {
       GIT_ATTR_NOSYSTEM: '1',
       GIT_OPTIONAL_LOCKS: '0',
       LC_ALL: 'C',
+      ...(attributeSource === undefined ? {} : { GIT_ATTR_SOURCE: attributeSource }),
     },
-    ...extra,
+    ...execExtra,
   };
+}
+
+const ALLOWED_LOCAL_CORE_CONFIG = new Set([
+  'core.repositoryformatversion',
+  'core.filemode',
+  'core.bare',
+  'core.logallrefupdates',
+  'core.worktree',
+]);
+
+function localGitConfigAffectsDiff(key) {
+  const normalized = key.toLowerCase();
+  return (
+    normalized.startsWith('diff.') ||
+    normalized.startsWith('fsck.') ||
+    normalized.startsWith('include.') ||
+    normalized.startsWith('includeif.') ||
+    normalized === 'extensions.worktreeconfig' ||
+    normalized === 'extensions.partialclone' ||
+    normalized === 'color.ui' ||
+    normalized === 'color.diff' ||
+    /^remote\..+\.(promisor|partialclonefilter)$/u.test(normalized) ||
+    /^submodule\..+\.ignore$/u.test(normalized) ||
+    (normalized.startsWith('core.') && !ALLOWED_LOCAL_CORE_CONFIG.has(normalized))
+  );
+}
+
+async function firstObjectSymlink(objectRoot) {
+  const pending = [{ path: objectRoot, relative: 'objects' }];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    let metadata;
+    try {
+      metadata = await lstat(current.path);
+    } catch (cause) {
+      if (cause.code === 'ENOENT') continue;
+      throw cause;
+    }
+    if (metadata.isSymbolicLink()) return current.relative;
+    if (!metadata.isDirectory()) continue;
+    for (const entry of await readdir(current.path, { withFileTypes: true })) {
+      const relative = `${current.relative}/${entry.name}`;
+      if (entry.isSymbolicLink()) return relative;
+      if (entry.isDirectory()) pending.push({ path: join(current.path, entry.name), relative });
+    }
+  }
+  return null;
+}
+
+export async function verifyReviewerSuccessorW08GitEnvironment(root) {
+  const errors = [];
+  try {
+    const [{ stdout: config }, { stdout: gitDir }, { stdout: commonDir }] =
+      await Promise.all([
+        execFileAsync(GIT, gitArgs('config', '--local', '--name-only', '--null', '--list'), gitOptions(root)),
+        execFileAsync(GIT, gitArgs('rev-parse', '--git-dir'), gitOptions(root)),
+        execFileAsync(GIT, gitArgs('rev-parse', '--git-common-dir'), gitOptions(root)),
+      ]);
+    const unsafe = config.split('\0').filter(Boolean).filter(localGitConfigAffectsDiff);
+    if (unsafe.length > 0) {
+      errors.push(`reviewerSuccessorW08: repository-local Git config affects authority diff: ${unsafe.join(', ')}`);
+    }
+    for (const metadataRoot of new Set([gitDir.trim(), commonDir.trim()])) {
+      const resolved = isAbsolute(metadataRoot) ? metadataRoot : join(root, metadataRoot);
+      const symlink = await firstObjectSymlink(join(resolved, 'objects'));
+      if (symlink !== null) errors.push(`reviewerSuccessorW08: Git object database symbolic links are forbidden: ${symlink}`);
+      for (const [relative, message] of [
+        ['info/attributes', 'Git info attributes affect authority diff'],
+        ['objects/info/alternates', 'Git object alternates are forbidden'],
+        ['objects/info/http-alternates', 'Git HTTP object alternates are forbidden'],
+      ]) {
+        try {
+          await lstat(join(resolved, ...relative.split('/')));
+          errors.push(`reviewerSuccessorW08: ${message}`);
+        } catch (cause) {
+          if (cause.code !== 'ENOENT') throw cause;
+        }
+      }
+      try {
+        const packs = await readdir(join(resolved, 'objects', 'pack'));
+        if (packs.some((entry) => entry.endsWith('.promisor'))) {
+          errors.push('reviewerSuccessorW08: Git promisor pack markers are forbidden');
+        }
+      } catch (cause) {
+        if (cause.code !== 'ENOENT') throw cause;
+      }
+    }
+  } catch (cause) {
+    errors.push(`reviewerSuccessorW08: Git diff environment is unverifiable: ${cause.code ?? cause.message}`);
+  }
+  return [...new Set(errors)];
 }
 
 async function readRegularFile(root, path) {
@@ -207,7 +382,15 @@ export function parseReviewerSuccessorW08Evidence(source, label = 'W08 reviewer 
   if (matches.length !== 1) {
     throw new SyntaxError(`${label}: require exactly one marked JSON evidence block`);
   }
-  return JSON.parse(matches[0][1]);
+  const duplicates = findDuplicateJsonKeys(matches[0][1]);
+  if (duplicates.length > 0) {
+    throw new SyntaxError(`${label}: duplicate object key(s): ${duplicates.join(', ')}`);
+  }
+  const value = JSON.parse(matches[0][1]);
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError(`${label}: evidence root must be an object`);
+  }
+  return value;
 }
 
 export function validateReviewerSuccessorW08(overlay) {
@@ -368,6 +551,13 @@ function validateOwnerEvidence(evidence, overlay) {
 export async function verifyReviewerSuccessorW08(root, overlay) {
   const errors = validateReviewerSuccessorW08(overlay);
   if (errors.length > 0) return errors;
+  errors.push(...(await verifyReviewerSuccessorW08GitEnvironment(root)));
+  let head = null;
+  try {
+    head = (await execFileAsync(GIT, gitArgs('rev-parse', 'HEAD^{commit}'), gitOptions(root))).stdout.trim();
+  } catch (cause) {
+    errors.push(`reviewerSuccessorW08 HEAD is unverifiable: ${cause.code ?? cause.message}`);
+  }
   const evidencePaths = [
     [overlay.productReviewPackagePath, overlay.productReviewPackageSha256],
     [overlay.governanceReviewPackagePath, overlay.governanceReviewPackageSha256],
@@ -377,9 +567,14 @@ export async function verifyReviewerSuccessorW08(root, overlay) {
   const sources = new Map();
   for (const [path, digest] of evidencePaths) {
     try {
-      const source = await readRegularFile(root, path);
-      sources.set(path, source);
-      if (createHash('sha256').update(source).digest('hex') !== digest) {
+      if (head === null) throw new Error('pinned HEAD unavailable');
+      const [pinned, working] = await Promise.all([
+        gitBlob(root, head, path),
+        readRegularFile(root, path),
+      ]);
+      if (!pinned.equals(working)) errors.push(`reviewerSuccessorW08 evidence working tree drift: ${path}`);
+      sources.set(path, pinned);
+      if (createHash('sha256').update(pinned).digest('hex') !== digest) {
         errors.push(`reviewerSuccessorW08 evidence digest mismatch: ${path}`);
       }
     } catch (cause) {
@@ -440,13 +635,17 @@ export async function verifyReviewerSuccessorW08(root, overlay) {
       const { stdout } = await execFileAsync(
         GIT,
         gitArgs('diff', '--no-ext-diff', '--no-textconv', '--binary', `${base}..${candidate}`),
-        gitOptions(root, { encoding: 'buffer', maxBuffer: 10 * 1024 * 1024 }),
+        gitOptions(root, {
+          attributeSource: candidate,
+          encoding: 'buffer',
+          maxBuffer: 10 * 1024 * 1024,
+        }),
       );
       if (sources.has(path) && !sources.get(path).equals(stdout)) {
         errors.push(`reviewerSuccessorW08 review package differs from exact git diff: ${path}`);
       }
     }
-    const head = (await execFileAsync(GIT, gitArgs('rev-parse', 'HEAD^{commit}'), gitOptions(root))).stdout.trim();
+    if (head === null) throw new Error('pinned HEAD unavailable');
     await execFileAsync(GIT, gitArgs('merge-base', '--is-ancestor', overlay.governanceCandidateH, head), gitOptions(root));
     for (const path of PROTECTED_PATHS) {
       const [reviewed, current] = await Promise.all([
