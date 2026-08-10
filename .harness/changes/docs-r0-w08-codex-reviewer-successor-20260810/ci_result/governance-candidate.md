@@ -35,3 +35,7 @@ containing only the two manifests and the W08 evidence files.
 Fresh pre-freeze verification after the G4 carrier fix repeated the complete
 75/75 authority suite, 58/58 combined suite, matrix CLI, and both diff checks;
 all passed.
+
+The first activation carrier was rejected before EXT ref movement because the
+root doctor found the change summary lacked its canonical Change ID row. G6 adds
+that root-harness metadata before any successor evidence is activated.

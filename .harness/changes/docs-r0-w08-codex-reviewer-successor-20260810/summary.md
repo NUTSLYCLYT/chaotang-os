@@ -1,5 +1,9 @@
 # R0-W08 Codex reviewer successor
 
+| Field | Value |
+| --- | --- |
+| Change ID | docs-r0-w08-codex-reviewer-successor-20260810 |
+
 Status: `GOVERNANCE_CANDIDATE_PENDING_INDEPENDENT_REVIEW`
 
 Claude Code is unavailable because its OAuth token was revoked. The Product Owner
