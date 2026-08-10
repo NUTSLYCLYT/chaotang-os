@@ -5,6 +5,11 @@ import { lstat, open, readdir, realpath } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { promisify } from 'node:util';
 
+import {
+  effectiveReviewerSuccessorW08,
+  validateReviewerSuccessorW08,
+} from './reviewer-successor-w08.mjs';
+
 const rawExecFileAsync = promisify(execFile);
 const AUTHORITY_GIT_EXECUTABLE = '/usr/bin/git';
 const execFileAsync = (executable, args, options) =>
@@ -778,6 +783,12 @@ export function effectiveIndependentReviewer(
   workPackage,
   workPackageLedger = [],
 ) {
+  const w08Successor = effectiveReviewerSuccessorW08(
+    amendmentGovernance,
+    workPackage,
+    workPackageLedger,
+  );
+  if (w08Successor !== null) return w08Successor;
   const overlay = amendmentGovernance?.reviewerReassignment;
   if (overlay === undefined || overlay === null) {
     return amendmentGovernance?.independentReviewer ?? null;
@@ -1294,7 +1305,12 @@ export function validateAmendmentGovernanceRegistration(amendment) {
     return validateProposedNotAuthority(amendment);
   }
   if (amendment.status === 'APPROVED_FOR_W01') {
-    return validateApprovedForW01(amendment);
+    return [
+      ...validateApprovedForW01(amendment),
+      ...(amendment.reviewerSuccessorW08 === undefined
+        ? []
+        : validateReviewerSuccessorW08(amendment.reviewerSuccessorW08)),
+    ];
   }
   return [`amendment governance has invalid status: ${amendment.status}`];
 }

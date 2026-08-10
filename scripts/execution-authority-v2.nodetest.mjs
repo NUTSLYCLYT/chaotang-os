@@ -71,14 +71,26 @@ const W07_EVENT1_CHANGED_PATHS = Object.freeze([
   'scripts/r0-amendment-check.nodetest.mjs',
 ]);
 const W08_PROFESSIONAL_CHANGED_PATHS = Object.freeze([
-  '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/ci_result/ci_summary.md',
-  '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/codex_review/professional-reassignment.md',
-  '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/owner_evidence/professional-reassignment.md',
-  '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/request_analysis/spec.md',
-  '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/request_analysis/tasks.md',
-  '.harness/changes/docs-r0-w08-professional-reassignment-20260728-20260728/summary.md',
-  '.harness/manifest/execution-authority.v2.json',
-  'scripts/execution-authority-v2.nodetest.mjs',
+  '.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/ci_result/ci_summary.md',
+  '.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/codex_review/candidate-review.md',
+  '.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/request_analysis/spec.md',
+  '.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/request_analysis/tasks.md',
+  '.harness/changes/chore-professional-agent-k0-ext-convergence-20260810/summary.md',
+  '.harness/changes/fix-professional-agent-k0-root-registration-20260810/ci_result/ci_summary.md',
+  '.harness/changes/fix-professional-agent-k0-root-registration-20260810/request_analysis/spec.md',
+  '.harness/changes/fix-professional-agent-k0-root-registration-20260810/request_analysis/tasks.md',
+  '.harness/changes/fix-professional-agent-k0-root-registration-20260810/summary.md',
+  '.harness/contracts/professional-agent-asset-matrix.v1.schema.json',
+  '.harness/manifest/professional-agent-asset-matrix.v1.json',
+  '.harness/manifest/project-harness.json',
+  '.harness/wiki/harness-inventory.md',
+  '.harness/wiki/professional-agent-asset-matrix.md',
+  '.harness/wiki/verification-matrix.md',
+  'scripts/harness-doctor.mjs',
+  'scripts/lib/professional-agent-matrix.mjs',
+  'scripts/professional-agent-matrix.mjs',
+  'scripts/professional-agent-matrix.nodetest.mjs',
+  'scripts/professional_agent_matrix_schema_check.py',
 ]);
 const liveAmendmentGovernance = JSON.parse(
   await readFile(join(root, '.harness/manifest/project-harness.json'), 'utf8'),
@@ -210,6 +222,58 @@ function validReviewerReassignment() {
         sessionId: '33333333-3333-3333-3333-333333333333',
         path:
           '.harness/changes/docs-r0-reviewer-reassignment-20260726/codex_review/pass-2.md',
+        sha256: '6'.repeat(64),
+        verdict: 'GO',
+        high: 0,
+        medium: 0,
+        writeAccess: 'DENIED',
+      },
+    ],
+    approvedBy: 'lyt',
+  };
+}
+
+function validReviewerSuccessorW08() {
+  const changeRoot =
+    '.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810';
+  return {
+    schemaVersion: 'reviewer-successor.w08.v1',
+    status: 'APPROVED',
+    scope: ['R0-W08'],
+    fromReviewer: 'Claude Code',
+    toReviewer: 'Codex Independent QA',
+    executionOwner: 'Codex',
+    reviewPassesRequired: 2,
+    sessionIsolation: 'FRESH_NO_FORK_CONTEXT',
+    writeAccess: 'DENIED',
+    candidateMutation: 'FORBIDDEN',
+    expiresAfter: 'R0-W08_MERGED_AND_VERIFIED',
+    productBaseH: '4c543209333fa14f3a296ff1ff917642153ffc30',
+    productCandidateH: '24071c2f9a5cd19952ece17a8dc172a297a1dc09',
+    productTree: '9d1bdc08dbbd4a6198907976508c956c86cfffff',
+    productReviewPackagePath: `${changeRoot}/review_inputs/product-candidate.diff`,
+    productReviewPackageSha256:
+      '432082345d18230fcaff22e36602a5274b68b25562b3772736e6ad5685e05044',
+    governanceBaseH: '24071c2f9a5cd19952ece17a8dc172a297a1dc09',
+    governanceCandidateH: '1'.repeat(40),
+    governanceTree: '2'.repeat(40),
+    governanceReviewPackagePath: `${changeRoot}/review_inputs/reviewer-successor.diff`,
+    governanceReviewPackageSha256: '3'.repeat(64),
+    ownerApprovalPath: `${changeRoot}/owner_approval/exact-h-approval.md`,
+    ownerApprovalSha256: '4'.repeat(64),
+    reviews: [
+      {
+        identity: '/root/w08_successor_qa_pass1',
+        path: `${changeRoot}/codex_review/pass-1.md`,
+        sha256: '5'.repeat(64),
+        verdict: 'GO',
+        high: 0,
+        medium: 0,
+        writeAccess: 'DENIED',
+      },
+      {
+        identity: '/root/w08_successor_qa_pass2',
+        path: `${changeRoot}/codex_review/exact-h-final.md`,
         sha256: '6'.repeat(64),
         verdict: 'GO',
         high: 0,
@@ -443,11 +507,11 @@ function w07EvidenceDocuments() {
 function w08EvidenceDocuments() {
   const fixture = w07EvidenceDocuments();
   const changeRoot =
-    '.harness/changes/docs-r0-w08-exact-h-activation-20260728-20260728';
+    '.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810';
   const manifest = structuredClone(fixture.manifest);
   manifest.effectiveBase = {
     ref: 'refs/heads/feature-chaotang-ext',
-    sha: '80940d237a39f176b458763fd70e2c33d4ccac07',
+    sha: '24071c2f9a5cd19952ece17a8dc172a297a1dc09',
   };
   manifest.approvalEvidence = {
     ownerApprovalPath: `${changeRoot}/owner_approval/exact-h-approval.md`,
@@ -457,7 +521,7 @@ function w08EvidenceDocuments() {
     reviewVerdict: 'GO',
     approver: 'lyt',
     candidateH: manifest.effectiveBase.sha,
-    tree: '6477274dbb6e6d8a8472ccf17875102f356e5675',
+    tree: '9d1bdc08dbbd4a6198907976508c956c86cfffff',
     approvedScope: ['R0-W08'],
   };
   manifest.activeWorkPackage = 'R0-W08';
@@ -495,7 +559,7 @@ function w08EvidenceDocuments() {
   };
   const activationIntent = {
     ...structuredClone(fixture.activationIntent),
-    reviewPackagePath: `${changeRoot}/review_inputs/activation-candidate.diff`,
+    reviewPackagePath: `${changeRoot}/review_inputs/product-candidate.diff`,
     effectiveBase: manifest.effectiveBase,
     approvalEvidence: structuredClone(manifest.approvalEvidence),
     activeWorkPackage: 'R0-W08',
@@ -505,7 +569,7 @@ function w08EvidenceDocuments() {
   delete activationIntent.approvalEvidence.reviewSha256;
   const review = {
     ...structuredClone(fixture.review),
-    reviewer: 'Claude Code',
+    reviewer: 'Codex Independent QA',
     workPackage: 'R0-W08',
     effectiveBase: manifest.effectiveBase,
     candidateH: manifest.approvalEvidence.candidateH,
@@ -516,12 +580,13 @@ function w08EvidenceDocuments() {
     reviewPackagePath: activationIntent.reviewPackagePath,
     changedPaths: [...W08_PROFESSIONAL_CHANGED_PATHS],
     commands: [
-      'node --test scripts/execution-authority-v2.nodetest.mjs',
+      'node --test scripts/reviewer-successor-w08.nodetest.mjs scripts/r0-amendment-check.nodetest.mjs scripts/execution-authority-v2.nodetest.mjs scripts/professional-agent-matrix.nodetest.mjs',
+      'node scripts/professional-agent-matrix.mjs --check',
       'node scripts/execution-authority.mjs --check',
       'node scripts/execution-authority-v2.mjs --check',
       'node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08',
       'node scripts/harness-doctor.mjs',
-      "git diff --check -- . ':(exclude).harness/changes/docs-r0-w08-exact-h-activation-20260728-20260728/review_inputs/activation-candidate.diff'",
+      "git diff --check -- . ':(exclude).harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/review_inputs/product-candidate.diff' ':(exclude).harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/review_inputs/reviewer-successor.diff'",
     ],
   };
   return { manifest, owner, activationIntent, review };
@@ -852,6 +917,11 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
     const candidateTree = (
       await execFileAsync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: temporaryRoot })
     ).stdout.trim();
+    await writeRepositoryFile(
+      temporaryRoot,
+      'scripts/lib/reviewer-successor-w08.mjs',
+      await readFile(join(root, 'scripts/lib/reviewer-successor-w08.mjs')),
+    );
     await execFileAsync(
       'git',
       ['branch', '-f', 'feature-chaotang-ext', candidateH],
@@ -1488,10 +1558,12 @@ test('W07 profile rejects paths outside the exact Event 1 candidate', () => {
 
 test('W08 profile accepts the professional reassignment candidate path set', () => {
   const fixture = w08EvidenceDocuments();
+  const governance = validGovernance();
+  governance.reviewerSuccessorW08 = validReviewerSuccessorW08();
   assert.deepEqual(
     validateExecutionAuthorityV2Evidence(
       fixture.manifest,
-      validGovernance(),
+      governance,
       fixture.owner,
       fixture.review,
     ),
@@ -1568,6 +1640,7 @@ test('copied CLI nested under a parent Git repository cannot replay mutable auth
       'scripts/execution-authority-v2.mjs',
       'scripts/lib/amendment-governance.mjs',
       'scripts/lib/execution-authority-v2.mjs',
+      'scripts/lib/reviewer-successor-w08.mjs',
     ]) {
       await writeRepositoryFile(
         temporaryRoot,
@@ -1677,6 +1750,7 @@ test('authority Git executable cannot be substituted through inherited PATH', as
       'scripts/execution-authority-v2.mjs',
       'scripts/lib/amendment-governance.mjs',
       'scripts/lib/execution-authority-v2.mjs',
+      'scripts/lib/reviewer-successor-w08.mjs',
     ]) {
       await writeRepositoryFile(
         temporaryRoot,
@@ -1723,6 +1797,7 @@ test('authority Git commands disable the mutable commit-graph acceleration', asy
   for (const path of [
     'scripts/lib/amendment-governance.mjs',
     'scripts/lib/execution-authority-v2.mjs',
+    'scripts/lib/reviewer-successor-w08.mjs',
   ]) {
     const source = await readFile(join(root, path), 'utf8');
     assert.match(source, /'core\.commitGraph=false'/u);
@@ -2396,6 +2471,7 @@ test('authority readers bind an opened file descriptor to its in-repository targ
   for (const path of [
     'scripts/lib/amendment-governance.mjs',
     'scripts/lib/execution-authority-v2.mjs',
+    'scripts/lib/reviewer-successor-w08.mjs',
   ]) {
     const source = await readFile(join(root, path), 'utf8');
     assert.match(source, /open\(current,/u);
@@ -2574,6 +2650,24 @@ async function assertRealRepositoryAuthorityPhase(loaded) {
     assert.deepEqual(loaded.errors, []);
     return `INTEGRATED_${loaded.manifest.activeWorkPackage}`;
   }
+  if (
+    loaded.manifest.activeWorkPackage === 'R0-W08' &&
+    loaded.amendmentGovernance?.reviewerSuccessorW08 === undefined &&
+    loaded.errors.includes('manifest ownerApprovalPath must match active-packet profile')
+  ) {
+    assert.deepEqual(loaded.errors, [
+      'manifest ownerApprovalPath must match active-packet profile',
+      'manifest reviewPath must match active-packet profile',
+      'owner activationIntentPath must match active-packet profile',
+      'review reviewPackagePath must match active-packet profile',
+      'review changedPaths must exactly match the Event 1 candidate',
+      'review commands must exactly match the required authority verification commands',
+      'active-packet EXT ref must equal pinned HEAD',
+      'active-packet git identity is unverifiable: 1',
+      'activation intent reviewPackagePath must match active-packet profile',
+    ]);
+    return 'PENDING_W08_REVIEWER_SUCCESSOR';
+  }
   assert.deepEqual(loaded.errors, ['active-packet EXT ref must equal pinned HEAD']);
   return `PRE_INTEGRATION_${loaded.manifest.activeWorkPackage}`;
 }
@@ -2593,6 +2687,18 @@ test('CLI subprocess matches the real repository authority phase', async () => {
         },
       );
     }
+    return;
+  }
+  if (phase === 'PENDING_W08_REVIEWER_SUCCESSOR') {
+    await assert.rejects(
+      execFileAsync(process.execPath, [cliPath, '--authorize', '--work-package', 'R0-W08'], {
+        cwd: root,
+      }),
+      (error) => {
+        const output = JSON.parse(error.stdout);
+        return output.decision === 'STOP' && output.reason === 'INVALID_EXECUTION_AUTHORITY';
+      },
+    );
     return;
   }
   if (phase.startsWith('PRE_INTEGRATION_')) {
@@ -2638,7 +2744,7 @@ test('CLI subprocess against the real repo keeps predecessor and successor packa
   const expectedReasons =
     phase === 'QUIESCENT'
       ? stoppedPackages.map(() => 'NO_ACTIVE_WORK_PACKAGE')
-      : phase.startsWith('PRE_INTEGRATION_')
+      : phase.startsWith('PRE_INTEGRATION_') || phase === 'PENDING_W08_REVIEWER_SUCCESSOR'
         ? stoppedPackages.map(() => 'INVALID_EXECUTION_AUTHORITY')
         : phase === 'INTEGRATED_R0-W07'
           ? ['WORK_PACKAGE_MISMATCH', 'BLOCKED_DEPENDENCY', 'BLOCKED_DEPENDENCY']
