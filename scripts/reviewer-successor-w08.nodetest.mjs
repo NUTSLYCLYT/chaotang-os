@@ -162,7 +162,19 @@ test('exact verifier binds committed evidence, hardened Git diff, and protected 
     await execFileAsync('git', ['clone', '-q', '--no-hardlinks', root, repository]);
     await execFileAsync('git', ['config', 'user.name', 'W08 Test'], { cwd: repository });
     await execFileAsync('git', ['config', 'user.email', 'w08@example.invalid'], { cwd: repository });
+    await execFileAsync(
+      'git',
+      ['checkout', '-q', '--detach', REVIEWER_SUCCESSOR_W08_PRODUCT_H],
+      { cwd: repository },
+    );
     for (const path of [
+      '.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/ci_result/governance-candidate.md',
+      '.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/request_analysis/spec.md',
+      '.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/request_analysis/tasks.md',
+      '.harness/changes/docs-r0-w08-codex-reviewer-successor-20260810/summary.md',
+      'scripts/execution-authority-v2.nodetest.mjs',
+      'scripts/lib/amendment-governance.mjs',
+      'scripts/lib/execution-authority-v2.mjs',
       'scripts/lib/reviewer-successor-w08.mjs',
       'scripts/reviewer-successor-w08.nodetest.mjs',
     ]) {
