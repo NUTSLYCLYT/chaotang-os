@@ -4,9 +4,15 @@
 
 from __future__ import annotations
 
-from fastapi.testclient import TestClient
+import importlib
+import threading
 
-from src.db.models import CourtReview, DecisionTask
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from src.db.models import Base, CourtReview, DecisionTask
 from web.main import app
 
 
@@ -14,6 +20,7 @@ def _seed_task(db, *, task_id: str, status: str = "awaiting_decision"):
     db.add(
         DecisionTask(
             id=task_id,
+            tenant_id=1,
             user_id="1",
             raw_question="请复核这份合同的违约责任和合规风险",
             status=status,
@@ -23,6 +30,7 @@ def _seed_task(db, *, task_id: str, status: str = "awaiting_decision"):
     db.add(
         CourtReview(
             id=f"review_{task_id}",
+            tenant_id=1,
             task_id=task_id,
             routing_plan_json='{"route":{"mode":"council"}}',
             review_status=status,
@@ -58,43 +66,189 @@ def test_cancel_moves_live_task_to_cancelled(isolated_session_local):
 
 
 def test_repeated_cancel_is_idempotent(isolated_session_local):
-    """apply_task_decision 层面直接验证：状态围栏本身幂等，不经过 HTTP 端点——
-    端点每次调用都会用 make_id(..., now) 生成 EmperorDecision/CourtLoopRun 的
-    id(秒级精度、无 nonce)，同一秒内连续两次相同 action 会撞主键，这是端点
-    既有的、跟本次 REQ-018 无关的预先存在的问题(任何 action 连续调用两次都会
-    撞)，记录不顺手修——这里只测本次改动真正要保证的东西：cancel 分支的终态
-    幂等围栏本身，不经过会踩雷的那条 id 生成路径。"""
-    from web.routers.shangshufang import apply_task_decision
+    """HTTP 重放必须返回既有结果，不能重复追加裁决和时间线。"""
+    from src.db.models import DecreeExecutionEvent, EmperorDecision
 
     db = isolated_session_local()
     task_id = "task_cancel_repeated"
     _seed_task(db, task_id=task_id)
+    db.close()
+
+    client = TestClient(app)
+    first = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={"action": "cancel", "reason": "客户撤单", "human_confirmed": True},
+    )
+    second = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={"action": "cancel", "reason": "重复点击", "human_confirmed": True},
+    )
+
+    assert first.status_code == 200, first.json()
+    assert second.status_code == 200, second.json()
+    db = isolated_session_local()
     task = db.query(DecisionTask).filter_by(id=task_id).one()
     review = db.query(CourtReview).filter_by(task_id=task_id).one()
-
-    apply_task_decision(
-        db,
-        task=task,
-        review=review,
-        action="cancel",
-        reason="客户撤单",
-        human_confirmed=True,
-        now="2026-07-23T01:00:00+00:00",
-    )
-    assert task.status == "task_cancelled"
-
-    apply_task_decision(
-        db,
-        task=task,
-        review=review,
-        action="cancel",
-        reason="重复点击",
-        human_confirmed=True,
-        now="2026-07-23T01:00:05+00:00",
-    )
     assert task.status == "task_cancelled"
     assert review.review_status == "task_cancelled"
+    assert (
+        db.query(EmperorDecision)
+        .filter_by(task_id=task_id, action="cancel")
+        .count()
+        == 1
+    )
+    assert (
+        db.query(DecreeExecutionEvent)
+        .filter_by(task_id=task_id, event_type="decision.cancelled")
+        .count()
+        == 1
+    )
     db.close()
+
+
+def test_repeated_recheck_is_idempotent(isolated_session_local):
+    from src.db.models import DecreeExecutionEvent, EmperorDecision
+
+    db = isolated_session_local()
+    task_id = "task_recheck_repeated"
+    _seed_task(db, task_id=task_id)
+    db.close()
+
+    client = TestClient(app)
+    first = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={"action": "recheck", "reason": "重新会审", "human_confirmed": True},
+    )
+    second = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={"action": "recheck", "reason": "重复点击", "human_confirmed": True},
+    )
+
+    assert first.status_code == 200, first.json()
+    assert second.status_code == 200, second.json()
+    db = isolated_session_local()
+    assert db.query(DecisionTask).filter_by(id=task_id).one().status == "reviewing"
+    assert (
+        db.query(EmperorDecision)
+        .filter_by(task_id=task_id, action="recheck")
+        .count()
+        == 1
+    )
+    assert (
+        db.query(DecreeExecutionEvent)
+        .filter_by(task_id=task_id, event_type="decision.recheck_requested")
+        .count()
+        == 1
+    )
+    db.close()
+
+
+@pytest.mark.parametrize(
+    ("action", "expected_status", "event_type"),
+    [
+        ("cancel", "task_cancelled", "decision.cancelled"),
+        ("recheck", "reviewing", "decision.recheck_requested"),
+    ],
+)
+def test_concurrent_legacy_decision_replays_one_durable_result(
+    tmp_path,
+    monkeypatch,
+    action,
+    expected_status,
+    event_type,
+):
+    """Concurrent legacy retries serialize before deciding whether to append."""
+    from src.db.models import DecreeExecutionEvent, EmperorDecision
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / f'legacy-{action}-race.db'}",
+        connect_args={"check_same_thread": False, "timeout": 10},
+    )
+    Base.metadata.create_all(engine)
+    test_session = sessionmaker(
+        bind=engine,
+        autocommit=False,
+        autoflush=False,
+        expire_on_commit=False,
+    )
+    engine_module = importlib.import_module("src.db.engine")
+    monkeypatch.setattr(engine_module, "SessionLocal", test_session)
+
+    task_id = f"task_{action}_concurrent"
+    db = test_session()
+    _seed_task(db, task_id=task_id)
+    db.close()
+
+    from src import decision_task_access
+
+    both_ready_to_lock = threading.Barrier(2)
+    lock_calls = threading.local()
+    original_lock_decision_task = decision_task_access.lock_decision_task
+
+    def _pace_before_task_lock(db, locked_task_id):
+        call_count = getattr(lock_calls, "count", 0) + 1
+        lock_calls.count = call_count
+        if call_count == 1:
+            both_ready_to_lock.wait(timeout=5)
+        return original_lock_decision_task(db, locked_task_id)
+
+    monkeypatch.setattr(
+        decision_task_access,
+        "lock_decision_task",
+        _pace_before_task_lock,
+    )
+
+    responses = []
+    errors: list[BaseException] = []
+
+    def _submit(reason: str) -> None:
+        try:
+            response = TestClient(app).post(
+                f"/api/shangshufang/tasks/{task_id}/decision",
+                json={
+                    "action": action,
+                    "reason": reason,
+                    "human_confirmed": True,
+                },
+            )
+            responses.append(response)
+        except BaseException as exc:  # noqa: BLE001 - surface thread failures
+            errors.append(exc)
+
+    threads = [
+        threading.Thread(target=_submit, args=("first request",)),
+        threading.Thread(target=_submit, args=("concurrent retry",)),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=15)
+
+    assert not errors
+    assert len(responses) == 2
+    assert [response.status_code for response in responses] == [200, 200], [
+        response.text for response in responses
+    ]
+
+    db = test_session()
+    try:
+        assert db.get(DecisionTask, task_id).status == expected_status
+        assert (
+            db.query(EmperorDecision)
+            .filter_by(task_id=task_id, action=action)
+            .count()
+            == 1
+        )
+        assert (
+            db.query(DecreeExecutionEvent)
+            .filter_by(task_id=task_id, event_type=event_type)
+            .count()
+            == 1
+        )
+    finally:
+        db.close()
+        Base.metadata.drop_all(engine)
+        engine.dispose()
 
 
 def test_cancel_rejected_on_already_archived_task(isolated_session_local):
@@ -109,7 +263,9 @@ def test_cancel_rejected_on_already_archived_task(isolated_session_local):
         f"/api/shangshufang/tasks/{task_id}/decision",
         json={"action": "cancel", "reason": "太迟了", "human_confirmed": True},
     )
-    assert resp.json()["success"] is True
+    assert resp.status_code == 409
+    assert resp.json()["success"] is False
+    assert "durable legacy decision missing" in resp.json()["error"]
 
     db = isolated_session_local()
     assert db.query(DecisionTask).filter_by(id=task_id).one().status == "archived"
@@ -132,11 +288,107 @@ def test_cancel_rejected_on_already_draft_cancelled_task(isolated_session_local)
         f"/api/shangshufang/tasks/{task_id}/decision",
         json={"action": "cancel", "reason": "太迟了", "human_confirmed": True},
     )
-    assert resp.json()["success"] is True
+    assert resp.status_code == 409
+    assert resp.json()["success"] is False
+    assert "durable legacy decision missing" in resp.json()["error"]
 
     db = isolated_session_local()
     assert db.query(DecisionTask).filter_by(id=task_id).one().status == "draft_cancelled"
     db.close()
+
+
+def test_recheck_replay_requires_durable_decision(isolated_session_local):
+    db = isolated_session_local()
+    task_id = "task_recheck_without_decision"
+    _seed_task(db, task_id=task_id, status="reviewing")
+    db.close()
+
+    response = TestClient(app).post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "recheck",
+            "reason": "没有 durable decision 不得伪装 replay",
+            "human_confirmed": True,
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["success"] is False
+    assert "durable legacy decision missing" in response.json()["error"]
+    db = isolated_session_local()
+    assert db.get(DecisionTask, task_id).status == "reviewing"
+    db.close()
+
+
+@pytest.mark.parametrize(
+    ("action", "initial_status"),
+    [
+        ("cancel", "awaiting_decision"),
+        ("recheck", "awaiting_decision"),
+    ],
+)
+def test_legacy_action_reclassifies_after_task_lock_when_mission_appears(
+    isolated_session_local,
+    monkeypatch,
+    action,
+    initial_status,
+):
+    from src.contract_mission_repository import save_mission_snapshot
+    from src.db.models import DecreeExecutionEvent, EmperorDecision
+    from src.execution import decree_dispatcher
+    from tests.contract_task_support import contract_mission
+
+    task_id = f"task-mission-race-{action}"
+    with isolated_session_local() as db:
+        _seed_task(db, task_id=task_id, status=initial_status)
+
+    original_lock = decree_dispatcher.lock_evidence_rework_task
+    mission_published = False
+
+    def _publish_mission_while_acquiring_lock(db, locked_task_id):
+        nonlocal mission_published
+        original_lock(db, locked_task_id)
+        if not mission_published:
+            mission_published = True
+            task = db.get(DecisionTask, locked_task_id)
+            save_mission_snapshot(
+                db,
+                task=task,
+                mission=contract_mission(locked_task_id),
+                state="confirmed",
+            )
+
+    monkeypatch.setattr(
+        decree_dispatcher,
+        "lock_evidence_rework_task",
+        _publish_mission_while_acquiring_lock,
+    )
+
+    response = TestClient(app).post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": action,
+            "reason": "锁后出现 Mission 必须改走合同 authority",
+            "human_confirmed": True,
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["success"] is False
+    assert "contract" in response.json()["error"] or (
+        "REFRESH_REVIEW" in response.json()["error"]
+    )
+    with isolated_session_local() as db:
+        assert db.get(DecisionTask, task_id).status == initial_status
+        assert (
+            db.query(CourtReview).filter_by(task_id=task_id).one().review_status
+            == initial_status
+        )
+        assert db.query(EmperorDecision).filter_by(task_id=task_id).count() == 0
+        assert (
+            db.query(DecreeExecutionEvent).filter_by(task_id=task_id).count()
+            == 0
+        )
 
 
 def test_cancel_action_is_recorded_with_final_verdict_kind(isolated_session_local):

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from src.contracts.evidence_packet import EvidencePacketV1, EvidenceStatus
 from src.contracts.mission_contract import ContractIntakeV1
@@ -79,3 +79,77 @@ class EvidenceReworkGenerationV1(BaseModel):
         payload = self.model_dump(mode="json", exclude_none=True)
         payload["evidence_request"] = self.evidence_request.model_dump(mode="json")
         return payload
+
+
+class EvidenceReworkGenerationPayloadV1(EvidenceReworkGenerationV1):
+    """Durable generation payload with the frozen Mission identity fence."""
+
+    mission_revision: int = Field(ge=1)
+    mission_content_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    def to_public_payload(self) -> dict[str, object]:
+        public = EvidenceReworkGenerationV1.model_validate(
+            self.model_dump(
+                mode="json",
+                exclude={"mission_revision", "mission_content_digest"},
+            )
+        )
+        return public.to_payload()
+
+
+class EvidenceReworkMissionIdentityMissing(ValueError):
+    """A parent-valid durable payload predating the frozen Mission identity."""
+
+    def __init__(self, generation: EvidenceReworkGenerationV1) -> None:
+        super().__init__("durable evidence rework payload lacks mission identity")
+        self.generation = generation
+
+
+_DURABLE_PAYLOAD_STATUSES = {
+    "awaiting_evidence": frozenset({"awaiting_evidence"}),
+    "evidence_bound": frozenset({"evidence_bound", "pending"}),
+    "pending": frozenset({"evidence_bound", "pending"}),
+    "processing": frozenset({"evidence_bound", "pending"}),
+    "completed": frozenset({"candidate_ready", "quality_blocked"}),
+}
+
+
+def validate_durable_evidence_rework_envelope(
+    generation: EvidenceReworkGenerationV1,
+    *,
+    event_id: str,
+    event_generation: int | None,
+    durable_status: str,
+) -> None:
+    """Require a durable row and its payload to describe the same generation."""
+    if generation.generation_id != event_id:
+        raise ValueError(
+            "durable evidence rework envelope generation_id mismatch"
+        )
+    if generation.generation != event_generation:
+        raise ValueError(
+            "durable evidence rework envelope generation mismatch"
+        )
+    allowed_statuses = _DURABLE_PAYLOAD_STATUSES.get(durable_status)
+    if allowed_statuses is None or generation.status not in allowed_statuses:
+        raise ValueError(
+            "durable evidence rework envelope status mismatch"
+        )
+
+
+def load_durable_evidence_rework_generation(
+    payload_json: str,
+) -> EvidenceReworkGenerationPayloadV1:
+    """Read current payloads and identify valid parent payloads without mutation."""
+    try:
+        return EvidenceReworkGenerationPayloadV1.model_validate_json(payload_json)
+    except ValidationError as current_error:
+        try:
+            legacy_generation = EvidenceReworkGenerationV1.model_validate_json(
+                payload_json
+            )
+        except ValidationError as legacy_error:
+            raise current_error from legacy_error
+        raise EvidenceReworkMissionIdentityMissing(
+            legacy_generation
+        ) from current_error

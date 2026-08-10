@@ -1,0 +1,325 @@
+from __future__ import annotations
+
+import hashlib
+import os
+import stat
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from threading import Barrier
+
+import pytest
+
+from src.artifacts import storage
+from src.artifacts.service import DeliveryIntegrityError
+from src.artifacts.storage import read_verified_artifact, store_artifact_bytes
+
+
+def _temporary_files(root: Path) -> list[Path]:
+    return list(root.rglob("*.tmp"))
+
+
+@pytest.mark.parametrize(
+    ("artifact_id", "expected_exception"),
+    [
+        ("../outside", ValueError),
+        ("", ValueError),
+        ("nested\\artifact", ValueError),
+        (None, TypeError),
+    ],
+)
+def test_store_rejects_invalid_artifact_identifier(
+    tmp_path: Path, artifact_id: object, expected_exception: type[Exception]
+) -> None:
+    root = tmp_path / "storage"
+    before = set(tmp_path.iterdir())
+
+    with pytest.raises(expected_exception):
+        store_artifact_bytes(
+            root,
+            tenant_id=7,
+            artifact_id=artifact_id,
+            content=b"contents",
+        )
+
+    assert set(tmp_path.iterdir()) == before
+
+
+@pytest.mark.parametrize(
+    ("tenant_id", "expected_exception"),
+    [
+        ("../outside", TypeError),
+        ("1", TypeError),
+        (0, ValueError),
+        (-1, ValueError),
+        (True, TypeError),
+    ],
+)
+def test_store_rejects_invalid_tenant_before_creating_storage(
+    tmp_path: Path, tenant_id: object, expected_exception: type[Exception]
+) -> None:
+    root = tmp_path / "storage"
+    before = set(tmp_path.iterdir())
+
+    with pytest.raises(expected_exception):
+        store_artifact_bytes(
+            root,
+            tenant_id=tenant_id,
+            artifact_id="artifact",
+            content=b"contents",
+        )
+
+    assert set(tmp_path.iterdir()) == before
+
+
+def test_store_rejects_tenant_directory_swapped_to_external_symlink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "storage"
+    tenant_directory = root / "7"
+    outside = tmp_path / "outside"
+    tenant_directory.mkdir(parents=True)
+    outside.mkdir()
+    original_artifact_path = storage._artifact_path
+
+    def swap_tenant_directory(
+        root_arg: Path, *, tenant_id: int, artifact_id: str
+    ) -> Path:
+        path = original_artifact_path(
+            root_arg,
+            tenant_id=tenant_id,
+            artifact_id=artifact_id,
+        )
+        tenant_directory.rmdir()
+        tenant_directory.symlink_to(outside, target_is_directory=True)
+        return path
+
+    monkeypatch.setattr(storage, "_artifact_path", swap_tenant_directory)
+
+    with pytest.raises(DeliveryIntegrityError, match="tenant"):
+        store_artifact_bytes(
+            root,
+            tenant_id=7,
+            artifact_id="symlink-escape",
+            content=b"must remain inside root",
+        )
+
+    assert not (outside / "symlink-escape").exists()
+
+
+def test_verified_read_rejects_tenant_symlink_to_matching_external_file(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "storage"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    content = b"matching external artifact"
+    external_artifact = outside / "artifact-verified"
+    external_artifact.write_bytes(content)
+    root.mkdir()
+    (root / "7").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(DeliveryIntegrityError, match="tenant"):
+        read_verified_artifact(
+            root / "7" / external_artifact.name,
+            expected_hash=hashlib.sha256(content).hexdigest(),
+            expected_size=len(content),
+        )
+
+
+def test_store_returns_verified_artifact_for_first_write(tmp_path: Path) -> None:
+    root = tmp_path / "storage"
+    content = b"durable artifact contents"
+
+    stored = store_artifact_bytes(
+        root,
+        tenant_id=7,
+        artifact_id="artifact-001",
+        content=content,
+    )
+
+    assert stored.path.resolve().is_relative_to(root.resolve())
+    assert stored.path.read_bytes() == content
+    assert stored.content_hash == hashlib.sha256(content).hexdigest()
+    assert stored.byte_size == len(content)
+    assert (
+        read_verified_artifact(
+            stored.path,
+            expected_hash=stored.content_hash,
+            expected_size=stored.byte_size,
+        )
+        == content
+    )
+    assert _temporary_files(root) == []
+
+
+def test_store_fsyncs_first_tenant_creation_and_each_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "storage"
+    fsync_calls: list[os.stat_result] = []
+
+    def record_fsync(fd: int) -> None:
+        fsync_calls.append(os.fstat(fd))
+
+    monkeypatch.setattr(storage.os, "fsync", record_fsync)
+    store_artifact_bytes(
+        root,
+        tenant_id=7,
+        artifact_id="artifact-fsync-first",
+        content=b"first durable artifact",
+    )
+
+    root_identity = (root.stat().st_dev, root.stat().st_ino)
+    tenant = root / "7"
+    tenant_identity = (tenant.stat().st_dev, tenant.stat().st_ino)
+    directory_identities = [
+        (call.st_dev, call.st_ino)
+        for call in fsync_calls
+        if stat.S_ISDIR(call.st_mode)
+    ]
+    assert directory_identities.count(root_identity) == 1
+    assert directory_identities.count(tenant_identity) == 1
+    assert sum(stat.S_ISREG(call.st_mode) for call in fsync_calls) == 1
+
+    fsync_calls.clear()
+    store_artifact_bytes(
+        root,
+        tenant_id=7,
+        artifact_id="artifact-fsync-next",
+        content=b"next durable artifact",
+    )
+
+    directory_identities = [
+        (call.st_dev, call.st_ino)
+        for call in fsync_calls
+        if stat.S_ISDIR(call.st_mode)
+    ]
+    assert root_identity not in directory_identities
+    assert directory_identities.count(tenant_identity) == 1
+    assert sum(stat.S_ISREG(call.st_mode) for call in fsync_calls) == 1
+    assert _temporary_files(root) == []
+
+
+def test_store_fails_closed_when_tenant_directory_fsync_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "storage"
+    (root / "7").mkdir(parents=True)
+    real_fsync = os.fsync
+
+    def fail_directory_fsync(fd: int) -> None:
+        if stat.S_ISDIR(os.fstat(fd).st_mode):
+            raise OSError("expected directory fsync failure")
+        real_fsync(fd)
+
+    monkeypatch.setattr(storage.os, "fsync", fail_directory_fsync)
+
+    with pytest.raises(DeliveryIntegrityError, match="tenant directory"):
+        store_artifact_bytes(
+            root,
+            tenant_id=7,
+            artifact_id="artifact-fsync-failure",
+            content=b"directory failure artifact",
+        )
+
+    assert _temporary_files(root) == []
+
+
+def test_store_reuses_identical_bytes_without_changing_mtime(tmp_path: Path) -> None:
+    root = tmp_path / "storage"
+    content = b"replayed artifact contents"
+    first = store_artifact_bytes(
+        root,
+        tenant_id=7,
+        artifact_id="artifact-002",
+        content=content,
+    )
+    initial_mtime_ns = first.path.stat().st_mtime_ns
+
+    replayed = store_artifact_bytes(
+        root,
+        tenant_id=7,
+        artifact_id="artifact-002",
+        content=content,
+    )
+
+    assert replayed == first
+    assert replayed.path.stat().st_mtime_ns == initial_mtime_ns
+    assert _temporary_files(root) == []
+
+
+def test_store_rejects_different_bytes_without_leaving_temporary_file(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "storage"
+    stored = store_artifact_bytes(
+        root,
+        tenant_id=7,
+        artifact_id="artifact-003",
+        content=b"original bytes",
+    )
+
+    with pytest.raises(DeliveryIntegrityError, match="different"):
+        store_artifact_bytes(
+            root,
+            tenant_id=7,
+            artifact_id="artifact-003",
+            content=b"conflicting bytes",
+        )
+
+    assert stored.path.read_bytes() == b"original bytes"
+    assert _temporary_files(root) == []
+
+
+@pytest.mark.parametrize("corrupted", [b"truncated", b"replacement bytes"])
+def test_verified_read_rejects_corrupted_stored_bytes(
+    tmp_path: Path, corrupted: bytes
+) -> None:
+    stored = store_artifact_bytes(
+        tmp_path / "storage",
+        tenant_id=7,
+        artifact_id="artifact-004",
+        content=b"expected artifact bytes",
+    )
+    stored.path.write_bytes(corrupted)
+
+    with pytest.raises(DeliveryIntegrityError, match="verification"):
+        read_verified_artifact(
+            stored.path,
+            expected_hash=stored.content_hash,
+            expected_size=stored.byte_size,
+        )
+
+
+def test_concurrent_writers_choose_one_winner_without_temporary_files(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "storage"
+    start = Barrier(2)
+
+    def write(content: bytes):
+        start.wait()
+        return store_artifact_bytes(
+            root,
+            tenant_id=7,
+            artifact_id="artifact-005",
+            content=content,
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(write, content) for content in (b"winner-a", b"winner-b")]
+        outcomes = []
+        for future in futures:
+            try:
+                outcomes.append(future.result())
+            except DeliveryIntegrityError as exc:
+                outcomes.append(exc)
+
+    winners = [outcome for outcome in outcomes if not isinstance(outcome, Exception)]
+    conflicts = [outcome for outcome in outcomes if isinstance(outcome, DeliveryIntegrityError)]
+    assert len(winners) == 1
+    assert len(conflicts) == 1
+    assert winners[0].path.read_bytes() in {b"winner-a", b"winner-b"}
+    assert _temporary_files(root) == []

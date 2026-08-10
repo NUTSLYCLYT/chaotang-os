@@ -3,7 +3,10 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from src.contracts.evidence_rework_generation import EvidenceReworkGenerationV1
+from src.contracts.evidence_rework_generation import (
+    EvidenceReworkGenerationPayloadV1,
+    EvidenceReworkGenerationV1,
+)
 from src.db.models import FinalMemorial
 
 
@@ -19,6 +22,14 @@ def _valid_generation() -> dict[str, object]:
             "followup_question": None,
         },
         "affected_sections": ["contract_review"],
+    }
+
+
+def _valid_payload() -> dict[str, object]:
+    return {
+        **_valid_generation(),
+        "mission_revision": 1,
+        "mission_content_digest": "b" * 64,
     }
 
 
@@ -56,6 +67,83 @@ def test_evidence_rework_generation_v1_rejects_unknown_fields() -> None:
 
     with pytest.raises(ValidationError):
         EvidenceReworkGenerationV1.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["mission_revision", "mission_content_digest"],
+)
+def test_evidence_rework_payload_v1_requires_frozen_mission_identity(
+    field: str,
+) -> None:
+    payload = _valid_payload()
+    payload.pop(field)
+
+    with pytest.raises(ValidationError):
+        EvidenceReworkGenerationPayloadV1.model_validate(payload)
+
+
+def test_evidence_rework_payload_projects_stable_public_contract() -> None:
+    payload = EvidenceReworkGenerationPayloadV1.model_validate(_valid_payload())
+
+    assert payload.to_public_payload() == {
+        **_valid_generation(),
+        "evidence_status": "NONE",
+    }
+
+
+@pytest.mark.parametrize(
+    ("event_id", "event_generation", "durable_status", "error"),
+    [
+        ("wrong-generation-id", 2, "awaiting_evidence", "generation_id"),
+        ("outbox_rework_contract_v1", 9, "awaiting_evidence", "generation"),
+        ("outbox_rework_contract_v1", 2, "processing", "status"),
+    ],
+)
+def test_parent_payload_quarantine_requires_exact_durable_envelope(
+    event_id,
+    event_generation,
+    durable_status,
+    error,
+) -> None:
+    from src.contracts.evidence_rework_generation import (
+        EvidenceReworkGenerationV1,
+        validate_durable_evidence_rework_envelope,
+    )
+
+    payload = _valid_payload()
+    payload.pop("mission_revision")
+    payload.pop("mission_content_digest")
+    if error == "status":
+        payload["status"] = "candidate_ready"
+    generation = EvidenceReworkGenerationV1.model_validate(payload)
+
+    with pytest.raises(ValueError, match=error):
+        validate_durable_evidence_rework_envelope(
+            generation,
+            event_id=event_id,
+            event_generation=event_generation,
+            durable_status=durable_status,
+        )
+
+
+def test_parent_payload_quarantine_accepts_exact_durable_envelope() -> None:
+    from src.contracts.evidence_rework_generation import (
+        EvidenceReworkGenerationV1,
+        validate_durable_evidence_rework_envelope,
+    )
+
+    payload = _valid_payload()
+    payload.pop("mission_revision")
+    payload.pop("mission_content_digest")
+    generation = EvidenceReworkGenerationV1.model_validate(payload)
+
+    validate_durable_evidence_rework_envelope(
+        generation,
+        event_id=generation.generation_id,
+        event_generation=generation.generation,
+        durable_status="awaiting_evidence",
+    )
 
 
 def test_evidence_rework_generation_rejects_evidence_status_drift() -> None:

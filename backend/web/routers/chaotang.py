@@ -565,7 +565,10 @@ def task_persist(
     try:
         owner_id = str(user.user_id or user.username or user.tenant_slug or "anonymous")
         decision, error = get_owned_decision_task(
-            db, task_id=task_id, requester_id=owner_id
+            db,
+            task_id=task_id,
+            requester_id=owner_id,
+            requester_tenant_id=user.tenant_id,
         )
         if decision is None:
             return fail(
@@ -594,7 +597,10 @@ def task_persist_patch(
     try:
         owner_id = str(user.user_id or user.username or user.tenant_slug or "anonymous")
         decision, error = get_owned_decision_task(
-            db, task_id=task_id, requester_id=owner_id
+            db,
+            task_id=task_id,
+            requester_id=owner_id,
+            requester_tenant_id=user.tenant_id,
         )
         if decision is None:
             return fail(
@@ -835,7 +841,10 @@ def memorial_review(
         if task_id is None:
             return fail(mapping_error or "奏折未关联正式 DecisionTask")
         task, access_error = get_owned_decision_task(
-            db, task_id=task_id, requester_id=owner_id
+            db,
+            task_id=task_id,
+            requester_id=owner_id,
+            requester_tenant_id=user.tenant_id,
         )
         if task is None:
             return fail(access_error or "无权裁决该任务")

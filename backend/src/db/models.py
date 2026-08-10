@@ -16,6 +16,7 @@ MemorialStatus 值域(KP-7 全链路枚举):
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Literal
 
 import sqlalchemy as sa
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -27,6 +28,15 @@ def _now_iso() -> str:
 
 class Base(DeclarativeBase):
     pass
+
+
+InternalDeliveryState = Literal[
+    "PENDING",
+    "GENERATED",
+    "STORED",
+    "UNAVAILABLE",
+    "EXPIRED",
+]
 
 
 # ── decrees ───────────────────────────────────────────────────────────────
@@ -424,6 +434,14 @@ class ArtifactManifest(Base):
     final_memorial_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
     final_memorial_version: Mapped[int] = mapped_column(sa.Integer, nullable=False)
     delivery_formula_version: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    delivery_revision: Mapped[int | None] = mapped_column(sa.Integer, nullable=True)
+    idempotency_key_hash: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    payload_hash: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    source_payload_json: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    requested_expiry_seconds: Mapped[int | None] = mapped_column(
+        sa.Integer,
+        nullable=True,
+    )
     content_hash: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
     manifest_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="{}")
     overall_status: Mapped[str] = mapped_column(sa.Text, nullable=False, default="PARTIAL")
@@ -431,9 +449,80 @@ class ArtifactManifest(Base):
 
     __table_args__ = (
         sa.UniqueConstraint(
-            "tenant_id", "task_id", "final_memorial_id", "final_memorial_version",
+            "tenant_id",
+            "task_id",
+            "final_memorial_id",
+            "final_memorial_version",
+            "delivery_formula_version",
+            "delivery_revision",
             name="uq_artifact_manifest_lineage",
         ),
+        sa.UniqueConstraint(
+            "tenant_id",
+            "idempotency_key_hash",
+            name="uq_artifact_manifest_tenant_idempotency",
+        ),
+    )
+
+
+class ArtifactDeliveryItem(Base):
+    """Mutable delivery operation projected into a sealed manifest item."""
+
+    __tablename__ = "artifact_delivery_items"
+
+    id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    manifest_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    kind: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    mime_type: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    state: Mapped[str] = mapped_column(sa.Text, nullable=False, default="PENDING")
+    storage_path: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    content_hash: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    byte_size: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
+    incomplete_reason: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    last_failure: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    retry_count: Mapped[int] = mapped_column(sa.Integer, nullable=False, default=0)
+    resume_token_hash: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    expires_at: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
+    updated_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
+
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "manifest_id",
+            "kind",
+            name="uq_artifact_delivery_items_manifest_kind",
+        ),
+        sa.Index(
+            "ix_artifact_delivery_items_tenant_manifest",
+            "tenant_id",
+            "manifest_id",
+        ),
+    )
+
+
+class ArtifactDeliveryAuditEvent(Base):
+    """Append-only evidence for tenant-scoped delivery operations."""
+
+    __tablename__ = "artifact_delivery_audit_events"
+
+    id: Mapped[str] = mapped_column(sa.Text, primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    manifest_id: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    artifact_id: Mapped[str | None] = mapped_column(sa.Text, nullable=True)
+    event_type: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    outcome: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    detail_json: Mapped[str] = mapped_column(sa.Text, nullable=False, default="{}")
+    created_at: Mapped[str] = mapped_column(sa.Text, nullable=False, default=_now_iso)
+
+    __table_args__ = (
+        sa.Index(
+            "ix_artifact_delivery_audit_tenant_manifest_created",
+            "tenant_id",
+            "manifest_id",
+            "created_at",
+        ),
+        sa.Index("ix_artifact_delivery_audit_artifact", "artifact_id"),
     )
 
 

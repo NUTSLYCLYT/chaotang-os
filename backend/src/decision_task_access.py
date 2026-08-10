@@ -7,19 +7,79 @@ boundary, complementing the single writer in ``decision_task_kernel``.
 
 from __future__ import annotations
 
+import json
+
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
-from src.db.models import DecisionTask
+from src.db.models import DecisionTask, FinalMemorial
+
+
+def lock_decision_task(db: Session, task_id: str) -> None:
+    """Serialize writers that can change a task's contract classification."""
+    result = db.execute(
+        update(DecisionTask)
+        .where(DecisionTask.id == task_id)
+        .values(id=DecisionTask.id)
+    )
+    if result.rowcount != 1:
+        raise ValueError("canonical DecisionTask missing")
+
+
+def is_contract_decision_task(
+    db: Session,
+    *,
+    task: DecisionTask,
+    current_formal: FinalMemorial | None = None,
+) -> bool:
+    """Return the server-owned contract classification for one DecisionTask."""
+    if task.contract_scope_json is not None:
+        return True
+
+    from src.contract_mission_repository import MISSION_LOOP_ID
+    from src.db.models import CourtLoopRun
+
+    if (
+        db.query(CourtLoopRun.id)
+        .filter_by(task_id=task.id, loop_id=MISSION_LOOP_ID)
+        .first()
+        is not None
+    ):
+        return True
+
+    formal = current_formal
+    if formal is None:
+        formal = (
+            db.query(FinalMemorial)
+            .filter_by(task_id=task.id, is_current=True)
+            .first()
+        )
+    if formal is None:
+        return False
+    try:
+        formal_payload = json.loads(formal.memorial_json)
+    except json.JSONDecodeError:
+        return True
+    if not isinstance(formal_payload, dict) or not formal_payload:
+        return True
+    return "contract_review" in formal_payload
 
 
 def get_owned_decision_task(
-    db: Session, *, task_id: str, requester_id: str
+    db: Session,
+    *,
+    task_id: str,
+    requester_id: str,
+    requester_tenant_id: int,
 ) -> tuple[DecisionTask | None, str | None]:
-    """Return a formal task only when it belongs to the requester."""
+    """Return a formal task only when both tenant and user own it."""
     decision = db.query(DecisionTask).filter_by(id=task_id).first()
     if decision is None:
         return None, "正式 DecisionTask 不存在"
-    if decision.user_id != requester_id:
+    if (
+        decision.tenant_id != requester_tenant_id
+        or str(decision.user_id) != str(requester_id)
+    ):
         return None, "无权访问他人的 DecisionTask"
     return decision, None
 

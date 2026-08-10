@@ -11,9 +11,9 @@ import { spawnSync } from 'node:child_process';
 
 const PROFILES = {
   node: { patterns: ['src/**/*.nodetest.ts', 'src/**/*.itest.ts'], runner: 'tsx' },
-  core: { patterns: ['src/core/courtos/**/*.nodetest.ts'], runner: 'node' },
-  evals: { patterns: ['src/core/courtos/evals/*.nodetest.ts'], runner: 'node' },
-  'mvp-api': { patterns: ['src/core/courtos/persistence/*.nodetest.ts'], runner: 'node' },
+  core: { patterns: ['src/core/courtos/**/*.nodetest.ts'], runner: 'tsx' },
+  evals: { patterns: ['src/core/courtos/evals/*.nodetest.ts'], runner: 'tsx' },
+  'mvp-api': { patterns: ['src/core/courtos/persistence/*.nodetest.ts'], runner: 'tsx' },
 };
 
 const profileName = process.argv[2];

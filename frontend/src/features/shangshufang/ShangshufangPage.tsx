@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import {
   AlertTriangle,
@@ -102,7 +102,7 @@ import {
 import { extractJiqunFinalOutputs, jiqunFinalOutputText, jiqunReturnChatText, mergeJiqunReturnIntoEdict } from './jiqun-return-edict';
 import type { SourceLabel } from '@/core/courtos/types';
 import { loopTraceIdForTask } from '@/core/courtos/loop-trace';
-import { projectCanonicalMemorialView } from './canonical-memorial-view';
+import { canonicalMemorialKind, canonicalMemorialSource, projectCanonicalMemorialView } from './canonical-memorial-view';
 import {
   CapabilityEvidenceMatrix,
   type CapabilityEvidenceItem,
@@ -110,6 +110,13 @@ import {
 } from '@/components/CapabilityEvidenceMatrix';
 import { saveLocalReport } from '@/features/reports/lib/local-report-cache';
 import { recallBadgeLabel } from './lib/recall-badge';
+import { ContractReviewPanel } from '@/features/contract-review/ContractReviewPanel';
+import {
+  findRefreshedTaskSnapshot,
+  rememberServerContractTaskIds,
+  resolveSelectedTaskSnapshot,
+  selectContractTaskCandidate,
+} from '@/features/contract-review/task-selection';
 
 type VerdictTaskAction = 'adopt' | 'request_evidence' | 'recheck' | 'reject' | 'followup';
 type VerdictLegacyAction = 'approve' | 'reject' | 'inquire';
@@ -1452,7 +1459,7 @@ function pollForRealVerdict(
   const isStillRelevant = (): Promise<boolean> =>
     new Promise((resolve) => {
       setEdictOverride((prev) => {
-        resolve(!!(prev && prev.primaryTaskId === taskId));
+        resolve(!prev || prev.primaryTaskId === taskId);
         return prev; // 只读探测，不修改 state，不触发多余渲染
       });
     });
@@ -1466,7 +1473,7 @@ function pollForRealVerdict(
         const projection = projectCanonicalMemorialView(taskId, envelope.data);
         if (projection.view) {
           setEdictOverride((prev) =>
-            prev && prev.primaryTaskId === taskId ? { ...prev, view: projection.view! } : prev,
+            prev ? { ...prev, view: projection.view!, primaryTaskId: taskId } : prev,
           );
           return;
         }
@@ -2033,6 +2040,7 @@ function memorialItemToDisplay(
     sourceMode,
     sourceLabel,
     evidenceCount,
+    contractTask: m.contractTask,
     petitioner: m.petitioner,
     reporter: m.reporter,
     priority: priorityMap[m.priority] ?? 'medium',
@@ -2268,6 +2276,7 @@ function stripAppBasePath(path: string): string {
 
 export function ShangshufangPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dialogueSeqRef = useRef(0);
@@ -2338,9 +2347,15 @@ export function ShangshufangPage() {
   const [workbenchOpen, setWorkbenchOpen] = useState(false);
   const [edictCollapsed, setEdictCollapsed] = useState(true);
 
-  const [activeMemorialId, setActiveMemorialId] = useState<string | null>(null);
+  const requestedTaskId = searchParams.get('taskId');
+  const [activeMemorialId, setActiveMemorialId] = useState<string | null>(
+    () => requestedTaskId?.trim() || null,
+  );
   const [rejectedMemorialIds, setRejectedMemorialIds] = useState<Set<string>>(() => new Set());
   const [selectedMemorialOverride, setSelectedMemorialOverride] = useState<Memorial | null>(null);
+  const [serverContractTaskIds, setServerContractTaskIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [secondarySeal, setSecondarySeal] = useState<ActiveEdictSeal | null>(null);
 
   // 圣旨展示平台「一台三路」:奏折为默认台面;丞相/钦天监点击后把各自内容
@@ -2562,8 +2577,46 @@ export function ShangshufangPage() {
           : '暂无后端返回的 pending/running 今日要务或已完成蜂群流程。';
 
   const dedupedMemorialItems = uniqueMemorialItems(briefing.memorials);
+  useEffect(() => {
+    setServerContractTaskIds((current) => (
+      rememberServerContractTaskIds(current, dedupedMemorialItems)
+    ));
+  }, [briefing.memorials]);
+  const requestedMemorial = requestedTaskId
+    ? dedupedMemorialItems.find(
+        (item) => item.id === requestedTaskId.trim(),
+      )
+    : undefined;
+  useEffect(() => {
+    if (
+      requestedMemorial
+      && activeMemorialId !== requestedMemorial.id
+    ) {
+      setActiveMemorialId(requestedMemorial.id);
+    }
+  }, [activeMemorialId, requestedMemorial]);
   const activeMemorial: Memorial | null = (() => {
-    if (selectedMemorialOverride) return selectedMemorialOverride;
+    const refreshedSelectedItem = findRefreshedTaskSnapshot(
+      selectedMemorialOverride?.id ?? null,
+      dedupedMemorialItems,
+    );
+    let refreshedSelectedMemorial: Memorial | null = null;
+    if (refreshedSelectedItem) {
+      const refreshedIndex = dedupedMemorialItems.indexOf(
+        refreshedSelectedItem,
+      );
+      refreshedSelectedMemorial = memorialItemToDisplay(
+        refreshedSelectedItem,
+        refreshedIndex === 0,
+        briefing.sourceMode,
+      );
+    }
+    const resolvedSelected = resolveSelectedTaskSnapshot(
+      selectedMemorialOverride,
+      refreshedSelectedMemorial ? [refreshedSelectedMemorial] : [],
+      serverContractTaskIds,
+    );
+    if (resolvedSelected) return resolvedSelected;
     if (dedupedMemorialItems.length === 0) return null;
     const targetIndex = activeMemorialId
       ? dedupedMemorialItems.findIndex((m) => m.id === activeMemorialId)
@@ -2574,6 +2627,25 @@ export function ShangshufangPage() {
       ? memorialItemToDisplay(target, targetIndex === 0, briefing.sourceMode)
       : null;
   })();
+  const contractTaskId = selectContractTaskCandidate({
+    requestedTaskId,
+    requestedTaskIsContract:
+      requestedMemorial?.contractTask === true
+      || (
+        requestedTaskId?.trim() === activeMemorial?.id
+        && activeMemorial?.contractTask === true
+      ),
+    edictPrimaryTaskId: edictOverride?.primaryTaskId ?? null,
+    activeMemorialId: activeMemorial?.id ?? null,
+    activeMemorialIsContract: activeMemorial?.contractTask === true,
+  });
+  const legacyContractActionsBlocked = activeMemorial?.contractTask === true;
+  useEffect(() => {
+    if (!legacyContractActionsBlocked || !verdictOpen) return;
+    setVerdictOpen(false);
+    setVerdictResult(null);
+    setVerdictReceipt(null);
+  }, [legacyContractActionsBlocked, verdictOpen]);
   const todayDocketMemorials = dedupedMemorialItems
     .slice(0, 5)
     .map((item, index) => memorialItemToDisplay(item, index === 0, briefing.sourceMode));
@@ -3614,11 +3686,6 @@ export function ShangshufangPage() {
             setDecreeMsg(confirmedReply);
             appendDecreeChat({ role: 'assistant', label: '军机处', text: confirmedReply }, mode);
             const confirmedView = confirmedEdictToView(draft.task_id, confirmed);
-            if (confirmed.status === 'edict_recorded') {
-              // 军机处刚派单，memorial 还是占位骨架——轮询状态接口，真实分奏
-              // 回报后把下面这份 override 的 view 换成含圣裁的完整渲染。
-              pollForRealVerdict(draft.task_id, setEdictOverride);
-            }
             setEdictOverride({
               view: confirmedView,
               srcId: `confirmed-edict-${draft.task_id}`,
@@ -3651,6 +3718,14 @@ export function ShangshufangPage() {
                             throw new Error(envelope.error ?? '读取任务状态失败');
                           }
                           const status = envelope.data;
+                          const projection = projectCanonicalMemorialView(draft.task_id, status);
+                          if (projection.view) {
+                            setEdictOverride((prev) =>
+                              prev
+                                ? { ...prev, view: projection.view!, primaryTaskId: draft.task_id }
+                                : prev,
+                            );
+                          }
                           const executionNote = status.execution_status
                             ? ` · ${status.execution_status.current_owner}正在处理，阶段：${status.execution_status.current_stage}`
                             : '';
@@ -3686,9 +3761,22 @@ export function ShangshufangPage() {
                 </div>
               ),
             });
+            if (confirmed.status === 'edict_recorded') {
+              // 军机处刚派单，memorial 还是占位骨架——先建立 override，再轮询状态接口；
+              // 真实分奏回报后把当前 override 的 view 换成含圣裁的完整渲染。
+              pollForRealVerdict(draft.task_id, setEdictOverride);
+            }
+            setActiveMemorialId(draft.task_id);
+            const nextParams = new URLSearchParams(searchParams.toString());
+            nextParams.set('taskId', draft.task_id);
+            router.replace(`/shangshufang?${nextParams.toString()}`);
             setDecreeText('');
             setDecreeAttachments([]);
-            void refreshBriefing();
+            void refreshBriefing().then((refreshed) => {
+              if (refreshed?.memorials.some((item) => item.id === draft.task_id)) {
+                setActiveMemorialId(draft.task_id);
+              }
+            });
           } catch (e) {
             const msg = withTraceMessage(
               e instanceof Error && e.message ? e.message : `${isSecret ? '密旨' : '下旨'}失败，请重试。`,
@@ -3717,6 +3805,7 @@ export function ShangshufangPage() {
       closeOverride,
       decreeAttachmentMeta,
       refreshBriefing,
+      searchParams,
       refreshSwarmSessions,
       router,
       showNotice,
@@ -3805,6 +3894,7 @@ export function ShangshufangPage() {
       edictOverrideRef.current = null;
       setEdictOverride(null);
       setPackSwarmDisplayView(null);
+      setPackSwarmLoopResult(null);
       if (mode === 'secret') {
         await runSecretDecree(executable);
       } else {
@@ -3825,6 +3915,7 @@ export function ShangshufangPage() {
       edictOverrideRef.current = null;
       setEdictOverride(null);
       setPackSwarmDisplayView(null);
+      setPackSwarmLoopResult(null);
 
       if (isPackSwarmLoopCommand(cmd)) {
         await runPackSwarmLoop(cmd, mode);
@@ -4105,6 +4196,17 @@ export function ShangshufangPage() {
     [focusDecree],
   );
 
+  const selectMemorialIdentity = useCallback(
+    (taskId: string) => {
+      setActiveMemorialId(taskId);
+      if (requestedTaskId?.trim() === taskId) return;
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.set('taskId', taskId);
+      router.replace(`/shangshufang?${nextParams.toString()}`);
+    },
+    [requestedTaskId, router, searchParams],
+  );
+
   const handleSelectSuggestion = useCallback(
     (s: ChancellorSuggestion) => {
       const taskId = suggestionTaskId(s, briefing.memorials);
@@ -4114,13 +4216,13 @@ export function ShangshufangPage() {
       setEdictCollapsed(false);
       if (s.memorial) {
         setSelectedMemorialOverride(s.memorial);
-        setActiveMemorialId(s.memorial.id);
+        selectMemorialIdentity(s.memorial.id);
         setEdictOverride(null);
         return;
       }
       if (taskId && briefing.memorials.some((m) => m.id === taskId)) {
         setSelectedMemorialOverride(null);
-        setActiveMemorialId(taskId);
+        selectMemorialIdentity(taskId);
         setEdictOverride(null);
         return;
       }
@@ -4134,12 +4236,12 @@ export function ShangshufangPage() {
         suggestion: s,
       });
     },
-    [briefing.memorials],
+    [briefing.memorials, selectMemorialIdentity],
   );
 
   const handleVerdictChoice = useCallback(
     async (option: string) => {
-      if (!activeMemorial) return;
+      if (!activeMemorial || legacyContractActionsBlocked) return;
       setVerdictReceipt(null);
       if (activeMemorial.id.startsWith('task_')) {
         const action = verdictTaskAction(option);
@@ -4235,7 +4337,7 @@ export function ShangshufangPage() {
         setVerdictResult(`裁决「${option}」未能送达后端（奏折可能非真实任务或服务不可用），未被记录 · 请稍后重试。`);
       }
     },
-    [activeMemorial, refreshBriefing],
+    [activeMemorial, legacyContractActionsBlocked, refreshBriefing],
   );
 
   const closeVerdict = useCallback(() => {
@@ -4256,8 +4358,11 @@ export function ShangshufangPage() {
     edictOverride?.variant === 'suggestion-report' && edictOverride.suggestion
       ? displayedSuggestions.find((item) => item.id === edictOverride.suggestion?.id) ?? edictOverride.suggestion
       : defaultTopSuggestionReport;
+  const canonicalReturnKind = canonicalMemorialKind(edictOverride?.view);
+  const hasCanonicalReturn = canonicalReturnKind !== null;
   const isDecreeSubmitting = decreeState === 'consulting' && Boolean(decreeSubmittingPreview);
   const currentEdictTitle =
+    (hasCanonicalReturn ? edictOverride?.view.title : null) ??
     packSwarmDisplayView?.title ??
     (packSwarmLoopResult ? 'PACK 蜂群协同评估' : null) ??
     edictOverride?.view.title ??
@@ -4268,6 +4373,7 @@ export function ShangshufangPage() {
     topSuggestion?.title ??
     '今日圣旨';
   const currentEdictSourceRaw =
+    (hasCanonicalReturn ? canonicalMemorialSource(edictOverride?.view) : null) ??
     packSwarmDisplayView?.meta?.badges?.[0]?.label ??
     packSwarmLoopResult?.source_label ??
     edictOverride?.view.meta?.badges?.find((badge) => /LIVE|LIVE_SWARM|MIXED|FALLBACK|DEMO|来源|主库|蜂群/.test(badge.label))?.label ??
@@ -4279,6 +4385,14 @@ export function ShangshufangPage() {
   const currentEdictSourceLabel = sourceLabelDisplay(String(currentEdictSourceRaw));
   const currentEdictStatus = isDecreeSubmitting
     ? '下旨中'
+    : canonicalReturnKind === 'formal'
+    ? '待裁决'
+    : canonicalReturnKind === 'candidate'
+      ? '待补证'
+      : canonicalReturnKind === 'direct'
+        ? '已回奏'
+        : canonicalReturnKind === 'vetoed'
+          ? '已封驳'
     : decreeDraftPreview
     ? decreeDraftPreview.polished
       ? '润色完成'
@@ -4620,7 +4734,7 @@ export function ShangshufangPage() {
                       onOpen={() => setEdictCollapsed(false)}
                     />
                   </div>
-                ) : packSwarmDisplayView ? (
+                ) : packSwarmDisplayView && !hasCanonicalReturn ? (
                   <EdictStage
                     view={packSwarmLoopResult ? packSwarmLoopToEdict(packSwarmLoopResult, jiqunProgress) : packSwarmDisplayView}
                     footer={makeFooter({
@@ -4628,7 +4742,7 @@ export function ShangshufangPage() {
                       onClick: () => focusDecree('order', `请锦衣卫按 PACK 采集清单补齐证据：\n${fallbackPackSwarmCommand}`),
                     })}
                   />
-                ) : packSwarmLoopResult ? (
+                ) : packSwarmLoopResult && !hasCanonicalReturn ? (
                   <EdictStage
                     view={packSwarmLoopToEdict(packSwarmLoopResult, jiqunProgress)}
                     footer={makeFooter({
@@ -4636,7 +4750,7 @@ export function ShangshufangPage() {
                       onClick: () => focusDecree('order', `请锦衣卫按 PACK 采集清单补齐证据，并回填到任务 ${packSwarmLoopResult.task_id}。\n${packSwarmLoopResult.collection_checklist.join('\n')}`),
                     })}
                   />
-                ) : showingPackSwarmStatus ? (
+                ) : showingPackSwarmStatus && !hasCanonicalReturn ? (
                   <EdictStage
                     view={
                       edictOverride?.srcId.startsWith('pack-swarm-loop')
@@ -4648,14 +4762,14 @@ export function ShangshufangPage() {
                       onClick: () => focusDecree('order', `请锦衣卫按 PACK 采集清单补齐证据：\n${fallbackPackSwarmCommand}`),
                     })}
                   />
-                ) : isDecreeSubmitting && decreeSubmittingPreview ? (
+                ) : isDecreeSubmitting && decreeSubmittingPreview && !hasCanonicalReturn ? (
                   <EdictStage
                     view={decreeSubmittingToView(decreeSubmittingPreview.mode, decreeSubmittingPreview.command)}
                     customBodyScroll="native"
                   >
                     <DecreeSubmittingBody mode={decreeSubmittingPreview.mode} command={decreeSubmittingPreview.command} />
                   </EdictStage>
-                ) : decreeDraftPreview ? (
+                ) : decreeDraftPreview && !hasCanonicalReturn ? (
                   <EdictStage
                     view={decreeDraftToView(decreeDraftPreview.mode)}
                     customBodyScroll="native"
@@ -4687,7 +4801,7 @@ export function ShangshufangPage() {
                     view={edictOverride.view}
                     footer={edictOverride.footer}
                   >
-                    {edictOverride.variant === 'jiqun-return-status' ? (
+                    {edictOverride.variant === 'jiqun-return-status' && edictOverride.view.id.startsWith('shangshufang-awaiting:') ? (
                       <JiqunReturnStatusBody
                         progress={jiqunProgress}
                         taskId={edictOverride.primaryTaskId}
@@ -4719,6 +4833,7 @@ export function ShangshufangPage() {
                       setVerdictOpen(true);
                     }}
                     actionsDisabled={rejectedMemorialIds.has(activeMemorial.id)}
+                    hideFooter={legacyContractActionsBlocked}
                   />
                 ) : activeSuggestionReport ? (
                   <EdictStage
@@ -4799,6 +4914,19 @@ export function ShangshufangPage() {
                 )}
                 </div>
               </div>
+              {contractTaskId ? (
+                <ContractReviewPanel
+                  taskId={contractTaskId}
+                  onWorkflowAction={(action) => {
+                    focusDecree(
+                      'order',
+                      action === 'SUBMIT_EVIDENCE'
+                        ? `请为合同任务 ${contractTaskId} 补充可核验证据，并重新送审。`
+                        : `请重新会审合同任务 ${contractTaskId}，刷新 ContractReviewPack。`,
+                    );
+                  }}
+                />
+              ) : null}
               {!showingJiqunReturnEdict && jiqunProgress.status !== 'idle' && <SwarmProgressStrip
                 progress={jiqunProgress}
                 onViewSession={() => router.push('/manors')}
@@ -5021,7 +5149,7 @@ export function ShangshufangPage() {
       </ImperialModal>
 
       <ImperialModal
-        open={verdictOpen}
+        open={verdictOpen && !legacyContractActionsBlocked}
         onClose={closeVerdict}
         eyebrow="IMPERIAL VERDICT · 御前裁决"
         title={verdictResult ? '裁决已下' : `裁决：${activeMemorial?.petitioner || '未知'} 之奏`}

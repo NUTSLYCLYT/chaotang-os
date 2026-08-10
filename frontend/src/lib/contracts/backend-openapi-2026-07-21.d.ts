@@ -36,12 +36,12 @@ export type _QuickSummonRequest = {
 
 export type _RetrospectiveRequest = {
   "authoredBy"?: string;
-  "failures"?: string[];
-  "lessons"?: string[];
+  "failures"?: (string)[];
+  "lessons"?: (string)[];
   "outcome"?: "success" | "blocked" | "pending";
   "playbook"?: string | null;
   "score"?: number;
-  "successes"?: string[];
+  "successes"?: (string)[];
 };
 
 export type _TeachingRequest = {
@@ -73,6 +73,16 @@ export type ActionRequest = {
   "idempotency_key"?: string | null;
 };
 
+export type ArchiveReceiptV1 = {
+  "archive_id": string;
+  "archived_at": string;
+  "final_memorial_content_hash": string;
+  "final_memorial_id": string;
+  "final_memorial_version": number;
+  "source_label": string;
+  "task_id": string;
+};
+
 export type AuthMeResponse = {
   "authenticated": boolean;
   "user"?: CurrentUser | null;
@@ -81,6 +91,7 @@ export type AuthMeResponse = {
 export type BriefDecisionAdvanceRequest = {
   "decision": string;
   "executionType"?: string | null;
+  "expectedFinalMemorialContentHash"?: string | null;
   "manualConfirmation"?: boolean;
   "reason"?: string;
 };
@@ -118,7 +129,7 @@ export type CalibrationRequest = {
 };
 
 export type CapabilityActivationRequest = {
-  "candidate_capability_ids": string[];
+  "candidate_capability_ids": (string)[];
   "mission_contract_id": string;
 };
 
@@ -128,8 +139,8 @@ export type CapabilityGrantV1 = {
   "capability_id": string;
   "required_by_mission": boolean;
   "schema_version"?: "CapabilityGrantV1";
-  "token_scope"?: string[];
-  "tool_access"?: string[];
+  "token_scope"?: (string)[];
+  "tool_access"?: (string)[];
 };
 
 export type CaseActionResponse = {
@@ -141,9 +152,9 @@ export type CaseRejectRequest = {
 };
 
 export type CategorySelection = {
-  "groups"?: string[];
+  "groups"?: (string)[];
   "label"?: string | null;
-  "ministers"?: string[];
+  "ministers"?: (string)[];
   "taskType"?: string;
 };
 
@@ -159,7 +170,7 @@ export type ChatCompletionChoice = {
 
 export type ChatCompletionRequest = {
   "max_tokens"?: number | null;
-  "messages"?: ChatMessage[];
+  "messages"?: (ChatMessage)[];
   "model": string;
   "n"?: number | null;
   "stream"?: boolean;
@@ -168,7 +179,7 @@ export type ChatCompletionRequest = {
 };
 
 export type ChatCompletionResponse = {
-  "choices": ChatCompletionChoice[];
+  "choices": (ChatCompletionChoice)[];
   "id": string;
   "model": string;
   "object"?: string;
@@ -226,6 +237,7 @@ export type ContractIntakeV1 = {
   "contract_type"?: "procurement" | "sales" | "service" | "UNSUPPORTED_OR_UNKNOWN" | null;
   "jurisdiction"?: "CN_MAINLAND" | "UNSUPPORTED_OR_UNKNOWN" | null;
   "language"?: "zh-CN" | "UNSUPPORTED_OR_UNKNOWN" | null;
+  "legal_question"?: "contract_risk_screening" | "UNSUPPORTED_OR_UNKNOWN" | null;
   "our_role"?: "buyer" | "seller" | "service_provider" | "other_party" | "UNSUPPORTED_OR_UNKNOWN" | null;
   "schema_version"?: "ContractIntakeV1";
 };
@@ -243,8 +255,49 @@ export type ContractLineageStatusV1 = {
   "support_status": "SUPPORTED" | "DECLINED";
 };
 
+export type ContractReviewPackV1 = {
+  "affected_sections": (string)[];
+  "candidate_status"?: "CANDIDATE";
+  "contract_type": "procurement" | "sales" | "service" | "UNSUPPORTED_OR_UNKNOWN";
+  "court_review_id": string;
+  "decision_summary": string;
+  "engine_tiers": ("deterministic" | "validated_model" | "fallback")[];
+  "evidence_packet_ids": (string)[];
+  "jurisdiction": "CN_MAINLAND" | "UNSUPPORTED_OR_UNKNOWN";
+  "language": "zh-CN" | "UNSUPPORTED_OR_UNKNOWN";
+  "legal_question": "contract_risk_screening" | "UNSUPPORTED_OR_UNKNOWN";
+  "mission_content_digest"?: string | null;
+  "mission_contract_id": string;
+  "mission_revision"?: number | null;
+  "our_role": "buyer" | "seller" | "service_provider" | "other_party" | "UNSUPPORTED_OR_UNKNOWN";
+  "quality_gate_status": "PENDING" | "PASSED" | "FAILED";
+  "review_pack_id": string;
+  "risk_items": (ContractRiskItemV1)[];
+  "schema_version"?: "ContractReviewPackV1";
+  "source_labels": (string)[];
+  "task_id": string;
+  "tenant_id": string;
+  "verdict": "NEED_INFO" | "REVISE_BEFORE_PROCEED" | "PROCEED_TO_HUMAN_APPROVAL" | "BLOCKED" | "NEED_LEGAL_REVIEW";
+};
+
+export type ContractRiskItemV1 = {
+  "clause_ref"?: string | null;
+  "engine_tier": "deterministic" | "validated_model" | "fallback";
+  "evidence_packet_id": string;
+  "explanation": string;
+  "file_version_id"?: string | null;
+  "missing_evidence"?: (string)[];
+  "page_number"?: number | null;
+  "raw_excerpt"?: string | null;
+  "recommended_revision": string;
+  "risk_item_id": string;
+  "risk_level": "critical" | "high" | "medium" | "low";
+  "schema_version"?: "ContractRiskItemV1";
+  "source_label": string;
+};
+
 export type ContractSupportDecisionV1 = {
-  "decline_reasons": "MISSING_JURISDICTION" | "MISSING_LANGUAGE" | "MISSING_CONTRACT_TYPE" | "MISSING_ROLE" | "UNSUPPORTED_JURISDICTION" | "UNSUPPORTED_LANGUAGE" | "UNSUPPORTED_CONTRACT_TYPE" | "CAPABILITY_NOT_ACTIVATED" | "UNKNOWN_SCOPE"[];
+  "decline_reasons": ("MISSING_JURISDICTION" | "MISSING_LANGUAGE" | "MISSING_CONTRACT_TYPE" | "MISSING_ROLE" | "MISSING_LEGAL_QUESTION" | "UNSUPPORTED_JURISDICTION" | "UNSUPPORTED_LANGUAGE" | "UNSUPPORTED_CONTRACT_TYPE" | "UNSUPPORTED_LEGAL_QUESTION" | "CAPABILITY_NOT_ACTIVATED" | "UNKNOWN_SCOPE")[];
   "evaluated_at": string;
   "mission_contract_id": string;
   "revision": number;
@@ -252,11 +305,50 @@ export type ContractSupportDecisionV1 = {
   "support_status": "SUPPORTED" | "DECLINED";
 };
 
+export type ContractTaskBlockerV1 = {
+  "code": "MISSION_MISSING" | "MISSION_CONFLICT" | "MISSION_NOT_CONFIRMED" | "EVIDENCE_INCOMPLETE" | "REVIEW_PACK_MISSING" | "FINAL_MEMORIAL_MISSING" | "DELIVERY_MISSING" | "PARTIAL_RECOVERY_REQUIRES_HARDENING" | "NON_ADJUDICABLE_SOURCE" | "LINEAGE_CONFLICT" | "DELIVERY_INTEGRITY_FAILED" | "ARCHIVE_RECEIPT_MISSING" | "ARCHIVE_LINEAGE_CONFLICT" | "REVIEW_REVISION_REQUIRED" | "REVIEW_BLOCKED" | "LEGAL_REVIEW_REQUIRED" | "STATE_INCONSISTENT";
+  "detail"?: string | null;
+};
+
+export type ContractTaskIdentityV1 = {
+  "raw_question": string;
+  "refined_edict"?: string | null;
+  "source_label": string;
+  "status": string;
+  "task_id": string;
+  "tenant_id": number;
+};
+
+export type ContractTaskReadModelV1 = {
+  "allowed_actions": ("CONFIRM_MISSION" | "SUBMIT_EVIDENCE" | "REFRESH_REVIEW" | "GENERATE_DELIVERY" | "RESUME_DELIVERY" | "DOWNLOAD_ARTIFACT" | "DECIDE" | "REOPEN_ARCHIVE")[];
+  "archive_receipt"?: ArchiveReceiptV1 | null;
+  "blockers": (ContractTaskBlockerV1)[];
+  "delivery"?: PublicArtifactDeliveryV1 | null;
+  "final_memorial"?: FinalMemorialIdentityV1 | null;
+  "generated_at": string;
+  "mission"?: MissionSnapshotViewV1 | null;
+  "read_revision": string;
+  "review_pack"?: MissionBoundContractReviewPackV1 | null;
+  "schema_version"?: "ContractTaskReadModelV1";
+  "source_class": "ADJUDICABLE" | "FALLBACK" | "UNKNOWN";
+  "task": ContractTaskIdentityV1;
+};
+
 export type CorrectionRecordRequest = {
   "fix"?: string;
   "issue"?: string;
   "severity"?: string;
   "step_id"?: string;
+};
+
+export type CreateDeliveryRequest = {
+  "contract_review_pack": ContractReviewPackV1;
+  "delivery_formula_version": string;
+  "expiry_seconds": number;
+  "final_memorial_id": string;
+  "final_memorial_version": number;
+  "idempotency_key": string;
+  "task_id": string;
 };
 
 export type CreateSwarmRunRequest = {
@@ -302,15 +394,21 @@ export type DecisionJudgmentRequest = {
 };
 
 export type DecisionRequest = {
-  "action": "approve" | "archive" | "adopt" | "reject" | "request_evidence" | "recheck" | "followup";
+  "action": "approve" | "archive" | "adopt" | "reject" | "request_evidence" | "recheck" | "followup" | "cancel";
+  "expected_final_memorial_content_hash"?: string | null;
   "followup_question"?: string | null;
   "human_confirmation_note"?: string | null;
   "human_confirmed"?: boolean;
   "reason"?: string;
 };
 
+export type DeliveryCommandResponse = {
+  "manifest": PublicArtifactManifest;
+  "resume_token"?: string | null;
+};
+
 export type DeptFlowsRequest = {
-  "flow_ids"?: string[];
+  "flow_ids"?: (string)[];
 };
 
 export type DeptInfo = {
@@ -349,22 +447,23 @@ export type DispatchRequest = {
   "intent"?: string;
   "mode"?: "scripted" | "hybrid" | "live" | null;
   "rawCommand": string;
-  "selectedCategories"?: CategorySelection[];
+  "selectedCategories"?: (CategorySelection)[];
   "stakes"?: string;
 };
 
 export type DomainExpertise = {
   "domain": string;
-  "keywords"?: string[];
+  "keywords"?: (string)[];
 };
 
 export type DraftEdictRequest = {
-  "archive_matches"?: {
+  "archive_matches"?: ({
   [key: string]: unknown;
-}[];
-  "attachments"?: {
+})[];
+  "attachments"?: ({
   [key: string]: unknown;
-}[];
+})[];
+  "contract_scope"?: ContractIntakeV1 | null;
   "evidence_summary"?: {
   [key: string]: unknown;
 } | null;
@@ -399,9 +498,9 @@ export type EdictReturnRequest = {
   "edictView"?: {
   [key: string]: unknown;
 } | null;
-  "finalOutputs"?: {
+  "finalOutputs"?: ({
   [key: string]: unknown;
-}[];
+})[];
   "jiqunTaskId"?: string | null;
   "mode"?: string | null;
   "sessionId"?: string | null;
@@ -422,6 +521,60 @@ export type EditFinalOutputResponse = {
   "status"?: string;
 };
 
+export type EvidenceBindData = {
+  "evidence_packet": EvidencePacketV1;
+  "rework_generation": EvidenceReworkGenerationV1;
+  "task_id": string;
+};
+
+export type EvidenceBindRequest = {
+  "artifact_id": string;
+  "contract_scope"?: ContractIntakeV1 | null;
+};
+
+export type EvidenceBindResponse = {
+  "data"?: EvidenceBindData | null;
+  "error"?: string | null;
+  "success": boolean;
+};
+
+export type EvidencePacketV1 = {
+  "content_hash": string;
+  "evidence_packet_id": string;
+  "evidence_status": "NONE" | "COLLECTING" | "PARTIAL" | "GROUNDED" | "CONFLICTED" | "STALE" | "UNVERIFIED";
+  "generation": number;
+  "input_digest": string;
+  "input_version_id": string;
+  "prior_final_memorial_content_hash": string;
+  "schema_version"?: "EvidencePacketV1";
+  "source_kind": "USER_UPLOAD" | "OFFICIAL_SOURCE" | "VERIFIED_TOOL" | "MANUAL_TEXT" | "URL" | "MODEL_ASSERTION";
+  "source_ref": string;
+  "task_id": string;
+  "tenant_id": number;
+  "verification_receipt_id"?: string | null;
+};
+
+export type EvidenceReworkGenerationV1 = {
+  "affected_sections": ("contract_review")[];
+  "contract_review_pack_id"?: string | null;
+  "contract_scope"?: ContractIntakeV1 | null;
+  "court_review_id"?: string | null;
+  "evidence_packets"?: (EvidencePacketV1)[] | null;
+  "evidence_request": EvidenceReworkRequestV1;
+  "evidence_status"?: "NONE" | "COLLECTING" | "PARTIAL" | "GROUNDED" | "CONFLICTED" | "STALE" | "UNVERIFIED";
+  "gate_reasons"?: (string)[] | null;
+  "generation": number;
+  "generation_id": string;
+  "prior_final_memorial_content_hash": string;
+  "schema_version"?: "EvidenceReworkGenerationV1";
+  "status": "awaiting_evidence" | "evidence_bound" | "pending" | "candidate_ready" | "quality_blocked";
+};
+
+export type EvidenceReworkRequestV1 = {
+  "followup_question"?: string | null;
+  "reason": string;
+};
+
 export type FeatureFlagUpdateRequest = {
   "description"?: string;
   "enabled"?: boolean;
@@ -433,12 +586,21 @@ export type FeedbackSaveResponse = {
   "status"?: string;
 };
 
+export type FinalMemorialIdentityV1 = {
+  "court_review_id": string;
+  "final_memorial_content_hash": string;
+  "final_memorial_id": string;
+  "final_memorial_version": number;
+  "source_label": string;
+  "status": string;
+};
+
 export type FinanceIntelLoopCompleteRequest = {
   "edictMode"?: "public" | "secret";
   "executionType"?: string;
   "market"?: string;
   "question": string;
-  "sourceUrls"?: string[];
+  "sourceUrls"?: (string)[];
   "ticker": string;
 };
 
@@ -500,7 +662,7 @@ export type HealthResponse = {
 };
 
 export type HTTPValidationError = {
-  "detail"?: ValidationError[];
+  "detail"?: (ValidationError)[];
 };
 
 export type ImMessagePayload = {
@@ -518,10 +680,27 @@ export type ImPersistRequest = {
   "message": ImMessagePayload;
 };
 
+export type IngestArtifactV1 = {
+  "artifact_id": string;
+  "created_at": string;
+  "detected_format": "DOCX_OOXML" | "DOCX_ENCRYPTED" | "CORRUPTED" | "UNKNOWN";
+  "digest_sha256": string;
+  "file_size_bytes": number;
+  "injection_flag_categories"?: (string)[];
+  "macro_detected": boolean;
+  "mission_contract_id": string;
+  "ocr_status": "NOT_APPLICABLE" | "PENDING" | "LOW_CONFIDENCE" | "OK" | "FAILED";
+  "page_count"?: number | null;
+  "reject_reason"?: "FAKE_MIME" | "OVERSIZE" | "TOO_MANY_PAGES" | "CORRUPTED" | "ENCRYPTED" | "MACRO_DETECTED" | "ZIP_BOMB_SUSPECTED" | "INJECTION_SUSPECTED" | "MISSING_PURPOSE" | "UNKNOWN_PROVIDER" | null;
+  "schema_version"?: "IngestArtifactV1";
+  "status": "RECEIVED" | "VALIDATING" | "ACCEPTED" | "REJECTED";
+  "zip_bomb_suspected": boolean;
+};
+
 export type KnowledgeSearchResponse = {
-  "results": {
+  "results": ({
   [key: string]: unknown;
-}[];
+})[];
 };
 
 export type LipuComplianceRequest = {
@@ -549,9 +728,9 @@ export type LoginResponse = {
 };
 
 export type MemorialsListResponse = {
-  "items": {
+  "items": ({
   [key: string]: unknown;
-}[];
+})[];
   "total": number;
 };
 
@@ -559,7 +738,7 @@ export type MemoryCreateRequest = {
   "content": string;
   "description"?: string;
   "name": string;
-  "tags"?: string[];
+  "tags"?: (string)[];
   "type"?: string;
 };
 
@@ -568,7 +747,7 @@ export type MemoryHeaderItem = {
   "description"?: string;
   "filename": string;
   "name": string;
-  "tags"?: string[];
+  "tags"?: (string)[];
   "type": string;
   "updated_at"?: string;
   "updated_at_hint"?: string;
@@ -582,7 +761,7 @@ export type MemorySearchRequest = {
 export type MemoryUpdateRequest = {
   "content"?: string | null;
   "description"?: string | null;
-  "tags"?: string[] | null;
+  "tags"?: (string)[] | null;
 };
 
 export type MetricEventRequest = {
@@ -595,15 +774,40 @@ export type MetricEventRequest = {
   "ts"?: number | null;
 };
 
+export type MissionBoundContractReviewPackV1 = {
+  "affected_sections": (string)[];
+  "candidate_status"?: "CANDIDATE";
+  "contract_type": "procurement" | "sales" | "service" | "UNSUPPORTED_OR_UNKNOWN";
+  "court_review_id": string;
+  "decision_summary": string;
+  "engine_tiers": ("deterministic" | "validated_model" | "fallback")[];
+  "evidence_packet_ids": (string)[];
+  "jurisdiction": "CN_MAINLAND" | "UNSUPPORTED_OR_UNKNOWN";
+  "language": "zh-CN" | "UNSUPPORTED_OR_UNKNOWN";
+  "legal_question": "contract_risk_screening" | "UNSUPPORTED_OR_UNKNOWN";
+  "mission_content_digest": string;
+  "mission_contract_id": string;
+  "mission_revision": number;
+  "our_role": "buyer" | "seller" | "service_provider" | "other_party" | "UNSUPPORTED_OR_UNKNOWN";
+  "quality_gate_status": "PENDING" | "PASSED" | "FAILED";
+  "review_pack_id": string;
+  "risk_items": (ContractRiskItemV1)[];
+  "schema_version"?: "ContractReviewPackV1";
+  "source_labels": (string)[];
+  "task_id": string;
+  "tenant_id": string;
+  "verdict": "NEED_INFO" | "REVISE_BEFORE_PROCEED" | "PROCEED_TO_HUMAN_APPROVAL" | "BLOCKED" | "NEED_LEGAL_REVIEW";
+};
+
 export type MissionConfirmRequest = {
   "content_digest": string;
   "revision": number;
 };
 
 export type MissionContractV1 = {
-  "assumptions": string[];
+  "assumptions": (string)[];
   "budget_limit_minor": number;
-  "constraints": string[];
+  "constraints": (string)[];
   "content_digest": string;
   "contract_type": "procurement" | "sales" | "service" | "UNSUPPORTED_OR_UNKNOWN";
   "created_at": string;
@@ -612,11 +816,12 @@ export type MissionContractV1 = {
   "goal": MissionGoal;
   "jurisdiction": "CN_MAINLAND" | "UNSUPPORTED_OR_UNKNOWN";
   "language": "zh-CN" | "UNSUPPORTED_OR_UNKNOWN";
+  "legal_question": "contract_risk_screening" | "UNSUPPORTED_OR_UNKNOWN";
   "mission_contract_id": string;
   "our_role": "buyer" | "seller" | "service_provider" | "other_party" | "UNSUPPORTED_OR_UNKNOWN";
   "plan_digest": string;
-  "prohibited_actions": string[];
-  "read_scope": string[];
+  "prohibited_actions": (string)[];
+  "read_scope": (string)[];
   "revision": number;
   "schema_version"?: "MissionContractV1";
   "task_id": string;
@@ -629,7 +834,12 @@ export type MissionGoal = {
 };
 
 export type MissionOutcome = {
-  "required_artifacts": "PDF" | "DOCX" | "JSON"[];
+  "required_artifacts": ("PDF" | "DOCX" | "JSON")[];
+};
+
+export type MissionSnapshotViewV1 = {
+  "mission": MissionContractV1;
+  "state": "DRAFT" | "CONFIRMED";
 };
 
 export type OkResponse = {
@@ -643,7 +853,7 @@ export type OpenClawReplyRequest = {
 export type OptimizeApplyRequest = {
   "author"?: string;
   "from_step"?: number;
-  "suggestion_indices"?: number[];
+  "suggestion_indices"?: (number)[];
 };
 
 export type OrchestrationRunRequest = {
@@ -664,23 +874,23 @@ export type OverviewMetrics = {
 
 export type OverviewResponse = {
   "generatedAt": string;
-  "memorialsToday": {
+  "memorialsToday": ({
   [key: string]: unknown;
-}[];
+})[];
   "metrics": OverviewMetrics;
-  "ministers": {
+  "ministers": ({
   [key: string]: unknown;
-}[];
-  "risks": {
+})[];
+  "risks": ({
   [key: string]: unknown;
-}[];
+})[];
   "systemStatus": SystemStatus;
 };
 
 export type PackSwarmLoopRequest = {
   "command": string;
   "mode"?: "order" | "secret";
-  "source_urls"?: string[];
+  "source_urls"?: (string)[];
 };
 
 export type PatchTaskRequest = {
@@ -713,7 +923,7 @@ export type PolishEdictRequest = {
 
 export type PreferenceUpdateRequest = {
   "avoid_pattern"?: string | null;
-  "domain_expertise"?: DomainExpertise[] | null;
+  "domain_expertise"?: (DomainExpertise)[] | null;
   "reason"?: string;
   "style_preferences"?: {
   [key: string]: unknown;
@@ -744,12 +954,12 @@ export type PromptGroupedAgent = {
 };
 
 export type PromptGroupedResponse = {
-  "swarms": PromptGroupedSwarm[];
-  "ungrouped": PromptGroupedAgent[];
+  "swarms": (PromptGroupedSwarm)[];
+  "ungrouped": (PromptGroupedAgent)[];
 };
 
 export type PromptGroupedSwarm = {
-  "agents": PromptGroupedAgent[];
+  "agents": (PromptGroupedAgent)[];
   "id": string;
   "name": string;
 };
@@ -779,18 +989,72 @@ export type PromptUpdateResponse = {
 };
 
 export type PromptUpgradesResponse = {
-  "proposals": unknown[];
+  "proposals": (unknown)[];
 };
 
 export type ProposalCreateRequest = {
-  "options"?: {
+  "options"?: ({
   [key: string]: unknown;
-}[];
+})[];
   "proposal_id": string;
   "proposer"?: string;
   "quorum"?: number;
   "strategy"?: string;
   "topic": string;
+};
+
+export type PublicArtifactDeliveryV1 = {
+  "artifacts": (PublicArtifactItemV1)[];
+  "delivery_formula_version": string;
+  "delivery_revision": number;
+  "final_memorial_id": string;
+  "final_memorial_version": number;
+  "manifest_id": string;
+  "overall_status": "READY" | "PARTIAL" | "UNDER_REVIEW";
+  "payload_hash": string;
+  "resume_token_expires_at"?: string | null;
+  "task_id": string;
+};
+
+export type PublicArtifactItem = {
+  "artifact_id": string;
+  "byte_size": number;
+  "content_hash": string;
+  "download_url"?: string | null;
+  "expires_at"?: string | null;
+  "incomplete_reason"?: string | null;
+  "kind": string;
+  "lineage_hash": string;
+  "mime_type": string;
+  "status": string;
+};
+
+export type PublicArtifactItemV1 = {
+  "artifact_id": string;
+  "byte_size": number;
+  "content_hash": string;
+  "download_url"?: string | null;
+  "expires_at"?: string | null;
+  "incomplete_reason"?: string | null;
+  "kind": "PDF" | "DOCX" | "JSON";
+  "lineage_hash": string;
+  "mime_type": string;
+  "status": "PENDING" | "STORED" | "UNAVAILABLE";
+};
+
+export type PublicArtifactManifest = {
+  "artifacts": (PublicArtifactItem)[];
+  "delivery_formula_version": string;
+  "delivery_revision": number;
+  "final_memorial_id": string;
+  "final_memorial_version": number;
+  "manifest_id": string;
+  "overall_status": string;
+  "payload_hash": string;
+  "resume_token_expires_at"?: string | null;
+  "schema_version": string;
+  "task_id": string;
+  "tenant_id": number;
 };
 
 export type QintianChatRequest = {
@@ -860,12 +1124,12 @@ export type ResearchBudgetLoopRequest = {
   "budgetPeriod"?: string;
   "currency"?: string;
   "department"?: string;
-  "evidenceRefs"?: {
+  "evidenceRefs"?: ({
   [key: string]: unknown;
-}[];
-  "lineItems"?: {
+})[];
+  "lineItems"?: ({
   [key: string]: unknown;
-}[];
+})[];
   "owner"?: string;
   "purpose"?: string;
   "requestedAmount"?: number;
@@ -875,6 +1139,11 @@ export type ResearchBudgetLoopRequest = {
 
 export type ResourceProfileUpdateRequest = {
   "mode": string;
+};
+
+export type ResumeDeliveryRequest = {
+  "idempotency_key": string;
+  "resume_token": string;
 };
 
 export type ReviewRequest = {
@@ -909,11 +1178,65 @@ export type SerialLoopRequest = {
   "confirmed_edict"?: {
   [key: string]: unknown;
 } | null;
-  "departments"?: string[];
+  "departments"?: (string)[];
   "mode"?: "dry_run" | "standard" | "deep" | "live_swarm";
   "review_id"?: string | null;
   "task_id": string;
   "trace_id"?: string | null;
+};
+
+export type ShangshufangHomeData = {
+  "archive_hints": ({
+  [key: string]: unknown;
+})[];
+  "pending_decisions": (ShangshufangHomeTaskSummary)[];
+  "pending_evidence_tasks": (ShangshufangHomeTaskSummary)[];
+  "source_label": string;
+  "today_issue": ShangshufangHomeTodayIssue;
+};
+
+export type ShangshufangHomeLatestMemorial = {
+  "formal_memorial_id"?: string | null;
+  "ministry_outputs": ({
+  [key: string]: unknown;
+})[];
+  "source_label"?: string | null;
+  "summary"?: string | null;
+  "verdict"?: string | null;
+};
+
+export type ShangshufangHomeResponse = {
+  "data"?: ShangshufangHomeData | null;
+  "error"?: string | null;
+  "success": boolean;
+};
+
+export type ShangshufangHomeTaskSummary = {
+  "contract_scope": ContractIntakeV1 | null;
+  "contract_task": boolean;
+  "created_at": string;
+  "draft_edict": {
+  [key: string]: unknown;
+} | null;
+  "known_facts": (unknown)[];
+  "latest_memorial": ShangshufangHomeLatestMemorial | null;
+  "raw_question": string;
+  "recommended_departments": (unknown)[];
+  "risk_flags": (unknown)[];
+  "source_label": string;
+  "status": string;
+  "task_id": string;
+  "unknown_gaps": (unknown)[];
+  "updated_at": string;
+};
+
+export type ShangshufangHomeTodayIssue = {
+  "evidence_basis": (unknown)[];
+  "missing_evidence": (unknown)[];
+  "recommended_action": string;
+  "title": string;
+  "urgency": string;
+  "why_now": string;
 };
 
 export type StatusResponse = {
@@ -943,8 +1266,8 @@ export type SwarmConfigBinding = {
 };
 
 export type SwarmConfigResponse = {
-  "bindings": SwarmConfigBinding[];
-  "swarms": SwarmConfigSwarm[];
+  "bindings": (SwarmConfigBinding)[];
+  "swarms": (SwarmConfigSwarm)[];
 };
 
 export type SwarmConfigSwarm = {
@@ -968,23 +1291,23 @@ export type SwarmRosterItem = {
 
 export type SwarmRunRequest = {
   "config_path"?: string;
-  "courtos_departments"?: string[];
+  "courtos_departments"?: (string)[];
   "courtos_edict_mode"?: string | null;
   "courtos_loop_trace_id"?: string | null;
-  "courtos_swarm_bundles"?: string[];
+  "courtos_swarm_bundles"?: (string)[];
   "courtos_task_id"?: string | null;
   "courtos_user_id"?: string | null;
   "entry_swarm"?: string | null;
   "evidence_bound_run"?: {
   [key: string]: unknown;
 } | null;
-  "evidence_refs"?: string[];
-  "forbidden_outputs"?: string[];
+  "evidence_refs"?: (string)[];
+  "forbidden_outputs"?: (string)[];
   "intelligence_pack"?: {
   [key: string]: unknown;
 } | null;
   "intelligence_pack_id"?: string | null;
-  "missing_evidence"?: string[];
+  "missing_evidence"?: (string)[];
   "privacy_mode"?: string | null;
   "project_id"?: string | null;
   "provider"?: string | null;
@@ -1027,6 +1350,23 @@ export type TaskAcceptedResponse = {
   "task_id": string;
 };
 
+export type TaskDecisionData = {
+  "archive_record"?: {
+  [key: string]: unknown;
+} | null;
+  "decision_id"?: string | null;
+  "rework_generation"?: EvidenceReworkGenerationV1 | null;
+  "sourceLabel": string;
+  "status": string;
+  "task_id": string;
+};
+
+export type TaskDecisionResponse = {
+  "data"?: TaskDecisionData | null;
+  "error"?: string | null;
+  "success": boolean;
+};
+
 export type TaskMonitorEntry = {
   "completed_steps"?: number;
   "config"?: string | null;
@@ -1039,7 +1379,7 @@ export type TaskMonitorEntry = {
   "run_id"?: string | null;
   "started_at"?: string | null;
   "status"?: string | null;
-  "step_names"?: string[];
+  "step_names"?: (string)[];
   "task_id": string;
   "task_input"?: string;
   "total_steps"?: number | null;
@@ -1050,8 +1390,8 @@ export type TaskProtocolPreviewRequest = {
 };
 
 export type TasksSnapshot = {
-  "recent": TaskMonitorEntry[];
-  "running": TaskMonitorEntry[];
+  "recent": (TaskMonitorEntry)[];
+  "running": (TaskMonitorEntry)[];
 };
 
 export type TaskStatusResponse = {
@@ -1136,7 +1476,7 @@ export type UserCreateRequest = {
 };
 
 export type UserDeptsRequest = {
-  "dept_ids"?: number[];
+  "dept_ids"?: (number)[];
 };
 
 export type UserInfo = {
@@ -1150,7 +1490,7 @@ export type UserInfo = {
 export type ValidationError = {
   "ctx"?: Record<string, unknown>;
   "input"?: unknown;
-  "loc": string | number[];
+  "loc": (string | number)[];
   "msg": string;
   "type": string;
 };
@@ -1171,14 +1511,14 @@ export type VoiceAction = {
 };
   "result"?: {
   [key: string]: unknown;
-} | unknown[] | string;
+} | (unknown)[] | string;
   "status"?: string | null;
   "tool"?: string;
   "type": string;
 };
 
 export type VoiceProcessResponse = {
-  "actions"?: VoiceAction[];
+  "actions"?: (VoiceAction)[];
   "caller_phone"?: string;
   "duration_ms"?: number;
   "error"?: string | null;
@@ -1199,7 +1539,7 @@ export type VoiceSession = {
 
 export type VoiceSessionsResponse = {
   "error"?: string | null;
-  "sessions": VoiceSession[];
+  "sessions": (VoiceSession)[];
 };
 
 export type VoteRequest = {
@@ -1244,360 +1584,371 @@ export type web__schemas__runs__FeedbackRequest = {
   [key: string]: number;
 };
   "rating"?: number | string | null;
-  "tags"?: string[];
+  "tags"?: (string)[];
   "thumb"?: string | null;
 };
 
 export interface BackendApiRoutes {
   "DELETE /api/admin/depts/{dept_id}": { method: "DELETE"; path: "/api/admin/depts/{dept_id}"; requestBody: unknown; responses: {"204":"unknown","422":"#/components/schemas/HTTPValidationError"} };
   "DELETE /api/chat/sessions/{session_id}": { method: "DELETE"; path: "/api/chat/sessions/{session_id}"; requestBody: unknown; responses: {"200":"#/components/schemas/StatusResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "DELETE /api/memory/{filename}": { method: "DELETE"; path: "/api/memory/{filename}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/ab-tests": { method: "GET"; path: "/api/ab-tests"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/ab-tests/{test_id}": { method: "GET"; path: "/api/ab-tests/{test_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/admin/depts": { method: "GET"; path: "/api/admin/depts"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/admin/depts/{dept_id}/flows": { method: "GET"; path: "/api/admin/depts/{dept_id}/flows"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/admin/flows": { method: "GET"; path: "/api/admin/flows"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/admin/tenants": { method: "GET"; path: "/api/admin/tenants"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/admin/users": { method: "GET"; path: "/api/admin/users"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/admin/users/{user_id}/depts": { method: "GET"; path: "/api/admin/users/{user_id}/depts"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/agents/discover": { method: "GET"; path: "/api/agents/discover"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/agents/registry": { method: "GET"; path: "/api/agents/registry"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/analytics": { method: "GET"; path: "/api/analytics"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/approval/pending": { method: "GET"; path: "/api/approval/pending"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "DELETE /api/memory/{filename}": { method: "DELETE"; path: "/api/memory/{filename}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Memory Delete Api Memory  Filename  Delete\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/ab-tests": { method: "GET"; path: "/api/ab-tests"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Api List Ab Tests Api Ab Tests Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/ab-tests/{test_id}": { method: "GET"; path: "/api/ab-tests/{test_id}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Get Ab Test Api Ab Tests  Test Id  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/admin/depts": { method: "GET"; path: "/api/admin/depts"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"$ref\":\"#/components/schemas/DeptInfo\"},\"title\":\"Response Api List Depts Api Admin Depts Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/admin/depts/{dept_id}/flows": { method: "GET"; path: "/api/admin/depts/{dept_id}/flows"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"type\":\"string\"},\"title\":\"Response Api Get Dept Flows Api Admin Depts  Dept Id  Flows Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/admin/flows": { method: "GET"; path: "/api/admin/flows"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"type\":\"string\"},\"title\":\"Response Api List Available Flows Api Admin Flows Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/admin/tenants": { method: "GET"; path: "/api/admin/tenants"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"$ref\":\"#/components/schemas/TenantInfo\"},\"title\":\"Response Api List Tenants Api Admin Tenants Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/admin/users": { method: "GET"; path: "/api/admin/users"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"$ref\":\"#/components/schemas/UserInfo\"},\"title\":\"Response Api List Users Api Admin Users Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/admin/users/{user_id}/depts": { method: "GET"; path: "/api/admin/users/{user_id}/depts"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"$ref\":\"#/components/schemas/DeptRef\"},\"title\":\"Response Api Get User Depts Api Admin Users  User Id  Depts Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/agents/discover": { method: "GET"; path: "/api/agents/discover"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Agent Discover Api Agents Discover Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/agents/registry": { method: "GET"; path: "/api/agents/registry"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Agent Registry List Api Agents Registry Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/analytics": { method: "GET"; path: "/api/analytics"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Analytics Api Analytics Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/approval/pending": { method: "GET"; path: "/api/approval/pending"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Approval Pending Api Approval Pending Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/artifacts/{artifact_id}/download": { method: "GET"; path: "/api/artifacts/{artifact_id}/download"; requestBody: unknown; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/artifacts/manifests/{manifest_id}": { method: "GET"; path: "/api/artifacts/manifests/{manifest_id}"; requestBody: unknown; responses: {"200":"#/components/schemas/PublicArtifactManifest","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/auth/me": { method: "GET"; path: "/api/auth/me"; requestBody: unknown; responses: {"200":"#/components/schemas/AuthMeResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/build-ledger": { method: "GET"; path: "/api/build-ledger"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/cases/approved": { method: "GET"; path: "/api/cases/approved"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/cases/pending": { method: "GET"; path: "/api/cases/pending"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/cases/receipts/pending": { method: "GET"; path: "/api/cases/receipts/pending"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/archive": { method: "GET"; path: "/api/chaotang/archive"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/archive/{task_id}/retrospective": { method: "GET"; path: "/api/chaotang/archive/{task_id}/retrospective"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/archive/knowledge/count": { method: "GET"; path: "/api/chaotang/archive/knowledge/count"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/archive/search": { method: "GET"; path: "/api/chaotang/archive/search"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/department-system": { method: "GET"; path: "/api/chaotang/department-system"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/dept/{code}/overview": { method: "GET"; path: "/api/chaotang/dept/{code}/overview"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/launch-loop/cases": { method: "GET"; path: "/api/chaotang/launch-loop/cases"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/manor/ai-advice": { method: "GET"; path: "/api/chaotang/manor/ai-advice"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/manor/groups": { method: "GET"; path: "/api/chaotang/manor/groups"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/manor/groups/{groupId}/subagents": { method: "GET"; path: "/api/chaotang/manor/groups/{groupId}/subagents"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/manor/opportunities": { method: "GET"; path: "/api/chaotang/manor/opportunities"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/manor/overview": { method: "GET"; path: "/api/chaotang/manor/overview"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/manor/policy-funds": { method: "GET"; path: "/api/chaotang/manor/policy-funds"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/manor/projects": { method: "GET"; path: "/api/chaotang/manor/projects"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/manor/supply-chain": { method: "GET"; path: "/api/chaotang/manor/supply-chain"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/memorials": { method: "GET"; path: "/api/chaotang/memorials"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/memorials/{run_id}": { method: "GET"; path: "/api/chaotang/memorials/{run_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/stream/{task_id}": { method: "GET"; path: "/api/chaotang/stream/{task_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/study/briefing": { method: "GET"; path: "/api/chaotang/study/briefing"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/system/status": { method: "GET"; path: "/api/chaotang/system/status"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/tasks": { method: "GET"; path: "/api/chaotang/tasks"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/tasks/{task_id}": { method: "GET"; path: "/api/chaotang/tasks/{task_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chaotang/throne/overview": { method: "GET"; path: "/api/chaotang/throne/overview"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chat/sessions": { method: "GET"; path: "/api/chat/sessions"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/chat/sessions/{session_id}": { method: "GET"; path: "/api/chat/sessions/{session_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/commercial-loop/dashboard": { method: "GET"; path: "/api/commercial-loop/dashboard"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/compare": { method: "GET"; path: "/api/compare"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/compare/export": { method: "GET"; path: "/api/compare/export"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/compare/quality": { method: "GET"; path: "/api/compare/quality"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/court-session/latest": { method: "GET"; path: "/api/court-session/latest"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/court/backend/tasks/{task_id}": { method: "GET"; path: "/api/court/backend/tasks/{task_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/court/build-ledger": { method: "GET"; path: "/api/court/build-ledger"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/court/chancellor-advice": { method: "GET"; path: "/api/court/chancellor-advice"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/court/dadian/feed": { method: "GET"; path: "/api/court/dadian/feed"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/court/dadian/pulse": { method: "GET"; path: "/api/court/dadian/pulse"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/court/decision-judgment": { method: "GET"; path: "/api/court/decision-judgment"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/court/dept/gong-bu/feasibility/result": { method: "GET"; path: "/api/court/dept/gong-bu/feasibility/result"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/court/dept/li-bu/recruit/result": { method: "GET"; path: "/api/court/dept/li-bu/recruit/result"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/court/forecast": { method: "GET"; path: "/api/court/forecast"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/court/grand-council/live": { method: "GET"; path: "/api/court/grand-council/live"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/court/ima-knowledge": { method: "GET"; path: "/api/court/ima-knowledge"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/court/intel": { method: "GET"; path: "/api/court/intel"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/court/intel/signals": { method: "GET"; path: "/api/court/intel/signals"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/court/learning/advisor-signal": { method: "GET"; path: "/api/court/learning/advisor-signal"; requestBody: unknown; responses: {"200":"object"} };
-  "GET /api/court/learning/backtest": { method: "GET"; path: "/api/court/learning/backtest"; requestBody: unknown; responses: {"200":"object"} };
-  "GET /api/court/learning/records": { method: "GET"; path: "/api/court/learning/records"; requestBody: unknown; responses: {"200":"object"} };
-  "GET /api/court/pending": { method: "GET"; path: "/api/court/pending"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/court/shiguan/archives": { method: "GET"; path: "/api/court/shiguan/archives"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/court/shiguan/archives/{archive_id}": { method: "GET"; path: "/api/court/shiguan/archives/{archive_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/court/shiguan/archives/{archive_id}/similar": { method: "GET"; path: "/api/court/shiguan/archives/{archive_id}/similar"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/court/shiguan/promo-archive": { method: "GET"; path: "/api/court/shiguan/promo-archive"; requestBody: unknown; responses: {"200":"object"} };
-  "GET /api/court/shiguan/release-gates": { method: "GET"; path: "/api/court/shiguan/release-gates"; requestBody: unknown; responses: {"200":"object"} };
-  "GET /api/court/shiguan/stats": { method: "GET"; path: "/api/court/shiguan/stats"; requestBody: unknown; responses: {"200":"object"} };
-  "GET /api/court/si/{dept}": { method: "GET"; path: "/api/court/si/{dept}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/court/si/{dept}/{si}": { method: "GET"; path: "/api/court/si/{dept}/{si}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/court/state/{doc_id}": { method: "GET"; path: "/api/court/state/{doc_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/court/taiyi/dashboard": { method: "GET"; path: "/api/court/taiyi/dashboard"; requestBody: unknown; responses: {"200":"object"} };
-  "GET /api/court/taiyi/news": { method: "GET"; path: "/api/court/taiyi/news"; requestBody: unknown; responses: {"200":"object"} };
-  "GET /api/court/true-chain-health": { method: "GET"; path: "/api/court/true-chain-health"; requestBody: unknown; responses: {"200":"object"} };
-  "GET /api/court/zhuangyuan/ministry-metrics": { method: "GET"; path: "/api/court/zhuangyuan/ministry-metrics"; requestBody: unknown; responses: {"200":"object"} };
-  "GET /api/critic/run/{run_id}": { method: "GET"; path: "/api/critic/run/{run_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/direct/explain": { method: "GET"; path: "/api/direct/explain"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/direct/health": { method: "GET"; path: "/api/direct/health"; requestBody: unknown; responses: {"200":"object"} };
-  "GET /api/direct/health/live": { method: "GET"; path: "/api/direct/health/live"; requestBody: unknown; responses: {"200":"object"} };
-  "GET /api/direct/health/ready": { method: "GET"; path: "/api/direct/health/ready"; requestBody: unknown; responses: {"200":"object"} };
-  "GET /api/direct/limits/status": { method: "GET"; path: "/api/direct/limits/status"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/direct/metrics": { method: "GET"; path: "/api/direct/metrics"; requestBody: unknown; responses: {"200":"object"} };
-  "GET /api/direct/profiles": { method: "GET"; path: "/api/direct/profiles"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/direct/stats": { method: "GET"; path: "/api/direct/stats"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/drafts": { method: "GET"; path: "/api/drafts"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/drafts/{draft_id}": { method: "GET"; path: "/api/drafts/{draft_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/build-ledger": { method: "GET"; path: "/api/build-ledger"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Build Ledger Get Api Build Ledger Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/cases/approved": { method: "GET"; path: "/api/cases/approved"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Api Cases Approved Api Cases Approved Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/cases/pending": { method: "GET"; path: "/api/cases/pending"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Api Cases Pending Api Cases Pending Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/cases/receipts/pending": { method: "GET"; path: "/api/cases/receipts/pending"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Api Receipts Pending Api Cases Receipts Pending Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/archive": { method: "GET"; path: "/api/chaotang/archive"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Archive List Api Chaotang Archive Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/archive/{task_id}/retrospective": { method: "GET"; path: "/api/chaotang/archive/{task_id}/retrospective"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Archive Retrospective Api Chaotang Archive  Task Id  Retrospective Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/archive/knowledge/count": { method: "GET"; path: "/api/chaotang/archive/knowledge/count"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Archive Knowledge Count Api Chaotang Archive Knowledge Count Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/archive/search": { method: "GET"; path: "/api/chaotang/archive/search"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Archive Search Api Chaotang Archive Search Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/department-system": { method: "GET"; path: "/api/chaotang/department-system"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Department System Api Chaotang Department System Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/dept/{code}/overview": { method: "GET"; path: "/api/chaotang/dept/{code}/overview"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Dept Overview Api Chaotang Dept  Code  Overview Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/launch-loop/cases": { method: "GET"; path: "/api/chaotang/launch-loop/cases"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Launch Loop Cases Api Chaotang Launch Loop Cases Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/manor/ai-advice": { method: "GET"; path: "/api/chaotang/manor/ai-advice"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Manor Ai Advice Api Chaotang Manor Ai Advice Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/manor/groups": { method: "GET"; path: "/api/chaotang/manor/groups"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Manor Groups Api Chaotang Manor Groups Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/manor/groups/{groupId}/subagents": { method: "GET"; path: "/api/chaotang/manor/groups/{groupId}/subagents"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Manor Group Subagents Api Chaotang Manor Groups  Groupid  Subagents Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/manor/opportunities": { method: "GET"; path: "/api/chaotang/manor/opportunities"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Manor Opportunities Api Chaotang Manor Opportunities Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/manor/overview": { method: "GET"; path: "/api/chaotang/manor/overview"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Manor Overview Api Chaotang Manor Overview Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/manor/policy-funds": { method: "GET"; path: "/api/chaotang/manor/policy-funds"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Manor Policy Funds Api Chaotang Manor Policy Funds Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/manor/projects": { method: "GET"; path: "/api/chaotang/manor/projects"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Manor Projects Api Chaotang Manor Projects Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/manor/supply-chain": { method: "GET"; path: "/api/chaotang/manor/supply-chain"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Manor Supply Chain Api Chaotang Manor Supply Chain Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/memorials": { method: "GET"; path: "/api/chaotang/memorials"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Memorials List Api Chaotang Memorials Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/memorials/{run_id}": { method: "GET"; path: "/api/chaotang/memorials/{run_id}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Memorial Detail Api Chaotang Memorials  Run Id  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/stream/{task_id}": { method: "GET"; path: "/api/chaotang/stream/{task_id}"; requestBody: unknown; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/study/briefing": { method: "GET"; path: "/api/chaotang/study/briefing"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Study Briefing Api Chaotang Study Briefing Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/system/status": { method: "GET"; path: "/api/chaotang/system/status"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response System Status Api Chaotang System Status Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/tasks": { method: "GET"; path: "/api/chaotang/tasks"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Tasks List Api Chaotang Tasks Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/tasks/{task_id}": { method: "GET"; path: "/api/chaotang/tasks/{task_id}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Task Detail Api Chaotang Tasks  Task Id  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chaotang/throne/overview": { method: "GET"; path: "/api/chaotang/throne/overview"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Throne Overview Api Chaotang Throne Overview Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chat/sessions": { method: "GET"; path: "/api/chat/sessions"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Api List Chat Sessions Api Chat Sessions Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/chat/sessions/{session_id}": { method: "GET"; path: "/api/chat/sessions/{session_id}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Get Chat Session Api Chat Sessions  Session Id  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/commercial-loop/dashboard": { method: "GET"; path: "/api/commercial-loop/dashboard"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Commercial Loop Dashboard Api Commercial Loop Dashboard Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/compare": { method: "GET"; path: "/api/compare"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Compare Api Compare Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/compare/export": { method: "GET"; path: "/api/compare/export"; requestBody: unknown; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/compare/quality": { method: "GET"; path: "/api/compare/quality"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Compare Quality Api Compare Quality Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/contracts/tasks/{task_id}/read-model": { method: "GET"; path: "/api/contracts/tasks/{task_id}/read-model"; requestBody: unknown; responses: {"200":"#/components/schemas/ContractTaskReadModelV1","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/court-session/latest": { method: "GET"; path: "/api/court-session/latest"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Latest Court Session Api Court Session Latest Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/court/backend/tasks/{task_id}": { method: "GET"; path: "/api/court/backend/tasks/{task_id}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Backend Task Detail Api Court Backend Tasks  Task Id  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/court/build-ledger": { method: "GET"; path: "/api/court/build-ledger"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Build Ledger Get Api Court Build Ledger Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/court/chancellor-advice": { method: "GET"; path: "/api/court/chancellor-advice"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Chancellor Advice Api Court Chancellor Advice Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/court/dadian/feed": { method: "GET"; path: "/api/court/dadian/feed"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Dadian Feed Api Court Dadian Feed Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/court/dadian/pulse": { method: "GET"; path: "/api/court/dadian/pulse"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Dadian Pulse Api Court Dadian Pulse Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/court/decision-judgment": { method: "GET"; path: "/api/court/decision-judgment"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Decision Judgment Stats Api Court Decision Judgment Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/court/dept/gong-bu/feasibility/result": { method: "GET"; path: "/api/court/dept/gong-bu/feasibility/result"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Gongbu Feasibility Result Api Court Dept Gong Bu Feasibility Result Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/court/dept/li-bu/recruit/result": { method: "GET"; path: "/api/court/dept/li-bu/recruit/result"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Libu Recruit Result Api Court Dept Li Bu Recruit Result Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/court/forecast": { method: "GET"; path: "/api/court/forecast"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Court Forecast Api Court Forecast Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/court/grand-council/live": { method: "GET"; path: "/api/court/grand-council/live"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Grand Council Live Api Court Grand Council Live Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/court/ima-knowledge": { method: "GET"; path: "/api/court/ima-knowledge"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Ima Knowledge List Api Court Ima Knowledge Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/court/intel": { method: "GET"; path: "/api/court/intel"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Court Intel Api Court Intel Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/court/intel/signals": { method: "GET"; path: "/api/court/intel/signals"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response List Intel Signals Api Court Intel Signals Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/court/learning/advisor-signal": { method: "GET"; path: "/api/court/learning/advisor-signal"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Learning Advisor Signal Api Court Learning Advisor Signal Get\",\"type\":\"object\"}"} };
+  "GET /api/court/learning/backtest": { method: "GET"; path: "/api/court/learning/backtest"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Learning Backtest Api Court Learning Backtest Get\",\"type\":\"object\"}"} };
+  "GET /api/court/learning/records": { method: "GET"; path: "/api/court/learning/records"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Learning Records Api Court Learning Records Get\",\"type\":\"object\"}"} };
+  "GET /api/court/pending": { method: "GET"; path: "/api/court/pending"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Court Pending Api Court Pending Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/court/shiguan/archives": { method: "GET"; path: "/api/court/shiguan/archives"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shiguan Archives Api Court Shiguan Archives Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/court/shiguan/archives/{archive_id}": { method: "GET"; path: "/api/court/shiguan/archives/{archive_id}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shiguan Archive Detail Api Court Shiguan Archives  Archive Id  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/court/shiguan/archives/{archive_id}/similar": { method: "GET"; path: "/api/court/shiguan/archives/{archive_id}/similar"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shiguan Archive Similar Api Court Shiguan Archives  Archive Id  Similar Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/court/shiguan/promo-archive": { method: "GET"; path: "/api/court/shiguan/promo-archive"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shiguan Promo Archive Api Court Shiguan Promo Archive Get\",\"type\":\"object\"}"} };
+  "GET /api/court/shiguan/release-gates": { method: "GET"; path: "/api/court/shiguan/release-gates"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shiguan Release Gates Api Court Shiguan Release Gates Get\",\"type\":\"object\"}"} };
+  "GET /api/court/shiguan/stats": { method: "GET"; path: "/api/court/shiguan/stats"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shiguan Stats Api Court Shiguan Stats Get\",\"type\":\"object\"}"} };
+  "GET /api/court/si/{dept}": { method: "GET"; path: "/api/court/si/{dept}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Si List Api Court Si  Dept  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/court/si/{dept}/{si}": { method: "GET"; path: "/api/court/si/{dept}/{si}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Si Profile Api Court Si  Dept   Si  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/court/state/{doc_id}": { method: "GET"; path: "/api/court/state/{doc_id}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Court State Api Court State  Doc Id  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/court/taiyi/dashboard": { method: "GET"; path: "/api/court/taiyi/dashboard"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Taiyi Dashboard Api Court Taiyi Dashboard Get\",\"type\":\"object\"}"} };
+  "GET /api/court/taiyi/news": { method: "GET"; path: "/api/court/taiyi/news"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Taiyi News Api Court Taiyi News Get\",\"type\":\"object\"}"} };
+  "GET /api/court/true-chain-health": { method: "GET"; path: "/api/court/true-chain-health"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response True Chain Health Api Court True Chain Health Get\",\"type\":\"object\"}"} };
+  "GET /api/court/zhuangyuan/ministry-metrics": { method: "GET"; path: "/api/court/zhuangyuan/ministry-metrics"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Zhuangyuan Ministry Metrics Api Court Zhuangyuan Ministry Metrics Get\",\"type\":\"object\"}"} };
+  "GET /api/critic/run/{run_id}": { method: "GET"; path: "/api/critic/run/{run_id}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Get Critic Result Api Critic Run  Run Id  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/direct/explain": { method: "GET"; path: "/api/direct/explain"; requestBody: unknown; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/direct/health": { method: "GET"; path: "/api/direct/health"; requestBody: unknown; responses: {"200":"inline:{}"} };
+  "GET /api/direct/health/live": { method: "GET"; path: "/api/direct/health/live"; requestBody: unknown; responses: {"200":"inline:{}"} };
+  "GET /api/direct/health/ready": { method: "GET"; path: "/api/direct/health/ready"; requestBody: unknown; responses: {"200":"inline:{}"} };
+  "GET /api/direct/limits/status": { method: "GET"; path: "/api/direct/limits/status"; requestBody: unknown; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/direct/metrics": { method: "GET"; path: "/api/direct/metrics"; requestBody: unknown; responses: {"200":"inline:{}"} };
+  "GET /api/direct/profiles": { method: "GET"; path: "/api/direct/profiles"; requestBody: unknown; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/direct/stats": { method: "GET"; path: "/api/direct/stats"; requestBody: unknown; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/drafts": { method: "GET"; path: "/api/drafts"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Api List Drafts Api Drafts Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/drafts/{draft_id}": { method: "GET"; path: "/api/drafts/{draft_id}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Get Draft Api Drafts  Draft Id  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/drafts/stats": { method: "GET"; path: "/api/drafts/stats"; requestBody: unknown; responses: {"200":"#/components/schemas/DraftStats","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/feature-flags": { method: "GET"; path: "/api/feature-flags"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/feedback": { method: "GET"; path: "/api/feedback"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/flows": { method: "GET"; path: "/api/flows"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/flows/{filename}": { method: "GET"; path: "/api/flows/{filename}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/governance/audit/summary": { method: "GET"; path: "/api/governance/audit/summary"; requestBody: unknown; responses: {"200":"object"} };
-  "GET /api/governance/bills": { method: "GET"; path: "/api/governance/bills"; requestBody: unknown; responses: {"200":"object"} };
-  "GET /api/governance/bills/{bill_id}/audit": { method: "GET"; path: "/api/governance/bills/{bill_id}/audit"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/governance/whoami": { method: "GET"; path: "/api/governance/whoami"; requestBody: unknown; responses: {"200":"object"} };
-  "GET /api/guoli/overview": { method: "GET"; path: "/api/guoli/overview"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/hanlin/awards": { method: "GET"; path: "/api/hanlin/awards"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/hanlin/contributions": { method: "GET"; path: "/api/hanlin/contributions"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/hanlin/experiments": { method: "GET"; path: "/api/hanlin/experiments"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/hanlin/export-offerings": { method: "GET"; path: "/api/hanlin/export-offerings"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/hanlin/incubation": { method: "GET"; path: "/api/hanlin/incubation"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/hanlin/overview": { method: "GET"; path: "/api/hanlin/overview"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/hanlin/recommendations": { method: "GET"; path: "/api/hanlin/recommendations"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/hanlin/reset-demo": { method: "GET"; path: "/api/hanlin/reset-demo"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/hanlin/reviews": { method: "GET"; path: "/api/hanlin/reviews"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/hanlin/scouting": { method: "GET"; path: "/api/hanlin/scouting"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/hanlin/scouting/{candidate_id}": { method: "GET"; path: "/api/hanlin/scouting/{candidate_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/hanlin/summary": { method: "GET"; path: "/api/hanlin/summary"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/feature-flags": { method: "GET"; path: "/api/feature-flags"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response List Feature Flags Api Feature Flags Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/feedback": { method: "GET"; path: "/api/feedback"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Api List Feedback Api Feedback Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/flows": { method: "GET"; path: "/api/flows"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"$ref\":\"#/components/schemas/FlowSummary\"},\"title\":\"Response Api List Flows Api Flows Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/flows/{filename}": { method: "GET"; path: "/api/flows/{filename}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Get Flow Api Flows  Filename  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/governance/audit/summary": { method: "GET"; path: "/api/governance/audit/summary"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Governance Audit Summary Api Governance Audit Summary Get\",\"type\":\"object\"}"} };
+  "GET /api/governance/bills": { method: "GET"; path: "/api/governance/bills"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Governance Bills Api Governance Bills Get\",\"type\":\"object\"}"} };
+  "GET /api/governance/bills/{bill_id}/audit": { method: "GET"; path: "/api/governance/bills/{bill_id}/audit"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Governance Bill Audit Api Governance Bills  Bill Id  Audit Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/governance/whoami": { method: "GET"; path: "/api/governance/whoami"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Governance Whoami Api Governance Whoami Get\",\"type\":\"object\"}"} };
+  "GET /api/guoli/overview": { method: "GET"; path: "/api/guoli/overview"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Guoli Overview Api Guoli Overview Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/hanlin/awards": { method: "GET"; path: "/api/hanlin/awards"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Awards Api Hanlin Awards Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/hanlin/contributions": { method: "GET"; path: "/api/hanlin/contributions"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Contributions Api Hanlin Contributions Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/hanlin/experiments": { method: "GET"; path: "/api/hanlin/experiments"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Experiments Api Hanlin Experiments Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/hanlin/export-offerings": { method: "GET"; path: "/api/hanlin/export-offerings"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Export Offerings Api Hanlin Export Offerings Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/hanlin/incubation": { method: "GET"; path: "/api/hanlin/incubation"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Incubation Api Hanlin Incubation Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/hanlin/overview": { method: "GET"; path: "/api/hanlin/overview"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Overview Api Hanlin Overview Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/hanlin/recommendations": { method: "GET"; path: "/api/hanlin/recommendations"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Recommendations Api Hanlin Recommendations Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/hanlin/reset-demo": { method: "GET"; path: "/api/hanlin/reset-demo"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Reset Demo Api Hanlin Reset Demo Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/hanlin/reviews": { method: "GET"; path: "/api/hanlin/reviews"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Reviews Api Hanlin Reviews Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/hanlin/scouting": { method: "GET"; path: "/api/hanlin/scouting"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Scouting Api Hanlin Scouting Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/hanlin/scouting/{candidate_id}": { method: "GET"; path: "/api/hanlin/scouting/{candidate_id}"; requestBody: unknown; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/hanlin/summary": { method: "GET"; path: "/api/hanlin/summary"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Summary Api Hanlin Summary Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/health": { method: "GET"; path: "/api/health"; requestBody: unknown; responses: {"200":"#/components/schemas/HealthResponse"} };
-  "GET /api/intel/evidence": { method: "GET"; path: "/api/intel/evidence"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/knowledge/health": { method: "GET"; path: "/api/knowledge/health"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/intel/evidence": { method: "GET"; path: "/api/intel/evidence"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Intel Evidence Api Intel Evidence Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/knowledge/health": { method: "GET"; path: "/api/knowledge/health"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Knowledge Health Api Knowledge Health Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/knowledge/search": { method: "GET"; path: "/api/knowledge/search"; requestBody: unknown; responses: {"200":"#/components/schemas/KnowledgeSearchResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/knowledge/sources": { method: "GET"; path: "/api/knowledge/sources"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/knowledge/stats": { method: "GET"; path: "/api/knowledge/stats"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/kpi/business": { method: "GET"; path: "/api/kpi/business"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/kpi/calibration/stats": { method: "GET"; path: "/api/kpi/calibration/stats"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/kpi/latency": { method: "GET"; path: "/api/kpi/latency"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/kpi/regression": { method: "GET"; path: "/api/kpi/regression"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/kpi/slo": { method: "GET"; path: "/api/kpi/slo"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/legal/overview": { method: "GET"; path: "/api/legal/overview"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/local-ai/audit-courtos-brain": { method: "GET"; path: "/api/local-ai/audit-courtos-brain"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/local-ai/status": { method: "GET"; path: "/api/local-ai/status"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/memory": { method: "GET"; path: "/api/memory"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/memory/{filename}": { method: "GET"; path: "/api/memory/{filename}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/memory/stats": { method: "GET"; path: "/api/memory/stats"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/metrics/tokens": { method: "GET"; path: "/api/metrics/tokens"; requestBody: unknown; responses: {"200":"object"} };
-  "GET /api/models": { method: "GET"; path: "/api/models"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/observability/events": { method: "GET"; path: "/api/observability/events"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/observability/release-gate": { method: "GET"; path: "/api/observability/release-gate"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/observability/summary": { method: "GET"; path: "/api/observability/summary"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/preferences/{user_id}": { method: "GET"; path: "/api/preferences/{user_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/preflight": { method: "GET"; path: "/api/preflight"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/presets": { method: "GET"; path: "/api/presets"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/prompts": { method: "GET"; path: "/api/prompts"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/prompts/{key}": { method: "GET"; path: "/api/prompts/{key}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/knowledge/sources": { method: "GET"; path: "/api/knowledge/sources"; requestBody: unknown; responses: {"200":"inline:{\"title\":\"Response Api Knowledge Sources Api Knowledge Sources Get\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/knowledge/stats": { method: "GET"; path: "/api/knowledge/stats"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Knowledge Stats Api Knowledge Stats Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/kpi/business": { method: "GET"; path: "/api/kpi/business"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Kpi Business Api Kpi Business Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/kpi/calibration/stats": { method: "GET"; path: "/api/kpi/calibration/stats"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Kpi Calibration Stats Api Kpi Calibration Stats Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/kpi/latency": { method: "GET"; path: "/api/kpi/latency"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Kpi Latency Api Kpi Latency Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/kpi/regression": { method: "GET"; path: "/api/kpi/regression"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Kpi Regression List Api Kpi Regression Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/kpi/slo": { method: "GET"; path: "/api/kpi/slo"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Kpi Slo Api Kpi Slo Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/legal/overview": { method: "GET"; path: "/api/legal/overview"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Legal Overview Api Legal Overview Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/local-ai/audit-courtos-brain": { method: "GET"; path: "/api/local-ai/audit-courtos-brain"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Local Ai Audit Courtos Brain Api Local Ai Audit Courtos Brain Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/local-ai/status": { method: "GET"; path: "/api/local-ai/status"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Local Ai Status Api Local Ai Status Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/memory": { method: "GET"; path: "/api/memory"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"$ref\":\"#/components/schemas/MemoryHeaderItem\"},\"title\":\"Response Memory List Api Memory Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/memory/{filename}": { method: "GET"; path: "/api/memory/{filename}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Memory Detail Api Memory  Filename  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/memory/stats": { method: "GET"; path: "/api/memory/stats"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Memory Stats Api Memory Stats Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/metrics/tokens": { method: "GET"; path: "/api/metrics/tokens"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Token Usage Api Metrics Tokens Get\",\"type\":\"object\"}"} };
+  "GET /api/models": { method: "GET"; path: "/api/models"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Api Models List Api Models Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/observability/events": { method: "GET"; path: "/api/observability/events"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Observability Events Api Observability Events Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/observability/release-gate": { method: "GET"; path: "/api/observability/release-gate"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Observability Release Gate Api Observability Release Gate Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/observability/summary": { method: "GET"; path: "/api/observability/summary"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Observability Summary Api Observability Summary Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/preferences/{user_id}": { method: "GET"; path: "/api/preferences/{user_id}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Get User Preference Api Preferences  User Id  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/preflight": { method: "GET"; path: "/api/preflight"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Preflight Api Preflight Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/presets": { method: "GET"; path: "/api/presets"; requestBody: unknown; responses: {"200":"inline:{\"title\":\"Response Api List Presets Api Presets Get\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/prompts": { method: "GET"; path: "/api/prompts"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":{\"items\":{},\"type\":\"array\"},\"title\":\"Response Api Prompts List Api Prompts Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/prompts/{key}": { method: "GET"; path: "/api/prompts/{key}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Prompt Get Api Prompts  Key  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/prompts/{key}/files": { method: "GET"; path: "/api/prompts/{key}/files"; requestBody: unknown; responses: {"200":"#/components/schemas/PromptFilesResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/prompts/{key}/versions": { method: "GET"; path: "/api/prompts/{key}/versions"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/prompts/{key}/versions": { method: "GET"; path: "/api/prompts/{key}/versions"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Prompt Versions Api Prompts  Key  Versions Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/prompts/grouped": { method: "GET"; path: "/api/prompts/grouped"; requestBody: unknown; responses: {"200":"#/components/schemas/PromptGroupedResponse","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/prompts/upgrades": { method: "GET"; path: "/api/prompts/upgrades"; requestBody: unknown; responses: {"200":"#/components/schemas/PromptUpgradesResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/qintian/learning-path": { method: "GET"; path: "/api/qintian/learning-path"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/qintian/scenarios": { method: "GET"; path: "/api/qintian/scenarios"; requestBody: unknown; responses: {"200":"object"} };
-  "GET /api/qintianjian/triggers/pending": { method: "GET"; path: "/api/qintianjian/triggers/pending"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/ready": { method: "GET"; path: "/api/ready"; requestBody: unknown; responses: {"200":"object"} };
-  "GET /api/repair-insights": { method: "GET"; path: "/api/repair-insights"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/repairs": { method: "GET"; path: "/api/repairs"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/repairs/{session_id}": { method: "GET"; path: "/api/repairs/{session_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/requirements": { method: "GET"; path: "/api/requirements"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/requirements/{req_id}": { method: "GET"; path: "/api/requirements/{req_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/resources/profile": { method: "GET"; path: "/api/resources/profile"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/runs": { method: "GET"; path: "/api/runs"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/runs/{run_id}": { method: "GET"; path: "/api/runs/{run_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/runs/{run_id}/export/final": { method: "GET"; path: "/api/runs/{run_id}/export/final"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/runs/{run_id}/feedback": { method: "GET"; path: "/api/runs/{run_id}/feedback"; requestBody: unknown; responses: {"200":"anyOf:object|null","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/runs/{run_id}/optimize/trigger": { method: "GET"; path: "/api/runs/{run_id}/optimize/trigger"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/runs/{run_id}/quality": { method: "GET"; path: "/api/runs/{run_id}/quality"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/runs/{run_id}/report": { method: "GET"; path: "/api/runs/{run_id}/report"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/runs/{run_id}/steps/{step_index}": { method: "GET"; path: "/api/runs/{run_id}/steps/{step_index}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/runs/{run_id}/steps/{step_index}/export/output": { method: "GET"; path: "/api/runs/{run_id}/steps/{step_index}/export/output"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/runs/{run_id}/steps/{step_index}/export/prompt": { method: "GET"; path: "/api/runs/{run_id}/steps/{step_index}/export/prompt"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/runs/stream/{task_id}": { method: "GET"; path: "/api/runs/stream/{task_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/qintian/learning-path": { method: "GET"; path: "/api/qintian/learning-path"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Qintian Learning Path Api Qintian Learning Path Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/qintian/scenarios": { method: "GET"; path: "/api/qintian/scenarios"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Qintian Scenarios Api Qintian Scenarios Get\",\"type\":\"object\"}"} };
+  "GET /api/qintianjian/triggers/pending": { method: "GET"; path: "/api/qintianjian/triggers/pending"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Qintianjian Pending Triggers Api Qintianjian Triggers Pending Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/ready": { method: "GET"; path: "/api/ready"; requestBody: unknown; responses: {"200":"inline:{}"} };
+  "GET /api/repair-insights": { method: "GET"; path: "/api/repair-insights"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Repair Insights Api Repair Insights Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/repairs": { method: "GET"; path: "/api/repairs"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Api List Repairs Api Repairs Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/repairs/{session_id}": { method: "GET"; path: "/api/repairs/{session_id}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Get Repair Api Repairs  Session Id  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/requirements": { method: "GET"; path: "/api/requirements"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"$ref\":\"#/components/schemas/RequirementItem\"},\"title\":\"Response Api List Requirements Api Requirements Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/requirements/{req_id}": { method: "GET"; path: "/api/requirements/{req_id}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Get Requirement Api Requirements  Req Id  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/resources/profile": { method: "GET"; path: "/api/resources/profile"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Get Resource Profile Api Resources Profile Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/runs": { method: "GET"; path: "/api/runs"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Api Runs Api Runs Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/runs/{run_id}": { method: "GET"; path: "/api/runs/{run_id}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Run Detail Api Runs  Run Id  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/runs/{run_id}/export/final": { method: "GET"; path: "/api/runs/{run_id}/export/final"; requestBody: unknown; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/runs/{run_id}/feedback": { method: "GET"; path: "/api/runs/{run_id}/feedback"; requestBody: unknown; responses: {"200":"inline:{\"anyOf\":[{\"additionalProperties\":true,\"type\":\"object\"},{\"type\":\"null\"}],\"title\":\"Response Api Get Feedback Api Runs  Run Id  Feedback Get\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/runs/{run_id}/optimize/trigger": { method: "GET"; path: "/api/runs/{run_id}/optimize/trigger"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Optimize Trigger Api Runs  Run Id  Optimize Trigger Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/runs/{run_id}/quality": { method: "GET"; path: "/api/runs/{run_id}/quality"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Run Quality Api Runs  Run Id  Quality Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/runs/{run_id}/report": { method: "GET"; path: "/api/runs/{run_id}/report"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Run Report Api Runs  Run Id  Report Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/runs/{run_id}/steps/{step_index}": { method: "GET"; path: "/api/runs/{run_id}/steps/{step_index}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Step Detail Api Runs  Run Id  Steps  Step Index  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/runs/{run_id}/steps/{step_index}/export/output": { method: "GET"; path: "/api/runs/{run_id}/steps/{step_index}/export/output"; requestBody: unknown; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/runs/{run_id}/steps/{step_index}/export/prompt": { method: "GET"; path: "/api/runs/{run_id}/steps/{step_index}/export/prompt"; requestBody: unknown; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/runs/stream/{task_id}": { method: "GET"; path: "/api/runs/stream/{task_id}"; requestBody: unknown; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/runs/stream/{task_id}/status": { method: "GET"; path: "/api/runs/stream/{task_id}/status"; requestBody: unknown; responses: {"200":"#/components/schemas/TaskStatusResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/scribe/archive-docs": { method: "GET"; path: "/api/scribe/archive-docs"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/scribe/lessons": { method: "GET"; path: "/api/scribe/lessons"; requestBody: unknown; responses: {"200":"object"} };
-  "GET /api/shangshufang/finance-intel-loop/cases/{task_id}": { method: "GET"; path: "/api/shangshufang/finance-intel-loop/cases/{task_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/shangshufang/home": { method: "GET"; path: "/api/shangshufang/home"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/shangshufang/im": { method: "GET"; path: "/api/shangshufang/im"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/shangshufang/tasks/{task_id}/status": { method: "GET"; path: "/api/shangshufang/tasks/{task_id}/status"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/swarm-runs/{swarm_run_id}": { method: "GET"; path: "/api/swarm-runs/{swarm_run_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/swarm-runs/{swarm_run_id}/brief": { method: "GET"; path: "/api/swarm-runs/{swarm_run_id}/brief"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/swarm-runs/{swarm_run_id}/progress": { method: "GET"; path: "/api/swarm-runs/{swarm_run_id}/progress"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/scribe/archive-docs": { method: "GET"; path: "/api/scribe/archive-docs"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Scribe Archive Docs Api Scribe Archive Docs Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/scribe/lessons": { method: "GET"; path: "/api/scribe/lessons"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Scribe Lessons Api Scribe Lessons Get\",\"type\":\"object\"}"} };
+  "GET /api/secure-ingest/{artifact_id}/status": { method: "GET"; path: "/api/secure-ingest/{artifact_id}/status"; requestBody: unknown; responses: {"200":"#/components/schemas/IngestArtifactV1","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/secure-ingest/download/{ticket_id}": { method: "GET"; path: "/api/secure-ingest/download/{ticket_id}"; requestBody: unknown; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/shangshufang/finance-intel-loop/cases/{task_id}": { method: "GET"; path: "/api/shangshufang/finance-intel-loop/cases/{task_id}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Finance Intel Loop Case Api Shangshufang Finance Intel Loop Cases  Task Id  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/shangshufang/home": { method: "GET"; path: "/api/shangshufang/home"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Home Api Shangshufang Home Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/shangshufang/home/v1": { method: "GET"; path: "/api/shangshufang/home/v1"; requestBody: unknown; responses: {"200":"#/components/schemas/ShangshufangHomeResponse","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/shangshufang/im": { method: "GET"; path: "/api/shangshufang/im"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Im List Api Shangshufang Im Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/shangshufang/tasks/{task_id}/status": { method: "GET"; path: "/api/shangshufang/tasks/{task_id}/status"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Task Status Api Shangshufang Tasks  Task Id  Status Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/swarm-runs/{swarm_run_id}": { method: "GET"; path: "/api/swarm-runs/{swarm_run_id}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Get Swarm Run Api Swarm Runs  Swarm Run Id  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/swarm-runs/{swarm_run_id}/brief": { method: "GET"; path: "/api/swarm-runs/{swarm_run_id}/brief"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Get Swarm Run Brief Api Swarm Runs  Swarm Run Id  Brief Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/swarm-runs/{swarm_run_id}/progress": { method: "GET"; path: "/api/swarm-runs/{swarm_run_id}/progress"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Get Swarm Run Progress Api Swarm Runs  Swarm Run Id  Progress Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/swarm/config": { method: "GET"; path: "/api/swarm/config"; requestBody: unknown; responses: {"200":"#/components/schemas/SwarmConfigResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/swarm/projects/{project_id}/quality-report": { method: "GET"; path: "/api/swarm/projects/{project_id}/quality-report"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/swarm/roster": { method: "GET"; path: "/api/swarm/roster"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/swarm/sessions": { method: "GET"; path: "/api/swarm/sessions"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/swarm/sessions/{session_id}": { method: "GET"; path: "/api/swarm/sessions/{session_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/swarm/sessions/{session_id}/pack-report": { method: "GET"; path: "/api/swarm/sessions/{session_id}/pack-report"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/swarm/timeline": { method: "GET"; path: "/api/swarm/timeline"; requestBody: unknown; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/swarm/projects/{project_id}/quality-report": { method: "GET"; path: "/api/swarm/projects/{project_id}/quality-report"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Project Quality Report Api Swarm Projects  Project Id  Quality Report Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/swarm/roster": { method: "GET"; path: "/api/swarm/roster"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"$ref\":\"#/components/schemas/SwarmRosterItem\"},\"title\":\"Response Api Swarm Roster Api Swarm Roster Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/swarm/sessions": { method: "GET"; path: "/api/swarm/sessions"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"$ref\":\"#/components/schemas/SwarmSessionSummary\"},\"title\":\"Response Api Swarm Sessions Api Swarm Sessions Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/swarm/sessions/{session_id}": { method: "GET"; path: "/api/swarm/sessions/{session_id}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Swarm Session Detail Api Swarm Sessions  Session Id  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/swarm/sessions/{session_id}/pack-report": { method: "GET"; path: "/api/swarm/sessions/{session_id}/pack-report"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Swarm Pack Report Api Swarm Sessions  Session Id  Pack Report Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/swarm/timeline": { method: "GET"; path: "/api/swarm/timeline"; requestBody: unknown; responses: {"200":"inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Api Swarm Timeline Api Swarm Timeline Get\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/tasks": { method: "GET"; path: "/api/tasks"; requestBody: unknown; responses: {"200":"#/components/schemas/TasksSnapshot","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/tasks/{task_id}/events": { method: "GET"; path: "/api/tasks/{task_id}/events"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/tasks/{task_id}/events": { method: "GET"; path: "/api/tasks/{task_id}/events"; requestBody: unknown; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/throne/memorials": { method: "GET"; path: "/api/throne/memorials"; requestBody: unknown; responses: {"200":"#/components/schemas/MemorialsListResponse","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/throne/overview": { method: "GET"; path: "/api/throne/overview"; requestBody: unknown; responses: {"200":"#/components/schemas/OverviewResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/throne/runs/{run_id}": { method: "GET"; path: "/api/throne/runs/{run_id}"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/tools": { method: "GET"; path: "/api/tools"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/throne/runs/{run_id}": { method: "GET"; path: "/api/throne/runs/{run_id}"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Throne Run Detail Api Throne Runs  Run Id  Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/tools": { method: "GET"; path: "/api/tools"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":{\"$ref\":\"#/components/schemas/ToolDescription\"},\"title\":\"Response Api List Tools Api Tools Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
   "GET /api/voice/health": { method: "GET"; path: "/api/voice/health"; requestBody: unknown; responses: {"200":"#/components/schemas/StatusResponse"} };
   "GET /api/voice/sessions": { method: "GET"; path: "/api/voice/sessions"; requestBody: unknown; responses: {"200":"#/components/schemas/VoiceSessionsResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "GET /api/votes/proposals": { method: "GET"; path: "/api/votes/proposals"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "PATCH /api/chaotang/tasks/{task_id}/persist": { method: "PATCH"; path: "/api/chaotang/tasks/{task_id}/persist"; requestBody: "#/components/schemas/PatchTaskRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "PATCH /api/court/ima-knowledge": { method: "PATCH"; path: "/api/court/ima-knowledge"; requestBody: "#/components/schemas/_ImaKnowledgeStatusRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/ab-tests": { method: "POST"; path: "/api/ab-tests"; requestBody: "#/components/schemas/ABTestRequest"; responses: {"201":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "GET /api/votes/proposals": { method: "GET"; path: "/api/votes/proposals"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response List Proposals Api Votes Proposals Get\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "PATCH /api/chaotang/tasks/{task_id}/persist": { method: "PATCH"; path: "/api/chaotang/tasks/{task_id}/persist"; requestBody: "#/components/schemas/PatchTaskRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Task Persist Patch Api Chaotang Tasks  Task Id  Persist Patch\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "PATCH /api/court/ima-knowledge": { method: "PATCH"; path: "/api/court/ima-knowledge"; requestBody: "#/components/schemas/_ImaKnowledgeStatusRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Ima Knowledge Set Status Api Court Ima Knowledge Patch\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/ab-tests": { method: "POST"; path: "/api/ab-tests"; requestBody: "#/components/schemas/ABTestRequest"; responses: {"201":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Run Ab Test Api Ab Tests Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/admin/depts": { method: "POST"; path: "/api/admin/depts"; requestBody: "#/components/schemas/DeptNameRequest"; responses: {"201":"#/components/schemas/DeptInfo","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/admin/tenants": { method: "POST"; path: "/api/admin/tenants"; requestBody: "#/components/schemas/TenantCreateRequest"; responses: {"201":"#/components/schemas/TenantCreatedResponse","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/admin/users": { method: "POST"; path: "/api/admin/users"; requestBody: "#/components/schemas/UserCreateRequest"; responses: {"201":"#/components/schemas/UserCreatedResponse","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/artifacts/deliveries": { method: "POST"; path: "/api/artifacts/deliveries"; requestBody: "#/components/schemas/CreateDeliveryRequest"; responses: {"201":"#/components/schemas/DeliveryCommandResponse","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/artifacts/manifests/{manifest_id}/resume": { method: "POST"; path: "/api/artifacts/manifests/{manifest_id}/resume"; requestBody: "#/components/schemas/ResumeDeliveryRequest"; responses: {"200":"#/components/schemas/DeliveryCommandResponse","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/auth/login": { method: "POST"; path: "/api/auth/login"; requestBody: "#/components/schemas/LoginRequest"; responses: {"200":"#/components/schemas/LoginResponse","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/auth/logout": { method: "POST"; path: "/api/auth/logout"; requestBody: unknown; responses: {"200":"#/components/schemas/StatusResponse"} };
   "POST /api/auth/register": { method: "POST"; path: "/api/auth/register"; requestBody: "#/components/schemas/web__schemas__auth__RegisterRequest"; responses: {"201":"#/components/schemas/RegisterResponse","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/auth/verify-invite": { method: "POST"; path: "/api/auth/verify-invite"; requestBody: "#/components/schemas/VerifyInviteRequest"; responses: {"200":"#/components/schemas/VerifyInviteResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/bingbu/battlecard": { method: "POST"; path: "/api/bingbu/battlecard"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/build-ledger": { method: "POST"; path: "/api/build-ledger"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/bingbu/battlecard": { method: "POST"; path: "/api/bingbu/battlecard"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Bingbu Battlecard Api Bingbu Battlecard Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/build-ledger": { method: "POST"; path: "/api/build-ledger"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Build Ledger Post Api Build Ledger Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/cases/{filename}/approve": { method: "POST"; path: "/api/cases/{filename}/approve"; requestBody: unknown; responses: {"200":"#/components/schemas/CaseActionResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/cases/{filename}/reject": { method: "POST"; path: "/api/cases/{filename}/reject"; requestBody: "anyOf:#/components/schemas/CaseRejectRequest|null"; responses: {"200":"#/components/schemas/CaseActionResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/cases/receipts": { method: "POST"; path: "/api/cases/receipts"; requestBody: "#/components/schemas/ReceiptRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/chaotang/archive/{task_id}/retrospective": { method: "POST"; path: "/api/chaotang/archive/{task_id}/retrospective"; requestBody: "#/components/schemas/_RetrospectiveRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/chaotang/archive/chronicle": { method: "POST"; path: "/api/chaotang/archive/chronicle"; requestBody: "#/components/schemas/_ChronicleRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/chaotang/archive/knowledge/feedback": { method: "POST"; path: "/api/chaotang/archive/knowledge/feedback"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/chaotang/decree/{task_id}/proceed": { method: "POST"; path: "/api/chaotang/decree/{task_id}/proceed"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/chaotang/decree/dispatch": { method: "POST"; path: "/api/chaotang/decree/dispatch"; requestBody: "#/components/schemas/DispatchRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/chaotang/decree/draft": { method: "POST"; path: "/api/chaotang/decree/draft"; requestBody: "#/components/schemas/DraftRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/chaotang/department-system/route": { method: "POST"; path: "/api/chaotang/department-system/route"; requestBody: "#/components/schemas/_DepartmentRouteRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/chaotang/hubu/cashflow/preview": { method: "POST"; path: "/api/chaotang/hubu/cashflow/preview"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/chaotang/hubu/finance/intake/preview": { method: "POST"; path: "/api/chaotang/hubu/finance/intake/preview"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/chaotang/hubu/finance/reporting/decision/preview": { method: "POST"; path: "/api/chaotang/hubu/finance/reporting/decision/preview"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/chaotang/hubu/finance/reporting/preview": { method: "POST"; path: "/api/chaotang/hubu/finance/reporting/preview"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/chaotang/hubu/payment/decision/preview": { method: "POST"; path: "/api/chaotang/hubu/payment/decision/preview"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/chaotang/hubu/payment/preview": { method: "POST"; path: "/api/chaotang/hubu/payment/preview"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/chaotang/memorials/{run_id}/review": { method: "POST"; path: "/api/chaotang/memorials/{run_id}/review"; requestBody: "#/components/schemas/ReviewRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/chaotang/study/quick-command": { method: "POST"; path: "/api/chaotang/study/quick-command"; requestBody: "#/components/schemas/_QuickCommandRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/chaotang/study/run": { method: "POST"; path: "/api/chaotang/study/run"; requestBody: "#/components/schemas/StudyRunRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/chaotang/study/teaching": { method: "POST"; path: "/api/chaotang/study/teaching"; requestBody: "#/components/schemas/_TeachingRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/chaotang/tasks/persist": { method: "POST"; path: "/api/chaotang/tasks/persist"; requestBody: "#/components/schemas/PersistTaskRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/chaotang/throne/quick-summon": { method: "POST"; path: "/api/chaotang/throne/quick-summon"; requestBody: "#/components/schemas/_QuickSummonRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/chat": { method: "POST"; path: "/api/chat"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/chat/sessions": { method: "POST"; path: "/api/chat/sessions"; requestBody: "#/components/schemas/ChatSessionCreateRequest"; responses: {"201":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/cases/{filename}/reject": { method: "POST"; path: "/api/cases/{filename}/reject"; requestBody: "inline:{\"anyOf\":[{\"$ref\":\"#/components/schemas/CaseRejectRequest\"},{\"type\":\"null\"}],\"title\":\"Body\"}"; responses: {"200":"#/components/schemas/CaseActionResponse","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/cases/receipts": { method: "POST"; path: "/api/cases/receipts"; requestBody: "#/components/schemas/ReceiptRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Record Receipt Api Cases Receipts Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/chaotang/archive/{task_id}/retrospective": { method: "POST"; path: "/api/chaotang/archive/{task_id}/retrospective"; requestBody: "#/components/schemas/_RetrospectiveRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Archive Retrospective Save Api Chaotang Archive  Task Id  Retrospective Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/chaotang/archive/chronicle": { method: "POST"; path: "/api/chaotang/archive/chronicle"; requestBody: "#/components/schemas/_ChronicleRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Archive Chronicle Api Chaotang Archive Chronicle Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/chaotang/archive/knowledge/feedback": { method: "POST"; path: "/api/chaotang/archive/knowledge/feedback"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Archive Knowledge Feedback Api Chaotang Archive Knowledge Feedback Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/chaotang/decree/{task_id}/proceed": { method: "POST"; path: "/api/chaotang/decree/{task_id}/proceed"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Decree Proceed Api Chaotang Decree  Task Id  Proceed Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/chaotang/decree/dispatch": { method: "POST"; path: "/api/chaotang/decree/dispatch"; requestBody: "#/components/schemas/DispatchRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Decree Dispatch Api Chaotang Decree Dispatch Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/chaotang/decree/draft": { method: "POST"; path: "/api/chaotang/decree/draft"; requestBody: "#/components/schemas/DraftRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Decree Draft Api Chaotang Decree Draft Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/chaotang/department-system/route": { method: "POST"; path: "/api/chaotang/department-system/route"; requestBody: "#/components/schemas/_DepartmentRouteRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Department System Route Api Chaotang Department System Route Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/chaotang/hubu/cashflow/preview": { method: "POST"; path: "/api/chaotang/hubu/cashflow/preview"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Preview Hubu Cashflow Court Doc Api Chaotang Hubu Cashflow Preview Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/chaotang/hubu/finance/intake/preview": { method: "POST"; path: "/api/chaotang/hubu/finance/intake/preview"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Preview Hubu Finance Intake Api Chaotang Hubu Finance Intake Preview Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/chaotang/hubu/finance/reporting/decision/preview": { method: "POST"; path: "/api/chaotang/hubu/finance/reporting/decision/preview"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Preview Hubu Finance Reporting Decision Api Chaotang Hubu Finance Reporting Decision Preview Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/chaotang/hubu/finance/reporting/preview": { method: "POST"; path: "/api/chaotang/hubu/finance/reporting/preview"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Preview Hubu Finance Reporting Api Chaotang Hubu Finance Reporting Preview Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/chaotang/hubu/payment/decision/preview": { method: "POST"; path: "/api/chaotang/hubu/payment/decision/preview"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Preview Hubu Payment Decision Api Chaotang Hubu Payment Decision Preview Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/chaotang/hubu/payment/preview": { method: "POST"; path: "/api/chaotang/hubu/payment/preview"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Preview Hubu Payment Api Chaotang Hubu Payment Preview Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/chaotang/memorials/{run_id}/review": { method: "POST"; path: "/api/chaotang/memorials/{run_id}/review"; requestBody: "#/components/schemas/ReviewRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Memorial Review Api Chaotang Memorials  Run Id  Review Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/chaotang/study/quick-command": { method: "POST"; path: "/api/chaotang/study/quick-command"; requestBody: "#/components/schemas/_QuickCommandRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Study Quick Command Api Chaotang Study Quick Command Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/chaotang/study/run": { method: "POST"; path: "/api/chaotang/study/run"; requestBody: "#/components/schemas/StudyRunRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Study Run Edict Api Chaotang Study Run Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/chaotang/study/teaching": { method: "POST"; path: "/api/chaotang/study/teaching"; requestBody: "#/components/schemas/_TeachingRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Study Teaching Api Chaotang Study Teaching Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/chaotang/tasks/persist": { method: "POST"; path: "/api/chaotang/tasks/persist"; requestBody: "#/components/schemas/PersistTaskRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Task Persist Api Chaotang Tasks Persist Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/chaotang/throne/quick-summon": { method: "POST"; path: "/api/chaotang/throne/quick-summon"; requestBody: "#/components/schemas/_QuickSummonRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Throne Quick Summon Api Chaotang Throne Quick Summon Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/chat": { method: "POST"; path: "/api/chat"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/chat/sessions": { method: "POST"; path: "/api/chat/sessions"; requestBody: "#/components/schemas/ChatSessionCreateRequest"; responses: {"201":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Create Chat Session Api Chat Sessions Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/chat/sessions/{session_id}/turns": { method: "POST"; path: "/api/chat/sessions/{session_id}/turns"; requestBody: "#/components/schemas/ChatSessionTurnRequest"; responses: {"200":"#/components/schemas/ChatSessionTurnResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/commercial-loop/golden-candidates/{candidate_id}/promote": { method: "POST"; path: "/api/commercial-loop/golden-candidates/{candidate_id}/promote"; requestBody: "#/components/schemas/GoldenReviewRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/commercial-loop/golden-candidates/{candidate_id}/reject": { method: "POST"; path: "/api/commercial-loop/golden-candidates/{candidate_id}/reject"; requestBody: "anyOf:#/components/schemas/GoldenReviewRequest|null"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/contracts/capability/activate": { method: "POST"; path: "/api/contracts/capability/activate"; requestBody: "#/components/schemas/CapabilityActivationRequest"; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/commercial-loop/golden-candidates/{candidate_id}/promote": { method: "POST"; path: "/api/commercial-loop/golden-candidates/{candidate_id}/promote"; requestBody: "#/components/schemas/GoldenReviewRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Promote Golden Candidate Api Commercial Loop Golden Candidates  Candidate Id  Promote Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/commercial-loop/golden-candidates/{candidate_id}/reject": { method: "POST"; path: "/api/commercial-loop/golden-candidates/{candidate_id}/reject"; requestBody: "inline:{\"anyOf\":[{\"$ref\":\"#/components/schemas/GoldenReviewRequest\"},{\"type\":\"null\"}],\"title\":\"Body\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Reject Golden Candidate Api Commercial Loop Golden Candidates  Candidate Id  Reject Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/contracts/capability/activate": { method: "POST"; path: "/api/contracts/capability/activate"; requestBody: "#/components/schemas/CapabilityActivationRequest"; responses: {"200":"inline:{\"items\":{\"$ref\":\"#/components/schemas/CapabilityGrantV1\"},\"title\":\"Response Activate Contract Capabilities Api Contracts Capability Activate Post\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/contracts/decision": { method: "POST"; path: "/api/contracts/decision"; requestBody: "#/components/schemas/ContractDecisionV1"; responses: {"200":"#/components/schemas/ContractDecisionV1","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/contracts/mission/{mission_contract_id}/confirm": { method: "POST"; path: "/api/contracts/mission/{mission_contract_id}/confirm"; requestBody: "#/components/schemas/MissionConfirmRequest"; responses: {"200":"#/components/schemas/ContractLineageStatusV1","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/contracts/mission/draft": { method: "POST"; path: "/api/contracts/mission/draft"; requestBody: "#/components/schemas/MissionContractV1"; responses: {"200":"#/components/schemas/MissionContractV1","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/contracts/support/evaluate": { method: "POST"; path: "/api/contracts/support/evaluate"; requestBody: "#/components/schemas/ContractIntakeV1"; responses: {"200":"#/components/schemas/ContractSupportDecisionV1","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/court/action": { method: "POST"; path: "/api/court/action"; requestBody: "#/components/schemas/ActionRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/court/build-ledger": { method: "POST"; path: "/api/court/build-ledger"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/court/bureaus/{department}/{bureau}/actions": { method: "POST"; path: "/api/court/bureaus/{department}/{bureau}/actions"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/court/decision-judgment": { method: "POST"; path: "/api/court/decision-judgment"; requestBody: "#/components/schemas/DecisionJudgmentRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/court/dept/gong-bu/feasibility": { method: "POST"; path: "/api/court/dept/gong-bu/feasibility"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/court/dept/li-bu/recruit": { method: "POST"; path: "/api/court/dept/li-bu/recruit"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/court/dept/swarm-dispatch": { method: "POST"; path: "/api/court/dept/swarm-dispatch"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/court/hubu/ask": { method: "POST"; path: "/api/court/hubu/ask"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/court/ima-knowledge": { method: "POST"; path: "/api/court/ima-knowledge"; requestBody: "#/components/schemas/_ImaKnowledgeUploadRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/court/intel/signals/{signal_id}/dispatch": { method: "POST"; path: "/api/court/intel/signals/{signal_id}/dispatch"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/court/junjichu/cases": { method: "POST"; path: "/api/court/junjichu/cases"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/court/orchestrate": { method: "POST"; path: "/api/court/orchestrate"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/court/orchestrate/all": { method: "POST"; path: "/api/court/orchestrate/all"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/court/orchestrate/sign-off": { method: "POST"; path: "/api/court/orchestrate/sign-off"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/court/register": { method: "POST"; path: "/api/court/register"; requestBody: "#/components/schemas/web__routers__court__RegisterRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/court/shiguan/analyze": { method: "POST"; path: "/api/court/shiguan/analyze"; requestBody: unknown; responses: {"200":"object"} };
-  "POST /api/court/shiguan/archives/{archive_id}/verdict": { method: "POST"; path: "/api/court/shiguan/archives/{archive_id}/verdict"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/court/action": { method: "POST"; path: "/api/court/action"; requestBody: "#/components/schemas/ActionRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Court Action Api Court Action Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/court/build-ledger": { method: "POST"; path: "/api/court/build-ledger"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Build Ledger Post Api Court Build Ledger Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/court/bureaus/{department}/{bureau}/actions": { method: "POST"; path: "/api/court/bureaus/{department}/{bureau}/actions"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Bureau Action Api Court Bureaus  Department   Bureau  Actions Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/court/decision-judgment": { method: "POST"; path: "/api/court/decision-judgment"; requestBody: "#/components/schemas/DecisionJudgmentRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Record Decision Judgment Api Court Decision Judgment Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/court/dept/gong-bu/feasibility": { method: "POST"; path: "/api/court/dept/gong-bu/feasibility"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Gongbu Feasibility Api Court Dept Gong Bu Feasibility Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/court/dept/li-bu/recruit": { method: "POST"; path: "/api/court/dept/li-bu/recruit"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Libu Recruit Api Court Dept Li Bu Recruit Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/court/dept/swarm-dispatch": { method: "POST"; path: "/api/court/dept/swarm-dispatch"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Dept Swarm Dispatch Api Court Dept Swarm Dispatch Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/court/hubu/ask": { method: "POST"; path: "/api/court/hubu/ask"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Hubu Ask Api Court Hubu Ask Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/court/ima-knowledge": { method: "POST"; path: "/api/court/ima-knowledge"; requestBody: "#/components/schemas/_ImaKnowledgeUploadRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Ima Knowledge Upload Api Court Ima Knowledge Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/court/intel/signals/{signal_id}/dispatch": { method: "POST"; path: "/api/court/intel/signals/{signal_id}/dispatch"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Dispatch Intel Signal Api Court Intel Signals  Signal Id  Dispatch Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/court/junjichu/cases": { method: "POST"; path: "/api/court/junjichu/cases"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Junjichu Cases Api Court Junjichu Cases Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/court/orchestrate": { method: "POST"; path: "/api/court/orchestrate"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Orchestrate Api Court Orchestrate Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/court/orchestrate/all": { method: "POST"; path: "/api/court/orchestrate/all"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Orchestrate All Api Court Orchestrate All Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/court/orchestrate/sign-off": { method: "POST"; path: "/api/court/orchestrate/sign-off"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Orchestrate Sign Off Api Court Orchestrate Sign Off Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/court/register": { method: "POST"; path: "/api/court/register"; requestBody: "#/components/schemas/web__routers__court__RegisterRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Court Register Api Court Register Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/court/shiguan/analyze": { method: "POST"; path: "/api/court/shiguan/analyze"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shiguan Analyze Api Court Shiguan Analyze Post\",\"type\":\"object\"}"} };
+  "POST /api/court/shiguan/archives/{archive_id}/verdict": { method: "POST"; path: "/api/court/shiguan/archives/{archive_id}/verdict"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shiguan Archive Verdict Api Court Shiguan Archives  Archive Id  Verdict Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/critic/analyze": { method: "POST"; path: "/api/critic/analyze"; requestBody: "#/components/schemas/CriticAnalyzeRequest"; responses: {"200":"#/components/schemas/CriticAnalyzeResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/direct/execute": { method: "POST"; path: "/api/direct/execute"; requestBody: "#/components/schemas/DirectCommandRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/direct/feedback": { method: "POST"; path: "/api/direct/feedback"; requestBody: "#/components/schemas/web__routers__direct__FeedbackRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/direct/execute": { method: "POST"; path: "/api/direct/execute"; requestBody: "#/components/schemas/DirectCommandRequest"; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/direct/feedback": { method: "POST"; path: "/api/direct/feedback"; requestBody: "#/components/schemas/web__routers__direct__FeedbackRequest"; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/drafts/{draft_id}/approve": { method: "POST"; path: "/api/drafts/{draft_id}/approve"; requestBody: unknown; responses: {"200":"#/components/schemas/DraftStatusResponse","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/drafts/{draft_id}/execute": { method: "POST"; path: "/api/drafts/{draft_id}/execute"; requestBody: unknown; responses: {"200":"#/components/schemas/DraftStatusResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/drafts/{draft_id}/reject": { method: "POST"; path: "/api/drafts/{draft_id}/reject"; requestBody: "anyOf:#/components/schemas/DraftRejectRequest|null"; responses: {"200":"#/components/schemas/DraftStatusResponse","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/drafts/{draft_id}/reject": { method: "POST"; path: "/api/drafts/{draft_id}/reject"; requestBody: "inline:{\"anyOf\":[{\"$ref\":\"#/components/schemas/DraftRejectRequest\"},{\"type\":\"null\"}],\"title\":\"Body\"}"; responses: {"200":"#/components/schemas/DraftStatusResponse","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/flows": { method: "POST"; path: "/api/flows"; requestBody: "#/components/schemas/FlowCreateRequest"; responses: {"201":"#/components/schemas/FlowCreatedResponse","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/flows/test_step": { method: "POST"; path: "/api/flows/test_step"; requestBody: "#/components/schemas/TestStepRequest"; responses: {"200":"#/components/schemas/TaskAcceptedResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/gongbu/review": { method: "POST"; path: "/api/gongbu/review"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/governance/bills": { method: "POST"; path: "/api/governance/bills"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/governance/bills/{bill_id}/transition": { method: "POST"; path: "/api/governance/bills/{bill_id}/transition"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/governance/deliberate": { method: "POST"; path: "/api/governance/deliberate"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/governance/whoami": { method: "POST"; path: "/api/governance/whoami"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/hanlin/reset-demo": { method: "POST"; path: "/api/hanlin/reset-demo"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/hanlin/scouting/{candidate_id}": { method: "POST"; path: "/api/hanlin/scouting/{candidate_id}"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/intel/brief": { method: "POST"; path: "/api/intel/brief"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/intel/evidence/fill-gap": { method: "POST"; path: "/api/intel/evidence/fill-gap"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/knowledge/index": { method: "POST"; path: "/api/knowledge/index"; requestBody: unknown; responses: {"409":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/knowledge/upload": { method: "POST"; path: "/api/knowledge/upload"; requestBody: unknown; responses: {"409":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/kpi/business/{run_id}": { method: "POST"; path: "/api/kpi/business/{run_id}"; requestBody: "#/components/schemas/BusinessOutcomeRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/kpi/calibration": { method: "POST"; path: "/api/kpi/calibration"; requestBody: "#/components/schemas/CalibrationRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/legal/verdict": { method: "POST"; path: "/api/legal/verdict"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/legal/verdict/from-text": { method: "POST"; path: "/api/legal/verdict/from-text"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/libu/appointment/verdict": { method: "POST"; path: "/api/libu/appointment/verdict"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/libu/recruit/verdict": { method: "POST"; path: "/api/libu/recruit/verdict"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/local-ai/ask": { method: "POST"; path: "/api/local-ai/ask"; requestBody: "#/components/schemas/LocalAIAskRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/local-ai/index-courtos-brain": { method: "POST"; path: "/api/local-ai/index-courtos-brain"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/manor/analyze": { method: "POST"; path: "/api/manor/analyze"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/manor/stream": { method: "POST"; path: "/api/manor/stream"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/memory": { method: "POST"; path: "/api/memory"; requestBody: "#/components/schemas/MemoryCreateRequest"; responses: {"201":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/memory/rebuild-index": { method: "POST"; path: "/api/memory/rebuild-index"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/memory/search": { method: "POST"; path: "/api/memory/search"; requestBody: "#/components/schemas/MemorySearchRequest"; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/metrics": { method: "POST"; path: "/api/metrics"; requestBody: "#/components/schemas/MetricEventRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/orchestration/run": { method: "POST"; path: "/api/orchestration/run"; requestBody: "#/components/schemas/OrchestrationRunRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/preferences/{user_id}": { method: "POST"; path: "/api/preferences/{user_id}"; requestBody: "#/components/schemas/PreferenceUpdateRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/preferences/{user_id}/accepted-designs": { method: "POST"; path: "/api/preferences/{user_id}/accepted-designs"; requestBody: "#/components/schemas/AcceptedDesignRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/preferences/{user_id}/corrections": { method: "POST"; path: "/api/preferences/{user_id}/corrections"; requestBody: "#/components/schemas/CorrectionRecordRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/preferences/{user_id}/suggest-flow": { method: "POST"; path: "/api/preferences/{user_id}/suggest-flow"; requestBody: "#/components/schemas/SuggestFlowRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/prompt/suggest": { method: "POST"; path: "/api/prompt/suggest"; requestBody: "#/components/schemas/PromptSuggestRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/gongbu/review": { method: "POST"; path: "/api/gongbu/review"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Gongbu Review Api Gongbu Review Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/governance/bills": { method: "POST"; path: "/api/governance/bills"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Governance Create Bill Api Governance Bills Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/governance/bills/{bill_id}/transition": { method: "POST"; path: "/api/governance/bills/{bill_id}/transition"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/governance/deliberate": { method: "POST"; path: "/api/governance/deliberate"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Governance Deliberate Api Governance Deliberate Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/governance/whoami": { method: "POST"; path: "/api/governance/whoami"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Governance Set Actor Api Governance Whoami Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/hanlin/reset-demo": { method: "POST"; path: "/api/hanlin/reset-demo"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Reset Demo Api Hanlin Reset Demo Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/hanlin/scouting/{candidate_id}": { method: "POST"; path: "/api/hanlin/scouting/{candidate_id}"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/intel/brief": { method: "POST"; path: "/api/intel/brief"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Intel Brief Api Intel Brief Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/intel/evidence/fill-gap": { method: "POST"; path: "/api/intel/evidence/fill-gap"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Intel Evidence Fill Gap Api Intel Evidence Fill Gap Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/knowledge/index": { method: "POST"; path: "/api/knowledge/index"; requestBody: unknown; responses: {"409":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/knowledge/upload": { method: "POST"; path: "/api/knowledge/upload"; requestBody: unknown; responses: {"409":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/kpi/business/{run_id}": { method: "POST"; path: "/api/kpi/business/{run_id}"; requestBody: "#/components/schemas/BusinessOutcomeRequest"; responses: {"200":"inline:{\"additionalProperties\":{\"type\":\"string\"},\"title\":\"Response Kpi Record Outcome Api Kpi Business  Run Id  Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/kpi/calibration": { method: "POST"; path: "/api/kpi/calibration"; requestBody: "#/components/schemas/CalibrationRequest"; responses: {"200":"inline:{\"additionalProperties\":{\"type\":\"string\"},\"title\":\"Response Kpi Add Calibration Api Kpi Calibration Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/legal/verdict": { method: "POST"; path: "/api/legal/verdict"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Legal Verdict Api Legal Verdict Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/legal/verdict/from-text": { method: "POST"; path: "/api/legal/verdict/from-text"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Legal Verdict From Text Api Legal Verdict From Text Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/libu/appointment/verdict": { method: "POST"; path: "/api/libu/appointment/verdict"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Libu Appointment Verdict Api Libu Appointment Verdict Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/libu/recruit/verdict": { method: "POST"; path: "/api/libu/recruit/verdict"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Libu Recruit Verdict Api Libu Recruit Verdict Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/local-ai/ask": { method: "POST"; path: "/api/local-ai/ask"; requestBody: "#/components/schemas/LocalAIAskRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Local Ai Ask Api Local Ai Ask Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/local-ai/index-courtos-brain": { method: "POST"; path: "/api/local-ai/index-courtos-brain"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Local Ai Index Courtos Brain Api Local Ai Index Courtos Brain Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/manor/analyze": { method: "POST"; path: "/api/manor/analyze"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Manor Analyze Api Manor Analyze Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/manor/stream": { method: "POST"; path: "/api/manor/stream"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/memory": { method: "POST"; path: "/api/memory"; requestBody: "#/components/schemas/MemoryCreateRequest"; responses: {"201":"inline:{\"additionalProperties\":true,\"title\":\"Response Memory Create Api Memory Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/memory/rebuild-index": { method: "POST"; path: "/api/memory/rebuild-index"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Memory Rebuild Index Api Memory Rebuild Index Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/memory/search": { method: "POST"; path: "/api/memory/search"; requestBody: "#/components/schemas/MemorySearchRequest"; responses: {"200":"inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Memory Search Api Memory Search Post\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/metrics": { method: "POST"; path: "/api/metrics"; requestBody: "#/components/schemas/MetricEventRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Ingest Metric Api Metrics Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/orchestration/run": { method: "POST"; path: "/api/orchestration/run"; requestBody: "#/components/schemas/OrchestrationRunRequest"; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/preferences/{user_id}": { method: "POST"; path: "/api/preferences/{user_id}"; requestBody: "#/components/schemas/PreferenceUpdateRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Update User Preference Api Preferences  User Id  Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/preferences/{user_id}/accepted-designs": { method: "POST"; path: "/api/preferences/{user_id}/accepted-designs"; requestBody: "#/components/schemas/AcceptedDesignRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Record Accepted Design Api Preferences  User Id  Accepted Designs Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/preferences/{user_id}/corrections": { method: "POST"; path: "/api/preferences/{user_id}/corrections"; requestBody: "#/components/schemas/CorrectionRecordRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Record Correction Api Preferences  User Id  Corrections Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/preferences/{user_id}/suggest-flow": { method: "POST"; path: "/api/preferences/{user_id}/suggest-flow"; requestBody: "#/components/schemas/SuggestFlowRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Suggest Flow From Preference Api Preferences  User Id  Suggest Flow Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/prompt/suggest": { method: "POST"; path: "/api/prompt/suggest"; requestBody: "#/components/schemas/PromptSuggestRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Prompt Suggest Api Prompt Suggest Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/prompts/{key}/files/{filename}/accept": { method: "POST"; path: "/api/prompts/{key}/files/{filename}/accept"; requestBody: unknown; responses: {"200":"#/components/schemas/PromptProposalActionResponse","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/prompts/{key}/files/{filename}/reject": { method: "POST"; path: "/api/prompts/{key}/files/{filename}/reject"; requestBody: unknown; responses: {"200":"#/components/schemas/PromptProposalActionResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/prompts/upgrades/check": { method: "POST"; path: "/api/prompts/upgrades/check"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/qintian/chat": { method: "POST"; path: "/api/qintian/chat"; requestBody: "#/components/schemas/QintianChatRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/qintian/chat-legacy": { method: "POST"; path: "/api/qintian/chat-legacy"; requestBody: "#/components/schemas/QintianChatRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/qintian/scenarios/generate": { method: "POST"; path: "/api/qintian/scenarios/generate"; requestBody: unknown; responses: {"200":"object"} };
-  "POST /api/qintianjian/forecast": { method: "POST"; path: "/api/qintianjian/forecast"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/qintianjian/triggers/{trigger_id}/resolve": { method: "POST"; path: "/api/qintianjian/triggers/{trigger_id}/resolve"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/quotation/verdict": { method: "POST"; path: "/api/quotation/verdict"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/prompts/upgrades/check": { method: "POST"; path: "/api/prompts/upgrades/check"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Prompt Upgrade Check Api Prompts Upgrades Check Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/qintian/chat": { method: "POST"; path: "/api/qintian/chat"; requestBody: "#/components/schemas/QintianChatRequest"; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/qintian/chat-legacy": { method: "POST"; path: "/api/qintian/chat-legacy"; requestBody: "#/components/schemas/QintianChatRequest"; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/qintian/scenarios/generate": { method: "POST"; path: "/api/qintian/scenarios/generate"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Qintian Scenarios Generate Api Qintian Scenarios Generate Post\",\"type\":\"object\"}"} };
+  "POST /api/qintianjian/forecast": { method: "POST"; path: "/api/qintianjian/forecast"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Qintianjian Forecast Api Qintianjian Forecast Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/qintianjian/triggers/{trigger_id}/resolve": { method: "POST"; path: "/api/qintianjian/triggers/{trigger_id}/resolve"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Qintianjian Resolve Trigger Api Qintianjian Triggers  Trigger Id  Resolve Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/quotation/verdict": { method: "POST"; path: "/api/quotation/verdict"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Quotation Verdict Api Quotation Verdict Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/requirements/save": { method: "POST"; path: "/api/requirements/save"; requestBody: "#/components/schemas/RequirementSaveRequest"; responses: {"200":"#/components/schemas/RequirementSaveResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/resources/profile": { method: "POST"; path: "/api/resources/profile"; requestBody: "#/components/schemas/ResourceProfileUpdateRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/resources/profile": { method: "POST"; path: "/api/resources/profile"; requestBody: "#/components/schemas/ResourceProfileUpdateRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Update Resource Profile Api Resources Profile Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/run": { method: "POST"; path: "/api/run"; requestBody: "#/components/schemas/RunFlowRequest"; responses: {"202":"#/components/schemas/RunFlowResponse","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/runs/{run_id}/feedback": { method: "POST"; path: "/api/runs/{run_id}/feedback"; requestBody: "#/components/schemas/web__schemas__runs__FeedbackRequest"; responses: {"200":"#/components/schemas/FeedbackSaveResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/runs/{run_id}/optimize/apply": { method: "POST"; path: "/api/runs/{run_id}/optimize/apply"; requestBody: "#/components/schemas/OptimizeApplyRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/runs/{run_id}/repair": { method: "POST"; path: "/api/runs/{run_id}/repair"; requestBody: "#/components/schemas/RepairRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/runs/{run_id}/repair/async": { method: "POST"; path: "/api/runs/{run_id}/repair/async"; requestBody: "#/components/schemas/RepairRequest"; responses: {"200":"anyOf:#/components/schemas/TaskAcceptedResponse|object","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/runs/{run_id}/optimize/apply": { method: "POST"; path: "/api/runs/{run_id}/optimize/apply"; requestBody: "#/components/schemas/OptimizeApplyRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Optimize Apply Api Runs  Run Id  Optimize Apply Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/runs/{run_id}/repair": { method: "POST"; path: "/api/runs/{run_id}/repair"; requestBody: "#/components/schemas/RepairRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Repair Api Runs  Run Id  Repair Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/runs/{run_id}/repair/async": { method: "POST"; path: "/api/runs/{run_id}/repair/async"; requestBody: "#/components/schemas/RepairRequest"; responses: {"200":"inline:{\"anyOf\":[{\"$ref\":\"#/components/schemas/TaskAcceptedResponse\"},{\"additionalProperties\":true,\"type\":\"object\"}],\"title\":\"Response Api Repair Async Api Runs  Run Id  Repair Async Post\"}","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/runs/{run_id}/rerun": { method: "POST"; path: "/api/runs/{run_id}/rerun"; requestBody: "#/components/schemas/RerunRequest"; responses: {"200":"#/components/schemas/RerunResponse","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/runs/async": { method: "POST"; path: "/api/runs/async"; requestBody: "#/components/schemas/RunAsyncRequest"; responses: {"200":"#/components/schemas/TaskAcceptedResponse","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/runs/stream/{task_id}/approve": { method: "POST"; path: "/api/runs/stream/{task_id}/approve"; requestBody: unknown; responses: {"200":"#/components/schemas/OkResponse","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/runs/stream/{task_id}/openclaw_proceed": { method: "POST"; path: "/api/runs/stream/{task_id}/openclaw_proceed"; requestBody: unknown; responses: {"200":"#/components/schemas/OkResponse","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/runs/stream/{task_id}/openclaw_reply": { method: "POST"; path: "/api/runs/stream/{task_id}/openclaw_reply"; requestBody: "#/components/schemas/OpenClawReplyRequest"; responses: {"200":"#/components/schemas/OkResponse","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/runs/stream/{task_id}/reject": { method: "POST"; path: "/api/runs/stream/{task_id}/reject"; requestBody: unknown; responses: {"200":"#/components/schemas/OkResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/scribe/annals": { method: "POST"; path: "/api/scribe/annals"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/shangshufang/briefs/{brief_id}/decision": { method: "POST"; path: "/api/shangshufang/briefs/{brief_id}/decision"; requestBody: "#/components/schemas/BriefDecisionAdvanceRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/shangshufang/briefs/{brief_id}/decision/advance": { method: "POST"; path: "/api/shangshufang/briefs/{brief_id}/decision/advance"; requestBody: "#/components/schemas/BriefDecisionAdvanceRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/shangshufang/chancellor-chat": { method: "POST"; path: "/api/shangshufang/chancellor-chat"; requestBody: "#/components/schemas/ChancellorChatRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/shangshufang/confirm-edict": { method: "POST"; path: "/api/shangshufang/confirm-edict"; requestBody: "#/components/schemas/ConfirmEdictRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/shangshufang/draft-edict": { method: "POST"; path: "/api/shangshufang/draft-edict"; requestBody: "#/components/schemas/DraftEdictRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/shangshufang/edict-return": { method: "POST"; path: "/api/shangshufang/edict-return"; requestBody: "#/components/schemas/EdictReturnRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/shangshufang/finance-intel-loop/complete": { method: "POST"; path: "/api/shangshufang/finance-intel-loop/complete"; requestBody: "#/components/schemas/FinanceIntelLoopCompleteRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/shangshufang/finance-reporting-loop": { method: "POST"; path: "/api/shangshufang/finance-reporting-loop"; requestBody: "#/components/schemas/FinanceReportingLoopRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/shangshufang/finance-status-memorial": { method: "POST"; path: "/api/shangshufang/finance-status-memorial"; requestBody: "#/components/schemas/FinanceStatusMemorialRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/shangshufang/im": { method: "POST"; path: "/api/shangshufang/im"; requestBody: "#/components/schemas/ImPersistRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/shangshufang/pack-swarm-loop": { method: "POST"; path: "/api/shangshufang/pack-swarm-loop"; requestBody: "#/components/schemas/PackSwarmLoopRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/shangshufang/polish-edict": { method: "POST"; path: "/api/shangshufang/polish-edict"; requestBody: "#/components/schemas/PolishEdictRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/shangshufang/research-budget-loop": { method: "POST"; path: "/api/shangshufang/research-budget-loop"; requestBody: "#/components/schemas/ResearchBudgetLoopRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/shangshufang/tasks/{task_id}/decision": { method: "POST"; path: "/api/shangshufang/tasks/{task_id}/decision"; requestBody: "#/components/schemas/DecisionRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/shangshufang/tasks/{task_id}/swarm-deepen": { method: "POST"; path: "/api/shangshufang/tasks/{task_id}/swarm-deepen"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/shiguan/archives/{archive_id}/retrospective": { method: "POST"; path: "/api/shiguan/archives/{archive_id}/retrospective"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/swarm-runs": { method: "POST"; path: "/api/swarm-runs"; requestBody: "anyOf:#/components/schemas/CreateSwarmRunRequest|null"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/swarm-runs/{swarm_run_id}/retry": { method: "POST"; path: "/api/swarm-runs/{swarm_run_id}/retry"; requestBody: unknown; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/swarm-runs/serial": { method: "POST"; path: "/api/swarm-runs/serial"; requestBody: "anyOf:#/components/schemas/SerialLoopRequest|null"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/swarm/lipu/compliance-report": { method: "POST"; path: "/api/swarm/lipu/compliance-report"; requestBody: "#/components/schemas/LipuComplianceRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/scribe/annals": { method: "POST"; path: "/api/scribe/annals"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Scribe Annals Api Scribe Annals Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/secure-ingest/{artifact_id}/ticket": { method: "POST"; path: "/api/secure-ingest/{artifact_id}/ticket"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Issue Ticket Api Secure Ingest  Artifact Id  Ticket Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/secure-ingest/upload": { method: "POST"; path: "/api/secure-ingest/upload"; requestBody: unknown; responses: {"200":"#/components/schemas/IngestArtifactV1","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/shangshufang/briefs/{brief_id}/decision": { method: "POST"; path: "/api/shangshufang/briefs/{brief_id}/decision"; requestBody: "#/components/schemas/BriefDecisionAdvanceRequest"; responses: {"200":"#/components/schemas/TaskDecisionResponse","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/shangshufang/briefs/{brief_id}/decision/advance": { method: "POST"; path: "/api/shangshufang/briefs/{brief_id}/decision/advance"; requestBody: "#/components/schemas/BriefDecisionAdvanceRequest"; responses: {"200":"#/components/schemas/TaskDecisionResponse","404":"unknown","409":"unknown","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/shangshufang/chancellor-chat": { method: "POST"; path: "/api/shangshufang/chancellor-chat"; requestBody: "#/components/schemas/ChancellorChatRequest"; responses: {"200":"inline:{}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/shangshufang/confirm-edict": { method: "POST"; path: "/api/shangshufang/confirm-edict"; requestBody: "#/components/schemas/ConfirmEdictRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Confirm Edict Api Shangshufang Confirm Edict Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/shangshufang/draft-edict": { method: "POST"; path: "/api/shangshufang/draft-edict"; requestBody: "#/components/schemas/DraftEdictRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Draft Edict Api Shangshufang Draft Edict Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/shangshufang/edict-return": { method: "POST"; path: "/api/shangshufang/edict-return"; requestBody: "#/components/schemas/EdictReturnRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Edict Return Api Shangshufang Edict Return Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/shangshufang/finance-intel-loop/complete": { method: "POST"; path: "/api/shangshufang/finance-intel-loop/complete"; requestBody: "#/components/schemas/FinanceIntelLoopCompleteRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Finance Intel Loop Complete Api Shangshufang Finance Intel Loop Complete Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/shangshufang/finance-reporting-loop": { method: "POST"; path: "/api/shangshufang/finance-reporting-loop"; requestBody: "#/components/schemas/FinanceReportingLoopRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Finance Reporting Loop Api Shangshufang Finance Reporting Loop Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/shangshufang/finance-status-memorial": { method: "POST"; path: "/api/shangshufang/finance-status-memorial"; requestBody: "#/components/schemas/FinanceStatusMemorialRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Finance Status Memorial Api Shangshufang Finance Status Memorial Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/shangshufang/im": { method: "POST"; path: "/api/shangshufang/im"; requestBody: "#/components/schemas/ImPersistRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Im Persist Api Shangshufang Im Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/shangshufang/pack-swarm-loop": { method: "POST"; path: "/api/shangshufang/pack-swarm-loop"; requestBody: "#/components/schemas/PackSwarmLoopRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Pack Swarm Loop Api Shangshufang Pack Swarm Loop Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/shangshufang/polish-edict": { method: "POST"; path: "/api/shangshufang/polish-edict"; requestBody: "#/components/schemas/PolishEdictRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Polish Edict Api Shangshufang Polish Edict Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/shangshufang/research-budget-loop": { method: "POST"; path: "/api/shangshufang/research-budget-loop"; requestBody: "#/components/schemas/ResearchBudgetLoopRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Research Budget Loop Api Shangshufang Research Budget Loop Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/shangshufang/tasks/{task_id}/decision": { method: "POST"; path: "/api/shangshufang/tasks/{task_id}/decision"; requestBody: "#/components/schemas/DecisionRequest"; responses: {"200":"#/components/schemas/TaskDecisionResponse","404":"unknown","409":"unknown","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/shangshufang/tasks/{task_id}/rework-generations/{generation_id}/evidence": { method: "POST"; path: "/api/shangshufang/tasks/{task_id}/rework-generations/{generation_id}/evidence"; requestBody: "#/components/schemas/EvidenceBindRequest"; responses: {"200":"#/components/schemas/EvidenceBindResponse","403":"unknown","404":"unknown","409":"unknown","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/shangshufang/tasks/{task_id}/swarm-deepen": { method: "POST"; path: "/api/shangshufang/tasks/{task_id}/swarm-deepen"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Swarm Deepen Api Shangshufang Tasks  Task Id  Swarm Deepen Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/shiguan/archives/{archive_id}/retrospective": { method: "POST"; path: "/api/shiguan/archives/{archive_id}/retrospective"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Shiguan Retrospective Api Shiguan Archives  Archive Id  Retrospective Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/swarm-runs": { method: "POST"; path: "/api/swarm-runs"; requestBody: "inline:{\"anyOf\":[{\"$ref\":\"#/components/schemas/CreateSwarmRunRequest\"},{\"type\":\"null\"}],\"title\":\"Body\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Create Swarm Run Api Swarm Runs Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/swarm-runs/{swarm_run_id}/retry": { method: "POST"; path: "/api/swarm-runs/{swarm_run_id}/retry"; requestBody: unknown; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Retry Swarm Run Api Swarm Runs  Swarm Run Id  Retry Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/swarm-runs/serial": { method: "POST"; path: "/api/swarm-runs/serial"; requestBody: "inline:{\"anyOf\":[{\"$ref\":\"#/components/schemas/SerialLoopRequest\"},{\"type\":\"null\"}],\"title\":\"Body\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Create Serial Loop Api Swarm Runs Serial Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/swarm/lipu/compliance-report": { method: "POST"; path: "/api/swarm/lipu/compliance-report"; requestBody: "#/components/schemas/LipuComplianceRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Api Lipu Compliance Report Api Swarm Lipu Compliance Report Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/swarm/run": { method: "POST"; path: "/api/swarm/run"; requestBody: "#/components/schemas/SwarmRunRequest"; responses: {"202":"#/components/schemas/SwarmRunResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/task-protocol/preview": { method: "POST"; path: "/api/task-protocol/preview"; requestBody: "#/components/schemas/TaskProtocolPreviewRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/task-protocol/preview": { method: "POST"; path: "/api/task-protocol/preview"; requestBody: "#/components/schemas/TaskProtocolPreviewRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Preview Task Protocol Api Task Protocol Preview Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/throne/runs/{run_id}/digest": { method: "POST"; path: "/api/throne/runs/{run_id}/digest"; requestBody: unknown; responses: {"200":"#/components/schemas/DigestResponse","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/throne/runs/{run_id}/transfer": { method: "POST"; path: "/api/throne/runs/{run_id}/transfer"; requestBody: "#/components/schemas/TransferRequest"; responses: {"201":"#/components/schemas/TransferResponse","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/voice/process": { method: "POST"; path: "/api/voice/process"; requestBody: unknown; responses: {"200":"#/components/schemas/VoiceProcessResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/votes/proposals": { method: "POST"; path: "/api/votes/proposals"; requestBody: "#/components/schemas/ProposalCreateRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/votes/proposals": { method: "POST"; path: "/api/votes/proposals"; requestBody: "#/components/schemas/ProposalCreateRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Create Proposal Api Votes Proposals Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
   "POST /api/votes/proposals/{proposal_id}/vote": { method: "POST"; path: "/api/votes/proposals/{proposal_id}/vote"; requestBody: "#/components/schemas/VoteRequest"; responses: {"200":"#/components/schemas/VoteResult","422":"#/components/schemas/HTTPValidationError"} };
-  "POST /api/yushi/review": { method: "POST"; path: "/api/yushi/review"; requestBody: "object"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "POST /api/yushi/review": { method: "POST"; path: "/api/yushi/review"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Yushi Review Api Yushi Review Post\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
   "POST /v1/chat/completions": { method: "POST"; path: "/v1/chat/completions"; requestBody: "#/components/schemas/ChatCompletionRequest"; responses: {"200":"#/components/schemas/ChatCompletionResponse","422":"#/components/schemas/HTTPValidationError"} };
   "PUT /api/admin/depts/{dept_id}": { method: "PUT"; path: "/api/admin/depts/{dept_id}"; requestBody: "#/components/schemas/DeptNameRequest"; responses: {"200":"#/components/schemas/DeptInfo","422":"#/components/schemas/HTTPValidationError"} };
-  "PUT /api/admin/depts/{dept_id}/flows": { method: "PUT"; path: "/api/admin/depts/{dept_id}/flows"; requestBody: "#/components/schemas/DeptFlowsRequest"; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "PUT /api/admin/users/{user_id}/depts": { method: "PUT"; path: "/api/admin/users/{user_id}/depts"; requestBody: "#/components/schemas/UserDeptsRequest"; responses: {"200":"array","422":"#/components/schemas/HTTPValidationError"} };
-  "PUT /api/feature-flags/{name}": { method: "PUT"; path: "/api/feature-flags/{name}"; requestBody: "#/components/schemas/FeatureFlagUpdateRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
-  "PUT /api/flows/{filename}": { method: "PUT"; path: "/api/flows/{filename}"; requestBody: "object"; responses: {"200":"#/components/schemas/FlowUpdateResponse","422":"#/components/schemas/HTTPValidationError"} };
-  "PUT /api/memory/{filename}": { method: "PUT"; path: "/api/memory/{filename}"; requestBody: "#/components/schemas/MemoryUpdateRequest"; responses: {"200":"object","422":"#/components/schemas/HTTPValidationError"} };
+  "PUT /api/admin/depts/{dept_id}/flows": { method: "PUT"; path: "/api/admin/depts/{dept_id}/flows"; requestBody: "#/components/schemas/DeptFlowsRequest"; responses: {"200":"inline:{\"items\":{\"type\":\"string\"},\"title\":\"Response Api Set Dept Flows Api Admin Depts  Dept Id  Flows Put\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "PUT /api/admin/users/{user_id}/depts": { method: "PUT"; path: "/api/admin/users/{user_id}/depts"; requestBody: "#/components/schemas/UserDeptsRequest"; responses: {"200":"inline:{\"items\":{\"$ref\":\"#/components/schemas/DeptRef\"},\"title\":\"Response Api Set User Depts Api Admin Users  User Id  Depts Put\",\"type\":\"array\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "PUT /api/feature-flags/{name}": { method: "PUT"; path: "/api/feature-flags/{name}"; requestBody: "#/components/schemas/FeatureFlagUpdateRequest"; responses: {"200":"inline:{\"additionalProperties\":{\"type\":\"string\"},\"title\":\"Response Update Feature Flag Api Feature Flags  Name  Put\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
+  "PUT /api/flows/{filename}": { method: "PUT"; path: "/api/flows/{filename}"; requestBody: "inline:{\"additionalProperties\":true,\"title\":\"Data\",\"type\":\"object\"}"; responses: {"200":"#/components/schemas/FlowUpdateResponse","422":"#/components/schemas/HTTPValidationError"} };
+  "PUT /api/memory/{filename}": { method: "PUT"; path: "/api/memory/{filename}"; requestBody: "#/components/schemas/MemoryUpdateRequest"; responses: {"200":"inline:{\"additionalProperties\":true,\"title\":\"Response Memory Update Api Memory  Filename  Put\",\"type\":\"object\"}","422":"#/components/schemas/HTTPValidationError"} };
   "PUT /api/prompts/{key}": { method: "PUT"; path: "/api/prompts/{key}"; requestBody: "#/components/schemas/PromptUpdateRequest"; responses: {"200":"#/components/schemas/PromptUpdateResponse","422":"#/components/schemas/HTTPValidationError"} };
   "PUT /api/prompts/{key}/files/{filename}": { method: "PUT"; path: "/api/prompts/{key}/files/{filename}"; requestBody: "#/components/schemas/PromptFileSaveRequest"; responses: {"200":"#/components/schemas/PromptFileSaveResponse","422":"#/components/schemas/HTTPValidationError"} };
   "PUT /api/runs/{run_id}/final-output": { method: "PUT"; path: "/api/runs/{run_id}/final-output"; requestBody: "#/components/schemas/EditFinalOutputRequest"; responses: {"200":"#/components/schemas/EditFinalOutputResponse","422":"#/components/schemas/HTTPValidationError"} };

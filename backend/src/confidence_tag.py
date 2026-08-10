@@ -52,6 +52,10 @@ _DATE_SUFFIX = re.compile(r"[年月日号]")
 
 # 已带章标记：用于幂等检查，避免对已打章的数字重复加章。
 _EXISTING_MARK = re.compile(r"\[(?:一手|二手|推算|待核)")
+_ASCII_ALPHA = re.compile(r"[A-Za-z]")
+_JOINER_LEFT = re.compile(r"[0-9A-Za-z]")
+_ORDINAL_TAIL = re.compile(r"[.、)）|]")
+_LINE_HEAD = re.compile(r"[ \t>*-]*#{0,6}[ \t]*$")
 
 
 class TierResult(TypedDict):
@@ -102,6 +106,34 @@ def classify(claim: str, sources: Optional[list]) -> TierResult:
     return TierResult(tier=tier, mark=_mark_for(tier, sources))
 
 
+def _line_prefix(text: str, start: int) -> str:
+    """Return the prefix of the physical or escaped-newline line."""
+    physical = text.rfind("\n", 0, start)
+    escaped = text.rfind("\\n", 0, start)
+    boundary = max(physical, escaped + 1)
+    return text[boundary + 1 : start] if boundary >= 0 else text[:start]
+
+
+def _is_business_number(text: str, start: int, tail: str) -> bool:
+    """Exclude bare numbers that are parts of dates, identifiers or ordinals."""
+    previous = text[start - 1] if start > 0 else ""
+    previous_two = text[start - 2] if start > 1 else ""
+
+    if tail[:1] and _DATE_SUFFIX.match(tail[:1]):
+        return False
+    if _ASCII_ALPHA.match(previous) or (tail[:1] and _ASCII_ALPHA.match(tail[:1])):
+        return False
+    if previous == "-" and _JOINER_LEFT.match(previous_two):
+        return False
+    if len(tail) >= 2 and tail[0] == "-" and tail[1].isdigit():
+        return False
+    if tail[:1] and _ORDINAL_TAIL.match(tail[:1]) and _LINE_HEAD.match(
+        _line_prefix(text, start)
+    ):
+        return False
+    return True
+
+
 def tag_confidence(text: str, sources: Optional[list] = None) -> str:
     """给文本里每个硬数字打可信度章。
 
@@ -119,13 +151,13 @@ def tag_confidence(text: str, sources: Optional[list] = None) -> str:
         # 跳过空匹配
         if not token.strip():
             return token
-        end = m.end()
+        start, end = m.start(), m.end()
         tail = text[end : end + 6]
-        # 跳过日期锚：无业务单位且后面紧跟「年/月/日/号」（如 2025年、3月、15日）
-        if not m.group("unit") and tail[:1] and _DATE_SUFFIX.match(tail[:1]):
-            return token
         # 跳过紧跟在已有章后的、或本身已被章包裹的数字（幂等）
         if _EXISTING_MARK.match(tail):
+            return token
+        unit = m.group("unit")
+        if (not unit or unit == "个") and not _is_business_number(text, start, tail):
             return token
         return f"{token}{mark}"
 

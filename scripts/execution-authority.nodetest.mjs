@@ -103,12 +103,22 @@ test('v1 authority is an inactive fail-closed guard and cannot self-authorize', 
 });
 
 test('governed entry and product documents cannot remove amendment semantics', () => {
+  const semanticMarkers = [
+    'V1_CHECK_INTEGRITY_ONLY_NON_AUTHORIZING',
+    'V2_SCOPED_AUTHORIZE_SOLE_PRODUCT_DECISION',
+  ];
   assert.deepEqual(
     validateGovernedDocumentContent(
       'AGENTS.md',
-      'read .harness/agents/project-owner.md\nrun node scripts/execution-authority.mjs --authorize\n',
+      `read .harness/agents/project-owner.md\nrun node scripts/execution-authority.mjs --check\nrun node scripts/execution-authority-v2.mjs --authorize --work-package <R0-Wxx>\n${semanticMarkers.join('\n')}\n`,
     ),
     [],
+  );
+  assert.ok(
+    validateGovernedDocumentContent(
+      'AGENTS.md',
+      'run node scripts/execution-authority.mjs --check\nrun node scripts/execution-authority-v2.mjs --authorize --work-package <R0-Wxx>\n',
+    ).some((message) => message.includes('V1_CHECK_INTEGRITY_ONLY_NON_AUTHORIZING')),
   );
   assert.ok(
     validateGovernedDocumentContent('AGENTS.md', '# direct implementation allowed\n').length > 0,
@@ -254,9 +264,35 @@ test('project manifest and policy consumers expose a fail-closed authority gate'
     join(root, '.harness/templates/change-template/summary.md'),
     'utf8',
   );
-  assert.match(owner, /node scripts\/execution-authority\.mjs --authorize/);
-  assert.match(workflow, /node scripts\/execution-authority\.mjs --authorize/);
+  for (const [path, source] of [
+    ['AGENTS.md', await readFile(join(root, 'AGENTS.md'), 'utf8')],
+    ['.harness/agents/project-owner.md', owner],
+    ['.harness/rules/project-workflow.md', workflow],
+    ['.harness/wiki/harness-inventory.md', await readFile(join(root, '.harness/wiki/harness-inventory.md'), 'utf8')],
+  ]) {
+    assert.match(source, /node scripts\/execution-authority\.mjs --check/, path);
+    assert.match(
+      source,
+      /node scripts\/execution-authority-v2\.mjs --authorize --work-package <R0-Wxx>/,
+      path,
+    );
+    assert.match(source, /V1_CHECK_INTEGRITY_ONLY_NON_AUTHORIZING/, path);
+    assert.match(source, /V2_SCOPED_AUTHORIZE_SOLE_PRODUCT_DECISION/, path);
+    assert.doesNotMatch(source, /node scripts\/execution-authority\.mjs --authorize/, path);
+  }
   assert.match(template, /NOT_GRANTED_BY_CHANGE_RECORD/);
+});
+
+test('Task 1 keeps its non-approval scope record separate from Task 2A W06 approval evidence', async () => {
+  const changeRoot = join(root, '.harness/changes/fix-ext-g0-authority-recovery-20260725');
+  const entries = await readdir(changeRoot, { withFileTypes: true });
+  assert.ok(entries.some((entry) => entry.isDirectory() && entry.name === 'owner_scope'));
+  assert.ok(entries.some((entry) => entry.isDirectory() && entry.name === 'owner_approval'));
+  const boundary = await readFile(join(changeRoot, 'owner_scope/recovery-boundary.md'), 'utf8');
+  assert.match(boundary, /Product authorization \| Not granted/);
+  const approval = await readFile(join(changeRoot, 'owner_approval/exact-h-approval.md'), 'utf8');
+  assert.match(approval, /Product Owner Exact-H Approval: R0-W06 Recovery/);
+  assert.match(approval, /"workPackage": "R0-W06"/);
 });
 
 test('CLI validates the manifest but denies canonical execution while v1 is inactive', () => {

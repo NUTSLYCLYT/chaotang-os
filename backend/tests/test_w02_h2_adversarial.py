@@ -15,11 +15,12 @@ from src.contracts.mission_contract import (
     MissionOutcome,
     compute_mission_content_digest,
 )
+from src.db.models import DecisionTask
 
 
 def _mission(*, task_id: str = "task-a", required_artifacts: list[str] | None = None, **overrides) -> MissionContractV1:
     values = dict(
-        mission_contract_id="mission-1",
+        mission_contract_id=task_id,
         task_id=task_id,
         revision=1,
         jurisdiction="CN_MAINLAND",
@@ -43,40 +44,72 @@ def _mission(*, task_id: str = "task-a", required_artifacts: list[str] | None = 
     return MissionContractV1(**values)
 
 
+def _seed_task(
+    isolated_session_local,
+    *,
+    task_id: str = "task-a",
+    tenant_id: int = 1,
+    user_id: str = "tenant-a",
+) -> None:
+    with isolated_session_local() as db:
+        db.add(
+            DecisionTask(
+                id=task_id,
+                tenant_id=tenant_id,
+                user_id=user_id,
+                raw_question="test contract",
+                status="awaiting_emperor_confirm",
+                source_label="LIVE",
+            )
+        )
+        db.commit()
+
+
 def test_mission_digest_binds_task_identity() -> None:
     assert compute_mission_content_digest(_mission(task_id="task-a")) != compute_mission_content_digest(
         _mission(task_id="task-b")
     )
 
 
-def test_unsupported_mission_cannot_be_drafted_as_supported() -> None:
+def test_unsupported_mission_cannot_be_drafted_as_supported(
+    isolated_session_local,
+) -> None:
     from web.routers import contracts
     from web.schemas.auth import CurrentUser
+    from web.schemas.contracts import MissionConfirmRequest
 
-    contracts._MISSION_DRAFT_STORE.clear()
-    contracts._MISSION_LINEAGE_STORE.clear()
+    _seed_task(isolated_session_local)
     unsupported = _mission(jurisdiction="UNSUPPORTED_OR_UNKNOWN")
-    contracts.draft_mission_contract(
+    drafted = contracts.draft_mission_contract(
         unsupported,
         CurrentUser(tenant_slug="tenant-a", tenant_id=1),
     )
-    assert contracts._MISSION_LINEAGE_STORE[("tenant-a", "mission-1")].support_status == "DECLINED"
+    lineage = contracts.confirm_mission_contract(
+        "task-a",
+        MissionConfirmRequest(
+            revision=drafted.revision,
+            content_digest=drafted.content_digest,
+        ),
+        CurrentUser(tenant_slug="tenant-a", tenant_id=1),
+    )
+    assert lineage.support_status == "DECLINED"
 
 
-def test_tenant_cannot_confirm_another_tenants_mission() -> None:
+def test_tenant_cannot_confirm_another_tenants_mission(
+    isolated_session_local,
+) -> None:
     from fastapi import HTTPException
 
     from web.routers import contracts
     from web.schemas.auth import CurrentUser
     from web.schemas.contracts import MissionConfirmRequest
 
-    contracts._MISSION_DRAFT_STORE.clear()
-    contracts._MISSION_LINEAGE_STORE.clear()
+    _seed_task(isolated_session_local)
     mission = _mission()
     contracts.draft_mission_contract(mission, CurrentUser(tenant_slug="tenant-a", tenant_id=1))
     with pytest.raises(HTTPException) as exc:
         contracts.confirm_mission_contract(
-            "mission-1",
+            "task-a",
             MissionConfirmRequest(revision=1, content_digest=compute_mission_content_digest(mission)),
             CurrentUser(tenant_slug="tenant-b", tenant_id=2),
         )

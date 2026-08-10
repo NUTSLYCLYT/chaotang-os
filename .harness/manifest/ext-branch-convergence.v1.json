@@ -1,0 +1,2576 @@
+{
+  "schemaVersion": "ext-branch-convergence.v1",
+  "snapshot": {
+    "capturedAt": "2026-08-03T00:00:00+08:00",
+    "integrationTarget": "feature-chaotang-ext",
+    "integrationHead": "b78a4f8f4ea84d01de5255cbc1c4e566b2f8932f",
+    "integrationTree": "615ac60452170c891f023c5d845472e327c6bebe",
+    "sourceRefCount": 99,
+    "inventoryRule": "LOCAL_BRANCH_NOT_ANCESTOR_OF_INTEGRATION_TARGET_AT_CAPTURE",
+    "authorityPackage": "R0-W08",
+    "plan": "docs/superpowers/plans/2026-08-03-ext-99-branch-capability-convergence.md"
+  },
+  "assetFamilies": [
+    {
+      "id": "ALEMBIC_SINGLE_AUTHORITY",
+      "title": "Alembic single schema authority and literal hardening",
+      "canonicalDonor": "task/p5-alembic-single-authority",
+      "decision": "SUPERSEDED_VERIFY",
+      "status": "PLANNED"
+    },
+    {
+      "id": "ANTI_HALLUCINATION_EVIDENCE",
+      "title": "Durable claim-evidence gate",
+      "canonicalDonor": "task/r0-anti-hallucination-01-20260720",
+      "decision": "ABSORB_ADAPT",
+      "status": "PLANNED"
+    },
+    {
+      "id": "BRANCH_GOVERNANCE",
+      "title": "Observe-only branch governance",
+      "canonicalDonor": "task/branch-governance-convergence-20260720",
+      "decision": "ABSORB_ADAPT",
+      "status": "PLANNED"
+    },
+    {
+      "id": "CANON_COURT_RED_INVENTORY",
+      "title": "Incomplete canonical court RED inventory",
+      "canonicalDonor": "wip/canon-court-01a-red-20260719",
+      "decision": "BLOCKED_WIP",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "COMPANION_PHASE1A",
+      "title": "Local Companion phase 1A contract and runtime",
+      "canonicalDonor": "codex/integration-companion-phase1a-20260801",
+      "decision": "REBUILD",
+      "status": "PLANNED"
+    },
+    {
+      "id": "COMPANION_PHASE1B",
+      "title": "Durable Companion delivery receipts and recovery",
+      "canonicalDonor": "codex/local-companion-phase1b-20260803",
+      "decision": "REBUILD",
+      "status": "PLANNED"
+    },
+    {
+      "id": "CONTROL_PLANE_WORKTREE",
+      "title": "Control-plane worktree database-path safety",
+      "canonicalDonor": "agent/task-cp-wt-01-bootstrap-v2-20260721",
+      "decision": "ABSORB_ADAPT",
+      "status": "PLANNED"
+    },
+    {
+      "id": "COURT_LOOP_CONTRACTS",
+      "title": "Court truth gate, lesson bridge and contract aggregation",
+      "canonicalDonor": "integration/ext-court-loop-contracts-20260719",
+      "decision": "REBUILD",
+      "status": "PLANNED"
+    },
+    {
+      "id": "DEEP_MODULE_PROJECTION",
+      "title": "Deep-module U1-U6 projection",
+      "canonicalDonor": "docs/deep-module-projection-design-20260726",
+      "decision": "REBUILD",
+      "status": "PLANNED"
+    },
+    {
+      "id": "DEPARTMENT_RUNTIME_WIRING",
+      "title": "Department runtime registry and wiring",
+      "canonicalDonor": "task/backend-runtime-wiring-r1",
+      "decision": "REBUILD",
+      "status": "PLANNED"
+    },
+    {
+      "id": "DEV_EXT_DEMO_DOMAIN",
+      "title": "Sports and viewing demo domain",
+      "canonicalDonor": "dev-ext-test",
+      "decision": "REJECT",
+      "status": "PLANNED"
+    },
+    {
+      "id": "FULL_COURT_BOOTSTRAP_ARCHIVE",
+      "title": "Historical full-court bootstrap and department identity baseline",
+      "canonicalDonor": "archive/integration-full-court-v1-pre-2a92646",
+      "decision": "ARCHIVE",
+      "status": "PLANNED"
+    },
+    {
+      "id": "GONGBU_SCOPE_SAFETY",
+      "title": "Gongbu component-scope safety",
+      "canonicalDonor": "task/fix-gongbu-component-scope-p18-v4-latest-20260719",
+      "decision": "SUPERSEDED_VERIFY",
+      "status": "PLANNED"
+    },
+    {
+      "id": "GUOLI_RESIDUAL",
+      "title": "Guoli windowed and honest metrics residual",
+      "canonicalDonor": "task/p8-guoli-strip",
+      "decision": "SUPERSEDED_VERIFY",
+      "status": "PLANNED"
+    },
+    {
+      "id": "HA_AOS_MASTER_GRAPH",
+      "title": "HA-AOS master recovery graph",
+      "canonicalDonor": "docs/ha-aos-master-graph-20260731",
+      "decision": "ABSORB_ADAPT",
+      "status": "PLANNED"
+    },
+    {
+      "id": "HANLIN_RESIDUAL",
+      "title": "Hanlin remnant and dead-mock cleanup",
+      "canonicalDonor": "task/p9-hanlin-remnant",
+      "decision": "SUPERSEDED_VERIFY",
+      "status": "PLANNED"
+    },
+    {
+      "id": "HARNESS_ONLY_DONOR",
+      "title": "Historical harness-only product and workflow donor",
+      "canonicalDonor": "codex/harness-only-worktree",
+      "decision": "REBUILD",
+      "status": "PLANNED"
+    },
+    {
+      "id": "HARNESS_SELECTIVE_ADOPTION",
+      "title": "Harness stop hook and governance records",
+      "canonicalDonor": "governance/harness-selective-adoption-20260722",
+      "decision": "REBUILD",
+      "status": "PLANNED"
+    },
+    {
+      "id": "HISTORICAL_ASSET_GRAPH",
+      "title": "Verified historical EXT asset graph",
+      "canonicalDonor": "docs/ext-historical-asset-graph-freeze-20260731",
+      "decision": "ABSORB_ADAPT",
+      "status": "PLANNED"
+    },
+    {
+      "id": "HUBU_FACT_CARD",
+      "title": "Hubu incident-day fact-card replay",
+      "canonicalDonor": "task/pkt-a2-hubu-fact-card",
+      "decision": "SUPERSEDED_VERIFY",
+      "status": "PLANNED"
+    },
+    {
+      "id": "HUBU_W09_ACTIVATION",
+      "title": "Hubu accounting Agent W09 activation draft",
+      "canonicalDonor": "integration/hubu-accounting-agents-to-ext-20260730",
+      "decision": "BLOCKED_WIP",
+      "status": "BLOCKED"
+    },
+    {
+      "id": "JINYIWEI_SOURCE_TRUST",
+      "title": "Jinyiwei source-trust and provenance adapter",
+      "canonicalDonor": "task/ext-a9-e1-p1-remediation-20260730",
+      "decision": "ABSORB_ADAPT",
+      "status": "PLANNED"
+    },
+    {
+      "id": "MASTER_PRD_V2_GRAPH",
+      "title": "Master PRD V2 and Graph Engineering map",
+      "canonicalDonor": "docs/r0-master-prd-v2-graph-engineering-20260731",
+      "decision": "ABSORB_ADAPT",
+      "status": "PLANNED"
+    },
+    {
+      "id": "MENXIA_VETO",
+      "title": "Menxia fail-closed veto enforcement",
+      "canonicalDonor": "task/fix-menxia-veto-enforcement-p16-20260719",
+      "decision": "SUPERSEDED_VERIFY",
+      "status": "PLANNED"
+    },
+    {
+      "id": "P0_P15_AUTHORITY_HISTORY",
+      "title": "Historical P0-P15 authority reconciliation",
+      "canonicalDonor": "docs/p0-p15-authority-reconciliation-20260719",
+      "decision": "ARCHIVE",
+      "status": "PLANNED"
+    },
+    {
+      "id": "P1_W04_GOVERNANCE_HISTORY",
+      "title": "P1 integration amendment and W04 closeout",
+      "canonicalDonor": "governance/r0-p1-integration-amendment-20260724",
+      "decision": "ARCHIVE",
+      "status": "PLANNED"
+    },
+    {
+      "id": "P14_RESIDUAL_REVIEW",
+      "title": "P14 P8/P9 residual review evidence",
+      "canonicalDonor": "candidate/p14-p8-p9-frontend-residual-cleanup",
+      "decision": "ARCHIVE",
+      "status": "PLANNED"
+    },
+    {
+      "id": "P19_EVIDENCE_CLEANUP",
+      "title": "Superseded P19 evidence cleanup",
+      "canonicalDonor": "candidate/p19-ext-nogo-evidence-cleanup",
+      "decision": "REJECT",
+      "status": "PLANNED"
+    },
+    {
+      "id": "P20_LEGACY_REVIEW_RESOLUTION",
+      "title": "Legacy Packet review resolver",
+      "canonicalDonor": "archive/review-p20-d6-legacy-20260719",
+      "decision": "REBUILD",
+      "status": "PLANNED"
+    },
+    {
+      "id": "P3_CANONICAL_DISPATCH",
+      "title": "P3 canonical dispatch constraints",
+      "canonicalDonor": "review/p3-chaotang-clean",
+      "decision": "SUPERSEDED_VERIFY",
+      "status": "PLANNED"
+    },
+    {
+      "id": "PACKET_SKILL_LIFECYCLE",
+      "title": "Packet and Skill lifecycle governance",
+      "canonicalDonor": "chore/packet-skill-lifecycle-20260721",
+      "decision": "ABSORB_ADAPT",
+      "status": "PLANNED"
+    },
+    {
+      "id": "PROFESSIONAL_AGENT_K0",
+      "title": "Professional Agent K0 asset matrix and K1A boundary",
+      "canonicalDonor": "codex/professional-agent-k0-20260803",
+      "decision": "ABSORB_ADAPT",
+      "status": "PLANNED"
+    },
+    {
+      "id": "PROFESSIONAL_AGENT_OVERLAY",
+      "title": "Professional Agent contracts, evaluation and runtime overlay",
+      "canonicalDonor": "codex/professional-agent-overlay-sdd-20260729",
+      "decision": "REBUILD",
+      "status": "PLANNED"
+    },
+    {
+      "id": "PROFESSIONAL_TEN_SAMPLES",
+      "title": "Ten professional Agent sample designs",
+      "canonicalDonor": "docs/professional-agent-ten-samples-20260803",
+      "decision": "ABSORB_ADAPT",
+      "status": "PLANNED"
+    },
+    {
+      "id": "RELEASE_HARNESS_FALLBACK",
+      "title": "Root harness Python fallback release fix",
+      "canonicalDonor": "feature-chaotang-release",
+      "decision": "SUPERSEDED_VERIFY",
+      "status": "PLANNED"
+    },
+    {
+      "id": "RESOURCE_CENSUS",
+      "title": "Historical branch and resource census",
+      "canonicalDonor": "task/census-cen-revision",
+      "decision": "ARCHIVE",
+      "status": "PLANNED"
+    },
+    {
+      "id": "SIX_CAPABILITY_CANON",
+      "title": "Six-capability canonical planning and idempotency",
+      "canonicalDonor": "work/canon-idempotency-01-spec-20260719",
+      "decision": "REBUILD",
+      "status": "PLANNED"
+    },
+    {
+      "id": "SUPER_TASK_DELIVERY",
+      "title": "Super-task delivery design",
+      "canonicalDonor": "docs/super-task-delivery-design-20260718",
+      "decision": "SUPERSEDED_VERIFY",
+      "status": "PLANNED"
+    },
+    {
+      "id": "TEMPORAL_DECISION_INTELLIGENCE",
+      "title": "Temporal decision intelligence",
+      "canonicalDonor": "docs/temporal-decision-intelligence-design-20260727",
+      "decision": "REBUILD",
+      "status": "PLANNED"
+    },
+    {
+      "id": "TEST_ISOLATION",
+      "title": "P6 full-suite isolation and fail-closed metadata",
+      "canonicalDonor": "task/p6-test-isolation-fix",
+      "decision": "SUPERSEDED_VERIFY",
+      "status": "PLANNED"
+    },
+    {
+      "id": "TRUSTED_KERNEL",
+      "title": "JWT, production identity and schema-adoption hardening",
+      "canonicalDonor": "docs/r0-trusted-kernel-amendment-20260720",
+      "decision": "REBUILD",
+      "status": "PLANNED"
+    },
+    {
+      "id": "W01_CLOSEOUT_HISTORY",
+      "title": "R0-W01 historical closeout",
+      "canonicalDonor": "docs/r0-w01-closeout-20260721",
+      "decision": "ARCHIVE",
+      "status": "PLANNED"
+    },
+    {
+      "id": "W05_CANONICAL_CHAIN",
+      "title": "W05 canonical decree, memorial, archive and browser chain",
+      "canonicalDonor": "fix/r0-a-signal-date-20260725",
+      "decision": "ABSORB_ADAPT",
+      "status": "PLANNED"
+    },
+    {
+      "id": "W06_ARTIFACT_SUCCESSOR",
+      "title": "W06 ArtifactManifest successor integrity and verifier chain",
+      "canonicalDonor": "task/ext-w06r-artifact-delivery-20260725",
+      "decision": "ABSORB_ADAPT",
+      "status": "PLANNED"
+    },
+    {
+      "id": "W07_AUTHORITY_HISTORY",
+      "title": "R0-W07 exact-H and constitutional recovery",
+      "canonicalDonor": "docs/r0-w07-p0f-scheme-a-design-20260726",
+      "decision": "REBUILD",
+      "status": "PLANNED"
+    },
+    {
+      "id": "W08_FULL_CONTRACT_LOOP",
+      "title": "W08 real contract browser and artifact acceptance loop",
+      "canonicalDonor": "task/r0-w08-full-loop-remediation-v9-20260730",
+      "decision": "ABSORB_ADAPT",
+      "status": "PLANNED"
+    },
+    {
+      "id": "W08_GRAPH_M0",
+      "title": "W08 proof-carrying Graph M0 contract",
+      "canonicalDonor": "docs/r0-w08-graph-m0-contract-20260731",
+      "decision": "ABSORB_ADAPT",
+      "status": "PLANNED"
+    }
+  ],
+  "branches": [
+    {
+      "branch": "agent/task-cp-wt-01-bootstrap-v2-20260721",
+      "tip": "958a1c4687d9c8fbf7ed012451bbb43f08b112f0",
+      "assetFamily": "CONTROL_PLANE_WORKTREE",
+      "candidateCommits": [
+        "958a1c4687d9"
+      ],
+      "disposition": "ABSORB_ADAPT",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "R0-W08",
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [
+        "scripts/lib/resource-lock.mjs",
+        "scripts/lib/worktree-manager.mjs",
+        "scripts/worktree-manager.nodetest.mjs"
+      ],
+      "proofCommands": [
+        "node --test scripts/worktree-manager.nodetest.mjs scripts/resource-lock.nodetest.mjs"
+      ],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "archive/integration-full-court-v1-pre-2a92646",
+      "tip": "69fa9afce5e73da0f6f62aa4e132a2ce21ae74d0",
+      "assetFamily": "FULL_COURT_BOOTSTRAP_ARCHIVE",
+      "candidateCommits": [
+        "69fa9afce5e7"
+      ],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "archive/p0-absorption-baseline-pre-2a92646",
+      "tip": "e90d035c40b5c832cd1528e43b0342fe2c4d0283",
+      "assetFamily": "FULL_COURT_BOOTSTRAP_ARCHIVE",
+      "candidateCommits": [],
+      "disposition": "DUPLICATE",
+      "canonicalDonor": false,
+      "containedBy": "archive/integration-full-court-v1-pre-2a92646",
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "archive/p1-dept-id-ssot-pre-f9b3e88",
+      "tip": "c06d66dffc1c9048040c1ec2506ede68b39ed717",
+      "assetFamily": "FULL_COURT_BOOTSTRAP_ARCHIVE",
+      "candidateCommits": [],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "archive/review-p19-ext-nogo-v1-20260719",
+      "tip": "c6ad4ea14ec058cfa4d79bc37d51cf012583df55",
+      "assetFamily": "P19_EVIDENCE_CLEANUP",
+      "candidateCommits": [],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "archive/review-p19-ext-nogo-v2-20260719",
+      "tip": "7059a371f8f2a1f7590fa84d7abfb72ee7a73283",
+      "assetFamily": "P19_EVIDENCE_CLEANUP",
+      "candidateCommits": [],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "archive/review-p20-d6-legacy-20260719",
+      "tip": "f2f46e770f1ff20e2fce6b8f77ad1a2f951ee94d",
+      "assetFamily": "P20_LEGACY_REVIEW_RESOLUTION",
+      "candidateCommits": [
+        "f2f46e770f1f"
+      ],
+      "disposition": "REBUILD",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:P20-REVIEW-RESOLUTION",
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [
+        "scripts/lib/packet-review-local-feedback.mjs",
+        "scripts/packet-review-local-feedback.nodetest.mjs"
+      ],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "candidate/p14-p8-p9-frontend-residual-cleanup",
+      "tip": "3c0d37a467964c2923d05a02b7e9403ccd726a64",
+      "assetFamily": "P14_RESIDUAL_REVIEW",
+      "candidateCommits": [
+        "3c0d37a46796"
+      ],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "candidate/p19-ext-nogo-evidence-cleanup",
+      "tip": "4c30ca54952119ceba904f7d7ccfcc9f8e233a1a",
+      "assetFamily": "P19_EVIDENCE_CLEANUP",
+      "candidateCommits": [
+        "4c30ca549521"
+      ],
+      "disposition": "REJECT",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "chore/packet-skill-lifecycle-20260721",
+      "tip": "de44d477c68cb8697698d8cdf6fb7bcb8f7bd5e1",
+      "assetFamily": "PACKET_SKILL_LIFECYCLE",
+      "candidateCommits": [
+        "de44d477c68c"
+      ],
+      "disposition": "ABSORB_ADAPT",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:PACKET-SKILL-LIFECYCLE",
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [
+        ".harness/contracts/packet-skill-lifecycle.schema.json",
+        ".harness/manifest/packet-skill-lifecycle.v1.json",
+        "scripts/packet-skill-lifecycle.nodetest.mjs"
+      ],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "codex/harness-only-worktree",
+      "tip": "c5d5bd429d4398391edf3d44741faf1a9d387c3f",
+      "assetFamily": "HARNESS_ONLY_DONOR",
+      "candidateCommits": [
+        "c5d5bd429d43"
+      ],
+      "disposition": "REBUILD",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:HARNESS-ONLY-SELECTIVE",
+      "targetOwners": [
+        "root",
+        "backend",
+        "frontend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "codex/integration-companion-phase1a-20260801",
+      "tip": "53031ac9c4aee640ed7f2c85bb2d8ef6b1b2aa19",
+      "assetFamily": "COMPANION_PHASE1A",
+      "candidateCommits": [
+        "53031ac9c4ae"
+      ],
+      "disposition": "REBUILD",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:COMPANION-PHASE1A",
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "codex/local-companion-phase-1a-clean-20260801",
+      "tip": "49bf25d19ca7a7e6686705410a7325e9f1374174",
+      "assetFamily": "COMPANION_PHASE1A",
+      "candidateCommits": [],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "codex/local-companion-phase-1a-plan-20260801",
+      "tip": "f2766f8a234d1db8fb8a09c5dc62903e3dacf1ad",
+      "assetFamily": "COMPANION_PHASE1A",
+      "candidateCommits": [],
+      "disposition": "DUPLICATE",
+      "canonicalDonor": false,
+      "containedBy": "codex/integration-companion-phase1a-20260801",
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "codex/local-companion-phase1b-20260803",
+      "tip": "868dde233d0d2343a06e9bc6b92234b073ac8c61",
+      "assetFamily": "COMPANION_PHASE1B",
+      "candidateCommits": [
+        "bf6d03fa",
+        "892246bf",
+        "2d694c6d"
+      ],
+      "disposition": "REBUILD",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:COMPANION-PHASE1B",
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [
+        "backend/app/companion/delivery.py",
+        "backend/tests"
+      ],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "codex/professional-agent-k0-20260803",
+      "tip": "675aa950a073ae4e3e72b562aab13eea43d018df",
+      "assetFamily": "PROFESSIONAL_AGENT_K0",
+      "candidateCommits": [
+        "a6c391cb",
+        "4c55ad78",
+        "675aa950"
+      ],
+      "disposition": "ABSORB_ADAPT",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:PROFESSIONAL-K0",
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [
+        ".harness/contracts",
+        ".harness/manifest",
+        "scripts"
+      ],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "codex/professional-agent-k1a-20260803",
+      "tip": "61faf9efada0d2b0e2464a12067379e6de2df803",
+      "assetFamily": "PROFESSIONAL_AGENT_K0",
+      "candidateCommits": [],
+      "disposition": "BLOCKED_WIP",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "BLOCKED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": "Committed branch contains authority only; implementation remains uncommitted in its donor worktree."
+    },
+    {
+      "branch": "codex/professional-agent-overlay-clean",
+      "tip": "579f1be46dfa0e860249689fd430edc2e04e0083",
+      "assetFamily": "PROFESSIONAL_AGENT_OVERLAY",
+      "candidateCommits": [],
+      "disposition": "REBUILD",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:PROFESSIONAL-OVERLAY",
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": "Donor worktree is dirty; committed objects only may be inspected."
+    },
+    {
+      "branch": "codex/professional-agent-overlay-sdd-20260729",
+      "tip": "b7cd3d283eae87fb3eafc9427364cfe357f3fad0",
+      "assetFamily": "PROFESSIONAL_AGENT_OVERLAY",
+      "candidateCommits": [
+        "b7cd3d283eae"
+      ],
+      "disposition": "REBUILD",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:PROFESSIONAL-OVERLAY",
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "dev-ext-test",
+      "tip": "2747a1554b8ade59e6b46d021bcd5e09d3716661",
+      "assetFamily": "DEV_EXT_DEMO_DOMAIN",
+      "candidateCommits": [
+        "2747a1554b8a"
+      ],
+      "disposition": "REJECT",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "docs/deep-module-projection-design-20260726",
+      "tip": "8328f24e1fed8520568b3037296fd1a81f7bb192",
+      "assetFamily": "DEEP_MODULE_PROJECTION",
+      "candidateCommits": [
+        "8328f24e1fed"
+      ],
+      "disposition": "REBUILD",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:DEEP-MODULE-PROJECTION",
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "docs/ext-historical-asset-graph-freeze-20260731",
+      "tip": "2ab80abd5881d7343a6ff3e11032190a9428731e",
+      "assetFamily": "HISTORICAL_ASSET_GRAPH",
+      "candidateCommits": [
+        "2ab80abd5881"
+      ],
+      "disposition": "ABSORB_ADAPT",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "R0-W08",
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [
+        ".harness/changes/docs-ext-full-asset-reconciliation-20260729"
+      ],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "docs/ha-aos-master-graph-20260731",
+      "tip": "be415b1ec447cd701af441c8d002f3eb8d56b7ae",
+      "assetFamily": "HA_AOS_MASTER_GRAPH",
+      "candidateCommits": [
+        "be415b1ec447"
+      ],
+      "disposition": "ABSORB_ADAPT",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "R0-W08",
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [
+        "docs"
+      ],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "docs/p0-p15-authority-reconciliation-20260719",
+      "tip": "8801c6986f43c39ff072c387906c552a3cb93c24",
+      "assetFamily": "P0_P15_AUTHORITY_HISTORY",
+      "candidateCommits": [
+        "8801c6986f43"
+      ],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "docs/professional-agent-ten-samples-20260803",
+      "tip": "334665afcf6e23efb9df7bdb18e5e38477282757",
+      "assetFamily": "PROFESSIONAL_TEN_SAMPLES",
+      "candidateCommits": [
+        "17eff7ce",
+        "ce6b6b06",
+        "334665af"
+      ],
+      "disposition": "ABSORB_ADAPT",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:PROFESSIONAL-TEN-SAMPLES",
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [
+        "docs/superpowers/specs",
+        "docs/superpowers/plans"
+      ],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "docs/r0-master-prd-v2-graph-engineering-20260731",
+      "tip": "a6d5af8e4072794053cce2cddfcf2b80a554590c",
+      "assetFamily": "MASTER_PRD_V2_GRAPH",
+      "candidateCommits": [
+        "a6d5af8e4072"
+      ],
+      "disposition": "ABSORB_ADAPT",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "R0-W08",
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [
+        "docs"
+      ],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "docs/r0-trusted-kernel-amendment-20260720",
+      "tip": "c6f2d64252acf578478405637dba9ac44be161ae",
+      "assetFamily": "TRUSTED_KERNEL",
+      "candidateCommits": [
+        "75993da4",
+        "c6f2d642"
+      ],
+      "disposition": "REBUILD",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:TRUSTED-KERNEL-SUCCESSOR",
+      "targetOwners": [
+        "root",
+        "backend",
+        "frontend"
+      ],
+      "targetFiles": [
+        "backend/src/schema_adoption.py",
+        "backend/src/tenant.py",
+        "backend/web/main.py",
+        "backend/tests/test_verify_token.py"
+      ],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "docs/r0-w01-closeout-20260721",
+      "tip": "64febedabe6becdf5e54f06f2e04039567661f1a",
+      "assetFamily": "W01_CLOSEOUT_HISTORY",
+      "candidateCommits": [
+        "64febedabe6b"
+      ],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "docs/r0-w07-p0f-current-base-adaptation-20260727",
+      "tip": "73e66deabec31e0964218405701f7001697498d0",
+      "assetFamily": "W07_AUTHORITY_HISTORY",
+      "candidateCommits": [],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "docs/r0-w07-p0f-scheme-a-design-20260726",
+      "tip": "c2a62dac8f4c9c36b61eecdc45eaecaa1de4ca7a",
+      "assetFamily": "W07_AUTHORITY_HISTORY",
+      "candidateCommits": [
+        "c2a62dac8f4c"
+      ],
+      "disposition": "REBUILD",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:CURRENT-AUTHORITY-RECOVERY",
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "docs/r0-w08-graph-m0-contract-20260731",
+      "tip": "d75c5b8a77ec0ee21edadf15f887840b1e1c44d7",
+      "assetFamily": "W08_GRAPH_M0",
+      "candidateCommits": [
+        "d75c5b8a77ec"
+      ],
+      "disposition": "ABSORB_ADAPT",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "R0-W08",
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [
+        "docs",
+        ".harness/changes"
+      ],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "docs/super-task-delivery-design-20260718",
+      "tip": "b0e54672f5df55a19f69dbbc454172aca2328cfb",
+      "assetFamily": "SUPER_TASK_DELIVERY",
+      "candidateCommits": [
+        "b0e54672f5df"
+      ],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "docs/temporal-decision-intelligence-design-20260727",
+      "tip": "3c1d0395f7113497430be039c5992e0a1a047a64",
+      "assetFamily": "TEMPORAL_DECISION_INTELLIGENCE",
+      "candidateCommits": [
+        "3c1d0395f711"
+      ],
+      "disposition": "REBUILD",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:TEMPORAL-PROJECTION",
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "feature-chaotang-release",
+      "tip": "44aa7f0674c1304f85afcd31d7b1e5087ee5e74e",
+      "assetFamily": "RELEASE_HARNESS_FALLBACK",
+      "candidateCommits": [
+        "44aa7f0674c1"
+      ],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "fix/r0-a-playwright-routes-20260725",
+      "tip": "7216dbc29a4a4ae52374423029d056abb1af2958",
+      "assetFamily": "W05_CANONICAL_CHAIN",
+      "candidateCommits": [],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend",
+        "frontend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "fix/r0-a-signal-date-20260725",
+      "tip": "87071b3e81d255f136a8a5a33c23ef109a68a977",
+      "assetFamily": "W05_CANONICAL_CHAIN",
+      "candidateCommits": [
+        "7216dbc2",
+        "87071b3e"
+      ],
+      "disposition": "ABSORB_ADAPT",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:W05-RESIDUAL",
+      "targetOwners": [
+        "root",
+        "backend",
+        "frontend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/harness-selective-adoption-20260722",
+      "tip": "f4b1d83a8189a928a71487581ba5185982c0cb3b",
+      "assetFamily": "HARNESS_SELECTIVE_ADOPTION",
+      "candidateCommits": [
+        "f4b1d83a8189"
+      ],
+      "disposition": "REBUILD",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:HARNESS-SELECTIVE",
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [
+        "scripts/harness-stop-hook.mjs",
+        "scripts/lib/governance-records.mjs"
+      ],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-dev-ext-chain-absorption-01",
+      "tip": "7216dbc29a4a4ae52374423029d056abb1af2958",
+      "assetFamily": "W05_CANONICAL_CHAIN",
+      "candidateCommits": [],
+      "disposition": "DUPLICATE",
+      "canonicalDonor": false,
+      "containedBy": "fix/r0-a-signal-date-20260725",
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend",
+        "frontend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-p1-integration-amendment-20260724",
+      "tip": "608bf76a07f9d77f60b907f43b920b62abba79a3",
+      "assetFamily": "P1_W04_GOVERNANCE_HISTORY",
+      "candidateCommits": [
+        "608bf76a07f9"
+      ],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w04-closeout-canonical-20260723",
+      "tip": "0f53c1883b5cc735eb5dc6232ccb83abf2410e30",
+      "assetFamily": "P1_W04_GOVERNANCE_HISTORY",
+      "candidateCommits": [],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w06-activation-packet-b522ee37",
+      "tip": "3281db9655b4804daa491155bc015c5642687748",
+      "assetFamily": "W06_ARTIFACT_SUCCESSOR",
+      "candidateCommits": [],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w06-artifacts-20260724",
+      "tip": "1e444af4ad237ec524d45c7382d6d17bab82841e",
+      "assetFamily": "W06_ARTIFACT_SUCCESSOR",
+      "candidateCommits": [],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w06-authority-recovery-8feae838",
+      "tip": "fa70efcd8413ca498ff4a62c38a09b1b84be46e2",
+      "assetFamily": "W06_ARTIFACT_SUCCESSOR",
+      "candidateCommits": [],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w06-codex-20260724",
+      "tip": "d0d2222b68230f76b8fb1c702d4d0404b44467de",
+      "assetFamily": "W06_ARTIFACT_SUCCESSOR",
+      "candidateCommits": [],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w06-codex-8feae838",
+      "tip": "3573e66cd43bbfff92dcea87dee3fbd47d57c243",
+      "assetFamily": "W06_ARTIFACT_SUCCESSOR",
+      "candidateCommits": [],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w06-gate-c-atomic-fa70efcd",
+      "tip": "40d94f3e1d42de8c2e2da1ef66a9c72e1ac80c29",
+      "assetFamily": "W06_ARTIFACT_SUCCESSOR",
+      "candidateCommits": [],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w06-gate-c-design-fa70efcd",
+      "tip": "1ddf07721c43f9a08e7e381b7535f646fbf0c8d8",
+      "assetFamily": "W06_ARTIFACT_SUCCESSOR",
+      "candidateCommits": [],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w06-gate-c-r2-attested-fa70efcd",
+      "tip": "b522ee376246c431fffa0132e1f2919d1a0c7735",
+      "assetFamily": "W06_ARTIFACT_SUCCESSOR",
+      "candidateCommits": [],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w06-gate-e-p0-spec-repair-2-313599b4",
+      "tip": "25f138aa3c2ea6da07c4b4e88256f82eed355831",
+      "assetFamily": "W06_ARTIFACT_SUCCESSOR",
+      "candidateCommits": [],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w06-gate-e-p0-spec-repair-3-313599b4",
+      "tip": "9a3d97e4dd3721340b817181c40b60042f57f7ac",
+      "assetFamily": "W06_ARTIFACT_SUCCESSOR",
+      "candidateCommits": [],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w06-gate-e-p0-spec-repair-4-313599b4",
+      "tip": "4a5f918c291e0d50712324b6980f02510e48d7e7",
+      "assetFamily": "W06_ARTIFACT_SUCCESSOR",
+      "candidateCommits": [],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w06-gate-e-preconditions-design-981f3940",
+      "tip": "313599b4127cd8849ec326b64cf4f0fe3042f8f3",
+      "assetFamily": "W06_ARTIFACT_SUCCESSOR",
+      "candidateCommits": [],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w06-gate-e-preconditions-packet-313599b4",
+      "tip": "33faf0e5682d8fd9c8f760bd968601c54a058b35",
+      "assetFamily": "W06_ARTIFACT_SUCCESSOR",
+      "candidateCommits": [],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w06-merge-20260725",
+      "tip": "51c960634bbde9ad88221a9e105ee94809bd00b3",
+      "assetFamily": "W06_ARTIFACT_SUCCESSOR",
+      "candidateCommits": [],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w06-merge-8feae838",
+      "tip": "90c6704a1b73c26f05214a9d3f14b6df637f328a",
+      "assetFamily": "W06_ARTIFACT_SUCCESSOR",
+      "candidateCommits": [],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w06-p26-integration-20260725",
+      "tip": "3d0d6623dfbcc8d94e7c7284618933ff87d09c4f",
+      "assetFamily": "W06_ARTIFACT_SUCCESSOR",
+      "candidateCommits": [],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w06-postmerge-remediation-20260725",
+      "tip": "818de05dbc296ab7e236a72341a8967ef8d5f279",
+      "assetFamily": "W06_ARTIFACT_SUCCESSOR",
+      "candidateCommits": [],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w06-review-handoff-repair-3281db96",
+      "tip": "981f394077178990c4d9c41c7c1cd4f8a6a0af95",
+      "assetFamily": "W06_ARTIFACT_SUCCESSOR",
+      "candidateCommits": [],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w06-successor-evidence-20260802",
+      "tip": "f9fbe9ba5c4c98e4f071c21203659a4ea80a68a6",
+      "assetFamily": "W06_ARTIFACT_SUCCESSOR",
+      "candidateCommits": [],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w07-constitutional-recovery-corpus-20260727",
+      "tip": "be80c61fe2acdb81ad5db5ed45628b6907a08676",
+      "assetFamily": "W07_AUTHORITY_HISTORY",
+      "candidateCommits": [],
+      "disposition": "REBUILD",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:CURRENT-AUTHORITY-RECOVERY",
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w07-exact-h-activation-20260726",
+      "tip": "7b7a40a4076200d68227b9deefeb19995978a6a7",
+      "assetFamily": "W07_AUTHORITY_HISTORY",
+      "candidateCommits": [],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "governance/r0-w07-exact-h-activation-v2-20260726",
+      "tip": "d6b34c7b2b616317584bbdff3ea1cc389875bc6b",
+      "assetFamily": "W07_AUTHORITY_HISTORY",
+      "candidateCommits": [],
+      "disposition": "DUPLICATE",
+      "canonicalDonor": false,
+      "containedBy": "docs/r0-w07-p0f-scheme-a-design-20260726",
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "integration/ext-court-loop-contracts-20260719",
+      "tip": "858c9f477bf39da642e4fb3e1504fe4f3f8b8ed0",
+      "assetFamily": "COURT_LOOP_CONTRACTS",
+      "candidateCommits": [
+        "858c9f477bf3"
+      ],
+      "disposition": "REBUILD",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:COURT-LOOP-CONTRACTS",
+      "targetOwners": [
+        "root",
+        "backend",
+        "frontend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "integration/hubu-accounting-agents-to-ext-20260730",
+      "tip": "fbbde9473eda487288b34e4adcba3fbb6fd7a977",
+      "assetFamily": "HUBU_W09_ACTIVATION",
+      "candidateCommits": [
+        "fbbde9473eda"
+      ],
+      "disposition": "BLOCKED_WIP",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "BLOCKED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": "R0-W09 is not the active machine-authorized work package."
+    },
+    {
+      "branch": "integration/r0-task8-on-feature-20260725",
+      "tip": "0ead253f12e8520036d5dd7acdd9db6e057b068e",
+      "assetFamily": "W05_CANONICAL_CHAIN",
+      "candidateCommits": [],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend",
+        "frontend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "review/p3-chaotang-clean",
+      "tip": "6433c69cef3c426d08db67f18f3ce3c11c15f134",
+      "assetFamily": "P3_CANONICAL_DISPATCH",
+      "candidateCommits": [
+        "6433c69cef3c"
+      ],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/backend-runtime-wiring-r1",
+      "tip": "1d09d0f94fcd11bc0e2e7af6ab28152473a5d09f",
+      "assetFamily": "DEPARTMENT_RUNTIME_WIRING",
+      "candidateCommits": [
+        "1d09d0f94fcd"
+      ],
+      "disposition": "REBUILD",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:DEPARTMENT-RUNTIME",
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [
+        "backend/src/department_runtime_registry.py",
+        "backend/src/real_department_engines.py",
+        "backend/src/swarm_execution_loop.py"
+      ],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/branch-governance-convergence-20260720",
+      "tip": "1c7335fc71d51bcafc7bb14b720fd723a9c06340",
+      "assetFamily": "BRANCH_GOVERNANCE",
+      "candidateCommits": [
+        "1c7335fc71d5"
+      ],
+      "disposition": "ABSORB_ADAPT",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:BRANCH-GOVERNANCE",
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [
+        "scripts/branch-governance.mjs",
+        "scripts/lib/branch-governance.mjs",
+        "scripts/branch-governance.nodetest.mjs"
+      ],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/census-cen-revision",
+      "tip": "12ac44f9138ea8dc1d07bca5a2524f13a40beb89",
+      "assetFamily": "RESOURCE_CENSUS",
+      "candidateCommits": [
+        "12ac44f9138e"
+      ],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/ext-a9-e1-p1-remediation-20260730",
+      "tip": "4107fe31473853c60f811ad0994e864e3c3415e6",
+      "assetFamily": "JINYIWEI_SOURCE_TRUST",
+      "candidateCommits": [
+        "208bce43"
+      ],
+      "disposition": "ABSORB_ADAPT",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:EXT-A9-E1",
+      "targetOwners": [
+        "root",
+        "backend",
+        "frontend"
+      ],
+      "targetFiles": [
+        "backend/src/jinyiwei_agent.py",
+        "backend/src/real_department_engines.py",
+        "backend/web/routers/jinyiwei.py",
+        "frontend/src/features/intel"
+      ],
+      "proofCommands": [
+        "python3 -m pytest -q backend/tests/test_jinyiwei_agent.py backend/tests/test_jinyiwei_endpoint.py"
+      ],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/ext-w06r-artifact-delivery-20260725",
+      "tip": "e51ce33d873cc0ccd3759e6e5533d646a3021972",
+      "assetFamily": "W06_ARTIFACT_SUCCESSOR",
+      "candidateCommits": [
+        "ac99175d",
+        "e51ce33d"
+      ],
+      "disposition": "ABSORB_ADAPT",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:R0-W06-SUCCESSOR",
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [
+        "backend/src/artifacts/service.py",
+        "backend/src/db/models.py",
+        "backend/alembic/versions/026_artifact_manifest_tenant_not_null.py"
+      ],
+      "proofCommands": [
+        "python3 -m pytest -q backend/tests/test_artifact_delivery_service.py backend/tests/test_artifact_manifest_persistence.py"
+      ],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/fix-ext-nogo-evidence-cleanup-20260719",
+      "tip": "0e73327caceabc1241331db0ac492a2631157a45",
+      "assetFamily": "P19_EVIDENCE_CLEANUP",
+      "candidateCommits": [],
+      "disposition": "DUPLICATE",
+      "canonicalDonor": false,
+      "containedBy": "candidate/p19-ext-nogo-evidence-cleanup",
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/fix-gongbu-component-scope-p18-20260719",
+      "tip": "e8dcadadbfd33301810b256d09e4cf84bc263001",
+      "assetFamily": "GONGBU_SCOPE_SAFETY",
+      "candidateCommits": [],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/fix-gongbu-component-scope-p18-v4-latest-20260719",
+      "tip": "870d10a79c21b8ea9245c4df306faa98936b4fec",
+      "assetFamily": "GONGBU_SCOPE_SAFETY",
+      "candidateCommits": [
+        "870d10a79c21"
+      ],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/fix-gongbu-component-scope-p18-v4-rebased-20260719",
+      "tip": "9f4a8030904ef35e7d35b589351947e749dbe162",
+      "assetFamily": "GONGBU_SCOPE_SAFETY",
+      "candidateCommits": [],
+      "disposition": "DUPLICATE",
+      "canonicalDonor": false,
+      "containedBy": "task/fix-gongbu-component-scope-p18-v4-latest-20260719",
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/fix-menxia-veto-enforcement-p16-20260719",
+      "tip": "0269869bfd42d4a21e7dda32314863701b92e996",
+      "assetFamily": "MENXIA_VETO",
+      "candidateCommits": [
+        "0269869bfd42"
+      ],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/fix-p0-p15-execution-authority-reconciliation-next-20260719",
+      "tip": "f1fa0cd6116a4e8405b5e11f425c220ef9122761",
+      "assetFamily": "P0_P15_AUTHORITY_HISTORY",
+      "candidateCommits": [],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/p5-1-alembic-review-hardening",
+      "tip": "c99687a01e06085e34d2ccc179a45d996e059477",
+      "assetFamily": "ALEMBIC_SINGLE_AUTHORITY",
+      "candidateCommits": [],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/p5-alembic-single-authority",
+      "tip": "65f50843810be742c942675dfb77ca4f7e09c044",
+      "assetFamily": "ALEMBIC_SINGLE_AUTHORITY",
+      "candidateCommits": [
+        "65f50843810b"
+      ],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/p6-test-isolation-fix",
+      "tip": "599c1d3b499840e476173311aff8443df4becc24",
+      "assetFamily": "TEST_ISOLATION",
+      "candidateCommits": [
+        "599c1d3b4998"
+      ],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/p8-guoli-strip",
+      "tip": "a63ab88d7c4c9a78bdd7a01319fa3c292d7f38b5",
+      "assetFamily": "GUOLI_RESIDUAL",
+      "candidateCommits": [
+        "a63ab88d7c4c"
+      ],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/p9-hanlin-remnant",
+      "tip": "4d18900f6aedc16e47cdc612bf8e42bb23be2651",
+      "assetFamily": "HANLIN_RESIDUAL",
+      "candidateCommits": [
+        "4d18900f6aed"
+      ],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/pkt-a2-hubu-fact-card",
+      "tip": "8d4f473d875fa9c5e6f4c1de0eefbe5d2bee6c15",
+      "assetFamily": "HUBU_FACT_CARD",
+      "candidateCommits": [
+        "8d4f473d875f"
+      ],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/r0-anti-hallucination-01-20260720",
+      "tip": "9ed6416d78d4e3c88d4ca9f292d6574af275b9e1",
+      "assetFamily": "ANTI_HALLUCINATION_EVIDENCE",
+      "candidateCommits": [
+        "bbc40220",
+        "8900e55b"
+      ],
+      "disposition": "ABSORB_ADAPT",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:ANTI-HALLUCINATION",
+      "targetOwners": [
+        "root",
+        "backend"
+      ],
+      "targetFiles": [
+        "backend/src/claim_evidence_gate.py",
+        "backend/src/formal_memorial.py",
+        "backend/src/shangshufang_loop.py"
+      ],
+      "proofCommands": [
+        "python3 -m pytest -q backend/tests/test_claim_evidence_gate.py backend/tests/test_final_memorial_gate.py"
+      ],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/r0-w05-task8-e2e-20260724",
+      "tip": "1925b2dd1dc3e04e80fe419086d63d2a5beda482",
+      "assetFamily": "W05_CANONICAL_CHAIN",
+      "candidateCommits": [],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend",
+        "frontend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/r0-w08-full-loop-remediation-20260730",
+      "tip": "a9d992edc17ebf87f7cc59cfde8a952b4bbc3a1e",
+      "assetFamily": "W08_FULL_CONTRACT_LOOP",
+      "candidateCommits": [],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend",
+        "frontend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/r0-w08-full-loop-remediation-v2-20260730",
+      "tip": "fda3b63c61406994024061372c7baeca696da98b",
+      "assetFamily": "W08_FULL_CONTRACT_LOOP",
+      "candidateCommits": [],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend",
+        "frontend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/r0-w08-full-loop-remediation-v3-20260730",
+      "tip": "fbe033bef6155993d8c7143951ac97d5ebf0088c",
+      "assetFamily": "W08_FULL_CONTRACT_LOOP",
+      "candidateCommits": [],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend",
+        "frontend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/r0-w08-full-loop-remediation-v4-20260730",
+      "tip": "ef911e8f011ae4a7839cee36db46fe084b93f937",
+      "assetFamily": "W08_FULL_CONTRACT_LOOP",
+      "candidateCommits": [],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend",
+        "frontend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/r0-w08-full-loop-remediation-v5-20260730",
+      "tip": "c2e8b45ef351425faef54ec527af1c8a767988b2",
+      "assetFamily": "W08_FULL_CONTRACT_LOOP",
+      "candidateCommits": [],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend",
+        "frontend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/r0-w08-full-loop-remediation-v6-20260730",
+      "tip": "ac85695f248c6735c749bf2c75cdf87b820d58b6",
+      "assetFamily": "W08_FULL_CONTRACT_LOOP",
+      "candidateCommits": [],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend",
+        "frontend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/r0-w08-full-loop-remediation-v7-20260730",
+      "tip": "73ed620f00d2d1e773bb80b24c0fd439e3d01cdd",
+      "assetFamily": "W08_FULL_CONTRACT_LOOP",
+      "candidateCommits": [],
+      "disposition": "SUPERSEDED_VERIFY",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend",
+        "frontend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/r0-w08-full-loop-remediation-v8-20260730",
+      "tip": "3d8964a1bf0ced72e7439e02a6986a4a87d7e1ed",
+      "assetFamily": "W08_FULL_CONTRACT_LOOP",
+      "candidateCommits": [],
+      "disposition": "DUPLICATE",
+      "canonicalDonor": false,
+      "containedBy": "task/r0-w08-full-loop-remediation-v9-20260730",
+      "authorityPackage": null,
+      "targetOwners": [
+        "root",
+        "backend",
+        "frontend"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/r0-w08-full-loop-remediation-v9-20260730",
+      "tip": "32a1c5729b571677d4ea170dc324efcda8ac1fb7",
+      "assetFamily": "W08_FULL_CONTRACT_LOOP",
+      "candidateCommits": [
+        "3d8964a1",
+        "07c83a58",
+        "32a1c572"
+      ],
+      "disposition": "ABSORB_ADAPT",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "R0-W08",
+      "targetOwners": [
+        "root",
+        "backend",
+        "frontend"
+      ],
+      "targetFiles": [
+        "backend/src/secure_ingest/document_text.py",
+        "backend/src/contract_rework.py",
+        "backend/src/contract_task_projection.py",
+        "backend/src/artifacts/service.py",
+        "backend/web/routers/shangshufang.py",
+        "frontend/src/features/contract-review",
+        "frontend/src/features/shangshufang"
+      ],
+      "proofCommands": [
+        "python3 -m pytest -q backend/tests/test_w08_product_acceptance_harness.py",
+        "pnpm --dir frontend test:node"
+      ],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "task/resource-census-p0",
+      "tip": "5a5ac7efcbab26943087c984b0b9182e094586c1",
+      "assetFamily": "RESOURCE_CENSUS",
+      "candidateCommits": [],
+      "disposition": "BLOCKED_WIP",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "BLOCKED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": "Checkpoint is incomplete and has no accepted closeout candidate."
+    },
+    {
+      "branch": "wip/canon-court-01a-red-20260719",
+      "tip": "c18f9beb2d66583162bd77804f33ffff8fce0200",
+      "assetFamily": "CANON_COURT_RED_INVENTORY",
+      "candidateCommits": [
+        "c18f9beb2d66"
+      ],
+      "disposition": "BLOCKED_WIP",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "BLOCKED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": "RED inventory checkpoint has no completed implementation or accepted review."
+    },
+    {
+      "branch": "wip/six-capability-absorption-governance-20260719",
+      "tip": "7daf36ba42b5266a338b128abf055e164657ac9a",
+      "assetFamily": "SIX_CAPABILITY_CANON",
+      "candidateCommits": [],
+      "disposition": "DUPLICATE",
+      "canonicalDonor": false,
+      "containedBy": "work/canon-idempotency-01-spec-20260719",
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "wip/six-capability-canon-docs-20260719",
+      "tip": "ea6a844eefb8e13bbb7617f1c48090d4d8cc7e34",
+      "assetFamily": "SIX_CAPABILITY_CANON",
+      "candidateCommits": [],
+      "disposition": "ARCHIVE",
+      "canonicalDonor": false,
+      "containedBy": null,
+      "authorityPackage": null,
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    },
+    {
+      "branch": "work/canon-idempotency-01-spec-20260719",
+      "tip": "d41c28ea72ad23b5f33c98c53f1c7a0d5400a34e",
+      "assetFamily": "SIX_CAPABILITY_CANON",
+      "candidateCommits": [
+        "d41c28ea72ad"
+      ],
+      "disposition": "REBUILD",
+      "canonicalDonor": true,
+      "containedBy": null,
+      "authorityPackage": "AMENDMENT_REQUIRED:CANON-IDEMPOTENCY",
+      "targetOwners": [
+        "root"
+      ],
+      "targetFiles": [],
+      "proofCommands": [],
+      "status": "PLANNED",
+      "checkpoint": null,
+      "reviewReceipt": null,
+      "integrationCommit": null,
+      "blockedReason": null
+    }
+  ]
+}

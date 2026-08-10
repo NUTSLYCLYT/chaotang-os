@@ -16,7 +16,7 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from src.chancellor.contracts import RouteDecisionV2
 from src.chancellor.decree_status import (
@@ -26,8 +26,15 @@ from src.chancellor.decree_status import (
 )
 from src.chancellor.routing_service import chancellor_routing_service, legacy_route_dict
 from src.contracts.evidence_packet import EvidencePacketV1
-from src.contracts.evidence_rework_generation import EvidenceReworkGenerationV1
+from src.contracts.evidence_rework_generation import (
+    EvidenceReworkGenerationPayloadV1,
+    EvidenceReworkGenerationV1,
+)
 from src.contracts.mission_contract import ContractIntakeV1
+from src.contracts.deterministic_intake import (
+    ensure_deterministic_contract_candidate,
+    infer_supported_contract_scope,
+)
 from src.db.models import (
     AgentSkillRun,
     ChancellorRouteDecision,
@@ -37,6 +44,10 @@ from src.db.models import (
     EmperorDecision,
     FinalMemorial,
     ShiguanArchive,
+)
+from src.decision_task_access import (
+    get_owned_decision_task,
+    is_contract_decision_task,
 )
 from src.decision_task_kernel import create_decision_task
 from src.emperor_decision_kind import emperor_decision_kind
@@ -81,6 +92,66 @@ SKILL_ID = "skill.chancellor.draft_edict"
 SKILL_VERSION = "0.1.0"
 _IM_MESSAGES: list[dict[str, Any]] = []
 _POLISH_FORBIDDEN_WORDS = ("军机处", "会审", "六部", "蜂群", "任务单", "立案")
+_CONTRACT_FINAL_ACTIONS = frozenset({"adopt", "approve", "archive", "reject"})
+_CONTRACT_REQUIRED_READ_ACTIONS = {
+    **{action: "DECIDE" for action in _CONTRACT_FINAL_ACTIONS},
+    "request_evidence": "DECIDE",
+    "followup": "DECIDE",
+    "recheck": "REFRESH_REVIEW",
+}
+_CONTRACT_DENIED_DECISION_ACTIONS = frozenset({"cancel"})
+
+
+class _ClosedResponseModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class ShangshufangHomeLatestMemorial(_ClosedResponseModel):
+    verdict: str | None = None
+    summary: str | None = None
+    source_label: str | None = None
+    ministry_outputs: list[dict[str, Any]]
+    formal_memorial_id: str | None = None
+
+
+class ShangshufangHomeTaskSummary(_ClosedResponseModel):
+    task_id: str
+    status: str
+    raw_question: str
+    draft_edict: dict[str, Any] | None
+    source_label: str
+    risk_flags: list[Any]
+    known_facts: list[Any]
+    unknown_gaps: list[Any]
+    recommended_departments: list[Any]
+    contract_scope: ContractIntakeV1 | None
+    contract_task: bool
+    created_at: str
+    updated_at: str
+    latest_memorial: ShangshufangHomeLatestMemorial | None
+
+
+class ShangshufangHomeTodayIssue(_ClosedResponseModel):
+    title: str
+    why_now: str
+    urgency: str
+    recommended_action: str
+    evidence_basis: list[Any]
+    missing_evidence: list[Any]
+
+
+class ShangshufangHomeData(_ClosedResponseModel):
+    source_label: str
+    today_issue: ShangshufangHomeTodayIssue
+    pending_decisions: list[ShangshufangHomeTaskSummary]
+    pending_evidence_tasks: list[ShangshufangHomeTaskSummary]
+    archive_hints: list[dict[str, Any]]
+
+
+class ShangshufangHomeResponse(_ClosedResponseModel):
+    success: bool
+    data: ShangshufangHomeData | None = None
+    error: str | None = None
 
 
 class DraftEdictRequest(BaseModel):
@@ -331,10 +402,53 @@ def _user_id(user: CurrentUser) -> str:
     return str(user.user_id or user.username or user.tenant_slug or "anonymous")
 
 
+def _is_contract_task(
+    db,
+    *,
+    task: DecisionTask,
+    current_formal: FinalMemorial | None = None,
+) -> bool:
+    return is_contract_decision_task(
+        db,
+        task=task,
+        current_formal=current_formal,
+    )
+
+
+def _contract_route_action_error(
+    db,
+    *,
+    task: DecisionTask,
+    required_action: str | None,
+) -> str | None:
+    if not _is_contract_task(db, task=task):
+        return None
+    if required_action is None:
+        return "route not authorized for contract tasks"
+
+    from src.contract_task_projection import project_contract_task
+    from src.runtime_paths import resolve_runtime_paths
+
+    read_model = project_contract_task(
+        db,
+        storage_root=resolve_runtime_paths().root / "artifacts",
+        task=task,
+    )
+    if required_action not in read_model.allowed_actions:
+        blockers = ",".join(item.code for item in read_model.blockers)
+        return (
+            f"{required_action} not allowed for current contract facts: "
+            f"{blockers}"
+        )
+    return None
+
+
 def _task_to_payload(
     row: DecisionTask,
     review: "CourtReview | None" = None,
     formal: "FinalMemorial | None" = None,
+    *,
+    contract_task: bool = False,
 ) -> dict:
     """独立复审(2026-07-11)发现: /home 的任务摘要只有 draft_edict(下旨前的丞相
     拟旨),从不带真实回奏——上书房首页"建议"栏因此永远显示下旨前的草拟文字，
@@ -375,6 +489,7 @@ def _task_to_payload(
         "unknown_gaps": _loads(row.unknown_gaps_json, []),
         "recommended_departments": _loads(row.recommended_departments_json, []),
         "contract_scope": _loads(row.contract_scope_json, None),
+        "contract_task": contract_task,
         "created_at": row.created_at,
         "updated_at": row.updated_at,
         "latest_memorial": latest_memorial,
@@ -821,9 +936,22 @@ def _canonical_contract_scope(
     return scope.model_dump(mode="json", exclude_none=True)
 
 
+def _public_rework_generation_payload(
+    value: dict[str, Any] | EvidenceReworkGenerationPayloadV1 | None,
+) -> dict[str, object] | None:
+    if value is None:
+        return None
+    generation = (
+        value
+        if isinstance(value, EvidenceReworkGenerationPayloadV1)
+        else EvidenceReworkGenerationPayloadV1.model_validate(value)
+    )
+    return generation.to_public_payload()
+
+
 def _replayed_evidence_rework_result(existing) -> dict[str, Any]:
     """Interpret replay state through the shared durable-to-domain projection."""
-    payload = project_evidence_rework_generation(existing).to_payload()
+    payload = project_evidence_rework_generation(existing).to_public_payload()
     return {
         "decision": None,
         "decision_id": existing.decision_id,
@@ -832,6 +960,100 @@ def _replayed_evidence_rework_result(existing) -> dict[str, Any]:
         "replayed": True,
         "now": existing.updated_at,
     }
+
+
+def _replayed_legacy_decision_result(db, *, task: DecisionTask, action: str) -> dict[str, Any]:
+    existing = (
+        db.query(EmperorDecision)
+        .filter_by(task_id=task.id, action=action)
+        .order_by(EmperorDecision.created_at.desc(), EmperorDecision.id.desc())
+        .first()
+    )
+    if existing is None:
+        raise ValueError("durable legacy decision missing")
+    return {
+        "decision": existing,
+        "decision_id": existing.id,
+        "archive_record": None,
+        "rework_generation": None,
+        "replayed": True,
+        "now": existing.created_at,
+    }
+
+
+def _authoritative_contract_review(
+    db,
+    *,
+    task: DecisionTask,
+    review: CourtReview | None,
+    current_formal: FinalMemorial | None,
+    actor_user_id: str,
+) -> CourtReview:
+    authoritative_review_id = (
+        current_formal.review_id
+        if current_formal is not None
+        else review.id if review is not None else None
+    )
+    authoritative_review = (
+        db.query(CourtReview)
+        .populate_existing()
+        .filter_by(id=authoritative_review_id)
+        .first()
+        if authoritative_review_id is not None
+        else None
+    )
+    review_mismatch = (
+        review is None
+        or authoritative_review is None
+        or task.tenant_id is None
+        or str(task.user_id) != str(actor_user_id)
+        or authoritative_review.tenant_id is None
+        or authoritative_review.tenant_id != task.tenant_id
+        or authoritative_review.task_id != task.id
+        or review.id != authoritative_review.id
+        or review.tenant_id != authoritative_review.tenant_id
+        or review.task_id != authoritative_review.task_id
+    )
+    final_review_missing_or_mismatched = (
+        current_formal is not None
+        and (
+            current_formal.tenant_id is None
+            or current_formal.tenant_id != task.tenant_id
+            or authoritative_review is None
+            or current_formal.review_id != authoritative_review.id
+        )
+    )
+    if review_mismatch or final_review_missing_or_mismatched:
+        raise ValueError("contract review ownership or final lineage conflict")
+    return authoritative_review
+
+
+def _require_contract_decision_action(
+    db,
+    *,
+    task: DecisionTask,
+    action: str,
+) -> None:
+    if action in _CONTRACT_DENIED_DECISION_ACTIONS:
+        raise ValueError(f"{action} not authorized for contract tasks")
+    required_read_action = _CONTRACT_REQUIRED_READ_ACTIONS.get(action)
+    if required_read_action is None:
+        raise ValueError(f"{action} not authorized for contract tasks")
+
+    from src.contract_task_projection import project_contract_task
+    from src.runtime_paths import resolve_runtime_paths
+
+    read_model = project_contract_task(
+        db,
+        storage_root=resolve_runtime_paths().root / "artifacts",
+        task=task,
+    )
+    if required_read_action not in read_model.allowed_actions:
+        blockers = ",".join(item.code for item in read_model.blockers)
+        raise ValueError(
+            f"{required_read_action} not allowed for current contract facts: "
+            f"{blockers}"
+        )
 
 
 def _execute_final_memorial_decision(
@@ -848,7 +1070,114 @@ def _execute_final_memorial_decision(
     confirmation_extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Single task/brief adjudication writer with exact-hash CAS and rework parity."""
+    from src.decision_task_access import lock_decision_task
+
+    requested_review_id = review.id if review is not None else None
+    lock_decision_task(db, task.id)
+    db.refresh(task)
+    review = (
+        db.query(CourtReview)
+        .populate_existing()
+        .filter_by(id=requested_review_id)
+        .first()
+        if requested_review_id is not None
+        else None
+    )
+    current_formal = (
+        db.query(FinalMemorial)
+        .populate_existing()
+        .filter_by(task_id=task.id, is_current=True)
+        .first()
+    )
+    is_contract_task = _is_contract_task(
+        db,
+        task=task,
+        current_formal=current_formal,
+    )
+    if is_contract_task:
+        review = _authoritative_contract_review(
+            db,
+            task=task,
+            review=review,
+            current_formal=current_formal,
+            actor_user_id=actor_user_id,
+        )
+
     evidence_actions = {"request_evidence", "followup"}
+    if action in evidence_actions and expected_content_hash:
+        existing = _existing_evidence_rework_generation(
+            db,
+            task_id=task.id,
+            prior_final_memorial_content_hash=expected_content_hash,
+            reason=reason,
+            followup_question=followup_question,
+        )
+        if existing is not None:
+            return _replayed_evidence_rework_result(existing)
+
+    if is_contract_task:
+        _require_contract_decision_action(
+            db,
+            task=task,
+            action=action,
+        )
+
+    if not is_contract_task:
+        if action in {"cancel", "recheck"}:
+            from src.execution.decree_dispatcher import lock_evidence_rework_task
+
+            lock_evidence_rework_task(db, task.id)
+            db.refresh(task)
+            if review is not None:
+                db.refresh(review)
+            current_formal = (
+                db.query(FinalMemorial)
+                .populate_existing()
+                .filter_by(task_id=task.id, is_current=True)
+                .first()
+            )
+            is_contract_task = _is_contract_task(
+                db,
+                task=task,
+                current_formal=current_formal,
+            )
+            if is_contract_task:
+                review = _authoritative_contract_review(
+                    db,
+                    task=task,
+                    review=review,
+                    current_formal=current_formal,
+                    actor_user_id=actor_user_id,
+                )
+                _require_contract_decision_action(
+                    db,
+                    task=task,
+                    action=action,
+                )
+
+        from src.execution.outbox_worker import TASK_TERMINAL_STATUSES
+
+        if (
+            not is_contract_task
+            and action == "cancel"
+            and task.status in TASK_TERMINAL_STATUSES
+        ):
+            return _replayed_legacy_decision_result(
+                db,
+                task=task,
+                action=action,
+            )
+        if (
+            not is_contract_task
+            and action == "recheck"
+            and task.status == "reviewing"
+        ):
+            return _replayed_legacy_decision_result(
+                db,
+                task=task,
+                action=action,
+            )
+
     if action in evidence_actions:
         from src.execution.decree_dispatcher import lock_evidence_rework_task
         from src.w05_feature import require_w05_contract_rework
@@ -874,11 +1203,6 @@ def _execute_final_memorial_decision(
         "request_evidence": "awaiting_evidence",
         "followup": "awaiting_evidence",
     }.get(action)
-    current_formal = (
-        db.query(FinalMemorial)
-        .filter_by(task_id=task.id, is_current=True)
-        .first()
-    )
     if current_formal is not None and action in formal_actions:
         if not expected_content_hash:
             label = "补证" if action in evidence_actions else "裁决"
@@ -978,7 +1302,9 @@ def _execute_final_memorial_decision(
         "decision": decision,
         "decision_id": decision.id,
         "archive_record": archive_record,
-        "rework_generation": rework_generation,
+        "rework_generation": _public_rework_generation_payload(
+            rework_generation
+        ),
         "replayed": False,
         "now": now,
     }
@@ -1165,6 +1491,7 @@ def _run_swarm_execution_loop_sync(params: dict[str, Any]) -> dict[str, Any]:
 
 
 @router.get("/home")
+@router.get("/home/v1", response_model=ShangshufangHomeResponse)
 def shangshufang_home(user: CurrentUser = Depends(get_current_user)) -> dict:
     from src.db.engine import SessionLocal
 
@@ -1174,6 +1501,7 @@ def shangshufang_home(user: CurrentUser = Depends(get_current_user)) -> dict:
         pending = (
             db.query(DecisionTask)
             .filter(
+                DecisionTask.tenant_id == user.tenant_id,
                 DecisionTask.user_id == _user_id(user),
                 DecisionTask.status.in_(
                     ["awaiting_emperor_confirm", "awaiting_decision"]
@@ -1186,6 +1514,7 @@ def shangshufang_home(user: CurrentUser = Depends(get_current_user)) -> dict:
         reviewing = (
             db.query(DecisionTask)
             .filter(
+                DecisionTask.tenant_id == user.tenant_id,
                 DecisionTask.user_id == _user_id(user),
                 DecisionTask.status.in_(["reviewing", "awaiting_evidence"]),
             )
@@ -1196,16 +1525,32 @@ def shangshufang_home(user: CurrentUser = Depends(get_current_user)) -> dict:
         task_ids = [row.id for row in (*pending, *reviewing)]
         latest_reviews = _latest_reviews_by_task(db, task_ids)
         final_memorials = _final_memorials_by_task(db, task_ids)
+        contract_task_ids = {
+            row.id
+            for row in (*pending, *reviewing)
+            if _is_contract_task(
+                db,
+                task=row,
+                current_formal=final_memorials.get(row.id),
+            )
+        }
         payload["pending_decisions"] = [
             _task_to_payload(
                 row,
                 latest_reviews.get(row.id),
                 final_memorials.get(row.id),
+                contract_task=row.id in contract_task_ids,
             )
             for row in pending
         ]
         payload["pending_evidence_tasks"] = [
-            _task_to_payload(row, latest_reviews.get(row.id)) for row in reviewing
+            _task_to_payload(
+                row,
+                latest_reviews.get(row.id),
+                final_memorials.get(row.id),
+                contract_task=row.id in contract_task_ids,
+            )
+            for row in reviewing
         ]
         if pending:
             top = pending[0]
@@ -1288,8 +1633,16 @@ def shangshufang_draft_edict(
             evidence_summary=evidence_summary,
             archive_matches=body.archive_matches,
         )
+        contract_scope = body.contract_scope or infer_supported_contract_scope(
+            body.raw_question
+        )
+        if contract_scope is not None and user.tenant_id is None:
+            return fail("合同任务必须绑定有效租户")
         route = chancellor_decide_route(edict)
         edict_payload = {**draft_to_dict(edict), "route": route}
+        source_label = "MIXED" if contract_scope is not None else edict.source_label
+        if contract_scope is not None:
+            edict_payload["source_label"] = source_label
         eval_result = evaluate_draft(edict)
         now = now_iso()
 
@@ -1301,7 +1654,7 @@ def shangshufang_draft_edict(
             refined_edict=edict.refined_edict,
             decision_type=edict.decision_type,
             status="awaiting_emperor_confirm",
-            source_label=edict.source_label,
+            source_label=source_label,
             risk_flags=edict.risk_flags,
             known_facts=edict.known_facts,
             unknown_gaps=edict.unknown_gaps,
@@ -1309,7 +1662,7 @@ def shangshufang_draft_edict(
             draft_edict=edict_payload,
             now=now,
             tenant_id=user.tenant_id,
-            contract_scope=body.contract_scope,
+            contract_scope=contract_scope,
         )
         db.add(
             CourtLoopRun(
@@ -1377,14 +1730,36 @@ def shangshufang_confirm_edict(
 
     db = SessionLocal()
     try:
-        task = db.query(DecisionTask).filter_by(id=body.task_id).first()
+        task, ownership_error = get_owned_decision_task(
+            db,
+            task_id=body.task_id,
+            requester_id=_user_id(user),
+            requester_tenant_id=user.tenant_id,
+        )
         if task is None:
             db.rollback()
+            if ownership_error and "无权" in ownership_error:
+                return fail("无权确认该任务")
             return fail("task_id 不存在")
-        if task.user_id != _user_id(user):
+        if (
+            (task.tenant_id is None or user.tenant_id is None)
+            and _is_contract_task(db, task=task)
+        ):
             db.rollback()
-            return fail("无权确认该任务")
+            return fail("合同任务必须绑定有效租户")
         if not body.confirmed:
+            if _is_contract_task(db, task=task):
+                db.rollback()
+                return fail("contract task cancel not authorized")
+
+            from src.execution.outbox_worker import TASK_TERMINAL_STATUSES
+
+            if task.status in TASK_TERMINAL_STATUSES:
+                db.rollback()
+                return fail("terminal task cannot be cancelled from confirm-edict")
+            if task.status != "awaiting_emperor_confirm":
+                db.rollback()
+                return fail("task is not awaiting emperor confirmation")
             task.status = "draft_cancelled"
             task.updated_at = now_iso()
             db.commit()
@@ -1441,6 +1816,42 @@ def shangshufang_confirm_edict(
         # 等措辞会重新命中部门关键词、自我污染出多余部门。真正的"确认正文"只能是
         # 用户原问，或客户端显式传入的 confirmed_edict_text(方案7.2节请求体)。
         confirmed_edict_text = body.confirmed_edict_text or task.raw_question
+        contract_scope = (
+            _canonical_contract_scope(task.contract_scope_json)
+            or _canonical_contract_scope(infer_supported_contract_scope(confirmed_edict_text))
+        )
+        if contract_scope is not None:
+            final = ensure_deterministic_contract_candidate(
+                db,
+                task=task,
+                confirmed_text=confirmed_edict_text,
+                now=now_iso(),
+            )
+            review = db.get(CourtReview, final.review_id)
+            db.commit()
+            memorial = _loads(final.memorial_json, {})
+            return ok(
+                {
+                    "task_id": task.id,
+                    "status": task.status,
+                    "message": "合同文本已进入确定性审查闭环，可生成 ContractReviewPack 交付物。",
+                    "review_id": final.review_id,
+                    "routing_plan": _loads(review.routing_plan_json, {}) if review else {},
+                    "memorial": memorial,
+                    "route": {
+                        "mode": "deterministic_contract_intake",
+                        "decidedBy": "server",
+                        "swarmRequired": False,
+                    },
+                    "route_decision": None,
+                    "final_memorial": {
+                        "final_memorial_id": final.id,
+                        "final_memorial_version": final.version,
+                        "final_memorial_content_hash": final.content_hash,
+                    },
+                    "review_status_url": f"/api/shangshufang/tasks/{task.id}/status",
+                }
+            )
         # 阶段1(方案6.6节)：路由必须依据用户确认/编辑后的最终正文重新生成，
         # 不得信任客户端 draft_payload 里回传的 route——2026-07-10 前的实现在这里
         # 直接读 draft_payload["route"]，等于让浏览器决定路由结果。
@@ -1816,13 +2227,16 @@ def shangshufang_task_status(
 
     db = SessionLocal()
     try:
-        task = db.query(DecisionTask).filter_by(id=task_id).first()
+        task, ownership_error = get_owned_decision_task(
+            db,
+            task_id=task_id,
+            requester_id=_user_id(user),
+            requester_tenant_id=user.tenant_id,
+        )
         if task is None:
+            if ownership_error and "无权" in ownership_error:
+                return fail("无权查看该任务")
             return fail("task_id 不存在")
-        # P0-B(2026-07-14):归属校验。跟 jinyiwei.py 的 fill-gap 同款口径——
-        # 别人的任务一律拒绝,不泄露其状态和会审内容。
-        if task.user_id != _user_id(user):
-            return fail("无权查看该任务")
         review = (
             db.query(CourtReview)
             .filter_by(task_id=task_id)
@@ -1871,7 +2285,12 @@ def shangshufang_task_decision(
         task = db.query(DecisionTask).filter_by(id=task_id).first()
         if task is None:
             return _http_fail(404, "task_id 不存在")
-        if task.user_id != _user_id(user):
+        if (
+            task.user_id != _user_id(user)
+            or task.tenant_id is None
+            or user.tenant_id is None
+            or task.tenant_id != user.tenant_id
+        ):
             return _http_fail(404, "无权裁决该任务")
         review = (
             db.query(CourtReview)
@@ -1979,10 +2398,24 @@ def bind_rework_generation_evidence(
     db = SessionLocal()
     try:
         require_w05_contract_rework()
-        task = db.query(DecisionTask).filter_by(id=task_id).first()
+        task, ownership_error = get_owned_decision_task(
+            db,
+            task_id=task_id,
+            requester_id=_user_id(user),
+            requester_tenant_id=user.tenant_id,
+        )
         if task is None:
+            if ownership_error and "无权" in ownership_error:
+                return _http_fail(404, "无权绑定该任务的补证")
             return _http_fail(404, "task_id 不存在")
-        if task.user_id != _user_id(user):
+        from src.decision_task_access import lock_decision_task
+
+        lock_decision_task(db, task.id)
+        db.refresh(task)
+        if (
+            task.tenant_id != user.tenant_id
+            or str(task.user_id) != str(_user_id(user))
+        ):
             return _http_fail(404, "无权绑定该任务的补证")
 
         generation = (
@@ -1990,6 +2423,7 @@ def bind_rework_generation_evidence(
             .filter_by(
                 id=generation_id,
                 task_id=task_id,
+                tenant_id=task.tenant_id,
                 event_type="evidence.rework",
             )
             .first()
@@ -2072,7 +2506,7 @@ def bind_rework_generation_evidence(
                 {
                     "task_id": task_id,
                     "evidence_packet": existing_packet,
-                    "rework_generation": generation_contract.to_payload(),
+                    "rework_generation": generation_contract.to_public_payload(),
                 }
             )
 
@@ -2089,6 +2523,22 @@ def bind_rework_generation_evidence(
                 return _http_fail(409, "补证 generation 已绑定其他证据")
             raise RuntimeError(
                 "evidence rework invariant: awaiting generation already has evidence"
+            )
+
+        from src.contract_task_projection import project_contract_task
+        from src.runtime_paths import resolve_runtime_paths
+
+        read_model = project_contract_task(
+            db,
+            storage_root=resolve_runtime_paths().root / "artifacts",
+            task=task,
+        )
+        if "SUBMIT_EVIDENCE" not in read_model.allowed_actions:
+            blockers = ",".join(item.code for item in read_model.blockers)
+            return _http_fail(
+                409,
+                "SUBMIT_EVIDENCE not allowed for current contract facts: "
+                f"{blockers}",
             )
 
         packet_id = "evidence_" + hashlib.sha256(
@@ -2131,7 +2581,7 @@ def bind_rework_generation_evidence(
             content_hash=artifact.digest_sha256,
             verification_receipt_id=receipt_id,
         )
-        generation_contract = EvidenceReworkGenerationV1.model_validate(
+        generation_contract = EvidenceReworkGenerationPayloadV1.model_validate(
             {
                 **generation_payload,
                 "status": "evidence_bound",
@@ -2178,7 +2628,7 @@ def bind_rework_generation_evidence(
                 {
                     "task_id": task_id,
                     "evidence_packet": existing_packet,
-                    "rework_generation": winner_generation.to_payload(),
+                    "rework_generation": winner_generation.to_public_payload(),
                 }
             )
         db.add(audit_event)
@@ -2187,7 +2637,9 @@ def bind_rework_generation_evidence(
             {
                 "task_id": task_id,
                 "evidence_packet": packet.model_dump(),
-                "rework_generation": generation_payload,
+                "rework_generation": (
+                    generation_contract.to_public_payload()
+                ),
             }
         )
     except ValueError as exc:
@@ -2208,12 +2660,52 @@ def shangshufang_swarm_deepen(
 
     db = SessionLocal()
     try:
-        task = db.query(DecisionTask).filter_by(id=task_id).first()
+        task, ownership_error = get_owned_decision_task(
+            db,
+            task_id=task_id,
+            requester_id=_user_id(user),
+            requester_tenant_id=user.tenant_id,
+        )
         if task is None:
-            return fail("task_id 不存在")
-        if task.user_id != _user_id(user):
+            return fail(ownership_error or "无权对该任务发起深议")
+        from src.decision_task_access import lock_decision_task
+
+        lock_decision_task(db, task.id)
+        db.refresh(task)
+        if (
+            task.tenant_id != user.tenant_id
+            or str(task.user_id) != str(_user_id(user))
+        ):
             return fail("无权对该任务发起深议")
-        review = _latest_review(db, task_id)
+        action_error = _contract_route_action_error(
+            db,
+            task=task,
+            required_action="REFRESH_REVIEW",
+        )
+        if action_error is not None:
+            return fail(action_error)
+        current_formal = (
+            db.query(FinalMemorial)
+            .populate_existing()
+            .filter_by(task_id=task.id, is_current=True)
+            .first()
+        )
+        review = (
+            db.query(CourtReview)
+            .populate_existing()
+            .filter_by(id=current_formal.review_id)
+            .first()
+            if current_formal is not None
+            else _latest_review(db, task_id)
+        )
+        if current_formal is not None:
+            review = _authoritative_contract_review(
+                db,
+                task=task,
+                review=review,
+                current_formal=current_formal,
+                actor_user_id=str(_user_id(user)),
+            )
         if review is None:
             edict = draft_edict(task.raw_question, source_label=task.source_label)
             routing_plan = routing_plan_for(edict)
@@ -2770,11 +3262,14 @@ def shangshufang_finance_intel_loop_case(
 
     db = SessionLocal()
     try:
-        task = db.query(DecisionTask).filter_by(id=task_id).first()
+        task, ownership_error = get_owned_decision_task(
+            db,
+            task_id=task_id,
+            requester_id=_user_id(user),
+            requester_tenant_id=user.tenant_id,
+        )
         if task is None:
-            return fail("task_id 不存在")
-        if task.user_id != _user_id(user):
-            return fail("无权查看该任务案卷")
+            return fail(ownership_error or "无权查看该任务案卷")
         return ok(_finance_case_from_task(task, _latest_review(db, task_id)))
     finally:
         db.close()
@@ -2815,7 +3310,15 @@ def shangshufang_brief_decision_advance(
         task = db.query(DecisionTask).filter_by(id=review.task_id).first()
         if task is None:
             return _http_fail(404, "task_id 不存在")
-        if task.user_id != _user_id(user):
+        if (
+            task.user_id != _user_id(user)
+            or task.tenant_id is None
+            or review.tenant_id is None
+            or user.tenant_id is None
+            or task.tenant_id != user.tenant_id
+            or review.tenant_id != user.tenant_id
+            or review.tenant_id != task.tenant_id
+        ):
             return _http_fail(404, "无权裁决该任务")
         mapping = {
             "issue_decree": "adopt",
@@ -2939,11 +3442,21 @@ def shangshufang_edict_return(
 
     db = SessionLocal()
     try:
-        task = db.query(DecisionTask).filter_by(id=body.taskId).first()
+        task, ownership_error = get_owned_decision_task(
+            db,
+            task_id=body.taskId,
+            requester_id=_user_id(user),
+            requester_tenant_id=user.tenant_id,
+        )
         if task is None:
-            return fail("task_id 不存在")
-        if task.user_id != _user_id(user):
-            return fail("无权回填该任务")
+            return fail(ownership_error or "无权回填该任务")
+        action_error = _contract_route_action_error(
+            db,
+            task=task,
+            required_action=None,
+        )
+        if action_error is not None:
+            return fail(action_error)
         review = _latest_review(db, body.taskId)
         now = now_iso()
         return_payload = {

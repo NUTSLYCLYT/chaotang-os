@@ -14,6 +14,68 @@ from src.execution.decree_dispatcher import enqueue_dispatch
 from src.execution.outbox_worker import process_event, process_pending_events
 
 
+def _file_backed_session_local(tmp_path, monkeypatch, name: str):
+    import importlib
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from src.db.models import Base
+
+    engine_module = importlib.import_module("src.db.engine")
+    engine = create_engine(
+        f"sqlite:///{tmp_path / f'{name}.db'}",
+        connect_args={"check_same_thread": False, "timeout": 5},
+    )
+    Base.metadata.create_all(engine)
+    TestSession = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    monkeypatch.setattr(engine_module, "SessionLocal", TestSession)
+    return TestSession, engine
+
+
+@pytest.mark.parametrize(
+    ("dialect_name", "expected_statements"),
+    [
+        ("postgresql", ["LOCK TABLE court_loop_runs IN SHARE MODE"]),
+        ("sqlite", []),
+    ],
+)
+def test_mission_publication_lock_matches_supported_dialect(
+    dialect_name,
+    expected_statements,
+):
+    from types import SimpleNamespace
+
+    from src.contract_rework import _lock_mission_publication
+
+    class _Database:
+        def __init__(self):
+            self.statements: list[str] = []
+
+        def get_bind(self):
+            return SimpleNamespace(dialect=SimpleNamespace(name=dialect_name))
+
+        def execute(self, statement):
+            self.statements.append(str(statement))
+
+    db = _Database()
+    _lock_mission_publication(db)
+    assert db.statements == expected_statements
+
+
+def test_mission_publication_lock_fails_closed_for_unknown_dialect():
+    from types import SimpleNamespace
+
+    from src.contract_rework import _lock_mission_publication
+
+    class _Database:
+        def get_bind(self):
+            return SimpleNamespace(dialect=SimpleNamespace(name="unknown-db"))
+
+    with pytest.raises(RuntimeError, match="unsupported"):
+        _lock_mission_publication(_Database())
+
+
 def _seed_direct_task(db, task_id: str = "task_direct_1"):
     from src.db.models import CourtReview, DecisionTask
 
@@ -92,6 +154,112 @@ def test_unknown_event_type_retries_then_dead_letters(isolated_session_local):
     third = process_event(db, event_id)
     assert third["status"] == "dead_letter"
     assert third.get("skipped") is True
+    db.close()
+
+
+@pytest.mark.parametrize("corrupt_envelope", [False, True])
+def test_parent_valid_rework_payload_is_quarantined_without_task_failure(
+    isolated_session_local,
+    monkeypatch,
+    corrupt_envelope,
+):
+    import json
+
+    from src.db.models import (
+        CourtReview,
+        DecisionTask,
+        DecreeExecutionEvent,
+        FinalMemorial,
+        OutboxEvent,
+    )
+
+    monkeypatch.setenv("FENGQUN_W05_CONTRACT_REWORK", "1")
+    db = isolated_session_local()
+    task_id = "task-parent-valid-rework-payload"
+    event_id = "outbox-parent-valid-rework-payload"
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="父版本持久化补证任务",
+            status="awaiting_evidence",
+            source_label="LIVE",
+        )
+    )
+    db.add(
+        OutboxEvent(
+            id=event_id,
+            tenant_id=1,
+            task_id=task_id,
+            decision_id="decision-parent-valid-rework-payload",
+            event_type="evidence.rework",
+            generation=9 if corrupt_envelope else 2,
+            idempotency_key="evidence-rework:parent-valid-payload",
+            status="pending",
+            attempts=0,
+            max_attempts=3,
+            payload_json=json.dumps(
+                {
+                    "schema_version": "EvidenceReworkGenerationV1",
+                    "generation_id": (
+                        "wrong-parent-generation-id"
+                        if corrupt_envelope
+                        else event_id
+                    ),
+                    "generation": 2,
+                    "status": "candidate_ready" if corrupt_envelope else "pending",
+                    "prior_final_memorial_content_hash": "a" * 64,
+                    "evidence_request": {
+                        "reason": "父版本生成的合法补证请求",
+                        "followup_question": None,
+                    },
+                    "affected_sections": ["contract_review"],
+                }
+            ),
+            created_at="2026-07-24T00:00:00+00:00",
+            updated_at="2026-07-24T00:00:00+00:00",
+        )
+    )
+    db.commit()
+
+    result = process_event(db, event_id)
+
+    if corrupt_envelope:
+        assert result["status"] == "failed"
+        event = db.get(OutboxEvent, event_id)
+        task = db.get(DecisionTask, task_id)
+        assert event.status == "failed"
+        assert event.attempts == 1
+        assert "durable evidence rework envelope" in (event.last_error or "")
+        assert task.status == "awaiting_evidence"
+        assert db.query(CourtReview).filter_by(task_id=task_id).count() == 0
+        assert db.query(FinalMemorial).filter_by(task_id=task_id).count() == 0
+        assert (
+            db.query(DecreeExecutionEvent)
+            .filter_by(task_id=task_id, event_type="dispatch.failed")
+            .count()
+            == 1
+        )
+        db.close()
+        return
+
+    assert result["status"] == "superseded"
+    assert result["result"] == {
+        "fenced": True,
+        "reason": "mission_identity_missing",
+        "generation": 2,
+        "affected_sections": ["contract_review"],
+    }
+    event = db.get(OutboxEvent, event_id)
+    task = db.get(DecisionTask, task_id)
+    assert event.status == "superseded"
+    assert event.attempts == 0
+    assert event.last_error is None
+    assert task.status == "awaiting_evidence"
+    assert db.query(CourtReview).filter_by(task_id=task_id).count() == 0
+    assert db.query(FinalMemorial).filter_by(task_id=task_id).count() == 0
+    assert db.query(DecreeExecutionEvent).filter_by(task_id=task_id).count() == 0
     db.close()
 
 
@@ -411,12 +579,650 @@ def test_council_event_passes_recommended_departments_to_swarm_loop(isolated_ses
     db.close()
 
 
-@pytest.mark.parametrize("capability_active", [True, False])
+def test_council_event_fences_terminal_task_before_publication(
+    isolated_session_local,
+):
+    from src.db.models import CourtReview, DecisionTask
+
+    db = isolated_session_local()
+    task_id = "task_council_terminal_during_swarm"
+    review_id = "review_council_terminal_during_swarm"
+    now = "2026-07-28T00:00:00+00:00"
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查合同",
+            status="edict_recorded",
+            source_label="LIVE",
+            draft_edict_json="{}",
+        )
+    )
+    db.add(
+        CourtReview(
+            id=review_id,
+            tenant_id=1,
+            task_id=task_id,
+            routing_plan_json='{"route":{"mode":"cluster"}}',
+            review_status="edict_recorded",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json='{"title":"候选奏折"}',
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    db.commit()
+    event_id = enqueue_dispatch(
+        db,
+        task_id=task_id,
+        decision_id="decision_council_terminal_during_swarm",
+        event_type="route.council",
+    )
+    db.commit()
+    fake_swarm_result = {
+        "swarm_run": {
+            "id": "run_council_terminal_during_swarm",
+            "task_id": task_id,
+            "review_id": review_id,
+            "source_label": "LIVE_SWARM",
+            "route_plan": {"selected_swarms": []},
+        },
+        "quality_result": {
+            "id": "quality_council_terminal_during_swarm",
+            "passed": True,
+            "blocking_reasons": [],
+        },
+    }
+
+    def archive_while_swarm_runs(_params):
+        other = isolated_session_local()
+        task = other.get(DecisionTask, task_id)
+        task.status = "archived"
+        task.updated_at = "2026-07-28T00:01:00+00:00"
+        other.commit()
+        other.close()
+        return fake_swarm_result
+
+    with (
+        patch(
+            "src.swarm_execution_loop.run_swarm_execution_loop",
+            side_effect=archive_while_swarm_runs,
+        ),
+        patch(
+            "src.swarm_persistence.persist_swarm_execution_result"
+        ) as persist_result,
+        patch(
+            "src.swarm_persistence.attach_swarm_result_to_review"
+        ) as attach_result,
+    ):
+        result = process_event(db, event_id)
+
+    assert result["status"] == "superseded"
+    assert result["result"]["reason"] == "terminal_task"
+    assert db.get(DecisionTask, task_id).status == "archived"
+    persist_result.assert_not_called()
+    attach_result.assert_not_called()
+    db.close()
+
+
+def test_council_event_fences_terminal_task_before_swarm_execution(
+    isolated_session_local,
+):
+    from src.db.models import CourtReview, DecisionTask
+
+    db = isolated_session_local()
+    task_id = "task_council_terminal_before_swarm"
+    review_id = "review_council_terminal_before_swarm"
+    now = "2026-07-28T00:00:00+00:00"
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查合同",
+            status="archived",
+            source_label="LIVE",
+            draft_edict_json="{}",
+        )
+    )
+    db.add(
+        CourtReview(
+            id=review_id,
+            tenant_id=1,
+            task_id=task_id,
+            routing_plan_json='{"route":{"mode":"cluster"}}',
+            review_status="awaiting_decision",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json='{"title":"已归档奏折"}',
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    db.commit()
+    event_id = enqueue_dispatch(
+        db,
+        task_id=task_id,
+        decision_id="decision_council_terminal_before_swarm",
+        event_type="route.council",
+    )
+    db.commit()
+
+    with patch(
+        "src.swarm_execution_loop.run_swarm_execution_loop"
+    ) as run_swarm:
+        result = process_event(db, event_id)
+
+    assert result["status"] == "superseded"
+    assert result["result"]["reason"] == "terminal_task"
+    run_swarm.assert_not_called()
+    db.close()
+
+
+def test_contract_council_rejects_nullable_review_tenant_before_swarm(
+    isolated_session_local,
+):
+    import json
+
+    from src.db.models import CourtReview, DecisionTask, OutboxEvent
+
+    db = isolated_session_local()
+    task_id = "task_contract_council_null_review_tenant"
+    review_id = "review_contract_council_null_review_tenant"
+    now = "2026-07-28T00:00:00+00:00"
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查采购合同",
+            status="edict_recorded",
+            source_label="LIVE",
+            contract_scope_json=json.dumps(
+                {
+                    "schema_version": "ContractIntakeV1",
+                    "jurisdiction": "CN_MAINLAND",
+                    "language": "zh-CN",
+                    "contract_type": "procurement",
+                    "our_role": "buyer",
+                    "legal_question": "contract_risk_screening",
+                }
+            ),
+            draft_edict_json="{}",
+        )
+    )
+    db.add(
+        CourtReview(
+            id=review_id,
+            tenant_id=None,
+            task_id=task_id,
+            routing_plan_json='{"route":{"mode":"cluster"}}',
+            review_status="edict_recorded",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json='{"title":"无租户会审"}',
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    db.commit()
+    event_id = enqueue_dispatch(
+        db,
+        task_id=task_id,
+        decision_id="decision_contract_council_null_review_tenant",
+        event_type="route.council",
+    )
+    db.commit()
+
+    with patch(
+        "src.swarm_execution_loop.run_swarm_execution_loop",
+        side_effect=AssertionError("contract tenant failure must precede swarm"),
+    ) as run_swarm:
+        result = process_event(db, event_id)
+
+    assert result["status"] == "failed"
+    event = db.get(OutboxEvent, event_id)
+    assert event is not None
+    assert "contract council requires owned tenant lineage" in (
+        event.last_error or ""
+    )
+    run_swarm.assert_not_called()
+    db.close()
+
+
+def test_council_event_fences_ambiguous_latest_review_before_swarm(
+    isolated_session_local,
+):
+    from src.db.models import CourtReview, DecisionTask
+
+    db = isolated_session_local()
+    task_id = "task_council_ambiguous_latest_before_swarm"
+    now = "2026-07-28T00:00:00+00:00"
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查合同",
+            status="edict_recorded",
+            source_label="LIVE",
+            draft_edict_json="{}",
+        )
+    )
+    for review_id in (
+        "review_council_ambiguous_latest_a",
+        "review_council_ambiguous_latest_b",
+    ):
+        db.add(
+            CourtReview(
+                id=review_id,
+                tenant_id=1,
+                task_id=task_id,
+                routing_plan_json='{"route":{"mode":"cluster"}}',
+                review_status="edict_recorded",
+                ministry_outputs_json="[]",
+                conflict_summary_json="[]",
+                memorial_json='{"title":"并列候选奏折"}',
+                created_at=now,
+                updated_at=now,
+            )
+        )
+    db.commit()
+    event_id = enqueue_dispatch(
+        db,
+        task_id=task_id,
+        decision_id="decision_council_ambiguous_latest_before_swarm",
+        event_type="route.council",
+    )
+    db.commit()
+
+    with patch(
+        "src.swarm_execution_loop.run_swarm_execution_loop",
+        side_effect=AssertionError("ambiguous review authority must precede swarm"),
+    ) as run_swarm:
+        result = process_event(db, event_id)
+
+    assert result["status"] == "superseded"
+    assert result["result"]["reason"] == "ambiguous_review_authority"
+    run_swarm.assert_not_called()
+    db.close()
+
+
+def test_council_event_fences_file_backed_review_tie_before_publication(
+    tmp_path,
+    monkeypatch,
+):
+    from src.db.models import CourtReview, DecisionTask
+
+    SessionLocal, engine = _file_backed_session_local(
+        tmp_path,
+        monkeypatch,
+        "outbox-review-tie",
+    )
+    db = SessionLocal()
+    task_id = "task_council_file_backed_review_tie"
+    review_id = "review_council_file_backed_review_tie_a"
+    now = "2026-07-28T00:00:00+00:00"
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查合同",
+            status="edict_recorded",
+            source_label="LIVE",
+            draft_edict_json="{}",
+        )
+    )
+    db.add(
+        CourtReview(
+            id=review_id,
+            tenant_id=1,
+            task_id=task_id,
+            routing_plan_json='{"route":{"mode":"cluster"}}',
+            review_status="edict_recorded",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json='{"title":"候选奏折"}',
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    db.commit()
+    event_id = enqueue_dispatch(
+        db,
+        task_id=task_id,
+        decision_id="decision_council_file_backed_review_tie",
+        event_type="route.council",
+    )
+    db.commit()
+    fake_swarm_result = {
+        "swarm_run": {
+            "id": "run_council_file_backed_review_tie",
+            "task_id": task_id,
+            "review_id": review_id,
+            "source_label": "LIVE_SWARM",
+            "route_plan": {"selected_swarms": []},
+        },
+        "quality_result": {
+            "id": "quality_council_file_backed_review_tie",
+            "passed": True,
+            "blocking_reasons": [],
+        },
+    }
+
+    def insert_tied_review_from_independent_session(_params):
+        other = SessionLocal()
+        other.add(
+            CourtReview(
+                id="review_council_file_backed_review_tie_b",
+                tenant_id=1,
+                task_id=task_id,
+                routing_plan_json='{"route":{"mode":"cluster"},"changed":true}',
+                review_status="edict_recorded",
+                ministry_outputs_json="[]",
+                conflict_summary_json="[]",
+                memorial_json='{"title":"并列新奏折"}',
+                created_at=now,
+                updated_at="2026-07-28T00:01:00+00:00",
+            )
+        )
+        other.commit()
+        other.close()
+        return fake_swarm_result
+
+    with (
+        patch(
+            "src.swarm_execution_loop.run_swarm_execution_loop",
+            side_effect=insert_tied_review_from_independent_session,
+        ),
+        patch("src.swarm_persistence.persist_swarm_execution_result") as persist_result,
+        patch("src.swarm_persistence.attach_swarm_result_to_review") as attach_result,
+    ):
+        result = process_event(db, event_id)
+
+    assert result["status"] == "superseded"
+    assert result["result"]["reason"] == "ambiguous_review_authority"
+    persist_result.assert_not_called()
+    attach_result.assert_not_called()
+    db.close()
+    engine.dispose()
+
+
+def test_council_rechecks_terminal_task_after_started_timeline_commit(
+    isolated_session_local,
+    monkeypatch,
+):
+    from src.db.models import CourtReview, DecisionTask
+
+    db = isolated_session_local()
+    task_id = "task_council_terminal_after_started_commit"
+    review_id = "review_council_terminal_after_started_commit"
+    now = "2026-07-28T00:00:00+00:00"
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查合同",
+            status="edict_recorded",
+            source_label="LIVE",
+            draft_edict_json="{}",
+        )
+    )
+    db.add(
+        CourtReview(
+            id=review_id,
+            tenant_id=1,
+            task_id=task_id,
+            routing_plan_json='{"route":{"mode":"cluster"}}',
+            review_status="edict_recorded",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json='{"title":"候选奏折"}',
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    db.commit()
+    event_id = enqueue_dispatch(
+        db,
+        task_id=task_id,
+        decision_id="decision_council_terminal_after_started_commit",
+        event_type="route.council",
+    )
+    db.commit()
+
+    original_refresh = db.refresh
+    archived = False
+
+    def archive_before_first_refresh(instance, *args, **kwargs):
+        nonlocal archived
+        if isinstance(instance, DecisionTask) and not archived:
+            archived = True
+            other = isolated_session_local()
+            other_task = other.get(DecisionTask, task_id)
+            other_task.status = "archived"
+            other_task.updated_at = "2026-07-28T00:01:00+00:00"
+            other.commit()
+            other.close()
+        return original_refresh(instance, *args, **kwargs)
+
+    monkeypatch.setattr(db, "refresh", archive_before_first_refresh)
+    with patch(
+        "src.swarm_execution_loop.run_swarm_execution_loop"
+    ) as run_swarm:
+        result = process_event(db, event_id)
+
+    assert result["status"] == "superseded"
+    assert result["result"]["reason"] == "terminal_task"
+    run_swarm.assert_not_called()
+    db.close()
+
+
+def test_council_swarm_inputs_come_from_post_timeline_authority_snapshot(
+    isolated_session_local,
+    monkeypatch,
+):
+    import json
+
+    from src.db.models import CourtReview, DecisionTask
+
+    db = isolated_session_local()
+    task_id = "task_council_post_timeline_inputs"
+    review_id = "review_council_post_timeline_inputs"
+    now = "2026-07-28T00:00:00+00:00"
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=1,
+            user_id="1",
+            raw_question="审查合同",
+            status="edict_recorded",
+            source_label="LIVE",
+            draft_edict_json=json.dumps(
+                {"recommended_departments": ["户部"], "snapshot": "before"}
+            ),
+        )
+    )
+    db.add(
+        CourtReview(
+            id=review_id,
+            tenant_id=1,
+            task_id=task_id,
+            routing_plan_json=json.dumps(
+                {"route": {"mode": "cluster"}, "snapshot": "before"}
+            ),
+            review_status="edict_recorded",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json='{"title":"候选奏折"}',
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    db.commit()
+    event_id = enqueue_dispatch(
+        db,
+        task_id=task_id,
+        decision_id="decision_council_post_timeline_inputs",
+        event_type="route.council",
+    )
+    db.commit()
+
+    original_refresh = db.refresh
+    revised = False
+
+    def revise_before_first_refresh(instance, *args, **kwargs):
+        nonlocal revised
+        if isinstance(instance, DecisionTask) and not revised:
+            revised = True
+            other = isolated_session_local()
+            other_task = other.get(DecisionTask, task_id)
+            other_review = other.get(CourtReview, review_id)
+            other_task.draft_edict_json = json.dumps(
+                {"recommended_departments": ["刑部"], "snapshot": "after"}
+            )
+            other_task.updated_at = "2026-07-28T00:01:00+00:00"
+            other_review.routing_plan_json = json.dumps(
+                {"route": {"mode": "cluster"}, "snapshot": "after"}
+            )
+            other_review.updated_at = "2026-07-28T00:01:00+00:00"
+            other.commit()
+            other.close()
+        return original_refresh(instance, *args, **kwargs)
+
+    captured: list[dict] = []
+
+    def capture_inputs(params):
+        captured.append(params)
+        raise RuntimeError("stop after input capture")
+
+    monkeypatch.setattr(db, "refresh", revise_before_first_refresh)
+    with patch(
+        "src.swarm_execution_loop.run_swarm_execution_loop",
+        side_effect=capture_inputs,
+    ):
+        process_event(db, event_id)
+
+    assert captured[0]["confirmed_edict"]["snapshot"] == "after"
+    assert captured[0]["review_plan"]["snapshot"] == "after"
+    assert captured[0]["department_ids"] == ["刑部"]
+    db.close()
+
+
+def test_council_event_fences_mission_drift_before_publication(
+    isolated_session_local,
+):
+    from src.contract_mission_repository import save_mission_snapshot
+    from src.db.models import CourtReview, DecisionTask
+    from tests.contract_task_support import contract_mission
+
+    db = isolated_session_local()
+    task_id = "task_council_mission_drift"
+    review_id = "review_council_mission_drift"
+    now = "2026-07-28T00:00:00+00:00"
+    task = DecisionTask(
+        id=task_id,
+        tenant_id=1,
+        user_id="1",
+        raw_question="审查合同",
+        status="edict_recorded",
+        source_label="LIVE",
+        draft_edict_json="{}",
+    )
+    db.add(task)
+    db.add(
+        CourtReview(
+            id=review_id,
+            tenant_id=1,
+            task_id=task_id,
+            routing_plan_json='{"route":{"mode":"cluster"}}',
+            review_status="edict_recorded",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json='{"title":"候选奏折"}',
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    db.flush()
+    save_mission_snapshot(
+        db,
+        task=task,
+        mission=contract_mission(task_id),
+        state="confirmed",
+    )
+    db.commit()
+    event_id = enqueue_dispatch(
+        db,
+        task_id=task_id,
+        decision_id="decision_council_mission_drift",
+        event_type="route.council",
+    )
+    db.commit()
+    fake_swarm_result = {
+        "swarm_run": {
+            "id": "run_council_mission_drift",
+            "task_id": task_id,
+            "review_id": review_id,
+            "source_label": "LIVE_SWARM",
+            "route_plan": {"selected_swarms": []},
+        },
+        "quality_result": {
+            "id": "quality_council_mission_drift",
+            "passed": True,
+            "blocking_reasons": [],
+        },
+    }
+
+    def revise_mission_while_swarm_runs(_params):
+        other = isolated_session_local()
+        other_task = other.get(DecisionTask, task_id)
+        revised = contract_mission(task_id).model_copy(update={"revision": 2})
+        save_mission_snapshot(
+            other,
+            task=other_task,
+            mission=revised,
+            state="confirmed",
+        )
+        other.commit()
+        other.close()
+        return fake_swarm_result
+
+    with (
+        patch(
+            "src.swarm_execution_loop.run_swarm_execution_loop",
+            side_effect=revise_mission_while_swarm_runs,
+        ),
+        patch(
+            "src.swarm_persistence.persist_swarm_execution_result"
+        ) as persist_result,
+        patch(
+            "src.swarm_persistence.attach_swarm_result_to_review"
+        ) as attach_result,
+    ):
+        result = process_event(db, event_id)
+
+    assert result["status"] == "superseded"
+    assert result["result"]["reason"] == "authority_changed"
+    persist_result.assert_not_called()
+    attach_result.assert_not_called()
+    db.close()
+
+
+@pytest.mark.parametrize(
+    ("capability_active", "mission_present"),
+    [(True, True), (True, False), (False, False)],
+)
 def test_evidence_rework_recomputes_only_declared_contract_section(
     isolated_session_local,
     tmp_path,
     monkeypatch,
     capability_active,
+    mission_present,
 ):
     import hashlib
     import json
@@ -426,6 +1232,7 @@ def test_evidence_rework_recomputes_only_declared_contract_section(
     from src.db.models import (
         CourtReview,
         DecisionTask,
+        FinalMemorial,
         OutboxEvent,
         SecureIngestArtifact,
     )
@@ -439,16 +1246,24 @@ def test_evidence_rework_recomputes_only_declared_contract_section(
     artifact_path = tmp_path / "payment-evidence.docx"
     artifact_path.write_bytes(artifact_bytes)
     digest = hashlib.sha256(artifact_bytes).hexdigest()
-    db.add(
-        DecisionTask(
-            id=task_id,
-            tenant_id=1,
-            user_id="1",
-            raw_question="审查采购合同付款条款",
-            status="awaiting_evidence",
-            source_label="LIVE",
-        )
+    prior_memorial = json.dumps(
+        {
+            "contract_review": {"status": "old"},
+            "financial_review": {"status": "keep-me"},
+        },
+        sort_keys=True,
+        separators=(",", ":"),
     )
+    prior_final_hash = hashlib.sha256(prior_memorial.encode("utf-8")).hexdigest()
+    task = DecisionTask(
+        id=task_id,
+        tenant_id=1,
+        user_id="1",
+        raw_question="审查采购合同付款条款",
+        status="awaiting_evidence",
+        source_label="LIVE",
+    )
+    db.add(task)
     db.add(
         CourtReview(
             id="review-evidence-rework-worker",
@@ -458,14 +1273,25 @@ def test_evidence_rework_recomputes_only_declared_contract_section(
             review_status="awaiting_evidence",
             ministry_outputs_json="[]",
             conflict_summary_json="[]",
-            memorial_json=json.dumps(
-                {
-                    "contract_review": {"status": "old"},
-                    "financial_review": {"status": "keep-me"},
-                }
-            ),
+                memorial_json=prior_memorial,
             created_at="2026-07-24T00:00:00+00:00",
             updated_at="2026-07-24T00:00:00+00:00",
+        )
+    )
+    db.add(
+        FinalMemorial(
+            id="final-evidence-rework-worker-v1",
+            tenant_id=1,
+            task_id=task_id,
+            review_id="review-evidence-rework-worker",
+            swarm_run_id="swarm-evidence-rework-worker-v1",
+            quality_result_id="quality-evidence-rework-worker-v1",
+            status="awaiting_evidence",
+            source_label="LIVE",
+            memorial_json=prior_memorial,
+            content_hash=prior_final_hash,
+            version=1,
+            is_current=True,
         )
     )
     db.add(
@@ -490,6 +1316,9 @@ def test_evidence_rework_recomputes_only_declared_contract_section(
         )
     )
     generation_id = "outbox-rework-generation-2"
+    from tests.contract_task_support import contract_mission
+
+    generation_mission = contract_mission(task_id)
     db.add(
         OutboxEvent(
             id=generation_id,
@@ -508,12 +1337,22 @@ def test_evidence_rework_recomputes_only_declared_contract_section(
                     "generation_id": generation_id,
                     "generation": 2,
                     "status": "evidence_bound",
-                    "prior_final_memorial_content_hash": "a" * 64,
+                    "prior_final_memorial_content_hash": prior_final_hash,
+                    "mission_revision": generation_mission.revision,
+                    "mission_content_digest": generation_mission.content_digest,
                     "evidence_request": {
                         "reason": "补充第 4 页付款条件原文",
                         "followup_question": None,
                     },
                     "affected_sections": ["contract_review"],
+                    "contract_scope": {
+                        "schema_version": "ContractIntakeV1",
+                        "jurisdiction": "CN_MAINLAND",
+                        "language": "zh-CN",
+                        "contract_type": "procurement",
+                        "our_role": "buyer",
+                        "legal_question": "contract_risk_screening",
+                    },
                     "evidence_packets": [
                         {
                             "schema_version": "EvidencePacketV1",
@@ -522,7 +1361,7 @@ def test_evidence_rework_recomputes_only_declared_contract_section(
                             "task_id": task_id,
                             "input_version_id": artifact_id,
                             "input_digest": digest,
-                            "prior_final_memorial_content_hash": "a" * 64,
+                            "prior_final_memorial_content_hash": prior_final_hash,
                             "generation": 2,
                             "evidence_status": "GROUNDED",
                             "source_kind": "USER_UPLOAD",
@@ -537,6 +1376,17 @@ def test_evidence_rework_recomputes_only_declared_contract_section(
             updated_at="2026-07-24T00:00:00+00:00",
         )
     )
+    if mission_present:
+        from src.contract_mission_repository import save_mission_snapshot
+        from tests.contract_task_support import contract_mission
+
+        db.flush()
+        save_mission_snapshot(
+            db,
+            task=task,
+            mission=contract_mission(task_id),
+            state="confirmed",
+        )
     db.commit()
 
     monkeypatch.setenv(
@@ -563,19 +1413,31 @@ def test_evidence_rework_recomputes_only_declared_contract_section(
             "status": "old"
         }
         return
+    if not mission_present:
+        assert result["status"] == "superseded", result
+        assert result["result"]["fenced"] is True
+        assert result["result"]["reason"] == "mission_missing"
+        status = TestClient(app).get(
+            f"/api/shangshufang/tasks/{task_id}/status"
+        ).json()["data"]
+        assert status["task"]["status"] == "awaiting_evidence"
+        assert status["review"]["memorial"]["contract_review"] == {
+            "status": "old"
+        }
+        return
 
     assert result["status"] == "completed", result
     assert result["result"]["affected_sections"] == ["contract_review"]
     status = TestClient(app).get(
         f"/api/shangshufang/tasks/{task_id}/status"
     ).json()["data"]
-    assert status["task"]["status"] == "awaiting_evidence"
-    assert status["review"]["review_status"] == "awaiting_evidence"
+    assert status["task"]["status"] == "awaiting_decision"
+    assert status["review"]["review_status"] == "awaiting_decision"
     memorial = status["review"]["memorial"]
     assert memorial["financial_review"] == {"status": "keep-me"}
     assert memorial["contract_review"]["schema_version"] == "ContractReviewPackV1"
     assert memorial["contract_review"]["candidate_status"] == "CANDIDATE"
-    assert memorial["contract_review"]["quality_gate_status"] == "FAILED"
+    assert memorial["contract_review"]["quality_gate_status"] == "PASSED"
     risk = memorial["contract_review"]["risk_items"][0]
     assert risk["risk_level"] == "medium"
     assert risk["page_number"] is None
@@ -623,6 +1485,8 @@ def test_late_old_rework_generation_cannot_replace_current_review(
         "schema_version": "EvidenceReworkGenerationV1",
         "status": "evidence_bound",
         "prior_final_memorial_content_hash": "a" * 64,
+        "mission_revision": 1,
+        "mission_content_digest": "b" * 64,
         "evidence_request": {"reason": "补证", "followup_question": None},
         "affected_sections": ["contract_review"],
         "evidence_packets": [],
@@ -672,11 +1536,24 @@ def test_late_old_rework_generation_cannot_replace_current_review(
 
 @pytest.mark.parametrize(
     "interruption",
-    [None, "new_generation", "capability_disabled"],
+    [
+        None,
+        "new_generation",
+        "capability_disabled",
+        "terminal_task",
+        "mission_changed",
+        "prior_final_changed",
+        "mission_same_scope_changed_before_worker",
+        "mission_scope_changed_before_worker",
+        "prior_final_changed_before_worker",
+        "wrong_review_tenant_before_worker",
+        "null_review_tenant_before_worker",
+    ],
 )
 def test_supported_contract_rework_public_chain_appends_current_v2(
     isolated_session_local,
     monkeypatch,
+    tmp_path,
     interruption,
     w05_contract_user,
 ):
@@ -685,6 +1562,7 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
 
     from fastapi.testclient import TestClient
 
+    from src.contract_mission_repository import save_mission_snapshot
     from src.db.models import (
         CourtReview,
         DecisionTask,
@@ -695,29 +1573,38 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
         SwarmRun,
     )
     from src.formal_memorial import formalize_memorial
+    from tests.contract_task_support import (
+        contract_mission,
+        contract_review_pack,
+        seed_delivery,
+    )
     from tests.fixtures.secure_ingest_fixtures import golden_docx_bytes
     from web.main import app
 
     db = isolated_session_local()
     task_id = "task_supported_contract_rework_public_chain"
     review_id = "review-supported-contract-rework-public-chain"
-    db.add(
-        DecisionTask(
-            id=task_id,
-            tenant_id=1,
-            user_id="1",
-            raw_question="审查中国大陆中文采购合同付款条款",
-                status="awaiting_decision",
-                source_label="LIVE",
-                contract_scope_json=json.dumps({
-                    "schema_version": "ContractIntakeV1",
-                    "jurisdiction": "CN_MAINLAND",
-                    "language": "zh-CN",
-                    "contract_type": "procurement",
-                    "our_role": "buyer",
-                    "legal_question": "contract_risk_screening",
-                }),
-        )
+    task = DecisionTask(
+        id=task_id,
+        tenant_id=1,
+        user_id="1",
+        raw_question="审查中国大陆中文采购合同付款条款",
+        status="awaiting_decision",
+        source_label="LIVE",
+        contract_scope_json=json.dumps({
+            "schema_version": "ContractIntakeV1",
+            "jurisdiction": "CN_MAINLAND",
+            "language": "zh-CN",
+            "contract_type": "procurement",
+            "our_role": "buyer",
+            "legal_question": "contract_risk_screening",
+        }),
+    )
+    db.add(task)
+    first_pack = contract_review_pack(
+        task_id,
+        tenant_id="1",
+        court_review_id=review_id,
     )
     db.add(
         CourtReview(
@@ -733,6 +1620,7 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
                     "title": "合同会审正式奏折 v1",
                     "summary": "现有付款条款需要补充原文。",
                     "recommendation": "request_evidence",
+                    "contract_review": first_pack,
                 },
                 ensure_ascii=False,
             ),
@@ -741,6 +1629,12 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
         )
     )
     db.flush()
+    save_mission_snapshot(
+        db,
+        task=task,
+        mission=contract_mission(task_id),
+        state="confirmed",
+    )
     first = formalize_memorial(
         db,
         task_id=task_id,
@@ -760,10 +1654,20 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
             },
         },
     )
+    db.flush()
+    seed_delivery(
+        db,
+        storage_root=tmp_path / "artifacts",
+        tenant_id=1,
+        task_id=task_id,
+        final=first,
+        pack=first_pack,
+    )
     first_hash = first.content_hash
     db.commit()
     db.close()
 
+    monkeypatch.setenv("FENGQUN_RUNTIME_ROOT", str(tmp_path))
     client = TestClient(app)
     requested = client.post(
         f"/api/shangshufang/tasks/{task_id}/decision",
@@ -776,6 +1680,8 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
     ).json()
     assert requested["success"] is True, requested
     generation = requested["data"]["rework_generation"]
+    assert "mission_revision" not in generation
+    assert "mission_content_digest" not in generation
 
     uploaded = client.post(
         "/api/secure-ingest/upload",
@@ -810,9 +1716,70 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
         },
     ).json()
     assert bound["success"] is True, bound
+    assert "mission_revision" not in bound["data"]["rework_generation"]
+    assert "mission_content_digest" not in bound["data"]["rework_generation"]
 
     worker_db = isolated_session_local()
-    if interruption is not None:
+    worker_task = worker_db.get(DecisionTask, task_id)
+    durable_generation = json.loads(
+        worker_db.get(OutboxEvent, generation["generation_id"]).payload_json
+    )
+    save_mission_snapshot(
+        worker_db,
+        task=worker_task,
+        mission=contract_mission(task_id),
+        state="confirmed",
+    )
+    if interruption in {
+        "mission_same_scope_changed_before_worker",
+        "mission_scope_changed_before_worker",
+    }:
+        from src.contracts.mission_contract import compute_mission_content_digest
+
+        mission_updates = {
+            "revision": 2,
+            "content_digest": "0" * 64,
+        }
+        if interruption == "mission_scope_changed_before_worker":
+            mission_updates.update(
+                {
+                    "contract_type": "sales",
+                    "our_role": "seller",
+                }
+            )
+        changed_mission = contract_mission(task_id).model_copy(
+            update=mission_updates
+        )
+        changed_mission = changed_mission.model_copy(
+            update={
+                "content_digest": compute_mission_content_digest(changed_mission),
+            }
+        )
+        save_mission_snapshot(
+            worker_db,
+            task=worker_task,
+            mission=changed_mission,
+            state="confirmed",
+        )
+        worker_db.flush()
+    elif interruption == "prior_final_changed_before_worker":
+        current_final = (
+            worker_db.query(FinalMemorial)
+            .filter_by(task_id=task_id, is_current=True)
+            .one()
+        )
+        current_final.content_hash = "f" * 64
+        worker_db.flush()
+    elif interruption in {
+        "wrong_review_tenant_before_worker",
+        "null_review_tenant_before_worker",
+    }:
+        review = worker_db.get(CourtReview, review_id)
+        review.tenant_id = (
+            2 if interruption == "wrong_review_tenant_before_worker" else None
+        )
+        worker_db.flush()
+    elif interruption is not None:
         import src.contract_rework as contract_rework
 
         extract_docx_text = contract_rework._extract_docx_text
@@ -821,6 +1788,43 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
             text = extract_docx_text(raw_bytes)
             if interruption == "capability_disabled":
                 monkeypatch.setenv("FENGQUN_W05_CONTRACT_REWORK", "0")
+                return text
+            if interruption == "terminal_task":
+                worker_task.status = "task_cancelled"
+                worker_db.flush()
+                return text
+            if interruption == "mission_changed":
+                from src.contracts.mission_contract import (
+                    compute_mission_content_digest,
+                )
+
+                mission = contract_mission(task_id).model_copy(
+                    update={
+                        "revision": 2,
+                        "content_digest": "0" * 64,
+                    }
+                )
+                mission = mission.model_copy(
+                    update={
+                        "content_digest": compute_mission_content_digest(mission),
+                    }
+                )
+                save_mission_snapshot(
+                    worker_db,
+                    task=worker_task,
+                    mission=mission,
+                    state="confirmed",
+                )
+                worker_db.flush()
+                return text
+            if interruption == "prior_final_changed":
+                current_final = (
+                    worker_db.query(FinalMemorial)
+                    .filter_by(task_id=task_id, is_current=True)
+                    .one()
+                )
+                current_final.content_hash = "e" * 64
+                worker_db.flush()
                 return text
             newer_id = "outbox-rework-generation-3-mid-processing"
             worker_db.add(
@@ -842,6 +1846,12 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
                             "generation": 3,
                             "status": "awaiting_evidence",
                             "prior_final_memorial_content_hash": first_hash,
+                            "mission_revision": durable_generation[
+                                "mission_revision"
+                            ],
+                            "mission_content_digest": durable_generation[
+                                "mission_content_digest"
+                            ],
                             "evidence_request": {
                                 "reason": "处理途中追加的新补证",
                                 "followup_question": None,
@@ -869,14 +1879,32 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
         assert worker_result["result"]["fenced"] is True
         if interruption == "new_generation":
             assert worker_result["result"]["current_generation"] == 3
-        else:
+        elif interruption == "capability_disabled":
             assert worker_result["result"]["reason"] == "capability_disabled"
+        elif interruption == "terminal_task":
+            assert worker_result["result"]["reason"] == "terminal_task"
+            assert worker_result["result"]["task_status"] == "task_cancelled"
+        elif interruption == "mission_scope_changed_before_worker":
+            assert worker_result["result"]["reason"] == "mission_scope_changed"
+        elif interruption == "mission_same_scope_changed_before_worker":
+            assert worker_result["result"]["reason"] == "mission_changed"
+        elif interruption == "prior_final_changed_before_worker":
+            assert worker_result["result"]["reason"] == "prior_final_changed"
+        elif interruption == "prior_final_changed":
+            assert worker_result["result"]["reason"] == "prior_final_changed"
+        elif interruption in {
+            "wrong_review_tenant_before_worker",
+            "null_review_tenant_before_worker",
+        }:
+            assert worker_result["result"]["reason"] == "review_lineage_conflict"
+        else:
+            assert worker_result["result"]["reason"] == "mission_changed"
         db = isolated_session_local()
         versions = db.query(FinalMemorial).filter_by(task_id=task_id).all()
         assert [(row.version, row.is_current) for row in versions] == [(1, True)]
         assert db.query(SwarmRun).filter_by(task_id=task_id).count() == 0
         review = db.query(CourtReview).filter_by(id=review_id).one()
-        assert "contract_review" not in json.loads(review.memorial_json)
+        assert json.loads(review.memorial_json)["contract_review"] == first_pack
         db.close()
         return
 
@@ -898,6 +1926,13 @@ def test_supported_contract_rework_public_chain_appends_current_v2(
     assert versions[1].status == "ready_for_decision"
     assert versions[1].is_current is True
     assert versions[1].supersedes_id == versions[0].id
+    current_pack = json.loads(versions[1].memorial_json)["contract_review"]
+    current_mission = contract_mission(task_id)
+    assert current_pack["mission_revision"] == current_mission.revision
+    assert (
+        current_pack["mission_content_digest"]
+        == current_mission.content_digest
+    )
     assert db.query(SwarmRun).filter_by(id=versions[1].swarm_run_id).one()
     assert (
         db.query(SwarmQualityResult)
@@ -970,6 +2005,8 @@ def test_evidence_bind_cannot_replace_frozen_contract_scope(
         "generation": 2,
         "status": "pending" if already_bound else "awaiting_evidence",
         "prior_final_memorial_content_hash": "a" * 64,
+        "mission_revision": 1,
+        "mission_content_digest": "b" * 64,
         "evidence_request": {
             "reason": "补证",
             "followup_question": None,

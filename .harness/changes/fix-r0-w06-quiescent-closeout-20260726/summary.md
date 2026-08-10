@@ -1,0 +1,57 @@
+# Change Summary: fix-r0-w06-quiescent-closeout-20260726
+
+| Field | Value |
+| --- | --- |
+| Change ID | fix-r0-w06-quiescent-closeout-20260726 |
+| Type | `fix` |
+| Status | `VERIFIED_COMPLETE / INTEGRATED_LOCAL_NOT_PUSHED` |
+| Owner | EXT Master Governance |
+| Date | `2026-07-26` |
+| Local EXT baseline | `bdc5865fd20ffe7c026a571e9c2b14262b6edde2` |
+| Accepted W06 Packet | `ea4260c2932b24fb5903bd92322a4e398214856d` |
+| Design | `1ca2c267` |
+| Plan | `80e3049f` |
+
+## Outcome
+
+Close R0-W06 from `ACTIVE` to `MERGED_AND_VERIFIED` and set
+`activeWorkPackage=null`. This is a quiescent governance event. It does not
+activate R0-W07 or authorize product implementation.
+
+The reviewed implementation candidate
+`de927ec60ef556c47fcd233aa1f22f232f4fba2c` has zero active ledger entries.
+W06 and W07 both return `STOP / NO_ACTIVE_WORK_PACKAGE`. Independent read-only
+review reported `GOVERNANCE: GO`, `QUALITY: GO`, and zero remaining findings.
+
+## Local Integration
+
+The accepted Packet `5d33c53e7521325cacfcbbc098d4c64ad99004f5`
+was fast-forwarded into local `feature-chaotang-ext` from exact baseline
+`bdc5865fd20ffe7c026a571e9c2b14262b6edde2`.
+
+Post-integration verification retained:
+
+```text
+authority tests = 62 passed / 0 failed
+root doctor = 0 errors / 0 warnings
+backend doctor = 0 errors / 0 warnings
+R0-W06 = STOP / NO_ACTIVE_WORK_PACKAGE
+R0-W07 = STOP / NO_ACTIVE_WORK_PACKAGE
+```
+
+This local integration does not activate R0-W07.
+
+## Boundaries
+
+- `NOT_DEPLOYED`
+- `NO_PUSH`
+- `NO_DB_MIGRATION`
+- `NO_LISTENER_3050_TAKEOVER`
+- `NO_R0_W07_ACTIVATION`
+- `NO_PRODUCT_CODE_CHANGE`
+
+## Rollback
+
+Before local integration, revert this isolated Packet's commits. After local
+integration, authority rollback requires a separately approved governance
+event; it is not a production rollback.

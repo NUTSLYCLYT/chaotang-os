@@ -13,12 +13,34 @@ import sqlalchemy as sa
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import URL, make_url
 
+_POST_ADOPTION_TABLES = frozenset(
+    {
+        "secure_ingest_artifacts",
+        "secure_ingest_audit_events",
+        "secure_ingest_download_tickets",
+        "artifact_manifests",
+        "artifact_delivery_items",
+        "artifact_delivery_audit_events",
+    }
+)
 _ADOPT_CANDIDATES = (
-    ("011_archive_outcome_events", frozenset()),
-    ("010_final_memorial_quality_gate", frozenset({"archive_outcome_events"})),
+    ("011_archive_outcome_events", _POST_ADOPTION_TABLES),
+    (
+        "010_final_memorial_quality_gate",
+        _POST_ADOPTION_TABLES | {"archive_outcome_events"},
+    ),
 )
 _LATER_COLUMNS = {
-    "decision_tasks": {"tenant_id", "request_id", "contract_scope_json"},
+    "tasks": {"tenant_id"},
+    "decision_tasks": {
+        "tenant_id",
+        "request_id",
+        "contract_scope_json",
+        "contract_lineage_id",
+        "predecessor_task_id",
+        "supersedes_final_memorial_id",
+    },
+    "court_loop_runs": {"idempotency_key_hash", "request_hash"},
     "chancellor_route_decisions": {"tenant_id"},
     "outbox_events": {"tenant_id", "generation", "idempotency_key"},
     "decree_execution_events": {
@@ -37,10 +59,24 @@ _LATER_COLUMNS = {
         "final_memorial_content_hash",
     },
 }
+_LATER_CHECKS = {
+    "court_loop_runs": {"ck_court_loop_runs_idempotency_pair"},
+    "emperor_decisions": {
+        "ck_emperor_decisions_w07_identity",
+        "ck_emperor_decisions_memorial_version",
+    },
+    "shiguan_archives": {
+        "ck_shiguan_archives_receipt_identity",
+        "ck_shiguan_archives_memorial_version",
+    },
+}
 _LATER_TABLES = {
     "secure_ingest_artifacts",
     "secure_ingest_audit_events",
     "secure_ingest_download_tickets",
+    "artifact_manifests",
+    "artifact_delivery_items",
+    "artifact_delivery_audit_events",
 }
 _LATER_INDEXES = {
     "final_memorials": {"uq_final_memorials_current_task"},
@@ -215,15 +251,18 @@ def _unique_shapes(inspector: sa.Inspector, table_name: str) -> set[tuple[str, .
 
 
 def _expected_unique_shapes(table: sa.Table) -> set[tuple[str, ...]]:
+    later_columns = _LATER_COLUMNS.get(table.name, set())
     shapes = {
         tuple(column.name for column in constraint.columns)
         for constraint in table.constraints
         if isinstance(constraint, sa.UniqueConstraint)
+        and not ({column.name for column in constraint.columns} & later_columns)
     }
     shapes.update(
         tuple(column.name for column in index.columns)
         for index in table.indexes
         if index.unique
+        and not ({column.name for column in index.columns} & later_columns)
     )
     return shapes
 
@@ -290,7 +329,14 @@ def _validate_table(
     errors: list[str] = []
     actual_columns = {item["name"]: item for item in inspector.get_columns(table_name)}
     expected_columns = {column.name: column for column in table.columns}
-    required = set(expected_columns) - _LATER_COLUMNS.get(table_name, set())
+    later_columns = _LATER_COLUMNS.get(table_name, set())
+    present_later_columns = set(actual_columns) & later_columns
+    if present_later_columns and present_later_columns != later_columns:
+        errors.append(
+            f"{table_name} has partial later columns: "
+            f"{', '.join(sorted(present_later_columns))}"
+        )
+    required = set(expected_columns) - later_columns
     missing = sorted(required - set(actual_columns))
     unexpected = sorted(set(actual_columns) - set(expected_columns))
     if missing:
@@ -302,12 +348,15 @@ def _validate_table(
         expected = expected_columns[column_name]
         if not _type_matches(actual["type"], expected.type):
             errors.append(f"{table_name}.{column_name} has incompatible type")
-        if bool(actual.get("nullable")) != bool(expected.nullable):
+        if (
+            column_name not in later_columns
+            and bool(actual.get("nullable")) != bool(expected.nullable)
+        ):
             errors.append(f"{table_name}.{column_name} has incompatible nullability")
         expected_default = _EXPECTED_SERVER_DEFAULTS.get((table_name, column_name))
-        if column_name in _LATER_COLUMNS.get(table_name, set()):
+        if column_name in later_columns:
             expected_default = None
-        if _normalize_default(actual.get("default")) != expected_default:
+        if column_name not in later_columns and _normalize_default(actual.get("default")) != expected_default:
             errors.append(f"{table_name}.{column_name} has incompatible server default")
 
     actual_pk = tuple(inspector.get_pk_constraint(table_name).get("constrained_columns") or ())
@@ -315,7 +364,10 @@ def _validate_table(
     if actual_pk != expected_pk:
         errors.append(f"{table_name} primary key mismatch: expected {expected_pk}, got {actual_pk}")
 
-    actual_unique = _unique_shapes(inspector, table_name)
+    all_actual_unique = _unique_shapes(inspector, table_name)
+    actual_unique = {
+        shape for shape in all_actual_unique if not (set(shape) & later_columns)
+    }
     expected_unique = _expected_unique_shapes(table)
     if table_name == "final_memorials" and "version" not in actual_columns:
         expected_unique = {("task_id",)}
@@ -327,17 +379,39 @@ def _validate_table(
             f"got {sorted(actual_unique)}"
         )
 
-    actual_indexes = {
+    all_actual_indexes = {
         item["name"]: (tuple(item.get("column_names") or ()), bool(item.get("unique")))
         for item in inspector.get_indexes(table_name)
         if item.get("name")
+    }
+    actual_indexes = {
+        name: shape
+        for name, shape in all_actual_indexes.items()
+        if not (set(shape[0]) & later_columns)
     }
     expected_indexes = {
         index.name: (tuple(column.name for column in index.columns), bool(index.unique))
         for index in table.indexes
         if index.name
         and index.name not in _LATER_INDEXES.get(table_name, set())
+        and not ({column.name for column in index.columns} & later_columns)
     }
+    expected_later_indexes = {
+        index.name: (tuple(column.name for column in index.columns), bool(index.unique))
+        for index in table.indexes
+        if index.name and ({column.name for column in index.columns} & later_columns)
+    }
+    actual_later_indexes = {
+        name: shape
+        for name, shape in all_actual_indexes.items()
+        if set(shape[0]) & later_columns
+    }
+    wanted_later_indexes = expected_later_indexes if present_later_columns else {}
+    if actual_later_indexes != wanted_later_indexes:
+        errors.append(
+            f"{table_name} later indexes mismatch: expected {wanted_later_indexes}, "
+            f"got {actual_later_indexes}"
+        )
     if actual_indexes != expected_indexes:
         for name in sorted(set(actual_indexes) | set(expected_indexes)):
             if actual_indexes.get(name) != expected_indexes.get(name):
@@ -346,15 +420,39 @@ def _validate_table(
                     f"got {actual_indexes.get(name)}"
                 )
 
-    actual_checks = {
+    all_actual_checks = {
         (item.get("name"), _normalize_check_sql(item.get("sqltext")))
         for item in inspector.get_check_constraints(table_name)
+    }
+    actual_checks = {
+        check
+        for check in all_actual_checks
+        if check[0] not in _LATER_CHECKS.get(table_name, set())
     }
     expected_checks = {
         (constraint.name, _normalize_check_sql(constraint.sqltext))
         for constraint in table.constraints
         if isinstance(constraint, sa.CheckConstraint)
+        and constraint.name not in _LATER_CHECKS.get(table_name, set())
     }
+    expected_later_checks = {
+        (constraint.name, _normalize_check_sql(constraint.sqltext))
+        for constraint in table.constraints
+        if isinstance(constraint, sa.CheckConstraint)
+        and constraint.name in _LATER_CHECKS.get(table_name, set())
+    }
+    actual_later_checks = {
+        check
+        for check in all_actual_checks
+        if check[0] in _LATER_CHECKS.get(table_name, set())
+    }
+    wanted_later_checks = expected_later_checks if present_later_columns else set()
+    if actual_later_checks != wanted_later_checks:
+        errors.append(
+            f"{table_name} later check constraints mismatch: "
+            f"expected {sorted(wanted_later_checks, key=repr)}, "
+            f"got {sorted(actual_later_checks, key=repr)}"
+        )
     if table_name == "emperor_decisions" and "kind" not in actual_columns:
         expected_checks = set()
     if actual_checks != expected_checks:
@@ -477,6 +575,12 @@ def inspect_unversioned_database(db_url: str) -> AdoptionReport:
         unknown_tables = sorted(tables - set(metadata_tables) - _IDENTITY_TABLES)
         if unknown_tables:
             shared_mismatches.append("unexpected tables: " + ", ".join(unknown_tables))
+        post_adoption_tables = sorted(tables & _POST_ADOPTION_TABLES)
+        if post_adoption_tables:
+            shared_mismatches.append(
+                "unversioned database contains post-adoption tables: "
+                + ", ".join(post_adoption_tables)
+            )
         shared_mismatches.extend(_identity_mismatches(inspector, tables))
         if "emperor_decisions" in tables:
             emperor_columns = {

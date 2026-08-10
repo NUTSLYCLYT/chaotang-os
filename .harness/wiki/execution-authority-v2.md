@@ -27,7 +27,7 @@ schema/manifest/resolver/CLI/tests，专门回答一个更窄的问题：
 | --- | --- |
 | `INVALID_EXECUTION_AUTHORITY` | manifest/schema 结构或字段格式不合法 |
 | `AMENDMENT_DIGEST_DRIFT` | manifest 的 `approvedSourceDigest` 与 `amendmentGovernance` 记录的不一致，或治理状态不是 `APPROVED_FOR_W01` |
-| `EFFECTIVE_BASE_MISMATCH` | manifest 的 `effectiveBase.sha` 与治理记录的基线不一致 |
+| `EFFECTIVE_BASE_MISMATCH` | manifest 的 `effectiveBase.sha` 与当前批准证据的 `candidateH` 不一致 |
 | `REVIEW_NOT_GO` | 批准证据里的三路 review verdict 不是 `GO` |
 | `WORK_PACKAGE_ARGUMENT_REQUIRED` | `--authorize` 未传 `--work-package` |
 | `UNKNOWN_WORK_PACKAGE_FORMAT` | 传入的包 ID 不匹配 `^R0-W0[0-9]$`（挡旧编号如 `P12`/`PKT-04`/`S3`） |
@@ -64,8 +64,121 @@ schema/manifest/resolver/CLI/tests，专门回答一个更窄的问题：
 
 ## v1 与 v2 共存说明
 
-在 `AGENTS.md`/`.harness/agents/project-owner.md`/`.harness/rules/project-workflow.md`（v1 的
-`governedDocuments`）被一次独立的受控摘要重钉变更改成同时点名 v2 之前，两套命令并存不矛盾：
-v1 回答"最底层的失效关闭护栏结构是否完好"（永远 STOP），v2 回答"这个具体 work package 现在是否
-被授权"（可以是真 GO）。W01 自身的授权不依赖 v2 存在——它来自已经落盘的 Product Owner exact-H
-批准 + 三路独立 Claude Code 审查证据，v2 只是把"接下来怎么继续往前走"这件事管起来。
+`AGENTS.md`、`.harness/agents/project-owner.md` 与 `.harness/rules/project-workflow.md` 是 v1
+`governedDocuments`，并在独立受控摘要重钉中明确了两步程序：先用 v1 `--check` 验证最底层失效关闭
+护栏完整性，再用 v2 `--authorize --work-package <R0-Wxx>` 作唯一的范围化产品施工决定。v1 永远 STOP，
+v2 才回答“这个具体 work package 现在是否被授权”。
+
+当前本地 EXT 已完成 W06 静默收口：`activeWorkPackage=null`，W06 ledger 为
+`MERGED_AND_VERIFIED`。因此 W06 与 W07 都必须返回 `STOP / NO_ACTIVE_WORK_PACKAGE`；这不表示 W07
+已批准或已激活。
+
+## Active Packet 证据 profile
+
+历史 W06 证据保持原路径、排除项和命令集合，不允许被 W07 复用。W07 使用独立 profile：
+
+- canonical evidence root 是
+  `.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727`；旧 W07 root
+  和任何新旧 root 混用均拒绝；
+- `refs/heads/feature-chaotang-ext` 必须精确指向 loader pinned 的当前 `HEAD`，并在
+  exact packet Git 验证前后两次解析为同一 commit；
+- `effectiveBase.sha` 与 approved candidate H 绑定；candidate 必须位于 pinned
+  `HEAD` 的第一父历史，不能只通过 merge 的第二父可达；
+- review package 必须以原始 `Buffer` 逐字节等于固定 EXT review base
+  `b0df777a1fe94d98afdc62b4cdd02a2f8a091391..candidateH` 的 hardened Git diff；
+- owner approval、activation intent、review package 与 Codex final review 必须位于 W07 change root；
+- W07 review 路径使用 `codex_review/exact-h-final.md`，历史 Claude 路径不冒充 Codex；
+- candidate commit、tree、review base、分支 ref、changed paths、digest 和 W07 验证命令必须同时匹配。
+
+任何未知 work package profile、W06 证据复用、伪造但内部自洽的 diff、ref 在验证期间移动或
+candidate/tree 漂移、EXT ref 回退、candidate 仅从第二父可达，都会使 loader 返回
+`INVALID_EXECUTION_AUTHORITY`。生成和校验 raw diff 都必须使用 authority 固定的
+`/usr/bin/git` 信任根；PATH 中其他 Git 版本生成的 binary patch 字节不能作为等价证据。
+authority 与 reviewer overlay 的 exact diff 还要求 repository-local Git metadata
+保持中立：任何 `diff.*`、include、非基础 `core.*`、相关 color/submodule config
+都会 fail closed；`extensions.worktreeConfig` 也被拒绝，不能通过 `config.worktree`
+引入第二套配置。worktree Git dir 或 common Git dir 中存在 `info/attributes` 同样拒绝。
+system attributes 通过 `GIT_ATTR_NOSYSTEM=1` 禁用，用户 attributes 通过命令级
+`core.attributesFile=/dev/null` 禁用；diff 完成后再次检查 repository-local metadata。
+`GIT_ATTR_SOURCE` 精确设置为 approved candidate H，因此候选树内已提交的
+`.gitattributes` 属于受 H/tree 约束的审查输入，mutable working-tree attributes
+不能改变 package bytes。所有 Git 调用还显式设置 `core.commitGraph=false`，不读取
+mutable commit-graph acceleration；commit/tree/parent 事实直接来自对象数据库。
+ACTIVE W07 exact-range 校验还会运行 hardened `git fsck --full --strict`，拒绝
+object hash/path 不一致；repository alternates、HTTP alternates、partial-clone/promisor
+配置、`fsck.*` 降级配置、`.promisor` pack markers 与 object database 内的
+symbolic links 均禁止，不能把未绑定对象源引入 authority。metadata guard
+通过后才允许运行 fsck。
+Event 1 review 的 changed paths 必须与冻结的 12 条候选路径完全相等，不接受
+额外 allowlist 路径或目录前缀扩张。
+
+## 独立审查人范围化修订
+
+根修正案中的 `independentReviewer` 是历史默认审查人，不允许直接改写。审查人不可用时，只能在
+`amendmentGovernance.reviewerReassignment` 登记一个失效关闭的范围化 overlay。当前支持的 overlay
+仅限 `R0-W07`，且必须同时绑定：
+
+- exact candidate H 与 tree；
+- review package 路径及 SHA-256；
+- 两个 `FRESH_NO_FORK_CONTEXT`、`writeAccess=DENIED` 的 Codex Independent QA 审查；
+- 两次审查均为 `GO`，且未解决 HIGH/MEDIUM 均为 0；
+- Product Owner exact-H approval 路径及 SHA-256。
+
+overlay 的证据文件会逐级拒绝符号链接，按原始字节校验 digest，并解析 machine-readable evidence。
+所有 governed authority input 的读取和 SHA-256 校验全程保持 `Buffer`；review package 的 Git diff
+相等性比较也使用原始 Buffer。只有解析 JSON/evidence 或提取 changed paths 时才将副本解码为文本，
+文本解码结果不参与 digest 或字节相等性判定。
+base H、candidate H、tree、exact Git diff、两份 review、owner approval 必须互相绑定；路径和 digest
+不得复用。v2 loader 本身执行这些检查，不能依赖另行运行 doctor。writer session 不得充当 review
+session。W07 激活必须是 overlay 静默注册之后的独立提交；注册父状态不得已经出现任何 W07 ledger
+条目，因此 `MERGED_AND_VERIFIED` 或 `ROLLED_BACK` 的 W07 不能重新变回 ACTIVE。从该激活提交到
+当前 `HEAD` 的第一父
+历史必须连续保持同一 overlay 与 W07 ACTIVE；中途收口后恢复旧字节属于重放并会被拒绝。W07 ledger
+进入 `MERGED_AND_VERIFIED` 后 overlay 失效并回落到历史 reviewer。任何字段、
+文件、digest、Git identity 或审查结果不一致时，active W07 execution authority 必须 STOP。
+缺失、无效或尚未生效的 W07 overlay 不改变 W06：W06 继续使用历史 reviewer 和原 evidence
+contract。overlay 只替换 ACTIVE W07 的 evidence reviewer 身份，不激活 work package，也不修改 v1/v2 的
+执行权限边界；W07 激活仍需独立的 atomic activation candidate。
+
+工作树证据读取先以 `O_NOFOLLOW` 打开文件句柄，再通过 Linux `/proc/self/fd/<fd>` 验证已打开对象的
+真实路径等于仓内预期路径，并从同一句柄读取。平台不支持该绑定、目标被替换或目标逃逸时一律
+fail closed，不能退回到 `lstat` 后重新按路径读取。
+
+激活历史验证要求完整的 non-shallow repository，并在开始时将 `HEAD^{commit}` 解析为单一对象；所有
+activation discovery、first-parent traversal 和 HEAD blob comparison 都使用该对象，返回前再次解析
+并拒绝 HEAD movement。reviewed candidate 必须是 registration parent 的第一父祖先。第一父链定义
+activation event 的唯一集成顺序；历史审计本身不使用 `--first-parent` 或 manifest pathspec，而是枚举
+reviewed base 到 registration parent、activation event 到 HEAD 之间所有可达 commit，包括 merge 的
+第二父历史。每份 authority manifest 都必须通过完整 v2 manifest validator。曾出现 W07 ledger、
+manifest 缺失、JSON 不可解析或结构无效都不能通过删除记录或 ours merge 来重置。
+activation event 本身必须恰好一个父提交；merge commit 不能充当激活事件。
+
+authority Git 子进程不通过继承的 `PATH` 选择可执行文件；Linux 权威运行环境固定使用
+`/usr/bin/git`，该系统路径是仓库外信任根。缺少该可执行文件时必须 fail closed。所有 `GIT_*`
+覆盖仍会从子进程环境移除，并禁用 system/global Git config 与 replacement objects。
+当前 authority commit 契约只接受 40 位 SHA-1 object identity；Git 成功返回其他长度或格式的
+object identity 时必须记录 `unsupported object identity` 并返回
+`INVALID_EXECUTION_AUTHORITY`，不能退回读取 mutable working-tree authority facts。
+无法取得受支持的 pinned commit 时，manifest、schema、amendment governance 与所有 evidence
+reader 必须直接返回 `null`；记录错误但继续解析 working-tree 字节不算 fail closed。
+
+ACTIVE W07 loader 在读取证据前采样 `HEAD` 与 `refs/heads/feature-chaotang-ext`，并在全部异步
+evidence、activation intent 和 history 验证完成后再次解析二者。最终采样不一致时，authorization
+输入携带错误并 fail closed。
+受控 `HEAD` 与本地 `feature-chaotang-ext` ref 不回滚属于经 Product Owner 批准的
+threat-model-B 仓外前提；恶意 ref 回退归类为宿主/仓库控制面失陷，不宣称由当前可达 Git 历史自行
+发现。单次授权期间的 ref movement、从可信当前 ref 可达的历史不连续和 evidence drift 仍必须
+fail closed。
+R0-W07 authority 还要求在受控 isolated worktree 中运行；从命令开始到结果返回不得存在并发外部
+writer 修改 governed files、`HEAD` 或本地 EXT ref。恶意或不合作进程破坏隔离属于宿主/工作区控制面
+失陷，不属于仓内 authority 的原子性保证。该前提不取消 pinned commit/blob、evidence digest、
+identity/history 和已观察 drift 的 fail-closed 检查。
+同步 `executionAuthorityV2CommandResult` 不具备 W07 Git 重验能力，因此不能直接返回 W07 GO。
+canonical CLI 从自身 module path 推导唯一 repository root，await 一次 fresh
+`loadExecutionAuthorityV2`，然后立即调用同步 result mapper；两者之间没有其他 await 或
+caller-supplied loaded object。library 的正向结果仅为 `ELIGIBLE`，只有该 executable CLI
+可以把经过最终 HEAD/EXT ref 与 governed-file 检查的资格转换为 `GO`。
+
+v2 loader 还会直接读取 `manifest.amendment.path` 的原始字节并校验
+`approvedSourceDigest`，不能只比较 manifest 与 governance 中互相引用的 digest 字段。所有 governed
+file 必须是单链接 regular file；`stat.nlink !== 1` 时拒绝，避免仓外 hardlink alias 改写同一 inode。

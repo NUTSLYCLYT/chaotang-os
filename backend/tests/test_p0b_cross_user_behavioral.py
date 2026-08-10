@@ -172,6 +172,10 @@ def derive_attack_surface() -> set[str]:
 # 攻击面 route → 本文件里对应的 probe 函数名。
 # 加一个碰 DecisionTask 查询的新端点 → 推导出的攻击面多一项 → 这里没登记 → 覆盖率门红。
 _PROBES = {
+    "contracts:activate_contract_capabilities": "test_contract_capability_activation",
+    "contracts:confirm_mission_contract": "test_contract_mission_confirm",
+    "contracts:draft_mission_contract": "test_contract_mission_draft",
+    "contracts:read_contract_task_model": "test_contract_task_read_model",
     "jinyiwei:intel_evidence_fill_gap": "test_guarded_exemplar_jinyiwei_fill_gap",
     "shangshufang:shangshufang_task_status": "test_shangshufang_task_status",
     "shangshufang:shangshufang_task_decision": "test_shangshufang_task_decision",
@@ -183,6 +187,9 @@ _PROBES = {
     "shangshufang:bind_rework_generation_evidence": "test_bind_rework_generation_evidence",
     "swarm_runs:create_swarm_run": "test_swarm_runs_create",
     "swarm_runs:create_serial_loop": "test_swarm_runs_create_serial_loop",
+    "swarm_runs:get_swarm_run": "test_swarm_runs_get",
+    "swarm_runs:get_swarm_run_brief": "test_swarm_runs_get_brief",
+    "swarm_runs:get_swarm_run_progress": "test_swarm_runs_get_progress",
     # form-agnostic 检测新抓出的两个列表泄露端点(窄正则漏掉的):
     "court_compat:grand_council_live": "test_grand_council_live_list_leak",
     "shangshufang:shangshufang_home": "test_shangshufang_home_list_leak",
@@ -226,6 +233,36 @@ def _seed_other_users_task(session_local, task_id: str, status: str = "reviewing
     db.close()
 
 
+def _seed_other_users_swarm_run(session_local, run_id: str) -> None:
+    from src.db.models import DecisionTask, SwarmRun
+
+    db = session_local()
+    db.add(
+        DecisionTask(
+            id=f"task_{run_id}",
+            tenant_id=1,
+            user_id="someone_else",
+            raw_question=_SENTINEL,
+            status="reviewing",
+            source_label="LIVE",
+        )
+    )
+    db.add(
+        SwarmRun(
+            id=run_id,
+            task_id=f"task_{run_id}",
+            review_id=f"review_{run_id}",
+            mode="standard",
+            status="completed",
+            source_label="LIVE_SWARM",
+            route_plan_json="{}",
+            trace_id=f"trace_{run_id}",
+        )
+    )
+    db.commit()
+    db.close()
+
+
 def _seed_other_users_review(session_local, review_id: str, task_id: str) -> None:
     """种一个挂在别人任务下的 CourtReview(brief_id → review.task_id → 别人的任务)。"""
     from src.db.models import CourtReview, DecisionTask
@@ -256,6 +293,29 @@ def _seed_victim_with_sentinel(session_local, task_id: str, status: str = "revie
         DecisionTask(
             id=task_id,
             user_id="someone_else",
+            raw_question=_SENTINEL,
+            status=status,
+            source_label="LIVE",
+        )
+    )
+    db.commit()
+    db.close()
+
+
+def _seed_same_user_other_tenant_task(
+    session_local,
+    task_id: str,
+    *,
+    status: str = "reviewing",
+) -> None:
+    from src.db.models import DecisionTask
+
+    db = session_local()
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=2,
+            user_id="1",
             raw_question=_SENTINEL,
             status=status,
             source_label="LIVE",
@@ -312,6 +372,22 @@ def test_shangshufang_task_status(isolated_session_local):
     assert "无权" in body.get("error", "")
 
 
+def test_shangshufang_task_status_rejects_same_user_cross_tenant(
+    isolated_session_local,
+):
+    _seed_same_user_other_tenant_task(
+        isolated_session_local,
+        "p0b_status_cross_tenant",
+    )
+
+    body = client.get(
+        "/api/shangshufang/tasks/p0b_status_cross_tenant/status"
+    ).json()
+
+    _assert_denied(body, "same-user cross-tenant task status")
+    assert _SENTINEL not in str(body)
+
+
 def test_guarded_exemplar_jinyiwei_fill_gap(isolated_session_local):
     """守门样板回归锚:jinyiwei fill-gap 的归属校验必须一直有效。"""
     _seed_other_users_task(isolated_session_local, "p0b_guarded", status="awaiting_evidence")
@@ -321,6 +397,57 @@ def test_guarded_exemplar_jinyiwei_fill_gap(isolated_session_local):
     ).json()
     _assert_denied(body, "jinyiwei fill-gap")
     assert "无权" in body["error"]
+
+
+def _assert_contract_not_found(response, what: str) -> None:
+    assert response.status_code == 404, (
+        f"{what}:跨用户合同任务访问必须与不存在的 task 一样返回 404"
+    )
+    assert response.json() == {"detail": "task_id 不存在"}
+
+
+def test_contract_mission_draft(isolated_session_local):
+    from tests.contract_task_support import contract_mission
+
+    task_id = "p0b_contract_draft"
+    _seed_other_users_task(isolated_session_local, task_id)
+    response = client.post(
+        "/api/contracts/mission/draft",
+        json=contract_mission(task_id).model_dump(mode="json"),
+    )
+    _assert_contract_not_found(response, "contract mission draft")
+
+
+def test_contract_mission_confirm(isolated_session_local):
+    task_id = "p0b_contract_confirm"
+    _seed_other_users_task(isolated_session_local, task_id)
+    response = client.post(
+        f"/api/contracts/mission/{task_id}/confirm",
+        json={"revision": 1, "content_digest": "a" * 64},
+    )
+    _assert_contract_not_found(response, "contract mission confirm")
+
+
+def test_contract_capability_activation(isolated_session_local):
+    task_id = "p0b_contract_capability"
+    _seed_other_users_task(isolated_session_local, task_id)
+    response = client.post(
+        "/api/contracts/capability/activate",
+        json={
+            "mission_contract_id": task_id,
+            "candidate_capability_ids": ["contract_review"],
+        },
+    )
+    _assert_contract_not_found(response, "contract capability activation")
+
+
+def test_contract_task_read_model(isolated_session_local):
+    task_id = "p0b_contract_read_model"
+    _seed_other_users_task(isolated_session_local, task_id)
+    response = client.get(
+        f"/api/contracts/tasks/{task_id}/read-model",
+    )
+    _assert_contract_not_found(response, "contract task read model")
 
 
 # ---------------------------------------------------------------------------
@@ -337,10 +464,97 @@ def test_shangshufang_task_decision(isolated_session_local):
     _assert_denied(body, "task decision")
 
 
+def test_shangshufang_task_decision_rejects_same_user_cross_tenant(
+    isolated_session_local,
+):
+    from src.db.models import CourtReview, DecisionTask, ShiguanArchive
+    from src.formal_memorial import formalize_memorial
+
+    task_id = "p0b_decision_cross_tenant"
+    review_id = f"review_{task_id}"
+    db = isolated_session_local()
+    db.add(
+        DecisionTask(
+            id=task_id,
+            tenant_id=2,
+            user_id="1",
+            raw_question="其他租户的合同裁决",
+            status="awaiting_decision",
+            source_label="LIVE",
+        )
+    )
+    db.add(
+        CourtReview(
+            id=review_id,
+            tenant_id=2,
+            task_id=task_id,
+            review_status="awaiting_decision",
+            memorial_json='{"summary":"tenant secret"}',
+        )
+    )
+    db.commit()
+    formal = formalize_memorial(
+        db,
+        task_id=task_id,
+        review_id=review_id,
+        swarm_result={
+            "swarm_run": {
+                "id": f"run_{task_id}",
+                "task_id": task_id,
+                "review_id": review_id,
+                "source_label": "LIVE_SWARM",
+            },
+            "quality_result": {
+                "id": f"quality_{task_id}",
+                "passed": True,
+            },
+        },
+    )
+    content_hash = formal.content_hash
+    db.commit()
+    db.close()
+
+    response = client.post(
+        f"/api/shangshufang/tasks/{task_id}/decision",
+        json={
+            "action": "approve",
+            "human_confirmed": True,
+            "expected_final_memorial_content_hash": content_hash,
+        },
+    )
+
+    assert response.status_code == 404
+    assert "无权" in response.json()["error"]
+    db = isolated_session_local()
+    assert db.query(ShiguanArchive).filter_by(task_id=task_id).count() == 0
+    db.close()
+
+
 def test_shangshufang_swarm_deepen(isolated_session_local):
     _seed_other_users_task(isolated_session_local, "p0b_deepen")
     body = client.post("/api/shangshufang/tasks/p0b_deepen/swarm-deepen").json()
     _assert_denied(body, "swarm deepen")
+
+
+def test_shangshufang_swarm_deepen_rejects_same_user_cross_tenant(
+    isolated_session_local,
+):
+    from src.db.models import CourtReview, DecisionTask
+
+    task_id = "p0b_deepen_cross_tenant"
+    _seed_same_user_other_tenant_task(isolated_session_local, task_id)
+
+    body = client.post(
+        f"/api/shangshufang/tasks/{task_id}/swarm-deepen"
+    ).json()
+
+    _assert_denied(body, "same-user cross-tenant swarm deepen")
+    db = isolated_session_local()
+    task = db.query(DecisionTask).filter_by(id=task_id).one()
+    assert task.status == "reviewing"
+    assert task.raw_question == _SENTINEL
+    assert db.query(CourtReview).filter_by(task_id=task_id).count() == 0
+    db.close()
 
 
 def test_shangshufang_confirm_edict(isolated_session_local):
@@ -352,10 +566,49 @@ def test_shangshufang_confirm_edict(isolated_session_local):
     _assert_denied(body, "confirm edict")
 
 
+def test_shangshufang_confirm_edict_rejects_same_user_cross_tenant(
+    isolated_session_local,
+):
+    from src.db.models import DecisionTask
+
+    task_id = "p0b_confirm_cross_tenant"
+    _seed_same_user_other_tenant_task(
+        isolated_session_local,
+        task_id,
+        status="awaiting_emperor_confirm",
+    )
+
+    body = client.post(
+        "/api/shangshufang/confirm-edict",
+        json={"task_id": task_id, "confirmed": False},
+    ).json()
+
+    _assert_denied(body, "same-user cross-tenant confirm edict")
+    db = isolated_session_local()
+    assert db.query(DecisionTask).filter_by(id=task_id).one().status == (
+        "awaiting_emperor_confirm"
+    )
+    db.close()
+
+
 def test_shangshufang_finance_intel_case(isolated_session_local):
     _seed_other_users_task(isolated_session_local, "p0b_finance")
     body = client.get("/api/shangshufang/finance-intel-loop/cases/p0b_finance").json()
     _assert_denied(body, "finance intel case")
+
+
+def test_shangshufang_finance_intel_case_rejects_same_user_cross_tenant(
+    isolated_session_local,
+):
+    task_id = "p0b_finance_cross_tenant"
+    _seed_same_user_other_tenant_task(isolated_session_local, task_id)
+
+    response = client.get(
+        f"/api/shangshufang/finance-intel-loop/cases/{task_id}"
+    )
+
+    _assert_denied(response.json(), "same-user cross-tenant finance intel case")
+    assert _SENTINEL not in response.text
 
 
 def test_shangshufang_brief_decision_advance(isolated_session_local):
@@ -376,6 +629,30 @@ def test_shangshufang_edict_return(isolated_session_local):
     _assert_denied(body, "edict return")
 
 
+def test_shangshufang_edict_return_rejects_same_user_cross_tenant(
+    isolated_session_local,
+):
+    from src.db.models import CourtLoopRun, DecisionTask
+
+    task_id = "p0b_return_cross_tenant"
+    _seed_same_user_other_tenant_task(isolated_session_local, task_id)
+    db = isolated_session_local()
+    updated_at_before = db.query(DecisionTask).filter_by(id=task_id).one().updated_at
+    db.close()
+
+    body = client.post(
+        "/api/shangshufang/edict-return",
+        json={"taskId": task_id, "command": "x"},
+    ).json()
+
+    _assert_denied(body, "same-user cross-tenant edict return")
+    db = isolated_session_local()
+    task = db.query(DecisionTask).filter_by(id=task_id).one()
+    assert task.updated_at == updated_at_before
+    assert db.query(CourtLoopRun).filter_by(task_id=task_id).count() == 0
+    db.close()
+
+
 def test_bind_rework_generation_evidence(isolated_session_local):
     _seed_other_users_task(
         isolated_session_local,
@@ -390,6 +667,27 @@ def test_bind_rework_generation_evidence(isolated_session_local):
         json={"artifact_id": "attacker-artifact"},
     ).json()
     _assert_denied(body, "bind rework generation evidence")
+
+
+def test_bind_rework_generation_evidence_rejects_same_user_cross_tenant(
+    isolated_session_local,
+):
+    task_id = "p0b_bind_cross_tenant"
+    _seed_same_user_other_tenant_task(
+        isolated_session_local,
+        task_id,
+        status="awaiting_evidence",
+    )
+
+    body = client.post(
+        (
+            f"/api/shangshufang/tasks/{task_id}/"
+            "rework-generations/attacker-generation/evidence"
+        ),
+        json={"artifact_id": "attacker-artifact"},
+    ).json()
+
+    _assert_denied(body, "same-user cross-tenant evidence bind")
 
 
 def test_swarm_runs_create(isolated_session_local):
@@ -444,6 +742,27 @@ def test_swarm_runs_retry(isolated_session_local):
     db.close()
     body = client.post("/api/swarm-runs/p0b_retry_run/retry").json()
     _assert_denied(body, "swarm run retry")
+
+
+def test_swarm_runs_get(isolated_session_local):
+    run_id = "p0b_get_swarm_run"
+    _seed_other_users_swarm_run(isolated_session_local, run_id)
+    response = client.get(f"/api/swarm-runs/{run_id}")
+    _assert_denied(response.json(), "swarm run get")
+
+
+def test_swarm_runs_get_brief(isolated_session_local):
+    run_id = "p0b_get_swarm_brief"
+    _seed_other_users_swarm_run(isolated_session_local, run_id)
+    response = client.get(f"/api/swarm-runs/{run_id}/brief")
+    _assert_denied(response.json(), "swarm run brief")
+
+
+def test_swarm_runs_get_progress(isolated_session_local):
+    run_id = "p0b_get_swarm_progress"
+    _seed_other_users_swarm_run(isolated_session_local, run_id)
+    response = client.get(f"/api/swarm-runs/{run_id}/progress")
+    _assert_denied(response.json(), "swarm run progress")
 
 
 def test_chaotang_task_persist(isolated_session_local):
@@ -536,6 +855,20 @@ def test_shangshufang_home_list_leak(isolated_session_local):
     _seed_victim_with_sentinel(isolated_session_local, "p0b_home_leak")
     resp = client.get("/api/shangshufang/home")
     _assert_sentinel_not_leaked(resp, "shangshufang home")
+
+
+def test_shangshufang_home_excludes_same_user_other_tenant(
+    isolated_session_local,
+):
+    _seed_same_user_other_tenant_task(
+        isolated_session_local,
+        "p0b_home_cross_tenant",
+        status="awaiting_decision",
+    )
+
+    resp = client.get("/api/shangshufang/home")
+
+    _assert_sentinel_not_leaked(resp, "same-user cross-tenant shangshufang home")
 
 
 # ---------------------------------------------------------------------------

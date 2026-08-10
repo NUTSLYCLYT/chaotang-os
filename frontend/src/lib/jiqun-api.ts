@@ -10,6 +10,7 @@ import {
   backendRuntimeUrl,
 } from '@/lib/backend-api';
 import type { DecreeExecutionStatusV1 } from '@/lib/contracts/chancellor-routing';
+import type { ContractIntakeV1 } from '@/lib/contracts/backend-openapi-2026-07-21';
 
 /**
  * jiqun 后端开启 FENGQUN_AUTH 时只认 `Authorization: Bearer` 或 cookie `token`，
@@ -501,6 +502,7 @@ export interface ShangshufangDecisionTaskSummary {
   known_facts: string[];
   unknown_gaps: string[];
   recommended_departments: string[];
+  contract_scope?: ContractIntakeV1 | null;
   created_at: string;
   updated_at: string;
   /** 2026-07-11 补齐: 真实回奏已产出时的精简摘要, 取代下旨前的 draft_edict 展示。 */
@@ -513,6 +515,11 @@ export interface ShangshufangDecisionTaskSummary {
   } | null;
 }
 
+export interface ShangshufangHomeDecisionTaskSummary
+  extends ShangshufangDecisionTaskSummary {
+  contract_task: boolean;
+}
+
 export interface ShangshufangHomeResponse {
   source_label: ShangshufangSourceLabel;
   today_issue: {
@@ -523,8 +530,8 @@ export interface ShangshufangHomeResponse {
     evidence_basis: string[];
     missing_evidence: string[];
   };
-  pending_decisions: ShangshufangDecisionTaskSummary[];
-  pending_evidence_tasks: ShangshufangDecisionTaskSummary[];
+  pending_decisions: ShangshufangHomeDecisionTaskSummary[];
+  pending_evidence_tasks: ShangshufangHomeDecisionTaskSummary[];
   archive_hints: unknown[];
 }
 
@@ -621,7 +628,7 @@ export async function shangshufangFinanceReportingLoop(
 }
 
 export async function shangshufangHome(): Promise<ShangshufangHomeResponse> {
-  const res = await fetchLocalCourtApi('/api/court/shangshufang/home');
+  const res = await fetchLocalCourtApi('/api/court/shangshufang/home/v1');
   if (!res.ok) await throwLocalApiError(res, '查看上书房');
   const envelope = (await res.json()) as JiqunEnvelope<ShangshufangHomeResponse>;
   return unwrapJiqunEnvelope(envelope, '读取上书房决策首页');

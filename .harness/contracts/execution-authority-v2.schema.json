@@ -34,7 +34,7 @@
       "additionalProperties": false,
       "required": ["ref", "sha"],
       "properties": {
-        "ref": { "type": "string", "pattern": "^origin/[A-Za-z0-9][A-Za-z0-9._/-]*$" },
+        "ref": { "type": "string", "pattern": "^(?:origin/[A-Za-z0-9][A-Za-z0-9._/-]*|refs/heads/feature-chaotang-ext)$" },
         "sha": { "$ref": "#/$defs/hex40" }
       }
     },
@@ -60,7 +60,7 @@
         "ownerApprovalSha256": { "$ref": "#/$defs/hex64" },
         "reviewPath": {
           "type": "string",
-          "pattern": "^\\.harness/changes/[a-z0-9][a-z0-9-]*/claude_code_review/exact-h-final\\.md$"
+          "pattern": "^\\.harness/changes/[a-z0-9][a-z0-9-]*/(?:claude_code_review|codex_review)/exact-h-final\\.md$"
         },
         "reviewSha256": { "$ref": "#/$defs/hex64" },
         "reviewVerdict": { "const": "GO" },

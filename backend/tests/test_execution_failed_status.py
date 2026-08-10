@@ -24,6 +24,7 @@ def _seed_council_task(db, *, task_id: str):
     db.add(
         DecisionTask(
             id=task_id,
+            tenant_id=1,
             user_id="1",
             raw_question="请复核这份合同的违约责任和合规风险",
             status="edict_recorded",
@@ -33,6 +34,7 @@ def _seed_council_task(db, *, task_id: str):
     db.add(
         CourtReview(
             id=review_id,
+            tenant_id=1,
             task_id=task_id,
             routing_plan_json='{"route":{"mode":"council"}}',
             review_status="edict_recorded",

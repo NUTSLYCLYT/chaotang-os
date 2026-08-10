@@ -39,6 +39,117 @@ TASK_TERMINAL_STATUSES = frozenset(
 )
 
 
+def _council_authority_snapshot(
+    db: "Session",
+    *,
+    task: Any,
+    review: Any,
+) -> dict[str, Any]:
+    from src.contract_mission_repository import load_current_mission_snapshot
+    from src.db.models import FinalMemorial
+
+    current_final = (
+        db.query(FinalMemorial)
+        .populate_existing()
+        .filter_by(task_id=task.id, is_current=True)
+        .first()
+    )
+    mission = load_current_mission_snapshot(db, task=task)
+    return {
+        "task": (
+            task.id,
+            task.tenant_id,
+            task.user_id,
+            task.raw_question,
+            task.status,
+            task.source_label,
+            task.contract_scope_json,
+            task.draft_edict_json,
+            task.updated_at,
+        ),
+        "review": (
+            review.id,
+            review.tenant_id,
+            review.task_id,
+            review.routing_plan_json,
+            review.review_status,
+            review.memorial_json,
+            review.updated_at,
+        ),
+        "final": (
+            (
+                current_final.id,
+                current_final.tenant_id,
+                current_final.review_id,
+                current_final.status,
+                current_final.content_hash,
+                current_final.version,
+            )
+            if current_final is not None
+            else None
+        ),
+        "mission": (
+            (
+                mission.row_id,
+                mission.state,
+                mission.mission.revision,
+                mission.mission.content_digest,
+            )
+            if mission is not None
+            else None
+        ),
+    }
+
+
+def _require_owned_contract_council_lineage(
+    db: "Session",
+    *,
+    task: Any,
+    review: Any,
+    outbox_tenant_id: int | None,
+) -> None:
+    from src.core_tenant_lineage import TenantLineageConflict
+    from src.decision_task_access import is_contract_decision_task
+
+    if not is_contract_decision_task(db, task=task):
+        return
+    lineage = (task.tenant_id, outbox_tenant_id, review.tenant_id)
+    if any(value is None for value in lineage) or len(set(lineage)) != 1:
+        raise TenantLineageConflict(
+            "contract council requires owned tenant lineage: "
+            f"task={task.tenant_id!r}, outbox={outbox_tenant_id!r}, "
+            f"review={review.tenant_id!r}"
+        )
+
+
+def _latest_court_review_for_task(
+    db: "Session",
+    *,
+    task_id: str,
+    review_status: str | None = None,
+    populate_existing: bool = False,
+) -> tuple[Any | None, bool]:
+    from src.db.models import CourtReview
+
+    query = db.query(CourtReview)
+    if populate_existing:
+        query = query.populate_existing()
+    filters = {"task_id": task_id}
+    if review_status is not None:
+        filters["review_status"] = review_status
+    reviews = (
+        query.filter_by(**filters)
+        .order_by(CourtReview.created_at.desc(), CourtReview.id.asc())
+        .limit(2)
+        .all()
+    )
+    if not reviews:
+        return None, False
+    if len(reviews) > 1 and reviews[0].created_at == reviews[1].created_at:
+        return None, True
+    return reviews[0], False
+
+
 def _promote_task_to_execution_failed(db: "Session", task_id: str) -> None:
     """R0-REQ-018：硬重试上限打满(dead_letter)必须让人类可见层进入明确终态，
     不得停留在 "executing" 假装还在跑，也不得静默重试。此前只写
@@ -107,17 +218,18 @@ def _execute_direct(
 ) -> dict[str, Any]:
     """direct 模式：confirm-edict 同步内已经用 direct_receipt_for() 生成完整回执，
     outbox worker 只需要确认+记录时间线，不需要额外调用蜂群。"""
-    from src.db.models import CourtReview, DecisionTask
+    from src.db.models import DecisionTask
 
     task = db.query(DecisionTask).filter_by(id=task_id).first()
     if task is None:
         raise ValueError(f"task_id 不存在: {task_id}")
-    review = (
-        db.query(CourtReview)
-        .filter_by(task_id=task_id, review_status="direct_completed")
-        .order_by(CourtReview.created_at.desc())
-        .first()
+    review, ambiguous = _latest_court_review_for_task(
+        db,
+        task_id=task_id,
+        review_status="direct_completed",
     )
+    if ambiguous:
+        raise ValueError(f"task_id={task_id} 的 direct CourtReview authority 不唯一")
     if review is None or not review.memorial_json:
         raise ValueError(f"task_id={task_id} 缺少可核验的 direct 回执")
     from src.core_tenant_lineage import assert_known_tenant_lineage_consistent
@@ -163,7 +275,7 @@ def _execute_council(
     开放式 LLM 调用超时；后台 worker 不受请求超时限制，应该允许真实 LLM 深挖，
     这正是"确认下旨快速返回，重活挪到后台"这条主链要解决的问题。
     """
-    from src.db.models import CourtReview, DecisionTask
+    from src.db.models import DecisionTask
     from src.shangshufang_loop import draft_edict, draft_to_dict
     from src.swarm_execution_loop import run_swarm_execution_loop
     from src.swarm_persistence import (
@@ -174,8 +286,16 @@ def _execute_council(
     task = db.query(DecisionTask).filter_by(id=task_id).first()
     if task is None:
         raise ValueError(f"task_id 不存在: {task_id}")
+    if task.status in TASK_TERMINAL_STATUSES:
+        return {
+            "fenced": True,
+            "reason": "terminal_task",
+            "task_status": task.status,
+        }
 
-    review = db.query(CourtReview).filter_by(task_id=task_id).order_by(CourtReview.created_at.desc()).first()
+    review, ambiguous = _latest_court_review_for_task(db, task_id=task_id)
+    if ambiguous:
+        return {"fenced": True, "reason": "ambiguous_review_authority"}
     if review is None:
         raise ValueError(f"task_id={task_id} 没有对应的 CourtReview，无法派单")
     from src.core_tenant_lineage import assert_known_tenant_lineage_consistent
@@ -186,12 +306,11 @@ def _execute_council(
         outbox_tenant_id=tenant_id,
         review_tenant_id=review.tenant_id,
     )
-
-    import json
-
-    routing_plan = json.loads(review.routing_plan_json or "{}")
-    draft_payload = json.loads(task.draft_edict_json or "null") or draft_to_dict(
-        draft_edict(task.raw_question, source_label=task.source_label)
+    _require_owned_contract_council_lineage(
+        db,
+        task=task,
+        review=review,
+        outbox_tenant_id=tenant_id,
     )
 
     _record_timeline(
@@ -208,6 +327,41 @@ def _execute_council(
         tenant_id=tenant_id,
     )
     db.commit()
+    db.refresh(task)
+    if task.status in TASK_TERMINAL_STATUSES:
+        return {
+            "fenced": True,
+            "reason": "terminal_task",
+            "task_status": task.status,
+        }
+    latest_review, ambiguous = _latest_court_review_for_task(
+        db,
+        task_id=task_id,
+        populate_existing=True,
+    )
+    if ambiguous:
+        return {"fenced": True, "reason": "ambiguous_review_authority"}
+    if latest_review is None or latest_review.id != review.id:
+        return {"fenced": True, "reason": "authority_changed"}
+    review = latest_review
+    _require_owned_contract_council_lineage(
+        db,
+        task=task,
+        review=review,
+        outbox_tenant_id=tenant_id,
+    )
+    authority_snapshot = _council_authority_snapshot(
+        db,
+        task=task,
+        review=review,
+    )
+
+    import json
+
+    routing_plan = json.loads(review.routing_plan_json or "{}")
+    draft_payload = json.loads(task.draft_edict_json or "null") or draft_to_dict(
+        draft_edict(task.raw_question, source_label=task.source_label)
+    )
 
     # 单一事实源(阶段0任务0.2)：draft_edict 阶段已经算出 recommended_departments，
     # 这里必须直接把它传给 run_swarm_execution_loop 的部门覆盖入口——不传的话
@@ -224,6 +378,39 @@ def _execute_council(
             "department_ids": draft_payload.get("recommended_departments"),
         }
     )
+    from src.decision_task_access import lock_decision_task
+
+    lock_decision_task(db, task_id)
+    db.expire_all()
+    task = (
+        db.query(DecisionTask)
+        .populate_existing()
+        .filter_by(id=task_id)
+        .first()
+    )
+    if task is None:
+        return {"fenced": True, "reason": "task_missing"}
+    if task.status in TASK_TERMINAL_STATUSES:
+        return {
+            "fenced": True,
+            "reason": "terminal_task",
+            "task_status": task.status,
+        }
+    latest_review, ambiguous = _latest_court_review_for_task(
+        db,
+        task_id=task_id,
+        populate_existing=True,
+    )
+    if ambiguous:
+        return {"fenced": True, "reason": "ambiguous_review_authority"}
+    if latest_review is None or latest_review.id != review.id:
+        return {"fenced": True, "reason": "authority_changed"}
+    review = latest_review
+    if (
+        _council_authority_snapshot(db, task=task, review=review)
+        != authority_snapshot
+    ):
+        return {"fenced": True, "reason": "authority_changed"}
     persist_swarm_execution_result(db, swarm_result)
     attach_swarm_result_to_review(db, review.id, swarm_result)
     swarm_run_id = swarm_result["swarm_run"]["id"]

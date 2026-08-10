@@ -121,7 +121,7 @@ def test_apply_adopts_compatible_legacy_database_and_preserves_rows(tmp_path: Pa
         apply=True,
     )
 
-    assert result.current_revision == "022_shiguan_memorial_identity"
+    assert result.current_revision == "025_artifact_delivery_state"
     assert result.backup_sha256
     conn = sqlite3.connect(path)
     try:
@@ -183,7 +183,7 @@ def test_apply_accepts_valid_legacy_identity_tables_and_adds_optional_email(
         apply=True,
     )
 
-    assert result.current_revision == "022_shiguan_memorial_identity"
+    assert result.current_revision == "025_artifact_delivery_state"
     conn = sqlite3.connect(path)
     try:
         assert "email" in {row[1] for row in conn.execute("PRAGMA table_info(users)")}

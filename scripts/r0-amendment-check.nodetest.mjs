@@ -8,7 +8,15 @@ import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-import { validateAmendmentGovernanceRegistration } from './lib/amendment-governance.mjs';
+import {
+  effectiveIndependentReviewer,
+  parseReviewerReassignmentEvidence,
+  reviewerReassignmentDiffArgs,
+  validateAmendmentGovernanceRegistration,
+  validateReviewerReassignmentOverlay,
+  verifyAmendmentApprovalEvidenceFiles,
+  verifyReviewerReassignmentActivationHistory,
+} from './lib/amendment-governance.mjs';
 import { validateR0AmendmentMarkdown } from './lib/r0-amendment-check.mjs';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -138,6 +146,845 @@ function proposedGovernanceFixture() {
       'node scripts/harness-doctor.mjs',
     ],
   };
+}
+
+function approvedReviewerReassignmentFixture() {
+  return {
+    schemaVersion: 'reviewer-reassignment.v1',
+    status: 'APPROVED',
+    scope: ['R0-W07'],
+    fromReviewer: 'Claude Code',
+    toReviewer: 'Codex Independent QA',
+    executionOwner: 'Codex',
+    reviewPassesRequired: 2,
+    sessionIsolation: 'FRESH_NO_FORK_CONTEXT',
+    writeAccess: 'DENIED',
+    candidateMutation: 'FORBIDDEN',
+    expiresAfter: 'R0-W07_MERGED_AND_VERIFIED',
+    baseH: '55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca',
+    candidateH: '1'.repeat(40),
+    tree: '2'.repeat(40),
+    writingSessionId: '70da5ef5-c29f-4570-83ec-f7ee19e9bef1',
+    rejectedSessionIds: [
+      '019f9c33-5ae7-7b00-9c0c-1b3b3be8452d',
+      '019f9c33-5b1f-7360-a217-1c3d827045d5',
+      '019f9c43-e603-76c3-b30b-d78789057441',
+      '019f9c43-e632-75b1-99d9-0d9b162cd3e1',
+      '019f9c4f-1fef-74c2-9767-a8a653569bbd',
+      '019f9c4f-201b-7d91-a2b0-e49e08a5985a',
+      '019f9c5b-0cbc-72f0-a114-1b26dc852bd5',
+      '019f9c5b-0cf9-7a20-a741-ce4a279dce9b',
+      '019f9c6d-d611-7400-b03f-3b2e474543a8',
+      '019f9c6d-d648-7961-a3eb-7071cc51eec9',
+      '019f9c7c-09d3-7d70-890a-9f77201076e3',
+      '019f9c7c-0a04-7a20-b62f-cdd8779ad09d',
+      '019f9c8a-e2d2-7d13-8a5a-781992a38021',
+      '019f9c8a-e301-7430-a67f-270e119262b2',
+      '019f9cd7-fbb2-76c2-adc5-a2dd003543c6',
+      '019f9cd7-fbed-7e73-9774-80c8c23569ac',
+      '019f9ce3-9a79-79d1-ab66-caf35bb82778',
+      '019f9ce3-9ab1-7df1-aef9-14c1b939b7c3',
+      '019f9cf4-7b7d-7840-85b4-953d47fa995d',
+      '019f9cf4-7bb2-79a3-ba7e-277a0eec60c8',
+      '019f9d05-77f5-79a3-8d0c-4a0e036ce563',
+      '019f9d05-782d-78e3-98ca-b76baf67ba94',
+      '019f9d3e-2f09-7fb0-81ad-4a0bb0a6ef3d',
+      '019f9d3e-5bf0-7f71-b824-2747a3cc0bda',
+      '019f9d4b-e4ac-7c92-a38c-492e4619f442',
+      '019f9d4c-1bff-71c3-8967-d8f6550f1b33',
+      '019f9d56-e07e-7d10-b75c-7e07bbf5c2eb',
+      '019f9d57-0d8d-7142-b5b4-d0e2c8cb4fce',
+      '019f9d5d-2fac-76b0-8043-e18374e699b7',
+      '019f9d5d-63d2-7690-9c52-4f422cc6e738',
+      '019f9d6c-55a8-73e3-99ba-027549989c1f',
+      '019f9d6c-55e8-7f00-89f5-b63114a791ea',
+      '019f9d77-931c-7103-888a-30d4bdac1bed',
+      '019f9d77-934c-7e33-b86a-78eddb22a420',
+      '019f9e54-18be-7961-acbb-d4b24a99f422',
+      '019f9e54-42d5-7373-9fb3-c49a81a37275',
+      '019f9e63-ae15-7342-b54d-eb1335b88ca1',
+      '019f9e63-d995-7353-a9c7-b9ddf850de8a',
+      '019f9e7f-7755-7043-9cc8-01febc98d973',
+      '019f9e7f-ae1f-7aa2-81ac-a4b0265273b6',
+    ],
+    reviewPackagePath:
+      '.harness/changes/docs-r0-reviewer-reassignment-20260726/review_inputs/candidate.diff',
+    reviewPackageSha256: '3'.repeat(64),
+    ownerApprovalPath:
+      '.harness/changes/docs-r0-reviewer-reassignment-20260726/owner_approval/exact-h-approval.md',
+    ownerApprovalSha256: '4'.repeat(64),
+    reviews: [
+      {
+        sessionId: '22222222-2222-2222-2222-222222222222',
+        path:
+          '.harness/changes/docs-r0-reviewer-reassignment-20260726/codex_review/pass-1.md',
+        sha256: '5'.repeat(64),
+        verdict: 'GO',
+        high: 0,
+        medium: 0,
+        writeAccess: 'DENIED',
+      },
+      {
+        sessionId: '33333333-3333-3333-3333-333333333333',
+        path:
+          '.harness/changes/docs-r0-reviewer-reassignment-20260726/codex_review/pass-2.md',
+        sha256: '6'.repeat(64),
+        verdict: 'GO',
+        high: 0,
+        medium: 0,
+        writeAccess: 'DENIED',
+      },
+    ],
+    approvedBy: 'lyt',
+  };
+}
+
+function reviewerReassignmentEvidenceDocument(value) {
+  return [
+    '# Reviewer Reassignment Evidence',
+    '',
+    '<!-- reviewer-reassignment-evidence:start -->',
+    '```json',
+    JSON.stringify(value, null, 2),
+    '```',
+    '<!-- reviewer-reassignment-evidence:end -->',
+    '',
+  ].join('\n');
+}
+
+test('reviewer reassignment evidence rejects duplicate JSON keys', () => {
+  const source = [
+    '<!-- reviewer-reassignment-evidence:start -->',
+    '```json',
+    '{"kind":"owner-approval","kind":"codex-independent-review"}',
+    '```',
+    '<!-- reviewer-reassignment-evidence:end -->',
+  ].join('\n');
+  assert.throws(
+    () => parseReviewerReassignmentEvidence(source, 'duplicate.md'),
+    /duplicate JSON keys/,
+  );
+});
+
+test('review package Git command disables external diff, text conversion, and user attributes', () => {
+  assert.deepEqual(reviewerReassignmentDiffArgs('base', 'candidate'), [
+    '--no-replace-objects',
+    '-c',
+    'core.attributesFile=/dev/null',
+    '-c',
+    'core.commitGraph=false',
+    'diff',
+    '--no-ext-diff',
+    '--no-textconv',
+    '--binary',
+    'base..candidate',
+  ]);
+});
+
+test('approved reviewer reassignment requires two isolated read-only Codex QA passes', () => {
+  const overlay = approvedReviewerReassignmentFixture();
+  assert.deepEqual(validateReviewerReassignmentOverlay(overlay), []);
+  assert.equal(
+    effectiveIndependentReviewer(
+      { independentReviewer: 'Claude Code', reviewerReassignment: overlay },
+      'R0-W07',
+      [{ id: 'R0-W07', status: 'ACTIVE' }],
+    ),
+    'Codex Independent QA',
+  );
+  assert.equal(
+    effectiveIndependentReviewer(
+      { independentReviewer: 'Claude Code', reviewerReassignment: overlay },
+      'R0-W07',
+      [{ id: 'R0-W07', status: 'ROLLED_BACK' }],
+    ),
+    'Claude Code',
+  );
+  const malformedOverlay = structuredClone(overlay);
+  malformedOverlay.scope = ['R0-W08'];
+  assert.equal(
+    effectiveIndependentReviewer(
+      { independentReviewer: 'Claude Code', reviewerReassignment: malformedOverlay },
+      'R0-W06',
+      [{ id: 'R0-W06', status: 'ACTIVE' }],
+    ),
+    'Claude Code',
+  );
+  assert.equal(
+    effectiveIndependentReviewer(
+      { independentReviewer: 'Claude Code', reviewerReassignment: overlay },
+      'R0-W06',
+      [{ id: 'R0-W06', status: 'MERGED_AND_VERIFIED' }],
+    ),
+    'Claude Code',
+  );
+  assert.equal(
+    effectiveIndependentReviewer(
+      { independentReviewer: 'Claude Code', reviewerReassignment: overlay },
+      'R0-W07',
+      [{ id: 'R0-W07', status: 'MERGED_AND_VERIFIED' }],
+    ),
+    'Claude Code',
+  );
+});
+
+test('reviewer reassignment evidence is verified byte-for-byte and fails closed on drift', async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), 'reviewer-reassignment-'));
+  try {
+    const overlay = approvedReviewerReassignmentFixture();
+    await execFileAsync('git', ['init', '-q'], { cwd: tempRoot });
+    await execFileAsync('git', ['config', 'user.name', 'R0 Test'], { cwd: tempRoot });
+    await execFileAsync('git', ['config', 'user.email', 'r0@example.invalid'], {
+      cwd: tempRoot,
+    });
+    await writeFile(join(tempRoot, 'candidate.txt'), 'base\n');
+    await execFileAsync('git', ['add', 'candidate.txt'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'base'], { cwd: tempRoot });
+    overlay.baseH = (await execFileAsync('git', ['rev-parse', 'HEAD'], {
+      cwd: tempRoot,
+    })).stdout.trim();
+    await writeFile(join(tempRoot, 'candidate.txt'), 'candidate\n');
+    await execFileAsync('git', ['add', 'candidate.txt'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'candidate'], { cwd: tempRoot });
+    overlay.candidateH = (await execFileAsync('git', ['rev-parse', 'HEAD'], {
+      cwd: tempRoot,
+    })).stdout.trim();
+    overlay.tree = (await execFileAsync('git', ['rev-parse', 'HEAD^{tree}'], {
+      cwd: tempRoot,
+    })).stdout.trim();
+    const packageSource = (
+      await execFileAsync('git', ['diff', '--binary', `${overlay.baseH}..${overlay.candidateH}`], {
+        cwd: tempRoot,
+        maxBuffer: 10 * 1024 * 1024,
+      })
+    ).stdout;
+    overlay.reviewPackageSha256 = createHash('sha256').update(packageSource).digest('hex');
+    await mkdir(dirname(join(tempRoot, overlay.reviewPackagePath)), { recursive: true });
+    await writeFile(join(tempRoot, overlay.reviewPackagePath), packageSource);
+
+    const reviewSources = overlay.reviews.map((review, index) =>
+      reviewerReassignmentEvidenceDocument({
+        schemaVersion: 'reviewer-reassignment-evidence.v1',
+        kind: 'codex-independent-review',
+        pass: index + 1,
+        sessionId: review.sessionId,
+        reviewer: overlay.toReviewer,
+        rejectedSessionIds: overlay.rejectedSessionIds,
+        scope: overlay.scope,
+        baseH: overlay.baseH,
+        candidateH: overlay.candidateH,
+        tree: overlay.tree,
+        reviewPackagePath: overlay.reviewPackagePath,
+        reviewPackageSha256: overlay.reviewPackageSha256,
+        verdict: review.verdict,
+        high: review.high,
+        medium: review.medium,
+        writeAccess: review.writeAccess,
+        writingSessionId: overlay.writingSessionId,
+        candidateMutated: false,
+      }),
+    );
+    for (let index = 0; index < overlay.reviews.length; index += 1) {
+      const review = overlay.reviews[index];
+      review.sha256 = createHash('sha256').update(reviewSources[index]).digest('hex');
+      await mkdir(dirname(join(tempRoot, review.path)), { recursive: true });
+      await writeFile(join(tempRoot, review.path), reviewSources[index]);
+    }
+
+    const ownerSource = reviewerReassignmentEvidenceDocument({
+      schemaVersion: 'reviewer-reassignment-evidence.v1',
+      kind: 'owner-approval',
+      decision: 'APPROVED',
+      approver: overlay.approvedBy,
+      scope: overlay.scope,
+      baseH: overlay.baseH,
+      candidateH: overlay.candidateH,
+      tree: overlay.tree,
+      reviewPackagePath: overlay.reviewPackagePath,
+      reviewPackageSha256: overlay.reviewPackageSha256,
+      rejectedSessionIds: overlay.rejectedSessionIds,
+      writingSessionId: overlay.writingSessionId,
+      reviews: overlay.reviews.map(({ path, sessionId, sha256 }) => ({
+        path,
+        sessionId,
+        sha256,
+      })),
+    });
+    overlay.ownerApprovalSha256 = createHash('sha256').update(ownerSource).digest('hex');
+    await mkdir(dirname(join(tempRoot, overlay.ownerApprovalPath)), { recursive: true });
+    await writeFile(join(tempRoot, overlay.ownerApprovalPath), ownerSource);
+
+    const governance = {
+      approvalEvidence: null,
+      reviewerReassignment: overlay,
+    };
+    assert.deepEqual(
+      await verifyAmendmentApprovalEvidenceFiles(tempRoot, governance),
+      [],
+    );
+
+    await execFileAsync(
+      'git',
+      ['tag', '-a', 'candidate-tag', '-m', 'candidate tag', overlay.candidateH],
+      { cwd: tempRoot },
+    );
+    const tagObject = (
+      await execFileAsync('git', ['rev-parse', 'candidate-tag'], { cwd: tempRoot })
+    ).stdout.trim();
+    const originalBaseH = overlay.baseH;
+    overlay.baseH = tagObject;
+    assert.ok(
+      (await verifyAmendmentApprovalEvidenceFiles(tempRoot, governance)).some(
+        (error) => error === 'reviewerReassignment.baseH: git object mismatch',
+      ),
+    );
+    overlay.baseH = originalBaseH;
+
+    await writeFile(join(tempRoot, overlay.reviews[0].path), 'drifted review\n');
+    assert.ok(
+      (await verifyAmendmentApprovalEvidenceFiles(tempRoot, governance)).some(
+        (error) =>
+          error === 'reviewerReassignment.reviews[0].path: digest mismatch',
+      ),
+    );
+
+    const forgedReview = reviewSources[0].replace(
+      overlay.reviews[0].sessionId,
+      'forged-session',
+    );
+    overlay.reviews[0].sha256 = createHash('sha256').update(forgedReview).digest('hex');
+    await writeFile(join(tempRoot, overlay.reviews[0].path), forgedReview);
+    assert.ok(
+      (await verifyAmendmentApprovalEvidenceFiles(tempRoot, governance)).some(
+        (error) =>
+          error ===
+          'reviewerReassignment.reviews[0]: evidence sessionId must match overlay',
+      ),
+    );
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('W07 activation requires a prior quiescent overlay registration commit', async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), 'reviewer-activation-history-'));
+  try {
+    await execFileAsync('git', ['init', '-q'], { cwd: tempRoot });
+    await execFileAsync('git', ['config', 'user.name', 'R0 Test'], { cwd: tempRoot });
+    await execFileAsync('git', ['config', 'user.email', 'r0@example.invalid'], {
+      cwd: tempRoot,
+    });
+    const protectedPaths = [
+      '.harness/contracts/execution-authority-v2.schema.json',
+      'scripts/execution-authority-v2.mjs',
+      'scripts/lib/amendment-governance.mjs',
+      'scripts/lib/execution-authority-v2.mjs',
+    ];
+    for (const path of protectedPaths) {
+      await mkdir(dirname(join(tempRoot, path)), { recursive: true });
+      await writeFile(join(tempRoot, path), `${path}\n`);
+    }
+    await mkdir(join(tempRoot, '.harness/manifest'), { recursive: true });
+    await writeFile(
+      join(tempRoot, '.harness/manifest/project-harness.json'),
+      `${JSON.stringify({ amendmentGovernance: {} }, null, 2)}\n`,
+    );
+    await writeFile(
+      join(tempRoot, '.harness/manifest/execution-authority.v2.json'),
+      `${JSON.stringify({ activeWorkPackage: null, workPackageLedger: [] }, null, 2)}\n`,
+    );
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'reviewed candidate'], {
+      cwd: tempRoot,
+    });
+
+    const overlay = approvedReviewerReassignmentFixture();
+    overlay.candidateH = (
+      await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: tempRoot })
+    ).stdout.trim();
+    overlay.baseH = overlay.candidateH;
+    overlay.tree = (
+      await execFileAsync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: tempRoot })
+    ).stdout.trim();
+    const evidencePaths = [
+      [overlay.reviewPackagePath, 'package\n', 'reviewPackageSha256'],
+      [overlay.ownerApprovalPath, 'owner\n', 'ownerApprovalSha256'],
+    ];
+    for (const [path, source, digestField] of evidencePaths) {
+      await mkdir(dirname(join(tempRoot, path)), { recursive: true });
+      await writeFile(join(tempRoot, path), source);
+      overlay[digestField] = createHash('sha256').update(source).digest('hex');
+    }
+    for (let index = 0; index < overlay.reviews.length; index += 1) {
+      const review = overlay.reviews[index];
+      const source = `review ${index + 1}\n`;
+      await mkdir(dirname(join(tempRoot, review.path)), { recursive: true });
+      await writeFile(join(tempRoot, review.path), source);
+      review.sha256 = createHash('sha256').update(source).digest('hex');
+    }
+    const projectPath = join(tempRoot, '.harness/manifest/project-harness.json');
+    const authorityPath = join(
+      tempRoot,
+      '.harness/manifest/execution-authority.v2.json',
+    );
+    await mkdir(dirname(projectPath), { recursive: true });
+    await writeFile(
+      projectPath,
+      `${JSON.stringify({ amendmentGovernance: { reviewerReassignment: overlay } }, null, 2)}\n`,
+    );
+    await writeFile(
+      authorityPath,
+      `${JSON.stringify({ activeWorkPackage: null, workPackageLedger: [] }, null, 2)}\n`,
+    );
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'register overlay'], { cwd: tempRoot });
+
+    await writeFile(
+      authorityPath,
+      `${JSON.stringify({
+        activeWorkPackage: 'R0-W07',
+        workPackageLedger: [{ id: 'R0-W07', status: 'ACTIVE' }],
+      }, null, 2)}\n`,
+    );
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'activate W07'], { cwd: tempRoot });
+    assert.deepEqual(
+      await verifyReviewerReassignmentActivationHistory(
+        tempRoot,
+        { reviewerReassignment: overlay },
+        { activeWorkPackage: 'R0-W07' },
+      ),
+      [],
+    );
+
+    await writeFile(join(tempRoot, protectedPaths[0]), 'uncommitted drift\n');
+    assert.ok(
+      (await verifyReviewerReassignmentActivationHistory(
+        tempRoot,
+        { reviewerReassignment: overlay },
+        { activeWorkPackage: 'R0-W07' },
+      )).some((error) => error.includes('working tree drift')),
+    );
+    await writeFile(join(tempRoot, protectedPaths[0]), `${protectedPaths[0]}\n`);
+
+    await writeFile(join(tempRoot, 'unrelated.txt'), 'post-activation work\n');
+    await execFileAsync('git', ['add', 'unrelated.txt'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'post activation work'], {
+      cwd: tempRoot,
+    });
+    assert.deepEqual(
+      await verifyReviewerReassignmentActivationHistory(
+        tempRoot,
+        { reviewerReassignment: overlay },
+        { activeWorkPackage: 'R0-W07' },
+      ),
+      [],
+    );
+
+    const activeAuthoritySource = await readFile(authorityPath, 'utf8');
+    const activeProjectSource = await readFile(projectPath, 'utf8');
+    await writeFile(
+      authorityPath,
+      `${JSON.stringify({
+        activeWorkPackage: null,
+        workPackageLedger: [{ id: 'R0-W07', status: 'MERGED_AND_VERIFIED' }],
+      }, null, 2)}\n`,
+    );
+    await writeFile(
+      projectPath,
+      `${JSON.stringify({ amendmentGovernance: {} }, null, 2)}\n`,
+    );
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'expire W07 overlay'], {
+      cwd: tempRoot,
+    });
+    await writeFile(authorityPath, activeAuthoritySource);
+    await writeFile(projectPath, activeProjectSource);
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'replay expired overlay'], {
+      cwd: tempRoot,
+    });
+    assert.ok(
+      (await verifyReviewerReassignmentActivationHistory(
+        tempRoot,
+        { reviewerReassignment: overlay },
+        { activeWorkPackage: 'R0-W07' },
+      )).some((error) => error.includes('continuous activation history')),
+    );
+
+    await execFileAsync('git', ['checkout', '-qb', 'uncommitted', overlay.candidateH], {
+      cwd: tempRoot,
+    });
+    await mkdir(dirname(projectPath), { recursive: true });
+    await writeFile(
+      projectPath,
+      `${JSON.stringify({ amendmentGovernance: { reviewerReassignment: overlay } }, null, 2)}\n`,
+    );
+    await writeFile(
+      authorityPath,
+      `${JSON.stringify({ activeWorkPackage: null, workPackageLedger: [] }, null, 2)}\n`,
+    );
+    for (const [path, source] of evidencePaths) {
+      await mkdir(dirname(join(tempRoot, path)), { recursive: true });
+      await writeFile(join(tempRoot, path), source);
+    }
+    for (let index = 0; index < overlay.reviews.length; index += 1) {
+      const review = overlay.reviews[index];
+      await mkdir(dirname(join(tempRoot, review.path)), { recursive: true });
+      await writeFile(join(tempRoot, review.path), `review ${index + 1}\n`);
+    }
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'register overlay for uncommitted case'], {
+      cwd: tempRoot,
+    });
+    await writeFile(join(tempRoot, 'unrelated.txt'), 'registration descendant\n');
+    await execFileAsync('git', ['add', 'unrelated.txt'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'registration descendant'], {
+      cwd: tempRoot,
+    });
+    await writeFile(
+      authorityPath,
+      `${JSON.stringify({
+        activeWorkPackage: 'R0-W07',
+        workPackageLedger: [{ id: 'R0-W07', status: 'ACTIVE' }],
+      }, null, 2)}\n`,
+    );
+    assert.ok(
+      (await verifyReviewerReassignmentActivationHistory(
+        tempRoot,
+        { reviewerReassignment: overlay },
+        { activeWorkPackage: 'R0-W07' },
+      )).some((error) => error.includes('committed activation event')),
+    );
+    await execFileAsync('git', ['restore', '.harness/manifest/execution-authority.v2.json'], {
+      cwd: tempRoot,
+    });
+
+    await execFileAsync('git', ['checkout', '-qb', 'terminal-reactivation', overlay.candidateH], {
+      cwd: tempRoot,
+    });
+    await mkdir(dirname(projectPath), { recursive: true });
+    await writeFile(
+      projectPath,
+      `${JSON.stringify({ amendmentGovernance: {} }, null, 2)}\n`,
+    );
+    await writeFile(
+      authorityPath,
+      `${JSON.stringify({
+        activeWorkPackage: null,
+        workPackageLedger: [{ id: 'R0-W07', status: 'MERGED_AND_VERIFIED' }],
+      }, null, 2)}\n`,
+    );
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'terminal W07 before overlay'], {
+      cwd: tempRoot,
+    });
+    await writeFile(
+      authorityPath,
+      `${JSON.stringify({ activeWorkPackage: null, workPackageLedger: [] }, null, 2)}\n`,
+    );
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'delete terminal W07 ledger entry'], {
+      cwd: tempRoot,
+    });
+    await writeFile(
+      projectPath,
+      `${JSON.stringify({ amendmentGovernance: { reviewerReassignment: overlay } }, null, 2)}\n`,
+    );
+    for (const [path, source] of evidencePaths) {
+      await mkdir(dirname(join(tempRoot, path)), { recursive: true });
+      await writeFile(join(tempRoot, path), source);
+    }
+    for (let index = 0; index < overlay.reviews.length; index += 1) {
+      const review = overlay.reviews[index];
+      await mkdir(dirname(join(tempRoot, review.path)), { recursive: true });
+      await writeFile(join(tempRoot, review.path), `review ${index + 1}\n`);
+    }
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'register overlay after terminal W07'], {
+      cwd: tempRoot,
+    });
+    await writeFile(
+      authorityPath,
+      `${JSON.stringify({
+        activeWorkPackage: 'R0-W07',
+        workPackageLedger: [{ id: 'R0-W07', status: 'ACTIVE' }],
+      }, null, 2)}\n`,
+    );
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'attempt terminal W07 reactivation'], {
+      cwd: tempRoot,
+    });
+    assert.ok(
+      (await verifyReviewerReassignmentActivationHistory(
+        tempRoot,
+        { reviewerReassignment: overlay },
+        { activeWorkPackage: 'R0-W07' },
+      )).some((error) => error.includes('reachable history already contains R0-W07')),
+    );
+    await execFileAsync(
+      'git',
+      ['checkout', '-qb', 'hidden-second-parent-w07', overlay.candidateH],
+      { cwd: tempRoot },
+    );
+    await writeFile(
+      authorityPath,
+      `${JSON.stringify({
+        activeWorkPackage: 'R0-W07',
+        workPackageLedger: [{ id: 'R0-W07', status: 'ACTIVE' }],
+        unexpectedHistoricalField: true,
+      }, null, 2)}\n`,
+    );
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'hidden second-parent W07'], {
+      cwd: tempRoot,
+    });
+
+    await execFileAsync(
+      'git',
+      ['checkout', '-qb', 'merge-parent-replay', overlay.candidateH],
+      { cwd: tempRoot },
+    );
+    await execFileAsync(
+      'git',
+      [
+        'merge',
+        '-q',
+        '--no-ff',
+        '-s',
+        'ours',
+        'hidden-second-parent-w07',
+        '-m',
+        'merge hidden authority history',
+      ],
+      { cwd: tempRoot },
+    );
+    await writeFile(
+      projectPath,
+      `${JSON.stringify({ amendmentGovernance: { reviewerReassignment: overlay } }, null, 2)}\n`,
+    );
+    await writeFile(
+      authorityPath,
+      `${JSON.stringify({ activeWorkPackage: null, workPackageLedger: [] }, null, 2)}\n`,
+    );
+    for (const [path, source] of evidencePaths) {
+      await mkdir(dirname(join(tempRoot, path)), { recursive: true });
+      await writeFile(join(tempRoot, path), source);
+    }
+    for (let index = 0; index < overlay.reviews.length; index += 1) {
+      const review = overlay.reviews[index];
+      await mkdir(dirname(join(tempRoot, review.path)), { recursive: true });
+      await writeFile(join(tempRoot, review.path), `review ${index + 1}\n`);
+    }
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'register after hidden W07 merge'], {
+      cwd: tempRoot,
+    });
+    await writeFile(
+      authorityPath,
+      `${JSON.stringify({
+        activeWorkPackage: 'R0-W07',
+        workPackageLedger: [{ id: 'R0-W07', status: 'ACTIVE' }],
+      }, null, 2)}\n`,
+    );
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'activate after hidden W07 merge'], {
+      cwd: tempRoot,
+    });
+    assert.ok(
+      (await verifyReviewerReassignmentActivationHistory(
+        tempRoot,
+        { reviewerReassignment: overlay },
+        { activeWorkPackage: 'R0-W07' },
+      )).some((error) => error.includes('reachable history already contains R0-W07')),
+    );
+    assert.ok(
+      (await verifyReviewerReassignmentActivationHistory(
+        tempRoot,
+        { reviewerReassignment: overlay },
+        { activeWorkPackage: 'R0-W07' },
+        (authority) =>
+          authority.unexpectedHistoricalField === true
+            ? ['unexpected historical manifest field']
+            : [],
+      )).some((error) => error.includes('unexpected historical manifest field')),
+    );
+
+    await execFileAsync(
+      'git',
+      ['checkout', '-qb', 'merge-activation', overlay.candidateH],
+      { cwd: tempRoot },
+    );
+    await writeFile(
+      projectPath,
+      `${JSON.stringify({ amendmentGovernance: { reviewerReassignment: overlay } }, null, 2)}\n`,
+    );
+    await writeFile(
+      authorityPath,
+      `${JSON.stringify({ activeWorkPackage: null, workPackageLedger: [] }, null, 2)}\n`,
+    );
+    for (const [path, source] of evidencePaths) {
+      await mkdir(dirname(join(tempRoot, path)), { recursive: true });
+      await writeFile(join(tempRoot, path), source);
+    }
+    for (let index = 0; index < overlay.reviews.length; index += 1) {
+      const review = overlay.reviews[index];
+      await mkdir(dirname(join(tempRoot, review.path)), { recursive: true });
+      await writeFile(join(tempRoot, review.path), `review ${index + 1}\n`);
+    }
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'register before merge activation'], {
+      cwd: tempRoot,
+    });
+    await execFileAsync(
+      'git',
+      ['merge', '-q', '--no-ff', '--no-commit', '-s', 'ours', 'hidden-second-parent-w07'],
+      { cwd: tempRoot },
+    );
+    await writeFile(
+      authorityPath,
+      `${JSON.stringify({
+        activeWorkPackage: 'R0-W07',
+        workPackageLedger: [{ id: 'R0-W07', status: 'ACTIVE' }],
+      }, null, 2)}\n`,
+    );
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'merge activation'], {
+      cwd: tempRoot,
+    });
+    assert.ok(
+      (await verifyReviewerReassignmentActivationHistory(
+        tempRoot,
+        { reviewerReassignment: overlay },
+        { activeWorkPackage: 'R0-W07' },
+      )).some((error) => error.includes('activation commit must have exactly one parent')),
+    );
+
+    await execFileAsync('git', ['checkout', '-qb', 'combined', overlay.candidateH], {
+      cwd: tempRoot,
+    });
+    await mkdir(dirname(projectPath), { recursive: true });
+    await writeFile(
+      projectPath,
+      `${JSON.stringify({ amendmentGovernance: { reviewerReassignment: overlay } }, null, 2)}\n`,
+    );
+    await writeFile(
+      authorityPath,
+      `${JSON.stringify({
+        activeWorkPackage: 'R0-W07',
+        workPackageLedger: [{ id: 'R0-W07', status: 'ACTIVE' }],
+      }, null, 2)}\n`,
+    );
+    for (const [path, source] of evidencePaths) {
+      await mkdir(dirname(join(tempRoot, path)), { recursive: true });
+      await writeFile(join(tempRoot, path), source);
+    }
+    for (let index = 0; index < overlay.reviews.length; index += 1) {
+      const review = overlay.reviews[index];
+      await mkdir(dirname(join(tempRoot, review.path)), { recursive: true });
+      await writeFile(join(tempRoot, review.path), `review ${index + 1}\n`);
+    }
+    await execFileAsync('git', ['add', '.'], { cwd: tempRoot });
+    await execFileAsync('git', ['commit', '-qm', 'combined registration activation'], {
+      cwd: tempRoot,
+    });
+    assert.notDeepEqual(
+      await verifyReviewerReassignmentActivationHistory(
+        tempRoot,
+        { reviewerReassignment: overlay },
+        { activeWorkPackage: 'R0-W07' },
+      ),
+      [],
+    );
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+for (const [name, mutate, expected] of [
+  [
+    'scope expansion',
+    (overlay) => overlay.scope.push('R0-W08'),
+    'scope must be exactly R0-W07',
+  ],
+  [
+    'one review',
+    (overlay) => overlay.reviews.pop(),
+    'exactly two review passes',
+  ],
+  [
+    'reused session',
+    (overlay) => { overlay.reviews[1].sessionId = overlay.reviews[0].sessionId; },
+    'unique sessionId',
+  ],
+  [
+    'writer self-review',
+    (overlay) => { overlay.reviews[0].sessionId = overlay.writingSessionId; },
+    'must differ from writingSessionId',
+  ],
+  [
+    'rejected session replay',
+    (overlay) => { overlay.reviews[0].sessionId = overlay.rejectedSessionIds[0]; },
+    'must not reuse a rejected session',
+  ],
+  [
+    'legacy rejected session alias replay',
+    (overlay) => { overlay.reviews[0].sessionId = '/root/r0_w07_qa19_pass2_retry'; },
+    'must not reuse a legacy rejected session alias',
+  ],
+  [
+    'rejected session substitution',
+    (overlay) => { overlay.rejectedSessionIds[0] = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'; },
+    'must bind all prior rejected sessions',
+  ],
+  [
+    'writer receipt substitution',
+    (overlay) => { overlay.writingSessionId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'; },
+    'must match the frozen writer receipt',
+  ],
+  [
+    'base substitution',
+    (overlay) => { overlay.baseH = 'a'.repeat(40); },
+    'must match the frozen EXT baseline',
+  ],
+  [
+    'reused evidence path',
+    (overlay) => { overlay.reviews[1].path = overlay.reviews[0].path; },
+    'evidence paths must be unique',
+  ],
+  [
+    'reused evidence digest',
+    (overlay) => { overlay.reviews[1].sha256 = overlay.reviews[0].sha256; },
+    'review digests must be unique',
+  ],
+  [
+    'wrong review role path',
+    (overlay) => { overlay.reviews[0].path = 'AGENTS.md'; },
+    'review pass 1 path must be canonical',
+  ],
+  [
+    'writable review',
+    (overlay) => { overlay.reviews[0].writeAccess = 'ALLOWED'; },
+    'review writeAccess must be DENIED',
+  ],
+  [
+    'non-GO review',
+    (overlay) => { overlay.reviews[1].verdict = 'NO_GO'; },
+    'review verdict must be GO',
+  ],
+  [
+    'unresolved high',
+    (overlay) => { overlay.reviews[0].high = 1; },
+    'zero unresolved HIGH and MEDIUM',
+  ],
+]) {
+  test(`reviewer reassignment fails closed for ${name}`, () => {
+    const overlay = approvedReviewerReassignmentFixture();
+    mutate(overlay);
+    assert.ok(
+      validateReviewerReassignmentOverlay(overlay).some((error) => error.includes(expected)),
+    );
+  });
 }
 
 test('PROPOSED_NOT_AUTHORITY governance branch stays a regression-safe standalone fixture', () => {

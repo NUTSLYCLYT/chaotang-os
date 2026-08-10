@@ -13,6 +13,7 @@ def _seed_decision(session_factory, task_id: str, user_id: str = "1") -> None:
         db.add(
             DecisionTask(
                 id=task_id,
+                tenant_id=1,
                 user_id=user_id,
                 raw_question="正式任务中的权威原问",
                 status="executing",

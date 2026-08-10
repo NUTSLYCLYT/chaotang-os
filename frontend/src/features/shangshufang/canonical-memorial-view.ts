@@ -13,8 +13,31 @@ export interface CanonicalMemorialViewResult {
   shouldRetry: boolean;
 }
 
-function unique(values: Array<string | null | undefined>): string[] {
-  return [...new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value)))];
+export type CanonicalMemorialKind = CanonicalMemorialViewResult['kind'];
+
+export function canonicalMemorialKind(view: EdictView | null | undefined): CanonicalMemorialKind | null {
+  const match = view?.id.match(/^shangshufang-canonical:(formal|candidate|direct|vetoed):/);
+  return (match?.[1] as CanonicalMemorialKind | undefined) ?? null;
+}
+
+export function canonicalMemorialSource(view: EdictView | null | undefined): string | null {
+  if (!canonicalMemorialKind(view)) return null;
+  return view?.meta?.badges?.find((badge) => /LIVE|LIVE_SWARM|MIXED|FALLBACK|DEMO|来源|主库|蜂群/.test(badge.label))?.label ?? null;
+}
+
+function readable(value: unknown): string | undefined {
+  if (typeof value === 'string') return value.trim() || undefined;
+  if (!value || typeof value !== 'object') return undefined;
+  const record = value as Record<string, unknown>;
+  return text(record.risk)
+    ?? text(record.summary)
+    ?? text(record.reason)
+    ?? text(record.label)
+    ?? text(record.title);
+}
+
+function unique(values: Array<unknown>): string[] {
+  return [...new Set(values.map(readable).filter((value): value is string => Boolean(value)))];
 }
 
 function text(value: unknown): string | undefined {
@@ -199,7 +222,7 @@ export function projectCanonicalMemorialView(
       shouldRetry: false,
     };
   }
-  if (status.task.status === 'awaiting_evidence' && candidate) {
+  if ((status.task.status === 'awaiting_evidence' || status.task.status === 'edict_recorded') && candidate) {
     return {
       kind: 'candidate',
       view: buildView({ taskId, status, memorial: candidate, sourceLabel: candidate.source_label, kind: 'candidate' }),

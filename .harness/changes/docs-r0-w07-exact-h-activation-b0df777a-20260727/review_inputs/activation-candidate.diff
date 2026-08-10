@@ -1,0 +1,1940 @@
+diff --git a/.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/ci_result/ci_summary.md b/.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/ci_result/ci_summary.md
+new file mode 100644
+index 00000000..a64f856f
+--- /dev/null
++++ b/.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/ci_result/ci_summary.md
+@@ -0,0 +1,122 @@
++# CI 摘要：R0-W07 Exact-H Activation Recovery
++
++## 状态
++
++`EVENT_1_VERIFIED / EXACT_H_RECEIPT_EXTERNAL / NON_AUTHORIZING`
++
++## Packet Preparation Baseline
++
++```text
++HEAD = b0df777a1fe94d98afdc62b4cdd02a2f8a091391
++tree = a7beae653e5c9d2efd38fe1fda61a2cbe8b41565
++R0-W07 = STOP / NO_ACTIVE_WORK_PACKAGE
++```
++
++## Event 1 验证目标
++
++| 检查 | 预期 |
++| --- | --- |
++| changed paths | PASS：Packet、authority v2 wiki/runtime/test |
++| execution authority v1 | `STOP / AMENDMENT_APPROVAL_REQUIRED` |
++| execution authority v2 check | `VALID_STRUCTURE` |
++| R0-W07 authorize | `STOP / NO_ACTIVE_WORK_PACKAGE` |
++| authority + amendment tests | PASS：`113/113` |
++| root harness doctor | PASS：`0 errors / 0 warnings` |
++| backend harness doctor | PASS：`0 errors / 0 warnings` |
++| diff check | PASS |
++
++## Packet Preparation Baseline Verification
++
++验证时间：`2026-07-27T01:19:17+0800`
++
++```text
++node --test scripts/execution-authority.nodetest.mjs scripts/r0-amendment-check.nodetest.mjs scripts/execution-authority-v2.nodetest.mjs
++  exit 0 / 108 passed / 0 failed
++node scripts/harness-doctor.mjs
++  exit 0 / 0 errors / 0 warnings
++(cd backend && python3 scripts/harness_doctor.py)
++  exit 0 / 0 errors / 0 warnings
++node scripts/execution-authority-v2.mjs --check
++  exit 0 / VALID_STRUCTURE
++node scripts/execution-authority.mjs --authorize
++  exit 2 / STOP / AMENDMENT_APPROVAL_REQUIRED
++node scripts/execution-authority-v2.mjs --authorize --work-package R0-W07
++  exit 2 / STOP / NO_ACTIVE_WORK_PACKAGE
++git diff --check
++  exit 0 / PASS
++```
++
++## Exact Candidate Receipt
++
++候选不能在自身内容中预写自身 Git H。每轮审查由仓外只读 receipt 记录 exact H/tree、
++base-to-H diff digest、命令退出码和时间，再将其作为不可变审查输入。首轮候选
++`b2d92c6e12854e11b7deb00d5e656d4aaefb41c5`、tree
++`3347d6b12765c86df93e5f30ea2be16a3be23258` 被独立 QA 判定
++`NO_GO / HIGH 1 / MEDIUM 2`，不得集成；本次修订处理其全部 findings。
++
++第二轮候选 `2f9d4a09aa235e656e51a8e19e2a550a89a46818`、tree
++`0c27ca3d759836a65fdd0596e0a19e79c5268956` 被独立 QA 判定
++`NO_GO / HIGH 1 / MEDIUM 1`，不得集成。其 hardened base-to-H diff SHA-256 为
++`ec12726a572f0703ce8b862e60051520f49c6736662c390047d2ac49dac37e28`。
++本次修订增加 integrated-mainline identity remediation、overlay refresh 和可复现的
++hardened diff 命令。
++
++第三轮候选 `d32cd4593f46ade3c45ac81b16d982f1a14b280d`、tree
++`76e16ab2d2f55613344ef534aa75cc1460df841c` 被独立 QA 判定
++`NO_GO / HIGH 1 / MEDIUM 0 / LOW 1`，不得集成。其 hardened base-to-H diff
++SHA-256 为
++`54685042045fc2854c9bf1061c26ca9bc383be1ab037e83e950d5555cf697eb7`。
++本次修订拆分 pre-integration STOP/simulation 与 post-integration canonical GO，
++并统一四事件术语。
++
++第四轮候选 `14668a1e8046fc81d8fb25985556405844538c7b`、tree
++`bdf3e374ab79b0f74840102c3953d761c3b62bb1` 获得独立 QA
++`GO / HIGH 0 / MEDIUM 0 / LOW 1`。其 hardened base-to-H diff SHA-256 为
++`3988ba4ee7501376d73b6c87500c441b299289ca9bd8773e07a3a274e2687dc4`。
++唯一 LOW 是 Event 4 名称不统一；本次修订统一为 `Atomic Activation Event`。
++
++## Event 1 Fresh Verification
++
++验证时间：`2026-07-27T04:17:12+08:00`
++
++```text
++node --test scripts/execution-authority.nodetest.mjs scripts/r0-amendment-check.nodetest.mjs scripts/execution-authority-v2.nodetest.mjs
++  exit 0 / 113 passed / 0 failed
++node scripts/execution-authority.mjs --check
++  exit 0 / VALID_INACTIVE_GUARD
++node scripts/execution-authority.mjs --authorize
++  exit 2 / STOP / AMENDMENT_APPROVAL_REQUIRED
++node scripts/execution-authority-v2.mjs --check
++  exit 0 / VALID_STRUCTURE
++node scripts/execution-authority-v2.mjs --authorize --work-package R0-W06
++node scripts/execution-authority-v2.mjs --authorize --work-package R0-W07
++node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08
++node scripts/execution-authority-v2.mjs --authorize --work-package R0-W09
++  each exit 2 / STOP / NO_ACTIVE_WORK_PACKAGE
++node scripts/harness-doctor.mjs
++  exit 0 / 0 errors / 0 warnings
++(cd backend && python3 scripts/harness_doctor.py)
++  exit 0 / 0 errors / 0 warnings
++git diff --check
++  exit 0 / PASS
++```
++
++Changed paths are limited to the W07 Packet status records, authority v2 wiki,
++authority v2 runtime, amendment-governance shared diff guard, and the Node test.
++The v2 manifest, schema, product code, deployment state, database, and listener
++state are unchanged.
++
++## 尚未生成
++
++- activation candidate H/tree；
++- activation intent 和 review package digest；
++- owner exact-H approval；
++- Codex Independent QA final verdict；
++- ACTIVE manifest；
++- W07 GO 证据。
++
++上述项目必须留空而不是填写临时值。本 Packet 不允许被解释为 activation evidence。
++
++## 运行时边界
++
++`NOT_DEPLOYED / NO_PUSH / NO_DB_MIGRATION / NO_LISTENER_3050_TAKEOVER`
+diff --git a/.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/evidence_inventory.md b/.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/evidence_inventory.md
+new file mode 100644
+index 00000000..56b97afd
+--- /dev/null
++++ b/.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/evidence_inventory.md
+@@ -0,0 +1,32 @@
++# Evidence Inventory
++
++| Evidence | Current state | Generation gate |
++| --- | --- | --- |
++| EXT baseline H/tree | `RECORDED` | Current isolated worktree |
++| Reviewer reassignment overlay | `REGISTERED` | Candidate `142856e2...` |
++| Packet design/spec/plan | `PREPARED` | This candidate |
++| Integrated-mainline identity remediation | `IMPLEMENTED_AND_VERIFIED` | Event 1 TDD |
++| Canonical W07 profile migration | `IMPLEMENTED_AND_VERIFIED` | Event 1 candidate |
++| Remediated authority candidate H/tree | `FROZEN_EXTERNAL_RECEIPT` | Exact Git candidate |
++| Reviewer overlay refresh | `NOT_GENERATED` | After authority candidate reviews |
++| Activation review package | `NOT_GENERATED` | From frozen Git range |
++| Activation intent | `NOT_GENERATED` | After package digest exists |
++| Product Owner exact-H approval | `NOT_REQUESTED` | After immutable candidate |
++| Independent final review | `NOT_REQUESTED` | After owner evidence |
++| Atomic activation candidate | `NOT_GENERATED` | Separate activation approval |
++| W07 GO | `NOT_OBSERVED` | After approved integration only |
++
++## Registered Reviewer Overlay
++
++```text
++registration candidate = 142856e2c65cc96eccfeb54990d98d280c569a20
++reviewed candidate = 6c01c810e60a20e955c5fb650e78317365c0d6df
++reviewed tree = 3c9dfce871c362e2e9d7e93f12d24db3847f9d8d
++review package sha256 = 9fd0d7f60cc09362da78e3165d4e85283a69a178fd4a5faf6c920bba592a16f9
++pass-1 sha256 = 6ad0418e9495cd02c1719404d035ae2b11dd309527c76623ebdd0342d8443c29
++pass-2 sha256 = e9fea702e0a618afb8ed77b6bafffd36127f5992f990c10b32248502e211c7b7
++```
++
++这些 identity 只证明 reviewer overlay 已登记，不构成 W07 activation approval。
++由于后续 identity remediation 会修改 protected authority blobs，该 overlay 必须在
++activation 前通过新的 exact-H 证据链静默刷新；不得把现有 digest 复用于新 runtime。
+diff --git a/.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/request_analysis/spec.md b/.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/request_analysis/spec.md
+new file mode 100644
+index 00000000..6c55a866
+--- /dev/null
++++ b/.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/request_analysis/spec.md
+@@ -0,0 +1,172 @@
++# 规格说明：R0-W07 Exact-H Activation Recovery
++
++## 背景
++
++本地 `feature-chaotang-ext` 已到
++`b0df777a1fe94d98afdc62b4cdd02a2f8a091391`。W06 已静默收口，W07 reviewer
++reassignment overlay 已登记，authority 测试夹具修复已验收。当前 manifest 保持
++quiescent，W07 必须继续 STOP。
++
++旧 W07 activation 资产绑定过期 candidate 和证据路径，只能作为 Asset Pool。新
++Packet 不继承其授权状态、digest、owner approval 或 review verdict。
++
++## 事实与未知项
++
++| 分类 | 结论 | 证据 | 是否阻塞 |
++| --- | --- | --- | --- |
++| 已确认 | EXT 基线 H/tree 如摘要所列 | `git rev-parse HEAD HEAD^{tree}` | 否 |
++| 已确认 | W07 当前未激活 | v2 authorize 返回 `STOP / NO_ACTIVE_WORK_PACKAGE` | 否 |
++| 已确认 | W07 reviewer overlay 已登记 | `.harness/manifest/project-harness.json` | 否 |
++| 已确认 | loader 仍冻结旧 W07 change root | `scripts/lib/execution-authority-v2.mjs` | 是，阻塞未来激活 |
++| 已确认 | loader 要求 EXT ref 等于较早 reviewed candidate H，集成 activation commit 后无法满足 | `verifyActivePacketGitIdentity` | 是 |
++| 已确认 | 当前 overlay 固定四个 protected authority blobs 为 `6c01...` 版本 | `verifyReviewerReassignmentActivationHistory` | 是 |
++| 未生成 | 新 activation candidate H/tree/diff digest | 必须在后续 quiescent candidate 冻结后生成 | 是 |
++| 未生成 | owner approval 与独立 final review | 必须在 exact-H 候选产生后生成 | 是 |
++
++## 唯一事实源
++
++| 契约 | 事实源 | 消费者 | 约束 |
++| --- | --- | --- | --- |
++| 当前执行状态 | `.harness/manifest/execution-authority.v2.json` | v2 loader/CLI | 本轮不得修改 |
++| reviewer overlay | `.harness/manifest/project-harness.json` | amendment governance/v2 loader | 保持已登记字节 |
++| W07 evidence profile | `scripts/lib/execution-authority-v2.mjs` | v2 loader/tests | 后续 TDD 收敛到新 root |
++| W07 activation intent | 新 Packet 的 `activation_intent/` | owner/reviewer/v2 loader | 候选冻结后生成 |
++| owner/review evidence | 新 Packet 的受保护路径 | v2 loader | 不得预写或伪造 |
++
++不得建立第二套任务状态、完成状态或裁决系统。
++
++## 目标状态转换
++
++### Event 0：本 Packet
++
++只记录设计和证据生成规则。manifest 保持 quiescent，W07 保持 STOP。
++
++### Event 1：Authority Identity Remediation Candidate
++
++在另行批准的 TDD 实施中：
++
++1. 将 canonical W07 profile 迁移到本 Change ID。
++2. 以 failing tests 证明旧路径不能被新候选冒充。
++3. 以 failing integration test 证明 activation H 集成到 EXT 后，旧
++   `EXT ref == effectiveBase.sha` 规则不可满足。
++4. 将 identity contract 收敛为：
++   - `effectiveBase.sha == approvalEvidence.candidateH`，表示已审 authority candidate；
++   - candidate H 必须是 registration parent 和 activation H 的第一父祖先；
++   - 授权开始和结束时 local EXT ref 必须等于 pinned HEAD；
++   - HEAD、EXT ref、candidate ancestry 或 governed bytes 漂移均 fail closed。
++5. 将 W07 hardened review base 固定为本次获批基线 `b0df777a...`。
++6. 保持 `activeWorkPackage=null` 且 ledger 无 W07。
++7. 先提交 authority candidate，再冻结其 exact H/tree。
++
++Event 1 不包含引用自身 H 的 activation intent，也不授权 W07。
++
++### Event 2：Reviewer Overlay Refresh
++
++Event 1 修改了当前 overlay 保护的 authority blobs，因此旧 overlay 只能保留为历史证据，
++不能授权新 runtime。必须从 Event 1 exact H/tree 生成新的 reviewer reassignment
++review package，执行两轮 fresh/read-only Codex review 和 Product Owner exact-H
++approval，再以独立 quiescent commit 原子替换当前 overlay registration。
++
++Event 2 只刷新 `R0-W07` reviewer overlay，仍保持 W07 STOP；不得修改原 amendment
++或历史 evidence。
++
++### Event 3：Activation Evidence Registration Parent
++
++从 Event 1 的已知 H/tree 生成 deterministic review package 和 activation intent。
++activation intent 绑定 Event 1 H/tree、package digest、目标 ledger 和 evidence paths，
++但位于 Event 1 的后继提交中，因此不存在 self-hash。
++
++Product Owner 必须逐字批准 Event 1 H/tree、review package path/digest、
++activation intent path/digest、scope 和 exclusions。随后由 `Codex Independent QA`
++在新的只读会话中审查不可变候选，绑定 owner approval digest，要求 `GO`、
++`HIGH=0`、`MEDIUM=0`。全部证据进入一个 quiescent registration parent；
++该 parent 仍保持 W07 STOP。
++
++### Event 4：Atomic Activation Event
++
++在另行明确批准后，从 Event 3 registration parent 生成恰好一个父提交的
++activation event。
++该提交只进行已经审查的 manifest 状态转换：
++
++```text
++activeWorkPackage = R0-W07
++R0-W07 ledger = ACTIVE
++R0-W00..R0-W06 = MERGED_AND_VERIFIED
++effectiveBase.ref = refs/heads/feature-chaotang-ext
++effectiveBase.sha = approved Event 1 authority candidate H
++approvalEvidence = exact approved W07 evidence
++```
++
++该 exact activation candidate 受控集成后，local EXT ref 与 pinned HEAD 必须同时指向
++Event 4 H，而 `effectiveBase.sha` 继续指向其已审 Event 1 祖先。
++
++Event 4 使用两个不同的 gate：
++
++1. **Pre-integration candidate gate**：在 isolated worktree 中运行结构、证据、历史、
++   test 和 doctor 验证。由于 canonical EXT ref 尚未移动，真实 loader 必须仅因明确的
++   `EXT ref != pinned activation HEAD` identity finding 而 STOP；disposable integration
++   simulation 将 ref 指向同一 activation H 后必须 GO。该模拟不算真实授权或集成。
++2. **Post-integration acceptance gate**：独立审查和 Product Owner 集成批准通过后，
++   才 fast-forward local EXT ref。随后在 exact integrated HEAD 上 fresh 运行 authority；
++   只有真实 W07 GO 才解除产品实施等待。
++
++post-integration 验收失败时 authority 保持 STOP，必须使用另行批准的前向修复；不得回滚
++EXT ref 或把 simulation GO 描述为真实授权。
++
++## W07 授权范围
++
++W07 只授权既有产品合同中的前端闭环：
++
++- `/shangshufang`
++- `/shiguan`
++- typed read model 消费
++- 从合同审查结果到 `ContractReviewPack` 的用户流程接线
++
++W07 activation 本身不实现上述功能，也不证明产品验收完成。
++
++## 排除项
++
++- `NO_DEPLOYMENT`
++- `NO_REAL_CUSTOMER_DATA`
++- `NO_DB_MIGRATION`
++- `NO_LISTENER_3050_TAKEOVER`
++- `NO_R0_W08_TO_R0_W09`
++- `NO_AUTOMATIC_MERGE`
++- `NO_PRODUCTION_CLAIM`
++- `NO_PRODUCT_CODE_IN_ACTIVATION_PACKET`
++
++## Fail-Closed 条件
++
++以下任一条件必须 STOP：
++
++- candidate H/tree、EXT ref 或 governed bytes 漂移；
++- EXT ref 不等于 pinned activation HEAD，或 approved candidate 不是其第一父祖先；
++- 新旧 W07 evidence root 混用；
++- owner/review evidence 缺失、digest 不匹配或身份不独立；
++- review package 不等于规定 Git range 的原始字节；
++- reviewer refresh 或 activation registration parent 已包含 W07 ledger；
++- activation event 不是单父提交；
++- W07 之外 scope 被加入；
++- authority、生产边界、文件 ownership 或并发 writer 出现冲突。
++
++## 验收标准
++
++- Packet Preparation commit 只含治理文档和证据计划；后续获批的 Event 1
++  只修改本规格列明的 authority runtime、test 与治理文档。
++- 当前 manifest 与产品代码零变更。
++- 当前 W07 authorize 仍为 STOP。
++- Event 1 review changed paths 与冻结的 12 条候选路径完全相等。
++- object database 通过 hardened fsck，且 alternates、partial clone 配置和
++  `.promisor` pack markers、`fsck.*` 降级配置及 object database symbolic
++  links 均 fail closed。
++- 新旧证据边界、四事件顺序、owner/reviewer 分权和回滚规则明确。
++- 后续每个候选均有 exact H/tree/digest、fresh verification 和独立只读审查。
++
++## 批准记录
++
++- 批准人：Product Owner
++- 批准日期：`2026-07-27`
++- 批准范围：基于本地 EXT `b0df777a...` 创建全新 non-authorizing Packet；
++  仅治理、设计和证据准备。
++- 明确未批准：W07 activation、产品代码、push、deployment、DB migration、
++  listener 3050。
+diff --git a/.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/request_analysis/tasks.md b/.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/request_analysis/tasks.md
+new file mode 100644
+index 00000000..c2c5eec1
+--- /dev/null
++++ b/.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/request_analysis/tasks.md
+@@ -0,0 +1,72 @@
++# 任务：R0-W07 Exact-H Activation Recovery
++
++## 本轮：Packet Preparation
++
++- [x] 从 exact local EXT `b0df777a...` 创建 isolated worktree。
++- [x] 证明基线 tree 为 `a7beae65...` 且工作树初始干净。
++- [x] 证明 W07 为 `STOP / NO_ACTIVE_WORK_PACKAGE`。
++- [x] 核对已登记 reviewer reassignment overlay。
++- [x] 将旧 activation worktree 和 Packet 降级为 Asset Pool。
++- [x] 定义新的 canonical evidence root 与四事件激活协议。
++- [x] 定义后续 TDD、证据、审查和 exact-H 门。
++- [x] 完成本 Packet 的治理验证。
++- [x] 完成本 Packet 的独立只读审查。
++- [x] 冻结本 Packet candidate H/tree。
++- [x] 请求本 Packet 受控整合审批。
++
++## 后续 Event 1：Authority Identity Remediation Candidate
++
++- [x] 取得 authority/profile TDD 实施授权。
++- [x] RED：新增测试拒绝旧 W07 evidence root 和跨 Packet 证据混用。
++- [x] RED：新增测试证明 activation commit 集成 EXT 后，旧 ref/effective-base
++  等值规则拒绝有效 mainline。
++- [x] GREEN：将 W07 profile 收敛到本 Change ID，并实现
++  `EXT ref == pinned HEAD`、approved candidate first-parent ancestry。
++- [x] 将 W07 review base 固定为 `b0df777a...`。
++- [x] 固定测试 evidence 生成器使用 authority 的 `/usr/bin/git` 外部信任根。
++- [x] 补齐 exact Event 1 candidate 的 12 路径 allowlist 回归。
++- [x] 拒绝影响 exact diff 的 repository-local config 与 `info/attributes`。
++- [x] 拒绝 `extensions.worktreeConfig` 和未检查的 `config.worktree` 覆盖。
++- [x] 禁用 system/user attributes，并在 diff 后重验 repository-local metadata。
++- [x] 用 `GIT_ATTR_SOURCE=candidateH` 将 `.gitattributes` 绑定到候选树。
++- [x] 用 `core.commitGraph=false` 禁用未绑定的 commit-graph acceleration。
++- [x] 对 ACTIVE W07 运行 hardened fsck，并拒绝 alternates、partial clone
++  配置、`fsck.*` 降级配置、`.promisor` pack markers 与 object database
++  symbolic links。
++- [x] 将 Event 1 review path set 收紧为冻结的 12 条路径完全相等。
++- [x] 运行 authority、amendment、doctor 全套回归。
++- [x] 先提交 authority candidate，再冻结 exact H/tree，保持 W07 STOP。
++
++## 后续 Event 2：Reviewer Overlay Refresh
++
++- [ ] 对 Event 1 的 protected authority blobs 生成 reviewer reassignment package。
++- [ ] 取得两轮 fresh/read-only Codex GO 和 Product Owner exact-H approval。
++- [ ] 以 quiescent forward event 刷新 W07-only overlay。
++- [ ] 证明旧 overlay 保留历史、W07 仍 STOP。
++
++## 后续 Event 3：Activation Evidence Registration Parent
++
++- [ ] 从 Event 1 的已知 H/tree 生成 deterministic review package 和 activation intent。
++- [ ] 请求 Product Owner 对 H/tree、package digest、intent digest、scope 和 exclusions
++  的 exact approval。
++- [ ] 记录 owner approval 原始字节与 SHA-256。
++- [ ] 运行 fresh、read-only Codex Independent QA。
++- [ ] 要求 `GO / HIGH 0 / MEDIUM 0`。
++- [ ] 冻结包含全部证据但仍无 W07 ledger 的 registration parent。
++
++## 后续 Event 4：Atomic Activation Event
++
++- [ ] 取得 atomic activation candidate 明确授权。
++- [ ] 只修改已审查的 manifest 状态转换。
++- [ ] 证明 activation commit 恰好一个父提交。
++- [ ] 在 isolated candidate 上运行 pre-integration verification；真实 EXT ref 尚未移动，
++  W07 只允许因一个预期 ref-identity gate 返回 STOP。
++- [ ] 在 disposable integration simulation 中令 EXT ref 指向 activation H，证明 W07 GO。
++- [ ] 完成独立只读审查并请求本地 EXT fast-forward 集成批准。
++- [ ] 获批后更新 local EXT ref，再在 exact integrated HEAD 上运行 fresh acceptance。
++- [ ] 只有 post-integration W07 GO 后才解除产品实施等待；失败时 fail closed 并前向修复。
++
++## 停止条件
++
++authority conflict、production ambiguity、scope conflict、file ownership
++conflict、candidate drift 或 concurrent writer 任一出现时立即 `BLOCKED`。
+diff --git a/.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/summary.md b/.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/summary.md
+new file mode 100644
+index 00000000..212c40db
+--- /dev/null
++++ b/.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/summary.md
+@@ -0,0 +1,90 @@
++# 变更摘要：docs-r0-w07-exact-h-activation-b0df777a-20260727
++
++> 执行授权：`NOT_GRANTED_BY_CHANGE_RECORD`
++> 本 Packet 只定义治理、设计和证据生成流程；它不是 owner exact-H
++> approval，也不激活 R0-W07。
++
++| 字段 | 值 |
++| --- | --- |
++| Change ID | docs-r0-w07-exact-h-activation-b0df777a-20260727 |
++| 类型 | `docs` |
++| 状态 | `EVENT_1_IMPLEMENTATION / NON_AUTHORIZING` |
++| Owner | `EXT Master Governance` |
++| 创建日期 | `2026-07-27` |
++| 唯一集成目标 | local `feature-chaotang-ext` |
++| 基线 H | `b0df777a1fe94d98afdc62b4cdd02a2f8a091391` |
++| 基线 tree | `a7beae653e5c9d2efd38fe1fda61a2cbe8b41565` |
++| 当前 authority | `R0-W07 = STOP / NO_ACTIVE_WORK_PACKAGE` |
++
++## 目标
++
++从当前本地 EXT 基线重新建立一份 W07 exact-H activation Packet，消除旧
++activation Packet 的过期基线、过期 reviewer 路径和过期测试证据。最终候选必须把
++一个 W07 范围绑定到一个 candidate H、tree、review package、activation intent、
++owner approval 和 Codex 独立审查。
++
++## 本轮范围
++
++- 固定当前 EXT 基线和现有 reviewer reassignment overlay。
++- 定义新的 canonical W07 evidence root 及迁移边界。
++- 定义 quiescent evidence candidate 与 atomic activation candidate 的顺序。
++- 定义 TDD、验证、独立审查和 exact-H 审批门。
++- 记录证据状态，不生成虚构 digest、owner approval 或 review verdict。
++
++## Event 1 受控范围
++
++Product Owner 后续明确批准了 authority/profile TDD 实施。Event 1 只允许：
++
++- 将 W07 canonical profile 迁移到本 Change ID；
++- 将固定 review base 更新为 `b0df777a...`；
++- 实现 `EXT ref == pinned HEAD` 与 approved candidate 第一父祖先约束；
++- 添加旧 root、混合证据、ref drift、second-parent replay 的拒绝性测试；
++- 使 exact candidate 的全部 12 个路径进入显式 allowlist；
++- 拒绝影响 raw diff 的 repository-local config 与未绑定 `info/attributes`；
++- 禁用 system/user attributes，并在 diff 后重复 metadata-neutrality 检查；
++- 通过 `GIT_ATTR_SOURCE=candidateH` 将 committed attributes 绑定到候选树；
++- 通过 `core.commitGraph=false` 直接使用 commit objects；
++- 通过 hardened fsck 校验 object database，并拒绝 alternates、partial-clone
++  配置、`fsck.*` 降级配置、`.promisor` pack markers 与 object database
++  symbolic links；
++- 将 Event 1 changed paths 约束为冻结的 12 条路径完全相等；
++- 同步本 wiki、任务和验证记录。
++
++Event 1 候选仍是非授权、静默状态；它只为 Event 2 reviewer overlay refresh 提供
++待审查的 authority bytes。
++
++## 明确未授权
++
++- 不激活 R0-W07。
++- 不修改 `.harness/manifest/execution-authority.v2.json`。
++- 不修改 schema 或产品代码；authority runtime 和测试仅限上方 Event 1 受控范围。
++- 不 push、不部署、不迁移数据库、不操作 listener 3050。
++- 不使用真实客户数据，不声明 production ready。
++
++## 当前事实
++
++```text
++activeWorkPackage = null
++R0-W00..R0-W06 = MERGED_AND_VERIFIED
++R0-W07 ledger entry = absent
++R0-W07 authorize = STOP / NO_ACTIVE_WORK_PACKAGE
++reviewer reassignment overlay = registered for R0-W07
++```
++
++## 决策
++
++旧 `.harness/changes/docs-r0-w07-activation-20260726` profile 不能继续充当新
++activation Packet 的证据根。现有 loader 的 EXT ref/effective-base 等值规则也不能
++证明 activation commit 已集成到 EXT，且现有 reviewer overlay 会拒绝受保护 authority
++文件的任何漂移。
++
++后续实施必须先以 TDD 修复 integrated-mainline identity contract 并将 canonical W07
++profile 收敛到本 Change ID，再对新的 authority candidate 重新执行 reviewer overlay
++审查和静默刷新。只有 refreshed overlay、activation evidence、owner approval 和独立
++review 全部进入 quiescent registration history 后，才允许生成单父、原子的 manifest
++activation candidate。
++
++## 回滚
++
++本 Packet 未进入本地 EXT 前，删除其隔离分支即可。进入 EXT 后如需撤销，只能通过
++另行批准的前向治理提交；不得改写已登记 overlay 或历史 authority。
+diff --git a/.harness/wiki/execution-authority-v2.md b/.harness/wiki/execution-authority-v2.md
+index f4d5965d..aa417d55 100644
+--- a/.harness/wiki/execution-authority-v2.md
++++ b/.harness/wiki/execution-authority-v2.md
+@@ -27,7 +27,7 @@ schema/manifest/resolver/CLI/tests，专门回答一个更窄的问题：
+ | --- | --- |
+ | `INVALID_EXECUTION_AUTHORITY` | manifest/schema 结构或字段格式不合法 |
+ | `AMENDMENT_DIGEST_DRIFT` | manifest 的 `approvedSourceDigest` 与 `amendmentGovernance` 记录的不一致，或治理状态不是 `APPROVED_FOR_W01` |
+-| `EFFECTIVE_BASE_MISMATCH` | manifest 的 `effectiveBase.sha` 与治理记录的基线不一致 |
++| `EFFECTIVE_BASE_MISMATCH` | manifest 的 `effectiveBase.sha` 与当前批准证据的 `candidateH` 不一致 |
+ | `REVIEW_NOT_GO` | 批准证据里的三路 review verdict 不是 `GO` |
+ | `WORK_PACKAGE_ARGUMENT_REQUIRED` | `--authorize` 未传 `--work-package` |
+ | `UNKNOWN_WORK_PACKAGE_FORMAT` | 传入的包 ID 不匹配 `^R0-W0[0-9]$`（挡旧编号如 `P12`/`PKT-04`/`S3`） |
+@@ -77,17 +77,40 @@ v2 才回答“这个具体 work package 现在是否被授权”。
+ 
+ 历史 W06 证据保持原路径、排除项和命令集合，不允许被 W07 复用。W07 使用独立 profile：
+ 
+-- `refs/heads/feature-chaotang-ext` 必须精确指向获批 candidate H，并在 exact packet Git
+-  验证前后两次解析为同一 commit；
++- canonical evidence root 是
++  `.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727`；旧 W07 root
++  和任何新旧 root 混用均拒绝；
++- `refs/heads/feature-chaotang-ext` 必须精确指向 loader pinned 的当前 `HEAD`，并在
++  exact packet Git 验证前后两次解析为同一 commit；
++- `effectiveBase.sha` 与 approved candidate H 绑定；candidate 必须位于 pinned
++  `HEAD` 的第一父历史，不能只通过 merge 的第二父可达；
+ - review package 必须以原始 `Buffer` 逐字节等于固定 EXT review base
+-  `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca..candidateH` 的 hardened Git diff；
++  `b0df777a1fe94d98afdc62b4cdd02a2f8a091391..candidateH` 的 hardened Git diff；
+ - owner approval、activation intent、review package 与 Codex final review 必须位于 W07 change root；
+ - W07 review 路径使用 `codex_review/exact-h-final.md`，历史 Claude 路径不冒充 Codex；
+ - candidate commit、tree、review base、分支 ref、changed paths、digest 和 W07 验证命令必须同时匹配。
+ 
+ 任何未知 work package profile、W06 证据复用、伪造但内部自洽的 diff、ref 在验证期间移动或
+-candidate/tree
+-漂移都会使 loader 返回 `INVALID_EXECUTION_AUTHORITY`。
++candidate/tree 漂移、EXT ref 回退、candidate 仅从第二父可达，都会使 loader 返回
++`INVALID_EXECUTION_AUTHORITY`。生成和校验 raw diff 都必须使用 authority 固定的
++`/usr/bin/git` 信任根；PATH 中其他 Git 版本生成的 binary patch 字节不能作为等价证据。
++authority 与 reviewer overlay 的 exact diff 还要求 repository-local Git metadata
++保持中立：任何 `diff.*`、include、非基础 `core.*`、相关 color/submodule config
++都会 fail closed；`extensions.worktreeConfig` 也被拒绝，不能通过 `config.worktree`
++引入第二套配置。worktree Git dir 或 common Git dir 中存在 `info/attributes` 同样拒绝。
++system attributes 通过 `GIT_ATTR_NOSYSTEM=1` 禁用，用户 attributes 通过命令级
++`core.attributesFile=/dev/null` 禁用；diff 完成后再次检查 repository-local metadata。
++`GIT_ATTR_SOURCE` 精确设置为 approved candidate H，因此候选树内已提交的
++`.gitattributes` 属于受 H/tree 约束的审查输入，mutable working-tree attributes
++不能改变 package bytes。所有 Git 调用还显式设置 `core.commitGraph=false`，不读取
++mutable commit-graph acceleration；commit/tree/parent 事实直接来自对象数据库。
++ACTIVE W07 exact-range 校验还会运行 hardened `git fsck --full --strict`，拒绝
++object hash/path 不一致；repository alternates、HTTP alternates、partial-clone/promisor
++配置、`fsck.*` 降级配置、`.promisor` pack markers 与 object database 内的
++symbolic links 均禁止，不能把未绑定对象源引入 authority。metadata guard
++通过后才允许运行 fsck。
++Event 1 review 的 changed paths 必须与冻结的 12 条候选路径完全相等，不接受
++额外 allowlist 路径或目录前缀扩张。
+ 
+ ## 独立审查人范围化修订
+ 
+diff --git a/docs/superpowers/plans/2026-07-27-r0-w07-exact-h-activation-b0df777a.md b/docs/superpowers/plans/2026-07-27-r0-w07-exact-h-activation-b0df777a.md
+new file mode 100644
+index 00000000..d701e415
+--- /dev/null
++++ b/docs/superpowers/plans/2026-07-27-r0-w07-exact-h-activation-b0df777a.md
+@@ -0,0 +1,129 @@
++# R0-W07 Exact-H Activation Recovery Implementation Plan
++
++**Goal:** 在不激活 W07 的前提下，准备可由 exact-H 审批和独立审查驱动的原子
++activation train。
++
++**Baseline:** `b0df777a1fe94d98afdc62b4cdd02a2f8a091391`
++
++## Task 1: Packet Candidate
++
++- [x] 创建隔离 worktree。
++- [x] 核对 authority、overlay 和旧 Packet 边界。
++- [x] 编写新 Packet、design 和 implementation plan。
++- [x] 运行治理验证。
++- [x] 独立只读审查本 Packet。
++- [x] 冻结 candidate H/tree 并请求受控整合。
++
++Changed files: only the new Packet, this design, and this plan.
++
++## Task 2: Canonical Profile TDD
++
++需要单独实施授权。
++
++1. 在 `scripts/execution-authority-v2.nodetest.mjs` 添加 RED：
++   新 root 正确、旧 root 拒绝、混合证据拒绝、manifest 仍 quiescent。
++2. 添加 integrated activation RED：feature EXT ref 指向 activation HEAD 时，当前
++   ref/effective-base 等值规则会拒绝。
++3. 在 `scripts/lib/execution-authority-v2.mjs` 更新 W07 profile、review base 和
++   identity contract：EXT ref 等于 pinned HEAD，approved candidate 是其第一父祖先。
++4. 添加 ref drift、HEAD drift、non-ancestor、merge activation 和 rollback negatives。
++5. 同步 `.harness/wiki/execution-authority-v2.md`，保持 threat-model-B 边界。
++6. 运行 focused tests，再运行完整 authority/amendment/doctor regression。
++
++## Task 3: Authority Candidate Freeze
++
++1. 从最新 local EXT 创建新 isolated worktree。
++2. 完成 Task 2 profile/identity remediation，保持 manifest
++   `activeWorkPackage=null` 且无 W07 ledger。
++3. 先 commit，再记录 exact H/tree 并运行 fresh verification。
++4. 该 commit 不包含引用自身 H 的 activation intent。
++
++## Task 4: Reviewer Overlay Refresh
++
++1. 以 Task 3 H/tree 为 reviewer reassignment candidate。
++2. 以 overlay 的固定 `baseH=55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca`
++   到 Task 3 exact H 生成 hardened review package。
++3. 运行两轮 fresh/read-only Codex review，取得 Product Owner exact-H approval。
++4. 以独立 quiescent commit 刷新 overlay，并证明 protected bytes 精确匹配 Task 3。
++5. W07 仍须 `STOP / NO_ACTIVE_WORK_PACKAGE`。
++
++## Task 5: Activation Evidence Registration Parent
++
++1. 从 Task 3 的已知 H/tree 生成规定 Git range 的 raw-byte review package。
++2. 计算 package SHA-256 并生成绑定 Task 3 H/tree 的 activation intent。
++3. 向 Product Owner 提交 H/tree、package path/digest、intent path/digest、scope 和
++   exclusions。
++4. 只有收到逐字批准后才生成 owner evidence。
++5. 由 fresh、read-only `Codex Independent QA` 审查并绑定 owner digest。
++6. 要求 `GO`、`HIGH=0`、`MEDIUM=0`。
++7. commit 全部证据并冻结仍为 quiescent 的 registration parent。
++
++## Task 6: Atomic Activation Event
++
++需要单独 activation 授权。
++
++1. 从 Task 5 registration parent 创建单父提交。
++2. 只修改 `.harness/manifest/execution-authority.v2.json` 的已批准转换。
++3. 运行 pre-integration verification：真实 EXT ref 不移动，W07 必须只因预期的
++   ref-identity finding 而 STOP，其他 finding 为 0。
++4. 在 disposable clone 中把 EXT ref 指向同一 activation H，验证 simulation 中
++   W06 为 `WORK_PACKAGE_MISMATCH`、W07 唯一 GO、W08/W09 为
++   `BLOCKED_DEPENDENCY`；标记 `NOT_CANONICAL_AUTHORIZATION`。
++5. 对 exact activation H/tree 运行独立只读审查。
++6. 请求受控 fast-forward 整合到 local EXT；不 push、不部署。
++7. 获批集成后在 exact EXT HEAD fresh 运行 verification-loop。只有 canonical W07 GO
++   才解除 `WAITING_W07`；失败则 STOP 并另建前向 remediation Packet。
++
++## Proof Commands
++
++```bash
++export REVIEW_BASE_H=b0df777a1fe94d98afdc62b4cdd02a2f8a091391
++: "${AUTHORITY_CANDIDATE_H:?set from the Event 1 exact-H receipt}"
++: "${ACTIVATION_H:?set from the Event 4 exact-H receipt}"
++test "$(git rev-parse "$AUTHORITY_CANDIDATE_H^{commit}")" = "$AUTHORITY_CANDIDATE_H"
++test "$(git rev-parse "$ACTIVATION_H^{commit}")" = "$ACTIVATION_H"
++git rev-parse "$AUTHORITY_CANDIDATE_H^{tree}"
++git rev-parse "$ACTIVATION_H^{tree}"
++git rev-list --parents -n 1 "$ACTIVATION_H"
++git merge-base --is-ancestor "$AUTHORITY_CANDIDATE_H" "$ACTIVATION_H"
++git diff --check "$REVIEW_BASE_H..$ACTIVATION_H"
++export REVIEW_PACKAGE_PATH=/tmp/r0-w07-activation-candidate.diff
++env -i GIT_ATTR_SOURCE="$AUTHORITY_CANDIDATE_H" GIT_ATTR_NOSYSTEM=1 \
++  GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null LC_ALL=C \
++  /usr/bin/git --no-replace-objects -c core.attributesFile=/dev/null \
++  -c core.commitGraph=false diff --no-ext-diff --no-textconv --binary \
++  "$REVIEW_BASE_H..$AUTHORITY_CANDIDATE_H" > "$REVIEW_PACKAGE_PATH"
++sha256sum "$REVIEW_PACKAGE_PATH"
++env -i GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null LC_ALL=C \
++  /usr/bin/git --no-replace-objects -c core.attributesFile=/dev/null \
++  -c core.commitGraph=false fsck --full --strict --no-reflogs --no-dangling \
++  "$AUTHORITY_CANDIDATE_H"
++# Authority runtime additionally rejects alternates, partial-clone/promisor
++# and fsck downgrade config, .promisor pack markers, object database symbolic
++# links, and any changed-path set other than the frozen 12-path Event 1 candidate.
++test -z "$(git status --porcelain=v1)"
++node --test scripts/execution-authority.nodetest.mjs scripts/r0-amendment-check.nodetest.mjs scripts/execution-authority-v2.nodetest.mjs
++node scripts/execution-authority.mjs --check
++node scripts/execution-authority.mjs --authorize
++node scripts/execution-authority-v2.mjs --check
++node scripts/execution-authority-v2.mjs --authorize --work-package R0-W06
++node scripts/execution-authority-v2.mjs --authorize --work-package R0-W07
++node scripts/execution-authority-v2.mjs --authorize --work-package R0-W08
++node scripts/execution-authority-v2.mjs --authorize --work-package R0-W09
++node scripts/harness-doctor.mjs
++(cd backend && python3 scripts/harness_doctor.py)
++```
++
++两个 H 均由仓外 exact-H receipt 注入，不能在候选自身文件中预写。
++`REVIEW_BASE_H` 是后续 W07 profile 的 frozen review base。验证记录必须保存命令退出码、
++时间、两个 H/tree、raw diff SHA-256 和各 authorize reason。
++
++- Event 1-3：四个 package 均 `NO_ACTIVE_WORK_PACKAGE`。
++- Event 4 pre-integration：canonical W07 STOP，且只有预期 ref-identity finding；
++  disposable simulation 才允许出现 W07 GO。
++- Event 4 post-integration：真实 W06 mismatch、W07 GO、W08/W09 blocked。
++
++## Stop Conditions
++
++任何 authority、scope、production、ownership、identity 或 concurrent-writer
++冲突都停止当前事件。禁止把 local verification 描述为 deployment。
+diff --git a/docs/superpowers/specs/2026-07-27-r0-w07-exact-h-activation-b0df777a-design.md b/docs/superpowers/specs/2026-07-27-r0-w07-exact-h-activation-b0df777a-design.md
+new file mode 100644
+index 00000000..a13bf639
+--- /dev/null
++++ b/docs/superpowers/specs/2026-07-27-r0-w07-exact-h-activation-b0df777a-design.md
+@@ -0,0 +1,96 @@
++# R0-W07 Exact-H Activation Recovery Design
++
++## Goal
++
++从 local EXT `b0df777a...` 重新建立唯一 W07 activation 证据链，并保持
++fail-closed。旧 W07 activation Packet 仅作为历史资产，不参与授权计算。
++
++## Architecture Decision
++
++采用四个有序治理事件：
++
++1. `Authority Identity Remediation Candidate`：迁移 canonical profile，并把
++   integrated-mainline identity 改为 EXT ref 绑定 pinned HEAD、approved candidate
++   绑定其第一父祖先；提交后才冻结 H/tree。
++2. `Reviewer Overlay Refresh`：重新审查 Event 1 的 protected authority blobs，并
++   静默刷新 W07-only overlay；仍保持 W07 STOP。
++3. `Activation Evidence Registration Parent`：生成绑定 Event 1 H/tree 的
++   intent/package，记录 exact-H owner approval 和独立 review，仍保持 W07 STOP。
++4. `Atomic Activation Event`：单父提交只执行 manifest 的 W07 ACTIVE 转换。
++
++这使 authority runtime、reviewer overlay、activation evidence 和运行状态彼此可审计，
++同时避免在同一 commit 内自我批准。
++
++## Canonical Path Decision
++
++新的 W07 evidence root 为：
++
++```text
++.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727
++```
++
++后续 TDD 实施必须更新 loader 的 W07 profile 并拒绝旧 root。旧 root 不得保留为
++fallback，也不得与新 root 混合。manifest 仍是唯一执行状态事实源。
++
++## Integrated Mainline Identity
++
++`effectiveBase.sha` 表示经过审查的 Event 1 authority candidate，不表示持续移动的
++branch tip。ACTIVE W07 loader 必须证明：
++
++- `effectiveBase.sha == approvalEvidence.candidateH`；
++- candidate H 是 registration parent 和 activation HEAD 的第一父祖先；
++- `refs/heads/feature-chaotang-ext == pinned HEAD`；
++- 初始/最终 HEAD 与 EXT ref 采样不漂移；
++- exact review package 等于
++  `b0df777a1fe94d98afdc62b4cdd02a2f8a091391..candidateH` 的 hardened raw diff。
++
++现有 overlay 把四个 protected authority files 固定为旧 candidate bytes。Event 1
++完成后必须用两轮新的 Codex review 和 Product Owner approval 静默刷新 overlay，
++否则 Event 4 必须 fail closed。
++
++## Integration Gate
++
++真实 EXT ref 不能在独立审查和集成批准前移动，因此 Event 4 candidate 在 isolated
++worktree 中不能取得 canonical GO。pre-integration gate 要求：
++
++- 除 `EXT ref != pinned activation HEAD` 外没有 loader finding；
++- disposable clone 将 EXT ref 指向同一 activation H 后取得 simulation GO；
++- exact activation H/tree、单父关系、evidence digests 和 changed paths 通过；
++- simulation 结果明确标记 `NOT_CANONICAL_AUTHORIZATION`。
++
++独立审查和 Product Owner fast-forward approval 通过后才移动 local EXT ref。
++post-integration gate 在真实 exact HEAD 上重新运行 canonical CLI；只有真实 GO 才能
++开始 W07 产品实施。失败时保持 STOP 并前向修复，不回滚 ref。
++
++## Identity Binding
++
++每个后续 exact candidate 必须绑定：
++
++- local `refs/heads/feature-chaotang-ext`；
++- Event 1 candidate H 与 `H^{tree}`；
++- deterministic raw-byte Git diff 与 SHA-256；
++- activation intent 的原始字节 SHA-256；
++- owner approval path/digest；
++- independent review path/digest；
++- approved scope 仅 `R0-W07`；
++- 完整 ledger transition 和固定 exclusions。
++
++不得预计算包含自身 commit H 的文件。Event 1 H 在其 commit 后先由 Event 2 refreshed
++overlay 绑定，再由 Event 3 intent、owner approval 和 review evidence 绑定；activation
++event 从已包含全部证据的 registration parent 前向产生。owner approval 必须同时绑定
++intent digest，独立 review 必须再绑定 owner approval digest。
++
++## Authority Boundary
++
++v1 保持全局 STOP；v2 只在全部 W07 evidence 和 history gate 通过后对 W07 返回 GO。
++本设计不改变已批准 threat-model-B 外部前提，也不扩大到部署、数据库或 listener。
++
++## Product Boundary
++
++W07 激活后只允许推进 `/shangshufang`、`/shiguan` 的既有产品闭环。activation
++Packet 不包含产品实现；W08/W09 继续未授权。
++
++## Rollback
++
++激活前通过丢弃未集成隔离候选回滚。激活后只能提交新的受审 forward transition，
++不得 reset、删除 ledger 或回写历史 evidence。
+diff --git a/scripts/execution-authority-v2.nodetest.mjs b/scripts/execution-authority-v2.nodetest.mjs
+index 6a6a9e6a..706e6b0f 100644
+--- a/scripts/execution-authority-v2.nodetest.mjs
++++ b/scripts/execution-authority-v2.nodetest.mjs
+@@ -6,7 +6,9 @@ import {
+   mkdir,
+   mkdtemp,
+   readFile,
++  rename,
+   rm,
++  stat,
+   symlink,
+   writeFile,
+ } from 'node:fs/promises';
+@@ -15,8 +17,12 @@ import { tmpdir } from 'node:os';
+ import { fileURLToPath } from 'node:url';
+ import { promisify } from 'node:util';
+ import test from 'node:test';
++import { deflateSync } from 'node:zlib';
+ 
+ import * as executionAuthorityV2Module from './lib/execution-authority-v2.mjs';
++import {
++  verifyRepositoryLocalGitDiffEnvironment,
++} from './lib/amendment-governance.mjs';
+ import {
+   EXECUTION_AUTHORITY_V2_PATH,
+   EXECUTION_AUTHORITY_V2_SCHEMA_PATH,
+@@ -39,6 +45,30 @@ import {
+ const root = dirname(dirname(fileURLToPath(import.meta.url)));
+ const cliPath = join(root, 'scripts/execution-authority-v2.mjs');
+ const execFileAsync = promisify(execFile);
++const hardenedGitEnvironment = {
++  ...Object.fromEntries(
++    Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
++  ),
++  GIT_CONFIG_NOSYSTEM: '1',
++  GIT_CONFIG_GLOBAL: '/dev/null',
++  GIT_ATTR_NOSYSTEM: '1',
++  GIT_OPTIONAL_LOCKS: '0',
++  LC_ALL: 'C',
++};
++const W07_EVENT1_CHANGED_PATHS = Object.freeze([
++  '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/ci_result/ci_summary.md',
++  '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/evidence_inventory.md',
++  '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/request_analysis/spec.md',
++  '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/request_analysis/tasks.md',
++  '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/summary.md',
++  '.harness/wiki/execution-authority-v2.md',
++  'docs/superpowers/plans/2026-07-27-r0-w07-exact-h-activation-b0df777a.md',
++  'docs/superpowers/specs/2026-07-27-r0-w07-exact-h-activation-b0df777a-design.md',
++  'scripts/execution-authority-v2.nodetest.mjs',
++  'scripts/lib/amendment-governance.mjs',
++  'scripts/lib/execution-authority-v2.mjs',
++  'scripts/r0-amendment-check.nodetest.mjs',
++]);
+ const liveAmendmentGovernance = JSON.parse(
+   await readFile(join(root, '.harness/manifest/project-harness.json'), 'utf8'),
+ ).amendmentGovernance;
+@@ -322,7 +352,8 @@ function w06EvidenceDocuments() {
+ 
+ function w07EvidenceDocuments() {
+   const fixture = w06EvidenceDocuments();
+-  const changeRoot = '.harness/changes/docs-r0-w07-activation-20260726';
++  const changeRoot =
++    '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727';
+   const manifest = structuredClone(fixture.manifest);
+   manifest.effectiveBase = {
+     ref: 'refs/heads/feature-chaotang-ext',
+@@ -385,19 +416,7 @@ function w07EvidenceDocuments() {
+     ownerApprovalPath: manifest.approvalEvidence.ownerApprovalPath,
+     activationIntentPath: owner.activationIntentPath,
+     reviewPackagePath: activationIntent.reviewPackagePath,
+-    changedPaths: [
+-      `${changeRoot}/activation_intent/r0-w07-activation-intent.json`,
+-      `${changeRoot}/ci_result/ci_summary.md`,
+-      `${changeRoot}/codex_review/exact-h-final.md`,
+-      `${changeRoot}/owner_approval/exact-h-approval.md`,
+-      `${changeRoot}/request_analysis/tasks.md`,
+-      `${changeRoot}/summary.md`,
+-      '.harness/contracts/execution-authority-v2.schema.json',
+-      '.harness/manifest/execution-authority.v2.json',
+-      '.harness/wiki/execution-authority-v2.md',
+-      'scripts/execution-authority-v2.nodetest.mjs',
+-      'scripts/lib/execution-authority-v2.mjs',
+-    ],
++    changedPaths: [...W07_EVENT1_CHANGED_PATHS],
+     commands: [
+       'node --test scripts/execution-authority.nodetest.mjs scripts/r0-amendment-check.nodetest.mjs scripts/execution-authority-v2.nodetest.mjs',
+       'node scripts/execution-authority.mjs --authorize',
+@@ -589,31 +608,18 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
+         'checkout',
+         '-q',
+         '--detach',
+-        '55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca',
++        'b0df777a1fe94d98afdc62b4cdd02a2f8a091391',
+       ],
+       { cwd: temporaryRoot },
+     );
+-    const protectedPaths = [
+-      EXECUTION_AUTHORITY_V2_SCHEMA_PATH,
+-      'scripts/execution-authority-v2.mjs',
+-      'scripts/lib/amendment-governance.mjs',
+-      'scripts/lib/execution-authority-v2.mjs',
+-    ];
+-    const nonUtf8Path =
+-      '.harness/changes/docs-r0-reviewer-reassignment-20260726/non-utf8-review-byte.txt';
+-    for (const path of protectedPaths) {
++    for (const path of W07_EVENT1_CHANGED_PATHS) {
+       await writeRepositoryFile(
+         temporaryRoot,
+         path,
+-        await readFile(join(root, path), 'utf8'),
++        await readFile(join(root, path)),
+       );
+     }
+-    await writeRepositoryFile(
+-      temporaryRoot,
+-      nonUtf8Path,
+-      Buffer.from([0x80, 0x0a]),
+-    );
+-    await execFileAsync('git', ['add', ...protectedPaths, nonUtf8Path], {
++    await execFileAsync('git', ['add', ...W07_EVENT1_CHANGED_PATHS], {
+       cwd: temporaryRoot,
+     });
+     await execFileAsync('git', ['commit', '-qm', 'reviewed authority candidate'], {
+@@ -635,16 +641,25 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
+     overlay.candidateH = candidateH;
+     overlay.tree = candidateTree;
+     const { stdout: overlayPackageSource } = await execFileAsync(
+-      'git',
++      '/usr/bin/git',
+       [
+         '--no-replace-objects',
++        '-c',
++        'core.attributesFile=/dev/null',
+         'diff',
+         '--no-ext-diff',
+         '--no-textconv',
+         '--binary',
+         `${overlay.baseH}..${overlay.candidateH}`,
+       ],
+-      { cwd: temporaryRoot, encoding: 'buffer' },
++      {
++        cwd: temporaryRoot,
++        encoding: 'buffer',
++        env: {
++          ...hardenedGitEnvironment,
++          GIT_ATTR_SOURCE: overlay.candidateH,
++        },
++      },
+     );
+     overlay.reviewPackageSha256 = sha256Hex(overlayPackageSource);
+     await writeRepositoryFile(
+@@ -735,16 +750,25 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
+     fixture.activationIntent.approvalEvidence.tree = candidateTree;
+     fixture.activationIntent.effectiveBase.sha = candidateH;
+     const { stdout: exactPackageSource } = await execFileAsync(
+-      'git',
++      '/usr/bin/git',
+       [
+         '--no-replace-objects',
++        '-c',
++        'core.attributesFile=/dev/null',
+         'diff',
+         '--no-ext-diff',
+         '--no-textconv',
+         '--binary',
+-        `55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca..${candidateH}`,
++        `b0df777a1fe94d98afdc62b4cdd02a2f8a091391..${candidateH}`,
+       ],
+-      { cwd: temporaryRoot, encoding: 'buffer' },
++      {
++        cwd: temporaryRoot,
++        encoding: 'buffer',
++        env: {
++          ...hardenedGitEnvironment,
++          GIT_ATTR_SOURCE: candidateH,
++        },
++      },
+     );
+     fixture.review.changedPaths =
+       parseExecutionAuthorityV2ReviewPackage(exactPackageSource.toString('utf8'));
+@@ -792,6 +816,218 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
+       cwd: temporaryRoot,
+     });
+     loaded = await loadExecutionAuthorityV2(temporaryRoot);
++    assert.ok(
++      loaded.errors.some((error) =>
++        error.includes('active-packet EXT ref must equal pinned HEAD'),
++      ),
++      loaded.errors.join('\n'),
++    );
++    const activationH = (
++      await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: temporaryRoot })
++    ).stdout.trim();
++    await execFileAsync(
++      'git',
++      ['branch', '-f', 'feature-chaotang-ext', activationH],
++      { cwd: temporaryRoot },
++    );
++    await execFileAsync('git', ['config', '--local', 'diff.noprefix', 'true'], {
++      cwd: temporaryRoot,
++    });
++    loaded = await loadExecutionAuthorityV2(temporaryRoot);
++    assert.ok(
++      loaded.errors.some((error) =>
++        error.includes(
++          'reviewerReassignment: repository-local Git config affects authority diff',
++        ),
++      ),
++      loaded.errors.join('\n'),
++    );
++    assert.ok(
++      loaded.errors.some((error) =>
++        error.includes(
++          'active-packet: repository-local Git config affects authority diff',
++        ),
++      ),
++      loaded.errors.join('\n'),
++    );
++    await execFileAsync('git', ['config', '--local', '--unset', 'diff.noprefix'], {
++      cwd: temporaryRoot,
++    });
++    await execFileAsync(
++      'git',
++      ['config', '--local', 'extensions.worktreeConfig', 'true'],
++      { cwd: temporaryRoot },
++    );
++    await execFileAsync(
++      'git',
++      ['config', '--worktree', 'diff.context', '0'],
++      { cwd: temporaryRoot },
++    );
++    loaded = await loadExecutionAuthorityV2(temporaryRoot);
++    assert.ok(
++      loaded.errors.some((error) =>
++        error.includes(
++          'reviewerReassignment: repository-local Git config affects authority diff: extensions.worktreeconfig',
++        ),
++      ),
++      loaded.errors.join('\n'),
++    );
++    assert.ok(
++      loaded.errors.some((error) =>
++        error.includes(
++          'active-packet: repository-local Git config affects authority diff: extensions.worktreeconfig',
++        ),
++      ),
++      loaded.errors.join('\n'),
++    );
++    await execFileAsync('git', ['config', '--worktree', '--unset', 'diff.context'], {
++      cwd: temporaryRoot,
++    });
++    await execFileAsync(
++      'git',
++      ['config', '--local', '--unset', 'extensions.worktreeConfig'],
++      { cwd: temporaryRoot },
++    );
++    const externalAttributesRoot = join(temporaryParent, 'xdg');
++    await writeRepositoryFile(
++      externalAttributesRoot,
++      'git/attributes',
++      '*.mjs -diff\n',
++    );
++    const previousXdgConfigHome = process.env.XDG_CONFIG_HOME;
++    process.env.XDG_CONFIG_HOME = externalAttributesRoot;
++    try {
++      loaded = await loadExecutionAuthorityV2(temporaryRoot);
++      assert.deepEqual(loaded.errors, []);
++    } finally {
++      if (previousXdgConfigHome === undefined) {
++        delete process.env.XDG_CONFIG_HOME;
++      } else {
++        process.env.XDG_CONFIG_HOME = previousXdgConfigHome;
++      }
++    }
++    await writeRepositoryFile(
++      temporaryRoot,
++      '.gitattributes',
++      '*.mjs -diff\n',
++    );
++    loaded = await loadExecutionAuthorityV2(temporaryRoot);
++    assert.deepEqual(loaded.errors, []);
++    await rm(join(temporaryRoot, '.gitattributes'));
++    await writeRepositoryFile(
++      temporaryRoot,
++      '.git/info/attributes',
++      '*.mjs -diff\n',
++    );
++    loaded = await loadExecutionAuthorityV2(temporaryRoot);
++    assert.ok(
++      loaded.errors.some((error) =>
++        error.includes(
++          'reviewerReassignment: Git info attributes affect authority diff',
++        ),
++      ),
++      loaded.errors.join('\n'),
++    );
++    assert.ok(
++      loaded.errors.some((error) =>
++        error.includes('active-packet: Git info attributes affect authority diff'),
++      ),
++      loaded.errors.join('\n'),
++    );
++    await rm(join(temporaryRoot, '.git/info/attributes'));
++    loaded = await loadExecutionAuthorityV2(temporaryRoot);
++    assert.deepEqual(loaded.errors, []);
++    const alternateObjectsRoot = join(temporaryParent, 'alternate-objects');
++    await mkdir(alternateObjectsRoot, { recursive: true });
++    await writeRepositoryFile(
++      temporaryRoot,
++      '.git/objects/info/alternates',
++      `${alternateObjectsRoot}\n`,
++    );
++    loaded = await loadExecutionAuthorityV2(temporaryRoot);
++    assert.ok(
++      loaded.errors.some((error) =>
++        error.includes('reviewerReassignment: Git object alternates are forbidden'),
++      ),
++      loaded.errors.join('\n'),
++    );
++    assert.ok(
++      loaded.errors.some((error) =>
++        error.includes('active-packet: Git object alternates are forbidden'),
++      ),
++      loaded.errors.join('\n'),
++    );
++    await rm(join(temporaryRoot, '.git/objects/info/alternates'));
++    await writeRepositoryFile(
++      temporaryRoot,
++      '.git/objects/pack/pack-untrusted.promisor',
++      '',
++    );
++    loaded = await loadExecutionAuthorityV2(temporaryRoot);
++    assert.ok(
++      loaded.errors.some((error) =>
++        error.includes('reviewerReassignment: Git promisor pack markers are forbidden'),
++      ),
++      loaded.errors.join('\n'),
++    );
++    assert.ok(
++      loaded.errors.some((error) =>
++        error.includes('active-packet: Git promisor pack markers are forbidden'),
++      ),
++      loaded.errors.join('\n'),
++    );
++    await rm(
++      join(temporaryRoot, '.git/objects/pack/pack-untrusted.promisor'),
++    );
++    const { stdout: trustedBlobSource } = await execFileAsync(
++      'git',
++      ['rev-parse', `HEAD:scripts/lib/execution-authority-v2.mjs`],
++      { cwd: temporaryRoot },
++    );
++    const trustedBlobH = trustedBlobSource.trim();
++    const trustedBlobPath = join(
++      temporaryRoot,
++      '.git',
++      'objects',
++      trustedBlobH.slice(0, 2),
++      trustedBlobH.slice(2),
++    );
++    let originalLooseObject = null;
++    let originalLooseObjectMode = null;
++    try {
++      originalLooseObject = await readFile(trustedBlobPath);
++      originalLooseObjectMode = (await stat(trustedBlobPath)).mode & 0o777;
++    } catch (cause) {
++      if (cause.code !== 'ENOENT') throw cause;
++    }
++    const forgedBlob = Buffer.from('forged authority bytes\n');
++    await mkdir(dirname(trustedBlobPath), { recursive: true });
++    if (originalLooseObject !== null) {
++      await chmod(trustedBlobPath, 0o600);
++    }
++    await writeFile(
++      trustedBlobPath,
++      deflateSync(
++        Buffer.concat([
++          Buffer.from(`blob ${forgedBlob.length}\0`),
++          forgedBlob,
++        ]),
++      ),
++    );
++    loaded = await loadExecutionAuthorityV2(temporaryRoot);
++    assert.ok(
++      loaded.errors.some((error) =>
++        error.includes('active-packet Git object database integrity failure'),
++      ),
++      loaded.errors.join('\n'),
++    );
++    if (originalLooseObject === null) {
++      await rm(trustedBlobPath);
++    } else {
++      await writeFile(trustedBlobPath, originalLooseObject);
++      await chmod(trustedBlobPath, originalLooseObjectMode);
++    }
++    loaded = await loadExecutionAuthorityV2(temporaryRoot);
+     assert.deepEqual(loaded.errors, []);
+     const synchronousBypass = executionAuthorityV2CommandResult(
+       loaded,
+@@ -887,7 +1123,46 @@ test('W07 Codex evidence authorizes end to end only after registration and activ
+     loaded = await loadExecutionAuthorityV2(temporaryRoot);
+     assert.ok(
+       loaded.errors.some((error) =>
+-        error.includes('effectiveBase ref/sha git identity mismatch'),
++        error.includes('active-packet EXT ref must equal pinned HEAD'),
++      ),
++      loaded.errors.join('\n'),
++    );
++
++    await execFileAsync(
++      'git',
++      [
++        'checkout',
++        '-q',
++        '--detach',
++        'b0df777a1fe94d98afdc62b4cdd02a2f8a091391',
++      ],
++      { cwd: temporaryRoot },
++    );
++    await execFileAsync(
++      'git',
++      ['merge', '-q', '--no-ff', '-s', 'ours', activationH, '-m', 'hide activation on second parent'],
++      { cwd: temporaryRoot },
++    );
++    await execFileAsync('git', ['checkout', activationH, '--', '.'], {
++      cwd: temporaryRoot,
++    });
++    await execFileAsync('git', ['commit', '-qam', 'replay active authority'], {
++      cwd: temporaryRoot,
++    });
++    const replayH = (
++      await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: temporaryRoot })
++    ).stdout.trim();
++    await execFileAsync(
++      'git',
++      ['branch', '-f', 'feature-chaotang-ext', replayH],
++      { cwd: temporaryRoot },
++    );
++    loaded = await loadExecutionAuthorityV2(temporaryRoot);
++    assert.ok(
++      loaded.errors.some((error) =>
++        error.includes(
++          'active-packet candidateH must be a first-parent ancestor of pinned HEAD',
++        ),
+       ),
+       loaded.errors.join('\n'),
+     );
+@@ -912,6 +1187,84 @@ test('W07 evidence cannot reuse the historical W06 activation packet', () => {
+   assert.ok(errors.some((error) => error.includes('active-packet profile')));
+ });
+ 
++test('W07 evidence rejects the legacy W07 root and mixed-root identities', () => {
++  const legacyRoot = '.harness/changes/docs-r0-w07-activation-20260726';
++  const governance = validGovernance();
++  governance.reviewerReassignment = validReviewerReassignment();
++
++  const legacy = w07EvidenceDocuments();
++  legacy.manifest.approvalEvidence.ownerApprovalPath =
++    `${legacyRoot}/owner_approval/exact-h-approval.md`;
++  legacy.manifest.approvalEvidence.reviewPath =
++    `${legacyRoot}/codex_review/exact-h-final.md`;
++  legacy.owner.activationIntentPath =
++    `${legacyRoot}/activation_intent/r0-w07-activation-intent.json`;
++  legacy.review.ownerApprovalPath =
++    legacy.manifest.approvalEvidence.ownerApprovalPath;
++  legacy.review.activationIntentPath = legacy.owner.activationIntentPath;
++  legacy.review.reviewPackagePath =
++    `${legacyRoot}/review_inputs/activation-candidate.diff`;
++  assert.ok(
++    validateExecutionAuthorityV2Evidence(
++      legacy.manifest,
++      governance,
++      legacy.owner,
++      legacy.review,
++    ).some((error) => error.includes('active-packet profile')),
++  );
++
++  const mixed = w07EvidenceDocuments();
++  mixed.owner.activationIntentPath =
++    `${legacyRoot}/activation_intent/r0-w07-activation-intent.json`;
++  mixed.review.activationIntentPath = mixed.owner.activationIntentPath;
++  assert.ok(
++    validateExecutionAuthorityV2Evidence(
++      mixed.manifest,
++      governance,
++      mixed.owner,
++      mixed.review,
++    ).some((error) =>
++      error.includes('owner activationIntentPath must match active-packet profile'),
++    ),
++  );
++});
++
++test('W07 profile accepts every path in the exact Event 1 candidate', () => {
++  const fixture = w07EvidenceDocuments();
++  const governance = validGovernance();
++  governance.reviewerReassignment = validReviewerReassignment();
++  fixture.review.changedPaths = [...W07_EVENT1_CHANGED_PATHS];
++  assert.deepEqual(
++    validateExecutionAuthorityV2Evidence(
++      fixture.manifest,
++      governance,
++      fixture.owner,
++      fixture.review,
++    ),
++    [],
++  );
++});
++
++test('W07 profile rejects paths outside the exact Event 1 candidate', () => {
++  const fixture = w07EvidenceDocuments();
++  const governance = validGovernance();
++  governance.reviewerReassignment = validReviewerReassignment();
++  fixture.review.changedPaths.push(
++    '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/owner_approval/exact-h-approval.md',
++  );
++
++  assert.ok(
++    validateExecutionAuthorityV2Evidence(
++      fixture.manifest,
++      governance,
++      fixture.owner,
++      fixture.review,
++    ).some((error) =>
++      error.includes('review changedPaths must exactly match the Event 1 candidate'),
++    ),
++  );
++});
++
+ test('active temporary root authorizes only after loading the exact independent review and activation intent', async () => {
+   const { temporaryRoot } = await createActiveAuthorityFixture();
+   try {
+@@ -1132,6 +1485,99 @@ test('authority Git executable cannot be substituted through inherited PATH', as
+   }
+ });
+ 
++test('authority Git commands disable the mutable commit-graph acceleration', async () => {
++  for (const path of [
++    'scripts/lib/amendment-governance.mjs',
++    'scripts/lib/execution-authority-v2.mjs',
++  ]) {
++    const source = await readFile(join(root, path), 'utf8');
++    assert.match(source, /'core\.commitGraph=false'/u);
++  }
++});
++
++test('authority rejects HTTP alternates, promisor configuration, and promisor pack markers', async () => {
++  const temporaryParent = await mkdtemp(
++    join(tmpdir(), 'chaotang-v2-git-metadata-'),
++  );
++  const temporaryRoot = join(temporaryParent, 'repo');
++  try {
++    await mkdir(temporaryRoot);
++    await execFileAsync('git', ['init', '-q'], { cwd: temporaryRoot });
++    await writeRepositoryFile(
++      temporaryRoot,
++      '.git/objects/info/http-alternates',
++      'https://example.invalid/objects\n',
++    );
++    await writeRepositoryFile(
++      temporaryRoot,
++      '.git/objects/pack/pack-untrusted.promisor',
++      '',
++    );
++    await execFileAsync(
++      'git',
++      ['config', '--local', 'remote.origin.promisor', 'true'],
++      { cwd: temporaryRoot },
++    );
++    await execFileAsync(
++      'git',
++      ['config', '--local', 'remote.origin.partialCloneFilter', 'blob:none'],
++      { cwd: temporaryRoot },
++    );
++    await execFileAsync(
++      'git',
++      ['config', '--local', 'fsck.missingEmail', 'ignore'],
++      { cwd: temporaryRoot },
++    );
++
++    const errors = await verifyRepositoryLocalGitDiffEnvironment(
++      temporaryRoot,
++      'test-authority',
++    );
++    assert.ok(
++      errors.some((error) =>
++        error.includes('Git HTTP object alternates are forbidden'),
++      ),
++      errors.join('\n'),
++    );
++    assert.ok(
++      errors.some((error) =>
++        error.includes('Git promisor pack markers are forbidden'),
++      ),
++      errors.join('\n'),
++    );
++    assert.ok(
++      errors.some((error) => error.includes('remote.origin.promisor')),
++      errors.join('\n'),
++    );
++    assert.ok(
++      errors.some((error) =>
++        error.includes('remote.origin.partialclonefilter'),
++      ),
++      errors.join('\n'),
++    );
++    assert.ok(
++      errors.some((error) => error.includes('fsck.missingemail')),
++      errors.join('\n'),
++    );
++
++    const externalObjects = join(temporaryParent, 'external-objects');
++    await rename(join(temporaryRoot, '.git/objects'), externalObjects);
++    await symlink(externalObjects, join(temporaryRoot, '.git/objects'), 'dir');
++    const symlinkErrors = await verifyRepositoryLocalGitDiffEnvironment(
++      temporaryRoot,
++      'test-authority',
++    );
++    assert.ok(
++      symlinkErrors.some((error) =>
++        error.includes('Git object database symbolic links are forbidden'),
++      ),
++      symlinkErrors.join('\n'),
++    );
++  } finally {
++    await rm(temporaryParent, { recursive: true, force: true });
++  }
++});
++
+ test('active temporary root fails closed when canonical amendment bytes drift', async () => {
+   const { temporaryRoot, manifest } = await createActiveAuthorityFixture();
+   try {
+diff --git a/scripts/lib/amendment-governance.mjs b/scripts/lib/amendment-governance.mjs
+index 083da812..ed17c8a2 100644
+--- a/scripts/lib/amendment-governance.mjs
++++ b/scripts/lib/amendment-governance.mjs
+@@ -1,7 +1,7 @@
+ import { createHash } from 'node:crypto';
+ import { execFile } from 'node:child_process';
+ import { constants as fsConstants } from 'node:fs';
+-import { lstat, open, realpath } from 'node:fs/promises';
++import { lstat, open, readdir, realpath } from 'node:fs/promises';
+ import { isAbsolute, join } from 'node:path';
+ import { promisify } from 'node:util';
+ 
+@@ -587,10 +587,18 @@ export function validateReviewerReassignmentOverlay(overlay) {
+ }
+ 
+ function reviewerReassignmentGitArgs(...args) {
+-  return ['--no-replace-objects', ...args];
++  return [
++    '--no-replace-objects',
++    '-c',
++    'core.attributesFile=/dev/null',
++    '-c',
++    'core.commitGraph=false',
++    ...args,
++  ];
+ }
+ 
+ function reviewerReassignmentGitOptions(root, extra = {}) {
++  const { attributeSource, ...execExtra } = extra;
+   const env = Object.fromEntries(
+     Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
+   );
+@@ -600,16 +608,163 @@ function reviewerReassignmentGitOptions(root, extra = {}) {
+       ...env,
+       GIT_CONFIG_NOSYSTEM: '1',
+       GIT_CONFIG_GLOBAL: '/dev/null',
++      GIT_ATTR_NOSYSTEM: '1',
+       GIT_OPTIONAL_LOCKS: '0',
+       LC_ALL: 'C',
++      ...(attributeSource === undefined
++        ? {}
++        : { GIT_ATTR_SOURCE: attributeSource }),
+     },
+-    ...extra,
++    ...execExtra,
+   };
+ }
+ 
++const ALLOWED_LOCAL_CORE_CONFIG = new Set([
++  'core.repositoryformatversion',
++  'core.filemode',
++  'core.bare',
++  'core.logallrefupdates',
++  'core.worktree',
++]);
++
++function localGitConfigAffectsDiff(key) {
++  const normalized = key.toLowerCase();
++  return (
++    normalized.startsWith('diff.') ||
++    normalized.startsWith('fsck.') ||
++    normalized.startsWith('include.') ||
++    normalized.startsWith('includeif.') ||
++    normalized === 'extensions.worktreeconfig' ||
++    normalized === 'extensions.partialclone' ||
++    normalized === 'color.ui' ||
++    normalized === 'color.diff' ||
++    /^remote\..+\.(promisor|partialclonefilter)$/u.test(normalized) ||
++    /^submodule\..+\.ignore$/u.test(normalized) ||
++    (normalized.startsWith('core.') &&
++      !ALLOWED_LOCAL_CORE_CONFIG.has(normalized))
++  );
++}
++
++async function firstGitObjectDatabaseSymlink(objectRoot) {
++  const pending = [{ path: objectRoot, relativePath: 'objects' }];
++  while (pending.length > 0) {
++    const current = pending.pop();
++    let metadata;
++    try {
++      metadata = await lstat(current.path);
++    } catch (cause) {
++      if (cause.code === 'ENOENT') continue;
++      throw cause;
++    }
++    if (metadata.isSymbolicLink()) return current.relativePath;
++    if (!metadata.isDirectory()) continue;
++    for (const entry of await readdir(current.path, { withFileTypes: true })) {
++      const entryRelativePath = `${current.relativePath}/${entry.name}`;
++      if (entry.isSymbolicLink()) return entryRelativePath;
++      if (entry.isDirectory()) {
++        pending.push({
++          path: join(current.path, entry.name),
++          relativePath: entryRelativePath,
++        });
++      }
++    }
++  }
++  return null;
++}
++
++export async function verifyRepositoryLocalGitDiffEnvironment(
++  root,
++  label = 'authority',
++) {
++  const errors = [];
++  try {
++    const [
++      { stdout: configSource },
++      { stdout: gitDirSource },
++      { stdout: commonDirSource },
++    ] = await Promise.all([
++      execFileAsync(
++        'git',
++        reviewerReassignmentGitArgs(
++          'config',
++          '--local',
++          '--name-only',
++          '--null',
++          '--list',
++        ),
++        reviewerReassignmentGitOptions(root),
++      ),
++      execFileAsync(
++        'git',
++        reviewerReassignmentGitArgs('rev-parse', '--git-dir'),
++        reviewerReassignmentGitOptions(root),
++      ),
++      execFileAsync(
++        'git',
++        reviewerReassignmentGitArgs('rev-parse', '--git-common-dir'),
++        reviewerReassignmentGitOptions(root),
++      ),
++    ]);
++    const unsafeConfig = configSource
++      .split('\0')
++      .filter(Boolean)
++      .filter(localGitConfigAffectsDiff);
++    if (unsafeConfig.length > 0) {
++      errors.push(
++        `${label}: repository-local Git config affects authority diff: ${unsafeConfig.join(', ')}`,
++      );
++    }
++
++    const metadataRoots = new Set(
++      [gitDirSource, commonDirSource].map((source) => source.trim()),
++    );
++    for (const metadataRoot of metadataRoots) {
++      const resolvedRoot = isAbsolute(metadataRoot)
++        ? metadataRoot
++        : join(root, metadataRoot);
++      const objectDatabaseSymlink =
++        await firstGitObjectDatabaseSymlink(join(resolvedRoot, 'objects'));
++      if (objectDatabaseSymlink !== null) {
++        errors.push(
++          `${label}: Git object database symbolic links are forbidden: ${objectDatabaseSymlink}`,
++        );
++      }
++      for (const [relativePath, message] of [
++        ['info/attributes', 'Git info attributes affect authority diff'],
++        ['objects/info/alternates', 'Git object alternates are forbidden'],
++        ['objects/info/http-alternates', 'Git HTTP object alternates are forbidden'],
++      ]) {
++        try {
++          await lstat(join(resolvedRoot, ...relativePath.split('/')));
++          errors.push(`${label}: ${message}`);
++        } catch (cause) {
++          if (cause.code !== 'ENOENT') throw cause;
++        }
++      }
++      try {
++        const packEntries = await readdir(join(resolvedRoot, 'objects', 'pack'));
++        if (packEntries.some((entry) => entry.endsWith('.promisor'))) {
++          errors.push(`${label}: Git promisor pack markers are forbidden`);
++        }
++      } catch (cause) {
++        if (cause.code !== 'ENOENT') throw cause;
++      }
++    }
++  } catch (cause) {
++    errors.push(
++      `${label}: Git diff environment is unverifiable: ${cause.code ?? cause.message}`,
++    );
++  }
++  return [...new Set(errors)];
++}
++
+ export function reviewerReassignmentDiffArgs(baseH, candidateH) {
+   return [
+     '--no-replace-objects',
++    '-c',
++    'core.attributesFile=/dev/null',
++    '-c',
++    'core.commitGraph=false',
+     'diff',
+     '--no-ext-diff',
+     '--no-textconv',
+@@ -1204,6 +1359,12 @@ export async function verifyAmendmentApprovalEvidenceFiles(
+     overlay !== null &&
+     overlay !== undefined
+   ) {
++    errors.push(
++      ...(await verifyRepositoryLocalGitDiffEnvironment(
++        root,
++        'reviewerReassignment',
++      )),
++    );
+     if (!hasExactKeys(overlay, REVIEWER_REASSIGNMENT_KEYS)) return errors;
+     const reviewPackageSource = await verifyEvidenceFile(
+       overlay.reviewPackagePath,
+@@ -1292,6 +1453,7 @@ export async function verifyAmendmentApprovalEvidenceFiles(
+         'git',
+         reviewerReassignmentDiffArgs(overlay.baseH, overlay.candidateH),
+         reviewerReassignmentGitOptions(root, {
++          attributeSource: overlay.candidateH,
+           encoding: 'buffer',
+           maxBuffer: 10 * 1024 * 1024,
+         }),
+@@ -1304,6 +1466,12 @@ export async function verifyAmendmentApprovalEvidenceFiles(
+           'reviewerReassignment.reviewPackagePath: bytes must equal exact git diff',
+         );
+       }
++      errors.push(
++        ...(await verifyRepositoryLocalGitDiffEnvironment(
++          root,
++          'reviewerReassignment',
++        )),
++      );
+     } catch (cause) {
+       errors.push(
+         `reviewerReassignment.gitIdentity: ${cause.code ?? cause.message}`,
+diff --git a/scripts/lib/execution-authority-v2.mjs b/scripts/lib/execution-authority-v2.mjs
+index 08458051..be1c70a5 100644
+--- a/scripts/lib/execution-authority-v2.mjs
++++ b/scripts/lib/execution-authority-v2.mjs
+@@ -10,6 +10,7 @@ import {
+   validateAmendmentGovernanceRegistration,
+   validateReviewerReassignmentOverlay,
+   verifyAmendmentApprovalEvidenceFiles,
++  verifyRepositoryLocalGitDiffEnvironment,
+   verifyReviewerReassignmentActivationHistory,
+ } from './amendment-governance.mjs';
+ 
+@@ -76,7 +77,8 @@ const EVIDENCE_VERSION = 'execution-authority-v2-evidence.v1';
+ const ACTIVATION_INTENT_SCHEMA_VERSION = 'execution-authority.v2.activation-intent.v1';
+ const ACTIVATION_INTENT_KIND = 'activation-intent';
+ const RECOVERY_CHANGE_ROOT = '.harness/changes/fix-ext-g0-authority-recovery-20260725';
+-const W07_CHANGE_ROOT = '.harness/changes/docs-r0-w07-activation-20260726';
++const W07_CHANGE_ROOT =
++  '.harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727';
+ const ACTIVE_PACKET_PROFILES = Object.freeze({
+   'R0-W06': Object.freeze({
+     effectiveBaseRef: 'origin/feature-chaotang-ext',
+@@ -121,7 +123,7 @@ const ACTIVE_PACKET_PROFILES = Object.freeze({
+   }),
+   'R0-W07': Object.freeze({
+     effectiveBaseRef: 'refs/heads/feature-chaotang-ext',
+-    reviewBaseH: '55caf0d176cd6a1bbb833ffd1872ea3f1d8a46ca',
++    reviewBaseH: 'b0df777a1fe94d98afdc62b4cdd02a2f8a091391',
+     ownerApprovalPath: `${W07_CHANGE_ROOT}/owner_approval/exact-h-approval.md`,
+     reviewPath: `${W07_CHANGE_ROOT}/codex_review/exact-h-final.md`,
+     activationIntentPath: `${W07_CHANGE_ROOT}/activation_intent/r0-w07-activation-intent.json`,
+@@ -136,26 +138,20 @@ const ACTIVE_PACKET_PROFILES = Object.freeze({
+       'NO_PRODUCTION_CLAIM',
+     ]),
+     allowedChangedPaths: new Set([
+-      `${W07_CHANGE_ROOT}/activation_intent/r0-w07-activation-intent.json`,
+       `${W07_CHANGE_ROOT}/ci_result/ci_summary.md`,
+-      `${W07_CHANGE_ROOT}/codex_review/exact-h-final.md`,
+-      `${W07_CHANGE_ROOT}/owner_approval/exact-h-approval.md`,
++      `${W07_CHANGE_ROOT}/evidence_inventory.md`,
++      `${W07_CHANGE_ROOT}/request_analysis/spec.md`,
+       `${W07_CHANGE_ROOT}/request_analysis/tasks.md`,
+       `${W07_CHANGE_ROOT}/summary.md`,
+-      '.harness/contracts/execution-authority-v2.schema.json',
+-      '.harness/manifest/execution-authority.v2.json',
+       '.harness/wiki/execution-authority-v2.md',
+-      'docs/superpowers/plans/2026-07-26-r0-reviewer-reassignment.md',
+-      'docs/superpowers/specs/2026-07-26-r0-reviewer-reassignment-design.md',
+-      'scripts/execution-authority-v2.mjs',
++      'docs/superpowers/plans/2026-07-27-r0-w07-exact-h-activation-b0df777a.md',
++      'docs/superpowers/specs/2026-07-27-r0-w07-exact-h-activation-b0df777a-design.md',
+       'scripts/execution-authority-v2.nodetest.mjs',
+       'scripts/lib/amendment-governance.mjs',
+       'scripts/lib/execution-authority-v2.mjs',
+       'scripts/r0-amendment-check.nodetest.mjs',
+     ]),
+-    allowedChangedPrefixes: Object.freeze([
+-      '.harness/changes/docs-r0-reviewer-reassignment-20260726/',
+-    ]),
++    exactChangedPaths: true,
+     exactGitRange: true,
+     requiredCommands: Object.freeze([
+       'node --test scripts/execution-authority.nodetest.mjs scripts/r0-amendment-check.nodetest.mjs scripts/execution-authority-v2.nodetest.mjs',
+@@ -185,10 +181,18 @@ function profileAllowsChangedPath(profile, path) {
+ }
+ 
+ function authorityGitArgs(...args) {
+-  return ['--no-replace-objects', ...args];
++  return [
++    '--no-replace-objects',
++    '-c',
++    'core.attributesFile=/dev/null',
++    '-c',
++    'core.commitGraph=false',
++    ...args,
++  ];
+ }
+ 
+ function authorityGitOptions(root, extra = {}) {
++  const { attributeSource, ...execExtra } = extra;
+   const env = Object.fromEntries(
+     Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
+   );
+@@ -198,11 +202,15 @@ function authorityGitOptions(root, extra = {}) {
+       ...env,
+       GIT_CONFIG_NOSYSTEM: '1',
+       GIT_CONFIG_GLOBAL: '/dev/null',
++      GIT_ATTR_NOSYSTEM: '1',
+       GIT_CEILING_DIRECTORIES: root,
+       GIT_OPTIONAL_LOCKS: '0',
+       LC_ALL: 'C',
++      ...(attributeSource === undefined
++        ? {}
++        : { GIT_ATTR_SOURCE: attributeSource }),
+     },
+-    ...extra,
++    ...execExtra,
+   };
+ }
+ 
+@@ -382,12 +390,43 @@ async function verifyActivePacketGitIdentity(
+   root,
+   manifest,
+   reviewPackageSource,
++  pinnedCommitH,
+   errors,
+ ) {
+   const profile = ACTIVE_PACKET_PROFILES[manifest.activeWorkPackage];
+   if (profile?.exactGitRange !== true) return;
+   try {
+-    const [{ stdout: refH }, { stdout: effectiveH }, { stdout: baseH }, { stdout: candidateH }, { stdout: tree }] =
++    const integrityEnvironmentErrors =
++      await verifyRepositoryLocalGitDiffEnvironment(root, 'active-packet');
++    errors.push(...integrityEnvironmentErrors);
++    if (integrityEnvironmentErrors.length === 0) {
++      try {
++        await execFileAsync(
++          'git',
++          authorityGitArgs(
++            'fsck',
++            '--full',
++            '--strict',
++            '--no-reflogs',
++            '--no-dangling',
++            pinnedCommitH,
++          ),
++          authorityGitOptions(root, { maxBuffer: 10 * 1024 * 1024 }),
++        );
++      } catch (cause) {
++        errors.push(
++          `active-packet Git object database integrity failure: ${cause.code ?? cause.message}`,
++        );
++      }
++    }
++    const [
++      { stdout: refH },
++      { stdout: effectiveH },
++      { stdout: baseH },
++      { stdout: candidateH },
++      { stdout: tree },
++      { stdout: firstParentHistory },
++    ] =
+       await Promise.all([
+         execFileAsync(
+           'git',
+@@ -420,13 +459,18 @@ async function verifyActivePacketGitIdentity(
+           ),
+           authorityGitOptions(root),
+         ),
++        execFileAsync(
++          'git',
++          authorityGitArgs('rev-list', '--first-parent', pinnedCommitH),
++          authorityGitOptions(root),
++        ),
+       ]);
+     const initialRefH = refH.trim();
+-    if (
+-      initialRefH !== manifest.effectiveBase.sha ||
+-      effectiveH.trim() !== manifest.effectiveBase.sha
+-    ) {
+-      errors.push('active-packet effectiveBase ref/sha git identity mismatch');
++    if (initialRefH !== pinnedCommitH) {
++      errors.push('active-packet EXT ref must equal pinned HEAD');
++    }
++    if (effectiveH.trim() !== manifest.effectiveBase.sha) {
++      errors.push('active-packet effectiveBase sha git identity mismatch');
+     }
+     if (baseH.trim() !== profile.reviewBaseH) {
+       errors.push('active-packet review base git identity mismatch');
+@@ -437,6 +481,16 @@ async function verifyActivePacketGitIdentity(
+     if (tree.trim() !== manifest.approvalEvidence.tree) {
+       errors.push('active-packet candidate tree git identity mismatch');
+     }
++    if (
++      !firstParentHistory
++        .trim()
++        .split('\n')
++        .includes(manifest.approvalEvidence.candidateH)
++    ) {
++      errors.push(
++        'active-packet candidateH must be a first-parent ancestor of pinned HEAD',
++      );
++    }
+     await execFileAsync(
+       'git',
+       authorityGitArgs(
+@@ -457,6 +511,7 @@ async function verifyActivePacketGitIdentity(
+         `${profile.reviewBaseH}..${manifest.approvalEvidence.candidateH}`,
+       ),
+       authorityGitOptions(root, {
++        attributeSource: manifest.approvalEvidence.candidateH,
+         encoding: 'buffer',
+         maxBuffer: 10 * 1024 * 1024,
+       }),
+@@ -464,6 +519,12 @@ async function verifyActivePacketGitIdentity(
+     if (!reviewPackageSource.equals(exactDiff)) {
+       errors.push('review package bytes must equal exact git diff');
+     }
++    errors.push(
++      ...(await verifyRepositoryLocalGitDiffEnvironment(
++        root,
++        'active-packet',
++      )),
++    );
+     const { stdout: finalRefSource } = await execFileAsync(
+       'git',
+       authorityGitArgs('rev-parse', `${manifest.effectiveBase.ref}^{commit}`),
+@@ -472,6 +533,9 @@ async function verifyActivePacketGitIdentity(
+     if (finalRefSource.trim() !== initialRefH) {
+       errors.push('active-packet effectiveBase ref moved during verification');
+     }
++    if (finalRefSource.trim() !== pinnedCommitH) {
++      errors.push('active-packet EXT ref must equal pinned HEAD');
++    }
+   } catch (cause) {
+     errors.push(`active-packet git identity is unverifiable: ${cause.code ?? cause.message}`);
+   }
+@@ -900,6 +964,15 @@ export function validateExecutionAuthorityV2Evidence(
+     )
+   ) {
+     errors.push('review changedPaths must be a non-empty list of safe repository paths');
++  } else if (profile.exactChangedPaths === true) {
++    if (
++      !sameArray(
++        [...reviewEvidence.changedPaths].sort(),
++        [...profile.allowedChangedPaths].sort(),
++      )
++    ) {
++      errors.push('review changedPaths must exactly match the Event 1 candidate');
++    }
+   } else if (
+     reviewEvidence.changedPaths.some((path) => !profileAllowsChangedPath(profile, path))
+   ) {
+@@ -1533,6 +1606,7 @@ export async function loadExecutionAuthorityV2(root) {
+           root,
+           manifest,
+           reviewPackageSource,
++          pinnedCommitH,
+           errors,
+         );
+       }
+diff --git a/scripts/r0-amendment-check.nodetest.mjs b/scripts/r0-amendment-check.nodetest.mjs
+index cda4422b..691f6749 100644
+--- a/scripts/r0-amendment-check.nodetest.mjs
++++ b/scripts/r0-amendment-check.nodetest.mjs
+@@ -266,9 +266,13 @@ test('reviewer reassignment evidence rejects duplicate JSON keys', () => {
+   );
+ });
+ 
+-test('review package Git command disables external diff and text conversion', () => {
++test('review package Git command disables external diff, text conversion, and user attributes', () => {
+   assert.deepEqual(reviewerReassignmentDiffArgs('base', 'candidate'), [
+     '--no-replace-objects',
++    '-c',
++    'core.attributesFile=/dev/null',
++    '-c',
++    'core.commitGraph=false',
+     'diff',
+     '--no-ext-diff',
+     '--no-textconv',

@@ -43,5 +43,14 @@ const result = executionAuthorityV2CommandResult(loaded, mode, extraArguments, {
   workPackage,
   realCustomerData,
 });
-console.log(JSON.stringify(result.output, null, 2));
-process.exit(result.exitCode);
+const output =
+  mode === '--authorize' && result.output.decision === 'ELIGIBLE'
+    ? {
+        schemaVersion: result.output.schemaVersion,
+        decision: 'GO',
+        activeWorkPackage: result.output.activeWorkPackage,
+        reason: 'APPROVED_WORK_PACKAGE',
+      }
+    : result.output;
+console.log(JSON.stringify(output, null, 2));
+process.exit(output.decision === 'GO' ? 0 : result.exitCode);

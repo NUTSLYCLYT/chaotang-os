@@ -24,6 +24,11 @@ const ROOT = process.cwd();
 const API = join(ROOT, 'src', 'app', 'api');
 const SRC = join(ROOT, 'src');
 
+if (!existsSync(API)) {
+  console.log('ℹ️ guard:tenant — 当前前端架构没有 src/app/api，跳过旧 BFF 路由扫描。');
+  process.exit(0);
+}
+
 // 读本地用户数据(决策/任务/档案/judgment)的调用。
 const READ_USER_DATA = /listPrimaryTasks|getPrimaryTaskFull|getArchive\b|getArchives|findSimilarCourtArchives|listArchives|decision-judgments\.local|courtos-decision-store/;
 // 租户过滤痕迹(任一即认为有意识做了隔离)。

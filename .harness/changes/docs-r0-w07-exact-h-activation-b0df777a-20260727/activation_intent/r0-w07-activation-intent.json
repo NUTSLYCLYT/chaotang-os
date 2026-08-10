@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "execution-authority.v2.activation-intent.v1",
+  "kind": "activation-intent",
+  "trackedManifestPath": ".harness/manifest/execution-authority.v2.json",
+  "reviewPackagePath": ".harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/review_inputs/activation-candidate.diff",
+  "reviewPackageSha256": "ba87835b8bb74aab4782411f8037515e0ea7c09d8798e80419f2e4be06a7fd7a",
+  "effectiveBase": {
+    "ref": "refs/heads/feature-chaotang-ext",
+    "sha": "eb6e86e586ab5401780e5b49cdcf32af5ee27f86"
+  },
+  "approvalEvidence": {
+    "ownerApprovalPath": ".harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/owner_approval/exact-h-approval.md",
+    "reviewPath": ".harness/changes/docs-r0-w07-exact-h-activation-b0df777a-20260727/codex_review/exact-h-final.md",
+    "reviewVerdict": "GO",
+    "approver": "lyt",
+    "candidateH": "eb6e86e586ab5401780e5b49cdcf32af5ee27f86",
+    "tree": "d08538039ad907c54bf1df41feaa3046097c91d9",
+    "approvedScope": [
+      "R0-W07"
+    ]
+  },
+  "activeWorkPackage": "R0-W07",
+  "workPackageLedger": [
+    {
+      "id": "R0-W00",
+      "status": "MERGED_AND_VERIFIED"
+    },
+    {
+      "id": "R0-W01",
+      "status": "MERGED_AND_VERIFIED"
+    },
+    {
+      "id": "R0-W02",
+      "status": "MERGED_AND_VERIFIED"
+    },
+    {
+      "id": "R0-W03",
+      "status": "MERGED_AND_VERIFIED"
+    },
+    {
+      "id": "R0-W04",
+      "status": "MERGED_AND_VERIFIED"
+    },
+    {
+      "id": "R0-W05",
+      "status": "MERGED_AND_VERIFIED"
+    },
+    {
+      "id": "R0-W06",
+      "status": "MERGED_AND_VERIFIED"
+    },
+    {
+      "id": "R0-W07",
+      "status": "ACTIVE"
+    }
+  ]
+}

@@ -25,6 +25,16 @@ class ContractReviewPackV1(BaseModel):
     tenant_id: str = Field(min_length=1)
     task_id: str = Field(min_length=1)
     mission_contract_id: str = Field(min_length=1)
+    mission_revision: int | None = Field(
+        default=None,
+        ge=1,
+        exclude_if=lambda value: value is None,
+    )
+    mission_content_digest: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+        exclude_if=lambda value: value is None,
+    )
     court_review_id: str = Field(min_length=1)
     evidence_packet_ids: list[str] = Field(min_length=1)
     jurisdiction: Jurisdiction

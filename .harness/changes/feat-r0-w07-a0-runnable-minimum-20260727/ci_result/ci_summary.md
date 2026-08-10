@@ -1,0 +1,291 @@
+# CI 摘要：feat-r0-w07-a0-runnable-minimum-20260727
+
+## 命令
+
+| 命令 | 退出码 | 结果 | 证据覆盖范围 | 证据位置 / 时间 |
+| --- | ---: | --- | --- | --- |
+| `python3 -m pytest -q tests/test_contract*.py tests/test_mission_contract_v1.py tests/test_artifact*.py ... tests/test_schema_authority.py` | 0 | latest 436 passed, 2 skipped | mission、persisted review lineage、server action、P0-B、authz、W05/W06 regression | 2026-07-27 |
+| `ruff check <W07-A0 backend files>` | 0 | All checks passed | Python scope | 2026-07-27 |
+| `pnpm exec tsx --test src/features/contract-review/*.nodetest.ts` | 0 | latest 33 passed | full mission/pack/risk schema、business scope match、canonical download URL、三件套完整性、exact archive view | 2026-07-27 |
+| `pnpm test:node` | 1 | 1099 passed, 1 failed | canonical frontend residual scan；1 个既有、非本 diff 日期样例失败 | 2026-07-27 |
+| `pnpm exec tsx --test src/app/(dashboard)/liubu/page.nodetest.tsx` | 1 | 0 passed, 1 failed | canonical glob 未覆盖的 TSX residual；非本 diff | 2026-07-27 |
+| `pnpm exec tsc --noEmit` | 0 | pass | generated contract and frontend types | 2026-07-27 |
+| `NEXT_PUBLIC_API_MODE=real pnpm build` | 0 | pass | real-mode production build only | 2026-07-27 |
+| `node --test scripts/api-contract-stability.nodetest.mjs` | 0 | 5 passed | immutable base、repin rejection、schema content、determinism | 2026-07-27 |
+| `API_CONTRACT_BASE_REF=ed822... node scripts/api-contract-stability.mjs` x2 | 0 | pass, 362 routes, 0 breaking, 9 additions | fixed OpenAPI baseline；OpenAPI `72ada7c1...`、route snapshot `c1a36a68...`、TS `5314e34f...` 两次一致 | 2026-07-27 |
+| `pnpm exec playwright test --config=playwright.w07.config.ts` | 0 | sixth remediation exact-state 1 passed | delayed initial read、fresh real JWT READY flow、audit-only exact archive、tampered archiveId、seeded PARTIAL refresh | 2026-07-27 |
+| `python3 scripts/harness_doctor.py` | 0 | 0 errors, 0 warnings | backend harness | 2026-07-27 |
+| `pnpm harness:doctor` | 0 | 0 errors, 0 warnings | frontend harness | 2026-07-27 |
+| base `ed822255...`: `node scripts/harness-doctor.mjs` | 0 | 0 errors, 0 warnings | pre-edit integrated authority baseline | 2026-07-27 |
+| isolated candidate: `node scripts/harness-doctor.mjs` | 1 | expected `active-packet EXT ref must equal pinned HEAD` only | PRE_INTEGRATION fail-closed；不得伪装为 root PASS | 2026-07-27 |
+| `git diff --check` | 0 | pass | whitespace/diff integrity | 2026-07-27 |
+| seventh remediation expanded backend suite | 0 | 388 passed, 2 skipped | W05/W06/W07 mission、artifact、worker、authz、legacy ownership | 2026-07-28 |
+| seventh remediation direct backend files | 0 | 116 passed | action authority、projection、worker、legacy route | 2026-07-28 |
+| `ruff check` scoped files | 0 | All checks passed | changed Python；`chaotang.py` 的 11 项与 HEAD 基线相同 | 2026-07-28 |
+| contract-review Node + `tsc --noEmit` | 0 | 35 passed + typecheck pass | closed-world、mission identity、exact archive | 2026-07-28 |
+| API stability test/generator | 0 | 6 passed；固定 ref 两次 PASS | 362 routes；0 breaking；新增 optional property warning | 2026-07-28 |
+| `NEXT_PUBLIC_API_MODE=real pnpm build` | 0 | pass | real-mode build | 2026-07-28 |
+| W07 Playwright | 0 | 1 passed | READY/PARTIAL、exact archive 只读右栏、tampered id | 2026-07-28 |
+| eighth remediation expanded backend suite | 0 | 484 passed, 2 skipped | W02-W07 contract、mission、artifact、worker、authz、legacy ownership | 2026-07-28 |
+| `ruff check <changed Python files>` | 0 | All checks passed | current implementation diff | 2026-07-28 |
+| contract-review Node + `tsc --noEmit` | 0 | 36 passed + typecheck pass | server selection、typed pack、closed-world、exact archive | 2026-07-28 |
+| API stability test/generator | 0 | 7 passed；362 routes；0 breaking | response-aware fixed-ref guard；双跑 deterministic | 2026-07-28 |
+| `NEXT_PUBLIC_API_MODE=real pnpm build` | 0 | pass | exact implementation real-mode build | 2026-07-28 |
+| W07 Playwright | 0 | 1 passed | exact implementation READY/PARTIAL/download/archive flow | 2026-07-28 |
+| backend/frontend doctor | 0 | 0 errors, 0 warnings | two owned harness layers | 2026-07-28 |
+| root doctor | 1 | expected exact-ref mismatch only | isolated candidate PRE_INTEGRATION fail-closed | 2026-07-28 |
+| latest expanded backend suite | 0 | 464 passed, 1 skipped | contract/Mission/artifact/W05/worker/authz/legacy concurrency | 2026-07-28 |
+| latest focused frontend + typecheck | 0 | 43 passed + `tsc --noEmit` pass | server classification、closed-world、exact archive、typed home path | 2026-07-28 |
+| latest Ruff | 0 | All checks passed | all changed Python files | 2026-07-28 |
+| latest API guard/generator x2 | 0 | 9 passed；363 routes；0 breaking；hashes identical | inline schema、component response reachability、fixed immutable ref | 2026-07-28 |
+| latest real-mode build | 0 | Next production build pass | isolated candidate buildability only | 2026-07-28 |
+| latest W07 Playwright | 0 | 1 passed | disposable real JWT READY/PARTIAL/download/archive/reopen | 2026-07-28 |
+| latest backend/frontend doctor | 0 | 0 errors, 0 warnings | owned harness layers | 2026-07-28 |
+| latest root doctor | 1 | only `active-packet EXT ref must equal pinned HEAD` | expected PRE_INTEGRATION fail-closed | 2026-07-28 |
+| `git diff --check` | 0 | pass | implementation diff integrity | 2026-07-28 |
+| seventh-review expanded backend suite | 0 | 583 passed, 2 skipped | contract/Mission/artifact/W05/worker/authz/legacy concurrency | 2026-07-28 |
+| seventh-review focused frontend + typecheck | 0 | 43 passed + `tsc --noEmit` pass | `/home/v1` classification、closed-world、exact archive | 2026-07-28 |
+| seventh-review full frontend residual | 1 | 1105 passed, 1 known date-fixture failure | no new Packet regression；fixed-date residual unchanged from base | 2026-07-28 |
+| seventh-review Ruff | 0 | All checks passed | all changed Python files | 2026-07-28 |
+| seventh-review API guard/generator x2 | 0 | 11 passed；363 routes；0 breaking；five hashes identical | response components、stable public schema、fixed immutable ref | 2026-07-28 |
+| seventh-review real-mode build | 0 | Next production build pass | isolated candidate buildability only | 2026-07-28 |
+| seventh-review W07 Playwright | 0 | 1 passed | real `/home/v1` list selection、READY/PARTIAL/download/archive/reopen | 2026-07-28 |
+| seventh-review backend/frontend doctor | 0 | 0 errors, 0 warnings | owned harness layers | 2026-07-28 |
+| seventh-review root doctor | 1 | only `active-packet EXT ref must equal pinned HEAD` | expected PRE_INTEGRATION fail-closed | 2026-07-28 |
+| seventh-review `git diff --check` + secret scan | 0 | pass | candidate integrity | 2026-07-28 |
+| latest remediation direct backend files | 0 | 117 passed | malformed formal、lock order、legacy payload quarantine | 2026-07-28 |
+| latest remediation expanded backend suite | 0 | 574 passed, 2 skipped | contract/Mission/artifact/W05/worker/authz/legacy concurrency | 2026-07-28 |
+| latest remediation focused frontend + typecheck | 0 | 39 passed + typecheck/build pass | server-classified explicit task identity、closed-world | 2026-07-28 |
+| latest remediation full frontend residual | 1 | 1107 passed, 1 known date-fixture failure | unchanged `signal_older_than_30_days` residual outside diff | 2026-07-28 |
+| latest remediation Ruff | 0 | All checks passed | all changed Python files | 2026-07-28 |
+| latest remediation API guard/generator x2 | 0 | 11 passed；363 routes；0 breaking；five hashes identical | fixed immutable ref and public schema stability | 2026-07-28 |
+| latest remediation real-mode build | 0 | Next production build pass | isolated candidate buildability only | 2026-07-28 |
+| latest remediation W07 Playwright | 0 | 1 passed | non-contract deep link、READY/PARTIAL/download/archive/reopen | 2026-07-28 |
+| latest remediation backend/frontend doctor | 0 | 0 errors, 0 warnings | owned harness layers | 2026-07-28 |
+| latest remediation authority check | 1 | v1 amendment STOP；v2 exact-ref mismatch STOP | expected isolated PRE_INTEGRATION fail-closed | 2026-07-28 |
+| latest remediation `git diff --check` + secret scan | 0 | pass | implementation candidate integrity | 2026-07-28 |
+| latest-review direct backend suite | 0 | 145 passed | fresh review reload、durable envelope、worker/projection regressions | 2026-07-28 |
+| latest-review expanded backend suite | 0 | 580 passed, 2 skipped | contract/Mission/artifact/W05/worker/authz/legacy concurrency | 2026-07-28 |
+| latest-review focused frontend + typecheck | 0 | 40 passed + `tsc --noEmit` pass | stale query transition、closed-world、typed task selection | 2026-07-28 |
+| latest-review full frontend residual | 1 | 1108 passed, 1 known date-fixture failure | unchanged `signal_older_than_30_days` residual outside diff | 2026-07-28 |
+| latest-review Ruff | 0 | All checks passed | all changed Python files | 2026-07-28 |
+| latest-review API guard/generator x2 | 0 | 11 passed；363 routes；0 breaking；five hashes identical | fixed immutable ref and public schema stability | 2026-07-28 |
+| latest-review real-mode build | 0 | Next production build pass | isolated candidate buildability only | 2026-07-28 |
+| latest-review W07 Playwright | 0 | 1 passed | same-page legacy→contract、READY/PARTIAL/download/archive/reopen | 2026-07-28 |
+| latest-review backend/frontend doctor | 0 | 0 errors, 0 warnings | owned harness layers | 2026-07-28 |
+| latest-review root doctor | 1 | only `active-packet EXT ref must equal pinned HEAD` | expected PRE_INTEGRATION fail-closed | 2026-07-28 |
+| latest-review authority check | 1 | v1 amendment STOP；v2 exact-ref mismatch STOP | expected isolated PRE_INTEGRATION fail-closed | 2026-07-28 |
+| latest-review `git diff --check` + secret scan | 0 | pass | exact candidate integrity | 2026-07-28 |
+| authority-writer TDD RED | 1 | 2 failed | both probes reported authority projection before shared task lock | 2026-07-28 |
+| authority-writer TDD GREEN | 0 | 2 passed | lock precedes `REFRESH_REVIEW` and `SUBMIT_EVIDENCE`; interrupted probes are zero-write | 2026-07-28 |
+| authority-writer affected routes | 0 | 152 passed | W05、typed API、swarm route、P0-B ownership、legacy concurrency | 2026-07-28 |
+| authority-writer expanded backend | 0 | 613 passed, 2 skipped | contract/Mission/artifact/W05/worker/authz/routes/concurrency | 2026-07-28 |
+| authority-writer focused frontend + typecheck | 0 | 40 passed + `tsc --noEmit` pass | unchanged typed consumer on exact backend candidate | 2026-07-28 |
+| authority-writer Ruff | 0 | All checks passed | changed router and focused tests | 2026-07-28 |
+| authority-writer API guard/generator x2 | 0 | 11 passed；363 routes；0 breaking；five hashes identical | public schema unchanged | 2026-07-28 |
+| authority-writer real-mode build | 0 | Next production build pass | isolated candidate buildability only | 2026-07-28 |
+| authority-writer W07 Playwright | 0 | 1 passed | real JWT legacy→contract、READY/PARTIAL/download/archive/reopen | 2026-07-28 |
+| authority-writer backend/frontend doctor | 0 | 0 errors, 0 warnings | owned harness layers | 2026-07-28 |
+| authority-writer root doctor | 1 | only `active-packet EXT ref must equal pinned HEAD` | expected PRE_INTEGRATION fail-closed | 2026-07-28 |
+| authority-writer `git diff --check` + secret scan | 0 | pass | exact candidate integrity | 2026-07-28 |
+| final-remediation TDD RED | 1 | exact review、terminal/Mission council、frontend refresh 按预期失败 | four fresh review findings reproduced before implementation | 2026-07-28 |
+| final-remediation focused backend | 0 | 97 passed；latest affected files 82 passed | W05/outbox/cancellation/Mission + real two-session locks | 2026-07-28 |
+| final-remediation expanded backend | 0 | 567 passed, 6 skipped | contract/Mission/artifact/W05/worker/authz/routes/concurrency | 2026-07-28 |
+| final-remediation focused frontend + typecheck | 0 | 41 passed + `tsc --noEmit` pass | same-id server refresh、closed-world、typed read model | 2026-07-28 |
+| final-remediation full frontend residual | 1 | 1109 passed, 1 known date-fixture failure | unchanged `signal_older_than_30_days` residual outside diff | 2026-07-28 |
+| final-remediation Ruff | 0 | All checks passed | all changed Python files | 2026-07-28 |
+| final-remediation API guard/generator x2 | 0 | 11 passed；363 routes；0 breaking；five hashes identical | fixed immutable ref and public schema stability | 2026-07-28 |
+| final-remediation real-mode build | 0 | Next production build pass | isolated candidate buildability only | 2026-07-28 |
+| final-remediation W07 Playwright | 0 | 1 passed | real JWT same-page legacy→contract、READY/PARTIAL/download/archive/reopen | 2026-07-28 |
+| final-remediation backend/frontend doctor | 0 | 0 errors, 0 warnings | owned harness layers | 2026-07-28 |
+| final-remediation root doctor | 1 | only `active-packet EXT ref must equal pinned HEAD` | expected PRE_INTEGRATION fail-closed | 2026-07-28 |
+| final-remediation authority | 1/2 | v1 amendment STOP；v2 exact-ref mismatch STOP | expected isolated PRE_INTEGRATION fail-closed | 2026-07-28 |
+| final-remediation `git diff --check` + secret scan | 0 | pass | implementation candidate integrity | 2026-07-28 |
+| ambiguous-review TDD RED | 1 | 2 failed | `created_at` 并列 latest review 会进入 swarm 或 publication | 2026-07-28 |
+| ambiguous-review TDD GREEN | 0 | 2 passed | highest timestamp tie fail closed as `ambiguous_review_authority`；file-backed independent session covered | 2026-07-28 |
+| ambiguous-review outbox suite | 0 | 42 passed | direct/council/rework worker regression | 2026-07-28 |
+| ambiguous-review Ruff | 0 | All checks passed | `src/execution/outbox_worker.py` and `tests/test_outbox_worker.py` | 2026-07-28 |
+| ambiguous-review `git diff --check` | 0 | pass | implementation diff integrity | 2026-07-28 |
+| swarm-runs binding TDD RED | 1 | 2 failed | create/retry accepted same-user cross-tenant `CourtReview` binding | 2026-07-28 |
+| swarm-runs binding TDD GREEN | 0 | 2 passed | create/retry deny cross-tenant review id and do not call swarm/attach | 2026-07-28 |
+| swarm-runs related suite | 0 | 57 passed | `/api/swarm-runs` contract/chancellor/loop + P0-B ownership | 2026-07-28 |
+| swarm-runs expanded backend | 0 | 248 passed, 2 warnings | W07 read model、outbox、artifact、W05、P0-B、swarm routes | 2026-07-28 |
+| swarm-runs Ruff + `git diff --check` | 0 | All checks passed + pass | changed route/tests and diff integrity | 2026-07-28 |
+| swarm-runs nullable TDD RED | 1 | 2 failed | nullable requester/task/review tenant entered route writer | 2026-07-28 |
+| swarm-runs nullable TDD GREEN | 0 | 4 passed | cross-tenant + nullable tenant probes all deny before swarm/attach | 2026-07-28 |
+| swarm-runs nullable related suite | 0 | 101 passed | swarm routes、P0-B、outbox regression | 2026-07-28 |
+| swarm-runs nullable Ruff + `git diff --check` | 0 | All checks passed + pass | changed route/tests and diff integrity | 2026-07-28 |
+
+## 结果
+
+review envelope `6a2ffefc...` 的两路 independent review 为 `NO-GO`；主控确认的
+全部适用 HIGH/MEDIUM 已完成第六轮 TDD remediation 并通过上述 fresh evidence。
+implementation candidate `5d5ff747850ee161a1b39af849f39a0732be15d9`, tree
+`cf6a25089c69fe70961ae6d8f3972065923a605e` 已冻结。review envelope
+`492703ce9b6f89d57f5ac0b07082289426ed6b5e`, tree
+`6a2f5d859a1c4e6119e4d55e327823505895e9e7` 的两路 fresh review 均为
+`NO-GO`，合并 `HIGH 3 / MEDIUM 5 / LOW 1`。Product Owner 已批准第七轮
+remediation scope amendment；其 implementation `61805256...` 随后的 review
+envelope `a7937d7e...` 两路仍为 `NO-GO`，合并适用项
+`HIGH 2 / MEDIUM 6 / LOW 1`。全部 H/M 已在新 implementation
+`7b8b84d20a3e21f38f89e97f590c554b4045081c`、tree
+`6263bf1d2a45a3b2dafdddc2ccdcd7b79cad07f8` 按 TDD 闭环并通过 fresh tests。
+后续 scope-amendment review 的适用 HIGH/MEDIUM 已在 exact implementation
+`4ed274f8e530d4049bc01e807366d1d9ac6ff691`、tree
+`77bf4aa111da81c9b8cdee485d42dac28201772a` 按 TDD 闭环并通过上表 fresh
+verification。review envelope `5f351283...` 的两路 fresh review 均为
+`NO-GO`，去重 `HIGH 3 / MEDIUM 8 / LOW 2`；candidate 不得整合，进入下一轮
+H/M remediation。全部适用 HIGH/MEDIUM 已在 implementation
+`af714f77ae9752cf1aafbcfd4a14a6e4081f26a3`、tree
+`d37fe17900354afab1bcaa029fe3d097e210623c` 按 TDD 闭环并通过上表 fresh
+verification。当前等待该 exact candidate 两路独立只读审查，仍不得整合。
+review envelope `857930ed...` 的两路 fresh review 均为 `NO-GO`，去重
+`HIGH 3 / MEDIUM 1 / LOW 0`；implementation `af714f77...` 被拒绝，进入下一轮
+TDD remediation。
+
+上述四项已在 exact implementation
+`029f836216de0ddf5361e24e886ab797202aae83`、tree
+`9eb003f98f2cada1b280f283d45fcf9ed4402920` 按 TDD 闭环，并通过上表 fresh
+verification。当前等待该 exact candidate 两路独立只读审查，仍不得整合 EXT。
+
+两路 fresh review 随后均返回 `NO-GO`：pass 1
+`019fa5d1-6a3c-7071-b2b6-2ec40151fdd1` 为
+`HIGH 1 / MEDIUM 2 / LOW 0`，pass 2
+`019fa5d1-a1b5-7840-8513-b4513e019b94` 为
+`HIGH 0 / MEDIUM 1 / LOW 0`。主控去重 `HIGH 1 / MEDIUM 2 / LOW 0`；
+`029f8362...` 被拒绝，不得整合 EXT。
+
+上述三项适用 finding 已在 exact implementation
+`fd5886855d064ee3100b75a7311f41e47acef632`、tree
+`e94686a92fdf08987e522620bd8a84161485d341` 按 TDD 闭环，并通过上表 fresh
+verification。当前等待该 exact candidate 两路独立只读审查，仍不得整合 EXT。
+
+该 candidate 两路 review 中 backend pass 为 `NO-GO / HIGH 1 / MEDIUM 1`，
+frontend pass 为 `GO / 0 / 0 / 0`；整体按 fail-closed 判定 NO-GO。
+两项 authority-writer finding 已在 exact implementation
+`9c98710090ed9f73c75e131b6e649ca6ee3d8df1`、tree
+`719233acc04b550a0df97cc9de566f7bf92d3b12` 按 TDD 闭环并通过 fresh
+verification。当前等待该 exact candidate 的两路全新独立只读审查。
+
+该 exact candidate 两路 fresh review 均为 `NO-GO`：backend pass
+`019fa5ff-e7ab-7b23-abf8-5bcfaf4279bc` 为 `HIGH 2 / MEDIUM 1`，frontend
+pass `019fa600-2312-7032-bef5-c10a99db8324` 为 `MEDIUM 1`。四项适用 finding
+已在 exact implementation `7745743d26906e7be759104ba4b7721cb1563705`、tree
+`f1e0381a21c505cd0614d4339aa91d6e72053b0c` 按 TDD 闭环并通过上表 fresh
+verification。当前等待该 exact candidate 的两路全新独立只读审查；仍不得整合
+EXT。
+
+implementation `1d6e7f083843050f00def874ac2cbc4da04d8103` 的 fresh review
+结果为 pass 1 `NO-GO / HIGH 1 / MEDIUM 2`、pass 2 `GO / 0 / 0 / 0`。
+两个 MEDIUM 已在 exact implementation
+`ab9125d1c055c3a5f11975c556d67e6635954edb`、tree
+`b9feb081235499c86ca340e12d6f12b3db064cee` 按 TDD 闭环并通过上表 fresh
+verification。剩余 HIGH 指向 `backend/web/routers/swarm_runs.py`，Product Owner
+已批准 scope amendment；已在 exact implementation
+`e31ed4983fea9abc8251589539367a0cdce5569a`、tree
+`2dd85a3fc37737f9568500abb0fd9dc1d9a90f81` 按 TDD 闭环并通过上表 fresh
+verification。当前等待该 exact candidate 两路独立只读审查；仍不得整合 EXT。
+
+fresh review of `e31ed498...` returned `NO-GO` due to nullable tenant
+fail-open and candidate-doc mismatch. Nullable tenant remediation is complete in
+exact implementation `6523688359ecdd389d190c56227ec7ae6a570253`、tree
+`b47cbd74f8bbf256f07936dcf82671b834c13404` with fresh evidence above.
+That code candidate was superseded by the readback IDOR remediation registered
+below. Current state is tracked by the `295416f4...` candidate; no EXT integration
+is authorized yet.
+
+## 全仓既有 Residual
+
+- `src/lib/intel/signal-dispatch.nodetest.ts`：固定日期样例在当前日期新增
+  `signal_older_than_30_days`；canonical `pnpm test:node` 唯一失败，不在本
+  Packet diff。
+- `src/app/(dashboard)/liubu/page.nodetest.tsx`：测试期望礼部入口，但当前页面仍标
+  “待建”；该 TSX 文件不在 canonical test glob 中，单独复验失败，不在本 Packet
+  diff。
+
+## 未验证项
+
+- Checkpoint B 的数据库唯一约束、CAS 和并发 writer hardening。
+- PARTIAL 跨刷新 resume；Checkpoint A 只返回 blocker，不提供 resume。
+- 生产部署、持久数据库迁移、listener 3050 和真实客户数据。
+- 36 黄金合同、10/10 全浏览器流程和 5 名非开发用户验收属于后续产品验收。
+
+## Diff 与回滚复核
+
+- changed files：只涉及 root Packet、backend contract bridge、generated OpenAPI、
+  frontend child Packet、两个既有页面 hunk 和测试。
+- diff review：`git diff --check` 通过；密钥模式扫描无命中。
+- 回滚是否演练：未执行 destructive rollback；isolated worktree 可直接弃置，
+  local EXT 尚未整合实现候选。
+
+## 完成定义映射
+
+| DoD | 证据 | 状态 |
+| --- | --- | --- |
+| server-owned read model/actions | backend tests + OpenAPI | PASS |
+| exact pack/manifest/archive lineage | projection tests + browser readback | PASS |
+| existing two-page consumption | focused node tests + Playwright | PASS |
+| honest PARTIAL limitation | backend/frontend tests + real browser refresh | PASS |
+| real backend synthetic flow | Playwright real JWT flow | PASS |
+| no deployment or 3050 operation | isolated 3002/8081 config and report | PASS |
+| sixth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
+| seventh remediation | all approved HIGH/MEDIUM locally closed | PASS |
+| eighth remediation | all applicable HIGH/MEDIUM locally closed | PASS |
+| independent review | exact `10393b64...` two-pass Codex review | PASS |
+| exact implementation candidate | code `295416f4...` / tree `67321556...` | FROZEN |
+| local EXT integration | fast-forward to `10393b64...` / tree `821304ad...` | PASS |
+
+## 声明状态
+
+- `LOCAL_EXT_INTEGRATED / RUNNABLE_MINIMUM_ACCEPTED / NOT_DEPLOYED`
+
+## Current Exact Candidate Boundary
+
+The frozen implementation code candidate is `295416f4be53bdaded9fdd47e9def2cf29485eed`
+with tree `673215560eb94e19f894582548f3c214b58c64cd`. The reviewed
+docs-included exact candidate is `10393b64da8cccd0c6e3b5dda041adc708f0e1a7`
+with tree `821304ad5e4b50a1013e5926a5db581bfb59a88b`.
+
+No Checkpoint B, push, deployment, persistent database migration, or listener 3050
+operation is authorized or performed.
+
+## Post-Integration Acceptance
+
+| Verification | Exit | Result | Boundary | Date |
+| --- | ---: | --- | --- | --- |
+| v2 authority | 0 | `GO / APPROVED_WORK_PACKAGE` for `R0-W07` | integrated local EXT | 2026-07-28 |
+| root doctor | 0 | `0 errors / 0 warnings` | integrated local EXT | 2026-07-28 |
+| backend focused suite | 0 | 168 passed；2 existing FastAPI warnings | W07/W05/swarm/read model/outbox | 2026-07-28 |
+| frontend focused Node | 0 | 36 passed | task selection/read model/archive readback | 2026-07-28 |
+| Ruff + diff check | 0 | All checks passed | integrated local EXT | 2026-07-28 |
+
+## Historical Rejected Candidate Evidence
+
+| Verification | Exit | Result | Boundary | Date |
+| --- | ---: | --- | --- | --- |
+| fresh review on `be666d44...` | N/A | two-pass `NO-GO`; HIGH 1 readback IDOR | historical candidate rejected; remediated in `295416f4...` | 2026-07-28 |
+| readback IDOR RED | 1 | detail/progress/brief 3 failed | cross-tenant GET leak reproduced | 2026-07-28 |
+| readback IDOR GREEN | 0 | 3 passed；swarm API contract 10 passed | shared read authority guard | 2026-07-28 |
+| latest expanded backend suite | 0 | 168 passed；2 existing FastAPI warnings | swarm/read model/rework/cancel/outbox | 2026-07-28 |
+| fresh review on `73228dd9...` | N/A | pass 1 GO, pass 2 `NO-GO`; HIGH 1 docs consistency only | Packet docs stale; current cleanup required | 2026-07-28 |
+| fresh review on `7745743d...` | N/A | two-pass `NO-GO`; deduped HIGH 2 / MEDIUM 2 | historical candidate rejected | 2026-07-28 |
+| latest TDD RED | 1 | backend 3 failed；frontend Node 1 failed；browser 1 failed | all four findings reproduced before implementation | 2026-07-28 |
+| latest TDD GREEN | 0 | backend 3 passed；selection Node 9 passed；browser 1 passed | tenant/terminal/input/omission | 2026-07-28 |
+| outbox worker suite | 0 | 40 passed | claim/retry/fence/concurrency | 2026-07-28 |
+| expanded backend suite | 0 | 377 passed；2 existing FastAPI warnings | Mission/read model/actions/W05/lineage/artifacts | 2026-07-28 |
+| contract frontend suite | 0 | 46 passed；`tsc --noEmit` passed | typed read model/closed-world/archive | 2026-07-28 |
+| full frontend Node baseline | 1 | 1110 passed / 1 known date-fixture failure | unchanged `signal_older_than_30_days` residual | 2026-07-28 |
+| Ruff | 0 | All checks passed | all changed Python files | 2026-07-28 |
+| API guard/generator x2 | 0 | 11 passed；363 routes；0 breaking；five hashes identical | fixed immutable baseline | 2026-07-28 |
+| real-mode build | 0 | Next production build passed | buildability only | 2026-07-28 |
+| W07 Playwright | 0 | 1 passed | real JWT omission + READY/PARTIAL/download/archive/reopen | 2026-07-28 |
+| backend/frontend doctors | 0 | 0 errors / 0 warnings | owned harness layers | 2026-07-28 |
+| root doctor | 1 | only active-packet EXT ref mismatch | expected isolated PRE_INTEGRATION fail-closed | 2026-07-28 |
+| v1/v2 authority | 2/1 | v1 amendment STOP；v2 exact-ref mismatch STOP | no authority bypass | 2026-07-28 |
+| diff/security scan | 0 | diff check passed；no credential pattern match | exact implementation candidate | 2026-07-28 |
+
+implementation code `295416f4be53bdaded9fdd47e9def2cf29485eed`、tree
+`673215560eb94e19f894582548f3c214b58c64cd` 已冻结。reviewed docs-included
+candidate `10393b64da8cccd0c6e3b5dda041adc708f0e1a7` 已受控 fast-forward 整合到
+本地 `feature-chaotang-ext`。未执行 Checkpoint B、push、部署、持久数据库迁移或
+listener 3050 操作。

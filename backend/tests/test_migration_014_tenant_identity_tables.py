@@ -30,7 +30,7 @@ def test_fresh_chain_creates_identity_tables_at_head(tmp_path: Path, monkeypatch
         assert {"tenants", "users", "invites"} <= tables
         assert (
             conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
-            == "022_shiguan_memorial_identity"
+            == "025_artifact_delivery_state"
         )
     finally:
         conn.close()

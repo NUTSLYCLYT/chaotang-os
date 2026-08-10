@@ -46,6 +46,8 @@ export interface MemorialItem {
   citations?: Citation[];
   /** 贯穿拟旨、会审、裁决、归档的排障追踪 ID */
   loopTraceId?: string;
+  /** 后端 contract_scope 对该任务的显式分类。 */
+  contractTask?: boolean;
 }
 
 /** 每日摘要统计（来自 Turso 聚合） */

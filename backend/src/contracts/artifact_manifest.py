@@ -2,14 +2,37 @@
 
 from __future__ import annotations
 
-from typing import Literal
+import hashlib
+import json
+import math
+import re
+from datetime import datetime, timezone
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 _SHA256 = r"^[0-9a-f]{64}$"
+_REQUIRED_ARTIFACT_KINDS = {"PDF", "DOCX", "JSON"}
+
 ArtifactKind = Literal["PDF", "DOCX", "JSON"]
-ArtifactStatus = Literal["READY", "UNAVAILABLE", "UNDER_REVIEW"]
+ArtifactItemStatus = Literal["PENDING", "STORED", "UNAVAILABLE"]
 ManifestStatus = Literal["READY", "PARTIAL", "UNDER_REVIEW"]
+ARTIFACT_MIME_TYPES = {
+    "PDF": "application/pdf",
+    "DOCX": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "JSON": "application/json",
+}
+
+
+def _require_finite_json_numbers(value: Any) -> None:
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ValueError("non-finite numbers are not canonical JSON")
+    if isinstance(value, dict):
+        for child in value.values():
+            _require_finite_json_numbers(child)
+    elif isinstance(value, (list, tuple)):
+        for child in value:
+            _require_finite_json_numbers(child)
 
 
 class ArtifactManifestItemV1(BaseModel):
@@ -21,16 +44,33 @@ class ArtifactManifestItemV1(BaseModel):
     byte_size: int = Field(ge=0)
     content_hash: str
     lineage_hash: str
-    status: ArtifactStatus
+    status: ArtifactItemStatus
+    incomplete_reason: str | None = None
+    expires_at: datetime | None = None
 
     @field_validator("content_hash", "lineage_hash")
     @classmethod
     def sha256_only(cls, value: str) -> str:
-        import re
-
         if not re.fullmatch(_SHA256, value):
             raise ValueError("hash must be a lowercase SHA-256 digest")
         return value
+
+    @field_validator("expires_at")
+    @classmethod
+    def normalize_expiry_to_utc(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("datetime must be timezone-aware")
+        return value.astimezone(timezone.utc)
+
+    @model_validator(mode="after")
+    def validate_unavailable_reason(self) -> "ArtifactManifestItemV1":
+        if self.mime_type != ARTIFACT_MIME_TYPES[self.kind]:
+            raise ValueError("mime_type must match artifact kind")
+        if self.status == "UNAVAILABLE" and not self.incomplete_reason:
+            raise ValueError("UNAVAILABLE artifact requires incomplete_reason")
+        return self
 
 
 class ArtifactManifestV1(BaseModel):
@@ -38,22 +78,75 @@ class ArtifactManifestV1(BaseModel):
 
     schema_version: Literal["ArtifactManifestV1"] = "ArtifactManifestV1"
     manifest_id: str = Field(min_length=1)
+    tenant_id: int = Field(gt=0)
     task_id: str = Field(min_length=1)
     final_memorial_id: str = Field(min_length=1)
     final_memorial_version: int = Field(ge=1)
     delivery_formula_version: str = Field(min_length=1)
-    artifacts: list[ArtifactManifestItemV1] = Field(min_length=1)
+    delivery_revision: int = Field(ge=1)
+    idempotency_key_hash: str
+    payload_hash: str
+    requested_expiry_seconds: int = Field(gt=0, le=86400)
+    artifacts: list[ArtifactManifestItemV1]
     overall_status: ManifestStatus
+    resume_token_hash: str | None = None
+    resume_token_expires_at: datetime | None = None
+
+    @field_validator("idempotency_key_hash", "payload_hash", "resume_token_hash")
+    @classmethod
+    def sha256_only(cls, value: str | None) -> str | None:
+        if value is not None and not re.fullmatch(_SHA256, value):
+            raise ValueError("hash must be a lowercase SHA-256 digest")
+        return value
+
+    @field_validator("resume_token_expires_at")
+    @classmethod
+    def normalize_resume_expiry_to_utc(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("datetime must be timezone-aware")
+        return value.astimezone(timezone.utc)
 
     @model_validator(mode="after")
-    def validate_status_matrix(self) -> "ArtifactManifestV1":
+    def validate_sealed_manifest(self) -> "ArtifactManifestV1":
+        kinds = [item.kind for item in self.artifacts]
+        if len(kinds) != len(_REQUIRED_ARTIFACT_KINDS) or set(kinds) != _REQUIRED_ARTIFACT_KINDS:
+            raise ValueError("manifest requires exactly one PDF, DOCX, and JSON artifact")
+
         statuses = {item.status for item in self.artifacts}
-        if self.overall_status == "READY" and statuses != {"READY"}:
-            raise ValueError("READY manifest requires every artifact READY")
-        if self.overall_status == "PARTIAL" and not (
-            "READY" in statuses and ("UNAVAILABLE" in statuses or "UNDER_REVIEW" in statuses)
-        ):
-            raise ValueError("PARTIAL manifest requires READY plus an unavailable/review artifact")
-        if self.overall_status == "UNDER_REVIEW" and statuses == {"READY"}:
-            raise ValueError("UNDER_REVIEW manifest requires a non-ready artifact")
+        if self.overall_status == "READY":
+            if statuses != {"STORED"}:
+                raise ValueError("READY manifest requires every artifact STORED")
+            if self.resume_token_hash is not None or self.resume_token_expires_at is not None:
+                raise ValueError("READY manifest cannot include resume metadata")
+        elif self.overall_status == "PARTIAL":
+            if "STORED" not in statuses or "UNAVAILABLE" not in statuses:
+                raise ValueError("PARTIAL manifest requires STORED and UNAVAILABLE artifacts")
+            if self.resume_token_hash is None or self.resume_token_expires_at is None:
+                raise ValueError("PARTIAL manifest requires complete resume metadata")
         return self
+
+    def artifact(self, kind: ArtifactKind) -> ArtifactManifestItemV1:
+        for item in self.artifacts:
+            if item.kind == kind:
+                return item
+        raise ValueError(f"artifact kind is not present: {kind}")
+
+
+def canonical_manifest_hash(manifest: ArtifactManifestV1) -> str:
+    _require_finite_json_numbers(
+        manifest.model_dump(
+            mode="python",
+            exclude_none=True,
+            warnings=False,
+        )
+    )
+    canonical_json = json.dumps(
+        manifest.model_dump(mode="json", exclude_none=True),
+        allow_nan=False,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()

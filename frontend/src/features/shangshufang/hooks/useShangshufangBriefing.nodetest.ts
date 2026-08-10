@@ -42,6 +42,7 @@ function makeHomeResponse(overrides: Partial<ShangshufangHomeResponse['pending_d
           },
         },
         source_label: 'FALLBACK',
+        contract_task: false,
         risk_flags: [],
         known_facts: [],
         unknown_gaps: [],
@@ -81,4 +82,44 @@ test('mergeDecisionHome 真实回奏(latest_memorial)存在时优先展示真实
   assert.ok(memorial.enhancedSuggestion.includes('刑部：可签——但先改 7 处'));
   assert.equal(memorial.verdict, '需人工复核');
   assert.doesNotMatch(memorial.enhancedSuggestion, /请军机处组织刑部参审，围绕原问形成可裁决奏折。/);
+});
+
+test('mergeDecisionHome preserves the server contract classification', () => {
+  const home = makeHomeResponse({
+    contract_task: true,
+    contract_scope: null,
+  });
+
+  const merged = mergeDecisionHome(EMPTY_BRIEFING, home);
+
+  assert.equal(merged.memorials[0]?.contractTask, true);
+});
+
+test('mergeDecisionHome does not create a second contract classifier', () => {
+  const home = makeHomeResponse({
+    contract_task: false,
+    contract_scope: {
+      schema_version: 'ContractIntakeV1',
+      jurisdiction: 'CN_MAINLAND',
+      language: 'zh-CN',
+      contract_type: 'procurement',
+      our_role: 'buyer',
+      legal_question: 'contract_risk_screening',
+    },
+  });
+
+  const merged = mergeDecisionHome(EMPTY_BRIEFING, home);
+
+  assert.equal(merged.memorials[0]?.contractTask, false);
+});
+
+test('mergeDecisionHome keeps awaiting_evidence in the review loop, not the human decision queue', () => {
+  const merged = mergeDecisionHome(
+    EMPTY_BRIEFING,
+    makeHomeResponse({ status: 'awaiting_evidence' }),
+  );
+
+  assert.equal(merged.dailyStats.pendingCount, 0);
+  assert.equal(merged.dailyStats.runningCount, 1);
+  assert.equal(merged.memorials[0]?.decisionOptions[0], '补证');
 });

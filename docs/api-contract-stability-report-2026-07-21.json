@@ -1,15 +1,94 @@
 {
   "generatedAt": "2026-07-21",
   "status": "pass",
-  "routeCount": 352,
+  "routeCount": 363,
+  "baseline": {
+    "ref": "ed822255a452e8dd8dda8f86a180fd7c099b181e",
+    "source": "git_archive_generated_openapi",
+    "routeCount": 361,
+    "schemaCount": 184
+  },
   "artifacts": {
     "openapi": "docs/api-contract-openapi-2026-07-21.json",
     "routeSnapshot": "docs/api-contract-route-snapshot-2026-07-21.json",
     "tsTypes": "frontend/src/lib/contracts/backend-openapi-2026-07-21.d.ts"
   },
   "diff": {
-    "mode": "diff_checked",
+    "mode": "fixed_ref_diff",
     "breaking": [],
-    "warnings": []
+    "warnings": [
+      {
+        "type": "route_added",
+        "key": "GET /api/contracts/tasks/{task_id}/read-model"
+      },
+      {
+        "type": "route_added",
+        "key": "GET /api/shangshufang/home/v1"
+      },
+      {
+        "type": "component_optional_properties_added",
+        "key": "ContractReviewPackV1",
+        "properties": [
+          "mission_content_digest",
+          "mission_revision"
+        ]
+      },
+      {
+        "type": "component_schema_added",
+        "key": "ArchiveReceiptV1"
+      },
+      {
+        "type": "component_schema_added",
+        "key": "ContractTaskBlockerV1"
+      },
+      {
+        "type": "component_schema_added",
+        "key": "ContractTaskIdentityV1"
+      },
+      {
+        "type": "component_schema_added",
+        "key": "ContractTaskReadModelV1"
+      },
+      {
+        "type": "component_schema_added",
+        "key": "FinalMemorialIdentityV1"
+      },
+      {
+        "type": "component_schema_added",
+        "key": "MissionBoundContractReviewPackV1"
+      },
+      {
+        "type": "component_schema_added",
+        "key": "MissionSnapshotViewV1"
+      },
+      {
+        "type": "component_schema_added",
+        "key": "PublicArtifactDeliveryV1"
+      },
+      {
+        "type": "component_schema_added",
+        "key": "PublicArtifactItemV1"
+      },
+      {
+        "type": "component_schema_added",
+        "key": "ShangshufangHomeData"
+      },
+      {
+        "type": "component_schema_added",
+        "key": "ShangshufangHomeLatestMemorial"
+      },
+      {
+        "type": "component_schema_added",
+        "key": "ShangshufangHomeResponse"
+      },
+      {
+        "type": "component_schema_added",
+        "key": "ShangshufangHomeTaskSummary"
+      },
+      {
+        "type": "component_schema_added",
+        "key": "ShangshufangHomeTodayIssue"
+      }
+    ]
   }
 }

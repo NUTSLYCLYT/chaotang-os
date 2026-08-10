@@ -51,7 +51,13 @@ const EXPECTED_GOVERNED_DOCUMENTS = new Map([
 const REQUIRED_DOCUMENT_CONTENT = new Map([
   [
     'AGENTS.md',
-    ['.harness/agents/project-owner.md', 'node scripts/execution-authority.mjs --authorize'],
+    [
+      '.harness/agents/project-owner.md',
+      'node scripts/execution-authority.mjs --check',
+      'node scripts/execution-authority-v2.mjs --authorize --work-package <R0-Wxx>',
+      'V1_CHECK_INTEGRITY_ONLY_NON_AUTHORIZING',
+      'V2_SCOPED_AUTHORIZE_SOLE_PRODUCT_DECISION',
+    ],
   ],
   [
     'docs/product/PROJECT_PRODUCT.md',
@@ -66,11 +72,23 @@ const REQUIRED_DOCUMENT_CONTENT = new Map([
   ],
   [
     '.harness/agents/project-owner.md',
-    ['node scripts/execution-authority.mjs --authorize', '不能单独授予产品施工权'],
+    [
+      'node scripts/execution-authority.mjs --check',
+      'node scripts/execution-authority-v2.mjs --authorize --work-package <R0-Wxx>',
+      'V1_CHECK_INTEGRITY_ONLY_NON_AUTHORIZING',
+      'V2_SCOPED_AUTHORIZE_SOLE_PRODUCT_DECISION',
+      '不能单独授予产品施工权',
+    ],
   ],
   [
     '.harness/rules/project-workflow.md',
-    ['node scripts/execution-authority.mjs --authorize', '不单独授予产品实施权'],
+    [
+      'node scripts/execution-authority.mjs --check',
+      'node scripts/execution-authority-v2.mjs --authorize --work-package <R0-Wxx>',
+      'V1_CHECK_INTEGRITY_ONLY_NON_AUTHORIZING',
+      'V2_SCOPED_AUTHORIZE_SOLE_PRODUCT_DECISION',
+      '不单独授予产品实施权',
+    ],
   ],
   [
     '.harness/templates/change-template/summary.md',

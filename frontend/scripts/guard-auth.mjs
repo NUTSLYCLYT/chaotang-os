@@ -32,6 +32,11 @@ const ROOT = process.cwd();
 const API = join(ROOT, 'src', 'app', 'api');
 const SRC = join(ROOT, 'src');
 
+if (!existsSync(API)) {
+  console.log('ℹ️ guard:auth — 当前前端架构没有 src/app/api，跳过旧 BFF 路由扫描。');
+  process.exit(0);
+}
+
 // 暴露面:court/* 全公开(FENGQUN_AUTH兜底) + 这些公开白名单前缀(中间件无 cookie 门)。
 // '/^api\/registry\//' 移除(2026-07-03)：唯一子路由 registry/departments 已退役进 dev/_attic，
 // api/registry/ 下不再有任何路由文件，此正则不会再匹配到任何东西。

@@ -1,0 +1,533 @@
+# 变更摘要：feat-r0-w07-a0-runnable-minimum-20260727
+
+> 执行授权：`R0-W07 / APPROVED_WORK_PACKAGE`
+>
+> Product Owner 已批准在 integrated EXT exact H 上执行 Checkpoint A。
+> 本 Packet 不授权 Checkpoint B、持久数据库迁移、push、部署或 listener 3050。
+
+| 字段 | 值 |
+| --- | --- |
+| Change ID | feat-r0-w07-a0-runnable-minimum-20260727 |
+| 类型 | feat |
+| 状态 | `LOCAL_EXT_INTEGRATED / RUNNABLE_MINIMUM_ACCEPTED / NOT_DEPLOYED` |
+| Owner | Codex W07 Implementation Lead |
+| Product Owner | `lyt` |
+| 创建日期 | `2026-07-27` |
+| Base H | `ed822255a452e8dd8dda8f86a180fd7c099b181e` |
+| Base tree | `0a56a0eab0135dcf46c31e5ae2cbc46f501cfdcb` |
+| Implementation candidate H | `295416f4be53bdaded9fdd47e9def2cf29485eed` |
+| Implementation candidate tree | `673215560eb94e19f894582548f3c214b58c64cd` |
+| Reviewed docs-included candidate H | `10393b64da8cccd0c6e3b5dda041adc708f0e1a7` |
+| Reviewed docs-included candidate tree | `821304ad5e4b50a1013e5926a5db581bfb59a88b` |
+| Integration target | local `feature-chaotang-ext` |
+| Authority before first edit | v1 `VALID_INACTIVE_GUARD`; v2 W07 `GO / APPROVED_WORK_PACKAGE` |
+
+## 目标
+
+用现有持久表、W05/W06 能力和现有 `/shangshufang`、`/shiguan` 跑通一条合成合同
+真实后端闭环。验收结论为 `RUNNABLE_MINIMUM`；本 Packet 不关闭 W07，也不授权
+Checkpoint B、W08、W09、push、部署、持久数据库迁移或 listener 3050。
+
+## 独立审查状态
+
+截至 review envelope `6a2ffefc...` 的独立 Codex 只读审查均为 `NO-GO`。
+最新适用 findings 已按批准 scope 完成 TDD：合同 final 的 exact CourtReview 必须
+持久存在并匹配 task/tenant/final，task endpoint 同时校验 tenant + user；runtime
+parser 使用完整 Mission/Pack/RiskItem schema，拒绝外部 artifact URL、fallback
+risk/receipt 和矛盾 DECIDE；零写入证据覆盖 OutboxEvent 与 DecreeExecutionEvent。
+第六轮 remediation 进一步要求 ready final 只接受 `awaiting_decision` review、
+`recheck` 必须消费 server `REFRESH_REVIEW`、Mission 与 ReviewPack 五项业务范围
+完全一致，并把 W06 `EXPIRED` artifact 投影为 typed `UNAVAILABLE`。史馆精确回读
+现在使用 audit-only 卷轴，明确显示真实来源且不再显示 legacy 裁决建议。
+此前修复还保证史馆保留 `LIVE_ENGINE` 的真实来源，并从 URL 首帧起阻断目标合同的
+legacy footer、modal 和 handler。审查提出的
+“PARTIAL 不得显示 LIVE”不适用：设计中 `LIVE` 是来源真实性，`PARTIAL` 是交付
+完整度；现有合同只禁止把 PARTIAL 宣称为 READY、ARCHIVED 或 resumable。W06 明确
+批准的是 tenant-owned artifact，故“同租户再按 user 隔离”也不作为 W07 缺陷扩展。
+runtime boundary 还要求 PDF/DOCX/JSON 三种 artifact 全部 STORED 且可下载后才接受
+DECIDE/REOPEN。P0-B 表面积登记已与既有跨用户行为探针对齐。新 implementation
+candidate 已冻结。exact review envelope `492703ce...` 的两路复审均为 `NO-GO`，
+合并为 `HIGH 3 / MEDIUM 5 / LOW 1`。same-user cross-tenant legacy memorial
+路径需要修改当前 scope 外的 `backend/web/routers/chaotang.py` 或共享 ownership
+accessor，因此当前状态为 `SCOPE_AMENDMENT_REQUIRED`；不整合 EXT。
+
+Product Owner 随后批准第七轮 remediation scope amendment。candidate
+`61805256...` 已按 TDD 修复全部 `HIGH 3 / MEDIUM 5`：legacy ownership 同时
+校验 tenant/user；Mission revision/digest 与 ReviewPack/worker 绑定；全部 W07
+decision action 在写前消费 server authority，精确幂等重放保持只读；terminal
+task、clock expiry 和 missing-review downstream 均 fail closed；frontend
+root/task/blocker 及手工对象 closed-world；exact archive 右栏不再暴露 retrospective
+写按钮或 Next Action。固定 OpenAPI ref 未 repin，只把新增 optional component
+property 分类为 warning，字段类型或 required 变化仍为 breaking。第七轮 LOW
+“visible loading”未获本轮 scope 批准，保留 residual。当前等待 exact candidate
+两路独立只读审查，不预先声明 GO 或允许整合。
+
+review envelope `a7937d7e...` 对 `61805256...` 的两路 Codex 复审继续为
+`NO-GO`，合并适用项为 `HIGH 2 / MEDIUM 6 / LOW 1`。本轮在既有批准范围内按
+TDD 补齐：scope-only contract action authority、terminal worker publication
+fence、Mission publication lock、legacy cancel/recheck 只读重放、服务端合同
+分类前端接线，以及 response-aware OpenAPI compatibility。fresh evidence 为
+backend `484 passed / 2 skipped`、contract-review Node `36 passed`、TypeScript、
+real-mode build、API guard `7 passed`、Playwright `1 passed` 和两层 doctor
+`0/0`。新 implementation candidate 已冻结为 `7b8b84d2...`、tree
+`6263bf1d...`；仍等待该 exact H 的两路独立只读审查，不允许整合 EXT。
+
+最新 scope-amendment remediation 继续沿同一事实链收口：home/status/confirm/bind
+统一 tenant+user ownership；合同分类只由服务端 scope/Mission/current formal
+产生；全部 decision action 与 evidence bind 消费 server allowed actions；Mission
+五维 scope 在 worker 解析前与发布锁后均重验；legacy cancel/recheck 在既有任务行锁
+下并发收敛。前端只消费 server `contract_task` 和 typed read model，不再从 scope、
+Mission/Pack 缺省状态推断合同模式。`/api/shangshufang/home` 保留旧开放响应兼容，
+canonical consumer 改用同 handler 的 typed `/home/v1`，固定 OpenAPI ref 未 repin，
+363 routes、0 breaking，生成物双跑哈希一致。
+
+fresh implementation candidate：
+
+- H `4ed274f8e530d4049bc01e807366d1d9ac6ff691`
+- tree `77bf4aa111da81c9b8cdee485d42dac28201772a`
+- parent `c7297e261470a6866b5edffb54246bad4cd03499`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本候选未执行 Checkpoint B、push、部署、持久数据库迁移或 listener 3050 操作。
+
+review envelope `857930ed...` 对 `af714f77...` 的两路 fresh Codex 审查均为
+`NO-GO`，主控去重为 `HIGH 3 / MEDIUM 1 / LOW 0`：结构非法但 JSON 合法的
+current formal 仍可能降级 legacy；最终合同裁决读取 `DECIDE` 后未与 Mission
+writer 共用 task lock；parent 合法的旧 generation payload 缺少新 Mission identity
+时会进入失败/死信；`?taskId=` 未绑定服务端 `contract_task` 分类。四项均在已批准
+文件范围内，进入下一轮 TDD remediation。`af714f77...` 不得整合 EXT。
+
+review envelope `5f351283...` 对 `4ed274f8...` 的两路 fresh Codex 审查均为
+`NO-GO`，主控去重为 `HIGH 3 / MEDIUM 8 / LOW 2`。全部 HIGH/MEDIUM 仍落在
+已批准的 tenant ownership、decision authority、Mission/Final lineage、
+generation 幂等、OpenAPI response compatibility 和真实 browser selection
+事实链内，进入下一轮 TDD remediation。两个 LOW 保留 residual。当前状态：
+`REVIEWED_NO_GO / REMEDIATION_IN_PROGRESS / NOT_DEPLOYED`。
+
+最新 remediation 已按 TDD 关闭上述 11 项 HIGH/MEDIUM：旧路由统一
+tenant+user ownership；worker 在处理前和 publication lock 后绑定 exact
+Mission、FinalMemorial 与 CourtReview tenant；malformed current formal 不再降级
+legacy；evidence readiness 只读最新 generation；无 durable decision 的 legacy
+重放返回冲突；分类与写入共享任务锁并在锁内重判；archived 异常事实 fail closed；
+OpenAPI guard 比较 `components.responses` 自身。Mission revision/digest 保留在
+durable payload 的必填内部契约中，公共响应 schema 维持固定基线。真实浏览器验收
+从 `/home/v1` 服务端列表按 exact task identity 进入，不再使用 query taskId 深链。
+
+fresh implementation candidate：
+
+- H `af714f77ae9752cf1aafbcfd4a14a6e4081f26a3`
+- tree `d37fe17900354afab1bcaa029fe3d097e210623c`
+- parent `dd5e92fee12e5c6a3ef7db3bad793e1f758ea708`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本候选未执行 Checkpoint B、push、部署、持久数据库迁移或 listener 3050 操作。
+
+## 允许范围
+
+- `MissionContractV1 -> DecisionTask` 的 R0 唯一兼容绑定。
+- 现有 `CourtLoopRun` 上的 mission revision snapshot repository。
+- `ContractTaskReadModelV1`、server `allowed_actions` 与 blockers。
+- current FinalMemorial/ContractReviewPack、latest ArtifactManifest、exact ArchiveReceipt 同
+  lineage 投影。
+- 既有 decision endpoint 的 `tenant_id + user_id` 双重所有权校验。
+- generated/verified TypeScript consumer。
+- 现有 Shangshufang/Shiguan 的 hunk-level 接入。
+- 一条 synthetic real-backend browser flow。
+- test-only、JWT-protected browser launcher：
+  `backend/harness/chaotang-true-loop/scripts/run_w07_runnable_backend.py`；该脚本只在
+  隔离进程中加载 canonical app，并注册 `include_in_schema=False` 的 seed route；
+  不进入产品 OpenAPI，只使用临时 runtime/DB。
+- 根、后端和前端 change/evidence/test 文件。
+
+## 禁止范围
+
+- Checkpoint B mission 表、Alembic migration、并发/CAS hardening。
+- PARTIAL 跨刷新恢复；Checkpoint A 必须诚实显示 blocker。
+- 新页面、Agent、BFF、部门、任务状态机、完成状态或裁决系统。
+- `/dadian`、真实客户数据、push、部署、持久 DB 操作和 listener 3050。
+
+## 完成公式
+
+```text
+RUNNABLE_MINIMUM =
+real backend synthetic flow
++ server-owned read model/actions
++ exact pack/manifest/archive lineage
++ existing two-page consumption
++ honest PARTIAL limitation
++ focused regression and browser evidence
+```
+
+## Seventh Review Remediation Candidate
+
+Product Owner 批准的四项最新 HIGH/MEDIUM 已按 TDD 闭环：
+
+1. JSON 合法但 top-level 非 object 或空 object 的 current FinalMemorial 保持
+   contract fail-closed，不再进入 legacy writer。
+2. 所有 final decision 在读取 current formal、Mission/pack authority 和
+   `allowed_actions` 前持有共享 DecisionTask lock，并在锁内刷新 task/formal。
+3. parent 合法但缺 Mission revision/digest 的 durable evidence-rework payload
+   被确定性标记为 `mission_identity_missing` 并 `superseded`；不重试、不死信、
+   不修改任务状态，也不执行持久数据迁移。
+4. explicit `?taskId=` 只有在 `/home/v1` 返回 exact memorial 且
+   `contract_task=true`、并与当前右栏 identity 一致时才能激活合同面板。真实浏览器
+   另种入 server-classified non-contract task，验证 legacy 深链不显示合同面板。
+
+fresh implementation candidate：
+
+- H `029f836216de0ddf5361e24e886ab797202aae83`
+- tree `9eb003f98f2cada1b280f283d45fcf9ed4402920`
+- parent `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `2c53af08abb49745fb19c4a6779081655cee5792f97d5f25a554156d1043c71a`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本节不预判独立审查结论。候选未执行 Checkpoint B、push、部署、持久数据库迁移或
+listener 3050 操作。
+
+## Latest Exact Candidate
+
+implementation `7745743d26906e7be759104ba4b7721cb1563705` 的两路 fresh
+Codex 只读审查均为 `NO-GO`：
+
+- backend pass `019fa61d-683d-77e1-8fc8-93c19bac6bb7`：
+  `HIGH 1 / MEDIUM 1 / LOW 0`；
+- frontend/concurrency pass `019fa61d-a468-7862-ad2d-021483b1ffa5`：
+  `HIGH 1 / MEDIUM 1 / LOW 0`。
+
+主控确认四项适用 finding：contract council nullable tenant、started timeline
+提交后的 terminal window、刷新后仍使用旧 swarm input、server-confirmed contract
+任务从 home 列表遗漏后降回 legacy。四项均在 Product Owner 已批准的 Seventh
+Review remediation scope 内。
+
+本轮按 TDD 修复：
+
+1. `decision_task_access` 成为 server contract classifier 单一事实源；contract
+   council 要求 task/outbox/review tenant 全部非空且相等。
+2. `dispatch.started` 提交后 fresh reload task/latest review；重验 terminal、
+   contract tenant 与 authority，再由同一快照构造 swarm input。
+3. `/shangshufang` 对服务端确认过的合同任务维持单调 closed-world 分类；后续
+   `/home/v1` 遗漏只能 fail closed，不能恢复 legacy decision actions。
+4. 真实 JWT browser flow 新增 legacy→contract→archived/omitted 同页刷新，并继续
+   覆盖 READY/PARTIAL、下载、归档和重开。
+
+fresh implementation candidate：
+
+- H `1d6e7f083843050f00def874ac2cbc4da04d8103`
+- tree `4271daed2bb5ccfff31cd39c9e118fb8dea9d3eb`
+- parent `c2eefed42bf536cdaadaeea4cf447c3bbc4c0b8f`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `6f3109924f79920126b3ab16ee0196c8cb605d155049724cee7422638f287eca`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本节不预判下一轮独立审查结论。未执行 Checkpoint B、push、部署、持久数据库
+迁移或 listener 3050 操作。
+
+## Post-Review Scope Split
+
+implementation `1d6e7f083843050f00def874ac2cbc4da04d8103` 的 fresh Codex
+只读审查出现分歧：
+
+- pass 1 `019fa63e-9f02-7d60-a68d-c88c45c4fb3d`：
+  `NO-GO / HIGH 1 / MEDIUM 2 / LOW 0`；
+- pass 2 `019fa653-9b42-7370-be6e-ae9a2a57f868`：
+  `GO / HIGH 0 / MEDIUM 0 / LOW 0`。
+
+主控验证后将 findings 拆分：
+
+1. pass 1 的两个 MEDIUM 属于已批准 `outbox_worker.py` 与 focused tests 范围，
+   已按 TDD 修复：latest CourtReview authority 在最高 `created_at` 并列时
+   fail closed 为 `ambiguous_review_authority`；新增文件型 SQLite 独立 session
+   测试覆盖 worker 执行期间 review 并列插入。
+2. pass 1 的 HIGH 指向公开 API `backend/web/routers/swarm_runs.py`，该文件未在
+   当前 candidate diff 中，且未列入本轮明确新增文件范围。它仍可能影响同用户跨租户
+   `CourtReview` 写入和非 outbox 的 swarm route，需单独 scope amendment 后处理。
+
+fresh in-scope implementation candidate：
+
+- H `ab9125d1c055c3a5f11975c556d67e6635954edb`
+- tree `b9feb081235499c86ca340e12d6f12b3db064cee`
+- parent `bfab9c17e58d2f806628259d515774a4fe0b2a05`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `8847c9aebc7824106fa75d11396875ec873776ddf5f26c601da3a1f6de851eb9`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / SCOPE_AMENDMENT_REQUIRED /
+  NOT_DEPLOYED`
+
+Product Owner 已批准包含 `backend/web/routers/swarm_runs.py` 与 focused tests 的
+scope amendment。
+
+## Swarm Runs Review Binding Remediation
+
+scope amendment 已按 TDD 执行：`/api/swarm-runs` create/serial/retry 现在在入口
+事务中取得共享 DecisionTask lock；task 必须匹配当前 user，且非空 tenant 必须匹配
+当前请求 tenant；显式 `review_id` 必须存在、属于同一 task，并与 task/request tenant
+一致。direct short-circuit 和 full swarm persist 都只消费已经校验过的 review 对象，
+不再二次裸查 `CourtReview.id` 后写入。
+
+fresh implementation candidate：
+
+- H `e31ed4983fea9abc8251589539367a0cdce5569a`
+- tree `2dd85a3fc37737f9568500abb0fd9dc1d9a90f81`
+- parent `0be0a4a5cedc50570e2c0ad0818977ec4d400873`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `b4d7633c471f2e12dfcd2c931d0634b0dab923b3f005ecbc0ba5f0e0257546cb`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+fresh evidence：RED 两个 cross-tenant review probes 先失败；GREEN 后 create 和
+retry 均拒绝同用户跨 tenant `CourtReview` 绑定且未调用 swarm/attach。相关后端套件
+`57 passed`，expanded backend suite `248 passed`，Ruff 和 `git diff --check`
+均通过。当前仍不得整合 EXT，需等 exact candidate 两路独立只读审查。
+
+## Swarm Runs Nullable Tenant Remediation
+
+fresh review of `e31ed498...` returned `NO-GO`：
+
+- pass 1 `019fa673-d1ce-76f2-870f-ffed61d793ff`：
+  `HIGH 1 / MEDIUM 0 / LOW 1`；
+- pass 2 `019fa674-0d28-7e21-9fc4-012b7c6d3037`：
+  `HIGH 1 / MEDIUM 1 / LOW 0`。
+
+去重后的实质 blocker 是 `/api/swarm-runs` tenant guard 对 nullable tenant
+fail-open。另一个 HIGH 为 review target 未包含后续 Packet docs commit，属于候选冻结
+顺序问题；本轮将审查目标改为包含 docs 的 exact HEAD。
+
+remediation：`_tenant_matches` 现在要求 requester/task/review tenant 均非空且相等；
+新增 nullable requester、nullable task tenant、nullable review tenant probes；测试
+mocks 改为 patch `web.routers.swarm_runs` 中实际导入符号。
+
+fresh implementation candidate：
+
+- H `6523688359ecdd389d190c56227ec7ae6a570253`
+- tree `b47cbd74f8bbf256f07936dcf82671b834c13404`
+- parent `93a4fd462f93f3d2e09a8fc1798e515d41aaf1bf`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `adfcce9ac9d36471fa6b2b4491f6fbad5ce6377bd5ef5da00270bddb6175f9cb`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+fresh evidence：nullable RED `2 failed`，GREEN `4 passed`，related suite
+`101 passed`，Ruff 和 `git diff --check` 通过。当前仍不得整合 EXT，需等包含本
+Packet 文档的 exact HEAD 两路独立只读审查。
+
+docs-included exact review target `73228dd990291ec14357f3bd753f4c879e6f11af`
+/ tree `234a40af7f70e5f1250c78a238aa1dd896f683b5` 已完成两路 Codex
+只读审查：
+
+- pass 1 `019fa67e-083e-7733-ad28-d4d98865d1ef`：
+  `GO / HIGH 0 / MEDIUM 0 / LOW 0`；
+- pass 2 `019fa67e-4417-7cf0-a279-220809d31f43`：
+  `NO-GO / HIGH 1 / MEDIUM 0 / LOW 0`。
+
+唯一 blocker 为 Packet 文档仍把旧 implementation candidates 描述为 latest
+review target。当前文档修正仅重标候选事实源和审查状态，不修改业务代码、不执行
+Checkpoint B、不 push、不部署、不迁移数据库、不操作 listener 3050。下一轮复审目标
+必须是包含本修正的 exact Git HEAD。
+
+包含 Packet 文档修正的 exact candidate `be666d448878e4b678a0e8ffaa8946c06400dafa`
+/ tree `0614034c47d9ae16ad31ec449ed4aa196d8c5555` 的两路复审均为
+`NO-GO / HIGH 1 / MEDIUM 0 / LOW 0`。两路独立指出同一 blocker：`/api/swarm-runs`
+detail/progress/brief readback 仍按 `swarm_run_id` 直接读取，未绑定
+`SwarmRun.task_id -> DecisionTask` 与 `SwarmRun.review_id -> CourtReview` 的
+user+tenant authority，存在 same-user cross-tenant IDOR。
+
+remediation 已按 TDD 完成：新增三条 RED 覆盖 detail、progress、brief 跨 tenant
+读泄漏；`_owned_swarm_run` 统一在三个 GET 入口复用 task/review owner+tenant
+校验，nullable/missing lineage fail closed；既有 owned brief readback 保持可用。
+fresh evidence：三条 RED 先失败后 `3 passed`，`test_swarm_runs_api_contract.py`
+`10 passed`，expanded backend suite `168 passed / 2 existing FastAPI warnings`，
+Ruff 与 `git diff --check` 通过。
+
+fresh implementation candidate：
+
+- H `295416f4be53bdaded9fdd47e9def2cf29485eed`
+- tree `673215560eb94e19f894582548f3c214b58c64cd`
+- parent `be666d448878e4b678a0e8ffaa8946c06400dafa`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `4b501b301acf5887ba7098b0a5f1eea0fcbe0e97fc0a62e1850252920eca33e7`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本节不预判下一轮独立审查结论。未执行 Checkpoint B、push、部署、持久数据库迁移或
+listener 3050 操作。
+
+## Post-Integration Acceptance Receipt
+
+reviewed docs-included candidate：
+
+- H `10393b64da8cccd0c6e3b5dda041adc708f0e1a7`
+- tree `821304ad5e4b50a1013e5926a5db581bfb59a88b`
+- implementation H `295416f4be53bdaded9fdd47e9def2cf29485eed`
+- implementation tree `673215560eb94e19f894582548f3c214b58c64cd`
+
+两路 Codex 独立只读复审均为 `GO / HIGH 0 / MEDIUM 0 / LOW 0`：
+
+- backend/security/concurrency pass
+  `019fa690-cfef-7132-91b9-093dfc5c1fb1`；
+- product/Packet/frontend pass
+  `019fa690-fd25-7462-b5d0-32cb5681d04d`。
+
+本地 `feature-chaotang-ext` 已 fast-forward 到 reviewed candidate
+`10393b64...`。整合后 fresh acceptance：
+
+| Verification | Result |
+| --- | --- |
+| v1 authority | `STOP / AMENDMENT_APPROVAL_REQUIRED`，预期旧入口 fail closed |
+| v2 authority | `GO / APPROVED_WORK_PACKAGE` for `R0-W07` |
+| root harness doctor | `0 errors / 0 warnings` |
+| backend focused suite | `168 passed / 2 existing FastAPI warnings` |
+| frontend focused Node | `36 passed` |
+| Ruff + `git diff --check` | PASS |
+
+本地 EXT 当前仅代表 `RUNNABLE_MINIMUM` 已验收整合；仍为 `NOT_DEPLOYED`。未执行
+push、部署、Checkpoint B、持久数据库迁移或 listener 3050 操作。
+
+## Seventh Review Final Remediation Candidate
+
+implementation `9c98710090ed9f73c75e131b6e649ca6ee3d8df1` 的两路 fresh
+Codex 只读审查整体为 `NO-GO`：
+
+- backend/security/concurrency pass
+  `019fa5ff-e7ab-7b23-abf8-5bcfaf4279bc`：
+  `HIGH 2 / MEDIUM 1 / LOW 0`；
+- frontend/product-contract pass
+  `019fa600-2312-7032-bef5-c10a99db8324`：
+  `HIGH 0 / MEDIUM 1 / LOW 0`。
+
+主控去重为 `HIGH 2 / MEDIUM 2 / LOW 0`：`swarm-deepen` 错误选择 newest
+CourtReview 而非 current FinalMemorial exact review；`route.council` 在耗时蜂群
+返回后没有共享 task lock、terminal gate 或 Mission/final/review 漂移重验；既有
+锁测试只验证 mock 调用顺序；前端同 ID 的旧 selected override 可压制服务端最新
+`contract_task=true` 分类。`9c987100...` 被拒绝，不得整合 EXT。
+
+四项已在批准 scope 内按 TDD 修复：
+
+1. `swarm-deepen` 在共享 task lock 内只使用 current FinalMemorial 指向的 exact
+   CourtReview，并复用 tenant/user/final lineage 校验。
+2. `route.council` 在执行前拒绝既有终态；蜂群返回后取得共享 task lock，fresh
+   reload task/latest review，并比较 Mission、FinalMemorial、CourtReview 和任务
+   输入快照；任何终态或漂移都 `superseded`，且在任何 swarm publication 写入前
+   返回。
+3. 文件型 SQLite 双会话测试证明 evidence bind 与 `swarm-deepen` 在 authority、
+   execution 和 publication 范围内真实阻塞并发 Mission writer，不再只依赖 mock
+   顺序。
+4. 同 ID 服务端新快照优先于旧 selected override；真实 JWT browser flow 在同页
+   legacy→contract 重分类后立即关闭 legacy actions 并显示 typed contract panel。
+
+fresh implementation candidate：
+
+- H `7745743d26906e7be759104ba4b7721cb1563705`
+- tree `f1e0381a21c505cd0614d4339aa91d6e72053b0c`
+- parent `b936d368549d91e4feecbd6712aabdc5e8cf0896`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `7d0a71e29cf7e696422390f92fe02f5656b73bb348364bafd31624bd8016a520`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本节不预判下一轮独立审查结论。候选未执行 Checkpoint B、push、部署、持久数据库
+迁移或 listener 3050 操作。
+
+## Latest Candidate Review And Remediation
+
+implementation `fd5886855d064ee3100b75a7311f41e47acef632` 的两路 fresh
+Codex 只读审查结论：
+
+- backend/security/concurrency pass
+  `019fa5ec-9529-7182-92c6-4fa4bb52ee20`：
+  `NO-GO / HIGH 1 / MEDIUM 1 / LOW 0`；
+- frontend/product-contract pass
+  `019fa5ec-cc28-71f2-8088-923b3c6161bb`：
+  `GO / HIGH 0 / MEDIUM 0 / LOW 0`。
+
+任一路含 HIGH/MEDIUM 即整体 NO-GO。主控复核确认：`swarm-deepen` 的
+`REFRESH_REVIEW` 和 evidence bind 的 `SUBMIT_EVIDENCE` 都在未持共享 task lock
+时投影 authority 并写入，可能与 final decision 或 Mission writer 交错。
+`fd588685...` 被拒绝，不得整合 EXT。
+
+两项已在批准 scope 内按 TDD 修复：两个入口都先取得共享 DecisionTask lock，fresh
+reload task 并重验 tenant/user，然后才投影 server action；同一事务持锁覆盖
+swarm result 持久化或 evidence generation CAS、audit 与 commit。两个 RED 探针
+均先稳定报告 `authority projected before task lock`，实现后转为 GREEN，并验证
+探针中断时 task/generation/audit 零写入。
+
+fresh implementation candidate：
+
+- H `9c98710090ed9f73c75e131b6e649ca6ee3d8df1`
+- tree `719233acc04b550a0df97cc9de566f7bf92d3b12`
+- parent `c52a74140f5719277a3081e91ab4578918fc44d6`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `4823079cbbe60e7986bca5a6afac454865b5c0060f64ef09da6d3567e25e7f80`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本节不预判下一轮独立审查结论。
+
+## Latest Candidate Verdict
+
+implementation `029f836216de0ddf5361e24e886ab797202aae83` 的两路 fresh
+Codex 只读审查均为 `NO-GO`：
+
+- backend/security/concurrency pass
+  `019fa5d1-6a3c-7071-b2b6-2ec40151fdd1`：
+  `HIGH 1 / MEDIUM 2 / LOW 0`；
+- frontend/product-contract pass
+  `019fa5d1-a1b5-7840-8513-b4513e019b94`：
+  `HIGH 0 / MEDIUM 1 / LOW 0`。
+
+主控去重为 `HIGH 1 / MEDIUM 2 / LOW 0`：
+
+1. lock 后未 fresh reload authoritative CourtReview，identity map 仍可提供锁前旧值；
+2. parent payload quarantine 未先验证 event id/generation/status envelope；
+3. legacy query 会压制后来同页选中的 server-classified contract memorial。
+
+三项均落在已批准的 router、rework contract、frontend selection 和 focused tests
+范围内。`029f8362...` 不得整合 EXT，进入下一轮最小 TDD remediation。
+
+## Latest Review Remediation Candidate
+
+Product Owner 批准的三项适用 finding 已按 TDD 闭环：
+
+1. final decision 取得共享 task lock 后，使用 `populate_existing()` fresh reload
+   requested CourtReview，再校验 exact task/tenant/final lineage；持久 review 在锁前后
+   发生变化时零 decision、零 archive。
+2. current 与 parent-compatible evidence-rework payload 在 worker 和 read projection
+   中均绑定 exact durable event id、generation 和状态组合；损坏 envelope 进入普通
+   audited failure/retry，不再被误标为 `superseded`。
+3. legacy query 只约束当前 exact memorial；用户在同页选中服务端分类的合同任务时，
+   URL 同步为新 task identity、typed panel 恢复、legacy decision actions 保持关闭。
+
+fresh implementation candidate：
+
+- H `fd5886855d064ee3100b75a7311f41e47acef632`
+- tree `e94686a92fdf08987e522620bd8a84161485d341`
+- parent `5b026343c0343e9b66a78d561e5765806fe6bae0`
+- fixed review base `4f3ae4a3305c5647f7756ae3c934d164c999726c`
+- binary diff SHA-256
+  `dd9fa9fe7057c70c423a27a8ce886727104d47ae29a2b6a93dbbecae1ea6d880`
+- status
+  `IMPLEMENTATION_CANDIDATE_FROZEN / FRESH_TWO_PASS_REVIEW_PENDING /
+  NOT_DEPLOYED`
+
+本节不预判独立审查结论。候选未执行 Checkpoint B、push、部署、持久数据库迁移或
+listener 3050 操作。

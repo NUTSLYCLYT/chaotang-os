@@ -7,36 +7,39 @@
     "approvedSourceDigest": "2ba59cbe4d4032d8f372d1dd757e03edb78038b38de6d657380f357100a83e38"
   },
   "effectiveBase": {
-    "ref": "origin/feature-chaotang-ext",
-    "sha": "67bcc78ec5f80d3d1600c676812ddb4cec958eb3"
+    "ref": "refs/heads/feature-chaotang-ext",
+    "sha": "80940d237a39f176b458763fd70e2c33d4ccac07"
   },
   "approvalEvidence": {
-    "ownerApprovalPath": ".harness/changes/docs-r0-w05-evidence-rework-approval-20260723-20260723/owner_approval/exact-h-approval.md",
-    "ownerApprovalSha256": "8654e6f06fce7a220d6f94675d76d8969dec480f73ebfca4a3a63da3f6f27769",
-    "reviewPath": ".harness/changes/docs-r0-w05-evidence-rework-approval-20260723-20260723/claude_code_review/exact-h-final.md",
-    "reviewSha256": "3a23bf7edc9bda57f446b5da450ad4a4159209f5a2ca439952496b9d98fb5f42",
+    "ownerApprovalPath": ".harness/changes/docs-r0-w08-exact-h-activation-20260728-20260728/owner_approval/exact-h-approval.md",
+    "ownerApprovalSha256": "e085f7572f2d1d204b9168d0eb6164e2d37f548c459f385c3f57f76e90c9dd24",
+    "reviewPath": ".harness/changes/docs-r0-w08-exact-h-activation-20260728-20260728/codex_review/exact-h-final.md",
+    "reviewSha256": "497b0ce5e5623095882c4b1eaef830dfde7f469728d23ce9fa028a71adbc4770",
     "reviewVerdict": "GO",
     "approver": "lyt",
-    "candidateH": "67bcc78ec5f80d3d1600c676812ddb4cec958eb3",
-    "tree": "e7efd61be8b8d9e725d859489124400f606fea69",
-    "approvedScope": ["R0-W05"]
+    "candidateH": "80940d237a39f176b458763fd70e2c33d4ccac07",
+    "tree": "6477274dbb6e6d8a8472ccf17875102f356e5675",
+    "approvedScope": ["R0-W08"]
   },
-  "activeWorkPackage": null,
+  "activeWorkPackage": "R0-W08",
   "workPackageLedger": [
     { "id": "R0-W00", "status": "MERGED_AND_VERIFIED" },
     { "id": "R0-W01", "status": "MERGED_AND_VERIFIED" },
     { "id": "R0-W02", "status": "MERGED_AND_VERIFIED" },
     { "id": "R0-W03", "status": "MERGED_AND_VERIFIED" },
     { "id": "R0-W04", "status": "MERGED_AND_VERIFIED" },
-    { "id": "R0-W05", "status": "MERGED_AND_VERIFIED" }
+    { "id": "R0-W05", "status": "MERGED_AND_VERIFIED" },
+    { "id": "R0-W06", "status": "MERGED_AND_VERIFIED" },
+    { "id": "R0-W07", "status": "MERGED_AND_VERIFIED" },
+    { "id": "R0-W08", "status": "ACTIVE" }
   ],
   "professionalReassignment": {
     "requiredBefore": ["REAL_CUSTOMER_DATA", "R0-W08", "R0-W09"],
     "rolesRequired": ["security", "legal", "release"],
     "assignments": {
-      "security": "lyt",
-      "legal": "lyt",
-      "release": "lyt"
+      "security": "r0-security-owner",
+      "legal": "r0-legal-owner",
+      "release": "r0-release-owner"
     },
     "defaultOwner": "lyt"
   }

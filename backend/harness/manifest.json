@@ -36,8 +36,8 @@
     {
       "id": "chaotang-true-loop",
       "summary": "真实闭环契约 harness",
-      "required": ["README.md", "golden_cases/true_loop_cases.json", "scripts/run_true_loop_contract.py"],
-      "tests": []
+      "required": ["README.md", "golden_cases/true_loop_cases.json", "scripts/run_true_loop_contract.py", "product_acceptance/README.md", "product_acceptance/golden_cases/w08_contracts.json", "product_acceptance/scripts/run_w08_acceptance.py", "product_acceptance/user_acceptance/README.md", "product_acceptance/user_acceptance/participant_task_card.zh-CN.md", "product_acceptance/user_acceptance/session_runbook.md", "product_acceptance/user_acceptance/observer_checklist.md", "product_acceptance/user_acceptance/acceptance_rules.md", "product_acceptance/user_acceptance/submission_checklist.md", "product_acceptance/user_acceptance/fixtures/README.md", "product_acceptance/user_acceptance/fixtures/valid_closeout_example.json", "product_acceptance/user_acceptance/w08_user_acceptance_template.json", "product_acceptance/user_acceptance/records/README.md"],
+      "tests": ["tests/test_w08_product_acceptance_harness.py"]
     },
     {
       "id": "deep-research-skill-distillation",

@@ -30,8 +30,9 @@
 
 ## 执行权威门
 
-- 从 `docs/plans/`、`.harness/changes/`、历史 P/PKT/S 队列或 M0–M10 路线领取产品实现任务前，必须运行 `node scripts/execution-authority.mjs --authorize`。
-- `execution-authority.v1` 是只读、失效关闭的前置护栏：它只能返回 `STOP` 和 `canExecuteCanonicalPlan: false`，直到新的 schema 与获批 amendment 在后续独立变更中绑定 exact HEAD 和审批证据。
+- 从 `docs/plans/`、`.harness/changes/`、历史 P/PKT/S 队列或 M0–M10 路线领取产品实现任务前，先运行 `node scripts/execution-authority.mjs --check`。`V1_CHECK_INTEGRITY_ONLY_NON_AUTHORIZING`：v1 只验证只读、失效关闭护栏的结构和受控摘要；它不评估 work package，且不能单独授予产品施工权。
+- 再运行 `node scripts/execution-authority-v2.mjs --authorize --work-package <R0-Wxx>`。`V2_SCOPED_AUTHORIZE_SOLE_PRODUCT_DECISION`：只有该命令返回结构化 `GO / APPROVED_WORK_PACKAGE`，才构成该 work package 的产品施工决定；任何 `STOP` 都不得领取产品实现任务。
+- `execution-authority.v1 --authorize` 保留为永远 `STOP / AMENDMENT_APPROVAL_REQUIRED` 的负向诊断，不是产品授权命令。v1 的 `status`、`canonicalPlan.state` 与三个 activation 字段持续失效关闭，直到未来独立 schema/manifest/amendment 变更被批准。
 - 调查、计划、change 记录、Packet ID、用户方向确认和 `PACKET_REVIEW_GO` 只记录需求或评审事实，不能单独授予产品施工权。
 - 用户另行明确批准的治理、事故与证据修复可以在批准范围内施工，但不得冒充 M0–M10 产品实现或 R0 完成。
 

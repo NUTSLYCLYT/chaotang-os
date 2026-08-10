@@ -1,6 +1,6 @@
 {
   "generatedAt": "2026-07-21",
-  "routeCount": 352,
+  "routeCount": 363,
   "routes": [
     {
       "key": "DELETE /api/admin/depts/{dept_id}",
@@ -40,7 +40,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Memory Delete Api Memory  Filename  Delete\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -54,7 +54,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Api List Ab Tests Api Ab Tests Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -68,7 +68,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Get Ab Test Api Ab Tests  Test Id  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -82,7 +82,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"$ref\":\"#/components/schemas/DeptInfo\"},\"title\":\"Response Api List Depts Api Admin Depts Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -96,7 +96,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"type\":\"string\"},\"title\":\"Response Api Get Dept Flows Api Admin Depts  Dept Id  Flows Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -110,7 +110,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"type\":\"string\"},\"title\":\"Response Api List Available Flows Api Admin Flows Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -124,7 +124,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"$ref\":\"#/components/schemas/TenantInfo\"},\"title\":\"Response Api List Tenants Api Admin Tenants Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -138,7 +138,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"$ref\":\"#/components/schemas/UserInfo\"},\"title\":\"Response Api List Users Api Admin Users Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -152,7 +152,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"$ref\":\"#/components/schemas/DeptRef\"},\"title\":\"Response Api Get User Depts Api Admin Users  User Id  Depts Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -166,7 +166,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Agent Discover Api Agents Discover Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -180,7 +180,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Agent Registry List Api Agents Registry Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -194,7 +194,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Analytics Api Analytics Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -208,7 +208,35 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Approval Pending Api Approval Pending Get\",\"type\":\"object\"}",
+        "422": "#/components/schemas/HTTPValidationError"
+      }
+    },
+    {
+      "key": "GET /api/artifacts/{artifact_id}/download",
+      "method": "GET",
+      "path": "/api/artifacts/{artifact_id}/download",
+      "operationId": "download_artifact_api_artifacts__artifact_id__download_get",
+      "tags": [
+        "artifacts"
+      ],
+      "requestBody": "unknown",
+      "responses": {
+        "200": "inline:{}",
+        "422": "#/components/schemas/HTTPValidationError"
+      }
+    },
+    {
+      "key": "GET /api/artifacts/manifests/{manifest_id}",
+      "method": "GET",
+      "path": "/api/artifacts/manifests/{manifest_id}",
+      "operationId": "read_manifest_api_artifacts_manifests__manifest_id__get",
+      "tags": [
+        "artifacts"
+      ],
+      "requestBody": "unknown",
+      "responses": {
+        "200": "#/components/schemas/PublicArtifactManifest",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -236,7 +264,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Build Ledger Get Api Build Ledger Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -250,7 +278,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Api Cases Approved Api Cases Approved Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -264,7 +292,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Api Cases Pending Api Cases Pending Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -278,7 +306,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Api Receipts Pending Api Cases Receipts Pending Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -292,7 +320,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Archive List Api Chaotang Archive Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -306,7 +334,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Archive Retrospective Api Chaotang Archive  Task Id  Retrospective Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -320,7 +348,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Archive Knowledge Count Api Chaotang Archive Knowledge Count Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -334,7 +362,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Archive Search Api Chaotang Archive Search Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -348,7 +376,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Department System Api Chaotang Department System Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -362,7 +390,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Dept Overview Api Chaotang Dept  Code  Overview Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -376,7 +404,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Launch Loop Cases Api Chaotang Launch Loop Cases Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -390,7 +418,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Manor Ai Advice Api Chaotang Manor Ai Advice Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -404,7 +432,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Manor Groups Api Chaotang Manor Groups Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -418,7 +446,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Manor Group Subagents Api Chaotang Manor Groups  Groupid  Subagents Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -432,7 +460,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Manor Opportunities Api Chaotang Manor Opportunities Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -446,7 +474,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Manor Overview Api Chaotang Manor Overview Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -460,7 +488,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Manor Policy Funds Api Chaotang Manor Policy Funds Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -474,7 +502,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Manor Projects Api Chaotang Manor Projects Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -488,7 +516,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Manor Supply Chain Api Chaotang Manor Supply Chain Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -502,7 +530,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Memorials List Api Chaotang Memorials Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -516,7 +544,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Memorial Detail Api Chaotang Memorials  Run Id  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -530,7 +558,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -544,7 +572,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Study Briefing Api Chaotang Study Briefing Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -558,7 +586,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response System Status Api Chaotang System Status Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -572,7 +600,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Tasks List Api Chaotang Tasks Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -586,7 +614,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Task Detail Api Chaotang Tasks  Task Id  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -600,7 +628,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Throne Overview Api Chaotang Throne Overview Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -614,7 +642,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Api List Chat Sessions Api Chat Sessions Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -628,7 +656,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Get Chat Session Api Chat Sessions  Session Id  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -642,7 +670,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Commercial Loop Dashboard Api Commercial Loop Dashboard Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -656,7 +684,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Compare Api Compare Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -670,7 +698,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -684,7 +712,21 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Compare Quality Api Compare Quality Get\",\"type\":\"object\"}",
+        "422": "#/components/schemas/HTTPValidationError"
+      }
+    },
+    {
+      "key": "GET /api/contracts/tasks/{task_id}/read-model",
+      "method": "GET",
+      "path": "/api/contracts/tasks/{task_id}/read-model",
+      "operationId": "read_contract_task_model_api_contracts_tasks__task_id__read_model_get",
+      "tags": [
+        "contracts"
+      ],
+      "requestBody": "unknown",
+      "responses": {
+        "200": "#/components/schemas/ContractTaskReadModelV1",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -698,7 +740,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Latest Court Session Api Court Session Latest Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -712,7 +754,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Backend Task Detail Api Court Backend Tasks  Task Id  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -726,7 +768,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Build Ledger Get Api Court Build Ledger Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -740,7 +782,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Chancellor Advice Api Court Chancellor Advice Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -754,7 +796,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Dadian Feed Api Court Dadian Feed Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -768,7 +810,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Dadian Pulse Api Court Dadian Pulse Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -782,7 +824,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Decision Judgment Stats Api Court Decision Judgment Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -796,7 +838,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Gongbu Feasibility Result Api Court Dept Gong Bu Feasibility Result Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -810,7 +852,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Libu Recruit Result Api Court Dept Li Bu Recruit Result Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -824,7 +866,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Court Forecast Api Court Forecast Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -838,7 +880,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Grand Council Live Api Court Grand Council Live Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -852,7 +894,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Ima Knowledge List Api Court Ima Knowledge Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -866,7 +908,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Court Intel Api Court Intel Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -880,7 +922,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response List Intel Signals Api Court Intel Signals Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -894,7 +936,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Learning Advisor Signal Api Court Learning Advisor Signal Get\",\"type\":\"object\"}"
       }
     },
     {
@@ -907,7 +949,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Learning Backtest Api Court Learning Backtest Get\",\"type\":\"object\"}"
       }
     },
     {
@@ -920,7 +962,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Learning Records Api Court Learning Records Get\",\"type\":\"object\"}"
       }
     },
     {
@@ -933,7 +975,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Court Pending Api Court Pending Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -947,7 +989,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shiguan Archives Api Court Shiguan Archives Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -961,7 +1003,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shiguan Archive Detail Api Court Shiguan Archives  Archive Id  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -975,7 +1017,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shiguan Archive Similar Api Court Shiguan Archives  Archive Id  Similar Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -989,7 +1031,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shiguan Promo Archive Api Court Shiguan Promo Archive Get\",\"type\":\"object\"}"
       }
     },
     {
@@ -1002,7 +1044,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shiguan Release Gates Api Court Shiguan Release Gates Get\",\"type\":\"object\"}"
       }
     },
     {
@@ -1015,7 +1057,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shiguan Stats Api Court Shiguan Stats Get\",\"type\":\"object\"}"
       }
     },
     {
@@ -1028,7 +1070,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Si List Api Court Si  Dept  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1042,7 +1084,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Si Profile Api Court Si  Dept   Si  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1056,7 +1098,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Court State Api Court State  Doc Id  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1070,7 +1112,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Taiyi Dashboard Api Court Taiyi Dashboard Get\",\"type\":\"object\"}"
       }
     },
     {
@@ -1083,7 +1125,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Taiyi News Api Court Taiyi News Get\",\"type\":\"object\"}"
       }
     },
     {
@@ -1096,7 +1138,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response True Chain Health Api Court True Chain Health Get\",\"type\":\"object\"}"
       }
     },
     {
@@ -1109,7 +1151,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Zhuangyuan Ministry Metrics Api Court Zhuangyuan Ministry Metrics Get\",\"type\":\"object\"}"
       }
     },
     {
@@ -1122,7 +1164,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Get Critic Result Api Critic Run  Run Id  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1136,7 +1178,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1150,7 +1192,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{}"
       }
     },
     {
@@ -1163,7 +1205,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{}"
       }
     },
     {
@@ -1176,7 +1218,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{}"
       }
     },
     {
@@ -1189,7 +1231,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1203,7 +1245,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{}"
       }
     },
     {
@@ -1216,7 +1258,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1230,7 +1272,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1244,7 +1286,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Api List Drafts Api Drafts Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1258,7 +1300,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Get Draft Api Drafts  Draft Id  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1286,7 +1328,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response List Feature Flags Api Feature Flags Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1300,7 +1342,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Api List Feedback Api Feedback Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1314,7 +1356,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"$ref\":\"#/components/schemas/FlowSummary\"},\"title\":\"Response Api List Flows Api Flows Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1328,7 +1370,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Get Flow Api Flows  Filename  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1342,7 +1384,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Governance Audit Summary Api Governance Audit Summary Get\",\"type\":\"object\"}"
       }
     },
     {
@@ -1355,7 +1397,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Governance Bills Api Governance Bills Get\",\"type\":\"object\"}"
       }
     },
     {
@@ -1368,7 +1410,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Governance Bill Audit Api Governance Bills  Bill Id  Audit Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1382,7 +1424,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Governance Whoami Api Governance Whoami Get\",\"type\":\"object\"}"
       }
     },
     {
@@ -1395,7 +1437,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Guoli Overview Api Guoli Overview Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1409,7 +1451,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Awards Api Hanlin Awards Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1423,7 +1465,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Contributions Api Hanlin Contributions Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1437,7 +1479,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Experiments Api Hanlin Experiments Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1451,7 +1493,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Export Offerings Api Hanlin Export Offerings Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1465,7 +1507,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Incubation Api Hanlin Incubation Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1479,7 +1521,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Overview Api Hanlin Overview Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1493,7 +1535,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Recommendations Api Hanlin Recommendations Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1507,7 +1549,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Reset Demo Api Hanlin Reset Demo Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1521,7 +1563,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Reviews Api Hanlin Reviews Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1535,7 +1577,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Scouting Api Hanlin Scouting Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1549,7 +1591,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1563,7 +1605,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Summary Api Hanlin Summary Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1590,7 +1632,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Intel Evidence Api Intel Evidence Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1604,7 +1646,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Knowledge Health Api Knowledge Health Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1632,7 +1674,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"title\":\"Response Api Knowledge Sources Api Knowledge Sources Get\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1646,7 +1688,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Knowledge Stats Api Knowledge Stats Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1660,7 +1702,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Kpi Business Api Kpi Business Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1674,7 +1716,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Kpi Calibration Stats Api Kpi Calibration Stats Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1688,7 +1730,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Kpi Latency Api Kpi Latency Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1702,7 +1744,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Kpi Regression List Api Kpi Regression Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1716,7 +1758,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Kpi Slo Api Kpi Slo Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1730,7 +1772,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Legal Overview Api Legal Overview Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1744,7 +1786,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Local Ai Audit Courtos Brain Api Local Ai Audit Courtos Brain Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1758,7 +1800,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Local Ai Status Api Local Ai Status Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1772,7 +1814,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"$ref\":\"#/components/schemas/MemoryHeaderItem\"},\"title\":\"Response Memory List Api Memory Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1786,7 +1828,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Memory Detail Api Memory  Filename  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1800,7 +1842,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Memory Stats Api Memory Stats Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1814,7 +1856,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Token Usage Api Metrics Tokens Get\",\"type\":\"object\"}"
       }
     },
     {
@@ -1827,7 +1869,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Api Models List Api Models Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1841,7 +1883,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Observability Events Api Observability Events Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1855,7 +1897,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Observability Release Gate Api Observability Release Gate Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1869,7 +1911,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Observability Summary Api Observability Summary Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1883,7 +1925,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Get User Preference Api Preferences  User Id  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1897,7 +1939,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Preflight Api Preflight Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1912,7 +1954,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"title\":\"Response Api List Presets Api Presets Get\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1926,7 +1968,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":{\"items\":{},\"type\":\"array\"},\"title\":\"Response Api Prompts List Api Prompts Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1940,7 +1982,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Prompt Get Api Prompts  Key  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -1968,7 +2010,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Prompt Versions Api Prompts  Key  Versions Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2010,7 +2052,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Qintian Learning Path Api Qintian Learning Path Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2024,7 +2066,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Qintian Scenarios Api Qintian Scenarios Get\",\"type\":\"object\"}"
       }
     },
     {
@@ -2037,7 +2079,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Qintianjian Pending Triggers Api Qintianjian Triggers Pending Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2051,7 +2093,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{}"
       }
     },
     {
@@ -2064,7 +2106,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Repair Insights Api Repair Insights Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2078,7 +2120,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Api List Repairs Api Repairs Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2092,7 +2134,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Get Repair Api Repairs  Session Id  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2106,7 +2148,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"$ref\":\"#/components/schemas/RequirementItem\"},\"title\":\"Response Api List Requirements Api Requirements Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2120,7 +2162,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Get Requirement Api Requirements  Req Id  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2134,7 +2176,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Get Resource Profile Api Resources Profile Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2148,7 +2190,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Api Runs Api Runs Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2162,7 +2204,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Run Detail Api Runs  Run Id  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2176,7 +2218,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2190,7 +2232,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "anyOf:object|null",
+        "200": "inline:{\"anyOf\":[{\"additionalProperties\":true,\"type\":\"object\"},{\"type\":\"null\"}],\"title\":\"Response Api Get Feedback Api Runs  Run Id  Feedback Get\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2204,7 +2246,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Optimize Trigger Api Runs  Run Id  Optimize Trigger Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2218,7 +2260,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Run Quality Api Runs  Run Id  Quality Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2232,7 +2274,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Run Report Api Runs  Run Id  Report Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2246,7 +2288,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Step Detail Api Runs  Run Id  Steps  Step Index  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2260,7 +2302,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2274,7 +2316,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2288,7 +2330,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2316,7 +2358,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Scribe Archive Docs Api Scribe Archive Docs Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2330,7 +2372,35 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Scribe Lessons Api Scribe Lessons Get\",\"type\":\"object\"}"
+      }
+    },
+    {
+      "key": "GET /api/secure-ingest/{artifact_id}/status",
+      "method": "GET",
+      "path": "/api/secure-ingest/{artifact_id}/status",
+      "operationId": "get_artifact_status_api_secure_ingest__artifact_id__status_get",
+      "tags": [
+        "secure_ingest"
+      ],
+      "requestBody": "unknown",
+      "responses": {
+        "200": "#/components/schemas/IngestArtifactV1",
+        "422": "#/components/schemas/HTTPValidationError"
+      }
+    },
+    {
+      "key": "GET /api/secure-ingest/download/{ticket_id}",
+      "method": "GET",
+      "path": "/api/secure-ingest/download/{ticket_id}",
+      "operationId": "redeem_ticket_api_secure_ingest_download__ticket_id__get",
+      "tags": [
+        "secure_ingest"
+      ],
+      "requestBody": "unknown",
+      "responses": {
+        "200": "inline:{}",
+        "422": "#/components/schemas/HTTPValidationError"
       }
     },
     {
@@ -2343,7 +2413,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Finance Intel Loop Case Api Shangshufang Finance Intel Loop Cases  Task Id  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2357,7 +2427,21 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Home Api Shangshufang Home Get\",\"type\":\"object\"}",
+        "422": "#/components/schemas/HTTPValidationError"
+      }
+    },
+    {
+      "key": "GET /api/shangshufang/home/v1",
+      "method": "GET",
+      "path": "/api/shangshufang/home/v1",
+      "operationId": "shangshufang_home_api_shangshufang_home_v1_get",
+      "tags": [
+        "shangshufang"
+      ],
+      "requestBody": "unknown",
+      "responses": {
+        "200": "#/components/schemas/ShangshufangHomeResponse",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2371,7 +2455,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Im List Api Shangshufang Im Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2385,7 +2469,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Task Status Api Shangshufang Tasks  Task Id  Status Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2399,7 +2483,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Get Swarm Run Api Swarm Runs  Swarm Run Id  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2413,7 +2497,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Get Swarm Run Brief Api Swarm Runs  Swarm Run Id  Brief Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2427,7 +2511,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Get Swarm Run Progress Api Swarm Runs  Swarm Run Id  Progress Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2455,7 +2539,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Project Quality Report Api Swarm Projects  Project Id  Quality Report Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2469,7 +2553,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"$ref\":\"#/components/schemas/SwarmRosterItem\"},\"title\":\"Response Api Swarm Roster Api Swarm Roster Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2483,7 +2567,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"$ref\":\"#/components/schemas/SwarmSessionSummary\"},\"title\":\"Response Api Swarm Sessions Api Swarm Sessions Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2497,7 +2581,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Swarm Session Detail Api Swarm Sessions  Session Id  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2511,7 +2595,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Swarm Pack Report Api Swarm Sessions  Session Id  Pack Report Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2525,7 +2609,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Api Swarm Timeline Api Swarm Timeline Get\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2553,7 +2637,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2595,7 +2679,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Throne Run Detail Api Throne Runs  Run Id  Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2609,7 +2693,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":{\"$ref\":\"#/components/schemas/ToolDescription\"},\"title\":\"Response Api List Tools Api Tools Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2650,7 +2734,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response List Proposals Api Votes Proposals Get\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2664,7 +2748,7 @@
       ],
       "requestBody": "#/components/schemas/PatchTaskRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Task Persist Patch Api Chaotang Tasks  Task Id  Persist Patch\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2678,7 +2762,7 @@
       ],
       "requestBody": "#/components/schemas/_ImaKnowledgeStatusRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Ima Knowledge Set Status Api Court Ima Knowledge Patch\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2692,7 +2776,7 @@
       ],
       "requestBody": "#/components/schemas/ABTestRequest",
       "responses": {
-        "201": "object",
+        "201": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Run Ab Test Api Ab Tests Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2735,6 +2819,34 @@
       "requestBody": "#/components/schemas/UserCreateRequest",
       "responses": {
         "201": "#/components/schemas/UserCreatedResponse",
+        "422": "#/components/schemas/HTTPValidationError"
+      }
+    },
+    {
+      "key": "POST /api/artifacts/deliveries",
+      "method": "POST",
+      "path": "/api/artifacts/deliveries",
+      "operationId": "create_delivery_api_artifacts_deliveries_post",
+      "tags": [
+        "artifacts"
+      ],
+      "requestBody": "#/components/schemas/CreateDeliveryRequest",
+      "responses": {
+        "201": "#/components/schemas/DeliveryCommandResponse",
+        "422": "#/components/schemas/HTTPValidationError"
+      }
+    },
+    {
+      "key": "POST /api/artifacts/manifests/{manifest_id}/resume",
+      "method": "POST",
+      "path": "/api/artifacts/manifests/{manifest_id}/resume",
+      "operationId": "resume_delivery_api_artifacts_manifests__manifest_id__resume_post",
+      "tags": [
+        "artifacts"
+      ],
+      "requestBody": "#/components/schemas/ResumeDeliveryRequest",
+      "responses": {
+        "200": "#/components/schemas/DeliveryCommandResponse",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2801,9 +2913,9 @@
       "tags": [
         "bingbu"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Bingbu Battlecard Api Bingbu Battlecard Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2815,9 +2927,9 @@
       "tags": [
         "build-ledger"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Build Ledger Post Api Build Ledger Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2843,7 +2955,7 @@
       "tags": [
         "cases"
       ],
-      "requestBody": "anyOf:#/components/schemas/CaseRejectRequest|null",
+      "requestBody": "inline:{\"anyOf\":[{\"$ref\":\"#/components/schemas/CaseRejectRequest\"},{\"type\":\"null\"}],\"title\":\"Body\"}",
       "responses": {
         "200": "#/components/schemas/CaseActionResponse",
         "422": "#/components/schemas/HTTPValidationError"
@@ -2859,7 +2971,7 @@
       ],
       "requestBody": "#/components/schemas/ReceiptRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Record Receipt Api Cases Receipts Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2873,7 +2985,7 @@
       ],
       "requestBody": "#/components/schemas/_RetrospectiveRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Archive Retrospective Save Api Chaotang Archive  Task Id  Retrospective Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2887,7 +2999,7 @@
       ],
       "requestBody": "#/components/schemas/_ChronicleRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Archive Chronicle Api Chaotang Archive Chronicle Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2901,7 +3013,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Archive Knowledge Feedback Api Chaotang Archive Knowledge Feedback Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2915,7 +3027,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Decree Proceed Api Chaotang Decree  Task Id  Proceed Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2929,7 +3041,7 @@
       ],
       "requestBody": "#/components/schemas/DispatchRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Decree Dispatch Api Chaotang Decree Dispatch Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2943,7 +3055,7 @@
       ],
       "requestBody": "#/components/schemas/DraftRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Decree Draft Api Chaotang Decree Draft Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2957,7 +3069,7 @@
       ],
       "requestBody": "#/components/schemas/_DepartmentRouteRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Department System Route Api Chaotang Department System Route Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2969,9 +3081,9 @@
       "tags": [
         "hubu"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Preview Hubu Cashflow Court Doc Api Chaotang Hubu Cashflow Preview Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2983,9 +3095,9 @@
       "tags": [
         "hubu"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Preview Hubu Finance Intake Api Chaotang Hubu Finance Intake Preview Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -2997,9 +3109,9 @@
       "tags": [
         "hubu"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Preview Hubu Finance Reporting Decision Api Chaotang Hubu Finance Reporting Decision Preview Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3011,9 +3123,9 @@
       "tags": [
         "hubu"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Preview Hubu Finance Reporting Api Chaotang Hubu Finance Reporting Preview Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3025,9 +3137,9 @@
       "tags": [
         "hubu"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Preview Hubu Payment Decision Api Chaotang Hubu Payment Decision Preview Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3039,9 +3151,9 @@
       "tags": [
         "hubu"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Preview Hubu Payment Api Chaotang Hubu Payment Preview Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3055,7 +3167,7 @@
       ],
       "requestBody": "#/components/schemas/ReviewRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Memorial Review Api Chaotang Memorials  Run Id  Review Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3069,7 +3181,7 @@
       ],
       "requestBody": "#/components/schemas/_QuickCommandRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Study Quick Command Api Chaotang Study Quick Command Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3083,7 +3195,7 @@
       ],
       "requestBody": "#/components/schemas/StudyRunRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Study Run Edict Api Chaotang Study Run Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3097,7 +3209,7 @@
       ],
       "requestBody": "#/components/schemas/_TeachingRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Study Teaching Api Chaotang Study Teaching Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3111,7 +3223,7 @@
       ],
       "requestBody": "#/components/schemas/PersistTaskRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Task Persist Api Chaotang Tasks Persist Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3125,7 +3237,7 @@
       ],
       "requestBody": "#/components/schemas/_QuickSummonRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Throne Quick Summon Api Chaotang Throne Quick Summon Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3137,9 +3249,9 @@
       "tags": [
         "governance-compat"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3153,7 +3265,7 @@
       ],
       "requestBody": "#/components/schemas/ChatSessionCreateRequest",
       "responses": {
-        "201": "object",
+        "201": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Create Chat Session Api Chat Sessions Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3181,7 +3293,7 @@
       ],
       "requestBody": "#/components/schemas/GoldenReviewRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Promote Golden Candidate Api Commercial Loop Golden Candidates  Candidate Id  Promote Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3193,9 +3305,9 @@
       "tags": [
         "commercial-loop"
       ],
-      "requestBody": "anyOf:#/components/schemas/GoldenReviewRequest|null",
+      "requestBody": "inline:{\"anyOf\":[{\"$ref\":\"#/components/schemas/GoldenReviewRequest\"},{\"type\":\"null\"}],\"title\":\"Body\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Reject Golden Candidate Api Commercial Loop Golden Candidates  Candidate Id  Reject Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3209,7 +3321,7 @@
       ],
       "requestBody": "#/components/schemas/CapabilityActivationRequest",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"$ref\":\"#/components/schemas/CapabilityGrantV1\"},\"title\":\"Response Activate Contract Capabilities Api Contracts Capability Activate Post\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3279,7 +3391,7 @@
       ],
       "requestBody": "#/components/schemas/ActionRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Court Action Api Court Action Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3291,9 +3403,9 @@
       "tags": [
         "build-ledger"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Build Ledger Post Api Court Build Ledger Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3305,9 +3417,9 @@
       "tags": [
         "court-compat"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Bureau Action Api Court Bureaus  Department   Bureau  Actions Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3321,7 +3433,7 @@
       ],
       "requestBody": "#/components/schemas/DecisionJudgmentRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Record Decision Judgment Api Court Decision Judgment Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3333,9 +3445,9 @@
       "tags": [
         "orchestration-compat"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Gongbu Feasibility Api Court Dept Gong Bu Feasibility Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3347,9 +3459,9 @@
       "tags": [
         "orchestration-compat"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Libu Recruit Api Court Dept Li Bu Recruit Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3361,9 +3473,9 @@
       "tags": [
         "orchestration-compat"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Dept Swarm Dispatch Api Court Dept Swarm Dispatch Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3375,9 +3487,9 @@
       "tags": [
         "hubu-ask"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Hubu Ask Api Court Hubu Ask Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3391,7 +3503,7 @@
       ],
       "requestBody": "#/components/schemas/_ImaKnowledgeUploadRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Ima Knowledge Upload Api Court Ima Knowledge Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3403,9 +3515,9 @@
       "tags": [
         "orchestration-compat"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Dispatch Intel Signal Api Court Intel Signals  Signal Id  Dispatch Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3417,9 +3529,9 @@
       "tags": [
         "court-compat"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Junjichu Cases Api Court Junjichu Cases Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3431,9 +3543,9 @@
       "tags": [
         "court-compat"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Orchestrate Api Court Orchestrate Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3445,9 +3557,9 @@
       "tags": [
         "court-compat"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Orchestrate All Api Court Orchestrate All Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3459,9 +3571,9 @@
       "tags": [
         "court-compat"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Orchestrate Sign Off Api Court Orchestrate Sign Off Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3475,7 +3587,7 @@
       ],
       "requestBody": "#/components/schemas/web__routers__court__RegisterRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Court Register Api Court Register Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3489,7 +3601,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shiguan Analyze Api Court Shiguan Analyze Post\",\"type\":\"object\"}"
       }
     },
     {
@@ -3502,7 +3614,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shiguan Archive Verdict Api Court Shiguan Archives  Archive Id  Verdict Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3530,7 +3642,7 @@
       ],
       "requestBody": "#/components/schemas/DirectCommandRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3544,7 +3656,7 @@
       ],
       "requestBody": "#/components/schemas/web__routers__direct__FeedbackRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3584,7 +3696,7 @@
       "tags": [
         "drafts"
       ],
-      "requestBody": "anyOf:#/components/schemas/DraftRejectRequest|null",
+      "requestBody": "inline:{\"anyOf\":[{\"$ref\":\"#/components/schemas/DraftRejectRequest\"},{\"type\":\"null\"}],\"title\":\"Body\"}",
       "responses": {
         "200": "#/components/schemas/DraftStatusResponse",
         "422": "#/components/schemas/HTTPValidationError"
@@ -3626,9 +3738,9 @@
       "tags": [
         "gongbu"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Gongbu Review Api Gongbu Review Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3640,9 +3752,9 @@
       "tags": [
         "governance-compat"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Governance Create Bill Api Governance Bills Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3654,9 +3766,9 @@
       "tags": [
         "governance-compat"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3668,9 +3780,9 @@
       "tags": [
         "governance-compat"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Governance Deliberate Api Governance Deliberate Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3682,9 +3794,9 @@
       "tags": [
         "governance-compat"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Governance Set Actor Api Governance Whoami Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3698,7 +3810,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Hanlin Reset Demo Api Hanlin Reset Demo Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3710,9 +3822,9 @@
       "tags": [
         "hanlin"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3724,9 +3836,9 @@
       "tags": [
         "jinyiwei"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Intel Brief Api Intel Brief Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3738,9 +3850,9 @@
       "tags": [
         "jinyiwei"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Intel Evidence Fill Gap Api Intel Evidence Fill Gap Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3754,7 +3866,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "409": "object",
+        "409": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3768,7 +3880,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "409": "object",
+        "409": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3782,7 +3894,7 @@
       ],
       "requestBody": "#/components/schemas/BusinessOutcomeRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":{\"type\":\"string\"},\"title\":\"Response Kpi Record Outcome Api Kpi Business  Run Id  Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3796,7 +3908,7 @@
       ],
       "requestBody": "#/components/schemas/CalibrationRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":{\"type\":\"string\"},\"title\":\"Response Kpi Add Calibration Api Kpi Calibration Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3808,9 +3920,9 @@
       "tags": [
         "legal"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Legal Verdict Api Legal Verdict Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3822,9 +3934,9 @@
       "tags": [
         "legal"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Legal Verdict From Text Api Legal Verdict From Text Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3836,9 +3948,9 @@
       "tags": [
         "libu"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Libu Appointment Verdict Api Libu Appointment Verdict Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3850,9 +3962,9 @@
       "tags": [
         "libu"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Libu Recruit Verdict Api Libu Recruit Verdict Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3866,7 +3978,7 @@
       ],
       "requestBody": "#/components/schemas/LocalAIAskRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Local Ai Ask Api Local Ai Ask Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3880,7 +3992,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Local Ai Index Courtos Brain Api Local Ai Index Courtos Brain Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3892,9 +4004,9 @@
       "tags": [
         "manor-and-task-events"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Manor Analyze Api Manor Analyze Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3906,9 +4018,9 @@
       "tags": [
         "governance-compat"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3922,7 +4034,7 @@
       ],
       "requestBody": "#/components/schemas/MemoryCreateRequest",
       "responses": {
-        "201": "object",
+        "201": "inline:{\"additionalProperties\":true,\"title\":\"Response Memory Create Api Memory Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3936,7 +4048,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Memory Rebuild Index Api Memory Rebuild Index Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3950,7 +4062,7 @@
       ],
       "requestBody": "#/components/schemas/MemorySearchRequest",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"additionalProperties\":true,\"type\":\"object\"},\"title\":\"Response Memory Search Api Memory Search Post\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3964,7 +4076,7 @@
       ],
       "requestBody": "#/components/schemas/MetricEventRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Ingest Metric Api Metrics Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3978,7 +4090,7 @@
       ],
       "requestBody": "#/components/schemas/OrchestrationRunRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -3992,7 +4104,7 @@
       ],
       "requestBody": "#/components/schemas/PreferenceUpdateRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Update User Preference Api Preferences  User Id  Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4006,7 +4118,7 @@
       ],
       "requestBody": "#/components/schemas/AcceptedDesignRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Record Accepted Design Api Preferences  User Id  Accepted Designs Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4020,7 +4132,7 @@
       ],
       "requestBody": "#/components/schemas/CorrectionRecordRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Record Correction Api Preferences  User Id  Corrections Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4034,7 +4146,7 @@
       ],
       "requestBody": "#/components/schemas/SuggestFlowRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Suggest Flow From Preference Api Preferences  User Id  Suggest Flow Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4048,7 +4160,7 @@
       ],
       "requestBody": "#/components/schemas/PromptSuggestRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Prompt Suggest Api Prompt Suggest Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4090,7 +4202,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Prompt Upgrade Check Api Prompts Upgrades Check Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4104,7 +4216,7 @@
       ],
       "requestBody": "#/components/schemas/QintianChatRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4118,7 +4230,7 @@
       ],
       "requestBody": "#/components/schemas/QintianChatRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4132,7 +4244,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object"
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Qintian Scenarios Generate Api Qintian Scenarios Generate Post\",\"type\":\"object\"}"
       }
     },
     {
@@ -4143,9 +4255,9 @@
       "tags": [
         "qintianjian"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Qintianjian Forecast Api Qintianjian Forecast Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4157,9 +4269,9 @@
       "tags": [
         "qintianjian"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Qintianjian Resolve Trigger Api Qintianjian Triggers  Trigger Id  Resolve Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4171,9 +4283,9 @@
       "tags": [
         "quotation"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Quotation Verdict Api Quotation Verdict Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4201,7 +4313,7 @@
       ],
       "requestBody": "#/components/schemas/ResourceProfileUpdateRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Update Resource Profile Api Resources Profile Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4243,7 +4355,7 @@
       ],
       "requestBody": "#/components/schemas/OptimizeApplyRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Optimize Apply Api Runs  Run Id  Optimize Apply Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4257,7 +4369,7 @@
       ],
       "requestBody": "#/components/schemas/RepairRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Repair Api Runs  Run Id  Repair Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4271,7 +4383,7 @@
       ],
       "requestBody": "#/components/schemas/RepairRequest",
       "responses": {
-        "200": "anyOf:#/components/schemas/TaskAcceptedResponse|object",
+        "200": "inline:{\"anyOf\":[{\"$ref\":\"#/components/schemas/TaskAcceptedResponse\"},{\"additionalProperties\":true,\"type\":\"object\"}],\"title\":\"Response Api Repair Async Api Runs  Run Id  Repair Async Post\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4367,9 +4479,37 @@
       "tags": [
         "governance-compat"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Scribe Annals Api Scribe Annals Post\",\"type\":\"object\"}",
+        "422": "#/components/schemas/HTTPValidationError"
+      }
+    },
+    {
+      "key": "POST /api/secure-ingest/{artifact_id}/ticket",
+      "method": "POST",
+      "path": "/api/secure-ingest/{artifact_id}/ticket",
+      "operationId": "issue_ticket_api_secure_ingest__artifact_id__ticket_post",
+      "tags": [
+        "secure_ingest"
+      ],
+      "requestBody": "unknown",
+      "responses": {
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Issue Ticket Api Secure Ingest  Artifact Id  Ticket Post\",\"type\":\"object\"}",
+        "422": "#/components/schemas/HTTPValidationError"
+      }
+    },
+    {
+      "key": "POST /api/secure-ingest/upload",
+      "method": "POST",
+      "path": "/api/secure-ingest/upload",
+      "operationId": "upload_artifact_api_secure_ingest_upload_post",
+      "tags": [
+        "secure_ingest"
+      ],
+      "requestBody": "unknown",
+      "responses": {
+        "200": "#/components/schemas/IngestArtifactV1",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4383,7 +4523,7 @@
       ],
       "requestBody": "#/components/schemas/BriefDecisionAdvanceRequest",
       "responses": {
-        "200": "object",
+        "200": "#/components/schemas/TaskDecisionResponse",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4397,7 +4537,9 @@
       ],
       "requestBody": "#/components/schemas/BriefDecisionAdvanceRequest",
       "responses": {
-        "200": "object",
+        "200": "#/components/schemas/TaskDecisionResponse",
+        "404": "unknown",
+        "409": "unknown",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4411,7 +4553,7 @@
       ],
       "requestBody": "#/components/schemas/ChancellorChatRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4425,7 +4567,7 @@
       ],
       "requestBody": "#/components/schemas/ConfirmEdictRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Confirm Edict Api Shangshufang Confirm Edict Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4439,7 +4581,7 @@
       ],
       "requestBody": "#/components/schemas/DraftEdictRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Draft Edict Api Shangshufang Draft Edict Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4453,7 +4595,7 @@
       ],
       "requestBody": "#/components/schemas/EdictReturnRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Edict Return Api Shangshufang Edict Return Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4467,7 +4609,7 @@
       ],
       "requestBody": "#/components/schemas/FinanceIntelLoopCompleteRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Finance Intel Loop Complete Api Shangshufang Finance Intel Loop Complete Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4481,7 +4623,7 @@
       ],
       "requestBody": "#/components/schemas/FinanceReportingLoopRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Finance Reporting Loop Api Shangshufang Finance Reporting Loop Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4495,7 +4637,7 @@
       ],
       "requestBody": "#/components/schemas/FinanceStatusMemorialRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Finance Status Memorial Api Shangshufang Finance Status Memorial Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4509,7 +4651,7 @@
       ],
       "requestBody": "#/components/schemas/ImPersistRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Im Persist Api Shangshufang Im Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4523,7 +4665,7 @@
       ],
       "requestBody": "#/components/schemas/PackSwarmLoopRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Pack Swarm Loop Api Shangshufang Pack Swarm Loop Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4537,7 +4679,7 @@
       ],
       "requestBody": "#/components/schemas/PolishEdictRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Polish Edict Api Shangshufang Polish Edict Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4551,7 +4693,7 @@
       ],
       "requestBody": "#/components/schemas/ResearchBudgetLoopRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Research Budget Loop Api Shangshufang Research Budget Loop Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4565,7 +4707,26 @@
       ],
       "requestBody": "#/components/schemas/DecisionRequest",
       "responses": {
-        "200": "object",
+        "200": "#/components/schemas/TaskDecisionResponse",
+        "404": "unknown",
+        "409": "unknown",
+        "422": "#/components/schemas/HTTPValidationError"
+      }
+    },
+    {
+      "key": "POST /api/shangshufang/tasks/{task_id}/rework-generations/{generation_id}/evidence",
+      "method": "POST",
+      "path": "/api/shangshufang/tasks/{task_id}/rework-generations/{generation_id}/evidence",
+      "operationId": "bind_rework_generation_evidence_api_shangshufang_tasks__task_id__rework_generations__generation_id__evidence_post",
+      "tags": [
+        "shangshufang"
+      ],
+      "requestBody": "#/components/schemas/EvidenceBindRequest",
+      "responses": {
+        "200": "#/components/schemas/EvidenceBindResponse",
+        "403": "unknown",
+        "404": "unknown",
+        "409": "unknown",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4579,7 +4740,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shangshufang Swarm Deepen Api Shangshufang Tasks  Task Id  Swarm Deepen Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4591,9 +4752,9 @@
       "tags": [
         "governance-compat"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Shiguan Retrospective Api Shiguan Archives  Archive Id  Retrospective Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4605,9 +4766,9 @@
       "tags": [
         "swarm-runs"
       ],
-      "requestBody": "anyOf:#/components/schemas/CreateSwarmRunRequest|null",
+      "requestBody": "inline:{\"anyOf\":[{\"$ref\":\"#/components/schemas/CreateSwarmRunRequest\"},{\"type\":\"null\"}],\"title\":\"Body\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Create Swarm Run Api Swarm Runs Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4621,7 +4782,7 @@
       ],
       "requestBody": "unknown",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Retry Swarm Run Api Swarm Runs  Swarm Run Id  Retry Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4633,9 +4794,9 @@
       "tags": [
         "swarm-runs"
       ],
-      "requestBody": "anyOf:#/components/schemas/SerialLoopRequest|null",
+      "requestBody": "inline:{\"anyOf\":[{\"$ref\":\"#/components/schemas/SerialLoopRequest\"},{\"type\":\"null\"}],\"title\":\"Body\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Create Serial Loop Api Swarm Runs Serial Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4649,7 +4810,7 @@
       ],
       "requestBody": "#/components/schemas/LipuComplianceRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Api Lipu Compliance Report Api Swarm Lipu Compliance Report Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4677,7 +4838,7 @@
       ],
       "requestBody": "#/components/schemas/TaskProtocolPreviewRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Preview Task Protocol Api Task Protocol Preview Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4733,7 +4894,7 @@
       ],
       "requestBody": "#/components/schemas/ProposalCreateRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Create Proposal Api Votes Proposals Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4759,9 +4920,9 @@
       "tags": [
         "yushi"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Body\",\"type\":\"object\"}",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Yushi Review Api Yushi Review Post\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4803,7 +4964,7 @@
       ],
       "requestBody": "#/components/schemas/DeptFlowsRequest",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"type\":\"string\"},\"title\":\"Response Api Set Dept Flows Api Admin Depts  Dept Id  Flows Put\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4817,7 +4978,7 @@
       ],
       "requestBody": "#/components/schemas/UserDeptsRequest",
       "responses": {
-        "200": "array",
+        "200": "inline:{\"items\":{\"$ref\":\"#/components/schemas/DeptRef\"},\"title\":\"Response Api Set User Depts Api Admin Users  User Id  Depts Put\",\"type\":\"array\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4831,7 +4992,7 @@
       ],
       "requestBody": "#/components/schemas/FeatureFlagUpdateRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":{\"type\":\"string\"},\"title\":\"Response Update Feature Flag Api Feature Flags  Name  Put\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },
@@ -4843,7 +5004,7 @@
       "tags": [
         "flows"
       ],
-      "requestBody": "object",
+      "requestBody": "inline:{\"additionalProperties\":true,\"title\":\"Data\",\"type\":\"object\"}",
       "responses": {
         "200": "#/components/schemas/FlowUpdateResponse",
         "422": "#/components/schemas/HTTPValidationError"
@@ -4859,7 +5020,7 @@
       ],
       "requestBody": "#/components/schemas/MemoryUpdateRequest",
       "responses": {
-        "200": "object",
+        "200": "inline:{\"additionalProperties\":true,\"title\":\"Response Memory Update Api Memory  Filename  Put\",\"type\":\"object\"}",
         "422": "#/components/schemas/HTTPValidationError"
       }
     },

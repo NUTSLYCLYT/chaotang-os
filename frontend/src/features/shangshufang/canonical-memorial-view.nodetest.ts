@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { ShangshufangReviewMemorial, ShangshufangTaskStatusResponse } from '@/lib/jiqun-api';
-import { projectCanonicalMemorialView } from './canonical-memorial-view';
+import { canonicalMemorialKind, canonicalMemorialSource, projectCanonicalMemorialView } from './canonical-memorial-view';
 
 function memorial(marker: string, sparse = false): ShangshufangReviewMemorial {
   return {
@@ -159,6 +159,33 @@ test('direct completed displays the backend receipt unchanged', () => {
   assert.equal(body(result, '军机处总回报'), 'review summary');
 });
 
+test('edict recorded with a returned memorial displays the backend candidate instead of staying in dispatch wait', () => {
+  const result = projectCanonicalMemorialView('task-1', status({ taskStatus: 'edict_recorded' }));
+
+  assert.equal(result.kind, 'candidate');
+  assert.equal(result.shouldRetry, false);
+  assert.notEqual(result.view, null);
+  assert.equal(body(result, '军机处总回报'), 'review summary');
+});
+
+test('object risk register entries from the backend do not break candidate projection', () => {
+  const result = projectCanonicalMemorialView('task-1', status({
+    taskStatus: 'edict_recorded',
+    review: {
+      ...memorial('review'),
+      risk_register: [{
+        risk: '预付比例过高',
+        severity: '高',
+        reason: '付款节点需要重设',
+      }] as unknown as string[],
+    },
+  }));
+
+  assert.equal(result.kind, 'candidate');
+  assert.equal(result.shouldRetry, false);
+  assert.match(body(result, '风险与缺证') ?? '', /预付比例过高/);
+});
+
 test('empty backend arrays do not become no-risk, no-conflict, or passed claims', () => {
   const result = projectCanonicalMemorialView('task-1', status({ review: memorial('empty', true) }));
   const text = JSON.stringify(result.view);
@@ -199,4 +226,15 @@ test('rollout off degrades to a terminal safe waiting view', () => {
   assert.equal(result.kind, 'waiting');
   assert.equal(result.view, null);
   assert.equal(result.shouldRetry, false);
+});
+
+test('canonical memorial kind is the single display-priority signal', () => {
+  const formal = projectCanonicalMemorialView('task-1', status({ formal: memorial('formal') }));
+  const candidate = projectCanonicalMemorialView('task-1', status({ taskStatus: 'awaiting_evidence' }));
+
+  assert.equal(canonicalMemorialKind(formal.view), 'formal');
+  assert.equal(canonicalMemorialKind(candidate.view), 'candidate');
+  assert.equal(canonicalMemorialSource(formal.view), 'LIVE_SWARM');
+  assert.equal(canonicalMemorialKind(null), null);
+  assert.equal(canonicalMemorialSource(null), null);
 });

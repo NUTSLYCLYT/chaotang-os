@@ -95,6 +95,7 @@ export function mergeDecisionHome(
         reporter: task.status === 'awaiting_decision' ? '军机处' : '丞相',
         sealDate: task.updated_at || task.created_at,
         decisionOptions: decisionOptionsForTask(task),
+        contractTask: task.contract_task,
         enhancedSuggestion:
           [memorial?.summary, ministryLine].filter(Boolean).join('\n\n') ||
           draft?.refined_edict ||

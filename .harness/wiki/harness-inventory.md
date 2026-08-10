@@ -7,7 +7,8 @@
 - `scripts/new-change.mjs`：根级变更骨架生成器。
 - `.harness/manifest/execution-authority.v1.json`：M0–M10 的失效关闭、未激活执行权威清单。
 - `.harness/contracts/execution-authority.schema.json`：只允许 `AMENDMENT_REQUIRED / INACTIVE` 的 v1 契约。
-- `scripts/execution-authority.mjs` 与 `scripts/lib/execution-authority.mjs`：唯一执行权威命令和 resolver；产品实现前使用 `--authorize`。
+- `scripts/execution-authority.mjs` 与 `scripts/lib/execution-authority.mjs`：`V1_CHECK_INTEGRITY_ONLY_NON_AUTHORIZING`；`node scripts/execution-authority.mjs --check` 只验证失效关闭护栏完整性，不构成产品施工决定，v1 `--authorize` 永远 `STOP`。
+- `scripts/execution-authority-v2.mjs` 与 `scripts/lib/execution-authority-v2.mjs`：`V2_SCOPED_AUTHORIZE_SOLE_PRODUCT_DECISION`；只有 `node scripts/execution-authority-v2.mjs --authorize --work-package <R0-Wxx>` 的 `GO / APPROVED_WORK_PACKAGE` 才是范围化产品施工决定。
 - `.harness/wiki/execution-authority.md`：命令语义、受控摘要重钉流程和 amendment 交接边界。
 
 ## 前端工程 Harness
@@ -53,3 +54,10 @@
 - `.harness/wiki/capability-entry-governance.md`：唯一任务内核、14 天零调用删除门和纵切证据规则。
 - `.harness/manifest/knowledge-quality-rubric.v1.json`：K0B 合同/检索/outcome/成本/时效硬门；当前证据状态 `NO_DATA`。
 - `.harness/contracts/knowledge-quality-rubric.schema.json` 与 `scripts/knowledge-quality-rubric.mjs`：rubric 契约和确定性 PASS/FAIL/NO_DATA/EXPIRED evaluator。
+
+## EXT 分支能力融合治理
+
+- `.harness/manifest/ext-branch-convergence.v1.json`：冻结 2026-08-03 审计得到的 99 个未合入本地分支及其能力族、唯一 donor、处置和 authority 边界。
+- `.harness/contracts/ext-branch-convergence.schema.json`：分支、能力族、处置、状态、checkpoint 和回执字段契约。
+- `scripts/ext-branch-convergence.mjs`：只读 `--check`、`--status`、`--family` CLI；不提供 ref、工作树或 manifest 写入口。
+- `.harness/wiki/ext-branch-capability-convergence.md`：99/99 清算、失败关闭和后续 Packet 权威边界。

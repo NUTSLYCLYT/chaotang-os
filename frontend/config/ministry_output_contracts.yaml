@@ -42,21 +42,16 @@ department_output_contract:
   schema: DepartmentOpinionV1
   required_fields:
     - schema_version
+    - task_id
     - department_id
-    - department_name
-    - role_summary
-    - verdict
     - signal
-    - one_sentence
-    - key_findings
-    - evidence_used
+    - verdict
+    - summary
+    - evidence
     - missing_evidence
     - risks
-    - conflicts
-    - recommended_actions
-    - conditions_to_proceed
-    - needs_human_confirmation
-    - confidence
+    - next_order
+    - human_confirmation_required
     - source_label
   quality_rules:
     - source_label_required
@@ -66,14 +61,14 @@ department_output_contract:
     - conditions_to_proceed_required_when_not_green
 
 department_focus:
-  jinyiwei:
+  jinyiwei_intelligence:
     output_focus:
       - facts_checked
       - source_reliability
       - archive_matches
       - intelligence_gaps
       - watchlist_alerts
-  finance:
+  hubu_cfo:
     output_focus:
       - cash_position
       - cost_margin
@@ -81,7 +76,7 @@ department_focus:
       - roi_assumptions
       - payment_risk
       - downside_case
-  ritual:
+  rites_brand_comms:
     output_focus:
       - audience
       - message_goal
@@ -89,21 +84,21 @@ department_focus:
       - partnership_pitch
       - external_claim_risk
       - message_quality_gate
-  war:
+  bingbu_sales:
     output_focus:
       - customer_decision_chain
       - sales_stage
       - competitive_position
       - campaign_path
       - win_loss_risk
-  personnel:
+  libu_hr_admin:
     output_focus:
       - dri
       - approver
       - raci
       - staffing_need
       - execution_rhythm
-  justice:
+  xingbu_legal_risk:
     output_focus:
       - contract_redlines
       - commitment_risk

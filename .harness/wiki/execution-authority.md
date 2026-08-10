@@ -1,6 +1,6 @@
-# 执行权威 v1
+# 执行权威 v1（完整性护栏）
 
-`execution-authority.v1` 是 M0–M10 开工前的失效关闭护栏，不是产品实施授权。v1 永远保持：
+`execution-authority.v1` 是永久失效关闭的完整性护栏，不是产品实施授权，也不决定任何 work package 是否可以开工。v1 永远保持：
 
 ```text
 status = AMENDMENT_REQUIRED
@@ -12,12 +12,12 @@ activation.effectiveHead = null
 
 ## 命令语义
 
-- `node scripts/execution-authority.mjs --status`：显示当前决定；v1 输出 `STOP`，命令本身成功读取时退出 0。
+- `node scripts/execution-authority.mjs --status`：显示当前否决决定；v1 输出 `STOP`，命令本身成功读取时退出 0。
 - `node scripts/execution-authority.mjs --check`：只证明 inactive guard 的结构、摘要和清单有效；它**不授予施工权**，因此即使退出 0 也不能接产品实现任务。
-- `node scripts/execution-authority.mjs --authorize`：唯一开工查询；v1 必须输出 `STOP` 并退出 2。
+- `node scripts/execution-authority.mjs --authorize`：永久负向诊断；v1 必须输出 `STOP` 并退出 2，不是产品开工查询。
 - 不带参数时按 `--authorize` 处理；传入多个模式或其他多余参数时退出 64，避免把状态查询误当成开工授权。
 
-调用方不得用 `--check && 开工`，也不得只检查命令是否退出 0；产品实现只能消费 `--authorize` 的结构化决定。
+调用方不得用 `--check && 开工`，也不得把 v1 `--authorize` 的 `STOP` 当成可绕过的建议。产品实现先验证 v1 完整性，再且只能消费 `node scripts/execution-authority-v2.mjs --authorize --work-package <R0-Wxx>` 的结构化决定；只有 v2 `GO / APPROVED_WORK_PACKAGE` 授予所请求 package 的范围化施工权。
 
 ## 受控摘要重钉
 
@@ -29,7 +29,7 @@ activation.effectiveHead = null
 2. 说明受管文档为什么变化、谁批准、是否改变产品或执行语义。
 3. 人工确认 v1 的 `status`、`canonicalPlan.state`、`sequence` 和三个 activation 字段完全未变。
 4. 使用 `sha256sum <exact-file>` 只重算实际变更文件，在 manifest 中只修改对应 `sha256`。
-5. 运行 authority suite、CLI、根/前端/后端 doctor 和 diff 检查。
+5. 运行 authority suite、v1 `--check`、对应 v2 scoped `--authorize --work-package`、根/前端/后端 doctor 和 diff 检查。
 6. 冻结 B/H/tree/binary-diff digest，由非实现 Claude Code 会话复核文档变化与摘要。
 7. 托管平台 required check 未配置时，只能声明本地反馈，不能声明 ENFORCED。
 

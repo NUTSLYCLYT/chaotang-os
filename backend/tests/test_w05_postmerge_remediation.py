@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
+from src.db.models import Base
 from web.main import app
 
 _SUPPORTED_SCOPE = {
@@ -27,16 +32,30 @@ class _ProjectionEvent:
     status: str
     payload_json: str | None
     last_error: str | None = None
+    id: str = "legacy-generation-2"
+    generation: int | None = 2
 
 
-def _formalize_task(session_local, task_id: str) -> tuple[str, str]:
+def _formalize_task(session_local, task_id: str, storage_root) -> tuple[str, str]:
+    from src.contract_mission_repository import save_mission_snapshot
     from src.db.models import CourtReview, DecisionTask
     from src.formal_memorial import formalize_memorial
+    from tests.contract_task_support import (
+        contract_mission,
+        contract_review_pack,
+        seed_delivery,
+    )
 
     db = session_local()
     task = db.query(DecisionTask).filter_by(id=task_id).one()
     task.status = "awaiting_decision"
+    task.contract_scope_json = json.dumps(_SUPPORTED_SCOPE)
     review_id = f"review_{task_id}"
+    pack = contract_review_pack(
+        task_id,
+        tenant_id=str(task.tenant_id),
+        court_review_id=review_id,
+    )
     db.add(
         CourtReview(
             id=review_id,
@@ -51,6 +70,7 @@ def _formalize_task(session_local, task_id: str) -> tuple[str, str]:
                     "title": "合同会审正式奏折",
                     "summary": "证据充分，建议有条件通过。",
                     "recommendation": "adopt_with_conditions",
+                    "contract_review": pack,
                 },
                 ensure_ascii=False,
             ),
@@ -58,7 +78,13 @@ def _formalize_task(session_local, task_id: str) -> tuple[str, str]:
             updated_at="2026-07-24T00:00:00+00:00",
         )
     )
-    db.commit()
+    db.flush()
+    save_mission_snapshot(
+        db,
+        task=task,
+        mission=contract_mission(task_id),
+        state="confirmed",
+    )
     formal = formalize_memorial(
         db,
         task_id=task_id,
@@ -77,6 +103,15 @@ def _formalize_task(session_local, task_id: str) -> tuple[str, str]:
                 "warnings": [],
             },
         },
+    )
+    db.flush()
+    seed_delivery(
+        db,
+        storage_root=storage_root,
+        tenant_id=task.tenant_id,
+        task_id=task_id,
+        final=formal,
+        pack=pack,
     )
     content_hash = formal.content_hash
     db.commit()
@@ -139,32 +174,54 @@ def test_request_evidence_snapshots_frozen_scope_into_generation(
     client = TestClient(app)
     task_id = _draft_contract_task(client)
 
-    # Isolate the generation snapshot RED from the draft-ingress RED. The task
-    # itself still came through the public canonical creation route.
+    from src.contract_mission_repository import (
+        load_current_mission_snapshot,
+        save_mission_snapshot,
+    )
     from src.db.models import DecisionTask, OutboxEvent
+    from src.execution.decree_dispatcher import (
+        enqueue_evidence_rework_generation,
+    )
 
     db = isolated_session_local()
-    task = db.query(DecisionTask).filter_by(id=task_id).one()
-    task.contract_scope_json = json.dumps(
-        _SUPPORTED_SCOPE,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
+    task = db.get(DecisionTask, task_id)
+    from tests.contract_task_support import contract_mission
+
+    save_mission_snapshot(
+        db,
+        task=task,
+        mission=contract_mission(task_id),
+        state="confirmed",
+    )
+    mission_snapshot = load_current_mission_snapshot(db, task=task)
+    assert mission_snapshot is not None
+    generation, created = enqueue_evidence_rework_generation(
+        db,
+        task_id=task_id,
+        decision_id=f"decision_{task_id}",
+        prior_final_memorial_content_hash="a" * 64,
+        reason="补充付款条件原文",
+        followup_question=None,
     )
     db.commit()
-    db.close()
 
-    content_hash, _ = _formalize_task(isolated_session_local, task_id)
-    response = _request_evidence(client, task_id, content_hash)
-    generation = response["data"]["rework_generation"]
-
-    assert generation.get("contract_scope") == _SUPPORTED_SCOPE
+    assert created is True
+    assert generation["contract_scope"] == _SUPPORTED_SCOPE
     assert generation["evidence_status"] == "NONE"
-    db = isolated_session_local()
+    assert generation["mission_revision"] == mission_snapshot.mission.revision
+    assert (
+        generation["mission_content_digest"]
+        == mission_snapshot.mission.content_digest
+    )
     stored = db.query(OutboxEvent).filter_by(id=generation["generation_id"]).one()
     stored_payload = json.loads(stored.payload_json)
     assert stored_payload["contract_scope"] == _SUPPORTED_SCOPE
     assert stored_payload["evidence_status"] == "NONE"
+    assert stored_payload["mission_revision"] == mission_snapshot.mission.revision
+    assert (
+        stored_payload["mission_content_digest"]
+        == mission_snapshot.mission.content_digest
+    )
     db.close()
 
 
@@ -179,6 +236,8 @@ def test_request_evidence_snapshots_frozen_scope_into_generation(
 )
 def test_decision_replay_projects_durable_status_into_public_contract(
     isolated_session_local,
+    monkeypatch,
+    tmp_path,
     durable_status,
     payload_status,
     expected_http,
@@ -200,7 +259,12 @@ def test_decision_replay_projects_durable_status_into_public_contract(
     )
     db.commit()
     db.close()
-    content_hash, _ = _formalize_task(isolated_session_local, task_id)
+    monkeypatch.setenv("FENGQUN_RUNTIME_ROOT", str(tmp_path))
+    content_hash, _ = _formalize_task(
+        isolated_session_local,
+        task_id,
+        tmp_path / "artifacts",
+    )
 
     client = TestClient(app)
     first = _request_evidence(client, task_id, content_hash)
@@ -282,13 +346,19 @@ def _generation_payload(
     status: str,
     packet: dict | None = None,
     contract_scope: dict | None = _SUPPORTED_SCOPE,
+    prior_final_memorial_content_hash: str = "a" * 64,
 ) -> dict:
+    from tests.contract_task_support import contract_mission
+
+    mission = contract_mission(task_id)
     payload = {
         "schema_version": "EvidenceReworkGenerationV1",
         "generation_id": generation_id,
         "generation": 2,
         "status": status,
-        "prior_final_memorial_content_hash": "a" * 64,
+        "prior_final_memorial_content_hash": prior_final_memorial_content_hash,
+        "mission_revision": mission.revision,
+        "mission_content_digest": mission.content_digest,
         "evidence_request": {
             "reason": "补充付款条件原文",
             "followup_question": None,
@@ -337,6 +407,34 @@ def test_generation_projection_treats_invalid_payload_as_server_invariant() -> N
     with pytest.raises(RuntimeError, match="invalid payload"):
         project_evidence_rework_generation(
             _ProjectionEvent(status="pending", payload_json="{}")
+        )
+
+
+def test_projection_quarantines_parent_valid_payload_without_mission_identity():
+    from src.evidence_rework_projection import (
+        EvidenceReworkUnavailable,
+        project_evidence_rework_generation,
+    )
+
+    with pytest.raises(EvidenceReworkUnavailable, match="mission identity"):
+        project_evidence_rework_generation(
+            _ProjectionEvent(
+                status="pending",
+                payload_json=json.dumps(
+                    {
+                        "schema_version": "EvidenceReworkGenerationV1",
+                        "generation_id": "legacy-generation-2",
+                        "generation": 2,
+                        "status": "pending",
+                        "prior_final_memorial_content_hash": "a" * 64,
+                        "evidence_request": {
+                            "reason": "父版本生成的合法补证请求",
+                            "followup_question": None,
+                        },
+                        "affected_sections": ["contract_review"],
+                    }
+                ),
+            )
         )
 
 
@@ -415,11 +513,18 @@ def _seed_binding_generation(
     payload_status: str = "awaiting_evidence",
     with_bound_packet: bool = False,
 ):
+    from src.contract_mission_repository import save_mission_snapshot
     from src.db.models import (
+        CourtReview,
         DecisionTask,
+        FinalMemorial,
         OutboxEvent,
         SecureIngestArtifact,
         SecureIngestAuditEvent,
+    )
+    from tests.contract_task_support import (
+        contract_mission,
+        contract_review_pack,
     )
 
     db = session_local()
@@ -430,25 +535,75 @@ def _seed_binding_generation(
         text="付款应在验收完成后七日内支付。",
         created_at="2026-07-24T00:01:00+00:00",
     )
+    task = DecisionTask(
+        id=task_id,
+        tenant_id=1,
+        user_id="1",
+        raw_question="复核采购合同",
+        status="awaiting_evidence",
+        source_label="LIVE",
+        contract_scope_json=json.dumps(
+            {
+                "schema_version": "ContractIntakeV1",
+                "jurisdiction": "CN_MAINLAND",
+                "language": "zh-CN",
+                "contract_type": "procurement",
+                "our_role": "buyer",
+                "legal_question": "contract_risk_screening",
+            }
+        )
+    )
+    db.add(task)
+    db.flush()
+    review_id = f"review_{task_id}"
+    mission = contract_mission(task_id)
+    pack = contract_review_pack(
+        task_id,
+        tenant_id="1",
+        court_review_id=review_id,
+    )
+    memorial_json = json.dumps(
+        {"contract_review": pack},
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    prior_final_hash = hashlib.sha256(memorial_json.encode("utf-8")).hexdigest()
     db.add(
-        DecisionTask(
-            id=task_id,
+        CourtReview(
+            id=review_id,
             tenant_id=1,
-            user_id="1",
-            raw_question="复核采购合同",
+            task_id=task_id,
+            routing_plan_json="{}",
+            review_status="awaiting_evidence",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json=memorial_json,
+            created_at="2026-07-24T00:00:00+00:00",
+            updated_at="2026-07-24T00:00:00+00:00",
+        )
+    )
+    db.add(
+        FinalMemorial(
+            id=f"final_{task_id}",
+            tenant_id=1,
+            task_id=task_id,
+            review_id=review_id,
+            swarm_run_id=f"swarm_{task_id}",
+            quality_result_id=f"quality_{task_id}",
             status="awaiting_evidence",
             source_label="LIVE",
-            contract_scope_json=json.dumps(
-                {
-                    "schema_version": "ContractIntakeV1",
-                    "jurisdiction": "CN_MAINLAND",
-                    "language": "zh-CN",
-                    "contract_type": "procurement",
-                    "our_role": "buyer",
-                    "legal_question": "contract_risk_screening",
-                }
-            ),
+            memorial_json=memorial_json,
+            content_hash=prior_final_hash,
+            version=1,
+            is_current=True,
         )
+    )
+    save_mission_snapshot(
+        db,
+        task=task,
+        mission=mission,
+        state="confirmed",
     )
     db.add(artifact)
     generation_id = f"generation_{task_id}"
@@ -462,7 +617,7 @@ def _seed_binding_generation(
             "task_id": task_id,
             "input_version_id": artifact.id,
             "input_digest": artifact.digest_sha256,
-            "prior_final_memorial_content_hash": "a" * 64,
+            "prior_final_memorial_content_hash": prior_final_hash,
             "generation": 2,
             "evidence_status": "GROUNDED",
             "source_kind": "USER_UPLOAD",
@@ -501,6 +656,7 @@ def _seed_binding_generation(
                     task_id=task_id,
                     status=payload_status,
                     packet=packet,
+                    prior_final_memorial_content_hash=prior_final_hash,
                 )
             ),
             created_at="2026-07-24T00:00:00+00:00",
@@ -518,7 +674,12 @@ def test_first_evidence_bind_queues_durable_event_and_projects_evidence_status(
     tmp_path,
     w05_contract_user,
 ):
-    from src.db.models import OutboxEvent, SecureIngestAuditEvent
+    from src.contract_task_projection import project_contract_task
+    from src.db.models import (
+        DecisionTask,
+        OutboxEvent,
+        SecureIngestAuditEvent,
+    )
 
     task_id = "task_first_bind_pending"
     generation_id, artifact_id = _seed_binding_generation(
@@ -535,7 +696,7 @@ def test_first_evidence_bind_queues_durable_event_and_projects_evidence_status(
         json={"artifact_id": artifact_id},
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.json()
     payload = response.json()
     assert payload["success"] is True, payload
     assert payload["data"]["evidence_packet"]["evidence_status"] == "GROUNDED"
@@ -545,7 +706,495 @@ def test_first_evidence_bind_queues_durable_event_and_projects_evidence_status(
     event = db.query(OutboxEvent).filter_by(id=generation_id).one()
     assert event.status == "pending"
     assert db.query(SecureIngestAuditEvent).filter_by(task_id=task_id).count() == 1
+    model = project_contract_task(
+        db,
+        storage_root=tmp_path,
+        task=db.get(DecisionTask, task_id),
+    )
+    assert model.allowed_actions == ["REFRESH_REVIEW"]
     db.close()
+
+
+def test_evidence_bind_requires_server_submit_evidence_before_any_write(
+    isolated_session_local,
+    tmp_path,
+    w05_contract_user,
+):
+    from src.db.models import DecisionTask, OutboxEvent, SecureIngestAuditEvent
+
+    task_id = "task_bind_without_server_action"
+    generation_id, artifact_id = _seed_binding_generation(
+        isolated_session_local,
+        tmp_path=tmp_path,
+        task_id=task_id,
+    )
+    db = isolated_session_local()
+    db.get(DecisionTask, task_id).status = "task_cancelled"
+    db.commit()
+    before_event = tuple(
+        getattr(db.get(OutboxEvent, generation_id), column.name)
+        for column in OutboxEvent.__table__.columns
+    )
+    before_audits = (
+        db.query(SecureIngestAuditEvent).filter_by(task_id=task_id).count()
+    )
+    db.close()
+
+    response = TestClient(app).post(
+        (
+            f"/api/shangshufang/tasks/{task_id}/rework-generations/"
+            f"{generation_id}/evidence"
+        ),
+        json={"artifact_id": artifact_id},
+    )
+
+    assert response.status_code == 409, response.json()
+    assert "SUBMIT_EVIDENCE" in response.json()["error"]
+    db = isolated_session_local()
+    after_event = tuple(
+        getattr(db.get(OutboxEvent, generation_id), column.name)
+        for column in OutboxEvent.__table__.columns
+    )
+    assert after_event == before_event
+    assert (
+        db.query(SecureIngestAuditEvent).filter_by(task_id=task_id).count()
+        == before_audits
+    )
+    db.close()
+
+
+def test_evidence_bind_locks_task_before_server_authority_projection(
+    isolated_session_local,
+    tmp_path,
+    w05_contract_user,
+    monkeypatch,
+):
+    from src import contract_task_projection
+    from src.db.models import OutboxEvent, SecureIngestAuditEvent
+
+    task_id = "task_bind_authority_lock"
+    generation_id, artifact_id = _seed_binding_generation(
+        isolated_session_local,
+        tmp_path=tmp_path,
+        task_id=task_id,
+    )
+    db = isolated_session_local()
+    before_event = tuple(
+        getattr(db.get(OutboxEvent, generation_id), column.name)
+        for column in OutboxEvent.__table__.columns
+    )
+    before_audits = (
+        db.query(SecureIngestAuditEvent).filter_by(task_id=task_id).count()
+    )
+    db.close()
+
+    locked_task_ids: list[str] = []
+
+    def record_task_lock(_db, locked_task_id: str) -> None:
+        locked_task_ids.append(locked_task_id)
+
+    def authority_probe(*_args, **_kwargs):
+        if locked_task_ids != [task_id]:
+            raise RuntimeError("SUBMIT_EVIDENCE authority projected before task lock")
+        raise RuntimeError("SUBMIT_EVIDENCE authority projected after task lock")
+
+    monkeypatch.setattr(
+        "src.decision_task_access.lock_decision_task",
+        record_task_lock,
+    )
+    monkeypatch.setattr(
+        contract_task_projection,
+        "project_contract_task",
+        authority_probe,
+    )
+
+    response = TestClient(app).post(
+        (
+            f"/api/shangshufang/tasks/{task_id}/rework-generations/"
+            f"{generation_id}/evidence"
+        ),
+        json={"artifact_id": artifact_id},
+    )
+
+    assert response.status_code == 500
+    assert response.json()["error"] == (
+        "SUBMIT_EVIDENCE authority projected after task lock"
+    )
+    assert locked_task_ids == [task_id]
+    db = isolated_session_local()
+    after_event = tuple(
+        getattr(db.get(OutboxEvent, generation_id), column.name)
+        for column in OutboxEvent.__table__.columns
+    )
+    assert after_event == before_event
+    assert (
+        db.query(SecureIngestAuditEvent).filter_by(task_id=task_id).count()
+        == before_audits
+    )
+    db.close()
+
+
+def test_swarm_deepen_locks_task_before_refresh_authority_projection(
+    isolated_session_local,
+    tmp_path,
+    w05_contract_user,
+    monkeypatch,
+):
+    from src.db.models import DecisionTask
+    from web.routers import shangshufang
+
+    task_id = "task_refresh_authority_lock"
+    _seed_binding_generation(
+        isolated_session_local,
+        tmp_path=tmp_path,
+        task_id=task_id,
+        durable_status="pending",
+        payload_status="evidence_bound",
+        with_bound_packet=True,
+    )
+    db = isolated_session_local()
+    before = tuple(
+        getattr(db.get(DecisionTask, task_id), column.name)
+        for column in DecisionTask.__table__.columns
+    )
+    db.close()
+
+    locked_task_ids: list[str] = []
+
+    def record_task_lock(_db, locked_task_id: str) -> None:
+        locked_task_ids.append(locked_task_id)
+
+    def authority_probe(_db, *, task, required_action):
+        assert required_action == "REFRESH_REVIEW"
+        if locked_task_ids != [task.id]:
+            raise RuntimeError("REFRESH_REVIEW authority projected before task lock")
+        raise RuntimeError("REFRESH_REVIEW authority projected after task lock")
+
+    monkeypatch.setattr(
+        "src.decision_task_access.lock_decision_task",
+        record_task_lock,
+    )
+    monkeypatch.setattr(
+        shangshufang,
+        "_contract_route_action_error",
+        authority_probe,
+    )
+
+    response = TestClient(app).post(
+        f"/api/shangshufang/tasks/{task_id}/swarm-deepen"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["success"] is False
+    assert response.json()["error"] == (
+        "REFRESH_REVIEW authority projected after task lock"
+    )
+    assert locked_task_ids == [task_id]
+    db = isolated_session_local()
+    after = tuple(
+        getattr(db.get(DecisionTask, task_id), column.name)
+        for column in DecisionTask.__table__.columns
+    )
+    assert after == before
+    db.close()
+
+
+def test_swarm_deepen_uses_current_final_memorial_review_not_newest_review(
+    isolated_session_local,
+    tmp_path,
+    w05_contract_user,
+    monkeypatch,
+):
+    from src.db.models import CourtReview, DecisionTask
+    from web.routers import shangshufang
+
+    task_id = "task_refresh_exact_review"
+    _seed_binding_generation(
+        isolated_session_local,
+        tmp_path=tmp_path,
+        task_id=task_id,
+        durable_status="pending",
+        payload_status="evidence_bound",
+        with_bound_packet=True,
+    )
+    authoritative_review_id = f"review_{task_id}"
+    newer_review_id = f"review_newer_{task_id}"
+    db = isolated_session_local()
+    db.add(
+        CourtReview(
+            id=newer_review_id,
+            tenant_id=2,
+            task_id=task_id,
+            routing_plan_json='{"route":{"mode":"cluster"}}',
+            review_status="reviewing",
+            ministry_outputs_json="[]",
+            conflict_summary_json="[]",
+            memorial_json="{}",
+            created_at="2026-07-24T00:02:00+00:00",
+            updated_at="2026-07-24T00:02:00+00:00",
+        )
+    )
+    db.commit()
+    before_task = tuple(
+        getattr(db.get(DecisionTask, task_id), column.name)
+        for column in DecisionTask.__table__.columns
+    )
+    db.close()
+
+    selected_review_ids: list[str] = []
+
+    def stop_after_review_selection(params):
+        selected_review_ids.append(params["review_id"])
+        raise RuntimeError("review selection probe")
+
+    monkeypatch.setattr(
+        shangshufang,
+        "_run_swarm_execution_loop_sync",
+        stop_after_review_selection,
+    )
+
+    response = TestClient(app).post(
+        f"/api/shangshufang/tasks/{task_id}/swarm-deepen"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["success"] is False
+    assert response.json()["error"] == "review selection probe"
+    assert selected_review_ids == [authoritative_review_id]
+    db = isolated_session_local()
+    after_task = tuple(
+        getattr(db.get(DecisionTask, task_id), column.name)
+        for column in DecisionTask.__table__.columns
+    )
+    assert after_task == before_task
+    assert db.get(CourtReview, newer_review_id).tenant_id == 2
+    db.close()
+
+
+def test_evidence_bind_holds_real_task_lock_through_authority_and_publication(
+    tmp_path,
+    monkeypatch,
+    w05_contract_user,
+):
+    from src import contract_task_projection
+    from src.contract_mission_repository import save_mission_snapshot
+    from tests.contract_task_support import contract_mission
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'evidence-bind-task-lock.db'}",
+        connect_args={"check_same_thread": False, "timeout": 10},
+    )
+    Base.metadata.create_all(engine)
+    test_session = sessionmaker(
+        bind=engine,
+        autocommit=False,
+        autoflush=False,
+        expire_on_commit=False,
+    )
+    engine_module = importlib.import_module("src.db.engine")
+    monkeypatch.setattr(engine_module, "SessionLocal", test_session)
+
+    task_id = "task_bind_real_task_lock"
+    generation_id, artifact_id = _seed_binding_generation(
+        test_session,
+        tmp_path=tmp_path,
+        task_id=task_id,
+    )
+    authority_reached = threading.Event()
+    release_authority = threading.Event()
+    writer_started = threading.Event()
+    writer_finished = threading.Event()
+    errors: list[BaseException] = []
+    responses = []
+    original_projection = contract_task_projection.project_contract_task
+
+    def pause_authority(*args, **kwargs):
+        authority_reached.set()
+        assert release_authority.wait(timeout=5)
+        return original_projection(*args, **kwargs)
+
+    monkeypatch.setattr(
+        contract_task_projection,
+        "project_contract_task",
+        pause_authority,
+    )
+
+    def bind_evidence() -> None:
+        try:
+            responses.append(
+                TestClient(app).post(
+                    (
+                        f"/api/shangshufang/tasks/{task_id}/rework-generations/"
+                        f"{generation_id}/evidence"
+                    ),
+                    json={"artifact_id": artifact_id},
+                )
+            )
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    def publish_new_mission() -> None:
+        try:
+            writer_started.set()
+            db = test_session()
+            task = db.get(
+                importlib.import_module("src.db.models").DecisionTask,
+                task_id,
+            )
+            mission = contract_mission(task_id).model_copy(update={"revision": 2})
+            save_mission_snapshot(
+                db,
+                task=task,
+                mission=mission,
+                state="confirmed",
+            )
+            db.commit()
+            db.close()
+            writer_finished.set()
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    bind_thread = threading.Thread(target=bind_evidence)
+    bind_thread.start()
+    assert authority_reached.wait(timeout=5)
+    writer_thread = threading.Thread(target=publish_new_mission)
+    writer_thread.start()
+    assert writer_started.wait(timeout=5)
+    assert not writer_finished.wait(timeout=0.25)
+    release_authority.set()
+    bind_thread.join(timeout=10)
+    writer_thread.join(timeout=10)
+
+    assert not errors
+    assert len(responses) == 1
+    assert responses[0].status_code == 200, responses[0].text
+    assert writer_finished.is_set()
+    Base.metadata.drop_all(engine)
+    engine.dispose()
+
+
+def test_swarm_deepen_holds_real_task_lock_through_execution_and_publication(
+    tmp_path,
+    monkeypatch,
+    w05_contract_user,
+):
+    from src.contract_mission_repository import save_mission_snapshot
+    from src.db.models import DecisionTask
+    from tests.contract_task_support import contract_mission
+    from web.routers import shangshufang
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'swarm-deepen-task-lock.db'}",
+        connect_args={"check_same_thread": False, "timeout": 10},
+    )
+    Base.metadata.create_all(engine)
+    test_session = sessionmaker(
+        bind=engine,
+        autocommit=False,
+        autoflush=False,
+        expire_on_commit=False,
+    )
+    engine_module = importlib.import_module("src.db.engine")
+    monkeypatch.setattr(engine_module, "SessionLocal", test_session)
+
+    task_id = "task_swarm_real_task_lock"
+    _seed_binding_generation(
+        test_session,
+        tmp_path=tmp_path,
+        task_id=task_id,
+        durable_status="pending",
+        payload_status="evidence_bound",
+        with_bound_packet=True,
+    )
+    swarm_reached = threading.Event()
+    release_swarm = threading.Event()
+    writer_started = threading.Event()
+    writer_finished = threading.Event()
+    errors: list[BaseException] = []
+    responses = []
+
+    def pause_swarm(params):
+        swarm_reached.set()
+        assert release_swarm.wait(timeout=5)
+        return {
+            "swarm_run": {
+                "id": f"swarm_refresh_{task_id}",
+                "task_id": task_id,
+                "review_id": params["review_id"],
+                "source_label": "LIVE_SWARM",
+                "status": "completed",
+                "trace_id": f"trace_{task_id}",
+                "route_plan": {"selected_swarms": []},
+            },
+            "quality_result": {
+                "id": f"quality_refresh_{task_id}",
+                "passed": True,
+                "blocking_reasons": [],
+            },
+        }
+
+    monkeypatch.setattr(
+        shangshufang,
+        "_run_swarm_execution_loop_sync",
+        pause_swarm,
+    )
+    monkeypatch.setattr(
+        shangshufang,
+        "persist_swarm_execution_result",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        shangshufang,
+        "attach_swarm_result_to_review",
+        lambda *_args, **_kwargs: None,
+    )
+
+    def refresh_review() -> None:
+        try:
+            responses.append(
+                TestClient(app).post(
+                    f"/api/shangshufang/tasks/{task_id}/swarm-deepen"
+                )
+            )
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    def publish_new_mission() -> None:
+        try:
+            writer_started.set()
+            db = test_session()
+            task = db.get(DecisionTask, task_id)
+            mission = contract_mission(task_id).model_copy(update={"revision": 2})
+            save_mission_snapshot(
+                db,
+                task=task,
+                mission=mission,
+                state="confirmed",
+            )
+            db.commit()
+            db.close()
+            writer_finished.set()
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    refresh_thread = threading.Thread(target=refresh_review)
+    refresh_thread.start()
+    assert swarm_reached.wait(timeout=5)
+    writer_thread = threading.Thread(target=publish_new_mission)
+    writer_thread.start()
+    assert writer_started.wait(timeout=5)
+    assert not writer_finished.wait(timeout=0.25)
+    release_swarm.set()
+    refresh_thread.join(timeout=10)
+    writer_thread.join(timeout=10)
+
+    assert not errors
+    assert len(responses) == 1
+    assert responses[0].status_code == 200, responses[0].text
+    assert responses[0].json()["success"] is True, responses[0].json()
+    assert writer_finished.is_set()
+    Base.metadata.drop_all(engine)
+    engine.dispose()
 
 
 @pytest.mark.parametrize(
@@ -715,8 +1364,6 @@ def test_worker_revalidates_tampered_artifact_and_quality_blocks(
     w05_contract_user,
 ):
     from src.db.models import (
-        CourtReview,
-        FinalMemorial,
         OutboxEvent,
         SecureIngestArtifact,
     )
@@ -728,23 +1375,6 @@ def test_worker_revalidates_tampered_artifact_and_quality_blocks(
         tmp_path=tmp_path,
         task_id=task_id,
     )
-    db = isolated_session_local()
-    db.add(
-        CourtReview(
-            id=f"review_{task_id}",
-            tenant_id=1,
-            task_id=task_id,
-            routing_plan_json="{}",
-            review_status="awaiting_evidence",
-            ministry_outputs_json="[]",
-            conflict_summary_json="[]",
-            memorial_json="{}",
-            created_at="2026-07-24T00:00:00+00:00",
-            updated_at="2026-07-24T00:00:00+00:00",
-        )
-    )
-    db.commit()
-    db.close()
 
     client = TestClient(app)
     bound = client.post(
@@ -777,7 +1407,7 @@ def test_worker_revalidates_tampered_artifact_and_quality_blocks(
     assert generation["status"] == "quality_blocked"
     assert generation["evidence_status"] == "STALE"
     assert generation["evidence_packets"][0]["evidence_status"] == "STALE"
-    assert db.query(FinalMemorial).filter_by(task_id=task_id).count() == 0
+    _assert_only_prior_final(db, task_id)
     db.close()
 
 
@@ -785,6 +1415,9 @@ def _seed_rework_review(session_local, task_id: str) -> None:
     from src.db.models import CourtReview
 
     db = session_local()
+    if db.get(CourtReview, f"review_{task_id}") is not None:
+        db.close()
+        return
     db.add(
         CourtReview(
             id=f"review_{task_id}",
@@ -801,6 +1434,21 @@ def _seed_rework_review(session_local, task_id: str) -> None:
     )
     db.commit()
     db.close()
+
+
+def _assert_only_prior_final(db, task_id: str) -> None:
+    from src.db.models import FinalMemorial
+
+    finals = (
+        db.query(FinalMemorial)
+        .filter_by(task_id=task_id)
+        .order_by(FinalMemorial.version.asc())
+        .all()
+    )
+    assert [
+        (row.version, row.status, row.is_current)
+        for row in finals
+    ] == [(1, "awaiting_evidence", True)]
 
 
 @pytest.mark.parametrize("durable_status", ["failed", "dead_letter", "superseded"])
@@ -1148,7 +1796,7 @@ def test_equivalent_partial_scope_is_normalized_before_bind_comparison(
 
 
 @pytest.mark.parametrize("legal_question", [None, "UNSUPPORTED_OR_UNKNOWN"])
-def test_worker_fails_closed_when_only_legal_question_is_not_supported(
+def test_worker_fences_scope_that_no_longer_matches_confirmed_mission(
     isolated_session_local,
     tmp_path,
     w05_contract_user,
@@ -1176,6 +1824,7 @@ def test_worker_fails_closed_when_only_legal_question_is_not_supported(
     payload = json.loads(event.payload_json)
     payload["contract_scope"] = scope
     event.payload_json = json.dumps(payload)
+    review_before = db.get(CourtReview, f"review_{task_id}").memorial_json
     db.commit()
     db.close()
     _seed_rework_review(isolated_session_local, task_id)
@@ -1193,18 +1842,15 @@ def test_worker_fails_closed_when_only_legal_question_is_not_supported(
     result = process_event(worker_db, generation_id)
     worker_db.close()
 
-    assert result["status"] == "completed", result
-    assert result["result"]["quality_gate_status"] == "FAILED"
-    assert "contract_scope_requires_legal_review" in result["result"]["gate_reasons"]
+    assert result["status"] == "superseded", result
+    assert result["result"]["fenced"] is True
+    assert result["result"]["reason"] == "mission_scope_changed"
     db = isolated_session_local()
     event = db.query(OutboxEvent).filter_by(id=generation_id).one()
-    generation = json.loads(event.payload_json)
-    assert generation["status"] == "quality_blocked"
+    assert event.status == "superseded"
     review = db.query(CourtReview).filter_by(task_id=task_id).one()
-    pack = json.loads(review.memorial_json)["contract_review"]
-    assert pack["verdict"] == "NEED_LEGAL_REVIEW"
-    assert pack["legal_question"] == "UNSUPPORTED_OR_UNKNOWN"
-    assert db.query(FinalMemorial).filter_by(task_id=task_id).count() == 0
+    assert review.memorial_json == review_before
+    _assert_only_prior_final(db, task_id)
     db.close()
 
 
@@ -1279,7 +1925,7 @@ def test_worker_never_promotes_conflicted_packet_and_allows_monotonic_degradatio
     generation = json.loads(event.payload_json)
     assert generation["evidence_status"] == expected_status
     assert generation["evidence_packets"][0]["evidence_status"] == expected_status
-    assert db.query(FinalMemorial).filter_by(task_id=task_id).count() == 0
+    _assert_only_prior_final(db, task_id)
     assert older_artifact_id != selected_artifact_id
     db.close()
 
@@ -1342,7 +1988,7 @@ def test_worker_does_not_promote_conflict_after_sibling_disappears_without_human
     generation = json.loads(event.payload_json)
     assert generation["evidence_status"] == "CONFLICTED"
     assert generation["evidence_packets"][0]["evidence_status"] == "CONFLICTED"
-    assert db.query(FinalMemorial).filter_by(task_id=task_id).count() == 0
+    _assert_only_prior_final(db, task_id)
     db.close()
 
 
@@ -1454,5 +2100,5 @@ def test_worker_digest_drift_between_classification_and_read_quality_blocks(
     assert generation["evidence_status"] == "STALE"
     assert generation["evidence_packets"][0]["evidence_status"] == "STALE"
     assert generation["status"] == "quality_blocked"
-    assert db.query(FinalMemorial).filter_by(task_id=task_id).count() == 0
+    _assert_only_prior_final(db, task_id)
     db.close()

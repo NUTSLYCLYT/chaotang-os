@@ -27,6 +27,7 @@ def _seed_mapping(
     task_id: str,
     run_id: str,
     user_id: str = "1",
+    tenant_id: int = 1,
     final_ready: bool = False,
 ) -> None:
     with session_factory() as db:
@@ -34,6 +35,7 @@ def _seed_mapping(
             DecisionTask(
                 id=task_id,
                 user_id=user_id,
+                tenant_id=tenant_id,
                 raw_question="正式任务",
                 status="awaiting_decision",
                 source_label="MIXED",
@@ -98,6 +100,39 @@ def test_review_rejects_other_users_task(isolated_session_local, monkeypatch, tm
     assert "无权" in response.json()["error"]
     with isolated_session_local() as db:
         assert db.query(EmperorDecision).count() == 0
+
+
+def test_review_rejects_same_user_from_another_tenant(
+    isolated_session_local,
+    monkeypatch,
+    tmp_path,
+):
+    import src.chaotang_store as store
+    import web.routers.chaotang as chaotang
+
+    monkeypatch.setattr(store, "_DATA_ROOT", tmp_path)
+    monkeypatch.setattr(chaotang, "load_run", lambda run_id: _Run())
+    _seed_mapping(
+        isolated_session_local,
+        task_id="review_other_tenant_task",
+        run_id="run_other_tenant",
+        user_id="1",
+        tenant_id=2,
+    )
+
+    response = TestClient(app).post(
+        "/api/chaotang/memorials/run_other_tenant/review",
+        json={"action": "reject", "comment": "跨租户越权"},
+    )
+
+    assert response.json()["success"] is False
+    assert "无权" in response.json()["error"]
+    with isolated_session_local() as db:
+        assert db.query(EmperorDecision).count() == 0
+        assert (
+            db.get(DecisionTask, "review_other_tenant_task").status
+            == "awaiting_decision"
+        )
 
 
 def test_inquire_enters_formal_evidence_state(isolated_session_local, monkeypatch, tmp_path):

@@ -1,0 +1,828 @@
+from __future__ import annotations
+
+import json
+from datetime import datetime, timedelta, timezone
+
+from src.artifacts.delivery import render_one_artifact
+from src.contract_mission_repository import save_mission_snapshot
+from src.contract_task_projection import project_contract_task
+from src.contracts.artifact_manifest import (
+    ArtifactManifestV1,
+    canonical_manifest_hash,
+)
+from src.db.models import ArtifactDeliveryItem, ArtifactManifest, CourtReview
+from tests.contract_task_support import (
+    contract_mission,
+    contract_review_pack,
+    seed_contract_task,
+    seed_delivery,
+    seed_exact_archive,
+    seed_final_memorial,
+)
+
+
+def test_exact_ready_lineage_projects_verified_downloads(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db)
+        task_id = task.id
+        final, pack = seed_final_memorial(db, task_id=task.id)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        db.commit()
+
+    with isolated_session_local() as db:
+        from src.db.models import DecisionTask
+
+        task = db.get(DecisionTask, task_id)
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.review_pack.mission_contract_id == task_id
+    assert model.source_class == "ADJUDICABLE"
+    assert model.delivery.overall_status == "READY"
+    assert {item.kind for item in model.delivery.artifacts} == {
+        "PDF",
+        "DOCX",
+        "JSON",
+    }
+    assert all(item.download_url for item in model.delivery.artifacts)
+    assert model.allowed_actions == ["DOWNLOAD_ARTIFACT", "DECIDE"]
+    serialized = model.model_dump(mode="json")
+    assert "resume_token_hash" not in str(serialized)
+    assert "idempotency_key_hash" not in str(serialized)
+    assert "storage_path" not in str(serialized)
+
+
+def test_missing_persisted_review_blocks_decide_projection(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-missing-persisted-review")
+        final, pack = seed_final_memorial(
+            db,
+            task_id=task.id,
+            seed_review=False,
+        )
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.allowed_actions == []
+    assert "LINEAGE_CONFLICT" in {item.code for item in model.blockers}
+    assert model.review_pack is None
+    assert model.final_memorial is None
+    assert model.delivery is None
+
+
+def test_awaiting_evidence_requires_bound_generation_before_refresh(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    from src.db.models import SecureIngestArtifact
+
+    task_id = "task-uploaded-evidence-not-bound"
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id=task_id)
+        task.status = "awaiting_evidence"
+        db.add(
+            SecureIngestArtifact(
+                id=f"artifact-{task_id}",
+                tenant_id=task.tenant_id,
+                user_id=task.user_id,
+                mission_contract_id=task.id,
+                original_filename="evidence.docx",
+                declared_content_type=(
+                    "application/vnd.openxmlformats-officedocument."
+                    "wordprocessingml.document"
+                ),
+                detected_format="DOCX",
+                file_size_bytes=16,
+                digest_sha256="a" * 64,
+                status="ACCEPTED",
+                storage_path=str(tmp_path / "evidence.docx"),
+            )
+        )
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.allowed_actions == ["SUBMIT_EVIDENCE"]
+    assert [item.code for item in model.blockers] == ["EVIDENCE_INCOMPLETE"]
+
+
+def test_awaiting_evidence_uses_only_latest_generation_binding(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    from src.db.models import OutboxEvent
+
+    with isolated_session_local() as db:
+        task = seed_contract_task(
+            db,
+            task_id="task-latest-generation-binding-only",
+        )
+        task.status = "awaiting_evidence"
+        mission = contract_mission(task.id)
+        base_payload = {
+            "schema_version": "EvidenceReworkGenerationV1",
+            "prior_final_memorial_content_hash": "a" * 64,
+            "mission_revision": mission.revision,
+            "mission_content_digest": mission.content_digest,
+            "evidence_request": {
+                "reason": "补充付款条件原文",
+                "followup_question": None,
+            },
+            "affected_sections": ["contract_review"],
+            "contract_scope": {
+                "schema_version": "ContractIntakeV1",
+                "jurisdiction": "CN_MAINLAND",
+                "language": "zh-CN",
+                "contract_type": "procurement",
+                "our_role": "buyer",
+                "legal_question": "contract_risk_screening",
+            },
+        }
+        bound_packet = {
+            "schema_version": "EvidencePacketV1",
+            "evidence_packet_id": "evidence-old-generation",
+            "tenant_id": task.tenant_id,
+            "task_id": task.id,
+            "input_version_id": "artifact-old-generation",
+            "input_digest": "b" * 64,
+            "prior_final_memorial_content_hash": "a" * 64,
+            "generation": 2,
+            "evidence_status": "GROUNDED",
+            "source_kind": "USER_UPLOAD",
+            "source_ref": "artifact-old-generation",
+            "content_hash": "b" * 64,
+            "verification_receipt_id": "receipt-old-generation",
+        }
+        db.add_all(
+            [
+                OutboxEvent(
+                    id="generation-old-bound",
+                    tenant_id=task.tenant_id,
+                    task_id=task.id,
+                    decision_id="decision-old-bound",
+                    event_type="evidence.rework",
+                    generation=2,
+                    idempotency_key="evidence-rework:old-bound",
+                    status="pending",
+                    attempts=0,
+                    max_attempts=3,
+                    payload_json=json.dumps(
+                        {
+                            **base_payload,
+                            "generation_id": "generation-old-bound",
+                            "generation": 2,
+                            "status": "evidence_bound",
+                            "evidence_packets": [bound_packet],
+                        }
+                    ),
+                ),
+                OutboxEvent(
+                    id="generation-current-unbound",
+                    tenant_id=task.tenant_id,
+                    task_id=task.id,
+                    decision_id="decision-current-unbound",
+                    event_type="evidence.rework",
+                    generation=3,
+                    idempotency_key="evidence-rework:current-unbound",
+                    status="awaiting_evidence",
+                    attempts=0,
+                    max_attempts=3,
+                    payload_json=json.dumps(
+                        {
+                            **base_payload,
+                            "generation_id": "generation-current-unbound",
+                            "generation": 3,
+                            "status": "awaiting_evidence",
+                        }
+                    ),
+                ),
+            ]
+        )
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.allowed_actions == ["SUBMIT_EVIDENCE"]
+    assert [item.code for item in model.blockers] == ["EVIDENCE_INCOMPLETE"]
+
+
+def test_mission_and_review_pack_business_scope_must_match(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-pack-business-drift")
+        pack = contract_review_pack(task.id)
+        pack["contract_type"] = "sales"
+        pack["our_role"] = "seller"
+        final, pack = seed_final_memorial(db, task_id=task.id, pack=pack)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.review_pack is None
+    assert model.delivery is None
+    assert model.allowed_actions == []
+    assert "LINEAGE_CONFLICT" in {item.code for item in model.blockers}
+
+
+def test_mission_revision_and_digest_must_match_review_pack(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-mission-revised")
+        final, pack = seed_final_memorial(db, task_id=task.id)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        original = contract_mission(task.id)
+        revised = original.model_copy(
+            update={
+                "revision": 2,
+                "goal": original.goal.model_copy(
+                    update={"biggest_concern": "修订后的责任边界"}
+                ),
+            }
+        )
+        save_mission_snapshot(
+            db,
+            task=task,
+            mission=revised,
+            state="confirmed",
+        )
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.review_pack is None
+    assert model.final_memorial is None
+    assert model.delivery is None
+    assert model.allowed_actions == []
+    assert "LINEAGE_CONFLICT" in {item.code for item in model.blockers}
+
+
+def test_reviewing_exact_review_blocks_ready_final_decision(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-reviewing-review")
+        final, pack = seed_final_memorial(db, task_id=task.id)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        review = db.get(CourtReview, final.review_id)
+        review.review_status = "reviewing"
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.allowed_actions == []
+    assert "LINEAGE_CONFLICT" in {item.code for item in model.blockers}
+
+
+def test_expired_w06_artifact_projects_typed_fail_closed_delivery(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-expired-artifact")
+        final, pack = seed_final_memorial(db, task_id=task.id)
+        delivery = seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        expired = (
+            db.query(ArtifactDeliveryItem)
+            .filter_by(
+                manifest_id=delivery.manifest.manifest_id,
+                kind="PDF",
+            )
+            .one()
+        )
+        expired.state = "EXPIRED"
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    expired_public = next(
+        item for item in model.delivery.artifacts if item.kind == "PDF"
+    )
+    assert expired_public.status == "UNAVAILABLE"
+    assert expired_public.incomplete_reason == "expired"
+    assert expired_public.download_url is None
+    assert model.delivery.overall_status == "UNDER_REVIEW"
+    assert model.allowed_actions == []
+    assert "DELIVERY_INTEGRITY_FAILED" in {
+        item.code for item in model.blockers
+    }
+
+
+def test_clock_expired_stored_artifact_projects_unavailable(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-clock-expired-artifact")
+        final, pack = seed_final_memorial(db, task_id=task.id)
+        delivery = seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        manifest_row = db.get(ArtifactManifest, delivery.manifest.manifest_id)
+        manifest = ArtifactManifestV1.model_validate_json(
+            manifest_row.manifest_json
+        )
+        past = datetime.now(timezone.utc) - timedelta(minutes=1)
+        artifacts = [
+            (
+                item.model_copy(update={"expires_at": past})
+                if item.kind == "PDF"
+                else item
+            )
+            for item in manifest.artifacts
+        ]
+        expired_manifest = manifest.model_copy(update={"artifacts": artifacts})
+        manifest_row.manifest_json = json.dumps(
+            expired_manifest.model_dump(mode="json"),
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        manifest_row.content_hash = canonical_manifest_hash(expired_manifest)
+        expired_row = (
+            db.query(ArtifactDeliveryItem)
+            .filter_by(
+                manifest_id=delivery.manifest.manifest_id,
+                kind="PDF",
+            )
+            .one()
+        )
+        expired_row.expires_at = past.isoformat()
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    expired_public = next(
+        item for item in model.delivery.artifacts if item.kind == "PDF"
+    )
+    assert expired_public.status == "UNAVAILABLE"
+    assert expired_public.incomplete_reason == "expired"
+    assert expired_public.download_url is None
+    assert model.delivery.overall_status == "UNDER_REVIEW"
+    assert model.allowed_actions == []
+    assert "DELIVERY_INTEGRITY_FAILED" in {
+        item.code for item in model.blockers
+    }
+
+
+def test_revise_verdict_cannot_be_promoted_to_decide(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-review-revision-required")
+        pack = contract_review_pack(
+            task.id,
+            verdict="REVISE_BEFORE_PROCEED",
+        )
+        final, pack = seed_final_memorial(db, task_id=task.id, pack=pack)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.allowed_actions == ["DOWNLOAD_ARTIFACT", "REFRESH_REVIEW"]
+    assert "DECIDE" not in model.allowed_actions
+    assert [item.code for item in model.blockers] == [
+        "REVIEW_REVISION_REQUIRED"
+    ]
+
+
+def test_partial_after_refresh_is_honest_and_not_resumable(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    def fail_pdf(**kwargs):
+        if kwargs["kind"] == "PDF":
+            raise RuntimeError("expected renderer failure")
+        return render_one_artifact(**kwargs)
+
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-partial")
+        task_id = task.id
+        final, pack = seed_final_memorial(db, task_id=task.id)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+            renderer=fail_pdf,
+        )
+        db.commit()
+
+    with isolated_session_local() as db:
+        from src.db.models import DecisionTask
+
+        task = db.get(DecisionTask, task_id)
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.delivery.overall_status == "PARTIAL"
+    assert model.allowed_actions == ["DOWNLOAD_ARTIFACT"]
+    assert "RESUME_DELIVERY" not in model.allowed_actions
+    assert [item.code for item in model.blockers] == [
+        "PARTIAL_RECOVERY_REQUIRES_HARDENING"
+    ]
+
+
+def test_pack_mission_or_review_drift_fails_closed(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-pack-drift")
+        pack = contract_review_pack(
+            task.id,
+            mission_contract_id="mission-other",
+        )
+        final, pack = seed_final_memorial(db, task_id=task.id, pack=pack)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.review_pack is None
+    assert model.delivery is None
+    assert model.allowed_actions == []
+    assert "LINEAGE_CONFLICT" in {item.code for item in model.blockers}
+
+
+def test_pending_quality_pack_is_not_adjudicable(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-pack-pending")
+        pack = contract_review_pack(
+            task.id,
+            quality_gate_status="PENDING",
+        )
+        final, pack = seed_final_memorial(db, task_id=task.id, pack=pack)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.allowed_actions == []
+    assert "STATE_INCONSISTENT" in {item.code for item in model.blockers}
+
+
+def test_fallback_pack_engine_is_not_adjudicable(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-pack-fallback")
+        pack = contract_review_pack(
+            task.id,
+            engine_tiers=["fallback"],
+        )
+        final, pack = seed_final_memorial(db, task_id=task.id, pack=pack)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.allowed_actions == []
+    assert model.source_class == "FALLBACK"
+    assert "NON_ADJUDICABLE_SOURCE" in {
+        item.code for item in model.blockers
+    }
+
+
+def test_fallback_pack_source_label_is_not_adjudicable(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-pack-fallback-source")
+        pack = contract_review_pack(
+            task.id,
+            source_labels=["FALLBACK"],
+        )
+        final, pack = seed_final_memorial(db, task_id=task.id, pack=pack)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.allowed_actions == []
+    assert model.source_class == "FALLBACK"
+    assert "NON_ADJUDICABLE_SOURCE" in {
+        item.code for item in model.blockers
+    }
+
+
+def test_fallback_risk_item_cannot_hide_behind_adjudicable_pack_aggregate(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-risk-fallback")
+        pack = contract_review_pack(
+            task.id,
+            risk_items=[
+                {
+                    "schema_version": "ContractRiskItemV1",
+                    "risk_item_id": "risk-fallback",
+                    "evidence_packet_id": "evidence-1",
+                    "risk_level": "medium",
+                    "explanation": "回退引擎生成的风险项不得用于裁决。",
+                    "missing_evidence": ["原文锚点"],
+                    "recommended_revision": "补齐原文后重新审查。",
+                    "source_label": "FALLBACK",
+                    "engine_tier": "fallback",
+                }
+            ],
+        )
+        final, pack = seed_final_memorial(db, task_id=task.id, pack=pack)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.source_class == "FALLBACK"
+    assert model.allowed_actions == []
+    assert "NON_ADJUDICABLE_SOURCE" in {
+        item.code for item in model.blockers
+    }
+
+
+def test_risk_item_source_and_engine_must_be_declared_by_pack(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-risk-aggregate-drift")
+        pack = contract_review_pack(
+            task.id,
+            risk_items=[
+                {
+                    "schema_version": "ContractRiskItemV1",
+                    "risk_item_id": "risk-aggregate-drift",
+                    "evidence_packet_id": "evidence-1",
+                    "risk_level": "medium",
+                    "explanation": "风险项来源与 pack 汇总声明不一致。",
+                    "missing_evidence": ["原文锚点"],
+                    "recommended_revision": "修正来源汇总后重新审查。",
+                    "source_label": "VALIDATED_MODEL",
+                    "engine_tier": "validated_model",
+                }
+            ],
+            source_labels=["TASK_EVIDENCE"],
+            engine_tiers=["deterministic"],
+        )
+        final, pack = seed_final_memorial(db, task_id=task.id, pack=pack)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.source_class == "UNKNOWN"
+    assert model.allowed_actions == []
+    assert "STATE_INCONSISTENT" in {
+        item.code for item in model.blockers
+    }
+
+
+def test_ready_manifest_with_missing_stored_file_cannot_be_decided(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-delivery-missing-file")
+        task_id = task.id
+        final, pack = seed_final_memorial(db, task_id=task.id)
+        packet = seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        item = (
+            db.query(ArtifactDeliveryItem)
+            .filter_by(
+                manifest_id=packet.manifest.manifest_id,
+                kind="PDF",
+            )
+            .one()
+        )
+        storage_path = item.storage_path
+        db.commit()
+
+    assert storage_path is not None
+    from pathlib import Path
+
+    Path(storage_path).unlink()
+
+    with isolated_session_local() as db:
+        from src.db.models import DecisionTask
+
+        task = db.get(DecisionTask, task_id)
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.delivery.overall_status == "UNDER_REVIEW"
+    assert model.allowed_actions == []
+    assert "DELIVERY_INTEGRITY_FAILED" in {
+        item.code for item in model.blockers
+    }
+
+
+def test_multiple_delivery_formula_versions_are_not_ranked(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-formula-conflict")
+        final, pack = seed_final_memorial(db, task_id=task.id)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+            delivery_formula_version="w06-v1",
+            idempotency_key="formula-1",
+        )
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+            delivery_formula_version="w06-v2",
+            idempotency_key="formula-2",
+        )
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.delivery is None
+    assert model.allowed_actions == []
+    assert "DELIVERY_INTEGRITY_FAILED" in {item.code for item in model.blockers}
+
+
+def test_exact_archive_receipt_enables_reopen(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-archived")
+        final, pack = seed_final_memorial(db, task_id=task.id)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        seed_exact_archive(db, task=task, final=final)
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.archive_receipt.archive_id == f"archive-{task.id}"
+    assert model.allowed_actions == ["DOWNLOAD_ARTIFACT", "REOPEN_ARCHIVE"]
+
+
+def test_archived_task_without_exact_receipt_never_reopens_decide(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-archived-without-receipt")
+        final, pack = seed_final_memorial(db, task_id=task.id)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        task.status = "archived"
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.archive_receipt is None
+    assert model.allowed_actions == []
+    assert [item.code for item in model.blockers] == ["STATE_INCONSISTENT"]
+
+
+def test_synthetic_archive_never_becomes_a_receipt(
+    isolated_session_local,
+    tmp_path,
+) -> None:
+    with isolated_session_local() as db:
+        task = seed_contract_task(db, task_id="task-synthetic-archive")
+        final, pack = seed_final_memorial(db, task_id=task.id)
+        seed_delivery(
+            db,
+            storage_root=tmp_path,
+            task_id=task.id,
+            final=final,
+            pack=pack,
+        )
+        seed_exact_archive(db, task=task, final=final, synthetic_flag=True)
+        db.commit()
+
+        model = project_contract_task(db, storage_root=tmp_path, task=task)
+
+    assert model.archive_receipt is None
+    assert model.allowed_actions == []
+    assert "ARCHIVE_LINEAGE_CONFLICT" in {item.code for item in model.blockers}

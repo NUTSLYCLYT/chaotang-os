@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chaotang.local/contracts/ext-branch-convergence.schema.json",
+  "title": "EXT Branch Capability Convergence Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "snapshot", "assetFamilies", "branches"],
+  "properties": {
+    "schemaVersion": { "const": "ext-branch-convergence.v1" },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capturedAt", "integrationTarget", "integrationHead", "integrationTree",
+        "sourceRefCount", "inventoryRule", "authorityPackage", "plan"
+      ],
+      "properties": {
+        "capturedAt": { "type": "string", "format": "date-time" },
+        "integrationTarget": { "const": "feature-chaotang-ext" },
+        "integrationHead": { "$ref": "#/$defs/fullCommit" },
+        "integrationTree": { "$ref": "#/$defs/fullCommit" },
+        "sourceRefCount": { "const": 99 },
+        "inventoryRule": { "const": "LOCAL_BRANCH_NOT_ANCESTOR_OF_INTEGRATION_TARGET_AT_CAPTURE" },
+        "authorityPackage": { "const": "R0-W08" },
+        "plan": { "const": "docs/superpowers/plans/2026-08-03-ext-99-branch-capability-convergence.md" }
+      }
+    },
+    "assetFamilies": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/assetFamily" }
+    },
+    "branches": {
+      "type": "array",
+      "minItems": 99,
+      "maxItems": 99,
+      "items": { "$ref": "#/$defs/branchRecord" }
+    }
+  },
+  "$defs": {
+    "fullCommit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$"
+    },
+    "disposition": {
+      "enum": [
+        "ABSORB_ADAPT", "REBUILD", "SUPERSEDED_VERIFY", "ARCHIVE",
+        "REJECT", "DUPLICATE", "BLOCKED_WIP"
+      ]
+    },
+    "status": {
+      "enum": [
+        "PLANNED", "BASELINED", "RED", "IMPLEMENTED", "VERIFIED",
+        "REVIEW_GO", "INTEGRATED_LOCAL", "BLOCKED", "CLOSED"
+      ]
+    },
+    "assetFamily": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "canonicalDonor", "decision", "status"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" },
+        "title": { "type": "string", "minLength": 1 },
+        "canonicalDonor": { "type": ["string", "null"] },
+        "decision": { "$ref": "#/$defs/disposition" },
+        "status": { "$ref": "#/$defs/status" }
+      }
+    },
+    "branchRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "branch", "tip", "assetFamily", "candidateCommits", "disposition",
+        "canonicalDonor", "containedBy", "authorityPackage", "targetOwners",
+        "targetFiles", "proofCommands", "status", "checkpoint", "reviewReceipt",
+        "integrationCommit", "blockedReason"
+      ],
+      "properties": {
+        "branch": { "type": "string", "minLength": 1 },
+        "tip": { "$ref": "#/$defs/fullCommit" },
+        "assetFamily": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" },
+        "candidateCommits": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/commit" }
+        },
+        "disposition": {
+          "enum": [
+            "ABSORB_ADAPT", "REBUILD", "SUPERSEDED_VERIFY", "ARCHIVE",
+            "REJECT", "DUPLICATE", "BLOCKED_WIP"
+          ]
+        },
+        "canonicalDonor": { "type": "boolean" },
+        "containedBy": { "type": ["string", "null"] },
+        "authorityPackage": { "type": ["string", "null"] },
+        "targetOwners": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["root", "backend", "frontend"] }
+        },
+        "targetFiles": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "proofCommands": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "status": {
+          "enum": [
+            "PLANNED", "BASELINED", "RED", "IMPLEMENTED", "VERIFIED",
+            "REVIEW_GO", "INTEGRATED_LOCAL", "BLOCKED", "CLOSED"
+          ]
+        },
+        "checkpoint": { "type": ["string", "null"] },
+        "reviewReceipt": { "type": ["string", "null"] },
+        "integrationCommit": {
+          "anyOf": [
+            { "$ref": "#/$defs/fullCommit" },
+            { "type": "null" }
+          ]
+        },
+        "blockedReason": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

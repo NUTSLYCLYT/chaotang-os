@@ -34,7 +34,7 @@ EXPECTED_WRITER_COUNTS = Counter(
         "ChancellorRouteDecision": 1,
         "OutboxEvent": 2,
         "DecreeExecutionEvent": 1,
-        "CourtReview": 10,
+        "CourtReview": 11,
         "FinalMemorial": 1,
         "EmperorDecision": 4,
         "ShiguanArchive": 1,
