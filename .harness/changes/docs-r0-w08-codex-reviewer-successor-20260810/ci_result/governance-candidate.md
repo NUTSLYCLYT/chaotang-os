@@ -26,3 +26,12 @@ Fresh pre-freeze verification after those corrections:
 - successor + amendment + professional matrix: 58/58 PASS
 - professional-agent matrix CLI: PASS (8 assets; 6 VERIFIED; 2 PARTIAL)
 - working-tree and product-to-governance `git diff --check`: PASS
+
+G4 was rejected during exact-H review because a descendant activation commit
+could still carry unreviewed non-authority product changes. The verifier now
+requires one direct, single-parent carrier commit and an exact canonical path set
+containing only the two manifests and the W08 evidence files.
+
+Fresh pre-freeze verification after the G4 carrier fix repeated the complete
+75/75 authority suite, 58/58 combined suite, matrix CLI, and both diff checks;
+all passed.

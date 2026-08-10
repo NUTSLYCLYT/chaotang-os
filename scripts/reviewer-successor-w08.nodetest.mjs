@@ -289,12 +289,97 @@ test('exact verifier binds committed evidence, hardened Git diff, and protected 
     for (let index = 0; index < overlay.reviews.length; index += 1) {
       await writeRepositoryFile(repository, overlay.reviews[index].path, reviewSources[index]);
     }
+    const activationCarrierPaths = [
+      '.harness/manifest/execution-authority.v2.json',
+      '.harness/manifest/project-harness.json',
+      `${REVIEWER_SUCCESSOR_W08_ROOT}/activation_intent/r0-w08-activation-intent.json`,
+      `${REVIEWER_SUCCESSOR_W08_ROOT}/codex_review/exact-h-final.md`,
+      `${REVIEWER_SUCCESSOR_W08_ROOT}/codex_review/pass-1.md`,
+      `${REVIEWER_SUCCESSOR_W08_ROOT}/owner_approval/exact-h-approval.md`,
+      overlay.ownerApprovalPath,
+      overlay.productReviewPackagePath,
+      overlay.governanceReviewPackagePath,
+    ];
+    await writeRepositoryFile(
+      repository,
+      '.harness/manifest/project-harness.json',
+      '{"activationCarrierFixture":true}\n',
+    );
+    await writeRepositoryFile(
+      repository,
+      '.harness/manifest/execution-authority.v2.json',
+      '{"activationCarrierFixture":true}\n',
+    );
+    await writeRepositoryFile(
+      repository,
+      `${REVIEWER_SUCCESSOR_W08_ROOT}/activation_intent/r0-w08-activation-intent.json`,
+      '{"activationCarrierFixture":true}\n',
+    );
+    await writeRepositoryFile(
+      repository,
+      `${REVIEWER_SUCCESSOR_W08_ROOT}/owner_approval/exact-h-approval.md`,
+      'activation owner fixture\n',
+    );
     await execFileAsync('git', ['add', '.'], { cwd: repository });
     await execFileAsync('git', ['commit', '-qm', 'pin W08 successor evidence'], {
       cwd: repository,
     });
+    const activationCarrierH = (
+      await execFileAsync('git', ['rev-parse', 'HEAD^{commit}'], { cwd: repository })
+    ).stdout.trim();
 
     assert.deepEqual(await verifyReviewerSuccessorW08(repository, overlay), []);
+
+    await execFileAsync('git', ['checkout', '-q', '--detach', governanceCandidateH], {
+      cwd: repository,
+    });
+    await execFileAsync('git', ['checkout', activationCarrierH, '--', ...activationCarrierPaths], {
+      cwd: repository,
+    });
+    await writeRepositoryFile(repository, 'backend/unreviewed-runtime.js', 'export const bypass = true;\n');
+    await execFileAsync('git', ['add', '.'], { cwd: repository });
+    await execFileAsync('git', ['commit', '-qm', 'smuggle unreviewed runtime'], { cwd: repository });
+    assert.ok(
+      (await verifyReviewerSuccessorW08(repository, overlay)).some((error) =>
+        error.includes('activation carrier changed paths must be exactly canonical'),
+      ),
+    );
+
+    await execFileAsync('git', ['checkout', '-q', '--detach', activationCarrierH], {
+      cwd: repository,
+    });
+    await execFileAsync('git', ['commit', '--allow-empty', '-qm', 'extra empty carrier'], {
+      cwd: repository,
+    });
+    assert.ok(
+      (await verifyReviewerSuccessorW08(repository, overlay)).some((error) =>
+        error.includes('activation carrier must contain exactly one commit'),
+      ),
+    );
+
+    await execFileAsync('git', ['checkout', '-q', '-b', 'carrier-merge-side', governanceCandidateH], {
+      cwd: repository,
+    });
+    await execFileAsync('git', ['commit', '--allow-empty', '-qm', 'merge side'], {
+      cwd: repository,
+    });
+    const mergeSideH = (
+      await execFileAsync('git', ['rev-parse', 'HEAD^{commit}'], { cwd: repository })
+    ).stdout.trim();
+    await execFileAsync('git', ['checkout', '-q', '--detach', activationCarrierH], {
+      cwd: repository,
+    });
+    await execFileAsync('git', ['merge', '-q', '--no-ff', mergeSideH, '-m', 'merge carrier'], {
+      cwd: repository,
+    });
+    assert.ok(
+      (await verifyReviewerSuccessorW08(repository, overlay)).some((error) =>
+        error.includes('activation carrier must be a direct single-parent child'),
+      ),
+    );
+    await execFileAsync('git', ['checkout', '-q', '--detach', activationCarrierH], {
+      cwd: repository,
+    });
 
     const cliPath = join(repository, 'scripts/execution-authority-v2.mjs');
     const cliSource = await readFile(cliPath);

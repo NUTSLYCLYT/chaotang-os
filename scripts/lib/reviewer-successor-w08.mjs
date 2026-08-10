@@ -109,6 +109,17 @@ const PROTECTED_PATHS = Object.freeze([
   'scripts/reviewer-successor-w08.nodetest.mjs',
   'scripts/execution-authority-v2.nodetest.mjs',
 ]);
+const ACTIVATION_CARRIER_PATHS = Object.freeze([
+  '.harness/manifest/execution-authority.v2.json',
+  '.harness/manifest/project-harness.json',
+  `${REVIEWER_SUCCESSOR_W08_ROOT}/activation_intent/r0-w08-activation-intent.json`,
+  `${REVIEWER_SUCCESSOR_W08_ROOT}/codex_review/exact-h-final.md`,
+  `${REVIEWER_SUCCESSOR_W08_ROOT}/codex_review/pass-1.md`,
+  `${REVIEWER_SUCCESSOR_W08_ROOT}/owner_approval/exact-h-approval.md`,
+  `${REVIEWER_SUCCESSOR_W08_ROOT}/owner_approval/reviewer-successor-approval.md`,
+  `${REVIEWER_SUCCESSOR_W08_ROOT}/review_inputs/product-candidate.diff`,
+  `${REVIEWER_SUCCESSOR_W08_ROOT}/review_inputs/reviewer-successor.diff`,
+]);
 
 function exactKeys(value, keys) {
   return (
@@ -125,6 +136,19 @@ function sameArray(left, right) {
     left.length === right.length &&
     left.every((value, index) => value === right[index])
   );
+}
+
+function binaryDiffPaths(source) {
+  const paths = [];
+  for (const line of source.toString('utf8').split(/\r?\n/u)) {
+    if (!line.startsWith('diff --git ')) continue;
+    const match = /^diff --git a\/([^\t ]+) b\/([^\t ]+)$/u.exec(line);
+    if (match === null || match[1] !== match[2] || !safePath(match?.[1])) {
+      throw new Error(`unsafe activation carrier diff header: ${line}`);
+    }
+    paths.push(match[1]);
+  }
+  return paths.sort();
 }
 
 function findDuplicateJsonKeys(source) {
@@ -649,6 +673,30 @@ export async function verifyReviewerSuccessorW08(root, overlay) {
     }
     if (head === null) throw new Error('pinned HEAD unavailable');
     await execFileAsync(GIT, gitArgs('merge-base', '--is-ancestor', overlay.governanceCandidateH, head), gitOptions(root));
+    const [{ stdout: carrierHistory }, { stdout: carrierCount }, { stdout: carrierDiff }] =
+      await Promise.all([
+        execFileAsync(GIT, gitArgs('rev-list', '--parents', '-n', '1', head), gitOptions(root)),
+        execFileAsync(GIT, gitArgs('rev-list', '--count', `${overlay.governanceCandidateH}..${head}`), gitOptions(root)),
+        execFileAsync(
+          GIT,
+          gitArgs('diff', '--no-ext-diff', '--no-textconv', '--binary', `${overlay.governanceCandidateH}..${head}`),
+          gitOptions(root, {
+            attributeSource: head,
+            encoding: 'buffer',
+            maxBuffer: 10 * 1024 * 1024,
+          }),
+        ),
+      ]);
+    const carrierIdentity = carrierHistory.trim().split(/\s+/u);
+    if (carrierIdentity.length !== 2 || carrierIdentity[0] !== head || carrierIdentity[1] !== overlay.governanceCandidateH) {
+      errors.push('reviewerSuccessorW08 activation carrier must be a direct single-parent child of governanceCandidateH');
+    }
+    if (carrierCount.trim() !== '1') {
+      errors.push('reviewerSuccessorW08 activation carrier must contain exactly one commit');
+    }
+    if (!sameArray(binaryDiffPaths(carrierDiff), [...ACTIVATION_CARRIER_PATHS].sort())) {
+      errors.push('reviewerSuccessorW08 activation carrier changed paths must be exactly canonical evidence and manifests');
+    }
     for (const path of PROTECTED_PATHS) {
       const [reviewed, current] = await Promise.all([
         gitBlob(root, overlay.governanceCandidateH, path),
