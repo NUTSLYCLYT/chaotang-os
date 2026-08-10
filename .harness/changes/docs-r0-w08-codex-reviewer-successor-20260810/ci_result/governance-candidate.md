@@ -39,3 +39,9 @@ all passed.
 The first activation carrier was rejected before EXT ref movement because the
 root doctor found the change summary lacked its canonical Change ID row. G6 adds
 that root-harness metadata before any successor evidence is activated.
+
+The direct push path then exposed the repository's prospective packet-review
+feedback gate, while Gitee itself promotes reviewed branches with a transparent
+two-parent merge. G7 accepts only that exact no-content-change promotion shape:
+the second parent is the direct activation carrier, the first parent is its
+ancestor, and the merge tree equals the carrier tree.

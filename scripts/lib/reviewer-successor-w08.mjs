@@ -151,6 +151,56 @@ function binaryDiffPaths(source) {
   return paths.sort();
 }
 
+async function activationCarrierCommit(root, governanceCandidateH, head) {
+  const { stdout: headHistory } = await execFileAsync(
+    GIT,
+    gitArgs('rev-list', '--parents', '-n', '1', head),
+    gitOptions(root),
+  );
+  const headIdentity = headHistory.trim().split(/\s+/u);
+  if (
+    headIdentity.length === 2 &&
+    headIdentity[0] === head &&
+    headIdentity[1] === governanceCandidateH
+  ) {
+    return head;
+  }
+  if (headIdentity.length !== 3 || headIdentity[0] !== head) {
+    throw new Error('activation carrier must be a direct child or one transparent promotion merge');
+  }
+  const [, predecessor, promotedCarrier] = headIdentity;
+  const { stdout: promotedHistory } = await execFileAsync(
+    GIT,
+    gitArgs('rev-list', '--parents', '-n', '1', promotedCarrier),
+    gitOptions(root),
+  );
+  const promotedIdentity = promotedHistory.trim().split(/\s+/u);
+  if (
+    promotedIdentity.length !== 2 ||
+    promotedIdentity[0] !== promotedCarrier ||
+    promotedIdentity[1] !== governanceCandidateH
+  ) {
+    throw new Error('transparent promotion second parent must be the direct activation carrier');
+  }
+  try {
+    await execFileAsync(
+      GIT,
+      gitArgs('merge-base', '--is-ancestor', predecessor, promotedCarrier),
+      gitOptions(root),
+    );
+  } catch {
+    throw new Error('transparent promotion first parent must be an ancestor of the activation carrier');
+  }
+  const [mergeTree, carrierTree] = await Promise.all([
+    execFileAsync(GIT, gitArgs('rev-parse', `${head}^{tree}`), gitOptions(root)),
+    execFileAsync(GIT, gitArgs('rev-parse', `${promotedCarrier}^{tree}`), gitOptions(root)),
+  ]);
+  if (mergeTree.stdout.trim() !== carrierTree.stdout.trim()) {
+    throw new Error('transparent promotion tree must equal the reviewed activation carrier tree');
+  }
+  return promotedCarrier;
+}
+
 function findDuplicateJsonKeys(source) {
   let cursor = 0;
   const duplicates = [];
@@ -673,24 +723,20 @@ export async function verifyReviewerSuccessorW08(root, overlay) {
     }
     if (head === null) throw new Error('pinned HEAD unavailable');
     await execFileAsync(GIT, gitArgs('merge-base', '--is-ancestor', overlay.governanceCandidateH, head), gitOptions(root));
-    const [{ stdout: carrierHistory }, { stdout: carrierCount }, { stdout: carrierDiff }] =
+    const carrierHead = await activationCarrierCommit(root, overlay.governanceCandidateH, head);
+    const [{ stdout: carrierCount }, { stdout: carrierDiff }] =
       await Promise.all([
-        execFileAsync(GIT, gitArgs('rev-list', '--parents', '-n', '1', head), gitOptions(root)),
-        execFileAsync(GIT, gitArgs('rev-list', '--count', `${overlay.governanceCandidateH}..${head}`), gitOptions(root)),
+        execFileAsync(GIT, gitArgs('rev-list', '--count', `${overlay.governanceCandidateH}..${carrierHead}`), gitOptions(root)),
         execFileAsync(
           GIT,
-          gitArgs('diff', '--no-ext-diff', '--no-textconv', '--binary', `${overlay.governanceCandidateH}..${head}`),
+          gitArgs('diff', '--no-ext-diff', '--no-textconv', '--binary', `${overlay.governanceCandidateH}..${carrierHead}`),
           gitOptions(root, {
-            attributeSource: head,
+            attributeSource: carrierHead,
             encoding: 'buffer',
             maxBuffer: 10 * 1024 * 1024,
           }),
         ),
       ]);
-    const carrierIdentity = carrierHistory.trim().split(/\s+/u);
-    if (carrierIdentity.length !== 2 || carrierIdentity[0] !== head || carrierIdentity[1] !== overlay.governanceCandidateH) {
-      errors.push('reviewerSuccessorW08 activation carrier must be a direct single-parent child of governanceCandidateH');
-    }
     if (carrierCount.trim() !== '1') {
       errors.push('reviewerSuccessorW08 activation carrier must contain exactly one commit');
     }

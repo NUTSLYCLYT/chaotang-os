@@ -330,6 +330,37 @@ test('exact verifier binds committed evidence, hardened Git diff, and protected 
 
     assert.deepEqual(await verifyReviewerSuccessorW08(repository, overlay), []);
 
+    await execFileAsync(
+      'git',
+      ['checkout', '-q', '--detach', REVIEWER_SUCCESSOR_W08_PRODUCT_H],
+      { cwd: repository },
+    );
+    await execFileAsync(
+      'git',
+      ['merge', '-q', '--no-ff', activationCarrierH, '-m', 'transparent Gitee promotion'],
+      { cwd: repository },
+    );
+    assert.deepEqual(await verifyReviewerSuccessorW08(repository, overlay), []);
+
+    await execFileAsync(
+      'git',
+      ['checkout', '-q', '--detach', REVIEWER_SUCCESSOR_W08_PRODUCT_H],
+      { cwd: repository },
+    );
+    await execFileAsync(
+      'git',
+      ['merge', '-q', '--no-ff', '-s', 'ours', activationCarrierH, '-m', 'rewritten promotion'],
+      { cwd: repository },
+    );
+    assert.ok(
+      (await verifyReviewerSuccessorW08(repository, overlay)).some((error) =>
+        error.includes('transparent promotion tree must equal'),
+      ),
+    );
+    await execFileAsync('git', ['checkout', '-q', '--detach', activationCarrierH], {
+      cwd: repository,
+    });
+
     await execFileAsync('git', ['checkout', '-q', '--detach', governanceCandidateH], {
       cwd: repository,
     });
@@ -353,7 +384,7 @@ test('exact verifier binds committed evidence, hardened Git diff, and protected 
     });
     assert.ok(
       (await verifyReviewerSuccessorW08(repository, overlay)).some((error) =>
-        error.includes('activation carrier must contain exactly one commit'),
+        error.includes('activation carrier must be a direct child or one transparent promotion'),
       ),
     );
 
@@ -374,7 +405,7 @@ test('exact verifier binds committed evidence, hardened Git diff, and protected 
     });
     assert.ok(
       (await verifyReviewerSuccessorW08(repository, overlay)).some((error) =>
-        error.includes('activation carrier must be a direct single-parent child'),
+        error.includes('transparent promotion first parent must be an ancestor'),
       ),
     );
     await execFileAsync('git', ['checkout', '-q', '--detach', activationCarrierH], {
