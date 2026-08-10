@@ -1,0 +1,212 @@
+{
+  "schemaVersion": "professional-agent-asset-matrix.v1",
+  "matrixId": "professional-agent-assets-ext-k0",
+  "canonicalOwner": "feature-chaotang-ext",
+  "integrationTarget": "backend/src",
+  "provenance": {
+    "assetFamily": "PROFESSIONAL_AGENT_K0",
+    "decision": "ABSORB_ADAPT",
+    "donorBranch": "codex/professional-agent-k0-20260803",
+    "donorTip": "675aa950a073ae4e3e72b562aab13eea43d018df",
+    "candidateCommits": [
+      "a6c391cbda1217a392009c8bc51eed159cdd3464",
+      "4c55ad785540463edb16860d5302f77480d2e381",
+      "675aa950a073ae4e3e72b562aab13eea43d018df"
+    ],
+    "adaptation": "REBUILT_ON_CURRENT_EXT"
+  },
+  "inventoryAssertions": [
+    {
+      "id": "agent-design-contracts",
+      "root": "backend/agent_design",
+      "fileName": "AGENTS.md",
+      "expectedCount": 35
+    },
+    {
+      "id": "runtime-prompt-contracts",
+      "root": "backend/runtime_prompts",
+      "fileName": "AGENTS.md",
+      "expectedCount": 71
+    }
+  ],
+  "assets": [
+    {
+      "assetId": "canonical:court-agent-registry",
+      "title": "朝堂 11 角色身份映射",
+      "owner": "backend",
+      "kind": "CANONICAL_REGISTRY",
+      "maturity": "CONTRACT_READY",
+      "capabilities": ["11 个冻结 AgentCode 与后端部门代码双向映射"],
+      "runtimeEntries": ["backend/src/chaotang_agents.py"],
+      "apiEntries": [],
+      "contractEntries": ["backend/src/chaotang_agents.py"],
+      "promptEntries": [],
+      "designEntries": [],
+      "toolEntries": [],
+      "testEntries": ["backend/tests/test_chaotang_agents.py"],
+      "coverageStatus": "VERIFIED",
+      "gapReason": null,
+      "verificationCommand": "python3 -m pytest -q backend/tests/test_chaotang_agents.py",
+      "sourceDisposition": "CURRENT_CANONICAL"
+    },
+    {
+      "assetId": "canonical:six-ministry-identity",
+      "title": "六部身份与部门协议事实源",
+      "owner": "backend",
+      "kind": "CANONICAL_REGISTRY",
+      "maturity": "CONTRACT_READY",
+      "capabilities": ["规范部门 ID、运行代码、AgentCode 与旧 API 别名"],
+      "runtimeEntries": ["backend/src/department_identity.py"],
+      "apiEntries": [],
+      "contractEntries": ["backend/harness/chaotang_department_protocol/departments.yaml"],
+      "promptEntries": [],
+      "designEntries": ["backend/agent_design/buildAgent/三省六部体系/总工作区/AGENTS.md"],
+      "toolEntries": [],
+      "testEntries": [
+        "backend/tests/test_department_identity_ssot.py",
+        "backend/tests/test_chaotang_department_protocol.py"
+      ],
+      "coverageStatus": "VERIFIED",
+      "gapReason": null,
+      "verificationCommand": "python3 -m pytest -q backend/tests/test_department_identity_ssot.py backend/tests/test_chaotang_department_protocol.py",
+      "sourceDisposition": "CURRENT_CANONICAL"
+    },
+    {
+      "assetId": "agent:chancellor-routing",
+      "title": "丞相契约与确定性路由",
+      "owner": "backend",
+      "kind": "RUNTIME_AGENT",
+      "maturity": "API_READY",
+      "capabilities": ["诏令分类", "部门路由", "受控汇总"],
+      "runtimeEntries": [
+        "backend/src/chancellor/contracts.py",
+        "backend/src/chancellor/routing_service.py",
+        "backend/src/chancellor_router.py"
+      ],
+      "apiEntries": ["backend/web/routers/shangshufang.py"],
+      "contractEntries": ["backend/src/chancellor/contracts.py"],
+      "promptEntries": [],
+      "designEntries": ["backend/agent_design/buildAgent/三省六部体系/中书省/AGENTS.md"],
+      "toolEntries": ["backend/src/tool_router.py", "backend/src/tool_sandbox.py"],
+      "testEntries": [
+        "backend/tests/test_chancellor_contracts.py",
+        "backend/tests/test_chancellor_routing_service.py"
+      ],
+      "coverageStatus": "VERIFIED",
+      "gapReason": null,
+      "verificationCommand": "python3 -m pytest -q backend/tests/test_chancellor_contracts.py backend/tests/test_chancellor_routing_service.py",
+      "sourceDisposition": "CURRENT_CANONICAL"
+    },
+    {
+      "assetId": "agent:jinyiwei-evidence",
+      "title": "锦衣卫证据采集与校验",
+      "owner": "backend",
+      "kind": "RUNTIME_AGENT",
+      "maturity": "API_READY",
+      "capabilities": ["证据检索", "证据持久化", "来源校验"],
+      "runtimeEntries": [
+        "backend/src/jinyiwei_agent.py",
+        "backend/src/jinyiwei_evidence_store.py",
+        "backend/src/jinyiwei_vet.py"
+      ],
+      "apiEntries": ["backend/web/routers/jinyiwei.py"],
+      "contractEntries": ["backend/harness/jinyiwei-scrapling-poc/README.md"],
+      "promptEntries": ["backend/src/prompts_jinyiwei.py"],
+      "designEntries": [],
+      "toolEntries": ["backend/src/jinyiwei_search.py"],
+      "testEntries": [
+        "backend/tests/test_jinyiwei_agent.py",
+        "backend/tests/test_jinyiwei_endpoint.py",
+        "backend/tests/test_jinyiwei_vet.py"
+      ],
+      "coverageStatus": "VERIFIED",
+      "gapReason": null,
+      "verificationCommand": "python3 -m pytest -q backend/tests/test_jinyiwei_agent.py backend/tests/test_jinyiwei_endpoint.py backend/tests/test_jinyiwei_vet.py",
+      "sourceDisposition": "CURRENT_CANONICAL"
+    },
+    {
+      "assetId": "agent:qintianjian-forecast",
+      "title": "钦天监离线预测契约与信号分析",
+      "owner": "backend",
+      "kind": "RUNTIME_AGENT",
+      "maturity": "CONTRACT_READY",
+      "capabilities": ["离线预测简报", "多视角分析", "信号与触发器"],
+      "runtimeEntries": [
+        "backend/src/qintianjian_brief.py",
+        "backend/src/qintianjian_lens.py",
+        "backend/src/qintianjian_signals.py"
+      ],
+      "apiEntries": [],
+      "contractEntries": ["backend/src/qintianjian_brief.py"],
+      "promptEntries": ["backend/src/prompts_tianjian.py"],
+      "designEntries": [],
+      "toolEntries": [],
+      "testEntries": [
+        "backend/tests/test_qintianjian_brief.py",
+        "backend/tests/test_qintianjian_lens.py",
+        "backend/tests/test_qintianjian_signals.py"
+      ],
+      "coverageStatus": "VERIFIED",
+      "gapReason": null,
+      "verificationCommand": "python3 -m pytest -q backend/tests/test_qintianjian_brief.py backend/tests/test_qintianjian_lens.py backend/tests/test_qintianjian_signals.py",
+      "sourceDisposition": "CURRENT_CANONICAL"
+    },
+    {
+      "assetId": "agent:taiyi-advisory",
+      "title": "太医诚实不可用兼容入口",
+      "owner": "backend",
+      "kind": "RUNTIME_AGENT",
+      "maturity": "API_READY",
+      "capabilities": ["对历史健康分析接口返回可验证的不可用状态，不伪造诊断或真实数据"],
+      "runtimeEntries": ["backend/web/routers/forecast_intel_taiyi.py"],
+      "apiEntries": ["backend/web/routers/forecast_intel_taiyi.py"],
+      "contractEntries": ["backend/web/routers/forecast_intel_taiyi.py"],
+      "promptEntries": [],
+      "designEntries": [],
+      "toolEntries": [],
+      "testEntries": ["backend/tests/test_forecast_intel_taiyi.py"],
+      "coverageStatus": "VERIFIED",
+      "gapReason": null,
+      "verificationCommand": "python3 -m pytest -q backend/tests/test_forecast_intel_taiyi.py",
+      "sourceDisposition": "CURRENT_CANONICAL"
+    },
+    {
+      "assetId": "collection:runtime-prompts",
+      "title": "71 个运行时 Prompt 角色",
+      "owner": "backend",
+      "kind": "ROLE_COLLECTION",
+      "maturity": "PROMPT_ONLY",
+      "capabilities": ["按专业角色提供运行时指令与输入输出边界"],
+      "runtimeEntries": [],
+      "apiEntries": [],
+      "contractEntries": ["backend/runtime_prompts/README.md"],
+      "promptEntries": ["backend/runtime_prompts"],
+      "designEntries": [],
+      "toolEntries": [],
+      "testEntries": [],
+      "coverageStatus": "PARTIAL",
+      "gapReason": "只有集合清单与目录护栏；尚未逐角色绑定运行入口和离线评测。",
+      "verificationCommand": "python3 backend/scripts/harness_doctor.py",
+      "sourceDisposition": "CURRENT_WITH_GAPS"
+    },
+    {
+      "assetId": "collection:agent-design",
+      "title": "35 个 Agent 职责设计",
+      "owner": "backend",
+      "kind": "ROLE_COLLECTION",
+      "maturity": "DESIGN_ONLY",
+      "capabilities": ["记录部门、蜂群与专业角色的职责和协作边界"],
+      "runtimeEntries": [],
+      "apiEntries": [],
+      "contractEntries": ["backend/agent_design/README.md"],
+      "promptEntries": [],
+      "designEntries": ["backend/agent_design"],
+      "toolEntries": [],
+      "testEntries": [],
+      "coverageStatus": "PARTIAL",
+      "gapReason": "设计资产尚未全部映射到当前运行时 AgentCode、工具权限和黄金样例。",
+      "verificationCommand": "python3 backend/scripts/harness_doctor.py",
+      "sourceDisposition": "CURRENT_WITH_GAPS"
+    }
+  ]
+}
