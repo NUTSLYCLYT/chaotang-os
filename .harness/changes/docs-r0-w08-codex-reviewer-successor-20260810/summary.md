@@ -11,4 +11,3 @@ The product candidate remains frozen at
 `24071c2f9a5cd19952ece17a8dc172a297a1dc09` with tree
 `9d1bdc08dbbd4a6198907976508c956c86cfffff`. This governance candidate is a
 separate commit and must receive two fresh, read-only reviews before activation.
-

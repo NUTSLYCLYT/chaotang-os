@@ -15,3 +15,14 @@ schema, rejects unsafe repository-local Git state, pins committed evidence bytes
 uses candidate-scoped attributes for both diffs, and directly tests CLI drift,
 mutable evidence, symlinks, hard links, and hostile local Git configuration.
 Marked JSON evidence also rejects duplicate keys before parsing.
+
+The next governance candidate was also rejected during exact-H review because
+`info/grafts` could forge ancestry independently of replace refs. The verifier
+now rejects graft files and shallow repositories, with direct negative tests.
+
+Fresh pre-freeze verification after those corrections:
+
+- execution-authority-v2: 75/75 PASS
+- successor + amendment + professional matrix: 58/58 PASS
+- professional-agent matrix CLI: PASS (8 assets; 6 VERIFIED; 2 PARTIAL)
+- working-tree and product-to-governance `git diff --check`: PASS

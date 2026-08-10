@@ -18,6 +18,7 @@ import {
   parseReviewerSuccessorW08Evidence,
   validateReviewerSuccessorW08,
   verifyReviewerSuccessorW08,
+  verifyReviewerSuccessorW08GitEnvironment,
 } from './lib/reviewer-successor-w08.mjs';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -66,7 +67,7 @@ function validOverlay() {
     governanceTree: '2'.repeat(40),
     governanceReviewPackagePath: `${REVIEWER_SUCCESSOR_W08_ROOT}/review_inputs/reviewer-successor.diff`,
     governanceReviewPackageSha256: '3'.repeat(64),
-    ownerApprovalPath: `${REVIEWER_SUCCESSOR_W08_ROOT}/owner_approval/exact-h-approval.md`,
+    ownerApprovalPath: `${REVIEWER_SUCCESSOR_W08_ROOT}/owner_approval/reviewer-successor-approval.md`,
     ownerApprovalSha256: '4'.repeat(64),
     reviews: [
       {
@@ -125,6 +126,7 @@ for (const [name, mutate, message] of [
   ['product H drift', (overlay) => { overlay.productCandidateH = '7'.repeat(40); }, 'productCandidateH'],
   ['product tree drift', (overlay) => { overlay.productTree = '8'.repeat(40); }, 'productTree'],
   ['product diff digest drift', (overlay) => { overlay.productReviewPackageSha256 = '9'.repeat(64); }, 'productReviewPackageSha256'],
+  ['shared activation approval path', (overlay) => { overlay.ownerApprovalPath = `${REVIEWER_SUCCESSOR_W08_ROOT}/owner_approval/exact-h-approval.md`; }, 'canonical'],
   ['unsafe evidence path', (overlay) => { overlay.ownerApprovalPath = '../approval.md'; }, 'ownerApprovalPath'],
 ]) {
   test(`W08 reviewer successor fails closed for ${name}`, () => {
@@ -315,6 +317,23 @@ test('exact verifier binds committed evidence, hardened Git diff, and protected 
     await execFileAsync('git', ['config', '--local', '--unset', 'diff.external'], {
       cwd: repository,
     });
+
+    const graftPath = join(repository, '.git/info/grafts');
+    await writeFile(graftPath, `${REVIEWER_SUCCESSOR_W08_PRODUCT_H}\n`);
+    assert.ok(
+      (await verifyReviewerSuccessorW08GitEnvironment(repository)).some((error) =>
+        error.includes('Git grafts can forge authority ancestry'),
+      ),
+    );
+    await rm(graftPath);
+    const shallowPath = join(repository, '.git/shallow');
+    await writeFile(shallowPath, `${REVIEWER_SUCCESSOR_W08_PRODUCT_H}\n`);
+    assert.ok(
+      (await verifyReviewerSuccessorW08GitEnvironment(repository)).some((error) =>
+        error.includes('shallow Git history is forbidden'),
+      ),
+    );
+    await rm(shallowPath);
 
     const reviewPath = join(repository, overlay.reviews[0].path);
     const reviewSource = await readFile(reviewPath);

@@ -259,7 +259,7 @@ function validReviewerSuccessorW08() {
     governanceTree: '2'.repeat(40),
     governanceReviewPackagePath: `${changeRoot}/review_inputs/reviewer-successor.diff`,
     governanceReviewPackageSha256: '3'.repeat(64),
-    ownerApprovalPath: `${changeRoot}/owner_approval/exact-h-approval.md`,
+    ownerApprovalPath: `${changeRoot}/owner_approval/reviewer-successor-approval.md`,
     ownerApprovalSha256: '4'.repeat(64),
     reviews: [
       {

@@ -24,4 +24,3 @@ historical reviewer evidence.
 - No global reviewer replacement.
 - No rewrite of W07 history.
 - No production-readiness claim.
-

@@ -315,6 +315,8 @@ export async function verifyReviewerSuccessorW08GitEnvironment(root) {
       if (symlink !== null) errors.push(`reviewerSuccessorW08: Git object database symbolic links are forbidden: ${symlink}`);
       for (const [relative, message] of [
         ['info/attributes', 'Git info attributes affect authority diff'],
+        ['info/grafts', 'Git grafts can forge authority ancestry'],
+        ['shallow', 'shallow Git history is forbidden'],
         ['objects/info/alternates', 'Git object alternates are forbidden'],
         ['objects/info/http-alternates', 'Git HTTP object alternates are forbidden'],
       ]) {
@@ -431,7 +433,7 @@ export function validateReviewerSuccessorW08(overlay) {
   const canonicalPaths = {
     productReviewPackagePath: `${REVIEWER_SUCCESSOR_W08_ROOT}/review_inputs/product-candidate.diff`,
     governanceReviewPackagePath: `${REVIEWER_SUCCESSOR_W08_ROOT}/review_inputs/reviewer-successor.diff`,
-    ownerApprovalPath: `${REVIEWER_SUCCESSOR_W08_ROOT}/owner_approval/exact-h-approval.md`,
+    ownerApprovalPath: `${REVIEWER_SUCCESSOR_W08_ROOT}/owner_approval/reviewer-successor-approval.md`,
   };
   for (const [field, expected] of Object.entries(canonicalPaths)) {
     if (overlay[field] !== expected) errors.push(`reviewerSuccessorW08 ${field} must be canonical`);
