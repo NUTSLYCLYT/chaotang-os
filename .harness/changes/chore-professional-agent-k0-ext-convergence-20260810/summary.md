@@ -7,7 +7,7 @@
 | --- | --- |
 | Change ID | chore-professional-agent-k0-ext-convergence-20260810 |
 | 类型 | chore |
-| 状态 | VERIFIED_PARTIAL_PENDING_ROOT_REGISTRATION |
+| 状态 | REVIEW_GO_PENDING_ROOT_REGISTRATION |
 | Owner | Project Agent |
 | 创建日期 | 20260810 |
 

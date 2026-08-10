@@ -12,6 +12,7 @@
 | `cd backend && python3 scripts/harness_doctor.py` | 0 | 0 errors / 0 warnings | 后端 harness 架构 | 本地控制台，2026-08-10 |
 | `git diff --check` | 0 | PASS | 补丁格式 | 本地控制台，2026-08-10 |
 | `node scripts/ext-branch-convergence.mjs --check` | 1 | FAIL：2 个既存 source ref 已移动 | 99 分支冻结台账完整性 | 本地控制台，2026-08-10 |
+| 独立只读 `code-reviewer` | 0 | GO_FOR_CANDIDATE / 0 HIGH / 0 MEDIUM | exact candidate `ac815b52` | `codex_review/candidate-review.md` |
 
 ## 结果
 
