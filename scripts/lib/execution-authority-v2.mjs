@@ -424,6 +424,86 @@ export async function verifyExecutionAuthorityGitIdentityStable(
   }
 }
 
+export async function isCandidateInTrustedPromotionHistory(
+  root,
+  candidateH,
+  pinnedCommitH,
+) {
+  try {
+    const { stdout: historySource } = await execFileAsync(
+      'git',
+      authorityGitArgs(
+        'log',
+        '--first-parent',
+        '--format=%H%x09%P%x09%T',
+        pinnedCommitH,
+      ),
+      authorityGitOptions(root),
+    );
+    const history = historySource
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => {
+        const [commitH, parentsSource = '', treeH = ''] = line.split('\t');
+        return {
+          commitH,
+          parents: parentsSource.split(' ').filter(Boolean),
+          treeH,
+        };
+      });
+    if (history.some(({ commitH }) => commitH === candidateH)) return true;
+
+    for (const { parents, treeH } of history) {
+      if (parents.length !== 2) continue;
+      const [predecessorH, promotedH] = parents;
+      let predecessorIsAncestor = false;
+      try {
+        await execFileAsync(
+          'git',
+          authorityGitArgs(
+            'merge-base',
+            '--is-ancestor',
+            predecessorH,
+            promotedH,
+          ),
+          authorityGitOptions(root),
+        );
+        predecessorIsAncestor = true;
+      } catch (cause) {
+        if (cause.code !== 1) throw cause;
+      }
+      if (!predecessorIsAncestor) continue;
+
+      const [{ stdout: promotedTreeSource }, { stdout: promotedHistorySource }] =
+        await Promise.all([
+          execFileAsync(
+            'git',
+            authorityGitArgs('rev-parse', `${promotedH}^{tree}`),
+            authorityGitOptions(root),
+          ),
+          execFileAsync(
+            'git',
+            authorityGitArgs('rev-list', '--first-parent', promotedH),
+            authorityGitOptions(root),
+          ),
+        ]);
+      if (promotedTreeSource.trim() !== treeH) continue;
+      if (
+        promotedHistorySource
+          .trim()
+          .split('\n')
+          .includes(candidateH)
+      ) {
+        return true;
+      }
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 async function verifyActivePacketGitIdentity(
   root,
   manifest,
@@ -523,7 +603,12 @@ async function verifyActivePacketGitIdentity(
       !firstParentHistory
         .trim()
         .split('\n')
-        .includes(manifest.approvalEvidence.candidateH)
+        .includes(manifest.approvalEvidence.candidateH) &&
+      !(await isCandidateInTrustedPromotionHistory(
+        root,
+        manifest.approvalEvidence.candidateH,
+        pinnedCommitH,
+      ))
     ) {
       errors.push(
         'active-packet candidateH must be a first-parent ancestor of pinned HEAD',

@@ -29,6 +29,7 @@ import {
   EXPECTED_EXECUTION_AUTHORITY_V2_REGISTRATION,
   evaluateExecutionAuthorityV2Policy,
   executionAuthorityV2CommandResult,
+  isCandidateInTrustedPromotionHistory,
   loadExecutionAuthorityV2,
   parseExecutionAuthorityV2Evidence,
   parseExecutionAuthorityV2ReviewPackage,
@@ -686,6 +687,129 @@ test('matching W07 evidence uses Codex review and W07 packet identities', () => 
     validateExecutionAuthorityV2ActivationIntent(manifest, activationIntent),
     [],
   );
+});
+
+test('transparent platform promotion preserves an approved first-parent candidate without trusting rewritten merges', async () => {
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'chaotang-v2-promotion-'));
+  try {
+    await execFileAsync('git', ['init', '-q'], { cwd: temporaryRoot });
+    await execFileAsync('git', ['config', 'user.name', 'R0 Test'], {
+      cwd: temporaryRoot,
+    });
+    await execFileAsync('git', ['config', 'user.email', 'r0@example.invalid'], {
+      cwd: temporaryRoot,
+    });
+    await writeRepositoryFile(temporaryRoot, 'base.txt', 'base\n');
+    await execFileAsync('git', ['add', '.'], { cwd: temporaryRoot });
+    await execFileAsync('git', ['commit', '-qm', 'base'], { cwd: temporaryRoot });
+    const baseH = (
+      await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: temporaryRoot })
+    ).stdout.trim();
+
+    await execFileAsync('git', ['checkout', '-qb', 'promoted'], {
+      cwd: temporaryRoot,
+    });
+    await writeRepositoryFile(temporaryRoot, 'candidate.txt', 'approved\n');
+    await execFileAsync('git', ['add', '.'], { cwd: temporaryRoot });
+    await execFileAsync('git', ['commit', '-qm', 'approved candidate'], {
+      cwd: temporaryRoot,
+    });
+    const candidateH = (
+      await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: temporaryRoot })
+    ).stdout.trim();
+    await execFileAsync(
+      'git',
+      ['commit', '--allow-empty', '-qm', 'promotion tip'],
+      { cwd: temporaryRoot },
+    );
+    const promotedH = (
+      await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: temporaryRoot })
+    ).stdout.trim();
+
+    await execFileAsync('git', ['checkout', '-q', '--detach', baseH], {
+      cwd: temporaryRoot,
+    });
+    await execFileAsync(
+      'git',
+      ['merge', '-q', '--no-ff', promotedH, '-m', 'transparent promotion'],
+      { cwd: temporaryRoot },
+    );
+    const transparentH = (
+      await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: temporaryRoot })
+    ).stdout.trim();
+    assert.equal(
+      await isCandidateInTrustedPromotionHistory(
+        temporaryRoot,
+        candidateH,
+        transparentH,
+      ),
+      true,
+    );
+
+    await execFileAsync('git', ['checkout', '-q', '--detach', baseH], {
+      cwd: temporaryRoot,
+    });
+    await execFileAsync(
+      'git',
+      [
+        'merge',
+        '-q',
+        '--no-ff',
+        '-s',
+        'ours',
+        promotedH,
+        '-m',
+        'rewritten promotion',
+      ],
+      { cwd: temporaryRoot },
+    );
+    const rewrittenH = (
+      await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: temporaryRoot })
+    ).stdout.trim();
+    assert.equal(
+      await isCandidateInTrustedPromotionHistory(
+        temporaryRoot,
+        candidateH,
+        rewrittenH,
+      ),
+      false,
+    );
+
+    await execFileAsync('git', ['checkout', '-q', '--detach', baseH], {
+      cwd: temporaryRoot,
+    });
+    await writeRepositoryFile(temporaryRoot, 'diverged.txt', 'diverged\n');
+    await execFileAsync('git', ['add', '.'], { cwd: temporaryRoot });
+    await execFileAsync('git', ['commit', '-qm', 'diverged predecessor'], {
+      cwd: temporaryRoot,
+    });
+    await execFileAsync(
+      'git',
+      ['merge', '-q', '--no-ff', '--no-commit', promotedH],
+      { cwd: temporaryRoot },
+    );
+    await execFileAsync('git', ['read-tree', '--reset', '-u', promotedH], {
+      cwd: temporaryRoot,
+    });
+    await execFileAsync(
+      'git',
+      ['commit', '-qm', 'unrelated tree-identical merge'],
+      { cwd: temporaryRoot },
+    );
+    const unrelatedH = (
+      await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd: temporaryRoot })
+    ).stdout.trim();
+    assert.equal(
+      await isCandidateInTrustedPromotionHistory(
+        temporaryRoot,
+        candidateH,
+        unrelatedH,
+      ),
+      false,
+    );
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
 });
 
 test('W07 Codex evidence authorizes end to end only after registration and activation commits', async () => {

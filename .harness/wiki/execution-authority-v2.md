@@ -82,8 +82,9 @@ v2 才回答“这个具体 work package 现在是否被授权”。
   和任何新旧 root 混用均拒绝；
 - `refs/heads/feature-chaotang-ext` 必须精确指向 loader pinned 的当前 `HEAD`，并在
   exact packet Git 验证前后两次解析为同一 commit；
-- `effectiveBase.sha` 与 approved candidate H 绑定；candidate 必须位于 pinned
-  `HEAD` 的第一父历史，不能只通过 merge 的第二父可达；
+- `effectiveBase.sha` 与 approved candidate H 绑定；candidate 通常必须位于 pinned
+  `HEAD` 的第一父历史。唯一例外是受信的透明平台推广：推广提交必须恰好两个父节点，第一父必须是
+  第二父的祖先，推广提交 tree 必须逐字等于第二父 tree，且 candidate 仍位于第二父的第一父历史；
 - review package 必须以原始 `Buffer` 逐字节等于固定 EXT review base
   `b0df777a1fe94d98afdc62b4cdd02a2f8a091391..candidateH` 的 hardened Git diff；
 - owner approval、activation intent、review package 与 Codex final review 必须位于 W07 change root；
@@ -91,8 +92,10 @@ v2 才回答“这个具体 work package 现在是否被授权”。
 - candidate commit、tree、review base、分支 ref、changed paths、digest 和 W07 验证命令必须同时匹配。
 
 任何未知 work package profile、W06 证据复用、伪造但内部自洽的 diff、ref 在验证期间移动或
-candidate/tree 漂移、EXT ref 回退、candidate 仅从第二父可达，都会使 loader 返回
-`INVALID_EXECUTION_AUTHORITY`。生成和校验 raw diff 都必须使用 authority 固定的
+candidate/tree 漂移、EXT ref 回退、candidate 仅从不满足透明推广约束的第二父可达，都会使 loader
+返回 `INVALID_EXECUTION_AUTHORITY`。该例外只承认平台将一个已包含旧主线的、tree 未被改写的候选
+分支以 no-ff merge 提升为主线；冲突解决、`ours` merge、无共同祖先的 tree 替换和 octopus merge
+仍然 fail closed。生成和校验 raw diff 都必须使用 authority 固定的
 `/usr/bin/git` 信任根；PATH 中其他 Git 版本生成的 binary patch 字节不能作为等价证据。
 authority 与 reviewer overlay 的 exact diff 还要求 repository-local Git metadata
 保持中立：任何 `diff.*`、include、非基础 `core.*`、相关 color/submodule config
