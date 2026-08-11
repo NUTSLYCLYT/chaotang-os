@@ -238,3 +238,11 @@ cookie（生产环境加 `Secure`），BFF 仅在服务端将其转为后端认�
 工作簿固定包含管理摘要、核心财务报表、科目趋势、异常分析、科目明细、校验结果、数据来源七表。每次下旨/run 最多产生一个成果：工作簿与元数据先处于 `PENDING`；FastAPI 成功归档该旨意唯一的史馆 `REPLY` 后，才把 `reply_id` 绑定到成果并原子发布为 `PUBLISHED`。归档或发布失败不得返回虚假成功，未发布成果不可下载。
 
 成果元数据随回奏的可选 `artifacts` 返回。浏览器只通过同源 `GET /api/report-artifacts/{id}` 下载；Next.js 服务端把 HttpOnly session 转为后端认证请求，FastAPI 的 `GET /api/v1/report-artifacts/{artifact_id}/download` 仅按当前用户 ID 读取已发布成果。opaque ID 不代表授权，未知成果与跨 owner 统一为 404；后端地址、存储路径、session 和原始财务内容不进入浏览器。
+
+## 司级 Agent 动态工具边界
+
+目标架构以统一 Bureau Agent Runtime 支持全部 39 个司级 Agent。司级 Agent 在收到合法旨意后，通过任务级 `tools/list` 动态发现工具；可见目录是司级角色、旨意授权、数据域、环境策略和工具实时健康状态的交集。已进入目录的工具可以自动调用而不逐次确认，但每次执行仍由系统 Tool Policy Gateway 重新授权，模型提案本身不构成权限。
+
+Runtime Skill 定义专业办理方法，Tool Registry 描述能力，Tool Policy Gateway 决定本次可用范围，Tool Executor 与 Result Gate 负责确定性执行、裁剪和证据绑定。丞相、军机处和部级节点不取得工具、MCP 会话或原始结果；它们只接收司议并完成既有路由、会审和综合。ADR 0028 的唯一业务主链与史馆唯一 `REPLY` 保持不变。
+
+内容分析不把固定文件名、工作表、表头或行号作为通用前置条件。Agent 可结合内容与领域校验选择最高置信度解释并有限切换工具或策略；所有候选、理由、来源、校验和风险必须可审计。中低置信度及校验失败继续办理时，结果必须明确标为自动判断或推定草稿，不得伪装为已验证事实。详见 ADR 0042。
