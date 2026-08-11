@@ -20,6 +20,7 @@ from .contract import (
     _ledger_fact_id,
     evaluate_accounting_artifact_gate,
     evaluate_accounting_report,
+    mapping_publication_reason_codes,
 )
 from .intent import detect_accounting_report_intent
 from .models import (
@@ -55,6 +56,7 @@ class AccountingReportGeneration:
     owner_user_id: str
     run_id: str
     report_type: str = "management"
+    publication_readiness: str = "verified"
 
     def __post_init__(self) -> None:
         if not self.artifact_id.strip() or not self.model_prompt.strip():
@@ -63,6 +65,14 @@ class AccountingReportGeneration:
             raise ValueError("generation requires an accounting request kind")
         if not self.owner_user_id.strip() or not self.run_id.strip():
             raise ValueError("generation owner and run are required")
+        if self.publication_readiness not in {
+            "verified", "disclosed", "inferred_draft"
+        }:
+            raise ValueError("publication_readiness_invalid")
+
+    @property
+    def formally_publishable(self) -> bool:
+        return self.publication_readiness == "verified"
 
     def __repr__(self) -> str:
         return (
@@ -124,6 +134,7 @@ class AccountingReportSession:
             return None
         if self._generation is not None:
             return self._generation
+        publication_readiness = "inferred_draft"
         if self.request_kind is None:
             intent = detect_accounting_report_intent(decree_text)
             if intent.kind is ReportIntentKind.NOT_REQUESTED:
@@ -139,6 +150,14 @@ class AccountingReportSession:
             rows = getattr(self.dataset, "ledger_rows", None)
             if period is None or not isinstance(rows, tuple) or not rows:
                 raise AccountingReportIntentError("report_dataset_invalid")
+            mapping_decisions = getattr(self.dataset, "mapping_decisions", ())
+            mapping_reasons = mapping_publication_reason_codes(mapping_decisions)
+            if "MAPPING_DRAFT_ONLY" in mapping_reasons or "MAPPING_MISSING" in mapping_reasons:
+                publication_readiness = "inferred_draft"
+            elif "MAPPING_CONFIDENCE_DISCLOSURE" in mapping_reasons:
+                publication_readiness = "disclosed"
+            elif mapping_decisions:
+                publication_readiness = "verified"
         if not isinstance(rows, tuple) or not all(
             isinstance(row, NormalizedLedgerRow) for row in rows
         ):
@@ -192,6 +211,7 @@ class AccountingReportSession:
             period=period,
             owner_user_id=self.owner_user_id,
             run_id=self.run_id,
+            publication_readiness=publication_readiness,
         )
         return self._generation
 

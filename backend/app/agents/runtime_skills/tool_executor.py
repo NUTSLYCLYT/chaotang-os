@@ -449,6 +449,13 @@ def _validate_payload(
         if not data_refs:
             raise ValueError("approved_data_refs")
         return
+    if tool is ToolName.INSPECT_ACCOUNTING_CONTENT:
+        from app.accounting_reports.semantic_mapping import AccountingContentProjection
+
+        if not data_refs:
+            raise ValueError("accounting_content_schema")
+        AccountingContentProjection.model_validate(data)
+        return
     if set(data) != {"algorithm_id", "algorithm_version", "values", "units"}:
         raise ValueError("analysis_schema")
     if (
@@ -738,6 +745,8 @@ def execute_approved_tool(
         ToolName.READ_APPROVED_MATERIALS: input_refs,
         ToolName.INSPECT_APPROVED_DATA: data_refs,
         ToolName.COMPUTE_ANALYSIS: data_refs,
+        ToolName.INSPECT_ACCOUNTING_CONTENT: data_refs,
+        ToolName.GENERATE_ACCOUNTING_WORKBOOK: data_refs,
     }[call.tool_name]
     if not required:
         raise _error(

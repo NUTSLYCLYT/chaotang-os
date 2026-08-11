@@ -17,7 +17,9 @@ from app.accounting_reports.models import (
     ReportPeriod,
     SourceRef,
 )
-from app.accounting_reports.session import AccountingReportSession
+from app.accounting_reports.semantic_mapping import MappingCandidate, select_mapping
+from app.accounting_reports.session import AccountingReportGeneration, AccountingReportSession
+from app.accounting_reports.validation import ValidationReceipt
 
 
 def _summary() -> AccountingReportSummary:
@@ -72,6 +74,68 @@ def _bypass_work_product(session, monkeypatch) -> None:
         "create_work_product",
         lambda *_args, **_kwargs: None,
     )
+
+
+def test_bound_low_confidence_mapping_generates_explicit_draft(tmp_path: Path) -> None:
+    candidate = MappingCandidate(
+        candidate_id="guess",
+        semantic_role="closing_balance",
+        source_ref="approved-data:case:case-1:decree:decree-1:probe",
+        sheet_index=0,
+        region=(1, 3, 1, 2),
+        column=2,
+        score_components=(("header_semantics", 0.39),),
+        reason_codes=("WEAK_HEADER_MATCH",),
+    )
+    decision = select_mapping(
+        (candidate,), (ValidationReceipt("guess", True, ("NUMERIC_COLUMN",)),)
+    )
+    session = AccountingReportSession(
+        owner_user_id="owner-a",
+        run_id="run-a",
+        source_dir=tmp_path / "unused",
+        artifact_dir=tmp_path / "artifacts",
+        db_path=tmp_path / "artifacts.sqlite3",
+        request_kind=AccountingRequestKind.ACCOUNTING_ANALYSIS,
+        period=ReportPeriod(2024, 2024),
+        dataset=SimpleNamespace(ledger_rows=_rows(), mapping_decisions=(decision,)),
+    )
+
+    generation = session.maybe_generate(
+        session.accounting_department,
+        session.accounting_bureau,
+        "生成2024年财务报告",
+    )
+
+    assert generation is not None
+    assert generation.publication_readiness == "inferred_draft"
+    assert generation.formally_publishable is False
+
+
+def test_bound_dataset_without_mapping_is_not_formally_publishable(tmp_path: Path) -> None:
+    session = AccountingReportSession(
+        owner_user_id="owner-a", run_id="run-a", source_dir=tmp_path / "unused",
+        artifact_dir=tmp_path / "artifacts", db_path=tmp_path / "artifacts.sqlite3",
+        request_kind=AccountingRequestKind.ACCOUNTING_ANALYSIS,
+        period=ReportPeriod(2024, 2024), dataset=SimpleNamespace(ledger_rows=_rows()),
+    )
+    generation = session.maybe_generate(
+        session.accounting_department, session.accounting_bureau, "生成2024年财务报告"
+    )
+    assert generation is not None
+    assert generation.publication_readiness == "inferred_draft"
+    assert generation.formally_publishable is False
+
+
+def test_disclosed_confidence_is_not_formally_publishable() -> None:
+    generation = AccountingReportGeneration(
+        artifact_id="artifact-1",
+        model_prompt="bounded",
+        request_kind=AccountingRequestKind.ACCOUNTING_ANALYSIS,
+        period=ReportPeriod(2024, 2024), owner_user_id="owner", run_id="run",
+        publication_readiness="disclosed",
+    )
+    assert generation.formally_publishable is False
 
 
 def test_bound_accounting_analysis_reuses_preflight_dataset_without_reloading(

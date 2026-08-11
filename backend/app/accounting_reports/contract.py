@@ -31,6 +31,7 @@ from .models import (
     ReportCheck,
     ReportPeriod,
 )
+from .semantic_mapping import MappingDecision, PublicationReadiness
 
 _REVIEW_REASONS = frozenset(
     {
@@ -107,6 +108,28 @@ _SOURCE_REF_PATTERN = re.compile(
     r"^(?P<digest>[0-9a-f]{64}):(?P<sheet>[^:\x00]{1,128}):"
     r"(?P<row>[1-9][0-9]{0,8})$"
 )
+
+
+def mapping_publication_reason_codes(
+    decisions: tuple[MappingDecision, ...],
+) -> tuple[str, ...]:
+    """Return deterministic disclosure codes without treating confidence as evidence."""
+
+    if not isinstance(decisions, tuple) or any(
+        not isinstance(decision, MappingDecision) for decision in decisions
+    ):
+        raise TypeError("mapping_decisions_invalid")
+    if not decisions:
+        return ("MAPPING_MISSING",)
+    reasons: list[str] = []
+    for decision in decisions:
+        if decision.readiness is PublicationReadiness.INFERRED_DRAFT:
+            reasons.append("MAPPING_DRAFT_ONLY")
+        elif decision.readiness is PublicationReadiness.DISCLOSED:
+            reasons.append("MAPPING_CONFIDENCE_DISCLOSURE")
+        if not decision.validation_receipt.passed:
+            reasons.append("MAPPING_VALIDATION_FAILED")
+    return tuple(dict.fromkeys(reasons))
 
 
 def _ledger_fact_id(

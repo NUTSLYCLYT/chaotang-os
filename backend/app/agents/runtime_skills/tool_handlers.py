@@ -6,6 +6,10 @@ from datetime import UTC, datetime
 from statistics import mean, median
 from typing import TypeAlias
 
+from app.accounting_reports.semantic_mapping import (
+    AccountingContentProjection,
+    PublicationReadiness,
+)
 from app.agents.evidence_protocol import (
     BureauEvidenceToolAdapter,
     verify_bureau_evidence_tool_adapter,
@@ -103,6 +107,8 @@ def _numbers(
         raw_values = source.get("values")
         raw_records = source.get("records")
         if raw_values is None and isinstance(raw_records, list):
+            if any(not isinstance(record, Mapping) for record in raw_records):
+                raise BureauToolHandlerError("analysis_input_invalid")
             metric_names = arguments.get("metrics", [])
             if not isinstance(metric_names, list) or len(metric_names) != 1:
                 raise BureauToolHandlerError("analysis_metric_invalid")
@@ -280,13 +286,50 @@ def _compute_analysis(context: ToolHandlerContext) -> Mapping[str, object]:
     }
 
 
+def _inspect_accounting_content(context: ToolHandlerContext) -> Mapping[str, object]:
+    arguments = context.approved_call.normalized_arguments
+    if arguments.get("operation") != "inspect_content":
+        raise BureauToolHandlerError("tool_operation_unavailable")
+    ref = arguments.get("data_ref")
+    if not isinstance(ref, str) or ref not in context.resolved_approved_inputs:
+        raise BureauToolHandlerError("tool_reference_unavailable")
+    try:
+        content = AccountingContentProjection.model_validate(
+            context.resolved_approved_inputs[ref]
+        )
+        if not content.system_issued:
+            raise ValueError("accounting_content_untrusted")
+    except ValueError as exc:
+        raise BureauToolHandlerError("accounting_content_invalid") from exc
+    readiness = {item.readiness for item in content.mapping_decisions}
+    if PublicationReadiness.INFERRED_DRAFT in readiness:
+        quality, limitations = "INSUFFICIENT", ["mapping_draft_only"]
+    elif PublicationReadiness.DISCLOSED in readiness:
+        quality, limitations = "PARTIAL", ["mapping_confidence_disclosed"]
+    else:
+        quality, limitations = "SUFFICIENT", []
+    return {
+        "result_schema": "accounting_content_result.v1",
+        "data": content.model_dump(mode="json"),
+        "input_refs": [],
+        "evidence_refs": [],
+        "approved_data_refs": [ref],
+        "data_quality": quality,
+        "limitations": limitations,
+        "as_of": "1970-01-01T00:00:00Z",
+    }
+
+
 def build_bureau_tool_handlers(
     *,
     material_reader: ApprovedMaterialReader | None,
     data_reader: ApprovedDataReader | None,
     evidence_requester: EvidenceRequester | None,
 ) -> object:
-    adapters = {ToolName.COMPUTE_ANALYSIS: _compute_analysis}
+    adapters = {
+        ToolName.COMPUTE_ANALYSIS: _compute_analysis,
+        ToolName.INSPECT_ACCOUNTING_CONTENT: _inspect_accounting_content,
+    }
     if material_reader is not None:
         adapters[ToolName.READ_APPROVED_MATERIALS] = _adapter_handler(material_reader)
     if data_reader is not None:
